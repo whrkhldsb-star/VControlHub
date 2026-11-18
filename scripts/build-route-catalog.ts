@@ -140,7 +140,7 @@ function apiMethods(text: string, filePath: string, seen: Set<string> = new Set(
 }
 
 function guardMode(text: string): string {
-  const match = text.match(/(?:export\s+const\s+guardMode\s*=\s*["']([^"']+)["']|guardMode:\s*([a-zA-Z-]+))/);
+  const match = text.match(/(?:export\s+const\s+guardMode\s*=\s*["']([^"']+)["']|^\s*\/\/\s*guardMode:\s*([a-zA-Z-]+))/m);
   if (match) return match[1] ?? match[2]!;
   if (text.includes('withApiRoute(')) return 'withApiRoute';
   if (text.includes('enforceApiGuard(') || text.includes('requireApiPermission(')) return 'manual';

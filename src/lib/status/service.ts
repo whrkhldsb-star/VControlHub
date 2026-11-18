@@ -50,15 +50,13 @@ export async function getPublicStatus() {
 		// Database unreachable — report critical status but keep the rest of the checks running.
 				checks.push({ id: "database", label: "Database", status: "critical", message: "Unavailable", messageCode: "unavailable" });
 	}
-	const [serverCount, storageNodes] = await Promise.all([
-		prisma.server.count({ where: { enabled: true } }).catch(() => 0),
-		prisma.storageNode.findMany({
-			// Deleted customers retain their records for ownership history.
-			// Their retired storage must not affect the live service's status.
+	const [serverCount, storageGroups] = await Promise.all([
+		prisma.server.count({ where: { enabled: true, ...liveCustomerRowsWhere() } }).catch(() => 0),
+		prisma.storageNode.groupBy({
+			by: ["healthStatus"],
 			where: liveCustomerRowsWhere(),
-			select: { healthStatus: true, lastHealthCheckAt: true },
-			take: 500,
-		}).catch(() => []),  // P2: storage node 总数有限
+			_count: { _all: true, lastHealthCheckAt: true },
+		}).catch(() => []),
 	]);
 	checks.push({
 		id: "servers",
@@ -68,24 +66,14 @@ export async function getPublicStatus() {
 		messageCode: serverCount > 0 ? "enabled" : "awaiting",
 		params: { count: serverCount },
 	});
-	const storageAggregate = storageNodes.reduce<StorageHealthAggregate>(
-		(acc, node) => {
-			acc.total += 1;
-			if (!node.lastHealthCheckAt || node.healthStatus === "UNKNOWN" || !node.healthStatus) {
-				acc.unknown += 1;
-			} else if (node.healthStatus === "HEALTHY") {
-				acc.healthy += 1;
-				acc.checked += 1;
-			} else if (node.healthStatus === "UNHEALTHY") {
-				acc.unhealthy += 1;
-				acc.checked += 1;
-			} else {
-				acc.unknown += 1;
-			}
-			return acc;
-		},
-		{ total: 0, healthy: 0, unhealthy: 0, unknown: 0, checked: 0 },
-	);
+	const storageAggregate: StorageHealthAggregate = { total: 0, healthy: 0, unhealthy: 0, unknown: 0, checked: 0 };
+	for (const group of storageGroups) {
+		storageAggregate.total += group._count._all;
+		if (group.healthStatus === "HEALTHY") storageAggregate.healthy += group._count.lastHealthCheckAt;
+		if (group.healthStatus === "UNHEALTHY") storageAggregate.unhealthy += group._count._all;
+	}
+	storageAggregate.checked = storageAggregate.healthy + storageAggregate.unhealthy;
+	storageAggregate.unknown = storageAggregate.total - storageAggregate.checked;
 	// TR-049: kick off a lazy background probe when any node is stale or
 	// never probed. The probe is fire-and-forget — the response is built
 	// from whatever's in the DB right now, and a subsequent poll (1-5 s

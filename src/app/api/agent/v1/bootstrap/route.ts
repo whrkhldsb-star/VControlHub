@@ -15,6 +15,7 @@ export const dynamic = "force-dynamic";
  * script. APP_BASE_URL (not the request Host header) defines the poll
  * endpoint embedded in the agent so reverse-proxy schemes cannot downgrade it.
  */
+// guardMode: bearer
 export async function GET(request: Request) {
   // Same pre-auth rate limiting rationale as the poll endpoint: this is a
   // public prefix and each request performs a server lookup before the token

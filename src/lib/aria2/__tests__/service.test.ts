@@ -1,3 +1,5 @@
+import { mkdtemp, readdir, rm } from "node:fs/promises";
+import { tmpdir } from "node:os";
 import path from "node:path";
 
 import { afterEach, describe, expect, it, vi } from "vitest";
@@ -79,6 +81,21 @@ describe("aria2 runtime config", () => {
       "--conf-path=/opt/whrkhldsb/tmp/aria2/.aria2.launch.conf",
     ]);
     expect(buildAria2SpawnArgs("/opt/whrkhldsb/tmp/aria2/.aria2.launch.conf").join(" ")).not.toContain("custom-token");
+  });
+
+  it("leaves no launch configuration when the selected binary is missing", async () => {
+    const dir = await mkdtemp(path.join(tmpdir(), "vch-aria2-"));
+    try {
+      vi.stubEnv("ARIA2_BIN", path.join(dir, "missing"));
+      vi.stubEnv("ARIA2_RPC_DIR", dir);
+      vi.stubEnv("ARIA2_RPC_PORT", "1");
+      vi.stubEnv("ARIA2_MANAGED_EXTERNALLY", "0");
+      await expect(ensureAria2Daemon()).rejects.toMatchObject({ code: "ENOENT" });
+      expect((await readdir(dir)).filter(name => name.startsWith(".aria2.launch."))).toEqual([]);
+    } finally {
+      vi.unstubAllEnvs();
+      await rm(dir, { recursive: true, force: true });
+    }
   });
 
   it("surfaces missing aria2c as an actionable dependency error", () => {

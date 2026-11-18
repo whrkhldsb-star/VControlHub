@@ -8,6 +8,7 @@ import { beforeEach, describe, expect, it, vi } from "vitest";
  */
 
 const prismaMock = {
+  $executeRaw: vi.fn(async () => 0),
   $transaction: vi.fn(),
   downloadTask: {
     findMany: vi.fn(),

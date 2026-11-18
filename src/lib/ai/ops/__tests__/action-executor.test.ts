@@ -150,18 +150,19 @@ describe("executeAiOpsAction", () => {
 				.mockRejectedValueOnce(new Error("deadlock"))
 				.mockResolvedValueOnce({ count: 2 });
 			const result = await executeAiOpsAction(input("cache.purge:stale"));
-			expect(result.executed).toBe(true);
-			expect(result.result).toContain("2");
+			expect(result.executed).toBe(false);
+			expect(result.errorMessage).toContain("Pruned 2 stale records. 1 cleanup steps failed.");
 		});
 
 		it("deletes ops logs outside the retention window", async () => {
-			mocks.aiOpsLogFindMany.mockResolvedValue([{ id: "l1" }, { id: "l2" }]);
+			const boundary = { id: "l1", createdAt: new Date() };
+			mocks.aiOpsLogFindMany.mockResolvedValue([boundary]);
 			mocks.aiOpsLogDeleteMany.mockResolvedValue({ count: 7 });
 			const result = await executeAiOpsAction(input("cache.purge:stale"));
 			expect(mocks.aiOpsLogFindMany).toHaveBeenCalledWith(
-				expect.objectContaining({ orderBy: { createdAt: "desc" }, take: AI_OPS_LOG_RETENTION_KEEP }),
+				expect.objectContaining({ skip: AI_OPS_LOG_RETENTION_KEEP - 1, take: 1 }),
 			);
-			expect(mocks.aiOpsLogDeleteMany).toHaveBeenCalledWith({ where: { id: { notIn: ["l1", "l2"] } } });
+			expect(mocks.aiOpsLogDeleteMany).toHaveBeenCalledWith({ where: { status: { not: "running" }, OR: [{ createdAt: { lt: boundary.createdAt } }, { createdAt: boundary.createdAt, id: { lt: boundary.id } }] } });
 			expect(result.result).toContain("7");
 		});
 

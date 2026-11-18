@@ -188,6 +188,7 @@ jobs:
       - name: Route catalog matches the source
         run: |
           npm run route:verify
+          npm run a11y:audit -- --check
           git diff --exit-code -- docs/route-catalog.json
 
   # Windows compatibility gate: the same unit/type/lint/build chain on

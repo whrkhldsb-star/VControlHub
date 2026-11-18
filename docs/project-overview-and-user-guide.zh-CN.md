@@ -1914,7 +1914,7 @@ Worker 生命周期由统一注册表启动和停止。部分任务属于周期�
 | Windows 原生 | 开发、构建及 PowerShell 生产入口 | 预装 Node／PostgreSQL，按平台适配配置依赖 |
 | 离线包／源码目录迁移 | 无法直接拉取 GitHub 或已有源码 | 搬运版本包、准备依赖与运行配置 |
 
-项目运行基线以 Node.js 22 工具链为主，脚本中涉及 `--env-file-if-exists` 的用法需要 Node 22.9 及以上相应能力。PostgreSQL、版本依赖及具体安装要求以部署文档和锁文件为准。
+项目运行基线以 Node.js 22 工具链为主，锁定的依赖和构建工具要求 Node 22.22.2+（22.x）、24.15+（24.x）或 26+。PostgreSQL、版本依赖及具体安装要求以部署文档和锁文件为准。
 
 Windows 原生部署与“从 Linux Hub 管理远程 Windows”是两件事。前者需额外处理进程启动、路径、Docker 和 guacd，不能照抄全部 Linux systemd 命令。
 

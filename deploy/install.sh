@@ -406,7 +406,7 @@ install_packages() {
 	fi
 
 	# ── Phase 2: Node.js ─────────────────────────────────────────────
-	local node_major=0 node_minor=0 node_version="" node_path="" node_candidate="" node_real=""
+	local node_major=0 node_minor=0 node_patch=0 node_version="" node_path="" node_candidate="" node_real=""
 	# Root automation environments often prepend a private Node shim under /root
 	# to PATH. Search system locations too, because systemd's ProtectHome=true
 	# prevents APP_USER from executing that shim even when /usr/bin/node is valid.
@@ -421,7 +421,12 @@ install_packages() {
 		node_version="$("${node_candidate}" -p 'process.versions.node' 2>/dev/null || echo 0.0.0)"
 		node_major="${node_version%%.*}"
 		node_minor="${node_version#*.}"; node_minor="${node_minor%%.*}"
-		if { [ "${node_major}" -gt "${NODE_VERSION_MAJOR}" ] || { [ "${node_major}" -eq "${NODE_VERSION_MAJOR}" ] && { [ "${node_major}" -gt 22 ] || [ "${node_minor}" -ge 9 ]; }; }; } 2>/dev/null; then
+		node_patch="${node_version##*.}"
+		# The installer can run standalone before the project (and its preflight) has been downloaded.
+		if [ "${node_major}" -ge "${NODE_VERSION_MAJOR}" ] && {
+			{ [ "${node_major}" -eq 22 ] && { [ "${node_minor}" -gt 22 ] || { [ "${node_minor}" -eq 22 ] && [ "${node_patch}" -ge 2 ]; }; }; } ||
+			{ [ "${node_major}" -eq 24 ] && [ "${node_minor}" -ge 15 ]; } || [ "${node_major}" -ge 26 ];
+		}; then
 			node_path="${node_candidate}"
 			break
 		fi

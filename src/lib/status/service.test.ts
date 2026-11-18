@@ -4,7 +4,7 @@ const { mockPrisma, scheduleStorageNodeHealthProbeMock } = vi.hoisted(() => ({
   mockPrisma: {
     $queryRaw: vi.fn(),
     server: { count: vi.fn() },
-    storageNode: { findMany: vi.fn(), count: vi.fn() },
+    storageNode: { groupBy: vi.fn(), count: vi.fn() },
   },
   // TR-049: stub the lazy probe so the status tests don't actually fan
   // out background SSH round-trips during unit runs. We assert on the
@@ -29,7 +29,7 @@ describe("public status service", () => {
   it("schedules a lazy storage probe every time /api/status is hit", async () => {
     mockPrisma.$queryRaw.mockResolvedValue([{ ok: 1 }]);
     mockPrisma.server.count.mockResolvedValue(0);
-    mockPrisma.storageNode.findMany.mockResolvedValue([]);
+    mockPrisma.storageNode.groupBy.mockResolvedValue([]);
 
     await getPublicStatus();
 
@@ -39,8 +39,8 @@ describe("public status service", () => {
   it("returns public-safe status without host or connection details", async () => {
     mockPrisma.$queryRaw.mockResolvedValue([{ ok: 1 }]);
     mockPrisma.server.count.mockResolvedValue(2);
-    mockPrisma.storageNode.findMany.mockResolvedValue([
-      { healthStatus: "HEALTHY", lastHealthCheckAt: new Date("2026-06-09T00:00:00Z") },
+    mockPrisma.storageNode.groupBy.mockResolvedValue([
+      { healthStatus: "HEALTHY", _count: { _all: 1, lastHealthCheckAt: 1 } },
     ]);
 
     const result = await getPublicStatus();
@@ -53,8 +53,8 @@ describe("public status service", () => {
   it("does not describe configured inventory as proven online", async () => {
     mockPrisma.$queryRaw.mockResolvedValue([{ ok: 1 }]);
     mockPrisma.server.count.mockResolvedValue(2);
-    mockPrisma.storageNode.findMany.mockResolvedValue([
-      { healthStatus: "UNKNOWN", lastHealthCheckAt: null },
+    mockPrisma.storageNode.groupBy.mockResolvedValue([
+      { healthStatus: "UNKNOWN", _count: { _all: 1, lastHealthCheckAt: 0 } },
     ]);
 
     const result = await getPublicStatus();
@@ -67,10 +67,10 @@ describe("public status service", () => {
   it("summarizes persisted storage probe results and downgrades unhealthy storage to warning", async () => {
     mockPrisma.$queryRaw.mockResolvedValue([{ ok: 1 }]);
     mockPrisma.server.count.mockResolvedValue(1);
-    mockPrisma.storageNode.findMany.mockResolvedValue([
-      { healthStatus: "HEALTHY", lastHealthCheckAt: new Date("2026-06-09T00:00:00Z") },
-      { healthStatus: "UNHEALTHY", lastHealthCheckAt: new Date("2026-06-09T00:01:00Z") },
-      { healthStatus: "UNKNOWN", lastHealthCheckAt: null },
+    mockPrisma.storageNode.groupBy.mockResolvedValue([
+      { healthStatus: "HEALTHY", _count: { _all: 1, lastHealthCheckAt: 1 } },
+      { healthStatus: "UNHEALTHY", _count: { _all: 1, lastHealthCheckAt: 1 } },
+      { healthStatus: "UNKNOWN", _count: { _all: 1, lastHealthCheckAt: 0 } },
     ]);
 
     const result = await getPublicStatus();
@@ -103,7 +103,7 @@ describe("public status summary (TR-053)", () => {
     expect(summary).not.toHaveProperty("checks");
     expect(text).not.toMatch(/storage node|probe healthy|pending probe|SSH\/network|VPS instances/i);
     expect(mockPrisma.server.count).not.toHaveBeenCalled();
-    expect(mockPrisma.storageNode.findMany).not.toHaveBeenCalled();
+    expect(mockPrisma.storageNode.groupBy).not.toHaveBeenCalled();
     expect(scheduleStorageNodeHealthProbeMock).not.toHaveBeenCalled();
   });
 });

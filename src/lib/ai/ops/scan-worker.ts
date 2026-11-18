@@ -17,6 +17,7 @@
  *   - next-local-time setTimeout + fire-once-on-startup
  *   - globalThis state mirror for re-entrancy
  */
+import { pruneAiOpsLogs } from "./retention";
 import { prisma } from "@/lib/db";
 import { config } from "@/lib/config/env";
 import { acquireAdvisoryLock } from "@/lib/concurrency/advisory-lock";
@@ -39,7 +40,6 @@ import { getSingletonIntervalWorkerState, type SingletonIntervalWorkerState } fr
 
 import {
   AI_OPS_DEFAULT_SCHEDULE_HOUR,
-  AI_OPS_LOG_RETENTION_KEEP,
   AI_OPS_SCAN_JOB_TYPE,
   type AiOpsExecutedAction,
   type AiOpsFinding,
@@ -605,6 +605,7 @@ export async function runAiOpsScanWorkerOnce(
               ? await Promise.all(
                   (plannedActions as AiOpsExecutedAction[]).map((action) =>
                     executeAiOpsAction({
+                      logId: log.id,
                       id: action.id,
                       action: action.action,
                       risk: action.risk,
@@ -650,22 +651,8 @@ export async function runAiOpsScanWorkerOnce(
 
       // Retention: prune old AI ops logs (AI_OPS_LOG_RETENTION_KEEP)
       try {
-        const oldLogs = await prisma.aiOpsLog.findMany({
-          select: { id: true },
-          orderBy: { createdAt: "desc" },
-          take: AI_OPS_LOG_RETENTION_KEEP,
-        });
-        if (oldLogs.length === AI_OPS_LOG_RETENTION_KEEP) {
-          const keepIds = oldLogs.map((l) => l.id);
-          const result = await prisma.aiOpsLog.deleteMany({
-            where: { id: { notIn: keepIds } },
-          });
-          if (result.count > 0) {
-            logger.info("AI ops log retention pruned old logs", {
-              pruned: result.count,
-            });
-          }
-        }
+        const result = await pruneAiOpsLogs(completed.id);
+        if (result.count) logger.info("AI ops log retention pruned old logs", { pruned: result.count });
       } catch {
         // Retention is best-effort; don't fail the scan
       }

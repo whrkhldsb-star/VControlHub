@@ -6,7 +6,7 @@ VControlHub 的生产部署目标历来是 Debian/Ubuntu（systemd + Caddy + apt
 
 | 组件 | 要求 | 说明 |
 | --- | --- | --- |
-| Node.js | 22 LTS | `build:runtime` 以 `--target=node22` 打包；`tsx --env-file-if-exists` 需要 Node ≥ 22.9 |
+| Node.js | 22 LTS | `build:runtime` 以 `--target=node22` 打包；锁定的工具链 要求 Node 22.22.2+（22.x）、24.15+（24.x）或 26+ |
 | PostgreSQL | 15+ | Windows 安装包、便携版（zip）或远程实例均可 |
 | Git | 任意近期版本 | 可选，仅克隆代码需要 |
 | aria2 | 可选 | 仅影响“中转下载（aria2 磁力/直链）”功能，见下文 |
@@ -39,7 +39,7 @@ node -e "console.log(require('crypto').randomBytes(32).toString('hex'))"      # 
 
 ## 生产构建与运行（Windows）
 
-Linux 生产环境的入口是 `deploy.sh` / systemd。Windows 使用 PowerShell 安装入口；先安装 Node.js 22.9+ 和 PostgreSQL 15+，准备 `.env.local`，再在管理员 PowerShell 中执行：
+Linux 生产环境的入口是 `deploy.sh` / systemd。Windows 使用 PowerShell 安装入口；先安装 Node.js 22.22.2+（22.x）、24.15+（24.x）或 26+ 和 PostgreSQL 15+，准备 `.env.local`，再在管理员 PowerShell 中执行：
 
 ```powershell
 ./deploy/windows/install.ps1

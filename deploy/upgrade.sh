@@ -38,7 +38,7 @@ load_env_for_defaults() {
     public_origin="${public_origin%%,*}"
   fi
   if [ -z "${DOMAIN:-}" ] && { [ -z "${public_origin}" ] || [[ "${public_origin}" == http://localhost* ]] || [[ "${public_origin}" == http://127.0.0.1* ]]; }; then
-    local caddy_file="${CADDY_FILE:-/etc/caddy/Caddyfile}"
+    local caddy_file="${CADDY_FILE:-${DESTDIR:-}/etc/caddy/Caddyfile}"
     if [ -f "${caddy_file}" ] && grep -Fq "# Managed by VControlHub installer:" "${caddy_file}"; then
       public_origin="$(sed -nE 's|^[[:space:]]*(https?://[^, {]+).*|\1|p' "${caddy_file}" | head -1)"
     fi

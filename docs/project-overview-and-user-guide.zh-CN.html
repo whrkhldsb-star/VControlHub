@@ -3141,7 +3141,7 @@ sudo npm run admin:reset-2fa -- 账号名
 </tr>
 </tbody>
 </table></div>
-<p>项目运行基线以 Node.js 22 工具链为主，脚本中涉及 <code>--env-file-if-exists</code> 的用法需要 Node 22.9 及以上相应能力。PostgreSQL、版本依赖及具体安装要求以部署文档和锁文件为准。</p>
+<p>项目运行基线以 Node.js 22 工具链为主，锁定的依赖和构建工具要求 Node 22.22.2+（22.x）、24.15+（24.x）或 26+。PostgreSQL、版本依赖及具体安装要求以部署文档和锁文件为准。</p>
 <p>Windows 原生部署与“从 Linux Hub 管理远程 Windows”是两件事。前者需额外处理进程启动、路径、Docker 和 guacd，不能照抄全部 Linux systemd 命令。</p>
 <h3 id="section-21-2">21.2 主要服务与网络入口</h3>
 <p>默认 Linux 服务结构：</p>

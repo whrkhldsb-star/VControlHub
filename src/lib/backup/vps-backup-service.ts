@@ -18,6 +18,7 @@ import path, { dirname, join, relative as relativePath, resolve as resolvePath }
 import { Transform } from "node:stream";
 import { pipeline } from "node:stream/promises";
 
+import { failStaleBackupRecords } from "./stale-records";
 import { prisma } from "@/lib/db";
 import { loadJobOwnerSession } from "@/lib/api-token/authorization";
 import { sessionHasPermission } from "@/lib/auth/authorization";
@@ -621,31 +622,7 @@ export async function abandonStaleRunningVpsBackupRecords(input?: {
   ).slice(0, 500);
   const limit = Math.min(Math.max(input?.limit ?? 50, 1), 200);
   const cutoff = new Date(Date.now() - olderThanMs);
-  const stale = await prisma.vpsBackupRecord.findMany({
-    where: { status: "RUNNING", updatedAt: { lt: cutoff } },
-    select: { id: true },
-    orderBy: { updatedAt: "asc" },
-    take: limit,
-  });
-  const ids: string[] = [];
-  for (const row of stale) {
-    // The record is only touched when the transfer starts and ends; a long
-    // transfer keeps its job's lease alive instead. While that lease holds,
-    // the backup is in progress, not stale: failing it made the finished
-    // transfer unable to complete (its CAS needs RUNNING).
-    const alive = await prisma.job.count({
-      where: {
-        type: VPS_BACKUP_CREATE_JOB_TYPE,
-        status: "RUNNING",
-        leaseExpiresAt: { gt: new Date() },
-        payload: { path: ["recordId"], equals: row.id },
-      },
-    });
-    if (alive > 0) continue;
-    if (await forceFailVpsBackupRecordIfRunning(row.id, reason))
-      ids.push(row.id);
-  }
-  return { abandoned: ids.length, ids };
+  return failStaleBackupRecords("vps-running", cutoff, limit, reason);
 }
 
 /**
@@ -678,28 +655,7 @@ export async function abandonStalePendingVpsBackupRecords(input?: {
   ).slice(0, 500);
   const limit = Math.min(Math.max(input?.limit ?? 50, 1), 200);
   const cutoff = new Date(Date.now() - olderThanMs);
-  const stale = await prisma.vpsBackupRecord.findMany({
-    where: { status: "PENDING", createdAt: { lt: cutoff } },
-    select: { id: true },
-    orderBy: { createdAt: "asc" },
-    take: limit,
-  });
-  const ids: string[] = [];
-  for (const row of stale) {
-    // CAS: only fail rows STILL pending. A row a worker just claimed to RUNNING
-    // between the findMany above and here must be left to that worker / the
-    // RUNNING reaper — never clobbered back to FAILED.
-    const claimed = await prisma.vpsBackupRecord.updateMany({
-      where: { id: row.id, status: "PENDING" },
-      data: {
-        status: "FAILED",
-        errorMessage: reason,
-        completedAt: new Date(),
-      },
-    });
-    if (claimed.count > 0) ids.push(row.id);
-  }
-  return { abandoned: ids.length, ids };
+  return failStaleBackupRecords("vps-pending", cutoff, limit, reason);
 }
 
 export async function createVpsBackupRecord(input: {

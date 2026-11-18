@@ -12,10 +12,11 @@ import { apiCopy } from "@/lib/i18n/api-copy";
  * ways the source logs in to the target ("credential" or "one-time-key") is
  * chosen per target server, see `./target-auth`.
  */
-import { randomBytes } from "node:crypto";
+import { randomBytes, randomUUID } from "node:crypto";
 
 import { loadExecutionActor, executionRefusal } from "@/lib/auth/execution-actor";
 import type { SessionPayload } from "@/lib/auth/session";
+import type { Prisma } from "@prisma/client";
 import { prisma } from "@/lib/db";
 import { ForbiddenError } from "@/lib/errors";
 import { formatBytes } from "@/lib/format/bytes";
@@ -326,6 +327,7 @@ type SyncEndpointServer = NonNullable<Awaited<ReturnType<typeof getSyncJobForExe
 /** Push sourcePath → targetPath once (rsync or tar). Returns parsed stats + raw output. */
 async function runOneWayRsync(input: {
 	jobId: string;
+	checkOwnership: () => Promise<void>;
 	leg: SyncLeg;
 	/** How the source logs in to the target (resolved from the target server's choice). */
 	auth: SyncTargetAuth;
@@ -339,6 +341,7 @@ async function runOneWayRsync(input: {
 	/** Only a leg that never deletes may create its own missing source. */
 	createMissingSource: boolean;
 }): Promise<{ output: string; stats: OneWaySyncStats }> {
+	await input.checkOwnership();
 	const sourceSsh = await buildSshParamsFromServer(input.sourceServer, input.sourceServer.sshKey);
 	const targetSsh = await buildSshParamsFromServer(input.targetServer, input.targetServer.sshKey);
 	const targetHost = input.targetServer.host;
@@ -412,13 +415,12 @@ async function runOneWayRsync(input: {
 				await writeEphemeralPrivateKey(sourceSsh, passwordEnvPath, `SSHPASS=${shellQuote(targetCredentials.password!)}\n`);
 			}
 		}
-		// The heartbeat touches the job's own row: the leg's file stem matched no row,
-		// so the stale-RUNNING reclaim took every run longer than 30 minutes for dead.
-		const result = await runWithSyncHeartbeat(input.jobId, () => execRemoteCommand({
+		await input.checkOwnership();
+		const result = await execRemoteCommand({
 			...sourceSsh,
 			command,
 			timeout: SYNC_COMMAND_TIMEOUT_MS,
-		}));
+		});
 		assertSyncRemoteSucceeded(result, useTar ? "tar sync" : "rsync");
 		const stats = parseRsyncOutput(result.stdout);
 		return {
@@ -461,28 +463,33 @@ export async function executeSyncJob(
 	const job = await getSyncJobForExecution(jobId);
 	if (!job) throw new Error("Sync job not found");
 
-	// CAS claim: only one runner can move IDLE/ERROR → RUNNING.
-	const claimed = await prisma.syncJob.updateMany({
-		where: { id: jobId, status: { in: ["IDLE", "ERROR"] } },
-		data: { status: "RUNNING" },
-	});
-	if (claimed.count === 0) {
-		throw new Error("Sync job is already running or paused");
-	}
-
-	// Nothing ran yet: if the log cannot be written, hand the claim back
-	// instead of leaving the job RUNNING until the stale sweep (30 minutes).
-	let logEntry: { id: string };
-	try {
-		logEntry = await prisma.syncLog.create({
-			data: { syncJobId: jobId, status: "RUNNING" },
+	const runId = randomUUID();
+	const owner = { id: jobId, status: "RUNNING" as const, activeRunId: runId };
+	await prisma.$transaction(async (tx) => {
+		const claimed = await tx.syncJob.updateMany({
+			where: { id: jobId, status: { in: ["IDLE", "ERROR"] } },
+			data: { status: "RUNNING", activeRunId: runId },
 		});
-	} catch (error) {
-		await prisma.syncJob.updateMany({ where: { id: jobId, status: "RUNNING" }, data: { status: job.status === "ERROR" ? "ERROR" : "IDLE" } })
-			.catch(() => undefined);
-		throw error;
-	}
+		if (!claimed.count) throw new Error("Sync job is already running or paused");
+		await tx.syncLog.create({ data: { id: runId, syncJobId: jobId, status: "RUNNING" } });
+	});
 
+	const finish = (status: "IDLE" | "ERROR", lastSyncResult: string, log: Prisma.SyncLogUpdateInput, lastSyncAt?: Date) =>
+		prisma.$transaction(async (tx) => {
+			const changed = await tx.syncJob.updateMany({
+				where: owner,
+				data: { status, activeRunId: null, lastSyncResult, lastSyncAt },
+			});
+			if (!changed.count) return false;
+			await tx.syncLog.update({ where: { id: runId }, data: log });
+			return true;
+		});
+	const refresh = async () => {
+		const result = await prisma.syncJob.updateMany({ where: owner, data: { updatedAt: new Date() } });
+		if (!result.count) throw new Error("Sync run no longer owns this job");
+	};
+	const heartbeat = setInterval(() => { void refresh().catch(() => undefined); }, SYNC_HEARTBEAT_MS);
+	heartbeat.unref?.();
 	const startTime = Date.now();
 
 	try {
@@ -525,7 +532,8 @@ export async function executeSyncJob(
 
 		// Forward: source → target
 		const forward = await runOneWayRsync({
-			jobId,
+			jobId: runId,
+			checkOwnership: refresh,
 			leg: "fwd",
 			auth: await resolveSyncTargetAuth(job.targetServer, readPlatformDefault),
 			sourceServer: job.sourceServer,
@@ -548,7 +556,8 @@ export async function executeSyncJob(
 			// record PARTIAL so operators see "forward done, reverse failed".
 			try {
 				reverse = await runOneWayRsync({
-					jobId,
+					jobId: runId,
+					checkOwnership: refresh,
 					leg: "rev",
 					auth: await resolveSyncTargetAuth(job.sourceServer, readPlatformDefault),
 					sourceServer: job.targetServer,
@@ -587,27 +596,16 @@ export async function executeSyncJob(
 			lastSyncResult = `Success: ${forward.stats.transferredFiles} files, ${formatBytes(forward.stats.totalSize)}, ${Math.round(duration / 1000)}s`;
 		}
 
-		await prisma.syncLog.update({
-			where: { id: logEntry.id },
-			data: {
-				status: logStatus,
-				filesScanned: merged.totalFiles,
-				filesTransferred: merged.transferredFiles,
-				bytesTransferred: String(merged.totalSize),
-				durationMs: duration,
-				completedAt: new Date(),
-				...(reverseError ? { errorMessage: reverseError.slice(0, 2000) } : {}),
-			},
-		});
-
-		await prisma.syncJob.update({
-			where: { id: jobId },
-			data: {
-				status: reverseError ? "ERROR" : "IDLE",
-				lastSyncAt: new Date(),
-				lastSyncResult,
-			},
-		});
+		const finished = await finish(reverseError ? "ERROR" : "IDLE", lastSyncResult, {
+			status: logStatus,
+			filesScanned: merged.totalFiles,
+			filesTransferred: merged.transferredFiles,
+			bytesTransferred: String(merged.totalSize),
+			durationMs: duration,
+			completedAt: new Date(),
+			...(reverseError ? { errorMessage: reverseError.slice(0, 2000) } : {}),
+		}, new Date());
+		if (!finished) throw new Error("Sync run no longer owns this job");
 
 		return {
 			ok: !reverseError,
@@ -619,19 +617,8 @@ export async function executeSyncJob(
 		const errMsg = error instanceof Error ? error.message : String(error);
 		const lastSyncResult = `Failed: ${errMsg.slice(0, 200)}`;
 
-		await prisma.syncLog.update({
-			where: { id: logEntry.id },
-			data: {
-				status: "FAILED",
-				errorMessage: errMsg.slice(0, 2000),
-				durationMs: duration,
-				completedAt: new Date(),
-			},
-		});
-
-		await prisma.syncJob.update({
-			where: { id: jobId },
-			data: { status: "ERROR", lastSyncResult },
+		await finish("ERROR", lastSyncResult, {
+			status: "FAILED", errorMessage: errMsg.slice(0, 2000), durationMs: duration, completedAt: new Date(),
 		});
 
 		logError(`[SyncService] Job ${jobId} failed:`, error);
@@ -641,6 +628,8 @@ export async function executeSyncJob(
 			lastSyncResult,
 			errorMessage: errMsg.slice(0, 2000),
 		};
+	} finally {
+		clearInterval(heartbeat);
 	}
 }
 
@@ -655,22 +644,6 @@ const STALE_SYNC_RUNNING_MS = 30 * 60 * 1000;
  */
 const SYNC_COMMAND_TIMEOUT_MS = 12 * 60 * 60 * 1000;
 const SYNC_HEARTBEAT_MS = 5 * 60 * 1000;
-
-async function runWithSyncHeartbeat<T>(jobId: string | undefined, run: () => Promise<T>): Promise<T> {
-	if (!jobId) return run();
-	const beat = () => {
-		try {
-			void Promise.resolve(prisma.syncJob.updateMany({ where: { id: jobId, status: "RUNNING" }, data: { updatedAt: new Date() } })).catch(() => undefined);
-		} catch { /* a mocked or closed client must not break the transfer */ }
-	};
-	const timer = setInterval(beat, SYNC_HEARTBEAT_MS);
-	timer.unref?.();
-	try {
-		return await run();
-	} finally {
-		clearInterval(timer);
-	}
-}
 
 /**
  * Reclaim SyncJob rows stuck in RUNNING after process death.
@@ -687,32 +660,32 @@ export async function reclaimStaleRunningSyncJobs(options?: {
 
 	const stale = await prisma.syncJob.findMany({
 		where: { status: "RUNNING", updatedAt: { lt: cutoff } },
-		select: { id: true },
+		select: { id: true, activeRunId: true },
 		take: 100,
 		orderBy: { updatedAt: "asc" },
 	});
 
 	const reclaimed: string[] = [];
 	for (const job of stale) {
-		const moved = await prisma.syncJob.updateMany({
-			where: { id: job.id, status: "RUNNING", updatedAt: { lt: cutoff } },
-			data: {
-				status: "ERROR",
-				lastSyncResult: `Failed: reclaimed stale RUNNING after ${Math.round(olderThanMs / 60_000)}m (worker may have died)`,
-			},
+		const moved = await prisma.$transaction(async (tx) => {
+			const claimed = await tx.syncJob.updateMany({
+				where: { id: job.id, activeRunId: job.activeRunId, status: "RUNNING", updatedAt: { lt: cutoff } },
+				data: { status: "ERROR", activeRunId: null,
+					lastSyncResult: `Failed: reclaimed stale RUNNING after ${Math.round(olderThanMs / 60_000)}m (worker may have died)` },
+			});
+			if (!claimed.count) return false;
+			// Runs started before the ownership migration have no run id.
+			await tx.syncLog.updateMany({
+				where: { syncJobId: job.id, status: "RUNNING", ...(job.activeRunId ? { id: job.activeRunId } : {}) },
+				data: { status: "FAILED", errorMessage: apiCopy("apiCopy.reclaimed.stale.running.sync.after.process.loss.8aa169ca"), completedAt: now },
+			});
+			return true;
 		});
-		if (moved.count === 0) continue;
-		await prisma.syncLog.updateMany({
-			where: { syncJobId: job.id, status: "RUNNING" },
-			data: {
-				status: "FAILED",
-				errorMessage: apiCopy("apiCopy.reclaimed.stale.running.sync.after.process.loss.8aa169ca"),
-				completedAt: now,
-			},
-		});
-		reclaimed.push(job.id);
+		if (moved) {
+			reclaimed.push(job.id);
+			await sweepOneTimeSyncAccess(job.id, job.activeRunId ?? job.id);
+		}
 	}
-	for (const jobId of reclaimed) await sweepOneTimeSyncAccess(jobId);
 	return reclaimed;
 }
 
@@ -724,7 +697,7 @@ export async function reclaimStaleRunningSyncJobs(options?: {
  * Remove them on both servers, best effort: a one-time key line also stops
  * working at its expiry time, and the next install on that host removes it too.
  */
-async function sweepOneTimeSyncAccess(jobId: string): Promise<void> {
+async function sweepOneTimeSyncAccess(jobId: string, runId: string): Promise<void> {
 	let job: Awaited<ReturnType<typeof getSyncJobForExecution>>;
 	try {
 		job = await getSyncJobForExecution(jobId);
@@ -734,13 +707,13 @@ async function sweepOneTimeSyncAccess(jobId: string): Promise<void> {
 	}
 	if (!job) return;
 	const servers = [job.sourceServer, job.targetServer].filter((server, index, all) => all.findIndex((other) => other.id === server.id) === index);
-	const files = (["fwd", "rev"] as const).flatMap((leg) => (["rsync", "tar", "env", "known_hosts"] as const).map((purpose) => getSyncTempKeyPath(legFileStem(jobId, leg), purpose)));
+	const files = (["fwd", "rev"] as const).flatMap((leg) => (["rsync", "tar", "env", "known_hosts"] as const).map((purpose) => getSyncTempKeyPath(legFileStem(runId, leg), purpose)));
 	await Promise.all(servers.map(async (server) => {
 		try {
 			const ssh = await buildSshParamsFromServer(server, server.sshKey);
 			const result = await execRemoteCommand({
 				...ssh,
-				command: `rm -f -- ${files.map(shellQuote).join(" ")}\n${buildOneTimeKeyRevokeCommand({ jobId })}`,
+				command: `rm -f -- ${files.map(shellQuote).join(" ")}\n${buildOneTimeKeyRevokeCommand({ jobId: runId })}`,
 				timeout: 60000,
 			});
 			assertSyncRemoteSucceeded(result, "removing one-time sync keys");

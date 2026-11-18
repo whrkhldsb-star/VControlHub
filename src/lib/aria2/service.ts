@@ -202,10 +202,6 @@ export async function ensureAria2Daemon(): Promise<void> {
 	await writeFile(config.rpcConf, conf, { mode: 0o600 });
 	await chmod(config.rpcConf, 0o600).catch(() => undefined);
 
-	const launchConf = path.join(config.rpcDir, `.aria2.launch.${process.pid}.${Date.now()}.conf`);
-	await writeFile(launchConf, buildAria2LaunchConfig(config), { mode: 0o600 });
-	await chmod(launchConf, 0o600).catch(() => undefined);
-
 	// Resolve the aria2c binary without assuming a POSIX layout: PATH first,
 	// then the platform's conventional install locations. `ARIA2_BIN` lets an
 	// operator pin an explicit binary (e.g. a per-app Windows build).
@@ -233,7 +229,10 @@ export async function ensureAria2Daemon(): Promise<void> {
 		throw Object.assign(new Error("spawn aria2c ENOENT"), { code: "ENOENT" });
 	}
 
+	const launchConf = path.join(config.rpcDir, `.aria2.launch.${process.pid}.${Date.now()}.conf`);
 	try {
+		await writeFile(launchConf, buildAria2LaunchConfig(config), { mode: 0o600 });
+		await chmod(launchConf, 0o600).catch(() => undefined);
 		// Launch aria2c daemon. Keep the RPC secret out of the persisted config and argv.
 		const proc = spawnAria2Detached(buildAria2SpawnArgs(launchConf), aria2Bin);
 		proc.unref();

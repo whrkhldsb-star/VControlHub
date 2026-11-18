@@ -28,7 +28,7 @@ export function serializeConversation(c: Awaited<ReturnType<typeof getConversati
 					...c.provider,
 					createdAt: c.provider.createdAt.toISOString(),
 					updatedAt: c.provider.updatedAt.toISOString(),
-				}
+				} satisfies { apiKey?: never; createdAt: string; updatedAt: string }
 			: null,
 		messages: c.messages.map((m) => ({
 			...m,

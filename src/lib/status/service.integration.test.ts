@@ -62,6 +62,30 @@ describe.skipIf(process.env.RUN_DATABASE_INTEGRATION_TESTS !== "1")("deleted cus
 		expect(storage?.message).toContain("1 unhealthy");
 	});
 
+	it("counts all live nodes and excludes enabled servers of a retired team", async () => {
+		const server = { name: prefix, username: "fixture", host: "127.0.0.1", tags: [] };
+		const serversBefore = (await getPublicStatus()).checks.find(check => check.id === "servers")?.params?.count;
+		const rowsBefore = (await getPublicStatus()).checks.find(check => check.id === "storage")?.params?.total;
+		await prisma.server.createMany({ data: [activeTeam, deletedTeam].map(teamId => ({ ...server, id: teamId, teamId })) });
+		try {
+			await prisma.storageNode.createMany({ data: Array.from({ length: 501 }, (_, index) => ({
+				id: prefix + "-bulk-" + index, name: prefix, driver: "LOCAL" as const,
+				basePath: "/fixture", teamId: activeTeam,
+				healthStatus: index === 500 ? "UNHEALTHY" as const : "HEALTHY" as const,
+				lastHealthCheckAt: index === 500 ? null : checkedAt,
+			})) });
+			const detail = await getPublicStatus();
+			expect(detail.checks.find(check => check.id === "storage")).toMatchObject({
+				status: "warning", params: { total: Number(rowsBefore) + 501, unhealthy: 1 },
+			});
+			expect(detail.checks.find(check => check.id === "servers")?.params?.count).toBe(Number(serversBefore) + 1);
+			expect((await getPublicStatusSummary()).summary.overall).toBe("warning");
+		} finally {
+			await prisma.storageNode.deleteMany({ where: { id: { startsWith: prefix + "-bulk-" } } });
+			await prisma.server.deleteMany({ where: { id: { in: [activeTeam, deletedTeam] } } });
+		}
+	});
+
 	it("probes stale active and legacy storage without probing retired nodes", async () => {
 		await probeAllStaleStorageNodes();
 		expect(probe).toHaveBeenCalledWith(activeNode);

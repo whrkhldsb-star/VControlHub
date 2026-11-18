@@ -14,8 +14,8 @@ const order: string[] = [];
 
 const prismaMock = {
   syncJob: {
-    updateMany: vi.fn(async () => {
-      order.push("cas");
+    updateMany: vi.fn(async (args: { data: { status?: string } }) => {
+      if (args.data.status === "RUNNING") order.push("cas");
       return { count: 1 };
     }),
     update: vi.fn(async () => ({})),
@@ -27,7 +27,7 @@ const prismaMock = {
 };
 // Execution-time authorisation has its own tests (execution-actor).
 vi.mock("@/lib/auth/execution-actor", () => ({ executionRefusal: vi.fn(async () => null), loadExecutionActor: vi.fn() }));
-vi.mock("@/lib/db", () => ({ prisma: prismaMock }));
+vi.mock("@/lib/db", () => ({ prisma: { ...prismaMock, $transaction: (run: (tx: typeof prismaMock) => Promise<unknown>) => run(prismaMock) } }));
 
 // The execution path reads the credential-bearing variant; `getSyncJobForExecution` (no
 // sshKey) is the display/ownership read used by the HTTP routes.
@@ -65,8 +65,8 @@ const { executeSyncJob } = await import("../service-runtime");
 beforeEach(() => {
   order.length = 0;
   vi.clearAllMocks();
-  prismaMock.syncJob.updateMany.mockImplementation(async () => {
-    order.push("cas");
+  prismaMock.syncJob.updateMany.mockImplementation(async (args) => {
+    if (args.data.status === "RUNNING") order.push("cas");
     return { count: 1 };
   });
   prismaMock.syncLog.create.mockResolvedValue({ id: "log-1" });
@@ -121,10 +121,7 @@ describe("executeSyncJob start log failure", () => {
     await expect(executeSyncJob("job-1", { onClaimed })).rejects.toThrow("connection reset");
     expect(onClaimed).not.toHaveBeenCalled();
     expect(buildSshParamsFromServer).not.toHaveBeenCalled();
-    expect(prismaMock.syncJob.updateMany).toHaveBeenLastCalledWith({
-      where: { id: "job-1", status: "RUNNING" },
-      data: { status: "IDLE" },
-    });
+    expect(prismaMock.syncJob.updateMany).toHaveBeenCalledTimes(1); // Claim and start log share a transaction.
   });
 });
 
