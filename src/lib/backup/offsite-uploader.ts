@@ -13,6 +13,8 @@
  *     其中 ext = `.gz` 走压缩, `` 不压缩; pathPrefix 默认 `vcontrolhub-backups/`
  */
 import { appTimeZoneDateKey } from "@/lib/datetime/time-zone";
+import { createHash } from "node:crypto";
+import { ChecksumMismatchError, verifyRecordedChecksum } from "@/lib/crypto/sha256-file";
 import { mkdtemp, readFile, rm, stat } from "node:fs/promises";
 import { tmpdir } from "node:os";
 import path from "node:path";
@@ -69,7 +71,7 @@ export type OffsiteUploadResult =
 	| {
 			ok: true;
 			skipped: true;
-			reason: "offsite_disabled" | "backup_not_completed";
+			reason: "offsite_disabled" | "backup_not_completed" | "offsite_expired";
 	  }
 	| {
 			ok: false;
@@ -101,6 +103,10 @@ export async function uploadBackupToOffsite(input: {
 	}
 	if (record.status !== "COMPLETED") {
 		return { ok: true, skipped: true, reason: "backup_not_completed" };
+	}
+
+	if (!record.offsiteKey && record.offsiteSize != null) {
+		return { ok: true, skipped: true, reason: "offsite_expired" };
 	}
 
 	// 1. 加载 offsite 配置
@@ -184,6 +190,7 @@ export async function uploadBackupToOffsite(input: {
 			const tempDir = await mkdtemp(path.join(tmpdir(), "vch-offsite-"));
 			tempGzPath = path.join(tempDir, `${record.id}.gz`);
 			const result = await compressFileToGz(fullPath, tempGzPath);
+			verifyRecordedChecksum(result.checksumSha256, record.checksumSha256);
 			uploadPath = tempGzPath;
 			originalSize = result.originalSize;
 			compressedSize = result.compressedSize;
@@ -193,6 +200,7 @@ export async function uploadBackupToOffsite(input: {
 			uploadPath = fullPath;
 		} else {
 			const rawBuf = await readFile(fullPath);
+			verifyRecordedChecksum(createHash("sha256").update(rawBuf).digest("hex"), record.checksumSha256);
 			if (shouldCompress) {
 				const result = compressBuffer(rawBuf);
 				body = result.data;
@@ -211,7 +219,7 @@ export async function uploadBackupToOffsite(input: {
 		return recordOffsiteFailure({
 			record,
 			recipient: alertOn ? config.failureAlertRecipient : null,
-			code: "CompressError",
+			code: err instanceof ChecksumMismatchError ? "ChecksumMismatch" : "CompressError",
 			error: `Prepare upload body failed: ${formatError(err)}`,
 		});
 	}
@@ -233,7 +241,7 @@ export async function uploadBackupToOffsite(input: {
 	const client = new S3Client(clientConfig);
 	try {
 		const { etag } = uploadPath
-			? await client.putFile(key, uploadPath, contentType)
+			? await client.putFile(key, uploadPath, contentType, compressed ? undefined : record.checksumSha256)
 			: await client.putObject(key, body!, contentType);
 		// 7. 写 DB
 		const uploadedAt = new Date();
@@ -267,7 +275,7 @@ export async function uploadBackupToOffsite(input: {
 		};
 	} catch (err) {
 		const message = formatError(err);
-		const code = err instanceof S3Error ? err.code : "UploadError";
+		const code = err instanceof ChecksumMismatchError ? "ChecksumMismatch" : err instanceof S3Error ? err.code : "UploadError";
 		return recordOffsiteFailure({
 			record,
 			recipient: alertOn ? config.failureAlertRecipient : null,
@@ -297,7 +305,7 @@ export async function retryPendingOffsiteUploads(input: {
 	while (observed < maxRecords) {
 		const take = Math.min(100, maxRecords - observed);
 		const records: PendingOffsiteKey[] = await prisma.backupRecord.findMany({
-			where: { status: "COMPLETED", offsiteKey: null, ...pendingOffsiteAfter(after) },
+			where: { status: "COMPLETED", offsiteKey: null, offsiteSize: null, ...pendingOffsiteAfter(after) },
 			orderBy: [{ createdAt: "asc" }, { id: "asc" }],
 			take,
 			select: { id: true, createdAt: true },

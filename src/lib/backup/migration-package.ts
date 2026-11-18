@@ -22,6 +22,8 @@ import {
   copyFile,
   lstat,
   mkdir,
+  mkdtemp,
+  rename,
   readFile,
   rm,
   stat,
@@ -419,66 +421,69 @@ export async function exportMigrationPackage(input: {
     throw new BusinessError(t("backend.backup.artifactMissing"));
   }
 
-  const checksum =
-    record.checksumSha256 && record.checksumSha256.length >= 32
-      ? record.checksumSha256
-      : await sha256File(sourcePath);
-
-  const packageId = `mig-${new Date().toISOString().replace(/[:.]/g, "-")}-${randomUUID().slice(0, 8)}`;
+  const packageId = `mig-${new Date().toISOString().replace(/[:.]/g, "-")}-${randomUUID()}`;
   const packageRelativeDir = `${MIGRATION_PACKAGE_DIR}/${packageId}`;
   const absoluteDir = join(getBackupStorageRoot(root), packageRelativeDir);
-  await mkdir(absoluteDir, { recursive: true });
-
-  const ext = payloadExtension(record.type, record.filePath);
-  const payloadFileName = `payload.${ext}`;
-  const payloadAbsolute = join(absoluteDir, payloadFileName);
-  await copyFile(sourcePath, payloadAbsolute);
-  const payloadInfo = await stat(payloadAbsolute);
-
-  const manifest: MigrationManifest = {
-    version: MIGRATION_MANIFEST_VERSION,
-    packageId,
-    createdAt: new Date().toISOString(),
-    source: {
-      app: "VControlHub",
-      hostname: config.app.hostname || "unknown",
-      recordId: record.id,
-      teamId: record.teamId ?? null,
-    },
-    backup: {
-      type: record.type,
-      originalFilePath: record.filePath,
-      payloadFileName,
-      fileSize: payloadInfo.size,
-      checksumSha256: checksum,
-      note: input.note?.trim() || record.note || null,
-      completedAt: record.completedAt?.toISOString() ?? null,
-    },
-    instructions: {
-      import:
-        "On the target VControlHub host: place this package under BACKUP_DIR/migration-packages/ (or upload), then use Migration Wizard → Import & Register. Validation checks sha256 before creating a COMPLETED BackupRecord.",
-      restore:
-        "After import, run a restore drill first (non-destructive). Restore is offline: Restore on the imported record verifies its checksum and gives the runbook — stop the platform services, take the safety snapshot, run the restore command, start the services.",
-    },
-  };
-
-  const manifestAbsolute = join(absoluteDir, "manifest.json");
-  await writeFile(manifestAbsolute, `${JSON.stringify(manifest, null, 2)}\n`, "utf8");
+  const payloadFileName = `payload.${payloadExtension(record.type, record.filePath)}`;
+  await mkdir(dirname(absoluteDir), { recursive: true });
+  const staging = await mkdtemp(join(dirname(absoluteDir), ".export-"));
+  let manifest: MigrationManifest;
+  try {
+    const payload = join(staging, payloadFileName);
+    await copyFile(sourcePath, payload);
+    const checksum = await sha256File(payload);
+    if (record.checksumSha256 && checksum !== record.checksumSha256.toLowerCase()) {
+      throw new BusinessError(t("backend.backup.checksumMismatch"));
+    }
+    const payloadSize = (await stat(payload)).size;
+    manifest = {
+      version: MIGRATION_MANIFEST_VERSION,
+      packageId,
+      createdAt: new Date().toISOString(),
+      source: {
+        app: "VControlHub",
+        hostname: config.app.hostname || "unknown",
+        recordId: record.id,
+        teamId: record.teamId ?? null,
+      },
+      backup: {
+        type: record.type,
+        originalFilePath: record.filePath,
+        payloadFileName,
+        fileSize: payloadSize,
+        checksumSha256: checksum,
+        note: input.note?.trim() || record.note || null,
+        completedAt: record.completedAt?.toISOString() ?? null,
+      },
+      instructions: {
+        import:
+          "On the target VControlHub host: place this package under BACKUP_DIR/migration-packages/ (or upload), then use Migration Wizard → Import & Register. Validation checks sha256 before creating a COMPLETED BackupRecord.",
+        restore:
+          "After import, run a restore drill first (non-destructive). Restore is offline: Restore on the imported record verifies its checksum and gives the runbook — stop the platform services, take the safety snapshot, run the restore command, start the services.",
+      },
+    };
+    await writeFile(join(staging, "manifest.json"), `${JSON.stringify(manifest, null, 2)}\n`, "utf8");
+    await rename(staging, absoluteDir);
+  } finally {
+    await rm(staging, { recursive: true, force: true });
+  }
 
   // Optional convenience tarball next to the directory
   const tarRelative = `${packageRelativeDir}.tar.gz`;
   const tarAbsolute = join(getBackupStorageRoot(root), tarRelative);
+  const tarTemporary = `${tarAbsolute}.partial`;
   try {
     await runFile(
       resolveLocalTarBinary(),
-      ["-czf", tarAbsolute, "-C", dirname(absoluteDir), basename(absoluteDir)],
+      ["-czf", tarTemporary, "-C", dirname(absoluteDir), basename(absoluteDir)],
       { timeout: 180_000, maxBuffer: 2 * 1024 * 1024 },
     );
+    await rename(tarTemporary, tarAbsolute);
   } catch (error) {
     // A tar stopped by the time limit (or a full disk) leaves the beginning of
     // an archive behind. Listed as the package's tarball, it was what an
     // operator copied to the other host, where it failed to extract.
-    await rm(tarAbsolute, { force: true }).catch(() => undefined);
+    await rm(tarTemporary, { force: true }).catch(() => undefined);
     logger.warn("migration package tarball creation failed (directory package still valid)", {
       packageId,
       error: error instanceof Error ? error.message : String(error),
@@ -489,7 +494,7 @@ export async function exportMigrationPackage(input: {
     packageId,
     backupId: record.id,
     type: record.type,
-    size: payloadInfo.size,
+    size: manifest.backup.fileSize,
   });
 
   return {

@@ -82,7 +82,7 @@ export type VpsOffsiteUploadResult =
   | {
       ok: true;
       skipped: true;
-      reason: "offsite_disabled" | "already_uploaded" | "backup_not_completed";
+      reason: "offsite_disabled" | "already_uploaded" | "backup_not_completed" | "offsite_expired";
     }
   | { ok: false; skipped: false; error: string };
 
@@ -100,7 +100,9 @@ export async function uploadVpsBackupToOffsite(
       backupType: true,
       status: true,
       localPath: true,
+      checksumSha256: true,
       offsiteKey: true,
+      offsiteSize: true,
     },
   });
   if (!record || record.status !== "COMPLETED" || !record.localPath) {
@@ -108,6 +110,10 @@ export async function uploadVpsBackupToOffsite(
   }
   if (record.offsiteKey) {
     return { ok: true, skipped: true, reason: "already_uploaded" };
+  }
+
+  if (record.offsiteSize != null) {
+    return { ok: true, skipped: true, reason: "offsite_expired" };
   }
 
   let alertRecipient: string | null = null;
@@ -142,7 +148,7 @@ export async function uploadVpsBackupToOffsite(
       ...offsiteConfig,
       timeoutMs: 30 * 60 * 1000,
     });
-    await s3.putFile(offsiteKey, localAbsolutePath, "application/gzip");
+    await s3.putFile(offsiteKey, localAbsolutePath, "application/gzip", record.checksumSha256);
     await prisma.vpsBackupRecord.update({
       where: { id: record.id },
       data: {
@@ -200,6 +206,7 @@ export async function retryPendingVpsOffsiteUploads(
       where: {
         status: "COMPLETED",
         offsiteKey: null,
+        offsiteSize: null,
         localPath: { not: null },
         ...pendingOffsiteAfter(after),
       },

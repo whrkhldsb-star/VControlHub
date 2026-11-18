@@ -19,7 +19,7 @@ vi.mock("../schema", () => ({
 	validateOffsiteConfigForUse: vi.fn(() => []),
 }));
 vi.mock("@/lib/db", () => ({
-	prisma: { backupRecord: { findMany: appRows, updateMany: appUpdate }, vpsBackupRecord: { findMany: vpsRows, updateMany: vpsUpdate } },
+	prisma: { $transaction: (updates: Promise<unknown>[]) => Promise.all(updates), backupRecord: { findMany: appRows, updateMany: appUpdate }, vpsBackupRecord: { findMany: vpsRows, updateMany: vpsUpdate } },
 }));
 
 import { pruneOffsiteObjects } from "../retention";
@@ -32,9 +32,9 @@ describe("pruneOffsiteObjects", () => {
 		const old = "2026-01-01T00:00:00.000Z";
 		listObjects.mockResolvedValueOnce({
 			objects: [
-				{ key: "vch/2026-01-01/a-database.gz", lastModified: old },
-				{ key: "vch/2026-01-02/b-database.gz", lastModified: old },
-				{ key: "vch/srv/full-c.tar.gz", lastModified: old },
+				{ key: "vch/2026-01-01/a-database.gz", size: 42, lastModified: old },
+				{ key: "vch/2026-01-02/b-database.gz", size: 42, lastModified: old },
+				{ key: "vch/srv/full-c.tar.gz", size: 42, lastModified: old },
 			],
 			isTruncated: false,
 		});
@@ -50,7 +50,7 @@ describe("pruneOffsiteObjects", () => {
 
 	it("clears the offsite key of the records whose object it deleted, so nothing keeps offering a copy that is gone", async () => {
 		listObjects.mockResolvedValueOnce({
-			objects: [{ key: "vch/2026-01-01/a-database.gz", lastModified: "2026-01-01T00:00:00.000Z" }],
+			objects: [{ key: "vch/2026-01-01/a-database.gz", size: 42, lastModified: "2026-01-01T00:00:00.000Z" }],
 			isTruncated: false,
 		});
 		appRows.mockResolvedValueOnce([]);
@@ -59,17 +59,28 @@ describe("pruneOffsiteObjects", () => {
 		await pruneOffsiteObjects({ now: new Date("2026-10-20T00:00:00Z") });
 
 		expect(deleteObject).toHaveBeenCalledWith("vch/2026-01-01/a-database.gz");
-		expect(appUpdate).toHaveBeenCalledWith({ where: { offsiteKey: "vch/2026-01-01/a-database.gz" }, data: { offsiteKey: null, offsiteUploadedAt: null } });
-		expect(vpsUpdate).toHaveBeenCalledWith({ where: { offsiteKey: "vch/2026-01-01/a-database.gz" }, data: { offsiteKey: null, offsiteUploadedAt: null } });
+		expect(appUpdate).toHaveBeenCalledWith({ where: { offsiteKey: "vch/2026-01-01/a-database.gz" }, data: { offsiteKey: null, offsiteUploadedAt: null, offsiteSize: "42" } });
+		expect(vpsUpdate).toHaveBeenCalledWith({ where: { offsiteKey: "vch/2026-01-01/a-database.gz" }, data: { offsiteKey: null, offsiteUploadedAt: null, offsiteSize: "42" } });
+	});
+
+	it("keeps the object available for retry if expiring database references fails", async () => {
+		listObjects.mockResolvedValue({ objects: [{ key: "vch/old", size: 0, lastModified: "2026-01-01" }] });
+		appRows.mockResolvedValue([]);
+		vpsRows.mockResolvedValue([]);
+		vpsUpdate.mockRejectedValueOnce(new Error("database unavailable"));
+		const result = await pruneOffsiteObjects({ now: new Date("2026-10-20") });
+		expect(result.deleted).toBe(0);
+		expect(result.errors).toEqual(["vch/old: database unavailable"]);
+		expect(deleteObject).not.toHaveBeenCalled();
 	});
 
 	it("keeps the newest disaster-recovery bundle even when every one is past the retention window", async () => {
 		// Uploaded by a script, no database row: age alone used to remove the last one too.
 		listObjects.mockResolvedValueOnce({
 			objects: [
-				{ key: "vch/recovery/old-1.tar.gz", lastModified: "2026-01-01T00:00:00.000Z" },
-				{ key: "vch/recovery/newest-2.tar.gz", lastModified: "2026-03-01T00:00:00.000Z" },
-				{ key: "vch/recovery/old-3.tar.gz", lastModified: "2026-02-01T00:00:00.000Z" },
+				{ key: "vch/recovery/old-1.tar.gz", size: 42, lastModified: "2026-01-01T00:00:00.000Z" },
+				{ key: "vch/recovery/newest-2.tar.gz", size: 42, lastModified: "2026-03-01T00:00:00.000Z" },
+				{ key: "vch/recovery/old-3.tar.gz", size: 42, lastModified: "2026-02-01T00:00:00.000Z" },
 			],
 			isTruncated: false,
 		});
@@ -85,8 +96,8 @@ describe("pruneOffsiteObjects", () => {
 	it("lets old recovery bundles go once a newer one is inside the window", async () => {
 		listObjects.mockResolvedValueOnce({
 			objects: [
-				{ key: "vch/recovery/old-1.tar.gz", lastModified: "2026-01-01T00:00:00.000Z" },
-				{ key: "vch/recovery/fresh.tar.gz", lastModified: "2026-10-19T00:00:00.000Z" },
+				{ key: "vch/recovery/old-1.tar.gz", size: 42, lastModified: "2026-01-01T00:00:00.000Z" },
+				{ key: "vch/recovery/fresh.tar.gz", size: 42, lastModified: "2026-10-19T00:00:00.000Z" },
 			],
 			isTruncated: false,
 		});

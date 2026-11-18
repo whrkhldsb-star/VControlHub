@@ -5,7 +5,7 @@
 import { prisma } from "@/lib/db";
 import { createLogger } from "@/lib/logging";
 import { loadOffsiteConfig, validateOffsiteConfigForUse } from "./schema";
-import { S3Client } from "./s3-client";
+import { S3Client, type S3Object } from "./s3-client";
 
 const logger = createLogger("offsite-retention");
 
@@ -72,17 +72,20 @@ export async function pruneOffsiteObjects(options?: {
   // Disaster-recovery bundles (recovery/) are uploaded by a script and have no database row, so they were pruned by
   // age alone - the last one included. The newest of them is kept like the newest copy of every other kind.
   const recoveryPrefix = `${prefix}recovery/`;
-  const recovery: Array<{ key: string; at: number }> = [];
+  const recovery: Array<{ key: string; size: number; at: number }> = [];
 
-  const remove = async (key: string): Promise<boolean> => {
+  const remove = async ({ key, size }: Pick<S3Object, "key" | "size">): Promise<boolean> => {
     try {
+      // Expire the references together before removing their object. A database failure leaves the
+      // copy available. A failed S3 delete leaves an expired object for the next listing to retry.
+      // Keep its last uploaded size, including zero, so catch-up can distinguish expiry from a first upload.
+      const data = { offsiteKey: null, offsiteUploadedAt: null, offsiteSize: String(size) };
+      await prisma.$transaction([
+        prisma.backupRecord.updateMany({ where: { offsiteKey: key }, data }),
+        prisma.vpsBackupRecord.updateMany({ where: { offsiteKey: key }, data }),
+      ]);
       await client.deleteObject(key);
       deleted += 1;
-      // The records still said "offsite": the list kept the badge and the download fallback answered 404.
-      await Promise.all([
-        prisma.backupRecord.updateMany({ where: { offsiteKey: key }, data: { offsiteKey: null, offsiteUploadedAt: null } }),
-        prisma.vpsBackupRecord.updateMany({ where: { offsiteKey: key }, data: { offsiteKey: null, offsiteUploadedAt: null } }),
-      ]).catch((err) => logger.warn("offsite prune could not clear a record", { key, error: err instanceof Error ? err.message : String(err) }));
       return true;
     } catch (err) {
       const msg = err instanceof Error ? err.message : String(err);
@@ -110,10 +113,10 @@ export async function pruneOffsiteObjects(options?: {
       if (lastModified >= cutoff) continue;
       if (protectedKeys.has(obj.key)) continue;
       if (isRecovery) {
-        recovery.push({ key: obj.key, at: lastModified.getTime() }); // decided below, once the newest bundle is known
+        recovery.push({ key: obj.key, size: obj.size, at: lastModified.getTime() }); // decided below, once the newest bundle is known
         continue;
       }
-      await remove(obj.key);
+      await remove(obj);
     }
     if (deleted >= maxDeletes) break;
   } while (token);
@@ -121,7 +124,7 @@ export async function pruneOffsiteObjects(options?: {
   for (const bundle of recovery) {
     if (deleted >= maxDeletes) break;
     if (bundle.key === newestRecovery?.key) continue;
-    await remove(bundle.key);
+    await remove(bundle);
   }
 
   logger.info("offsite prune finished", {

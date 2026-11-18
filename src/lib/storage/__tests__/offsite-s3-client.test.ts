@@ -128,6 +128,8 @@ describe("S3Client — operations", () => {
 		}) as unknown as typeof fetch;
 		try {
 			const client = new S3Client({ ...basicConfig(), fetchImpl });
+			await expect(client.putFile("large/artifact.bin", filePath, undefined, "0".repeat(64))).rejects.toThrow(/checksum/);
+			expect(fetchImpl).not.toHaveBeenCalled();
 			const result = await client.putFile("large/artifact.bin", filePath);
 			expect(result.etag).toBe("stream-etag");
 			expect(received).toEqual(expected);

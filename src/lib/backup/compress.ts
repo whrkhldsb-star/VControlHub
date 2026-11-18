@@ -11,6 +11,7 @@
  *   - 失败抛 Error 带 message, caller 自己捕获
  *   - 不会自动 strip .gz 后缀 (caller 决定要不要写 .gz 后缀)
  */
+import { createHash } from "node:crypto";
 import { createGzip, gzipSync, type Gzip } from "node:zlib";
 import { createReadStream, createWriteStream } from "node:fs";
 import { pipeline } from "node:stream/promises";
@@ -24,6 +25,7 @@ export type CompressResult = {
 };
 
 export type FileCompressResult = {
+	checksumSha256: string;
 	originalSize: number;
 	compressedSize: number;
 	ratio: number;
@@ -47,10 +49,13 @@ export async function compressFileToGz(sourcePath: string, targetPath: string): 
 	source.on("error", () => {}); // swallow — pipeline 仍会 reject, 防止 unhandled
 	const target = createWriteStream(targetPath);
 	const originalSize = sourceStat.size;
+	const hash = createHash("sha256");
+	source.on("data", (chunk) => hash.update(chunk));
 	await pipeline(source, gzip, target);
 	const targetStat = await stat(targetPath);
 	const compressedSize = targetStat.size;
 	return {
+		checksumSha256: hash.digest("hex"),
 		originalSize,
 		compressedSize,
 		ratio: originalSize === 0 ? 0 : compressedSize / originalSize,

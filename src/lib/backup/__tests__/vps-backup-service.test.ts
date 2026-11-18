@@ -374,6 +374,7 @@ describe("retryPendingVpsOffsiteUploads", () => {
     const secondCall = mocks.findMany.mock.calls[1]![0];
     expect(secondCall).not.toHaveProperty("cursor");
     expect(secondCall).not.toHaveProperty("skip");
+    expect(secondCall.where.offsiteSize).toBeNull();
     expect(secondCall.where.OR).toEqual([
       { createdAt: { gt: last.createdAt } },
       { createdAt: last.createdAt, id: { gt: last.id } },
@@ -398,6 +399,7 @@ describe("uploadVpsBackupToOffsite", () => {
         backupType: "nginx-config",
         status: "COMPLETED",
         localPath,
+        checksumSha256: "a".repeat(64),
         offsiteKey: null,
       });
       offsiteMocks.loadConfig.mockResolvedValueOnce(ENABLE_OFFSITE_CONFIG);
@@ -415,7 +417,7 @@ describe("uploadVpsBackupToOffsite", () => {
         endpoint: "https://s3.example.com",
         timeoutMs: 30 * 60 * 1000,
       });
-      expect(offsiteMocks.putFile).toHaveBeenCalledTimes(1);
+      expect(offsiteMocks.putFile).toHaveBeenCalledWith("vps-backups/srv_1/nginx-config-rec_to.tar.gz", artifactPath, "application/gzip", "a".repeat(64));
     } finally {
       rmSync(artifactPath, { force: true });
     }
