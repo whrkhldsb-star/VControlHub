@@ -365,7 +365,6 @@ export const config = {
 			return readOptionalString("SENTRY_RELEASE") ?? readOptionalString("npm_package_version");
 		},
 		get tracesSampleRate(): number { return readFloat("SENTRY_TRACES_SAMPLE_RATE", 0.1); },
-		get replaysOnErrorSampleRate(): number { return readFloat("SENTRY_REPLAYS_ON_ERROR_SAMPLE_RATE", 1.0); },
 	},
 
 	deployment: {
