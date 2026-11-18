@@ -30,13 +30,18 @@ describe.skipIf(process.env.RUN_DATABASE_INTEGRATION_TESTS !== "1")("stale PENDI
 		await prisma.job.create({ data: { id: `${prefix}-job`, type: "backup.create", title: "retry", payload: { backupId: `${prefix}-retried` }, status: "PENDING" } });
 	});
 	afterAll(async () => {
-		await prisma.job.deleteMany({ where: { id: `${prefix}-job` } });
+		await prisma.job.deleteMany({ where: { id: { startsWith: prefix } } });
 		await prisma.backupRecord.deleteMany({ where: { id: { startsWith: prefix } } });
 		await prisma.$disconnect();
 	});
 
 	it("voids the orphan and leaves the freshly queued retry", async () => {
-		const result = await abandonStalePendingBackupRecords();
+		// A busy record older than the orphan used to take the entire limit.
+		const busyId = `${prefix}-busy`;
+		await prisma.backupRecord.create({ data: { id: busyId, type: "DATABASE", filePath: "backups/busy.sql.gz", updatedAt: new Date(twoDaysAgo.getTime() - 60_000) } });
+		await prisma.job.create({ data: { id: `${busyId}-job`, type: "backup.create", title: "busy", payload: { backupId: busyId } } });
+		const result = await abandonStalePendingBackupRecords({ limit: 1 });
+		expect((await prisma.backupRecord.findUniqueOrThrow({ where: { id: busyId } })).status).toBe("PENDING");
 		expect(result.ids.filter((id) => id.startsWith(prefix))).toEqual([`${prefix}-orphan`]);
 		expect((await prisma.backupRecord.findUniqueOrThrow({ where: { id: `${prefix}-retried` } })).status).toBe("PENDING");
 	});

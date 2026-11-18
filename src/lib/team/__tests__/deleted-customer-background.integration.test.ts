@@ -1,13 +1,19 @@
 // @vitest-environment node
 import { randomUUID } from "node:crypto";
-import { afterAll, beforeAll, describe, expect, it } from "vitest";
+import { afterAll, beforeAll, describe, expect, it, vi } from "vitest";
 
 import { prisma } from "@/lib/db";
 import { dispatchDueVpsBackupSchedules } from "@/lib/backup/vps-backup-schedule-service";
+import { tcpProbe } from "@/lib/server/connectivity";
 import { collectAllHealth } from "@/lib/health/service-collect";
 import { escalateBreachedTickets } from "@/lib/ticket/sla";
 import { hashShareToken, peekShareToken } from "@/lib/share-link/service";
 import { oneFileAtATime } from "@/test/helpers/one-file-at-a-time";
+
+// This integration exercises the real fleet query across customers. Parallel
+// test files can add hosts to that fleet, so keep network I/O at the boundary.
+vi.mock("@/lib/server/connectivity", () => ({ tcpProbe: vi.fn(async () => ({ ok: false, error: "offline" })) }));
+vi.mock("@/lib/server/monitor", () => ({ collectServerMetrics: vi.fn(async () => ({ error: "offline" })) }));
 
 /**
  * Deleting a customer hides it and keeps its rows for its history; the
@@ -34,8 +40,7 @@ describe.skipIf(process.env.RUN_DATABASE_INTEGRATION_TESTS !== "1")("a deleted c
     await prisma.team.create({ data: { id: live.team, slug: live.team, name: live.team } });
     await prisma.team.create({ data: { id: gone.team, slug: gone.team, name: gone.team, deletedAt: new Date() } });
     for (const { team, server } of [live, gone]) {
-      // Port 1 on loopback refuses at once: the sweep's probes stay fast.
-      await prisma.server.create({ data: { id: server, name: server, host: "127.0.0.1", port: 1, username: "root", tags: [], teamId: team } });
+      await prisma.server.create({ data: { id: server, name: server, host: `${server}.invalid`, port: 1, username: "root", tags: [], teamId: team } });
       await prisma.vpsBackupSchedule.create({
         data: { name: `${prefix}-${server}`, serverId: server, cronExpression: "0 3 * * *", backupType: "FULL", status: "ACTIVE", nextRunAt: due },
       });
@@ -90,5 +95,7 @@ describe.skipIf(process.env.RUN_DATABASE_INTEGRATION_TESTS !== "1")("a deleted c
     const ids = overview.servers.map((server) => server.serverId);
     expect(ids).toContain(live.server);
     expect(ids).not.toContain(gone.server);
+    expect(tcpProbe).toHaveBeenCalledWith(`${live.server}.invalid`, 1, expect.any(Number));
+    expect(tcpProbe).not.toHaveBeenCalledWith(`${gone.server}.invalid`, 1, expect.any(Number));
   }, 60_000);
 });

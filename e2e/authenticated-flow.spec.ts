@@ -107,4 +107,22 @@ test.describe("authenticated golden path", () => {
 		await expect(page.getByRole("link", { name: /设置|Settings/i }).first()).toBeVisible();
 		expect(runtimeFailures).toEqual([]);
 	});
+
+	test("an unconfirmed sign-out can be retried from the account menu", async ({ page, context }) => {
+		test.setTimeout(90_000);
+		await ensureAuthenticated(page, context);
+		await page.getByRole("button", { name: /Account menu|账户菜单/i }).first().click();
+		const signOut = page.getByRole("button", { name: /^(Sign out|退出登录)$/i });
+		await context.setOffline(true);
+		try {
+			await signOut.click();
+			await expect(page.getByRole("alert").filter({ hasText: /Sign-out could not be confirmed|未能确认退出登录/ })).toBeVisible();
+			await expect(signOut).toBeEnabled();
+		} finally {
+			await context.setOffline(false);
+		}
+		await signOut.click();
+		await expect(page).toHaveURL(/\/login(?:[?#]|$)/);
+		expect((await context.cookies()).some(({ name }) => name === "csrf_token")).toBe(false);
+	});
 });

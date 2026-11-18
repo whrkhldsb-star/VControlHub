@@ -1,11 +1,11 @@
 {
-  "generatedAt": "2026-11-12T00:25:19.608Z",
+  "generatedAt": "2026-11-18T03:36:11.210Z",
   "summary": {
     "modulesAudited": 5,
     "totalRoutes": 50,
-    "inlineZodRoutes": 2,
-    "boundaryConsumerRoutes": 30,
-    "overallCoveragePercent": 93.8
+    "inlineZodRoutes": 0,
+    "boundaryConsumerRoutes": 32,
+    "overallCoveragePercent": 100
   },
   "modules": [
     {
@@ -14,10 +14,10 @@
       "boundaryKind": "dto",
       "boundaryExists": true,
       "totalRoutes": 12,
-      "inlineZodRoutes": 2,
-      "boundaryConsumerRoutes": 6,
+      "inlineZodRoutes": 0,
+      "boundaryConsumerRoutes": 8,
       "cleanRoutes": 4,
-      "coveragePercent": 75,
+      "coveragePercent": 100,
       "routes": [
         {
           "path": "src/app/api/files/[id]/thumbnail/route.ts",
@@ -103,34 +103,20 @@
         {
           "path": "src/app/api/files/operations/route.ts",
           "relPath": "src/app/api/files/operations/route.ts",
-          "verdict": "inline-zod",
-          "hasInlineZod": true,
-          "importsBoundary": false,
-          "inlineZodSites": [
-            {
-              "line": 248,
-              "text": "bodySchema: z.object({ id: z.string().uuid() }),"
-            }
-          ],
-          "firstBoundaryImportLine": null
+          "verdict": "boundary-imported",
+          "hasInlineZod": false,
+          "importsBoundary": true,
+          "inlineZodSites": [],
+          "firstBoundaryImportLine": 2
         },
         {
           "path": "src/app/api/files/preferences/route.ts",
           "relPath": "src/app/api/files/preferences/route.ts",
-          "verdict": "inline-zod",
-          "hasInlineZod": true,
-          "importsBoundary": false,
-          "inlineZodSites": [
-            {
-              "line": 13,
-              "text": "const querySchema = z.object({"
-            },
-            {
-              "line": 14,
-              "text": "mode: z.enum([\"favorites\", \"recent\", \"tags\", \"entry\"]).default(\"favorites\"),"
-            }
-          ],
-          "firstBoundaryImportLine": null
+          "verdict": "boundary-imported",
+          "hasInlineZod": false,
+          "importsBoundary": true,
+          "inlineZodSites": [],
+          "firstBoundaryImportLine": 2
         },
         {
           "path": "src/app/api/files/search-content/route.ts",

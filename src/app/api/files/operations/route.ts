@@ -1,5 +1,5 @@
 import { NextResponse } from "next/server";
-import { z } from "zod";
+import { cancelFileOperationSchema } from "@/lib/files/schema";
 import { prisma } from "@/lib/db";
 import { withApiRoute, requestLocale } from "@/lib/http/api-guard";
 import { GENERAL_WRITE_LIMIT } from "@/lib/http/rate-limit-presets";
@@ -245,7 +245,7 @@ export async function PATCH(request: Request) {
     request,
     {
       permission: "storage:read",
-      bodySchema: z.object({ id: z.string().uuid() }),
+      bodySchema: cancelFileOperationSchema,
       errorMessage: errorMessage(),
     },
     async ({ session, body }) => {

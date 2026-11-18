@@ -46,7 +46,7 @@ try {
   const origin = `http://127.0.0.1:${port}`;
   let ready = false;
   for (let attempt = 0; attempt < 150; attempt++) {
-    try { const response = await fetch(`${origin}/api/status`, { signal: AbortSignal.timeout(3_000) }); if (response.ok) { ready = true; break; } }
+    try { await run(process.execPath, ["scripts/check-app-ready.mjs", `${origin}/api/status`]); ready = true; break; }
     catch { /* Wait for migrations, seed and both gateways. */ }
     await delay(1_000);
   }
@@ -73,6 +73,16 @@ try {
   // Platform backup runs deploy/backup.sh (→ scripts/backup.mjs → pg_dump) inside the image.
   await docker("exec", app, "bash", "deploy/backup.sh", "/app/backups/docker-smoke.sql.gz");
   await docker("exec", app, "sh", "-c", "test -s /app/backups/docker-smoke.sql.gz && gzip -t /app/backups/docker-smoke.sql.gz && psql --version | grep -q ' 16\\.'");
+  // Run the Compose probe inside the image against both a ready and an unavailable database.
+  const probe = ["exec", app, "node", "scripts/check-app-ready.mjs", "http://127.0.0.1:3000/api/status"];
+  await docker(...probe);
+  await docker("stop", database);
+  let unavailable = false;
+  try { await docker(...probe); } catch (error) {
+    if (error.code !== 1) throw error;
+    unavailable = true;
+  }
+  if (!unavailable) throw new Error("Container still reports ready after the database stopped");
   console.log("docker-smoke-ok: fresh migrations, bundled seed, login, authenticated OpenAPI, web/worker/gateway processes, SSH protocol, platform database backup and production-only dependencies");
 } catch (error) {
   console.error(error instanceof Error ? error.message : "Docker smoke failed");

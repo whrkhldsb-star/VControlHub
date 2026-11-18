@@ -71,7 +71,7 @@ services:
         target: /var/run/docker.sock
         read_only: true
     healthcheck:
-      test: ["CMD-SHELL", "curl -fsS http://127.0.0.1:3000/api/status >/dev/null"]
+      test: ["CMD", "node", "scripts/check-app-ready.mjs", "http://127.0.0.1:3000/api/status"]
       interval: 30s
       timeout: 5s
       retries: 5

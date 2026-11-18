@@ -1,5 +1,5 @@
 import { NextResponse } from "next/server";
-import { z } from "zod";
+import { filePreferencesQuerySchema } from "@/lib/files/schema";
 import { withApiRoute } from "@/lib/http/api-guard";
 import { FILE_PREFERENCE_LIMIT } from "@/lib/http/rate-limit-presets";
 import {
@@ -10,19 +10,13 @@ import {
 import { apiCopy } from "@/lib/i18n/api-copy";
 
 export const dynamic = "force-dynamic";
-const querySchema = z.object({
-  mode: z.enum(["favorites", "recent", "tags", "entry"]).default("favorites"),
-  tag: z.string().max(32).optional(),
-  fileEntryId: z.string().max(128).optional(),
-  cursor: z.string().max(128).optional(),
-});
 
 export async function GET(request: Request) {
   return withApiRoute(
     request,
     {
       permission: "storage:read",
-      querySchema,
+      querySchema: filePreferencesQuerySchema,
       errorMessage: apiCopy("apiCopy.failed.to.fetch.preferences.ffdd88c2"),
     },
     async ({ session, query }) => {

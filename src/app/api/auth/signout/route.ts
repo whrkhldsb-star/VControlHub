@@ -46,9 +46,10 @@ export async function POST(request: Request) {
         );
       }
 
-      const requestUrl = new URL(request.url);
-      const response = NextResponse.redirect(new URL("/login", requestUrl), 303);
-      response.headers.set("location", "/login");
+      const wantsJson = request.headers.get("accept")?.includes("application/json");
+      const response = wantsJson
+        ? NextResponse.json({ signedOut: true })
+        : new NextResponse(null, { status: 303, headers: { location: "/login" } });
       const cookieSecure = isRequestHttps(request);
       // Attributes must match how each cookie was set, or the browser treats the
       // clear as a different cookie and keeps the original. `csrf_token` is the

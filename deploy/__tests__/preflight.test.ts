@@ -927,126 +927,27 @@ describeOrSkip("deploy/install.sh", () => {
     }
   }, 15000);
 
-  it("refuses to install live systemd units from temporary APP_DIR test fixtures", async () => {
+  it.each([
+    ["0", "Refusing to install live systemd units from temporary APP_DIR"],
+    ["1", "SKIP_SYSTEMD=1 is only allowed together with DESTDIR"],
+  ])("rejects invalid install scope (SKIP_SYSTEMD=%s) before host preparation", async (skipSystemd, message) => {
     const repoRoot = path.resolve(__dirname, "../..");
     const appDir = await makeAppDir();
-    const envFile = path.join(appDir, ".env.local");
     const binDir = path.join(appDir, "bin");
-    await writeValidEnv(envFile);
-    await mkdir(binDir, { recursive: true });
-    for (const command of [
-      "id",
-      "useradd",
-      "apt-get",
-      "curl",
-      "gpg",
-      "chown",
-      "install",
-      "caddy",
-      "rsync",
-      "git",
-      "sleep",
-      "node",
-      "npm",
-      "npx",
-      "systemd-analyze",
-      "systemctl",
-    ]) {
-      let body = "#!/usr/bin/env bash\nexit 0\n";
-      if (command === "id")
-        body =
-          '#!/usr/bin/env bash\nif [ "$1" = "-u" ]; then printf \'0\\n\'; else exit 0; fi\n';
-      if (command === "node")
-        body =
-          "#!/usr/bin/env bash\nif [ \"$1\" = \"-p\" ]; then printf '22\\n'; else printf 'node\\n'; fi\n";
-      await writeFile(path.join(binDir, command), body);
-      await chmod(path.join(binDir, command), 0o755);
-    }
-
+    const marker = path.join(appDir, "host-command-called");
     try {
+      await mkdir(binDir);
+      await writeFile(path.join(binDir, "id"), "#!/bin/sh\necho 0\n", { mode: 0o755 });
+      for (const cmd of ["apt-get", "useradd", "mkdir", "chown", "install", "systemctl", "git", "rsync", "psql", "curl"]) {
+        await writeFile(path.join(binDir, cmd), '#!/bin/sh\necho "$0" >> "$HOST_COMMAND_LOG"\nexit 91\n', { mode: 0o755 });
+      }
       const result = await runScript(path.join(repoRoot, "deploy/install.sh"), {
         cwd: repoRoot,
-        env: {
-          ...process.env,
-          PATH: `${binDir}:/usr/bin:/bin`,
-          APP_DIR: appDir,
-          ENV_FILE: envFile,
-          SOURCE_DIR: repoRoot,
-          SKIP_PACKAGES: "1",
-          SKIP_RESTART: "1",
-          SKIP_BUILD: "1",
-          SKIP_DB_SETUP: "1",
-          SKIP_CADDY: "1",
-        },
+        env: { ...process.env, PATH: `${binDir}:/usr/bin:/bin`, DESTDIR: "", APP_DIR: appDir, SKIP_SYSTEMD: skipSystemd, HOST_COMMAND_LOG: marker },
       });
-
       expect(result.code).not.toBe(0);
-      expect(result.stderr + result.stdout).toContain(
-        "Refusing to install live systemd units from temporary APP_DIR",
-      );
-    } finally {
-      await rm(appDir, { force: true, recursive: true });
-    }
-  });
-
-  it("refuses SKIP_SYSTEMD outside isolated DESTDIR test runs", async () => {
-    const repoRoot = path.resolve(__dirname, "../..");
-    const appDir = await makeAppDir();
-    const envFile = path.join(appDir, ".env.local");
-    const binDir = path.join(appDir, "bin");
-    await writeValidEnv(envFile);
-    await mkdir(binDir, { recursive: true });
-    for (const command of [
-      "id",
-      "useradd",
-      "apt-get",
-      "curl",
-      "gpg",
-      "chown",
-      "install",
-      "caddy",
-      "rsync",
-      "git",
-      "sleep",
-      "node",
-      "npm",
-      "npx",
-      "systemd-analyze",
-      "systemctl",
-    ]) {
-      let body = "#!/usr/bin/env bash\nexit 0\n";
-      if (command === "id")
-        body =
-          '#!/usr/bin/env bash\nif [ "$1" = "-u" ]; then printf \'0\\n\'; else exit 0; fi\n';
-      if (command === "node")
-        body =
-          "#!/usr/bin/env bash\nif [ \"$1\" = \"-p\" ]; then printf '22\\n'; else printf 'node\\n'; fi\n";
-      await writeFile(path.join(binDir, command), body);
-      await chmod(path.join(binDir, command), 0o755);
-    }
-
-    try {
-      const result = await runScript(path.join(repoRoot, "deploy/install.sh"), {
-        cwd: repoRoot,
-        env: {
-          ...process.env,
-          PATH: `${binDir}:/usr/bin:/bin`,
-          APP_DIR: appDir,
-          ENV_FILE: envFile,
-          SOURCE_DIR: repoRoot,
-          SKIP_PACKAGES: "1",
-          SKIP_RESTART: "1",
-          SKIP_SYSTEMD: "1",
-          SKIP_BUILD: "1",
-          SKIP_DB_SETUP: "1",
-          SKIP_CADDY: "1",
-        },
-      });
-
-      expect(result.code).not.toBe(0);
-      expect(result.stderr + result.stdout).toContain(
-        "SKIP_SYSTEMD=1 is only allowed together with DESTDIR",
-      );
+      expect(result.stderr).toContain(message);
+      await expect(access(marker)).rejects.toMatchObject({ code: "ENOENT" });
     } finally {
       await rm(appDir, { force: true, recursive: true });
     }

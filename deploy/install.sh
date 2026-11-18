@@ -1410,6 +1410,7 @@ main() {
   *) fail "Unknown argument: $1. Use --help for usage." ;;
  esac
 
+ validate_install_scope
  need_root
  install_packages
  install_docker
@@ -1421,7 +1422,6 @@ main() {
  sync_installer_env_overrides
  auto_generate_env_secrets
  setup_postgres
- validate_install_scope
  validate_env
  if [ -x "${APP_DIR}/deploy/preflight.sh" ]; then
  APP_DIR="${APP_DIR}" ENV_FILE="${ENV_FILE}" NEXT_HOST="${NEXT_HOST}" NEXT_PORT="${NEXT_PORT}" SSH_WS_PORT="${SSH_WS_PORT}" "${APP_DIR}/deploy/preflight.sh"

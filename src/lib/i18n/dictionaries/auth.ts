@@ -55,6 +55,7 @@ export const zh: Record<string, string> = {
 	"auth.2fa-verifying": "验证中…",
 	"auth.change-password": "修改密码",
 	"auth.logout": "退出登录",
+	"auth.logoutFailed": "未能确认退出登录。请再次点击退出登录。",
 	"auth.two-factor": "两步验证",
 };
 
@@ -103,5 +104,6 @@ export const en: Record<string, string> = {
 	"auth.2fa-verifying": "Verifying…",
 	"auth.change-password": "Change password",
 	"auth.logout": "Sign out",
+	"auth.logoutFailed": "Sign-out could not be confirmed. Select Sign out to retry.",
 	"auth.two-factor": "Two-factor authentication",
 };

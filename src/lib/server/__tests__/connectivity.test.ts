@@ -62,7 +62,7 @@ describe("tcpProbe", () => {
 		expect(reachable.error).toBeDefined();
 	});
 
-	it("reports ok=false with ENOTFOUND when the hostname does not resolve", async () => {
+	it("reports a resolution error when the hostname cannot be resolved", async () => {
 		const result = await tcpProbe(
 			"definitely-not-a-real-host-9f8a7b6c.invalid",
 			22,
@@ -73,7 +73,7 @@ describe("tcpProbe", () => {
 		// black-hole the lookup instead of answering — the probe then resolves
 		// via its timeout. Both are failure modes of name resolution; the
 		// property under test is ok=false with a surfaced error.
-		expect(result.error ?? "").toMatch(/ENOTFOUND|resolve|not.found|timeout/i);
+		expect(result.error ?? "").toMatch(/ENOTFOUND|EAI_AGAIN|resolve|not.found|timeout/i);
 	});
 
 	it("never throws and always resolves within roughly the configured timeout", async () => {
