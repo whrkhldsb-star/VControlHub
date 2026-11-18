@@ -359,12 +359,14 @@ function NodePublication({ metrics, t }: { metrics: string[]; t: T }) {
 	const [confirmNamed, setConfirmNamed] = useState(false);
 
 	useEffect(() => {
+		const nextQuery = q.trim();
+		if (nextQuery === query) return;
 		const timer = setTimeout(() => {
-			setQuery(q.trim());
+			setQuery(nextQuery);
 			setPage(1);
 		}, 300);
 		return () => clearTimeout(timer);
-	}, [q]);
+	}, [q, query]);
 
 	// Loading is "what is asked for has not been answered yet": paging, filtering and searching show it like a
 	// reload does, and it cannot stay on (it was a flag only the reload set).

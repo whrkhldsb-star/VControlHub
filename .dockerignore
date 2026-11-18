@@ -31,3 +31,19 @@ node_modules.*
 coverage
 playwright-report
 test-results
+
+# Local databases, dumps and test outputs must stay outside builder layers.
+**/*.db
+**/*.db-*
+**/*.sqlite
+**/*.sqlite-*
+**/*.sqlite3
+**/*.sqlite3-*
+**/*.dump
+**/*.sql
+!prisma/migrations/**/migration.sql
+**/*.sql.gz
+**/.playwright-output
+**/.local
+**/.npm
+**/file-versions

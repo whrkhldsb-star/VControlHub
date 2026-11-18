@@ -98,6 +98,16 @@ describe("POST /api/auth/signout", () => {
 		}
 	});
 
+	it("confirms cookie clearing to the JSON client without a redirect", async () => {
+		const response = await route.POST(new Request("https://hub.example/api/auth/signout", {
+			method: "POST", headers: { Accept: "application/json" },
+		}));
+		expect(response.status).toBe(200);
+		expect(response.headers.has("location")).toBe(false);
+		expect(await response.json()).toEqual({ signedOut: true });
+		expect(clearedCookies(response).size).toBe(3);
+	});
+
 	it("audits the signout before clearing, while the session is still resolvable", async () => {
 		await route.POST(new Request("https://hub.example/api/auth/signout", { method: "POST" }));
 

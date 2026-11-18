@@ -120,3 +120,12 @@ export const searchFileContentQuerySchema = z.object({
   nodeId: z.string().trim().min(1).optional(),
   path: z.string().trim().optional(),
 });
+
+export const cancelFileOperationSchema = z.object({ id: z.string().uuid() });
+
+export const filePreferencesQuerySchema = z.object({
+  mode: z.enum(["favorites", "recent", "tags", "entry"]).default("favorites"),
+  tag: z.string().max(32).optional(),
+  fileEntryId: z.string().max(128).optional(),
+  cursor: z.string().max(128).optional(),
+});

@@ -12,7 +12,8 @@
 
 // v5: earlier versions could hold an /offline page rendered with the signed-in shell (user name, roles,
 // quick-service links); bumping the version makes activate delete those caches.
-const CACHE_VERSION = "vch-shell-v5";
+const CACHE_PREFIX = "vch-shell-";
+const CACHE_VERSION = `${CACHE_PREFIX}v5`;
 const SHELL_CACHE = `${CACHE_VERSION}-shell`;
 const RUNTIME_CACHE = `${CACHE_VERSION}-runtime`;
 
@@ -41,7 +42,7 @@ self.addEventListener("activate", (event) => {
 			.then((keys) =>
 				Promise.all(
 					keys
-						.filter((key) => key !== SHELL_CACHE && key !== RUNTIME_CACHE)
+						.filter((key) => key.startsWith(CACHE_PREFIX) && key !== SHELL_CACHE && key !== RUNTIME_CACHE)
 						.map((key) => caches.delete(key)),
 				),
 			)
@@ -70,7 +71,7 @@ self.addEventListener("message", (event) => {
 	}
 	if (data.type === "VCH_PWA_CLEAR_CACHES") {
 		event.waitUntil(
-			caches.keys().then((keys) => Promise.all(keys.map((key) => caches.delete(key)))),
+			caches.keys().then((keys) => Promise.all(keys.filter((key) => key.startsWith(CACHE_PREFIX)).map((key) => caches.delete(key)))),
 		);
 		return;
 	}
@@ -93,7 +94,7 @@ self.addEventListener("fetch", (event) => {
 		event.respondWith(
 			fetch(request)
 				.catch(async () => {
-					const offline = await caches.match("/offline");
+					const offline = await caches.match("/offline", { cacheName: SHELL_CACHE });
 					return offline || new Response("Offline", { status: 503, statusText: "Offline" });
 				}),
 		);
@@ -103,7 +104,8 @@ self.addEventListener("fetch", (event) => {
 	// Same-origin static assets: cache-first.
 	if (isStaticAsset(url)) {
 		event.respondWith(
-			caches.match(request).then((cached) => {
+			caches.match(request, { cacheName: SHELL_CACHE }).then(async (precached) => {
+				const cached = precached || await caches.match(request, { cacheName: RUNTIME_CACHE });
 				if (cached) return cached;
 				return fetch(request).then((response) => {
 					if (response.ok) {

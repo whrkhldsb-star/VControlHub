@@ -94,6 +94,23 @@ describe("PublicStatusAdminClient", () => {
 		await waitFor(() => expect(api.post).toHaveBeenCalledWith("/api/admin/public-status/nodes", { action: "unpublish", serverIds: ["srv_1"] }));
 	});
 
+	it("keeps the selected page when the initial search delay elapses without input", async () => {
+		vi.useFakeTimers();
+		try {
+			api.get.mockImplementation(async (url: string) => {
+				const page = Number(new URL(url, "http://localhost").searchParams.get("page"));
+				return { total: 26, page, pageSize: 25, rows: [{ ...ROW, serverName: `node-on-page-${page}` }] };
+			});
+			await act(async () => { renderAdmin(); });
+			await act(async () => { screen.getByRole("button", { name: "Next" }).click(); });
+			expect(screen.getByText("node-on-page-2")).toBeVisible();
+			await act(async () => { await vi.advanceTimersByTimeAsync(300); });
+			expect(screen.getByText("node-on-page-2")).toBeVisible();
+		} finally {
+			vi.useRealTimers();
+		}
+	});
+
 	it("names every selected server that would go public under its own name, whatever page it is on", async () => {
 		// The selection survives paging, but the confirmation listed the servers of the page on screen only.
 		const user = userEvent.setup();

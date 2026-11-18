@@ -1,6 +1,6 @@
 "use client";
 
-import { useTransition } from "react";
+import { useState, useTransition } from "react";
 
 import { csrfFetch } from "@/lib/auth/csrf-client";
 
@@ -11,14 +11,23 @@ import { useI18n } from "@/lib/i18n/use-locale";
 export function SignOutButton() {
 	const [pending, startTransition] = useTransition();
 	const { t } = useI18n();
+	const [failed, setFailed] = useState(false);
 
 	function handleSignOut() {
 		startTransition(async () => {
+			setFailed(false);
 			try {
-				await csrfFetch("/api/auth/signout", { method: "POST" });
+				const result = await csrfFetch<{ signedOut: boolean }>("/api/auth/signout", {
+					method: "POST",
+					headers: { Accept: "application/json" },
+				});
+				if (result?.signedOut !== true) {
+					setFailed(true);
+					return;
+				}
 			} catch {
-				// fall through to redirect anyway — server clears cookie on success,
-				// and on failure we still want the user to leave the authed surface.
+				setFailed(true);
+				return;
 			}
 			// Drop the service worker's caches too, so nothing from this session outlives it on a shared browser.
 			try {
@@ -33,16 +42,19 @@ export function SignOutButton() {
 	}
 
 	return (
-		<button
-			type="button"
-			aria-label={t("auth.logout")}
-			onClick={handleSignOut}
-			disabled={pending}
-			data-menu-item
-			data-danger
-		>
-			<IconLogOut size={16} />
-			<span><LocalizedText textKey="auth.logout" fallback="Sign out" /></span>
-		</button>
+		<>
+			<button
+				type="button"
+				aria-label={t("auth.logout")}
+				onClick={handleSignOut}
+				disabled={pending}
+				data-menu-item
+				data-danger
+			>
+				<IconLogOut size={16} />
+				<span><LocalizedText textKey="auth.logout" fallback="Sign out" /></span>
+			</button>
+			{failed && <p role="alert" className="px-3 text-sm text-[var(--danger)]">{t("auth.logoutFailed")}</p>}
+		</>
 	);
 }

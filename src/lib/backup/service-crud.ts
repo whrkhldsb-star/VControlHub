@@ -137,35 +137,29 @@ export async function abandonStalePendingBackupRecords(input?: {
 	const reason = (input?.reason ?? "Stale PENDING backup abandoned after timeout").slice(0, 500);
 	const limit = Math.min(Math.max(input?.limit ?? 50, 1), 200);
 	const cutoff = new Date(Date.now() - olderThanMs);
-	// Waiting since it was last queued, not since it was first created: a
-	// two-day-old failure retried just now was voided before its fresh job
-	// could start.
-	const stale = await prisma.backupRecord.findMany({
-		where: { status: "PENDING", updatedAt: { lt: cutoff } },
-		select: { id: true },
-		orderBy: { updatedAt: "asc" },
-		take: limit,
-	});
-	if (stale.length === 0) return { abandoned: 0, ids: [] as string[] };
-
-	const ids: string[] = [];
-	for (const row of stale) {
-		// A record with a job still queued or running is not orphaned.
-		const queued = await prisma.job.count({
-			// "backup.create" is BACKUP_CREATE_JOB_TYPE, not imported: job-worker imports the backup service.
-			where: { type: "backup.create", status: { in: ["PENDING", "RUNNING"] }, payload: { path: ["backupId"], equals: row.id } },
-		});
-		if (queued > 0) continue;
-		const claimed = await prisma.backupRecord.updateMany({
-			where: { id: row.id, status: "PENDING", updatedAt: { lt: cutoff } },
-			data: {
-				status: "VOIDED",
-				errorMessage: apiCopy("apiCopy.voided.991e85c4", { v0: String(reason) }),
-			},
-		});
-		if (claimed.count > 0) ids.push(row.id);
-	}
-	return { abandoned: ids.length, ids };
+	// Filter jobs before LIMIT so that a backlog cannot hide older orphans.
+	// Lock the selected records in the same statement that voids them.
+	const message = apiCopy("apiCopy.voided.991e85c4", { v0: reason });
+	const rows = await prisma.$queryRaw<{ id: string }[]>`
+		WITH orphans AS (
+			SELECT b.id, b."updatedAt" FROM backup_records b
+			WHERE b.status = 'PENDING' AND b."updatedAt" < ${cutoff}
+			  AND NOT EXISTS (
+				SELECT 1 FROM jobs j WHERE j.type = ${BACKUP_CREATE_JOB_TYPE}
+				  AND j.status IN ('PENDING', 'RUNNING') AND j.payload->>'backupId' = b.id
+			  )
+			ORDER BY b."updatedAt", b.id
+			LIMIT ${limit} FOR NO KEY UPDATE OF b SKIP LOCKED
+		), voided AS (
+			UPDATE backup_records b
+			SET status = 'VOIDED', "errorMessage" = ${message}, "updatedAt" = ${new Date()}
+			FROM orphans WHERE b.id = orphans.id
+			RETURNING b.id
+		)
+		SELECT voided.id FROM voided JOIN orphans USING (id)
+		ORDER BY orphans."updatedAt", orphans.id
+	`;
+	return { abandoned: rows.length, ids: rows.map((row) => row.id) };
 }
 
 /**

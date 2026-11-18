@@ -13,6 +13,7 @@ const { mockPrisma, runBackupCommandMock, statMock, createReadStreamMock } = vi.
   mockPrisma: {
     backupRecord: { create: vi.fn(), findMany: vi.fn(), findUnique: vi.fn(), findFirst: vi.fn(), update: vi.fn(), updateMany: vi.fn() },
     job: { count: vi.fn(async () => 0) },
+    $queryRaw: vi.fn(),
     $executeRaw: vi.fn().mockResolvedValue(undefined),
   },
   runBackupCommandMock: vi.fn(),
@@ -238,27 +239,12 @@ describe("backup service", () => {
   });
 
   it("abandons orphan PENDING backups older than the timeout window", async () => {
-    mockPrisma.backupRecord.findMany.mockResolvedValueOnce([{ id: "stale-1" }, { id: "stale-2" }]);
-    mockPrisma.backupRecord.updateMany
-      .mockResolvedValueOnce({ count: 1 })
-      .mockResolvedValueOnce({ count: 1 });
-
-    const result = await abandonStalePendingBackupRecords({
-      olderThanMs: 60_000,
-      reason: "timeout",
-    });
-
+    mockPrisma.$queryRaw.mockResolvedValueOnce([{ id: "stale-1" }, { id: "stale-2" }]);
+    const result = await abandonStalePendingBackupRecords({ olderThanMs: 60_000, reason: "timeout" });
     expect(result).toEqual({ abandoned: 2, ids: ["stale-1", "stale-2"] });
-    expect(mockPrisma.backupRecord.findMany).toHaveBeenCalledWith(
-      expect.objectContaining({
-        where: expect.objectContaining({ status: "PENDING" }),
-        take: 50,
-      }),
+    expect(mockPrisma.$queryRaw).toHaveBeenCalledWith(
+      expect.any(Array), expect.any(Date), "backup.create", 50, "Voided: timeout", expect.any(Date),
     );
-    expect(mockPrisma.backupRecord.updateMany).toHaveBeenCalledWith({
-      where: { id: "stale-1", status: "PENDING", updatedAt: { lt: expect.any(Date) } },
-      data: { status: "VOIDED", errorMessage: "Voided: timeout" },
-    });
   });
 
   it("abandons orphan RUNNING backups (crashed worker) as FAILED via CAS", async () => {

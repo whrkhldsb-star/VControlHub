@@ -35,7 +35,7 @@ RUN apt-get update \
       openssl \
       sshpass \
     && install -d /usr/share/postgresql-common/pgdg \
-    && curl -fsSL -o /usr/share/postgresql-common/pgdg/apt.postgresql.org.asc https://www.postgresql.org/media/keys/ACCC4CF8.asc \
+    && curl -fsSL --retry 3 --retry-all-errors -o /usr/share/postgresql-common/pgdg/apt.postgresql.org.asc https://www.postgresql.org/media/keys/ACCC4CF8.asc \
     && . /etc/os-release \
     && echo "deb [signed-by=/usr/share/postgresql-common/pgdg/apt.postgresql.org.asc] https://apt.postgresql.org/pub/repos/apt ${VERSION_CODENAME}-pgdg main" > /etc/apt/sources.list.d/pgdg.list \
     && apt-get update \
@@ -44,7 +44,8 @@ RUN apt-get update \
 
 COPY --from=builder /app/public ./public
 COPY --from=builder /app/.next ./.next
-COPY --from=builder /app/prisma ./prisma
+COPY --from=builder /app/prisma/schema.prisma ./prisma/schema.prisma
+COPY --from=builder /app/prisma/migrations ./prisma/migrations
 COPY --from=builder /app/dist ./dist
 COPY --from=builder /app/node_modules ./node_modules
 COPY --from=builder /app/package.json ./package.json
@@ -52,7 +53,7 @@ COPY --from=builder /app/prisma.config.ts ./prisma.config.ts
 COPY --from=builder /app/dist/next.config.mjs ./next.config.mjs
 COPY --from=builder /app/docs/route-catalog.json ./docs/route-catalog.json
 COPY --from=builder /app/docker-entrypoint.sh ./docker-entrypoint.sh
-COPY --from=builder /app/scripts/check-ssh-gateway.mjs ./scripts/check-ssh-gateway.mjs
+COPY --from=builder /app/scripts/check-ssh-gateway.mjs /app/scripts/check-app-ready.mjs ./scripts/
 # Platform backup and restore entrypoints (src/lib/backup/platform-runner.ts).
 COPY --from=builder /app/deploy/backup.sh ./deploy/backup.sh
 COPY --from=builder /app/scripts/backup.mjs /app/scripts/restore.mjs /app/scripts/restore-db.sh /app/scripts/restore-files.sh /app/scripts/restore-full.sh ./scripts/

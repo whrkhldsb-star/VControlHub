@@ -1,5 +1,6 @@
 import fs from "node:fs";
 import path from "node:path";
+import { runInNewContext } from "node:vm";
 
 import { describe, expect, it } from "vitest";
 
@@ -34,13 +35,29 @@ describe("public/sw.js PWA cache policy", () => {
 		expect(swSource).not.toContain("VCH_PWA_WARM_ROUTE");
 		expect(navigationBlock).not.toContain("cache.put");
 		expect(navigationBlock).not.toContain("caches.match(request)");
-		expect(navigationBlock).toContain('caches.match("/offline")');
+		expect(navigationBlock).toContain('caches.match("/offline", { cacheName: SHELL_CACHE })');
 	});
 
 	it("keeps API requests out of the cache", () => {
 		expect(swSource).toContain("function isApiRequest");
 		expect(swSource).toContain('url.pathname.startsWith("/api/")');
 		expect(swSource).toContain("if (isApiRequest(url)) return;");
+	});
+
+	it("limits cache cleanup on activation and sign-out to VControlHub caches", async () => {
+		const names = new Set(["vch-shell-v4-shell", "vch-shell-v5-shell", "vch-shell-v5-runtime", "other-app-offline"]);
+		type WorkerEvent = { data?: { type: string }; waitUntil: (work: Promise<unknown>) => void };
+		const listeners = new Map<string, (event: WorkerEvent) => void>();
+		runInNewContext(swSource, {
+			self: { addEventListener: listeners.set.bind(listeners), clients: { claim() {} } },
+			caches: { keys: async () => [...names], delete: async (key: string) => names.delete(key) },
+		});
+		for (const event of ["activate", "message"]) {
+			let work: Promise<unknown> | undefined;
+			listeners.get(event)!({ data: { type: "VCH_PWA_CLEAR_CACHES" }, waitUntil: (task) => { work = task; } });
+			await work;
+			expect([...names]).toEqual(event === "activate" ? ["vch-shell-v5-shell", "vch-shell-v5-runtime", "other-app-offline"] : ["other-app-offline"]);
+		}
 	});
 
 	it("supports skip-waiting so the update prompt can activate a new worker", () => {
