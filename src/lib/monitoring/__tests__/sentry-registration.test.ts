@@ -9,14 +9,15 @@ import { afterEach, beforeEach, describe, expect, it, vi } from "vitest";
  * Sentry would still initialise the SDK, and error/replay data from a private
  * VPS fleet would be prepared for transmission to a third party.
  *
- * `replaysSessionSampleRate` is pinned at 0 on both sides for the same reason:
+ * `replaysSessionSampleRate` is pinned at 0 in the browser for the same reason:
  * session replay records the operator's screen, including hostnames, file paths
  * and command output. Only on-error replay is enabled, and only when a DSN is
  * present.
  */
-const mocks = vi.hoisted(() => ({ init: vi.fn() }));
+const mocks = vi.hoisted(() => ({ init: vi.fn(), httpIntegration: vi.fn(), browserTracingIntegration: vi.fn() }));
 
-vi.mock("@sentry/nextjs", () => ({ init: mocks.init }));
+vi.mock("@sentry/react", () => ({ init: mocks.init, browserTracingIntegration: mocks.browserTracingIntegration }));
+vi.mock("@sentry/node", () => ({ init: mocks.init, httpIntegration: mocks.httpIntegration }));
 
 const ENV_KEYS = [
 	"NEXT_RUNTIME",
@@ -26,7 +27,8 @@ const ENV_KEYS = [
 	"NEXT_PUBLIC_SENTRY_REPLAYS_ON_ERROR_SAMPLE_RATE",
 	"SENTRY_DSN",
 	"SENTRY_TRACES_SAMPLE_RATE",
-	"SENTRY_REPLAYS_ON_ERROR_SAMPLE_RATE",
+	"NEXT_PHASE",
+	"NEXT_OTEL_FETCH_DISABLED",
 ] as const;
 
 const saved: Record<string, string | undefined> = {};
@@ -60,6 +62,7 @@ describe("sentry registration", () => {
 			registerClientSentry();
 			expect(mocks.init).toHaveBeenCalledTimes(1);
 			expect(mocks.init.mock.calls[0]![0]).toMatchObject({ dsn: "https://key@sentry.test/1" });
+			expect(mocks.browserTracingIntegration).toHaveBeenCalledOnce();
 		});
 
 		it("keeps session replay off so an operator's screen is never recorded wholesale", async () => {
@@ -123,12 +126,22 @@ describe("sentry registration", () => {
 			expect(mocks.init.mock.calls[0]![0]).toMatchObject({ dsn: "https://key@sentry.test/2" });
 		});
 
-		it("keeps server-side session replay off as well", async () => {
+		it("leaves incoming request tracing to Next and replay to the browser", async () => {
 			process.env.NEXT_RUNTIME = "nodejs";
 			process.env.SENTRY_DSN = "https://key@sentry.test/2";
 			const { registerServerSentry } = await import("../sentry.server");
 			registerServerSentry();
-			expect(mocks.init.mock.calls[0]![0].replaysSessionSampleRate).toBe(0);
+			expect(mocks.httpIntegration).toHaveBeenCalledWith({ disableIncomingRequestSpans: true });
+			expect(mocks.init.mock.calls[0]![0]).not.toHaveProperty("replaysOnErrorSampleRate");
+		});
+
+		it("does not initialise while Next builds production routes", async () => {
+			process.env.NEXT_RUNTIME = "nodejs";
+			process.env.NEXT_PHASE = "phase-production-build";
+			process.env.SENTRY_DSN = "https://key@sentry.test/2";
+			const { registerServerSentry } = await import("../sentry.server");
+			registerServerSentry();
+			expect(mocks.init).not.toHaveBeenCalled();
 		});
 
 		it("does not initialise on the edge runtime even with a DSN present", async () => {
