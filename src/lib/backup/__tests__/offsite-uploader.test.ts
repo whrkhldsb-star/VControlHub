@@ -396,6 +396,7 @@ describe("retryPendingOffsiteUploads", () => {
 		expect(secondCall.where).toEqual({
 			status: "COMPLETED",
 			offsiteKey: null,
+			offsiteSize: null,
 			OR: [{ createdAt: { gt: last.createdAt } }, { createdAt: last.createdAt, id: { gt: last.id } }],
 		});
 	});

@@ -71,7 +71,7 @@ export type OffsiteUploadResult =
 	| {
 			ok: true;
 			skipped: true;
-			reason: "offsite_disabled" | "backup_not_completed";
+			reason: "offsite_disabled" | "backup_not_completed" | "offsite_expired";
 	  }
 	| {
 			ok: false;
@@ -103,6 +103,10 @@ export async function uploadBackupToOffsite(input: {
 	}
 	if (record.status !== "COMPLETED") {
 		return { ok: true, skipped: true, reason: "backup_not_completed" };
+	}
+
+	if (!record.offsiteKey && record.offsiteSize != null) {
+		return { ok: true, skipped: true, reason: "offsite_expired" };
 	}
 
 	// 1. 加载 offsite 配置
@@ -301,7 +305,7 @@ export async function retryPendingOffsiteUploads(input: {
 	while (observed < maxRecords) {
 		const take = Math.min(100, maxRecords - observed);
 		const records: PendingOffsiteKey[] = await prisma.backupRecord.findMany({
-			where: { status: "COMPLETED", offsiteKey: null, ...pendingOffsiteAfter(after) },
+			where: { status: "COMPLETED", offsiteKey: null, offsiteSize: null, ...pendingOffsiteAfter(after) },
 			orderBy: [{ createdAt: "asc" }, { id: "asc" }],
 			take,
 			select: { id: true, createdAt: true },

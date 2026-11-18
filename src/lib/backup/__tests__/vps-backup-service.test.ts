@@ -374,6 +374,7 @@ describe("retryPendingVpsOffsiteUploads", () => {
     const secondCall = mocks.findMany.mock.calls[1]![0];
     expect(secondCall).not.toHaveProperty("cursor");
     expect(secondCall).not.toHaveProperty("skip");
+    expect(secondCall.where.offsiteSize).toBeNull();
     expect(secondCall.where.OR).toEqual([
       { createdAt: { gt: last.createdAt } },
       { createdAt: last.createdAt, id: { gt: last.id } },
