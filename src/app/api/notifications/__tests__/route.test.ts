@@ -7,6 +7,7 @@ const {
   markAsReadMock,
   markAllAsReadMock,
   deleteNotificationMock,
+  auditUserAction,
 } = vi.hoisted(() => ({
   requireApiSessionMock: vi.fn(),
   listUserNotificationsMock: vi.fn(),
@@ -14,6 +15,7 @@ const {
   markAsReadMock: vi.fn(),
   markAllAsReadMock: vi.fn(),
   deleteNotificationMock: vi.fn(),
+  auditUserAction: vi.fn(),
 }));
 
 vi.mock("@/lib/auth/api-session", () => ({
@@ -21,6 +23,8 @@ vi.mock("@/lib/auth/api-session", () => ({
 
   isSessionPayload: (value: unknown) => Boolean(value),
 }));
+
+vi.mock("@/lib/audit/service", () => ({ auditUserAction }));
 
 vi.mock("@/lib/notification/service", () => ({
   listUserNotifications: listUserNotificationsMock,
@@ -32,7 +36,7 @@ vi.mock("@/lib/notification/service", () => ({
 
 import { DELETE, GET, PATCH } from "../route";
 
-const session = { userId: "u_1", username: "alice" };
+const session = { userId: "u_1", username: "alice", currentTeamId: "team_1" };
 
 describe("/api/notifications", () => {
   it("returns notifications for the authenticated user only", async () => {
@@ -55,34 +59,38 @@ describe("/api/notifications", () => {
     await expect(response.json()).resolves.toMatchObject({ unreadCount: 1 });
   });
 
-  it("marks only the authenticated user's notifications as read", async () => {
+  it.each([{ notificationId: "n_1" }, { action: "markAsRead", notificationId: "n_1" }])("marks and audits one notification using %j", async body => {
     vi.clearAllMocks();
     requireApiSessionMock.mockResolvedValueOnce(session);
 
     const response = await PATCH(
       new Request("https://example.com/api/notifications", {
         method: "PATCH",
-        body: JSON.stringify({ notificationId: "n_1" }),
+        body: JSON.stringify(body),
       }),
     );
 
     expect(response.status).toBe(200);
     expect(markAsReadMock).toHaveBeenCalledWith("n_1", "u_1");
+    expect(auditUserAction).toHaveBeenCalledExactlyOnceWith("u_1", "notification.update",
+      { scope: "markAsRead", notificationId: "n_1" }, undefined, "team_1");
   });
 
-  it("marks all notifications for the authenticated user as read", async () => {
+  it.each([{ markAllAsRead: true }, { action: "markAllAsRead" }])("marks and audits all notifications using %j", async body => {
     vi.clearAllMocks();
     requireApiSessionMock.mockResolvedValueOnce(session);
 
     const response = await PATCH(
       new Request("https://example.com/api/notifications", {
         method: "PATCH",
-        body: JSON.stringify({ markAllAsRead: true }),
+        body: JSON.stringify(body),
       }),
     );
 
     expect(response.status).toBe(200);
     expect(markAllAsReadMock).toHaveBeenCalledWith("u_1");
+    expect(auditUserAction).toHaveBeenCalledExactlyOnceWith("u_1", "notification.update",
+      { scope: "markAllAsRead" }, undefined, "team_1");
   });
 
   it("deletes only the authenticated user's notification", async () => {

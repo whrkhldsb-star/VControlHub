@@ -23,6 +23,17 @@ describe.skipIf(process.env.RUN_DATABASE_INTEGRATION_TESTS !== "1")("orphan scan
     await prisma.$disconnect();
   });
 
+  it("skips a pending record held by a worker that is claiming it", async () => {
+    const id = serverId + "-claim";
+    await prisma.vpsBackupRecord.create({ data: { id, serverId, backupType: "full", status: "PENDING", createdAt: new Date(0) } });
+    await prisma.$transaction(async tx => {
+      await tx.vpsBackupRecord.update({ where: { id }, data: { status: "RUNNING" } });
+      const result = await abandonStalePendingVpsBackupRecords();
+      expect(result.ids).not.toContain(id);
+    });
+    expect(await prisma.vpsBackupRecord.findUniqueOrThrow({ where: { id } })).toMatchObject({ status: "RUNNING" });
+  });
+
   it.each(["platform-running", "vps-running", "vps-pending", "download"] as const)(
     "advances past 50 live %s records and processes the orphan exactly once", async kind => {
       const queued = kind === "download" || kind === "vps-pending";

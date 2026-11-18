@@ -1,5 +1,6 @@
 import { Prisma } from "@prisma/client";
 import { prisma } from "@/lib/db";
+import { BACKUP_CREATE_JOB_TYPE, VPS_BACKUP_CREATE_JOB_TYPE } from "./service-types";
 
 type StaleBackupKind = "platform-running" | "vps-running" | "vps-pending";
 
@@ -9,7 +10,7 @@ export async function failStaleBackupRecords(kind: StaleBackupKind, cutoff: Date
 	const pending = kind === "vps-pending";
 	const table = platform ? Prisma.sql`backup_records` : Prisma.sql`vps_backup_records`;
 	const timestamp = pending ? Prisma.sql`b."createdAt"` : Prisma.sql`b."updatedAt"`;
-	const jobType = platform ? "backup.create" : "vps-backup.create";
+	const jobType = platform ? BACKUP_CREATE_JOB_TYPE : VPS_BACKUP_CREATE_JOB_TYPE;
 	const payloadKey = platform ? "backupId" : "recordId";
 	const now = new Date();
 	const liveJob = pending

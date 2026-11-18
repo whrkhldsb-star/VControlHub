@@ -40,7 +40,7 @@ import { SSH_KEY_CREDENTIAL_SELECT } from "@/lib/ssh/ssh-key-crypto";
 const vpsBackupLogger = createLogger("vps-backup");
 
 /** Job type for the durable job queue */
-export const VPS_BACKUP_CREATE_JOB_TYPE = "vps-backup.create";
+export { VPS_BACKUP_CREATE_JOB_TYPE } from "./service-types";
 
 /**
  * Validate a portable VPS backup relative path (as stored in DB).

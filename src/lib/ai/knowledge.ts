@@ -376,7 +376,7 @@ async function rankKnowledgeCandidateIds(scope: Prisma.Sql, query: string, token
     SELECT c.id
     FROM knowledge_chunks c
     JOIN knowledge_documents d ON d.id = c."documentId"
-    JOIN knowledge_bases b ON b.id = c."knowledgeBaseId"
+    JOIN knowledge_bases b ON b.id = c."knowledgeBaseId" AND b.id = d."knowledgeBaseId"
     WHERE b."isActive" AND ${scope}
       AND d.status = 'READY'
       AND (${anyTerm})
@@ -404,7 +404,11 @@ export async function searchKnowledge(input: {
   const candidateIds = await rankKnowledgeCandidateIds(Prisma.join(filters, " AND "), query, tokens);
   if (candidateIds.length === 0) return [];
   const candidates = await prisma.knowledgeChunk.findMany({
-    where: { id: { in: candidateIds }, knowledgeBase: { isActive: true, ...team } },
+    where: {
+      id: { in: candidateIds },
+      knowledgeBase: { isActive: true, ...team, ...(input.knowledgeBaseId ? { id: input.knowledgeBaseId } : {}) },
+      document: { status: "READY", knowledgeBase: { isActive: true, ...team } },
+    },
     include: {
       knowledgeBase: { select: { name: true } },
       document: { select: { id: true, title: true, status: true } },

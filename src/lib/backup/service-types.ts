@@ -16,6 +16,7 @@ export type BackupType = "DATABASE" | "FILES" | "FULL";
 
 /** The durable job that runs a backup record; its payload carries `backupId`. */
 export const BACKUP_CREATE_JOB_TYPE = "backup.create";
+export const VPS_BACKUP_CREATE_JOB_TYPE = "vps-backup.create";
 
 export type BackupRecordForSummary = {
 	id: string;
