@@ -113,10 +113,14 @@ test.describe("authenticated golden path", () => {
 		await ensureAuthenticated(page, context);
 		await page.getByRole("button", { name: /Account menu|账户菜单/i }).first().click();
 		const signOut = page.getByRole("button", { name: /^(Sign out|退出登录)$/i });
-		await page.route("**/api/auth/signout", (route) => route.fulfill({ status: 503, body: "{}" }), { times: 1 });
-		await signOut.click();
-		await expect(page.getByRole("alert").filter({ hasText: /Sign-out could not be confirmed|未能确认退出登录/ })).toBeVisible();
-		await expect(signOut).toBeEnabled();
+		await context.setOffline(true);
+		try {
+			await signOut.click();
+			await expect(page.getByRole("alert").filter({ hasText: /Sign-out could not be confirmed|未能确认退出登录/ })).toBeVisible();
+			await expect(signOut).toBeEnabled();
+		} finally {
+			await context.setOffline(false);
+		}
 		await signOut.click();
 		await expect(page).toHaveURL(/\/login(?:[?#]|$)/);
 		expect((await context.cookies()).some(({ name }) => name === "csrf_token")).toBe(false);
