@@ -5,9 +5,14 @@ Built locally (linux/arm64), immutable image ID:
 
 Tag: `vcontrolhub/guacd:1.6.0-exclusive-pin-v1`. This is a local image ID, NOT a registry manifest digest. No production cutover performed.
 
-Build: `docker build -t vcontrolhub/guacd:1.6.0-exclusive-pin-v1 docker/guacd-pin`
+From the repository root, download the pinned source archive into the build context, then build the image. The Dockerfile verifies the archive checksum before extraction.
 
-Base guacd image is digest-pinned in Dockerfile. Genuine source downloaded from https://codeload.github.com/FreeRDP/FreeRDP/tar.gz/refs/tags/2.11.7 and checked against SHA256 `22dbeeaad065e93f152d70e04ec8eeab08aa32c406a96be64f252526623625a4`. Package repository dependencies are not snapshot-pinned; rebuilding is not promised to yield identical image IDs. Hardener source is copied from scripts/harden-freerdp-pin.py. Runtime ldd of libguac-client-rdp.so resolves all dependencies, including rebuilt FreeRDP/WinPR against original OpenSSL 1.1.
+```sh
+curl --fail --location --output docker/guacd-pin/freerdp-2.11.7.tar.gz https://codeload.github.com/FreeRDP/FreeRDP/tar.gz/refs/tags/2.11.7
+docker build -t vcontrolhub/guacd:1.6.0-exclusive-pin-v1 docker/guacd-pin
+```
+
+Base guacd image is digest-pinned in Dockerfile. Genuine source downloaded from https://codeload.github.com/FreeRDP/FreeRDP/tar.gz/refs/tags/2.11.7 and checked against SHA256 `22dbeeaad065e93f152d70e04ec8eeab08aa32c406a96be64f252526623625a4`. Package repository dependencies are not snapshot-pinned; rebuilding is not promised to yield identical image IDs. The patch script lives in this build context. The CLI at `scripts/harden-freerdp-pin.py` calls the same script. Runtime ldd of libguac-client-rdp.so resolves all dependencies, including rebuilt FreeRDP/WinPR against original OpenSSL 1.1.
 
 ## Real TLS verification
 
