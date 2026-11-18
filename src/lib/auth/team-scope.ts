@@ -44,7 +44,7 @@ export function seesAllCustomers(session: TeamSession): boolean {
  * Returns a Prisma `where` fragment that filters by teamId.
  * Spread this into the outermost `where` on list queries.
  */
-export function teamWhere(session: TeamSession): Record<string, unknown> {
+export function teamWhere(session: TeamSession): { teamId?: string } {
 	if (seesAllCustomers(session)) {
 		return {};
 	}

@@ -4,7 +4,7 @@ import { useState, useCallback, useEffect, memo, type ReactNode } from "react";
 import Link from "next/link";
 import { csrfFetch } from "@/lib/auth/csrf-client";
 import { getSafeNotificationActionUrl } from "@/lib/notification/action-url";
-import { EmptyState, ToggleChip } from "@/components/page-shell";
+import { EmptyState, ToggleChip, PageHeader } from "@/components/page-shell";
 import { useI18n } from "@/lib/i18n/use-locale";
 import { formatDate } from "@/lib/datetime/format";
 import type { Locale } from "@/lib/i18n/translations";
@@ -157,7 +157,7 @@ export function NotificationListClient({ initialNotifications, initialUnreadCoun
 	const markAllRead = useCallback(async () => {
 		setError(null);
 		try {
-			await csrfFetch("/api/notifications", { method: "PATCH", headers: { "Content-Type": "application/json" }, body: JSON.stringify({ markAllAsRead: true }) });
+			await csrfFetch("/api/notifications", { method: "PATCH", headers: { "Content-Type": "application/json" }, body: JSON.stringify({ action: "markAllAsRead" }) });
 			setView((view) => ({ notifications: view.notifications.map((n) => ({ ...n, isRead: true })), unreadCount: 0 }));
 		} catch (err) {
 			setError(messageFromError(err, t("notificationsPage.error.markAllFailed")));
@@ -167,7 +167,7 @@ export function NotificationListClient({ initialNotifications, initialUnreadCoun
 	const markOneRead = useCallback(async (id: string) => {
 		setError(null);
 		try {
-			await csrfFetch("/api/notifications", { method: "PATCH", headers: { "Content-Type": "application/json" }, body: JSON.stringify({ notificationId: id }) });
+			await csrfFetch("/api/notifications", { method: "PATCH", headers: { "Content-Type": "application/json" }, body: JSON.stringify({ action: "markAsRead", notificationId: id }) });
 			// Counted only if it is still listed and unread now (a concurrent
 			// mark-all or delete may have accounted for it already).
 			setView((view) => {
@@ -230,18 +230,23 @@ export function NotificationListClient({ initialNotifications, initialUnreadCoun
 		if (notifications.length === 0 && hasMore && !loadingMore && !error) void loadMore();
 	}, [notifications.length, hasMore, loadingMore, error, loadMore]);
 
+	const description = unreadCount > 0 ? t("notificationsPage.unread", { count: unreadCount })
+		: unreadOnly ? undefined : t("notificationsPage.allRead");
+	const header = (
+		<PageHeader eyebrow={t("notificationsPage.eyebrow")} title={t("notificationsPage.title")} description={description} />
+	);
 	if (notifications.length === 0 && !hasMore) {
 		return (
-			<EmptyState icon={<Bell size={36} className="text-[var(--text-muted)]" aria-hidden="true" />} variant="boxed">
+			<>{header}<EmptyState icon={<Bell size={36} className="text-[var(--text-muted)]" aria-hidden="true" />} variant="boxed">
 				{t("notificationsPage.empty")}
-			</EmptyState>
+			</EmptyState></>
 		);
 	}
 
 	const visible = unreadOnly ? notifications.filter((n) => !n.isRead) : notifications;
 
 	return (
-		<div className="space-y-3">
+		<>{header}<div className="space-y-3">
 			{error && <Notice tone="danger" compact onDismiss={() => setError(null)} dismissLabel={t("common.close")}>{error}</Notice>}
 			<div className="flex flex-wrap items-center justify-between gap-2">
 				<ToggleChip active={unreadOnly} onClick={() => setUnreadOnly((v) => !v)} ariaLabel={t("notificationsPage.action.unreadOnly")}>
@@ -286,6 +291,6 @@ export function NotificationListClient({ initialNotifications, initialUnreadCoun
 					</ActionButton>
 				</div>
 			) : null}
-		</div>
+		</div></>
 	);
 }

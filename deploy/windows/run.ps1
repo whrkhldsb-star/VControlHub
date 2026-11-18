@@ -7,6 +7,8 @@ $ErrorActionPreference = 'Stop'
 $appDir = (Resolve-Path (Join-Path $PSScriptRoot '..\..')).Path
 Set-Location $appDir
 $env:NODE_ENV = 'production'
+# The separately registered worker owns background polling.
+$env:VCONTROLHUB_WORKERS_DISABLED = if ($Role -eq 'worker') { 'false' } else { 'true' }
 $envFile = Join-Path $appDir '.env.local'
 if (!(Test-Path -LiteralPath $envFile -PathType Leaf)) { throw "Missing $envFile" }
 $entry = switch ($Role) {

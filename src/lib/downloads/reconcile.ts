@@ -246,31 +246,24 @@ export function resetReconcileCursorForTests() {
 const PENDING_ORPHAN_MS = 60 * 60_000;
 
 async function failOrphanedPendingTasks(): Promise<number> {
-  let failed = 0;
   try {
     const cutoff = new Date(Date.now() - PENDING_ORPHAN_MS);
-    // Paused relays are PENDING with a gid and are not orphans.
-    const rows = await prisma.downloadTask.findMany({
-      where: { status: "PENDING", aria2Gid: null, updatedAt: { lt: cutoff } },
-      select: { id: true },
-      orderBy: { updatedAt: "asc" },
-      take: 50,
-    });
-    for (const row of rows) {
-      const inFlight = await prisma.job.count({
-        where: { type: "download.execute", status: { in: ["PENDING", "RUNNING"] }, payload: { path: ["taskId"], equals: row.id } },
-      });
-      if (inFlight > 0) continue;
-      const res = await prisma.downloadTask.updateMany({
-        where: { id: row.id, status: "PENDING", aria2Gid: null },
-        data: { status: "FAILED", errorMessage: t("backend.downloads.reconcile.queuedWithoutJob") },
-      });
-      failed += res.count;
-    }
+    return await prisma.$executeRaw`
+      WITH orphans AS (
+        SELECT d.id FROM download_tasks d
+        WHERE d.status = 'PENDING' AND d."aria2Gid" IS NULL AND d."updatedAt" < ${cutoff}
+          AND NOT EXISTS (SELECT 1 FROM jobs j WHERE j.type = 'download.execute'
+            AND j.status IN ('PENDING', 'RUNNING') AND j.payload->>'taskId' = d.id)
+        ORDER BY d."updatedAt", d.id LIMIT 50 FOR NO KEY UPDATE OF d SKIP LOCKED
+      )
+      UPDATE download_tasks d SET status = 'FAILED', "updatedAt" = ${new Date()},
+        "errorMessage" = ${t("backend.downloads.reconcile.queuedWithoutJob")}
+      FROM orphans WHERE d.id = orphans.id
+    `;
   } catch (err) {
     logError("[DownloadReconcile] orphaned PENDING sweep failed:", err);
+    return 0;
   }
-  return failed;
 }
 
 export async function reconcileStaleRunningDownloadTasks(input?: {

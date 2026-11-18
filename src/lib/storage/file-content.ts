@@ -127,7 +127,7 @@ export async function streamStorageFile(
     const client = createWebDavClient(node);
     const entry = await client.stat(relativePath);
     if (!entry || entry.isDirectory) throw new ValidationError(t("backend.webdav.fileNotFound"));
-    const stream = Readable.fromWeb(await client.stream(relativePath, range, entry.size) as import("node:stream/web").ReadableStream);
+    const stream = Readable.fromWeb(await client.stream(relativePath, range, entry.size, entry.etag) as import("node:stream/web").ReadableStream);
     return { stream, size: entry.size, close: () => stream.destroy() };
   }
   if (node.driver === "LOCAL") {

@@ -1,5 +1,5 @@
 {
-  "generatedAt": "2026-11-18T03:36:11.210Z",
+  "generatedAt": "2026-11-18T10:01:23.888Z",
   "summary": {
     "modulesAudited": 5,
     "totalRoutes": 50,
@@ -274,8 +274,8 @@
     },
     {
       "module": "ai",
-      "boundaryFile": "src/lib/ai/dto.ts",
-      "boundaryKind": "dto",
+      "boundaryFile": "src/lib/ai/schema.ts",
+      "boundaryKind": "schema",
       "boundaryExists": true,
       "totalRoutes": 16,
       "inlineZodRoutes": 0,

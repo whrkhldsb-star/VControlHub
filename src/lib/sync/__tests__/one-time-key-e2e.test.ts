@@ -36,6 +36,7 @@ const state = vi.hoisted(() => ({
 vi.mock("@/lib/auth/execution-actor", () => ({ executionRefusal: vi.fn(async () => null), loadExecutionActor: vi.fn() }));
 vi.mock("@/lib/db", () => ({
   prisma: {
+    $transaction(run: (tx: unknown) => Promise<unknown>) { return run(this); },
     syncJob: { updateMany: vi.fn(async () => ({ count: 1 })), update: vi.fn(async () => ({})) },
     syncLog: { create: vi.fn(async () => ({ id: "log-1" })), update: vi.fn(async () => ({})) },
   },

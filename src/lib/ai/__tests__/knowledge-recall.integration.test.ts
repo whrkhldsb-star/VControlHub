@@ -22,6 +22,10 @@ describe.skipIf(process.env.RUN_DATABASE_INTEGRATION_TESTS !== "1")("knowledge s
     }
     await prisma.team.create({ data: { id: prefix, slug: prefix, name: prefix } });
     const base = await prisma.knowledgeBase.create({ data: { name: prefix, teamId: prefix } });
+    // The matching base sorts after the old 500-base enumeration window.
+    await prisma.knowledgeBase.createMany({ data: Array.from({ length: 500 }, (_, index) => ({
+      id: "0-" + prefix + "-" + index, name: "empty", teamId: prefix,
+    })) });
     const old = await prisma.knowledgeDocument.create({
       data: { knowledgeBaseId: base.id, title: "Nginx reload SOP", content: "x", contentHash: `${prefix}-old`, status: "READY" },
     });
@@ -59,6 +63,8 @@ describe.skipIf(process.env.RUN_DATABASE_INTEGRATION_TESTS !== "1")("knowledge s
   it("returns the old highly relevant chunk first despite 250 newer partial matches", async () => {
     const hits = await searchKnowledge({ query: "nginx reload certbot renewal", session });
     expect(hits[0]).toMatchObject({ documentTitle: "Nginx reload SOP", chunkIndex: 0 });
+    const scoped = await searchKnowledge({ query: "certbot renewal", session, knowledgeBaseId: hits[0]!.knowledgeBaseId });
+    expect(scoped[0]?.documentTitle).toBe("Nginx reload SOP");
   });
 
   it("still finds the newer chunks for a query only they match", async () => {

@@ -2,6 +2,7 @@ import { expect, it, vi } from "vitest";
 import type { SessionPayload } from "@/lib/auth/session";
 const s = vi.hoisted(() => ({ commands: [] as string[], storageLookups: vi.fn(async () => []), grantLookups: vi.fn(), serverCount: vi.fn(async () => 2) }));
 vi.mock("@/lib/db", () => ({ prisma: {
+    $transaction(run: (tx: unknown) => Promise<unknown>) { return run(this); },
   syncJob: { findFirst: async () => ({ id: "job", status: "IDLE", syncType: "BACKUP", teamId: "team", createdBy: "admin", sourceServerId: "s1", targetServerId: "s2", sourcePath: "/etc/secret-config", targetPath: "/outside-storage/copied", sourceServer: { id: "s1", host: "source", username: "root", port: 22, sshKey: null }, targetServer: { id: "s2", host: "target", port: 22, username: "root", sshKey: null }, deleteOrphans: false, compress: false }), updateMany: async () => ({ count: 1 }), update: async () => ({}) },
   syncLog: { create: async () => ({ id: "log" }), update: async () => ({}) },
   server: { count: s.serverCount }, storageNode: { findMany: s.storageLookups, findFirst: s.storageLookups }, userStorageAccess: { findMany: s.grantLookups },

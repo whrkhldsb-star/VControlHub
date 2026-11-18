@@ -116,9 +116,11 @@ export async function listRecentSnapshots(limit = 30, session?: TeamSession | nu
 		// When a month is selected the trend must cover THAT month, otherwise the
 		// chart keeps showing "last N days" while the summary/entries below it
 		// show a historical month — the numbers silently disagree.
+		const today = new Date();
+		today.setUTCHours(0, 0, 0, 0);
 		const dateFilter = month
 			? { gte: startOfMonthUtc(month), lt: endOfMonthUtc(month) }
-			: { gte: new Date(Date.now() - days * 86400000) };
+			: { gte: new Date(today.getTime() - (days - 1) * 86400000), lte: today };
 		const rows = await prisma.costEntry.groupBy({
 			by: ["effectiveDate", "category"],
 			where: { ...teamWhere(session), currency, effectiveDate: dateFilter },
@@ -138,7 +140,7 @@ export async function listRecentSnapshots(limit = 30, session?: TeamSession | nu
 		const maxDays = month ? 31 : days;
 		return Array.from(byDay.entries()).sort((a,b) => b[0].localeCompare(a[0])).slice(0,maxDays).map(([snapshotDate,b]) => ({ snapshotDate, totalAmount: b.total.toFixed(2), byCategory: b.byCategory, entryCount: b.count }));
 	}
-	const rows = await prisma.costSnapshot.findMany({ orderBy: { snapshotDate: "desc" }, take: Math.max(1, Math.min(limit, 365)) });
+	const rows = await prisma.costSnapshot.findMany({ where: { snapshotDate: { lte: new Date() } }, orderBy: { snapshotDate: "desc" }, take: Math.max(1, Math.min(limit, 365)) });
 	return rows.map((row) => {
 		const source = (row.byCategory ?? {}) as Record<string, unknown>; const byCategory = emptyByCategory();
 		for (const category of COST_CATEGORY_VALUES) if (typeof source[category] === "string") byCategory[category] = source[category] as string;

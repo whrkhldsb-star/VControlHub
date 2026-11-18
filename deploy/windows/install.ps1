@@ -18,11 +18,8 @@ if (!$SkipTasks) {
 
 $nodeCommand = Get-Command node.exe -ErrorAction Stop
 $nodeExe = $nodeCommand.Source
-$version = & $nodeExe -p 'process.versions.node'
-$parts = $version.Split('.')
-if ([int]$parts[0] -lt 22 -or ([int]$parts[0] -eq 22 -and [int]$parts[1] -lt 9)) {
-  throw "Node.js 22.9+ is required; found $version"
-}
+& $nodeExe (Join-Path $appDir 'deploy\check-node-version.mjs')
+if ($LASTEXITCODE -ne 0) { throw "Unsupported Node.js runtime" }
 Get-Command npm.cmd -ErrorAction Stop | Out-Null
 $envFile = Join-Path $appDir '.env.local'
 if (!(Test-Path -LiteralPath $envFile -PathType Leaf)) {

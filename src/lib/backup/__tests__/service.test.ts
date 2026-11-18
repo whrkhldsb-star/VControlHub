@@ -247,60 +247,19 @@ describe("backup service", () => {
     );
   });
 
-  it("abandons orphan RUNNING backups (crashed worker) as FAILED via CAS", async () => {
-    mockPrisma.backupRecord.findMany.mockResolvedValueOnce([{ id: "run-1" }, { id: "run-2" }]);
-    mockPrisma.backupRecord.updateMany
-      .mockResolvedValueOnce({ count: 1 })
-      .mockResolvedValueOnce({ count: 0 }); // run-2 already left RUNNING between findMany and CAS
-
-    const result = await abandonStaleRunningBackupRecords({
-      olderThanMs: 60_000,
-      reason: "worker died",
-    });
-
-    expect(result).toEqual({ abandoned: 1, ids: ["run-1"] });
-    expect(mockPrisma.backupRecord.findMany).toHaveBeenCalledWith(
-      expect.objectContaining({
-        where: expect.objectContaining({ status: "RUNNING" }),
-        take: 50,
-      }),
-    );
-    expect(mockPrisma.backupRecord.updateMany).toHaveBeenCalledWith({
-      where: { id: "run-1", status: "RUNNING" },
-      data: expect.objectContaining({ status: "FAILED", errorMessage: "worker died" }),
-    });
-  });
-
-  // The command may now run for two hours and the record is only touched when it starts and ends: a backup
-  // whose job still renews its lease is running, not abandoned.
-  it("leaves a RUNNING backup alone while its job still holds a live lease", async () => {
-    mockPrisma.backupRecord.findMany.mockResolvedValueOnce([{ id: "run-live" }, { id: "run-dead" }]);
-    mockPrisma.job.count.mockResolvedValueOnce(1).mockResolvedValueOnce(0);
-    mockPrisma.backupRecord.updateMany.mockResolvedValueOnce({ count: 1 });
-
-    const result = await abandonStaleRunningBackupRecords({ olderThanMs: 60_000, reason: "worker died" });
-
+  it("returns the RUNNING backups atomically failed by the orphan sweep", async () => {
+    mockPrisma.$queryRaw.mockResolvedValueOnce([{ id: "run-dead" }]);
+    const result = await abandonStaleRunningBackupRecords({ reason: "worker died" });
     expect(result).toEqual({ abandoned: 1, ids: ["run-dead"] });
-    expect(mockPrisma.job.count).toHaveBeenCalledWith({
-      where: expect.objectContaining({
-        type: "backup.create",
-        status: "RUNNING",
-        leaseExpiresAt: { gt: expect.any(Date) },
-        payload: { path: ["backupId"], equals: "run-live" },
-      }),
-    });
-    expect(mockPrisma.backupRecord.updateMany).toHaveBeenCalledTimes(1);
-    expect(mockPrisma.backupRecord.updateMany).toHaveBeenCalledWith(expect.objectContaining({ where: { id: "run-dead", status: "RUNNING" } }));
   });
 
   it("uses a stale threshold past the command limit (120 + 15 minutes by default)", async () => {
     vi.useFakeTimers();
     vi.setSystemTime(new Date("2026-11-14T12:00:00Z"));
     try {
-      mockPrisma.backupRecord.findMany.mockResolvedValueOnce([]);
+      mockPrisma.$queryRaw.mockResolvedValueOnce([]);
       await abandonStaleRunningBackupRecords();
-      const where = mockPrisma.backupRecord.findMany.mock.calls.at(-1)![0].where;
-      expect(where.updatedAt.lt).toEqual(new Date(Date.parse("2026-11-14T12:00:00Z") - 135 * 60_000));
+      expect(mockPrisma.$queryRaw.mock.lastCall).toContainEqual(new Date(Date.now() - 135 * 60_000));
     } finally {
       vi.useRealTimers();
     }

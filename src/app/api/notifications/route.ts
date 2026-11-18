@@ -70,18 +70,10 @@ export async function PATCH(request: Request) {
       bodySchema: patchSchema,
     },
     async ({ session, body }) => {
-      // Legacy format support
-      if ("markAllAsRead" in body) {
-        await markAllAsRead(session.userId);
-        await auditUserAction(session.userId, "notification.update", { scope: "markAllAsRead" }, undefined, session.currentTeamId);
-        return NextResponse.json({ success: true });
-      }
-      if (!("action" in body) && "notificationId" in body) {
-        await markAsRead(body.notificationId, session.userId);
-        return NextResponse.json({ success: true });
-      }
-
-      switch (body.action) {
+      const operation = "action" in body ? body
+        : "markAllAsRead" in body ? { action: "markAllAsRead" as const }
+        : { action: "markAsRead" as const, notificationId: body.notificationId };
+      switch (operation.action) {
         case "markAllAsRead":
           await markAllAsRead(session.userId);
           await auditUserAction(
@@ -93,21 +85,21 @@ export async function PATCH(request: Request) {
           );
           break;
         case "markAsRead":
-          await markAsRead(body.notificationId, session.userId);
+          await markAsRead(operation.notificationId, session.userId);
           await auditUserAction(
             session.userId,
             "notification.update",
-            { scope: "markAsRead", notificationId: body.notificationId },
+            { scope: "markAsRead", notificationId: operation.notificationId },
             undefined,
             session.currentTeamId,
           );
           break;
         case "delete":
-          await deleteNotification(body.notificationId, session.userId);
+          await deleteNotification(operation.notificationId, session.userId);
           await auditUserAction(
             session.userId,
             "notification.delete",
-            { notificationId: body.notificationId },
+            { notificationId: operation.notificationId },
             undefined,
             session.currentTeamId,
           );

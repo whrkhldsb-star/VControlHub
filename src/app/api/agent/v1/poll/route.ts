@@ -35,6 +35,7 @@ const bodySchema = z.object({
 /** Schema ceilings (8 MiB stdout + 1 MiB stderr) plus JSON framing headroom. */
 const MAX_AGENT_POLL_BODY_BYTES = 10 * 1_048_576;
 
+// guardMode: bearer
 export async function POST(request: Request) {
   // `/api/agent/` is a public prefix in the proxy (the Bearer token is verified
   // here instead), and the token regex is trivially matchable, so an anonymous

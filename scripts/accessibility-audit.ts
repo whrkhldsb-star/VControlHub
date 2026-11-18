@@ -523,7 +523,6 @@ function main() {
 
   // Build JSON report
   const report = {
-    generatedAt: new Date().toISOString(),
     summary: {
       files: inputs.length,
       total: summary.total,
@@ -564,7 +563,15 @@ function main() {
     },
   };
 
-  writeFileSync(REPORT_PATH, JSON.stringify(report, null, 2) + "\n");
+  const serialized = JSON.stringify(report, null, 2) + "\n";
+  if (process.argv.includes("--check")) {
+    if (!existsSync(REPORT_PATH) || readFileSync(REPORT_PATH, "utf8") !== serialized) {
+      console.error("Accessibility snapshot is stale. Regenerate it with npm run a11y:audit.");
+      process.exitCode = 1;
+    }
+  } else {
+    writeFileSync(REPORT_PATH, serialized);
+  }
 
   // Human summary
   const fileCount = Object.keys(report.flaggedByFile).length;
@@ -574,7 +581,7 @@ function main() {
   console.log(
     `phase2 (icon-only buttons): ${phase2.flagged} flagged across ${Object.keys(phase2.byFile).length} files`
   );
-  console.log(`wrote ${REPORT_PATH} (${statSync(REPORT_PATH).size} bytes)`);
+  if (!process.argv.includes("--check")) console.log(`wrote ${REPORT_PATH} (${statSync(REPORT_PATH).size} bytes)`);
 
   if (fileCount > 0) {
     console.log(`\nfirst ${PREVIEW_PER_FILE} flagged items per file:`);
@@ -606,8 +613,8 @@ function main() {
 
   // Phase 1 (form label associations) is the critical a11y gate; phase 2 is
   // advisory (true positives need a manual review pass to confirm icon vs text
-  // interpretation). So we exit 0 unless phase 1 fails.
-  process.exit(summary.flagged > 0 ? 1 : 0);
+  // interpretation). Preserve errors from the snapshot comparison as well.
+  if (summary.flagged > 0) process.exitCode = 1;
 }
 
 // Only run the CLI when this file is executed directly (not when imported by tests)

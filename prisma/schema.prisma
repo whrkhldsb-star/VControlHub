@@ -1178,6 +1178,7 @@ model SyncJob {
   targetPath     String
   syncType       String        @default("MIRROR")
   status         SyncJobStatus @default(IDLE)
+  activeRunId    String?
   schedule       String?
   lastSyncAt     DateTime?
   lastSyncResult String?

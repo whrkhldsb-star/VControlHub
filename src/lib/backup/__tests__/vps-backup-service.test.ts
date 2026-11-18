@@ -32,6 +32,7 @@ const ENABLE_OFFSITE_CONFIG: OffsiteConfig = {
 };
 
 const mocks = vi.hoisted(() => ({
+  queryRaw: vi.fn(),
   findUnique: vi.fn(),
   updateMany: vi.fn(),
   update: vi.fn(),
@@ -65,6 +66,7 @@ vi.mock("@/lib/storage/offsite/s3-client", () => ({
 vi.mock("@/lib/api-token/authorization", () => ({ loadJobOwnerSession: async () => ({ userId: "owner", roles: ["admin"], currentTeamId: null }) }));
 vi.mock("@/lib/db", () => ({
   prisma: {
+    $queryRaw: mocks.queryRaw,
     server: { count: async () => 1 },
     vpsBackupRecord: {
       findUnique: mocks.findUnique,
@@ -126,43 +128,11 @@ function baseRecord() {
 }
 
 describe("abandonStalePendingVpsBackupRecords", () => {
-  beforeEach(() => {
-    mocks.findMany.mockReset();
-    mocks.updateMany.mockReset();
-  });
-
-  it("CAS-fails stale PENDING rows and returns the abandoned ids", async () => {
-    mocks.findMany.mockResolvedValue([{ id: "rec_a" }, { id: "rec_b" }]);
-    mocks.updateMany.mockResolvedValue({ count: 1 });
-
-    const result = await abandonStalePendingVpsBackupRecords();
-
-    expect(result.abandoned).toBe(2);
-    expect(result.ids).toEqual(["rec_a", "rec_b"]);
-    // Only PENDING rows older than the cutoff are candidates.
-    expect(mocks.findMany).toHaveBeenCalledWith(
-      expect.objectContaining({
-        where: expect.objectContaining({ status: "PENDING" }),
-      }),
-    );
-    // Each row is failed via a status-guarded CAS — never a blind update — so a
-    // row a worker just claimed to RUNNING is left untouched.
-    expect(mocks.updateMany).toHaveBeenCalledWith(
-      expect.objectContaining({
-        where: { id: "rec_a", status: "PENDING" },
-        data: expect.objectContaining({ status: "FAILED" }),
-      }),
-    );
-  });
-
-  it("skips a row already claimed to RUNNING (CAS count 0)", async () => {
-    mocks.findMany.mockResolvedValue([{ id: "rec_a" }]);
-    mocks.updateMany.mockResolvedValue({ count: 0 });
-
-    const result = await abandonStalePendingVpsBackupRecords();
-
-    expect(result.abandoned).toBe(0);
-    expect(result.ids).toEqual([]);
+  it("reports exactly the rows returned by the atomic sweep", async () => {
+    mocks.queryRaw.mockResolvedValueOnce([{ id: "rec_a" }, { id: "rec_b" }]);
+    expect(await abandonStalePendingVpsBackupRecords()).toEqual({ abandoned: 2, ids: ["rec_a", "rec_b"] });
+    mocks.queryRaw.mockResolvedValueOnce([]);
+    expect(await abandonStalePendingVpsBackupRecords()).toEqual({ abandoned: 0, ids: [] });
   });
 });
 

@@ -8,7 +8,7 @@
 
 适合 **Debian 12 / Ubuntu 22.04+ systemd** 主机（`apt-get` 包管理）。同一条命令会显示安装/重装、备份后更新、彻底卸载、健康检查、查看凭据和退出菜单；选择安装后再询问域名、应用名/slug、安装目录、服务前缀、端口、仓库和分支，一路回车采用默认值。
 
-> 系统兼容说明：自动安装依赖支持 Debian/Ubuntu + systemd。RHEL、Rocky、AlmaLinux、Fedora、openSUSE、Arch 等其他 systemd Linux 可预装 Node.js 22.9+、PostgreSQL、git、curl、make、gcc、Python 3、OpenSSL 与 Caddy，再以 `SKIP_PACKAGES=1 SKIP_DOCKER=1 DOMAIN=your.example.com` 运行 `deploy/install.sh`。非 apt 的无域名 Apache 自动配置不适用；使用域名和已安装的 Caddy。Windows 生产部署见 [Windows 指南](../docs/windows-development.md) 和 `deploy/windows/install.ps1`。
+> 系统兼容说明：自动安装依赖支持 Debian/Ubuntu + systemd。RHEL、Rocky、AlmaLinux、Fedora、openSUSE、Arch 等其他 systemd Linux 可预装 Node.js 22.22.2+（22.x）、24.15+（24.x）或 26+、PostgreSQL、git、curl、make、gcc、Python 3、OpenSSL 与 Caddy，再以 `SKIP_PACKAGES=1 SKIP_DOCKER=1 DOMAIN=your.example.com` 运行 `deploy/install.sh`。非 apt 的无域名 Apache 自动配置不适用；使用域名和已安装的 Caddy。Windows 生产部署见 [Windows 指南](../docs/windows-development.md) 和 `deploy/windows/install.ps1`。
 
 ```bash
 curl -fsSL https://raw.githubusercontent.com/whrkhldsb-star/VControlHub/main/deploy/bootstrap.sh | sudo DOMAIN=your.example.com bash
@@ -153,7 +153,7 @@ sudo DOMAIN=your.example.com APP_DIR=/opt/VControlHub deploy/install.sh
 
 > `APP_SLUG` 可包含短横线（如 `my-console`），用于目录、service、cookie 等标识；安装脚本为 PostgreSQL 默认库名/用户名会单独转换为安全标识符（如 `my_console`）。如果你显式设置 `PG_DB_NAME` / `PG_DB_USER`，脚本会按你的值使用。
 
-安装脚本会在全新 Debian/Ubuntu 主机上自动安装基础依赖：`ca-certificates`、`curl`、`gnupg`、`git`、`openssh-client`、`sshpass`、`rsync`、`iproute2`、`aria2`、`build-essential`、Python 3、OpenSSL 和 `sudo`，并在 Node.js 低于 22.9 时通过 NodeSource 安装 Node.js；设置 `DOMAIN` 且未设置 `SKIP_CADDY=1` 时，系统缺少 Caddy 才会自动安装。脚本随后执行 `npm ci`、`npm run prisma:generate`、`npm run prisma:deploy`（除非 `SKIP_DB_SETUP=1`）、`npm run build`、`npm run build:runtime`（生成 `dist/server.js`、`dist/worker.js` 与 `dist/ssh-ws-proxy.js`），最后写入 systemd 并重启服务。已配置外部 `DATABASE_URL` 时，安装器保留该 URL 并跳过本地 PostgreSQL 账户创建，数据库迁移仍会运行。
+安装脚本会在全新 Debian/Ubuntu 主机上自动安装基础依赖：`ca-certificates`、`curl`、`gnupg`、`git`、`openssh-client`、`sshpass`、`rsync`、`iproute2`、`aria2`、`build-essential`、Python 3、OpenSSL 和 `sudo`，并在 Node.js 与锁定工具链不兼容 时通过 NodeSource 安装 Node.js；设置 `DOMAIN` 且未设置 `SKIP_CADDY=1` 时，系统缺少 Caddy 才会自动安装。脚本随后执行 `npm ci`、`npm run prisma:generate`、`npm run prisma:deploy`（除非 `SKIP_DB_SETUP=1`）、`npm run build`、`npm run build:runtime`（生成 `dist/server.js`、`dist/worker.js` 与 `dist/ssh-ws-proxy.js`），最后写入 systemd 并重启服务。已配置外部 `DATABASE_URL` 时，安装器保留该 URL 并跳过本地 PostgreSQL 账户创建，数据库迁移仍会运行。
 
 安装脚本会在生成 systemd unit 时自动探测当前可用的 `node`、`npm`、`npx` 绝对路径，并把这些目录写入 systemd `PATH`。这可以兼容 Node 安装在 `/root/.local/bin`、`/usr/local/bin`、NodeSource `/usr/bin` 等不同位置的服务器，避免 systemd 启动时报 `/usr/bin/env: node: No such file or directory`。
 

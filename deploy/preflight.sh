@@ -87,13 +87,7 @@ for cmd in node npm bash; do
 done
 
 if have_cmd node; then
-  node_version="$(node -p 'process.versions.node' 2>/dev/null || echo 0.0.0)"
-  node_major="${node_version%%.*}"
-  node_minor="${node_version#*.}"
-  node_minor="${node_minor%%.*}"
-  if [ "${node_major}" -lt 22 ] || { [ "${node_major}" -eq 22 ] && [ "${node_minor}" -lt 9 ]; }; then
-    fail "Node.js 22.9+ is required; found ${node_version}"
-  fi
+  node "$(dirname "${BASH_SOURCE[0]}")/check-node-version.mjs" || fail "Unsupported Node.js runtime"
 fi
 
 set -a

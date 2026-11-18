@@ -8,10 +8,10 @@ import { prisma } from "@/lib/db";
 import { assertStorageAccess } from "@/lib/storage/access-control";
 import { storageAccessDeniedCopy } from "@/lib/storage/access-denied";
 import { contentDownloadQuerySchema } from "@/lib/storage/schema";
-import { getStorageFileNode, streamStorageFile } from "@/lib/storage/file-content";
+import { getStorageFileNode } from "@/lib/storage/file-content";
 import { normalizeStorageRelativePath } from "@/lib/storage/path-utils";
 import { createWebDavClient } from "@/lib/storage/webdav-client";
-import { parseStorageRange, storageStreamResponse } from "@/lib/storage/streaming";
+import { parseStorageRange, buildStorageStreamHeaders } from "@/lib/storage/streaming";
 
 export const dynamic = "force-dynamic";
 
@@ -27,14 +27,14 @@ export async function GET(request: Request) {
     if (!access.allowed) throw new ForbiddenError(storageAccessDeniedCopy(access.reason));
     const indexed = await prisma.fileEntry.findFirst({ where: { storageNodeId: node.id, relativePath: normalized.path }, select: { isDeleted: true } });
     if (indexed?.isDeleted) throw new NotFoundError(apiCopy("apiCopy.file.unavailable.b3b9efed"));
-    const entry = await createWebDavClient(node).stat(normalized.path);
+    const client = createWebDavClient(node);
+    const entry = await client.stat(normalized.path);
     if (!entry || entry.isDirectory) throw new NotFoundError(apiCopy("apiCopy.file.unavailable.b3b9efed"));
     const range = parseStorageRange(request.headers.get("range"), entry.size);
     if (range instanceof Response) return range;
-    const result = await streamStorageFile(node, normalized.path, range.status === 206 ? range : undefined);
-    const stream: NodeJS.ReadableStream = result.stream;
-    stream.once("close", result.close);
-    stream.once("error", result.close);
-    return storageStreamResponse({ stream: result.stream, range, fileName: path.posix.basename(normalized.path), fileSize: entry.size, contentType: guessContentType(normalized.path), download: query.download });
+    // The client validates the upstream GET against this same metadata, including the range total.
+    const body = await client.stream(normalized.path, range.status === 206 ? range : undefined, entry.size, entry.etag);
+    const headers = buildStorageStreamHeaders({ range, fileName: path.posix.basename(normalized.path), fileSize: entry.size, contentType: guessContentType(normalized.path), download: query.download });
+    return new Response(body, { status: range.status, headers });
   });
 }

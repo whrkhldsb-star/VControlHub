@@ -3,7 +3,7 @@ import { randomUUID } from "node:crypto";
 import { afterAll, beforeAll, describe, expect, it } from "vitest";
 
 import { prisma } from "@/lib/db";
-import { syncServerMonthlyCosts } from "../service-entries";
+import { listRecentSnapshots, syncServerMonthlyCosts } from "../service-entries";
 
 /**
  * The daily background sync (no session) bills the live fleet only: a
@@ -35,9 +35,19 @@ describe.skipIf(process.env.RUN_DATABASE_INTEGRATION_TESTS !== "1")("monthly ser
 		await prisma.$disconnect();
 	});
 
+	it("excludes a future charge from recent days and keeps it in its billing month", async () => {
+		const today = new Date().toISOString().slice(0, 10);
+		const session = { userId: prefix, roles: ["operator" as const], currentTeamId: live };
+		await prisma.costEntry.createMany({ data: [today, "2099-12-31"].map(day => ({
+			effectiveDate: new Date(day), category: "storage", provider: prefix, amount: "1", teamId: live, sourceRef: prefix + "-trend",
+		})) });
+		expect((await listRecentSnapshots(1, session)).map(row => row.snapshotDate)).toEqual([today]);
+		expect((await listRecentSnapshots(1, session, "CNY", "2099-12")).map(row => row.snapshotDate)).toEqual(["2099-12-31"]);
+	});
+
 	it("does not bill the servers of a deleted customer", async () => {
 		await syncServerMonthlyCosts("2030-03");
-		const billed = await prisma.costEntry.findMany({ where: { sourceRef: { startsWith: prefix } }, select: { sourceRef: true } });
+		const billed = await prisma.costEntry.findMany({ where: { sourceType: "server_monthly", sourceRef: { startsWith: prefix } }, select: { sourceRef: true } });
 		expect(billed.map((row) => row.sourceRef)).toEqual([`${live}-srv`]);
 	});
 });

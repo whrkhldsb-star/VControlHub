@@ -24,8 +24,9 @@ const { prismaMock, jobState, platform } = vi.hoisted(() => ({
   /** The platform setting sync.targetAuthDefault, and the decrypted stored credential of the target. */
   platform: { targetAuthDefault: "credential", reads: 0, targetCredentials: {} as { privateKey?: string; password?: string } },
 }));
+vi.mock("node:crypto", async (original) => ({ ...await original<typeof import("node:crypto")>(), randomUUID: () => "run-1" }));
 vi.mock("@/lib/auth/execution-actor", () => ({ executionRefusal: vi.fn(async () => null), loadExecutionActor: vi.fn() }));
-vi.mock("@/lib/db", () => ({ prisma: prismaMock }));
+vi.mock("@/lib/db", () => ({ prisma: { ...prismaMock, $transaction: (run: (tx: typeof prismaMock) => Promise<unknown>) => run(prismaMock) } }));
 vi.mock("@/lib/settings/service", () => ({
   getSetting: vi.fn(async (key: string) => {
     if (key !== "sync.targetAuthDefault") throw new Error(`unexpected setting ${key}`);
@@ -135,9 +136,9 @@ const revocations = (host = "target") => remote.calls.filter((call) => call.host
 const transfers = () => remote.calls.filter((call) => call.command.startsWith("trap "));
 const indexOf = (call: Call | undefined) => (call ? remote.calls.indexOf(call) : -1);
 
-/** The run id in the key line the hub installed (`vch-sync-ephemeral:job-1:<run>:<expiry>`). */
+/** The run id in the key line the hub installed (`vch-sync-ephemeral:run-1:<run>:<expiry>`). */
 function installedRun(host = "target"): string {
-  const match = /vch-sync-ephemeral:job-1:((?:fwd|rev)-[0-9a-f]+):\d+/.exec(installs(host)[0]?.command ?? "");
+  const match = /vch-sync-ephemeral:run-1:((?:fwd|rev)-[0-9a-f]+):\d+/.exec(installs(host)[0]?.command ?? "");
   if (!match) throw new Error(`no one-time key was installed on ${host}`);
   return match[1]!;
 }
@@ -195,13 +196,13 @@ describe("what the source host receives with a one-time key", () => {
   it("is a key made for the run, whose public half is the line installed on the target", async () => {
     await executeSyncJob("job-1");
 
-    const keyFile = remote.writes.find((write) => write.host === "source" && write.remotePath === "/tmp/app-sync-rsync-job-1-fwd-leg");
+    const keyFile = remote.writes.find((write) => write.host === "source" && write.remotePath === "/tmp/app-sync-rsync-run-1-fwd-leg");
     expect(keyFile).toBeDefined();
     const parsed = utils.parseKey(keyFile!.content);
     if (parsed instanceof Error) throw parsed;
     const blob = (Array.isArray(parsed) ? parsed[0]! : parsed).getPublicSSH().toString("base64");
     const [first, pinned] = installs();
-    expect(first!.command).toContain(`ssh-ed25519 ${blob} vch-sync-ephemeral:job-1:`);
+    expect(first!.command).toContain(`ssh-ed25519 ${blob} vch-sync-ephemeral:run-1:`);
     expect(first!.command).toContain("vch-sync-gate");
     // Re-added with from= the address the target saw the source connect from.
     expect(pinned!.command).toContain(`ssh-ed25519 ${blob} `);
@@ -209,7 +210,7 @@ describe("what the source host receives with a one-time key", () => {
     // A second run gets a different key.
     remote.writes.length = 0;
     await executeSyncJob("job-1");
-    expect(remote.writes.find((write) => write.remotePath === "/tmp/app-sync-rsync-job-1-fwd-leg")!.content).not.toBe(keyFile!.content);
+    expect(remote.writes.find((write) => write.remotePath === "/tmp/app-sync-rsync-run-1-fwd-leg")!.content).not.toBe(keyFile!.content);
   });
 });
 
@@ -220,10 +221,10 @@ describe("the one-time key line on the target", () => {
     expect(result.ok, result.errorMessage).toBe(true);
     const run = installedRun();
     expect(revocations()).toHaveLength(1);
-    expect(revocations()[0]!.command).toContain(`vch_filter 'job-1' '${run}'`);
+    expect(revocations()[0]!.command).toContain(`vch_filter 'run-1' '${run}'`);
     expect(indexOf(revocations()[0])).toBeGreaterThan(indexOf(transfers()[0]));
     // And the private half is removed from the source by the hub too, not only by the command's trap.
-    const cleanup = remote.calls.filter((call) => call.host === "source" && call.command.startsWith("rm -f -- ") && call.command.includes("/tmp/app-sync-rsync-job-1-fwd-leg") && !call.command.includes("umask"));
+    const cleanup = remote.calls.filter((call) => call.host === "source" && call.command.startsWith("rm -f -- ") && call.command.includes("/tmp/app-sync-rsync-run-1-fwd-leg") && !call.command.includes("umask"));
     expect(cleanup).toHaveLength(1);
   });
 
@@ -246,7 +247,7 @@ describe("the one-time key line on the target", () => {
     expect(transfers().length > 0).toBe(expected.transferRan);
     const run = installedRun();
     expect(revocations()).toHaveLength(1);
-    expect(revocations()[0]!.command).toContain(`vch_filter 'job-1' '${run}'`);
+    expect(revocations()[0]!.command).toContain(`vch_filter 'run-1' '${run}'`);
     expect(indexOf(revocations()[0])).toBeGreaterThan(indexOf(installs().at(-1)));
   });
 
@@ -302,8 +303,8 @@ describe("bidirectional jobs", () => {
     expect(installedRun("target")).toMatch(/^fwd-/);
     expect(installedRun("source")).toMatch(/^rev-/);
     expect(remote.writes.map((write) => `${write.host}:${write.remotePath}`)).toEqual([
-      "source:/tmp/app-sync-rsync-job-1-fwd-leg",
-      "target:/tmp/app-sync-rsync-job-1-rev-leg",
+      "source:/tmp/app-sync-rsync-run-1-fwd-leg",
+      "target:/tmp/app-sync-rsync-run-1-rev-leg",
     ]);
     expect(revocations("target")).toHaveLength(1);
     expect(revocations("source")).toHaveLength(1);
@@ -351,14 +352,14 @@ describe("runs that died", () => {
     await executeSyncJob("job-1");
 
     expect(prismaMock.syncJob.updateMany).toHaveBeenCalledWith({
-      where: { id: "job-1", status: "RUNNING" },
+      where: { id: "job-1", status: "RUNNING", activeRunId: "run-1" },
       data: { updatedAt: expect.any(Date) },
     });
   });
 });
 
 describe("credential mode (the original way)", () => {
-  const keyFile = "/tmp/app-sync-rsync-job-1-fwd-leg";
+  const keyFile = "/tmp/app-sync-rsync-run-1-fwd-leg";
 
   it("hands the target's own key to the source for the run, then removes it", async () => {
     useJob({ targetAuth: "credential" });
@@ -386,7 +387,7 @@ describe("credential mode (the original way)", () => {
     const result = await executeSyncJob("job-1");
 
     expect(result.ok, result.errorMessage).toBe(true);
-    expect(remote.writes).toEqual([{ host: "source", remotePath: "/tmp/app-sync-env-job-1-fwd-leg", content: `SSHPASS='${TARGET_PASSWORD}'\n` }]);
+    expect(remote.writes).toEqual([{ host: "source", remotePath: "/tmp/app-sync-env-run-1-fwd-leg", content: `SSHPASS='${TARGET_PASSWORD}'\n` }]);
     expect(transfers()[0]!.command).toContain("sshpass -e ssh ");
     expect(transfers()[0]!.command).not.toContain(TARGET_PASSWORD);
   });

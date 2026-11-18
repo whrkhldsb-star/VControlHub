@@ -27,7 +27,6 @@ const MAX_QUERY_CHARS = 500;
 const MAX_RESULTS = 8;
 /** Chunks re-scored in memory after the database has ranked them by relevance. */
 const CANDIDATE_POOL = 200;
-const MAX_SEARCH_BASES = 500;
 
 export type KnowledgeHit = {
   chunkId: string;
@@ -363,7 +362,7 @@ export async function deleteKnowledgeDocument(
  * (whole query 12, term ≥4 chars 3, shorter term 2), newest first only as a
  * tie-breaker. LIKE wildcards in terms are escaped.
  */
-async function rankKnowledgeCandidateIds(baseIds: string[], query: string, tokens: string[]): Promise<string[]> {
+async function rankKnowledgeCandidateIds(scope: Prisma.Sql, query: string, tokens: string[]): Promise<string[]> {
   const terms = tokens.length > 0 ? tokens : [query.toLowerCase().slice(0, 40)];
   const pattern = (value: string) => `%${escapeLikeLiteral(value.toLowerCase())}%`;
   const hit = (value: string, weight: number) =>
@@ -377,7 +376,8 @@ async function rankKnowledgeCandidateIds(baseIds: string[], query: string, token
     SELECT c.id
     FROM knowledge_chunks c
     JOIN knowledge_documents d ON d.id = c."documentId"
-    WHERE c."knowledgeBaseId" = ANY(${baseIds}::text[])
+    JOIN knowledge_bases b ON b.id = c."knowledgeBaseId" AND b.id = d."knowledgeBaseId"
+    WHERE b."isActive" AND ${scope}
       AND d.status = 'READY'
       AND (${anyTerm})
     ORDER BY (${score}) DESC, c."createdAt" DESC, c.id ASC
@@ -397,25 +397,20 @@ export async function searchKnowledge(input: {
   const tokens = tokenizeQuery(query);
   if (tokens.length === 0 && query.length < 2) return [];
 
-  const bases = await prisma.knowledgeBase.findMany({
-    where: {
-      isActive: true,
-      ...(input.knowledgeBaseId ? { id: input.knowledgeBaseId } : {}),
-      ...(input.session ? teamWhere(input.session) : {}),
-    },
-    select: { id: true, name: true },
-    orderBy: { id: "asc" },
-    take: MAX_SEARCH_BASES,
-  });
-  if (bases.length === 0) return [];
-  const baseIds = bases.map((b) => b.id);
-  const baseName = new Map(bases.map((b) => [b.id, b.name]));
-
-  const candidateIds = await rankKnowledgeCandidateIds(baseIds, query, tokens);
+  const team = input.session ? teamWhere(input.session) : {};
+  const filters: Prisma.Sql[] = [Prisma.sql`TRUE`];
+  if (team.teamId !== undefined) filters.push(Prisma.sql`b."teamId" = ${team.teamId}`);
+  if (input.knowledgeBaseId) filters.push(Prisma.sql`b.id = ${input.knowledgeBaseId}`);
+  const candidateIds = await rankKnowledgeCandidateIds(Prisma.join(filters, " AND "), query, tokens);
   if (candidateIds.length === 0) return [];
   const candidates = await prisma.knowledgeChunk.findMany({
-    where: { id: { in: candidateIds } },
+    where: {
+      id: { in: candidateIds },
+      knowledgeBase: { isActive: true, ...team, ...(input.knowledgeBaseId ? { id: input.knowledgeBaseId } : {}) },
+      document: { status: "READY", knowledgeBase: { isActive: true, ...team } },
+    },
     include: {
+      knowledgeBase: { select: { name: true } },
       document: { select: { id: true, title: true, status: true } },
     },
   });
@@ -429,7 +424,7 @@ export async function searchKnowledge(input: {
       chunkId: chunk.id,
       documentId: chunk.documentId,
       knowledgeBaseId: chunk.knowledgeBaseId,
-      knowledgeBaseName: baseName.get(chunk.knowledgeBaseId) ?? "Knowledge",
+      knowledgeBaseName: chunk.knowledgeBase.name,
       documentTitle: chunk.document.title,
       chunkIndex: chunk.chunkIndex,
       content: chunk.content,

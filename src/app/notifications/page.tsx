@@ -2,14 +2,12 @@ import { requireSession } from "@/lib/auth/require-session";
 import { listUserNotifications, getUnreadCount } from "@/lib/notification/service";
 
 import { NotificationListClient } from "./notification-list-client";
-import { PageShell, PageHeader } from "@/components/page-shell";
-import { getServerLocale, t } from "@/lib/i18n/translations";
+import { PageShell } from "@/components/page-shell";
 
 export const dynamic = "force-dynamic";
 
 export default async function NotificationsPage() {
 	const session = await requireSession("/notifications");
-	const locale = await getServerLocale();
 	const [notifications, unreadCount] = await Promise.all([
 		listUserNotifications(session.userId, { limit: 50 }),
 		getUnreadCount(session.userId),
@@ -31,15 +29,6 @@ export default async function NotificationsPage() {
 
 	return (
 		<PageShell>
-			<PageHeader
-				eyebrow={t("notificationsPage.eyebrow", locale)}
-				title={t("notificationsPage.title", locale)}
-				description={
-					unreadCount > 0
-						? t("notificationsPage.unread", locale, { count: unreadCount })
-						: t("notificationsPage.allRead", locale)
-				}
-			/>
 			<NotificationListClient
 				initialNotifications={serialized}
 				initialUnreadCount={unreadCount}

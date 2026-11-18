@@ -154,14 +154,23 @@ for (const page of catalog.pages) {
     }
   }
 }
+const expectedGuardModes = new Map([
+  ["/api/agent/v1/bootstrap", "bearer"],
+  ["/api/agent/v1/poll", "bearer"],
+  ["/api/docs/openapi", "withApiRoute"],
+]);
 for (const route of catalog.apiRoutes) {
+  const expected = expectedGuardModes.get(route.path);
+  if (expected && route.guardMode !== expected) {
+    errors.push(`api ${route.path} must declare guard mode ${expected}`);
+  }
   if (!route.path.startsWith('/api/')) {
     errors.push(`api catalog path ${route.path} must start with /api/`);
   }
   if (route.methods.length === 0) {
     errors.push(`api ${route.path} declares no HTTP method`);
   }
-  if (!route.guardMode) {
+  if (!["withApiRoute", "public", "login", "manual", "bearer", "session", "delegated"].includes(route.guardMode ?? "")) {
     errors.push(`api ${route.path} has no guardMode declaration or inferred guard`);
   }
   for (const p of route.declaredPermissions) {

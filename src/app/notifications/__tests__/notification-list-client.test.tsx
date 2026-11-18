@@ -39,6 +39,16 @@ describe("NotificationListClient", () => {
     expect(screen.getByRole("button", { name: "全部标记已读" })).toBeInTheDocument();
   });
 
+  it("updates the page header after marking all read", async () => {
+    vi.mocked(csrfFetch).mockResolvedValue(new Response());
+    const user = userEvent.setup();
+    render(<NotificationListClient initialNotifications={[unreadNotification]} initialUnreadCount={1} initialNow={INITIAL_NOW} />);
+    const header = within(screen.getByRole("banner"));
+    expect(header.getByText("1 条未读通知")).toBeInTheDocument();
+    await user.click(screen.getByRole("button", { name: "全部标记已读" }));
+    expect(header.getByText("所有通知已读")).toBeInTheDocument();
+  });
+
   it("shows an error and keeps the notification visible when deletion fails", async () => {
     const user = userEvent.setup();
     vi.mocked(csrfFetch).mockRejectedValue(new Error("删除通知失败"));

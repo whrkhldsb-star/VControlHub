@@ -9,9 +9,11 @@ import { prisma } from "@/lib/db";
 import { evaluateAlerts } from "@/lib/health/service-alerts";
 import { pruneCompletedJobsByType } from "@/lib/job/service";
 
-import { AI_OPS_LOG_RETENTION_KEEP, AI_OPS_SAFE_AUTONOMOUS_ACTIONS, type AiOpsExecutedAction } from "./types";
+import { pruneAiOpsLogs } from "./retention";
+import { AI_OPS_SAFE_AUTONOMOUS_ACTIONS, type AiOpsExecutedAction } from "./types";
 
 type ActionInput = {
+	logId?: string;
 	id: string;
 	action: string;
 	risk: "low" | "medium" | "high";
@@ -63,30 +65,26 @@ export async function executeAiOpsAction(input: ActionInput): Promise<AiOpsExecu
 				// Prune completed jobs across all types, keeping latest 25 per type.
 				// Prune AI ops logs with AI_OPS_LOG_RETENTION_KEEP (same as scan-worker).
 				// No take cap: every distinct job.type must be prune-eligible.
-				const jobTypes = await prisma.job
-					.findMany({ select: { type: true }, distinct: ["type"] })
-					.catch(() => [] as { type: string }[]);
-
+				const jobTypes = await prisma.job.findMany({ select: { type: true }, distinct: ["type"] });
 				let totalPruned = 0;
+				let failedSteps = 0;
 				for (const { type } of jobTypes) {
-					const result = await pruneCompletedJobsByType({ type, keepLatest: 25 }).catch(() => ({ count: 0 }));
-					totalPruned += result.count;
+					try {
+						const result = await pruneCompletedJobsByType({ type, keepLatest: 25 });
+						totalPruned += result.count;
+					} catch {
+						failedSteps++;
+					}
 				}
 
-				// Also prune old AI ops logs (shared retention with scan-worker)
-				const oldLogs = await prisma.aiOpsLog
-					.findMany({
-						select: { id: true },
-						orderBy: { createdAt: "desc" },
-						take: AI_OPS_LOG_RETENTION_KEEP,
-					})
-					.catch(() => []);
-				if (oldLogs.length > 0) {
-					const keepIds = oldLogs.map((l) => l.id);
-					const deleted = await prisma.aiOpsLog
-						.deleteMany({ where: { id: { notIn: keepIds } } })
-						.catch(() => ({ count: 0 }));
+				try {
+					const deleted = await pruneAiOpsLogs(input.logId);
 					totalPruned += deleted.count;
+				} catch {
+					failedSteps++;
+				}
+				if (failedSteps) {
+					return unsupportedAction(input, `Pruned ${totalPruned} stale records. ${failedSteps} cleanup steps failed.`);
 				}
 
 				return {

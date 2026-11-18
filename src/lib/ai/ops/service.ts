@@ -417,6 +417,7 @@ export async function executeRecommendation(
 	}
 
 	const executed = await executeAiOpsAction({
+		logId: log.id,
 		id: match.id,
 		action: match.action,
 		risk: match.risk,
@@ -458,7 +459,7 @@ export async function executeRecommendation(
 
 	return executed.executed
 		? { ok: true, executed: true, action: executed }
-		: { ok: true, executed: false, errorMessage: executed.errorMessage, action: executed };
+		: { ok: false, executed: false, errorMessage: executed.errorMessage, action: executed };
 }
 
 export interface AiOpsSummary {
