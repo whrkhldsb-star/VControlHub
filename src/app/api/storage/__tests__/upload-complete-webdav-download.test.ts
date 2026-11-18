@@ -72,7 +72,7 @@ describe("GET /api/storage/webdav-download", () => {
 			webdavConfigEncrypted: encryptWebDavConfig({ endpoint: "https://fixture.example/dav", authType: "bearer", token: "fixture" }) });
 		mocks.assertStorageAccess.mockResolvedValue({ allowed: true });
 		mocks.fileEntryFindFirst.mockResolvedValue(null);
-		const metadata = '<multistatus><response><href>/dav/root/file.txt</href><propstat><status>HTTP/1.1 200 OK</status><prop><getcontentlength>6</getcontentlength></prop></propstat></response></multistatus>';
+		const metadata = '<multistatus><response><href>/dav/root/file.txt</href><propstat><status>HTTP/1.1 200 OK</status><prop><getcontentlength>6</getcontentlength><getetag>"v1"</getetag></prop></propstat></response></multistatus>';
 		mocks.transport.mockResolvedValueOnce(new Response(metadata, { status: 207 }));
 	});
 	it.each([false, true])("uses one stat for response headers and body (range=%s)", async partial => {
@@ -85,7 +85,12 @@ describe("GET /api/storage/webdav-download", () => {
 		expect(response.headers.get("content-range")).toBe(partial ? "bytes 1-3/6" : null);
 		expect(response.headers.get("content-length")).toBe(String(body.length));
 		expect(await response.text()).toBe(body);
+		expect(new Headers(mocks.transport.mock.calls[1]![1].headers).get("if-match")).toBe('"v1"');
 		expect(mocks.transport.mock.calls.map(([, init]) => init.method)).toEqual(["PROPFIND", "GET"]);
+	});
+	it("rejects a same-size replacement when the provider returns a different validator", async () => {
+		mocks.transport.mockResolvedValueOnce(new Response("update", { headers: { etag: '"v2"', "content-length": "6" } }));
+		expect((await GET(new Request(url))).status).toBeGreaterThanOrEqual(400);
 	});
 	it("rejects a replacement of a different size before sending a successful response", async () => {
 		mocks.transport.mockResolvedValueOnce(new Response("changed", { headers: { "content-length": "7" } }));

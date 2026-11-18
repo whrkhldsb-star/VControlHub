@@ -33,7 +33,7 @@ export async function GET(request: Request) {
     const range = parseStorageRange(request.headers.get("range"), entry.size);
     if (range instanceof Response) return range;
     // The client validates the upstream GET against this same metadata, including the range total.
-    const body = await client.stream(normalized.path, range.status === 206 ? range : undefined, entry.size);
+    const body = await client.stream(normalized.path, range.status === 206 ? range : undefined, entry.size, entry.etag);
     const headers = buildStorageStreamHeaders({ range, fileName: path.posix.basename(normalized.path), fileSize: entry.size, contentType: guessContentType(normalized.path), download: query.download });
     return new Response(body, { status: range.status, headers });
   });

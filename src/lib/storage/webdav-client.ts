@@ -9,7 +9,7 @@ import { validateWebhookUrlSyntax } from "@/lib/security/webhook-url";
 import { isUnsafePublicHttpHost } from "./direct-access-url";
 import { resolveStorageWebDavCredentials, type WebDavStorageNode } from "./webdav-credentials";
 
-export type WebDavEntry = { name: string; relativePath: string; isDirectory: boolean; size: number; lastModifiedMs: number };
+export type WebDavEntry = { name: string; relativePath: string; isDirectory: boolean; size: number; lastModifiedMs: number; etag?: string };
 /** Trusted code injection for fixtures only; never derived from node config or request input. */
 export type WebDavTransport = (url: URL, init: RequestInit) => Promise<Response>;
 const READ_LIMIT = 32 * 1024 * 1024;
@@ -145,7 +145,7 @@ export function createWebDavClient(node: WebDavStorageNode, dependencies: { tran
     return response;
   }
   async function propfind(path: string, depth: "0" | "1"): Promise<WebDavEntry[]> {
-    const response = await request("PROPFIND", path, { Depth: depth, "Content-Type": "application/xml; charset=utf-8" }, '<?xml version="1.0"?><d:propfind xmlns:d="DAV:"><d:prop><d:resourcetype/><d:getcontentlength/><d:getlastmodified/></d:prop></d:propfind>');
+    const response = await request("PROPFIND", path, { Depth: depth, "Content-Type": "application/xml; charset=utf-8" }, '<?xml version="1.0"?><d:propfind xmlns:d="DAV:"><d:prop><d:resourcetype/><d:getcontentlength/><d:getlastmodified/><d:getetag/></d:prop></d:propfind>');
     const xml = (await limited(response, XML_LIMIT)).toString("utf8");
     if (/<!DOCTYPE|<!ENTITY/i.test(xml) || XMLValidator.validate(xml) !== true) throw new BusinessError(apiCopy("apiCopy.invalid.webdav.xml.response.d22c80c4"));
     const parsed = object(new XMLParser({ removeNSPrefix: true, parseTagValue: false, processEntities: true }).parse(xml));
@@ -179,7 +179,9 @@ export function createWebDavClient(node: WebDavStorageNode, dependencies: { tran
       }
       const size = Number(props.getcontentlength ?? 0);
       if (!Number.isSafeInteger(size) || size < 0) throw new BusinessError(apiCopy("apiCopy.invalid.webdav.file.size.088f4b9f"));
-      entries.push({ relativePath: decoded, name: decoded.split("/").at(-1) ?? "", isDirectory: Object.hasOwn(object(props.resourcetype), "collection"), size, lastModifiedMs: Date.parse(String(props.getlastmodified)) || 0 });
+      // Only a single strong, quoted validator can identify a version for If-Match.
+      const etag = typeof props.getetag === "string" && /^"[!#-~]*"$/.test(props.getetag) ? props.getetag : undefined;
+      entries.push({ ...(etag ? { etag } : {}), relativePath: decoded, name: decoded.split("/").at(-1) ?? "", isDirectory: Object.hasOwn(object(props.resourcetype), "collection"), size, lastModifiedMs: Date.parse(String(props.getlastmodified)) || 0 });
     }
     return entries;
   }
@@ -200,11 +202,13 @@ export function createWebDavClient(node: WebDavStorageNode, dependencies: { tran
     },
     async stat(path: string): Promise<WebDavEntry | null> { try { const entries = await propfind(path, "0"); if (!entries[0]) throw new BusinessError(apiCopy("apiCopy.empty.webdav.stat.response.3856e537")); return entries[0]; } catch (e) { if (e instanceof WebDavHttpError && e.status === 404) return null; throw e; } },
     async read(path: string, maxBytes = READ_LIMIT): Promise<Buffer> { return limited(await request("GET", path), maxBytes); },
-    async stream(path: string, range?: { start: number; end: number }, expectedSize?: number): Promise<ReadableStream<Uint8Array>> {
+    async stream(path: string, range?: { start: number; end: number }, expectedSize?: number, etag?: string): Promise<ReadableStream<Uint8Array>> {
       if (range && (!Number.isSafeInteger(range.start) || !Number.isSafeInteger(range.end) || range.start < 0 || range.end < range.start || !Number.isSafeInteger(range.end + 1))) throw new ValidationError(t("backend.webdav.rangeInvalid"));
       if (expectedSize !== undefined && (!Number.isSafeInteger(expectedSize) || expectedSize < 0 || (range && range.end >= expectedSize))) throw new ValidationError(t("backend.webdav.rangeInvalid"));
-      const response = await request("GET", path, { "Accept-Encoding": "identity", ...(range ? { Range: `bytes=${range.start}-${range.end}` } : {}) });
+      const response = await request("GET", path, { "Accept-Encoding": "identity", ...(etag ? { "If-Match": etag } : {}), ...(range ? { Range: `bytes=${range.start}-${range.end}` } : {}) });
       const reject = async () => { await response.body?.cancel().catch(() => undefined); throw new BusinessError(t("backend.webdav.rangeInvalid")); };
+      const receivedEtag = response.headers.get("etag");
+      if (etag && receivedEtag !== null && receivedEtag !== etag) return reject();
       const encoding = response.headers.get("content-encoding");
       if ((encoding && encoding.toLowerCase() !== "identity") || ![200, 206].includes(response.status)) return reject();
       let skip = range?.start ?? 0;
