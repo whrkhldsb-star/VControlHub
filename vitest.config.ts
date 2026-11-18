@@ -2,6 +2,8 @@ import { defineConfig } from "vitest/config";
 import react from "@vitejs/plugin-react";
 import path from "node:path";
 
+const statusIntegration = "src/lib/status/service.integration.test.ts";
+
 export default defineConfig({
   plugins: [react()],
   test: {
@@ -14,6 +16,12 @@ export default defineConfig({
     // Glob `node_modules**`/`dist**` (not bare names) so upgrade/rollback copies
     // (node_modules.previous-*, dist.failed-*, …) are never picked up as tests.
     exclude: ["**/node_modules*/**", "**/dist*/**", "**/.next*/**", "e2e/**", "playwright.config.*"],
+    // This suite measures platform-wide server and storage totals. Other files create and delete
+    // those rows concurrently. Give it a separate run group on a shared integration database.
+    projects: process.env.RUN_DATABASE_INTEGRATION_TESTS === "1" ? [
+      { extends: true, test: { name: "suite", exclude: [statusIntegration], sequence: { groupOrder: 1 } } },
+      { extends: true, test: { name: "status-integration", include: [statusIntegration], sequence: { groupOrder: 2 } } },
+    ] : undefined,
     // Pool config (vitest 4 API: poolOptions removed, use top-level).
     // Keep the suite reliable on two-vCPU CI runners. Four V8 coverage workers
     // oversubscribe them and make timer-driven user-event and bcrypt tests
