@@ -238,8 +238,12 @@ describe("relayCapacityProblem", () => {
     const os = await import("node:os");
     const dir = os.tmpdir();
     expect(await relayCapacityProblem(10, 0, { maxFileBytes: null, remainingBytes: null }, dir)).toBeNull();
-    // The announced size is held to the creator's per-file limit and the quota left, as the finished files were.
-    expect(await relayCapacityProblem(100, 0, { maxFileBytes: BigInt(50), remainingBytes: null }, dir)).toEqual(expect.any(String));
+    const limits = { maxFileBytes: BigInt(50), remainingBytes: BigInt(90) };
+    const files = [{ selected: "true", length: "45" }, { selected: "true", length: "45" }, { selected: "false", length: "120" }];
+    expect(await relayCapacityProblem(90, 0, limits, dir, files)).toBeNull();
+    expect(await relayCapacityProblem(90, 0, limits, dir)).toBeNull();
+    expect(await relayCapacityProblem(91, 0, limits, dir, files)).toEqual(expect.any(String));
+    expect(await relayCapacityProblem(60, 0, limits, dir, [{ selected: "true", length: "60" }])).toEqual(expect.any(String));
     // More than the disk has free (a petabyte): refused whatever the limits say.
     expect(await relayCapacityProblem(1e15, 0, undefined, dir)).toEqual(expect.any(String));
     // What has been downloaded already is on the disk, so only the rest counts.

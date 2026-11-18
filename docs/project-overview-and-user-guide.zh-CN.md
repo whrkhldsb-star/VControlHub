@@ -1167,6 +1167,8 @@ AI 页面中的用户确认与命令审批可能是同一操作链的不同阶�
 
 文件恢复只覆盖数据（`storage`、`uploads`、`downloads`、`logs`，以及包里的环境配置文件）。完整备份里附带的当时代码（`public`、`prisma`、`package.json`、`package-lock.json`）只作为版本记录，不会覆盖当前安装。通过 `BACKUP_EXTRA_PATHS_JSON` 纳入的项目外数据也不会被写进安装目录：日志会列出它们在包里的位置，请按 `external-data.json` 自行解压到目标目录。文件历史的正文（`FILE_VERSION_DIR`，默认 `/var/lib/vcontrolhub/file-versions`）会随完整备份一起打包，恢复时放回该目录。
 
+如果旧版完整归档缺少 `file-versions.json`，而 `external-data.json` 的 `source` 列出了备份时的 `FILE_VERSION_DIR`，请按该条目的 `member` 提取历史目录，将其内容复制到目标实例的 `FILE_VERSION_DIR`，保留子目录结构。启动服务前，可用数据库 `file_versions` 表里的 `blobRelativePath` 和 `checksumSha256` 核对历史文件。
+
 恢复会改变实际数据库或文件。文件、配置、数据库和加密密钥需要配套；只有数据库而没有原密钥，可能无法解密原先保存的 SSH、RDP 或外部服务凭据。
 
 ### 13.5 跨环境迁移

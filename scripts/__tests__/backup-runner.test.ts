@@ -117,7 +117,7 @@ process.exit(result.status ?? 2);
     await mkdir(path.join(versions, "node_1"), { recursive: true });
     await writeFile(path.join(versions, "node_1", "v1.blob"), "old body");
     const output = path.join(backups, "full-history.tar.gz");
-    await runFile(process.execPath, [runner, "--full", output], { env: { ...env, FILE_VERSION_DIR: versions } });
+    await runFile(process.execPath, [runner, "--full", output], { env: { ...env, FILE_VERSION_DIR: versions, BACKUP_EXTRA_PATHS_JSON: JSON.stringify([versions]) } });
     const manifest = JSON.parse((await runFile("tar", ["-xOzf", output, "file-versions.json"])).stdout);
     expect((await runFile("tar", ["-xOzf", output, `${manifest.member}/node_1/v1.blob`])).stdout).toBe("old body");
 

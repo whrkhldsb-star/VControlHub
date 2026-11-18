@@ -185,6 +185,10 @@ async function archivePaths(outputPath, members, extraDir, envFile) {
     if (!Array.isArray(extraPaths) || extraPaths.some((entry) => typeof entry !== "string" || !path.isAbsolute(entry))) {
       throw new Error("BACKUP_EXTRA_PATHS_JSON must be an array of absolute paths");
     }
+    const versions = await fs.realpath(fileVersionDir({ ...envFile, ...process.env })).catch((error) => {
+      if (error.code === "ENOENT") return null;
+      throw error;
+    });
     const manifest = [];
     for (const entry of [...new Set(extraPaths)]) {
       const real = await fs.realpath(entry);
@@ -193,6 +197,8 @@ async function archivePaths(outputPath, members, extraDir, envFile) {
       if (!member || members.some((name) => member === name || member.startsWith(`${name}/`)) || path.resolve(outputPath).startsWith(`${real}${path.sep}`)) {
         throw new Error("External backup path overlaps archive members or backup output");
       }
+      // The history manifest routes this directory to the destination's configured history store.
+      if (real === versions) continue;
       args.push("-C", root, member);
       manifest.push({ source: real, member });
     }
@@ -203,8 +209,7 @@ async function archivePaths(outputPath, members, extraDir, envFile) {
     // File history: the database dump holds its rows, the bodies live on
     // disk (by default outside the app directory). A full backup without
     // them restored a history that could not be opened.
-    const versions = await fs.realpath(fileVersionDir({ ...envFile, ...process.env })).catch(() => null);
-    if (versions && !manifest.some((entry) => entry.source === versions)) {
+    if (versions) {
       const insideApp = path.relative(await fs.realpath(APP_DIR), versions);
       if (insideApp && !insideApp.startsWith("..") && !path.isAbsolute(insideApp)) {
         const member = insideApp.split(path.sep).join("/");

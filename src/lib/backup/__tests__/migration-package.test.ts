@@ -120,6 +120,21 @@ describe("migration packages", () => {
     expect(listed.some((p) => p.packageId === exported.packageId)).toBe(true);
   });
 
+  it("refuses to publish a changed backup and computes a digest for legacy records", async () => {
+    const relative = "backups/legacy.sql.gz";
+    await fs.mkdir(path.join(storage, "backups"));
+    await fs.writeFile(path.join(storage, relative), "local content");
+    const record = { id: "legacy", type: "DATABASE", status: "COMPLETED", filePath: relative };
+    prismaMock.backupRecord.findUnique.mockResolvedValueOnce({ ...record, checksumSha256: "0".repeat(64) });
+    const mod = await import("../migration-package");
+    const options = { backupId: record.id, projectRoot: tmp };
+    await expect(mod.exportMigrationPackage(options)).rejects.toThrow();
+    expect(await fs.readdir(path.join(storage, "migration-packages"))).toEqual([]);
+    prismaMock.backupRecord.findUnique.mockResolvedValueOnce({ ...record, checksumSha256: null });
+    const result = await mod.exportMigrationPackage(options);
+    expect((await mod.validateMigrationPackage(result.packageRelativeDir, tmp)).checksumMatches).toBe(true);
+  });
+
   it("removes its copy when the import cannot be recorded, so a retry leaves one", async () => {
     // The copy was made, the record write failed: the copy stayed, unlisted,
     // and the retry made a second full copy.

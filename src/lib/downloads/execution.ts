@@ -15,6 +15,7 @@ import {
  removeDownload,
  tellStatus,
  getPublicAria2Error,
+ type Aria2Status,
 } from "@/lib/aria2/service";
 import { execRemoteCommand, buildSshParamsFromServer, connectSsh, createVerifiedSshConfig } from "@/lib/ssh/client";
 import { createReadStream } from "fs";
@@ -247,7 +248,7 @@ export async function executeAria2RelayDownload(
     // A torrent announces its size early. Hold it to the creator's limits and to the disk it is written to now,
     // not after hours of downloading (the limits used to be checked only once everything had arrived).
     if (st.status !== "complete" && st.status !== "error" && st.status !== "removed" && Number(st.totalLength) > 0) {
-     const problem = await relayCapacityProblem(Number(st.totalLength), Number(st.completedLength) || 0, limits, tempDir);
+     const problem = await relayCapacityProblem(Number(st.totalLength), Number(st.completedLength) || 0, limits, tempDir, st.files);
      if (problem) {
       try { await removeDownload(gid, true); } catch { /* best-effort */ }
       await prisma.downloadTask.updateMany({ where: { id: taskId, status: { in: ["PENDING", "RUNNING"] } }, data: { status: "FAILED", errorMessage: problem } });
@@ -373,8 +374,17 @@ const RELAY_DISK_RESERVE_BYTES = 5 * 1024 ** 3;
 const RELAY_MAX_PAUSED_SECONDS = 24 * 3600;
 
 /** Why a torrent of this size must not go on, or null: the creator's limits, or the disk the relay writes to. */
-export async function relayCapacityProblem(totalBytes: number, completedBytes: number, limits: StorageWriteCapacity | undefined, dir: string): Promise<string | null> {
- if (limits && relayExceedsLimits([{ size: totalBytes }], limits)) return t("backend.downloads.storageLimitExceeded");
+export async function relayCapacityProblem(
+ totalBytes: number, completedBytes: number, limits: StorageWriteCapacity | undefined, dir: string,
+ files: ReadonlyArray<Pick<Aria2Status["files"][number], "selected" | "length">> = [],
+): Promise<string | null> {
+ if (limits) {
+  const { remainingBytes, maxFileBytes } = limits;
+  const overQuota = remainingBytes !== null && BigInt(totalBytes) > remainingBytes;
+  const oversizedFile = maxFileBytes !== null && files.some(file =>
+   file.selected === "true" && BigInt(file.length) > maxFileBytes);
+  if (overQuota || oversizedFile) return t("backend.downloads.storageLimitExceeded");
+ }
  const stats = await fs.statfs(dir).catch(() => null);
  if (stats) {
   const free = Number(stats.bavail) * Number(stats.bsize);

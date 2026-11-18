@@ -398,6 +398,7 @@ describe("uploadVpsBackupToOffsite", () => {
         backupType: "nginx-config",
         status: "COMPLETED",
         localPath,
+        checksumSha256: "a".repeat(64),
         offsiteKey: null,
       });
       offsiteMocks.loadConfig.mockResolvedValueOnce(ENABLE_OFFSITE_CONFIG);
@@ -415,7 +416,7 @@ describe("uploadVpsBackupToOffsite", () => {
         endpoint: "https://s3.example.com",
         timeoutMs: 30 * 60 * 1000,
       });
-      expect(offsiteMocks.putFile).toHaveBeenCalledTimes(1);
+      expect(offsiteMocks.putFile).toHaveBeenCalledWith("vps-backups/srv_1/nginx-config-rec_to.tar.gz", artifactPath, "application/gzip", "a".repeat(64));
     } finally {
       rmSync(artifactPath, { force: true });
     }

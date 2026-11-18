@@ -19,7 +19,7 @@ import { createReadStream } from "node:fs";
 import { stat } from "node:fs/promises";
 import { Readable } from "node:stream";
 import { readResponseTextLimited } from "@/lib/http/response-body";
-import { sha256File } from "@/lib/crypto/sha256-file";
+import { sha256File, verifyRecordedChecksum } from "@/lib/crypto/sha256-file";
 
 /* ── Public types ────────────────────────────────────────── */
 
@@ -288,10 +288,11 @@ export class S3Client {
 	}
 
 	/** PUT a local file without hydrating the complete artifact into memory. */
-	async putFile(key: string, filePath: string, contentType?: string): Promise<{ etag: string; versionId?: string }> {
+	async putFile(key: string, filePath: string, contentType?: string, expectedSha256?: string | null): Promise<{ etag: string; versionId?: string }> {
 		const info = await stat(filePath);
 		if (!info.isFile()) throw new S3Error("upload source must be a regular file", 0, "InvalidUploadSource");
 		const bodyHash = await sha256File(filePath);
+		verifyRecordedChecksum(bodyHash, expectedSha256);
 		const url = this.buildUrl(key, new URLSearchParams());
 		const headers: Record<string, string> = {
 			"content-length": String(info.size),

@@ -295,11 +295,30 @@ describe("uploadBackupToOffsite", () => {
 		}
 	});
 
+	it.each([12, 8 * 1024 * 1024])("rejects a changed original before uploading its gzip (%i bytes)", async (size) => {
+		loadConfigMock.mockResolvedValue(baseConfig);
+		mockPrisma.backupRecord.findUnique.mockResolvedValue({ ...baseRecord, filePath: "data.sql", checksumSha256: "0".repeat(64) });
+		const { mkdtemp, mkdir, writeFile, rm } = await import("node:fs/promises");
+		const { tmpdir } = await import("node:os");
+		const { join } = await import("node:path");
+		const dir = await mkdtemp(join(tmpdir(), "offsite-digest-"));
+		try {
+			await mkdir(join(dir, "backups"));
+			await writeFile(join(dir, "backups", "data.sql"), Buffer.alloc(size, 7));
+			expect(await uploadBackupToOffsite({ backupId: "rec-1", projectRoot: dir })).toMatchObject({ ok: false, code: "ChecksumMismatch" });
+			expect(putObjectMock).not.toHaveBeenCalled();
+			expect(putFileMock).not.toHaveBeenCalled();
+		} finally {
+			await rm(dir, { recursive: true, force: true });
+		}
+	});
+
 	it("streams large pre-compressed backup artifacts instead of buffering them", async () => {
 		loadConfigMock.mockResolvedValue(baseConfig);
 		mockPrisma.backupRecord.findUnique.mockResolvedValue({
 			...baseRecord,
 			filePath: "large.sql.gz",
+			checksumSha256: "a".repeat(64),
 		});
 		putFileMock.mockResolvedValue({ etag: "etag-stream" });
 		const { mkdtemp, writeFile, rm, mkdir } = await import("node:fs/promises");
@@ -314,6 +333,7 @@ describe("uploadBackupToOffsite", () => {
 				expect.stringContaining("rec-1"),
 				join(dir, "backups/large.sql.gz"),
 				"application/octet-stream",
+				"a".repeat(64),
 			);
 			expect(putObjectMock).not.toHaveBeenCalled();
 		} finally {

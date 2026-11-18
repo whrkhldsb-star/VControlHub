@@ -100,6 +100,7 @@ export async function uploadVpsBackupToOffsite(
       backupType: true,
       status: true,
       localPath: true,
+      checksumSha256: true,
       offsiteKey: true,
     },
   });
@@ -142,7 +143,7 @@ export async function uploadVpsBackupToOffsite(
       ...offsiteConfig,
       timeoutMs: 30 * 60 * 1000,
     });
-    await s3.putFile(offsiteKey, localAbsolutePath, "application/gzip");
+    await s3.putFile(offsiteKey, localAbsolutePath, "application/gzip", record.checksumSha256);
     await prisma.vpsBackupRecord.update({
       where: { id: record.id },
       data: {

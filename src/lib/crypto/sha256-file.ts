@@ -9,6 +9,16 @@
 import { createHash } from "node:crypto";
 import { createReadStream } from "node:fs";
 
+export class ChecksumMismatchError extends Error {
+	constructor() {
+		super("Backup artifact SHA-256 does not match its recorded checksum");
+	}
+}
+
+export function verifyRecordedChecksum(actual: string, expected?: string | null): void {
+	if (expected && actual !== expected.toLowerCase()) throw new ChecksumMismatchError();
+}
+
 export function sha256File(filePath: string): Promise<string> {
 	return new Promise((resolve, reject) => {
 		const hash = createHash("sha256");

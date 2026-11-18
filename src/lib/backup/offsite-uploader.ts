@@ -13,6 +13,8 @@
  *     其中 ext = `.gz` 走压缩, `` 不压缩; pathPrefix 默认 `vcontrolhub-backups/`
  */
 import { appTimeZoneDateKey } from "@/lib/datetime/time-zone";
+import { createHash } from "node:crypto";
+import { ChecksumMismatchError, verifyRecordedChecksum } from "@/lib/crypto/sha256-file";
 import { mkdtemp, readFile, rm, stat } from "node:fs/promises";
 import { tmpdir } from "node:os";
 import path from "node:path";
@@ -184,6 +186,7 @@ export async function uploadBackupToOffsite(input: {
 			const tempDir = await mkdtemp(path.join(tmpdir(), "vch-offsite-"));
 			tempGzPath = path.join(tempDir, `${record.id}.gz`);
 			const result = await compressFileToGz(fullPath, tempGzPath);
+			verifyRecordedChecksum(result.checksumSha256, record.checksumSha256);
 			uploadPath = tempGzPath;
 			originalSize = result.originalSize;
 			compressedSize = result.compressedSize;
@@ -193,6 +196,7 @@ export async function uploadBackupToOffsite(input: {
 			uploadPath = fullPath;
 		} else {
 			const rawBuf = await readFile(fullPath);
+			verifyRecordedChecksum(createHash("sha256").update(rawBuf).digest("hex"), record.checksumSha256);
 			if (shouldCompress) {
 				const result = compressBuffer(rawBuf);
 				body = result.data;
@@ -211,7 +215,7 @@ export async function uploadBackupToOffsite(input: {
 		return recordOffsiteFailure({
 			record,
 			recipient: alertOn ? config.failureAlertRecipient : null,
-			code: "CompressError",
+			code: err instanceof ChecksumMismatchError ? "ChecksumMismatch" : "CompressError",
 			error: `Prepare upload body failed: ${formatError(err)}`,
 		});
 	}
@@ -233,7 +237,7 @@ export async function uploadBackupToOffsite(input: {
 	const client = new S3Client(clientConfig);
 	try {
 		const { etag } = uploadPath
-			? await client.putFile(key, uploadPath, contentType)
+			? await client.putFile(key, uploadPath, contentType, compressed ? undefined : record.checksumSha256)
 			: await client.putObject(key, body!, contentType);
 		// 7. 写 DB
 		const uploadedAt = new Date();
@@ -267,7 +271,7 @@ export async function uploadBackupToOffsite(input: {
 		};
 	} catch (err) {
 		const message = formatError(err);
-		const code = err instanceof S3Error ? err.code : "UploadError";
+		const code = err instanceof ChecksumMismatchError ? "ChecksumMismatch" : err instanceof S3Error ? err.code : "UploadError";
 		return recordOffsiteFailure({
 			record,
 			recipient: alertOn ? config.failureAlertRecipient : null,
