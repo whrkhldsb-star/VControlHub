@@ -26,3 +26,13 @@ END $$;
 CREATE TRIGGER revoke_file_shares AFTER UPDATE OF "agentTokenHash", "managementMode", "teamId" ON servers
 FOR EACH ROW WHEN (ROW(NEW."agentTokenHash", NEW."managementMode", NEW."teamId") IS DISTINCT FROM ROW(OLD."agentTokenHash", OLD."managementMode", OLD."teamId"))
 EXECUTE FUNCTION vch_revoke_file_shares();
+
+-- Retire the file credential even if an import later restores the old driver or team.
+CREATE FUNCTION vch_remove_detached_file_share() RETURNS trigger LANGUAGE plpgsql AS $$
+BEGIN
+  DELETE FROM agent_file_shares WHERE "storageNodeId" = NEW.id;
+  RETURN NULL;
+END $$;
+CREATE TRIGGER remove_detached_file_share AFTER UPDATE OF driver, "teamId" ON "StorageNode"
+FOR EACH ROW WHEN (ROW(NEW.driver, NEW."teamId") IS DISTINCT FROM ROW(OLD.driver, OLD."teamId"))
+EXECUTE FUNCTION vch_remove_detached_file_share();

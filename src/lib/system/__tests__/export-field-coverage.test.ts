@@ -18,10 +18,11 @@ const NOT_EXPORTED: Record<string, { model: Record<string, string>; skip: string
 		// from the target's own secret, so the gateway is enabled again there),
 		// bookkeeping.
 		skip: ["agentTokenHash", "agentLastSeenAt", "agentMetricsAt", "agentMetricsRaw", "agentVersion", "agentCapabilities", "agentLastError",
+			"capabilitySince", "lastCommandSuccessAt", "lastCommandChannel",
 			"onboardingStatus", "onboardingLastError", "directGatewayDesiredEnabled", "directGatewayDesiredProtocol", "directGatewayDesiredDomain",
 			"directGatewayKeyVersion", "costLastSyncedAt", "addedById", "updatedAt"],
 	},
-	storageNodes: { model: Prisma.StorageNodeScalarFieldEnum, skip: ["lastHealthCheckAt", "lastHealthError", "lastHealthLatencyMs", "updatedAt"] },
+	storageNodes: { model: Prisma.StorageNodeScalarFieldEnum, skip: ["lastHealthyAt", "lastHealthyTransport", "lastHealthCheckAt", "lastHealthError", "lastHealthLatencyMs", "updatedAt"] },
 	sshKeys: { model: Prisma.SshKeyScalarFieldEnum, skip: ["updatedAt"] },
 	// Session epoch, consumed TOTP step and selected customer are local runtime state.
 	users: { model: Prisma.UserScalarFieldEnum, skip: ["sessionEpoch", "lastAcceptedTotpStep", "currentTeamId", "updatedAt"] },

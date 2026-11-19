@@ -219,19 +219,31 @@ export async function importStorageNodes(
   // Servers were imported before: a node on a server that is neither in the
   // package nor here arrives unbound (create) or stays on its server (update).
   const servers = await idsPresent(records.map((r) => r.serverId), (ids) => tx.server.findMany({ where: { id: { in: ids } }, select: { id: true } }));
-  const toData = (r: ExportFile["tables"]["storageNodes"][number]) => ({
+  type NodeRow = ExportFile["tables"]["storageNodes"][number];
+  // Only the server association travels with an Agent drive. Pairing credentials are local.
+  async function restoreFileShare(r: NodeRow) {
+    if (!r.serverId) return;
+    const server = await tx.server.findFirst({
+      where: { id: r.serverId, teamId: r.teamId ?? null }, select: { id: true },
+    });
+    if (server) await tx.agentFileShare.create({
+      data: { storageNodeId: r.id, serverId: server.id, teamId: r.teamId ?? null },
+    });
+  }
+  const toData = (r: NodeRow) => ({
     name: r.name,
     driver: r.driver as never,
     isDefault: r.isDefault,
-    basePath: r.basePath,
-    directAccessMode: r.directAccessMode as never,
-    publicBaseUrl: r.publicBaseUrl,
+    basePath: r.driver === "AGENT" ? "/" : r.basePath,
+    directAccessMode: (r.driver === "AGENT" ? "PROXY" : r.directAccessMode) as never,
+    publicBaseUrl: r.driver === "AGENT" ? null : r.publicBaseUrl,
     directAccessExpiresSeconds: r.directAccessExpiresSeconds,
     host: r.host,
     port: r.port,
     username: r.username,
-    ...(r.serverId && !servers.has(r.serverId) ? {} : { serverId: r.serverId }),
-    healthStatus: r.healthStatus,
+    ...(r.driver === "AGENT" ? { serverId: null } : r.serverId && !servers.has(r.serverId) ? {} : { serverId: r.serverId }),
+    healthStatus: r.driver === "AGENT" ? "UNKNOWN" as const : r.healthStatus,
+    ...(r.driver === "AGENT" ? { lastHealthyAt: null, lastHealthyTransport: null, lastHealthCheckAt: null, lastHealthError: null, lastHealthLatencyMs: null } : {}),
     // Multi-tenant: preserve export teamId (null stays legacy-shared)
     teamId: r.teamId ?? null,
     hostKeySha256: r.hostKeySha256,
@@ -243,15 +255,26 @@ export async function importStorageNodes(
       new Set(
         (await tx.storageNode.findMany({ where: { id: { in: ids } }, select: { id: true } })).map((e) => e.id),
       ),
-    createManySkipDuplicates: async (rows) =>
-      (
-        await tx.storageNode.createMany({
-          data: rows.map((r) => ({ id: r.id, ...toData(r) })),
-          skipDuplicates: true,
-        })
-      ).count,
+    createManySkipDuplicates: async (rows) => {
+      const direct = rows.filter((row) => row.driver !== "AGENT");
+      let created = direct.length ? (await tx.storageNode.createMany({
+        data: direct.map((r) => ({ id: r.id, ...toData(r) })), skipDuplicates: true,
+      })).count : 0;
+      for (const r of rows.filter((row) => row.driver === "AGENT")) {
+        const result = await tx.storageNode.createMany({ data: { id: r.id, ...toData(r) }, skipDuplicates: true });
+        if (result.count) {
+          await restoreFileShare(r);
+          created++;
+        }
+      }
+      return created;
+    },
     updateById: async (r) => {
       await tx.storageNode.update({ where: { id: r.id }, data: toData(r) });
+      if (r.driver === "AGENT") {
+        await tx.agentFileShare.deleteMany({ where: { storageNodeId: r.id } });
+        await restoreFileShare(r);
+      }
     },
   });
 

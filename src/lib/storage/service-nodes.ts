@@ -368,7 +368,7 @@ export async function updateStorageNode(
   const nextDriver = payload.driver ?? current.driver;
   const driverChanged = nextDriver !== current.driver;
   if ((driverChanged && (current.driver === "AGENT" || nextDriver === "AGENT"))
-      || (nextDriver === "AGENT" && ((payload.basePath && payload.basePath !== "/") || payload.serverId && payload.serverId !== current.agentFileShare?.serverId))) {
+      || (nextDriver === "AGENT" && ((payload.basePath && payload.basePath !== "/") || payload.serverId && current.agentFileShare && payload.serverId !== current.agentFileShare.serverId))) {
     throw new ValidationError(t("backend.fileAgent.separateDrive"));
   }
   // Apply driver-specific constraints even when PATCH omitted the driver.
@@ -444,6 +444,14 @@ export async function updateStorageNode(
       });
       if (claimed.count === 0) {
         throw new NotFoundError(t("backend.storage.nodeNotFound"));
+      }
+      if (nextDriver === "AGENT" && !current.agentFileShare && payload.serverId) {
+        const server = await tx.server.findFirst({
+          where: { id: payload.serverId, teamId: current.teamId, enabled: true, managementMode: "AGENT" },
+          select: { id: true },
+        });
+        if (!server) throw new ValidationError(t("backend.fileAgent.binding"));
+        await tx.agentFileShare.create({ data: { storageNodeId: current.id, serverId: server.id, teamId: current.teamId } });
       }
       const row = await tx.storageNode.findFirst({
         where: { id: payload.storageNodeId, ...(session ? teamWhere(session) : {}) },
