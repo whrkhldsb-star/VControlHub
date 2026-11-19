@@ -176,12 +176,34 @@ describe("DownloadsClient", () => {
     expect(csrfFetch).toHaveBeenCalledTimes(1);
   });
 
+  it.each([
+    ["srv_1", "direct", "/data/direct"],
+    ["drive:remote", "remote", "/data/agent"],
+  ])("submits the destination drive selected on a shared server (%s)", async (option, drive, targetPath) => {
+    const actor = userEvent.setup();
+    const base = servers[0]!;
+    const targets: ServerOption[] = [
+      { ...base, serverId: base.id, storageNodeId: "direct", storagePath: "/data/direct", storageDriver: "SFTP" },
+      { ...base, id: "drive:remote", serverId: base.id, storageNodeId: "remote", storagePath: "/data/agent", storageDriver: "AGENT" },
+    ];
+    vi.mocked(csrfFetch).mockResolvedValue({ tasks: [], globalStat: null });
+
+    render(<DownloadsClient servers={targets} canManage canManageNode />);
+    await actor.click(await screen.findByRole("button", { name: "新建下载" }));
+    await actor.selectOptions(screen.getByRole("combobox", { name: "目标云盘" }), option);
+    await actor.type(screen.getByRole("textbox", { name: "下载链接" }), "https://example.com/a.iso");
+    await actor.click(screen.getByRole("button", { name: "开始下载" }));
+
+    const post = vi.mocked(csrfFetch).mock.calls.find(([url, init]) => url === "/api/downloads" && init?.method === "POST");
+    expect(JSON.parse(String(post?.[1]?.body))).toMatchObject({ serverId: base.id, storageNodeId: drive, targetPath });
+  });
+
   it("prevents creating tasks when no eligible VPS target is available", async () => {
     vi.mocked(csrfFetch).mockResolvedValueOnce({ tasks: [], globalStat: null });
 
     render(<DownloadsClient servers={[]} canManage canManageNode />);
 
-    expect(await screen.findByText("暂无可用下载目标：请先在 VPS 管理中为节点绑定存储并配置 SSH。")).toBeInTheDocument();
+    expect(await screen.findByText("暂无可用下载目标。请为服务器绑定直连存储或配对文件 Agent 云盘。")).toBeInTheDocument();
     expect(screen.queryByRole("button", { name: "新建下载" })).not.toBeInTheDocument();
   });
 

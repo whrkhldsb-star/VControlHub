@@ -1,6 +1,6 @@
 // @vitest-environment node
 import { createHash, randomUUID } from "node:crypto";
-import { mkdtemp, rm, writeFile } from "node:fs/promises";
+import { mkdtemp, rm, stat, utimes, writeFile } from "node:fs/promises";
 import { tmpdir } from "node:os";
 import path from "node:path";
 
@@ -34,10 +34,12 @@ describe.skipIf(process.env.RUN_DATABASE_INTEGRATION_TESTS !== "1")("file entry 
 		if (root) await rm(root, { recursive: true, force: true });
 	});
 
-	const indexWithChecksum = async (name: string, content: string) => {
-		await writeFile(path.join(root, name), content);
+	const indexWithChecksum = async (name: string, content: string, legacy = false) => {
+		const filePath = path.join(root, name);
+		await writeFile(filePath, content);
+		const storageVersion = legacy ? null : String((await stat(filePath)).mtimeMs);
 		await prisma.fileEntry.create({
-			data: { storageNodeId: nodeId, relativePath: name, name, entryType: "FILE", mimeType: "text/plain", size: BigInt(content.length), checksumSha256: sha256(content) },
+			data: { storageNodeId: nodeId, relativePath: name, name, entryType: "FILE", mimeType: "text/plain", size: BigInt(content.length), checksumSha256: sha256(content), storageVersion },
 		});
 	};
 	const row = (name: string) => prisma.fileEntry.findFirstOrThrow({ where: { storageNodeId: nodeId, relativePath: name }, select: { size: true, checksumSha256: true } });
@@ -54,6 +56,22 @@ describe.skipIf(process.env.RUN_DATABASE_INTEGRATION_TESTS !== "1")("file entry 
 		expect(await row("report.txt")).toEqual({ size: BigInt(20), checksumSha256: null });
 		// Nothing says this one changed: its checksum stays.
 		expect(await row("untouched.txt")).toEqual({ size: BigInt(12), checksumSha256: sha256("same as ever") });
+	}, 30_000);
+
+	it("invalidates same-size rewrites and checksums without a recorded version", async () => {
+		await indexWithChecksum("same-size.txt", "before");
+		await indexWithChecksum("legacy.txt", "legacy", true);
+		const filePath = path.join(root, "same-size.txt");
+		await writeFile(filePath, "edited");
+		const changedTime = new Date("2024-01-01T00:00:00Z");
+		await utimes(filePath, changedTime, changedTime);
+
+		const result = await syncLocalDirectoryEntries({ node: { id: nodeId, driver: "LOCAL", basePath: root } });
+
+		expect(result.errors).toEqual([]);
+		for (const name of ["same-size.txt", "legacy.txt"]) {
+			expect(await row(name)).toEqual({ size: BigInt(6), checksumSha256: null });
+		}
 	}, 30_000);
 
 	it("drops the checksum when a finished download replaces the file", async () => {
