@@ -168,7 +168,7 @@ describe("local storage directory sync", () => {
     expect(prismaMock.fileEntry.updateMany).toHaveBeenCalledWith({
       where: { id: row.id, isDeleted: false, updatedAt: row.updatedAt },
       // Another size: the checksum recorded for the old content goes with it.
-      data: { name: "same.txt", entryType: "FILE", mimeType: "text/plain", size: BigInt(7), checksumSha256: null },
+      data: { name: "same.txt", entryType: "FILE", mimeType: "text/plain", size: BigInt(7), checksumSha256: null, storageVersion: null },
     });
   });
 

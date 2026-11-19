@@ -1,3 +1,4 @@
+import { resolveTaskDrive, downloadDriveSelect } from "@/lib/downloads/destination";
 import { apiCopy } from "@/lib/i18n/api-copy";
 import { NextResponse } from "next/server";
 
@@ -22,20 +23,18 @@ export async function GET(request: Request) {
         where: {
           status: "COMPLETED",
           ...teamWhere(session),
-          server: { storageNode: { isNot: null } },
+          OR: [{ server: { storageNode: { isNot: null } } }, { agentStorageNodeId: { not: null } }],
         },
         select: {
           id: true,
           url: true,
           fileName: true,
           targetPath: true,
-          createdBy: true,
+          createdBy: true, agentStorageNodeId: true, directStorageNodeId: true,
           updatedAt: true,
           server: {
             select: {
-              storageNode: {
-                select: { id: true, name: true, driver: true, basePath: true },
-              },
+              storageNode: { select: downloadDriveSelect }, agentFileShares: { select: { node: { select: downloadDriveSelect } } },
             },
           },
         },
@@ -43,7 +42,7 @@ export async function GET(request: Request) {
         // Filtered by per-path access below: reading only the newest 8 showed
         // an account with narrow grants fewer (or none) of its own downloads.
         take: RECENT_DOWNLOADS_SCAN,
-      });
+      }).then(rows => rows.map(resolveTaskDrive));
 
       const accessFlags = await Promise.all(
         tasks.map((task) => canAccessDownloadTask({ session, task, operation: "read" })),

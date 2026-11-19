@@ -36,6 +36,7 @@ const MAX_BATCH_URLS = 50;
 
 const postDownloadSchema = z.object({
   url: z.string().url(t("apiDownloads.urlInvalid", "en")),
+  storageNodeId: z.string().min(1).optional(),
   serverId: z.string().min(1, t("apiDownloads.missingServerId", "en")),
   targetPath: z.string().min(1, t("apiDownloads.missingTargetPath", "en")),
   fileName: z.string().optional(),
@@ -116,33 +117,30 @@ export async function POST(request: Request) {
 
       const server = await prisma.server.findUnique({
         where: { id: serverId },
-        include: { sshKey: true, storageNode: true },
+        include: { sshKey: true, storageNode: true, agentFileShares: { orderBy: { storageNodeId: "asc" }, select: { node: true } } },
       });
       if (!server)
         throw new NotFoundError(t("apiDownloads.serverNotFound", locale));
-      if (!server.storageNode) {
-        return NextResponse.json(
-          { error: t("apiDownloads.serverMissingStorage", locale) },
-          { status: 400 },
-        );
+      const agentDrives = server.managementMode === "AGENT"
+        ? (server.agentFileShares ?? []).map(share => share.node).filter(node => node.driver === "AGENT" && node.teamId === server.teamId) : [];
+      const storageNode = body.storageNodeId
+        ? [server.storageNode, ...agentDrives].find(node => node?.id === body.storageNodeId)
+        : server.storageNode ?? (agentDrives.length === 1 ? agentDrives[0] : null);
+      if (!storageNode) {
+        return NextResponse.json({ error: t(agentDrives.length ? "apiDownloads.selectDrive" : "apiDownloads.serverMissingStorage", locale) }, { status: 400 });
       }
-      // A direct download only runs a command, which an Agent-managed node does
-      // over the Agent (A5-13); the relay's SFTP transfer still needs SSH.
-      if (!server.sshKey && !server.password && (server.managementMode !== "AGENT" || hasMagnet))
-        return NextResponse.json(
-          { error: t("apiDownloads.serverMissingCredentials", locale) },
-          { status: 400 },
-        );
+      if (storageNode.driver !== "AGENT" && !server.sshKey && !server.password && (server.managementMode !== "AGENT" || hasMagnet))
+        return NextResponse.json({ error: t("apiDownloads.serverMissingCredentials", locale) }, { status: 400 });
 
       let resolvedTargetPath: string;
       let targetRelativePath: string;
       try {
         resolvedTargetPath = resolveDownloadTargetPath(
-          server.storageNode.basePath,
+          storageNode.basePath,
           targetPath,
         );
         targetRelativePath = getDownloadTargetRelativePath(
-          server.storageNode.basePath,
+          storageNode.basePath,
           resolvedTargetPath,
         );
       } catch (error) {
@@ -156,7 +154,7 @@ export async function POST(request: Request) {
 
       const accessDecision = await assertStorageAccess({
         session,
-        storageNodeId: server.storageNode.id,
+        storageNodeId: storageNode.id,
         relativePath: targetRelativePath,
         operation: "write",
       });
@@ -170,7 +168,7 @@ export async function POST(request: Request) {
       // it to these limits; a destination with no room at all is refused now.
       const capacity = await getStorageWriteCapacity({
         session,
-        storageNodeId: server.storageNode.id,
+        storageNodeId: storageNode.id,
         relativePath: targetRelativePath,
       });
       if (largestAllowedWrite(capacity) === BigInt(0)) {
@@ -190,7 +188,7 @@ export async function POST(request: Request) {
         );
       }
 
-      const relayMode = allUrls.some(isMagnetLink);
+      const relayMode = hasMagnet || storageNode.driver === "AGENT";
 
       // Determine the list of URLs that each become their own task.
       //  - HTTP batch: one task per URL.
@@ -223,6 +221,7 @@ export async function POST(request: Request) {
           data: {
             url: storedUrls.get(taskUrl) ?? taskUrl,
             serverId,
+            ...(storageNode.driver === "AGENT" ? { agentStorageNodeId: storageNode.id } : { directStorageNodeId: storageNode.id }),
             targetPath: resolvedTargetPath,
             fileName: taskFileName,
             status: "PENDING",
@@ -258,7 +257,7 @@ export async function POST(request: Request) {
             // in-flight jobs targeting the same node. The route already
             // validated that `server.storageNode` is non-null above
             // (line 229), so the bang is safe.
-            storageNodeId: server.storageNode!.id,
+            storageNodeId: storageNode.id,
             sourceResolution: sourceResolutions.get(taskUrl),
           });
         } catch (dispatchFailure) {

@@ -1,3 +1,4 @@
+import { resolveTaskDrive } from "@/lib/downloads/destination";
 import { JobStatus, Prisma } from "@prisma/client";
 
 import { config } from "@/lib/config/env";
@@ -177,8 +178,8 @@ async function loadTaskRow(taskId: string) {
   const { prisma } = await import("@/lib/db");
   return prisma.downloadTask.findUnique({
     where: { id: taskId },
-    include: { server: { include: { sshKey: true, storageNode: true } } },
-  });
+    include: { server: { include: { sshKey: true, storageNode: true, agentFileShares: { select: { node: true } } } } },
+  }).then(row => row ? resolveTaskDrive(row) : null);
 }
 
 function buildServerForExec(server: {
@@ -376,12 +377,19 @@ async function handleClaimedJob(
       ? await getStorageWriteCapacity({ session: actor, storageNodeId: task.server.storageNode.id, relativePath: targetRelativePath })
       : undefined;
 
-    const serverForExec = buildServerForExec(task.server);
+    if (task.agentStorageNodeId && (task.server.managementMode !== "AGENT" || payload.mode !== "aria2_relay" || task.server.storageNode.driver !== "AGENT")) {
+      const message = t("backend.downloads.taskStorageMissing");
+      await failTaskBeforeStart(task.id, message);
+      await failJobTerminal(job.id, DOWNLOAD_EXECUTION_WORKER_ID, message);
+      return true;
+    }
+    const serverForExec = buildServerForExec(task.agentStorageNodeId ? { ...task.server, sshKey: null } : task.server);
+    if (task.agentStorageNodeId) serverForExec.agentStorageNodeId = task.agentStorageNodeId;
     // The downstream execute* helpers re-decrypt server.password on demand (see
     // transferFileViaSsh2 which reads it again for sshpass). Surface the same
     // decrypted value here so the in-memory copy we dispatch with is the
     // plaintext password the original fire-and-forget path was using.
-    serverForExec.password = decryptServerPasswordField(task.server);
+    serverForExec.password = task.agentStorageNodeId ? null : decryptServerPasswordField(task.server);
 
     // Continuous lease heartbeat for the transfer body. Aria2 relays can run
     // for up to ~2h; a single opening heartbeat left the lease exposed for the
@@ -487,7 +495,13 @@ async function handleClaimedJob(
       );
       return true;
     }
-    await failJob(job.id, DOWNLOAD_EXECUTION_WORKER_ID, message.slice(0, 2000));
+    const failed = await failJob(job.id, DOWNLOAD_EXECUTION_WORKER_ID, message.slice(0, 2000));
+    if (postTask?.agentStorageNodeId && failed.count && job.attempts >= job.maxAttempts) {
+      await failTaskBeforeStart(postTask.id, t("backend.downloads.error.executionFailed"));
+      const { rm } = await import("node:fs/promises");
+      const { relayTempDir } = await import("@/lib/runtime/platform-paths");
+      await rm(relayTempDir(postTask.id), { recursive: true, force: true });
+    }
     logger.error("Download execution job failed", {
       jobId: job.id,
       taskId: payload.taskId,

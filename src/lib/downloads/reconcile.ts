@@ -310,6 +310,10 @@ export async function reconcileStaleRunningDownloadTasks(input?: {
         }
         continue;
       }
+      if (task.directStorageNodeId && task.server.storageNode?.id !== task.directStorageNodeId) {
+        if (await failRunningTask(task.id, t("backend.downloads.taskStorageMissing"))) { failed++; ids.push(task.id); }
+        continue;
+      }
       let outcome: "completed" | "failed" | "running" | "skipped";
       if (task.aria2Gid) {
         outcome = await reconcileRelayTask({ id: task.id, aria2Gid: task.aria2Gid, updatedAt: task.updatedAt });

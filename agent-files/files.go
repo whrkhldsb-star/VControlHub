@@ -21,6 +21,8 @@ func (s share) stageDir() string { return ".vch-transfers-" + digest([]byte(s.na
 
 type operation struct {
 	Op          string `json:"op"`
+	CopyID      string `json:"copyId"`
+	Step        string `json:"step"`
 	Path        string `json:"path"`
 	Destination string `json:"destination"`
 	Offset      int64  `json:"offset"`
@@ -222,6 +224,8 @@ func (s share) handle(op operation) (result, error) {
 		return out, s.root.Mkdir(op.Path, 0750)
 	case "delete":
 		return out, s.root.RemoveAll(op.Path)
+	case "copy-step":
+		return s.copyStep(op)
 	case "rename", "copy":
 		if op.Destination == "." || !validPath(op.Destination) {
 			return out, denied
@@ -336,6 +340,9 @@ func (s share) handle(op operation) (result, error) {
 			s.root.Remove(tmp)
 			return out, changed
 		}
+		e := metadata(info)
+		e.Name = path.Base(op.Path)
+		out.Entry = &e
 		return out, s.root.Rename(tmp, op.Path)
 	default:
 		return out, invalid

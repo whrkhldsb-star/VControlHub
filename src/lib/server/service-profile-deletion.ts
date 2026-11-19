@@ -10,6 +10,7 @@ import {
   describeServerDeletionBlockers,
   getBlockingServerDeletionImpact,
   getServerDeletionImpact,
+  listServerStorageNodes,
 } from "./service-deletion-impact";
 
 type TeamSession = Pick<SessionPayload, "userId" | "roles" | "currentTeamId">;
@@ -58,17 +59,25 @@ export async function deleteServerProfile(
       cleanupSkipped = cleanupSkipped || !agentCleanup.removed;
     }
 
-    if (current.storageNode) {
-      // Atomic: the storage node and its owning server must be removed
-      // together — a mid-way failure would leave an orphan node pointing at
-      // a server that no longer exists.
-      await prisma.$transaction([
-        prisma.storageNode.delete({ where: { id: current.storageNode.id } }),
-        prisma.server.delete({ where: { id: serverId } }),
-      ]);
-    } else {
-      await prisma.server.delete({ where: { id: serverId } });
-    }
+    // Cleanup can take time. Recheck the current bindings and dependencies in the
+    // transaction that removes the profile, including work added since confirmation.
+    await prisma.$transaction(async tx => {
+      const bindings = await listServerStorageNodes(serverId, tx);
+      const remaining = getBlockingServerDeletionImpact(await getServerDeletionImpact(serverId, tx, bindings));
+      if (remaining.length) throw new BusinessError(t("backend.server.deleteBlockedByDependencies", {
+        dependencies: describeServerDeletionBlockers(remaining, t),
+      }));
+      // Native drives are independently configured. An empty drive can be paired again.
+      const agentIds = bindings.filter(node => node.driver === "AGENT").map(node => node.id);
+      if (agentIds.length) await tx.storageNode.updateMany({ where: { id: { in: agentIds } }, data: {
+        healthStatus: "UNKNOWN", lastHealthyAt: null, lastHealthyTransport: null,
+        lastHealthCheckAt: null, lastHealthError: null, lastHealthLatencyMs: null,
+      } });
+      for (const node of bindings) {
+        if (node.driver !== "AGENT") await tx.storageNode.delete({ where: { id: node.id, serverId } });
+      }
+      await tx.server.delete({ where: { id: serverId } });
+    }, { isolationLevel: "Serializable" });
     return cleanupSkipped
       ? { deleted: true, cleanupSkipped: true }
       : { deleted: true };

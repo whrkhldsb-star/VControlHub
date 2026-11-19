@@ -6,7 +6,7 @@ import { mkdtemp, mkdir, readFile, rm, writeFile } from "node:fs/promises";
 import { tmpdir } from "node:os";
 import { join } from "node:path";
 import { setTimeout as delay } from "node:timers/promises";
-import { beforeAll, afterAll, describe, expect, it } from "vitest";
+import { beforeAll, afterAll, describe, expect, it, vi } from "vitest";
 import { prisma } from "@/lib/db";
 import type { SessionPayload } from "@/lib/auth/session";
 import { initMediaUploadSession, appendMediaUploadChunk, cleanupMediaUploadTempDir } from "@/lib/upload/service";
@@ -18,6 +18,12 @@ import { pairFileShare } from "../agent-file-queue";
 import { completeStorageFileUpload } from "../resumable-upload";
 import { createAgentFileClient } from "../agent-file-client";
 
+import { checkDriveWorkflows, checkDriveOwnership } from "./agent-drive-workflows";
+
+vi.mock("undici", async importOriginal => {
+  const original = await importOriginal<typeof import("undici")>();
+  return { ...original, request: vi.fn(original.request) };
+});
 const binary = process.env.VCH_TEST_FILE_AGENT;
 describe.skipIf(process.env.RUN_DATABASE_INTEGRATION_TESTS !== "1" || !binary)(
   "native outbound file Agent",
@@ -87,7 +93,7 @@ describe.skipIf(process.env.RUN_DATABASE_INTEGRATION_TESTS !== "1" || !binary)(
         { stdio: "ignore" },
       );
       await prisma.team.create({ data: { id, slug: id, name: id } });
-      await prisma.identityTemplate.create({ data: { id, name: id, permissions: ["storage:read"] } });
+      await prisma.identityTemplate.create({ data: { id, name: id, permissions: ["storage:read", "storage:write"] } });
       await prisma.user.create({
         data: {
           id,
@@ -99,7 +105,7 @@ describe.skipIf(process.env.RUN_DATABASE_INTEGRATION_TESTS !== "1" || !binary)(
         },
       });
       apiToken = (
-        await createApiToken({ userId: id, teamId: id, name: "download fixture", scopes: ["storage:read"] })
+        await createApiToken({ userId: id, teamId: id, name: "download fixture", scopes: ["storage:read", "storage:write"] })
       ).token;
       await prisma.server.create({
         data: {
@@ -239,6 +245,7 @@ describe.skipIf(process.env.RUN_DATABASE_INTEGRATION_TESTS !== "1" || !binary)(
       expect(partial.status).toBe(206);
       const range = await partial.arrayBuffer();
       expect(Buffer.from(range)).toEqual(data.subarray(chunkSize - 10, chunkSize + 13));
+      await checkDriveWorkflows({ actor, serverId: id, nodeId, root: join(dir, "shared"), hub, apiToken, uploaded: name });
       await prisma.userStorageAccess.create({
         data: { userId: id, storageNodeId: nodeId, pathPrefix: "restricted", canRead: true },
       });
@@ -264,6 +271,7 @@ describe.skipIf(process.env.RUN_DATABASE_INTEGRATION_TESTS !== "1" || !binary)(
         data: { managementMode: "AGENT", agentTokenHash: "new-identity" },
       });
       expect((await poll()).status).toBe(401);
-    }, 150_000);
+      await checkDriveOwnership(actor, id, nodeId);
+    }, 240_000);
   },
 );

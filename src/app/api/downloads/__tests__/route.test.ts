@@ -185,7 +185,7 @@ const { enqueueDownloadExecutionJobMock } = vi.hoisted(() => {
     const { prisma } = await import("@/lib/db");
     const task = await prisma.downloadTask.findUnique({
       where: { id: taskId },
-      include: { server: { include: { sshKey: true, storageNode: true } } },
+      include: { server: { include: { sshKey: true, storageNode: true, agentFileShares: { select: { node: true } } } } },
     });
     // Build a DownloadServer shape that mirrors what the real worker (and
     // the old fire-and-forget route) would pass. The route-test mocks aria2
@@ -366,7 +366,7 @@ describe("/api/downloads", () => {
         const { prisma } = await import("@/lib/db");
         const task = await prisma.downloadTask.findUnique({
           where: { id: taskId },
-          include: { server: { include: { sshKey: true, storageNode: true } } },
+          include: { server: { include: { sshKey: true, storageNode: true, agentFileShares: { select: { node: true } } } } },
         });
         const serverForExec = task?.server
           ? {
@@ -524,6 +524,9 @@ describe("/api/downloads", () => {
     }));
 
     expect(response.status).toBe(200);
+    expect(prismaMock.downloadTask.create).toHaveBeenCalledWith(expect.objectContaining({
+      data: expect.objectContaining({ directStorageNodeId: "store_1" }),
+    }));
     // New-A (2026-06-15): the route now awaits enqueueDownloadExecutionJob
     // before returning 200. The mock seam still kicks off executeDirectDownload
     // in a microtask, so a single `vi.waitFor` needs a few event-loop ticks

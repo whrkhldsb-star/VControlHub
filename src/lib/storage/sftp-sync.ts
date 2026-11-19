@@ -57,6 +57,7 @@ export interface SftpSyncResult {
 }
 
 type RemoteEntryPayload = {
+  storageVersion: string | null;
   relativePath: string;
   name: string;
   entryType: "DIRECTORY" | "FILE";
@@ -78,12 +79,17 @@ function payloadData(payload: RemoteEntryPayload) {
 }
 
 /** The update for a row whose listing changed. Another size is other content: the recorded checksum goes with it. */
-function changedPayloadData(existing: { size: bigint | null }, payload: RemoteEntryPayload) {
-  return payload.entryType === "FILE" && existing.size !== payload.size ? { ...payloadData(payload), checksumSha256: null } : payloadData(payload);
+type IndexedContent = { size: bigint | null; checksumSha256: string | null; storageVersion: string | null };
+function contentChanged(existing: IndexedContent, payload: RemoteEntryPayload) {
+  return existing.size !== payload.size || Boolean(existing.checksumSha256 && (!payload.storageVersion || existing.storageVersion !== payload.storageVersion));
+}
+
+function changedPayloadData(existing: IndexedContent, payload: RemoteEntryPayload) {
+  return contentChanged(existing, payload) ? { ...payloadData(payload), checksumSha256: null, storageVersion: null } : payloadData(payload);
 }
 
 function isPayloadUnchanged(
-  existing: {
+  existing: IndexedContent & {
     name: string;
     entryType: string;
     mimeType: string | null;
@@ -95,7 +101,7 @@ function isPayloadUnchanged(
     existing.name === payload.name &&
     existing.entryType === payload.entryType &&
     existing.mimeType === payload.mimeType &&
-    existing.size === payload.size
+    !contentChanged(existing, payload)
   );
 }
 
@@ -208,7 +214,7 @@ async function loadIndexedEntries(nodeId: string, paths: string[]) {
       name: true,
       entryType: true,
       mimeType: true,
-      size: true,
+      size: true, storageVersion: true, checksumSha256: true,
     },
     take: paths.length,
   });
@@ -366,6 +372,7 @@ export async function syncSftpDirectoryEntries(input: {
         mimeType:
           entry.type === "directory" ? "inode/directory" : guessMimeType(entry.name),
         size: entry.type === "directory" ? null : BigInt(entry.size),
+        storageVersion: entry.type === "file" && entry.modifyTime ? String(entry.modifyTime) : null,
       });
 
       if (recursive && entry.type === "directory" && currentDepth < maxDepth) {

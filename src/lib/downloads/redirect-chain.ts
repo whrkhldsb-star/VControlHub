@@ -80,8 +80,8 @@ export function pinHttpSourceForAria2(
 	return { uri: parsed.toString(), options: { header: `Host: ${resolution.hostname}` } };
 }
 
-async function probeRedirect(url: string, resolution: DownloadSourceResolution): Promise<string | null> {
-	const dispatcher = new Agent({
+export function pinnedDownloadAgent(resolution: DownloadSourceResolution) {
+	return new Agent({
 		headersTimeout: PROBE_TIMEOUT_MS,
 		bodyTimeout: PROBE_TIMEOUT_MS,
 		connect: {
@@ -100,6 +100,10 @@ async function probeRedirect(url: string, resolution: DownloadSourceResolution):
 			},
 		},
 	});
+}
+
+async function probeRedirect(url: string, resolution: DownloadSourceResolution): Promise<string | null> {
+	const dispatcher = pinnedDownloadAgent(resolution);
 	try {
 		for (const method of ["HEAD", "GET"] as const) {
 			const response = await request(url, {

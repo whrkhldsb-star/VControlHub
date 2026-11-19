@@ -252,12 +252,12 @@ describe("scheduled-task durable job worker", () => {
     expect(recordTaskRunMock).toHaveBeenCalledWith(
       "no-srv",
       "已跳过：任务缺少目标服务器或创建者",
-      "skipped",
+      "skipped", expect.objectContaining({ claimedOccurrenceAt: null }),
     );
     expect(recordTaskRunMock).toHaveBeenCalledWith(
       "no-creator",
       "已跳过：任务缺少目标服务器或创建者",
-      "skipped",
+      "skipped", expect.objectContaining({ claimedOccurrenceAt: null }),
     );
     // New-B (2026-06-15): both tasks short-circuited (no servers / no
     // creator) so they don't count as "dispatched" — only tasks that
@@ -309,7 +309,7 @@ describe("scheduled-task durable job worker", () => {
     expect(recordTaskRunMock).toHaveBeenCalledWith(
       "revoked",
       "已跳过：创建者已无执行权限（command requester is disabled or no longer valid）",
-      "skipped",
+      "skipped", expect.objectContaining({ claimedOccurrenceAt: null }),
     );
     expect(completeJobMock).toHaveBeenCalledWith(
       "job-1",
@@ -334,7 +334,7 @@ describe("scheduled-task durable job worker", () => {
     await Promise.resolve();
     await Promise.resolve();
 
-    expect(recordTaskRunMock).toHaveBeenCalledWith("bad", "Execution failed: boom", "failed");
+    expect(recordTaskRunMock).toHaveBeenCalledWith("bad", "Execution failed: boom", "failed", expect.objectContaining({ claimedOccurrenceAt: null }));
     expect(recordTaskDispatchMock).toHaveBeenCalledWith("good", "cmd-good", false, expect.objectContaining({ lease: expect.any(Date) }));
     // New-B (2026-06-15): only the `good` task actually went through
     // createCommandRequest; `bad` failed and was caught by the per-task
@@ -432,7 +432,7 @@ describe("scheduled-task durable job worker", () => {
     expect(recordTaskRunMock).toHaveBeenCalledWith(
       "claim-rollback",
       "Execution failed: downstream API 503",
-      "failed",
+      "failed", expect.objectContaining({ claimedOccurrenceAt: null }),
     );
     // Tick job still completes — per-task failures don't fail the whole
     // tick. The `dispatched` counter is the number of tasks that actually

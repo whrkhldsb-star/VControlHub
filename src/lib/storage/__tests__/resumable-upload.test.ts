@@ -126,6 +126,7 @@ describe("completeStorageFileUpload", () => {
       expect.objectContaining({ id: "node_local" }),
       "docs/report.bin",
       "/tmp/assembled-fixture",
+      expect.objectContaining({ onVersion: expect.any(Function) }),
     );
     expect(fileEntryUpdateMock).toHaveBeenCalledWith(expect.objectContaining({
       create: expect.objectContaining({

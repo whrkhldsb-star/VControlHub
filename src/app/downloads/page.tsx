@@ -1,3 +1,4 @@
+import { downloadDriveSelect } from "@/lib/downloads/destination";
 import { requirePagePermission } from "@/lib/auth/page-guard";
 import { sessionHasPermission } from "@/lib/auth/authorization";
 import { isGlobalTeamManager, serverTeamWhere } from "@/lib/auth/team-scope";
@@ -24,7 +25,7 @@ export default async function DownloadsPage() {
 				serverTeamWhere(session, "connect"),
 				{
 					enabled: true,
-					storageNode: { isNot: null },
+					AND: [{ OR: [{ storageNode: { isNot: null } }, { managementMode: "AGENT", agentFileShares: { some: {} } }] }],
 					// Direct downloads only need to run a command, which Agent-managed nodes do over the Agent (A5-13).
 					OR: [{ sshKeyId: { not: null } }, { password: { not: null } }, { managementMode: "AGENT" }],
 				},
@@ -35,18 +36,26 @@ export default async function DownloadsPage() {
 			id: true,
 			name: true,
 			host: true,
-			storageNode: { select: { id: true, basePath: true, driver: true, host: true, port: true, directAccessMode: true, publicBaseUrl: true, directAccessExpiresSeconds: true } },
+			storageNode: { select: downloadDriveSelect },
+			managementMode: true,
+			agentFileShares: { orderBy: { storageNodeId: "asc" }, select: { node: { select: downloadDriveSelect } } },
 		},
 		orderBy: { name: "asc" },
 	});
 
-	const serverList = servers.map((s) => {
+	const serverList = servers.flatMap(server => {
+		const drives = [
+			...(server.storageNode ? [server.storageNode] : []),
+			...(server.managementMode === "AGENT" ? server.agentFileShares.map(share => share.node) : []),
+		];
+		return drives.map(storageNode => ({ ...server, storageNode, multiple: drives.length > 1 }));
+	}).map(s => {
 		const strategy = buildDirectAccessStrategy({
-			driver: s.storageNode?.driver === "SFTP" ? "SFTP" : "LOCAL",
+			driver: s.storageNode.driver,
 			nodeId: s.storageNode?.id ?? "",
 			host: s.storageNode?.host ?? s.host,
 			port: s.storageNode?.port,
-			relativePath: ".",
+			relativePath: null,
 			directAccessMode: s.storageNode?.directAccessMode,
 			publicBaseUrl: s.storageNode?.publicBaseUrl,
 			directAccessExpiresSeconds: s.storageNode?.directAccessExpiresSeconds,
@@ -54,15 +63,15 @@ export default async function DownloadsPage() {
 		const isDirect = strategy.mode === "direct-url";
 		const host = s.storageNode?.host ?? s.host;
 		const port = s.storageNode?.port ?? 22;
-		const accessDescription = s.storageNode?.driver === "LOCAL"
+		const accessDescription = s.storageNode.driver === "AGENT" ? strategy.description : s.storageNode?.driver === "LOCAL"
 			? t("downloadsPage.access.localDesc", locale)
 			: isDirect
 				? t(s.storageNode?.directAccessMode === "AUTO" ? "downloadsPage.access.directAutoDesc" : "downloadsPage.access.directModeDesc", locale, { host, port })
 				: t("downloadsPage.access.relayDesc", locale, { host, port });
-		void strategy;
 		return {
-			id: s.id,
-			name: s.name,
+			id: s.storageNode.driver === "AGENT" ? `drive:${s.storageNode.id}` : s.id,
+			serverId: s.id, storageNodeId: s.storageNode.id,
+			name: s.multiple || s.storageNode.driver === "AGENT" ? `${s.name} · ${s.storageNode.name} (${s.storageNode.driver})` : s.name,
 			host: s.host,
 			storagePath: s.storageNode?.basePath ?? "/root/downloads",
 			storageDriver: s.storageNode?.driver ?? "LOCAL",

@@ -1,3 +1,5 @@
+import { publishAgentDownloadFile, receiveAgentHttpDownload } from "./agent-relay";
+import { isMagnetLink } from "./helpers";
 import { apiCopy } from "@/lib/i18n/api-copy";
 /**
  * Download execution strategies — aria2 relay and direct download.
@@ -57,6 +59,7 @@ async function loadDownloadTeamId(taskId: string): Promise<string | null> {
 /* ── Shared server type ────────────────────────────────── */
 
 export type DownloadServer = {
+ agentStorageNodeId?: string;
  id: string;
  host: string;
  port: number;
@@ -94,7 +97,10 @@ export async function executeAria2RelayDownload(
  /** The creator's storage limits for the target; the relay knows the real sizes before publishing. */
  limits?: StorageWriteCapacity,
 ) {
- void _fileName;
+ if (server.agentStorageNodeId && urls.length === 1 && !isMagnetLink(urls[0]!)) {
+  return receiveAgentHttpDownload({ taskId, serverId: server.id, nodeId: server.agentStorageNodeId, url: urls[0]!,
+   targetPath, fileName: _fileName, maxSpeedKb, signal, limits });
+ }
  const tempDir = relayTempDir(taskId);
  const teamId = await loadDownloadTeamId(taskId);
 
@@ -402,17 +408,24 @@ export function relayExceedsLimits(files: Array<{ size: number }>, limits: Stora
 
 async function publishRelayFiles(taskId: string, server: DownloadServer, tempDir: string,
  targetPath: string, manifest: TransferManifest, signal?: AbortSignal) {
- const sshParams = await buildSshParamsFromServer(server, server.sshKey);
- signal?.throwIfAborted();
- // The target folder and every folder inside the download.
- const folders = [...new Set([targetPath, ...manifest.files
-  .filter((file) => file.name.includes("/"))
-  .map((file) => toRemoteChildPath(targetPath, path.posix.dirname(file.name)))])];
- await execRemoteCommand({ ...sshParams, command: `mkdir -p -- ${folders.map(shellQuote).join(" ")}`, timeout: 15000, signal });
+ if (!server.agentStorageNodeId) {
+  const sshParams = await buildSshParamsFromServer(server, server.sshKey);
+  signal?.throwIfAborted();
+  // The target folder and every folder inside the download.
+  const folders = [...new Set([targetPath, ...manifest.files
+   .filter((file) => file.name.includes("/"))
+   .map((file) => toRemoteChildPath(targetPath, path.posix.dirname(file.name)))])];
+  await execRemoteCommand({ ...sshParams, command: `mkdir -p -- ${folders.map(shellQuote).join(" ")}`, timeout: 15000, signal });
+ }
  for (const file of manifest.files) {
   signal?.throwIfAborted();
   const task = await prisma.downloadTask.findUnique({ where: { id: taskId }, select: { status: true } });
   if (task?.status !== "RUNNING") throw new Error("Relay task is no longer running");
+  if (server.agentStorageNodeId) {
+   await publishAgentDownloadFile({ taskId, serverId: server.id, nodeId: server.agentStorageNodeId,
+    localPath: path.join(tempDir, ...file.name.split("/")), targetPath, file, signal });
+   continue;
+  }
   await transferFileViaSsh2(server, path.join(tempDir, ...file.name.split("/")), toRemoteChildPath(targetPath, file.name), taskId, signal, file.sha256);
  }
  signal?.throwIfAborted();
@@ -421,6 +434,7 @@ async function publishRelayFiles(taskId: string, server: DownloadServer, tempDir
   const completed = await tx.downloadTask.updateMany({ where: { id: taskId, status: "RUNNING" },
    data: { status: "COMPLETED", progress: t("backend.downloads.progress.completedAndTransferred"), fileSize: totalSize, totalBytes: totalSize, completedBytes: totalSize } });
   if (!completed.count) throw new Error("Relay task changed before finalization");
+  if (server.agentStorageNodeId) return; // Each verified Agent write is already indexed under its quota lock.
   for (const file of manifest.files) {
    const folder = path.posix.dirname(file.name);
    await indexDownloadedFileEntry({

@@ -1,7 +1,7 @@
 import { escapeLikeLiteral } from "@/lib/db/like-pattern";
 import { apiCopy } from "@/lib/i18n/api-copy";
 import { lockStorageFileOverwrite } from "@/lib/storage/file-overwrite-lock";
-import { randomUUID } from "node:crypto";
+import { copyWorkspace } from "./copy-workspace";
 import { readdir, link, unlink, lstat, rmdir } from "node:fs/promises";
 import path from "node:path";
 import { prisma } from "@/lib/db";
@@ -15,14 +15,11 @@ import {
 } from "@/lib/storage/access-control";
 import { storageAccessDeniedCopy } from "@/lib/storage/access-denied";
 import {
-  copyStorageFile,
   storageFileNodeSelect,
   type StorageFileNode,
 } from "@/lib/storage/file-content";
 import {
   createManagedFolder,
-  deleteBackingObject,
-  moveBackingObject,
   resolveManagedLocalEntryPath,
   statBackingObject,
 } from "@/lib/storage/fs-backend";
@@ -463,9 +460,8 @@ export async function copyFileEntry(input: {
         });
         if (!access.allowed)
           throw new Error(storageAccessDeniedCopy(access.reason));
-        const parent = path.posix.dirname(destination);
-        const stage = path.posix.join(parent, `.vch-copy-${randomUUID()}`);
-        const backup = path.posix.join(parent, `.vch-backup-${randomUUID()}`);
+        const workspace = copyWorkspace(node, destination);
+        let backupAttempted = false;
         let backedUp = false;
         let promoted = false;
         let remotePromotionAttempted = false;
@@ -477,7 +473,7 @@ export async function copyFileEntry(input: {
           if (occupant?.isDeleted) throw new Error(apiCopy("apiCopy.files.op.trashPath", { v0: destination }));
           if (occupant?.entryType === "DIRECTORY") throw new Error(apiCopy("apiCopy.files.op.type", { v0: destination }));
           if ((occupant || physical) && input.policy !== "overwrite") throw new Error(apiCopy("apiCopy.files.op.exists", { v0: destination }));
-          const result = await copyStorageFile(node, item.path, stage);
+          const result = await workspace.stage(item.path);
           const afterCopy = await statBackingObject({
             storageNode: node,
             relativePath: item.path,
@@ -497,17 +493,14 @@ export async function copyFileEntry(input: {
               reason: "UPLOAD",
             });
           if (physical) {
-            await moveBackingObject({
-              storageNode: node,
-              oldRelativePath: destination,
-              newRelativePath: backup,
-            });
+            backupAttempted = true;
+            await workspace.backup();
             backedUp = true;
           }
           if (node.driver === "LOCAL") {
             const stagedPath = await resolveManagedLocalEntryPath({
               basePath: node.basePath,
-              relativePath: stage,
+              relativePath: workspace.localStage,
             });
             const targetPath = await resolveManagedLocalEntryPath({
               basePath: node.basePath,
@@ -518,11 +511,7 @@ export async function copyFileEntry(input: {
             await unlink(stagedPath.absolutePath);
           } else {
             remotePromotionAttempted = true;
-            await moveBackingObject({
-              storageNode: node,
-              oldRelativePath: stage,
-              newRelativePath: destination,
-            });
+            await workspace.promote();
           }
           promoted = true;
           const sourceIndex = await prisma.fileEntry.findUnique({
@@ -566,21 +555,12 @@ export async function copyFileEntry(input: {
               }))
             )
               throw new Error(apiCopy("apiCopy.files.op.changed"));
-            if (promoted)
-              await deleteBackingObject({
-                storageNode: node,
-                relativePath: destination,
-                isDirectory: false,
-                tolerateMissing: true,
-              });
+            if (promoted) await workspace.rollback();
             // A remote rename may commit before its response is lost. Probe the
             // unique backup path before deciding the old bytes never moved.
             if (
               backedUp ||
-              (await statBackingObject({
-                storageNode: node,
-                relativePath: backup,
-              }))
+              (backupAttempted && await workspace.hasBackup())
             ) {
               if (
                 await statBackingObject({
@@ -591,16 +571,12 @@ export async function copyFileEntry(input: {
                 throw new Error(
                   apiCopy("apiCopy.files.op.exists", { v0: destination }),
                 );
-              await moveBackingObject({
-                storageNode: node,
-                oldRelativePath: backup,
-                newRelativePath: destination,
-              });
+              await workspace.restore();
             }
           } catch (recoveryError) {
             throw new FileOperationUncertainError(
               apiCopy("apiCopy.files.op.recovery", {
-                v0: backup,
+                v0: workspace.reference,
                 v1: destination,
                 v2: String(recoveryError),
               }),
@@ -610,23 +586,13 @@ export async function copyFileEntry(input: {
         } finally {
           await releaseOverwrite?.();
           await releaseStorageQuotaGuard(access);
-          await deleteBackingObject({
-            storageNode: node,
-            relativePath: stage,
-            isDirectory: false,
-            tolerateMissing: true,
-          }).catch(() => undefined);
+          await workspace.dropStage().catch(() => undefined);
         }
         if (backedUp)
-          await deleteBackingObject({
-            storageNode: node,
-            relativePath: backup,
-            isDirectory: false,
-            tolerateMissing: true,
-          }).catch((error) => {
+          await workspace.dropBackup().catch((error) => {
             throw new FileOperationUncertainError(
               apiCopy("apiCopy.files.op.recovery", {
-                v0: backup,
+                v0: workspace.reference,
                 v1: destination,
                 v2: String(error),
               }),

@@ -205,15 +205,14 @@ export async function completeStorageFileUpload(params: {
     });
   }
 
+  let storageVersion: string | null = null;
   const activeLease = lease;
   const beforePublish = () => activeLease.beforeWrite({ kind: "storage", storageNodeId: storageNode.id, relativePath: normalizedRelativePath, checksum: assembled.checksum, size: assembled.size });
   if (storageNode.driver !== "AGENT") await beforePublish();
   try {
-    if (storageNode.driver === "AGENT") {
-      await writeStorageFileFromLocalPath(storageNode, normalizedRelativePath, assembled.path, { checksum: assembled.checksum, beforePublish });
-    } else {
-      await writeStorageFileFromLocalPath(storageNode, normalizedRelativePath, assembled.path);
-    }
+    await writeStorageFileFromLocalPath(storageNode, normalizedRelativePath, assembled.path, {
+      checksum: assembled.checksum, beforePublish, onVersion: version => { storageVersion = version; },
+    });
   } catch (error) {
     if (storageNode.driver === "AGENT" && await activeLease.resumeBeforePublication()) {
       lease.stop();
@@ -238,6 +237,7 @@ export async function completeStorageFileUpload(params: {
     // marker so a later directory restore cannot revive a stale copy of it.
     deleteBatchId: null,
     checksumSha256: assembled.checksum,
+    storageVersion,
   };
 
   await activeLease.assertActive();

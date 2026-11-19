@@ -70,7 +70,7 @@ describe("DownloadsPage", () => {
           ] },
           {
             enabled: true,
-            storageNode: { isNot: null },
+            AND: [{ OR: [{ storageNode: { isNot: null } }, { managementMode: "AGENT", agentFileShares: { some: {} } }] }],
             OR: [{ sshKeyId: { not: null } }, { password: { not: null } }, { managementMode: "AGENT" }],
           },
         ],
@@ -81,7 +81,7 @@ describe("DownloadsPage", () => {
         id: true,
         name: true,
         host: true,
-        storageNode: { select: { id: true, basePath: true, driver: true, host: true, port: true, directAccessMode: true, publicBaseUrl: true, directAccessExpiresSeconds: true } },
+        storageNode: { select: { id: true, name: true, basePath: true, driver: true, host: true, port: true, directAccessMode: true, publicBaseUrl: true, directAccessExpiresSeconds: true } },
       }),
     }));
   });

@@ -61,11 +61,12 @@ export async function pairFileShare(nodeId: string, session: SessionPayload) {
 
 // Lock all three records until the enqueue or claim commits. Re-pairing, moving a
 // drive or revoking a management identity cannot expose old work to its successor.
-async function liveChannel(tx: Tx, by: { nodeId?: string; hash?: string }) {
+async function liveChannel(tx: Tx, by: { nodeId?: string; hash?: string; serverId?: string }) {
   const rows = await tx.$queryRaw<Array<Channel & { seenAt: Date | null; rootIdentity: string | null }>>`
     SELECT sh.id, sh."tokenHash", sh.writable, sh."seenAt", sh."rootIdentity" FROM agent_file_shares sh
     JOIN servers s ON s.id = sh."serverId" JOIN "StorageNode" n ON n.id = sh."storageNodeId"
     WHERE ${by.nodeId ? Prisma.sql`n.id = ${by.nodeId}` : Prisma.sql`sh."tokenHash" = ${by.hash}`}
+      ${by.serverId ? Prisma.sql`AND s.id = ${by.serverId}` : Prisma.empty}
       AND n.driver = 'AGENT' AND s.enabled AND s."managementMode" = 'AGENT'
       AND sh."tokenHash" IS NOT NULL AND sh."agentHash" = s."agentTokenHash"
       AND s."teamId" IS NOT DISTINCT FROM n."teamId" AND sh."teamId" IS NOT DISTINCT FROM n."teamId"
@@ -74,15 +75,15 @@ async function liveChannel(tx: Tx, by: { nodeId?: string; hash?: string }) {
   return rows[0];
 }
 
-export async function getFileChannel(nodeId: string) {
-  const channel = await prisma.$transaction((tx) => liveChannel(tx, { nodeId }));
+export async function getFileChannel(nodeId: string, serverId?: string) {
+  const channel = await prisma.$transaction((tx) => liveChannel(tx, { nodeId, serverId }));
   if (!channel) throw unavailable();
   return channel;
 }
 
 export async function callFileAgent(nodeId: string, channel: Channel, payload: Payload) {
   const write = !["stat", "list", "read", "checksum"].includes(String(payload.op));
-  const ttl = ["publish", "copy", "checksum"].includes(String(payload.op)) ? 10 * 60_000 : 45_000;
+  const ttl = ["publish", "copy", "copy-step", "checksum"].includes(String(payload.op)) ? 10 * 60_000 : 45_000;
   const expiresAt = new Date(Date.now() + ttl);
   const call = await prisma.$transaction(async (tx) => {
     const current = await liveChannel(tx, { nodeId });
@@ -110,6 +111,7 @@ export async function callFileAgent(nodeId: string, channel: Channel, payload: P
         const reply = row.result as Record<string, unknown>;
         if (reply.error === "missing")
           throw Object.assign(new Error(t("backend.fileAgent.missing")), { code: "ENOENT" });
+        if (reply.error === "invalid" && payload.op === "copy-step") throw new BusinessError(t("backend.fileAgent.copyUpgrade"));
         if (reply.error) throw new BusinessError(t("backend.fileAgent.refused"));
         return reply;
       }
@@ -152,7 +154,7 @@ export async function pollFileAgent(hash: string, rootIdentity: string, writable
       if (call) {
         const { op } = call.payload as Payload;
         await tx.agentFileCall.updateMany({ where, data: { payload: {}, result: receipt.result } });
-        if (!receipt.result.error && op === "publish") observed.lastWriteAt = now;
+        if (!receipt.result.error && (op === "publish" || (op === "copy-step" && (call.payload as Payload).step === "promote"))) observed.lastWriteAt = now;
       }
     }
     if (

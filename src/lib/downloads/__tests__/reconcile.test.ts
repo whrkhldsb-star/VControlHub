@@ -77,6 +77,13 @@ beforeEach(() => {
 });
 
 describe("reconcileStaleRunningDownloadTasks — direct", () => {
+  it("does not probe or index a different drive after the server is rebound", async () => {
+    queueStaleTasks([directRow({ directStorageNodeId: "original-drive" })]);
+    expect(await reconcileStaleRunningDownloadTasks()).toEqual({ completed: 0, failed: 1, ids: ["t-direct"] });
+    expect(ssh.execRemoteCommand).not.toHaveBeenCalled();
+    expect(helpers.indexDownloadedFileEntry).not.toHaveBeenCalled();
+  });
+
   it("completes a direct download whose remote exit marker says success", async () => {
     queueStaleTasks([directRow()]);
     ssh.execRemoteCommand.mockResolvedValueOnce({ stdout: "COMPLETED\n12345\n/data/dl/f.bin", exitCode: 0 });

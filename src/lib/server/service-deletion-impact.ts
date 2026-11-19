@@ -1,3 +1,4 @@
+import type { Prisma } from "@prisma/client";
 import { prisma } from "@/lib/db";
 
 export type ServerDeletionImpact = {
@@ -34,11 +35,16 @@ function jsonReferencesServer(value: unknown, serverId: string): boolean {
   return false;
 }
 
-export async function getServerDeletionImpact(serverId: string): Promise<ServerDeletionImpact> {
-  const storageNodes = await prisma.storageNode.findMany({
-    where: { serverId },
-    select: { id: true },
+export function listServerStorageNodes(serverId: string, db: Prisma.TransactionClient = prisma) {
+  return db.storageNode.findMany({
+    where: { OR: [{ serverId }, { driver: "AGENT", agentFileShare: { is: { serverId } } }] },
+    select: { id: true, driver: true, teamId: true },
   });
+}
+
+export async function getServerDeletionImpact(serverId: string, db: Prisma.TransactionClient = prisma,
+  bindings?: Awaited<ReturnType<typeof listServerStorageNodes>>): Promise<ServerDeletionImpact> {
+  const storageNodes = bindings ?? await listServerStorageNodes(serverId, db);
   const storageNodeIds = storageNodes.map((node) => node.id);
   const storageScope = storageNodeIds.length > 0 ? { storageNodeId: { in: storageNodeIds } } : null;
 
@@ -57,24 +63,24 @@ export async function getServerDeletionImpact(serverId: string): Promise<ServerD
     unfinishedCommands,
     unfinishedDownloads,
   ] = await Promise.all([
-    storageScope ? prisma.fileEntry.count({ where: storageScope }) : 0,
-    storageScope ? prisma.fileVersion.count({ where: storageScope }) : 0,
-    storageScope ? prisma.shareLink.count({ where: storageScope }) : 0,
-    storageScope ? prisma.mediaItem.count({ where: storageScope }) : 0,
-    prisma.scheduledTask.count({ where: { serverIds: { has: serverId } } }),
-    prisma.alertRule.count({ where: { serverIds: { has: serverId } } }),
+    storageScope ? db.fileEntry.count({ where: storageScope }) : 0,
+    storageScope ? db.fileVersion.count({ where: storageScope }) : 0,
+    storageScope ? db.shareLink.count({ where: storageScope }) : 0,
+    storageScope ? db.mediaItem.count({ where: storageScope }) : 0,
+    db.scheduledTask.count({ where: { serverIds: { has: serverId } } }),
+    db.alertRule.count({ where: { serverIds: { has: serverId } } }),
     // Pre-filter in SQL: loading every playbook's step JSON into memory to
     // look for one id scanned the whole table per confirmation dialog (A2-12).
     // The exact JSON check below still decides.
-    prisma.$queryRaw<Array<{ steps: unknown }>>`SELECT steps FROM playbooks WHERE steps::text LIKE ${`%${serverId.replace(/[\\%_]/g, "\\$&")}%`}`,
-    prisma.syncJob.count({
+    db.$queryRaw<Array<{ steps: unknown }>>`SELECT steps FROM playbooks WHERE steps::text LIKE ${`%${serverId.replace(/[\\%_]/g, "\\$&")}%`}`,
+    db.syncJob.count({
       where: { OR: [{ sourceServerId: serverId }, { targetServerId: serverId }] },
     }),
-    prisma.quickService.count({ where: { serverId } }),
-    prisma.vpsBackupSchedule.count({ where: { serverId } }),
-    prisma.vpsBackupRecord.count({ where: { serverId } }),
-    prisma.commandTarget.count({ where: { serverId, status: { in: ["PENDING_APPROVAL", "APPROVED", "RUNNING", "CANCELLING"] } } }),
-    prisma.downloadTask.count({ where: { serverId, status: { in: ["PENDING", "RUNNING"] } } }),
+    db.quickService.count({ where: { serverId } }),
+    db.vpsBackupSchedule.count({ where: { serverId } }),
+    db.vpsBackupRecord.count({ where: { serverId } }),
+    db.commandTarget.count({ where: { serverId, status: { in: ["PENDING_APPROVAL", "APPROVED", "RUNNING", "CANCELLING"] } } }),
+    db.downloadTask.count({ where: { serverId, status: { in: ["PENDING", "RUNNING"] } } }),
   ]);
 
   return {
