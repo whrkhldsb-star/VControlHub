@@ -50,7 +50,13 @@ export const AGENT_WINDOWS_CLEANUP_COMMAND = `powershell -NoProfile -Command "St
  * Removal over SSH, for when the Agent cannot remove itself: synchronous (the
  * Agent is not the one running it), so the exit code says whether it worked.
  */
-export const AGENT_SSH_CLEANUP_SCRIPT = "systemctl disable --now vcontrolhub-agent.service >/dev/null 2>&1 || true; rm -f /etc/systemd/system/vcontrolhub-agent.service; rm -rf /opt/vcontrolhub-agent; systemctl daemon-reload >/dev/null 2>&1 || true";
+export const AGENT_SSH_CLEANUP_SCRIPT = [
+  "set -e",
+  "if [ -e /etc/systemd/system/vcontrolhub-agent.service ] || systemctl is-active --quiet vcontrolhub-agent.service; then systemctl disable --now vcontrolhub-agent.service; fi",
+  "rm -f /etc/systemd/system/vcontrolhub-agent.service",
+  "rm -rf /opt/vcontrolhub-agent",
+  "systemctl daemon-reload",
+].join("\n");
 
 /**
  * .NET before 4.7 (Windows Server 2016) offers only TLS 1.0/1.1 by default,

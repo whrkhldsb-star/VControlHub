@@ -2594,6 +2594,7 @@ describe("server service", () => {
   it("updates bound SFTP storage basePath and ensures the remote directory exists", async () => {
     const current = {
       id: "srv_path",
+      managementMode: "DIRECT",
       teamId: "team-1",
       name: "path-node",
       host: "203.0.113.77",
@@ -2646,7 +2647,7 @@ describe("server service", () => {
 
     expect(prisma.server.update).toHaveBeenCalledWith(
       expect.objectContaining({
-        where: { id: "srv_path", teamId: "team-1" },
+        where: { id: "srv_path", teamId: "team-1", host: current.host, port: current.port, managementMode: current.managementMode },
       }),
     );
     expect(prisma.storageNode.update).toHaveBeenCalledWith({

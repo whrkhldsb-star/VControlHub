@@ -13,9 +13,9 @@ import { decryptServerPassword, encryptServerPassword, encryptSshPrivateKey } fr
  * The fake SSH server listens on 127.0.0.2: loopback, but not an address the
  * app treats as "this host", so every save really authenticates.
  */
-test.describe.configure({ mode: "serial" });
 
-async function openEditForm(page: Page, serverName: string): Promise<Locator> {
+
+async function openNodeDetails(page: Page, serverName: string): Promise<Locator> {
 	// A save ends in router.refresh(): let it finish, or it aborts the navigation.
 	await page.waitForLoadState("networkidle");
 	const url = `/servers?query=${encodeURIComponent(serverName)}`;
@@ -25,8 +25,18 @@ async function openEditForm(page: Page, serverName: string): Promise<Locator> {
 		if (!/interrupted by another navigation|NS_BINDING_ABORTED/.test(String(error))) throw error;
 		await page.waitForLoadState("networkidle");
 	});
-	await page.locator("[data-server-card]").filter({ hasText: serverName }).getByRole("button", { name: /查看详情|View details/i }).click();
-	const dialog = page.getByRole("dialog", { name: serverName });
+	const button = page.locator("[data-server-card]").filter({ hasText: serverName }).getByRole("button", { name: /查看详情|View details/i });
+	const dialog = page.getByRole("dialog");
+	// Development reloads can replace a card between its first paint and hydration.
+	await expect(async () => {
+		if (!(await dialog.isVisible())) await button.click({ timeout: 3_000 });
+		await expect(dialog).toBeVisible({ timeout: 2_000 });
+	}).toPass({ timeout: 20_000 });
+	return dialog;
+}
+
+async function openEditForm(page: Page, serverName: string): Promise<Locator> {
+	const dialog = await openNodeDetails(page, serverName);
 	await dialog.getByRole("button", { name: /编辑节点|Edit node/i }).click();
 	return dialog.getByRole("form");
 }
@@ -109,12 +119,31 @@ test("a node's username, password and SSH key can be changed, and a wrong creden
 		await expect(form.locator('select[name="sshKeyId"]')).toHaveValue(keyRow.rows[0]!.id);
 		await form.getByRole("button", { name: "密码", exact: true }).click();
 		await expect(form.locator('input[name="password"]')).toHaveAttribute("required", "");
-		// A browser must present and copy the same name that the delete action checks.
-		const spacedName = `${SERVER_NAME}  west`;
-		await db.query("UPDATE servers SET name = $1 WHERE id = $2", [spacedName, SERVER_ID]);
-		await page.goto(`/servers?query=${encodeURIComponent(SERVER_NAME)}`, { waitUntil: "networkidle" });
-		await page.locator("[data-server-card]").filter({ hasText: SERVER_NAME }).getByRole("button", { name: /查看详情|View details/i }).click();
-		const details = page.getByRole("dialog");
+		await context.close();
+	} finally {
+		await db.query(`DELETE FROM servers WHERE id = $1`, [SERVER_ID]).catch(() => undefined);
+		await db.query(`DELETE FROM "SshKey" WHERE name = $1`, [KEY_NAME]).catch(() => undefined);
+		await db.end();
+		await fake.close();
+	}
+});
+
+test("copies a server name with consecutive spaces and confirms deletion", async ({ browser, baseURL }, testInfo) => {
+	const SERVER_ID = `e2e-delete-spaces-${testInfo.project.name}`;
+	const spacedName = `${SERVER_ID}  west`;
+	const db = new Client({ connectionString: process.env.DATABASE_URL });
+	await db.connect();
+	const context = await browser.newContext({ baseURL, locale: "zh-CN" });
+	try {
+		await db.query("DELETE FROM servers WHERE id = $1", [SERVER_ID]);
+		await db.query(
+			`INSERT INTO servers (id, name, host, username, tags, "teamId", "updatedAt")
+			 SELECT $1, $2, '192.0.2.99', 'fixture', '{}', "currentTeamId", now() FROM "User" WHERE username = $3`,
+			[SERVER_ID, spacedName, process.env.E2E_DIRECT_USER ?? "admin"],
+		);
+		await installDirectSession(context);
+		const page = await context.newPage();
+		const details = await openNodeDetails(page, SERVER_ID);
 		await details.getByRole("button", { name: /删除节点|Delete node/i }).click();
 		const confirm = details.locator('input[name="confirmName"]');
 		await expect(confirm).toBeVisible();
@@ -129,11 +158,9 @@ test("a node's username, password and SSH key can be changed, and a wrong creden
 		await confirm.fill(copied!);
 		await details.getByRole("button", { name: /^(确认删除|Delete)$/i }).click();
 		await expect.poll(async () => (await db.query("SELECT id FROM servers WHERE id = $1", [SERVER_ID])).rowCount).toBe(0);
-		await context.close();
 	} finally {
-		await db.query(`DELETE FROM servers WHERE id = $1`, [SERVER_ID]).catch(() => undefined);
-		await db.query(`DELETE FROM "SshKey" WHERE name = $1`, [KEY_NAME]).catch(() => undefined);
+		await context.close();
+		await db.query("DELETE FROM servers WHERE id = $1", [SERVER_ID]);
 		await db.end();
-		await fake.close();
 	}
 });

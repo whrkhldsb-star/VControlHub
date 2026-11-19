@@ -242,6 +242,7 @@ async function runRemoteDockerCommand(
   const { ssh } = await loadEnabledServerForSsh(serverId);
   const result = await execRemoteCommand({
     ...ssh,
+    preferAgent: true,
     command,
     timeout: timeoutMs,
   });

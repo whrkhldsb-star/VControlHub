@@ -145,6 +145,7 @@ export async function sampleRemoteServerTraffic(
 		const sshParams = await buildSshParamsFromServer(server, server.sshKey);
 		const { stdout, exitCode, stderr } = await execRemoteCommand({
 			...sshParams,
+			preferAgent: true,
 			command: "cat /proc/net/dev",
 			timeout: SAMPLE_TIMEOUT_MS,
 		});

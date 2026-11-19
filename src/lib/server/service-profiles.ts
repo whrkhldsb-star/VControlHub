@@ -535,41 +535,46 @@ export async function updateServerProfile(
   input: UpdateServerInput,
   session?: TeamSession | null,
 ) {
-  const current = await findServerProfileForSession(serverId, session);
   const t = await serviceT();
+  const current = await findServerProfileForSession(serverId, session);
   if (!current) throw new NotFoundError(t("backend.server.nodeNotFound"));
-
-  if (input.managementMode && input.managementMode !== current.managementMode) {
+  const modeChanged = input.managementMode !== undefined && input.managementMode !== current.managementMode;
+  // A forwarded SSH port can select another machine even with the same host.
+  const hostChanged = input.host !== undefined && input.host.trim().toLowerCase() !== current.host.toLowerCase();
+  const portChanged = current.operatingSystem !== "WINDOWS" && input.port !== undefined && Number(input.port) !== current.port;
+  const reconfigureAgent = modeChanged || (current.managementMode === "AGENT" && (hostChanged || portChanged));
+  if (reconfigureAgent) {
     return withServerLifecycleLock(serverId, async () => {
       const fresh = await findServerProfileForSession(serverId, session);
       if (!fresh) throw new NotFoundError(t("backend.server.nodeNotFound"));
-      if (fresh.managementMode !== current.managementMode) throw new ValidationError(t("backend.server.modeChanged"));
-      return saveServerProfile(serverId, fresh, input, session, t);
+      if (fresh.managementMode !== current.managementMode || fresh.host !== current.host || fresh.port !== current.port) {
+        throw new ValidationError(t("backend.server.modeChanged"));
+      }
+      return saveServerProfile(serverId, fresh, input, session, t, true);
     });
   }
-  return saveServerProfile(serverId, current, input, session, t);
+  return saveServerProfile(serverId, current, input, session, t, false);
 }
 
-async function saveServerProfile(serverId: string, current: ServerProfileRecord, input: UpdateServerInput, session: TeamSession | null | undefined, t: TFn) {
+async function saveServerProfile(serverId: string, current: ServerProfileRecord, input: UpdateServerInput, session: TeamSession | null | undefined, t: TFn, reconfigureAgent: boolean) {
   if (input.operatingSystem && input.operatingSystem !== (current.operatingSystem ?? "LINUX")) {
     throw new ValidationError(t("backend.server.osImmutable"));
   }
-  if (current.operatingSystem === "WINDOWS") return updateWindowsServerProfile(serverId, current, input, session, t);
+  if (current.operatingSystem === "WINDOWS") return updateWindowsServerProfile(serverId, current, input, session, t, reconfigureAgent);
 
   const removeSshCredential = input.removeSshCredential === true;
   const requestedManagementMode = input.managementMode ?? current.managementMode;
-  const modeChanged = requestedManagementMode !== current.managementMode;
   if (removeSshCredential) {
     if (requestedManagementMode !== "AGENT") {
       throw new ValidationError(t("backend.server.removeCredentialsAgentOnly"));
     }
-    if (modeChanged || !current.agentTokenHash || !current.agentLastSeenAt || Date.now() - current.agentLastSeenAt.getTime() >= 90_000) {
+    if (reconfigureAgent || !current.agentTokenHash || !current.agentLastSeenAt || Date.now() - current.agentLastSeenAt.getTime() >= 90_000) {
       throw new ValidationError(t("backend.server.waitFreshAgentHeartbeat"));
     }
   }
 
   const connectionType = input.connectionType ?? current.connectionType;
-  if (modeChanged && !(connectionType === "SSH_KEY" ? input.sshKeyId?.trim() : input.password?.trim())) {
+  if (reconfigureAgent && !(connectionType === "SSH_KEY" ? input.sshKeyId?.trim() : input.password?.trim())) {
     throw new ValidationError(t("backend.server.switchNeedsSsh"));
   }
   const normalized = normalizeServerInput({
@@ -633,7 +638,7 @@ async function saveServerProfile(serverId: string, current: ServerProfileRecord,
     normalized.port !== current.port ||
     normalized.username !== current.username ||
     normalized.connectionType !== current.connectionType ||
-    modeChanged ||
+    reconfigureAgent ||
     normalized.sshKeyId !== current.sshKeyId ||
     (normalized.connectionType === "PASSWORD" && !!input.password);
 
@@ -671,7 +676,7 @@ async function saveServerProfile(serverId: string, current: ServerProfileRecord,
     });
     nextServerForPreflight.hostKeySha256 = hostKeySha256;
     await verifyServerSshConnectivity(normalized, nextServerForPreflight);
-    if (modeChanged && current.managementMode === "AGENT") {
+    if (reconfigureAgent && current.managementMode === "AGENT") {
       const originalEndpoint = normalized.host === current.host && normalized.port === current.port;
       const cleanup = await removeAgentFromHost(serverId, originalEndpoint ? { ...nextSsh, hostKeySha256 } : undefined);
       if (!cleanup.removed) onboardingWarnings.push(t("backend.server.agentCleanupPendingLinux"));
@@ -679,9 +684,9 @@ async function saveServerProfile(serverId: string, current: ServerProfileRecord,
   }
 
   updated = await prisma.server.update({
-    where: { id: serverId, teamId: current.teamId ?? null, managementMode: current.managementMode },
+    where: { id: serverId, teamId: current.teamId ?? null, managementMode: current.managementMode, host: current.host, port: current.port },
     data: {
-      ...(modeChanged ? resetAgentForModeChange() : {}),
+      ...(reconfigureAgent ? resetAgentForModeChange() : {}),
       name: normalized.name,
       host: normalized.host,
       port: normalized.port,
@@ -712,7 +717,7 @@ async function saveServerProfile(serverId: string, current: ServerProfileRecord,
     await releaseHostLock();
   }
 
-  if (modeChanged && updated.managementMode === "AGENT" && updated.enabled && !isLocalHostLiteral(updated.host)) {
+  if (reconfigureAgent && updated.managementMode === "AGENT" && updated.enabled && !isLocalHostLiteral(updated.host)) {
     try { await installServerAgentUnderLock(serverId); }
     catch (error) { onboardingWarnings.push(t("backend.server.agentInstallFailed", { error: getErrorMessage(error) })); }
   }

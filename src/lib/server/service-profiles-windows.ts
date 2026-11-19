@@ -103,6 +103,7 @@ export async function updateWindowsServerProfile(
   input: UpdateServerInput,
   session: ProfileSession | null | undefined,
   t: TFn,
+  reconfigureAgent: boolean,
 ) {
   if (input.enableDirectGateway || input.repairStoragePath || input.removeSshCredential || input.sshKeyId || input.password) {
     throw new ValidationError(t("backend.server.linuxOnly"));
@@ -193,13 +194,13 @@ export async function updateWindowsServerProfile(
   try {
     await assertNoDuplicateServerHost(payload, { excludeId: serverId, session: sessionForTeamWhere(session) });
     const onboardingWarnings: string[] = [];
-    if (modeChanged && current.managementMode === "AGENT") {
+    if (reconfigureAgent && current.managementMode === "AGENT") {
       const cleanup = await removeAgentFromHost(serverId);
       if (!cleanup.removed) onboardingWarnings.push(t("backend.server.agentCleanupPending"));
     }
     const updated = await prisma.$transaction(async (tx) => {
-    const saved = await tx.server.update({ where: { id: serverId, teamId: current.teamId, managementMode: current.managementMode }, data: {
-      ...(modeChanged ? { ...resetAgentForModeChange(), onboardingStatus: "NEEDS_ATTENTION", onboardingLastError: null } : {}),
+    const saved = await tx.server.update({ where: { id: serverId, teamId: current.teamId, managementMode: current.managementMode, host: current.host, port: current.port }, data: {
+      ...(reconfigureAgent ? { ...resetAgentForModeChange(), onboardingStatus: "NEEDS_ATTENTION", onboardingLastError: null } : {}),
       name: payload.name, host: payload.host, port: payload.port, username: payload.username,
       description: payload.description, tags: payload.tags,
       managementMode: nextManagementMode,
@@ -236,7 +237,7 @@ export async function updateWindowsServerProfile(
     }
     return saved;
     });
-    if (modeChanged && nextManagementMode === "AGENT") onboardingWarnings.push(t("backend.server.agentInstallPending"));
+    if (reconfigureAgent && nextManagementMode === "AGENT") onboardingWarnings.push(t("backend.server.agentInstallPending"));
     const refreshed = nextSftp ? await prisma.server.findUnique({ where: { id: serverId }, include: SERVER_PROFILE_INCLUDE }) : updated;
     safeRevalidatePath("/storage");
     safeRevalidatePath("/files");

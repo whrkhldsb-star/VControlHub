@@ -40,6 +40,9 @@ vi.mock("ssh2", async () => {
   return { Client: FakeClient };
 });
 
+const agent = vi.hoisted(() => vi.fn());
+vi.mock("@/lib/server/agent-service", () => ({ executeCommandWithAgent: agent }));
+
 import { closeSshPool, execRemoteCommand, listRemoteDirectory } from "../client";
 
 describe("SSH connection pool", () => {
@@ -49,6 +52,21 @@ describe("SSH connection pool", () => {
     state.endCount = 0;
     state.sftpOpenCount = 0;
     state.sftpEndCount = 0;
+  });
+
+  it("uses the selected Agent for operations and only falls back before dispatch", async () => {
+    const target = { host: "203.0.113.10", port: 22, username: "ops", password: "test", hostKeySha256: "SHA256:test",
+      agentServerId: "test-node", preferAgent: true, command: "uptime" };
+    agent.mockResolvedValueOnce({ stdout: "", stderr: "operation failed", exitCode: 9 });
+    expect((await execRemoteCommand(target)).exitCode).toBe(9);
+    agent.mockRejectedValueOnce(new Error("acknowledgement lost"));
+    await expect(execRemoteCommand(target)).rejects.toThrow("acknowledgement lost");
+    agent.mockResolvedValueOnce(null);
+    await expect(execRemoteCommand({ ...target, hostKeySha256: null })).rejects.toThrow();
+    expect(state.connectCount).toBe(0);
+    agent.mockResolvedValueOnce(null);
+    await execRemoteCommand(target);
+    expect(state.connectCount).toBe(1);
   });
 
   it("keeps pooled connections alive, so one dropped silently is closed and replaced (C-2)", async () => {

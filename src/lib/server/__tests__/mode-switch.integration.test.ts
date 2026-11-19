@@ -56,6 +56,21 @@ describe.skipIf(process.env.RUN_DATABASE_INTEGRATION_TESTS !== "1")("management 
     expect((await claimNextServerAgentJob(id, (await authenticateServerAgent(fresh))!.agentTokenHash))?.id).toBe(next.id);
   });
 
+  it("retires the previous identity when the Agent address changes in the same mode", async () => {
+    for (const operatingSystem of ["LINUX", "WINDOWS"] as const) {
+      const id = prefix + "-move-" + operatingSystem;
+      await prisma.server.create({ data: { id, name: id, host: "192.0.2.45", port: operatingSystem === "LINUX" ? 22 : 3389,
+        operatingSystem, username: "ops", managementMode: "AGENT", enabled: false, connectionType: "PASSWORD", password: "old", rdpPassword: "old" } });
+      const token = await issueServerAgentToken(id);
+      const pending = await prisma.serverAgentJob.create({ data: { serverId: id, command: "fixture" } });
+      await updateServerProfile(id, operatingSystem === "WINDOWS"
+        ? { host: "203.0.113.219", rdpPassword: "new" }
+        : { port: 2222, password: "new", approvedHostKeySha256: "SHA256:fixture" });
+      expect(await authenticateServerAgent(token)).toBeNull();
+      expect(await prisma.serverAgentJob.findUniqueOrThrow({ where: { id: pending.id } })).toMatchObject({ status: "CANCELLED" });
+    }
+  });
+
   it("revokes an offline Windows Agent while preserving its separate SFTP binding", async () => {
     const id = prefix + "-windows";
     await prisma.server.create({ data: { id, name: "Windows fixture", host: "203.0.113.218", port: 3389, username: "Admin", operatingSystem: "WINDOWS",

@@ -80,7 +80,7 @@ const directNode = (basePath = join(sandbox, "root")) => ({
   username: "storage",
   hostKeySha256: server.fingerprint,
   // A plain stored password passes through decryptServerPassword (legacy).
-  server: { id: "srv", managementMode: "SSH", operatingSystem: "LINUX", connectionType: "PASSWORD", password: "storage-pass", sshKey: null },
+  server: { id: "srv", host: "127.0.0.1", port: server.port, username: "storage", managementMode: "DIRECT", operatingSystem: "LINUX", connectionType: "PASSWORD", password: "storage-pass", sshKey: null },
 }) as never;
 
 const agentNode = (basePath = join(sandbox, "root")) => ({
@@ -92,7 +92,7 @@ const agentNode = (basePath = join(sandbox, "root")) => ({
   port: 22,
   username: "storage",
   hostKeySha256: null,
-  server: { id: "agent-srv", managementMode: "AGENT", operatingSystem: "LINUX", connectionType: "SSH_KEY", sshKey: null },
+  server: { id: "agent-srv", host: "agent.invalid", port: 22, username: "storage", managementMode: "AGENT", operatingSystem: "LINUX", connectionType: "SSH_KEY", sshKey: null },
 }) as never;
 
 const refused = async (operation: Promise<unknown>) => {
