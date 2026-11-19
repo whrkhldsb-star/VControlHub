@@ -106,7 +106,7 @@ function StorageNodeCard({
 			try {
 				const result = await checkStorageNodeHealthAction(node.id);
 				if (result.success) {
-					setMessage({ text: result.success, ok: true });
+					setMessage({ text: result.success, ok: result.health?.healthStatus === "HEALTHY" });
 				} else if (result.error) {
 					setMessage({ text: result.error, ok: false });
 				}

@@ -19,7 +19,7 @@ import { cancelActiveCommandChild, enqueueApprovedCommandExecution } from "./ser
 import { maySelfReviewCommands } from "./review-scope";
 import { createLogger } from "@/lib/logging";
 import { t } from "@/lib/i18n/service-translations";
-import { getServerTargetAvailability } from "@/lib/server/availability";
+import { OPERATION_TARGET_SELECT, operationTargetAvailability } from "@/lib/server/availability";
 
 const commandLogger = createLogger("command-requests");
 
@@ -85,13 +85,7 @@ async function assertCommandTargetServersInScope(
     select: {
       id: true,
       enabled: true,
-      onboardingStatus: true,
-      managementMode: true,
-      agentLastSeenAt: true,
-      connectionType: true,
-      password: true,
-      sshKeyId: true,
-      metricSnapshots: { select: { isOnline: true, createdAt: true }, orderBy: { createdAt: "desc" }, take: 1 },
+      ...OPERATION_TARGET_SELECT,
     },
   });
   if (servers.length !== serverIds.length) {
@@ -100,15 +94,7 @@ async function assertCommandTargetServersInScope(
   if (servers.some((server) => server.enabled === false)) {
     throw new ValidationError(t("backend.command.targetsDisabled"));
   }
-  if (servers.some((server) => !getServerTargetAvailability({
-    onboardingStatus: server.onboardingStatus,
-    managementMode: server.managementMode,
-    agentLastSeenAt: server.agentLastSeenAt,
-    hasSshCredential: server.connectionType === "SSH_KEY"
-      ? Boolean(server.sshKeyId)
-      : Boolean(server.password),
-    latestMetric: server.metricSnapshots?.[0] ?? null,
-  }).available)) {
+  if (servers.some((server) => !operationTargetAvailability(server).available)) {
     throw new ValidationError(t("backend.command.targetsUnavailable"));
   }
 }

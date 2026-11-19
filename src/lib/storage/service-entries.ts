@@ -360,6 +360,7 @@ async function assertDeletedEntryStillExists(entry: DeletedFileEntryWithNode) {
     entries = await listRemoteDirectory({
       ...credentials,
       remotePath: remoteParentPath,
+      requireComplete: true,
     });
   } catch {
     throw new BusinessError(t("backend.storage.remoteFileCheckFailed"));

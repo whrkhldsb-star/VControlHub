@@ -252,6 +252,20 @@ describe("server actions", () => {
     expect(deleteServerProfileMock).not.toHaveBeenCalled();
   });
 
+  it("accepts the copied name with consecutive spaces and rejects a different single-space name", async () => {
+    const { deleteServerAction } = await import("../actions");
+    prismaServerFindFirstMock.mockResolvedValue({ name: "prod  west" });
+    deleteServerProfileMock.mockResolvedValueOnce({ deleted: true });
+    const data = new FormData();
+    data.set("serverId", "srv_1");
+    data.set("confirmDelete", "true");
+    data.set("confirmName", "prod west");
+    expect((await deleteServerAction(null, data)).error).toBeTruthy();
+    expect(deleteServerProfileMock).not.toHaveBeenCalled();
+    data.set("confirmName", "prod  west");
+    expect((await deleteServerAction(null, data)).success).toBeTruthy();
+  });
+
   it("blocks the delete confirmation when managed resources still reference the VPS", async () => {
     getServerDeletionImpactMock.mockResolvedValueOnce({
       storageNodes: 1,

@@ -86,6 +86,7 @@ export async function dockerExec(
   });
   const result = await execRemoteCommand({
     ...ssh,
+    preferAgent: true,
     command,
     timeout: timeoutMs,
   });
@@ -111,6 +112,7 @@ export async function dockerRun(
   const { server, ssh } = await loadEnabledServerForSsh(target.serverId);
   const result = await execRemoteCommand({
     ...ssh,
+    preferAgent: true,
     command: buildDockerCommand(args),
     timeout: timeoutMs,
   });
@@ -150,6 +152,7 @@ export async function isRemotePortAvailable(serverId: string, port: number): Pro
     `else echo unknown; fi`;
   const result = await execRemoteCommand({
     ...ssh,
+    preferAgent: true,
     command,
     timeout: 10_000,
   });
@@ -186,6 +189,7 @@ export async function getRemoteUsedPorts(serverId: string): Promise<number[]> {
     `fi`;
   const result = await execRemoteCommand({
     ...ssh,
+    preferAgent: true,
     command,
     timeout: 10_000,
   });
@@ -358,6 +362,7 @@ export async function getContainerLogTailFor(
     const command = `${buildDockerCommand(["logs", "--tail", "20", containerName])} 2>&1`;
     const result = await execRemoteCommand({
       ...ssh,
+      preferAgent: true,
       command,
       timeout: timeoutMs,
     });

@@ -587,7 +587,7 @@ async function reinstallServerAgentActionImpl(
     const { serverTeamWhere } = await import("@/lib/auth/team-scope");
     const current = await prisma.server.findFirst({
       where: { id: serverId, ...serverTeamWhere(session, "manage") },
-      select: { operatingSystem: true, managementMode: true, host: true },
+      select: { teamId: true, operatingSystem: true, managementMode: true, host: true },
     });
     if (!current) {
       return { error: tr("serversPage.action.notFound") } as ServerActionState;
@@ -598,7 +598,7 @@ async function reinstallServerAgentActionImpl(
     }
 
     const { installServerAgent } = await import("@/lib/server/agent-service");
-    await installServerAgent(serverId);
+    await installServerAgent(serverId, current.teamId);
     await auditUserAction(
       session.userId,
       "server.agent_reinstall",
@@ -637,14 +637,14 @@ async function getWindowsAgentInstallCommandActionImpl(
     // be requested for a node outside the caller's team.
     const current = await prisma.server.findFirst({
       where: { id: serverId, ...serverTeamWhere(session, "manage") },
-      select: { operatingSystem: true, managementMode: true },
+      select: { teamId: true },
     });
     if (!current) {
       return { error: tr("serversPage.action.notFound") } as ServerActionState;
     }
 
     const { prepareWindowsAgentInstall } = await import("@/lib/server/agent-service");
-    const { installCommand } = await prepareWindowsAgentInstall(serverId);
+    const { installCommand } = await prepareWindowsAgentInstall(serverId, current.teamId);
 
     await auditUserAction(
       session.userId,

@@ -1,5 +1,8 @@
+import { guardedLinuxAgentRemoval, linuxAgentSelfRemoval, windowsAgentSelfRemoval, withLinuxAgentInstallLock, withWindowsAgentInstallLock } from "./agent-lifecycle-scripts";
 import { createHash, randomBytes, timingSafeEqual } from "node:crypto";
 
+import { acquireAdvisoryLock } from "@/lib/concurrency/advisory-lock";
+import type { Prisma } from "@prisma/client";
 import { config } from "@/lib/config/env";
 import { prisma } from "@/lib/db";
 import { BusinessError } from "@/lib/errors";
@@ -32,23 +35,17 @@ const AGENT_CAPABILITIES = ["metrics", "command"] as const;
 /** The Linux Agent also installs the hub's build itself (see agentSelfUpdateFor). */
 const LINUX_AGENT_CAPABILITIES = [...AGENT_CAPABILITIES, "self-update"] as const;
 export const AGENT_WINDOWS_TASK_NAME = "VControlHubAgent";
-export const AGENT_CLEANUP_COMMAND = "nohup sh -c 'sleep 2; systemctl disable vcontrolhub-agent.service >/dev/null 2>&1 || true; rm -f /etc/systemd/system/vcontrolhub-agent.service; rm -rf /opt/vcontrolhub-agent; systemctl daemon-reload >/dev/null 2>&1 || true; systemctl stop vcontrolhub-agent.service >/dev/null 2>&1 || true' >/dev/null 2>&1 &";
-/**
- * Windows equivalent of AGENT_CLEANUP_COMMAND. Dispatched as an agent job and
- * executed through `cmd /c`, it detaches a hidden cmd that waits ~3s (ping
- * delay, timeout.exe rejects redirected stdin) before ending and deleting the
- * scheduled task and removing the agent directory — mirroring the Linux
- * "nohup sleep 2" self-removal pattern so the running agent is not killed
- * mid-job. %ProgramData% is expanded by the agent's cmd wrapper before
- * PowerShell parses the command; the path contains no spaces by construction.
- */
-export const AGENT_WINDOWS_CLEANUP_COMMAND = `powershell -NoProfile -Command "Start-Process -WindowStyle Hidden cmd -ArgumentList '/c','ping -n 4 127.0.0.1 >nul & schtasks /end /tn ${AGENT_WINDOWS_TASK_NAME} >nul 2>&1 & schtasks /delete /f /tn ${AGENT_WINDOWS_TASK_NAME} >nul 2>&1 & rd /s /q %ProgramData%\\VControlHub >nul 2>&1'"`;
-
 /**
  * Removal over SSH, for when the Agent cannot remove itself: synchronous (the
  * Agent is not the one running it), so the exit code says whether it worked.
  */
-export const AGENT_SSH_CLEANUP_SCRIPT = "systemctl disable --now vcontrolhub-agent.service >/dev/null 2>&1 || true; rm -f /etc/systemd/system/vcontrolhub-agent.service; rm -rf /opt/vcontrolhub-agent; systemctl daemon-reload >/dev/null 2>&1 || true";
+export const AGENT_SSH_CLEANUP_SCRIPT = [
+  "set -e",
+  "if [ -e /etc/systemd/system/vcontrolhub-agent.service ] || systemctl is-active --quiet vcontrolhub-agent.service; then systemctl disable --now vcontrolhub-agent.service; fi",
+  "rm -f /etc/systemd/system/vcontrolhub-agent.service",
+  "rm -rf /opt/vcontrolhub-agent",
+  "systemctl daemon-reload",
+].join("\n");
 
 /**
  * .NET before 4.7 (Windows Server 2016) offers only TLS 1.0/1.1 by default,
@@ -80,26 +77,44 @@ function tokenHash(token: string) {
 export async function authenticateServerAgent(token: string) {
   const match = /^vca_([^_]+)_([A-Za-z0-9_-]{32,})$/.exec(token);
   if (!match) return null;
-  const server = await prisma.server.findUnique({ where: { id: match[1] } });
+  const server = await prisma.server.findUnique({ where: { id: match[1] }, select: { id: true, managementMode: true, operatingSystem: true, agentTokenHash: true } });
   if (!server?.agentTokenHash || server.managementMode !== "AGENT") return null;
   const actual = Buffer.from(tokenHash(token), "hex");
   const expected = Buffer.from(server.agentTokenHash, "hex");
-  return actual.length === expected.length && timingSafeEqual(actual, expected) ? server : null;
+  if (actual.length !== expected.length || !timingSafeEqual(actual, expected)) return null;
+  return { id: server.id, operatingSystem: server.operatingSystem, agentTokenHash: server.agentTokenHash };
+}
+
+/** Installation, mode switches and deletion all change the service on the same host. */
+export async function withServerLifecycleLock<T>(serverId: string, work: () => Promise<T>) {
+  const release = await acquireAdvisoryLock("server-delete", serverId);
+  try { return await work(); } finally { await release(); }
+}
+
+export function resetAgentForModeChange() {
+  const cancelled = { status: "CANCELLED" as const, exitCode: 130, leaseExpiresAt: null };
+  return {
+    agentTokenHash: null, agentLastSeenAt: null, agentVersion: null, agentCapabilities: [],
+    agentLastError: null, agentMetricsAt: null, agentMetricsRaw: null,
+    agentJobs: { updateMany: [
+      { where: { status: "PENDING" }, data: { ...cancelled, completedAt: new Date(), stderr: "Management mode changed before dispatch" } },
+      { where: { status: "CLAIMED" }, data: { ...cancelled, completedAt: null, stderr: "Management mode changed after dispatch; remote outcome unknown" } },
+    ] },
+  } satisfies Prisma.ServerUpdateInput;
 }
 
 export async function issueServerAgentToken(serverId: string) {
-  const server = await prisma.server.findUnique({ where: { id: serverId }, select: { id: true } });
-  if (!server) throw new Error("Server not found");
   const token = `vca_${serverId}_${randomBytes(32).toString("base64url")}`;
   await prisma.server.update({
-    where: { id: serverId },
-    data: { agentTokenHash: tokenHash(token), agentLastError: null },
+    where: { id: serverId, managementMode: "AGENT" },
+    data: { agentTokenHash: tokenHash(token), agentLastError: null, agentLastSeenAt: null, agentVersion: null, agentCapabilities: [], agentMetricsAt: null, agentMetricsRaw: null },
   });
   return token;
 }
 
 export async function updateServerAgentHeartbeat(input: {
   serverId: string;
+  agentTokenHash: string;
   version?: string;
   capabilities?: string[];
   metricsRaw?: string;
@@ -112,20 +127,21 @@ export async function updateServerAgentHeartbeat(input: {
   // An idle Agent polls every 5 s; rewriting the wide servers row (credential
   // columns included) on each poll bloated the table (A2-04). Only a changed
   // fact, a metrics report, or a 30 s old heartbeat touches the row.
+  const identity = { id: input.serverId, managementMode: "AGENT" as const, agentTokenHash: input.agentTokenHash };
   const current = await prisma.server.findUnique({
-    where: { id: input.serverId },
+    where: identity,
     select: { agentLastSeenAt: true, agentVersion: true, agentCapabilities: true, agentLastError: true },
   });
-  const heartbeatFresh = current?.agentLastSeenAt ? now.getTime() - current.agentLastSeenAt.getTime() < AGENT_HEARTBEAT_WRITE_INTERVAL_MS : false;
-  const unchanged = current
-    && heartbeatFresh
+  if (!current) return false;
+  const heartbeatFresh = current.agentLastSeenAt ? now.getTime() - current.agentLastSeenAt.getTime() < AGENT_HEARTBEAT_WRITE_INTERVAL_MS : false;
+  const unchanged = heartbeatFresh
     && (version === undefined || current.agentVersion === version)
     && current.agentLastError === lastError
     && current.agentCapabilities.length === capabilities.length
     && current.agentCapabilities.every((item, index) => item === capabilities[index]);
   if (!unchanged || input.metricsRaw) {
-    await prisma.server.update({
-      where: { id: input.serverId },
+    const written = await prisma.server.updateMany({
+      where: identity,
       data: {
         agentLastSeenAt: now,
         agentVersion: version,
@@ -136,15 +152,17 @@ export async function updateServerAgentHeartbeat(input: {
           : {}),
       },
     });
+    if (!written.count) return false;
   }
   // A Windows node is created "needs attention" until its Agent is in place
   // (there is no SSH check to run). Its first heartbeat is that proof; the
   // node stayed unselectable as a command target without it.
   await prisma.server.updateMany({
-    where: { id: input.serverId, operatingSystem: "WINDOWS", managementMode: "AGENT", onboardingStatus: "NEEDS_ATTENTION" },
+    where: { ...identity, operatingSystem: "WINDOWS", onboardingStatus: "NEEDS_ATTENTION" },
     data: { onboardingStatus: "READY", onboardingLastError: null },
   });
   if (input.metricsRaw) await recordAgentLatestMetrics(input.serverId, input.metricsRaw.slice(0, 64_000), now);
+  return true;
 }
 
 /**
@@ -243,8 +261,12 @@ export async function findLivePendingAgentJobId(
   return live[0]?.id;
 }
 
-export async function claimNextServerAgentJob(serverId: string) {
+export async function claimNextServerAgentJob(serverId: string, authenticatedHash: string) {
   return prisma.$transaction(async (tx) => {
+    const identity = await tx.$queryRaw<{ id: string }[]>`
+      SELECT id FROM servers WHERE id = ${serverId} AND "managementMode" = 'AGENT'
+        AND "agentTokenHash" = ${authenticatedHash} FOR SHARE`;
+    if (!identity.length) return null;
     const now = new Date();
     await tx.serverAgentJob.updateMany({
       where: {
@@ -318,20 +340,20 @@ export async function executeCommandWithAgent(input: {
 }) {
   const cancelledBeforeDispatch = () => ({ stdout: "", stderr: "Cancelled before Agent dispatch", exitCode: 130, cancelled: true });
   if (input.signal?.aborted) return cancelledBeforeDispatch();
-  const server = await prisma.server.findUnique({
-    where: { id: input.serverId },
-    select: { operatingSystem: true, managementMode: true, agentLastSeenAt: true },
+  // Take the same row lock as a claim: a concurrent mode change either
+  // retires this queued job or commits before we check the current identity.
+  const job = await prisma.$transaction(async (tx) => {
+    const live = await tx.$queryRaw<{ id: string }[]>`
+      SELECT id FROM servers WHERE id = ${input.serverId} AND "managementMode" = 'AGENT'
+        AND "agentTokenHash" IS NOT NULL
+        AND "agentLastSeenAt" > (now() AT TIME ZONE 'UTC') - ${AGENT_FRESH_MS} * interval '1 millisecond'
+      FOR SHARE`;
+    if (!live.length || input.signal?.aborted) return null;
+    return tx.serverAgentJob.create({
+      data: { serverId: input.serverId, commandTargetId: input.commandTargetId, command: input.command, timeoutMs: input.timeoutMs },
+    });
   });
-  if (
-    server?.managementMode !== "AGENT" ||
-    !server.agentLastSeenAt ||
-    Date.now() - server.agentLastSeenAt.getTime() > AGENT_FRESH_MS
-  ) return null;
-
-  if (input.signal?.aborted) return cancelledBeforeDispatch();
-  const job = await prisma.serverAgentJob.create({
-    data: { serverId: input.serverId, commandTargetId: input.commandTargetId, command: input.command, timeoutMs: input.timeoutMs },
-  });
+  if (!job) return input.signal?.aborted ? cancelledBeforeDispatch() : null;
   try {
   const deadline = Date.now() + input.timeoutMs + 10_000;
   // Quick commands still answer within half a second; a long one no longer
@@ -340,7 +362,7 @@ export async function executeCommandWithAgent(input: {
   while (Date.now() < deadline) {
     input.signal?.throwIfAborted();
     const current = await prisma.serverAgentJob.findUnique({ where: { id: job.id } });
-    if (!current) return null;
+    if (!current) throw new CommandCancellationUnconfirmedError();
     if (current.status === "COMPLETED" || current.status === "FAILED") {
       return { stdout: current.stdout ?? "", stderr: current.stderr ?? "", exitCode: current.exitCode ?? 255 };
     }
@@ -996,7 +1018,7 @@ export function buildAgentPowerShell(hubUrl: string, token: string) {
  */
 export function buildWindowsAgentInstaller(hubUrl: string, token: string) {
   const agentBase64 = Buffer.from(buildAgentPowerShell(hubUrl, token), "utf8").toString("base64");
-  return [
+  return withWindowsAgentInstallLock([
     "# VControlHub Windows agent installer - run in an elevated PowerShell.",
     "$ErrorActionPreference = 'Stop'",
     "$principal = New-Object Security.Principal.WindowsPrincipal([Security.Principal.WindowsIdentity]::GetCurrent())",
@@ -1015,6 +1037,7 @@ export function buildWindowsAgentInstaller(hubUrl: string, token: string) {
     "New-Item -ItemType Directory -Path $agentDir -Force | Out-Null",
     "$agentPath = Join-Path $agentDir 'agent.ps1'",
     `[System.IO.File]::WriteAllBytes($agentPath, [Convert]::FromBase64String(${JSON.stringify(agentBase64)}))`,
+    `[System.IO.File]::WriteAllText((Join-Path $agentDir 'install-id'), '${tokenHash(token)}')`,
     "$action = New-ScheduledTaskAction -Execute 'powershell.exe' -Argument ('-NoProfile -ExecutionPolicy Bypass -WindowStyle Hidden -File \"' + $agentPath + '\"')",
     "$trigger = New-ScheduledTaskTrigger -AtStartup",
     "# A zero execution time limit means none: the Agent runs as long as the machine does.",
@@ -1022,12 +1045,16 @@ export function buildWindowsAgentInstaller(hubUrl: string, token: string) {
     "Register-ScheduledTask -TaskName $taskName -Action $action -Trigger $trigger -Settings $settings -User 'SYSTEM' -RunLevel Highest -Force | Out-Null",
     "Start-ScheduledTask -TaskName $taskName",
     "Write-Output 'VControlHub agent installed and started.'",
-  ].join("\n");
+  ].join("\n"));
 }
 
-export async function installServerAgent(serverId: string) {
+export function installServerAgent(serverId: string, teamId?: string | null) {
+  return withServerLifecycleLock(serverId, () => installServerAgentUnderLock(serverId, teamId));
+}
+
+export async function installServerAgentUnderLock(serverId: string, teamId?: string | null) {
   const server = await prisma.server.findUnique({
-    where: { id: serverId },
+    where: { id: serverId, teamId },
     include: { sshKey: { select: { privateKey: true, passphrase: true } } },
   });
   if (!server) throw new Error("Server not found");
@@ -1049,10 +1076,12 @@ export async function installServerAgent(serverId: string) {
   if (!hasSshCredential) throw new BusinessError(t("backend.server.agentInstallNeedsSsh"));
   // The new token is issued before the install (the script carries it); if the install fails, the Agent already
   // running keeps the token it has, which was revoked by the issue and is put back below.
-  const previousTokenHash = server.agentTokenHash ?? null;
-  const restorePreviousToken = (reason: string) =>
-    prisma.server.update({ where: { id: serverId }, data: { agentTokenHash: previousTokenHash, agentLastError: reason.slice(0, 1000) } });
   const token = await issueServerAgentToken(serverId);
+  const restorePreviousToken = (reason: string) =>
+    prisma.server.updateMany({
+      where: { id: serverId, managementMode: "AGENT", agentTokenHash: tokenHash(token) },
+      data: { agentTokenHash: server.agentTokenHash ?? null, agentLastError: reason.slice(0, 1000) },
+    });
   const python = Buffer.from(buildAgentPython(hubUrl, token)).toString("base64");
   const unit = `[Unit]\nDescription=VControlHub Agent\nAfter=network-online.target\nWants=network-online.target\n\n[Service]\nType=simple\nExecStart=/usr/bin/python3 /opt/vcontrolhub-agent/agent.py\nRestart=always\nRestartSec=5\nNoNewPrivileges=true\n\n[Install]\nWantedBy=multi-user.target\n`;
   const script = [
@@ -1062,6 +1091,7 @@ export async function installServerAgent(serverId: string) {
     `command -v systemctl >/dev/null 2>&1 || { echo "The Agent needs systemd" >&2; exit 1; }`,
     "install -d -m 700 /opt/vcontrolhub-agent",
     `printf %s ${shellQuote(python)} | base64 -d > /opt/vcontrolhub-agent/agent.py`,
+    `printf '%s' ${shellQuote(tokenHash(token))} > /opt/vcontrolhub-agent/install-id`,
     "chmod 700 /opt/vcontrolhub-agent/agent.py",
     `printf %s ${shellQuote(unit)} > /etc/systemd/system/vcontrolhub-agent.service`,
     "systemctl daemon-reload",
@@ -1072,7 +1102,7 @@ export async function installServerAgent(serverId: string) {
   let result: Awaited<ReturnType<typeof execRemoteCommand>>;
   try {
     const ssh = await buildSshParamsFromServer(server, server.sshKey);
-    result = await execRemoteCommand({ ...ssh, command: asRoot(script), timeout: 60_000 });
+    result = await execRemoteCommand({ ...ssh, command: asRoot(withLinuxAgentInstallLock(script)), timeout: 60_000 });
   } catch (error) {
     // A server SSH does not reach (often why it is in Agent mode) throws here instead of returning a status.
     await restorePreviousToken(error instanceof Error ? error.message : String(error)).catch(() => undefined);
@@ -1091,7 +1121,11 @@ export async function installServerAgent(serverId: string) {
  * PowerShell one-liner that downloads the installer from the authenticated
  * bootstrap endpoint and runs it on the Windows machine.
  */
-export async function prepareWindowsAgentInstall(serverId: string) {
+export function prepareWindowsAgentInstall(serverId: string, teamId?: string | null) {
+  return withServerLifecycleLock(serverId, () => prepareWindowsAgentInstallUnderLock(serverId, teamId));
+}
+
+async function prepareWindowsAgentInstallUnderLock(serverId: string, teamId?: string | null) {
   const hubUrl = config.app.baseUrl;
   if (!hubUrl) throw new Error("The hub address is not configured: set DOMAIN or APP_BASE_URL to install Agent mode");
   const parsed = new URL(hubUrl);
@@ -1099,7 +1133,7 @@ export async function prepareWindowsAgentInstall(serverId: string) {
     throw new Error("Agent hub URL must use HTTPS");
   }
   const server = await prisma.server.findUnique({
-    where: { id: serverId },
+    where: { id: serverId, teamId },
     select: { operatingSystem: true, managementMode: true },
   });
   if (!server) throw new Error("Server not found");
@@ -1111,51 +1145,38 @@ export async function prepareWindowsAgentInstall(serverId: string) {
   return { installCommand, bootstrapUrl };
 }
 
-export async function uninstallServerAgent(serverId: string) {
+/** Called under the server lifecycle lock. A mode change revokes access in the profile write. */
+export async function removeAgentFromHost(serverId: string, verifiedSsh?: Awaited<ReturnType<typeof buildSshParamsFromServer>>) {
   const server = await prisma.server.findUnique({
     where: { id: serverId },
     include: { sshKey: { select: { privateKey: true, passphrase: true } } },
   });
-  if (!server) return { removed: false };
-  if (server.operatingSystem === "WINDOWS") {
-    // No SSH fallback exists for Windows nodes: dispatch the self-removal
-    // command through the agent itself, then always revoke the token.
-    let removed = false;
-    if (server.agentLastSeenAt && Date.now() - server.agentLastSeenAt.getTime() < AGENT_FRESH_MS) {
-      const result = await executeCommandWithAgent({
-        serverId,
-        command: AGENT_WINDOWS_CLEANUP_COMMAND,
-        timeoutMs: 15_000,
-      }).catch(() => null);
-      removed = result?.exitCode === 0;
-    }
-    await prisma.server.update({ where: { id: serverId }, data: { agentTokenHash: null } });
-    return { removed };
+  if (!server || server.managementMode !== "AGENT") return { removed: false };
+  const windows = server.operatingSystem === "WINDOWS";
+  // Prefer a newly verified SSH connection to the original host. Synchronous
+  // removal cannot later tear down a replacement Agent during a rapid switch.
+  const hasStoredSsh = server.connectionType === "SSH_KEY"
+    ? Boolean(server.sshKeyId && server.sshKey?.privateKey) : Boolean(server.password);
+  if (!windows && (verifiedSsh || hasStoredSsh)) {
+    try {
+      const ssh = verifiedSsh ?? await buildSshParamsFromServer(server, server.sshKey);
+      const result = await execRemoteCommand({ ...ssh, command: asRoot(guardedLinuxAgentRemoval(server.agentTokenHash, AGENT_SSH_CLEANUP_SCRIPT)), timeout: 30_000 });
+      if (result.exitCode === 0) return { removed: true };
+    } catch { /* The Agent may still be reachable on its outbound connection. */ }
   }
-  let removed = false;
-  if (server.agentLastSeenAt && Date.now() - server.agentLastSeenAt.getTime() < AGENT_FRESH_MS) {
+  if (server.agentTokenHash && server.agentLastSeenAt && Date.now() - server.agentLastSeenAt.getTime() < AGENT_FRESH_MS) {
+    const command = windows ? windowsAgentSelfRemoval(AGENT_WINDOWS_TASK_NAME, server.agentTokenHash) : linuxAgentSelfRemoval(server.agentTokenHash);
     const result = await executeCommandWithAgent({
-      serverId,
-      command: AGENT_CLEANUP_COMMAND,
-      timeoutMs: 15_000,
+      serverId, command, timeoutMs: 15_000,
     }).catch(() => null);
-    removed = result?.exitCode === 0;
+    // The Agent acknowledged starting its cleanup helper, before that helper removes it.
+    return result?.exitCode === 0 ? { removed: false, requested: true } : { removed: false };
   }
-  try {
-    if (!removed) {
-      const hasSshCredential = server.connectionType === "SSH_KEY"
-        ? Boolean(server.sshKeyId && server.sshKey?.privateKey)
-        : Boolean(server.password);
-      if (hasSshCredential) {
-        const ssh = await buildSshParamsFromServer(server, server.sshKey);
-        const result = await execRemoteCommand({ ...ssh, command: asRoot(AGENT_SSH_CLEANUP_SCRIPT), timeout: 30_000 });
-        removed = result.exitCode === 0;
-      }
-    }
-  } catch {
-    removed = false;
-  } finally {
-    await prisma.server.update({ where: { id: serverId }, data: { agentTokenHash: null } });
-  }
-  return { removed };
+  return { removed: false };
+}
+
+export async function uninstallServerAgent(serverId: string) {
+  const cleanup = await removeAgentFromHost(serverId);
+  await prisma.server.updateMany({ where: { id: serverId, managementMode: "AGENT" }, data: { agentTokenHash: null } });
+  return cleanup;
 }

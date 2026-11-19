@@ -114,6 +114,16 @@ describe("checkStorageNodeHealth", () => {
     }));
   });
 
+  it("identifies an Agent-only cloud drive when checking its root", async () => {
+    prismaMock.storageNode.findUnique.mockResolvedValueOnce({
+      id: "node-1", driver: "SFTP", basePath: "/data", host: null, port: null, username: null,
+      server: { id: "agent", managementMode: "AGENT", operatingSystem: "LINUX", host: "server", port: 22, username: "ops", connectionType: "PASSWORD", password: null },
+    });
+    listRemoteDirectoryMock.mockResolvedValueOnce([]);
+    expect(await checkStorageNodeHealth("node-1")).toMatchObject({ transport: "Agent", healthStatus: "HEALTHY" });
+    expect(listRemoteDirectoryMock).toHaveBeenCalledWith(expect.objectContaining({ agentServerId: "agent", remotePath: "/data" }));
+  });
+
   it("decrypts encrypted SFTP server credentials before health checks", async () => {
     prismaMock.storageNode.findUnique.mockResolvedValueOnce({
       id: "node-1",

@@ -5,17 +5,18 @@ import { Radio, Server } from "@/components/icons";
 import { useI18n } from "@/lib/i18n/use-locale";
 
 export function ServerManagementModeFields({
-  defaultValue = "DIRECT",
+  selectedValue,
   onChange,
   platform = "LINUX",
 }: {
-  defaultValue?: "DIRECT" | "AGENT";
+  selectedValue?: "DIRECT" | "AGENT";
   onChange?: (value: "DIRECT" | "AGENT") => void;
   /** Windows nodes have different channel semantics (no SSH fallback). */
   platform?: "LINUX" | "WINDOWS";
 }) {
   const { t } = useI18n();
-  const [value, setValue] = useState<"DIRECT" | "AGENT">(defaultValue);
+  const [localValue, setValue] = useState<"DIRECT" | "AGENT">("DIRECT");
+  const value = selectedValue ?? localValue;
   const options = [
     {
       value: "DIRECT" as const,
@@ -44,7 +45,7 @@ export function ServerManagementModeFields({
               data-tile=""
               aria-pressed={selected}
               onClick={() => {
-                setValue(option.value);
+                if (selectedValue === undefined) setValue(option.value);
                 onChange?.(option.value);
               }}
               className="min-h-[76px] p-3 text-left transition"

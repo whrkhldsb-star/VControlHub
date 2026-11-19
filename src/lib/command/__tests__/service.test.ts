@@ -47,6 +47,7 @@ const { mockPrisma, spawnMock, pendingExecutions } = vi.hoisted(() => ({
       findMany: vi.fn(),
     },
     server: {
+      findUnique: vi.fn(async ({ where }: { where: { id: string } }) => ({ id: where.id })),
       findMany: vi.fn(),
     },
     setting: {

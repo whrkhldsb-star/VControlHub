@@ -18,6 +18,8 @@ export type SshConnectionParams = {
   passphrase?: string;
   password?: string;
   hostKeySha256?: string | null;
+  /** Credential verification must perform a new SSH handshake. */
+  freshConnection?: boolean;
   /** Capture the remote SHA256 host key hash during TOFU discovery. */
   onHostKeySha256?: (fingerprint: string) => void;
   /** Abort immediately after host-key capture so first-contact TOFU never sends credentials. */
@@ -157,7 +159,7 @@ function sshPoolKey(input: SshConnectionParams) {
 }
 
 function shouldPoolSsh(input: SshConnectionParams) {
-  return !input.onHostKeySha256 && !input.rejectUnknownHostKeyAfterCapture;
+  return !input.freshConnection && !input.onHostKeySha256 && !input.rejectUnknownHostKeyAfterCapture;
 }
 
 async function acquirePooledSsh(input: SshConnectionParams) {
@@ -255,18 +257,14 @@ function usesAgentOnly(input: SshConnectionParams) {
   return Boolean(input.agentServerId && !input.privateKey && !input.password);
 }
 
-/**
- * Run a command through the server's Agent. The file helpers below treat a
- * non-zero exit as a failed operation (thrown); `returnNonZeroExit` hands the
- * exit status back instead, for callers that read it themselves.
- */
-async function execAgentOnly(input: SshConnectionParams, command: string, timeoutMs = 60_000, signal?: AbortSignal, options: { returnNonZeroExit?: boolean } = {}) {
+/** A file operation requires a successful Agent result. */
+async function execAgentOnly(input: SshConnectionParams, command: string, timeoutMs = 60_000, signal?: AbortSignal) {
   signal?.throwIfAborted();
   if (!input.agentServerId) throw new BusinessError(t("backend.server.agentIdentityMissing"));
   const { executeCommandWithAgent } = await import("@/lib/server/agent-service");
   const result = await executeCommandWithAgent({ serverId: input.agentServerId, command, timeoutMs, signal });
   if (!result) throw new BusinessError(t("backend.server.agentOfflineNoFallback"));
-  if (result.exitCode !== 0 && !options.returnNonZeroExit) {
+  if (result.exitCode !== 0) {
     throw new BusinessError(result.stderr || result.stdout || t("backend.server.agentCommandFailed", { code: result.exitCode }));
   }
   return result;
@@ -414,8 +412,8 @@ export async function statRemoteTargetTypes(input: SshConnectionParams & { remot
  */
 export async function resolveRemoteHomeDirectory(input: SshConnectionParams): Promise<string> {
   if (usesAgentOnly(input)) {
-    const source = "import os\nprint(os.path.realpath(os.path.expanduser('~')))";
-    const result = await execAgentOnly(input, pythonCommand(source, []));
+    const source = "import os,pwd,sys\nprint(os.path.realpath(pwd.getpwnam(sys.argv[1]).pw_dir))";
+    const result = await execAgentOnly(input, pythonCommand(source, [input.username]));
     const resolved = result.stdout.trim();
     if (result.exitCode !== 0 || !/^(\/|[A-Za-z]:[\\/])/.test(resolved)) throw new Error("Unable to resolve remote home directory");
     return resolved;
@@ -744,25 +742,34 @@ export async function renameRemoteFile(input: SshConnectionParams & { oldPath: s
   });
 }
 
+// Six million binary bytes fit in the Agent's 8 MiB stdout budget after base64 encoding.
+export const AGENT_FILE_MAX_BYTES = 6_000_000;
+
 export async function readRemoteFile(
   input: SshConnectionParams & { remotePath: string; maxBytes?: number },
 ): Promise<Buffer> {
-  // Agent-only path keeps its own 5MB ceiling; honour a smaller caller cap too.
-  const agentCap = Math.min(input.maxBytes ?? 5 * 1_048_576, 5 * 1_048_576);
   if (usesAgentOnly(input)) {
     const sizeResult = await execAgentOnly(
       input,
       pythonCommand("import os,sys\nprint(os.path.getsize(sys.argv[1]))", [input.remotePath]),
     );
-    const size = Number.parseInt(sizeResult.stdout.trim(), 10);
-    if (!Number.isSafeInteger(size) || size < 0) {
+    const sizeText = sizeResult.stdout.trim();
+    const size = Number(sizeText);
+    if (!/^\d+$/.test(sizeText) || !Number.isSafeInteger(size)) {
       throw new BusinessError(t("backend.server.agentFileSizeUnknown"));
     }
-    if (size > agentCap) {
-      throw new BusinessError(t("backend.server.agentReadLimit"));
+    if (size > AGENT_FILE_MAX_BYTES) throw new BusinessError(t("backend.server.agentReadLimit"));
+    if (input.maxBytes !== undefined && size > input.maxBytes) throw new BusinessError(t("backend.storage.remoteReadTooLarge"));
+    // Bound the second read even when the file grows after the stat. One extra
+    // byte distinguishes a complete file from a prefix of a larger file.
+    const source = "import base64,sys\nwith open(sys.argv[1],'rb') as f: data=f.read(int(sys.argv[2]))\nprint(base64.b64encode(data).decode())";
+    const result = await execAgentOnly(input, pythonCommand(source, [input.remotePath, String(size + 1)]));
+    const encoded = result.stdout.trim();
+    const content = Buffer.from(encoded, "base64");
+    if (content.length !== size || encoded.length !== 4 * Math.ceil(size / 3)) {
+      throw new BusinessError(t("backend.server.agentFileSizeChanged"));
     }
-    const result = await execAgentOnly(input, pythonCommand("import base64,sys\nprint(base64.b64encode(open(sys.argv[1],'rb').read()).decode())", [input.remotePath]));
-    return Buffer.from(result.stdout.trim(), "base64");
+    return content;
   }
   return withReusableSshClient(input, async (client) => {
     return withSftpChannel(client, (sftp) => new Promise<Buffer>((resolve, reject) => {
@@ -803,8 +810,8 @@ const AGENT_WRITE_CHUNK = 64 * 1024;
 
 export async function writeRemoteFile(input: SshConnectionParams & { remotePath: string; content: string | Buffer }): Promise<void> {
   if (usesAgentOnly(input)) {
+    if (Buffer.byteLength(input.content) > AGENT_FILE_MAX_BYTES) throw new BusinessError(t("backend.server.agentWriteLimit"));
     const encoded = Buffer.from(input.content).toString("base64");
-    if (encoded.length > 8_000_000) throw new BusinessError(t("backend.server.agentWriteLimit"));
     if (encoded.length <= AGENT_WRITE_CHUNK) {
       await execAgentOnly(input, pythonCommand("import base64,sys\nopen(sys.argv[1],'wb').write(base64.b64decode(sys.argv[2]))", [input.remotePath, encoded]));
       return;
@@ -853,19 +860,34 @@ function waitForSshResource<T>(resource: Promise<T>, signal: AbortSignal | undef
 }
 
 export async function execRemoteCommand(
- input: SshConnectionParams & { command: string; timeout?: number; signal?: AbortSignal },
+ input: SshConnectionParams & { command: string; timeout?: number; signal?: AbortSignal; preferAgent?: boolean },
 ): Promise<{ stdout: string; stderr: string; exitCode: number | null }> {
  input.signal?.throwIfAborted();
- if (usesAgentOnly(input)) {
-   // The exit status is the caller's to read, as over SSH. Thrown instead, a
-   // status that is an answer (grep's 1 for "no match", a probe's "in use",
-   // "compose is not a docker command") reached the caller as a failure: on a
-   // server managed through its Agent alone a content search without matches
-   // failed, and Compose never fell back to the Engine API.
-   const result = await execAgentOnly(input, input.command, input.timeout ?? 120_000, input.signal, { returnNonZeroExit: true });
-   // A cancelled command is an abort, as it is over SSH, not exit status 130.
+ if (input.agentServerId && (input.preferAgent || usesAgentOnly(input))) {
+   const { executeCommandWithAgent } = await import("@/lib/server/agent-service");
+   const result = await executeCommandWithAgent({
+     serverId: input.agentServerId, command: input.command, timeoutMs: input.timeout ?? 120_000, signal: input.signal,
+   });
    input.signal?.throwIfAborted();
-   return { stdout: result.stdout, stderr: result.stderr, exitCode: result.exitCode };
+   if (result) return { stdout: result.stdout, stderr: result.stderr, exitCode: result.exitCode };
+   // Only null proves the Agent never took this job. A nonzero result or a lost
+   // acknowledgement must never execute the operation a second time over SSH.
+   if (usesAgentOnly(input)) throw new BusinessError(t("backend.server.agentOfflineNoFallback"));
+   if (!input.hostKeySha256) throw new BusinessError(t("backend.ssh.hostKeyNotPinned"));
+   // The node could have changed while its Agent job was pending. Verify the
+   // saved endpoint and credential again before opening a fallback connection.
+   const { prisma } = await import("@/lib/db");
+   const { SSH_CONNECTION_SERVER_SELECT } = await import("./server-connection-select");
+   const current = await prisma.server.findUnique({
+     where: { id: input.agentServerId, enabled: true, managementMode: "AGENT", host: input.host,
+       port: input.port, username: input.username, hostKeySha256: input.hostKeySha256 },
+     select: SSH_CONNECTION_SERVER_SELECT,
+   });
+   if (!current) throw new BusinessError(t("backend.command.connectionChanged"));
+   const login = await buildSshParamsFromServer(current, current.sshKey);
+   if (login.password !== input.password || login.privateKey !== input.privateKey || login.passphrase !== input.passphrase) {
+     throw new BusinessError(t("backend.command.connectionChanged"));
+   }
  }
  if (!shouldPoolSsh(input)) {
    const client = await waitForSshResource(connectSsh(createSshConfig(input)), input.signal, (client) => { client.end(); });

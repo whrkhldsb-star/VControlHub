@@ -1,5 +1,7 @@
 "use client";
 
+import { useState } from "react";
+import { copyText } from "@/lib/ui/clipboard";
 import { useRouter } from "next/navigation";
 
 import { SubmitButton } from "@/components/submit-button";
@@ -24,6 +26,7 @@ export function ServerCardDeleteForm({
 }: Props) {
   const { t } = useI18n();
   const router = useRouter();
+  const [copied, setCopied] = useState<boolean | null>(null);
   const isConfirming =
     deleteState.relatedStorageCount !== undefined &&
     !deleteState.success &&
@@ -44,7 +47,7 @@ export function ServerCardDeleteForm({
         >
           <input type="hidden" name="confirmDelete" value="true" />
           <div className="space-y-1 text-sm text-[var(--danger)]" role="alert">
-            <p id={`delete-server-title-${serverId}`} className="font-semibold">
+            <p id={`delete-server-title-${serverId}`} className="whitespace-pre-wrap break-words font-semibold">
               {t("serversPage.delete.confirmTitle", { name: serverName })}
             </p>
             <div id={`delete-server-description-${serverId}`}>
@@ -60,10 +63,14 @@ export function ServerCardDeleteForm({
           </div>
           <label
             htmlFor={`delete-confirm-name-${serverId}`}
-            className="ui-label block text-[var(--danger)]"
+            className="ui-label block whitespace-pre-wrap break-words text-[var(--danger)]"
           >
             {t("serversPage.delete.confirmNameInput", { name: serverName })}
           </label>
+          <ActionButton size="sm" variant="secondary" onClick={async () => setCopied(await copyText(serverName))}>
+            {t("serversPage.delete.copyName")}
+          </ActionButton>
+          {copied !== null ? <span role="status" className="text-xs">{t(copied ? "serversPage.delete.copied" : "serversPage.delete.copyFailed")}</span> : null}
           <input
             id={`delete-confirm-name-${serverId}`}
             name="confirmName"

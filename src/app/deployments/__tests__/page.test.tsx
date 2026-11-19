@@ -158,6 +158,7 @@ describe("DeploymentsPage deploy-export panel", () => {
         name: true,
         host: true,
         username: true,
+        operatingSystem: true,
         onboardingStatus: true,
         managementMode: true,
         agentLastSeenAt: true,

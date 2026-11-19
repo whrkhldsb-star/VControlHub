@@ -292,6 +292,7 @@ export async function requestRemoteDockerEngine(
 	try {
 		const result = await execRemoteCommand({
 			...sshParams,
+			preferAgent: true,
 			command: curlCmd,
 			timeout: timeoutMs,
 		});

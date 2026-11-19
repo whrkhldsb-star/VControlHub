@@ -78,7 +78,9 @@ export function resolveStorageSshCredentials(node: StorageSshCredentialNode): Re
   }
   // The Windows agent handles monitoring and commands, but has no file stream
   // transport. Windows cloud storage must use its verified OpenSSH connection.
-  const agentServerId = node.server?.managementMode === "AGENT" && node.server?.operatingSystem !== "WINDOWS"
+  const sameLinuxEndpoint = node.server?.operatingSystem === "LINUX"
+    && host.toLowerCase() === node.server.host.toLowerCase() && port === node.server.port;
+  const agentServerId = node.server?.managementMode === "AGENT" && sameLinuxEndpoint && username === node.server.username
     ? node.server.id ?? undefined : undefined;
   if (connectionType === "SSH_KEY" && !privateKey && !agentServerId) {
     throw new ValidationError(t("backend.storage.missingSshKey"));
@@ -90,7 +92,7 @@ export function resolveStorageSshCredentials(node: StorageSshCredentialNode): Re
   // A node that takes its host from a Linux server talks to that server's own SSH endpoint, so the server's pin
   // is the one that counts: the copy the node got when it was created went stale when the server's key was
   // approved again (reinstall, new machine) and every SFTP operation was then refused as a changed key.
-  const followsServerEndpoint = node.host == null && node.server != null && node.server.operatingSystem !== "WINDOWS";
+  const followsServerEndpoint = node.host == null && sameLinuxEndpoint;
   const hostKeySha256 = followsServerEndpoint
     ? node.server?.hostKeySha256 ?? node.hostKeySha256 ?? null
     : node.hostKeySha256 ?? node.server?.hostKeySha256 ?? null;

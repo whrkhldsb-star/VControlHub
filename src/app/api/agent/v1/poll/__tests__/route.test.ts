@@ -44,8 +44,8 @@ describe("POST /api/agent/v1/poll", () => {
   beforeEach(() => {
     vi.clearAllMocks();
     mocks.withRateLimit.mockResolvedValue({ allowed: true, retryAfterMs: 0, remaining: 239 });
-    mocks.authenticateServerAgent.mockResolvedValue({ id: "srv1" });
-    mocks.updateServerAgentHeartbeat.mockResolvedValue(undefined);
+    mocks.authenticateServerAgent.mockResolvedValue({ id: "srv1", agentTokenHash: "digest" });
+    mocks.updateServerAgentHeartbeat.mockResolvedValue(true);
     mocks.claimNextServerAgentJob.mockResolvedValue(null);
     mocks.completeServerAgentJob.mockResolvedValue(undefined);
     mocks.heartbeatServerAgentJob.mockResolvedValue(false);
@@ -69,6 +69,14 @@ describe("POST /api/agent/v1/poll", () => {
 
     expect(response.status).toBe(401);
     expect(mocks.updateServerAgentHeartbeat).not.toHaveBeenCalled();
+    expect(mocks.claimNextServerAgentJob).not.toHaveBeenCalled();
+  });
+
+  it("rejects a poll that lost its identity while the body was being read", async () => {
+    mocks.updateServerAgentHeartbeat.mockResolvedValue(false);
+    const response = await POST(poll({ result: { jobId: "j1", exitCode: 0 } }));
+    expect(response.status).toBe(401);
+    expect(mocks.completeServerAgentJob).not.toHaveBeenCalled();
     expect(mocks.claimNextServerAgentJob).not.toHaveBeenCalled();
   });
 

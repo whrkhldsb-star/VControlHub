@@ -57,6 +57,15 @@ describe("server edit form credentials", () => {
     expect(container.querySelector('input[name="password"]')).toBeNull();
   });
 
+  it("asks for an explicit key on a mode switch and keeps the original selection if cancelled", async () => {
+    renderForm();
+    await userEvent.click(screen.getByRole("button", { name: /节点 Agent/ }));
+    expect(screen.getByLabelText("SSH 密钥")).toHaveValue("");
+    expect(screen.getByLabelText("SSH 密钥")).toBeRequired();
+    await userEvent.click(screen.getByRole("button", { name: /SSH 直连|直连 SSH/ }));
+    expect(screen.getByLabelText("SSH 密钥")).toHaveValue("key-2");
+  });
+
   it("switches a key node to a password, which is then required", async () => {
     const { container } = renderForm();
     await userEvent.click(screen.getByRole("button", { name: "密码" }));

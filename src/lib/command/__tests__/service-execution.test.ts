@@ -1,7 +1,9 @@
+import { CommandCancellationUnconfirmedError } from "../cancellation-error";
 import { afterEach, beforeEach, describe, expect, it, vi } from "vitest";
 
 const mocks = vi.hoisted(() => ({
   prisma: {
+    server: { findUnique: vi.fn(async () => ({ id: "srv-1" }) as { id: string } | null) },
     commandTarget: {
       findUnique: vi.fn(),
       findMany: vi.fn(),
@@ -105,9 +107,10 @@ function buildTarget(overrides: { server?: Record<string, unknown> } = {}) {
       managementMode: "DIRECT",
       operatingSystem: "LINUX",
       agentLastSeenAt: null,
+      teamId: "team-1", agentTokenHash: null,
       password: null,
       hostKeySha256: "SHA256:pinned",
-      sshKey: { id: "key-1", name: "deploy", privateKey: "ENCRYPTED-KEY" },
+      sshKey: { id: "key-1", name: "deploy", updatedAt: new Date(), privateKey: "ENCRYPTED-KEY", passphrase: null },
       ...overrides.server,
     },
     commandRequest: { command: "uptime", title: "Check uptime" },
@@ -247,14 +250,39 @@ describe("executeTarget", () => {
     }));
   });
 
-  it("flags the target outcome-unknown and never falls back to SSH when the Agent cannot confirm a stop", async () => {
+  it("rechecks the login before falling back and preserves spaces in an SSH password", async () => {
+    mocks.prisma.commandTarget.findUnique.mockResolvedValue({ id: "target-1", status: "RUNNING", commandRequest: { status: "RUNNING", approvals: [] } });
+    mocks.executeCommandWithAgent.mockResolvedValue(null);
+    mocks.executeCommandOverSsh.mockResolvedValue({ stdout: "ok", stderr: "", exitCode: 0 });
+    mocks.prisma.commandTarget.updateMany.mockResolvedValue({ count: 1 });
+    const target = buildTarget({ server: { managementMode: "AGENT", connectionType: "PASSWORD", sshKey: null, password: " exact " } });
+    mocks.prisma.server.findUnique.mockResolvedValueOnce(null);
+    expect(await executeTarget("req-1", target)).toBe(false);
+    expect(mocks.executeCommandOverSsh).not.toHaveBeenCalled();
+    expect(await executeTarget("req-1", target)).toBe(true);
+    expect(mocks.executeCommandOverSsh).toHaveBeenCalledWith(expect.objectContaining({ password: " exact " }));
+  });
+
+  it("checks the SSH key revision, team and Agent identity again before dispatch", async () => {
+    mocks.prisma.commandTarget.findUnique.mockResolvedValue({ id: "target-1", status: "RUNNING", commandRequest: { status: "RUNNING", approvals: [] } });
+    mocks.executeCommandWithAgent.mockResolvedValueOnce(null);
+    mocks.prisma.server.findUnique.mockResolvedValueOnce(null);
+    const target = buildTarget({ server: { managementMode: "AGENT", agentTokenHash: "previous-identity" } });
+    await executeTarget("req-1", target);
+    expect(mocks.prisma.server.findUnique).toHaveBeenCalledWith(expect.objectContaining({
+      where: expect.objectContaining({ teamId: "team-1", agentTokenHash: "previous-identity",
+        sshKey: { is: { updatedAt: target.server.sshKey!.updatedAt } } }),
+    }));
+    expect(mocks.executeCommandOverSsh).not.toHaveBeenCalled();
+  });
+
+  it.each([new CommandCancellationUnconfirmedError(), new Error("result lookup disconnected")])("flags an unconfirmed Agent outcome and prevents SSH replay (%s)", async (error) => {
     mocks.prisma.commandTarget.findUnique.mockResolvedValue({
       id: "target-1",
       status: "RUNNING",
       commandRequest: { status: "RUNNING", approvals: [] },
     });
-    const { CommandCancellationUnconfirmedError } = await import("@/lib/command/cancellation-error");
-    mocks.executeCommandWithAgent.mockRejectedValue(new CommandCancellationUnconfirmedError());
+    mocks.executeCommandWithAgent.mockRejectedValue(error);
     mocks.prisma.commandTarget.updateMany.mockResolvedValue({ count: 1 });
     mocks.prisma.executionLog.create.mockResolvedValue({});
 

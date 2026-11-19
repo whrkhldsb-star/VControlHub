@@ -1,4 +1,5 @@
 /** @vitest-environment node */
+import { windowsAgentSelfRemoval } from "../agent-lifecycle-scripts";
 import { beforeEach, describe, expect, it, vi } from "vitest";
 
 const mocks = vi.hoisted(() => ({
@@ -6,6 +7,7 @@ const mocks = vi.hoisted(() => ({
   serverUpdate: vi.fn(),
 }));
 
+vi.mock("@/lib/concurrency/advisory-lock", () => ({ acquireAdvisoryLock: async () => async () => {} }));
 vi.mock("@/lib/db", () => ({
   prisma: {
     server: { findUnique: mocks.serverFindUnique, update: mocks.serverUpdate },
@@ -18,7 +20,6 @@ vi.mock("@/lib/config/env", () => ({
 }));
 
 import {
-  AGENT_WINDOWS_CLEANUP_COMMAND,
   AGENT_WINDOWS_TASK_NAME,
   buildAgentPowerShell,
   buildWindowsAgentInstaller,
@@ -105,21 +106,16 @@ describe("Windows agent script generation", () => {
     expect(Buffer.from(base64!, "base64").toString("utf8")).toBe(agentScript);
   });
 
-  it("keeps the Windows cleanup command self-removing and detached", () => {
-    // Detached delay (ping works with redirected stdin; timeout.exe does not),
-    // then task stop/delete, then directory removal — mirroring the Linux
-    // nohup self-removal ordering so the running agent survives to report.
-    const detach = AGENT_WINDOWS_CLEANUP_COMMAND.indexOf("Start-Process");
-    const delay = AGENT_WINDOWS_CLEANUP_COMMAND.indexOf("ping -n 4");
-    const end = AGENT_WINDOWS_CLEANUP_COMMAND.indexOf("schtasks /end");
-    const del = AGENT_WINDOWS_CLEANUP_COMMAND.indexOf("schtasks /delete");
-    const rmdir = AGENT_WINDOWS_CLEANUP_COMMAND.indexOf("rd /s /q");
-    expect(detach).toBeGreaterThanOrEqual(0);
-    expect(delay).toBeGreaterThan(detach);
-    expect(end).toBeGreaterThan(delay);
-    expect(del).toBeGreaterThan(end);
-    expect(rmdir).toBeGreaterThan(del);
-    expect(AGENT_WINDOWS_CLEANUP_COMMAND).toContain(AGENT_WINDOWS_TASK_NAME);
+  it("checks the installation identity before stopping the scheduled task", () => {
+    const command = windowsAgentSelfRemoval(AGENT_WINDOWS_TASK_NAME, "original");
+    expect(command).toContain("Start-Process");
+    const script = Buffer.from(command.match(/'-EncodedCommand','([A-Za-z0-9+/=]+)'/)![1]!, "base64").toString("utf16le");
+    expect(script).toContain("Global\\VControlHubAgentLifecycle");
+    expect(script).toContain("VControlHubAgent");
+    expect(script.indexOf("Start-Sleep")).toBeLessThan(script.indexOf("WaitOne"));
+    expect(script.indexOf("WaitOne")).toBeLessThan(script.indexOf("-ne 'original'"));
+    expect(script.indexOf("-ne 'original'")).toBeLessThan(script.indexOf("Stop-ScheduledTask"));
+    expect(script.indexOf("Unregister-ScheduledTask")).toBeLessThan(script.indexOf("Remove-Item"));
   });
 });
 
@@ -130,11 +126,8 @@ describe("prepareWindowsAgentInstall", () => {
   });
 
   it("returns a one-liner that fetches the bootstrap script with the new token", async () => {
-    // prepareWindowsAgentInstall reads the server, then issueServerAgentToken
-    // re-reads it before issuing the token.
     mocks.serverFindUnique
-      .mockResolvedValueOnce({ operatingSystem: "WINDOWS", managementMode: "AGENT" })
-      .mockResolvedValueOnce({ id: "win" });
+      .mockResolvedValueOnce({ operatingSystem: "WINDOWS", managementMode: "AGENT" });
     const plan = await prepareWindowsAgentInstall("win");
     expect(plan.installCommand).toContain("https://hub.example.com/api/agent/v1/bootstrap");
     expect(plan.installCommand).toMatch(/Bearer vca_win_/);

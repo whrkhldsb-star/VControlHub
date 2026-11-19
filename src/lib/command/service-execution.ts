@@ -15,7 +15,6 @@ import { executeCommandOverSsh, getCommandRuntimeConfigValues } from "./service-
 import { executeCommandWithAgent } from "@/lib/server/agent-service";
 import { assertRequesterMayExecuteCommand } from "@/lib/auth/command-execution-authz";
 import { CommandCancellationStateUnknownError, monitorCommandCancellation } from "./cancellation";
-import { CommandCancellationUnconfirmedError } from "./cancellation-error";
 
 export { executeCommandOverSsh, getCommandRuntimeConfigValues, setPasswordExecutorMode } from "./service-ssh";
 
@@ -102,12 +101,15 @@ export async function executeTarget(
       host: string;
       port: number;
       username: string;
-      connectionType: string;
-      managementMode: string;
-      operatingSystem?: string;
+      connectionType: "SSH_KEY" | "PASSWORD";
+      managementMode: "DIRECT" | "AGENT";
+      operatingSystem: string;
+      teamId: string | null;
+      agentTokenHash: string | null;
+      hostKeySha256: string | null;
       agentLastSeenAt: Date | null;
       password: string | null;
-      sshKey: { id: string; name: string; privateKey: string | null; passphrase: string | null } | null;
+      sshKey: { id: string; name: string; updatedAt: Date; privateKey: string | null; passphrase: string | null } | null;
     };
     commandRequest: { command: string; title: string };
   },
@@ -164,12 +166,6 @@ export async function executeTarget(
   const stopCancellationMonitor = await monitorCommandCancellation(target.id, controller);
   try {
 
-  const privateKey = decryptStoredSshKey(target.server.sshKey)?.privateKey.trim();
-  const password = target.server.password
-    ? decryptServerPassword(target.server.password).trim()
-    : undefined;
-  const connectionType = target.server.connectionType;
-
   let result: SshExecutionResult | null = null;
   if (target.server.managementMode === "AGENT") {
     const runtime = await getCommandRuntimeConfigValues();
@@ -187,19 +183,13 @@ export async function executeTarget(
         stderr: error instanceof Error ? error.message : "Agent execution failed",
         exitCode: 255,
         cancelled: false,
-        // The Agent took the job and never confirmed it stopped: the command
-        // may still be running remotely. Never fall back or retry on that.
-        outcomeUnknown: error instanceof CommandCancellationUnconfirmedError,
+        // A failed database read or commit acknowledgement can lose the result
+        // of a job already running. Playbook retries need proof it stopped.
+        outcomeUnknown: true,
       };
     });
-    await prisma.executionLog.create({
-      data: {
-        commandRequestId,
-        serverId: target.server.id,
-        summary: result
-          ? `Command dispatched through Agent on ${target.server.name}.`
-          : `Agent unavailable on ${target.server.name}; falling back to direct SSH.`,
-      },
+    if (result) await prisma.executionLog.create({
+      data: { commandRequestId, serverId: target.server.id, summary: `Agent execution on ${target.server.name}.` },
     });
   }
 
@@ -211,6 +201,11 @@ export async function executeTarget(
     return failTarget(commandRequestId, target, summary);
   }
 
+  // An online Agent does not need the backup login unlocked to run approved work.
+  const connectionType = target.server.connectionType;
+  const privateKey = !result && connectionType === "SSH_KEY" ? decryptStoredSshKey(target.server.sshKey)?.privateKey : undefined;
+  const password = !result && connectionType === "PASSWORD" && target.server.password
+    ? decryptServerPassword(target.server.password) : undefined;
   if (!result && target.server.managementMode === "AGENT" && !privateKey && !password) {
     // A node managed only through its Agent has no SSH login to fall back on. It was told that its SSH key
     // lacked a private key (or that its password was missing), which sends the reader to the wrong setting.
@@ -232,12 +227,30 @@ export async function executeTarget(
   // TOFU (no change detection), so a MITM on first/every connect is undetected.
   // Onboarding forces a pin, but refuse rather than silently accept-new if a
   // legacy/draft row ever reaches execution without one.
-  const pinnedHostKey = (target.server as { hostKeySha256?: string | null }).hostKeySha256;
+  const pinnedHostKey = target.server.hostKeySha256;
   if (!result && !pinnedHostKey?.trim()) {
     // Fail-closed summary goes straight to the client as target stderr; the
     // wording guides the operator to pin the host fingerprint first.
     return failTarget(commandRequestId, target, t("backend.command.hostKeyNotPinnedRefused", { name: target.server.name }));
   }
+
+  if (!result) {
+    const { id, host, port, username, managementMode } = target.server;
+    const current = await prisma.server.findUnique({
+      where: {
+        id, enabled: true, host, port, username, managementMode, connectionType,
+        sshKeyId: target.server.sshKey?.id ?? null, password: target.server.password,
+        hostKeySha256: pinnedHostKey, teamId: target.server.teamId,
+        operatingSystem: target.server.operatingSystem, agentTokenHash: target.server.agentTokenHash,
+        ...(target.server.sshKey ? { sshKey: { is: { updatedAt: target.server.sshKey.updatedAt } } } : {}),
+      },
+      select: { id: true },
+    });
+    if (!current) return failTarget(commandRequestId, target, t("backend.command.connectionChanged"));
+  }
+  if (!result && target.server.managementMode === "AGENT") await prisma.executionLog.create({
+    data: { commandRequestId, serverId: target.server.id, summary: `Agent unavailable on ${target.server.name}; falling back to direct SSH.` },
+  });
 
   result ??= await executeCommandOverSsh({
     host: target.server.host,
@@ -350,6 +363,8 @@ async function executeTargetPage(commandRequestId: string, cursor: string | unde
           connectionType: true,
           managementMode: true,
           operatingSystem: true,
+          teamId: true,
+          agentTokenHash: true,
           agentLastSeenAt: true,
           password: true,
           hostKeySha256: true,
@@ -357,6 +372,7 @@ async function executeTargetPage(commandRequestId: string, cursor: string | unde
             select: {
               id: true,
               name: true,
+              updatedAt: true,
               ...SSH_KEY_CREDENTIAL_SELECT,
             },
           },

@@ -187,11 +187,9 @@ export async function executeSafeAction(
 
   // Team-scoped server load (IDOR: never SSH into out-of-team hosts).
   const scope = sessionForTeamScope(context?.session);
+  const access = scope ? serverTeamWhere(scope, "connect") : { teamId: null };
   const server = await prisma.server.findFirst({
-    where: {
-      id: action.serverId,
-      ...(scope ? serverTeamWhere(scope, "connect") : { teamId: null }),
-    },
+    where: { id: action.serverId, enabled: true, AND: [access] },
     include: { sshKey: true },
   });
 
@@ -218,12 +216,33 @@ export async function executeSafeAction(
       const hasSshCredential = server.connectionType === "SSH_KEY"
         ? Boolean(server.sshKey?.privateKey)
         : Boolean(server.password);
+      if (server.operatingSystem === "WINDOWS") {
+        return { success: false, data: null, error: t("backend.ai.windowsQueryNeedsAgent", locale) };
+      }
       if (!hasSshCredential) {
         return {
           success: false,
           data: null,
           error: t("backend.ai.agentOfflineNoSshFallback"),
         };
+      }
+      if (!server.hostKeySha256?.trim()) {
+        return { success: false, data: null, error: t("backend.ssh.hostKeyNotPinned", locale) };
+      }
+      if (server.managementMode === "AGENT") {
+        // The Agent wait can outlive a credential rotation, transfer or access revocation.
+        const current = await prisma.server.findFirst({
+          where: {
+            id: server.id, enabled: true, AND: [access], teamId: server.teamId,
+            operatingSystem: server.operatingSystem, managementMode: server.managementMode,
+            agentTokenHash: server.agentTokenHash, host: server.host, port: server.port,
+            username: server.username, hostKeySha256: server.hostKeySha256,
+            connectionType: server.connectionType, password: server.password, sshKeyId: server.sshKeyId,
+            ...(server.sshKey ? { sshKey: { is: { updatedAt: server.sshKey.updatedAt } } } : {}),
+          },
+          select: { id: true },
+        });
+        if (!current) return { success: false, data: null, error: t("backend.command.connectionChanged", locale) };
       }
       const ssh = await buildSshParamsFromServer(server, server.sshKey);
       result = await execRemoteCommand({ ...ssh, command, timeout: 60_000 });

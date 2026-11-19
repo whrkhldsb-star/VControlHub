@@ -233,6 +233,36 @@ describe("AI hosted action approvals", () => {
 		expect(sshClientMock.execRemoteCommand).not.toHaveBeenCalled();
 	});
 
+	it("rechecks host, credential and team access before a hosted query falls back to SSH", async () => {
+		const { executeSafeAction } = await import("../hosted-service");
+		const server = {
+			id: "srv_agent", operatingSystem: "LINUX", managementMode: "AGENT", teamId: "team_a",
+			host: "192.0.2.10", port: 22, username: "ops", hostKeySha256: "SHA256:test",
+			agentTokenHash: "test-identity", connectionType: "SSH_KEY", password: null,
+			sshKeyId: "key-1", sshKey: { privateKey: "fixture", updatedAt: new Date() },
+		};
+		agentServiceMock.executeCommandWithAgent.mockResolvedValue(null);
+		const query = () => executeSafeAction({ actionType: "get_status", serverId: server.id, params: {} }, {
+			session: { userId: "operator_1", roles: ["operator"], currentTeamId: "team_a" }, locale: "en",
+		});
+
+		prismaMock.server.findFirst.mockResolvedValueOnce(server).mockResolvedValueOnce(null);
+		expect(await query()).toMatchObject({ success: false, error: expect.stringContaining("connection settings changed") });
+		const [initial, fallback] = prismaMock.server.findFirst.mock.calls;
+		expect(initial?.[0].where).toMatchObject({ enabled: true, AND: expect.any(Array) });
+		expect(fallback?.[0].where).toMatchObject({
+			AND: initial?.[0].where.AND, host: server.host, agentTokenHash: server.agentTokenHash,
+			teamId: server.teamId, hostKeySha256: server.hostKeySha256, sshKeyId: server.sshKeyId,
+			sshKey: { is: { updatedAt: server.sshKey.updatedAt } },
+		});
+		expect(sshClientMock.execRemoteCommand).not.toHaveBeenCalled();
+
+		prismaMock.server.findFirst.mockResolvedValueOnce(server).mockResolvedValueOnce({ id: server.id });
+		sshClientMock.buildSshParamsFromServer.mockResolvedValueOnce({ host: server.host });
+		sshClientMock.execRemoteCommand.mockResolvedValueOnce({ stdout: "fixture", stderr: "", exitCode: 0 });
+		expect(await query()).toMatchObject({ success: true, data: { transport: "ssh" } });
+	});
+
 	it("refuses, when it is proposed, a change that could never become a command request", async () => {
 		// Parameters the command builder refuses and a file too long for one request were only found out when
 		// the person confirmed: the action then failed with a validation dump. The model gets the answer now.

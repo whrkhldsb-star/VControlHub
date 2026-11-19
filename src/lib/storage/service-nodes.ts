@@ -190,6 +190,7 @@ export async function checkStorageNodeHealth(
   const startedAt = Date.now();
   let healthStatus: StorageNodeHealthStatus = "HEALTHY";
   let lastHealthError: string | null = null;
+  let transport: "Agent" | "SFTP" | null = null;
 
   try {
     if (node.driver === "LOCAL") {
@@ -201,16 +202,9 @@ export async function checkStorageNodeHealth(
       await access(expandedBasePath, fsConstants.R_OK | fsConstants.W_OK);
     } else if (node.driver === "SFTP") {
       const credentials = resolveStorageSshCredentials(node);
-
+      transport = credentials.agentServerId && !credentials.password && !credentials.privateKey ? "Agent" : "SFTP";
       await listRemoteDirectory({
-        host: credentials.host,
-        port: credentials.port,
-        username: credentials.username,
-        hostKeySha256: credentials.hostKeySha256,
-        agentServerId: credentials.agentServerId,
-        privateKey: credentials.privateKey,
-        passphrase: credentials.passphrase,
-        password: credentials.password,
+        ...credentials,
         remotePath: normalizeRemotePath(node.basePath, ""),
       });
     } else if (node.driver === "WEBDAV") {
@@ -249,6 +243,7 @@ export async function checkStorageNodeHealth(
 
   return {
     id: updated.id,
+    transport,
     ...serializeHealthFields(updated),
   };
 }

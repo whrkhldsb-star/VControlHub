@@ -20,7 +20,7 @@ describe.skipIf(process.env.RUN_DATABASE_INTEGRATION_TESTS !== "1")("Windows Age
 			throw new Error("requires an isolated loopback audit/test database");
 		}
 		await prisma.server.create({
-			data: { id, name: id, host: "203.0.113.20", port: 3389, username: "Administrator", tags: [], operatingSystem: "WINDOWS", managementMode: "AGENT", connectionType: "PASSWORD", onboardingStatus: "NEEDS_ATTENTION" },
+			data: { id, name: id, host: "203.0.113.20", port: 3389, username: "Administrator", tags: [], operatingSystem: "WINDOWS", managementMode: "AGENT", agentTokenHash: "digest", connectionType: "PASSWORD", onboardingStatus: "NEEDS_ATTENTION" },
 		});
 	});
 	afterAll(async () => {
@@ -29,7 +29,7 @@ describe.skipIf(process.env.RUN_DATABASE_INTEGRATION_TESTS !== "1")("Windows Age
 	});
 
 	it("becomes a command target once its Agent reports in", async () => {
-		await updateServerAgentHeartbeat({ serverId: id, version: "1.4.2", capabilities: ["command"] });
+		await updateServerAgentHeartbeat({ serverId: id, agentTokenHash: "digest", version: "1.4.2", capabilities: ["command"] });
 		const server = await prisma.server.findUniqueOrThrow({ where: { id }, select: { onboardingStatus: true, managementMode: true, agentLastSeenAt: true } });
 		expect(server.onboardingStatus).toBe("READY");
 		expect(getServerTargetAvailability({ ...server, hasSshCredential: false })).toEqual({ available: true, reason: null });

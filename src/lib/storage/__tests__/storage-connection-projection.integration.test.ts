@@ -32,7 +32,7 @@ describe.skipIf(process.env.RUN_DATABASE_INTEGRATION_TESTS !== "1")("storage con
 			throw new Error("requires an isolated loopback audit/test database");
 		}
 		const server = await prisma.server.create({
-			data: { name: prefix, host: "192.0.2.10", port: 22, username: "server-user", tags: [], managementMode: "AGENT", connectionType: "SSH_KEY" },
+			data: { name: prefix, host: "192.0.2.10", port: 22, username: "server-user", tags: [], managementMode: "AGENT", connectionType: "PASSWORD", password: "storage-test" },
 		});
 		serverId = server.id;
 		const node = await prisma.storageNode.create({
@@ -50,21 +50,36 @@ describe.skipIf(process.env.RUN_DATABASE_INTEGRATION_TESTS !== "1")("storage con
 
 	it("media playback resolves the same target as file operations", async () => {
 		const files = (await getSftpNodeConnection(nodeId)).credentials;
-		expect(files).toMatchObject({ host: "198.51.100.20", port: 2222, username: "storage-user", agentServerId: serverId });
+		expect(files).toMatchObject({ host: "198.51.100.20", port: 2222, username: "storage-user", password: "storage-test" });
+		expect(files.agentServerId).toBeUndefined();
 
 		const entry = await prisma.fileEntry.create({ data: { name: "a.mp4", entryType: "FILE", relativePath: "a.mp4", storageNodeId: nodeId, mimeType: "video/mp4" } });
 		await scanMediaFromFileEntries();
 		const media = await prisma.mediaItem.findFirstOrThrow({ where: { fileEntryId: entry.id } });
 		const item = await getMediaItem(media.id, null, { includeCredentials: true });
-		expect(resolveStorageSshCredentials(item!.storageNode as never)).toMatchObject({
-			host: files.host, port: files.port, username: files.username, agentServerId: files.agentServerId,
-		});
+		expect(resolveStorageSshCredentials(item!.storageNode as never)).toEqual(files);
 	});
 
 	it("the health probe connects where file operations do", async () => {
-		await checkStorageNodeHealth(nodeId);
-		expect(listRemoteDirectory).toHaveBeenCalledWith(expect.objectContaining({ host: "198.51.100.20", port: 2222, username: "storage-user", agentServerId: serverId }));
+		expect(await checkStorageNodeHealth(nodeId)).toMatchObject({ transport: "SFTP" });
+		expect(listRemoteDirectory).toHaveBeenCalledWith(expect.objectContaining({ host: "198.51.100.20", port: 2222, username: "storage-user" }));
 		expect((await prisma.storageNode.findUniqueOrThrow({ where: { id: nodeId } })).healthStatus).toBe("HEALTHY");
+	});
+
+	it("routes a credential-free binding only to its own Agent", async () => {
+		const linked = await prisma.storageNode.update({ where: { id: nodeId }, data: { host: null, port: null, username: null } });
+		await prisma.server.update({ where: { id: serverId }, data: { password: null } });
+		try {
+			expect((await getSftpNodeConnection(linked.id)).credentials).toMatchObject({ agentServerId: serverId, host: "192.0.2.10", username: "server-user" });
+			expect(await checkStorageNodeHealth(linked.id)).toMatchObject({ transport: "Agent", healthStatus: "HEALTHY" });
+			await prisma.storageNode.update({ where: { id: linked.id }, data: { port: 2222 } });
+			listRemoteDirectory.mockClear();
+			expect(await checkStorageNodeHealth(linked.id)).toMatchObject({ healthStatus: "UNHEALTHY" });
+			expect(listRemoteDirectory).not.toHaveBeenCalled();
+		} finally {
+			await prisma.server.update({ where: { id: serverId }, data: { password: "storage-test" } });
+			await prisma.storageNode.update({ where: { id: linked.id }, data: { host: "198.51.100.20", port: 2222, username: "storage-user" } });
+		}
 	});
 
 	it("a rescan drops media whose file is no longer media", async () => {

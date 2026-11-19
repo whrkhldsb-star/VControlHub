@@ -89,7 +89,8 @@ export function ServerCardEditForm({
   const sshKeys = useSshKeyOptions();
   // Switching the login type keeps nothing of the old credential (also under
   // Agent mode, where saving without one would drop it): the new one is required.
-  const credentialRequired = selectedConnectionType !== connectionType || (selectedManagementMode === "DIRECT" && !hasSshCredential);
+  const switchingMode = selectedManagementMode !== managementMode;
+  const credentialRequired = switchingMode || selectedConnectionType !== connectionType || (selectedManagementMode === "DIRECT" && !hasSshCredential);
   const { formRef, captureBeforeSubmit } = usePreservedActionForm(
     editState,
     Boolean(editState.error),
@@ -129,11 +130,16 @@ export function ServerCardEditForm({
       <p className="text-xs text-[var(--text-muted)]">{t("serversPage.windows.os")}{t("common.colon")}{windows ? "Windows" : "Linux"}</p>
       <input type="hidden" name="connectionType" value={windows ? connectionType : selectedConnectionType} />
       <ServerManagementModeFields
-        defaultValue={managementMode}
-        onChange={setSelectedManagementMode}
+        selectedValue={selectedManagementMode}
+        onChange={(mode) => {
+          setSelectedManagementMode(mode);
+          setObservedHostKeySha256("");
+          setHostKeyConfirmed(false);
+        }}
         platform={windows ? "WINDOWS" : "LINUX"}
       />
-      {!windows && selectedManagementMode === "AGENT" && hasSshCredential ? (
+      {switchingMode ? <Notice compact>{t(windows ? "serversPage.management.switchWindows" : "serversPage.management.switchLinux")}</Notice> : null}
+      {!windows && !switchingMode && selectedManagementMode === "AGENT" && hasSshCredential ? (
         <label data-inset="" className="flex items-start gap-2 border-[var(--warning-border)] p-3 text-xs text-[var(--text-secondary)]">
           <input name="removeSshCredential" type="checkbox" className="mt-0.5 h-4 w-4" />
           <span><span className="block font-medium text-[var(--text-primary)]">{t("serversPage.management.removeCredential")}</span><span className="mt-1 block text-[var(--text-muted)]">{t("serversPage.management.removeCredentialHint")}</span></span>
@@ -181,7 +187,7 @@ export function ServerCardEditForm({
         defaultValue={username}
         className={UI_INPUT}
       />
-      {windows ? <><RdpCredentialFields idPrefix={`edit-rdp-${serverId}`} editing passwordRequired={rdpAccountChanged} certificateSha256={rdpCertificateSha256} domain={rdpDomain} ignoreCertificate={rdpIgnoreCertificate} />
+      {windows ? <><RdpCredentialFields idPrefix={`edit-rdp-${serverId}`} editing passwordRequired={rdpAccountChanged || (switchingMode && selectedManagementMode === "DIRECT")} certificateSha256={rdpCertificateSha256} domain={rdpDomain} ignoreCertificate={rdpIgnoreCertificate} />
       <WindowsSftpFields editing configured={Boolean(storageNodeId)} port={windowsSftpPort} username={windowsSftpUsername} basePath={storagePath ?? "/C:/VControlHub/Files"} />
       {observedHostKeySha256 ? <Notice tone="warning" role="group" compact>
         <p className="font-medium text-[var(--text-primary)]">{t("serverCardActions.edit.hostKeyTrustTitle")}</p>
@@ -241,7 +247,8 @@ export function ServerCardEditForm({
           <select
             id={`edit-ssh-key-${serverId}`}
             name="sshKeyId"
-            defaultValue={connectionType === "SSH_KEY" ? sshKeyId ?? "" : ""}
+            key={selectedManagementMode}
+            defaultValue={!switchingMode && connectionType === "SSH_KEY" ? sshKeyId ?? "" : ""}
             required={credentialRequired || selectedManagementMode === "DIRECT"}
             className={UI_INPUT}
           >
