@@ -59,7 +59,10 @@ describe.skipIf(process.env.RUN_DATABASE_INTEGRATION_TESTS !== "1")("management 
   it("retires the previous identity when the Agent address changes in the same mode", async () => {
     for (const operatingSystem of ["LINUX", "WINDOWS"] as const) {
       const id = prefix + "-move-" + operatingSystem;
-      await prisma.server.create({ data: { id, name: id, host: "192.0.2.45", port: operatingSystem === "LINUX" ? 22 : 3389,
+      // Inventory tests populate 192.0.2.0/24 in this database. Linux accepts a
+      // unique hostname; the Windows RDP schema requires a literal IPv4 address.
+      const host = operatingSystem === "LINUX" ? id.toLowerCase() + ".test" : "203.0.113.217";
+      await prisma.server.create({ data: { id, name: id, host, port: operatingSystem === "LINUX" ? 22 : 3389,
         operatingSystem, username: "ops", managementMode: "AGENT", enabled: false, connectionType: "PASSWORD", password: "old", rdpPassword: "old" } });
       const token = await issueServerAgentToken(id);
       const pending = await prisma.serverAgentJob.create({ data: { serverId: id, command: "fixture" } });
