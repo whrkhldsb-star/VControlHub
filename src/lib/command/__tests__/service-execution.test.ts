@@ -2,6 +2,7 @@ import { afterEach, beforeEach, describe, expect, it, vi } from "vitest";
 
 const mocks = vi.hoisted(() => ({
   prisma: {
+    server: { findUnique: vi.fn(async () => ({ id: "srv-1" }) as { id: string } | null) },
     commandTarget: {
       findUnique: vi.fn(),
       findMany: vi.fn(),
@@ -245,6 +246,19 @@ describe("executeTarget", () => {
     expect(mocks.prisma.commandTarget.updateMany).toHaveBeenCalledWith(expect.objectContaining({
       data: expect.objectContaining({ status: "COMPLETED", exitCode: 0 }),
     }));
+  });
+
+  it("rechecks the login before falling back and preserves spaces in an SSH password", async () => {
+    mocks.prisma.commandTarget.findUnique.mockResolvedValue({ id: "target-1", status: "RUNNING", commandRequest: { status: "RUNNING", approvals: [] } });
+    mocks.executeCommandWithAgent.mockResolvedValue(null);
+    mocks.executeCommandOverSsh.mockResolvedValue({ stdout: "ok", stderr: "", exitCode: 0 });
+    mocks.prisma.commandTarget.updateMany.mockResolvedValue({ count: 1 });
+    const target = buildTarget({ server: { managementMode: "AGENT", connectionType: "PASSWORD", sshKey: null, password: " exact " } });
+    mocks.prisma.server.findUnique.mockResolvedValueOnce(null);
+    expect(await executeTarget("req-1", target)).toBe(false);
+    expect(mocks.executeCommandOverSsh).not.toHaveBeenCalled();
+    expect(await executeTarget("req-1", target)).toBe(true);
+    expect(mocks.executeCommandOverSsh).toHaveBeenCalledWith(expect.objectContaining({ password: " exact " }));
   });
 
   it("flags the target outcome-unknown and never falls back to SSH when the Agent cannot confirm a stop", async () => {

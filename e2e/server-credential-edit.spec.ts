@@ -109,6 +109,26 @@ test("a node's username, password and SSH key can be changed, and a wrong creden
 		await expect(form.locator('select[name="sshKeyId"]')).toHaveValue(keyRow.rows[0]!.id);
 		await form.getByRole("button", { name: "密码", exact: true }).click();
 		await expect(form.locator('input[name="password"]')).toHaveAttribute("required", "");
+		// A browser must present and copy the same name that the delete action checks.
+		const spacedName = `${SERVER_NAME}  west`;
+		await db.query("UPDATE servers SET name = $1 WHERE id = $2", [spacedName, SERVER_ID]);
+		await page.goto(`/servers?query=${encodeURIComponent(SERVER_NAME)}`, { waitUntil: "networkidle" });
+		await page.locator("[data-server-card]").filter({ hasText: SERVER_NAME }).getByRole("button", { name: /查看详情|View details/i }).click();
+		const details = page.getByRole("dialog");
+		await details.getByRole("button", { name: /删除节点|Delete node/i }).click();
+		const confirm = details.locator('input[name="confirmName"]');
+		await expect(confirm).toBeVisible();
+		expect(await details.locator(`label[for="delete-confirm-name-${SERVER_ID}"]`).innerText()).toContain(spacedName);
+		// Capture the browser clipboard write without depending on OS clipboard permissions.
+		await page.evaluate(() => Object.defineProperty(navigator, "clipboard", {
+			configurable: true, value: { writeText: async (text: string) => { window.sessionStorage.setItem("copied-server-name", text); } },
+		}));
+		await details.getByRole("button", { name: /复制服务器名称|Copy server name/i }).click();
+		const copied = await page.evaluate(() => window.sessionStorage.getItem("copied-server-name"));
+		expect(copied).toBe(spacedName);
+		await confirm.fill(copied!);
+		await details.getByRole("button", { name: /^(确认删除|Delete)$/i }).click();
+		await expect.poll(async () => (await db.query("SELECT id FROM servers WHERE id = $1", [SERVER_ID])).rowCount).toBe(0);
 		await context.close();
 	} finally {
 		await db.query(`DELETE FROM servers WHERE id = $1`, [SERVER_ID]).catch(() => undefined);

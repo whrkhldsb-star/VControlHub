@@ -102,8 +102,8 @@ export async function executeTarget(
       host: string;
       port: number;
       username: string;
-      connectionType: string;
-      managementMode: string;
+      connectionType: "SSH_KEY" | "PASSWORD";
+      managementMode: "DIRECT" | "AGENT";
       operatingSystem?: string;
       agentLastSeenAt: Date | null;
       password: string | null;
@@ -164,12 +164,6 @@ export async function executeTarget(
   const stopCancellationMonitor = await monitorCommandCancellation(target.id, controller);
   try {
 
-  const privateKey = decryptStoredSshKey(target.server.sshKey)?.privateKey.trim();
-  const password = target.server.password
-    ? decryptServerPassword(target.server.password).trim()
-    : undefined;
-  const connectionType = target.server.connectionType;
-
   let result: SshExecutionResult | null = null;
   if (target.server.managementMode === "AGENT") {
     const runtime = await getCommandRuntimeConfigValues();
@@ -192,14 +186,8 @@ export async function executeTarget(
         outcomeUnknown: error instanceof CommandCancellationUnconfirmedError,
       };
     });
-    await prisma.executionLog.create({
-      data: {
-        commandRequestId,
-        serverId: target.server.id,
-        summary: result
-          ? `Command dispatched through Agent on ${target.server.name}.`
-          : `Agent unavailable on ${target.server.name}; falling back to direct SSH.`,
-      },
+    if (result) await prisma.executionLog.create({
+      data: { commandRequestId, serverId: target.server.id, summary: `Agent execution on ${target.server.name}.` },
     });
   }
 
@@ -211,6 +199,11 @@ export async function executeTarget(
     return failTarget(commandRequestId, target, summary);
   }
 
+  // An online Agent does not need the backup login unlocked to run approved work.
+  const connectionType = target.server.connectionType;
+  const privateKey = !result && connectionType === "SSH_KEY" ? decryptStoredSshKey(target.server.sshKey)?.privateKey : undefined;
+  const password = !result && connectionType === "PASSWORD" && target.server.password
+    ? decryptServerPassword(target.server.password) : undefined;
   if (!result && target.server.managementMode === "AGENT" && !privateKey && !password) {
     // A node managed only through its Agent has no SSH login to fall back on. It was told that its SSH key
     // lacked a private key (or that its password was missing), which sends the reader to the wrong setting.
@@ -238,6 +231,22 @@ export async function executeTarget(
     // wording guides the operator to pin the host fingerprint first.
     return failTarget(commandRequestId, target, t("backend.command.hostKeyNotPinnedRefused", { name: target.server.name }));
   }
+
+  if (!result) {
+    const { id, host, port, username, managementMode } = target.server;
+    const current = await prisma.server.findUnique({
+      where: {
+        id, enabled: true, host, port, username, managementMode, connectionType,
+        sshKeyId: target.server.sshKey?.id ?? null, password: target.server.password,
+        hostKeySha256: pinnedHostKey,
+      },
+      select: { id: true },
+    });
+    if (!current) return failTarget(commandRequestId, target, t("backend.command.connectionChanged"));
+  }
+  if (!result && target.server.managementMode === "AGENT") await prisma.executionLog.create({
+    data: { commandRequestId, serverId: target.server.id, summary: `Agent unavailable on ${target.server.name}; falling back to direct SSH.` },
+  });
 
   result ??= await executeCommandOverSsh({
     host: target.server.host,

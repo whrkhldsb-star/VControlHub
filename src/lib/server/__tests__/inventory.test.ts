@@ -11,7 +11,6 @@ vi.mock("@/lib/auth/team-scope", () => ({
 }));
 vi.mock("../service-internals", () => ({ enrichServer: (row: unknown) => row }));
 vi.mock("../service-profile-includes", () => ({ SERVER_PROFILE_INCLUDE: {} }));
-vi.mock("../availability", () => ({ getServerTargetAvailability: vi.fn() }));
 import { getServerInventory, normalizeInventoryQuery } from "../inventory";
 
 const session = { userId: "user-a", roles: ["viewer"] as ["viewer"], currentTeamId: "team-a" };

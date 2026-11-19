@@ -159,7 +159,7 @@ export function CustomersClient() {
 					<ListRow key={customer.id} className="flex flex-col gap-3 sm:flex-row sm:items-center sm:justify-between">
 						<div className="min-w-0">
 							<div className="flex flex-wrap items-center gap-2">
-								<span className="font-medium text-[var(--text-primary)]">{customer.name}</span>
+								<span className="whitespace-pre-wrap break-words font-medium text-[var(--text-primary)]">{customer.name}</span>
 								<span className="text-xs text-[var(--text-muted)]">{customer.slug}</span>
 							</div>
 							{customer.description && <p className="mt-1 text-xs text-[var(--text-secondary)]">{customer.description}</p>}
@@ -184,7 +184,7 @@ export function CustomersClient() {
 						{deletedCustomers.map((customer) => (
 							<li key={customer.id} className="flex flex-wrap items-center justify-between gap-3 py-3">
 								<div className="min-w-0 text-sm">
-									<span className="font-medium text-[var(--text-primary)]">{customer.name}</span>
+									<span className="whitespace-pre-wrap break-words font-medium text-[var(--text-primary)]">{customer.name}</span>
 									<span className="ml-2 text-xs text-[var(--text-muted)]">
 										{t("customersPage.deletedAt", { date: formatDate(customer.deletedAt!, locale) })} · {t("customersPage.count.servers", { count: customer._count.servers })}
 									</span>
@@ -217,7 +217,7 @@ export function CustomersClient() {
 					<div className="space-y-3 text-sm text-[var(--text-secondary)]">
 						<p>{t("customersPage.deleteImpact", { members: deleting._count.members, servers: deleting._count.servers, storage: deleting._count.storageNodes })}</p>
 						<p>{t("customersPage.deleteRestorable")}</p>
-						<FormField label={t("customersPage.deleteTypeName", { name: deleting.name })} htmlFor="customer-delete-confirm">
+						<FormField label={<span className="whitespace-pre-wrap break-words">{t("customersPage.deleteTypeName", { name: deleting.name })}</span>} htmlFor="customer-delete-confirm">
 							<input id="customer-delete-confirm" value={deleteConfirmName} onChange={(e) => setDeleteConfirmName(e.target.value)} className={UI_INPUT} autoComplete="off" />
 						</FormField>
 					</div>

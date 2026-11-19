@@ -6,6 +6,7 @@ import { join } from "node:path";
 import { afterAll, describe, expect, it, vi } from "vitest";
 
 const mocks = vi.hoisted(() => ({ serverFindUnique: vi.fn(), serverUpdate: vi.fn() }));
+vi.mock("@/lib/concurrency/advisory-lock", () => ({ acquireAdvisoryLock: async () => async () => {} }));
 vi.mock("@/lib/db", () => ({
   prisma: { server: { findUnique: mocks.serverFindUnique, update: mocks.serverUpdate } },
 }));
@@ -40,8 +41,7 @@ describe.skipIf(process.platform !== "win32")("Windows Agent scripts in Windows 
 
   it("generates an agent, installer and install command that parse", async () => {
     mocks.serverFindUnique
-      .mockResolvedValueOnce({ operatingSystem: "WINDOWS", managementMode: "AGENT" })
-      .mockResolvedValueOnce({ id: "win" });
+      .mockResolvedValueOnce({ operatingSystem: "WINDOWS", managementMode: "AGENT" });
     mocks.serverUpdate.mockResolvedValue({ id: "win" });
     const { installCommand } = await prepareWindowsAgentInstall("win");
     expect(parseErrors("agent", buildAgentPowerShell(HUB, TOKEN))).toBe("");

@@ -256,7 +256,7 @@ export async function collectServerMetrics(serverId: string, signal?: AbortSigna
 		if (!isUsableMonitorOutput(stdout, metrics)) {
 			return { error: tr("backend.server.monitor.metricsUnavailable"), serverId };
 		}
-		return { ...metrics, source: "ssh" };
+		return { ...metrics, source: sshParams.agentServerId && !sshParams.privateKey && !sshParams.password ? "agent" : "ssh" };
 	} catch (err) {
 		if (signal?.aborted) throw err;
 		const message = err instanceof Error ? err.message : tr("backend.server.monitor.unknownError");

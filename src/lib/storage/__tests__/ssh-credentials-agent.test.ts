@@ -24,6 +24,15 @@ describe("Agent-only storage credentials", () => {
     })).toMatchObject({ agentServerId: "srv_agent", host: "203.0.113.10" });
   });
 
+  it.each([{ host: "storage.example" }, { port: 2202 }, { username: "storage" }])("does not send a separate storage endpoint to the bound Agent (%o)", (override) => {
+    const node = {
+      server: { id: "srv", managementMode: "AGENT", operatingSystem: "LINUX", host: "server.example", port: 22, username: "root", connectionType: "PASSWORD", password: null, sshKey: null, hostKeySha256: null },
+      host: null, port: null, username: null, hostKeySha256: null, ...override,
+    };
+    expect(() => resolveStorageSshCredentials(node)).toThrow();
+    expect(resolveStorageSshCredentials({ ...node, server: { ...node.server, password: "fixture" } }).agentServerId).toBeUndefined();
+  });
+
   it("still rejects a credential-less direct node", () => {
     expect(() => resolveStorageSshCredentials({
       server: {

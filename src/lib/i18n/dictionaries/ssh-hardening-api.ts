@@ -45,6 +45,7 @@ export const zh: Record<string, string> = {
 		"密码连接需要 sshpass 工具，但系统未安装 sshpass。请安装 sshpass 或改用 SSH 密钥连接。",
 	"backend.command.sshKeyLacksPrivateKey":
 		"节点 {name} 绑定的 SSH 密钥缺少私钥，无法执行真实 SSH 命令。",
+	"backend.command.connectionChanged": "执行前节点连接配置已变更，请核对目标后重新提交。",
 	"backend.command.passwordMissing":
 		"节点 {name} 配置为密码连接但未配置密码，无法执行真实 SSH 命令。",
 	"backend.command.hostKeyNotPinnedRefused":
@@ -92,6 +93,7 @@ export const en: Record<string, string> = {
 		"Password connection requires the sshpass tool, but sshpass is not installed on the system. Please install sshpass or switch to SSH key connection.",
 	"backend.command.sshKeyLacksPrivateKey":
 		"The SSH key bound to node {name} lacks a private key; cannot execute real SSH command.",
+	"backend.command.connectionChanged": "The connection settings changed before dispatch. Review the target and submit again.",
 	"backend.command.passwordMissing":
 		"Node {name} is configured for password connection but lacks a password; cannot execute real SSH command.",
 	"backend.command.hostKeyNotPinnedRefused":

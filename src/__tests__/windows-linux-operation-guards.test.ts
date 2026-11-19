@@ -6,7 +6,8 @@ const mocks = vi.hoisted(() => ({
   exec: vi.fn(), realpath: vi.fn(), dockerRequest: vi.fn(),
 }));
 vi.mock("@/lib/db", () => ({ prisma: {
-  server: { findUnique: mocks.findUnique, update: mocks.update },
+  $transaction: (fn: (tx: unknown) => unknown) => fn({ $queryRaw: async () => [{ id: "win" }], serverAgentJob: { create: mocks.createJob } }),
+  server: { findUnique: mocks.findUnique, update: mocks.update, updateMany: mocks.update },
   storageNode: { findUnique: mocks.storageNodeFindUnique },
   serverAgentJob: { create: mocks.createJob, findUnique: mocks.jobFindUnique, updateMany: mocks.jobUpdateMany },
 } }));

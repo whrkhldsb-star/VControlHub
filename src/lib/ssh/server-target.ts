@@ -110,7 +110,7 @@ const HOME_CACHE_MAX = 500;
 const homeCache = new Map<string, { home: string; at: number }>();
 
 async function resolveLinuxHomeRoot(serverId: string, ssh: SshServerTarget["ssh"], fallback: string): Promise<string> {
-  const key = `${serverId}:${ssh.username}`;
+  const key = JSON.stringify([serverId, ssh.host, ssh.port, ssh.username, ssh.hostKeySha256, Boolean(ssh.agentServerId && !ssh.privateKey && !ssh.password)]);
   const cached = homeCache.get(key);
   if (cached && Date.now() - cached.at < HOME_CACHE_MS) return cached.home;
   try {

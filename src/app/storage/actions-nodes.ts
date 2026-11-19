@@ -82,7 +82,7 @@ async function checkStorageNodeHealthActionImpl(storageNodeId: string) {
       ? t("storagePage.action.healthCheckCompletedHealthy")
       : t("storagePage.action.healthCheckCompletedError");
     return {
-      success: t("storagePage.action.healthCheckCompleted", { status: statusLabel }),
+      success: t("storagePage.action.healthCheckCompleted", { status: result.transport ? `${statusLabel} · ${result.transport}` : statusLabel }),
       health: result,
     } satisfies StorageActionState & {
       health: Awaited<ReturnType<typeof checkStorageNodeHealth>>;

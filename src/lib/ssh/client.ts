@@ -18,6 +18,8 @@ export type SshConnectionParams = {
   passphrase?: string;
   password?: string;
   hostKeySha256?: string | null;
+  /** Credential verification must perform a new SSH handshake. */
+  freshConnection?: boolean;
   /** Capture the remote SHA256 host key hash during TOFU discovery. */
   onHostKeySha256?: (fingerprint: string) => void;
   /** Abort immediately after host-key capture so first-contact TOFU never sends credentials. */
@@ -157,7 +159,7 @@ function sshPoolKey(input: SshConnectionParams) {
 }
 
 function shouldPoolSsh(input: SshConnectionParams) {
-  return !input.onHostKeySha256 && !input.rejectUnknownHostKeyAfterCapture;
+  return !input.freshConnection && !input.onHostKeySha256 && !input.rejectUnknownHostKeyAfterCapture;
 }
 
 async function acquirePooledSsh(input: SshConnectionParams) {
@@ -414,8 +416,8 @@ export async function statRemoteTargetTypes(input: SshConnectionParams & { remot
  */
 export async function resolveRemoteHomeDirectory(input: SshConnectionParams): Promise<string> {
   if (usesAgentOnly(input)) {
-    const source = "import os\nprint(os.path.realpath(os.path.expanduser('~')))";
-    const result = await execAgentOnly(input, pythonCommand(source, []));
+    const source = "import os,pwd,sys\nprint(os.path.realpath(pwd.getpwnam(sys.argv[1]).pw_dir))";
+    const result = await execAgentOnly(input, pythonCommand(source, [input.username]));
     const resolved = result.stdout.trim();
     if (result.exitCode !== 0 || !/^(\/|[A-Za-z]:[\\/])/.test(resolved)) throw new Error("Unable to resolve remote home directory");
     return resolved;

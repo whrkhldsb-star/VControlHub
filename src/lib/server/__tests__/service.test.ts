@@ -2613,6 +2613,7 @@ describe("server service", () => {
       sshKey: null,
       storageNode: {
         id: "sn_path",
+        host: "files.example.test", port: 2202, username: "files", hostKeySha256: "SHA256:files",
         name: "path-node storage",
         driver: "SFTP",
         isDefault: true,
@@ -2654,6 +2655,7 @@ describe("server service", () => {
     });
     expect(createRemoteDirectory).toHaveBeenCalledWith(
       expect.objectContaining({
+        host: "files.example.test", port: 2202, username: "files", hostKeySha256: "SHA256:files",
         remotePath: "/data/vch-files",
         recursive: true,
       }),

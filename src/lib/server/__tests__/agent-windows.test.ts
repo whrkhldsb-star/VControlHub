@@ -6,6 +6,7 @@ const mocks = vi.hoisted(() => ({
   serverUpdate: vi.fn(),
 }));
 
+vi.mock("@/lib/concurrency/advisory-lock", () => ({ acquireAdvisoryLock: async () => async () => {} }));
 vi.mock("@/lib/db", () => ({
   prisma: {
     server: { findUnique: mocks.serverFindUnique, update: mocks.serverUpdate },
@@ -130,11 +131,8 @@ describe("prepareWindowsAgentInstall", () => {
   });
 
   it("returns a one-liner that fetches the bootstrap script with the new token", async () => {
-    // prepareWindowsAgentInstall reads the server, then issueServerAgentToken
-    // re-reads it before issuing the token.
     mocks.serverFindUnique
-      .mockResolvedValueOnce({ operatingSystem: "WINDOWS", managementMode: "AGENT" })
-      .mockResolvedValueOnce({ id: "win" });
+      .mockResolvedValueOnce({ operatingSystem: "WINDOWS", managementMode: "AGENT" });
     const plan = await prepareWindowsAgentInstall("win");
     expect(plan.installCommand).toContain("https://hub.example.com/api/agent/v1/bootstrap");
     expect(plan.installCommand).toMatch(/Bearer vca_win_/);

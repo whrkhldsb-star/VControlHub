@@ -30,6 +30,13 @@ describe("getServerTargetAvailability", () => {
     }, now)).toEqual({ available: true, reason: null });
   });
 
+  it("requires a fresh Agent for Windows operations even when OpenSSH storage is configured", () => {
+    const server = { onboardingStatus: "READY", operatingSystem: "WINDOWS", hasSshCredential: true };
+    expect(getServerTargetAvailability({ ...server, managementMode: "DIRECT" }, now).available).toBe(false);
+    expect(getServerTargetAvailability({ ...server, managementMode: "AGENT" }, now).available).toBe(false);
+    expect(getServerTargetAvailability({ ...server, managementMode: "AGENT", agentLastSeenAt: new Date(now) }, now).available).toBe(true);
+  });
+
   it("blocks an offline Agent-only node that has no SSH fallback", () => {
     expect(getServerTargetAvailability({
       onboardingStatus: "READY",

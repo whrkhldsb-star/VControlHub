@@ -68,10 +68,11 @@ export async function POST(request: Request) {
   }
   const parsed = bodySchema.safeParse(rawPayload);
   if (!parsed.success) return NextResponse.json({ error: "Invalid agent payload" }, { status: 400 }); // api-copy-audit: allow -- stable machine protocol
+  const current = await updateServerAgentHeartbeat({ serverId: agent.id, agentTokenHash: agent.agentTokenHash, ...parsed.data });
+  if (!current) return NextResponse.json({ error: "Unauthorized agent" }, { status: 401 }); // api-copy-audit: allow -- stable machine protocol
   if (parsed.data.result) {
     await completeServerAgentJob({ serverId: agent.id, ...parsed.data.result });
   }
-  await updateServerAgentHeartbeat({ serverId: agent.id, ...parsed.data });
   if (parsed.data.heartbeatJobId) {
     const cancelled = await heartbeatServerAgentJob({
       serverId: agent.id,
@@ -81,7 +82,7 @@ export async function POST(request: Request) {
   }
   // A job claimed now would never run: its Agent is about to exit.
   if (parsed.data.stopping) return NextResponse.json({ pollAfterMs: 5_000, job: null });
-  const job = await claimNextServerAgentJob(agent.id);
+  const job = await claimNextServerAgentJob(agent.id, agent.agentTokenHash);
   if (job) {
     return NextResponse.json({ pollAfterMs: 0, job: { id: job.id, command: job.command, timeoutMs: job.timeoutMs } });
   }

@@ -279,6 +279,7 @@ export async function verifyServerSshConnectivity(
     );
     const result = await execRemoteCommand({
       ...ssh,
+      freshConnection: true,
       command: "printf vcontrolhub-ssh-ready",
       timeout: 15_000,
     });

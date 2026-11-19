@@ -13,7 +13,7 @@ import { ConflictError, NotFoundError, ValidationError } from "@/lib/errors";
 // for in-file use AND re-export them so every existing call site
 // 'from "@/lib/deployment/service"' keeps working.
 import { t } from "@/lib/i18n/service-translations";
-import { getServerTargetAvailability } from "@/lib/server/availability";
+import { OPERATION_TARGET_SELECT, operationTargetAvailability } from "@/lib/server/availability";
 
 export type SessionScope = Pick<SessionPayload, "userId" | "roles" | "currentTeamId">;
 
@@ -64,8 +64,7 @@ async function loadDeploymentServersInScope(
     select: {
       id: true,
       enabled: true,
-      onboardingStatus: true,
-      metricSnapshots: { select: { isOnline: true, createdAt: true }, orderBy: { createdAt: "desc" }, take: 1 },
+      ...OPERATION_TARGET_SELECT,
     },
   });
   if (servers.length !== serverIds.length) {
@@ -82,10 +81,7 @@ async function assertDeploymentServersInScope(
 ): Promise<void> {
   if (serverIds.length === 0) return;
   const servers = await loadDeploymentServersInScope(serverIds, session);
-  if (servers.some((server) => server.enabled === false || !getServerTargetAvailability({
-    onboardingStatus: server.onboardingStatus,
-    latestMetric: server.metricSnapshots?.[0] ?? null,
-  }).available)) {
+  if (servers.some((server) => server.enabled === false || !operationTargetAvailability(server).available)) {
     throw new ValidationError(t("backend.deployment.targetUnavailable"));
   }
 }

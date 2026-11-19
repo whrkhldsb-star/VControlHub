@@ -3,7 +3,7 @@ import { prisma } from "@/lib/db";
 import { isGlobalTeamManager, seesAllCustomers, serverTeamWhere, type TeamSession } from "@/lib/auth/team-scope";
 import { SERVER_PROFILE_INCLUDE } from "./service-profile-includes";
 import { enrichServer } from "./service-internals";
-import { getServerTargetAvailability } from "./availability";
+import { OPERATION_TARGET_SELECT, operationTargetAvailability } from "./availability";
 
 export const SERVER_PAGE_SIZE = 12;
 export type InventoryQuery = { query: string; operatingSystem: "all" | "LINUX" | "WINDOWS"; status: "all" | "enabled" | "disabled"; mode: "all" | "DIRECT" | "AGENT"; page: number };
@@ -101,15 +101,10 @@ export async function getServerOperationTargets(session: TeamSession, kind: "com
   const rows = ids.length ? await tx.server.findMany({
     where: { AND: [serverTeamWhere(session, capability), { id: { in: ids.map(({ id }) => id) } }] },
     orderBy: [{ name: "asc" }, { id: "asc" }],
-    select: { id: true, name: true, host: true, enabled: true, onboardingStatus: true,
-      managementMode: true, agentLastSeenAt: true, connectionType: true, password: true,
-      sshKey: { select: { id: true } }, metricSnapshots: { orderBy: { createdAt: "desc" }, take: 1, select: { isOnline: true, createdAt: true } } },
+    select: { id: true, name: true, host: true, enabled: true, ...OPERATION_TARGET_SELECT },
   }) : [];
   const targets = rows.map((server) => {
-    const availability = getServerTargetAvailability({ onboardingStatus: server.onboardingStatus,
-      managementMode: server.managementMode, agentLastSeenAt: server.agentLastSeenAt,
-      hasSshCredential: Boolean(server.connectionType === "SSH_KEY" ? server.sshKey : server.password),
-      latestMetric: server.metricSnapshots[0] ?? null });
+    const availability = operationTargetAvailability(server);
     return { id: server.id, name: server.name, host: server.host, enabled: server.enabled,
       available: availability.available, reason: availability.reason };
   });

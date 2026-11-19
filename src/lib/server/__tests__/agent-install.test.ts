@@ -8,9 +8,10 @@ const mocks = vi.hoisted(() => ({
   execRemoteCommand: vi.fn(),
 }));
 
+vi.mock("@/lib/concurrency/advisory-lock", () => ({ acquireAdvisoryLock: async () => async () => {} }));
 vi.mock("@/lib/db", () => ({
   prisma: {
-    server: { findUnique: mocks.serverFindUnique, update: mocks.serverUpdate },
+    server: { findUnique: mocks.serverFindUnique, update: mocks.serverUpdate, updateMany: mocks.serverUpdate },
   },
 }));
 vi.mock("@/lib/ssh/client", () => ({
@@ -32,6 +33,7 @@ const linuxServer = {
   sshKeyId: null,
   sshKey: null,
   agentLastSeenAt: null,
+  managementMode: "AGENT",
 };
 
 describe("Linux Agent install over SSH", () => {
@@ -42,7 +44,7 @@ describe("Linux Agent install over SSH", () => {
   });
 
   it("runs as root or through passwordless sudo, checks its needs, and restarts a running Agent", async () => {
-    mocks.serverFindUnique.mockResolvedValueOnce(linuxServer).mockResolvedValueOnce({ id: "srv1" });
+    mocks.serverFindUnique.mockResolvedValueOnce(linuxServer);
     mocks.execRemoteCommand.mockResolvedValueOnce({ stdout: "", stderr: "", exitCode: 0 });
 
     await expect(installServerAgent("srv1")).resolves.toEqual({ installed: true });
@@ -59,12 +61,12 @@ describe("Linux Agent install over SSH", () => {
   });
 
   it("records why an install failed", async () => {
-    mocks.serverFindUnique.mockResolvedValueOnce(linuxServer).mockResolvedValueOnce({ id: "srv1" });
+    mocks.serverFindUnique.mockResolvedValueOnce(linuxServer);
     mocks.execRemoteCommand.mockResolvedValueOnce({ stdout: "", stderr: "sudo: a password is required", exitCode: 1 });
 
     await expect(installServerAgent("srv1")).rejects.toThrow("sudo: a password is required");
     expect(mocks.serverUpdate).toHaveBeenLastCalledWith({
-      where: { id: "srv1" },
+      where: { id: "srv1", managementMode: "AGENT", agentTokenHash: mocks.serverUpdate.mock.calls[0]![0].data.agentTokenHash },
       data: { agentTokenHash: null, agentLastError: "sudo: a password is required" },
     });
   });
@@ -72,14 +74,14 @@ describe("Linux Agent install over SSH", () => {
   it("gives a running Agent its token back when the reinstall fails", async () => {
     // The token is rotated before the install script runs; a failed install used to leave the Agent that was still
     // running with a revoked token, so the node went offline (401) until someone reinstalled by hand.
-    mocks.serverFindUnique.mockResolvedValueOnce({ ...linuxServer, agentTokenHash: "hash-of-the-running-agent" }).mockResolvedValueOnce({ id: "srv1" });
+    mocks.serverFindUnique.mockResolvedValueOnce({ ...linuxServer, agentTokenHash: "hash-of-the-running-agent" });
     mocks.execRemoteCommand.mockResolvedValueOnce({ stdout: "", stderr: "python3: not found", exitCode: 127 });
 
     await expect(installServerAgent("srv1")).rejects.toThrow("python3: not found");
     const rotated = mocks.serverUpdate.mock.calls.find(([call]) => typeof call.data.agentTokenHash === "string" && call.data.agentTokenHash !== "hash-of-the-running-agent");
     expect(rotated).toBeDefined();
     expect(mocks.serverUpdate).toHaveBeenLastCalledWith({
-      where: { id: "srv1" },
+      where: { id: "srv1", managementMode: "AGENT", agentTokenHash: mocks.serverUpdate.mock.calls[0]![0].data.agentTokenHash },
       data: { agentTokenHash: "hash-of-the-running-agent", agentLastError: "python3: not found" },
     });
   });
@@ -87,12 +89,12 @@ describe("Linux Agent install over SSH", () => {
   it("gives a running Agent its token back when the server cannot be reached at all", async () => {
     // A node is usually moved to Agent mode because SSH does not reach it: the install then throws instead of
     // returning an exit status, and the token stayed replaced.
-    mocks.serverFindUnique.mockResolvedValueOnce({ ...linuxServer, agentTokenHash: "hash-of-the-running-agent" }).mockResolvedValueOnce({ id: "srv1" });
+    mocks.serverFindUnique.mockResolvedValueOnce({ ...linuxServer, agentTokenHash: "hash-of-the-running-agent" });
     mocks.execRemoteCommand.mockRejectedValueOnce(new Error("connect ETIMEDOUT 203.0.113.5:22"));
 
     await expect(installServerAgent("srv1")).rejects.toThrow("connect ETIMEDOUT");
     expect(mocks.serverUpdate).toHaveBeenLastCalledWith({
-      where: { id: "srv1" },
+      where: { id: "srv1", managementMode: "AGENT", agentTokenHash: mocks.serverUpdate.mock.calls[0]![0].data.agentTokenHash },
       data: { agentTokenHash: "hash-of-the-running-agent", agentLastError: "connect ETIMEDOUT 203.0.113.5:22" },
     });
   });
@@ -124,7 +126,7 @@ describe("Linux Agent removal over SSH", () => {
     expect(command).toContain(AGENT_SSH_CLEANUP_SCRIPT.slice(0, 40));
     // Synchronous: no detached nohup, so the exit code means something.
     expect(command).not.toContain("nohup");
-    expect(mocks.serverUpdate).toHaveBeenCalledWith({ where: { id: "srv1" }, data: { agentTokenHash: null } });
+    expect(mocks.serverUpdate).toHaveBeenCalledWith({ where: { id: "srv1", managementMode: "AGENT" }, data: { agentTokenHash: null } });
 
     mocks.serverFindUnique.mockResolvedValueOnce(linuxServer);
     mocks.execRemoteCommand.mockResolvedValueOnce({ stdout: "", stderr: "", exitCode: 0 });

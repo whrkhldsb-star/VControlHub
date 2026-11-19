@@ -124,6 +124,7 @@ export function ServerOverviewDetails({
 		pendingCommandCount: server.pendingCommandCount,
 		canManageServers,
 	});
+	const agentOnly = server.managementMode === "AGENT" && server.hasSshCredential === false;
 	const directGatewayHealthy = directGatewayAdvice.length === 0;
 	const diagnosticItems: Array<{
 		label: string;
@@ -137,13 +138,13 @@ export function ServerOverviewDetails({
 			status: server.enabled && canUseSshTerminal && server.hasSshCredential !== false
 				? t("serverOverviewDetails.verifiable")
 				: server.hasSshCredential === false
-					? t("serversPage.management.agentOnly")
+					? serverConnectionLabel(server, t)
 				: server.enabled
 					? t("serverOverviewDetails.missingPermission")
 					: t("serverOverviewDetails.nodeDisabled"),
 			tone: server.enabled && canUseSshTerminal && server.hasSshCredential !== false ? "success" : "warning",
 			detail: server.hasSshCredential === false
-				? t("serversPage.management.agentOnlySshHint")
+				? t(agentOnly ? "serversPage.management.agentOnlySshHint" : "backend.server.directRequiresCredential")
 				: server.enabled
 				? t("serverOverviewDetails.sshInteractiveDetail")
 				: t("serverOverviewDetails.enableNodeFirst"),
@@ -249,7 +250,7 @@ export function ServerOverviewDetails({
 					<InfoRow
 						label={t("serversPage.management.title")}
 						value={server.managementMode === "AGENT"
-							? `${t("serversPage.management.agent")} · ${server.agent?.online ? t("serversPage.management.online") : server.hasSshCredential === false ? t("serversPage.management.agentOnly") : t("serversPage.management.fallback")}`
+							? `${t("serversPage.management.agent")} · ${server.agent?.online ? t("serversPage.management.online") : t(server.hasSshCredential === false ? "serversPage.management.offlineAgentOnly" : "serversPage.management.offlineWithSsh")}`
 							: t("serversPage.management.direct")}
 					/>
 					{server.managementMode === "AGENT" ? (

@@ -50,7 +50,7 @@ vi.mock("@/lib/db", () => {
   const prisma = {
     server: { findUnique: vi.fn(async () => ({ operatingSystem: "LINUX", managementMode: "AGENT", agentLastSeenAt: new Date() })) },
     serverAgentJob,
-    $transaction: vi.fn(async (callback: (tx: unknown) => unknown) => callback({ serverAgentJob })),
+    $transaction: vi.fn(async (callback: (tx: unknown) => unknown) => callback({ serverAgentJob, $queryRaw: async () => [{ id: "srv1" }] })),
   };
   return { prisma };
 });
@@ -113,7 +113,7 @@ describe("Agent command timeout", () => {
 describe("Agent job lease expiry", () => {
   it("records a cancellation request, not a completed job, and keeps the Agent's late result", async () => {
     jobs.set("job9", { id: "job9", serverId: "srv1", status: "CLAIMED", claimedAt: new Date(Date.now() - 120_000), leaseExpiresAt: new Date(Date.now() - 1_000), completedAt: null, exitCode: null, stdout: null, stderr: null, createdAt: new Date(), command: "long-task" });
-    await claimNextServerAgentJob("srv1");
+    await claimNextServerAgentJob("srv1", "digest");
     expect(jobs.get("job9")).toMatchObject({ status: "CANCELLED", completedAt: null });
     // The Agent was only slow: it is told to stop and its real result lands.
     expect(await heartbeatServerAgentJob({ serverId: "srv1", jobId: "job9" })).toBe(true);
@@ -131,7 +131,7 @@ describe("PENDING jobs nobody claimed", () => {
     jobs.set("stale", { ...base, id: "stale", command: "old", createdAt: new Date(Date.now() - 10 * 60_000), timeoutMs: 60_000 } as Job);
     jobs.set("fresh", { ...base, id: "fresh", command: "new", createdAt: new Date(), timeoutMs: 60_000 } as Job);
 
-    const claimed = await claimNextServerAgentJob("srv1");
+    const claimed = await claimNextServerAgentJob("srv1", "digest");
     expect(claimed?.id).toBe("fresh");
     expect(jobs.get("stale")).toMatchObject({ status: "CANCELLED", exitCode: 124 });
     expect(jobs.get("stale")?.completedAt).toBeInstanceOf(Date);

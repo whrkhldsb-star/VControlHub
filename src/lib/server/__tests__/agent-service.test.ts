@@ -4,6 +4,7 @@ import { beforeEach, describe, expect, it, vi } from "vitest";
 const mocks = vi.hoisted(() => ({
   serverFindUnique: vi.fn(),
   serverUpdate: vi.fn(),
+  liveAgentRows: vi.fn(),
   agentJobCreate: vi.fn(),
   agentJobUpdateMany: vi.fn(),
   agentJobFindUnique: vi.fn(),
@@ -11,6 +12,7 @@ const mocks = vi.hoisted(() => ({
 
 vi.mock("@/lib/db", () => ({
   prisma: {
+    $transaction: (fn: (tx: unknown) => unknown) => fn({ $queryRaw: mocks.liveAgentRows, serverAgentJob: { create: mocks.agentJobCreate } }),
     server: { findUnique: mocks.serverFindUnique, update: mocks.serverUpdate },
     serverAgentJob: {
       create: mocks.agentJobCreate,
@@ -39,9 +41,15 @@ describe("server Agent authentication and routing", () => {
     await expect(executeCommandWithAgent({ serverId: "srv1", command: "fixture", timeoutMs: 1000, signal: controller.signal })).resolves.toMatchObject({ cancelled: true, exitCode: 130 });
     expect(mocks.agentJobCreate).not.toHaveBeenCalled();
   });
+  it("keeps a lost job outcome unknown after enqueue", async () => {
+    mocks.liveAgentRows.mockResolvedValueOnce([{ id: "srv1" }]);
+    mocks.agentJobCreate.mockResolvedValueOnce({ id: "lost" });
+    mocks.agentJobFindUnique.mockResolvedValueOnce(null);
+    await expect(executeCommandWithAgent({ serverId: "srv1", command: "fixture", timeoutMs: 1000 })).rejects.toMatchObject({ name: "CommandCancellationUnconfirmedError" });
+  });
   it("does not acknowledge cancellation if its database write fails", async () => {
     const controller = new AbortController();
-    mocks.serverFindUnique.mockResolvedValueOnce({ managementMode: "AGENT", agentLastSeenAt: new Date() });
+    mocks.liveAgentRows.mockResolvedValueOnce([{ id: "srv1" }]);
     mocks.agentJobCreate.mockResolvedValueOnce({ id: "lost-control" });
     mocks.agentJobFindUnique.mockImplementationOnce(async () => { controller.abort(); return { status: "CLAIMED" }; });
     mocks.agentJobUpdateMany.mockRejectedValue(new Error("database unavailable"));
@@ -49,7 +57,7 @@ describe("server Agent authentication and routing", () => {
   });
   it.each(["PENDING", "CLAIMED"])("waits for %s cancellation confirmation without SSH replay", async (status) => {
     const controller = new AbortController();
-    mocks.serverFindUnique.mockResolvedValueOnce({ managementMode: "AGENT", agentLastSeenAt: new Date() });
+    mocks.liveAgentRows.mockResolvedValueOnce([{ id: "srv1" }]);
     mocks.agentJobCreate.mockResolvedValueOnce({ id: "cancel-job" });
     mocks.agentJobFindUnique.mockImplementationOnce(async () => { controller.abort(); return { status }; });
     mocks.agentJobFindUnique.mockResolvedValueOnce({ status: "CANCELLED", completedAt: new Date(), exitCode: 130 });
@@ -67,7 +75,7 @@ describe("server Agent authentication and routing", () => {
     vi.useFakeTimers();
     try {
       const controller = new AbortController();
-      mocks.serverFindUnique.mockResolvedValueOnce({ managementMode: "AGENT", agentLastSeenAt: new Date() });
+      mocks.liveAgentRows.mockResolvedValueOnce([{ id: "srv1" }]);
       mocks.agentJobCreate.mockResolvedValueOnce({ id: "lost-agent" });
       mocks.agentJobUpdateMany.mockResolvedValue({ count: 0 });
       mocks.agentJobFindUnique.mockImplementationOnce(async () => { controller.abort(); return { status: "CLAIMED" }; });
@@ -80,7 +88,6 @@ describe("server Agent authentication and routing", () => {
   });
 
   it("stores only a token digest and authenticates the issued bearer token", async () => {
-    mocks.serverFindUnique.mockResolvedValueOnce({ operatingSystem: "LINUX" });
     mocks.serverUpdate.mockResolvedValueOnce({ id: "srv1" });
     const token = await issueServerAgentToken("srv1");
     const stored = mocks.serverUpdate.mock.calls[0]?.[0]?.data.agentTokenHash as string;
@@ -136,10 +143,7 @@ describe("server Agent authentication and routing", () => {
   });
 
   it("falls back without enqueueing when the Agent heartbeat is stale", async () => {
-    mocks.serverFindUnique.mockResolvedValueOnce({
-      managementMode: "AGENT",
-      agentLastSeenAt: new Date(Date.now() - 10 * 60_000),
-    });
+    mocks.liveAgentRows.mockResolvedValueOnce([]);
     await expect(executeCommandWithAgent({ serverId: "srv1", command: "uptime", timeoutMs: 1000 })).resolves.toBeNull();
     expect(mocks.agentJobCreate).not.toHaveBeenCalled();
   });

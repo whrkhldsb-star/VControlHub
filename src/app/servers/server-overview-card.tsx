@@ -142,7 +142,7 @@ export function ServerOverviewCard({
               }`}
               aria-hidden="true"
             />
-            <h2 className="ui-title-group truncate">
+            <h2 className="ui-title-group overflow-hidden text-ellipsis whitespace-pre">
               {server.name}
             </h2>
           </div>
@@ -185,7 +185,7 @@ export function ServerOverviewCard({
         <CompactField
           label={t("serversPage.management.title")}
           value={server.managementMode === "AGENT"
-            ? `${t("serversPage.management.agent")} · ${server.agent?.online ? t("serversPage.management.online") : server.hasSshCredential === false ? t("serversPage.management.agentOnly") : t("serversPage.management.fallback")}`
+            ? `${t("serversPage.management.agent")} · ${server.agent?.online ? t("serversPage.management.online") : t(server.hasSshCredential === false ? "serversPage.management.offlineAgentOnly" : "serversPage.management.offlineWithSsh")}`
             : t("serversPage.management.direct")}
         />
         <CompactField

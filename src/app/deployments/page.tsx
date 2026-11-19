@@ -15,7 +15,7 @@ import { RollbackDeployButton } from "./rollback-deploy-button";
 import { getServerLocale, t } from "@/lib/i18n/translations";
 import { formatDateTime } from "@/lib/datetime/format";
 import { getDomainStatusLabel } from "@/lib/i18n/domain-labels";
-import { getServerTargetAvailability } from "@/lib/server/availability";
+import { OPERATION_TARGET_SELECT, operationTargetAvailability } from "@/lib/server/availability";
 import { Disclosure } from "@/components/ui/disclosure";
 
 import { ButtonLink } from "@/components/action-button";
@@ -76,13 +76,7 @@ export default async function DeploymentsPage({ searchParams }: { searchParams?:
 				name: true,
 				host: true,
 				username: true,
-				onboardingStatus: true,
-				managementMode: true,
-				agentLastSeenAt: true,
-				connectionType: true,
-				password: true,
-				sshKeyId: true,
-				metricSnapshots: { select: { isOnline: true, createdAt: true }, orderBy: { createdAt: "desc" }, take: 1 },
+				...OPERATION_TARGET_SELECT,
 			},
 		}) : Promise.resolve([]),
 	]);
@@ -133,15 +127,7 @@ export default async function DeploymentsPage({ searchParams }: { searchParams?:
 				<div className="mb-5">
 					<SurfacePanel title={tr("deploymentsPage.page.launchSection.title")} description={tr("deploymentsPage.page.launchSection.desc")}>
 						<DeploymentLaunchForm templates={templates} servers={servers.map((server) => {
-							const availability = getServerTargetAvailability({
-								onboardingStatus: server.onboardingStatus,
-								managementMode: server.managementMode,
-								agentLastSeenAt: server.agentLastSeenAt,
-								hasSshCredential: server.connectionType === "SSH_KEY"
-									? Boolean(server.sshKeyId)
-									: Boolean(server.password),
-								latestMetric: server.metricSnapshots?.[0] ?? null,
-							});
+							const availability = operationTargetAvailability(server);
 							return {
 								id: server.id,
 								name: server.name,

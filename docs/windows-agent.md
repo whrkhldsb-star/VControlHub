@@ -67,4 +67,15 @@ Windows 机器                          Hub (VControlHub)
 
 ## 平台能力边界
 
-服务器 SSH 终端、Docker/Compose、快速服务、VPS 备份对 Windows 目标保持拒绝（见 `src/__tests__/windows-linux-operation-guards.test.ts`）；批量命令执行走 Agent 通道。云盘 SFTP 是独立的存储节点通道，可用 Windows OpenSSH Server 接入，见 [Windows 指南](windows-development.md)。RDP 独立于 Agent 和 SFTP 继续可用。
+Windows 的审批命令、Playbook 命令步骤和部署命令需要在线 Agent。运维目标选择与提交时会检查同一组条件。RDP 继续使用自己的账号与证书策略。Windows 的交互式 SSH 终端与云盘共用单独配置的 OpenSSH 连接。Docker/Compose、快速服务和 VPS 备份当前面向 Linux。[Windows 指南](windows-development.md)
+
+### 切换管理方式
+
+| 操作 | 保存时的处理 | 如何确认 |
+| --- | --- | --- |
+| Linux 直连 → Agent | 重新输入 SSH 密码或选择密钥，验证指纹和登录。已启用的远程节点用这次配置安装 Agent。 | 查看新心跳。保留 SSH 凭据可继续使用交互终端和原生 SFTP。 |
+| Linux Agent → 直连 | 先验证目标 SSH 登录，尝试清理原主机上的服务，保存时撤销旧令牌并清空旧心跳。 | SSH 验证失败会保留原配置。界面提示清理失败时，需在原主机核对服务。 |
+| Windows 直连 → Agent | 保存后，进入节点详情生成新的 PowerShell 安装命令。 | 新 Agent 首次上报后，节点可作为运维命令目标。 |
+| Windows Agent → 直连 | 重新输入 RDP 密码。在线 Agent 会先接收自卸载请求。离线时也会撤销旧令牌。独立配置的 OpenSSH/SFTP 继续使用原设置。 | 打开 RDP 检查远程桌面。主机离线时，恢复后核对计划任务。 |
+
+模式变更会取消旧队列中尚未领取的作业。已领取且未回报的作业保留“远端结果未知”语义，避免切换后重复执行。Linux 保留 SSH 凭据时，审批命令可在 Agent 尚未接单时回退到 SSH。绑定云盘优先使用已配置的原生 SFTP。仅使用 Agent 的 Linux 节点可处理同一主机与账号下受大小限制的文件操作。云盘的健康检查会显示本次使用的通道。

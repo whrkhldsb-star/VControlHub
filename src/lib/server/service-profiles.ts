@@ -17,6 +17,7 @@ import {
 } from "@/lib/ssh/os-dialect";
 import { encryptServerPasswordIfPlain, SSH_KEY_CREDENTIAL_SELECT } from "@/lib/ssh/ssh-key-crypto";
 import type { TFn } from "@/lib/i18n/core";
+import { resolveStorageSshCredentials } from "@/lib/storage/ssh-credentials";
 import { localBasePathBelongsToTenant } from "@/lib/storage/path-utils";
 import { checkStorageNodeHealth } from "@/lib/storage/service-nodes";
 import { normalizeServerInput } from "./config";
@@ -25,7 +26,7 @@ import { SERVER_PROFILE_INCLUDE, type ServerProfileRecord } from "./service-prof
 import { createServerSchema, type CreateServerInput } from "./schema";
 import { parseServerSyncTargetAuth } from "@/lib/sync/target-auth";
 import { applyServerDirectGatewayState } from "./service-direct-gateway";
-import { installServerAgent, uninstallServerAgent } from "./agent-service";
+import { installServerAgent, installServerAgentUnderLock, removeAgentFromHost, resetAgentForModeChange, withServerLifecycleLock } from "./agent-service";
 import { createWindowsServerProfile, updateWindowsServerProfile } from "./service-profiles-windows";
 import { acquireAdvisoryLock } from "@/lib/concurrency/advisory-lock";
 import {
@@ -267,29 +268,6 @@ async function provisionNewServer(ctx: {
   return warnings;
 }
 
-/** Install or remove the agent when the management mode changes; returns warnings. */
-async function syncAgentForModeChange(
-  serverId: string,
-  previousMode: string,
-  server: ServerProfileRecord,
-  t: TFn,
-): Promise<string[]> {
-  const warnings: string[] = [];
-  if (server.managementMode !== previousMode) {
-    if (server.managementMode === "AGENT" && !isLocalHostLiteral(server.host) && server.enabled) {
-      try {
-        await installServerAgent(serverId);
-      } catch (error) {
-        warnings.push(t("backend.server.agentInstallFailed", { error: getErrorMessage(error) }));
-      }
-    } else if (previousMode === "AGENT") {
-      const cleanup = await uninstallServerAgent(serverId);
-      if (!cleanup.removed) warnings.push(t("backend.server.agentCleanupPendingLinux"));
-    }
-  }
-  return warnings;
-}
-
 /**
  * Move the bound storage root (empty storagePath keeps it) and/or recreate its
  * directory; returns warnings instead of failing the update.
@@ -318,10 +296,10 @@ async function applyStoragePathChange(
         data: { basePath: targetPath },
       });
     }
-    if (storageNode.driver === "SFTP" || (!storageNode.driver && !isLocalHostLiteral(server.host))) {
+    if (remoteNode) {
       try {
         await createRemoteDirectory({
-          ...(await buildSshParamsFromServer(server, server.sshKey ?? null)),
+          ...resolveStorageSshCredentials({ ...storageNode, server }),
           remotePath: targetPath,
           recursive: true,
         });
@@ -561,6 +539,18 @@ export async function updateServerProfile(
   const t = await serviceT();
   if (!current) throw new NotFoundError(t("backend.server.nodeNotFound"));
 
+  if (input.managementMode && input.managementMode !== current.managementMode) {
+    return withServerLifecycleLock(serverId, async () => {
+      const fresh = await findServerProfileForSession(serverId, session);
+      if (!fresh) throw new NotFoundError(t("backend.server.nodeNotFound"));
+      if (fresh.managementMode !== current.managementMode) throw new ValidationError(t("backend.server.modeChanged"));
+      return saveServerProfile(serverId, fresh, input, session, t);
+    });
+  }
+  return saveServerProfile(serverId, current, input, session, t);
+}
+
+async function saveServerProfile(serverId: string, current: ServerProfileRecord, input: UpdateServerInput, session: TeamSession | null | undefined, t: TFn) {
   if (input.operatingSystem && input.operatingSystem !== (current.operatingSystem ?? "LINUX")) {
     throw new ValidationError(t("backend.server.osImmutable"));
   }
@@ -568,16 +558,20 @@ export async function updateServerProfile(
 
   const removeSshCredential = input.removeSshCredential === true;
   const requestedManagementMode = input.managementMode ?? current.managementMode;
+  const modeChanged = requestedManagementMode !== current.managementMode;
   if (removeSshCredential) {
     if (requestedManagementMode !== "AGENT") {
       throw new ValidationError(t("backend.server.removeCredentialsAgentOnly"));
     }
-    if (!current.agentLastSeenAt || Date.now() - current.agentLastSeenAt.getTime() >= 90_000) {
+    if (modeChanged || !current.agentTokenHash || !current.agentLastSeenAt || Date.now() - current.agentLastSeenAt.getTime() >= 90_000) {
       throw new ValidationError(t("backend.server.waitFreshAgentHeartbeat"));
     }
   }
 
   const connectionType = input.connectionType ?? current.connectionType;
+  if (modeChanged && !(connectionType === "SSH_KEY" ? input.sshKeyId?.trim() : input.password?.trim())) {
+    throw new ValidationError(t("backend.server.switchNeedsSsh"));
+  }
   const normalized = normalizeServerInput({
     name: input.name ?? current.name,
     host: input.host ?? current.host,
@@ -619,6 +613,7 @@ export async function updateServerProfile(
 
   // Assigned under host lock before post-update onboarding uses it.
   let updated!: ServerProfileRecord;
+  const onboardingWarnings: string[] = [];
   const releaseHostLock = await acquireAdvisoryLock("server-host", normalized.host.toLowerCase());
   try {
   await assertNoDuplicateServerHost(normalized, { excludeId: serverId, session: sessionForTeamWhere(session) });
@@ -638,12 +633,13 @@ export async function updateServerProfile(
     normalized.port !== current.port ||
     normalized.username !== current.username ||
     normalized.connectionType !== current.connectionType ||
-    (normalized.managementMode === "DIRECT" && current.managementMode !== "DIRECT") ||
+    modeChanged ||
     normalized.sshKeyId !== current.sshKeyId ||
     (normalized.connectionType === "PASSWORD" && !!input.password);
 
   const nextServerForPreflight: ServerWithRelations = {
     ...current,
+    managementMode: "DIRECT",
     host: normalized.host,
     port: normalized.port,
     username: normalized.username,
@@ -675,11 +671,17 @@ export async function updateServerProfile(
     });
     nextServerForPreflight.hostKeySha256 = hostKeySha256;
     await verifyServerSshConnectivity(normalized, nextServerForPreflight);
+    if (modeChanged && current.managementMode === "AGENT") {
+      const originalEndpoint = normalized.host === current.host && normalized.port === current.port;
+      const cleanup = await removeAgentFromHost(serverId, originalEndpoint ? { ...nextSsh, hostKeySha256 } : undefined);
+      if (!cleanup.removed) onboardingWarnings.push(t("backend.server.agentCleanupPendingLinux"));
+    }
   }
 
   updated = await prisma.server.update({
-    where: { id: serverId, teamId: current.teamId ?? null },
+    where: { id: serverId, teamId: current.teamId ?? null, managementMode: current.managementMode },
     data: {
+      ...(modeChanged ? resetAgentForModeChange() : {}),
       name: normalized.name,
       host: normalized.host,
       port: normalized.port,
@@ -710,10 +712,11 @@ export async function updateServerProfile(
     await releaseHostLock();
   }
 
-  const onboardingWarnings = [
-    ...await syncAgentForModeChange(serverId, current.managementMode, updated, t),
-    ...await applyStoragePathChange(updated, input, session, t),
-  ];
+  if (modeChanged && updated.managementMode === "AGENT" && updated.enabled && !isLocalHostLiteral(updated.host)) {
+    try { await installServerAgentUnderLock(serverId); }
+    catch (error) { onboardingWarnings.push(t("backend.server.agentInstallFailed", { error: getErrorMessage(error) })); }
+  }
+  onboardingWarnings.push(...await applyStoragePathChange(updated, input, session, t));
 
   const refreshed = await prisma.server.findUnique({
     where: { id: serverId },
@@ -810,8 +813,7 @@ export async function toggleServerEnabled(
           (!current.storageNode.driver && !isLocalHostLiteral(current.host))
         ) {
           await createRemoteDirectory({
-            ...ssh,
-            hostKeySha256,
+            ...resolveStorageSshCredentials({ ...current.storageNode, server: { ...current, hostKeySha256 } }),
             remotePath: current.storageNode.basePath,
             recursive: true,
           });
@@ -836,7 +838,7 @@ export async function toggleServerEnabled(
         await tx.storageNode.update({
           where: { id: current.storageNode.id },
           data: {
-            hostKeySha256,
+            ...(current.storageNode.host == null && (current.storageNode.port ?? current.port) === current.port ? { hostKeySha256 } : {}),
             healthStatus: "UNKNOWN",
             lastHealthCheckAt: null,
             lastHealthError: null,
