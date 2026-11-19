@@ -63,7 +63,7 @@ Windows 机器                          Hub (VControlHub)
 
 ## 卸载
 
-`uninstallServerAgent` 对 Windows 节点：通过 Agent 派发自删除命令（`AGENT_WINDOWS_CLEANUP_COMMAND`，分离的隐藏 cmd 延迟 3s 后 `schtasks /end` + `schtasks /delete` + 删除目录，对应 Linux 的 nohup 自删除模式），随后**总是**吊销令牌。Agent 离线时仅吊销令牌并提示手动清理。
+Windows Agent 在线时会接收自卸载请求。延迟清理与新安装使用同一个主机锁。若等待期间已经重装，旧清理会跳过新身份对应的任务和文件。控制台在切换时吊销旧令牌。主机离线时，需在主机恢复后核对计划任务。
 
 ## 平台能力边界
 

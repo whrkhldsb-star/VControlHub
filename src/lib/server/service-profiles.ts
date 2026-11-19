@@ -679,7 +679,7 @@ async function saveServerProfile(serverId: string, current: ServerProfileRecord,
     if (reconfigureAgent && current.managementMode === "AGENT") {
       const originalEndpoint = normalized.host === current.host && normalized.port === current.port;
       const cleanup = await removeAgentFromHost(serverId, originalEndpoint ? { ...nextSsh, hostKeySha256 } : undefined);
-      if (!cleanup.removed) onboardingWarnings.push(t("backend.server.agentCleanupPendingLinux"));
+      if (!cleanup.removed) onboardingWarnings.push(t(cleanup.requested ? "backend.server.agentCleanupRequested" : "backend.server.agentCleanupPendingLinux"));
     }
   }
 

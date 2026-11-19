@@ -196,7 +196,7 @@ export async function updateWindowsServerProfile(
     const onboardingWarnings: string[] = [];
     if (reconfigureAgent && current.managementMode === "AGENT") {
       const cleanup = await removeAgentFromHost(serverId);
-      if (!cleanup.removed) onboardingWarnings.push(t("backend.server.agentCleanupPending"));
+      if (!cleanup.removed) onboardingWarnings.push(t(cleanup.requested ? "backend.server.agentCleanupRequested" : "backend.server.agentCleanupPending"));
     }
     const updated = await prisma.$transaction(async (tx) => {
     const saved = await tx.server.update({ where: { id: serverId, teamId: current.teamId, managementMode: current.managementMode, host: current.host, port: current.port }, data: {

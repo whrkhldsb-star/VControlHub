@@ -132,7 +132,7 @@ export const en: Record<string, string> = {
 	"serversPage.create.saveDraftOnFailureHint": "Invalid nodes are not saved by default. Enable this only when the endpoint, firewall, or credentials will be fixed later.",
 	"serversPage.action.toggleWithWarnings": "The node is enabled, but some setup still needs attention: {warnings}",
 	"serversPage.action.deleteBlocked": "This VPS is still referenced by business data and cannot be deleted: {dependencies}. Migrate or remove those resources first.",
-	"serversPage.action.deleteSuccessCleanupPending": "The node record was deleted, but the offline host could not remove Agent/direct services. Its token is revoked; remove the residual service on the host when it returns.",
+	"serversPage.action.deleteSuccessCleanupPending": "The node record was deleted and its Agent access revoked. Check the original host for any remaining Agent or direct gateway service.",
 	"serversPage.create.hostKeyTrustTitle": "Confirm SSH host fingerprint",
 	"serversPage.create.hostKeyTrustDesc": "On first contact the system displays the target host's SHA256 fingerprint. Verify it through an independent channel such as the cloud console, then confirm it without copying it manually.",
 	"serversPage.create.hostKeyObserved": "Fingerprint observed on this connection",

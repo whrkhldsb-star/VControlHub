@@ -1,3 +1,4 @@
+import { guardedLinuxAgentRemoval, linuxAgentSelfRemoval, windowsAgentSelfRemoval, withLinuxAgentInstallLock, withWindowsAgentInstallLock } from "./agent-lifecycle-scripts";
 import { createHash, randomBytes, timingSafeEqual } from "node:crypto";
 
 import { acquireAdvisoryLock } from "@/lib/concurrency/advisory-lock";
@@ -34,18 +35,6 @@ const AGENT_CAPABILITIES = ["metrics", "command"] as const;
 /** The Linux Agent also installs the hub's build itself (see agentSelfUpdateFor). */
 const LINUX_AGENT_CAPABILITIES = [...AGENT_CAPABILITIES, "self-update"] as const;
 export const AGENT_WINDOWS_TASK_NAME = "VControlHubAgent";
-export const AGENT_CLEANUP_COMMAND = "nohup sh -c 'sleep 2; systemctl disable vcontrolhub-agent.service >/dev/null 2>&1 || true; rm -f /etc/systemd/system/vcontrolhub-agent.service; rm -rf /opt/vcontrolhub-agent; systemctl daemon-reload >/dev/null 2>&1 || true; systemctl stop vcontrolhub-agent.service >/dev/null 2>&1 || true' >/dev/null 2>&1 &";
-/**
- * Windows equivalent of AGENT_CLEANUP_COMMAND. Dispatched as an agent job and
- * executed through `cmd /c`, it detaches a hidden cmd that waits ~3s (ping
- * delay, timeout.exe rejects redirected stdin) before ending and deleting the
- * scheduled task and removing the agent directory — mirroring the Linux
- * "nohup sleep 2" self-removal pattern so the running agent is not killed
- * mid-job. %ProgramData% is expanded by the agent's cmd wrapper before
- * PowerShell parses the command; the path contains no spaces by construction.
- */
-export const AGENT_WINDOWS_CLEANUP_COMMAND = `powershell -NoProfile -Command "Start-Process -WindowStyle Hidden cmd -ArgumentList '/c','ping -n 4 127.0.0.1 >nul & schtasks /end /tn ${AGENT_WINDOWS_TASK_NAME} >nul 2>&1 & schtasks /delete /f /tn ${AGENT_WINDOWS_TASK_NAME} >nul 2>&1 & rd /s /q %ProgramData%\\VControlHub >nul 2>&1'"`;
-
 /**
  * Removal over SSH, for when the Agent cannot remove itself: synchronous (the
  * Agent is not the one running it), so the exit code says whether it worked.
@@ -1029,7 +1018,7 @@ export function buildAgentPowerShell(hubUrl: string, token: string) {
  */
 export function buildWindowsAgentInstaller(hubUrl: string, token: string) {
   const agentBase64 = Buffer.from(buildAgentPowerShell(hubUrl, token), "utf8").toString("base64");
-  return [
+  return withWindowsAgentInstallLock([
     "# VControlHub Windows agent installer - run in an elevated PowerShell.",
     "$ErrorActionPreference = 'Stop'",
     "$principal = New-Object Security.Principal.WindowsPrincipal([Security.Principal.WindowsIdentity]::GetCurrent())",
@@ -1048,6 +1037,7 @@ export function buildWindowsAgentInstaller(hubUrl: string, token: string) {
     "New-Item -ItemType Directory -Path $agentDir -Force | Out-Null",
     "$agentPath = Join-Path $agentDir 'agent.ps1'",
     `[System.IO.File]::WriteAllBytes($agentPath, [Convert]::FromBase64String(${JSON.stringify(agentBase64)}))`,
+    `[System.IO.File]::WriteAllText((Join-Path $agentDir 'install-id'), '${tokenHash(token)}')`,
     "$action = New-ScheduledTaskAction -Execute 'powershell.exe' -Argument ('-NoProfile -ExecutionPolicy Bypass -WindowStyle Hidden -File \"' + $agentPath + '\"')",
     "$trigger = New-ScheduledTaskTrigger -AtStartup",
     "# A zero execution time limit means none: the Agent runs as long as the machine does.",
@@ -1055,7 +1045,7 @@ export function buildWindowsAgentInstaller(hubUrl: string, token: string) {
     "Register-ScheduledTask -TaskName $taskName -Action $action -Trigger $trigger -Settings $settings -User 'SYSTEM' -RunLevel Highest -Force | Out-Null",
     "Start-ScheduledTask -TaskName $taskName",
     "Write-Output 'VControlHub agent installed and started.'",
-  ].join("\n");
+  ].join("\n"));
 }
 
 export function installServerAgent(serverId: string, teamId?: string | null) {
@@ -1101,6 +1091,7 @@ export async function installServerAgentUnderLock(serverId: string, teamId?: str
     `command -v systemctl >/dev/null 2>&1 || { echo "The Agent needs systemd" >&2; exit 1; }`,
     "install -d -m 700 /opt/vcontrolhub-agent",
     `printf %s ${shellQuote(python)} | base64 -d > /opt/vcontrolhub-agent/agent.py`,
+    `printf '%s' ${shellQuote(tokenHash(token))} > /opt/vcontrolhub-agent/install-id`,
     "chmod 700 /opt/vcontrolhub-agent/agent.py",
     `printf %s ${shellQuote(unit)} > /etc/systemd/system/vcontrolhub-agent.service`,
     "systemctl daemon-reload",
@@ -1111,7 +1102,7 @@ export async function installServerAgentUnderLock(serverId: string, teamId?: str
   let result: Awaited<ReturnType<typeof execRemoteCommand>>;
   try {
     const ssh = await buildSshParamsFromServer(server, server.sshKey);
-    result = await execRemoteCommand({ ...ssh, command: asRoot(script), timeout: 60_000 });
+    result = await execRemoteCommand({ ...ssh, command: asRoot(withLinuxAgentInstallLock(script)), timeout: 60_000 });
   } catch (error) {
     // A server SSH does not reach (often why it is in Agent mode) throws here instead of returning a status.
     await restorePreviousToken(error instanceof Error ? error.message : String(error)).catch(() => undefined);
@@ -1169,15 +1160,17 @@ export async function removeAgentFromHost(serverId: string, verifiedSsh?: Awaite
   if (!windows && (verifiedSsh || hasStoredSsh)) {
     try {
       const ssh = verifiedSsh ?? await buildSshParamsFromServer(server, server.sshKey);
-      const result = await execRemoteCommand({ ...ssh, command: asRoot(AGENT_SSH_CLEANUP_SCRIPT), timeout: 30_000 });
+      const result = await execRemoteCommand({ ...ssh, command: asRoot(guardedLinuxAgentRemoval(server.agentTokenHash, AGENT_SSH_CLEANUP_SCRIPT)), timeout: 30_000 });
       if (result.exitCode === 0) return { removed: true };
     } catch { /* The Agent may still be reachable on its outbound connection. */ }
   }
-  if (server.agentLastSeenAt && Date.now() - server.agentLastSeenAt.getTime() < AGENT_FRESH_MS) {
+  if (server.agentTokenHash && server.agentLastSeenAt && Date.now() - server.agentLastSeenAt.getTime() < AGENT_FRESH_MS) {
+    const command = windows ? windowsAgentSelfRemoval(AGENT_WINDOWS_TASK_NAME, server.agentTokenHash) : linuxAgentSelfRemoval(server.agentTokenHash);
     const result = await executeCommandWithAgent({
-      serverId, command: windows ? AGENT_WINDOWS_CLEANUP_COMMAND : AGENT_CLEANUP_COMMAND, timeoutMs: 15_000,
+      serverId, command, timeoutMs: 15_000,
     }).catch(() => null);
-    return { removed: result?.exitCode === 0 };
+    // The Agent acknowledged starting its cleanup helper, before that helper removes it.
+    return result?.exitCode === 0 ? { removed: false, requested: true } : { removed: false };
   }
   return { removed: false };
 }

@@ -26,18 +26,19 @@ import { dockerExec } from "@/lib/quick-service/docker-cli";
 import { assertSftpPathAccess } from "@/lib/ssh/sftp-access-control";
 import { runComposeProjectAction } from "@/lib/docker/compose-projects";
 import {
-  AGENT_WINDOWS_CLEANUP_COMMAND,
+  AGENT_WINDOWS_TASK_NAME,
   executeCommandWithAgent,
   installServerAgent,
   issueServerAgentToken,
   uninstallServerAgent,
 } from "@/lib/server/agent-service";
+import { windowsAgentSelfRemoval } from "@/lib/server/agent-lifecycle-scripts";
 import type { SessionPayload } from "@/lib/auth/session";
 
 const windows = {
   id: "win", name: "Windows", operatingSystem: "WINDOWS", enabled: true,
   host: "192.0.2.10", port: 3389, username: "Administrator", sshKeyId: null,
-  password: null, sshKey: null, managementMode: "AGENT", agentLastSeenAt: new Date(),
+  password: null, sshKey: null, managementMode: "AGENT", agentTokenHash: "original", agentLastSeenAt: new Date(),
 };
 
 describe("Windows rejects Linux-only operations before side effects", () => {
@@ -99,9 +100,9 @@ describe("Windows agent support", () => {
     mocks.jobFindUnique.mockResolvedValueOnce({ id: "cleanup-job", status: "COMPLETED", stdout: "", stderr: "", exitCode: 0 });
     mocks.update.mockResolvedValueOnce({ id: "win" });
     const result = await uninstallServerAgent("win");
-    expect(result).toEqual({ removed: true });
+    expect(result).toEqual({ removed: false, requested: true });
     // The dispatched cleanup command is the Windows self-removal command.
-    expect(mocks.createJob.mock.calls[0]?.[0]?.data.command).toBe(AGENT_WINDOWS_CLEANUP_COMMAND);
+    expect(mocks.createJob.mock.calls[0]?.[0]?.data.command).toBe(windowsAgentSelfRemoval(AGENT_WINDOWS_TASK_NAME, windows.agentTokenHash));
     // Never attempts the Linux SSH push/fallback for Windows.
     expect(mocks.exec).not.toHaveBeenCalled();
     // Token revoked even when the dispatch fails.

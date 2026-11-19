@@ -1,4 +1,9 @@
 /** @vitest-environment node */
+import { spawnSync } from "node:child_process";
+import { mkdtempSync, rmSync, writeFileSync } from "node:fs";
+import { tmpdir } from "node:os";
+import { join } from "node:path";
+import { guardedLinuxAgentRemoval, linuxAgentSelfRemoval } from "../agent-lifecycle-scripts";
 import { beforeEach, describe, expect, it, vi } from "vitest";
 
 const mocks = vi.hoisted(() => ({
@@ -25,7 +30,6 @@ vi.mock("@/lib/ssh/client", () => ({ buildSshParamsFromServer: vi.fn(), execRemo
 vi.mock("../monitor", () => ({ MONITOR_SCRIPT: "echo metrics" }));
 
 import {
-  AGENT_CLEANUP_COMMAND,
   authenticateServerAgent,
   completeServerAgentJob,
   executeCommandWithAgent,
@@ -148,19 +152,37 @@ describe("server Agent authentication and routing", () => {
     expect(mocks.agentJobCreate).not.toHaveBeenCalled();
   });
 
+  it.skipIf(process.platform === "win32" || spawnSync("python3", ["--version"]).status !== 0)("runs cleanup only for the installed identity, including pre-marker installations", () => {
+    const dir = mkdtempSync(join(tmpdir(), "agent-generation-"));
+    try {
+      const script = guardedLinuxAgentRemoval("old", "printf cleanup")
+        .replaceAll("/run/vcontrolhub-agent-lifecycle.lock", join(dir, "lock"))
+        .replaceAll("/opt/vcontrolhub-agent/install-id", join(dir, "install-id"));
+      const run = () => spawnSync("sh", ["-c", script], { encoding: "utf8" });
+      expect(run().stdout).toBe("cleanup");
+      writeFileSync(join(dir, "install-id"), "new");
+      expect(run()).toMatchObject({ status: 1, stdout: "" });
+      writeFileSync(join(dir, "install-id"), "old");
+      expect(run()).toMatchObject({ status: 0, stdout: "cleanup" });
+    } finally {
+      rmSync(dir, { recursive: true, force: true });
+    }
+  });
+
   it("removes Agent files before stopping its own systemd service", () => {
-    const disableAt = AGENT_CLEANUP_COMMAND.indexOf("systemctl disable ");
-    const removeUnitAt = AGENT_CLEANUP_COMMAND.indexOf("rm -f /etc/systemd/system/vcontrolhub-agent.service");
-    const removeAgentAt = AGENT_CLEANUP_COMMAND.indexOf("rm -rf /opt/vcontrolhub-agent");
-    const reloadAt = AGENT_CLEANUP_COMMAND.indexOf("systemctl daemon-reload");
-    const stopAt = AGENT_CLEANUP_COMMAND.indexOf("systemctl stop vcontrolhub-agent.service");
+    const cleanup = linuxAgentSelfRemoval("original");
+    const disableAt = cleanup.indexOf("systemctl disable ");
+    const removeUnitAt = cleanup.indexOf("rm -f /etc/systemd/system/vcontrolhub-agent.service");
+    const removeAgentAt = cleanup.indexOf("rm -rf /opt/vcontrolhub-agent");
+    const reloadAt = cleanup.indexOf("systemctl daemon-reload");
+    const stopAt = cleanup.indexOf("systemctl stop vcontrolhub-agent.service");
 
     expect(disableAt).toBeGreaterThanOrEqual(0);
     expect(removeUnitAt).toBeGreaterThan(disableAt);
     expect(removeAgentAt).toBeGreaterThan(removeUnitAt);
     expect(reloadAt).toBeGreaterThan(removeAgentAt);
     expect(stopAt).toBeGreaterThan(reloadAt);
-    expect(AGENT_CLEANUP_COMMAND).not.toContain("disable --now");
+    expect(cleanup).not.toContain("disable --now");
   });
 
   it("refreshes a claimed job lease and reports cancellation", async () => {

@@ -16,6 +16,7 @@ vi.mock("@/lib/config/env", () => ({
 }));
 
 import { buildAgentPowerShell, buildWindowsAgentInstaller, prepareWindowsAgentInstall } from "../agent-service";
+import { windowsAgentSelfRemoval } from "../agent-lifecycle-scripts";
 import { parseMonitorScriptOutput } from "../monitor";
 
 const HUB = "https://hub.example.com";
@@ -48,6 +49,25 @@ describe.skipIf(process.platform !== "win32")("Windows Agent scripts in Windows 
     expect(parseErrors("installer", buildWindowsAgentInstaller(HUB, TOKEN))).toBe("");
     expect(parseErrors("install-command", installCommand)).toBe("");
   });
+
+  it("leaves a replacement installation and its task alone during deferred removal", () => {
+    const command = windowsAgentSelfRemoval("VControlHubAgent", "previous");
+    const script = Buffer.from(command.match(/'-EncodedCommand','([A-Za-z0-9+/=]+)'/)![1]!, "base64").toString("utf16le");
+    const file = join(dir, "stale-cleanup.ps1");
+    writeFileSync(file, [
+      "$ErrorActionPreference = 'Stop'",
+      "$env:ProgramData = $PSScriptRoot",
+      "New-Item -Type Directory -Path (Join-Path $PSScriptRoot 'VControlHub') -Force | Out-Null",
+      "$stamp = Join-Path $PSScriptRoot 'VControlHub/install-id'",
+      "Set-Content -LiteralPath $stamp -Value 'replacement'",
+      "function Stop-ScheduledTask { throw 'old cleanup reached the replacement task' }",
+      "function Unregister-ScheduledTask { throw 'old cleanup reached the replacement task' }",
+      "& {", script, "}",
+      "if ((Get-Content -LiteralPath $stamp -Raw).Trim() -ne 'replacement') { exit 1 }",
+    ].join("\n"), "utf8");
+    const result = powershell(["-File", file]);
+    expect(result.status, result.stderr).toBe(0);
+  }, 30_000);
 
   it("collects metrics and host facts the hub parser reads", () => {
     const script = buildAgentPowerShell(HUB, TOKEN);

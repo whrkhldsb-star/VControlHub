@@ -144,7 +144,7 @@ export const zh: Record<string, string> = {
 	"serversPage.create.saveDraftOnFailureHint": "默认不会保存无效节点；仅在需要稍后补端口、防火墙或凭据时启用。",
 	"serversPage.action.toggleWithWarnings": "节点已启用，但仍有配置需要处理：{warnings}",
 	"serversPage.action.deleteBlocked": "该 VPS 仍被业务数据引用，暂不能删除：{dependencies}。请先迁移或移除这些内容。",
-	"serversPage.action.deleteSuccessCleanupPending": "节点记录已删除，但目标机离线导致 Agent/直连入口未能远端清理；令牌已吊销，请在目标机恢复后手动移除残留服务。",
+	"serversPage.action.deleteSuccessCleanupPending": "节点记录已删除，Agent 访问已撤销。请在原主机核对 Agent 和直连入口的清理结果，按需移除残留服务。",
 	"serversPage.create.hostKeyTrustTitle": "确认 SSH 主机指纹",
 	"serversPage.create.hostKeyTrustDesc": "首次连通时系统会显示目标主机的 SHA256 指纹。请通过云厂商控制台等独立渠道核对后确认，无需手工复制粘贴。",
 	"serversPage.create.hostKeyObserved": "本次连接观测到的指纹",
