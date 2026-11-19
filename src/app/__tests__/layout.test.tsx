@@ -3,6 +3,7 @@ import React from "react";
 import { beforeEach, describe, expect, it, vi } from "vitest";
 
 import RootLayout from "@/app/layout";
+import { getCurrentSession } from "@/lib/auth/server-session";
 
 const cookieGetMock = vi.fn();
 const headerGetMock = vi.fn();
@@ -16,6 +17,8 @@ vi.mock("next/headers", () => ({
 	cookies: vi.fn(async () => ({ get: cookieGetMock })),
 	headers: vi.fn(async () => ({ get: headerGetMock })),
 }));
+
+vi.mock("@/components/pwa-register", () => ({ PwaRegister: () => <span data-testid="pwa-register" /> }));
 
 vi.mock("@/components/sidebar-loader", () => ({
 	SidebarLoader: () => <aside data-testid="sidebar-loader" />,
@@ -106,6 +109,15 @@ describe("RootLayout", () => {
 		expect(screen.queryByTestId("web-vitals-reporter")).not.toBeInTheDocument();
 	});
 
+	it("keeps authenticated services and worker registration off a redirecting protected page", async () => {
+		cookieGetMock.mockReturnValue({ value: "expired-session" });
+		headerGetMock.mockImplementation((name: string) => name === "x-vcontrolhub-protected-page" ? "1" : null);
+		vi.mocked(getCurrentSession).mockResolvedValueOnce(null);
+		await renderLayoutBody(<div>Redirecting</div>);
+		expect(screen.queryByTestId("app-topbar")).not.toBeInTheDocument();
+		expect(screen.queryByTestId("pwa-register")).not.toBeInTheDocument();
+	});
+
 	it("renders mobile navigation and global search for authenticated sessions", async () => {
 		cookieGetMock.mockReturnValue({ value: "session-token" });
 
@@ -143,6 +155,7 @@ describe("RootLayout", () => {
 		);
 
 		await renderLayoutBody(<div>欢迎回来</div>);
+		expect(screen.getByTestId("pwa-register")).toBeInTheDocument();
 
 		expect(screen.queryByTestId("sidebar-loader")).not.toBeInTheDocument();
 		expect(screen.queryByTestId("app-topbar")).not.toBeInTheDocument();

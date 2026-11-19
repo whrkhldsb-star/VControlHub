@@ -271,6 +271,7 @@ export function proxy(request: NextRequest) {
     ? btoa(crypto.randomUUID())
     : undefined;
   const forwardedHeaders = new Headers(request.headers);
+  forwardedHeaders.delete("x-vcontrolhub-protected-page");
   if (nonce) {
     forwardedHeaders.set("x-nonce", nonce);
     forwardedHeaders.set("Content-Security-Policy", buildContentSecurityPolicy(nonce, request.headers.get("host")));
@@ -378,6 +379,9 @@ export function proxy(request: NextRequest) {
   }
 
   // 4) Authenticated — pass through with security headers
+  if (SAFE_METHODS.has(request.method.toUpperCase()) && !pathname.startsWith("/api/")) {
+    forwardedHeaders.set("x-vcontrolhub-protected-page", "1");
+  }
   const response = NextResponse.next({ request: { headers: forwardedHeaders } });
   return addSecurityHeaders(response, request, nonce);
 }
