@@ -103,10 +103,13 @@ export async function executeTarget(
       username: string;
       connectionType: "SSH_KEY" | "PASSWORD";
       managementMode: "DIRECT" | "AGENT";
-      operatingSystem?: string;
+      operatingSystem: string;
+      teamId: string | null;
+      agentTokenHash: string | null;
+      hostKeySha256: string | null;
       agentLastSeenAt: Date | null;
       password: string | null;
-      sshKey: { id: string; name: string; privateKey: string | null; passphrase: string | null } | null;
+      sshKey: { id: string; name: string; updatedAt: Date; privateKey: string | null; passphrase: string | null } | null;
     };
     commandRequest: { command: string; title: string };
   },
@@ -224,7 +227,7 @@ export async function executeTarget(
   // TOFU (no change detection), so a MITM on first/every connect is undetected.
   // Onboarding forces a pin, but refuse rather than silently accept-new if a
   // legacy/draft row ever reaches execution without one.
-  const pinnedHostKey = (target.server as { hostKeySha256?: string | null }).hostKeySha256;
+  const pinnedHostKey = target.server.hostKeySha256;
   if (!result && !pinnedHostKey?.trim()) {
     // Fail-closed summary goes straight to the client as target stderr; the
     // wording guides the operator to pin the host fingerprint first.
@@ -237,7 +240,9 @@ export async function executeTarget(
       where: {
         id, enabled: true, host, port, username, managementMode, connectionType,
         sshKeyId: target.server.sshKey?.id ?? null, password: target.server.password,
-        hostKeySha256: pinnedHostKey,
+        hostKeySha256: pinnedHostKey, teamId: target.server.teamId,
+        operatingSystem: target.server.operatingSystem, agentTokenHash: target.server.agentTokenHash,
+        ...(target.server.sshKey ? { sshKey: { is: { updatedAt: target.server.sshKey.updatedAt } } } : {}),
       },
       select: { id: true },
     });
@@ -358,6 +363,8 @@ async function executeTargetPage(commandRequestId: string, cursor: string | unde
           connectionType: true,
           managementMode: true,
           operatingSystem: true,
+          teamId: true,
+          agentTokenHash: true,
           agentLastSeenAt: true,
           password: true,
           hostKeySha256: true,
@@ -365,6 +372,7 @@ async function executeTargetPage(commandRequestId: string, cursor: string | unde
             select: {
               id: true,
               name: true,
+              updatedAt: true,
               ...SSH_KEY_CREDENTIAL_SELECT,
             },
           },

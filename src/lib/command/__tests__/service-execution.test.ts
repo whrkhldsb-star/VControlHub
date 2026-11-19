@@ -107,9 +107,10 @@ function buildTarget(overrides: { server?: Record<string, unknown> } = {}) {
       managementMode: "DIRECT",
       operatingSystem: "LINUX",
       agentLastSeenAt: null,
+      teamId: "team-1", agentTokenHash: null,
       password: null,
       hostKeySha256: "SHA256:pinned",
-      sshKey: { id: "key-1", name: "deploy", privateKey: "ENCRYPTED-KEY" },
+      sshKey: { id: "key-1", name: "deploy", updatedAt: new Date(), privateKey: "ENCRYPTED-KEY", passphrase: null },
       ...overrides.server,
     },
     commandRequest: { command: "uptime", title: "Check uptime" },
@@ -260,6 +261,19 @@ describe("executeTarget", () => {
     expect(mocks.executeCommandOverSsh).not.toHaveBeenCalled();
     expect(await executeTarget("req-1", target)).toBe(true);
     expect(mocks.executeCommandOverSsh).toHaveBeenCalledWith(expect.objectContaining({ password: " exact " }));
+  });
+
+  it("checks the SSH key revision, team and Agent identity again before dispatch", async () => {
+    mocks.prisma.commandTarget.findUnique.mockResolvedValue({ id: "target-1", status: "RUNNING", commandRequest: { status: "RUNNING", approvals: [] } });
+    mocks.executeCommandWithAgent.mockResolvedValueOnce(null);
+    mocks.prisma.server.findUnique.mockResolvedValueOnce(null);
+    const target = buildTarget({ server: { managementMode: "AGENT", agentTokenHash: "previous-identity" } });
+    await executeTarget("req-1", target);
+    expect(mocks.prisma.server.findUnique).toHaveBeenCalledWith(expect.objectContaining({
+      where: expect.objectContaining({ teamId: "team-1", agentTokenHash: "previous-identity",
+        sshKey: { is: { updatedAt: target.server.sshKey!.updatedAt } } }),
+    }));
+    expect(mocks.executeCommandOverSsh).not.toHaveBeenCalled();
   });
 
   it.each([new CommandCancellationUnconfirmedError(), new Error("result lookup disconnected")])("flags an unconfirmed Agent outcome and prevents SSH replay (%s)", async (error) => {
