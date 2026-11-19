@@ -742,25 +742,34 @@ export async function renameRemoteFile(input: SshConnectionParams & { oldPath: s
   });
 }
 
+// Six million binary bytes fit in the Agent's 8 MiB stdout budget after base64 encoding.
+export const AGENT_FILE_MAX_BYTES = 6_000_000;
+
 export async function readRemoteFile(
   input: SshConnectionParams & { remotePath: string; maxBytes?: number },
 ): Promise<Buffer> {
-  // Agent-only path keeps its own 5MB ceiling; honour a smaller caller cap too.
-  const agentCap = Math.min(input.maxBytes ?? 5 * 1_048_576, 5 * 1_048_576);
   if (usesAgentOnly(input)) {
     const sizeResult = await execAgentOnly(
       input,
       pythonCommand("import os,sys\nprint(os.path.getsize(sys.argv[1]))", [input.remotePath]),
     );
-    const size = Number.parseInt(sizeResult.stdout.trim(), 10);
-    if (!Number.isSafeInteger(size) || size < 0) {
+    const sizeText = sizeResult.stdout.trim();
+    const size = Number(sizeText);
+    if (!/^\d+$/.test(sizeText) || !Number.isSafeInteger(size)) {
       throw new BusinessError(t("backend.server.agentFileSizeUnknown"));
     }
-    if (size > agentCap) {
-      throw new BusinessError(t("backend.server.agentReadLimit"));
+    if (size > AGENT_FILE_MAX_BYTES) throw new BusinessError(t("backend.server.agentReadLimit"));
+    if (input.maxBytes !== undefined && size > input.maxBytes) throw new BusinessError(t("backend.storage.remoteReadTooLarge"));
+    // Bound the second read even when the file grows after the stat. One extra
+    // byte distinguishes a complete file from a prefix of a larger file.
+    const source = "import base64,sys\nwith open(sys.argv[1],'rb') as f: data=f.read(int(sys.argv[2]))\nprint(base64.b64encode(data).decode())";
+    const result = await execAgentOnly(input, pythonCommand(source, [input.remotePath, String(size + 1)]));
+    const encoded = result.stdout.trim();
+    const content = Buffer.from(encoded, "base64");
+    if (content.length !== size || encoded.length !== 4 * Math.ceil(size / 3)) {
+      throw new BusinessError(t("backend.server.agentFileSizeChanged"));
     }
-    const result = await execAgentOnly(input, pythonCommand("import base64,sys\nprint(base64.b64encode(open(sys.argv[1],'rb').read()).decode())", [input.remotePath]));
-    return Buffer.from(result.stdout.trim(), "base64");
+    return content;
   }
   return withReusableSshClient(input, async (client) => {
     return withSftpChannel(client, (sftp) => new Promise<Buffer>((resolve, reject) => {
@@ -801,8 +810,8 @@ const AGENT_WRITE_CHUNK = 64 * 1024;
 
 export async function writeRemoteFile(input: SshConnectionParams & { remotePath: string; content: string | Buffer }): Promise<void> {
   if (usesAgentOnly(input)) {
+    if (Buffer.byteLength(input.content) > AGENT_FILE_MAX_BYTES) throw new BusinessError(t("backend.server.agentWriteLimit"));
     const encoded = Buffer.from(input.content).toString("base64");
-    if (encoded.length > 8_000_000) throw new BusinessError(t("backend.server.agentWriteLimit"));
     if (encoded.length <= AGENT_WRITE_CHUNK) {
       await execAgentOnly(input, pythonCommand("import base64,sys\nopen(sys.argv[1],'wb').write(base64.b64decode(sys.argv[2]))", [input.remotePath, encoded]));
       return;

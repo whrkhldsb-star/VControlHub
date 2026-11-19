@@ -9,7 +9,7 @@ import { chmod, mkdtemp, readFile, rm, stat, writeFile } from "node:fs/promises"
 import { tmpdir } from "node:os";
 import path from "node:path";
 import { randomBytes } from "node:crypto";
-import { deleteRemoteFile, execRemoteCommand, listRemoteDirectory, readRemoteFile, statRemoteEntry, writeRemoteFile } from "../client";
+import { AGENT_FILE_MAX_BYTES, deleteRemoteFile, execRemoteCommand, listRemoteDirectory, readRemoteFile, statRemoteEntry, writeRemoteFile } from "../client";
 
 describe("Agent-only file fallback", () => {
   beforeEach(() => {
@@ -94,7 +94,7 @@ describe("Agent-only file fallback", () => {
 
   it("rejects large Agent-only reads before transferring file content", async () => {
     mocks.executeCommandWithAgent.mockResolvedValueOnce({
-      stdout: String(6 * 1_048_576),
+      stdout: String(AGENT_FILE_MAX_BYTES + 1),
       stderr: "",
       exitCode: 0,
     });
@@ -105,8 +105,32 @@ describe("Agent-only file fallback", () => {
       username: "root",
       agentServerId: "srv_agent",
       remotePath: "/data/large.bin",
-    })).rejects.toThrow(/5 MB/);
+    })).rejects.toThrow(/6 MB/);
     expect(mocks.executeCommandWithAgent).toHaveBeenCalledTimes(1);
+  });
+
+  it("honors a preview's smaller limit before fetching the content", async () => {
+    mocks.executeCommandWithAgent.mockResolvedValueOnce({ stdout: "11", exitCode: 0 });
+    await expect(readRemoteFile({ host: "fixture", port: 22, username: "ops", agentServerId: "srv_agent", remotePath: "/file", maxBytes: 10 })).rejects.toThrow(/在线读取|online reading/);
+    expect(mocks.executeCommandWithAgent).toHaveBeenCalledTimes(1);
+  });
+
+  it("reads all bytes at the maximum upload size and rejects the next byte before upload", async () => {
+    const target = { host: "fixture", port: 22, username: "ops", agentServerId: "srv_agent", remotePath: "/file" };
+    const bytes = randomBytes(AGENT_FILE_MAX_BYTES);
+    mocks.executeCommandWithAgent
+      .mockResolvedValueOnce({ stdout: String(bytes.length), exitCode: 0 })
+      .mockResolvedValueOnce({ stdout: bytes.toString("base64"), exitCode: 0 });
+    expect((await readRemoteFile(target)).equals(bytes)).toBe(true);
+    await expect(writeRemoteFile({ ...target, content: Buffer.alloc(bytes.length + 1) })).rejects.toThrow(/6 MB/);
+    expect(mocks.executeCommandWithAgent).toHaveBeenCalledTimes(2);
+  });
+
+  it.each(["four", "longer"])("rejects an incomplete or changed Agent read (%s)", async (read) => {
+    mocks.executeCommandWithAgent
+      .mockResolvedValueOnce({ stdout: "5", exitCode: 0 })
+      .mockResolvedValueOnce({ stdout: Buffer.from(read).toString("base64"), exitCode: 0 });
+    await expect(readRemoteFile({ host: "fixture", port: 22, username: "ops", agentServerId: "srv_agent", remotePath: "/file" })).rejects.toThrow();
   });
 
   it("identifies and removes an empty directory through Agent without SSH credentials", async () => {

@@ -18,7 +18,7 @@ import { Client } from "ssh2";
 
 import type { SessionPayload } from "@/lib/auth/session";
 import { teamWhere } from "@/lib/auth/team-scope";
-import { connectSsh, createRemoteDirectory, deleteRemoteFile, readRemoteFile, writeRemoteFile, renameRemoteFile } from "@/lib/ssh/client";
+import { AGENT_FILE_MAX_BYTES, connectSsh, createRemoteDirectory, deleteRemoteFile, readRemoteFile, writeRemoteFile, renameRemoteFile } from "@/lib/ssh/client";
 import { prisma } from "@/lib/db";
 import { BusinessError, ValidationError } from "@/lib/errors";
 import { resolveStorageSshCredentials, type StorageSshCredentialNode } from "@/lib/storage/ssh-credentials";
@@ -408,7 +408,7 @@ export async function writeStorageFileFromLocalPath(node: StorageFileNode, relat
     const temporaryPath = (await resolveStorageRemotePath(node, temporaryRelativePath, { credentials })).remotePath;
     if (credentials.agentServerId && !credentials.privateKey && !credentials.password) {
       // The Agent protocol embeds base64 in a bounded command payload.
-      if ((await statFile(sourcePath)).size > 6_000_000) throw new BusinessError(t("backend.server.agentWriteLimit"));
+      if ((await statFile(sourcePath)).size > AGENT_FILE_MAX_BYTES) throw new BusinessError(t("backend.server.agentWriteLimit"));
       try {
         await createRemoteDirectory({ ...credentials, remotePath: path.posix.dirname(destination), recursive: true });
         await writeRemoteFile({ ...credentials, remotePath: temporaryPath, content: await readFile(sourcePath) });

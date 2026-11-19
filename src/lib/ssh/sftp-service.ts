@@ -10,6 +10,7 @@
 
 import { Client } from "ssh2";
 import {
+  AGENT_FILE_MAX_BYTES,
   createRemoteDirectory,
   createVerifiedSshConfig,
   deleteRemoteFile,
@@ -335,7 +336,7 @@ export async function uploadFile(
     for await (const chunk of sourceStream) {
       const buffer = Buffer.isBuffer(chunk) ? chunk : Buffer.from(chunk);
       size += buffer.length;
-      if (size > 5 * 1_048_576) {
+      if (size > AGENT_FILE_MAX_BYTES) {
         throw new BusinessError(t("backend.sftp.agentOnlyUploadLimit"));
       }
       chunks.push(buffer);
