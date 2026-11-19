@@ -61,7 +61,6 @@ export default async function RootLayout({
 	const nonce = headerStore.get("x-nonce") ?? undefined;
 	const hasSessionCookie = Boolean(cookieStore.get(getSessionCookieName())?.value);
 	const isPublicAuthPage = headerStore.get("x-vcontrolhub-public-auth-page") === "1";
-	const shouldRenderAuthenticatedChrome = hasSessionCookie && !isPublicAuthPage;
 	const localeCookie = cookieStore.get("vps-locale")?.value;
 	const themeCookie = cookieStore.get("vps-theme")?.value;
 	const sidebarCollapsed = cookieStore.get("vch-sidebar")?.value === "collapsed";
@@ -76,7 +75,10 @@ export default async function RootLayout({
 	// HMAC verify happens at most once per request even though SidebarLoader
 	// also calls it. Empty gate when the cookie is missing / invalid → fail-
 	// safe (every `can()` returns false → UI elements disappear).
-	const session = shouldRenderAuthenticatedChrome ? await getCurrentSession() : null;
+	const session = hasSessionCookie && !isPublicAuthPage ? await getCurrentSession() : null;
+	const shouldRenderAuthenticatedChrome = Boolean(session);
+	// A protected page can start streaming before its guard redirects an expired session.
+	const canRegisterPwa = headerStore.get("x-vcontrolhub-protected-page") !== "1" || Boolean(session);
 	const sessionGate = session ? gateFromRoles(session.roles, session.permissions, session.currentTeamId) : EMPTY_GATE;
 	// TR-030: same permission map as SidebarLoader so ⌘K search cannot list
 	// routes the user cannot open (filterItemsByPermissions is a no-op when empty).
@@ -117,7 +119,7 @@ export default async function RootLayout({
 								{shouldRenderAuthenticatedChrome && <SidebarLoader />}
 								<div className="flex min-w-0 flex-1 flex-col">
 									{shouldRenderAuthenticatedChrome ? <AppTopbar appName={getAppName()} /> : null}
-									<PwaRegister />
+									{canRegisterPwa && <PwaRegister />}
 									<main
 										id="main-content"
 										tabIndex={-1}

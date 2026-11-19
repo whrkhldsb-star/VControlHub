@@ -252,6 +252,14 @@ describe("proxy auth guard", () => {
     expect(sentryConnectSource("not a url")).toBe("");
   });
 
+  it("marks protected page navigations and clears a client-supplied marker on public pages", () => {
+    const header = "x-vcontrolhub-protected-page";
+    const privatePage = syncProxy(makeRequest("/servers", { headers: { cookie: sessionCookie() } }));
+    expect(privatePage.headers.get("x-middleware-request-" + header)).toBe("1");
+    const publicPage = syncProxy(makeRequest("/login", { headers: { [header]: "1" } }));
+    expect(publicPage.headers.get("x-middleware-request-" + header)).toBeNull();
+  });
+
   it("renders /offline without the signed-in shell, since the service worker keeps it for later visitors", () => {
     const response = syncProxy(makeRequest("/offline"));
     expect(response.status).toBe(200);
