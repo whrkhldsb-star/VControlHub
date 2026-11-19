@@ -28,6 +28,7 @@ function withoutConnectionDetails<Node extends { basePath: string; directAccess:
     webdavConfig: undefined,
     publicBaseUrl: null,
     server: undefined,
+    fileAgent: undefined,
     connectionSummary: "",
     // Health errors quote the address that failed ("connect ECONNREFUSED 10.0.0.5:22").
     lastHealthError: null,

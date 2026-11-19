@@ -31,7 +31,7 @@ export function StorageNodeFields({
 }: {
   driver: string;
   onDriverChange: (driver: string) => void;
-  servers: Array<{ id: string; name: string; host: string; storageNodeId?: string | null; managementMode?: string }>;
+  servers: Array<{ id: string; name: string; host: string; storageNodeId?: string | null; canPairFileAgent?: boolean }>;
   values?: StorageNodeFieldValues;
   includeExplicitUncheckedDefault?: boolean;
   lockDefault?: boolean;
@@ -96,7 +96,7 @@ export function StorageNodeFields({
         <FormField label={t("storagePage.form.fieldBindVps")} htmlFor={fid("file-agent-server")}>
           <select id={fid("file-agent-server")} name="serverId" defaultValue={values.serverId ?? ""} disabled={!!values.serverId} required className={UI_INPUT}>
             <option value="">{t("storagePage.agent.select")}</option>
-            {servers.filter((server) => server.managementMode === "AGENT" || server.id === values.serverId).map((server) => <option key={server.id} value={server.id}>{server.name} · {server.host}</option>)}
+            {servers.filter((server) => server.canPairFileAgent || server.id === values.serverId).map((server) => <option key={server.id} value={server.id}>{server.name} · {server.host}</option>)}
           </select>
         </FormField>
         <p className="text-xs text-[var(--text-muted)]">{t("storagePage.agent.hint")}</p>

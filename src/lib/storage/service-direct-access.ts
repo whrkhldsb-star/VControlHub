@@ -110,7 +110,7 @@ export function buildStorageConnectionSummary(input: {
 
 export type StorageNodeListRow = Prisma.StorageNodeGetPayload<{
   include: {
-    agentFileShare: { select: { serverId: true } };
+    agentFileShare: { select: { serverId: true; seenAt: true; writable: true } };
     server: {
       select: { id: true; name: true; host: true; port: true; operatingSystem: true; username: true };
     };

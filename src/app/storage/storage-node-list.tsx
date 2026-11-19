@@ -27,6 +27,7 @@ type StorageNodeItem = {
 	port?: number | null;
 	username?: string | null;
 	serverId?: string | null;
+	fileAgent?: { seenAt: string; writable: boolean } | null;
 	connectionSummary: string;
 	/** Set for a reader who does not manage nodes: the connection details were left out. */
 	connectionHidden?: boolean;
@@ -183,7 +184,15 @@ function StorageNodeCard({
 			</div>
 			<p className="mt-2 text-xs text-[var(--text-muted)]">{t("storagePage.list.registeredFiles", { count: node.fileCount })}</p>
 
-		{canManageNodes && node.driver === "AGENT" && <FileAgentPairing nodeId={node.id} />}
+			{canManageNodes && node.driver === "AGENT" && (
+				<>
+					<p className="mt-2 text-xs text-[var(--text-muted)]">{node.fileAgent
+						? t("storagePage.agent.lastContact", { time: formatHealthTime(node.fileAgent.seenAt, locale),
+							access: t(node.fileAgent.writable ? "storagePage.agent.readWrite" : "storagePage.agent.readOnly") })
+						: t("storagePage.agent.waiting")}</p>
+					<FileAgentPairing nodeId={node.id} />
+				</>
+			)}
 		{editing ? (
 			<div className="mt-4">
 				<StorageNodeEditForm node={node} servers={servers} />

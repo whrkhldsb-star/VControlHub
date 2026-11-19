@@ -74,7 +74,7 @@ export type StorageNodeHealthStatus = "UNKNOWN" | "HEALTHY" | "UNHEALTHY";
 type TeamSession = Pick<SessionPayload, "userId" | "roles" | "currentTeamId">;
 
 const STORAGE_NODE_SERVER_INCLUDE = {
-  agentFileShare: { select: { serverId: true } },
+  agentFileShare: { select: { serverId: true, seenAt: true, writable: true } },
   server: {
     select: {
       id: true,
@@ -550,6 +550,8 @@ export async function listStorageNodes(session: TeamSession) {
     username: node.username,
     webdavConfig: publicWebdavConfig(node.webdavConfigEncrypted),
     serverId: node.agentFileShare?.serverId ?? node.serverId,
+    fileAgent: node.agentFileShare?.seenAt
+      ? { seenAt: node.agentFileShare.seenAt.toISOString(), writable: node.agentFileShare.writable } : null,
     directAccessMode: node.directAccessMode,
     publicBaseUrl: node.publicBaseUrl,
     directAccessExpiresSeconds: node.directAccessExpiresSeconds,

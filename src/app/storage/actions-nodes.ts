@@ -56,7 +56,7 @@ async function getStorageFormOptionsImpl() {
       id: server.id,
       name: server.name,
       host: server.host,
-      managementMode: server.managementMode,
+      canPairFileAgent: server.enabled && server.managementMode === "AGENT" && server.teamId === session.currentTeamId,
       storageNodeId: server.storageNode?.id ?? null,
     })),
     nodes: nodes.map((node: (typeof nodes)[number]) => ({
