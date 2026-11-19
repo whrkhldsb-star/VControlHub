@@ -271,7 +271,7 @@ export function DownloadsClient({ servers, canManage, canManageNode }: { servers
 				}
 				const payload: Record<string, unknown> = {
 					url: task.url,
-					serverId: task.serverId, storageNodeId: task.agentStorageNodeId ?? task.server.storageNode?.id,
+					serverId: task.serverId, storageNodeId: task.agentStorageNodeId ?? task.directStorageNodeId ?? task.server.storageNode?.id,
 					targetPath: task.targetPath,
 					...(task.fileName ? { fileName: task.fileName } : {}),
 					...(task.category ? { category: task.category } : {}),

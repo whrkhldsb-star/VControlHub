@@ -17,7 +17,7 @@ export type ServerOption = {
 };
 
 export type DownloadTask = {
-	agentStorageNodeId?: string | null;
+	agentStorageNodeId?: string | null; directStorageNodeId?: string | null;
 	id: string; url: string; serverId: string; targetPath: string; fileName: string | null;
 	status: string; progress: string | null; pid: number | null; errorMessage: string | null;
 	relayMode: boolean | null; createdAt: string; updatedAt: string;

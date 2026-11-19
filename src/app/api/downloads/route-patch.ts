@@ -205,6 +205,7 @@ export async function PATCH(request: Request) {
           const now = await prisma.downloadTask.findUnique({ where: { id: taskId }, select: { status: true, progress: true } });
           return NextResponse.json({ status: now?.status ?? task.status, progress: now?.progress ?? task.progress });
         };
+        if (task.directStorageNodeId && !task.server.storageNode) return currentOutcome();
         if (task.pid && task.status === "RUNNING") {
           try {
             const sshParams = await buildSshParamsFromServer(

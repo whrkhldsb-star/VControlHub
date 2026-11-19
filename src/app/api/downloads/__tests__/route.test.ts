@@ -524,6 +524,9 @@ describe("/api/downloads", () => {
     }));
 
     expect(response.status).toBe(200);
+    expect(prismaMock.downloadTask.create).toHaveBeenCalledWith(expect.objectContaining({
+      data: expect.objectContaining({ directStorageNodeId: "store_1" }),
+    }));
     // New-A (2026-06-15): the route now awaits enqueueDownloadExecutionJob
     // before returning 200. The mock seam still kicks off executeDirectDownload
     // in a microtask, so a single `vi.waitFor` needs a few event-loop ticks

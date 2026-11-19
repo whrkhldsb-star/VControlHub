@@ -221,7 +221,7 @@ export async function POST(request: Request) {
           data: {
             url: storedUrls.get(taskUrl) ?? taskUrl,
             serverId,
-            ...(storageNode.driver === "AGENT" ? { agentStorageNodeId: storageNode.id } : {}),
+            ...(storageNode.driver === "AGENT" ? { agentStorageNodeId: storageNode.id } : { directStorageNodeId: storageNode.id }),
             targetPath: resolvedTargetPath,
             fileName: taskFileName,
             status: "PENDING",

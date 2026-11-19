@@ -7,16 +7,19 @@ export const downloadDriveSelect = {
 export function selectedDownloadDrive<N extends { id: string }>(
   server: { storageNode: N | null; agentFileShares?: { node: N }[] },
   agentId?: string | null,
+  directId?: string | null,
 ) {
-  return agentId ? server.agentFileShares?.find(share => share.node.id === agentId)?.node ?? null : server.storageNode;
+  if (agentId) return server.agentFileShares?.find(share => share.node.id === agentId)?.node ?? null;
+  if (directId && server.storageNode?.id !== directId) return null;
+  return server.storageNode;
 }
 
 /** Present only this task's drive to existing ACL, listing and transfer code. */
-export function resolveTaskDrive<T extends { agentStorageNodeId?: string | null; server: {
+export function resolveTaskDrive<T extends { agentStorageNodeId?: string | null; directStorageNodeId?: string | null; server: {
   storageNode: { id: string } | null; agentFileShares?: { node: { id: string } }[];
 } }>(task: T): T {
   if (!task.server) return task;
-  task.server.storageNode = selectedDownloadDrive(task.server, task.agentStorageNodeId);
+  task.server.storageNode = selectedDownloadDrive(task.server, task.agentStorageNodeId, task.directStorageNodeId);
   delete task.server.agentFileShares;
   return task;
 }

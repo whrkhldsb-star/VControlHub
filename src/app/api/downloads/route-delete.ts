@@ -164,6 +164,9 @@ export async function DELETE(request: Request) {
           }
           await cleanupTemp(relayTempDir(taskId));
         } else {
+          if (task.directStorageNodeId && !task.server.storageNode) {
+            return NextResponse.json({ error: t("backend.downloads.taskStorageMissing", locale) }, { status: 409 });
+          }
           // Always ask the server, with or without a stored pid: the remote
           // process records its own identity and may be running even when the
           // controller never stored the pid. Only a confirmed stop (no download

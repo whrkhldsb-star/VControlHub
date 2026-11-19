@@ -30,7 +30,7 @@ export async function GET(request: Request) {
           url: true,
           fileName: true,
           targetPath: true,
-          createdBy: true, agentStorageNodeId: true,
+          createdBy: true, agentStorageNodeId: true, directStorageNodeId: true,
           updatedAt: true,
           server: {
             select: {
