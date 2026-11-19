@@ -1,5 +1,5 @@
 import { createHash } from "node:crypto";
-import { expect, test, type Locator, type Page } from "@playwright/test";
+import { expect, test, type BrowserContext, type Locator, type Page } from "@playwright/test";
 import { Client } from "pg";
 import { utils } from "ssh2";
 import { installDirectSession } from "./helpers/direct-session";
@@ -14,16 +14,13 @@ import { decryptServerPassword, encryptServerPassword, encryptSshPrivateKey } fr
  * app treats as "this host", so every save really authenticates.
  */
 
-
 async function openNodeDetails(page: Page, serverName: string): Promise<Locator> {
-	// A save ends in router.refresh(): let it finish, or it aborts the navigation.
-	await page.waitForLoadState("networkidle");
 	const url = `/servers?query=${encodeURIComponent(serverName)}`;
-	await page.goto(url, { waitUntil: "networkidle" }).catch(async (error: unknown) => {
+	await page.goto(url, { waitUntil: "domcontentloaded" }).catch(async (error: unknown) => {
 		// The dev server reloads Firefox/WebKit pages once as they load; that
 		// reload lands on the same URL, so only it is tolerated.
 		if (!/interrupted by another navigation|NS_BINDING_ABORTED/.test(String(error))) throw error;
-		await page.waitForLoadState("networkidle");
+		await expect(page).toHaveURL(new RegExp(encodeURIComponent(serverName) + "$"));
 	});
 	const button = page.locator("[data-server-card]").filter({ hasText: serverName }).getByRole("button", { name: /查看详情|View details/i });
 	const dialog = page.getByRole("dialog");
@@ -35,10 +32,17 @@ async function openNodeDetails(page: Page, serverName: string): Promise<Locator>
 	return dialog;
 }
 
-async function openEditForm(page: Page, serverName: string): Promise<Locator> {
-	const dialog = await openNodeDetails(page, serverName);
-	await dialog.getByRole("button", { name: /编辑节点|Edit node/i }).click();
-	return dialog.getByRole("form");
+async function openEditForm(context: BrowserContext, serverName: string): Promise<Locator> {
+	// A credential save refreshes the current route. A fresh tab reads the saved
+	// login without competing with a refresh still completing in the previous tab.
+	for (const page of context.pages()) await page.close();
+	const dialog = await openNodeDetails(await context.newPage(), serverName);
+	const form = dialog.getByRole("form", { name: /编辑 VPS 节点|Edit VPS node/i });
+	await expect(async () => {
+		if (!(await form.isVisible())) await dialog.getByRole("button", { name: /编辑节点|Edit node/i }).click({ timeout: 3_000 });
+		await expect(form).toBeVisible({ timeout: 2_000 });
+	}).toPass({ timeout: 20_000 });
+	return form;
 }
 
 /** Waits for the save's own result (the form holds other status regions). */
@@ -83,10 +87,9 @@ test("a node's username, password and SSH key can be changed, and a wrong creden
 
 		const context = await browser.newContext({ viewport: { width: 1366, height: 900 }, baseURL, locale: "zh-CN" });
 		await installDirectSession(context);
-		const page = await context.newPage();
 
 		// 1. A wrong password is refused and the node keeps its login.
-		let form = await openEditForm(page, SERVER_NAME);
+		let form = await openEditForm(context, SERVER_NAME);
 		await form.getByLabel(/^用户名$/).fill("second");
 		await form.locator('input[name="password"]').fill("not-the-password");
 		await form.getByRole("button", { name: /保存并校验连接/ }).click();
@@ -95,8 +98,7 @@ test("a node's username, password and SSH key can be changed, and a wrong creden
 		await expect(form.getByRole("alert")).not.toContainText("ECONNREFUSED");
 		expect(await row()).toMatchObject({ username: "first", connectionType: "PASSWORD" });
 
-		// 2. The right username and password are saved.
-		form = await openEditForm(page, SERVER_NAME);
+		// 2. The operator corrects the refused login in the same form.
 		await form.getByLabel(/^用户名$/).fill("second");
 		await form.locator('input[name="password"]').fill("second-pass");
 		await form.getByRole("button", { name: /保存并校验连接/ }).click();
@@ -106,7 +108,7 @@ test("a node's username, password and SSH key can be changed, and a wrong creden
 		expect(decryptServerPassword(afterPassword.password!)).toBe("second-pass");
 
 		// 3. Switching to an SSH key: a key and its account replace the password.
-		form = await openEditForm(page, SERVER_NAME);
+		form = await openEditForm(context, SERVER_NAME);
 		await form.getByRole("button", { name: "SSH 密钥", exact: true }).click();
 		await form.locator('select[name="sshKeyId"]').selectOption({ label: KEY_NAME });
 		await form.getByLabel(/^用户名$/).fill("keyed");
@@ -115,7 +117,7 @@ test("a node's username, password and SSH key can be changed, and a wrong creden
 		expect(await row()).toEqual({ username: "keyed", connectionType: "SSH_KEY", password: null, sshKeyId: keyRow.rows[0]!.id });
 
 		// 4. Back to a password: the field is required, since nothing is kept.
-		form = await openEditForm(page, SERVER_NAME);
+		form = await openEditForm(context, SERVER_NAME);
 		await expect(form.locator('select[name="sshKeyId"]')).toHaveValue(keyRow.rows[0]!.id);
 		await form.getByRole("button", { name: "密码", exact: true }).click();
 		await expect(form.locator('input[name="password"]')).toHaveAttribute("required", "");

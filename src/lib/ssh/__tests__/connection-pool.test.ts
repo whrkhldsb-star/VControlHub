@@ -40,7 +40,8 @@ vi.mock("ssh2", async () => {
   return { Client: FakeClient };
 });
 
-const agent = vi.hoisted(() => vi.fn());
+const { agent, findServer } = vi.hoisted(() => ({ agent: vi.fn(), findServer: vi.fn() }));
+vi.mock("@/lib/db", () => ({ prisma: { server: { findUnique: findServer } } }));
 vi.mock("@/lib/server/agent-service", () => ({ executeCommandWithAgent: agent }));
 
 import { closeSshPool, execRemoteCommand, listRemoteDirectory } from "../client";
@@ -65,6 +66,11 @@ describe("SSH connection pool", () => {
     await expect(execRemoteCommand({ ...target, hostKeySha256: null })).rejects.toThrow();
     expect(state.connectCount).toBe(0);
     agent.mockResolvedValueOnce(null);
+    findServer.mockResolvedValueOnce(null);
+    await expect(execRemoteCommand(target)).rejects.toThrow();
+    expect(state.connectCount).toBe(0);
+    agent.mockResolvedValueOnce(null);
+    findServer.mockResolvedValueOnce({ ...target, id: "test-node", operatingSystem: "LINUX", managementMode: "AGENT", connectionType: "PASSWORD" });
     await execRemoteCommand(target);
     expect(state.connectCount).toBe(1);
   });

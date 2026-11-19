@@ -1,3 +1,4 @@
+import { CommandCancellationUnconfirmedError } from "../cancellation-error";
 import { afterEach, beforeEach, describe, expect, it, vi } from "vitest";
 
 const mocks = vi.hoisted(() => ({
@@ -261,14 +262,13 @@ describe("executeTarget", () => {
     expect(mocks.executeCommandOverSsh).toHaveBeenCalledWith(expect.objectContaining({ password: " exact " }));
   });
 
-  it("flags the target outcome-unknown and never falls back to SSH when the Agent cannot confirm a stop", async () => {
+  it.each([new CommandCancellationUnconfirmedError(), new Error("result lookup disconnected")])("flags an unconfirmed Agent outcome and prevents SSH replay (%s)", async (error) => {
     mocks.prisma.commandTarget.findUnique.mockResolvedValue({
       id: "target-1",
       status: "RUNNING",
       commandRequest: { status: "RUNNING", approvals: [] },
     });
-    const { CommandCancellationUnconfirmedError } = await import("@/lib/command/cancellation-error");
-    mocks.executeCommandWithAgent.mockRejectedValue(new CommandCancellationUnconfirmedError());
+    mocks.executeCommandWithAgent.mockRejectedValue(error);
     mocks.prisma.commandTarget.updateMany.mockResolvedValue({ count: 1 });
     mocks.prisma.executionLog.create.mockResolvedValue({});
 

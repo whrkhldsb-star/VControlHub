@@ -15,7 +15,6 @@ import { executeCommandOverSsh, getCommandRuntimeConfigValues } from "./service-
 import { executeCommandWithAgent } from "@/lib/server/agent-service";
 import { assertRequesterMayExecuteCommand } from "@/lib/auth/command-execution-authz";
 import { CommandCancellationStateUnknownError, monitorCommandCancellation } from "./cancellation";
-import { CommandCancellationUnconfirmedError } from "./cancellation-error";
 
 export { executeCommandOverSsh, getCommandRuntimeConfigValues, setPasswordExecutorMode } from "./service-ssh";
 
@@ -181,9 +180,9 @@ export async function executeTarget(
         stderr: error instanceof Error ? error.message : "Agent execution failed",
         exitCode: 255,
         cancelled: false,
-        // The Agent took the job and never confirmed it stopped: the command
-        // may still be running remotely. Never fall back or retry on that.
-        outcomeUnknown: error instanceof CommandCancellationUnconfirmedError,
+        // A failed database read or commit acknowledgement can lose the result
+        // of a job already running. Playbook retries need proof it stopped.
+        outcomeUnknown: true,
       };
     });
     if (result) await prisma.executionLog.create({

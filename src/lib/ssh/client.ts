@@ -865,6 +865,20 @@ export async function execRemoteCommand(
    // acknowledgement must never execute the operation a second time over SSH.
    if (usesAgentOnly(input)) throw new BusinessError(t("backend.server.agentOfflineNoFallback"));
    if (!input.hostKeySha256) throw new BusinessError(t("backend.ssh.hostKeyNotPinned"));
+   // The node could have changed while its Agent job was pending. Verify the
+   // saved endpoint and credential again before opening a fallback connection.
+   const { prisma } = await import("@/lib/db");
+   const { SSH_CONNECTION_SERVER_SELECT } = await import("./server-connection-select");
+   const current = await prisma.server.findUnique({
+     where: { id: input.agentServerId, enabled: true, managementMode: "AGENT", host: input.host,
+       port: input.port, username: input.username, hostKeySha256: input.hostKeySha256 },
+     select: SSH_CONNECTION_SERVER_SELECT,
+   });
+   if (!current) throw new BusinessError(t("backend.command.connectionChanged"));
+   const login = await buildSshParamsFromServer(current, current.sshKey);
+   if (login.password !== input.password || login.privateKey !== input.privateKey || login.passphrase !== input.passphrase) {
+     throw new BusinessError(t("backend.command.connectionChanged"));
+   }
  }
  if (!shouldPoolSsh(input)) {
    const client = await waitForSshResource(connectSsh(createSshConfig(input)), input.signal, (client) => { client.end(); });
