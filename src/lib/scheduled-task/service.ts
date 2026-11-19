@@ -557,6 +557,7 @@ export async function recordTaskRun(
 	id: string,
 	result: string,
 	outcome: ScheduledTaskRunOutcome = "completed",
+	expected?: { nextRunAt: Date | null; claimedOccurrenceAt: Date | null },
 ) {
 	const task = await prisma.scheduledTask.findUnique({
 		where: { id },
@@ -564,6 +565,18 @@ export async function recordTaskRun(
 	});
 	if (!task) return;
 
+	const data = {
+		lastRunAt: new Date(),
+		lastResult: result,
+		runCount: { increment: 1 },
+		claimedOccurrenceAt: null,
+		nextRunAt: task.scheduleType === "ONCE" ? null : computeNextRun(task.cronExpression),
+		...(task.scheduleType === "ONCE" ? { status: "DISABLED" as const } : {}),
+	};
+	const recorded = expected
+		? await prisma.scheduledTask.updateMany({ where: { id, status: "ACTIVE", ...expected }, data })
+		: await prisma.scheduledTask.update({ where: { id }, data });
+	if ("count" in recorded && !recorded.count) return;
 	// Detect consecutive failures and notify the creator. Failure comes from
 	// the structured `outcome` (current run) + ScheduledTaskRun.status
 	// (previous run) — not from parsing the localised result string.
@@ -575,15 +588,5 @@ export async function recordTaskRun(
 		}
 	}
 
-	return prisma.scheduledTask.update({
-		where: { id },
-		data: {
-			lastRunAt: new Date(),
-			lastResult: result,
-			runCount: task.runCount + 1,
-			claimedOccurrenceAt: null,
-			nextRunAt: task.scheduleType === "ONCE" ? null : computeNextRun(task.cronExpression),
-			...(task.scheduleType === "ONCE" ? { status: "DISABLED" as const } : {}),
-		},
-	});
+	return recorded;
 }

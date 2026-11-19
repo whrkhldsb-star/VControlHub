@@ -185,7 +185,7 @@ const { enqueueDownloadExecutionJobMock } = vi.hoisted(() => {
     const { prisma } = await import("@/lib/db");
     const task = await prisma.downloadTask.findUnique({
       where: { id: taskId },
-      include: { server: { include: { sshKey: true, storageNode: true } } },
+      include: { server: { include: { sshKey: true, storageNode: true, agentFileShares: { select: { node: true } } } } },
     });
     // Build a DownloadServer shape that mirrors what the real worker (and
     // the old fire-and-forget route) would pass. The route-test mocks aria2
@@ -366,7 +366,7 @@ describe("/api/downloads", () => {
         const { prisma } = await import("@/lib/db");
         const task = await prisma.downloadTask.findUnique({
           where: { id: taskId },
-          include: { server: { include: { sshKey: true, storageNode: true } } },
+          include: { server: { include: { sshKey: true, storageNode: true, agentFileShares: { select: { node: true } } } } },
         });
         const serverForExec = task?.server
           ? {

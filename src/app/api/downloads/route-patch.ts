@@ -1,3 +1,4 @@
+import { resolveTaskDrive } from "@/lib/downloads/destination";
 import { NextResponse } from "next/server";
 import { z } from "zod";
 import { prisma } from "@/lib/db";
@@ -76,8 +77,8 @@ export async function PATCH(request: Request) {
       const teamFilter = teamAccessFilter(session);
       const task = await prisma.downloadTask.findFirst({
         where: { id: taskId, ...(teamFilter ?? {}) },
-        include: { server: { include: { sshKey: true, storageNode: true } } },
-      });
+        include: { server: { include: { sshKey: true, storageNode: true, agentFileShares: { select: { node: true } } } } },
+      }).then(row => row ? resolveTaskDrive(row) : null);
       if (!task)
         throw new NotFoundError(t("apiDownloads.taskNotFound", locale));
       if (!(await canAccessDownloadTask({ session, task, operation: "write" }))) {

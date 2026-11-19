@@ -228,9 +228,11 @@ export function DownloadsClient({ servers, canManage, canManageNode }: { servers
 		}
 		setSubmitting(true);
 		try {
+			const destination = servers.find(server => server.id === form.serverId);
 			const payload: Record<string, unknown> = {
 				url: isBatch ? batchUrls?.[0] ?? "" : form.url,
-				serverId: form.serverId, targetPath: form.targetPath,
+				serverId: destination?.serverId ?? form.serverId,
+				storageNodeId: destination?.storageNodeId, targetPath: form.targetPath,
 				fileName: form.fileName || undefined, category: form.category || undefined,
 				maxSpeedKb: form.maxSpeedKb ? parseInt(form.maxSpeedKb, 10) : undefined,
 				isBatch, batchUrls,
@@ -269,7 +271,7 @@ export function DownloadsClient({ servers, canManage, canManageNode }: { servers
 				}
 				const payload: Record<string, unknown> = {
 					url: task.url,
-					serverId: task.serverId,
+					serverId: task.serverId, storageNodeId: task.agentStorageNodeId ?? task.server.storageNode?.id,
 					targetPath: task.targetPath,
 					...(task.fileName ? { fileName: task.fileName } : {}),
 					...(task.category ? { category: task.category } : {}),

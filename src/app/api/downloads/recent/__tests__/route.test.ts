@@ -48,7 +48,7 @@ describe("GET /api/downloads/recent", () => {
       where: {
         status: "COMPLETED",
         teamId: "team_1",
-        server: { storageNode: { isNot: null } },
+        OR: [{ server: { storageNode: { isNot: null } } }, { agentStorageNodeId: { not: null } }],
       },
       orderBy: { updatedAt: "desc" },
     }));

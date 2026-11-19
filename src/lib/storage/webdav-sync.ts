@@ -13,11 +13,11 @@ const logger = createLogger("storage.webdav-sync");
 const WRITE_BATCH_SIZE = 500;
 const inventorySelect = {
   id: true, relativePath: true, isDeleted: true,
-  name: true, entryType: true, mimeType: true, size: true,
+  name: true, entryType: true, mimeType: true, size: true, storageVersion: true, checksumSha256: true,
 } as const;
 type IndexedEntry = {
   id: string; relativePath: string; isDeleted: boolean;
-  name: string; entryType: string; mimeType: string | null; size: bigint | null;
+  name: string; entryType: string; mimeType: string | null; size: bigint | null; storageVersion: string | null; checksumSha256: string | null;
 };
 
 export async function getWebDavSyncNode(nodeId: string, session: Pick<SessionPayload, "userId" | "roles" | "currentTeamId">) {
@@ -50,18 +50,22 @@ export async function syncWebDavDirectoryEntries(input: { node: WebDavStorageNod
         name: entry.name, entryType: entry.isDirectory ? "DIRECTORY" as const : "FILE" as const,
         mimeType: entry.isDirectory ? "inode/directory" : guessMimeType(entry.name),
         size: entry.isDirectory ? null : BigInt(entry.size),
+        storageVersion: entry.isDirectory ? null : entry.etag ?? (entry.lastModifiedMs ? String(entry.lastModifiedMs) : null),
       });
       const syncExisting = async (existing: IndexedEntry, entry: (typeof entries)[number]) => {
         if (existing.isDeleted) return;
         const data = dataFor(entry);
-        if (existing.name === data.name && existing.entryType === data.entryType &&
+        const sameVersion = (existing.storageVersion ?? null) === data.storageVersion;
+        const invalidate = existing.size !== data.size || existing.entryType !== data.entryType ||
+          (!sameVersion || !data.storageVersion) && Boolean(existing.checksumSha256);
+        if (!invalidate && sameVersion && existing.name === data.name && existing.entryType === data.entryType &&
             existing.mimeType === data.mimeType && existing.size === data.size) {
           counts.synced += 1;
           return;
         }
         // Predicate guards against recycle-bin races; never write isDeleted=false here.
         // Another size is other content: a checksum recorded for the old bytes goes with it.
-        const updated = await tx.fileEntry.updateMany({ where: { id: existing.id, isDeleted: false }, data: data.entryType === "FILE" && existing.size !== data.size ? { ...data, checksumSha256: null } : data });
+        const updated = await tx.fileEntry.updateMany({ where: { id: existing.id, isDeleted: false }, data: invalidate ? { ...data, checksumSha256: null } : data });
         counts.updated += updated.count;
         counts.synced += updated.count;
       };

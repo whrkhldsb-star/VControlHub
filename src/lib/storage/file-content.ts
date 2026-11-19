@@ -361,9 +361,10 @@ function sftpAtomicRename(sftp: import("ssh2").SFTPWrapper, from: string, to: st
  * Stores a staged upload (`sourcePath`) as `relativePath` on the node. The source is its caller's to discard:
  * on a local node it is moved into place when it is on the same filesystem, so it may be gone afterwards.
  */
-export async function writeStorageFileFromLocalPath(node: StorageFileNode, relativePath: string, sourcePath: string, agentUpload?: { checksum: string; beforePublish: () => Promise<void> }) {
+export async function writeStorageFileFromLocalPath(node: StorageFileNode, relativePath: string, sourcePath: string, upload?: { checksum: string; beforePublish: () => Promise<void>; onVersion?: (version: string | null) => void }) {
   if (node.driver === "AGENT") {
-    await createAgentFileClient(node.id).writeLocal(relativePath, sourcePath, agentUpload?.checksum, agentUpload?.beforePublish);
+    const version = await createAgentFileClient(node.id).writeLocal(relativePath, sourcePath, upload?.checksum, upload?.beforePublish);
+    upload?.onVersion?.(version);
     return relativePath;
   }
   if (node.driver === "LOCAL") {
@@ -380,6 +381,7 @@ export async function writeStorageFileFromLocalPath(node: StorageFileNode, relat
       // The assembled upload is 0600 in the temp dir; a move or copyFile keeps that, and a
       // web root served by another account then answered 403 (A4-01).
       await matchDirectoryMode(temporaryPath, path.dirname(resolved.path));
+      if (upload?.onVersion) upload.onVersion(String((await statFile(temporaryPath)).mtimeMs));
       await rename(temporaryPath, resolved.path);
       return resolved.path;
     } finally { await rm(temporaryPath, { force: true }).catch(() => undefined); }
@@ -402,6 +404,10 @@ export async function writeStorageFileFromLocalPath(node: StorageFileNode, relat
       const { size } = await statFile(sourcePath);
       source = createReadStream(sourcePath, { highWaterMark: 64 * 1024 });
       await client.writeStream(temporaryRelativePath, Readable.toWeb(source) as ReadableStream<Uint8Array>, size);
+      if (upload?.onVersion) {
+        const staged = await client.stat(temporaryRelativePath);
+        upload.onVersion(staged?.etag ?? (staged?.lastModifiedMs ? String(staged.lastModifiedMs) : null));
+      }
       await client.rename(temporaryRelativePath, relativePath, true);
       return relativePath;
     } catch (error) { await client.delete(temporaryRelativePath).catch(() => undefined); throw error; }
@@ -428,6 +434,13 @@ export async function writeStorageFileFromLocalPath(node: StorageFileNode, relat
         if (error) return reject(error);
         // 0644 like a plain upload or editor save; the server's umask still applies (A4-01).
         pipeline(createReadStream(sourcePath, { highWaterMark: 64 * 1024 }), sftp.createWriteStream(temporaryPath, { flags: "wx", mode: 0o644 }))
+          .then(async () => {
+            if (upload?.onVersion) {
+              const attrs = await new Promise<import("ssh2").Stats>((resolveStat, rejectStat) =>
+                sftp.stat(temporaryPath, (err, stat) => err ? rejectStat(err) : resolveStat(stat)));
+              upload.onVersion(attrs.mtime ? String(attrs.mtime * 1000) : null);
+            }
+          })
           .then(() => sftpAtomicRename(sftp, temporaryPath, destination))
           .then(resolve, reject);
       }));

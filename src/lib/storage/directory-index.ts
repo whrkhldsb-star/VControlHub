@@ -9,6 +9,8 @@ export type DirectoryIndexEntry = {
   entryType: "FILE" | "DIRECTORY";
   mimeType: string | null;
   size: bigint | null;
+  storageVersion: string | null;
+  checksumSha256: string | null;
   updatedAt: Date;
 };
 
@@ -22,7 +24,7 @@ export async function* readDirectoryIndex(
   let cursor: string | undefined;
   for (;;) {
     const rows: DirectoryIndexEntry[] = await client.$queryRaw(Prisma.sql`
-      SELECT id, "relativePath", "isDeleted", name, "entryType", "mimeType", size, "updatedAt"
+      SELECT id, "relativePath", "isDeleted", name, "entryType", "mimeType", size, "updatedAt", "storageVersion", "checksumSha256"
       FROM file_entries WHERE "storageNodeId" = ${nodeId}
         AND starts_with("relativePath", ${prefix})
         AND substring("relativePath" from length(${prefix}::text) + 1) <> ''

@@ -169,7 +169,7 @@ describe("WebDAV inventory sync", () => {
     mocks.queryRaw.mockResolvedValueOnce([row("folder-id", "folder")]);
     const result = await syncWebDavDirectoryEntries({ node });
     expect(result.synced).toBe(1);
-    expect(mocks.fileEntry.updateMany).toHaveBeenCalledWith({ where: { id: "folder-id", isDeleted: false }, data: { name: "folder", entryType: "DIRECTORY", mimeType: "inode/directory", size: null } });
+    expect(mocks.fileEntry.updateMany).toHaveBeenCalledWith({ where: { id: "folder-id", isDeleted: false }, data: { name: "folder", entryType: "DIRECTORY", mimeType: "inode/directory", size: null, storageVersion: null, checksumSha256: null } });
   });
 
   it("keeps a large unchanged inventory write-free across read pages", async () => {

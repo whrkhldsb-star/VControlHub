@@ -178,3 +178,55 @@ func TestDirectoryPermissions(t *testing.T) {
 		}
 	}
 }
+
+func TestCopyRollbackKeepsChangedTargetAndOriginalBackup(t *testing.T) {
+	dir := t.TempDir()
+	root, err := os.OpenRoot(dir)
+	if err != nil {
+		t.Fatal(err)
+	}
+	defer root.Close()
+	for name, body := range map[string]string{"draft": "new", "current": "old"} {
+		if err := os.WriteFile(filepath.Join(dir, name), []byte(body), 0600); err != nil {
+			t.Fatal(err)
+		}
+	}
+	s := share{root: root, writable: true, namespace: "copy fixture"}
+	op := operation{Op: "copy-step", CopyID: digest([]byte("test operation")), Path: "current", Destination: "draft"}
+	do := func(step string) result {
+		t.Helper()
+		op.Step = step
+		out, err := s.handle(op)
+		if err != nil {
+			t.Fatal(step, err)
+		}
+		return out
+	}
+	if do("stage").Offset != 3 {
+		t.Fatal("copy size")
+	}
+	do("backup")
+	op.Version = do("promote").Entry.Version
+	if err := os.WriteFile(filepath.Join(dir, "current"), []byte("edited locally"), 0600); err != nil {
+		t.Fatal(err)
+	}
+	op.Step = "rollback"
+	if _, err = s.handle(op); !errors.Is(err, changed) {
+		t.Fatalf("unexpected rollback result: %v", err)
+	}
+	if do("has-backup").Offset != 1 {
+		t.Fatal("lost original backup")
+	}
+	got, err := os.ReadFile(filepath.Join(dir, "current"))
+	if err != nil || string(got) != "edited locally" {
+		t.Fatal("lost edited destination")
+	}
+	if err := os.Remove(filepath.Join(dir, "current")); err != nil {
+		t.Fatal(err)
+	}
+	do("restore")
+	got, err = os.ReadFile(filepath.Join(dir, "current"))
+	if err != nil || string(got) != "old" {
+		t.Fatal("restore did not recover original file")
+	}
+}

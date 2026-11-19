@@ -72,7 +72,7 @@ export function taskDownloadAccess(task: {
   if (!storageNode || !relativePath) return null;
 
   const strategy = buildDirectAccessStrategy({
-    driver: storageNode.driver === "SFTP" ? "SFTP" : "LOCAL",
+    driver: storageNode.driver ?? "LOCAL",
     nodeId: storageNode.id,
     host: storageNode.host,
     port: storageNode.port,
@@ -90,7 +90,7 @@ export function taskDownloadAccess(task: {
   const isDirect = strategy.mode === "direct-url";
   const host = storageNode.host ?? "unknown";
   const port = storageNode.port ?? 22;
-  const description = storageNode.driver !== "SFTP"
+  const description = storageNode.driver === "AGENT" ? strategy.description : storageNode.driver !== "SFTP"
     ? t("downloadsPage.access.localDesc", locale)
     : isDirect
       ? t(storageNode.directAccessMode === "AUTO" ? "downloadsPage.access.directAutoDesc" : "downloadsPage.access.directModeDesc", locale, { host, port })

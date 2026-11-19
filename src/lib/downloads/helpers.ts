@@ -51,7 +51,7 @@ export function relativePathFromDownloadTarget(
  const base = resolveDownloadTargetPath(basePath, "");
  const fullPath = toRemoteChildPath(targetPath, fileName);
  const relative = path.posix.relative(base, fullPath);
- if (!relative || relative.startsWith("..") || path.posix.isAbsolute(relative)) {
+ if (!relative || (relative === ".." || relative.startsWith("../")) || path.posix.isAbsolute(relative)) {
   return null;
  }
  return relative;

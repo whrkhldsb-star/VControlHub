@@ -1,3 +1,4 @@
+import { resolveTaskDrive, downloadDriveSelect } from "@/lib/downloads/destination";
 import { NextResponse } from "next/server";
 import { z } from "zod";
 import { prisma } from "@/lib/db";
@@ -50,7 +51,7 @@ export async function GET(request: Request) {
       const taskRows = await prisma.downloadTask.findMany({
         where,
         include: {
-          server: { select: { id: true, name: true, host: true, storageNode: { select: { id: true, basePath: true, driver: true, host: true, port: true, directAccessMode: true, publicBaseUrl: true, directAccessExpiresSeconds: true } } } },
+          server: { select: { id: true, name: true, host: true, storageNode: { select: downloadDriveSelect }, agentFileShares: { select: { node: { select: downloadDriveSelect } } } } },
           creator: { select: { id: true, username: true, displayName: true } },
         },
         orderBy: [{ createdAt: "desc" }, { id: "desc" }],
@@ -58,7 +59,7 @@ export async function GET(request: Request) {
         ...(cursor ? { cursor: { id: cursor }, skip: 1 } : {}),
       });
       const hasMore = taskRows.length > DOWNLOAD_PAGE_SIZE;
-      const tasks = taskRows.slice(0, DOWNLOAD_PAGE_SIZE);
+      const tasks = taskRows.slice(0, DOWNLOAD_PAGE_SIZE).map(resolveTaskDrive);
       const nextCursor = hasMore ? (tasks.at(-1)?.id ?? null) : null;
 
       // Parallel ACL checks (still bounded by one page) — sequential awaits made

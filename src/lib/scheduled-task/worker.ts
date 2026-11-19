@@ -104,8 +104,9 @@ async function dispatchDueTask(task: {
   /** Propagate parent ScheduledTask.teamId so the spawned CommandRequest is not global (null = shared). */
   teamId: string | null;
 }): Promise<boolean> {
+  const expected = { nextRunAt: task.nextRunAt, claimedOccurrenceAt: task.claimedOccurrenceAt ?? null };
   if (task.serverIds.length === 0 || !task.createdById) {
-    await recordTaskRun(task.id, t("backend.scheduled-task.skippedMissingTargetOrCreator"), "skipped");
+    await recordTaskRun(task.id, t("backend.scheduled-task.skippedMissingTargetOrCreator"), "skipped", expected);
     return false;
   }
 
@@ -126,7 +127,7 @@ async function dispatchDueTask(task: {
     await recordTaskRun(
       task.id,
       t("backend.scheduled-task.skippedRequesterNotAuthorized", { reason: authz.reason }),
-      "skipped",
+      "skipped", expected,
     );
     logger.warn("Scheduled task skipped: requester no longer authorized", {
       taskId: task.id,
@@ -281,7 +282,9 @@ export async function dispatchDueScheduledTasks(reason: string) {
       try {
         // Structured "failed" outcome — the prefix on this string is display
         // copy only; failure detection must never parse it (see recordTaskRun).
-        await recordTaskRun(task.id, `Execution failed: ${message}`, "failed");
+        await recordTaskRun(task.id, `Execution failed: ${message}`, "failed", {
+          nextRunAt: task.claimedOccurrenceAt ?? task.nextRunAt, claimedOccurrenceAt: null,
+        });
       } catch (recordError) {
         logger.error("Failed to record scheduled task run after failure", {
           reason,

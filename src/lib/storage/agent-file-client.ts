@@ -28,10 +28,10 @@ function checkedPath(path: string) {
     throw bad();
   return path;
 }
-export function createAgentFileClient(nodeId: string) {
+export function createAgentFileClient(nodeId: string, serverId?: string) {
   let channel: ReturnType<typeof getFileChannel> | undefined;
   async function call(op: string, path: string, fields: Record<string, string | boolean | number> = {}) {
-    channel ??= getFileChannel(nodeId);
+    channel ??= getFileChannel(nodeId, serverId);
     return callFileAgent(nodeId, await channel, { op, path: checkedPath(path), ...fields });
   }
   async function stat(path: string): Promise<WebDavEntry | null> {
@@ -119,10 +119,16 @@ export function createAgentFileClient(nodeId: string) {
       if (reply.offset !== offset) throw bad();
     }
     await beforePublish?.();
-    await call("publish", path, common);
+    const published = await call("publish", path, common);
+    return published.entry ? row.parse(published.entry).etag : null;
   }
   return {
     stat,
+    async matches(path: string, size: number, checksum: string) {
+      const entry = await stat(path);
+      return !!entry?.etag && !entry.isDirectory && entry.size === size &&
+        (await call("checksum", path, { version: entry.etag })).digest === checksum;
+    },
     stream,
     async list(path = ""): Promise<WebDavEntry[]> {
       const entries = z
@@ -153,7 +159,7 @@ export function createAgentFileClient(nodeId: string) {
           for await (const chunk of f.createReadStream({ autoClose: false })) hash.update(chunk);
           checksum = hash.digest("hex");
         }
-        await upload(
+        return await upload(
           path,
           size,
           checksum,
@@ -172,6 +178,11 @@ export function createAgentFileClient(nodeId: string) {
       } finally {
         await f.close();
       }
+    },
+    async copyStep(target: string, copyId: string, step: string, source?: string, version?: string) {
+      const reply = await call("copy-step", target, { copyId, step, ...(version ? { version } : {}), ...(source ? { destination: checkedPath(source) } : {}) });
+      if (typeof reply.offset !== "number" || !Number.isSafeInteger(reply.offset) || reply.offset < 0) throw bad();
+      return { offset: reply.offset, version: reply.entry ? row.parse(reply.entry).etag : undefined };
     },
     async mkdir(path: string) {
       await call("mkdir", path);

@@ -635,6 +635,7 @@ model UserStorageAccess {
 }
 
 model FileEntry {
+  storageVersion String?
   id             String           @id @default(cuid())
   name           String
   entryType      FileEntryType
@@ -1274,6 +1275,8 @@ model SyncLog {
 }
 
 model DownloadTask {
+  /// Pins the selected Agent drive even if the server is later rebound. Null uses the legacy server drive.
+  agentStorageNodeId String?
   id           String             @id @default(cuid())
   url          String
   serverId     String

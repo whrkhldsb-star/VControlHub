@@ -1,3 +1,4 @@
+import { streamRemoteDriveArchive } from "@/lib/storage/remote-archive";
 import { openManagedArchive } from "@/lib/storage/archive-access";
 import { apiCopy } from "@/lib/i18n/api-copy";
 import { getServerLocale, t } from "@/lib/i18n/translations";
@@ -47,6 +48,7 @@ type DirectoryEntry = {
     name: string;
     driver: string;
     basePath: string;
+    webdavConfigEncrypted: string | null;
     host: string | null;
     port: number | null;
     username: string | null;
@@ -87,6 +89,7 @@ async function findDirectoryEntry(
           name: true,
           driver: true,
           basePath: true,
+          webdavConfigEncrypted: true,
           host: true,
           port: true,
           username: true,
@@ -153,6 +156,14 @@ export async function GET(request: Request) {
       const stream = await openManagedArchive({
         storageNodeId: entry.storageNode.id, relativePath: entry.relativePath, signal: request.signal,
         open: (excluded) => streamLocalTarGz(resolved.path, path.basename(resolved.path), excluded),
+      });
+      return archiveStreamResponse(stream, archiveName);
+    }
+
+    if (entry.storageNode.driver === "AGENT" || entry.storageNode.driver === "WEBDAV") {
+      const stream = await openManagedArchive({
+        storageNodeId: entry.storageNode.id, relativePath: entry.relativePath, signal: request.signal,
+        open: excluded => streamRemoteDriveArchive(entry.storageNode, entry.relativePath, excluded, session, request.signal),
       });
       return archiveStreamResponse(stream, archiveName);
     }

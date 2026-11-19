@@ -40,6 +40,7 @@ async function upsertLocalEntry(input: {
   relativePath: string;
   entryType: "DIRECTORY" | "FILE";
   size: bigint | null;
+  storageVersion: string | null;
 }, existing: DirectoryIndexEntry) {
   const data = {
     name: input.name,
@@ -52,12 +53,13 @@ async function upsertLocalEntry(input: {
   };
   // A recycle-bin row must stay deleted while its backing object still exists.
   if (existing.isDeleted) return 0;
-  if (existing.name === data.name && existing.entryType === data.entryType &&
+  const contentChanged = existing.size !== data.size || Boolean(existing.checksumSha256 && (!input.storageVersion || input.storageVersion !== existing.storageVersion));
+  if (!contentChanged && existing.name === data.name && existing.entryType === data.entryType &&
       existing.mimeType === data.mimeType && existing.size === data.size) return 0;
   const updated = await prisma.fileEntry.updateMany({
     where: { id: existing.id, isDeleted: false, updatedAt: existing.updatedAt },
     // Another size is other content: a checksum recorded for the old bytes no longer describes the file.
-    data: data.entryType === "FILE" && existing.size !== data.size ? { ...data, checksumSha256: null } : data,
+    data: contentChanged ? { ...data, checksumSha256: null, storageVersion: null } : data,
   });
   return updated.count;
 }
@@ -153,11 +155,13 @@ export async function syncLocalDirectoryEntries(input: {
     }
 
     let size: bigint | null = null;
+    let storageVersion: string | null = null;
     if (entry.isFile()) {
       try {
         const fileStat = await stat(absolutePath.path);
         if (!fileStat.isFile()) continue;
         size = BigInt(fileStat.size);
+        storageVersion = String(fileStat.mtimeMs);
       } catch (error) {
         const message = error instanceof Error ? error.message : "Unknown error";
         result.errors.push(`Reading ${relativePath.path} failed: ${message}`);
@@ -173,7 +177,7 @@ export async function syncLocalDirectoryEntries(input: {
         name: entry.name,
         relativePath: relativePath.path,
         entryType: entry.isDirectory() ? "DIRECTORY" as const : "FILE" as const,
-        size,
+        size, storageVersion,
       };
       const existing = indexed.get(relativePath.path);
       if (existing) {

@@ -14,6 +14,7 @@ vi.mock("@/lib/auth/command-execution-authz", () => ({
   assertRequesterMayExecuteCommand: vi.fn(async () => ({ ok: true })),
 }));
 
+import { BusinessError } from "@/lib/errors";
 import { prisma } from "@/lib/db";
 import { oneFileAtATime } from "@/test/helpers/one-file-at-a-time";
 import { dispatchDueScheduledTasks } from "../worker";
@@ -44,7 +45,7 @@ describe.skipIf(process.env.RUN_DATABASE_INTEGRATION_TESTS !== "1")("scheduled-t
     });
   }
 
-  it("keeps a ONCE task rescheduled while it was being dispatched", async () => {
+  it.each([false, true])("keeps a rescheduled ONCE task when its previous dispatch failed=%s", async (failed) => {
     const due = new Date(Date.now() - 60_000);
     const later = new Date(Date.now() + 3_600_000);
     const task = await prisma.scheduledTask.create({
@@ -53,6 +54,7 @@ describe.skipIf(process.env.RUN_DATABASE_INTEGRATION_TESTS !== "1")("scheduled-t
     createCommandRequest.mockImplementationOnce(async () => {
       // What updateScheduledTask writes when the run time is changed.
       await prisma.scheduledTask.update({ where: { id: task.id }, data: { runAt: later, nextRunAt: later, claimedOccurrenceAt: null, status: "ACTIVE" } });
+      if (failed) throw new BusinessError("disabled target");
       return createRequest();
     });
 
@@ -61,7 +63,7 @@ describe.skipIf(process.env.RUN_DATABASE_INTEGRATION_TESTS !== "1")("scheduled-t
     const after = await prisma.scheduledTask.findUniqueOrThrow({ where: { id: task.id } });
     expect(after.status).toBe("ACTIVE");
     expect(after.nextRunAt?.toISOString()).toBe(later.toISOString());
-    expect(after.runCount).toBe(1);
+    expect(after.runCount).toBe(failed ? 0 : 1);
   });
 
   it("still closes a ONCE task that nobody edited", async () => {

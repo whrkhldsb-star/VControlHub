@@ -1,3 +1,5 @@
+import { Prisma } from "@prisma/client";
+import { resolveTaskDrive } from "@/lib/downloads/destination";
 import { NextResponse } from "next/server";
 import { z } from "zod";
 import { prisma } from "@/lib/db";
@@ -45,8 +47,8 @@ export async function DELETE(request: Request) {
       const teamFilter = teamAccessFilter(session);
       const task = await prisma.downloadTask.findFirst({
         where: { id: taskId, ...(teamFilter ?? {}) },
-        include: { server: { include: { sshKey: true, storageNode: true } } },
-      });
+        include: { server: { include: { sshKey: true, storageNode: true, agentFileShares: { select: { node: true } } } } },
+      }).then(row => row ? resolveTaskDrive(row) : null);
       if (!task)
         throw new NotFoundError(t("apiDownloads.taskNotFound", locale));
       if (!(await canAccessDownloadTask({ session, task, operation: "delete" }))) {
@@ -89,12 +91,22 @@ export async function DELETE(request: Request) {
         return NextResponse.json({ success: true });
       };
 
+      // Once the immutable manifest is committed, the verified files are being
+      // published. Cancellation and journaling compete on this same row.
+      if (task.agentStorageNodeId && task.transferManifest) {
+        return NextResponse.json({ error: t("apiDownloads.finishingTransfer", locale) }, { status: 409 });
+      }
+      if (task.agentStorageNodeId && !task.aria2Gid) {
+        const marked = await prisma.downloadTask.updateMany({ where: { id: taskId, transferManifest: { equals: Prisma.DbNull }, status: { in: ["PENDING", "RUNNING"] } }, data: cancelledData });
+        if (!marked.count) return NextResponse.json({ error: t("apiDownloads.taskNoLongerActive", locale) }, { status: 409 });
+        return finishCancel();
+      }
       if (task.aria2Gid) {
         // Mark first, then remove (A5-02): the relay worker polls aria2 every
         // 5 s and used to see "removed" before this CAS ran, fail the task, send
         // a failure notice, and leave this request with a 409.
         const marked = await prisma.downloadTask.updateMany({
-          where: { id: taskId, status: { in: ["PENDING", "RUNNING"] } },
+          where: { id: taskId, ...(task.agentStorageNodeId ? { transferManifest: { equals: Prisma.DbNull } } : {}), status: { in: ["PENDING", "RUNNING"] } },
           data: cancelledData,
         });
         if (marked.count === 0) {
