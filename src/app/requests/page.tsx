@@ -12,6 +12,7 @@ import { PageShell, PageHeader, StatCard, StatGrid, EmptyState, ListPanel } from
 import { StatusBadge } from "@/components/status-badge";
 import { Badge, type BadgeTone } from "@/components/ui-primitives";
 import { getServerLocale, t } from "@/lib/i18n/translations";
+import { ExecutionEvidence } from "@/components/execution-evidence";
 import { formatDateTime } from "@/lib/datetime/format";
 import { getDomainStatusLabel } from "@/lib/i18n/domain-labels";
 import { PaginatedList } from "@/components/paginated-list";
@@ -109,8 +110,11 @@ export default async function RequestsPage() {
 										<div className="space-y-1.5">
 											{request.targets.map((target: (typeof request.targets)[number]) => (
 												<InfoItem key={target.id}>
-													<div className="text-sm font-medium text-[var(--text-primary)]">{target.server.name}</div>
-											<div className="text-xs text-[var(--text-muted)]">{target.server.host}:{target.server.port} · {getDomainStatusLabel((key) => t(key, locale), target.status)}</div>
+													<div className="text-sm font-medium text-[var(--text-primary)]">{target.server?.name ?? target.id}</div>
+											<div className="text-xs text-[var(--text-muted)]">{target.server && `${target.server.host}:${target.server.port} · `}{getDomainStatusLabel((key) => t(key, locale), target.status)}</div>
+												<ExecutionEvidence target={target} translate={(key) => t(key, locale)} />
+												{target.status === "COMPLETED" && !target.outcomeUnknown && target.finishedAt &&
+													<p className="text-xs text-[var(--text-muted)]">{t("serverOverviewDetails.success.command", locale)} · {formatDateTime(target.finishedAt, locale)}</p>}
 												</InfoItem>
 											))}
 										</div>

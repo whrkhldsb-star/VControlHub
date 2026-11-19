@@ -117,6 +117,21 @@ function mapCommandRequest(
     executionLogs: Array<Record<string, unknown>>;
   },
 ) {
+  const targets = request.targets.map((target) => {
+    const server = target.server as { id: string; name: string; host: string; port: number; teamId: string | null } | undefined;
+    const visible = server && server.teamId === request.teamId;
+    return {
+      id: target.id as string,
+      status: target.status as string,
+      executionChannel: (target.executionChannel as string | null) ?? null,
+      fallbackReason: (target.fallbackReason as string | null) ?? null,
+      outcomeUnknown: target.outcomeUnknown === true,
+      server: visible ? { id: server.id, name: server.name, host: server.host, port: server.port } : null,
+      finishedAt: target.finishedAt instanceof Date ? target.finishedAt.toISOString() : target.finishedAt as string | undefined,
+      createdAt: target.createdAt instanceof Date ? target.createdAt.toISOString() : target.createdAt as string | undefined,
+      updatedAt: target.updatedAt instanceof Date ? target.updatedAt.toISOString() : target.updatedAt as string | undefined,
+    };
+  });
   return {
     id: request.id,
     title: request.title,
@@ -152,35 +167,7 @@ function mapCommandRequest(
           a.createdAt instanceof Date ? a.createdAt.toISOString() : a.createdAt,
       }),
     ),
-    targets: request.targets.map(
-      (
-        t: Record<string, unknown> & {
-          finishedAt?: Date | string;
-          createdAt?: Date | string;
-          updatedAt?: Date | string;
-          id?: string;
-          status?: string;
-          server?: { id: string; name: string; host: string; port: number };
-        },
-      ) => ({
-        id: t.id as string,
-        status: t.status as string,
-        server: t.server as {
-          id: string;
-          name: string;
-          host: string;
-          port: number;
-        },
-        finishedAt:
-          t.finishedAt instanceof Date
-            ? t.finishedAt.toISOString()
-            : t.finishedAt,
-        createdAt:
-          t.createdAt instanceof Date ? t.createdAt.toISOString() : t.createdAt,
-        updatedAt:
-          t.updatedAt instanceof Date ? t.updatedAt.toISOString() : t.updatedAt,
-      }),
-    ),
+    targets,
     executionLogs: request.executionLogs.map(
       (
         log: Record<string, unknown> & {
@@ -211,14 +198,7 @@ function mapCommandRequest(
           : request.status === "REJECTED"
             ? t("backend.command.approvalState.rejected")
             : request.status,
-    targetSummary: request.targets.map(
-      (
-        target: Record<string, unknown> & {
-          server?: { name: string };
-          status?: string;
-        },
-      ) => `${(target.server as { name: string })?.name} · ${target.status}`,
-    ),
+    targetSummary: targets.map((target) => `${target.server?.name ?? target.id} · ${target.status}`),
     latestApproval: request.approvals[0]
       ? {
           approved: request.approvals[0].approved as boolean,
@@ -569,7 +549,7 @@ const COMMAND_LIST_INCLUDE = {
   targets: {
     take: 50,
     include: {
-      server: { select: { id: true, name: true, host: true, port: true } },
+      server: { select: { id: true, name: true, host: true, port: true, teamId: true } },
     },
   },
   executionLogs: { orderBy: { createdAt: "desc" }, take: 3 },

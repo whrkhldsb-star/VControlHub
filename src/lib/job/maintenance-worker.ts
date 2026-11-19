@@ -335,6 +335,9 @@ async function tick(reason: string) {
     // Reclaim temp chunks + session rows from uploads abandoned mid-flight (tab
     // closed / network dropped). The sweep function existed but was never
     // scheduled, so /tmp and mediaUploadSession grew unbounded.
+    await runStep("sweep-expired-file-agent-calls", async () => {
+      await prisma.agentFileCall.deleteMany({ where: { expiresAt: { lt: new Date() } } });
+    });
     await runStep("recover-interrupted-upload-finalizations", async () => {
       const recovered = await recoverInterruptedFinalizations();
       if (recovered > 0) logger.warn("upload finalizations require review; retained all data", { workerId: WORKER_ID, recovered });

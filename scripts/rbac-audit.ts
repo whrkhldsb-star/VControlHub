@@ -545,6 +545,7 @@ export function buildUsage(
     // Signature-verified inbound webhook (HMAC), not session RBAC.
     "/api/itsm/inbound/[connectionId]",
     // Host Agent authenticates with a per-server bearer token hash, not user RBAC.
+    "/api/agent/v1/files",
     "/api/agent/v1/poll",
     "/api/agent/v1/bootstrap",
     // WebDAV Basic/session auth via authenticateWebDavRequest, not PERMISSIONS keys.

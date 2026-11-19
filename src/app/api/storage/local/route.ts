@@ -164,7 +164,7 @@ async function handlePost(request: Request, session: SessionPayload, locale: Loc
     },
   });
 
-  if (!storageNode || !["LOCAL", "SFTP", "WEBDAV"].includes(storageNode.driver)) {
+  if (!storageNode || !["LOCAL", "SFTP", "WEBDAV", "AGENT"].includes(storageNode.driver)) {
     return NextResponse.json(
       { error: t("api.storage.unsupportedUploadNode", locale) },
       { status: 400 },
@@ -181,7 +181,7 @@ async function handlePost(request: Request, session: SessionPayload, locale: Loc
         storageNode.basePath,
         normalizedUploadPath.path,
       ));
-    } else if (storageNode.driver === "WEBDAV") {
+    } else if (storageNode.driver === "WEBDAV" || storageNode.driver === "AGENT") {
       normalizedRelativePath = normalizedUploadPath.path;
     } else {
       normalizedRelativePath = normalizedUploadPath.path;
@@ -279,7 +279,7 @@ async function handlePost(request: Request, session: SessionPayload, locale: Loc
       await writeFile(absolutePath, fileBuffer);
       uploadedLocalPath = absolutePath;
     }
-  } else if (storageNode.driver === "WEBDAV") {
+  } else if (storageNode.driver === "WEBDAV" || storageNode.driver === "AGENT") {
     await writeStorageFileBuffer(storageNode, normalizedRelativePath, fileBuffer);
     uploadedWebDav = true;
   } else {

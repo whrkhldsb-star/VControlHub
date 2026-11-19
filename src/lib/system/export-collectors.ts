@@ -337,6 +337,7 @@ export async function exportStorageNodes(
   const where = scope === "team" && teamId ? teamScopedWhere(teamId) : {};
   const rows = await readAllPages(async (page) => prisma.storageNode.findMany({
     where,
+    include: { agentFileShare: { select: { server: { select: { id: true, teamId: true } } } } },
     orderBy: [{ name: "asc" }, { id: "asc" }],
     ...page,
   }));
@@ -352,8 +353,10 @@ export async function exportStorageNodes(
     host: r.host,
     port: r.port,
     username: r.username,
-    serverId: r.serverId,
-    healthStatus: r.healthStatus,
+    serverId: r.driver === "AGENT"
+      ? (r.agentFileShare?.server.teamId === r.teamId ? r.agentFileShare?.server.id ?? null : null)
+      : r.serverId,
+    healthStatus: r.driver === "AGENT" ? "UNKNOWN" as const : r.healthStatus,
     teamId: r.teamId ?? null,
     createdAt: dateToISO(r.createdAt)!,
     hostKeySha256: r.hostKeySha256,

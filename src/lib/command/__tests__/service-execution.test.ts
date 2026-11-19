@@ -297,6 +297,16 @@ describe("executeTarget", () => {
     }));
   });
 
+  it.each(["AGENT_OFFLINE", "AGENT_UNCLAIMED"])("records SSH and the confirmed fallback reason %s", async (reason) => {
+    mocks.prisma.commandTarget.findUnique.mockResolvedValue({ status: "RUNNING", commandRequest: { status: "RUNNING", approvals: [] } });
+    mocks.prisma.commandTarget.updateMany.mockResolvedValue({ count: 1 });
+    mocks.assertRequesterMayExecuteCommand.mockResolvedValue({ ok: true });
+    mocks.executeCommandWithAgent.mockImplementationOnce(async ({ onUnavailable }) => { onUnavailable(reason); return null; });
+    mocks.executeCommandOverSsh.mockResolvedValueOnce({ stdout: "ok", stderr: "", exitCode: 0 });
+    expect(await executeTarget("req-1", buildTarget({ server: { managementMode: "AGENT" } }))).toBe(true);
+    expect(mocks.prisma.commandTarget.updateMany).toHaveBeenCalledWith(expect.objectContaining({ data: { executionChannel: "SSH", fallbackReason: reason } }));
+  });
+
   it("fails Windows targets without an SSH fallback when the Agent is unavailable", async () => {
     mocks.prisma.commandTarget.findUnique.mockResolvedValue({
       id: "target-1",
@@ -503,8 +513,8 @@ describe("executeTarget", () => {
       commandRequest: { status: "RUNNING", approvals: [] },
     });
     mocks.executeCommandOverSsh.mockResolvedValue({ stdout: "", stderr: "", exitCode: 0, cancelled: false });
-    // Late CAS loses: cancel/recovery already terminalized the row.
-    mocks.prisma.commandTarget.updateMany.mockResolvedValue({ count: 0 });
+    // The dispatch stamp succeeds; the result CAS loses to cancel/recovery.
+    mocks.prisma.commandTarget.updateMany.mockResolvedValueOnce({ count: 1 }).mockResolvedValue({ count: 0 });
     mocks.prisma.executionLog.create.mockResolvedValue({});
 
     const result = await executeTarget("req-1", buildTarget());

@@ -203,7 +203,7 @@ export default async function SharePage({
                     <h2 className="ui-title-section">{t("sharePage.downloadable", locale)}</h2>
                     <span className="text-xs text-[var(--text-muted)]">{t("sharePage.maxIndexed", locale)}</span>
                   </div>
-                  {!share.locked && !isPreviewOnly && share.storageNode.driver !== "WEBDAV" && (
+                  {!share.locked && !isPreviewOnly && (share.storageNode.driver !== "WEBDAV" && share.storageNode.driver !== "AGENT") && (
                     <a
                       href={`/api/share/${encodeURIComponent(token)}?archive=1`}
                       download

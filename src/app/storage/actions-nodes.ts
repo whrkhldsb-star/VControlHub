@@ -56,6 +56,7 @@ async function getStorageFormOptionsImpl() {
       id: server.id,
       name: server.name,
       host: server.host,
+      canPairFileAgent: server.enabled && server.managementMode === "AGENT" && server.teamId === session.currentTeamId,
       storageNodeId: server.storageNode?.id ?? null,
     })),
     nodes: nodes.map((node: (typeof nodes)[number]) => ({
@@ -64,6 +65,16 @@ async function getStorageFormOptionsImpl() {
       driver: node.driver,
     })),
   };
+}
+
+export async function pairFileAgentAction(nodeId: string) {
+  return withServerActionLocale(async () => {
+    const session = await requirePermission("storage:manage-node");
+    const { pairFileShare } = await import("@/lib/storage/agent-file-queue");
+    const token = await pairFileShare(nodeId, session);
+    await auditUserAction(session.userId, "storage.agent.pair", { storageNodeId: nodeId }, undefined, session.currentTeamId);
+    return token;
+  });
 }
 
 export async function checkStorageNodeHealthAction(storageNodeId: string) {
@@ -112,7 +123,7 @@ async function createStorageNodeActionImpl(
     const driver = String(formData.get("driver") ?? "LOCAL").toUpperCase() as
       | "LOCAL"
       | "SFTP"
-      | "WEBDAV";
+      | "WEBDAV" | "AGENT";
     const portRaw = String(formData.get("port") ?? "").trim();
     const serverIdRaw = String(formData.get("serverId") ?? "").trim();
     const hostRaw = String(formData.get("host") ?? "").trim();
@@ -182,7 +193,7 @@ async function updateStorageNodeActionImpl(
     const storageNodeId = String(formData.get("storageNodeId") ?? "").trim();
     const driver = String(formData.get("driver") ?? "")
       .trim()
-      .toUpperCase() as "LOCAL" | "SFTP" | "WEBDAV" | "";
+      .toUpperCase() as "LOCAL" | "SFTP" | "WEBDAV" | "AGENT" | "";
     const portRaw = String(formData.get("port") ?? "").trim();
     const serverIdRaw = String(formData.get("serverId") ?? "").trim();
     const hostRaw = String(formData.get("host") ?? "").trim();
@@ -203,7 +214,7 @@ async function updateStorageNodeActionImpl(
       {
         storageNodeId,
         name: String(formData.get("name") ?? "").trim() || undefined,
-        driver: driver === "LOCAL" || driver === "SFTP" || driver === "WEBDAV" ? driver : undefined,
+        driver: driver === "LOCAL" || driver === "SFTP" || driver === "WEBDAV" || driver === "AGENT" ? driver : undefined,
         webdavConfig: driver === "WEBDAV" ? webdavConfigFromForm(formData) : undefined,
         basePath: String(formData.get("basePath") ?? "").trim() || undefined,
         directAccessMode: ["PROXY", "DIRECT", "AUTO"].includes(

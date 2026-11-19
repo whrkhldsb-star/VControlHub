@@ -50,6 +50,7 @@ enum StorageDriver {
   LOCAL
   SFTP
   WEBDAV
+  AGENT
 }
 
 enum StorageAccessMode {
@@ -320,6 +321,9 @@ model Server {
   agentTokenHash               String?
   agentLastSeenAt              DateTime?
   agentMetricsAt               DateTime?
+  capabilitySince              DateTime?
+  lastCommandSuccessAt         DateTime?
+  lastCommandChannel           String?
   agentMetricsRaw              String?
   agentVersion                 String?
   agentCapabilities            String[]               @default([])
@@ -371,6 +375,7 @@ model Server {
   uptimeSnapshots              ServerUptimeSnapshot[]
   rdpTickets                   RdpTicket[]
   userAccess                   UserServerAccess[]
+  agentFileShares              AgentFileShare[]
   agentJobs                    ServerAgentJob[]
   publicStatusNode             PublicStatusNode?
   metricLatest                 ServerMetricLatest?
@@ -419,6 +424,41 @@ model RdpTicket {
   @@index([expiresAt])
   @@index([serverId])
   @@map("rdp_tickets")
+}
+
+model AgentFileShare {
+  rootIdentity  String?
+  id            String          @id @default(cuid())
+  storageNodeId String          @unique
+  serverId      String
+  teamId        String?
+  tokenHash     String?         @unique
+  agentHash     String?
+  seenAt        DateTime?
+  lastReadAt    DateTime?
+  lastWriteAt   DateTime?
+  writable      Boolean         @default(false)
+  node          StorageNode     @relation(fields: [storageNodeId], references: [id], onDelete: Cascade)
+  server        Server          @relation(fields: [serverId], references: [id], onDelete: Cascade)
+  calls         AgentFileCall[]
+
+  @@index([serverId])
+  @@map("agent_file_shares")
+}
+
+model AgentFileCall {
+  id        String         @id @default(cuid())
+  shareId   String
+  tokenHash String
+  payload   Json
+  claimed   Boolean        @default(false)
+  result    Json?
+  expiresAt DateTime
+  share     AgentFileShare @relation(fields: [shareId], references: [id], onDelete: Cascade)
+
+  @@index([shareId, claimed, expiresAt])
+  @@index([expiresAt])
+  @@map("agent_file_calls")
 }
 
 model ServerAgentJob {
@@ -501,6 +541,8 @@ model CommandTarget {
   exitCode         Int?
   startedAt        DateTime?
   finishedAt       DateTime?
+  executionChannel String?
+  fallbackReason   String?
   /// The remote process may still be running (or may have run): cancellation
   /// was never acknowledged. The target is FAILED for bookkeeping, but automatic
   /// retries must not treat it as a clean failure.
@@ -533,6 +575,7 @@ enum StorageHealthStatus {
 }
 
 model StorageNode {
+  agentFileShare             AgentFileShare?
   id                         String               @id @default(cuid())
   name                       String
   driver                     StorageDriver
@@ -547,6 +590,8 @@ model StorageNode {
   webdavConfigEncrypted      String?
   serverId                   String?              @unique
   healthStatus               StorageHealthStatus  @default(UNKNOWN)
+  lastHealthyAt              DateTime?
+  lastHealthyTransport       String?
   lastHealthCheckAt          DateTime?
   lastHealthError            String?
   lastHealthLatencyMs        Int?

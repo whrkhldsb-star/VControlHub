@@ -2,6 +2,17 @@
  * i18n dictionary: `storagePage.*` (auto-generated).
  */
 export const zh: Record<string, string> = {
+	"storagePage.agent.select": "选择 Agent 服务器",
+	"storagePage.agent.hint": "创建后配对文件 Agent，再在服务器本机指定共享目录。",
+	"storagePage.agent.pair": "配对或更换文件 Agent",
+	"storagePage.agent.rotate": "配对会撤销此云盘原有的文件凭据。",
+	"storagePage.agent.generate": "生成配对配置",
+	"storagePage.agent.config": "把下方配置保存到共享目录之外，填写本机绝对路径。将 writable 设为 true 可启用写入。",
+	"storagePage.agent.close": "关闭配置",
+	"storagePage.agent.lastContact": "文件 Agent 上次连接于 {time}，当时共享目录为{access}。",
+	"storagePage.agent.readOnly": "只读",
+	"storagePage.agent.readWrite": "可读写",
+	"storagePage.agent.waiting": "等待文件 Agent 首次连接。",
 	"storagePage.form.webdavUrl": "WebDAV 地址（HTTPS）",
 	"storagePage.form.webdavAuthType": "WebDAV 认证方式",
 	"storagePage.form.webdavAuthBasic": "基础认证（Basic）",
@@ -83,7 +94,7 @@ export const zh: Record<string, string> = {
 
 
 	"storagePage.form.createTitle": "新增存储节点",
-	"storagePage.form.createDescription": "支持本机存储与绑定 VPS 的 SFTP 存储节点。",
+	"storagePage.form.createDescription": "选择本机目录、SFTP、WebDAV 或通过 Agent 共享的服务器目录。",
 	"storagePage.form.editTitle": "编辑存储节点",
 	"storagePage.form.fieldName": "节点名称",
 	"storagePage.form.fieldDriver": "驱动",
@@ -112,6 +123,17 @@ export const zh: Record<string, string> = {
 };
 
 export const en: Record<string, string> = {
+	"storagePage.agent.select": "Select an Agent server",
+	"storagePage.agent.hint": "Pair the file Agent after creating the drive, then choose the shared directory on the server.",
+	"storagePage.agent.pair": "Pair or replace file Agent",
+	"storagePage.agent.rotate": "Pairing revokes the previous file credential for this drive.",
+	"storagePage.agent.generate": "Generate pairing configuration",
+	"storagePage.agent.config": "Save this configuration outside the share and set root to the local absolute path. Set writable to true to allow writes.",
+	"storagePage.agent.close": "Close configuration",
+	"storagePage.agent.lastContact": "File Agent last connected at {time} with {access} access.",
+	"storagePage.agent.readOnly": "read-only",
+	"storagePage.agent.readWrite": "read/write",
+	"storagePage.agent.waiting": "Awaiting the first connection from the file Agent.",
 	"storagePage.form.webdavUrl": "WebDAV endpoint (HTTPS)",
 	"storagePage.form.webdavAuthType": "WebDAV authentication",
 	"storagePage.form.webdavAuthBasic": "Basic",
@@ -193,7 +215,7 @@ export const en: Record<string, string> = {
 
 
 	"storagePage.form.createTitle": "Add storage node",
-	"storagePage.form.createDescription": "Supports local storage and SFTP storage nodes bound to a VPS.",
+	"storagePage.form.createDescription": "Choose a local directory, SFTP, WebDAV, or a server directory shared by an Agent.",
 	"storagePage.form.editTitle": "Edit storage node",
 	"storagePage.form.fieldName": "Node name",
 	"storagePage.form.fieldDriver": "Driver",

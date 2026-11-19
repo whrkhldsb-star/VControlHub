@@ -8,7 +8,7 @@ type TeamSession = Pick<SessionPayload, "userId" | "roles" | "currentTeamId">;
 type DirectorySummary = {
   storageNodeId: string;
   storageNodeName: string;
-  storageNodeDriver: "LOCAL" | "SFTP" | "WEBDAV";
+  storageNodeDriver: "LOCAL" | "SFTP" | "WEBDAV" | "AGENT";
   path: string;
   name: string;
   itemCount: number;
@@ -22,7 +22,7 @@ function buildDirectorySummaries(
   const registerDirectory = (input: {
     storageNodeId: string;
     storageNodeName: string;
-    storageNodeDriver: "LOCAL" | "SFTP" | "WEBDAV";
+    storageNodeDriver: "LOCAL" | "SFTP" | "WEBDAV" | "AGENT";
     path: string;
   }) => {
     const normalizedPath = input.path.replace(/^\/+|\/+$/g, "");
@@ -60,7 +60,7 @@ function buildDirectorySummaries(
       registerDirectory({
         storageNodeId: entry.storageNode.id,
         storageNodeName: entry.storageNode.name,
-        storageNodeDriver: entry.storageNode.driver as "LOCAL" | "SFTP" | "WEBDAV",
+        storageNodeDriver: entry.storageNode.driver as "LOCAL" | "SFTP" | "WEBDAV" | "AGENT",
         path: segments.slice(0, index + 1).join("/"),
       });
     }

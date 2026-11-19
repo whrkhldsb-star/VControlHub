@@ -70,6 +70,12 @@ export async function beginUploadFinalization(sessionId: string, userId: string)
      * no permission): nothing may have landed, so the upload is a plain failure to retry, not one to review.
      */
     writeRefused() { if (!lost) writing = false; },
+    async resumeBeforePublication() {
+      if (writing || lost || stopped) return false;
+      const reset = await prisma.mediaUploadSession.updateMany({ where: { ...fence, finalizationLeaseUntil: { gt: new Date() } },
+        data: { status: "UPLOADING", finalizationToken: null, finalizationLeaseUntil: null, errorMessage: null } });
+      return reset.count === 1;
+    },
     async fail() {
       // Once a write was attempted, even a transport error may hide success.
       // Retain recovery material and do not silently encourage a second write.

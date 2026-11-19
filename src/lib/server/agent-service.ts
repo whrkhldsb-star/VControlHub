@@ -2,7 +2,7 @@ import { guardedLinuxAgentRemoval, linuxAgentSelfRemoval, windowsAgentSelfRemova
 import { createHash, randomBytes, timingSafeEqual } from "node:crypto";
 
 import { acquireAdvisoryLock } from "@/lib/concurrency/advisory-lock";
-import type { Prisma } from "@prisma/client";
+import { Prisma } from "@prisma/client";
 import { config } from "@/lib/config/env";
 import { prisma } from "@/lib/db";
 import { BusinessError } from "@/lib/errors";
@@ -107,7 +107,7 @@ export async function issueServerAgentToken(serverId: string) {
   const token = `vca_${serverId}_${randomBytes(32).toString("base64url")}`;
   await prisma.server.update({
     where: { id: serverId, managementMode: "AGENT" },
-    data: { agentTokenHash: tokenHash(token), agentLastError: null, agentLastSeenAt: null, agentVersion: null, agentCapabilities: [], agentMetricsAt: null, agentMetricsRaw: null },
+    data: { ...resetAgentForModeChange(), agentTokenHash: tokenHash(token) },
   });
   return token;
 }
@@ -327,13 +327,22 @@ export async function claimNextServerAgentJob(serverId: string, authenticatedHas
         leaseExpiresAt: new Date(now.getTime() + AGENT_JOB_HEARTBEAT_MS),
       },
     });
-    return claimed.count === 1 ? next : null;
+    if (claimed.count !== 1) return null;
+    if (next.commandTargetId) {
+      await tx.commandTarget.updateMany({
+        where: { id: next.commandTargetId, serverId },
+        data: { executionChannel: "AGENT" },
+      });
+    }
+    return next;
   });
 }
 
 export async function executeCommandWithAgent(input: {
   serverId: string;
   commandTargetId?: string;
+  expectedIdentity?: { tokenHash: string | null; teamId: string | null };
+  onUnavailable?: (reason: "AGENT_OFFLINE" | "AGENT_UNCLAIMED") => void;
   command: string;
   timeoutMs: number;
   signal?: AbortSignal;
@@ -345,7 +354,8 @@ export async function executeCommandWithAgent(input: {
   const job = await prisma.$transaction(async (tx) => {
     const live = await tx.$queryRaw<{ id: string }[]>`
       SELECT id FROM servers WHERE id = ${input.serverId} AND "managementMode" = 'AGENT'
-        AND "agentTokenHash" IS NOT NULL
+        AND enabled AND "agentTokenHash" IS NOT NULL
+        ${input.expectedIdentity ? Prisma.sql`AND "agentTokenHash" = ${input.expectedIdentity.tokenHash} AND "teamId" IS NOT DISTINCT FROM ${input.expectedIdentity.teamId}` : Prisma.empty}
         AND "agentLastSeenAt" > (now() AT TIME ZONE 'UTC') - ${AGENT_FRESH_MS} * interval '1 millisecond'
       FOR SHARE`;
     if (!live.length || input.signal?.aborted) return null;
@@ -353,7 +363,11 @@ export async function executeCommandWithAgent(input: {
       data: { serverId: input.serverId, commandTargetId: input.commandTargetId, command: input.command, timeoutMs: input.timeoutMs },
     });
   });
-  if (!job) return input.signal?.aborted ? cancelledBeforeDispatch() : null;
+  if (!job) {
+    if (input.signal?.aborted) return cancelledBeforeDispatch();
+    input.onUnavailable?.("AGENT_OFFLINE");
+    return null;
+  }
   try {
   const deadline = Date.now() + input.timeoutMs + 10_000;
   // Quick commands still answer within half a second; a long one no longer
@@ -379,7 +393,10 @@ export async function executeCommandWithAgent(input: {
     where: { id: job.id, serverId: input.serverId, status: "PENDING" },
     data: { status: "CANCELLED", stderr: "Agent did not pick the job up in time", exitCode: 124, completedAt: new Date(), leaseExpiresAt: null },
   });
-  if (neverDispatched.count > 0) return null;
+  if (neverDispatched.count > 0) {
+    input.onUnavailable?.("AGENT_UNCLAIMED");
+    return null;
+  }
   return awaitAgentCancellation(job.id, input.serverId, "Agent command timed out after dispatch; awaiting cancellation acknowledgement");
   } catch (error) {
     if (!input.signal?.aborted) throw error;

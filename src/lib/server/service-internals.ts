@@ -20,6 +20,9 @@ import { parseServerSyncTargetAuth } from "@/lib/sync/target-auth";
 type ServerCommandTarget = {
   id: string;
   status: string;
+  executionChannel?: string | null;
+  fallbackReason?: string | null;
+  outcomeUnknown?: boolean;
   commandRequest: {
     id: string;
     title: string;
@@ -48,6 +51,11 @@ export type ServerWithRelations = {
   connectionType: "SSH_KEY" | "PASSWORD";
   managementMode?: "DIRECT" | "AGENT";
   agentLastSeenAt?: Date | string | null;
+  capabilitySince?: Date | string | null;
+  lastCommandSuccessAt?: Date | string | null;
+  lastCommandChannel?: string | null;
+  agentFileShares?: Array<{ teamId: string | null; lastReadAt: Date | null; lastWriteAt: Date | null; node: { id: string; name: string; lastHealthyAt: Date | null; teamId: string | null } }>;
+  metricLatest?: { metricsAt: Date | string | null; metricsSource: string | null } | null;
   agentMetricsAt?: Date | string | null;
   agentVersion?: string | null;
   agentCapabilities?: string[];
@@ -74,6 +82,8 @@ export type ServerWithRelations = {
     username?: string | null;
     directAccessMode?: string;
     publicBaseUrl?: string | null;
+    lastHealthyAt?: Date | string | null;
+    lastHealthyTransport?: string | null;
     healthStatus?: "UNKNOWN" | "HEALTHY" | "UNHEALTHY";
   } | null;
   commandTargets?: ServerCommandTarget[];
@@ -306,6 +316,14 @@ export async function verifyServerSshConnectivity(
 }
 
 export function enrichServer(server: ServerWithRelations) {
+  const lastSuccess = (at: Date | string | null | undefined, channel: string | null | undefined) =>
+    at && channel && (!server.capabilitySince || new Date(at) >= new Date(server.capabilitySince))
+      ? { at: serializeDate(at), channel } : null;
+  const shares = (server.agentFileShares ?? []).filter((share) => share.teamId === server.teamId && share.node.teamId === server.teamId);
+  const latest = (times: Array<Date | string | null | undefined>) => times.reduce<Date | null>((newest, at) =>
+    at && (!newest || new Date(at) > newest) ? new Date(at) : newest, null);
+  const fileProbe = latest(shares.map((share) => share.node.lastHealthyAt));
+  const storageProbe = server.storageNode?.lastHealthyAt;
   const hasSshCredential = Boolean(
     server.connectionType === "SSH_KEY" ? server.sshKeyId && server.sshKey : server.password,
   );
@@ -328,6 +346,15 @@ export function enrichServer(server: ServerWithRelations) {
     connectionType: server.connectionType,
     hasSshCredential,
     managementMode: server.managementMode ?? "DIRECT",
+    fileDrives: shares.map(({ node }) => ({ id: node.id, name: node.name })),
+    capabilities: {
+      metrics: lastSuccess(server.metricLatest?.metricsAt, server.metricLatest?.metricsSource?.toUpperCase()),
+      command: lastSuccess(server.lastCommandSuccessAt, server.lastCommandChannel),
+      storage: fileProbe && (!storageProbe || fileProbe > new Date(storageProbe)) ? lastSuccess(fileProbe, "AGENT")
+        : lastSuccess(storageProbe, server.storageNode?.lastHealthyTransport),
+      fileRead: lastSuccess(latest(shares.map((share) => share.lastReadAt)), "AGENT"),
+      fileWrite: lastSuccess(latest(shares.map((share) => share.lastWriteAt)), "AGENT"),
+    },
     agent: {
       online: Boolean(server.agentLastSeenAt && Date.now() - new Date(server.agentLastSeenAt).getTime() < 90_000),
       lastSeenAt: server.agentLastSeenAt ? serializeDate(server.agentLastSeenAt) : null,
@@ -378,6 +405,9 @@ export function enrichServer(server: ServerWithRelations) {
       initiatedByType: target.commandRequest.initiatedByType,
       requestStatus: target.commandRequest.status,
       targetStatus: target.status,
+      executionChannel: target.executionChannel ?? null,
+      fallbackReason: target.fallbackReason ?? null,
+      outcomeUnknown: target.outcomeUnknown === true,
       createdAt: serializeDate(target.commandRequest.createdAt),
     })),
     latestMetric: server.metricSnapshots?.[0]

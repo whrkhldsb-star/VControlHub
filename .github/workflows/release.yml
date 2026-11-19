@@ -55,6 +55,24 @@ jobs:
           npm run release:package
           (cd dist && sha256sum "vcontrolhub-${GITHUB_REF_NAME}.tar.gz" > "vcontrolhub-${GITHUB_REF_NAME}.tar.gz.sha256")
 
+      - name: Set up Go for the native file Agent
+        uses: actions/setup-go@924ae3a1cded613372ab5595356fb5720e22ba16 # v6
+        with:
+          go-version: stable
+          cache: false
+
+      - name: Build native file Agents
+        working-directory: agent-files
+        run: |
+          for os in linux windows; do
+            for arch in amd64 arm64; do
+              filename="vch-files-$os-$arch"
+              if [ "$os" = windows ]; then filename="$filename.exe"; fi
+              CGO_ENABLED=0 GOOS="$os" GOARCH="$arch" go build -trimpath -o "../dist/$filename" .
+            done
+          done
+          (cd ../dist && sha256sum vch-files-* > agent-files.sha256)
+
       - name: Publish GitHub release
         env:
           GH_TOKEN: ${{ github.token }}
@@ -62,6 +80,7 @@ jobs:
           gh release create "$GITHUB_REF_NAME"
           "dist/vcontrolhub-${GITHUB_REF_NAME}.tar.gz"
           "dist/vcontrolhub-${GITHUB_REF_NAME}.tar.gz.sha256"
+          dist/vch-files-* dist/agent-files.sha256
           --verify-tag
           --title "VControlHub $GITHUB_REF_NAME"
           --generate-notes

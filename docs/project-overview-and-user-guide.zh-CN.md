@@ -73,7 +73,7 @@ VControlHub 是面向个人运维及多客户服务场景的自托管服务器�
 
 ### 1.3 当前代码规模与口径
 
-项目包含：58 个 `page.tsx` 页面文件、196 个 API 路由文件、82 个 Prisma 数据模型、52 个业务权限项、4 个内置身份模板、24 类后台 Worker，以及 42 个本地快捷服务模板。
+项目包含：58 个 `page.tsx` 页面文件、197 个 API 路由文件、84 个 Prisma 数据模型、52 个业务权限项、4 个内置身份模板、24 类后台 Worker，以及 42 个本地快捷服务模板。
 
 配置与调用入口包括 9 个模块中的 25 个 Server Action 运行时导出、70 个系统设置表单字段、9 个持久化个人偏好字段和 21 个 AI 托管工具；逐项对应关系见第 24 章。
 
@@ -1835,7 +1835,7 @@ RDP：浏览器领取单次票据 → 连接 `/rdp` → 校验票据、用户、
 | 业务域 | 模型 | 记录的主要内容 |
 | --- | --- | --- |
 | 身份与权限，11 个 | `User`、`Team`、`TeamMember`、`Role`、`Permission`、`UserRole`、`RolePermission`、`UserServerAccess`、`UserStorageAccess`、`IdentityTemplate`、`ApiToken` | 账号、客户成员、平台角色、身份模板、单资源授权和集成凭据 |
-| 服务器与连接，7 个 | `SshKey`、`Server`、`RdpTicket`、`ServerAgentJob`、`ServerFileProxy`、`ServerUptimeSnapshot`、`ServerMetricLatest` | 节点、认证材料、桌面票据、Agent 任务、文件网关、可用率和每台最新标准化指标 |
+| 服务器与连接，9 个 | `SshKey`、`Server`、`RdpTicket`、`ServerAgentJob`、`AgentFileShare`、`AgentFileCall`、`ServerFileProxy`、`ServerUptimeSnapshot`、`ServerMetricLatest` | 节点、认证材料、桌面票据、Agent 任务、文件网关、可用率和每台最新标准化指标 |
 | 命令，5 个 | `CommandRequest`、`CommandApproval`、`CommandTarget`、`ExecutionLog`、`CommandTemplate` | 请求、审批、逐节点目标、执行输出和可复用模板 |
 | 存储与同步，7 个 | `StorageNode`、`FileEntry`、`FilePreference`、`FileVersion`、`SyncJob`、`SyncLog`、`MediaUploadSession` | 节点、索引、个人整理、版本、同步和上传会话 |
 | 任务与编排，7 个 | `Job`、`JobEvent`、`WorkerRuntime`、`ScheduledTask`、`ScheduledTaskRun`、`Playbook`、`PlaybookRun` | 队列、事件、心跳、调度和分步执行 |
@@ -2454,6 +2454,7 @@ HTTP 方法列来自实际源码导出，包括转导出的下载及 OpenAPI 路
 | [`/api/admin/public-status/site`](../src/app/api/admin/public-status/site/route.ts) | GET / PUT | 展示页开关、标题、简介、公告、默认视图、刷新间隔、强调色与公开指标 | [公开节点状态展示页](#public-board) |
 | [`/api/admin/workers`](../src/app/api/admin/workers/route.ts) | GET | 后台 Worker 注册、运行状态及心跳 | [数据模型与后台任务设计](#data-workers) |
 | [`/api/agent/v1/bootstrap`](../src/app/api/agent/v1/bootstrap/route.ts) | GET | 校验引导凭据并提供 Agent 安装内容 | [服务器纳管与节点管理](#servers) |
+| [`/api/agent/v1/files`](../src/app/api/agent/v1/files/route.ts) | POST | 文件 Agent 领取共享目录请求、交换分块与回执 | [文件 Agent 配对](../agent-files/README.md) |
 | [`/api/agent/v1/poll`](../src/app/api/agent/v1/poll/route.ts) | POST | Agent 上报心跳／指标、领取命令并回传结果 | [服务器纳管与节点管理](#servers) |
 | [`/api/ai/chat`](../src/app/api/ai/chat/route.ts) | POST | 对话请求、流式回复及受控工具调用 | [AI 助手、知识库与 AI 运维](#ai) |
 | [`/api/ai/conversations`](../src/app/api/ai/conversations/route.ts) | GET / POST | 列出与新建对话 | [AI 助手、知识库与 AI 运维](#ai) |

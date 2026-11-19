@@ -84,7 +84,7 @@ export function FileUploadDropzone({
     [nodes, selectedNodeId],
   );
   const uploadEnabled =
-    !!selectedNode && ["LOCAL", "SFTP", "WEBDAV"].includes(selectedNode.driver);
+    !!selectedNode && ["LOCAL", "SFTP", "WEBDAV", "AGENT"].includes(selectedNode.driver);
   const latest = useRef({ onUploadComplete, router });
   useEffect(() => {
     latest.current = { onUploadComplete, router };

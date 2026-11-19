@@ -156,6 +156,7 @@ for (const page of catalog.pages) {
 }
 const expectedGuardModes = new Map([
   ["/api/agent/v1/bootstrap", "bearer"],
+  ["/api/agent/v1/files", "bearer"],
   ["/api/agent/v1/poll", "bearer"],
   ["/api/docs/openapi", "withApiRoute"],
 ]);

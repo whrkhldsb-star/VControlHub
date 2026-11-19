@@ -45,6 +45,9 @@ export const completeWebdavConfigSchema = webdavConfigSchema.superRefine((value,
 });
 
 function validateWebdavBoundary(value: { driver?: string; serverId?: string | null; directAccessMode?: string; publicBaseUrl?: string; webdavConfig?: unknown }, ctx: z.RefinementCtx) {
+  if (value.driver === "AGENT" && ((value.directAccessMode && value.directAccessMode !== "PROXY") || value.publicBaseUrl)) {
+    ctx.addIssue({ code: "custom", path: ["directAccessMode"], message: t("backend.fileAgent.proxy") });
+  }
   if (value.driver === "WEBDAV") {
     if (value.serverId) ctx.addIssue({ code: "custom", path: ["serverId"], message: "WebDAV cannot be bound to a VPS" });
     if (value.directAccessMode && value.directAccessMode !== "PROXY") ctx.addIssue({ code: "custom", path: ["directAccessMode"], message: "WebDAV only supports proxy access" });
@@ -57,7 +60,7 @@ function validateWebdavBoundary(value: { driver?: string; serverId?: string | nu
 export const createStorageNodeSchema = z.object({
   webdavConfig: completeWebdavConfigSchema.optional(),
   name: z.string().trim().min(2, "Storage node name must be at least 2 characters").max(64, "Storage node name must be at most 64 characters"),
-  driver: z.enum(["LOCAL", "SFTP", "WEBDAV"]),
+  driver: z.enum(["LOCAL", "SFTP", "WEBDAV", "AGENT"]),
   basePath: z.string().trim().min(1, "Storage root path is required").max(255, "Storage root path is too long"),
   directAccessMode: storageAccessModeSchema.optional().default("PROXY"),
   publicBaseUrl: publicBaseUrlSchema,
@@ -70,6 +73,9 @@ export const createStorageNodeSchema = z.object({
   serverId: z.string().trim().optional(),
 }).superRefine((value, ctx) => {
   validateWebdavBoundary(value, ctx);
+  if (value.driver === "AGENT" && (!value.serverId || value.basePath !== "/")) {
+    ctx.addIssue({ code: "custom", path: ["serverId"], message: t("backend.fileAgent.binding") });
+  }
   if (value.driver === "WEBDAV" && !value.webdavConfig) ctx.addIssue({ code: "custom", path: ["webdavConfig"], message: t("backend.webdav.configurationRequired") });
   if (value.directAccessMode !== "PROXY" && !value.publicBaseUrl) {
     ctx.addIssue({ code: "custom", path: ["publicBaseUrl"], message: t("backend.storage.urlRequired") });
@@ -80,7 +86,7 @@ export const updateStorageNodeSchema = z.object({
   webdavConfig: webdavConfigSchema.optional(),
   storageNodeId: z.string().trim().min(1, "Storage node is required"),
   name: z.string().trim().min(2, "Storage node name must be at least 2 characters").max(64, "Storage node name must be at most 64 characters").optional(),
-  driver: z.enum(["LOCAL", "SFTP", "WEBDAV"]).optional(),
+  driver: z.enum(["LOCAL", "SFTP", "WEBDAV", "AGENT"]).optional(),
   basePath: z.string().trim().min(1, "Storage root path is required").max(255, "Storage root path is too long").optional(),
   directAccessMode: storageAccessModeSchema.optional(),
   publicBaseUrl: publicBaseUrlSchema,

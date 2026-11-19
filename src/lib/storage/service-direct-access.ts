@@ -31,7 +31,7 @@ export type DirectAccessResult =
     };
 
 export function buildDirectAccessStrategy(input: {
-  driver: "LOCAL" | "SFTP" | "WEBDAV";
+  driver: "LOCAL" | "SFTP" | "WEBDAV" | "AGENT";
   nodeId: string;
   host?: string | null;
   port?: number | null;
@@ -50,8 +50,8 @@ export function buildDirectAccessStrategy(input: {
     };
   }
 
-  if (input.driver === "WEBDAV") {
-    return { mode: "managed-download", description: t("backend.storage.directAccess.webdavProxy"), href: input.relativePath ? `/api/storage/webdav-download?${new URLSearchParams({ nodeId: input.nodeId, path: input.relativePath })}` : null };
+  if (input.driver === "WEBDAV" || input.driver === "AGENT") {
+    return { mode: "managed-download", description: input.driver === "AGENT" ? t("backend.fileAgent.proxy") : t("backend.storage.directAccess.webdavProxy"), href: input.relativePath ? `/api/storage/webdav-download?${new URLSearchParams({ nodeId: input.nodeId, path: input.relativePath })}` : null };
   }
   const host = input.host ?? "unknown";
   const port = input.port ?? 22;
@@ -89,7 +89,7 @@ export function buildDirectAccessStrategy(input: {
 }
 
 export function buildStorageConnectionSummary(input: {
-  driver: "LOCAL" | "SFTP" | "WEBDAV";
+  driver: "LOCAL" | "SFTP" | "WEBDAV" | "AGENT";
   basePath: string;
   host?: string | null;
   port?: number | null;
@@ -100,6 +100,7 @@ export function buildStorageConnectionSummary(input: {
     return t("backend.storage.connection.local", { basePath: input.basePath });
   }
 
+  if (input.driver === "AGENT") return t("backend.fileAgent.proxy");
   if (input.driver === "WEBDAV") return t("backend.storage.connection.webdav", { basePath: input.basePath });
   const remote = `${input.username ?? "root"}@${input.host ?? "unknown"}:${input.port ?? 22}`;
   return input.serverName
@@ -109,6 +110,7 @@ export function buildStorageConnectionSummary(input: {
 
 export type StorageNodeListRow = Prisma.StorageNodeGetPayload<{
   include: {
+    agentFileShare: { select: { serverId: true; seenAt: true; writable: true } };
     server: {
       select: { id: true; name: true; host: true; port: true; operatingSystem: true; username: true };
     };

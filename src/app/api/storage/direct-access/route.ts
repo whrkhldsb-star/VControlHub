@@ -53,7 +53,7 @@ const DIRECT_GATEWAY_HEALTH_TIMEOUT_MS = 1500;
  */
 function fallbackUrl(nodeId: string, relativePath: string, driver: string) {
   const params = new URLSearchParams({ nodeId, path: relativePath });
-  const route = driver === "LOCAL" ? "local" : driver === "WEBDAV" ? "webdav-download" : "sftp-download";
+  const route = driver === "LOCAL" ? "local" : (driver === "WEBDAV" || driver === "AGENT") ? "webdav-download" : "sftp-download";
   return `/api/storage/${route}?${params.toString()}`;
 }
 

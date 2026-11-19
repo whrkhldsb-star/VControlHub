@@ -66,6 +66,9 @@ export const IMAGE_UPLOAD_LIMIT: RateLimitConfig = { maxRequests: 5, windowMs: 6
  */
 export const AGENT_POLL_LIMIT: RateLimitConfig = { maxRequests: 240, windowMs: 60_000 };
 
+/** A shared NAT may serve multiple file Agents. Active transfers poll again after each bounded chunk. */
+export const FILE_AGENT_POLL_LIMIT: RateLimitConfig = { maxRequests: 1_200, windowMs: 60_000 };
+
 /**
  * WebDAV: also reachable without a session (the route verifies its own API
  * token, and `/api/webdav/` is exempted from the proxy's bearer checks), so an

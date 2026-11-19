@@ -56,7 +56,7 @@ export function taskDownloadAccess(task: {
     storageNode?: {
       id: string;
       basePath: string;
-      driver?: "LOCAL" | "SFTP" | "WEBDAV" | null;
+      driver?: "LOCAL" | "SFTP" | "WEBDAV" | "AGENT" | null;
       host?: string | null;
       port?: number | null;
       directAccessMode?: "PROXY" | "DIRECT" | "AUTO" | null;

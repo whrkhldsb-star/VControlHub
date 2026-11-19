@@ -31,7 +31,7 @@ export function StorageNodeFields({
 }: {
   driver: string;
   onDriverChange: (driver: string) => void;
-  servers: Array<{ id: string; name: string; host: string }>;
+  servers: Array<{ id: string; name: string; host: string; storageNodeId?: string | null; canPairFileAgent?: boolean }>;
   values?: StorageNodeFieldValues;
   includeExplicitUncheckedDefault?: boolean;
   lockDefault?: boolean;
@@ -85,13 +85,24 @@ export function StorageNodeFields({
         {lockDefault ? <input type="hidden" name="driver" value={driver} /> : null}
         <select id={fid("storage-node-driver")} name="driver" value={driver} className={UI_INPUT} disabled={lockDefault} onChange={(event) => onDriverChange(event.target.value)}>
           <option value="LOCAL">{getStorageDriverLabel(t, "LOCAL")}</option>
+          <option value="AGENT">Agent</option>
           <option value="SFTP">{getStorageDriverLabel(t, "SFTP")}</option>
           <option value="WEBDAV">{getStorageDriverLabel(t, "WEBDAV")}</option>
         </select>
       </FormField>
-      <FormField label={t("storagePage.form.fieldBasePath")} htmlFor={fid("storage-node-base-path")} className="md:col-span-2">
+      {driver === "AGENT" ? <>
+        <input type="hidden" name="basePath" value="/" />
+        <input type="hidden" name="directAccessMode" value="PROXY" />
+        <FormField label={t("storagePage.form.fieldBindVps")} htmlFor={fid("file-agent-server")}>
+          <select id={fid("file-agent-server")} name="serverId" defaultValue={values.serverId ?? ""} disabled={!!values.serverId} required className={UI_INPUT}>
+            <option value="">{t("storagePage.agent.select")}</option>
+            {servers.filter((server) => server.canPairFileAgent || server.id === values.serverId).map((server) => <option key={server.id} value={server.id}>{server.name} · {server.host}</option>)}
+          </select>
+        </FormField>
+        <p className="text-xs text-[var(--text-muted)]">{t("storagePage.agent.hint")}</p>
+      </> : <FormField label={t("storagePage.form.fieldBasePath")} htmlFor={fid("storage-node-base-path")} className="md:col-span-2">
         <input id={fid("storage-node-base-path")} name="basePath" defaultValue={values.basePath} required className={UI_INPUT} placeholder={t("storagePage.form.basePathPlaceholder")} />
-      </FormField>
+      </FormField>}
 
       {driver === "WEBDAV" ? <>
         <p className="md:col-span-2 text-xs text-[var(--text-muted)]">{t("storagePage.form.webdavHint")}</p>
@@ -131,7 +142,7 @@ export function StorageNodeFields({
             className={UI_INPUT}
           >
             <option value="">{t("storagePage.form.optionNotBound")}</option>
-            {servers.map((server) => <option key={server.id} value={server.id}>{server.name} · {server.host}</option>)}
+            {servers.filter((server) => !server.storageNodeId || server.id === values.serverId).map((server) => <option key={server.id} value={server.id}>{server.name} · {server.host}</option>)}
           </select>
         </FormField>
         <FormField label={t("storagePage.form.fieldRemoteHost")} htmlFor={fid("storage-node-host")}>

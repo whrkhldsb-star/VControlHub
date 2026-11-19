@@ -352,6 +352,25 @@ describe("references to rows that are neither in the package nor here", () => {
     expect(data("s-none")).toMatchObject({ sshKeyId: null });
   });
 
+  it("restores only a same-team server association and requires a new file pairing", async () => {
+    const create = vi.fn();
+    const deleteMany = vi.fn();
+    const update = vi.fn();
+    const tx = {
+      server: { findMany: vi.fn().mockResolvedValue([{ id: "same" }]), findFirst: vi.fn()
+        .mockResolvedValueOnce(null).mockResolvedValueOnce({ id: "same" }) },
+      storageNode: { findMany: vi.fn().mockResolvedValueOnce([{ id: "old" }]).mockResolvedValue([]),
+        createMany: vi.fn().mockResolvedValue({ count: 1 }), update },
+      agentFileShare: { create, deleteMany },
+    } as unknown as Tx;
+    const agent = (id: string, serverId: string) => ({ ...node(id, serverId), driver: "AGENT", teamId: "team" });
+    await importStorageNodes(tx, tables({ storageNodes: [agent("new", "other"), agent("old", "same")] }), OVERWRITE, counts());
+    expect(deleteMany).toHaveBeenCalledWith({ where: { storageNodeId: "old" } });
+    expect(create.mock.calls).toEqual([[{ data: { storageNodeId: "old", serverId: "same", teamId: "team" } }]]);
+    expect(tx.server.findFirst).toHaveBeenCalledWith({ where: { id: "other", teamId: "team" }, select: { id: true } });
+    expect(update.mock.calls[0]![0].data).toMatchObject({ serverId: null, directAccessMode: "PROXY", lastHealthyAt: null });
+  });
+
   it("creates a storage node without a server it cannot link and keeps an existing node's server", async () => {
     const createMany = vi.fn().mockResolvedValue({ count: 2 });
     const update = vi.fn().mockResolvedValue({});

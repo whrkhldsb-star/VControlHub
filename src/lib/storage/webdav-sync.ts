@@ -3,7 +3,8 @@ import { teamWhere } from "@/lib/auth/team-scope";
 import { prisma } from "@/lib/db";
 import { guessMimeType } from "@/lib/image-bed/constants";
 import { createLogger } from "@/lib/logging";
-import { createWebDavClient } from "./webdav-client";
+import { t } from "@/lib/i18n/service-translations";
+import { createRemoteStorageClient } from "./agent-file-client";
 import type { WebDavStorageNode } from "./webdav-credentials";
 import { normalizeStorageTargetDirectory } from "./path-utils";
 import { readDirectoryIndex } from "./directory-index";
@@ -29,13 +30,13 @@ export async function getWebDavSyncNode(nodeId: string, session: Pick<SessionPay
 /** Depth-one inventory only. Never prune on an incomplete/failed remote response. */
 export async function syncWebDavDirectoryEntries(input: { node: WebDavStorageNode & { id: string; driver: string }; relativePath?: string }) {
   const result = { synced: 0, created: 0, updated: 0, deleted: 0, errors: [] as string[] };
-  if (input.node.driver !== "WEBDAV") throw new Error("Storage node is not a WebDAV node");
+  if ((input.node.driver !== "WEBDAV" && input.node.driver !== "AGENT")) throw new Error("Storage node is not a WebDAV node");
   const dir = normalizeStorageTargetDirectory(input.relativePath);
   if (!dir.ok) { result.errors.push(dir.reason); return result; }
   let phase: "list" | "index" = "list";
   try {
     // Finish the remote read before opening a database transaction.
-    const entries = [...new Map((await createWebDavClient(input.node).list(dir.path)).map((entry) => [entry.relativePath, entry])).values()];
+    const entries = [...new Map((await createRemoteStorageClient(input.node).list(dir.path)).map((entry) => [entry.relativePath, entry])).values()];
     const paths = new Set(entries.map((entry) => entry.relativePath));
     phase = "index";
     const counts = await prisma.$transaction(async (tx) => {
@@ -117,8 +118,8 @@ export async function syncWebDavDirectoryEntries(input: { node: WebDavStorageNod
     }
   } catch {
     // Allowlisted context only: no exception, upstream body, URL, path or credentials.
-    logger.warn("WebDAV directory sync failed", { storageNodeId: input.node.id, phase });
-    result.errors.push("WebDAV directory sync failed; showing the last indexed listing");
+    logger.warn(input.node.driver === "AGENT" ? "Agent directory sync failed" : "WebDAV directory sync failed", { storageNodeId: input.node.id, phase });
+    result.errors.push(input.node.driver === "AGENT" ? t("backend.fileAgent.unavailable") : "WebDAV directory sync failed; showing the last indexed listing");
   }
   return result;
 }

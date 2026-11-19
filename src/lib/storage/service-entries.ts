@@ -29,7 +29,7 @@ import {
   type FileEntryMutationInput,
 } from "./schema";
 import { buildDirectAccessStrategy } from "./service-direct-access";
-import { createWebDavClient } from "./webdav-client";
+import { createRemoteStorageClient } from "./agent-file-client";
 import { SSH_KEY_CREDENTIAL_SELECT } from "@/lib/ssh/ssh-key-crypto";
 
 type TeamSession = Pick<SessionPayload, "userId" | "roles" | "currentTeamId"> & Partial<Pick<SessionPayload, "permissions">>;
@@ -307,10 +307,10 @@ export type { DeletedFileEntryWithNode };
 
 async function assertDeletedEntryStillExists(entry: DeletedFileEntryWithNode) {
   const t = await serviceT();
-  if (entry.storageNode.driver === "WEBDAV") {
+  if (entry.storageNode.driver === "WEBDAV" || entry.storageNode.driver === "AGENT") {
     let remoteEntry;
     try {
-      remoteEntry = await createWebDavClient(entry.storageNode).stat(entry.relativePath);
+      remoteEntry = await createRemoteStorageClient(entry.storageNode).stat(entry.relativePath);
     } catch {
       throw new BusinessError(t("backend.storage.remoteFileCheckFailed"));
     }

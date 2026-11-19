@@ -1,5 +1,5 @@
 import { constants as fsConstants } from "node:fs";
-import { createWebDavClient } from "./webdav-client";
+import { createRemoteStorageClient } from "./agent-file-client";
 import { access, stat } from "node:fs/promises";
 
 import type { SessionPayload } from "@/lib/auth/session";
@@ -74,6 +74,7 @@ export type StorageNodeHealthStatus = "UNKNOWN" | "HEALTHY" | "UNHEALTHY";
 type TeamSession = Pick<SessionPayload, "userId" | "roles" | "currentTeamId">;
 
 const STORAGE_NODE_SERVER_INCLUDE = {
+  agentFileShare: { select: { serverId: true, seenAt: true, writable: true } },
   server: {
     select: {
       id: true,
@@ -207,10 +208,11 @@ export async function checkStorageNodeHealth(
         ...credentials,
         remotePath: normalizeRemotePath(node.basePath, ""),
       });
-    } else if (node.driver === "WEBDAV") {
-      // A PROPFIND of the root: reachable, authenticated, and a collection (A4-15).
-      const root = await createWebDavClient(node as Parameters<typeof createWebDavClient>[0]).stat("");
-      if (!root) throw new BusinessError(t("backend.storage.webdavRootMissing"));
+    } else if (node.driver === "WEBDAV" || node.driver === "AGENT") {
+      if (node.driver === "AGENT") transport = "Agent";
+      // A probe of the root: reachable, authenticated, and a collection (A4-15).
+      const root = await createRemoteStorageClient(node as Parameters<typeof createRemoteStorageClient>[0]).stat("");
+      if (!root?.isDirectory) throw new BusinessError(t("backend.storage.webdavRootMissing"));
     } else {
       healthStatus = "UNKNOWN";
       lastHealthError = null;
@@ -224,11 +226,12 @@ export async function checkStorageNodeHealth(
   const healthData = {
     healthStatus,
     lastHealthCheckAt: new Date(),
+    ...(healthStatus === "HEALTHY" ? { lastHealthyAt: new Date(startedAt), lastHealthyTransport: transport?.toUpperCase() ?? node.driver } : {}),
     lastHealthError,
     lastHealthLatencyMs,
   };
   const claimed = await prisma.storageNode.updateMany({
-    where: { id: storageNodeId, ...(session ? teamWhere(session) : {}) },
+    where: { id: storageNodeId, updatedAt: node.updatedAt, ...(session ? teamWhere(session) : {}) },
     data: healthData,
   });
   if (claimed.count === 0) {
@@ -264,7 +267,7 @@ export async function createStorageNode(
   }
 
   await assertServerInTeamScope(payload.serverId, session);
-  if (payload.serverId) {
+  if (payload.serverId && payload.driver !== "AGENT") {
     const existingServerNode = await prisma.storageNode.findUnique({
       where: { serverId: payload.serverId },
       select: { id: true },
@@ -284,6 +287,10 @@ export async function createStorageNode(
     // the customer was left with no default at all.
     storageNode = await prisma.$transaction(async (tx) => {
       if (payload.isDefault) await lockForTransaction(tx, "storage-node-default", teamData.teamId ?? "platform");
+      if (payload.driver === "AGENT" && !await tx.server.findFirst({
+        where: { id: payload.serverId, teamId: teamData.teamId ?? null, managementMode: "AGENT", enabled: true },
+        select: { id: true },
+      })) throw new ValidationError(t("backend.fileAgent.binding"));
       const created = await tx.storageNode.create({
         data: {
           name: payload.name,
@@ -295,7 +302,7 @@ export async function createStorageNode(
           username: payload.driver === "SFTP" ? payload.username : null,
           webdavConfigEncrypted: payload.driver === "WEBDAV" && payload.webdavConfig
             ? encryptWebdavConfig(payload.webdavConfig) : null,
-          serverId: payload.serverId,
+          serverId: payload.driver === "AGENT" ? null : payload.serverId,
           directAccessMode: payload.directAccessMode,
           publicBaseUrl: normalizePublicBaseUrl(payload.publicBaseUrl),
           directAccessExpiresSeconds: payload.directAccessExpiresSeconds,
@@ -303,6 +310,9 @@ export async function createStorageNode(
         },
         include: STORAGE_NODE_SERVER_INCLUDE,
       });
+      if (payload.driver === "AGENT") {
+        await tx.agentFileShare.create({ data: { storageNodeId: created.id, serverId: payload.serverId!, teamId: created.teamId } });
+      }
       await ensureDefaultNodeState(payload.isDefault, created.teamId, created.id, tx);
       return created;
     });
@@ -357,6 +367,10 @@ export async function updateStorageNode(
 
   const nextDriver = payload.driver ?? current.driver;
   const driverChanged = nextDriver !== current.driver;
+  if ((driverChanged && (current.driver === "AGENT" || nextDriver === "AGENT"))
+      || (nextDriver === "AGENT" && ((payload.basePath && payload.basePath !== "/") || payload.serverId && current.agentFileShare && payload.serverId !== current.agentFileShare.serverId))) {
+    throw new ValidationError(t("backend.fileAgent.separateDrive"));
+  }
   // Apply driver-specific constraints even when PATCH omitted the driver.
   updateStorageNodeSchema.parse({ ...payload, driver: nextDriver });
   const webdavConfigEncrypted = nextDriver === "WEBDAV"
@@ -420,7 +434,7 @@ export async function updateStorageNode(
           port: nextDriver === "SFTP" ? nextPort : null,
           username: nextDriver === "SFTP" ? nextUsername : null,
           webdavConfigEncrypted,
-          serverId: nextDriver === "WEBDAV" ? null : nextServerId ?? null,
+          serverId: nextDriver === "WEBDAV" || nextDriver === "AGENT" ? null : nextServerId ?? null,
           directAccessMode: nextAccessMode,
           publicBaseUrl: nextPublicBaseUrl,
           directAccessExpiresSeconds:
@@ -430,6 +444,14 @@ export async function updateStorageNode(
       });
       if (claimed.count === 0) {
         throw new NotFoundError(t("backend.storage.nodeNotFound"));
+      }
+      if (nextDriver === "AGENT" && !current.agentFileShare && payload.serverId) {
+        const server = await tx.server.findFirst({
+          where: { id: payload.serverId, teamId: current.teamId, enabled: true, managementMode: "AGENT" },
+          select: { id: true },
+        });
+        if (!server) throw new ValidationError(t("backend.fileAgent.binding"));
+        await tx.agentFileShare.create({ data: { storageNodeId: current.id, serverId: server.id, teamId: current.teamId } });
       }
       const row = await tx.storageNode.findFirst({
         where: { id: payload.storageNodeId, ...(session ? teamWhere(session) : {}) },
@@ -527,7 +549,9 @@ export async function listStorageNodes(session: TeamSession) {
     port: node.port,
     username: node.username,
     webdavConfig: publicWebdavConfig(node.webdavConfigEncrypted),
-    serverId: node.serverId,
+    serverId: node.agentFileShare?.serverId ?? node.serverId,
+    fileAgent: node.agentFileShare?.seenAt
+      ? { seenAt: node.agentFileShare.seenAt.toISOString(), writable: node.agentFileShare.writable } : null,
     directAccessMode: node.directAccessMode,
     publicBaseUrl: node.publicBaseUrl,
     directAccessExpiresSeconds: node.directAccessExpiresSeconds,

@@ -26,12 +26,17 @@ export const SERVER_PROFILE_INCLUDE = {
       directAccessMode: true,
       publicBaseUrl: true,
       healthStatus: true,
+      lastHealthyAt: true,
+      lastHealthyTransport: true,
     },
   },
   commandTargets: {
     select: {
       id: true,
       status: true,
+      executionChannel: true,
+      fallbackReason: true,
+      outcomeUnknown: true,
       commandRequest: {
         select: {
           id: true,
@@ -46,6 +51,8 @@ export const SERVER_PROFILE_INCLUDE = {
     orderBy: { commandRequest: { createdAt: "desc" } },
     take: 3,
   },
+  agentFileShares: { select: { teamId: true, lastReadAt: true, lastWriteAt: true, node: { select: { id: true, name: true, lastHealthyAt: true, teamId: true } } } },
+  metricLatest: { select: { metricsAt: true, metricsSource: true } },
   metricSnapshots: {
     select: { isOnline: true, createdAt: true },
     orderBy: { createdAt: "desc" },

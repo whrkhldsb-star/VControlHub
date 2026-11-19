@@ -167,11 +167,14 @@ export async function executeTarget(
   try {
 
   let result: SshExecutionResult | null = null;
+  let fallbackReason: "AGENT_OFFLINE" | "AGENT_UNCLAIMED" | null = null;
   if (target.server.managementMode === "AGENT") {
     const runtime = await getCommandRuntimeConfigValues();
     result = await executeCommandWithAgent({
       serverId: target.server.id,
       commandTargetId: target.id,
+      expectedIdentity: { tokenHash: target.server.agentTokenHash, teamId: target.server.teamId },
+      onUnavailable: (reason) => { fallbackReason = reason; },
       command: target.commandRequest.command,
       timeoutMs: runtime.executionTimeoutMs,
       signal: controller.signal,
@@ -252,6 +255,18 @@ export async function executeTarget(
     data: { commandRequestId, serverId: target.server.id, summary: `Agent unavailable on ${target.server.name}; falling back to direct SSH.` },
   });
 
+  if (!result) {
+    const dispatched = await prisma.commandTarget.updateMany({
+      where: { id: target.id, status: { in: ["RUNNING", "APPROVED", "PENDING_APPROVAL"] } },
+      data: { executionChannel: "SSH", fallbackReason },
+    });
+    if (!dispatched.count) {
+      await prisma.commandTarget.updateMany({ where: { id: target.id, status: "CANCELLING" },
+        data: { status: "CANCELLED", exitCode: 130, finishedAt: new Date() } });
+      await prisma.executionLog.create({ data: { commandRequestId, serverId: target.server.id, summary: "Skipped SSH: target cancelling or already terminal." } });
+      return false;
+    }
+  }
   result ??= await executeCommandOverSsh({
     host: target.server.host,
     port: target.server.port,
@@ -277,7 +292,7 @@ export async function executeTarget(
   // have stamped CANCELLED. Never overwrite that terminal status with
   // COMPLETED/FAILED from a late process exit (false "failed after cancel").
   const cancelled = Boolean(result.cancelled) && !stoppedUnverified;
-  const succeeded = !result.cancelled && result.exitCode === 0;
+  const succeeded = !result.cancelled && !result.outcomeUnknown && result.exitCode === 0;
   const nextTargetStatus = cancelled ? "CANCELLED" : succeeded ? "COMPLETED" : "FAILED";
   const unverifiedNotice = "Stopped by the platform, not by an operator: the cancellation state of this command could not be read from the database (the lookup failed or took over 5 seconds), and a command that cannot be cancelled is not left running.";
   const targetUpdate = await prisma.commandTarget.updateMany({

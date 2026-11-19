@@ -69,6 +69,21 @@ jobs:
       - name: Install dependencies
         run: npm ci
 
+      - name: Set up Go for the native file Agent
+        uses: actions/setup-go@924ae3a1cded613372ab5595356fb5720e22ba16 # v6
+        with:
+          go-version: stable
+          cache: false
+      - name: Test native file Agent
+        working-directory: agent-files
+        run: go test ./...
+
+      - name: Build file Agent for PostgreSQL transfer tests
+        working-directory: agent-files
+        run: |
+          go build -trimpath -o "$RUNNER_TEMP/vch-files" .
+          echo "VCH_TEST_FILE_AGENT=$RUNNER_TEMP/vch-files" >> "$GITHUB_ENV"
+
       - name: Verify toolchain security regression
         run: npm run toolchain:security
 
@@ -231,6 +246,15 @@ jobs:
 
       - name: Lint
         run: npm run lint
+
+      - name: Set up Go for the native file Agent
+        uses: actions/setup-go@924ae3a1cded613372ab5595356fb5720e22ba16 # v6
+        with:
+          go-version: stable
+          cache: false
+      - name: Test native file Agent
+        working-directory: agent-files
+        run: go test ./...
 
       - name: Unit tests
         run: npm test

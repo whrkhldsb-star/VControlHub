@@ -10,7 +10,7 @@ import { storageAccessDeniedCopy } from "@/lib/storage/access-denied";
 import { contentDownloadQuerySchema } from "@/lib/storage/schema";
 import { getStorageFileNode } from "@/lib/storage/file-content";
 import { normalizeStorageRelativePath } from "@/lib/storage/path-utils";
-import { createWebDavClient } from "@/lib/storage/webdav-client";
+import { createRemoteStorageClient } from "@/lib/storage/agent-file-client";
 import { parseStorageRange, buildStorageStreamHeaders } from "@/lib/storage/streaming";
 
 export const dynamic = "force-dynamic";
@@ -22,12 +22,12 @@ export async function GET(request: Request) {
     const normalized = normalizeStorageRelativePath(query.path);
     if (!normalized.ok) throw new ValidationError(normalized.reason);
     const node = await getStorageFileNode(query.nodeId, session);
-    if (!node || node.driver !== "WEBDAV") throw new NotFoundError(apiCopy("apiCopy.webdav.node.not.found.ac1b2fce"));
+    if (!node || (node.driver !== "WEBDAV" && node.driver !== "AGENT")) throw new NotFoundError(apiCopy("apiCopy.webdav.node.not.found.ac1b2fce"));
     const access = await assertStorageAccess({ session, storageNodeId: node.id, relativePath: normalized.path, operation: "read" });
     if (!access.allowed) throw new ForbiddenError(storageAccessDeniedCopy(access.reason));
     const indexed = await prisma.fileEntry.findFirst({ where: { storageNodeId: node.id, relativePath: normalized.path }, select: { isDeleted: true } });
     if (indexed?.isDeleted) throw new NotFoundError(apiCopy("apiCopy.file.unavailable.b3b9efed"));
-    const client = createWebDavClient(node);
+    const client = createRemoteStorageClient(node);
     const entry = await client.stat(normalized.path);
     if (!entry || entry.isDirectory) throw new NotFoundError(apiCopy("apiCopy.file.unavailable.b3b9efed"));
     const range = parseStorageRange(request.headers.get("range"), entry.size);
