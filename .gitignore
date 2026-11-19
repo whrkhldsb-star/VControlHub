@@ -100,3 +100,8 @@ __pycache__/
 
 # restore lock left by a killed restore (scripts/lib/backup-common.mjs)
 /.restore.lock/
+
+# Local file Agent builds and pairing configurations
+/agent-files/vch-files
+/agent-files/vch-files.exe
+file-agent.json

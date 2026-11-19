@@ -47,3 +47,8 @@ test-results
 **/.local
 **/.npm
 **/file-versions
+
+# Local file Agent builds and pairing configurations
+agent-files/vch-files
+agent-files/vch-files.exe
+**/file-agent.json
