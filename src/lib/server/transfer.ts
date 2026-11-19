@@ -65,6 +65,12 @@ export async function transferServerToCustomer(serverId: string, targetTeamId: s
       }
 
       const existingDefault = await tx.storageNode.findFirst({ where: { teamId: target.id, isDefault: true }, select: { id: true } });
+      // Revoke the old file credentials and their pending calls in this transaction,
+      // including on schemas that were provisioned without the migration triggers.
+      const agentNodeIds = bindings.filter(node => node.driver === "AGENT").map(node => node.id);
+      if (agentNodeIds.length) {
+        await tx.agentFileShare.deleteMany({ where: { serverId, storageNodeId: { in: agentNodeIds } } });
+      }
       await tx.server.update({ where: { id: serverId }, data: { teamId: target.id } });
       await Promise.all([
         tx.storageNode.updateMany({ where: { id: { in: storageNodeIds } }, data: { teamId: target.id, ...(existingDefault ? { isDefault: false } : {}) } }),
@@ -79,16 +85,14 @@ export async function transferServerToCustomer(serverId: string, targetTeamId: s
         tx.vpsBackupSchedule.updateMany({ where: { serverId }, data: { createdById: session.userId } }),
         tx.vpsBackupRecord.updateMany({ where: { serverId }, data: { createdBy: session.userId } }),
       ]);
-      // Changing a drive's team revokes its file credential and removes its former binding.
-      // Recreate the association without credentials so the new customer explicitly pairs it.
-      const agentBindings = bindings.filter(node => node.driver === "AGENT");
-      if (agentBindings.length) {
-        await tx.storageNode.updateMany({ where: { id: { in: agentBindings.map(node => node.id) } }, data: {
+      // The new owner explicitly pairs the drive before file operations can resume.
+      if (agentNodeIds.length) {
+        await tx.storageNode.updateMany({ where: { id: { in: agentNodeIds } }, data: {
           healthStatus: "UNKNOWN", lastHealthyAt: null, lastHealthyTransport: null,
           lastHealthCheckAt: null, lastHealthError: null, lastHealthLatencyMs: null,
         } });
         await tx.agentFileShare.createMany({
-          data: agentBindings.map(node => ({ storageNodeId: node.id, serverId, teamId: target.id })),
+          data: agentNodeIds.map(storageNodeId => ({ storageNodeId, serverId, teamId: target.id })),
         });
       }
       return { server, target };

@@ -20,6 +20,7 @@ const mocks = vi.hoisted(() => ({
   vpsBackupRecordUpdateMany: vi.fn((args: unknown) => ({ op: "vpsBackupRecord.updateMany", args })),
   impact: vi.fn(),
   bindings: vi.fn(),
+  revoke: vi.fn(),
   rebind: vi.fn(),
   audit: vi.fn(),
 }));
@@ -31,7 +32,7 @@ vi.mock("@/lib/db", () => ({
     imageUpload: { count: mocks.imageUploadCount },
     commandTarget: { count: mocks.commandTargetCount },
     downloadTask: { count: mocks.downloadTaskCount },
-    agentFileShare: { createMany: mocks.rebind },
+    agentFileShare: { deleteMany: mocks.revoke, createMany: mocks.rebind },
     storageNode: { findFirst: vi.fn(async () => null), updateMany: mocks.storageNodeUpdateMany },
     metricSnapshot: { updateMany: mocks.metricSnapshotUpdateMany },
     userServerAccess: { deleteMany: mocks.userServerAccessDeleteMany },
@@ -76,6 +77,8 @@ describe("transferServerToCustomer", () => {
   it("moves the server with its storage and history and drops the old customer's grants", async () => {
     await expect(transferServerToCustomer("srv_1", "team_b", ADMIN)).resolves.toEqual({ serverId: "srv_1", teamId: "team_b", teamName: "Beta" });
     expect(mocks.storageNodeUpdateMany).toHaveBeenCalledWith({ where: { id: { in: ["node_1", "agent_disk"] } }, data: { teamId: "team_b" } });
+    expect(mocks.revoke).toHaveBeenCalledWith({ where: { serverId: "srv_1", storageNodeId: { in: ["agent_disk"] } } });
+    expect(mocks.revoke).toHaveBeenCalledBefore(mocks.rebind);
     expect(mocks.rebind).toHaveBeenCalledWith({ data: [{ serverId: "srv_1", storageNodeId: "agent_disk", teamId: "team_b" }] });
     // Backup ownership follows the transfer (A2-03): the old customer's creator can no longer run them.
     expect(mocks.vpsBackupScheduleUpdateMany).toHaveBeenCalledWith({ where: { serverId: "srv_1" }, data: { createdById: "u_admin" } });
