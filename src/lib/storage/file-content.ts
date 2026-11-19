@@ -27,6 +27,7 @@ import { resolveStorageRemotePath } from "@/lib/storage/remote-containment";
 import { resolveStoragePathWithinBase } from "@/lib/storage/path-utils";
 import { t } from "@/lib/i18n/service-translations";
 import { createWebDavClient } from "@/lib/storage/webdav-client";
+import { createAgentFileClient, createRemoteStorageClient } from "@/lib/storage/agent-file-client";
 import { SSH_KEY_CREDENTIAL_SELECT } from "@/lib/ssh/ssh-key-crypto";
 
 /** A node as storageFileNodeSelect loads it (the SFTP connection in full). */
@@ -81,7 +82,7 @@ export async function readStorageFileBuffer(
   node: StorageFileNode,
   relativePath: string,
 ) {
-  if (node.driver === "WEBDAV") return createWebDavClient(node).read(relativePath);
+  if (node.driver === "WEBDAV" || node.driver === "AGENT") return createRemoteStorageClient(node).read(relativePath);
   if (node.driver === "LOCAL") {
     const resolved = resolveStoragePathWithinBase(node.basePath, relativePath);
     if (!resolved.ok) throw new ValidationError(resolved.reason);
@@ -123,8 +124,8 @@ export async function streamStorageFile(
   relativePath: string,
   range?: { start: number; end: number },
 ) {
-  if (node.driver === "WEBDAV") {
-    const client = createWebDavClient(node);
+  if (node.driver === "WEBDAV" || node.driver === "AGENT") {
+    const client = createRemoteStorageClient(node);
     const entry = await client.stat(relativePath);
     if (!entry || entry.isDirectory) throw new ValidationError(t("backend.webdav.fileNotFound"));
     const stream = Readable.fromWeb(await client.stream(relativePath, range, entry.size, entry.etag) as import("node:stream/web").ReadableStream);
@@ -254,8 +255,8 @@ export async function writeStorageFileBuffer(
   relativePath: string,
   buffer: Buffer,
 ) {
-  if (node.driver === "WEBDAV") {
-    const client = createWebDavClient(node);
+  if (node.driver === "WEBDAV" || node.driver === "AGENT") {
+    const client = createRemoteStorageClient(node);
     const parent = path.posix.dirname(relativePath);
     if (parent !== ".") {
       let directory = "";
@@ -360,7 +361,11 @@ function sftpAtomicRename(sftp: import("ssh2").SFTPWrapper, from: string, to: st
  * Stores a staged upload (`sourcePath`) as `relativePath` on the node. The source is its caller's to discard:
  * on a local node it is moved into place when it is on the same filesystem, so it may be gone afterwards.
  */
-export async function writeStorageFileFromLocalPath(node: StorageFileNode, relativePath: string, sourcePath: string) {
+export async function writeStorageFileFromLocalPath(node: StorageFileNode, relativePath: string, sourcePath: string, agentUpload?: { checksum: string; beforePublish: () => Promise<void> }) {
+  if (node.driver === "AGENT") {
+    await createAgentFileClient(node.id).writeLocal(relativePath, sourcePath, agentUpload?.checksum, agentUpload?.beforePublish);
+    return relativePath;
+  }
   if (node.driver === "LOCAL") {
     const resolved = resolveStoragePathWithinBase(node.basePath, relativePath);
     if (!resolved.ok) throw new ValidationError(resolved.reason);
@@ -437,8 +442,8 @@ export async function deleteStorageFileBuffer(
   node: StorageFileNode,
   relativePath: string,
 ) {
-  if (node.driver === "WEBDAV") {
-    await createWebDavClient(node).delete(relativePath);
+  if (node.driver === "WEBDAV" || node.driver === "AGENT") {
+    await createRemoteStorageClient(node).delete(relativePath);
     return relativePath;
   }
   if (node.driver === "LOCAL") {
@@ -493,8 +498,8 @@ export async function copyStorageFile(
     throw new ValidationError(t("backend.storage.copySourceDestinationMustDiffer"));
   }
 
-  if (node.driver === "WEBDAV") {
-    const client = createWebDavClient(node);
+  if (node.driver === "WEBDAV" || node.driver === "AGENT") {
+    const client = createRemoteStorageClient(node);
     await client.copy(sourceRelativePath, destinationRelativePath);
     const result = await client.stat(destinationRelativePath);
     if (!result || result.isDirectory) throw new ValidationError(t("backend.storage.unsupportedNodeType"));
@@ -609,7 +614,7 @@ export function buildStorageFileDownloadUrl(
   if (download) params.set("download", "1");
   if (node.driver === "SFTP")
     return `/api/storage/sftp-download?${params.toString()}`;
-  if (node.driver === "WEBDAV")
+  if (node.driver === "WEBDAV" || node.driver === "AGENT")
     return `/api/storage/webdav-download?${params.toString()}`;
   if (node.driver === "LOCAL") return `/api/storage/local?${params.toString()}`;
   throw new BusinessError(t("backend.storage.unsupportedNodeType"));

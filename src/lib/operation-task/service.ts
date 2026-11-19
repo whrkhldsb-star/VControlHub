@@ -36,7 +36,11 @@ type JobTaskRow = Job & {
 // at 256 KB each by the command output limit, and a page of 200 requests used
 // to drag ~200 MB out of Postgres for a three-line preview. The bounded tails
 // are fetched separately by `fetchTargetOutputTails`.
-type CommandTaskRow = Prisma.CommandRequestGetPayload<{ include: { requester: { select: { username: true; displayName: true } }; targets: { select: { id: true; status: true; finishedAt: true; startedAt: true }; take: 2; orderBy: { finishedAt: "desc" } }; executionLogs: { select: { summary: true; createdAt: true }; take: 2; orderBy: { createdAt: "desc" } }; scheduledTaskRuns: { select: { scheduledTask: { select: { name: true } } }; take: 1 } } }>;
+const commandTargetSelect = {
+  id: true, status: true, finishedAt: true, executionChannel: true, fallbackReason: true, outcomeUnknown: true,
+  server: { select: { name: true, teamId: true } },
+} satisfies Prisma.CommandTargetSelect;
+type CommandTaskRow = Prisma.CommandRequestGetPayload<{ include: { requester: { select: { username: true; displayName: true } }; targets: { select: typeof commandTargetSelect; take: 2; orderBy: { finishedAt: "desc" } }; executionLogs: { select: { summary: true; createdAt: true }; take: 2; orderBy: { createdAt: "desc" } }; scheduledTaskRuns: { select: { scheduledTask: { select: { name: true } } }; take: 1 } } }>;
 type DownloadTaskRow = Prisma.DownloadTaskGetPayload<{ include: { creator: { select: { username: true; displayName: true } } } }>;
 type SyncJobTaskRow = Prisma.SyncJobGetPayload<{ include: { creator: { select: { username: true; displayName: true } } } }>;
 type BackupTaskRow = Prisma.BackupRecordGetPayload<{ include: { creator: { select: { username: true; displayName: true } } } }>;
@@ -380,7 +384,7 @@ export async function listOperationTaskResult(options: OperationTaskListOptions,
     fetchSource("createdBy", (statuses) => rawStatusWhere(statuses, Object.values(JobStatus), false), typedWhere, (where) =>
       prisma.job.findMany({ where, take: limit, orderBy: { createdAt: "desc" }, include: { creator: { select: { username: true, displayName: true } }, _count: { select: { events: true } } } })),
     fetchSource("requesterId", (statuses) => rawStatusWhere(statuses, Object.values(CommandRequestStatus), false), untypedWhere, (where) =>
-      prisma.commandRequest.findMany({ where, take: limit, orderBy: { createdAt: "desc" }, include: { requester: { select: { username: true, displayName: true } }, targets: { take: 2, orderBy: { finishedAt: "desc" }, select: { id: true, status: true, finishedAt: true, startedAt: true } }, executionLogs: { take: 2, orderBy: { createdAt: "desc" }, select: { summary: true, createdAt: true } }, scheduledTaskRuns: { take: 1, select: { scheduledTask: { select: { name: true } } } } } })),
+      prisma.commandRequest.findMany({ where, take: limit, orderBy: { createdAt: "desc" }, include: { requester: { select: { username: true, displayName: true } }, targets: { take: 2, orderBy: { finishedAt: "desc" }, select: commandTargetSelect }, executionLogs: { take: 2, orderBy: { createdAt: "desc" }, select: { summary: true, createdAt: true } }, scheduledTaskRuns: { take: 1, select: { scheduledTask: { select: { name: true } } } } } })),
     fetchSource("createdBy", (statuses) => rawStatusWhere(statuses, Object.values(DownloadTaskStatus), false), untypedWhere, (where) =>
       prisma.downloadTask.findMany({ where, take: limit, orderBy: { createdAt: "desc" }, include: { creator: { select: { username: true, displayName: true } } } })),
     fetchSource("createdBy", syncStatusWhere, untypedWhere, (where) =>
@@ -419,6 +423,15 @@ export async function listOperationTaskResult(options: OperationTaskListOptions,
       createdAt: toIso(item.createdAt),
       updatedAt: toIso(item.updatedAt),
       actor: actorName(item.requester),
+      targetEvidence: (item.targets ?? []).map((target) => ({
+        id: target.id,
+        label: target.server && target.server.teamId === item.teamId ? target.server.name : target.id,
+        executionChannel: target.executionChannel,
+        fallbackReason: target.fallbackReason,
+        outcomeUnknown: target.outcomeUnknown,
+        succeededAt: target.status === "COMPLETED" && !target.outcomeUnknown && target.finishedAt
+          ? toIso(target.finishedAt) : null,
+      })),
       progress: formatWorkerProgress(item, t),
       logPreview: compactLogPreview([
         (item.executionLogs ?? []).map((log) => log.summary).join("\n"),

@@ -32,6 +32,7 @@ import type { ServerBillingDto } from "@/lib/server/billing-form";
 import type { ServerSyncTargetAuth } from "@/lib/sync/target-auth";
 import { ServerBillingRows } from "./server-billing-rows";
 import { ServerAgentReinstall } from "./server-agent-reinstall";
+import { ExecutionEvidence } from "@/components/execution-evidence";
 import { formatDateTime } from "@/lib/datetime/format";
 
 export type ServerOverviewDetailsServer = {
@@ -50,6 +51,8 @@ export type ServerOverviewDetailsServer = {
 	connectionType: "SSH_KEY" | "PASSWORD";
 	managementMode: "DIRECT" | "AGENT";
 	hasSshCredential?: boolean;
+	fileDrives?: Array<{ id: string; name: string }>;
+	capabilities?: Partial<Record<"metrics" | "command" | "storage" | "fileRead" | "fileWrite", { at: string; channel: string } | null>>;
 	agent?: { online: boolean; lastSeenAt: string | null; metricsAt: string | null; version: string | null; capabilities: string[]; lastError: string | null };
 	pendingCommandCount: number;
 	targetCount: number;
@@ -59,6 +62,9 @@ export type ServerOverviewDetailsServer = {
 		initiatedByType: string;
 		requestStatus: string;
 		targetStatus: string;
+		executionChannel?: string | null;
+		fallbackReason?: string | null;
+		outcomeUnknown?: boolean;
 	}>;
 	sshKeyId?: string | null;
 	sshKey: { name: string; fingerprint?: string | null } | null;
@@ -240,9 +246,12 @@ export function ServerOverviewDetails({
 						value={
 							server.storageNode
 								? `${server.storageNode.name} · ${server.storageNode.basePath}`
-								: t("serverOverviewDetails.unbound")
+								: server.fileDrives?.length ? "Agent" : t("serverOverviewDetails.unbound")
 						}
 					/>
+					{server.fileDrives?.map((drive) => <Link key={drive.id} href={`/files?nodeId=${encodeURIComponent(drive.id)}`} className="block text-sm underline">
+						Agent · {drive.name}
+					</Link>)}
 					<InfoRow label={t("serverOverviewDetails.directMode")} value={directLabel} />
 					<InfoRow label={t("serverOverviewDetails.totalCommandTargets")} value={String(server.targetCount)} />
 					<InfoRow label={t("serverOverviewDetails.connectionSummary")} value={serverConnectionSummary(server, t)} />
@@ -262,6 +271,10 @@ export function ServerOverviewDetails({
 							/>
 						</>
 					) : null}
+					{(["metrics", "command", "storage", ...(server.managementMode === "AGENT" ? ["fileRead", "fileWrite"] as const : [])] as const).map((key) => {
+						const observation = server.capabilities?.[key];
+						return <InfoRow key={key} label={t(`serverOverviewDetails.success.${key}`)} value={observation ? `${observation.channel} · ${formatDateTime(new Date(observation.at), locale)}` : t("serverOverviewDetails.noEvidence")} />;
+					})}
 					{server.managementMode === "AGENT" && server.agent?.lastError ? <InfoRow label={t("serversPage.management.lastError")} value={server.agent.lastError} /> : null}
 					{server.managementMode === "AGENT" && canManageServers && server.hasSshCredential !== false ? (
 						<ServerAgentReinstall serverId={server.id} version={server.agent?.version ?? null} />
@@ -415,6 +428,7 @@ export function ServerOverviewDetails({
 								</div>
 								<div className="mt-1 text-xs text-[var(--text-muted)]">
 									{commandStatusLine(command.requestStatus, command.targetStatus, t)}
+									<ExecutionEvidence target={command} translate={t} />
 								</div>
 							</div>
 						))}

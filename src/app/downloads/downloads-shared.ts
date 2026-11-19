@@ -7,7 +7,7 @@ export type ServerOption = {
 	name: string;
 	host: string;
 	storagePath: string;
-	storageDriver: "LOCAL" | "SFTP" | "WEBDAV";
+	storageDriver: "LOCAL" | "SFTP" | "WEBDAV" | "AGENT";
 	directAccessMode: "PROXY" | "DIRECT" | "AUTO";
 	directAccessAvailable: boolean;
 	accessTransport: "direct" | "relay";

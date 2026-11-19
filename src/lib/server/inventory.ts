@@ -45,7 +45,8 @@ export async function getServerInventory(session: TeamSession, input: Record<str
   const { stats, page, ids } = await prisma.$transaction(async (tx) => {
     const [counts] = await tx.$queryRaw<{ total: number; enabled: number; storage: number; matching: number }[]>(Prisma.sql`
       SELECT count(*)::int AS total, count(*) FILTER (WHERE s.enabled)::int AS enabled,
-        count(*) FILTER (WHERE EXISTS (SELECT 1 FROM "StorageNode" n WHERE n."serverId" = s.id))::int AS storage,
+        count(*) FILTER (WHERE EXISTS (SELECT 1 FROM "StorageNode" n WHERE n."serverId" = s.id)
+          OR EXISTS (SELECT 1 FROM agent_file_shares sh WHERE sh."serverId" = s.id AND sh."teamId" IS NOT DISTINCT FROM s."teamId"))::int AS storage,
         count(*) FILTER (WHERE ${search} AND ${status} AND ${mode} AND ${os})::int AS matching
       FROM servers s WHERE ${scope}`);
     const stats = counts!;

@@ -1,11 +1,11 @@
 {
-  "generatedAt": "2026-11-18T10:01:22.339Z",
+  "generatedAt": "2026-11-19T10:54:05.878Z",
   "summary": {
     "sidebarMain": 26,
     "sidebarSystem": 12,
     "sidebarMobile": 4,
     "pages": 58,
-    "apiRoutes": 196,
+    "apiRoutes": 197,
     "permissionsDefined": 52
   },
   "sidebar": {
@@ -896,6 +896,15 @@
       "file": "src/app/api/agent/v1/bootstrap/route.ts",
       "methods": [
         "GET"
+      ],
+      "guardMode": "bearer",
+      "declaredPermissions": []
+    },
+    {
+      "path": "/api/agent/v1/files",
+      "file": "src/app/api/agent/v1/files/route.ts",
+      "methods": [
+        "POST"
       ],
       "guardMode": "bearer",
       "declaredPermissions": []

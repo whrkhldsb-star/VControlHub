@@ -5,6 +5,7 @@ import { formatDateTime } from "@/lib/datetime/format";
 import { useI18n } from "@/lib/i18n/use-locale";
 import { thrownActionMessage } from "@/lib/http/error-message";
 
+import { FileAgentPairing } from "./file-agent-pairing";
 import { checkStorageNodeHealthAction } from "./actions";
 import { EmptyState } from "@/components/page-shell";
 import { StatusBadge, type StatusTone } from "@/components/status-badge";
@@ -182,6 +183,7 @@ function StorageNodeCard({
 			</div>
 			<p className="mt-2 text-xs text-[var(--text-muted)]">{t("storagePage.list.registeredFiles", { count: node.fileCount })}</p>
 
+		{canManageNodes && node.driver === "AGENT" && <FileAgentPairing nodeId={node.id} />}
 		{editing ? (
 			<div className="mt-4">
 				<StorageNodeEditForm node={node} servers={servers} />

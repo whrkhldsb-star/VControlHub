@@ -76,7 +76,7 @@ export function buildSearchHref(path: string, extra?: Record<string, string>) {
 }
 
 export function buildProxyDownloadHref(entry: StorageEntry) {
-  if (entry.storageNode.driver === "WEBDAV") {
+  if (entry.storageNode.driver === "WEBDAV" || entry.storageNode.driver === "AGENT") {
     const params = new URLSearchParams({ nodeId: entry.storageNode.id, path: entry.relativePath });
     return `/api/storage/webdav-download?${params.toString()}`;
   }

@@ -45,6 +45,14 @@ export type OperationTask = {
   actor?: string | null;
   progress?: string | null;
   logPreview?: string[];
+  targetEvidence?: Array<{
+    id: string;
+    label: string;
+    executionChannel: string | null;
+    fallbackReason: string | null;
+    outcomeUnknown: boolean;
+    succeededAt: string | null;
+  }>;
   href?: string;
   workerId?: string | null;
   workerHeartbeatAt?: string | null;

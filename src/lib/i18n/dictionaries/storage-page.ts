@@ -2,6 +2,13 @@
  * i18n dictionary: `storagePage.*` (auto-generated).
  */
 export const zh: Record<string, string> = {
+	"storagePage.agent.select": "选择 Agent 服务器",
+	"storagePage.agent.hint": "创建后配对文件 Agent，再在服务器本机指定共享目录。",
+	"storagePage.agent.pair": "配对或更换文件 Agent",
+	"storagePage.agent.rotate": "配对会撤销此云盘原有的文件凭据。",
+	"storagePage.agent.generate": "生成配对配置",
+	"storagePage.agent.config": "把下方配置保存到共享目录之外，填写本机绝对路径。将 writable 设为 true 可启用写入。",
+	"storagePage.agent.close": "关闭配置",
 	"storagePage.form.webdavUrl": "WebDAV 地址（HTTPS）",
 	"storagePage.form.webdavAuthType": "WebDAV 认证方式",
 	"storagePage.form.webdavAuthBasic": "基础认证（Basic）",
@@ -112,6 +119,13 @@ export const zh: Record<string, string> = {
 };
 
 export const en: Record<string, string> = {
+	"storagePage.agent.select": "Select an Agent server",
+	"storagePage.agent.hint": "Pair the file Agent after creating the drive, then choose the shared directory on the server.",
+	"storagePage.agent.pair": "Pair or replace file Agent",
+	"storagePage.agent.rotate": "Pairing revokes the previous file credential for this drive.",
+	"storagePage.agent.generate": "Generate pairing configuration",
+	"storagePage.agent.config": "Save this configuration outside the share and set root to the local absolute path. Set writable to true to allow writes.",
+	"storagePage.agent.close": "Close configuration",
 	"storagePage.form.webdavUrl": "WebDAV endpoint (HTTPS)",
 	"storagePage.form.webdavAuthType": "WebDAV authentication",
 	"storagePage.form.webdavAuthBasic": "Basic",

@@ -19,7 +19,7 @@ import {
   resolveManagedLocalEntryPath,
   statBackingObject,
 } from "@/lib/storage/fs-backend";
-import { createWebDavClient } from "@/lib/storage/webdav-client";
+import { createRemoteStorageClient } from "@/lib/storage/agent-file-client";
 import {
   joinStoragePath,
   normalizeStorageEntryName,
@@ -101,6 +101,7 @@ async function createFolderActionImpl(
         name: true,
         driver: true,
         basePath: true,
+        webdavConfigEncrypted: true,
         host: true,
         port: true,
         username: true,
@@ -172,8 +173,8 @@ async function createFolderActionImpl(
             const { absolutePath } = await resolveManagedLocalEntryPath({ basePath: storageNode.basePath, relativePath });
             const { readdir } = await import("node:fs/promises");
             isEmpty = (await readdir(absolutePath)).length === 0;
-          } else if (storageNode.driver === "WEBDAV") {
-            const entries = await createWebDavClient(storageNode).list(relativePath);
+          } else if (storageNode.driver === "WEBDAV" || storageNode.driver === "AGENT") {
+            const entries = await createRemoteStorageClient(storageNode).list(relativePath);
             isEmpty = entries.length === 0;
           } else {
             // SFTP and unknown drivers: cannot cheaply confirm emptiness —

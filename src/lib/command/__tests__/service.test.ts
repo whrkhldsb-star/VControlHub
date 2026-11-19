@@ -796,11 +796,14 @@ describe("command service execution flow", () => {
         }),
       ),
     );
-    expect(mockPrisma.commandTarget.updateMany.mock.calls.map(([call]) => call)).not.toEqual(
-      expect.arrayContaining([
-        expect.objectContaining({ where: expect.objectContaining({ id: "target_slow" }) }),
-      ]),
-    );
+    expect(mockPrisma.commandTarget.updateMany).toHaveBeenCalledWith(expect.objectContaining({
+      where: expect.objectContaining({ id: "target_slow" }),
+      data: expect.objectContaining({ executionChannel: "SSH" }),
+    }));
+    expect(mockPrisma.commandTarget.updateMany).not.toHaveBeenCalledWith(expect.objectContaining({
+      where: expect.objectContaining({ id: "target_slow" }),
+      data: expect.objectContaining({ finishedAt: expect.any(Date) }),
+    }));
     expect(mockPrisma.commandRequest.updateMany).not.toHaveBeenCalledWith({
       where: { id: "req_parallel_1", status: { in: ["RUNNING", "APPROVED"] } },
       data: { status: "COMPLETED", workerId: null, workerHeartbeatAt: null },
@@ -1882,7 +1885,10 @@ describe("command service execution flow", () => {
       approvals: [], targets: [], executionLogs: [],
     });
     const oldPending = row("old-pending", "PENDING_APPROVAL", "2026-10-01T00:00:00Z");
-    const newestDone = row("newest-done", "COMPLETED", "2026-10-28T00:00:00Z");
+    const newestDone = {
+      ...row("newest-done", "COMPLETED", "2026-10-28T00:00:00Z"), teamId: "prior",
+      targets: [{ id: "moved-target", status: "COMPLETED", executionChannel: "SSH", server: { teamId: "next", name: "new owner", host: "example.invalid", port: 22 } }],
+    };
     mockPrisma.commandRequest.findMany.mockReset();
     mockPrisma.commandRequest.findMany
       .mockResolvedValueOnce([oldPending, row("also-open", "RUNNING", "2026-10-27T00:00:00Z")])
@@ -1891,6 +1897,8 @@ describe("command service execution flow", () => {
     const listed = await listCommandRequests();
 
     expect(listed.map((request) => request.id)).toEqual(["newest-done", "also-open", "old-pending"]);
+    expect(listed[0]?.targets[0]).toMatchObject({ id: "moved-target", server: null, executionChannel: "SSH" });
+    expect(listed[0]?.targetSummary).toEqual(["moved-target · COMPLETED"]);
     const openQuery = mockPrisma.commandRequest.findMany.mock.calls[0]![0];
     expect(JSON.stringify(openQuery.where)).toContain("PENDING_APPROVAL");
     expect(openQuery.take).toBeGreaterThan(100);

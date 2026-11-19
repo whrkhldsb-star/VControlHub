@@ -124,6 +124,7 @@ export function getStorageDriverLabel(t: Translator, driver: string): string {
 
 /** How a file of this driver reaches the browser, in the viewer's language. */
 export function getStorageAccessLabel(t: Translator, driver: string, mode: string): string {
+  if (driver === "AGENT") return t("backend.fileAgent.proxy");
   const key = driver === "LOCAL"
     ? "common.storageAccess.local"
     : driver === "WEBDAV"
@@ -136,6 +137,7 @@ export function getStorageAccessLabel(t: Translator, driver: string, mode: strin
 
 /** Where a storage node keeps its files, in the viewer's language. */
 export function getStorageConnectionLabel(t: Translator, node: { driver: string; basePath: string; host?: string | null; port?: number | null; username?: string | null }): string {
+  if (node.driver === "AGENT") return t("backend.fileAgent.proxy");
   if (node.driver === "LOCAL") return t("common.storageConnection.local", { path: node.basePath });
   if (node.driver === "WEBDAV") return t("common.storageConnection.webdav", { path: node.basePath });
   const remote = node.host ? `${node.username ?? "root"}@${node.host}:${node.port ?? 22}` : t("common.storageConnection.boundServer");

@@ -176,7 +176,7 @@ export function NewFolderDialog({ onClose, nodes, nodeId, currentPath, onCreated
 	const { addToast } = useToast();
 	const formId = useId();
 	const inputRef = useRef<HTMLInputElement>(null);
-	const writable = nodes.filter((node) => ["LOCAL", "SFTP", "WEBDAV"].includes(node.driver));
+	const writable = nodes.filter((node) => ["LOCAL", "SFTP", "WEBDAV", "AGENT"].includes(node.driver));
 	const [name, setName] = useState("");
 	const [targetNode, setTargetNode] = useState(nodeId || writable[0]?.id || "");
 	const [busy, setBusy] = useState(false);

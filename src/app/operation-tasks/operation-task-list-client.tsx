@@ -5,6 +5,7 @@ import { useUrlQueryState } from "@/lib/hooks/use-url-query-state";
 import Link from "next/link";
 import { EmptyState, ListPanel, ListRow, StatCard, StatGrid, SurfacePanel, Toolbar } from "@/components/page-shell";
 import { Badge, CONTROL_CLASS, Notice } from "@/components/ui-primitives";
+import { ExecutionEvidence } from "@/components/execution-evidence";
 import { PaginatedList } from "@/components/paginated-list";
 import { formatDateTime } from "@/lib/datetime/format";
 import type { Locale } from "@/lib/i18n/core";
@@ -94,6 +95,15 @@ const TaskRow = memo(function TaskRow({ task, t, locale, sourceLabels, onViewEve
         </div>
         <h3 className="ui-title-group mt-2 truncate">{title}</h3>
         <p className="mt-1 text-xs text-[var(--text-muted)]">{meta}</p>
+        {task.targetEvidence?.map((target) => (
+          <div key={target.id} className="mt-2 text-xs text-[var(--text-muted)]">
+            <span className="break-all font-medium">{target.label}</span>
+            <ExecutionEvidence target={target} translate={t} />
+            {target.succeededAt && (
+              <p>{t("serverOverviewDetails.success.command")} · {formatDateTime(target.succeededAt, locale)}</p>
+            )}
+          </div>
+        ))}
         {logLines.length > 0 && (
           <div aria-label={t("operationTasksPage.recentLogsAria", { title })} data-inset className="mt-3 px-3 py-2">
             <div className="text-xs font-medium text-[var(--text-muted)]">{t("operationTasksPage.logs.recent")}</div>

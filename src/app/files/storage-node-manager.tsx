@@ -48,7 +48,7 @@ export function StorageNodeManager({
 
 	const localCount = nodes.filter((n) => n.driver === "LOCAL").length;
 	const sftpCount = nodes.filter((n) => n.driver === "SFTP").length;
-	const serversWithoutStorage = servers.filter((server) => !server.storageNodeId);
+
 
 	return (
 		<>
@@ -61,11 +61,11 @@ export function StorageNodeManager({
 				open={open}
 				onClose={() => setOpen(false)}
 				title={t("storagePage.nodes.title")}
-				description={`${t("storagePage.nodes.summary", { total: nodes.length, local: localCount, sftp: sftpCount })} · WebDAV ${nodes.filter((node) => node.driver === "WEBDAV").length}`}
+				description={`${t("storagePage.nodes.summary", { total: nodes.length, local: localCount, sftp: sftpCount })} · WebDAV ${nodes.filter((node) => node.driver === "WEBDAV").length} · Agent ${nodes.filter((node) => node.driver === "AGENT").length}`}
 			>
 				<div id="storage-nodes" className="flex flex-col gap-6">
 					<StorageNodeList nodes={nodes} servers={servers} canManageNodes={canManageNodes} />
-					{canManageNodes ? <StorageNodeCreateForm servers={serversWithoutStorage} /> : null}
+					{canManageNodes ? <StorageNodeCreateForm servers={servers} /> : null}
 				</div>
 			</Dialog>
 		</>

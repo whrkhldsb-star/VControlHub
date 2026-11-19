@@ -29,7 +29,7 @@ import { useStorageUploads } from "@/components/storage/storage-upload-provider"
 import { readDroppedFiles } from "@/components/storage/storage-drop-files";
 import { getBrowserRelativePath, normalizeRelativePath } from "@/components/storage/file-upload-helpers";
 
-const UPLOAD_DRIVERS = new Set(["LOCAL", "SFTP", "WEBDAV"]);
+const UPLOAD_DRIVERS = new Set(["LOCAL", "SFTP", "WEBDAV", "AGENT"]);
 
 export function FilesBrowserSpa({
   initialData,

@@ -66,7 +66,7 @@ async function synchronizeDirectory(
           })
         ).errors[0] ?? null
       );
-  } else if (node.driver === "WEBDAV") {
+  } else if (node.driver === "WEBDAV" || node.driver === "AGENT") {
     const syncNode = await getWebDavSyncNode(node.id, session);
     if (syncNode)
       return (

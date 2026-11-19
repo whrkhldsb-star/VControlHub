@@ -329,7 +329,7 @@ async function serveShareIn(
 		return new Response(null, { status: 200, headers });
 	}
 
-	if (node.driver === "WEBDAV") {
+	if (node.driver === "WEBDAV" || node.driver === "AGENT") {
 		if (wantsArchive) return denyAfterClaim(apiError({ code: "VALIDATION_FAILED", message: t("apiShareToken.unsupportedDriver", locale), status: 400 }));
 		try {
 			const { streamStorageFile } = await import("@/lib/storage/file-content");

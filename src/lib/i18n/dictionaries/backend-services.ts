@@ -10,6 +10,14 @@
  */
 
 export const zh: Record<string, string> = {
+	"backend.fileAgent.unavailable": "文件 Agent 未连接或配对已失效",
+	"backend.fileAgent.readOnly": "节点在本机将共享目录设为只读",
+	"backend.fileAgent.refused": "文件 Agent 拒绝操作，文件可能已变更或目录权限不足",
+	"backend.fileAgent.invalidResult": "文件 Agent 返回的数据与请求不符",
+	"backend.fileAgent.missing": "指定文件不存在",
+	"backend.fileAgent.proxy": "通过文件 Agent 代理访问",
+	"backend.fileAgent.separateDrive": "请为新连接创建独立的 Agent 云盘",
+	"backend.fileAgent.binding": "请选择同一客户下已启用 Agent 管理的服务器，共享目录在节点本机指定",
 	"backend.quickService.requesterMissing": "Docker 任务缺少可核验的发起人",
 	"backend.quickService.requesterDisabled": "Docker 任务发起人已被禁用或失效",
 	"backend.quickService.permissionRevoked": "发起人已失去当前工作空间的 Docker 管理权限",
@@ -862,6 +870,14 @@ export const zh: Record<string, string> = {
 
 
 export const en: Record<string, string> = {
+	"backend.fileAgent.unavailable": "File Agent offline or pairing expired",
+	"backend.fileAgent.readOnly": "The shared directory is read-only on this node",
+	"backend.fileAgent.refused": "File Agent refused the operation. Check the file version and directory permissions.",
+	"backend.fileAgent.invalidResult": "Invalid file Agent response",
+	"backend.fileAgent.missing": "File not found",
+	"backend.fileAgent.proxy": "Proxied through the file Agent",
+	"backend.fileAgent.separateDrive": "Create a separate Agent drive for the new connection",
+	"backend.fileAgent.binding": "Select an enabled Agent-managed server in this team. Choose the shared directory on the node.",
 	"backend.quickService.requesterMissing": "Docker task has no accountable requester",
 	"backend.quickService.requesterDisabled": "Docker task requester is disabled or no longer valid",
 	"backend.quickService.permissionRevoked": "Requester no longer has Docker access in this customer",

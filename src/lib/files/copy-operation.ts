@@ -26,7 +26,7 @@ import {
   resolveManagedLocalEntryPath,
   statBackingObject,
 } from "@/lib/storage/fs-backend";
-import { createWebDavClient } from "@/lib/storage/webdav-client";
+import { createRemoteStorageClient } from "@/lib/storage/agent-file-client";
 import { resolveStorageRemotePath } from "@/lib/storage/remote-containment";
 import { listRemoteDirectory } from "@/lib/ssh/client";
 import {
@@ -119,8 +119,8 @@ async function listChildren(
       };
     });
   }
-  if (node.driver === "WEBDAV")
-    return (await createWebDavClient(node).list(relativePath)).map((entry) => ({
+  if (node.driver === "WEBDAV" || node.driver === "AGENT")
+    return (await createRemoteStorageClient(node).list(relativePath)).map((entry) => ({
       path: entry.relativePath,
       directory: entry.isDirectory,
     }));

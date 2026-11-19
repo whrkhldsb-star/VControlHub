@@ -102,7 +102,7 @@ export async function loadNode(
     where: { id: storageNodeId, ...storageNodeTeamWhere(session) },
     select: { ...storageFileNodeSelect, name: true },
   });
-  if (!node || !["LOCAL", "SFTP", "WEBDAV"].includes(node.driver)) {
+  if (!node || !["LOCAL", "SFTP", "WEBDAV", "AGENT"].includes(node.driver)) {
     throw new NotFoundError(
       t("backend.webdav.storageNodeNotFoundOrNotWebdavCapable"),
     );

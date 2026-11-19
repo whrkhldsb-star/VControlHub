@@ -91,7 +91,11 @@ describe("operation task service", () => {
         workerId: "worker-1",
         workerHeartbeatAt: null,
         requester: { username: "ops", displayName: null },
-        targets: [],
+        teamId: "current",
+        targets: [
+          { id: "first", server: { name: "node A", teamId: "current" }, executionChannel: "AGENT", status: "COMPLETED", outcomeUnknown: false, finishedAt: new Date("2026-01-04T00:00:00Z") },
+          { id: "second", server: { name: "renamed", teamId: "moved" }, executionChannel: "SSH", fallbackReason: "AGENT_UNCLAIMED", status: "FAILED", outcomeUnknown: true },
+        ],
         executionLogs: [],
         scheduledTaskRuns: [{ scheduledTask: { name: "Nightly backup" } }],
       },
@@ -101,6 +105,10 @@ describe("operation task service", () => {
     const run = tasks.find((task) => task.sourceId === "cmd-run");
 
     expect(run).toMatchObject({ id: "scheduled:cmd-run", source: "scheduled", title: "Nightly backup", status: "running", href: "/scheduled-tasks" });
+    expect(run?.targetEvidence).toMatchObject([
+      { label: "node A", executionChannel: "AGENT", succeededAt: "2026-01-04T00:00:00.000Z" },
+      { label: "second", executionChannel: "SSH", fallbackReason: "AGENT_UNCLAIMED", outcomeUnknown: true, succeededAt: null },
+    ]);
     expect(tasks.some((task) => task.source === "command" && task.sourceId === "cmd-run")).toBe(false);
   });
 

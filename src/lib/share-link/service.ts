@@ -604,7 +604,7 @@ async function refreshShareDirectoryIndex(share: DirectoryShareForList) {
     }
     return;
   }
-  if (share.storageNode?.driver === "WEBDAV") {
+  if (share.storageNode?.driver === "WEBDAV" || share.storageNode?.driver === "AGENT") {
     const node = await prisma.storageNode.findUnique({
       where: { id: share.storageNodeId },
       select: { id: true, driver: true, basePath: true, webdavConfigEncrypted: true },

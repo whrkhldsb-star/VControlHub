@@ -17,7 +17,7 @@ import {
   writeStorageFileFromLocalPath,
 } from "@/lib/storage/file-content";
 import { normalizeStorageRelativePath, resolveStoragePathWithinBase } from "@/lib/storage/path-utils";
-import { createWebDavClient } from "@/lib/storage/webdav-client";
+import { createRemoteStorageClient } from "@/lib/storage/agent-file-client";
 import {
   MediaUploadError,
   assembleMediaUploadToFile,
@@ -71,7 +71,7 @@ function isRefusedLocalWrite(error: unknown): boolean {
 }
 
 async function assertUploadTargetIsNotFolder(
-  node: { driver: string; basePath?: string | null } & Parameters<typeof createWebDavClient>[0],
+  node: { driver: string; basePath?: string | null } & Parameters<typeof createRemoteStorageClient>[0],
   relativePath: string,
   indexedAsFolder: boolean,
 ): Promise<void> {
@@ -80,8 +80,8 @@ async function assertUploadTargetIsNotFolder(
   if (node.driver === "LOCAL" && node.basePath) {
     const resolved = resolveStoragePathWithinBase(node.basePath, relativePath);
     if (resolved.ok && (await lstat(resolved.path).catch(() => null))?.isDirectory()) throw conflict();
-  } else if (node.driver === "WEBDAV") {
-    if ((await createWebDavClient(node).stat(relativePath))?.isDirectory) throw conflict();
+  } else if (node.driver === "WEBDAV" || node.driver === "AGENT") {
+    if ((await createRemoteStorageClient(node).stat(relativePath))?.isDirectory) throw conflict();
   }
 }
 
@@ -151,7 +151,7 @@ export async function completeStorageFileUpload(params: {
   let releaseOverwrite: (() => Promise<void>) | undefined;
   try {
   const storageNode = await getStorageFileNode(existing.storageNodeId, session);
-  if (!storageNode || !["LOCAL", "SFTP", "WEBDAV"].includes(storageNode.driver)) {
+  if (!storageNode || !["LOCAL", "SFTP", "WEBDAV", "AGENT"].includes(storageNode.driver)) {
     throw new ValidationError(t("backend.storage.uploadNotSupported"));
   }
 
@@ -205,12 +205,22 @@ export async function completeStorageFileUpload(params: {
     });
   }
 
-  await lease.beforeWrite({ kind: "storage", storageNodeId: existing.storageNodeId, relativePath: normalizedRelativePath, checksum: assembled.checksum, size: assembled.size });
+  const activeLease = lease;
+  const beforePublish = () => activeLease.beforeWrite({ kind: "storage", storageNodeId: storageNode.id, relativePath: normalizedRelativePath, checksum: assembled.checksum, size: assembled.size });
+  if (storageNode.driver !== "AGENT") await beforePublish();
   try {
-    await writeStorageFileFromLocalPath(storageNode, normalizedRelativePath, assembled.path);
+    if (storageNode.driver === "AGENT") {
+      await writeStorageFileFromLocalPath(storageNode, normalizedRelativePath, assembled.path, { checksum: assembled.checksum, beforePublish });
+    } else {
+      await writeStorageFileFromLocalPath(storageNode, normalizedRelativePath, assembled.path);
+    }
   } catch (error) {
+    if (storageNode.driver === "AGENT" && await activeLease.resumeBeforePublication()) {
+      lease.stop();
+      lease = undefined;
+    }
     // A local filesystem answers with an errno before it changes anything; only a remote write can succeed unseen.
-    if (storageNode.driver === "LOCAL" && isRefusedLocalWrite(error)) lease.writeRefused();
+    if (storageNode.driver === "LOCAL" && isRefusedLocalWrite(error)) activeLease.writeRefused();
     throw error;
   }
 
@@ -230,8 +240,8 @@ export async function completeStorageFileUpload(params: {
     checksumSha256: assembled.checksum,
   };
 
-  await lease.assertActive();
-  const finalizationToken = lease.token;
+  await activeLease.assertActive();
+  const finalizationToken = activeLease.token;
   const view = await prisma.$transaction(async (tx) => {
     await tx.fileEntry.upsert({
       where: { storageNodeId_relativePath: { storageNodeId: existing.storageNodeId!, relativePath: normalizedRelativePath } },

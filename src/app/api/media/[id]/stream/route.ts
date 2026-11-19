@@ -25,7 +25,7 @@ import {
   storageStreamResponse,
   type StorageByteRange,
 } from "@/lib/storage/streaming";
-import { createWebDavClient } from "@/lib/storage/webdav-client";
+import { createRemoteStorageClient } from "@/lib/storage/agent-file-client";
 import { resolveStorageSshCredentials } from "@/lib/storage/ssh-credentials";
 
 import { withApiRoute } from "@/lib/http/api-guard";
@@ -185,8 +185,8 @@ export async function GET(
         }
       }
 
-      if (node.driver === "WEBDAV") {
-        const client = createWebDavClient(node);
+      if (node.driver === "WEBDAV" || node.driver === "AGENT") {
+        const client = createRemoteStorageClient(node);
         const entry = await client.stat(normalizedRelative.path);
         if (!entry || entry.isDirectory) return apiError({ code: "NOT_FOUND", message: apiCopy("apiCopy.file.not.found.or.temporarily.cannot.be.read.3cc644d2"), status: 404 });
         const range = parseStorageRange(request.headers.get("range"), entry.size);

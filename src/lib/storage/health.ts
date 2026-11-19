@@ -73,7 +73,7 @@ export async function probeAllStaleStorageNodes(): Promise<{
 				// Deleted customers retain data but no longer have live storage.
 				liveCustomerRowsWhere(),
 				// Every driver has a probe now (WebDAV: a PROPFIND of the root, A4-15).
-				{ driver: { in: ["LOCAL", "SFTP", "WEBDAV"] } },
+				{ driver: { in: ["LOCAL", "SFTP", "WEBDAV", "AGENT"] } },
 				{ OR: [{ lastHealthCheckAt: null }, { lastHealthCheckAt: { lt: cutoff } }] },
 			],
 		},
