@@ -76,6 +76,7 @@ export async function GET(
           (image.teamId !== null && image.teamId === session.currentTeamId));
       const canReadPrivateImage =
         !!session &&
+        !session.mustChangePassword && sessionHasPermission(session, "image:read") &&
         isInManagedTeam &&
         (session.userId === image.userId || sessionHasPermission(session, "media:manage") || sessionHasPermission(session, "team:manage"));
 
