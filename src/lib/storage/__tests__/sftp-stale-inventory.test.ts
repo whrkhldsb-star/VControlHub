@@ -261,7 +261,7 @@ describe("listSftpNodesForStaleInventory", () => {
       expect(prismaStorageNodeMock.findMany).toHaveBeenCalledWith(
         expect.objectContaining({
           // The system sweep skips a deleted customer's nodes.
-          where: { teamId: null, driver: "SFTP", OR: [{ teamId: null }, { team: { deletedAt: null } }] },
+          where: { driver: "SFTP", OR: [{ teamId: null }, { team: { deletedAt: null } }] },
           orderBy: [{ name: "asc" }, { id: "asc" }],
         }),
       );
@@ -291,7 +291,7 @@ describe("listSftpNodesForStaleInventory", () => {
       expect(prismaStorageNodeMock.findMany).toHaveBeenCalledWith(
         expect.objectContaining({
           where: expect.objectContaining({
-            teamId: null, driver: "SFTP",
+            driver: "SFTP",
             teamId: "team_a",
           }),
         }),

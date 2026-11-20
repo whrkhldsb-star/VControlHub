@@ -43,6 +43,15 @@ function seedRestoreIdentity(url: string) {
     CREATE TABLE "StorageNode" (id int); CREATE TABLE servers (id int)`);
 }
 
+// CI migrates an empty database. Give its backup the minimum data of an
+// installed instance without modifying the database shared by other suites.
+const installedRows = `
+  INSERT INTO "User" (id, username, "passwordHash", "updatedAt")
+    SELECT 'restore-fixture', 'restore-fixture', 'disabled', now() WHERE NOT EXISTS (SELECT FROM "User");
+  INSERT INTO "Role" (id, key, name, "updatedAt")
+    SELECT 'restore-fixture', 'restore-fixture', 'Fixture', now() WHERE NOT EXISTS (SELECT FROM "Role");
+`;
+
 function psql(url: string, sql: string) {
   const result = spawnSync("psql", ["-X", "-q", "-t", "-A", "-v", "ON_ERROR_STOP=1", url, "-c", sql], { encoding: "utf8" });
   if (result.status !== 0) throw new Error(result.stderr);
@@ -121,7 +130,7 @@ describe.skipIf(!enabled)("restore.mjs atomicity against PostgreSQL", () => {
     const source = spawnSync("pg_dump", [process.env.DATABASE_URL!, "--no-owner", "--no-privileges", "--clean", "--if-exists"], { encoding: "utf8", maxBuffer: 256 * 1024 * 1024 });
     expect(source.status, source.stderr).toBe(0);
     const dumpFile = join(work, "app-schema.sql.gz");
-    writeFileSync(dumpFile, gzipSync(source.stdout));
+    writeFileSync(dumpFile, gzipSync(source.stdout + installedRows));
     const scratch = `${database}_schema`;
     psql(adminUrl("postgres"), `CREATE DATABASE ${scratch}`);
     try {
@@ -160,6 +169,7 @@ describe.skipIf(!enabled)("restore.mjs atomicity against PostgreSQL", () => {
       };
       const load = spawnSync("psql", ["-X", "-q", "-v", "ON_ERROR_STOP=1", adminUrl(older)], { input: dumpOf(process.env.DATABASE_URL!), encoding: "utf8", maxBuffer: 64 * 1024 * 1024 });
       expect(load.status, load.stderr).toBe(0);
+      psql(adminUrl(older), installedRows);
       psql(adminUrl(older), `ALTER TABLE "settings" DROP COLUMN "updatedBy"; DELETE FROM "_prisma_migrations" WHERE migration_name = '20261020090000_setting_updated_by'`);
       const dumpFile = join(work, "older.sql.gz");
       writeFileSync(dumpFile, gzipSync(dumpOf(adminUrl(older))));
