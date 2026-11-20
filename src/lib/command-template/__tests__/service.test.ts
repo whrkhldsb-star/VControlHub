@@ -5,6 +5,8 @@ import { beforeEach, describe, expect, it, vi } from "vitest";
 
 const { mockPrisma } = vi.hoisted(() => ({
   mockPrisma: {
+    $queryRaw: vi.fn(),
+    $transaction: vi.fn(),
     commandTemplate: {
       count: vi.fn(),
       create: vi.fn(),
@@ -32,6 +34,7 @@ const PLATFORM = { userId: "platform", roles: ["admin" as const], currentTeamId:
 describe("command template service", () => {
   beforeEach(() => {
     vi.clearAllMocks();
+    mockPrisma.$transaction.mockImplementation(async (work) => work(mockPrisma));
     mockPrisma.commandTemplate.count.mockResolvedValue(1);
     mockPrisma.commandTemplate.updateMany.mockResolvedValue({ count: 1 });
     mockPrisma.commandTemplate.deleteMany.mockResolvedValue({ count: 1 });
