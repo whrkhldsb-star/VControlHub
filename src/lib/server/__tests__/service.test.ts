@@ -2116,13 +2116,14 @@ describe("server service", () => {
   });
 
   it("blocks server deletion while business workflows still reference it", async () => {
-    vi.mocked(prisma.server.findUnique).mockResolvedValueOnce({
+    const snapshot = {
       id: "srv_1",
       host: "203.0.113.10",
       fileProxyPort: 0,
       storageNode: null,
       sshKey: null,
-    } as any);
+    } as any;
+    vi.mocked(prisma.server.findUnique).mockResolvedValueOnce(snapshot).mockResolvedValueOnce(snapshot);
     vi.mocked(prisma.scheduledTask.count).mockResolvedValueOnce(2);
 
     await expect(deleteServerProfile("srv_1")).rejects.toThrow(
@@ -2190,7 +2191,7 @@ describe("server service", () => {
   });
 
   it("skips remote gateway cleanup for local-only storage when deleting a local server", async () => {
-    vi.mocked(prisma.server.findUnique).mockResolvedValueOnce({
+    const snapshot = {
       id: "srv_local",
       host: "127.0.0.1",
       port: 22,
@@ -2208,7 +2209,8 @@ describe("server service", () => {
         fileEntries: [],
         mediaItems: [],
       },
-    } as any);
+    } as any;
+    vi.mocked(prisma.server.findUnique).mockResolvedValueOnce(snapshot).mockResolvedValueOnce(snapshot);
     vi.mocked(prisma.storageNode.delete).mockResolvedValueOnce({} as any);
     vi.mocked(prisma.server.delete).mockResolvedValueOnce({} as any);
 
