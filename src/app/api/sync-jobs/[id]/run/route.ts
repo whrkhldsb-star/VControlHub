@@ -36,11 +36,11 @@ export async function POST(
       errorMessage: t("api.syncJobRunFailed", locale),
     },
     async ({ session }) => {
-      const job = await getSyncJob(id, session);
+      const job = await getSyncJob(id, session, true);
       if (!job) throw new NotFoundError(t("api.syncJobNotFound", locale));
       // Runs with the caller's own access to both servers, not the creator's.
       const result = await executeSyncJob(id, { actor: session });
-      const updated = await getSyncJob(id, session);
+      const updated = await getSyncJob(id, session, true);
       await auditUserAction(session.userId, "sync_job.run", {
         jobId: id,
         syncType: job.syncType,

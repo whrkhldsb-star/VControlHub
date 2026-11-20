@@ -6,6 +6,7 @@ import { apiCopy } from "@/lib/i18n/api-copy";
  * lives in `./service-runtime`; the command strings it produces live in
  * `./service-commands`.
  */
+import type { Prisma } from "@prisma/client";
 import posixPath from "node:path/posix";
 
 import { prisma } from "@/lib/db";
@@ -16,7 +17,7 @@ import { ForbiddenError, NotFoundError, ValidationError } from "@/lib/errors";
 import { assertStorageAccess } from "@/lib/storage/access-control";
 import { storageAccessDeniedCopy } from "@/lib/storage/access-denied";
 import { storageNodeTeamWhere } from "@/lib/auth/team-scope";
-import { expandStorageBasePath } from "@/lib/storage/path-utils";
+import { expandStorageBasePath, normalizeStorageTargetDirectory } from "@/lib/storage/path-utils";
 import { effectiveDeleteOrphans, isProtectedDeleteTarget, syncEndpointsOverlap } from "./bidirectional";
 import { t } from "@/lib/i18n/service-translations";
 
@@ -154,20 +155,60 @@ export async function createSyncJob(input: SyncJobInput) {
 	});
 }
 
+function syncVisibility(session?: SyncSessionScope, write = false) {
+	if (!session) return {};
+	const server = serverTeamWhere(session, write ? "connect" : "read");
+	return { ...syncJobTeamWhere(session), sourceServer: { is: server }, targetServer: { is: server } };
+}
+
+type SyncPaths = Pick<SyncJobInput, "sourceServerId" | "targetServerId" | "sourcePath" | "targetPath">;
+
+async function visibleSyncPaths(jobs: SyncPaths[], session?: SyncSessionScope, write = false, db: Prisma.TransactionClient = prisma) {
+	const permissions = session?.permissions ?? getPermissionsFromRoles(session?.roles ?? []);
+	if (!session || jobs.length === 0 || permissions.includes("server:ssh")) return () => true;
+	const userId = session.userId;
+	const nodes = await db.storageNode.findMany({
+		where: { serverId: { in: [...new Set(jobs.flatMap(job => [job.sourceServerId, job.targetServerId]))] }, ...storageNodeTeamWhere(session) },
+		select: { serverId: true, basePath: true, accessGrants: { where: { userId }, select: { pathPrefix: true, canRead: true, canWrite: true } } },
+	});
+	const byServer = new Map(nodes.map(node => [node.serverId, node]));
+	const allowed = (serverId: string, path: string, writing: boolean) => {
+		const node = byServer.get(serverId);
+		if (!node || !permissions.includes(writing ? "storage:write" : "storage:read")) return false;
+		const root = expandStorageBasePath(node.basePath);
+		if (!syncPathWithinRoot(path, root)) return false;
+		if (permissions.includes("storage:manage-node") || node.accessGrants.length === 0) return true;
+		return node.accessGrants.some(grant => {
+			const prefix = normalizeStorageTargetDirectory(grant.pathPrefix);
+			return prefix.ok && (writing ? grant.canWrite : grant.canRead) && syncPathWithinRoot(path, posixPath.join(root, prefix.path));
+		});
+	};
+	return (job: SyncPaths) => allowed(job.sourceServerId, job.sourcePath, false) && allowed(job.targetServerId, job.targetPath, write);
+}
+
 export async function listSyncJobs(
 	session?: Pick<SessionPayload, "userId" | "roles" | "currentTeamId">,
 ) {
-	return prisma.syncJob.findMany({
-		where: session ? syncJobTeamWhere(session) : {},
+	const page = (cursor?: string) => prisma.syncJob.findMany({
+		where: syncVisibility(session),
 		include: {
 			sourceServer: { select: { id: true, name: true, host: true } },
 			targetServer: { select: { id: true, name: true, host: true } },
 			creator: { select: { id: true, username: true, displayName: true } },
 			_count: { select: { syncLogs: true } },
 		},
-		orderBy: { createdAt: "desc" },
+		orderBy: [{ createdAt: "desc" }, { id: "desc" }],
+		...(cursor ? { cursor: { id: cursor }, skip: 1 } : {}),
 		take: 200,
 	});
+	const visible: Awaited<ReturnType<typeof page>> = [];
+	let cursor: string | undefined;
+	do {
+		const jobs = await page(cursor);
+		visible.push(...jobs.filter(await visibleSyncPaths(jobs, session)));
+		cursor = jobs.length === 200 ? jobs.at(-1)?.id : undefined;
+	} while (cursor && visible.length < 200);
+	return visible.slice(0, 200);
 }
 
 /** Endpoint fields the HTTP layer may show; deliberately no credential relation. */
@@ -186,16 +227,18 @@ const SYNC_ENDPOINT_SELECT = {
  */
 export async function getSyncJob(
 	id: string,
-	session?: Pick<SessionPayload, "userId" | "roles" | "currentTeamId">,
+	session?: SyncSessionScope,
+	write = false,
 ) {
-	return prisma.syncJob.findFirst({
-		where: { id, ...(session ? syncJobTeamWhere(session) : {}) },
+	const job = await prisma.syncJob.findFirst({
+		where: { id, ...syncVisibility(session, write) },
 		include: {
 			sourceServer: SYNC_ENDPOINT_SELECT,
 			targetServer: SYNC_ENDPOINT_SELECT,
 			syncLogs: { orderBy: { startedAt: "desc" }, take: 20 },
 		},
 	});
+	return job && (await visibleSyncPaths([job], session, write))(job) ? job : null;
 }
 
 /**
@@ -218,19 +261,15 @@ export async function deleteSyncJob(
 	id: string,
 	session?: Pick<SessionPayload, "userId" | "roles" | "currentTeamId">,
 ) {
-	const existing = await getSyncJob(id, session);
-	if (!existing) throw new NotFoundError(t("backend.sync.syncJobNotFound"));
-	// Do not delete while executeSyncJob holds RUNNING (avoids mid-rsync orphan state).
-	if (existing.status === "RUNNING") {
-		throw new ValidationError(t("backend.sync.cannotDeleteRunningSyncJob"));
-	}
-	const deleted = await prisma.syncJob.deleteMany({
-		where: { id, status: { not: "RUNNING" }, ...(session ? syncJobTeamWhere(session) : {}) },
-	});
-	if (deleted.count === 0) {
-		throw new ValidationError(t("backend.sync.cannotDeleteRunningSyncJob"));
-	}
-	return { id };
+	return prisma.$transaction(async tx => {
+		const where = { id, ...syncVisibility(session, true) };
+		const job = await tx.syncJob.findFirst({ where });
+		if (!job || !(await visibleSyncPaths([job], session, true, tx))(job)) throw new NotFoundError(t("backend.sync.syncJobNotFound"));
+		if (job.status === "RUNNING") throw new ValidationError(t("backend.sync.cannotDeleteRunningSyncJob"));
+		const deleted = await tx.syncJob.deleteMany({ where: { ...where, updatedAt: job.updatedAt, status: { not: "RUNNING" } } });
+		if (!deleted.count) throw new ValidationError(t("backend.sync.cannotDeleteRunningSyncJob"));
+		return { id };
+	}, { isolationLevel: "Serializable" });
 }
 
 export async function updateSyncJob(
@@ -240,7 +279,7 @@ export async function updateSyncJob(
 	> & { schedule?: string | null },
 	session?: Pick<SessionPayload, "userId" | "roles" | "currentTeamId">,
 ) {
-	const existing = await getSyncJob(id, session);
+	const existing = await getSyncJob(id, session, true);
 	if (!existing) throw new NotFoundError(t("backend.sync.syncJobNotFound"));
 	// Being in the job's team is not enough to edit it: the editor must reach both servers itself, the same check
 	// createSyncJob makes. Otherwise a member barred from a server could repoint a teammate's job at it.

@@ -25,7 +25,7 @@ const mocks = vi.hoisted(() => ({
 	},
 }));
 
-vi.mock("@/lib/db", () => ({ prisma: mocks.prisma }));
+vi.mock("@/lib/db", () => ({ prisma: { ...mocks.prisma, $transaction: (fn: (tx: typeof mocks.prisma) => unknown) => fn(mocks.prisma) } }));
 vi.mock("@/lib/i18n/service-translations", () => ({ t: (key: string) => key }));
 vi.mock("@/lib/logging", () => ({
 	createLogger: () => ({ info: vi.fn(), warn: vi.fn(), error: vi.fn(), debug: vi.fn() }),
@@ -217,14 +217,10 @@ describe("sync job CRUD scoping", () => {
 			expect(mocks.prisma.syncJob.create).toHaveBeenCalled();
 		});
 
-		it("applies the same rule when a path of an existing job is changed, and not to other edits", async () => {
-			await expect(updateSyncJob("job_1", { targetPath: "/opt/elsewhere" }, storageManager)).rejects.toThrow(/endpointOutsideStorageRoot/);
+		it("refuses edits when the current paths are outside the editor's roots", async () => {
+			await expect(updateSyncJob("job_1", { targetPath: "/opt/elsewhere" }, storageManager)).rejects.toThrow(/syncJobNotFound/);
+			await expect(updateSyncJob("job_1", { name: "renamed" }, storageManager)).rejects.toThrow(/syncJobNotFound/);
 			expect(mocks.prisma.syncJob.updateMany).not.toHaveBeenCalled();
-			// The job's own paths lie outside the root (an administrator made it): renaming it is still allowed.
-			mocks.prisma.storageNode.findMany.mockClear();
-			await updateSyncJob("job_1", { name: "renamed" }, storageManager);
-			expect(mocks.prisma.storageNode.findMany).not.toHaveBeenCalled();
-			expect(mocks.prisma.syncJob.updateMany).toHaveBeenCalledTimes(1);
 		});
 
 		it("decides containment on normalized absolute paths only", () => {
@@ -241,7 +237,7 @@ describe("sync job CRUD scoping", () => {
 		it("scopes a single job to the caller's team", async () => {
 			await getSyncJob("job_1", operator);
 			expect(mocks.prisma.syncJob.findFirst).toHaveBeenCalledWith(
-				expect.objectContaining({ where: { id: "job_1", teamId: "team_1" } }),
+				expect.objectContaining({ where: expect.objectContaining({ id: "job_1", teamId: "team_1", sourceServer: expect.any(Object), targetServer: expect.any(Object) }) }),
 			);
 		});
 
@@ -264,7 +260,7 @@ describe("sync job CRUD scoping", () => {
 			mocks.prisma.syncJob.findMany.mockResolvedValue([]);
 			await listSyncJobs(operator);
 			expect(mocks.prisma.syncJob.findMany).toHaveBeenCalledWith(
-				expect.objectContaining({ where: { teamId: "team_1" } }),
+				expect.objectContaining({ where: expect.objectContaining({ teamId: "team_1", sourceServer: expect.any(Object), targetServer: expect.any(Object) }) }),
 			);
 		});
 	});
@@ -285,7 +281,7 @@ describe("sync job CRUD scoping", () => {
 		it("re-applies both the status and the team filter in the delete itself", async () => {
 			await deleteSyncJob("job_1", operator);
 			expect(mocks.prisma.syncJob.deleteMany).toHaveBeenCalledWith({
-				where: { id: "job_1", status: { not: "RUNNING" }, teamId: "team_1" },
+				where: expect.objectContaining({ id: "job_1", status: { not: "RUNNING" }, teamId: "team_1", sourceServer: expect.any(Object), targetServer: expect.any(Object) }),
 			});
 		});
 

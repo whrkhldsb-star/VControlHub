@@ -48,7 +48,7 @@ describe("sync job listing", () => {
     await listSyncJobs();
 
     expect(prismaMock.syncJob.findMany).toHaveBeenCalledWith(expect.objectContaining({
-      orderBy: { createdAt: "desc" },
+      orderBy: [{ createdAt: "desc" }, { id: "desc" }],
       take: 200,
     }));
   });
@@ -64,7 +64,7 @@ describe("sync job team scope", () => {
 
     expect(prismaMock.syncJob.findMany).toHaveBeenCalledWith(
       expect.objectContaining({
-        where: { id: "__unassigned_sync_jobs_require_team_manage__" },
+        where: expect.objectContaining({ id: "__unassigned_sync_jobs_require_team_manage__" }),
       }),
     );
   });
@@ -75,7 +75,7 @@ describe("sync job team scope", () => {
     await listSyncJobs({ userId: "u1", roles: ["operator"], currentTeamId: "team-1" });
 
     expect(prismaMock.syncJob.findMany).toHaveBeenCalledWith(
-      expect.objectContaining({ where: { teamId: "team-1" } }),
+      expect.objectContaining({ where: expect.objectContaining({ teamId: "team-1", sourceServer: expect.any(Object), targetServer: expect.any(Object) }) }),
     );
   });
 });
