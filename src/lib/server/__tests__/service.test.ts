@@ -2678,6 +2678,7 @@ describe("server service", () => {
     // The gateway kept serving its install-time root: a direct link returned
     // the old folder's file of the same name with a 200.
     const current = {
+      teamId: null,
       id: "srv_gw",
       teamId: "team-1",
       name: "gw-node",
@@ -2699,7 +2700,7 @@ describe("server service", () => {
       directGatewayDesiredEnabled: true,
       directGatewayDesiredProtocol: "HTTP",
       directGatewayDesiredDomain: null,
-      storageNode: { id: "sn_gw", name: "gw-node storage", driver: "SFTP", isDefault: true, basePath: "/root/drive", directAccessMode: "AUTO", publicBaseUrl: "http://203.0.113.78:31888" },
+      storageNode: { teamId: null, id: "sn_gw", name: "gw-node storage", driver: "SFTP", isDefault: true, basePath: "/root/drive", directAccessMode: "AUTO", publicBaseUrl: "http://203.0.113.78:31888" },
       commandTargets: [],
       createdAt: new Date(),
       updatedAt: new Date(),
@@ -2716,6 +2717,7 @@ describe("server service", () => {
 
     const result = await updateServerProfile("srv_gw", { storagePath: "/data/new-root" });
 
+    expect(createRemoteDirectory).toHaveBeenCalledWith(expect.objectContaining({ remotePath: "/data/new-root" }));
     // The reinstall could not reach the node here: direct links stop.
     expect(prisma.storageNode.update).toHaveBeenCalledWith({ where: { id: "sn_gw" }, data: { directAccessMode: "PROXY" } });
     expect(result.onboardingWarnings.join(" ")).toMatch(/\/data\/new-root/);

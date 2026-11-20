@@ -21,8 +21,8 @@ vi.mock("@/lib/db", () => ({
         const node = hoisted.nodes.find((candidate) => candidate.id === where.id);
         // An Agent-managed server: commands go through the Agent, no SSH key needed.
         return node ? {
-          ...node, host: null, port: null, username: null, hostKeySha256: null,
-          server: { id: "srv", operatingSystem: "LINUX", host: "sftp.test", port: 22, username: "files", connectionType: "SSH_KEY", managementMode: "AGENT", password: null, hostKeySha256: null, sshKey: null },
+          ...node, teamId: null, host: null, port: null, username: null, hostKeySha256: null,
+          server: { teamId: null, id: "srv", operatingSystem: "LINUX", host: "sftp.test", port: 22, username: "files", connectionType: "SSH_KEY", managementMode: "AGENT", password: null, hostKeySha256: null, sshKey: null },
         } : null;
       }),
     },

@@ -74,25 +74,27 @@ const directNode = (basePath = join(sandbox, "root")) => ({
   id: "node-direct",
   name: "direct",
   driver: "SFTP",
+  teamId: null,
   basePath,
   host: "127.0.0.1",
   port: server.port,
   username: "storage",
   hostKeySha256: server.fingerprint,
   // A plain stored password passes through decryptServerPassword (legacy).
-  server: { id: "srv", host: "127.0.0.1", port: server.port, username: "storage", managementMode: "DIRECT", operatingSystem: "LINUX", connectionType: "PASSWORD", password: "storage-pass", sshKey: null },
+  server: { teamId: null, id: "srv", host: "127.0.0.1", port: server.port, username: "storage", managementMode: "DIRECT", operatingSystem: "LINUX", connectionType: "PASSWORD", password: "storage-pass", sshKey: null },
 }) as never;
 
 const agentNode = (basePath = join(sandbox, "root")) => ({
   id: "node-agent",
   name: "agent",
   driver: "SFTP",
+  teamId: null,
   basePath,
   host: "agent.invalid",
   port: 22,
   username: "storage",
   hostKeySha256: null,
-  server: { id: "agent-srv", host: "agent.invalid", port: 22, username: "storage", managementMode: "AGENT", operatingSystem: "LINUX", connectionType: "SSH_KEY", sshKey: null },
+  server: { teamId: null, id: "agent-srv", host: "agent.invalid", port: 22, username: "storage", managementMode: "AGENT", operatingSystem: "LINUX", connectionType: "SSH_KEY", sshKey: null },
 }) as never;
 
 const refused = async (operation: Promise<unknown>) => {
