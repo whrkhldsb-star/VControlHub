@@ -189,7 +189,7 @@ describe.skipIf(process.env.RUN_DATABASE_INTEGRATION_TESTS !== "1" || !binary)(
         new Request(hub + "/api/agent/v1/files", {
           method: "POST",
           headers: { authorization: "Bearer " + token },
-          body: JSON.stringify({ writable: true, rootIdentity: "0".repeat(64) }),
+          body: JSON.stringify({ writable: true, rootIdentity: "v2:" + "0".repeat(64) }),
         }),
       );
       expect(mismatched.status).toBe(401);
@@ -262,7 +262,7 @@ describe.skipIf(process.env.RUN_DATABASE_INTEGRATION_TESTS !== "1" || !binary)(
           new Request(hub + "/api/agent/v1/files", {
             method: "POST",
             headers: { authorization: "Bearer " + token },
-            body: JSON.stringify({ writable: false, rootIdentity: "0".repeat(64) }),
+            body: JSON.stringify({ writable: false, rootIdentity: "v2:" + "0".repeat(64) }),
           }),
         );
       expect((await poll()).status).toBe(401);

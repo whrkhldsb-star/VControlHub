@@ -1324,6 +1324,7 @@ model DownloadTask {
 }
 
 model ShareLink {
+  agentRootIdentity String?
   id              String        @id @default(cuid())
   tokenHash       String        @unique
   storageNodeId   String

@@ -333,7 +333,7 @@ async function serveShareIn(
 		if (wantsArchive) return denyAfterClaim(apiError({ code: "VALIDATION_FAILED", message: t("apiShareToken.unsupportedDriver", locale), status: 400 }));
 		try {
 			const { streamStorageFile } = await import("@/lib/storage/file-content");
-			const opened = await streamStorageFile(node, targetPath);
+			const opened = await streamStorageFile({ ...node, expectedRoot: share.agentRootIdentity ?? undefined }, targetPath);
 			const stream = opened.stream as Readable;
 			stream.once("close", opened.close);
 			stream.once("error", opened.close);

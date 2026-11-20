@@ -283,6 +283,7 @@ export async function importStorageNodes(
     },
     updateById: async (r) => {
       await tx.storageNode.update({ where: { id: r.id }, data: toData(r) });
+      await tx.shareLink.updateMany({ where: { storageNodeId: r.id, revokedAt: null }, data: { revokedAt: new Date() } });
       await tx.agentFileShare.deleteMany({ where: { storageNodeId: r.id } });
       if (r.driver === "AGENT") await restoreFileShare(r);
     },

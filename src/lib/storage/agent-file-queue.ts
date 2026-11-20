@@ -54,6 +54,7 @@ export async function pairFileShare(nodeId: string, session: SessionPayload) {
         lastHealthLatencyMs: null,
       },
     });
+    await tx.shareLink.updateMany({ where: { storageNodeId: nodeId, revokedAt: null }, data: { revokedAt: new Date() } });
     await tx.agentFileCall.deleteMany({ where: { shareId: share.id } });
     return token;
   });
@@ -75,9 +76,9 @@ async function liveChannel(tx: Tx, by: { nodeId?: string; hash?: string; serverI
   return rows[0];
 }
 
-export async function getFileChannel(nodeId: string, serverId?: string) {
+export async function getFileChannel(nodeId: string, serverId?: string, expectedRoot?: string) {
   const channel = await prisma.$transaction((tx) => liveChannel(tx, { nodeId, serverId }));
-  if (!channel) throw unavailable();
+  if (!channel || (expectedRoot !== undefined && channel.rootIdentity !== expectedRoot)) throw unavailable();
   return channel;
 }
 

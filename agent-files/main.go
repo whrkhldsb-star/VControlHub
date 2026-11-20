@@ -135,7 +135,16 @@ func run(ctx context.Context, configFile string) error {
 	if err != nil {
 		return err
 	}
-	rootIdentity := digest([]byte(cfg.Token + "\x00" + hostname + "\x00" + rootPath))
+	dir, err := root.Open(".")
+	if err != nil {
+		return err
+	}
+	identity, err := directoryID(dir)
+	dir.Close()
+	if err != nil {
+		return err
+	}
+	rootIdentity := "v2:" + digest([]byte(cfg.Token + "\x00" + hostname + "\x00" + rootPath + "\x00" + identity))
 	var pending *receipt
 	var lastCleanup time.Time
 	for ctx.Err() == nil {

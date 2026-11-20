@@ -82,7 +82,7 @@ export async function checkDriveOwnership(actor: SessionPayload, serverId: strin
   const sftp = await prisma.storageNode.create({ data: { driver: "SFTP", basePath: "/srv/files", serverId, teamId: actor.currentTeamId, name: "SFTP" } });
   await prisma.team.create({ data: { id: teamId, name: teamId, slug: teamId } });
   try {
-    const { share } = await createShareLink({ session: actor, storageNodeId: nodeId, path: "note.txt" });
+    const { share } = await createShareLink({ session: actor, storageNodeId: sftp.id, path: "note.txt" });
     const impact = await getServerDeletionImpact(serverId);
     expect(impact.storageNodes).toBe(2);
     expect(impact.files).toBeGreaterThan(0);

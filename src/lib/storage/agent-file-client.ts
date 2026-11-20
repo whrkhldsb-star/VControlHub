@@ -28,10 +28,10 @@ function checkedPath(path: string) {
     throw bad();
   return path;
 }
-export function createAgentFileClient(nodeId: string, serverId?: string) {
+export function createAgentFileClient(nodeId: string, serverId?: string, expectedRoot?: string) {
   let channel: ReturnType<typeof getFileChannel> | undefined;
   async function call(op: string, path: string, fields: Record<string, string | boolean | number> = {}) {
-    channel ??= getFileChannel(nodeId, serverId);
+    channel ??= getFileChannel(nodeId, serverId, expectedRoot);
     return callFileAgent(nodeId, await channel, { op, path: checkedPath(path), ...fields });
   }
   async function stat(path: string): Promise<WebDavEntry | null> {
@@ -199,10 +199,10 @@ export function createAgentFileClient(nodeId: string, serverId?: string) {
   };
 }
 
-export function createRemoteStorageClient(node: WebDavStorageNode & { id?: string; driver: string }) {
+export function createRemoteStorageClient(node: WebDavStorageNode & { id?: string; driver: string; expectedRoot?: string }) {
   if (node.driver === "AGENT") {
     if (!node.id) throw bad();
-    return createAgentFileClient(node.id);
+    return createAgentFileClient(node.id, undefined, node.expectedRoot);
   }
   return createWebDavClient(node);
 }
