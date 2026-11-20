@@ -70,8 +70,12 @@ export function useTextPreviewController(options: {
   const [editorFind, setEditorFind] = useState<EditorFindState>(INITIAL_EDITOR_FIND);
   // Every draft change recounts the open find bar's matches (A4-37): the n/m
   // display used to go stale as soon as the user kept typing.
+  const draftRevision = useRef(0);
   const setDraft = useCallback((next: string) => {
+    draftRevision.current += 1;
     setDraftState(next);
+    setPreviewMeta(current => current.saveStatus === "saving" || current.saveStatus === "reloading"
+      ? current : { ...current, saveStatus: "idle", saveMessage: "" });
     setEditorFind((current) => {
       if (!current.open || !current.query) return current;
       const total = countMatches(next, current.query);
@@ -426,7 +430,20 @@ export function useTextPreviewController(options: {
   const performSave = useCallback(async (): Promise<number | null> => {
     if (!fileEntryId) return null;
     const versionAtSave = loadVersionRef.current;
-    const entryAtSave = fileEntryId;
+    const revision = draftRevision.current;
+    function finishSave(bytes: number) {
+      setState({ loading: false, content: draft, error: null });
+      setShowDiffReview(false);
+      if (revision !== draftRevision.current) {
+        setSaveStatus("idle");
+        setSaveMessage(t("textPreview.saved.newerDraft", { bytes }));
+        return null;
+      }
+      setEditMode(false);
+      setSaveStatus("saved");
+      setSaveMessage(t("textPreview.saved.success", { bytes }));
+      return bytes;
+    }
     setSaveStatus("saving");
     setSaveMessage("");
     setReloadMessage("");
@@ -449,20 +466,15 @@ export function useTextPreviewController(options: {
               : {}),
           }),
         });
-        if (versionAtSave !== loadVersionRef.current || entryAtSave !== fileEntryId) return response.byteSize;
-        setState({ loading: false, content: draft, error: null });
+        if (versionAtSave !== loadVersionRef.current) return null;
         setDraftVersion({
           updatedAt: new Date().toISOString(),
           // Prefer the mtime the server observed after writing; falling back to
           // the local clock would make the *next* save's token disagree with the
           // remote file and 409 against the user's own write.
-          lastModifiedMs: response.lastModifiedMs ?? Date.now(),
+          lastModifiedMs: response.lastModifiedMs ?? null,
         });
-        setEditMode(false);
-        setShowDiffReview(false);
-        setSaveStatus("saved");
-        setSaveMessage(t("textPreview.saved.success", { bytes: response.byteSize }));
-        return response.byteSize;
+        return finishSave(response.byteSize);
       }
       const response = await csrfFetch<SaveResponse>(`/api/files/editable/${fileEntryId}`, {
         method: "PUT",
@@ -472,18 +484,14 @@ export function useTextPreviewController(options: {
           expectedLastModifiedMs: draftVersion.lastModifiedMs,
         }),
       });
-      if (versionAtSave !== loadVersionRef.current || entryAtSave !== fileEntryId) return response.file.byteSize;
-      setState({ loading: false, content: draft, error: null });
+      if (versionAtSave !== loadVersionRef.current) return null;
       setDraftVersion({
         updatedAt: response.file.updatedAt,
         lastModifiedMs: response.file.lastModifiedMs,
       });
-      setEditMode(false);
-      setShowDiffReview(false);
-      setSaveStatus("saved");
-      setSaveMessage(t("textPreview.saved.success", { bytes: response.file.byteSize }));
-      return response.file.byteSize;
+      return finishSave(response.file.byteSize);
     } catch (err) {
+      if (versionAtSave !== loadVersionRef.current) return null;
       setSaveStatus("error");
       setSaveMessage(getErrorMessage(err, t("textPreview.error.saveFailed")));
       return null;
@@ -514,6 +522,7 @@ export function useTextPreviewController(options: {
   const canReloadAfterSave = Boolean(driver === "SFTP" && serverId && reloadReady && editMode);
 
   const handleSaveAndReload = useCallback(async () => {
+    const versionAtSave = loadVersionRef.current;
     const bytes = await performSave();
     if (bytes === null) return;
     if (!serverId || !reloadReady) return;
@@ -538,6 +547,7 @@ export function useTextPreviewController(options: {
         method: "POST",
         body: JSON.stringify(body),
       });
+      if (versionAtSave !== loadVersionRef.current) return;
       if (response.success) {
         setSaveStatus("reloaded");
         setSaveMessage(t("textPreview.saved.reloaded", { bytes }));
@@ -550,6 +560,7 @@ export function useTextPreviewController(options: {
         );
       }
     } catch (err) {
+      if (versionAtSave !== loadVersionRef.current) return;
       setSaveStatus("error");
       setSaveMessage(t("textPreview.saved.reloadFailed", { bytes }));
       setReloadMessage(getErrorMessage(err, t("textPreview.error.reloadFailed")));

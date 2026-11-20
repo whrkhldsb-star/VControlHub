@@ -8,6 +8,7 @@
 import { afterEach, beforeEach, describe, expect, it, vi } from "vitest";
 
 type CostEntryRow = {
+	teamId?: string | null;
 	id: string;
 	category: string;
 	provider: string;
@@ -33,6 +34,7 @@ type CostSnapshotRow = {
 };
 
 type ServerRow = {
+	teamId?: string | null;
 	id: string;
 	name: string;
 	host: string;
@@ -72,8 +74,10 @@ function makePrismaMock() {
 				store.entries.set(row.id, row);
 				return row;
 			}),
-			findUnique: vi.fn(async ({ where }: { where: { id: string } }) => {
-				return store.entries.get(where.id) ?? null;
+			findUnique: vi.fn(async ({ where }: { where: { id?: string; sourceType_sourceRef_effectiveDate?: { sourceType: string; sourceRef: string; effectiveDate: Date } } }) => {
+				const key = where.sourceType_sourceRef_effectiveDate;
+				if (key) return [...store.entries.values()].find(row => row.sourceType === key.sourceType && row.sourceRef === key.sourceRef && +row.effectiveDate === +key.effectiveDate) ?? null;
+				return store.entries.get(where.id!) ?? null;
 			}),
 			findMany: vi.fn(
 				async ({
@@ -234,18 +238,16 @@ function makePrismaMock() {
 				if (where?.costMonthlyAmount?.not === null) rows = rows.filter((row) => row.costMonthlyAmount !== null);
 				return rows.slice(0, 1000);
 			}),
-			update: vi.fn(async ({ where, data }: { where: { id: string }; data: Partial<ServerRow> }) => {
+			updateMany: vi.fn(async ({ where, data }: { where: { id: string; teamId: string | null }; data: Partial<ServerRow> }) => {
 				const current = store.servers.get(where.id);
-				if (!current) throw new Error(`Server not found: ${where.id}`);
+				if (!current || (current.teamId ?? null) !== where.teamId) return { count: 0 };
 				const next = { ...current, ...data };
 				store.servers.set(where.id, next);
-				return next;
+				return { count: 1 };
 			}),
 		},
 		$transaction: vi.fn(async (arg: unknown) => {
-			// Tests don't use $transaction directly; the service uses it only
-			// for upsert which we've already mocked. Return identity passthrough.
-			return typeof arg === "function" ? null : arg;
+			return typeof arg === "function" ? arg(prisma) : arg;
 		}),
 	};
 }

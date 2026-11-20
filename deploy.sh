@@ -143,6 +143,7 @@ for artifact in .next/BUILD_ID dist/server.js dist/worker.js dist/ssh-ws-proxy.j
 done
 
 echo "==> [3/8] 候选构建通过后应用迁移并同步角色权限"
+sudo -u "$APP_USER" node deploy/check-upgrade-migrations.mjs
 sudo -u "$APP_USER" npx prisma migrate deploy
 sudo -u "$APP_USER" bash -lc 'set -e; set -a; if [ -f .env.runtime ]; then source .env.runtime; else source .env.local; fi; set +a; node dist/seed.js'
 cd "$APP_DIR"

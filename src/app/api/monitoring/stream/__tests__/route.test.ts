@@ -18,6 +18,11 @@ const { collectMonitoringStatsMock, sessionMock } = vi.hoisted(() => ({
   sessionMock: { userId: "test-user", roles: ["admin"] as string[] },
 }));
 
+vi.mock("@/lib/auth/session", () => ({
+  getSessionCookieName: () => "session",
+  verifySessionToken: vi.fn(async () => ({ ...sessionMock, permissions: ["health:read"] })),
+}));
+
 vi.mock("@/lib/http/api-guard", () => ({
   withApiRoute: vi.fn((_req, _opts, handler) => handler({ session: sessionMock })),
 }));
@@ -30,7 +35,7 @@ import { GET } from "../route";
 
 function makeRequest(url = "http://localhost/api/monitoring/stream") {
   const controller = new AbortController();
-  const req = new Request(url, { signal: controller.signal });
+  const req = new Request(url, { signal: controller.signal, headers: { cookie: "session=test" } });
   return { req, controller };
 }
 

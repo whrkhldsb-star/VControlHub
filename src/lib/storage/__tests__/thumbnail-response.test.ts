@@ -72,10 +72,12 @@ describe("respondWithStorageThumbnail", () => {
 		const first = await respondWithStorageThumbnail(input);
 		expect(first.status).toBe(200);
 		expect(first.headers.get("Content-Type")).toBe("image/jpeg");
+		expect(first.headers.get("Cache-Control")).toBe("private, no-store");
 		expect(first.headers.get("X-Thumbnail-Cache")).toBe("miss");
 		const meta = await sharp(Buffer.from(await first.arrayBuffer())).metadata();
 		expect(Math.max(meta.width ?? 0, meta.height ?? 0)).toBeLessThanOrEqual(320);
 		const second = await respondWithStorageThumbnail(input);
+		expect(second.headers.get("Cache-Control")).toBe("private, no-store");
 		expect(second.headers.get("X-Thumbnail-Cache")).toBe("hit");
 	});
 

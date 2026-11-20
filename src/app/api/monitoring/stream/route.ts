@@ -18,6 +18,9 @@ import { apiCopy } from "@/lib/i18n/api-copy";
  * module is extracted.
  */
 
+import { readCookie } from "@/lib/http/request-cookie";
+import { getSessionCookieName, verifySessionToken } from "@/lib/auth/session";
+import { sessionHasPermission } from "@/lib/auth/authorization";
 import { assertPlatformAdmin } from "@/lib/auth/platform-admin-guard";
 import { withApiRoute } from "@/lib/http/api-guard";
 import { collectMonitoringStats } from "@/lib/monitoring/collector";
@@ -62,6 +65,8 @@ export async function GET(request: Request) {
     { permission: "health:read", errorMessage: apiCopy("apiCopy.monitoring.sse.authentication.failed.75339d30"), rateLimit: { maxRequests: 30, windowMs: 60_000 } },
     async ({ session }) => {
       assertPlatformAdmin(session);
+      // Only a signed-in platform administrator can pass the guard above.
+      const token = readCookie(request, getSessionCookieName());
       const userId = session.userId;
       const activeCount = activeConnectionsByUser.get(userId) ?? 0;
       if (activeCount >= MAX_SSE_CONNECTIONS_PER_USER) {
@@ -109,10 +114,19 @@ export async function GET(request: Request) {
             return;
           }
 
+          let sending = false;
           async function sendStats() {
-            if (released || (controller.desiredSize ?? 0) <= 0) return;
+            if (sending || released || (controller.desiredSize ?? 0) <= 0) return;
+            sending = true;
             try {
               const data = await getSharedMonitoringStats();
+              if (released) return;
+              const fresh = token && await verifySessionToken(token);
+              if (!fresh || fresh.userId !== userId || fresh.mustChangePassword || !sessionHasPermission(fresh, "health:read")) {
+                close();
+                return;
+              }
+              assertPlatformAdmin(fresh);
               if (released || (controller.desiredSize ?? 0) <= 0) return;
               controller.enqueue(encoder.encode(`event: stats\ndata: ${JSON.stringify(data)}\n\n`));
             } catch (error) {
@@ -120,6 +134,8 @@ export async function GET(request: Request) {
               // start() has already returned by the time an async collect
               // fails, so the consumer is signalled through the stream itself.
               try { controller.error(error); } catch { /* already closed */ }
+            } finally {
+              sending = false;
             }
           }
 

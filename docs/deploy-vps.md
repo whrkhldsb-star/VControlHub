@@ -97,7 +97,7 @@ SSH_WS_HOST=127.0.0.1 SSH_WS_PORT=3001 npm run start:ssh-ws
 - 可选 `/files-proxy` → AList
 - 可选 `/emby`、`/web` → Emby
 
-`deploy/install.sh` 与 `deploy/upgrade.sh` 每次都按模板重写整个 `/etc/caddy/Caddyfile`，并在同目录保留最近 5 份 `Caddyfile.bak.<时间>`。手工加的规则应同步到模板，否则升级后需从备份恢复。
+`deploy/upgrade.sh` 沿用现有反向代理配置。`deploy/install.sh` 按模板重写整个 `/etc/caddy/Caddyfile`，并在同目录保留最近 5 份 `Caddyfile.bak.<时间>`。手工加的规则应同步到模板，否则升级后需从备份恢复。
 
 ## 8. 验证
 

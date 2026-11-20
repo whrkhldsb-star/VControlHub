@@ -134,8 +134,6 @@ export function TextPreviewClient({
 				containerRef={ctrl.containerRef}
 				lineRef={ctrl.lineRef}
 				setDraft={ctrl.setDraft}
-				setSaveStatus={ctrl.setSaveStatus}
-				setSaveMessage={ctrl.setSaveMessage}
 				setShowDiffReview={ctrl.setShowDiffReview}
 				onQueryChange={ctrl.updateEditorFindQuery}
 				onMove={ctrl.moveEditorFind}

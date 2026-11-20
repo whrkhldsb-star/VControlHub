@@ -198,13 +198,7 @@ describe("media thumbnail route", () => {
 
     expect(response.headers.get("x-thumbnail-placeholder")).toBe("offline");
     const cacheControl = response.headers.get("cache-control") ?? "";
-    // `public` would let a proxy serve this per-media URL to another viewer, and
-    // a long max-age would pin a transient node outage for everyone.
-    expect(cacheControl).toContain("private");
-    expect(cacheControl).not.toContain("public");
-    const maxAge = Number(/max-age=(\d+)/.exec(cacheControl)?.[1] ?? -1);
-    expect(maxAge).toBeGreaterThan(0);
-    expect(maxAge).toBeLessThanOrEqual(30);
+    expect(cacheControl).toBe("private, no-store");
   });
 
   it("opens the breaker when the node itself cannot be reached", async () => {

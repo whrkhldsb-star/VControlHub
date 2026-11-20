@@ -110,13 +110,7 @@ function placeholderResponse(
     status: 200,
     headers: {
       "Content-Type": "image/svg+xml; charset=utf-8",
-      // `private` for the same reason the real thumbnail responses below are:
-      // this is an authenticated per-media URL, and a shared cache holding a
-      // `public` entry for it would answer other viewers from it. It also keeps
-      // a transient node outage from being pinned for everyone — `max-age=60`
-      // on a failure state meant one blip cached a broken tile for a minute.
-      // 10s is enough to absorb a burst of tiles in one gallery render.
-      "Cache-Control": "private, max-age=10",
+      "Cache-Control": "private, no-store",
       "X-Thumbnail-Placeholder": kind,
     },
   });
@@ -321,7 +315,7 @@ export async function respondWithStorageThumbnail(input: {
       headers: {
         "Content-Type": "image/jpeg",
         "Content-Length": String(cached.length),
-        "Cache-Control": "private, max-age=3600",
+        "Cache-Control": "private, no-store",
         "X-Thumbnail-Cache": "hit",
       },
     });
@@ -518,7 +512,7 @@ export async function respondWithStorageThumbnail(input: {
     headers: {
       "Content-Type": "image/jpeg",
       "Content-Length": String(thumbnail.length),
-      "Cache-Control": "private, max-age=3600",
+      "Cache-Control": "private, no-store",
       "X-Thumbnail-Cache": "miss",
     },
   });

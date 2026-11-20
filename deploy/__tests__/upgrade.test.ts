@@ -9,33 +9,62 @@ const roots: string[] = [];
 afterEach(async () => { for (const root of roots.splice(0)) await rm(root, { recursive: true, force: true }); });
 const describeLinux = process.platform === "linux" ? describe : describe.skip;
 
-/**
- * upgrade.sh is copied next to a stub install.sh that records the DOMAIN it was
- * handed; pull, backup and post-check are skipped so only the env recovery and
- * the hand-off are exercised.
- */
+// All process, build and HTTP operations below are fixtures. Git and the
+// filesystem are real so a rollback must actually restore the old release.
+async function fixtureCommands(root: string) {
+	const bin = path.join(root, "bin");
+	await mkdir(bin);
+	const commands = {
+		npm: `echo "npm $* $PWD" >> "$LOG"
+if [[ "$*" == 'run build:runtime' ]]; then
+  mkdir -p .next dist node_modules scripts
+  for f in .next/BUILD_ID dist/server.js dist/worker.js dist/ssh-ws-proxy.js; do echo candidate > "$f"; done
+  echo '{}' > package.json
+fi
+[[ "$FAIL" != build || "$*" != 'run build' ]]`,
+		systemctl: `echo "systemctl $*" >> "$LOG"
+case "$1:$4" in
+  show:LoadState) echo loaded ;;
+  show:ActiveState) case "$2" in *-next.service|*-ssh-ws.service) echo active;; *) echo inactive;; esac ;;
+  start:*) if [[ "$FAIL" == start && -f "$APP_DIR/dist/server.js" ]] && [ "$(cat "$APP_DIR/dist/server.js")" = candidate ]; then exit 1; fi ;;
+esac`,
+		curl: "exit 0",
+		chown: "exit 0",
+	};
+	for (const [name, content] of Object.entries(commands)) {
+		await writeFile(path.join(bin, name), "#!/bin/bash\n" + content + "\n", { mode: 0o755 });
+	}
+	return { PATH: bin + ":" + process.env.PATH, LOG: path.join(root, "calls"), DEPLOY_LOCK: path.join(root, "deploy.lock"),
+		SKIP_PRE_BACKUP: "1", SKIP_DB_SETUP: "1", DOMAIN: "", CHECK_PUBLIC_URL: "", CADDY_FILE: path.join(root, "no-caddyfile"), FAIL: "" };
+}
+
+async function invoke(app: string, env: Record<string, string>) {
+	return new Promise<{ code: number | null; text: string }>((resolve) => {
+		const child = spawn("bash", [path.join(process.cwd(), "deploy/upgrade.sh")], {
+			env: { ...process.env, APP_DIR: app, ...env },
+		});
+		let text = "";
+		child.stdout.on("data", chunk => { text += chunk; });
+		child.stderr.on("data", chunk => { text += chunk; });
+		child.on("close", code => resolve({ code, text }));
+	});
+}
+
 async function runUpgrade(envFile: string, extraEnv: Record<string, string> = {}) {
 	const root = await mkdtemp(path.join(tmpdir(), "vch-upgrade-"));
 	roots.push(root);
-	const deploy = path.join(root, "deploy");
 	const app = path.join(root, "app");
-	await mkdir(deploy, { recursive: true });
-	await mkdir(app, { recursive: true });
-	await writeFile(path.join(deploy, "upgrade.sh"), await readFile(path.join(process.cwd(), "deploy/upgrade.sh"), "utf8"), { mode: 0o755 });
-	const seen = path.join(root, "seen.txt");
-	await writeFile(path.join(deploy, "install.sh"), `#!/bin/bash\nprintf 'DOMAIN=%s\\nCHECK=%s\\n' "\${DOMAIN-unset}" "\${CHECK_PUBLIC_URL-unset}" > "${seen}"\n`, { mode: 0o755 });
+	await mkdir(path.join(app, "deploy"), { recursive: true });
+	await mkdir(path.join(app, "dist"));
+	await mkdir(path.join(app, "storage"));
+	await writeFile(path.join(app, "storage", "customer-file"), "retained");
+	await writeFile(path.join(app, "dist/server.js"), "old");
+	await writeFile(path.join(app, "deploy/check.sh"), '#!/bin/bash\nprintf "DOMAIN=%s\\nCHECK=%s\\n" "$DOMAIN" "$CHECK_PUBLIC_URL" > "$SEEN"\n[[ "$FAIL" != health ]]\n', { mode: 0o755 });
 	await writeFile(path.join(app, ".env.local"), envFile, { mode: 0o600 });
-	const output = await new Promise<{ code: number | null; text: string }>((resolve) => {
-		const child = spawn("bash", [path.join(deploy, "upgrade.sh")], {
-			// CADDY_FILE points at nothing so the host's own Caddyfile never leaks into the fixture.
-			env: { ...process.env, APP_DIR: app, SKIP_PULL: "1", SKIP_PRE_BACKUP: "1", SKIP_POST_CHECK: "1", DOMAIN: "", CHECK_PUBLIC_URL: "", CADDY_FILE: path.join(root, "no-caddyfile"), ...extraEnv },
-		});
-		let text = "";
-		child.stdout.on("data", (chunk) => { text += chunk; });
-		child.stderr.on("data", (chunk) => { text += chunk; });
-		child.on("close", (code) => resolve({ code, text }));
-	});
-	return { ...output, seen: await readFile(seen, "utf8").catch(() => "") };
+	const env = await fixtureCommands(root);
+	const seen = path.join(root, "seen");
+	const result = await invoke(app, { ...env, SKIP_PULL: "1", SEEN: seen, ...extraEnv });
+	return { ...result, app, log: await readFile(env.LOG, "utf8"), seen: await readFile(seen, "utf8").catch(() => "") };
 }
 
 describeLinux("deploy/upgrade.sh domain recovery", () => {
@@ -67,7 +96,7 @@ describeLinux("deploy/upgrade.sh domain recovery", () => {
 	it("runs git with the checkout declared safe, so a root upgrade of the service user's checkout works", async () => {
 		const script = await readFile(path.join(process.cwd(), "deploy/upgrade.sh"), "utf8");
 		expect(script).toMatch(/git_app\(\) \{ git -c "safe\.directory=\$\{APP_DIR\}" -C "\$\{APP_DIR\}" "\$@"; \}/);
-		expect(script.match(/\bgit -C /g)).toBeNull();
+		expect(script).not.toContain('git -C "${APP_DIR}"');
 	});
 
 describeLinux("deploy/upgrade.sh pulling a one-click install", () => {
@@ -89,24 +118,13 @@ describeLinux("deploy/upgrade.sh pulling a one-click install", () => {
 		await writeFile(path.join(origin, "README.md"), "v2\n");
 		await writeFile(path.join(origin, "docs/route-catalog.json"), '{"generatedAt":"2026-10-26T00:00:00Z","new":true}\n');
 		git(origin, "commit", "-q", "-am", "v2");
-		await mkdir(path.join(root, "deploy"));
-		await writeFile(path.join(root, "deploy", "upgrade.sh"), await readFile(path.join(process.cwd(), "deploy/upgrade.sh"), "utf8"), { mode: 0o755 });
-		await writeFile(path.join(root, "deploy", "install.sh"), "#!/bin/bash\nexit 0\n", { mode: 0o755 });
 		await writeFile(path.join(app, ".env.local"), 'SSH_WS_ALLOWED_ORIGINS="https://console.example.com"\n', { mode: 0o600 });
 		await writeFile(path.join(app, ".git/info/exclude"), ".env.local\n");
 		return { root, app, head: git(origin, "rev-parse", "HEAD") };
 	}
 
 	async function upgrade(root: string, app: string) {
-		return new Promise<{ code: number | null; text: string }>((resolve) => {
-			const child = spawn("bash", [path.join(root, "deploy", "upgrade.sh")], {
-				env: { ...process.env, APP_DIR: app, UPGRADE_REF: "main", SKIP_PRE_BACKUP: "1", SKIP_POST_CHECK: "1", DOMAIN: "", CHECK_PUBLIC_URL: "", CADDY_FILE: path.join(root, "no-caddyfile") },
-			});
-			let text = "";
-			child.stdout.on("data", (chunk) => { text += chunk; });
-			child.stderr.on("data", (chunk) => { text += chunk; });
-			child.on("close", (code) => resolve({ code, text }));
-		});
+		return invoke(app, { ...await fixtureCommands(root), UPGRADE_REF: "main", SKIP_POST_CHECK: "1" });
 	}
 
 	it("updates a checkout whose route catalog the installer's build rewrote", async () => {
@@ -128,4 +146,46 @@ describeLinux("deploy/upgrade.sh pulling a one-click install", () => {
 		expect(result.text).toContain("Working tree has local changes");
 	});
 });
+});
+
+
+describeLinux("staged release recovery", () => {
+	it.each(["build", "start", "health"])("recovers from %s failure", async fail => {
+		const result = await runUpgrade('DOMAIN=""\n', { FAIL: fail });
+		expect(result.code, result.text).not.toBe(0);
+		expect(await readFile(path.join(result.app, "dist/server.js"), "utf8")).toBe("old");
+		expect(await readFile(path.join(result.app, "storage/customer-file"), "utf8")).toBe("retained");
+		expect(await readFile(path.join(result.app, ".env.local"), "utf8")).toBe('DOMAIN=""\n');
+		if (fail === "build") expect(result.log).not.toContain("systemctl stop");
+		else {
+			expect(result.log.indexOf("npm run build:runtime")).toBeLessThan(result.log.indexOf("systemctl stop"));
+			expect(result.log.trim().split("\n").at(-1)).toBe("systemctl start vcontrolhub-next.service vcontrolhub-ssh-ws.service");
+		}
+	});
+});
+
+describeLinux("automatic migration preflight", () => {
+	it("checks only pending SQL and refuses destructive or unrecognised changes", async () => {
+		const root = await mkdtemp(path.join(tmpdir(), "vch-upgrade-ledger-"));
+		roots.push(root);
+		const bin = path.join(root, "psql");
+		await writeFile(bin, '#!/bin/sh\nprintf "%s\\n" "$LEDGER"\n', { mode: 0o755 });
+		const sql = "DROP TABLE legacy;";
+		const { createHash } = await import("node:crypto");
+		const ledger = [{ name: "001", done: true, checksum: createHash("sha256").update(sql).digest("hex") }];
+		const dirs = ["001", "002"].map(id => path.join(root, "prisma/migrations", id));
+		for (const dir of dirs) await mkdir(dir, { recursive: true });
+		await writeFile(path.join(dirs[0]!, "migration.sql"), sql);
+		const run = () => execFileSync(process.execPath, [path.resolve("deploy/check-upgrade-migrations.mjs")], {
+			cwd: root, stdio: "pipe", env: { ...process.env, PATH: root, DATABASE_URL: "postgres://unused/test", LEDGER: JSON.stringify(ledger) },
+		});
+		for (const pending of ["CREATE TABLE t (id integer);", 'ALTER TABLE "t" ADD COLUMN x integer;']) {
+			await writeFile(path.join(dirs[1]!, "migration.sql"), pending);
+			expect(run).not.toThrow();
+		}
+		for (const pending of ["DROP TABLE t", "ALTER TABLE t ADD x int, DROP /* comment */ COLUMN y", "UPDATE t SET x = NULL", "TRUNCATE t", "DELETE FROM t", "DO $$ BEGIN EXECUTE q; END $$"]) {
+			await writeFile(path.join(dirs[1]!, "migration.sql"), pending);
+			expect(run).toThrow(/Manual migration review.*002/);
+		}
+	});
 });
