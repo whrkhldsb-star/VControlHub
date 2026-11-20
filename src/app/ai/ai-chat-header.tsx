@@ -17,6 +17,7 @@ interface ChatHeaderProps {
   modelList?: ModelInfo[];
   /** One-step model switch (PATCH + refresh). */
   onQuickSwitchModel?: (model: string) => void;
+  sidebarShown?: boolean;
   onToggleSidebar: () => void;
   onToggleSettings: () => void;
   onClearMessages: () => void;
@@ -30,6 +31,7 @@ export function AiChatHeader({
   currentModelCaps,
   modelList = [],
   onQuickSwitchModel,
+  sidebarShown,
   onToggleSidebar,
   onToggleSettings,
   onClearMessages,
@@ -50,17 +52,16 @@ export function AiChatHeader({
 
   return (
     <header className="flex flex-wrap items-center gap-3 border-b border-[var(--border)] bg-[var(--surface)] px-4 py-3">
-      {/* Mobile sidebar toggle */}
-      <button
-    type="button"
+      {!sidebarShown && <button
+        type="button"
         onClick={onToggleSidebar}
-        className="flex h-11 w-11 shrink-0 items-center justify-center rounded-lg text-[var(--text-secondary)] transition hover:bg-[var(--surface-hover)] md:hidden"
+        className="flex h-11 w-11 shrink-0 items-center justify-center rounded-lg text-[var(--text-secondary)] transition hover:bg-[var(--surface-hover)]"
         aria-label={t("common.openSidebar")}
       >
         <svg className="h-5 w-5" fill="none" stroke="currentColor" width="24" height="24" viewBox="0 0 24 24" aria-hidden="true">
           <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={1.5} d="M4 6h16M4 12h16M4 18h16" />
         </svg>
-      </button>
+      </button>}
       <div className="min-w-0 flex-1 basis-[calc(100%-3.5rem)] md:basis-64">
         <h1 className="ui-title-section line-clamp-2 break-words" title={activeConv.title}>{activeConv.title}</h1>
         <div ref={menuRef} className="relative mt-0.5">

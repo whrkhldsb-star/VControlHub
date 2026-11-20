@@ -413,6 +413,7 @@ export function AiClient({
               currentModelCaps={currentModelCaps}
               modelList={modelList}
               onQuickSwitchModel={(model) => void handleQuickSwitchModel(model)}
+              sidebarShown={showSidebar}
               onToggleSidebar={() => setShowSidebar(true)}
               onToggleSettings={() => {
                 if (showSettings) requestCloseSettings();
