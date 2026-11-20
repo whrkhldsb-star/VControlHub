@@ -186,7 +186,7 @@ export default function DockerPage({
 			    could not be read has no networks or volumes to show either: the panel said "no networks". */}
 			{(selectedServerId || canManageHubHost) && !listFailed ? (
 				<div className="mt-6">
-					<DockerResourcesPanel serverId={selectedServerId} />
+					<DockerResourcesPanel serverId={selectedServerId} serverLabel={serverList.find((server) => server.id === selectedServerId)?.name} />
 				</div>
 			) : null}
 
