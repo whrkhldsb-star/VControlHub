@@ -46,6 +46,7 @@ type operation struct {
 	ChunkDigest string `json:"chunkDigest"`
 	Version     string `json:"version"`
 	Data        []byte `json:"data"`
+	Directory   bool   `json:"directory"`
 	Overwrite   bool   `json:"overwrite"`
 }
 type entry struct {
@@ -237,7 +238,17 @@ func (s share) handle(op operation) (result, error) {
 	case "mkdir":
 		return out, s.root.Mkdir(op.Path, 0750)
 	case "delete":
-		return out, s.root.RemoveAll(op.Path)
+		info, err := s.root.Lstat(op.Path)
+		if err != nil {
+			return out, err
+		}
+		if info.IsDir() != op.Directory || metadata(info).Version != op.Version {
+			return out, changed
+		}
+		if op.Directory {
+			return out, s.root.RemoveAll(op.Path)
+		}
+		return out, s.root.Remove(op.Path)
 	case "copy-step":
 		return s.copyStep(op)
 	case "rename", "copy":

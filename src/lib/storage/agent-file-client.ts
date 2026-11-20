@@ -194,8 +194,12 @@ export function createAgentFileClient(nodeId: string, serverId?: string, expecte
     async copy(path: string, destination: string) {
       await call("copy", path, { destination: checkedPath(destination) });
     },
-    async delete(path: string) {
-      await call("delete", path);
+    async delete(path: string, isDirectory?: boolean, version?: string) {
+      const entry = await stat(path);
+      if (!entry) throw Object.assign(bad(), { code: "ENOENT" });
+      if (!entry.etag || (isDirectory !== undefined && entry.isDirectory !== isDirectory) ||
+          (version && entry.etag !== version)) throw bad();
+      await call("delete", path, { directory: entry.isDirectory, version: entry.etag });
     },
   };
 }

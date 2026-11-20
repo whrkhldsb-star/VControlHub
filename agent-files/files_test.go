@@ -127,7 +127,7 @@ func TestResumeAndVerifyBackup(t *testing.T) {
 		t.Fatal("existing copy replaced")
 	}
 	run(operation{Op: "rename", Path: "copy.tar", Destination: "moved.tar"})
-	run(operation{Op: "delete", Path: "moved.tar"})
+	run(operation{Op: "delete", Path: "moved.tar", Version: run(operation{Op: "stat", Path: "moved.tar"}).Entry.Version})
 	list := run(operation{Op: "list", Path: "nightly"})
 	if list.Entries == nil || len(*list.Entries) != 1 {
 		t.Fatal("directory listing")

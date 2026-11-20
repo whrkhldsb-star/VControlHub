@@ -647,6 +647,7 @@ model FileEntry {
   parentId       String?
   isDeleted      Boolean          @default(false)
   deleteBatchId  String?
+  deletedAgentRoot String?
   createdAt      DateTime         @default(now())
   updatedAt      DateTime         @updatedAt
   storageNode    StorageNode      @relation(fields: [storageNodeId], references: [id], onDelete: Cascade)

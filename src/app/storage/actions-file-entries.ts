@@ -152,6 +152,8 @@ async function permanentDeleteFileEntryActionImpl(
         entryType: true,
         relativePath: true,
         storageNodeId: true,
+        deletedAgentRoot: true,
+        storageVersion: true,
         storageNode: {
           select: {
             id: true,
@@ -206,7 +208,13 @@ async function permanentDeleteFileEntryActionImpl(
   }
   // Delete backing first. If this fails, keep the tombstone and share records
   // intact so the user can retry and the operation cannot report false success.
+  if ((entry.storageNode.driver === "AGENT" || entry.deletedAgentRoot) &&
+      (entry.storageNode.driver !== "AGENT" || !entry.deletedAgentRoot || !entry.storageVersion)) {
+    return { error: apiCopy("apiCopy.files.op.changed") };
+  }
   await deleteBackingObject({
+    expectedRoot: entry.deletedAgentRoot ?? undefined,
+    version: entry.storageVersion ?? undefined,
     storageNode: entry.storageNode,
     relativePath: entry.relativePath,
     isDirectory: entry.entryType === "DIRECTORY",

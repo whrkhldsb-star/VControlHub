@@ -1,5 +1,6 @@
 import { escapeLikeLiteral } from "@/lib/db/like-pattern";
 import { auditUserAction } from "@/lib/audit/service";
+import { createAgentFileClient } from "@/lib/storage/agent-file-client";
 import crypto from "node:crypto";
 import type { SessionPayload } from "@/lib/auth/session";
 import { teamWhere } from "@/lib/auth/team-scope";
@@ -81,6 +82,7 @@ export async function executeDeleteFile(
         storageNode: {
           select: {
             driver: true,
+            agentFileShare: { select: { rootIdentity: true } },
             basePath: true,
             host: true,
             port: true,
@@ -167,6 +169,16 @@ export async function executeDeleteFile(
     data: { revokedAt: new Date() },
   });
 
+    const deletedAgentRoot = entry.storageNode.agentFileShare?.rootIdentity ?? null;
+    let agentVersion: string | undefined;
+    if (entry.storageNode.driver === "AGENT") {
+      if (!deletedAgentRoot?.startsWith("v2:")) throw new Error(apiCopy("apiCopy.files.op.changed"));
+      const physical = await createAgentFileClient(entry.storageNodeId, undefined, deletedAgentRoot).stat(entry.relativePath);
+      if (!physical?.etag || physical.isDirectory !== (entry.entryType === "DIRECTORY")) {
+        throw new Error(apiCopy("apiCopy.files.op.changed"));
+      }
+      agentVersion = physical.etag;
+    }
     // Soft-delete is index-only. Revoke every direct, descendant, or parent
     // directory share in the same transaction so recycle-bin bytes cannot be
     // reached through an already-issued public token.
@@ -183,11 +195,11 @@ export async function executeDeleteFile(
             relativePath: { startsWith: escapeLikeLiteral(prefix) },
             isDeleted: false,
           },
-          data: { isDeleted: true, deleteBatchId },
+          data: { isDeleted: true, deleteBatchId, deletedAgentRoot },
         }),
         prisma.fileEntry.update({
           where: { id: fileEntryId },
-          data: { isDeleted: true, deleteBatchId },
+          data: { isDeleted: true, deleteBatchId, deletedAgentRoot, storageVersion: agentVersion },
         }),
     revokeShares,
       ]);
@@ -195,7 +207,7 @@ export async function executeDeleteFile(
     await prisma.$transaction([
     prisma.fileEntry.update({
       where: { id: fileEntryId },
-      data: { isDeleted: true, deleteBatchId: crypto.randomUUID() },
+      data: { isDeleted: true, deleteBatchId: crypto.randomUUID(), deletedAgentRoot, storageVersion: agentVersion },
     }),
     revokeShares,
     ]);
