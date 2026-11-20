@@ -46,10 +46,10 @@ function seedRestoreIdentity(url: string) {
 // CI migrates an empty database. Give its backup the minimum data of an
 // installed instance without modifying the database shared by other suites.
 const installedRows = `
-  INSERT INTO "User" (id, username, "passwordHash", "updatedAt")
-    SELECT 'restore-fixture', 'restore-fixture', 'disabled', now() WHERE NOT EXISTS (SELECT FROM "User");
-  INSERT INTO "Role" (id, key, name, "updatedAt")
-    SELECT 'restore-fixture', 'restore-fixture', 'Fixture', now() WHERE NOT EXISTS (SELECT FROM "Role");
+  INSERT INTO public."User" (id, username, "passwordHash", "updatedAt")
+    SELECT 'restore-fixture', 'restore-fixture', 'disabled', now() WHERE NOT EXISTS (SELECT FROM public."User");
+  INSERT INTO public."Role" (id, key, name, "updatedAt")
+    SELECT 'restore-fixture', 'restore-fixture', 'Fixture', now() WHERE NOT EXISTS (SELECT FROM public."Role");
 `;
 
 function psql(url: string, sql: string) {
