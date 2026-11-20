@@ -12,6 +12,7 @@ const mocks = vi.hoisted(() => ({
   transaction: vi.fn(),
   serverUpdate: vi.fn((args: unknown) => ({ op: "server.update", args })),
   storageNodeUpdateMany: vi.fn((args: unknown) => ({ op: "storageNode.updateMany", args })),
+  costUpdateMany: vi.fn(),
   metricSnapshotUpdateMany: vi.fn((args: unknown) => ({ op: "metricSnapshot.updateMany", args })),
   userServerAccessDeleteMany: vi.fn((args: unknown) => ({ op: "userServerAccess.deleteMany", args })),
   userStorageAccessDeleteMany: vi.fn((args: unknown) => ({ op: "userStorageAccess.deleteMany", args })),
@@ -34,6 +35,7 @@ vi.mock("@/lib/db", () => ({
     downloadTask: { count: mocks.downloadTaskCount },
     agentFileShare: { deleteMany: mocks.revoke, createMany: mocks.rebind },
     storageNode: { findFirst: vi.fn(async () => null), updateMany: mocks.storageNodeUpdateMany },
+    costEntry: { updateMany: mocks.costUpdateMany },
     metricSnapshot: { updateMany: mocks.metricSnapshotUpdateMany },
     userServerAccess: { deleteMany: mocks.userServerAccessDeleteMany },
     userStorageAccess: { deleteMany: mocks.userStorageAccessDeleteMany },
@@ -77,6 +79,7 @@ describe("transferServerToCustomer", () => {
   it("moves the server with its storage and history and drops the old customer's grants", async () => {
     await expect(transferServerToCustomer("srv_1", "team_b", ADMIN)).resolves.toEqual({ serverId: "srv_1", teamId: "team_b", teamName: "Beta" });
     expect(mocks.storageNodeUpdateMany).toHaveBeenCalledWith({ where: { id: { in: ["node_1", "agent_disk"] } }, data: { teamId: "team_b" } });
+    expect(mocks.costUpdateMany).toHaveBeenCalledWith({ where: { sourceType: "server_monthly", sourceRef: "srv_1", effectiveDate: expect.any(Date) }, data: { teamId: "team_b" } });
     expect(mocks.revoke).toHaveBeenCalledWith({ where: { serverId: "srv_1", storageNodeId: { in: ["agent_disk"] } } });
     expect(mocks.revoke).toHaveBeenCalledBefore(mocks.rebind);
     expect(mocks.rebind).toHaveBeenCalledWith({ data: [{ serverId: "srv_1", storageNodeId: "agent_disk", teamId: "team_b" }] });

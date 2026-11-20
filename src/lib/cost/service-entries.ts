@@ -148,7 +148,7 @@ export async function listRecentSnapshots(limit = 30, session?: TeamSession | nu
 	});
 }
 
-export interface ServerMonthlyCostSyncSkip { serverId: string; serverName: string; reason: "missing_amount" | "non_positive_amount" | "missing_currency"; }
+export interface ServerMonthlyCostSyncSkip { serverId: string; serverName: string; reason: "missing_amount" | "non_positive_amount" | "missing_currency" | "ownership_changed"; }
 /**
  * Counts only. The synced entries themselves are deliberately NOT returned: this
  * walks the whole fleet in pages of 1000, and neither caller (the HTTP route,
@@ -180,10 +180,31 @@ export async function syncServerMonthlyCosts(month = appTimeZoneDateKey().slice(
 				if (skippedDetails.length < 50) skippedDetails.push({ serverId: server.id, serverName: server.name, reason: reason ?? "missing_amount" });
 				continue;
 			}
-		const provider = server.costProvider?.trim() || server.name; const tags = automaticTags("server_monthly", "vps", provider, server.id);
-		const notes = t("backend.cost.serverMonthlyNote", { server: server.name, host: server.host, month });
-		await prisma.costEntry.upsert({ where: { sourceType_sourceRef_effectiveDate: { sourceType: "server_monthly", sourceRef: server.id, effectiveDate } }, create: { category: "vps", provider, amount: new Prisma.Decimal(amount), currency: server.costCurrency, effectiveDate, notes, sourceType: "server_monthly", sourceRef: server.id, createdById: null, teamId: server.teamId ?? null, tags }, update: { provider, amount: new Prisma.Decimal(amount), currency: server.costCurrency, notes, tags } });
-		await prisma.server.update({ where: { id: server.id }, data: { costLastSyncedAt: new Date() } }); synced += 1;
+			const provider = server.costProvider?.trim() || server.name;
+			const fields = { provider, amount: new Prisma.Decimal(amount), currency: server.costCurrency,
+				notes: t("backend.cost.serverMonthlyNote", { server: server.name, host: server.host, month }),
+				tags: automaticTags("server_monthly", "vps", provider, server.id) };
+			const teamId = server.teamId ?? null;
+			const source = { sourceType: "server_monthly", sourceRef: server.id, effectiveDate };
+			const written = await prisma.$transaction(async tx => {
+				const where = { sourceType_sourceRef_effectiveDate: source };
+				if (month !== appTimeZoneDateKey().slice(0, 7)) {
+					const history = await tx.costEntry.findUnique({ where, select: { teamId: true } });
+					if (history && history.teamId !== teamId) return false;
+				}
+				// Claim the server row first, in the same order as a customer transfer.
+				const claim = await tx.server.updateMany({ where: { id: server.id, teamId },
+					data: { costLastSyncedAt: new Date() } });
+				if (!claim.count) return false;
+				await tx.costEntry.upsert({ where, create: { ...source, ...fields, teamId, category: "vps", createdById: null },
+					update: { ...fields, teamId } });
+				return true;
+			});
+			if (written) synced += 1;
+			else {
+				skipped += 1;
+				if (skippedDetails.length < 50) skippedDetails.push({ serverId: server.id, serverName: server.name, reason: "ownership_changed" });
+			}
 		}
 		cursor = servers.length === 1000 ? { id: servers[servers.length - 1]!.id } : undefined;
 	} while (cursor);
