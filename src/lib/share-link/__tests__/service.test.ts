@@ -11,7 +11,8 @@ const { mockPrisma } = vi.hoisted(() => ({
 }));
 
 vi.mock("@/lib/db", () => ({ prisma: mockPrisma }));
-vi.mock("@/lib/auth/team-scope", () => ({
+vi.mock("@/lib/auth/team-scope", async (importOriginal) => ({
+  ...await importOriginal<typeof import("@/lib/auth/team-scope")>(),
   teamWhere: (session: { currentTeamId?: string | null }) =>
     session.currentTeamId
       ? { teamId: session.currentTeamId }
@@ -306,6 +307,7 @@ describe("share link service", () => {
   it("claims maxDownloads atomically via updateMany", async () => {
     mockPrisma.shareLink.findUnique.mockResolvedValue({
       id: "share-quota",
+      storageNode: { driver: "LOCAL" },
       tokenHash: "x",
       expiresAt: null,
       revokedAt: null,

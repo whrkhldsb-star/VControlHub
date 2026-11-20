@@ -208,18 +208,18 @@ export async function createShareLink(input: SharePolicy & {
 }) {
   await assertSharePolicy(input);
   const normalizedPath = normalizeSharePath(input.path);
+  // Capture the scoped binding before checking path access. A concurrent
+  // transfer or re-pair must invalidate this link at redemption.
+  const node = await prisma.storageNode.findUnique({
+    where: { id: input.storageNodeId, AND: storageNodeTeamWhere(input.session) },
+    select: shareNodeSelect,
+  });
   const access = await assertStorageAccess({ session: input.session, storageNodeId: input.storageNodeId, relativePath: normalizedPath, operation: "read" });
   if (!access.allowed) {
     // The reason is a code for programs ("no_access"); the share dialog showed it as the message.
     throw new ForbiddenError(storageAccessDeniedCopy(access.reason));
   }
 
-  // A share publishes a path of a storage node, so it belongs to the customer that node belongs to. It
-  // took the customer selected in the session and refused without one: an administrator viewing all
-  // customers has none selected and could not share anything, from the files page or from Shares. That
-  // view is also the only one that can open a node of no customer, whose shares stay with no customer
-  // (visible to administrators viewing all customers, as the node is).
-  const node = await prisma.storageNode.findUnique({ where: { id: input.storageNodeId }, select: shareNodeSelect });
   if (!node) throw new NotFoundError(t("backend.shareLink.fileNotFound"));
 
   const { token, data } = newShareRow({
