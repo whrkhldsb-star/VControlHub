@@ -116,8 +116,13 @@ process.exit(result.status ?? 2);
     const versions = path.join(tmp, "history");
     await mkdir(path.join(versions, "node_1"), { recursive: true });
     await writeFile(path.join(versions, "node_1", "v1.blob"), "old body");
+    const customer = path.join(tmp, "customer-storage");
+    await mkdir(customer);
+    await writeFile(path.join(customer, "report.txt"), "current body");
     const output = path.join(backups, "full-history.tar.gz");
-    await runFile(process.execPath, [runner, "--full", output], { env: { ...env, FILE_VERSION_DIR: versions, BACKUP_EXTRA_PATHS_JSON: JSON.stringify([versions]) } });
+    await runFile(process.execPath, [runner, "--full", output], { env: { ...env, FILE_VERSION_DIR: versions, STORAGE_ROOT: customer } });
+    const storageManifest = JSON.parse((await runFile("tar", ["-xOzf", output, "external-data.json"])).stdout);
+    expect((await runFile("tar", ["-xOzf", output, `${storageManifest.paths[0].member}/report.txt`])).stdout).toBe("current body");
     const manifest = JSON.parse((await runFile("tar", ["-xOzf", output, "file-versions.json"])).stdout);
     expect((await runFile("tar", ["-xOzf", output, `${manifest.member}/node_1/v1.blob`])).stdout).toBe("old body");
 

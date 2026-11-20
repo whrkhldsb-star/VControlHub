@@ -14,6 +14,7 @@ Environment=ENV_FILE={{RUNTIME_ENV_FILE}}
 # (A10-02): fixed values here hid the nightly backups from the application's
 # own listing, retention and offsite upload.
 Environment=BACKUP_INCLUDE_ENV=true
+Environment=BACKUP_REQUIRE_COVERAGE=1
 ExecStart={{NODE_BIN}} {{APP_DIR}}/scripts/backup.mjs --full
 ExecStartPost={{NODE_BIN}} {{APP_DIR}}/dist/upload-recovery-backup.js
 UMask=0077
