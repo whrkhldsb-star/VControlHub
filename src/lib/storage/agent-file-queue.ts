@@ -16,9 +16,16 @@ type Payload = Record<string, string | number | boolean>;
 
 export async function pairFileShare(nodeId: string, session: SessionPayload) {
   return prisma.$transaction(async (tx) => {
+    // Rotation updates the server first, then its shares. Keep that order and
+    // pin the exact binding before reading the identity that signs the pair.
+    const locked = await tx.$queryRaw<Array<{ id: string; serverId: string }>>`
+      SELECT sh.id, sh."serverId" FROM servers s JOIN agent_file_shares sh ON sh."serverId" = s.id
+      WHERE sh."storageNodeId" = ${nodeId} FOR SHARE OF s`;
+    const binding = locked[0];
+    if (!binding) throw unavailable();
     const share = await tx.agentFileShare.findFirst({
       where: {
-        storageNodeId: nodeId,
+        id: binding.id, serverId: binding.serverId, storageNodeId: nodeId,
         node: { is: { driver: "AGENT", ...teamWhere(session) } },
         server: { is: { enabled: true, managementMode: "AGENT", ...serverTeamWhere(session, "connect") } },
       },
@@ -31,7 +38,7 @@ export async function pairFileShare(nodeId: string, session: SessionPayload) {
     if (!share?.server.agentTokenHash || share.server.teamId !== share.node.teamId) throw unavailable();
     const token = `vcf_${share.id}_${randomBytes(32).toString("hex")}`;
     await tx.agentFileShare.update({
-      where: { id: share.id },
+      where: { id: share.id, serverId: binding.serverId, storageNodeId: nodeId },
       data: {
         teamId: share.node.teamId,
         tokenHash: digest(token),
