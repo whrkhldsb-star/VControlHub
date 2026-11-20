@@ -106,6 +106,7 @@ export function supportsInbound(direction: string): boolean {
 
 export async function recordEvent(input: {
   connectionId: string | null;
+  teamId: string | null;
   direction: "inbound" | "outbound";
   eventType: string;
   ticketId?: string | null;
@@ -118,6 +119,7 @@ export async function recordEvent(input: {
     const row = await prisma.itsmEvent.create({
       data: {
         connectionId: input.connectionId,
+        teamId: input.teamId, ownerBound: true,
         direction: input.direction,
         eventType: input.eventType,
         ticketId: input.ticketId ?? null,
@@ -141,7 +143,7 @@ export async function recordEvent(input: {
       const existing = await prisma.itsmEvent.findFirst({
         where: {
           connectionId: input.connectionId,
-          externalId: input.externalId,
+          externalId: input.externalId, teamId: input.teamId, ownerBound: true,
         },
         orderBy: { createdAt: "desc" },
       });
