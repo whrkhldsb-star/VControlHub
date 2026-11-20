@@ -148,7 +148,7 @@ export function ServerCardActions({
 					size={terminalSize} block={terminalBlock} onClick={handleOpenTerminal} />
 			) : null}
 
-			{canManageServers && directGateway && (operatingSystem !== "WINDOWS" || storageNodeId) ? (
+			{canEditProfile && directGateway && (operatingSystem !== "WINDOWS" || storageNodeId) ? (
 				<ServerCardDirectGatewayForm serverId={serverId} directGateway={directGateway} operatingSystem={operatingSystem} />
 			) : null}
 

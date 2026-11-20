@@ -584,9 +584,9 @@ async function reinstallServerAgentActionImpl(
   try {
     const serverId = String(formData.get("serverId") ?? "");
     const { prisma } = await import("@/lib/db");
-    const { serverTeamWhere } = await import("@/lib/auth/team-scope");
+    const { serverProfileTeamWhere } = await import("@/lib/auth/team-scope");
     const current = await prisma.server.findFirst({
-      where: { id: serverId, ...serverTeamWhere(session, "manage") },
+      where: { id: serverId, ...serverProfileTeamWhere(session) },
       select: { teamId: true, operatingSystem: true, managementMode: true, host: true },
     });
     if (!current) {
@@ -598,7 +598,7 @@ async function reinstallServerAgentActionImpl(
     }
 
     const { installServerAgent } = await import("@/lib/server/agent-service");
-    await installServerAgent(serverId, current.teamId);
+    await installServerAgent(serverId, current.teamId, serverProfileTeamWhere(session));
     await auditUserAction(
       session.userId,
       "server.agent_reinstall",
@@ -632,11 +632,11 @@ async function getWindowsAgentInstallCommandActionImpl(
   try {
     const serverId = String(formData.get("serverId") ?? "");
     const { prisma } = await import("@/lib/db");
-    const { serverTeamWhere } = await import("@/lib/auth/team-scope");
+    const { serverProfileTeamWhere } = await import("@/lib/auth/team-scope");
     // Scope the existence check the same way as edits, so the command cannot
     // be requested for a node outside the caller's team.
     const current = await prisma.server.findFirst({
-      where: { id: serverId, ...serverTeamWhere(session, "manage") },
+      where: { id: serverId, ...serverProfileTeamWhere(session) },
       select: { teamId: true },
     });
     if (!current) {
@@ -644,7 +644,7 @@ async function getWindowsAgentInstallCommandActionImpl(
     }
 
     const { prepareWindowsAgentInstall } = await import("@/lib/server/agent-service");
-    const { installCommand } = await prepareWindowsAgentInstall(serverId, current.teamId);
+    const { installCommand } = await prepareWindowsAgentInstall(serverId, current.teamId, serverProfileTeamWhere(session));
 
     await auditUserAction(
       session.userId,
