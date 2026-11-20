@@ -12,14 +12,14 @@ export function normalizeHostKeyFingerprint(value: string) {
 }
 
 export function fingerprintKnownHostsLine(line: string): string | null {
-  const parts = line.trim().split(/\s+/);
-  if (parts.length < 3 || !parts[1]?.startsWith("ssh-") || !parts[2]) return null;
-  try {
-    const digest = createHash("sha256").update(Buffer.from(parts[2], "base64")).digest("base64").replace(/=+$/u, "");
-    return `SHA256:${digest}`;
-  } catch {
-    return null;
-  }
+  const [, algorithm, encoded] = line.trim().split(/\s+/);
+  if (!algorithm || !/^(?:ssh-[\w@.-]+|ecdsa-sha2-nistp(?:256|384|521))$/u.test(algorithm) || !encoded) return null;
+  const blob = Buffer.from(encoded, "base64");
+  // Buffer's base64 decoder tolerates junk. Require canonical encoding and
+  // the SSH wire-format algorithm tag before trusting the scanned line.
+  if (blob.toString("base64") !== encoded || blob.length <= 4 + algorithm.length ||
+      blob.readUInt32BE(0) !== algorithm.length || !blob.subarray(4, 4 + algorithm.length).equals(Buffer.from(algorithm))) return null;
+  return `SHA256:${createHash("sha256").update(blob).digest("base64").replace(/=+$/u, "")}`;
 }
 
 export function selectPinnedKnownHostsLine(scanOutput: string, expectedFingerprint: string) {
