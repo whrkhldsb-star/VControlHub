@@ -1072,7 +1072,7 @@ export function installServerAgent(serverId: string, teamId?: string | null) {
 export async function installServerAgentUnderLock(serverId: string, teamId?: string | null) {
   const server = await prisma.server.findUnique({
     where: { id: serverId, teamId },
-    include: { sshKey: { select: { privateKey: true, passphrase: true } } },
+    include: { sshKey: { select: { teamId: true, privateKey: true, passphrase: true } } },
   });
   if (!server) throw new Error("Server not found");
   // Windows nodes have no SSH channel; the agent is installed manually through
@@ -1166,7 +1166,7 @@ async function prepareWindowsAgentInstallUnderLock(serverId: string, teamId?: st
 export async function removeAgentFromHost(serverId: string, verifiedSsh?: Awaited<ReturnType<typeof buildSshParamsFromServer>>) {
   const server = await prisma.server.findUnique({
     where: { id: serverId },
-    include: { sshKey: { select: { privateKey: true, passphrase: true } } },
+    include: { sshKey: { select: { teamId: true, privateKey: true, passphrase: true } } },
   });
   if (!server || server.managementMode !== "AGENT") return { removed: false };
   const windows = server.operatingSystem === "WINDOWS";

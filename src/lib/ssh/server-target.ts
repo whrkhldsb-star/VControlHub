@@ -19,6 +19,7 @@ const logger = createLogger("ssh-server-target");
 /** The prisma projection every SSH-target consumer needs. */
 const SSH_SERVER_SELECT = {
   id: true,
+  teamId: true,
   name: true,
   host: true,
   port: true,
@@ -30,11 +31,12 @@ const SSH_SERVER_SELECT = {
   managementMode: true,
   hostKeySha256: true,
   sshKeyId: true,
-  sshKey: { select: { privateKey: true, passphrase: true } },
+  sshKey: { select: { teamId: true, privateKey: true, passphrase: true } },
 } as const;
 
 export type SshServerRow = {
   id: string;
+  teamId: string | null;
   name: string;
   host: string;
   port: number;
@@ -46,7 +48,7 @@ export type SshServerRow = {
   managementMode: string;
   hostKeySha256: string | null;
   sshKeyId: string | null;
-  sshKey: { privateKey: string | null; passphrase: string | null } | null;
+  sshKey: { teamId: string | null; privateKey: string | null; passphrase: string | null } | null;
 };
 
 export type SshServerTarget = {
@@ -93,6 +95,7 @@ async function buildServerSshTarget(server: SshServerRow): Promise<SshServerTarg
       password: server.password,
       hostKeySha256: server.hostKeySha256,
       id: server.id,
+      teamId: server.teamId,
       managementMode: server.managementMode,
     },
     server.sshKey,

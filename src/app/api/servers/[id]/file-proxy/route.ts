@@ -36,12 +36,13 @@ export const dynamic = "force-dynamic";
 const FILE_PROXY_TTL_MS = 2 * 60 * 60 * 1000;
 
 type SshExecServer = {
+  teamId: string | null;
   host: string;
   port: number;
   username: string;
   connectionType: string;
   password: string | null;
-  sshKey: { privateKey: string | null; passphrase: string | null } | null;
+  sshKey: { teamId: string | null; privateKey: string | null; passphrase: string | null } | null;
   hostKeySha256?: string | null;
 };
 
@@ -52,7 +53,7 @@ type SshExecServer = {
  */
 function sshExecCredentials(server: SshExecServer) {
   if (server.connectionType === "SSH_KEY") {
-    const key = decryptStoredSshKey(server.sshKey);
+    const key = decryptStoredSshKey(server.sshKey, server.teamId);
     return key ? { privateKey: key.privateKey, ...(key.passphrase ? { passphrase: key.passphrase } : {}) } : {};
   }
   return server.password ? { password: decryptServerPassword(server.password) } : {};

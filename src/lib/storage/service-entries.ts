@@ -287,6 +287,7 @@ type DeletedFileEntryWithNode = Prisma.FileEntryGetPayload<{
         server: {
           select: {
             id: true;
+            teamId: true;
             host: true;
             port: true;
             username: true;
@@ -407,6 +408,7 @@ export async function restoreFileEntry(
           server: {
             select: {
               id: true,
+              teamId: true,
               host: true,
               port: true,
               username: true,

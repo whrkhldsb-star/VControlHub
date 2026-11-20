@@ -21,9 +21,15 @@ import { encrypt, decrypt, isEncrypted } from "@/lib/crypto/service";
  * `privateKey` silently broke commands, monitoring, backups and SFTP storage
  * for them while the terminal kept working.
  */
-export const SSH_KEY_CREDENTIAL_SELECT = { privateKey: true, passphrase: true } as const;
+export const SSH_KEY_CREDENTIAL_SELECT = { teamId: true, privateKey: true, passphrase: true } as const;
 
-export type StoredSshKey = { privateKey?: string | null; passphrase?: string | null };
+export type StoredSshKey = { teamId?: string | null; privateKey?: string | null; passphrase?: string | null };
+
+export function assertSshKeyTeam(key: StoredSshKey, serverTeamId: string | null | undefined) {
+	if (serverTeamId === undefined || key.teamId !== serverTeamId) {
+		throw new Error("SSH key does not belong to the server's customer");
+	}
+}
 
 const SERVER_PASSWORD_PREFIX = "enc:v1:";
 
@@ -110,8 +116,9 @@ function unlockPrivateKey(privateKey: string, passphrase: string): string {
  * ciphertext, so a re-imported key never reuses a stale entry. When the format
  * cannot be unlocked here, the passphrase is returned for ssh2 to try.
  */
-export function decryptStoredSshKey(key: StoredSshKey | null | undefined): { privateKey: string; passphrase?: string } | null {
+export function decryptStoredSshKey(key: StoredSshKey | null | undefined, serverTeamId: string | null | undefined): { privateKey: string; passphrase?: string } | null {
 	if (!key?.privateKey) return null;
+	assertSshKeyTeam(key, serverTeamId);
 	const privateKey = decryptSshPrivateKey(key.privateKey);
 	const passphrase = decryptSshKeyPassphrase(key.passphrase);
 	if (!passphrase) return { privateKey };

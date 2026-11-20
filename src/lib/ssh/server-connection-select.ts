@@ -8,6 +8,7 @@ import { SSH_KEY_CREDENTIAL_SELECT } from "@/lib/ssh/ssh-key-crypto";
  */
 export const SSH_CONNECTION_SERVER_SELECT = {
   id: true,
+  teamId: true,
   host: true,
   port: true,
   username: true,

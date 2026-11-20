@@ -277,6 +277,7 @@ async function searchSftpNode(
 				select: {
 					id: true,
 					operatingSystem: true,
+					teamId: true,
 					host: true,
 					port: true,
 					username: true,

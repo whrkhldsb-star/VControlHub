@@ -150,6 +150,7 @@ async function handlePost(request: Request, session: SessionPayload, locale: Loc
       server: {
         select: {
           id: true,
+          teamId: true,
           host: true,
           port: true,
           username: true,

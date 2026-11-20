@@ -59,6 +59,7 @@ async function loadDownloadTeamId(taskId: string): Promise<string | null> {
 /* ── Shared server type ────────────────────────────────── */
 
 export type DownloadServer = {
+ teamId?: string | null;
  agentStorageNodeId?: string;
  id: string;
  host: string;
@@ -72,7 +73,7 @@ export type DownloadServer = {
  password: string | null;
  hostKeySha256: string | null;
  storageNode?: { id: string; basePath: string | null } | null;
- sshKey?: { privateKey: string; passphrase?: string } | null;
+ sshKey?: { teamId?: string | null; privateKey: string; passphrase?: string } | null;
 };
 
 /* ── Aria2 relay download ──────────────────────────────── */
