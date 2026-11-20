@@ -170,6 +170,16 @@ const RESET_SCHEMA_SQL = `DO $vch_reset$ DECLARE r record; BEGIN
   FOR r IN SELECT tablename FROM pg_tables WHERE schemaname = 'public' AND tableowner = current_user LOOP
     EXECUTE format('DROP TABLE IF EXISTS public.%I CASCADE', r.tablename);
   END LOOP;
+  -- DROP TABLE removed the triggers, but an older dump cannot name their functions.
+  FOR r IN SELECT p.proname FROM pg_proc p JOIN pg_namespace n ON n.oid = p.pronamespace
+    WHERE n.nspname = 'public' AND p.pronargs = 0 AND p.prorettype = 'pg_catalog.trigger'::regtype
+      AND p.proowner = current_user::regrole AND p.proname IN (
+        'vch_reset_connection_evidence', 'vch_reset_storage_evidence', 'vch_record_command_success',
+        'vch_revoke_file_shares', 'vch_remove_detached_file_share')
+      AND NOT EXISTS (SELECT 1 FROM pg_depend d WHERE d.classid = 'pg_proc'::regclass
+        AND d.objid = p.oid AND d.deptype = 'e') LOOP
+    EXECUTE format('DROP FUNCTION public.%I() RESTRICT', r.proname);
+  END LOOP;
   FOR r IN SELECT t.typname FROM pg_type t JOIN pg_namespace n ON n.oid = t.typnamespace
     WHERE n.nspname = 'public' AND t.typtype = 'e' AND t.typowner = (SELECT oid FROM pg_roles WHERE rolname = current_user) LOOP
     EXECUTE format('DROP TYPE IF EXISTS public.%I CASCADE', r.typname);
