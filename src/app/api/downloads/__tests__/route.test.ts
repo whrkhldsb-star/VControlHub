@@ -53,8 +53,6 @@ const {
       findFirst: vi.fn(),
       createMany: vi.fn(),
       updateMany: vi.fn(),
-      create: vi.fn(),
-      update: vi.fn(),
     },
   },
   ensureAria2DaemonMock: vi.fn(),
@@ -353,8 +351,8 @@ describe("/api/downloads", () => {
     prismaMock.downloadTask.delete.mockReset();
     prismaMock.downloadTask.updateMany.mockResolvedValue({ count: 1 });
     prismaMock.fileEntry.findFirst.mockReset();
-    prismaMock.fileEntry.create.mockReset();
-    prismaMock.fileEntry.update.mockReset();
+    prismaMock.fileEntry.createMany.mockReset().mockResolvedValue({ count: 1 });
+    prismaMock.fileEntry.updateMany.mockReset().mockResolvedValue({ count: 1 });
     buildSshParamsFromServerMock.mockResolvedValue({ host: "203.0.113.10", port: 22, username: "root" });
     execRemoteCommandMock.mockResolvedValue({ stdout: "12345\n", stderr: "", exitCode: 0 });
     statMock.mockResolvedValue({ size: 1024 });
@@ -545,8 +543,8 @@ describe("/api/downloads", () => {
       // The progress text is translated now (A5); the pid is what this step records.
       data: expect.objectContaining({ pid: 12345, progress: expect.any(String) }),
     })));
-    expect(prismaMock.fileEntry.create).not.toHaveBeenCalled();
-    expect(prismaMock.fileEntry.update).not.toHaveBeenCalled();
+    expect(prismaMock.fileEntry.createMany).not.toHaveBeenCalled();
+    expect(prismaMock.fileEntry.updateMany).not.toHaveBeenCalled();
   });
 
   it("creates one independent task per URL for an HTTP/HTTPS batch", async () => {
@@ -956,8 +954,8 @@ describe("/api/downloads", () => {
     expect(response.status).toBe(200);
     await expect(response.json()).resolves.toEqual({ status: "CANCELLED", progress: "已取消" });
     expect(prismaMock.downloadTask.update).not.toHaveBeenCalled();
-    expect(prismaMock.fileEntry.create).not.toHaveBeenCalled();
-    expect(prismaMock.fileEntry.update).not.toHaveBeenCalled();
+    expect(prismaMock.fileEntry.createMany).not.toHaveBeenCalled();
+    expect(prismaMock.fileEntry.updateMany).not.toHaveBeenCalled();
   });
 
   it("leaves a finished relay task as it is on refresh, pause or resume", async () => {
