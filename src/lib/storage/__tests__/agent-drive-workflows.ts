@@ -94,6 +94,8 @@ export async function checkDriveOwnership(actor: SessionPayload, serverId: strin
     const drive = await prisma.agentFileShare.findUniqueOrThrow({ where: { storageNodeId: nodeId }, include: { node: true } });
     expect(drive).toMatchObject({ serverId, teamId, tokenHash: null, seenAt: null, writable: false, node: { teamId } });
     expect((await prisma.storageNode.findUniqueOrThrow({ where: { id: sftp.id } })).teamId).toBe(teamId);
+    await expect(pairFileShare(nodeId, { ...actor, currentTeamId: teamId })).rejects.toThrow();
+    await prisma.server.update({ where: { id: serverId }, data: { agentTokenHash: "new-owner-fixture" } });
     const token = await pairFileShare(nodeId, { ...actor, currentTeamId: teamId });
     expect(createHash("sha256").update(token).digest("hex")).toBe((await prisma.agentFileShare.findUniqueOrThrow({ where: { storageNodeId: nodeId } })).tokenHash);
   } finally {
