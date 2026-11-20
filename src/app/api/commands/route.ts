@@ -32,8 +32,9 @@ export async function GET(request: Request) {
   return withApiRoute(request, { permission: "command:read" }, async (ctx) => {
     // The approvals page shows a command's text to reviewers and to whoever submitted it; this list gave every
     // reader all of them. Someone else's text is left out here too.
+    const canApprove = sessionHasPermission(ctx.session, "command:approve");
     const requests = (await listCommandRequests(ctx.session)).map((item) =>
-      canReadCommandBody(ctx.session, item.requesterId) ? item : { ...item, command: "", commandHidden: true });
+      canReadCommandBody(ctx.session.userId, item.requesterId, canApprove) ? item : { ...item, command: "", commandHidden: true });
     return NextResponse.json({ requests });
   });
 }

@@ -388,7 +388,7 @@ export async function getTicketTimeline(ticketId: string, session?: TeamSession 
         });
 
     if (cmd) {
-      const showBody = !session || canReadCommandBody(session, cmd.requesterId);
+      const showBody = !session || canReadCommandBody(session.userId, cmd.requesterId, sessionHasPermission(session, "command:approve"));
       relatedCommand = {
         id: cmd.id,
         title: cmd.title,
