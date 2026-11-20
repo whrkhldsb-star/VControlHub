@@ -32,6 +32,8 @@ func (s share) ensureStageDir() error {
 }
 
 type operation struct {
+	deadline    time.Time
+	jobID       string
 	Op          string `json:"op"`
 	CopyID      string `json:"copyId"`
 	Step        string `json:"step"`
@@ -351,7 +353,7 @@ func (s share) handle(op operation) (result, error) {
 		e := metadata(info)
 		e.Name = path.Base(op.Path)
 		out.Entry = &e
-		return out, s.root.Rename(tmp, op.Path)
+		return out, s.publishChecked(op, tmp)
 	default:
 		return out, invalid
 	}
@@ -385,4 +387,49 @@ func (s share) cleanup(now time.Time) {
 			return
 		}
 	}
+}
+
+// Capture the old inode under a private name before inspecting it. A writer
+// arriving during verification wins the no-replace link. Keep any displaced
+// inode whose restoration conflicts so it can be recovered by operation ID.
+func (s share) publishChecked(op operation, tmp string) error {
+	if op.Version == "" || op.jobID == "" || !time.Now().Before(op.deadline) {
+		return changed
+	}
+	backup := path.Join(path.Dir(op.Path), ".vch-publish-"+digest([]byte(s.namespace+"\x00"+op.jobID)))
+	if op.Version != "absent" {
+		if _, err := s.root.Lstat(backup); !errors.Is(err, fs.ErrNotExist) {
+			return changed
+		}
+		if err := s.root.Rename(op.Path, backup); err != nil {
+			return err
+		}
+	}
+	restore := func() {
+		if op.Version != "absent" && s.root.Link(backup, op.Path) == nil {
+			s.root.Remove(backup)
+		}
+	}
+	if op.Version != "absent" {
+		st, err := s.root.Lstat(backup)
+		if err != nil || !st.Mode().IsRegular() || metadata(st).Version != op.Version {
+			restore()
+			return changed
+		}
+	}
+	if !time.Now().Before(op.deadline) {
+		restore()
+		return changed
+	}
+	if err := s.root.Link(tmp, op.Path); err != nil {
+		restore()
+		return err
+	}
+	if err := s.root.Remove(tmp); err != nil {
+		return err
+	}
+	if op.Version != "absent" {
+		return s.root.Remove(backup)
+	}
+	return nil
 }

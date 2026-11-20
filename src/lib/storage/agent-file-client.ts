@@ -100,6 +100,7 @@ export function createAgentFileClient(nodeId: string, serverId?: string, expecte
     getBytes: (at: number, length: number) => Promise<Buffer>,
     beforePublish?: () => Promise<void>,
   ) {
+    const previous = await stat(path);
     const common = { size, digest: checksum };
     const staging = await call("begin", path, common);
     const at = staging.offset;
@@ -119,7 +120,7 @@ export function createAgentFileClient(nodeId: string, serverId?: string, expecte
       if (reply.offset !== offset) throw bad();
     }
     await beforePublish?.();
-    const published = await call("publish", path, common);
+    const published = await call("publish", path, { ...common, version: previous?.etag ?? "absent" });
     return published.entry ? row.parse(published.entry).etag : null;
   }
   return {

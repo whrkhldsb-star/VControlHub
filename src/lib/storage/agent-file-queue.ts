@@ -120,7 +120,11 @@ export async function callFileAgent(nodeId: string, channel: Channel, payload: P
     }
     throw unavailable();
   } finally {
-    await prisma.agentFileCall.deleteMany({ where: { id: call.id } });
+    // An expired publish may already be on disk. Keep its ID and expected
+    // version until the claiming Agent reports what happened.
+    await prisma.agentFileCall.deleteMany({ where: { id: call.id, ...(payload.op === "publish" ? {
+      OR: [{ claimed: false }, { result: { not: Prisma.DbNull } }],
+    } : {}) } });
   }
 }
 
@@ -148,7 +152,7 @@ export async function pollFileAgent(hash: string, rootIdentity: string, writable
         shareId: share.id,
         tokenHash: hash,
         claimed: true,
-        expiresAt: { gt: now },
+        OR: [{ expiresAt: { gt: now } }, { payload: { path: ["op"], equals: "publish" } }],
         result: { equals: Prisma.DbNull },
       };
       const call = await tx.agentFileCall.findFirst({ where, select: { payload: true } });
@@ -176,6 +180,6 @@ export async function pollFileAgent(hash: string, rootIdentity: string, writable
     });
     if (!next) return { job: null };
     await tx.agentFileCall.update({ where: { id: next.id }, data: { claimed: true } });
-    return { job: { id: next.id, operation: next.payload } };
+    return { job: { id: next.id, remainingMs: Math.max(0, next.expiresAt.getTime() - Date.now()), operation: next.payload } };
   });
 }

@@ -12,6 +12,7 @@ import (
 	"os"
 	"path/filepath"
 	"testing"
+	"time"
 )
 
 func TestOutboundPollAndReceipt(t *testing.T) {
@@ -110,6 +111,7 @@ func TestResumeAndVerifyBackup(t *testing.T) {
 		}
 	}
 	op.Op = "publish"
+	op.Version, op.jobID, op.deadline = "absent", "publish-fixture", time.Now().Add(time.Minute)
 	run(op)
 	meta := run(operation{Op: "stat", Path: op.Path}).Entry
 	full := run(operation{Op: "checksum", Path: op.Path, Version: meta.Version})
