@@ -48,7 +48,8 @@ export function buildDirectDownloadCommand({
   const resolvedAddress = sourceResolution.address.includes(":")
     ? `[${sourceResolution.address}]`
     : sourceResolution.address;
-  const resolveEntry = `${sourceResolution.hostname}:${sourceResolution.port}:${resolvedAddress}`;
+  const resolveEntry = sourceResolution.hostname === sourceResolution.address
+    ? "" : `${sourceResolution.hostname}:${sourceResolution.port}:${resolvedAddress}`;
 
   const script = [
     "set +e",
@@ -80,7 +81,7 @@ export function buildDirectDownloadCommand({
     // Pin the public DNS result and fail on any redirect. A redirect target
     // has not passed the controller's DNS allowlist and may be an intranet IP.
     // --max-filesize stops a too-large file early when its size is announced.
-    "  curl --fail --show-error -L --max-redirs 0 --proto =https,http --proto-redir =https,http ${max_bytes:+--max-filesize \"$max_bytes\"} ${limit_rate:+--limit-rate \"$limit_rate\"} --resolve \"$resolve_entry\" -o \"$partial_path\" \"$download_url\" >\"$log_file\" 2>&1",
+    "  curl --fail --show-error -L --max-redirs 0 --proto =https,http --proto-redir =https,http ${max_bytes:+--max-filesize \"$max_bytes\"} ${limit_rate:+--limit-rate \"$limit_rate\"} ${resolve_entry:+--resolve \"$resolve_entry\"} -o \"$partial_path\" \"$download_url\" >\"$log_file\" 2>&1",
     "else",
     "  echo \"ERROR: curl is required for DNS-pinned downloads\" >\"$log_file\"",
     "  false",

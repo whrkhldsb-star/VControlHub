@@ -148,9 +148,9 @@ export async function assertDownloadSourceUrlSafe(
   if (!syntax.ok) return { ok: false, reason: syntax.reason };
   if (syntax.magnet) return { ok: true, url: sanitizeMagnetLink(rawUrl.trim(), options).url };
 
-  const hostname = syntax.url.hostname.toLowerCase();
+  const hostname = syntax.url.hostname.toLowerCase().replace(/^\[|\]$/g, "");
   try {
-    const addresses = await lookup(hostname, { all: true, verbatim: true });
+    const addresses = isIP(hostname) ? [{ address: hostname }] : await lookup(hostname, { all: true, verbatim: true });
     if (addresses.length === 0 || addresses.some((entry) => isBlockedIpAddress(entry.address))) {
       return { ok: false, reason: t("apiDownloads.source.dnsPrivate") };
     }
@@ -158,7 +158,7 @@ export async function assertDownloadSourceUrlSafe(
     return {
       ok: true,
       resolution: {
-        hostname: hostname.replace(/^\[|\]$/g, ""),
+        hostname,
         address: selected.address,
         port: syntax.url.protocol === "https:" ? 443 : 80,
       },
