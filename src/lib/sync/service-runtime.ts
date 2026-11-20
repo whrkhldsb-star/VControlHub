@@ -527,8 +527,8 @@ export async function executeSyncJob(
 		const bidirectional = isBidirectionalSyncType(job.syncType);
 		const deleteOrphans = effectiveDeleteOrphans(job.syncType, job.deleteOrphans);
 		await assertSyncEndpointsWithinReach([
-			{ serverId: job.sourceServerId, path: job.sourcePath, operations: bidirectional ? ["read", "write"] : ["read"] },
-			{ serverId: job.targetServerId, path: job.targetPath, operations: [...(bidirectional ? ["read" as const] : []), "write", ...(deleteOrphans ? ["delete" as const] : [])] },
+			{ serverId: job.sourceServerId, path: job.sourcePath, unmeteredTreeWrite: bidirectional, operations: bidirectional ? ["read", "write"] : ["read"] },
+			{ serverId: job.targetServerId, path: job.targetPath, unmeteredTreeWrite: true, operations: [...(bidirectional ? ["read" as const] : []), "write", ...(deleteOrphans ? ["delete" as const] : [])] },
 		], actor);
 		const flags = rsyncFlagsForJob({
 			syncType: job.syncType,

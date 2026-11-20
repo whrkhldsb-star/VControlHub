@@ -116,6 +116,7 @@ function mapCommandRequest(
     targets: Array<Record<string, unknown>>;
     executionLogs: Array<Record<string, unknown>>;
   },
+  allowUnboundLogs: boolean,
 ) {
   const targets = request.targets.map((target) => {
     const server = target.server as { id: string; name: string; host: string; port: number; teamId: string | null } | undefined;
@@ -132,6 +133,8 @@ function mapCommandRequest(
       updatedAt: target.updatedAt instanceof Date ? target.updatedAt.toISOString() : target.updatedAt as string | undefined,
     };
   });
+  const visibleServerIds = new Set(targets.flatMap(target => target.server ? [target.server.id] : []));
+  const logs = request.executionLogs.filter(log => typeof log.serverId === "string" ? visibleServerIds.has(log.serverId) : allowUnboundLogs);
   return {
     id: request.id,
     title: request.title,
@@ -168,7 +171,7 @@ function mapCommandRequest(
       }),
     ),
     targets,
-    executionLogs: request.executionLogs.map(
+    executionLogs: logs.map(
       (
         log: Record<string, unknown> & {
           id?: string;
@@ -214,18 +217,18 @@ function mapCommandRequest(
               : request.approvals[0].createdAt,
         }
       : null,
-    latestLog: request.executionLogs[0]
+    latestLog: logs[0]
       ? {
-          id: request.executionLogs[0].id as string | undefined,
-          summary: (request.executionLogs[0].summary as string) ?? "",
+          id: logs[0].id as string | undefined,
+          summary: (logs[0].summary as string) ?? "",
           exitCode:
-            (request.executionLogs[0].exitCode as number | null) ?? null,
-          stdout: (request.executionLogs[0].stdout as string | null) ?? null,
-          stderr: (request.executionLogs[0].stderr as string | null) ?? null,
+            (logs[0].exitCode as number | null) ?? null,
+          stdout: (logs[0].stdout as string | null) ?? null,
+          stderr: (logs[0].stderr as string | null) ?? null,
           createdAt:
-            request.executionLogs[0].createdAt instanceof Date
-              ? request.executionLogs[0].createdAt.toISOString()
-              : request.executionLogs[0].createdAt,
+            logs[0].createdAt instanceof Date
+              ? logs[0].createdAt.toISOString()
+              : logs[0].createdAt,
         }
       : null,
     isAssistantInitiated: request.initiatedByType === "ASSISTANT",
@@ -568,18 +571,22 @@ export async function listCommandRequests(session?: CommandSessionScope | null) 
   // that needs approval, a playbook step per attempt) pushed older requests still waiting for approval out of the
   // page, the pending count and the batch tools, with no way left to approve them. Everything still open is
   // listed, with the newest history beside it.
+  const include = {
+    ...COMMAND_LIST_INCLUDE,
+    targets: { ...COMMAND_LIST_INCLUDE.targets, ...(session ? { where: { server: serverTeamWhere(session) } } : {}) },
+  };
   const [open, recent] = await Promise.all([
     prisma.commandRequest.findMany({
       where: { AND: [where, { status: { in: OPEN_COMMAND_STATUSES } }] },
       orderBy: { createdAt: "desc" },
       take: OPEN_COMMAND_LIMIT,
-      include: COMMAND_LIST_INCLUDE,
+      include,
     }),
     prisma.commandRequest.findMany({
       where,
       orderBy: { createdAt: "desc" },
       take: COMMAND_HISTORY_LIMIT,
-      include: COMMAND_LIST_INCLUDE,
+      include,
     }),
   ]);
   const seen = new Set<string>();
@@ -587,5 +594,5 @@ export async function listCommandRequests(session?: CommandSessionScope | null) 
     .filter((request) => !seen.has(request.id) && seen.add(request.id))
     .sort((a, b) => b.createdAt.getTime() - a.createdAt.getTime());
 
-  return requests.map(mapCommandRequest);
+  return requests.map(request => mapCommandRequest(request, !session || session.roles.includes("admin")));
 }

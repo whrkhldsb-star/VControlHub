@@ -40,7 +40,7 @@ describe("storage form options authorization", () => {
       servers: [], nodes: [{ id: "node_1", name: "Files", driver: "LOCAL" }],
     });
     expect(mocks.listServerProfiles).not.toHaveBeenCalled();
-    expect(mocks.listStorageNodes).toHaveBeenCalledWith(expect.objectContaining({ currentTeamId: "team_1" }));
+    expect(mocks.listStorageNodes).toHaveBeenCalledWith(expect.objectContaining({ currentTeamId: "team_1" }), "write");
   });
 
   it("includes server options only with the server read grant", async () => {

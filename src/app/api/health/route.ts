@@ -4,7 +4,9 @@ import { z } from "zod";
 
 import { withApiRoute } from "@/lib/http/api-guard";
 import { parseSearchParams } from "@/lib/http/parse-search-params";
-import { collectAllHealth, getMetricHistory } from "@/lib/health/service";
+import { serverTeamWhere } from "@/lib/auth/team-scope";
+import { prisma } from "@/lib/db";
+import { collectAllHealth, getMetricHistory, summarizeHealth } from "@/lib/health/service";
 import { assertServerTeamAccess } from "@/lib/server/team-access";
 import type { SessionPayload } from "@/lib/auth/session";
 import { config } from "@/lib/config/env";
@@ -21,8 +23,7 @@ export const dynamic = "force-dynamic";
  * result for a short TTL; failures are never cached, so a broken sweep does
  * not stick.
  *
- * Keys are per user + team + role set, so a cached overview can never be
- * served to a caller with different visibility.
+ * The current server scope is checked again after each sweep or cache hit.
  */
 const healthOverviewFlight = createSingleFlight<HealthOverview>({
   ttlMs: () => config.health.overviewCacheTtlMs,
@@ -87,5 +88,10 @@ async function handleHealthRequest(request: Request, session: SessionPayload) {
   const overview = await healthOverviewFlight.run(healthOverviewKey(session), () =>
     collectAllHealth(session),
   );
-  return NextResponse.json(overview);
+  const visible = await prisma.server.findMany({
+    where: { AND: [serverTeamWhere(session), { id: { in: overview.servers.map(server => server.serverId) } }] },
+    select: { id: true },
+  });
+  const ids = new Set(visible.map(server => server.id));
+  return NextResponse.json(summarizeHealth(overview.servers.filter(server => ids.has(server.serverId))));
 }

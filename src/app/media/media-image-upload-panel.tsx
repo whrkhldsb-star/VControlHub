@@ -101,7 +101,7 @@ export function MediaImageUploadPanel() {
 		setLoadingNodes(true);
 		setError(null);
 		try {
-			const data = await csrfFetch<{ nodes?: StorageNodeOption[] }>("/api/storage/nodes");
+			const data = await csrfFetch<{ nodes?: StorageNodeOption[] }>("/api/storage/nodes?operation=write");
 			const next = data.nodes ?? [];
 			setNodes(next);
 			setNodesLoaded(true);

@@ -648,9 +648,7 @@ describe("storage service", () => {
 
     expect(prisma.storageNode.findMany).toHaveBeenCalledWith(
       expect.objectContaining({
-        where: {
-          teamId: "team_ops",
-        },
+        where: expect.objectContaining({ teamId: "team_ops", OR: expect.any(Array) }),
       }),
     );
   });

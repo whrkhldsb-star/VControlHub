@@ -3,7 +3,7 @@
  * Extracted from route.ts for maintainability.
  */
 
-import { prisma, isUniqueViolation } from "@/lib/db";
+import { prisma } from "@/lib/db";
 import type { Prisma } from "@prisma/client";
 import { type Aria2Status, formatBytes, formatSpeed, computeProgress } from "@/lib/aria2/service";
 import { ValidationError } from "@/lib/errors";
@@ -72,61 +72,20 @@ export async function indexDownloadedFileEntry(input: {
  const relativePath = relativePathFromDownloadTarget(input.storageNode.basePath, input.targetPath, safeFileName);
  if (!relativePath) return;
 
- if (input.preserveRecycled) {
-  const index = db ?? prisma;
-  const key = { storageNodeId: input.storageNode.id, relativePath };
-  const data = { name: safeFileName, entryType: "FILE" as const, size: input.size == null ? null : BigInt(input.size), checksumSha256: null };
-  await index.fileEntry.createMany({ data: { ...key, ...data }, skipDuplicates: true });
-  await index.fileEntry.updateMany({ where: { ...key, isDeleted: false }, data });
-  return;
- }
- if (db) {
-  // A caught unique violation would leave the surrounding transaction aborted.
-  // deleteBatchId:null — the row leaves the recycle bin, so the batch marker
-  // must go too, or a later directory restore would revive a stale copy of it.
-  // checksumSha256:null — the download replaced whatever was there and is not hashed.
-  const data = {
-   name: safeFileName, entryType: "FILE" as const,
-   size: input.size == null ? null : BigInt(input.size), isDeleted: false, deleteBatchId: null, checksumSha256: null,
-  };
-  await db.fileEntry.upsert({
-   where: { storageNodeId_relativePath: { storageNodeId: input.storageNode.id, relativePath } },
-   create: { storageNodeId: input.storageNode.id, relativePath, ...data },
-   update: data,
+ const key = { storageNodeId: input.storageNode.id, relativePath };
+ const data = { name: safeFileName, size: input.size == null ? null : BigInt(input.size), checksumSha256: null };
+ const record = async (index: Pick<Prisma.TransactionClient, "fileEntry">) => {
+  await index.fileEntry.createMany({ data: { ...key, ...data, entryType: "FILE" }, skipDuplicates: true });
+  const updated = await index.fileEntry.updateMany({
+   where: { ...key, entryType: "FILE", ...(input.preserveRecycled ? { isDeleted: false } : {}) },
+   data: { ...data, isDeleted: false, deleteBatchId: null },
   });
-  return;
- }
-
- const existingEntry = await prisma.fileEntry.findFirst({
-  where: { storageNodeId: input.storageNode.id, relativePath },
-  select: { id: true },
- });
- const data = {
-  storageNodeId: input.storageNode.id,
-  name: safeFileName,
-  entryType: "FILE" as const,
-  relativePath,
-  size: input.size == null ? null : BigInt(input.size),
-  isDeleted: false,
+  if (updated.count) return;
+  if (input.preserveRecycled && await index.fileEntry.findFirst({ where: { ...key, entryType: "FILE", isDeleted: true }, select: { id: true } })) return;
+  throw new ValidationError(t("backend.downloads.targetNotFile"));
  };
-
- if (existingEntry) {
-  await prisma.fileEntry.update({
-   where: { id: existingEntry.id },
-   // deleteBatchId:null, checksumSha256:null — see the transactional branch above.
-   data: { name: data.name, entryType: data.entryType, size: data.size, isDeleted: false, deleteBatchId: null, checksumSha256: null },
-  });
- } else {
-  try {
-   await prisma.fileEntry.create({ data });
-  } catch (error) {
-   const isUnique = isUniqueViolation(error);
-   if (!isUnique) throw error;
-   const winner = await prisma.fileEntry.findFirst({ where: { storageNodeId: data.storageNodeId, relativePath: data.relativePath }, select: { id: true } });
-   if (!winner) throw error;
-   await prisma.fileEntry.update({ where: { id: winner.id }, data: { name: data.name, entryType: data.entryType, size: data.size, isDeleted: false, deleteBatchId: null, checksumSha256: null } });
-  }
- }
+ if (db) await record(db);
+ else await prisma.$transaction(record);
 }
 
 /* ── Aria2 status helpers ──────────────────────────────── */

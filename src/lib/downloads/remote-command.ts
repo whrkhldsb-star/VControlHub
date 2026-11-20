@@ -90,7 +90,7 @@ export function buildDirectDownloadCommand({
     'if [ "$status" = 0 ] && [ -n "$max_bytes" ] && [ "$(wc -c <"$partial_path")" -gt "$max_bytes" ]; then echo "ERROR: the file is larger than the storage limit allows" >>"$log_file"; status=63; fi',
     // Publish only complete files. Interrupted downloads never truncate the
     // destination; a retry uses its own task-owned staging file.
-    'if [ "$status" = 0 ]; then mv -f -- "$partial_path" "$output_path"; status=$?; fi',
+    'if [ "$status" = 0 ]; then [ -f "$partial_path" ] && [ ! -L "$partial_path" ] && mv -fT -- "$partial_path" "$output_path" && [ -f "$output_path" ] && [ ! -L "$output_path" ]; status=$?; fi',
     'if [ "$status" != 0 ]; then rm -f -- "$partial_path"; fi',
     'echo $status >"$exit_file.tmp" && mv -f -- "$exit_file.tmp" "$exit_file"',
     "rm -f \"$pid_file\"",

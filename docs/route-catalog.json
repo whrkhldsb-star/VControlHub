@@ -1,5 +1,5 @@
 {
-  "generatedAt": "2026-11-19T10:54:05.878Z",
+  "generatedAt": "2026-11-20T10:31:03.223Z",
   "summary": {
     "sidebarMain": 26,
     "sidebarSystem": 12,
@@ -784,10 +784,11 @@
       "inSidebarMain": false,
       "inSidebarSystem": false,
       "declaredPermissions": [
-        "ticket:manage"
+        "ticket:manage",
+        "ticket:read"
       ],
       "navigationPermissions": [
-        "ticket:manage"
+        "ticket:read"
       ]
     },
     {
@@ -798,12 +799,11 @@
       "declaredPermissions": [
         "server:read",
         "ticket:create",
-        "ticket:manage"
+        "ticket:manage",
+        "ticket:read"
       ],
       "navigationPermissions": [
-        "server:read",
-        "ticket:create",
-        "ticket:manage"
+        "ticket:read"
       ]
     },
     {
@@ -2775,8 +2775,8 @@
       ],
       "guardMode": "withApiRoute",
       "declaredPermissions": [
-        "storage:manage-node",
-        "storage:read"
+        "storage:read",
+        "storage:write"
       ]
     },
     {

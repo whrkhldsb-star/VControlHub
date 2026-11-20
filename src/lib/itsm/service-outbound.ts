@@ -54,7 +54,7 @@ export async function testItsmConnection(
     direction: "outbound",
     eventType: "connection.test",
     ticketId: null,
-    status: delivery.ok ? "ok" : "error",
+    status: delivery.outcomeUnknown ? "unknown" : delivery.ok ? "ok" : "error",
     payload: {
       message: payload.description,
       statusCode: delivery.statusCode ?? null,
@@ -128,6 +128,10 @@ export async function fanOutTicketEvent(input: {
       failed += 1;
       continue;
     }
+    if (existing?.status === "unknown") {
+      failed += 1;
+      continue;
+    }
     if (existing?.status === "ok") {
       sent += 1;
       continue;
@@ -178,7 +182,7 @@ export async function fanOutTicketEvent(input: {
       direction: "outbound",
       eventType: input.eventType,
       ticketId: input.ticketId,
-      status: delivery.ok ? "ok" : "error",
+      status: delivery.outcomeUnknown ? "unknown" : delivery.ok ? "ok" : "error",
       externalId: input.deliveryKey,
       payload: {
         statusCode: delivery.statusCode ?? null,

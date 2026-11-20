@@ -1,4 +1,5 @@
 import { apiCopy } from "@/lib/i18n/api-copy";
+import type { Prisma } from "@prisma/client";
 import { prisma } from "@/lib/db";
 import type { SessionPayload } from "@/lib/auth/session";
 import { withServerLifecycleLock } from "./agent-service";
@@ -141,6 +142,7 @@ type DirectGatewaySession = Pick<SessionPayload, "userId" | "roles" | "currentTe
 export async function loadServerForDirectGateway(
   serverId: string,
   session?: DirectGatewaySession | null,
+  db: Prisma.TransactionClient = prisma,
 ) {
   const include = {
     sshKey: { select: SSH_KEY_CREDENTIAL_SELECT },
@@ -157,12 +159,12 @@ export async function loadServerForDirectGateway(
     },
   } as const;
   if (session) {
-    return prisma.server.findFirst({
+    return db.server.findFirst({
       where: { id: serverId, ...serverProfileTeamWhere(session) },
       include,
     });
   }
-  return prisma.server.findUnique({
+  return db.server.findUnique({
     where: { id: serverId },
     include,
   });
@@ -205,7 +207,7 @@ async function markDirectGatewayEnabledDb(input: {
   });
 }
 
-export async function applyServerDirectGatewayState(input: {
+type GatewayOptions = {
   serverId: string;
   enabled: boolean;
   session?: DirectGatewaySession | null;
@@ -230,9 +232,20 @@ export async function applyServerDirectGatewayState(input: {
   autoReverseProxy?: boolean;
   /** HTTPS public hostname; empty uses server.host (IP). */
   publicDomain?: string | null;
-}) {
+};
+
+type GatewayServer = NonNullable<Awaited<ReturnType<typeof loadServerForDirectGateway>>>;
+
+export function removeDeletedServerGateway(server: GatewayServer) {
+  return applyGatewayState({ serverId: server.id, enabled: false, bestEffort: true }, server, true);
+}
+
+export async function applyServerDirectGatewayState(input: GatewayOptions) {
+  return applyGatewayState(input, await loadServerForDirectGateway(input.serverId, input.session));
+}
+
+async function applyGatewayState(input: GatewayOptions, server: GatewayServer | null, deleted = false) {
   const t = await serviceT();
-  const server = await loadServerForDirectGateway(input.serverId, input.session);
   if (!server) {
     if (input.bestEffort)
       return {
@@ -477,7 +490,7 @@ export async function applyServerDirectGatewayState(input: {
       serverId: input.serverId,
       publicBaseUrl,
     });
-  } else if (!cleanupSkipped) {
+  } else if (!cleanupSkipped && !deleted) {
     await clearDirectGatewayDbState(input.serverId);
   }
 

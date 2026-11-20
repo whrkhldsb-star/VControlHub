@@ -13,7 +13,7 @@ export async function GET(request: Request) {
 		const session = await getApiSession();
 		// TR-053: 公开端点（未登录）只返 overall；详细 checks 仅登录用户可见。
 		// The detail counts every customer's servers and storage nodes: for the platform's administrators only.
-		const payload = session && isGlobalTeamManager(session) ? await getPublicStatus() : await getPublicStatusSummary();
+		const payload = session && !session.mustChangePassword && isGlobalTeamManager(session) ? await getPublicStatus() : await getPublicStatusSummary();
 		return withCacheHeaders(NextResponse.json(payload), session ? CachePresets.noStore : CachePresets.longLivedPublic);
 	});
 }

@@ -98,7 +98,7 @@ export function useImageBedActions({
 
 	const fetchStorageNodes = useCallback(async () => {
 		try {
-			const data = await csrfFetch("/api/storage/nodes");
+			const data = await csrfFetch("/api/storage/nodes?operation=write");
 			const nodes = (data.nodes || data || []).map(
 				(n: { id: string; name: string; driver?: string; serverName?: string | null }) => ({
 					id: n.id,

@@ -273,7 +273,9 @@ export async function claimNextServerAgentJob(serverId: string, authenticatedHas
   return prisma.$transaction(async (tx) => {
     const identity = await tx.$queryRaw<{ id: string }[]>`
       SELECT id FROM servers WHERE id = ${serverId} AND "managementMode" = 'AGENT'
-        AND "agentTokenHash" = ${authenticatedHash} FOR SHARE`;
+        AND enabled AND "agentTokenHash" = ${authenticatedHash}
+        AND NOT EXISTS (SELECT 1 FROM teams WHERE id = servers."teamId" AND "deletedAt" IS NOT NULL)
+      FOR SHARE`;
     if (!identity.length) return null;
     const now = new Date();
     await tx.serverAgentJob.updateMany({
@@ -1162,11 +1164,24 @@ async function prepareWindowsAgentInstallUnderLock(serverId: string, teamId?: st
 }
 
 /** Called under the server lifecycle lock. A mode change revokes access in the profile write. */
-export async function removeAgentFromHost(serverId: string, verifiedSsh?: Awaited<ReturnType<typeof buildSshParamsFromServer>>) {
-  const server = await prisma.server.findUnique({
+function loadAgentForRemoval(serverId: string) {
+  return prisma.server.findUnique({
     where: { id: serverId },
     include: { sshKey: { select: { teamId: true, privateKey: true, passphrase: true } } },
   });
+}
+
+type RemovalServer = NonNullable<Awaited<ReturnType<typeof loadAgentForRemoval>>>;
+
+export function removeDeletedServerAgent(server: RemovalServer) {
+  return removeAgentInstallation(server, undefined, false);
+}
+
+export async function removeAgentFromHost(serverId: string, verifiedSsh?: Awaited<ReturnType<typeof buildSshParamsFromServer>>) {
+  return removeAgentInstallation(await loadAgentForRemoval(serverId), verifiedSsh, true);
+}
+
+async function removeAgentInstallation(server: RemovalServer | null, verifiedSsh: Awaited<ReturnType<typeof buildSshParamsFromServer>> | undefined, allowAgent: boolean) {
   if (!server || server.managementMode !== "AGENT") return { removed: false };
   const windows = server.operatingSystem === "WINDOWS";
   // Prefer a newly verified SSH connection to the original host. Synchronous
@@ -1180,10 +1195,10 @@ export async function removeAgentFromHost(serverId: string, verifiedSsh?: Awaite
       if (result.exitCode === 0) return { removed: true };
     } catch { /* The Agent may still be reachable on its outbound connection. */ }
   }
-  if (server.agentTokenHash && server.agentLastSeenAt && Date.now() - server.agentLastSeenAt.getTime() < AGENT_FRESH_MS) {
+  if (allowAgent && server.agentTokenHash && server.agentLastSeenAt && Date.now() - server.agentLastSeenAt.getTime() < AGENT_FRESH_MS) {
     const command = windows ? windowsAgentSelfRemoval(AGENT_WINDOWS_TASK_NAME, server.agentTokenHash) : linuxAgentSelfRemoval(server.agentTokenHash);
     const result = await executeCommandWithAgent({
-      serverId, command, timeoutMs: 15_000,
+      serverId: server.id, command, timeoutMs: 15_000,
     }).catch(() => null);
     // The Agent acknowledged starting its cleanup helper, before that helper removes it.
     return result?.exitCode === 0 ? { removed: false, requested: true } : { removed: false };

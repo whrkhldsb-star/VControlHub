@@ -4,7 +4,7 @@ const { listObjects, deleteObject, appRows, vpsRows, appUpdate, vpsUpdate } = vi
 	listObjects: vi.fn(),
 	deleteObject: vi.fn(async (_key: string) => undefined),
 	appRows: vi.fn(),
-	vpsRows: vi.fn(),
+	vpsRows: vi.fn().mockResolvedValue([]),
 	appUpdate: vi.fn(async () => ({ count: 1 })),
 	vpsUpdate: vi.fn(async () => ({ count: 0 })),
 }));
@@ -15,7 +15,7 @@ vi.mock("../s3-client", () => ({
 	},
 }));
 vi.mock("../schema", () => ({
-	loadOffsiteConfig: vi.fn(async () => ({ enabled: true, endpoint: "https://s3.test", region: "r", bucket: "b", accessKeyId: "a", secretAccessKey: "s", pathPrefix: "vch/", retentionDays: 7 })),
+	loadOffsiteConfig: vi.fn(async () => ({ enabled: true, provider: "s3", endpoint: "https://s3.test", region: "r", bucket: "b", accessKeyId: "a", secretAccessKey: "s", pathPrefix: "vch/", retentionDays: 7 })),
 	validateOffsiteConfigForUse: vi.fn(() => []),
 }));
 vi.mock("@/lib/db", () => ({
@@ -60,7 +60,7 @@ describe("pruneOffsiteObjects", () => {
 
 		expect(deleteObject).toHaveBeenCalledWith("vch/2026-01-01/a-database.gz");
 		expect(appUpdate).toHaveBeenCalledWith({ where: { offsiteKey: "vch/2026-01-01/a-database.gz" }, data: { offsiteKey: null, offsiteUploadedAt: null, offsiteSize: "42" } });
-		expect(vpsUpdate).toHaveBeenCalledWith({ where: { offsiteKey: "vch/2026-01-01/a-database.gz" }, data: { offsiteKey: null, offsiteUploadedAt: null, offsiteSize: "42" } });
+		expect(vpsUpdate).toHaveBeenCalledWith({ where: { offsiteDestination: JSON.stringify(["s3", "https://s3.test", "r", "b"]), offsiteKey: "vch/2026-01-01/a-database.gz" }, data: { offsiteKey: null, offsiteUploadedAt: null, offsiteSize: "42" } });
 	});
 
 	it("keeps the object available for retry if expiring database references fails", async () => {

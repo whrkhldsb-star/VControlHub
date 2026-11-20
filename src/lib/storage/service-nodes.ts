@@ -3,6 +3,7 @@ import { createRemoteStorageClient } from "./agent-file-client";
 import { access, stat } from "node:fs/promises";
 
 import type { SessionPayload } from "@/lib/auth/session";
+import { sessionHasPermission } from "@/lib/auth/authorization";
 import { isGlobalTeamManager, serverTeamWhere, teamCreateData, teamWhere } from "@/lib/auth/team-scope";
 import type { Prisma } from "@prisma/client";
 import { isUniqueViolation, prisma } from "@/lib/db";
@@ -532,10 +533,20 @@ export async function deleteStorageNode(
   return { deleted: true };
 }
 
-export async function listStorageNodes(session: TeamSession) {
+export async function listStorageNodes(session: TeamSession, operation: "read" | "write" = "read") {
+  const manage = isGlobalTeamManager(session) || sessionHasPermission(session, "storage:manage-node");
+  if (!manage && !sessionHasPermission(session, operation === "read" ? "storage:read" : "storage:write")) return [];
+  const grant = { userId: session.userId };
+  const capability = operation === "read" ? "canRead" : "canWrite";
   // P2: take=500 上界。storage node 数量本质有限（每存储设备 1 行），上界即异常告警。
   const nodes = await prisma.storageNode.findMany({
-    where: teamWhere(session),
+    where: {
+      ...teamWhere(session),
+      ...(manage ? {} : { OR: [
+        { accessGrants: { none: grant } },
+        { accessGrants: { some: { ...grant, [capability]: true } } },
+      ] }),
+    },
     orderBy: [{ isDefault: "desc" }, { createdAt: "desc" }],
     take: 500,
     include: {

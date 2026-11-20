@@ -1,3 +1,4 @@
+import { offsiteDestination } from "@/lib/storage/offsite/destination";
 import { apiCopy } from "@/lib/i18n/api-copy";
 /**
  * GET /api/servers/[id]/vps-backup/records/[recordId]/download — download a VPS backup archive
@@ -28,21 +29,22 @@ const logger = createLogger("api:servers:vps-backup:download");
  * fall through to its 404.
  */
 async function streamOffsiteFallback(
-	offsiteKey: string | null,
+	record: { offsiteKey: string | null; offsiteDestination: string | null; offsiteVersionId: string | null },
 	filename: string,
 ): Promise<Response | null> {
-	if (!offsiteKey) return null;
+	const { offsiteKey } = record;
+	if (!offsiteKey || !record.offsiteDestination) return null;
 	try {
 		const { loadOffsiteConfig, validateOffsiteConfigForUse } = await import(
 			"@/lib/storage/offsite/schema"
 		);
 		const { S3Client } = await import("@/lib/storage/offsite/s3-client");
 		const offsiteConfig = await loadOffsiteConfig();
-		if (!offsiteConfig.enabled) return null;
+		if (!offsiteConfig.enabled || record.offsiteDestination !== offsiteDestination(offsiteConfig)) return null;
 		if (validateOffsiteConfigForUse(offsiteConfig).length > 0) return null;
 
 		const s3 = new S3Client(offsiteConfig);
-		const object = await s3.getObject(offsiteKey);
+		const object = await s3.getObject(offsiteKey, record.offsiteVersionId);
 		if (!object) return null;
 
 		logger.info("serving VPS backup from offsite fallback", { offsiteKey });
@@ -82,17 +84,22 @@ export async function GET(
 
 			const record = await prisma.vpsBackupRecord.findFirst({
 				where: { id: recordId, serverId },
-				select: { id: true, localPath: true, backupType: true, status: true, offsiteKey: true },
+				select: { id: true, localPath: true, backupType: true, status: true, offsiteKey: true, offsiteDestination: true, offsiteVersionId: true },
 			});
 			if (!record) {
 				throw new NotFoundError(apiCopy("apiCopy.record.not.found.60de363f"));
 			}
-			if (record.status !== "COMPLETED" || !record.localPath) {
+			if (record.status !== "COMPLETED" || (!record.localPath && !record.offsiteKey)) {
 				throw new ValidationError(t("vpsBackupApi.errorNotCompleted", locale));
 			}
 
 			// Named for what it is: a database preset's artifact is an .sql.gz.
 			const filename = `${record.backupType}-${recordId}.${vpsBackupArtifactExtension(record.backupType)}`;
+			if (!record.localPath) {
+				const offsite = await streamOffsiteFallback(record, filename);
+				if (offsite) return offsite;
+				throw new NotFoundError(t("vpsBackupApi.errorFileNotFound", locale));
+			}
 			const absPath = resolveVpsBackupFilePath(record.localPath);
 
 			// Primary: stream the local copy.
@@ -118,7 +125,7 @@ export async function GET(
 					recordId,
 					error: err instanceof Error ? err.message : String(err),
 				});
-				const offsite = await streamOffsiteFallback(record.offsiteKey, filename);
+				const offsite = await streamOffsiteFallback(record, filename);
 				if (offsite) return offsite;
 				logger.error("Failed to stream VPS backup file (no offsite fallback)", { error: err, recordId });
 				throw new NotFoundError(t("vpsBackupApi.errorFileNotFound", locale));

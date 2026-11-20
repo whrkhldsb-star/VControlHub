@@ -34,6 +34,7 @@ import { GET } from "../route";
 const ownerSession = {
   userId: "u1",
   username: "owner",
+  permissions: ["image:read"],
   roles: ["user"],
   mustChangePassword: false,
   currentTeamId: "team_1",

@@ -328,7 +328,7 @@ export class S3Client {
 			const res = await this.fetchImpl(url.toString(), request);
 			await this.assertOk(res, "PUT", key);
 			const etag = res.headers.get("etag") ?? "";
-			return { etag: etag.replace(/"/g, ""), versionId: undefined };
+			return { etag: etag.replace(/"/g, ""), versionId: res.headers.get("x-amz-version-id") ?? undefined };
 		} finally {
 			dispose();
 		}
@@ -361,9 +361,9 @@ export class S3Client {
 	 * Used as a download fallback when the local backup copy is missing.
 	 */
 	async getObject(
-		key: string,
+		key: string, versionId?: string | null,
 	): Promise<{ body: ReadableStream<Uint8Array>; size: number; contentType: string } | null> {
-		const url = this.buildUrl(key, new URLSearchParams());
+		const url = this.buildUrl(key, new URLSearchParams(versionId ? { versionId } : {}));
 		const headers: Record<string, string> = {};
 		const signed = this.sign("GET", url, headers, Buffer.alloc(0));
 		// A total deadline would cut a download that is still moving (a few hundred MB takes longer than the
@@ -410,8 +410,8 @@ export class S3Client {
 	}
 
 	/** DELETE an object. Idempotent (404 is treated as success). */
-	async deleteObject(key: string): Promise<void> {
-		const url = this.buildUrl(key, new URLSearchParams());
+	async deleteObject(key: string, versionId?: string | null): Promise<void> {
+		const url = this.buildUrl(key, new URLSearchParams(versionId ? { versionId } : {}));
 		const headers: Record<string, string> = {};
 		const signed = this.sign("DELETE", url, headers, Buffer.alloc(0));
 		const res = await this.fetchImpl(url.toString(), {

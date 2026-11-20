@@ -2,6 +2,7 @@
  * Offsite (S3) retention: delete objects under pathPrefix older than retentionDays.
  * UI documents this as a lifecycle job; implement here so the setting is not dead.
  */
+import { offsiteDestination } from "./destination";
 import { prisma } from "@/lib/db";
 import { createLogger } from "@/lib/logging";
 import { loadOffsiteConfig, validateOffsiteConfigForUse } from "./schema";
@@ -64,7 +65,7 @@ export async function pruneOffsiteObjects(options?: {
   // The newest offsite copy of each kind is never pruned by age: if uploads
   // have been failing for longer than the window, age alone removed the last
   // copy there was.
-  const protectedKeys = await newestOffsiteKeys();
+  const protectedKeys = await newestOffsiteKeys(offsiteDestination(config));
   let listed = 0;
   let deleted = 0;
   const errors: string[] = [];
@@ -82,7 +83,7 @@ export async function pruneOffsiteObjects(options?: {
       const data = { offsiteKey: null, offsiteUploadedAt: null, offsiteSize: String(size) };
       await prisma.$transaction([
         prisma.backupRecord.updateMany({ where: { offsiteKey: key }, data }),
-        prisma.vpsBackupRecord.updateMany({ where: { offsiteKey: key }, data }),
+        prisma.vpsBackupRecord.updateMany({ where: { offsiteKey: key, offsiteDestination: offsiteDestination(config) }, data }),
       ]);
       await client.deleteObject(key);
       deleted += 1;
@@ -146,8 +147,8 @@ export async function pruneOffsiteObjects(options?: {
 }
 
 /** The newest uploaded offsite object per backup type, and per server and type for VPS backups. */
-async function newestOffsiteKeys(): Promise<Set<string>> {
-  const [app, vps] = await Promise.all([
+async function newestOffsiteKeys(destination: string): Promise<Set<string>> {
+  const [app, vps, legacy] = await Promise.all([
     prisma.backupRecord.findMany({
       where: { offsiteKey: { not: null } },
       orderBy: [{ type: "asc" }, { offsiteUploadedAt: "desc" }, { id: "desc" }],
@@ -155,12 +156,13 @@ async function newestOffsiteKeys(): Promise<Set<string>> {
       select: { offsiteKey: true },
     }),
     prisma.vpsBackupRecord.findMany({
-      where: { offsiteKey: { not: null } },
+      where: { offsiteKey: { not: null }, offsiteDestination: destination },
       orderBy: [{ serverId: "asc" }, { backupType: "asc" }, { offsiteUploadedAt: "desc" }, { id: "desc" }],
       distinct: ["serverId", "backupType"],
       select: { offsiteKey: true },
     }),
+    prisma.vpsBackupRecord.findMany({ where: { offsiteKey: { not: null }, offsiteDestination: null }, select: { offsiteKey: true } }),
   ]);
-  return new Set([...app, ...vps].map((row) => row.offsiteKey!).filter(Boolean));
+  return new Set([...app, ...vps, ...legacy].map((row) => row.offsiteKey!).filter(Boolean));
 }
 

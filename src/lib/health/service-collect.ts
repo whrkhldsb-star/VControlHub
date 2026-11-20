@@ -297,10 +297,14 @@ export async function collectAllHealth(
     // Traffic table may be empty / unavailable — leave monthly fields unset.
   }
 
+  return summarizeHealth(results, servers.length);
+}
+
+export function summarizeHealth(results: ServerHealth[], total = results.length): HealthOverview {
   // "online" = SSH-reachable (healthy + warning + critical). Disabled/offline
   // stay out. Matches product "在线" filter on /vps-status (reachable fleet).
   return {
-    total: servers.length,
+    total,
     online: results.filter(
       (r) =>
         r.enabled &&
