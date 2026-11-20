@@ -48,55 +48,35 @@ export function buildLineDiff(before: string, after: string): DiffRow[] {
 	return rows;
 }
 
-/* Simple token-based syntax highlighting using regex.
-   Strategy: extract comments/strings first as placeholders, highlight keywords, then restore. */
-
+type Token = { text: string; className?: string };
+type Rule = { regex: RegExp; className: string };
 
 export function highlightLine(line: string, lang: string): string {
 	if (lang === "text" || lang === "log") return escapeHtml(line);
-	if (lang === "json") return highlightJson(line);
-
-	let escaped = escapeHtml(line);
-
-	const rules = getRules(lang);
-	for (const rule of rules) {
-		escaped = replaceInText(escaped, rule.regex, rule.replace, { outsideMarkup: true });
-	}
-	return escaped;
-}
-
-/**
- * Apply a replacement to the text of an HTML fragment, never to its tags.
- * Rules used to run over the whole fragment, so a later rule (the keyword
- * "class") matched an earlier rule's `<span class=…>` and the attribute
- * showed up as text. With `outsideMarkup`, text already highlighted by an
- * earlier rule (a comment, a string) is left as it is.
- */
-export function replaceInText(
-	html: string,
-	regex: RegExp,
-	replace: string,
-	options: { outsideMarkup?: boolean } = {},
-): string {
-	let depth = 0;
-	return html
-		.split(/(<[^>]*>)/)
-		.map((part) => {
-			if (part.startsWith("<")) {
-				if (/^<\//.test(part)) depth = Math.max(0, depth - 1);
-				else if (!/\/>$/.test(part)) depth += 1;
-				return part;
+	let tokens: Token[] = [{ text: line }];
+	for (const rule of getRules(lang)) {
+		tokens = tokens.flatMap((token) => {
+			if (token.className) return [token];
+			const parts: Token[] = [];
+			let offset = 0;
+			for (const match of token.text.matchAll(rule.regex)) {
+				parts.push({ text: token.text.slice(offset, match.index) });
+				parts.push({ text: match[0], className: rule.className });
+				offset = match.index + match[0].length;
 			}
-			if (!part || (options.outsideMarkup && depth > 0)) return part;
-			return part.replace(regex, replace);
-		})
-		.join("");
+			parts.push({ text: token.text.slice(offset) });
+			return parts;
+		});
+	}
+	return tokens.map(({ text, className }) => className
+		? `<span class="${className}">${escapeHtml(text)}</span>`
+		: escapeHtml(text)).join("");
 }
 
-export function getRules(lang: string): { regex: RegExp; replace: string }[] {
+export function getRules(lang: string): Rule[] {
 	const commentRule = (prefix: string) => ({
-		regex: new RegExp(`(${escapeRegex(escapeHtml(prefix))}.*)$`),
-		replace: '<span class="text-[var(--text-muted)] italic">$1</span>',
+		regex: new RegExp(escapeRegex(prefix) + ".*$", "g"),
+		className: "text-[var(--text-muted)] italic",
 	});
 
 	const jsKeywords = "break|case|catch|class|const|continue|debugger|default|delete|do|else|export|extends|finally|for|from|function|if|import|in|instanceof|let|new|of|return|static|super|switch|this|throw|try|typeof|var|void|while|with|yield|async|await|interface|type|enum|implements|declare|namespace|module|as|readonly|abstract|override|private|protected|public";
@@ -105,27 +85,32 @@ export function getRules(lang: string): { regex: RegExp; replace: string }[] {
 
 	const kw = (words: string) => ({
 		regex: new RegExp(`\\b(${words})\\b`, "g"),
-		replace: '<span class="text-[var(--color-action)] font-medium">$1</span>',
+		className: "text-[var(--color-action)] font-medium",
 	});
 
 	const strRule = {
-		regex: /(&quot;[^&]*?&quot;|&#39;[^&]*?&#39;|`[^`]*?`)/g,
-		replace: '<span class="text-[var(--success)]">$1</span>',
+		regex: /("(?:\\.|[^"\\])*"|'(?:\\.|[^'\\])*'|`[^`]*?`)/g,
+		className: "text-[var(--success)]",
 	};
 
 	const numRule = {
 		regex: /\b(\d+\.?\d*)\b/g,
-		replace: '<span class="text-[var(--warning)]">$1</span>',
+		className: "text-[var(--warning)]",
 	};
 
 	const decoratorRule = {
 		regex: /(@\w+)/g,
-		replace: '<span class="text-[var(--accent)]">$1</span>',
+		className: "text-[var(--accent)]",
 	};
 
-	const common: { regex: RegExp; replace: string }[] = [strRule, numRule];
+	const common = [strRule, numRule];
 
 	switch (lang) {
+		case "json":
+			return [
+				{ regex: /"(?:\\.|[^"\\])*"(?=\s*:)/g, className: "text-[var(--color-action)]" },
+				strRule, numRule, kw("true|false|null"),
+			];
 		case "javascript":
 		case "typescript":
 			return [commentRule("//"), kw(jsKeywords), decoratorRule, ...common];
@@ -137,28 +122,28 @@ export function getRules(lang: string): { regex: RegExp; replace: string }[] {
 		case "toml":
 			return [
 				commentRule("#"),
-				{ regex: /^(\s*[\w.-]+)(\s*[:=]\s*)/gm, replace: '<span class="text-[var(--color-action)]">$1</span>$2' },
+				{ regex: /^(\s*[\w.-]+)(?=\s*[:=])/gm, className: "text-[var(--color-action)]" },
 				...common,
 			];
 		case "env":
 			return [
 				commentRule("#"),
-				{ regex: /^(\s*[\w.-]+)(=)/gm, replace: '<span class="text-[var(--color-action)]">$1</span><span class="text-[var(--text-muted)]">=</span>' },
+				{ regex: /^(\s*[\w.-]+)(?==)/gm, className: "text-[var(--color-action)]" },
 				...common,
 			];
 		case "html":
 		case "xml":
 			return [
 				commentRule("<!--"),
-				{ regex: /(&lt;\/?[\w.-]+)/g, replace: '<span class="text-[var(--color-action)]">$1</span>' },
-				{ regex: /(\s[\w.-]+)(=)/g, replace: '<span class="text-[var(--color-action)]">$1</span><span class="text-[var(--text-muted)]">=</span>' },
+				{ regex: /(<\/?[\w.-]+)/g, className: "text-[var(--color-action)]" },
+				{ regex: /(\s[\w.-]+)(?==)/g, className: "text-[var(--color-action)]" },
 				strRule,
 			];
 		case "css":
 			return [
 				commentRule("/*"),
-				{ regex: /([.#]?[\w-]+)\s*\{/g, replace: '<span class="text-[var(--color-action)]">$1</span> {' },
-				{ regex: /([\w-]+)(\s*:)/g, replace: '<span class="text-[var(--text-primary)]">$1</span>$2' },
+				{ regex: /([.#]?[\w-]+)(?=\s*\{)/g, className: "text-[var(--color-action)]" },
+				{ regex: /([\w-]+)(?=\s*:)/g, className: "text-[var(--text-primary)]" },
 				strRule,
 			];
 		case "sql":
@@ -190,7 +175,7 @@ export function getRules(lang: string): { regex: RegExp; replace: string }[] {
 			return [
 				commentRule("//"),
 				kw("abstract|and|array|as|break|callable|case|catch|class|clone|const|continue|declare|default|die|do|echo|else|elseif|empty|endfor|endforeach|endif|endswitch|endwhile|eval|exit|extends|final|finally|for|foreach|function|global|goto|if|implements|include|instanceof|insteadof|interface|isset|list|namespace|new|or|print|private|protected|public|require|return|static|switch|throw|trait|try|unset|use|var|while|xor|yield|true|false|null"),
-				{ regex: /(\$\w+)/g, replace: '<span class="text-[var(--accent)]">$1</span>' },
+				{ regex: /(\$\w+)/g, className: "text-[var(--accent)]" },
 				...common,
 			];
 		default:
@@ -199,18 +184,7 @@ export function getRules(lang: string): { regex: RegExp; replace: string }[] {
 }
 
 export function highlightJson(line: string): string {
-	let escaped = escapeHtml(line);
-	// keys
-	escaped = escaped.replace(/^\s*(&quot;[^&]+?&quot;)\s*(:)/, '<span class="text-[var(--color-action)]">$1</span><span class="text-[var(--text-muted)]">:</span>');
-	// string values
-	escaped = escaped.replace(/:\s*(&quot;[^&]*?&quot;)([,\s}]*)$/, ': <span class="text-[var(--success)]">$1</span>$2');
-	// standalone strings in arrays
-	escaped = escaped.replace(/^\s*(&quot;[^&]*?&quot;)([,\s\]]*)$/, '<span class="text-[var(--success)]">$1</span>$2');
-	// numbers
-	escaped = escaped.replace(/:\s*(\d+\.?\d*)([,\s}]*)$/, ': <span class="text-[var(--warning)]">$1</span>$2');
-	// booleans & null
-	escaped = escaped.replace(/:\s*(true|false|null)([,\s}]*)$/, ': <span class="text-[var(--color-action)]">$1</span>$2');
-	return escaped;
+	return highlightLine(line, "json");
 }
 
 export { escapeHtml };
