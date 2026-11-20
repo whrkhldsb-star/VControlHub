@@ -160,6 +160,22 @@ describe("useTextPreviewController", () => {
 	});
 
 	describe("save and reload", () => {
+		it("keeps newer edits and the returned write token without reloading the older draft", async () => {
+			const { result } = setup({ serverId: "srv_1", reloadUnit: "nginx", reloadKind: "systemd" });
+			await loaded(result);
+			act(() => { result.current.setEditMode(true); result.current.setDraft("submitted"); });
+			let finish!: (value: unknown) => void;
+			mocks.csrfFetch.mockReturnValueOnce(new Promise(resolve => { finish = resolve; }));
+			let saving!: Promise<void>;
+			act(() => { saving = result.current.handleSaveAndReload(); });
+			act(() => { result.current.setDraft("typed while saving"); });
+			await act(async () => { finish({ byteSize: 9, lastModifiedMs: 7000 }); await saving; });
+			expect(result.current.draft).toBe("typed while saving");
+			expect(result.current.editMode).toBe(true);
+			expect(result.current.currentContent).toBe("submitted");
+			expect(mocks.csrfFetch.mock.calls.some(([url]) => String(url).endsWith("/reload"))).toBe(false);
+		});
+
 		it("does not reload when the save failed", async () => {
 			// Restarting the unit here would apply the OLD config while telling the
 			// user their edit is live.

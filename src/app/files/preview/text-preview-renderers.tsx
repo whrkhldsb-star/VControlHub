@@ -74,7 +74,7 @@ export function TextPreviewToolbar(props: ToolbarProps) {
 				) : null}
 				<ActionButton size="sm" variant="secondary" onClick={onCancelEdit} disabled={busy}>{t("textPreview.button.cancel")}</ActionButton>
 				<ActionButton size="sm" variant="secondary" onClick={onOpenEditorFind} aria-label={t("textPreview.editor.findToggle")} title={t("textPreview.editor.findToggle")}><Search size={14} aria-hidden="true" /></ActionButton>
-			</> : <ActionButton size="sm" variant="outline" onClick={onEnterEditMode}>{t("textPreview.button.edit")}</ActionButton>}</div> : null}
+			</> : <ActionButton size="sm" variant="outline" disabled={busy} onClick={onEnterEditMode}>{t("textPreview.button.edit")}</ActionButton>}</div> : null}
 			{!editMode ? <FindBarLazy searchQuery={searchQuery} onSearchQueryChange={setSearchQuery} jumpLine={jumpLine} onJumpLineChange={setJumpLine} onJumpToLine={onJumpToLine} /> : null}
 		</div>
 	);
@@ -94,8 +94,6 @@ type BodyProps = {
 	containerRef: RefObject<HTMLDivElement | null>;
 	lineRef: RefObject<Map<number, HTMLDivElement>>;
 	setDraft: (next: string) => void;
-	setSaveStatus: (status: PreviewMetaState["saveStatus"]) => void;
-	setSaveMessage: (message: string) => void;
 	setShowDiffReview: (open: boolean) => void;
 	onQueryChange: (query: string) => void;
 	onMove: (direction: 1 | -1) => void;
@@ -112,7 +110,7 @@ type BodyProps = {
 const SEARCH_MARK_DELAY_MS = 200;
 
 export function TextPreviewBody(props: BodyProps) {
-	const { t, editMode, editorFind, draft, lines, lang, showDiffReview, editorFindInputRef, gutterRef, editorRef, containerRef, lineRef, setDraft, setSaveStatus, setSaveMessage, setShowDiffReview, onQueryChange, onMove, onCloseFind, onEditorScroll, onEditorKeyDown, highlightLine, searchQuery, sanitizeHighlight } = props;
+	const { t, editMode, editorFind, draft, lines, lang, showDiffReview, editorFindInputRef, gutterRef, editorRef, containerRef, lineRef, setDraft, setShowDiffReview, onQueryChange, onMove, onCloseFind, onEditorScroll, onEditorKeyDown, highlightLine, searchQuery, sanitizeHighlight } = props;
 	// Highlighted once per text and language; a search revisits only the lines
 	// containing it. Every keystroke in the search box used to run the
 	// highlighter and the sanitizer over every line: seconds per letter for a
@@ -149,7 +147,7 @@ export function TextPreviewBody(props: BodyProps) {
 				{editorFind.open ? <EditorFindBar inputRef={editorFindInputRef} find={editorFind} onQueryChange={onQueryChange} onMove={onMove} onClose={onCloseFind} /> : null}
 				<div data-card="" title={t("textPreview.editor.indentHint")} className="flex min-h-[70vh] overflow-hidden p-0 font-mono text-sm leading-relaxed text-[var(--text-primary)] focus-within:border-[var(--color-action-border)]">
 					<pre ref={gutterRef} aria-hidden data-testid="editor-line-gutter" className="m-0 select-none overflow-hidden border-r border-[var(--border)]/[0.10] bg-[var(--surface)]/70 px-2 py-4 text-right font-mono text-sm leading-relaxed text-[var(--text-muted)]" style={{ minWidth: "3rem" }}>{gutterText}</pre>
-					<textarea ref={editorRef} aria-label={t("textPreview.editAria")} value={draft} onChange={(event) => { setDraft(event.currentTarget.value); setSaveStatus("idle"); setSaveMessage(""); }} onClick={() => showDiffReview && setShowDiffReview(false)} onScroll={onEditorScroll} onKeyDown={onEditorKeyDown} className="min-h-[70vh] w-full resize-none bg-[var(--surface)] p-4 font-mono text-sm leading-relaxed text-[var(--text-primary)] outline-none" spellCheck={false} />
+					<textarea ref={editorRef} aria-label={t("textPreview.editAria")} value={draft} onChange={(event) => setDraft(event.currentTarget.value)} onClick={() => showDiffReview && setShowDiffReview(false)} onScroll={onEditorScroll} onKeyDown={onEditorKeyDown} className="min-h-[70vh] w-full resize-none bg-[var(--surface)] p-4 font-mono text-sm leading-relaxed text-[var(--text-primary)] outline-none" spellCheck={false} />
 				</div>
 			</div>
 		);
