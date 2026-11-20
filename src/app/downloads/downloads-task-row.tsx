@@ -54,6 +54,7 @@ export const DownloadTaskRow = memo(function DownloadTaskRow({
 	onDownloadClick: (taskId: string) => (event: MouseEvent<HTMLAnchorElement>) => void;
 	onPendingPurge: (id: string) => void;
 }) {
+	const hasTotal = Number(task.totalBytes) > 0;
 	const pct = computePct(task.completedBytes, task.totalBytes);
 	const CategoryIcon = categoryIcon[task.category as keyof typeof categoryIcon] ?? File;
 	// By its name, as the filter chips and the form show it; a value from before the list was fixed, as it is.
@@ -81,13 +82,13 @@ export const DownloadTaskRow = memo(function DownloadTaskRow({
 			)}
 
 			{/* Progress bar */}
-			{task.status === "RUNNING" && task.totalBytes && parseInt(task.totalBytes) > 0 && (
+			{task.status === "RUNNING" && (hasTotal || task.completedBytes || task.downloadSpeed) && (
 				<div className="mt-2.5">
 					<div className="flex items-center justify-between text-xs text-[var(--text-muted)] mb-1">
-						<span>{formatBytes(task.completedBytes)} / {formatBytes(task.totalBytes)}</span>
-						<span>{pct}% · {formatSpeed(task.downloadSpeed)}</span>
+						<span>{formatBytes(task.completedBytes)}{hasTotal && ` / ${formatBytes(task.totalBytes)}`}</span>
+						<span>{hasTotal && ` ${pct}% · `}{formatSpeed(task.downloadSpeed)}</span>
 					</div>
-					<ProgressBar value={pct} height="sm" label={task.url} />
+					{hasTotal && <ProgressBar value={pct} height="sm" label={task.url} />}
 				</div>
 			)}
 

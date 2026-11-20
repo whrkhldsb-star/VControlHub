@@ -42,7 +42,7 @@ const DEFAULT_LIMIT = 20;
 type ProbeResult =
   | { state: "COMPLETED"; size: string | null; resolvedFileName: string | null }
   | { state: "FAILED" }
-  | { state: "RUNNING" }
+  | { state: "RUNNING"; completedBytes: string | null; totalBytes: string | null }
   | { state: "UNKNOWN" };
 
 type SshParams = Awaited<ReturnType<typeof buildSshParamsFromServer>>;
@@ -77,6 +77,9 @@ export async function probeDirectDownloadRemote(input: {
     "  else echo FAILED; fi",
     'elif pgrep -f -- "$pat" >/dev/null 2>&1; then',
     "  echo RUNNING",
+    `  partial=${output}.vch-"$id".part`,
+    '  if [ -f "$partial" ] && [ ! -L "$partial" ]; then stat -c %s -- "$partial"; else echo 0; fi',
+    `  tail -n 1 -- ${shellQuote(pidFile + ".total")} 2>/dev/null || true`,
     'elif [ "$?" -ne 1 ]; then echo UNKNOWN',
     "else",
     `  echo ${input.pid ? "FAILED" : "UNKNOWN"}`,
@@ -99,7 +102,10 @@ export async function probeDirectDownloadRemote(input: {
     return { state: "COMPLETED", size, resolvedFileName };
   }
   if (remoteState === "FAILED") return { state: "FAILED" };
-  if (remoteState === "RUNNING") return { state: "RUNNING" };
+  if (remoteState === "RUNNING") return {
+    state: "RUNNING", completedBytes: /^\d+$/.test(sizeLine ?? "") ? sizeLine! : null,
+    totalBytes: /^\d+$/.test(resolvedPathLine ?? "") ? resolvedPathLine! : null,
+  };
   return { state: "UNKNOWN" };
 }
 
@@ -137,8 +143,18 @@ async function failRunningTask(taskId: string, errorMessage: string): Promise<bo
   return res.count > 0;
 }
 
+export function directProgress(probe: Extract<ProbeResult, { state: "RUNNING" }>, task: { completedBytes?: string | null; updatedAt: Date }) {
+  if (probe.completedBytes === null) return {};
+  const elapsed = Math.max(1, Date.now() - task.updatedAt.getTime());
+  const delta = BigInt(probe.completedBytes) - BigInt(task.completedBytes ?? "0");
+  return {
+    completedBytes: probe.completedBytes, ...(probe.totalBytes ? { totalBytes: probe.totalBytes } : {}),
+    downloadSpeed: delta >= BigInt(0) ? String(delta * BigInt(1000) / BigInt(elapsed)) : "0",
+  };
+}
+
 async function reconcileDirectTask(
-  task: { id: string; url: string; fileName: string | null; targetPath: string; pid: number | null; updatedAt: Date; server: ReconcileServer },
+  task: { id: string; url: string; fileName: string | null; targetPath: string; pid: number | null; updatedAt: Date; completedBytes: string | null; server: ReconcileServer },
 ): Promise<"completed" | "failed" | "running" | "skipped"> {
   const sshParams = await buildSshParamsFromServer(task.server, task.server.sshKey);
   let probe: ProbeResult;
@@ -165,7 +181,7 @@ async function reconcileDirectTask(
     // Seen alive: move the row out of the stale window so the next passes do not
     // open one SSH session per pass for the whole download (A5-05). The
     // unreachable deadline restarts from a confirmed-live probe, which is right.
-    await prisma.downloadTask.updateMany({ where: { id: task.id, status: "RUNNING" }, data: { updatedAt: new Date() } });
+    await prisma.downloadTask.updateMany({ where: { id: task.id, status: "RUNNING", updatedAt: task.updatedAt }, data: { ...directProgress(probe, task), updatedAt: new Date() } });
     return "running";
   }
   if (probe.state === "FAILED") {
@@ -250,6 +266,7 @@ async function reconcileRelayTask(
  * turn however long the backlog is. A fixed window of the oldest (even a
  * large one, rotated within) never reached the tasks behind it.
  */
+let progressCursor: { updatedAt: Date; id: string } | null = null;
 let reconcileCursor: { updatedAt: Date; id: string } | null = null;
 
 /** Test hook: start the next pass from the oldest stale task. */
@@ -286,10 +303,11 @@ async function failOrphanedPendingTasks(): Promise<number> {
 export async function reconcileStaleRunningDownloadTasks(input?: {
   limit?: number;
   taskIds?: string[];
+  directProgressOnly?: boolean;
 }): Promise<{ completed: number; failed: number; ids: string[] }> {
   const limit = Math.min(Math.max(input?.limit ?? DEFAULT_LIMIT, 1), 100);
-  const cutoff = new Date(Date.now() - DIRECT_STALE_MS);
-  const where = { status: "RUNNING" as const, updatedAt: { lt: cutoff }, ...(input?.taskIds ? { id: { in: input.taskIds } } : {}) };
+  const cutoff = new Date(Date.now() - (input?.directProgressOnly ? 10_000 : DIRECT_STALE_MS));
+  const where = { status: "RUNNING" as const, updatedAt: { lt: cutoff }, ...(input?.directProgressOnly ? { relayMode: false, pid: { not: null } } : {}), ...(input?.taskIds ? { id: { in: input.taskIds } } : {}) };
   // updatedAt itself must not move while a task is probed: the unreachable
   // deadline counts from it, which also keeps this order stable.
   const order = [{ updatedAt: "asc" as const }, { id: "asc" as const }];
@@ -302,13 +320,14 @@ export async function reconcileStaleRunningDownloadTasks(input?: {
     take,
   });
   // Named tasks are probed as asked; the background pass walks the backlog.
-  const cursor = input?.taskIds ? null : reconcileCursor;
+  const cursor = input?.directProgressOnly ? progressCursor : input?.taskIds ? null : reconcileCursor;
   const ahead = await page(cursor, limit);
   const wrapped = cursor && ahead.length < limit
     ? (await page(null, limit - ahead.length)).filter((row) => !ahead.some((seen) => seen.id === row.id))
     : [];
   const chosenRows = [...ahead, ...wrapped];
-  if (!input?.taskIds) reconcileCursor = chosenRows.at(-1) ?? null;
+  if (input?.directProgressOnly) progressCursor = chosenRows.at(-1) ?? null;
+  else if (!input?.taskIds) reconcileCursor = chosenRows.at(-1) ?? null;
   const chosen = chosenRows.map((row) => row.id);
   const rows = chosen.length === 0 ? [] : await prisma.downloadTask.findMany({
     where: { ...where, id: { in: chosen } },
@@ -337,7 +356,7 @@ export async function reconcileStaleRunningDownloadTasks(input?: {
       } else if (!task.relayMode) {
         outcome = await reconcileDirectTask({
           id: task.id, url: task.url, fileName: task.fileName,
-          targetPath: task.targetPath, pid: task.pid, updatedAt: task.updatedAt,
+          targetPath: task.targetPath, pid: task.pid, updatedAt: task.updatedAt, completedBytes: task.completedBytes,
           server: task.server,
         });
       } else {
@@ -355,6 +374,6 @@ export async function reconcileStaleRunningDownloadTasks(input?: {
   }
   // The background pass also retires queued tasks nothing will ever start (after
   // the RUNNING scan, so the two reads never compete for the same page).
-  const orphaned = input?.taskIds ? 0 : await failOrphanedPendingTasks();
+  const orphaned = input?.taskIds || input?.directProgressOnly ? 0 : await failOrphanedPendingTasks();
   return { completed, failed: failed + orphaned, ids };
 }

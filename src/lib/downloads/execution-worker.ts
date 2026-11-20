@@ -14,7 +14,7 @@ import {
   pruneTerminalJobsByType,
 } from "@/lib/job/service";
 import { notifyDownloadResult } from "@/lib/notification/service";
-import { failRelayTask } from "./reconcile";
+import { failRelayTask, reconcileStaleRunningDownloadTasks } from "./reconcile";
 import { executionRefusal, loadExecutionActor } from "@/lib/auth/execution-actor";
 import { getStorageWriteCapacity } from "@/lib/storage/access-control";
 import { t } from "@/lib/i18n/service-translations";
@@ -62,10 +62,19 @@ type DownloadExecutionJobPayload = {
   sourceResolution?: DownloadSourceResolution;
 };
 
+let samplingDirect = false;
+let nextDirectSample = 0;
 const downloadExecutionWorker = createSingletonIntervalWorker({
   globalKey: "__vcontrolhubDownloadExecutionWorker",
   resolveIntervalMs: () => config.worker.downloadExecutionIntervalMs,
   tick: (_state, reason) => {
+    if (!samplingDirect && Date.now() >= nextDirectSample) {
+      samplingDirect = true;
+      nextDirectSample = Date.now() + 10_000;
+      void reconcileStaleRunningDownloadTasks({ directProgressOnly: true, limit: 4 })
+        .catch(error => logger.warn("Direct download progress probe failed", { error }))
+        .finally(() => { samplingDirect = false; });
+    }
     void runDownloadExecutionJobWorkerOnce().catch((error) => {
       logger.error(
         reason === "startup" ? "Download execution worker startup tick failed" : "Download execution worker interval tick failed",

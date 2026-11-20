@@ -35,7 +35,6 @@ const helpers = {
   deriveDownloadFileNameFromUrl: vi.fn(() => "derived.bin"),
 };
 vi.mock("@/lib/downloads/helpers", () => helpers);
-vi.mock("@/lib/downloads/remote-command", () => ({ shellQuote: (s: string) => `'${s}'` }));
 vi.mock("@/lib/logging", () => ({ logError: vi.fn() }));
 
 const { reconcileStaleRunningDownloadTasks, resetReconcileCursorForTests } = await import("../reconcile");
@@ -126,7 +125,7 @@ describe("reconcileStaleRunningDownloadTasks — direct", () => {
     expect(res.failed).toBe(0);
     // Seen alive: only the stale-window timestamp moves (A5-05); status and errors stay.
     expect(prismaMock.downloadTask.updateMany).toHaveBeenCalledTimes(1);
-    expect(prismaMock.downloadTask.updateMany).toHaveBeenCalledWith({ where: { id: "t-direct", status: "RUNNING" }, data: { updatedAt: expect.any(Date) } });
+    expect(prismaMock.downloadTask.updateMany).toHaveBeenCalledWith({ where: { id: "t-direct", status: "RUNNING", updatedAt: expect.any(Date) }, data: { completedBytes: "0", downloadSpeed: "0", updatedAt: expect.any(Date) } });
   });
 
   it("fails a direct download whose remote process failed", async () => {

@@ -51,6 +51,8 @@ export function buildDirectDownloadCommand({
   const resolveEntry = sourceResolution.hostname === sourceResolution.address
     ? "" : `${sourceResolution.hostname}:${sourceResolution.port}:${resolvedAddress}`;
 
+  // Retain only the response length. Headers can contain credentials.
+  const lengthFilter = `awk 'BEGIN { IGNORECASE=0 } /^HTTP\\// { n="" } tolower($1)=="content-length:" { n=$2; sub(/\\r$/, "", n) } /^\\r?$/ && n ~ /^[0-9]+$/ { print n; fflush() }' >"$pid_file.total"`;
   const script = [
     "set +e",
     `download_url=${shellQuote(url)}`,
@@ -81,7 +83,7 @@ export function buildDirectDownloadCommand({
     // Pin the public DNS result and fail on any redirect. A redirect target
     // has not passed the controller's DNS allowlist and may be an intranet IP.
     // --max-filesize stops a too-large file early when its size is announced.
-    "  curl --fail --show-error -L --max-redirs 0 --proto =https,http --proto-redir =https,http ${max_bytes:+--max-filesize \"$max_bytes\"} ${limit_rate:+--limit-rate \"$limit_rate\"} ${resolve_entry:+--resolve \"$resolve_entry\"} -o \"$partial_path\" \"$download_url\" >\"$log_file\" 2>&1",
+    `  curl --dump-header >(${lengthFilter}) --fail --show-error -L --max-redirs 0 --proto =https,http --proto-redir =https,http \${max_bytes:+--max-filesize \"$max_bytes\"} \${limit_rate:+--limit-rate \"$limit_rate\"} \${resolve_entry:+--resolve \"$resolve_entry\"} -o \"$partial_path\" \"$download_url\" >\"$log_file\" 2>&1`,
     "else",
     "  echo \"ERROR: curl is required for DNS-pinned downloads\" >\"$log_file\"",
     "  false",
@@ -94,7 +96,7 @@ export function buildDirectDownloadCommand({
     'if [ "$status" = 0 ]; then [ -f "$partial_path" ] && [ ! -L "$partial_path" ] && mv -fT -- "$partial_path" "$output_path" && [ -f "$output_path" ] && [ ! -L "$output_path" ]; status=$?; fi',
     'if [ "$status" != 0 ]; then rm -f -- "$partial_path"; fi',
     'echo $status >"$exit_file.tmp" && mv -f -- "$exit_file.tmp" "$exit_file"',
-    "rm -f \"$pid_file\"",
+    'rm -f "$pid_file" "$pid_file.total"',
     "exit $status",
   ].join("\n");
 
@@ -157,7 +159,7 @@ export function buildDirectDownloadStopCommand(
     "  if alive; then echo STILL_RUNNING; exit 4; fi",
     "fi",
     'if [ -n "$target_dir" ] && [ -d "$target_dir" ]; then find "$target_dir" -maxdepth 1 -type f -name "*.vch-$id.part" -delete 2>/dev/null; fi',
-    `rm -f -- ${shellQuote(pidFile)} ${shellQuote(`${pidFile}.exit`)}`,
+    `rm -f -- ${shellQuote(pidFile)} ${shellQuote(`${pidFile}.exit`)} ${shellQuote(`${pidFile}.total`)}`,
     'echo "$state"',
   ].join("\n");
 }
