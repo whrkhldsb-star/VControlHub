@@ -134,7 +134,7 @@ export async function executeImport(
     await importAnnouncements(tx, t, options, counts);
     // 17. Snippets
     await importSnippets(tx, t, options, counts);
-  }, { timeout: 120_000, maxWait: 20_000 }).catch((err: unknown) => {
+  }, { timeout: 120_000, maxWait: 20_000, isolationLevel: "Serializable" }).catch((err: unknown) => {
     // 事务失败时全部写入都会回滚。不要把事务内累计的计数伪装成
     // 已落库结果，否则 UI 会显示“创建了 N 条”但数据库实际为 0。
     rolledBack = true;
