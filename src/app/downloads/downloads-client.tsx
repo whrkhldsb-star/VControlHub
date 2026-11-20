@@ -165,12 +165,10 @@ export function DownloadsClient({ servers, canManage, canManageNode }: { servers
 	}, [t, addToast, categoryFilter, filter, filterKey]);
 
 	const fetchTasksRef = useRef(fetchTasks);
-	const tasksRef = useRef(tasks);
 
 	useEffect(() => {
 		fetchTasksRef.current = fetchTasks;
-		tasksRef.current = tasks;
-	}, [fetchTasks, tasks]);
+	}, [fetchTasks]);
 
 	useEffect(() => {
 		const timer = window.setTimeout(() => { void fetchTasks(); }, 0);
@@ -178,10 +176,7 @@ export function DownloadsClient({ servers, canManage, canManageNode }: { servers
 	}, [fetchTasks]);
 
 	useVisibilityInterval(() => {
-			const hasRunning = tasksRef.current.some((t) => t.status === "RUNNING" || t.status === "PENDING");
-			if (hasRunning) {
-				void fetchTasksRef.current();
-			}
+		void fetchTasksRef.current();
 	}, 5000);
 
 	const invalidBatchUrls = form.batchMode
