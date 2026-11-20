@@ -177,6 +177,23 @@ const RESET_SCHEMA_SQL = `DO $vch_reset$ DECLARE r record; BEGIN
 END $vch_reset$;
 `;
 
+// A separate psql command runs after stdin, inside the same transaction.
+// Even an unexpected EOF must pass this guard before psql can commit.
+const VERIFY_RESTORE_SQL = `DO $vch_verify$ BEGIN
+  IF current_setting('vch.restore_complete', true) IS DISTINCT FROM 'yes'
+     OR NOT EXISTS (SELECT 1 FROM public."User")
+     OR NOT EXISTS (SELECT 1 FROM public."Role")
+     OR to_regclass('public."StorageNode"') IS NULL
+     OR to_regclass('public.servers') IS NULL THEN
+    RAISE EXCEPTION 'Incomplete VControlHub database backup';
+  END IF;
+  IF to_regclass('public._prisma_migrations') IS NOT NULL THEN
+    IF NOT EXISTS (SELECT 1 FROM public._prisma_migrations WHERE finished_at IS NOT NULL AND rolled_back_at IS NULL) THEN
+      RAISE EXCEPTION 'Backup has no completed application migrations';
+    END IF;
+  END IF;
+END $vch_verify$;`;
+
 /** Same check as a standalone query, for the file phase. */
 async function assertNoOtherDatabaseClients({ psql, connArgs, childEnv }) {
   const { stdout } = await runBinary(psql, ["-X", "-q", "-t", "-A", "-c", OTHER_CLIENTS_SQL, ...connArgs], { env: childEnv });
@@ -201,7 +218,7 @@ async function restoreDatabase(backupFile, { psql, connArgs, childEnv }) {
   // stdin) makes the dump all-or-nothing. ON_ERROR_STOP alone stops at the
   // first error but leaves every DROP/CREATE/COPY before it committed, i.e. a
   // half-restored database.
-  const child = spawn(psql, ["-X", "-v", "ON_ERROR_STOP=1", "--single-transaction", "-f", "-", ...connArgs], { stdio: ["pipe", "ignore", "pipe"], env: childEnv });
+  const child = spawn(psql, ["-X", "-v", "ON_ERROR_STOP=1", "--single-transaction", "-f", "-", "-c", VERIFY_RESTORE_SQL, ...connArgs], { stdio: ["pipe", "ignore", "pipe"], env: childEnv });
   child.stdin.write(OFFLINE_GUARD_SQL);
   child.stdin.write(RESET_SCHEMA_SQL);
   const source = createReadStream(backupFile);
@@ -224,7 +241,17 @@ async function restoreDatabase(backupFile, { psql, connArgs, childEnv }) {
   try {
     await Promise.all([
       completed,
-      gunzip ? pipeline(source, gunzip, child.stdin) : pipeline(source, child.stdin),
+      pipeline(source, ...(gunzip ? [gunzip] : []), async function* (chunks) {
+        let tail = "";
+        for await (const chunk of chunks) {
+          tail = (tail + chunk.subarray(-4096).toString("latin1")).slice(-4096);
+          yield chunk;
+        }
+        if (!/^-- PostgreSQL database dump complete\r?$/m.test(tail)) {
+          throw new Error("Missing pg_dump completion marker");
+        }
+        yield "\nSET LOCAL vch.restore_complete = 'yes';\n";
+      }, child.stdin),
     ]);
   } finally {
     source.destroy();

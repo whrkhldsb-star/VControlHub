@@ -37,6 +37,12 @@ function adminUrl(database: string) {
   return url.toString();
 }
 
+function seedRestoreIdentity(url: string) {
+  psql(url, `CREATE TABLE "User" (id int); INSERT INTO "User" VALUES (1);
+    CREATE TABLE "Role" (id int); INSERT INTO "Role" VALUES (1);
+    CREATE TABLE "StorageNode" (id int); CREATE TABLE servers (id int)`);
+}
+
 function psql(url: string, sql: string) {
   const result = spawnSync("psql", ["-X", "-q", "-t", "-A", "-v", "ON_ERROR_STOP=1", url, "-c", sql], { encoding: "utf8" });
   if (result.status !== 0) throw new Error(result.stderr);
@@ -53,6 +59,7 @@ describe.skipIf(!enabled)("restore.mjs atomicity against PostgreSQL", () => {
   beforeAll(async () => {
     psql(adminUrl("postgres"), `CREATE DATABASE ${database}`);
     url = adminUrl(database);
+    seedRestoreIdentity(url);
     psql(url, "CREATE TABLE probe (id int PRIMARY KEY, v text); INSERT INTO probe VALUES (1, 'from-backup')");
     const dump = spawnSync("pg_dump", [url, "--no-owner", "--no-privileges", "--clean", "--if-exists"], { encoding: "utf8" });
     expect(dump.status, dump.stderr).toBe(0);
@@ -182,6 +189,7 @@ describe.skipIf(!enabled)("restore.mjs atomicity against PostgreSQL", () => {
     psql(adminUrl("postgres"), `CREATE DATABASE ${scratch}`);
     const scratchUrl = adminUrl(scratch);
     try {
+      seedRestoreIdentity(scratchUrl);
       psql(scratchUrl, "CREATE TABLE parent (id int PRIMARY KEY, v text); INSERT INTO parent VALUES (1, 'from-backup')");
       const dump = spawnSync("pg_dump", [scratchUrl, "--no-owner", "--no-privileges", "--clean", "--if-exists"], { encoding: "utf8" });
       expect(dump.status, dump.stderr).toBe(0);
@@ -230,6 +238,7 @@ describe.skipIf(!enabled)("restore.mjs atomicity against PostgreSQL", () => {
     psql(adminUrl("postgres"), `CREATE DATABASE ${scratch}`);
     const scratchUrl = adminUrl(scratch);
     try {
+      seedRestoreIdentity(scratchUrl);
       psql(scratchUrl, "CREATE TABLE probe (id int PRIMARY KEY, v text); INSERT INTO probe VALUES (1, 'from-backup')");
       const dump = spawnSync("pg_dump", [scratchUrl, "--no-owner", "--no-privileges", "--clean", "--if-exists"], { encoding: "utf8" });
       psql(scratchUrl, "UPDATE probe SET v = 'live-data'");
