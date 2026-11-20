@@ -1325,6 +1325,7 @@ describe("storage service", () => {
         port: 2222,
         username: "deploy",
         server: {
+          teamId: "team-1",
           host: "203.0.113.10",
           port: 22,
           username: "root",
@@ -1385,6 +1386,7 @@ describe("storage service", () => {
       createdAt: new Date(),
       updatedAt: new Date(),
       storageNode: {
+        teamId: "team-1",
         id: "node_2",
         driver: "SFTP",
         basePath: "/data/files",
@@ -1392,12 +1394,13 @@ describe("storage service", () => {
         port: 22,
         username: "root",
         server: {
+          teamId: "team-1",
           host: "203.0.113.10",
           port: 22,
           username: "root",
           connectionType: "SSH_KEY",
           password: null,
-          sshKey: { privateKey: "cipher-key" },
+          sshKey: { teamId: "team-1", privateKey: "cipher-key" },
         },
       },
     } as any);

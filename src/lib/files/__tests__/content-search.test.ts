@@ -162,13 +162,15 @@ describe("searchFileContents", () => {
 
 	it("fetches SFTP snippets in ONE batched remote command", async () => {
 		findManyMock.mockResolvedValue([
-			{ id: "node-sftp", name: "remote", driver: "SFTP", basePath: "/srv/data" },
+			{ teamId: "team-a", id: "node-sftp", name: "remote", driver: "SFTP", basePath: "/srv/data" },
 		]);
 		findUniqueMock.mockResolvedValue({
+			teamId: "team-a",
 			id: "node-sftp",
 			name: "remote",
 			basePath: "/srv/data",
 			server: {
+				teamId: "team-a",
 				id: "srv-1",
 				operatingSystem: "linux",
 				host: "10.0.0.5",
@@ -218,8 +220,9 @@ describe("searchFileContents", () => {
 		// The server was passed without its key id or connection type, so a
 		// key-based server was treated as a password one without a password:
 		// every search of it failed silently. Node overrides were ignored too.
-		findManyMock.mockResolvedValue([{ id: "node-sftp", name: "remote", driver: "SFTP", basePath: "/srv/data" }]);
+		findManyMock.mockResolvedValue([{ teamId: null, id: "node-sftp", name: "remote", driver: "SFTP", basePath: "/srv/data" }]);
 		findUniqueMock.mockResolvedValue({
+			teamId: null,
 			id: "node-sftp",
 			name: "remote",
 			basePath: "/srv/data",
@@ -228,9 +231,10 @@ describe("searchFileContents", () => {
 			username: "storage-user",
 			hostKeySha256: "SHA256:node-pin",
 			server: {
+				teamId: null,
 				id: "srv-1", operatingSystem: "LINUX", host: "192.0.2.10", port: 22, username: "root",
 				connectionType: "SSH_KEY", managementMode: "DIRECT", password: null, hostKeySha256: null,
-				sshKey: { privateKey: "enc:PRIVATE KEY", passphrase: null },
+				sshKey: { teamId: null, privateKey: "enc:PRIVATE KEY", passphrase: null },
 			},
 		});
 		const { execRemoteCommand } = await import("@/lib/ssh/client");

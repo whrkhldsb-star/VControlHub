@@ -594,6 +594,7 @@ describe("server service", () => {
 
   it("enables a draft only after fingerprint and SSH connectivity verification", async () => {
     const current = {
+      teamId: null,
       id: "srv_draft",
       name: "pending-node",
       host: "203.0.113.104",
@@ -608,6 +609,7 @@ describe("server service", () => {
       hostKeySha256: null,
       sshKey: null,
       storageNode: {
+        teamId: null,
         id: "storage_draft",
         driver: "SFTP",
         basePath: "/root/drive",
@@ -674,6 +676,7 @@ describe("server service", () => {
 
   it("keeps a verified draft disabled when its storage path cannot be prepared", async () => {
     const current = {
+      teamId: null,
       id: "srv_draft",
       name: "pending-node",
       host: "203.0.113.104",
@@ -688,6 +691,7 @@ describe("server service", () => {
       hostKeySha256: "SHA256:verified",
       sshKey: null,
       storageNode: {
+        teamId: null,
         id: "storage_draft",
         driver: "SFTP",
         basePath: "/root/drive",
@@ -716,6 +720,7 @@ describe("server service", () => {
 
   it("continues the saved direct-gateway intent when a draft is enabled", async () => {
     const current = {
+      teamId: null,
       id: "srv_draft_gateway",
       name: "pending-gateway",
       host: "203.0.113.104",
@@ -730,6 +735,7 @@ describe("server service", () => {
       hostKeySha256: "SHA256:verified",
       sshKey: null,
       storageNode: {
+        teamId: null,
         id: "storage_gateway",
         name: "pending-gateway storage",
         driver: "SFTP",
@@ -1663,7 +1669,9 @@ describe("server service", () => {
     expect(result).toBeNull();
     expect(prisma.server.findFirst).toHaveBeenCalledWith(
       expect.objectContaining({
-        where: expect.objectContaining({ id: "srv_foreign", AND: expect.arrayContaining([{ teamId: "team_1" }]) }),
+        where: expect.objectContaining({ id: "srv_foreign", AND: expect.arrayContaining([
+          { AND: expect.arrayContaining([{ teamId: "team_1" }]) }, { origin: "CUSTOMER" },
+        ]) }),
       }),
     );
     expect(prisma.server.findUnique).not.toHaveBeenCalled();
@@ -2613,6 +2621,7 @@ describe("server service", () => {
       costProvider: null,
       sshKey: null,
       storageNode: {
+        teamId: "team-1",
         id: "sn_path",
         host: "files.example.test", port: 2202, username: "files", hostKeySha256: "SHA256:files",
         name: "path-node storage",
@@ -2714,6 +2723,7 @@ describe("server service", () => {
 
   it("returns onboardingWarnings when repairStoragePath remote mkdir fails without rolling back the node update", async () => {
     const current = {
+      teamId: null,
       id: "srv_repair",
       name: "repair-node",
       host: "203.0.113.88",
@@ -2732,6 +2742,7 @@ describe("server service", () => {
       costProvider: null,
       sshKey: null,
       storageNode: {
+        teamId: null,
         id: "sn_repair",
         name: "repair-node storage",
         driver: "SFTP",

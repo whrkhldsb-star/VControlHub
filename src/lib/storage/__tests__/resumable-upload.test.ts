@@ -237,6 +237,7 @@ describe("completeStorageFileUpload", () => {
       where: {
         id: "sess_1",
         userId: "user_1",
+        teamId: null, teamBound: true,
         status: { in: ["PENDING", "UPLOADING"] },
         expiresAt: { gt: expect.any(Date) },
       },

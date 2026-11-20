@@ -82,7 +82,15 @@ describe("transferServerToCustomer", () => {
     expect(mocks.rebind).toHaveBeenCalledWith({ data: [{ serverId: "srv_1", storageNodeId: "agent_disk", teamId: "team_b" }] });
     // Backup ownership follows the transfer (A2-03): the old customer's creator can no longer run them.
     expect(mocks.vpsBackupScheduleUpdateMany).toHaveBeenCalledWith({ where: { serverId: "srv_1" }, data: { createdById: "u_admin" } });
-    expect(mocks.serverUpdate).toHaveBeenCalledWith({ where: { id: "srv_1" }, data: { teamId: "team_b" } });
+    expect(mocks.serverUpdate).toHaveBeenCalledWith({
+      where: { id: "srv_1" },
+      data: expect.objectContaining({ teamId: "team_b", agentTokenHash: null,
+        agentJobs: { updateMany: expect.arrayContaining([
+          expect.objectContaining({ where: { status: "PENDING" }, data: expect.objectContaining({ status: "CANCELLED" }) }),
+          expect.objectContaining({ where: { status: "CLAIMED" }, data: expect.objectContaining({ status: "CANCELLED", completedAt: null }) }),
+        ]) },
+      }),
+    });
     expect(mocks.userStorageAccessDeleteMany).toHaveBeenCalledWith({ where: { storageNodeId: { in: ["node_1", "agent_disk"] } } });
     expect(mocks.audit).toHaveBeenCalledWith("u_admin", "server.transfer", expect.objectContaining({ fromTeamId: "team_a", toTeamId: "team_b" }), undefined, "team_b");
   });

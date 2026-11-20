@@ -133,8 +133,9 @@ describe("respondWithStorageThumbnail", () => {
 			return client;
 		});
 		const node = {
+			teamId: null,
 			id: "node_sftp", driver: "SFTP", basePath: "/data", host: null, port: null, username: null, hostKeySha256: "PIN",
-			server: { id: "srv", host: "203.0.113.30", port: 22, username: "deploy", connectionType: "PASSWORD", managementMode: "DIRECT", operatingSystem: "LINUX", password: "secret", hostKeySha256: "PIN", sshKey: null },
+			server: { teamId: null, id: "srv", host: "203.0.113.30", port: 22, username: "deploy", connectionType: "PASSWORD", managementMode: "DIRECT", operatingSystem: "LINUX", password: "secret", hostKeySha256: "PIN", sshKey: null },
 		};
 		const responses = await Promise.all(Array.from({ length: 12 }, (_, index) => respondWithStorageThumbnail({ id: `tile_${index}`, relativePath: `pics/${index}.png`, node })));
 		expect(responses.map((response) => response.headers.get("Content-Type"))).toEqual(Array.from({ length: 12 }, () => "image/jpeg"));
