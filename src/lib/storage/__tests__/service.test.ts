@@ -520,7 +520,7 @@ describe("storage service", () => {
 
     expect(prisma.storageNode.updateMany).toHaveBeenCalledWith(
       expect.objectContaining({
-        where: { id: "node_2" },
+        where: { id: "node_2", isDefault: false },
         data: expect.objectContaining({
           driver: "LOCAL",
           serverId: null,
@@ -531,6 +531,8 @@ describe("storage service", () => {
         }),
       }),
     );
+    const [write] = vi.mocked(prisma.storageNode.updateMany).mock.calls[0]!;
+    expect(write?.data).not.toHaveProperty("isDefault");
   });
 
   it("rejects switching a remote node to local storage outside its workspace", async () => {
