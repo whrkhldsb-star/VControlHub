@@ -23,8 +23,8 @@ import { tenantStorageBasePath } from "@/lib/storage/path-utils";
 import { DEFAULT_IDENTITY_TEMPLATE_ID } from "@/lib/auth/identity-templates";
 import type { CreateTeamInput, UpdateTeamInput } from "./schema";
 
-async function findLiveCustomer(teamId: string) {
-  const team = await prisma.team.findUnique({ where: { id: teamId }, select: { id: true, slug: true, name: true, deletedAt: true } });
+async function findLiveCustomer(teamId: string, db: Prisma.TransactionClient = prisma) {
+  const team = await db.team.findUnique({ where: { id: teamId }, select: { id: true, slug: true, name: true, deletedAt: true } });
   if (!team || team.deletedAt) throw new NotFoundError(t("backend.customer.notFound"));
   return team;
 }
@@ -165,10 +165,10 @@ export async function restoreTeam(teamId: string, session: SessionPayload) {
 }
 
 /** The live customer and existing identity template a membership may point at. */
-export async function resolveCustomerMembershipTarget(teamId: string, identityTemplateId?: string | null) {
-  await findLiveCustomer(teamId);
+export async function resolveCustomerMembershipTarget(teamId: string, identityTemplateId?: string | null, db: Prisma.TransactionClient = prisma) {
+  await findLiveCustomer(teamId, db);
   const templateId = identityTemplateId || DEFAULT_IDENTITY_TEMPLATE_ID;
-  const template = await prisma.identityTemplate.findUnique({ where: { id: templateId }, select: { id: true } });
+  const template = await db.identityTemplate.findUnique({ where: { id: templateId }, select: { id: true } });
   if (!template) throw new NotFoundError(t("backend.customer.templateNotFound"));
   return { teamId, identityTemplateId: templateId };
 }

@@ -1,3 +1,4 @@
+import type { Prisma } from "@prisma/client";
 /**
  * Account types: a platform administrator (role `admin`, no customer) or a
  * customer account (one customer membership with an identity template).
@@ -14,51 +15,27 @@ export type AccountTypeInput =
   | { type: "admin" }
   | { type: "customer"; teamId: string; identityTemplateId?: string | null };
 
-async function adminRoleId() {
-  const role = await prisma.role.findUnique({ where: { key: "admin" }, select: { id: true } });
-  if (!role) throw new ValidationError(t("backend.user.roleNotFound", { roles: "admin" }));
-  return role.id;
-}
-
-/** Make the account a platform administrator: it leaves any customer. */
-async function makePlatformAdmin(userId: string) {
-  const roleId = await adminRoleId();
-  await prisma.$transaction([
-    prisma.teamMember.deleteMany({ where: { userId } }),
-    prisma.userServerAccess.deleteMany({ where: { userId } }),
-    prisma.userStorageAccess.deleteMany({ where: { userId } }),
-    prisma.userRole.upsert({
-      where: { userId_roleId: { userId, roleId } },
-      update: {},
-      create: { userId, roleId },
-    }),
-  ]);
-}
-
-/**
- * Make the account a customer account of `teamId`. Every check runs before
- * the first write, and the role removal and the membership land in one
- * transaction: a failure never leaves an account without roles and without
- * a customer.
- */
-async function makeCustomerAccount(userId: string, teamId: string, identityTemplateId: string | null | undefined) {
-  const target = await resolveCustomerMembershipTarget(teamId, identityTemplateId);
-  // Demoting an administrator must leave at least one active administrator.
-  await withAdminInvariantLock(async () => {
-    await assertAdminAccessMayBeRemoved(userId);
-    await prisma.$transaction(async (tx) => {
-      await tx.userRole.deleteMany({ where: { userId } });
-      await applyCustomerMembership(tx, { userId, ...target });
-    });
-  });
-}
-
-/** The caller audits the change (`user.permission_update` carries the account input). */
-export async function setAccountType(userId: string, input: AccountTypeInput, session: SessionPayload) {
+/** Callers supplying a transaction hold the same administrator invariant lock. */
+export async function setAccountType(userId: string, input: AccountTypeInput, session: SessionPayload, transaction?: Prisma.TransactionClient) {
   assertPlatformAdmin(session);
-  if (input.type === "admin") {
-    await makePlatformAdmin(userId);
-    return;
-  }
-  await makeCustomerAccount(userId, input.teamId, input.identityTemplateId);
+  const apply = async (tx: Prisma.TransactionClient) => {
+    if (input.type === "admin") {
+      const role = await tx.role.findUnique({ where: { key: "admin" }, select: { id: true } });
+      if (!role) throw new ValidationError(t("backend.user.roleNotFound", { roles: "admin" }));
+      await tx.teamMember.deleteMany({ where: { userId } });
+      await tx.userServerAccess.deleteMany({ where: { userId } });
+      await tx.userStorageAccess.deleteMany({ where: { userId } });
+      await tx.userRole.upsert({
+        where: { userId_roleId: { userId, roleId: role.id } },
+        update: {}, create: { userId, roleId: role.id },
+      });
+      return;
+    }
+    const target = await resolveCustomerMembershipTarget(input.teamId, input.identityTemplateId, tx);
+    await assertAdminAccessMayBeRemoved(userId, tx);
+    await tx.userRole.deleteMany({ where: { userId } });
+    await applyCustomerMembership(tx, { userId, ...target });
+  };
+  if (transaction) return apply(transaction);
+  await withAdminInvariantLock(() => prisma.$transaction(apply));
 }

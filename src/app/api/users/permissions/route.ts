@@ -2,7 +2,8 @@ import { apiCopy } from "@/lib/i18n/api-copy";
 import { NextResponse } from "next/server";
 import { z } from "zod";
 
-import { auditUserAction } from "@/lib/audit/service";
+import { withAdminInvariantLock } from "@/lib/user/admin-invariant";
+import { writeAuditLog } from "@/lib/audit/service";
 import { getPermissionsFromRoles, type RoleKey } from "@/lib/auth/rbac";
 import { resolveSessionPermissions } from "@/lib/auth/identity-templates";
 import { listIdentityTemplates } from "@/lib/auth/identity-template-service";
@@ -15,7 +16,7 @@ import { parseSearchParams } from "@/lib/http/parse-search-params";
 import { t } from "@/lib/i18n/service-translations";
 import { getStorageAccessUsage } from "@/lib/storage/access-control";
 import { setAccountType } from "@/lib/user/account-type";
-import { applyResourceNarrowing } from "./route-patch";
+import { prepareResourceNarrowing } from "./route-patch";
 
 export const dynamic = "force-dynamic";
 
@@ -205,41 +206,32 @@ export async function PATCH(request: Request) {
       if (body.userId === session.userId) {
         return NextResponse.json({ error: apiCopy("apiCopy.cannot.modify.your.own.permissions.4a69d473") }, { status: 403 });
       }
-      const target = await prisma.user.findUnique({
-        where: { id: body.userId },
-        select: { id: true, username: true, teamMembership: { select: { teamId: true } } },
-      });
-      if (!target) throw new NotFoundError(apiCopy("apiCopy.user.not.found.4a1793e9"));
-      const targetTeamIdBefore = target.teamMembership?.teamId ?? null;
-
-      if (body.account) await setAccountType(target.id, body.account, session);
-
-      if (body.storageAccess !== undefined || body.serverAccess !== undefined) {
-        const membership = await prisma.teamMember.findUnique({ where: { userId: target.id }, select: { teamId: true } });
-        if (!membership) throw new ValidationError(t("backend.user.adminResourceAccessIsRoleBased"));
-        await applyResourceNarrowing({
-          userId: target.id,
-          teamId: membership.teamId,
-          storageAccess: body.storageAccess,
-          storageAccessScopeIds: body.storageAccessScopeIds,
-          serverAccess: body.serverAccess,
-          serverAccessScopeIds: body.serverAccessScopeIds,
+      await withAdminInvariantLock(() => prisma.$transaction(async (tx) => {
+        const target = await tx.user.findUnique({
+          where: { id: body.userId },
+          select: { id: true, username: true, teamMembership: { select: { teamId: true } } },
         });
-      }
-
-      await auditUserAction(
-        session.userId,
-        "user.permission_update",
-        {
-          targetUsername: target.username,
-          account: body.account ?? null,
-          storageAccessCount: body.storageAccess?.length ?? null,
-          serverAccessCount: body.serverAccess?.length ?? null,
-        },
-        "WARNING",
-        // Recorded in the customer the account now belongs to (a change of customer moves it).
-        (await prisma.teamMember.findUnique({ where: { userId: target.id }, select: { teamId: true } }))?.teamId ?? targetTeamIdBefore,
-      );
+        if (!target) throw new NotFoundError(apiCopy("apiCopy.user.not.found.4a1793e9"));
+        const previousTeamId = target.teamMembership?.teamId ?? null;
+        const teamId = body.account ? (body.account.type === "customer" ? body.account.teamId : null) : previousTeamId;
+        let applyGrants;
+        if (body.storageAccess !== undefined || body.serverAccess !== undefined) {
+          if (!teamId) throw new ValidationError(t("backend.user.adminResourceAccessIsRoleBased"));
+          applyGrants = await prepareResourceNarrowing(tx, { ...body, teamId });
+        }
+        if (body.account) await setAccountType(target.id, body.account, session, tx);
+        await applyGrants?.();
+        await writeAuditLog({
+          actorType: "USER", actorId: session.userId, action: "user.permission_update", severity: "WARNING",
+          teamId: teamId ?? previousTeamId,
+          detail: {
+            targetUsername: target.username,
+            account: body.account ?? null,
+            storageAccessCount: body.storageAccess?.length ?? null,
+            serverAccessCount: body.serverAccess?.length ?? null,
+          },
+        }, tx);
+      }, { isolationLevel: "Serializable" }));
       return NextResponse.json({ success: true });
     },
   );
