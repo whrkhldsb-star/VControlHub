@@ -57,7 +57,7 @@ export async function POST(req: NextRequest) {
     req,
     { permission: "docker:manage", rateLimit: COMMAND_LIMIT, errorMessage: apiCopy("apiCopy.docker.resource.operation.failed.6769d4ca"), bodySchema: postBodySchema },
     async ({ session, body: input }) => {
-      const { type, action, name, driver = "local", serverId } = input;
+      const { type, action, name, driver = type === "networks" ? "bridge" : "local", serverId } = input;
 
       if (serverId) {
         const teamAccess = await assertServerTeamAccess(session, serverId, "manage");
@@ -78,7 +78,7 @@ export async function POST(req: NextRequest) {
           : `/volumes/${encodeURIComponent(name)}`;
       const method = action === "create" ? "POST" : "DELETE";
       const body = action === "create"
-        ? JSON.stringify(isNetwork ? { Name: name, Driver: driver } : { Name: name, Driver: driver })
+        ? JSON.stringify({ Name: name, Driver: driver })
         : undefined;
 
       const { result } = await dockerRequest(path, {

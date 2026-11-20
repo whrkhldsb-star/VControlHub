@@ -165,7 +165,7 @@ describe("/api/docker/resources", () => {
     expect(mocks.auditUserAction).toHaveBeenCalledWith(
       "u1",
       "docker.network.delete",
-      { name: "old_net", driver: "local", status: 204, ok: true, serverId: "hub-host" },
+      { name: "old_net", driver: "bridge", status: 204, ok: true, serverId: "hub-host" },
       "WARNING",
       "team-a",
     );

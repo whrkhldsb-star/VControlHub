@@ -50,7 +50,8 @@ function HostResources({ serverId, serverLabel }: HostProps) {
   const [volumes, setVolumes] = useState<DockerVolume[]>([]);
   const [activeType, setActiveType] = useState<ResourceType>("networks");
   const [name, setName] = useState("");
-  const [driver, setDriver] = useState("local");
+  const [driver, setDriver] = useState("");
+  const defaultDriver = activeType === "networks" ? "bridge" : "local";
   const [loading, setLoading] = useState(false);
   const [busyKey, setBusyKey] = useState<string | null>(null);
   const [error, setError] = useState("");
@@ -139,7 +140,7 @@ function HostResources({ serverId, serverLabel }: HostProps) {
           type: activeType,
           action: "create",
           name: cleanName,
-          driver: driver.trim() || "local",
+          driver: driver.trim() || defaultDriver,
           ...(serverId ? { serverId } : {}),
         }),
       });
@@ -329,7 +330,10 @@ function HostResources({ serverId, serverLabel }: HostProps) {
             id="docker-resource-type"
             aria-label={t("dockerResources.field.type")}
             value={activeType}
-            onChange={(event) => setActiveType(event.currentTarget.value as ResourceType)}
+            onChange={(event) => {
+              setActiveType(event.currentTarget.value as ResourceType);
+              setDriver("");
+            }}
             className={UI_INPUT}
           >
             <option value="networks">{t("dockerResources.kind.network")}</option>
@@ -350,7 +354,7 @@ function HostResources({ serverId, serverLabel }: HostProps) {
             id="docker-resource-driver"
             value={driver}
             onChange={(event) => setDriver(event.currentTarget.value)}
-            placeholder={t("dockerResources.field.driver")}
+            placeholder={defaultDriver}
             className={cn(UI_INPUT, "font-mono")}
           />
         </FormField>
