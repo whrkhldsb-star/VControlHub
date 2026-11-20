@@ -12,11 +12,11 @@ import { readDirectoryIndex } from "./directory-index";
 const logger = createLogger("storage.webdav-sync");
 const WRITE_BATCH_SIZE = 500;
 const inventorySelect = {
-  id: true, relativePath: true, isDeleted: true,
+  id: true, relativePath: true, isDeleted: true, updatedAt: true,
   name: true, entryType: true, mimeType: true, size: true, storageVersion: true, checksumSha256: true,
 } as const;
 type IndexedEntry = {
-  id: string; relativePath: string; isDeleted: boolean;
+  id: string; relativePath: string; isDeleted: boolean; updatedAt: Date;
   name: string; entryType: string; mimeType: string | null; size: bigint | null; storageVersion: string | null; checksumSha256: string | null;
 };
 
@@ -36,6 +36,7 @@ export async function syncWebDavDirectoryEntries(input: { node: WebDavStorageNod
   let phase: "list" | "index" = "list";
   try {
     // Finish the remote read before opening a database transaction.
+    const listingStartedAt = new Date();
     const entries = [...new Map((await createRemoteStorageClient(input.node).list(dir.path)).map((entry) => [entry.relativePath, entry])).values()];
     const paths = new Set(entries.map((entry) => entry.relativePath));
     phase = "index";
@@ -99,13 +100,13 @@ export async function syncWebDavDirectoryEntries(input: { node: WebDavStorageNod
           await syncExisting(existing, entry);
         }
       }
-      const stale = [...indexed.values()].filter((entry) => !entry.isDeleted && !paths.has(entry.relativePath));
+      const stale = [...indexed.values()].filter((entry) => !entry.isDeleted && entry.updatedAt < listingStartedAt && !paths.has(entry.relativePath));
       // Remote absence is not a user deletion. Remove only live index rows, so a
       // returning remote object can be indexed again. Existing isDeleted rows are
       // ambiguous legacy tombstones and MUST NOT be automatically resurrected.
       for (let offset = 0; offset < stale.length; offset += WRITE_BATCH_SIZE) {
         counts.deleted += (await tx.fileEntry.deleteMany({
-          where: { storageNodeId: input.node.id, id: { in: stale.slice(offset, offset + WRITE_BATCH_SIZE).map((entry) => entry.id) }, isDeleted: false, versions: { none: {} }, children: { none: {} } },
+          where: { storageNodeId: input.node.id, id: { in: stale.slice(offset, offset + WRITE_BATCH_SIZE).map((entry) => entry.id) }, isDeleted: false, updatedAt: { lt: listingStartedAt }, versions: { none: {} }, children: { none: {} } },
         })).count;
       }
       // Conservatively preserve history/children. Do not disguise remote absence as
