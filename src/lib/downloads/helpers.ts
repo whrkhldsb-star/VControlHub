@@ -64,6 +64,7 @@ export async function indexDownloadedFileEntry(input: {
  targetPath: string;
  fileName: string | null | undefined;
  size: number | bigint | null | undefined;
+ preserveRecycled?: boolean;
 }, db?: Pick<Prisma.TransactionClient, "fileEntry">) {
  const safeFileName = normalizeDownloadFileName(input.fileName);
  if (!input.storageNode?.id || !safeFileName) return;
@@ -71,6 +72,14 @@ export async function indexDownloadedFileEntry(input: {
  const relativePath = relativePathFromDownloadTarget(input.storageNode.basePath, input.targetPath, safeFileName);
  if (!relativePath) return;
 
+ if (input.preserveRecycled) {
+  const index = db ?? prisma;
+  const key = { storageNodeId: input.storageNode.id, relativePath };
+  const data = { name: safeFileName, entryType: "FILE" as const, size: input.size == null ? null : BigInt(input.size), checksumSha256: null };
+  await index.fileEntry.createMany({ data: { ...key, ...data }, skipDuplicates: true });
+  await index.fileEntry.updateMany({ where: { ...key, isDeleted: false }, data });
+  return;
+ }
  if (db) {
   // A caught unique violation would leave the surrounding transaction aborted.
   // deleteBatchId:null — the row leaves the recycle bin, so the batch marker

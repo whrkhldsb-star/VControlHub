@@ -4,7 +4,7 @@ import { sessionHasPermission } from "@/lib/auth/authorization";
 import type { SessionPayload } from "@/lib/auth/session";
 import { teamCreateData, seesAllCustomers } from "@/lib/auth/team-scope";
 import { prisma } from "@/lib/db";
-import { NotFoundError } from "@/lib/errors";
+import { NotFoundError, ValidationError } from "@/lib/errors";
 import { t } from "@/lib/i18n/service-translations";
 
 import { assertOutboundReady } from "./adapters";
@@ -117,7 +117,7 @@ export async function updateItsmConnection(
   if (parsed.direction !== undefined) data.direction = parsed.direction;
   if (parsed.enabled !== undefined) data.enabled = parsed.enabled;
   if (parsed.teamId !== undefined && (!session || sessionHasPermission(session, "team:manage"))) {
-    data.teamId = parsed.teamId;
+    if (parsed.teamId !== existing.teamId) throw new ValidationError(t("backend.itsm.newConnectionForCustomer"));
   }
   if (parsed.config !== undefined) data.config = parsed.config as Prisma.InputJsonValue;
   let effectiveCredentials: ItsmCredentials = {};
@@ -140,13 +140,11 @@ export async function updateItsmConnection(
   }
 
   const updated = await prisma.itsmConnection.updateMany({
-    where: { id, ...connectionScope(session) },
+    where: { ...connectionScope(session), id, teamId: existing.teamId, updatedAt: existing.updatedAt },
     data,
   });
   if (updated.count === 0)
     throw new NotFoundError(t("backend.itsm.itsmConnectionNotFound"));
-  // By id: a connection just moved to another customer is outside the scope
-  // it was found in, and the committed move was reported as "not found".
   const row = await prisma.itsmConnection.findUnique({ where: { id } });
   if (!row) throw new NotFoundError(t("backend.itsm.itsmConnectionNotFound"));
   return toConnectionRecord(row);

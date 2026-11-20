@@ -196,6 +196,8 @@ export async function initMediaUploadSession(
 	const row = await prisma.mediaUploadSession.create({
 		data: {
 			userId: input.userId,
+			teamId: input.session?.currentTeamId ?? null,
+			teamBound: true,
 			filename: input.filename,
 			mimeType: input.mimeType,
 			totalSize: BigInt(input.totalSize),
@@ -223,9 +225,10 @@ export async function initMediaUploadSession(
 export async function getMediaUploadSession(
 	sessionId: string,
 	userId: string,
+	teamId: string | null = null,
 ): Promise<MediaUploadSessionView | null> {
 	const row = await prisma.mediaUploadSession.findFirst({
-		where: { id: sessionId, userId },
+		where: { id: sessionId, userId, teamId, teamBound: true },
 	});
 	if (!row) return null;
 	return toView(row);
@@ -235,13 +238,14 @@ export async function getMediaUploadSession(
  *  same index overwrites. Auto-transitions PENDING → UPLOADING on first
  *  chunk. */
 export async function appendMediaUploadChunk(params: {
+	teamId?: string | null;
 	sessionId: string;
 	userId: string;
 	index: number;
 	size: number;
 	buffer: Buffer;
 }): Promise<MediaUploadSessionView> {
-	const { sessionId, userId, index, size, buffer } = params;
+	const { sessionId, userId, teamId = null, index, size, buffer } = params;
 	if (!Number.isInteger(index) || index < 0) {
 		throw new MediaUploadError("chunk_index_invalid", "index cannot be negative");
 	}
@@ -253,7 +257,7 @@ export async function appendMediaUploadChunk(params: {
 	}
 
 	const existing = await prisma.mediaUploadSession.findFirst({
-		where: { id: sessionId, userId },
+		where: { id: sessionId, userId, teamId, teamBound: true },
 	});
 	if (!existing) {
 		throw new MediaUploadError("session_not_found", "Upload session not found");
@@ -291,10 +295,10 @@ export async function appendMediaUploadChunk(params: {
 		return await prisma.$transaction(async (tx) => {
 			await tx.$queryRaw`
 				SELECT id FROM media_upload_sessions
-				WHERE id = ${sessionId} AND "userId" = ${userId}
+				WHERE id = ${sessionId} AND "userId" = ${userId} AND "teamBound" AND "teamId" IS NOT DISTINCT FROM ${teamId}
 				FOR UPDATE
 			`;
-			const snapshot = await tx.mediaUploadSession.findFirst({ where: { id: sessionId, userId } });
+			const snapshot = await tx.mediaUploadSession.findFirst({ where: { id: sessionId, userId, teamId, teamBound: true } });
 			if (!snapshot) throw new MediaUploadError("session_not_found", "Upload session not found");
 			assertSessionAcceptsChunks(snapshot);
 			const nextReceived = Array.from(new Set([...snapshot.receivedChunks, index])).sort((a, b) => a - b);
@@ -307,7 +311,7 @@ export async function appendMediaUploadChunk(params: {
 				data: { receivedChunks: nextReceived, status: "UPLOADING" },
 			});
 			if (updated.count !== 1) {
-				const current = await tx.mediaUploadSession.findFirst({ where: { id: sessionId, userId } });
+				const current = await tx.mediaUploadSession.findFirst({ where: { id: sessionId, userId, teamId, teamBound: true } });
 				if (!current) throw new MediaUploadError("session_not_found", "Upload session not found");
 				assertSessionAcceptsChunks(current);
 				throw new MediaUploadError("chunk_append_conflict", "Upload session changed; please retry");
@@ -478,19 +482,20 @@ export async function completeMediaUploadSession(params: {
 export async function cancelMediaUploadSession(
 	sessionId: string,
 	userId: string,
+	teamId: string | null = null,
 ): Promise<MediaUploadSessionView> {
 	// Only active sessions may cancel — refuse flipping COMPLETED/FAILED back.
 	const updateResult = await prisma.mediaUploadSession.updateMany({
 		where: {
 			id: sessionId,
-			userId,
+			userId, teamId, teamBound: true,
 			status: { in: ["PENDING", "UPLOADING"] },
 		},
 		data: { status: "CANCELLED" },
 	});
 	if (updateResult.count === 0) {
 		const existing = await prisma.mediaUploadSession.findFirst({
-			where: { id: sessionId, userId },
+			where: { id: sessionId, userId, teamId, teamBound: true },
 			select: { status: true },
 		});
 		if (!existing) {

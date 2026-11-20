@@ -1,0 +1,1 @@
+ALTER TABLE "media_upload_sessions" ADD COLUMN "teamId" TEXT, ADD COLUMN "teamBound" BOOLEAN NOT NULL DEFAULT FALSE;

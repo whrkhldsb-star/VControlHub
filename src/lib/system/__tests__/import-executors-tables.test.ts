@@ -340,7 +340,7 @@ describe("references to rows that are neither in the package nor here", () => {
     const update = vi.fn().mockResolvedValue({});
     const tx = {
       sshKey: { findMany: vi.fn().mockResolvedValue([{ id: "key-here" }]) },
-      server: { findMany: vi.fn().mockResolvedValue([{ id: "s-gone" }, { id: "s-here" }, { id: "s-none" }]), createMany: vi.fn(), update },
+      server: { findUniqueOrThrow: vi.fn(async ({ where }) => server(where.id, null)), findMany: vi.fn().mockResolvedValue([{ id: "s-gone" }, { id: "s-here" }, { id: "s-none" }]), createMany: vi.fn(), update },
     } as unknown as Tx;
 
     await importServers(tx, tables({ servers: [server("s-gone", "key-gone"), server("s-here", "key-here"), server("s-none", null)] }), OVERWRITE, counts());
@@ -362,7 +362,8 @@ describe("references to rows that are neither in the package nor here", () => {
         { id: "other", teamId: "other-team", managementMode: "AGENT" },
         { id: "direct", teamId: "team", managementMode: "DIRECT" },
       ]) },
-      storageNode: { findMany: vi.fn().mockResolvedValueOnce([{ id: "old" }]).mockResolvedValue([]),
+      shareLink: { updateMany: vi.fn() },
+      storageNode: { findUniqueOrThrow: vi.fn(async () => node("old", null)), findMany: vi.fn().mockResolvedValueOnce([{ id: "old" }]).mockResolvedValue([]),
         createMany: vi.fn().mockResolvedValue({ count: 1 }), update },
       agentFileShare: { create, deleteMany },
     } as unknown as Tx;
@@ -382,7 +383,8 @@ describe("references to rows that are neither in the package nor here", () => {
     const tx = {
       server: { findMany: vi.fn().mockResolvedValue([{ id: "s-here", teamId: "team-b", managementMode: "DIRECT" }]) },
       agentFileShare: { deleteMany: vi.fn() },
-      storageNode: { findMany: storageFindMany, createMany, update, updateMany: vi.fn() },
+      shareLink: { updateMany: vi.fn() },
+      storageNode: { findUniqueOrThrow: vi.fn(async () => node("n-existing", null)), findMany: storageFindMany, createMany, update, updateMany: vi.fn() },
     } as unknown as Tx;
 
     await importStorageNodes(tx, tables({ storageNodes: [node("n-gone", "s-gone"), node("n-here", "s-here"), node("n-existing", "s-gone")] }), OVERWRITE, counts());

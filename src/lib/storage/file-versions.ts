@@ -135,6 +135,7 @@ async function resolveAccessibleFileEntry(input: {
           host: true,
           port: true,
           username: true,
+          teamId: true,
           hostKeySha256: true,
           serverId: true,
           server: {
@@ -319,6 +320,7 @@ export async function snapshotFileVersionBeforeOverwrite(input: {
           host: true,
           port: true,
           username: true,
+          teamId: true,
           hostKeySha256: true,
           serverId: true,
           server: {

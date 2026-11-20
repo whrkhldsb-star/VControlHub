@@ -5,6 +5,7 @@
  * 从 import-executors.ts 按域拆分而来。
  */
 
+import { resetAgentForModeChange } from "@/lib/server/agent-service";
 import { Prisma } from "@prisma/client";
 
 import type { ExportFile, ImportOptions } from "@/lib/system/config-schema";
@@ -58,15 +59,18 @@ export async function importSshKeys(
     },
     updateById: async (r) => {
       await tx.sshKey.update({
-        where: { id: r.id },
+        where: {
+          id: r.id, teamId: r.teamId ?? null,
+          ...(!r.privateKey ? { publicKey: r.publicKey, fingerprint: r.fingerprint } : {}),
+        },
         data: {
           name: r.name,
           fingerprint: r.fingerprint,
           publicKey: r.publicKey,
           // Full mode: restore private key + passphrase; Standard: keep existing
           ...(r.privateKey ? { privateKey: r.privateKey } : {}),
-          ...(r.passphrase !== null && r.passphrase !== undefined
-            ? { passphrase: r.passphrase }
+          ...(r.privateKey || (r.passphrase !== null && r.passphrase !== undefined)
+            ? { passphrase: r.passphrase ?? null }
             : {}),
           description: r.description,
           teamId: r.teamId ?? null,
@@ -172,7 +176,26 @@ export async function importServers(
         })
       ).count,
     updateById: async (r) => {
-      await tx.server.update({ where: { id: r.id }, data: toUpdateData(r) });
+      // Ownership changes must go through transferServerToCustomer, which
+      // moves or refuses every dependent storage binding in its transaction.
+      const current = await tx.server.findUniqueOrThrow({ where: { id: r.id } });
+      const changed = current.host !== r.host || current.port !== r.port ||
+        (r.managementMode !== undefined && r.managementMode !== current.managementMode) ||
+        (r.operatingSystem !== undefined && r.operatingSystem !== current.operatingSystem);
+      const loginChanged = changed || current.username !== r.username ||
+        current.connectionType !== r.connectionType ||
+        (r.rdpDomain !== undefined && r.rdpDomain !== current.rdpDomain) ||
+        (r.rdpCertificateSha256 !== undefined && r.rdpCertificateSha256 !== current.rdpCertificateSha256) ||
+        (r.hostKeySha256 !== undefined && r.hostKeySha256 !== current.hostKeySha256);
+      await tx.server.update({
+        where: { id: r.id, teamId: r.teamId ?? null, updatedAt: current.updatedAt },
+        data: { ...toUpdateData(r), ...(loginChanged ? {
+          password: r.password ?? null, rdpPassword: r.rdpPassword ?? null,
+          sshKeyId: r.sshKeyId && keys.has(r.sshKeyId) ? r.sshKeyId : null,
+        } : {}), ...(changed ? {
+          ...resetAgentForModeChange(), onboardingStatus: "NEEDS_ATTENTION", onboardingLastError: null,
+        } : {}) },
+      });
     },
   });
 }
@@ -282,7 +305,14 @@ export async function importStorageNodes(
       return created;
     },
     updateById: async (r) => {
-      await tx.storageNode.update({ where: { id: r.id }, data: toData(r) });
+      const current = await tx.storageNode.findUniqueOrThrow({ where: { id: r.id } });
+      const sameEndpoint = current.teamId === (r.teamId ?? null) && current.driver === r.driver &&
+        current.basePath === r.basePath && current.host === r.host && current.port === r.port &&
+        current.username === r.username && current.serverId === (r.serverId ?? null);
+      await tx.storageNode.update({ where: { id: r.id, teamId: r.teamId ?? null, updatedAt: current.updatedAt }, data: {
+        ...toData(r), ...(!sameEndpoint && !r.webdavConfigEncrypted ? { webdavConfigEncrypted: null } : {}),
+      } });
+      if (!sameEndpoint || r.driver === "AGENT" || r.webdavConfigEncrypted) await tx.shareLink.updateMany({ where: { storageNodeId: r.id, revokedAt: null }, data: { revokedAt: new Date() } });
       await tx.agentFileShare.deleteMany({ where: { storageNodeId: r.id } });
       if (r.driver === "AGENT") await restoreFileShare(r);
     },

@@ -82,7 +82,7 @@ export async function checkDriveOwnership(actor: SessionPayload, serverId: strin
   const sftp = await prisma.storageNode.create({ data: { driver: "SFTP", basePath: "/srv/files", serverId, teamId: actor.currentTeamId, name: "SFTP" } });
   await prisma.team.create({ data: { id: teamId, name: teamId, slug: teamId } });
   try {
-    const { share } = await createShareLink({ session: actor, storageNodeId: nodeId, path: "note.txt" });
+    const { share } = await createShareLink({ session: actor, storageNodeId: sftp.id, path: "note.txt" });
     const impact = await getServerDeletionImpact(serverId);
     expect(impact.storageNodes).toBe(2);
     expect(impact.files).toBeGreaterThan(0);
@@ -94,6 +94,8 @@ export async function checkDriveOwnership(actor: SessionPayload, serverId: strin
     const drive = await prisma.agentFileShare.findUniqueOrThrow({ where: { storageNodeId: nodeId }, include: { node: true } });
     expect(drive).toMatchObject({ serverId, teamId, tokenHash: null, seenAt: null, writable: false, node: { teamId } });
     expect((await prisma.storageNode.findUniqueOrThrow({ where: { id: sftp.id } })).teamId).toBe(teamId);
+    await expect(pairFileShare(nodeId, { ...actor, currentTeamId: teamId })).rejects.toThrow();
+    await prisma.server.update({ where: { id: serverId }, data: { agentTokenHash: "new-owner-fixture" } });
     const token = await pairFileShare(nodeId, { ...actor, currentTeamId: teamId });
     expect(createHash("sha256").update(token).digest("hex")).toBe((await prisma.agentFileShare.findUniqueOrThrow({ where: { storageNodeId: nodeId } })).tokenHash);
   } finally {

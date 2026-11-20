@@ -819,6 +819,7 @@ export async function pruneOldVpsBackupRecords(
       status: "COMPLETED",
       ...owner,
       completedAt: { lt: cutoff },
+      OR: [{ localPath: { not: null } }, { offsiteKey: null }],
       id: { notIn: newestPerType.map((record) => record.id) },
     },
     select: { id: true, localPath: true },
@@ -828,7 +829,18 @@ export async function pruneOldVpsBackupRecords(
   let deleted = 0;
   for (const record of oldRecords) {
     try {
-      await deleteVpsBackupRecord(record.id);
+      if (record.localPath) {
+        try { unlinkSync(resolveVpsBackupFilePath(record.localPath)); }
+        catch (error) { if ((error as NodeJS.ErrnoException).code !== "ENOENT") throw error; }
+      }
+      // Offsite retention owns expiry of the object and releases its key.
+      await prisma.$transaction(async tx => {
+        const where = { id: record.id, serverId, status: "COMPLETED" as const, localPath: record.localPath };
+        const removed = await tx.vpsBackupRecord.deleteMany({ where: { ...where, offsiteKey: null } });
+        if (removed.count === 0) {
+          await tx.vpsBackupRecord.updateMany({ where: { ...where, offsiteKey: { not: null } }, data: { localPath: null } });
+        }
+      });
       deleted++;
     } catch {
       // Continue on individual failures

@@ -117,6 +117,7 @@ const mediaStreamItemSelect = {
       directAccessMode: true,
       publicBaseUrl: true,
       serverId: true,
+      teamId: true,
       hostKeySha256: true,
       webdavConfigEncrypted: true,
       // The node's own endpoint overrides and the server's OS decide the

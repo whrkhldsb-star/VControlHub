@@ -131,19 +131,29 @@ async function permanentDeleteFileEntryActionImpl(
       return { error: t("storagePage.action.missingFileEntryParam") } satisfies StorageActionState;
     }
 
+    const deleteBatchId = String(formData.get("deleteBatchId") ?? "");
+    if (!deleteBatchId) return { error: apiCopy("apiCopy.files.op.changed") };
+    const where = { id: fileEntryId, isDeleted: true, deleteBatchId, storageNode: teamWhere(session) };
+    const target = await prisma.fileEntry.findFirst({ where, select: { storageNodeId: true } });
+    if (!target) return { error: apiCopy("apiCopy.files.op.changed") };
+    // Serialize against move/copy/delete/rename/restore on the same node:
+    // permanent delete removes backing bytes AND index rows; interleaving
+    // with a tree rewrite would corrupt the other operation's assumptions.
+    const permRelease = await tryAcquireAdvisoryLock("storage-file-operation", target.storageNodeId);
+    if (!permRelease) {
+      return { error: apiCopy("apiCopy.files.op.busy") } satisfies StorageActionState;
+    }
+    try {
     const entry = await prisma.fileEntry.findFirst({
-      where: {
-        id: fileEntryId,
-        storageNode: {
-          ...teamWhere(session),
-        },
-      },
+      where: { ...where, storageNodeId: target.storageNodeId },
       select: {
         id: true,
         name: true,
         entryType: true,
         relativePath: true,
         storageNodeId: true,
+        deletedAgentRoot: true,
+        storageVersion: true,
         storageNode: {
           select: {
             id: true,
@@ -155,6 +165,7 @@ async function permanentDeleteFileEntryActionImpl(
             host: true,
             port: true,
             username: true,
+            teamId: true,
             hostKeySha256: true,
             server: { select: STORAGE_SSH_SERVER_SELECT },
           },
@@ -176,14 +187,6 @@ async function permanentDeleteFileEntryActionImpl(
       return { error: storageAccessDeniedCopy(permDeleteAccess.reason) } satisfies StorageActionState;
     }
 
-    // Serialize against move/copy/delete/rename/restore on the same node:
-    // permanent delete removes backing bytes AND index rows; interleaving
-    // with a tree rewrite would corrupt the other operation's assumptions.
-    const permRelease = await tryAcquireAdvisoryLock("storage-file-operation", entry.storageNodeId);
-    if (!permRelease) {
-      return { error: apiCopy("apiCopy.files.op.busy") } satisfies StorageActionState;
-    }
-    try {
     const affectedShareIds = await findAffectedShareIds({
     storageNodeId: entry.storageNodeId,
     relativePath: entry.relativePath,
@@ -196,7 +199,7 @@ async function permanentDeleteFileEntryActionImpl(
   // files with it (A4-27): refuse until they are moved or deleted themselves.
   if (entry.entryType === "DIRECTORY") {
     const live = await prisma.fileEntry.count({
-      where: { storageNodeId: entry.storageNodeId, isDeleted: false, relativePath: { startsWith: escapeLikeLiteral(`${entry.relativePath}/`) } },
+      where: { storageNodeId: entry.storageNodeId, OR: [{ isDeleted: false }, { deleteBatchId: null }, { deleteBatchId: { not: deleteBatchId } }], relativePath: { startsWith: escapeLikeLiteral(`${entry.relativePath}/`) } },
     });
     if (live > 0) {
       const t = await serverT();
@@ -205,7 +208,13 @@ async function permanentDeleteFileEntryActionImpl(
   }
   // Delete backing first. If this fails, keep the tombstone and share records
   // intact so the user can retry and the operation cannot report false success.
+  if ((entry.storageNode.driver === "AGENT" || entry.deletedAgentRoot) &&
+      (entry.storageNode.driver !== "AGENT" || !entry.deletedAgentRoot || !entry.storageVersion)) {
+    return { error: apiCopy("apiCopy.files.op.changed") };
+  }
   await deleteBackingObject({
+    expectedRoot: entry.deletedAgentRoot ?? undefined,
+    version: entry.storageVersion ?? undefined,
     storageNode: entry.storageNode,
     relativePath: entry.relativePath,
     isDirectory: entry.entryType === "DIRECTORY",
@@ -232,12 +241,12 @@ async function permanentDeleteFileEntryActionImpl(
         prisma.fileEntry.deleteMany({
           where: {
             storageNodeId: entry.storageNodeId,
-            isDeleted: true,
+            isDeleted: true, deleteBatchId,
             relativePath: { startsWith: escapeLikeLiteral(prefix) },
           },
         }),
         prisma.fileEntry.delete({
-          where: { id: fileEntryId },
+          where: { id: fileEntryId, isDeleted: true, deleteBatchId },
         }),
     revokeShares,
       ]);
@@ -245,7 +254,7 @@ async function permanentDeleteFileEntryActionImpl(
     // Purge version blobs before the cascade removes their rows (see above).
     await purgeAllFileVersionBlobs(fileEntryId);
     await prisma.$transaction([
-    prisma.fileEntry.delete({ where: { id: fileEntryId } }),
+    prisma.fileEntry.delete({ where: { id: fileEntryId, isDeleted: true, deleteBatchId } }),
     revokeShares,
     ]);
     }
@@ -260,7 +269,7 @@ async function permanentDeleteFileEntryActionImpl(
 
     return { success: t("storagePage.action.filePermanentlyDeleted", { name: entry.name }) } satisfies StorageActionState;
     } finally {
-      void permRelease();
+      await permRelease();
     }
   } catch (error) {
     return {

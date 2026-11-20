@@ -170,12 +170,39 @@ const RESET_SCHEMA_SQL = `DO $vch_reset$ DECLARE r record; BEGIN
   FOR r IN SELECT tablename FROM pg_tables WHERE schemaname = 'public' AND tableowner = current_user LOOP
     EXECUTE format('DROP TABLE IF EXISTS public.%I CASCADE', r.tablename);
   END LOOP;
+  -- DROP TABLE removed the triggers, but an older dump cannot name their functions.
+  FOR r IN SELECT p.proname FROM pg_proc p JOIN pg_namespace n ON n.oid = p.pronamespace
+    WHERE n.nspname = 'public' AND p.pronargs = 0 AND p.prorettype = 'pg_catalog.trigger'::regtype
+      AND p.proowner = current_user::regrole AND p.proname IN (
+        'vch_reset_connection_evidence', 'vch_reset_storage_evidence', 'vch_record_command_success',
+        'vch_revoke_file_shares', 'vch_remove_detached_file_share')
+      AND NOT EXISTS (SELECT 1 FROM pg_depend d WHERE d.classid = 'pg_proc'::regclass
+        AND d.objid = p.oid AND d.deptype = 'e') LOOP
+    EXECUTE format('DROP FUNCTION public.%I() RESTRICT', r.proname);
+  END LOOP;
   FOR r IN SELECT t.typname FROM pg_type t JOIN pg_namespace n ON n.oid = t.typnamespace
     WHERE n.nspname = 'public' AND t.typtype = 'e' AND t.typowner = (SELECT oid FROM pg_roles WHERE rolname = current_user) LOOP
     EXECUTE format('DROP TYPE IF EXISTS public.%I CASCADE', r.typname);
   END LOOP;
 END $vch_reset$;
 `;
+
+// A separate psql command runs after stdin, inside the same transaction.
+// Even an unexpected EOF must pass this guard before psql can commit.
+const VERIFY_RESTORE_SQL = `DO $vch_verify$ BEGIN
+  IF current_setting('vch.restore_complete', true) IS DISTINCT FROM 'yes'
+     OR NOT EXISTS (SELECT 1 FROM public."User")
+     OR NOT EXISTS (SELECT 1 FROM public."Role")
+     OR to_regclass('public."StorageNode"') IS NULL
+     OR to_regclass('public.servers') IS NULL THEN
+    RAISE EXCEPTION 'Incomplete VControlHub database backup';
+  END IF;
+  IF to_regclass('public._prisma_migrations') IS NOT NULL THEN
+    IF NOT EXISTS (SELECT 1 FROM public._prisma_migrations WHERE finished_at IS NOT NULL AND rolled_back_at IS NULL) THEN
+      RAISE EXCEPTION 'Backup has no completed application migrations';
+    END IF;
+  END IF;
+END $vch_verify$;`;
 
 /** Same check as a standalone query, for the file phase. */
 async function assertNoOtherDatabaseClients({ psql, connArgs, childEnv }) {
@@ -201,7 +228,7 @@ async function restoreDatabase(backupFile, { psql, connArgs, childEnv }) {
   // stdin) makes the dump all-or-nothing. ON_ERROR_STOP alone stops at the
   // first error but leaves every DROP/CREATE/COPY before it committed, i.e. a
   // half-restored database.
-  const child = spawn(psql, ["-X", "-v", "ON_ERROR_STOP=1", "--single-transaction", "-f", "-", ...connArgs], { stdio: ["pipe", "ignore", "pipe"], env: childEnv });
+  const child = spawn(psql, ["-X", "-v", "ON_ERROR_STOP=1", "--single-transaction", "-f", "-", "-c", VERIFY_RESTORE_SQL, ...connArgs], { stdio: ["pipe", "ignore", "pipe"], env: childEnv });
   child.stdin.write(OFFLINE_GUARD_SQL);
   child.stdin.write(RESET_SCHEMA_SQL);
   const source = createReadStream(backupFile);
@@ -224,7 +251,17 @@ async function restoreDatabase(backupFile, { psql, connArgs, childEnv }) {
   try {
     await Promise.all([
       completed,
-      gunzip ? pipeline(source, gunzip, child.stdin) : pipeline(source, child.stdin),
+      pipeline(source, ...(gunzip ? [gunzip] : []), async function* (chunks) {
+        let tail = "";
+        for await (const chunk of chunks) {
+          tail = (tail + chunk.subarray(-4096).toString("latin1")).slice(-4096);
+          yield chunk;
+        }
+        if (!/^-- PostgreSQL database dump complete\r?$/m.test(tail)) {
+          throw new Error("Missing pg_dump completion marker");
+        }
+        yield "\nSET LOCAL vch.restore_complete = 'yes';\n";
+      }, child.stdin),
     ]);
   } finally {
     source.destroy();

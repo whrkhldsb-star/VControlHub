@@ -44,7 +44,7 @@ describe("sftp sync service", () => {
     const node = {
       id: "node_pin",
       name: "pinned",
-      driver: "SFTP",
+      teamId: null, driver: "SFTP",
       basePath: "/data/files",
       host: null,
       port: null,
@@ -85,7 +85,7 @@ describe("sftp sync service", () => {
     const node = {
       id: "node_1",
       name: "remote",
-      driver: "SFTP",
+      teamId: null, driver: "SFTP",
       basePath: "/data/files",
       host: null,
       port: null,
@@ -158,7 +158,7 @@ describe("sftp sync service", () => {
   it("leaves a path the unique index cannot hold out of the batch instead of failing it", async () => {
     vi.clearAllMocks();
     const node = {
-      id: "node_1", name: "remote", driver: "SFTP", basePath: "/data/files", host: "203.0.113.20", port: 22, username: "deploy",
+      id: "node_1", name: "remote", teamId: null, driver: "SFTP", basePath: "/data/files", host: "203.0.113.20", port: 22, username: "deploy",
       hostKeySha256: null,
       server: { teamId: null, id: "srv_1", host: "203.0.113.20", port: 22, username: "deploy", connectionType: "PASSWORD", managementMode: "DIRECT", operatingSystem: "LINUX" as const, password: "ENCRYPTED PASSWORD", hostKeySha256: null, sshKey: null },
     } as const;
@@ -194,7 +194,7 @@ describe("sftp sync service", () => {
     const node = {
       id: "node_batch",
       name: "remote",
-      driver: "SFTP",
+      teamId: null, driver: "SFTP",
       basePath: "/data/files",
       host: null,
       port: null,
@@ -249,7 +249,7 @@ describe("sftp sync service", () => {
     const node = {
       id: "node_1",
       name: "remote",
-      driver: "SFTP",
+      teamId: null, driver: "SFTP",
       basePath: "/data/files",
       host: null,
       port: null,
@@ -291,7 +291,7 @@ describe("sftp sync service", () => {
   const node = {
     id: "node_1",
     name: "remote",
-    driver: "SFTP",
+    teamId: null, driver: "SFTP",
     basePath: "/data/files",
     host: null,
     port: null,
@@ -331,7 +331,7 @@ describe("sftp sync service", () => {
     const node = {
       id: "node_1",
       name: "remote",
-      driver: "SFTP",
+      teamId: null, driver: "SFTP",
       basePath: "/data/files",
       host: null,
       port: null,
@@ -390,7 +390,7 @@ describe("sftp sync service", () => {
     const node = {
       id: "node_1",
       name: "remote",
-      driver: "SFTP",
+      teamId: null, driver: "SFTP",
       basePath: "/data/files",
       host: null,
       port: null,
@@ -437,7 +437,7 @@ describe("sftp sync pruning", () => {
     try {
       vi.setSystemTime(new Date("2026-10-26T01:00:00Z"));
       const node = {
-        id: "node_race", name: "remote", driver: "SFTP", basePath: "/data/files", host: null, port: null, username: null, hostKeySha256: null,
+        id: "node_race", name: "remote", teamId: null, driver: "SFTP", basePath: "/data/files", host: null, port: null, username: null, hostKeySha256: null,
         server: { teamId: null, id: "srv", host: "203.0.113.20", port: 22, username: "deploy", connectionType: "PASSWORD", managementMode: "DIRECT", operatingSystem: "LINUX" as const, password: "ENCRYPTED PASSWORD", hostKeySha256: null, sshKey: null },
       } as const;
       type Row = { id: string; relativePath: string; isDeleted: boolean; updatedAt: Date };

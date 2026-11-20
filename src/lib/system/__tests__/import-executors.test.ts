@@ -149,6 +149,7 @@ describe("executeImport", () => {
     expect(mocks.transaction).toHaveBeenCalledWith(expect.any(Function), {
       timeout: 120_000,
       maxWait: 20_000,
+      isolationLevel: "Serializable",
     });
   });
 

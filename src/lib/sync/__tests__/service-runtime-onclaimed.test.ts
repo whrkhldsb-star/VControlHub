@@ -13,7 +13,8 @@ import { beforeEach, describe, expect, it, vi } from "vitest";
 const order: string[] = [];
 
 const prismaMock = {
-  syncJob: {
+  $executeRaw: vi.fn(async () => 1),
+    syncJob: { findFirst: vi.fn(async () => null),
     updateMany: vi.fn(async (args: { data: { status?: string } }) => {
       if (args.data.status === "RUNNING") order.push("cas");
       return { count: 1 };
@@ -32,7 +33,7 @@ vi.mock("@/lib/db", () => ({ prisma: { ...prismaMock, $transaction: (run: (tx: t
 // The execution path reads the credential-bearing variant; `getSyncJobForExecution` (no
 // sshKey) is the display/ownership read used by the HTTP routes.
 const getSyncJobForExecution = vi.fn(async () => ({
-  id: "job-1",
+  id: "job-1", sourceServerId: "source", targetServerId: "target",
   syncType: "one-way",
   sourceServer: { sshKey: null, syncTargetAuth: "credential" },
   targetServer: { sshKey: null, syncTargetAuth: "credential" },

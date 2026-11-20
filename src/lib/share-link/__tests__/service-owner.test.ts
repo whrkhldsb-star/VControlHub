@@ -45,7 +45,7 @@ describe("the customer a share belongs to", () => {
     const result = await createShareLink({ session: administrator(null), storageNodeId: "node_1", path: "docs/report.pdf" });
 
     expect(result.token).toHaveLength(48);
-    expect(mockPrisma.storageNode.findUnique).toHaveBeenCalledWith({ where: { id: "node_1" }, select: { teamId: true } });
+    expect(mockPrisma.storageNode.findUnique).toHaveBeenCalledWith({ where: { id: "node_1", AND: {} }, select: { teamId: true, driver: true, agentFileShare: { select: { rootIdentity: true } } } });
     expect(mockPrisma.shareLink.create.mock.calls[0]![0].data).toMatchObject({ storageNodeId: "node_1", path: "docs/report.pdf", teamId: "team_a", createdBy: "admin_1" });
   });
 

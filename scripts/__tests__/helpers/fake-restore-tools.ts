@@ -16,7 +16,7 @@ import path from "node:path";
 const PSQL = `const fs = require("node:fs");
 const args = process.argv.slice(2);
 const others = Number(process.env.FAKE_PSQL_OTHER_CLIENTS || "0");
-if (args.includes("-c")) { process.stdout.write(String(others) + "\\n"); process.exit(0); }
+if (args.includes("-c") && !args.includes("-f")) { process.stdout.write(String(others) + "\\n"); process.exit(0); }
 const chunks = [];
 process.stdin.on("data", (c) => chunks.push(c));
 process.stdin.on("end", () => {

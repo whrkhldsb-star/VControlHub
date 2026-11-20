@@ -31,10 +31,9 @@ describe.skipIf(process.env.RUN_DATABASE_INTEGRATION_TESTS !== "1")("ITSM connec
 		await prisma.$disconnect();
 	});
 
-	it("returns the moved connection", async () => {
+	it("keeps the original connection and secret with their customer", async () => {
 		const admin = { userId: "admin", roles: ["admin" as const], currentTeamId: `${prefix}-a` };
-		const moved = await updateItsmConnection(connectionId, { teamId: `${prefix}-b` }, admin);
-		expect(moved.teamId).toBe(`${prefix}-b`);
-		expect((await prisma.itsmConnection.findUniqueOrThrow({ where: { id: connectionId } })).teamId).toBe(`${prefix}-b`);
+		await expect(updateItsmConnection(connectionId, { teamId: `${prefix}-b` }, admin)).rejects.toThrow();
+		expect((await prisma.itsmConnection.findUniqueOrThrow({ where: { id: connectionId } })).teamId).toBe(`${prefix}-a`);
 	});
 });

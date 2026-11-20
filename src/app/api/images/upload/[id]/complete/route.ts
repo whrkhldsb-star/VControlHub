@@ -82,8 +82,9 @@ export async function POST(
       // Reject legacy sessions created before the image-specific cap without
       // assembling their chunks into memory.
       const existing = await prisma.mediaUploadSession.findFirst({
-        where: { id: sessionId, userId: session.userId },
+        where: { id: sessionId, userId: session.userId, teamId: session.currentTeamId ?? null, teamBound: true },
         select: {
+          teamId: true,
           filename: true,
           mimeType: true,
           totalSize: true,
@@ -116,7 +117,7 @@ export async function POST(
       }
       // Freeze the chunks before reading or decoding them. This update and a
       // concurrent chunk replacement acquire the same PostgreSQL row lock.
-      const lease = await beginUploadFinalization(sessionId, session.userId);
+      const lease = await beginUploadFinalization(sessionId, session.userId, session.currentTeamId ?? null);
 
       try {
       let assembled: Buffer;
@@ -178,7 +179,7 @@ export async function POST(
       if (existing.storageNodeId && existing.relativePath) {
         storageAccess = await assertStorageAccess({ session, storageNodeId: existing.storageNodeId, relativePath: existing.relativePath, operation: "write", writeBytes: assembled.byteLength });
         if (!storageAccess.allowed) throw new ForbiddenError(storageAccessDeniedCopy(storageAccess.reason));
-        const node = await prisma.storageNode.findFirst({ where: { id: existing.storageNodeId, ...teamWhere(session) }, select: storageFileNodeSelect });
+        const node = await prisma.storageNode.findFirst({ where: { id: existing.storageNodeId, ...teamWhere(session), teamId: existing.teamId }, select: storageFileNodeSelect });
         if (!node || (node.driver !== "LOCAL" && node.driver !== "SFTP")) throw new ValidationError(apiCopy("apiCopy.storage.node.does.not.support.media.uploads.0d4e9d55"));
         linkedStorageNode = node;
         linkedStorageRelativePath = `${existing.relativePath.replace(/\/$/, "")}/${storageKey}`;
@@ -221,7 +222,7 @@ export async function POST(
             storageNodeId: linkedStorageRelativePath ? existing.storageNodeId : undefined,
             relativePath: linkedStorageRelativePath || undefined,
             userId: session.userId,
-            teamId: session.currentTeamId ?? null,
+            teamId: existing.teamId,
           },
         });
         if (linkedStorageRelativePath && existing.storageNodeId) {

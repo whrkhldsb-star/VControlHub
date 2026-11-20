@@ -11,10 +11,12 @@ const initialState: StorageActionState = {};
 
 export function PermanentDeleteButton({
  fileEntryId,
+ deleteBatchId,
  entryName,
  onRefresh,
 }: {
  fileEntryId: string;
+ deleteBatchId?: string | null;
  entryName: string;
  onRefresh?: () => void;
 }) {
@@ -45,6 +47,7 @@ export function PermanentDeleteButton({
 
   return (
     <form action={formAction} className="flex flex-wrap items-center gap-3">
+      <input type="hidden" name="deleteBatchId" value={deleteBatchId ?? ""} />
       <input type="hidden" name="fileEntryId" value={fileEntryId} />
       <span className="text-sm text-[var(--danger)]">
         {t("filesPage.actions.permanentDeleteWarning", { name: entryName })}

@@ -280,6 +280,7 @@ describe("/api/storage/local", () => {
 
   it("uploads files to SFTP nodes through the same endpoint", async () => {
     prismaMock.storageNode.findUnique.mockResolvedValueOnce({
+      teamId: null,
       id: "node_1",
       name: "远端媒体库",
       driver: "SFTP",
@@ -288,6 +289,7 @@ describe("/api/storage/local", () => {
       port: null,
       username: null,
       server: {
+        teamId: null,
         host: "203.0.113.20",
         port: 2222,
         username: "deploy",
@@ -297,6 +299,7 @@ describe("/api/storage/local", () => {
       },
     });
     prismaMock.storageNode.findFirst.mockResolvedValueOnce({
+      teamId: null,
       id: "node_1",
       name: "远端媒体库",
       driver: "SFTP",
@@ -305,6 +308,7 @@ describe("/api/storage/local", () => {
       port: null,
       username: null,
       server: {
+        teamId: null,
         host: "203.0.113.20",
         port: 2222,
         username: "deploy",
@@ -429,6 +433,7 @@ describe("/api/storage/local", () => {
   it("cleans up SFTP uploads when DB indexing fails after the remote write", async () => {
     // i18n: error message now in English ("Failed to write upload index: ...")
     prismaMock.storageNode.findUnique.mockResolvedValueOnce({
+      teamId: null,
       id: "node_1",
       name: "远端媒体库",
       driver: "SFTP",
@@ -437,6 +442,7 @@ describe("/api/storage/local", () => {
       port: null,
       username: null,
       server: {
+        teamId: null,
         host: "203.0.113.20",
         port: 2222,
         username: "deploy",
@@ -446,6 +452,7 @@ describe("/api/storage/local", () => {
       },
     });
     prismaMock.storageNode.findFirst.mockResolvedValueOnce({
+      teamId: null,
       id: "node_1",
       name: "远端媒体库",
       driver: "SFTP",
@@ -454,6 +461,7 @@ describe("/api/storage/local", () => {
       port: null,
       username: null,
       server: {
+        teamId: null,
         host: "203.0.113.20",
         port: 2222,
         username: "deploy",

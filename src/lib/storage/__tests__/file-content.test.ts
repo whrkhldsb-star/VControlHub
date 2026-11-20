@@ -69,11 +69,13 @@ function localNode(basePath: string): StorageFileNode {
 
 function sftpNode(): StorageFileNode {
 	return {
+		teamId: null,
 		id: "sftp_1",
 		driver: "SFTP",
 		basePath: "/srv/media",
 		serverId: "server_1",
 		server: {
+			teamId: null,
 			id: "server_1",
 			host: "127.0.0.1",
 			port: 22,

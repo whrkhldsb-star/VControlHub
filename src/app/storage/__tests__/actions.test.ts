@@ -201,6 +201,7 @@ describe("createFolderAction", () => {
     prismaMock.storageNode.findFirst.mockResolvedValueOnce({
       id: "node-1",
       name: "remote",
+      teamId: "team-1",
       driver: "SFTP",
       basePath: "/data/root/",
       host: "203.0.113.10",
@@ -258,6 +259,7 @@ describe("createFolderAction", () => {
     prismaMock.storageNode.findFirst.mockResolvedValueOnce({
       id: "node-1",
       name: "remote",
+      teamId: "team-1",
       driver: "SFTP",
       basePath: "/data/root/",
       host: "203.0.113.10",
@@ -339,6 +341,7 @@ describe("createFolderAction", () => {
     prismaMock.storageNode.findFirst.mockResolvedValueOnce({
       id: "node-sftp",
       name: "remote",
+      teamId: "team-1",
       driver: "SFTP",
       basePath: "/data/root",
       host: null,
@@ -396,6 +399,7 @@ function sftpEntry(overrides: Record<string, unknown> = {}) {
     relativePath: "docs/old.txt",
     storageNodeId: "node-sftp",
     storageNode: {
+      teamId: "team-1",
       driver: "SFTP",
       basePath: "/data/root",
       host: null,
@@ -489,6 +493,7 @@ describe("SFTP file entry actions", () => {
   });
 
   it("cleans up the remote SFTP directory before removing directory index rows", async () => {
+    prismaMock.fileEntry.findFirst.mockResolvedValueOnce({ storageNodeId: "node-sftp" });
     prismaMock.fileEntry.findFirst.mockResolvedValueOnce(
       sftpEntry({
         name: "docs",
@@ -501,7 +506,7 @@ describe("SFTP file entry actions", () => {
 
     const result = await permanentDeleteFileEntryAction(
       null,
-      entryForm("entry-1"),
+      entryForm("entry-1", { deleteBatchId: "batch" }),
     );
 
     expect(result.success).toContain("docs");
@@ -512,11 +517,12 @@ describe("SFTP file entry actions", () => {
       }),
     );
     expect(prismaMock.fileEntry.delete).toHaveBeenCalledWith({
-      where: { id: "entry-1" },
+      where: { id: "entry-1", isDeleted: true, deleteBatchId: "batch" },
     });
   });
 
   it("permanent SFTP delete tolerates an already-missing remote file and still removes the recycle-bin row", async () => {
+    prismaMock.fileEntry.findFirst.mockResolvedValueOnce({ storageNodeId: "node-sftp" });
     prismaMock.fileEntry.findFirst.mockResolvedValueOnce(sftpEntry());
     deleteRemoteFileMock.mockRejectedValueOnce(
       Object.assign(new Error("No such file"), { code: "ENOENT" }),
@@ -525,7 +531,7 @@ describe("SFTP file entry actions", () => {
 
     const result = await permanentDeleteFileEntryAction(
       null,
-      entryForm("entry-1"),
+      entryForm("entry-1", { deleteBatchId: "batch" }),
     );
 
     expect(result.success).toMatch(/old\.txt/);
@@ -536,15 +542,16 @@ describe("SFTP file entry actions", () => {
       }),
     );
     expect(prismaMock.fileEntry.delete).toHaveBeenCalledWith({
-      where: { id: "entry-1" },
+      where: { id: "entry-1", isDeleted: true, deleteBatchId: "batch" },
     });
   });
 
   it("loads the node's WebDAV connection for permanent delete and rename", async () => {
+    prismaMock.fileEntry.findFirst.mockResolvedValueOnce({ storageNodeId: "node-sftp" });
     // The projection lacked webdavConfigEncrypted: on a WebDAV node the
     // backend failed reading its configuration and nothing was deleted.
     prismaMock.fileEntry.findFirst.mockResolvedValueOnce(null);
-    await permanentDeleteFileEntryAction(null, entryForm("entry-1"));
+    await permanentDeleteFileEntryAction(null, entryForm("entry-1", { deleteBatchId: "batch" }));
     prismaMock.fileEntry.findFirst.mockResolvedValueOnce(null);
     const rename = new FormData();
     rename.set("fileEntryId", "entry-1");
@@ -556,10 +563,11 @@ describe("SFTP file entry actions", () => {
   });
 
   it("keeps the recycle-bin row when permanent backing deletion fails", async () => {
+    prismaMock.fileEntry.findFirst.mockResolvedValueOnce({ storageNodeId: "node-sftp" });
     prismaMock.fileEntry.findFirst.mockResolvedValueOnce(sftpEntry());
     deleteRemoteFileMock.mockRejectedValueOnce(new Error("permission denied"));
 
-    const result = await permanentDeleteFileEntryAction(null, entryForm("entry-1"));
+    const result = await permanentDeleteFileEntryAction(null, entryForm("entry-1", { deleteBatchId: "batch" }));
 
     expect(result).toEqual({ error: "permission denied" });
     expect(prismaMock.fileEntry.delete).not.toHaveBeenCalled();

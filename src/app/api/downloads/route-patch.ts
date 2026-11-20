@@ -234,14 +234,19 @@ export async function PATCH(request: Request) {
               };
               // The probe took a while: a task cancelled meanwhile keeps its
               // outcome (and gets no file index), like the aria2 branch above.
-              const won = await prisma.downloadTask.updateMany({ where: whileActive, data });
-              if (won.count === 0) return currentOutcome();
-              await indexDownloadedFileEntry({
-                storageNode: task.server.storageNode,
-                targetPath: task.targetPath,
-                fileName: resolvedFileName,
-                size: size ? BigInt(size) : null,
+              const won = await prisma.$transaction(async (tx) => {
+                const changed = await tx.downloadTask.updateMany({ where: whileActive, data });
+                if (!changed.count) return false;
+                await indexDownloadedFileEntry({
+                  preserveRecycled: true,
+                  storageNode: task.server.storageNode,
+                  targetPath: task.targetPath,
+                  fileName: resolvedFileName,
+                  size: size ? BigInt(size) : null,
+                }, tx);
+                return true;
               });
+              if (!won) return currentOutcome();
               const downloadAccess = taskDownloadAccess({
                 ...task,
                 locale,

@@ -42,7 +42,7 @@ describe.skipIf(process.env.RUN_DATABASE_INTEGRATION_TESTS !== "1")("storage fin
     sessions.push(view.id);
     for (let index = 0; index < view.totalChunks; index++) {
       const buffer = content.subarray(index * view.chunkSize, (index + 1) * view.chunkSize);
-      await appendMediaUploadChunk({ sessionId: view.id, userId: id, index, size: buffer.length, buffer });
+      await appendMediaUploadChunk({ sessionId: view.id, userId: id, teamId: actor.currentTeamId, index, size: buffer.length, buffer });
     }
     return { view, content };
   }

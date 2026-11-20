@@ -191,6 +191,7 @@ describe("/api/storage/archive-download", () => {
     prismaMock.fileEntry.findFirst.mockResolvedValueOnce(
       localDirectoryEntry({
         storageNode: {
+          teamId: null,
           id: "node_sftp",
           name: "Remote",
           driver: "SFTP",
@@ -200,6 +201,7 @@ describe("/api/storage/archive-download", () => {
           username: null,
           hostKeySha256: "aa".repeat(32),
           server: {
+            teamId: null,
             host: "203.0.113.20",
             port: 2222,
             username: "deploy",

@@ -1,6 +1,7 @@
 import { apiCopy } from "@/lib/i18n/api-copy";
 import { NextResponse } from "next/server";
 import { z } from "zod";
+import { canReadCommandBody } from "@/lib/command/visibility";
 import { sessionHasPermission } from "@/lib/auth/authorization";
 import { cancelCommandRequest, createCommandRequest, listCommandRequests } from "@/lib/command/service";
 import { createCommandSchema } from "@/lib/command/schema";
@@ -33,7 +34,7 @@ export async function GET(request: Request) {
     // reader all of them. Someone else's text is left out here too.
     const canApprove = sessionHasPermission(ctx.session, "command:approve");
     const requests = (await listCommandRequests(ctx.session)).map((item) =>
-      canApprove || item.requesterId === ctx.session.userId ? item : { ...item, command: "", commandHidden: true });
+      canReadCommandBody(ctx.session.userId, item.requesterId, canApprove) ? item : { ...item, command: "", commandHidden: true });
     return NextResponse.json({ requests });
   });
 }

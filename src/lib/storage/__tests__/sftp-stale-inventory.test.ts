@@ -41,7 +41,7 @@ import {
 const baseNode = {
   id: "node_1",
   name: "remote",
-  driver: "SFTP" as const,
+  teamId: null, driver: "SFTP" as const,
   basePath: "/data",
   host: "203.0.113.10",
   port: 22,

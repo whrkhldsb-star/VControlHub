@@ -74,7 +74,7 @@ it.each(["authenticated", "public"])(
           entryType: "DIRECTORY",
           isDeleted: false,
           storageNodeId: "node",
-          storageNode: { id: "node", driver: "LOCAL", basePath: root },
+          storageNode: { id: "node", teamId: "team", driver: "LOCAL", basePath: root },
         },
         {
           id: "deleted",

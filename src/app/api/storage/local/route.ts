@@ -147,6 +147,7 @@ async function handlePost(request: Request, session: SessionPayload, locale: Loc
       host: true,
       port: true,
       username: true,
+      teamId: true,
       hostKeySha256: true,
       server: {
         select: {

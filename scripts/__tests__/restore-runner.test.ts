@@ -31,7 +31,7 @@ describe("restore runner destination and preflight", () => {
     archive = path.join(tmp, "full.tar.gz");
     await Promise.all([source, fallback, target].map((directory) => mkdir(directory)));
     await writeFile(path.join(source, "hello.txt"), "restored fixture");
-    await writeFile(path.join(source, "database.sql.gz"), gzipSync("SELECT 1;\n"));
+    await writeFile(path.join(source, "database.sql.gz"), gzipSync("SELECT 1;\n-- PostgreSQL database dump complete\n"));
     await runFile(resolveLocalTarBinary(), ["-czf", archive, "-C", source, "hello.txt", "database.sql.gz"]);
     const bin = await installFakeRestoreTools(tmp);
     await writeFile(path.join(tmp, "restore.env"), "DATABASE_URL=postgresql://tester:test-secret@127.0.0.1/audit_target\n");

@@ -9,6 +9,7 @@ import { afterEach, beforeEach, describe, expect, it, vi } from "vitest";
  */
 
 const prismaMock = {
+  fileEntry: { findFirst: vi.fn(async () => null) },
   downloadTask: {
     findUnique: vi.fn(),
     updateMany: vi.fn(),
@@ -59,7 +60,8 @@ vi.mock("@/lib/downloads/remote-command", () => ({
   shellQuote: (s: string) => `'${s}'`,
   toRemoteChildPath: (base: string, f: string) => `${base}/${f}`,
 }));
-vi.mock("@/lib/downloads/helpers", () => ({
+vi.mock("@/lib/downloads/helpers", async (importOriginal) => ({
+  ...await importOriginal<typeof import("@/lib/downloads/helpers")>(),
   deriveDownloadFileNameFromUrl: (url: string) => new URL(url).pathname.split("/").filter(Boolean).pop() ?? null,
   indexDownloadedFileEntry: vi.fn(async () => undefined),
   getPublicDownloadError: vi.fn(() => "dl error"),
@@ -143,7 +145,7 @@ describe("executeDirectDownload claim ordering", () => {
   it("does not spawn a remote process when the task is not PENDING", async () => {
     prismaMock.downloadTask.updateMany.mockResolvedValueOnce({ count: 0 }); // claim miss
 
-    await executeDirectDownload("task-3", server, "http://x/f", "/target", null, undefined, {
+    await executeDirectDownload("task-3", server, "http://x/f", "/data/target", null, undefined, {
       hostname: "x",
       address: "1.2.3.4",
       port: 443,
@@ -153,7 +155,7 @@ describe("executeDirectDownload claim ordering", () => {
   });
 
   it("claims before spawning and records the pid on success", async () => {
-    await executeDirectDownload("task-4", server, "http://x/f", "/target", null, undefined, {
+    await executeDirectDownload("task-4", server, "http://x/f", "/data/target", null, undefined, {
       hostname: "x",
       address: "1.2.3.4",
       port: 443,
@@ -175,15 +177,16 @@ describe("executeDirectDownload claim ordering", () => {
     expect(pidUpdate).toBeTruthy();
   });
 
-  it("stops the detached remote process when local indexing fails", async () => {
+  it("stops the detached remote process when recording the pid fails", async () => {
     ssh.execRemoteCommand
       .mockResolvedValueOnce({ stdout: "", exitCode: 0 })
       .mockResolvedValueOnce({ stdout: "4321", exitCode: 0 })
       .mockResolvedValueOnce({ stdout: "", exitCode: 0 });
-    const { indexDownloadedFileEntry } = await import("@/lib/downloads/helpers");
-    vi.mocked(indexDownloadedFileEntry).mockRejectedValueOnce(new Error("index unavailable"));
+    prismaMock.downloadTask.updateMany
+      .mockResolvedValueOnce({ count: 1 })
+      .mockRejectedValueOnce(new Error("pid persistence unavailable"));
 
-    await executeDirectDownload("task-5", server, "http://x/f", "/target", "f", undefined, {
+    await executeDirectDownload("task-5", server, "http://x/f", "/data/target", "f", undefined, {
       hostname: "x",
       address: "1.2.3.4",
       port: 443,
@@ -208,7 +211,7 @@ describe("executeDirectDownload claim ordering", () => {
       .mockResolvedValueOnce({ count: 0 }); // pid record: the row is CANCELLED now
     const { indexDownloadedFileEntry } = await import("@/lib/downloads/helpers");
 
-    await executeDirectDownload("task-6", server, "http://x/f", "/target", "f", undefined, {
+    await executeDirectDownload("task-6", server, "http://x/f", "/data/target", "f", undefined, {
       hostname: "x",
       address: "1.2.3.4",
       port: 443,
@@ -263,7 +266,7 @@ describe("executeDirectDownload with a redirecting link", () => {
       resolution: { hostname: "release-assets.githubusercontent.com", address: "185.199.108.133", port: 443 },
     });
 
-    await executeDirectDownload("task-r1", server, "https://github.com/cli/cli/releases/download/v2.62.0/gh_2.62.0_checksums.txt", "/target", null, undefined, resolution);
+    await executeDirectDownload("task-r1", server, "https://github.com/cli/cli/releases/download/v2.62.0/gh_2.62.0_checksums.txt", "/data/target", null, undefined, resolution);
 
     expect(buildDirectDownloadCommand).toHaveBeenCalledWith(expect.objectContaining({
       url: "https://release-assets.githubusercontent.com/github-production-release-asset/1/abc?sig=x",
@@ -276,7 +279,7 @@ describe("executeDirectDownload with a redirecting link", () => {
     vi.mocked(resolveDownloadRedirects).mockResolvedValueOnce({ ok: false, reason: "Redirect target rejected: private address" });
     vi.mocked(buildDirectDownloadCommand).mockClear();
 
-    await executeDirectDownload("task-r2", server, "https://example.com/file.zip", "/target", null, undefined, resolution);
+    await executeDirectDownload("task-r2", server, "https://example.com/file.zip", "/data/target", null, undefined, resolution);
 
     expect(buildDirectDownloadCommand).not.toHaveBeenCalled();
     expect(prismaMock.downloadTask.updateMany).toHaveBeenCalledWith({

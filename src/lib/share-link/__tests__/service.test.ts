@@ -11,7 +11,8 @@ const { mockPrisma } = vi.hoisted(() => ({
 }));
 
 vi.mock("@/lib/db", () => ({ prisma: mockPrisma }));
-vi.mock("@/lib/auth/team-scope", () => ({
+vi.mock("@/lib/auth/team-scope", async (importOriginal) => ({
+  ...await importOriginal<typeof import("@/lib/auth/team-scope")>(),
   teamWhere: (session: { currentTeamId?: string | null }) =>
     session.currentTeamId
       ? { teamId: session.currentTeamId }
@@ -145,13 +146,13 @@ describe("share link service", () => {
   });
 
   it("rejects expired public share tokens", async () => {
-    mockPrisma.shareLink.findUnique.mockResolvedValue({ id: "share1", tokenHash: "x", expiresAt: new Date("2020-01-01T00:00:00Z"), revokedAt: null });
+    mockPrisma.shareLink.findUnique.mockResolvedValue({ id: "share1", storageNode: { driver: "LOCAL" }, tokenHash: "x", expiresAt: new Date("2020-01-01T00:00:00Z"), revokedAt: null });
     await expect(resolveShareToken("abc")).rejects.toThrow();
   });
 
   it("rejects a valid token when its indexed target is in the recycle bin", async () => {
     mockPrisma.shareLink.findUnique.mockResolvedValue({
-    id: "share-deleted",
+    id: "share-deleted", storageNode: { driver: "LOCAL" },
     storageNodeId: "node1",
     path: "docs/deleted.txt",
     expiresAt: null,
@@ -165,19 +166,19 @@ describe("share link service", () => {
 
   it("rejects password-protected shares when no password provided", async () => {
     const { hashSharePassword } = await import("../service");
-    mockPrisma.shareLink.findUnique.mockResolvedValue({ id: "share1", tokenHash: "x", expiresAt: null, revokedAt: null, maxDownloads: null, accessCount: 0, passwordHash: await hashSharePassword("s3cret") });
+    mockPrisma.shareLink.findUnique.mockResolvedValue({ id: "share1", storageNode: { driver: "LOCAL" }, tokenHash: "x", expiresAt: null, revokedAt: null, maxDownloads: null, accessCount: 0, passwordHash: await hashSharePassword("s3cret") });
     await expect(resolveShareToken("abc")).rejects.toThrow();
   });
 
   it("rejects password-protected shares with wrong password", async () => {
     const { hashSharePassword } = await import("../service");
-    mockPrisma.shareLink.findUnique.mockResolvedValue({ id: "share1", tokenHash: "x", expiresAt: null, revokedAt: null, maxDownloads: null, accessCount: 0, passwordHash: await hashSharePassword("s3cret") });
+    mockPrisma.shareLink.findUnique.mockResolvedValue({ id: "share1", storageNode: { driver: "LOCAL" }, tokenHash: "x", expiresAt: null, revokedAt: null, maxDownloads: null, accessCount: 0, passwordHash: await hashSharePassword("s3cret") });
     await expect(resolveShareToken("abc", "wrong")).rejects.toThrow();
   });
 
   it("allows password-protected shares with correct password", async () => {
     const { hashSharePassword } = await import("../service");
-    mockPrisma.shareLink.findUnique.mockResolvedValue({ id: "share1", tokenHash: "x", expiresAt: null, revokedAt: null, maxDownloads: null, accessCount: 0, passwordHash: await hashSharePassword("s3cret") });
+    mockPrisma.shareLink.findUnique.mockResolvedValue({ id: "share1", storageNode: { driver: "LOCAL" }, tokenHash: "x", expiresAt: null, revokedAt: null, maxDownloads: null, accessCount: 0, passwordHash: await hashSharePassword("s3cret") });
     mockPrisma.shareLink.update.mockResolvedValue({ id: "share1" });
     mockPrisma.shareAccessLog.create.mockResolvedValue({ id: "log1" });
     const result = await resolveShareToken("abc", "s3cret");
@@ -191,14 +192,14 @@ describe("share link service", () => {
   });
 
   it("checks a download without counting or logging it when asked not to claim (HEAD)", async () => {
-    mockPrisma.shareLink.findUnique.mockResolvedValue({ id: "share-head", tokenHash: "x", expiresAt: null, revokedAt: null, maxDownloads: 1, accessCount: 0, passwordHash: null, permissionLevel: "download" });
+    mockPrisma.shareLink.findUnique.mockResolvedValue({ id: "share-head", storageNode: { driver: "LOCAL" }, tokenHash: "x", expiresAt: null, revokedAt: null, maxDownloads: 1, accessCount: 0, passwordHash: null, permissionLevel: "download" });
     const result = await resolveShareToken("abc", undefined, undefined, { claimDownload: false });
     expect(result.id).toBe("share-head");
     expect(mockPrisma.shareLink.updateMany).not.toHaveBeenCalled();
     expect(mockPrisma.shareLink.update).not.toHaveBeenCalled();
     expect(mockPrisma.shareAccessLog.create).not.toHaveBeenCalled();
     // A used-up link still says so.
-    mockPrisma.shareLink.findUnique.mockResolvedValue({ id: "share-head", tokenHash: "x", expiresAt: null, revokedAt: null, maxDownloads: 1, accessCount: 1, passwordHash: null, permissionLevel: "download" });
+    mockPrisma.shareLink.findUnique.mockResolvedValue({ id: "share-head", storageNode: { driver: "LOCAL" }, tokenHash: "x", expiresAt: null, revokedAt: null, maxDownloads: 1, accessCount: 1, passwordHash: null, permissionLevel: "download" });
     await expect(resolveShareToken("abc", undefined, undefined, { claimDownload: false })).rejects.toThrow();
   });
 
@@ -231,7 +232,7 @@ describe("share link service", () => {
 
   it("rejects legacy or malformed password hashes after the migration window", async () => {
     mockPrisma.shareLink.findUnique.mockResolvedValue({
-      id: "share-legacy",
+      id: "share-legacy", storageNode: { driver: "LOCAL" },
       tokenHash: "x",
       expiresAt: null,
       revokedAt: null,
@@ -306,6 +307,7 @@ describe("share link service", () => {
   it("claims maxDownloads atomically via updateMany", async () => {
     mockPrisma.shareLink.findUnique.mockResolvedValue({
       id: "share-quota",
+      storageNode: { driver: "LOCAL" },
       tokenHash: "x",
       expiresAt: null,
       revokedAt: null,

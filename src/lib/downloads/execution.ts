@@ -33,10 +33,12 @@ import {
 } from "@/lib/downloads/remote-command";
 import {
  deriveDownloadFileNameFromUrl,
+ relativePathFromDownloadTarget,
  indexDownloadedFileEntry,
  getPublicDownloadError,
  buildProgressText,
 } from "@/lib/downloads/helpers";
+import { assertNotRecycled } from "@/lib/storage/archive-access";
 import { BusinessError } from "@/lib/errors";
 import { t } from "@/lib/i18n/service-translations";
 import { largestAllowedWrite, type StorageWriteCapacity } from "@/lib/storage/access-control";
@@ -61,6 +63,7 @@ async function loadDownloadTeamId(taskId: string): Promise<string | null> {
 export type DownloadServer = {
  teamId?: string | null;
  agentStorageNodeId?: string;
+ agentRootIdentity?: string;
  id: string;
  host: string;
  port: number;
@@ -328,7 +331,7 @@ export async function executeAria2RelayDownload(
   if (limits && relayExceedsLimits(files, limits)) {
    throw new DownloadSourceRejectedError(t("backend.downloads.storageLimitExceeded"));
   }
-  const manifest = parseTransferManifest({ version: 1, files })!;
+  const manifest = parseTransferManifest({ version: 1, files, agentRootIdentity: server.agentRootIdentity })!;
   const journaled = await prisma.downloadTask.updateMany({
    where: { id: taskId, status: "RUNNING" },
    data: { transferManifest: manifest },
@@ -414,6 +417,9 @@ export function relayExceedsLimits(files: Array<{ size: number }>, limits: Stora
 
 async function publishRelayFiles(taskId: string, server: DownloadServer, tempDir: string,
  targetPath: string, manifest: TransferManifest, signal?: AbortSignal) {
+ if (server.agentStorageNodeId && (!server.agentRootIdentity || manifest.agentRootIdentity !== server.agentRootIdentity)) {
+  throw new BusinessError(t("backend.fileAgent.unavailable"));
+ }
  if (!server.agentStorageNodeId) {
   const sshParams = await buildSshParamsFromServer(server, server.sshKey);
   signal?.throwIfAborted();
@@ -499,6 +505,12 @@ maxSpeedKb?: number | null,
   const resolved = await resolveDownloadRedirects(url);
   if (!resolved.ok) throw new DownloadSourceRejectedError(resolved.reason);
 
+  const finalName = fileName || deriveDownloadFileNameFromUrl(url) || "download";
+  if (server.storageNode) {
+   const relative = relativePathFromDownloadTarget(server.storageNode.basePath, targetPath, finalName);
+   if (!relative) throw new BusinessError(t("backend.downloads.taskStorageMissing"));
+   await assertNotRecycled(server.storageNode.id, relative, "write");
+  }
   sshParams = await buildSshParamsFromServer(server, server.sshKey);
   await execRemoteCommand({ ...sshParams, command: `mkdir -p -- ${shellQuote(targetPath)}`, timeout: 15000 });
 
@@ -508,7 +520,7 @@ maxSpeedKb?: number | null,
    targetPath,
    // Named after the link the user gave, as the task list, the refresh probe
    // and reconciliation name it — not the CDN object the chain ended at.
-   fileName: fileName || deriveDownloadFileNameFromUrl(url),
+   fileName: finalName,
    sourceResolution: resolved.resolution ?? sourceResolution,
    maxBytes: limits ? largestAllowedWrite(limits) : null,
    maxSpeedKb: maxSpeedKb ?? null,
@@ -521,7 +533,7 @@ maxSpeedKb?: number | null,
    // Record the pid on the row we already claimed to RUNNING above.
    const recorded = await prisma.downloadTask.updateMany({
     where: { id: taskId, status: "RUNNING" },
-    data: { pid, progress: t("backend.downloads.progress.downloading") },
+    data: { pid, fileName: finalName, progress: t("backend.downloads.progress.downloading") },
    });
    if (recorded.count === 0) {
     // Cancelled while the remote process was being started: the cancel could
@@ -530,7 +542,6 @@ maxSpeedKb?: number | null,
     await stopRemoteDirectDownload(sshParams, taskId, targetPath);
     return;
    }
-   await indexDownloadedFileEntry({ storageNode: server.storageNode, targetPath, fileName, size: null });
   } else {
    const { stdout: logContent } = await execRemoteCommand({ ...sshParams, command: getDirectDownloadLogCommand(taskId), timeout: 8000 });
    // 127 is the launcher's own "no bash on this host" (remote-command.ts); the log is empty then.

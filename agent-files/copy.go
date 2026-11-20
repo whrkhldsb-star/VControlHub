@@ -38,11 +38,13 @@ func (s share) cleanupCopy(marker, key string) {
 	if err := s.check(parent, false); err != nil && !errors.Is(err, fs.ErrNotExist) {
 		return
 	}
-	for _, prefix := range []string{".vch-copy-", ".vch-backup-"} {
-		err := s.root.Remove(path.Join(parent, prefix+key))
-		if err != nil && !errors.Is(err, fs.ErrNotExist) {
-			return
-		}
+	// Only the hub knows whether its index committed. Keep both the original
+	// and its locator until an explicit restore or drop-backup succeeds.
+	if _, err := s.root.Lstat(path.Join(parent, ".vch-backup-"+key)); !errors.Is(err, fs.ErrNotExist) {
+		return
+	}
+	if err := s.root.Remove(path.Join(parent, ".vch-copy-"+key)); err != nil && !errors.Is(err, fs.ErrNotExist) {
+		return
 	}
 	s.root.Remove(marker)
 }

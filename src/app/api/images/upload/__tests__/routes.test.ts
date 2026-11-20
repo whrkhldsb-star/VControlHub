@@ -323,6 +323,7 @@ describe("PUT /api/images/upload/[id]/chunk", () => {
 		const text = await res.clone().text();
 		expect(res.status, "body=" + text).toBe(200);
 		expect(mocks.appendMediaUploadChunk).toHaveBeenCalledWith({
+			teamId: "team-a",
 			sessionId: "sess_1",
 			userId: "u-admin",
 			index: 0,
@@ -676,6 +677,7 @@ describe("GET /api/images/upload/[id]", () => {
 		expect(mocks.getMediaUploadSession).toHaveBeenCalledWith(
 			"sess_1",
 			"u-admin",
+			"team-a",
 		);
 		const body = await res.json();
 		expect(body.session).toEqual(SAMPLE_INIT_VIEW);
@@ -704,6 +706,7 @@ describe("DELETE /api/images/upload/[id]", () => {
 		expect(mocks.cancelMediaUploadSession).toHaveBeenCalledWith(
 			"sess_1",
 			"u-admin",
+			"team-a",
 		);
 		expect(mocks.auditUserAction).toHaveBeenCalledWith(
 			"u-admin",

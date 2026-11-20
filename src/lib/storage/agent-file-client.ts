@@ -28,10 +28,10 @@ function checkedPath(path: string) {
     throw bad();
   return path;
 }
-export function createAgentFileClient(nodeId: string, serverId?: string) {
+export function createAgentFileClient(nodeId: string, serverId?: string, expectedRoot?: string) {
   let channel: ReturnType<typeof getFileChannel> | undefined;
   async function call(op: string, path: string, fields: Record<string, string | boolean | number> = {}) {
-    channel ??= getFileChannel(nodeId, serverId);
+    channel ??= getFileChannel(nodeId, serverId, expectedRoot);
     return callFileAgent(nodeId, await channel, { op, path: checkedPath(path), ...fields });
   }
   async function stat(path: string): Promise<WebDavEntry | null> {
@@ -100,6 +100,7 @@ export function createAgentFileClient(nodeId: string, serverId?: string) {
     getBytes: (at: number, length: number) => Promise<Buffer>,
     beforePublish?: () => Promise<void>,
   ) {
+    const previous = await stat(path);
     const common = { size, digest: checksum };
     const staging = await call("begin", path, common);
     const at = staging.offset;
@@ -119,7 +120,7 @@ export function createAgentFileClient(nodeId: string, serverId?: string) {
       if (reply.offset !== offset) throw bad();
     }
     await beforePublish?.();
-    const published = await call("publish", path, common);
+    const published = await call("publish", path, { ...common, version: previous?.etag ?? "absent" });
     return published.entry ? row.parse(published.entry).etag : null;
   }
   return {
@@ -193,16 +194,20 @@ export function createAgentFileClient(nodeId: string, serverId?: string) {
     async copy(path: string, destination: string) {
       await call("copy", path, { destination: checkedPath(destination) });
     },
-    async delete(path: string) {
-      await call("delete", path);
+    async delete(path: string, isDirectory?: boolean, version?: string) {
+      const entry = await stat(path);
+      if (!entry) throw Object.assign(bad(), { code: "ENOENT" });
+      if (!entry.etag || (isDirectory !== undefined && entry.isDirectory !== isDirectory) ||
+          (version && entry.etag !== version)) throw bad();
+      await call("delete", path, { directory: entry.isDirectory, version: entry.etag });
     },
   };
 }
 
-export function createRemoteStorageClient(node: WebDavStorageNode & { id?: string; driver: string }) {
+export function createRemoteStorageClient(node: WebDavStorageNode & { id?: string; driver: string; expectedRoot?: string }) {
   if (node.driver === "AGENT") {
     if (!node.id) throw bad();
-    return createAgentFileClient(node.id);
+    return createAgentFileClient(node.id, undefined, node.expectedRoot);
   }
   return createWebDavClient(node);
 }

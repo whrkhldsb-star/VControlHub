@@ -1,6 +1,7 @@
 package main
 
 import (
+	"fmt"
 	"os"
 	"syscall"
 )
@@ -13,3 +14,12 @@ func singleLink(_ *os.File, st os.FileInfo) bool {
 }
 
 func exactEntry(_ *os.Root, _ string, _ os.FileInfo) bool { return true }
+
+func directoryID(dir *os.File) (string, error) {
+	st, err := dir.Stat()
+	if err != nil {
+		return "", err
+	}
+	raw := st.Sys().(*syscall.Stat_t)
+	return fmt.Sprintf("%d:%d", raw.Dev, raw.Ino), nil
+}

@@ -1,6 +1,7 @@
 package main
 
 import (
+	"fmt"
 	"os"
 	"path/filepath"
 	"syscall"
@@ -34,4 +35,12 @@ func exactEntry(root *os.Root, name string, info os.FileInfo) bool {
 	}
 	defer syscall.FindClose(handle)
 	return syscall.UTF16ToString(found.FileName[:]) == filepath.Base(name)
+}
+
+func directoryID(dir *os.File) (string, error) {
+	var info syscall.ByHandleFileInformation
+	if err := syscall.GetFileInformationByHandle(syscall.Handle(dir.Fd()), &info); err != nil {
+		return "", err
+	}
+	return fmt.Sprintf("%d:%d:%d", info.VolumeSerialNumber, info.FileIndexHigh, info.FileIndexLow), nil
 }

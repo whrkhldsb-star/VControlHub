@@ -20,10 +20,10 @@ export async function recoverInterruptedFinalizations(): Promise<number> {
 }
 
 export type FinalizationLease = Awaited<ReturnType<typeof beginUploadFinalization>>;
-export async function beginUploadFinalization(sessionId: string, userId: string) {
+export async function beginUploadFinalization(sessionId: string, userId: string, teamId: string | null = null) {
   const token = randomUUID();
   const claimed = await prisma.mediaUploadSession.updateMany({
-    where: { id: sessionId, userId, status: { in: ["PENDING", "UPLOADING"] }, expiresAt: { gt: new Date() } },
+    where: { id: sessionId, userId, teamId, teamBound: true, status: { in: ["PENDING", "UPLOADING"] }, expiresAt: { gt: new Date() } },
     data: { status: "FINALIZING", finalizationToken: token, finalizationLeaseUntil: new Date(Date.now() + FINALIZATION_LEASE_MS), recoveryRequired: false },
   });
   if (claimed.count !== 1) throw new ConflictError(t("backend.storage.uploadSessionNotActive"));

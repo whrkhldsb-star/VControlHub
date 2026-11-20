@@ -28,7 +28,7 @@ export async function getWebDavSyncNode(nodeId: string, session: Pick<SessionPay
 }
 
 /** Depth-one inventory only. Never prune on an incomplete/failed remote response. */
-export async function syncWebDavDirectoryEntries(input: { node: WebDavStorageNode & { id: string; driver: string }; relativePath?: string }) {
+export async function syncWebDavDirectoryEntries(input: { node: WebDavStorageNode & { id: string; driver: string; expectedRoot?: string }; relativePath?: string }) {
   const result = { synced: 0, created: 0, updated: 0, deleted: 0, errors: [] as string[] };
   if ((input.node.driver !== "WEBDAV" && input.node.driver !== "AGENT")) throw new Error("Storage node is not a WebDAV node");
   const dir = normalizeStorageTargetDirectory(input.relativePath);

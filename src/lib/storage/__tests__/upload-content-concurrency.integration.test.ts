@@ -32,7 +32,7 @@ afterAll(async()=>{
 });
 async function upload(filename:string,content:string){
  const buffer=Buffer.from(content);const s=await initMediaUploadSession({userId:id,filename,mimeType:"text/plain",totalSize:buffer.length,chunkSize:131072,storageNodeId:id,relativePath:filename,session:actor});sessions.push(s.id);
- await appendMediaUploadChunk({sessionId:s.id,userId:id,index:0,size:buffer.length,buffer});return s;
+ await appendMediaUploadChunk({sessionId:s.id,userId:id,teamId:actor.currentTeamId,index:0,size:buffer.length,buffer});return s;
 }
 it("refuses overwrite of recoverable recycle-bin content",async()=>{
  await writeFile(join(dir,"recycled.txt"),"original recycled bytes");
@@ -70,7 +70,7 @@ it("serializes complete uploads across different grants sharing the same directo
  for(const [index,a] of [actor,peer].entries()){
   const content=Buffer.alloc(80,65+index);
   const s=await initMediaUploadSession({userId:a.userId,filename:`file${index}.bin`,mimeType:"application/octet-stream",totalSize:content.length,chunkSize:131072,storageNodeId:id,relativePath:`quota/file${index}.bin`,session:a});sessions.push(s.id);
-  await appendMediaUploadChunk({sessionId:s.id,userId:a.userId,index:0,size:content.length,buffer:content});views.push({s,a});
+  await appendMediaUploadChunk({sessionId:s.id,userId:a.userId,teamId:a.currentTeamId,index:0,size:content.length,buffer:content});views.push({s,a});
  }
  let release!:()=>void;control.wait=new Promise(r=>release=r);let reached=0;const first=new Promise<void>(r=>control.entered=()=>{reached++;r();});control.pause=true;
  const tasks=views.map(({s,a})=>completeStorageFileUpload({sessionId:s.id,session:a}));

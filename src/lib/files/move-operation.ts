@@ -78,6 +78,7 @@ export async function executeMoveFile(
             host: true,
             port: true,
             username: true,
+            teamId: true,
             hostKeySha256: true,
             webdavConfigEncrypted: true,
             server: { select: STORAGE_SSH_SERVER_SELECT },

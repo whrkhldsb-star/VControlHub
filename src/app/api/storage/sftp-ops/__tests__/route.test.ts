@@ -104,6 +104,7 @@ function request(body: unknown) {
 
 function mockSftpNode() {
   const node = {
+    teamId: null,
     id: "node_1",
     name: "remote",
     driver: "SFTP",
@@ -113,13 +114,14 @@ function mockSftpNode() {
     username: null,
     serverId: "srv_1",
     server: {
+      teamId: null,
       id: "srv_1",
       host: "203.0.113.10",
       port: 22,
       username: "root",
       connectionType: "SSH_KEY",
       password: null,
-      sshKey: { privateKey: "PRIVATE KEY" },
+      sshKey: { teamId: null, privateKey: "PRIVATE KEY" },
     },
   };
   prismaMock.storageNode.findFirst.mockResolvedValueOnce(node);

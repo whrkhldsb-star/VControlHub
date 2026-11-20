@@ -276,7 +276,7 @@ export function ServerOverviewDetails({
 						return <InfoRow key={key} label={t(`serverOverviewDetails.success.${key}`)} value={observation ? `${observation.channel} · ${formatDateTime(new Date(observation.at), locale)}` : t("serverOverviewDetails.noEvidence")} />;
 					})}
 					{server.managementMode === "AGENT" && server.agent?.lastError ? <InfoRow label={t("serversPage.management.lastError")} value={server.agent.lastError} /> : null}
-					{server.managementMode === "AGENT" && canManageServers && server.hasSshCredential !== false ? (
+					{server.managementMode === "AGENT" && canManageServers && !server.profileLocked && server.hasSshCredential !== false ? (
 						<ServerAgentReinstall serverId={server.id} version={server.agent?.version ?? null} />
 					) : null}
 					{server.operatingSystem !== "WINDOWS" ? (

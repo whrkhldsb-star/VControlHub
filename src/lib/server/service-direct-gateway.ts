@@ -1,7 +1,8 @@
 import { apiCopy } from "@/lib/i18n/api-copy";
 import { prisma } from "@/lib/db";
 import type { SessionPayload } from "@/lib/auth/session";
-import { serverTeamWhere } from "@/lib/auth/team-scope";
+import { withServerLifecycleLock } from "./agent-service";
+import { serverProfileTeamWhere } from "@/lib/auth/team-scope";
 import { config } from "@/lib/config/env";
 import { BusinessError, NotFoundError, ValidationError } from "@/lib/errors";
 import { serviceT } from "@/lib/i18n/service-locale";
@@ -157,7 +158,7 @@ export async function loadServerForDirectGateway(
   } as const;
   if (session) {
     return prisma.server.findFirst({
-      where: { id: serverId, ...serverTeamWhere(session, "manage") },
+      where: { id: serverId, ...serverProfileTeamWhere(session) },
       include,
     });
   }
@@ -515,30 +516,32 @@ export async function setServerDirectGatewayEnabled(
   } = {},
   session?: DirectGatewaySession | null,
 ) {
-  const result = await applyServerDirectGatewayState({
-    serverId,
-    enabled,
-    session,
-    publicProtocol: options.publicProtocol,
-    publicListen: options.publicListen,
-    bindAddress: options.bindAddress,
-    skipPublicHealthProbe: options.skipPublicHealthProbe,
-    autoReverseProxy: options.autoReverseProxy,
-    publicDomain: options.publicDomain,
+  return withServerLifecycleLock(serverId, async () => {
+    const result = await applyServerDirectGatewayState({
+      serverId,
+      enabled,
+      session,
+      publicProtocol: options.publicProtocol,
+      publicListen: options.publicListen,
+      bindAddress: options.bindAddress,
+      skipPublicHealthProbe: options.skipPublicHealthProbe,
+      autoReverseProxy: options.autoReverseProxy,
+      publicDomain: options.publicDomain,
+    });
+    await prisma.server.update({
+      where: { ...(session ? serverProfileTeamWhere(session) : {}), id: serverId },
+      data: {
+        directGatewayDesiredEnabled: enabled,
+        directGatewayDesiredProtocol:
+          options.publicProtocol === "https" ? "HTTPS" : "HTTP",
+        directGatewayDesiredDomain:
+          enabled && options.publicProtocol === "https"
+            ? options.publicDomain?.trim() || null
+            : null,
+        // Onboarding state belongs to the SSH/Agent checks: a gateway toggle
+        // must not erase an unrelated "needs attention" warning (A2-06).
+      },
+    });
+    return result;
   });
-  await prisma.server.update({
-    where: { id: serverId },
-    data: {
-      directGatewayDesiredEnabled: enabled,
-      directGatewayDesiredProtocol:
-        options.publicProtocol === "https" ? "HTTPS" : "HTTP",
-      directGatewayDesiredDomain:
-        enabled && options.publicProtocol === "https"
-          ? options.publicDomain?.trim() || null
-          : null,
-      // Onboarding state belongs to the SSH/Agent checks: a gateway toggle
-      // must not erase an unrelated "needs attention" warning (A2-06).
-    },
-  });
-  return result;
 }

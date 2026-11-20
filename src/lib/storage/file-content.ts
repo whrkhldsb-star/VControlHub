@@ -33,6 +33,7 @@ import { SSH_KEY_CREDENTIAL_SELECT } from "@/lib/ssh/ssh-key-crypto";
 /** A node as storageFileNodeSelect loads it (the SFTP connection in full). */
 export type StorageFileNode = StorageSshCredentialNode & {
   id: string;
+  expectedRoot?: string;
   driver: "LOCAL" | "SFTP" | string;
   basePath: string;
   webdavConfigEncrypted?: string | null;
@@ -48,6 +49,7 @@ export const storageFileNodeSelect = {
   host: true,
   port: true,
   username: true,
+  teamId: true,
   hostKeySha256: true,
   serverId: true,
   server: {

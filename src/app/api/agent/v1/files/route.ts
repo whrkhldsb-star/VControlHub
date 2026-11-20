@@ -27,7 +27,7 @@ const result = z
   })
   .strict();
 const poll = z.object({
-  rootIdentity: z.string().regex(/^[a-f0-9]{64}$/),
+  rootIdentity: z.string().regex(/^v2:[a-f0-9]{64}$/),
   writable: z.boolean(),
   receipt: z.object({ id: z.string().max(64), result }).optional(),
 });

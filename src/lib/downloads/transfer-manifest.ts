@@ -6,6 +6,7 @@ import { isPlainDownloadName } from "./file-name";
 
 const schema = z.object({
   version: z.literal(1),
+  agentRootIdentity: z.string().regex(/^v2:[a-f0-9]{64}$/).optional(),
   files: z.array(z.object({
     // A path inside the download, "/"-separated: a multi-file torrent is a
     // folder of files. Every segment is a plain name.

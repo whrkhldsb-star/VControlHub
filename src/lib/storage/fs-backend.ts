@@ -5,7 +5,7 @@ import { BusinessError, ValidationError } from "@/lib/errors";
 import { expandStorageBasePath, resolveStoragePathWithinBase } from "./path-utils";
 import { resolveStorageRemotePath } from "./remote-containment";
 import { t } from "@/lib/i18n/service-translations";
-import { createRemoteStorageClient } from "./agent-file-client";
+import { createAgentFileClient, createRemoteStorageClient } from "./agent-file-client";
 import {
   createRemoteDirectory,
   deleteRemoteFile,
@@ -23,6 +23,7 @@ import type { StorageSshCredentialNode } from "@/lib/storage/ssh-credentials";
  */
 /** A node with its SFTP connection in full (see StorageSshCredentialNode). */
 export type StorageNodeWithCredentials = StorageSshCredentialNode & {
+  id?: string;
   driver: string;
   basePath: string;
   webdavConfigEncrypted?: string | null;
@@ -259,9 +260,17 @@ export async function deleteBackingObject(input: {
   relativePath: string;
   isDirectory: boolean;
   tolerateMissing: boolean;
+  expectedRoot?: string;
+  version?: string;
 }) {
   try {
-    if (input.storageNode.driver === "WEBDAV" || input.storageNode.driver === "AGENT") { await createRemoteStorageClient(input.storageNode).delete(input.relativePath); return; }
+    if (input.storageNode.driver === "AGENT") {
+      if (!input.storageNode.id) throw new ValidationError(t("backend.fileAgent.unavailable"));
+      await createAgentFileClient(input.storageNode.id, undefined, input.expectedRoot)
+        .delete(input.relativePath, input.isDirectory, input.version);
+      return;
+    }
+    if (input.storageNode.driver === "WEBDAV") { await createRemoteStorageClient(input.storageNode).delete(input.relativePath); return; }
     if (input.storageNode.driver === "LOCAL") {
       const { absolutePath } = await resolveManagedLocalEntryPath({
         basePath: input.storageNode.basePath,

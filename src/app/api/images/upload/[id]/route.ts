@@ -38,7 +38,7 @@ export async function GET(
       errorMessage: apiCopy("apiCopy.failed.to.query.upload.session.1a09e395"),
     },
     async ({ session }) => {
-      const view = await getMediaUploadSession(sessionId, session.userId);
+      const view = await getMediaUploadSession(sessionId, session.userId, session.currentTeamId ?? null);
       if (!view) {
         throw new NotFoundError(apiCopy("apiCopy.upload.session.not.found.84c8bec0", { v0: String(sessionId) }));
       }
@@ -65,6 +65,7 @@ export async function DELETE(
         const view = await cancelMediaUploadSession(
           sessionId,
           session.userId,
+          session.currentTeamId ?? null,
         );
         await auditUserAction(
           session.userId,

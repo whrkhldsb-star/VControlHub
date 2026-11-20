@@ -117,7 +117,7 @@ export async function POST(request: Request) {
 
       const server = await prisma.server.findUnique({
         where: { id: serverId },
-        include: { sshKey: true, storageNode: true, agentFileShares: { orderBy: { storageNodeId: "asc" }, select: { node: true } } },
+        include: { sshKey: true, storageNode: true, agentFileShares: { orderBy: { storageNodeId: "asc" }, select: { node: true, rootIdentity: true } } },
       });
       if (!server)
         throw new NotFoundError(t("apiDownloads.serverNotFound", locale));
@@ -200,6 +200,10 @@ export async function POST(request: Request) {
       // needs the choice (teamCreateData refuses).
       const downloadTeamId = session.currentTeamId ?? server.teamId ?? teamCreateData(session).teamId ?? null;
 
+      const agentRootIdentity = server.agentFileShares?.find(share => share.node.id === storageNode.id)?.rootIdentity;
+      if (storageNode.driver === "AGENT" && !agentRootIdentity?.startsWith("v2:")) {
+        return NextResponse.json({ error: t("backend.fileAgent.unavailable", locale) }, { status: 409 });
+      }
       const createdTaskIds: string[] = [];
       // New-A (2026-06-15): we used to dispatch `download.execute` jobs via
       // `void enqueueDownloadExecutionJob(...).catch(logError)` (fire-and-
@@ -221,7 +225,7 @@ export async function POST(request: Request) {
           data: {
             url: storedUrls.get(taskUrl) ?? taskUrl,
             serverId,
-            ...(storageNode.driver === "AGENT" ? { agentStorageNodeId: storageNode.id } : { directStorageNodeId: storageNode.id }),
+            ...(storageNode.driver === "AGENT" ? { agentStorageNodeId: storageNode.id, agentRootIdentity } : { directStorageNodeId: storageNode.id }),
             targetPath: resolvedTargetPath,
             fileName: taskFileName,
             status: "PENDING",

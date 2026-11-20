@@ -114,9 +114,9 @@ function activateServerAgentToken(where: Prisma.ServerWhereUniqueInput, token: s
   });
 }
 
-export async function issueServerAgentToken(serverId: string) {
+export async function issueServerAgentToken(serverId: string, scope: Prisma.ServerWhereInput = {}) {
   const token = generateServerAgentToken(serverId);
-  await activateServerAgentToken({ id: serverId }, token);
+  await activateServerAgentToken({ ...scope, id: serverId }, token);
   return token;
 }
 
@@ -1073,13 +1073,13 @@ export function buildWindowsAgentInstaller(hubUrl: string, token: string) {
   ].join("\n"));
 }
 
-export function installServerAgent(serverId: string, teamId?: string | null) {
-  return withServerLifecycleLock(serverId, () => installServerAgentUnderLock(serverId, teamId));
+export function installServerAgent(serverId: string, teamId?: string | null, scope: Prisma.ServerWhereInput = {}) {
+  return withServerLifecycleLock(serverId, () => installServerAgentUnderLock(serverId, teamId, scope));
 }
 
-export async function installServerAgentUnderLock(serverId: string, teamId?: string | null) {
+export async function installServerAgentUnderLock(serverId: string, teamId?: string | null, scope: Prisma.ServerWhereInput = {}) {
   const server = await prisma.server.findUnique({
-    where: { id: serverId, teamId },
+    where: { ...scope, id: serverId, teamId },
     include: { sshKey: { select: { teamId: true, privateKey: true, passphrase: true } } },
   });
   if (!server) throw new Error("Server not found");
@@ -1100,7 +1100,7 @@ export async function installServerAgentUnderLock(serverId: string, teamId?: str
   if (!hasSshCredential) throw new BusinessError(t("backend.server.agentInstallNeedsSsh"));
   // Rotating the hash also revokes file-drive pairings. Activate only after SSH confirms the restart.
   const token = generateServerAgentToken(serverId);
-  const identity = { id: server.id, teamId: server.teamId, managementMode: "AGENT" as const, agentTokenHash: server.agentTokenHash };
+  const identity = { ...scope, id: server.id, teamId: server.teamId, managementMode: "AGENT" as const, agentTokenHash: server.agentTokenHash };
   const python = Buffer.from(buildAgentPython(hubUrl, token)).toString("base64");
   const unit = `[Unit]\nDescription=VControlHub Agent\nAfter=network-online.target\nWants=network-online.target\n\n[Service]\nType=simple\nExecStart=/usr/bin/python3 /opt/vcontrolhub-agent/agent.py\nRestart=always\nRestartSec=5\nNoNewPrivileges=true\n\n[Install]\nWantedBy=multi-user.target\n`;
   const script = [
@@ -1137,11 +1137,11 @@ export async function installServerAgentUnderLock(serverId: string, teamId?: str
  * PowerShell one-liner that downloads the installer from the authenticated
  * bootstrap endpoint and runs it on the Windows machine.
  */
-export function prepareWindowsAgentInstall(serverId: string, teamId?: string | null) {
-  return withServerLifecycleLock(serverId, () => prepareWindowsAgentInstallUnderLock(serverId, teamId));
+export function prepareWindowsAgentInstall(serverId: string, teamId?: string | null, scope: Prisma.ServerWhereInput = {}) {
+  return withServerLifecycleLock(serverId, () => prepareWindowsAgentInstallUnderLock(serverId, teamId, scope));
 }
 
-async function prepareWindowsAgentInstallUnderLock(serverId: string, teamId?: string | null) {
+async function prepareWindowsAgentInstallUnderLock(serverId: string, teamId?: string | null, scope: Prisma.ServerWhereInput = {}) {
   const hubUrl = config.app.baseUrl;
   if (!hubUrl) throw new Error("The hub address is not configured: set DOMAIN or APP_BASE_URL to install Agent mode");
   const parsed = new URL(hubUrl);
@@ -1149,13 +1149,13 @@ async function prepareWindowsAgentInstallUnderLock(serverId: string, teamId?: st
     throw new Error("Agent hub URL must use HTTPS");
   }
   const server = await prisma.server.findUnique({
-    where: { id: serverId, teamId },
+    where: { ...scope, id: serverId, teamId },
     select: { operatingSystem: true, managementMode: true },
   });
   if (!server) throw new Error("Server not found");
   if (server.operatingSystem !== "WINDOWS") throw new BusinessError(t("backend.server.agentManualInstall"));
   if (server.managementMode !== "AGENT") throw new BusinessError(t("backend.server.agentModeRequired"));
-  const token = await issueServerAgentToken(serverId);
+  const token = await issueServerAgentToken(serverId, { ...scope, teamId, operatingSystem: "WINDOWS" });
   const bootstrapUrl = new URL("/api/agent/v1/bootstrap", hubUrl).toString();
   const installCommand = `${POWERSHELL_ENABLE_TLS12}; & ([scriptblock]::Create((Invoke-RestMethod -UseBasicParsing -Uri '${bootstrapUrl}' -Headers @{ Authorization = 'Bearer ${token}' })))`;
   return { installCommand, bootstrapUrl };

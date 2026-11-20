@@ -30,6 +30,7 @@ type receipt struct {
 	Result result `json:"result"`
 }
 type work struct {
+	RemainingMs int64     `json:"remainingMs"`
 	ID        string    `json:"id"`
 	Operation operation `json:"operation"`
 }
@@ -135,7 +136,16 @@ func run(ctx context.Context, configFile string) error {
 	if err != nil {
 		return err
 	}
-	rootIdentity := digest([]byte(cfg.Token + "\x00" + hostname + "\x00" + rootPath))
+	dir, err := root.Open(".")
+	if err != nil {
+		return err
+	}
+	identity, err := directoryID(dir)
+	dir.Close()
+	if err != nil {
+		return err
+	}
+	rootIdentity := "v2:" + digest([]byte(cfg.Token + "\x00" + hostname + "\x00" + rootPath + "\x00" + identity))
 	var pending *receipt
 	var lastCleanup time.Time
 	for ctx.Err() == nil {
@@ -143,6 +153,7 @@ func run(ctx context.Context, configFile string) error {
 			s.cleanup(time.Now())
 			lastCleanup = time.Now()
 		}
+		pollStarted := time.Now()
 		reply, err := poll(ctx, client, hub.String(), cfg.Token, rootIdentity, cfg.Writable, pending)
 		if errors.Is(err, denied) {
 			return errors.New("pairing revoked or node disabled")
@@ -154,6 +165,8 @@ func run(ctx context.Context, configFile string) error {
 		if err == nil {
 			pending = nil
 			if reply.Job != nil {
+				reply.Job.Operation.deadline = pollStarted.Add(time.Duration(reply.Job.RemainingMs) * time.Millisecond)
+				reply.Job.Operation.jobID = reply.Job.ID
 				answer, err := s.handle(reply.Job.Operation)
 				if err != nil {
 					answer = result{Error: errorCode(err)}

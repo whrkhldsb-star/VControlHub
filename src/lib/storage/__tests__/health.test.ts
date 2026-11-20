@@ -92,13 +92,14 @@ describe("checkStorageNodeHealth", () => {
 
   it("checks an SFTP node by listing its normalized remote base path", async () => {
     prismaMock.storageNode.findUnique.mockResolvedValueOnce({
+      teamId: null,
       id: "node-1",
       driver: "SFTP",
       basePath: "/data/root/",
       host: "203.0.113.10",
       port: 2222,
       username: "deployer",
-      server: { host: "server-host", port: 22, username: "root", password: null, sshKeyId: "key-1", sshKey: { privateKey: "PRIVATE KEY" } },
+      server: { teamId: null, host: "server-host", port: 22, username: "root", password: null, sshKeyId: "key-1", sshKey: { teamId: null, privateKey: "PRIVATE KEY" } },
     });
     listRemoteDirectoryMock.mockResolvedValueOnce([]);
 
@@ -116,8 +117,9 @@ describe("checkStorageNodeHealth", () => {
 
   it("identifies an Agent-only cloud drive when checking its root", async () => {
     prismaMock.storageNode.findUnique.mockResolvedValueOnce({
+      teamId: null,
       id: "node-1", driver: "SFTP", basePath: "/data", host: null, port: null, username: null,
-      server: { id: "agent", managementMode: "AGENT", operatingSystem: "LINUX", host: "server", port: 22, username: "ops", connectionType: "PASSWORD", password: null },
+      server: { teamId: null, id: "agent", managementMode: "AGENT", operatingSystem: "LINUX", host: "server", port: 22, username: "ops", connectionType: "PASSWORD", password: null },
     });
     listRemoteDirectoryMock.mockResolvedValueOnce([]);
     expect(await checkStorageNodeHealth("node-1")).toMatchObject({ transport: "Agent", healthStatus: "HEALTHY" });
@@ -126,13 +128,14 @@ describe("checkStorageNodeHealth", () => {
 
   it("decrypts encrypted SFTP server credentials before health checks", async () => {
     prismaMock.storageNode.findUnique.mockResolvedValueOnce({
+      teamId: null,
       id: "node-1",
       driver: "SFTP",
       basePath: "/data/root",
       host: null,
       port: null,
       username: null,
-      server: { host: "server-host", port: 22, username: "root", password: "enc:v1:SECRET", sshKeyId: null, sshKey: null },
+      server: { teamId: null, host: "server-host", port: 22, username: "root", password: "enc:v1:SECRET", sshKeyId: null, sshKey: null },
     });
     listRemoteDirectoryMock.mockResolvedValueOnce([]);
 
@@ -148,13 +151,14 @@ describe("checkStorageNodeHealth", () => {
 
   it("marks an SFTP node unhealthy without leaking credentials when the remote check fails", async () => {
     prismaMock.storageNode.findUnique.mockResolvedValueOnce({
+      teamId: null,
       id: "node-1",
       driver: "SFTP",
       basePath: "/data/root",
       host: null,
       port: null,
       username: null,
-      server: { host: "server-host", port: 22, username: "root", password: "SECRET", sshKeyId: null, sshKey: null },
+      server: { teamId: null, host: "server-host", port: 22, username: "root", password: "SECRET", sshKeyId: null, sshKey: null },
     });
     listRemoteDirectoryMock.mockRejectedValueOnce(new Error("Auth failed with SECRET"));
 

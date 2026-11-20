@@ -647,6 +647,7 @@ model FileEntry {
   parentId       String?
   isDeleted      Boolean          @default(false)
   deleteBatchId  String?
+  deletedAgentRoot String?
   createdAt      DateTime         @default(now())
   updatedAt      DateTime         @updatedAt
   storageNode    StorageNode      @relation(fields: [storageNodeId], references: [id], onDelete: Cascade)
@@ -1277,6 +1278,7 @@ model SyncLog {
 model DownloadTask {
   /// New tasks remember which binding they used. Older tasks with neither ID use their server drive.
   agentStorageNodeId String?
+  agentRootIdentity String?
   directStorageNodeId String?
   id           String             @id @default(cuid())
   url          String
@@ -1324,6 +1326,7 @@ model DownloadTask {
 }
 
 model ShareLink {
+  agentRootIdentity String?
   id              String        @id @default(cuid())
   tokenHash       String        @unique
   storageNodeId   String
@@ -2221,6 +2224,8 @@ model AppSourceApp {
 // handed off to the existing image pipeline; on CANCELLED/expired, the temp
 // dir is removed.
 model MediaUploadSession {
+  teamId                 String?
+  teamBound              Boolean                  @default(false)
   id                     String                   @id @default(cuid())
   userId                 String
   filename               String

@@ -7,7 +7,7 @@
  * can leave forever-PENDING rows that no worker claims. This keeps the
  * queue honest without reintroducing those dead types.
  */
-import { JobStatus } from "@prisma/client";
+import { JobStatus, Prisma } from "@prisma/client";
 import { getRuntimeSettingNumber } from "@/lib/runtime-settings/service";
 
 import { config } from "@/lib/config/env";
@@ -336,7 +336,9 @@ async function tick(reason: string) {
     // closed / network dropped). The sweep function existed but was never
     // scheduled, so /tmp and mediaUploadSession grew unbounded.
     await runStep("sweep-expired-file-agent-calls", async () => {
-      await prisma.agentFileCall.deleteMany({ where: { expiresAt: { lt: new Date() } } });
+      await prisma.agentFileCall.deleteMany({ where: { expiresAt: { lt: new Date() }, OR: [
+        { claimed: false }, { result: { not: Prisma.DbNull } }, { NOT: { payload: { path: ["op"], equals: "publish" } } },
+      ] } });
     });
     await runStep("recover-interrupted-upload-finalizations", async () => {
       const recovered = await recoverInterruptedFinalizations();

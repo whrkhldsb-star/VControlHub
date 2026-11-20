@@ -70,7 +70,7 @@ export function WindowsServerDetails({
 						agentVersion={server.agent?.version ?? null}
 						agentLastSeenAt={server.agent?.lastSeenAt ?? null}
 						agentLastError={server.agent?.lastError ?? null}
-						canManageServers={canManageServers}
+						canManageServers={canManageServers && !server.profileLocked}
 					/>
 				) : null}
 				<div className="mt-3 flex flex-wrap gap-2">
