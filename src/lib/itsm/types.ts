@@ -17,7 +17,7 @@ export type ItsmProvider = (typeof ITSM_PROVIDER_VALUES)[number];
 export const ITSM_DIRECTION_VALUES = ["outbound", "inbound", "bidirectional"] as const;
 export type ItsmDirection = (typeof ITSM_DIRECTION_VALUES)[number];
 
-export const ITSM_EVENT_STATUS_VALUES = ["pending", "ok", "error", "ignored"] as const;
+export const ITSM_EVENT_STATUS_VALUES = ["pending", "ok", "error", "unknown", "ignored"] as const;
 export type ItsmEventStatus = (typeof ITSM_EVENT_STATUS_VALUES)[number];
 
 export const ITSM_EVENT_DIRECTION_VALUES = ["inbound", "outbound"] as const;
@@ -95,6 +95,7 @@ export type ItsmOutboundTicketPayload = {
 
 export type ItsmOutboundResult = {
 	ok: boolean;
+	outcomeUnknown?: boolean;
 	statusCode?: number;
 	error?: string;
 	responseBody?: string;

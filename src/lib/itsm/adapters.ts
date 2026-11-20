@@ -130,17 +130,20 @@ export function buildOutboundBody(
  * or `StatusCode` (older robots), 0 = ok. Other providers report failures
  * through the HTTP status.
  */
-export function providerRejection(provider: ItsmProvider, body: string): string | null {
+export const UNKNOWN_RECEIPT = Symbol("unknown receipt");
+
+export function providerRejection(provider: ItsmProvider, body: string): string | null | typeof UNKNOWN_RECEIPT {
 	if (provider !== "dingtalk" && provider !== "feishu") return null;
 	let parsed: Record<string, unknown>;
 	try {
 		parsed = JSON.parse(body) as Record<string, unknown>;
 	} catch {
-		return null;
+		return UNKNOWN_RECEIPT;
 	}
-	if (!parsed || typeof parsed !== "object") return null;
+	if (!parsed || typeof parsed !== "object") return UNKNOWN_RECEIPT;
 	const code = provider === "dingtalk" ? parsed.errcode : parsed.code ?? parsed.StatusCode;
-	if (typeof code !== "number" || code === 0) return null;
+	if (!Number.isSafeInteger(code)) return UNKNOWN_RECEIPT;
+	if (code === 0) return null;
 	const message = provider === "dingtalk" ? parsed.errmsg : parsed.msg ?? parsed.StatusMessage;
 	return `${provider} rejected the message: ${code}${typeof message === "string" && message ? ` ${message}` : ""}`.slice(0, 500);
 }
@@ -239,7 +242,8 @@ export async function deliverOutbound(input: {
 			return {
 				ok: false,
 				statusCode: result.response.status,
-				error: rejected,
+				outcomeUnknown: rejected === UNKNOWN_RECEIPT,
+				error: rejected === UNKNOWN_RECEIPT ? "Invalid provider receipt; verify delivery before resending" : rejected,
 				responseBody: responseBody.slice(0, 500),
 			};
 		}

@@ -1,6 +1,6 @@
 import { describe, expect, it } from "vitest";
 
-import { providerRejection } from "../adapters";
+import { providerRejection, UNKNOWN_RECEIPT } from "../adapters";
 
 // DingTalk and Feishu robots answer HTTP 200 with an error code in the body
 // (bad signature, keyword check, rate limit): the delivery failed.
@@ -23,8 +23,9 @@ describe("providerRejection", () => {
 		);
 	});
 
-	it("does not judge other providers or bodies it cannot read", () => {
+	it("requires a valid receipt only for providers with a business status", () => {
 		expect(providerRejection("generic_webhook", '{"errcode":1}')).toBeNull();
-		expect(providerRejection("dingtalk", "ok")).toBeNull();
+		expect(providerRejection("dingtalk", "ok")).toBe(UNKNOWN_RECEIPT);
+		expect(providerRejection("feishu", "{}")).toBe(UNKNOWN_RECEIPT);
 	});
 });
