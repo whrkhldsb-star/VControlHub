@@ -24,7 +24,9 @@ vi.mock("@/lib/auth/bearer-token", () => ({
   hasBearerAuthorization: hasBearerAuthorizationMock,
   authenticateBearerForPermissions: authenticateBearerForPermissionsMock,
 }));
-vi.mock("@/lib/health/service", () => ({
+vi.mock("@/lib/db", () => ({ prisma: { server: { findMany: async () => [{ id: "srv_1" }] } } }));
+vi.mock("@/lib/health/service", async () => ({
+  summarizeHealth: (await import("@/lib/health/service-collect")).summarizeHealth,
   collectAllHealth: collectAllHealthMock,
   getMetricHistory: getMetricHistoryMock,
 }));
