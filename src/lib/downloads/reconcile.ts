@@ -111,11 +111,16 @@ export async function probeDirectDownloadRemote(input: {
  * directory (tens of GB for a torrent) with it (A5-04); only the executor's
  * own failure paths cleaned up before, and a crashed worker left both behind.
  */
-async function failRelayTask(task: { id: string; aria2Gid: string }, errorMessage: string): Promise<boolean> {
-  const failed = await failRunningTask(task.id, errorMessage);
-  if (!failed) return false;
-  try { await removeDownload(task.aria2Gid, true); } catch { /* best-effort: aria2 may not know the gid any more */ }
-  await rm(relayTempDir(task.id), { recursive: true, force: true }).catch(() => undefined);
+export async function failRelayTask(task: { id: string; aria2Gid: string | null }, errorMessage: string, includePending = false): Promise<boolean> {
+  const failed = await prisma.downloadTask.updateMany({
+    where: { id: task.id, status: includePending ? { in: ["PENDING", "RUNNING"] } : "RUNNING" },
+    data: { status: "FAILED", errorMessage: errorMessage.slice(0, 500) },
+  });
+  if (!failed.count) return false;
+  if (task.aria2Gid) {
+    try { await removeDownload(task.aria2Gid, true); } catch { /* best-effort: aria2 may not know the gid any more */ }
+  }
+  await rm(relayTempDir(task.id), { recursive: true, force: true }).catch(err => logError("[DownloadReconcile] relay cleanup failed:", err));
   return true;
 }
 

@@ -13,6 +13,8 @@ import {
   heartbeatJob,
   pruneTerminalJobsByType,
 } from "@/lib/job/service";
+import { notifyDownloadResult } from "@/lib/notification/service";
+import { failRelayTask } from "./reconcile";
 import { executionRefusal, loadExecutionActor } from "@/lib/auth/execution-actor";
 import { getStorageWriteCapacity } from "@/lib/storage/access-control";
 import { t } from "@/lib/i18n/service-translations";
@@ -498,11 +500,14 @@ async function handleClaimedJob(
       return true;
     }
     const failed = await failJob(job.id, DOWNLOAD_EXECUTION_WORKER_ID, message.slice(0, 2000));
-    if (postTask?.agentStorageNodeId && failed.count && job.attempts >= job.maxAttempts) {
-      await failTaskBeforeStart(postTask.id, t("backend.downloads.error.executionFailed"));
-      const { rm } = await import("node:fs/promises");
-      const { relayTempDir } = await import("@/lib/runtime/platform-paths");
-      await rm(relayTempDir(postTask.id), { recursive: true, force: true });
+    if (postTask && payload.mode === "aria2_relay" && failed.count && job.attempts >= job.maxAttempts) {
+      const reason = t("backend.downloads.error.executionFailed");
+      const changed = await failRelayTask(postTask, reason, true);
+      const userId = postTask.createdBy ?? payload.userId;
+      if (changed && userId) {
+        await notifyDownloadResult(userId, postTask.url, "failed", reason, postTask.teamId)
+          .catch(err => logger.warn("Download failure notification failed", { taskId: postTask.id, error: String(err) }));
+      }
     }
     logger.error("Download execution job failed", {
       jobId: job.id,
