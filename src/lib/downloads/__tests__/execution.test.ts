@@ -177,7 +177,7 @@ describe("executeDirectDownload claim ordering", () => {
     expect(pidUpdate).toBeTruthy();
   });
 
-  it("stops the detached remote process when recording the pid fails", async () => {
+  it("retains the pid for reconciliation when cleanup cannot confirm the stop", async () => {
     ssh.execRemoteCommand
       .mockResolvedValueOnce({ stdout: "", exitCode: 0 })
       .mockResolvedValueOnce({ stdout: "4321", exitCode: 0 })
@@ -197,7 +197,7 @@ describe("executeDirectDownload claim ordering", () => {
     expect(cleanupCall).toEqual(expect.objectContaining({ command: "STOP_CMD" }));
     expect(prismaMock.downloadTask.updateMany).toHaveBeenLastCalledWith(expect.objectContaining({
       where: { id: "task-5", status: "RUNNING" },
-      data: expect.objectContaining({ status: "FAILED" }),
+      data: { pid: 4321, progress: expect.any(String) },
     }));
   });
 

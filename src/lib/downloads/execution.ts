@@ -500,6 +500,7 @@ maxSpeedKb?: number | null,
 ) {
  const teamId = await loadDownloadTeamId(taskId);
  let sshParams: Awaited<ReturnType<typeof buildSshParamsFromServer>> | null = null;
+ let spawnAttempted = false;
  let remotePid: number | null = null;
 
  try {
@@ -549,6 +550,7 @@ maxSpeedKb?: number | null,
    maxBytes: limits ? largestAllowedWrite(limits) : null,
    maxSpeedKb: maxSpeedKb ?? null,
   });
+  spawnAttempted = true;
   const { stdout: pidOutput, exitCode } = await execRemoteCommand({ ...sshParams, command: downloadCmd, timeout: 30000 });
   const pid = parseInt(pidOutput.trim(), 10);
 
@@ -570,8 +572,8 @@ maxSpeedKb?: number | null,
    const { stdout: logContent } = await execRemoteCommand({ ...sshParams, command: getDirectDownloadLogCommand(taskId), timeout: 8000 });
    // 127 is the launcher's own "no bash on this host" (remote-command.ts); the log is empty then.
    const errMsg = exitCode === 127 && !logContent.trim() ? t("backend.downloads.remoteBashMissing") : (logContent.trim() || t("backend.downloads.startFailed"));
-   await prisma.downloadTask.updateMany({ where: { id: taskId, status: "RUNNING" }, data: { status: "FAILED", errorMessage: errMsg } });
-   if (userId) notifyDownloadResult(userId, url, "failed", errMsg, teamId).catch((err) => { notifyLogger.warn("notifyDownloadResult failed", { error: err instanceof Error ? err.message : String(err) }); });
+   if (exitCode === 127) spawnAttempted = false;
+   throw new DownloadSourceRejectedError(errMsg);
   }
  } catch (error) {
   logError("[DownloadAPI] Direct download execution failed:", error);
@@ -579,8 +581,12 @@ maxSpeedKb?: number | null,
   // step fails after launch, terminate this task's download processes and
   // task-owned marker files; otherwise a failed row leaves a live
   // curl writing into the target and a retry creates a duplicate download.
-  if (sshParams && remotePid) {
-   await stopRemoteDirectDownload(sshParams, taskId, targetPath);
+  if (sshParams && spawnAttempted && !await stopRemoteDirectDownload(sshParams, taskId, targetPath)) {
+   await prisma.downloadTask.updateMany({
+    where: { id: taskId, status: "RUNNING" },
+    data: { ...(remotePid ? { pid: remotePid } : {}), progress: t("apiDownloads.remoteProcessCancelFailed") },
+   });
+   return;
   }
   try {
    // A rejected redirect target says why (as for relay downloads).
@@ -601,13 +607,13 @@ async function stopRemoteDirectDownload(
  targetPath: string,
 ) {
  try {
-  const result = await execRemoteCommand({ ...sshParams, command: buildDirectDownloadStopCommand(taskId, targetPath), timeout: 20000 });
-  if (!parseDirectDownloadStopResult(result)) {
-   logError(`[DownloadAPI] Remote direct download ${taskId} could not be confirmed stopped:`, result.stdout.trim().slice(-200));
-  }
+  const result = await execRemoteCommand({ ...sshParams, command: buildDirectDownloadStopCommand(taskId, targetPath, { cancel: true }), timeout: 20000 });
+  if (parseDirectDownloadStopResult(result)) return true;
+  logError(`[DownloadAPI] Remote direct download ${taskId} could not be confirmed stopped:`, result.stdout.trim().slice(-200));
  } catch (cleanupError) {
   logError("[DownloadAPI] Failed to stop remote direct download:", cleanupError);
  }
+ return false;
 }
 
 /* ── Verified SFTP file transfer ───────────────────────── */
