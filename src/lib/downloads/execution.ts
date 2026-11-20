@@ -627,7 +627,7 @@ export async function transferFileViaSsh2(
  const operation = createHash("sha256").update(`${taskId}\0${remoteFilePath}`).digest("hex").slice(0, 24);
  const cleanStaging = `find ${shellQuote(path.posix.dirname(remoteFilePath))} -maxdepth 1 -type f -name ${shellQuote(`.vch-${operation}-*.part`)} -delete`;
  const verified = await execRemoteCommand({ ...sshParams, signal, timeout: 120000,
-  command: `command -v sha256sum >/dev/null || exit 127\nif [ -f ${shellQuote(remoteFilePath)} ] && [ "$(sha256sum -- ${shellQuote(remoteFilePath)} | cut -d ' ' -f 1)" = ${shellQuote(expected)} ]; then echo COMMITTED; fi` });
+  command: `command -v sha256sum >/dev/null || exit 127\nif [ ! -L ${shellQuote(remoteFilePath)} ] && [ -f ${shellQuote(remoteFilePath)} ] && [ "$(sha256sum -- ${shellQuote(remoteFilePath)} | cut -d ' ' -f 1)" = ${shellQuote(expected)} ]; then echo COMMITTED; fi` });
  if (verified.exitCode !== 0) throw new Error("Remote file verification failed");
  // Covers process death after rename but before the database commit, even
  // when the local relay temp file has already disappeared.
@@ -681,7 +681,7 @@ export async function transferFileViaSsh2(
    });
    signal?.throwIfAborted();
    const published = await execRemoteCommand({ ...sshParams, signal, timeout: 120000,
-    command: `set -e\n[ "$(sha256sum -- ${shellQuote(staging)} | cut -d ' ' -f 1)" = ${shellQuote(expected)} ]\nmv -f -- ${shellQuote(staging)} ${shellQuote(remoteFilePath)}` });
+    command: `set -e\n[ "$(sha256sum -- ${shellQuote(staging)} | cut -d ' ' -f 1)" = ${shellQuote(expected)} ]\n[ -f ${shellQuote(staging)} ] && [ ! -L ${shellQuote(staging)} ] || exit 1\nmv -fT -- ${shellQuote(staging)} ${shellQuote(remoteFilePath)}\n[ -f ${shellQuote(remoteFilePath)} ] && [ ! -L ${shellQuote(remoteFilePath)} ]` });
    if (published.exitCode !== 0) throw new Error("Relay file checksum or atomic publication failed");
    await execRemoteCommand({ ...sshParams, command: cleanStaging, timeout: 10000, signal });
   } catch (error) {

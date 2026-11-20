@@ -64,21 +64,17 @@ export async function probeDirectDownloadRemote(input: {
   const safeTaskFileStem = input.taskId.replace(/[^A-Za-z0-9_-]/g, "_");
   const pidFile = `/tmp/app-dl-${safeTaskFileStem}.pid`;
   const exitFile = `${pidFile}.exit`;
-  const resolvedName = input.fileName || deriveDownloadFileNameFromUrl(input.url);
-  const outputPath = resolvedName
-    ? `${input.targetPath.replace(/\/$/, "")}/${resolvedName}`
-    : "";
-  const statSnippet = outputPath
-    ? `if [ -f ${shellQuote(outputPath)} ]; then stat -c %s -- ${shellQuote(outputPath)} 2>/dev/null || echo 0; else echo 0; fi`
-    : "echo 0";
+  const resolvedName = input.fileName || deriveDownloadFileNameFromUrl(input.url) || "download";
+  const outputPath = `${input.targetPath.replace(/\/$/, "")}/${resolvedName}`;
+  const output = shellQuote(outputPath);
   const probeCommand = [
     `remote_pid=$(cat ${shellQuote(pidFile)} 2>/dev/null || true)`,
     `case "$remote_pid" in ''|*[!0-9]*) remote_pid=${shellQuote(input.pid && input.pid > 0 ? String(input.pid) : "")} ;; esac`,
     `if [ -f ${shellQuote(exitFile)} ]; then`,
     "  status=$(cat " + shellQuote(exitFile) + " 2>/dev/null || echo 1)",
-    '  if [ "$status" = "0" ]; then echo COMPLETED; else echo FAILED; fi',
-    `  ${statSnippet}`,
-    outputPath ? `  echo ${shellQuote(outputPath)}` : "  echo",
+    `  if [ "$status" = 0 ] && [ -f ${output} ] && [ ! -L ${output} ] && size=$(stat -c %s -- ${output}); then`,
+    `    printf '%s\\n' COMPLETED "$size" ${output}`,
+    "  else echo FAILED; fi",
     'elif [ -n "$remote_pid" ] && [ "$remote_pid" -gt 0 ] && kill -0 "$remote_pid" 2>/dev/null; then',
     "  echo RUNNING",
     "  echo 0",
@@ -96,6 +92,7 @@ export async function probeDirectDownloadRemote(input: {
   const [remoteState, sizeLine, resolvedPathLine] = stdout.trim().split(/\r?\n/);
   if (remoteState === "COMPLETED") {
     const size = /^\d+$/.test(sizeLine ?? "") ? sizeLine ?? null : null;
+    if (size === null) return { state: "FAILED" };
     const resolvedFileName =
       input.fileName ||
       (resolvedPathLine ? resolvedPathLine.split("/").filter(Boolean).pop() ?? null : null) ||
