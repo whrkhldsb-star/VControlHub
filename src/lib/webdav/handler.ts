@@ -504,6 +504,8 @@ export async function handleWebDavDelete(
   const destParent = parentRelativePath(entry.relativePath);
   const stagedPath = `${destParent ? `${destParent}/` : ""}.vcontrolhub-webdav-delete-${randomUUID()}.staged`;
 
+  const withVersions = await versionOwnersAt(ctx.storageNodeId, entry.relativePath);
+
   // Stage the whole tree away from the live path first so a later index failure
   // can restore the original bytes instead of leaving unindexed orphans.
   await renameBackingObject({
@@ -518,8 +520,6 @@ export async function handleWebDavDelete(
   // — and a folder's earlier recycle-bin files lost their bytes too. Like the
   // file manager's permanent delete, the subtree's rows (recycle-bin ones
   // included) and their version history go with it.
-  const withVersions = await versionOwnersAt(ctx.storageNodeId, entry.relativePath);
-
   try {
     await prisma.$transaction(async (tx) => {
       await dropRowsAt(tx, ctx.storageNodeId, entry.relativePath);
