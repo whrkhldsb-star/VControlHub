@@ -2678,7 +2678,6 @@ describe("server service", () => {
     // The gateway kept serving its install-time root: a direct link returned
     // the old folder's file of the same name with a 200.
     const current = {
-      teamId: null,
       id: "srv_gw",
       teamId: "team-1",
       name: "gw-node",
@@ -2700,7 +2699,7 @@ describe("server service", () => {
       directGatewayDesiredEnabled: true,
       directGatewayDesiredProtocol: "HTTP",
       directGatewayDesiredDomain: null,
-      storageNode: { teamId: null, id: "sn_gw", name: "gw-node storage", driver: "SFTP", isDefault: true, basePath: "/root/drive", directAccessMode: "AUTO", publicBaseUrl: "http://203.0.113.78:31888" },
+      storageNode: { teamId: "team-1", id: "sn_gw", name: "gw-node storage", driver: "SFTP", isDefault: true, basePath: "/root/drive", directAccessMode: "AUTO", publicBaseUrl: "http://203.0.113.78:31888" },
       commandTargets: [],
       createdAt: new Date(),
       updatedAt: new Date(),
