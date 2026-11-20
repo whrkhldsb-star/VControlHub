@@ -5,7 +5,7 @@ const { requireApiPermissionMock, getStorageOverviewMock, prismaMock } = vi.hois
   requireApiPermissionMock: vi.fn(),
   getStorageOverviewMock: vi.fn(),
   prismaMock: {
-    userStorageAccess: {
+    storageNode: {
       findMany: vi.fn(),
     },
   },
@@ -30,7 +30,6 @@ describe("/api/storage/nodes", () => {
     requireApiPermissionMock.mockResolvedValue({
       session: { userId: "user_1", username: "admin", roles: ["admin"] },
     });
-    prismaMock.userStorageAccess.findMany.mockResolvedValue([]);
     getStorageOverviewMock.mockResolvedValue({
       nodes: [
         {
@@ -113,29 +112,16 @@ describe("/api/storage/nodes", () => {
     });
   });
 
-  it("hides nodes whose path grants deny reading and keeps nodes without grants", async () => {
-    requireApiPermissionMock.mockResolvedValueOnce({
-      session: { userId: "user_1", username: "viewer", roles: ["viewer"] },
-    });
-    // sftp_1 is narrowed to a readable path, sftp_host to a write-only one;
-    // local_1 has no grants and is not narrowed.
-    prismaMock.userStorageAccess.findMany.mockResolvedValueOnce([
-      { storageNodeId: "sftp_1", canRead: true },
-      { storageNodeId: "sftp_host", canRead: false },
-    ]);
-
-    const response = await GET(
-      new Request("https://example.com/api/storage/nodes"),
-    );
-
-    expect(response.status).toBe(200);
-    expect(prismaMock.userStorageAccess.findMany).toHaveBeenCalledWith({
-      where: { userId: "user_1" },
-      select: { storageNodeId: true, canRead: true },
-      take: 5000,
-    });
-    const { nodes } = await response.json() as { nodes: Array<{ id: string }> };
-    expect(nodes.map((node) => node.id)).toEqual(["local_1", "sftp_1"]);
+  it("applies the reader's grants inside the node query", async () => {
+    const { listStorageNodes } = await import("@/lib/storage/service-nodes");
+    prismaMock.storageNode.findMany.mockResolvedValueOnce([]);
+    await listStorageNodes({ userId: "user_1", roles: ["viewer"], currentTeamId: "team_1" });
+    expect(prismaMock.storageNode.findMany).toHaveBeenCalledWith(expect.objectContaining({
+      where: { teamId: "team_1", OR: [
+        { accessGrants: { none: { userId: "user_1" } } },
+        { accessGrants: { some: { userId: "user_1", canRead: true } } },
+      ] },
+    }));
   });
 
   it("requires storage read permission", async () => {

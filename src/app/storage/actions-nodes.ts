@@ -49,15 +49,16 @@ async function getStorageFormOptionsImpl() {
   }
   const [servers, nodes] = await Promise.all([
     sessionHasPermission(session, "server:read") ? listServerProfiles(session) : Promise.resolve([]),
-    listStorageNodes(session),
+    listStorageNodes(session, "write"),
   ]);
+  const nodeIds = new Set(nodes.map(node => node.id));
   return {
     servers: servers.map((server: (typeof servers)[number]) => ({
       id: server.id,
       name: server.name,
       host: server.host,
       canPairFileAgent: server.enabled && server.managementMode === "AGENT" && server.teamId === session.currentTeamId,
-      storageNodeId: server.storageNode?.id ?? null,
+      storageNodeId: server.storageNode && nodeIds.has(server.storageNode.id) ? server.storageNode.id : null,
     })),
     nodes: nodes.map((node: (typeof nodes)[number]) => ({
       id: node.id,
