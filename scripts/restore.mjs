@@ -175,7 +175,7 @@ const RESET_SCHEMA_SQL = `DO $vch_reset$ DECLARE r record; BEGIN
     WHERE n.nspname = 'public' AND p.pronargs = 0 AND p.prorettype = 'pg_catalog.trigger'::regtype
       AND p.proowner = current_user::regrole AND p.proname IN (
         'vch_reset_connection_evidence', 'vch_reset_storage_evidence', 'vch_record_command_success',
-        'vch_revoke_file_shares', 'vch_remove_detached_file_share')
+        'vch_cancel_disabled_agent_jobs', 'vch_revoke_file_shares', 'vch_remove_detached_file_share')
       AND NOT EXISTS (SELECT 1 FROM pg_depend d WHERE d.classid = 'pg_proc'::regclass
         AND d.objid = p.oid AND d.deptype = 'e') LOOP
     EXECUTE format('DROP FUNCTION public.%I() RESTRICT', r.proname);

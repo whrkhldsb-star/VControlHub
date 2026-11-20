@@ -273,7 +273,9 @@ export async function claimNextServerAgentJob(serverId: string, authenticatedHas
   return prisma.$transaction(async (tx) => {
     const identity = await tx.$queryRaw<{ id: string }[]>`
       SELECT id FROM servers WHERE id = ${serverId} AND "managementMode" = 'AGENT'
-        AND "agentTokenHash" = ${authenticatedHash} FOR SHARE`;
+        AND enabled AND "agentTokenHash" = ${authenticatedHash}
+        AND NOT EXISTS (SELECT 1 FROM teams WHERE id = servers."teamId" AND "deletedAt" IS NOT NULL)
+      FOR SHARE`;
     if (!identity.length) return null;
     const now = new Date();
     await tx.serverAgentJob.updateMany({
