@@ -147,7 +147,7 @@ export async function resolveServerConnection(
 	 password: true,
 	 hostKeySha256: true,
 	 teamId: true,
-	 sshKey: { select: { privateKey: true, passphrase: true } },
+	 sshKey: { select: { teamId: true, privateKey: true, passphrase: true } },
 	},
 	});
 	if (!srv || !srv.enabled) return null;
@@ -174,7 +174,7 @@ export async function resolveServerConnection(
 	};
 	}
 
-	if (srv.connectionType === "SSH_KEY" && !srv.sshKey?.privateKey) return null;
+	if (srv.connectionType === "SSH_KEY" && (!srv.sshKey?.privateKey || srv.sshKey.teamId !== srv.teamId)) return null;
 	if (srv.connectionType === "PASSWORD" && !srv.password) return null;
 
 	return {

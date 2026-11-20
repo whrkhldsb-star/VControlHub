@@ -34,6 +34,7 @@ const THUMBNAIL_NODE_SELECT = {
 		select: {
 			id: true,
 			name: true,
+			teamId: true,
 			host: true,
 			port: true,
 			username: true,

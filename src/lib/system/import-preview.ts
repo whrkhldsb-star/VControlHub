@@ -154,7 +154,7 @@ export async function previewImport(
   if (t.servers.some((server) => server.managementMode === "AGENT")) warnings.push(W.agentReinstall);
   // What the import leaves out instead of failing on (import-executors-infrastructure).
   if (await previewServerKeysMissing(t)) warnings.push(W.serverKeysMissing);
-  if (await previewStorageServersMissing(t)) warnings.push(W.storageServersMissing);
+  if (await previewStorageServersMissing(t, options)) warnings.push(W.storageServersMissing);
 
   // ── Permissions ──
   {

@@ -48,6 +48,7 @@ const baseNode = {
   username: "root",
   hostKeySha256: "STALE-PIN",
   server: {
+    teamId: null,
     id: "srv_1",
     host: "203.0.113.10",
     port: 22,

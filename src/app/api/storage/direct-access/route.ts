@@ -26,7 +26,7 @@ import {
 } from "@/lib/storage/schema";
 import { getErrorMessage } from "@/lib/http/error-message";
 import { DIRECT_GATEWAY_KEY_PER_SERVER, directGatewaySigningKey } from "@/lib/server/direct-gateway-key";
-import { getServerLocale, t } from "@/lib/i18n/translations";
+import { assertNotRecycled } from "@/lib/storage/archive-access";
 
 export const dynamic = "force-dynamic";
 
@@ -206,15 +206,7 @@ async function resolveDirectAccessPayload(input: {
   if (!access.allowed) {
     throw new ForbiddenError(storageAccessDeniedCopy(access.reason));
   }
-  // A recycle-bin file keeps its bytes at its path (delete is index-only):
-  // the managed download refuses it, and a signed direct link served it.
-  const indexed = await prisma.fileEntry.findFirst({
-    where: { storageNodeId: nodeId, relativePath: normalizedRelativePath },
-    select: { isDeleted: true },
-  });
-  if (indexed?.isDeleted) {
-    throw new NotFoundError(t("api.storage.fileUnavailable", await getServerLocale()));
-  }
+  await assertNotRecycled(nodeId, normalizedRelativePath);
 
   if (node.driver !== "SFTP") {
     return { mode: "managed-download", fallbackUrl: fallback };

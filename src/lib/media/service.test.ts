@@ -304,7 +304,7 @@ describe("media service", () => {
                 select: expect.objectContaining({
                   connectionType: true,
                   password: true,
-                  sshKey: { select: { privateKey: true, passphrase: true } },
+                  sshKey: { select: { teamId: true, privateKey: true, passphrase: true } },
                 }),
               },
             }),

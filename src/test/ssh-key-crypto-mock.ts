@@ -12,7 +12,7 @@ export function withStoredKeyHelpers<T extends { decryptSshPrivateKey?: (value: 
   const decrypt = base.decryptSshPrivateKey ?? ((value: string) => value);
   return {
     ...base,
-    SSH_KEY_CREDENTIAL_SELECT: { privateKey: true, passphrase: true } as const,
+    SSH_KEY_CREDENTIAL_SELECT: { teamId: true, privateKey: true, passphrase: true } as const,
     decryptStoredSshKey: (key: StoredKey) => (key?.privateKey ? { privateKey: decrypt(key.privateKey) as string } : null),
   };
 }

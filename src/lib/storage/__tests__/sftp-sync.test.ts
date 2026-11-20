@@ -51,6 +51,7 @@ describe("sftp sync service", () => {
       username: null,
       hostKeySha256: "NODEPIN",
       server: {
+        teamId: null,
         id: "srv_pin",
         host: "203.0.113.20",
         port: 2222,
@@ -91,6 +92,7 @@ describe("sftp sync service", () => {
       username: null,
       hostKeySha256: null,
       server: {
+        teamId: null,
         id: "srv_1",
         host: "203.0.113.20",
         port: 2222,
@@ -158,7 +160,7 @@ describe("sftp sync service", () => {
     const node = {
       id: "node_1", name: "remote", driver: "SFTP", basePath: "/data/files", host: "203.0.113.20", port: 22, username: "deploy",
       hostKeySha256: null,
-      server: { id: "srv_1", host: "203.0.113.20", port: 22, username: "deploy", connectionType: "PASSWORD", managementMode: "DIRECT", operatingSystem: "LINUX" as const, password: "ENCRYPTED PASSWORD", hostKeySha256: null, sshKey: null },
+      server: { teamId: null, id: "srv_1", host: "203.0.113.20", port: 22, username: "deploy", connectionType: "PASSWORD", managementMode: "DIRECT", operatingSystem: "LINUX" as const, password: "ENCRYPTED PASSWORD", hostKeySha256: null, sshKey: null },
     } as const;
     // Nine nested folders of 240 characters make a path of about 2200 bytes: under every name limit, over what the
     // (storageNodeId, relativePath) btree entry can take. One bad entry used to fail the createMany of its whole batch.
@@ -199,6 +201,7 @@ describe("sftp sync service", () => {
       username: null,
       hostKeySha256: null,
       server: {
+        teamId: null,
         id: "srv_batch",
         host: "203.0.113.20",
         port: 22,
@@ -253,6 +256,7 @@ describe("sftp sync service", () => {
       username: null,
       hostKeySha256: null,
       server: {
+        teamId: null,
         id: "srv_1",
         host: "203.0.113.20",
         port: 2222,
@@ -294,6 +298,7 @@ describe("sftp sync service", () => {
     username: null,
     hostKeySha256: null,
     server: {
+    teamId: null,
     id: "srv_1",
     host: "203.0.113.20",
     port: 22,
@@ -333,6 +338,7 @@ describe("sftp sync service", () => {
       username: null,
       hostKeySha256: null,
       server: {
+        teamId: null,
         id: "srv_1",
         host: "203.0.113.20",
         port: 22,
@@ -391,6 +397,7 @@ describe("sftp sync service", () => {
       username: null,
       hostKeySha256: null,
       server: {
+        teamId: null,
         id: "srv_1",
         host: "203.0.113.20",
         port: 22,
@@ -431,7 +438,7 @@ describe("sftp sync pruning", () => {
       vi.setSystemTime(new Date("2026-10-26T01:00:00Z"));
       const node = {
         id: "node_race", name: "remote", driver: "SFTP", basePath: "/data/files", host: null, port: null, username: null, hostKeySha256: null,
-        server: { id: "srv", host: "203.0.113.20", port: 22, username: "deploy", connectionType: "PASSWORD", managementMode: "DIRECT", operatingSystem: "LINUX" as const, password: "ENCRYPTED PASSWORD", hostKeySha256: null, sshKey: null },
+        server: { teamId: null, id: "srv", host: "203.0.113.20", port: 22, username: "deploy", connectionType: "PASSWORD", managementMode: "DIRECT", operatingSystem: "LINUX" as const, password: "ENCRYPTED PASSWORD", hostKeySha256: null, sshKey: null },
       } as const;
       type Row = { id: string; relativePath: string; isDeleted: boolean; updatedAt: Date };
       const rows: Row[] = [{ id: "gone", relativePath: "old.txt", isDeleted: false, updatedAt: new Date("2026-10-25T00:00:00Z") }];

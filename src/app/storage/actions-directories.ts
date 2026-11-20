@@ -1,5 +1,6 @@
 "use server";
 
+import { assertNotRecycled } from "@/lib/storage/archive-access";
 import { escapeLikeLiteral } from "@/lib/db/like-pattern";
 import { guessContentType } from "@/lib/http/mime-types";
 import { auditUserAction } from "@/lib/audit/service";
@@ -141,6 +142,7 @@ async function createFolderActionImpl(
 
       let folderCreated = false;
       try {
+        await assertNotRecycled(storageNodeId, relativePath, "write");
         await createManagedFolder({
           storageNode,
           relativePath,

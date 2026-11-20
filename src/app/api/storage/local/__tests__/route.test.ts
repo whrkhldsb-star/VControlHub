@@ -596,8 +596,9 @@ describe("/api/storage/local", () => {
       driver: "LOCAL",
       basePath: "/tmp/storage",
     });
-    // existingEntryForVersion miss, then raced row after P2002
+    // No existing entry or recycled ancestor, then a raced row after P2002
     prismaMock.fileEntry.findFirst
+      .mockResolvedValueOnce(null)
       .mockResolvedValueOnce(null)
       .mockResolvedValueOnce({ id: "file_winner" });
     const uniqueErr = Object.assign(new Error("Unique constraint failed"), { code: "P2002" });

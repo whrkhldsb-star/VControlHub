@@ -8,6 +8,7 @@
 import { Prisma } from "@prisma/client";
 
 import type { ExportFile, ImportOptions } from "@/lib/system/config-schema";
+import { canBindStorageServer, loadStorageServers } from "./import-storage-servers";
 import { idsPresent, parseBigInt, parseDate, upsertById, upsertByIdWithSecondaryUnique, type Tx, type Counts } from "./import-executors-helpers";
 
 // 6. SshKeys (fingerprint is a secondary unique key)
@@ -216,19 +217,25 @@ export async function importStorageNodes(
   const records = t.storageNodes;
   if (records.length === 0) return;
 
-  // Servers were imported before: a node on a server that is neither in the
-  // package nor here arrives unbound (create) or stays on its server (update).
-  const servers = await idsPresent(records.map((r) => r.serverId), (ids) => tx.server.findMany({ where: { id: { in: ids } }, select: { id: true } }));
   type NodeRow = ExportFile["tables"]["storageNodes"][number];
+  const servers = await loadStorageServers(tx, records);
+
+  // An unavailable reference can preserve a local binding only within the imported node's team.
+  const existingServerTeams = new Map<string, string | null>();
+  function directServerLink(r: NodeRow) {
+    if (r.driver === "AGENT" || !r.serverId) return { serverId: null };
+    const teamId = r.teamId ?? null;
+    if (canBindStorageServer(r, servers.get(r.serverId))) return { serverId: r.serverId };
+    return existingServerTeams.get(r.id) === teamId ? {} : { serverId: null };
+  }
+
   // Only the server association travels with an Agent drive. Pairing credentials are local.
   async function restoreFileShare(r: NodeRow) {
     if (!r.serverId) return;
-    const server = await tx.server.findFirst({
-      where: { id: r.serverId, teamId: r.teamId ?? null }, select: { id: true },
-    });
-    if (server) await tx.agentFileShare.create({
-      data: { storageNodeId: r.id, serverId: server.id, teamId: r.teamId ?? null },
-    });
+    const server = servers.get(r.serverId);
+    if (canBindStorageServer(r, server)) {
+      await tx.agentFileShare.create({ data: { storageNodeId: r.id, serverId: r.serverId, teamId: r.teamId ?? null } });
+    }
   }
   const toData = (r: NodeRow) => ({
     name: r.name,
@@ -241,7 +248,7 @@ export async function importStorageNodes(
     host: r.host,
     port: r.port,
     username: r.username,
-    ...(r.driver === "AGENT" ? { serverId: null } : r.serverId && !servers.has(r.serverId) ? {} : { serverId: r.serverId }),
+    ...directServerLink(r),
     healthStatus: r.driver === "AGENT" ? "UNKNOWN" as const : r.healthStatus,
     ...(r.driver === "AGENT" ? { lastHealthyAt: null, lastHealthyTransport: null, lastHealthCheckAt: null, lastHealthError: null, lastHealthLatencyMs: null } : {}),
     // Multi-tenant: preserve export teamId (null stays legacy-shared)
@@ -251,10 +258,15 @@ export async function importStorageNodes(
     ...(r.webdavConfigEncrypted ? { webdavConfigEncrypted: r.webdavConfigEncrypted } : {}),
   });
   await upsertById(records, options, counts, {
-    listExistingIds: async (ids) =>
-      new Set(
-        (await tx.storageNode.findMany({ where: { id: { in: ids } }, select: { id: true } })).map((e) => e.id),
-      ),
+    listExistingIds: async (ids) => {
+      const rows = await tx.storageNode.findMany({
+        where: { id: { in: ids } }, select: { id: true, server: { select: { teamId: true } } },
+      });
+      for (const row of rows) {
+        if (row.server) existingServerTeams.set(row.id, row.server.teamId);
+      }
+      return new Set(rows.map(row => row.id));
+    },
     createManySkipDuplicates: async (rows) => {
       const direct = rows.filter((row) => row.driver !== "AGENT");
       let created = direct.length ? (await tx.storageNode.createMany({
@@ -271,10 +283,8 @@ export async function importStorageNodes(
     },
     updateById: async (r) => {
       await tx.storageNode.update({ where: { id: r.id }, data: toData(r) });
-      if (r.driver === "AGENT") {
-        await tx.agentFileShare.deleteMany({ where: { storageNodeId: r.id } });
-        await restoreFileShare(r);
-      }
+      await tx.agentFileShare.deleteMany({ where: { storageNodeId: r.id } });
+      if (r.driver === "AGENT") await restoreFileShare(r);
     },
   });
 

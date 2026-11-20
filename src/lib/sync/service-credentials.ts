@@ -5,9 +5,10 @@
  * Pure, no prisma, no SSH. Used by `./service-runtime` to build
  * the SSH transport before executing a sync job.
  */
-import { decryptServerPassword, decryptStoredSshKey, type StoredSshKey } from "@/lib/ssh/ssh-key-crypto";
+import { assertSshKeyTeam, decryptServerPassword, decryptStoredSshKey, type StoredSshKey } from "@/lib/ssh/ssh-key-crypto";
 
 type SyncTargetCredentialsInput = {
+	teamId: string | null;
 	password?: string | null;
 	sshKey?: StoredSshKey | null;
 };
@@ -24,7 +25,7 @@ export function decryptSyncTargetCredentials(
 	const decryptPassword = decryptors.decryptPassword ?? decryptServerPassword;
 	return {
 		password: input.password ? decryptPassword(input.password) : undefined,
-		privateKey: input.sshKey?.privateKey ? decryptTargetKey(input.sshKey, decryptors.decryptPrivateKey) : undefined,
+		privateKey: input.sshKey?.privateKey ? decryptTargetKey(input.sshKey, input.teamId, decryptors.decryptPrivateKey) : undefined,
 	};
 }
 
@@ -33,9 +34,12 @@ export function decryptSyncTargetCredentials(
  * without a prompt: a legacy passphrase-protected key must be unlocked here
  * (decryptStoredSshKey), not handed over encrypted with its passphrase dropped.
  */
-function decryptTargetKey(sshKey: StoredSshKey, decryptPrivateKey?: (value: string) => string): string | undefined {
-	if (decryptPrivateKey) return decryptPrivateKey(sshKey.privateKey!);
-	const decrypted = decryptStoredSshKey(sshKey);
+function decryptTargetKey(sshKey: StoredSshKey, teamId: string | null, decryptPrivateKey?: (value: string) => string): string | undefined {
+	if (decryptPrivateKey) {
+		assertSshKeyTeam(sshKey, teamId);
+		return decryptPrivateKey(sshKey.privateKey!);
+	}
+	const decrypted = decryptStoredSshKey(sshKey, teamId);
 	if (decrypted?.passphrase) {
 		throw new Error("The target server's SSH key is passphrase-protected in a format that cannot be unlocked for rsync; import it again without a passphrase");
 	}

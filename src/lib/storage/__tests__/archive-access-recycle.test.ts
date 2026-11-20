@@ -1,13 +1,14 @@
 import { beforeEach, describe, expect, it, vi } from "vitest";
 
-const findMany = vi.hoisted(() => vi.fn());
-vi.mock("@/lib/db", () => ({ prisma: { fileEntry: { findMany } } }));
+const { findMany, findFirst } = vi.hoisted(() => ({ findMany: vi.fn(), findFirst: vi.fn() }));
+vi.mock("@/lib/db", () => ({ prisma: { fileEntry: { findMany, findFirst } } }));
 
 const { assertNotRecycled, normalizeIndexedPath, recycledAround } = await import("../archive-access");
 
 describe("recycle-bin checks on unnormalized paths", () => {
 	beforeEach(() => {
 		findMany.mockReset();
+		findFirst.mockReset();
 	});
 
 	it("normalizes a path the way the file index stores it", () => {
@@ -27,7 +28,9 @@ describe("recycle-bin checks on unnormalized paths", () => {
 	});
 
 	it("treats a doubled slash as the same binned file", async () => {
-		findMany.mockResolvedValue([{ relativePath: "dir/trashed.zip" }]);
+		findFirst.mockResolvedValue({ id: "deleted-dir" });
 		await expect(assertNotRecycled("node_1", "dir//trashed.zip")).rejects.toMatchObject({ name: "NotFoundError" });
+		expect(findFirst.mock.calls[0]![0].where).toEqual({ storageNodeId: "node_1", isDeleted: true, relativePath: { in: ["dir", "dir/trashed.zip"] } });
+		await expect(assertNotRecycled("node_1", "dir/new.txt", "write")).rejects.toMatchObject({ status: 409 });
 	});
 });

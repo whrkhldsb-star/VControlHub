@@ -5,6 +5,7 @@ import { t } from "@/lib/i18n/service-translations";
 /** The server fields a storage node's connection is resolved from (use with the node's own host/port/username/hostKeySha256). */
 export const STORAGE_SSH_SERVER_SELECT = {
   id: true,
+  teamId: true,
   host: true,
   port: true,
   username: true,
@@ -29,6 +30,7 @@ export type StorageSshCredentialNode = {
   hostKeySha256: string | null;
   server: {
     id: string;
+    teamId?: string | null;
     managementMode: string;
     operatingSystem: string;
     host: string;
@@ -64,7 +66,7 @@ export function resolveStorageSshCredentials(node: StorageSshCredentialNode): Re
   const username = (node.username ?? node.server?.username)?.trim() || "";
   const rawConnectionType = node.server?.connectionType ?? (node.server?.password ? "PASSWORD" : "SSH_KEY");
   const connectionType = rawConnectionType === "PASSWORD" ? "PASSWORD" : "SSH_KEY";
-  const key = connectionType === "SSH_KEY" ? decryptStoredSshKey(node.server?.sshKey) : null;
+  const key = connectionType === "SSH_KEY" ? decryptStoredSshKey(node.server?.sshKey, node.server?.teamId) : null;
   const privateKey = key?.privateKey;
   const password = connectionType === "PASSWORD" && node.server?.password
     ? decryptServerPassword(node.server.password)

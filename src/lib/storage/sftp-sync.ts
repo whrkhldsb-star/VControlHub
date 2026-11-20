@@ -32,6 +32,7 @@ type SftpSyncNode = Prisma.StorageNodeGetPayload<{
     server: {
       select: {
         id: true;
+        teamId: true;
         host: true;
         port: true;
         username: true;
@@ -427,6 +428,7 @@ export async function getSftpSyncNode(
       server: {
         select: {
           id: true,
+          teamId: true,
           host: true,
           port: true,
           username: true,

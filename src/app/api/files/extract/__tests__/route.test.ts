@@ -16,7 +16,7 @@ const {
   assertStorageAccessMock: vi.fn(),
   prismaMock: {
     storageNode: { findFirst: vi.fn() },
-    fileEntry: { findFirst: vi.fn(), findMany: vi.fn() },
+    fileEntry: { findFirst: vi.fn() },
   },
   createFileEntryMock: vi.fn(),
   syncLocalDirectoryEntriesMock: vi.fn(async (_input: { relativePath?: string }) => ({ synced: 0, created: 0, updated: 0, deleted: 0, errors: [] })),
@@ -79,7 +79,6 @@ describe("POST /api/files/extract", () => {
     });
     assertStorageAccessMock.mockResolvedValue({ allowed: true });
     prismaMock.fileEntry.findFirst.mockResolvedValue(null);
-    prismaMock.fileEntry.findMany.mockResolvedValue([]);
     createFileEntryMock.mockResolvedValue({ id: "entry_1" });
   });
 
@@ -104,7 +103,7 @@ describe("POST /api/files/extract", () => {
     await createTarGz();
     localNode();
     // The archive itself, or the folder it sits in, was deleted; the bytes are still on disk.
-    prismaMock.fileEntry.findMany.mockResolvedValue([{ relativePath: "backup.tar.gz" }]);
+    prismaMock.fileEntry.findFirst.mockResolvedValueOnce({ id: "deleted-archive" });
 
     const response = await POST(extractRequest("backup.tar.gz"));
 
@@ -345,7 +344,10 @@ describe("POST /api/files/extract", () => {
       driver: "LOCAL",
       basePath: tempDir,
     });
-    prismaMock.fileEntry.findFirst.mockResolvedValueOnce({ id: "existing" });
+    prismaMock.fileEntry.findFirst.mockImplementation(({ where }) =>
+      where.storageNodeId === "node_1" && where.relativePath === "notes.txt" && where.isDeleted === false
+        ? { id: "existing" } : null,
+    );
 
     const response = await POST(
       new NextRequest("https://app.example.test/api/files/extract", {

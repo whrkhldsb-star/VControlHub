@@ -529,8 +529,9 @@ describe("sync service command helpers", () => {
 
   it("decrypts target credentials once before building remote sync commands", () => {
     const credentials = decryptSyncTargetCredentials({
+      teamId: "team-1",
       password: "enc:v1:password-ciphertext",
-      sshKey: { privateKey: "enc:v1:key-ciphertext" },
+      sshKey: { teamId: "team-1", privateKey: "enc:v1:key-ciphertext" },
     }, {
       decryptPassword: (value) => (value === "enc:v1:password-ciphertext" ? "plain-password" : value),
       decryptPrivateKey: (value) => (value === "enc:v1:key-ciphertext" ? "PRIVATE KEY" : value),
@@ -544,7 +545,8 @@ describe("sync service command helpers", () => {
     const passphrase = "legacy pass";
     const key = generateEd25519KeyPair({ passphrase, cipher: "aes256-cbc", rounds: 4 });
     const credentials = decryptSyncTargetCredentials({
-      sshKey: { privateKey: encryptSshPrivateKey(key.private), passphrase: encryptSshKeyPassphrase(passphrase) },
+      teamId: "team-1",
+      sshKey: { teamId: "team-1", privateKey: encryptSshPrivateKey(key.private), passphrase: encryptSshKeyPassphrase(passphrase) },
     });
 
     const parsed = utils.parseKey(credentials.privateKey!);

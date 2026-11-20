@@ -285,7 +285,7 @@ describe("/api/storage/direct-access", () => {
     expect(response.status).toBe(404);
     expect(JSON.stringify(await response.json())).not.toContain("signature=");
     expect(prismaMock.fileEntry.findFirst).toHaveBeenCalledWith(expect.objectContaining({
-      where: { storageNodeId: "node_1", relativePath: "movies/deleted.mp4" },
+      where: { storageNodeId: "node_1", isDeleted: true, relativePath: { in: ["movies", "movies/deleted.mp4"] } },
     }));
   });
 

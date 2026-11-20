@@ -47,12 +47,14 @@ export async function transferServerToCustomer(serverId: string, targetTeamId: s
     const { server, target } = await prisma.$transaction(async (tx) => {
       const server = await tx.server.findUnique({
         where: { id: serverId },
-        select: { id: true, name: true, teamId: true },
+        select: { id: true, name: true, teamId: true, sshKeyId: true },
       });
       if (!server) throw new NotFoundError(t("backend.server.nodeNotFound"));
       if (server.teamId === targetTeamId) throw new ValidationError(t("backend.server.transfer.sameCustomer"));
       const target = await tx.team.findUnique({ where: { id: targetTeamId }, select: { id: true, name: true, deletedAt: true } });
       if (!target || target.deletedAt) throw new NotFoundError(t("backend.customer.notFound"));
+
+      if (server.sshKeyId) throw new BusinessError(t("backend.server.transfer.sshKeyBound"));
 
       const bindings = await listServerStorageNodes(serverId, tx);
       const storageNodeIds = bindings.map(node => node.id);

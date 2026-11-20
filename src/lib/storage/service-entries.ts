@@ -1,3 +1,4 @@
+import { assertNotRecycled } from "@/lib/storage/archive-access";
 import { stat } from "node:fs/promises";
 import path from "node:path";
 
@@ -213,10 +214,6 @@ function toEntrySummary<
 export async function createFileEntry(input: CreateFileEntryInput) {
   const payload = createFileEntrySchema.parse(input);
 
-  // Check for duplicate entry (same node + same relativePath). The database enforces
-  // uniqueness across both active and soft-deleted rows, so resurrect a deleted row
-  // instead of attempting a create that would fail after the backing folder/file has
-  // already been created.
   const existing = await prisma.fileEntry.findFirst({
     where: {
       storageNodeId: payload.storageNodeId,
@@ -236,6 +233,7 @@ export async function createFileEntry(input: CreateFileEntryInput) {
     throw new ConflictError(t("backend.webdav.destinationHeldByRecycleBin", { path: `/${payload.relativePath}` }));
   }
 
+  await assertNotRecycled(payload.storageNodeId, payload.relativePath, "write");
   try {
     return await prisma.fileEntry.create({
       data: {
@@ -287,6 +285,7 @@ type DeletedFileEntryWithNode = Prisma.FileEntryGetPayload<{
         server: {
           select: {
             id: true;
+            teamId: true;
             host: true;
             port: true;
             username: true;
@@ -407,6 +406,7 @@ export async function restoreFileEntry(
           server: {
             select: {
               id: true,
+              teamId: true,
               host: true,
               port: true,
               username: true,

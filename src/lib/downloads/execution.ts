@@ -59,6 +59,7 @@ async function loadDownloadTeamId(taskId: string): Promise<string | null> {
 /* ── Shared server type ────────────────────────────────── */
 
 export type DownloadServer = {
+ teamId?: string | null;
  agentStorageNodeId?: string;
  id: string;
  host: string;
@@ -72,7 +73,7 @@ export type DownloadServer = {
  password: string | null;
  hostKeySha256: string | null;
  storageNode?: { id: string; basePath: string | null } | null;
- sshKey?: { privateKey: string; passphrase?: string } | null;
+ sshKey?: { teamId?: string | null; privateKey: string; passphrase?: string } | null;
 };
 
 /* ── Aria2 relay download ──────────────────────────────── */
@@ -161,10 +162,15 @@ export async function executeAria2RelayDownload(
    gid = await addUri(resolvedUrls, options);
    ownedGid = gid;
 
-   await prisma.downloadTask.updateMany({
+   const recorded = await prisma.downloadTask.updateMany({
     where: { id: taskId, status: "RUNNING" },
     data: { aria2Gid: gid, progress: t("backend.downloads.progress.relayInProgress") },
    });
+   if (!recorded.count) {
+    await removeDownload(gid, true).catch(err => logError("[DownloadAPI] Failed to remove cancelled download:", err));
+    await cleanupTemp(tempDir);
+    return;
+   }
   } else {
    // Not PENDING — a retry or concurrent tick. Resume the download already
    // started by the original dispatch (reuse its gid); never start a duplicate

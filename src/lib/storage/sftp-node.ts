@@ -19,6 +19,7 @@ const SFTP_NODE_SELECT = {
 	server: {
 		select: {
 			id: true,
+			teamId: true,
 			host: true,
 			port: true,
 			username: true,

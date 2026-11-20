@@ -7,6 +7,7 @@ export const SERVER_PROFILE_INCLUDE = {
       name: true,
       fingerprint: true,
       publicKey: true,
+      teamId: true,
       privateKey: true,
       passphrase: true,
       createdAt: true,

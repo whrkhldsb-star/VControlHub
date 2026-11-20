@@ -13,6 +13,8 @@ import {
   heartbeatJob,
   pruneTerminalJobsByType,
 } from "@/lib/job/service";
+import { notifyDownloadResult } from "@/lib/notification/service";
+import { failRelayTask } from "./reconcile";
 import { executionRefusal, loadExecutionActor } from "@/lib/auth/execution-actor";
 import { getStorageWriteCapacity } from "@/lib/storage/access-control";
 import { t } from "@/lib/i18n/service-translations";
@@ -183,6 +185,7 @@ async function loadTaskRow(taskId: string) {
 }
 
 function buildServerForExec(server: {
+  teamId: string | null;
   id: string;
   host: string;
   port: number;
@@ -198,11 +201,12 @@ function buildServerForExec(server: {
 }): DownloadServer {
   // decryptStoredSshKey keeps a legacy key's passphrase (unlocking the key
   // when it can); decrypting only privateKey left such keys unusable.
-  const decryptedKey = decryptStoredSshKey(server.sshKey);
+  const decryptedKey = decryptStoredSshKey(server.sshKey, server.teamId);
   // Everything the SSH parameters are decided with: dropping the id and
   // management mode sent an Agent-managed server's download over SSH.
   return {
     id: server.id,
+    teamId: server.teamId,
     host: server.host,
     port: server.port,
     username: server.username,
@@ -215,7 +219,7 @@ function buildServerForExec(server: {
     storageNode: server.storageNode
       ? { id: server.storageNode.id, basePath: server.storageNode.basePath }
       : null,
-    sshKey: decryptedKey,
+    sshKey: decryptedKey ? { ...decryptedKey, teamId: server.teamId } : null,
   };
 }
 
@@ -496,11 +500,14 @@ async function handleClaimedJob(
       return true;
     }
     const failed = await failJob(job.id, DOWNLOAD_EXECUTION_WORKER_ID, message.slice(0, 2000));
-    if (postTask?.agentStorageNodeId && failed.count && job.attempts >= job.maxAttempts) {
-      await failTaskBeforeStart(postTask.id, t("backend.downloads.error.executionFailed"));
-      const { rm } = await import("node:fs/promises");
-      const { relayTempDir } = await import("@/lib/runtime/platform-paths");
-      await rm(relayTempDir(postTask.id), { recursive: true, force: true });
+    if (postTask && payload.mode === "aria2_relay" && failed.count && job.attempts >= job.maxAttempts) {
+      const reason = t("backend.downloads.error.executionFailed");
+      const changed = await failRelayTask(postTask, reason, true);
+      const userId = postTask.createdBy ?? payload.userId;
+      if (changed && userId) {
+        await notifyDownloadResult(userId, postTask.url, "failed", reason, postTask.teamId)
+          .catch(err => logger.warn("Download failure notification failed", { taskId: postTask.id, error: String(err) }));
+      }
     }
     logger.error("Download execution job failed", {
       jobId: job.id,

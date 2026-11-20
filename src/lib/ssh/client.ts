@@ -915,6 +915,7 @@ export async function buildSshParamsFromServer(server: {
    * managementMode/id an Agent-managed server was dialled over SSH, and
    * without hostKeySha256 the saved pin was not checked.
    */
+  teamId?: string | null;
   operatingSystem: string;
   host: string;
   port: number;
@@ -938,7 +939,7 @@ export async function buildSshParamsFromServer(server: {
   // key id only for compatibility. Persisted Server rows always provide it.
   const connectionType = server.connectionType ?? (server.sshKeyId ? "SSH_KEY" : "PASSWORD");
   if (connectionType === "SSH_KEY") {
-    return { ...base, ...decryptStoredSshKey(sshKey) };
+    return { ...base, ...decryptStoredSshKey(sshKey, server.teamId) };
   }
   if (connectionType === "PASSWORD") {
     return {

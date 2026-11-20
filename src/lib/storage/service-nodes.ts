@@ -153,6 +153,7 @@ export async function ensureDefaultNodeState(
  */
 const HEALTH_PROBE_SERVER_SELECT = {
   id: true,
+  teamId: true,
   host: true,
   port: true,
   username: true,

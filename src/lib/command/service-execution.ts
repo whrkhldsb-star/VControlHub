@@ -109,7 +109,7 @@ export async function executeTarget(
       hostKeySha256: string | null;
       agentLastSeenAt: Date | null;
       password: string | null;
-      sshKey: { id: string; name: string; updatedAt: Date; privateKey: string | null; passphrase: string | null } | null;
+      sshKey: { id: string; teamId: string | null; name: string; updatedAt: Date; privateKey: string | null; passphrase: string | null } | null;
     };
     commandRequest: { command: string; title: string };
   },
@@ -206,7 +206,7 @@ export async function executeTarget(
 
   // An online Agent does not need the backup login unlocked to run approved work.
   const connectionType = target.server.connectionType;
-  const privateKey = !result && connectionType === "SSH_KEY" ? decryptStoredSshKey(target.server.sshKey)?.privateKey : undefined;
+  const privateKey = !result && connectionType === "SSH_KEY" ? decryptStoredSshKey(target.server.sshKey, target.server.teamId)?.privateKey : undefined;
   const password = !result && connectionType === "PASSWORD" && target.server.password
     ? decryptServerPassword(target.server.password) : undefined;
   if (!result && target.server.managementMode === "AGENT" && !privateKey && !password) {

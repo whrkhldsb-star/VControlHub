@@ -1,5 +1,6 @@
 import { prisma } from "@/lib/db";
 import type { ExportFile, ImportOptions } from "@/lib/system/config-schema";
+import { canBindStorageServer, loadStorageServers } from "./import-storage-servers";
 
 /** dryRun 预览的单表统计。 */
 export type PreviewCounts = { create: number; update: number; skip: number };
@@ -495,8 +496,18 @@ export function previewServerKeysMissing(t: ExportFile["tables"]): Promise<boole
     (ids) => prisma.sshKey.findMany({ where: { id: { in: ids } }, select: { id: true } }));
 }
 
-/** A storage node whose server is neither in the package nor here. */
-export function previewStorageServersMissing(t: ExportFile["tables"]): Promise<boolean> {
-  return hasUnresolvedReference(t.storageNodes.map((r) => r.serverId), t.servers.map((r) => r.id),
-    (ids) => prisma.server.findMany({ where: { id: { in: ids } }, select: { id: true } }));
+/** Preview the server profiles the node import will see after the servers have been imported. */
+export async function previewStorageServersMissing(t: ExportFile["tables"], options: ImportOptions): Promise<boolean> {
+  if (!t.storageNodes.some(node => node.serverId)) return false;
+  const servers = await loadStorageServers(prisma, t.storageNodes);
+  for (const row of t.servers) {
+    const existing = servers.get(row.id);
+    if (!existing || options.overwriteExisting) {
+      servers.set(row.id, {
+        teamId: row.teamId ?? null,
+        managementMode: row.managementMode ?? existing?.managementMode ?? "DIRECT",
+      });
+    }
+  }
+  return t.storageNodes.some(node => !!node.serverId && !canBindStorageServer(node, servers.get(node.serverId)));
 }

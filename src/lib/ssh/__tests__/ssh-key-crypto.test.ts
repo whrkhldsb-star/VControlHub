@@ -53,28 +53,28 @@ describe("decryptStoredSshKey", () => {
   beforeEach(() => clearUnlockedSshKeyCacheForTests());
 
   it("returns null when no key is bound", () => {
-    expect(decryptStoredSshKey(null)).toBeNull();
-    expect(decryptStoredSshKey({ privateKey: null, passphrase: null })).toBeNull();
+    expect(decryptStoredSshKey(null, null)).toBeNull();
+    expect(decryptStoredSshKey({ teamId: null, privateKey: null, passphrase: null }, null)).toBeNull();
   });
 
   it("returns keys stored without a passphrase unchanged", () => {
-    expect(decryptStoredSshKey({ privateKey: encryptSshPrivateKey(SAMPLE_PRIVATE_KEY), passphrase: null }))
+    expect(decryptStoredSshKey({ teamId: null, privateKey: encryptSshPrivateKey(SAMPLE_PRIVATE_KEY), passphrase: null }, null))
       .toEqual({ privateKey: SAMPLE_PRIVATE_KEY });
   });
 
   it.each(legacyKeys)("unlocks a passphrase-protected %s for prompt-free clients", (_name, privateKey) => {
-    const stored = { privateKey: encryptSshPrivateKey(privateKey), passphrase: encryptSshKeyPassphrase(passphrase) };
-    const unlocked = decryptStoredSshKey(stored);
+    const stored = { teamId: null, privateKey: encryptSshPrivateKey(privateKey), passphrase: encryptSshKeyPassphrase(passphrase) };
+    const unlocked = decryptStoredSshKey(stored, null);
 
     expect(unlocked?.passphrase).toBeUndefined();
     // ssh2 parses it without a passphrase, and so does `ssh -i` in BatchMode.
     const parsed = utils.parseKey(unlocked!.privateKey);
     expect(parsed).not.toBeInstanceOf(Error);
-    expect(decryptStoredSshKey(stored)).toEqual(unlocked);
+    expect(decryptStoredSshKey(stored, null)).toEqual(unlocked);
   });
 
   it("hands the passphrase to ssh2 when the key cannot be unlocked here", () => {
-    const stored = { privateKey: encryptSshPrivateKey(openssh.private), passphrase: encryptSshKeyPassphrase("wrong") };
-    expect(decryptStoredSshKey(stored)).toEqual({ privateKey: openssh.private, passphrase: "wrong" });
+    const stored = { teamId: null, privateKey: encryptSshPrivateKey(openssh.private), passphrase: encryptSshKeyPassphrase("wrong") };
+    expect(decryptStoredSshKey(stored, null)).toEqual({ privateKey: openssh.private, passphrase: "wrong" });
   });
 });

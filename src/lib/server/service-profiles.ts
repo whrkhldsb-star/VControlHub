@@ -15,7 +15,7 @@ import {
   detectOsDialect,
   serializeDialect,
 } from "@/lib/ssh/os-dialect";
-import { encryptServerPasswordIfPlain, SSH_KEY_CREDENTIAL_SELECT } from "@/lib/ssh/ssh-key-crypto";
+import { assertSshKeyTeam, encryptServerPasswordIfPlain, SSH_KEY_CREDENTIAL_SELECT } from "@/lib/ssh/ssh-key-crypto";
 import type { TFn } from "@/lib/i18n/core";
 import { resolveStorageSshCredentials } from "@/lib/storage/ssh-credentials";
 import { localBasePathBelongsToTenant } from "@/lib/storage/path-utils";
@@ -106,6 +106,7 @@ type PreflightSshKey = {
   name: string;
   fingerprint?: string | null;
   publicKey?: string | null;
+  teamId: string | null;
   privateKey?: string | null;
   passphrase?: string | null;
   createdAt?: Date | string;
@@ -125,9 +126,11 @@ async function findSshKeyForServer(sshKeyId: string, session: ProfileSession | n
 function buildPendingServer(
   normalized: ReturnType<typeof normalizeServerInput>,
   sshKey: PreflightSshKey | null,
+  teamId: string | null,
 ): ServerWithRelations {
   return {
     id: "__pending__",
+    teamId,
     name: normalized.name,
     host: normalized.host,
     port: normalized.port,
@@ -388,15 +391,10 @@ export async function createServerProfile(
   try {
   await assertNoDuplicateServerHost(normalized, { session: sessionForTeamWhere(session) });
 
-  const pendingServerForPreflight = buildPendingServer(normalized, validatedSshKey);
+  const pendingServerForPreflight = buildPendingServer(normalized, validatedSshKey, teamData.teamId ?? null);
   const pendingSsh = await buildSshParamsFromServer(
     { ...pendingServerForPreflight, operatingSystem: "LINUX", managementMode: pendingServerForPreflight.managementMode ?? "DIRECT", hostKeySha256: pendingServerForPreflight.hostKeySha256 ?? null },
-    pendingServerForPreflight.sshKey
-      ? {
-          privateKey: pendingServerForPreflight.sshKey.privateKey ?? null,
-          passphrase: pendingServerForPreflight.sshKey.passphrase ?? null,
-        }
-      : null,
+    pendingServerForPreflight.sshKey,
   );
   let hostKeySha256: string | null = null;
   try {
@@ -607,6 +605,10 @@ async function saveServerProfile(serverId: string, current: ServerProfileRecord,
     updateSshKey = await findSshKeyForServer(normalized.sshKeyId, session, t);
   }
 
+  if (!removeSshCredential && normalized.connectionType === "SSH_KEY" && updateSshKey) {
+    assertSshKeyTeam(updateSshKey, current.teamId);
+  }
+
   if (normalized.managementMode === "DIRECT") {
     const hasNextCredential = normalized.connectionType === "SSH_KEY"
       ? Boolean(normalized.sshKeyId && updateSshKey?.privateKey)
@@ -661,12 +663,7 @@ async function saveServerProfile(serverId: string, current: ServerProfileRecord,
   if (connectionChanged) {
     const nextSsh = await buildSshParamsFromServer(
       { ...nextServerForPreflight, operatingSystem: "LINUX", managementMode: nextServerForPreflight.managementMode ?? "DIRECT", hostKeySha256: nextServerForPreflight.hostKeySha256 ?? null },
-      nextServerForPreflight.sshKey
-        ? {
-            privateKey: nextServerForPreflight.sshKey.privateKey ?? null,
-            passphrase: nextServerForPreflight.sshKey.passphrase ?? null,
-          }
-        : null,
+      nextServerForPreflight.sshKey,
     );
     hostKeySha256 = await requireApprovedSshHostKey({
       ssh: nextSsh,

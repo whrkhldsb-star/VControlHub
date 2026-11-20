@@ -191,7 +191,7 @@ export async function GET(
         if (!entry || entry.isDirectory) return apiError({ code: "NOT_FOUND", message: apiCopy("apiCopy.file.not.found.or.temporarily.cannot.be.read.3cc644d2"), status: 404 });
         const range = parseStorageRange(request.headers.get("range"), entry.size);
         if (range instanceof Response) return range;
-        const stream = Readable.fromWeb(await client.stream(normalizedRelative.path, range.status === 206 ? range : undefined, entry.size) as import("node:stream/web").ReadableStream);
+        const stream = Readable.fromWeb(await client.stream(normalizedRelative.path, range.status === 206 ? range : undefined, entry.size, entry.etag) as import("node:stream/web").ReadableStream);
         return storageStreamResponse({ stream, range, contentType: item.mimeType, fileName: item.name, fileSize: entry.size, download });
       }
 

@@ -9,7 +9,7 @@ const {
   imageCreateMock,
   imageFindFirstMock,
   storageFindUniqueMock,
-  fileEntryFindManyMock,
+  fileEntryFindFirstMock,
   generateThumbnailMock,
 } = vi.hoisted(() => ({
   generateThumbnailMock: vi.fn(),
@@ -18,7 +18,7 @@ const {
   imageCreateMock: vi.fn(),
   imageFindFirstMock: vi.fn(),
   storageFindUniqueMock: vi.fn(),
-  fileEntryFindManyMock: vi.fn(),
+  fileEntryFindFirstMock: vi.fn(),
 }));
 
 vi.mock("@/lib/auth/require-api-permission", () => ({
@@ -43,7 +43,7 @@ vi.mock("@/lib/db", () => ({
       findFirst: storageFindUniqueMock,
     },
     fileEntry: {
-      findMany: fileEntryFindManyMock,
+      findFirst: fileEntryFindFirstMock,
     },
   },
 }));
@@ -103,12 +103,12 @@ describe("POST /api/images/publish-from-storage", () => {
     storageFindUniqueMock.mockResolvedValue({ id: "node_1", driver: "LOCAL", basePath: storageRoot });
     imageFindFirstMock.mockResolvedValue(null);
     imageCreateMock.mockResolvedValue({ id: "img_1", filename: "source.png" });
-    fileEntryFindManyMock.mockResolvedValue([]);
+    fileEntryFindFirstMock.mockResolvedValue(null);
     generateThumbnailMock.mockResolvedValue(Buffer.from("thumb"));
   });
 
   it("refuses an image that is in the recycle bin, whose bytes are still at its path", async () => {
-    fileEntryFindManyMock.mockResolvedValueOnce([{ relativePath: "gallery/source.png" }]);
+    fileEntryFindFirstMock.mockResolvedValueOnce({ id: "deleted-image" });
     const response = await POST(publishRequest());
     expect(response.status).toBe(404);
     expect(imageCreateMock).not.toHaveBeenCalled();

@@ -130,6 +130,7 @@ const mediaStreamItemSelect = {
         select: {
           id: true,
           name: true,
+          teamId: true,
           host: true,
           port: true,
           username: true,

@@ -67,6 +67,7 @@ export type ServerWithRelations = {
     name: string;
     fingerprint?: string | null;
     publicKey?: string | null;
+    teamId?: string | null;
     privateKey?: string | null;
     passphrase?: string | null;
     createdAt?: Date | string;
@@ -139,6 +140,7 @@ export type ServerProfileRow = Prisma.ServerGetPayload<{
         name: true;
         fingerprint: true;
         publicKey: true;
+        teamId: true;
         privateKey: true;
         passphrase: true;
         createdAt: true;
@@ -265,11 +267,11 @@ export async function verifyServerSshConnectivity(
   normalized: NormalizedServerInput,
   serverLike: Pick<
     ServerWithRelations,
-    "host" | "port" | "username" | "password" | "connectionType" | "sshKeyId" | "hostKeySha256" | "id" | "managementMode"
+    "teamId" | "host" | "port" | "username" | "password" | "connectionType" | "sshKeyId" | "hostKeySha256" | "id" | "managementMode"
   > & {
     /** Linux flows only reach here (Windows nodes have their own profile path). */
     operatingSystem?: string;
-    sshKey?: { privateKey?: string | null; passphrase?: string | null } | null;
+    sshKey?: { teamId?: string | null; privateKey?: string | null; passphrase?: string | null } | null;
   },
   options?: { failureMessage?: string },
 ) {
@@ -283,9 +285,7 @@ export async function verifyServerSshConnectivity(
         managementMode: serverLike.managementMode ?? "DIRECT",
         hostKeySha256: (serverLike as ServerWithRelations).hostKeySha256 ?? null,
       },
-      serverLike.sshKey
-        ? { privateKey: serverLike.sshKey.privateKey ?? null, passphrase: serverLike.sshKey.passphrase ?? null }
-        : null,
+      serverLike.sshKey,
     );
     const result = await execRemoteCommand({
       ...ssh,

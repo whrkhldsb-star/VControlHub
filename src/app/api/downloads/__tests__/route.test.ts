@@ -45,6 +45,7 @@ const {
       findFirst: vi.fn(),
       update: vi.fn(),
       updateMany: vi.fn(),
+      updateManyAndReturn: vi.fn(),
       delete: vi.fn(),
     },
     fileEntry: {
@@ -599,7 +600,7 @@ describe("/api/downloads", () => {
     expect(execRemoteCommandMock).not.toHaveBeenCalled();
   });
 
-  it("filters download list to owned tasks or readable storage targets", async () => {
+  it("filters download list to currently readable storage targets", async () => {
     prismaMock.downloadTask.findMany.mockResolvedValueOnce([
       {
         id: "owned_task",
@@ -661,9 +662,9 @@ describe("/api/downloads", () => {
     const response = await GET(new Request("https://example.com/api/downloads"));
 
     expect(response.status).toBe(200);
-    // Admin (team:manage) uses empty teamWhere — still filters by creator/storage ACL.
+    // The selected customer scopes both the task and its server.
     expect(prismaMock.downloadTask.findMany).toHaveBeenCalledWith(expect.objectContaining({
-      where: { teamId: "team_1" },
+      where: { teamId: "team_1", server: { teamId: "team_1" } },
       orderBy: [ { createdAt: "desc" }, { id: "desc" }],
       take: 101,
     }));
@@ -690,6 +691,7 @@ describe("/api/downloads", () => {
     expect(prismaMock.downloadTask.findMany).toHaveBeenCalledWith(expect.objectContaining({
       where: {
         teamId: "team_1",
+        server: expect.objectContaining({ AND: expect.any(Array) }),
         serverId: "srv_1",
         category: "iso",
         status: "FAILED",
@@ -754,6 +756,7 @@ describe("/api/downloads", () => {
     expect(prismaMock.downloadTask.findFirst).toHaveBeenCalledWith(expect.objectContaining({
       where: {
         id: "other_team_task",
+        server: expect.objectContaining({ AND: expect.any(Array) }),
         teamId: "team_1",
       },
     }));
@@ -1039,10 +1042,10 @@ describe("/api/downloads", () => {
     }));
   });
 
-  it("forbids cross-user task control when storage write access is absent", async () => {
+  it("forbids the creator from controlling a task after losing storage write access", async () => {
     prismaMock.downloadTask.findFirst.mockResolvedValueOnce({
       id: "task_private",
-      createdBy: "u_2",
+      createdBy: session.userId,
       status: "RUNNING",
       aria2Gid: "gid_1",
       progress: "下载中",
@@ -1156,6 +1159,7 @@ describe("/api/downloads", () => {
     prismaMock.downloadTask.findFirst.mockResolvedValueOnce({
       id: "task_relay",
       createdBy: "u_1",
+      server: serverFixture(),
       targetPath: "/srv/cloud/downloads/file.iso",
       status: "RUNNING",
       aria2Gid: "gid_1",
@@ -1171,16 +1175,15 @@ describe("/api/downloads", () => {
     expect(response.status).toBe(502);
     await expect(response.json()).resolves.toMatchObject({ error: "暂停下载失败，远端任务状态未改变" });
     expect(pauseDownloadMock).toHaveBeenCalledWith("gid_1");
-    expect(prismaMock.downloadTask.update).not.toHaveBeenCalledWith(expect.objectContaining({
-      where: { id: "task_relay" },
-      data: expect.objectContaining({ status: "PENDING" }),
-    }));
+    expect(prismaMock.downloadTask.update).not.toHaveBeenCalled();
+    expect(prismaMock.downloadTask.updateMany).not.toHaveBeenCalled();
   });
 
   it("does not mark an aria2 task resumed when the real resume operation fails", async () => {
     prismaMock.downloadTask.findFirst.mockResolvedValueOnce({
       id: "task_relay",
       createdBy: "u_1",
+      server: serverFixture(),
       targetPath: "/srv/cloud/downloads/file.iso",
       status: "PENDING",
       aria2Gid: "gid_1",
@@ -1196,10 +1199,8 @@ describe("/api/downloads", () => {
     expect(response.status).toBe(502);
     await expect(response.json()).resolves.toMatchObject({ error: "恢复下载失败，远端任务状态未改变" });
     expect(unpauseDownloadMock).toHaveBeenCalledWith("gid_1");
-    expect(prismaMock.downloadTask.update).not.toHaveBeenCalledWith(expect.objectContaining({
-      where: { id: "task_relay" },
-      data: expect.objectContaining({ status: "RUNNING" }),
-    }));
+    expect(prismaMock.downloadTask.update).not.toHaveBeenCalled();
+    expect(prismaMock.downloadTask.updateMany).not.toHaveBeenCalled();
   });
 
   it("does not mark a direct task cancelled when remote process termination fails", async () => {
@@ -1242,14 +1243,14 @@ describe("/api/downloads", () => {
       relayMode: true,
       server: serverFixture(),
     });
-    prismaMock.downloadTask.updateMany.mockResolvedValueOnce({ count: 1 });
+    prismaMock.downloadTask.updateManyAndReturn.mockResolvedValueOnce([{ aria2Gid: "gid_1", pid: null }]);
     removeDownloadMock.mockRejectedValueOnce(new Error("aria2 unavailable"));
 
     const response = await DELETE(new Request("https://example.com/api/downloads?taskId=task_relay", { method: "DELETE" }));
 
     expect(response.status).toBe(200);
-    expect(prismaMock.downloadTask.updateMany).toHaveBeenCalledWith(expect.objectContaining({
-      where: { id: "task_relay", status: { in: ["PENDING", "RUNNING"] } },
+    expect(prismaMock.downloadTask.updateManyAndReturn).toHaveBeenCalledWith(expect.objectContaining({
+      where: { id: "task_relay", transferManifest: { equals: expect.anything() }, status: { in: ["PENDING", "RUNNING"] } },
       data: expect.objectContaining({ status: "CANCELLED" }),
     }));
     expect(removeDownloadMock).toHaveBeenCalledWith("gid_1", true);
@@ -1421,14 +1422,14 @@ describe("/api/downloads", () => {
       server: serverFixture(),
     });
 
-    prismaMock.downloadTask.updateMany.mockResolvedValueOnce({ count: 1 });
+    prismaMock.downloadTask.updateManyAndReturn.mockResolvedValueOnce([{ aria2Gid: "gid_1", pid: null }]);
     const response = await DELETE(new Request("https://example.com/api/downloads?taskId=task_relay", { method: "DELETE" }));
 
     expect(response.status).toBe(200);
     expect(removeDownloadMock).toHaveBeenCalledWith("gid_1", true);
     expect(rmMock).toHaveBeenCalledWith(expect.stringContaining(relayTempDir("task_relay")), { recursive: true, force: true });
-    expect(prismaMock.downloadTask.updateMany).toHaveBeenCalledWith(expect.objectContaining({
-      where: { id: "task_relay", status: { in: ["PENDING", "RUNNING"] } },
+    expect(prismaMock.downloadTask.updateManyAndReturn).toHaveBeenCalledWith(expect.objectContaining({
+      where: { id: "task_relay", transferManifest: { equals: expect.anything() }, status: { in: ["PENDING", "RUNNING"] } },
       data: expect.objectContaining({ status: "CANCELLED" }),
     }));
   });

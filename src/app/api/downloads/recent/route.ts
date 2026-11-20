@@ -2,7 +2,7 @@ import { resolveTaskDrive, downloadDriveSelect } from "@/lib/downloads/destinati
 import { apiCopy } from "@/lib/i18n/api-copy";
 import { NextResponse } from "next/server";
 
-import { teamWhere } from "@/lib/auth/team-scope";
+import { serverTeamWhere, teamWhere } from "@/lib/auth/team-scope";
 import { prisma } from "@/lib/db";
 import { deriveDownloadFileNameFromUrl } from "@/lib/downloads/helpers";
 import { canAccessDownloadTask } from "@/lib/downloads/route-helpers";
@@ -23,6 +23,7 @@ export async function GET(request: Request) {
         where: {
           status: "COMPLETED",
           ...teamWhere(session),
+          server: serverTeamWhere(session),
           OR: [{ server: { storageNode: { isNot: null } } }, { agentStorageNodeId: { not: null } }],
         },
         select: {
@@ -30,7 +31,7 @@ export async function GET(request: Request) {
           url: true,
           fileName: true,
           targetPath: true,
-          createdBy: true, agentStorageNodeId: true, directStorageNodeId: true,
+          agentStorageNodeId: true, directStorageNodeId: true,
           updatedAt: true,
           server: {
             select: {

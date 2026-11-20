@@ -1,3 +1,4 @@
+import { assertNotRecycled } from "@/lib/storage/archive-access";
 import { randomBytes } from "node:crypto";
 import { mkdir, rename, unlink, writeFile } from "node:fs/promises";
 import path from "node:path";
@@ -150,6 +151,7 @@ async function handlePost(request: Request, session: SessionPayload, locale: Loc
       server: {
         select: {
           id: true,
+          teamId: true,
           host: true,
           port: true,
           username: true,
@@ -254,6 +256,7 @@ async function handlePost(request: Request, session: SessionPayload, locale: Loc
     return NextResponse.json({ error: t("api.storage.targetIsDirectory", locale) }, { status: 409 });
   }
   if (existingEntryForVersion?.isDeleted) throw new ConflictError(serviceTranslate("backend.webdav.destinationHeldByRecycleBin", { path: `/${normalizedRelativePath}` }));
+  await assertNotRecycled(storageNodeId, normalizedRelativePath, "write");
   if (existingEntryForVersion) {
     await snapshotFileVersionBeforeOverwrite({
       fileEntryId: existingEntryForVersion.id,

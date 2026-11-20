@@ -357,17 +357,19 @@ describe("references to rows that are neither in the package nor here", () => {
     const deleteMany = vi.fn();
     const update = vi.fn();
     const tx = {
-      server: { findMany: vi.fn().mockResolvedValue([{ id: "same" }]), findFirst: vi.fn()
-        .mockResolvedValueOnce(null).mockResolvedValueOnce({ id: "same" }) },
+      server: { findMany: vi.fn().mockResolvedValue([
+        { id: "same", teamId: "team", managementMode: "AGENT" },
+        { id: "other", teamId: "other-team", managementMode: "AGENT" },
+        { id: "direct", teamId: "team", managementMode: "DIRECT" },
+      ]) },
       storageNode: { findMany: vi.fn().mockResolvedValueOnce([{ id: "old" }]).mockResolvedValue([]),
         createMany: vi.fn().mockResolvedValue({ count: 1 }), update },
       agentFileShare: { create, deleteMany },
     } as unknown as Tx;
     const agent = (id: string, serverId: string) => ({ ...node(id, serverId), driver: "AGENT", teamId: "team" });
-    await importStorageNodes(tx, tables({ storageNodes: [agent("new", "other"), agent("old", "same")] }), OVERWRITE, counts());
+    await importStorageNodes(tx, tables({ storageNodes: [agent("new", "other"), agent("old", "same"), agent("wrong-mode", "direct")] }), OVERWRITE, counts());
     expect(deleteMany).toHaveBeenCalledWith({ where: { storageNodeId: "old" } });
     expect(create.mock.calls).toEqual([[{ data: { storageNodeId: "old", serverId: "same", teamId: "team" } }]]);
-    expect(tx.server.findFirst).toHaveBeenCalledWith({ where: { id: "other", teamId: "team" }, select: { id: true } });
     expect(update.mock.calls[0]![0].data).toMatchObject({ serverId: null, directAccessMode: "PROXY", lastHealthyAt: null });
   });
 
@@ -375,17 +377,18 @@ describe("references to rows that are neither in the package nor here", () => {
     const createMany = vi.fn().mockResolvedValue({ count: 2 });
     const update = vi.fn().mockResolvedValue({});
     const storageFindMany = vi.fn()
-      .mockResolvedValueOnce([{ id: "n-existing" }]) // which node ids exist
+      .mockResolvedValueOnce([{ id: "n-existing", server: { teamId: "team-b" } }]) // current binding
       .mockResolvedValue([]); // default-node normalisation
     const tx = {
-      server: { findMany: vi.fn().mockResolvedValue([{ id: "s-here" }]) },
+      server: { findMany: vi.fn().mockResolvedValue([{ id: "s-here", teamId: "team-b", managementMode: "DIRECT" }]) },
+      agentFileShare: { deleteMany: vi.fn() },
       storageNode: { findMany: storageFindMany, createMany, update, updateMany: vi.fn() },
     } as unknown as Tx;
 
     await importStorageNodes(tx, tables({ storageNodes: [node("n-gone", "s-gone"), node("n-here", "s-here"), node("n-existing", "s-gone")] }), OVERWRITE, counts());
 
     const rows = createMany.mock.calls[0]![0].data as Array<{ id: string; serverId?: string | null }>;
-    expect(rows.map((row) => [row.id, row.serverId])).toEqual([["n-gone", undefined], ["n-here", "s-here"]]);
+    expect(rows.map((row) => [row.id, row.serverId])).toEqual([["n-gone", null], ["n-here", "s-here"]]);
     expect("serverId" in update.mock.calls[0]![0].data).toBe(false);
   });
 });

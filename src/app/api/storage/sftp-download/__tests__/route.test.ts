@@ -7,7 +7,7 @@ const {
 	connectMock,
 	endMock,
 	prismaMock,
-	requireHandlerMock,
+	requireApiPermissionMock,
 	sftpCreateReadStreamMock,
 	sftpStatMock,
 } = vi.hoisted(() => ({
@@ -21,7 +21,7 @@ const {
 			findFirst: vi.fn(),
 		},
 	},
-	requireHandlerMock: vi.fn(),
+	requireApiPermissionMock: vi.fn(),
 	sftpCreateReadStreamMock: vi.fn(),
 	sftpStatMock: vi.fn(),
 }));
@@ -63,8 +63,8 @@ vi.mock("ssh2", () => ({
 	},
 }));
 
-vi.mock("@/lib/http/api-guard", () => ({
-	withApiRoute: requireHandlerMock,
+vi.mock("@/lib/auth/require-api-permission", () => ({
+	requireApiPermission: requireApiPermissionMock,
 }));
 
 vi.mock("@/lib/db", () => ({
@@ -126,7 +126,7 @@ function streamWithData(data = "hello remote") {
 describe("/api/storage/sftp-download", () => {
 	beforeEach(() => {
 		vi.clearAllMocks();
-		requireHandlerMock.mockImplementation(async (_request, _options, handler) => handler({ session }));
+		requireApiPermissionMock.mockResolvedValue({ session });
 		prismaMock.storageNode.findUnique.mockResolvedValue(sftpNode);
 		prismaMock.storageNode.findFirst.mockResolvedValue(sftpNode);
 		assertStorageAccessMock.mockResolvedValue({ allowed: true });
@@ -138,12 +138,16 @@ describe("/api/storage/sftp-download", () => {
 	});
 
 	it("rejects a known recycle-bin path before opening SSH", async () => {
-		prismaMock.fileEntry.findFirst.mockResolvedValueOnce({ isDeleted: true });
+		prismaMock.fileEntry.findFirst.mockResolvedValueOnce({ id: "deleted-path" });
 		const response = await GET(
 			new Request("https://example.com/api/storage/sftp-download?nodeId=node_1&path=movies%2Fdemo.mp4"),
 		);
 
 		expect(response.status).toBe(404);
+		expect(prismaMock.fileEntry.findFirst).toHaveBeenCalledWith({
+			where: { storageNodeId: "node_1", isDeleted: true, relativePath: { in: ["movies", "movies/demo.mp4"] } },
+			select: { id: true },
+		});
 		expect(connectMock).not.toHaveBeenCalled();
 	});
 

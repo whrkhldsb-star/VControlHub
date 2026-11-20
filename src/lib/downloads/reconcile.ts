@@ -111,11 +111,16 @@ export async function probeDirectDownloadRemote(input: {
  * directory (tens of GB for a torrent) with it (A5-04); only the executor's
  * own failure paths cleaned up before, and a crashed worker left both behind.
  */
-async function failRelayTask(task: { id: string; aria2Gid: string }, errorMessage: string): Promise<boolean> {
-  const failed = await failRunningTask(task.id, errorMessage);
-  if (!failed) return false;
-  try { await removeDownload(task.aria2Gid, true); } catch { /* best-effort: aria2 may not know the gid any more */ }
-  await rm(relayTempDir(task.id), { recursive: true, force: true }).catch(() => undefined);
+export async function failRelayTask(task: { id: string; aria2Gid: string | null }, errorMessage: string, includePending = false): Promise<boolean> {
+  const failed = await prisma.downloadTask.updateMany({
+    where: { id: task.id, status: includePending ? { in: ["PENDING", "RUNNING"] } : "RUNNING" },
+    data: { status: "FAILED", errorMessage: errorMessage.slice(0, 500) },
+  });
+  if (!failed.count) return false;
+  if (task.aria2Gid) {
+    try { await removeDownload(task.aria2Gid, true); } catch { /* best-effort: aria2 may not know the gid any more */ }
+  }
+  await rm(relayTempDir(task.id), { recursive: true, force: true }).catch(err => logError("[DownloadReconcile] relay cleanup failed:", err));
   return true;
 }
 
@@ -193,6 +198,12 @@ async function reconcileDirectTask(
 type StaleTaskRow = Prisma.DownloadTaskGetPayload<{
   include: { server: { include: { sshKey: true; storageNode: true } } };
 }>;
+function failStaleTask(task: StaleTaskRow, message: string) {
+  return task.relayMode || task.aria2Gid || task.agentStorageNodeId
+    ? failRelayTask(task, message)
+    : failRunningTask(task.id, message);
+}
+
 type ReconcileServer = NonNullable<StaleTaskRow["server"]>;
 
 async function reconcileRelayTask(
@@ -306,12 +317,12 @@ export async function reconcileStaleRunningDownloadTasks(input?: {
     try {
       if (!task.server) {
         if (Date.now() - task.updatedAt.getTime() > UNREACHABLE_FAIL_MS) {
-          if (await failRunningTask(task.id, t("backend.downloads.reconcile.serverMissing"))) { failed++; ids.push(task.id); }
+          if (await failStaleTask(task, t("backend.downloads.reconcile.serverMissing"))) { failed++; ids.push(task.id); }
         }
         continue;
       }
       if (task.directStorageNodeId && task.server.storageNode?.id !== task.directStorageNodeId) {
-        if (await failRunningTask(task.id, t("backend.downloads.taskStorageMissing"))) { failed++; ids.push(task.id); }
+        if (await failStaleTask(task, t("backend.downloads.taskStorageMissing"))) { failed++; ids.push(task.id); }
         continue;
       }
       let outcome: "completed" | "failed" | "running" | "skipped";
@@ -327,7 +338,7 @@ export async function reconcileStaleRunningDownloadTasks(input?: {
         // A relay without a durable gid cannot be assumed never to have started.
         // Direct tasks always inspect remote markers, including a missing DB pid.
         outcome = Date.now() - task.updatedAt.getTime() > UNREACHABLE_FAIL_MS
-          ? ((await failRunningTask(task.id, t("backend.downloads.reconcile.neverStarted"))) ? "failed" : "skipped")
+          ? ((await failRelayTask(task, t("backend.downloads.reconcile.neverStarted"))) ? "failed" : "skipped")
           : "skipped";
       }
       if (outcome === "completed") { completed++; ids.push(task.id); }

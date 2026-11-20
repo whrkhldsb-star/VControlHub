@@ -118,14 +118,14 @@ describe("SSH client host key verification", () => {
   it("selects credentials strictly from the configured connection type", async () => {
     const passwordParams = await buildSshParamsFromServer(
       { id: "srv-20", host: "203.0.113.20", port: 22, username: "root", operatingSystem: "LINUX", managementMode: "DIRECT", connectionType: "PASSWORD", sshKeyId: "stale-key", password: "plain-password", hostKeySha256: null },
-      { privateKey: "plain-private-key" },
+      { teamId: "team-1", privateKey: "plain-private-key" },
     );
     expect(passwordParams.password).toBe("plain-password");
     expect(passwordParams.privateKey).toBeUndefined();
 
     const keyParams = await buildSshParamsFromServer(
-      { id: "srv-21", host: "203.0.113.21", port: 22, username: "root", operatingSystem: "LINUX", managementMode: "DIRECT", connectionType: "SSH_KEY", sshKeyId: "key-1", password: "stale-password", hostKeySha256: null },
-      { privateKey: "plain-private-key" },
+      { id: "srv-21", teamId: "team-1", host: "203.0.113.21", port: 22, username: "root", operatingSystem: "LINUX", managementMode: "DIRECT", connectionType: "SSH_KEY", sshKeyId: "key-1", password: "stale-password", hostKeySha256: null },
+      { teamId: "team-1", privateKey: "plain-private-key" },
     );
     expect(keyParams.privateKey).toBe("plain-private-key");
     expect(keyParams.password).toBeUndefined();
