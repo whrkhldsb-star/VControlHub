@@ -106,8 +106,15 @@ export async function DELETE(request: Request) {
         });
         if (!cancelled) return NextResponse.json({ error: t("apiDownloads.taskNoLongerActive", locale) }, { status: 409 });
         if (cancelled.aria2Gid) {
+          let gid = cancelled.aria2Gid;
+          if (task.url.startsWith("magnet:?")) {
+            try {
+              gid = (await relayContentStatus(gid)).gid;
+            } catch (error) {
+              logError("[DownloadAPI] Could not resolve magnet content; stopping the recorded download:", error);
+            }
+          }
           try {
-            const gid = task.url.startsWith("magnet:?") ? (await relayContentStatus(cancelled.aria2Gid)).gid : cancelled.aria2Gid;
             await removeDownload(gid, true);
           } catch (err) {
             logError("[DownloadAPI] Failed to remove aria2 download after cancelling the task:", err);
