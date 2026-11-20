@@ -29,7 +29,7 @@ vi.mock("@/lib/playbook/service", () => ({
 
 vi.mock("@/lib/db", () => ({
   prisma: {
-    alertRule: { update: alertRuleUpdateMock },
+    alertRule: { updateMany: alertRuleUpdateMock },
   },
 }));
 
@@ -103,7 +103,7 @@ describe("evaluateCapacityLinkedAlerts", () => {
       level: 1,
     });
     resolveMock.mockResolvedValue({ resolved: true, incidentId: "inc1" });
-    alertRuleUpdateMock.mockResolvedValue({});
+    alertRuleUpdateMock.mockResolvedValue({ count: 1 });
   });
 
   it("fires when days-to-85 is within threshold (lte)", async () => {
@@ -130,6 +130,9 @@ describe("evaluateCapacityLinkedAlerts", () => {
           threshold: 14,
           operator: "lte",
           enabled: true,
+          durationSeconds: 0,
+          matchState: {},
+          updatedAt: new Date(),
           lastMatchedAt: null,
           lastTriggeredAt: null,
           cooldownMinutes: 30,
@@ -207,6 +210,9 @@ describe("evaluateCapacityLinkedAlerts", () => {
           threshold: 14,
           operator: "lte",
           enabled: true,
+          durationSeconds: 0,
+          matchState: {},
+          updatedAt: new Date(),
           lastMatchedAt: null,
           lastTriggeredAt: null,
           cooldownMinutes: 30,
@@ -274,6 +280,9 @@ describe("evaluateCapacityLinkedAlerts", () => {
           threshold: 14,
           operator: "lte",
           enabled: true,
+          durationSeconds: 0,
+          matchState: {},
+          updatedAt: new Date(),
           lastMatchedAt: null,
           lastTriggeredAt: null,
           cooldownMinutes: 30,
@@ -334,6 +343,9 @@ describe("evaluateCapacityLinkedAlerts", () => {
           threshold: 14,
           operator: "lte",
           enabled: true,
+          durationSeconds: 0,
+          matchState: {},
+          updatedAt: new Date(),
           lastMatchedAt: new Date(Date.now() - 60_000),
           // Recent rule-level stamp must NOT block second host.
           lastTriggeredAt: new Date(Date.now() - 60_000),
@@ -354,7 +366,7 @@ describe("evaluateCapacityLinkedAlerts", () => {
     expect(alertRuleUpdateMock).toHaveBeenCalledTimes(1);
     expect(alertRuleUpdateMock).toHaveBeenCalledWith(
       expect.objectContaining({
-        where: { id: "rule_multi" },
+        where: { id: "rule_multi", updatedAt: expect.any(Date) },
         data: expect.objectContaining({
           lastTriggeredAt: expect.any(Date),
           lastMatchedAt: expect.any(Date),
