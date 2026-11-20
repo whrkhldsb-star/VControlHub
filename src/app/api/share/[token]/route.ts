@@ -1,3 +1,4 @@
+import { SFTP_TRANSFER_IDLE_TIMEOUT_MS } from "@/lib/ssh/sftp-timeout";
 import { openManagedArchive } from "@/lib/storage/archive-access";
 import { createReadStream } from "node:fs";
 import { stat } from "node:fs/promises";
@@ -188,8 +189,8 @@ function fileHeaders(input: { size?: number; fileName: string; inline?: boolean 
 	return headers;
 }
 
-function fileResponse(stream: import("stream").Readable, input: { size: number; fileName: string; inline?: boolean }) {
-	return new Response(nodeStreamToWeb(stream), { status: 200, headers: fileHeaders(input) });
+function fileResponse(stream: import("stream").Readable, input: { size: number; fileName: string; inline?: boolean }, idleTimeoutMs?: number) {
+	return new Response(nodeStreamToWeb(stream, idleTimeoutMs), { status: 200, headers: fileHeaders(input) });
 }
 
 /**
@@ -451,7 +452,7 @@ async function serveShareIn(
 			const { stream, size } = await openSftpFile(client, remotePath);
 			stream.on("close", () => client?.end());
 			stream.on("error", () => client?.end());
-			return fileResponse(stream, { size, fileName, inline: inline && !wantsArchive });
+			return fileResponse(stream, { size, fileName, inline: inline && !wantsArchive }, SFTP_TRANSFER_IDLE_TIMEOUT_MS);
 		} catch {
 			client?.end();
 			return denyAfterClaim(apiError({ code: "NOT_FOUND", message: t("apiShareToken.remoteNotFound", locale), status: 404 }));

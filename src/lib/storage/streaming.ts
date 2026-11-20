@@ -87,8 +87,8 @@ export function buildStorageStreamHeaders(input: StorageStreamHeadersInput): Hea
 	return headers;
 }
 
-export function storageStreamResponse(input: StorageStreamHeadersInput & { stream: NodeJS.ReadableStream }): Response {
-	return new Response(nodeStreamToWeb(input.stream), {
+export function storageStreamResponse(input: StorageStreamHeadersInput & { stream: NodeJS.ReadableStream; idleTimeoutMs?: number }): Response {
+	return new Response(nodeStreamToWeb(input.stream, input.idleTimeoutMs), {
 		status: input.range.status,
 		headers: buildStorageStreamHeaders(input),
 	});
