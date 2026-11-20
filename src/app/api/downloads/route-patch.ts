@@ -237,6 +237,7 @@ export async function PATCH(request: Request) {
               const won = await prisma.downloadTask.updateMany({ where: whileActive, data });
               if (won.count === 0) return currentOutcome();
               await indexDownloadedFileEntry({
+    preserveRecycled: true,
                 storageNode: task.server.storageNode,
                 targetPath: task.targetPath,
                 fileName: resolvedFileName,

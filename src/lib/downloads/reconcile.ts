@@ -186,6 +186,7 @@ async function reconcileDirectTask(
   });
   if (claimed.count === 0) return "skipped";
   await indexDownloadedFileEntry({
+    preserveRecycled: true,
     storageNode: task.server.storageNode,
     targetPath: task.targetPath,
     fileName: probe.resolvedFileName,
