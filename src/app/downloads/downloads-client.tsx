@@ -128,7 +128,7 @@ export function DownloadsClient({ servers, canManage, canManageNode }: { servers
 				const data = await csrfFetch<{ tasks: DownloadTask[]; nextCursor: string | null; globalStat: GlobalStat }>(
 					`/api/downloads${query ? `?${query}` : ""}`, { signal: controller.signal },
 				);
-				if (!isCurrent()) return;
+				if (!isCurrent() || controller.signal.aborted) return;
 				for (const task of data.tasks) incoming.set(task.id, task);
 				cursor = data.nextCursor ?? null;
 				latestGlobalStat = data.globalStat ?? null;
@@ -306,6 +306,12 @@ export function DownloadsClient({ servers, canManage, canManageNode }: { servers
 					body: JSON.stringify({ taskId, action }),
 				});
 				if (action === "refresh" && result?.status) {
+					// Discard any list snapshot begun before this PATCH committed.
+					if (requestInFlightRef.current) {
+						if (requestInFlightRef.current === "more") pendingPageFilterRef.current = filterKey;
+						listControllerRef.current?.abort();
+						pendingRefreshRef.current = true;
+					}
 					setTasks((current) => current.map((task) => task.id === taskId ? {
 						...task,
 						status: result.status ?? task.status,
