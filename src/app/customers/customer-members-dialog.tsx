@@ -57,7 +57,7 @@ export function CustomerMembersDialog({ customer, onClose, onChanged }: { custom
 			setTemplates(templateData.templates);
 			const free = directory.filter((user) => user.accountType === "customer" && !user.customer);
 			setUnassigned(free);
-			setAddUserId((current) => current || free[0]?.id || "");
+			setAddUserId((current) => free.some((user) => user.id === current) ? current : (free[0]?.id ?? ""));
 		} catch (error) {
 			setMessage({ tone: "danger", text: getErrorMessage(error, t("customersPage.error.members")) });
 			setMembers([]);
