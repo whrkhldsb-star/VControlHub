@@ -223,7 +223,7 @@ export function runSshCommandProcess(input: SshCommandInput): Promise<SshExecuti
       // pipes and the remote process runs on (measured: a `sleep` still alive, its follow-up still executed). A
       // cancelled or timed-out command is therefore of unknown outcome, so a playbook does not run it again beside the
       // one that may still be going.
-      const stoppedLocallyOnly = cancelled || timedOut;
+      const stoppedLocallyOnly = cancelled || timedOut || code === null || code === 255;
       resolve({
         stdout: stdoutCollector.finish(),
         // After the collector: its output limit must not cut the one sentence a person needs here.
