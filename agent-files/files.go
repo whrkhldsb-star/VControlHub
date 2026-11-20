@@ -19,6 +19,18 @@ const chunkSize = 1024 * 1024
 
 func (s share) stageDir() string { return ".vch-transfers-" + digest([]byte(s.namespace)) }
 
+func (s share) ensureStageDir() error {
+	dir := s.stageDir()
+	if err := s.root.Mkdir(dir, 0700); err != nil && !errors.Is(err, fs.ErrExist) {
+		return err
+	}
+	info, err := s.root.Lstat(dir)
+	if err != nil || !info.IsDir() || info.Mode()&os.ModeSymlink != 0 || !exactEntry(s.root, dir, info) {
+		return denied
+	}
+	return nil
+}
+
 type operation struct {
 	Op          string `json:"op"`
 	CopyID      string `json:"copyId"`
@@ -272,14 +284,10 @@ func (s share) handle(op operation) (result, error) {
 		stageDir := s.stageDir()
 		tmp := stageDir + "/" + key
 		if op.Op == "begin" {
-			if err := s.root.Mkdir(stageDir, 0700); err != nil && !errors.Is(err, fs.ErrExist) {
+			if err := s.ensureStageDir(); err != nil {
 				return out, err
 			}
-			info, err := s.root.Lstat(stageDir)
-			if err != nil || !info.IsDir() || info.Mode()&os.ModeSymlink != 0 {
-				return out, denied
-			}
-			if err = s.root.MkdirAll(path.Dir(op.Path), 0750); err != nil {
+			if err := s.root.MkdirAll(path.Dir(op.Path), 0750); err != nil {
 				return out, err
 			}
 			f, err := s.openRegular(tmp, os.O_RDWR|os.O_CREATE)
@@ -364,8 +372,13 @@ func (s share) cleanup(now time.Time) {
 		entries, err := d.ReadDir(128)
 		for _, e := range entries {
 			st, err := e.Info()
-			if err == nil && st.Mode().IsRegular() && validDigest(e.Name()) && now.Sub(st.ModTime()) > 48*time.Hour {
-				s.root.Remove(path.Join(stageDir, e.Name()))
+			if err == nil && st.Mode().IsRegular() && now.Sub(st.ModTime()) > 48*time.Hour {
+				name := path.Join(stageDir, e.Name())
+				if validDigest(e.Name()) {
+					s.root.Remove(name)
+				} else if key, ok := strings.CutPrefix(e.Name(), "copy-"); ok && validDigest(key) {
+					s.cleanupCopy(name, key)
+				}
 			}
 		}
 		if err != nil {
