@@ -82,7 +82,7 @@ export async function indexDownloadedFileEntry(input: {
   });
   if (updated.count) return;
   if (input.preserveRecycled && await index.fileEntry.findFirst({ where: { ...key, entryType: "FILE", isDeleted: true }, select: { id: true } })) return;
-  throw new ValidationError("Download destination is not a regular file");
+  throw new ValidationError(t("backend.downloads.targetNotFile"));
  };
  if (db) await record(db);
  else await prisma.$transaction(record);
