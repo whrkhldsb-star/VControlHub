@@ -50,7 +50,7 @@ describe("sync job run and report routes", () => {
 	it("runs a job the caller can see, audits it, and reports a failed sync honestly", async () => {
 		const ok = await run.POST(new Request("http://local/api/sync-jobs/sync_1/run", { method: "POST" }), { params });
 		expect(ok.status).toBe(200);
-		expect(mocks.getSyncJob).toHaveBeenCalledWith("sync_1", expect.objectContaining({ currentTeamId: "team_1" }));
+		expect(mocks.getSyncJob).toHaveBeenCalledWith("sync_1", expect.objectContaining({ currentTeamId: "team_1" }), true);
 		// A manual run is authorised as the person running it, not the creator.
 		expect(mocks.executeSyncJob).toHaveBeenCalledWith("sync_1", { actor: expect.objectContaining({ userId: "u_cust" }) });
 		expect(mocks.auditUserAction).toHaveBeenCalledWith("u_cust", "sync_job.run", expect.objectContaining({ jobId: "sync_1", ok: true }), undefined, "team_1");
@@ -68,6 +68,7 @@ describe("sync job run and report routes", () => {
 		mocks.getSyncJob.mockResolvedValue({ ...job, syncLogs: [{ id: "l1", status: "OK", filesScanned: 1, filesTransferred: 1, filesDeleted: 0, bytesTransferred: 5, durationMs: 10, errorMessage: null, startedAt: new Date("2026-10-11T00:00:00Z"), completedAt: null }] });
 		const res = await report.GET(new Request("http://local/api/sync-jobs/sync_1/report"), { params });
 		expect(res.status).toBe(200);
+		expect(mocks.getSyncJob).toHaveBeenCalledWith("sync_1", expect.objectContaining({ currentTeamId: "team_1" }));
 		expect(await res.json()).toMatchObject({ job: { id: "sync_1", name: "nightly" }, report: { summary: "fine" } });
 		expect(mocks.buildSyncReportView).toHaveBeenCalledWith(expect.objectContaining({ logs: [expect.objectContaining({ id: "l1", startedAt: "2026-10-11T00:00:00.000Z", completedAt: null })] }));
 		mocks.getSyncJob.mockResolvedValue(null);
