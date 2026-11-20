@@ -37,6 +37,7 @@ const {
   sessionHasPermissionMock: vi.fn((_session?: unknown, _permission?: string) => true),
   assertStorageAccessMock: vi.fn<() => Promise<StorageAccessDecision>>(() => Promise.resolve({ allowed: true })),
   prismaMock: {
+    $transaction: vi.fn(),
     server: { findUnique: vi.fn() },
     downloadTask: {
       create: vi.fn(),
@@ -50,6 +51,8 @@ const {
     },
     fileEntry: {
       findFirst: vi.fn(),
+      createMany: vi.fn(),
+      updateMany: vi.fn(),
       create: vi.fn(),
       update: vi.fn(),
     },
@@ -338,6 +341,7 @@ describe("/api/downloads", () => {
     sessionHasPermissionMock.mockReturnValue(true);
     assertStorageAccessMock.mockReset();
     assertStorageAccessMock.mockResolvedValue({ allowed: true });
+    prismaMock.$transaction.mockImplementation((work) => work(prismaMock));
     prismaMock.server.findUnique.mockResolvedValue(serverFixture());
     prismaMock.downloadTask.create.mockReset();
     prismaMock.downloadTask.create.mockResolvedValue({ id: "task_1" });
