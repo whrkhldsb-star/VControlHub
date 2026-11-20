@@ -3,10 +3,7 @@
  *
  * A files or full backup archives fixed directories of the application
  * directory (scripts/backup.mjs). A full backup adds the directories named in
- * BACKUP_EXTRA_PATHS_JSON. The installer keeps file storage outside the
- * application directory (STORAGE_ROOT, /var/lib/<slug>/storage), so there a
- * "files" backup completes without one stored file in it, and a "full" one
- * holds them only when that directory is listed. The backup page says so.
+ * BACKUP_EXTRA_PATHS_JSON and the configured STORAGE_ROOT.
  */
 
 import path from "node:path";
@@ -61,13 +58,13 @@ export function classifyLocalStorageDirectories(input: { appDir: string; directo
  * directory, and the root new customers' nodes are created under.
  */
 export async function getLocalStorageBackupCoverage(): Promise<LocalStorageBackupCoverage> {
-	const nodes = await prisma.storageNode.findMany({ where: { driver: "LOCAL" }, select: { basePath: true }, orderBy: { basePath: "asc" }, take: 1000 });
+	const nodes = await prisma.storageNode.findMany({ where: { driver: "LOCAL" }, select: { basePath: true }, orderBy: { basePath: "asc" } });
 	const storageRoot = process.env.STORAGE_ROOT?.trim();
 	const directories = [...nodes.map((node) => node.basePath), ...(storageRoot ? [storageRoot] : [])].map(expandStorageBasePath);
 	const result = classifyLocalStorageDirectories({
 		appDir: config.app.appDir || process.cwd(),
 		directories,
-		extraPaths: parseBackupExtraPaths(process.env.BACKUP_EXTRA_PATHS_JSON),
+		extraPaths: [...parseBackupExtraPaths(process.env.BACKUP_EXTRA_PATHS_JSON), ...(storageRoot ? [expandStorageBasePath(storageRoot)] : [])],
 	});
 	// A node below another listed directory is named by that directory.
 	const outermost = (list: string[]) => list.filter((directory) => !list.some((other) => other !== directory && isWithin(other, directory)));

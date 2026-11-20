@@ -50,6 +50,7 @@ vi.mock("@/lib/storage/fs-backend", () => ({
   moveBackingObject: moveBackingObjectMock,
   statBackingObject: vi.fn().mockResolvedValue(null),
 }));
+vi.mock("@/lib/storage/file-overwrite-lock", () => ({ lockStorageFileOverwrite: vi.fn().mockResolvedValue(async () => undefined) }));
 vi.mock("@/lib/concurrency/advisory-lock", () => ({ tryAcquireAdvisoryLock: vi.fn().mockResolvedValue(async () => undefined) }));
 
 vi.mock("next/cache", () => ({

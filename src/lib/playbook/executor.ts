@@ -81,6 +81,7 @@ function failedResult(step: PlaybookStep, error: unknown, startedAt: string): Pl
     startedAt,
     completedAt: nowIso(),
     summary: "",
+    ...(error instanceof CommandOutcomeUnknownError ? { outcomeUnknown: true } : {}),
     error: truncate(error instanceof Error ? error.message : String(error)),
   };
 }
@@ -471,6 +472,7 @@ export async function executePlaybookChain(input: {
     const step = input.playbook.steps[index]!;
     const existingIndex = results.findIndex((result) => result.stepId === step.id);
     const existing = existingIndex >= 0 ? results[existingIndex] : undefined;
+    if (existing?.outcomeUnknown) break;
     if (existing && ["ok", "dry_run"].includes(existing.status)) continue;
 
     const startedAt = existing?.startedAt || nowIso();

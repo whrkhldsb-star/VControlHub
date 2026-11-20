@@ -1,3 +1,4 @@
+import { decryptBudgetedPkcs8, isBudgetedEncryptedDer } from "./pkcs8-import";
 import { createHash, createPrivateKey, type KeyObject } from "node:crypto";
 import { parseFromString } from "ppk-to-openssh";
 import { parsePrivateKey } from "sshpk";
@@ -5,7 +6,7 @@ import { utils } from "ssh2";
 import type { RoleKey } from "@/lib/auth/rbac";
 import { teamCreateData, teamWhere } from "@/lib/auth/team-scope";
 import { isUniqueViolation, prisma } from "@/lib/db";
-import { ValidationError } from "@/lib/errors";
+import { RateLimitError, ValidationError } from "@/lib/errors";
 import { encryptSshPrivateKey } from "@/lib/ssh/ssh-key-crypto";
 import { t } from "@/lib/i18n/service-translations";
 
@@ -114,14 +115,24 @@ export async function normalizeImportedSshKey(input: ImportedKey) {
   const passphrase = input.passphrase || undefined; // Spaces are part of a password.
   let content = typeof source === "string" ? source : source.toString("utf8").trim();
   try {
+    if (Buffer.byteLength(source) > 256 * 1024) throw new ValidationError(t("backend.server.sshPrivateKeyImportFailed"));
+    // OpenSSL scans for a PEM block. Preflight and parse the same single object.
+    if (content.includes("-----BEGIN ") && !(Buffer.isBuffer(source) && source[0] === 0x30)
+        && (!content.startsWith("-----BEGIN ") || content.indexOf("-----BEGIN ", 1) !== -1)) {
+      throw new ValidationError(t("backend.server.sshPrivateKeyImportFailed"));
+    }
     assertImportedKdfCost(content);
     if (content.startsWith("PuTTY-User-Key-File-")) {
       content = (await parseFromString(content, passphrase ?? "")).privateKey;
     } else if (Buffer.isBuffer(source) && source[0] === 0x30) {
-      content = readDerKey(source, passphrase).export({ format: "pem", type: "pkcs8" }).toString();
+      content = isBudgetedEncryptedDer(source) ? await decryptBudgetedPkcs8(source, passphrase) : readDerKey(source, passphrase).export({ format: "pem", type: "pkcs8" }).toString();
     } else if (content.startsWith("-----BEGIN ") && !content.startsWith("-----BEGIN OPENSSH ")) {
-      // Node/OpenSSL handles encrypted PKCS#8 as well as legacy PEM ciphers.
-      content = createPrivateKey({ key: content, passphrase }).export({ format: "pem", type: "pkcs8" }).toString();
+      const block = /^-----BEGIN ([A-Z0-9 ]+PRIVATE KEY|PRIVATE KEY)-----\s+([\s\S]+?)\s+-----END \1-----$/.exec(content);
+      if (!block) throw new ValidationError(t("backend.server.sshPrivateKeyImportFailed"));
+      const legacy = ["RSA PRIVATE KEY", "EC PRIVATE KEY", "DSA PRIVATE KEY"].includes(block[1]!) && /^Proc-Type: 4,ENCRYPTED\r?\nDEK-Info: [^\r\n]+\r?\n\s*\n[A-Za-z0-9+/=\s]+$/.test(block[2]!);
+      if (!legacy && !/^[A-Za-z0-9+/=\s]+$/.test(block[2]!)) throw new ValidationError(t("backend.server.sshPrivateKeyImportFailed"));
+      const der = Buffer.from(block[2]!, "base64");
+      content = !legacy && isBudgetedEncryptedDer(der) ? await decryptBudgetedPkcs8(der, passphrase) : createPrivateKey({ key: content, passphrase }).export({ format: "pem", type: "pkcs8" }).toString();
     }
     const key = parsePrivateKey(content, "auto", { passphrase });
     const privateKey = key.toString("openssh");
@@ -143,7 +154,7 @@ export async function normalizeImportedSshKey(input: ImportedKey) {
       fingerprint: `SHA256:${createHash("sha256").update(publicBytes).digest("base64").replace(/=+$/g, "")}`,
     };
   } catch (error) {
-    if (error instanceof ValidationError) throw error;
+    if (error instanceof ValidationError || error instanceof RateLimitError) throw error;
     throw new ValidationError(t("backend.server.sshPrivateKeyImportFailed"));
   }
 }

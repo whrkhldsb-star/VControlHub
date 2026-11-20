@@ -105,6 +105,7 @@ export async function completeStorageFileUpload(params: {
       totalChunks: true,
       receivedChunks: true,
       expiresAt: true,
+      createdAt: true,
     },
   });
   if (!existing) {
@@ -191,13 +192,16 @@ export async function completeStorageFileUpload(params: {
       storageNodeId: existing.storageNodeId,
       relativePath: normalizedRelativePath,
     },
-    select: { id: true, entryType: true, isDeleted: true },
+    select: { id: true, entryType: true, isDeleted: true, updatedAt: true },
   });
   await assertNotRecycled(existing.storageNodeId, normalizedRelativePath, "write");
   // The upload would replace a folder, and for WebDAV (MOVE with Overwrite) that deletes everything in it.
   // Refused before anything is written, so the session stays a plain failure the user can fix and retry.
   await assertUploadTargetIsNotFolder(storageNode, normalizedRelativePath, existingEntry?.entryType === "DIRECTORY");
   if (existingEntry?.isDeleted) throw new ConflictError(t("backend.webdav.destinationHeldByRecycleBin", { path: `/${normalizedRelativePath}` }));
+  if (existingEntry && existingEntry.updatedAt >= existing.createdAt) {
+    throw new ConflictError(t("backend.storage.pathAlreadyExists", { path: normalizedRelativePath }));
+  }
   if (existingEntry) {
     await snapshotFileVersionBeforeOverwrite({
       fileEntryId: existingEntry.id,

@@ -57,11 +57,12 @@ type InboundClaim = {
  */
 async function claimInboundEvent(
   connectionId: string,
+  teamId: string | null,
   externalId: string,
   eventType: string,
 ): Promise<{ done: ItsmEventRecord } | { done: null; claim: InboundClaim }> {
   const existing = await prisma.itsmEvent.findFirst({
-    where: { connectionId, externalId },
+    where: { connectionId, externalId, teamId, ownerBound: true },
     orderBy: { createdAt: "desc" },
   });
   if (existing && (existing.status === "ok" || existing.status === "ignored")) {
@@ -82,7 +83,7 @@ async function claimInboundEvent(
     return { done: null, claim };
   }
   const row = await prisma.itsmEvent.create({
-    data: { connectionId, direction: "inbound", eventType, status: "pending", externalId, payload: {} },
+    data: { connectionId, teamId, ownerBound: true, direction: "inbound", eventType, status: "pending", externalId, payload: {} },
   });
   const claim: InboundClaim = { id: row.id, applied: false, action: null, ticketId: null };
   return { done: null, claim };
@@ -147,6 +148,7 @@ export async function handleInboundWebhook(input: {
       rejectedEventAt.set(row.id, now);
       await recordEvent({
         connectionId: row.id,
+        teamId: row.teamId,
         direction: "inbound",
         eventType: "security.rejected",
         status: "error",
@@ -170,7 +172,7 @@ export async function handleInboundWebhook(input: {
   let claim: InboundClaim | null = null;
   try {
     if (normalized.externalId) {
-      const claimed = await claimInboundEvent(row.id, normalized.externalId, eventType);
+      const claimed = await claimInboundEvent(row.id, row.teamId, normalized.externalId, eventType);
       if (claimed.done) {
         const event = claimed.done;
         const previousAction = typeof event.payload.action === "string"
@@ -268,6 +270,7 @@ export async function handleInboundWebhook(input: {
       }))
       : await recordEvent({
         connectionId: row.id,
+        teamId: row.teamId,
         direction: "inbound",
         eventType,
         ticketId,
@@ -292,6 +295,7 @@ export async function handleInboundWebhook(input: {
     } else {
       await recordEvent({
         connectionId: row.id,
+        teamId: row.teamId,
         direction: "inbound",
         eventType,
         ticketId,

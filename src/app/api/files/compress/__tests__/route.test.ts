@@ -30,6 +30,7 @@ vi.mock("@/lib/storage/access-control", () => ({
   assertStorageAccess: assertStorageAccessMock,
   releaseStorageQuotaGuard: releaseStorageQuotaGuardMock,
 }));
+vi.mock("@/lib/storage/file-overwrite-lock", () => ({ lockStorageFileOverwrite: async () => async () => {} }));
 vi.mock("@/lib/db", () => ({ prisma: prismaMock }));
 vi.mock("@/lib/storage/service", () => ({
   createFileEntry: createFileEntryMock,

@@ -189,7 +189,7 @@ export async function runExistingBackupRecord(input: { id: string; projectRoot?:
 	try {
 		await runBackupCommand({
 			...buildBackupInvocation(args),
-			options: { cwd: projectRoot, env: { ...process.env, APP_DIR: projectRoot } },
+			options: { cwd: projectRoot, env: { ...process.env, APP_DIR: projectRoot, ...(record.type === "FULL" ? { BACKUP_REQUIRE_COVERAGE: "1" } : {}) } },
 		});
 		const fileInfo = await stat(outputPath);
 		// Align with VPS empty-archive guard: tiny/empty artifacts are false success.

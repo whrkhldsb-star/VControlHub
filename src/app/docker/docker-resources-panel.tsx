@@ -28,7 +28,7 @@ type DockerVolume = {
   Scope?: string;
 };
 type DetailState = { title: string; json: string } | null;
-type PendingDelete = { type: ResourceType; name: string } | null;
+type PendingDelete = { serverId?: string; type: ResourceType; name: string } | null;
 function resourceName(item: DockerNetwork | DockerVolume) {
   return "Name" in item ? item.Name : "";
 }
@@ -38,7 +38,13 @@ function resourceMeta(item: DockerNetwork | DockerVolume) {
   );
   return parts.join(" · ") || "local";
 }
-export function DockerResourcesPanel({ serverId }: { serverId?: string }) {
+type HostProps = { serverId?: string; serverLabel?: string };
+
+export function DockerResourcesPanel(props: HostProps) {
+  return <HostResources key={props.serverId || ""} {...props} />;
+}
+
+function HostResources({ serverId, serverLabel }: HostProps) {
   const { t } = useI18n();
   const [networks, setNetworks] = useState<DockerNetwork[]>([]);
   const [volumes, setVolumes] = useState<DockerVolume[]>([]);
@@ -55,9 +61,10 @@ export function DockerResourcesPanel({ serverId }: { serverId?: string }) {
 
   const fetchGenRef = useRef(0);
   const fetchAbortRef = useRef<AbortController | null>(null);
-  const currentServerIdRef = useRef(serverId);
+  const currentServerIdRef = useRef<string | null | undefined>(serverId);
   useEffect(() => {
     currentServerIdRef.current = serverId;
+    return () => { currentServerIdRef.current = null; };
   }, [serverId]);
   const resourceKind = useCallback(
     (type: ResourceType) =>
@@ -115,6 +122,7 @@ export function DockerResourcesPanel({ serverId }: { serverId?: string }) {
     }, 0);
     return () => {
       window.clearTimeout(timer);
+      fetchGenRef.current += 1;
       fetchAbortRef.current?.abort();
     };
   }, [fetchResources]);
@@ -181,8 +189,8 @@ export function DockerResourcesPanel({ serverId }: { serverId?: string }) {
     }
   }
   async function confirmDeleteResource() {
-    if (!pendingDelete) return;
-    const { type, name: itemName } = pendingDelete;
+    if (!pendingDelete || pendingDelete.serverId !== serverId) return;
+    const { type, name: itemName, serverId: targetId } = pendingDelete;
     setBusyKey(`delete:${type}:${itemName}`);
     setError("");
     setDeleteError("");
@@ -190,7 +198,7 @@ export function DockerResourcesPanel({ serverId }: { serverId?: string }) {
       const data = await csrfFetch("/api/docker/resources", {
         method: "POST",
         headers: { "Content-Type": "application/json" },
-        body: JSON.stringify({ type, action: "delete", name: itemName, ...(serverId ? { serverId } : {}) }),
+        body: JSON.stringify({ type, action: "delete", name: itemName, ...(targetId ? { serverId: targetId } : {}) }),
       });
       if (data.error) throw new Error(data.error);
       if (data && typeof data === "object" && data.ok === false) {
@@ -259,7 +267,7 @@ export function DockerResourcesPanel({ serverId }: { serverId?: string }) {
                     aria-label={t("dockerResources.deleteAria", { kind, name: itemName })}
                     onClick={() => {
                       setDeleteError("");
-                      setPendingDelete({ type, name: itemName });
+                      setPendingDelete({ serverId, type, name: itemName });
                     }}
                     disabled={busyKey === `delete:${key}`}>
                     {t("dockerResources.delete")}
@@ -358,6 +366,7 @@ export function DockerResourcesPanel({ serverId }: { serverId?: string }) {
       <ConfirmDialog
         open={pendingDelete !== null}
         title={pendingDelete ? t("dockerResources.confirm.delete", { kind: resourceKind(pendingDelete.type), name: pendingDelete.name }) : ""}
+        description={serverLabel || serverId || t("dockerPage.scope.hubHost")}
         cancelLabel={t("dockerResources.cancel")}
         confirmLabel={t("dockerResources.confirm")}
         busy={pendingDelete ? busyKey === `delete:${pendingDelete.type}:${pendingDelete.name}` : false}

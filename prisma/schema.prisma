@@ -2514,6 +2514,8 @@ model ItsmConnection {
 model ItsmEvent {
   id           String   @id @default(cuid())
   connectionId String?
+  teamId       String?  // Immutable event-time customer, independent of the connection
+  ownerBound   Boolean  @default(false) // Older events without provenance stay platform-only
   direction    String // inbound | outbound
   eventType    String
   ticketId     String?
@@ -2526,6 +2528,7 @@ model ItsmEvent {
   connection ItsmConnection? @relation(fields: [connectionId], references: [id], onDelete: SetNull)
 
   @@unique([connectionId, externalId])
+  @@index([teamId, createdAt])
   @@index([ticketId, createdAt])
   @@index([direction, createdAt])
   @@index([status, createdAt])

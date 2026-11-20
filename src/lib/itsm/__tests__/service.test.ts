@@ -442,6 +442,7 @@ describe("ITSM service", () => {
 		await expect(
 			recordEvent({
 				connectionId: "missing",
+				teamId: null,
 				direction: "inbound",
 				eventType: "ticket.create",
 				status: "error",

@@ -1,3 +1,4 @@
+import type { Prisma } from "@prisma/client";
 import { acquireAdvisoryLock } from "@/lib/concurrency/advisory-lock";
 import { prisma } from "@/lib/db";
 import { ConflictError } from "@/lib/errors";
@@ -12,14 +13,14 @@ export async function withAdminInvariantLock<T>(operation: () => Promise<T>): Pr
   }
 }
 
-export async function assertAdminAccessMayBeRemoved(userId: string): Promise<void> {
-  const target = await prisma.user.findUnique({
+export async function assertAdminAccessMayBeRemoved(userId: string, db: Prisma.TransactionClient = prisma): Promise<void> {
+  const target = await db.user.findUnique({
     where: { id: userId },
     select: { roles: { select: { role: { select: { key: true } } } } },
   });
   if (!target?.roles?.some((entry) => entry.role.key === "admin")) return;
 
-  const remainingActiveAdmins = await prisma.user.count({
+  const remainingActiveAdmins = await db.user.count({
     where: {
       id: { not: userId },
       status: { not: "DISABLED" },

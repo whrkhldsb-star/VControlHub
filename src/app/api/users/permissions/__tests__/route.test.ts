@@ -24,7 +24,8 @@ const { mocks } = vi.hoisted(() => ({
 
 vi.mock("@/lib/auth/require-api-permission", () => ({ requireApiPermission: mocks.requireApiPermission }));
 vi.mock("@/lib/auth/api-session", () => ({ requireApiSession: mocks.requireApiSession, isSessionPayload: (value: unknown) => !(value instanceof Response) }));
-vi.mock("@/lib/audit/service", () => ({ auditUserAction: mocks.auditUserAction }));
+vi.mock("@/lib/audit/service", () => ({ writeAuditLog: mocks.auditUserAction }));
+vi.mock("@/lib/user/admin-invariant", () => ({ withAdminInvariantLock: (run: () => unknown) => run() }));
 vi.mock("@/lib/user/account-type", () => ({ setAccountType: mocks.setAccountType }));
 vi.mock("@/lib/auth/identity-template-service", () => ({ listIdentityTemplates: mocks.listIdentityTemplates }));
 vi.mock("@/lib/storage/access-control", () => ({
@@ -107,7 +108,7 @@ describe("/api/users/permissions", () => {
   it("PATCH changes the account type through the account service", async () => {
     const res = await patch({ userId: "user1", account: { type: "customer", teamId: "team-b", identityTemplateId: "identity:files" } });
     expect(res.status).toBe(200);
-    expect(mocks.setAccountType).toHaveBeenCalledWith("user1", { type: "customer", teamId: "team-b", identityTemplateId: "identity:files" }, admin);
+    expect(mocks.setAccountType).toHaveBeenCalledWith("user1", { type: "customer", teamId: "team-b", identityTemplateId: "identity:files" }, admin, mocks.prisma);
   });
 
   it("PATCH never lets an administrator edit its own account", async () => {
@@ -140,7 +141,7 @@ describe("/api/users/permissions", () => {
   });
 
   it("PATCH refuses resource narrowing for an account without a customer", async () => {
-    mocks.prisma.teamMember.findUnique.mockResolvedValueOnce(null);
+    mocks.prisma.user.findUnique.mockResolvedValueOnce({ id: "user1", username: "alice", teamMembership: null });
     const res = await patch({ userId: "user1", serverAccess: [], serverAccessScopeIds: [] });
     expect(res.status).toBe(400);
   });

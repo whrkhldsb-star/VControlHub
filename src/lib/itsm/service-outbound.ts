@@ -50,6 +50,7 @@ export async function testItsmConnection(
   });
   const event = await recordEvent({
     connectionId: row.id,
+    teamId: row.teamId,
     direction: "outbound",
     eventType: "connection.test",
     ticketId: null,
@@ -122,6 +123,11 @@ export async function fanOutTicketEvent(input: {
           where: { connectionId: row.id, externalId: input.deliveryKey },
         })
       : null;
+    if (existing && (!existing.ownerBound || existing.teamId !== row.teamId)) {
+      // A pre-C13 delivery cannot be replayed or exposed to the current owner.
+      failed += 1;
+      continue;
+    }
     if (existing?.status === "ok") {
       sent += 1;
       continue;
@@ -135,6 +141,7 @@ export async function fanOutTicketEvent(input: {
       const msg = err instanceof Error ? err.message : "not ready";
       const eventInput = {
         connectionId: row.id,
+        teamId: row.teamId,
         direction: "outbound",
         eventType: input.eventType,
         ticketId: input.ticketId,
@@ -167,6 +174,7 @@ export async function fanOutTicketEvent(input: {
     });
     const eventData = {
       connectionId: row.id,
+      teamId: row.teamId,
       direction: "outbound",
       eventType: input.eventType,
       ticketId: input.ticketId,

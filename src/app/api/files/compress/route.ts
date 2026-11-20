@@ -2,7 +2,8 @@ import { apiCopy } from "@/lib/i18n/api-copy";
 import { localTarForceLocalArgs, resolveLocalTarBinary } from "@/lib/runtime/tar-binary";
 import { execFile } from "node:child_process";
 import fs from "node:fs/promises";
-import os from "node:os";
+import { publishLocalFile } from "@/lib/storage/publish-local-file";
+import { lockStorageFileOverwrite } from "@/lib/storage/file-overwrite-lock";
 import path from "node:path";
 import { promisify } from "node:util";
 import { NextRequest, NextResponse } from "next/server";
@@ -19,7 +20,6 @@ import { createFileEntry } from "@/lib/storage/service";
 import { normalizeIndexedPath, recycledAround } from "@/lib/storage/archive-access";
 import { localTarExclusion } from "@/lib/storage/archive-stream";
 import { expandStorageBasePath, resolveStoragePathWithinBase } from "@/lib/storage/path-utils";
-import { getErrorMessage } from "@/lib/http/error-message";
 
 const execFileAsync = promisify(execFile);
 
@@ -62,13 +62,12 @@ export async function POST(request: NextRequest) {
       const outputResolved = resolveStoragePathWithinBase(node.basePath, outputRelativePath);
       if (!outputResolved.ok) return NextResponse.json({ error: outputResolved.reason }, { status: 400 });
 
-      const existingOutput = await prisma.fileEntry.findFirst({
-        where: { storageNodeId: node.id, relativePath: outputRelativePath, isDeleted: false },
+      const indexedOutput = () => prisma.fileEntry.findFirst({
+        where: { storageNodeId: node.id, relativePath: outputRelativePath },
         select: { id: true },
       });
-      if (existingOutput || await pathExists(outputResolved.path)) {
-        return NextResponse.json({ error: apiCopy("apiCopy.target.archive.already.exists.18a7a63f", { v0: String(outputRelativePath) }) }, { status: 409 });
-      }
+      const conflict = () => NextResponse.json({ error: apiCopy("apiCopy.target.archive.already.exists.18a7a63f", { v0: String(outputRelativePath) }) }, { status: 409 });
+      if (await indexedOutput() || await pathExists(outputResolved.path)) return conflict();
 
       const inputs: string[] = [];
       const excluded: string[] = [];
@@ -100,68 +99,43 @@ export async function POST(request: NextRequest) {
       }
 
       await fs.mkdir(path.dirname(outputResolved.path), { recursive: true });
-      const { listPath, tempDir } = await writeTarList(inputs);
+      const stage = await fs.mkdtemp(path.join(path.dirname(outputResolved.path), ".vch-compress-"));
+      const archive = path.join(stage, "archive");
+      const base = path.resolve(expandStorageBasePath(node.basePath));
       try {
-        const exclusion = localTarExclusion(excluded, path.join(tempDir, "exclude.txt"));
-        if (exclusion.fileContent !== null) await fs.writeFile(path.join(tempDir, "exclude.txt"), exclusion.fileContent);
-        // --force-local (GNU tar): the -T list entries come from user-named
-        // files, and GNU tar would otherwise parse `name:colon` members as
-        // remote-tape specs and attempt an outbound connection.
-        await execFileAsync(resolveLocalTarBinary(), ["-czf", outputResolved.path, "-C", path.resolve(expandStorageBasePath(node.basePath)), ...localTarForceLocalArgs(), ...exclusion.options, "--null", "-T", listPath], {
+        const listPath = path.join(stage, "files.txt");
+        await fs.writeFile(listPath, inputs.join("\0") + "\0");
+        excluded.push(path.relative(base, stage).split(path.sep).join("/"));
+        const exclusion = localTarExclusion(excluded, path.join(stage, "exclude.txt"));
+        if (exclusion.fileContent !== null) await fs.writeFile(path.join(stage, "exclude.txt"), exclusion.fileContent);
+        await execFileAsync(resolveLocalTarBinary(), ["-czf", archive, "-C", base, ...localTarForceLocalArgs(), ...exclusion.options, "--null", "-T", listPath], {
           maxBuffer: 10 * 1024 * 1024,
-          // Two minutes killed any sizeable archive half-written (A4-21); the request
-          // itself is bounded by the proxy, so the limit mainly guards a stuck tar.
           timeout: 600_000,
         });
-      } catch (error) {
-        await fs.rm(outputResolved.path, { force: true });
-        const message = getErrorMessage(error, "tar command failed");
-        return NextResponse.json({ error: apiCopy("apiCopy.compression.failed.ce90f433", { v0: String(message) }) }, { status: 500 });
-      } finally {
-        await fs.rm(tempDir, { recursive: true, force: true });
-      }
-
-      const outputStat = await fs.stat(outputResolved.path);
-      // The archive is a new file in the grant's space: it is held to the grant's quota and per-file limit, as an
-      // extraction is. Its size is only known now, so one that does not fit is removed again. (It was indexed with
-      // no size check: an account with a quota could fill the node with archives of its own files.)
-      const admission = await assertStorageAccess({
-        session,
-        storageNodeId: node.id,
-        relativePath: outputRelativePath,
-        operation: "write",
-        writeBytes: outputStat.size,
-      }).catch(async (error: unknown) => {
-        await fs.rm(outputResolved.path, { force: true });
-        throw error;
-      });
-      if (!admission.allowed) {
-        await fs.rm(outputResolved.path, { force: true });
-        return NextResponse.json({ error: storageAccessDeniedCopy(admission.reason) }, { status: 403 });
-      }
-      try {
-        await createFileEntry({
-          storageNodeId: node.id,
-          name: outputName,
-          entryType: "FILE",
-          mimeType: "application/gzip",
-          size: outputStat.size,
-          relativePath: outputRelativePath,
+        const { size } = await fs.stat(archive);
+        const admission = await assertStorageAccess({ session, storageNodeId: node.id, relativePath: outputRelativePath, operation: "write", writeBytes: size });
+        try {
+          if (!admission.allowed) return NextResponse.json({ error: storageAccessDeniedCopy(admission.reason) }, { status: 403 });
+          const release = await lockStorageFileOverwrite(node.id, outputRelativePath);
+          try {
+            if (await indexedOutput()) return conflict();
+            await publishLocalFile(archive, outputResolved.path, outputRelativePath);
+            // If indexing fails, preserve the published bytes for reconciliation.
+            await createFileEntry({ storageNodeId: node.id, name: outputName, entryType: "FILE", mimeType: "application/gzip", size, relativePath: outputRelativePath });
+          } finally {
+            await release();
+          }
+        } finally {
+          await releaseStorageQuotaGuard(admission);
+        }
+        return NextResponse.json({
+          message: apiCopy("apiCopy.created.archive.0d5ec1fd", { v0: outputRelativePath }),
+          relativePath: outputRelativePath, name: outputName, size,
         });
-      } catch (error) {
-        await fs.rm(outputResolved.path, { force: true });
-        throw error;
       } finally {
-        // Held until the archive is in the index, so a concurrent writer counts it.
-        await releaseStorageQuotaGuard(admission);
+        for (const name of ["archive", "files.txt", "exclude.txt"]) await fs.rm(path.join(stage, name), { force: true });
+        await fs.rmdir(stage);
       }
-
-      return NextResponse.json({
-        message: apiCopy("apiCopy.created.archive.0d5ec1fd", { v0: String(outputRelativePath) }),
-        relativePath: outputRelativePath,
-        name: outputName,
-        size: outputStat.size,
-      });
     },
   );
 }
@@ -182,11 +156,4 @@ async function pathExists(targetPath: string) {
   } catch {
     return false;
   }
-}
-
-async function writeTarList(relativePaths: string[]) {
-  const tempDir = await fs.mkdtemp(path.join(os.tmpdir(), "vch-compress-"));
-  const listPath = path.join(tempDir, "files.txt");
-  await fs.writeFile(listPath, relativePaths.join("\0") + "\0");
-  return { listPath, tempDir };
 }

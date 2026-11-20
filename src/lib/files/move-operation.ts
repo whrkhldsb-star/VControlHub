@@ -8,6 +8,7 @@ import { assertStorageAccess, getStorageAccessCapabilities, getStorageAccessCapa
 import { guessContentType } from "@/lib/http/mime-types";
 import { storageAccessDeniedCopy } from "@/lib/storage/access-denied";
 import { BusinessError, ForbiddenError } from "@/lib/errors";
+import { lockStorageFileOverwrite } from "@/lib/storage/file-overwrite-lock";
 import { moveBackingObject, statBackingObject } from "@/lib/storage/fs-backend";
 import { serviceT } from "@/lib/i18n/service-locale";
 import type { Locale } from "@/lib/i18n/core";
@@ -36,6 +37,7 @@ export async function executeMoveFile(
 ): Promise<MoveFileActionState> {
   const tr = await serviceT(locale);
   let release: (() => Promise<void>) | null = null;
+  let releaseDestination: (() => Promise<void>) | undefined;
   // Held from the destination quota check until the move is recorded.
   let destinationAccess: StorageAccessDecision | null = null;
   try {
@@ -73,6 +75,7 @@ export async function executeMoveFile(
         storageNodeId: true,
         storageNode: {
           select: {
+            id: true,
             driver: true,
             basePath: true,
             host: true,
@@ -167,6 +170,7 @@ export async function executeMoveFile(
     // 直接覆盖目标位置的字节，而软删行的物理文件仍在磁盘上。若只查 isDeleted:false，
     // move 会覆盖并永久销毁回收站里同名文件的字节，之后 DB 更新还会撞唯一约束
     // （@@unique 覆盖软删行）触发补偿把本文件移回——净结果是回收站文件被静默清空。
+    releaseDestination = await lockStorageFileOverwrite(entry.storageNodeId, newRelativePath, normalizedCurrentPath.path);
     const occupant = await prisma.fileEntry.findFirst({
       where: {
         storageNodeId: entry.storageNodeId,
@@ -299,6 +303,7 @@ export async function executeMoveFile(
       error: getErrorMessage(error, tr("filesPage.move.errorMoveFailed")),
     } satisfies MoveFileActionState;
   } finally {
+    await releaseDestination?.();
     await releaseStorageQuotaGuard(destinationAccess);
     await release?.();
   }

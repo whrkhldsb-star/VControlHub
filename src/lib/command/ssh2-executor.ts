@@ -82,6 +82,8 @@ export function runSsh2Command(input: Ssh2ExecutionInput): Promise<SshExecutionR
 
     const client = new Client();
     let settled = false;
+    let dispatched = false;
+    let reportedCode: number | undefined;
     let timedOut = false;
     const stdoutCollector = new BoundedOutputCollector(outputLimitBytes);
     const stderrCollector = new BoundedOutputCollector(outputLimitBytes);
@@ -98,6 +100,18 @@ export function runSsh2Command(input: Ssh2ExecutionInput): Promise<SshExecutionR
         // Already closing — nothing to do.
       }
       resolve(result);
+    };
+
+    const connectionLost = (message: string) => {
+      if (settled) return;
+      stderrCollector.push(message);
+      const unknown = dispatched && reportedCode === undefined;
+      finish({
+        stdout: stdoutCollector.finish(),
+        stderr: stderrCollector.finish() + (unknown ? STOPPED_LOCALLY_NOTICE : ""),
+        exitCode: reportedCode ?? 255,
+        ...(unknown ? { outcomeUnknown: true } : {}),
+      });
     };
 
     const timer = setTimeout(() => {
@@ -170,10 +184,12 @@ export function runSsh2Command(input: Ssh2ExecutionInput): Promise<SshExecutionR
       finishAnswers((prompts ?? []).map(() => ""));
     });
     client.on("ready", () => {
+      if (settled) return;
+      dispatched = true;
       client.exec(command, (error, stream) => {
         if (error) {
           // The reason is the only thing a person gets to read about a command that never started.
-          finish({ stdout: "", stderr: error.message, exitCode: 255, timedOut, cancelled: false });
+          connectionLost(error.message);
           return;
         }
         stream.on("data", (chunk: Buffer) => {
@@ -182,34 +198,31 @@ export function runSsh2Command(input: Ssh2ExecutionInput): Promise<SshExecutionR
         stream.stderr.on("data", (chunk: Buffer) => {
           stderrCollector.push(chunk);
         });
+        stream.on("exit", (code: number | null) => { if (typeof code === "number") reportedCode = code; });
         stream.on("close", (code: number | null) => {
           const cancelled = targetId ? consumeCommandTargetCancellation(targetId) : false;
           if (cancelled) {
             stderrCollector.push("\nCommand has been cancelled; SSH subprocess terminated.");
           }
-          const exitCode = cancelled ? 130 : timedOut ? 124 : (code ?? 255);
-          if (cancelled || timedOut) stderrCollector.push(STOPPED_LOCALLY_NOTICE);
+          const remoteCode = typeof code === "number" ? code : reportedCode;
+          const unknown = cancelled || timedOut || remoteCode === undefined;
+          const exitCode = cancelled ? 130 : timedOut ? 124 : (remoteCode ?? 255);
+          if (unknown) stderrCollector.push(STOPPED_LOCALLY_NOTICE);
           finish({
             stdout: stdoutCollector.finish(),
             stderr: stderrCollector.finish(),
             exitCode,
             timedOut,
             cancelled,
-            ...(cancelled || timedOut ? { outcomeUnknown: true } : {}),
+            ...(unknown ? { outcomeUnknown: true } : {}),
           });
         });
-        stream.on("error", () => {
-          finish({
-            stdout: stdoutCollector.finish(),
-            stderr: stderrCollector.finish(),
-            exitCode: 255,
-            timedOut,
-            cancelled: false,
-          });
-        });
+        stream.on("error", (error: Error) => connectionLost(error.message));
       });
     });
+    client.on("close", () => connectionLost("SSH connection closed."));
     client.on("error", (error) => {
+      if (dispatched) return connectionLost(error.message);
       if (settled) return;
       clearTimeout(timer);
       input.signal?.removeEventListener("abort", cancelExecution);

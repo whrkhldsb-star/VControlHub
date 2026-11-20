@@ -1,6 +1,7 @@
 import { apiCopy } from "@/lib/i18n/api-copy";
-import { mkdir, readFile, rename, rm, unlink, writeFile } from "node:fs/promises";
+import { lstat, mkdir, readFile, rename, rm, unlink, writeFile } from "node:fs/promises";
 
+import { publishLocalFile } from "./publish-local-file";
 import { BusinessError, ValidationError } from "@/lib/errors";
 import { expandStorageBasePath, resolveStoragePathWithinBase } from "./path-utils";
 import { resolveStorageRemotePath } from "./remote-containment";
@@ -368,5 +369,19 @@ export async function moveBackingObject(input: {
   oldRelativePath: string;
   newRelativePath: string;
 }) {
-  return renameBackingObject(input);
+  if (input.storageNode.driver !== "LOCAL") return renameBackingObject(input);
+  const source = await resolveManagedLocalEntryPath({ basePath: input.storageNode.basePath, relativePath: input.oldRelativePath });
+  const target = await resolveManagedLocalEntryPath({ basePath: input.storageNode.basePath, relativePath: input.newRelativePath });
+  await mkdir(target.path.dirname(target.absolutePath), { recursive: true });
+  const stat = await lstat(source.absolutePath);
+  if (stat.isDirectory()) {
+    // POSIX rename can replace an empty directory. Reserve it exclusively first.
+    // Windows already refuses to replace a directory.
+    if (process.platform !== "win32") await mkdir(target.absolutePath);
+    await rename(source.absolutePath, target.absolutePath);
+    return;
+  }
+  if (!stat.isFile()) throw new ValidationError(t("backend.storage.pathExceedsRoot"));
+  await publishLocalFile(source.absolutePath, target.absolutePath, input.newRelativePath);
+  await unlink(source.absolutePath);
 }

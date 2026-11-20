@@ -168,6 +168,31 @@ async function assertRestorableMembers(tar, archive) {
   if (offending) throw new Error(`The backup holds an entry the restore cannot take back (a link or special file): ${offending.slice(0, 300)}`);
 }
 
+function expandLocalRoot(value, env) {
+  const slug = env.APP_SLUG || "vcontrolhub";
+  return path.resolve(APP_DIR, value.replace(/\$\{APP_SLUG(?::-[^}]+)?\}|\$APP_SLUG\b/g, () => slug));
+}
+
+function covers(root, target) {
+  const relative = path.relative(root, target);
+  return !path.isAbsolute(relative) && relative !== ".." && !relative.startsWith(`..${path.sep}`);
+}
+
+// The nightly systemd timer also runs when there is no application worker.
+async function assertScheduledCoverage(env, roots) {
+  const psql = await findBinary("psql");
+  if (!psql) throw new Error("Cannot verify local storage coverage without psql");
+  const { connArgs, childEnv } = pgConnection(env);
+  const schema = (env.DATABASE_URL && new URL(env.DATABASE_URL).searchParams.get("schema")) || "public";
+  const table = '"' + schema.replaceAll('"', '""') + '"."StorageNode"';
+  const query = `SELECT COALESCE(json_agg(DISTINCT "basePath"), '[]') FROM ${table} WHERE driver = 'LOCAL'`;
+  const { stdout } = await runBinary(psql, [...connArgs, "-XAt", "-v", "ON_ERROR_STOP=1", "-c", query], { env: childEnv });
+  for (const basePath of JSON.parse(stdout)) {
+    const directory = await fs.realpath(expandLocalRoot(basePath, env));
+    if (!roots.some((root) => covers(root, directory))) throw new Error(`Incomplete backup coverage: ${directory}`);
+  }
+}
+
 async function archivePaths(outputPath, members, extraDir, envFile) {
   const tar = await findTar();
   // GNU tar stores a second name of a hard-linked file as a link; store its
@@ -185,13 +210,19 @@ async function archivePaths(outputPath, members, extraDir, envFile) {
     if (!Array.isArray(extraPaths) || extraPaths.some((entry) => typeof entry !== "string" || !path.isAbsolute(entry))) {
       throw new Error("BACKUP_EXTRA_PATHS_JSON must be an array of absolute paths");
     }
-    const versions = await fs.realpath(fileVersionDir({ ...envFile, ...process.env })).catch((error) => {
-      if (error.code === "ENOENT") return null;
+    const env = { ...envFile, ...process.env };
+    const archived = await Promise.all(existing.map((name) => fs.realpath(path.join(APP_DIR, name))));
+    const storage = env.STORAGE_ROOT?.trim() && await fs.realpath(expandLocalRoot(env.STORAGE_ROOT.trim(), env));
+    if (storage && !archived.some((root) => covers(root, storage))) extraPaths.push(storage);
+    const versions = await fs.realpath(fileVersionDir(env)).catch((error) => {
+      if (error.code === "ENOENT" && !(env.BACKUP_REQUIRE_COVERAGE === "1" && env.FILE_VERSION_DIR)) return null;
       throw error;
     });
     const manifest = [];
-    for (const entry of [...new Set(extraPaths)]) {
-      const real = await fs.realpath(entry);
+    const external = [...new Set(await Promise.all(extraPaths.map((entry) => fs.realpath(entry))))];
+    if (env.BACKUP_REQUIRE_COVERAGE === "1") await assertScheduledCoverage(env, [...archived, ...external]);
+    for (const real of external) {
+      if (external.some((other) => other !== real && covers(other, real))) continue;
       const root = path.parse(real).root;
       const member = path.relative(root, real).split(path.sep).join("/");
       if (!member || members.some((name) => member === name || member.startsWith(`${name}/`)) || path.resolve(outputPath).startsWith(`${real}${path.sep}`)) {

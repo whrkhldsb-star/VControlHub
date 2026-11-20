@@ -53,7 +53,7 @@ describe.skipIf(process.platform === "win32")("which local storage directories a
 			vi.stubEnv("STORAGE_ROOT", "/var/lib/${APP_SLUG:-vcontrolhub}/storage");
 			vi.stubEnv("BACKUP_EXTRA_PATHS_JSON", "");
 			findMany.mockResolvedValue([{ basePath: "/var/lib/vcontrolhub/storage/teams/t1" }, { basePath: "/var/lib/vcontrolhub/storage/teams/t2" }, { basePath: "/srv/files" }]);
-			expect(await getLocalStorageBackupCoverage()).toEqual({ uncovered: ["/srv/files", "/var/lib/vcontrolhub/storage"], fullOnly: [] });
+			expect(await getLocalStorageBackupCoverage()).toEqual({ uncovered: ["/srv/files"], fullOnly: ["/var/lib/vcontrolhub/storage"] });
 			expect(findMany).toHaveBeenCalledWith(expect.objectContaining({ where: { driver: "LOCAL" } }));
 		});
 

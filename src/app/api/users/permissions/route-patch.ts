@@ -1,4 +1,4 @@
-import { prisma } from "@/lib/db";
+import type { Prisma } from "@prisma/client";
 import { ValidationError } from "@/lib/errors";
 import { t } from "@/lib/i18n/service-translations";
 import { parseNullableBigIntInput } from "@/lib/storage/access-control";
@@ -50,7 +50,7 @@ function parseStorageLimit(value: unknown) {
  * customer. Rows are replaced only for the ids listed in the scope arrays, so
  * a partial page of the editor never wipes rows it did not show.
  */
-export async function applyResourceNarrowing(input: {
+export async function prepareResourceNarrowing(tx: Prisma.TransactionClient, input: {
   userId: string;
   teamId: string;
   storageAccess?: PermissionPatch["storageAccess"];
@@ -59,83 +59,85 @@ export async function applyResourceNarrowing(input: {
   serverAccessScopeIds?: string[];
 }) {
   const { userId, teamId, storageAccess, storageAccessScopeIds, serverAccess, serverAccessScopeIds } = input;
-  await prisma.$transaction(async (tx) => {
-    if (storageAccess) {
-      // Only the account's own customer's nodes can be narrowed.
-      const nodeScope = { teamId };
-      const scopeIds = storageAccessScopeIds ?? [];
-      if (!storageAccessScopeIds || new Set(scopeIds).size !== scopeIds.length || storageAccess.some((grant) => !scopeIds.includes(grant.storageNodeId))) {
-        throw new ValidationError(t("backend.user.invalidStorageAccessScope"));
-      }
-      const validNodeIds = new Set(
-        (
-          await tx.storageNode.findMany({
-            where: { id: { in: scopeIds }, ...nodeScope },
-            select: { id: true },
-            take: scopeIds.length || 1,
-          })
-        ).map((node) => node.id),
-      );
-      if (validNodeIds.size !== scopeIds.length) throw new ValidationError(t("backend.user.unknownStorageNodeInCustomer"));
-      const mapped = storageAccess.map((grant) => ({
-        userId: userId,
-        storageNodeId: String(grant.storageNodeId ?? ""),
-        pathPrefix: normalizePathPrefix(grant.pathPrefix),
-        // Default deny: an omitted flag must never silently grant read access.
-        canRead: grant.canRead ?? false,
-        canWrite: grant.canWrite ?? false,
-        canDelete: grant.canDelete ?? false,
-        quotaBytes: parseStorageLimit(grant.quotaBytes),
-        maxFileBytes: parseStorageLimit(grant.maxFileBytes),
-      }));
-      const outOfTeam = mapped
-        .map((grant) => grant.storageNodeId)
-        .filter((id) => id && !validNodeIds.has(id));
-      if (outOfTeam.length > 0) {
-        throw new ValidationError(t("backend.user.storageNodesOutsideCurrentTeamScope"));
-      }
-      const seen = new Set<string>();
-      for (const grant of mapped) {
-        const key = `${grant.storageNodeId}\0${grant.pathPrefix}`;
-        if (seen.has(key)) {
-          throw new ValidationError(t("backend.user.duplicateStorageAccess"));
-        }
-        seen.add(key);
-      }
-      await tx.userStorageAccess.deleteMany({
-        where: { userId: userId, storageNodeId: { in: scopeIds } },
-      });
-      // Keep grants with every flag cleared: without any row a node is not
-      // narrowed at all, so a cleared grant is how a node gets blocked.
-      const rows = mapped.filter((grant) => grant.storageNodeId && validNodeIds.has(grant.storageNodeId));
-      if (rows.length > 0) {
-        await tx.userStorageAccess.createMany({ data: rows, skipDuplicates: true });
-      }
+  const writes: Array<() => PromiseLike<unknown>> = [];
+  if (storageAccess) {
+    // Only the account's own customer's nodes can be narrowed.
+    const nodeScope = { teamId };
+    const scopeIds = storageAccessScopeIds ?? [];
+    if (!storageAccessScopeIds || new Set(scopeIds).size !== scopeIds.length || storageAccess.some((grant) => !scopeIds.includes(grant.storageNodeId))) {
+      throw new ValidationError(t("backend.user.invalidStorageAccessScope"));
     }
+    const validNodeIds = new Set(
+      (
+        await tx.storageNode.findMany({
+          where: { id: { in: scopeIds }, ...nodeScope },
+          select: { id: true },
+          take: scopeIds.length || 1,
+        })
+      ).map((node) => node.id),
+    );
+    if (validNodeIds.size !== scopeIds.length) throw new ValidationError(t("backend.user.unknownStorageNodeInCustomer"));
+    const mapped = storageAccess.map((grant) => ({
+      userId: userId,
+      storageNodeId: String(grant.storageNodeId ?? ""),
+      pathPrefix: normalizePathPrefix(grant.pathPrefix),
+      // Default deny: an omitted flag must never silently grant read access.
+      canRead: grant.canRead ?? false,
+      canWrite: grant.canWrite ?? false,
+      canDelete: grant.canDelete ?? false,
+      quotaBytes: parseStorageLimit(grant.quotaBytes),
+      maxFileBytes: parseStorageLimit(grant.maxFileBytes),
+    }));
+    const outOfTeam = mapped
+      .map((grant) => grant.storageNodeId)
+      .filter((id) => id && !validNodeIds.has(id));
+    if (outOfTeam.length > 0) {
+      throw new ValidationError(t("backend.user.storageNodesOutsideCurrentTeamScope"));
+    }
+    const seen = new Set<string>();
+    for (const grant of mapped) {
+      const key = `${grant.storageNodeId}\0${grant.pathPrefix}`;
+      if (seen.has(key)) {
+        throw new ValidationError(t("backend.user.duplicateStorageAccess"));
+      }
+      seen.add(key);
+    }
+    writes.push(() => tx.userStorageAccess.deleteMany({
+      where: { userId: userId, storageNodeId: { in: scopeIds } },
+    }));
+    // Keep grants with every flag cleared: without any row a node is not
+    // narrowed at all, so a cleared grant is how a node gets blocked.
+    const rows = mapped.filter((grant) => grant.storageNodeId && validNodeIds.has(grant.storageNodeId));
+    if (rows.length > 0) {
+      writes.push(() => tx.userStorageAccess.createMany({ data: rows, skipDuplicates: true }));
+    }
+  }
 
-    if (serverAccess) {
-      const serverScope = { teamId };
-      const ids = serverAccess.map((grant) => grant.serverId);
-      const scopeIds = serverAccessScopeIds ?? [];
-      if (!serverAccessScopeIds || new Set(ids).size !== ids.length || new Set(scopeIds).size !== scopeIds.length || ids.some((id) => !scopeIds.includes(id))) {
-        throw new ValidationError(t("backend.user.invalidServerAccessScope"));
-      }
-      const known = await tx.server.findMany({
-        where: { id: { in: scopeIds }, ...serverScope },
-        select: { id: true },
-        take: scopeIds.length || 1,
-      });
-      if (known.length !== scopeIds.length) {
-        throw new ValidationError(t("backend.user.unknownServerInCustomer"));
-      }
-      await tx.userServerAccess.deleteMany({
-        where: { userId: userId, serverId: { in: scopeIds } },
-      });
-      if (serverAccess.length > 0) {
-        await tx.userServerAccess.createMany({
-          data: serverAccess.map((grant) => ({ userId: userId, ...grant })),
-        });
-      }
+  if (serverAccess) {
+    const serverScope = { teamId };
+    const ids = serverAccess.map((grant) => grant.serverId);
+    const scopeIds = serverAccessScopeIds ?? [];
+    if (!serverAccessScopeIds || new Set(ids).size !== ids.length || new Set(scopeIds).size !== scopeIds.length || ids.some((id) => !scopeIds.includes(id))) {
+      throw new ValidationError(t("backend.user.invalidServerAccessScope"));
     }
-  });
+    const known = await tx.server.findMany({
+      where: { id: { in: scopeIds }, ...serverScope },
+      select: { id: true },
+      take: scopeIds.length || 1,
+    });
+    if (known.length !== scopeIds.length) {
+      throw new ValidationError(t("backend.user.unknownServerInCustomer"));
+    }
+    writes.push(() => tx.userServerAccess.deleteMany({
+      where: { userId: userId, serverId: { in: scopeIds } },
+    }));
+    if (serverAccess.length > 0) {
+      writes.push(() => tx.userServerAccess.createMany({
+        data: serverAccess.map((grant) => ({ userId: userId, ...grant })),
+      }));
+    }
+  }
+  return async () => {
+    for (const write of writes) await write();
+  };
 }

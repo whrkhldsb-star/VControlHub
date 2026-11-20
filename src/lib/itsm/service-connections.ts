@@ -166,12 +166,17 @@ export async function listItsmEvents(input?: {
   limit?: number;
   session?: Pick<SessionPayload, "userId" | "roles" | "currentTeamId">;
 }): Promise<ItsmEventRecord[]> {
-  const teamFilter = connectionScope(input?.session);
+  const session = input?.session;
+  const owner = !session || seesAllCustomers(session) ? {} : {
+    ownerBound: true,
+    teamId: session.currentTeamId ?? null,
+    ...(!session.currentTeamId ? { connection: connectionScope(session) } : {}),
+  };
   const rows = await prisma.itsmEvent.findMany({
     where: {
       ...(input?.connectionId ? { connectionId: input.connectionId } : {}),
       ...(input?.ticketId ? { ticketId: input.ticketId } : {}),
-      ...(Object.keys(teamFilter).length > 0 ? { connection: teamFilter } : {}),
+      ...owner,
     },
     orderBy: { createdAt: "desc" },
     // Clamped and truncated here too: `take` rejects a fractional row count, and a

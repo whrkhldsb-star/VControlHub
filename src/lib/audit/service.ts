@@ -33,8 +33,8 @@ type WriteAuditLogInput = {
  * Write an audit log entry. Fire-and-forget by design — callers should catch
  * failures so audit writes do not block the main operation.
  */
-export async function writeAuditLog(input: WriteAuditLogInput): Promise<void> {
-	await prisma.auditLog.create({
+export async function writeAuditLog(input: WriteAuditLogInput, db: Prisma.TransactionClient = prisma): Promise<void> {
+	await db.auditLog.create({
 		data: {
 			actorType: input.actorType,
 			actorId: input.actorId,
