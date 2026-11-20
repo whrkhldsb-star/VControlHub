@@ -22,7 +22,7 @@ const fingerprint = (script: string) => createHash("sha256").update(script.repla
  */
 const RECORDED = {
 	linux: { version: "1.5.2", fingerprint: "fb1b823253f0620c" },
-	windows: { version: "1.5.1", fingerprint: "b2cd79a295dde29e" },
+	windows: { version: "1.5.3", fingerprint: "4ae3f2c76fce1e06" },
 };
 
 describe("Agent versions", () => {

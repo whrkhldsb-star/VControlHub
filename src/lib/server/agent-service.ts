@@ -925,6 +925,25 @@ export function buildAgentPowerShell(hubUrl: string, token: string) {
     "  return ($lines -join [string][char]10)",
     "}",
     "",
+    // PowerShell callbacks on pool threads have no runspace. Drain both pipes in
+    // .NET, retaining a bounded prefix and continuing to consume excess output.
+    `Add-Type -ErrorAction Stop -TypeDefinition @'
+using System;
+using System.IO;
+using System.Text;
+using System.Threading.Tasks;
+public static class AgentOutput {
+    public static async Task<string> Drain(StreamReader reader, int limit) {
+        var buffer = new char[4096];
+        var prefix = new StringBuilder();
+        int count;
+        while ((count = await reader.ReadAsync(buffer, 0, buffer.Length).ConfigureAwait(false)) != 0) {
+            prefix.Append(buffer, 0, Math.Min(count, limit - prefix.Length));
+        }
+        return prefix.ToString();
+    }
+}
+'@`,
     "function Invoke-AgentJob {",
     "  param($Job)",
     "  $timeoutSeconds = [int][Math]::Max(1, [Math]::Min([int]([double]$Job.timeoutMs / 1000), 3600))",
@@ -938,8 +957,8 @@ export function buildAgentPowerShell(hubUrl: string, token: string) {
     "  $startInfo.StandardOutputEncoding = [System.Text.Encoding]::UTF8",
     "  $startInfo.StandardErrorEncoding = [System.Text.Encoding]::UTF8",
     "  $process = [System.Diagnostics.Process]::Start($startInfo)",
-    "  $stdoutTask = $process.StandardOutput.ReadToEndAsync()",
-    "  $stderrTask = $process.StandardError.ReadToEndAsync()",
+    "  $stdoutTask = [AgentOutput]::Drain($process.StandardOutput, $OUTPUT_LIMIT)",
+    "  $stderrTask = [AgentOutput]::Drain($process.StandardError, $ERROR_LIMIT)",
     "  $deadline = [DateTime]::UtcNow.AddSeconds($timeoutSeconds)",
     "  $lastHeartbeat = [DateTime]::UtcNow",
     "  $cancelled = $false",
@@ -985,6 +1004,9 @@ export function buildAgentPowerShell(hubUrl: string, token: string) {
     "    if ($stderr) { $stderr = $stderr + [string][char]10 }",
     "    $stderr = $stderr + '[agent] the output was not collected: a process the command left in the background kept it open'",
     "  }",
+    "  $process.StandardOutput.Close()",
+    "  $process.StandardError.Close()",
+    "  $process.Dispose()",
     "  return [ordered]@{ jobId = [string]$Job.id; stdout = (Limit-Text $stdout $OUTPUT_LIMIT); stderr = (Limit-Text $stderr $ERROR_LIMIT); exitCode = $exitCode }",
     "}",
     "",

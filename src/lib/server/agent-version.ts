@@ -10,8 +10,8 @@
  */
 export const AGENT_VERSION = "1.5.2";
 
-/** The Windows (PowerShell) Agent build: unchanged since 1.5.1. */
-export const WINDOWS_AGENT_VERSION = "1.5.1";
+/** The Windows (PowerShell) Agent build: bounds stdout and stderr while reading. */
+export const WINDOWS_AGENT_VERSION = "1.5.3";
 
 export type AgentPlatform = "linux" | "windows";
 
