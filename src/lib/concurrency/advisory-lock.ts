@@ -188,24 +188,26 @@ async function releaseClientLock(
   client: PoolClient,
   giveBack: (error?: Error) => void,
   k1: number,
-  k2: number,
+  pathKeys: readonly number[],
   namespace: string,
   resourceId: string,
 ) {
   let failure: Error | undefined;
   try {
-    const result = await client.query<{ unlocked: boolean }>(
-      "SELECT pg_advisory_unlock($1, $2) AS unlocked",
-      [k1, k2],
-    );
-    if (result.rows[0]?.unlocked !== true)
-      logger.warn("advisory lock was not held by its dedicated session", {
-        namespace,
-        resourceId,
-        k1,
-        k2,
-      });
-    else logger.debug("advisory lock released", { namespace, resourceId });
+    for (const k2 of pathKeys) {
+      const result = await client.query<{ unlocked: boolean }>(
+        "SELECT pg_advisory_unlock($1, $2) AS unlocked",
+        [k1, k2],
+      );
+      if (result.rows[0]?.unlocked !== true)
+        logger.warn("advisory lock was not held by its dedicated session", {
+          namespace,
+          resourceId,
+          k1,
+          k2,
+        });
+      else logger.debug("advisory lock released", { namespace, resourceId });
+    }
   } catch (error) {
     failure = error instanceof Error ? error : new Error(String(error));
     logger.error("failed to release advisory lock", {
@@ -224,7 +226,7 @@ function buildRelease(
   client: PoolClient,
   giveBack: (error?: Error) => void,
   k1: number,
-  k2: number,
+  pathKeys: readonly number[],
   namespace: string,
   resourceId: string,
 ) {
@@ -232,7 +234,7 @@ function buildRelease(
   return async () => {
     if (released) return;
     released = true;
-    await releaseClientLock(client, giveBack, k1, k2, namespace, resourceId);
+    await releaseClientLock(client, giveBack, k1, pathKeys, namespace, resourceId);
   };
 }
 
@@ -247,9 +249,11 @@ const ADVISORY_LOCK_ACQUIRE_TIMEOUT_MS = 30_000;
 export async function acquireAdvisoryLock(
   namespace: string,
   resourceId: string,
-  options: { timeoutMs?: number } = {},
+  options: { timeoutMs?: number; additionalResourceId?: string } = {},
 ): Promise<() => Promise<void>> {
   const { k1, k2 } = getLockKeys(namespace, resourceId);
+  const pathKeys = options.additionalResourceId === undefined ? [k2]
+    : [...new Set([k2, getLockKeys(namespace, options.additionalResourceId).k2])].sort((a, b) => a - b);
   // Interpolated into SET (which takes no parameters): keep it a whole number.
   const timeoutMs = Math.max(1, Math.floor(options.timeoutMs ?? ADVISORY_LOCK_ACQUIRE_TIMEOUT_MS));
   const { client, giveBack } = await connectLockClient(namespace, resourceId);
@@ -257,12 +261,12 @@ export async function acquireAdvisoryLock(
     // A session setting: it stays on this pooled connection, which only
     // ever serves advisory locks, and every blocking acquire sets it.
     await client.query(`SET lock_timeout = ${timeoutMs}`);
-    await client.query("SELECT pg_advisory_lock($1, $2)", [k1, k2]);
+    for (const key of pathKeys) await client.query("SELECT pg_advisory_lock($1, $2)", [k1, key]);
     logger.debug("advisory lock acquired", { namespace, resourceId, k1, k2 });
-    return buildRelease(client, giveBack, k1, k2, namespace, resourceId);
+    return buildRelease(client, giveBack, k1, pathKeys, namespace, resourceId);
   } catch (error) {
-    // A cancelled wait leaves the session usable: back to the pool as it is.
-    giveBack();
+    // A later acquire can fail with the first lock already held. Closing the session releases both.
+    giveBack(pathKeys.length > 1 ? new Error("Incomplete lock acquisition") : undefined);
     if (!isLockTimeout(error)) throw error;
     logger.warn("advisory lock wait timed out", { namespace, resourceId, timeoutMs });
     throw new AdvisoryLockBusyError(namespace, "held", error);
@@ -291,7 +295,7 @@ export async function tryAcquireAdvisoryLock(
       k1,
       k2,
     });
-    return buildRelease(client, giveBack, k1, k2, namespace, resourceId);
+    return buildRelease(client, giveBack, k1, [k2], namespace, resourceId);
   } catch (error) {
     giveBack();
     throw error;

@@ -75,6 +75,7 @@ export async function executeMoveFile(
         storageNodeId: true,
         storageNode: {
           select: {
+            id: true,
             driver: true,
             basePath: true,
             host: true,
@@ -169,7 +170,7 @@ export async function executeMoveFile(
     // 直接覆盖目标位置的字节，而软删行的物理文件仍在磁盘上。若只查 isDeleted:false，
     // move 会覆盖并永久销毁回收站里同名文件的字节，之后 DB 更新还会撞唯一约束
     // （@@unique 覆盖软删行）触发补偿把本文件移回——净结果是回收站文件被静默清空。
-    releaseDestination = await lockStorageFileOverwrite(entry.storageNodeId, newRelativePath);
+    releaseDestination = await lockStorageFileOverwrite(entry.storageNodeId, newRelativePath, normalizedCurrentPath.path);
     const occupant = await prisma.fileEntry.findFirst({
       where: {
         storageNodeId: entry.storageNodeId,
