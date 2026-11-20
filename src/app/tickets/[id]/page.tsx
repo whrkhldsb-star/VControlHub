@@ -1,4 +1,4 @@
-import { requireSession } from "@/lib/auth/require-session";
+import { requirePagePermission } from "@/lib/auth/page-guard";
 import { sessionHasPermission } from "@/lib/auth/authorization";
 import { getTicketById } from "@/lib/ticket/service";
 import { PageShell, PageHeader, PermissionDenied } from "@/components/page-shell";
@@ -13,7 +13,7 @@ export const dynamic = "force-dynamic";
 export default async function TicketDetailPage({ params }: { params: Promise<{ id: string }> }) {
   const { id } = await params;
   // Back to this ticket after signing in again, not to the list.
-  const session = await requireSession(`/tickets/${encodeURIComponent(id)}`);
+  const session = await requirePagePermission("ticket:read", { redirectTo: `/tickets/${encodeURIComponent(id)}` });
   const canManage = sessionHasPermission(session, "ticket:manage");
   const locale = await getServerLocale();
 

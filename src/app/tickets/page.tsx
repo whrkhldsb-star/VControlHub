@@ -1,5 +1,5 @@
 import { firstSearchParam } from "@/lib/http/first-search-param";
-import { requireSession } from "@/lib/auth/require-session";
+import { requirePagePermission } from "@/lib/auth/page-guard";
 import { sessionHasPermission } from "@/lib/auth/authorization";
 import { countTickets } from "@/lib/ticket/service";
 import { listTicketBoard, listTicketPage, type TicketSlaFilter } from "@/lib/ticket/query";
@@ -18,7 +18,7 @@ function param(value: string | string[] | undefined): string {
 }
 
 export default async function Page({ searchParams }: { searchParams: Promise<Record<string, string | string[] | undefined>> }) {
-  const session = await requireSession("/tickets");
+  const session = await requirePagePermission("ticket:read", { redirectTo: "/tickets" });
   const canManage = sessionHasPermission(session, "ticket:manage");
   const canCreate = sessionHasPermission(session, "ticket:create");
   const locale = await getServerLocale();
