@@ -26,7 +26,7 @@ const {
   const unlinkMock = vi.fn();
   const renameFsMock = vi.fn();
   const statMock = vi.fn();
-  const lstatMock = vi.fn();
+  const lstatMock = vi.fn(async () => ({ isDirectory: () => false, isFile: () => true }));
   const readFileMock = vi.fn();
   const writeFileMock = vi.fn();
   const readdirMock = vi.fn();
@@ -37,6 +37,7 @@ const {
     rename: renameFsMock,
     stat: statMock,
     lstat: lstatMock,
+    link: vi.fn(),
     readFile: readFileMock,
     writeFile: writeFileMock,
     readdir: readdirMock,
@@ -134,7 +135,7 @@ describe("moveBackingObject", () => {
     expect(mkdirMock).toHaveBeenCalledWith(localPath("team/sub"), {
       recursive: true,
     });
-    expect(renameFsMock).toHaveBeenCalledWith(
+    expect(fsMock.link).toHaveBeenCalledWith(
       localPath("docs/old.txt"),
       localPath("team/sub/new.txt"),
     );
