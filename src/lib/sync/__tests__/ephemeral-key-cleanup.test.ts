@@ -17,7 +17,8 @@ const TARGET_KEY = "-----BEGIN OPENSSH PRIVATE KEY-----\nTARGET-OWN-KEY-9c2e\n--
 
 const { prismaMock, jobState, platform } = vi.hoisted(() => ({
   prismaMock: {
-    syncJob: { updateMany: vi.fn(), update: vi.fn(), findMany: vi.fn() },
+    $executeRaw: vi.fn(async () => 1),
+    syncJob: { findFirst: vi.fn(async () => null), updateMany: vi.fn(), update: vi.fn(), findMany: vi.fn() },
     syncLog: { create: vi.fn(), update: vi.fn(), updateMany: vi.fn() },
   },
   jobState: { job: null as Record<string, unknown> | null },

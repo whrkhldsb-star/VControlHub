@@ -260,15 +260,22 @@ const TAR_PREV_PREFIX = ".vch-sync-prev-";
  */
 function buildMirrorCommitScript(target: string, stage: string, prev: string): string {
 	const moveInto = (destination: string) => `-exec sh -c 'mv -f -- "$@" "$0"' ${destination} {} +`;
+	const ledger = stage + ".ledger";
+	const basename = '${f##*/}';
+	// Record each staged inode. Rollback leaves a conflicting name and the
+	// displaced originals for recovery if another writer now owns the name.
+	const remember = `find ${stage} -mindepth 1 -maxdepth 1 -exec sh -c 'for f do n="${basename}"; stat -c "%d:%i:%s:%y" -- "$f" > "$0/$n" || exit 1; done' ${ledger} {} +`;
+	const rollback = `find ${ledger} -mindepth 1 -maxdepth 1 -exec sh -c 'for f do n="./${basename}"; [ -e "$n" ] || [ -L "$n" ] || continue; [ "$(stat -c "%d:%i:%s:%y" -- "$n")" = "$(cat -- "$f")" ] || exit 1; rm -rf -- "$n" || exit 1; done' sh {} +`;
 	const ownEntries = `find . -mindepth 1 -maxdepth 1 ! -name '${TAR_STAGE_PREFIX}*' ! -name '${TAR_PREV_PREFIX}*'`;
 	return [
 		`cd -- ${target} || exit 1`,
-		`if [ -e ${prev} ]; then echo "an earlier tar sync commit into this target was interrupted; the entries it replaced are kept in "${prev}". Restore or remove that directory, then retry." >&2; exit 1; fi`,
-		`mkdir -- ${prev} || exit 1`,
-		`vch_restore_prev() { find ${prev} -mindepth 1 -maxdepth 1 ${moveInto(".")} && rmdir -- ${prev}; }`,
+		`if [ -n "$(find . -mindepth 1 -maxdepth 1 -name '${TAR_PREV_PREFIX}*' -print -quit)" ]; then echo "an earlier tar sync commit into this target was interrupted; the entries it replaced are kept in "${prev}". Restore or remove that directory, then retry." >&2; exit 1; fi`,
+		`if [ -n "$(find ${stage} -mindepth 1 -maxdepth 1 -name '.vch-sync-*' -print -quit)" ]; then exit 1; fi`,
+		`mkdir -- ${prev} ${ledger} && ${remember} || exit 1`,
+		`vch_restore_prev() { find ${prev} -mindepth 1 -maxdepth 1 -exec sh -c 'for f do mv -nT -- "$f" "./${basename}" && [ ! -e "$f" ] && [ ! -L "$f" ] || exit 1; done' sh {} + && rmdir -- ${prev}; }`,
 		`if ! ${ownEntries} ${moveInto(prev)}; then vch_restore_prev; echo "tar sync commit failed while setting the current entries aside; target restored" >&2; exit 1; fi`,
-		`if ! find ${stage} -mindepth 1 -maxdepth 1 ${moveInto(".")}; then ${ownEntries} -exec rm -rf -- {} +; vch_restore_prev; rm -rf -- ${stage}; echo "tar sync commit failed while moving the new entries in; target restored" >&2; exit 1; fi`,
-		`rmdir -- ${stage} && rm -rf -- ${prev}`,
+		`if ! find ${stage} -mindepth 1 -maxdepth 1 ${moveInto(".")}; then ${rollback} && vch_restore_prev && rm -rf -- ${ledger} ${stage} || exit 1; echo "tar sync commit failed while moving the new entries in; target restored" >&2; exit 1; fi`,
+		`rmdir -- ${stage} && rm -rf -- ${prev} ${ledger}`,
 	].join("\n");
 }
 

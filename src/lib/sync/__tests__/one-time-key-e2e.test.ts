@@ -37,7 +37,8 @@ vi.mock("@/lib/auth/execution-actor", () => ({ executionRefusal: vi.fn(async () 
 vi.mock("@/lib/db", () => ({
   prisma: {
     $transaction(run: (tx: unknown) => Promise<unknown>) { return run(this); },
-    syncJob: { updateMany: vi.fn(async () => ({ count: 1 })), update: vi.fn(async () => ({})) },
+    $executeRaw: vi.fn(async () => 1),
+    syncJob: { findFirst: vi.fn(async () => null), updateMany: vi.fn(async () => ({ count: 1 })), update: vi.fn(async () => ({})) },
     syncLog: { create: vi.fn(async () => ({ id: "log-1" })), update: vi.fn(async () => ({})) },
   },
 }));

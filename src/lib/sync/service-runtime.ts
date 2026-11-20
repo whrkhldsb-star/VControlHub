@@ -17,6 +17,7 @@ import { randomBytes, randomUUID } from "node:crypto";
 import { loadExecutionActor, executionRefusal } from "@/lib/auth/execution-actor";
 import type { SessionPayload } from "@/lib/auth/session";
 import type { Prisma } from "@prisma/client";
+import { lockForTransaction } from "@/lib/concurrency/advisory-lock";
 import { prisma } from "@/lib/db";
 import { ForbiddenError } from "@/lib/errors";
 import { formatBytes } from "@/lib/format/bytes";
@@ -466,8 +467,19 @@ export async function executeSyncJob(
 	const runId = randomUUID();
 	const owner = { id: jobId, status: "RUNNING" as const, activeRunId: runId };
 	await prisma.$transaction(async (tx) => {
+		const destinations = isBidirectionalSyncType(job.syncType)
+			? [...new Set([job.sourceServerId, job.targetServerId])].sort() : [job.targetServerId];
+		for (const id of destinations) await lockForTransaction(tx, "sync-destination", id);
+		const busy = await tx.syncJob.findFirst({
+			where: { status: "RUNNING", OR: [
+				{ targetServerId: { in: destinations } },
+				{ sourceServerId: { in: destinations }, syncType: { equals: "BIDIRECTIONAL", mode: "insensitive" } },
+			] },
+			select: { id: true },
+		});
+		if (busy) throw new Error("Sync destination is already in use");
 		const claimed = await tx.syncJob.updateMany({
-			where: { id: jobId, status: { in: ["IDLE", "ERROR"] } },
+			where: { id: jobId, updatedAt: job.updatedAt, status: { in: ["IDLE", "ERROR"] } },
 			data: { status: "RUNNING", activeRunId: runId },
 		});
 		if (!claimed.count) throw new Error("Sync job is already running or paused");
