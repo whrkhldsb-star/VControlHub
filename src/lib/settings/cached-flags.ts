@@ -8,8 +8,13 @@ import { prisma } from "@/lib/db";
  * process invalidates immediately (see settings/service rememberSaved).
  */
 const TTL_MS = 60_000;
-const cache = new Map<string, { persisted: boolean | null; loadedAt: number }>();
-const inflight = new Set<string>();
+function emptyFlagCache() {
+  return {
+    cache: new Map<string, { persisted: boolean | null; loadedAt: number }>(),
+    inflight: new Set<string>(),
+  };
+}
+let current = emptyFlagCache();
 
 /** The stored flag, null for "no row / empty" (env fallback); a database error is thrown. */
 async function readPersistedFlag(key: string): Promise<boolean | null> {
@@ -26,6 +31,7 @@ async function readPersistedFlag(key: string): Promise<boolean | null> {
  * because the process started while the database was unreachable.
  */
 function getBooleanSettingCached(key: string, fallback: boolean, unknown: boolean): boolean {
+  const { cache, inflight } = current;
   const hit = cache.get(key);
   if ((!hit || Date.now() - hit.loadedAt > TTL_MS) && !inflight.has(key)) {
     inflight.add(key);
@@ -60,11 +66,13 @@ const FLAG_KEYS = ["security.sshEnforceHostKeyPin"] as const;
 
 /** Load the flags once at process start, so the first connections already use the stored policy. */
 export async function primeCachedFlags(): Promise<void> {
+  const { cache } = current;
   const values = await Promise.all(FLAG_KEYS.map((key) => readPersistedFlag(key)));
   const now = Date.now();
   FLAG_KEYS.forEach((key, index) => cache.set(key, { persisted: values[index] ?? null, loadedAt: now }));
 }
 
 export function invalidateCachedFlags() {
-  cache.clear();
+  // Readers already in flight can only populate their detached generation.
+  current = emptyFlagCache();
 }
