@@ -434,12 +434,13 @@ export async function updateStorageNode(
       if (payload.isDefault) await lockForTransaction(tx, "storage-node-default", current.teamId ?? "platform");
       if (nextServerId && nextDriver === "SFTP") await lockStorageServer(tx, nextServerId, current.teamId);
       const claimed = await tx.storageNode.updateMany({
-        where: { ...(session ? teamWhere(session) : {}), id: payload.storageNodeId, teamId: current.teamId },
+        where: { ...(session ? teamWhere(session) : {}), id: payload.storageNodeId, teamId: current.teamId,
+          ...(driverChanged || payload.isDefault === false ? { isDefault: false } : {}) },
         data: {
           name: payload.name ?? current.name,
           driver: nextDriver,
           basePath: payload.basePath ?? current.basePath,
-          isDefault: payload.isDefault ?? current.isDefault,
+          ...(payload.isDefault ? { isDefault: true } : {}),
           host: nextDriver === "SFTP" ? nextHost ?? null : null,
           port: nextDriver === "SFTP" ? nextPort : null,
           username: nextDriver === "SFTP" ? nextUsername : null,
