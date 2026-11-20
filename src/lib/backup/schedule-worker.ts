@@ -33,7 +33,7 @@ import { createLogger } from "@/lib/logging";
 import { tryAcquireAdvisoryLock } from "@/lib/concurrency/advisory-lock";
 import { createSingletonIntervalWorker } from "@/lib/workers/singleton-interval-worker";
 
-import { dispatchDueSchedule, recordScheduleRun } from "./schedule-service";
+import { dispatchDueSchedule } from "./schedule-service";
 
 const logger = createLogger("backup-schedule-worker");
 
@@ -199,6 +199,7 @@ async function dispatchDueBackupSchedules(reason: string) {
   });
 
   let dispatchedCount = 0;
+  let dispatchFailures = 0;
   for (const schedule of dueSchedules) {
     try {
       const dispatched = await dispatchDueScheduleRow(schedule);
@@ -210,18 +211,12 @@ async function dispatchDueBackupSchedules(reason: string) {
         scheduleId: schedule.id,
         error: message,
       });
-      try {
-        await recordScheduleRun(schedule.id, `Execution failed: ${message.slice(0, 400)}`);
-      } catch (recordError) {
-        logger.error("Failed to record backup schedule run after failure", {
-          reason,
-          scheduleId: schedule.id,
-          error: recordError instanceof Error ? recordError.message : String(recordError),
-        });
-      }
+      // The dispatch transaction rolled back. Leave this occurrence due for the next tick.
+      dispatchFailures += 1;
     }
   }
 
+  if (dispatchFailures) throw new Error(`Failed to dispatch ${dispatchFailures} due backup schedules`);
   return { dispatched: dispatchedCount, observed: dueSchedules.length };
 }
 
