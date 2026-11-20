@@ -111,12 +111,20 @@ export async function probeDirectDownloadRemote(input: {
  * directory (tens of GB for a torrent) with it (A5-04); only the executor's
  * own failure paths cleaned up before, and a crashed worker left both behind.
  */
-export async function failRelayTask(task: { id: string; aria2Gid: string | null }, errorMessage: string, includePending = false): Promise<boolean> {
-  const failed = await prisma.downloadTask.updateMany({
-    where: { id: task.id, status: includePending ? { in: ["PENDING", "RUNNING"] } : "RUNNING" },
-    data: { status: "FAILED", errorMessage: errorMessage.slice(0, 500) },
-  });
-  if (!failed.count) return false;
+export async function failRelayTask(task: { id: string; aria2Gid: string | null; updatedAt: Date }, errorMessage: string, includePending = false): Promise<boolean> {
+  // A pending retry owns the staging directory too. The job recovery worker
+  // resolves expired leases before the reconciler may take over.
+  const failed = await prisma.$queryRaw<{ publishing: boolean }[]>`
+    UPDATE download_tasks d SET status = 'FAILED', "errorMessage" = ${errorMessage.slice(0, 500)}, "updatedAt" = NOW()
+    WHERE d.id = ${task.id} AND d."updatedAt" = ${task.updatedAt}
+      AND (d.status = 'RUNNING' OR (${includePending} AND d.status = 'PENDING'))
+      AND NOT EXISTS (SELECT 1 FROM jobs j WHERE j.type = 'download.execute'
+        AND j.payload->>'taskId' = d.id AND j.status IN ('PENDING', 'RUNNING'))
+    RETURNING d."transferManifest" IS NOT NULL AND d."transferManifest" <> 'null'::jsonb AS publishing`;
+  const outcome = failed[0];
+  if (!outcome) return false;
+  // Published bytes may need reconciliation against the manifest.
+  if (outcome.publishing) return true;
   if (task.aria2Gid) {
     try { await removeDownload(task.aria2Gid, true); } catch { /* best-effort: aria2 may not know the gid any more */ }
   }
