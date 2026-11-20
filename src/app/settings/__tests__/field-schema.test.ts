@@ -61,6 +61,10 @@ describe("getSectionSaveKeys", () => {
 			"runtime.commandReconcileIntervalMs",
 			"runtime.sftpSyncDirectoryTimeoutMs",
 			"runtime.sshWsHeartbeatIntervalMs",
+			"runtime.sshKeepaliveIntervalMs",
+			"runtime.sshKeepaliveCountMax",
+			"runtime.rdpIdleTimeoutSec",
+			"runtime.rdpMaxSessionSec",
 			"runtime.sshIdleTimeoutSec",
 			"rdp.webpImages",
 			"runtime.operationTaskListLimit",
@@ -180,8 +184,8 @@ describe("Credentials of other systems", () => {
 describe("Runtime schema", () => {
 	const runtime = SETTINGS_SCHEMA.find((s) => s.id === "runtime")!;
 
-	it("declares 12 runtime fields (10 number + 1 select + 1 switch)", () => {
-		expect(runtime.fields).toHaveLength(12);
+	it("declares 16 runtime fields (14 number + 1 select + 1 switch)", () => {
+		expect(runtime.fields).toHaveLength(16);
 		const selectFields = runtime.fields.filter((f) => f.type === "select");
 		expect(selectFields).toHaveLength(1);
 		expect(selectFields[0]?.key).toBe("runtime.sshIdleTimeoutSec");

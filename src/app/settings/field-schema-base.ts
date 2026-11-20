@@ -114,6 +114,10 @@ export const BASE_SETTINGS_SECTIONS: SectionDef[] = [
 			Object.assign(runtimeNumber("runtime.commandReconcileIntervalMs", "settingsClient.field.runtime.commandReconcileIntervalMs.label", "60000", 5_000, 3_600_000), { riskLevel: "medium" as const }),
 			Object.assign(runtimeNumber("runtime.sftpSyncDirectoryTimeoutMs", "settingsClient.field.runtime.sftpSyncDirectoryTimeoutMs.label", "60000", 5_000, 1_800_000), { riskLevel: "medium" as const }),
 			Object.assign(runtimeNumber("runtime.sshWsHeartbeatIntervalMs", "settingsClient.field.runtime.sshWsHeartbeatIntervalMs.label", "25000", 5_000, 600_000), { riskLevel: "medium" as const }),
+			Object.assign(runtimeNumber("runtime.sshKeepaliveIntervalMs", "settingsClient.field.runtime.sshKeepaliveIntervalMs.label", "30000", 5_000, 600_000), { riskLevel: "medium" as const }),
+			Object.assign(runtimeNumber("runtime.sshKeepaliveCountMax", "settingsClient.field.runtime.sshKeepaliveCountMax.label", "60", 1, 60), { riskLevel: "medium" as const }),
+			Object.assign(runtimeNumber("runtime.rdpIdleTimeoutSec", "settingsClient.field.runtime.rdpIdleTimeoutSec.label", "0", 0, 86_400), { riskLevel: "high" as const }),
+			Object.assign(runtimeNumber("runtime.rdpMaxSessionSec", "settingsClient.field.runtime.rdpMaxSessionSec.label", "0", 0, 86_400), { riskLevel: "high" as const }),
 			{
 				key: "runtime.sshIdleTimeoutSec",
 				labelKey: "settingsClient.field.sshIdleTimeout.label",
