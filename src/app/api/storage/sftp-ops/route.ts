@@ -15,6 +15,7 @@ import {
   writeBackingObject,
 } from "@/lib/storage/fs-backend";
 import { assertNotRecycled } from "@/lib/storage/archive-access";
+import { statRemoteEntry } from "@/lib/ssh/client";
 import { getSftpNodeConnection } from "@/lib/storage/sftp-node";
 import { resolveStorageRemotePath } from "@/lib/storage/remote-containment";
 import path from "node:path";
@@ -267,6 +268,8 @@ async function handlePost(body: SftpOpsBody, session: SessionPayload) {
       { status: 403 },
     );
   }
+  let renameAdmission: Awaited<ReturnType<typeof assertStorageAccess>> | undefined;
+  let releaseRenameLock: (() => Promise<void>) | undefined;
   // Everything after the access check runs inside the try that releases the
   // grant's quota lock: a containment failure returned (or threw) here and
   // kept that lock — and its pooled connection — until the process restarted.
@@ -349,27 +352,34 @@ async function handlePost(body: SftpOpsBody, session: SessionPayload) {
             { status: 400 },
           );
         }
-        const destinationAccessDecision = await assertStorageAccess({
-          session,
-          storageNodeId: node.id,
-          relativePath: normalizedNewRelativePath,
-          operation: "write",
-          writeBytes: null,
+        const indexed = await prisma.fileEntry.findFirst({
+          where: { storageNodeId: node.id, relativePath: normalizedRelativePath, isDeleted: false },
+          select: { entryType: true, size: true },
         });
-        if (!destinationAccessDecision.allowed) {
-          // In words, as for the source path above: the reason is a code and was sent as it is.
-          return NextResponse.json(
-            { error: storageAccessDeniedCopy(destinationAccessDecision.reason) },
-            { status: 403 },
-          );
+        const isDirectory = indexed ? indexed.entryType === "DIRECTORY" : Boolean(body.isDirectory);
+        const size = indexed?.entryType === "FILE" ? indexed.size : null;
+        renameAdmission = await assertStorageAccess({
+          session, storageNodeId: node.id, relativePath: normalizedNewRelativePath, operation: "write",
+          writeBytes: size, movedFrom: normalizedRelativePath,
+          // The SFTP index may omit physical descendants. An unmeasured tree or
+          // file can only be moved where no byte-limited grant needs accounting.
+          unmeteredTreeWrite: size == null,
+        });
+        if (!renameAdmission.allowed) {
+          return NextResponse.json({ error: storageAccessDeniedCopy(renameAdmission.reason) }, { status: 403 });
         }
-
-        // Prefer indexed entryType over client isDirectory for recursive rewrites.
-        const isDirectory = await resolveIndexedIsDirectory(
-          node.id,
-          normalizedRelativePath,
-          body.isDirectory,
-        );
+        releaseRenameLock = await lockStorageFileOverwrite(node.id, normalizedNewRelativePath, normalizedRelativePath);
+        if (renameAdmission.matchedGrantId && size != null) {
+          const { remotePath: source } = await resolveStorageRemotePath(node, normalizedRelativePath, { credentials });
+          const stat = await statRemoteEntry({ ...credentials, remotePath: source });
+          const live = await prisma.fileEntry.findFirst({
+            where: { storageNodeId: node.id, relativePath: normalizedRelativePath, isDeleted: false, entryType: "FILE", size },
+            select: { id: true },
+          });
+          if (!live || stat.type !== "file" || !Number.isSafeInteger(stat.size) || BigInt(stat.size) !== size) {
+            throw new ConflictError(t("backend.downloads.storageLimitExceeded"));
+          }
+        }
 
         // The destination must be free in the index, recycle bin included. Otherwise the rewrite below put this
         // entry's rows among the destination's, the physical rename then failed (the target exists), and the
@@ -649,7 +659,10 @@ async function handlePost(body: SftpOpsBody, session: SessionPayload) {
     );
   }
   } finally {
-    await releaseStorageQuotaGuard(accessDecision);
+    try { await releaseRenameLock?.(); } finally {
+      if (renameAdmission) await releaseStorageQuotaGuard(renameAdmission);
+      await releaseStorageQuotaGuard(accessDecision);
+    }
   }
 }
 
