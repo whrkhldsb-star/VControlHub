@@ -32,6 +32,7 @@ import {
 } from "@/lib/http/response-body";
 
 import type { CostCategory, CostCurrency } from "../types";
+import { isCalendarDate } from "../calendar-date";
 import { COST_CURRENCY_VALUES } from "../types";
 import { config } from "@/lib/config/env";
 import { t } from "@/lib/i18n/service-translations";
@@ -184,7 +185,7 @@ export function parseBillingCsvRows(
     const cols = records[row] ?? [];
     const date = cols[dateI] ?? "";
     const amountRaw = cols[amountI] ?? "";
-    if (!/^\d{4}-\d{2}-\d{2}$/u.test(date)) {
+    if (!isCalendarDate(date)) {
       rejected.push({ row, reason: "date", value: date.slice(0, 40) });
       continue;
     }
@@ -197,7 +198,7 @@ export function parseBillingCsvRows(
       continue;
     }
     // Exact decimal from the text as written, not from a binary float (1.005 -> 1.00, 2.675 -> 2.67); rounded to
-    // cents across the whole file below, not row by row.
+    // cents within the billing month and currency below.
     let exactAmount: Prisma.Decimal;
     try {
       exactAmount = new Prisma.Decimal(amountRaw.trim());
@@ -263,15 +264,16 @@ export function parseBillingCsvRows(
   }
   // Usage-based bills list charges of a fraction of a cent (0.0023): rounded one by one they became 0.00 and the
   // month's total came out far too low. Each line gets the cents the running exact total has gained, so the sum of
-  // the stored amounts stays within half a cent of the sum of the file, per currency.
+  // the stored amounts stays within half a cent of the monthly sum for that currency.
   const running = new Map<string, { exact: Prisma.Decimal; stored: Prisma.Decimal }>();
   items.forEach((item, index) => {
-    const state = running.get(item.currency) ?? { exact: new Prisma.Decimal(0), stored: new Prisma.Decimal(0) };
+    const group = `${item.effectiveDate.slice(0, 7)}:${item.currency}`;
+    const state = running.get(group) ?? { exact: new Prisma.Decimal(0), stored: new Prisma.Decimal(0) };
     state.exact = state.exact.plus(exactAmounts[index]!);
     const target = state.exact.toDecimalPlaces(2, Prisma.Decimal.ROUND_HALF_UP);
     item.amount = target.minus(state.stored).toFixed(2);
     state.stored = target;
-    running.set(item.currency, state);
+    running.set(group, state);
   });
   return { items, rejected };
 }
