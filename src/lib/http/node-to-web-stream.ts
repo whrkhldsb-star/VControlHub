@@ -4,12 +4,21 @@ import { Readable } from "node:stream";
  * Convert a Node.js Readable stream to a Web ReadableStream.
  * Falls back to a direct cast for test mocks that aren't true Node Readable streams.
  */
-export function nodeStreamToWeb(nodeStream: NodeJS.ReadableStream): ReadableStream {
+export function nodeStreamToWeb(nodeStream: NodeJS.ReadableStream, idleTimeoutMs?: number): ReadableStream {
 	if (!(nodeStream instanceof Readable)) {
 		return nodeStream as unknown as ReadableStream;
 	}
 
 	let closed = false;
+	let timer: NodeJS.Timeout | undefined;
+	const resetIdle = () => {
+		if (!idleTimeoutMs) return;
+		if (timer) timer.refresh();
+		else {
+			timer = setTimeout(() => nodeStream.destroy(new Error("Download stream stalled")), idleTimeoutMs);
+			timer.unref();
+		}
+	};
 	return new ReadableStream<Uint8Array>({
 		start(controller) {
 			const cleanup = () => {
@@ -20,21 +29,25 @@ export function nodeStreamToWeb(nodeStream: NodeJS.ReadableStream): ReadableStre
 			};
 			const onData = (chunk: Buffer | string) => {
 				if (closed) return;
+				resetIdle();
 				controller.enqueue(typeof chunk === "string" ? new TextEncoder().encode(chunk) : chunk);
 				if ((controller.desiredSize ?? 0) <= 0) nodeStream.pause();
 			};
 			const onEnd = () => {
 				if (closed) return;
+				clearTimeout(timer);
 				closed = true;
 				controller.close();
 			};
 			const onError = (error: Error) => {
 				if (!closed) {
+					clearTimeout(timer);
 					closed = true;
 					controller.error(error);
 				}
 			};
 			const onClose = () => { onEnd(); cleanup(); };
+			resetIdle();
 			nodeStream.on("data", onData);
 			nodeStream.once("end", onEnd);
 			nodeStream.once("error", onError);
@@ -46,6 +59,7 @@ export function nodeStreamToWeb(nodeStream: NodeJS.ReadableStream): ReadableStre
 		cancel() {
 			// Late SSH/file events can arrive before destroy emits close. Guard
 			// them immediately, retaining listeners until teardown completes.
+			clearTimeout(timer);
 			closed = true;
 			nodeStream.destroy();
 		},

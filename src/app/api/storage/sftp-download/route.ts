@@ -1,3 +1,4 @@
+import { SFTP_TRANSFER_IDLE_TIMEOUT_MS } from "@/lib/ssh/sftp-timeout";
 import path from "node:path";
 import { Readable } from "node:stream";
 import { apiCopy } from "@/lib/i18n/api-copy";
@@ -181,6 +182,7 @@ export async function GET(request: Request) {
 
         return storageStreamResponse({
           stream: nodeStream,
+          idleTimeoutMs: SFTP_TRANSFER_IDLE_TIMEOUT_MS,
           range,
           fileName,
           fileSize: stat.size,

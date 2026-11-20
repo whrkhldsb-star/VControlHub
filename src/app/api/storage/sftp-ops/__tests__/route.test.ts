@@ -350,7 +350,7 @@ describe("/api/storage/sftp-ops", () => {
       currentTeamId: null,
     });
     mockSftpNode();
-    prismaMock.fileEntry.findFirst.mockResolvedValueOnce({
+    prismaMock.fileEntry.findFirst.mockResolvedValueOnce(null).mockResolvedValueOnce({
       size: BigInt(1024 * 1024 + 1),
     });
 
@@ -379,7 +379,7 @@ describe("/api/storage/sftp-ops", () => {
       currentTeamId: null,
     });
     mockSftpNode();
-    prismaMock.fileEntry.findFirst.mockResolvedValueOnce({
+    prismaMock.fileEntry.findFirst.mockResolvedValueOnce(null).mockResolvedValueOnce({
       size: BigInt(5),
     });
     readRemoteFileMock.mockResolvedValueOnce(Buffer.from("hello"));
@@ -907,7 +907,7 @@ describe("/api/storage/sftp-ops", () => {
       sessionHasPermissionMock.mockReturnValue(true);
       assertStorageAccessMock.mockResolvedValue({ allowed: true });
       mockSftpNode();
-      prismaMock.fileEntry.findFirst.mockResolvedValue({ id: "fe_1", size: BigInt(5) });
+      prismaMock.fileEntry.findFirst.mockResolvedValueOnce(null).mockResolvedValueOnce({ id: "fe_1", size: BigInt(5) });
       readRemoteFileMock.mockResolvedValue(Buffer.from("hello"));
       statRemoteEntryMock.mockResolvedValue({ size: 5, type: "file", modifyTime: 4_242, accessTime: 0, mode: 0 });
 

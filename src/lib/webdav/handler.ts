@@ -72,7 +72,7 @@ import { moveSharePaths } from "@/lib/share-link/follow-path";
 
 export { normalizeWebDavRelativePath, type WebDavContext } from "./handler-internals";
 
-export const WEBDAV_ALLOW_HEADER = "OPTIONS, PROPFIND, PROPPATCH, GET, HEAD, PUT, DELETE, MKCOL, MOVE, COPY, LOCK, UNLOCK";
+export const WEBDAV_ALLOW_HEADER = "OPTIONS, PROPFIND, PROPPATCH, GET, HEAD, PUT, DELETE, MKCOL, MOVE, COPY";
 /** What a resource that already exists allows: everything but MKCOL. */
 const WEBDAV_ALLOW_HEADER_FOR_MAPPED_URL = WEBDAV_ALLOW_HEADER.replace("MKCOL, ", "");
 
@@ -81,51 +81,11 @@ export async function handleWebDavOptions(): Promise<Response> {
     status: 204,
     headers: {
       Allow: WEBDAV_ALLOW_HEADER,
-      // Class 2 (A4-16): macOS Finder mounts a class 1 server read-only and
-      // Windows Explorer edits through LOCK. The locks are advisory tokens
-      // (nothing is enforced server-side), which is what those clients need.
-      DAV: "1, 2",
+      DAV: "1",
       "MS-Author-Via": "DAV",
       "Accept-Ranges": "bytes",
     },
   });
-}
-
-const LOCK_TIMEOUT_SECONDS = 3600;
-
-function lockToken() {
-  return `opaquelocktoken:${randomUUID()}`;
-}
-
-/**
- * Pseudo LOCK: hands out a token and reports it as an exclusive write lock,
- * so clients that insist on locking before a PUT (Finder, Explorer, Office)
- * can work. Nothing is enforced: the file manager and other clients keep
- * writing, exactly as before class 2 was advertised.
- */
-export async function handleWebDavLock(ctx: WebDavContext, request: Request): Promise<Response> {
-  // Echoed into the XML body and a header below: only the characters a token
-  // this server hands out is made of (a client-chosen `<`, `&` or quote would
-  // otherwise be written into the document as markup).
-  const token = request.headers.get("if")?.match(/<(opaquelocktoken:[A-Za-z0-9-]{1,128})>/)?.[1] ?? lockToken();
-  const requestedTimeout = request.headers.get("timeout")?.match(/Second-(\d+)/i)?.[1];
-  const timeout = Math.min(LOCK_TIMEOUT_SECONDS, Number(requestedTimeout) || LOCK_TIMEOUT_SECONDS);
-  const href = buildWebDavHref(ctx.storageNodeId, ctx.relativePath, false);
-  const body = `<?xml version="1.0" encoding="utf-8"?>
-<D:prop xmlns:D="DAV:"><D:lockdiscovery><D:activelock>
-<D:locktype><D:write/></D:locktype><D:lockscope><D:exclusive/></D:lockscope>
-<D:depth>0</D:depth><D:timeout>Second-${timeout}</D:timeout>
-<D:locktoken><D:href>${token}</D:href></D:locktoken>
-<D:lockroot><D:href>${href.replace(/&/g, "&amp;").replace(/</g, "&lt;")}</D:href></D:lockroot>
-</D:activelock></D:lockdiscovery></D:prop>`;
-  return new Response(body, {
-    status: 200,
-    headers: { "Content-Type": "application/xml; charset=utf-8", "Lock-Token": `<${token}>` },
-  });
-}
-
-export async function handleWebDavUnlock(): Promise<Response> {
-  return new Response(null, { status: 204 });
 }
 
 /** PROPPATCH: dead properties are not stored; report the request as accepted so clients proceed. */
@@ -544,6 +504,8 @@ export async function handleWebDavDelete(
   const destParent = parentRelativePath(entry.relativePath);
   const stagedPath = `${destParent ? `${destParent}/` : ""}.vcontrolhub-webdav-delete-${randomUUID()}.staged`;
 
+  const withVersions = await versionOwnersAt(ctx.storageNodeId, entry.relativePath);
+
   // Stage the whole tree away from the live path first so a later index failure
   // can restore the original bytes instead of leaving unindexed orphans.
   await renameBackingObject({
@@ -558,8 +520,6 @@ export async function handleWebDavDelete(
   // — and a folder's earlier recycle-bin files lost their bytes too. Like the
   // file manager's permanent delete, the subtree's rows (recycle-bin ones
   // included) and their version history go with it.
-  const withVersions = await versionOwnersAt(ctx.storageNodeId, entry.relativePath);
-
   try {
     await prisma.$transaction(async (tx) => {
       await dropRowsAt(tx, ctx.storageNodeId, entry.relativePath);

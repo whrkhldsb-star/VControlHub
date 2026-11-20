@@ -116,7 +116,6 @@ export function SshTerminalPanel({
 	const fitAddonRef = useRef<import("@xterm/addon-fit").FitAddon | null>(null);
 	const searchAddonRef = useRef<import("@xterm/addon-search").SearchAddon | null>(null);
 	const connectionRef = useRef<SshTerminalConnection | null>(null);
-	const currentCommandRef = useRef("");
 
 	const [connectionState, setConnectionState] = useState<SshConnectionState>({
 		status: "connecting",
@@ -272,21 +271,6 @@ export function SshTerminalPanel({
 			term.onData((data: string) => {
 				if (!connectionRef.current?.send(data)) return;
 				setInputError("");
-				if (data === "\r" || data === "\n") {
-					const typed = currentCommandRef.current;
-					const cmd = typed.trim();
-					currentCommandRef.current = "";
-					// The side panel shows this list in clear text; keep secrets out of
-					// it (A3-03): a leading space (the shell's own HISTCONTROL idiom),
-					// password prompts and inline credentials are not recorded.
-					if (cmd && !typed.startsWith(" ") && !SENSITIVE_COMMAND_PATTERN.test(cmd)) {
-						setCommandHistory((prev) => [cmd, ...prev.filter((c) => c !== cmd)].slice(0, 50));
-					}
-				} else if (data === "\u007f" || data === "\b") {
-					currentCommandRef.current = currentCommandRef.current.slice(0, -1);
-				} else if (!data.startsWith("\u001b") && data >= " ") {
-					currentCommandRef.current += data;
-				}
 			});
 
 			// The surface changes size with the window, the mobile drag handle,
@@ -443,17 +427,17 @@ export function SshTerminalPanel({
 	};
 
 	const sendCommand = (cmd: string) => {
-		if (connectionRef.current?.send(cmd + "\r")) setInputError("");
+		if (!connectionRef.current?.send(cmd + "\r")) return;
+		setInputError("");
+		// Only commands explicitly sent from the panel enter its history. Raw PTY input can be a password.
+		if (cmd.trim() && !cmd.startsWith(" ") && !SENSITIVE_COMMAND_PATTERN.test(cmd)) {
+			setCommandHistory((prev) => [cmd, ...prev.filter((item) => item !== cmd)].slice(0, 50));
+		}
 	};
 
 	/** Send raw key sequences (Ctrl+C, arrows, …) without appending Enter. */
 	const sendKeys = (data: string) => {
 		if (connectionRef.current?.send(data)) setInputError("");
-		// Keys that rewrite or discard the pending input line invalidate the
-		// tracked current command; keep the panel's history accurate for them.
-		if (data === "\u0003" || data === "\u0015" || data === "\u001b[A" || data === "\u001b[B") {
-			currentCommandRef.current = "";
-		}
 	};
 
 	const searchTerminal = (direction: "next" | "previous" = "next") => {

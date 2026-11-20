@@ -17,14 +17,12 @@ import {
   handleWebDavCopy,
   handleWebDavDelete,
   handleWebDavGetHead,
-  handleWebDavLock,
   handleWebDavMkcol,
   handleWebDavMove,
   handleWebDavOptions,
   handleWebDavPropFind,
   handleWebDavPropPatch,
   handleWebDavPut,
-  handleWebDavUnlock,
   normalizeWebDavRelativePath,
   WEBDAV_ALLOW_HEADER,
   type WebDavContext,
@@ -132,10 +130,6 @@ async function dispatch(
         return await handleWebDavMove(ctx, request);
       case "COPY":
         return await handleWebDavCopy(ctx, request);
-      case "LOCK":
-        return await handleWebDavLock(ctx, request);
-      case "UNLOCK":
-        return await handleWebDavUnlock();
       case "PROPPATCH":
         return await handleWebDavPropPatch(ctx);
       default:

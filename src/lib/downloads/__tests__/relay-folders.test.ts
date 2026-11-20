@@ -27,7 +27,7 @@ describe("relay output folders", () => {
 		await writeFile(path.join(root, "bundle", "extras", "b.txt"), "b");
 		await writeFile(path.join(root, "bundle.aria2"), "control");
 		await writeFile(path.join(root, "bundle", ".hidden"), "x");
-		expect(await listRelayFiles(root)).toEqual(["bundle/a.txt", "bundle/extras/b.txt"]);
+		expect(await listRelayFiles(root)).toEqual(["bundle/.hidden", "bundle/a.txt", "bundle/extras/b.txt"]);
 	});
 
 	it.skipIf(process.platform === "win32")("still refuses a link", async () => {

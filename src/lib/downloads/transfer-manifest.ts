@@ -4,13 +4,15 @@ import { z } from "zod";
 
 import { isPlainDownloadName } from "./file-name";
 
+const memberPath = z.string().min(1).refine((value) => value.split("/").every(isPlainDownloadName));
 const schema = z.object({
   version: z.literal(1),
   agentRootIdentity: z.string().regex(/^v2:[a-f0-9]{64}$/).optional(),
   files: z.array(z.object({
     // A path inside the download, "/"-separated: a multi-file torrent is a
     // folder of files. Every segment is a plain name.
-    name: z.string().min(1).refine((value) => value.split("/").every(isPlainDownloadName)),
+    name: memberPath,
+    sourceName: memberPath.optional(),
     size: z.number().int().nonnegative().max(Number.MAX_SAFE_INTEGER),
     sha256: z.string().regex(/^[a-f0-9]{64}$/),
   })).min(1),

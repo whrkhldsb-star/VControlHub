@@ -92,8 +92,11 @@ export function generateOneTimeKeyPair(comment: string): { privateKey: string; p
  * escapes nothing but `\"`, so the gate travels base64-encoded and is decoded
  * by the login shell: `exec /bin/sh -c "<gate>" vch-sync-gate`.
  */
-export function buildAuthorizedKeysGateOption(gateScript: string): string {
-	const encoded = Buffer.from(gateScript, "utf8").toString("base64");
+export function buildAuthorizedKeysGateOption(gateScript: string, expiresAt: Date): string {
+	const epoch = Math.floor(expiresAt.getTime() / 1000);
+	if (!Number.isSafeInteger(epoch)) throw new Error("Invalid sync key expiry");
+	const guarded = `now=$(date +%s) && [ "$now" -lt ${epoch} ] || exit 126\n${gateScript}`;
+	const encoded = Buffer.from(guarded, "utf8").toString("base64");
 	return `command="exec /bin/sh -c \\"$(printf %s ${encoded} | base64 -d)\\" vch-sync-gate"`;
 }
 

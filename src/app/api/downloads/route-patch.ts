@@ -12,7 +12,7 @@ import {
   changeGlobalOption,
 } from "@/lib/aria2/service";
 import { buildSshParamsFromServer } from "@/lib/ssh/client";
-import { probeDirectDownloadRemote } from "@/lib/downloads/reconcile";
+import { directProgress, probeDirectDownloadRemote } from "@/lib/downloads/reconcile";
 import { sessionHasPermission } from "@/lib/auth/authorization";
 import {
   deriveDownloadFileNameFromUrl,
@@ -263,6 +263,13 @@ export async function PATCH(request: Request) {
                   : {}),
                 downloadAccess,
               });
+            }
+            if (probe.state === "RUNNING") {
+              const progress = directProgress(probe, task);
+              const stored = await prisma.downloadTask.updateMany({
+                where: { id: taskId, status: "RUNNING", updatedAt: task.updatedAt }, data: progress,
+              });
+              return stored.count ? NextResponse.json({ status: "RUNNING", ...progress }) : currentOutcome();
             }
             if (probe.state === "FAILED") {
               const data = {

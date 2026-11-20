@@ -39,14 +39,9 @@ import {
 import { t } from "@/lib/i18n/service-translations";
 import { isHostKeyRejection } from "@/lib/ssh/host-key-error";
 
-const logger = createLogger("sftp-service");
+import { SFTP_TRANSFER_IDLE_TIMEOUT_MS } from "./sftp-timeout";
 
-// Abort a stalled SFTP transfer (remote stops sending/ACKing) so it can't hang
-// forever — keepalive only detects a fully dead TCP connection, not a live
-// connection whose bytes simply stopped flowing. The clock resets on every
-// chunk, so a slow-but-progressing large transfer is never killed. Matches the
-// bound already applied in downloads' transferFileViaSsh2.
-const SFTP_TRANSFER_IDLE_TIMEOUT_MS = 120_000;
+const logger = createLogger("sftp-service");
 
 /**
  * Translate a raw SFTP/SSH error into a typed AppError with an accurate status

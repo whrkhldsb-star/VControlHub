@@ -1,6 +1,7 @@
 "use client";
 
 import { useState, useEffect, useCallback, useRef, type MouseEvent } from "react";
+import { ApiError } from "@/lib/http/api-client-error";
 import { csrfFetch } from "@/lib/auth/csrf-client";
 import { EmptyState, ListPanel, SurfacePanel, Toolbar } from "@/components/page-shell";
 import { Download, Plus } from "@/components/icons";
@@ -127,7 +128,7 @@ export function DownloadsClient({ servers, canManage, canManageNode }: { servers
 				const data = await csrfFetch<{ tasks: DownloadTask[]; nextCursor: string | null; globalStat: GlobalStat }>(
 					`/api/downloads${query ? `?${query}` : ""}`, { signal: controller.signal },
 				);
-				if (!isCurrent()) return;
+				if (!isCurrent() || controller.signal.aborted) return;
 				for (const task of data.tasks) incoming.set(task.id, task);
 				cursor = data.nextCursor ?? null;
 				latestGlobalStat = data.globalStat ?? null;
@@ -165,12 +166,10 @@ export function DownloadsClient({ servers, canManage, canManageNode }: { servers
 	}, [t, addToast, categoryFilter, filter, filterKey]);
 
 	const fetchTasksRef = useRef(fetchTasks);
-	const tasksRef = useRef(tasks);
 
 	useEffect(() => {
 		fetchTasksRef.current = fetchTasks;
-		tasksRef.current = tasks;
-	}, [fetchTasks, tasks]);
+	}, [fetchTasks]);
 
 	useEffect(() => {
 		const timer = window.setTimeout(() => { void fetchTasks(); }, 0);
@@ -178,10 +177,7 @@ export function DownloadsClient({ servers, canManage, canManageNode }: { servers
 	}, [fetchTasks]);
 
 	useVisibilityInterval(() => {
-			const hasRunning = tasksRef.current.some((t) => t.status === "RUNNING" || t.status === "PENDING");
-			if (hasRunning) {
-				void fetchTasksRef.current();
-			}
+		void fetchTasksRef.current();
 	}, 5000);
 
 	const invalidBatchUrls = form.batchMode
@@ -243,7 +239,19 @@ export function DownloadsClient({ servers, canManage, canManageNode }: { servers
 			addToast("success", isBatch ? `${t("downloadsPage.success.batchCreated", { count: batchUrls?.length ?? 0 })}` : t("downloadsPage.success.taskCreated"));
 			setForm({ url: "", serverId: servers[0]?.id ?? "", targetPath: defaultTargetPath, fileName: "", category: "", maxSpeedKb: "", batchMode: false, batchText: "" });
 			setShowForm(false); fetchTasks();
-		} catch (error) { setFormError(getErrorMessage(error, t("downloadsPage.error.taskCreate"))); }
+		} catch (error) {
+			setFormError(getErrorMessage(error, t("downloadsPage.error.taskCreate")));
+			if (isBatch && error instanceof ApiError && error.body.code === "DOWNLOAD_DISPATCH_FAILED") {
+				const remaining = error.body.remainingUrls;
+				const succeeded = error.body.succeededTaskIds;
+				if (Array.isArray(remaining) && remaining.every((url) => typeof url === "string")
+					&& Array.isArray(succeeded) && succeeded.length) {
+					setForm((current) => ({ ...current, batchText: remaining.join("\n") }));
+					addToast("success", t("downloadsPage.success.batchCreated", { count: succeeded.length }));
+					void fetchTasks();
+				}
+			}
+		}
 		finally { setSubmitting(false); }
 	};
 
@@ -298,6 +306,12 @@ export function DownloadsClient({ servers, canManage, canManageNode }: { servers
 					body: JSON.stringify({ taskId, action }),
 				});
 				if (action === "refresh" && result?.status) {
+					// Discard any list snapshot begun before this PATCH committed.
+					if (requestInFlightRef.current) {
+						if (requestInFlightRef.current === "more") pendingPageFilterRef.current = filterKey;
+						listControllerRef.current?.abort();
+						pendingRefreshRef.current = true;
+					}
 					setTasks((current) => current.map((task) => task.id === taskId ? {
 						...task,
 						status: result.status ?? task.status,

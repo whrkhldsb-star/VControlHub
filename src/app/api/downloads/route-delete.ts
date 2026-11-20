@@ -137,7 +137,8 @@ export async function DELETE(request: Request) {
         if (won.count > 0) return finishCancel();
         // The worker claimed it meanwhile: it may already be starting the
         // remote process, so cancel it as a running task.
-        const current = await prisma.downloadTask.findUnique({ where: { id: taskId }, select: { status: true } });
+        const current = await prisma.downloadTask.findUnique({ where: { id: taskId }, select: { status: true, relayMode: true } });
+        if (current?.relayMode) return NextResponse.json({ error: t("apiDownloads.finishingTransfer", locale) }, { status: 409 });
         if (current?.status === "CANCELLED") return NextResponse.json({ success: true });
         if (current?.status !== "RUNNING") {
           return NextResponse.json(

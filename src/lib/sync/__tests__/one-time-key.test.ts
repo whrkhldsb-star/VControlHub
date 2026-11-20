@@ -100,7 +100,7 @@ describe.skipIf(!posix)("the gate (the one-time key's forced command)", () => {
 
   /** Run the gate the way sshd runs the authorized_keys line's command option. */
   function runGate(gate: string, original: string | undefined) {
-    const option = buildAuthorizedKeysGateOption(gate);
+    const option = buildAuthorizedKeysGateOption(gate, new Date(Date.now() + 60_000));
     const forced = option.slice('command="'.length, -1).replace(/\\"/g, '"');
     const env: NodeJS.ProcessEnv = { ...process.env, PATH: `${bin}:${process.env.PATH}`, SSH_CLIENT: "203.0.113.9 50022 22" };
     if (original === undefined) delete env.SSH_ORIGINAL_COMMAND;
@@ -175,7 +175,7 @@ describe.skipIf(!posix)("installing and removing the key line", () => {
   let authorizedKeys: string;
   const expiresAt = new Date(Date.now() + 13 * 60 * 60 * 1000);
   const pair = generateOneTimeKeyPair(oneTimeKeyMarker({ jobId: "job-1", run: "fwd-aa", expiresAt }));
-  const commandOption = buildAuthorizedKeysGateOption(buildSyncGateScript({ mode: "rsync", targetPath: "/srv/t", allowDelete: false }));
+  const commandOption = buildAuthorizedKeysGateOption(buildSyncGateScript({ mode: "rsync", targetPath: "/srv/t", allowDelete: false }), expiresAt);
   const existing = "ssh-ed25519 AAAAC3NzaC1lZDI1NTE5AAAAIExistingAdminKeyExistingAdminKeyExistingAd admin@laptop";
 
   beforeEach(() => {

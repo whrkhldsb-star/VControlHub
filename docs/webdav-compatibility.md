@@ -21,7 +21,7 @@ This checks actual OPTIONS and raw PROPFIND/MKCOL/MOVE/COPY dispatch and Basic c
 
 ## Supported and unsupported boundaries
 
-- `OPTIONS` advertises DAV classes 1 and 2 because macOS Finder mounts a class 1 server read-only and Windows Explorer edits through `LOCK`. The locks are advisory tokens: `LOCK` hands one out and `UNLOCK` accepts it, but no request is refused for a missing or foreign token. Complete class 2 semantics are not provided.
+- `OPTIONS` advertises DAV class 1. `LOCK` and `UNLOCK` return 405. Clients that require exclusive locks, including macOS Finder, may mount the share read-only.
 - `MKCOL` on a path that already exists answers 405, as RFC 4918 requires; missing parent collections are created instead of answering 409. A request body on `MKCOL` is ignored.
 - `PROPPATCH` is accepted and stores nothing (no dead properties); a `PROPFIND` body is not validated.
 - External storage uses validated, pinned public DNS addresses and verified TLS; private endpoints and redirects are rejected intentionally.

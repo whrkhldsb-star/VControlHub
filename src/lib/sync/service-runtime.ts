@@ -209,7 +209,7 @@ async function grantOneTimeTargetAccess(input: {
 	const run = `${input.leg}-${randomBytes(6).toString("hex")}`;
 	const expiresAt = new Date(Date.now() + SYNC_COMMAND_TIMEOUT_MS + ONE_TIME_KEY_GRACE_MS);
 	const keys = generateOneTimeKeyPair(oneTimeKeyMarker({ jobId: input.jobId, run, expiresAt }));
-	const commandOption = buildAuthorizedKeysGateOption(input.gateScript);
+	const commandOption = buildAuthorizedKeysGateOption(input.gateScript, expiresAt);
 	const install = async (from: string | null) => {
 		const result = await execRemoteCommand({
 			...input.targetSsh,
