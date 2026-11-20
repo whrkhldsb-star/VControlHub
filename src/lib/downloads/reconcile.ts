@@ -21,7 +21,7 @@ import type { Prisma } from "@prisma/client";
 import { prisma } from "@/lib/db";
 import { logError } from "@/lib/logging";
 import { execRemoteCommand, buildSshParamsFromServer } from "@/lib/ssh/client";
-import { shellQuote } from "@/lib/downloads/remote-command";
+import { safeTaskFileStem, shellQuote } from "@/lib/downloads/remote-command";
 import { ensureAria2Daemon, removeDownload } from "@/lib/aria2/service";
 import { t } from "@/lib/i18n/service-translations";
 import { rm } from "node:fs/promises";
@@ -61,26 +61,25 @@ export async function probeDirectDownloadRemote(input: {
   targetPath: string;
   sshParams: SshParams;
 }): Promise<ProbeResult> {
-  const safeTaskFileStem = input.taskId.replace(/[^A-Za-z0-9_-]/g, "_");
-  const pidFile = `/tmp/app-dl-${safeTaskFileStem}.pid`;
+  const stem = safeTaskFileStem(input.taskId);
+  const pidFile = `/tmp/app-dl-${stem}.pid`;
   const exitFile = `${pidFile}.exit`;
   const resolvedName = input.fileName || deriveDownloadFileNameFromUrl(input.url) || "download";
   const outputPath = `${input.targetPath.replace(/\/$/, "")}/${resolvedName}`;
   const output = shellQuote(outputPath);
   const probeCommand = [
-    `remote_pid=$(cat ${shellQuote(pidFile)} 2>/dev/null || true)`,
-    `case "$remote_pid" in ''|*[!0-9]*) remote_pid=${shellQuote(input.pid && input.pid > 0 ? String(input.pid) : "")} ;; esac`,
+    `id=${shellQuote(stem)}`,
+    'pat="\\\\.vch-$id\\\\.part"',
     `if [ -f ${shellQuote(exitFile)} ]; then`,
     "  status=$(cat " + shellQuote(exitFile) + " 2>/dev/null || echo 1)",
     `  if [ "$status" = 0 ] && [ -f ${output} ] && [ ! -L ${output} ] && size=$(stat -c %s -- ${output}); then`,
     `    printf '%s\\n' COMPLETED "$size" ${output}`,
     "  else echo FAILED; fi",
-    'elif [ -n "$remote_pid" ] && [ "$remote_pid" -gt 0 ] && kill -0 "$remote_pid" 2>/dev/null; then',
+    'elif pgrep -f -- "$pat" >/dev/null 2>&1; then',
     "  echo RUNNING",
-    "  echo 0",
+    'elif [ "$?" -ne 1 ]; then echo UNKNOWN',
     "else",
     `  echo ${input.pid ? "FAILED" : "UNKNOWN"}`,
-    "  echo 0",
     "fi",
   ].join("\n");
 

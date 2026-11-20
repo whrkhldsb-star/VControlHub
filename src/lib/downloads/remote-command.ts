@@ -11,7 +11,7 @@ export function toScpTarget(username: string, host: string, remoteFilePath: stri
   return `${username}@${formattedHost}:${remoteFilePath}`;
 }
 
-function safeTaskFileStem(taskId: string): string {
+export function safeTaskFileStem(taskId: string): string {
   return taskId.replace(/[^A-Za-z0-9_-]/g, "_");
 }
 
