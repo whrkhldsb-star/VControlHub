@@ -5,7 +5,8 @@ import { resolveStorageSshCredentials, resolveStorageSshPort } from "../ssh-cred
 describe("Agent-only storage credentials", () => {
   it("uses the linked Agent when no password or private key remains", () => {
     expect(resolveStorageSshCredentials({
-      server: {
+      teamId: null,
+      server: { teamId: null,
         id: "srv_agent",
         managementMode: "AGENT",
         host: "203.0.113.10",
@@ -26,7 +27,8 @@ describe("Agent-only storage credentials", () => {
 
   it.each([{ host: "storage.example" }, { port: 2202 }, { username: "storage" }])("does not send a separate storage endpoint to the bound Agent (%o)", (override) => {
     const node = {
-      server: { id: "srv", managementMode: "AGENT", operatingSystem: "LINUX", host: "server.example", port: 22, username: "root", connectionType: "PASSWORD", password: null, sshKey: null, hostKeySha256: null },
+      teamId: null,
+      server: { teamId: null, id: "srv", managementMode: "AGENT", operatingSystem: "LINUX", host: "server.example", port: 22, username: "root", connectionType: "PASSWORD", password: null, sshKey: null, hostKeySha256: null },
       host: null, port: null, username: null, hostKeySha256: null, ...override,
     };
     expect(() => resolveStorageSshCredentials(node)).toThrow();
@@ -35,7 +37,8 @@ describe("Agent-only storage credentials", () => {
 
   it("still rejects a credential-less direct node", () => {
     expect(() => resolveStorageSshCredentials({
-      server: {
+      teamId: null,
+      server: { teamId: null,
         id: "srv_direct",
         managementMode: "DIRECT",
         host: "203.0.113.11",
@@ -58,7 +61,8 @@ describe("Agent-only storage credentials", () => {
     const resolved = resolveStorageSshCredentials({
       port: 22,
       username: "storage-user",
-      server: {
+      teamId: null,
+      server: { teamId: null,
         id: "srv_windows",
         operatingSystem: "WINDOWS",
         managementMode: "AGENT",

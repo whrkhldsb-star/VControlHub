@@ -114,6 +114,12 @@ function serializeHealthFields(node: {
   };
 }
 
+async function lockStorageServer(tx: Prisma.TransactionClient, serverId: string, teamId: string | null) {
+  const matches = await tx.$queryRaw<{ id: string }[]>`
+    SELECT id FROM servers WHERE id = ${serverId} AND "teamId" IS NOT DISTINCT FROM ${teamId} FOR SHARE`;
+  if (!matches.length) throw new ValidationError(t("backend.fileAgent.binding"));
+}
+
 async function assertServerInTeamScope(
   serverId: string | null | undefined,
   session?: TeamSession | null,
@@ -288,6 +294,7 @@ export async function createStorageNode(
     // the customer was left with no default at all.
     storageNode = await prisma.$transaction(async (tx) => {
       if (payload.isDefault) await lockForTransaction(tx, "storage-node-default", teamData.teamId ?? "platform");
+      if (payload.serverId) await lockStorageServer(tx, payload.serverId, teamData.teamId ?? null);
       if (payload.driver === "AGENT" && !await tx.server.findFirst({
         where: { id: payload.serverId, teamId: teamData.teamId ?? null, managementMode: "AGENT", enabled: true },
         select: { id: true },
@@ -424,8 +431,9 @@ export async function updateStorageNode(
   try {
     updated = await prisma.$transaction(async (tx) => {
       if (payload.isDefault) await lockForTransaction(tx, "storage-node-default", current.teamId ?? "platform");
+      if (nextServerId && nextDriver === "SFTP") await lockStorageServer(tx, nextServerId, current.teamId);
       const claimed = await tx.storageNode.updateMany({
-        where: { id: payload.storageNodeId, ...(session ? teamWhere(session) : {}) },
+        where: { ...(session ? teamWhere(session) : {}), id: payload.storageNodeId, teamId: current.teamId },
         data: {
           name: payload.name ?? current.name,
           driver: nextDriver,

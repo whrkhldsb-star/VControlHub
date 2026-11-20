@@ -41,7 +41,7 @@ import {
 const baseNode = {
   id: "node_1",
   name: "remote",
-  driver: "SFTP" as const,
+  teamId: null, driver: "SFTP" as const,
   basePath: "/data",
   host: "203.0.113.10",
   port: 22,
@@ -261,7 +261,7 @@ describe("listSftpNodesForStaleInventory", () => {
       expect(prismaStorageNodeMock.findMany).toHaveBeenCalledWith(
         expect.objectContaining({
           // The system sweep skips a deleted customer's nodes.
-          where: { driver: "SFTP", OR: [{ teamId: null }, { team: { deletedAt: null } }] },
+          where: { teamId: null, driver: "SFTP", OR: [{ teamId: null }, { team: { deletedAt: null } }] },
           orderBy: [{ name: "asc" }, { id: "asc" }],
         }),
       );
@@ -291,7 +291,7 @@ describe("listSftpNodesForStaleInventory", () => {
       expect(prismaStorageNodeMock.findMany).toHaveBeenCalledWith(
         expect.objectContaining({
           where: expect.objectContaining({
-            driver: "SFTP",
+            teamId: null, driver: "SFTP",
             teamId: "team_a",
           }),
         }),

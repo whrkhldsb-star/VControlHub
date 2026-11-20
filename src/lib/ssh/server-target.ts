@@ -141,7 +141,7 @@ export async function loadEnabledServerForSftp(serverId: string): Promise<SshSer
 
   const node = await prisma.storageNode.findUnique({
     where: { serverId },
-    select: { driver: true, basePath: true, host: true, port: true, username: true, hostKeySha256: true },
+    select: { teamId: true, driver: true, basePath: true, host: true, port: true, username: true, hostKeySha256: true },
   });
   if (!node || node.driver !== "SFTP") {
     throw new BusinessError(t("backend.server.windowsStorageRequiresSftp"));

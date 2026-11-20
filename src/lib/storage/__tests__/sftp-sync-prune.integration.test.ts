@@ -23,7 +23,7 @@ import { syncSftpDirectoryEntries } from "../sftp-sync";
 describe.skipIf(process.env.RUN_DATABASE_INTEGRATION_TESTS !== "1")("SFTP sync prune (PostgreSQL)", () => {
 	const nodeId = `prune-${randomUUID().slice(0, 8)}`;
 	const node = {
-		id: nodeId, name: nodeId, driver: "SFTP", basePath: "/data/files", host: null, port: null, username: null, hostKeySha256: null,
+		id: nodeId, name: nodeId, teamId: null, driver: "SFTP", basePath: "/data/files", host: null, port: null, username: null, hostKeySha256: null,
 		server: { teamId: null, id: "srv", host: "203.0.113.20", port: 22, username: "deploy", connectionType: "PASSWORD", managementMode: "DIRECT", operatingSystem: "LINUX" as const, password: "secret", hostKeySha256: null, sshKey: null },
 	} as const;
 	const yesterday = new Date(Date.now() - 24 * 60 * 60 * 1000);
@@ -37,7 +37,7 @@ describe.skipIf(process.env.RUN_DATABASE_INTEGRATION_TESTS !== "1")("SFTP sync p
 		if (!["localhost", "127.0.0.1", "[::1]"].includes(database.hostname) || !/audit|test|_ci/.test(database.pathname)) {
 			throw new Error("requires an isolated loopback audit/test database");
 		}
-		await prisma.storageNode.create({ data: { id: nodeId, name: nodeId, driver: "SFTP", basePath: "/data/files", host: "203.0.113.20", port: 22, username: "deploy" } });
+		await prisma.storageNode.create({ data: { id: nodeId, name: nodeId, teamId: null, driver: "SFTP", basePath: "/data/files", host: "203.0.113.20", port: 22, username: "deploy" } });
 		await prisma.fileEntry.createMany({
 			data: [
 				file("docs/kept.txt"),

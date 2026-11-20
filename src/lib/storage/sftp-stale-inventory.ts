@@ -43,6 +43,7 @@ const SFTP_STALE_INVENTORY_NODE_SELECT = {
   host: true,
   port: true,
   username: true,
+  teamId: true,
   hostKeySha256: true,
   healthStatus: true,
   lastHealthError: true,
@@ -72,6 +73,7 @@ type SftpSyncNode = Prisma.StorageNodeGetPayload<{
     host: true;
     port: true;
     username: true;
+    teamId: true;
     hostKeySha256: true;
     server: {
       select: {

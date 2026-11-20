@@ -85,6 +85,7 @@ export async function executeDeleteFile(
             host: true,
             port: true,
             username: true,
+            teamId: true,
             hostKeySha256: true,
             server: {
               select: {

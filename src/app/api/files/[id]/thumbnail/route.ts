@@ -26,6 +26,7 @@ const THUMBNAIL_NODE_SELECT = {
 	driver: true,
 	basePath: true,
 	serverId: true,
+	teamId: true,
 	hostKeySha256: true,
 	host: true,
 	port: true,

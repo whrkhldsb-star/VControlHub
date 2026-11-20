@@ -201,6 +201,7 @@ describe("createFolderAction", () => {
     prismaMock.storageNode.findFirst.mockResolvedValueOnce({
       id: "node-1",
       name: "remote",
+      teamId: "team-1",
       driver: "SFTP",
       basePath: "/data/root/",
       host: "203.0.113.10",
@@ -258,6 +259,7 @@ describe("createFolderAction", () => {
     prismaMock.storageNode.findFirst.mockResolvedValueOnce({
       id: "node-1",
       name: "remote",
+      teamId: "team-1",
       driver: "SFTP",
       basePath: "/data/root/",
       host: "203.0.113.10",
@@ -339,6 +341,7 @@ describe("createFolderAction", () => {
     prismaMock.storageNode.findFirst.mockResolvedValueOnce({
       id: "node-sftp",
       name: "remote",
+      teamId: "team-1",
       driver: "SFTP",
       basePath: "/data/root",
       host: null,
@@ -396,6 +399,7 @@ function sftpEntry(overrides: Record<string, unknown> = {}) {
     relativePath: "docs/old.txt",
     storageNodeId: "node-sftp",
     storageNode: {
+      teamId: "team-1",
       driver: "SFTP",
       basePath: "/data/root",
       host: null,

@@ -24,6 +24,7 @@ export const STORAGE_SSH_SERVER_SELECT = {
  * port or transport (media playback, the health probe, content search).
  */
 export type StorageSshCredentialNode = {
+  teamId?: string | null;
   host: string | null;
   port: number | null;
   username: string | null;
@@ -61,6 +62,9 @@ export function resolveStorageSshPort(node: { port: number | null; server: { ope
 }
 
 export function resolveStorageSshCredentials(node: StorageSshCredentialNode): ResolvedStorageSshCredentials {
+  if (node.server && (node.teamId === undefined || node.teamId !== node.server.teamId)) {
+    throw new ValidationError(t("backend.fileAgent.binding"));
+  }
   const host = node.host ?? node.server?.host;
   const port = resolveStorageSshPort(node);
   const username = (node.username ?? node.server?.username)?.trim() || "";

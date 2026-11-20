@@ -172,7 +172,9 @@ export async function importServers(
         })
       ).count,
     updateById: async (r) => {
-      await tx.server.update({ where: { id: r.id }, data: toUpdateData(r) });
+      // Ownership changes must go through transferServerToCustomer, which
+      // moves or refuses every dependent storage binding in its transaction.
+      await tx.server.update({ where: { id: r.id, teamId: r.teamId ?? null }, data: toUpdateData(r) });
     },
   });
 }

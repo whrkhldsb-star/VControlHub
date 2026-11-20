@@ -21,6 +21,7 @@ export const SERVER_PROFILE_INCLUDE = {
       isDefault: true,
       basePath: true,
       host: true,
+      teamId: true,
       hostKeySha256: true,
       port: true,
       username: true,

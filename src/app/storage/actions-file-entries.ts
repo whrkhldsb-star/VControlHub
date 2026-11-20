@@ -155,6 +155,7 @@ async function permanentDeleteFileEntryActionImpl(
             host: true,
             port: true,
             username: true,
+            teamId: true,
             hostKeySha256: true,
             server: { select: STORAGE_SSH_SERVER_SELECT },
           },

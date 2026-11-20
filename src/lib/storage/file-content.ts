@@ -49,6 +49,7 @@ export const storageFileNodeSelect = {
   host: true,
   port: true,
   username: true,
+  teamId: true,
   hostKeySha256: true,
   serverId: true,
   server: {

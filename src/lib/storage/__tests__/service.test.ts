@@ -13,6 +13,7 @@ import { describe, expect, it, vi } from "vitest";
 const { mockPrisma, listRemoteDirectoryMock, assertStorageAccessMock } =
   vi.hoisted(() => ({
     mockPrisma: {
+      $queryRaw: vi.fn(async () => [{ id: "bound-server" }]),
       storageNode: {
         updateMany: vi.fn(),
         deleteMany: vi.fn(),
