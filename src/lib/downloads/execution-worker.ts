@@ -381,14 +381,17 @@ async function handleClaimedJob(
       ? await getStorageWriteCapacity({ session: actor, storageNodeId: task.server.storageNode.id, relativePath: targetRelativePath })
       : undefined;
 
-    if (task.agentStorageNodeId && (task.server.managementMode !== "AGENT" || payload.mode !== "aria2_relay" || task.server.storageNode.driver !== "AGENT")) {
+    if (task.agentStorageNodeId && (!task.agentRootIdentity || task.server.managementMode !== "AGENT" || payload.mode !== "aria2_relay" || task.server.storageNode.driver !== "AGENT")) {
       const message = t("backend.downloads.taskStorageMissing");
       await failTaskBeforeStart(task.id, message);
       await failJobTerminal(job.id, DOWNLOAD_EXECUTION_WORKER_ID, message);
       return true;
     }
     const serverForExec = buildServerForExec(task.agentStorageNodeId ? { ...task.server, sshKey: null } : task.server);
-    if (task.agentStorageNodeId) serverForExec.agentStorageNodeId = task.agentStorageNodeId;
+    if (task.agentStorageNodeId) {
+      serverForExec.agentStorageNodeId = task.agentStorageNodeId;
+      serverForExec.agentRootIdentity = task.agentRootIdentity!;
+    }
     // The downstream execute* helpers re-decrypt server.password on demand (see
     // transferFileViaSsh2 which reads it again for sshpass). Surface the same
     // decrypted value here so the in-memory copy we dispatch with is the

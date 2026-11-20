@@ -63,6 +63,7 @@ async function loadDownloadTeamId(taskId: string): Promise<string | null> {
 export type DownloadServer = {
  teamId?: string | null;
  agentStorageNodeId?: string;
+ agentRootIdentity?: string;
  id: string;
  host: string;
  port: number;
@@ -330,7 +331,7 @@ export async function executeAria2RelayDownload(
   if (limits && relayExceedsLimits(files, limits)) {
    throw new DownloadSourceRejectedError(t("backend.downloads.storageLimitExceeded"));
   }
-  const manifest = parseTransferManifest({ version: 1, files })!;
+  const manifest = parseTransferManifest({ version: 1, files, agentRootIdentity: server.agentRootIdentity })!;
   const journaled = await prisma.downloadTask.updateMany({
    where: { id: taskId, status: "RUNNING" },
    data: { transferManifest: manifest },
@@ -416,6 +417,9 @@ export function relayExceedsLimits(files: Array<{ size: number }>, limits: Stora
 
 async function publishRelayFiles(taskId: string, server: DownloadServer, tempDir: string,
  targetPath: string, manifest: TransferManifest, signal?: AbortSignal) {
+ if (server.agentStorageNodeId && (!server.agentRootIdentity || manifest.agentRootIdentity !== server.agentRootIdentity)) {
+  throw new BusinessError(t("backend.fileAgent.unavailable"));
+ }
  if (!server.agentStorageNodeId) {
   const sshParams = await buildSshParamsFromServer(server, server.sshKey);
   signal?.throwIfAborted();

@@ -25,7 +25,8 @@ export async function publishAgentDownloadFile(input: Destination & { localPath:
   const { taskId, nodeId, file, signal } = input;
   const relativePath = getDownloadTargetRelativePath("/", path.posix.join(input.targetPath, file.name));
   const where = { id: taskId, agentStorageNodeId: nodeId, serverId: input.serverId, status: "RUNNING" as const };
-  const task = await prisma.downloadTask.findFirstOrThrow({ where, select: { createdBy: true, teamId: true } });
+  const task = await prisma.downloadTask.findFirstOrThrow({ where, select: { createdBy: true, teamId: true, agentRootIdentity: true } });
+  if (!task.agentRootIdentity) throw new BusinessError(t("backend.fileAgent.unavailable"));
   const actor = await loadExecutionActor(task.createdBy, task.teamId);
   const verify = async () => {
     signal?.throwIfAborted();
@@ -42,14 +43,20 @@ export async function publishAgentDownloadFile(input: Destination & { localPath:
     const unlock = await lockStorageFileOverwrite(nodeId, relativePath);
     try {
       await verify();
-      const client = createAgentFileClient(nodeId, input.serverId);
+      const client = createAgentFileClient(nodeId, input.serverId, task.agentRootIdentity);
       if (!await client.matches(relativePath, file.size, file.sha256)) {
         const occupant = await prisma.fileEntry.findUnique({ where: { storageNodeId_relativePath: { storageNodeId: nodeId, relativePath } } });
         if (occupant) await snapshotFileVersionBeforeOverwrite({ fileEntryId: occupant.id, userId: actor.userId, reason: "UPLOAD" });
         await client.writeLocal(relativePath, input.localPath, file.sha256, verify);
       }
-      await indexDownloadedFileEntry({ storageNode: { id: nodeId, basePath: "/" },
-        targetPath: path.posix.dirname("/" + relativePath), fileName: path.posix.basename(relativePath), size: file.size }, prisma);
+      await prisma.$transaction(async tx => {
+        const binding = await tx.$queryRaw<{ id: string }[]>`
+          SELECT id FROM agent_file_shares WHERE "storageNodeId" = ${nodeId}
+            AND "serverId" = ${input.serverId} AND "rootIdentity" = ${task.agentRootIdentity} FOR SHARE`;
+        if (!binding.length) throw new BusinessError(t("backend.fileAgent.unavailable"));
+        await indexDownloadedFileEntry({ storageNode: { id: nodeId, basePath: "/" },
+        targetPath: path.posix.dirname("/" + relativePath), fileName: path.posix.basename(relativePath), size: file.size }, tx);
+      });
     } finally { await unlock(); }
   } finally { await releaseStorageQuotaGuard(access); }
 }
@@ -109,12 +116,15 @@ export async function receiveAgentHttpDownload(input: HttpDownload) {
   const claimed = await prisma.downloadTask.updateMany({ where: { ...where, status: { in: ["RUNNING", "PENDING"] } },
     data: { status: "RUNNING", progress: t("backend.downloads.progress.downloading") } });
   if (!claimed.count) return;
-  const task = await prisma.downloadTask.findUniqueOrThrow({ where: { id: taskId }, select: { createdBy: true, teamId: true, transferManifest: true } });
+  const task = await prisma.downloadTask.findUniqueOrThrow({ where: { id: taskId }, select: { createdBy: true, teamId: true, transferManifest: true, agentRootIdentity: true } });
   const root = relayTempDir(taskId);
   let dir: string | undefined;
   let journaled = task.transferManifest !== null;
   try {
     const previous = parseTransferManifest(task.transferManifest);
+    if (!task.agentRootIdentity || (previous && previous.agentRootIdentity !== task.agentRootIdentity)) {
+      throw new BusinessError(t("backend.fileAgent.unavailable"));
+    }
     const name = normalizeDownloadFileName(input.fileName ?? deriveDownloadFileNameFromUrl(input.url) ?? "download");
     if (!name) throw new Error("Missing download filename");
     const active = AbortSignal.any([AbortSignal.timeout(2 * 3600_000), ...(signal ? [signal] : [])]);
@@ -131,14 +141,14 @@ export async function receiveAgentHttpDownload(input: HttpDownload) {
       cached = await hashTransferFile(savedPath, active).catch(() => null) === file.sha256;
       if (cached) localPath = savedPath;
     }
-    if (!file || (!cached && !await createAgentFileClient(input.nodeId, input.serverId).matches(target, file.size, file.sha256))) {
+    if (!file || (!cached && !await createAgentFileClient(input.nodeId, input.serverId, task.agentRootIdentity).matches(target, file.size, file.sha256))) {
       const downloaded = await fetchToDisk(input, name, localPath, active);
       if (file && (file.sha256 !== downloaded.sha256 || file.size !== downloaded.size || file.name !== name)) throw new Error("Download changed during retry");
       file = downloaded;
       await link(localPath, path.join(root, file.sha256)).catch(error => {
         if ((error as NodeJS.ErrnoException).code !== "EEXIST") throw error;
       });
-      await prisma.downloadTask.update({ where, data: { transferManifest: { version: 1, files: [file] }, progress: t("backend.downloads.progress.transferring") } });
+      await prisma.downloadTask.update({ where, data: { transferManifest: { version: 1, files: [file], agentRootIdentity: task.agentRootIdentity }, progress: t("backend.downloads.progress.transferring") } });
       journaled = true;
     }
     await publishAgentDownloadFile({ ...input, localPath, signal: active, file });

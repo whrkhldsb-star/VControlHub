@@ -1278,6 +1278,7 @@ model SyncLog {
 model DownloadTask {
   /// New tasks remember which binding they used. Older tasks with neither ID use their server drive.
   agentStorageNodeId String?
+  agentRootIdentity String?
   directStorageNodeId String?
   id           String             @id @default(cuid())
   url          String
