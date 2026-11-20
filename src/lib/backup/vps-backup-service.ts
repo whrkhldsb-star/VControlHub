@@ -734,7 +734,7 @@ export async function deleteVpsBackupRecord(recordId: string): Promise<void> {
     const { loadOffsiteConfig, validateOffsiteConfigForUse } = await import("@/lib/storage/offsite/schema");
     const config = await loadOffsiteConfig();
     if (!config.enabled || validateOffsiteConfigForUse(config).length || record.offsiteDestination !== offsiteDestination(config)) {
-      throw new ConflictError("Cannot verify the original offsite backup destination");
+      throw new ConflictError(t("vpsBackupApi.errorOffsiteDestination"));
     }
     const { S3Client } = await import("@/lib/storage/offsite/s3-client");
     await new S3Client(config).deleteObject(record.offsiteKey, record.offsiteVersionId);
