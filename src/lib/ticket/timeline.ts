@@ -8,6 +8,7 @@
  * - linked command request lifecycle (created, approvals, execution logs, target finish)
  * - reverse: other tickets that point at the same command
  */
+import { canReadCommandBody } from "@/lib/command/visibility";
 import type { Permission, RoleKey } from "@/lib/auth/rbac";
 import { sessionHasPermission } from "@/lib/auth/authorization";
 import type { Prisma } from "@prisma/client";
@@ -369,14 +370,17 @@ export async function getTicketTimeline(ticketId: string, session?: TeamSession 
     createdAt: string;
   } | null = null;
 
-  if (ticket.relatedCommandId) {
+  const canReadCommand = !session || sessionHasPermission(session, "command:read");
+  if (ticket.relatedCommandId && canReadCommand) {
     const cmd = session
       ? await prisma.commandRequest.findFirst({
           // Command requests carry the command text, approvals and execution
           // logs — strict scope, so a null-team (quarantined) request is not
           // rendered into another tenant's ticket timeline.
           where: { id: ticket.relatedCommandId, ...commandRequestTeamWhere(session) },
-          include: relatedCommandInclude,
+          include: { ...relatedCommandInclude, targets: {
+            ...relatedCommandInclude.targets, where: { server: serverTeamWhere(session) },
+          } },
         })
       : await prisma.commandRequest.findUnique({
           where: { id: ticket.relatedCommandId },
@@ -384,10 +388,11 @@ export async function getTicketTimeline(ticketId: string, session?: TeamSession 
         });
 
     if (cmd) {
+      const showBody = !session || canReadCommandBody(session, cmd.requesterId);
       relatedCommand = {
         id: cmd.id,
         title: cmd.title,
-        command: cmd.command,
+        command: showBody ? cmd.command : "",
         status: cmd.status,
         createdAt: cmd.createdAt.toISOString(),
       };
@@ -397,12 +402,12 @@ export async function getTicketTimeline(ticketId: string, session?: TeamSession 
         at: cmd.createdAt.toISOString(),
         type: "command.created",
         title: `Command request: ${cmd.title}`,
-        detail: cmd.command,
+        detail: showBody ? cmd.command : null,
         actor: actorName(cmd.requester),
         meta: { commandRequestId: cmd.id, status: cmd.status },
       });
 
-      for (const approval of cmd.approvals) {
+      for (const approval of showBody ? cmd.approvals : []) {
         events.push({
           id: `cmd-approval-${approval.id}`,
           at: approval.createdAt.toISOString(),
@@ -417,7 +422,9 @@ export async function getTicketTimeline(ticketId: string, session?: TeamSession 
         });
       }
 
-      for (const log of cmd.executionLogs) {
+      const visibleTargets = new Set(cmd.targets.map(target => target.serverId));
+      for (const log of showBody ? cmd.executionLogs : []) {
+        if (session && (!log.serverId || !visibleTargets.has(log.serverId))) continue;
         events.push({
           id: `cmd-log-${log.id}`,
           at: log.createdAt.toISOString(),
@@ -428,7 +435,7 @@ export async function getTicketTimeline(ticketId: string, session?: TeamSession 
         });
       }
 
-      for (const target of cmd.targets) {
+      for (const target of showBody ? cmd.targets : []) {
         const at =
           target.finishedAt ?? target.startedAt ?? cmd.updatedAt ?? cmd.createdAt;
         events.push({
@@ -460,7 +467,7 @@ export async function getTicketTimeline(ticketId: string, session?: TeamSession 
   }
 
   // Reverse: other tickets that share this command (or tickets linked from same server for context)
-  const reverseTickets = ticket.relatedCommandId
+  const reverseTickets = relatedCommand && ticket.relatedCommandId
     ? await prisma.ticket.findMany({
         where: {
           relatedCommandId: ticket.relatedCommandId,
