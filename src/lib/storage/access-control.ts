@@ -144,6 +144,8 @@ export async function assertStorageAccess(input: {
   relativePath?: string | null;
   operation: StorageAccessOperation;
   writeBytes?: number | bigint | null;
+  /** Directory sync cannot account for files before they are written. */
+  unmeteredTreeWrite?: boolean;
   /** A directory arriving at once: the per-file limit applies to its largest file, the quota to writeBytes. */
   largestFileBytes?: number | bigint | null;
   /**
@@ -198,6 +200,12 @@ export async function assertStorageAccess(input: {
     return { allowed: false, reason: STORAGE_ACCESS_DENIED_REASONS.noAccess };
   }
 
+  if (input.unmeteredTreeWrite && input.operation === "write") {
+    // Include narrower grants below the target: rsync can populate their files too.
+    const limited = grants.some(grant => (grant.maxFileBytes !== null || grant.quotaBytes !== null)
+      && (pathMatchesGrant(targetPath, grant.pathPrefix) || pathMatchesGrant(grant.pathPrefix, targetPath)));
+    if (limited) return { allowed: false, reason: "unmetered_tree_write" };
+  }
   const writeBytes = input.writeBytes === null || input.writeBytes === undefined
     ? null
     : typeof input.writeBytes === "bigint"

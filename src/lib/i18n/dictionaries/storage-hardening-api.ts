@@ -30,6 +30,7 @@ export const zh: Record<string, string> = {
 		"请求路径无效或超出授权范围",
 	"backend.storageHardening.access.fileTooLarge":
 		"上传文件超出此授权的单文件大小限制",
+	"backend.storageHardening.access.unmeteredTreeWrite": "目录同步无法核算此路径的文件大小或配额限制。",
 	"backend.storageHardening.access.quotaExceeded":
 		"本次写入将超出此授权的容量配额",
 
@@ -78,6 +79,7 @@ export const en: Record<string, string> = {
 		"The requested path is invalid or outside the granted scope",
 	"backend.storageHardening.access.fileTooLarge":
 		"The uploaded file exceeds the single-file size limit of this authorization",
+	"backend.storageHardening.access.unmeteredTreeWrite": "Directory sync cannot enforce the size or quota limit on this path.",
 	"backend.storageHardening.access.quotaExceeded":
 		"This write would exceed the capacity quota of this authorization",
 

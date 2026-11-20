@@ -18,7 +18,7 @@ import { assertStorageAccess } from "@/lib/storage/access-control";
 import { storageAccessDeniedCopy } from "@/lib/storage/access-denied";
 import { storageNodeTeamWhere } from "@/lib/auth/team-scope";
 import { expandStorageBasePath, normalizeStorageTargetDirectory } from "@/lib/storage/path-utils";
-import { effectiveDeleteOrphans, isProtectedDeleteTarget, syncEndpointsOverlap } from "./bidirectional";
+import { isBidirectionalSyncType, effectiveDeleteOrphans, isProtectedDeleteTarget, syncEndpointsOverlap } from "./bidirectional";
 import { t } from "@/lib/i18n/service-translations";
 
 /** The caller's scope and, when known, its effective permissions (an identity template or API token may grant fewer than its roles). */
@@ -85,7 +85,7 @@ export function syncPathWithinRoot(path: string, root: string): boolean {
  * root to confine it to.
  */
 export async function assertSyncEndpointsWithinReach(
-	endpoints: Array<{ serverId: string; path: string; operations?: Array<"read" | "write" | "delete"> }>,
+	endpoints: Array<{ serverId: string; path: string; unmeteredTreeWrite?: boolean; operations?: Array<"read" | "write" | "delete"> }>,
 	session: SyncSessionScope | null | undefined,
 ): Promise<void> {
 	if (!session) return;
@@ -105,7 +105,7 @@ export async function assertSyncEndpointsWithinReach(
 		}
 		const relativePath = posixPath.relative(expandStorageBasePath(node.basePath), posixPath.normalize(endpoint.path));
 		for (const operation of endpoint.operations ?? ["read", "write"]) {
-			const access = await assertStorageAccess({ session: { ...session, username: "", mustChangePassword: false }, storageNodeId: node.id, relativePath, operation });
+			const access = await assertStorageAccess({ session: { ...session, username: "", mustChangePassword: false }, storageNodeId: node.id, relativePath, operation, ...(endpoint.unmeteredTreeWrite ? { unmeteredTreeWrite: true } : {}) });
 			if (!access.allowed) throw new ForbiddenError(storageAccessDeniedCopy(access.reason));
 		}
 	}
@@ -127,8 +127,8 @@ export async function createSyncJob(input: SyncJobInput) {
 	);
 	await assertSyncEndpointsWithinReach(
 		[
-			{ serverId: input.sourceServerId, path: input.sourcePath },
-			{ serverId: input.targetServerId, path: input.targetPath },
+			{ serverId: input.sourceServerId, path: input.sourcePath, unmeteredTreeWrite: isBidirectionalSyncType(input.syncType) },
+			{ serverId: input.targetServerId, path: input.targetPath, unmeteredTreeWrite: true },
 		],
 		input.session,
 	);
@@ -303,8 +303,8 @@ export async function updateSyncJob(
 	if (data.sourcePath !== undefined || data.targetPath !== undefined) {
 		await assertSyncEndpointsWithinReach(
 			[
-				{ serverId: existing.sourceServerId, path: data.sourcePath ?? existing.sourcePath },
-				{ serverId: existing.targetServerId, path: data.targetPath ?? existing.targetPath },
+				{ serverId: existing.sourceServerId, path: data.sourcePath ?? existing.sourcePath, unmeteredTreeWrite: isBidirectionalSyncType(data.syncType ?? existing.syncType) },
+				{ serverId: existing.targetServerId, path: data.targetPath ?? existing.targetPath, unmeteredTreeWrite: true },
 			],
 			session,
 		);

@@ -20,6 +20,7 @@ const REASON_COPY_KEYS: Record<string, string> = {
 	no_access: "backend.storageHardening.access.noAccess",
 	path_not_allowed: "backend.storageHardening.access.pathNotAllowed",
 	file_too_large: "backend.storageHardening.access.fileTooLarge",
+	unmetered_tree_write: "backend.storageHardening.access.unmeteredTreeWrite",
 	quota_exceeded: "backend.storageHardening.access.quotaExceeded",
 };
 
