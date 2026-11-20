@@ -211,7 +211,7 @@ describe.skipIf(process.env.RUN_DATABASE_INTEGRATION_TESTS !== "1" || !binary)(
         const buffer = data.subarray(at, at + chunkSize);
         await appendMediaUploadChunk({
           sessionId,
-          userId: id,
+          userId: id, teamId: actor.currentTeamId,
           index: at / chunkSize,
           size: buffer.length,
           buffer,

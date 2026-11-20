@@ -94,7 +94,7 @@ export async function completeStorageFileUpload(params: {
 
   let lease: FinalizationLease | undefined;
   const existing = await prisma.mediaUploadSession.findFirst({
-    where: { id: sessionId, userId: session.userId },
+    where: { id: sessionId, userId: session.userId, teamId: session.currentTeamId ?? null, teamBound: true },
     select: {
       filename: true,
       mimeType: true,
@@ -167,7 +167,7 @@ export async function completeStorageFileUpload(params: {
   });
 
   releaseFinalization = acquireFinalizationSlot(session.userId, existing.storageNodeId);
-  lease = await beginUploadFinalization(sessionId, session.userId);
+  lease = await beginUploadFinalization(sessionId, session.userId, session.currentTeamId ?? null);
   const assembled = await assembleMediaUploadToFile(sessionId, session.userId);
 
   // Quota admission with the body assembled: the guard is now held only across

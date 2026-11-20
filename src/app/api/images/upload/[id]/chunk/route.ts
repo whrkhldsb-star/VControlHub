@@ -66,6 +66,7 @@ export async function PUT(
         const view = await appendMediaUploadChunk({
           sessionId,
           userId: session.userId,
+          teamId: session.currentTeamId ?? null,
           index: query.index,
           size: query.size,
           buffer,
