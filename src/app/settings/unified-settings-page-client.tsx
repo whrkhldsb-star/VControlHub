@@ -1,6 +1,7 @@
 "use client";
 
-import { useState, useEffect, useCallback, useMemo, useRef, useId, type ReactNode } from "react";
+import { useState, useEffect, useCallback, useMemo, useRef, useId, useTransition, type ReactNode } from "react";
+import { useRouter } from "next/navigation";
 import { Bell, Database, Globe, HardDrive, Settings, Sparkles, User } from "@/components/icons";
 import { IconKey } from "@/components/nav-items";
 import { PageHeader } from "@/components/page-shell";
@@ -94,6 +95,13 @@ export function UnifiedSettingsPageClient({
   const [selectedTab, setActiveTab] = useState<SettingsTab>("personal");
   const activeTab = canManage || SELF_SERVICE_TABS.includes(selectedTab) ? selectedTab : "personal";
   const panelId = useId();
+  const router = useRouter();
+  const [settingsRevision, setSettingsRevision] = useState(0);
+  const [refreshingSettings, startSettingsRefresh] = useTransition();
+  const refreshImportedSettings = () => startSettingsRefresh(() => {
+    router.refresh();
+    setSettingsRevision((revision) => revision + 1);
+  });
   const [activeSection, setActiveSection] = useState<string>("preferences-default-page");
   const navigationTimer = useRef<ReturnType<typeof setTimeout> | null>(null);
   const cancelNavigation = useCallback(() => {
@@ -269,7 +277,9 @@ export function UnifiedSettingsPageClient({
 
 
         <div className={systemTab ? "space-y-5" : "hidden"}>
+          <fieldset disabled={refreshingSettings} inert={refreshingSettings} className="min-w-0">
           <SettingsClient
+            key={settingsRevision}
             settings={settings}
             runtimeSettings={runtimeSettings}
       settingUpdateMetadata={settingUpdateMetadata}
@@ -277,10 +287,11 @@ export function UnifiedSettingsPageClient({
       showCategoryNav={false}
             visibleSectionIds={visibleSectionIds}
           />
+          </fieldset>
           {/* The status board has its own page; monitoring settings link to it. */}
           {isPlatformAdmin && activeTab === "data" ? <PublicStatusSettingsLink /> : null}
           {canManage && <div id="system-config" className={activeTab === SYSTEM_CONFIG_TAB ? "scroll-mt-24" : "hidden"}>
-            <SystemConfigSection isPlatformAdmin={isPlatformAdmin} />
+            <SystemConfigSection isPlatformAdmin={isPlatformAdmin} onSettingsImported={refreshImportedSettings} />
           </div>}
         </div>
       </SplitPane>
