@@ -112,7 +112,6 @@ const {
   handleWebDavCopy,
   handleWebDavDelete,
   handleWebDavGetHead,
-  handleWebDavLock,
   handleWebDavMkcol,
   handleWebDavMove,
   handleWebDavOptions,
@@ -841,8 +840,7 @@ describe("webdav handlers", () => {
       const response = await handleWebDavOptions();
 
       expect(response.status).toBe(204);
-      // Class 2 (advisory LOCK/UNLOCK) so Finder and Explorer mount read-write (A4-16).
-      expect(response.headers.get("DAV")).toBe("1, 2");
+      expect(response.headers.get("DAV")).toBe("1");
       for (const verb of ["PROPFIND", "PUT", "DELETE", "MKCOL", "MOVE", "COPY"]) {
         expect(response.headers.get("Allow")).toContain(verb);
       }
@@ -1008,33 +1006,6 @@ describe("webdav handlers", () => {
       expect(response.status).toBe(201);
       expect(response.headers.get("Location")).toBe("/api/webdav/n1/photos/");
       expect(mocks.createFileEntry).toHaveBeenCalledWith(expect.objectContaining({ entryType: "DIRECTORY", relativePath: "photos" }));
-    });
-  });
-
-  describe("LOCK", () => {
-    const lock = (ifHeader?: string) =>
-      handleWebDavLock(
-        context("a.docx"),
-        new Request("https://hub.example/api/webdav/n1/a.docx", { method: "POST", headers: ifHeader ? { if: ifHeader } : {} }),
-      );
-
-    it("refreshes a token this server handed out", async () => {
-      const first = await lock();
-      const token = first.headers.get("Lock-Token")!.slice(1, -1);
-      expect(token).toMatch(/^opaquelocktoken:[0-9a-f-]{36}$/);
-
-      const refreshed = await lock(`(<${token}>)`);
-      expect(refreshed.headers.get("Lock-Token")).toBe(`<${token}>`);
-      expect(await refreshed.text()).toContain(`<D:href>${token}</D:href>`);
-    });
-
-    it("does not write a client-chosen token into the XML as markup", async () => {
-      const response = await lock('(<opaquelocktoken:x</D:href><D:owner>&evil;"</D:owner>)');
-      const body = await response.text();
-
-      expect(body).not.toContain("evil");
-      expect(body).not.toContain("<D:owner>");
-      expect(response.headers.get("Lock-Token")).toMatch(/^<opaquelocktoken:[0-9a-f-]{36}>$/);
     });
   });
 
