@@ -45,6 +45,7 @@ const {
       findFirst: vi.fn(),
       update: vi.fn(),
       updateMany: vi.fn(),
+      updateManyAndReturn: vi.fn(),
       delete: vi.fn(),
     },
     fileEntry: {
@@ -1244,14 +1245,14 @@ describe("/api/downloads", () => {
       relayMode: true,
       server: serverFixture(),
     });
-    prismaMock.downloadTask.updateMany.mockResolvedValueOnce({ count: 1 });
+    prismaMock.downloadTask.updateManyAndReturn.mockResolvedValueOnce([{ aria2Gid: "gid_1", pid: null }]);
     removeDownloadMock.mockRejectedValueOnce(new Error("aria2 unavailable"));
 
     const response = await DELETE(new Request("https://example.com/api/downloads?taskId=task_relay", { method: "DELETE" }));
 
     expect(response.status).toBe(200);
-    expect(prismaMock.downloadTask.updateMany).toHaveBeenCalledWith(expect.objectContaining({
-      where: { id: "task_relay", status: { in: ["PENDING", "RUNNING"] } },
+    expect(prismaMock.downloadTask.updateManyAndReturn).toHaveBeenCalledWith(expect.objectContaining({
+      where: { id: "task_relay", transferManifest: { equals: expect.anything() }, status: { in: ["PENDING", "RUNNING"] } },
       data: expect.objectContaining({ status: "CANCELLED" }),
     }));
     expect(removeDownloadMock).toHaveBeenCalledWith("gid_1", true);
@@ -1423,14 +1424,14 @@ describe("/api/downloads", () => {
       server: serverFixture(),
     });
 
-    prismaMock.downloadTask.updateMany.mockResolvedValueOnce({ count: 1 });
+    prismaMock.downloadTask.updateManyAndReturn.mockResolvedValueOnce([{ aria2Gid: "gid_1", pid: null }]);
     const response = await DELETE(new Request("https://example.com/api/downloads?taskId=task_relay", { method: "DELETE" }));
 
     expect(response.status).toBe(200);
     expect(removeDownloadMock).toHaveBeenCalledWith("gid_1", true);
     expect(rmMock).toHaveBeenCalledWith(expect.stringContaining(relayTempDir("task_relay")), { recursive: true, force: true });
-    expect(prismaMock.downloadTask.updateMany).toHaveBeenCalledWith(expect.objectContaining({
-      where: { id: "task_relay", status: { in: ["PENDING", "RUNNING"] } },
+    expect(prismaMock.downloadTask.updateManyAndReturn).toHaveBeenCalledWith(expect.objectContaining({
+      where: { id: "task_relay", transferManifest: { equals: expect.anything() }, status: { in: ["PENDING", "RUNNING"] } },
       data: expect.objectContaining({ status: "CANCELLED" }),
     }));
   });

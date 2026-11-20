@@ -198,6 +198,12 @@ async function reconcileDirectTask(
 type StaleTaskRow = Prisma.DownloadTaskGetPayload<{
   include: { server: { include: { sshKey: true; storageNode: true } } };
 }>;
+function failStaleTask(task: StaleTaskRow, message: string) {
+  return task.relayMode || task.aria2Gid || task.agentStorageNodeId
+    ? failRelayTask(task, message)
+    : failRunningTask(task.id, message);
+}
+
 type ReconcileServer = NonNullable<StaleTaskRow["server"]>;
 
 async function reconcileRelayTask(
@@ -311,12 +317,12 @@ export async function reconcileStaleRunningDownloadTasks(input?: {
     try {
       if (!task.server) {
         if (Date.now() - task.updatedAt.getTime() > UNREACHABLE_FAIL_MS) {
-          if (await failRunningTask(task.id, t("backend.downloads.reconcile.serverMissing"))) { failed++; ids.push(task.id); }
+          if (await failStaleTask(task, t("backend.downloads.reconcile.serverMissing"))) { failed++; ids.push(task.id); }
         }
         continue;
       }
       if (task.directStorageNodeId && task.server.storageNode?.id !== task.directStorageNodeId) {
-        if (await failRunningTask(task.id, t("backend.downloads.taskStorageMissing"))) { failed++; ids.push(task.id); }
+        if (await failStaleTask(task, t("backend.downloads.taskStorageMissing"))) { failed++; ids.push(task.id); }
         continue;
       }
       let outcome: "completed" | "failed" | "running" | "skipped";
@@ -332,7 +338,7 @@ export async function reconcileStaleRunningDownloadTasks(input?: {
         // A relay without a durable gid cannot be assumed never to have started.
         // Direct tasks always inspect remote markers, including a missing DB pid.
         outcome = Date.now() - task.updatedAt.getTime() > UNREACHABLE_FAIL_MS
-          ? ((await failRunningTask(task.id, t("backend.downloads.reconcile.neverStarted"))) ? "failed" : "skipped")
+          ? ((await failRelayTask(task, t("backend.downloads.reconcile.neverStarted"))) ? "failed" : "skipped")
           : "skipped";
       }
       if (outcome === "completed") { completed++; ids.push(task.id); }

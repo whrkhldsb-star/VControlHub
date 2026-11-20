@@ -93,36 +93,26 @@ export async function DELETE(request: Request) {
 
       // Once the immutable manifest is committed, the verified files are being
       // published. Cancellation and journaling compete on this same row.
-      if (task.agentStorageNodeId && task.transferManifest) {
-        return NextResponse.json({ error: t("apiDownloads.finishingTransfer", locale) }, { status: 409 });
-      }
-      if (task.agentStorageNodeId && !task.aria2Gid) {
-        const marked = await prisma.downloadTask.updateMany({ where: { id: taskId, transferManifest: { equals: Prisma.DbNull }, status: { in: ["PENDING", "RUNNING"] } }, data: cancelledData });
-        if (!marked.count) return NextResponse.json({ error: t("apiDownloads.taskNoLongerActive", locale) }, { status: 409 });
-        return finishCancel();
-      }
-      if (task.aria2Gid) {
-        // Mark first, then remove (A5-02): the relay worker polls aria2 every
-        // 5 s and used to see "removed" before this CAS ran, fail the task, send
-        // a failure notice, and leave this request with a 409.
-        const marked = await prisma.downloadTask.updateMany({
-          where: { id: taskId, ...(task.agentStorageNodeId ? { transferManifest: { equals: Prisma.DbNull } } : {}), status: { in: ["PENDING", "RUNNING"] } },
+      if (task.relayMode || task.agentStorageNodeId || task.aria2Gid) {
+        if (task.transferManifest) {
+          return NextResponse.json({ error: t("apiDownloads.finishingTransfer", locale) }, { status: 409 });
+        }
+        // Read the gid from the update: aria2 may have started since the initial lookup.
+        const [cancelled] = await prisma.downloadTask.updateManyAndReturn({
+          where: { id: taskId, transferManifest: { equals: Prisma.DbNull }, status: { in: ["PENDING", "RUNNING"] } },
           data: cancelledData,
+          select: { aria2Gid: true, pid: true },
         });
-        if (marked.count === 0) {
-          return NextResponse.json(
-            { error: t("apiDownloads.taskNoLongerActive", locale) },
-            { status: 409 },
-          );
+        if (!cancelled) return NextResponse.json({ error: t("apiDownloads.taskNoLongerActive", locale) }, { status: 409 });
+        if (cancelled.aria2Gid) {
+          try {
+            await removeDownload(cancelled.aria2Gid, true);
+          } catch (err) {
+            logError("[DownloadAPI] Failed to remove aria2 download after cancelling the task:", err);
+          }
         }
-        try {
-          await removeDownload(task.aria2Gid, true);
-        } catch (err) {
-          // The worker loop sees CANCELLED on its next tick and removes the download itself.
-          logError("[DownloadAPI] Failed to remove aria2 download after cancelling the task:", err);
-        }
-        if (task.relayMode && task.pid) {
-          try { process.kill(task.pid, "SIGTERM"); } catch (err) { logError("[DownloadAPI] Failed to kill process:", err); }
+        if (task.relayMode && cancelled.pid) {
+          try { process.kill(cancelled.pid, "SIGTERM"); } catch (err) { logError("[DownloadAPI] Failed to kill process:", err); }
         }
         await cleanupTemp(relayTempDir(taskId));
         return finishCancel();
@@ -150,48 +140,33 @@ export async function DELETE(request: Request) {
       }
 
       if (status === "RUNNING") {
-        if (task.relayMode) {
-          if (task.pid) {
-            try {
-              process.kill(task.pid, "SIGTERM");
-            } catch (err) {
-              logError("[DownloadAPI] Failed to kill process:", err);
-              return NextResponse.json(
-                { error: t("apiDownloads.localRelayCancelFailed", locale) },
-                { status: 502 },
-              );
-            }
-          }
-          await cleanupTemp(relayTempDir(taskId));
-        } else {
-          if (task.directStorageNodeId && !task.server.storageNode) {
-            return NextResponse.json({ error: t("backend.downloads.taskStorageMissing", locale) }, { status: 409 });
-          }
-          // Always ask the server, with or without a stored pid: the remote
-          // process records its own identity and may be running even when the
-          // controller never stored the pid. Only a confirmed stop (no download
-          // process left) may mark the task cancelled; otherwise it stays
-          // RUNNING and the user can cancel again.
-          let stopped = null;
-          try {
-            const sshParams = await buildSshParamsFromServer(
-              task.server,
-              task.server.sshKey,
-            );
-            stopped = parseDirectDownloadStopResult(await execRemoteCommand({
-              ...sshParams,
-              command: buildDirectDownloadStopCommand(task.id, task.targetPath, { cancel: true }),
-              timeout: 20000,
-            }));
-          } catch (err) {
-            logError("[DownloadAPI] Failed to kill remote process:", err);
-          }
-          if (!stopped) {
-            return NextResponse.json(
-              { error: t("apiDownloads.remoteProcessCancelFailed", locale) },
-              { status: 502 },
-            );
-          }
+        if (task.directStorageNodeId && !task.server.storageNode) {
+          return NextResponse.json({ error: t("backend.downloads.taskStorageMissing", locale) }, { status: 409 });
+        }
+        // Always ask the server, with or without a stored pid: the remote
+        // process records its own identity and may be running even when the
+        // controller never stored the pid. Only a confirmed stop (no download
+        // process left) may mark the task cancelled; otherwise it stays
+        // RUNNING and the user can cancel again.
+        let stopped = null;
+        try {
+          const sshParams = await buildSshParamsFromServer(
+            task.server,
+            task.server.sshKey,
+          );
+          stopped = parseDirectDownloadStopResult(await execRemoteCommand({
+            ...sshParams,
+            command: buildDirectDownloadStopCommand(task.id, task.targetPath, { cancel: true }),
+            timeout: 20000,
+          }));
+        } catch (err) {
+          logError("[DownloadAPI] Failed to kill remote process:", err);
+        }
+        if (!stopped) {
+          return NextResponse.json(
+            { error: t("apiDownloads.remoteProcessCancelFailed", locale) },
+            { status: 502 },
+          );
         }
       }
 
