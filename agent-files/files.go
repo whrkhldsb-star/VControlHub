@@ -275,12 +275,29 @@ func (s share) handle(op operation) (result, error) {
 		if _, err := rand.Read(nonce); err != nil {
 			return out, err
 		}
-		temporary := path.Join(path.Dir(op.Destination), ".vch-copy-"+hex.EncodeToString(nonce))
+		key := digest(nonce)
+		if err := s.ensureStageDir(); err != nil {
+			return out, err
+		}
+		marker := path.Join(s.stageDir(), "plain-"+key)
+		journal, err := s.openRegular(marker, os.O_EXCL|os.O_CREATE|os.O_WRONLY)
+		if err != nil {
+			return out, err
+		}
+		_, err = journal.WriteString(op.Destination)
+		if err = errors.Join(err, journal.Close()); err != nil {
+			return out, err
+		}
+		temporary := path.Join(path.Dir(op.Destination), ".vch-copy-"+key)
 		dest, err := s.root.OpenFile(temporary, os.O_EXCL|os.O_CREATE|os.O_WRONLY, 0600)
 		if err != nil {
 			return out, err
 		}
-		defer s.root.Remove(temporary)
+		defer func() {
+			if s.root.Remove(temporary) == nil {
+				s.root.Remove(marker)
+			}
+		}()
 		_, err = io.Copy(dest, src)
 		closeErr := dest.Close()
 		if err != nil || closeErr != nil {
@@ -385,7 +402,12 @@ func (s share) cleanup(now time.Time) {
 		entries, err := d.ReadDir(128)
 		for _, e := range entries {
 			st, err := e.Info()
-			if err == nil && st.Mode().IsRegular() && now.Sub(st.ModTime()) > 48*time.Hour {
+			if err != nil || !st.Mode().IsRegular() {
+				continue
+			}
+			if key, ok := strings.CutPrefix(e.Name(), "plain-"); ok && validDigest(key) {
+				s.recoverPlainCopy(path.Join(stageDir, e.Name()), key, now.Sub(st.ModTime()) > 48*time.Hour)
+			} else if now.Sub(st.ModTime()) > 48*time.Hour {
 				name := path.Join(stageDir, e.Name())
 				if validDigest(e.Name()) {
 					s.root.Remove(name)

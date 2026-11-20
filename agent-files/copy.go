@@ -49,6 +49,45 @@ func (s share) cleanupCopy(marker, key string) {
 	s.root.Remove(marker)
 }
 
+// A crash between link and unlink leaves the published inode unreadable until
+// its private alias is removed. Only unlink an alias of the recorded target.
+func (s share) recoverPlainCopy(marker, key string, stale bool) {
+	f, err := s.openRegular(marker, os.O_RDONLY)
+	if err != nil {
+		return
+	}
+	data, err := io.ReadAll(io.LimitReader(f, 2001))
+	f.Close()
+	target := string(data)
+	if err != nil || !validPath(target) || target == "." || s.check(path.Dir(target), false) != nil {
+		return
+	}
+	stage := path.Join(path.Dir(target), ".vch-copy-"+key)
+	tmp, err := s.root.Lstat(stage)
+	if errors.Is(err, fs.ErrNotExist) && stale {
+		s.root.Remove(marker)
+		return
+	}
+	if err != nil || !tmp.Mode().IsRegular() {
+		return
+	}
+	dst, err := s.root.Lstat(target)
+	if err == nil && dst.Mode().IsRegular() && os.SameFile(tmp, dst) {
+		if s.root.Remove(stage) == nil {
+			s.root.Remove(marker)
+		}
+	} else if stale {
+		// A private, single-link staging file never reached publication.
+		f, err := s.openRegular(stage, os.O_RDONLY)
+		if err == nil {
+			f.Close()
+			if s.root.Remove(stage) == nil {
+				s.root.Remove(marker)
+			}
+		}
+	}
+}
+
 // The hub supplies an operation ID and ordinary paths. Only the Agent names its
 // staging and rollback files. Keep both beside the target for same-volume publication.
 func (s share) copyStep(op operation) (result, error) {
