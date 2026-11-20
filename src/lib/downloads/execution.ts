@@ -328,7 +328,7 @@ export async function executeAria2RelayDownload(
 
   await prisma.downloadTask.updateMany({ where: { id: taskId, status: "RUNNING" }, data: { progress: t("backend.downloads.progress.transferring") } });
 
-  const listed = await listRelayFiles(tempDir);
+  const listed = await listRelayFiles(tempDir, "", torrentFiles);
   const filesToTransfer = torrentFiles ? listed.filter(name => torrentFiles.has(path.resolve(tempDir, name))) : listed;
   if (torrentFiles && filesToTransfer.length !== torrentFiles.size) throw new Error("Missing torrent content");
 
@@ -388,15 +388,15 @@ export async function executeAria2RelayDownload(
  * Every file aria2 left in the relay folder, as "/"-separated paths. A
  * multi-file torrent arrives as a folder of files; only the top level used to
  * be read, so such a download failed after finishing and its files were
- * deleted. aria2's control files and hidden entries are skipped; anything
+ * deleted. aria2's control files are skipped; anything
  * that is neither a file nor a folder (a link) is refused.
  */
-export async function listRelayFiles(root: string, prefix = ""): Promise<string[]> {
+export async function listRelayFiles(root: string, prefix = "", selected?: ReadonlyMap<string, string> | null): Promise<string[]> {
  const out: string[] = [];
  for (const entry of await fs.readdir(path.join(root, ...prefix.split("/").filter(Boolean)), { withFileTypes: true })) {
-  if (entry.name.endsWith(".aria2") || entry.name.startsWith(".")) continue;
   const relative = prefix ? `${prefix}/${entry.name}` : entry.name;
-  if (entry.isDirectory()) out.push(...await listRelayFiles(root, relative));
+  if (entry.isFile() && entry.name.endsWith(".aria2") && !selected?.has(path.resolve(root, relative))) continue;
+  if (entry.isDirectory()) out.push(...await listRelayFiles(root, relative, selected));
   else if (entry.isFile()) out.push(relative);
   else throw new Error("Relay output contains a non-file entry");
  }
