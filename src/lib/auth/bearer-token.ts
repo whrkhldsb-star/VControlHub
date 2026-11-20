@@ -34,6 +34,7 @@ export function hasBearerAuthorization(request: Request): boolean {
 export async function authenticateBearerForPermissions(
 	request: Request,
 	requiredPermissions: Permission[],
+	optionalPermissions: Permission[] = [],
 ): Promise<
 	| { session: SessionPayload; scopes: string[]; tokenId: string }
 	| Response
@@ -62,14 +63,14 @@ export async function authenticateBearerForPermissions(
 	// proxy's "tokens are GET-only" rule only checks that a session cookie looks plausible, which a script can fake.
 	// Without this, a leaked default read-only token could post and cancel as its owner.
 	const readOnlyRequest = SAFE_TOKEN_METHODS.has(request.method.toUpperCase());
-	const grantedPermissions = requiredPermissions.filter(
+	const grantedPermissions = [...new Set([...requiredPermissions, ...optionalPermissions])].filter(
 		(permission) =>
 			!PLATFORM_ONLY_PERMISSIONS.has(permission) &&
 			(readOnlyRequest || !permission.endsWith(":read")) &&
 			tokenAllowsPermission(verified.scopes, permission) &&
 			sessionHasPermission(ownerSession, permission),
 	);
-	if (grantedPermissions.length === 0) {
+	if (!requiredPermissions.some(permission => grantedPermissions.includes(permission))) {
 		return Response.json(
 			{ error: t("api.auth.invalidToken") },
 			{ status: 403 },

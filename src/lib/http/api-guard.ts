@@ -36,6 +36,7 @@ export const DEFAULT_MAX_JSON_BODY_BYTES = 1 * 1024 * 1024; // 1 MiB
 export type ApiGuardOptions = {
   request: Request;
   permission?: Permission;
+  optionalTokenPermissions?: Permission[];
   rateLimit?: RateLimitConfig;
 };
 
@@ -54,6 +55,8 @@ export type ApiGuardOptions = {
  * non-object roots (e.g. arrays) — anything zod can parse.
  */
 export type ApiRouteOptions<TBody = unknown, TQuery = unknown> = {
+  /** Extra scopes a token may use inside a handler after its required permission passes. */
+  optionalTokenPermissions?: Permission[];
   /** Single required permission (declarative). */
   permission?: Permission;
   /**
@@ -124,7 +127,7 @@ export async function enforceApiGuard(options: ApiGuardOptions): Promise<Respons
   if (!permission) return null;
 
   if (hasBearerAuthorization(request)) {
-    const authenticated = await authenticateBearerForPermissions(request, [permission]);
+    const authenticated = await authenticateBearerForPermissions(request, [permission], ...(options.optionalTokenPermissions ? [options.optionalTokenPermissions] : []));
     if (!authenticated || authenticated instanceof Response) {
       return authenticated ?? apiError({ code: "AUTH_REQUIRED", message: t("api.auth.invalidToken"), status: 401 });
     }
@@ -186,7 +189,7 @@ async function runApiRoute<TBody = unknown, TQuery = unknown>(
   const method = request.method;
   const path = (() => { try { return new URL(request.url).pathname; } catch { return request.url; } })();
   try {
-    const guard = await enforceApiGuard({ request, permission: options.permission, rateLimit: options.rateLimit });
+    const guard = await enforceApiGuard({ request, permission: options.permission, optionalTokenPermissions: options.optionalTokenPermissions, rateLimit: options.rateLimit });
     if (guard instanceof Response) {
       const dur = performance.now() - startTime;
       apiLogger.info("request rejected", { method, path, status: guard.status, durationMs: Math.round(dur), requestId });

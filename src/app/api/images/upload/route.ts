@@ -63,7 +63,7 @@ export async function POST(request: Request) {
   const locale = await getServerLocale();
   return withApiRoute(
     request,
-    { permission: "image:write", rateLimit: IMAGE_UPLOAD_LIMIT, errorMessage: t("api.image.uploadFailed", locale) },
+    { permission: "image:write", optionalTokenPermissions: ["storage:write"], rateLimit: IMAGE_UPLOAD_LIMIT, errorMessage: t("api.image.uploadFailed", locale) },
     async ({ session }) => {
       // Direct Token uploads only require image:write; linked storage below
       // still checks the scoped session's storage permission and quota.
