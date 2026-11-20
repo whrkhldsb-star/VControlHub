@@ -99,14 +99,17 @@ export function RecycleBinSectionClient({ deletedEntries, canDelete, onRefresh, 
       && (folder.storageNodeId ?? folder.storageNodeName) === (entry.storageNodeId ?? entry.storageNodeName)
       && entry.relativePath.startsWith(`${folder.relativePath}/`)
       && (action === "delete" || (Boolean(folder.deleteBatchId) && folder.deleteBatchId === entry.deleteBatchId));
-    const ordered = [...targets].sort((a, b) => a.relativePath.split("/").length - b.relativePath.split("/").length);
+    const ordered = targets.map((entry) => ({
+      entry,
+      ancestors: targets.filter((folder) => covers(folder, entry)),
+    })).sort((a, b) => a.ancestors.length - b.ancestors.length);
     setBulk({ action, done: 0, total: targets.length });
     setErrors([]);
     const failures: string[] = [];
     const finished = new Set<string>();
     const covered = new Set<string>();
-    for (const [index, entry] of ordered.entries()) {
-      if (targets.some((folder) => finished.has(folder.id) && covers(folder, entry))) {
+    for (const [index, { entry, ancestors }] of ordered.entries()) {
+      if (ancestors.some((folder) => finished.has(folder.id))) {
         covered.add(entry.id);
         setBulk({ action, done: index + 1, total: targets.length });
         continue;
