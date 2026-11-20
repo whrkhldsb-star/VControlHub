@@ -79,14 +79,17 @@ function archiveExclusionInput(excluded: string[]) {
 	if (Buffer.byteLength(input) > 1024 * 1024) throw new ValidationError(t("backend.storage.archiveExclusionTooLarge"));
 	return input;
 }
+// libarchive treats backslash as an escape inside an exclusion pattern.
+function bsdtarExclude(name: string) {
+	return "--exclude=" + name.replace(/[[\\*?]/g, "\\$&");
+}
+
 const EXCLUDE_OPTIONS = ["--no-wildcards", "--anchored", "--exclude-from=-"];
 
 /**
  * Windows ships bsdtar (System32\tar.exe), which has no `--exclude-from=-`,
  * `--no-wildcards` or `--anchored`: exclusions become repeated `--exclude`
- * argv entries instead. bsdtar matches them as glob patterns, so a literal
- * name containing glob metacharacters (`*?[`) may fail to match — accepted
- * trade-off; argv is also capped by the Windows command-line length limit.
+ * argv entries with literal path characters escaped.
  * resolveLocalTarBinary() pins the System32 bsdtar so a PATH-shadowing GNU
  * tar (which reads "C:\..." as a remote host) can never be picked here.
  */
@@ -96,7 +99,7 @@ function buildLocalTarArgs(directoryPath: string, entryName: string, excluded: s
 	if (IS_WINDOWS) {
 		const excludeArgs: string[] = [];
 		for (const name of excluded) {
-			const arg = `--exclude=${name}`;
+			const arg = bsdtarExclude(name);
 			if (excludeArgs.join(" ").length + arg.length > 30_000) {
 				throw new ValidationError(t("backend.storage.archiveExclusionTooLargeWindows"));
 			}
@@ -114,7 +117,7 @@ function buildLocalTarArgs(directoryPath: string, entryName: string, excluded: s
 export function localTarExclusion(excluded: string[], excludeFilePath: string): { options: string[]; fileContent: string | null } {
 	if (!excluded.length) return { options: [], fileContent: null };
 	const content = archiveExclusionInput(excluded);
-	if (IS_WINDOWS) return { options: excluded.map((name) => `--exclude=${name}`), fileContent: null };
+	if (IS_WINDOWS) return { options: excluded.map(bsdtarExclude), fileContent: null };
 	return { options: ["--no-wildcards", "--anchored", `--exclude-from=${excludeFilePath}`], fileContent: content };
 }
 
@@ -187,7 +190,7 @@ export function streamRemoteTarGz(
 			for (const pattern of excluded) {
 				// Quoted like the other arguments: a name with a space was split
 				// into an exclusion and a separate member tar could not find.
-				const arg = shellQuote(`--exclude=${pattern}`);
+				const arg = shellQuote(bsdtarExclude(pattern));
 				if (excludeArgs.join(" ").length + arg.length > 30_000) {
 					return reject(new ValidationError(t("backend.storage.archiveExclusionTooLargeWindows")));
 				}
