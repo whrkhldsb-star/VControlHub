@@ -63,7 +63,7 @@ export function resolveStorageSshPort(node: { port: number | null; server: { ope
 
 export function resolveStorageSshCredentials(node: StorageSshCredentialNode): ResolvedStorageSshCredentials {
   if (node.server && (node.teamId === undefined || node.teamId !== node.server.teamId)) {
-    throw new ValidationError(t("backend.fileAgent.binding"));
+    throw new ValidationError(t("backend.storage.serverOwnerMismatch"));
   }
   const host = node.host ?? node.server?.host;
   const port = resolveStorageSshPort(node);

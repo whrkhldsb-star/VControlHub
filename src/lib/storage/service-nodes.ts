@@ -117,7 +117,7 @@ function serializeHealthFields(node: {
 async function lockStorageServer(tx: Prisma.TransactionClient, serverId: string, teamId: string | null) {
   const matches = await tx.$queryRaw<{ id: string }[]>`
     SELECT id FROM servers WHERE id = ${serverId} AND "teamId" IS NOT DISTINCT FROM ${teamId} FOR SHARE`;
-  if (!matches.length) throw new ValidationError(t("backend.fileAgent.binding"));
+  if (!matches.length) throw new ValidationError(t("backend.storage.serverOwnerMismatch"));
 }
 
 async function assertServerInTeamScope(
