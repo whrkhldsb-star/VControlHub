@@ -111,13 +111,11 @@ export function taskDownloadAccess(task: {
 export async function canAccessDownloadTask(input: {
   session: NonNullable<Awaited<ReturnType<typeof import("@/lib/auth/require-session").requireSession>>>;
   task: {
-    createdBy: string | null;
     targetPath: string | null;
     server?: { storageNode?: { id: string; basePath: string } | null } | null;
   };
   operation: "read" | "write" | "delete";
 }) {
-  if (input.task.createdBy === input.session.userId) return true;
   const storageNode = input.task.server?.storageNode;
   if (!storageNode) return false;
   const relativePath = taskTargetRelativePath(input.task);

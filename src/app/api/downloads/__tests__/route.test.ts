@@ -599,7 +599,7 @@ describe("/api/downloads", () => {
     expect(execRemoteCommandMock).not.toHaveBeenCalled();
   });
 
-  it("filters download list to owned tasks or readable storage targets", async () => {
+  it("filters download list to currently readable storage targets", async () => {
     prismaMock.downloadTask.findMany.mockResolvedValueOnce([
       {
         id: "owned_task",
@@ -661,9 +661,9 @@ describe("/api/downloads", () => {
     const response = await GET(new Request("https://example.com/api/downloads"));
 
     expect(response.status).toBe(200);
-    // Admin (team:manage) uses empty teamWhere — still filters by creator/storage ACL.
+    // The selected customer scopes both the task and its server.
     expect(prismaMock.downloadTask.findMany).toHaveBeenCalledWith(expect.objectContaining({
-      where: { teamId: "team_1" },
+      where: { teamId: "team_1", server: { teamId: "team_1" } },
       orderBy: [ { createdAt: "desc" }, { id: "desc" }],
       take: 101,
     }));
@@ -690,6 +690,7 @@ describe("/api/downloads", () => {
     expect(prismaMock.downloadTask.findMany).toHaveBeenCalledWith(expect.objectContaining({
       where: {
         teamId: "team_1",
+        server: expect.objectContaining({ AND: expect.any(Array) }),
         serverId: "srv_1",
         category: "iso",
         status: "FAILED",
@@ -754,6 +755,7 @@ describe("/api/downloads", () => {
     expect(prismaMock.downloadTask.findFirst).toHaveBeenCalledWith(expect.objectContaining({
       where: {
         id: "other_team_task",
+        server: expect.objectContaining({ AND: expect.any(Array) }),
         teamId: "team_1",
       },
     }));
@@ -1039,10 +1041,10 @@ describe("/api/downloads", () => {
     }));
   });
 
-  it("forbids cross-user task control when storage write access is absent", async () => {
+  it("forbids the creator from controlling a task after losing storage write access", async () => {
     prismaMock.downloadTask.findFirst.mockResolvedValueOnce({
       id: "task_private",
-      createdBy: "u_2",
+      createdBy: session.userId,
       status: "RUNNING",
       aria2Gid: "gid_1",
       progress: "下载中",

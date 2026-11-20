@@ -8,7 +8,7 @@ import { parseSearchParams } from "@/lib/http/parse-search-params";
 import { buildProgressText } from "@/lib/downloads/helpers";
 import { withApiRoute } from "@/lib/http/api-guard";
 import { getServerLocale, t } from "@/lib/i18n/translations";
-import { isGlobalTeamManager, teamWhere } from "@/lib/auth/team-scope";
+import { isGlobalTeamManager, serverTeamWhere, teamWhere } from "@/lib/auth/team-scope";
 import { canAccessDownloadTask, taskDownloadAccess } from "@/lib/downloads/route-helpers";
 
 const DOWNLOAD_PAGE_SIZE = 100;
@@ -33,8 +33,7 @@ export async function GET(request: Request) {
         }),
       );
 
-      // Team prefilter first (perf + defense if ownership/storage ACL misses team);
-      // canAccessDownloadTask still applies creator/storage ACL on the reduced set.
+      // Limit the page to visible servers before checking each destination path.
       const where: Record<string, unknown> =
         category === "__uncategorized"
           ? {
@@ -44,6 +43,7 @@ export async function GET(request: Request) {
               ],
             }
           : { ...teamWhere(session) };
+      where.server = serverTeamWhere(session);
       if (serverId) where.serverId = serverId;
       if (category && category !== "__uncategorized") where.category = category;
       if (status) where.status = status;

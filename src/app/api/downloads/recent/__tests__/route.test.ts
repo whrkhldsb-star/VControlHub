@@ -48,6 +48,7 @@ describe("GET /api/downloads/recent", () => {
       where: {
         status: "COMPLETED",
         teamId: "team_1",
+        server: expect.objectContaining({ AND: expect.any(Array) }),
         OR: [{ server: { storageNode: { isNot: null } } }, { agentStorageNodeId: { not: null } }],
       },
       orderBy: { updatedAt: "desc" },

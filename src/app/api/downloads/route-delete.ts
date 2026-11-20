@@ -17,7 +17,7 @@ import { relayTempDir } from "@/lib/runtime/platform-paths";
 import { withApiRoute } from "@/lib/http/api-guard";
 import { GENERAL_WRITE_LIMIT } from "@/lib/http/rate-limit-presets";
 import { ForbiddenError, NotFoundError } from "@/lib/errors";
-import { teamAccessFilter } from "@/lib/auth/team-scope";
+import { serverTeamWhere, teamAccessFilter } from "@/lib/auth/team-scope";
 import { getServerLocale, t } from "@/lib/i18n/translations";
 import { canAccessDownloadTask } from "@/lib/downloads/route-helpers";
 
@@ -46,7 +46,7 @@ export async function DELETE(request: Request) {
 
       const teamFilter = teamAccessFilter(session);
       const task = await prisma.downloadTask.findFirst({
-        where: { id: taskId, ...(teamFilter ?? {}) },
+        where: { id: taskId, ...(teamFilter ?? {}), server: serverTeamWhere(session, "connect") },
         include: { server: { include: { sshKey: true, storageNode: true, agentFileShares: { select: { node: true } } } } },
       }).then(row => row ? resolveTaskDrive(row) : null);
       if (!task)
