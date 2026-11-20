@@ -505,15 +505,15 @@ maxSpeedKb?: number | null,
   const resolved = await resolveDownloadRedirects(url);
   if (!resolved.ok) throw new DownloadSourceRejectedError(resolved.reason);
 
-  sshParams = await buildSshParamsFromServer(server, server.sshKey);
-  await execRemoteCommand({ ...sshParams, command: `mkdir -p -- ${shellQuote(targetPath)}`, timeout: 15000 });
-
   const finalName = fileName || deriveDownloadFileNameFromUrl(url) || "download";
   if (server.storageNode) {
    const relative = relativePathFromDownloadTarget(server.storageNode.basePath, targetPath, finalName);
    if (!relative) throw new BusinessError(t("backend.downloads.taskStorageMissing"));
    await assertNotRecycled(server.storageNode.id, relative, "write");
   }
+  sshParams = await buildSshParamsFromServer(server, server.sshKey);
+  await execRemoteCommand({ ...sshParams, command: `mkdir -p -- ${shellQuote(targetPath)}`, timeout: 15000 });
+
   const downloadCmd = buildDirectDownloadCommand({
    taskId,
    url: resolved.url,

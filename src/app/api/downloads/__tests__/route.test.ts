@@ -500,12 +500,12 @@ describe("/api/downloads", () => {
     expect(getStorageWriteCapacityMock).toHaveBeenCalledWith(expect.objectContaining({ relativePath: "downloads" }));
   });
 
-  it("indexes a started direct download as a pending storage file entry", async () => {
+  it("records the pid and leaves the file index untouched until the direct download completes", async () => {
     prismaMock.downloadTask.create.mockResolvedValueOnce({ id: "task_direct" });
     // TR-001 (T12): the route now enqueues a durable `download.execute` job
     // and the test seam in this file looks the task row back up to dispatch
     // the real executeDirectDownload helper. Provide the row the seam needs
-    // so fileName propagates into indexDownloadedFileEntry.
+    // to record the chosen file name and pid.
     prismaMock.downloadTask.findUnique.mockResolvedValueOnce({
       id: "task_direct",
       url: "https://example.com/releases/app.iso",
@@ -528,13 +528,6 @@ describe("/api/downloads", () => {
     expect(prismaMock.downloadTask.create).toHaveBeenCalledWith(expect.objectContaining({
       data: expect.objectContaining({ directStorageNodeId: "store_1" }),
     }));
-    // New-A (2026-06-15): the route now awaits enqueueDownloadExecutionJob
-    // before returning 200. The mock seam still kicks off executeDirectDownload
-    // in a microtask, so a single `vi.waitFor` needs a few event-loop ticks
-    // to observe both the fileEntry.create (inside the microtask) and the
-    // downstream downloadTask.update that executeDirectDownload issues right
-    // after.
-    await vi.waitFor(() => expect(prismaMock.fileEntry.create).toHaveBeenCalled());
     // Claim now happens BEFORE the remote spawn (PENDING -> RUNNING), and the
     // pid is recorded on a second RUNNING-guarded update once the process is up.
     // This ordering prevents a retry/concurrent tick from launching a duplicate
@@ -548,15 +541,8 @@ describe("/api/downloads", () => {
       // The progress text is translated now (A5); the pid is what this step records.
       data: expect.objectContaining({ pid: 12345, progress: expect.any(String) }),
     })));
-    expect(prismaMock.fileEntry.create).toHaveBeenCalledWith(expect.objectContaining({
-      data: expect.objectContaining({
-        storageNodeId: "store_1",
-        name: "app.iso",
-        entryType: "FILE",
-        relativePath: "downloads/app.iso",
-        size: null,
-      }),
-    }));
+    expect(prismaMock.fileEntry.create).not.toHaveBeenCalled();
+    expect(prismaMock.fileEntry.update).not.toHaveBeenCalled();
   });
 
   it("creates one independent task per URL for an HTTP/HTTPS batch", async () => {
