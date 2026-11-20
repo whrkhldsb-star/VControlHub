@@ -202,6 +202,7 @@ export function PreferencesSettingsContent({
 	const messageFromError = (err: unknown, fallback: string) => err instanceof Error && err.message ? err.message : fallback;
 
 	useEffect(() => {
+		if (savingRef.current) return;
 		const storedPrefs = readUserPreferencesCache();
 		if (storedPrefs) {
 			// Local cache must be applied immediately after hydration so preference buttons do not flash defaults.
@@ -215,7 +216,7 @@ export function PreferencesSettingsContent({
 		const timer = window.setTimeout(() => {
 			csrfFetch("/api/preferences")
 				.then((data) => {
-					if (loadRequestId !== activeLoadRequestIdRef.current || loadRequestId <= latestSaveRequestIdRef.current) {
+					if (loadRequestId !== activeLoadRequestIdRef.current) {
 						return;
 					}
 					if (!data.error) {
@@ -229,13 +230,13 @@ export function PreferencesSettingsContent({
 					}
 				})
 				.catch((err) => {
-					if (loadRequestId !== activeLoadRequestIdRef.current || loadRequestId <= latestSaveRequestIdRef.current) {
+					if (loadRequestId !== activeLoadRequestIdRef.current) {
 						return;
 					}
 					setError(messageFromError(err, t("preferencesPage.error.load")));
 				})
 				.finally(() => {
-					if (loadRequestId !== activeLoadRequestIdRef.current || loadRequestId <= latestSaveRequestIdRef.current) {
+					if (loadRequestId !== activeLoadRequestIdRef.current) {
 						return;
 					}
 					setLoading(false);
@@ -249,9 +250,9 @@ export function PreferencesSettingsContent({
 
 	const save = async (newPrefs: Preferences) => {
 		const normalizedPrefs = normalizePrefs(newPrefs);
-		const saveRequestId = latestSaveRequestIdRef.current + 1;
-		latestSaveRequestIdRef.current = saveRequestId;
-		activeLoadRequestIdRef.current = Math.max(activeLoadRequestIdRef.current, saveRequestId);
+		latestSaveRequestIdRef.current += 1;
+		activeLoadRequestIdRef.current += 1;
+		setLoading(false);
 		setPrefs(normalizedPrefs);
 		setError("");
 		setSaved(false);
