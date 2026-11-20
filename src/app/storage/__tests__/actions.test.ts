@@ -210,7 +210,8 @@ describe("createFolderAction", () => {
       server: {
         connectionType: "SSH_KEY",
         password: null,
-        sshKey: { privateKey: "PRIVATE KEY" },
+        teamId: "team-1",
+        sshKey: { teamId: "team-1", privateKey: "PRIVATE KEY" },
       },
     });
     createFileEntryMock.mockResolvedValueOnce({ id: "folder-1" });
@@ -266,7 +267,8 @@ describe("createFolderAction", () => {
       server: {
         connectionType: "SSH_KEY",
         password: null,
-        sshKey: { privateKey: "PRIVATE KEY" },
+        teamId: "team-1",
+        sshKey: { teamId: "team-1", privateKey: "PRIVATE KEY" },
       },
     });
     vi.mocked(assertStorageAccess).mockResolvedValueOnce({
@@ -349,7 +351,8 @@ describe("createFolderAction", () => {
         username: "root",
         connectionType: "SSH_KEY",
         password: null,
-        sshKey: { privateKey: "PRIVATE KEY" },
+        teamId: "team-1",
+        sshKey: { teamId: "team-1", privateKey: "PRIVATE KEY" },
       },
     });
     createRemoteDirectoryMock.mockResolvedValueOnce(undefined);
@@ -404,7 +407,8 @@ function sftpEntry(overrides: Record<string, unknown> = {}) {
         username: "root",
         connectionType: "SSH_KEY",
         password: null,
-        sshKey: { privateKey: "PRIVATE KEY" },
+        teamId: "team-1",
+        sshKey: { teamId: "team-1", privateKey: "PRIVATE KEY" },
       },
     },
     ...overrides,

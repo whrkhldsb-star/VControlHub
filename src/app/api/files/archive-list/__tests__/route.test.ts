@@ -9,7 +9,7 @@ const { requireApiPermissionMock, assertStorageAccessMock, listExternalArchiveMo
     requireApiPermissionMock: vi.fn(),
     assertStorageAccessMock: vi.fn(),
     listExternalArchiveMock: vi.fn(),
-    prismaMock: { storageNode: { findFirst: vi.fn() }, fileEntry: { findMany: vi.fn() } },
+    prismaMock: { storageNode: { findFirst: vi.fn() }, fileEntry: { findFirst: vi.fn() } },
   }));
 
 vi.mock("@/lib/auth/require-api-permission", () => ({
@@ -55,7 +55,7 @@ describe("GET /api/files/archive-list", () => {
       session: { userId: "u_1", username: "admin", roles: ["admin"] },
     });
     assertStorageAccessMock.mockResolvedValue({ allowed: true });
-    prismaMock.fileEntry.findMany.mockResolvedValue([]);
+    prismaMock.fileEntry.findFirst.mockResolvedValue(null);
   });
 
   afterEach(async () => {
@@ -96,7 +96,7 @@ describe("GET /api/files/archive-list", () => {
     // Deleting only marks the index; the bytes stay on disk and used to be listed like any other archive.
     await createTarGz();
     prismaMock.storageNode.findFirst.mockResolvedValue({ id: "node_1", name: "local", driver: "LOCAL", basePath: tempDir });
-    prismaMock.fileEntry.findMany.mockResolvedValue([{ relativePath: "backup.tar.gz" }]);
+    prismaMock.fileEntry.findFirst.mockResolvedValueOnce({ id: "deleted-archive" });
 
     const response = await GET(
       new NextRequest(`https://app.example.test/api/files/archive-list?nodeId=node_1&driver=LOCAL&relativePath=backup.tar.gz&name=backup.tar.gz`),

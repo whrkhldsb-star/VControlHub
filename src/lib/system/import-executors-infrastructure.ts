@@ -8,6 +8,7 @@
 import { Prisma } from "@prisma/client";
 
 import type { ExportFile, ImportOptions } from "@/lib/system/config-schema";
+import { canBindStorageServer, loadStorageServers } from "./import-storage-servers";
 import { idsPresent, parseBigInt, parseDate, upsertById, upsertByIdWithSecondaryUnique, type Tx, type Counts } from "./import-executors-helpers";
 
 // 6. SshKeys (fingerprint is a secondary unique key)
@@ -217,22 +218,14 @@ export async function importStorageNodes(
   if (records.length === 0) return;
 
   type NodeRow = ExportFile["tables"]["storageNodes"][number];
-  const serverIds = [...new Set(records.flatMap(r => r.serverId ? [r.serverId] : []))];
-  const servers = new Map<string, { teamId: string | null; managementMode: string }>();
-  for (let i = 0; i < serverIds.length; i += 1000) {
-    const rows = await tx.server.findMany({
-      where: { id: { in: serverIds.slice(i, i + 1000) } },
-      select: { id: true, teamId: true, managementMode: true },
-    });
-    for (const server of rows) servers.set(server.id, server);
-  }
+  const servers = await loadStorageServers(tx, records);
 
   // An unavailable reference can preserve a local binding only within the imported node's team.
   const existingServerTeams = new Map<string, string | null>();
   function directServerLink(r: NodeRow) {
     if (r.driver === "AGENT" || !r.serverId) return { serverId: null };
     const teamId = r.teamId ?? null;
-    if (servers.get(r.serverId)?.teamId === teamId) return { serverId: r.serverId };
+    if (canBindStorageServer(r, servers.get(r.serverId))) return { serverId: r.serverId };
     return existingServerTeams.get(r.id) === teamId ? {} : { serverId: null };
   }
 
@@ -240,8 +233,8 @@ export async function importStorageNodes(
   async function restoreFileShare(r: NodeRow) {
     if (!r.serverId) return;
     const server = servers.get(r.serverId);
-    if (server?.managementMode === "AGENT" && server.teamId === (r.teamId ?? null)) {
-      await tx.agentFileShare.create({ data: { storageNodeId: r.id, serverId: r.serverId, teamId: server.teamId } });
+    if (canBindStorageServer(r, server)) {
+      await tx.agentFileShare.create({ data: { storageNodeId: r.id, serverId: r.serverId, teamId: r.teamId ?? null } });
     }
   }
   const toData = (r: NodeRow) => ({

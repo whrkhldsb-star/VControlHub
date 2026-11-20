@@ -11,7 +11,7 @@ import { previewImport } from "../import-preview";
 
 /**
  * A customer's package leaves out what belongs to other customers. A server
- * that was transferred to this customer still logs in with the SSH key of the
+ * that was transferred to this customer can still reference the SSH key of the
  * customer it came from, and a storage node may sit on a server of another
  * customer: the package names both, and carries neither.
  */
@@ -84,17 +84,23 @@ describe.skipIf(process.env.RUN_DATABASE_INTEGRATION_TESTS !== "1")("config impo
 		expect(await prisma.storageNode.findUniqueOrThrow({ where: { id: `${p}-node-own` } })).toMatchObject({ serverId: `${p}-own` });
 	});
 
-	it("keeps a reference that resolves on this instance, and the one already set when overwriting", async () => {
-		// The other customer's key and server exist here now.
+	it("restores a local key and clears a foreign storage server binding on overwrite", async () => {
+		// Seed the target even when this test runs on its own.
+		expect((await executeImport(file, options)).errors).toEqual([]);
 		await prisma.team.create({ data: { id: `${p}-team-a`, slug: `${p}-a`, name: "A" } });
-		await prisma.sshKey.create({ data: { id: `${p}-key-a`, name: "a-deploy", fingerprint: `SHA256:${p}-a`, publicKey: "ssh-ed25519 AAAA", teamId: `${p}-team-a` } });
+		await prisma.sshKey.create({ data: { id: `${p}-key-a`, name: "a-deploy", fingerprint: `SHA256:${p}-a`, publicKey: "ssh-ed25519 AAAA", teamId: `${p}-team-b` } });
 		await prisma.server.create({ data: { id: `${p}-host-a`, name: `${p}-host-a`, host: `${p}-a.test`, username: "root", teamId: `${p}-team-a`, connectionType: "PASSWORD" } });
-		const result = await executeImport(file, { ...options, overwriteExisting: true });
+		await prisma.storageNode.update({ where: { id: `${p}-node-foreign` }, data: { serverId: `${p}-host-a` } });
+
+		const overwrite = { ...options, overwriteExisting: true };
+		const preview = await previewImport(file, { ...overwrite, dryRun: true });
+		expect(preview.warnings).not.toContain("systemConfig.import.preview.warning.serverKeysMissing");
+		expect(preview.warnings).toContain("systemConfig.import.preview.warning.storageServersMissing");
+
+		const result = await executeImport(file, overwrite);
 		expect(result.errors).toEqual([]);
 		expect(await prisma.server.findUniqueOrThrow({ where: { id: `${p}-moved` } })).toMatchObject({ sshKeyId: `${p}-key-a` });
-		expect(await prisma.storageNode.findUniqueOrThrow({ where: { id: `${p}-node-foreign` } })).toMatchObject({ serverId: `${p}-host-a` });
-		const preview = await previewImport(file, { ...options, dryRun: true });
-		expect(preview.warnings).not.toContain("systemConfig.import.preview.warning.serverKeysMissing");
-		expect(preview.warnings).not.toContain("systemConfig.import.preview.warning.storageServersMissing");
+		expect(await prisma.storageNode.findUniqueOrThrow({ where: { id: `${p}-node-foreign` } })).toMatchObject({ serverId: null });
+		expect(await prisma.storageNode.findUniqueOrThrow({ where: { id: `${p}-node-own` } })).toMatchObject({ serverId: `${p}-own` });
 	});
 });

@@ -1159,6 +1159,7 @@ describe("/api/downloads", () => {
     prismaMock.downloadTask.findFirst.mockResolvedValueOnce({
       id: "task_relay",
       createdBy: "u_1",
+      server: serverFixture(),
       targetPath: "/srv/cloud/downloads/file.iso",
       status: "RUNNING",
       aria2Gid: "gid_1",
@@ -1174,16 +1175,15 @@ describe("/api/downloads", () => {
     expect(response.status).toBe(502);
     await expect(response.json()).resolves.toMatchObject({ error: "暂停下载失败，远端任务状态未改变" });
     expect(pauseDownloadMock).toHaveBeenCalledWith("gid_1");
-    expect(prismaMock.downloadTask.update).not.toHaveBeenCalledWith(expect.objectContaining({
-      where: { id: "task_relay" },
-      data: expect.objectContaining({ status: "PENDING" }),
-    }));
+    expect(prismaMock.downloadTask.update).not.toHaveBeenCalled();
+    expect(prismaMock.downloadTask.updateMany).not.toHaveBeenCalled();
   });
 
   it("does not mark an aria2 task resumed when the real resume operation fails", async () => {
     prismaMock.downloadTask.findFirst.mockResolvedValueOnce({
       id: "task_relay",
       createdBy: "u_1",
+      server: serverFixture(),
       targetPath: "/srv/cloud/downloads/file.iso",
       status: "PENDING",
       aria2Gid: "gid_1",
@@ -1199,10 +1199,8 @@ describe("/api/downloads", () => {
     expect(response.status).toBe(502);
     await expect(response.json()).resolves.toMatchObject({ error: "恢复下载失败，远端任务状态未改变" });
     expect(unpauseDownloadMock).toHaveBeenCalledWith("gid_1");
-    expect(prismaMock.downloadTask.update).not.toHaveBeenCalledWith(expect.objectContaining({
-      where: { id: "task_relay" },
-      data: expect.objectContaining({ status: "RUNNING" }),
-    }));
+    expect(prismaMock.downloadTask.update).not.toHaveBeenCalled();
+    expect(prismaMock.downloadTask.updateMany).not.toHaveBeenCalled();
   });
 
   it("does not mark a direct task cancelled when remote process termination fails", async () => {
