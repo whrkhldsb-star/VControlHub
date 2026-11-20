@@ -309,7 +309,7 @@ export async function importStorageNodes(
       const sameEndpoint = current.teamId === (r.teamId ?? null) && current.driver === r.driver &&
         current.basePath === r.basePath && current.host === r.host && current.port === r.port &&
         current.username === r.username && current.serverId === (r.serverId ?? null);
-      await tx.storageNode.update({ where: { id: r.id, updatedAt: current.updatedAt }, data: {
+      await tx.storageNode.update({ where: { id: r.id, teamId: r.teamId ?? null, updatedAt: current.updatedAt }, data: {
         ...toData(r), ...(!sameEndpoint && !r.webdavConfigEncrypted ? { webdavConfigEncrypted: null } : {}),
       } });
       if (!sameEndpoint || r.driver === "AGENT" || r.webdavConfigEncrypted) await tx.shareLink.updateMany({ where: { storageNodeId: r.id, revokedAt: null }, data: { revokedAt: new Date() } });
