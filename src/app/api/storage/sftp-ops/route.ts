@@ -14,6 +14,7 @@ import {
   statBackingObject,
   writeBackingObject,
 } from "@/lib/storage/fs-backend";
+import { assertNotRecycled } from "@/lib/storage/archive-access";
 import { getSftpNodeConnection } from "@/lib/storage/sftp-node";
 import { resolveStorageRemotePath } from "@/lib/storage/remote-containment";
 import path from "node:path";
@@ -409,6 +410,7 @@ async function handlePost(body: SftpOpsBody, session: SessionPayload) {
       }
 
       case "read": {
+        await assertNotRecycled(node.id, normalizedRelativePath);
         const indexedEntry = await prisma.fileEntry.findFirst({
           where: {
             storageNodeId: node.id,
