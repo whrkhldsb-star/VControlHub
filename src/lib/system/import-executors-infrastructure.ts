@@ -5,6 +5,7 @@
  * 从 import-executors.ts 按域拆分而来。
  */
 
+import { resetAgentForModeChange } from "@/lib/server/agent-service";
 import { Prisma } from "@prisma/client";
 
 import type { ExportFile, ImportOptions } from "@/lib/system/config-schema";
@@ -174,7 +175,16 @@ export async function importServers(
     updateById: async (r) => {
       // Ownership changes must go through transferServerToCustomer, which
       // moves or refuses every dependent storage binding in its transaction.
-      await tx.server.update({ where: { id: r.id, teamId: r.teamId ?? null }, data: toUpdateData(r) });
+      const current = await tx.server.findUniqueOrThrow({ where: { id: r.id } });
+      const changed = current.host !== r.host || current.port !== r.port ||
+        (r.managementMode !== undefined && r.managementMode !== current.managementMode) ||
+        (r.operatingSystem !== undefined && r.operatingSystem !== current.operatingSystem);
+      await tx.server.update({
+        where: { id: r.id, teamId: r.teamId ?? null, updatedAt: current.updatedAt },
+        data: { ...toUpdateData(r), ...(changed ? {
+          ...resetAgentForModeChange(), onboardingStatus: "NEEDS_ATTENTION", onboardingLastError: null,
+        } : {}) },
+      });
     },
   });
 }
