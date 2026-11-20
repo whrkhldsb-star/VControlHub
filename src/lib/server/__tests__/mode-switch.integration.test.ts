@@ -53,7 +53,10 @@ describe.skipIf(process.env.RUN_DATABASE_INTEGRATION_TESTS !== "1")("management 
     expect(await updateServerAgentHeartbeat({ serverId: id, agentTokenHash: identity.agentTokenHash, version: "old" })).toBe(false);
     const next = await prisma.serverAgentJob.create({ data: { serverId: id, command: "fixture" } });
     expect(await claimNextServerAgentJob(id, identity.agentTokenHash)).toBeNull();
-    expect((await claimNextServerAgentJob(id, (await authenticateServerAgent(fresh))!.agentTokenHash))?.id).toBe(next.id);
+    const freshHash = (await authenticateServerAgent(fresh))!.agentTokenHash;
+    expect(await claimNextServerAgentJob(id, freshHash)).toBeNull();
+    await prisma.server.update({ where: { id }, data: { enabled: true } });
+    expect((await claimNextServerAgentJob(id, freshHash))?.id).toBe(next.id);
   });
 
   it("retires the previous identity when the Agent address changes in the same mode", async () => {
