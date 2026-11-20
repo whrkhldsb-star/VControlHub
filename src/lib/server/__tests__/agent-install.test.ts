@@ -33,6 +33,8 @@ const linuxServer = {
   sshKeyId: null,
   sshKey: null,
   agentLastSeenAt: null,
+  teamId: "team1",
+  agentTokenHash: null,
   managementMode: "AGENT",
 };
 
@@ -58,6 +60,8 @@ describe("Linux Agent install over SSH", () => {
     // `enable --now` left an installed Agent running with its revoked token.
     expect(command).toContain("systemctl restart vcontrolhub-agent.service");
     expect(command).not.toContain("enable --now");
+    expect(mocks.execRemoteCommand.mock.invocationCallOrder[0]!).toBeLessThan(mocks.serverUpdate.mock.invocationCallOrder[0]!);
+    expect(mocks.serverUpdate.mock.calls[0]![0].data.agentTokenHash).toEqual(expect.any(String));
   });
 
   it("records why an install failed", async () => {
@@ -65,37 +69,34 @@ describe("Linux Agent install over SSH", () => {
     mocks.execRemoteCommand.mockResolvedValueOnce({ stdout: "", stderr: "sudo: a password is required", exitCode: 1 });
 
     await expect(installServerAgent("srv1")).rejects.toThrow("sudo: a password is required");
-    expect(mocks.serverUpdate).toHaveBeenLastCalledWith({
-      where: { id: "srv1", managementMode: "AGENT", agentTokenHash: mocks.serverUpdate.mock.calls[0]![0].data.agentTokenHash },
-      data: { agentTokenHash: null, agentLastError: "sudo: a password is required" },
+    expect(mocks.serverUpdate).toHaveBeenCalledTimes(1);
+    expect(mocks.serverUpdate).toHaveBeenCalledWith({
+      where: { id: "srv1", teamId: "team1", managementMode: "AGENT", agentTokenHash: null },
+      data: { agentLastError: "sudo: a password is required" },
     });
   });
 
-  it("gives a running Agent its token back when the reinstall fails", async () => {
-    // The token is rotated before the install script runs; a failed install used to leave the Agent that was still
-    // running with a revoked token, so the node went offline (401) until someone reinstalled by hand.
+  it("keeps the existing token and drive pairings when the reinstall fails", async () => {
     mocks.serverFindUnique.mockResolvedValueOnce({ ...linuxServer, agentTokenHash: "hash-of-the-running-agent" });
     mocks.execRemoteCommand.mockResolvedValueOnce({ stdout: "", stderr: "python3: not found", exitCode: 127 });
 
     await expect(installServerAgent("srv1")).rejects.toThrow("python3: not found");
-    const rotated = mocks.serverUpdate.mock.calls.find(([call]) => typeof call.data.agentTokenHash === "string" && call.data.agentTokenHash !== "hash-of-the-running-agent");
-    expect(rotated).toBeDefined();
-    expect(mocks.serverUpdate).toHaveBeenLastCalledWith({
-      where: { id: "srv1", managementMode: "AGENT", agentTokenHash: mocks.serverUpdate.mock.calls[0]![0].data.agentTokenHash },
-      data: { agentTokenHash: "hash-of-the-running-agent", agentLastError: "python3: not found" },
+    expect(mocks.serverUpdate).toHaveBeenCalledTimes(1);
+    expect(mocks.serverUpdate).toHaveBeenCalledWith({
+      where: { id: "srv1", teamId: "team1", managementMode: "AGENT", agentTokenHash: "hash-of-the-running-agent" },
+      data: { agentLastError: "python3: not found" },
     });
   });
 
-  it("gives a running Agent its token back when the server cannot be reached at all", async () => {
-    // A node is usually moved to Agent mode because SSH does not reach it: the install then throws instead of
-    // returning an exit status, and the token stayed replaced.
+  it("keeps the existing token and drive pairings when the server cannot be reached at all", async () => {
     mocks.serverFindUnique.mockResolvedValueOnce({ ...linuxServer, agentTokenHash: "hash-of-the-running-agent" });
     mocks.execRemoteCommand.mockRejectedValueOnce(new Error("connect ETIMEDOUT 203.0.113.5:22"));
 
     await expect(installServerAgent("srv1")).rejects.toThrow("connect ETIMEDOUT");
-    expect(mocks.serverUpdate).toHaveBeenLastCalledWith({
-      where: { id: "srv1", managementMode: "AGENT", agentTokenHash: mocks.serverUpdate.mock.calls[0]![0].data.agentTokenHash },
-      data: { agentTokenHash: "hash-of-the-running-agent", agentLastError: "connect ETIMEDOUT 203.0.113.5:22" },
+    expect(mocks.serverUpdate).toHaveBeenCalledTimes(1);
+    expect(mocks.serverUpdate).toHaveBeenCalledWith({
+      where: { id: "srv1", teamId: "team1", managementMode: "AGENT", agentTokenHash: "hash-of-the-running-agent" },
+      data: { agentLastError: "connect ETIMEDOUT 203.0.113.5:22" },
     });
   });
 
