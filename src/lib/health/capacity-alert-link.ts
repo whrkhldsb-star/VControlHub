@@ -11,6 +11,7 @@
  * Rules with insufficient_data or non-increasing slope never fire (and
  * resolve any open incident for that fingerprint).
  */
+import { parseAlertMatchState, persistMatchState } from "./alert-match-state";
 import { prisma } from "@/lib/db";
 import {
   openOrRefreshAlertIncident,
@@ -113,6 +114,9 @@ export type CapacityAlertRuleSlice = {
   threshold: number;
   operator: string;
   enabled: boolean;
+  durationSeconds: number;
+  matchState: unknown;
+  updatedAt: Date;
   lastMatchedAt: Date | null;
   lastTriggeredAt: Date | null;
   cooldownMinutes: number;
@@ -197,12 +201,28 @@ export async function evaluateCapacityLinkedAlerts(
       targets = targets.filter((s) => allowed.has(s.serverId));
     }
 
-    let ruleFiredThisPass = false;
+    const matchState = parseAlertMatchState(rule.matchState);
+    const now = new Date(options?.nowMs ?? Date.now());
+    let stateChanged = false;
+    if (forecast.servers.length > 0) {
+      const targetIds = new Set(targets.map((server) => server.serverId));
+      for (const id of Object.keys(matchState)) {
+        if (!targetIds.has(id)) {
+          delete matchState[id];
+          stateChanged = true;
+        }
+      }
+    }
     let latestFireAt: Date | null = null;
 
     for (const server of targets) {
       const { value, reason } = daysValueFromServerForecast(server, key);
 
+      const matches = value !== null && compare(rule.operator, value, rule.threshold);
+      if (!matches && matchState[server.serverId]) {
+        delete matchState[server.serverId];
+        stateChanged = true;
+      }
       if (value === null && (reason === "insufficient_data" || reason === "metric_missing")) {
         // Unknown is not recovered: missing history (a sampling gap, a
         // restart) must not clear an open capacity incident.
@@ -226,8 +246,7 @@ export async function evaluateCapacityLinkedAlerts(
         continue;
       }
 
-      const triggered = compare(rule.operator, value, rule.threshold);
-      if (!triggered) {
+      if (!matches) {
         const cleared = await resolveAlertIncident({
           ruleId: rule.id,
           ruleName: rule.name,
@@ -242,6 +261,16 @@ export async function evaluateCapacityLinkedAlerts(
         });
         if (cleared.resolved) resolved += 1;
         continue;
+      }
+
+      if (rule.durationSeconds > 0) {
+        const started = matchState[server.serverId];
+        if (!started) {
+          matchState[server.serverId] = now.toISOString();
+          stateChanged = true;
+          continue;
+        }
+        if (now.getTime() - Date.parse(started) < rule.durationSeconds * 1000) continue;
       }
 
       const title = t("backend.alert.capacity.riskTitle", { server: server.serverName, key });
@@ -275,8 +304,7 @@ export async function evaluateCapacityLinkedAlerts(
       }
 
       fired += 1;
-      ruleFiredThisPass = true;
-      const now = new Date();
+      matchState[server.serverId] ??= now.toISOString();
       latestFireAt = now;
       for (const playbookId of rule.playbookIds ?? []) {
         try {
@@ -306,11 +334,8 @@ export async function evaluateCapacityLinkedAlerts(
       }
     }
 
-    if (ruleFiredThisPass && latestFireAt) {
-      await prisma.alertRule.update({
-        where: { id: rule.id },
-        data: { lastTriggeredAt: latestFireAt, lastMatchedAt: latestFireAt },
-      });
+    if (stateChanged || latestFireAt) {
+      await persistMatchState(rule, matchState, latestFireAt ? { lastTriggeredAt: latestFireAt } : {});
     }
   }
 

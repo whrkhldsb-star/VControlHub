@@ -16,6 +16,22 @@ const BASE_URL = (__ENV.BASE_URL || "http://127.0.0.1:3000").replace(/\/$/, "");
 const SESSION_COOKIE = __ENV.SESSION_COOKIE || "";
 const CSRF_TOKEN = __ENV.CSRF_TOKEN || "";
 
+const protectedStatuses = SESSION_COOKIE ? http.expectedStatuses(200) : http.expectedStatuses(401, 403);
+
+function protectedGet(path) {
+  const response = http.get(BASE_URL + path, {
+    headers: headers(),
+    responseCallback: protectedStatuses,
+    tags: { name: "GET " + path },
+  });
+  const ok = check(response, {
+    [path + (SESSION_COOKIE ? " returns 200" : " requires authentication")]: (r) =>
+      SESSION_COOKIE ? r.status === 200 : r.status === 401 || r.status === 403,
+  });
+  protectedFailRate.add(!ok);
+  return response;
+}
+
 const authFailRate = new Rate("auth_surface_fail");
 const protectedFailRate = new Rate("protected_surface_fail");
 const loginLatency = new Trend("login_latency_ms", true);
@@ -35,7 +51,6 @@ export const options = {
     login_latency_ms: ["p(95)<1200"],
     health_latency_ms: ["p(95)<1500"],
     auth_surface_fail: ["rate<0.01"],
-    // Protected endpoints without a cookie are expected to 401/403; treat unexpected 5xx as fail.
     protected_surface_fail: ["rate<0.02"],
   },
 };
@@ -64,46 +79,14 @@ export default function k6BaselineScenario() {
   });
 
   group("health", () => {
-    const health = http.get(`${BASE_URL}/api/health`, {
-      headers: headers(),
-      tags: { name: "GET /api/health" },
-    });
+    const health = protectedGet("/api/health");
     healthLatency.add(health.timings.duration);
-    check(health, {
-      "health not 5xx": (r) => r.status < 500,
-    });
   });
 
   group("protected APIs without/with session", () => {
-    const servers = http.get(`${BASE_URL}/api/servers`, {
-      headers: headers(),
-      tags: { name: "GET /api/servers" },
-    });
-    const files = http.get(`${BASE_URL}/api/files`, {
-      headers: headers(),
-      tags: { name: "GET /api/files" },
-    });
-    const observability = http.get(`${BASE_URL}/api/monitoring/observability`, {
-      headers: headers(),
-      tags: { name: "GET /api/monitoring/observability" },
-    });
-
-    if (SESSION_COOKIE) {
-      const ok =
-        check(servers, { "servers with session <500": (r) => r.status < 500 }) &&
-        check(files, { "files with session <500": (r) => r.status < 500 }) &&
-        check(observability, { "observability with session <500": (r) => r.status < 500 });
-      protectedFailRate.add(!ok);
-    } else {
-      const ok =
-        check(servers, {
-          "servers unauth is 401/403": (r) => r.status === 401 || r.status === 403,
-        }) &&
-        check(observability, {
-          "observability unauth is 401/403": (r) => r.status === 401 || r.status === 403,
-        });
-      protectedFailRate.add(!ok);
-    }
+    protectedGet("/api/servers");
+    protectedGet("/api/files/list");
+    protectedGet("/api/monitoring/observability");
   });
 
   sleep(1);

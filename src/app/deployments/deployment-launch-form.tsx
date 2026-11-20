@@ -48,7 +48,7 @@ export function DeploymentLaunchForm({ templates, servers }: { templates: Deploy
 	const [templateId, setTemplateId] = useState(templates[0]?.id ?? "");
 	const [pending, setPending] = useState(false);
 	const [error, setError] = useState<string | null>(null);
-	const idempotencyKeyRef = useRef<string | null>(null);
+	const lastRequest = useRef<{ body: string; key: string } | null>(null);
 	const selectedTemplate = templates.find((template) => template.id === templateId) ?? templates[0];
 	const variables = useMemo(() => uniqueVariables(selectedTemplate), [selectedTemplate]);
 
@@ -74,7 +74,6 @@ export function DeploymentLaunchForm({ templates, servers }: { templates: Deploy
 		setError(null);
 		setPending(true);
 		try {
-			idempotencyKeyRef.current ??= randomId();
 			const form = e.currentTarget;
 			const fd = new FormData(form);
 			const vars: Record<string, string> = {};
@@ -89,17 +88,19 @@ export function DeploymentLaunchForm({ templates, servers }: { templates: Deploy
 				return;
 			}
 			const reason = String(fd.get("reason") ||"").trim();
-			await csrfFetch("/api/deployments", {
-				method:"POST",
-				headers: { "Idempotency-Key": idempotencyKeyRef.current },
-				body: JSON.stringify({
-					templateId: fd.get("templateId"),
-					serverIds,
-					variables: vars,
-					reason: reason || undefined,
-				}),
+			const body = JSON.stringify({
+				templateId: fd.get("templateId"),
+				serverIds,
+				variables: vars,
+				reason: reason || undefined,
 			});
-			idempotencyKeyRef.current = null;
+			if (lastRequest.current?.body !== body) lastRequest.current = { body, key: randomId() };
+			await csrfFetch("/api/deployments", {
+				method: "POST",
+				headers: { "Idempotency-Key": lastRequest.current.key },
+				body,
+			});
+			lastRequest.current = null;
 			addToast("success", t("deploymentsPage.launch.toast.success"));
 			form.reset();
 			setTemplateId(templates[0]?.id ?? "");

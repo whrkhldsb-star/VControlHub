@@ -249,7 +249,7 @@ async function handlePost(request: Request, session: SessionPayload, locale: Loc
       storageNodeId,
       relativePath: normalizedRelativePath,
     },
-    select: { id: true, entryType: true, isDeleted: true },
+    select: { id: true, entryType: true, isDeleted: true, name: true, size: true, mimeType: true, checksumSha256: true, deleteBatchId: true },
   });
   // A folder (or one in the recycle bin) of that name is in the way: writing would turn its row into a file's
   // and the move into place fail on the real folder.
@@ -344,14 +344,17 @@ async function handlePost(request: Request, session: SessionPayload, locale: Loc
     deleteBatchId: null,
   };
 
+  let indexedAt: Date | undefined;
   try {
     const existingEntry = existingEntryForVersion;
 
     if (existingEntry) {
-      await prisma.fileEntry.update({
+      const indexed = await prisma.fileEntry.update({
         where: { id: existingEntry.id },
         data: indexData,
+        select: { updatedAt: true },
       });
+      indexedAt = indexed.updatedAt;
     } else {
       try {
         await prisma.fileEntry.create({
@@ -428,6 +431,12 @@ async function handlePost(request: Request, session: SessionPayload, locale: Loc
       await rename(stagedLocalPath, absolutePath);
     } catch (error) {
       await unlink(stagedLocalPath).catch(() => undefined);
+      // The rename failed, so the old bytes are still at the target. Restore every field
+      // changed by indexData, provided no later writer has taken ownership of this row.
+      if (existingEntryForVersion && indexedAt) {
+        const { id, ...previous } = existingEntryForVersion;
+        await prisma.fileEntry.updateMany({ where: { id, updatedAt: indexedAt }, data: previous });
+      }
       throw error;
     }
   }

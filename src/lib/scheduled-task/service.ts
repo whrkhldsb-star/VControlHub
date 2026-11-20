@@ -4,7 +4,7 @@ import { prisma } from "@/lib/db";
 import type { CommandRequestStatus } from "@prisma/client";
 import { createCommandRequest } from "@/lib/command/service";
 import { commandRequestTitle } from "@/lib/command/schema";
-import { BusinessError, ForbiddenError, NotFoundError, ValidationError } from "@/lib/errors";
+import { BusinessError, ConflictError, ForbiddenError, NotFoundError, ValidationError } from "@/lib/errors";
 import { notifyTaskConsecutiveFailed } from "@/lib/notification/service";
 import { createLogger } from "@/lib/logging";
 import type { SessionPayload } from "@/lib/auth/session";
@@ -346,6 +346,7 @@ function statusTransitionData(task: {
 export async function toggleScheduledTask(
 	id: string,
 	session: SessionScope,
+	desiredStatus?: "ACTIVE" | "PAUSED",
 ) {
 	const current = await getScheduledTaskForSession(id, session);
 	if (!current) throw new NotFoundError(t("backend.scheduled-task.scheduledTaskNotFound"));
@@ -355,13 +356,19 @@ export async function toggleScheduledTask(
 	if (!current.approvalRequired && !sessionHasPermission(session, "command:execute")) {
 		throw new ForbiddenError(t("backend.scheduled-task.manageUnattendedRequiresExecutor"));
 	}
-	const newStatus = current.status === "ACTIVE" ? "PAUSED" : "ACTIVE";
+	if (desiredStatus && current.status === desiredStatus) return current;
+	if (desiredStatus && current.status !== "ACTIVE" && current.status !== "PAUSED") {
+		throw new BusinessError(t(desiredStatus === "PAUSED" ? "backend.ai.cron.cannotPauseStatus" : "backend.ai.cron.cannotResumeStatus", { status: current.status }));
+	}
+	const newStatus = desiredStatus ?? (current.status === "ACTIVE" ? "PAUSED" : "ACTIVE");
 	const updated = await prisma.scheduledTask.updateMany({
-		where: { id, ...teamWhere(session) },
+		where: { id, ...teamWhere(session), status: current.status, updatedAt: current.updatedAt, approvalRequired: current.approvalRequired },
 		data: statusTransitionData({ ...current, status: newStatus }),
 	});
 	if (updated.count === 0) {
-		throw new NotFoundError(t("backend.scheduled-task.scheduledTaskNotFound"));
+		const latest = await getScheduledTask(id, session);
+		if (latest.status === newStatus) return latest;
+		throw new ConflictError(t("backend.scheduled-task.taskChangedRetry"));
 	}
 	return getScheduledTask(id, session);
 }

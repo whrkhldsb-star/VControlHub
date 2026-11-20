@@ -1,3 +1,4 @@
+import { escapeLikeLiteral } from "@/lib/db/like-pattern";
 import { assertNotRecycled } from "@/lib/storage/archive-access";
 import { stat } from "node:fs/promises";
 import path from "node:path";
@@ -436,7 +437,12 @@ export async function restoreFileEntry(
 
   const actor: SessionPayload = { ...session, username: "", mustChangePassword: false };
   const children = current.entryType === "DIRECTORY" && current.deleteBatchId ? await prisma.fileEntry.findMany({
-    where: { storageNodeId: current.storageNodeId, deleteBatchId: current.deleteBatchId, isDeleted: true, id: { not: current.id } },
+    where: {
+      storageNodeId: current.storageNodeId,
+      deleteBatchId: current.deleteBatchId,
+      isDeleted: true,
+      relativePath: { startsWith: escapeLikeLiteral(`${current.relativePath}/`) },
+    },
     select: { id: true, relativePath: true, entryType: true, size: true },
   }) : [];
   if (children.length > 0) {

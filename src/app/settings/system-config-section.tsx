@@ -19,6 +19,7 @@ import { Notice } from "@/components/ui-primitives";
 
 export function SystemConfigSection({
   isPlatformAdmin = false,
+  onSettingsImported,
 }: {
   /**
    * Built-in `admin` role. Config import and the cross-team / secret-bearing
@@ -26,6 +27,7 @@ export function SystemConfigSection({
    * grant is enough to open this tab), so those controls are not offered.
    */
   isPlatformAdmin?: boolean;
+  onSettingsImported?: () => void;
 }) {
   const { t } = useI18n();
   const fileInputRef = useRef<HTMLInputElement>(null);
@@ -205,6 +207,7 @@ export function SystemConfigSection({
       });
       if (data.result) {
         setResult(data.result);
+        if (importSettings) onSettingsImported?.();
       } else {
         setImportError(data.error || t("systemConfig.import.result.error"));
       }

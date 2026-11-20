@@ -282,7 +282,7 @@ export async function executeServerlessQuery(
               }),
             };
           }
-          const updated = await toggleScheduledTask(taskId, scope);
+          const updated = await toggleScheduledTask(taskId, scope, "PAUSED");
           return { success: true, data: { id: updated.id, status: updated.status } };
         }
         // resume
@@ -298,7 +298,7 @@ export async function executeServerlessQuery(
             }),
           };
         }
-        const updated = await toggleScheduledTask(taskId, scope);
+        const updated = await toggleScheduledTask(taskId, scope, "ACTIVE");
         return { success: true, data: { id: updated.id, status: updated.status } };
       } catch (err) {
         return {

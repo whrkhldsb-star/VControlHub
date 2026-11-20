@@ -364,7 +364,7 @@ describe("scheduled task service", () => {
 
     expect(mockTeamWhere).toHaveBeenCalledWith(teamSession);
     expect(mockPrisma.scheduledTask.updateMany).toHaveBeenCalledWith({
-      where: { id: "task1", teamId: "team_a" },
+      where: expect.objectContaining({ id: "task1", teamId: "team_a", status: "ACTIVE" }),
       data: { status: "PAUSED", claimedOccurrenceAt: null, nextRunAt: null },
     });
   });

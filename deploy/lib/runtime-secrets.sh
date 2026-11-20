@@ -12,6 +12,9 @@ ensure_runtime_secrets() {
 		local secret
 		secret="$(openssl rand -hex 24)"
 		[ "${#secret}" -ge 32 ] || { echo "FAIL: could not generate STORAGE_DIRECT_ACCESS_SECRET" >&2; return 1; }
+		if [ -s "$env_file" ] && [ -n "$(tail -c 1 "$env_file")" ]; then
+			printf '\n' >> "$env_file"
+		fi
 		printf 'STORAGE_DIRECT_ACCESS_SECRET="%s"\n' "$secret" >> "$env_file"
 		echo "==> generated the missing STORAGE_DIRECT_ACCESS_SECRET in $env_file"
 	fi

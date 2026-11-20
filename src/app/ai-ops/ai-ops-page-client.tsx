@@ -191,14 +191,14 @@ export function AiOpsPageClient({
 					? t("aiOpsPage.actions.scanQueued")
 					: t("aiOpsPage.actions.scanning"),
 			);
-			await reload();
+			await reloadNow.current();
 			if (body.triggered) watchForScanResult(body.latestLog?.id ?? null);
 		} catch (error) {
 			addToast("error", describeFailure(t("aiOpsPage.actions.triggerFailed"), error));
 		} finally {
 			setScanning(false);
 		}
-	}, [canManage, addToast, t, reload, watchForScanResult]);
+	}, [canManage, addToast, t, watchForScanResult]);
 
 	const saveSettings = useCallback(async () => {
 		if (!canManage) return;
@@ -247,14 +247,14 @@ export function AiOpsPageClient({
 						: (body.result.errorMessage ??
 							t("aiOpsPage.execute.requiresApproval")),
 				);
-				await reload();
+				await reloadNow.current();
 			} catch (error) {
 				addToast("error", describeFailure(t("aiOpsPage.actions.executeFailed"), error));
 			} finally {
 				setExecuting(null);
 			}
 		},
-		[canManage, canAutonomous, addToast, t, reload],
+		[canManage, canAutonomous, addToast, t],
 	);
 
 	const approveAction = useCallback(
@@ -276,14 +276,14 @@ export function AiOpsPageClient({
 						? t("aiOpsPage.actions.approvedReady")
 						: (body.result.errorMessage ?? t("aiOpsPage.actions.approvalFailed")),
 				);
-				await reload();
+				await reloadNow.current();
 			} catch (error) {
 				addToast("error", describeFailure(t("aiOpsPage.actions.approvalFailed"), error));
 			} finally {
 				setExecuting(null);
 			}
 		},
-		[canManage, addToast, reload, t],
+		[canManage, addToast, t],
 	);
 
 	const selectedLog = useMemo(

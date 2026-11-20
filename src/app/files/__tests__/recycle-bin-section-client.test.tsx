@@ -86,7 +86,9 @@ describe("RecycleBinSectionClient", () => {
 		mocks.restore.mockResolvedValue({ success: "ok" });
 		const folder: DeletedEntryProp = { id: "dir", name: "reports", entryType: "DIRECTORY", relativePath: "reports", size: null, storageNodeId: "node-1", deleteBatchId: "batch-1" };
 		const child: DeletedEntryProp = { id: "child", name: "q3.txt", entryType: "FILE", relativePath: "reports/q3.txt", size: 3, storageNodeId: "node-1", deleteBatchId: "batch-1" };
-		render(<RecycleBinSectionClient canDelete deletedEntries={[child, folder]} />);
+		const subfolder = { ...folder, id: "subdir", relativePath: "reports/2026" };
+		const grandchild = { ...child, relativePath: "reports/2026/q3.txt" };
+		render(<RecycleBinSectionClient canDelete deletedEntries={[subfolder, grandchild, folder]} />);
 		fireEvent.click(screen.getByRole("checkbox", { name: "全选回收站项目" }));
 		await act(async () => {
 			fireEvent.click(within(screen.getByRole("region", { name: "回收站批量操作" })).getByRole("button", { name: "恢复所选" }));

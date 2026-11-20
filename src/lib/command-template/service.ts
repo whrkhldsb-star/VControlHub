@@ -193,27 +193,32 @@ export async function updateTemplate(id: string, input: UpdateTemplateInput, act
 }
 
 export async function deleteTemplate(id: string, actor: TemplateActor | undefined, session: TeamSession) {
-	const select = { id: true, name: true, isBuiltin: true, tags: true, variables: true, createdById: true } as const;
-	const existingRow = await prisma.commandTemplate.findFirst({ where: { id, ...commandTemplateScopeWhere(session) }, select });
-	if (!existingRow) {
-		throw new NotFoundError(t("backend.command-template.commandTemplateNotFound"));
-	}
-	if (existingRow.isBuiltin) {
-		throw new BusinessError(t("backend.command-template.builtInCommandTemplatesCannotBeDeleted"));
-	}
-	assertCanMutateTemplate(existingRow, actor);
-	// Deployment runs cascade with their template: deleting it erased their
-	// history, and with it the snapshot a rollback starts from (even for a
-	// deployment still awaiting approval, whose command then ran unrecorded).
-	const deployments = await prisma.deploymentRun.count({ where: { templateId: id } });
-	if (deployments > 0) {
-		throw new BusinessError(t("backend.command-template.templateHasDeployments", { count: deployments }));
-	}
-	const deleted = await prisma.commandTemplate.deleteMany({
-		where: { id, ...commandTemplateScopeWhere(session) },
-	});
-	if (deleted.count === 0) {
-		throw new NotFoundError(t("backend.command-template.commandTemplateNotFound"));
-	}
-	return existingRow;
+	return prisma.$transaction(async (tx) => {
+		// A deployment insert takes a foreign-key KEY SHARE lock on this template. Hold the conflicting
+		// row lock through the reference count and deletion, so a new run cannot be cascaded away.
+		await tx.$queryRaw`SELECT id FROM command_templates WHERE id = ${id} FOR UPDATE`;
+		const select = { id: true, name: true, isBuiltin: true, tags: true, variables: true, createdById: true } as const;
+		const existingRow = await tx.commandTemplate.findFirst({ where: { id, ...commandTemplateScopeWhere(session) }, select });
+		if (!existingRow) {
+			throw new NotFoundError(t("backend.command-template.commandTemplateNotFound"));
+		}
+		if (existingRow.isBuiltin) {
+			throw new BusinessError(t("backend.command-template.builtInCommandTemplatesCannotBeDeleted"));
+		}
+		assertCanMutateTemplate(existingRow, actor);
+		// Deployment runs cascade with their template: deleting it erased their
+		// history, and with it the snapshot a rollback starts from (even for a
+		// deployment still awaiting approval, whose command then ran unrecorded).
+		const deployments = await tx.deploymentRun.count({ where: { templateId: id } });
+		if (deployments > 0) {
+			throw new BusinessError(t("backend.command-template.templateHasDeployments", { count: deployments }));
+		}
+		const deleted = await tx.commandTemplate.deleteMany({
+			where: { id, ...commandTemplateScopeWhere(session) },
+		});
+		if (deleted.count === 0) {
+			throw new NotFoundError(t("backend.command-template.commandTemplateNotFound"));
+		}
+		return existingRow;
+	}, { isolationLevel: "ReadCommitted" });
 }

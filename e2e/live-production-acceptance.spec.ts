@@ -1054,7 +1054,11 @@ test.describe("live production acceptance", () => {
       "Live server credentials are required for the quick-service acceptance flow.",
     );
     test.setTimeout(600_000);
-    await execLiveSsh("docker rm -f qs-dufs >/dev/null 2>&1 || true");
+    const existing = await execLiveSsh("docker ps -a --format '{{.Names}}'");
+    expect(existing.exitCode, "Docker inventory must be readable").toBe(0);
+    const names = existing.stdout.trim().split(/\s+/);
+    test.skip(names.includes("qs-dufs") || names.includes("qs-dufs__prev"), "Dufs or its rollback container already exists on this target.");
+    let ownedContainerId: string | undefined;
     await login(page);
 
     const containerState = async () => {
@@ -1075,11 +1079,28 @@ test.describe("live production acceptance", () => {
       expect(remoteValue).toBeTruthy();
       await targetSelect.selectOption(remoteValue!);
       await expect(page.getByText(liveName, { exact: true })).toBeVisible();
+      return remoteValue!;
+    };
+    const recordedContainer = async (serverId: string) => {
+      const response = await page.request.get("/api/quick-services", { params: { serverId } });
+      expect(response.ok()).toBe(true);
+      const data = await response.json() as { installed: Array<{ slug: string; containerId: string | null }> };
+      return data.installed.find((service) => service.slug === "dufs");
+    };
+    const currentContainerId = async () => (await execLiveSsh("docker inspect --format='{{.Id}}' qs-dufs")).stdout.trim();
+    const rememberInstalledContainer = async (serverId: string, previous?: string) => {
+      await expect.poll(async () => {
+        const id = (await recordedContainer(serverId))?.containerId;
+        if (!id || !/^[a-f0-9]{64}$/.test(id) || id === previous || await currentContainerId() !== id) return false;
+        ownedContainerId = id;
+        return true;
+      }, { timeout: 300_000 }).toBe(true);
     };
 
     try {
       await page.goto("/quick-services");
-      await selectRemoteTarget();
+      const serverId = await selectRemoteTarget();
+      expect(await recordedContainer(serverId), "Dufs already registered on this target").toBeUndefined();
       const search = page.locator("#quick-service-search");
       await search.fill("Dufs");
       const card = page.locator("[data-card]", {
@@ -1111,7 +1132,10 @@ test.describe("live production acceptance", () => {
       await configDialog
         .getByRole("button", { name: /^(确认安装|Install)$/i })
         .click();
-      expect((await installResponse).status()).toBeLessThan(300);
+      const installReply = await installResponse;
+      expect(installReply.status()).toBe(202);
+      expect((await installReply.json()).reused).toBe(false);
+      await rememberInstalledContainer(serverId);
       await expect
         .poll(containerState, {
           timeout: 300_000,
@@ -1154,9 +1178,8 @@ test.describe("live production acceptance", () => {
         .poll(containerState, { timeout: 90_000, intervals: [2_000, 4_000] })
         .toBe("running");
 
-      const containerIdBeforeUpdate = (
-        await execLiveSsh("docker inspect --format='{{.Id}}' qs-dufs")
-      ).stdout.trim();
+      const containerIdBeforeUpdate = await currentContainerId();
+      expect(containerIdBeforeUpdate).toBe(ownedContainerId);
       await installedCard
         .getByRole("button", { name: /更新|Update/i })
         .click();
@@ -1172,7 +1195,10 @@ test.describe("live production acceptance", () => {
       await updateDialog
         .getByRole("button", { name: /^(确认更新|Update)$/i })
         .click();
-      expect((await updateResponse).status()).toBeLessThan(300);
+      const updateReply = await updateResponse;
+      expect(updateReply.status()).toBe(202);
+      expect((await updateReply.json()).reused).toBe(false);
+      await rememberInstalledContainer(serverId, containerIdBeforeUpdate);
       await expect
         .poll(async () => {
           const result = await execLiveSsh(
@@ -1210,6 +1236,7 @@ test.describe("live production acceptance", () => {
         timeout: 30_000,
       });
 
+      expect(await currentContainerId()).toBe(ownedContainerId);
       await installedCard
         .getByRole("button", { name: /卸载|Uninstall/i })
         .click();
@@ -1233,7 +1260,7 @@ test.describe("live production acceptance", () => {
         })
         .toBe("absent");
     } finally {
-      await execLiveSsh("docker rm -f qs-dufs >/dev/null 2>&1 || true");
+      if (ownedContainerId) await execLiveSsh("docker rm -f " + ownedContainerId);
     }
   });
 

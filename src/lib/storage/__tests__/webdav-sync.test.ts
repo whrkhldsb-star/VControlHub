@@ -12,7 +12,7 @@ import { syncWebDavDirectoryEntries } from "../webdav-sync";
 
 const node = { id: "node-1", driver: "WEBDAV", basePath: "secret-root", webdavConfigEncrypted: "secret-config" };
 const remote = (relativePath: string) => ({ relativePath, name: relativePath.split("/").at(-1)!, isDirectory: false, size: 3, lastModifiedMs: 0 });
-const row = (id: string, relativePath: string, isDeleted = false) => ({ id, relativePath, isDeleted });
+const row = (id: string, relativePath: string, isDeleted = false) => ({ id, relativePath, isDeleted, updatedAt: new Date(0) });
 
 beforeEach(() => {
   vi.resetAllMocks();
@@ -64,6 +64,15 @@ describe("WebDAV inventory sync", () => {
     expect(retyped.data).not.toHaveProperty("checksumSha256");
   });
 
+  it("preserves uploads indexed during the remote read", async () => {
+    mocks.list.mockImplementationOnce(async () => {
+      mocks.queryRaw.mockResolvedValueOnce([{ ...row("upload", "new.txt"), updatedAt: new Date() }]);
+      return [];
+    });
+    expect((await syncWebDavDirectoryEntries({ node })).deleted).toBe(0);
+    expect(mocks.fileEntry.deleteMany).not.toHaveBeenCalled();
+  });
+
   it("reports retained missing indexes instead of silently claiming a clean inventory", async () => {
     mocks.queryRaw.mockResolvedValueOnce([row("protected", "private-secret.txt")]);
     mocks.fileEntry.deleteMany.mockResolvedValueOnce({ count: 0 });
@@ -89,7 +98,7 @@ describe("WebDAV inventory sync", () => {
     mocks.queryRaw.mockResolvedValueOnce([row("gone", "dir/gone.txt"), row("trash", "dir/trash.txt", true)]);
     const result = await syncWebDavDirectoryEntries({ node, relativePath: "dir" });
     expect(result.deleted).toBe(1);
-    expect(mocks.fileEntry.deleteMany).toHaveBeenCalledWith({ where: { storageNodeId: node.id, id: { in: ["gone"] }, isDeleted: false, versions: { none: {} }, children: { none: {} } } });
+    expect(mocks.fileEntry.deleteMany).toHaveBeenCalledWith({ where: { storageNodeId: node.id, id: { in: ["gone"] }, isDeleted: false, updatedAt: { lt: expect.any(Date) }, versions: { none: {} }, children: { none: {} } } });
     expect(mocks.fileEntry.updateMany).not.toHaveBeenCalled();
     mocks.list.mockResolvedValue([remote("dir/gone.txt")]);
     mocks.queryRaw.mockResolvedValueOnce([]);

@@ -167,6 +167,8 @@ describe("SETTINGS_SCHEMA risk classification (TR-014 schema audit)", () => {
       "runtime.commandExecutionTimeoutMs",
       "runtime.commandStaleRunningAfterMs",
       "runtime.sshIdleTimeoutSec",
+      "runtime.rdpIdleTimeoutSec",
+      "runtime.rdpMaxSessionSec",
       // TR-007 M03: 异地备份的 accessKeyId / secretAccessKey 改错会导致推送失败
       "offsite.accessKeyId",
       "offsite.secretAccessKey",

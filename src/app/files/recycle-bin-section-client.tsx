@@ -94,20 +94,22 @@ export function RecycleBinSectionClient({ deletedEntries, canDelete, onRefresh, 
     // covered is only handled on its own if the folder itself failed. A file
     // deleted before its folder, in another operation, stays in the recycle
     // bin when the folder is restored: it is not covered.
-    const coveringFolder = (entry: DeletedEntryProp) => targets.find((folder) =>
+    const covers = (folder: DeletedEntryProp, entry: DeletedEntryProp) =>
       folder.entryType === "DIRECTORY" && folder.id !== entry.id
       && (folder.storageNodeId ?? folder.storageNodeName) === (entry.storageNodeId ?? entry.storageNodeName)
       && entry.relativePath.startsWith(`${folder.relativePath}/`)
-      && (action === "delete" || (Boolean(folder.deleteBatchId) && folder.deleteBatchId === entry.deleteBatchId)));
-    const ordered = [...targets].sort((a, b) => Number(Boolean(coveringFolder(a))) - Number(Boolean(coveringFolder(b))));
+      && (action === "delete" || (Boolean(folder.deleteBatchId) && folder.deleteBatchId === entry.deleteBatchId));
+    const ordered = targets.map((entry) => ({
+      entry,
+      ancestors: targets.filter((folder) => covers(folder, entry)),
+    })).sort((a, b) => a.ancestors.length - b.ancestors.length);
     setBulk({ action, done: 0, total: targets.length });
     setErrors([]);
     const failures: string[] = [];
     const finished = new Set<string>();
     const covered = new Set<string>();
-    for (const [index, entry] of ordered.entries()) {
-      const folder = coveringFolder(entry);
-      if (folder && finished.has(folder.id)) {
+    for (const [index, { entry, ancestors }] of ordered.entries()) {
+      if (ancestors.some((folder) => finished.has(folder.id))) {
         covered.add(entry.id);
         setBulk({ action, done: index + 1, total: targets.length });
         continue;

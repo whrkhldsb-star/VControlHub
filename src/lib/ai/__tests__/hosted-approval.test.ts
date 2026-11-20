@@ -638,6 +638,7 @@ describe("AI hosted action approvals", () => {
 		expect(scheduledTaskServiceMock.toggleScheduledTask).toHaveBeenCalledWith(
 			"task_1",
 			expect.objectContaining({ userId: "operator_1", currentTeamId: "team_a" }),
+			"PAUSED",
 		);
 		expect(prismaMock.aiHostedAction.update).toHaveBeenCalledWith({
 			where: { id: "action_cron" },

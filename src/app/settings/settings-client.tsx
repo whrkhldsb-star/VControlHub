@@ -295,7 +295,7 @@ export function SettingsClient({
 
   const handleSave = useCallback(
     async (section: SectionDef) => {
-      const keys = getSectionSaveKeys(section);
+      const keys = getSectionSaveKeys(section).filter((key) => !key.startsWith("runtime.") || settings[key] !== undefined);
       if (keys.length === 0) return;
       const invalid: Record<string, string> = {};
       for (const key of keys) {

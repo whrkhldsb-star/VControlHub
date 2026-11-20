@@ -325,7 +325,7 @@ describe("executeServerlessQuery", () => {
 			mocks.toggleScheduledTask.mockResolvedValue({ id: "t1", status: "PAUSED" });
 			const res = await call("manage_cron", { action: "pause", taskId: "t1" });
 			expect(mocks.getScheduledTask).toHaveBeenCalledWith("t1", operator);
-			expect(mocks.toggleScheduledTask).toHaveBeenCalledWith("t1", operator);
+			expect(mocks.toggleScheduledTask).toHaveBeenCalledWith("t1", operator, "PAUSED");
 			expect(res).toMatchObject({ success: true, data: { status: "PAUSED" } });
 		});
 

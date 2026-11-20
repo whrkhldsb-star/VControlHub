@@ -20,6 +20,9 @@ describe("preview highlighting keeps the line's text", () => {
 	it.each([
 		["typescript", "// ordinary note"],
 		["python", "# ordinary note"],
+		["json", '  "name"  :  "<&> &amp;"'],
+		["css", ".card{"],
+		["typescript", "let x = '39 &amp;';"],
 		["typescript", "const value = 1; // class of its own"],
 		["python", "class Repo:  # the class"],
 	])("%s: %s", (lang, line) => {
@@ -29,6 +32,9 @@ describe("preview highlighting keeps the line's text", () => {
 	it("searches the text, not the tags", () => {
 		const html = highlightLine("const value = 1;", "typescript");
 		expect(visible(highlightSearchTerm(html, "class"))).toBe("const value = 1;");
+		const entity = highlightSearchTerm(highlightLine("<", "text"), "lt");
+		expect(entity).not.toContain("<mark");
+		expect(visible(entity)).toBe("<");
 		const hit = highlightSearchTerm(highlightLine("class Repo {}", "typescript"), "class");
 		expect(visible(hit)).toBe("class Repo {}");
 		expect(hit).toContain("<mark");

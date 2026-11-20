@@ -27,6 +27,7 @@ const {
       create: vi.fn(),
       findFirst: vi.fn(),
       update: vi.fn(),
+      updateMany: vi.fn(),
     },
   },
   mkdirMock: vi.fn(),
@@ -552,8 +553,10 @@ describe("/api/storage/local", () => {
     const node = { id: "node_1", name: "主控本机", driver: "LOCAL", basePath: "/tmp/storage" };
     prismaMock.storageNode.findUnique.mockResolvedValueOnce(node);
     prismaMock.storageNode.findFirst.mockResolvedValueOnce(node);
-    prismaMock.fileEntry.findFirst.mockResolvedValueOnce({ id: "file_existing", entryType: "FILE" });
-    prismaMock.fileEntry.update.mockResolvedValueOnce({ id: "file_existing" });
+    const previous = { name: "notes.txt", entryType: "FILE", size: BigInt(42), mimeType: "text/plain", checksumSha256: "prior", isDeleted: false, deleteBatchId: null };
+    const indexedAt = new Date();
+    prismaMock.fileEntry.findFirst.mockResolvedValueOnce({ id: "file_existing", ...previous });
+    prismaMock.fileEntry.update.mockResolvedValueOnce({ updatedAt: indexedAt });
     renameMock.mockRejectedValueOnce(Object.assign(new Error("EXDEV"), { code: "EXDEV" }));
     unlinkMock.mockResolvedValueOnce(undefined);
 
@@ -562,6 +565,7 @@ describe("/api/storage/local", () => {
     expect(response.status).toBe(500);
     const staged = writeFileMock.mock.calls[0]![0] as string;
     expect(unlinkMock).toHaveBeenCalledWith(staged);
+    expect(prismaMock.fileEntry.updateMany).toHaveBeenCalledWith({ where: { id: "file_existing", updatedAt: indexedAt }, data: previous });
   });
 
   it("names the staged file independently of the target, so a long name still fits", async () => {
