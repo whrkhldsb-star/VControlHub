@@ -1,6 +1,7 @@
 "use client";
 
 import { useState, useEffect, useCallback, useRef, type MouseEvent } from "react";
+import { ApiError } from "@/lib/http/api-client-error";
 import { csrfFetch } from "@/lib/auth/csrf-client";
 import { EmptyState, ListPanel, SurfacePanel, Toolbar } from "@/components/page-shell";
 import { Download, Plus } from "@/components/icons";
@@ -238,7 +239,19 @@ export function DownloadsClient({ servers, canManage, canManageNode }: { servers
 			addToast("success", isBatch ? `${t("downloadsPage.success.batchCreated", { count: batchUrls?.length ?? 0 })}` : t("downloadsPage.success.taskCreated"));
 			setForm({ url: "", serverId: servers[0]?.id ?? "", targetPath: defaultTargetPath, fileName: "", category: "", maxSpeedKb: "", batchMode: false, batchText: "" });
 			setShowForm(false); fetchTasks();
-		} catch (error) { setFormError(getErrorMessage(error, t("downloadsPage.error.taskCreate"))); }
+		} catch (error) {
+			setFormError(getErrorMessage(error, t("downloadsPage.error.taskCreate")));
+			if (isBatch && error instanceof ApiError && error.body.code === "DOWNLOAD_DISPATCH_FAILED") {
+				const remaining = error.body.remainingUrls;
+				const succeeded = error.body.succeededTaskIds;
+				if (Array.isArray(remaining) && remaining.every((url) => typeof url === "string")
+					&& Array.isArray(succeeded) && succeeded.length) {
+					setForm((current) => ({ ...current, batchText: remaining.join("\n") }));
+					addToast("success", t("downloadsPage.success.batchCreated", { count: succeeded.length }));
+					void fetchTasks();
+				}
+			}
+		}
 		finally { setSubmitting(false); }
 	};
 

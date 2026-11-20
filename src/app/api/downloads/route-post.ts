@@ -325,6 +325,7 @@ export async function POST(request: Request) {
             code: "DOWNLOAD_DISPATCH_FAILED",
             taskIds: onlyFailedIds,
             succeededTaskIds: succeededIds,
+            remainingUrls: taskUrls.slice(succeededIds.length),
           },
           { status: 500 },
         );
