@@ -39,10 +39,14 @@ import {
  getPublicDownloadError,
  buildProgressText,
 } from "@/lib/downloads/helpers";
+import { executionRefusal, loadExecutionActor } from "@/lib/auth/execution-actor";
+import { lockStorageFileOverwrite } from "@/lib/storage/file-overwrite-lock";
+import { assertRemotePathContained } from "@/lib/storage/remote-containment";
+import { resolveDownloadTargetPath } from "./target-path";
 import { assertNotRecycled } from "@/lib/storage/archive-access";
 import { BusinessError } from "@/lib/errors";
 import { t } from "@/lib/i18n/service-translations";
-import { largestAllowedWrite, type StorageWriteCapacity } from "@/lib/storage/access-control";
+import { assertStorageAccess, releaseStorageQuotaGuard, largestAllowedWrite, type StorageWriteCapacity } from "@/lib/storage/access-control";
 import { relayTempDir } from "@/lib/runtime/platform-paths";
 import type { DownloadSourceResolution } from "@/lib/downloads/source-url";
 import { randomUUID, createHash } from "node:crypto";
@@ -101,7 +105,14 @@ export async function executeAria2RelayDownload(
  signal?: AbortSignal,
  /** The creator's storage limits for the target; the relay knows the real sizes before publishing. */
  limits?: StorageWriteCapacity,
+ stagedHttp = false,
 ) {
+ if (stagedHttp && server.storageNode && !server.agentStorageNodeId) {
+  return receiveAgentHttpDownload({ taskId, serverId: server.id, nodeId: server.storageNode.id, url: urls[0]!,
+   targetPath, fileName, maxSpeedKb, signal, limits,
+   publishSftp: (local, file, active) => publishSftpDownloadFile(taskId, server, targetPath, local, file, active),
+  });
+ }
  if (server.agentStorageNodeId && urls.length === 1 && !isMagnetLink(urls[0]!)) {
   return receiveAgentHttpDownload({ taskId, serverId: server.id, nodeId: server.agentStorageNodeId, url: urls[0]!,
    targetPath, fileName, maxSpeedKb, signal, limits });
@@ -439,19 +450,42 @@ export function relayExceedsLimits(files: Array<{ size: number }>, limits: Stora
   || (limits.remainingBytes !== null && total > limits.remainingBytes);
 }
 
+/** Re-admit the actual file and hold the quota and overwrite locks through its index update. */
+async function publishSftpDownloadFile(taskId: string, server: DownloadServer, targetPath: string,
+ localPath: string, file: TransferManifest["files"][number], signal?: AbortSignal) {
+ const node = server.storageNode;
+ if (!node) throw new BusinessError(t("backend.downloads.taskStorageMissing"));
+ const relative = relativePathFromDownloadTarget(node.basePath, targetPath, file.name);
+ if (!relative) throw new BusinessError(t("backend.downloads.taskStorageMissing"));
+ const task = await prisma.downloadTask.findFirstOrThrow({ where: { id: taskId, serverId: server.id, status: "RUNNING",
+  server: { enabled: true, storageNode: { id: node.id } } }, select: { createdBy: true, teamId: true } });
+ const actor = await loadExecutionActor(task.createdBy, task.teamId);
+ if (!actor) throw new BusinessError(t("backend.execution.ownerInactive"));
+ const refusal = await executionRefusal({ actor, createdBy: task.createdBy, teamId: task.teamId,
+  permission: "storage:write", serverIds: [server.id] });
+ if (refusal) throw new BusinessError(refusal);
+ const admission = await assertStorageAccess({ session: actor, storageNodeId: node.id, relativePath: relative, operation: "write", writeBytes: file.size });
+ if (!admission.allowed) throw new BusinessError(t("backend.downloads.storageLimitExceeded"));
+ try {
+  const unlock = await lockStorageFileOverwrite(node.id, relative);
+  try {
+   signal?.throwIfAborted();
+   await assertNotRecycled(node.id, relative, "write");
+   const params = await buildSshParamsFromServer(server, server.sshKey);
+   const remote = await assertRemotePathContained(params, resolveDownloadTargetPath(node.basePath, ""), toRemoteChildPath(targetPath, file.name));
+   const mkdir = await execRemoteCommand({ ...params, command: `mkdir -p -- ${shellQuote(path.posix.dirname(remote))}`, timeout: 15000, signal });
+   if (mkdir.exitCode !== 0) throw new Error("Cannot prepare relay destination");
+   await transferFileViaSsh2(server, localPath, remote, taskId, signal, file.sha256);
+   await indexDownloadedFileEntry({ storageNode: node, targetPath: path.posix.dirname(toRemoteChildPath(targetPath, file.name)),
+    fileName: path.posix.basename(file.name), size: file.size });
+  } finally { await unlock(); }
+ } finally { await releaseStorageQuotaGuard(admission); }
+}
+
 async function publishRelayFiles(taskId: string, server: DownloadServer, tempDir: string,
  targetPath: string, manifest: TransferManifest, signal?: AbortSignal) {
  if (server.agentStorageNodeId && (!server.agentRootIdentity || manifest.agentRootIdentity !== server.agentRootIdentity)) {
   throw new BusinessError(t("backend.fileAgent.unavailable"));
- }
- if (!server.agentStorageNodeId) {
-  const sshParams = await buildSshParamsFromServer(server, server.sshKey);
-  signal?.throwIfAborted();
-  // The target folder and every folder inside the download.
-  const folders = [...new Set([targetPath, ...manifest.files
-   .filter((file) => file.name.includes("/"))
-   .map((file) => toRemoteChildPath(targetPath, path.posix.dirname(file.name)))])];
-  await execRemoteCommand({ ...sshParams, command: `mkdir -p -- ${folders.map(shellQuote).join(" ")}`, timeout: 15000, signal });
  }
  for (const file of manifest.files) {
   signal?.throwIfAborted();
@@ -462,25 +496,14 @@ async function publishRelayFiles(taskId: string, server: DownloadServer, tempDir
     localPath: path.join(tempDir, ...(file.sourceName ?? file.name).split("/")), targetPath, file, signal });
    continue;
   }
-  await transferFileViaSsh2(server, path.join(tempDir, ...(file.sourceName ?? file.name).split("/")), toRemoteChildPath(targetPath, file.name), taskId, signal, file.sha256);
+  await publishSftpDownloadFile(taskId, server, targetPath, path.join(tempDir, ...(file.sourceName ?? file.name).split("/")), file, signal);
  }
  signal?.throwIfAborted();
  const totalSize = manifest.files.reduce((sum, file) => sum + BigInt(file.size), BigInt(0)).toString();
- await prisma.$transaction(async (tx) => {
-  const completed = await tx.downloadTask.updateMany({ where: { id: taskId, status: "RUNNING" },
-   data: { status: "COMPLETED", progress: t("backend.downloads.progress.completedAndTransferred"), fileSize: totalSize, totalBytes: totalSize, completedBytes: totalSize } });
-  if (!completed.count) throw new Error("Relay task changed before finalization");
-  if (server.agentStorageNodeId) return; // Each verified Agent write is already indexed under its quota lock.
-  for (const file of manifest.files) {
-   const folder = path.posix.dirname(file.name);
-   await indexDownloadedFileEntry({
-    storageNode: server.storageNode,
-    targetPath: folder === "." ? targetPath : toRemoteChildPath(targetPath, folder),
-    fileName: path.posix.basename(file.name),
-    size: file.size,
-   }, tx);
-  }
- });
+ const completed = await prisma.downloadTask.updateMany({ where: { id: taskId, status: "RUNNING" },
+  data: { status: "COMPLETED", fileName: manifest.files.length === 1 && !manifest.files[0]!.name.includes("/") ? manifest.files[0]!.name : null,
+   progress: t("backend.downloads.progress.completedAndTransferred"), fileSize: totalSize, totalBytes: totalSize, completedBytes: totalSize } });
+ if (!completed.count) throw new Error("Relay task changed before finalization");
 }
 
 /* ── Direct download (HTTP/HTTPS) on remote VPS ────────── */

@@ -16,6 +16,7 @@ import {
 import { notifyDownloadResult } from "@/lib/notification/service";
 import { failRelayTask, reconcileStaleRunningDownloadTasks } from "./reconcile";
 import { executionRefusal, loadExecutionActor } from "@/lib/auth/execution-actor";
+import { deriveDownloadFileNameFromUrl, isMagnetLink } from "./helpers";
 import { getStorageWriteCapacity } from "@/lib/storage/access-control";
 import { t } from "@/lib/i18n/service-translations";
 import { createLogger } from "@/lib/logging";
@@ -386,8 +387,10 @@ async function handleClaimedJob(
 
     // A remote download's size is only known as it runs: carry the creator's
     // per-file limit and what the quota has left into the transfer.
-    const limits = actor && targetRelativePath !== null
-      ? await getStorageWriteCapacity({ session: actor, storageNodeId: task.server.storageNode.id, relativePath: targetRelativePath })
+    const httpName = !isMagnetLink(task.url) ? task.fileName || deriveDownloadFileNameFromUrl(task.url) || "download" : null;
+    const capacityPath = httpName && targetRelativePath !== null ? [targetRelativePath, httpName].filter(Boolean).join("/") : targetRelativePath;
+    const limits = actor && capacityPath !== null
+      ? await getStorageWriteCapacity({ session: actor, storageNodeId: task.server.storageNode.id, relativePath: capacityPath })
       : undefined;
 
     if (task.agentStorageNodeId && (!task.agentRootIdentity || task.server.managementMode !== "AGENT" || payload.mode !== "aria2_relay" || task.server.storageNode.driver !== "AGENT")) {
@@ -395,6 +398,14 @@ async function handleClaimedJob(
       await failTaskBeforeStart(task.id, message);
       await failJobTerminal(job.id, DOWNLOAD_EXECUTION_WORKER_ID, message);
       return true;
+    }
+    // A detached curl publishes on its own. Stage quota-bound HTTP with the pinned
+    // downloader so the measured file goes through the same admission as a torrent.
+    const stagedHttp = Boolean(httpName && !task.agentStorageNodeId && !task.aria2Gid
+      && (task.relayMode || (task.status === "PENDING" && limits?.remainingBytes != null)));
+    if (stagedHttp && !task.relayMode) {
+      const switched = await prisma.downloadTask.updateMany({ where: { id: task.id, status: "PENDING" }, data: { relayMode: true } });
+      if (!switched.count) throw new Error("Download changed before relay selection");
     }
     const serverForExec = buildServerForExec(task.agentStorageNodeId ? { ...task.server, sshKey: null } : task.server);
     if (task.agentStorageNodeId) {
@@ -423,7 +434,7 @@ async function handleClaimedJob(
           progress: transferProgress,
         }),
       run: async (signal) => {
-        if (payload.mode === "aria2_relay") {
+        if (payload.mode === "aria2_relay" || stagedHttp) {
           await executeAria2RelayDownload(
             payload.taskId,
             serverForExec,
@@ -434,6 +445,7 @@ async function handleClaimedJob(
             payload.userId ?? task.createdBy ?? undefined,
             signal,
             limits,
+            ...(stagedHttp ? [true] as const : []),
           );
         } else {
           await executeDirectDownload(

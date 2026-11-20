@@ -62,6 +62,7 @@ export async function publishAgentDownloadFile(input: Destination & { localPath:
 }
 
 type HttpDownload = Destination & {
+  publishSftp?: (localPath: string, file: TransferManifest["files"][number], signal: AbortSignal) => Promise<void>;
   url: string; fileName?: string | null; limits?: StorageWriteCapacity; maxSpeedKb?: number | null;
 };
 /** Stream from the validated address for HTTP and HTTPS. Undici request follows no redirects. */
@@ -94,7 +95,7 @@ async function fetchToDisk(input: HttpDownload, name: string, localPath: string,
         await dest.writeFile(bytes);
         hash.update(bytes);
         if (Date.now() - lastReport >= 1500) {
-          const stored = await prisma.downloadTask.updateMany({ where: { id: input.taskId, agentStorageNodeId: input.nodeId, status: "RUNNING" }, data: { completedBytes: String(size) } });
+          const stored = await prisma.downloadTask.updateMany({ where: { id: input.taskId, agentStorageNodeId: input.publishSftp ? null : input.nodeId, status: "RUNNING" }, data: { completedBytes: String(size) } });
           if (!stored.count) throw new Error("Inactive download");
           lastReport = Date.now();
           const remaining = await statfs(path.dirname(localPath));
@@ -112,7 +113,7 @@ async function fetchToDisk(input: HttpDownload, name: string, localPath: string,
 
 export async function receiveAgentHttpDownload(input: HttpDownload) {
   const { taskId, signal } = input;
-  const where = { id: taskId, agentStorageNodeId: input.nodeId, status: "RUNNING" as const };
+  const where = { id: taskId, agentStorageNodeId: input.publishSftp ? null : input.nodeId, serverId: input.serverId, status: "RUNNING" as const };
   const claimed = await prisma.downloadTask.updateMany({ where: { ...where, status: { in: ["RUNNING", "PENDING"] } },
     data: { status: "RUNNING", progress: t("backend.downloads.progress.downloading") } });
   if (!claimed.count) return;
@@ -122,7 +123,7 @@ export async function receiveAgentHttpDownload(input: HttpDownload) {
   let journaled = task.transferManifest !== null;
   try {
     const previous = parseTransferManifest(task.transferManifest);
-    if (!task.agentRootIdentity || (previous && previous.agentRootIdentity !== task.agentRootIdentity)) {
+    if (!input.publishSftp && (!task.agentRootIdentity || (previous && previous.agentRootIdentity !== task.agentRootIdentity))) {
       throw new BusinessError(t("backend.fileAgent.unavailable"));
     }
     const name = normalizeDownloadFileName(input.fileName ?? deriveDownloadFileNameFromUrl(input.url) ?? "download");
@@ -141,17 +142,20 @@ export async function receiveAgentHttpDownload(input: HttpDownload) {
       cached = await hashTransferFile(savedPath, active).catch(() => null) === file.sha256;
       if (cached) localPath = savedPath;
     }
-    if (!file || (!cached && !await createAgentFileClient(input.nodeId, input.serverId, task.agentRootIdentity).matches(target, file.size, file.sha256))) {
+    const alreadyOnAgent = file && !cached && !input.publishSftp && task.agentRootIdentity
+      && await createAgentFileClient(input.nodeId, input.serverId, task.agentRootIdentity).matches(target, file.size, file.sha256);
+    if (!file || (!cached && !alreadyOnAgent)) {
       const downloaded = await fetchToDisk(input, name, localPath, active);
       if (file && (file.sha256 !== downloaded.sha256 || file.size !== downloaded.size || file.name !== name)) throw new Error("Download changed during retry");
       file = downloaded;
       await link(localPath, path.join(root, file.sha256)).catch(error => {
         if ((error as NodeJS.ErrnoException).code !== "EEXIST") throw error;
       });
-      await prisma.downloadTask.update({ where, data: { transferManifest: { version: 1, files: [file], agentRootIdentity: task.agentRootIdentity }, progress: t("backend.downloads.progress.transferring") } });
+      await prisma.downloadTask.update({ where, data: { transferManifest: { version: 1, files: [file], ...(task.agentRootIdentity ? { agentRootIdentity: task.agentRootIdentity } : {}) }, progress: t("backend.downloads.progress.transferring") } });
       journaled = true;
     }
-    await publishAgentDownloadFile({ ...input, localPath, signal: active, file });
+    if (input.publishSftp) await input.publishSftp(localPath, file, active);
+    else await publishAgentDownloadFile({ ...input, localPath, signal: active, file });
     const total = String(file.size);
     const done = await prisma.downloadTask.updateMany({ where, data: { status: "COMPLETED", fileName: file.name,
       completedBytes: total, totalBytes: total, fileSize: total, progress: t("backend.downloads.progress.completedAndTransferred") } });
