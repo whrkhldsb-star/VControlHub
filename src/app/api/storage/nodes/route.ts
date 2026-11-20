@@ -22,13 +22,15 @@ const driverFilterSchema = z
   .transform((value) => value.driver ?? "");
 
 export async function GET(request: Request) {
+  const operation = new URL(request.url).searchParams.get("operation") === "write" ? "write" : "read";
+  const guard = operation === "write" ? { permission: "storage:write" as const } : { permission: "storage:read" as const };
   return withApiRoute(
     request,
-    { permission: "storage:read", errorMessage: apiCopy("apiCopy.failed.to.read.storage.node.c8b339ff") },
+    { ...guard, errorMessage: apiCopy("apiCopy.failed.to.read.storage.node.c8b339ff") },
     async ({ session }) => {
       const driverFilter = parseSearchParams(request, driverFilterSchema);
 
-      const storageNodes = await listStorageNodes(session);
+      const storageNodes = await listStorageNodes(session, operation);
       const nodes = storageNodes
         .filter((node) => !driverFilter || node.driver === driverFilter)
         .filter((node) =>

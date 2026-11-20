@@ -26,7 +26,7 @@ describe("MediaImageUploadPanel", () => {
 		const user = userEvent.setup();
 		vi.mocked(csrfFetch).mockImplementation(async (input) => {
 			const url = String(input);
-			if (url === "/api/storage/nodes") {
+			if (url === "/api/storage/nodes?operation=write") {
 				return {
 					nodes: [
 						{ id: "node_1", name: "本机图片", driver: "LOCAL" },
