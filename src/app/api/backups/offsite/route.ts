@@ -9,6 +9,7 @@ import { apiCopy } from "@/lib/i18n/api-copy";
  */
 import { NextResponse } from "next/server";
 
+import { assertPlatformAdmin } from "@/lib/auth/platform-admin-guard";
 import { auditUserAction } from "@/lib/audit/service";
 import { withApiRoute } from "@/lib/http/api-guard";
 import { GENERAL_WRITE_LIMIT } from "@/lib/http/rate-limit-presets";
@@ -31,7 +32,8 @@ function maskConfig<T extends { accessKeyId?: string; secretAccessKey?: string }
 }
 
 export async function GET(request: Request) {
-	return withApiRoute(request, { permission: "backup:read" }, async () => {
+	return withApiRoute(request, { permission: "backup:read" }, async ({ session }) => {
+		assertPlatformAdmin(session);
 		const config = await loadOffsiteConfig();
 		return NextResponse.json({ config: maskConfig(config) });
 	});
@@ -48,6 +50,7 @@ export async function POST(request: Request) {
 			bodySchema: offsiteConfigUpdateApiSchema,
 		},
 		async ({ session, body }) => {
+			assertPlatformAdmin(session);
 			const next = await saveOffsiteConfig(body, session.userId);
 			await auditUserAction(session.userId, "backup.offsite.update", {
 				enabled: next.enabled,

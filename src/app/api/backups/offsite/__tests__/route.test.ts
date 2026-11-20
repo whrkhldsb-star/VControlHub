@@ -40,7 +40,7 @@ describe("/api/backups/offsite", () => {
 	beforeEach(() => {
 		vi.clearAllMocks();
 		mocks.requireApiPermission.mockResolvedValue({
-			session: { userId: "u1", username: "alice", user: { id: "u1" } },
+			session: { userId: "u1", username: "alice", roles: ["admin"], user: { id: "u1" } },
 		});
 		mocks.loadOffsiteConfig.mockResolvedValue(SAMPLE_CONFIG);
 		mocks.saveOffsiteConfig.mockImplementation(async (update: Record<string, unknown>) => ({

@@ -13,6 +13,7 @@ import {
 	tokenAllowsPermission,
 } from "@/lib/api-token/authorization";
 import { sessionHasPermission } from "./authorization";
+import { PLATFORM_ONLY_PERMISSIONS } from "./identity-templates";
 import type { Permission } from "./rbac";
 import type { SessionPayload } from "./session";
 import { t } from "@/lib/i18n/service-translations";
@@ -63,6 +64,7 @@ export async function authenticateBearerForPermissions(
 	const readOnlyRequest = SAFE_TOKEN_METHODS.has(request.method.toUpperCase());
 	const grantedPermissions = requiredPermissions.filter(
 		(permission) =>
+			!PLATFORM_ONLY_PERMISSIONS.has(permission) &&
 			(readOnlyRequest || !permission.endsWith(":read")) &&
 			tokenAllowsPermission(verified.scopes, permission) &&
 			sessionHasPermission(ownerSession, permission),
