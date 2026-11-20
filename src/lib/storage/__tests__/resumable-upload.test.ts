@@ -153,7 +153,7 @@ describe("completeStorageFileUpload", () => {
   });
 
   it("updates existing file index instead of creating a new one", async () => {
-    fileEntryFindFirstMock.mockResolvedValue({ id: "fe_existing" });
+    fileEntryFindFirstMock.mockResolvedValueOnce({ id: "fe_existing" });
     await completeStorageFileUpload({
       sessionId: "sess_1",
       session: { userId: "user_1" } as never,
@@ -172,7 +172,7 @@ describe("completeStorageFileUpload", () => {
     const lastFailure = () => sessionUpdateManyMock.mock.calls.at(-1)?.[0];
 
     it("refuses to replace an indexed folder, as a failure to fix and retry rather than one to review", async () => {
-      fileEntryFindFirstMock.mockResolvedValue({ id: "folder_1", entryType: "DIRECTORY" });
+      fileEntryFindFirstMock.mockResolvedValueOnce({ id: "folder_1", entryType: "DIRECTORY" });
       await expect(completeStorageFileUpload({ sessionId: "sess_1", session: { userId: "user_1" } as never })).rejects.toMatchObject({ status: 409 });
       expect(writeBufferMock).not.toHaveBeenCalled();
       expect(lastFailure().data).toMatchObject({ status: "FAILED", recoveryRequired: false });

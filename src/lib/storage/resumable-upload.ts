@@ -1,3 +1,4 @@
+import { assertNotRecycled } from "@/lib/storage/archive-access";
 import { apiCopy } from "@/lib/i18n/api-copy";
 /**
  * Storage-file resumable upload finalize.
@@ -192,6 +193,7 @@ export async function completeStorageFileUpload(params: {
     },
     select: { id: true, entryType: true, isDeleted: true },
   });
+  await assertNotRecycled(existing.storageNodeId, normalizedRelativePath, "write");
   // The upload would replace a folder, and for WebDAV (MOVE with Overwrite) that deletes everything in it.
   // Refused before anything is written, so the session stays a plain failure the user can fix and retry.
   await assertUploadTargetIsNotFolder(storageNode, normalizedRelativePath, existingEntry?.entryType === "DIRECTORY");

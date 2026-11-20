@@ -4,7 +4,7 @@ import { withApiRoute } from "@/lib/http/api-guard";
 import { parseSearchParams } from "@/lib/http/parse-search-params";
 import { guessContentType } from "@/lib/http/mime-types";
 import { ForbiddenError, NotFoundError, ValidationError } from "@/lib/errors";
-import { prisma } from "@/lib/db";
+import { assertNotRecycled } from "@/lib/storage/archive-access";
 import { assertStorageAccess } from "@/lib/storage/access-control";
 import { storageAccessDeniedCopy } from "@/lib/storage/access-denied";
 import { contentDownloadQuerySchema } from "@/lib/storage/schema";
@@ -25,8 +25,7 @@ export async function GET(request: Request) {
     if (!node || (node.driver !== "WEBDAV" && node.driver !== "AGENT")) throw new NotFoundError(apiCopy("apiCopy.webdav.node.not.found.ac1b2fce"));
     const access = await assertStorageAccess({ session, storageNodeId: node.id, relativePath: normalized.path, operation: "read" });
     if (!access.allowed) throw new ForbiddenError(storageAccessDeniedCopy(access.reason));
-    const indexed = await prisma.fileEntry.findFirst({ where: { storageNodeId: node.id, relativePath: normalized.path }, select: { isDeleted: true } });
-    if (indexed?.isDeleted) throw new NotFoundError(apiCopy("apiCopy.file.unavailable.b3b9efed"));
+    await assertNotRecycled(node.id, normalized.path);
     const client = createRemoteStorageClient(node);
     const entry = await client.stat(normalized.path);
     if (!entry || entry.isDirectory) throw new NotFoundError(apiCopy("apiCopy.file.unavailable.b3b9efed"));

@@ -2,12 +2,18 @@ import { escapeLikeLiteral } from "@/lib/db/like-pattern";
 import type { Readable } from "node:stream";
 import path from "node:path";
 import { prisma } from "@/lib/db";
-import { NotFoundError, ValidationError } from "@/lib/errors";
+import { ConflictError, NotFoundError, ValidationError } from "@/lib/errors";
+import { t } from "@/lib/i18n/service-translations";
 import { apiCopy } from "@/lib/i18n/api-copy";
 
 /** A relative path in the form the file index stores: no leading, trailing or doubled slashes, no "." segments. */
 export function normalizeIndexedPath(relativePath: string): string {
   return path.posix.normalize(relativePath).replace(/^\/+|\/+$/g, "").replace(/^\.$/, "");
+}
+
+function indexedAncestors(relativePath: string) {
+  const parts = relativePath.split("/");
+  return parts.map((_, index) => parts.slice(0, index + 1).join("/"));
 }
 
 /**
@@ -19,8 +25,7 @@ export async function recycledAround(storageNodeId: string, rawRelativePath: str
   // The index stores normalized paths, while the disk and tar accept "photos/" or "dir//a.zip": compared raw,
   // those spellings matched no bin entry and brought deleted files back through compress, extract and preview.
   const relativePath = normalizeIndexedPath(rawRelativePath);
-  const parts = relativePath.split("/");
-  const ancestors = parts.map((_, index) => parts.slice(0, index + 1).join("/"));
+  const ancestors = indexedAncestors(relativePath);
   const deleted = await prisma.fileEntry.findMany({
     where: {
       storageNodeId,
@@ -40,9 +45,15 @@ export async function recycledAround(storageNodeId: string, rawRelativePath: str
   };
 }
 
-/** NotFound when the path, or a folder above it, is in the recycle bin. */
-export async function assertNotRecycled(storageNodeId: string, relativePath: string): Promise<void> {
-  if ((await recycledAround(storageNodeId, relativePath)).onPath) throw new NotFoundError(apiCopy("apiCopy.files.op.missing"));
+/** A recycled ancestor hides a read target and reserves a write destination. */
+export async function assertNotRecycled(storageNodeId: string, relativePath: string, operation: "read" | "write" = "read"): Promise<void> {
+  const deleted = await prisma.fileEntry.findFirst({
+    where: { storageNodeId, isDeleted: true, relativePath: { in: indexedAncestors(normalizeIndexedPath(relativePath)) } },
+    select: { id: true },
+  });
+  if (!deleted) return;
+  if (operation === "write") throw new ConflictError(t("backend.webdav.destinationHeldByRecycleBin", { path: `/${relativePath}` }));
+  throw new NotFoundError(apiCopy("apiCopy.files.op.missing"));
 }
 
 /**
