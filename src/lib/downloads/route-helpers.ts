@@ -10,8 +10,9 @@ import {
   getDownloadTargetRelativePath,
 } from "@/lib/downloads/target-path";
 import {
-  deriveDownloadFileNameFromUrl,
+  deriveDownloadFileNameFromUrl, isMagnetLink,
 } from "@/lib/downloads/helpers";
+import { parseTransferManifest } from "./transfer-manifest";
 import { buildDirectAccessStrategy } from "@/lib/storage/service";
 import { assertStorageAccess } from "@/lib/storage/access-control";
 import { t } from "@/lib/i18n/service-translations";
@@ -30,10 +31,18 @@ export function taskCompletedFileRelativePath(task: {
   url: string;
   targetPath: string | null;
   fileName: string | null;
+  transferManifest?: unknown;
   server?: { storageNode?: { basePath: string } | null } | null;
 }) {
   const storageNode = task.server?.storageNode;
-  const fileName = task.fileName || deriveDownloadFileNameFromUrl(task.url);
+  let fileName = task.fileName || deriveDownloadFileNameFromUrl(task.url);
+  if (isMagnetLink(task.url)) {
+    // Older tasks may have stored a display name that was never published.
+    try {
+      const files = parseTransferManifest(task.transferManifest)?.files;
+      fileName = files?.length === 1 ? files[0]!.name : null;
+    } catch { return null; }
+  }
   if (!storageNode || !task.targetPath || !fileName) return null;
   try {
     return getDownloadTargetRelativePath(
@@ -51,6 +60,7 @@ export function taskDownloadAccess(task: {
   status: string;
   targetPath: string | null;
   fileName: string | null;
+  transferManifest?: unknown;
   relayMode: boolean | null;
   server?: {
     storageNode?: {

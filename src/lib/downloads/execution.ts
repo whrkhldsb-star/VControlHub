@@ -32,6 +32,7 @@ import {
  toRemoteChildPath,
 } from "@/lib/downloads/remote-command";
 import {
+ normalizeDownloadFileName,
  deriveDownloadFileNameFromUrl,
  relativePathFromDownloadTarget,
  indexDownloadedFileEntry,
@@ -94,7 +95,7 @@ export async function executeAria2RelayDownload(
  server: DownloadServer,
  urls: string[],
  targetPath: string,
- _fileName?: string | null,
+ fileName?: string | null,
  maxSpeedKb?: number | null,
  userId?: string,
  signal?: AbortSignal,
@@ -103,7 +104,7 @@ export async function executeAria2RelayDownload(
 ) {
  if (server.agentStorageNodeId && urls.length === 1 && !isMagnetLink(urls[0]!)) {
   return receiveAgentHttpDownload({ taskId, serverId: server.id, nodeId: server.agentStorageNodeId, url: urls[0]!,
-   targetPath, fileName: _fileName, maxSpeedKb, signal, limits });
+   targetPath, fileName, maxSpeedKb, signal, limits });
  }
  const tempDir = relayTempDir(taskId);
  const teamId = await loadDownloadTeamId(taskId);
@@ -339,13 +340,15 @@ export async function executeAria2RelayDownload(
    return;
   }
 
+  const customName = normalizeDownloadFileName(fileName);
+  if (customName && filesToTransfer.length !== 1) throw new DownloadSourceRejectedError(t("backend.downloads.multiFileName"));
   const files: TransferManifest["files"] = [];
   for (const f of filesToTransfer) {
    signal?.throwIfAborted();
    const local = path.join(tempDir, ...f.split("/"));
    const stat = await fs.stat(local);
    if (torrentFiles && String(stat.size) !== torrentFiles.get(path.resolve(local))) throw new Error("Incomplete torrent file");
-   files.push({ name: f, size: stat.size, sha256: await hashTransferFile(local, signal) });
+   files.push({ name: customName ?? f, ...(customName && customName !== f ? { sourceName: f } : {}), size: stat.size, sha256: await hashTransferFile(local, signal) });
   }
   // Sizes are known now, before anything reaches the VPS: hold them to the
   // creator's per-file limit and what the quota has left.
@@ -456,10 +459,10 @@ async function publishRelayFiles(taskId: string, server: DownloadServer, tempDir
   if (task?.status !== "RUNNING") throw new Error("Relay task is no longer running");
   if (server.agentStorageNodeId) {
    await publishAgentDownloadFile({ taskId, serverId: server.id, nodeId: server.agentStorageNodeId,
-    localPath: path.join(tempDir, ...file.name.split("/")), targetPath, file, signal });
+    localPath: path.join(tempDir, ...(file.sourceName ?? file.name).split("/")), targetPath, file, signal });
    continue;
   }
-  await transferFileViaSsh2(server, path.join(tempDir, ...file.name.split("/")), toRemoteChildPath(targetPath, file.name), taskId, signal, file.sha256);
+  await transferFileViaSsh2(server, path.join(tempDir, ...(file.sourceName ?? file.name).split("/")), toRemoteChildPath(targetPath, file.name), taskId, signal, file.sha256);
  }
  signal?.throwIfAborted();
  const totalSize = manifest.files.reduce((sum, file) => sum + BigInt(file.size), BigInt(0)).toString();
