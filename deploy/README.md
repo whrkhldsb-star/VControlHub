@@ -180,7 +180,7 @@ sudo DOMAIN=your.example.com APP_DIR=/opt/VControlHub deploy/install.sh
 | `deploy/fakeroot-install-check.sh` | installer fakeroot/dry-run 回归；通过 Vitest 的 DESTDIR 隔离 fixture 覆盖域名/Caddy、无域名/Apache、`SKIP_PACKAGES=1`、`DESTDIR` 和凭据同步等 fresh-install 分支，不会改动宿主 systemd/反代服务 | `make installer-fakeroot` |
 | `deploy/uninstall.sh` | 彻底删除应用和全部本机应用数据，不提供保留模式；共享软件包和无关 Docker 资源不删除 | `sudo deploy/uninstall.sh --dry-run` |
 | `deploy/preflight.sh` | 部署前置检查；验证基础命令、环境变量占位符、Node 版本、端口占用、磁盘空间和运行目录，且不输出密钥值 | `APP_DIR=/opt/my-console ENV_FILE=/opt/my-console/.env.local deploy/preflight.sh` |
-| `deploy/upgrade.sh` | 升级部署；默认先创建升级前数据库备份，再复用 `install.sh` 的构建/迁移/重启流程，最后执行 `deploy/check.sh` | `sudo APP_NAME=my-console APP_SLUG=my-console APP_DIR=/opt/my-console DOMAIN=your.example.com deploy/upgrade.sh` |
+| `deploy/upgrade.sh` | 升级部署；在独立目录准备并核验候选版本，通过迁移预检后备份、切换目录并验证服务 | `sudo APP_NAME=my-console APP_SLUG=my-console APP_DIR=/opt/my-console DOMAIN=your.example.com deploy/upgrade.sh` |
 | `deploy/check.sh` | 检查环境变量、运行目录、systemd 服务和本地 `/login`，可选运行完整 npm 验证 | `APP_DIR=/opt/VControlHub CHECK_PUBLIC_URL=https://your.example.com deploy/check.sh` |
 | `deploy/backup.sh` | 备份数据库到 `BACKUP_DIR`，内部调用 `scripts/backup-db.sh` | `sudo APP_DIR=/opt/VControlHub BACKUP_DIR=/var/backups/vcontrolhub deploy/backup.sh` |
 | `scripts/restore-db.sh` | 从 `.sql` 或 `.sql.gz` 恢复数据库；默认需要 `CONFIRM_RESTORE=1` 防误操作 | `CONFIRM_RESTORE=1 APP_DIR=/opt/VControlHub scripts/restore-db.sh /var/backups/vcontrolhub/xxx.sql.gz` |
@@ -200,15 +200,13 @@ cd /path/to/VControlHub
 sudo APP_NAME=my-console APP_SLUG=my-console APP_DIR=/opt/my-console DOMAIN=your.example.com deploy/upgrade.sh
 ```
 
-`deploy/upgrade.sh` 默认会：
+升级脚本在安装目录的同一文件系统准备完整发布。Git 安装按指定分支快进，压缩包安装可用 `SOURCE_DIR` 指向解包目录。安装依赖、生成 Prisma Client、构建页面和后台进程、核验产物期间，旧服务继续运行。
 
-1. 在 `$BACKUP_DIR`（取环境文件里的值，未设置时为 `$APP_DIR/backups`）创建 `pre-upgrade-*.sql.gz` 数据库备份；
-2. 以 `SKIP_PACKAGES=1` 调用 `deploy/install.sh`，重新同步源码、执行 `npm ci`、`prisma generate`、`prisma migrate deploy`、`npm run build` 与 `npm run build:runtime`（缺一会导致后台 worker 仍跑旧代码）并重启服务；
-3. 调用 `deploy/check.sh` 做本地 `/login`、systemd、运行目录和危险开关检查。
+脚本读取目标数据库的 Prisma 迁移记录，只自动执行可识别的增量 DDL。待执行迁移包含删表、删列、清空或改写数据、动态 SQL，或迁移记录无法核实时，升级在停服前退出。请检查报出的迁移并确认可接受数据影响、备份和旧代码兼容性，人工应用后重新运行升级。
 
-可选开关：`SKIP_PRE_BACKUP=1` 跳过升级前备份，`SKIP_POST_CHECK=1` 跳过升级后自检，`CHECK_PUBLIC_URL=https://your.example.com` 增加公网 smoke。
+脚本默认创建 `pre-upgrade-*.sql.gz` 备份，记录 systemd 状态，再停服务、迁移数据库并切换整个发布目录。运行数据和环境文件随目录切换保留原路径。启动、就绪探测或部署检查失败时，脚本恢复旧代码、客户文件以及先前运行的服务，数据库保留已执行的迁移。成功后旧代码保存在 `$APP_DIR/dist.releases/`，可在确认版本后按主机容量清理。升级沿用已安装的 systemd 和反向代理配置。
 
-> 安装目录归运行用户所有而升级以 root 执行，脚本会为本次调用把该目录声明为 git 安全目录。若现有安装的 `deploy/upgrade.sh` 早于这一处理（表现为升级在 "Fetching latest code" 处报 `dubious ownership`），先执行一次 `sudo git config --global --add safe.directory /opt/VControlHub`，之后的升级就会带上修复后的脚本。
+`SKIP_PRE_BACKUP=1` 跳过数据库备份。`SKIP_POST_CHECK=1` 跳过扩展自检，启动和本机就绪检查仍会执行。`CHECK_PUBLIC_URL=https://your.example.com` 增加公网检查。`SKIP_BUILD=1` 需要提供独立、完整的预构建版本。旧版安装首次升级可使用最新的一键菜单，菜单会从目标提交读取升级驱动。
 
 ## 数据库初始化示例
 

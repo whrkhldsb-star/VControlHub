@@ -162,14 +162,20 @@ run_install() {
 
 run_update() {
   require_installed_script deploy/upgrade.sh
-  # Installs whose upgrade.sh predates the fix refuse the update over the
-  # route catalog their own build rewrote; this script is fetched fresh.
-  if [ -d "${APP_DIR}/.git" ]; then
-    git -c "safe.directory=${APP_DIR}" -C "${APP_DIR}" checkout -q -- docs/route-catalog.json 2>/dev/null || true
+  # A legacy installed upgrader pulls directly into the running checkout. Use
+  # the requested revision's upgrade driver without changing that checkout.
+  local driver="${APP_DIR}/deploy/upgrade.sh" fetched=""
+  if [[ -d ${APP_DIR}/.git && ${SKIP_PULL:-0} != 1 ]]; then
+    git -c "safe.directory=${APP_DIR}" -C "${APP_DIR}" fetch origin "${BRANCH}"
+    fetched="$(mktemp -d)"
+    trap 'rm -rf -- "${fetched}"' EXIT
+    driver="${fetched}/upgrade.sh"
+    git -c "safe.directory=${APP_DIR}" -C "${APP_DIR}" show FETCH_HEAD:deploy/upgrade.sh > "${driver}"
   fi
-  log "Starting backup-first update"
+  log "Starting staged update"
   APP_NAME="${APP_NAME}" APP_SLUG="${APP_SLUG}" SERVICE_PREFIX="${SERVICE_PREFIX}" \
-    APP_DIR="${APP_DIR}" UPGRADE_REF="${BRANCH}" "${APP_DIR}/deploy/upgrade.sh" "$@"
+    APP_DIR="${APP_DIR}" UPGRADE_REF="${BRANCH}" bash "${driver}" "$@"
+  if [[ -n ${fetched} ]]; then rm -rf -- "${fetched}"; trap - EXIT; fi
 }
 
 run_uninstall() {
