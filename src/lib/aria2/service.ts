@@ -111,6 +111,8 @@ export function getPublicAria2Error(error: unknown, locale: Locale = "zh"): stri
 /* ── Aria2 RPC Types ──────────────────────────────────────── */
 
 export type Aria2Status = {
+	followedBy?: string[];
+	following?: string;
 	gid: string;
 	status: "active" | "waiting" | "paused" | "error" | "complete" | "removed";
 	totalLength: string;

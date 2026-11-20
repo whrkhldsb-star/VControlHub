@@ -1,3 +1,4 @@
+import { relayContentStatus } from "@/lib/downloads/relay-status";
 /**
  * Background reconciliation for RUNNING DownloadTasks.
  *
@@ -21,7 +22,7 @@ import { prisma } from "@/lib/db";
 import { logError } from "@/lib/logging";
 import { execRemoteCommand, buildSshParamsFromServer } from "@/lib/ssh/client";
 import { shellQuote } from "@/lib/downloads/remote-command";
-import { ensureAria2Daemon, removeDownload, tellStatus } from "@/lib/aria2/service";
+import { ensureAria2Daemon, removeDownload } from "@/lib/aria2/service";
 import { t } from "@/lib/i18n/service-translations";
 import { rm } from "node:fs/promises";
 import { relayTempDir } from "@/lib/runtime/platform-paths";
@@ -224,7 +225,7 @@ async function reconcileRelayTask(
   let status: string;
   try {
     await ensureAria2Daemon();
-    status = (await tellStatus(task.aria2Gid)).status;
+    status = (await relayContentStatus(task.aria2Gid)).status.status;
   } catch (err) {
     logError("[DownloadReconcile] relay tellStatus failed:", err);
     // aria2 no longer knows this gid (daemon restarted) — the download is gone.

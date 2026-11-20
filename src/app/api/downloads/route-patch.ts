@@ -1,3 +1,4 @@
+import { relayContentStatus } from "@/lib/downloads/relay-status";
 import { resolveTaskDrive } from "@/lib/downloads/destination";
 import { NextResponse } from "next/server";
 import { z } from "zod";
@@ -7,7 +8,6 @@ import {
   ensureAria2Daemon,
   pauseDownload,
   unpauseDownload,
-  tellStatus,
   changeOption,
   changeGlobalOption,
 } from "@/lib/aria2/service";
@@ -160,7 +160,7 @@ export async function PATCH(request: Request) {
       if (action === "refresh" && task.aria2Gid) {
         try {
           await ensureAria2Daemon();
-          const st = await tellStatus(task.aria2Gid);
+          const { status: st } = await relayContentStatus(task.aria2Gid);
           const progress = st.status === "complete"
             ? t("apiDownloads.transferPending", locale)
             : buildProgressText(st);

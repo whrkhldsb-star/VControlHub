@@ -1,3 +1,4 @@
+import { relayContentStatus } from "./relay-status";
 import { publishAgentDownloadFile, receiveAgentHttpDownload } from "./agent-relay";
 import { isMagnetLink } from "./helpers";
 import { apiCopy } from "@/lib/i18n/api-copy";
@@ -15,7 +16,6 @@ import {
  ensureAria2Daemon,
  addUri,
  removeDownload,
- tellStatus,
  getPublicAria2Error,
  type Aria2Status,
 } from "@/lib/aria2/service";
@@ -203,6 +203,7 @@ export async function executeAria2RelayDownload(
   }
 
   let done = false;
+  let torrentFiles: Map<string, string> | undefined;
   let elapsed = 0;
   const maxWait = 7200;
   // Seconds the user has kept the task paused: not part of the two-hour budget, but not for ever either
@@ -253,7 +254,15 @@ export async function executeAria2RelayDownload(
     }
     pausedFor = 0;
 
-    const st = await tellStatus(gid);
+    const { gid: contentGid, status: st } = await relayContentStatus(gid);
+    if (gid !== contentGid) {
+     const advanced = await prisma.downloadTask.updateMany({
+      where: { id: taskId, aria2Gid: gid, status: "RUNNING" }, data: { aria2Gid: contentGid },
+     });
+     if (!advanced.count) continue;
+     gid = contentGid;
+     if (ownedGid) ownedGid = gid;
+    }
     const progress = buildProgressText(st);
     await prisma.downloadTask.updateMany({
      where: { id: taskId, status: "RUNNING" },
@@ -274,6 +283,15 @@ export async function executeAria2RelayDownload(
     }
 
     if (st.status === "complete") {
+     if (urls.some(isMagnetLink)) {
+      // Only the completed payload has a torrent info dictionary and selected data files.
+      if (!st.bittorrent?.info?.name) throw new Error("aria2 completed metadata without a content download");
+      torrentFiles = new Map(st.files.filter(file => file.selected === "true").map(file => {
+       if (file.completedLength !== file.length || !/^\d+$/.test(file.length)) throw new Error("Incomplete torrent file");
+       return [path.resolve(file.path), file.length];
+      }));
+      if (!torrentFiles.size) throw new Error("Missing torrent content");
+     }
      done = true;
     } else if (st.status === "error" || st.status === "removed") {
      // "removed" is also what a user cancel looks like from here: the row is
@@ -310,7 +328,9 @@ export async function executeAria2RelayDownload(
 
   await prisma.downloadTask.updateMany({ where: { id: taskId, status: "RUNNING" }, data: { progress: t("backend.downloads.progress.transferring") } });
 
-  const filesToTransfer = await listRelayFiles(tempDir);
+  const listed = await listRelayFiles(tempDir);
+  const filesToTransfer = torrentFiles ? listed.filter(name => torrentFiles.has(path.resolve(tempDir, name))) : listed;
+  if (torrentFiles && filesToTransfer.length !== torrentFiles.size) throw new Error("Missing torrent content");
 
   if (filesToTransfer.length === 0) {
    await prisma.downloadTask.updateMany({ where: { id: taskId, status: "RUNNING" }, data: { status: "FAILED", errorMessage: apiCopy("apiCopy.download.completed.but.file.not.found.191e1079") } });
@@ -324,6 +344,7 @@ export async function executeAria2RelayDownload(
    signal?.throwIfAborted();
    const local = path.join(tempDir, ...f.split("/"));
    const stat = await fs.stat(local);
+   if (torrentFiles && String(stat.size) !== torrentFiles.get(path.resolve(local))) throw new Error("Incomplete torrent file");
    files.push({ name: f, size: stat.size, sha256: await hashTransferFile(local, signal) });
   }
   // Sizes are known now, before anything reaches the VPS: hold them to the

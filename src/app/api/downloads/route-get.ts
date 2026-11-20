@@ -1,9 +1,10 @@
+import { relayContentStatus } from "@/lib/downloads/relay-status";
 import { resolveTaskDrive, downloadDriveSelect } from "@/lib/downloads/destination";
 import { NextResponse } from "next/server";
 import { z } from "zod";
 import { prisma } from "@/lib/db";
 import { logError } from "@/lib/logging";
-import { ensureAria2Daemon, tellStatus, getGlobalStat } from "@/lib/aria2/service";
+import { ensureAria2Daemon, getGlobalStat } from "@/lib/aria2/service";
 import { parseSearchParams } from "@/lib/http/parse-search-params";
 import { buildProgressText } from "@/lib/downloads/helpers";
 import { withApiRoute } from "@/lib/http/api-guard";
@@ -105,7 +106,7 @@ export async function GET(request: Request) {
           const updates: Promise<unknown>[] = [];
           for (const [gid, taskId] of activeGids) {
             updates.push(
-              tellStatus(gid).then((a) => {
+              relayContentStatus(gid).then(({ status: a }) => {
                 const progress = buildProgressText(a);
                 const completedBytes = toByteCount(a.completedLength);
                 const totalBytes = toByteCount(a.totalLength);
