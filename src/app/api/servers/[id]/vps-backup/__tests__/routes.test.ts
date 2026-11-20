@@ -422,9 +422,10 @@ describe("VPS backup routes", () => {
 				backupType: "mysql",
 				status: "COMPLETED",
 				offsiteKey: "offsite/rec_1.tar.gz",
+				offsiteDestination: JSON.stringify(["s3", "https://backup.example", "us-east-1", "backup"]), offsiteVersionId: "v1",
 			});
 			mocks.backup.resolveVpsBackupFilePath.mockReturnValue("/nonexistent/vch-test/gone.tar.gz");
-			mocks.offsite.loadOffsiteConfig.mockResolvedValue({ enabled: true });
+			mocks.offsite.loadOffsiteConfig.mockResolvedValue({ enabled: true, provider: "s3", endpoint: "https://backup.example", region: "us-east-1", bucket: "backup" });
 			mocks.offsite.validateOffsiteConfigForUse.mockReturnValue([]);
 			mocks.offsite.getObject.mockResolvedValue({ body: "remote-bytes", size: 12 });
 
@@ -433,7 +434,7 @@ describe("VPS backup routes", () => {
 			expect(response.status).toBe(200);
 			expect(response.headers.get("x-vch-backup-source")).toBe("offsite");
 			expect(response.headers.get("content-length")).toBe("12");
-			expect(mocks.offsite.getObject).toHaveBeenCalledWith("offsite/rec_1.tar.gz");
+			expect(mocks.offsite.getObject).toHaveBeenCalledWith("offsite/rec_1.tar.gz", "v1");
 		});
 
 		it.each([
@@ -447,9 +448,10 @@ describe("VPS backup routes", () => {
 				backupType: "mysql",
 				status: "COMPLETED",
 				offsiteKey: "offsite/rec_1.tar.gz",
+				offsiteDestination: JSON.stringify(["s3", "https://backup.example", "us-east-1", "backup"]), offsiteVersionId: "v1",
 			});
 			mocks.backup.resolveVpsBackupFilePath.mockReturnValue("/nonexistent/vch-test/gone.tar.gz");
-			mocks.offsite.loadOffsiteConfig.mockResolvedValue(config);
+			mocks.offsite.loadOffsiteConfig.mockResolvedValue({ provider: "s3", endpoint: "https://backup.example", region: "us-east-1", bucket: "backup", ...config });
 			mocks.offsite.validateOffsiteConfigForUse.mockReturnValue(issues);
 			mocks.offsite.getObject.mockResolvedValue(object);
 

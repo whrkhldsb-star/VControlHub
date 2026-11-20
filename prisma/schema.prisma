@@ -1510,6 +1510,8 @@ model VpsBackupRecord {
   updatedAt         DateTime  @updatedAt
   completedAt       DateTime?
   // TR-009: best-effort offsite S3 upload status
+  offsiteDestination String?
+  offsiteVersionId   String?
   offsiteKey        String?
   offsiteUploadedAt DateTime?
   offsiteSize       String?

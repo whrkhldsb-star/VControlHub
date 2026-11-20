@@ -18,6 +18,7 @@ import path, { dirname, join, relative as relativePath, resolve as resolvePath }
 import { Transform } from "node:stream";
 import { pipeline } from "node:stream/promises";
 
+import { offsiteDestination } from "@/lib/storage/offsite/destination";
 import { failStaleBackupRecords } from "./stale-records";
 import { prisma } from "@/lib/db";
 import { loadJobOwnerSession } from "@/lib/api-token/authorization";
@@ -148,11 +149,13 @@ export async function uploadVpsBackupToOffsite(
       ...offsiteConfig,
       timeoutMs: 30 * 60 * 1000,
     });
-    await s3.putFile(offsiteKey, localAbsolutePath, "application/gzip", record.checksumSha256);
+    const uploaded = await s3.putFile(offsiteKey, localAbsolutePath, "application/gzip", record.checksumSha256);
     await prisma.vpsBackupRecord.update({
       where: { id: record.id },
       data: {
         offsiteKey,
+        offsiteDestination: offsiteDestination(offsiteConfig),
+        offsiteVersionId: uploaded.versionId ?? null,
         offsiteUploadedAt: new Date(),
         offsiteSize: localStat.size.toString(),
         errorMessage: null,
@@ -716,7 +719,7 @@ export async function listVpsBackupRecords(
 export async function deleteVpsBackupRecord(recordId: string): Promise<void> {
   const record = await prisma.vpsBackupRecord.findUnique({
     where: { id: recordId },
-    select: { localPath: true, status: true, offsiteKey: true },
+    select: { localPath: true, status: true, offsiteKey: true, offsiteDestination: true, offsiteVersionId: true },
   });
   if (!record) {
     throw new NotFoundError(t("vpsBackupApi.errorRecordNotFound"));
@@ -725,6 +728,16 @@ export async function deleteVpsBackupRecord(recordId: string): Promise<void> {
   // or leave orphan remote temp + half-downloaded local files.
   if (record.status === "RUNNING") {
     throw new ConflictError(t("vpsBackupApi.errorDeleteRunningRecord"));
+  }
+
+  if (record.offsiteKey) {
+    const { loadOffsiteConfig, validateOffsiteConfigForUse } = await import("@/lib/storage/offsite/schema");
+    const config = await loadOffsiteConfig();
+    if (!config.enabled || validateOffsiteConfigForUse(config).length || record.offsiteDestination !== offsiteDestination(config)) {
+      throw new ConflictError("Cannot verify the original offsite backup destination");
+    }
+    const { S3Client } = await import("@/lib/storage/offsite/s3-client");
+    await new S3Client(config).deleteObject(record.offsiteKey, record.offsiteVersionId);
   }
 
   if (record.localPath) {
@@ -740,29 +753,6 @@ export async function deleteVpsBackupRecord(recordId: string): Promise<void> {
           error: err instanceof Error ? err.message : String(err),
         },
       );
-    }
-  }
-
-  if (record.offsiteKey) {
-    try {
-      const { loadOffsiteConfig, validateOffsiteConfigForUse } =
-        await import("@/lib/storage/offsite/schema");
-      const { S3Client } = await import("@/lib/storage/offsite/s3-client");
-      const offsiteConfig = await loadOffsiteConfig();
-      if (offsiteConfig.enabled) {
-        const issues = validateOffsiteConfigForUse(offsiteConfig);
-        if (issues.length === 0) {
-          const s3 = new S3Client(offsiteConfig);
-          await s3.deleteObject(record.offsiteKey);
-        }
-      }
-    } catch (err) {
-      // Keep going so local/DB cleanup still proceeds, but never silent.
-      vpsBackupLogger.warn("deleteVpsBackupRecord: offsite cleanup skipped", {
-        recordId,
-        offsiteKey: record.offsiteKey,
-        error: err instanceof Error ? err.message : String(err),
-      });
     }
   }
 
@@ -819,7 +809,7 @@ export async function pruneOldVpsBackupRecords(
       status: "COMPLETED",
       ...owner,
       completedAt: { lt: cutoff },
-      OR: [{ localPath: { not: null } }, { offsiteKey: null }],
+      OR: [{ localPath: { not: null }, offsiteDestination: { not: null } }, { offsiteKey: null }],
       id: { notIn: newestPerType.map((record) => record.id) },
     },
     select: { id: true, localPath: true },
