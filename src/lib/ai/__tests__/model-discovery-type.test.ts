@@ -32,6 +32,14 @@ describe("model discovery provider type", () => {
 		expect(mocks.fetchModels).toHaveBeenCalledWith(expect.objectContaining({ type: "ANTHROPIC" }));
 	});
 
+	it.each([
+		["GOOGLE", "https://generativelanguage.googleapis.com"],
+		["ANTHROPIC", "https://api.anthropic.com"],
+	])("passes the native default to the model probe when %s has no Base URL", async (type, baseUrl) => {
+		await fetchModelsFromCredentials({ type, apiKey: "native-key" });
+		expect(mocks.fetchModels).toHaveBeenCalledWith({ apiKey: "native-key", type, baseUrl });
+	});
+
 	it("probes new credentials with the type the panel sent", async () => {
 		await fetchModelsFromCredentials({ apiKey: "sk-ant", baseUrl: "https://api.anthropic.com/v1", type: "ANTHROPIC" });
 		expect(mocks.fetchModels).toHaveBeenCalledWith(expect.objectContaining({ type: "ANTHROPIC" }));

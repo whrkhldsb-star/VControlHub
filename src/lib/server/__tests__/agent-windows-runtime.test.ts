@@ -66,7 +66,7 @@ describe.skipIf(process.platform !== "win32")("Windows Agent scripts in Windows 
       "[IO.File]::Open($agentPath, [IO.FileMode]::CreateNew).Dispose()",
       "Protect-AgentPath $agentPath $false",
       "foreach ($path in @($agentDir, $agentPath)) {",
-      "  $acl = Get-Acl -LiteralPath $path",
+      "  $acl = if ($path -eq $agentDir) { [IO.Directory]::GetAccessControl($path) } else { [IO.File]::GetAccessControl($path) }",
       "  $sids = $acl.GetAccessRules($true, $true, [Security.Principal.SecurityIdentifier]) | ForEach-Object { $_.IdentityReference.Value } | Sort-Object",
       "  if (!$acl.AreAccessRulesProtected -or ($sids -join ',') -ne 'S-1-5-18,S-1-5-32-544') { throw 'Unexpected permissions' }",
       "}",

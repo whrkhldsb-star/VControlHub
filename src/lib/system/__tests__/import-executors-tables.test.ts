@@ -7,6 +7,7 @@ import type { Counts, Tx } from "../import-executors-helpers";
 import { importPermissions } from "../import-executors-rbac";
 import { importServers, importStorageNodes, importUserStorageAccess } from "../import-executors-infrastructure";
 import { importAlertRules } from "../import-executors-automation";
+import { importAiProviders } from "../import-executors-config";
 
 /**
  * Per-table import behaviour that the orchestration test cannot see: which rows
@@ -31,6 +32,52 @@ const NO_OVERWRITE = { ...OVERWRITE, overwriteExisting: false } satisfies Import
 function tables(partial: Record<string, unknown>): ExportFile["tables"] {
   return partial as unknown as ExportFile["tables"];
 }
+
+describe("importAiProviders credential ownership", () => {
+  const current = {
+    id: "p1", type: "OPENAI", createdBy: "u1",
+    baseUrl: "https://one.example/v1", apiKey: "old-ciphertext", updatedAt: new Date("2026-11-20T00:00:00Z"),
+  };
+
+  function importer() {
+    const update = vi.fn().mockImplementation(async ({ data }: { data: Record<string, unknown> }) => ({ ...current, ...data }));
+    const tx = { aiProvider: { findMany: vi.fn().mockResolvedValue([current]), update } } as unknown as Tx;
+    const write = (patch: Record<string, unknown>) => importAiProviders(
+      tx, tables({ aiProviders: [{ ...current, enabled: true, apiKey: null, ...patch }] }), OVERWRITE, counts(),
+    );
+    return { write, update };
+  }
+
+  it("clears key and disables provider when imported origin or type changes without a replacement key", async () => {
+    const { write, update } = importer();
+    await write({ baseUrl: "https://two.example/v1" });
+    expect(update).toHaveBeenLastCalledWith(expect.objectContaining({
+      where: { id: current.id, createdBy: current.createdBy, type: current.type, baseUrl: current.baseUrl, updatedAt: current.updatedAt },
+      data: expect.objectContaining({ apiKey: "", enabled: false }),
+    }));
+    await write({ type: "OPENAI_COMPATIBLE" });
+    expect(update).toHaveBeenLastCalledWith(expect.objectContaining({
+      data: expect.objectContaining({ apiKey: "", enabled: false }),
+    }));
+    await write({ baseUrl: "https://one.example/v2" });
+    expect(update.mock.calls[2]![0].data).not.toHaveProperty("apiKey");
+    expect(update.mock.calls[2]![0].data.enabled).toBe(true);
+  });
+
+  it("compares the live endpoint and key when a full import supplies a replacement", async () => {
+    const { write, update } = importer();
+    const patch = { baseUrl: "https://two.example/v1", apiKey: "new-ciphertext" };
+    await write(patch);
+    expect(update).toHaveBeenLastCalledWith(expect.objectContaining({
+      where: { id: current.id, createdBy: current.createdBy, type: current.type, baseUrl: current.baseUrl, updatedAt: current.updatedAt },
+      data: expect.objectContaining({ ...patch, enabled: true }),
+    }));
+    await write({ baseUrl: "https://two.example/v1", apiKey: current.apiKey });
+    expect(update).toHaveBeenLastCalledWith(expect.objectContaining({
+      data: expect.objectContaining({ apiKey: "", enabled: false }),
+    }));
+  });
+});
 
 // ── importPermissions ───────────────────────────────────
 

@@ -95,14 +95,15 @@ export async function withRateLimit(
 	config: RateLimitConfig,
 ): Promise<{ allowed: boolean; retryAfterMs: number; remaining: number }> {
 	const ip = getClientIp(request);
-	let pathname = "unknown";
-	try {
-		pathname = new URL(request.url).pathname;
-	} catch {
-		// Request.url is expected to be absolute, but keep a stable fallback for tests/adapters.
+	let bucket = config.bucketKey?.trim();
+	if (!bucket) {
+		try {
+			bucket = new URL(request.url).pathname;
+		} catch {
+			bucket = "unknown";
+		}
 	}
 	// The bucket name stays first: the store caps its keys per namespace, taken from how a key starts.
-	const bucket = config.bucketKey?.trim() || pathname;
 	return checkRateLimitAsync(`${bucket}:${config.maxRequests}/${config.windowMs}:${ip}`, config);
 }
 

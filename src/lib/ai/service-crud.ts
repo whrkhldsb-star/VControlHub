@@ -8,16 +8,17 @@
  */
 import { isUniqueViolation, prisma } from "@/lib/db";
 import { encrypt, decrypt, isEncrypted } from "@/lib/crypto/service";
-import { BusinessError, NotFoundError, ValidationError } from "@/lib/errors";
+import { BusinessError, ForbiddenError, NotFoundError, ValidationError } from "@/lib/errors";
 import { t } from "@/lib/i18n/service-translations";
+import { seesAllCustomers, type TeamSession } from "@/lib/auth/team-scope";
 import { lockForTransaction } from "@/lib/concurrency/advisory-lock";
 import { getAiConversationListLimit, getAiProviderListLimit } from "@/lib/runtime-settings/service";
 import { normalizePublicHttpUrl } from "@/lib/storage/direct-access-url";
 import { isLinkLocalAddress } from "@/lib/security/pinned-fetch";
 import { aiProviderTypeSchema, type AiProviderType } from "./schema";
-import { defaultAiBaseUrl, isListedPrivateProviderHost } from "./provider-http";
+import { resolveDefaultProviderBaseUrl, isListedPrivateProviderHost, providerApiRoot } from "./provider-http";
 
-const DEFAULT_AI_BASE_URL = defaultAiBaseUrl();
+import { providerEndpointChanged } from "./provider-endpoint";
 
 /* ── Helpers ─────────────────────────────────────────────────── */
 
@@ -40,8 +41,9 @@ function normalizeProviderModels(models?: string[]) {
 	);
 }
 
-export function normalizeProviderBaseUrl(value: string | undefined) {
-	const raw = value?.trim() || DEFAULT_AI_BASE_URL;
+export function normalizeProviderBaseUrl(value: string | undefined, type?: string) {
+	const raw = value?.trim() || resolveDefaultProviderBaseUrl(type);
+	providerApiRoot(raw, type);
 	// A host the operator listed in AI_PROVIDER_PRIVATE_HOSTS may be a private or loopback address
 	// ("http://192.168.1.20:11434/v1"); the scheme and credential rules still apply, link-local never passes.
 	if (isListedPrivateProviderHost(raw)) {
@@ -95,7 +97,6 @@ export interface CreateConversationInput {
 	enableVision?: boolean;
 	hostingEnabled?: boolean;
 	automationMode?: "ASSISTED" | "PLAN_ONLY";
-	createdBy: string;
 }
 
 export interface UpdateConversationInput {
@@ -144,10 +145,10 @@ export async function createProvider(input: CreateProviderInput) {
 	if (!input.name.trim()) throw new ValidationError(t("backend.ai.providerNameIsRequired"));
 	if (!input.apiKey.trim()) throw new ValidationError(t("backend.ai.apiKeyIsRequired"));
 
-	const normalizedBaseUrl = normalizeProviderBaseUrl(input.baseUrl);
+	const providerType = resolveProviderType(input.type);
+	const normalizedBaseUrl = normalizeProviderBaseUrl(input.baseUrl, providerType);
 	const normalizedModels = normalizeProviderModels(input.availableModels);
 	const encryptedKey = encrypt(input.apiKey.trim());
-	const providerType = resolveProviderType(input.type);
 
 	// The default moves in the same transaction as the write: a create
 	// refused for a name the user already has used to leave them with no
@@ -213,9 +214,12 @@ export async function getProviderById(id: string, userId: string) {
 export async function updateProvider(id: string, userId: string, input: UpdateProviderInput) {
 	const data: Record<string, unknown> = {};
 	if (input.name !== undefined) data.name = input.name.trim();
-	if (input.type !== undefined) data.type = resolveProviderType(input.type);
-	if (input.apiKey !== undefined) data.apiKey = encrypt(input.apiKey.trim());
-	if (input.baseUrl !== undefined) data.baseUrl = normalizeProviderBaseUrl(input.baseUrl);
+	const newType = input.type === undefined ? undefined : resolveProviderType(input.type);
+	if (newType) data.type = newType;
+	if (input.apiKey !== undefined) {
+		if (!input.apiKey.trim()) throw new ValidationError(t("backend.ai.apiKeyIsRequired"));
+		data.apiKey = encrypt(input.apiKey.trim());
+	}
 	// An empty model is not a choice: switching the provider type cleared it and
 	// every new conversation then failed with 400 (A7-06).
 	if (input.defaultModel !== undefined && input.defaultModel.trim()) data.defaultModel = input.defaultModel.trim();
@@ -237,8 +241,25 @@ export async function updateProvider(id: string, userId: string, input: UpdatePr
 			});
 		}
 
+		// The update must still see the endpoint we compared. Without the predicate
+		// a concurrent rotation can pair a new key with a different origin.
+		let endpointGuard = {};
+		if (newType || input.baseUrl !== undefined || input.apiKey !== undefined) {
+			const current = await tx.aiProvider.findFirst({
+				where: { id, createdBy: userId }, select: { type: true, baseUrl: true },
+			});
+			if (!current) throw new NotFoundError(t("backend.ai.providerNotFound"));
+			const nextType = newType ?? current.type;
+			const typeChanged = nextType !== current.type;
+			const nextBaseUrl = normalizeProviderBaseUrl(input.baseUrl ?? (typeChanged ? undefined : current.baseUrl), nextType);
+			if (providerEndpointChanged(current, { type: nextType, baseUrl: nextBaseUrl }) && !input.apiKey?.trim()) {
+				throw new ValidationError(t("backend.ai.providerKeyForNewEndpoint"));
+			}
+			data.baseUrl = nextBaseUrl;
+			endpointGuard = { type: current.type, baseUrl: current.baseUrl };
+		}
 		const updated = await tx.aiProvider.updateMany({
-			where: { id, createdBy: userId },
+			where: { id, createdBy: userId, ...endpointGuard },
 			data,
 		});
 		if (updated.count === 0) throw new NotFoundError(t("backend.ai.providerNotFound"));
@@ -253,10 +274,18 @@ export async function deleteProvider(id: string, userId: string) {
 
 /* ── Conversation CRUD ───────────────────────────────────────── */
 
-export async function createConversation(input: CreateConversationInput) {
+function conversationOwnerWhere(session: TeamSession) {
+	if (!session.currentTeamId && !seesAllCustomers(session)) {
+		throw new ForbiddenError(t("backend.team.activeTeamRequired"));
+	}
+	return { createdBy: session.userId, teamId: session.currentTeamId ?? null };
+}
+
+export async function createConversation(input: CreateConversationInput, session: TeamSession) {
+	const owner = conversationOwnerWhere(session);
 	// Ownership gate: never allow binding another user's provider (IDOR + secret exposure).
 	const provider = await prisma.aiProvider.findFirst({
-		where: { id: input.providerId, createdBy: input.createdBy },
+		where: { id: input.providerId, createdBy: session.userId },
 	});
 	if (!provider) throw new NotFoundError(t("backend.ai.aiProviderNotFound"));
 
@@ -274,7 +303,7 @@ export async function createConversation(input: CreateConversationInput) {
 			enableVision: input.enableVision ?? false,
 			hostingEnabled: input.hostingEnabled ?? false,
 			automationMode: input.automationMode ?? "ASSISTED",
-			createdBy: input.createdBy,
+			...owner,
 		},
 		// Never include provider.apiKey ciphertext on conversation create responses.
 		include: {
@@ -296,21 +325,22 @@ export async function createConversation(input: CreateConversationInput) {
 	});
 }
 
-export async function listConversations(userId: string) {
+export async function listConversations(session: TeamSession) {
+	if (!session.currentTeamId && !seesAllCustomers(session)) return [];
 	const limit = await getAiConversationListLimit();
 	return prisma.aiConversation.findMany({
-		where: { createdBy: userId },
+		where: conversationOwnerWhere(session),
 		orderBy: { updatedAt: "desc" },
 		take: limit,
 		include: { provider: { select: { id: true, name: true, type: true } } },
 	});
 }
 
-export async function getConversationById(id: string, userId: string) {
+export async function getConversationById(id: string, session: TeamSession) {
 	// Cap message payload size for long threads (chat path loads conversation often).
 	const MESSAGE_TAKE = 500;
 	const conv = await prisma.aiConversation.findFirst({
-		where: { id, createdBy: userId },
+		where: { id, ...conversationOwnerWhere(session) },
 		include: {
 			// Exclude apiKey ciphertext from API-facing conversation payloads.
 			provider: {
@@ -370,7 +400,7 @@ export async function getConversationById(id: string, userId: string) {
 	return { ...conv, messages: [...conv.messages].reverse() };
 }
 
-export async function updateConversation(id: string, userId: string, input: UpdateConversationInput) {
+export async function updateConversation(id: string, session: TeamSession, input: UpdateConversationInput) {
 	const data: Record<string, unknown> = {};
 	if (input.title !== undefined) data.title = input.title.trim();
 	if (input.model !== undefined) data.model = input.model;
@@ -385,12 +415,12 @@ export async function updateConversation(id: string, userId: string, input: Upda
 	if (input.automationMode !== undefined) data.automationMode = input.automationMode;
 
 	const updated = await prisma.aiConversation.updateMany({
-		where: { id, createdBy: userId },
+		where: { id, ...conversationOwnerWhere(session) },
 		data,
 	});
 	if (updated.count === 0) throw new NotFoundError(t("backend.ai.conversationNotFound"));
-	return prisma.aiConversation.findUnique({
-		where: { id },
+	return prisma.aiConversation.findFirst({
+		where: { id, ...conversationOwnerWhere(session) },
 		include: {
 			provider: {
 				select: {
@@ -410,24 +440,18 @@ export async function updateConversation(id: string, userId: string, input: Upda
 	});
 }
 
-export async function deleteConversation(id: string, userId: string) {
-	const conversation = await prisma.aiConversation.findFirst({
-		where: { id, createdBy: userId },
-		select: { id: true },
-	});
-	if (!conversation) throw new NotFoundError(t("backend.ai.conversationNotFound"));
-	await prisma.$transaction([
-		prisma.aiHostedAction.deleteMany({ where: { conversationId: id } }),
-		prisma.aiMessage.deleteMany({ where: { conversationId: id } }),
-		prisma.aiConversation.deleteMany({ where: { id, createdBy: userId } }),
-	]);
+export async function deleteConversation(id: string, session: TeamSession) {
+	// The database cascades the same scoped deletion to messages and action cards.
+	const deleted = await prisma.aiConversation.deleteMany({ where: { id, ...conversationOwnerWhere(session) } });
+	if (!deleted.count) throw new NotFoundError(t("backend.ai.conversationNotFound"));
 }
 
-export async function clearConversationMessages(id: string, userId: string) {
-	const conv = await prisma.aiConversation.findFirst({ where: { id, createdBy: userId } });
+export async function clearConversationMessages(id: string, session: TeamSession) {
+	const owner = conversationOwnerWhere(session);
+	const conv = await prisma.aiConversation.findFirst({ where: { id, ...owner }, select: { id: true } });
 	if (!conv) throw new NotFoundError(t("backend.ai.conversationNotFound"));
 	await prisma.$transaction([
-		prisma.aiHostedAction.deleteMany({ where: { conversationId: id } }),
-		prisma.aiMessage.deleteMany({ where: { conversationId: id } }),
+		prisma.aiHostedAction.deleteMany({ where: { conversationId: id, conversation: owner } }),
+		prisma.aiMessage.deleteMany({ where: { conversationId: id, conversation: owner } }),
 	]);
 }

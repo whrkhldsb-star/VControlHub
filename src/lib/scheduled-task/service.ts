@@ -126,6 +126,7 @@ async function getScheduledTaskForSession(id: string, session: SessionScope) {
 export async function createScheduledTask(
 	input: CreateScheduledTaskInput,
 	session: SessionScope,
+	id?: string,
 ) {
 	const schedule = resolveSchedule(input);
 	// An explicit teamId (the AI automation passes the target server's) wins; only without one does the caller
@@ -139,6 +140,7 @@ export async function createScheduledTask(
 	await assertScheduledTaskServersInScope(serverIds, session);
 	return prisma.scheduledTask.create({
 		data: {
+			id,
 			name: input.name,
 			cronExpression: schedule.cronExpression,
 			scheduleType: schedule.scheduleType,

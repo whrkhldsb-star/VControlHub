@@ -5,6 +5,7 @@ const { mocks } = vi.hoisted(() => ({
     requireApiPermission: vi.fn(),
     requireApiSession: vi.fn(),
     auditUserAction: vi.fn(),
+    withAccountPermissionChange: vi.fn(),
     setAccountType: vi.fn(),
     listIdentityTemplates: vi.fn(),
     getStorageAccessUsage: vi.fn(),
@@ -25,8 +26,7 @@ const { mocks } = vi.hoisted(() => ({
 vi.mock("@/lib/auth/require-api-permission", () => ({ requireApiPermission: mocks.requireApiPermission }));
 vi.mock("@/lib/auth/api-session", () => ({ requireApiSession: mocks.requireApiSession, isSessionPayload: (value: unknown) => !(value instanceof Response) }));
 vi.mock("@/lib/audit/service", () => ({ writeAuditLog: mocks.auditUserAction }));
-vi.mock("@/lib/user/admin-invariant", () => ({ withAdminInvariantLock: (run: () => unknown) => run() }));
-vi.mock("@/lib/user/account-type", () => ({ setAccountType: mocks.setAccountType }));
+vi.mock("@/lib/user/account-type", () => ({ withAccountPermissionChange: mocks.withAccountPermissionChange }));
 vi.mock("@/lib/auth/identity-template-service", () => ({ listIdentityTemplates: mocks.listIdentityTemplates }));
 vi.mock("@/lib/storage/access-control", () => ({
   getStorageAccessUsage: mocks.getStorageAccessUsage,
@@ -52,7 +52,7 @@ describe("/api/users/permissions", () => {
     mocks.listIdentityTemplates.mockResolvedValue([
       { id: "identity:operator", name: "客户运维", isBuiltin: true, permissions: ["server:read", "server:ssh"] },
     ]);
-    mocks.prisma.$transaction.mockImplementation(async (callback) => callback(mocks.prisma));
+    mocks.withAccountPermissionChange.mockImplementation(async (_userId, _session, run) => run(mocks.prisma, mocks.setAccountType));
     mocks.prisma.team.findMany.mockResolvedValue([{ id: "team-a", name: "Acme" }]);
     mocks.prisma.storageNode.findMany.mockResolvedValue([{ id: "node-a" }]);
     mocks.prisma.server.findMany.mockResolvedValue([]);
@@ -108,7 +108,8 @@ describe("/api/users/permissions", () => {
   it("PATCH changes the account type through the account service", async () => {
     const res = await patch({ userId: "user1", account: { type: "customer", teamId: "team-b", identityTemplateId: "identity:files" } });
     expect(res.status).toBe(200);
-    expect(mocks.setAccountType).toHaveBeenCalledWith("user1", { type: "customer", teamId: "team-b", identityTemplateId: "identity:files" }, admin, mocks.prisma);
+    expect(mocks.withAccountPermissionChange).toHaveBeenCalledWith("user1", admin, expect.any(Function));
+    expect(mocks.setAccountType).toHaveBeenCalledWith({ type: "customer", teamId: "team-b", identityTemplateId: "identity:files" });
   });
 
   it("PATCH never lets an administrator edit its own account", async () => {

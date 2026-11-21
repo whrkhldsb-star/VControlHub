@@ -53,7 +53,9 @@ import {
 export const dynamic = "force-dynamic";
 // guardMode: public
 
-const SHARE_TOKEN_LIMIT: RateLimitConfig = { maxRequests: 60, windowMs: 60_000 };
+function shareTokenLimit(tokenHash: string): RateLimitConfig {
+	return { bucketKey: `share-access:${tokenHash}`, maxRequests: 60, windowMs: 60_000 };
+}
 const SHARE_PASSWORD_LIMIT: RateLimitConfig = { maxRequests: 8, windowMs: 15 * 60_000 };
 /** Guesses one client may make across every share: made-up tokens count too, so they cannot buy fresh per-share budgets. */
 const SHARE_PASSWORD_CLIENT_LIMIT: RateLimitConfig = { maxRequests: 40, windowMs: 15 * 60_000 };
@@ -76,12 +78,12 @@ function readCookie(request: Request, name: string): string | undefined {
  * so every guess for a share landed in one shared "unknown" bucket and eight
  * wrong guesses from anyone locked that share for everybody for 15 minutes.
  */
-async function checkSharePasswordRateLimit(clientIp: string | null, token: string) {
+async function checkSharePasswordRateLimit(clientIp: string, tokenHash: string) {
 	// The per-client budget is checked first and in its own namespace: its keys grow only with the number of
 	// clients, so requests for made-up tokens cannot evict it, and they spend it like any other guess.
-	const client = await checkRateLimitAsync(`share-password-client:${clientIp ?? "unknown"}`, SHARE_PASSWORD_CLIENT_LIMIT);
+	const client = await checkRateLimitAsync(`share-password-client:${clientIp}`, SHARE_PASSWORD_CLIENT_LIMIT);
 	if (!client.allowed) return client;
-	return checkRateLimitAsync(`share-password:${token}:${clientIp ?? "unknown"}`, SHARE_PASSWORD_LIMIT);
+	return checkRateLimitAsync(`share-password:${tokenHash}:${clientIp}`, SHARE_PASSWORD_LIMIT);
 }
 
 const passwordAuthorizationSchema = z.object({
@@ -118,7 +120,8 @@ async function authorizeShare(
 	locale: Locale,
 ) {
 	const { token } = await params;
-	const tokenRateLimit = await withRateLimit(request, SHARE_TOKEN_LIMIT);
+	const tokenHash = hashShareToken(token);
+	const tokenRateLimit = await withRateLimit(request, shareTokenLimit(tokenHash));
 	if (!tokenRateLimit.allowed) return rateLimitResponse(tokenRateLimit.retryAfterMs);
 	if (!token || token.length < 10) {
 		return apiError({ code: "VALIDATION_FAILED", message: t("apiShareToken.invalidToken", locale), status: 400 });
@@ -129,7 +132,7 @@ async function authorizeShare(
 	}
 
 	const clientIp = getClientIp(request);
-	const passwordLimit = await checkSharePasswordRateLimit(clientIp, token);
+	const passwordLimit = await checkSharePasswordRateLimit(clientIp, tokenHash);
 	if (!passwordLimit.allowed) return rateLimitResponse(passwordLimit.retryAfterMs);
 	try {
 		const share = await authorizeShareDownload(token, parsed.data.password, {
@@ -140,7 +143,7 @@ async function authorizeShare(
 		response.headers.set("cache-control", "no-store");
 		response.cookies.set(getShareDownloadTicketCookieName(), createShareDownloadTicket({
 			shareId: share.id,
-			tokenHash: hashShareToken(token),
+			tokenHash,
 		}), {
 			httpOnly: true,
 			sameSite: "lax",
@@ -235,7 +238,8 @@ async function serveShareIn(
 	locale: Locale,
 ) {
 	const { token } = await params;
-	const tokenRateLimit = await withRateLimit(request, SHARE_TOKEN_LIMIT);
+	const tokenHash = hashShareToken(token);
+	const tokenRateLimit = await withRateLimit(request, shareTokenLimit(tokenHash));
 	if (!tokenRateLimit.allowed) return rateLimitResponse(tokenRateLimit.retryAfterMs);
 	const clientIp = getClientIp(request);
 
@@ -252,9 +256,9 @@ async function serveShareIn(
 		// header; the UI uses the POST→cookie flow (share-password-gate.tsx).
 		const password = request.headers.get("x-share-password")?.trim() || undefined;
 		const ticket = readCookie(request, getShareDownloadTicketCookieName());
-		const authorizedShareId = ticket ? verifyShareDownloadTicket(ticket, hashShareToken(token)) : null;
+		const authorizedShareId = ticket ? verifyShareDownloadTicket(ticket, tokenHash) : null;
 		if (password) {
-			const passwordLimit = await checkSharePasswordRateLimit(clientIp, token);
+			const passwordLimit = await checkSharePasswordRateLimit(clientIp, tokenHash);
 			if (!passwordLimit.allowed) return rateLimitResponse(passwordLimit.retryAfterMs);
 		}
 		share = await resolveShareToken(

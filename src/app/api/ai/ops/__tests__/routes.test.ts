@@ -33,7 +33,7 @@ const { mocks } = vi.hoisted(() => ({
 		auditUserAction: vi.fn(),
 		sessionHasPermission: vi.fn(),
 		getSetting: vi.fn(),
-		setSetting: vi.fn(),
+		setManySettings: vi.fn(),
 		aiProviderFindFirst: vi.fn(),
 	},
 }));
@@ -73,7 +73,7 @@ vi.mock("@/lib/settings/service", async (importOriginal) => {
 	return {
 		...actual,
 		getSetting: mocks.getSetting,
-		setSetting: mocks.setSetting,
+		setManySettings: mocks.setManySettings,
 	};
 });
 
@@ -136,8 +136,8 @@ describe("/api/ai/ops/* routes", () => {
 			if (key === "ai.ops.provider") return "";
 			return "";
 		});
-		mocks.setSetting.mockResolvedValue(undefined);
-		mocks.aiProviderFindFirst.mockResolvedValue({ id: "anthropic" });
+		mocks.setManySettings.mockResolvedValue(undefined);
+		mocks.aiProviderFindFirst.mockResolvedValue({ id: "anthropic", type: "ANTHROPIC", baseUrl: "https://api.anthropic.com/v1", createdBy: "u-admin", defaultModel: "claude" });
 	});
 
 	// ── GET /api/ai/ops/logs ────────────────────────────────────────────
@@ -519,8 +519,11 @@ describe("/api/ai/ops/* routes", () => {
 			);
 			expect(res.status).toBe(200);
 			expect(mocks.requireApiPermission).toHaveBeenCalledWith("ai:ops:manage");
-			expect(mocks.setSetting).toHaveBeenCalledWith("ai.ops.mode", "autonomous", "u-admin");
-			expect(mocks.setSetting).toHaveBeenCalledWith("ai.ops.provider", "anthropic", "u-admin");
+			expect(mocks.setManySettings).toHaveBeenCalledWith([
+				{ key: "ai.ops.mode", value: "autonomous" }, { key: "ai.ops.provider", value: "anthropic" },
+				{ key: "ai.ops.providerBinding", value: expect.stringContaining('"ownerId":"u-admin"') },
+			], "u-admin");
+			expect(JSON.parse(mocks.setManySettings.mock.calls[0]![0][2].value).fingerprint).toMatch(/^[a-f0-9]{64}$/);
 			expect(mocks.auditUserAction).toHaveBeenCalledWith(
 				"u-admin",
 				"ai.ops.settings.update",
@@ -548,8 +551,7 @@ describe("/api/ai/ops/* routes", () => {
 				}),
 			);
 			expect(res.status).toBe(200);
-			expect(mocks.setSetting).toHaveBeenCalledWith("ai.ops.mode", "autonomous", "u-admin");
-			expect(mocks.setSetting).not.toHaveBeenCalledWith("ai.ops.provider", expect.anything());
+			expect(mocks.setManySettings).toHaveBeenCalledWith([{ key: "ai.ops.mode", value: "autonomous" }], "u-admin");
 			const body = await res.json();
 			expect(body.mode).toBe("autonomous");
 			expect(body.providerId).toBe("anthropic");
@@ -566,10 +568,10 @@ describe("/api/ai/ops/* routes", () => {
 
 			expect(res.status).toBe(400);
 			expect(mocks.aiProviderFindFirst).toHaveBeenCalledWith({
-				where: { id: "foreign-provider", createdBy: "u-admin", enabled: true },
-				select: { id: true },
+				where: expect.objectContaining({ id: "foreign-provider", createdBy: "u-admin", enabled: true }),
+				select: expect.objectContaining({ createdBy: true, baseUrl: true, type: true }),
 			});
-			expect(mocks.setSetting).not.toHaveBeenCalled();
+			expect(mocks.setManySettings).not.toHaveBeenCalled();
 		});
 
 		it("lets another administrator change the mode while the provider stays the one already saved", async () => {
@@ -589,8 +591,7 @@ describe("/api/ai/ops/* routes", () => {
 			);
 
 			expect(res.status).toBe(200);
-			expect(mocks.setSetting).toHaveBeenCalledWith("ai.ops.mode", "autonomous", "u-admin");
-			expect(mocks.setSetting).not.toHaveBeenCalledWith("ai.ops.provider", expect.anything(), expect.anything());
+			expect(mocks.setManySettings).toHaveBeenCalledWith([{ key: "ai.ops.mode", value: "autonomous" }], "u-admin");
 			expect(await res.json()).toMatchObject({ mode: "autonomous", providerId: "provider-of-a-colleague" });
 			expect(mocks.auditUserAction).toHaveBeenCalledWith("u-admin", "ai.ops.settings.update", expect.objectContaining({ providerId: null }), undefined, null);
 		});
@@ -603,7 +604,7 @@ describe("/api/ai/ops/* routes", () => {
 				}),
 			);
 			expect(res.status).toBe(400);
-			expect(mocks.setSetting).not.toHaveBeenCalled();
+			expect(mocks.setManySettings).not.toHaveBeenCalled();
 		});
 
 		it("rejects an invalid mode value with 400", async () => {
@@ -614,7 +615,7 @@ describe("/api/ai/ops/* routes", () => {
 				}),
 			);
 			expect(res.status).toBe(400);
-			expect(mocks.setSetting).not.toHaveBeenCalled();
+			expect(mocks.setManySettings).not.toHaveBeenCalled();
 		});
 
 		it("accepts an empty providerId to clear the stored value", async () => {
@@ -630,8 +631,7 @@ describe("/api/ai/ops/* routes", () => {
 				}),
 			);
 			expect(res.status).toBe(200);
-			expect(mocks.setSetting).toHaveBeenCalledWith("ai.ops.mode", "recommendation", "u-admin");
-			expect(mocks.setSetting).toHaveBeenCalledWith("ai.ops.provider", "", "u-admin");
+			expect(mocks.setManySettings).toHaveBeenCalledWith([{ key: "ai.ops.mode", value: "recommendation" }, { key: "ai.ops.provider", value: "" }, { key: "ai.ops.providerBinding", value: "" }], "u-admin");
 			const body = await res.json();
 			expect(body.providerId).toBeNull();
 		});

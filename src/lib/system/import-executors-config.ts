@@ -8,6 +8,7 @@
 import { Prisma } from "@prisma/client";
 import { ZodError } from "zod";
 
+import { resolveDefaultProviderBaseUrl } from "@/lib/ai/provider-endpoint";
 import { safeDecryptApiKey } from "@/lib/ai/service-crud";
 import { isSensitiveSettingKey, type ExportFile, type ImportOptions } from "@/lib/system/config-schema";
 import { decodeStoredSecret, isValidSettingKey, normalizeStoredSetting, readStoredSecret, toStoredValue } from "@/lib/settings/service";
@@ -140,9 +141,9 @@ export async function importSettings(
   }
 }
 
-function providerHttpOrigin(baseUrl: string): string | null {
+function providerHttpOrigin(baseUrl: string | undefined, type?: string): string | null {
   try {
-    const url = new URL(baseUrl);
+    const url = new URL(baseUrl?.trim() || resolveDefaultProviderBaseUrl(type));
     return ["https:", "http:"].includes(url.protocol) && !url.username && !url.password ? url.origin : null;
   } catch {
     return null;
@@ -171,9 +172,9 @@ export async function importAiProviders(
   if (options.overwriteExisting) {
     for (const r of toUpdate) {
       const current = byId.get(r.id)!;
-      const origin = providerHttpOrigin(current.baseUrl);
+      const origin = providerHttpOrigin(current.baseUrl, current.type);
       const sameBinding = current.type === r.type && current.createdBy === r.createdBy
-        && origin !== null && origin === providerHttpOrigin(r.baseUrl);
+        && origin !== null && origin === providerHttpOrigin(r.baseUrl, r.type);
       const clearKey = !sameBinding && (!r.apiKey?.trim() || r.apiKey === current.apiKey
         || safeDecryptApiKey(r.apiKey) === safeDecryptApiKey(current.apiKey));
       const updated = await tx.aiProvider.update({

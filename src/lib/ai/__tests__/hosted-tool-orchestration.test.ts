@@ -57,7 +57,7 @@ describe("AI hosted file and Docker tools", () => {
   it("builds safe file listing and search commands", () => {
     expect(buildCommand("list_files", { path: "/var/log" })).toContain("find '/var/log'");
     expect(buildCommand("search_files", { path: "/var/log", query: "error", filePattern: "*.log" })).toContain("grep -rFInI");
-    expect(buildCommand("read_file", { filePath: "/etc/hosts", tail: 20 })).toBe("tail -n 20 -- '/etc/hosts'");
+    expect(buildCommand("read_file", { filePath: "/etc/hosts", tail: 20 })).toContain("'/etc/hosts' file tail -n 20");
   });
 
   it("rejects traversal, unsafe patterns, and unsafe container identifiers", () => {

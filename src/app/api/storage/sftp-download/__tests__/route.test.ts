@@ -83,6 +83,7 @@ vi.mock("@/lib/storage/ssh-credentials", () => ({
 		username: "deploy",
 		password: "secret",
 		privateKey: undefined,
+		hostKeySha256: "a".repeat(64),
 	})),
 }));
 

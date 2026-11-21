@@ -48,11 +48,10 @@ async function changePasswordActionImpl(
 
   try {
     const result = await changePassword({
-      userId: session.userId,
       currentPassword: String(formData.get("currentPassword") ?? ""),
       newPassword: String(formData.get("newPassword") ?? ""),
       confirmPassword: String(formData.get("confirmPassword") ?? ""),
-    });
+    }, session);
 
     if (!result.success) {
       return {

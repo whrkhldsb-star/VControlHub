@@ -10,7 +10,6 @@ vi.mock("@/lib/auth/password", () => ({ hashPassword: s.hash }));
 vi.mock("@/lib/auth/password-policy", () => ({ validatePasswordPolicy: async () => null }));
 vi.mock("@/lib/auth/team-scope", () => ({ assertUserInActorScope: async () => {}, userDirectoryWhere: () => ({}) }));
 vi.mock("@/lib/audit/service", () => ({ auditUserAction: async () => {} }));
-vi.mock("@/lib/user/admin-invariant", () => ({ assertAdminAccessMayBeRemoved: async () => {}, withAdminInvariantLock: async (f: () => Promise<unknown>) => f() }));
 vi.mock("@/lib/http/api-guard", () => ({ withApiRoute: async (r: Request, _o: unknown, f: (ctx: unknown) => Promise<Response>) => f({ session: { userId: "admin", roles: ["admin"] }, body: await r.json() }) }));
 const { PATCH } = await import("../route");
 describe.skipIf(process.env.RUN_DATABASE_INTEGRATION_TESTS !== "1")("reset/disable real database race", () => {

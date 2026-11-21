@@ -68,6 +68,7 @@ PG_AUTO_SETUP="${PG_AUTO_SETUP:-1}"
 PG_DB_NAME="${PG_DB_NAME:-$(pg_identifier_from_slug "${APP_SLUG}")}"
 PG_DB_USER="${PG_DB_USER:-$(pg_identifier_from_slug "${APP_SLUG}")}"
 PG_DB_PASSWORD="${PG_DB_PASSWORD:-}"
+PG_DB_PASSWORD_OVERRIDE="${PG_DB_PASSWORD}"
 DATABASE_URL_OVERRIDE="${DATABASE_URL:-}"
 STORAGE_ROOT_OVERRIDE="${STORAGE_ROOT:-}"
 BACKUP_DIR_OVERRIDE="${BACKUP_DIR:-}"
@@ -114,7 +115,7 @@ sql_literal() {
 run_as_postgres() {
   # sudo preserves the caller's working directory. Fresh installs are commonly
   # launched from /root, which postgres cannot traverse, so use a neutral cwd.
-  (cd / && sudo -u postgres "$@")
+  (cd / && sudo -u postgres env -i PATH="/usr/bin:/bin" PGHOST=/var/run/postgresql PGPORT=5432 PGDATABASE=postgres "$@")
 }
 
 urlencode() {
@@ -336,6 +337,57 @@ install_docker() {
 	fi
 }
 
+init_instance_state() {
+  # Keep ownership records outside the app-writable checkout, including across staged upgrades.
+  local app_path instance_key dir mode docker_id
+  app_path="$(realpath -m -- "${APP_DIR}")"
+  instance_key="$(printf '%s\0%s' "${APP_SLUG}" "${app_path}" | sha256sum | cut -d' ' -f1)"
+  INSTANCE_STATE_DIR="${DESTDIR}/etc/vcontrolhub/instances/${instance_key}"
+  for dir in "${DESTDIR}/etc/vcontrolhub" "${DESTDIR}/etc/vcontrolhub/instances" "${INSTANCE_STATE_DIR}"; do
+    (umask 077; mkdir -p -- "${dir}")
+    [[ -d ${dir} && ! -L ${dir} && "$(stat -c %u -- "${dir}")" == "${EUID}" ]] ||
+      fail "Untrusted installer state directory: ${dir}"
+    mode="$(stat -c %a -- "${dir}")"
+    (( (8#${mode} & 0022) == 0 )) || fail "Writable installer state directory: ${dir}"
+  done
+  readonly INSTANCE_STATE_DIR
+  # Installations on different hosts can have the same slug/path and share a Docker daemon.
+  if [[ ! -e ${INSTANCE_STATE_DIR}/docker-instance ]]; then
+    docker_id="$(od -An -N16 -tx1 /dev/urandom | tr -d ' \n')"
+    (umask 077; set -C; printf '%s\n' "${docker_id}" > "${INSTANCE_STATE_DIR}/docker-instance") ||
+      [[ -s ${INSTANCE_STATE_DIR}/docker-instance ]]
+  fi
+}
+
+record_created_data_dir() {
+  local path="$1" removal="$2" identity
+  [[ -d ${path} && "$(realpath -e -- "${path}")" == "${path}" ]] || return 0
+  identity="$(TZ=UTC stat -c '%d:%i:%w' -- "${path}")"
+  printf '%s\t%s\t%s\n' "${removal}" "${identity}" "${path}" >> "${INSTANCE_STATE_DIR}/directories"
+}
+
+create_data_dir() {
+  local path="$1" removal="${2:-tree}"
+  [[ "${path}" == /* && "${path}" != *[$'\t\r\n']* ]] || fail "Invalid data directory: ${path}"
+  if [[ ! -d ${path} ]]; then
+    mkdir -p -- "$(dirname -- "${path}")"
+    # Only a successful exclusive mkdir proves who created the leaf. Parents may be shared.
+    if mkdir -- "${path}"; then
+      [[ ${path} != /srv ]] || return 0
+      record_created_data_dir "${path}" "${removal}"
+      chown "${APP_USER}:${APP_USER}" "${path}"
+      return 0
+    fi
+    [[ -d ${path} ]] || fail "Could not create data directory: ${path}"
+  fi
+  # Remember pre-existing boundaries too. A recorded parent must not erase a
+  # shared subdirectory when custom storage and backup paths are nested.
+  if [[ ${path} != /srv ]] && { [[ ! -f ${INSTANCE_STATE_DIR}/directories ]] ||
+     ! cut -f3- "${INSTANCE_STATE_DIR}/directories" | grep -Fx -- "${path}" >/dev/null; }; then
+    printf 'retain\t-\t%s\n' "${path}" >> "${INSTANCE_STATE_DIR}/directories"
+  fi
+}
+
 prepare_quick_service_storage() {
 	[ -n "${DESTDIR}" ] && return 0
 	[ "${SKIP_DOCKER}" = "1" ] && return 0
@@ -347,9 +399,7 @@ prepare_quick_service_storage() {
 		# of /srv, terabytes of media for Jellyfin or Immich): a recursive chown on every install and upgrade took
 		# long, changed the owner of what other services and containers rely on, and broke images that run as a
 		# fixed uid. Only a directory made now is given to the application user.
-		[ -d "${path}" ] && continue
-		mkdir -p "${path}"
-		chown "${APP_USER}:${APP_USER}" "${path}" 2>/dev/null || true
+		create_data_dir "${path}"
 	done <<EOF
 $(quick_service_host_paths)
 EOF
@@ -514,25 +564,61 @@ prepare_app_user() {
   mkdir -p "${APP_DIR}"
 }
 
+is_app_source_tree() {
+  [ -f "$1/package.json" ] && [ -f "$1/deploy/install.sh" ] && [ -f "$1/deploy/systemd/vcontrolhub-next.service.example" ] &&
+    grep -Eq '"name"[[:space:]]*:[[:space:]]*"(vcontrolhub|whrkhldsb)"' "$1/package.json" 2>/dev/null
+}
+
+validate_source_target() {
+  local app_real source_real occupied repo_root origin expected_origin
+  app_real="$(realpath -m -- "${APP_DIR}")"
+  source_real="$(realpath -m -- "${SOURCE_DIR}")"
+  if [ -z "${REPO_URL}" ]; then
+    is_app_source_tree "${source_real}" || fail "SOURCE_DIR is missing the VControlHub source: ${SOURCE_DIR}"
+    if [ "${app_real}" != "${source_real}" ]; then
+      case "${app_real}/" in "${source_real}/"*) fail "APP_DIR is inside SOURCE_DIR" ;; esac
+      case "${source_real}/" in "${app_real}/"*) fail "SOURCE_DIR is inside APP_DIR" ;; esac
+    fi
+  fi
+  [ ! -L "${APP_DIR}" ] || fail "Refusing symlink APP_DIR=${APP_DIR}"
+  [ -e "${APP_DIR}" ] || return 0
+  [ -d "${APP_DIR}" ] || fail "APP_DIR is not a directory: ${APP_DIR}"
+  occupied="$(find "${app_real}" -mindepth 1 -maxdepth 1 -printf x -quit)" || fail "Cannot inspect APP_DIR=${APP_DIR}"
+  [ -n "${occupied}" ] || return 0
+
+  if [ -n "${REPO_URL}" ]; then
+    local -a git_app=(git -c "safe.directory=${app_real}" -C "${app_real}")
+    repo_root="$("${git_app[@]}" rev-parse --show-toplevel 2>/dev/null)" &&
+      [ "${repo_root}" = "${app_real}" ] &&
+      origin="$("${git_app[@]}" remote get-url origin 2>/dev/null)" &&
+      expected_origin="$("${git_app[@]}" ls-remote --get-url -- "${REPO_URL}" 2>/dev/null)" &&
+      { [ "${origin}" = "${expected_origin}" ] || [ "${origin}" -ef "${expected_origin}" ]; } && return 0
+  elif is_app_source_tree "${app_real}"; then
+    # Earlier archive installations have no .git directory.
+    return 0
+  fi
+  fail "Refusing nonempty APP_DIR=${APP_DIR}; use an empty directory or the matching VControlHub installation."
+}
+
 sync_source() {
   log "Syncing application to ${APP_DIR}"
-  local source_real app_real
-  source_real="$(cd "${SOURCE_DIR}" && pwd -P)"
-  app_real="$(cd "${APP_DIR}" 2>/dev/null && pwd -P || true)"
-  if [ -n "${app_real}" ] && [ "${source_real}" = "${app_real}" ]; then
+  validate_source_target
+  local source_real app_real cloned=0
+  source_real="$(realpath -m -- "${SOURCE_DIR}")"
+  app_real="$(realpath -m -- "${APP_DIR}")"
+  if [ -d "${APP_DIR}" ] && [ "${source_real}" = "${app_real}" ]; then
     warn "SOURCE_DIR and APP_DIR are the same (${APP_DIR}); skipping source sync"
   elif [ -n "${REPO_URL}" ]; then
-    if [ -d "${APP_DIR}/.git" ]; then
+    if [ -e "${APP_DIR}/.git" ]; then
       # The checkout belongs to ${APP_USER} after the first install while this
       # script runs as root; without the exception git refuses it as "dubious".
       # The build rewrites the route catalog in place; left modified it stops the pull (bootstrap.sh and
       # upgrade.sh restore it the same way).
       git -c "safe.directory=${APP_DIR}" -C "${APP_DIR}" checkout -q -- docs/route-catalog.json 2>/dev/null || true
-      git -c "safe.directory=${APP_DIR}" -C "${APP_DIR}" fetch --all --prune
-      git -c "safe.directory=${APP_DIR}" -C "${APP_DIR}" pull --ff-only
+      git -c "safe.directory=${APP_DIR}" -C "${APP_DIR}" pull --ff-only origin
     else
-      find "${APP_DIR}" -mindepth 1 -maxdepth 1 -exec rm -rf {} +
-      git clone "${REPO_URL}" "${APP_DIR}"
+      git clone -- "${REPO_URL}" "${APP_DIR}"
+      cloned=1
     fi
   else
  if have_cmd rsync; then
@@ -551,13 +637,15 @@ sync_source() {
         -cf - .) | (cd "${APP_DIR}" && tar -xf -)
     fi
   fi
-  mkdir -p \
-    "${APP_DIR}/storage" \
-    "${APP_DIR}/tmp" \
-    "${APP_DIR}/uploads" \
-    "${APP_DIR}/downloads" \
-    "${APP_DIR}/backups" \
-    "${APP_DIR}/logs"
+  local data_dir
+  for data_dir in storage tmp uploads downloads backups logs; do
+    if [[ ${cloned} == 1 && -d ${app_real}/${data_dir} ]]; then
+      # git clone populated tracked placeholders in a previously empty destination.
+      record_created_data_dir "${app_real}/${data_dir}" tree
+    else
+      create_data_dir "${app_real}/${data_dir}"
+    fi
+  done
   chown -R "${APP_USER}:${APP_USER}" "${APP_DIR}"
 }
 
@@ -590,7 +678,7 @@ sync_installer_env_overrides() {
  set_env_var DOMAIN "${DOMAIN}"
  set_env_var PG_DB_NAME "${PG_DB_NAME}"
  set_env_var PG_DB_USER "${PG_DB_USER}"
- if [ -n "${DATABASE_URL_OVERRIDE}" ] && ! is_placeholder_value "${DATABASE_URL_OVERRIDE}"; then
+ if [[ -n ${DATABASE_URL_OVERRIDE} && ${DATABASE_URL_OVERRIDE} != REPLACE_WITH_DATABASE_URL ]]; then
   set_env_var DATABASE_URL "${DATABASE_URL_OVERRIDE}"
  fi
  # A value given to this run wins; otherwise keep what the env file already
@@ -834,6 +922,7 @@ auto_generate_env_secrets() {
 }
 
 validate_install_scope() {
+	[[ "${APP_SLUG}" =~ ^[a-z0-9][a-z0-9-]*$ ]] || fail "Unsafe APP_SLUG=${APP_SLUG}"
 	if [ -n "${DESTDIR}" ]; then
 		case "${DESTDIR}" in
 			/tmp/*|/var/tmp/*) ;;
@@ -875,105 +964,120 @@ create_runtime_dirs() {
     data_root="/var/lib/${APP_SLUG}"
     file_versions_root="${FILE_VERSION_DIR:-${data_root}/file-versions}"
   fi
-  mkdir -p \
-    "${APP_DIR}/storage" \
-    "${APP_DIR}/tmp" \
-    "${APP_DIR}/uploads" \
-    "${APP_DIR}/downloads" \
-    "${APP_DIR}/backups" \
-    "${APP_DIR}/logs" \
-    "${storage_root}" \
-    "${backup_root}" \
-    "${aria2_root}" \
-    "${file_versions_root}"
-  chown "${APP_USER}:${APP_USER}" "${data_root}" 2>/dev/null || true
-  chown -R "${APP_USER}:${APP_USER}" \
-    "${APP_DIR}/storage" \
-    "${APP_DIR}/tmp" \
-    "${APP_DIR}/uploads" \
-    "${APP_DIR}/downloads" \
-    "${APP_DIR}/backups" \
-    "${APP_DIR}/logs" \
-    "${storage_root}" \
-    "${backup_root}" \
-    "${aria2_root}" \
-    "${file_versions_root}"
+  # The runtime root may acquire sibling directories. Remove it only when empty.
+  create_data_dir "${data_root}" empty
+  local path
+  for path in "${storage_root}" "${backup_root}" "${aria2_root}" "${file_versions_root}"; do
+    create_data_dir "${path%/}"
+  done
+}
+
+# Store no credentials. The first line of a local record identifies the socket port,
+# cluster, database/role names and the individual catalog OIDs we actually created.
+write_database_record() {
+  local staged
+  staged="$(mktemp "${INSTANCE_STATE_DIR}/.database.XXXXXX")"
+  printf '%s\n' "$@" > "${staged}"
+  mv -fT -- "${staged}" "${INSTANCE_STATE_DIR}/database"
+}
+
+record_external_database() {
+  local endpoint
+  endpoint="$(VCH_DB_URL="${DATABASE_URL:-}" python3 - <<'PY'
+import json, os
+from urllib.parse import unquote, urlsplit
+try:
+    url = urlsplit(os.environ["VCH_DB_URL"])
+    endpoint = dict(host=url.hostname, port=url.port if url.port is not None else 5432,
+                    database=unquote(url.path.lstrip("/")), role=unquote(url.username or ""))
+except ValueError:
+    endpoint = {}
+print(json.dumps(endpoint))
+PY
+)"
+  write_database_record external "${endpoint}"
 }
 
 setup_postgres() {
-	[ "${PG_AUTO_SETUP}" = "1" ] || { warn "Skipping PostgreSQL auto-setup"; return; }
-	[ "${SKIP_DB_SETUP}" = "1" ] && { warn "Skipping PostgreSQL setup (SKIP_DB_SETUP=1)"; return; }
-	# A preconfigured remote DATABASE_URL belongs to the operator. Rewriting it
-	# to 127.0.0.1 here would silently redirect upgrades to a different DB.
-	if [ -n "${DATABASE_URL:-}" ] && ! is_placeholder_value "${DATABASE_URL}"; then
-		local configured_db_host
-		configured_db_host="$(python3 -c 'import sys,urllib.parse; print(urllib.parse.urlparse(sys.argv[1]).hostname or "")' "${DATABASE_URL}" 2>/dev/null || true)"
-		case "${configured_db_host}" in
-			""|localhost|127.0.0.1|::1) ;;
-			*) warn "External DATABASE_URL detected; preserving it and skipping local PostgreSQL account setup"; return ;;
-		esac
-	fi
-	have_cmd psql || { warn "psql not found; skipping PostgreSQL auto-setup"; return; }
+  local previous="" mode="" old_port="" old_db="" old_role="" old_cluster="" old_db_oid="" old_role_oid=""
+  # Preserve symlink components: the service follows the configured pathname on restart.
+  local env_path="${ENV_FILE}" runtime_path="${RUNTIME_ENV_FILE}"
+  [[ ${env_path} == /* ]] || env_path="${PWD}/${env_path}"
+  [[ ${runtime_path} == /* ]] || runtime_path="${PWD}/${runtime_path}"
+  if [[ -f ${INSTANCE_STATE_DIR}/database ]]; then
+    IFS= read -r previous < "${INSTANCE_STATE_DIR}/database"
+    read -r mode old_port old_db old_role old_cluster old_db_oid old_role_oid <<< "${previous}"
+  fi
+  if [[ -n ${DATABASE_URL:-} && ${DATABASE_URL} != REPLACE_WITH_DATABASE_URL ]]; then
+    # Re-running an install keeps its creation receipts. A supplied URL (including
+    # loopback) is operator-managed unless it matches our own generated endpoint.
+    local generated_endpoint='^postgresql://([a-z_][a-z0-9_]*):[A-Za-z0-9%._~-]+@127\.0\.0\.1:([0-9]+)/([a-z_][a-z0-9_]*)$'
+    if [[ ${mode} == local && ${DATABASE_URL} =~ ${generated_endpoint} &&
+          ${BASH_REMATCH[1]} == "${old_role}" && ${BASH_REMATCH[2]} == "${old_port}" && ${BASH_REMATCH[3]} == "${old_db}" ]]; then
+      write_database_record "${previous}" "${env_path}" "${runtime_path}"
+    else
+      record_external_database
+      warn "Configured DATABASE_URL is operator-managed; preserving it and skipping local PostgreSQL setup"
+    fi
+    return 0
+  fi
+  if [[ ${PG_AUTO_SETUP} != 1 || ${SKIP_DB_SETUP} == 1 ]] || ! have_cmd psql; then
+    record_external_database
+    warn "Skipping PostgreSQL auto-setup"
+    return 0
+  fi
 
-	[[ "${PG_DB_NAME}" =~ ^[a-z_][a-z0-9_]*$ ]] || fail "PG_DB_NAME must be a safe unquoted PostgreSQL identifier: ${PG_DB_NAME}"
-	[[ "${PG_DB_USER}" =~ ^[a-z_][a-z0-9_]*$ ]] || fail "PG_DB_USER must be a safe unquoted PostgreSQL identifier: ${PG_DB_USER}"
+  [[ ${PG_DB_NAME} =~ ^[a-z_][a-z0-9_]{0,62}$ ]] || fail "PG_DB_NAME must be a safe unquoted PostgreSQL identifier: ${PG_DB_NAME}"
+  [[ ${PG_DB_USER} =~ ^[a-z_][a-z0-9_]{0,62}$ ]] || fail "PG_DB_USER must be a safe unquoted PostgreSQL identifier: ${PG_DB_USER}"
 
-	# Ensure PostgreSQL is running
-	if ! systemctl is-active --quiet postgresql 2>/dev/null; then
-		log "Starting PostgreSQL service"
-		systemctl start postgresql
-		systemctl enable postgresql
-	fi
+  if ! systemctl is-active --quiet postgresql 2>/dev/null; then
+    systemctl start postgresql
+    systemctl enable postgresql
+  fi
 
-	# Create database and user if they do not exist
-	local pg_user_exists pg_db_exists pg_password_sql
-	pg_password_sql="$(sql_literal "${PG_DB_PASSWORD}")"
-	pg_user_exists="$(run_as_postgres psql -tAc "SELECT 1 FROM pg_roles WHERE rolname='${PG_DB_USER}'" 2>/dev/null || true)"
-	if [ "${pg_user_exists}" != "1" ]; then
-		if [ -z "${PG_DB_PASSWORD}" ]; then
-			PG_DB_PASSWORD="$(openssl rand -base64 24 | tr -dc 'a-zA-Z0-9' | head -c 32)"
-			pg_password_sql="$(sql_literal "${PG_DB_PASSWORD}")"
-			set_env_var PG_DB_PASSWORD "${PG_DB_PASSWORD}"
-			warn "Generated random PostgreSQL password for ${PG_DB_USER}; saved to ${ENV_FILE}"
-		fi
-		log "Creating PostgreSQL user ${PG_DB_USER}"
-		run_as_postgres psql -c "CREATE USER ${PG_DB_USER} WITH ENCRYPTED PASSWORD '${pg_password_sql}';" 2>/dev/null || warn "Failed to create PostgreSQL user (may already exist)"
-	else
-		if [ -z "${PG_DB_PASSWORD}" ]; then
-			PG_DB_PASSWORD="$(openssl rand -base64 24 | tr -dc 'a-zA-Z0-9' | head -c 32)"
-			pg_password_sql="$(sql_literal "${PG_DB_PASSWORD}")"
-			set_env_var PG_DB_PASSWORD "${PG_DB_PASSWORD}"
-			warn "Generated random PostgreSQL password for existing user ${PG_DB_USER}; saved to ${ENV_FILE}"
-		fi
-		run_as_postgres psql -c "ALTER USER ${PG_DB_USER} WITH ENCRYPTED PASSWORD '${pg_password_sql}';" 2>/dev/null || true
-	fi
+  local cluster user_oid db_oid owned_user=0 owned_db=0
+  local -a query=(psql -X -Atq -v ON_ERROR_STOP=1 -c)
+  cluster="$(run_as_postgres "${query[@]}" 'SELECT system_identifier FROM pg_control_system()')"
+  [[ ${cluster} =~ ^[0-9]+$ ]] || fail "Cannot identify the local PostgreSQL cluster"
+  local role_query="SELECT oid FROM pg_roles WHERE rolname='${PG_DB_USER}'"
+  local database_query="SELECT oid FROM pg_database WHERE datname='${PG_DB_NAME}'"
+  user_oid="$(run_as_postgres "${query[@]}" "${role_query}")"
+  db_oid="$(run_as_postgres "${query[@]}" "${database_query}")"
+  if [[ ${mode} == local && ${old_cluster} == "${cluster}" && ${old_db} == "${PG_DB_NAME}" && ${old_role} == "${PG_DB_USER}" ]]; then
+    [[ -z ${user_oid} || ${user_oid} != "${old_role_oid}" ]] || owned_user="${user_oid}"
+    [[ -z ${db_oid} || ${db_oid} != "${old_db_oid}" ]] || owned_db="${db_oid}"
+  fi
 
-	pg_db_exists="$(run_as_postgres psql -tAc "SELECT 1 FROM pg_database WHERE datname='${PG_DB_NAME}'" 2>/dev/null || true)"
-	if [ "${pg_db_exists}" != "1" ]; then
-		log "Creating PostgreSQL database ${PG_DB_NAME}"
-		run_as_postgres createdb --owner="${PG_DB_USER}" "${PG_DB_NAME}"
-	fi
-
-	# Always sync DATABASE_URL with PG_DB_PASSWORD to prevent mismatch
-	local generated_url current_url current_pw need_url_update encoded_pw
-	encoded_pw="$(urlencode "${PG_DB_PASSWORD}")"
-	generated_url="postgresql://${PG_DB_USER}:${encoded_pw}@127.0.0.1:5432/${PG_DB_NAME}"
-	current_url="${DATABASE_URL:-}"
-	need_url_update=0
-
-	if is_placeholder_value "${current_url}" || [ -z "${current_url}" ]; then
-		need_url_update=1
-	elif [ -n "${PG_DB_PASSWORD}" ]; then
-		current_pw="$(python3 -c 'import sys, urllib.parse; print(urllib.parse.unquote(urllib.parse.urlparse(sys.argv[1]).password or ""))' "${current_url}" 2>/dev/null || true)"
-		if [ "${current_pw}" != "${PG_DB_PASSWORD}" ]; then
-			need_url_update=1
-		fi
-	fi
-	if [ "${need_url_update}" -eq 1 ]; then
-		log "Updating DATABASE_URL in ${ENV_FILE} (syncing with PG_DB_PASSWORD)"
-		set_env_var DATABASE_URL "${generated_url}"
-		DATABASE_URL="${generated_url}"
-	fi
+  local pg_password_sql encoded_pw generated_url
+  PG_DB_PASSWORD="${PG_DB_PASSWORD_OVERRIDE:-${PG_DB_PASSWORD}}"
+  if [[ -n ${user_oid} && ${owned_user} == 0 && -z ${PG_DB_PASSWORD} ]]; then
+    fail "PostgreSQL role ${PG_DB_USER} already exists. Supply its DATABASE_URL or PG_DB_PASSWORD."
+  fi
+  if [[ -z ${PG_DB_PASSWORD} ]]; then
+    PG_DB_PASSWORD="$(openssl rand -hex 24)"
+    set_env_var PG_DB_PASSWORD "${PG_DB_PASSWORD}"
+  fi
+  pg_password_sql="$(sql_literal "${PG_DB_PASSWORD}")"
+  if [[ -z ${user_oid} ]]; then
+    log "Creating PostgreSQL user ${PG_DB_USER}"
+    run_as_postgres "${query[@]}" "CREATE USER ${PG_DB_USER} WITH ENCRYPTED PASSWORD '${pg_password_sql}'"
+    owned_user="$(run_as_postgres "${query[@]}" "${role_query}")"
+    [[ ${owned_user} =~ ^[1-9][0-9]*$ ]] || fail "Cannot identify newly created PostgreSQL role"
+    write_database_record "local 5432 ${PG_DB_NAME} ${PG_DB_USER} ${cluster} ${owned_db} ${owned_user}" "${env_path}" "${runtime_path}"
+  elif [[ ${owned_user} != 0 ]]; then
+    run_as_postgres "${query[@]}" "ALTER USER ${PG_DB_USER} WITH ENCRYPTED PASSWORD '${pg_password_sql}'"
+  fi
+  if [[ -z ${db_oid} ]]; then
+    log "Creating PostgreSQL database ${PG_DB_NAME}"
+    run_as_postgres createdb --owner="${PG_DB_USER}" "${PG_DB_NAME}"
+    owned_db="$(run_as_postgres "${query[@]}" "${database_query}")"
+    [[ ${owned_db} =~ ^[1-9][0-9]*$ ]] || fail "Cannot identify newly created PostgreSQL database"
+  fi
+  write_database_record "local 5432 ${PG_DB_NAME} ${PG_DB_USER} ${cluster} ${owned_db} ${owned_user}" "${env_path}" "${runtime_path}"
+  encoded_pw="$(urlencode "${PG_DB_PASSWORD}")"
+  generated_url="postgresql://${PG_DB_USER}:${encoded_pw}@127.0.0.1:5432/${PG_DB_NAME}"
+  set_env_var DATABASE_URL "${generated_url}"
+  DATABASE_URL="${generated_url}"
 }
 
 build_app() {
@@ -1416,7 +1520,9 @@ main() {
  esac
 
  validate_install_scope
+ validate_source_target
  need_root
+ init_instance_state
  install_packages
  install_docker
  prepare_app_user

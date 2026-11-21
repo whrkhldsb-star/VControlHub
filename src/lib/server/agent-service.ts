@@ -1142,14 +1142,14 @@ export function buildWindowsAgentInstaller(hubUrl: string, token: string) {
   & icacls.exe $Path /inheritance:r /grant:r ("*S-1-5-18:" + $rights) ("*S-1-5-32-544:" + $rights) | Out-Null
   if ($LASTEXITCODE -ne 0) { throw 'Cannot secure Agent installation permissions' }
   $sidType = [Security.Principal.SecurityIdentifier]
-  $acl = Get-Acl -LiteralPath $Path
+  $acl = if ($Directory) { [IO.Directory]::GetAccessControl($Path) } else { [IO.File]::GetAccessControl($Path) }
   foreach ($rule in $acl.GetAccessRules($true, $false, $sidType)) {
     if ($rule.IdentityReference.Value -notin $trusted) {
       & icacls.exe $Path /remove ('*' + $rule.IdentityReference.Value) | Out-Null
       if ($LASTEXITCODE -ne 0) { throw 'Cannot remove old Agent installation permissions' }
     }
   }
-  $acl = Get-Acl -LiteralPath $Path
+  $acl = if ($Directory) { [IO.Directory]::GetAccessControl($Path) } else { [IO.File]::GetAccessControl($Path) }
   $rules = @($acl.GetAccessRules($true, $true, $sidType))
   if (!$acl.AreAccessRulesProtected -or $acl.GetOwner($sidType).Value -ne 'S-1-5-32-544' -or $rules.Count -ne 2) { throw 'Unexpected Agent installation ACL' }
   foreach ($sid in $trusted) {

@@ -1,3 +1,6 @@
+import { AI_OPS_BINDING_KEY, prepareAiOpsProviderBinding } from "@/lib/ai/ops/provider-binding";
+import { assertAiOpsPlatformReader } from "@/lib/ai/ops/authorization";
+import { sessionHasPermission } from "@/lib/auth/authorization";
 import { parseConfigFromMap } from "@/lib/storage/offsite/schema";
 import { checkTurnstileSecret } from "@/lib/auth/turnstile";
 import { apiCopy, currentCopyLocale } from "@/lib/i18n/api-copy";
@@ -176,6 +179,7 @@ export async function GET(request: Request) {
 	return withApiRoute(request, { permission: "user:manage", errorStatus: 500, errorMessage: apiCopy("apiCopy.server.error.dfe0c2e8") }, async () => {
 		// getAllSettingsMasked already masks sensitive values (***)
 		const settings = await getAllSettingsMasked();
+		delete settings[AI_OPS_BINDING_KEY];
 		return NextResponse.json({ settings });
 	});
 }
@@ -198,7 +202,7 @@ export async function PATCH(request: Request) {
 			: await getSetting("telegram.enabled").catch(() => "");
 
 		for (const [key, value] of Object.entries(parsed.data)) {
-			if (!isValidSettingKey(key)) {
+			if (key === AI_OPS_BINDING_KEY || !isValidSettingKey(key)) {
 				rejectedKeys.push(key);
 				continue;
 			}
@@ -212,6 +216,22 @@ export async function PATCH(request: Request) {
 			if (!entryResult.success) {
 				rejectedKeys.push(key);
 				continue;
+			}
+			if (key === "ai.ops.mode" || key === "ai.ops.provider") {
+				assertAiOpsPlatformReader(session);
+				if (!sessionHasPermission(session, "ai:ops:manage")) {
+					rejectedKeys.push(key);
+					continue;
+				}
+				if (key === "ai.ops.provider") {
+					if (!/^[A-Za-z0-9._:-]{0,64}$/u.test(value)) rejectedKeys.push(key);
+					else if (await getSetting(key) !== value) entries.push(...await prepareAiOpsProviderBinding(value, session.userId));
+					continue;
+				}
+				if (value !== "recommendation" && value !== "autonomous") {
+					rejectedKeys.push(key);
+					continue;
+				}
 			}
 			if (key === "telegram.chatId" && telegramEnabledAfter !== "true" && value.trim() === "") {
 				entries.push({ key, value: "" });
