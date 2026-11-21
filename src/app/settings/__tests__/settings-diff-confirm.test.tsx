@@ -12,7 +12,6 @@
 import { describe, expect, it, vi, beforeEach } from "vitest";
 import { render, screen, waitFor, within } from "@testing-library/react";
 import userEvent from "@testing-library/user-event";
-import React from "react";
 
 import { SettingsClient } from "@/app/settings/settings-client";
 import { csrfFetch } from "@/lib/auth/csrf-client";
@@ -26,8 +25,6 @@ vi.mock("@/lib/auth/csrf-client", () => ({
 vi.mock("next/navigation", () => ({
 	useRouter: () => ({ refresh: vi.fn() }),
 }));
-
-const wrap = (ui: React.ReactNode) => render(<I18nProvider initialLocale="zh"><ToastProvider>{ui}</ToastProvider></I18nProvider>);
 
 const baseRuntimeSettings = {
 	"platform.name": "VPS 统一管控平台",
@@ -44,20 +41,27 @@ const baseRuntimeSettings = {
 	"runtime.aiConversationListLimit": "200",
 };
 
+// Match the operations tab the user edits, including its neighbouring jobs section.
+const renderOperations = () => render(
+	<I18nProvider initialLocale="zh"><ToastProvider>
+		<SettingsClient visibleSectionIds={["runtime", "jobs"]} settings={baseRuntimeSettings} canManage />
+	</ToastProvider></I18nProvider>,
+);
+
 describe("SaveButtonWithDiff (TR-014 M01b)", () => {
 	beforeEach(() => {
 		vi.mocked(csrfFetch).mockReset();
 	});
 
 	it("hides the pending badge when no fields are modified", () => {
-		wrap(<SettingsClient settings={baseRuntimeSettings} canManage />);
+		renderOperations();
 		// No field is modified; no "项已修改" badge anywhere
 		expect(screen.queryByText(/项已修改/)).toBeNull();
 	});
 
 	it("shows a pending badge with count when a field is modified", async () => {
 		const user = userEvent.setup();
-		wrap(<SettingsClient settings={baseRuntimeSettings} canManage />);
+		renderOperations();
 		// commandOutputLimitBytes is medium risk — change it to trigger badge (without opening confirm modal)
 		await user.clear(screen.getByLabelText("命令输出保留上限（字节）"));
 		await user.type(screen.getByLabelText("命令输出保留上限（字节）"), "100000");
@@ -68,7 +72,7 @@ describe("SaveButtonWithDiff (TR-014 M01b)", () => {
 
 	it("expands an inline diff table when the badge is clicked", async () => {
 		const user = userEvent.setup();
-		wrap(<SettingsClient settings={baseRuntimeSettings} canManage />);
+		renderOperations();
 		await user.clear(screen.getByLabelText("命令输出保留上限（字节）"));
 		await user.type(screen.getByLabelText("命令输出保留上限（字节）"), "100000");
 
@@ -81,7 +85,7 @@ describe("SaveButtonWithDiff (TR-014 M01b)", () => {
 
 	it("uses danger tone for high-risk pending changes (badge + save button)", async () => {
 		const user = userEvent.setup();
-		wrap(<SettingsClient settings={baseRuntimeSettings} canManage />);
+		renderOperations();
 		// commandExecutionTimeoutMs is high risk
 		await user.clear(screen.getByLabelText("命令执行超时（毫秒）"));
 		await user.type(screen.getByLabelText("命令执行超时（毫秒）"), "120000");
@@ -98,7 +102,7 @@ describe("HighRiskConfirmModal (TR-014 M01b)", () => {
 	it("opens the modal when saving with a high-risk change", async () => {
 		const user = userEvent.setup();
 		vi.mocked(csrfFetch).mockResolvedValueOnce({ success: true });
-		wrap(<SettingsClient settings={baseRuntimeSettings} canManage />);
+		renderOperations();
 
 		await user.clear(screen.getByLabelText("命令执行超时（毫秒）"));
 		await user.type(screen.getByLabelText("命令执行超时（毫秒）"), "120000");
@@ -118,7 +122,7 @@ describe("HighRiskConfirmModal (TR-014 M01b)", () => {
 	it("does NOT call the API when cancel is clicked", async () => {
 		const user = userEvent.setup();
 		vi.mocked(csrfFetch).mockResolvedValueOnce({ success: true });
-		wrap(<SettingsClient settings={baseRuntimeSettings} canManage />);
+		renderOperations();
 
 		await user.clear(screen.getByLabelText("命令执行超时（毫秒）"));
 		await user.type(screen.getByLabelText("命令执行超时（毫秒）"), "120000");
@@ -135,7 +139,7 @@ describe("HighRiskConfirmModal (TR-014 M01b)", () => {
 	it("calls the API only after 确认保存 is clicked", async () => {
 		const user = userEvent.setup();
 		vi.mocked(csrfFetch).mockResolvedValueOnce({ success: true });
-		wrap(<SettingsClient settings={baseRuntimeSettings} canManage />);
+		renderOperations();
 
 		await user.clear(screen.getByLabelText("命令执行超时（毫秒）"));
 		await user.type(screen.getByLabelText("命令执行超时（毫秒）"), "120000");
@@ -159,7 +163,7 @@ describe("HighRiskConfirmModal (TR-014 M01b)", () => {
 	it("does NOT open the modal when only medium/low fields are modified", async () => {
 		const user = userEvent.setup();
 		vi.mocked(csrfFetch).mockResolvedValueOnce({ success: true });
-		wrap(<SettingsClient settings={baseRuntimeSettings} canManage />);
+		renderOperations();
 
 		// commandOutputLimitBytes is medium — change only this, no high
 		await user.clear(screen.getByLabelText("命令输出保留上限（字节）"));
@@ -177,7 +181,7 @@ describe("HighRiskConfirmModal (TR-014 M01b)", () => {
 	it("clears the pending-change badge after a successful save", async () => {
 		const user = userEvent.setup();
 		vi.mocked(csrfFetch).mockResolvedValueOnce({ success: true });
-		wrap(<SettingsClient settings={baseRuntimeSettings} canManage />);
+		renderOperations();
 
 		await user.clear(screen.getByLabelText("命令输出保留上限（字节）"));
 		await user.type(screen.getByLabelText("命令输出保留上限（字节）"), "100000");

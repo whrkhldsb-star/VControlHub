@@ -253,10 +253,10 @@ export async function importUserRoles(
     select: { userId: true, roleId: true },
   });
   const existingKeys = new Set(
-    existing.map((e) => `${e.userId}:${e.roleId}`),
+    existing.map((e) => JSON.stringify([e.userId, e.roleId])),
   );
   const toCreate = records.filter(
-    (r) => !existingKeys.has(`${r.userId}:${r.roleId}`),
+    (r) => !existingKeys.has(JSON.stringify([r.userId, r.roleId])),
   );
   counts.skipped += records.length - toCreate.length;
 

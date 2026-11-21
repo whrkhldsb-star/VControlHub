@@ -10,6 +10,12 @@ export function planUniqueImport<T extends { id: string }>(
 ) {
   const keysById = new Map(existing.map(({ id, key }) => [id, key]));
   const ownersByKey = new Map(existing.map(({ id, key }) => [key, id]));
+  const seen = new Set<string>();
+  records = records.filter((r) => {
+    if (seen.has(r.id)) return false;
+    seen.add(r.id);
+    return true;
+  });
   const updates = records.filter((row) => keysById.has(row.id));
   const creates = records.filter((row) => !keysById.has(row.id));
   const plan: Array<{ row: T; action: "create" | "update" }> = [];

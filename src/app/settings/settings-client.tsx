@@ -295,10 +295,10 @@ export function SettingsClient({
 
   const handleSave = useCallback(
     async (section: SectionDef) => {
-      const keys = getSectionSaveKeys(section).filter((key) => !key.startsWith("runtime.") || settings[key] !== undefined);
-      if (keys.length === 0) return;
+      const sectionKeys = getSectionSaveKeys(section).filter((key) => !key.startsWith("runtime.") || settings[key] !== undefined);
+      const keys = sectionKeys.filter((key) => (settings[key] ?? "") !== (baselineSettings[key] ?? ""));
       const invalid: Record<string, string> = {};
-      for (const key of keys) {
+      for (const key of sectionKeys) {
         const field = section.fields.find((f) => f.key === key);
         const refused = field?.validate?.(settings[key] ?? "", settings);
         if (field && refused) invalid[key] = t(refused.key, { ...refused.params, label: t(field.labelKey) });
@@ -307,6 +307,7 @@ export function SettingsClient({
         setFailure({ sectionId: section.id, fields: invalid });
         return;
       }
+      if (keys.length === 0) return;
       // TR-014 M01b: if any pending change in this section is high-risk,
       // show the confirm modal before performing the save.
       const pendingForSection = getPendingChanges(
@@ -323,11 +324,6 @@ export function SettingsClient({
         try {
           const payload: Record<string, string> = {};
           for (const k of keys) {
-            // A runtime knob that is not stored in the database shows its
-            // environment/default value; sending it back unchanged would pin
-            // that value in the database over a later env change.
-            const inherited = runtimeSummaryByKey.get(k);
-            if (inherited && inherited.source !== "database" && (settings[k] ?? "") === (baselineSettings[k] ?? "")) continue;
             payload[k] = settings[k] ?? "";
           }
           if (Object.keys(payload).length > 0) {
@@ -384,7 +380,7 @@ export function SettingsClient({
       }
       await performSave();
     },
-    [settings, baselineSettings, runtimeSummaryByKey, router, t, addToast],
+    [settings, baselineSettings, router, t, addToast],
   );
 
   if (!canManage) {

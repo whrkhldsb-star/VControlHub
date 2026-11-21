@@ -1,6 +1,7 @@
 import { describe, expect, it, vi, beforeEach } from "vitest";
 import { Readable } from "node:stream";
 
+import { formatPowerShellCommand } from "../service-commands";
 import { backupRunnerSpec, restoreRunnerSpec } from "../platform-runner";
 
 /** Normalize Windows separators so POSIX-shaped regexes assert on both OSes. */
@@ -22,6 +23,7 @@ const { mockPrisma, runBackupCommandMock, statMock, createReadStreamMock } = vi.
   createReadStreamMock: vi.fn(),
 }));
 
+vi.mock("../policy-summary", () => ({ getBackupPolicySummary: async () => ({ totalRecords: 0 }) }));
 vi.mock("@/lib/db", () => ({ prisma: mockPrisma }));
 vi.mock("@/lib/concurrency/advisory-lock", () => ({
   acquireAdvisoryLock: vi.fn(async () => async () => undefined),
@@ -98,7 +100,15 @@ describe("backup service", () => {
     createReadStreamMock.mockImplementation(() => Readable.from(["backup-content"]));
   });
 
+  it("quotes the Windows working directory, executable and arguments as PowerShell literals", () => {
+    const cmd = formatPowerShellCommand("C:/Control Hub", { file: "C:/Program Files/node.exe", args: ["scripts/restore.mjs", "files", "C:/Data/O'Brien/$archive.tar.gz"] }, true);
+    expect(cmd).toContain("Set-Location -LiteralPath 'C:/Control Hub' -ErrorAction Stop");
+    expect(cmd).toContain("$env:CONFIRM_RESTORE='1'");
+    expect(cmd).toContain("& 'C:/Program Files/node.exe' 'scripts/restore.mjs' 'files' 'C:/Data/O''Brien/$archive.tar.gz'");
+  });
+
   it("bounds backup list queries so backup history cannot hydrate unbounded rows", async () => {
+    mockPrisma.backupRecord.findMany.mockResolvedValue([]);
     await listBackupRecords();
 
     expect(mockPrisma.backupRecord.findMany).toHaveBeenCalledWith({
@@ -112,6 +122,7 @@ describe("backup service", () => {
   it("scopes backup history and direct lookup to the active team", async () => {
     const session = { userId: "u1", roles: ["viewer"] as const, currentTeamId: "team-1" };
     mockPrisma.backupRecord.findFirst.mockResolvedValue({ id: "bak1" });
+    mockPrisma.backupRecord.findMany.mockResolvedValue([]);
     await listBackupRecords(session as never);
     expect(mockPrisma.backupRecord.findMany).toHaveBeenLastCalledWith(expect.objectContaining({ where: { teamId: "team-1" } }));
     await getBackupRecord("bak1", session as never);
@@ -342,11 +353,11 @@ describe("backup service", () => {
 
     if (process.platform === "win32") {
       // Node restore runner: scripts/restore.mjs <component> <path> [component] [root]
-      expect(databaseCommand).toContain(`${restoreScript} 'database'`);
+      expect(databaseCommand).toContain(`'${restoreScript}' 'database'`);
       expect(databaseCommand).toContain("backups/database.sql.gz");
-      expect(filesCommand).toContain(`${restoreScript} 'files'`);
+      expect(filesCommand).toContain(`'${restoreScript}' 'files'`);
       expect(filesCommand).not.toContain("'database'");
-      expect(fullAllCommand).toContain(`${restoreScript} 'full'`);
+      expect(fullAllCommand).toContain(`'${restoreScript}' 'full'`);
       expect(fullAllCommand).toContain("'all'");
       expect(fullFilesOnlyCommand).toContain("'files'");
       expect(fullDatabaseOnlyCommand).toContain("'database'");

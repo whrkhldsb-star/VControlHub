@@ -9,6 +9,11 @@
  */
 import { spawn } from "node:child_process";
 import fs from "node:fs/promises";
+import { createReadStream } from "node:fs";
+import { createInterface } from "node:readline";
+import { Writable } from "node:stream";
+import { pipeline } from "node:stream/promises";
+import { createGunzip } from "node:zlib";
 import { randomUUID } from "node:crypto";
 import os from "node:os";
 import path from "node:path";
@@ -111,8 +116,16 @@ export const FILE_VERSIONS_MANIFEST = "file-versions.json";
 export const ENV_MEMBERS = [".env", ".env.production", ".env.local", ".env.runtime"];
 export const INTEGRITY_MANIFEST = "backup-integrity.json";
 
+const LIBPQ_SECRETS = ["password", "sslpassword"];
+// libpq conninfo values may quote whitespace and escape quotes or spaces.
+const conninfoValue = /'(?:\\.|[^'\\])*'?|"(?:\\.|[^"\\])*"?|(?:\\.|[^\s\\])*/.source;
+const secretAssignment = new RegExp("(\\b(?:" + LIBPQ_SECRETS.join("|") + ")\\s*=\\s*)(?:" + conninfoValue + ")", "gi");
+
 export function redactConnectionString(text) {
-  return text.replace(/(postgres(ql)?:\/\/)[^@\s]+@/g, "$1[REDACTED]@");
+  // An @ in a query value is data, so removing everything before the last
+  // apparent userinfo delimiter can leave part of the passphrase visible.
+  return text.replace(/\b(postgres(?:ql)?:\/\/)[^\s]+/gi, "$1[REDACTED]")
+    .replace(secretAssignment, "$1[REDACTED]");
 }
 
 /**
@@ -188,6 +201,9 @@ export function pgConnection(env) {
       }
     } catch {
       throw new Error("Invalid PostgreSQL connection URL");
+    }
+    if (url.searchParams.has("sslpassword")) {
+      throw new Error("Use a private libpq service file for sslpassword instead of DATABASE_URL");
     }
     // Credentials stay in the child environment, out of process argv and logs.
     return { connArgs: [url.toString()], childEnv };
@@ -313,4 +329,104 @@ export async function acquireRestoreLock(appDir) {
     };
   }
   throw new Error(`could not acquire restore lock ${lockDir}`);
+}
+
+/** Scan the entire index; bounded diagnostic output must not truncate validation. */
+async function scanArchiveLines(archive, flag, onLine) {
+  const tar = await findTar();
+  const child = spawn(tar, [flag, archive], { stdio: ["ignore", "pipe", "pipe"], timeout: 600_000 });
+  let stderr = "";
+  child.stderr.on("data", (chunk) => { stderr = (stderr + String(chunk)).slice(-16 * 1024); });
+  const completed = new Promise((resolve, reject) => {
+    child.on("error", reject);
+    child.on("close", (code) => code === 0 ? resolve() : reject(new Error(`tar exited with code ${code}: ${stderr.trim()}`)));
+  });
+  const lines = createInterface({ input: child.stdout, crlfDelay: Infinity });
+  try {
+    await Promise.all([completed, (async () => {
+      for await (const line of lines) if (line.trim()) onLine(line.trim());
+    })()]);
+  } finally {
+    lines.close();
+    if (child.exitCode === null && child.signalCode === null) child.kill();
+    await completed.catch(() => undefined);
+  }
+}
+
+/** Verify every member is a plain file or directory (no links/specials). */
+async function assertArchiveMemberTypes(archive) {
+  await scanArchiveLines(archive, "-tvzf", (line) => {
+    // GNU and bsdtar listing lines both begin with the entry type character.
+    const typeChar = line[0];
+    if (typeChar !== "-" && typeChar !== "d") {
+      throw new Error("archive links and special files are not supported");
+    }
+  });
+}
+
+export async function inspectArchive(archive) {
+  let databaseMember = null;
+  await scanArchiveLines(archive, "-tzf", (member) => {
+    assertSafeMemberNames([member]);
+    if (member === "database.sql.gz" || member === "./database.sql.gz") databaseMember = member;
+  });
+  await assertArchiveMemberTypes(archive);
+  return { databaseMember };
+}
+
+function assertSafeMemberNames(members) {
+  for (const member of members) {
+    const normalized = member.replace(/\\/g, "/");
+    if (
+      normalized.startsWith("/") ||
+      normalized.startsWith("..") ||
+      normalized.includes("/../") ||
+      normalized.endsWith("/..") ||
+      /^[A-Za-z]:/.test(normalized)
+    ) {
+      throw new Error(`unsafe archive member: ${member}`);
+    }
+  }
+}
+
+/** Stream through the same EOF check before psql commits or a read-only drill succeeds. */
+export async function* checkedDatabaseDump(chunks) {
+  let tail = "";
+  for await (const chunk of chunks) {
+    tail = (tail + chunk.subarray(-4096).toString("latin1")).slice(-4096);
+    yield chunk;
+  }
+  if (!/^-- PostgreSQL database dump complete\r?$/m.test(tail)) throw new Error("Missing pg_dump completion marker");
+}
+
+async function verifySqlGzip(file) {
+  await pipeline(createReadStream(file), createGunzip(), checkedDatabaseDump, async (chunks) => {
+    let head = "";
+    for await (const chunk of chunks) {
+      if (head.length < 8192) head += chunk.subarray(0, 8192 - head.length).toString("latin1");
+    }
+    if (!/PostgreSQL|SET |CREATE |DROP |COPY /i.test(head)) throw new Error("Expected PostgreSQL SQL dump");
+  }, { signal: AbortSignal.timeout(600_000) });
+}
+
+export async function verifyBackupPayload(type, archive) {
+  if (type === "DATABASE") return verifySqlGzip(archive);
+  // tar can stop at its end-of-archive marker before reading the gzip trailer.
+  await pipeline(createReadStream(archive), createGunzip(), new Writable({
+    write(_chunk, _encoding, done) { done(); },
+  }), { signal: AbortSignal.timeout(600_000) });
+  const { databaseMember } = await inspectArchive(archive);
+  if (type === "FILES") {
+    if (databaseMember) throw new Error("FILES archive contains a FULL database member");
+    return;
+  }
+  if (type !== "FULL" || !databaseMember) throw new Error("Expected FULL archive with database.sql.gz");
+  const staging = await fs.mkdtemp(path.join(os.tmpdir(), "vch-drill-"));
+  try {
+    const tar = await findTar();
+    await runBinary(tar, ["-xzf", archive, "-C", staging, "--no-same-owner", databaseMember], { timeout: 600_000 });
+    await verifySqlGzip(path.join(staging, "database.sql.gz"));
+  } finally {
+    await fs.rm(staging, { recursive: true, force: true });
+  }
 }

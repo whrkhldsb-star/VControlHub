@@ -8,11 +8,11 @@ import {
   createBackupRecord,
   listBackupRecords,
   runBackupRecord,
-  updateBackupRecordStatus,
 } from "@/lib/backup/service";
 import { BACKUP_CREATE_JOB_TYPE } from "@/lib/backup/job-worker";
 import { createBackupSchema } from "@/lib/backup/schema";
 import { GENERAL_WRITE_LIMIT } from "@/lib/http/rate-limit-presets";
+import { prisma } from "@/lib/db";
 import { enqueueJob } from "@/lib/job/service";
 
 import { ValidationError, BusinessError } from "@/lib/errors";
@@ -25,7 +25,8 @@ export const dynamic = "force-dynamic";
 
 export async function GET(request: Request) {
   return withApiRoute(request, { permission: "backup:read" }, async ({ session }) => {
-    return NextResponse.json({ backups: await listBackupRecords(session) });
+    const backups = await listBackupRecords(session);
+    return NextResponse.json({ backups, summary: backups.policySummary });
   });
 }
 
@@ -83,28 +84,18 @@ export async function POST(request: Request) {
       return NextResponse.json({ backup }, { status: 201 });
     }
 
-    const backup = await createBackupRecord({ type: parsed.data.type, createdBy: session.userId, note: parsed.data.note, teamId: session.currentTeamId ?? null });
-    let job;
-    try {
-      job = await enqueueJob({
+    const { backup, job } = await prisma.$transaction(async (tx) => {
+      const backup = await createBackupRecord({ type: parsed.data.type, createdBy: session.userId, note: parsed.data.note, teamId: session.currentTeamId ?? null }, tx);
+      const job = await enqueueJob({
         type: BACKUP_CREATE_JOB_TYPE,
-        title: `Create ${parsed.data.type} backup`,
-        payload: { backupId: backup.id, teamId: session.currentTeamId ?? backup.teamId ?? null },
+        title: `Create ${backup.type} backup`,
+        payload: { backupId: backup.id, teamId: backup.teamId },
         createdBy: session.userId,
-        teamId: session.currentTeamId ?? null,
+        teamId: backup.teamId,
         maxAttempts: 1,
-      });
-    } catch (enqueueError) {
-      // Compensate the orphan PENDING row (same contract as the vps-backup
-      // routes): without a durable job nothing will ever pick the record up,
-      // and the UI would show a stuck "PENDING" backup forever.
-      await updateBackupRecordStatus(backup.id, {
-        status: "FAILED",
-        errorMessage: enqueueError instanceof Error ? enqueueError.message : "Failed to enqueue backup job",
-        completedAt: new Date(),
-      }).catch(() => undefined);
-      throw enqueueError;
-    }
+      }, tx);
+      return { backup, job };
+    });
     await auditUserAction(session.userId, "backup.create", {
       backupId: backup.id,
       jobId: job.id,

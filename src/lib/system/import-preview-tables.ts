@@ -1,10 +1,13 @@
+import { planUniqueImport } from "./import-unique-rows";
+import { planAiProviders, planSnippets, writableSetting } from "./import-config-plan";
+import { playbookStepReferences, scopedPlaybooks, writableCommandTemplates } from "./import-executors-automation";
 import { prisma } from "@/lib/db";
-import { importPlaybooksSchema, type ExportFile, type ImportOptions } from "@/lib/system/config-schema";
-import { canBindServerKey, planAlertRuleImport } from "./import-reference-scope";
+import { importPlaybooksSchema, type ExportFile, type ImportOptions, type ImportIssue } from "@/lib/system/config-schema";
+import { byId, loadImportReferences, canBindServerKey, projectUniqueImportRows, planAlertRuleImport } from "./import-reference-scope";
 import { planQuickServiceImport } from "./import-quick-services";
 import { loadServerGrants, loadStorageGrants, planServerGrantImport, planStorageGrantImport } from "./import-resource-grants";
-import { previewMembershipImport, projectGrantUserScopes, projectOwnedRows, projectServers, projectUniqueImportRows } from "./import-preview-references";
-import { canBindStorageServer, loadStorageServers } from "./import-storage-servers";
+import { previewMembershipImport, projectGrantUserScopes, projectOwnedRows, projectServers, projectUserIds } from "./import-preview-references";
+import { canBindStorageServer, loadStorageServers, planStorageNodes } from "./import-storage-servers";
 
 /** dryRun 预览的单表统计。 */
 export type PreviewCounts = { create: number; update: number; skip: number };
@@ -37,10 +40,7 @@ async function previewById<T extends { id: string }>(
 ): Promise<PreviewCounts> {
   if (records.length === 0) return { ...ZERO };
   const existingIds = await chunkedExistingIds(records.map((r) => r.id), findMany);
-  const existingCount = records.filter((r) => existingIds.has(r.id)).length;
-  const newCount = records.length - existingCount;
-  if (options.overwriteExisting) return { create: newCount, update: existingCount, skip: 0 };
-  return { create: newCount, update: 0, skip: existingCount };
+  return countsFromPlan(records.length, planUniqueImport(records, [...existingIds].map((id) => ({ id, key: id })), (r) => r.id, options.overwriteExisting));
 }
 
 async function chunkedExistingKeys<T extends Record<K, string>, K extends string>(
@@ -65,10 +65,11 @@ async function previewByKey<T extends Record<K, string>, K extends string>(
 ): Promise<PreviewCounts> {
   if (records.length === 0) return { ...ZERO };
   const existingKeys = await chunkedExistingKeys(records.map((r) => r[keyName]), keyName, findMany);
-  const existingCount = records.filter((r) => existingKeys.has(r[keyName])).length;
-  const newCount = records.length - existingCount;
-  if (options.overwriteExisting) return { create: newCount, update: existingCount, skip: 0 };
-  return { create: newCount, update: 0, skip: existingCount };
+  const keys = new Set(records.map((r) => r[keyName]));
+  const existing = [...keys].filter((key) => existingKeys.has(key)).length;
+  const create = keys.size - existing;
+  const update = options.overwriteExisting ? existing : 0;
+  return { create, update, skip: records.length - create - update };
 }
 
 /**
@@ -86,11 +87,12 @@ async function previewByIdAndSecondaryKey<T extends { id: string }>(
   findIds: (chunk: string[]) => Promise<{ id: string }[]>,
   keyOf: (record: T) => string | null,
   findByKeys: (chunk: string[]) => Promise<{ id: string; key: string | null }[]>,
+  allowUpdate?: (row: T) => boolean,
 ): Promise<PreviewCounts> {
   if (records.length === 0) return { ...ZERO };
   const existingIds = await chunkedExistingIds(records.map((r) => r.id), findIds);
 
-  const keys = [...new Set(records.map(keyOf).filter((k): k is string => Boolean(k)))];
+  const keys = [...new Set(records.map(keyOf).filter((k): k is string => k !== null))];
   const ownerByKey = new Map<string, string>();
   for (let i = 0; i < keys.length; i += CHUNK) {
     const rows = await findByKeys(keys.slice(i, i + CHUNK));
@@ -99,45 +101,21 @@ async function previewByIdAndSecondaryKey<T extends { id: string }>(
     }
   }
 
-  const out: PreviewCounts = { create: 0, update: 0, skip: 0 };
-  for (const record of records) {
-    const key = keyOf(record);
-    const owner = key === null ? undefined : ownerByKey.get(key);
-    if (!existingIds.has(record.id)) {
-      // A live row already owns this key under a different id.
-      if (owner === undefined) out.create += 1;
-      else out.skip += 1;
-    } else if (!options.overwriteExisting) {
-      out.skip += 1;
-    } else if (owner !== undefined && owner !== record.id) {
-      out.skip += 1;
-    } else {
-      out.update += 1;
-    }
-  }
-  return out;
+  const existing = new Map([...existingIds].map((id) => [id, JSON.stringify([id])]));
+  for (const [key, id] of ownerByKey) existing.set(id, JSON.stringify(key));
+  const plan = planUniqueImport(records, [...existing].map(([id, key]) => ({ id, key })),
+    (r) => JSON.stringify(keyOf(r) ?? [r.id]), options.overwriteExisting);
+  return countsFromPlan(records.length, allowUpdate ? plan.filter(({ row, action }) => action !== "update" || allowUpdate(row)) : plan);
 }
 
-/**
- * Resolve which foreign keys a join/child table can point at *after* the import.
- *
- * The executors run in dependency order, so a role that only exists in the
- * bundle is already in the database by the time rolePermissions runs. Checking
- * the live database alone would report every row of a first-time import as
- * skipped — and `totalRecords === 0` disables the Execute button, so the
- * operator could not import at all. The bundle's own ids count as available,
- * except for tables the options exclude (users under `importUsers: false` are
- * never created, so their children really are skipped).
- */
-async function availableIds(
-  referenced: string[],
-  bundleIds: string[],
-  findIds: (chunk: string[]) => Promise<{ id: string }[]>,
-): Promise<Set<string>> {
-  const unique = [...new Set(referenced)];
-  const live = await chunkedExistingIds(unique, findIds);
-  for (const id of bundleIds) live.add(id);
-  return live;
+function projectCatalog(ids: string[], t: ExportFile["tables"], model: "role" | "permission", overwrite: boolean) {
+  const rows = model === "role" ? t.roles : t.permissions;
+  const find = (where: { id?: { in: string[] }; key?: { in: string[] } }) => {
+    const query = { where, select: { id: true, key: true } } as const;
+    return model === "role" ? prisma.role.findMany(query) : prisma.permission.findMany(query);
+  };
+  return projectUniqueImportRows(ids, rows, overwrite, (chunk) => find({ id: { in: chunk } }),
+    (chunk) => find({ key: { in: chunk } }), (r) => r.key);
 }
 
 // ── 预览辅助函数 ──────────────────────────────────────────
@@ -179,6 +157,7 @@ export async function previewRoles(
 
 export async function previewRolePermissions(
   t: ExportFile["tables"],
+  options: Pick<ImportOptions, "overwriteExisting"> = { overwriteExisting: true },
 ): Promise<PreviewCounts> {
   const records = t.rolePermissions;
   if (records.length === 0) return { ...ZERO };
@@ -188,24 +167,16 @@ export async function previewRolePermissions(
       where: { roleId: { in: roleIds } },
       select: { roleId: true, permissionId: true },
     }),
-    availableIds(
-      records.map((r) => r.roleId),
-      t.roles.map((r) => r.id),
-      (ids) => prisma.role.findMany({ where: { id: { in: ids } }, select: { id: true } }),
-    ),
-    availableIds(
-      records.map((r) => r.permissionId),
-      t.permissions.map((r) => r.id),
-      (ids) => prisma.permission.findMany({ where: { id: { in: ids } }, select: { id: true } }),
-    ),
+    projectCatalog(roleIds, t, "role", options.overwriteExisting),
+    projectCatalog(records.map((r) => r.permissionId), t, "permission", options.overwriteExisting),
   ]);
-  const existingPairs = new Set(existing.map((e) => `${e.roleId}:${e.permissionId}`));
+  const existingPairs = new Set(existing.map((e) => JSON.stringify([e.roleId, e.permissionId])));
   const out: PreviewCounts = { create: 0, update: 0, skip: 0 };
   for (const r of records) {
     // A grant is a pure join row: it is either inserted or skipped, never updated.
-    if (existingPairs.has(`${r.roleId}:${r.permissionId}`)) out.skip += 1;
+    if (existingPairs.has(JSON.stringify([r.roleId, r.permissionId]))) out.skip += 1;
     else if (!roles.has(r.roleId) || !permissions.has(r.permissionId)) out.skip += 1;
-    else out.create += 1;
+    else { existingPairs.add(JSON.stringify([r.roleId, r.permissionId])); out.create += 1; }
   }
   return out;
 }
@@ -238,65 +209,59 @@ export async function previewUserRoles(
       where: { userId: { in: userIds } },
       select: { userId: true, roleId: true },
     }),
-    availableIds(
-      records.map((r) => r.userId),
-      // Users are not created at all when the option is off, so their role
-      // assignments really will be skipped.
-      options.importUsers ? t.users.map((r) => r.id) : [],
-      (ids) => prisma.user.findMany({ where: { id: { in: ids } }, select: { id: true } }),
-    ),
-    availableIds(
-      records.map((r) => r.roleId),
-      t.roles.map((r) => r.id),
-      (ids) => prisma.role.findMany({ where: { id: { in: ids } }, select: { id: true } }),
-    ),
+    projectUserIds(userIds, t, options),
+    projectCatalog(records.map((r) => r.roleId), t, "role", options.overwriteExisting),
   ]);
-  const existingPairs = new Set(existing.map((e) => `${e.userId}:${e.roleId}`));
+  const existingPairs = new Set(existing.map((e) => JSON.stringify([e.userId, e.roleId])));
   const out: PreviewCounts = { create: 0, update: 0, skip: 0 };
   for (const r of records) {
-    if (existingPairs.has(`${r.userId}:${r.roleId}`)) out.skip += 1;
+    if (existingPairs.has(JSON.stringify([r.userId, r.roleId]))) out.skip += 1;
     else if (!users.has(r.userId) || !roles.has(r.roleId)) out.skip += 1;
-    else out.create += 1;
+    else { existingPairs.add(JSON.stringify([r.userId, r.roleId])); out.create += 1; }
   }
   return out;
 }
 
-export async function previewSshKeys(
-  t: ExportFile["tables"],
-  options: ImportOptions,
-): Promise<PreviewCounts> {
-  return previewByIdAndSecondaryKey(
-    t.sshKeys,
-    options,
-    (ids) => prisma.sshKey.findMany({ where: { id: { in: ids } }, select: { id: true } }),
-    (r) => r.fingerprint,
-    (keys) => prisma.sshKey.findMany({
-      where: { fingerprint: { in: keys } },
-      select: { id: true, fingerprint: true },
-    }).then((rows) => rows.map((row) => ({ id: row.id, key: row.fingerprint }))),
-  );
+function sameOwner(table: ImportIssue["table"], row: { id: string; teamId?: string | null }, live: { teamId: string | null }, issues: ImportIssue[]) {
+  if ((row.teamId ?? null) === (live.teamId ?? null)) return true;
+  issues.push({ table, id: row.id, reason: "nav.customerLabel", blocking: true,
+    ownerMismatch: { incoming: row.teamId ?? null, existing: live.teamId } });
+  return false;
 }
 
-export async function previewServers(
-  t: ExportFile["tables"],
-  options: ImportOptions,
-): Promise<PreviewCounts> {
-  const records = t.servers;
-  return previewById(records, options, (ids) => prisma.server.findMany({
-    where: { id: { in: ids } },
-    select: { id: true },
-  }));
+export async function previewSshKeys(t: ExportFile["tables"], options: ImportOptions, issues: ImportIssue[] = []): Promise<PreviewCounts> {
+  const existing = byId(await loadImportReferences(t.sshKeys.map((r) => r.id), (ids) => prisma.sshKey.findMany({
+    where: { id: { in: ids } }, select: { id: true, teamId: true, publicKey: true, fingerprint: true },
+  })));
+  return previewByIdAndSecondaryKey(t.sshKeys, options, async () => [...existing.values()], (r) => r.fingerprint,
+    (keys) => prisma.sshKey.findMany({ where: { fingerprint: { in: keys } }, select: { id: true, fingerprint: true } })
+      .then((rows) => rows.map((r) => ({ id: r.id, key: r.fingerprint }))),
+    (row) => {
+      const live = existing.get(row.id)!;
+      if (!sameOwner("sshKeys", row, live, issues)) return false;
+      if (!row.privateKey && (live.publicKey !== row.publicKey || live.fingerprint !== row.fingerprint)) {
+        issues.push({ table: "sshKeys", id: row.id, reason: "backend.server.sshPublicKeyMismatch", blocking: true });
+        return false;
+      }
+      return true;
+    });
 }
 
-export async function previewStorageNodes(
-  t: ExportFile["tables"],
-  options: ImportOptions,
-): Promise<PreviewCounts> {
-  const records = t.storageNodes;
-  return previewById(records, options, (ids) => prisma.storageNode.findMany({
-    where: { id: { in: ids } },
-    select: { id: true },
-  }));
+export async function previewServers(t: ExportFile["tables"], options: ImportOptions, issues: ImportIssue[] = []): Promise<PreviewCounts> {
+  const existing = byId(await loadImportReferences(t.servers.map((r) => r.id), (ids) => prisma.server.findMany({
+    where: { id: { in: ids } }, select: { id: true, teamId: true },
+  })));
+  const plan = planUniqueImport(t.servers, [...existing.keys()].map((id) => ({ id, key: id })), (row) => row.id, options.overwriteExisting);
+  return countsFromPlan(t.servers.length, plan.filter(({ row, action }) => action === "create" || sameOwner("servers", row, existing.get(row.id)!, issues)));
+}
+
+async function projectedStoragePlan(t: ExportFile["tables"], options: ImportOptions) {
+  return planStorageNodes(prisma, t.storageNodes, options.overwriteExisting, await projectStorageServers(t, options));
+}
+
+export async function previewStorageNodes(t: ExportFile["tables"], options: ImportOptions, issues: ImportIssue[] = []): Promise<PreviewCounts> {
+  const { existing, plan } = await projectedStoragePlan(t, options);
+  return countsFromPlan(t.storageNodes.length, plan.filter(({ row, action }) => action === "create" || sameOwner("storageNodes", row, existing.get(row.id)!, issues)));
 }
 
 export async function previewUserStorageAccess(
@@ -305,9 +270,10 @@ export async function previewUserStorageAccess(
 ): Promise<PreviewCounts> {
   const records = t.userStorageAccess;
   if (records.length === 0) return { ...ZERO };
+  const { plan } = await projectedStoragePlan(t, options);
   const [existing, nodes] = await Promise.all([
     loadStorageGrants(prisma, records),
-    projectOwnedRows(records.map((row) => row.storageNodeId), t.storageNodes, false, (ids) => prisma.storageNode.findMany({
+    projectOwnedRows(records.map((row) => row.storageNodeId), plan.map(({ row }) => row), false, (ids) => prisma.storageNode.findMany({
       where: { id: { in: ids } }, select: { id: true, teamId: true },
     })),
   ]);
@@ -322,11 +288,12 @@ export async function previewCommandTemplates(
   t: ExportFile["tables"],
   options: ImportOptions,
 ): Promise<PreviewCounts> {
-  const records = t.commandTemplates;
-  return previewById(records, options, (ids) => prisma.commandTemplate.findMany({
+  const records = await writableCommandTemplates(prisma, t.commandTemplates);
+  const counts = await previewById(records, options, (ids) => prisma.commandTemplate.findMany({
     where: { id: { in: ids } },
     select: { id: true },
   }));
+  return { ...counts, skip: counts.skip + t.commandTemplates.length - records.length };
 }
 
 export async function previewQuickServices(
@@ -340,56 +307,52 @@ export async function previewQuickServices(
   return countsFromPlan(records.length, plan);
 }
 
-export async function previewPlaybooks(
-  t: ExportFile["tables"],
-  options: ImportOptions,
-): Promise<PreviewCounts> {
-  const records = importPlaybooksSchema.parse(t.playbooks);
-  return previewById(records, options, (ids) => prisma.playbook.findMany({
-    where: { id: { in: ids } },
-    select: { id: true },
-  }));
+async function projectedPlaybooks(t: ExportFile["tables"], options: ImportOptions) {
+  const parsed = importPlaybooksSchema.parse(t.playbooks);
+  const { serverIds, recipientIds } = playbookStepReferences(parsed);
+  const [servers, { users }] = await Promise.all([projectServers(serverIds, t), projectGrantUserScopes(recipientIds, t, options)]);
+  return scopedPlaybooks(parsed, servers, users);
+}
+
+export async function previewPlaybooks(t: ExportFile["tables"], options: ImportOptions): Promise<PreviewCounts> {
+  const records = await projectedPlaybooks(t, options);
+  const counts = await previewById(records, options, (ids) => prisma.playbook.findMany({ where: { id: { in: ids } }, select: { id: true } }));
+  return { ...counts, skip: counts.skip + t.playbooks.length - records.length };
 }
 
 export async function previewAlertRules(
   t: ExportFile["tables"],
-  options: ImportOptions,
+  options: ImportOptions, mode?: ExportFile["exportMode"], issues: ImportIssue[] = [],
 ): Promise<PreviewCounts> {
   const records = t.alertRules;
   if (records.length === 0) return { ...ZERO };
   const [servers, playbooks, { users }] = await Promise.all([
     projectServers(records.flatMap((row) => row.serverIds), t),
-    projectOwnedRows(records.flatMap((row) => row.playbookIds ?? []), t.playbooks, options.overwriteExisting, (ids) => prisma.playbook.findMany({
+    projectOwnedRows(records.flatMap((row) => row.playbookIds ?? []), await projectedPlaybooks(t, options), options.overwriteExisting, (ids) => prisma.playbook.findMany({
       where: { id: { in: ids } }, select: { id: true, teamId: true },
     })),
     projectGrantUserScopes(records.flatMap((row) => row.onCallUserIds ?? []), t, options),
   ]);
-  const plan = await planAlertRuleImport(prisma, records, options, servers, playbooks, users);
+  const plan = await planAlertRuleImport(prisma, records, options, servers, playbooks, users, mode);
+  for (const { row, missingWebhook } of plan) if (missingWebhook) issues.push({ table: "alertRules", id: row.id, reason: "backend.alert.webhookUrlRequired" });
   return countsFromPlan(records.length, plan);
 }
 
-export async function previewSettings(
-  t: ExportFile["tables"],
-  options: ImportOptions,
-): Promise<PreviewCounts> {
-  const records = t.settings;
-  if (records.length === 0) return { ...ZERO };
-  return previewByKey(records, "key", options, (keys) => prisma.setting.findMany({
-    where: { key: { in: keys } },
-    select: { key: true },
+export async function previewSettings(t: ExportFile["tables"], options: ImportOptions, mode?: ExportFile["exportMode"]): Promise<PreviewCounts> {
+  const records = t.settings.filter((r) => writableSetting(r, mode));
+  const counts = await previewByKey(records, "key", options, (keys) => prisma.setting.findMany({
+    where: { key: { in: keys } }, select: { key: true },
   }));
+  return { ...counts, skip: counts.skip + t.settings.length - records.length };
 }
 
-export async function previewAiProviders(
-  t: ExportFile["tables"],
-  options: ImportOptions,
-): Promise<PreviewCounts> {
-  const records = t.aiProviders;
-  if (records.length === 0) return { ...ZERO };
-  return previewById(records, options, (ids) => prisma.aiProvider.findMany({
-    where: { id: { in: ids } },
-    select: { id: true },
-  }));
+export async function previewAiProviders(t: ExportFile["tables"], options: ImportOptions, issues: ImportIssue[] = []): Promise<PreviewCounts> {
+  const { plan, defaults, peers } = await planAiProviders(prisma, t.aiProviders, options, (ids) => projectUserIds(ids, t, options));
+  for (const peer of peers) {
+    const winner = defaults.get(peer.createdBy);
+    if (peer.isDefault && winner && winner !== peer.id) issues.push({ table: "aiProviders", id: peer.id, replacementId: winner, reason: "common.default" });
+  }
+  return countsFromPlan(t.aiProviders.length, plan);
 }
 
 export async function previewAnnouncements(
@@ -408,12 +371,8 @@ export async function previewSnippets(
   t: ExportFile["tables"],
   options: ImportOptions,
 ): Promise<PreviewCounts> {
-  const records = t.snippets;
-  if (records.length === 0) return { ...ZERO };
-  return previewById(records, options, (ids) => prisma.snippet.findMany({
-    where: { id: { in: ids } },
-    select: { id: true },
-  }));
+  const plan = await planSnippets(prisma, t.snippets, options, (ids) => projectUserIds(ids, t, options));
+  return countsFromPlan(t.snippets.length, plan);
 }
 
 /**
@@ -433,7 +392,12 @@ export async function previewTeams(t: ExportFile["tables"], options: ImportOptio
 }
 
 export async function previewIdentityTemplates(t: ExportFile["tables"], options: ImportOptions): Promise<PreviewCounts> {
-  return previewById(t.identityTemplates, options, (ids) => prisma.identityTemplate.findMany({ where: { id: { in: ids } }, select: { id: true } }));
+  const live = byId(await loadImportReferences(t.identityTemplates.map((r) => r.id), (ids) => prisma.identityTemplate.findMany({
+    where: { id: { in: ids } }, select: { id: true, isBuiltin: true },
+  })));
+  const records = t.identityTemplates.filter((r) => !live.get(r.id)?.isBuiltin);
+  const plan = planUniqueImport(records, [...live.keys()].map((id) => ({ id, key: id })), (r) => r.id, options.overwriteExisting);
+  return countsFromPlan(t.identityTemplates.length, plan);
 }
 
 /** A user belongs to one customer: an existing membership is replaced only with overwrite. */
@@ -464,7 +428,7 @@ export async function previewServerKeysMissing(t: ExportFile["tables"], options:
     }));
     servers = servers.filter((row) => !existing.has(row.id));
   }
-  const keys = await projectUniqueImportRows(servers.map((row) => row.sshKeyId!), t.sshKeys, false,
+  const keys = await projectUniqueImportRows(servers.map((row) => row.sshKeyId!), t.sshKeys, options.overwriteExisting,
     (ids) => prisma.sshKey.findMany({ where: { id: { in: ids } }, select: { id: true, fingerprint: true, teamId: true } }),
     (fingerprints) => prisma.sshKey.findMany({ where: { fingerprint: { in: fingerprints } }, select: { id: true, fingerprint: true, teamId: true } }),
     (key) => key.fingerprint,
@@ -478,15 +442,20 @@ export async function previewServerKeysMissing(t: ExportFile["tables"], options:
 /** Preview the server profiles the node import will see after the servers have been imported. */
 export async function previewStorageServersMissing(t: ExportFile["tables"], options: ImportOptions): Promise<boolean> {
   if (!t.storageNodes.some(node => node.serverId)) return false;
-  const servers = await loadStorageServers(prisma, t.storageNodes);
-  for (const row of t.servers) {
-    const existing = servers.get(row.id);
-    if (!existing || options.overwriteExisting) {
-      servers.set(row.id, {
-        teamId: row.teamId ?? null,
-        managementMode: row.managementMode ?? existing?.managementMode ?? "DIRECT",
-      });
-    }
-  }
+  const servers = await projectStorageServers(t, options);
   return t.storageNodes.some(node => !!node.serverId && !canBindStorageServer(node, servers.get(node.serverId)));
+}
+
+async function projectStorageServers(t: ExportFile["tables"], options: ImportOptions) {
+  const servers = await loadStorageServers(prisma, t.storageNodes);
+  const existingIds = [...servers.keys()].map((id) => ({ id, key: id }));
+  for (const { row } of planUniqueImport(t.servers, existingIds, (r) => r.id, options.overwriteExisting)) {
+    const existing = servers.get(row.id);
+    if (existing && existing.teamId !== (row.teamId ?? null)) continue;
+    servers.set(row.id, {
+      teamId: row.teamId ?? null,
+      managementMode: row.managementMode ?? existing?.managementMode ?? "DIRECT",
+    });
+  }
+  return servers;
 }

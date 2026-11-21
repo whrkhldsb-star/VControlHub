@@ -25,25 +25,30 @@ function teamScopedWhere(teamId: string) {
 
 const EXPORT_PAGE_SIZE = 500;
 
-type Page = { take: number; skip: number };
+type ExportDb = Prisma.TransactionClient;
 
-/**
- * Read a complete table in bounded database pages. The caller still receives
- * the complete export array because the .vch.json contract is intentionally
- * unchanged, but Prisma never materializes an unbounded result set in one
- * query.
- */
-async function readAllPages<T>(fetchPage: (page: Page) => PromiseLike<T[]>): Promise<T[]> {
-  const rows: T[] = [];
-  for (let skip = 0; ; skip += EXPORT_PAGE_SIZE) {
-    const page = await fetchPage({ take: EXPORT_PAGE_SIZE, skip });
-    rows.push(...page);
-    if (page.length < EXPORT_PAGE_SIZE) return rows;
-  }
+function paginate<Row, Cursor>(cursorFor: (row: Row) => Cursor) {
+  return async function readPages<T extends Row>(fetchPage: (page: { take: number; skip: number; cursor?: Cursor }) => PromiseLike<T[]>) {
+    const rows: T[] = [];
+    let cursor: Cursor | undefined;
+    for (;;) {
+      const page = await fetchPage({ take: EXPORT_PAGE_SIZE, skip: cursor ? 1 : 0, cursor });
+      rows.push(...page);
+      if (page.length < EXPORT_PAGE_SIZE) return rows;
+      cursor = cursorFor(page[page.length - 1]!);
+    }
+  };
 }
 
-export async function exportPermissions() {
-  const rows = await readAllPages(async (page) => prisma.permission.findMany({
+const readAllPages = paginate((r: { id: string }) => ({ id: r.id }));
+const readMembershipPages = paginate((r: { userId: string }) => ({ userId: r.userId }));
+const readSettingPages = paginate((r: { key: string }) => ({ key: r.key }));
+const readRolePermissionPages = paginate((r: { roleId: string; permissionId: string }) => ({ roleId_permissionId: { roleId: r.roleId, permissionId: r.permissionId } }));
+const readUserRolePages = paginate((r: { userId: string; roleId: string }) => ({ userId_roleId: { userId: r.userId, roleId: r.roleId } }));
+const readServerGrantPages = paginate((r: { userId: string; serverId: string }) => ({ userId_serverId: { userId: r.userId, serverId: r.serverId } }));
+
+export async function exportPermissions(db: ExportDb = prisma) {
+  const rows = await readAllPages(async (page) => db.permission.findMany({
     orderBy: [{ key: "asc" }, { id: "asc" }],
     ...page,
   }));
@@ -55,8 +60,8 @@ export async function exportPermissions() {
   }));
 }
 
-export async function exportRoles() {
-  const rows = await readAllPages(async (page) => prisma.role.findMany({
+export async function exportRoles(db: ExportDb = prisma) {
+  const rows = await readAllPages(async (page) => db.role.findMany({
     orderBy: [{ key: "asc" }, { id: "asc" }],
     ...page,
   }));
@@ -68,8 +73,8 @@ export async function exportRoles() {
   }));
 }
 
-export async function exportRolePermissions() {
-  const rows = await readAllPages(async (page) => prisma.rolePermission.findMany({
+export async function exportRolePermissions(db: ExportDb = prisma) {
+  const rows = await readRolePermissionPages(async (page) => db.rolePermission.findMany({
     orderBy: [{ roleId: "asc" }, { permissionId: "asc" }],
     ...page,
   }));
@@ -83,13 +88,14 @@ export async function exportUsers(
   mode: ExportMode,
   scope: ExportScope,
   teamId: string | null,
+  db: ExportDb = prisma,
 ) {
   // Team scope narrows the WHERE only: select and row mapping are shared with
   // the all-users export below (TR: the two branches used to duplicate both).
   let where: Prisma.UserWhereInput = {};
   if (scope === "team" && teamId) {
     const memberUserIds = (
-      await readAllPages(async (page) => prisma.teamMember.findMany({
+      await readMembershipPages(async (page) => db.teamMember.findMany({
         where: { teamId },
         select: { userId: true },
         orderBy: { userId: "asc" },
@@ -100,7 +106,7 @@ export async function exportUsers(
     where = { id: { in: memberUserIds } };
   }
 
-  const rows = await readAllPages(async (page) => prisma.user.findMany({
+  const rows = await readAllPages(async (page) => db.user.findMany({
     where,
     orderBy: { username: "asc" },
     select: {
@@ -134,10 +140,10 @@ export async function exportUsers(
   }));
 }
 
-export async function exportUserRoles(scope: ExportScope, userIds: string[]) {
+export async function exportUserRoles(scope: ExportScope, userIds: string[], db: ExportDb = prisma) {
   if (scope === "team") {
     if (userIds.length === 0) return [];
-    const rows = await readAllPages(async (page) => prisma.userRole.findMany({
+    const rows = await readUserRolePages(async (page) => db.userRole.findMany({
       where: { userId: { in: userIds } },
       orderBy: [{ userId: "asc" }, { roleId: "asc" }],
       ...page,
@@ -148,7 +154,7 @@ export async function exportUserRoles(scope: ExportScope, userIds: string[]) {
       assignedAt: dateToISO(r.assignedAt)!,
     }));
   }
-  const rows = await readAllPages(async (page) => prisma.userRole.findMany({
+  const rows = await readUserRolePages(async (page) => db.userRole.findMany({
     orderBy: [{ userId: "asc" }, { roleId: "asc" }],
     ...page,
   }));
@@ -163,9 +169,10 @@ export async function exportSshKeys(
   mode: ExportMode,
   scope: ExportScope,
   teamId: string | null,
+  db: ExportDb = prisma,
 ) {
   const where = scope === "team" && teamId ? teamScopedWhere(teamId) : {};
-  const rows = await readAllPages(async (page) => prisma.sshKey.findMany({
+  const rows = await readAllPages(async (page) => db.sshKey.findMany({
     where,
     orderBy: [{ name: "asc" }, { id: "asc" }],
     select: {
@@ -200,9 +207,10 @@ export async function exportServers(
   mode: ExportMode,
   scope: ExportScope,
   teamId: string | null,
+  db: ExportDb = prisma,
 ) {
   const where = scope === "team" && teamId ? teamScopedWhere(teamId) : {};
-  const rows = await readAllPages(async (page) => prisma.server.findMany({
+  const rows = await readAllPages(async (page) => db.server.findMany({
     where,
     orderBy: [{ name: "asc" }, { id: "asc" }],
     select: {
@@ -280,11 +288,11 @@ export async function exportServers(
 }
 
 /** The customers the package's resources belong to (one in team scope). */
-export async function exportTeams(scope: ExportScope, teamId: string | null) {
+export async function exportTeams(scope: ExportScope, teamId: string | null, db: ExportDb = prisma) {
   // Deleted customers too, marked as such: their servers and other kept
   // resources are in the package, and without their owner the package could
   // not be imported anywhere new (missing customer, whole import rolled back).
-  const rows = await readAllPages(async (page) => prisma.team.findMany({
+  const rows = await readAllPages(async (page) => db.team.findMany({
     where: scope === "team" && teamId ? { id: teamId } : {},
     orderBy: [{ slug: "asc" }, { id: "asc" }],
     select: { id: true, slug: true, name: true, description: true, deletedAt: true },
@@ -294,9 +302,9 @@ export async function exportTeams(scope: ExportScope, teamId: string | null) {
 }
 
 /** Memberships of the exported users in the exported customers. */
-export async function exportTeamMembers(teamIds: string[], userIds: string[]) {
+export async function exportTeamMembers(teamIds: string[], userIds: string[], db: ExportDb = prisma) {
   if (teamIds.length === 0 || userIds.length === 0) return [];
-  const rows = await readAllPages(async (page) => prisma.teamMember.findMany({
+  const rows = await readMembershipPages(async (page) => db.teamMember.findMany({
     where: { teamId: { in: teamIds }, userId: { in: userIds } },
     orderBy: { userId: "asc" },
     ...page,
@@ -305,9 +313,9 @@ export async function exportTeamMembers(teamIds: string[], userIds: string[]) {
 }
 
 /** Identity templates the exported memberships use (all of them in global scope). */
-export async function exportIdentityTemplates(scope: ExportScope, templateIds: string[]) {
+export async function exportIdentityTemplates(scope: ExportScope, templateIds: string[], db: ExportDb = prisma) {
   if (scope === "team" && templateIds.length === 0) return [];
-  const rows = await readAllPages(async (page) => prisma.identityTemplate.findMany({
+  const rows = await readAllPages(async (page) => db.identityTemplate.findMany({
     where: scope === "team" ? { id: { in: templateIds } } : {},
     orderBy: [{ name: "asc" }, { id: "asc" }],
     select: { id: true, name: true, description: true, permissions: true, isBuiltin: true },
@@ -317,9 +325,9 @@ export async function exportIdentityTemplates(scope: ExportScope, templateIds: s
 }
 
 /** Per-server permissions of the exported users on the exported servers. */
-export async function exportUserServerAccess(userIds: string[], serverIds: string[]) {
+export async function exportUserServerAccess(userIds: string[], serverIds: string[], db: ExportDb = prisma) {
   if (userIds.length === 0 || serverIds.length === 0) return [];
-  const rows = await readAllPages(async (page) => prisma.userServerAccess.findMany({
+  const rows = await readServerGrantPages(async (page) => db.userServerAccess.findMany({
     where: { userId: { in: userIds }, serverId: { in: serverIds } },
     orderBy: [{ userId: "asc" }, { serverId: "asc" }],
     ...page,
@@ -334,9 +342,10 @@ export async function exportStorageNodes(
   mode: ExportMode,
   scope: ExportScope,
   teamId: string | null,
+  db: ExportDb = prisma,
 ) {
   const where = scope === "team" && teamId ? teamScopedWhere(teamId) : {};
-  const rows = await readAllPages(async (page) => prisma.storageNode.findMany({
+  const rows = await readAllPages(async (page) => db.storageNode.findMany({
     where,
     include: { agentFileShare: { select: { server: { select: { id: true, teamId: true } } } } },
     orderBy: [{ name: "asc" }, { id: "asc" }],
@@ -381,10 +390,11 @@ export async function exportUserStorageAccess(
   scope: ExportScope,
   storageNodeIds: string[],
   memberUserIds: string[],
+  db: ExportDb = prisma,
 ) {
   if (scope === "team") {
     if (storageNodeIds.length === 0 || memberUserIds.length === 0) return [];
-    const rows = await readAllPages(async (page) => prisma.userStorageAccess.findMany({
+    const rows = await readAllPages(async (page) => db.userStorageAccess.findMany({
       where: { storageNodeId: { in: storageNodeIds }, userId: { in: memberUserIds } },
       orderBy: [{ storageNodeId: "asc" }, { id: "asc" }],
       ...page,
@@ -402,7 +412,7 @@ export async function exportUserStorageAccess(
       createdAt: dateToISO(r.createdAt)!,
     }));
   }
-  const rows = await readAllPages(async (page) => prisma.userStorageAccess.findMany({
+  const rows = await readAllPages(async (page) => db.userStorageAccess.findMany({
     orderBy: [{ storageNodeId: "asc" }, { id: "asc" }],
     ...page,
   }));
@@ -420,14 +430,15 @@ export async function exportUserStorageAccess(
   }));
 }
 
-export async function exportCommandTemplates(scope: ExportScope, teamId: string | null) {
-  const rows = await readAllPages(async (page) => prisma.commandTemplate.findMany({
+export async function exportCommandTemplates(scope: ExportScope, teamId: string | null, db: ExportDb = prisma) {
+  const rows = await readAllPages(async (page) => db.commandTemplate.findMany({
     where: scope === "team" && teamId ? teamScopedWhere(teamId) : {},
     orderBy: [{ name: "asc" }, { id: "asc" }],
     ...page,
   }));
   return rows.map((r) => ({
-    id: r.id,
+    // The local catalog is seeded by name. Its database ids differ by installation.
+    id: r.isBuiltin ? `builtin:${r.name}` : r.id,
     name: r.name,
     description: r.description,
     command: r.command,
@@ -445,19 +456,20 @@ export async function exportQuickServices(
   mode: ExportMode,
   scope: ExportScope,
   teamId: string | null,
+  db: ExportDb = prisma,
 ) {
   if (scope === "team" && teamId) {
     // Team scope: this customer's remote services only. Hub-host services
     // (serverId null) are platform definitions and belong to the global
     // package (A9-07); server.teamId==null remotes stay out (cross-tenant leak).
-    const rows = await readAllPages(async (page) => prisma.quickService.findMany({
+    const rows = await readAllPages(async (page) => db.quickService.findMany({
       where: { server: { teamId } },
       orderBy: [{ name: "asc" }, { id: "asc" }],
       ...page,
     }));
     return rows.map((r) => mapQuickService(r, mode));
   }
-  const rows = await readAllPages(async (page) => prisma.quickService.findMany({
+  const rows = await readAllPages(async (page) => db.quickService.findMany({
     orderBy: [{ name: "asc" }, { id: "asc" }],
     ...page,
   }));
@@ -514,9 +526,10 @@ export async function exportPlaybooks(
   mode: ExportMode,
   scope: ExportScope,
   teamId: string | null,
+  db: ExportDb = prisma,
 ) {
   const where = scope === "team" && teamId ? teamScopedWhere(teamId) : {};
-  const rows = await readAllPages(async (page) => prisma.playbook.findMany({
+  const rows = await readAllPages(async (page) => db.playbook.findMany({
     where,
     orderBy: [{ name: "asc" }, { id: "asc" }],
     ...page,
@@ -540,9 +553,10 @@ export async function exportAlertRules(
   mode: ExportMode,
   scope: ExportScope,
   teamId: string | null,
+  db: ExportDb = prisma,
 ) {
   const where = scope === "team" && teamId ? teamScopedWhere(teamId) : {};
-  const rows = await readAllPages(async (page) => prisma.alertRule.findMany({
+  const rows = await readAllPages(async (page) => db.alertRule.findMany({
     where,
     orderBy: [{ name: "asc" }, { id: "asc" }],
     ...page,
@@ -569,9 +583,9 @@ export async function exportAlertRules(
   }));
 }
 
-export async function exportSettings(mode: ExportMode, scope: ExportScope) {
+export async function exportSettings(mode: ExportMode, scope: ExportScope, db: ExportDb = prisma) {
   if (scope === "team") return [];
-  const rows = await readAllPages(async (page) => prisma.setting.findMany({
+  const rows = await readSettingPages(async (page) => db.setting.findMany({
     orderBy: { key: "asc" },
     ...page,
   }));
@@ -582,9 +596,9 @@ export async function exportSettings(mode: ExportMode, scope: ExportScope) {
   }));
 }
 
-export async function exportAiProviders(mode: ExportMode, scope: ExportScope) {
+export async function exportAiProviders(mode: ExportMode, scope: ExportScope, db: ExportDb = prisma) {
   if (scope === "team") return [];
-  const rows = await readAllPages(async (page) => prisma.aiProvider.findMany({
+  const rows = await readAllPages(async (page) => db.aiProvider.findMany({
     orderBy: [{ name: "asc" }, { id: "asc" }],
     select: {
       id: true,
@@ -618,9 +632,9 @@ export async function exportAiProviders(mode: ExportMode, scope: ExportScope) {
   }));
 }
 
-export async function exportAnnouncements(scope: ExportScope) {
+export async function exportAnnouncements(scope: ExportScope, db: ExportDb = prisma) {
   if (scope === "team") return [];
-  const rows = await readAllPages(async (page) => prisma.announcement.findMany({
+  const rows = await readAllPages(async (page) => db.announcement.findMany({
     orderBy: [{ createdAt: "desc" }, { id: "desc" }],
     ...page,
   }));
@@ -641,10 +655,11 @@ export async function exportAnnouncements(scope: ExportScope) {
 export async function exportSnippets(
   scope: ExportScope,
   memberUserIds: string[],
+  db: ExportDb = prisma,
 ) {
   if (scope === "team") {
     if (memberUserIds.length === 0) return [];
-    const rows = await readAllPages(async (page) => prisma.snippet.findMany({
+    const rows = await readAllPages(async (page) => db.snippet.findMany({
       // Snippet has no teamId yet, so team exports must derive ownership from
       // the creator directory. Public visibility is not export ownership.
       where: { createdBy: { in: memberUserIds } },
@@ -653,7 +668,7 @@ export async function exportSnippets(
     }));
     return rows.map(mapSnippet);
   }
-  const rows = await readAllPages(async (page) => prisma.snippet.findMany({
+  const rows = await readAllPages(async (page) => db.snippet.findMany({
     orderBy: [{ title: "asc" }, { id: "asc" }],
     ...page,
   }));

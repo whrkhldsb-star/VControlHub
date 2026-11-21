@@ -65,4 +65,37 @@ describe.skipIf(process.env.RUN_DATABASE_INTEGRATION_TESTS !== "1")("platform ba
 		const left = (await prisma.backupRecord.findMany({ where: { teamId: prefix }, select: { id: true } })).map((row) => row.id.slice(prefix.length + 1)).sort();
 		expect(left).toEqual(["daily-a", "daily-b", "daily-c", "monthly-5d"]);
 	});
+
+	it("aggregates more than 500 records across pages, separates inventory, and matches manual cleanup", async () => {
+		const { getBackupPolicySummary } = await import("../policy-summary");
+		const { pruneOldBackupRecordsNow } = await import("../service-runtime");
+		const teamId = prefix + "-summary";
+		await prisma.team.create({ data: { id: teamId, name: teamId, slug: teamId } });
+		try {
+			const rows = Array.from({ length: 506 }, (_, i) => ({ id: teamId + i, type: "DATABASE", teamId,
+				status: "COMPLETED", filePath: "backups/" + teamId + i, createdAt: daysAgo(i < 501 ? 1 : 40), fileSize: "7" }));
+			await prisma.backupRecord.createMany({ data: rows });
+			const admin = { userId: prefix, roles: ["admin" as const], currentTeamId: teamId };
+			const { listBackupRecords } = await import("../service-crud");
+			const { summarizeBackupPolicy } = await import("../service-policy");
+			const page = await listBackupRecords(admin);
+			expect(page).toHaveLength(500);
+			const scoped = summarizeBackupPolicy(page);
+			expect(scoped).toMatchObject({ totalRecords: 506, eligibleRecords: 5, totalCompletedSizeBytes: 3542, eligibleSizeBytes: 35, inventoryTotalRecords: 506 });
+			const platform = await getBackupPolicySummary({ ...admin, currentTeamId: null });
+			expect(platform.inventoryTotalRecords).toBeGreaterThanOrEqual(platform.totalRecords + 506);
+			const actual = await pruneOldBackupRecordsNow({ teamId, projectRoot });
+			expect(actual.deletedRecords).toBe(page.policySummary.eligibleRecords);
+			await prisma.backupRecord.createMany({ data: [1, 2].map((day) => ({
+				type: "DATABASE", teamId, status: "FAILED", filePath: "failed-" + day,
+				errorMessage: "Permission denied " + day, createdAt: daysAgo(day),
+			})) });
+			expect((await getBackupPolicySummary(admin)).failureSummary).toEqual([
+				{ category: "permission", count: 2, latestMessage: "Permission denied 1", latestRecordPath: "failed-1" },
+			]);
+		} finally {
+			await prisma.backupRecord.deleteMany({ where: { teamId } });
+			await prisma.team.delete({ where: { id: teamId } });
+		}
+	});
 });

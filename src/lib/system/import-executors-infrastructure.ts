@@ -14,8 +14,8 @@ import { Prisma } from "@prisma/client";
 import type { ExportFile, ImportOptions } from "@/lib/system/config-schema";
 import { byId, canBindServerKey, loadGrantUserScopes, loadImportReferences } from "./import-reference-scope";
 import { loadStorageGrants, planStorageGrantImport } from "./import-resource-grants";
-import { canBindStorageServer, loadStorageServers } from "./import-storage-servers";
-import { parseBigInt, parseDate, upsertById, upsertByIdWithSecondaryUnique, type Tx, type Counts } from "./import-executors-helpers";
+import { canBindStorageServer, loadStorageServers, planStorageNodes } from "./import-storage-servers";
+import { creatorResolver, parseBigInt, parseDate, upsertById, upsertByIdWithSecondaryUnique, type Tx, type Counts } from "./import-executors-helpers";
 
 // 6. SshKeys (fingerprint is a secondary unique key)
 export async function importSshKeys(
@@ -24,6 +24,7 @@ export async function importSshKeys(
   options: ImportOptions,
   counts: Counts,
 ): Promise<void> {
+  const creator = await creatorResolver(tx, t.sshKeys.map((r) => r.createdById));
   await upsertByIdWithSecondaryUnique(t.sshKeys, options, counts, {
     listExistingIds: async (ids) =>
       new Set(
@@ -35,7 +36,7 @@ export async function importSshKeys(
           (h) => h.fingerprint,
         ),
       ),
-    secondaryValueOf: (r) => r.fingerprint || undefined,
+    secondaryValueOf: (r) => r.fingerprint,
     createManySkipDuplicates: async (rows) =>
       (
         await tx.sshKey.createMany({
@@ -43,6 +44,7 @@ export async function importSshKeys(
             id: r.id,
             name: r.name,
             fingerprint: r.fingerprint,
+            createdById: creator(r.createdById),
             publicKey: r.publicKey,
             privateKey: r.privateKey,
             passphrase: r.passphrase,
@@ -54,7 +56,6 @@ export async function importSshKeys(
         })
       ).count,
     hasSecondaryClash: async (r) => {
-      if (!r.fingerprint) return false;
       return Boolean(
         await tx.sshKey.findFirst({
           where: { fingerprint: r.fingerprint, NOT: { id: r.id } },
@@ -71,6 +72,7 @@ export async function importSshKeys(
         data: {
           name: r.name,
           fingerprint: r.fingerprint,
+          createdById: creator(r.createdById),
           publicKey: r.publicKey,
           // Full mode: restore private key + passphrase; Standard: keep existing
           ...(r.privateKey ? { privateKey: r.privateKey } : {}),
@@ -118,6 +120,7 @@ export async function importServers(
   t: ExportFile["tables"],
   options: ImportOptions,
   counts: Counts,
+  exportMode?: ExportFile["exportMode"],
 ): Promise<void> {
   // SSH keys were imported before: a key that is neither in the package nor
   // here (it belongs to another customer) cannot be linked.
@@ -155,7 +158,7 @@ export async function importServers(
     port: r.port,
     username: r.username,
     // Full mode: restore password; Standard: keep existing
-    ...(r.password ? { password: r.password } : {}),
+    ...(exportMode === "full" || r.password ? { password: r.password } : {}),
     description: r.description,
     tags: r.tags,
     enabled: r.enabled,
@@ -167,7 +170,7 @@ export async function importServers(
     teamId: r.teamId ?? null,
     ...serverProfileFields(r),
     // Standard mode carries no RDP password: keep the existing one.
-    ...(r.rdpPassword ? {} : { rdpPassword: undefined }),
+    ...(exportMode === "full" || r.rdpPassword ? {} : { rdpPassword: undefined }),
   });
   await upsertById(t.servers, options, counts, {
     listExistingIds: async (ids) =>
@@ -276,14 +279,8 @@ export async function importStorageNodes(
   type NodeRow = ExportFile["tables"]["storageNodes"][number];
   const servers = await loadStorageServers(tx, records);
 
-  // An unavailable reference can preserve a local binding only within the imported node's team.
-  const existingServerTeams = new Map<string, string | null>();
-  function directServerLink(r: NodeRow) {
-    if (r.driver === "AGENT" || !r.serverId) return { serverId: null };
-    const teamId = r.teamId ?? null;
-    if (canBindStorageServer(r, servers.get(r.serverId))) return { serverId: r.serverId };
-    return existingServerTeams.get(r.id) === teamId ? {} : { serverId: null };
-  }
+  const { existing, plan, binding } = await planStorageNodes(tx, records, options.overwriteExisting, servers);
+  counts.skipped += records.length - plan.length;
 
   // Only the server association travels with an Agent drive. Pairing credentials are local.
   async function restoreFileShare(r: NodeRow) {
@@ -304,7 +301,7 @@ export async function importStorageNodes(
     host: r.host,
     port: r.port,
     username: r.username,
-    ...directServerLink(r),
+    ...(binding(r) === undefined ? {} : { serverId: binding(r) }),
     healthStatus: r.driver === "AGENT" ? "UNKNOWN" as const : r.healthStatus,
     ...(r.driver === "AGENT" ? { lastHealthyAt: null, lastHealthyTransport: null, lastHealthCheckAt: null, lastHealthError: null, lastHealthLatencyMs: null } : {}),
     // Multi-tenant: preserve export teamId (null stays legacy-shared)
@@ -313,16 +310,8 @@ export async function importStorageNodes(
     // Standard exports carry no WebDAV credentials: keep what is here.
     ...(r.webdavConfigEncrypted ? { webdavConfigEncrypted: r.webdavConfigEncrypted } : {}),
   });
-  await upsertById(records, options, counts, {
-    listExistingIds: async (ids) => {
-      const rows = await tx.storageNode.findMany({
-        where: { id: { in: ids } }, select: { id: true, server: { select: { teamId: true } } },
-      });
-      for (const row of rows) {
-        if (row.server) existingServerTeams.set(row.id, row.server.teamId);
-      }
-      return new Set(rows.map(row => row.id));
-    },
+  await upsertById(plan.map(({ row }) => row), options, counts, {
+    listExistingIds: async () => new Set(existing.keys()),
     createManySkipDuplicates: async (rows) => {
       const direct = rows.filter((row) => row.driver !== "AGENT");
       let created = direct.length ? (await tx.storageNode.createMany({

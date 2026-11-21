@@ -1,3 +1,4 @@
+import { isPlatformLogoUrl } from "@/lib/settings/schema";
 import type { NavGlyph } from "@/components/nav-icons";
 
 /**
@@ -84,16 +85,8 @@ export function parseInteger(value: string, min: number, max: number): FieldVali
 
 export const isValidEmail = (s: string) => /^.+@.+\..+$/.test(s);
 
-export const validateLogoUrl = (value: string): FieldValidationError | null => {
-	const trimmed = value.trim();
-	if (!trimmed || trimmed.startsWith("/")) return null;
-	try {
-		const parsed = new URL(trimmed);
-		return parsed.protocol === "http:" || parsed.protocol === "https:" ? null : { key: "settingsClient.validate.logoUrl.invalid" };
-	} catch {
-		return { key: "settingsClient.validate.logoUrl.invalid" };
-	}
-};
+export const validateLogoUrl = (value: string): FieldValidationError | null =>
+	isPlatformLogoUrl(value.trim()) ? null : { key: "settingsClient.validate.logoUrl.invalid" };
 
 /* ── Factory ─────────────────────────────────────────────── */
 

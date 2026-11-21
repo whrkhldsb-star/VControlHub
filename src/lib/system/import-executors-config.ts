@@ -1,3 +1,6 @@
+import { getLockKeys } from "@/lib/concurrency/advisory-lock";
+import { assertAnnouncementWindow } from "@/lib/announcement/service";
+import { planAiProviders, planSnippets, ProviderDefaultBusy, writableSetting } from "./import-config-plan";
 /**
  * TR-042: 系统配置导入服务 — 配置与内容域导入模块。
  *
@@ -10,14 +13,14 @@ import { ZodError } from "zod";
 
 import { resolveDefaultProviderBaseUrl } from "@/lib/ai/provider-endpoint";
 import { safeDecryptApiKey } from "@/lib/ai/service-crud";
-import { isSensitiveSettingKey, type ExportFile, type ImportOptions } from "@/lib/system/config-schema";
-import { decodeStoredSecret, isValidSettingKey, normalizeStoredSetting, readStoredSecret, toStoredValue } from "@/lib/settings/service";
-import { isSensitiveKey, MASKED_VALUE } from "@/lib/settings/schema";
+import type { ExportFile, ImportOptions } from "@/lib/system/config-schema";
+import { decodeStoredSecret, normalizeStoredSetting, readStoredSecret, toStoredValue } from "@/lib/settings/service";
+import { isSensitiveKey } from "@/lib/settings/schema";
 import { ValidationError } from "@/lib/errors";
 import { OFFSITE_SETTING_KEYS, parseConfigFromMap } from "@/lib/storage/offsite/schema";
 import { normalizeEndpoint as normalizeOffsiteEndpoint } from "@/lib/storage/offsite/s3-client";
 import { t as translate } from "@/lib/i18n/service-translations";
-import { creatorResolver, parseDate, upsertById, type Tx, type Counts } from "./import-executors-helpers";
+import { creatorResolver, idsPresent, parseDate, upsertById, type Tx, type Counts } from "./import-executors-helpers";
 
 const CREDENTIAL_BINDINGS = [
   { endpoints: ["smtp.host", "smtp.user", "smtp.port", "smtp.requireTls"], secrets: ["smtp.pass"] },
@@ -76,7 +79,7 @@ export async function importSettings(
     counts.skipped += t.settings.length;
     return;
   }
-  const records = t.settings.filter((r) => isValidSettingKey(r.key));
+  const records = t.settings.filter((r) => writableSetting(r, exportMode));
   counts.skipped += t.settings.length - records.length;
   if (records.length === 0) return;
 
@@ -93,8 +96,7 @@ export async function importSettings(
   const current = new Map(rows.map((row) => [row.key, row.value]));
   const writes = new Map<string, string>();
   for (const { key, value } of records) {
-    if ((!options.overwriteExisting && current.has(key))
-        || (isSensitiveSettingKey(key) && (value === MASKED_VALUE || (value === "" && exportMode !== "full")))) {
+    if (!options.overwriteExisting && current.has(key)) {
       counts.skipped++;
       continue;
     }
@@ -159,27 +161,26 @@ export async function importAiProviders(
 ): Promise<void> {
   const records = t.aiProviders;
   if (records.length === 0) return;
-  const ids = records.map((r) => r.id);
-  const select = { id: true, type: true, baseUrl: true, createdBy: true, apiKey: true, updatedAt: true } as const;
-  const existing = await tx.aiProvider.findMany({
-    where: { id: { in: ids } },
-    select,
-  });
-  const byId = new Map(existing.map((provider) => [provider.id, provider]));
-  const toCreate = records.filter((r) => !byId.has(r.id));
-  const toUpdate = records.filter((r) => byId.has(r.id));
-
-  if (options.overwriteExisting) {
-    for (const r of toUpdate) {
-      const current = byId.get(r.id)!;
+  const { plan, existing, defaults, ownerOf } = await planAiProviders(tx, records, options, (ids) =>
+    idsPresent(ids, (chunk) => tx.user.findMany({ where: { id: { in: chunk } }, select: { id: true } })));
+  counts.skipped += records.length - plan.length;
+  for (const owner of defaults.keys()) {
+    // Ordinary edits take the user lock before writing this table. Waiting
+    // while holding the import's table lock would invert their lock order.
+    const { k1, k2 } = getLockKeys("ai-provider-default", owner);
+    const [lock] = await tx.$queryRaw<{ acquired: boolean }[]>`SELECT pg_try_advisory_xact_lock(${k1}::int, ${k2}::int) AS acquired`;
+    if (!lock?.acquired) throw new ProviderDefaultBusy(owner);
+  }
+  for (const { row: r, action } of plan) {
+    if (action === "update") {
+      const current = existing.get(r.id)!;
       const origin = providerHttpOrigin(current.baseUrl, current.type);
       const sameBinding = current.type === r.type && current.createdBy === r.createdBy
         && origin !== null && origin === providerHttpOrigin(r.baseUrl, r.type);
       const clearKey = !sameBinding && (!r.apiKey?.trim() || r.apiKey === current.apiKey
         || safeDecryptApiKey(r.apiKey) === safeDecryptApiKey(current.apiKey));
-      const updated = await tx.aiProvider.update({
+      await tx.aiProvider.update({
         where: { id: r.id, createdBy: current.createdBy, type: current.type, baseUrl: current.baseUrl, updatedAt: current.updatedAt },
-        select,
         data: {
           name: r.name,
           type: r.type as never,
@@ -187,50 +188,23 @@ export async function importAiProviders(
           baseUrl: r.baseUrl,
           defaultModel: r.defaultModel,
           availableModels: r.availableModels,
-          isDefault: r.isDefault,
+          isDefault: defaults.get(ownerOf(r)) === r.id,
           enabled: r.enabled && !clearKey && Boolean(r.apiKey || current.apiKey),
           settings: r.settings as Prisma.InputJsonValue,
         },
       });
-      byId.set(r.id, updated);
+      counts.updated++;
+    } else {
+      await tx.aiProvider.create({ data: {
+        id: r.id, name: r.name, type: r.type as never, apiKey: r.apiKey ?? "", baseUrl: r.baseUrl,
+        defaultModel: r.defaultModel, availableModels: r.availableModels, isDefault: defaults.get(ownerOf(r)) === r.id,
+        enabled: r.enabled && Boolean(r.apiKey), settings: r.settings as Prisma.InputJsonValue, createdBy: r.createdBy,
+      } });
+      counts.created++;
     }
-    counts.updated += toUpdate.length;
-  } else {
-    counts.skipped += toUpdate.length;
   }
-
-  if (toCreate.length === 0) return;
-
-  // Pre-filter FK validity (createdBy → User) — original used try/catch per record
-  const createdByIds = [...new Set(toCreate.map((r) => r.createdBy))];
-  const validUsers = await tx.user.findMany({
-    where: { id: { in: createdByIds } },
-    select: { id: true },
-  });
-  const validUserIds = new Set(validUsers.map((u) => u.id));
-  const validToCreate = toCreate.filter((r) => validUserIds.has(r.createdBy));
-  // FK 不存在 → skip
-  counts.skipped += toCreate.length - validToCreate.length;
-
-  if (validToCreate.length > 0) {
-    const result = await tx.aiProvider.createMany({
-      data: validToCreate.map((r) => ({
-        id: r.id,
-        name: r.name,
-        type: r.type as never,
-        apiKey: r.apiKey ?? "",
-        baseUrl: r.baseUrl,
-        defaultModel: r.defaultModel,
-        availableModels: r.availableModels,
-        isDefault: r.isDefault,
-        enabled: r.enabled && Boolean(r.apiKey),
-        settings: r.settings as Prisma.InputJsonValue,
-        createdBy: r.createdBy,
-      })),
-      skipDuplicates: true,
-    });
-    counts.created += result.count;
-    counts.skipped += validToCreate.length - result.count;
+  for (const [createdBy, id] of defaults) {
+    await tx.aiProvider.updateMany({ where: { createdBy, isDefault: true, NOT: { id } }, data: { isDefault: false } });
   }
 }
 
@@ -242,42 +216,24 @@ export async function importAnnouncements(
   counts: Counts,
 ): Promise<void> {
   const creator = await creatorResolver(tx, t.announcements.map((r) => r.createdBy));
+  const previous = new Map<string, Date>();
+  const toData = (r: ExportFile["tables"]["announcements"][number]) => {
+    const startsAt = r.startsAt ? parseDate(r.startsAt, "announcements.startsAt") : previous.get(r.id) ?? new Date();
+    const expiresAt = r.expiresAt ? parseDate(r.expiresAt, "announcements.expiresAt") : null;
+    assertAnnouncementWindow(startsAt, expiresAt);
+    return { title: r.title, body: r.body, level: r.level, pinned: r.pinned, published: r.published, startsAt, expiresAt, createdBy: creator(r.createdBy) };
+  };
   await upsertById(t.announcements, options, counts, {
-    listExistingIds: async (ids) =>
-      new Set(
-        (await tx.announcement.findMany({ where: { id: { in: ids } }, select: { id: true } })).map((e) => e.id),
-      ),
-    createManySkipDuplicates: async (rows) =>
-      (
-        await tx.announcement.createMany({
-          data: rows.map((r) => ({
-            id: r.id,
-            title: r.title,
-            body: r.body,
-            level: r.level,
-            pinned: r.pinned,
-            published: r.published,
-            startsAt: r.startsAt ? parseDate(r.startsAt, "announcements.startsAt") : new Date(),
-            expiresAt: r.expiresAt ? parseDate(r.expiresAt, "announcements.expiresAt") : null,
-            createdBy: creator(r.createdBy),
-          })),
-          skipDuplicates: true,
-        })
-      ).count,
+    listExistingIds: async (ids) => {
+      const rows = await tx.announcement.findMany({ where: { id: { in: ids } }, select: { id: true, startsAt: true } });
+      for (const row of rows) previous.set(row.id, row.startsAt);
+      return new Set(previous.keys());
+    },
+    createManySkipDuplicates: async (rows) => (await tx.announcement.createMany({
+      data: rows.map((r) => ({ id: r.id, ...toData(r) })), skipDuplicates: true,
+    })).count,
     updateById: async (r) => {
-      await tx.announcement.update({
-        where: { id: r.id },
-        data: {
-          title: r.title,
-          body: r.body,
-          level: r.level,
-          pinned: r.pinned,
-          published: r.published,
-          startsAt: r.startsAt ? parseDate(r.startsAt, "announcements.startsAt") : undefined,
-          expiresAt: r.expiresAt ? parseDate(r.expiresAt, "announcements.expiresAt") : null,
-          createdBy: creator(r.createdBy),
-        },
-      });
+      await tx.announcement.update({ where: { id: r.id, startsAt: previous.get(r.id) }, data: toData(r) });
     },
   });
 }
@@ -289,30 +245,21 @@ export async function importSnippets(
   options: ImportOptions,
   counts: Counts,
 ): Promise<void> {
-  const creator = await creatorResolver(tx, t.snippets.map((r) => r.createdBy));
-  const toData = (r: ExportFile["tables"]["snippets"][number]) => ({
-    title: r.title,
-    description: r.description,
-    language: r.language,
-    content: r.content,
-    tags: r.tags,
-    isPrivate: r.isPrivate,
-    createdBy: creator(r.createdBy),
-  });
-  await upsertById(t.snippets, options, counts, {
-    listExistingIds: async (ids) =>
-      new Set(
-        (await tx.snippet.findMany({ where: { id: { in: ids } }, select: { id: true } })).map((e) => e.id),
-      ),
-    createManySkipDuplicates: async (rows) =>
-      (
-        await tx.snippet.createMany({
-          data: rows.map((r) => ({ id: r.id, ...toData(r) })),
-          skipDuplicates: true,
-        })
-      ).count,
-    updateById: async (r) => {
-      await tx.snippet.update({ where: { id: r.id }, data: toData(r) });
-    },
-  });
+  const plan = await planSnippets(tx, t.snippets, options, (ids) =>
+    idsPresent(ids, (chunk) => tx.user.findMany({ where: { id: { in: chunk } }, select: { id: true } })));
+  counts.skipped += t.snippets.length - plan.length;
+  const creates = [];
+  for (const { row, action } of plan) {
+    const { id, createdAt: _createdAt, ...data } = row;
+    if (action === "create") creates.push({ id, ...data });
+    else {
+      await tx.snippet.update({ where: { id }, data });
+      counts.updated++;
+    }
+  }
+  if (creates.length) {
+    const { count } = await tx.snippet.createMany({ data: creates, skipDuplicates: true });
+    counts.created += count;
+    counts.skipped += creates.length - count;
+  }
 }

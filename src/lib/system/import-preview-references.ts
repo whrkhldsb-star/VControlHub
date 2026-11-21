@@ -1,31 +1,11 @@
 import { prisma } from "@/lib/db";
 import type { ExportFile, ImportOptions } from "./config-schema";
-import { byId, loadGrantUsers, loadImportReferences, type GrantUser, type TeamOwner } from "./import-reference-scope";
+import { byId, projectUniqueImportRows, projectTeamRows, loadGrantUsers, loadImportReferences, type GrantUser, type TeamOwner } from "./import-reference-scope";
 import { loadTeamMemberships, planTeamMemberImport } from "./import-team-members";
 import { planUniqueImport } from "./import-unique-rows";
 
 type Tables = ExportFile["tables"];
 type Member = Tables["teamMembers"][number];
-
-/** The preview observes the dependency tables as they will look after import. */
-export async function projectUniqueImportRows<T extends { id: string }, R extends { id: string }>(
-  ids: string[],
-  bundled: T[],
-  overwrite: boolean,
-  findById: (ids: string[]) => Promise<R[]>,
-  findByKey: (keys: string[]) => Promise<R[]>,
-  keyOf: (row: T | R) => string,
-) {
-  if (ids.length === 0) return new Map<string, T | R>();
-  const [live, owners] = await Promise.all([
-    loadImportReferences([...ids, ...bundled.map((row) => row.id)], findById),
-    loadImportReferences(bundled.map(keyOf), findByKey),
-  ]);
-  const projected: Map<string, T | R> = byId([...live, ...owners]);
-  const existing = [...projected.values()].map((row) => ({ id: row.id, key: keyOf(row) }));
-  for (const { row } of planUniqueImport(bundled, existing, keyOf, overwrite)) projected.set(row.id, row);
-  return projected;
-}
 
 export async function projectOwnedRows(
   ids: string[],
@@ -49,8 +29,8 @@ export function projectServers(ids: string[], tables: Tables) {
   }));
 }
 
-async function projectUserIds(ids: string[], tables: Tables, options: ImportOptions) {
-  const users = await projectUniqueImportRows(ids, options.importUsers ? tables.users : [], false,
+export async function projectUserIds(ids: string[], tables: Tables, options: ImportOptions) {
+  const users = await projectUniqueImportRows(ids, options.importUsers ? tables.users : [], options.overwriteExisting,
     (chunk) => prisma.user.findMany({ where: { id: { in: chunk } }, select: { id: true, username: true } }),
     (chunk) => prisma.user.findMany({ where: { username: { in: chunk } }, select: { id: true, username: true } }),
     (user) => user.username,
@@ -61,11 +41,7 @@ async function projectUserIds(ids: string[], tables: Tables, options: ImportOpti
 async function membershipPlan(records: Member[], tables: Tables, options: ImportOptions, users: ReadonlySet<string>) {
   if (records.length === 0) return [];
   const [teams, templates, members] = await Promise.all([
-    projectUniqueImportRows(records.map((row) => row.teamId), tables.teams, false,
-      (ids) => prisma.team.findMany({ where: { id: { in: ids } }, select: { id: true, slug: true } }),
-      (slugs) => prisma.team.findMany({ where: { slug: { in: slugs } }, select: { id: true, slug: true } }),
-      (team) => team.slug,
-    ),
+    projectTeamRows(prisma, records.map((row) => row.teamId), tables.teams, options.overwriteExisting),
     loadImportReferences(records.map((row) => row.identityTemplateId), (ids) => prisma.identityTemplate.findMany({
       where: { id: { in: ids } }, select: { id: true },
     })),

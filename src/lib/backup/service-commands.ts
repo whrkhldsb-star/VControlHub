@@ -59,31 +59,39 @@ export function planBackupRestoreSteps(input: {
 	return [{ file, args: [script, input.backupPath, component, input.projectRoot] }];
 }
 
+/** PowerShell literal arguments (including paths with spaces, quotes or dollar signs). */
+export function formatPowerShellCommand(projectRoot: string, step: BackupRestoreStep, confirm = false) {
+	const quote = (value: string) => "'" + value.replaceAll("'", "''") + "'";
+	const invoke = "& " + [step.file, ...step.args].map(quote).join(" ");
+	const environment = confirm ? "$env:CONFIRM_RESTORE='1'; $env:VCONTROLHUB_SERVICE_UNITS='none'; " : "";
+	return `Set-Location -LiteralPath ${quote(projectRoot)} -ErrorAction Stop; ${environment}${invoke}`;
+}
+
 function formatRestoreStepsAsShell(projectRoot: string, steps: BackupRestoreStep[], confirm = false) {
+	if (IS_WINDOWS) return steps.map((step) => formatPowerShellCommand(projectRoot, step, confirm)).join("\n");
 	const parts = steps.map((step) => {
 		// Invoker + script stay unquoted for readable docs; every value after
 		// them (paths, components) is shell-quoted.
 		const [head, script, ...rest] = [step.file, ...step.args];
 		const tail = rest.map(shellQuote).join(" ");
 		const invocation = tail ? `${head} ${script} ${tail}` : `${head} ${script}`;
-		return confirm && !IS_WINDOWS ? `CONFIRM_RESTORE=1 ${invocation}` : invocation;
+		return confirm ? `CONFIRM_RESTORE=1 ${invocation}` : invocation;
 	});
-	// Windows has no systemd for the runner to check: the runbook's manual stop
-	// step comes first, and VCONTROLHUB_SERVICE_UNITS=none records that the
-	// operator confirms it (the database-client check still runs).
-	const prefix = confirm && IS_WINDOWS ? `set "CONFIRM_RESTORE=1" && set "VCONTROLHUB_SERVICE_UNITS=none" && ` : "";
-	return `${prefix}cd ${shellQuote(projectRoot)} && ${parts.join(" && ")}`;
+	return `cd ${shellQuote(projectRoot)} && ${parts.join(" && ")}`;
 }
 
 export function buildPortableBackupCommand(input: { projectRoot: string; outputPath: string; type?: BackupType; restoreSnapshot?: boolean }) {
 	const outputPath = assertPortableBackupPath(input.outputPath);
 	const modeFlag = input.type === "FILES" ? " --files" : input.type === "FULL" ? " --full" : "";
 	const { file, script } = backupRunnerSpec();
-	const quotedScript = IS_WINDOWS ? [file, script].map(shellQuote).join(" ") : `${file} ${script}`;
+	if (IS_WINDOWS) return formatPowerShellCommand(input.projectRoot, { file, args: [
+		script, ...(modeFlag ? [modeFlag.trim()] : []), ...(input.restoreSnapshot ? ["--restore-snapshot"] : []),
+		join(getBackupStorageRoot(input.projectRoot), outputPath),
+	] });
 	// Absolute, under BACKUP_DIR (A9-04): a relative path is resolved by
 	// scripts/backup.mjs against the app directory, which is not where the
 	// application lists, retains or uploads backups from.
-	return `cd ${shellQuote(input.projectRoot)} && ${quotedScript}${modeFlag}${input.restoreSnapshot ? " --restore-snapshot" : ""} ${shellQuote(join(getBackupStorageRoot(input.projectRoot), outputPath))}`;
+	return `cd ${shellQuote(input.projectRoot)} && ${file} ${script}${modeFlag}${input.restoreSnapshot ? " --restore-snapshot" : ""} ${shellQuote(join(getBackupStorageRoot(input.projectRoot), outputPath))}`;
 }
 
 export function buildBackupRestoreCommand(input: {

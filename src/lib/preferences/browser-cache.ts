@@ -7,8 +7,8 @@ import {
 	type UserPreferences,
 } from "./user-preferences";
 
-export const USER_PREFERENCES_STORAGE_KEY = "vps-preferences";
-export const USER_PREFERENCES_CHANGED_EVENT = "vps-preferences-updated";
+import { PREFERENCES_EVENT, activePreferencesStorageKey } from "./cache-scope";
+export { PREFERENCES_KEY as USER_PREFERENCES_STORAGE_KEY, PREFERENCES_EVENT as USER_PREFERENCES_CHANGED_EVENT } from "./cache-scope";
 
 export function readUserPreferencesCache(
 	storage?: Pick<Storage, "getItem">,
@@ -18,7 +18,8 @@ export function readUserPreferencesCache(
 		// (SSR render path) degrades to null instead of throwing ReferenceError.
 		const store = storage ?? (typeof window !== "undefined" ? window.localStorage : null);
 		if (!store) return null;
-		const raw = store.getItem(USER_PREFERENCES_STORAGE_KEY);
+		const key = activePreferencesStorageKey(store);
+		const raw = key && store.getItem(key);
 		if (!raw) return null;
 		return normalizeUserPreferences(JSON.parse(raw));
 	} catch {
@@ -39,10 +40,12 @@ export function writeUserPreferencesCache(
 		// storage is blocked, and that must not look like a failed request.
 		const storage = options.storage ?? (typeof window !== "undefined" ? window.localStorage : null);
 		if (!storage) return normalized;
-		storage.setItem(USER_PREFERENCES_STORAGE_KEY, JSON.stringify(normalized));
+		const key = activePreferencesStorageKey(storage);
+		if (!key) return normalized;
+		storage.setItem(key, JSON.stringify(normalized));
 		if (options.notify !== false && typeof window !== "undefined") {
-			notifyLocalStorageChange(USER_PREFERENCES_STORAGE_KEY);
-			window.dispatchEvent(new Event(USER_PREFERENCES_CHANGED_EVENT));
+			notifyLocalStorageChange(key);
+			window.dispatchEvent(new Event(PREFERENCES_EVENT));
 		}
 	} catch {
 		// The server remains authoritative when browser storage is unavailable.

@@ -5,6 +5,7 @@ import { PageShell, PageHeader } from "@/components/page-shell";
 import { Chip, InlineLoading, Notice, Switch } from "@/components/ui-primitives";
 import { Bell, Home, LayoutDashboard, Radio, RefreshCw, User } from "@/components/icons";
 import { csrfFetch } from "@/lib/auth/csrf-client";
+import { preferencesStorageKey } from "@/lib/preferences/cache-scope";
 import { getRefreshIntervalLabel, REFRESH_INTERVAL_OPTIONS } from "@/lib/preferences/refresh-interval";
 import { AUTO_PROBE_INTERVAL_OPTIONS } from "@/lib/preferences/auto-probe";
 import { useI18n } from "@/lib/i18n/use-locale";
@@ -188,7 +189,7 @@ export function PreferencesSettingsContent({
 	const activeLoadRequestIdRef = useRef(0);
 	const latestSaveRequestIdRef = useRef(0);
 	const savingRef = useRef(false);
-	const pendingSavePrefsRef = useRef<Preferences | null>(null);
+	const pendingSavePrefsRef = useRef<Partial<Preferences> | null>(null);
 	const allowedDefaultPageOptions = useMemo<readonly DefaultPageOption[]>(
 		() => defaultPageOptions.includes("/") ? defaultPageOptions : ["/"],
 		[defaultPageOptions],
@@ -212,11 +213,12 @@ export function PreferencesSettingsContent({
 			setLoading(false);
 		}
 		const loadRequestId = activeLoadRequestIdRef.current + 1;
+		const cacheKey = preferencesStorageKey();
 		activeLoadRequestIdRef.current = loadRequestId;
 		const timer = window.setTimeout(() => {
 			csrfFetch("/api/preferences")
 				.then((data) => {
-					if (loadRequestId !== activeLoadRequestIdRef.current) {
+					if (loadRequestId !== activeLoadRequestIdRef.current || preferencesStorageKey() !== cacheKey) {
 						return;
 					}
 					if (!data.error) {
@@ -248,8 +250,9 @@ export function PreferencesSettingsContent({
 		};
 	}, [normalizePrefs, t]);
 
-	const save = async (newPrefs: Preferences) => {
-		const normalizedPrefs = normalizePrefs(newPrefs);
+	const save = async (patch: Partial<Preferences>) => {
+		const cacheKey = preferencesStorageKey();
+		const normalizedPrefs = normalizePrefs({ ...prefs, ...patch });
 		latestSaveRequestIdRef.current += 1;
 		activeLoadRequestIdRef.current += 1;
 		setLoading(false);
@@ -258,11 +261,11 @@ export function PreferencesSettingsContent({
 		setSaved(false);
 		// Coalesce: if a PUT is in flight, keep the latest optimistic prefs and re-PUT after it finishes.
 		if (savingRef.current) {
-			pendingSavePrefsRef.current = normalizedPrefs;
+			pendingSavePrefsRef.current = { ...pendingSavePrefsRef.current, ...patch };
 			return;
 		}
 		savingRef.current = true;
-		let payload = normalizedPrefs;
+		let payload = patch;
 		// What the server holds, advanced by every PUT that succeeds: a later
 		// queued PUT that fails rolls back to this, not to the state before
 		// the earlier PUTs that were accepted.
@@ -275,7 +278,11 @@ export function PreferencesSettingsContent({
 					headers: { "Content-Type": "application/json" },
 					body: JSON.stringify(payload),
 				});
-				confirmed = normalizePrefs({ ...payload, ...savedPrefs });
+				if (preferencesStorageKey() !== cacheKey) {
+					pendingSavePrefsRef.current = null;
+					return;
+				}
+				confirmed = normalizePrefs({ ...confirmed, ...payload, ...savedPrefs });
 				setLastSavedPrefs(confirmed);
 				// Only apply response if nothing newer was queued/optimistic.
 				if (requestIdAtSend === latestSaveRequestIdRef.current) {
@@ -294,6 +301,10 @@ export function PreferencesSettingsContent({
 				break;
 			}
 		} catch (err) {
+			if (preferencesStorageKey() !== cacheKey) {
+				pendingSavePrefsRef.current = null;
+				return;
+			}
 			// Prefer current last-saved; if a newer optimistic exists, keep UI but report error.
 			setPrefs(confirmed);
 			writeUserPreferencesCache(confirmed, { notify: false });
@@ -315,7 +326,7 @@ export function PreferencesSettingsContent({
 		const next = current.includes(widget)
 			? current.filter((w) => w !== widget)
 			: [...current, widget];
-		save({ ...prefs, dashboardWidgets: next });
+		save({ dashboardWidgets: next });
 	};
 
 	const content = (
@@ -331,7 +342,7 @@ export function PreferencesSettingsContent({
 							<Chip
 								key={value}
 								selected={prefs.defaultPage === value}
-								onClick={() => save({ ...prefs, defaultPage: value })}
+								onClick={() => save({ defaultPage: value })}
 							>
 								{pageLabel(t, value)}
 							</Chip>
@@ -353,8 +364,8 @@ export function PreferencesSettingsContent({
 				</Section>
 
 				<Section summaryId="preferences-notifications">
-					<Toggle label={t("preferencesPage.toggle.notifications")} checked={prefs.notificationsEnabled} onChange={(v) => save({ ...prefs, notificationsEnabled: v })} />
-					<Toggle label={t("preferencesPage.toggle.notificationSound")} checked={prefs.notificationSound} onChange={(v) => save({ ...prefs, notificationSound: v })} />
+					<Toggle label={t("preferencesPage.toggle.notifications")} checked={prefs.notificationsEnabled} onChange={(v) => save({ notificationsEnabled: v })} />
+					<Toggle label={t("preferencesPage.toggle.notificationSound")} checked={prefs.notificationSound} onChange={(v) => save({ notificationSound: v })} />
 				</Section>
 
 				<Section summaryId="preferences-auto-refresh">
@@ -363,7 +374,7 @@ export function PreferencesSettingsContent({
 							<Chip
 								key={opt.value}
 								selected={prefs.autoRefreshInterval === opt.value}
-								onClick={() => save({ ...prefs, autoRefreshInterval: opt.value })}
+								onClick={() => save({ autoRefreshInterval: opt.value })}
 							>
 								{getRefreshIntervalLabel(opt.value, t)}
 							</Chip>
@@ -376,7 +387,7 @@ export function PreferencesSettingsContent({
 					<Toggle
 						label={t("preferencesPage.toggle.autoProbe")}
 						checked={prefs.autoProbeEnabled}
-						onChange={(v) => save({ ...prefs, autoProbeEnabled: v })}
+						onChange={(v) => save({ autoProbeEnabled: v })}
 					/>
 					<div className="flex flex-wrap gap-2">
 						{AUTO_PROBE_INTERVAL_OPTIONS.map((opt) => (
@@ -385,7 +396,7 @@ export function PreferencesSettingsContent({
 								selected={prefs.autoProbeIntervalSec === opt.value}
 								onClick={() => {
 									if (!prefs.autoProbeEnabled) return;
-									save({ ...prefs, autoProbeIntervalSec: opt.value });
+									save({ autoProbeIntervalSec: opt.value });
 								}}
 								disabled={!prefs.autoProbeEnabled}
 							>
@@ -402,7 +413,7 @@ export function PreferencesSettingsContent({
 					<Toggle
 						label={t("preferencesPage.toggle.rdpProbe")}
 						checked={prefs.rdpAutoProbe}
-						onChange={(v) => save({ ...prefs, rdpAutoProbe: v })}
+						onChange={(v) => save({ rdpAutoProbe: v })}
 					/>
 					<p className="text-xs leading-5 text-[var(--text-muted)]">
 						{t("preferencesPage.hint.rdpProbe")}

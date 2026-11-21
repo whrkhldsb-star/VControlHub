@@ -46,6 +46,16 @@ it("rejects same-size corrupted remote data while preserving the local recovery 
 	expect(await readdir(directory)).toEqual([name]);
 });
 
+it("repairs an existing same-size object once and reads the replacement before issuing a receipt", async () => {
+	mocks.head.mockResolvedValue({ size: bytes.length });
+	mocks.get.mockResolvedValueOnce({ size: bytes.length, body: new Response(new Uint8Array(bytes.length)).body });
+	const result = await uploadRecoveryBackup({ directory, enabled: true });
+	expect(result.skipped).toBe(false);
+	expect(mocks.putFile).toHaveBeenCalledTimes(1);
+	expect(mocks.get).toHaveBeenCalledTimes(2);
+	expect(await readdir(directory)).toContain(name + ".offsite.json");
+});
+
 it("verifies an already stored object without uploading duplicate bytes", async () => {
 	mocks.head.mockResolvedValue({ size: bytes.length });
 	await uploadRecoveryBackup({ directory, enabled: true });

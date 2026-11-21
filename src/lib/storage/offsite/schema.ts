@@ -88,17 +88,8 @@ export function validateOffsiteConfigForUse(config: OffsiteConfig): string[] {
 
 /* ── String ↔ typed coercion helpers ─────────────────────── */
 
-function toBool(v: string): boolean {
-	return v === "true" || v === "1";
-}
-
-function toInt(v: string, fallback: number): number {
-	// An emptied field means the default: Number("") is 0, which made the retention invalid (every use of the
-	// off-site config then threw) and moved the daily window to midnight.
-	if (v.trim() === "") return fallback;
-	const n = Number(v);
-	return Number.isFinite(n) && Number.isInteger(n) ? n : fallback;
-}
+const storedBoolean = z.enum(["true", "false", "1", "0"]).transform((v) => v === "true" || v === "1");
+const storedInteger = z.string().trim().regex(/^\d+$/).transform(Number);
 
 /* ── Load / Save ─────────────────────────────────────────── */
 
@@ -107,9 +98,15 @@ export async function loadOffsiteConfig(): Promise<OffsiteConfig> {
 	return parseConfigFromMap(settings);
 }
 
-export function parseConfigFromMap(settings: Record<string, string>): OffsiteConfig {
+export function parseConfigFromMap(settings: Record<string, string>, explicit = false): OffsiteConfig {
+	// Older forms persisted a blank numeric field for "use default". A new
+	// explicit value must be a whole number before it can replace a policy.
+	const integer = (key: string, fallback: string) => {
+		const raw = settings[key]?.trim();
+		return storedInteger.safeParse(raw === undefined || (!explicit && raw === "") ? fallback : raw).data;
+	};
 	const draft = {
-		enabled: toBool(settings["offsite.enabled"] ?? "false"),
+		enabled: storedBoolean.safeParse(settings["offsite.enabled"] ?? "false").data,
 		provider: ((settings["offsite.provider"] ?? "s3") as OffsiteProvider),
 		endpoint: (settings["offsite.endpoint"] ?? "").trim(),
 		region: (settings["offsite.region"] ?? "auto").trim(),
@@ -118,8 +115,8 @@ export function parseConfigFromMap(settings: Record<string, string>): OffsiteCon
 		// Trimmed like the fields around it: a secret pasted with its line break signed every request wrongly.
 		secretAccessKey: (settings["offsite.secretAccessKey"] ?? "").trim(),
 		pathPrefix: (settings["offsite.pathPrefix"] ?? "vcontrolhub-backups/").trim(),
-		dailyWindowHour: toInt(settings["offsite.dailyWindowHour"] ?? "3", 3),
-		retentionDays: toInt(settings["offsite.retentionDays"] ?? "30", 30),
+		dailyWindowHour: integer("offsite.dailyWindowHour", "3"),
+		retentionDays: integer("offsite.retentionDays", "30"),
 		failureAlertRecipient: (settings["offsite.failureAlertRecipient"] ?? "").trim(),
 	};
 	return OffsiteConfigSchema.parse(draft);
@@ -163,7 +160,6 @@ const OFFSITE_FIELD_TO_SETTING_KEY: Record<keyof OffsiteConfig, (typeof OFFSITE_
 };
 
 export async function saveOffsiteConfig(update: OffsiteConfigUpdate, actorId: string | null = null): Promise<OffsiteConfig> {
-	const current = await loadOffsiteConfig();
 	// GET masks credentials as "***"; ignore masked/empty secrets on partial updates so
 	// clients can round-trip non-secret fields without clobbering real keys.
 	const safeUpdate: OffsiteConfigUpdate = { ...update };
@@ -186,21 +182,11 @@ export async function saveOffsiteConfig(update: OffsiteConfigUpdate, actorId: st
 	) {
 		delete safeUpdate.accessKeyId;
 	}
-	const merged = { ...current, ...safeUpdate };
-	const validated = OffsiteConfigSchema.parse(merged);
-	const entries = (Object.keys(OFFSITE_FIELD_TO_SETTING_KEY) as Array<keyof OffsiteConfig>).map(
-		(field) => {
-			const value = validated[field];
-			const stringValue =
-				field === "enabled"
-					? value
-						? "true"
-						: "false"
-					: String(value);
-			return { key: OFFSITE_FIELD_TO_SETTING_KEY[field], value: stringValue };
-		},
-	);
-	// setManySettings encrypts sensitive keys (accessKeyId / secretAccessKey) at rest.
-	await setManySettings(entries, actorId);
-	return validated;
+	const fields = Object.keys(safeUpdate) as Array<keyof OffsiteConfig>;
+	const patch = OffsiteConfigSchema.partial().parse(safeUpdate);
+	const entries = fields.flatMap((field) => patch[field] === undefined ? [] : [
+		{ key: OFFSITE_FIELD_TO_SETTING_KEY[field], value: String(patch[field]).trim() },
+	]);
+	if (entries.length) await setManySettings(entries, actorId);
+	return loadOffsiteConfig();
 }

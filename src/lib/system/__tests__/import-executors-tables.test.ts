@@ -119,7 +119,7 @@ describe("importPermissions", () => {
     // The bundle's `p-new` carries key "server:read", which a live row already
     // owns. Inserting it would violate the unique index and roll back everything.
     const { tx, createMany } = permTx({
-      keysTaken: [{ id: "p-live", key: "server:read" }],
+      keysTaken: [{ id: "p-live", key: "server:read" }], createCount: 1,
     });
     const c = counts();
 

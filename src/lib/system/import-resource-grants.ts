@@ -36,15 +36,17 @@ export function planServerGrantImport(
   servers: ReadonlyMap<string, TeamOwner>,
 ) {
   const present = new Set(existing.map(serverGrantKey));
+  const seen = new Set<string>();
   const plan: Array<{ row: ServerGrant; action: "create" | "update" }> = [];
   for (const row of records) {
     if (!canImportResourceGrant(users.get(row.userId), servers.get(row.serverId))) continue;
     const key = serverGrantKey(row);
+    if (seen.has(key)) continue;
+    seen.add(key);
     if (present.has(key)) {
       if (options.overwriteExisting) plan.push({ row, action: "update" });
     } else {
       plan.push({ row, action: "create" });
-      present.add(key);
     }
   }
   return plan;

@@ -15,6 +15,34 @@ export async function loadImportReferences<K, T>(ids: Iterable<K>, find: (ids: K
   return rows;
 }
 
+/** The preview observes the dependency tables as they will look after import. */
+export async function projectUniqueImportRows<T extends { id: string }, R extends { id: string }>(
+  ids: string[],
+  bundled: T[],
+  overwrite: boolean,
+  findById: (ids: string[]) => Promise<R[]>,
+  findByKey: (keys: string[]) => Promise<R[]>,
+  keyOf: (row: T | R) => string,
+) {
+  if (ids.length === 0) return new Map<string, T | R>();
+  const [live, owners] = await Promise.all([
+    loadImportReferences([...ids, ...bundled.map((row) => row.id)], findById),
+    loadImportReferences(bundled.map(keyOf), findByKey),
+  ]);
+  const projected: Map<string, T | R> = byId([...live, ...owners]);
+  const existing = [...projected.values()].map((row) => ({ id: row.id, key: keyOf(row) }));
+  for (const { row } of planUniqueImport(bundled, existing, keyOf, overwrite)) projected.set(row.id, row);
+  return projected;
+}
+
+export function projectTeamRows(db: Pick<Tx, "team">, ids: string[], bundled: Tables["teams"], overwrite: boolean) {
+  return projectUniqueImportRows(ids, bundled, overwrite,
+    (chunk) => db.team.findMany({ where: { id: { in: chunk } }, select: { id: true, slug: true } }),
+    (chunk) => db.team.findMany({ where: { slug: { in: chunk } }, select: { id: true, slug: true } }),
+    (team) => team.slug,
+  );
+}
+
 export function canBindServerKey(server: { teamId?: string | null }, key: TeamOwner | undefined): boolean {
   return key !== undefined && key.teamId === (server.teamId ?? null);
 }
@@ -75,14 +103,20 @@ export async function planAlertRuleImport(
   servers: ReadonlyMap<string, TeamOwner>,
   playbooks: ReadonlyMap<string, TeamOwner>,
   users: ReadonlyMap<string, GrantUser>,
+  mode?: ExportFile["exportMode"],
 ) {
   const valid = records.filter((rule) => hasImportableAlertReferences(rule, servers, playbooks, users));
   const existing = await loadImportReferences(valid.map((row) => row.id), (ids) => db.alertRule.findMany({
-    where: { id: { in: ids } }, select: { id: true, teamId: true },
+    where: { id: { in: ids } }, select: { id: true, teamId: true, metric: true, webhookUrl: true },
   }));
   const current = byId(existing);
   const sameTeam = valid.filter((row) => !current.has(row.id) || current.get(row.id)!.teamId === (row.teamId ?? null));
-  return planUniqueImport(sameTeam, existing.map(({ id }) => ({ id, key: id })), (row) => row.id, options.overwriteExisting);
+  return planUniqueImport(sameTeam, existing.map(({ id }) => ({ id, key: id })), (row) => row.id, options.overwriteExisting).map((item) => {
+    const old = current.get(item.row.id);
+    const url = item.row.webhookUrl || (mode !== "full" ? old?.webhookUrl : null);
+    return { ...item, missingWebhook: item.row.notifyChannels?.includes("webhook") && !url,
+      metricChanged: old !== undefined && old.metric !== item.row.metric };
+  });
 }
 
 export function byId<T extends { id: string }>(rows: T[]): Map<string, T> {

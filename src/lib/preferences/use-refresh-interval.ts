@@ -1,17 +1,17 @@
 "use client";
 
+import { PREFERENCES_EVENT, preferencesStorageKey } from "./cache-scope";
 import { useCallback } from "react";
 
 import {
 	DEFAULT_REFRESH_INTERVAL_SECONDS,
 	getRefreshIntervalFromStorage,
-	REFRESH_PREFERENCES_STORAGE_KEY,
 } from "@/lib/preferences/refresh-interval";
 import { useBrowserStorageSnapshot } from "@/lib/hooks/use-browser-storage-snapshot";
 
 /**
  * Reads the user's auto-refresh interval (seconds) from the shared
- * `vps-preferences` localStorage entry and keeps it in sync.
+ * account's localStorage entry and keeps it in sync.
  *
  * This consolidates an init + dual-listener `useEffect` block that was
  * duplicated byte-for-byte across docker / monitoring / traffic /
@@ -32,9 +32,9 @@ export function useRefreshInterval(fallback: number = DEFAULT_REFRESH_INTERVAL_S
 		[fallback],
 	);
 	return useBrowserStorageSnapshot(
-		REFRESH_PREFERENCES_STORAGE_KEY,
+		preferencesStorageKey(),
 		read,
 		fallback,
-		"vps-preferences-updated",
+		PREFERENCES_EVENT,
 	);
 }

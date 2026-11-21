@@ -14,19 +14,21 @@ import { importPlaybooks } from "../import-executors-automation";
 describe.skipIf(process.env.RUN_DATABASE_INTEGRATION_TESTS !== "1")("playbook import and its schedule (PostgreSQL)", () => {
 	const id = `pbimport-${randomUUID().slice(0, 8)}`;
 	const yearly = new Date(Date.now() + 200 * 86_400_000);
-	const steps = [{ id: "notify", name: "Notify", type: "send_notification", config: { recipientUserId: "user", subject: "Schedule", body: "Due" } }];
+	const steps = [{ id: "notify", name: "Notify", type: "send_notification", config: { recipientUserId: id, subject: "Schedule", body: "Due" } }];
 
 	beforeAll(async () => {
 		const database = new URL(process.env.DATABASE_URL!);
 		if (!["localhost", "127.0.0.1", "[::1]"].includes(database.hostname) || !/audit|test|_ci/.test(database.pathname)) {
 			throw new Error("requires an isolated loopback audit/test database");
 		}
+		await prisma.user.create({ data: { id, username: id, passwordHash: "fixture" } });
 		await prisma.playbook.create({
 			data: { id, name: id, triggerType: "cron", triggerConfig: { expression: "0 0 1 1 *" }, steps, enabled: true, nextRunAt: yearly, metricMatchState: { matched: true } },
 		});
 	});
 	afterAll(async () => {
 		await prisma.playbook.deleteMany({ where: { id } });
+		await prisma.user.deleteMany({ where: { id } });
 		await prisma.$disconnect();
 	});
 

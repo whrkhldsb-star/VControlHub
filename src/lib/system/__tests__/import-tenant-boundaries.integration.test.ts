@@ -1,8 +1,9 @@
 // @vitest-environment node
 import { randomUUID } from "node:crypto";
-import { afterAll, beforeAll, describe, expect, it } from "vitest";
+import { afterAll, beforeAll, describe, expect, it, vi } from "vitest";
 
 import { prisma } from "@/lib/db";
+import { lockForTransaction } from "@/lib/concurrency/advisory-lock";
 import { EXPORT_SCHEMA_VERSION, exportFileSchema, type ExportFile } from "../config-schema";
 import { createImportAdmin } from "./import-admin-fixture";
 import { executeImport } from "../import-executors";
@@ -61,6 +62,7 @@ describe.skipIf(process.env.RUN_DATABASE_INTEGRATION_TESTS !== "1")("tenant-scop
       (sum, row) => ({ created: sum.created + row.create, updated: sum.updated + row.update, skipped: sum.skipped + row.skip }),
       { created: 0, updated: 0, skipped: 0 },
     );
+    expect(total.created + total.updated + total.skipped).toBe(Object.values(file.tables).reduce((n, rows) => n + rows.length, 0));
     expect(await executeImport(file, config)).toEqual({ ...total, errors: [] });
     return preview;
   }
@@ -94,7 +96,10 @@ describe.skipIf(process.env.RUN_DATABASE_INTEGRATION_TESTS !== "1")("tenant-scop
     await prisma.server.deleteMany({ where: { id: { startsWith: prefix } } });
     await prisma.sshKey.deleteMany({ where: { id: { startsWith: prefix } } });
     await prisma.user.deleteMany({ where: { id: { startsWith: prefix } } });
-    await prisma.identityTemplate.deleteMany({ where: { id: template } });
+    await prisma.snippet.deleteMany({ where: { id: { startsWith: prefix } } });
+    await prisma.commandTemplate.deleteMany({ where: { id: { startsWith: prefix } } });
+    await prisma.role.deleteMany({ where: { id: { startsWith: prefix } } });
+    await prisma.identityTemplate.deleteMany({ where: { id: { startsWith: prefix } } });
     await prisma.team.deleteMany({ where: { id: { in: [a, b] } } });
     await prisma.$disconnect();
   });
@@ -218,5 +223,172 @@ describe.skipIf(process.env.RUN_DATABASE_INTEGRATION_TESTS !== "1")("tenant-scop
     expect(await prisma.userStorageAccess.findMany({ where: { userId: moved } })).toEqual([expect.objectContaining({ id: newStorage, storageNodeId: nodeB, canWrite: true })]);
     expect(await prisma.userServerAccess.findUniqueOrThrow({ where: { userId_serverId: { userId: userA, serverId: serverB } } })).toMatchObject({ canRead: false, canConnect: false });
     expect(await prisma.userStorageAccess.findUniqueOrThrow({ where: { id: foreignUpdate } })).toMatchObject({ storageNodeId: nodeA, canWrite: false });
+  });
+
+  const tableKey = (name: string) => "systemConfig.import.preview.table." + name;
+  const userRow = (id: string, username: string) => ({
+    id, username, status: "ACTIVE", displayName: null, passwordHash: null, twoFactorEnabled: false,
+    twoFactorSecret: null, mustChangePassword: true, preferences: null, createdAt: stamp,
+  });
+  const storageRow = (id: string, teamId: string, serverId: string | null) => ({
+    id, name: id, teamId, serverId, driver: "SFTP", basePath: "/srv", isDefault: false, directAccessMode: "PROXY",
+    publicBaseUrl: null, directAccessExpiresSeconds: 300, host: null, port: null, username: null,
+    healthStatus: "UNKNOWN" as const, createdAt: stamp,
+  });
+  const sshRow = (key: string, author: string) => ({
+    id: key, name: key, fingerprint: key, publicKey: "fixture", privateKey: null, passphrase: null,
+    description: null, teamId: a, createdById: author, createdAt: stamp,
+  });
+
+  it("aligns nested Playbook recipients and SSH authors, and skips steps outside the destination customer", async () => {
+    const source = id("source-user");
+    const notify = (recipientUserId: string) => ({ id: "notify", name: "Notify", type: "send_notification", config: { recipientUserId, subject: "Status", body: "Done" } });
+    const pb = { id: id("mapped-book"), name: "Cron", triggerType: "cron", triggerConfig: { expression: "0 1 * * *" },
+      steps: [notify(source)], teamId: a, description: null, createdById: null, chainRetry: 0, enabled: true, createdAt: stamp };
+    const key = sshRow(id("mapped-ssh"), source);
+    const prior = sshRow(id("existing-ssh"), source);
+    await prisma.sshKey.create({ data: { id: prior.id, name: prior.name, publicKey: prior.publicKey, fingerprint: prior.fingerprint, teamId: a, createdById: userB } });
+    const preview = await comparePreviewAndImport(bundle({ users: [userRow(source, userA)], sshKeys: [key, prior], playbooks: [
+      pb, { ...pb, id: id("foreign-r"), steps: [notify(userB)] },
+      { ...pb, id: id("foreign-s"), steps: [{ id: "run", name: "Check", type: "run_command", config: { serverIds: [serverB], command: "true" } }] },
+    ] }), { importUsers: false });
+    expect(preview.summary[tableKey("playbooks")]).toEqual({ create: 1, update: 0, skip: 2 });
+    expect((await prisma.playbook.findUniqueOrThrow({ where: { id: pb.id } })).steps).toMatchObject([{ config: { recipientUserId: userA } }]);
+    expect(await prisma.sshKey.count({ where: { id: { in: [key.id, prior.id] }, createdById: userA } })).toBe(2);
+  });
+
+  it("resets metric state on metric changes and disables undeliverable imported rules", async () => {
+    const row = { id: id("metric-change"), name: "CPU", teamId: a, metric: "memory_usage", operator: "gt", threshold: 80,
+      durationSeconds: 120, cooldownMinutes: 5, serverIds: [], notifyChannels: ["webhook"], webhookUrl: null,
+      playbookIds: [], onCallUserIds: [], escalationMinutes: null, silenceWindows: [], enabled: true, createdAt: stamp };
+    await prisma.alertRule.create({ data: { id: row.id, teamId: a, name: row.name, metric: "cpu_usage", operator: "gt",
+      threshold: 80, lastMatchedAt: new Date(), matchState: { fixture: stamp }, webhookUrl: "https://example.test/delivery" } });
+    const fresh = id("missing-hook");
+    const preview = await comparePreviewAndImport({ ...bundle({ alertRules: [row, { ...row, id: fresh }] }), exportMode: "standard" });
+    expect(preview.issues).toContainEqual(expect.objectContaining({ table: "alertRules", id: fresh }));
+    expect(await prisma.alertRule.findUniqueOrThrow({ where: { id: row.id } })).toMatchObject({ matchState: {}, lastMatchedAt: null, enabled: true, webhookUrl: "https://example.test/delivery" });
+    expect(await prisma.alertRule.findUniqueOrThrow({ where: { id: fresh } })).toMatchObject({ enabled: false, webhookUrl: null });
+  });
+
+  it("keeps the local built-in command catalog and counts protected templates and unwritable settings as skips", async () => {
+    const builtin = { id: id("builtin"), name: id("catalog-name"), command: "true", isBuiltin: true, createdById: null,
+      teamId: null, description: null, rollbackCommand: null, variables: [], tags: [], createdAt: stamp };
+    await prisma.commandTemplate.create({ data: { id: builtin.id, name: builtin.name, command: builtin.command, isBuiltin: true } });
+    const identity = { id: id("identity"), name: id("identity"), isBuiltin: true, permissions: [], description: null };
+    await prisma.identityTemplate.create({ data: identity });
+    const preview = await comparePreviewAndImport(bundle({
+      commandTemplates: [{ ...builtin, id: id("source-builtin") }, { ...builtin, teamId: a, id: id("tenant-builtin") },
+        { ...builtin, isBuiltin: false, command: "changed" }, { ...builtin, teamId: a, id: id("custom"), isBuiltin: false }],
+      identityTemplates: [{ ...identity, name: "unwritable" }],
+      settings: [{ key: "smtp.pass", value: "" }, { key: id("internal"), value: "ignored" }],
+    }), { importSettings: true });
+    expect(preview.summary[tableKey("commandTemplates")]).toEqual({ create: 1, update: 0, skip: 3 });
+    expect(preview.summary[tableKey("identityTemplates")]).toMatchObject({ skip: 1 });
+    expect(preview.summary[tableKey("settings")]).toMatchObject({ skip: 2 });
+    expect(await prisma.commandTemplate.count({ where: { name: builtin.name, isBuiltin: true } })).toBe(1);
+    expect((await prisma.commandTemplate.findUniqueOrThrow({ where: { id: builtin.id } })).command).toBe("true");
+  });
+
+  it("reserves storage bindings and provider names within the package and demotes only the owner's previous default", async () => {
+    const provider = (key: string, name = key, owner = userA) => ({
+      id: id(key), name, createdBy: owner, type: "OPENAI", baseUrl: "https://api.example.test", apiKey: null,
+      availableModels: "[]", defaultModel: "test", settings: {}, isDefault: true, enabled: false, createdAt: stamp,
+    });
+    const previous = id("old-default");
+    await prisma.aiProvider.createMany({ data: [userA, userB].map((owner) => ({
+      id: owner === userA ? previous : id("other-default"), name: "Old", createdBy: owner, apiKey: "", isDefault: true,
+    })) });
+    const bound = serverA;
+    const preview = await comparePreviewAndImport(bundle({ storageNodes: [
+      storageRow(id("bound"), a, bound), storageRow(id("collision"), a, bound), storageRow(nodeA, a, bound),
+    ], aiProviders: [provider("name-conflict", "Old"), provider("first-default"), provider("last-default"),
+      provider("duplicate", "last-default"), provider("absent-owner", "Free", id("missing-user"))] }));
+    expect(preview.summary[tableKey("storageNodes")]).toEqual({ create: 1, update: 0, skip: 2 });
+    expect(preview.summary[tableKey("aiProviders")]).toEqual({ create: 2, update: 0, skip: 3 });
+    expect(preview.issues?.some((issue) => issue.table === "aiProviders" && issue.id.includes(previous))).toBe(true);
+    expect(await prisma.aiProvider.findMany({ where: { createdBy: userA, isDefault: true }, select: { id: true } })).toEqual([{ id: id("last-default") }]);
+    expect(await prisma.aiProvider.count({ where: { createdBy: userB, isDefault: true } })).toBe(1);
+  });
+
+  it.each(["before", "after"])("sees a default written %s the import reaches the normal editor's lock", async (order) => {
+    const owner = id("racing-owner-" + order);
+    await prisma.user.create({ data: { id: owner, username: owner, passwordHash: "fixture" } });
+    const row = { id: id("import-default-" + order), name: "Imported", createdBy: owner, type: "OPENAI", apiKey: null,
+      availableModels: "[]", defaultModel: "test", baseUrl: "https://api.example.test", settings: {},
+      isDefault: true, enabled: false, createdAt: stamp };
+    let imported: ReturnType<typeof executeImport> | undefined;
+    await prisma.$transaction(async (tx) => {
+      await lockForTransaction(tx, "ai-provider-default", owner);
+      const create = () => tx.aiProvider.create({ data: { name: "Concurrent", apiKey: "", isDefault: true, createdBy: owner } });
+      if (order === "before") await create();
+      imported = executeImport(bundle({ aiProviders: [row] }), options);
+      // Release the writer only once the import is waiting. No timing guess
+      // about which transaction gets the older snapshot.
+      await vi.waitFor(async () => {
+        const [waiting] = await tx.$queryRaw<{ present: boolean }[]>`
+          SELECT EXISTS (SELECT FROM pg_locks WHERE NOT granted AND pg_backend_pid() = ANY(pg_blocking_pids(pid))) AS present
+        `;
+        expect(waiting?.present).toBe(true);
+      }, { timeout: 4000 });
+      if (order === "after") await create();
+    }, { timeout: 10_000 });
+    expect(await imported).toMatchObject({ created: 1, errors: [] });
+    expect(await prisma.aiProvider.findMany({ where: { createdBy: owner, isDefault: true }, select: { id: true } })).toEqual([{ id: row.id }]);
+  });
+
+  it("projects duplicate parents before role assignments and conserves every input row", async () => {
+    const role = { id: id("accepted-role"), key: id("role-key"), name: "Role", description: null };
+    const missing = id("skipped-role");
+    const user = userRow(id("accepted-user"), id("username"));
+    const join = { userId: user.id, roleId: role.id, assignedAt: stamp };
+    const preview = await comparePreviewAndImport(bundle({
+      roles: [role, { ...role, id: missing }], users: [user, { ...user, id: id("skipped-user") }],
+      userRoles: [join, join, { ...join, roleId: missing }, { ...join, userId: id("skipped-user") }],
+    }));
+    expect(preview.summary[tableKey("userRoles")]).toEqual({ create: 1, update: 0, skip: 3 });
+    expect(preview.summary[tableKey("roles")]).toEqual({ create: 1, update: 0, skip: 1 });
+  });
+
+  it("previews each atomic overwrite guard and rolls back independent writes", async () => {
+    const key = sshRow(id("guarded-key"), userA);
+    await prisma.sshKey.create({ data: { id: key.id, name: key.name, publicKey: "target", fingerprint: key.id, teamId: a } });
+    const file = bundle({ servers: [serverRow(serverA, b, null)], sshKeys: [key], storageNodes: [storageRow(nodeB, a, null)] });
+    const preview = await previewImport(file, options);
+    for (const row of [serverA, nodeB, key.id]) expect(preview.issues).toContainEqual(expect.objectContaining({ id: row, blocking: true }));
+    for (const table of ["servers", "storageNodes", "sshKeys"] as const) {
+      const role = { id: id("rollback-role"), key: id("rollback-role"), name: "Rollback", description: null };
+      expect(await executeImport(bundle({ roles: [role], [table]: file.tables[table] }), options)).toMatchObject({ rolledBack: true, created: 0, updated: 0 });
+      expect(await prisma.role.count({ where: { id: role.id } })).toBe(0);
+    }
+  });
+
+  it("preserves verified private snippet ownership and skips an unmapped author on creation", async () => {
+    const row = { id: id("private"), title: "Private", language: "text", content: "fixture", description: null,
+      tags: [], isPrivate: true, createdBy: id("absent-author"), createdAt: stamp };
+    await prisma.snippet.create({ data: { id: row.id, title: row.title, content: "old", createdBy: userA, isPrivate: true } });
+    const preview = await comparePreviewAndImport(bundle({ snippets: [row, { ...row, id: id("orphan") }] }), { importUsers: false });
+    expect(preview.summary[tableKey("snippets")]).toEqual({ create: 0, update: 1, skip: 1 });
+    expect(await prisma.snippet.findUniqueOrThrow({ where: { id: row.id } })).toMatchObject({ createdBy: userA, content: "fixture" });
+  });
+
+  it("clears only explicit full-export passwords, environment and mounts", async () => {
+    const sid = id("credentials");
+    const server = { ...serverRow(sid, a, null), connectionType: "PASSWORD" };
+    await prisma.server.create({ data: { ...serverData(sid, a), connectionType: "PASSWORD", password: "ssh", rdpPassword: "rdp" } });
+    const quick = { id: id("env"), slug: id("env"), name: "Env", category: "other", icon: "app", description: "",
+      image: "example/app", port: 15000, path: "/", internalPort: null, extraPortsJson: "[]", command: null, status: "stopped", createdAt: stamp };
+    await prisma.quickService.create({ data: { slug: quick.slug, id: quick.id, name: quick.name, image: quick.image, port: quick.port, envJson: '{"key":"fixture"}', volumesJson: '["fixture"]' } });
+    for (const mode of ["standard", "legacy", "full"] as const) {
+      const explicit = mode !== "legacy";
+      const file = bundle({ servers: [{ ...server, password: explicit ? null : undefined, rdpPassword: explicit ? null : undefined }],
+        quickServices: [{ ...quick, envJson: explicit ? "{}" : undefined, volumesJson: explicit ? "[]" : undefined }] });
+      await comparePreviewAndImport({ ...file, exportMode: mode === "legacy" ? "full" : mode });
+      expect(await prisma.server.findUniqueOrThrow({ where: { id: sid } })).toMatchObject({
+        password: mode === "full" ? null : "ssh", rdpPassword: mode === "full" ? null : "rdp",
+      });
+      expect(await prisma.quickService.findUniqueOrThrow({ where: { id: quick.id } })).toMatchObject({
+        envJson: mode === "full" ? "{}" : '{"key":"fixture"}', volumesJson: mode === "full" ? "[]" : '["fixture"]',
+      });
+    }
   });
 });

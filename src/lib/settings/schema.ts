@@ -186,9 +186,22 @@ const address = /^.+@.+\..+$/;
 const separated = z.string().transform((value) => value.split(/[\n,;，；]+/).map((s) => s.trim()).filter(Boolean));
 const turnstile = z.string().trim().max(200).regex(/^\S*$/);
 
+/** Accepted by the settings form and safe to render as a site path or an HTTP image. */
+export function isPlatformLogoUrl(value: string) {
+	if (!value) return true;
+	if (value.includes("\\") || /[\r\n\t]/.test(value)) return false;
+	if (value.startsWith("/")) return !value.startsWith("//");
+	try {
+		const url = new URL(value);
+		return /^https?:\/\//i.test(value) && ["http:", "https:"].includes(url.protocol) && !url.username && !url.password;
+	} catch {
+		return false;
+	}
+}
+
 export const SETTING_VALUE_SCHEMAS: Partial<Record<SettingKey, z.ZodType<string>>> = {
 	"platform.name": z.string().trim().min(1).max(80),
-	"platform.logo": z.string().trim().refine((v) => !v || v.startsWith("/") || /^https?:$/.test(URL.parse(v)?.protocol ?? "")),
+	"platform.logo": z.string().trim().refine(isPlatformLogoUrl),
 	"session.timeout": integer(300, 2_592_000),
 	"password.minLength": integer(8, 128),
 	"password.requireUppercase": bool,
@@ -206,8 +219,8 @@ export const SETTING_VALUE_SCHEMAS: Partial<Record<SettingKey, z.ZodType<string>
 	"offsite.enabled": bool,
 	"offsite.compress": bool,
 	"offsite.provider": z.enum(["s3", "r2", "b2", "minio"]),
-	"offsite.dailyWindowHour": integer(0, 23, "3"),
-	"offsite.retentionDays": integer(1, 3650, "30"),
+	"offsite.dailyWindowHour": z.string().trim().regex(/^\d+$/).transform(Number).pipe(z.number().int().min(0).max(23)).transform(String),
+	"offsite.retentionDays": z.string().trim().regex(/^\d+$/).transform(Number).pipe(z.number().int().min(1).max(3650)).transform(String),
 	"ai.ops.mode": z.enum(["recommendation", "autonomous"]),
 	"ai.ops.provider": z.string().regex(/^[A-Za-z0-9._:-]{0,64}$/),
 	"telegram.enabled": bool,

@@ -1,4 +1,4 @@
-import { screen, waitFor, within } from "@testing-library/react";
+import { fireEvent, screen, waitFor, within } from "@testing-library/react";
 import userEvent from "@testing-library/user-event";
 import { beforeEach, describe, expect, it, vi } from "vitest";
 
@@ -22,7 +22,7 @@ const SMTP = {
 };
 
 function renderSmtp(pass = "***") {
-  renderWithI18n(<SettingsClient settings={{ ...SMTP, "smtp.pass": pass }} canManage />, { locale: "zh" });
+  renderWithI18n(<SettingsClient visibleSectionIds={["smtp", "telegram", "alerts"]} settings={{ ...SMTP, "smtp.pass": pass }} canManage />, { locale: "zh" });
   const password = screen.getByLabelText("密码");
   const section = password.closest("section")!;
   return { password, save: within(section).getByRole("button", { name: "保存" }) };
@@ -39,16 +39,14 @@ describe("masked secrets on the settings page", () => {
     vi.mocked(csrfFetch).mockResolvedValue({ success: true });
   });
 
-  it("sends the sentinel back unchanged so the stored password is kept", async () => {
+  it("omits an unchanged password and TLS switch when saving a new SMTP host", async () => {
     const user = userEvent.setup();
     const { password, save } = renderSmtp();
-    await user.clear(screen.getByLabelText("SMTP 服务器"));
-    await user.type(screen.getByLabelText("SMTP 服务器"), "mail.example.com");
+    fireEvent.change(screen.getByLabelText("SMTP 服务器"), { target: { value: "mail.example.com" } });
     await user.click(save);
 
     const body = await savedBody();
-    expect(body["smtp.host"]).toBe("mail.example.com");
-    expect(body["smtp.pass"]).toBe("***");
+    expect(body).toEqual({ "smtp.host": "mail.example.com" });
     expect(password).toHaveValue("");
   });
 
@@ -72,8 +70,12 @@ describe("masked secrets on the settings page", () => {
     await user.click(password);
     await user.keyboard(secret.replace(/[{[]/g, "$&$&"));
     expect(password).toHaveValue(secret);
-    const body = await (secret === "***" ? (async () => { await user.click(save); return savedBody(); })() : confirmAndRead(save));
-    // "***" is the keep-sentinel itself; the API cannot tell it from "unchanged".
+    if (secret === "***") {
+      await user.click(save);
+      expect(csrfFetch).not.toHaveBeenCalled();
+      return;
+    }
+    const body = await confirmAndRead(save);
     expect(body["smtp.pass"]).toBe(secret);
   });
 
@@ -94,7 +96,7 @@ describe("masked secrets on the settings page", () => {
     expect(password).toHaveValue("");
     await user.click(save);
 
-    expect((await savedBody())["smtp.pass"]).toBe("***");
+    expect(csrfFetch).not.toHaveBeenCalled();
   });
 
   it("clears the stored password only through the explicit clear button", async () => {

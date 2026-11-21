@@ -1,3 +1,5 @@
+import { gzipSync } from "node:zlib";
+import { execFileSync } from "node:child_process";
 import * as fs from "node:fs/promises";
 import * as os from "node:os";
 import * as path from "node:path";
@@ -64,7 +66,7 @@ describe("migration packages", () => {
     const relative = "backups/database-test.sql.gz";
     const absolute = path.join(storage, relative);
     await fs.mkdir(path.dirname(absolute), { recursive: true });
-    const payload = Buffer.from("SELECT 1; -- migration fixture\n");
+    const payload = gzipSync("-- PostgreSQL database dump\nSELECT 1;\n-- PostgreSQL database dump complete\n");
     await fs.writeFile(absolute, payload);
     const checksum = createHash("sha256").update(payload).digest("hex");
 
@@ -90,6 +92,7 @@ describe("migration packages", () => {
       backupId: "bak1",
       projectRoot: tmp,
     });
+    expect(exported.tarballRelativePath).toBe(exported.packageRelativeDir + ".tar.gz");
     expect(exported.packageId).toMatch(/^mig-/);
     expect(exported.manifest.backup.checksumSha256).toBe(checksum);
 
@@ -123,7 +126,7 @@ describe("migration packages", () => {
   it("refuses to publish a changed backup and computes a digest for legacy records", async () => {
     const relative = "backups/legacy.sql.gz";
     await fs.mkdir(path.join(storage, "backups"));
-    await fs.writeFile(path.join(storage, relative), "local content");
+    await fs.writeFile(path.join(storage, relative), gzipSync("-- PostgreSQL database dump\n-- PostgreSQL database dump complete\n"));
     const record = { id: "legacy", type: "DATABASE", status: "COMPLETED", filePath: relative };
     prismaMock.backupRecord.findUnique.mockResolvedValueOnce({ ...record, checksumSha256: "0".repeat(64) });
     const mod = await import("../migration-package");
@@ -142,7 +145,7 @@ describe("migration packages", () => {
     const relative = "backups/database-retry.sql.gz";
     const absolute = path.join(storage, relative);
     await fs.mkdir(path.dirname(absolute), { recursive: true });
-    const payload = Buffer.from("SELECT 2; -- migration retry fixture\n");
+    const payload = gzipSync("-- PostgreSQL database dump\nSELECT 2;\n-- PostgreSQL database dump complete\n");
     await fs.writeFile(absolute, payload);
     prismaMock.backupRecord.findUnique.mockResolvedValue({
       id: "bak2", type: "DATABASE", status: "COMPLETED", filePath: relative, fileSize: String(payload.length),
@@ -169,7 +172,7 @@ describe("migration packages", () => {
     const relative = "backups/database-big.sql.gz";
     const absolute = path.join(storage, relative);
     await fs.mkdir(path.dirname(absolute), { recursive: true });
-    const payload = Buffer.from("SELECT 3; -- migration tar fixture\n");
+    const payload = gzipSync("-- PostgreSQL database dump\nSELECT 3;\n-- PostgreSQL database dump complete\n");
     await fs.writeFile(absolute, payload);
     prismaMock.backupRecord.findUnique.mockResolvedValue({
       id: "bak3", type: "DATABASE", status: "COMPLETED", filePath: relative, fileSize: String(payload.length),
@@ -184,6 +187,7 @@ describe("migration packages", () => {
     const exported = await mod.exportMigrationPackage({ backupId: "bak3", projectRoot: tmp });
 
     await expect(fs.access(path.join(storage, `${exported.packageRelativeDir}.tar.gz`))).rejects.toMatchObject({ code: "ENOENT" });
+    expect(exported.tarballRelativePath).toBeNull();
     // The directory package is complete and is what the list offers.
     const listed = (await mod.listMigrationPackages(tmp)).find((entry) => entry.packageId === exported.packageId);
     expect(listed).toMatchObject({ hasTarball: false, type: "DATABASE" });
@@ -195,7 +199,8 @@ describe("migration packages", () => {
     const relative = "backups/files-test.tar.gz";
     const absolute = path.join(storage, relative);
     await fs.mkdir(path.dirname(absolute), { recursive: true });
-    const payload = Buffer.from("good-bytes");
+    await fs.writeFile(path.join(tmp, "file.txt"), "fixture");
+    const payload = execFileSync("tar", ["-czf", "-", "-C", tmp, "file.txt"]);
     await fs.writeFile(absolute, payload);
     const checksum = createHash("sha256").update(payload).digest("hex");
 
@@ -285,9 +290,48 @@ describe("migration packages", () => {
     expect(result.issues).toContain("payload is not a regular file: payload.sql.gz");
   });
 
+  it.skipIf(process.platform === "win32")("refuses a linked package directory, its ancestor, and a linked or non-file manifest", async () => {
+    const mod = await import("../migration-package");
+    const external = path.join(tmp, "external"), inner = path.join(external, "inner");
+    await fs.mkdir(inner, { recursive: true });
+    await fs.symlink(external, path.join(storage, "alias"));
+    for (const ref of ["alias", "alias/inner"]) await expect(mod.resolveMigrationPackageDir(ref, tmp)).rejects.toThrow();
+    const dir = path.join(storage, "plain");
+    await fs.mkdir(dir);
+    await fs.writeFile(path.join(external, "manifest.json"), "{}");
+    await fs.symlink(path.join(external, "manifest.json"), path.join(dir, "manifest.json"));
+    await expect(mod.readMigrationManifest(dir)).rejects.toThrow();
+    await fs.unlink(path.join(dir, "manifest.json"));
+    await fs.mkdir(path.join(dir, "manifest.json"));
+    await expect(mod.readMigrationManifest(dir)).rejects.toThrow();
+  });
+
+  it("refuses to register a package with missing source, empty bytes or the wrong payload type", async () => {
+    const { createHash } = await import("node:crypto");
+    const mod = await import("../migration-package");
+    const dir = path.join(storage, "invalid-package");
+    await fs.mkdir(dir);
+    const sql = gzipSync("-- PostgreSQL database dump\n-- PostgreSQL database dump complete\n");
+    for (const invalid of ["source", "empty", "type"]) {
+      const bytes = invalid === "empty" ? Buffer.alloc(0) : sql;
+      const manifest = { version: 1, packageId: "mig-test123", createdAt: new Date().toISOString(),
+        source: invalid === "source" ? undefined : { app: "VControlHub", recordId: "record", hostname: "test", teamId: null },
+        instructions: { import: "", restore: "" }, backup: { originalFilePath: "backups/test", payloadFileName: "payload",
+          type: invalid === "type" ? "FULL" : "DATABASE", note: null, completedAt: null,
+          fileSize: bytes.length, checksumSha256: createHash("sha256").update(bytes).digest("hex") },
+      };
+      await fs.writeFile(path.join(dir, "manifest.json"), JSON.stringify(manifest));
+      await fs.writeFile(path.join(dir, "payload"), bytes);
+      if (invalid === "type") await expect(mod.validateMigrationPackage(dir, tmp)).resolves.toMatchObject({ ok: false });
+      else await expect(mod.validateMigrationPackage(dir, tmp)).rejects.toThrow();
+      await expect(mod.importMigrationPackage({ packageRef: dir, projectRoot: tmp })).rejects.toThrow();
+    }
+    expect(prismaMock.backupRecord.create).not.toHaveBeenCalled();
+  });
+
   it("blocks another team's package while preserving legacy unscoped packages", async () => {
     const packageDir = path.join(storage, "migration-packages", "mig-team123");
-    const payload = Buffer.from("team payload");
+    const payload = gzipSync("-- PostgreSQL database dump\n-- PostgreSQL database dump complete\n");
     const { createHash } = await import("node:crypto");
     await fs.mkdir(packageDir, { recursive: true });
     await fs.writeFile(path.join(packageDir, "payload.sql.gz"), payload);

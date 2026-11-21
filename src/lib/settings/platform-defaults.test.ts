@@ -47,4 +47,12 @@ describe("getPlatformDefaults", () => {
     findMany.mockRejectedValueOnce(new Error("down"));
     expect(await getPlatformDefaults()).toEqual({ locale: "zh", theme: "dark" });
   });
+
+  it("reads the saved navigation brand and drops an unsafe logo from a legacy setting", async () => {
+    rows.push({ key: "platform.name", value: "  Control  " }, { key: "platform.logo", value: "/customer.svg" });
+    expect(await getPlatformDefaults()).toMatchObject({ name: "Control", logo: "/customer.svg" });
+    rows[1]!.value = "//elsewhere.test/logo.svg";
+    invalidatePlatformDefaults();
+    expect(await getPlatformDefaults()).toEqual({ locale: "zh", theme: "dark", name: "Control" });
+  });
 });

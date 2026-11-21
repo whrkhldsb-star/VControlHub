@@ -11,9 +11,10 @@ const playbook = vi.hoisted(() => ({
   findMany: vi.fn().mockResolvedValue([]),
   createMany: vi.fn().mockResolvedValue({ count: 1 }),
 }));
-vi.mock("@/lib/db", () => ({ prisma: { playbook } }));
+const user = vi.hoisted(() => ({ findMany: vi.fn().mockResolvedValue([{ id: "operator", username: "operator", roles: [], teamMembership: null }]) }));
+vi.mock("@/lib/db", () => ({ prisma: { playbook, user } }));
 
-const tx = { playbook } as unknown as Tx;
+const tx = { playbook, user } as unknown as Tx;
 const options = { dryRun: false, overwriteExisting: true, importUsers: true, importSettings: true };
 const step = {
   id: "notify", name: "Notify", type: "send_notification",
@@ -31,6 +32,9 @@ describe("Playbook import validation", () => {
   it.each([
     ["more than 32 steps", { steps: steps(33, 0) }],
     ["step retry above five", { steps: steps(1, 6) }],
+    ["unknown trigger", { triggerType: "manual" }],
+    ["invalid cron", { triggerConfig: { expression: "never" } }],
+    ["metric with cron configuration", { triggerType: "metric" }],
     ["negative step retry", { steps: steps(1, -1) }],
     ["fractional step retry", { steps: steps(1, 1.5) }],
     ["chain retry above five", { chainRetry: 6 }],
@@ -51,7 +55,9 @@ describe("Playbook import validation", () => {
   it("imports 32 steps with five retries and writes the parsed defaults", async () => {
     const maxSteps = steps(32, 5);
     const untrimmed = maxSteps.map((s) => ({ ...s, config: { ...s.config, subject: " Status " } }));
-    const tables = { playbooks: [{ ...row, steps: untrimmed, chainRetry: 5 }] } as ExportFile["tables"];
+    const tables = { servers: [], users: [], roles: [], userRoles: [], teamMembers: [], teams: [], identityTemplates: [], userServerAccess: [],
+      permissions: [], rolePermissions: [], sshKeys: [], storageNodes: [], userStorageAccess: [], commandTemplates: [], quickServices: [], alertRules: [],
+      settings: [], aiProviders: [], announcements: [], snippets: [], playbooks: [{ ...row, steps: untrimmed, chainRetry: 5 }] } as ExportFile["tables"];
     expect(await previewPlaybooks(tables, { ...options, dryRun: true })).toEqual({ create: 1, update: 0, skip: 0 });
     const counts = { created: 0, updated: 0, skipped: 0 };
     await importPlaybooks(tx, tables, options, counts);

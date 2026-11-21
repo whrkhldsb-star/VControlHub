@@ -114,6 +114,20 @@ describe("GET /api/system/export", () => {
 		);
 	});
 
+	it("reserves room for import options and refuses a multibyte attachment one byte over the limit", async () => {
+		const { CONFIG_MAX_FILE_BYTES, CONFIG_IMPORT_MAX_BODY_BYTES } = await import("@/lib/system/config-format");
+		const fixed = Buffer.byteLength(JSON.stringify({ value: "" }, null, 2));
+		const text = "界".repeat(Math.floor((CONFIG_MAX_FILE_BYTES - fixed) / 3)) + "x".repeat((CONFIG_MAX_FILE_BYTES - fixed) % 3);
+		mocks.buildExportFile.mockResolvedValueOnce({ value: text }).mockResolvedValueOnce({ value: text + "x" });
+		const ok = await route.GET(get());
+		expect(ok.status).toBe(200);
+		expect(Buffer.byteLength(JSON.stringify({ file: await ok.json(), dryRun: false, importUsers: true, importSettings: true, overwriteExisting: true }))).toBeLessThan(CONFIG_IMPORT_MAX_BODY_BYTES);
+		const refused = await route.GET(get());
+		expect(refused.status).toBe(413);
+		expect(refused.headers.has("Content-Disposition")).toBe(false);
+		expect((await refused.json()).error).toBeTruthy();
+	});
+
 	it("returns the file as a pretty-printed JSON attachment", async () => {
 		vi.useFakeTimers();
 		vi.setSystemTime(new Date("2026-08-31T12:34:56.000Z"));

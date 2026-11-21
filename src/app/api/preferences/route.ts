@@ -50,7 +50,7 @@ export async function GET(request: Request) {
       // Preferences mutate via PUT and are read immediately after save (multi-tab /
       // AutoProbe). shortLived would serve stale widgets/probe settings for up to
       // max-age+swr; use no-store so GET always reflects the latest DB row.
-      return withCacheHeaders(NextResponse.json(prefs), CachePresets.noStore);
+      return withCacheHeaders(NextResponse.json(prefs, { headers: { "X-Preferences-User": encodeURIComponent(session.userId) } }), CachePresets.noStore);
     },
   );
 }

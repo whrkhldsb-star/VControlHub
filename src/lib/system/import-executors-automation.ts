@@ -14,6 +14,15 @@ import { resolvePlaybookWebhooks } from "./playbook-webhooks";
 import { planQuickServiceImport } from "./import-quick-services";
 import { computeNextPlaybookCronRun, isCronTriggerConfig } from "@/lib/playbook/trigger-utils";
 
+/** The application seeds the catalog by name. Bundle-local ids and definitions never own catalog rows. */
+export async function writableCommandTemplates(db: Pick<Tx, "commandTemplate">, rows: ExportFile["tables"]["commandTemplates"]) {
+  const custom = rows.filter((row) => !row.isBuiltin);
+  const protectedIds = new Set((await loadImportReferences(custom.map((r) => r.id), (ids) => db.commandTemplate.findMany({
+    where: { id: { in: ids }, isBuiltin: true }, select: { id: true },
+  }))).map((r) => r.id));
+  return custom.filter((row) => !protectedIds.has(row.id));
+}
+
 // 10. CommandTemplates
 export async function importCommandTemplates(
   tx: Tx,
@@ -29,12 +38,14 @@ export async function importCommandTemplates(
     rollbackCommand: r.rollbackCommand,
     variables: r.variables,
     tags: r.tags,
-    isBuiltin: r.isBuiltin,
+    isBuiltin: false,
     createdById: creator(r.createdById),
     // Multi-tenant: preserve export teamId (null stays legacy-shared)
     teamId: r.teamId ?? null,
   });
-  await upsertById(t.commandTemplates, options, counts, {
+  const records = await writableCommandTemplates(tx, t.commandTemplates);
+  counts.skipped += t.commandTemplates.length - records.length;
+  await upsertById(records, options, counts, {
     listExistingIds: async (ids) =>
       new Set(
         (await tx.commandTemplate.findMany({ where: { id: { in: ids } }, select: { id: true } })).map((e) => e.id),
@@ -47,7 +58,7 @@ export async function importCommandTemplates(
         })
       ).count,
     updateById: async (r) => {
-      await tx.commandTemplate.update({ where: { id: r.id }, data: toData(r) });
+      await tx.commandTemplate.update({ where: { id: r.id, isBuiltin: false }, data: toData(r) });
     },
   });
 }
@@ -58,6 +69,7 @@ export async function importQuickServices(
   t: ExportFile["tables"],
   options: ImportOptions,
   counts: Counts,
+  exportMode?: ExportFile["exportMode"],
 ): Promise<void> {
   // Create resets runtime state (never restore it from a config package);
   // update leaves the running container untouched.
@@ -97,8 +109,8 @@ export async function importQuickServices(
     // and mounts (export-collectors); importing it over a live instance wiped
     // every service's tokens and volumes (A9-01). Like server passwords and AI
     // keys: not in the package means keep ours.
-    ...(r.envJson && r.envJson !== "{}" ? { envJson: r.envJson } : {}),
-    ...(r.volumesJson && r.volumesJson !== "[]" ? { volumesJson: r.volumesJson } : {}),
+    ...(exportMode === "full" || r.envJson && r.envJson !== "{}" ? { envJson: r.envJson } : {}),
+    ...(exportMode === "full" || r.volumesJson && r.volumesJson !== "[]" ? { volumesJson: r.volumesJson } : {}),
   });
   const records = t.quickServices;
   const targets = records.flatMap((row) => row.serverId ? [row.serverId] : []);
@@ -120,6 +132,26 @@ export async function importQuickServices(
   counts.skipped += records.length - plan.length;
 }
 
+type ImportedPlaybooks = ReturnType<typeof importPlaybooksSchema.parse>;
+export function playbookStepReferences(records: ImportedPlaybooks) {
+  const steps = records.flatMap((r) => r.steps);
+  return {
+    serverIds: steps.flatMap((step) => step.type === "run_command" ? step.config.serverIds : []),
+    recipientIds: steps.flatMap((step) => step.type === "send_notification" ? [step.config.recipientUserId] : []),
+  };
+}
+
+export function scopedPlaybooks(records: ImportedPlaybooks, servers: ReadonlyMap<string, { teamId: string | null }>, users: ReadonlyMap<string, { teamId: string | null }>) {
+  return records.filter((row) => {
+    const inScope = (owner: { teamId: string | null } | undefined) => !!owner && (!row.teamId || owner.teamId === row.teamId);
+    return row.steps.every((step) => {
+      if (step.type === "run_command") return step.config.serverIds.every((id) => inScope(servers.get(id)));
+      if (step.type === "send_notification") return inScope(users.get(step.config.recipientUserId));
+      return true;
+    });
+  });
+}
+
 // 12. Playbooks
 export async function importPlaybooks(
   tx: Tx,
@@ -128,7 +160,14 @@ export async function importPlaybooks(
   counts: Counts,
   exportMode?: ExportFile["exportMode"],
 ): Promise<void> {
-  const records = importPlaybooksSchema.parse(t.playbooks);
+  const parsed = importPlaybooksSchema.parse(t.playbooks);
+  const { serverIds, recipientIds } = playbookStepReferences(parsed);
+  const [servers, users] = await Promise.all([
+    loadImportReferences(serverIds, (ids) => tx.server.findMany({ where: { id: { in: ids } }, select: { id: true, teamId: true } })).then(byId),
+    loadGrantUserScopes(tx, recipientIds),
+  ]);
+  const records = scopedPlaybooks(parsed, servers, users);
+  counts.skipped += parsed.length - records.length;
   const creator = await creatorResolver(tx, records.map((r) => r.createdById));
   const toData = (r: (typeof records)[number], previous?: Prisma.JsonValue) => {
     const { steps, unresolved } = resolvePlaybookWebhooks(r.steps, exportMode === "full" ? undefined : previous);
@@ -153,7 +192,10 @@ export async function importPlaybooks(
     createManySkipDuplicates: async (rows) =>
       (
         await tx.playbook.createMany({
-          data: rows.map((r) => ({ id: r.id, ...toData(r) })),
+          data: rows.map((r) => {
+            const data = toData(r);
+            return { id: r.id, ...data, nextRunAt: nextPlaybookRunAt(data) };
+          }),
           skipDuplicates: true,
         })
       ).count,
@@ -184,12 +226,7 @@ export async function importPlaybooks(
 
 function nextPlaybookRunAt(r: { enabled: boolean; triggerType: string; triggerConfig: unknown }): Date | null {
   if (!r.enabled || r.triggerType !== "cron" || !isCronTriggerConfig(r.triggerConfig)) return null;
-  try {
-    return computeNextPlaybookCronRun(r.triggerConfig.expression);
-  } catch {
-    // An invalid expression never runs; the trigger sweep reports it.
-    return null;
-  }
+  return computeNextPlaybookCronRun(r.triggerConfig.expression);
 }
 
 // 13. AlertRules
@@ -228,18 +265,20 @@ export async function importAlertRules(
     })).then(byId),
     loadGrantUserScopes(tx, records.flatMap((r) => r.onCallUserIds ?? [])),
   ]);
-  const plan = await planAlertRuleImport(tx, records, options, servers, playbooks, users);
-  const creates = plan.filter(({ action }) => action === "create").map(({ row }) => ({ id: row.id, ...toData(row) }));
+  const plan = await planAlertRuleImport(tx, records, options, servers, playbooks, users, exportMode);
+  const creates = plan.filter(({ action }) => action === "create").map(({ row, missingWebhook }) => ({ id: row.id, ...toData(row), enabled: row.enabled && !missingWebhook }));
   if (creates.length > 0) {
     const result = await tx.alertRule.createMany({ data: creates, skipDuplicates: true });
     counts.created += result.count;
     counts.skipped += creates.length - result.count;
   }
-  for (const { row, action } of plan) {
+  for (const { row, action, missingWebhook, metricChanged } of plan) {
     if (action !== "update") continue;
     // A standard export leaves webhook addresses out: keep the address the rule has.
     const { webhookUrl, ...rest } = toData(row);
-    await tx.alertRule.update({ where: { id: row.id, teamId: row.teamId ?? null }, data: exportMode === "full" || webhookUrl ? { ...rest, webhookUrl } : rest });
+    await tx.alertRule.update({ where: { id: row.id, teamId: row.teamId ?? null }, data: { ...rest, enabled: row.enabled && !missingWebhook,
+      ...(exportMode === "full" || webhookUrl ? { webhookUrl } : {}), ...(metricChanged ? { matchState: {}, lastMatchedAt: null } : {}),
+    } });
     counts.updated += 1;
   }
   counts.skipped += records.length - plan.length;

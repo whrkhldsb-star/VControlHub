@@ -1,8 +1,12 @@
+import { cloneElement, type CSSProperties } from "react";
+import brandStyles from "./settings/platform-brand.module.css";
 import type { Metadata, Viewport } from "next";
 import { getPlatformDefaults } from "@/lib/settings/platform-defaults";
+import { resolvePlatformLogo } from "@/lib/settings/platform-logo";
 import { Geist, Geist_Mono } from "next/font/google";
 import "./globals.css";
 
+import { PreferenceCacheSession } from "@/lib/preferences/cache-session";
 import { SidebarLoader } from "@/components/sidebar-loader";
 import { ToastProvider } from "@/components/toast-provider";
 import { StorageUploadProvider, StorageUploadStatus } from "@/components/storage/storage-upload-provider";
@@ -38,10 +42,11 @@ const geistMono = Geist_Mono({
 	subsets: ["latin"],
 });
 
-export const metadata: Metadata = {
-	title: getAppMetadataTitle(),
-	description: getAppDescription(),
-};
+export async function generateMetadata(): Promise<Metadata> {
+	const { name, logo: source } = await getPlatformDefaults();
+	const logo = source && await resolvePlatformLogo(source, (await headers()).get("host"));
+	return { title: name ?? getAppMetadataTitle(), description: getAppDescription(), ...(logo ? { icons: { icon: logo } } : {}) };
+}
 
 // On Android the on-screen keyboard shrinks the page instead of covering it,
 // so a full-height surface such as the SSH terminal keeps its prompt in view.
@@ -79,6 +84,13 @@ export default async function RootLayout({
 	const shouldRenderAuthenticatedChrome = Boolean(session);
 	// A protected page can start streaming before its guard redirects an expired session.
 	const canRegisterPwa = headerStore.get("x-vcontrolhub-protected-page") !== "1" || Boolean(session);
+	// The sidebar loader supplies the authorized navigation and service links.
+	// Its AppSidebar already accepts the brand name as a server-resolved prop.
+	const sidebar = shouldRenderAuthenticatedChrome ? await SidebarLoader() : null;
+	const logo = await resolvePlatformLogo(platformDefaults.logo, headerStore.get("host"));
+	const brandStyle = logo ? {
+		"--platform-logo": `url(${JSON.stringify(logo)})`,
+	} as CSSProperties : undefined;
 	const sessionGate = session ? gateFromRoles(session.roles, session.permissions, session.currentTeamId) : EMPTY_GATE;
 	// TR-030: same permission map as SidebarLoader so ⌘K search cannot list
 	// routes the user cannot open (filterItemsByPermissions is a no-op when empty).
@@ -90,6 +102,7 @@ export default async function RootLayout({
 		<html
 			lang={initialLocale === "zh" ? "zh-CN" : "en"}
 			className={`${geistSans.variable} ${geistMono.variable} h-full antialiased ${initialTheme === "light" ? "light" : ""}`}
+			data-preferences-user={session?.userId ?? ""}
 			data-sidebar={sidebarCollapsed ? "collapsed" : "expanded"}
 			suppressHydrationWarning
 		>
@@ -103,9 +116,10 @@ export default async function RootLayout({
 					}}
 				/>
 			</head>
-			<body className="min-h-full">
+			<body className={`min-h-full ${brandStyle ? brandStyles.customLogo : ""}`} style={brandStyle}>
 				<ThemeProvider initialTheme={initialTheme}>
 					<I18nProvider initialLocale={initialLocale}>
+						<PreferenceCacheSession userId={session?.userId ?? null} />
 						<SentryProvider />
 						{shouldRenderAuthenticatedChrome ? <WebVitalsReporter /> : null}
 						<ToastProvider>
@@ -116,9 +130,9 @@ export default async function RootLayout({
 							    provider they saw an empty gate, which switched off opening another customer's notification). */}
 							<SessionGateProvider value={sessionGate}>
 							<div className="flex min-h-dvh min-w-0">
-								{shouldRenderAuthenticatedChrome && <SidebarLoader />}
+								{sidebar && platformDefaults.name ? cloneElement(sidebar, { appName: platformDefaults.name }) : sidebar}
 								<div className="flex min-w-0 flex-1 flex-col">
-									{shouldRenderAuthenticatedChrome ? <AppTopbar appName={getAppName()} /> : null}
+									{shouldRenderAuthenticatedChrome ? <AppTopbar appName={platformDefaults.name ?? getAppName()} /> : null}
 									{canRegisterPwa && <PwaRegister />}
 									<main
 										id="main-content"

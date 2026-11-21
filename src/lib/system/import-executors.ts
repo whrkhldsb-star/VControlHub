@@ -41,7 +41,8 @@ export * from "./import-executors-tenancy";
 import { lockForTransaction } from "@/lib/concurrency/advisory-lock";
 import { prisma } from "@/lib/db";
 import type { ExportFile, ImportOptions } from "@/lib/system/config-schema";
-import type { Counts, ImportResult } from "./import-executors-helpers";
+import type { Counts, ImportResult, Tx } from "./import-executors-helpers";
+import { ProviderDefaultBusy } from "./import-config-plan";
 import {
   assertImportHasActiveAdmin,
   importPermissions,
@@ -81,18 +82,22 @@ export async function executeImport(
   file: ExportFile,
   options: ImportOptions,
 ): Promise<ImportResult> {
-  const counts: Counts = { created: 0, updated: 0, skipped: 0 };
-  const errors: string[] = [];
-
   // Large multi-table imports easily exceed Prisma's default 5s interactive
   // transaction timeout (P2028). Give operators a realistic window.
-  let rolledBack = false;
-  await prisma.$transaction(async (tx) => {
+  const write = async (tx: Tx) => {
+    const counts: Counts = { created: 0, updated: 0, skipped: 0 };
+    // LOCK is a utility command and precedes the first snapshot-taking SELECT.
+    // An ordinary provider writer can otherwise commit a new default between
+    // our serializable snapshot and its owner's advisory lock. Its new row
+    // would then be invisible to the demotion, even after we acquired the lock.
+    if (file.tables.aiProviders.some((row) => row.isDefault)) {
+      await tx.$executeRaw`LOCK TABLE ai_providers IN SHARE ROW EXCLUSIVE MODE`;
+    }
     await lockForTransaction(tx, "user-admin-invariant", "global");
     // 0. Take this instance's ids for objects it already has under the same
     //    business key, and refuse references to customers that exist nowhere.
     const t = await alignImportIds(tx, file.tables);
-    const missingTeams = await findMissingTeamIds(tx, t);
+    const missingTeams = await findMissingTeamIds(tx, t, options.overwriteExisting);
     if (missingTeams.length > 0) {
       throw new ValidationError(translate("backend.system.importMissingCustomers", { ids: missingTeams.slice(0, 5).join(", "), count: missingTeams.length }));
     }
@@ -114,7 +119,7 @@ export async function executeImport(
     // 6. SshKeys
     await importSshKeys(tx, t, options, counts);
     // 7. Servers
-    await importServers(tx, t, options, counts);
+    await importServers(tx, t, options, counts, file.exportMode);
     // 7a. Per-server permissions
     await importUserServerAccess(tx, t, options, counts);
     // 8. StorageNodes
@@ -124,7 +129,7 @@ export async function executeImport(
     // 10. CommandTemplates
     await importCommandTemplates(tx, t, options, counts);
     // 11. QuickServices
-    await importQuickServices(tx, t, options, counts);
+    await importQuickServices(tx, t, options, counts, file.exportMode);
     // 12. Playbooks
     await importPlaybooks(tx, t, options, counts, file.exportMode);
     // 13. AlertRules
@@ -138,15 +143,23 @@ export async function executeImport(
     // 17. Snippets
     await importSnippets(tx, t, options, counts);
     await assertImportHasActiveAdmin(tx);
-  }, { timeout: 120_000, maxWait: 20_000, isolationLevel: "Serializable" }).catch((err: unknown) => {
-    // 事务失败时全部写入都会回滚。不要把事务内累计的计数伪装成
-    // 已落库结果，否则 UI 会显示“创建了 N 条”但数据库实际为 0。
-    rolledBack = true;
-    counts.created = 0;
-    counts.updated = 0;
-    const msg = err instanceof Error ? err.message : String(err);
-    errors.push(`Transaction failed: ${msg}`);
-  });
+    return counts;
+  };
 
-  return { created: counts.created, updated: counts.updated, skipped: counts.skipped, errors, ...(rolledBack ? { rolledBack: true } : {}) };
+  try {
+    for (let attempt = 1; ; attempt++) {
+      try {
+        const counts = await prisma.$transaction(write, { timeout: 120_000, maxWait: 20_000, isolationLevel: "Serializable" });
+        return { ...counts, errors: [] };
+      } catch (error) {
+        if (!(error instanceof ProviderDefaultBusy) || attempt >= 3) throw error;
+        // Let the normal editor commit before taking the next import snapshot.
+        await prisma.$transaction((tx) => lockForTransaction(tx, "ai-provider-default", error.owner), { timeout: 120_000 });
+      }
+    }
+  } catch (err) {
+    const msg = err instanceof Error ? err.message : String(err);
+    const skipped = Object.values(file.tables).reduce((total, rows) => total + rows.length, 0);
+    return { created: 0, updated: 0, skipped, errors: [`Transaction failed: ${msg}`], rolledBack: true };
+  }
 }

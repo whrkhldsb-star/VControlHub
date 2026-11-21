@@ -12,7 +12,7 @@ import { useEffect, useRef, useState } from "react";
 
 import { useI18n } from "@/lib/i18n/use-locale";
 import { csrfFetch } from "@/lib/auth/csrf-client";
-import { CONFIG_IMPORT_MAX_BODY_BYTES, EXPORT_SCHEMA_VERSION } from "@/lib/system/config-format";
+import { CONFIG_MAX_FILE_BYTES, EXPORT_SCHEMA_VERSION } from "@/lib/system/config-format";
 import type { ExportFile, ImportPreview } from "@/lib/system/config-schema";
 import { getErrorMessage, readRefusal } from "@/lib/http/error-message";
 import { ActionButton } from "@/components/action-button";
@@ -112,8 +112,8 @@ export function SystemConfigSection({
     setSelectedFileName(file?.name ?? "");
     if (!file) return;
     // Leave room for the options sent alongside the file.
-    if (file.size > CONFIG_IMPORT_MAX_BODY_BYTES - 64 * 1024) {
-      setFileError(t("systemConfig.import.fileTooLarge", { limit: `${CONFIG_IMPORT_MAX_BODY_BYTES / 1024 / 1024} MiB` }));
+    if (file.size > CONFIG_MAX_FILE_BYTES) {
+      setFileError(t("systemConfig.import.fileTooLarge", { limit: `${CONFIG_MAX_FILE_BYTES} B` }));
       return;
     }
 
@@ -405,6 +405,13 @@ export function SystemConfigSection({
             </div>
 
             {/* Warnings */}
+            {preview.issues?.map((issue) => (
+              <Notice tone={issue.blocking ? "danger" : "warning"} compact key={issue.table + ":" + issue.id}>
+                {t(`systemConfig.import.preview.table.${issue.table}`)} · {issue.id} · {t(issue.reason)}
+                {issue.ownerMismatch && ` (${issue.ownerMismatch.incoming ?? t("monitoringPage.field.platform")} ≠ ${issue.ownerMismatch.existing ?? t("monitoringPage.field.platform")})`}
+                {issue.replacementId && ` → ${issue.replacementId}`}
+              </Notice>
+            ))}
             {preview.warnings.length > 0 && (
               <div className="space-y-1 mt-2">
                 <span className="text-xs font-medium text-[var(--warning)] light:text-[var(--warning)]">
@@ -419,7 +426,7 @@ export function SystemConfigSection({
             {/* Confirm import button */}
             <ActionButton type="button" variant="primary"
               onClick={handleExecute}
-              disabled={executing || preview.totalRecords === 0} className="mt-2"
+              disabled={executing || preview.totalRecords === 0 || preview.issues?.some((issue) => issue.blocking)} className="mt-2"
             >
               {executing ? t("systemConfig.import.executing") : t("systemConfig.import.executeButton")}
             </ActionButton>

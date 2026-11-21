@@ -12,6 +12,7 @@ const offsiteMocks = vi.hoisted(() => ({
   // Default matches the real disabled-config behaviour so existing run tests
   // keep skipping the best-effort offsite step.
   loadConfig: vi.fn(async (): Promise<Record<string, unknown>> => ({ enabled: false, failureAlertRecipient: null })),
+  deleteObject: vi.fn(),
   putFile: vi.fn(),
   constructedWith: [] as Array<Record<string, unknown>>,
 }));
@@ -49,6 +50,16 @@ const mocks = vi.hoisted(() => ({
   generateRemoteBackupPath: vi.fn(),
 }));
 
+vi.mock("@/lib/concurrency/advisory-lock", () => {
+  const held = new Set<string>();
+  return { tryAcquireAdvisoryLock: async (namespace: string, id: string) => {
+    const key = namespace + ":" + id;
+    if (held.has(key)) return null;
+    held.add(key);
+    return async () => { held.delete(key); };
+  } };
+});
+
 vi.mock("@/lib/storage/offsite/schema", () => ({
   loadOffsiteConfig: offsiteMocks.loadConfig,
   validateOffsiteConfigForUse: () => [],
@@ -59,6 +70,7 @@ vi.mock("@/lib/storage/offsite/s3-client", () => ({
     constructor(clientConfig: Record<string, unknown>) {
       offsiteMocks.constructedWith.push(clientConfig);
     }
+    deleteObject = offsiteMocks.deleteObject;
     putFile = offsiteMocks.putFile;
   },
 }));
@@ -321,6 +333,7 @@ describe("assertPortableVpsBackupPath", () => {
 describe("deleteVpsBackupRecord", () => {
   beforeEach(() => {
     vi.clearAllMocks();
+    mocks.deleteMany.mockResolvedValue({ count: 1 });
   });
 
   it("refuses to delete RUNNING records", async () => {
@@ -333,16 +346,45 @@ describe("deleteVpsBackupRecord", () => {
     expect(mocks.delete).not.toHaveBeenCalled();
   });
 
+  it("preserves the record after local cleanup fails and resumes after the remote deletion", async () => {
+    const { offsiteDestination } = await import("@/lib/storage/offsite/destination");
+    const localPath = "storage/vps-backups/srv_1/cleanup-fixture-" + process.pid + ".tar.gz";
+    const absolute = resolvePath(config.storage.root || process.cwd(), localPath);
+    // A directory has a real filesystem error on unlink, including when tests run as root.
+    mkdirSync(absolute, { recursive: true });
+    try {
+      mocks.findUnique.mockResolvedValueOnce({ localPath, status: "COMPLETED", offsiteKey: "key", offsiteDestination: offsiteDestination(ENABLE_OFFSITE_CONFIG) });
+      offsiteMocks.loadConfig.mockResolvedValueOnce(ENABLE_OFFSITE_CONFIG);
+      mocks.updateMany.mockResolvedValue({ count: 1 });
+      await expect(deleteVpsBackupRecord("cleanup")).rejects.toThrow();
+      expect(mocks.update).toHaveBeenCalledWith(expect.objectContaining({ data: expect.objectContaining({ offsiteKey: null }) }));
+      expect(mocks.deleteMany).not.toHaveBeenCalled();
+      rmSync(absolute, { recursive: true });
+      mocks.findUnique.mockResolvedValueOnce({ localPath, status: "DELETING", offsiteKey: null });
+      await deleteVpsBackupRecord("cleanup");
+      expect(offsiteMocks.deleteObject).toHaveBeenCalledTimes(1);
+      expect(mocks.deleteMany).toHaveBeenCalledWith({ where: { id: "cleanup", status: "DELETING", localPath: null, offsiteKey: null } });
+    } finally { rmSync(absolute, { recursive: true, force: true }); }
+  });
+
   it("deletes non-running records via deleteMany CAS", async () => {
     mocks.findUnique.mockResolvedValueOnce({
       localPath: null,
       status: "FAILED",
     });
+    mocks.updateMany.mockResolvedValueOnce({ count: 1 });
     mocks.deleteMany.mockResolvedValueOnce({ count: 1 });
     await deleteVpsBackupRecord("rec_1");
     expect(mocks.deleteMany).toHaveBeenCalledWith({
-      where: { id: "rec_1", status: { not: "RUNNING" } },
+      where: { id: "rec_1", status: "DELETING", localPath: null, offsiteKey: null },
     });
+  });
+
+  it("reports a conflict if a cleanup receipt changes before the final delete", async () => {
+    mocks.findUnique.mockResolvedValueOnce({ status: "DELETING", offsiteKey: null, localPath: null });
+    mocks.updateMany.mockResolvedValueOnce({ count: 1 });
+    mocks.deleteMany.mockResolvedValueOnce({ count: 0 });
+    await expect(deleteVpsBackupRecord("cleanup")).rejects.toThrow(ConflictError);
   });
 });
 
@@ -403,7 +445,12 @@ describe("uploadVpsBackupToOffsite", () => {
         offsiteKey: null,
       });
       offsiteMocks.loadConfig.mockResolvedValueOnce(ENABLE_OFFSITE_CONFIG);
-      offsiteMocks.putFile.mockResolvedValueOnce({ etag: "etag-1" });
+      offsiteMocks.putFile.mockImplementationOnce(async () => {
+        // The object is being published and its version has not yet reached the record.
+        await expect(deleteVpsBackupRecord("rec_to")).rejects.toThrow(ConflictError);
+        expect(mocks.deleteMany).not.toHaveBeenCalled();
+        return { etag: "etag-1" };
+      });
 
       const { uploadVpsBackupToOffsite } = await import("../vps-backup-service");
       const result = await uploadVpsBackupToOffsite("rec_to");

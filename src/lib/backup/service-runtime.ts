@@ -1,5 +1,5 @@
 import { apiCopy } from "@/lib/i18n/api-copy";
-import { resolveLocalTarBinary } from "@/lib/runtime/tar-binary";
+import { verifyBackupPayload } from "../../../scripts/lib/backup-common.mjs";
 /**
  * Backup service — execution / orchestration layer (R28 god-file split).
  *
@@ -13,15 +13,10 @@ import { resolveLocalTarBinary } from "@/lib/runtime/tar-binary";
  * portable paths under `BACKUP_DIR` / `<projectRoot>/backups`), and
  * removes the corresponding DB rows.
  *
- * `getBackupPolicySummary` is a thin aggregate over `listBackupRecords`
- * + the pure `summarizeBackupPolicy` reducer.
  */
-import { mkdtemp, rm, stat } from "node:fs/promises";
+import { rm, stat } from "node:fs/promises";
 import { createReadStream } from "node:fs";
 import { createHash } from "node:crypto";
-import { tmpdir } from "node:os";
-import { join } from "node:path";
-import { createGunzip } from "node:zlib";
 
 import { lockForTransaction } from "@/lib/concurrency/advisory-lock";
 import { prisma } from "@/lib/db";
@@ -44,10 +39,9 @@ import {
 	hasBackupArtifactReference,
 	createBackupRecord,
 	getBackupRecord,
-	listBackupRecords,
 	updateBackupRecordStatus,
 } from "./service-crud";
-import { pruneOldBackupRecords, summarizeBackupPolicy } from "./service-policy";
+import { DEFAULT_KEEP_LATEST_PER_TYPE, DEFAULT_RETENTION_DAYS, pruneOldBackupRecords } from "./service-policy";
 import { uploadBackupToOffsite } from "./offsite-uploader";
 import { t } from "@/lib/i18n/service-translations";
 
@@ -72,72 +66,6 @@ async function calculateFileSha256(filePath: string): Promise<string> {
 function buildBackupInvocation(extraArgs: string[]): Pick<RunBackupCommandInput, "file" | "args"> {
 	const { file, script } = backupRunnerSpec();
 	return { file, args: [script, ...extraArgs] };
-}
-
-/**
- * Verify a gzip stream end-to-end via Node zlib — replaces the external
- * `gzip -t` probe so drills work wherever the app itself runs.
- */
-function verifyGzipIntegrity(filePath: string, timeoutMs: number): Promise<void> {
-	return new Promise((resolve, reject) => {
-		const timer = setTimeout(() => {
-			stream.destroy();
-			reject(new Error(`gzip integrity check timed out after ${timeoutMs}ms`));
-		}, timeoutMs);
-		const stream = createReadStream(filePath);
-		const gunzip = createGunzip();
-		let settled = false;
-		const settle = (error?: Error) => {
-			if (settled) return;
-			settled = true;
-			clearTimeout(timer);
-			if (error) reject(error);
-			else resolve();
-		};
-		stream.on("error", settle);
-		gunzip.on("error", settle);
-		gunzip.on("end", () => settle());
-		// Drain the decompressed bytes; only stream integrity matters here.
-		gunzip.resume();
-		stream.pipe(gunzip);
-	});
-}
-
-/**
- * Decompress the first `maxBytes` of a gzip file — replaces the
- * `gzip -cd | head -c 8192` shell probe. The stream is then drained so the
- * file read finishes cleanly instead of dying on a broken pipe.
- */
-function probeGunzipHead(filePath: string, maxBytes: number, timeoutMs: number): Promise<string> {
-	return new Promise((resolve, reject) => {
-		const timer = setTimeout(() => {
-			stream.destroy();
-			reject(new Error(`gzip probe timed out after ${timeoutMs}ms`));
-		}, timeoutMs);
-		const stream = createReadStream(filePath);
-		const gunzip = createGunzip();
-		const decoder = new TextDecoder("utf-8", { fatal: false });
-		const headChunks: Buffer[] = [];
-		let headBytes = 0;
-		let settled = false;
-		const settle = (error?: Error, value?: string) => {
-			if (settled) return;
-			settled = true;
-			clearTimeout(timer);
-			if (error) reject(error);
-			else resolve(value ?? "");
-		};
-		stream.on("error", settle);
-		gunzip.on("error", settle);
-		gunzip.on("data", (chunk: Buffer) => {
-			if (headBytes < maxBytes) {
-				headChunks.push(chunk);
-				headBytes += chunk.length;
-			}
-		});
-		gunzip.on("end", () => settle(undefined, decoder.decode(Buffer.concat(headChunks).subarray(0, maxBytes))));
-		stream.pipe(gunzip);
-	});
 }
 
 /**
@@ -367,47 +295,18 @@ export async function drillBackupRecord(input: { id: string; projectRoot?: strin
 		{ name: "artifact", status: "passed", detail: `Readable regular file (${info.size} bytes)` },
 		{ name: "sha256", status: "passed", detail: actualChecksum },
 	];
-	await verifyGzipIntegrity(backupPath, 5 * 60 * 1000);
+	await verifyBackupPayload(record.type, backupPath);
 	checks.push({ name: "gzip", status: "passed", detail: "Compressed stream integrity verified" });
-	if (record.type === "DATABASE") {
-		// Node zlib head probe — no shell pipeline, works wherever the app runs.
-		const head = await probeGunzipHead(backupPath, 8192, 5 * 60 * 1000);
-		if (!/PostgreSQL|SET |CREATE |DROP |COPY /i.test(head)) throw new BusinessError(t("backend.backup.drillNotPostgres"));
-		checks.push({ name: "database-format", status: "passed", detail: "PostgreSQL SQL stream detected" });
-	} else {
-		// Use execFile argv (no shell). Do NOT put `--` between -f and the archive:
-		// GNU tar treats the next token after -f as the archive name, so
-		// `tar -tzf -- "$path"` opens an archive literally named `--`.
-		// Path is already constrained by resolveBackupPath (portable under backups/).
-			// Only the exit status matters: the listing is thrown away as it arrives, not held up to a buffer limit
-			// that a backup of ~15,000 files exceeds.
-			await runBackupCommand({ file: resolveLocalTarBinary(), args: ["-tzf", backupPath], options: { cwd: projectRoot, timeout: 10 * 60 * 1000, discardStdout: true } });
-			checks.push({ name: "archive-index", status: "passed", detail: "tar archive index parsed without extraction" });
-			if (record.type === "FULL") {
-				// Extract the embedded dump to a staging file and verify it with Node
-				// zlib — same guarantee as `tar -xOzf | gzip -t`, no shell pipeline.
-				const staging = await mkdtemp(join(tmpdir(), "vch-drill-"));
-				try {
-					await runBackupCommand({
-						file: resolveLocalTarBinary(),
-						args: ["-xzf", backupPath, "-C", staging, "database.sql.gz"],
-						options: { cwd: projectRoot, timeout: 10 * 60 * 1000 },
-					});
-					await verifyGzipIntegrity(join(staging, "database.sql.gz"), 10 * 60 * 1000);
-				} finally {
-					await rm(staging, { recursive: true, force: true }).catch(() => undefined);
-				}
-				checks.push({ name: "full-database", status: "passed", detail: "Embedded PostgreSQL dump stream verified" });
-			}
-	}
+	if (record.type !== "DATABASE") checks.push({ name: "archive-index", status: "passed", detail: "All member paths and types verified" });
+	if (record.type !== "FILES") checks.push({
+		name: record.type === "FULL" ? "full-database" : "database-format", status: "passed",
+		detail: "PostgreSQL dump header and completion marker verified",
+	});
 	const completed = new Date();
 	return { id: record.id, type: record.type, filePath: record.filePath, fileSize: info.size, checksum: { expected: record.checksumSha256, actual: actualChecksum, matched: true }, checks, startedAt: started.toISOString(), completedAt: completed.toISOString(), durationMs: completed.getTime() - started.getTime(), safe: true };
 }
 
-export async function getBackupPolicySummary(session?: Pick<SessionPayload, "userId" | "roles" | "currentTeamId">) {
-	const records = await listBackupRecords(session);
-	return summarizeBackupPolicy(records);
-}
+export { getBackupPolicySummary } from "./policy-summary";
 
 const retentionLogger = createLogger("backup-retention");
 
@@ -469,8 +368,8 @@ export async function pruneOldBackupRecordsNow(input: {
 		retentionLogger.warn("backup retention skipped: teamId required to avoid cross-tenant prune", {
 			hasTeamId: Boolean(input.teamId),
 		});
-		const olderThanDays = input.olderThanDays ?? 30;
-		const keepLatestPerType = input.keepLatestPerType ?? 3;
+		const olderThanDays = input.olderThanDays ?? DEFAULT_RETENTION_DAYS;
+		const keepLatestPerType = input.keepLatestPerType ?? DEFAULT_KEEP_LATEST_PER_TYPE;
 		return {
 			deletedRecords: 0,
 			filesDeleted: 0,
@@ -484,7 +383,7 @@ export async function pruneOldBackupRecordsNow(input: {
 		};
 	}
 	// Prefer candidates likely to be pruned: completed/failed older than cutoff, larger page.
-	const olderThanDays = input.olderThanDays ?? 30;
+	const olderThanDays = input.olderThanDays ?? DEFAULT_RETENTION_DAYS;
 	const cutoffForQuery = new Date(Date.now() - olderThanDays * 24 * 60 * 60 * 1000);
 	const records = await prisma.backupRecord.findMany({
 		where: {
@@ -497,7 +396,7 @@ export async function pruneOldBackupRecordsNow(input: {
 				{ status: "COMPLETED" },
 			],
 		},
-		orderBy: { createdAt: "desc" },
+		orderBy: [{ createdAt: "desc" }, { id: "asc" }],
 	});
 	const plan = pruneOldBackupRecords(records, {
 		olderThanDays: input.olderThanDays,

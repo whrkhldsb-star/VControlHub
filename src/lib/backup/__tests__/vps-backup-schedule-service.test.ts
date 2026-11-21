@@ -1,6 +1,7 @@
 import { beforeEach, describe, expect, it, vi } from "vitest";
 
 const prismaMock = vi.hoisted(() => ({
+  $queryRaw: vi.fn(),
   vpsBackupSchedule: {
     create: vi.fn(),
     findUnique: vi.fn(),

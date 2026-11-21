@@ -6,6 +6,10 @@ import { idQuerySchema } from "@/lib/http/parse-search-params";
 
 export const ANNOUNCEMENT_LEVELS = ["info", "warning", "urgent"] as const;
 
+export function isAnnouncementWindowValid(startsAt: number, expiresAt: number | null) {
+  return Number.isFinite(startsAt) && (expiresAt === null || expiresAt > startsAt);
+}
+
 /* ── GET /api/announcements ──────────────────────────────────────────── */
 /* (list 端点当前无 query 参数,留作占位以备将来扩展) */
 
@@ -34,7 +38,7 @@ export const createAnnouncementSchema = z
       const startsMs = data.startsAt ? Date.parse(data.startsAt) : Date.now();
       const expiresMs = Date.parse(data.expiresAt);
       if (Number.isNaN(startsMs) || Number.isNaN(expiresMs)) return true;
-      return expiresMs > startsMs;
+      return isAnnouncementWindowValid(startsMs, expiresMs);
     },
     { message: "expiresAt must be after startsAt", path: ["expiresAt"] },
   );
