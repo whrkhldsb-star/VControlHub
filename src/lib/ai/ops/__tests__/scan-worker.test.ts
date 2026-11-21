@@ -719,6 +719,7 @@ describe("AI ops scan retry wake", () => {
     // A failed scan is queued again for an hour later; the worker only woke
     // at the daily hour, so the retry waited for the next day.
     vi.useFakeTimers();
+    vi.setSystemTime(new Date("2026-06-15T06:00:00Z"));
     try {
       const aiOpsLogFindFirst = prisma.aiOpsLog.findFirst as ReturnType<typeof vi.fn>;
       aiOpsLogFindFirst.mockReset();
@@ -746,6 +747,7 @@ describe("AI ops scan requested from the page", () => {
     // "Scan now" queues a job from the web process (A7-04). The worker's timer was armed once for the daily
     // hour and looked at the queue only when it was armed, so the scan ran at 02:00 the next day.
     vi.useFakeTimers();
+    vi.setSystemTime(new Date("2026-06-15T06:00:00Z"));
     try {
       const aiOpsLogFindFirst = prisma.aiOpsLog.findFirst as ReturnType<typeof vi.fn>;
       aiOpsLogFindFirst.mockReset();

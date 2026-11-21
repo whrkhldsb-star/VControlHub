@@ -402,7 +402,7 @@ export function AiOpsDetailSection({
 											{executed && <div className="mt-1 text-xs text-[var(--text-primary)]/70">{executed.result ?? executed.errorMessage ?? "—"}</div>}
 										</div>
 										{recommendation && canManage && (
-											<div className="flex min-w-0 max-w-full flex-col gap-1">
+											<div className="flex w-full min-w-0 max-w-full flex-col gap-1 sm:w-auto">
 												{recommendation.requiresApproval && !recommendation.approved ? (
 													<ActionButton className="w-full sm:w-auto" size="sm" variant="primary" disabled={executing === action.id} onClick={() => onApproveAction(selectedLog.id, action.id)}>{t("aiOpsPage.actions.approve")}</ActionButton>
 												) : recommendation.requiresApproval && recommendation.approved ? (
@@ -410,7 +410,7 @@ export function AiOpsDetailSection({
 												) : (
 													<ActionButton className="w-full sm:w-auto" size="sm" variant="secondary" disabled={executing === action.id} onClick={() => onExecuteAction(selectedLog.id, action.id, false)}>{t("aiOpsPage.actions.execute")}</ActionButton>
 												)}
-												{canAutonomous && <ActionButton className="w-full sm:w-auto" variant="danger" size="sm" disabled={executing === action.id} onClick={() => onExecuteAction(selectedLog.id, action.id, true)}>{t("aiOpsPage.actions.forceAutonomous")}</ActionButton>}
+												{canAutonomous && <ActionButton className="w-full whitespace-normal text-center sm:w-auto" variant="danger" size="sm" disabled={executing === action.id} onClick={() => onExecuteAction(selectedLog.id, action.id, true)}>{t("aiOpsPage.actions.forceAutonomous")}</ActionButton>}
 											</div>
 										)}
 									</li>
