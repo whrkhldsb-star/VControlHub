@@ -1,7 +1,8 @@
 import { CommandRequestStatus, DownloadTaskStatus, JobStatus, Prisma, SyncJobStatus, type Job } from "@prisma/client";
 
-import { teamWhere } from "@/lib/auth/team-scope";
+import { rawServerScope, serverTeamWhere, teamWhere } from "@/lib/auth/team-scope";
 import { sessionHasPermission } from "@/lib/auth/authorization";
+import { RECENT_COMMAND_LOG_LIMIT, withVisibleCommandLogs } from "@/lib/command/visibility";
 import { actorName } from "@/lib/ticket/timeline";
 import { prisma } from "@/lib/db";
 import { getOperationTaskListLimit } from "@/lib/runtime-settings/service";
@@ -40,7 +41,15 @@ const commandTargetSelect = {
   id: true, status: true, finishedAt: true, executionChannel: true, fallbackReason: true, outcomeUnknown: true,
   server: { select: { name: true, teamId: true } },
 } satisfies Prisma.CommandTargetSelect;
-type CommandTaskRow = Prisma.CommandRequestGetPayload<{ include: { requester: { select: { username: true; displayName: true } }; targets: { select: typeof commandTargetSelect; take: 2; orderBy: { finishedAt: "desc" } }; executionLogs: { select: { summary: true; createdAt: true }; take: 2; orderBy: { createdAt: "desc" } }; scheduledTaskRuns: { select: { scheduledTask: { select: { name: true } } }; take: 1 } } }>;
+function commandTaskInclude(session: OperationTaskSessionScope) {
+  return {
+    requester: { select: { username: true, displayName: true } },
+    targets: { where: { server: serverTeamWhere(session) }, take: 2, orderBy: { finishedAt: "desc" }, select: commandTargetSelect },
+    executionLogs: { take: RECENT_COMMAND_LOG_LIMIT, orderBy: { createdAt: "desc" }, select: { serverId: true, summary: true } },
+    scheduledTaskRuns: { take: 1, select: { scheduledTask: { select: { name: true } } } },
+  } satisfies Prisma.CommandRequestInclude;
+}
+type CommandTaskRow = Prisma.CommandRequestGetPayload<{ include: ReturnType<typeof commandTaskInclude> }>;
 type DownloadTaskRow = Prisma.DownloadTaskGetPayload<{ include: { creator: { select: { username: true; displayName: true } } } }>;
 type SyncJobTaskRow = Prisma.SyncJobGetPayload<{ include: { creator: { select: { username: true; displayName: true } } } }>;
 type BackupTaskRow = Prisma.BackupRecordGetPayload<{ include: { creator: { select: { username: true; displayName: true } } } }>;
@@ -165,17 +174,21 @@ type OutputTail = { stdout: string | null; stderr: string | null };
  * change. Best effort by design: if the raw read is unavailable the preview
  * simply falls back to execution logs and worker progress.
  */
-async function fetchTargetOutputTails(ids: string[]): Promise<Map<string, OutputTail>> {
+async function fetchTargetOutputTails(ids: string[], session: OperationTaskSessionScope): Promise<Map<string, OutputTail>> {
   const tails = new Map<string, OutputTail>();
   if (ids.length === 0) return tails;
   try {
     const rows = await prisma.$queryRaw<Array<{ id: string; stdout: string | null; stderr: string | null }>>(
       Prisma.sql`
-        SELECT id,
-               right(coalesce(stdout, ''), ${COMMAND_OUTPUT_TAIL_CHARS}::int) AS stdout,
-               right(coalesce(stderr, ''), ${COMMAND_OUTPUT_TAIL_CHARS}::int) AS stderr
-        FROM command_targets
-        WHERE id = ANY(${ids}::text[])
+        SELECT t.id,
+               right(coalesce(t.stdout, ''), ${COMMAND_OUTPUT_TAIL_CHARS}::int) AS stdout,
+               right(coalesce(t.stderr, ''), ${COMMAND_OUTPUT_TAIL_CHARS}::int) AS stderr
+        FROM command_targets t
+        JOIN servers s ON s.id = t."serverId"
+        JOIN command_requests r ON r.id = t."commandRequestId"
+        WHERE t.id = ANY(${ids}::text[])
+          AND s."teamId" IS NOT DISTINCT FROM r."teamId"
+          AND (${rawServerScope(session, "canRead")})
       `,
     );
     for (const row of rows) tails.set(row.id, { stdout: row.stdout, stderr: row.stderr });
@@ -380,11 +393,11 @@ export async function listOperationTaskResult(options: OperationTaskListOptions,
   // Only jobs and backups carry a task type; other sources cannot match one.
   const typedWhere = taskType ? { type: taskType } : {};
   const untypedWhere = taskType ? null : {};
-  const [jobs, commands, downloads, syncJobs, backups, deployments] = await Promise.all([
+  const [jobs, commandRows, downloads, syncJobs, backups, deployments] = await Promise.all([
     fetchSource("createdBy", (statuses) => rawStatusWhere(statuses, Object.values(JobStatus), false), typedWhere, (where) =>
       prisma.job.findMany({ where, take: limit, orderBy: { createdAt: "desc" }, include: { creator: { select: { username: true, displayName: true } }, _count: { select: { events: true } } } })),
     fetchSource("requesterId", (statuses) => rawStatusWhere(statuses, Object.values(CommandRequestStatus), false), untypedWhere, (where) =>
-      prisma.commandRequest.findMany({ where, take: limit, orderBy: { createdAt: "desc" }, include: { requester: { select: { username: true, displayName: true } }, targets: { take: 2, orderBy: { finishedAt: "desc" }, select: commandTargetSelect }, executionLogs: { take: 2, orderBy: { createdAt: "desc" }, select: { summary: true, createdAt: true } }, scheduledTaskRuns: { take: 1, select: { scheduledTask: { select: { name: true } } } } } })),
+      prisma.commandRequest.findMany({ where, take: limit, orderBy: { createdAt: "desc" }, include: commandTaskInclude(session) })),
     fetchSource("createdBy", (statuses) => rawStatusWhere(statuses, Object.values(DownloadTaskStatus), false), untypedWhere, (where) =>
       prisma.downloadTask.findMany({ where, take: limit, orderBy: { createdAt: "desc" }, include: { creator: { select: { username: true, displayName: true } } } })),
     fetchSource("createdBy", syncStatusWhere, untypedWhere, (where) =>
@@ -395,9 +408,16 @@ export async function listOperationTaskResult(options: OperationTaskListOptions,
       prisma.deploymentRun.findMany({ where, take: limit, orderBy: { createdAt: "desc" }, include: { creator: { select: { username: true, displayName: true } }, template: { select: { name: true } }, commandRequest: { select: { status: true, workerId: true, workerHeartbeatAt: true, updatedAt: true } } } })),
   ]);
 
-  const targetOutputTails = await fetchTargetOutputTails(
-    commands.flatMap((item) => (item.targets ?? []).map((target) => target.id)),
-  );
+  // An all-customer administrator can see a transferred server, but its output
+  // belongs outside the original customer's command view after the transfer.
+  const scopedCommands = commandRows.map(item => ({
+    ...item,
+    targets: (item.targets ?? []).filter(target => target.server.teamId === item.teamId),
+  }));
+  const [commands, targetOutputTails] = await Promise.all([
+    withVisibleCommandLogs(scopedCommands, session),
+    fetchTargetOutputTails(scopedCommands.flatMap(item => item.targets.map(target => target.id)), session),
+  ]);
 
   const tasks: OperationTask[] = [
     ...jobs.map((item: JobTaskRow) => ({
@@ -423,9 +443,9 @@ export async function listOperationTaskResult(options: OperationTaskListOptions,
       createdAt: toIso(item.createdAt),
       updatedAt: toIso(item.updatedAt),
       actor: actorName(item.requester),
-      targetEvidence: (item.targets ?? []).map((target) => ({
+      targetEvidence: item.targets.map((target) => ({
         id: target.id,
-        label: target.server && target.server.teamId === item.teamId ? target.server.name : target.id,
+        label: target.server.name,
         executionChannel: target.executionChannel,
         fallbackReason: target.fallbackReason,
         outcomeUnknown: target.outcomeUnknown,
@@ -434,8 +454,8 @@ export async function listOperationTaskResult(options: OperationTaskListOptions,
       })),
       progress: formatWorkerProgress(item, t),
       logPreview: compactLogPreview([
-        (item.executionLogs ?? []).map((log) => log.summary).join("\n"),
-        (item.targets ?? [])
+        item.executionLogs.slice(0, 2).map((log) => log.summary).join("\n"),
+        item.targets
           .map((target) => {
             const tail = targetOutputTails.get(target.id);
             return [tail?.stdout, tail?.stderr].filter(Boolean).join("\n");

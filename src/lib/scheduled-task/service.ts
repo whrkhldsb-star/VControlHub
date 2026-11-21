@@ -1,7 +1,7 @@
 import { apiCopy } from "@/lib/i18n/api-copy";
 import { CronExpressionParser } from "cron-parser";
 import { prisma } from "@/lib/db";
-import type { CommandRequestStatus } from "@prisma/client";
+import type { CommandRequestStatus, ScheduledTask } from "@prisma/client";
 import { createCommandRequest } from "@/lib/command/service";
 import { commandRequestTitle } from "@/lib/command/schema";
 import { BusinessError, ConflictError, ForbiddenError, NotFoundError, ValidationError } from "@/lib/errors";
@@ -94,18 +94,18 @@ function normalizeServerIds(serverIds: string[]) {
  */
 async function assertScheduledTaskServersInScope(
 	serverIds: string[],
-	session?: SessionScope | null,
+	session: SessionScope,
+	ScopeError = ValidationError,
 ): Promise<void> {
 	const ids = normalizeServerIds(serverIds);
-	if (ids.length === 0 || !session) return;
+	if (ids.length === 0) return;
 	const scope = serverTeamWhere(session, "connect");
-	// team:manage → empty scope, still verify servers exist
 	const servers = await prisma.server.findMany({
-		where: { id: { in: ids }, ...scope },
+		where: { id: { in: ids }, AND: scope },
 		select: { id: true },
 	});
 	if (servers.length !== ids.length) {
-		throw new ValidationError(
+		throw new ScopeError(
 			apiCopy("apiCopy.one.or.more.target.servers.were.not.found.or.are.outside.your.te.8f5645a2"),
 		);
 	}
@@ -180,14 +180,11 @@ export async function getScheduledTask(
 	return task;
 }
 
-export async function updateScheduledTask(
-	id: string,
+async function assertScheduledTaskEditAllowed(
+	existing: ScheduledTask,
 	input: UpdateScheduledTaskInput,
 	session: SessionScope,
 ) {
-	const existing = await getScheduledTaskForSession(id, session);
-	if (!existing) throw new NotFoundError(t("backend.scheduled-task.scheduledTaskNotFound"));
-
 	// An unattended task (approvalRequired=false) runs, as its creator and with nobody approving each run, what an
 	// approver signed off on. Changing the command or its targets is that same decision, so it takes the same
 	// permission: creating one and switching approval off already do. Without this a member who may only create
@@ -203,12 +200,27 @@ export async function updateScheduledTask(
 	if (!existing.approvalRequired && changesWhenItRuns(existing, input) && !sessionHasPermission(session, "command:execute")) {
 		throw new ForbiddenError(t("backend.scheduled-task.manageUnattendedRequiresExecutor"));
 	}
+	if (input.serverIds !== undefined) {
+		await assertScheduledTaskServersInScope(input.serverIds, session);
+	} else if (input.command !== undefined && input.command !== existing.command) {
+		await assertScheduledTaskServersInScope(existing.serverIds, session);
+	}
+	if (input.teamId !== undefined && !isGlobalTeamManager(session) && input.teamId !== session.currentTeamId) {
+		throw new ValidationError(t("backend.scheduled-task.teamChangeRequiresManager"));
+	}
+}
 
+export async function updateScheduledTask(
+	id: string,
+	input: UpdateScheduledTaskInput,
+	session: SessionScope,
+) {
+	const existing = await getScheduledTask(id, session);
+	await assertScheduledTaskEditAllowed(existing, input, session);
 	const data: Record<string, unknown> = {};
 	// Every run files its request as the task's creator. Whoever rewrites the command must reach the servers it
 	// runs on and becomes that creator: approvers then see who wrote it, and the self-review rule applies to them.
 	if (input.command !== undefined && input.command !== existing.command) {
-		if (input.serverIds === undefined) await assertScheduledTaskServersInScope(existing.serverIds, session);
 		if (session?.userId && session.userId !== existing.createdById) data.createdById = session.userId;
 	}
 	if (input.name !== undefined) data.name = input.name;
@@ -240,7 +252,6 @@ export async function updateScheduledTask(
 				t("backend.scheduled-task.atLeastOneTargetServer"),
 			);
 		}
-		await assertScheduledTaskServersInScope(serverIds, session);
 		data.serverIds = serverIds;
 	}
 	if (input.status !== undefined && input.status !== existing.status) {
@@ -256,18 +267,15 @@ export async function updateScheduledTask(
 	} else if (input.status !== undefined) {
 		data.status = input.status;
 	}
-	if (input.teamId !== undefined) {
-		if (session && !isGlobalTeamManager(session) && input.teamId !== session.currentTeamId) {
-			throw new ValidationError(t("backend.scheduled-task.teamChangeRequiresManager"));
-		}
-		data.teamId = input.teamId;
-	}
+	if (input.teamId !== undefined) data.teamId = input.teamId;
 	const updated = await prisma.scheduledTask.updateMany({
-		where: { id, ...teamWhere(session) },
+		where: { id, ...teamWhere(session), approvalRequired: existing.approvalRequired, updatedAt: existing.updatedAt },
 		data,
 	});
 	if (updated.count === 0) {
-		throw new NotFoundError(t("backend.scheduled-task.scheduledTaskNotFound"));
+		const latest = await getScheduledTask(id, session);
+		await assertScheduledTaskEditAllowed(latest, input, session);
+		throw new ConflictError(t("backend.scheduled-task.taskChangedRetry"));
 	}
 	return getScheduledTask(id, session);
 }
@@ -384,6 +392,7 @@ export async function retryScheduledTask(
 	if (!task.approvalRequired && !sessionHasPermission(session, "command:execute")) {
 		throw new ForbiddenError(t("backend.scheduled-task.retryUnattendedRequiresExecutor"));
 	}
+	await assertScheduledTaskServersInScope(task.serverIds, session, ForbiddenError);
 	if (task.serverIds.length === 0 || !task.createdById) {
 		// Only the outcome is written. recordTaskRun closes a scheduled occurrence (it sets the next run, and
 		// disables a one-time task): called for a retry, it gave a paused task a next run it would not keep and

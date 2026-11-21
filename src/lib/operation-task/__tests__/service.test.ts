@@ -1,10 +1,12 @@
 import { describe, expect, it, vi, beforeEach } from "vitest";
+import { serverTeamWhere } from "@/lib/auth/team-scope";
 
 const { mockPrisma } = vi.hoisted(() => ({
   mockPrisma: {
     $queryRaw: vi.fn(),
     job: { findMany: vi.fn() },
     commandRequest: { findMany: vi.fn() },
+    commandTarget: { findMany: vi.fn() },
     scheduledTask: { findMany: vi.fn() },
     downloadTask: { findMany: vi.fn() },
     syncJob: { findMany: vi.fn() },
@@ -69,6 +71,7 @@ describe("operation task service", () => {
     mockPrisma.backupRecord.findMany.mockResolvedValue([]);
     mockPrisma.deploymentRun.findMany.mockResolvedValue([]);
     mockPrisma.$queryRaw.mockResolvedValue([]);
+    mockPrisma.commandTarget.findMany.mockResolvedValue([]);
   });
 
   it("aggregates durable jobs with existing command/download/sync/scheduled jobs into a unified recent task list", async () => {
@@ -96,19 +99,24 @@ describe("operation task service", () => {
           { id: "first", server: { name: "node A", teamId: "current" }, executionChannel: "AGENT", status: "COMPLETED", outcomeUnknown: false, finishedAt: new Date("2026-01-04T00:00:00Z") },
           { id: "second", server: { name: "renamed", teamId: "moved" }, executionChannel: "SSH", fallbackReason: "AGENT_UNCLAIMED", status: "FAILED", outcomeUnknown: true },
         ],
-        executionLogs: [],
+        executionLogs: [{ serverId: "moved-server", summary: "transferred server details" }, { serverId: null, summary: "Request started" }],
         scheduledTaskRuns: [{ scheduledTask: { name: "Nightly backup" } }],
       },
     ]);
 
-    const tasks = await listTasks({ limit: 10 });
+    const { tasks } = await listOperationTaskResult({ limit: 10 }, { ...MANAGER, roles: ["admin"], currentTeamId: null });
     const run = tasks.find((task) => task.sourceId === "cmd-run");
 
     expect(run).toMatchObject({ id: "scheduled:cmd-run", source: "scheduled", title: "Nightly backup", status: "running", href: "/scheduled-tasks" });
     expect(run?.targetEvidence).toMatchObject([
       { label: "node A", executionChannel: "AGENT", succeededAt: "2026-01-04T00:00:00.000Z" },
-      { label: "second", executionChannel: "SSH", fallbackReason: "AGENT_UNCLAIMED", outcomeUnknown: true, succeededAt: null },
     ]);
+    expect(mockPrisma.$queryRaw.mock.calls[0]?.[0].values).toContainEqual(["first"]);
+    expect(mockPrisma.commandTarget.findMany.mock.calls[0]?.[0].where.OR).toEqual([
+      { commandRequestId: "cmd-run", serverId: { in: ["moved-server"] }, server: { teamId: "current" } },
+    ]);
+    expect(run?.logPreview).toContain("Request started");
+    expect(run?.logPreview).not.toContain("transferred server details");
     expect(tasks.some((task) => task.source === "command" && task.sourceId === "cmd-run")).toBe(false);
   });
 
@@ -160,6 +168,40 @@ describe("operation task service", () => {
 
     expect(mockPrisma.job.findMany).toHaveBeenCalledWith(expect.objectContaining({ where: {} }));
     expect(mockPrisma.commandRequest.findMany).toHaveBeenCalledWith(expect.objectContaining({ where: {} }));
+  });
+
+  it("scopes target tails and execution logs to the reader's current server grants", async () => {
+    const session = { userId: "ops-1", roles: ["operator" as const], currentTeamId: "team-1" };
+    const serverScope = serverTeamWhere(session, "read");
+    const row = {
+      id: "cmd", teamId: "team-1", status: "FAILED", title: "Maintenance", createdAt: new Date(),
+      targets: [{ id: "target-visible", server: { name: "Visible", teamId: "team-1" } }],
+      executionLogs: [
+        { serverId: "revoked", summary: "restricted log" },
+        { serverId: "moved", summary: "transferred server details" },
+        { serverId: "other-visible", summary: "visible log outside target preview" },
+      ],
+    };
+    mockPrisma.commandRequest.findMany.mockResolvedValue([
+      row, { ...row, id: "unbound", targets: [], executionLogs: [{ serverId: null, summary: "internal log" }] },
+    ]);
+    mockPrisma.commandTarget.findMany.mockResolvedValue([{ commandRequestId: "cmd", serverId: "other-visible" }]);
+    mockPrisma.$queryRaw.mockResolvedValueOnce([{ id: "target-visible", stdout: "visible stdout", stderr: "visible stderr" }]);
+
+    const { tasks } = await listOperationTaskResult({}, session);
+
+    expect(mockPrisma.commandRequest.findMany.mock.calls[0]?.[0].include.targets.where).toEqual({ server: serverScope });
+    expect(mockPrisma.commandRequest.findMany.mock.calls[0]?.[0].include.executionLogs.take).toBe(3);
+    expect(mockPrisma.commandTarget.findMany.mock.calls[0]?.[0].where).toEqual({
+      server: serverScope,
+      OR: [{ commandRequestId: "cmd", serverId: { in: ["revoked", "moved", "other-visible"] }, server: { teamId: "team-1" } }],
+    });
+    const tailQuery = mockPrisma.$queryRaw.mock.calls[0]?.[0];
+    expect(tailQuery.values).toEqual(expect.arrayContaining([["target-visible"], "ops-1", "team-1"]));
+    expect(tailQuery.sql).toContain('s."teamId" IS NOT DISTINCT FROM r."teamId"');
+    expect(tailQuery.sql).toContain('a."canRead"');
+    expect(tasks.find(task => task.sourceId === "cmd")?.logPreview).toEqual(["visible log outside target preview", "visible stdout", "visible stderr"]);
+    expect(tasks.find(task => task.sourceId === "unbound")?.logPreview).toEqual([]);
   });
 
   it("folds completed high-frequency alert evaluation jobs without hiding active or failed evaluations", async () => {
@@ -436,8 +478,9 @@ describe("operation task service", () => {
         workerId: "worker-command",
         workerHeartbeatAt: new Date("2026-01-04T00:01:00Z"),
         requester: { username: "ops", displayName: null },
-        executionLogs: [{ summary: "Execution started" }, { summary: "Target returned error" }],
-        targets: [{ id: "tgt_1", status: "FAILED" }],
+        teamId: "team-1",
+        executionLogs: [{ serverId: null, summary: "Execution started" }, { serverId: null, summary: "Target returned error" }],
+        targets: [{ id: "tgt_1", status: "FAILED", server: { name: "node", teamId: "team-1" } }],
       },
     ]);
     mockPrisma.downloadTask.findMany.mockResolvedValue([]);

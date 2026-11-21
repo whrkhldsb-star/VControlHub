@@ -1,5 +1,6 @@
 import { beforeEach, describe, expect, it, vi } from "vitest";
 import type { RoleKey } from "@/lib/auth/rbac";
+import { serverTeamWhere } from "@/lib/auth/team-scope";
 import type { SessionScope } from "../service";
 
 const { mockPrisma, mockCreateCommandRequest, mockTeamWhere, mockTeamCreateData, mockNotifyTaskConsecutiveFailed } = vi.hoisted(() => ({
@@ -38,17 +39,9 @@ vi.mock("@/lib/command/service", () => ({ createCommandRequest: mockCreateComman
 vi.mock("@/lib/notification/service", () => ({
   notifyTaskConsecutiveFailed: mockNotifyTaskConsecutiveFailed,
 }));
-vi.mock("@/lib/auth/team-scope", () => ({
+vi.mock("@/lib/auth/team-scope", async (importOriginal) => ({
+  ...await importOriginal<typeof import("@/lib/auth/team-scope")>(),
   teamWhere: mockTeamWhere,
-  // Mirrors the real teamScopeWhere: session ? teamWhere(session) : {}.
-  teamScopeWhere: (session?: { roles?: string[]; currentTeamId?: string | null } | null) =>
-    session ? mockTeamWhere(session) : {},
-  serverTeamWhere: (session: { roles?: string[]; currentTeamId?: string | null }) => {
-    if (session.roles?.includes("admin")) return {};
-    return session.currentTeamId
-      ? { teamId: session.currentTeamId }
-      : { id: "__unassigned_servers_require_team_manage__" };
-  },
   teamCreateData: mockTeamCreateData,
 }));
 
@@ -159,7 +152,8 @@ describe("scheduled task service", () => {
   });
 
   it("updates scheduled task target server ids exactly once after trimming blanks", async () => {
-    mockPrisma.scheduledTask.findFirst.mockResolvedValue({ id: "task1", teamId: null, approvalRequired: true, command: "df -h", serverIds: ["srv0"] });
+    const updatedAt = new Date("2026-11-19T01:00:00Z");
+    mockPrisma.scheduledTask.findFirst.mockResolvedValue({ id: "task1", teamId: null, approvalRequired: true, updatedAt, command: "df -h", serverIds: ["srv0"] });
     mockPrisma.scheduledTask.updateMany.mockResolvedValue({ count: 1 });
 
     await service.updateScheduledTask("task1", {
@@ -167,7 +161,7 @@ describe("scheduled task service", () => {
     }, PLATFORM);
 
     expect(mockPrisma.scheduledTask.updateMany).toHaveBeenCalledWith({
-      where: { id: "task1" },
+      where: { id: "task1", approvalRequired: true, updatedAt },
       data: { serverIds: ["srv1", "srv2"] },
     });
   });
@@ -437,6 +431,25 @@ describe("scheduled task service", () => {
       expect(mockPrisma.scheduledTask.updateMany).toHaveBeenCalledTimes(1);
     });
 
+    it.each([
+      { latestApprovalRequired: false, error: "ForbiddenError" },
+      { latestApprovalRequired: true, error: "ConflictError" },
+    ])("rechecks a concurrent edit when the latest approvalRequired is $latestApprovalRequired", async ({ latestApprovalRequired, error }) => {
+      const updatedAt = new Date("2026-11-19T01:00:00Z");
+      mockPrisma.scheduledTask.findFirst
+        .mockResolvedValueOnce({ ...unattended, approvalRequired: true, updatedAt })
+        .mockResolvedValueOnce({ ...unattended, approvalRequired: latestApprovalRequired, updatedAt: new Date(updatedAt.getTime() + 1000) });
+      mockPrisma.scheduledTask.updateMany.mockResolvedValueOnce({ count: 0 });
+
+      await expect(service.updateScheduledTask("task1", { command: "uptime" }, createOnly)).rejects.toMatchObject({ name: error });
+
+      expect(mockPrisma.scheduledTask.updateMany).toHaveBeenCalledExactlyOnceWith({
+        where: { id: "task1", teamId: "team_a", approvalRequired: true, updatedAt },
+        data: { command: "uptime", createdById: createOnly.userId },
+      });
+      expect(mockPrisma.scheduledTask.findFirst).toHaveBeenNthCalledWith(2, { where: { id: "task1", teamId: "team_a" } });
+    });
+
     it("refuses resuming or rescheduling an unattended task through the edit form without command:execute", async () => {
       // The toggle refuses this (A6-09); PATCH with status or a schedule must not be the way around it.
       await expect(service.updateScheduledTask("task1", { status: "ACTIVE" }, createOnly)).rejects.toMatchObject({ name: "ForbiddenError" });
@@ -471,13 +484,33 @@ describe("scheduled task service", () => {
       expect(mockCreateCommandRequest).not.toHaveBeenCalled();
 
       await service.retryScheduledTask("task1", { ...createOnly, permissions: ["command:create", "command:execute"] });
-      expect(mockCreateCommandRequest).toHaveBeenCalledTimes(1);
+      expect(mockCreateCommandRequest).toHaveBeenCalledExactlyOnceWith(expect.objectContaining({
+        requesterId: unattended.createdById,
+        serverIds: unattended.serverIds,
+      }));
 
       // A retry of a task that needs approval only files a request for an approver.
       mockCreateCommandRequest.mockClear();
       mockPrisma.scheduledTask.findFirst.mockResolvedValue({ ...unattended, approvalRequired: true });
       await service.retryScheduledTask("task1", createOnly);
       expect(mockCreateCommandRequest).toHaveBeenCalledTimes(1);
+    });
+
+    it.each([true, false])("refuses the entire retry when one target is outside the operator's connect scope (approvalRequired=%s)", async (approvalRequired) => {
+      const operator: SessionScope = { ...createOnly, permissions: ["command:create", "command:execute"] };
+      mockPrisma.scheduledTask.findFirst.mockResolvedValue({ ...unattended, approvalRequired });
+      mockPrisma.server.findMany.mockResolvedValueOnce([{ id: "srv1" }]);
+
+      await expect(service.retryScheduledTask("task1", operator)).rejects.toMatchObject({ name: "ForbiddenError" });
+
+      expect(mockPrisma.server.findMany).toHaveBeenCalledExactlyOnceWith({
+        where: { id: { in: unattended.serverIds }, AND: serverTeamWhere(operator, "connect") },
+        select: { id: true },
+      });
+      expect(mockCreateCommandRequest).not.toHaveBeenCalled();
+      expect(mockPrisma.scheduledTaskRun.create).not.toHaveBeenCalled();
+      expect(mockPrisma.scheduledTask.updateMany).not.toHaveBeenCalled();
+      expect(mockPrisma.scheduledTask.update).not.toHaveBeenCalled();
     });
 
     it("writes nothing about a task it refuses to retry, and only the outcome when the task has no creator", async () => {

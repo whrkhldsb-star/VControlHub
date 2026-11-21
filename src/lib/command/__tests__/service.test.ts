@@ -1864,8 +1864,10 @@ describe("command service execution flow", () => {
     const oldPending = row("old-pending", "PENDING_APPROVAL", "2026-10-01T00:00:00Z");
     const newestDone = {
       ...row("newest-done", "COMPLETED", "2026-10-28T00:00:00Z"), teamId: "prior",
-      targets: [{ id: "moved-target", status: "COMPLETED", executionChannel: "SSH", server: { teamId: "next", name: "new owner", host: "example.invalid", port: 22 } }],
+      targets: [{ id: "moved-target", status: "COMPLETED", executionChannel: "SSH", server: { id: "srv-moved", teamId: "next", name: "new owner", host: "example.invalid", port: 22 } }],
+      executionLogs: [{ serverId: "srv-moved", summary: "moved server details" }, { serverId: null, summary: "Request completed" }],
     };
+    mockPrisma.commandTarget.findMany.mockResolvedValueOnce([]);
     mockPrisma.commandRequest.findMany.mockReset();
     mockPrisma.commandRequest.findMany
       .mockResolvedValueOnce([oldPending, row("also-open", "RUNNING", "2026-10-27T00:00:00Z")])
@@ -1876,6 +1878,7 @@ describe("command service execution flow", () => {
     expect(listed.map((request) => request.id)).toEqual(["newest-done", "also-open", "old-pending"]);
     expect(listed[0]?.targets[0]).toMatchObject({ id: "moved-target", server: null, executionChannel: "SSH" });
     expect(listed[0]?.targetSummary).toEqual(["moved-target · COMPLETED"]);
+    expect(listed[0]?.executionLogs.map(log => log.summary)).toEqual(["Request completed"]);
     const openQuery = mockPrisma.commandRequest.findMany.mock.calls[0]![0];
     expect(JSON.stringify(openQuery.where)).toContain("PENDING_APPROVAL");
     expect(openQuery.take).toBeGreaterThan(100);

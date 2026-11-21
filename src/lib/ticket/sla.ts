@@ -31,15 +31,32 @@ export function computeSlaDueAt(createdAt: Date, priority: string): Date {
   return new Date(createdAt.getTime() + duration);
 }
 
+function isTerminalStatus(status: string) {
+  return status === "CLOSED" || status === "RESOLVED";
+}
+
+export function ticketSlaUpdate(
+  current: { createdAt: Date; status: string; priority: string },
+  change: { status?: string; priority?: string },
+) {
+  if (isTerminalStatus(change.status ?? current.status)) return {};
+  if (change.priority === undefined && !isTerminalStatus(current.status)) return {};
+  return {
+    slaDueAt: computeSlaDueAt(current.createdAt, change.priority ?? current.priority),
+    escalatedAt: null,
+    escalatedTo: null,
+  };
+}
+
 export function isSlaBreached(ticket: { slaDueAt: Date | null; status: string }, now = new Date()): boolean {
-  if (!ticket.slaDueAt || ticket.status === "CLOSED" || ticket.status === "RESOLVED") return false;
+  if (!ticket.slaDueAt || isTerminalStatus(ticket.status)) return false;
   return ticket.slaDueAt.getTime() < now.getTime();
 }
 
 /** An active ticket is in "warning" for the last hour before its SLA is due. */
 
 export function getSlaStatus(ticket: { slaDueAt: Date | null; status: string }, now = new Date()): "ok" | "warning" | "breached" | "none" {
-  if (!ticket.slaDueAt || ticket.status === "CLOSED" || ticket.status === "RESOLVED") return "none";
+  if (!ticket.slaDueAt || isTerminalStatus(ticket.status)) return "none";
   const remaining = ticket.slaDueAt.getTime() - now.getTime();
   if (remaining < 0) return "breached";
   if (remaining < SLA_WARNING_MS) return "warning";

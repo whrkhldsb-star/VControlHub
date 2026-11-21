@@ -15,6 +15,7 @@
  * ```
  */
 
+import { Prisma } from "@prisma/client";
 import { prisma } from "@/lib/db";
 import { ForbiddenError, NotFoundError } from "@/lib/errors";
 
@@ -93,6 +94,20 @@ export function serverTeamWhere(session: TeamSession, capability: ServerAccessCa
 			// Per-server rows narrow a customer account to specific servers.
 			: { AND: [{ teamId: session.currentTeamId }, serverAccessWhere(session.userId, capability)] }
 		: { id: "__unassigned_servers_require_team_manage__" };
+}
+
+/** SQL equivalent of serverTeamWhere for queries that alias the servers table as s. */
+export function rawServerScope(session: TeamSession, field: "canRead" | "canConnect" | "canManage") {
+	if (seesAllCustomers(session)) return Prisma.sql`TRUE`;
+	if (!session.currentTeamId) return Prisma.sql`FALSE`;
+	if (isGlobalTeamManager(session)) return Prisma.sql`s."teamId" = ${session.currentTeamId}`;
+	const allowedColumn = field === "canRead" ? Prisma.sql`a."canRead"`
+		: field === "canConnect" ? Prisma.sql`a."canConnect"` : Prisma.sql`a."canManage"`;
+	// Match serverTeamWhere: no override inherits account access; a row narrows it.
+	return Prisma.sql`s."teamId" = ${session.currentTeamId} AND (
+		NOT EXISTS (SELECT 1 FROM user_server_access a WHERE a."serverId" = s.id AND a."userId" = ${session.userId})
+		OR EXISTS (SELECT 1 FROM user_server_access a WHERE a."serverId" = s.id AND a."userId" = ${session.userId} AND ${allowedColumn} = true)
+	)`;
 }
 
 /** Editing, disabling or deleting a server's profile. Customer accounts may

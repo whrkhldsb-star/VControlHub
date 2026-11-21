@@ -306,7 +306,7 @@ export async function updateTicketStatus(input: {
 }) {
   if (input.db && !input.skipItsmFanOut) throw new Error("a transaction client requires skipItsmFanOut");
   const db = input.db ?? prisma;
-  const data: { status?: string; assigneeId?: string | null; closedAt?: Date | null; priority?: string; slaDueAt?: Date | null; escalatedAt?: Date | null } = {};
+  const data: { status?: string; assigneeId?: string | null; closedAt?: Date | null; priority?: string; slaDueAt?: Date; escalatedAt?: null; escalatedTo?: null } = {};
   const teamFilter = ticketTeamFilter(input.session);
 
   if (input.status !== undefined) {
@@ -336,26 +336,20 @@ export async function updateTicketStatus(input: {
       await assertAssigneeInTeamScope(input.assigneeId, input.session, current.teamId);
       data.assigneeId = input.assigneeId;
     }
-    if (input.priority !== undefined) {
-      data.priority = input.priority;
-      // Priority change must recompute SLA deadline; otherwise escalations and
-      // UI badges keep the old due time (false "breached" / false "ok").
-      // Key off the status the ticket will HAVE after this update (input.status),
-      // not the stale pre-transition row: reopening RESOLVED→OPEN with a new
-      // priority must get a fresh SLA, and closing OPEN→CLOSED must not.
-      if (input.status !== "CLOSED" && input.status !== "RESOLVED") {
-        const { computeSlaDueAt } = await import("./sla");
-        data.slaDueAt = computeSlaDueAt(current.createdAt, input.priority);
-        data.escalatedAt = null;
-      }
-    }
+    if (input.priority !== undefined) data.priority = input.priority;
+    const { ticketSlaUpdate } = await import("./sla");
+    Object.assign(data, ticketSlaUpdate(current, input));
 
     // The change and its line in the timeline commit together. Only SLA
     // escalations used to be recorded: a ticket worked through to CLOSED and
     // reopened showed nothing but "created".
     const writeStatus = async (tx: Prisma.TransactionClient) => {
       const claimed = await tx.ticket.updateMany({
-        where: { id: input.id, status: current.status, ...teamFilter },
+        where: {
+          id: input.id, status: current.status, ...teamFilter,
+          // A status-only reopen derives the deadline from the stored priority.
+          ...(data.slaDueAt && input.priority === undefined ? { priority: current.priority } : {}),
+        },
         data,
       });
       if (claimed.count === 0) {
@@ -412,34 +406,38 @@ export async function updateTicketStatus(input: {
     data.assigneeId = input.assigneeId;
   }
 
+  let statusAtPriorityRead: string | undefined;
   if (input.priority !== undefined) {
     data.priority = input.priority;
     const row = input.session
       ? await db.ticket.findFirst({
           where: { id: input.id, ...teamFilter },
-          select: { createdAt: true, status: true },
+          select: { createdAt: true, status: true, priority: true },
         })
       : await db.ticket.findUnique({
           where: { id: input.id },
-          select: { createdAt: true, status: true },
+          select: { createdAt: true, status: true, priority: true },
         });
     if (!row) throw new NotFoundError(t("backend.ticket.ticketNotFound"));
-    if (row.status !== "CLOSED" && row.status !== "RESOLVED") {
-      const { computeSlaDueAt } = await import("./sla");
-      data.slaDueAt = computeSlaDueAt(row.createdAt, input.priority);
-      data.escalatedAt = null;
-    }
+    statusAtPriorityRead = row.status;
+    const { ticketSlaUpdate } = await import("./sla");
+    Object.assign(data, ticketSlaUpdate(row, input));
   }
 
   if (Object.keys(data).length === 0) throw new ValidationError(t("backend.ticket.ticketUpdateContentCannotBeEmpty"));
 
   // Team-scoped update: claim via updateMany so cross-team ids cannot mutate.
-  if (input.session) {
+  if (input.session || statusAtPriorityRead !== undefined) {
     const claimed = await db.ticket.updateMany({
-      where: { id: input.id, ...teamFilter },
+      where: { id: input.id, ...teamFilter, ...(statusAtPriorityRead !== undefined ? { status: statusAtPriorityRead } : {}) },
       data,
     });
-    if (claimed.count === 0) throw new NotFoundError(t("backend.ticket.ticketNotFound"));
+    if (claimed.count === 0) {
+      if (statusAtPriorityRead !== undefined) {
+        throw new ConflictError(t("backend.ticket.ticketStatusChangedConcurrentlyPleaseRetry"));
+      }
+      throw new NotFoundError(t("backend.ticket.ticketNotFound"));
+    }
     const updated = await db.ticket.findFirst({ where: { id: input.id, ...teamFilter } });
     if (!updated) throw new NotFoundError(t("backend.ticket.ticketNotFound"));
     if (!input.skipItsmFanOut) {

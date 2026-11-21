@@ -1,4 +1,5 @@
-import { describe, expect, it, vi, beforeEach } from "vitest";
+import { describe, expect, it, vi, beforeEach, onTestFinished } from "vitest";
+import type { Prisma } from "@prisma/client";
 const { mockPrisma } = vi.hoisted(() => ({
   mockPrisma: {
     ticket: {
@@ -199,7 +200,7 @@ describe("ticket service", () => {
 
     // CLOSED → OPEN (re-open, valid, clears closedAt)
     mockPrisma.ticket.findUnique
-      .mockResolvedValueOnce({ id: "tk1", status: "CLOSED", teamId: null })
+      .mockResolvedValueOnce({ id: "tk1", status: "CLOSED", teamId: null, createdAt: new Date(), priority: "NORMAL" })
       .mockResolvedValueOnce({ id: "tk1", status: "OPEN" });
     mockPrisma.ticket.update.mockResolvedValueOnce({ id: "tk1", status: "OPEN" });
     await updateTicketStatus({ id: "tk1", status: "OPEN" });
@@ -381,6 +382,38 @@ describe("ticket service", () => {
     const data = mockPrisma.ticket.updateMany.mock.calls[0]![0].data;
     expect(data.slaDueAt).toBeInstanceOf(Date);
     expect(data.escalatedAt).toBeNull();
+  });
+
+  it("reopens a resolved ticket with the SLA for the priority set while resolved", async () => {
+    const createdAt = new Date("2026-01-01T00:00:00Z");
+    vi.useFakeTimers();
+    onTestFinished(() => { vi.useRealTimers(); });
+    vi.setSystemTime(createdAt);
+    const row = { id: "tk1", createdAt, escalatedAt: createdAt, escalatedTo: "u2" };
+    const write = ({ data }: { data: object }) => Object.assign(row, data);
+    const db = {
+      ticket: {
+        create: write,
+        findFirst: () => row,
+        updateMany: (args: { data: object }) => { write(args); return { count: 1 }; },
+      },
+      ticketEscalation: { create: vi.fn() },
+    } as unknown as Prisma.TransactionClient;
+    const context = { db, session: teamSession, skipItsmFanOut: true };
+    const ticket = await createTicket({ ...context, title: "Disk full", description: "d", createdBy: "u1", priority: "LOW" });
+    const lowDeadline = new Date("2026-01-04T00:00:00Z");
+    expect(ticket.slaDueAt).toEqual(lowDeadline);
+    const target = { ...context, id: ticket.id };
+    await updateTicketStatus({ ...target, status: "IN_PROGRESS" });
+    await updateTicketStatus({ ...target, status: "RESOLVED" });
+    expect(await updateTicketStatus({ ...target, priority: "HIGH" })).toMatchObject({
+      status: "RESOLVED", priority: "HIGH", slaDueAt: lowDeadline, escalatedTo: "u2",
+    });
+    vi.setSystemTime(new Date("2026-01-01T06:00:00Z"));
+    expect(await updateTicketStatus({ ...target, status: "IN_PROGRESS" })).toMatchObject({
+      status: "IN_PROGRESS", priority: "HIGH", slaDueAt: new Date("2026-01-01T08:00:00Z"),
+      escalatedAt: null, escalatedTo: null,
+    });
   });
 
   it("does NOT recompute SLA when resolving (IN_PROGRESS→RESOLVED) with a priority change", async () => {
