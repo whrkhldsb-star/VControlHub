@@ -1,10 +1,12 @@
 import type { AlertRule, Prisma } from "@prisma/client";
 import { apiCopy } from "@/lib/i18n/api-copy";
 import { sessionHasPermission } from "@/lib/auth/authorization";
+import { assertPlaybookCommandStepsInScope } from "@/lib/playbook/service";
+import type { PlaybookStep } from "@/lib/playbook/types";
 import { PLAYBOOK_RUN_PERMISSION } from "@/lib/playbook/permissions";
 import { isGlobalTeamManager, playbookTeamWhere, serverTeamWhere, teamCreateData, teamWhere, type TeamSession } from "@/lib/auth/team-scope";
 import { prisma } from "@/lib/db";
-import { ForbiddenError, NotFoundError, ValidationError } from "@/lib/errors";
+import { ConflictError, ForbiddenError, NotFoundError, ValidationError } from "@/lib/errors";
 
 import { sendAlertEmail } from "@/lib/notification/email";
 import { sendAlertTelegram } from "@/lib/notification/telegram";
@@ -15,10 +17,22 @@ import { permissionHoldersWhere } from "@/lib/auth/permission-holders";
 
 /* ── Types ────────────────────────────────────────────────── */
 
+async function hasDeniedServerReads(session?: TeamSession | null) {
+	if (!session?.currentTeamId || isGlobalTeamManager(session)) return false;
+	return Boolean(await prisma.userServerAccess.findFirst({
+		where: { userId: session.userId, canRead: false, server: { teamId: session.currentTeamId } },
+		select: { serverId: true },
+	}));
+}
+
 async function assertServerIdsInTeam(serverIds: string[], session?: TeamSession | null) {
-	if (!session || serverIds.length === 0) return;
-	// Use permission, not role key string — custom roles may hold team:manage without key "admin".
-	if (sessionHasPermission(session, "team:manage")) return;
+	if (!session) return;
+	if (serverIds.length === 0) {
+		if (await hasDeniedServerReads(session)) {
+			throw new ForbiddenError(t("backend.alert.selectReadableServers"));
+		}
+		return;
+	}
 	const allowed = await prisma.server.findMany({
 		where: { id: { in: serverIds }, ...serverTeamWhere(session) },
 		select: { id: true },
@@ -28,21 +42,22 @@ async function assertServerIdsInTeam(serverIds: string[], session?: TeamSession 
 	}
 }
 
-async function assertPlaybookIdsInTeam(playbookIds: string[], session?: TeamSession | null) {
+async function assertPlaybookIdsInTeam(playbookIds: string[], session?: TeamSession | null, requiresRun = true) {
 	if (!session || playbookIds.length === 0) return;
-	// The rule fires the playbook with nobody approving it: notification:manage alone must not start what the
-	// caller could not run by hand.
-	if (!sessionHasPermission(session, PLAYBOOK_RUN_PERMISSION)) throw new ForbiddenError(t("backend.alert.bindingPlaybooksRequiresRun"));
-	if (sessionHasPermission(session, "team:manage")) return;
+	const canRun = sessionHasPermission(session, PLAYBOOK_RUN_PERMISSION);
+	if (requiresRun && !canRun) throw new ForbiddenError(t("backend.alert.bindingPlaybooksRequiresRun"));
 	const allowed = await prisma.playbook.findMany({
-		// Strict: an alert rule binds a playbook that later fires unattended, so a
-		// `teamId: null` playbook must not be bindable by an arbitrary tenant.
 		where: { id: { in: playbookIds }, ...playbookTeamWhere(session) },
-		select: { id: true },
+		select: { id: true, steps: true },
 	});
 	if (allowed.length !== playbookIds.length) {
 		throw new ValidationError(t("backend.alert.oneOrMorePlaybookidsAreOutsideTheCurrent"));
 	}
+	const steps = allowed.flatMap((playbook) => playbook.steps as unknown as PlaybookStep[]);
+	if (!canRun && steps.some((step) => step.type === "run_command")) {
+		throw new ForbiddenError(t("backend.alert.bindingPlaybooksRequiresRun"));
+	}
+	await assertPlaybookCommandStepsInScope(steps, session);
 }
 
 /**
@@ -119,33 +134,32 @@ export async function createAlertRule(input: CreateAlertRuleInput, session?: Tea
 	});
 }
 
-type RuleAutomation = Pick<AlertRule, "enabled" | "playbookIds">;
+type RuleTargets = Pick<AlertRule, "enabled" | "playbookIds" | "serverIds">;
 
-function permittedRuleState(
-	current: RuleAutomation,
-	change: Partial<RuleAutomation>,
-	session: TeamSession,
-): Prisma.AlertRuleWhereInput | undefined {
-	if (sessionHasPermission(session, PLAYBOOK_RUN_PERMISSION) || change.enabled === false || change.playbookIds?.length === 0) return;
-	if ((change.enabled ?? current.enabled) && (change.playbookIds ?? current.playbookIds).length > 0) {
-		throw new ForbiddenError(t("backend.alert.bindingPlaybooksRequiresRun"));
+async function assertRuleChangeInScope(current: RuleTargets, input: Partial<CreateAlertRuleInput>, session: TeamSession) {
+	const disablingOnly = input.enabled === false && Object.keys(input).length === 1;
+	if (!disablingOnly) {
+		const requiresRun = input.playbookIds !== undefined || (input.enabled ?? current.enabled);
+		await assertPlaybookIdsInTeam(input.playbookIds ?? current.playbookIds, session, requiresRun);
 	}
-	// Enforce the same condition in the write if a concurrent edit binds or enables the rule after our read.
-	const unbound = { playbookIds: { isEmpty: true } };
-	return change.enabled === true ? unbound : { OR: [{ enabled: false }, unbound] };
+	await assertServerIdsInTeam(input.serverIds ?? current.serverIds, session);
 }
 
 async function updateScopedAlertRule(
 	id: string,
 	session: TeamSession,
-	permitted: Prisma.AlertRuleWhereInput | undefined,
+	current: RuleTargets,
 	data: Prisma.AlertRuleUpdateManyMutationInput,
 ) {
 	const where = { id, ...teamWhere(session) };
-	const [row] = await prisma.alertRule.updateManyAndReturn({ where: { ...where, ...permitted }, data });
+	// The bindings, targets or enabled state may have changed after validation.
+	const [row] = await prisma.alertRule.updateManyAndReturn({
+		where: { ...where, enabled: current.enabled, playbookIds: { equals: current.playbookIds }, serverIds: { equals: current.serverIds } },
+		data,
+	});
 	if (row) return row;
-	if (permitted && await prisma.alertRule.findFirst({ where, select: { id: true } })) {
-		throw new ForbiddenError(t("backend.alert.bindingPlaybooksRequiresRun"));
+	if (await prisma.alertRule.findFirst({ where, select: { id: true } })) {
+		throw new ConflictError(t("backend.alert.ruleChanged"));
 	}
 	throw new NotFoundError(t("backend.alert.ruleNotFound"));
 }
@@ -156,13 +170,12 @@ export async function updateAlertRule(
 	session?: TeamSession | null,
 ) {
 	assertChannelsAllowed(input.notifyChannels, session);
-	const select = { metric: true, webhookUrl: true, enabled: true, playbookIds: true } as const;
+	const select = { metric: true, webhookUrl: true, enabled: true, playbookIds: true, serverIds: true } as const;
 	let existing: Pick<AlertRule, keyof typeof select> | null = null;
-	let permitted: Prisma.AlertRuleWhereInput | undefined;
 	if (session) {
 		existing = await prisma.alertRule.findFirst({ where: { id, ...teamWhere(session) }, select });
 		if (!existing) throw new NotFoundError(t("backend.alert.ruleNotFound"));
-		permitted = permittedRuleState(existing, input, session);
+		await assertRuleChangeInScope(existing, input, session);
 	} else if (input.metric !== undefined || input.notifyChannels !== undefined || input.webhookUrl !== undefined) {
 		existing = await prisma.alertRule.findUnique({ where: { id }, select });
 	}
@@ -172,8 +185,6 @@ export async function updateAlertRule(
 	if (input.notifyChannels?.includes("webhook") && !(input.webhookUrl ?? existing?.webhookUrl)) {
 		throw new ValidationError(t("backend.alert.webhookUrlRequired"));
 	}
-	if (input.serverIds !== undefined) await assertServerIdsInTeam(input.serverIds, session);
-	if (input.playbookIds !== undefined) await assertPlaybookIdsInTeam(input.playbookIds, session);
 	if (input.onCallUserIds !== undefined) await assertOnCallUserIdsInTeam(input.onCallUserIds, session);
 	const data: Record<string, unknown> = {};
 	if (input.name !== undefined) data.name = input.name;
@@ -199,7 +210,7 @@ export async function updateAlertRule(
 	if (input.escalationMinutes !== undefined) data.escalationMinutes = input.escalationMinutes;
 	if (input.onCallUserIds !== undefined) data.onCallUserIds = input.onCallUserIds;
 	if (input.enabled !== undefined) data.enabled = input.enabled;
-	if (session) return updateScopedAlertRule(id, session, permitted, data);
+	if (session && existing) return updateScopedAlertRule(id, session, existing, data);
 	return prisma.alertRule.update({ where: { id }, data });
 }
 
@@ -213,14 +224,15 @@ export async function deleteAlertRule(id: string, session?: TeamSession | null) 
 }
 
 export async function toggleAlertRule(id: string, session?: TeamSession | null) {
-	const select = { enabled: true, playbookIds: true } as const;
+	const select = { enabled: true, playbookIds: true, serverIds: true } as const;
 	const current = session
 		? await prisma.alertRule.findFirst({ where: { id, ...teamWhere(session) }, select })
 		: await prisma.alertRule.findUnique({ where: { id }, select });
 	if (!current) throw new NotFoundError(t("backend.alert.ruleNotFound"));
 	const change = { enabled: !current.enabled };
 	if (session) {
-		return updateScopedAlertRule(id, session, permittedRuleState(current, change, session), change);
+		await assertRuleChangeInScope(current, change, session);
+		return updateScopedAlertRule(id, session, current, change);
 	}
 	return prisma.alertRule.update({ where: { id }, data: change });
 }
@@ -410,6 +422,8 @@ export async function ensureDefaultAlertRules(session?: TeamSession | null) {
 		return { created: 0, skipped: true as const };
 	}
 
+	// A restricted reader may be the first to open the page. Leave seeding available to an unrestricted owner.
+	if (await hasDeniedServerReads(session)) return { created: 0, skipped: true as const };
 	const notifyChannels = await resolveDefaultNotifyChannels(session);
 
 	const defaults: CreateAlertRuleInput[] = [

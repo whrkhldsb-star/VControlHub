@@ -18,6 +18,7 @@ export default async function PlaybooksPage() {
 	const canReadServers = sessionHasPermission(session, "server:read");
 	const locale = await getServerLocale();
 
+	// listPlaybooks projects webhook configuration for this reader before steps enter RSC props.
 	const playbooks = await listPlaybooks(session);
 	// Team-scoped VPS options for run_command step target picker (create form).
 	const serverOptions = canManage && canReadServers

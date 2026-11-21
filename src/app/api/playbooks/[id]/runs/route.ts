@@ -13,7 +13,7 @@ type Context = { params: Promise<{ id?: string }> };
 export async function GET(request: Request, { params }: Context) {
   return withApiRoute(
     request,
-    { permission: "playbook:read", rateLimit: GENERAL_READ_LIMIT, errorMessage: apiCopy("apiCopy.failed.to.load.playbook.runs.4443c703") },
+    { permission: "playbook:read", optionalTokenPermissions: ["server:read"], rateLimit: GENERAL_READ_LIMIT, errorMessage: apiCopy("apiCopy.failed.to.load.playbook.runs.4443c703") },
     async ({ session }) => {
       const id = await requirePlaybookId(params);
       const runs = await listPlaybookRuns(id, session);

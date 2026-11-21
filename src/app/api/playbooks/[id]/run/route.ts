@@ -2,6 +2,7 @@ import { apiCopy } from "@/lib/i18n/api-copy";
 import { NextResponse } from "next/server";
 
 import { runPlaybook } from "@/lib/playbook/service";
+import { PLAYBOOK_COMMAND_PERMISSION } from "@/lib/playbook/permissions";
 import { withApiRoute } from "@/lib/http/api-guard";
 import { GENERAL_WRITE_LIMIT } from "@/lib/http/rate-limit-presets";
 import { requirePlaybookId } from "@/lib/playbook/route-params";
@@ -19,7 +20,7 @@ type PlaybookRouteContext = { params: Promise<{ id?: string }> };
 export async function POST(request: Request, { params }: PlaybookRouteContext) {
   return withApiRoute(
     request,
-    { permission: "playbook:run", rateLimit: GENERAL_WRITE_LIMIT, errorStatus: 400, errorMessage: apiCopy("apiCopy.failed.to.run.f9aa3903") },
+    { permission: "playbook:run", optionalTokenPermissions: [PLAYBOOK_COMMAND_PERMISSION], rateLimit: GENERAL_WRITE_LIMIT, errorStatus: 400, errorMessage: apiCopy("apiCopy.failed.to.run.f9aa3903") },
     async ({ session }) => {
       const id = await requirePlaybookId(params);
       const run = await runPlaybook({

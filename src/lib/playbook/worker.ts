@@ -12,6 +12,8 @@ import { createSingletonIntervalWorker, type SingletonIntervalWorkerState } from
 import { acquireAdvisoryLock } from "@/lib/concurrency/advisory-lock";
 import { loadJobOwnerSession } from "@/lib/api-token/authorization";
 import { sessionHasPermission } from "@/lib/auth/authorization";
+import { isGlobalTeamManager } from "@/lib/auth/team-scope";
+import { ForbiddenError } from "@/lib/errors";
 import { t } from "@/lib/i18n/service-translations";
 import { assertRequesterMayExecuteCommand } from "@/lib/auth/command-execution-authz";
 import { canAlertRuleTargetTeam } from "@/lib/alert/rule-scope";
@@ -27,10 +29,17 @@ export const PLAYBOOK_RUN_JOB_TYPE = "playbook.run";
  * execution time (disabled / demoted / removed from the run's team). Terminal —
  * must not requeue, since retrying under the same revoked identity would loop.
  */
-export class PlaybookAuthorizationError extends Error {
+export class PlaybookAuthorizationError extends ForbiddenError {
   constructor(reason: string) {
     super(reason);
     this.name = "PlaybookAuthorizationError";
+  }
+}
+
+async function assertRunOwner(requesterId: string | null, teamId: string | null) {
+  const owner = requesterId ? await loadJobOwnerSession(requesterId, teamId) : null;
+  if (!owner || !sessionHasPermission(owner, "playbook:run") || (teamId === null && !isGlobalTeamManager(owner))) {
+    throw new PlaybookAuthorizationError(t("backend.execution.ownerInactive"));
   }
 }
 
@@ -87,9 +96,13 @@ function terminalJobResult(status: string, errorMessage: string | null | undefin
   };
 }
 
+function isAlertRunContext(context: Prisma.JsonValue): context is Prisma.JsonObject {
+  return context !== null && typeof context === "object" && !Array.isArray(context)
+    && (context.type === "alert_rule" || context.type === "capacity_forecast");
+}
+
 async function assertAlertRunScope(context: Prisma.JsonValue, playbookId: string, runTeamId: string | null) {
-  if (!context || typeof context !== "object" || Array.isArray(context)) return;
-  if (context.type !== "alert_rule" && context.type !== "capacity_forecast") return;
+  if (!isAlertRunContext(context)) return;
   const [rule, playbook] = await Promise.all([
     typeof context.alertRuleId === "string" ? prisma.alertRule.findUnique({
       where: { id: context.alertRuleId }, select: { teamId: true },
@@ -98,6 +111,12 @@ async function assertAlertRunScope(context: Prisma.JsonValue, playbookId: string
   ]);
   if (!rule || !playbook || playbook.teamId !== runTeamId || !canAlertRuleTargetTeam(rule.teamId, playbook.teamId)) {
     throw new PlaybookAuthorizationError(t("backend.alert.oneOrMorePlaybookidsAreOutsideTheCurrent"));
+  }
+  if (runTeamId !== null) {
+    const host = typeof context.serverId === "string" && await prisma.server.findFirst({
+      where: { id: context.serverId, teamId: runTeamId }, select: { id: true },
+    });
+    if (!host) throw new PlaybookAuthorizationError(t("backend.alert.oneOrMoreServeridsAreOutsideTheCurrent"));
   }
 }
 
@@ -128,11 +147,12 @@ export async function processPlaybookRun(runId: string, jobId: string, signal?: 
   }
 
   signal?.throwIfAborted();
-  const requesterId = run.createdById ?? run.playbook.createdById;
-  const actor = requesterId ? await loadJobOwnerSession(requesterId, run.teamId) : null;
-  if (!actor || !sessionHasPermission(actor, "playbook:run")) {
-    throw new PlaybookAuthorizationError(t("backend.execution.ownerInactive"));
-  }
+  // Platform alert runs act for the playbook owner and have no requester.
+  // Other platform runs carry their own actor. Deleting that account clears
+  // the foreign key and must never substitute a different administrator.
+  const canUsePlaybookOwner = run.teamId !== null || isAlertRunContext(run.triggerContext);
+  const requesterId = run.createdById ?? (canUsePlaybookOwner ? run.playbook.createdById : null);
+  await assertRunOwner(requesterId, run.teamId);
   const executionState = run.executionState as unknown as ExecutionState | null;
   const steps = executionState?.schemaVersion === 1 && Array.isArray(executionState.stepsSnapshot)
     ? executionState.stepsSnapshot
@@ -150,7 +170,7 @@ export async function processPlaybookRun(runId: string, jobId: string, signal?: 
   // no command:execute could otherwise drive command execution. Re-verify at
   // execution against the live DB, fail terminally if the requester no longer
   // qualifies.
-  if (hasCommandStep && requesterId) {
+  if (hasCommandStep && !run.dryRun && requesterId) {
     const authz = await assertRequesterMayExecuteCommand(requesterId, run.teamId);
     if (!authz.ok) {
       throw new PlaybookAuthorizationError(authz.reason);
@@ -193,10 +213,9 @@ export async function processPlaybookRun(runId: string, jobId: string, signal?: 
       signal,
       beforeDispatch: async () => {
         signal?.throwIfAborted();
-        const owner = requesterId ? await loadJobOwnerSession(requesterId, run.teamId) : null;
-        if (!owner || !sessionHasPermission(owner, "playbook:run")) throw new PlaybookAuthorizationError(t("backend.execution.ownerInactive"));
         const lease = await heartbeatJob(jobId, WORKER_ID, { leaseMs: LEASE_MS });
         if (lease.count !== 1) throw new LeaseLostError(jobId);
+        await assertRunOwner(requesterId, latest.teamId);
         signal?.throwIfAborted();
       },
       playbook: {

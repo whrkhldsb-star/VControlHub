@@ -2,6 +2,7 @@ import { beforeEach, describe, expect, it, vi } from "vitest";
 
 const { prismaMock, createNotificationMock, sendEmailMock, sendTelegramMock, webhookMock } = vi.hoisted(() => ({
   prismaMock: {
+    $transaction: vi.fn(),
     alertIncident: {
       findUnique: vi.fn(),
       create: vi.fn(),
@@ -652,30 +653,45 @@ describe("alert incidents", () => {
     expect(createNotificationMock).not.toHaveBeenCalled();
   });
 
-  it("listAlertIncidents scopes null-server fleet rows by team rule ids", async () => {
-    prismaMock.server.findMany.mockResolvedValue([{ id: "s-team" }]);
-    prismaMock.alertRule.findMany.mockResolvedValue([{ id: "rule-team" }]);
+  it("limits incidents of a transferred host to its new customer's and platform rules", async () => {
+    prismaMock.server.findMany.mockResolvedValue([{ id: "transferred" }]);
     prismaMock.alertIncident.findMany.mockResolvedValue([]);
+    prismaMock.$transaction.mockImplementation(async (action) => action(prismaMock));
+    await listAlertIncidents({ session: { userId: "u1", roles: ["operator"], currentTeamId: "team-b" } });
 
-    await listAlertIncidents({
-      session: { userId: "u1", roles: ["operator"], currentTeamId: "team-a" },
-    });
+    expect(prismaMock.$transaction).toHaveBeenCalledWith(expect.any(Function), { isolationLevel: "RepeatableRead" });
+    expect(prismaMock.server.findMany).toHaveBeenCalledWith(expect.objectContaining({
+      where: { AND: [{ teamId: "team-b" }, { OR: [
+        { userAccess: { none: { userId: "u1" } } },
+        { userAccess: { some: { userId: "u1", canRead: true } } },
+      ] }] },
+    }));
+    expect(prismaMock.alertIncident.findMany).toHaveBeenCalledWith(expect.objectContaining({
+      where: {
+        OR: [
+          { serverId: { in: ["transferred"] }, rule: { OR: [{ teamId: "team-b" }, { teamId: null }] } },
+          { serverId: null, rule: { teamId: "team-b" } },
+        ],
+      },
+    }));
+  });
 
-    expect(prismaMock.server.findMany).toHaveBeenCalled();
-    expect(prismaMock.alertRule.findMany).toHaveBeenCalled();
-    expect(prismaMock.alertIncident.findMany).toHaveBeenCalledWith(
-      expect.objectContaining({
-        where: expect.objectContaining({
-          AND: [
-            {
-              OR: [
-                { serverId: { in: ["s-team"] } },
-                { serverId: null, ruleId: { in: ["rule-team"] } },
-              ],
-            },
-          ],
-        }),
-      }),
-    );
+  it("refuses to acknowledge an event owned by the transferred host's old customer", async () => {
+    prismaMock.alertIncident.findUnique.mockResolvedValue({ id: "event-a", serverId: "transferred", ruleId: "rule-a", status: "OPEN", rule: { id: "rule-a", teamId: "team-a" } });
+    prismaMock.server.findFirst.mockResolvedValue({ id: "transferred" });
+    prismaMock.alertRule.findFirst.mockResolvedValue(null);
+    await expect(acknowledgeAlertIncident({
+      incidentId: "event-a", userId: "user-b",
+      session: { userId: "user-b", roles: ["operator"], currentTeamId: "team-b" },
+    })).rejects.toMatchObject({ status: 404 });
+    expect(prismaMock.alertRule.findFirst).toHaveBeenCalledWith({ where: { id: "rule-a", teamId: "team-b" }, select: { id: true } });
+    expect(prismaMock.alertIncident.updateMany).not.toHaveBeenCalled();
+  });
+
+  it("preserves the platform administrator's all-customers incident history", async () => {
+    prismaMock.alertIncident.findMany.mockResolvedValue([]);
+    await listAlertIncidents({ status: "OPEN", session: { userId: "admin", roles: ["admin"], currentTeamId: null } });
+    expect(prismaMock.server.findMany).not.toHaveBeenCalled();
+    expect(prismaMock.alertIncident.findMany).toHaveBeenCalledWith(expect.objectContaining({ where: { status: "OPEN" } }));
   });
 });

@@ -7,6 +7,7 @@
  */
 
 import { prisma } from "@/lib/db";
+import { ForbiddenError } from "@/lib/errors";
 import { createCommandRequest, cancelCommandRequest } from "@/lib/command/service";
 import { commandRequestTitle } from "@/lib/command/schema";
 import { LeaseLostError } from "@/lib/job/heartbeat-runner";
@@ -22,6 +23,7 @@ import { toJsonValue } from "@/lib/db/json";
 const TRUNCATE_AT = 280;
 const COMMAND_POLL_MS = 1_000;
 const COMMAND_TERMINAL = new Set(["COMPLETED", "FAILED", "REJECTED", "CANCELLED"]);
+const TIMEOUT_ACTOR_ID = "system:playbook-timeout";
 
 /**
  * Raised when a reclaimed run finds a step whose non-idempotent side effect was
@@ -136,12 +138,30 @@ async function pollUntilTerminal(
  * attempt may be created — after a plain wait, after a timeout's cancellation
  * wait, and when a reclaimed run finds its previous request already terminal.
  */
-async function assertOutcomeKnown(commandRequestId: string, status: string): Promise<void> {
-  const unknown = await prisma.commandTarget.count({ where: { commandRequestId, outcomeUnknown: true } });
-  if (unknown > 0) {
+async function assertFailedCommandCanRetry(commandRequestId: string, status: string): Promise<void> {
+  const targets = await prisma.commandTarget.findMany({
+    where: { commandRequestId }, select: { status: true, outcomeUnknown: true },
+  });
+  if (targets.some((target) => target.outcomeUnknown || !COMMAND_TERMINAL.has(target.status))) {
     throw new CommandOutcomeUnknownError(
-      `command request ${commandRequestId} ended with ${status}, but ${unknown} target(s) could not confirm the remote process stopped; not retrying`,
+      `command request ${commandRequestId} ended with ${status}, but a target could not confirm the remote process stopped; not retrying`,
     );
+  }
+  if (targets.some((target) => target.status === "COMPLETED")) {
+    throw new NonRetryableStepError(`command request ${commandRequestId} already completed on a target; not retrying the batch`);
+  }
+  if (status === "REJECTED" || targets.some((target) => target.status === "REJECTED")) {
+    throw new NonRetryableStepError(`command request ${commandRequestId} was rejected; not retrying`);
+  }
+  if (status === "CANCELLED" || targets.some((target) => target.status === "CANCELLED")) {
+    // Only the caller that wins cancelCommandRequest's CAS records this log.
+    // A timeout can race an operator's cancel, and a reclaimed worker has no
+    // in-memory record of which one actually initiated the cancellation.
+    const timeout = await prisma.executionLog.findFirst({
+      where: { commandRequestId, serverId: null, summary: { startsWith: `Command cancellation requested by ${TIMEOUT_ACTOR_ID};` } },
+      select: { id: true },
+    });
+    if (!timeout) throw new NonRetryableStepError(`command request ${commandRequestId} was cancelled; not retrying`);
   }
 }
 
@@ -158,13 +178,13 @@ async function assertCommandRetryable(commandRequestIds: string[], cause: unknow
   const reason = cause instanceof Error ? cause.message : String(cause);
   for (const commandRequestId of commandRequestIds) {
     let status: string | undefined;
-    let unknown = 0;
     try {
       status = (await prisma.commandRequest.findUnique({ where: { id: commandRequestId }, select: { status: true } }))?.status;
       if (status && COMMAND_TERMINAL.has(status) && status !== "COMPLETED") {
-        unknown = await prisma.commandTarget.count({ where: { commandRequestId, outcomeUnknown: true } });
+        await assertFailedCommandCanRetry(commandRequestId, status);
       }
     } catch (lookupError) {
+      if (lookupError instanceof NonRetryableStepError) throw lookupError;
       throw new CommandOutcomeUnknownError(
         `step failed (${reason}) and the state of command request ${commandRequestId} could not be read (${lookupError instanceof Error ? lookupError.message : String(lookupError)}); not retrying while it may still be running`,
       );
@@ -179,17 +199,12 @@ async function assertCommandRetryable(commandRequestIds: string[], cause: unknow
         `step failed (${reason}) after command request ${commandRequestId} completed; not running the command again`,
       );
     }
-    if (unknown > 0) {
-      throw new CommandOutcomeUnknownError(
-        `command request ${commandRequestId} ended with ${status}, but ${unknown} target(s) could not confirm the remote process stopped; not retrying`,
-      );
-    }
   }
 }
 
 async function terminalOutcome(commandRequestId: string, status: string): Promise<string> {
   if (status === "COMPLETED") return `command request ${commandRequestId} completed`;
-  await assertOutcomeKnown(commandRequestId, status);
+  await assertFailedCommandCanRetry(commandRequestId, status);
   throw new Error(`command request ${commandRequestId} ended with ${status}`);
 }
 
@@ -207,7 +222,7 @@ async function waitForCommand(
   try {
     await cancelCommandRequest({
       commandRequestId,
-      actorId: "system:playbook-timeout",
+      actorId: TIMEOUT_ACTOR_ID,
       reason: `Playbook step timed out after ${timeoutSec}s`,
     });
   } catch {
@@ -228,7 +243,7 @@ async function waitForCommand(
   // The cancellation may have ended as FAILED/CANCELLED with a target whose
   // stop was never confirmed (e.g. an Agent that did not acknowledge): that
   // is not a clean timeout a retry may follow.
-  await assertOutcomeKnown(commandRequestId, settled);
+  await assertFailedCommandCanRetry(commandRequestId, settled);
   throw new Error(`command request ${commandRequestId} timed out after ${timeoutSec}s (${settled})`);
 }
 
@@ -247,7 +262,7 @@ async function resolveResumableCommandRequestId(
   if (COMMAND_TERMINAL.has(request.status)) {
     // Dropping it would let the reclaimed run create a fresh attempt while the
     // previous one may still be running on the target.
-    await assertOutcomeKnown(candidateId, request.status);
+    await assertFailedCommandCanRetry(candidateId, request.status);
     return undefined;
   }
   return candidateId;
@@ -289,6 +304,8 @@ async function dispatchStep(input: {
         }
       }
       if (!commandRequestId) {
+        await input.beforeDispatch?.();
+        input.signal?.throwIfAborted();
         const request = await createCommandRequest({
           title: commandRequestTitle(`Playbook ${input.playbookId}: `, step.name || step.id),
           command: substituteVariables(step.config.command, step.config.variables ?? {}),
@@ -455,7 +472,7 @@ async function executeWithRetries<T>(
       // A refusal to replay a dispatched side effect must not be retried (the
       // retry would undo the marker and fire it anyway), nor may a command whose
       // cancellation was never confirmed (it may still be running).
-      if (error instanceof NonRetryableStepError || error instanceof LeaseLostError) throw error;
+      if (error instanceof NonRetryableStepError || error instanceof ForbiddenError || error instanceof LeaseLostError) throw error;
       if (attempt + 1 < attempts) await onRetry?.(error);
     }
   }

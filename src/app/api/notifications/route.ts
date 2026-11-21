@@ -46,8 +46,8 @@ export async function GET(request: Request) {
     async ({ session }) => {
       const { limit, offset } = parseSearchParams(request, listNotificationsQuerySchema);
       const [notifications, unreadCount] = await Promise.all([
-        listUserNotifications(session.userId, { limit, skip: offset }),
-        getUnreadCount(session.userId),
+        listUserNotifications(session, { limit, skip: offset }),
+        getUnreadCount(session),
       ]);
       return NextResponse.json({
         notifications,
@@ -75,7 +75,7 @@ export async function PATCH(request: Request) {
         : { action: "markAsRead" as const, notificationId: body.notificationId };
       switch (operation.action) {
         case "markAllAsRead":
-          await markAllAsRead(session.userId);
+          await markAllAsRead(session);
           await auditUserAction(
             session.userId,
             "notification.update",
@@ -85,7 +85,7 @@ export async function PATCH(request: Request) {
           );
           break;
         case "markAsRead":
-          await markAsRead(operation.notificationId, session.userId);
+          await markAsRead(operation.notificationId, session);
           await auditUserAction(
             session.userId,
             "notification.update",
@@ -95,7 +95,7 @@ export async function PATCH(request: Request) {
           );
           break;
         case "delete":
-          await deleteNotification(operation.notificationId, session.userId);
+          await deleteNotification(operation.notificationId, session);
           await auditUserAction(
             session.userId,
             "notification.delete",
@@ -121,7 +121,7 @@ export async function DELETE(request: Request) {
     },
     async ({ session }) => {
       const { id: notificationId } = parseSearchParams(request, idQuerySchema);
-      await deleteNotification(notificationId, session.userId);
+      await deleteNotification(notificationId, session);
       await auditUserAction(session.userId, "notification.delete", { notificationId }, undefined, session.currentTeamId);
       return NextResponse.json({ success: true });
     },

@@ -8,11 +8,13 @@ import { afterEach, beforeEach, describe, expect, it, vi } from "vitest";
  * until the first one is terminal, and must stop retrying if that never
  * happens.
  */
-const { mocks, statuses, keys, faults } = vi.hoisted(() => ({
+const { mocks, statuses, keys, targets, timeoutCancellations, faults } = vi.hoisted(() => ({
 	statuses: new Map<string, string>(),
 	keys: new Map<string, string>(),
+	targets: new Map<string, string[]>(),
+	timeoutCancellations: new Set<string>(),
 	/** Transient database failures, consumed one per call. */
-	faults: { count: 0, findUnique: [] as number[], findUniqueCalls: 0, updateMany: 0 },
+	faults: { targetReads: 0, findUnique: [] as number[], findUniqueCalls: 0, updateMany: 0 },
 	mocks: {
 		createCommandRequest: vi.fn(),
 		cancelCommandRequest: vi.fn(),
@@ -39,12 +41,21 @@ vi.mock("@/lib/db", () => ({
 			}),
 		},
 		commandTarget: {
-			count: vi.fn(async ({ where }: { where: { commandRequestId: string } }) => {
-				if (faults.count > 0) {
-					faults.count -= 1;
-					throw new Error("count failed (injected)");
+			findMany: vi.fn(async ({ where }: { where: { commandRequestId: string } }) => {
+				if (faults.targetReads > 0) {
+					faults.targetReads -= 1;
+					throw new Error("target read failed (injected)");
 				}
-				return statuses.get(`unknown:${where.commandRequestId}`) ? 1 : 0;
+				const id = where.commandRequestId;
+				return (targets.get(id) ?? [statuses.get(id)]).map((status) => ({
+					status, outcomeUnknown: statuses.has(`unknown:${id}`),
+				}));
+			}),
+		},
+		executionLog: {
+			findFirst: vi.fn(async ({ where }: { where: { commandRequestId: string; serverId: string | null; summary: { startsWith: string } } }) => {
+				const matches = where.serverId === null && where.summary.startsWith === "Command cancellation requested by system:playbook-timeout;";
+				return matches && timeoutCancellations.has(where.commandRequestId) ? { id: "timeout-log" } : null;
 			}),
 		},
 		commandRequest: {
@@ -62,7 +73,7 @@ vi.mock("@/lib/db", () => ({
 import { executePlaybookChain } from "../executor";
 import type { PlaybookRecord } from "../types";
 
-function playbookWithRetry(): Pick<PlaybookRecord, "id" | "steps"> {
+function playbookWithRetry(serverIds = ["srv1"]): Pick<PlaybookRecord, "id" | "steps"> {
 	return {
 		id: "pb1",
 		steps: [
@@ -70,7 +81,7 @@ function playbookWithRetry(): Pick<PlaybookRecord, "id" | "steps"> {
 				id: "s1",
 				name: "restart",
 				type: "run_command",
-				config: { command: "systemctl restart app", serverIds: ["srv1"] },
+				config: { command: "systemctl restart app", serverIds },
 				retry: 2,
 				timeoutSec: 5,
 			},
@@ -84,7 +95,9 @@ beforeEach(() => {
 	vi.useFakeTimers();
 	statuses.clear();
 	keys.clear();
-	Object.assign(faults, { count: 0, findUnique: [], findUniqueCalls: 0, updateMany: 0 });
+	targets.clear();
+	timeoutCancellations.clear();
+	Object.assign(faults, { targetReads: 0, findUnique: [], findUniqueCalls: 0, updateMany: 0 });
 	created = 0;
 	mocks.createCommandRequest.mockReset().mockImplementation(async () => {
 		created += 1;
@@ -99,13 +112,75 @@ afterEach(() => {
 	vi.useRealTimers();
 });
 
-async function run() {
-	const pending = executePlaybookChain({ playbook: playbookWithRetry(), runId: "run-1", dryRun: false });
+async function run(serverIds?: string[]) {
+	const pending = executePlaybookChain({ playbook: playbookWithRetry(serverIds), runId: "run-1", dryRun: false });
 	await vi.runAllTimersAsync();
 	return pending;
 }
 
 describe("playbook command timeout → cancel → retry barrier", () => {
+	it.each(["FAILED", "CANCELLED"])("never replays a %s batch that completed on one server", async (status) => {
+		mocks.createCommandRequest.mockImplementation(async () => {
+			statuses.set("batch", status);
+			targets.set("batch", ["COMPLETED", status]);
+			timeoutCancellations.add("batch");
+			return { id: "batch" };
+		});
+		const { results } = await run(["srv1", "srv2"]);
+		expect(mocks.createCommandRequest).toHaveBeenCalledTimes(1);
+		expect(results[0]).toMatchObject({ status: "failed", error: expect.stringMatching(/already completed on a target/) });
+	});
+
+	it.each(["CANCELLED", "REJECTED"])("honours an operator's %s before the step timeout", async (status) => {
+		mocks.createCommandRequest.mockImplementation(async () => {
+			statuses.set("stopped", status);
+			return { id: "stopped" };
+		});
+		const { results } = await run();
+		expect(mocks.createCommandRequest).toHaveBeenCalledTimes(1);
+		expect(mocks.cancelCommandRequest).not.toHaveBeenCalled();
+		expect(results[0]).toMatchObject({ status: "failed", commandRequestId: "stopped" });
+	});
+
+	it("honours an operator's cancellation that wins the race with the timeout", async () => {
+		mocks.cancelCommandRequest.mockImplementation(async ({ commandRequestId }: { commandRequestId: string }) => {
+			// Already CANCELLING on entry: cancelCommandRequest returns normally
+			// without claiming the cancellation or writing a timeout log.
+			statuses.set(commandRequestId, "CANCELLED");
+		});
+		const { results } = await run();
+		expect(mocks.cancelCommandRequest).toHaveBeenCalledTimes(1);
+		expect(mocks.createCommandRequest).toHaveBeenCalledTimes(1);
+		expect(results[0]?.error).toMatch(/cancelled; not retrying/);
+	});
+
+	it.each([
+		["FAILED", ["FAILED", "COMPLETED"]],
+		["CANCELLED", ["CANCELLED", "CANCELLED"]],
+		["REJECTED", ["REJECTED", "REJECTED"]],
+	] as const)("checks the targets and cancellation source before discarding a reclaimed %s request", async (status, targetStatuses) => {
+		statuses.set("previous", status);
+		targets.set("previous", [...targetStatuses]);
+		const { results } = await executePlaybookChain({
+			playbook: playbookWithRetry(["srv1", "srv2"]), runId: "run-1", dryRun: false,
+			resumeResults: [{ stepId: "s1", status: "running", startedAt: "", completedAt: "", summary: "", commandRequestId: "previous" }],
+		});
+		expect(mocks.createCommandRequest).not.toHaveBeenCalled();
+		expect(results[0]).toMatchObject({ status: "failed", commandRequestId: "previous" });
+	});
+
+	it("checks individual targets when a failed create is recovered by its idempotency key", async () => {
+		mocks.createCommandRequest.mockImplementationOnce(async (input: { idempotencyKey: string }) => {
+			keys.set(input.idempotencyKey, "batch");
+			statuses.set("batch", "FAILED");
+			targets.set("batch", ["COMPLETED", "FAILED"]);
+			throw new Error("database response lost");
+		});
+		const { results } = await run(["srv1", "srv2"]);
+		expect(mocks.createCommandRequest).toHaveBeenCalledTimes(1);
+		expect(results[0]?.error).toMatch(/already completed on a target/);
+	});
+
 	it("never creates the next attempt while the timed-out command is still CANCELLING", async () => {
 		mocks.cancelCommandRequest.mockImplementation(async ({ commandRequestId }: { commandRequestId: string }) => {
 			statuses.set(commandRequestId, "CANCELLING"); // executor never acknowledges
@@ -121,6 +196,7 @@ describe("playbook command timeout → cancel → retry barrier", () => {
 		mocks.cancelCommandRequest.mockImplementation(async ({ commandRequestId }: { commandRequestId: string }) => {
 			statuses.set(commandRequestId, "CANCELLING");
 			// The executor acknowledges a little later.
+			timeoutCancellations.add(commandRequestId);
 			setTimeout(() => statuses.set(commandRequestId, "CANCELLED"), 3_000);
 		});
 		mocks.createCommandRequest.mockImplementationOnce(async () => {
@@ -205,7 +281,7 @@ describe("playbook command timeout → cancel → retry barrier", () => {
 	});
 
 	describe("a transient database failure never lets a possibly running command be started twice", () => {
-		it("the unknown-outcome count fails once: the next check still finds the unconfirmed target", async () => {
+		it("a target read fails once: the next check still finds the unconfirmed target", async () => {
 			mocks.createCommandRequest.mockImplementation(async () => {
 				created += 1;
 				const id = `request-${created}`;
@@ -213,7 +289,7 @@ describe("playbook command timeout → cancel → retry barrier", () => {
 				statuses.set(`unknown:${id}`, "1");
 				return { id };
 			});
-			faults.count = 1;
+			faults.targetReads = 1;
 			const { results } = await run();
 			expect(mocks.createCommandRequest).toHaveBeenCalledTimes(1);
 			expect(results[0]).toMatchObject({ status: "failed", commandRequestId: "request-1" });

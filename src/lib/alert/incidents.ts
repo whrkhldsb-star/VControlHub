@@ -1049,46 +1049,8 @@ export async function listAlertIncidents(options?: {
   session?: Pick<SessionPayload, "userId" | "roles" | "currentTeamId">;
 }) {
   const status = options?.status;
-  // AlertIncident has serverId but no Prisma relation to Server — resolve
-  // team-scoped server IDs first when a non-admin session is present.
-  // Also restrict null-server (fleet) incidents to rules visible under teamWhere
-  // so other teams' fleet fingerprints do not leak via serverId:null OR branch.
-  let scope: Record<string, unknown> = {};
-  if (options?.session) {
-    const teamFilter = teamWhere(options.session);
-    if (Object.keys(teamFilter).length > 0) {
-      const [servers, rules] = await Promise.all([
-        prisma.server.findMany({
-          where: serverTeamWhere(options.session),
-          select: { id: true },
-          take: 5000,
-        }),
-        prisma.alertRule.findMany({
-          where: teamFilter,
-          select: { id: true },
-          take: 2000,
-        }),
-      ]);
-      const serverIds = servers.map((s) => s.id);
-      const ruleIds = rules.map((r) => r.id);
-      scope = {
-        AND: [
-          {
-            OR: [
-              { serverId: { in: serverIds } },
-              // Fleet / null-server rows: only rules owned by (or legacy shared in) this team.
-              { serverId: null, ruleId: { in: ruleIds } },
-            ],
-          },
-        ],
-      };
-    }
-  }
-  return prisma.alertIncident.findMany({
-    where: {
-      ...(status ? { status } : {}),
-      ...scope,
-    },
+  const readIncidents = (db: Prisma.TransactionClient, scope: Prisma.AlertIncidentWhereInput = {}) => db.alertIncident.findMany({
+    where: { ...(status ? { status } : {}), ...scope },
     orderBy: [{ status: "asc" }, { level: "desc" }, { createdAt: "desc" }],
     take: options?.take ?? 100,
     include: {
@@ -1096,4 +1058,25 @@ export async function listAlertIncidents(options?: {
       acknowledgedBy: { select: { id: true, username: true, displayName: true } },
     },
   });
+  const session = options?.session;
+  if (!session) return readIncidents(prisma);
+  const teamFilter = teamWhere(session);
+  if (!teamFilter.teamId) return readIncidents(prisma);
+
+  // AlertIncident has no server relation. Read both sides on one snapshot so
+  // a transfer during listing cannot mix the old fleet with newer incidents.
+  return prisma.$transaction(async (tx) => {
+    const servers = await tx.server.findMany({
+      where: serverTeamWhere(session),
+      select: { id: true },
+      take: 5000,
+    });
+    return readIncidents(tx, { OR: [
+      {
+        serverId: { in: servers.map((server) => server.id) },
+        rule: { OR: [teamFilter, { teamId: null }] },
+      },
+      { serverId: null, rule: teamFilter },
+    ] });
+  }, { isolationLevel: "RepeatableRead" });
 }

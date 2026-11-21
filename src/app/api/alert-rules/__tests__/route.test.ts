@@ -244,7 +244,7 @@ describe("/api/alert-rules", () => {
     );
 
     expect(res.status).toBe(200);
-    expect(mocks.updateAlertRule).toHaveBeenCalledWith("rule1", { id: "rule1", threshold: 95 }, expect.anything());
+    expect(mocks.updateAlertRule).toHaveBeenCalledWith("rule1", { threshold: 95 }, expect.anything());
   });
 
   it("leaves an update that names the webhook channel without an address to the rule it changes", async () => {
@@ -260,7 +260,7 @@ describe("/api/alert-rules", () => {
     );
 
     expect(res.status).toBe(200);
-    expect(mocks.updateAlertRule).toHaveBeenCalledWith("rule1", { id: "rule1", notifyChannels: ["webhook"], threshold: 95 }, expect.anything());
+    expect(mocks.updateAlertRule).toHaveBeenCalledWith("rule1", { notifyChannels: ["webhook"], threshold: 95 }, expect.anything());
   });
 
   it("answers with the rule as the page shows it: whether a webhook is configured, never its address", async () => {

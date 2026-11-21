@@ -5,7 +5,15 @@ import { once } from "node:events";
 import { WebSocket } from "ws";
 import { afterEach, beforeEach, describe, expect, it, vi } from "vitest";
 
-const { verifySessionTokenMock } = vi.hoisted(() => ({ verifySessionTokenMock: vi.fn() }));
+const { verifySessionTokenMock, readUnreadCount, getVisibleNotificationForPush, startBus } = vi.hoisted(() => ({
+	verifySessionTokenMock: vi.fn(),
+	readUnreadCount: vi.fn(),
+	getVisibleNotificationForPush: vi.fn(),
+	startBus: vi.fn<(deliver: (userId: string, message: unknown) => void) => Promise<void>>(),
+}));
+vi.mock("../notification-bus", () => ({
+	getNotificationBus: () => ({ start: startBus, stop: async () => {} }),
+}));
 vi.mock("@/lib/auth/session", () => ({
 	getSessionCookieName: () => "test_session",
 	verifySessionToken: verifySessionTokenMock,
@@ -13,8 +21,8 @@ vi.mock("@/lib/auth/session", () => ({
 // A connection reads the stored unread count. Unmocked, that queried the real
 // database and its error was logged after the file had finished, which failed
 // runs intermittently ("Closing rpc while onUserConsoleLog was pending").
-vi.mock("@/lib/notification/service", () => ({
-	readUnreadCount: vi.fn(async () => ({ count: 0, asOfUs: 0 })),
+vi.mock("@/lib/notification/inbox", () => ({
+	readUnreadCount, getVisibleNotificationForPush,
 }));
 
 import { AuthError } from "@/lib/errors";
@@ -23,7 +31,6 @@ import {
 	getWsServer,
 	recheckSocketSessions,
 	setupWebSocketServer,
-	broadcastToUser,
 } from "../notification-ws";
 
 const servers: ReturnType<typeof createServer>[] = [];
@@ -39,7 +46,12 @@ async function listen() {
 }
 
 describe("notification WebSocket lifecycle", () => {
-	beforeEach(() => { verifySessionTokenMock.mockReset().mockResolvedValue({ userId: "user-1" }); });
+	beforeEach(() => {
+		verifySessionTokenMock.mockReset().mockResolvedValue({ userId: "user-1" });
+		readUnreadCount.mockReset().mockResolvedValue({ count: 0, asOfUs: 0 });
+		getVisibleNotificationForPush.mockReset();
+		startBus.mockReset().mockResolvedValue(undefined);
+	});
 	afterEach(async () => {
 		closeWebSocketServer();
 		await Promise.all(servers.splice(0).map((server) => new Promise<void>((resolve) => server.close(() => resolve()))));
@@ -119,18 +131,41 @@ describe("notification WebSocket lifecycle", () => {
 	it("authenticates, responds to heartbeats, broadcasts and releases the connection", async () => {
 		const { port } = await listen();
 		const client = new WebSocket(`ws://127.0.0.1:${port}/ws`, { headers: { cookie: "test_session=valid" } });
-		const first = await once(client, "message");
-		expect(JSON.parse(first[0].toString())).toMatchObject({ type: "connected", userId: "user-1" });
+		const received: Array<Record<string, unknown>> = [];
+		client.on("message", (data) => received.push(JSON.parse(data.toString())));
+		await vi.waitFor(() => expect(received).toEqual([
+			{ type: "connected", userId: "user-1" }, { type: "unread_count", count: 0, asOfUs: 0 },
+		]));
 		const pong = once(client, "message");
 		client.send(JSON.stringify({ type: "ping" }));
 		expect(JSON.parse((await pong)[0].toString())).toMatchObject({ type: "pong" });
 		const broadcast = once(client, "message");
-		broadcastToUser("user-1", { type: "unread_count", count: 2 });
-		expect(JSON.parse((await broadcast)[0].toString())).toEqual({ type: "unread_count", count: 2 });
+		readUnreadCount.mockResolvedValueOnce({ count: 2, asOfUs: 20 });
+		startBus.mock.calls[0]![0]("user-1", { type: "unread_count", count: 19, asOfUs: 10 });
+		expect(JSON.parse((await broadcast)[0].toString())).toEqual({ type: "unread_count", count: 2, asOfUs: 20 });
 		const closed = once(client, "close");
 		client.close();
 		await closed;
 		await vi.waitFor(() => expect(getWsServer()!.clients.size).toBe(0));
+	});
+
+	it("checks delayed bus notifications against the recipient's current inbox before sending to sockets", async () => {
+		const { port } = await listen();
+		const client = new WebSocket(`ws://127.0.0.1:${port}/ws`, { headers: { cookie: "test_session=valid" } });
+		const received: Array<Record<string, unknown>> = [];
+		client.on("message", (data) => received.push(JSON.parse(data.toString())));
+		await vi.waitFor(() => expect(received).toHaveLength(2));
+
+		const deliver = startBus.mock.calls[0]![0];
+		const visible = { id: "current", title: "Current", message: "Read this", teamId: "team-b", createdAt: new Date().toISOString() };
+		getVisibleNotificationForPush.mockResolvedValueOnce(null).mockResolvedValueOnce(visible);
+		deliver("no-local-sockets", { type: "notification", data: { id: "away" } });
+		deliver("user-1", { type: "notification", data: { title: "missing id" } });
+		deliver("user-1", { type: "notification", data: { id: "old", title: "Former customer" } });
+		deliver("user-1", { type: "notification", data: { id: "current", title: "Stale title" } });
+
+		await vi.waitFor(() => expect(received.slice(2)).toEqual([{ type: "notification", data: visible }]));
+		expect(getVisibleNotificationForPush.mock.calls).toEqual([["user-1", "old"], ["user-1", "current"]]);
 	});
 
 	it("cuts a socket off at the next re-check once its session is no longer valid, but not when the check itself fails", async () => {

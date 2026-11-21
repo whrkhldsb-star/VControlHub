@@ -4,6 +4,8 @@ const mocks = vi.hoisted(() => ({
   verifyToken: vi.fn(),
   loadOwner: vi.fn(),
   findRule: vi.fn(),
+  createRule: vi.fn(),
+  findBoundPlaybooks: vi.fn(),
   updateRule: vi.fn(),
   findPlaybook: vi.fn(),
   updatePlaybook: vi.fn(),
@@ -17,17 +19,18 @@ vi.mock("@/lib/api-token/authorization", async (original) => ({
 vi.mock("@/lib/concurrency/advisory-lock", () => ({ acquireAdvisoryLock: async () => async () => {} }));
 vi.mock("@/lib/audit/service", () => ({ auditUserAction: mocks.audit }));
 vi.mock("@/lib/db", () => ({ prisma: {
-  alertRule: { findFirst: mocks.findRule, updateManyAndReturn: mocks.updateRule },
-  playbook: { findFirst: mocks.findPlaybook, updateMany: mocks.updatePlaybook },
+  alertRule: { create: mocks.createRule, findFirst: mocks.findRule, updateManyAndReturn: mocks.updateRule },
+  playbook: { findMany: mocks.findBoundPlaybooks, findFirst: mocks.findPlaybook, updateMany: mocks.updatePlaybook },
+  userServerAccess: { findFirst: async () => null },
   server: { findMany: async () => [{ id: "srv1" }] },
 } }));
 
-import { PATCH as patchRule } from "@/app/api/alert-rules/route";
+import { PATCH as patchRule, POST as createRule } from "@/app/api/alert-rules/route";
 import { PATCH as patchPlaybook } from "@/app/api/playbooks/[id]/route";
 
-function request(path: string, body: object) {
+function request(path: string, body: object, method = "PATCH") {
   return new Request(`http://local/api/${path}`, {
-    method: "PATCH",
+    method,
     headers: { authorization: "Bearer test-token", "content-type": "application/json" },
     body: JSON.stringify(body),
   });
@@ -36,6 +39,7 @@ function request(path: string, body: object) {
 describe("automation write permissions through PATCH", () => {
   beforeEach(() => {
     vi.clearAllMocks();
+    mocks.findBoundPlaybooks.mockResolvedValue([{ id: "pb1", steps: [] }]);
     mocks.loadOwner.mockResolvedValue({
       userId: "u1", roles: ["operator"], currentTeamId: "team1",
       permissions: ["notification:manage", "playbook:manage", "playbook:run", "command:execute"],
@@ -46,7 +50,7 @@ describe("automation write permissions through PATCH", () => {
     { body: { id: "rule1", threshold: 60 }, enabled: true },
     { body: { toggleId: "rule1" }, enabled: false },
   ])("requires the token's run grant to update or enable a bound rule ($body)", async ({ body, enabled }) => {
-    const rule = { id: "rule1", playbookIds: ["pb1"], enabled, createdAt: new Date() };
+    const rule = { id: "rule1", playbookIds: ["pb1"], serverIds: [], enabled, createdAt: new Date() };
     mocks.findRule.mockResolvedValue(rule);
     mocks.updateRule.mockResolvedValue([rule]);
     mocks.verifyToken.mockResolvedValueOnce({ userId: "u1", scopes: ["notification:manage"] });
@@ -59,6 +63,27 @@ describe("automation write permissions through PATCH", () => {
     mocks.verifyToken.mockResolvedValueOnce({ userId: "u1", scopes: ["notification:manage", "playbook:run"] });
     expect((await patchRule(request("alert-rules", body))).status).toBe(200);
     expect(mocks.updateRule).toHaveBeenCalledOnce();
+  });
+
+  it.each(["POST", "PATCH"])("passes only the token's granted command and run scopes through alert %s", async (method) => {
+    const rule = { id: "rule1", name: "CPU", metric: "cpu_usage", operator: "gte", threshold: 60,
+      serverIds: [], playbookIds: ["pb1"], enabled: true, createdAt: new Date(),
+    };
+    mocks.findRule.mockResolvedValue(rule);
+    mocks.createRule.mockResolvedValue(rule);
+    mocks.updateRule.mockResolvedValue([rule]);
+    mocks.findBoundPlaybooks.mockResolvedValue([{ id: "pb1", steps: [{ type: "run_command", config: { serverIds: ["srv1"] } }] }]);
+    const perform = () => method === "POST"
+      ? createRule(request("alert-rules", rule, method))
+      : patchRule(request("alert-rules", { id: rule.id, threshold: 85 }));
+    for (const grant of ["playbook:run", "command:execute"]) {
+      mocks.verifyToken.mockResolvedValueOnce({ userId: "u1", scopes: ["notification:manage", grant] });
+      expect((await perform()).status).toBe(403);
+    }
+    expect(mocks.createRule).not.toHaveBeenCalled();
+    expect(mocks.updateRule).not.toHaveBeenCalled();
+    mocks.verifyToken.mockResolvedValueOnce({ userId: "u1", scopes: ["notification:manage", "playbook:run", "command:execute"] });
+    expect((await perform()).status).toBe(method === "POST" ? 201 : 200);
   });
 
   it("passes the token's run and command grants through a steps-only playbook patch", async () => {

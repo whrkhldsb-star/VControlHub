@@ -9,7 +9,7 @@ import { afterAll, beforeAll, describe, expect, it } from "vitest";
 
 import { prisma } from "@/lib/db";
 
-const { buildAlertFingerprint, resolveOrphanedAlertIncidents } = await import("../incidents");
+const { acknowledgeAlertIncident, buildAlertFingerprint, listAlertIncidents, resolveOrphanedAlertIncidents } = await import("../incidents");
 
 const RUN = process.env.RUN_DATABASE_INTEGRATION_TESTS === "1";
 
@@ -104,6 +104,29 @@ describe.skipIf(!RUN)("alert incidents left behind by a changed rule (PostgreSQL
 		const closed = await prisma.alertIncident.findUniqueOrThrow({ where: { fingerprint: buildAlertFingerprint(rule("disabled"), server("a"), "cpu_usage") } });
 		expect(closed).toMatchObject({ pendingNotifyChannels: [], nextNotifyAt: null });
 		expect(closed.resolvedAt).toBeInstanceOf(Date);
+	});
+
+	it("shows the new customer its own and platform incidents on a reassigned host", async () => {
+		const host = server("moved");
+		await prisma.alertRule.createMany({ data: [
+			{ id: rule("former"), teamId: team },
+			{ id: rule("current"), teamId: otherTeam },
+			{ id: rule("platform"), teamId: null },
+		].map((r) => ({ ...r, name: r.id, metric: "disk_usage", operator: "gte", threshold: 90 })) });
+		await prisma.alertIncident.createMany({ data: [
+			incident(rule("former"), host, "disk_usage", `${prefix}-old-event`),
+			incident(rule("current"), host, "disk_usage"),
+			incident(rule("platform"), host, "disk_usage"),
+			incident(rule("platform"), server("a"), "disk_usage"),
+		] });
+		const session = { userId: `${prefix}-reader`, roles: ["operator" as const], currentTeamId: otherTeam };
+		const rows = await listAlertIncidents({ session });
+		expect(rows.map((row) => [row.ruleId, row.serverId])).toEqual(expect.arrayContaining([
+			[rule("current"), host], [rule("platform"), host],
+		]));
+		expect(rows).toHaveLength(2);
+		await expect(acknowledgeAlertIncident({ incidentId: `${prefix}-old-event`, userId: session.userId, session }))
+			.rejects.toMatchObject({ status: 404 });
 	});
 
 	it("reaches the incidents after the first page when that page ended on one it closed", async () => {

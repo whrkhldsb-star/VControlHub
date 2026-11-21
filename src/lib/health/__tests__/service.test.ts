@@ -207,6 +207,7 @@ describe("evaluateAlerts", () => {
 			playbookId: "pb_restart",
 			dryRun: false,
 			sourceAlertTeamId: "team1",
+			sourceAlertServerId: "srv1",
 			triggerContext: expect.objectContaining({
 				type: "alert_rule",
 				alertRuleId: "rule_auto",

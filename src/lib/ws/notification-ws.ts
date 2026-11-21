@@ -16,6 +16,7 @@ import { getSessionCookieName, verifySessionToken } from "@/lib/auth/session";
 import { AuthError } from "@/lib/errors";
 import { createLogger } from "@/lib/logging";
 import { recordWsEvent, setWsActive } from "@/lib/monitoring/runtime-metrics";
+import { getVisibleNotificationForPush, readUnreadCount } from "@/lib/notification/inbox";
 import { getNotificationBus } from "./notification-bus";
 
 const logger = createLogger("ws:notification");
@@ -86,9 +87,7 @@ export type WsMessage =
 	| { type: "unread_count"; count: number; asOfUs?: number }
 	| { type: "pong"; ts: number };
 
-export function broadcastToUser(userId: string, message: WsMessage) {
-	const conns = userConnections.get(userId);
-	if (!conns || conns.size === 0) return;
+function broadcast(conns: Iterable<WebSocket>, message: WsMessage) {
 	const payload = JSON.stringify(message);
 	for (const ws of conns) {
 		if (ws.readyState !== WebSocket.OPEN) continue;
@@ -99,6 +98,24 @@ export function broadcastToUser(userId: string, message: WsMessage) {
 			continue;
 		}
 		ws.send(payload);
+	}
+}
+
+export async function broadcastToUser(userId: string, message: unknown) {
+	const connections = userConnections.get(userId);
+	if (!connections?.size || !message || typeof message !== "object" || !("type" in message)) return;
+	// A connection opened while the database read was in flight starts with its own fresh inbox.
+	const sockets = [...connections];
+	if (message.type === "notification") {
+		const data = "data" in message ? message.data : null;
+		if (!data || typeof data !== "object" || !("id" in data) || typeof data.id !== "string" || !data.id) return;
+		const visible = await getVisibleNotificationForPush(userId, data.id);
+		if (visible) broadcast(sockets, { type: "notification", data: visible });
+	} else if (message.type === "unread_count") {
+		const { count, asOfUs } = await readUnreadCount(userId);
+		broadcast(sockets, { type: "unread_count", count, asOfUs });
+	} else if (message.type === "pong" && "ts" in message && typeof message.ts === "number") {
+		broadcast(sockets, { type: "pong", ts: message.ts });
 	}
 }
 
@@ -312,8 +329,7 @@ export function setupWebSocketServer(
 		ws.send(JSON.stringify({ type: "connected", userId }));
 		// The badge starts from the stored count: the client shows 0 until a
 		// count arrives, and existing unread notifications had no badge.
-		void import("@/lib/notification/service")
-			.then(({ readUnreadCount }) => readUnreadCount(userId))
+		void readUnreadCount(userId)
 			.then(({ count, asOfUs }) => {
 				if (ws.readyState === ws.OPEN) ws.send(JSON.stringify({ type: "unread_count", count, asOfUs }));
 			})
@@ -360,7 +376,10 @@ export function setupWebSocketServer(
 	// locally (single instance) or via Redis pub/sub so the instance holding
 	// the user's sockets sees every message regardless of origin process.
 	void getNotificationBus().start((userId, message) => {
-		broadcastToUser(userId, message as WsMessage);
+		// A delayed Redis/NOTIFY message can outlive the recipient's membership.
+		void broadcastToUser(userId, message).catch((error: unknown) => {
+			logger.warn("notification bus delivery failed", { error: error instanceof Error ? error.message : String(error) });
+		});
 	});
 
 	logger.info("WebSocket notification server initialized");

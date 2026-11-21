@@ -12,10 +12,10 @@ import {
   ensureDefaultAlertRules,
 } from "@/lib/alert/service";
 import { auditUserAction } from "@/lib/audit/service";
-import { PLAYBOOK_RUN_PERMISSION } from "@/lib/playbook/permissions";
+import { PLAYBOOK_COMMAND_PERMISSION, PLAYBOOK_RUN_PERMISSION } from "@/lib/playbook/permissions";
 import { toAlertRuleDto } from "@/lib/alert/rule-dto";
 import { evaluateAlerts } from "@/lib/health/service";
-import { requestLocale, withApiRoute } from "@/lib/http/api-guard";
+import { requestLocale, withApiRoute, type ApiRouteOptions } from "@/lib/http/api-guard";
 import { GENERAL_WRITE_LIMIT } from "@/lib/http/rate-limit-presets";
 import { idQuerySchema, parseSearchParams } from "@/lib/http/parse-search-params";
 import { validateWebhookUrlSyntax } from "@/lib/security/webhook-url";
@@ -226,12 +226,13 @@ export async function POST(request: Request) {
     : null;
   if (rejected) return rejected;
   const options = {
-    permission: "notification:manage" as const,
+    permission: "notification:manage",
+    optionalTokenPermissions: [PLAYBOOK_RUN_PERMISSION, PLAYBOOK_COMMAND_PERMISSION],
     rateLimit: GENERAL_WRITE_LIMIT,
     errorStatus: 400,
     errorMessage: apiCopy("apiCopy.failed.to.create.99af0e81"),
     ...(isFormSubmission ? {} : { bodySchema: alertRuleSchema }),
-  };
+  } satisfies ApiRouteOptions;
   return withApiRoute(
     request,
     options,
@@ -259,7 +260,7 @@ export async function PATCH(request: Request) {
     request,
     {
       permission: "notification:manage",
-      optionalTokenPermissions: [PLAYBOOK_RUN_PERMISSION],
+      optionalTokenPermissions: [PLAYBOOK_RUN_PERMISSION, PLAYBOOK_COMMAND_PERMISSION],
       rateLimit: GENERAL_WRITE_LIMIT,
       errorStatus: 400,
       errorMessage: apiCopy("apiCopy.failed.to.update.8eb4917b"),
@@ -293,7 +294,8 @@ export async function PATCH(request: Request) {
         const rules = await listAlertRules(session);
         return NextResponse.json({ ...result, rules: rules.map(toAlertRuleDto) });
       }
-      const result = await updateAlertRule(body.id, body, session);
+      const { id, ...change } = body;
+      const result = await updateAlertRule(id, change, session);
       await auditUserAction(
         session.userId,
         "alert_rule.update",
