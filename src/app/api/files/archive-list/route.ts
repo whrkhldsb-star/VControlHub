@@ -91,7 +91,7 @@ export async function GET(request: NextRequest) {
 
       try {
         const entries = sanitizeArchiveEntries(
-          await listArchiveContents(formatName, fullPath),
+          await listArchiveContents(formatName, fullPath, request.signal),
         );
         return NextResponse.json({ entries });
       } catch (err) {
@@ -112,6 +112,7 @@ export async function GET(request: NextRequest) {
 async function listArchiveContents(
   name: string,
   fullPath: string,
+  signal: AbortSignal,
 ): Promise<ArchiveEntry[]> {
   const ext = path.extname(name.toLowerCase());
 
@@ -119,7 +120,7 @@ async function listArchiveContents(
   // locale (Ubuntu's unzip dates and GNU tar's escaped Chinese names broke
   // the old parsers), and the Docker image has no unzip at all.
   const kind = archiveKindOf(name);
-  if (kind) return listArchive(fullPath, kind);
+  if (kind) return listArchive(fullPath, kind, signal);
   if (ext === ".gz") {
     return listGz(fullPath, name);
   }

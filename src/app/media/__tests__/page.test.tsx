@@ -27,7 +27,9 @@ const listMediaTypeCountsMock = vi.fn();
 const countMediaItemsMock = vi.fn();
 
 vi.mock("@/lib/media/service", () => ({
-  listMediaItems: (...args: unknown[]) => listMediaItemsMock(...args),
+  listMediaPage: async (filters: { page: number; pageSize: number }) => ({
+    media: await listMediaItemsMock(filters), total: await countMediaItemsMock(filters), page: filters.page, pageSize: filters.pageSize,
+  }),
   listMediaTags: (...args: unknown[]) => listMediaTagsMock(...args),
   listMediaTypeCounts: (...args: unknown[]) => listMediaTypeCountsMock(...args),
   countMediaItems: (...args: unknown[]) => countMediaItemsMock(...args),

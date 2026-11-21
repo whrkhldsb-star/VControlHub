@@ -16,8 +16,7 @@ vi.mock("@/lib/auth/require-api-permission", () => ({
 }));
 
 vi.mock("@/lib/media/service", () => ({
-  listMediaItems: listMediaItemsMock,
-  countMediaItems: vi.fn(async () => 1),
+  listMediaPage: listMediaItemsMock,
   MEDIA_MAX_PAGE_SIZE: 200,
   scanMediaFromFileEntries: scanMediaFromFileEntriesMock,
 }));
@@ -30,9 +29,7 @@ describe("/api/media", () => {
   it("lists filtered media with storage read permission", async () => {
     vi.clearAllMocks();
     requireApiPermissionMock.mockResolvedValueOnce({ session });
-    listMediaItemsMock.mockResolvedValueOnce([
-      { id: "m_1", mediaType: "image" },
-    ]);
+    listMediaItemsMock.mockResolvedValueOnce({ media: [{ id: "m_1", mediaType: "image" }], total: 1, page: 1, pageSize: 200 });
 
     const response = await GET(
       new Request("https://example.com/api/media?type=image&q=cat&favorite=1&tag=demo"),

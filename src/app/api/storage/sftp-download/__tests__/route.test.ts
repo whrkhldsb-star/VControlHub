@@ -52,6 +52,8 @@ vi.mock("ssh2", () => ({
 
 		sftp(callback: (err: Error | undefined, sftp: unknown) => void) {
 			callback(undefined, {
+				realpath: (file: string, done: (err: null, name: string) => void) => done(null, file),
+				end: vi.fn(),
 				stat: sftpStatMock,
 				createReadStream: sftpCreateReadStreamMock,
 			});
@@ -152,6 +154,15 @@ describe("/api/storage/sftp-download", () => {
 		expect(connectMock).not.toHaveBeenCalled();
 	});
 
+	it("rejects a password node without a pin before realpath or any SSH authentication", async () => {
+		const { resolveStorageSshCredentials } = await import("@/lib/storage/ssh-credentials");
+		const { resolveRemoteRealPath } = await import("@/lib/ssh/client");
+		vi.mocked(resolveStorageSshCredentials).mockReturnValueOnce({ ...resolveStorageSshCredentials(sftpNode as never), hostKeySha256: null });
+		const response = await GET(new Request("https://example.com/api/storage/sftp-download?nodeId=node_1&path=test.txt"));
+		expect(response.status).toBeGreaterThanOrEqual(400);
+		expect(resolveRemoteRealPath).not.toHaveBeenCalled();
+		expect(connectMock).not.toHaveBeenCalled();
+	});
 	it("streams full SFTP downloads through shared private headers", async () => {
 		const response = await GET(
 			new Request("https://example.com/api/storage/sftp-download?nodeId=node_1&path=movies%2Fdemo.mp4"),
@@ -160,6 +171,7 @@ describe("/api/storage/sftp-download", () => {
 		expect(response.status).toBe(200);
 		expect(response.headers.get("accept-ranges")).toBe("bytes");
 		expect(response.headers.get("content-length")).toBe("12");
+		expect(connectMock).toHaveBeenCalledTimes(1);
 		expect(response.headers.get("content-type")).toBe("video/mp4");
 		expect(response.headers.get("cache-control")).toBe("private, no-store");
 		expect(response.headers.get("content-disposition")).toContain("inline");

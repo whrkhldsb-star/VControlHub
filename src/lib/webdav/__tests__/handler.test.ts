@@ -1,6 +1,7 @@
 /** @vitest-environment node */
 import { afterEach, beforeEach, describe, expect, it, vi } from "vitest";
 import { Readable } from "node:stream";
+import { WebDavHttpError } from "@/lib/storage/webdav-client";
 
 /**
  * WebDAV verb handlers. The behaviours pinned here are the ones a client cannot
@@ -36,6 +37,7 @@ const mocks = vi.hoisted(() => ({
   executeRaw: vi.fn(),
   queryRaw: vi.fn(),
   transaction: vi.fn(),
+  openRepresentation: vi.fn(),
   streamStorageFile: vi.fn(),
   statBackingObject: vi.fn(async (): Promise<{ size: number; lastModifiedMs: number; isDirectory?: boolean } | null> => null),
   copyStorageFile: vi.fn(),
@@ -51,6 +53,9 @@ const mocks = vi.hoisted(() => ({
   readStorageUploadMaxBytes: vi.fn(async () => 100 * 1024 * 1024),
 }));
 
+vi.mock("../representation", async (original) => ({
+  ...await original<typeof import("../representation")>(), openRepresentation: mocks.openRepresentation,
+}));
 vi.mock("@/lib/storage/file-overwrite-lock", () => ({ lockStorageFileOverwrite: mocks.lockStorageFileOverwrite }));
 vi.mock("@/lib/db", () => ({
   isUniqueViolation: (e: { code?: string }) => e.code === "P2002",
@@ -171,6 +176,9 @@ function accessCalls() {
 describe("webdav handlers", () => {
   beforeEach(() => {
     vi.clearAllMocks();
+    mocks.openRepresentation.mockImplementation(async () => ({
+      size: 5, etag: '"revision"', close: vi.fn(async () => {}), stream: async () => (await mocks.streamStorageFile()).stream,
+    }));
     mocks.recycledOnPath.mockResolvedValue(null);
     mocks.createManagedFolder.mockResolvedValue({ created: true });
     mocks.assertStorageAccess.mockResolvedValue({ allowed: true });
@@ -400,6 +408,18 @@ describe("webdav handlers", () => {
   });
 
   describe("GET/HEAD", () => {
+    it("recomputes a Range when the pinned remote revision changes before GET", async () => {
+      mocks.fileEntryFindFirst.mockResolvedValue({ name: "remote", relativePath: "remote", entryType: "FILE" });
+      const close = vi.fn(async () => {});
+      mocks.openRepresentation
+        .mockResolvedValueOnce({ size: 10, etag: '"first"', close, stream: async () => { throw new WebDavHttpError(412); } })
+        .mockResolvedValueOnce({ size: 4, etag: '"next"', close });
+      const response = await handleWebDavGetHead({ ...context("remote"), rangeHeader: "bytes=6-8" }, "GET");
+      expect(response.status).toBe(416);
+      expect(response.headers.get("Content-Range")).toBe("bytes */4");
+      expect(close).toHaveBeenCalledTimes(2);
+    });
+
     it("checks read access before touching the index", async () => {
       // Once-only: the beforeEach default (allowed) must keep serving the
       // sibling tests in this describe.
@@ -423,11 +443,13 @@ describe("webdav handlers", () => {
         mimeType: null,
         updatedAt: new Date("2026-03-01T00:00:00Z"),
       });
-      mocks.statBackingObject.mockResolvedValueOnce({ size: 7, lastModifiedMs: 0 });
+      const close = vi.fn();
+      mocks.openRepresentation.mockResolvedValueOnce({ size: 7, close, etag: '"7"' });
 
       const response = await handleWebDavGetHead(context("a.bin"), "HEAD");
 
       expect(response.headers.get("Content-Length")).toBe("7");
+      expect(close).toHaveBeenCalledOnce();
       // A metadata stat, not a read stream: opening one only to close its SSH
       // connection at once failed its SFTP open, reported as an unheard
       // 'error' event (thrown, ending the process). Earlier it leaked the fd
@@ -446,6 +468,7 @@ describe("webdav handlers", () => {
         updatedAt: new Date(),
       });
 
+      mocks.openRepresentation.mockResolvedValueOnce({ size: 100, etag: '"100"', close: vi.fn() });
       const response = await handleWebDavGetHead(
         { ...context("a.bin"), rangeHeader: "bytes=10-19" },
         "HEAD",
@@ -880,6 +903,7 @@ describe("webdav handlers", () => {
       // nor quotaBytes, so COPY could duplicate past its own capacity limit.
       expect(accessCalls()).toEqual([
         expect.objectContaining({ relativePath: "a.bin", operation: "read" }),
+        expect.objectContaining({ relativePath: "b.bin", operation: "write" }),
         expect.objectContaining({ relativePath: "b.bin", operation: "write", writeBytes: 900 }),
       ]);
     });
@@ -907,11 +931,11 @@ describe("webdav handlers", () => {
           ? { id: "f1", entryType: "FILE", relativePath: "a.bin", mimeType: null, size: null }
           : null,
       );
-      mocks.statBackingObject.mockResolvedValueOnce({ size: 512, lastModifiedMs: 0 });
+      mocks.copyStorageFile.mockResolvedValueOnce({ size: 512 });
 
       await copyWith("/api/webdav/n1/b.bin");
 
-      expect(accessCalls()[1]).toMatchObject({ operation: "write", writeBytes: 512 });
+      expect(accessCalls().at(-1)).toMatchObject({ operation: "write", writeBytes: 512 });
       expect(mocks.streamStorageFile).not.toHaveBeenCalled();
     });
 
@@ -924,10 +948,10 @@ describe("webdav handlers", () => {
       expect(mocks.releaseStorageQuotaGuard).toHaveBeenCalledWith(guard);
     });
 
-    it("releases the quota guard when the copy fails", async () => {
+    it("releases the quota guard when publication of a staged copy fails", async () => {
       const guard = { allowed: true, releaseQuotaGuard: vi.fn() };
       mocks.assertStorageAccess.mockResolvedValue(guard);
-      mocks.copyStorageFile.mockRejectedValue(new Error("backend refused"));
+      mocks.moveBackingObject.mockRejectedValueOnce(new Error("backend refused"));
 
       await expect(copyWith("/api/webdav/n1/b.bin")).rejects.toThrow("backend refused");
       expect(mocks.releaseStorageQuotaGuard).toHaveBeenCalledWith(guard);
@@ -1001,7 +1025,7 @@ describe("webdav handlers", () => {
 
       expect(response.status).toBe(200);
       expect(await response.text()).toBe("hello");
-      expect(response.headers.get("ETag")).toMatch(/^W\//);
+      expect(response.headers.get("ETag")).toBe('"revision"');
       // Uploaded bytes never run as a page on the application's origin.
       expect(response.headers.get("X-Content-Type-Options")).toBe("nosniff");
       expect(response.headers.get("Content-Security-Policy")).toBe("sandbox");
@@ -1009,7 +1033,7 @@ describe("webdav handlers", () => {
 
     it("reports an empty GET body as zero bytes", async () => {
       mocks.fileEntryFindFirst.mockResolvedValue({ id: "empty", name: "empty.txt", relativePath: "empty.txt", entryType: "FILE", size: BigInt(0), updatedAt: new Date() });
-      mocks.streamStorageFile.mockResolvedValue({ size: 0, stream: Readable.from([]), close: vi.fn() });
+      mocks.openRepresentation.mockResolvedValueOnce({ size: 0, etag: '"empty"', close: vi.fn(async () => {}), stream: async () => Readable.from([]) });
       const response = await handleWebDavGetHead(context("empty.txt"), "GET");
       expect(response.headers.get("Content-Length")).toBe("0");
       expect(await response.text()).toBe("");
@@ -1178,7 +1202,8 @@ describe("webdav handlers", () => {
       );
 
       expect(response.status).toBe(204);
-      expect(mocks.copyStorageFile).toHaveBeenCalledWith(expect.anything(), "src.txt", "dst.txt", true);
+      expect(mocks.copyStorageFile).toHaveBeenCalledWith(expect.anything(), "src.txt", expect.stringMatching(/\.staged$/), false);
+      expect(mocks.moveBackingObject).toHaveBeenCalledWith(expect.objectContaining({ newRelativePath: "dst.txt" }));
       // A second FileEntry on the same relativePath would violate the unique index.
       expect(mocks.createFileEntry).not.toHaveBeenCalled();
       expect(mocks.fileEntryUpdate).toHaveBeenCalledWith(

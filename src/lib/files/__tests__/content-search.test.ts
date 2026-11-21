@@ -1,5 +1,5 @@
 import { describe, it, expect, vi, beforeEach } from "vitest";
-import { mkdtemp, rm, writeFile } from "node:fs/promises";
+import { mkdir, mkdtemp, rm, writeFile } from "node:fs/promises";
 import os from "node:os";
 import path from "node:path";
 
@@ -119,6 +119,23 @@ describe("searchFileContents", () => {
 				"live.txt",
 				"recycled.txt",
 			]);
+		} finally {
+			await rm(dir, { recursive: true, force: true });
+		}
+	});
+
+	it("filters a matched file whose parent alone is in the recycle bin", async () => {
+		const dir = await mkdtemp(path.join(os.tmpdir(), "vch-content-parent-"));
+		try {
+			for (const folder of ["gone", "gone-too"]) {
+				await mkdir(path.join(dir, folder));
+				await writeFile(path.join(dir, folder, "child.txt"), "match");
+			}
+			findManyMock.mockResolvedValue([{ id: "n", name: "local", driver: "LOCAL", basePath: dir }]);
+			entryFindManyMock.mockImplementation(async ({ where }) =>
+				(where.relativePath?.in ?? where.OR?.[0]?.relativePath.in)?.includes("gone") ? [{ storageNodeId: "n", relativePath: "gone" }] : []);
+			const found = await searchFileContents({ query: "match", nodeId: "n", session: { userId: "u1", roles: ["operator"], currentTeamId: "team-a" } });
+			expect(found.results.map(row => row.relativePath)).toEqual(["gone-too/child.txt"]);
 		} finally {
 			await rm(dir, { recursive: true, force: true });
 		}

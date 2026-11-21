@@ -1,4 +1,6 @@
 import { apiCopy } from "@/lib/i18n/api-copy";
+import { createLogger } from "@/lib/logging";
+import { createReadStream } from "node:fs";
 import { lstat, mkdir, readFile, rename, rm, rmdir, unlink, writeFile } from "node:fs/promises";
 
 import { publishLocalFile } from "./publish-local-file";
@@ -212,11 +214,14 @@ export async function readBackingObject(input: {
     // Enforce the byte cap before buffering the whole file into memory.
     // BusinessError (422) matches the SFTP path so callers can map both to 413.
     if (input.maxBytes !== undefined) {
-      const { stat } = await import("node:fs/promises");
-      const fileStat = await stat(absolutePath);
-      if (fileStat.size > input.maxBytes) {
-        throw new BusinessError(t("backend.storage.remoteReadTooLarge"));
+      const chunks: Buffer[] = [];
+      let bytes = 0;
+      for await (const chunk of createReadStream(absolutePath)) {
+        bytes += chunk.length;
+        if (bytes > input.maxBytes) throw new BusinessError(t("backend.storage.remoteReadTooLarge"));
+        chunks.push(chunk as Buffer);
       }
+      return Buffer.concat(chunks, bytes);
     }
     return readFile(absolutePath);
   }
@@ -431,11 +436,36 @@ export async function moveBackingObject(input: {
   if (stat.isDirectory()) {
     // POSIX rename can replace an empty directory. Reserve it exclusively first.
     // Windows already refuses to replace a directory.
-    if (process.platform !== "win32") await mkdir(target.absolutePath);
-    await rename(source.absolutePath, target.absolutePath);
+    if (process.platform === "win32") return rename(source.absolutePath, target.absolutePath);
+    await mkdir(target.absolutePath);
+    const reserved = await lstat(target.absolutePath);
+    try {
+      await rename(source.absolutePath, target.absolutePath);
+    } catch (error) {
+      await undoMoveTarget(target.absolutePath, reserved, true);
+      throw error;
+    }
     return;
   }
   if (!stat.isFile()) throw new ValidationError(t("backend.storage.pathExceedsRoot"));
   await publishLocalFile(source.absolutePath, target.absolutePath, input.newRelativePath);
-  await unlink(source.absolutePath);
+  try {
+    await unlink(source.absolutePath);
+  } catch (error) {
+    const remaining = await lstat(source.absolutePath).catch(() => null);
+    if (remaining?.ino === stat.ino && remaining.dev === stat.dev) await undoMoveTarget(target.absolutePath, stat, false);
+    else createLogger("storage:move").error("Could not confirm source after link publication", { source: source.absolutePath, target: target.absolutePath });
+    throw error;
+  }
+}
+
+async function undoMoveTarget(target: string, owned: { ino: number; dev: number }, directory: boolean) {
+  try {
+    const current = await lstat(target);
+    if (current.ino !== owned.ino || current.dev !== owned.dev) throw new Error("Target identity changed");
+    if (directory) await rmdir(target);
+    else await unlink(target);
+  } catch (error) {
+    createLogger("storage:move").error("Partial LOCAL move requires reconciliation", { target, error });
+  }
 }

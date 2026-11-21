@@ -1,3 +1,4 @@
+import { createHash, randomUUID } from "node:crypto";
 import { escapeLikeLiteral } from "@/lib/db/like-pattern";
 import { apiCopy } from "@/lib/i18n/api-copy";
 import { NextResponse } from "next/server";
@@ -9,6 +10,7 @@ import { assertStorageAccess, releaseStorageQuotaGuard } from "@/lib/storage/acc
 import { storageAccessDeniedCopy } from "@/lib/storage/access-denied";
 import {
   deleteBackingObject,
+  isMissingBackingObjectError,
   readBackingObject,
   renameBackingObject,
   statBackingObject,
@@ -73,14 +75,14 @@ async function softDeleteSftpIndex(storageNodeId: string, relativePath: string, 
   await prisma.fileEntry.updateMany({
     where: isDirectory
       ? {
-          storageNodeId,
+          storageNodeId, isDeleted: false,
           OR: [
             { relativePath },
             { relativePath: { startsWith: escapeLikeLiteral(normalizedPrefix) } },
           ],
         }
-      : { storageNodeId, relativePath },
-    data: { isDeleted: true },
+      : { storageNodeId, relativePath, isDeleted: false },
+    data: { isDeleted: true, deleteBatchId: randomUUID() },
   });
 }
 
@@ -407,6 +409,8 @@ async function handlePost(body: SftpOpsBody, session: SessionPayload) {
         // Pass the cap into the backend so an UNINDEXED remote file (indexedSize
         // null → the pre-check above is skipped) can never be buffered whole
         // into memory. The stream aborts once it crosses the limit.
+        const probe = () => statBackingObject({ storageNode: node, relativePath: normalizedRelativePath });
+        const beforeRead = await probe();
         let buffer: Buffer;
         try {
           buffer = await readBackingObject({
@@ -461,19 +465,16 @@ async function handlePost(body: SftpOpsBody, session: SessionPayload) {
           encoding = "base64";
         }
 
-        // `lastModifiedMs` is the editor's optimistic-lock token: it sends the
-        // value back on save so a concurrent remote change is refused with 409
-        // instead of being silently overwritten. Best-effort — a node that cannot
-        // stat still serves the read, and the editor then saves without a token
-        // (same behaviour as before this was added).
-        const readStat = await statBackingObject({
-          storageNode: node,
-          relativePath: normalizedRelativePath,
-        });
+        // Older clients use the SFTP modification time. The editor uses the digest of these exact bytes.
+        const readStat = await probe();
+        if (beforeRead?.lastModifiedMs !== readStat?.lastModifiedMs || beforeRead?.size !== readStat?.size) {
+          throw new ConflictError(t("backend.storage.editableFileChangedOnDisk"));
+        }
         return NextResponse.json({
           content,
           encoding,
           size: buffer.length,
+          contentVersion: createHash("sha256").update(buffer).digest("hex"),
           lastModifiedMs: readStat?.lastModifiedMs ?? null,
         });
       }
@@ -500,20 +501,7 @@ async function handlePost(body: SftpOpsBody, session: SessionPayload) {
           storageNodeId: node.id, relativePath: normalizedRelativePath,
           size: writeBytes, mimeType: guessContentType(normalizedRelativePath),
         });
-        // Optimistic lock. The LOCAL editable route (`PUT /api/files/editable/[id]`)
-        // has always refused a write whose `expectedLastModifiedMs` no longer
-        // matches the file on disk; this path had no equivalent, so two people
-        // editing the same remote file silently produced a lost update — whoever
-        // saved second overwrote the other's work with a body derived from a stale
-        // read, and no version snapshot was taken either.
-        //
-        // The token is optional in the schema so non-editor callers keep working,
-        // but the editor always sends it. A 1 ms tolerance mirrors the LOCAL route
-        // (SFTP mtimes are second-granular on some servers, so an exact compare
-        // would false-positive).
-        // Check, snapshot, write and index as one unit per file, like the LOCAL
-        // editor and version restore: two saves that both pass the mtime check
-        // otherwise both "succeed" and the first is in neither file nor history.
+        // The editor returns the digest of the bytes it loaded. Keep strict mtime checks for older clients.
         const releaseFileLock = await lockStorageFileOverwrite(node.id, normalizedRelativePath);
         try {
         await assertNotRecycled(node.id, normalizedRelativePath, "write");
@@ -521,11 +509,20 @@ async function handlePost(body: SftpOpsBody, session: SessionPayload) {
           storageNode: node,
           relativePath: normalizedRelativePath,
         });
-        if (
-          typeof body.expectedLastModifiedMs === "number" &&
-          previousStat && previousStat.lastModifiedMs > 0 &&
-          Math.abs(previousStat.lastModifiedMs - body.expectedLastModifiedMs) > 1000
-        ) {
+        if (body.expectedContentVersion) {
+          if (!previousStat || previousStat.isDirectory || previousStat.size > MAX_INLINE_REMOTE_READ_BYTES) {
+            throw new ConflictError(t("backend.storage.editableFileChangedOnDisk"));
+          }
+          const current = await readBackingObject({
+            storageNode: node, relativePath: normalizedRelativePath, maxBytes: MAX_INLINE_REMOTE_READ_BYTES,
+          }).catch(error => {
+            if (isMissingBackingObjectError(error)) throw new ConflictError(t("backend.storage.editableFileChangedOnDisk"));
+            throw error;
+          });
+          if (createHash("sha256").update(current).digest("hex") !== body.expectedContentVersion) {
+            throw new ConflictError(t("backend.storage.editableFileChangedOnDisk"));
+          }
+        } else if (typeof body.expectedLastModifiedMs === "number" && previousStat?.lastModifiedMs !== body.expectedLastModifiedMs) {
           throw new ConflictError(t("backend.storage.editableFileChangedOnDisk"));
         }
         const indexed = await prisma.fileEntry.findFirst({
@@ -579,6 +576,7 @@ async function handlePost(body: SftpOpsBody, session: SessionPayload) {
         return NextResponse.json({
           success: true,
           byteSize: writeBytes,
+          contentVersion: createHash("sha256").update(body.content).digest("hex"),
           lastModifiedMs: afterWriteStat?.lastModifiedMs ?? null,
         });
         } finally {

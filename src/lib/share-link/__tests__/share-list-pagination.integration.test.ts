@@ -1,10 +1,10 @@
 // @vitest-environment node
 import { randomUUID } from "node:crypto";
-import { afterAll, beforeAll, describe, expect, it } from "vitest";
+import { afterAll, beforeAll, describe, expect, it, vi } from "vitest";
 
 import { prisma } from "@/lib/db";
 
-import { listShareLinkPage } from "../service";
+import { hashShareToken, listShareLinkPage, resolveShareToken, revokeShareLink } from "../service";
 
 /**
  * 205 shares in one customer: the oldest is still active. It used to fall off
@@ -80,4 +80,52 @@ describe.skipIf(process.env.RUN_DATABASE_INTEGRATION_TESTS !== "1")("share list 
     const other = await listShareLinkPage({ userId: "someone", roles: ["operator"], currentTeamId: `${prefix}-other` });
     expect(other.total).toBe(0);
   });
+
+  it.each([
+    { field: "revokedAt", maxDownloads: null },
+    { field: "expiresAt", maxDownloads: null },
+    { field: "expiresAt", maxDownloads: 2 },
+  ] as const)("rechecks $field after a pending claim acquires the row lock (limit $maxDownloads)", async ({ field, maxDownloads }) => {
+    const token = randomUUID();
+    const share = await prisma.shareLink.create({ data: {
+      storageNodeId: prefix, path: "queued.txt", createdBy: prefix, teamId: prefix, maxDownloads, tokenHash: hashShareToken(token),
+    } });
+    let claim: Promise<boolean> | undefined;
+    try {
+      await prisma.$transaction(async tx => {
+        const [locker] = await tx.$queryRaw<Array<{ pid: number }>>`SELECT pg_backend_pid() AS pid FROM share_links WHERE id = ${share.id} FOR UPDATE`;
+        claim = resolveShareToken(token).then(() => true, () => false);
+        // The initial read succeeded. Wait until the claim itself queues behind this transaction.
+        await vi.waitFor(async () => {
+          const blocked = await tx.$queryRaw<Array<{ waiting: boolean }>>`
+            SELECT EXISTS (SELECT FROM pg_stat_activity WHERE ${locker!.pid}::int = ANY(pg_blocking_pids(pid))) AS waiting
+          `;
+          expect(blocked[0]?.waiting).toBe(true);
+        }, { timeout: 6000, interval: 25 });
+        await tx.shareLink.update({ where: { id: share.id }, data: { [field]: new Date(0) } });
+      }, { timeout: 10000 });
+      expect(await claim).toBe(false);
+      expect((await prisma.shareLink.findUniqueOrThrow({ where: { id: share.id } })).accessCount).toBe(0);
+    } finally {
+      await claim;
+      await prisma.shareLink.delete({ where: { id: share.id } });
+    }
+  });
+
+  it("admits one of two simultaneous last downloads and returns only revocation metadata", async () => {
+    const token = randomUUID();
+    const share = await prisma.shareLink.create({ data: {
+      storageNodeId: prefix, path: "one.txt", createdBy: prefix, teamId: prefix, maxDownloads: 1, tokenHash: hashShareToken(token),
+    } });
+    try {
+      const downloads = await Promise.allSettled([resolveShareToken(token), resolveShareToken(token)]);
+      expect(downloads.filter(result => result.status === "fulfilled")).toHaveLength(1);
+      expect(await prisma.shareLink.findUnique({ where: { id: share.id }, select: { accessCount: true } })).toEqual({ accessCount: 1 });
+      const revoked = await revokeShareLink(share.id, prefix, session);
+      expect(revoked).toEqual({ id: share.id, revokedAt: expect.any(Date) });
+    } finally {
+      await prisma.shareLink.delete({ where: { id: share.id } });
+    }
+  });
+
 });

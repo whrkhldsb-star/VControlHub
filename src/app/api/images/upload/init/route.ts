@@ -54,8 +54,8 @@ export async function POST(request: Request) {
           totalSize: body.totalSize,
           session,
           ...(body.chunkSize !== undefined ? { chunkSize: body.chunkSize } : {}),
-          ...(body.storageNodeId ? { storageNodeId: body.storageNodeId } : {}),
-          ...(body.relativePath ? { relativePath: body.relativePath } : {}),
+          // Earlier clients omit an empty directory when the user selects the node root.
+          ...(body.storageNodeId ? { storageNodeId: body.storageNodeId, relativePath: body.relativePath ?? "" } : {}),
         });
         await auditUserAction(
           session.userId,

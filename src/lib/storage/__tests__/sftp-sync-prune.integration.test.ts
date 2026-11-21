@@ -80,6 +80,19 @@ describe.skipIf(process.env.RUN_DATABASE_INTEGRATION_TESTS !== "1")("SFTP sync p
 		]);
 	}, 30_000);
 
+	it("preserves the checksum and size published after the SFTP inventory started", async () => {
+		const entry = await prisma.fileEntry.create({ data: file("race/new.txt") });
+		listRemoteDirectoryMock.mockImplementationOnce(async () => {
+			await prisma.fileEntry.update({ where: { id: entry.id }, data: { size: BigInt(90), checksumSha256: "a".repeat(64) } });
+			return [{ name: "new.txt", type: "file", size: 1, modifyTime: 1 }];
+		});
+		try {
+			const result = await syncSftpDirectoryEntries({ node, remotePath: "race" });
+			expect(result).toMatchObject({ updated: 0, errors: [] });
+			expect(await prisma.fileEntry.findUnique({ where: { id: entry.id } })).toMatchObject({ size: BigInt(90), checksumSha256: "a".repeat(64) });
+		} finally { await prisma.fileEntry.delete({ where: { id: entry.id } }); }
+	});
+
 	it("prunes the node root without touching anything deeper", async () => {
 		listRemoteDirectoryMock.mockResolvedValueOnce([
 			{ name: "docs", longname: "docs", type: "directory", size: 0, modifyTime: 1, accessTime: 1 },

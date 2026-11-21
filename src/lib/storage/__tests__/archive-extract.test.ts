@@ -180,6 +180,23 @@ describe("extraction", () => {
 		}
 	});
 
+	it.each(["tar", "zip"] as const)("validates storage names before publishing %s and tracks the largest member", async kind => {
+		const fixture = kind === "tar" ? tarFixture : zipFixture;
+		const invalid = await write("spaces." + kind, fixture([{ name: "bad /file", data: "a" }]));
+		await expect(planExtraction(invalid, kind)).rejects.toMatchObject({ code: "unsafePath" });
+		const valid = await write("members." + kind, fixture([{ name: "a", data: "one" }, { name: "b", data: "four" }]));
+		expect(await planExtraction(valid, kind)).toMatchObject({ totalBytes: 7, largestFileBytes: 4 });
+	});
+
+	it("stops TAR preview at its expanded byte budget and propagates cancellation", async () => {
+		const { walkTar } = await import("../tar-reader");
+		const archive = await write("bounded.tgz", gzipSync(tarFixture([{ name: "one", data: "small" }, { name: "two", data: "small" }])));
+		const seen: string[] = [];
+		await expect(walkTar(archive, true, async member => { seen.push(member.name); }, { maxExpandedBytes: 1024 })).rejects.toThrow(/expanded byte limit/);
+		expect(seen).toEqual(["one"]);
+		await expect(listArchive(archive, "tar.gz", AbortSignal.abort())).rejects.toThrow();
+	});
+
 	it("refuses traversal before writing anything", async () => {
 		const file = await write("evil.zip", zipFixture([{ name: "fine.txt", data: "x" }, { name: "../../evil.txt", data: "pwned" }]));
 		await expect(planExtraction(file, "zip")).rejects.toMatchObject({ code: "unsafePath" });

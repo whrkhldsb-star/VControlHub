@@ -66,7 +66,7 @@ export function useTextPreviewController(options: {
   const [jumpLine, setJumpLine] = useState("");
   const [previewMeta, setPreviewMeta] = useState<PreviewMetaState>(INITIAL_PREVIEW_META);
   const [draft, setDraftState] = useState("");
-  const [draftVersion, setDraftVersion] = useState<{ updatedAt?: string | null; lastModifiedMs?: number | null }>({});
+  const [draftVersion, setDraftVersion] = useState<{ updatedAt?: string | null; contentVersion?: string; lastModifiedMs?: number | null }>({});
   const [editorFind, setEditorFind] = useState<EditorFindState>(INITIAL_EDITOR_FIND);
   // Every draft change recounts the open find bar's matches (A4-37): the n/m
   // display used to go stale as soon as the user kept typing.
@@ -187,14 +187,14 @@ export function useTextPreviewController(options: {
     type Loaded = {
       content: string;
       truncated: boolean;
-      draftVersion: { updatedAt?: string | null; lastModifiedMs?: number | null };
+      draftVersion: { updatedAt?: string | null; contentVersion?: string; lastModifiedMs?: number | null };
     };
     const readEditable = async (): Promise<Loaded> => {
       if (driver === "SFTP" && nodeId && relativePath) {
         const data = await csrfFetch<{
           content?: string;
           encoding?: "text" | "base64";
-          lastModifiedMs?: number | null;
+          contentVersion?: string; lastModifiedMs?: number | null;
           draft?: EditableDraft;
         }>("/api/storage/sftp-ops", {
           method: "POST",
@@ -214,7 +214,7 @@ export function useTextPreviewController(options: {
         }
         // Optimistic-lock token for the save below. Without it a second
         // editor's save would silently overwrite this one's work.
-        return { content: remoteContent, truncated: false, draftVersion: { lastModifiedMs: data.lastModifiedMs ?? null } };
+        return { content: remoteContent, truncated: false, draftVersion: { contentVersion: data.contentVersion, lastModifiedMs: data.lastModifiedMs ?? null } };
       }
       const data = await csrfFetch<{ draft: EditableDraft }>(`/api/files/editable/${fileEntryId}`, {
         signal: controller.signal,
@@ -452,7 +452,7 @@ export function useTextPreviewController(options: {
         const response = await csrfFetch<{
           success: boolean;
           byteSize: number;
-          lastModifiedMs?: number | null;
+          contentVersion?: string; lastModifiedMs?: number | null;
         }>(`/api/storage/sftp-ops`, {
           method: "POST",
           body: JSON.stringify({
@@ -461,6 +461,7 @@ export function useTextPreviewController(options: {
             path: relativePath,
             content: draft,
             // Refused with 409 when the remote file changed since load.
+            ...(draftVersion.contentVersion ? { expectedContentVersion: draftVersion.contentVersion } : {}),
             ...(typeof draftVersion.lastModifiedMs === "number"
               ? { expectedLastModifiedMs: draftVersion.lastModifiedMs }
               : {}),
@@ -472,6 +473,7 @@ export function useTextPreviewController(options: {
           // Prefer the mtime the server observed after writing; falling back to
           // the local clock would make the *next* save's token disagree with the
           // remote file and 409 against the user's own write.
+          contentVersion: response.contentVersion,
           lastModifiedMs: response.lastModifiedMs ?? null,
         });
         return finishSave(response.byteSize);
@@ -501,6 +503,7 @@ export function useTextPreviewController(options: {
     nodeId,
     relativePath,
     draft,
+    draftVersion.contentVersion,
     draftVersion.lastModifiedMs,
     draftVersion.updatedAt,
     fileEntryId,

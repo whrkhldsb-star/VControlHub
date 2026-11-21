@@ -1,3 +1,5 @@
+import { assertNotRecycled } from "@/lib/storage/archive-access";
+import { getServerLocale, t } from "@/lib/i18n/translations";
 import { apiCopy } from "@/lib/i18n/api-copy";
 import type { SessionPayload } from "@/lib/auth/session";
 import { prisma } from "@/lib/db";
@@ -87,7 +89,8 @@ export async function getFilesListing(
   session: SessionPayload,
   query: ListFilesQuery,
 ) {
-  const [visibleNodes, readable] = await Promise.all([listStorageNodes(session), getReadableStorageScope(session)]);
+  const [visibleNodes, readable, locale] = await Promise.all([listStorageNodes(session), getReadableStorageScope(session), getServerLocale()]);
+  const canManageNodes = sessionHasPermission(session, "storage:manage-node");
   const nodes = visibleNodes.filter((node) => readableStoragePath(readable, node.id, "", true));
   const rawPath = normalizeFilePath(query.path);
   const grouped = resolveStorageNodeGroupedPath(rawPath, nodes);
@@ -111,6 +114,7 @@ export async function getFilesListing(
   if (selectedNode && !readableStoragePath(readable, nodeId, currentPath, true)) {
     throw new ForbiddenError(storageAccessDeniedCopy("no_access"));
   }
+  if (selectedNode && currentPath) await assertNotRecycled(nodeId, currentPath, "read", selectedNode.driver);
   const syncWarning =
     selectedNode && query.sync === "1" && readableStoragePath(readable, nodeId, currentPath)
       ? await synchronizeDirectory(selectedNode, currentPath, session)
@@ -262,11 +266,12 @@ export async function getFilesListing(
           "fallbackHref" in entry.directAccess
             ? entry.directAccess.fallbackHref
             : null,
-        directAccessDescription: entry.directAccess.description,
+        directAccessDescription: canManageNodes ? entry.directAccess.description
+          : t(entry.directAccess.mode === "direct-url" ? "mediaItemCard.directAccess" : "mediaItemCard.managedDownload", locale),
         storageNodeId: entry.storageNode.id,
         storageNodeName: entry.storageNode.name,
         storageNodeDriver: entry.storageNode.driver,
-        storageNodeServerId: entry.storageNode.serverId ?? null,
+        storageNodeServerId: canManageNodes ? entry.storageNode.serverId ?? null : null,
         capabilities:
           capabilities.get(
             getStorageAccessCapabilityKey({
@@ -329,19 +334,19 @@ export async function getFilesListing(
       sourceSummary: scopedNodes.map((node) => `${node.name} (${node.driver})`),
       searchQuery,
       searchScope: query.scope,
-      syncWarning,
+      syncWarning: syncWarning && !canManageNodes ? t("api.storage.sftp.syncFailed", locale) : syncWarning,
       permissions: {
         canEditLocalFiles: sessionHasPermission(session, "storage:write"),
         canDelete: sessionHasPermission(session, "storage:delete"),
         canShare: sessionHasPermission(session, "share:create"),
-        canManageNodes: sessionHasPermission(session, "storage:manage-node"),
+        canManageNodes,
       },
       nodes: nodes.map((node) => ({
         id: node.id,
         name: node.name,
         driver: node.driver,
         // A server path: only for whoever manages nodes (nothing in the browser reads it otherwise).
-        basePath: node.driver === "LOCAL" && sessionHasPermission(session, "storage:manage-node") ? node.basePath : undefined,
+        basePath: node.driver === "LOCAL" && canManageNodes ? node.basePath : undefined,
         isDefault: node.isDefault,
         healthStatus: node.healthStatus,
         teamName: node.teamName ?? null,

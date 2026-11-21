@@ -182,6 +182,18 @@ describe("streamLocalTarGz", () => {
 		expect(child.kill).not.toHaveBeenCalled();
 	});
 
+	it("keeps the HTTP body pending after stdout EOF until tar reports its exit status", async () => {
+		armSpawn();
+		const stream = streamLocalTarGz("/srv/data/reports", "reports");
+		const child = mocks.lastChild!;
+		const response = new Response(Readable.toWeb(stream) as ReadableStream<Uint8Array>);
+		const body = response.text();
+		child.stdout.end("partial");
+		await new Promise<void>(resolve => setImmediate(resolve));
+		child.emit("close", 2, null);
+		await expect(body).rejects.toThrow(/code 2/);
+	});
+
 	it("errors the stream when tar exits non-zero", async () => {
 		armSpawn();
 		const stream = streamLocalTarGz("/srv/data/reports", "reports");

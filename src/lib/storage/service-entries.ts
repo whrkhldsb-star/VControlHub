@@ -1,5 +1,7 @@
+import { lockStorageFileOverwrite } from "./file-overwrite-lock";
+import { getReadableStorageScope, readableStorageScopeWhere, readableStorageScopeSql } from "./readable-scope";
 import { escapeLikeLiteral } from "@/lib/db/like-pattern";
-import { assertNotRecycled } from "@/lib/storage/archive-access";
+import { assertNotRecycled, noRecycledAncestorSql } from "@/lib/storage/archive-access";
 import { stat } from "node:fs/promises";
 import path from "node:path";
 
@@ -473,7 +475,11 @@ export async function restoreFileEntry(
   const largest = files.reduce((max, row) => (row.size ?? BigInt(0)) > max ? row.size! : max, BigInt(0));
   const capacity = await assertStorageAccess({ session: actor, storageNodeId: current.storageNodeId, relativePath: current.relativePath, operation: "delete", writeBytes: bytes, largestFileBytes: largest });
   if (!capacity.allowed) throw new BusinessError(storageAccessDeniedCopy(capacity.reason));
+  let releasePath: (() => Promise<void>) | undefined;
   try {
+    releasePath = await lockStorageFileOverwrite(current.storageNodeId, current.relativePath);
+    const slash = current.relativePath.lastIndexOf("/");
+    if (slash >= 0) await assertNotRecycled(current.storageNodeId, current.relativePath.slice(0, slash), "write", current.storageNode.driver);
     const batch = [current, ...children];
     for (const member of batch) {
       await assertDeletedEntryStillExists({ ...member, storageNode: current.storageNode });
@@ -502,15 +508,15 @@ export async function restoreFileEntry(
       where: { ...restoreWhere, id: current.id, relativePath: current.relativePath, updatedAt: current.updatedAt },
       data,
     });
-  } finally { await releaseStorageQuotaGuard(capacity); }
+  } finally {
+    try { await releasePath?.(); } finally { await releaseStorageQuotaGuard(capacity); }
+  }
 }
 
 type FileEntryPageOptions = { take?: number; skip?: number; cursor?: string; ids?: string[] };
 
-async function visibleFilePageIds(storageNodeId: string | undefined, options: FileEntryPageOptions, session?: TeamSession | null) {
+async function visibleFilePageIds(storageNodeId: string | undefined, options: FileEntryPageOptions, session?: TeamSession | null, readable?: Awaited<ReturnType<typeof getReadableStorageScope>>) {
   const { take, skip, cursor } = buildPaginationArgs(options);
-  // The file manager has already paged these visible ids. Hydration checks their current paths again.
-  if (options.ids && options.ids.length <= take && !skip && !cursor) return options.ids;
   if (options.ids?.length === 0 || take === 0) return [];
   const teamId = session && teamWhere(session).teamId;
   const direction = take < 0 ? Prisma.sql`DESC` : Prisma.sql`ASC`;
@@ -520,7 +526,7 @@ async function visibleFilePageIds(storageNodeId: string | undefined, options: Fi
     : Prisma.empty;
   const rows = await prisma.$queryRaw<Array<{ id: string }>>(Prisma.sql`
     SELECT e.id FROM file_entries e
-    WHERE e."isDeleted" = false AND e."relativePath" !~ ${storageStagingPathRegex}
+    WHERE e."isDeleted" = false AND ${readableStorageScopeSql(readable)} AND ${noRecycledAncestorSql} AND e."relativePath" !~ ${storageStagingPathRegex}
       ${storageNodeId ? Prisma.sql`AND e."storageNodeId" = ${storageNodeId}` : Prisma.empty}
       ${teamId ? Prisma.sql`AND e."storageNodeId" IN (SELECT id FROM "StorageNode" WHERE "teamId" = ${teamId})` : Prisma.empty}
       ${options.ids ? Prisma.sql`AND e.id IN (${Prisma.join(options.ids)})` : Prisma.empty}
@@ -536,12 +542,14 @@ export async function listFileEntries(
   options: FileEntryPageOptions = {},
   session?: TeamSession | null,
 ) {
-  const ids = await visibleFilePageIds(storageNodeId, options, session);
+  const readable = session ? await getReadableStorageScope(session) : null;
+  const ids = await visibleFilePageIds(storageNodeId, options, session, readable);
   if (!ids.length) return [];
   const where = {
     isDeleted: false,
     ...(storageNodeId ? { storageNodeId } : {}),
     id: { in: ids },
+    ...(readable ? { AND: [readableStorageScopeWhere(readable)] } : {}),
     ...storageNodeTeamFilter(session),
   };
 
@@ -608,8 +616,10 @@ export async function listDeletedFileEntries(
   options: { take?: number; skip?: number; cursor?: string } = {},
   session?: TeamSession | null,
 ) {
+  const readable = session ? await getReadableStorageScope(session) : null;
   const where = {
     isDeleted: true,
+    ...(readable ? { AND: [readableStorageScopeWhere(readable)] } : {}),
     ...(storageNodeId ? { storageNodeId } : {}),
     ...storageNodeTeamFilter(session),
   };

@@ -306,6 +306,9 @@ async function serveShareIn(
 	}
 	const { path: childPath, archive, inline } = query;
 	const wantsArchive = archive;
+	if (wantsArchive && share.entryType !== "DIRECTORY") {
+		return denyAfterClaim(apiError({ code: "VALIDATION_FAILED", message: t("apiShareToken.notPackagable", locale), status: 400 }));
+	}
 	if (share.entryType === "DIRECTORY") {
 		if (wantsArchive) {
 			targetPath = share.path;
@@ -329,7 +332,7 @@ async function serveShareIn(
 		}
 	} else if (share.entryType !== "FILE") {
 		return denyAfterClaim(apiError({ code: "VALIDATION_FAILED", message: t("apiShareToken.notDownloadable", locale), status: 400 }));
-		}
+	}
 	try {
 		await assertShareTargetNotDeleted(share.storageNodeId, targetPath, node.driver);
 	} catch {
@@ -400,14 +403,6 @@ async function serveShareIn(
 		} catch (err) {
 			return denyAfterClaim(apiError({ code: "VALIDATION_FAILED", message: getErrorMessage(err, t("apiShareToken.missingRemoteCredentials", locale)), status: 400 }));
 		}
-		try {
-			remotePath = await assertRemotePathContained(credentials, node.basePath, remotePath);
-		} catch (err) {
-			if (err instanceof ValidationError) {
-				return denyAfterClaim(apiError({ code: "VALIDATION_FAILED", message: t("apiShareToken.invalidPath", locale), status: 400 }));
-			}
-			return denyAfterClaim(apiError({ code: "NOT_FOUND", message: t("apiShareToken.remoteNotFound", locale), status: 404 }));
-		}
 		let client: Client | null = null;
 		try {
 			const agentOnly = Boolean(
@@ -422,6 +417,7 @@ async function serveShareIn(
 					}));
 				}
 				try {
+					remotePath = await assertRemotePathContained(credentials, node.basePath, remotePath);
 					const buffer = await readRemoteFile({ ...credentials, remotePath });
 					return fileResponse(Readable.from(buffer), { size: buffer.length, fileName, inline: inline && !wantsArchive });
 				} catch {
@@ -447,10 +443,8 @@ async function serveShareIn(
 				readyTimeout: 15000,
 				timeout: 10000,
 			});
+			remotePath = await assertRemotePathContained(credentials, node.basePath, remotePath, client);
 			if (wantsArchive) {
-				if (share.entryType !== "DIRECTORY") {
-					return denyAfterClaim(apiError({ code: "VALIDATION_FAILED", message: t("apiShareToken.notPackagable", locale), status: 400 }));
-				}
 				const archiveClient = client;
 				const stream = await openManagedArchive({
 					storageNodeId: node.id,
@@ -458,17 +452,21 @@ async function serveShareIn(
 					signal: request.signal,
 					open: (excluded) => streamRemoteTarGz(archiveClient, node, remotePath, excluded),
 				});
+				const response = archiveStreamResponse(stream, safeArchiveName(share.name || fileName));
 				closeSshClientOnStreamEnd(stream, client);
 				client = null;
-				return archiveStreamResponse(stream, safeArchiveName(share.name || fileName));
+				return response;
 			}
 			const { stream, size } = await openSftpFile(client, remotePath);
-			stream.on("close", () => client?.end());
-			stream.on("error", () => client?.end());
-			return fileResponse(stream, { size, fileName, inline: inline && !wantsArchive }, SFTP_TRANSFER_IDLE_TIMEOUT_MS);
-		} catch {
-			client?.end();
+			const response = fileResponse(stream, { size, fileName, inline }, SFTP_TRANSFER_IDLE_TIMEOUT_MS);
+			closeSshClientOnStreamEnd(stream, client);
+			client = null;
+			return response;
+		} catch (error) {
+			if (error instanceof ValidationError) return denyAfterClaim(apiError({ code: "VALIDATION_FAILED", message: t("apiShareToken.invalidPath", locale), status: 400 }));
 			return denyAfterClaim(apiError({ code: "NOT_FOUND", message: t("apiShareToken.remoteNotFound", locale), status: 404 }));
+		} finally {
+			client?.end();
 		}
 	}
 

@@ -80,6 +80,17 @@ describe.skipIf(process.env.RUN_DATABASE_INTEGRATION_TESTS !== "1")("storage gra
     return decision.allowed ? "allowed" : decision.reason;
   };
 
+  it("scopes both the dashboard total and node count to visible paths", async () => {
+    const { getStorageOverview } = await import("../service-overview");
+    await grant("visible", {});
+    mkdirSync(join(root, "visible"), { recursive: true });
+    await file("visible/one", 3);
+    await file("hidden", 100);
+    const result = await getStorageOverview(session, { includeEntries: false });
+    expect(result.stats.totalEntries).toBe(1);
+    expect(result.nodes.find(node => node.id === prefix)?.fileCount).toBe(1);
+  });
+
   it("restoring a version larger than the grant's current maxFileBytes is refused and leaves the file as is", async () => {
     mkdirSync(join(root, "r"), { recursive: true });
     const entry = await file("r/report.txt", 500);

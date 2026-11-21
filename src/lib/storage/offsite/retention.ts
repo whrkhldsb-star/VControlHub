@@ -2,6 +2,7 @@
  * Offsite (S3) retention: delete objects under pathPrefix older than retentionDays.
  * UI documents this as a lifecycle job; implement here so the setting is not dead.
  */
+import { escapeLikeLiteral } from "@/lib/db/like-pattern";
 import { offsiteDestination } from "./destination";
 import { prisma } from "@/lib/db";
 import { createLogger } from "@/lib/logging";
@@ -15,6 +16,8 @@ export type OffsitePruneSummary = {
   skipped?: string;
   listed: number;
   deleted: number;
+  deletedVersions: number;
+  hiddenCurrent: number;
   errors: string[];
   retentionDays: number;
   cutoffIso: string;
@@ -32,7 +35,7 @@ export async function pruneOffsiteObjects(options?: {
       enabled: false,
       skipped: "offsite disabled",
       listed: 0,
-      deleted: 0,
+      deleted: 0, deletedVersions: 0, hiddenCurrent: 0,
       errors: [],
       retentionDays: config.retentionDays,
       cutoffIso: now.toISOString(),
@@ -44,7 +47,7 @@ export async function pruneOffsiteObjects(options?: {
       enabled: true,
       skipped: issues.join("; "),
       listed: 0,
-      deleted: 0,
+      deleted: 0, deletedVersions: 0, hiddenCurrent: 0,
       errors: [],
       retentionDays: config.retentionDays,
       cutoffIso: now.toISOString(),
@@ -65,9 +68,11 @@ export async function pruneOffsiteObjects(options?: {
   // The newest offsite copy of each kind is never pruned by age: if uploads
   // have been failing for longer than the window, age alone removed the last
   // copy there was.
-  const protectedKeys = await newestOffsiteKeys(offsiteDestination(config));
+  const protectedObjects = await newestOffsiteObjects(offsiteDestination(config));
   let listed = 0;
   let deleted = 0;
+  let deletedVersions = 0;
+  let hiddenCurrent = 0;
   const errors: string[] = [];
   let errorCount = 0;
   const warn = (message: string, key: string, error: unknown) => {
@@ -82,6 +87,40 @@ export async function pruneOffsiteObjects(options?: {
   const recoveryPrefix = `${prefix}recovery/`;
   const recovery: Array<{ key: string; size: number; at: number }> = [];
 
+  const destination = offsiteDestination(config);
+  const versionedKeys = new Set<string>();
+  let cursor: string | undefined;
+  while (deleted < maxDeletes) {
+    const rows: Array<{ id: string; offsiteKey: string | null; offsiteVersionId: string | null }> = await prisma.vpsBackupRecord.findMany({
+      where: { offsiteDestination: destination, offsiteKey: { startsWith: escapeLikeLiteral(prefix) }, offsiteVersionId: { not: null }, offsiteUploadedAt: { lt: cutoff } },
+      select: { id: true, offsiteKey: true, offsiteVersionId: true }, orderBy: { id: "asc" }, take: 200,
+      ...(cursor ? { cursor: { id: cursor }, skip: 1 } : {}),
+    });
+    for (const row of rows) {
+      const { offsiteKey: key, offsiteVersionId: version } = row;
+      if (!key || !version || protectedObjects.unversioned.has(key) || protectedObjects.versions.get(key)?.has(version) || deleted >= maxDeletes) continue;
+      versionedKeys.add(key);
+      try {
+        assertDeletableObjectKey(key);
+        if (!key.startsWith(prefix)) throw new Error("Object key outside the listed prefix");
+        // Keep the ledger retryable on S3 failure or an uncertain transaction commit.
+        const removed = await prisma.$transaction(async tx => {
+          const result = await tx.vpsBackupRecord.updateMany({
+            where: { id: row.id, offsiteKey: key, offsiteVersionId: version, offsiteDestination: destination, offsiteUploadedAt: { lt: cutoff } },
+            data: { offsiteKey: null, offsiteUploadedAt: null, offsiteVersionId: null },
+          });
+          return result.count ? client.deleteObject(key, version) : null;
+        });
+        if (removed === "deleted") {
+          deleted++;
+          deletedVersions++;
+        }
+      } catch (error) { warn("offsite version prune failed", key, error); }
+    }
+    if (rows.length < 200) break;
+    cursor = rows[rows.length - 1]!.id;
+  }
+
   const remove = async ({ key, size }: Pick<S3Object, "key" | "size">): Promise<boolean> => {
     try {
       // Expire the references together before removing their object. A database failure leaves the
@@ -90,9 +129,11 @@ export async function pruneOffsiteObjects(options?: {
       const data = { offsiteKey: null, offsiteUploadedAt: null, offsiteSize: String(size) };
       await prisma.$transaction([
         prisma.backupRecord.updateMany({ where: { offsiteKey: key }, data }),
-        prisma.vpsBackupRecord.updateMany({ where: { offsiteKey: key, offsiteDestination: offsiteDestination(config) }, data }),
+        prisma.vpsBackupRecord.updateMany({ where: { offsiteKey: key, offsiteVersionId: null, offsiteDestination: destination }, data }),
       ]);
-      await client.deleteObject(key);
+      const outcome = await client.deleteObject(key);
+      if (outcome === "absent") return false;
+      if (outcome === "hidden") hiddenCurrent++;
       deleted += 1;
       return true;
     } catch (err) {
@@ -123,7 +164,7 @@ export async function pruneOffsiteObjects(options?: {
         newestRecovery = { key: obj.key, at: lastModified.getTime() };
       }
       if (lastModified >= cutoff) continue;
-      if (protectedKeys.has(obj.key)) continue;
+      if (protectedObjects.unversioned.has(obj.key) || protectedObjects.versions.has(obj.key) || versionedKeys.has(obj.key)) continue;
       if (isRecovery) {
         recovery.push({ key: obj.key, size: obj.size, at: lastModified.getTime() }); // decided below, once the newest bundle is known
         continue;
@@ -141,7 +182,7 @@ export async function pruneOffsiteObjects(options?: {
 
   logger.info("offsite prune finished", {
     listed,
-    deleted,
+    deleted, deletedVersions, hiddenCurrent,
     errors: errorCount,
     retentionDays,
     cutoff: cutoff.toISOString(),
@@ -150,7 +191,7 @@ export async function pruneOffsiteObjects(options?: {
   return {
     enabled: true,
     listed,
-    deleted,
+    deleted, deletedVersions, hiddenCurrent,
     errors,
     retentionDays,
     cutoffIso: cutoff.toISOString(),
@@ -158,7 +199,7 @@ export async function pruneOffsiteObjects(options?: {
 }
 
 /** The newest uploaded offsite object per backup type, and per server and type for VPS backups. */
-async function newestOffsiteKeys(destination: string): Promise<Set<string>> {
+async function newestOffsiteObjects(destination: string) {
   const [app, vps, legacy] = await Promise.all([
     prisma.backupRecord.findMany({
       where: { offsiteKey: { not: null } },
@@ -170,10 +211,19 @@ async function newestOffsiteKeys(destination: string): Promise<Set<string>> {
       where: { offsiteKey: { not: null }, offsiteDestination: destination },
       orderBy: [{ serverId: "asc" }, { backupType: "asc" }, { offsiteUploadedAt: "desc" }, { id: "desc" }],
       distinct: ["serverId", "backupType"],
-      select: { offsiteKey: true },
+      select: { offsiteKey: true, offsiteVersionId: true },
     }),
     prisma.vpsBackupRecord.findMany({ where: { offsiteKey: { not: null }, offsiteDestination: null }, select: { offsiteKey: true } }),
   ]);
-  return new Set([...app, ...vps, ...legacy].map((row) => row.offsiteKey!).filter(Boolean));
+  const unversioned = new Set([...app, ...legacy].flatMap(row => row.offsiteKey ? [row.offsiteKey] : []));
+  const versions = new Map<string, Set<string>>();
+  for (const { offsiteKey, offsiteVersionId } of vps) {
+    if (!offsiteKey) continue;
+    if (!offsiteVersionId) { unversioned.add(offsiteKey); continue; }
+    const kept = versions.get(offsiteKey) ?? new Set<string>();
+    kept.add(offsiteVersionId);
+    versions.set(offsiteKey, kept);
+  }
+  return { unversioned, versions };
 }
 

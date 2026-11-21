@@ -104,6 +104,16 @@ describe.skipIf(process.env.RUN_DATABASE_INTEGRATION_TESTS !== "1")("directory s
 		expect((await prisma.fileEntry.findUniqueOrThrow({ where })).updatedAt).toEqual(earlier);
 	});
 
+	it("hides still-active files below a separately recycled folder from directory shares", async () => {
+		await prisma.fileEntry.createMany({ data: [
+			{ storageNodeId: id, relativePath: "branch/bin", name: "bin", entryType: "DIRECTORY", isDeleted: true },
+			{ storageNodeId: id, relativePath: "branch/bin/hidden", name: "hidden", entryType: "FILE" },
+			{ storageNodeId: id, relativePath: "branch/binary/visible", name: "visible", entryType: "FILE" },
+		] });
+		const files = await listShareDirectoryFiles({ entryType: "DIRECTORY", path: "branch", storageNodeId: id });
+		expect(files.map(file => file.name)).toEqual(["visible"]);
+	});
+
 	it("keeps the index when the folder cannot be read", async () => {
 		await prisma.fileEntry.create({ data: { storageNodeId: id, relativePath: "missing/a.txt", name: "a.txt", entryType: "FILE", size: BigInt(1), updatedAt: new Date(Date.now() - 60_000) } });
 		await listShareDirectoryFiles({ entryType: "DIRECTORY", path: "missing", storageNodeId: id, storageNode: { basePath, driver: "LOCAL" } });

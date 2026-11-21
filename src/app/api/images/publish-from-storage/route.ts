@@ -122,7 +122,7 @@ export async function POST(request: Request) {
       }
 
       // Read file from storage after the exact storage path has been authorized.
-      const buffer = await readStorageFileBuffer(storageNode, relativePath);
+      const buffer = await readStorageFileBuffer(storageNode, relativePath, MAX_IMAGE_BYTES);
       if (buffer.byteLength > MAX_IMAGE_BYTES) {
         throw new ValidationError(t("api.image.fileTooLarge", locale));
       }

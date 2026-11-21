@@ -8,7 +8,8 @@ import { requirePermission } from "@/lib/auth/authorization";
 import { teamWhere } from "@/lib/auth/team-scope";
 import { prisma } from "@/lib/db";
 import { serverT, withServerActionLocale } from "@/lib/i18n/server-locale";
-import { assertStorageAccess } from "@/lib/storage/access-control";
+import { moveMeasurement } from "@/lib/storage/move-capacity";
+import { assertStorageAccess, releaseStorageQuotaGuard } from "@/lib/storage/access-control";
 import { storageAccessDeniedCopy } from "@/lib/storage/access-denied";
 import { createFileEntry } from "@/lib/storage/service";
 import { tryAcquireAdvisoryLock } from "@/lib/concurrency/advisory-lock";
@@ -79,21 +80,6 @@ async function createFolderActionImpl(
 
     const relativePath = pathResult.path;
 
-    const existing = await prisma.fileEntry.findFirst({
-      where: {
-        storageNodeId,
-        relativePath,
-        isDeleted: false,
-      },
-      select: { id: true },
-    });
-
-    if (existing) {
-      return {
-        error: t("storagePage.action.folderAlreadyExists", { path: relativePath }),
-      } satisfies StorageActionState;
-    }
-
     const storageNode = await prisma.storageNode.findFirst({
       where: { id: storageNodeId, ...teamWhere(session) },
       select: {
@@ -137,6 +123,21 @@ async function createFolderActionImpl(
       if (!release) {
         return {
           error: apiCopy("apiCopy.files.op.busy"),
+        } satisfies StorageActionState;
+      }
+
+      const existing = await prisma.fileEntry.findFirst({
+        where: {
+          storageNodeId,
+          relativePath,
+          isDeleted: false,
+        },
+        select: { id: true },
+      });
+
+      if (existing) {
+        return {
+          error: t("storagePage.action.folderAlreadyExists", { path: relativePath }),
         } satisfies StorageActionState;
       }
 
@@ -235,6 +236,7 @@ async function renameFileEntryActionImpl(
         name: true,
         entryType: true,
         updatedAt: true,
+        size: true,
         relativePath: true,
         storageNodeId: true,
         storageNode: {
@@ -284,7 +286,8 @@ async function renameFileEntryActionImpl(
       session,
       storageNodeId: entry.storageNodeId,
       relativePath: newRelativePath,
-      operation: "write",
+      operation: "write", writeBytes: entry.size, movedFrom: entry.relativePath,
+      measureMove: moveMeasurement(entry.storageNode, entry),
     });
     if (!destinationAccess.allowed) {
       return {
@@ -296,8 +299,10 @@ async function renameFileEntryActionImpl(
     // rename + index rewrite below is not atomic with respect to those
     // operations, and the advisory lock is the established coordination
     // point (executeMoveFile / executeCopyFile / executeDeleteFile).
-    const release = await tryAcquireAdvisoryLock("storage-file-operation", entry.storageNodeId);
-    if (!release) return { error: apiCopy("apiCopy.files.op.busy") };
+    let release;
+    try { release = await tryAcquireAdvisoryLock("storage-file-operation", entry.storageNodeId); }
+    catch (error) { await releaseStorageQuotaGuard(destinationAccess); throw error; }
+    if (!release) { await releaseStorageQuotaGuard(destinationAccess); return { error: apiCopy("apiCopy.files.op.busy") }; }
     let releasePaths: (() => Promise<void>) | undefined;
     try {
     releasePaths = await lockStorageFileOverwrite(entry.storageNodeId, newRelativePath, entry.relativePath);
@@ -366,6 +371,8 @@ async function renameFileEntryActionImpl(
       } satisfies StorageActionState;
     }
 
+    await assertNotRecycled(entry.storageNodeId, newRelativePath, "write");
+    await destinationAccess.verifyMove?.();
     await renameBackingObject({
       storageNode: entry.storageNode,
       oldRelativePath: entry.relativePath,
@@ -456,7 +463,7 @@ async function renameFileEntryActionImpl(
 
     return { success: t("storagePage.action.fileRenamed", { name: normalizedNewName }) } satisfies StorageActionState;
     } finally {
-      try { await releasePaths?.(); } finally { await release(); }
+      try { await releasePaths?.(); } finally { try { await release(); } finally { await releaseStorageQuotaGuard(destinationAccess); } }
     }
   } catch (error) {
     return {

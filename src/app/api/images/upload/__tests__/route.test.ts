@@ -46,8 +46,10 @@ vi.mock("@/lib/storage/access-control", () => ({
 vi.mock("@/lib/image-bed/linked-storage", () => ({
   indexLinkedStorageImage: indexLinkedStorageImageMock,
 }));
+vi.mock("@/lib/storage/file-overwrite-lock", () => ({ lockStorageFileOverwrite: async () => async () => {} }));
 vi.mock("@/lib/db", () => ({
   prisma: {
+    fileEntry: { findFirst: vi.fn() },
     imageUpload: { create: imageCreateMock },
     storageNode: { findFirst: storageFindFirstMock },
   },
@@ -328,6 +330,31 @@ describe("POST /api/images/upload", () => {
     expect(response.status).toBe(failure === "denied" ? 403 : 500);
     expect(imageCreateMock).not.toHaveBeenCalled();
     expect(storageFindFirstMock).not.toHaveBeenCalled();
+    expect(await listFiles(uploadRoot)).toEqual([]);
+  });
+
+  it.each([["", ""], ["gallery\\set", "gallery/set/"]])("indexes the same normalized path it authorizes and writes for directory %s", async (directory, prefix) => {
+    const localRoot = "/tmp/vcontrolhub-image-canonical-test";
+    storageFindFirstMock.mockResolvedValueOnce({ id: "node_1", driver: "LOCAL", basePath: localRoot });
+    try {
+      const response = await POST(uploadRequest({ storageNodeId: "node_1", relativePath: directory }));
+      expect(response.status).toBe(201);
+      const { data } = imageCreateMock.mock.calls[0]![0];
+      expect(data.relativePath).toBe(prefix + data.storageKey);
+      expect(assertStorageAccessMock).toHaveBeenCalledWith(expect.objectContaining({ relativePath: data.relativePath }));
+      expect(indexLinkedStorageImageMock).toHaveBeenCalledWith(expect.objectContaining({ relativePath: data.relativePath }));
+      expect(await listFiles(localRoot + "/" + prefix)).toContain(data.storageKey);
+    } finally { await rm(localRoot, { recursive: true, force: true }); }
+  });
+
+  it("rejects a linked image below a recycled ancestor and rolls back standalone bytes", async () => {
+    const { prisma } = await import("@/lib/db");
+    vi.mocked(prisma.fileEntry.findFirst).mockResolvedValueOnce({ id: "recycled-gallery" } as never);
+    storageFindFirstMock.mockResolvedValueOnce({ id: "node_1", driver: "LOCAL", basePath: uploadRoot });
+    const response = await POST(uploadRequest({ storageNodeId: "node_1", relativePath: "gallery/sub" }));
+    expect(response.status).toBe(409);
+    expect(indexLinkedStorageImageMock).not.toHaveBeenCalled();
+    expect(imageCreateMock).not.toHaveBeenCalled();
     expect(await listFiles(uploadRoot)).toEqual([]);
   });
 

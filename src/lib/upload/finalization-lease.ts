@@ -57,9 +57,14 @@ export async function beginUploadFinalization(sessionId: string, userId: string,
     assertActive,
     async beforeWrite(metadata: Prisma.InputJsonValue) {
       await assertActive();
+      const current = await prisma.mediaUploadSession.findFirst({ where: fence, select: { recoveryMetadata: true } });
+      const prior = current?.recoveryMetadata;
+      const refs = prior && typeof prior === "object" && !Array.isArray(prior) && prior.chunkVersions;
+      const journal = refs && typeof metadata === "object" && !Array.isArray(metadata)
+        ? { ...metadata, chunkVersions: refs } : metadata;
       const changed = await prisma.mediaUploadSession.updateMany({
         where: { ...fence, finalizationLeaseUntil: { gt: new Date() } },
-        data: { recoveryMetadata: metadata },
+        data: { recoveryMetadata: journal },
       });
       if (changed.count !== 1) { lost = true; throw new UploadOutcomeUnknownError(t("backend.storage.uploadOutcomeUnknown")); }
       await assertActive();

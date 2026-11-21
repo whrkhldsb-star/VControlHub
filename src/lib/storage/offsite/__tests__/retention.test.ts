@@ -2,7 +2,7 @@ import { beforeEach, describe, expect, it, vi } from "vitest";
 
 const { listObjects, deleteObject, appRows, vpsRows, appUpdate, vpsUpdate } = vi.hoisted(() => ({
 	listObjects: vi.fn(),
-	deleteObject: vi.fn(async (_key: string) => undefined),
+	deleteObject: vi.fn(async (_key: string, _version?: string): Promise<string> => "deleted"),
 	appRows: vi.fn(),
 	vpsRows: vi.fn().mockResolvedValue([]),
 	appUpdate: vi.fn(async () => ({ count: 1 })),
@@ -20,7 +20,7 @@ vi.mock("../schema", () => ({
 	validateOffsiteConfigForUse: vi.fn(() => []),
 }));
 vi.mock("@/lib/db", () => ({
-	prisma: { $transaction: (updates: Promise<unknown>[]) => Promise.all(updates), backupRecord: { findMany: appRows, updateMany: appUpdate }, vpsBackupRecord: { findMany: vpsRows, updateMany: vpsUpdate } },
+	prisma: { $transaction: (updates: Promise<unknown>[] | ((tx: unknown) => Promise<unknown>)) => typeof updates === "function" ? updates({ vpsBackupRecord: { updateMany: vpsUpdate } }) : Promise.all(updates), backupRecord: { findMany: appRows, updateMany: appUpdate }, vpsBackupRecord: { findMany: vpsRows, updateMany: vpsUpdate } },
 }));
 
 import { pruneOffsiteObjects } from "../retention";
@@ -40,6 +40,19 @@ describe("pruneOffsiteObjects", () => {
 		expect(deleteObject.mock.calls).toEqual([["vch/archive..gz"]]);
 		expect(appUpdate).toHaveBeenCalledTimes(1);
 		expect(vpsUpdate).toHaveBeenCalledTimes(1);
+	});
+
+	it("deletes an owned non-current version by ID and counts S3 delete markers separately", async () => {
+		appRows.mockResolvedValue([]);
+		vpsRows.mockResolvedValueOnce([{ offsiteKey: "vch/vps", offsiteVersionId: "keep-latest" }]).mockResolvedValueOnce([]).mockResolvedValueOnce([
+			{ id: "r1", offsiteKey: "vch/vps", offsiteVersionId: "stored-version" },
+		]);
+		vpsUpdate.mockResolvedValueOnce({ count: 1 });
+		listObjects.mockResolvedValueOnce({ objects: [{ key: "vch/legacy", size: 3, lastModified: "2026-01-01" }] });
+		deleteObject.mockResolvedValueOnce("deleted").mockResolvedValueOnce("hidden");
+		const summary = await pruneOffsiteObjects({ now: new Date("2026-10-20") });
+		expect(deleteObject.mock.calls).toEqual([["vch/vps", "stored-version"], ["vch/legacy"]]);
+		expect(summary).toMatchObject({ deleted: 2, deletedVersions: 1, hiddenCurrent: 1, errors: [] });
 	});
 
 	it("never prunes the newest offsite copy of a kind, however old", async () => {
@@ -75,7 +88,7 @@ describe("pruneOffsiteObjects", () => {
 
 		expect(deleteObject).toHaveBeenCalledWith("vch/2026-01-01/a-database.gz");
 		expect(appUpdate).toHaveBeenCalledWith({ where: { offsiteKey: "vch/2026-01-01/a-database.gz" }, data: { offsiteKey: null, offsiteUploadedAt: null, offsiteSize: "42" } });
-		expect(vpsUpdate).toHaveBeenCalledWith({ where: { offsiteDestination: JSON.stringify(["s3", "https://s3.test", "r", "b"]), offsiteKey: "vch/2026-01-01/a-database.gz" }, data: { offsiteKey: null, offsiteUploadedAt: null, offsiteSize: "42" } });
+		expect(vpsUpdate).toHaveBeenCalledWith({ where: { offsiteVersionId: null, offsiteDestination: JSON.stringify(["s3", "https://s3.test", "r", "b"]), offsiteKey: "vch/2026-01-01/a-database.gz" }, data: { offsiteKey: null, offsiteUploadedAt: null, offsiteSize: "42" } });
 	});
 
 	it("keeps the object available for retry if expiring database references fails", async () => {

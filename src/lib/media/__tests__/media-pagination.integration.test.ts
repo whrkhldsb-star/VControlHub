@@ -4,7 +4,7 @@ import { afterAll, beforeAll, describe, expect, it } from "vitest";
 
 import { prisma } from "@/lib/db";
 
-import { countMediaItems, getMediaNeighbors, listMediaItems, mediaListFiltersFromHref } from "../service";
+import { countMediaItems, listMediaTags, listMediaPage, getMediaNeighbors, listMediaItems, mediaListFiltersFromHref } from "../service";
 
 /**
  * 450 media items of one customer, all sharing one updatedAt (a scan writes
@@ -40,6 +40,26 @@ describe.skipIf(process.env.RUN_DATABASE_INTEGRATION_TESTS !== "1")("media libra
     await prisma.storageNode.deleteMany({ where: { id: prefix } });
     await prisma.team.deleteMany({ where: { id: prefix } });
     await prisma.$disconnect();
+  });
+
+  it("counts all visible tag uses before ranking and clamps a page after removals", async () => {
+    const marker = "tag-pagination";
+    await prisma.mediaItem.createMany({ data: Array.from({ length: 1101 }, (_, i) => ({
+      storageNodeId: prefix, relativePath: marker + "/" + i, name: marker, mimeType: "image/png", mediaType: "image",
+      tags: [i < 550 ? "first" : "second"], favorite: i < 101,
+    })) });
+    const filters = { session, q: marker, favorite: true, page: 2, pageSize: 100 };
+    try {
+      expect((await listMediaTags(session)).slice(0, 2)).toEqual([{ tag: "second", count: 551 }, { tag: "first", count: 550 }]);
+      expect(await listMediaPage(filters)).toMatchObject({ page: 2, total: 101 });
+      await prisma.mediaItem.deleteMany({ where: { storageNodeId: prefix, relativePath: { in: [marker + "/0", marker + "/1"] } } });
+      const result = await listMediaPage(filters);
+      expect(result).toMatchObject({ total: 99, page: 1 });
+      expect(result.media).toHaveLength(99);
+      expect(Object.keys(result.media[0]!.storageNode).sort()).toEqual(["driver", "id", "name", "server"]);
+    } finally {
+      await prisma.mediaItem.deleteMany({ where: { storageNodeId: prefix, name: marker } });
+    }
   });
 
   it("visits every item exactly once across pages despite identical timestamps", async () => {

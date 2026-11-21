@@ -1,3 +1,4 @@
+import { noRecycledAncestorSql } from "@/lib/storage/archive-access";
 import { storageStagingPathRegex } from "@/lib/storage/staging-paths";
 import { escapeLikeLiteral } from "@/lib/db/like-pattern";
 import { Prisma } from "@prisma/client";
@@ -54,9 +55,9 @@ export async function queryFileListing(input: {
       SELECT id, "storageNodeId", "relativePath", name, size, "updatedAt",
         ("entryType" = 'DIRECTORY' OR "mimeType" = 'inode/directory') IS TRUE AS directory,
         substring("relativePath" from length(${prefix}::text) + 1) AS remainder
-      FROM file_entries
+      FROM file_entries e
       WHERE "storageNodeId" IN (${Prisma.join(input.nodeIds)}) AND "isDeleted" = false AND ${readableStorageScopeSql(input.readable)}
-        AND "relativePath" !~ ${storageStagingPathRegex}
+        AND ${noRecycledAncestorSql} AND "relativePath" !~ ${storageStagingPathRegex}
         AND starts_with("relativePath", ${prefix}) AND "relativePath" <> ${input.path}
     ), directory_paths AS (${directoryPaths}), indexed_directories AS MATERIALIZED (
       SELECT * FROM entries WHERE directory
@@ -117,22 +118,22 @@ export async function queryFolderCounts(
     group.children.add(child);
     groups.set(key, group);
   }
-  for (const storageNodeId of rootNodes) {
+  if (rootNodes.size) {
     // The node root: every live entry is below it; its child directories are the first path segments.
-    const [row] = await prisma.$queryRaw<Array<{ fileCount: bigint; folderCount: bigint }>>(Prisma.sql`
-      SELECT count(*) FILTER (WHERE NOT e.directory) AS "fileCount",
+    const rows = await prisma.$queryRaw<Array<{ storageNodeId: string; fileCount: bigint; folderCount: bigint }>>(Prisma.sql`
+      SELECT e."storageNodeId", count(*) FILTER (WHERE NOT e.directory) AS "fileCount",
         count(DISTINCT e.child) FILTER (WHERE e.directory OR e.depth > 1) AS "folderCount"
       FROM (
-        SELECT split_part("relativePath", '/', 1) AS child,
+        SELECT "storageNodeId", split_part("relativePath", '/', 1) AS child,
           cardinality(string_to_array("relativePath", '/')) AS depth,
           ${directoryExpr} AS directory
-        FROM file_entries
-        WHERE "storageNodeId" = ${storageNodeId} AND NOT "isDeleted" AND "relativePath" <> ''
+        FROM file_entries e
+        WHERE "storageNodeId" IN (${Prisma.join([...rootNodes])}) AND NOT "isDeleted" AND "relativePath" <> ''
           AND ${readableStorageScopeSql(readable)}
-          AND "relativePath" !~ ${storageStagingPathRegex}
-      ) e
+          AND ${noRecycledAncestorSql} AND "relativePath" !~ ${storageStagingPathRegex}
+      ) e GROUP BY e."storageNodeId"
     `);
-    counts.set(`${storageNodeId}:`, { fileCount: Number(row?.fileCount ?? 0), folderCount: Number(row?.folderCount ?? 0) });
+    for (const row of rows) counts.set(`${row.storageNodeId}:`, { fileCount: Number(row.fileCount), folderCount: Number(row.folderCount) });
   }
   for (const group of groups.values()) {
     const depth = group.parent ? group.parent.split("/").length : 0;
@@ -145,12 +146,12 @@ export async function queryFolderCounts(
           split_part("relativePath", '/', ${depth + 2}) AS grandchild,
           cardinality(string_to_array("relativePath", '/')) AS depth,
           ${directoryExpr} AS directory
-        FROM file_entries
+        FROM file_entries e
         WHERE "storageNodeId" = ${group.storageNodeId} AND NOT "isDeleted" AND "relativePath" <> ''
           AND ${group.parent ? Prisma.sql`"relativePath" LIKE ${`${escapeLikeLiteral(group.parent)}/%`} ESCAPE '\\'` : Prisma.sql`TRUE`}
           AND cardinality(string_to_array("relativePath", '/')) > ${depth + 1}
           AND ${readableStorageScopeSql(readable)}
-          AND "relativePath" !~ ${storageStagingPathRegex}
+          AND ${noRecycledAncestorSql} AND "relativePath" !~ ${storageStagingPathRegex}
       ) e
       WHERE e.child IN (${Prisma.join([...group.children])})
       GROUP BY e.child

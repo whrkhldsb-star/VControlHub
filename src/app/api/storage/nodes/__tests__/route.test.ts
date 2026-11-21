@@ -66,6 +66,15 @@ describe("/api/storage/nodes", () => {
     });
   });
 
+  it("returns only node identity and driver to an ordinary storage reader", async () => {
+    requireApiPermissionMock.mockResolvedValueOnce({ session: { roles: [], permissions: ["storage:read"], userId: "reader", currentTeamId: "t" } });
+    const response = await GET(new Request("https://example.com/api/storage/nodes?driver=SFTP"));
+    expect(await response.json()).toEqual({ nodes: [
+      { id: "sftp_1", name: "远端资料盘", driver: "SFTP" },
+      { id: "sftp_host", name: "独立 SFTP 主机", driver: "SFTP" },
+    ] });
+  });
+
   it("returns local storage nodes for image-bed publish selectors", async () => {
     const response = await GET(
       new Request("https://example.com/api/storage/nodes?driver=LOCAL"),

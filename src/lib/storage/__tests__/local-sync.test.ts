@@ -21,6 +21,7 @@ const { prismaMock } = vi.hoisted(() => ({
   },
 }));
 
+vi.mock("@/lib/storage/file-overwrite-lock", () => ({ lockStorageFileOverwrite: async () => async () => {} }));
 vi.mock("@/lib/db", () => ({
   prisma: prismaMock,
   isUniqueViolation: vi.fn(() => false),
@@ -195,7 +196,7 @@ describe("local storage directory sync", () => {
     await sync(root);
     expect(prismaMock.fileEntry.updateMany).toHaveBeenCalledWith({
       where: { storageNodeId: "node_local", isDeleted: false, OR: [{ id: row.id, updatedAt: row.updatedAt }] },
-      data: { isDeleted: true },
+      data: { isDeleted: true, deleteBatchId: expect.any(String) },
     });
   });
 

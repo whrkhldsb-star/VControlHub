@@ -2,6 +2,7 @@ import { escapeLikeLiteral } from "@/lib/db/like-pattern";
 import type { Readable } from "node:stream";
 import path from "node:path";
 import { isStorageStagingPath } from "./staging-paths";
+import { Prisma } from "@prisma/client";
 import { prisma } from "@/lib/db";
 import { ConflictError, NotFoundError, ValidationError } from "@/lib/errors";
 import { t } from "@/lib/i18n/service-translations";
@@ -13,7 +14,7 @@ export function normalizeIndexedPath(relativePath: string): string {
   return path.posix.normalize(relativePath).replace(/^\/+|\/+$/g, "").replace(/^\.$/, "");
 }
 
-function indexedAncestors(relativePath: string) {
+export function indexedAncestors(relativePath: string) {
   const parts = relativePath.split("/");
   return parts.map((_, index) => parts.slice(0, index + 1).join("/"));
 }
@@ -46,6 +47,16 @@ export async function recycledAround(storageNodeId: string, rawRelativePath: str
     below: deleted.filter((entry) => entry.relativePath.startsWith(`${relativePath}/`)).map((entry) => entry.relativePath),
   };
 }
+
+/** The outer query aliases its current FileEntry (or effective media path) as e. */
+export const noRecycledAncestorSql = Prisma.sql`NOT EXISTS (
+  SELECT 1 FROM file_entries bin WHERE bin."storageNodeId" = e."storageNodeId"
+    AND bin."isDeleted" AND (starts_with(e."relativePath", bin."relativePath" || '/')
+      ${process.platform === "win32" ? Prisma.sql`OR (
+        EXISTS (SELECT 1 FROM "StorageNode" n WHERE n.id = e."storageNodeId" AND n.driver = 'LOCAL')
+        AND (lower(e."relativePath") = lower(bin."relativePath") OR starts_with(lower(e."relativePath"), lower(bin."relativePath") || '/'))
+      )` : Prisma.empty})
+)`;
 
 /** A recycled ancestor hides a read target and reserves a write destination. */
 export async function assertNotRecycled(
