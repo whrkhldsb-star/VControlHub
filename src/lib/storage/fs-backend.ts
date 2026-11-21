@@ -3,6 +3,7 @@ import { createLogger } from "@/lib/logging";
 import { createReadStream } from "node:fs";
 import { lstat, mkdir, readFile, rename, rm, rmdir, unlink, writeFile } from "node:fs/promises";
 
+import { renameLocalExclusive } from "@/lib/ssh/rename-exclusive";
 import { publishLocalFile } from "./publish-local-file";
 import { BusinessError, ConflictError, ValidationError } from "@/lib/errors";
 import { expandStorageBasePath, resolveStoragePathWithinBase } from "./path-utils";
@@ -387,7 +388,8 @@ export async function renameBackingObject(input: {
     await mkdir(newPath.path.dirname(newPath.absolutePath), {
       recursive: true,
     });
-    await rename(oldPath.absolutePath, newPath.absolutePath);
+    if (input.noReplace) await renameLocalExclusive(oldPath.absolutePath, newPath.absolutePath);
+    else await rename(oldPath.absolutePath, newPath.absolutePath);
     return;
   }
 

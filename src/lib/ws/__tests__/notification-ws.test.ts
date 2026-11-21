@@ -76,6 +76,45 @@ describe("notification WebSocket lifecycle", () => {
 		expect(server.listenerCount("upgrade")).toBe(1);
 	});
 
+	it("refuses a forced password change at upgrade and at the next session recheck", async () => {
+		const { port } = await listen();
+		const dial = () => new WebSocket(`ws://127.0.0.1:${port}/ws`, { headers: { cookie: "test_session=valid" } });
+		verifySessionTokenMock.mockResolvedValueOnce({ userId: "user-1", mustChangePassword: true });
+		const refused = dial();
+		refused.on("error", () => {});
+		await new Promise(resolve => refused.once("close", resolve));
+		expect(readUnreadCount).not.toHaveBeenCalled();
+		const existing = dial();
+		await once(existing, "open");
+		verifySessionTokenMock.mockResolvedValueOnce({ userId: "user-1", mustChangePassword: true });
+		const closed = once(existing, "close");
+		await recheckSocketSessions(0);
+		await closed;
+	});
+
+	it("admits only the final available socket when two authorizations finish together", async () => {
+		const { port } = await listen();
+		const sessions = Promise.withResolvers<{ userId: string }>();
+		verifySessionTokenMock.mockReturnValue(sessions.promise);
+		const instance = getWsServer()!;
+		const occupied = Array.from({ length: 199 }, () => ({} as WebSocket));
+		for (const socket of occupied) instance.clients.add(socket);
+		try {
+			const connectClient = () => new Promise<boolean>(resolve => {
+				const socket = new WebSocket(`ws://127.0.0.1:${port}/ws`, { headers: { cookie: "test_session=valid" } });
+				socket.on("error", () => resolve(false));
+				socket.once("open", () => resolve(true));
+			});
+			const pending = [connectClient(), connectClient()];
+			await vi.waitFor(() => expect(verifySessionTokenMock).toHaveBeenCalledTimes(2));
+			sessions.resolve({ userId: "user-1" });
+			expect((await Promise.all(pending)).sort()).toEqual([false, true]);
+			expect(instance.clients.size).toBe(200);
+		} finally {
+			for (const socket of occupied) instance.clients.delete(socket);
+		}
+	});
+
 	it("rejects a malformed upgrade URL without disrupting the HTTP listener", async () => {
 		const { port } = await listen();
 		const socket = connect(port, "127.0.0.1");

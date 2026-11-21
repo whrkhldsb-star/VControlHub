@@ -5,9 +5,10 @@ import { spawnSync } from "node:child_process";
 import { chmodSync, mkdtempSync, rmSync, writeFileSync } from "node:fs";
 import { tmpdir } from "node:os";
 import { join } from "node:path";
-import { describe, it, expect } from "vitest";
+import { describe, it, expect, vi } from "vitest";
 
 import {
+  detectOsDialect,
   parseOsRelease,
   dialectFromOsRelease,
   serviceCommand,
@@ -16,6 +17,19 @@ import {
   DEFAULT_DIALECT,
   type OsDialect,
 } from "../os-dialect";
+
+const { remote } = vi.hoisted(() => ({ remote: vi.fn() }));
+vi.mock("../client", () => ({ execRemoteCommand: remote }));
+
+it("timestamps a remote uname fallback and rejects an unavailable remote probe", async () => {
+  const ssh = { host: "fixture", port: 22, username: "user" };
+  remote.mockRejectedValueOnce(new Error("connection lost"));
+  await expect(detectOsDialect(ssh)).rejects.toThrow("connection lost");
+  remote.mockResolvedValueOnce({ stdout: "", exitCode: 1 }).mockResolvedValueOnce({ stdout: "", exitCode: 1 });
+  await expect(detectOsDialect(ssh)).rejects.toThrow();
+  remote.mockResolvedValueOnce({ stdout: "", exitCode: 1 }).mockResolvedValueOnce({ stdout: "Linux alpine", exitCode: 0 });
+  await expect(detectOsDialect(ssh)).resolves.toMatchObject({ distroName: "Alpine (uname fallback)", detectedAt: expect.any(String) });
+});
 
 // Helper: build a full OsDialect from a base with overrides
 function makeDialect(overrides: Partial<OsDialect>): OsDialect {

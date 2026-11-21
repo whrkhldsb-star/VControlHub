@@ -443,6 +443,19 @@ describe("compose project helpers", () => {
     expect(engineStartCalls).toHaveLength(1);
   });
 
+  it("submits each restart once when one container's result is unknown", async () => {
+    const rows = ["first", "second"].map(id => container({ id, project: "site", state: "running" }));
+    const list = { result: { ok: true, status: 200, data: rows }, scope: hubScope };
+    dockerRequestMock.mockResolvedValueOnce(list)
+      .mockResolvedValueOnce({ result: { ok: true, status: 204, data: null }, scope: hubScope })
+      .mockRejectedValueOnce(new Error("reply lost"));
+    runFileImpl.mockRejectedValue(Object.assign(new Error("compose unavailable"), { code: 1, stderr: "no configuration file" }));
+    await expect(runComposeProjectAction({ project: "site", action: "restart" })).rejects.toThrow();
+    expect(runFileImpl).not.toHaveBeenCalled();
+    expect(dockerRequestMock.mock.calls.map(([path]) => path).filter(path => String(path).endsWith("/restart")))
+      .toEqual(["/containers/first/restart", "/containers/second/restart"]);
+  });
+
   it("does not fall back when compose fails with a business error containing 'not found'", async () => {
     dockerRequestMock.mockResolvedValueOnce({
       result: {

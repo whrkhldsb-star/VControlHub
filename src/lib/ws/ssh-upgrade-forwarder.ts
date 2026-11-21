@@ -17,6 +17,8 @@
  * SSH state, so a web-tier restart still drops the browser socket but never
  * the gateway's server-side session.
  */
+import { PEER_SIGNATURE_HEADER, signUpgradePeer } from "./pre-auth-limiter";
+import { PEER_ADDRESS_HEADER } from "@/lib/http/peer-address";
 import { connect } from "node:net";
 import type { IncomingMessage } from "node:http";
 import type { Duplex } from "node:stream";
@@ -105,12 +107,15 @@ export function forwardSshUpgrade(
 		logger.debug("Forwarded /ssh upgrade to gateway", { port });
 		// Replay the original upgrade request verbatim — headers, session cookie
 		// and handshake query are exactly what the gateway authenticates on.
+		const peer = request.socket?.remoteAddress ?? "";
+		const signature = signUpgradePeer(peer, request.headers["sec-websocket-key"], env.SSH_WS_SECRET);
 		upstream.write(
 			`${request.method ?? "GET"} ${request.url} HTTP/1.1\r\n` +
 			Object.entries(request.headers)
-				.filter(([name]) => name.toLowerCase() !== "connection")
+				.filter(([name]) => !["connection", PEER_ADDRESS_HEADER, PEER_SIGNATURE_HEADER].includes(name.toLowerCase()))
 				.map(([name, value]) => `${name}: ${value}`)
 				.join("\r\n") +
+			(signature ? `\r\n${PEER_ADDRESS_HEADER}: ${peer}\r\n${PEER_SIGNATURE_HEADER}: ${signature}` : "") +
 			"\r\nConnection: Upgrade\r\n\r\n",
 		);
 		if (head.length > 0) upstream.write(head);

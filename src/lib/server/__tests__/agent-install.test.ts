@@ -1,29 +1,34 @@
 /** @vitest-environment node */
+import { execFile } from "node:child_process";
+import { chmod, mkdir, mkdtemp, readFile, rm, writeFile } from "node:fs/promises";
+import { tmpdir } from "node:os";
+import path from "node:path";
+import { promisify } from "node:util";
 import { beforeEach, describe, expect, it, vi } from "vitest";
 
 const mocks = vi.hoisted(() => ({
   serverFindUnique: vi.fn(),
   serverUpdate: vi.fn(),
+  proof: { upsert: vi.fn(), findUnique: vi.fn(), deleteMany: vi.fn() },
   buildSshParamsFromServer: vi.fn(),
   execRemoteCommand: vi.fn(),
 }));
 
 vi.mock("@/lib/concurrency/advisory-lock", () => ({ acquireAdvisoryLock: async () => async () => {} }));
-vi.mock("@/lib/db", () => ({
-  prisma: {
-    server: { findUnique: mocks.serverFindUnique, update: mocks.serverUpdate, updateMany: mocks.serverUpdate },
-  },
-}));
+vi.mock("@/lib/db", () => {
+  const client = { server: { findUnique: mocks.serverFindUnique, update: mocks.serverUpdate, updateMany: mocks.serverUpdate }, setting: mocks.proof };
+  return { prisma: { ...client, $transaction: (work: (tx: typeof client) => unknown) => work(client) } };
+});
 vi.mock("@/lib/ssh/client", () => ({
   buildSshParamsFromServer: mocks.buildSshParamsFromServer,
   execRemoteCommand: mocks.execRemoteCommand,
 }));
 vi.mock("../monitor", () => ({ MONITOR_SCRIPT: "echo metrics" }));
 vi.mock("@/lib/config/env", () => ({
-  config: { app: { baseUrl: "https://hub.example.com" } },
+  config: { auth: { secret: "test-only-proof-key" }, app: { baseUrl: "https://hub.example.com" } },
 }));
 
-import { AGENT_SSH_CLEANUP_SCRIPT, installServerAgent, uninstallServerAgent } from "../agent-service";
+import { AGENT_SSH_CLEANUP_SCRIPT, authenticateServerAgent, installServerAgent, uninstallServerAgent } from "../agent-service";
 
 const linuxServer = {
   id: "srv1",
@@ -42,12 +47,25 @@ describe("Linux Agent install over SSH", () => {
   beforeEach(() => {
     vi.clearAllMocks();
     mocks.buildSshParamsFromServer.mockResolvedValue({ host: "203.0.113.5" });
+    mocks.serverFindUnique.mockReset().mockResolvedValue(null);
+    mocks.execRemoteCommand.mockReset().mockResolvedValue({ stdout: "", stderr: "", exitCode: 0 });
     mocks.serverUpdate.mockResolvedValue({ id: "srv1" });
+    mocks.proof.deleteMany.mockResolvedValue({ count: 1 });
+    mocks.proof.upsert.mockImplementation(async ({ create }) => {
+      mocks.proof.findUnique.mockResolvedValue(create);
+    });
   });
 
   it("runs as root or through passwordless sudo, checks its needs, and restarts a running Agent", async () => {
     mocks.serverFindUnique.mockResolvedValueOnce(linuxServer);
-    mocks.execRemoteCommand.mockResolvedValueOnce({ stdout: "", stderr: "", exitCode: 0 });
+    mocks.execRemoteCommand.mockImplementationOnce(async ({ command }) => {
+      const encoded = String(command).match(/[A-Za-z0-9+/=]{1000,}/)![0];
+      const token = JSON.parse(Buffer.from(encoded, "base64").toString().match(/^TOKEN=(.+)$/m)![1]!);
+      mocks.serverFindUnique.mockResolvedValueOnce(linuxServer).mockResolvedValueOnce(linuxServer);
+      expect(await authenticateServerAgent(token)).toMatchObject({ id: "srv1" });
+      mocks.serverFindUnique.mockResolvedValueOnce({ id: "srv1" });
+      return { exitCode: 0 };
+    });
 
     await expect(installServerAgent("srv1")).resolves.toEqual({ installed: true });
 
@@ -75,6 +93,40 @@ describe("Linux Agent install over SSH", () => {
       where: { id: "srv1", teamId: "team1", managementMode: "AGENT", agentTokenHash: null },
       data: { agentLastError: "sudo: a password is required" },
     });
+  });
+
+  it.skipIf(process.platform === "win32")("restores the script, identity and unit together after a failed service restart", async () => {
+    const dir = await mkdtemp(path.join(tmpdir(), "vch-install-"));
+    try {
+      const agentDir = path.join(dir, "installation"), unit = path.join(dir, "unit");
+      await mkdir(agentDir);
+      await writeFile(path.join(agentDir, "agent.py"), "original agent");
+      await writeFile(path.join(agentDir, "install-id"), "original identity");
+      await writeFile(unit, "original unit");
+      for (const [name, script] of Object.entries({
+        systemctl: '#!/bin/sh\necho "$*" >> "$TEST_STATE"\n[ "$1" != restart ]',
+        "systemd-run": "#!/bin/sh\nexit 0", id: "#!/bin/sh\necho 0",
+      })) {
+        await writeFile(path.join(dir, name), script);
+        await chmod(path.join(dir, name), 0o755);
+      }
+      mocks.serverFindUnique.mockResolvedValueOnce(linuxServer);
+      mocks.execRemoteCommand.mockImplementation(async ({ command }) => {
+        const isolated = command.replaceAll("/opt/vcontrolhub-agent", agentDir)
+          .replaceAll("/etc/systemd/system/vcontrolhub-agent.service", unit)
+          .replaceAll("/run/vcontrolhub-agent-lifecycle.lock", path.join(dir, "lock"));
+        try {
+          await promisify(execFile)("sh", ["-c", isolated], { env: { ...process.env, PATH: dir + ":" + process.env.PATH, TEST_STATE: path.join(dir, "state") } });
+          return { exitCode: 0 };
+        } catch { return { exitCode: 1, stderr: "restart failed" }; }
+      });
+      await expect(installServerAgent("srv1")).rejects.toThrow("restart failed");
+      expect(await readFile(path.join(agentDir, "install-id"), "utf8")).toBe("original identity");
+      expect(await readFile(path.join(agentDir, "agent.py"), "utf8")).toBe("original agent");
+      expect(await readFile(unit, "utf8")).toBe("original unit");
+      expect(await readFile(path.join(dir, "state"), "utf8")).toContain("start vcontrolhub-agent.service");
+      expect(mocks.proof.deleteMany).toHaveBeenCalled();
+    } finally { await rm(dir, { recursive: true, force: true }); }
   });
 
   it("keeps the existing token and drive pairings when the reinstall fails", async () => {

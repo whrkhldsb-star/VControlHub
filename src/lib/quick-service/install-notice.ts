@@ -200,6 +200,7 @@ export function buildInstallNotice(
 		accessUrl: buildQuickServiceAccessUrl({
 			port: hostPort,
 			defaultPort: template.defaultPort,
+			path: template.path,
 			configuredHost: publicHost,
 			protocol: accessTarget?.protocol ?? (publicHost ? "http:" : undefined),
 		}),

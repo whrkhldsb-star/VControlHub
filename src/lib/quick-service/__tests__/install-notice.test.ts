@@ -24,6 +24,11 @@ const baseTemplate: ServiceTemplate = {
 };
 
 describe("quick service install notices", () => {
+	it("includes the template's management path on a configured host", () => {
+		const result = buildInstallNotice({ ...baseTemplate, path: "/ghost/" }, 2368, [], [], { host: "https://test.example", protocol: "https:" });
+		expect(result.accessUrl).toBe("https://test.example:2368/ghost/");
+	});
+
 	it("generates an AList admin password before install", () => {
 		const prepared = prepareInstallSecrets({ ...baseTemplate, slug: "alist", name: "AList 云盘", defaultPort: 5244 });
 

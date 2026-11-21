@@ -5,7 +5,7 @@ import { serverTeamWhere } from "@/lib/auth/team-scope";
 
 const mocks = vi.hoisted(() => ({ raw: vi.fn(), findMany: vi.fn(), transaction: vi.fn() }));
 vi.mock("@/lib/db", () => ({ prisma: { $transaction: mocks.transaction, server: { findMany: mocks.findMany } } }));
-vi.mock("../service-internals", () => ({ enrichServer: (row: unknown) => row }));
+vi.mock("@/lib/storage/readable-scope", () => ({ getReadableStorageScope: vi.fn(async () => ({ nodesWithoutGrants: ["visible"], grantRules: [] })) }));
 vi.mock("../service-profile-includes", () => ({ SERVER_PROFILE_INCLUDE: {} }));
 import { getServerInventory, normalizeInventoryQuery } from "../inventory";
 
@@ -51,6 +51,19 @@ describe("inventory operating-system filtering before pagination", () => {
       expect.objectContaining({ id: "c", profileLocked: false, canTransfer: false, teamName: null }),
     ]);
   });
+  it("removes denied bindings and redacts remote connection fields on readable drives", async () => {
+    mocks.raw.mockResolvedValueOnce([{ total: 2, matching: 2, enabled: 2, storage: 1 }]).mockResolvedValueOnce([{ id: "p" }, { id: "q" }]);
+    const node = { id: "visible", teamId: "team-a", host: "storage.example", port: 2022, username: "files", basePath: "/private", publicBaseUrl: "https://private.example" };
+    mocks.findMany.mockResolvedValue([
+      { id: "p", teamId: "team-a", publicUrl: node.publicBaseUrl, fileProxyPort: 48163, storageNode: node, agentFileShares: [] },
+      { id: "q", teamId: "team-a", publicUrl: node.publicBaseUrl, fileProxyPort: 48163, storageNode: { ...node, id: "denied" }, agentFileShares: [{ teamId: "team-a", node: { id: "denied", teamId: "team-a" } }] },
+    ]);
+    const { servers } = await getServerInventory(session);
+    expect(servers[0]?.storageNode).toMatchObject({ id: "visible", host: null, port: null, username: null, basePath: "", publicBaseUrl: null });
+    expect(servers[1]?.storageNode).toBeNull();
+    expect(JSON.stringify(servers)).not.toMatch(/denied|private\.example|48163/);
+  });
+
   it("clamps against OS matching count, not all-server count", async () => {
     mocks.raw.mockResolvedValueOnce([{ total: 100, matching: 13, enabled: 80, storage: 0 }]).mockResolvedValueOnce([]);
     const result = await getServerInventory(session, { operatingSystem: "WINDOWS", page: 999 });

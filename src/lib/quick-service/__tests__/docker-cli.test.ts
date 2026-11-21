@@ -22,11 +22,26 @@ vi.mock("child_process", async (importOriginal) => {
 	};
 });
 
-import { dockerErrorMessage, dockerExecSync, getContainerHealth, getContainerLogTail, getDockerEnvironmentStatus, parseRemoteListeningPorts } from "../docker-cli";
+const debug = vi.hoisted(() => vi.fn());
+vi.mock("@/lib/logging", async (original) => ({
+	...(await original<typeof import("@/lib/logging")>()),
+	createLogger: () => ({ debug }),
+}));
+vi.mock("@/lib/ssh/server-target", () => ({
+	loadEnabledServerForSsh: async () => ({ server: { id: "s", name: "Fixture" }, ssh: {} }),
+}));
+vi.mock("@/lib/ssh/client", () => ({ execRemoteCommand: async () => ({ exitCode: 0, stdout: "", stderr: "" }) }));
+import { dockerErrorMessage, dockerExec, dockerExecSync, getContainerHealth, getContainerLogTail, getDockerEnvironmentStatus, parseRemoteListeningPorts } from "../docker-cli";
 
 describe("quick-service docker-cli adapter", () => {
 	beforeEach(() => {
 		vi.clearAllMocks();
+	});
+
+	it("logs only the Docker operation and server when setting a container password", async () => {
+		await dockerExec({ kind: "remote", serverId: "s" }, ["exec", "qs-alist", "/opt/alist/alist", "admin", "set", "fixture-password"]);
+		expect(debug).toHaveBeenCalledWith("remote docker exec", { serverId: "s", serverName: "Fixture", operation: "exec" });
+		expect(JSON.stringify(debug.mock.calls)).not.toContain("fixture-password");
 	});
 
 	describe("dockerExecSync", () => {

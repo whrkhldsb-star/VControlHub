@@ -386,7 +386,7 @@ export function isComposeCliFallbackError(combinedLower: string): boolean {
 }
 
 /**
- * Bulk container lifecycle through the docker CLI: `docker start|stop|restart
+ * Bulk container lifecycle through the docker CLI: `docker start|stop
  * c1 c2 ...` (or `docker rm -f` for remove) is one process / one SSH
  * round-trip instead of N serial Engine requests (the previous per-container
  * loop made project start/stop/restart/down O(n) sequential HTTP calls).
@@ -395,7 +395,7 @@ export function isComposeCliFallbackError(combinedLower: string): boolean {
  * Engine API with the original error aggregation.
  */
 async function tryEngineBulkActionViaCli(
-  action: "start" | "stop" | "restart" | "remove",
+  action: "start" | "stop" | "remove",
   ids: string[],
   target: ComposeTarget,
 ): Promise<boolean> {
@@ -427,10 +427,11 @@ async function tryEngineBulkActionViaCli(
 
 async function engineActionOnProjectContainers(
   project: string,
-  action: Exclude<ComposeProjectAction, "ps" | "up" | "down"> | "start" | "stop" | "restart" | "remove",
+  action: "start" | "stop" | "restart" | "remove",
   target: ComposeTarget,
+  snapshot?: Awaited<ReturnType<typeof listAllContainers>>,
 ): Promise<ComposeContainerSummary[]> {
-  const listed = await listAllContainers(target);
+  const listed = snapshot ?? await listAllContainers(target);
   // requestDockerEngine resolves missing socket as ok:true + dockerAvailable:false for list UX.
   // Lifecycle fallback must never treat that as a successful start/stop/remove.
   if (listed.dockerAvailable === false) {
@@ -446,10 +447,10 @@ async function engineActionOnProjectContainers(
       t( "backend.docker.composeNoContainers",{project}));
   }
 
-  // Single bulk CLI command per action first; per-container Engine requests
-  // remain as the fallback so a partial CLI failure still surfaces per-id.
+  // Restart has no satisfied state. Dispatch it once per container because
+  // a partially successful batch cannot be retried safely.
   const targetIds = targets.map((c) => c.Id).filter((id): id is string => Boolean(id));
-  if (!(await tryEngineBulkActionViaCli(action, targetIds, target))) {
+  if (action === "restart" || !(await tryEngineBulkActionViaCli(action, targetIds, target))) {
     for (const c of targets) {
       const id = c.Id;
       if (!id) continue;
@@ -469,7 +470,11 @@ async function engineActionOnProjectContainers(
         unavailableData: {},
         loggerScope: "docker:compose:fallback",
         ...target,
+      }).catch(error => {
+        if (action === "restart") logger.warn("project container restart outcome unknown", { project, id, serverId: target.serverId });
+        throw error;
       });
+      if (action === "restart") logger.info("project container restart result", { project, id, serverId: target.serverId, status: result.status });
       if (result.dockerAvailable === false) {
         throw new BusinessError(
           result.message ?? t("backend.docker.unavailable"),
@@ -556,7 +561,18 @@ export async function runComposeProjectAction(input: {
     };
   }
 
-  // For lifecycle mutations, try compose CLI first.
+  // A failed or interrupted project-wide restart does not identify which
+  // containers already restarted. Use the same label-scoped Engine snapshot
+  // for this action whether the Compose plugin is present or absent.
+  if (action === "restart") {
+    const containers = await engineActionOnProjectContainers(project, action, target, listed);
+    return {
+      project, action, mode: "engine-fallback", scope, containers,
+      message: `Restarted ${containers.length} container(s) for project "${project}" via Engine API`,
+    };
+  }
+
+  // For the other lifecycle mutations, try compose CLI first.
   const cli = await tryComposeCli(project, action, target, {
     removeVolumes: input.removeVolumes === true,
     workingDir,
@@ -600,17 +616,6 @@ export async function runComposeProjectAction(input: {
       scope,
       containers,
       message: `Compose CLI unavailable; stopped ${containers.length} container(s) for project "${project}" via Engine API`,
-    };
-  }
-  if (action === "restart") {
-    const containers = await engineActionOnProjectContainers(project, "restart", target);
-    return {
-      project,
-      action,
-      mode: "engine-fallback",
-      scope,
-      containers,
-      message: `Compose CLI unavailable; restarted ${containers.length} container(s) for project "${project}" via Engine API`,
     };
   }
   if (action === "down") {

@@ -151,8 +151,8 @@ async function sshExec(
   });
 }
 
-function loadProxyServer(id: string, teamId: string | null) {
-  return prisma.server.findUnique({ where: { id, teamId }, include: { sshKey: true, storageNode: true } });
+function loadProxyServer(id: string, teamId: string | null, cleanup: boolean) {
+  return prisma.server.findUnique({ where: { id, teamId, ...(cleanup ? {} : { enabled: true }) }, include: { sshKey: true, storageNode: true } });
 }
 
 type ProxyServer = NonNullable<Awaited<ReturnType<typeof loadProxyServer>>>;
@@ -177,7 +177,7 @@ async function withProxyServer(
   // can no longer load the credentials or proxy token under the former customer.
   const release = await acquireAdvisoryLock("server-delete", id);
   try {
-    const server = await loadProxyServer(id, access.server.teamId);
+    const server = await loadProxyServer(id, access.server.teamId, method === "DELETE");
     if (!server) throw new NotFoundError(t("apiServersFileProxy.serverNotFound", locale));
     const proxy = await prisma.serverFileProxy.findUnique({
       where: { serverId_proxyType: { serverId: id, proxyType: "python_http" } },

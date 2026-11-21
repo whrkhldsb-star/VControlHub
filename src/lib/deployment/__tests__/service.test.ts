@@ -1,5 +1,6 @@
 vi.mock("@/lib/concurrency/advisory-lock", () => ({ acquireAdvisoryLock: vi.fn(async () => async () => undefined) }));
 import { describe, expect, it, vi, beforeEach } from "vitest";
+import { renderDeploymentCommand } from "../variables";
 import type { RoleKey } from "@/lib/auth/rbac";
 import type { SessionScope } from "../service";
 
@@ -9,7 +10,7 @@ const { mockPrisma, mockTeamWhere, mockDeploymentRunTeamWhere, mockTeamCreateDat
     deploymentRun: { create: vi.fn(), update: vi.fn(), updateMany: vi.fn(), findMany: vi.fn(), findUnique: vi.fn(), findFirst: vi.fn() },
     deploymentSnapshot: { create: vi.fn() },
     deploymentRollbackRun: { findFirst: vi.fn(), findMany: vi.fn(), create: vi.fn(), update: vi.fn() },
-    commandRequest: { findUnique: vi.fn() },
+    commandRequest: { findUnique: vi.fn(), count: vi.fn() },
     server: { findMany: vi.fn() },
     $transaction: vi.fn(),
   },
@@ -19,7 +20,7 @@ const { mockPrisma, mockTeamWhere, mockDeploymentRunTeamWhere, mockTeamCreateDat
 }));
 
 vi.mock("@/lib/db", () => ({ prisma: mockPrisma }));
-vi.mock("@/lib/command/service", () => ({ createCommandRequest: vi.fn(async () => ({ id: "cmd1", status: "PENDING_APPROVAL" })) }));
+vi.mock("@/lib/command/service", () => ({ createCommandRequest: vi.fn(async input => ({ ...input, teamId: input.teamId ?? null, initiatedByType: "ASSISTANT", id: "cmd1", status: "PENDING_APPROVAL" })) }));
 vi.mock("@/lib/command-template/service", async () => {
   const actual = await vi.importActual<typeof import("@/lib/command-template/service")>("@/lib/command-template/service");
   return { ...actual, seedBuiltinTemplates: vi.fn(actual.seedBuiltinTemplates) };
@@ -66,26 +67,31 @@ describe("deployment service", () => {
     mockPrisma.commandTemplate.findMany.mockResolvedValue([{ id: "tmpl1", name: "Nginx", command: "apt install {{pkg}}", rollbackCommand: "apt remove {{pkg}}", variables: ["pkg"], isBuiltin: true }]);
     mockPrisma.commandTemplate.count.mockResolvedValue(1);
     mockPrisma.commandTemplate.create.mockResolvedValue({});
+    mockPrisma.deploymentRun.findFirst.mockResolvedValue(null);
     mockPrisma.deploymentRun.create.mockImplementation(async ({ data }: any) => ({ id: "dep1", ...data }));
     mockPrisma.deploymentSnapshot.create.mockImplementation(async ({ data }: any) => ({ id: "snap1", ...data }));
-    mockPrisma.deploymentRun.update.mockImplementation(async ({ where, data }: any) => ({ id: where?.id ?? "dep1", ...data }));
+    mockPrisma.deploymentRun.update.mockImplementation(async ({ where, data }: any) => ({
+      id: where.id, ...mockPrisma.deploymentRun.create.mock.lastCall?.[0]?.data, ...data,
+    }));
     mockPrisma.deploymentRun.updateMany.mockImplementation(async ({ where, data }: any) => {
       void data;
       return { count: where?.id ? 1 : 0 };
     });
     mockPrisma.deploymentRollbackRun.findFirst.mockResolvedValue(null);
     mockPrisma.deploymentRollbackRun.findMany.mockResolvedValue([]);
+    mockPrisma.deploymentRollbackRun.update.mockImplementation(async ({ where, data }) => ({ id: where.id, ...data }));
     mockPrisma.commandRequest.findUnique.mockResolvedValue(null);
+    mockPrisma.commandRequest.count.mockResolvedValue(0);
   });
 
   it("renders template variables and submits through command approval pipeline", async () => {
     const run = await createDeploymentRunFromTemplate({ templateId: "tmpl1", serverIds: ["srv1"], variables: { pkg: "nginx" }, requesterId: "u1" }, PLATFORM);
 
     expect(run.commandRequestId).toBe("cmd1");
-    expect(mockPrisma.deploymentRun.create.mock.calls[0]![0].data.renderedCommand).toBe("apt install nginx");
+    expect(mockPrisma.deploymentRun.create.mock.calls[0]![0].data.renderedCommand).toBe(renderDeploymentCommand("apt install {{pkg}}", { pkg: "nginx" }));
     expect(mockPrisma.deploymentRun.create.mock.calls[0]![0].data.teamId).toBeNull();
     expect(mockPrisma.deploymentSnapshot.create).toHaveBeenCalledWith({
-      data: expect.objectContaining({ deployCommand: "apt install nginx", rollbackCommand: "apt remove nginx", sourceRunId: "dep1" }),
+      data: expect.objectContaining({ deployCommand: renderDeploymentCommand("apt install {{pkg}}", { pkg: "nginx" }), rollbackCommand: renderDeploymentCommand("apt remove {{pkg}}", { pkg: "nginx" }), sourceRunId: "dep1" }),
     });
     expect(commandService.createCommandRequest).toHaveBeenCalledWith(expect.objectContaining({ submissionMode: "assistant" }));
   });
@@ -101,6 +107,25 @@ describe("deployment service", () => {
     expect(commandService.createCommandRequest).toHaveBeenCalledWith(
       expect.objectContaining({ teamId: "team_a", submissionMode: "assistant" }),
     );
+  });
+
+  it("bounds a 300-character external key and rejects longer keys before opening a deployment", async () => {
+    mockPrisma.deploymentRun.findFirst.mockResolvedValueOnce(null);
+    const input = { templateId: "tmpl1", serverIds: ["srv1"], variables: { pkg: "nginx" }, requesterId: "u1" };
+    await createDeploymentRunFromTemplate({ ...input, idempotencyKey: "x".repeat(300) }, teamSession);
+    const key = mockPrisma.deploymentRun.create.mock.calls[0]![0].data.idempotencyKey;
+    expect(key).toMatch(/^v2:[a-f0-9]{64}$/);
+    await expect(createDeploymentRunFromTemplate({ ...input, idempotencyKey: "x".repeat(301) }, teamSession)).rejects.toThrow();
+    expect(mockPrisma.deploymentRun.create).toHaveBeenCalledTimes(1);
+  });
+
+  it("does not attach a replay belonging to a different command producer", async () => {
+    vi.mocked(commandService.createCommandRequest).mockResolvedValueOnce({ id: "foreign", initiatedByType: "USER", teamId: null, requesterId: "u1", idempotencyKey: "deployment:dep1" } as never);
+    await expect(createDeploymentRunFromTemplate({ templateId: "tmpl1", serverIds: ["srv1"], variables: { pkg: "nginx" }, requesterId: "u1" }, PLATFORM)).rejects.toMatchObject({ status: 409 });
+    expect(mockPrisma.deploymentRun.update.mock.calls.some(([call]) => call.data.commandRequestId === "foreign")).toBe(false);
+    expect(mockPrisma.commandRequest.findUnique).toHaveBeenCalledWith(expect.objectContaining({
+      where: expect.objectContaining({ initiatedByType: "ASSISTANT", requesterId: "u1", teamId: null, idempotencyKey: "deployment:dep1", deploymentRuns: { none: { id: { not: "dep1" } } } }),
+    }));
   });
 
   it("scopes idempotency keys by team before persisting and dispatching", async () => {
@@ -119,12 +144,12 @@ describe("deployment service", () => {
 
     expect(mockPrisma.deploymentRun.create).toHaveBeenCalledWith({
       data: expect.objectContaining({
-        idempotencyKey: "team:team_a:browser-request-1",
+        idempotencyKey: expect.stringMatching(/^v2:[0-9a-f]{64}$/),
       }),
     });
     expect(commandService.createCommandRequest).toHaveBeenCalledWith(
       expect.objectContaining({
-        idempotencyKey: "deployment:team:team_a:browser-request-1",
+        idempotencyKey: "deployment:dep1",
       }),
     );
   });
@@ -132,6 +157,7 @@ describe("deployment service", () => {
   it("returns the existing run when the same scoped launch is replayed", async () => {
     const existing = {
       id: "dep-existing",
+      createdBy: "u1", templateId: "tmpl1", serverIds: ["srv1"], variables: { pkg: "nginx" },
       commandRequestId: "cmd-existing",
       idempotencyKey: "team:team_a:browser-request-1",
     };
@@ -150,6 +176,19 @@ describe("deployment service", () => {
 
     expect(result).toBe(existing);
     expect(mockPrisma.deploymentRun.create).not.toHaveBeenCalled();
+    expect(commandService.createCommandRequest).not.toHaveBeenCalled();
+  });
+
+  it.each([
+    { createdBy: "another-user" }, { serverIds: ["another-server"] }, { variables: { pkg: "another-package" } },
+  ])("refuses to resume another submission under the same team key (%j)", async difference => {
+    mockPrisma.deploymentRun.findFirst.mockResolvedValueOnce({
+      id: "old", teamId: "team_a", createdBy: "u1", templateId: "tmpl1", serverIds: ["srv1"], variables: { pkg: "nginx" },
+      commandRequestId: null, ...difference,
+    });
+    await expect(createDeploymentRunFromTemplate({
+      templateId: "tmpl1", serverIds: ["srv1"], variables: { pkg: "nginx" }, requesterId: "u1", idempotencyKey: "same-key",
+    }, teamSession)).rejects.toMatchObject({ status: 409 });
     expect(commandService.createCommandRequest).not.toHaveBeenCalled();
   });
 
@@ -214,9 +253,9 @@ describe("deployment service", () => {
       data: expect.objectContaining({ status: "PENDING" }),
     }));
     // No command carries the run's key: nothing was submitted, the run failed.
-    expect(mockPrisma.commandRequest.findUnique).toHaveBeenCalledWith(expect.objectContaining({ where: { idempotencyKey: "deployment:dep1" } }));
+    expect(mockPrisma.commandRequest.findUnique).toHaveBeenCalledWith(expect.objectContaining({ where: expect.objectContaining({ idempotencyKey: "deployment:dep1", initiatedByType: "ASSISTANT" }) }));
     expect(mockPrisma.deploymentRun.updateMany).toHaveBeenCalledWith({
-      where: { id: "dep1", commandRequestId: null },
+      where: { id: "dep1", teamId: null, commandRequestId: null },
       data: expect.objectContaining({ status: "FAILED", errorMessage: "Approval chain not available" }),
     });
   });
@@ -225,47 +264,72 @@ describe("deployment service", () => {
     // The reply was lost after the insert committed: the deployment must
     // follow that command, not say FAILED while it runs.
     vi.mocked(commandService.createCommandRequest).mockRejectedValueOnce(new Error("enqueue failed"));
-    mockPrisma.commandRequest.findUnique.mockResolvedValueOnce({ id: "cmd-created", status: "APPROVED" });
+    mockPrisma.commandRequest.findUnique.mockResolvedValueOnce({ id: "cmd-created", status: "APPROVED", targets: [{ serverId: "srv1" }] });
 
     await expect(
       createDeploymentRunFromTemplate({ templateId: "tmpl1", serverIds: ["srv1"], variables: { pkg: "nginx" }, requesterId: "u1" }, PLATFORM),
     ).rejects.toThrow("enqueue failed");
 
     expect(mockPrisma.deploymentRun.updateMany).toHaveBeenCalledWith({
-      where: { id: "dep1", commandRequestId: null },
+      where: { id: "dep1", teamId: null, commandRequestId: null },
       data: expect.objectContaining({ commandRequestId: "cmd-created", status: "RUNNING" }),
     });
     expect(mockPrisma.deploymentRun.updateMany).not.toHaveBeenCalledWith(expect.objectContaining({ data: expect.objectContaining({ status: "FAILED" }) }));
+  });
+
+  it("returns a conflict when an ambiguous submission failure resolves to a foreign command key", async () => {
+    vi.mocked(commandService.createCommandRequest).mockRejectedValueOnce(new Error("submission response lost"));
+    mockPrisma.commandRequest.count.mockResolvedValueOnce(1);
+    await expect(createDeploymentRunFromTemplate({
+      templateId: "tmpl1", serverIds: ["srv1"], variables: { pkg: "nginx" }, requesterId: "u1",
+    }, teamSession)).rejects.toMatchObject({ status: 409 });
+    expect(mockPrisma.deploymentRun.updateMany).toHaveBeenCalledWith({
+      where: { id: "dep1", teamId: "team_a", commandRequestId: null },
+      data: expect.objectContaining({ status: "FAILED" }),
+    });
+  });
+
+  it("refuses to recover a command with the same author and text on different targets", async () => {
+    vi.mocked(commandService.createCommandRequest).mockRejectedValueOnce(new Error("response lost"));
+    mockPrisma.commandRequest.findUnique.mockResolvedValueOnce({
+      id: "other-target", status: "APPROVED", targets: [{ serverId: "another-server" }],
+    });
+    await expect(createDeploymentRunFromTemplate({
+      templateId: "tmpl1", serverIds: ["srv1"], variables: { pkg: "nginx" }, requesterId: "u1",
+    }, teamSession)).rejects.toMatchObject({ status: 409 });
+    expect(mockPrisma.deploymentRun.updateMany).toHaveBeenCalledWith(expect.objectContaining({
+      data: expect.objectContaining({ status: "FAILED" }),
+    }));
   });
 
   it("links the command when the run's link write fails", async () => {
     // The unawaited link update escaped the catch: the run stayed PENDING and
     // unlinked while its command could be approved and run.
     mockPrisma.deploymentRun.update
-      .mockImplementationOnce(async ({ where, data }: any) => ({ id: where?.id ?? "dep1", ...data }))
+      .mockImplementationOnce(async ({ where, data }: any) => ({ id: where?.id ?? "dep1", createdBy: "u1", teamId: null, serverIds: ["srv1"], ...data }))
       .mockRejectedValueOnce(new Error("connection reset"));
-    mockPrisma.commandRequest.findUnique.mockResolvedValueOnce({ id: "cmd1", status: "PENDING_APPROVAL" });
+    mockPrisma.commandRequest.findUnique.mockResolvedValueOnce({ id: "cmd1", status: "PENDING_APPROVAL", targets: [{ serverId: "srv1" }] });
 
     await expect(
       createDeploymentRunFromTemplate({ templateId: "tmpl1", serverIds: ["srv1"], variables: { pkg: "nginx" }, requesterId: "u1" }, PLATFORM),
     ).rejects.toThrow("connection reset");
 
     expect(mockPrisma.deploymentRun.updateMany).toHaveBeenCalledWith({
-      where: { id: "dep1", commandRequestId: null },
+      where: { id: "dep1", teamId: null, commandRequestId: null },
       data: expect.objectContaining({ commandRequestId: "cmd1", status: "PENDING" }),
     });
   });
 
   it("settles a run left unlinked by an interrupted request when the runs are listed", async () => {
-    const stale = { id: "dep_stale", status: "PENDING", commandRequestId: null, idempotencyKey: null, createdAt: new Date(Date.now() - 10 * 60_000), rollbackAttempts: [] };
+    const stale = { id: "dep_stale", createdBy: "u1", serverIds: ["srv1"], status: "PENDING", commandRequestId: null, idempotencyKey: null, createdAt: new Date(Date.now() - 10 * 60_000), rollbackAttempts: [] };
     mockPrisma.deploymentRun.findMany
       .mockResolvedValueOnce([stale])
       .mockResolvedValueOnce([{ ...stale, commandRequestId: "cmd_stale", commandRequest: { status: "PENDING_APPROVAL" } }]);
-    mockPrisma.commandRequest.findUnique.mockResolvedValueOnce({ id: "cmd_stale", status: "PENDING_APPROVAL" });
+    mockPrisma.commandRequest.findUnique.mockResolvedValueOnce({ id: "cmd_stale", status: "PENDING_APPROVAL", targets: [{ serverId: "srv1" }] });
 
     const runs = await listDeploymentRuns(PLATFORM);
 
-    expect(mockPrisma.commandRequest.findUnique).toHaveBeenCalledWith(expect.objectContaining({ where: { idempotencyKey: "deployment:dep_stale" } }));
+    expect(mockPrisma.commandRequest.findUnique).toHaveBeenCalledWith(expect.objectContaining({ where: expect.objectContaining({ idempotencyKey: "deployment:dep_stale", initiatedByType: "ASSISTANT" }) }));
     expect(mockPrisma.deploymentRun.updateMany).toHaveBeenCalledWith({
       where: { id: "dep_stale", commandRequestId: null },
       data: expect.objectContaining({ commandRequestId: "cmd_stale" }),
@@ -382,9 +446,9 @@ describe("deployment service", () => {
   });
 
   describe("rollback crash and bookkeeping windows (stateful store)", () => {
-    type Row = { id: string; sourceRunId: string; status: string; commandRequestId: string | null; errorMessage?: string | null };
+    type Row = { id: string; createdBy: string; rollbackCommand: string; serverIds: string[]; sourceRunId: string; status: string; commandRequestId: string | null; errorMessage?: string | null };
     let rollbacks: Map<string, Row>;
-    let commands: Map<string, { id: string; status: string; idempotencyKey: string }>;
+    let commands: Map<string, { id: string; status: string; idempotencyKey: string; targets: { serverId: string }[] }>;
     let failLinkUpdate: boolean;
     let failRecoveryLookup: boolean;
 
@@ -405,7 +469,7 @@ describe("deployment service", () => {
       mockPrisma.deploymentRollbackRun.findFirst.mockImplementation(async ({ where }: any) =>
         [...rollbacks.values()].find((row) => row.sourceRunId === where.sourceRunId && where.status.in.includes(row.status)) ?? null);
       mockPrisma.deploymentRollbackRun.create.mockImplementation(async ({ data }: any) => {
-        const row = { id: `rb${rollbacks.size + 1}`, sourceRunId: data.sourceRunId, status: data.status, commandRequestId: null };
+        const row = { ...data, id: `rb${rollbacks.size + 1}`, sourceRunId: data.sourceRunId, status: data.status, commandRequestId: null };
         rollbacks.set(row.id, row);
         return row;
       });
@@ -420,7 +484,8 @@ describe("deployment service", () => {
         return [...commands.values()].find((command) => command.idempotencyKey === where.idempotencyKey) ?? null;
       });
       vi.mocked(commandService.createCommandRequest).mockImplementation((async (input: any) => {
-        const command = { id: `cmd${commands.size + 1}`, status: "PENDING_APPROVAL", idempotencyKey: input.idempotencyKey };
+        const command = { ...input, initiatedByType: "ASSISTANT", id: `cmd${commands.size + 1}`, status: "PENDING_APPROVAL", idempotencyKey: input.idempotencyKey,
+          targets: input.serverIds.map((serverId: string) => ({ serverId })) };
         commands.set(command.id, command);
         return command;
       }) as never);
@@ -466,14 +531,30 @@ describe("deployment service", () => {
     });
 
     it("an unlinked rollback whose command already finished is closed and lets a new rollback start", async () => {
-      rollbacks.set("rb_old", { id: "rb_old", sourceRunId: "dep1", status: "PENDING", commandRequestId: null });
-      commands.set("cmd_old", { id: "cmd_old", status: "COMPLETED", idempotencyKey: "deployment-rollback:rb_old" });
+      rollbacks.set("rb_old", { id: "rb_old", createdBy: "u1", rollbackCommand: "apt remove nginx", serverIds: ["srv1"], sourceRunId: "dep1", status: "PENDING", commandRequestId: null });
+      commands.set("cmd_old", { id: "cmd_old", status: "COMPLETED", idempotencyKey: "deployment-rollback:rb_old", targets: [{ serverId: "srv1" }] });
 
       const next = await createDeploymentRollbackRun({ sourceRunId: "dep1", requesterId: "u1" }, PLATFORM);
 
       expect(rollbacks.get("rb_old")).toMatchObject({ status: "COMPLETED", commandRequestId: "cmd_old" });
       expect(next).toMatchObject({ commandRequestId: "cmd2" });
     });
+  });
+
+  it("reports a collision when recovering a rollback with a key occupied by another producer", async () => {
+    mockPrisma.deploymentRun.findFirst.mockResolvedValue({
+      id: "dep1", teamId: "team_a", snapshot: { id: "snap1", templateName: "Web", rollbackCommand: "rollback", serverIds: ["srv1"] },
+    });
+    mockPrisma.deploymentRollbackRun.findMany.mockResolvedValueOnce([
+      { id: "rb_other", createdBy: "u1", rollbackCommand: "rollback", status: "PENDING", commandRequestId: null },
+    ]);
+    mockPrisma.commandRequest.count.mockResolvedValueOnce(1);
+    await expect(createDeploymentRollbackRun({ sourceRunId: "dep1", requesterId: "u1" }, teamSession)).rejects.toMatchObject({ status: 409 });
+    expect(mockPrisma.commandRequest.findUnique).toHaveBeenCalledWith(expect.objectContaining({
+      where: expect.objectContaining({ teamId: "team_a", initiatedByType: "ASSISTANT", idempotencyKey: "deployment-rollback:rb_other",
+        deploymentRollbackRuns: { none: { id: { not: "rb_other" } } } }),
+    }));
+    expect(mockPrisma.deploymentRollbackRun.create).not.toHaveBeenCalled();
   });
 
   it("rejects rollback when source run is outside team scope", async () => {

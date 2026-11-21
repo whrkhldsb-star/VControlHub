@@ -92,28 +92,29 @@ describe("/api/servers/[id]/sftp/list", () => {
   });
 
   it("returns directory entries for a valid path", async () => {
-    mocks.listDirectory.mockResolvedValue([
+    mocks.listDirectory.mockResolvedValue({ truncated: true, entries: [
       { name: "foo", isDirectory: true, isFile: false, isSymlink: false, size: 0, modifyTime: 1700000000, accessTime: 1700000000, owner: 0, group: 0, longname: "drwxr-xr-x foo" },
       { name: "bar.txt", isDirectory: false, isFile: true, isSymlink: false, size: 1024, modifyTime: 1700000001, accessTime: 1700000001, owner: 0, group: 0, longname: "-rw-r--r-- bar.txt" },
-    ]);
+    ] });
 
     const res = await listRoute.POST(jsonRequest("POST", { path: "/root" }), { params: params() });
     const json = await res.json();
 
     expect(res.status).toBe(200);
     expect(json.path).toBe("/root");
+    expect(json.truncated).toBe(true);
     expect(json.entries).toHaveLength(2);
     expect(json.entries[0].name).toBe("foo");
     expect(json.entries[1].name).toBe("bar.txt");
   });
 
   it("lists the account's start directory when no path is given", async () => {
-    mocks.listDirectory.mockResolvedValue([]);
+    mocks.listDirectory.mockResolvedValue({ entries: [], truncated: false });
     const res = await listRoute.POST(jsonRequest("POST", {}), { params: params() });
     expect(res.status).toBe(200);
     await expect(res.json()).resolves.toMatchObject({ path: "/home/deploy" });
     expect(mocks.assertSftpPathAccess).toHaveBeenCalledWith(expect.objectContaining({ paths: ["/home/deploy"] }));
-    expect(mocks.listDirectory).toHaveBeenCalledWith("srv1", "/home/deploy");
+    expect(mocks.listDirectory).toHaveBeenCalledWith("srv1", "/home/deploy", expect.objectContaining({ signal: expect.anything() }));
   });
 
   it("returns 400 for an empty path", async () => {
@@ -322,8 +323,8 @@ describe("/api/servers/[id]/sftp/upload", () => {
 
     expect(res.status).toBe(200);
     expect(json).toEqual({ success: true, path: "/root/a.txt", size: 7 });
-    expect(mocks.loadEnabledServerForSftp).toHaveBeenCalledWith("srv1", "team_1", { id: "srv1", teamId: "team_1" });
-    expect(mocks.uploadFile).toHaveBeenCalledWith("srv1", "/root/a.txt", expect.anything(), { host: "vps" });
+    expect(mocks.loadEnabledServerForSftp).toHaveBeenCalledWith("srv1", "team_1", { id: "srv1", teamId: "team_1" }, expect.anything());
+    expect(mocks.uploadFile).toHaveBeenCalledWith("srv1", "/root/a.txt", expect.anything(), { host: "vps", signal: expect.anything() }, undefined);
     expect(mocks.auditUserAction).toHaveBeenCalledWith(
       "u1",
       "sftp.upload",
@@ -376,8 +377,8 @@ describe("/api/servers/[id]/sftp/upload", () => {
       multipartRequest({ file: { name: "a.txt", content: "content" }, path: "/root/" }),
       { params: params() },
     );
-    expect(mocks.loadEnabledServerForSftp).toHaveBeenCalledWith("srv1", "team_1", { id: "srv1", teamId: "team_1" });
-    expect(mocks.uploadFile).toHaveBeenCalledWith("srv1", "/root/a.txt", expect.anything(), { host: "vps" });
+    expect(mocks.loadEnabledServerForSftp).toHaveBeenCalledWith("srv1", "team_1", { id: "srv1", teamId: "team_1" }, expect.anything());
+    expect(mocks.uploadFile).toHaveBeenCalledWith("srv1", "/root/a.txt", expect.anything(), { host: "vps", signal: expect.anything() }, undefined);
   });
 
   it("checks the ACL against the composed destination, not the directory", async () => {
@@ -389,6 +390,7 @@ describe("/api/servers/[id]/sftp/upload", () => {
       session: operator,
       serverId: "srv1",
       paths: ["/root/sub/a.txt"],
+      signal: expect.anything(),
       target: { rootPath: "/home/deploy", ssh: { host: "vps" } },
     });
   });
@@ -401,7 +403,7 @@ describe("/api/servers/[id]/sftp/upload", () => {
       { params: params() },
     );
     expect(res.ok).toBe(false);
-    expect(mocks.loadEnabledServerForSftp).toHaveBeenCalledWith("srv1", "team_1", expect.objectContaining({ teamId: "team_1" }));
+    expect(mocks.loadEnabledServerForSftp).toHaveBeenCalledWith("srv1", "team_1", expect.objectContaining({ teamId: "team_1" }), expect.anything());
     expect(mocks.assertSftpPathAccess).not.toHaveBeenCalled();
     expect(mocks.uploadFile).not.toHaveBeenCalled();
     expect(mocks.auditUserAction).not.toHaveBeenCalled();

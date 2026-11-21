@@ -177,6 +177,21 @@ export async function enqueueQuickServiceJob(input: {
 	priority?: number;
 }) {
 	const instanceKey = input.payload.instanceKey ?? HUB_HOST_INSTANCE_KEY;
+	function reuse(activeJob: NonNullable<Awaited<ReturnType<typeof findActiveQuickServiceJob>>>) {
+		const activePayload = parseQuickServiceJobPayload(activeJob.payload);
+		const sameOperation = (input.teamId ?? null) === (activeJob.teamId ?? null)
+			&& activePayload.endpointFingerprint === input.payload.endpointFingerprint
+			&& activePayload.action === input.payload.action
+			&& (activePayload.action !== "uninstall"
+				|| input.payload.action !== "uninstall"
+				|| Boolean(activePayload.deleteVolumes) === Boolean(input.payload.deleteVolumes));
+		if (sameOperation && activePayload.action === "install" && input.payload.action === "install" && (activePayload.customPort ?? null) !== (input.payload.customPort ?? null)) {
+			// The queued install keeps its own port; silently reusing it dropped the one just chosen (A6-14).
+			throw new ConflictError(t("backend.quick-service.installQueuedWithOtherPort", { port: activePayload.customPort ?? "auto" }));
+		}
+		if (sameOperation) return { job: activeJob, taskId: `job:${activeJob.id}`, reused: true };
+		throw new ConflictError(apiCopy("apiCopy.service.already.has.a.different.lifecycle.task.in.progress.8f008320", { v0: String(input.payload.slug) }));
+	}
 	const lockResource = `${input.payload.slug}:${instanceKey}`;
 	// Hold lock across findActive → enqueue so parallel lifecycle POSTs cannot double-insert.
 	const release = await tryAcquireAdvisoryLock("quick-service-enqueue", lockResource);
@@ -186,36 +201,14 @@ export async function enqueueQuickServiceJob(input: {
 			await new Promise((r) => setTimeout(r, 50 * (i + 1)));
 			const activeJob = await findActiveQuickServiceJob(input.payload.slug, instanceKey);
 			if (!activeJob) continue;
-			const activePayload = parseQuickServiceJobPayload(activeJob.payload);
-			const sameOperation = (input.teamId ?? null) === (activeJob.teamId ?? null)
-				&& activePayload.endpointFingerprint === input.payload.endpointFingerprint
-				&& activePayload.action === input.payload.action
-				&& (activePayload.action !== "uninstall"
-					|| input.payload.action !== "uninstall"
-					|| Boolean(activePayload.deleteVolumes) === Boolean(input.payload.deleteVolumes));
-			if (sameOperation && activePayload.action === "install" && input.payload.action === "install" && (activePayload.customPort ?? null) !== (input.payload.customPort ?? null)) {
-				// The queued install keeps its own port; silently reusing it dropped the one just chosen (A6-14).
-				throw new ConflictError(t("backend.quick-service.installQueuedWithOtherPort", { port: activePayload.customPort ?? "auto" }));
-			}
-			if (sameOperation) return { job: activeJob, taskId: `job:${activeJob.id}`, reused: true };
-			throw new ConflictError(apiCopy("apiCopy.service.already.has.a.different.lifecycle.task.in.progress.8f008320", { v0: String(input.payload.slug) }));
+			return reuse(activeJob);
 		}
 		throw new ConflictError(apiCopy("apiCopy.service.lifecycle.task.is.being.scheduled.retry.shortly.2073b6a5", { v0: String(input.payload.slug) }));
 	}
 
 	try {
 		const activeJob = await findActiveQuickServiceJob(input.payload.slug, instanceKey);
-		if (activeJob) {
-			const activePayload = parseQuickServiceJobPayload(activeJob.payload);
-			const sameOperation = (input.teamId ?? null) === (activeJob.teamId ?? null)
-				&& activePayload.endpointFingerprint === input.payload.endpointFingerprint
-				&& activePayload.action === input.payload.action
-				&& (activePayload.action !== "uninstall"
-					|| input.payload.action !== "uninstall"
-					|| Boolean(activePayload.deleteVolumes) === Boolean(input.payload.deleteVolumes));
-			if (sameOperation) return { job: activeJob, taskId: `job:${activeJob.id}`, reused: true };
-			throw new ConflictError(apiCopy("apiCopy.service.already.has.a.different.lifecycle.task.in.progress.8f008320", { v0: String(input.payload.slug) }));
-		}
+		if (activeJob) return reuse(activeJob);
 
 		const job = await enqueueJob({
 			type: QUICK_SERVICE_JOB_TYPE,
@@ -309,6 +302,7 @@ async function executeQuickServiceJob(job: { id: string; payload: Prisma.JsonVal
 			action: payload.action,
 			slug: payload.slug,
 			serviceId: service.id,
+			containerId: service.containerId,
 			status: service.status,
 			logPreview: quickServiceLogPreview([
 				`Installation complete: ${payload.slug}`,

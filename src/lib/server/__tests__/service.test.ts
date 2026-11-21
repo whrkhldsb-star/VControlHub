@@ -668,12 +668,12 @@ describe("server service", () => {
       }),
     );
     expect(prisma.server.update).toHaveBeenCalledWith({
-      where: { id: "srv_draft", teamId: null },
+      where: expect.objectContaining({ id: "srv_draft", teamId: null, enabled: false, host: current.host, port: current.port, hostKeySha256: current.hostKeySha256 }),
       data: { enabled: true, hostKeySha256: "SHA256:verified" },
     });
     expect(prisma.storageNode.update).toHaveBeenCalledWith(
       expect.objectContaining({
-        where: { id: "storage_draft" },
+        where: expect.objectContaining({ id: "storage_draft", serverId: current.id, teamId: current.teamId }),
         data: expect.objectContaining({
           hostKeySha256: "SHA256:verified",
           healthStatus: "UNKNOWN",
@@ -691,7 +691,7 @@ describe("server service", () => {
     expect(checkStorageNodeHealth).toHaveBeenCalledWith("storage_draft", null);
     expect(prisma.server.update).toHaveBeenCalledWith(
       expect.objectContaining({
-        where: { id: "srv_draft", teamId: null },
+        where: expect.objectContaining({ id: "srv_draft", teamId: null, enabled: true, host: current.host, hostKeySha256: "SHA256:verified" }),
         data: expect.objectContaining({
           osInfo: "Debian GNU/Linux 12 (bookworm)",
         }),
@@ -810,7 +810,7 @@ describe("server service", () => {
     );
     expect(prisma.server.update).toHaveBeenCalledWith(
       expect.objectContaining({
-        where: { id: "srv_draft_gateway", teamId: null },
+        where: expect.objectContaining({ id: "srv_draft_gateway", teamId: null, host: current.host, enabled: true }),
         data: {
           onboardingStatus: "READY",
           onboardingLastError: null,
@@ -1630,7 +1630,7 @@ describe("server service", () => {
     // TR-041: onboarding best-effort OS dialect probe uses server.update
     expect(prisma.server.update).toHaveBeenCalledWith(
       expect.objectContaining({
-        where: { id: "srv_warn" },
+        where: expect.objectContaining({ id: "srv_warn", enabled: true, host: expect.any(String) }),
         data: expect.objectContaining({
           osInfo: expect.any(String),
           osDialect: expect.stringContaining("packageManager"),
@@ -2443,7 +2443,7 @@ describe("server service", () => {
     // TR-041: dialect probe still updates the server record even if direct gateway fails
     expect(prisma.server.update).toHaveBeenCalledWith(
       expect.objectContaining({
-        where: { id: "srv_direct_fail" },
+        where: expect.objectContaining({ id: "srv_direct_fail", enabled: true, host: expect.any(String) }),
         data: expect.objectContaining({
           osInfo: expect.any(String),
           osDialect: expect.stringContaining("packageManager"),
@@ -2696,6 +2696,13 @@ describe("server service", () => {
     }
   });
 
+  it.each(["relative/data", "/data/../other", "/./proc/", "//sys", "/dev/.", "/"])("refuses an unsafe edited root %s before committing profile changes", async storagePath => {
+    vi.mocked(prisma.server.findUnique).mockResolvedValueOnce({ id: "srv", operatingSystem: "LINUX", storageNode: { id: "node", driver: "SFTP" } } as any);
+    await expect(updateServerProfile("srv", { storagePath })).rejects.toThrow();
+    expect(prisma.server.update).not.toHaveBeenCalled();
+    expect(prisma.storageNode.update).not.toHaveBeenCalled();
+  });
+
   it("updates bound SFTP storage basePath and ensures the remote directory exists", async () => {
     const current = {
       id: "srv_path",
@@ -2734,7 +2741,7 @@ describe("server service", () => {
     };
     vi.mocked(prisma.server.findUnique)
       .mockResolvedValueOnce(current as any)
-      .mockResolvedValueOnce(current as any)
+      .mockResolvedValueOnce({ ...current, storageNode: { ...current.storageNode, basePath: "/data/vch-files" } } as any)
       .mockResolvedValueOnce({
         ...current,
         storageNode: { ...current.storageNode, basePath: "/data/vch-files" },
@@ -2758,7 +2765,7 @@ describe("server service", () => {
       }),
     );
     expect(prisma.storageNode.update).toHaveBeenCalledWith({
-      where: { id: "sn_path", serverId: current.id, teamId: current.teamId, basePath: "/root/drive", driver: "SFTP" },
+      where: { id: "sn_path", serverId: current.id, teamId: current.teamId, basePath: "/root/drive", driver: "SFTP", host: current.storageNode.host, port: current.storageNode.port, username: current.storageNode.username },
       data: { basePath: "/data/vch-files", shareLinks: { updateMany: { where: { revokedAt: null }, data: { revokedAt: expect.any(Date) } } } },
     });
     expect(createRemoteDirectory).toHaveBeenCalledWith(
@@ -2804,7 +2811,7 @@ describe("server service", () => {
     };
     vi.mocked(prisma.server.findUnique)
       .mockResolvedValueOnce(current as any)
-      .mockResolvedValueOnce(current as any)
+      .mockResolvedValueOnce({ ...current, storageNode: { ...current.storageNode, basePath: "/data/new-root" } } as any)
       // The gateway reinstall cannot load the node (unreachable here).
       .mockResolvedValueOnce(null)
       .mockResolvedValueOnce({ ...current, storageNode: { ...current.storageNode, basePath: "/data/new-root" } } as any);
