@@ -77,6 +77,10 @@ run_pre_upgrade_backup() {
   APP_DIR="${APP_DIR}" ENV_FILE="${ENV_FILE}" BACKUP_DIR="${BACKUP_DIR}" "${backup_script}" "${output}"
 }
 
+is_shared_env_path() {
+  [[ $1 == .env* && $1 != .env.example ]]
+}
+
 prepare_source() {
   local source_dir="${SOURCE_DIR:-${APP_DIR}}" remote sha dirty
   if [[ ${SKIP_PULL} != 1 && -d ${APP_DIR}/.git ]]; then
@@ -90,8 +94,12 @@ prepare_source() {
     git -C "${candidate}" reset --hard "${sha}"
   else
     # Archive installs may supply the unpacked release via SOURCE_DIR.
-    local excludes=(--exclude='./.env' --exclude='./.env.local*' --exclude='./.env.production*' --exclude='./.env.runtime*' --exclude='./.next*' --exclude='./node_modules*' --exclude='./dist*')
-    local name
+    local excludes=(--exclude='./.next*' --exclude='./node_modules*' --exclude='./dist*' --no-wildcards)
+    local path name
+    for path in "${source_dir}"/.env*; do
+      name="${path##*/}"
+      if is_shared_env_path "${name}"; then excludes+=("--exclude=./${name}"); fi
+    done
     for name in "${shared[@]}"; do excludes+=("--exclude=./${name}"); done
     tar -C "${source_dir}" "${excludes[@]}" -cf - . | tar -C "${candidate}" -xf -
   fi
@@ -137,17 +145,15 @@ plan_shared_paths() {
   # and remains a real directory for backups, restores and confined services.
   local name path
   shopt -s nullglob dotglob
-  for path in "${APP_DIR}"/.env*; do
-    name="${path##*/}"
-    [[ ${name} == .env.example ]] || shared+=("${name}")
-  done
   for path in "${APP_DIR}"/*; do
     name="${path##*/}"
     case "${name}" in
       node_modules|dist|.next|.git|.restore.lock) continue ;;
     esac
     # Keep deployment-local files and custom top-level storage directories.
-    if [[ ! -e ${candidate}/${name} && ! -L ${candidate}/${name} ]]; then
+    if is_shared_env_path "${name}"; then
+      shared+=("${name}")
+    elif [[ ! -e ${candidate}/${name} && ! -L ${candidate}/${name} ]]; then
       if [[ -d ${APP_DIR}/.git && -n "$(git_app ls-files -- "${name}")" ]]; then continue; fi
       shared+=("${name}")
     fi

@@ -15,6 +15,7 @@
 
 import { auditUserAction } from "@/lib/audit/service";
 import { prisma } from "@/lib/db";
+import { ConflictError } from "@/lib/errors";
 import { withApiRoute } from "@/lib/http/api-guard";
 import { GENERAL_WRITE_LIMIT } from "@/lib/http/rate-limit-presets";
 import { getServerLocale, t } from "@/lib/i18n/translations";
@@ -32,20 +33,6 @@ import { SSH_CONNECTION_SERVER_SELECT } from "@/lib/ssh/server-connection-select
 export const dynamic = "force-dynamic";
 const logger = createLogger("api:servers:detect-os");
 
-type ServerRow = {
-  id: string;
-  host: string;
-  port: number;
-  username: string;
-  operatingSystem: string;
-  connectionType: string;
-  managementMode: string;
-  sshKeyId: string | null;
-  password: string | null;
-  hostKeySha256: string | null;
-  sshKey: { privateKey: string; passphrase?: string | null } | null;
-};
-
 function dialectSummary(dialect: OsDialect) {
   return {
     packageManager: dialect.packageManager,
@@ -54,16 +41,6 @@ function dialectSummary(dialect: OsDialect) {
     distroFamily: dialect.distroFamily,
     detectedAt: dialect.detectedAt,
   };
-}
-
-async function loadServer(id: string): Promise<ServerRow | null> {
-  const server = await prisma.server.findUnique({
-    where: { id },
-    // The whole connection: an Agent-managed server was dialled over SSH
-    // and a Windows one probed on its RDP port without these fields.
-    select: SSH_CONNECTION_SERVER_SELECT,
-  });
-  return (server as ServerRow | null) ?? null;
 }
 
 export async function POST(
@@ -83,7 +60,10 @@ export async function POST(
       const teamAccess = await assertServerTeamAccess(session, id, "connect");
       if (!teamAccess.ok) return teamAccess.response;
 
-      const server = await loadServer(id);
+      const server = await prisma.server.findUnique({
+        where: { id, teamId: teamAccess.server.teamId },
+        select: SSH_CONNECTION_SERVER_SELECT,
+      });
       if (!server) {
         return Response.json({ error: t("apiServersDetectOs.serverNotFound", locale) }, { status: 404 });
       }
@@ -102,13 +82,24 @@ export async function POST(
           dialect.distroName.includes("uname fallback") ||
           dialect.distroName.startsWith("Unknown");
 
-        await prisma.server.update({
-          where: { id },
+        const saved = await prisma.server.updateMany({
+          where: {
+            id,
+            teamId: server.teamId,
+            host: server.host,
+            port: server.port,
+            username: server.username,
+            operatingSystem: server.operatingSystem,
+            managementMode: server.managementMode,
+          },
           data: {
             osDialect: serializeDialect(dialect),
             osInfo,
           },
         });
+        if (saved.count === 0) {
+          throw new ConflictError(t("apiServersDetectOs.serverChanged", locale));
+        }
 
         await auditUserAction(
           session.userId,
@@ -141,6 +132,7 @@ export async function POST(
           "WARNING",
           session.currentTeamId,
         );
+        if (error instanceof ConflictError) throw error;
         return Response.json(
           { error: t("apiServersDetectOs.detectionFailed", locale, { message }) },
           { status: 502 },

@@ -1,5 +1,10 @@
 import { beforeEach, describe, expect, it, vi } from "vitest";
 import { Prisma } from "@prisma/client";
+import { rm } from "node:fs/promises";
+import { prisma } from "@/lib/db";
+import { notifyDownloadResult } from "@/lib/notification/service";
+import { relayTempDir } from "@/lib/runtime/platform-paths";
+import { getStorageWriteCapacity } from "@/lib/storage/access-control";
 
 const {
   enqueueJobMock,
@@ -37,6 +42,11 @@ const LIMITS = { maxFileBytes: null, remainingBytes: null };
 const executionMocks = vi.hoisted(() => ({ loadExecutionActor: vi.fn(), executionRefusal: vi.fn() }));
 vi.mock("@/lib/auth/execution-actor", () => executionMocks);
 vi.mock("@/lib/storage/access-control", () => ({ getStorageWriteCapacity: vi.fn(async () => ({ maxFileBytes: null, remainingBytes: null })) }));
+vi.mock("@/lib/notification/service", () => ({ notifyDownloadResult: vi.fn(async () => undefined) }));
+vi.mock("node:fs/promises", async (importOriginal) => ({
+  ...await importOriginal<typeof import("node:fs/promises")>(),
+  rm: vi.fn(async () => undefined),
+}));
 vi.mock("@/lib/job/service", () => ({
   enqueueJob: enqueueJobMock,
   claimNextJob: claimNextJobMock,
@@ -48,6 +58,7 @@ vi.mock("@/lib/job/service", () => ({
 
 vi.mock("@/lib/db", () => ({
   prisma: {
+    $queryRaw: vi.fn(),
     downloadTask: {
       findUnique: prismaDownloadTaskFindUniqueMock,
       updateMany: vi.fn(async () => ({ count: 1 })),
@@ -450,6 +461,39 @@ describe("download execution durable job worker", () => {
       );
       expect(completeJobMock).not.toHaveBeenCalled();
       expect(errorMock).toHaveBeenCalled();
+    });
+
+    it.each([
+      { description: "cleans up unjournaled staging", transferManifest: null },
+      { description: "preserves journaled staging for reconciliation", transferManifest: { version: 1, files: [] } },
+    ])("notifies the owner when a quota-bound HTTP download exhausts its retries and $description", async ({ transferManifest }) => {
+      const task = { ...makeTaskRow(), status: "PENDING", teamId: "team-1" };
+      const limits = { maxFileBytes: null, remainingBytes: BigInt(1024) };
+      claimNextJobMock.mockResolvedValueOnce(makeJob({ attempts: 3, maxAttempts: 3 }));
+      vi.mocked(getStorageWriteCapacity).mockResolvedValueOnce(limits);
+      prismaDownloadTaskFindUniqueMock
+        .mockResolvedValueOnce(task)
+        .mockResolvedValueOnce({ ...task, relayMode: true, status: "RUNNING", updatedAt: new Date(), transferManifest });
+      executeAria2RelayDownloadMock.mockRejectedValueOnce(new Error("transfer interrupted"));
+      vi.mocked(prisma.$queryRaw).mockResolvedValueOnce([{ publishing: transferManifest !== null }]);
+
+      await expect(runDownloadExecutionJobWorkerOnce()).resolves.toBe(true);
+
+      expect(prisma.downloadTask.updateMany).toHaveBeenCalledWith({
+        where: { id: task.id, status: "PENDING" }, data: { relayMode: true },
+      });
+      expect(executeAria2RelayDownloadMock).toHaveBeenCalledWith(
+        task.id, expect.anything(), [task.url], task.targetPath, task.fileName, task.maxSpeedKb,
+        task.createdBy, expect.any(AbortSignal), limits, true,
+      );
+      expect(failJobMock).toHaveBeenCalledWith("job-dl-1", expect.any(String), "transfer interrupted");
+      expect(prisma.$queryRaw).toHaveBeenCalledTimes(1);
+      expect(notifyDownloadResult).toHaveBeenCalledWith(task.createdBy, task.url, "failed", expect.any(String), task.teamId);
+      if (transferManifest) {
+        expect(rm).not.toHaveBeenCalled();
+      } else {
+        expect(rm).toHaveBeenCalledWith(relayTempDir(task.id), { recursive: true, force: true });
+      }
     });
 
     it("stops quietly when the continuous heartbeat loses the lease mid-transfer", async () => {

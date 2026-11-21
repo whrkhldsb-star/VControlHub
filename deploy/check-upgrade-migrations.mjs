@@ -7,6 +7,31 @@ import { pathToFileURL } from "node:url";
 import { config as dotenv } from "dotenv";
 import { pgConnection, runBinary } from "../scripts/lib/backup-common.mjs";
 
+// The tokenizer represents quoted identifiers and strings by their opening quote.
+const identifier = /(?:[A-Z_][\w$]*|")/.source;
+const tableHeader = new RegExp(`^ALTER TABLE (?:IF EXISTS )?(?:ONLY )?${identifier}(?: \\. ${identifier})* `);
+const addColumn = new RegExp(`^ADD COLUMN (?:IF NOT EXISTS )?${identifier} ${identifier}(?: |$)`);
+const addConstraint = new RegExp(`^ADD CONSTRAINT ${identifier} (?:CHECK|FOREIGN KEY|PRIMARY KEY|UNIQUE|EXCLUDE|NOT NULL)(?: |$)`);
+
+function hasOnlyAdditiveTableActions(words) {
+  const closing = [];
+  let start = 0;
+  for (let i = 0; i <= words.length; i++) {
+    const word = words[i];
+    if (word === "(") closing.push(")");
+    else if (word === "[") closing.push("]");
+    else if (word === ")" || word === "]") {
+      if (closing.pop() !== word) return false;
+    } else if (i === words.length || (word === "," && closing.length === 0)) {
+      let action = words.slice(start, i).join(" ");
+      if (start === 0) action = action.replace(tableHeader, "");
+      if (!addColumn.test(action) && !addConstraint.test(action)) return false;
+      start = i + 1;
+    }
+  }
+  return closing.length === 0;
+}
+
 // Recognise simple additive DDL only. Tokenize before classifying so comments,
 // quoted identifiers, strings and multi-action ALTER statements keep their boundaries.
 // Procedural SQL and unknown syntax require review, including dynamic EXECUTE.
@@ -16,7 +41,9 @@ export function isAutomaticMigration(sql) {
   function additive() {
     if (!words.length) return true;
     const stmt = words.join(" ").replace(/ ON (?:DELETE|UPDATE) (?:SET (?:NULL|DEFAULT)|NO ACTION|CASCADE|RESTRICT)\b/g, "");
-    if (!/^(?:CREATE (?:TABLE|(?:UNIQUE )?INDEX|TYPE) |ALTER TABLE .*? ADD |ALTER TYPE .*? ADD VALUE )/.test(stmt)) return false;
+    if (words[0] === "ALTER" && words[1] === "TABLE") {
+      if (!hasOnlyAdditiveTableActions(words)) return false;
+    } else if (!/^(?:CREATE (?:TABLE|(?:UNIQUE )?INDEX|TYPE) |ALTER TYPE .*? ADD VALUE )/.test(stmt)) return false;
     return !/\b(?:DROP|DELETE|UPDATE|TRUNCATE|INSERT|MERGE|EXECUTE|CALL|SELECT|RENAME|DETACH|USING|REPLACE|INHERIT)\b/.test(stmt)
       && !/\bALTER\b/.test(stmt.replace(/^ALTER /, ""));
   }
@@ -33,7 +60,7 @@ export function isAutomaticMigration(sql) {
       if (!additive()) return false;
       words = [];
     } else {
-      words.push(/^["']/.test(value) ? "?" : value.toUpperCase());
+      words.push(/^["']/.test(value) ? value[0] : value.toUpperCase());
     }
   }
   return additive();

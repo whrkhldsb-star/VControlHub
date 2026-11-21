@@ -160,23 +160,23 @@ run_install() {
   "${APP_DIR}/deploy/install.sh" "$@"
 }
 
-run_update() {
+# The subshell keeps the temporary path in scope for EXIT and owns its trap.
+run_update() (
   require_installed_script deploy/upgrade.sh
   # A legacy installed upgrader pulls directly into the running checkout. Use
   # the requested revision's upgrade driver without changing that checkout.
-  local driver="${APP_DIR}/deploy/upgrade.sh" fetched=""
+  driver="${APP_DIR}/deploy/upgrade.sh"
   if [[ -d ${APP_DIR}/.git && ${SKIP_PULL:-0} != 1 ]]; then
     git -c "safe.directory=${APP_DIR}" -C "${APP_DIR}" fetch origin "${BRANCH}"
-    fetched="$(mktemp -d)"
-    trap 'rm -rf -- "${fetched}"' EXIT
-    driver="${fetched}/upgrade.sh"
+    fetched_dir="$(mktemp -d)"
+    trap 'if [[ -n ${fetched_dir:-} ]]; then rm -rf -- "${fetched_dir}"; fi' EXIT
+    driver="${fetched_dir}/upgrade.sh"
     git -c "safe.directory=${APP_DIR}" -C "${APP_DIR}" show FETCH_HEAD:deploy/upgrade.sh > "${driver}"
   fi
   log "Starting staged update"
   APP_NAME="${APP_NAME}" APP_SLUG="${APP_SLUG}" SERVICE_PREFIX="${SERVICE_PREFIX}" \
     APP_DIR="${APP_DIR}" UPGRADE_REF="${BRANCH}" bash "${driver}" "$@"
-  if [[ -n ${fetched} ]]; then rm -rf -- "${fetched}"; trap - EXIT; fi
-}
+)
 
 run_uninstall() {
   require_installed_script deploy/uninstall.sh
