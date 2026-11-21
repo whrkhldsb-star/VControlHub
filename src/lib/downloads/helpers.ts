@@ -41,6 +41,14 @@ export function deriveDownloadFileNameFromUrl(url: string | null | undefined): s
  }
 }
 
+/** Notifications may leave the platform. Even URL path segments can be credentials. */
+export function downloadNotificationSource(url: string) {
+ try {
+  const parsed = new URL(url);
+  return ["http:", "https:"].includes(parsed.protocol) ? parsed.origin : parsed.protocol;
+ } catch { return "download"; }
+}
+
 /* ── Path helpers ──────────────────────────────────────── */
 
 export function relativePathFromDownloadTarget(

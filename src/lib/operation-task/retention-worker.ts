@@ -20,7 +20,7 @@ import { JobStatus } from "@prisma/client";
 import { config } from "@/lib/config/env";
 import { acquireAdvisoryLock } from "@/lib/concurrency/advisory-lock";
 import { prisma } from "@/lib/db";
-import { runWithLeaseHeartbeat } from "@/lib/job/heartbeat-runner";
+import { LeaseLostError, runWithLeaseHeartbeat } from "@/lib/job/heartbeat-runner";
 import { computeLeaseMs } from "@/lib/job/lease";
 import {
   claimNextJob,
@@ -89,7 +89,7 @@ async function enqueueOperationTaskRetentionJob(reason: string) {
   );
   try {
     if (await hasActiveRetentionJob()) return null;
-    return enqueueJob({
+    return await enqueueJob({
       type: OPERATION_TASK_RETENTION_JOB_TYPE,
       title: "Operation task cross-source retention policy pruning",
       payload: { reason, requestedAt: new Date().toISOString() },
@@ -142,18 +142,21 @@ export async function runOperationTaskRetentionJobWorkerOnce(
     if (!job) return false;
 
     try {
-      await heartbeatJob(job.id, OPERATION_TASK_RETENTION_WORKER_ID, {
+      const initial = await heartbeatJob(job.id, OPERATION_TASK_RETENTION_WORKER_ID, {
+        attempts: job.attempts,
         leaseMs: OPERATION_TASK_RETENTION_LEASE_MS,
         progress: "Pruning historical records across sources",
       });
+      if (!initial.count) return true;
       const result = await runWithLeaseHeartbeat({
         jobId: job.id,
         leaseMs: OPERATION_TASK_RETENTION_LEASE_MS,
         heartbeat: () => heartbeatJob(job.id, OPERATION_TASK_RETENTION_WORKER_ID, {
+          attempts: job.attempts,
           leaseMs: OPERATION_TASK_RETENTION_LEASE_MS,
           progress: "Pruning historical records across sources",
         }),
-        run: () => pruneOperationTaskHistory(),
+        run: signal => pruneOperationTaskHistory({ signal }),
       });
       // `pruneOperationTaskHistory` isolates each source with try/catch, so it never
       // throws — a run where every table failed used to be recorded as COMPLETED,
@@ -164,13 +167,14 @@ export async function runOperationTaskRetentionJobWorkerOnce(
           `Retention pruning failed for: ${result.failedSources.join(", ")}`,
         );
       }
-      await completeJob(job.id, OPERATION_TASK_RETENTION_WORKER_ID, {
+      const completed = await completeJob(job.id, OPERATION_TASK_RETENTION_WORKER_ID, {
         totalDeleted: result.totalDeleted,
         perSource: result.perSource,
         durationMs: result.durationMs,
         olderThan: result.olderThan,
         keepLatest: result.keepLatest,
-      });
+      }, job.attempts);
+      if (!completed.count) return true;
       // Its own runs too, as every other periodic worker does: nothing else
       // prunes COMPLETED rows of this type (production held ~400).
       await pruneCompletedJobsByType({
@@ -183,6 +187,7 @@ export async function runOperationTaskRetentionJobWorkerOnce(
       });
       return true;
     } catch (error) {
+      if (error instanceof LeaseLostError) return true;
       const message =
         error instanceof Error
           ? error.message
@@ -192,6 +197,7 @@ export async function runOperationTaskRetentionJobWorkerOnce(
         OPERATION_TASK_RETENTION_WORKER_ID,
         message.slice(0, 2000),
         {
+          attempts: job.attempts,
           retryAfterMs: 60 * 60 * 1000, // 1h 后重试
         },
       );

@@ -22,6 +22,12 @@ function cancelFileFor(safeTaskId: string) {
   return `/tmp/app-dl-${safeTaskId}.cancel`;
 }
 
+// The receipt identifies the staging inode before rename. A controller can
+// recognize it after a crash between rename and writing the successful exit.
+export function directPublishReceiptMatches(exitFile: string, output: string) {
+  return `[ -f ${output} ] && [ ! -L ${output} ] && [ "$(stat -c '%d:%i' -- ${output})" = "$(cat ${shellQuote(exitFile + ".publish")} 2>/dev/null)" ]`;
+}
+
 type DirectDownloadCommandInput = {
   taskId: string;
   url: string;
@@ -97,6 +103,10 @@ export function buildDirectDownloadCommand({
     '  if [ -n "$max_bytes" ] && [ "$(stat -Lc %s /proc/self/fd/3)" -gt "$max_bytes" ]; then echo "ERROR: the file is larger than the storage limit allows" >>"$log_file"; return 63; fi',
     '  [ "$(pwd -P)" = "$expected_dir" ] && [ "$(realpath -e -- "$target_dir")" = "$expected_dir" ] || return 1',
     '  [ ! -L "$output_path" ] && [ ! -L "$partial_path" ] && [ "$partial_path" -ef /proc/self/fd/3 ] || return 1',
+    '  exec 4>>"$exit_file.lock" && flock -x 4 || return 1',
+    '  [ ! -e "$cancel_file" ] || return 130',
+    '  receipt=$(mktemp -- "$exit_file.publish.XXXXXX") || return 1',
+    '  stat -Lc "%d:%i" /proc/self/fd/3 >"$receipt" && mv -fT -- "$receipt" "$exit_file.publish" || return 1',
     '  mv -fT -- "$partial_path" "$output_path" && [ ! -L "$output_path" ] && [ "$output_path" -ef /proc/self/fd/3 ]',
     '}',
     'transfer',
@@ -111,6 +121,7 @@ export function buildDirectDownloadCommand({
     // The script is bash; a host without it (Alpine) answered with an empty log
     // and a generic failure. Exit 127 names the cause (A5-14).
     "command -v bash >/dev/null 2>&1 || exit 127",
+    "command -v flock >/dev/null 2>&1 || exit 65",
     enterDownloadTargetDirectory(basePath, targetPath, physicalTargetDir),
     `nohup bash -lc ${shellQuote(script)} >/dev/null 2>&1 &`,
     `echo $! > ${shellQuote(pidFile)}`,
@@ -118,7 +129,7 @@ export function buildDirectDownloadCommand({
   ].join("\n");
 }
 
-export type DirectDownloadStopState = "STOPPED" | "NOT_RUNNING";
+export type DirectDownloadStopState = "STOPPED" | "NOT_RUNNING" | "PUBLISHED";
 
 /**
  * Stop every process of one direct download and confirm none is left.
@@ -138,7 +149,7 @@ export type DirectDownloadStopState = "STOPPED" | "NOT_RUNNING";
 export function buildDirectDownloadStopCommand(
   taskId: string,
   targetPath?: string | null,
-  options: { cancel?: boolean } = {},
+  options: { cancel?: boolean; fileName?: string | null } = {},
 ): string {
   const safeTaskId = safeTaskFileStem(taskId);
   const pidFile = `/tmp/app-dl-${safeTaskId}.pid`;
@@ -150,6 +161,11 @@ export function buildDirectDownloadStopCommand(
     // in its command line from the start); one that starts afterwards sees the
     // tombstone and exits before curl. So a cancel reported as confirmed can
     // no longer race a worker that dies between spawning and recording the pid.
+    `exec 4>>${shellQuote(pidFile + ".exit.lock")} && flock -x 4 || exit 5`,
+    `if [ "$(cat ${shellQuote(pidFile + ".exit")} 2>/dev/null)" = 0 ]; then echo PUBLISHED; exit 0; fi`,
+    ...(targetPath && options.fileName && isPlainDownloadName(options.fileName)
+      ? [`if ${directPublishReceiptMatches(pidFile + ".exit", shellQuote(toRemoteChildPath(targetPath, options.fileName)))}; then echo PUBLISHED; exit 0; fi`]
+      : []),
     ...(options.cancel
       ? [`if ! : >${shellQuote(cancelFileFor(safeTaskId))} 2>/dev/null; then echo NO_TOMBSTONE; exit 5; fi`]
       : []),
@@ -176,7 +192,7 @@ export function buildDirectDownloadStopCommand(
 export function parseDirectDownloadStopResult(result: { stdout: string; exitCode?: number | null }): DirectDownloadStopState | null {
   if (result.exitCode !== 0) return null;
   const last = result.stdout.trim().split(/\r?\n/).pop();
-  return last === "STOPPED" || last === "NOT_RUNNING" ? last : null;
+  return last === "PUBLISHED" || last === "STOPPED" || last === "NOT_RUNNING" ? last : null;
 }
 
 export function getDirectDownloadLogCommand(taskId: string): string {

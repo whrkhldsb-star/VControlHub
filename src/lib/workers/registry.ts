@@ -434,14 +434,17 @@ export async function startAllWorkers(options: {
   logger?: (msg: string, meta?: Record<string, unknown>) => void;
   /** Stagger immediate first ticks so DB-backed workers do not exhaust the transaction pool at boot. */
   betweenWorkerDelayMs?: number;
+  signal?: AbortSignal;
 } = {}): Promise<{ started: WorkerId[]; failed: Array<{ id: WorkerId; error: string }> }> {
   const log = options.logger ?? (() => {});
   const betweenWorkerDelayMs = Math.max(0, options.betweenWorkerDelayMs ?? 0);
   const started: WorkerId[] = [];
   const failed: Array<{ id: WorkerId; error: string }> = [];
   for (const spec of WORKER_REGISTRY) {
+    if (options.signal?.aborted) break;
     try {
       await startWorker(spec.id);
+      if (options.signal?.aborted) { stopWorker(spec.id); break; }
       started.push(spec.id);
       log("worker started", { id: spec.id, jobType: spec.jobType });
     } catch (error) {

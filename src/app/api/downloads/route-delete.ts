@@ -13,6 +13,7 @@ import {
   buildDirectDownloadStopCommand,
   parseDirectDownloadStopResult,
 } from "@/lib/downloads/remote-command";
+import { deriveDownloadFileNameFromUrl } from "@/lib/downloads/helpers";
 import { cleanupTemp } from "@/lib/downloads/execution";
 import { relayTempDir } from "@/lib/runtime/platform-paths";
 import { withApiRoute } from "@/lib/http/api-guard";
@@ -20,6 +21,9 @@ import { GENERAL_WRITE_LIMIT } from "@/lib/http/rate-limit-presets";
 import { ForbiddenError, NotFoundError } from "@/lib/errors";
 import { serverTeamWhere, teamAccessFilter } from "@/lib/auth/team-scope";
 import { getServerLocale, t } from "@/lib/i18n/translations";
+import { reconcileTerminalRelay } from "@/lib/downloads/relay-cleanup";
+import { downloadHistoryRemovable, parseTransferManifest, relayCleanupConfirmed } from "@/lib/downloads/transfer-manifest";
+import { reconcileDirectTask } from "@/lib/downloads/reconcile";
 import { canAccessDownloadTask } from "@/lib/downloads/route-helpers";
 
 /* ── DELETE: Cancel task ──────────────────────────────────── */
@@ -65,7 +69,11 @@ export async function DELETE(request: Request) {
             { status: 409 },
           );
         }
-        await prisma.downloadTask.delete({ where: { id: taskId } });
+        if ((task.relayMode || task.aria2Gid || task.agentStorageNodeId || task.transferManifest) && !relayCleanupConfirmed(task.transferManifest)) {
+          if (!await reconcileTerminalRelay(taskId)) return NextResponse.json({ error: t("apiDownloads.finishingTransfer", locale) }, { status: 409 });
+        }
+        const purged = await prisma.downloadTask.deleteMany({ where: { id: taskId, status: task.status, ...downloadHistoryRemovable } });
+        if (!purged.count) return NextResponse.json({ error: t("apiDownloads.finishingTransfer", locale) }, { status: 409 });
         await auditUserAction(session.userId, "download.purge", {
           taskId,
           url: task.url,
@@ -95,12 +103,12 @@ export async function DELETE(request: Request) {
       // Once the immutable manifest is committed, the verified files are being
       // published. Cancellation and journaling compete on this same row.
       if (task.relayMode || task.agentStorageNodeId || task.aria2Gid) {
-        if (task.transferManifest) {
+        if (parseTransferManifest(task.transferManifest)) {
           return NextResponse.json({ error: t("apiDownloads.finishingTransfer", locale) }, { status: 409 });
         }
         // Read the gid from the update: aria2 may have started since the initial lookup.
         const [cancelled] = await prisma.downloadTask.updateManyAndReturn({
-          where: { id: taskId, transferManifest: { equals: Prisma.DbNull }, status: { in: ["PENDING", "RUNNING"] } },
+          where: { id: taskId, transferManifest: { equals: task.transferManifest ?? Prisma.DbNull }, status: { in: ["PENDING", "RUNNING"] } },
           data: cancelledData,
           select: { aria2Gid: true, pid: true },
         });
@@ -166,11 +174,15 @@ export async function DELETE(request: Request) {
           );
           stopped = parseDirectDownloadStopResult(await execRemoteCommand({
             ...sshParams,
-            command: buildDirectDownloadStopCommand(task.id, task.targetPath, { cancel: true }),
+            command: buildDirectDownloadStopCommand(task.id, task.targetPath, { cancel: true, fileName: task.fileName || deriveDownloadFileNameFromUrl(task.url) || "download" }),
             timeout: 20000,
           }));
         } catch (err) {
           logError("[DownloadAPI] Failed to kill remote process:", err);
+        }
+        if (stopped === "PUBLISHED") {
+          const result = await reconcileDirectTask(task);
+          return NextResponse.json({ status: result === "completed" ? "COMPLETED" : (await prisma.downloadTask.findUnique({ where: { id: taskId }, select: { status: true } }))?.status }, { status: 409 });
         }
         if (!stopped) {
           return NextResponse.json(

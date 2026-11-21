@@ -33,171 +33,52 @@ export async function recoverStaleRunningJobs(options: {
       },
     ],
   };
-  const batchSize = 1000;
-  const retryable: Array<{ id: string; type: string; title: string; attempts: number; maxAttempts: number }> = [];
-  let retryCursor: { id: string } | undefined;
-  do {
-    const batch = await prisma.job.findMany({
-      where: { ...staleWhere, attempts: { lt: prisma.job.fields.maxAttempts } },
-      select: { id: true, type: true, title: true, attempts: true, maxAttempts: true },
-      orderBy: { id: "asc" },
-      take: batchSize,
-      ...(retryCursor ? { cursor: retryCursor, skip: 1 } : {}),
-    });
-    retryable.push(...batch);
-    retryCursor = batch.length === batchSize ? { id: batch[batch.length - 1]!.id } : undefined;
-  } while (retryCursor);
-  const exhausted: Array<{ id: string; type: string; title: string; attempts: number; maxAttempts: number; payload: unknown }> = [];
-  let exhaustedCursor: { id: string } | undefined;
-  do {
-    const batch = await prisma.job.findMany({
-      where: { ...staleWhere, attempts: { gte: prisma.job.fields.maxAttempts } },
-      select: { id: true, type: true, title: true, attempts: true, maxAttempts: true, payload: true },
-      orderBy: { id: "asc" },
-      take: batchSize,
-      ...(exhaustedCursor ? { cursor: exhaustedCursor, skip: 1 } : {}),
-    });
-    exhausted.push(...batch);
-    exhaustedCursor = batch.length === batchSize ? { id: batch[batch.length - 1]!.id } : undefined;
-  } while (exhaustedCursor);
-  if (retryable.length === 0 && exhausted.length === 0) {
-    return { count: 0, recovered: [], failed: [] };
+  const selection = { id: true, type: true, title: true, attempts: true, maxAttempts: true } as const;
+  const recovered = await prisma.job.updateManyAndReturn({
+    where: { ...staleWhere, attempts: { lt: prisma.job.fields.maxAttempts } },
+    data: { status: JobStatus.PENDING, availableAt: futureFrom(now, options.retryAfterMs ?? 0),
+      workerId: null, workerHeartbeatAt: null, leaseExpiresAt: null, errorMessage: REQUEUED_ERROR },
+    select: selection,
+  });
+  const exhausted = await prisma.job.updateManyAndReturn({
+    where: { ...staleWhere, attempts: { gte: prisma.job.fields.maxAttempts } },
+    data: { status: JobStatus.FAILED, completedAt: now,
+      workerId: null, workerHeartbeatAt: null, leaseExpiresAt: null, errorMessage: EXHAUSTED_ERROR },
+    select: { ...selection, payload: true },
+  });
+  const events = [
+    ...recovered.map(job => ({ job, type: "recovered", level: "warn", message: "Background executor heartbeat expired; re-enqueued" })),
+    ...exhausted.map(job => ({ job, type: "failed", level: "error", message: "Background executor heartbeat expired after exhausting attempts" })),
+  ];
+  if (events.length) {
+    await prisma.jobEvent.createMany({ data: events.map(({ job, type, level, message }) => ({
+      jobId: job.id, type, level, message, workerId: null,
+      payload: { type: job.type, title: job.title, attempts: job.attempts, maxAttempts: job.maxAttempts },
+    })) }).catch(() => undefined);
   }
-  const recoveredIds: string[] = [];
-  const failedIds: string[] = [];
-  if (retryable.length > 0) {
-    const result = await prisma.job.updateMany({
-      where: {
-        id: { in: retryable.map((j) => j.id) },
-        status: JobStatus.RUNNING,
-        OR: [
-          { leaseExpiresAt: { lt: options.staleBefore } },
-          {
-            leaseExpiresAt: null,
-            workerHeartbeatAt: { lt: heartbeatStaleBefore },
-          },
-        ],
-      },
+  const playbookRunIds = exhausted
+    .filter((job) => job.type === "playbook.run")
+    .map((job) => {
+      const payload = job.payload;
+      if (!payload || typeof payload !== "object" || Array.isArray(payload)) return null;
+      const runId = (payload as { runId?: unknown }).runId;
+      return typeof runId === "string" && runId.trim() ? runId.trim() : null;
+    })
+    .filter((id): id is string => Boolean(id));
+  if (playbookRunIds.length > 0) {
+    await prisma.playbookRun.updateMany({
+      where: { id: { in: playbookRunIds }, status: { in: ["queued", "running"] } },
       data: {
-        status: JobStatus.PENDING,
-        availableAt: futureFrom(now, options.retryAfterMs ?? 0),
-        workerId: null,
-        workerHeartbeatAt: null,
-        leaseExpiresAt: null,
-        errorMessage: REQUEUED_ERROR,
-      },
-    });
-    if (result.count >= retryable.length) recoveredIds.push(...retryable.map((j) => j.id));
-    else if (result.count > 0) {
-      const moved = await prisma.job.findMany({
-        where: {
-          id: { in: retryable.map((j) => j.id) },
-          status: JobStatus.PENDING,
-        },
-        select: { id: true },
-        take: retryable.length,
-      });
-      recoveredIds.push(...moved.map((j) => j.id));
-    }
-    if (recoveredIds.length > 0) {
-      const recoveredSet = new Set(recoveredIds);
-      await prisma.jobEvent.createMany({
-        data: retryable
-          .filter((job) => recoveredSet.has(job.id))
-          .map((job) => ({
-            jobId: job.id,
-            type: "recovered",
-            level: "warn",
-            message: "Background executor heartbeat expired; re-enqueued",
-            workerId: null,
-            payload: {
-              type: job.type,
-              title: job.title,
-              attempts: job.attempts,
-              maxAttempts: job.maxAttempts,
-            },
-          })),
-      }).catch(() => undefined);
-    }
-  }
-  if (exhausted.length > 0) {
-    const result = await prisma.job.updateMany({
-      where: {
-        id: { in: exhausted.map((j) => j.id) },
-        status: JobStatus.RUNNING,
-        OR: [
-          { leaseExpiresAt: { lt: options.staleBefore } },
-          {
-            leaseExpiresAt: null,
-            workerHeartbeatAt: { lt: heartbeatStaleBefore },
-          },
-        ],
-      },
-      data: {
-        status: JobStatus.FAILED,
+        status: "failed",
+        errorMessage: PLAYBOOK_EXHAUSTED_ERROR,
         completedAt: now,
-        workerId: null,
-        workerHeartbeatAt: null,
-        leaseExpiresAt: null,
-        errorMessage: EXHAUSTED_ERROR,
       },
-    });
-    if (result.count >= exhausted.length) failedIds.push(...exhausted.map((j) => j.id));
-    else if (result.count > 0) {
-      const moved = await prisma.job.findMany({
-        where: {
-          id: { in: exhausted.map((j) => j.id) },
-          status: JobStatus.FAILED,
-        },
-        select: { id: true },
-        take: exhausted.length,
-      });
-      failedIds.push(...moved.map((j) => j.id));
-    }
-    if (failedIds.length > 0) {
-      const failedSet = new Set(failedIds);
-      await prisma.jobEvent.createMany({
-        data: exhausted
-          .filter((job) => failedSet.has(job.id))
-          .map((job) => ({
-            jobId: job.id,
-            type: "failed",
-            level: "error",
-            message: "Background executor heartbeat expired after exhausting attempts",
-            workerId: null,
-            payload: {
-              type: job.type,
-              title: job.title,
-              attempts: job.attempts,
-              maxAttempts: job.maxAttempts,
-            },
-          })),
-      }).catch(() => undefined);
-      const playbookRunIds = exhausted
-        .filter((job) => failedSet.has(job.id) && job.type === "playbook.run")
-        .map((job) => {
-          const payload = job.payload;
-          if (!payload || typeof payload !== "object" || Array.isArray(payload)) return null;
-          const runId = (payload as { runId?: unknown }).runId;
-          return typeof runId === "string" && runId.trim() ? runId.trim() : null;
-        })
-        .filter((id): id is string => Boolean(id));
-      if (playbookRunIds.length > 0) {
-        await prisma.playbookRun.updateMany({
-          where: { id: { in: playbookRunIds }, status: { in: ["queued", "running"] } },
-          data: {
-            status: "failed",
-            errorMessage: PLAYBOOK_EXHAUSTED_ERROR,
-            completedAt: now,
-          },
-        }).catch(() => undefined);
-      }
-    }
+    }).catch(() => undefined);
   }
   return {
-    count: recoveredIds.length + failedIds.length,
-    recovered: recoveredIds,
-    failed: failedIds,
+    count: recovered.length + exhausted.length,
+    recovered: recovered.map(job => job.id),
+    failed: exhausted.map(job => job.id),
   };
 }
 

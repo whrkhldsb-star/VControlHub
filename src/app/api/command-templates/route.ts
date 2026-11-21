@@ -51,7 +51,7 @@ export async function POST(request: Request) {
 	return withApiRoute(request, { permission: "command:create", rateLimit: GENERAL_WRITE_LIMIT, errorStatus: 400, errorMessage: apiCopy("apiCopy.creation.failed.f81581a7"), bodySchema: createCommandTemplateSchema }, async ({ session, body }) => {
 		const template = await createTemplate({
 			name: body.name, description: body.description, command: body.command, rollbackCommand: body.rollbackCommand,
-			tags: body.tags, createdById: session.userId || undefined, teamId: session.currentTeamId ?? null,
+			variables: body.variables, tags: body.tags, createdById: session.userId || undefined, teamId: session.currentTeamId ?? null,
 		});
 		await auditUserAction(session.userId, "command_template.create", auditTemplateDetail(template), undefined, session.currentTeamId);
 		return NextResponse.json({ template });

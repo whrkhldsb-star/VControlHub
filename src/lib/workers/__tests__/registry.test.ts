@@ -293,6 +293,13 @@ describe("worker registry", () => {
     expect(statuses.every((s) => s.started === false)).toBe(true);
   });
 
+  it("stops starting workers after a shutdown during staggered startup", async () => {
+    const shutdown = new AbortController();
+    const result = await startAllWorkers({ signal: shutdown.signal, logger: () => shutdown.abort() });
+    expect(result.started).toHaveLength(1);
+    expect(result.failed).toEqual([]);
+  });
+
   it("startWorker marks the worker as started and is idempotent", async () => {
     await startWorker("alert-evaluation");
     expect(startAlertEvaluationWorkerMock).toHaveBeenCalledTimes(1);

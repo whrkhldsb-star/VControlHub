@@ -34,10 +34,10 @@ export function parseCommandExecutionJobPayload(
 export async function enqueueCommandExecutionJob(input: {
 	commandRequestId: string;
 	summary?: string;
-}) {
+}, client: Prisma.TransactionClient = prisma) {
 	const commandRequestId = input.commandRequestId?.trim();
 	if (!commandRequestId) throw new Error("Command execution task missing commandRequestId");
-	const request = await prisma.commandRequest.findUnique({
+	const request = await client.commandRequest.findUnique({
 		where: { id: commandRequestId },
 		select: { teamId: true, requesterId: true },
 	});
@@ -53,5 +53,5 @@ export async function enqueueCommandExecutionJob(input: {
 		maxAttempts: 1,
 		teamId: request?.teamId ?? null,
 		createdBy: request?.requesterId ?? null,
-	});
+	}, client);
 }

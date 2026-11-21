@@ -1,6 +1,7 @@
 import { randomUUID } from "node:crypto";
 import type { Prisma } from "@prisma/client";
 
+import { LeaseLostError } from "@/lib/job/heartbeat-runner";
 import { auditSystemAction } from "@/lib/audit/service";
 import { prisma } from "@/lib/db";
 import { t } from "@/lib/i18n/service-translations";
@@ -39,10 +40,10 @@ export function cancelActiveCommandChild(targetId: string) {
   return cancelRunningCommandChild(targetId);
 }
 
-export async function markTargetsRunning(commandRequestId: string) {
+export async function markTargetsRunning(commandRequestId: string, client: Prisma.TransactionClient = prisma) {
   // Never re-open terminal rows (esp. CANCELLED): cancel can race between
   // claim APPROVED→RUNNING and this stamp. Only advance queued statuses.
-  await prisma.commandTarget.updateMany({
+  await client.commandTarget.updateMany({
     where: {
       commandRequestId,
       status: { in: ["PENDING_APPROVAL", "APPROVED"] },
@@ -126,7 +127,9 @@ export async function executeTarget(
     };
     commandRequest: { command: string; title: string };
   },
+  lease?: AbortSignal,
 ) {
+  lease?.throwIfAborted();
   // Cancel / recovery may have terminalized the target (or whole request)
   // after executeTargets loaded the snapshot but before SSH spawn. Skip
   // remote work entirely — late CAS alone still opens a network session.
@@ -177,6 +180,7 @@ export async function executeTarget(
   }
 
   const controller = new AbortController();
+  const signal = lease ? AbortSignal.any([lease, controller.signal]) : controller.signal;
   const stopCancellationMonitor = await monitorCommandCancellation(target.id, controller);
   try {
 
@@ -184,6 +188,7 @@ export async function executeTarget(
   let fallbackReason: "AGENT_OFFLINE" | "AGENT_UNCLAIMED" | null = null;
   if (target.server.managementMode === "AGENT") {
     const runtime = await getCommandRuntimeConfigValues();
+    lease?.throwIfAborted();
     result = await executeCommandWithAgent({
       serverId: target.server.id,
       commandTargetId: target.id,
@@ -191,7 +196,7 @@ export async function executeTarget(
       onUnavailable: (reason) => { fallbackReason = reason; },
       command: target.commandRequest.command,
       timeoutMs: runtime.executionTimeoutMs,
-      signal: controller.signal,
+      signal,
     }).catch((error): SshExecutionResult => {
       // Only an explicit Agent result can acknowledge remote cancellation.
       // A rejected database/control-plane operation is never that proof.
@@ -287,6 +292,7 @@ export async function executeTarget(
       return false;
     }
   }
+  lease?.throwIfAborted();
   result ??= await executeCommandOverSsh({
     host: target.server.host,
     port: target.server.port,
@@ -296,7 +302,7 @@ export async function executeTarget(
     command: target.commandRequest.command,
     targetId: target.id,
     hostKeySha256: (target.server as { hostKeySha256?: string | null }).hostKeySha256,
-    signal: controller.signal,
+    signal,
   }).catch((error): SshExecutionResult => ({
     stdout: "",
     stderr: error instanceof Error ? error.message : "SSH execution failed",
@@ -308,6 +314,7 @@ export async function executeTarget(
   // The cancellation monitor stops a command it can no longer govern (its lookup failed or took over five
   // seconds). Nobody cancelled that command: recorded as CANCELLED it read "cancelled by the operator", the
   // request ended CANCELLED and its requester was notified of a cancellation that no one had asked for.
+  lease?.throwIfAborted();
   const stoppedUnverified = Boolean(result.cancelled) && controller.signal.reason instanceof CommandCancellationStateUnknownError;
   // Operator cancel races with SSH close: cancelCommandRequest may already
   // have stamped CANCELLED. Never overwrite that terminal status with
@@ -372,12 +379,12 @@ const EXECUTE_TARGETS_CONCURRENCY = 5;
 /** Targets are read in pages so a request of any size runs every one of them. */
 const EXECUTE_TARGETS_PAGE = 500;
 
-export async function executeTargets(commandRequestId: string) {
+export async function executeTargets(commandRequestId: string, signal?: AbortSignal) {
   let totalCount = 0;
   let completedCount = 0;
   let cursor: string | undefined;
   do {
-    const page = await executeTargetPage(commandRequestId, cursor);
+    const page = await executeTargetPage(commandRequestId, cursor, signal);
     totalCount += page.totalCount;
     completedCount += page.completedCount;
     cursor = page.totalCount === EXECUTE_TARGETS_PAGE ? page.lastId : undefined;
@@ -385,7 +392,7 @@ export async function executeTargets(commandRequestId: string) {
   return { totalCount, completedCount };
 }
 
-async function executeTargetPage(commandRequestId: string, cursor: string | undefined) {
+async function executeTargetPage(commandRequestId: string, cursor: string | undefined, signal?: AbortSignal) {
   const targets = await prisma.commandTarget.findMany({
     where: { commandRequestId },
     include: {
@@ -426,9 +433,10 @@ async function executeTargetPage(commandRequestId: string, cursor: string | unde
   // Bounded concurrency: avoid unbounded Promise.allSettled over hundreds of SSH sessions.
   const results: PromiseSettledResult<boolean>[] = new Array(targets.length);
   for (let i = 0; i < targets.length; i += EXECUTE_TARGETS_CONCURRENCY) {
+    signal?.throwIfAborted();
     const chunk = targets.slice(i, i + EXECUTE_TARGETS_CONCURRENCY);
     const chunkResults = await Promise.allSettled(
-      chunk.map((target) => executeTarget(commandRequestId, target)),
+      chunk.map((target) => executeTarget(commandRequestId, target, signal)),
     );
     for (let j = 0; j < chunkResults.length; j++) {
       results[i + j] = chunkResults[j]!;
@@ -436,6 +444,7 @@ async function executeTargetPage(commandRequestId: string, cursor: string | unde
   }
   // Rejected promises leave targets RUNNING with no stderr — surface them as
   // FAILED so finalize counts and UI do not show a permanent "still running".
+  signal?.throwIfAborted();
   const rejectedIndexes: number[] = [];
   results.forEach((result, index) => {
     if (result.status === "rejected") rejectedIndexes.push(index);
@@ -479,7 +488,7 @@ async function executeTargetPage(commandRequestId: string, cursor: string | unde
 
 export async function heartbeatRunningCommandRequest(commandRequestId: string) {
   const now = new Date();
-  await prisma.commandRequest.updateMany({
+  return prisma.commandRequest.updateMany({
     where: { id: commandRequestId, status: { in: ["RUNNING", "CANCELLING"] } },
     data: {
       updatedAt: now,
@@ -489,7 +498,7 @@ export async function heartbeatRunningCommandRequest(commandRequestId: string) {
   });
 }
 
-export async function executeAndFinalizeCommand(commandRequestId: string) {
+export async function executeAndFinalizeCommand(commandRequestId: string, lease?: AbortSignal) {
   await Promise.resolve();
   const request = await prisma.commandRequest.findUnique({
     where: { id: commandRequestId },
@@ -508,14 +517,23 @@ export async function executeAndFinalizeCommand(commandRequestId: string) {
 
   const runtimeConfig = await getCommandRuntimeConfigValues();
   const heartbeatIntervalMs = runtimeConfig.executionHeartbeatMs;
+  const heartbeatLost = new AbortController();
+  const signal = lease ? AbortSignal.any([lease, heartbeatLost.signal]) : heartbeatLost.signal;
+  const renew = async () => {
+    signal.throwIfAborted();
+    const updated = await heartbeatRunningCommandRequest(commandRequestId);
+    if (!updated.count) heartbeatLost.abort(new LeaseLostError(commandRequestId));
+  };
   let heartbeat: NodeJS.Timeout | null = setInterval(() => {
-    heartbeatRunningCommandRequest(commandRequestId).catch((err) => { cmdExecLogger.warn("heartbeatRunningCommandRequest failed", { error: err instanceof Error ? err.message : String(err) }); });
+    renew().catch((err) => { cmdExecLogger.warn("heartbeatRunningCommandRequest failed", { error: err instanceof Error ? err.message : String(err) }); });
   }, heartbeatIntervalMs);
   heartbeat.unref?.();
 
   try {
-    await heartbeatRunningCommandRequest(commandRequestId);
-    await executeTargets(commandRequestId);
+    await renew();
+    signal.throwIfAborted();
+    await executeTargets(commandRequestId, signal);
+    signal.throwIfAborted();
 
     return await settleCommandRequest(commandRequestId);
   } finally {
@@ -527,171 +545,75 @@ export async function executeAndFinalizeCommand(commandRequestId: string) {
 }
 
 async function settleCommandRequest(commandRequestId: string, executorError?: string) {
-  // Re-read after SSH work: cancelCommandRequest may have set CANCELLED while
-  // children were still closing. Preserve operator cancel over synthetic FAIL.
-  const request = await prisma.commandRequest.findUnique({
-    where: { id: commandRequestId },
-    include: { targets: { select: { status: true } } },
-  });
-  if (!request) {
-    throw new Error("Command request not found");
-  }
-  if (TERMINAL_REQUEST_STATUSES.has(request.status)) {
-    return request;
-  }
-
-  const targetStatuses = request.targets.map((t) => t.status);
-  if (targetStatuses.some(status => !TERMINAL_TARGET_STATUSES.has(status))) {
-    throw new Error("Command targets have not all settled");
-  }
-  const totalCount = targetStatuses.length;
-  const completedCount = targetStatuses.filter(status => status === "COMPLETED").length;
-  const allCancelled =
-    targetStatuses.length > 0 && targetStatuses.every((s) => s === "CANCELLED");
-  if (allCancelled || (request.status === "CANCELLING" && !targetStatuses.includes("FAILED"))) {
-    const cancelledSummary =
-      "Background SSH execution stopped because the operator cancelled the command request.";
-    await writeExecutionLog({
-      data: { commandRequestId, serverId: null, summary: cancelledSummary },
-    });
-    const updated = await prisma.commandRequest.updateMany({
-      where: { id: commandRequestId, status: { in: ["RUNNING", "CANCELLING", "APPROVED"] } },
-      data: { status: "CANCELLED", workerId: null, workerHeartbeatAt: null },
-    });
-    if (updated.count === 0) {
-      return prisma.commandRequest.findUniqueOrThrow({ where: { id: commandRequestId } });
-    }
-    const cancelledRequest = await prisma.commandRequest.findUniqueOrThrow({
-      where: { id: commandRequestId },
-    });
-    await auditSystemAction(
-      "command.execute.cancelled",
-      {
-        commandRequestId,
-        title: request.title,
-        status: "CANCELLED",
-        completedCount,
-        totalCount,
-        summary: cancelledSummary,
-        requesterId: request.requesterId,
-      },
-      "INFO",
-      // Without the customer stamp the row lands at `teamId: null`, which
-      // `teamWhere` reads as shared/legacy data — the command title and its
-      // execution summary would appear on every tenant's audit page.
-      request.teamId,
-    );
-    notifyCommandResult(
-      request.requesterId,
-      request.title,
-      "cancelled",
-      request.teamId,
-    ).catch((err) => {
-      cmdExecLogger.warn("notifyCommandResult failed", {
-        error: err instanceof Error ? err.message : String(err),
-        commandRequestId,
+  const result = await prisma.$transaction(async tx => {
+    if (executorError !== undefined) {
+      // Lock the parent first, in the same order as withdrawal and recovery.
+      const active = await tx.commandRequest.updateMany({
+        where: { id: commandRequestId, status: { in: ["RUNNING", "CANCELLING", "APPROVED"] } },
+        data: { workerHeartbeatAt: new Date() },
       });
+      if (active.count) {
+        await tx.commandTarget.updateMany({
+          where: { commandRequestId, status: { in: ["RUNNING", "CANCELLING", "APPROVED", "PENDING_APPROVAL"] } },
+          data: { status: "FAILED", stderr: executorError, exitCode: 255, finishedAt: new Date() },
+        });
+      } else {
+        return { row: await tx.commandRequest.findUniqueOrThrow({ where: { id: commandRequestId } }) };
+      }
+    }
+    const request = await tx.commandRequest.findUnique({
+      where: { id: commandRequestId }, include: { targets: { select: { status: true } } },
     });
-    return cancelledRequest;
-  }
+    if (!request) throw new Error("Command request not found");
+    if (TERMINAL_REQUEST_STATUSES.has(request.status)) return { row: request };
+    const statuses = request.targets.map(target => target.status);
+    if (statuses.some(status => !TERMINAL_TARGET_STATUSES.has(status))) throw new Error("Command targets have not all settled");
 
-  const nextStatus =
-    totalCount > 0 && completedCount === totalCount ? "COMPLETED" : "FAILED";
-
-  const summary = executorError && nextStatus === "FAILED" ? `Command background executor failed: ${executorError}` :
-    totalCount > 0 && completedCount === totalCount
-      ? `Background SSH execution completed ${completedCount}/${totalCount} targets.`
-      : completedCount > 0
-        ? `Background SSH execution only completed ${completedCount}/${totalCount} targets; please check failed node logs.`
-        : totalCount > 0
-          ? `Background SSH execution failed; ${totalCount} targets all incomplete.`
-          : "Background SSH execution found no executable targets.";
-  await writeExecutionLog({
-    data: { commandRequestId, serverId: null, summary },
-  });
-
-  // CAS: only finalize while still RUNNING/APPROVED so cancel wins races.
-  const claimed = await prisma.commandRequest.updateMany({
-    where: { id: commandRequestId, status: { in: ["RUNNING", "APPROVED", ...(request.status === "CANCELLING" ? ["CANCELLING" as const] : [])] } },
-    data: { status: nextStatus, workerId: null, workerHeartbeatAt: null },
-  });
-  if (claimed.count === 0) {
-    // Cancellation can arrive after the final read while the result log is
-    // being written. All local transports have settled, so acknowledge that
-    // late request instead of leaving CANCELLING until stale recovery.
-    const status = targetStatuses.includes("FAILED") ? "FAILED" : "CANCELLED";
-    const acknowledged = await prisma.commandRequest.updateMany({
-      where: { id: commandRequestId, status: "CANCELLING" },
+    const totalCount = statuses.length;
+    const completedCount = statuses.filter(status => status === "COMPLETED").length;
+    const cancelled = (totalCount > 0 && statuses.every(status => status === "CANCELLED"))
+      || (request.status === "CANCELLING" && !statuses.includes("FAILED"));
+    let status: "CANCELLED" | "COMPLETED" | "FAILED" = cancelled ? "CANCELLED"
+      : totalCount > 0 && completedCount === totalCount ? "COMPLETED" : "FAILED";
+    let won = await tx.commandRequest.updateMany({
+      where: { id: commandRequestId, status: request.status === "CANCELLING" ? "CANCELLING" : { in: ["RUNNING", "APPROVED"] } },
       data: { status, workerId: null, workerHeartbeatAt: null },
     });
-    if (acknowledged.count > 0) {
-      await auditSystemAction(status === "CANCELLED" ? "command.execute.cancelled" : "command.execute.failed", {
-        commandRequestId, title: request.title, status, requesterId: request.requesterId,
-        summary: "Cancellation acknowledged after execution transports settled; existing target results retained.",
-      }, status === "FAILED" ? "WARNING" : "INFO", request.teamId);
-      notifyCommandResult(request.requesterId, request.title, status === "CANCELLED" ? "cancelled" : "failed", request.teamId)
-        .catch((error) => cmdExecLogger.warn("notifyCommandResult failed", { error: error instanceof Error ? error.message : String(error), commandRequestId }));
+    if (!won.count && request.status !== "CANCELLING") {
+      // Cancellation can arrive after the status read. All transports have settled.
+      status = statuses.includes("FAILED") ? "FAILED" : "CANCELLED";
+      won = await tx.commandRequest.updateMany({
+        where: { id: commandRequestId, status: "CANCELLING" },
+        data: { status, workerId: null, workerHeartbeatAt: null },
+      });
     }
-    return prisma.commandRequest.findUniqueOrThrow({ where: { id: commandRequestId } });
-  }
-
-  const updated = await prisma.commandRequest.findUniqueOrThrow({
-    where: { id: commandRequestId },
+    const row = await tx.commandRequest.findUniqueOrThrow({ where: { id: commandRequestId } });
+    return { row, event: won.count ? { status, completedCount, totalCount, title: request.title,
+      requesterId: request.requesterId, teamId: request.teamId } : undefined };
   });
 
-  // Terminal observability: audit + in-app notification (approve path only
-  // notified "approved", so operators saw no failure signal after SSH fail).
-  await auditSystemAction(
-    nextStatus === "COMPLETED" ? "command.execute.completed" : "command.execute.failed",
-    {
-      commandRequestId,
-      title: request.title,
-      status: nextStatus,
-      completedCount,
-      totalCount,
+  if (result.event) {
+    const { status, completedCount, totalCount, title, requesterId, teamId } = result.event;
+    const summary = status === "CANCELLED" ? "Background SSH execution stopped because the operator cancelled the command request."
+      : status === "COMPLETED" ? `Background SSH execution completed ${completedCount}/${totalCount} targets.`
+      : executorError ? `Command background executor failed: ${executorError}`
+      : completedCount ? `Background SSH execution only completed ${completedCount}/${totalCount} targets; please check failed node logs.`
+      : totalCount ? `Background SSH execution failed; ${totalCount} targets all incomplete.`
+      : "Background SSH execution found no executable targets.";
+    const outcome = status === "COMPLETED" ? "completed" : status === "CANCELLED" ? "cancelled" : "failed";
+    await writeExecutionLog({ data: { commandRequestId, serverId: null, summary } });
+    await auditSystemAction(`command.execute.${outcome}`, {
+      commandRequestId, title, status, completedCount, totalCount, summary, requesterId,
       ...(executorError ? { phase: "executor_error" } : {}),
-      summary,
-      requesterId: request.requesterId,
-    },
-    nextStatus === "COMPLETED" ? "INFO" : "WARNING",
-    request.teamId,
-  );
-  notifyCommandResult(
-    request.requesterId,
-    request.title,
-    nextStatus === "COMPLETED" ? "completed" : "failed",
-    request.teamId,
-  ).catch((err) => {
-    cmdExecLogger.warn("notifyCommandResult failed", {
-      error: err instanceof Error ? err.message : String(err),
-      commandRequestId,
-    });
-  });
-
-  return updated;
+    }, status === "FAILED" ? "WARNING" : "INFO", teamId);
+    notifyCommandResult(requesterId, title, outcome, teamId).catch(error =>
+      cmdExecLogger.warn("notifyCommandResult failed", { error: String(error), commandRequestId }));
+  }
+  return result.row;
 }
 
-export async function markCommandExecutionFailed(
-  commandRequestId: string,
-  error: unknown,
-) {
-  const message = error instanceof Error ? error.message : "Command background execution failed";
-  // Hold the parent row while settling unfinished targets. Leaving the parent
-  // active until those rows commit also keeps a Playbook from retrying while
-  // an executor error is still being recorded.
-  const claimed = await prisma.$transaction(async tx => {
-    const active = await tx.commandRequest.updateMany({
-      where: { id: commandRequestId, status: { in: ["RUNNING", "CANCELLING", "APPROVED"] } },
-      data: { workerHeartbeatAt: new Date() },
-    });
-    if (!active.count) return false;
-    await tx.commandTarget.updateMany({
-      where: { commandRequestId, status: { in: ["RUNNING", "CANCELLING", "APPROVED", "PENDING_APPROVAL"] } },
-      data: { status: "FAILED", stderr: message, exitCode: 255, finishedAt: new Date() },
-    });
-    return true;
-  });
-  if (claimed) await settleCommandRequest(commandRequestId, message);
+export async function markCommandExecutionFailed(commandRequestId: string, error: unknown) {
+  await settleCommandRequest(commandRequestId, error instanceof Error ? error.message : "Command background execution failed");
 }
 
 export function scheduleCommandExecution(commandRequestId: string) {
@@ -711,58 +633,15 @@ export async function enqueueApprovedCommandExecution(
   commandRequestId: string,
   summary: string,
 ) {
-  const claimed = await prisma.commandRequest.updateMany({
-    where: { id: commandRequestId, status: { in: ["APPROVED"] } },
-    data: {
-      status: "RUNNING",
-      workerId: COMMAND_WORKER_ID,
-      workerHeartbeatAt: new Date(),
-    },
+  return prisma.$transaction(async tx => {
+    const claimed = await tx.commandRequest.updateMany({
+      where: { id: commandRequestId, status: "APPROVED" },
+      data: { status: "RUNNING", workerId: COMMAND_WORKER_ID, workerHeartbeatAt: new Date() },
+    });
+    if (!claimed.count) return false;
+    await markTargetsRunning(commandRequestId, tx);
+    await tx.executionLog.create({ data: { commandRequestId, serverId: null, summary } });
+    await enqueueCommandExecutionJob({ commandRequestId, summary }, tx);
+    return true;
   });
-
-  if (claimed.count === 0) return false;
-
-  await markTargetsRunning(commandRequestId);
-
-  // Cancel may have won after claim (CANCELLED request + targets). Do not
-  // enqueue durable SSH work or log "entered queue" over an operator abort.
-  // Only abort on explicit terminal statuses so partial test mocks / transient
-  // reads without a status field still proceed when the claim already won.
-  const stillRunnable = await prisma.commandRequest.findUnique({
-    where: { id: commandRequestId },
-    select: { status: true },
-  });
-  const terminalRequestStatuses = new Set(["CANCELLED", "COMPLETED", "FAILED", "REJECTED"]);
-  if (!stillRunnable || terminalRequestStatuses.has(stillRunnable.status)) {
-    return false;
-  }
-
-  await writeExecutionLog({
-    data: {
-      commandRequestId,
-      serverId: null,
-      summary,
-    },
-  });
-  // TR-001 (T11): scheduleCommandExecution is now a thin shim that enqueues a
-  // command.execution job in the durable jobs table. The actual SSH dispatch
-  // is performed by startCommandExecutionWorker() when the job worker claims
-  // the row; the original fire-and-forget void path is gone.
-  try {
-    await scheduleCommandExecution(commandRequestId);
-  } catch (error) {
-    // Nothing is queued. Left RUNNING, the request would be failed as "executor lost, outcome unknown" ten minutes
-    // later for a command that never ran, while the caller was told the approval worked (the failure is only logged
-    // there). Put back to APPROVED, where the maintenance sweep finds it and queues it again.
-    await prisma.commandRequest.updateMany({
-      where: { id: commandRequestId, status: "RUNNING" },
-      data: { status: "APPROVED", workerId: null, workerHeartbeatAt: null },
-    }).catch(() => undefined);
-    await prisma.commandTarget.updateMany({
-      where: { commandRequestId, status: "RUNNING" },
-      data: { status: "APPROVED" },
-    }).catch(() => undefined);
-    throw error;
-  }
-  return true;
 }

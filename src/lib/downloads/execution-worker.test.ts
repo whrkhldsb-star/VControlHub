@@ -59,6 +59,7 @@ vi.mock("@/lib/job/service", () => ({
 vi.mock("@/lib/db", () => ({
   prisma: {
     $queryRaw: vi.fn(),
+    fileEntry: { findFirst: vi.fn(async () => null) },
     downloadTask: {
       findUnique: prismaDownloadTaskFindUniqueMock,
       updateMany: vi.fn(async () => ({ count: 1 })),
@@ -301,6 +302,7 @@ describe("download execution durable job worker", () => {
         LIMITS,
         // The task's speed limit travels to curl on the VPS (the form offered it for direct downloads too).
         null,
+        expect.any(AbortSignal),
       );
       expect(executeAria2RelayDownloadMock).not.toHaveBeenCalled();
       expect(completeJobMock).toHaveBeenCalledWith(
@@ -420,6 +422,7 @@ describe("download execution durable job worker", () => {
         undefined,
         LIMITS,
         null,
+        expect.any(AbortSignal),
       );
     });
 
@@ -512,7 +515,7 @@ describe("download execution durable job worker", () => {
       );
       expect(failJobMock).toHaveBeenCalledWith("job-dl-1", expect.any(String), "transfer interrupted", { attempts: 3 });
       expect(prisma.$queryRaw).toHaveBeenCalledTimes(1);
-      expect(notifyDownloadResult).toHaveBeenCalledWith(task.createdBy, task.url, "failed", expect.any(String), task.teamId);
+      expect(notifyDownloadResult).toHaveBeenCalledWith(task.createdBy, new URL(task.url).origin, "failed", expect.any(String), task.teamId);
       if (transferManifest) {
         expect(rm).not.toHaveBeenCalled();
       } else {

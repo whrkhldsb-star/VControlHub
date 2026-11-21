@@ -2,6 +2,7 @@ import { beforeEach, describe, expect, it, vi } from "vitest";
 
 const { prismaMock } = vi.hoisted(() => ({
   prismaMock: {
+    $transaction: vi.fn(),
     syncJob: {
       findMany: vi.fn(),
       findFirst: vi.fn(),
@@ -40,6 +41,7 @@ import { assertSyncRemoteSucceeded } from "@/lib/sync/service-runtime";
 
 beforeEach(() => {
   vi.clearAllMocks();
+  prismaMock.$transaction.mockImplementation(work => work(prismaMock));
 });
 
 describe("sync job listing", () => {
@@ -179,7 +181,7 @@ describe("updateSyncJob ownership CAS", () => {
 
     expect(prismaMock.syncJob.updateMany).toHaveBeenCalledWith(
       expect.objectContaining({
-        where: { id: "job-1", teamId: "team-1" },
+        where: expect.objectContaining({ id: "job-1", teamId: "team-1", sourcePath: "/data/source", targetPath: "/data/target" }),
         data: { name: "renamed" },
       }),
     );
@@ -198,6 +200,7 @@ describe("updateSyncJob ownership CAS", () => {
     });
     prismaMock.server.findMany.mockResolvedValueOnce([{ id: "srv-a" }, { id: "srv-b" }]);
     prismaMock.syncJob.updateMany.mockResolvedValueOnce({ count: 0 });
+    prismaMock.syncJob.findFirst.mockResolvedValueOnce(null);
 
     await expect(updateSyncJob(
       "job-1",

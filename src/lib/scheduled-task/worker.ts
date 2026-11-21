@@ -6,7 +6,7 @@ import { commandRequestTitle } from "@/lib/command/schema";
 import { assertRequesterMayExecuteCommand } from "@/lib/auth/command-execution-authz";
 import { config } from "@/lib/config/env";
 import { AppError } from "@/lib/errors";
-import { runWithLeaseHeartbeat } from "@/lib/job/heartbeat-runner";
+import { LeaseLostError, runWithLeaseHeartbeat } from "@/lib/job/heartbeat-runner";
 import { computeLeaseMs } from "@/lib/job/lease";
 import {
   claimNextJob,
@@ -104,7 +104,7 @@ async function dispatchDueTask(task: {
   approvalRequired: boolean;
   /** Propagate parent ScheduledTask.teamId so the spawned CommandRequest is not global (null = shared). */
   teamId: string | null;
-}): Promise<boolean> {
+}, signal?: AbortSignal): Promise<boolean> {
   const expected = { updatedAt: task.updatedAt, approvalRequired: task.approvalRequired, nextRunAt: task.nextRunAt, claimedOccurrenceAt: task.claimedOccurrenceAt ?? null };
   if (task.serverIds.length === 0 || !task.createdById) {
     await recordTaskRun(task.id, t("backend.scheduled-task.skippedMissingTargetOrCreator"), "skipped", expected);
@@ -153,6 +153,7 @@ async function dispatchDueTask(task: {
   // the task for a day and lost the original occurrence.)
   const occurrence = task.claimedOccurrenceAt ?? task.nextRunAt;
   const claimLease = new Date(Date.now() + SCHEDULED_TASK_CLAIM_LEASE_MS);
+  signal?.throwIfAborted();
   const claim = await prisma.scheduledTask.updateMany({
     where: {
       id: task.id,
@@ -175,6 +176,7 @@ async function dispatchDueTask(task: {
   try {
     // System worker has no session: stamp teamId from the parent task so
     // listCommandRequests(teamWhere) does not treat the request as shared null-team.
+    signal?.throwIfAborted();
     const result = await createCommandRequest({
       title: commandRequestTitle("Scheduled task: ", task.name),
       command: task.command,
@@ -251,7 +253,7 @@ export class DispatchLinkError extends Error {
   }
 }
 
-export async function dispatchDueScheduledTasks(reason: string) {
+export async function dispatchDueScheduledTasks(reason: string, signal?: AbortSignal) {
   const dueTasks = await prisma.scheduledTask.findMany({
     where: {
       status: "ACTIVE",
@@ -268,13 +270,15 @@ export async function dispatchDueScheduledTasks(reason: string) {
   let dispatchedCount = 0;
 
   for (const task of dueTasks) {
+    signal?.throwIfAborted();
     try {
-      const dispatched = await dispatchDueTask(task);
+      const dispatched = await dispatchDueTask(task, signal);
       if (dispatched) {
         dispatchedCount += 1;
       }
     } catch (error) {
       const message = error instanceof Error ? error.message : String(error);
+      signal?.throwIfAborted();
       logger.error("Scheduled task execution failed", { reason, taskId: task.id, error: message });
       if (error instanceof DispatchLinkError) continue;
       // The claim was handed back, so the next tick replays this occurrence under the same idempotency key.
@@ -317,19 +321,19 @@ export async function runScheduledTaskTickJobWorkerOnce(reason = "manual") {
     if (!job) return false;
 
     try {
+      const renew = () => heartbeatJob(job.id, SCHEDULED_TASK_WORKER_ID, {
+        attempts: job.attempts, leaseMs: SCHEDULED_TASK_LEASE_MS, progress: "Dispatching due scheduled tasks",
+      });
+      if (!(await renew()).count) return true;
       const result = await runWithLeaseHeartbeat({
-        jobId: job.id,
-        leaseMs: SCHEDULED_TASK_LEASE_MS,
-        heartbeat: () => heartbeatJob(job.id, SCHEDULED_TASK_WORKER_ID, {
-          leaseMs: SCHEDULED_TASK_LEASE_MS,
-          progress: "Dispatching due scheduled tasks",
-        }),
-        run: async () => {
-          const reconciliation = await reconcileScheduledTaskRuns();
-          return { ...(await dispatchDueScheduledTasks(reason)), reconciled: reconciliation.reconciled };
+        jobId: job.id, leaseMs: SCHEDULED_TASK_LEASE_MS, heartbeat: renew,
+        run: async signal => {
+          const reconciliation = await reconcileScheduledTaskRuns(undefined, signal);
+          return { ...(await dispatchDueScheduledTasks(reason, signal)), reconciled: reconciliation.reconciled };
         },
       });
-      await completeJob(job.id, SCHEDULED_TASK_WORKER_ID, result);
+      const completed = await completeJob(job.id, SCHEDULED_TASK_WORKER_ID, result, job.attempts);
+      if (!completed.count) return true;
       try {
         await pruneCompletedJobsByType({
           type: SCHEDULED_TASK_TICK_JOB_TYPE,
@@ -342,8 +346,9 @@ export async function runScheduledTaskTickJobWorkerOnce(reason = "manual") {
       }
       return true;
     } catch (error) {
+      if (error instanceof LeaseLostError) return true;
       const message = error instanceof Error ? error.message : String(error);
-      await failJob(job.id, SCHEDULED_TASK_WORKER_ID, message.slice(0, 2000), { retryAfterMs: 60_000 });
+      await failJob(job.id, SCHEDULED_TASK_WORKER_ID, message.slice(0, 2000), { attempts: job.attempts, retryAfterMs: 60_000 });
       logger.error("Scheduled task tick job failed", { reason, jobId: job.id, error: message });
       return true;
     }

@@ -48,6 +48,9 @@ export async function assertRequesterMayExecuteCommand(
   if (!teamSession) {
     return { ok: false, reason: "command requester is no longer a member of the target team" };
   }
+  if (options.requireExecutePermission === false && !sessionHasPermission(teamSession, "command:create")) {
+    return { ok: false, reason: "command requester lacks command:create permission in the target team" };
+  }
   if (options.requireExecutePermission !== false && !sessionHasPermission(teamSession, "command:execute")) {
     return { ok: false, reason: platformAdmin ? "command requester lacks command:execute permission" : "command requester lacks command:execute permission in the target team" };
   }

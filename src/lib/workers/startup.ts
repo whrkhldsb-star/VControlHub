@@ -46,6 +46,7 @@ type LifecycleGlobal = typeof globalThis & {
   __vcontrolhubWorkerLifecycle?: LifecycleState;
 };
 
+let startupController: AbortController | undefined;
 let stopLifecyclePromise: Promise<void> | null = null;
 
 function getLifecycleState(): LifecycleState {
@@ -111,7 +112,7 @@ function installShutdownHandler(): void {
  * snapshot without re-starting. Returns the lifecycle state for
  * the caller's logging / health-check consumption.
  */
-export async function startWorkerLifecycle(): Promise<{
+export async function startWorkerLifecycle(signal?: AbortSignal): Promise<{
   started: WorkerId[];
   failed: Array<{ id: WorkerId; error: string }>;
   skipped: boolean;
@@ -134,14 +135,17 @@ export async function startWorkerLifecycle(): Promise<{
     return { started: [], failed: [], skipped: true, reason };
   }
 
-  installShutdownHandler();
+  if (!signal) installShutdownHandler();
+  startupController = new AbortController();
+  const active = signal ? AbortSignal.any([signal, startupController.signal]) : startupController.signal;
 
   const result = await startAllWorkers({
     logger: (msg, meta) => logger.info(msg, meta),
     // Most workers run an immediate DB-backed tick. A short stagger prevents
     // all initial ticks from competing for Prisma transactions during boot.
-    betweenWorkerDelayMs: 200,
+    betweenWorkerDelayMs: 200, signal: active,
   });
+  if (active.aborted) return { ...result, skipped: false };
   if (result.failed.length > 0) {
     stopAllWorkers();
     state.installed = false;
@@ -156,7 +160,12 @@ export async function startWorkerLifecycle(): Promise<{
     "./runtime-heartbeat"
   );
   try {
+    if (active.aborted) return { ...result, skipped: false };
     await startWorkerRuntimeHeartbeat(result);
+    if (active.aborted) {
+      await stopWorkerRuntimeHeartbeat();
+      return { ...result, skipped: false };
+    }
   } catch (error) {
     stopAllWorkers();
     await stopWorkerRuntimeHeartbeat().catch(() => undefined);
@@ -189,6 +198,7 @@ export async function startWorkerLifecycle(): Promise<{
  * SIGTERM/SIGINT handler remains installed once per process.
  */
 export function stopWorkerLifecycle(): Promise<void> {
+  startupController?.abort();
   if (stopLifecyclePromise) return stopLifecyclePromise;
   const state = getLifecycleState();
   if (!state.installed && !state.started) return Promise.resolve();

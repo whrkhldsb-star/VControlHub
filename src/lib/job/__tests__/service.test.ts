@@ -12,6 +12,7 @@ const { mockPrisma, configState } = vi.hoisted(() => ({
       findMany: vi.fn(),
       deleteMany: vi.fn(),
       count: vi.fn(),
+      updateManyAndReturn: vi.fn(),
       fields: { maxAttempts: "maxAttempts" },
     },
     jobEvent: {
@@ -189,19 +190,18 @@ describe("durable job service", () => {
     }));
 
     const now = new Date("2026-06-08T09:00:00Z");
-    // First findMany = retryable stale; second = exhausted (none).
-    mockPrisma.job.findMany
+    // First returned set = retryable stale; second = exhausted (none).
+    mockPrisma.job.updateManyAndReturn
       .mockResolvedValueOnce([
         { id: "stale-1", type: "download.execute", title: "stale 1", attempts: 1, maxAttempts: 3 },
         { id: "stale-2", type: "command.execute", title: "stale 2", attempts: 2, maxAttempts: 3 },
       ])
       .mockResolvedValueOnce([]);
-    mockPrisma.job.updateMany.mockResolvedValueOnce({ count: 2 });
     const recovered = await recoverStaleRunningJobs({ staleBefore: new Date("2026-06-08T08:55:00Z"), now });
-    expect(mockPrisma.job.findMany).toHaveBeenCalledWith(expect.objectContaining({
+    expect(mockPrisma.job.updateManyAndReturn).toHaveBeenCalledWith(expect.objectContaining({
       where: expect.objectContaining({ status: "RUNNING", attempts: { lt: "maxAttempts" } }),
     }));
-    expect(mockPrisma.job.updateMany).toHaveBeenCalledWith(expect.objectContaining({
+    expect(mockPrisma.job.updateManyAndReturn).toHaveBeenCalledWith(expect.objectContaining({
       where: expect.objectContaining({
         status: "RUNNING",
         OR: expect.arrayContaining([
@@ -242,7 +242,7 @@ describe("durable job service", () => {
 
   it("terminal-fails attempt-exhausted stale RUNNING jobs and linked playbook runs", async () => {
     const now = new Date("2026-06-08T09:00:00Z");
-    mockPrisma.job.findMany
+    mockPrisma.job.updateManyAndReturn
       .mockResolvedValueOnce([]) // retryable
       .mockResolvedValueOnce([
         {
@@ -254,7 +254,6 @@ describe("durable job service", () => {
           payload: { runId: "run-1" },
         },
       ]);
-    mockPrisma.job.updateMany.mockResolvedValueOnce({ count: 1 });
     mockPrisma.playbookRun.updateMany.mockResolvedValueOnce({ count: 1 });
 
     const recovered = await recoverStaleRunningJobs({
@@ -265,10 +264,10 @@ describe("durable job service", () => {
     expect(recovered.recovered).toEqual([]);
     expect(recovered.failed).toEqual(["ex-1"]);
     expect(recovered.count).toBe(1);
-    expect(mockPrisma.job.updateMany).toHaveBeenCalledWith(
+    expect(mockPrisma.job.updateManyAndReturn).toHaveBeenCalledWith(
       expect.objectContaining({
         where: expect.objectContaining({
-          id: { in: ["ex-1"] },
+          attempts: { gte: "maxAttempts" },
           status: "RUNNING",
           OR: expect.arrayContaining([
             expect.objectContaining({ leaseExpiresAt: expect.anything() }),
@@ -295,15 +294,11 @@ describe("durable job service", () => {
 
   it("returns only CAS-won ids and skips events when concurrent heartbeat wins", async () => {
     const now = new Date("2026-06-08T09:00:00Z");
-    mockPrisma.job.findMany
-      .mockResolvedValueOnce([
-        { id: "stale-1", type: "download.execute", title: "a", attempts: 1, maxAttempts: 3 },
-        { id: "stale-2", type: "download.execute", title: "b", attempts: 1, maxAttempts: 3 },
-      ])
-      .mockResolvedValueOnce([]) // exhausted candidates
-      // partial CAS re-query for who actually moved to PENDING
-      .mockResolvedValueOnce([{ id: "stale-1" }]);
-    mockPrisma.job.updateMany.mockResolvedValueOnce({ count: 1 });
+    mockPrisma.job.updateManyAndReturn
+      .mockResolvedValueOnce([{ id: "stale-1", type: "download.execute", title: "a", attempts: 1, maxAttempts: 3 }])
+      .mockResolvedValueOnce([]);
+    // A second maintenance worker now owns a different row with the same state.
+    mockPrisma.job.findMany.mockResolvedValue([{ id: "other-worker" }]);
 
     const recovered = await recoverStaleRunningJobs({
       staleBefore: new Date("2026-06-08T08:55:00Z"),
@@ -324,12 +319,7 @@ describe("durable job service", () => {
 
   it("does not emit recovered events when CAS moves zero rows", async () => {
     const now = new Date("2026-06-08T09:00:00Z");
-    mockPrisma.job.findMany
-      .mockResolvedValueOnce([
-        { id: "stale-1", type: "download.execute", title: "a", attempts: 1, maxAttempts: 3 },
-      ])
-      .mockResolvedValueOnce([]);
-    mockPrisma.job.updateMany.mockResolvedValueOnce({ count: 0 });
+    mockPrisma.job.updateManyAndReturn.mockResolvedValue([]);
 
     const recovered = await recoverStaleRunningJobs({
       staleBefore: new Date("2026-06-08T08:55:00Z"),
@@ -342,7 +332,7 @@ describe("durable job service", () => {
 
   it("does not treat an old heartbeat as stale while a lease is still present", async () => {
     const now = new Date("2026-06-08T09:00:00Z");
-    mockPrisma.job.findMany.mockResolvedValueOnce([]).mockResolvedValueOnce([]);
+    mockPrisma.job.updateManyAndReturn.mockResolvedValueOnce([]).mockResolvedValueOnce([]);
 
     await recoverStaleRunningJobs({
       staleBefore: now,
@@ -350,7 +340,7 @@ describe("durable job service", () => {
       now,
     });
 
-    expect(mockPrisma.job.findMany).toHaveBeenCalledWith(
+    expect(mockPrisma.job.updateManyAndReturn).toHaveBeenCalledWith(
       expect.objectContaining({
         where: expect.objectContaining({
           OR: [

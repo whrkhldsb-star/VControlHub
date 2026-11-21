@@ -16,6 +16,7 @@ import {
   toggleScheduledTask,
   updateScheduledTask,
 } from "@/lib/scheduled-task/service";
+import { createCommandSchema } from "@/lib/command/schema";
 import { describeCron } from "@/lib/scheduled-task/describe-cron";
 import { localizeStoredText } from "@/lib/i18n/stored-sentences";
 
@@ -27,7 +28,7 @@ const scheduledTaskPostSchema = z.object({
   scheduleType: z.enum(["CRON", "ONCE"]).optional(),
   runAt: z.coerce.date().optional(),
   cron: z.string().min(1).optional(),
-  command: z.string().min(1).max(10000),
+  command: createCommandSchema.shape.command,
   serverId: z.string().min(1).optional(),
   description: z.string().max(500).optional(),
   cronExpression: z.string().min(1).optional(),
@@ -47,7 +48,7 @@ const scheduledTaskPatchSchema = z.object({
   name: z.string().min(1).max(100).optional(),
   cron: z.string().optional(),
   cronExpression: z.string().optional(),
-  command: z.string().min(1).max(10000).optional(),
+  command: createCommandSchema.shape.command.optional(),
   serverId: z.string().optional(),
   serverIds: z.array(z.string()).optional(),
   reason: z.string().max(500).optional(),

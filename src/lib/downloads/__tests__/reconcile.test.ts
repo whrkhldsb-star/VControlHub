@@ -12,6 +12,7 @@ const prismaMock = {
   $executeRaw: vi.fn(async () => 0),
   $transaction: vi.fn(),
   downloadTask: {
+    findFirst: vi.fn(),
     findMany: vi.fn(),
     updateMany: vi.fn(),
   },
@@ -147,6 +148,19 @@ describe("reconcileStaleRunningDownloadTasks — direct", () => {
 
     expect(res.failed).toBe(0);
     expect(prismaMock.downloadTask.updateMany).not.toHaveBeenCalled();
+  });
+
+  it("lets a newer live probe win against an expired snapshot", async () => {
+    const updatedAt = new Date(Date.now() - 7 * 60 * 60_000);
+    queueStaleTasks([directRow({ updatedAt })]);
+    ssh.execRemoteCommand.mockRejectedValueOnce(new Error("probe unavailable")).mockResolvedValueOnce({ stdout: "RUNNING\n4", exitCode: 0 });
+    prismaMock.downloadTask.findFirst.mockResolvedValueOnce(directRow({ updatedAt: new Date() }));
+    prismaMock.downloadTask.updateMany.mockResolvedValueOnce({ count: 0 });
+    expect((await reconcileStaleRunningDownloadTasks()).failed).toBe(0);
+    expect(ssh.execRemoteCommand).toHaveBeenCalledTimes(2);
+    expect(prismaMock.downloadTask.updateMany).toHaveBeenCalledWith({
+      where: { id: "t-direct", status: "RUNNING", updatedAt }, data: expect.objectContaining({ status: "FAILED" }),
+    });
   });
 
   it("fails a direct download unreachable beyond the give-up window", async () => {

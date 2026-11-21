@@ -2,6 +2,7 @@
 import { beforeEach, describe, expect, it, vi } from "vitest";
 
 const db = vi.hoisted(() => ({
+  $transaction: vi.fn(),
   commandRequest: { findFirst: vi.fn(), updateMany: vi.fn(), findUniqueOrThrow: vi.fn() },
   commandTarget: { updateMany: vi.fn() },
   executionLog: { create: vi.fn() },
@@ -29,6 +30,7 @@ const request = (status: string, requesterId = "u1") => ({ id: "cmd1", status, r
 describe("withdrawing a command request without the execute permission", () => {
   beforeEach(() => {
     vi.clearAllMocks();
+    db.$transaction.mockImplementation(work => work(db));
     permissions.granted = new Set(["command:create", "command:read"]);
     db.commandRequest.updateMany.mockResolvedValue({ count: 1 });
     db.commandTarget.updateMany.mockResolvedValue({ count: 1 });

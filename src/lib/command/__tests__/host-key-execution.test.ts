@@ -6,7 +6,7 @@ const mocks = vi.hoisted(() => ({ scanPinnedKnownHost: vi.fn(), runSshCommandPro
 vi.mock("@/lib/ssh/known-hosts", () => ({ scanPinnedKnownHost: mocks.scanPinnedKnownHost }));
 vi.mock("../ssh-executor", () => ({ runSshCommandProcess: mocks.runSshCommandProcess, cancelRunningCommandChild: vi.fn(), markCommandTargetCancelled: vi.fn() }));
 vi.mock("../ssh2-executor", () => ({ runSsh2Command: mocks.runSsh2Command }));
-vi.mock("@/lib/runtime-settings/service", () => ({ getCommandRuntimeConfig: mocks.runtime }));
+vi.mock("@/lib/runtime-settings/service", async (original) => ({ ...await original<typeof import("@/lib/runtime-settings/service")>(), getCommandRuntimeConfig: mocks.runtime }));
 vi.mock("@/lib/db", () => ({ prisma: {} }));
 
 import { executeCommandOverSsh, setPasswordExecutorMode } from "../service-execution";
@@ -15,6 +15,16 @@ describe("command OpenSSH host-key pin execution", () => {
   afterEach(() => {
     vi.clearAllMocks();
     setPasswordExecutorMode("auto");
+  });
+
+  it("protects outstanding multi-target commands using a previous, slower heartbeat", async () => {
+    const { getCommandRuntimeConfigValues } = await import("../service-ssh");
+    const oldInterval = 600_000;
+    for (const interval of [oldInterval, 1000]) {
+      mocks.runtime.mockResolvedValueOnce({ executionTimeoutMs: 5000, outputLimitBytes: 4096,
+        staleRunningAfterMs: 30_000, executionHeartbeatMs: interval });
+      expect((await getCommandRuntimeConfigValues()).staleRunningAfterMs).toBeGreaterThan(oldInterval);
+    }
   });
 
   it("writes a matched known_hosts line and uses it for the actual key-based SSH process", async () => {

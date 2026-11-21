@@ -1,3 +1,4 @@
+import { EventEmitter } from "node:events";
 import { beforeEach, describe, expect, it, vi } from "vitest";
 
 const { spawnMock } = vi.hoisted(() => ({
@@ -23,7 +24,7 @@ import {
   spawnAria2Detached,
 } from "../command-runner";
 
-type FakeChildProcess = { unref: () => void };
+const fakeProcess = () => Object.assign(new EventEmitter(), { unref: vi.fn() });
 
 describe("aria2 command-runner adapter", () => {
   beforeEach(() => {
@@ -31,8 +32,8 @@ describe("aria2 command-runner adapter", () => {
   });
 
   describe("spawnAria2Detached", () => {
-    it("forwards the args to spawn('aria2c', ...) with detached + stdio:'ignore' and returns the child", () => {
-      const fakeChild: FakeChildProcess = { unref: vi.fn() };
+    it("forwards the args to spawn('aria2c', ...) with detached + stdio:'ignore' and returns the child", async () => {
+      const fakeChild = fakeProcess();
       spawnMock.mockReturnValue(fakeChild);
 
       const child = spawnAria2Detached(["--conf-path=/tmp/x.conf"]);
@@ -42,28 +43,40 @@ describe("aria2 command-runner adapter", () => {
       expect(file).toBe("aria2c");
       expect(args).toEqual(["--conf-path=/tmp/x.conf"]);
       expect(opts).toEqual({ detached: true, stdio: "ignore" });
-      expect(child).toBe(fakeChild);
+      fakeChild.emit("spawn");
+      await expect(child).resolves.toBe(fakeChild);
     });
 
-    it("passes through an empty args array (used by edge-case callers) without dropping the binary", () => {
-      const fakeChild: FakeChildProcess = { unref: vi.fn() };
+    it("passes through an empty args array (used by edge-case callers) without dropping the binary", async () => {
+      const fakeChild = fakeProcess();
       spawnMock.mockReturnValue(fakeChild);
 
-      spawnAria2Detached([]);
+      const spawned = spawnAria2Detached([]);
+      fakeChild.emit("spawn");
+      await spawned;
 
       const [file, args] = spawnMock.mock.calls[0] as [string, string[]];
       expect(file).toBe("aria2c");
       expect(args).toEqual([]);
     });
 
-    it("lets the caller unref the returned child to keep the daemon detached from the parent", () => {
-      const unrefMock = vi.fn();
-      spawnMock.mockReturnValue({ unref: unrefMock });
+    it("rejects an asynchronous permission failure in the launching job", async () => {
+      const child = fakeProcess();
+      spawnMock.mockReturnValue(child);
+      const launched = spawnAria2Detached([]);
+      child.emit("error", Object.assign(new Error("cannot execute"), { code: "EACCES" }));
+      await expect(launched).rejects.toMatchObject({ code: "EACCES" });
+    });
+
+    it("lets the caller unref the returned child to keep the daemon detached from the parent", async () => {
+      const fakeChild = fakeProcess();
+      spawnMock.mockReturnValue(fakeChild);
 
       const child = spawnAria2Detached(["--conf-path=/tmp/x.conf"]);
-      child.unref();
+      fakeChild.emit("spawn");
+      (await child).unref();
 
-      expect(unrefMock).toHaveBeenCalledTimes(1);
+      expect(fakeChild.unref).toHaveBeenCalledTimes(1);
     });
   });
 

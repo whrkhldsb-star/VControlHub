@@ -675,11 +675,11 @@ describe("enqueueApprovedCommandExecution", () => {
 
     expect(enqueued).toBe(true);
     expect(mocks.prisma.commandRequest.updateMany).toHaveBeenCalledWith(expect.objectContaining({
-      where: { id: "req-1", status: { in: ["APPROVED"] } },
+      where: { id: "req-1", status: "APPROVED" },
       data: expect.objectContaining({ status: "RUNNING" }),
     }));
     expect(mocks.prisma.commandTarget.updateMany).toHaveBeenCalled();
-    expect(mocks.enqueueCommandExecutionJob).toHaveBeenCalledWith(expect.objectContaining({ commandRequestId: "req-1" }));
+    expect(mocks.enqueueCommandExecutionJob).toHaveBeenCalledWith(expect.objectContaining({ commandRequestId: "req-1" }), mocks.prisma);
   });
 
   it("returns false without enqueuing when the claim loses", async () => {
@@ -691,15 +691,11 @@ describe("enqueueApprovedCommandExecution", () => {
     expect(mocks.enqueueCommandExecutionJob).not.toHaveBeenCalled();
   });
 
-  it("aborts without enqueuing when the request was cancelled after the claim", async () => {
+  it("propagates a target write failure to the claim transaction before queuing", async () => {
     mocks.prisma.commandRequest.updateMany.mockResolvedValue({ count: 1 });
-    mocks.prisma.commandTarget.updateMany.mockResolvedValue({ count: 1 });
-    // Re-read after claim shows the operator already cancelled.
-    mocks.prisma.commandRequest.findUnique.mockResolvedValue({ status: "CANCELLED" });
-
-    const enqueued = await enqueueApprovedCommandExecution("req-1", "entered queue");
-
-    expect(enqueued).toBe(false);
+    mocks.prisma.commandTarget.updateMany.mockRejectedValueOnce(new Error("target unavailable"));
+    await expect(enqueueApprovedCommandExecution("req-1", "entered queue")).rejects.toThrow("target unavailable");
+    expect(mocks.prisma.$transaction).toHaveBeenCalledTimes(1);
     expect(mocks.enqueueCommandExecutionJob).not.toHaveBeenCalled();
     expect(mocks.prisma.executionLog.create).not.toHaveBeenCalled();
   });

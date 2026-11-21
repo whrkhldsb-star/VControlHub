@@ -113,6 +113,7 @@ export function getPublicAria2Error(error: unknown, locale: Locale = "zh"): stri
 export type Aria2Status = {
 	followedBy?: string[];
 	following?: string;
+	belongsTo?: string;
 	gid: string;
 	status: "active" | "waiting" | "paused" | "error" | "complete" | "removed";
 	totalLength: string;
@@ -210,7 +211,7 @@ export async function ensureAria2Daemon(): Promise<void> {
 	let aria2Bin: string | null = null;
 	const override = process.env.ARIA2_BIN?.trim();
 	if (override) {
-		aria2Bin = await access(override, constants.F_OK).then(() => override).catch(() => null);
+		aria2Bin = await access(override, constants.X_OK).then(() => override).catch(() => null);
 	} else {
 		aria2Bin = await findExecutable("aria2c");
 		if (!aria2Bin) {
@@ -218,7 +219,7 @@ export async function ensureAria2Daemon(): Promise<void> {
 				? [path.join(process.env.ProgramFiles ?? "C:\\Program Files", "aria2", "aria2c.exe")]
 				: ["/usr/bin/aria2c", "/usr/local/bin/aria2c", "/opt/homebrew/bin/aria2c"];
 			for (const candidate of fallbackDirs) {
-				if (await access(candidate, constants.F_OK).then(() => true).catch(() => false)) {
+				if (await access(candidate, constants.X_OK).then(() => true).catch(() => false)) {
 					aria2Bin = candidate;
 					break;
 				}
@@ -236,7 +237,7 @@ export async function ensureAria2Daemon(): Promise<void> {
 		await writeFile(launchConf, buildAria2LaunchConfig(config), { mode: 0o600 });
 		await chmod(launchConf, 0o600).catch(() => undefined);
 		// Launch aria2c daemon. Keep the RPC secret out of the persisted config and argv.
-		const proc = spawnAria2Detached(buildAria2SpawnArgs(launchConf), aria2Bin);
+		const proc = await spawnAria2Detached(buildAria2SpawnArgs(launchConf), aria2Bin);
 		proc.unref();
 
 		// Wait for RPC to become available
@@ -272,6 +273,24 @@ export async function removeDownload(gid: string, force = false): Promise<string
 	const method = force ? "aria2.forceRemove" : "aria2.remove";
 	const result = await rpcCall(method, [gid]);
 	return result as string;
+}
+
+/** Release both active transfers and the persistent stopped-result record. */
+export async function forgetDownload(gid: string, visited = new Set<string>()) {
+	if (visited.has(gid)) return;
+	if (visited.size >= 8) throw new Error("Ambiguous aria2 download chain");
+	visited.add(gid);
+	try {
+		const status = await tellStatus(gid);
+		for (const child of [...(status.followedBy ?? []), ...[status.following, status.belongsTo].filter((id): id is string => Boolean(id))]) {
+			if (!/^[a-f0-9]{16}$/i.test(child) || child === gid) throw new Error("Invalid aria2 content gid");
+			await forgetDownload(child, visited);
+		}
+		if (["active", "waiting", "paused"].includes(status.status)) await removeDownload(gid, true);
+		await rpcCall("aria2.removeDownloadResult", [gid]);
+	} catch (error) {
+		if (!(error instanceof Error && /GID .* is not found/i.test(error.message))) throw error;
+	}
 }
 
 export async function pauseDownload(gid: string): Promise<string> {

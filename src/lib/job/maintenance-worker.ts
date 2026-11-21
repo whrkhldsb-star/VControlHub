@@ -156,29 +156,26 @@ export async function abandonOrphanPendingJobs(options?: {
   const softCutoff = new Date(Date.now() - olderThanMs);
   const hardCutoff = new Date(Date.now() - hardOrphanMs);
 
-  const candidates = await prisma.job.findMany({
-    where: {
-      status: JobStatus.PENDING,
-      createdAt: { lt: softCutoff },
-    },
-    select: { id: true, type: true, createdAt: true, title: true },
-    orderBy: { createdAt: "asc" },
-    take: limit,
-  });
-
-  const toCancel = candidates.filter((job) => {
-    if (!KNOWN_JOB_TYPES.has(job.type)) return true;
-    return job.createdAt < hardCutoff;
+  const eligible = {
+    status: JobStatus.PENDING,
+    OR: [
+      { type: { notIn: [...KNOWN_JOB_TYPES] }, updatedAt: { lt: softCutoff }, availableAt: { lt: softCutoff } },
+      { attempts: 0, startedAt: null, updatedAt: { lt: hardCutoff }, availableAt: { lt: hardCutoff } },
+    ],
+  };
+  const toCancel = await prisma.job.findMany({
+    where: eligible, select: { id: true, type: true, updatedAt: true, attempts: true },
+    orderBy: [{ updatedAt: "asc" }, { id: "asc" }], take: limit,
   });
   if (toCancel.length === 0) return { cancelled: 0, ids: [] as string[] };
 
   const ids: string[] = [];
   for (const job of toCancel) {
     const updated = await prisma.job.updateMany({
-      where: { id: job.id, status: JobStatus.PENDING },
+      where: { ...eligible, id: job.id, updatedAt: job.updatedAt, attempts: job.attempts },
       data: {
         status: JobStatus.CANCELLED,
-        cancelledAt: new Date(),
+        cancelledAt: new Date(), completedAt: new Date(),
         errorMessage: KNOWN_JOB_TYPES.has(job.type)
           ? "Stale PENDING job abandoned after 7d without claim"
           : `Orphan job type cancelled (no consumer): ${job.type}`,
@@ -322,6 +319,8 @@ async function tick(reason: string) {
     // curl is still writing.
     await runStep("reconcile-stale-running-downloads", async () => {
       const reconciled = await reconcileStaleRunningDownloadTasks();
+      const { sweepTerminalRelays } = await import("@/lib/downloads/relay-cleanup");
+      await sweepTerminalRelays();
       if (reconciled.completed > 0 || reconciled.failed > 0) {
         logger.info("reconciled stale RUNNING download tasks", {
           workerId: WORKER_ID,

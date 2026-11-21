@@ -4,6 +4,8 @@ import { serverTeamWhere } from "@/lib/auth/team-scope";
 const { mockPrisma } = vi.hoisted(() => ({
   mockPrisma: {
     $queryRaw: vi.fn(),
+    storageNode: { findMany: vi.fn() },
+    executionLog: { findMany: vi.fn() },
     job: { findMany: vi.fn() },
     commandRequest: { findMany: vi.fn() },
     commandTarget: { findMany: vi.fn() },
@@ -15,6 +17,7 @@ const { mockPrisma } = vi.hoisted(() => ({
   },
 }));
 
+vi.mock("@/lib/storage/access-control", () => ({ assertStorageAccess: vi.fn(async () => ({ allowed: true })) }));
 vi.mock("@/lib/db", () => ({ prisma: mockPrisma }));
 vi.mock("@/lib/runtime-settings/service", () => ({
   getOperationTaskListLimit: vi.fn(async () => 100),
@@ -65,7 +68,7 @@ describe("operation task service", () => {
     ]);
     mockPrisma.scheduledTask.findMany.mockResolvedValue([]);
     mockPrisma.downloadTask.findMany.mockResolvedValue([
-      { id: "dl1", url: "https://example.com/a.iso", status: "RUNNING", createdAt: new Date("2026-01-02T00:00:00Z"), updatedAt: new Date("2026-01-02T00:00:00Z"), fileName: "a.iso", progress: "50%", creator: null },
+      { id: "dl1", targetPath: "/drive/files", server: { storageNode: { id: "node", basePath: "/drive" } }, url: "https://example.com/a.iso", status: "RUNNING", createdAt: new Date("2026-01-02T00:00:00Z"), updatedAt: new Date("2026-01-02T00:00:00Z"), fileName: "a.iso", progress: "50%", creator: null },
     ]);
     mockPrisma.syncJob.findMany.mockResolvedValue([]);
     mockPrisma.backupRecord.findMany.mockResolvedValue([]);
@@ -152,10 +155,11 @@ describe("operation task service", () => {
     );
 
     const teamScope = { teamId: "team-1" };
+    const server = serverTeamWhere({ userId: "user-1", roles: ["viewer"], currentTeamId: "team-1" });
     expect(mockPrisma.job.findMany).toHaveBeenCalledWith(expect.objectContaining({ where: { AND: [teamScope, { createdBy: "user-1" }] } }));
     expect(mockPrisma.commandRequest.findMany).toHaveBeenCalledWith(expect.objectContaining({ where: { AND: [teamScope, { requesterId: "user-1" }] } }));
-    expect(mockPrisma.downloadTask.findMany).toHaveBeenCalledWith(expect.objectContaining({ where: { AND: [teamScope, { createdBy: "user-1" }] } }));
-    expect(mockPrisma.syncJob.findMany).toHaveBeenCalledWith(expect.objectContaining({ where: { AND: [teamScope, { createdBy: "user-1" }] } }));
+    expect(mockPrisma.downloadTask.findMany).toHaveBeenCalledWith(expect.objectContaining({ where: { AND: [teamScope, { createdBy: "user-1" }], server } }));
+    expect(mockPrisma.syncJob.findMany).toHaveBeenCalledWith(expect.objectContaining({ where: { AND: [{ AND: [teamScope, { createdBy: "user-1" }] }, expect.objectContaining({ sourceServer: { is: server }, targetServer: { is: server } })] } }));
     expect(mockPrisma.backupRecord.findMany).toHaveBeenCalledWith(expect.objectContaining({ where: { AND: [teamScope, { createdBy: "user-1" }] } }));
     expect(mockPrisma.deploymentRun.findMany).toHaveBeenCalledWith(expect.objectContaining({ where: { AND: [teamScope, { createdBy: "user-1" }] } }));
   });
@@ -179,13 +183,14 @@ describe("operation task service", () => {
       executionLogs: [
         { serverId: "revoked", summary: "restricted log" },
         { serverId: "moved", summary: "transferred server details" },
-        { serverId: "other-visible", summary: "visible log outside target preview" },
+        { serverId: "revoked", summary: "another restricted log" },
       ],
     };
     mockPrisma.commandRequest.findMany.mockResolvedValue([
       row, { ...row, id: "unbound", targets: [], executionLogs: [{ serverId: null, summary: "internal log" }] },
     ]);
     mockPrisma.commandTarget.findMany.mockResolvedValue([{ commandRequestId: "cmd", serverId: "other-visible" }]);
+    mockPrisma.executionLog.findMany.mockResolvedValueOnce([{ serverId: "other-visible", summary: "visible log outside target preview" }]);
     mockPrisma.$queryRaw.mockResolvedValueOnce([{ id: "target-visible", stdout: "visible stdout", stderr: "visible stderr" }]);
 
     const { tasks } = await listOperationTaskResult({}, session);
@@ -194,7 +199,7 @@ describe("operation task service", () => {
     expect(mockPrisma.commandRequest.findMany.mock.calls[0]?.[0].include.executionLogs.take).toBe(3);
     expect(mockPrisma.commandTarget.findMany.mock.calls[0]?.[0].where).toEqual({
       server: serverScope,
-      OR: [{ commandRequestId: "cmd", serverId: { in: ["revoked", "moved", "other-visible"] }, server: { teamId: "team-1" } }],
+      OR: [{ commandRequestId: "cmd", server: { teamId: "team-1" } }],
     });
     const tailQuery = mockPrisma.$queryRaw.mock.calls[0]?.[0];
     expect(tailQuery.values).toEqual(expect.arrayContaining([["target-visible"], "ops-1", "team-1"]));
@@ -202,6 +207,41 @@ describe("operation task service", () => {
     expect(tailQuery.sql).toContain('a."canRead"');
     expect(tasks.find(task => task.sourceId === "cmd")?.logPreview).toEqual(["visible log outside target preview", "visible stdout", "visible stderr"]);
     expect(tasks.find(task => task.sourceId === "unbound")?.logPreview).toEqual([]);
+  });
+
+  it("paginates past fully folded job pages for an older ordinary job", async () => {
+    const row = { type: "alert.evaluate", status: "COMPLETED", createdAt: new Date(), updatedAt: new Date(), title: "evaluate" };
+    mockPrisma.job.findMany.mockResolvedValueOnce([{ ...row, id: "a" }, { ...row, id: "b" }])
+      .mockResolvedValueOnce([{ ...row, id: "c" }, { ...row, id: "d", type: "ordinary" }]);
+    mockPrisma.commandRequest.findMany.mockResolvedValue([]);
+    mockPrisma.downloadTask.findMany.mockResolvedValue([]);
+    expect((await listTasks({ limit: 2 })).map(task => [task.sourceId, task.foldedCount])).toEqual([["a", 3], ["d", undefined]]);
+    expect(mockPrisma.job.findMany.mock.calls[1]?.[0]).toMatchObject({ cursor: { id: "b" }, skip: 1 });
+  });
+
+  it("includes an older failure when attention is limited to pending and failed", async () => {
+    const row = { createdAt: new Date(), updatedAt: new Date(), type: "test", title: "work" };
+    mockPrisma.job.findMany.mockImplementation(async ({ where }) => where.AND.some((clause: { status?: { in: string[] } }) => clause.status?.in.join() === "FAILED")
+      ? [{ ...row, id: "old", status: "FAILED", createdAt: new Date(0) }] : [{ ...row, id: "new", status: "PENDING" }]);
+    mockPrisma.commandRequest.findMany.mockResolvedValue([]);
+    mockPrisma.downloadTask.findMany.mockResolvedValue([]);
+    expect((await listTasks({ sort: "attention", status: ["pending", "failed"], limit: 1 }))[0]?.sourceId).toBe("old");
+  });
+
+  it("continues past revoked download directories and excludes sync paths the owner cannot read", async () => {
+    const row = { createdAt: new Date(), updatedAt: new Date(), status: "PENDING", url: "https://example.org/file",
+      server: { storageNode: { id: "drive", basePath: "/drive" } } };
+    const access = vi.mocked((await import("@/lib/storage/access-control")).assertStorageAccess);
+    access.mockResolvedValueOnce({ allowed: false });
+    mockPrisma.job.findMany.mockResolvedValue([]);
+    mockPrisma.commandRequest.findMany.mockResolvedValue([]);
+    mockPrisma.downloadTask.findMany.mockResolvedValueOnce([{ ...row, id: "hidden", targetPath: "/drive/hidden" }])
+      .mockResolvedValueOnce([{ ...row, id: "visible", targetPath: "/drive/granted" }]);
+    mockPrisma.syncJob.findMany.mockResolvedValueOnce([{ ...row, id: "sync", sourceServerId: "s1", sourcePath: "/hidden", targetServerId: "s2", targetPath: "/backup" }]);
+    mockPrisma.storageNode.findMany.mockResolvedValueOnce([]);
+    const result = await listOperationTaskResult({ limit: 1 }, { userId: "owner", roles: ["viewer"], currentTeamId: "team-1", permissions: ["storage:read"] });
+    expect(result.tasks.map(task => task.id)).toEqual(["download:visible"]);
+    expect(mockPrisma.downloadTask.findMany.mock.calls[1]?.[0].cursor).toEqual({ id: "hidden" });
   });
 
   it("folds completed high-frequency alert evaluation jobs without hiding active or failed evaluations", async () => {

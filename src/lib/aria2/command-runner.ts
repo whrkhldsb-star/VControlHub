@@ -17,8 +17,12 @@ export function getMissingAria2BinaryMessage(locale: "zh" | "en" = "zh"): string
   return t("backend.aria2.missingBinary", locale);
 }
 
-export function spawnAria2Detached(args: string[], command: string = "aria2c"): ChildProcess {
-  return spawn(command, args, { detached: true, stdio: "ignore" });
+export async function spawnAria2Detached(args: string[], command: string = "aria2c"): Promise<ChildProcess> {
+  const child = spawn(command, args, { detached: true, stdio: "ignore" });
+  return new Promise((resolve, reject) => {
+    child.once("error", reject);
+    child.once("spawn", () => resolve(child));
+  });
 }
 
 export function isMissingAria2BinaryError(error: unknown): boolean {

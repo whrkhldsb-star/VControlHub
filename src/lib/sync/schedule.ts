@@ -25,7 +25,8 @@ export function normalizeSyncSchedule(raw: string | null | undefined): string | 
 export function isValidSyncSchedule(raw: string | null | undefined): boolean {
   const s = normalizeSyncSchedule(raw);
   if (s == null) return true;
-  if (INTERVAL_MS[s] != null) return true;
+  if (Object.hasOwn(INTERVAL_MS, s)) return true;
+  if (s.split(/\s+/).length !== 5) return false;
   try {
     CronExpressionParser.parse(s, { tz: APP_TIME_ZONE });
     return true;
@@ -52,12 +53,13 @@ export function isSyncJobDue(input: {
   const now = input.now ?? new Date();
   const last = input.lastSyncAt ? new Date(input.lastSyncAt) : null;
 
-  const intervalMs = INTERVAL_MS[s];
-  if (intervalMs != null) {
+  if (Object.hasOwn(INTERVAL_MS, s)) {
+    const intervalMs = INTERVAL_MS[s]!;
     if (!last) return true;
     return now.getTime() - last.getTime() >= intervalMs;
   }
 
+  if (s.split(/\s+/).length !== 5) return false;
   try {
     const expr = CronExpressionParser.parse(s, {
       // Never run: the first occurrence after the job was created, not the

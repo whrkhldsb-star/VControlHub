@@ -18,6 +18,7 @@ export async function GET(
     request,
     {
       permission: "command:read",
+      optionalTokenPermissions: ["ticket:read"],
       rateLimit: GENERAL_READ_LIMIT,
       errorMessage: apiCopy("apiCopy.failed.to.list.linked.tickets.a09460bc"),
     },

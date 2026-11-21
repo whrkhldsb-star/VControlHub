@@ -2,7 +2,7 @@ import { mkdtemp, rm, writeFile } from "node:fs/promises";
 import { tmpdir } from "node:os";
 import { join } from "node:path";
 
-import { getCommandRuntimeConfig } from "@/lib/runtime-settings/service";
+import { getCommandRuntimeConfig, MAX_COMMAND_HEARTBEAT_MS } from "@/lib/runtime-settings/service";
 import { IS_WINDOWS, NULL_DEVICE } from "@/lib/runtime/platform-paths";
 import { scanPinnedKnownHost } from "@/lib/ssh/known-hosts";
 import { runSshCommandProcess, type SshExecutionResult } from "./ssh-executor";
@@ -13,7 +13,8 @@ export async function getCommandRuntimeConfigValues() {
   return {
     executionTimeoutMs: config.executionTimeoutMs,
     outputLimitBytes: config.outputLimitBytes,
-    staleRunningAfterMs: Math.max(config.staleRunningAfterMs, config.executionTimeoutMs),
+    // Already running commands retain the heartbeat interval they started with.
+    staleRunningAfterMs: Math.max(config.staleRunningAfterMs, config.executionTimeoutMs, 2 * MAX_COMMAND_HEARTBEAT_MS),
     executionHeartbeatMs: config.executionHeartbeatMs,
   };
 }

@@ -24,6 +24,7 @@
  *   - 全部包 try/catch + logger.warn，任一来源失败不影响其他来源继续
  *   - 默认 90 天 / 100 条，可由参数覆盖
  */
+import { downloadHistoryRemovable } from "@/lib/downloads/transfer-manifest";
 import { prisma } from "@/lib/db";
 import { createLogger } from "@/lib/logging";
 
@@ -38,6 +39,7 @@ export const DEFAULT_OPERATION_TASK_RETENTION_DAYS = 90;
 export const DEFAULT_OPERATION_TASK_RETENTION_KEEP_LATEST = 100;
 
 export type OperationTaskRetentionOptions = {
+  signal?: AbortSignal;
   /** 早于这个时间的 completed 记录才会被裁剪（默认 = now - 90 days） */
   olderThan?: Date;
   /** 每来源、每个 teamId 至少保留最新多少条（默认 100） */
@@ -86,6 +88,7 @@ function resolveKeepLatest(options: OperationTaskRetentionOptions): number {
  * status union and stays type-checked at the call site.
  */
 async function pruneTerminalHistoryPerTeam(input: {
+  signal?: AbortSignal;
   source: string;
   keepLatest: number;
   olderThan: Date;
@@ -101,8 +104,10 @@ async function pruneTerminalHistoryPerTeam(input: {
   let scanned = 0;
   let deleted = 0;
   for (const teamId of scopes) {
+    input.signal?.throwIfAborted();
     const retainedIds = await input.listRetainedIds(teamId, input.keepLatest);
     scanned += retainedIds.length;
+    input.signal?.throwIfAborted();
     deleted += await input.deleteOlderThan(teamId, retainedIds);
   }
   return { scanned, deleted };
@@ -110,9 +115,9 @@ async function pruneTerminalHistoryPerTeam(input: {
 
 const COMMAND_TERMINAL_STATUSES = ["COMPLETED", "FAILED", "REJECTED", "CANCELLED"] as const;
 
-async function pruneCommand(keepLatest: number, olderThan: Date): Promise<OperationTaskRetentionPerSourceResult> {
+async function pruneCommand(keepLatest: number, olderThan: Date, signal?: AbortSignal): Promise<OperationTaskRetentionPerSourceResult> {
   return pruneTerminalHistoryPerTeam({
-    source: "command",
+    source: "command", signal,
     keepLatest,
     olderThan,
     listTeamScopes: async () => {
@@ -156,9 +161,9 @@ async function pruneCommand(keepLatest: number, olderThan: Date): Promise<Operat
 
 const DOWNLOAD_TERMINAL_STATUSES = ["COMPLETED", "FAILED", "CANCELLED"] as const;
 
-async function pruneDownload(keepLatest: number, olderThan: Date): Promise<OperationTaskRetentionPerSourceResult> {
+async function pruneDownload(keepLatest: number, olderThan: Date, signal?: AbortSignal): Promise<OperationTaskRetentionPerSourceResult> {
   return pruneTerminalHistoryPerTeam({
-    source: "download",
+    source: "download", signal,
     keepLatest,
     olderThan,
     listTeamScopes: async () => {
@@ -180,6 +185,7 @@ async function pruneDownload(keepLatest: number, olderThan: Date): Promise<Opera
     deleteOlderThan: async (teamId, retainedIds) => {
       const result = await prisma.downloadTask.deleteMany({
         where: {
+          ...downloadHistoryRemovable,
           status: { in: [...DOWNLOAD_TERMINAL_STATUSES] },
           teamId,
           createdAt: { lt: olderThan },
@@ -210,9 +216,9 @@ const DEPLOYMENT_TERMINAL_STATUSES = ["COMPLETED", "FAILED", "CANCELLED", "REJEC
 /** Rollback states whose command may still run (see resolveRollbackRunStatus). */
 const ACTIVE_ROLLBACK_STATUSES = ["PENDING", "RUNNING"] as const;
 
-async function pruneDeployment(keepLatest: number, olderThan: Date): Promise<OperationTaskRetentionPerSourceResult> {
+async function pruneDeployment(keepLatest: number, olderThan: Date, signal?: AbortSignal): Promise<OperationTaskRetentionPerSourceResult> {
   return pruneTerminalHistoryPerTeam({
-    source: "deployment",
+    source: "deployment", signal,
     keepLatest,
     olderThan,
     listTeamScopes: async () => {
@@ -266,18 +272,20 @@ async function safeRun(source: string, fn: () => Promise<OperationTaskRetentionP
 export async function pruneOperationTaskHistory(
   options: OperationTaskRetentionOptions = {},
 ): Promise<OperationTaskRetentionResult> {
+  options.signal?.throwIfAborted();
   const startedAt = Date.now();
   const olderThan = resolveOlderThan(options);
   const keepLatest = resolveKeepLatest(options);
   const perSource: Record<string, OperationTaskRetentionPerSourceResult> = {};
 
   const [command, download, sync, backup, deployment] = await Promise.all([
-    safeRun("command", () => pruneCommand(keepLatest, olderThan)),
-    safeRun("download", () => pruneDownload(keepLatest, olderThan)),
+    safeRun("command", () => pruneCommand(keepLatest, olderThan, options.signal)),
+    safeRun("download", () => pruneDownload(keepLatest, olderThan, options.signal)),
     safeRun("sync", () => pruneSync(keepLatest, olderThan)),
     safeRun("backup", () => pruneBackup(keepLatest, olderThan)),
-    safeRun("deployment", () => pruneDeployment(keepLatest, olderThan)),
+    safeRun("deployment", () => pruneDeployment(keepLatest, olderThan, options.signal)),
   ]);
+  options.signal?.throwIfAborted();
   perSource.command = command;
   perSource.download = download;
   perSource.sync = sync;

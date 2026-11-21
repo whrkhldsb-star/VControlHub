@@ -4,6 +4,7 @@ const { mockPrisma, warnMock } = vi.hoisted(() => ({
   mockPrisma: {
     jobEvent: {
       create: vi.fn(),
+      findFirst: vi.fn(),
       findMany: vi.fn(),
       deleteMany: vi.fn(),
       groupBy: vi.fn(),
@@ -106,11 +107,14 @@ describe("job events service", () => {
     expect(mockPrisma.jobEvent.findMany).toHaveBeenLastCalledWith(expect.objectContaining({ take: 1 }));
   });
 
-  it("passes beforeId through as a cursor", async () => {
+  it("uses the same job and both sort keys for a cursor", async () => {
+    const createdAt = new Date();
+    mockPrisma.jobEvent.findFirst.mockResolvedValueOnce({ id: "evt-50", createdAt });
     mockPrisma.jobEvent.findMany.mockResolvedValueOnce([]);
     await listJobEvents({ jobId: "job-1", beforeId: "evt-50" });
+    expect(mockPrisma.jobEvent.findFirst).toHaveBeenCalledWith(expect.objectContaining({ where: { jobId: "job-1", id: "evt-50" } }));
     expect(mockPrisma.jobEvent.findMany).toHaveBeenCalledWith(expect.objectContaining({
-      where: expect.objectContaining({ id: { lt: "evt-50" } }),
+      where: { jobId: "job-1", OR: [{ createdAt: { lt: createdAt } }, { createdAt, id: { lt: "evt-50" } }] },
     }));
   });
 

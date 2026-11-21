@@ -26,45 +26,34 @@ process.on("unhandledRejection", (reason) => {
 const SHUTDOWN_HARD_DEADLINE_MS = 10_000;
 
 async function main() {
-  // Sync callers (SSH host-key pin, queue limits) must not start on env defaults.
-  await primeSettingCaches();
-  // What this process writes is read by people who are not looking at a page
-  // (alert mail, stored job errors): word it in the platform's language.
-  const stopLocaleSync = await startBackgroundCopyLocaleSync();
-  const result = await startWorkerLifecycle();
-  if (result.skipped) {
-    throw new Error(`Worker process startup was skipped: ${result.reason ?? "unknown"}`);
-  }
-  if (result.failed.length > 0) {
-    throw new Error(
-      `Failed to start ${result.failed.length} worker(s): ${result.failed
-        .map((failure) => failure.id)
-        .join(", ")}`,
-    );
-  }
-  logger.info("standalone worker process ready", { workerCount: result.started.length });
-
-  // Keep the event loop alive even if the Prisma pool drops (all worker
-  // timers are unref'd and a pending Promise does not anchor the loop).
-  // Without this anchor the process could exit silently on a DB blip.
+  const shutdown = new AbortController();
+  let forceExit: NodeJS.Timeout | undefined;
+  const stopped = new Promise<void>(resolve => {
+    const stop = (signal: NodeJS.Signals) => {
+      if (shutdown.signal.aborted) return;
+      shutdown.abort();
+      logger.info("standalone worker process shutting down", { signal });
+      forceExit = setTimeout(() => process.exit(0), SHUTDOWN_HARD_DEADLINE_MS);
+      resolve();
+    };
+    process.once("SIGINT", stop);
+    process.once("SIGTERM", stop);
+  });
   const keepAlive = setInterval(() => undefined, 60_000);
+  let stopLocaleSync: (() => void) | undefined;
   try {
-    const signal = await new Promise<NodeJS.Signals>((resolve) => {
-      process.once("SIGTERM", resolve);
-      process.once("SIGINT", resolve);
-    });
-    logger.info("standalone worker process shutting down", { signal });
+    await primeSettingCaches();
+    if (shutdown.signal.aborted) return;
+    stopLocaleSync = await startBackgroundCopyLocaleSync();
+    if (shutdown.signal.aborted) return;
+    const result = await startWorkerLifecycle(shutdown.signal);
+    if (shutdown.signal.aborted) return;
+    if (result.skipped || result.failed.length) throw new Error(`Worker startup incomplete: ${result.reason ?? result.failed.map(f => f.id).join(", ")}`);
+    logger.info("standalone worker process ready", { workerCount: result.started.length });
+    await stopped;
   } finally {
     clearInterval(keepAlive);
-    stopLocaleSync();
-    // Never let a stuck teardown step turn a routine restart into SIGKILL.
-    const forceExit = setTimeout(() => {
-      logger.warn("worker shutdown exceeded hard deadline; exiting", {
-        deadlineMs: SHUTDOWN_HARD_DEADLINE_MS,
-      });
-      process.exit(0);
-    }, SHUTDOWN_HARD_DEADLINE_MS);
-    forceExit.unref();
+    stopLocaleSync?.();
     await stopWorkerLifecycle().catch((error: unknown) => {
       logger.error("worker lifecycle teardown failed", error);
     });
@@ -77,8 +66,10 @@ async function main() {
       logger.error("prisma disconnect failed", error);
     });
     clearTimeout(forceExit);
-    logger.info("standalone worker process shutdown complete");
-    process.exit(0);
+    if (shutdown.signal.aborted) {
+      logger.info("standalone worker process shutdown complete");
+      process.exit(0);
+    }
   }
 }
 

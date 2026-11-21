@@ -160,36 +160,40 @@ function assertCanMutateTemplate(
 }
 
 export async function updateTemplate(id: string, input: UpdateTemplateInput, actor: TemplateActor | undefined, session: TeamSession) {
-	const select = { id: true, isBuiltin: true, command: true, rollbackCommand: true, createdById: true } as const;
-	const existingRow = await prisma.commandTemplate.findFirst({ where: { id, ...commandTemplateScopeWhere(session) }, select });
-	if (!existingRow) {
-		throw new NotFoundError(t("backend.command-template.commandTemplateNotFound"));
-	}
-	if (existingRow.isBuiltin) {
-		throw new BusinessError(t("backend.command-template.builtInCommandTemplatesCannotBeModified"));
-	}
-	assertCanMutateTemplate(existingRow, actor);
+	return prisma.$transaction(async tx => {
+		await tx.$queryRaw`SELECT id FROM command_templates WHERE id = ${id} FOR NO KEY UPDATE`;
+		const select = { id: true, isBuiltin: true, command: true, rollbackCommand: true, createdById: true } as const;
+		const existingRow = await tx.commandTemplate.findFirst({ where: { id, ...commandTemplateScopeWhere(session) }, select });
+		if (!existingRow) {
+			throw new NotFoundError(t("backend.command-template.commandTemplateNotFound"));
+		}
+		if (existingRow.isBuiltin) {
+			throw new BusinessError(t("backend.command-template.builtInCommandTemplatesCannotBeModified"));
+		}
+		assertCanMutateTemplate(existingRow, actor);
 
-	const data: Record<string, unknown> = {};
-	if (input.name !== undefined) data.name = input.name;
-	if (input.description !== undefined) data.description = input.description;
-	if (input.command !== undefined || input.rollbackCommand !== undefined) {
-		const command = input.command ?? existingRow.command ?? "";
-		const rollbackCommand =
-			input.rollbackCommand !== undefined ? input.rollbackCommand : existingRow.rollbackCommand;
-		if (input.command !== undefined) data.command = input.command;
-		if (input.rollbackCommand !== undefined) data.rollbackCommand = input.rollbackCommand?.trim() || null;
-		data.variables = input.variables ?? extractTemplateVariables(command, rollbackCommand);
-	}
-	if (input.tags !== undefined) data.tags = input.tags;
-	const updated = await prisma.commandTemplate.updateMany({
-		where: { id, ...commandTemplateScopeWhere(session) },
-		data,
+		const data: Record<string, unknown> = {};
+		if (input.name !== undefined) data.name = input.name;
+		if (input.description !== undefined) data.description = input.description;
+		if (input.command !== undefined || input.rollbackCommand !== undefined) {
+			const command = input.command ?? existingRow.command ?? "";
+			const rollbackCommand =
+				input.rollbackCommand !== undefined ? input.rollbackCommand : existingRow.rollbackCommand;
+			if (input.command !== undefined) data.command = input.command;
+			if (input.rollbackCommand !== undefined) data.rollbackCommand = input.rollbackCommand?.trim() || null;
+			data.variables = extractTemplateVariables(command, rollbackCommand);
+		}
+		if (input.variables !== undefined) data.variables = input.variables;
+		if (input.tags !== undefined) data.tags = input.tags;
+		const updated = await tx.commandTemplate.updateMany({
+			where: { id, ...commandTemplateScopeWhere(session) },
+			data,
+		});
+		if (updated.count === 0) {
+			throw new NotFoundError(t("backend.command-template.commandTemplateNotFound"));
+		}
+		return tx.commandTemplate.findUniqueOrThrow({ where: { id } });
 	});
-	if (updated.count === 0) {
-		throw new NotFoundError(t("backend.command-template.commandTemplateNotFound"));
-	}
-	return prisma.commandTemplate.findUniqueOrThrow({ where: { id } });
 }
 
 export async function deleteTemplate(id: string, actor: TemplateActor | undefined, session: TeamSession) {

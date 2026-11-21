@@ -99,7 +99,7 @@ describe("operation task retention worker", () => {
     jobMocks.claimNextJob.mockImplementation(async () => {
       const id = `job-${jobIds.next++}`;
       return {
-        id,
+        id, attempts: 1,
         type: "operation-task.retention",
         payload: {},
         status: "RUNNING",
@@ -141,10 +141,30 @@ describe("operation task retention worker", () => {
       expect.objectContaining({
         totalDeleted: 7,
         perSource: expect.any(Object),
-      }),
+      }), 1,
     );
     // Its own completed runs are trimmed as well: nothing else prunes them.
     expect(jobMocks.pruneCompletedJobsByType).toHaveBeenCalledWith({ type: "operation-task.retention", keepLatest: 25 });
+  });
+
+  it("skips further pruning when a successor owns the completion", async () => {
+    jobMocks.completeJob.mockResolvedValueOnce({ count: 0 });
+    expect(await runOperationTaskRetentionJobWorkerOnce("test")).toBe(true);
+    expect(jobMocks.pruneCompletedJobsByType).not.toHaveBeenCalled();
+  });
+
+  it("holds the advisory lock until insertion resolves", async () => {
+    const release = vi.fn(async () => undefined);
+    const { acquireAdvisoryLock } = await import("@/lib/concurrency/advisory-lock");
+    vi.mocked(acquireAdvisoryLock).mockResolvedValueOnce(release);
+    let finish!: () => void;
+    jobMocks.enqueueJob.mockImplementationOnce(() => new Promise(resolve => { finish = () => resolve({ id: "inserted" }); }));
+    const run = runOperationTaskRetentionJobWorkerOnce("queued");
+    await vi.waitFor(() => expect(jobMocks.enqueueJob).toHaveBeenCalledTimes(1));
+    expect(release).not.toHaveBeenCalled();
+    finish();
+    await run;
+    expect(release).toHaveBeenCalledTimes(1);
   });
 
   it("prune 抛错 → failJob 走 retry, errorMock 触发, complete 不调", async () => {
@@ -217,7 +237,7 @@ describe("operation task retention worker", () => {
     jobMocks.claimNextJob
       .mockResolvedValueOnce(null)
       .mockResolvedValueOnce({
-        id: "retried-job",
+        id: "retried-job", attempts: 2,
         type: "operation-task.retention",
         payload: {},
         status: "RUNNING",
@@ -233,7 +253,7 @@ describe("operation task retention worker", () => {
     expect(jobMocks.completeJob).toHaveBeenCalledWith(
       "retried-job",
       expect.stringContaining("operation-task-retention:"),
-      expect.objectContaining({ totalDeleted: 7 }),
+      expect.objectContaining({ totalDeleted: 7 }), 2,
     );
   });
 

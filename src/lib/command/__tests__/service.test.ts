@@ -851,7 +851,7 @@ describe("command service execution flow", () => {
       }),
     );
     expect(mockPrisma.commandRequest.updateMany).toHaveBeenCalledWith({
-      where: { id: "req_queued_1", status: { in: ["APPROVED"] } },
+      where: { id: "req_queued_1", status: "APPROVED" },
       data: {
         status: "RUNNING",
         workerId: expect.any(String),
@@ -1615,6 +1615,19 @@ describe("command service execution flow", () => {
     ).rejects.toThrow("命令请求不存在");
   });
 
+  it("continues past a full page of requests whose jobs are waiting", async () => {
+    const waiting = Array.from({ length: 50 }, (_, i) => ({ id: "queued-" + i, targets: [], workerId: null, workerHeartbeatAt: null }));
+    mockPrisma.commandRequest.findMany.mockResolvedValueOnce(waiting).mockResolvedValueOnce([
+      { id: "orphan", status: "RUNNING", workerId: "gone", workerHeartbeatAt: null, targets: [{ status: "RUNNING" }] },
+    ]);
+    mockPrisma.job.findMany.mockResolvedValueOnce(waiting.map(row => ({ payload: { commandRequestId: row.id } }))).mockResolvedValueOnce([]);
+    mockPrisma.commandRequest.updateMany.mockResolvedValue({ count: 1 });
+    const { recoverStaleRunningCommandRequests } = await import("../service");
+    expect(await recoverStaleRunningCommandRequests()).toEqual({ recovered: 1 });
+    expect(mockPrisma.commandRequest.findMany.mock.calls[1]?.[0].where.id).toEqual({ gt: "queued-49" });
+    expect(mockPrisma.commandRequest.updateMany).toHaveBeenCalledTimes(1);
+  });
+
   it("leaves a stale-looking request alone while its execution job is still waiting in the queue", async () => {
     // Queued behind slow commands, it never started, so its heartbeat never moved; it was failed as "lost".
     process.env.COMMAND_STALE_RUNNING_AFTER_MS = "30000";
@@ -1635,7 +1648,7 @@ describe("command service execution flow", () => {
     expect(failedRequestIds).toEqual(["req_lost"]);
   });
 
-  it("puts a request back to APPROVED when its job could not be queued, so the sweep queues it instead of failing it later", async () => {
+  it("propagates queue failure through the transaction that owns the claim and targets", async () => {
     const queue = await import("@/lib/command/execution-queue");
     vi.mocked(queue.enqueueCommandExecutionJob).mockRejectedValueOnce(new Error("jobs table unavailable"));
     mockPrisma.commandRequest.updateMany.mockResolvedValue({ count: 1 });
@@ -1646,20 +1659,12 @@ describe("command service execution flow", () => {
     const { enqueueApprovedCommandExecution } = await import("../service-execution");
     await expect(enqueueApprovedCommandExecution("req_unqueued", "queued")).rejects.toThrow("jobs table unavailable");
 
-    expect(mockPrisma.commandRequest.updateMany).toHaveBeenLastCalledWith({
-      where: { id: "req_unqueued", status: "RUNNING" },
-      data: { status: "APPROVED", workerId: null, workerHeartbeatAt: null },
-    });
-    expect(mockPrisma.commandTarget.updateMany).toHaveBeenLastCalledWith({
-      where: { commandRequestId: "req_unqueued", status: "RUNNING" },
-      data: { status: "APPROVED" },
-    });
+    expect(queue.enqueueCommandExecutionJob).toHaveBeenCalledWith({ commandRequestId: "req_unqueued", summary: "queued" }, mockPrisma);
+    expect(mockPrisma.$transaction).toHaveBeenCalledTimes(1);
   });
 
   it("recovers stale running command requests that lost their in-process worker", async () => {
-    // Both keys clamp up to their declared min (30_000 / 5_000), and the
-    // effective window is max(stale, timeout) — so the cutoff below is
-    // now - 30s, not now - whatever number is written here.
+    // A worker may still be using the previous ten-minute heartbeat interval.
     process.env.COMMAND_STALE_RUNNING_AFTER_MS = "30000";
     process.env.COMMAND_EXECUTION_TIMEOUT_MS = "5000";
     const now = new Date("2026-05-30T08:00:00Z");
@@ -1667,7 +1672,7 @@ describe("command service execution flow", () => {
       {
         id: "req_stale_1",
         workerId: "worker-lost-1",
-        workerHeartbeatAt: new Date("2026-05-30T07:58:00Z"),
+        workerHeartbeatAt: new Date("2026-05-30T07:38:00Z"),
         targets: [{ id: "target_stale", status: "RUNNING" }],
       },
     ]);
@@ -1682,14 +1687,14 @@ describe("command service execution flow", () => {
       where: {
         status: { in: ["RUNNING", "CANCELLING"] },
         OR: [
-          { workerHeartbeatAt: { lt: new Date("2026-05-30T07:59:30Z") } },
-          { workerHeartbeatAt: null, updatedAt: { lt: new Date("2026-05-30T07:59:30Z") } },
+          { workerHeartbeatAt: { lt: new Date("2026-05-30T07:40:00Z") } },
+          { workerHeartbeatAt: null, updatedAt: { lt: new Date("2026-05-30T07:40:00Z") } },
         ],
       },
       take: 50,
     }));
     expect(mockPrisma.commandRequest.updateMany).toHaveBeenCalledWith({
-      where: { id: "req_stale_1", status: "RUNNING", workerId: "worker-lost-1", workerHeartbeatAt: new Date("2026-05-30T07:58:00Z") },
+      where: { id: "req_stale_1", status: "RUNNING", workerId: "worker-lost-1", workerHeartbeatAt: new Date("2026-05-30T07:38:00Z") },
       data: { status: "FAILED", workerId: null, workerHeartbeatAt: null },
     });
     expect(mockPrisma.commandTarget.updateMany).toHaveBeenCalledWith({
@@ -1763,7 +1768,7 @@ describe("command service execution flow", () => {
       {
         id: "req_stale_cancel_race",
         workerId: "worker-lost-2",
-        workerHeartbeatAt: new Date("2026-05-30T07:58:00Z"),
+        workerHeartbeatAt: new Date("2026-05-30T07:38:00Z"),
         targets: [{ id: "target_stale_cancel", status: "RUNNING" }],
       },
     ]);
@@ -1777,7 +1782,7 @@ describe("command service execution flow", () => {
 
     expect(result).toEqual({ recovered: 0 });
     expect(mockPrisma.commandRequest.updateMany).toHaveBeenCalledWith({
-      where: { id: "req_stale_cancel_race", status: "RUNNING", workerId: "worker-lost-2", workerHeartbeatAt: new Date("2026-05-30T07:58:00Z") },
+      where: { id: "req_stale_cancel_race", status: "RUNNING", workerId: "worker-lost-2", workerHeartbeatAt: new Date("2026-05-30T07:38:00Z") },
       data: { status: "FAILED", workerId: null, workerHeartbeatAt: null },
     });
     expect(mockPrisma.commandTarget.updateMany).not.toHaveBeenCalled();
