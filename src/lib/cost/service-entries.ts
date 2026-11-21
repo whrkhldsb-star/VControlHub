@@ -148,7 +148,10 @@ export async function listRecentSnapshots(limit = 30, session?: TeamSession | nu
 	});
 }
 
-export interface ServerMonthlyCostSyncSkip { serverId: string; serverName: string; reason: "missing_amount" | "non_positive_amount" | "missing_currency" | "ownership_changed"; }
+export interface ServerMonthlyCostSyncSkip {
+	serverId: string; serverName: string;
+	reason: "missing_amount" | "non_positive_amount" | "missing_currency" | "ownership_changed" | "unverified_history" | "already_recorded";
+}
 /**
  * Counts only. The synced entries themselves are deliberately NOT returned: this
  * walks the whole fleet in pages of 1000, and neither caller (the HTTP route,
@@ -160,12 +163,13 @@ export interface ServerMonthlyCostSyncResult { month: string; synced: number; sk
 // The month turns at midnight application time, as budgets do (not at 08:00 UTC+8).
 export async function syncServerMonthlyCosts(month = appTimeZoneDateKey().slice(0, 7), session?: TeamSession | null): Promise<ServerMonthlyCostSyncResult> {
 	const effectiveDate = startOfMonthUtc(month);
+	const monthEnd = lastDayIsoOfMonth(month);
 	let synced = 0; let skipped = 0; let cursor: { id: string } | undefined;
 	// Skipping silently is a false success: the toast says "synced N, skipped M"
 	// and the user has no way to learn WHICH server needs fixing.
 	const skippedDetails: ServerMonthlyCostSyncSkip[] = [];
 	do {
-		const servers = await prisma.server.findMany({ where: { enabled: true, costAutoSync: true, costMonthlyAmount: { not: null }, ...(session ? serverTeamWhere(session) : liveCustomerRowsWhere()) }, select: { id: true, name: true, host: true, costMonthlyAmount: true, costCurrency: true, costProvider: true, teamId: true }, orderBy: { id: "asc" }, take: 1000, ...(cursor ? { cursor, skip: 1 } : {}) });
+		const servers = await prisma.server.findMany({ where: { enabled: true, costAutoSync: true, costMonthlyAmount: { not: null }, ...(session ? serverTeamWhere(session) : liveCustomerRowsWhere()) }, select: { id: true, name: true, host: true, costMonthlyAmount: true, costCurrency: true, costProvider: true, teamId: true, createdAt: true, updatedAt: true }, orderBy: { id: "asc" }, take: 1000, ...(cursor ? { cursor, skip: 1 } : {}) });
 		for (const server of servers) {
 			const amount = server.costMonthlyAmount?.toFixed(2);
 			const reason: ServerMonthlyCostSyncSkip["reason"] | null =
@@ -186,24 +190,41 @@ export async function syncServerMonthlyCosts(month = appTimeZoneDateKey().slice(
 				tags: automaticTags("server_monthly", "vps", provider, server.id) };
 			const teamId = server.teamId ?? null;
 			const source = { sourceType: "server_monthly", sourceRef: server.id, effectiveDate };
-			const written = await prisma.$transaction(async tx => {
+			const skipReason = await prisma.$transaction(async (tx): Promise<ServerMonthlyCostSyncSkip["reason"] | null> => {
 				const where = { sourceType_sourceRef_effectiveDate: source };
-				if (month !== appTimeZoneDateKey().slice(0, 7)) {
-					const history = await tx.costEntry.findUnique({ where, select: { teamId: true } });
-					if (history && history.teamId !== teamId) return false;
+				const currentMonth = appTimeZoneDateKey().slice(0, 7);
+				const historical = month < currentMonth;
+				if (month !== currentMonth) {
+					const existing = await tx.costEntry.findUnique({ where, select: { teamId: true } });
+					if (existing && existing.teamId !== teamId) return "ownership_changed";
+					if (historical && existing) return "already_recorded";
+				}
+				// The server has no rate/owner history. Its current values are evidence
+				// for a closed month only if this version already existed at month end.
+				if (historical && (appTimeZoneDateKey(server.createdAt) > monthEnd || appTimeZoneDateKey(server.updatedAt) > monthEnd)) {
+					return "unverified_history";
 				}
 				// Claim the server row first, in the same order as a customer transfer.
-				const claim = await tx.server.updateMany({ where: { id: server.id, teamId },
-					data: { costLastSyncedAt: new Date() } });
-				if (!claim.count) return false;
-				await tx.costEntry.upsert({ where, create: { ...source, ...fields, teamId, category: "vps", createdById: null },
-					update: { ...fields, teamId } });
-				return true;
+				// A backfill must still see the same version. Preserve its timestamp
+				// so another closed month can independently verify the same evidence.
+				const version = historical ? { updatedAt: server.updatedAt } : {};
+				const claim = await tx.server.updateMany({
+					where: { id: server.id, teamId, ...version },
+					data: { costLastSyncedAt: new Date(), ...version },
+				});
+				if (!claim.count) return historical ? "unverified_history" : "ownership_changed";
+				const create = { ...source, ...fields, teamId, category: "vps", createdById: null };
+				if (historical) {
+					const inserted = await tx.costEntry.createMany({ data: create, skipDuplicates: true });
+					return inserted.count ? null : "already_recorded";
+				}
+				await tx.costEntry.upsert({ where, create, update: { ...fields, teamId } });
+				return null;
 			});
-			if (written) synced += 1;
+			if (!skipReason) synced += 1;
 			else {
 				skipped += 1;
-				if (skippedDetails.length < 50) skippedDetails.push({ serverId: server.id, serverName: server.name, reason: "ownership_changed" });
+				if (skippedDetails.length < 50) skippedDetails.push({ serverId: server.id, serverName: server.name, reason: skipReason });
 			}
 		}
 		cursor = servers.length === 1000 ? { id: servers[servers.length - 1]!.id } : undefined;
