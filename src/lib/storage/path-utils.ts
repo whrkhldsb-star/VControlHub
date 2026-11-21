@@ -73,12 +73,16 @@ function segmentTooLong(segment: string): boolean {
   return segment.length > MAX_SEGMENT_BYTES || utf8.encode(segment).length > MAX_SEGMENT_BYTES;
 }
 
-function normalizePathInput(value: string | null | undefined) {
-  return (value ?? "").replace(/\\/g, "/").trim();
+/** A segment is an object name. Trimming it would authorize or open a different object. */
+export function hasPaddedPathSegment(value: string): boolean {
+  return value.split("/").some((segment) => segment !== segment.trim());
 }
 
 function validateSegments(rawValue: string, options: { allowEmpty: boolean }): StoragePathResult {
-  const normalizedInput = normalizePathInput(rawValue);
+  const normalizedInput = rawValue.replace(/\\/g, "/");
+  if (hasPaddedPathSegment(normalizedInput)) {
+    return { ok: false, reason: t("backend.storagePath.segmentWhitespace") };
+  }
 
   if (!normalizedInput || normalizedInput === ".") {
     return options.allowEmpty
@@ -96,7 +100,6 @@ function validateSegments(rawValue: string, options: { allowEmpty: boolean }): S
 
   const segments = normalizedInput
     .split("/")
-    .map((segment) => segment.trim())
     .filter(Boolean);
 
   if (segments.length === 0) {
@@ -143,7 +146,7 @@ export function normalizeStorageTargetDirectory(value: string | null | undefined
 }
 
 export function normalizeStorageEntryName(value: string | null | undefined): StoragePathResult {
-  const raw = (value ?? "").trim();
+  const raw = value ?? "";
   if (!raw) return { ok: false, reason: t("backend.storagePath.nameEmpty") };
   if (raw.includes("/") || raw.includes("\\")) {
     return { ok: false, reason: t("backend.storagePath.nameHasSeparator") };
@@ -256,9 +259,8 @@ export function isSafeArchiveEntryPath(value: string | null | undefined): boolea
   // Backslashes read as separators, as extraction treats them (A4-20): the
   // listing and the extraction must agree on which members exist. A colon is
   // an ordinary character on POSIX ("10:30.log"); only a drive letter is refused.
-  const rawInput = (value ?? "").trim().replace(/\\/g, "/");
-  if (/^[A-Za-z]:/.test(rawInput)) return false;
-  const normalizedInput = normalizePathInput(rawInput);
+  const normalizedInput = (value ?? "").trim().replace(/\\/g, "/");
+  if (/^[A-Za-z]:/.test(normalizedInput)) return false;
   if (
     !normalizedInput ||
     normalizedInput.length > MAX_PATH_LENGTH ||

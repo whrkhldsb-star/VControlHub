@@ -202,6 +202,20 @@ describe("moveFileAction", () => {
     expect(releaseStorageQuotaGuard).toHaveBeenCalledWith(destination);
   });
 
+  it("refuses a new destination below a recycled directory", async () => {
+    fileEntryMock.findFirst.mockImplementation(({ where }) => {
+      if (typeof where.id === "string") return baseEntry;
+      return where.isDeleted && where.relativePath.in.includes("trash") ? { id: "deleted-dir" } : null;
+    });
+    const form = new FormData();
+    form.set("fileEntryId", baseEntry.id);
+    form.set("targetDir", "trash/subdir");
+
+    expect(await moveFileAction(null, form)).toMatchObject({ error: expect.stringContaining("/trash/subdir/a.txt") });
+    expect(moveBackingObjectMock).not.toHaveBeenCalled();
+    expect(fileEntryMock.update).not.toHaveBeenCalled();
+  });
+
   it("sizes a moved folder by the files under it", async () => {
     mockEntryLookup({ ...baseEntry, name: "dir", relativePath: "team-a/dir", entryType: "DIRECTORY", size: null });
     fileEntryMock.aggregate.mockResolvedValueOnce({ _sum: { size: BigInt(900) }, _max: { size: BigInt(500) } });

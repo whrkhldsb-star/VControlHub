@@ -877,6 +877,36 @@ describe("storage service", () => {
     });
   });
 
+  it("hides editable drafts below a recycled folder and rechecks before a waiting save", async () => {
+    vi.clearAllMocks();
+    const root = await mkdtemp(path.join(tmpdir(), "storage-editable-recycle-"));
+    const relativePath = "docs/notes.txt";
+    const absolutePath = path.join(root, relativePath);
+    const entry = {
+      id: "edit", name: "notes.txt", entryType: "FILE", mimeType: "text/plain",
+      relativePath, isDeleted: false, updatedAt: new Date(),
+      storageNode: { id: "node_1", driver: "LOCAL", basePath: root },
+    };
+    try {
+      await mkdir(path.dirname(absolutePath));
+      await writeFileToDisk(absolutePath, "original");
+      mockPrisma.fileEntry.findUnique.mockResolvedValueOnce(entry);
+      mockPrisma.fileEntry.findFirst.mockResolvedValueOnce({ id: "deleted-docs" });
+      const input = { session: storageSession, fileEntryId: entry.id };
+      await expect(getLocalEditableFileDraft(input)).rejects.toMatchObject({ status: 404 });
+      mockPrisma.fileEntry.findUnique.mockResolvedValueOnce(entry).mockResolvedValueOnce(entry);
+      mockPrisma.fileEntry.findFirst.mockResolvedValueOnce(null).mockResolvedValueOnce({ id: "deleted-docs" });
+      await expect(saveLocalEditableFileDraft({ ...input, content: "new" })).rejects.toMatchObject({ status: 409 });
+      expect(mockPrisma.fileEntry.findFirst).toHaveBeenLastCalledWith(expect.objectContaining({
+        where: { storageNodeId: "node_1", isDeleted: true, relativePath: { in: ["docs", relativePath] } },
+      }));
+      expect(await readFileToDisk(absolutePath, "utf8")).toBe("original");
+      expect(mockPrisma.fileEntry.update).not.toHaveBeenCalled();
+    } finally {
+      await rm(root, { recursive: true, force: true });
+    }
+  });
+
   it("saves editable local file drafts and updates metadata", async () => {
     vi.clearAllMocks();
     const tempRoot = await mkdtemp(

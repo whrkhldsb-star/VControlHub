@@ -13,6 +13,7 @@ import { prisma } from "@/lib/db";
 import { assertStorageAccess, releaseStorageQuotaGuard } from "@/lib/storage/access-control";
 import { storageAccessDeniedCopy } from "@/lib/storage/access-denied";
 import { logError } from "@/lib/logging";
+import { statBackingObject } from "@/lib/storage/fs-backend";
 import { lockStorageFileOverwrite } from "@/lib/storage/file-overwrite-lock";
 import { snapshotFileVersionBeforeOverwrite } from "@/lib/storage/file-versions";
 import { resolveManagedLocalPath } from "@/lib/storage/managed-path";
@@ -92,7 +93,7 @@ async function handlePost(request: Request, session: SessionPayload, locale: Loc
   if (rejected) return rejected;
   const formData = await request.formData();
   const storageNodeId = String(formData.get("storageNodeId") ?? "").trim();
-  const relativePath = String(formData.get("relativePath") ?? "").trim();
+  const relativePath = String(formData.get("relativePath") ?? "");
   const file = formData.get("file");
 
   if (!storageNodeId) {
@@ -232,24 +233,25 @@ async function handlePost(request: Request, session: SessionPayload, locale: Loc
   const mimeType = file.type || null;
   const fileName = path.posix.basename(normalizedRelativePath);
 
-  let uploadedLocalPath: string | null = null;
+  let createdLocalPath: string | null = null;
   // An overwrite of a LOCAL file is written beside it and moved into place
   // once the index took it. Written in place, a failed index update was
   // "compensated" by deleting the path: the previous file was gone too (and
   // above the version size limit it had no copy in the history).
   let stagedLocalPath: string | null = null;
-  let uploadedRemotePath: string | null = null;
-  let uploadedWebDav = false;
+  let createdRemotePath: string | null = null;
+  let createdRemoteBuffer = false;
   let sftpCredentials: ReturnType<typeof resolveStorageSshCredentials> | null =
     null;
 
   // Look up existing index early so we can snapshot before overwrite.
+  const previousFields = { id: true, entryType: true, isDeleted: true, name: true, size: true, mimeType: true, checksumSha256: true, deleteBatchId: true } as const;
   const existingEntryForVersion = await prisma.fileEntry.findFirst({
     where: {
       storageNodeId,
       relativePath: normalizedRelativePath,
     },
-    select: { id: true, entryType: true, isDeleted: true, name: true, size: true, mimeType: true, checksumSha256: true, deleteBatchId: true },
+    select: previousFields,
   });
   // A folder (or one in the recycle bin) of that name is in the way: writing would turn its row into a file's
   // and the move into place fail on the real folder.
@@ -267,7 +269,7 @@ async function handlePost(request: Request, session: SessionPayload, locale: Loc
     });
   }
 
-    if (storageNode.driver === "LOCAL") {
+  if (storageNode.driver === "LOCAL") {
     if (!absolutePath) {
       return NextResponse.json(
         { error: t("api.storage.resolveLocalPathFailed", locale) },
@@ -276,16 +278,22 @@ async function handlePost(request: Request, session: SessionPayload, locale: Loc
     }
     const parentDir = path.dirname(absolutePath);
     await mkdir(parentDir, { recursive: true });
-    if (existingEntryForVersion) {
+    if (!existingEntryForVersion) {
+      try {
+        await writeFile(absolutePath, fileBuffer, { flag: "wx" });
+        createdLocalPath = absolutePath;
+      } catch (error) {
+        if ((error as NodeJS.ErrnoException).code !== "EEXIST") throw error;
+      }
+    }
+    if (!createdLocalPath) {
       stagedLocalPath = path.join(parentDir, `.vch-upload-${randomBytes(6).toString("hex")}.tmp`);
-      await writeFile(stagedLocalPath, fileBuffer);
-    } else {
-      await writeFile(absolutePath, fileBuffer);
-      uploadedLocalPath = absolutePath;
+      await writeFile(stagedLocalPath, fileBuffer, { flag: "wx" });
     }
   } else if (storageNode.driver === "WEBDAV" || storageNode.driver === "AGENT") {
+    const isNew = !existingEntryForVersion && await statBackingObject({ storageNode, relativePath: normalizedRelativePath }) === null;
     await writeStorageFileBuffer(storageNode, normalizedRelativePath, fileBuffer);
-    uploadedWebDav = true;
+    createdRemoteBuffer = isNew;
   } else {
     if (!remotePath) {
       return NextResponse.json(
@@ -311,6 +319,7 @@ async function handlePost(request: Request, session: SessionPayload, locale: Loc
     }
     const remoteParent = path.posix.dirname(remotePath);
     try {
+      const isNew = !existingEntryForVersion && await statBackingObject({ storageNode, relativePath: normalizedRelativePath }) === null;
       await createRemoteDirectory({
         ...sftpCredentials,
         remotePath: remoteParent,
@@ -321,7 +330,7 @@ async function handlePost(request: Request, session: SessionPayload, locale: Loc
         remotePath,
         content: fileBuffer,
       });
-      uploadedRemotePath = remotePath;
+      if (isNew) createdRemotePath = remotePath;
     } catch (error) {
       logError("[/api/storage/local] sftp upload error:", error);
       return NextResponse.json(
@@ -338,64 +347,46 @@ async function handlePost(request: Request, session: SessionPayload, locale: Loc
     size: BigInt(byteSize),
     // Not hashed here: a checksum recorded for the bytes this upload replaces must not stay on the row.
     checksumSha256: null,
-    isDeleted: false as const,
-    // The row leaves the recycle bin on this overwrite — clear the batch
-    // marker so a later directory restore cannot revive a stale copy of it.
-    deleteBatchId: null,
   };
 
-  let indexedAt: Date | undefined;
+  let previousEntry = existingEntryForVersion;
+  let writtenIndex: { id: string; updatedAt: Date } | undefined;
   try {
-    const existingEntry = existingEntryForVersion;
-
-    if (existingEntry) {
-      const indexed = await prisma.fileEntry.update({
-        where: { id: existingEntry.id },
-        data: indexData,
-        select: { updatedAt: true },
-      });
-      indexedAt = indexed.updatedAt;
-    } else {
+    if (!previousEntry) {
       try {
-        await prisma.fileEntry.create({
-          data: {
-            storageNodeId,
-            relativePath: normalizedRelativePath,
-            ...indexData,
-          },
+        writtenIndex = await prisma.fileEntry.create({
+          data: { storageNodeId, relativePath: normalizedRelativePath, ...indexData },
+          select: { id: true, updatedAt: true },
         });
       } catch (createError) {
-        // Concurrent first-time uploads both write the blob; the loser must
-        // update the winner's index and MUST NOT unlink the shared path.
         if (!isUniqueViolation(createError)) throw createError;
-        const raced = await prisma.fileEntry.findFirst({
-          where: {
-            storageNodeId,
-            relativePath: normalizedRelativePath,
-          },
-          select: { id: true },
+        previousEntry = await prisma.fileEntry.findFirst({
+          where: { storageNodeId, relativePath: normalizedRelativePath },
+          select: previousFields,
         });
-        if (!raced) throw createError;
-        await prisma.fileEntry.update({
-          where: { id: raced.id },
-          data: indexData,
-        });
+        if (!previousEntry || previousEntry.isDeleted || previousEntry.entryType === "DIRECTORY") throw createError;
       }
+    }
+    if (previousEntry) {
+      writtenIndex = await prisma.fileEntry.update({
+        where: { id: previousEntry.id, storageNodeId, relativePath: normalizedRelativePath, isDeleted: false, entryType: "FILE" },
+        data: indexData,
+        select: { id: true, updatedAt: true },
+      });
     }
   } catch (error) {
     logError("[/api/storage/local] upload index error:", error);
     // Never cleanup on unique-constraint races — the competing request owns
     // a valid FileEntry that still points at this blob path.
-    if (!isUniqueViolation(error)) {
-      if (uploadedWebDav && !existingEntryForVersion) {
+    if (!isUniqueViolation(error) && !previousEntry) {
+      if (createdRemoteBuffer) {
         await deleteStorageFileBuffer(storageNode, normalizedRelativePath).catch((cleanupError) => {
           logError("WebDAV upload cleanup failed", cleanupError);
         });
       }
-      if (stagedLocalPath) await unlink(stagedLocalPath).catch(() => undefined);
-      if (uploadedLocalPath) {
+      if (createdLocalPath) {
         try {
-          await unlink(uploadedLocalPath);
+          await unlink(createdLocalPath);
         } catch (cleanupError) {
           logError(
             "[/api/storage/local] local upload cleanup error:",
@@ -405,11 +396,11 @@ async function handlePost(request: Request, session: SessionPayload, locale: Loc
       }
       // Only a file this upload created: an overwritten remote file is the
       // user's previous file, not a leftover.
-      if (uploadedRemotePath && sftpCredentials && !existingEntryForVersion) {
+      if (createdRemotePath && sftpCredentials) {
         try {
           await deleteRemoteFile({
             ...sftpCredentials,
-            remotePath: uploadedRemotePath,
+            remotePath: createdRemotePath,
           });
         } catch (cleanupError) {
           logError(
@@ -419,7 +410,10 @@ async function handlePost(request: Request, session: SessionPayload, locale: Loc
         }
       }
     }
-    if (stagedLocalPath && isUniqueViolation(error)) await unlink(stagedLocalPath).catch(() => undefined);
+    if (stagedLocalPath) await unlink(stagedLocalPath).catch(() => undefined);
+    if ((error as NodeJS.ErrnoException)?.code === "P2025") {
+      throw new ConflictError(serviceTranslate("backend.storage.editableFileUpdatedByOther"));
+    }
     const message = getErrorMessage(error, "Unknown error");
     return NextResponse.json(
       { error: t("api.storage.writeIndexFailed", locale, { message }) },
@@ -433,9 +427,13 @@ async function handlePost(request: Request, session: SessionPayload, locale: Loc
       await unlink(stagedLocalPath).catch(() => undefined);
       // The rename failed, so the old bytes are still at the target. Restore every field
       // changed by indexData, provided no later writer has taken ownership of this row.
-      if (existingEntryForVersion && indexedAt) {
-        const { id, ...previous } = existingEntryForVersion;
-        await prisma.fileEntry.updateMany({ where: { id, updatedAt: indexedAt }, data: previous });
+      if (writtenIndex) {
+        if (previousEntry) {
+          const { id, ...previous } = previousEntry;
+          await prisma.fileEntry.updateMany({ where: { id, updatedAt: writtenIndex.updatedAt, isDeleted: false }, data: previous });
+        } else {
+          await prisma.fileEntry.deleteMany({ where: { ...writtenIndex, isDeleted: false } });
+        }
       }
       throw error;
     }

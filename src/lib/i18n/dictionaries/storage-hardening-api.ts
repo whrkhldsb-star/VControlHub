@@ -8,6 +8,7 @@
 export const zh: Record<string, string> = {
 	// Refusals of a storage path or name (src/lib/storage/path-utils.ts), shown to the user as they are.
 	"backend.storagePath.empty": "路径不能为空",
+	"backend.storagePath.segmentWhitespace": "路径中的名称首尾不能有空白字符",
 	"backend.storagePath.absolute": "路径必须是相对路径",
 	"backend.storagePath.tooLong": "路径过长",
 	"backend.storagePath.dotSegments": "路径不能包含 . 或 ..",
@@ -59,6 +60,7 @@ export const zh: Record<string, string> = {
 export const en: Record<string, string> = {
 	// Refusals of a storage path or name (src/lib/storage/path-utils.ts), shown to the user as they are.
 	"backend.storagePath.empty": "Path cannot be empty",
+	"backend.storagePath.segmentWhitespace": "Path segments cannot start or end with whitespace",
 	"backend.storagePath.absolute": "Path must be a relative path",
 	"backend.storagePath.tooLong": "Path is too long",
 	"backend.storagePath.dotSegments": "Path must not contain . or ..",

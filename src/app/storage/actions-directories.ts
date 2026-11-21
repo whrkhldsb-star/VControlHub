@@ -15,12 +15,9 @@ import { tryAcquireAdvisoryLock } from "@/lib/concurrency/advisory-lock";
 import { apiCopy } from "@/lib/i18n/api-copy";
 import {
   createManagedFolder,
-  deleteBackingObject,
   renameBackingObject,
-  resolveManagedLocalEntryPath,
   statBackingObject,
 } from "@/lib/storage/fs-backend";
-import { createRemoteStorageClient } from "@/lib/storage/agent-file-client";
 import {
   joinStoragePath,
   normalizeStorageEntryName,
@@ -141,14 +138,13 @@ async function createFolderActionImpl(
         } satisfies StorageActionState;
       }
 
-      let folderCreated = false;
+      let directory: Awaited<ReturnType<typeof createManagedFolder>>;
       try {
         await assertNotRecycled(storageNodeId, relativePath, "write");
-        await createManagedFolder({
+        directory = await createManagedFolder({
           storageNode,
           relativePath,
         });
-        folderCreated = true;
       } catch (error) {
         return {
           error: getErrorMessage(error, t("storagePage.action.folderCreateFailed")),
@@ -164,38 +160,11 @@ async function createFolderActionImpl(
         relativePath,
       });
     } catch (error) {
-      if (folderCreated) {
-        // Only roll back a directory that is still empty. Between our create
-        // and this failed index write, another upload may have dropped a file
-        // into the folder; the recursive delete would destroy it. If the
-        // directory has any content (or emptiness cannot be confirmed),
-        // keep it and surface the original indexing failure.
-        try {
-          let isEmpty = false;
-          if (storageNode.driver === "LOCAL") {
-            const { absolutePath } = await resolveManagedLocalEntryPath({ basePath: storageNode.basePath, relativePath });
-            const { readdir } = await import("node:fs/promises");
-            isEmpty = (await readdir(absolutePath)).length === 0;
-          } else if (storageNode.driver === "WEBDAV" || storageNode.driver === "AGENT") {
-            const entries = await createRemoteStorageClient(storageNode).list(relativePath);
-            isEmpty = entries.length === 0;
-          } else {
-            // SFTP and unknown drivers: cannot cheaply confirm emptiness —
-            // keep the directory (fail-open) rather than risk destroying
-            // concurrently written files.
-            isEmpty = false;
-          }
-          if (isEmpty) {
-            await deleteBackingObject({
-              storageNode,
-              relativePath,
-              isDirectory: true,
-              tolerateMissing: true,
-            });
-          }
-        } catch {
-          // Best-effort compensation: preserve the original indexing failure for the UI.
-        }
+      if (directory.removeIfEmpty) {
+        const indexed = await prisma.fileEntry.findFirst({
+          where: { storageNodeId, relativePath }, select: { id: true },
+        }).catch(() => true);
+        if (!indexed) await directory.removeIfEmpty().catch(() => undefined);
       }
       throw error;
     }

@@ -79,6 +79,18 @@ function mockSftpNode(overrides: Record<string, unknown> = {}) {
 }
 
 describe("/api/storage/sftp", () => {
+  it("rejects a padded directory name before listing", async () => {
+    vi.clearAllMocks();
+    requireApiPermissionMock.mockResolvedValueOnce({
+      session: { userId: "u_1", username: "alice", roles: ["admin"], currentTeamId: null },
+    });
+    mockSftpNode();
+    const response = await GET(request("public "));
+    expect(response.status).toBe(400);
+    await expect(response.json()).resolves.toMatchObject({ error: expect.stringMatching(/空白|whitespace/) });
+    expect(listRemoteDirectoryMock).not.toHaveBeenCalled();
+  });
+
   it("lists a remote directory through the canonical storage API", async () => {
     vi.clearAllMocks();
     requireApiPermissionMock.mockResolvedValueOnce({

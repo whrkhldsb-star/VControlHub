@@ -111,6 +111,36 @@ describe("POST /api/files/extract", () => {
     await expect(readFile(path.join(tempDir, "backup", "hello.txt"), "utf8")).rejects.toThrow();
   });
 
+  it("respects the recycled index for the actual folder name chosen to publish a ZIP", async () => {
+    tempDir = await mkdtemp(path.join(os.tmpdir(), "vch-extract-recycle-"));
+    await mkdir(path.join(tempDir, "site"));
+    await writeFile(path.join(tempDir, "bundle.zip"), zipFixture([{ name: "site/index.html", data: "hello" }]));
+    localNode();
+    prismaMock.fileEntry.findFirst.mockImplementation(({ where }) =>
+      where.isDeleted && where.relativePath.in.includes("site (2)") ? { id: "deleted-dir" } : null,
+    );
+
+    const response = await POST(extractRequest("bundle.zip"));
+
+    expect(response.status).toBe(409);
+    expect((await readdir(tempDir)).sort()).toEqual(["bundle.zip", "site"]);
+    expect(syncLocalDirectoryEntriesMock).not.toHaveBeenCalled();
+  });
+
+  it("refuses gunzip when its output is reserved by a recycled entry", async () => {
+    await createGz();
+    localNode();
+    prismaMock.fileEntry.findFirst.mockImplementation(({ where }) =>
+      where.isDeleted && where.relativePath.in.includes("notes.txt") ? { id: "deleted-file" } : null,
+    );
+
+    const response = await POST(extractRequest("notes.txt.gz"));
+
+    expect(response.status).toBe(409);
+    expect(await readdir(tempDir)).toEqual(["notes.txt.gz"]);
+    expect(createFileEntryMock).not.toHaveBeenCalled();
+  });
+
   it("extracts a .tar.gz into a new folder named after it and indexes it (it used to be refused)", async () => {
     await createTarGz();
     localNode();

@@ -140,7 +140,11 @@ function accessCalls() {
 it("passes moved capacity to the target grant and releases the quota guard", async () => {
   mocks.assertStorageAccess.mockResolvedValue({ allowed: true });
   mocks.storageNodeFindFirst.mockResolvedValue({ id: "n1", name: "docs", driver: "LOCAL", basePath: "/unused-audit" });
-  mocks.fileEntryFindFirst.mockResolvedValueOnce({ id: "file1", relativePath: "unlimited/big.bin", name: "big.bin", entryType: "FILE", size: BigInt(1000) }).mockResolvedValueOnce(null);
+  mocks.fileEntryFindFirst.mockImplementation(async ({ where }: { where: { relativePath: unknown } }) =>
+    where.relativePath === "unlimited/big.bin"
+      ? { id: "file1", relativePath: "unlimited/big.bin", name: "big.bin", entryType: "FILE", size: BigInt(1000) }
+      : null,
+  );
   mocks.transaction.mockImplementation(async (f) => f(txClient()));
   const response = await handleWebDavMove(context("unlimited/big.bin"), new Request("https://hub.example/api/webdav/n1/unlimited/big.bin", { method: "POST", headers: { destination: "/api/webdav/n1/limited/big.bin" } }));
   expect(response.status).toBe(201);

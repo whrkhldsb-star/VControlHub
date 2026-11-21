@@ -154,6 +154,38 @@ describe("POST /api/files/compress", () => {
     });
   });
 
+  it.each(["trash/sub", "trash\\sub"])("refuses to create an archive or its parent under the recycled path %s", async (targetDir) => {
+    await setupLocalNode();
+    await mkdir(path.join(tempDir, "trash"));
+    prismaMock.fileEntry.findFirst.mockImplementation(({ where }) =>
+      where.isDeleted && where.relativePath.in.includes("trash") ? { id: "deleted-dir" } : null,
+    );
+
+    const response = await request({ storageNodeId: "node_1", relativePaths: ["docs/a.txt"], targetDir, outputName: "bundle" });
+
+    expect(response.status).toBe(409);
+    expect(createFileEntryMock).not.toHaveBeenCalled();
+    await expect(access(path.join(tempDir, "trash/sub"))).rejects.toMatchObject({ code: "ENOENT" });
+  });
+
+  it("rechecks the destination if a directory was recycled while tar was running", async () => {
+    await setupLocalNode();
+    let recycled = false;
+    assertStorageAccessMock.mockImplementation(({ writeBytes }) => {
+      if (writeBytes !== undefined) recycled = true;
+      return { allowed: true };
+    });
+    prismaMock.fileEntry.findFirst.mockImplementation(({ where }) =>
+      recycled && where.isDeleted && where.relativePath.in.includes("docs") ? { id: "deleted-dir" } : null,
+    );
+
+    const response = await request({ storageNodeId: "node_1", relativePaths: ["docs/a.txt"], targetDir: "docs", outputName: "bundle" });
+
+    expect(response.status).toBe(409);
+    expect(createFileEntryMock).not.toHaveBeenCalled();
+    await expect(access(path.join(tempDir, "docs/bundle.tar.gz"))).rejects.toMatchObject({ code: "ENOENT" });
+  });
+
   it("admits the finished archive against the grant's quota, as an extraction is admitted", async () => {
     // The archive was written and indexed with no size check at all: an account with a quota could fill the node
     // with archives of its own files.

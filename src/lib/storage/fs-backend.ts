@@ -1,8 +1,8 @@
 import { apiCopy } from "@/lib/i18n/api-copy";
-import { lstat, mkdir, readFile, rename, rm, unlink, writeFile } from "node:fs/promises";
+import { lstat, mkdir, readFile, rename, rm, rmdir, unlink, writeFile } from "node:fs/promises";
 
 import { publishLocalFile } from "./publish-local-file";
-import { BusinessError, ValidationError } from "@/lib/errors";
+import { BusinessError, ConflictError, ValidationError } from "@/lib/errors";
 import { expandStorageBasePath, resolveStoragePathWithinBase } from "./path-utils";
 import { resolveStorageRemotePath } from "./remote-containment";
 import { t } from "@/lib/i18n/service-translations";
@@ -75,26 +75,49 @@ export async function resolveManagedLocalEntryPath(input: {
 export async function createManagedFolder(input: {
   storageNode: StorageNodeWithCredentials;
   relativePath: string;
-}) {
-  if (input.storageNode.driver === "WEBDAV" || input.storageNode.driver === "AGENT") { await createRemoteStorageClient(input.storageNode).mkdir(input.relativePath); return; }
+  allowExisting?: boolean;
+}): Promise<{ created: boolean; removeIfEmpty?: () => Promise<void> }> {
+  if (input.storageNode.driver === "WEBDAV" || input.storageNode.driver === "AGENT") {
+    await createRemoteStorageClient(input.storageNode).mkdir(input.relativePath);
+    return { created: true };
+  }
   if (input.storageNode.driver === "LOCAL") {
     const { absolutePath, allowedRoot } = await resolveManagedLocalEntryPath({
       basePath: input.storageNode.basePath,
       relativePath: input.relativePath,
     });
     await mkdir(allowedRoot, { recursive: true });
-    await mkdir(absolutePath, { recursive: false });
-    return;
+    try {
+      await mkdir(absolutePath, { recursive: false });
+    } catch (error) {
+      if (input.allowExisting && (error as NodeJS.ErrnoException).code === "EEXIST" &&
+          (await lstat(absolutePath)).isDirectory()) return { created: false };
+      throw error;
+    }
+    const identity = await lstat(absolutePath);
+    return {
+      created: true,
+      async removeIfEmpty() {
+        const current = await lstat(absolutePath);
+        if (current.dev !== identity.dev || current.ino !== identity.ino) {
+          throw new ConflictError(apiCopy("apiCopy.files.op.changed"));
+        }
+        await rmdir(absolutePath);
+      },
+    };
   }
 
   if (input.storageNode.driver === "SFTP") {
     const { remotePath, credentials } = await resolveStorageRemotePath(input.storageNode, input.relativePath);
-    await createRemoteDirectory({
-      ...credentials,
-      remotePath,
-      recursive: false,
-    });
-    return;
+    try {
+      await createRemoteDirectory({ ...credentials, remotePath, recursive: false });
+    } catch (error) {
+      // createRemoteDirectory confirms that an existing SFTP entry is a directory.
+      if (input.allowExisting && (error as NodeJS.ErrnoException).code === "EEXIST") return { created: false };
+      throw error;
+    }
+    // Remote deletes can be recursive. Keep the directory if indexing fails.
+    return { created: true };
   }
 
   throw new ValidationError(
@@ -239,7 +262,10 @@ export async function statBackingObject(input: {
       const entry = await statRemoteEntry({ ...credentials, remotePath });
       return { size: entry.size ?? 0, lastModifiedMs: entry.modifyTime ?? 0 };
     } catch (error) {
-      if (isMissingBackingObjectError(error)) return null;
+      // Occupancy decides whether a later rollback may delete or restore bytes.
+      // A filename in a permission or transport error can itself contain "not found".
+      const code = (error as { code?: unknown } | null)?.code;
+      if (code === 2 || code === "ENOENT") return null;
       throw error;
     }
   }

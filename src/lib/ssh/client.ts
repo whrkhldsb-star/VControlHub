@@ -343,9 +343,19 @@ export async function listRemoteDirectory(input: SshConnectionParams & {
 
 export async function statRemoteEntry(input: SshConnectionParams & { remotePath: string }): Promise<SftpStatEntry> {
   if (usesAgentOnly(input)) {
-    const source = "import json,os,stat,sys\ns=os.lstat(sys.argv[1]); m=s.st_mode; kind='directory' if stat.S_ISDIR(m) else ('file' if stat.S_ISREG(m) else 'other'); print(json.dumps({'mode':m,'size':s.st_size,'type':kind,'modifyTime':int(s.st_mtime*1000),'accessTime':int(s.st_atime*1000)}))";
+    const source = `import json,os,stat,sys
+try:
+ s=os.lstat(sys.argv[1])
+except FileNotFoundError:
+ print("null")
+else:
+ m=s.st_mode
+ kind='directory' if stat.S_ISDIR(m) else ('file' if stat.S_ISREG(m) else 'other')
+ print(json.dumps({'mode':m,'size':s.st_size,'type':kind,'modifyTime':int(s.st_mtime*1000),'accessTime':int(s.st_atime*1000)}))`;
     const result = await execAgentOnly(input, pythonCommand(source, [input.remotePath]));
-    return JSON.parse(result.stdout) as SftpStatEntry;
+    const entry = JSON.parse(result.stdout) as SftpStatEntry | null;
+    if (entry === null) throw Object.assign(new Error("No such file"), { code: "ENOENT" });
+    return entry;
   }
   return withReusableSshClient(input, async (client) => {
     return withSftpChannel(client, (sftp) => new Promise<SftpStatEntry>((resolve, reject) => {
@@ -496,7 +506,7 @@ export async function resolveRemoteRealPath(
   );
 }
 
-function sftpMkdir(sftp: SFTPWrapper, remotePath: string): Promise<void> {
+function sftpMkdir(sftp: SFTPWrapper, remotePath: string, acceptExisting: boolean): Promise<void> {
   return new Promise((resolve, reject) => {
     sftp.mkdir(remotePath, (mkdirErr) => {
       if (!mkdirErr) {
@@ -508,10 +518,11 @@ function sftpMkdir(sftp: SFTPWrapper, remotePath: string): Promise<void> {
       // also surfaces as 4 — blindly resolving would mask it. Confirm the path
       // is actually an existing directory before treating it as success.
       const sshErr = mkdirErr as { code?: number };
-      if (sshErr.code === 4) {
+      if (sshErr.code === 4 || sshErr.code === 11) {
         sftp.stat(remotePath, (statErr, stats) => {
           if (!statErr && stats.isDirectory()) {
-            resolve(); // already-exists → idempotent success
+            if (acceptExisting) resolve();
+            else reject(Object.assign(new Error("Directory already exists"), { code: "EEXIST" }));
           } else {
             reject(mkdirErr); // genuine failure → surface the original error
           }
@@ -632,18 +643,26 @@ export async function createRemoteDirectory(input: SshConnectionParams & { remot
   if (usesAgentOnly(input)) {
     const source = input.recursive
       ? "import os,sys\nos.makedirs(sys.argv[1],exist_ok=True)"
-      : "import os,sys\nos.mkdir(sys.argv[1])";
-    await execAgentOnly(input, pythonCommand(source, [input.remotePath]));
+      : `import os,stat,sys
+try:
+ os.mkdir(sys.argv[1])
+except FileExistsError:
+ if not stat.S_ISDIR(os.lstat(sys.argv[1]).st_mode): raise
+ print("existing-directory")`;
+    const result = await execAgentOnly(input, pythonCommand(source, [input.remotePath]));
+    if (result.stdout.trim() === "existing-directory") {
+      throw Object.assign(new Error("Directory already exists"), { code: "EEXIST" });
+    }
     return;
   }
   await withReusableSshClient(input, async (client) => {
     try {
-      await withSftpChannel(client, (sftp) => new Promise<void>((resolve, reject) => {
-          const paths = input.recursive ? buildRemoteDirectoryChain(input.remotePath) : [input.remotePath];
-          paths
-            .reduce<Promise<void>>((promise, remotePath) => promise.then(() => sftpMkdir(sftp, remotePath)), Promise.resolve())
-            .then(resolve, reject);
-      }));
+      await withSftpChannel(client, async (sftp) => {
+        const paths = input.recursive ? buildRemoteDirectoryChain(input.remotePath) : [input.remotePath];
+        for (const remotePath of paths) {
+          await sftpMkdir(sftp, remotePath, input.recursive !== false);
+        }
+      });
     } catch (sftpError) {
       if (!input.recursive) throw sftpError;
       const result = await execCommandOnClient(

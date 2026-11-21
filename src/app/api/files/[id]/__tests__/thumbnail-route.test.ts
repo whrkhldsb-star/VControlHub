@@ -31,7 +31,7 @@ describe("GET /api/files/[id]/thumbnail", () => {
 	beforeEach(() => {
 		vi.clearAllMocks();
 		routeSession.current = customerSession(["storage:read"]);
-		mocks.findFirst.mockResolvedValue({ id: "file_1", mimeType: "image/png", relativePath: "pics//a.png", updatedAt: new Date("2026-10-21T00:00:00Z"), storageNode: node });
+		mocks.findFirst.mockImplementation(async ({ where }) => where.isDeleted ? null : { id: "file_1", mimeType: "image/png", relativePath: "pics//a.png", updatedAt: new Date("2026-10-21T00:00:00Z"), storageNode: node });
 		mocks.access.mockResolvedValue({ allowed: true });
 		mocks.respond.mockResolvedValue(new NextResponse("jpeg", { headers: { "Content-Type": "image/jpeg" } }));
 	});
@@ -52,8 +52,19 @@ describe("GET /api/files/[id]/thumbnail", () => {
 	});
 
 	it("refuses types without a thumbnail", async () => {
-		mocks.findFirst.mockResolvedValue({ id: "file_1", mimeType: "application/pdf", relativePath: "a.pdf", updatedAt: null, storageNode: node });
+		mocks.findFirst.mockResolvedValueOnce({ id: "file_1", mimeType: "application/pdf", relativePath: "a.pdf", updatedAt: null, storageNode: node });
 		expect((await get()).status).toBe(415);
+		expect(mocks.respond).not.toHaveBeenCalled();
+	});
+
+	it("hides a live image below a recycled folder before serving its cached thumbnail", async () => {
+		mocks.findFirst
+			.mockResolvedValueOnce({ id: "file_1", mimeType: "image/png", relativePath: "pics//a.png", storageNode: node })
+			.mockResolvedValueOnce({ id: "recycled-pics" });
+		expect((await get()).status).toBe(404);
+		expect(mocks.findFirst).toHaveBeenLastCalledWith(expect.objectContaining({
+			where: { storageNodeId: node.id, isDeleted: true, relativePath: { in: ["pics", "pics/a.png"] } },
+		}));
 		expect(mocks.respond).not.toHaveBeenCalled();
 	});
 

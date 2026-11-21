@@ -274,12 +274,13 @@ export type ExtractionResult = ExtractionPlan & {
  * folder when it has one, otherwise a folder named after the archive. Never
  * writes into an existing folder; a taken name gets " (2)", " (3)"….
  */
-export async function extractArchive({ filePath, kind, archiveName, parentDir, plan }: {
+export async function extractArchive({ filePath, kind, archiveName, parentDir, plan, beforePublish }: {
 	filePath: string;
 	kind: ArchiveKind;
 	archiveName: string;
 	parentDir: string;
 	plan: ExtractionPlan;
+	beforePublish?: (folderName: string) => Promise<void>;
 }): Promise<ExtractionResult> {
 	const staging = path.join(parentDir, `.vch-extract-${randomUUID()}.tmp`);
 	await mkdir(staging);
@@ -293,6 +294,7 @@ export async function extractArchive({ filePath, kind, archiveName, parentDir, p
 		const source = plan.singleRoot ? path.join(staging, plan.singleRoot) : staging;
 		const folderName = await freeName(parentDir, plan.singleRoot ?? archiveBaseName(archiveName));
 		const destination = path.join(parentDir, folderName);
+		await beforePublish?.(folderName);
 		await rename(source, destination);
 		return { ...plan, folderName, createdDirectories: await assertPlainTree(destination) };
 	} finally {

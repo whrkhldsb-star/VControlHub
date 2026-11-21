@@ -18,6 +18,8 @@ const {
   deleteRemoteFileMock,
   renameRemoteFileMock,
   mkdirMock,
+  rmdirMock,
+  lstatMock,
   rmMock,
   unlinkMock,
   renameFsMock,
@@ -25,7 +27,7 @@ const {
   const prismaMock: any = {
     fileEntry: {
       count: vi.fn().mockResolvedValue(0),
-      findFirst: vi.fn(),
+      findFirst: vi.fn().mockResolvedValue(null),
       findMany: vi.fn(),
       findUnique: vi.fn(),
       update: vi.fn(),
@@ -73,6 +75,8 @@ const {
   deleteRemoteFileMock: vi.fn(),
   renameRemoteFileMock: vi.fn(),
   mkdirMock: vi.fn(),
+  rmdirMock: vi.fn().mockResolvedValue(undefined),
+  lstatMock: vi.fn().mockRejectedValue(Object.assign(new Error("not found"), { code: "ENOENT" })),
   rmMock: vi.fn(),
   unlinkMock: vi.fn(),
   renameFsMock: vi.fn(),
@@ -118,19 +122,18 @@ vi.mock("@/lib/ssh/client", () => ({
   deleteRemoteFile: deleteRemoteFileMock,
   renameRemoteFile: renameRemoteFileMock,
   statRemoteEntry: vi.fn(async () => {
-    throw Object.assign(new Error("no such file"), { code: "NO_SUCH_FILE" });
+    throw Object.assign(new Error("no such file"), { code: 2 });
   }),
 }));
 
 vi.mock("node:fs/promises", () => ({
   mkdir: mkdirMock,
+  rmdir: rmdirMock,
   rm: rmMock,
   unlink: unlinkMock,
   rename: renameFsMock,
   readdir: vi.fn(async () => []),
-  lstat: vi.fn(async () => {
-    throw Object.assign(new Error("not found"), { code: "ENOENT" });
-  }),
+  lstat: lstatMock,
   default: {
     mkdir: mkdirMock,
     rm: rmMock,
@@ -313,6 +316,7 @@ describe("createFolderAction", () => {
       server: null,
     });
     mkdirMock.mockResolvedValueOnce(undefined);
+    lstatMock.mockResolvedValueOnce({ dev: 1, ino: 2 }).mockResolvedValueOnce({ dev: 1, ino: 2 });
     createFileEntryMock.mockRejectedValueOnce(new Error("Index write failed"));
 
     const result = await createFolderAction(
@@ -328,15 +332,11 @@ describe("createFolderAction", () => {
     expect(mkdirMock).toHaveBeenCalledWith(localPath("docs/drafts"), {
       recursive: false,
     });
-    // Compensation now only removes a folder confirmed still empty (fix for
-    // the rollback that could delete concurrently uploaded files).
-    expect(rmMock).toHaveBeenCalledWith(localPath("docs/drafts"), {
-      recursive: true,
-      force: false,
-    });
+    expect(rmdirMock).toHaveBeenCalledWith(localPath("docs/drafts"));
+    expect(rmMock).not.toHaveBeenCalled();
   });
 
-  it("rolls back a newly-created SFTP folder when indexing fails", async () => {
+  it("preserves a newly-created SFTP folder when indexing fails", async () => {
     prismaMock.fileEntry.findFirst.mockResolvedValueOnce(null);
     prismaMock.storageNode.findFirst.mockResolvedValueOnce({
       id: "node-sftp",

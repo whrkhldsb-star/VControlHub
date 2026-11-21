@@ -28,7 +28,12 @@ const mocks = vi.hoisted(() => ({
 vi.mock("@/lib/db", () => ({
   prisma: {
     fileEntry: {
-      findFirst: mocks.first,
+      findFirst: (query: { where: { isDeleted?: boolean; relativePath?: { in: string[] } } }) => {
+        if (query.where.isDeleted) {
+          return query.where.relativePath?.in.map((name) => index.get(name)).find((entry) => entry?.isDeleted) ?? null;
+        }
+        return mocks.first(query);
+      },
       findUnique: mocks.unique,
       findMany: mocks.many,
       upsert: mocks.upsert,
@@ -134,12 +139,19 @@ afterEach(async () => {
 });
 
 describe.skipIf(!process.env.VCH_TEST_SSH_CONFIG)("copyFileEntry over isolated OpenSSH SFTP", () => {
-  it("preserves remote bytes across copy, rename conflict and overwrite", async () => {
+  async function testSftpNode() {
     const server = JSON.parse(await readFile(process.env.VCH_TEST_SSH_CONFIG!, "utf8"));
     expect(server.host).toBe("127.0.0.1");
     expect(server.port).not.toBe(22);
+    const teamId = session.currentTeamId;
+    return {
+      id: "node", driver: "SFTP", basePath: root, teamId,
+      server: { ...server, teamId, sshKey: server.sshKey ? { ...server.sshKey, teamId } : null },
+    };
+  }
+  it("preserves remote bytes across copy, rename conflict and overwrite", async () => {
     const source = await mocks.first();
-    mocks.first.mockResolvedValue({ ...source, storageNode: { id: "node", driver: "SFTP", basePath: root, server } });
+    mocks.first.mockResolvedValue({ ...source, storageNode: await testSftpNode() });
     const copied = await copy();
     expect(await readFile(path.join(root, copied.path), "utf8")).toBe("source bytes");
     const renamed = await copy();
@@ -152,11 +164,8 @@ describe.skipIf(!process.env.VCH_TEST_SSH_CONFIG)("copyFileEntry over isolated O
     expect((await readdir(path.join(root, "destination"))).some((name) => name.startsWith(".vch-"))).toBe(false);
   }, 30000);
   it("keeps remote directory creation unconfirmed if indexing fails", async () => {
-    const server = JSON.parse(await readFile(process.env.VCH_TEST_SSH_CONFIG!, "utf8"));
-    expect(server.host).toBe("127.0.0.1");
-    expect(server.port).not.toBe(22);
     await mkdir(path.join(root, "folder"));
-    mocks.first.mockResolvedValue({id:"source",storageNodeId:"node",relativePath:"folder",name:"folder",entryType:"DIRECTORY",storageNode:{id:"node",driver:"SFTP",basePath:root,server}});
+    mocks.first.mockResolvedValue({ id: "source", storageNodeId: "node", relativePath: "folder", name: "folder", entryType: "DIRECTORY", storageNode: await testSftpNode() });
     mocks.upsert.mockRejectedValueOnce(new Error("database unavailable"));
     const { FileOperationUncertainError } = await import("../operation-schema");
     await expect(copy()).rejects.toBeInstanceOf(FileOperationUncertainError);
@@ -164,12 +173,9 @@ describe.skipIf(!process.env.VCH_TEST_SSH_CONFIG)("copyFileEntry over isolated O
     expect(index.has("destination/folder")).toBe(false);
   });
   it("copies remote nested files and empty directories", async () => {
-    const server = JSON.parse(await readFile(process.env.VCH_TEST_SSH_CONFIG!, "utf8"));
-    expect(server.host).toBe("127.0.0.1");
-    expect(server.port).not.toBe(22);
     await mkdir(path.join(root, "folder/empty"), { recursive: true });
     await writeFile(path.join(root, "folder/proof.bin"), Buffer.from([0, 255, 128, 1]));
-    mocks.first.mockResolvedValue({ id: "source", storageNodeId: "node", relativePath: "folder", name: "folder", entryType: "DIRECTORY", storageNode: { id: "node", driver: "SFTP", basePath: root, server } });
+    mocks.first.mockResolvedValue({ id: "source", storageNodeId: "node", relativePath: "folder", name: "folder", entryType: "DIRECTORY", storageNode: await testSftpNode() });
     expect((await copy()).copied).toBe(3);
     expect(await readFile(path.join(root, "destination/folder/proof.bin"))).toEqual(Buffer.from([0, 255, 128, 1]));
     expect(await readdir(path.join(root, "destination/folder/empty"))).toEqual([]);
@@ -250,6 +256,14 @@ describe("copyFileEntry with real local files", () => {
     });
     await expect(copy("overwrite")).rejects.toThrow("recycle bin");
     expect(mocks.upsert).not.toHaveBeenCalled();
+  });
+  it("preserves a recycled target directory when copying to a new name inside it", async () => {
+    index.set("destination", {
+      id: "trash", name: "destination", relativePath: "destination", entryType: "DIRECTORY", isDeleted: true,
+    });
+    await expect(copy()).rejects.toMatchObject({ status: 409 });
+    expect(mocks.upsert).not.toHaveBeenCalled();
+    expect(await readdir(path.join(root, "destination"))).toEqual([]);
   });
   it("copies nested files and empty directories, excluding recycled descendants", async () => {
     await mkdir(path.join(root, "folder/empty"), { recursive: true });

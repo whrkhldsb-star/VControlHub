@@ -76,4 +76,20 @@ describe.skipIf(process.env.RUN_DATABASE_INTEGRATION_TESTS !== "1")("media libra
     }
     expect(await countMediaItems({ session: { userId: prefix, roles: ["admin"], currentTeamId: null } })).toBeGreaterThanOrEqual(4);
   });
+
+  it("hides a recycled folder's media across listing, counts, tags and playback", async () => {
+    const relativePath = "projectA/sub";
+    const folder = await prisma.fileEntry.create({
+      data: { name: "sub", relativePath, entryType: "DIRECTORY", isDeleted: true, storageNodeId: prefix },
+    });
+    try {
+      expect((await listMediaItems({ session: narrowed })).map(item => item.id)).toEqual([ids.inside]);
+      expect(await countMediaItems({ session: narrowed })).toBe(1);
+      expect(await listMediaTypeCounts({ session: narrowed })).toEqual({ image: 1, audio: 0, video: 0 });
+      expect(await listMediaTags(narrowed)).toEqual([{ tag: "alpha", count: 1 }]);
+      expect(await getMediaItem(ids.nested!, narrowed, { includeCredentials: true })).toBeNull();
+    } finally {
+      await prisma.fileEntry.delete({ where: { id: folder.id } });
+    }
+  });
 });

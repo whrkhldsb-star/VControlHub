@@ -1,7 +1,7 @@
 import { describe, expect, it, vi, beforeEach } from "vitest";
 const { mockPrisma } = vi.hoisted(() => ({
   mockPrisma: {
-    fileEntry: { findMany: vi.fn() },
+    fileEntry: { findMany: vi.fn(), findFirst: vi.fn(), findUnique: vi.fn() },
     storageNode: { findMany: vi.fn() },
     userStorageAccess: { findMany: vi.fn() },
     mediaItem: {
@@ -11,6 +11,7 @@ const { mockPrisma } = vi.hoisted(() => ({
       findFirst: vi.fn(),
       deleteMany: vi.fn(),
       update: vi.fn(),
+      updateMany: vi.fn(),
       groupBy: vi.fn(),
     },
   },
@@ -27,7 +28,7 @@ describe("media service", () => {
   beforeEach(() => {
     vi.clearAllMocks();
     // No media yet unless a test says so (the orphan sweep reads it).
-    mockPrisma.mediaItem.findMany.mockResolvedValue([]);
+    mockPrisma.fileEntry.findMany.mockResolvedValue([]);
     mockPrisma.mediaItem.findMany.mockResolvedValue([]);
     mockPrisma.mediaItem.deleteMany.mockResolvedValue({ count: 0 });
     // The customer's one node, without path grants: readable whole.
@@ -356,5 +357,22 @@ describe("media service", () => {
         },
       }),
     );
+  });
+
+  it.each([null, "linked-file"])("hides a recycled ancestor on the resolved media path (fileEntryId %s)", async (fileEntryId) => {
+    const relativePath = "bin/sub/movie.mp4";
+    mockPrisma.mediaItem.findFirst.mockResolvedValueOnce({
+      id: "m1", storageNode: { id: "node_a" }, fileEntryId, name: "movie.mp4",
+      relativePath: fileEntryId ? "old/movie.mp4" : relativePath,
+    });
+    if (fileEntryId) {
+      mockPrisma.fileEntry.findUnique.mockResolvedValueOnce({ storageNodeId: "node_a", relativePath, name: "movie.mp4", isDeleted: false });
+      mockPrisma.mediaItem.updateMany.mockResolvedValueOnce({ count: 1 });
+    }
+    mockPrisma.fileEntry.findFirst.mockResolvedValueOnce({ id: "recycled-bin" });
+    expect(await getMediaItem("m1", null, { includeCredentials: true })).toBeNull();
+    expect(mockPrisma.fileEntry.findFirst).toHaveBeenCalledWith(expect.objectContaining({
+      where: { storageNodeId: "node_a", isDeleted: true, relativePath: { in: ["bin", "bin/sub", relativePath] } },
+    }));
   });
 });

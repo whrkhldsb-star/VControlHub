@@ -4,7 +4,7 @@ import { tmpdir } from "node:os";
 
 import { afterEach, describe, expect, it, vi } from "vitest";
 
-const { sftpReadFileMock, sftpWriteFileMock, sftpUnlinkMock, connectMock, sftpStatMock, sftpMkdirMock } = vi.hoisted(() => {
+const { agentCommand, sftpLstatMock, sftpReadFileMock, sftpWriteFileMock, sftpUnlinkMock, connectMock, sftpStatMock, sftpMkdirMock } = vi.hoisted(() => {
 	const sftpReadFileMock = vi.fn();
 	const sftpWriteFileMock = vi.fn();
 	const sftpUnlinkMock = vi.fn();
@@ -13,26 +13,22 @@ const { sftpReadFileMock, sftpWriteFileMock, sftpUnlinkMock, connectMock, sftpSt
 	});
 	const sftpMkdirMock = vi.fn((_remotePath: string, callback: (error?: Error | null) => void) => callback(null));
 	const connectMock = vi.fn();
-	return { sftpReadFileMock, sftpWriteFileMock, sftpUnlinkMock, connectMock, sftpStatMock, sftpMkdirMock };
+	return { agentCommand: vi.fn(), sftpLstatMock: vi.fn(), sftpReadFileMock, sftpWriteFileMock, sftpUnlinkMock, connectMock, sftpStatMock, sftpMkdirMock };
 });
+
+vi.mock("@/lib/server/agent-service", () => ({ executeCommandWithAgent: agentCommand }));
 
 // No symlinks on the mocked host: physical path == lexical path.
 vi.mock("@/lib/ssh/client", async (importOriginal) => ({
 	...(await importOriginal<typeof import("@/lib/ssh/client")>()),
 	resolveRemoteRealPath: vi.fn(async ({ remotePath }: { remotePath: string }) => remotePath),
 }));
-vi.mock("ssh2", () => ({
-	Client: class MockClient {
-		on(event: string, callback: (...args: unknown[]) => void) {
-			if (event === "ready") setTimeout(callback, 0);
-			return this;
-		}
+vi.mock("ssh2", async () => {
+	const { EventEmitter } = await import("node:events");
+	return { Client: class MockClient extends EventEmitter {
 		connect(config: unknown) {
 			connectMock(config);
-		}
-		// The shared SSH client now caps listeners on the client instance.
-		setMaxListeners(_max: number) {
-			return this;
+			queueMicrotask(() => this.emit("ready"));
 		}
 		sftp(callback: (error: Error | null, sftp?: unknown) => void) {
 			callback(null, {
@@ -40,13 +36,17 @@ vi.mock("ssh2", () => ({
 				writeFile: sftpWriteFileMock,
 				unlink: sftpUnlinkMock,
 				stat: sftpStatMock,
+				lstat: sftpLstatMock,
 				mkdir: sftpMkdirMock,
+				end() {},
 			});
 		}
-		end() {}
-	},
-}));
+		end() { this.emit("close"); }
+	} };
+});
 
+import { closeSshPool } from "@/lib/ssh/client";
+import { createManagedFolder, statBackingObject } from "../fs-backend";
 import {
 	buildStorageFileDownloadUrl,
 	deleteStorageFileBuffer,
@@ -58,6 +58,7 @@ import {
 let tempRoot: string | null = null;
 
 afterEach(async () => {
+	await closeSshPool();
 	if (tempRoot) await rm(tempRoot, { recursive: true, force: true });
 	tempRoot = null;
 	vi.clearAllMocks();
@@ -119,6 +120,45 @@ describe("storage file content helpers", () => {
 		expect(connectMock).toHaveBeenCalledWith(expect.objectContaining({ host: "127.0.0.1", username: "root", password: "secret" }));
 		expect(sftpReadFileMock).toHaveBeenCalledWith("/srv/media/gallery/source.png", expect.any(Function));
 		expect(sftpWriteFileMock).toHaveBeenCalledWith("/srv/media/gallery/upload.png", Buffer.from("upload"), expect.any(Function));
+	});
+
+	it("treats only an SFTP missing-file status as an empty path", async () => {
+		const options = { storageNode: sftpNode(), relativePath: "not found.txt" };
+		for (const code of [3, 4]) {
+			const denied = Object.assign(new Error("Permission denied: not found.txt"), { code });
+			sftpLstatMock.mockImplementationOnce((_path, callback) => callback(denied));
+			await expect(statBackingObject(options)).rejects.toBe(denied);
+		}
+		sftpLstatMock.mockImplementationOnce((_path, callback) => callback(Object.assign(new Error("missing"), { code: 2 })));
+		await expect(statBackingObject(options)).resolves.toBeNull();
+	});
+
+	it("reads explicit missing-file and existing-directory results from an Agent-only SFTP node", async () => {
+		const node = sftpNode();
+		node.server = { ...node.server!, managementMode: "AGENT", password: null };
+		const options = { storageNode: node, relativePath: "not found.txt" };
+		agentCommand.mockResolvedValueOnce({ exitCode: 1, stderr: "Permission denied: not found.txt" });
+		await expect(statBackingObject(options)).rejects.toThrow("Permission denied");
+		agentCommand.mockResolvedValueOnce({ exitCode: 0, stdout: "null\n" });
+		await expect(statBackingObject(options)).resolves.toBeNull();
+		agentCommand.mockResolvedValueOnce({ exitCode: 0, stdout: "existing-directory\n" });
+		await expect(createManagedFolder({ ...options, allowExisting: true })).resolves.toEqual({ created: false });
+	});
+
+	it("distinguishes an exclusive SFTP mkdir from adopting an existing directory", async () => {
+		const node = sftpNode();
+		const options = { storageNode: node, relativePath: "gallery" };
+		await expect(createManagedFolder(options)).resolves.toEqual({ created: true });
+		const exists = Object.assign(new Error("Failure"), { code: 4 });
+		for (const allowExisting of [false, true]) {
+			sftpMkdirMock.mockImplementationOnce((_path, callback) => callback(exists));
+			sftpStatMock.mockImplementationOnce((_path: string, callback: (error?: Error | null, stats?: { isDirectory(): boolean }) => void) =>
+				callback(null, { isDirectory: () => true }),
+			);
+			const result = createManagedFolder({ ...options, allowExisting });
+			if (allowExisting) await expect(result).resolves.toEqual({ created: false });
+			else await expect(result).rejects.toMatchObject({ code: "EEXIST" });
+		}
 	});
 
 	it("rejects generic SFTP Failure errors unless a follow-up stat confirms the directory", async () => {

@@ -9,6 +9,7 @@ import { guessContentType } from "@/lib/http/mime-types";
 import { storageAccessDeniedCopy } from "@/lib/storage/access-denied";
 import { BusinessError, ForbiddenError } from "@/lib/errors";
 import { lockStorageFileOverwrite } from "@/lib/storage/file-overwrite-lock";
+import { assertNotRecycled } from "@/lib/storage/archive-access";
 import { moveBackingObject, statBackingObject } from "@/lib/storage/fs-backend";
 import { serviceT } from "@/lib/i18n/service-locale";
 import type { Locale } from "@/lib/i18n/core";
@@ -171,6 +172,7 @@ export async function executeMoveFile(
     // move 会覆盖并永久销毁回收站里同名文件的字节，之后 DB 更新还会撞唯一约束
     // （@@unique 覆盖软删行）触发补偿把本文件移回——净结果是回收站文件被静默清空。
     releaseDestination = await lockStorageFileOverwrite(entry.storageNodeId, newRelativePath, normalizedCurrentPath.path);
+    await assertNotRecycled(entry.storageNodeId, normalizedCurrentPath.path, "write");
     const occupant = await prisma.fileEntry.findFirst({
       where: {
         storageNodeId: entry.storageNodeId,
@@ -188,6 +190,7 @@ export async function executeMoveFile(
       } satisfies MoveFileActionState;
     }
 
+    await assertNotRecycled(entry.storageNodeId, newRelativePath, "write");
     if (await statBackingObject({ storageNode: entry.storageNode, relativePath: newRelativePath })) {
       return { error: tr("filesPage.move.errorTargetExists", { path: `/${newRelativePath}` }) };
     }

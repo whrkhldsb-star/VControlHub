@@ -17,7 +17,7 @@ import { compressFilesBodySchema } from "@/lib/files/schema";
 import { assertStorageAccess, releaseStorageQuotaGuard } from "@/lib/storage/access-control";
 import { storageAccessDeniedCopy } from "@/lib/storage/access-denied";
 import { createFileEntry } from "@/lib/storage/service";
-import { normalizeIndexedPath, recycledAround } from "@/lib/storage/archive-access";
+import { assertNotRecycled, normalizeIndexedPath, recycledAround } from "@/lib/storage/archive-access";
 import { localTarExclusion } from "@/lib/storage/archive-stream";
 import { expandStorageBasePath, resolveStoragePathWithinBase } from "@/lib/storage/path-utils";
 
@@ -35,9 +35,10 @@ export async function POST(request: NextRequest) {
       bodySchema: compressFilesBodySchema,
     },
     async ({ session, body }) => {
-      const { storageNodeId, relativePaths, targetDir } = body;
+      const { storageNodeId, targetDir } = body;
+      const relativePaths = body.relativePaths.map((relativePath) => normalizeIndexedPath(relativePath.replaceAll("\\", "/")));
       const outputName = normalizeArchiveName(body.outputName);
-      const targetRelativeDir = normalizeDir(targetDir ?? path.posix.dirname(relativePaths[0] ?? ""));
+      const targetRelativeDir = normalizeIndexedPath(targetDir?.replaceAll("\\", "/") ?? path.posix.dirname(relativePaths[0] ?? ""));
       const outputRelativePath = path.posix.join(targetRelativeDir, outputName);
 
       const node = await prisma.storageNode.findFirst({
@@ -68,12 +69,11 @@ export async function POST(request: NextRequest) {
       });
       const conflict = () => NextResponse.json({ error: apiCopy("apiCopy.target.archive.already.exists.18a7a63f", { v0: String(outputRelativePath) }) }, { status: 409 });
       if (await indexedOutput() || await pathExists(outputResolved.path)) return conflict();
+      await assertNotRecycled(node.id, outputRelativePath, "write");
 
       const inputs: string[] = [];
       const excluded: string[] = [];
-      for (const rawRelativePath of relativePaths) {
-        // Normalized as the index stores it, so the recycle-bin check and the tar member list name the same paths.
-        const relativePath = normalizeIndexedPath(rawRelativePath);
+      for (const relativePath of relativePaths) {
         if (!relativePath) return NextResponse.json({ error: apiCopy("apiCopy.files.op.invalid") }, { status: 400 });
         if (relativePath === outputRelativePath) {
           return NextResponse.json({ error: apiCopy("apiCopy.cannot.include.the.target.archive.in.itself.42093cb4") }, { status: 400 });
@@ -119,6 +119,7 @@ export async function POST(request: NextRequest) {
           const release = await lockStorageFileOverwrite(node.id, outputRelativePath);
           try {
             if (await indexedOutput()) return conflict();
+            await assertNotRecycled(node.id, outputRelativePath, "write");
             await publishLocalFile(archive, outputResolved.path, outputRelativePath);
             // If indexing fails, preserve the published bytes for reconciliation.
             await createFileEntry({ storageNodeId: node.id, name: outputName, entryType: "FILE", mimeType: "application/gzip", size, relativePath: outputRelativePath });
@@ -142,11 +143,6 @@ export async function POST(request: NextRequest) {
 
 function normalizeArchiveName(name: string) {
   return name.toLowerCase().endsWith(".tar.gz") ? name : `${name}.tar.gz`;
-}
-
-function normalizeDir(dir: string) {
-  const normalized = dir.replace(/^\/+/, "").replace(/\/+$/, "");
-  return normalized === "." ? "" : normalized;
 }
 
 async function pathExists(targetPath: string) {

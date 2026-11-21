@@ -63,6 +63,8 @@ const baseSession = {
 describe("storage access control", () => {
   beforeEach(() => {
     vi.clearAllMocks();
+    vi.mocked(prisma.userStorageAccess.findMany).mockReset().mockResolvedValue([]);
+    vi.mocked(prisma.fileEntry.aggregate).mockReset();
     vi.mocked(prisma.storageNode.findFirst).mockResolvedValue({ id: "node-1" } as never);
     vi.mocked(prisma.storageNode.findMany).mockImplementation((async (args?: any) => {
       const ids = args?.where?.id?.in ?? ["node-1"];
@@ -146,6 +148,24 @@ describe("storage access control", () => {
     })).resolves.toEqual(new Map([
       ["node-1:docs/report.txt", { canRead: true, canWrite: false, canDelete: false }],
     ]));
+  });
+
+  it("does not match padded paths or padded stored prefixes to a different grant", async () => {
+    const grant = {
+      id: "g", userId: "user-1", storageNodeId: "node-1", pathPrefix: "public",
+      canRead: true, canWrite: false, canDelete: false, quotaBytes: null, maxFileBytes: null,
+      createdAt: new Date(), updatedAt: new Date(),
+    };
+    const read = (relativePath: string) => assertStorageAccess({
+      session: baseSession, storageNodeId: "node-1", relativePath, operation: "read",
+    });
+    vi.mocked(prisma.userStorageAccess.findMany).mockResolvedValue([grant]);
+    for (const name of [" public/secret", "public /secret", "public/secret "]) {
+      await expect(read(name)).resolves.toMatchObject({ allowed: false });
+    }
+    await expect(read("public/two words")).resolves.toMatchObject({ allowed: true });
+    vi.mocked(prisma.userStorageAccess.findMany).mockResolvedValueOnce([{ ...grant, pathPrefix: "public " }]);
+    await expect(read("public/secret")).resolves.toMatchObject({ allowed: false });
   });
 
   it("denies paths outside explicit grants", async () => {
