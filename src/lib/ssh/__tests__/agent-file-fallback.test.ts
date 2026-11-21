@@ -195,6 +195,22 @@ describe("Agent-only file fallback", () => {
     } finally { await rm(dir, { recursive: true, force: true }); }
   });
 
+  it.skipIf(process.platform === "win32")("keeps the original bytes when an Agent upload fails before publication", async () => {
+    let calls = 0;
+    mocks.executeCommandWithAgent.mockImplementation(({ command }: { command: string }) => {
+      if (++calls === 2) return Promise.resolve({ stdout: "", stderr: "disk full", exitCode: 1 });
+      return new Promise(resolve => execFile("sh", ["-c", command], (err, stdout, stderr) => resolve({ stdout, stderr, exitCode: err ? 1 : 0 })));
+    });
+    const dir = await mkdtemp(path.join(tmpdir(), "vch-write-"));
+    try {
+      const file = path.join(dir, "keep");
+      await writeFile(file, "original");
+      await expect(writeRemoteFile({ host: "fixture", port: 22, username: "ops", agentServerId: "node", remotePath: file, content: "replacement" })).rejects.toThrow("disk full");
+      expect(await readFile(file, "utf8")).toBe("original");
+      expect(await (await import("node:fs/promises")).readdir(dir)).toEqual(["keep"]);
+    } finally { await rm(dir, { recursive: true, force: true }); }
+  });
+
   // A POSIX shell, python3 and file modes: the Linux Agent's environment.
   it.skipIf(process.platform === "win32")("writes a file larger than one shell argument allows, keeping the target's mode (C-1)", async () => {
     // The Agent runs `sh -c <command>`; Linux caps one argument at 128 KiB.
@@ -221,4 +237,24 @@ describe("Agent-only file fallback", () => {
       await rm(dir, { recursive: true, force: true });
     }
   });
+});
+
+it.skipIf(process.platform === "win32")("publishes one winner when local exclusive renames race", async () => {
+  const { renameBackingObject } = await import("@/lib/storage/fs-backend");
+  const directory = await mkdtemp(path.join(tmpdir(), "vch-local-rename-"));
+  try {
+    const storageNode = { id: "local", driver: "LOCAL" as const, basePath: directory, host: null, port: null, username: null, hostKeySha256: null, server: null };
+    const rename = (oldRelativePath: string, newRelativePath: string) =>
+      renameBackingObject({ storageNode, oldRelativePath, newRelativePath, noReplace: true });
+    const sources = ["first", "second"];
+    await Promise.all(sources.map((name, index) => writeFile(path.join(directory, name), String(index))));
+    const attempts = await Promise.allSettled(sources.map(name => rename(name, "published")));
+    expect(attempts.filter(result => result.status === "fulfilled")).toHaveLength(1);
+    expect(attempts.find(result => result.status === "rejected")?.reason).toMatchObject({ status: 409 });
+    const winner = Number(await readFile(path.join(directory, "published"), "utf8"));
+    expect(await readFile(path.join(directory, sources[1 - winner]!), "utf8")).toBe(String(1 - winner));
+    await expect(rename(sources[winner]!, "missing")).rejects.toMatchObject({ code: "ENOENT" });
+  } finally {
+    await rm(directory, { recursive: true, force: true });
+  }
 });

@@ -5,6 +5,9 @@ import (
 	"os"
 	"path/filepath"
 	"syscall"
+	"unsafe"
+
+	"golang.org/x/sys/windows"
 )
 
 const safeOpenFlags = 0
@@ -43,4 +46,39 @@ func directoryID(dir *os.File) (string, error) {
 		return "", err
 	}
 	return fmt.Sprintf("%d:%d:%d", info.VolumeSerialNumber, info.FileIndexHigh, info.FileIndexLow), nil
+}
+
+// FileRenameInformation with ReplaceIfExists=false handles both files and directories.
+func renameAtExclusive(src *os.File, from string, dst *os.File, to string) error {
+	name, err := windows.NewNTUnicodeString(from)
+	if err != nil {
+		return err
+	}
+	oa := windows.OBJECT_ATTRIBUTES{RootDirectory: windows.Handle(src.Fd()), ObjectName: name}
+	oa.Length = uint32(unsafe.Sizeof(oa))
+	var file windows.Handle
+	var status windows.IO_STATUS_BLOCK
+	err = windows.NtCreateFile(&file, windows.DELETE|windows.SYNCHRONIZE, &oa, &status, nil, 0,
+		windows.FILE_SHARE_DELETE|windows.FILE_SHARE_READ|windows.FILE_SHARE_WRITE, windows.FILE_OPEN,
+		windows.FILE_OPEN_REPARSE_POINT|windows.FILE_SYNCHRONOUS_IO_NONALERT, 0, 0)
+	if err != nil {
+		return err
+	}
+	defer windows.CloseHandle(file)
+	name16, err := windows.UTF16FromString(to)
+	if err != nil || len(name16) > 256 {
+		return invalid
+	}
+	info := struct {
+		Replace   uint32
+		Directory windows.Handle
+		Length    uint32
+		Name      [256]uint16
+	}{Directory: windows.Handle(dst.Fd()), Length: uint32((len(name16) - 1) * 2)}
+	copy(info.Name[:], name16)
+	err = windows.NtSetInformationFile(file, &status, (*byte)(unsafe.Pointer(&info)), uint32(unsafe.Sizeof(info)), windows.FileRenameInformation)
+	if err == windows.STATUS_OBJECT_NAME_COLLISION {
+		return os.ErrExist
+	}
+	return err
 }

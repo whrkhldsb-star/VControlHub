@@ -27,6 +27,7 @@ import { createHash } from "node:crypto";
 const RUNTIME = { sshKeepaliveIntervalMs: 15_000, sshKeepaliveCountMax: 3 };
 
 const CONN = {
+  teamId: null,
   host: "203.0.113.10",
   port: 22,
   username: "root",

@@ -115,9 +115,9 @@ type ServerRow = {
   osDialect: string | null;
 };
 
-async function loadServer(id: string): Promise<ServerRow | null> {
+async function loadServer(id: string, teamId: string | null): Promise<ServerRow | null> {
   const server = await prisma.server.findUnique({
-    where: { id },
+    where: { id, teamId, enabled: true },
     // The whole connection (see SSH_CONNECTION_SERVER_SELECT).
     select: { ...SSH_CONNECTION_SERVER_SELECT, osDialect: true },
   });
@@ -143,7 +143,7 @@ export async function POST(
       const teamAccess = await assertServerTeamAccess(session, id, "manage");
       if (!teamAccess.ok) return teamAccess.response;
 
-      const server = await loadServer(id);
+      const server = await loadServer(id, teamAccess.server.teamId);
       if (!server) {
         return Response.json({ error: t("apiServersReload.serverNotFound", locale) }, { status: 404 });
       }

@@ -1,3 +1,4 @@
+import { readableBoundDriveIds } from "@/lib/server/inventory";
 import { downloadDriveSelect } from "@/lib/downloads/destination";
 import { requirePagePermission } from "@/lib/auth/page-guard";
 import { sessionHasPermission } from "@/lib/auth/authorization";
@@ -34,20 +35,23 @@ export default async function DownloadsPage() {
 		take: 200,
 		select: {
 			id: true,
+			teamId: true,
 			name: true,
 			host: true,
-			storageNode: { select: downloadDriveSelect },
+			storageNode: { select: { ...downloadDriveSelect, teamId: true } },
 			managementMode: true,
-			agentFileShares: { orderBy: { storageNodeId: "asc" }, select: { node: { select: downloadDriveSelect } } },
+			agentFileShares: { orderBy: { storageNodeId: "asc" }, select: { teamId: true, node: { select: { ...downloadDriveSelect, teamId: true } } } },
 		},
 		orderBy: { name: "asc" },
 	});
 
+	const readable = await readableBoundDriveIds(session);
+	const viewConnection = sessionHasPermission(session, "storage:manage-node");
 	const serverList = servers.flatMap(server => {
 		const drives = [
 			...(server.storageNode ? [server.storageNode] : []),
-			...(server.managementMode === "AGENT" ? server.agentFileShares.map(share => share.node) : []),
-		];
+			...(server.managementMode === "AGENT" ? server.agentFileShares.filter(share => share.teamId === server.teamId).map(share => share.node) : []),
+		].filter(node => node.teamId === server.teamId && (!readable || readable.has(node.id)));
 		return drives.map(storageNode => ({ ...server, storageNode, multiple: drives.length > 1 }));
 	}).map(s => {
 		const strategy = buildDirectAccessStrategy({
@@ -63,7 +67,10 @@ export default async function DownloadsPage() {
 		const isDirect = strategy.mode === "direct-url";
 		const host = s.storageNode?.host ?? s.host;
 		const port = s.storageNode?.port ?? 22;
-		const accessDescription = s.storageNode.driver === "AGENT" ? strategy.description : s.storageNode?.driver === "LOCAL"
+		const accessStatusLabel = t(isDirect ? "downloadsPage.access.direct" : "downloadsPage.access.relay", locale);
+		const accessDescription = !viewConnection ? accessStatusLabel
+			: s.storageNode.driver === "AGENT" ? strategy.description
+			: s.storageNode.driver === "LOCAL"
 			? t("downloadsPage.access.localDesc", locale)
 			: isDirect
 				? t(s.storageNode?.directAccessMode === "AUTO" ? "downloadsPage.access.directAutoDesc" : "downloadsPage.access.directModeDesc", locale, { host, port })
@@ -72,13 +79,13 @@ export default async function DownloadsPage() {
 			id: s.storageNode.driver === "AGENT" ? `drive:${s.storageNode.id}` : s.id,
 			serverId: s.id, storageNodeId: s.storageNode.id,
 			name: s.multiple || s.storageNode.driver === "AGENT" ? `${s.name} · ${s.storageNode.name} (${s.storageNode.driver})` : s.name,
-			host: s.host,
-			storagePath: s.storageNode?.basePath ?? "/root/downloads",
+			host: viewConnection ? s.host : "",
+			storagePath: viewConnection ? s.storageNode.basePath : "",
 			storageDriver: s.storageNode?.driver ?? "LOCAL",
 			directAccessMode: s.storageNode?.directAccessMode ?? "PROXY",
 			directAccessAvailable: isDirect,
 			accessTransport: isDirect ? "direct" as const : "relay" as const,
-			accessStatusLabel: isDirect ? t("downloadsPage.access.direct", locale) : t("downloadsPage.access.relay", locale),
+			accessStatusLabel,
 			accessDescription,
 		};
 	});

@@ -11,7 +11,6 @@ import (
 	"os"
 	"path"
 	"path/filepath"
-	"runtime"
 	"strings"
 	"time"
 )
@@ -20,40 +19,19 @@ const chunkSize = 1024 * 1024
 
 func (s share) stageDir() string { return ".vch-transfers-" + digest([]byte(s.namespace)) }
 
-// Reserve the destination even when another process writes it after our Lstat.
+// Pin both containing directories under os.Root before the native operation.
 func (s share) renameExclusive(from, to string) error {
-	source, err := s.root.Lstat(from)
+	src, err := s.root.Open(path.Dir(from))
 	if err != nil {
 		return err
 	}
-	if source.Mode().IsRegular() {
-		if err := s.root.Link(from, to); err != nil {
-			return err
-		}
-		// A failed unlink leaves both names referring to the complete file.
-		return s.root.Remove(from)
-	}
-	if !source.IsDir() {
-		return denied
-	}
-	if runtime.GOOS == "windows" {
-		// Windows rename does not replace directories.
-		return s.root.Rename(from, to)
-	}
-	if err := s.root.Mkdir(to, 0700); err != nil {
-		return err
-	}
-	reserved, err := s.root.Lstat(to)
+	defer src.Close()
+	dst, err := s.root.Open(path.Dir(to))
 	if err != nil {
 		return err
 	}
-	if err := s.root.Rename(from, to); err != nil {
-		if current, statErr := s.root.Lstat(to); statErr == nil && os.SameFile(reserved, current) {
-			_ = s.root.Remove(to)
-		}
-		return err
-	}
-	return nil
+	defer dst.Close()
+	return renameAtExclusive(src, path.Base(from), dst, path.Base(to))
 }
 
 func (s share) ensureStageDir() error {
@@ -179,7 +157,7 @@ func (s share) handle(op operation) (result, error) {
 	if !validPath(op.Path) {
 		return out, denied
 	}
-	read := op.Op == "list" || op.Op == "stat" || op.Op == "read" || op.Op == "checksum"
+	read := readOperation(op.Op)
 	if !read && (!s.writable || op.Path == ".") {
 		return out, denied
 	}
@@ -347,6 +325,9 @@ func (s share) handle(op operation) (result, error) {
 		if err != nil || closeErr != nil {
 			return out, errors.Join(err, closeErr)
 		}
+		if op.deadline.IsZero() || !time.Now().Before(op.deadline) {
+			return out, changed
+		}
 		// Link publishes a fully closed file and atomically refuses a concurrent destination.
 		return out, s.root.Link(temporary, op.Destination)
 	case "begin", "chunk", "publish":
@@ -355,8 +336,7 @@ func (s share) handle(op operation) (result, error) {
 		}
 		// Separate namespaces on re-pairing. The hub can never supply a staging path.
 		key := digest([]byte(s.namespace + "\x00" + op.Path + "\x00" + op.Digest))
-		stageDir := s.stageDir()
-		tmp := stageDir + "/" + key
+		tmp := path.Join(path.Dir(op.Path), ".vch-upload-"+key)
 		if op.Op == "begin" {
 			if err := s.ensureStageDir(); err != nil {
 				return out, err
@@ -364,6 +344,14 @@ func (s share) handle(op operation) (result, error) {
 			if err := s.root.MkdirAll(path.Dir(op.Path), 0750); err != nil {
 				return out, err
 			}
+			if err := s.trackUpload(key, op.Path); err != nil {
+				return out, err
+			}
+		}
+		if err := s.relocateLegacyUpload(op, key, tmp); err != nil {
+			return out, err
+		}
+		if op.Op == "begin" {
 			f, err := s.openRegular(tmp, os.O_RDWR|os.O_CREATE)
 			if err != nil {
 				return out, err
@@ -449,11 +437,17 @@ func (s share) cleanup(now time.Time) {
 			if err != nil || !st.Mode().IsRegular() {
 				continue
 			}
-			if key, ok := strings.CutPrefix(e.Name(), "plain-"); ok && validDigest(key) {
+			if key, ok := strings.CutPrefix(e.Name(), "job-"); ok && validDigest(key) {
+				s.expireJob(e.Name(), st.ModTime(), now)
+			} else if key, ok := strings.CutPrefix(e.Name(), "publish-"); ok && validDigest(key) {
+				s.recoverUpload(path.Join(stageDir, e.Name()), key)
+			} else if key, ok := strings.CutPrefix(e.Name(), "upload-"); ok && validDigest(key) && now.Sub(st.ModTime()) > 48*time.Hour {
+				s.expireUpload(path.Join(stageDir, e.Name()), key)
+			} else if key, ok := strings.CutPrefix(e.Name(), "plain-"); ok && validDigest(key) {
 				s.recoverPlainCopy(path.Join(stageDir, e.Name()), key, now.Sub(st.ModTime()) > 48*time.Hour)
 			} else if now.Sub(st.ModTime()) > 48*time.Hour {
 				name := path.Join(stageDir, e.Name())
-				if validDigest(e.Name()) {
+				if validDigest(e.Name()) || strings.HasPrefix(e.Name(), "receipt-tmp-") {
 					s.root.Remove(name)
 				} else if key, ok := strings.CutPrefix(e.Name(), "copy-"); ok && validDigest(key) {
 					s.cleanupCopy(name, key)
@@ -473,51 +467,38 @@ func (s share) publishChecked(op operation, tmp string) error {
 	if op.Version == "" || op.jobID == "" || !time.Now().Before(op.deadline) {
 		return changed
 	}
-	backup := path.Join(path.Dir(op.Path), ".vch-publish-"+digest([]byte(s.namespace+"\x00"+op.jobID)))
+	key := digest([]byte(s.namespace + "\x00" + op.jobID))
+	marker := path.Join(s.stageDir(), "publish-"+key)
+	backup := path.Join(path.Dir(op.Path), ".vch-publish-"+key)
+	stage, err := s.openRegular(tmp, os.O_RDONLY)
+	if err != nil {
+		return err
+	}
+	stageID, err := directoryID(stage)
+	stage.Close()
+	if err != nil {
+		return err
+	}
+	record := publishIntent{Path: op.Path, Digest: op.Digest, Job: op.jobID, StageID: stageID}
+	if err := s.saveIntent(marker, record); err != nil {
+		return err
+	}
+	defer s.recoverUpload(marker, key)
 	if op.Version != "absent" {
 		st, err := s.root.Lstat(op.Path)
 		if err != nil || !st.Mode().IsRegular() || metadata(st).Version != op.Version {
 			return changed
 		}
-		// A directory swapped in after Lstat cannot be renamed over a regular file.
-		placeholder, err := s.root.OpenFile(backup, os.O_CREATE|os.O_EXCL|os.O_WRONLY, 0600)
-		if err != nil {
+		if err := s.renameExclusive(op.Path, backup); err != nil {
 			return err
 		}
-		if err := placeholder.Close(); err != nil {
-			s.root.Remove(backup)
-			return err
-		}
-		if err := s.root.Rename(op.Path, backup); err != nil {
-			s.root.Remove(backup)
-			return err
-		}
-	}
-	restore := func() {
-		if op.Version != "absent" && s.root.Link(backup, op.Path) == nil {
-			s.root.Remove(backup)
-		}
-	}
-	if op.Version != "absent" {
-		st, err := s.root.Lstat(backup)
+		st, err = s.root.Lstat(backup)
 		if err != nil || !st.Mode().IsRegular() || metadata(st).Version != op.Version {
-			restore()
 			return changed
 		}
 	}
 	if !time.Now().Before(op.deadline) {
-		restore()
 		return changed
 	}
-	if err := s.root.Link(tmp, op.Path); err != nil {
-		restore()
-		return err
-	}
-	if err := s.root.Remove(tmp); err != nil {
-		return err
-	}
-	if op.Version != "absent" {
-		return s.root.Remove(backup)
-	}
-	return nil
+	return s.root.Link(tmp, op.Path)
 }

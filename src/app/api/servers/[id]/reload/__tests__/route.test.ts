@@ -204,6 +204,14 @@ describe("POST /api/servers/[id]/reload", () => {
     expect(execRemoteCommandMock).not.toHaveBeenCalled();
   });
 
+  it("refuses a disabled server after checking the caller's team access", async () => {
+    serverFindUniqueMock.mockResolvedValueOnce({ id: "srv_1", teamId: null }).mockResolvedValueOnce(null);
+    const response = await POST(request({ kind: "systemd", unit: "nginx" }), params);
+    expect(response.status).toBe(404);
+    expect(serverFindUniqueMock).toHaveBeenLastCalledWith(expect.objectContaining({ where: { id: "srv_1", teamId: null, enabled: true } }));
+    expect(execRemoteCommandMock).not.toHaveBeenCalled();
+  });
+
   it("returns 502 with audit error when the remote exec raises", async () => {
     mockServer();
     execRemoteCommandMock.mockRejectedValueOnce(new Error("connect ETIMEDOUT"));

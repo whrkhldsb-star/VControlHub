@@ -14,6 +14,7 @@ import (
 	"net/url"
 	"os"
 	"os/signal"
+	"path"
 	"path/filepath"
 	"strings"
 	"time"
@@ -31,8 +32,8 @@ type receipt struct {
 }
 type work struct {
 	RemainingMs int64     `json:"remainingMs"`
-	ID        string    `json:"id"`
-	Operation operation `json:"operation"`
+	ID          string    `json:"id"`
+	Operation   operation `json:"operation"`
 }
 type response struct {
 	Job *work `json:"job"`
@@ -57,10 +58,11 @@ func errorCode(err error) string {
 func poll(ctx context.Context, client *http.Client, endpoint, token, rootIdentity string, writable bool, pending *receipt) (response, error) {
 	var out response
 	body, err := json.Marshal(struct {
-		RootIdentity string   `json:"rootIdentity"`
-		Writable     bool     `json:"writable"`
-		Receipt      *receipt `json:"receipt,omitempty"`
-	}{rootIdentity, writable, pending})
+		RootIdentity    string   `json:"rootIdentity"`
+		Writable        bool     `json:"writable"`
+		DeliveryVersion int      `json:"deliveryVersion"`
+		Receipt         *receipt `json:"receipt,omitempty"`
+	}{rootIdentity, writable, 2, pending})
 	if err != nil {
 		return out, err
 	}
@@ -145,8 +147,11 @@ func run(ctx context.Context, configFile string) error {
 	if err != nil {
 		return err
 	}
-	rootIdentity := "v2:" + digest([]byte(cfg.Token + "\x00" + hostname + "\x00" + rootPath + "\x00" + identity))
+	rootIdentity := "v2:" + digest([]byte(cfg.Token+"\x00"+hostname+"\x00"+rootPath+"\x00"+identity))
 	var pending *receipt
+	if cfg.Writable {
+		pending = s.pendingReceipt()
+	}
 	var lastCleanup time.Time
 	for ctx.Err() == nil {
 		if cfg.Writable && time.Since(lastCleanup) > time.Hour {
@@ -163,11 +168,14 @@ func run(ctx context.Context, configFile string) error {
 			delay = 200 * time.Millisecond
 		}
 		if err == nil {
+			if pending != nil && cfg.Writable {
+				s.root.Remove(path.Join(s.stageDir(), "pending-receipt"))
+			}
 			pending = nil
 			if reply.Job != nil {
 				reply.Job.Operation.deadline = pollStarted.Add(time.Duration(reply.Job.RemainingMs) * time.Millisecond)
 				reply.Job.Operation.jobID = reply.Job.ID
-				answer, err := s.handle(reply.Job.Operation)
+				answer, err := s.dispatch(*reply.Job)
 				if err != nil {
 					answer = result{Error: errorCode(err)}
 				}

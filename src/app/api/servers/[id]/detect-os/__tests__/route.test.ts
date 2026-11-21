@@ -115,7 +115,7 @@ describe("POST /api/servers/[id]/detect-os", () => {
     const response = await POST(request(), params);
 
     expect(serverFindUniqueMock).toHaveBeenCalledWith(expect.objectContaining({
-      where: { id: "srv_1", teamId: "team_1" },
+      where: { id: "srv_1", teamId: "team_1", enabled: true },
     }));
     expect(response.status).toBe(404);
     expect(detectOsDialectMock).not.toHaveBeenCalled();
@@ -156,7 +156,8 @@ describe("POST /api/servers/[id]/detect-os", () => {
     expect(detectOsDialectMock).toHaveBeenCalledTimes(1);
     expect(serverUpdateManyMock).toHaveBeenCalledWith(
       expect.objectContaining({
-        where: {
+        where: expect.objectContaining({
+          enabled: true, hostKeySha256: "SHA256:abc",
           id: "srv_1",
           teamId: "team_1",
           host: "203.0.113.10",
@@ -164,7 +165,7 @@ describe("POST /api/servers/[id]/detect-os", () => {
           username: "root",
           operatingSystem: "LINUX",
           managementMode: "DIRECT",
-        },
+        }),
         data: expect.objectContaining({
           osInfo: "Ubuntu 22.04 LTS",
           osDialect: expect.stringContaining("\"packageManager\":\"apt\""),

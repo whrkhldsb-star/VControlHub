@@ -13,14 +13,19 @@ describe("deployment export service", () => {
 	it("builds portable templates with placeholders, custom branding, and no secrets", () => {
 		const pkg = buildPortableDeploymentPackage({ domain: "console.example.test", appName: "my-console" });
 		const text = JSON.stringify(pkg.files);
-		expect(text).toContain("REPLACE_WITH_DATABASE_URL");
+		expect(pkg.files["env.production.example"]).toContain('DATABASE_URL=""');
 		expect(text).toContain("AUTH_SESSION_SECRET");
 		expect(text).toContain("ENCRYPTION_KEY");
 		expect(text).toContain("SSH_WS_SECRET");
-		expect(text).toContain("REPLACE_WITH_A_RANDOM_SECRET");
+		expect(pkg.files["env.production.example"]).toContain('AUTH_SESSION_SECRET=""');
+		expect(pkg.files["env.production.example"]).toContain('ADMIN_INITIAL_PASSWORD=""');
 		expect(text).toContain("my-console-next.service");
 		expect(text).toContain("my-console-worker.service");
 		expect(text).toContain("my-console-ssh-ws.service");
+		for (const name of ["next", "worker"]) expect(pkg.files[`my-console-${name}.service`]).toMatch(/^User=vcontrolhub$/m);
+		expect(pkg.files["my-console-ssh-ws.service"]).toMatch(/^User=vcontrolhub-gateway$/m);
+		expect(pkg.files["my-console-ssh-ws.service"]).toContain("DynamicUser=true");
+		expect(pkg.files["install-services.sh"]).toContain("-o vcontrolhub -g vcontrolhub");
 		expect(text).toContain("my-console_session");
 		expect(text).toContain("console.example.test");
 		expect(text).toContain("Caddyfile");
@@ -132,7 +137,7 @@ describe.skipIf(process.platform === "win32")("the generated deploy.sh, run", ()
 	}
 
 	const databaseUrl = "postgresql://app:pa$$w0rd#1@127.0.0.1:5432/app?schema=public";
-	const envFile = ["# production settings", 'APP_NAME="my-console"', `DATABASE_URL="${databaseUrl}"`, "SINGLE='quoted value'", "BARE=plain", ""].join("\n");
+	const envFile = ["# production settings", ...["AUTH_SESSION_SECRET", "ENCRYPTION_KEY", "ADMIN_INITIAL_PASSWORD", "SSH_WS_SECRET", "STORAGE_DIRECT_ACCESS_SECRET"].map(key => key + "=" + "x".repeat(32)), 'APP_NAME="my-console"', `DATABASE_URL="${databaseUrl}"`, "SINGLE='quoted value'", "BARE=plain", ""].join("\n");
 
 	it("stops with a pointer to the env template when the env file is not there yet", () => {
 		const result = run(null);
@@ -140,6 +145,13 @@ describe.skipIf(process.platform === "win32")("the generated deploy.sh, run", ()
 		expect(result.stderr).toContain(".env.production");
 		expect(result.stderr).toContain("env.production.example");
 		expect(result.calls).toEqual([]);
+	});
+
+	it.each(["AUTH_SESSION_SECRET", "ENCRYPTION_KEY", "ADMIN_INITIAL_PASSWORD", "SSH_WS_SECRET", "STORAGE_DIRECT_ACCESS_SECRET"])("rejects a sample %s before starting the build or migrations", key => {
+		const rejected = run(envFile.replace(key + "=" + "x".repeat(32), key + "=CHANGE_ME"));
+		expect(rejected.status).toBe(1);
+		expect(rejected.stderr).toContain(key);
+		expect(rejected.calls).toEqual([]);
 	});
 
 	it("gives Prisma and the build the env file's values, as written", () => {

@@ -24,11 +24,12 @@ func TestOutboundPollAndReceipt(t *testing.T) {
 			return
 		}
 		var body struct {
-			RootIdentity string
-			Writable     bool
-			Receipt      *receipt
+			RootIdentity    string
+			Writable        bool
+			DeliveryVersion int
+			Receipt         *receipt
 		}
-		if err := json.NewDecoder(r.Body).Decode(&body); err != nil || body.RootIdentity != rootID || body.Writable {
+		if err := json.NewDecoder(r.Body).Decode(&body); err != nil || body.RootIdentity != rootID || body.Writable || body.DeliveryVersion != 2 {
 			http.Error(w, "invalid directory", http.StatusBadRequest)
 			return
 		}
@@ -67,6 +68,9 @@ func TestResumeAndVerifyBackup(t *testing.T) {
 	op := operation{Op: "begin", Path: "nightly/db  backup.tar", Size: int64(len(data)), Digest: digest(data)}
 	run := func(op operation) result {
 		t.Helper()
+		if op.deadline.IsZero() {
+			op.deadline = time.Now().Add(time.Minute)
+		}
 		r, err := s.handle(op)
 		if err != nil {
 			t.Fatalf("%s: %v", op.Op, err)
@@ -298,5 +302,164 @@ func TestExclusiveRenameKeepsBothFilesAtOccupiedDestination(t *testing.T) {
 		if err != nil || string(body) != name {
 			t.Fatal(name, string(body), err)
 		}
+	}
+}
+
+func TestLegacyUploadResumesInTheDestinationDirectory(t *testing.T) {
+	root, err := os.OpenRoot(t.TempDir())
+	if err != nil {
+		t.Fatal(err)
+	}
+	defer root.Close()
+	s := share{root: root, writable: true, namespace: "test"}
+	if err := s.ensureStageDir(); err != nil {
+		t.Fatal(err)
+	}
+	data := []byte("resumed upload")
+	op := operation{Op: "begin", Path: "mounted/final", Size: int64(len(data)), Digest: digest(data)}
+	key := digest([]byte(s.namespace + "\x00" + op.Path + "\x00" + op.Digest))
+	legacy := s.stageDir() + "/" + key
+	if err := root.WriteFile(legacy, data[:7], 0600); err != nil {
+		t.Fatal(err)
+	}
+	if err := root.Mkdir("mounted", 0700); err != nil {
+		t.Fatal(err)
+	}
+	// A crash left an incomplete private copy, while the original survived.
+	if err := root.WriteFile("mounted/.vch-upload-"+key, data[:2], 0600); err != nil {
+		t.Fatal(err)
+	}
+	begin, err := s.handle(op)
+	if err != nil || begin.Offset != 7 {
+		t.Fatal("resume offset", begin.Offset, err)
+	}
+	if _, err := root.Lstat(legacy); !errors.Is(err, fs.ErrNotExist) {
+		t.Fatal("old stage still present", err)
+	}
+	op.Op, op.Offset, op.Data = "chunk", begin.Offset, data[begin.Offset:]
+	op.ChunkDigest = digest(op.Data)
+	if _, err := s.handle(op); err != nil {
+		t.Fatal(err)
+	}
+	op.Op, op.Version, op.jobID, op.deadline = "publish", "absent", "resume", time.Now().Add(time.Minute)
+	if _, err := s.handle(op); err != nil {
+		t.Fatal(err)
+	}
+	if result, err := root.ReadFile(op.Path); err != nil || string(result) != string(data) {
+		t.Fatal(string(result), err)
+	}
+}
+
+func TestInterruptedUploadPublication(t *testing.T) {
+	for _, published := range []bool{false, true} {
+		t.Run(map[bool]string{true: "linked", false: "old displaced"}[published], func(t *testing.T) {
+			root, err := os.OpenRoot(t.TempDir())
+			if err != nil {
+				t.Fatal(err)
+			}
+			defer root.Close()
+			s := share{root: root, writable: true, namespace: "test"}
+			const target = "volume/report"
+			data := []byte("complete upload")
+			op := operation{Op: "begin", Path: target, Digest: digest(data), Size: int64(len(data))}
+			if _, err := s.handle(op); err != nil {
+				t.Fatal(err)
+			}
+			op.Op, op.Data, op.ChunkDigest = "chunk", data, op.Digest
+			if _, err := s.handle(op); err != nil {
+				t.Fatal(err)
+			}
+			upload := digest([]byte(s.namespace + "\x00" + target + "\x00" + op.Digest))
+			tmp := "volume/.vch-upload-" + upload
+			file, err := s.openRegular(tmp, os.O_RDONLY)
+			if err != nil {
+				t.Fatal("stage must share the target directory", err)
+			}
+			id, err := directoryID(file)
+			file.Close()
+			if err != nil {
+				t.Fatal(err)
+			}
+			key := digest([]byte(s.namespace + "\x00publish-job"))
+			marker := s.stageDir() + "/publish-" + key
+			backup := "volume/.vch-publish-" + key
+			if err := root.WriteFile(target, []byte("original"), 0600); err != nil {
+				t.Fatal(err)
+			}
+			if err := s.saveIntent(marker, publishIntent{Path: target, Digest: op.Digest, Job: "publish-job", StageID: id}); err != nil {
+				t.Fatal(err)
+			}
+			if err := s.renameExclusive(target, backup); err != nil {
+				t.Fatal(err)
+			}
+			if published {
+				if err := root.Link(tmp, target); err != nil {
+					t.Fatal(err)
+				}
+			}
+			s.cleanup(time.Now())
+			s.cleanup(time.Now())
+			contents, err := root.ReadFile(target)
+			want := "original"
+			if published {
+				want = string(data)
+			}
+			if err != nil || string(contents) != want {
+				t.Fatal("recovered data", string(contents), err)
+			}
+			handle, err := s.openRegular(target, os.O_RDONLY)
+			if err != nil {
+				t.Fatal("recovered file must have one link", err)
+			}
+			handle.Close()
+			for _, name := range []string{backup, marker} {
+				if _, err := root.Lstat(name); !errors.Is(err, fs.ErrNotExist) {
+					t.Fatal("unrecovered name", name, err)
+				}
+			}
+		})
+	}
+}
+
+func TestExpiredCopyAndPersistentJobReceipt(t *testing.T) {
+	root, err := os.OpenRoot(t.TempDir())
+	if err != nil {
+		t.Fatal(err)
+	}
+	defer root.Close()
+	s := share{root: root, namespace: "test", writable: true}
+	if err := root.WriteFile("src", []byte("bytes"), 0600); err != nil {
+		t.Fatal(err)
+	}
+	if _, err := s.handle(operation{Op: "copy", Path: "src", Destination: "dst", deadline: time.Now().Add(-time.Second)}); !errors.Is(err, changed) {
+		t.Fatal("expired COPY", err)
+	}
+	if _, err := root.Stat("dst"); !errors.Is(err, fs.ErrNotExist) {
+		t.Fatal("expired publish", err)
+	}
+	job := work{ID: "unique-move", Operation: operation{Op: "rename", Path: "src", Destination: "dst", deadline: time.Now().Add(time.Minute)}}
+	answer, err := s.dispatch(job)
+	if err != nil || answer.Error != "" {
+		t.Fatalf("first delivery: %v %v", answer, err)
+	}
+	newProcess := share{root: root, namespace: "test", writable: true}
+	if pending := newProcess.pendingReceipt(); pending == nil || pending.ID != job.ID || pending.Result.Error != "" {
+		t.Fatal("missing saved receipt", pending)
+	}
+	if err := root.WriteFile("src", []byte("new source"), 0600); err != nil {
+		t.Fatal(err)
+	}
+	replayed, err := newProcess.dispatch(job)
+	if err != nil || replayed.Error != "" {
+		t.Fatal("duplicate did not return its original result", err, replayed)
+	}
+	if b, err := root.ReadFile("src"); err != nil || string(b) != "new source" {
+		t.Fatal("duplicate moved the new source", err)
+	}
+	if err := s.renameExclusive("src", "dst"); !errors.Is(err, fs.ErrExist) {
+		t.Fatal("occupied native destination", err)
+	}
+	if b, err := root.ReadFile("dst"); err != nil || string(b) != "bytes" {
+		t.Fatal("no-replace changed destination", err)
 	}
 }

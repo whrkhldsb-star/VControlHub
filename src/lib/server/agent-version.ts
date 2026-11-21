@@ -7,7 +7,7 @@
  *
  * Both builds stop a running job when the hub rejects its heartbeat credentials.
  */
-export const AGENT_VERSION = "1.5.3";
+export const AGENT_VERSION = "1.5.4";
 
 export const WINDOWS_AGENT_VERSION = "1.5.4";
 

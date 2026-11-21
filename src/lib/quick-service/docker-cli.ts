@@ -95,7 +95,7 @@ export async function dockerExec(
   logger.debug("remote docker exec", {
     serverId: server.id,
     serverName: server.name,
-    args: args.slice(0, 6),
+    operation: args[0],
   });
   const result = await execRemoteCommand({
     ...ssh,

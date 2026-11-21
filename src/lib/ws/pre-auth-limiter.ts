@@ -1,4 +1,8 @@
+import { createHmac, timingSafeEqual } from "node:crypto";
 import type { IncomingMessage } from "node:http";
+import { isIP } from "node:net";
+import { config } from "@/lib/config/env";
+import { PEER_ADDRESS_HEADER } from "@/lib/http/peer-address";
 import { getClientIp } from "@/lib/rate-limit";
 
 /**
@@ -39,8 +43,27 @@ export class PreAuthLimiter {
   }
 }
 
+export const PEER_SIGNATURE_HEADER = "x-vch-ws-peer-signature";
+
+/** Bind the listener-observed peer to this specific forwarded upgrade. */
+export function signUpgradePeer(address: string, key: string | string[] | undefined, secret: string | undefined) {
+  return secret && typeof key === "string" && isIP(address)
+    ? createHmac("sha256", secret).update(JSON.stringify([address, key])).digest("hex") : undefined;
+}
+
 /** The client address of an upgrade request, resolved the way HTTP rate limits resolve it (trusted proxy hops). */
-export function upgradeClientAddress(req: Pick<IncomingMessage, "headers">): string {
+export function upgradeClientAddress(req: Pick<IncomingMessage, "headers"> & { socket?: Pick<IncomingMessage["socket"], "remoteAddress"> }): string {
+  if (config.http.trustedProxyHops === 0) {
+    const peer = req.socket?.remoteAddress ?? "";
+    const forwarded = req.headers[PEER_ADDRESS_HEADER];
+    if (["127.0.0.1", "::1", "::ffff:127.0.0.1"].includes(peer) && typeof forwarded === "string") {
+      const signature = req.headers[PEER_SIGNATURE_HEADER];
+      const expected = signUpgradePeer(forwarded, req.headers["sec-websocket-key"], config.ssh.wsSecret);
+      if (expected && typeof signature === "string" && /^[a-f0-9]{64}$/.test(signature)
+        && timingSafeEqual(Buffer.from(signature), Buffer.from(expected))) return forwarded;
+    }
+    return isIP(peer) ? peer : "unknown";
+  }
   const headers = new Headers();
   for (const name of ["cf-connecting-ip", "x-forwarded-for"] as const) {
     const value = req.headers[name];

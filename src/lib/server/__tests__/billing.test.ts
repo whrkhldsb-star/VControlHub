@@ -1,13 +1,21 @@
 import { describe, expect, it, vi } from "vitest";
 
-vi.mock("@/lib/db", () => ({ prisma: {} }));
+const { updateMany } = vi.hoisted(() => ({ updateMany: vi.fn() }));
+vi.mock("@/lib/db", () => ({ prisma: { server: { updateMany } } }));
 
-import { billingInputFromForm, normalizeServerBilling } from "../billing";
+import { billingInputFromForm, normalizeServerBilling, updateServerBilling } from "../billing";
 import { billingFormValues, toServerBillingDto } from "../billing-form";
 
 const GIB = 1024 ** 3;
 
 describe("server billing", () => {
+	it("rejects a late billing form after the server changes owners", async () => {
+		updateMany.mockResolvedValueOnce({ count: 0 });
+		const values = normalizeServerBilling({ expiresOn: "", trafficQuotaGb: "", trafficQuotaMode: "sum" });
+		await expect(updateServerBilling("srv", "old", values, { userId: "admin", roles: ["admin"], currentTeamId: null })).rejects.toMatchObject({ status: 404 });
+		expect(updateMany).toHaveBeenCalledWith({ where: expect.objectContaining({ id: "srv", teamId: "old" }), data: values });
+	});
+
 	it("ends a rental at the last second of the chosen day in the platform time zone", () => {
 		const values = normalizeServerBilling({ expiresOn: "2026-11-09", trafficQuotaGb: "", trafficQuotaMode: "sum" });
 		// Asia/Shanghai is UTC+8: 23:59:59 local is 15:59:59 UTC.

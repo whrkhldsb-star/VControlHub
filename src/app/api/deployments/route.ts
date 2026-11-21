@@ -19,6 +19,7 @@ import { t } from "@/lib/i18n/service-translations";
 import { firstSchemaSentence } from "@/lib/i18n/schema-copy";
 export const dynamic = "force-dynamic";
 
+const deploymentKey = z.string().trim().min(1).max(300);
 const createDeploymentSchema = z.object({
   templateId: z.string().trim().min(1, "templateId is required"),
   serverIds: z
@@ -26,7 +27,7 @@ const createDeploymentSchema = z.object({
     .min(1, "At least 1 target VPS must be selected"),
   variables: z.record(z.string(), z.string()).default({}),
   reason: z.string().trim().max(500, "Reason must be at most 500 characters").optional(),
-  idempotencyKey: z.string().trim().min(1).max(300).optional(),
+  idempotencyKey: deploymentKey.optional(),
 });
 
 export async function GET(request: Request) {
@@ -86,6 +87,7 @@ async function readRequestBody(request: Request) {
     serverIds: formData.getAll("serverIds"),
     variables,
     reason: formData.get("reason") || undefined,
+    idempotencyKey: formData.get("idempotencyKey") ?? undefined,
   };
 }
 
@@ -118,7 +120,9 @@ export async function POST(request: Request) {
             return redirectToDeployments(request, { error: message });
           throw new ValidationError(message);
         }
-        const idempotencyKey = request.headers.get("idempotency-key")?.trim() || parsed.data.idempotencyKey;
+        const key = deploymentKey.optional().safeParse(request.headers.get("idempotency-key") ?? parsed.data.idempotencyKey);
+        if (!key.success) throw new ValidationError(firstSchemaSentence(key.error) ?? t("backend.command.idempotencyKeyInUse"));
+        const idempotencyKey = key.data;
         const deployment = await createDeploymentRunFromTemplate({
           ...parsed.data,
           ...(idempotencyKey ? { idempotencyKey } : {}),

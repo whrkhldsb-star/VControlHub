@@ -2,13 +2,14 @@
 import { randomUUID } from "node:crypto";
 import { afterAll, beforeAll, describe, expect, it, vi } from "vitest";
 import { prisma } from "@/lib/db";
-import { execRemoteCommand } from "@/lib/ssh/client";
+import { createRemoteDirectory, execRemoteCommand } from "@/lib/ssh/client";
 import { authenticateServerAgent, claimNextServerAgentJob, issueServerAgentToken, updateServerAgentHeartbeat } from "../agent-service";
-import { updateServerProfile } from "../service-profiles";
+import { toggleServerEnabled, updateServerProfile } from "../service-profiles";
 
 vi.mock("next/cache", () => ({ revalidatePath: vi.fn() }));
 vi.mock("@/lib/ssh/client", async (original) => ({
   ...await original<typeof import("@/lib/ssh/client")>(),
+  createRemoteDirectory: vi.fn(),
   execRemoteCommand: vi.fn(async () => ({ stdout: "", stderr: "", exitCode: 0 })),
 }));
 
@@ -19,8 +20,33 @@ describe.skipIf(process.env.RUN_DATABASE_INTEGRATION_TESTS !== "1")("management 
     if (!["127.0.0.1", "localhost", "[::1]"].includes(db.hostname) || !/audit|test|_ci/.test(db.pathname)) throw new Error("requires a local test database");
   });
   afterAll(async () => {
+    await prisma.storageNode.deleteMany({ where: { name: { startsWith: prefix } } });
     await prisma.server.deleteMany({ where: { id: { startsWith: prefix } } });
+    await prisma.team.deleteMany({ where: { id: { startsWith: prefix } } });
     await prisma.$disconnect();
+  });
+
+  it.each(["server", "storage"])("discards both pins when the %s endpoint changes during re-enablement", async (endpoint) => {
+    const id = prefix + "-enable-" + endpoint;
+    await prisma.team.create({ data: { id, slug: id, name: id } });
+    const host = id + ".test";
+    await prisma.server.create({ data: {
+      id, teamId: id, name: id, host, username: "ops", enabled: false,
+      connectionType: "PASSWORD", password: "fixture", managementMode: "DIRECT",
+    } });
+    const node = await prisma.storageNode.create({ data: {
+      teamId: id, serverId: id, name: id, driver: "SFTP", basePath: "/srv/files", port: 22,
+    } });
+    vi.mocked(createRemoteDirectory).mockImplementationOnce(async () => {
+      if (endpoint === "server") await prisma.server.update({ where: { id }, data: { host: "new-" + host } });
+      else await prisma.storageNode.update({ where: { id: node.id }, data: { port: 2222 } });
+    });
+    await expect(toggleServerEnabled(id, null, "SHA256:previous-endpoint")).rejects.toMatchObject({ status: 409 });
+    const current = await prisma.server.findUniqueOrThrow({ where: { id }, include: { storageNode: true } });
+    expect(current).toMatchObject({
+      enabled: false, teamId: id, host: endpoint === "server" ? "new-" + host : host,
+      hostKeySha256: null, osDialect: null, storageNode: { hostKeySha256: null, port: endpoint === "storage" ? 2222 : 22 },
+    });
   });
 
   it("verifies new Linux credentials before retiring the old identity and its jobs", async () => {
