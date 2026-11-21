@@ -109,7 +109,13 @@ try {
     $webHost = if ($env:NEXT_HOST) { $env:NEXT_HOST.Trim() } else { '127.0.0.1' }
     if ($webHost -eq '0.0.0.0') { $webHost = '127.0.0.1' }
     if ($webHost -eq '::') { $webHost = '::1' }
-    $healthUrl = [UriBuilder]::new('http', $webHost, $webPort, '/login').Uri.AbsoluteUri
+    $parsedIp = $null
+    $formattedHost = if ([Net.IPAddress]::TryParse($webHost.Trim('[', ']'), [ref]$parsedIp) -and $parsedIp.AddressFamily -eq [Net.Sockets.AddressFamily]::InterNetworkV6) {
+      '[' + $parsedIp.ToString() + ']'
+    } else {
+      $webHost
+    }
+    $healthUrl = "http://${formattedHost}:${webPort}/login"
     $ready = $false
     for ($attempt = 0; $attempt -lt 30; $attempt++) {
       Start-Sleep -Seconds 2

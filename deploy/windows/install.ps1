@@ -36,7 +36,7 @@ $content = [IO.File]::ReadAllText($envFile)
 foreach ($name in @('STORAGE_DIRECT_ACCESS_SECRET', 'ARIA2_RPC_SECRET')) {
   $pattern = '(?m)^[ \t]*' + $name + '[ \t]*=[^\r\n]*'
   $matchesInFile = [regex]::Matches($content, $pattern)
-  $value = if ($matchesInFile.Count) { ($matchesInFile[-1].Value -split '=', 2)[1].Trim().Trim('"').Trim("'") } else { '' }
+  $value = if ($matchesInFile.Count) { ($matchesInFile[$matchesInFile.Count - 1].Value -split '=', 2)[1].Trim().Trim('"').Trim("'") } else { '' }
   if (!$value -or $value -match 'REPLACE_WITH|CHANGE_ME|CHANGE_THIS|(^|_)default_token$') {
     $bytes = New-Object byte[] 48
     $rng = [Security.Cryptography.RandomNumberGenerator]::Create()
