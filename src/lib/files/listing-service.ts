@@ -1,5 +1,6 @@
 import { assertNotRecycled } from "@/lib/storage/archive-access";
-import { getServerLocale, t } from "@/lib/i18n/translations";
+import { getServerLocale } from "@/lib/i18n/server-locale-cookie";
+import { t } from "@/lib/i18n/service-translations";
 import { apiCopy } from "@/lib/i18n/api-copy";
 import type { SessionPayload } from "@/lib/auth/session";
 import { prisma } from "@/lib/db";
@@ -267,7 +268,7 @@ export async function getFilesListing(
             ? entry.directAccess.fallbackHref
             : null,
         directAccessDescription: canManageNodes ? entry.directAccess.description
-          : t(entry.directAccess.mode === "direct-url" ? "mediaItemCard.directAccess" : "mediaItemCard.managedDownload", locale),
+          : t(entry.directAccess.mode === "direct-url" ? "backend.files.directAccess" : "backend.files.managedDownload", locale),
         storageNodeId: entry.storageNode.id,
         storageNodeName: entry.storageNode.name,
         storageNodeDriver: entry.storageNode.driver,

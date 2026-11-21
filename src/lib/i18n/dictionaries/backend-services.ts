@@ -143,6 +143,8 @@ export const zh: Record<string, string> = {
 	"backend.deployExport.templateContainsSecrets": "部署包模板包含敏感内容，已拒绝导出",
 
 	// storage/service-entries.ts
+	"backend.files.directAccess": "目标服务器直连",
+	"backend.files.managedDownload": "网站中转",
 	"backend.storage.invalidPath": "非法路径",
 	"backend.storage.pathAlreadyExists": "路径已存在：{path}",
 	"backend.storage.fileEntryNotFound": "文件条目不存在或已删除",
@@ -1035,6 +1037,8 @@ export const en: Record<string, string> = {
 	"backend.deployExport.templateContainsSecrets": "Deployment package template contains sensitive content; export refused",
 
 	// storage/service-entries.ts
+	"backend.files.directAccess": "Direct server access",
+	"backend.files.managedDownload": "Web relay",
 	"backend.storage.invalidPath": "Invalid path",
 	"backend.storage.pathAlreadyExists": "Path already exists: {path}",
 	"backend.storage.fileEntryNotFound": "File entry not found or has been deleted",
