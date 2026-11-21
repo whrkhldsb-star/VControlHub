@@ -40,7 +40,8 @@ vi.mock("@/lib/auth/authorization", () => ({
   sessionHasPermission: sessionHasPermissionMock,
 }));
 vi.mock("@/lib/audit/service", () => ({ auditUserAction: vi.fn() }));
-vi.mock("@/lib/auth/team-scope", () => ({
+vi.mock("@/lib/auth/team-scope", async (original) => ({
+  ...(await original<typeof import("@/lib/auth/team-scope")>()),
   imageTeamWhere: (session: { currentTeamId?: string | null }) => ({
     teamId: session.currentTeamId,
   }),
@@ -73,7 +74,7 @@ vi.mock("@/lib/db", () => ({
     storageNode: { findMany: nodeFindManyMock },
     mediaItem: { deleteMany: mediaDeleteManyMock },
     fileEntry: { findFirst: vi.fn().mockResolvedValue({ id: "uploaded" }), deleteMany: fileEntryDeleteManyMock },
-    $transaction: vi.fn(async (fn: (tx: unknown) => unknown) => fn({ fileEntry: { deleteMany: fileEntryDeleteManyMock }, mediaItem: { deleteMany: mediaDeleteManyMock } })),
+    $transaction: vi.fn(async (fn: (tx: unknown) => unknown) => fn({ $queryRaw: vi.fn(async () => []), imageUpload: { findMany: imageFindManyMock, deleteMany: imageDeleteManyMock }, fileEntry: { deleteMany: fileEntryDeleteManyMock }, mediaItem: { deleteMany: mediaDeleteManyMock } })),
   },
 }));
 vi.mock("@/lib/image-bed/constants", () => ({
@@ -98,6 +99,7 @@ const managerSession = {
   username: "manager",
   currentTeamId: "team_1",
 };
+const activeCustomers = { OR: [{ teamId: null }, { team: { deletedAt: null } }] };
 const viewerSession = { userId: "u_viewer", username: "viewer" };
 
 async function postBatch(body: unknown) {
@@ -173,7 +175,7 @@ describe("/api/images/batch", () => {
 
     expect(response.status).toBe(200);
     expect(imageFindManyMock).toHaveBeenCalledWith({
-      where: { id: { in: ["img_1", "img_other"] }, userId: "u_1" },
+      where: { id: { in: ["img_1", "img_other"] }, userId: "u_1", ...activeCustomers },
       select: {
         id: true,
         storageKey: true,
@@ -188,7 +190,7 @@ describe("/api/images/batch", () => {
     expect(imageDeleteManyMock).toHaveBeenCalledWith({
       where: {
         AND: [
-          { id: { in: ["img_1", "img_other"] }, userId: "u_1" },
+          { id: { in: ["img_1", "img_other"] }, userId: "u_1", ...activeCustomers },
           { id: { in: ["img_1"] } },
         ],
       },
@@ -222,6 +224,7 @@ describe("/api/images/batch", () => {
       where: {
         id: { in: ["img_2"] },
         teamId: "team_1",
+        ...activeCustomers,
       },
       select: {
         id: true,
@@ -240,6 +243,7 @@ describe("/api/images/batch", () => {
           {
             id: { in: ["img_2"] },
             teamId: "team_1",
+            ...activeCustomers,
           },
           { id: { in: ["img_2"] } },
         ],

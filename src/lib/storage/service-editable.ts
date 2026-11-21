@@ -1,3 +1,4 @@
+import { matchTargetMode } from "@/lib/storage/local-permissions";
 import { access, readFile, rename, rm, stat, writeFile } from "node:fs/promises";
 import { randomUUID } from "node:crypto";
 import path from "node:path";
@@ -200,7 +201,8 @@ export async function saveLocalEditableFileDraft(input: {
       // Temp file + rename: a crash mid-save must not leave a truncated file (A4-26).
       const temporaryPath = path.join(path.dirname(absolutePath), `.vch-edit-${randomUUID()}.tmp`);
       try {
-        await writeFile(temporaryPath, content, { encoding: "utf8", flag: "wx" });
+        await writeFile(temporaryPath, content, { encoding: "utf8", flag: "wx", mode: 0o600 });
+        await matchTargetMode(temporaryPath, absolutePath);
         const identity = { id: entry.id, storageNodeId: entry.storageNode.id, relativePath, isDeleted: false };
         const updated = await prisma.fileEntry.update({
           where: { ...identity, updatedAt: current.updatedAt },

@@ -17,6 +17,7 @@ describe.skipIf(process.env.RUN_DATABASE_INTEGRATION_TESTS !== "1")("public shar
   const id = `share-rebind-${randomUUID()}`;
   const session = { userId: id, username: id, roles: ["admin" as const], mustChangePassword: false, currentTeamId: null };
   const sftpId = id + "-sftp";
+  const windowsId = id + "-windows";
   let prepared = false;
 
   beforeAll(async () => {
@@ -31,16 +32,31 @@ describe.skipIf(process.env.RUN_DATABASE_INTEGRATION_TESTS !== "1")("public shar
         id: sftpId, name: sftpId, host: id + ".test", port: 22, username: "files", connectionType: "PASSWORD",
         password: "fixture", storageNode: { create: { id: sftpId, name: sftpId, driver: "SFTP", basePath: "/files" } },
       } }),
+      prisma.server.create({ data: {
+        id: windowsId, name: windowsId, host: windowsId + ".test", operatingSystem: "WINDOWS", port: 3389,
+        username: "files", connectionType: "PASSWORD", password: "fixture",
+        storageNode: { create: { id: windowsId, name: windowsId, driver: "SFTP", basePath: "/C:/Old",
+          directAccessMode: "DIRECT", publicBaseUrl: "https://gateway.example.com" } },
+      } }),
     ]);
     prepared = true;
   });
   afterAll(async () => {
     if (prepared) await prisma.$transaction([
-      prisma.storageNode.deleteMany({ where: { id: { in: [id, sftpId] } } }),
-      prisma.server.delete({ where: { id: sftpId } }),
+      prisma.storageNode.deleteMany({ where: { id: { in: [id, sftpId, windowsId] } } }),
+      prisma.server.deleteMany({ where: { id: { in: [sftpId, windowsId] } } }),
       prisma.user.delete({ where: { id } }),
     ]);
     await prisma.$disconnect();
+  });
+
+  it("retires the installed Windows gateway when the node changes roots", async () => {
+    const displayEdit = await updateStorageNode({ storageNodeId: windowsId, name: "Windows files" });
+    expect(displayEdit.directAccessMode).toBe("DIRECT");
+    await updateStorageNode({ storageNodeId: windowsId, basePath: "/D:/New" });
+    await expect(prisma.storageNode.findUniqueOrThrow({ where: { id: windowsId } })).resolves.toMatchObject({
+      basePath: "/D:/New", directAccessMode: "PROXY", publicBaseUrl: null,
+    });
   });
 
   it.each([

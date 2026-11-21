@@ -1,3 +1,4 @@
+import path from "node:path";
 import { apiCopy } from "@/lib/i18n/api-copy";
 import { createLogger } from "@/lib/logging";
 import { createReadStream } from "node:fs";
@@ -88,7 +89,14 @@ export async function createManagedFolder(input: {
   allowExisting?: boolean;
 }): Promise<{ created: boolean; removeIfEmpty?: () => Promise<void> }> {
   if (input.storageNode.driver === "WEBDAV" || input.storageNode.driver === "AGENT") {
-    await createRemoteStorageClient(input.storageNode).mkdir(input.relativePath);
+    const client = createRemoteStorageClient(input.storageNode);
+    if (input.allowExisting && (await client.stat(input.relativePath, true))?.isDirectory) return { created: false };
+    try { await client.mkdir(input.relativePath); }
+    catch (error) {
+      if (input.allowExisting && (error as { status?: number }).status === 405 &&
+          (await client.stat(input.relativePath, true))?.isDirectory) return { created: false };
+      throw error;
+    }
     return { created: true };
   }
   if (input.storageNode.driver === "LOCAL") {
@@ -133,6 +141,14 @@ export async function createManagedFolder(input: {
   throw new ValidationError(
     apiCopy("apiCopy.unsupported.storage.driver.for.create.38fea12e", { v0: String(input.storageNode.driver) }),
   );
+}
+
+/** Derive the canonical root from the exact canonical path returned by containment. */
+export function managedSftpWriteRoot(remotePath: string, relativePath: string, windows = false) {
+  let root = windows ? remotePath.replace(/\\/g, "/") : remotePath;
+  for (const part of path.posix.normalize(relativePath).split("/")) if (part) root = path.posix.dirname(root);
+  if (windows && /^[a-z]:$/i.test(root)) root += "/";
+  return { path: root, windows };
 }
 
 /**
@@ -180,10 +196,13 @@ export async function writeBackingObject(input: {
         recursive: true,
       });
     }
+    const checked = await resolveStorageRemotePath(input.storageNode, input.relativePath, { credentials });
+    if (checked.remotePath !== remotePath) throw new ConflictError(t("backend.storage.editableFileChangedOnDisk"));
     await writeRemoteFile({
       ...credentials,
       remotePath,
       content: buffer,
+      root: managedSftpWriteRoot(remotePath, input.relativePath, credentials.windowsOpenSsh),
     });
     return { byteSize };
   }
@@ -370,7 +389,8 @@ export async function renameBackingObject(input: {
   if (input.storageNode.driver === "WEBDAV" || input.storageNode.driver === "AGENT") {
     const client = createRemoteStorageClient(input.storageNode);
     if (input.storageNode.driver === "AGENT" && input.noReplace) {
-      await client.rename(input.oldRelativePath, input.newRelativePath, false, true);
+      if (!input.storageNode.id) throw new ValidationError(t("backend.fileAgent.unavailable"));
+      await createAgentFileClient(input.storageNode.id).rename(input.oldRelativePath, input.newRelativePath, false, true);
     } else {
       await client.rename(input.oldRelativePath, input.newRelativePath);
     }

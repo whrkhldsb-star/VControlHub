@@ -103,6 +103,16 @@ describe("GET /api/images/[id]/file", () => {
     expect(response.status).toBe(404);
   });
 
+  it("honors a wildcard validator only on an accessible image", async () => {
+    const request = () => new Request("http://local/api/images/img_1/file", { headers: { "If-None-Match": "*" } });
+    imageFindUniqueMock.mockResolvedValue(image({ isPublic: true }));
+    const cached = await GET(request(), params);
+    expect(cached.status).toBe(304);
+    expect(cached.body).toBeNull();
+    imageFindUniqueMock.mockResolvedValue(image({ isPublic: true, team: { deletedAt: new Date() } }));
+    expect((await GET(request(), params)).status).toBe(404);
+  });
+
   it("streams public images without requiring a logged-in session so copied external links work", async () => {
     imageFindUniqueMock.mockResolvedValue(image({ isPublic: true }));
 

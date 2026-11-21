@@ -1,4 +1,4 @@
-import { mkdirSync, mkdtempSync, rmSync } from "node:fs";
+import { existsSync, mkdirSync, mkdtempSync, rmSync, writeFileSync } from "node:fs";
 import { tmpdir } from "node:os";
 import path from "node:path";
 import { beforeEach, describe, expect, it, vi } from "vitest";
@@ -31,6 +31,10 @@ const {
   webdavStatMock: vi.fn(),
 }));
 
+vi.mock("@/lib/storage/agent-file-client", async original => ({ ...await original<typeof import("@/lib/storage/agent-file-client")>(),
+  createRemoteStorageClient: () => ({ stat: webdavStatMock }),
+}));
+vi.mock("@/lib/storage/upload-target", () => ({ captureUploadTarget: async () => ({ root: "bound", version: null }) }));
 vi.mock("@/lib/storage/webdav-client", () => ({ createWebDavClient: () => ({ stat: webdavStatMock }) }));
 
 vi.mock("@/lib/upload/service", () => ({
@@ -90,6 +94,7 @@ describe("completeStorageFileUpload", () => {
       status: "UPLOADING",
       totalSize: BigInt(11),
       totalChunks: 1,
+      recoveryMetadata: { storageTarget: { root: "bound", version: null } },
       receivedChunks: [0],
       expiresAt: new Date(Date.now() + 60_000),
     });
@@ -109,6 +114,24 @@ describe("completeStorageFileUpload", () => {
       receivedChunks: [0],
       totalChunks: 1,
     });
+  });
+
+  it("removes the assembled attempt and retains chunks for an Agent retry before publication", async () => {
+    const dir = mkdtempSync(path.join(tmpdir(), "agent-retry-"));
+    try {
+      const assembled = path.join(dir, "assembled");
+      const chunk = path.join(dir, "chunk");
+      writeFileSync(assembled, "hello world");
+      writeFileSync(chunk, "hello world");
+      assembleMock.mockResolvedValueOnce({ path: assembled, size: 11, checksum: "a".repeat(64) });
+      getNodeMock.mockResolvedValue({ id: "node_local", driver: "AGENT", agentFileShare: { rootIdentity: "root" } });
+      webdavStatMock.mockResolvedValue(null);
+      writeBufferMock.mockRejectedValueOnce(new Error("transfer interrupted"));
+      await expect(completeStorageFileUpload({ sessionId: "sess_1", session: { userId: "user_1" } as never })).rejects.toThrow("transfer interrupted");
+      expect(existsSync(assembled)).toBe(false);
+      expect(existsSync(chunk)).toBe(true);
+      expect(sessionUpdateManyMock).toHaveBeenCalledWith(expect.objectContaining({ data: expect.objectContaining({ status: "UPLOADING" }) }));
+    } finally { rmSync(dir, { recursive: true, force: true }); }
   });
 
   it("writes assembled bytes to storage and creates file index", async () => {

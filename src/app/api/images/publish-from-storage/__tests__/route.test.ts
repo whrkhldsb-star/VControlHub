@@ -33,6 +33,8 @@ vi.mock("@/lib/storage/access-control", () => ({
   assertStorageAccess: assertStorageAccessMock,
   releaseStorageQuotaGuard: vi.fn(async () => undefined),
 }));
+const imageLock = vi.hoisted(() => ({ acquire: vi.fn(async () => async () => {}) }));
+vi.mock("@/lib/concurrency/advisory-lock", () => ({ acquireAdvisoryLock: imageLock.acquire }));
 vi.mock("@/lib/db", () => ({
   prisma: {
     imageUpload: {
@@ -105,6 +107,17 @@ describe("POST /api/images/publish-from-storage", () => {
     imageCreateMock.mockResolvedValue({ id: "img_1", filename: "source.png" });
     fileEntryFindFirstMock.mockResolvedValue(null);
     generateThumbnailMock.mockResolvedValue(Buffer.from("thumb"));
+  });
+
+  it("checks for duplicate content only after locking its team, owner and checksum", async () => {
+    const first = await POST(publishRequest());
+    expect(first.status).toBe(201);
+    const { createHash } = await import("node:crypto");
+    expect(imageLock.acquire).toHaveBeenCalledWith("image-publish", JSON.stringify([null, session.userId, createHash("sha256").update("png").digest("hex")]));
+    expect(imageLock.acquire.mock.invocationCallOrder[0]).toBeLessThan(imageFindFirstMock.mock.invocationCallOrder[0]!);
+    imageFindFirstMock.mockResolvedValueOnce({ id: "img_1" });
+    expect((await POST(publishRequest())).status).toBe(200);
+    expect(imageCreateMock).toHaveBeenCalledTimes(1);
   });
 
   it.each(["LOCAL", "SFTP"])("checks %s ancestor tombstones before reading image bytes on Windows", async (driver) => {

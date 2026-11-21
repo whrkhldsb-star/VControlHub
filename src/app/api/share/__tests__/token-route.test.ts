@@ -5,12 +5,14 @@ import { ForbiddenError, NotFoundError } from "@/lib/errors";
 
 const mocks = vi.hoisted(() => ({
 	withRateLimit: vi.fn(), resolveShareToken: vi.fn(), authorizeShareDownload: vi.fn(), releaseShareQuotaClaim: vi.fn(),
-	assertShareTargetNotDeleted: vi.fn(), streamStorageFile: vi.fn(),
+	assertShareStillAt: vi.fn(), recordShareDownload: vi.fn(), assertShareTargetNotDeleted: vi.fn(), streamStorageFile: vi.fn(),
 }));
+vi.mock("@/lib/storage/file-overwrite-lock", () => ({ lockStorageFileOverwrite: async () => async () => {} }));
 vi.mock("@/lib/http/rate-limit-presets", async (original) => ({ ...((await original()) as Record<string, unknown>), withRateLimit: mocks.withRateLimit }));
 vi.mock("@/lib/share-link/service", async (original) => ({
 	...((await original()) as Record<string, unknown>),
 	resolveShareToken: mocks.resolveShareToken, authorizeShareDownload: mocks.authorizeShareDownload,
+	assertShareStillAt: mocks.assertShareStillAt, recordShareDownload: mocks.recordShareDownload,
 	releaseShareQuotaClaim: mocks.releaseShareQuotaClaim, assertShareTargetNotDeleted: mocks.assertShareTargetNotDeleted,
 }));
 vi.mock("@/lib/storage/file-content", async (original) => ({ ...((await original()) as Record<string, unknown>), streamStorageFile: mocks.streamStorageFile }));
@@ -57,6 +59,7 @@ describe("/api/share/[token]", () => {
 		expect(res.headers.get("content-disposition")).toContain("a.txt");
 		expect(mocks.streamStorageFile).toHaveBeenCalledWith(webdavNode, "docs/a.txt");
 		expect(mocks.releaseShareQuotaClaim).not.toHaveBeenCalled();
+		expect(mocks.recordShareDownload).toHaveBeenCalledTimes(1);
 	});
 
 	it("releases the quota claim when a directory share is misused", async () => {
@@ -66,6 +69,7 @@ describe("/api/share/[token]", () => {
 		expect((await get("?path=../../etc/passwd")).status).toBe(400);
 		expect((await get("?archive=1")).status).toBe(400);
 		expect(mocks.releaseShareQuotaClaim).toHaveBeenCalledTimes(4);
+		expect(mocks.recordShareDownload).not.toHaveBeenCalled();
 		expect(mocks.releaseShareQuotaClaim).toHaveBeenCalledWith("sh_1");
 		expect(mocks.streamStorageFile).not.toHaveBeenCalled();
 	});
@@ -96,7 +100,7 @@ describe("/api/share/[token]", () => {
 			mocks.resolveShareToken.mockResolvedValueOnce({ ...dirShare, path: "Docs", storageNode: { driver: "LOCAL", basePath: "C:/Shared" } });
 			mocks.assertShareTargetNotDeleted.mockRejectedValueOnce(new Error("deleted"));
 			expect((await get("?path=dOcS/OLD/file.txt")).status).toBe(404);
-			expect(mocks.assertShareTargetNotDeleted).toHaveBeenCalledWith("node_1", "Docs/OLD/file.txt", "LOCAL");
+			expect(mocks.assertShareTargetNotDeleted).toHaveBeenCalledWith("node_1", "Docs/OLD/file.txt", "LOCAL", true);
 			expect(mocks.releaseShareQuotaClaim).toHaveBeenCalledWith("sh_1");
 		} finally {
 			platform.mockRestore();

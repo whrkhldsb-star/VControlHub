@@ -1,7 +1,11 @@
 import { beforeEach, describe, expect, it, vi } from "vitest";
 const mocks = vi.hoisted(() => ({ findFirst: vi.fn(), findMany: vi.fn(), transaction: vi.fn(), update: vi.fn(), stat: vi.fn(), ssh: vi.fn(), agent: vi.fn() }));
-vi.mock("@/lib/storage/file-overwrite-lock", () => ({ lockStorageFileOverwrite: async () => async () => {} }));
-vi.mock("@/lib/storage/access-control", () => ({ assertStorageAccess: async () => ({ allowed: true }), releaseStorageQuotaGuard: async () => {}, getStorageAccessCapabilityKey: () => "child", getStorageAccessCapabilities: async () => new Map([["child", { canDelete: true }]]) }));
+vi.mock("@/lib/storage/access-control", () => ({
+  lockStorageWriteAccess: async () => ({ allowed: true }),
+  releaseStorageQuotaGuard: async () => {},
+  getStorageAccessCapabilityKey: () => "child",
+  getStorageAccessCapabilities: async () => new Map([["child", { canDelete: true }]]),
+}));
 vi.mock("@/lib/db", () => ({ prisma: { $transaction: mocks.transaction, fileEntry: { findFirst: mocks.findFirst, findMany: mocks.findMany, update: mocks.update } }, isUniqueViolation: () => false }));
 vi.mock("@/lib/storage/agent-file-queue", () => ({ getFileChannel: vi.fn(), callFileAgent: mocks.agent }));
 vi.mock("@/lib/storage/webdav-client", () => ({ createWebDavClient: () => ({ stat: mocks.stat }) }));
@@ -60,11 +64,14 @@ it("requires the recycled Agent root and the saved object version", async () => 
   const agentRow = { ...row, deletedAgentRoot: root, storageVersion: "version-before-delete", storageNode: {
     ...row.storageNode, driver: "AGENT", agentFileShare: { rootIdentity: "v2:other" },
   } };
-  mocks.findFirst.mockResolvedValue(agentRow);
+  mocks.findFirst.mockImplementation(async ({ where }) => where.id ? agentRow : null);
   await expect(restoreFileEntry({ fileEntryId: row.id }, session)).rejects.toMatchObject({ status: 409 });
   expect(mocks.agent).not.toHaveBeenCalled();
-  mocks.findFirst.mockResolvedValue({ ...agentRow, storageNode: { ...agentRow.storageNode, agentFileShare: { rootIdentity: root } } });
+  mocks.findFirst.mockImplementation(async ({ where }) => where.id ? {
+    ...agentRow, storageNode: { ...agentRow.storageNode, agentFileShare: { rootIdentity: root } },
+  } : null);
   mocks.agent.mockResolvedValue({ entry: { name: "report.txt", isDirectory: false, etag: "other-version", size: 5, lastModifiedMs: 10 } });
   await expect(restoreFileEntry({ fileEntryId: row.id }, session)).rejects.toMatchObject({ status: 409 });
+  expect(mocks.agent).toHaveBeenCalledOnce();
   expect(mocks.update).not.toHaveBeenCalled();
 });

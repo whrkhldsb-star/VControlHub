@@ -96,6 +96,35 @@ describe.skipIf(process.env.RUN_DATABASE_INTEGRATION_TESTS !== "1")("WebDAV MOVE
     expect((await handleWebDavGetHead(ctx("sync.txt"), "HEAD")).headers.get("etag")).not.toBe(tag);
   });
 
+  it("rechecks the advertised revision for DELETE and If-Range", async () => {
+    await file("sync.txt", "first");
+    const target = ctx("sync.txt");
+    const first = (await handleWebDavGetHead(target, "HEAD")).headers.get("etag")!;
+    writeFileSync(join(root, "sync.txt"), "second");
+    expect((await handleWebDavDelete(target, new Headers({ "If-Match": first }))).status).toBe(412);
+    const full = await handleWebDavGetHead({ ...target, ifRange: first, rangeHeader: "bytes=2-" }, "GET");
+    expect(full.status).toBe(200);
+    expect(await full.text()).toBe("second");
+    const current = full.headers.get("etag")!;
+    const partial = await handleWebDavGetHead({ ...target, ifRange: current, rangeHeader: "bytes=2-" }, "GET");
+    expect(partial.status).toBe(206);
+    expect(await partial.text()).toBe("cond");
+    expect((await handleWebDavDelete(target, new Headers({ "If-Match": current }))).status).toBe(204);
+    expect(existsSync(join(root, "sync.txt"))).toBe(false);
+  });
+
+  it("reports physical creation and replacement when the index is stale", async () => {
+    const put = () => handleWebDavPut(ctx("doc.txt"), new Request(origin, { method: "PUT", body: "new" }));
+    writeFileSync(join(root, "doc.txt"), "unindexed");
+    expect((await put()).status).toBe(204);
+    rmSync(join(root, "doc.txt"));
+    expect((await put()).status).toBe(201);
+    const listing = await handleWebDavPropFind(ctx(""), "1");
+    const file = (await listing.text()).split("<D:response>").find(response => response.includes("/doc.txt</D:href>"));
+    expect(file).toBeDefined();
+    expect(file).not.toContain("<D:getetag>");
+  });
+
   it("meters staged COPY and requires a complete measured MOVE into a capacity-limited path", async () => {
     const team = await prisma.team.create({ data: { name: prefix, slug: prefix } });
     try {

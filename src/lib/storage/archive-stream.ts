@@ -5,6 +5,7 @@ import { realpathSync } from "node:fs";
 
 import { Client, type ConnectConfig } from "ssh2";
 import { connectSsh, type SshConnectionParams } from "@/lib/ssh/client";
+import { SFTP_TRANSFER_IDLE_TIMEOUT_MS } from "@/lib/ssh/sftp-timeout";
 import { isWindowsStorageBasePath, resolveThroughExistingAncestor } from "./path-utils";
 import { IS_WINDOWS } from "@/lib/runtime/platform-paths";
 import { resolveLocalTarBinary } from "@/lib/runtime/tar-binary";
@@ -89,6 +90,7 @@ function bsdtarExclude(name: string) {
 }
 
 const localStagingExcludes = localStorageStagingPatterns.map(pattern => `--exclude=${pattern}`);
+const BSD_TAR = IS_WINDOWS || process.platform === "darwin";
 const EXCLUDE_OPTIONS = ["--no-wildcards", "--anchored", "--exclude-from=-"];
 
 /**
@@ -98,12 +100,15 @@ const EXCLUDE_OPTIONS = ["--no-wildcards", "--anchored", "--exclude-from=-"];
  * resolveLocalTarBinary() pins the System32 bsdtar so a PATH-shadowing GNU
  * tar (which reads "C:\..." as a remote host) can never be picked here.
  */
-function buildLocalTarArgs(directoryPath: string, entryName: string, excluded: string[]): string[] {
-	const base = ["-czf", "-", "-C", path.dirname(directoryPath), ...localStagingExcludes];
-	if (!excluded.length) return [...base, "--", entryName];
-	if (IS_WINDOWS) {
-		const excludeArgs: string[] = [];
-		const physicalRoot = realpathSync.native(directoryPath);
+function buildLocalTarArgs(directoryPath: string, entryName: string, excluded: string[], pinned?: { fd?: number }): string[] {
+	const args = ["-czf", "-"];
+	if (!pinned) args.push("-C", path.dirname(directoryPath));
+	else if (pinned.fd !== undefined) args.push("-C", BSD_TAR ? "/dev/fd/3" : "/proc/self/fd/3");
+	args.push(...localStagingExcludes);
+	const memberRoot = pinned ? "." : entryName;
+	if (excluded.length && BSD_TAR) {
+		const physicalRoot = realpathSync.native(pinned?.fd === undefined ? directoryPath : "/dev/fd/" + pinned.fd);
+		let excludeLength = 0;
 		for (const name of excluded) {
 			// bsdtar matches member spelling. A case-only rename on NTFS may differ from its tombstone.
 			const suffix = name.split("/").slice(1).join("/");
@@ -111,15 +116,22 @@ function buildLocalTarArgs(directoryPath: string, entryName: string, excluded: s
 			if (!physical) throw new ValidationError(t("backend.storage.archiveExclusionInvalid"));
 			const member = path.relative(physicalRoot, physical).split(path.sep).join("/");
 			if (member.toLowerCase() !== suffix.toLowerCase()) throw new ValidationError(t("backend.storage.archiveExclusionInvalid"));
-			const arg = bsdtarExclude(entryName + "/" + member);
-			if (excludeArgs.join(" ").length + arg.length > 30_000) {
+			const arg = bsdtarExclude(memberRoot + "/" + member);
+			excludeLength += arg.length + 1;
+			if (excludeLength > 30_000) {
 				throw new ValidationError(t("backend.storage.archiveExclusionTooLargeWindows"));
 			}
-			excludeArgs.push(arg);
+			args.push(arg);
 		}
-		return [...base, ...excludeArgs, "--", entryName];
+	} else if (excluded.length) {
+		args.push(...EXCLUDE_OPTIONS);
 	}
-	return [...base, ...EXCLUDE_OPTIONS, "--", entryName];
+	if (pinned) {
+		const escaped = entryName.replace(BSD_TAR ? /[\\~|]/g : /[\\&|]/g, "\\$&");
+		if (BSD_TAR) args.push("-s", "|^\\.|" + escaped + "|");
+		else args.push("--transform=s|^\\.|" + escaped + "|");
+	}
+	return [...args, "--", memberRoot];
 }
 
 /**
@@ -129,17 +141,20 @@ function buildLocalTarArgs(directoryPath: string, entryName: string, excluded: s
 export function localTarExclusion(excluded: string[], excludeFilePath: string): { options: string[]; fileContent: string | null } {
 	if (!excluded.length) return { options: localStagingExcludes, fileContent: null };
 	const content = archiveExclusionInput(excluded);
-	if (IS_WINDOWS) return { options: [...localStagingExcludes, ...excluded.map(bsdtarExclude)], fileContent: null };
+	if (BSD_TAR) return { options: [...localStagingExcludes, ...excluded.map(bsdtarExclude)], fileContent: null };
 	return { options: [...localStagingExcludes, "--no-wildcards", "--anchored", `--exclude-from=${excludeFilePath}`], fileContent: content };
 }
 
-export function streamLocalTarGz(directoryPath: string, entryName: string, excluded: string[] = []) {
-	const input = archiveExclusionInput(excluded);
+export function streamLocalTarGz(directoryPath: string, entryName: string, excluded: string[] = [], pinned?: { fd?: number; close: () => Promise<void> }) {
+	const pinnedExclusions = pinned ? excluded.map(name => "./" + name.split("/").slice(1).join("/")) : excluded;
+	const input = archiveExclusionInput(pinnedExclusions);
 	// POSIX GNU tar reads the exclusion list from stdin; Windows bsdtar gets it
 	// as argv, so stdin stays closed there.
-	const useStdinExcludes = Boolean(input) && !IS_WINDOWS;
-	const tar = spawn(resolveLocalTarBinary(), buildLocalTarArgs(directoryPath, entryName, excluded), {
-		stdio: [useStdinExcludes ? "pipe" : "ignore", "pipe", "pipe"],
+	const useStdinExcludes = Boolean(input) && !BSD_TAR;
+	const args = buildLocalTarArgs(directoryPath, entryName, excluded, pinned);
+	const tar = spawn(resolveLocalTarBinary(), args, {
+		cwd: pinned && pinned.fd === undefined ? directoryPath : undefined,
+		stdio: [useStdinExcludes ? "pipe" : "ignore", "pipe", "pipe", ...(pinned?.fd === undefined ? [] : [pinned.fd])],
 	});
 	let exited = false;
 	const out = new PassThrough({
@@ -161,8 +176,9 @@ export function streamLocalTarGz(directoryPath: string, entryName: string, exclu
 		logger.warn("local archive tar process error", { message: error.message });
 		destroyReadableWithError(out, error);
 	});
-	tar.on("close", (code, signal) => {
+	tar.on("close", async (code, signal) => {
 		exited = true;
+		if (pinned) await pinned.close().catch(error => logger.warn("Failed to release archive directory", { error }));
 		if (code === 0 && !signal) { out.end(); return; }
 		if (signal) { out.destroy(new Error(`tar killed by signal ${signal}`)); return; }
 		const error = new Error(`tar exited with code ${code}`);
@@ -191,18 +207,29 @@ export function supportsRemoteTar(node: ArchiveNode): boolean {
 }
 
 export async function streamRemoteTarGz(
-	client: Client, node: ArchiveNode, remoteDirectoryPath: string, excluded: string[] = [],
+	client: Client, node: ArchiveNode, remoteDirectoryPath: string, excluded: string[] = [], pinDirectory?: AbortSignal,
 ) {
 	if (!supportsRemoteTar(node)) throw new ValidationError(t("backend.storage.archiveNeedsLinuxSsh"));
-	const input = archiveExclusionInput(excluded);
+	const input = archiveExclusionInput(pinDirectory ? excluded.map(name => "./" + name.split("/").slice(1).join("/")) : excluded);
+	const opening = pinDirectory && AbortSignal.any([pinDirectory, AbortSignal.timeout(SFTP_TRANSFER_IDLE_TIMEOUT_MS)]);
+	opening?.throwIfAborted();
+	let abort: (() => void) | undefined;
 	return new Promise<NodeJS.ReadableStream>((resolve, reject) => {
+		if (opening) {
+			abort = () => { client.destroy(); reject(opening.reason); };
+			opening.addEventListener("abort", abort, { once: true });
+		}
 		const parent = path.posix.dirname(remoteDirectoryPath);
 		const name = path.posix.basename(remoteDirectoryPath);
 		// GNU tar applies matching options positionally. Keep staging globs before literal tombstones.
 		const excludeArgs = [...storageStagingPatterns.map(pattern => shellQuote(`--exclude=${pattern}`)), ...(input ? EXCLUDE_OPTIONS : [])];
-		const command = `tar -czf - -C ${shellQuote(parent)}${excludeArgs.length ? ` ${excludeArgs.join(" ")}` : ""} -- ${shellQuote(name)}`;
+		const transform = "--transform=s|^\\.|" + name.replace(/[\\&|]/g, "\\$&") + "|";
+		const command = pinDirectory
+			? `cd -- ${shellQuote(remoteDirectoryPath)} && printf '\\001' && exec tar -czf - ${excludeArgs.join(" ")} ${shellQuote(transform)} -- .`
+			: `tar -czf - -C ${shellQuote(parent)}${excludeArgs.length ? ` ${excludeArgs.join(" ")}` : ""} -- ${shellQuote(name)}`;
 		client.exec(command, (err, stream) => {
 			if (err) return reject(err);
+			if (opening?.aborted) { stream.destroy(); return; }
 			stream.stderr.on("data", (chunk: Buffer) => {
 				logger.warn("remote archive tar stderr", { message: chunk.toString("utf8").slice(0, 500) });
 			});
@@ -219,10 +246,21 @@ export async function streamRemoteTarGz(
 				logger.warn("remote archive tar non-zero exit", { code, signal });
 				destroyReadableWithError(stream, error);
 			});
-			resolve(stream);
+			if (pinDirectory) {
+				const cleanup = () => { stream.off("readable", ready); stream.off("close", closed); stream.off("error", reject); };
+				const closed = () => { cleanup(); reject(new ValidationError(t("backend.storage.remoteFileMissing"))); };
+				const ready = () => {
+					const marker = stream.read(1) as Buffer | null;
+					if (!marker) return;
+					cleanup();
+					if (marker[0] !== 1) { stream.destroy(); reject(new ValidationError(t("backend.storage.remoteFileMissing"))); }
+					else resolve(stream);
+				};
+				stream.on("readable", ready).once("close", closed).once("error", reject);
+			} else resolve(stream);
 			if (input) stream.end(input);
 		});
-	});
+	}).finally(() => { if (abort) opening?.removeEventListener("abort", abort); });
 }
 
 export function archiveStreamResponse(stream: NodeJS.ReadableStream, archiveName: string) {

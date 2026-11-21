@@ -49,15 +49,16 @@ export async function runOffsiteDryRun(): Promise<OffsiteDryRunResult> {
 	const probeKey = `${config.pathPrefix}${randomProbeKey("_probe/")}`;
 	const payload = `vcontrolhub-offsite-probe:${new Date().toISOString()}`;
 	const start = Date.now();
-	let putSucceeded = false;
+	let put: Awaited<ReturnType<S3Client["putObject"]>> | undefined;
+	let readBackFailed = false;
 	try {
-		await client.putObject(probeKey, payload, "text/plain");
-		putSucceeded = true;
+		put = await client.putObject(probeKey, payload, "text/plain");
 		// headObject answers "not found" with null rather than throwing: the
 		// probe only passes when the object just written can be read back.
-		const head = await client.headObject(probeKey);
+		const head = await client.headObject(probeKey, put.versionId);
 		if (!head) throw new S3Error("The probe object was written but cannot be read back (HEAD returned 404)", 404, "Dry-run failed");
 	} catch (err) {
+		readBackFailed = true;
 		if (err instanceof S3Error) {
 			throw err;
 		}
@@ -69,11 +70,15 @@ export async function runOffsiteDryRun(): Promise<OffsiteDryRunResult> {
 	} finally {
 		// Always best-effort delete after a successful put so head/delete failures
 		// cannot leave orphan probe objects under pathPrefix/_probe/.
-		if (putSucceeded) {
+		if (put) {
 			try {
-				await client.deleteObject(probeKey);
-			} catch {
-				// Probe cleanup is best-effort; primary error (if any) already surfaces above.
+				const result = await client.deleteObject(probeKey, put.versionId);
+				if (result === "hidden") throw new S3Error("Probe cleanup only created a delete marker", 0, "Dry-run failed");
+				if (put.versionId && await client.headObject(probeKey, put.versionId)) {
+					throw new S3Error("Probe version still exists after cleanup", 0, "Dry-run failed");
+				}
+			} catch (error) {
+				if (!readBackFailed) throw error;
 			}
 		}
 	}
