@@ -112,4 +112,49 @@ describe.skipIf(!RUN)("alert escalation: silence windows and late retries (Postg
 		expect(after).toMatchObject({ level: 2, pendingNotifyChannels: ["webhook"] });
 		expect(after.nextNotifyAt).not.toBeNull();
 	});
+
+	it("ignores a late escalation result after a new opening has reached the same level", async () => {
+		vi.useFakeTimers({ toFake: ["Date"] });
+		try {
+			const ruleId = prefix + "-new-round";
+			await rule(ruleId, []);
+			await fire(ruleId);
+			vi.setSystemTime(Date.now() + 16 * 60_000);
+			let entered!: () => void;
+			const sending = new Promise<void>((resolve) => { entered = resolve; });
+			let finish!: (response: ReturnType<typeof refused>) => void;
+			webhookMock.mockImplementationOnce(() => new Promise((resolve) => { finish = resolve; entered(); }));
+			const sweep = () => escalateOverdueAlertIncidents({ ruleTeamWhere: { id: ruleId } });
+			const first = sweep();
+			await sending;
+			await prisma.alertIncident.updateMany({ where: { ruleId }, data: { status: "RESOLVED", resolvedAt: new Date() } });
+			await fire(ruleId);
+			vi.setSystemTime(Date.now() + 16 * 60_000);
+			expect((await sweep()).escalated).toBe(1);
+			finish(refused());
+			await first;
+			expect(await incident(ruleId)).toMatchObject({ level: 2, pendingNotifyChannels: [], nextNotifyAt: null, notifyAttempts: 1 });
+		} finally {
+			vi.useRealTimers();
+		}
+	});
+
+	it("rechecks silence as the scan moves between overdue incidents", async () => {
+		const ids = [prefix + "-boundary-a", prefix + "-boundary-b"];
+		vi.useFakeTimers({ toFake: ["Date"] });
+		try {
+			vi.setSystemTime(new Date("2026-05-25T13:30:00Z"));
+			for (const id of ids) { await rule(id, ["22:00-23:00"]); await fire(id); }
+			vi.setSystemTime(new Date("2026-05-25T13:59:59Z"));
+			webhookMock.mockImplementationOnce(async () => { vi.setSystemTime(new Date("2026-05-25T14:00:01Z")); return delivered(); });
+			const sweep = () => escalateOverdueAlertIncidents({ ruleTeamWhere: { id: { in: ids } } });
+			expect((await sweep()).escalated).toBe(1);
+			expect((await Promise.all(ids.map(incident))).map((i) => i.level).sort()).toEqual([1, 2]);
+			vi.setSystemTime(new Date("2026-05-25T15:01:00Z"));
+			await sweep();
+			expect((await Promise.all(ids.map(incident))).every((i) => i.level >= 2)).toBe(true);
+		} finally {
+			vi.useRealTimers();
+		}
+	});
 });

@@ -17,10 +17,11 @@ import {
   openOrRefreshAlertIncident,
   resolveAlertIncident,
 } from "@/lib/alert/incidents";
-import { createLogger } from "@/lib/logging";
+import { liveCustomerRowsWhere, serverTeamWhere, type TeamSession } from "@/lib/auth/team-scope";
 import { alertOperatorSign } from "@/lib/alert/operator";
-import { runPlaybook } from "@/lib/playbook/service";
 import { t } from "@/lib/i18n/service-translations";
+import { getCapacityForecast, type CapacityForecastResult } from "./capacity-service";
+import type { CapacityMetricKey, ServerCapacityForecast } from "./capacity-predict";
 
 /**
  * The 7-day × 720-bucket fleet forecast is far too heavy to recompute on the
@@ -35,8 +36,8 @@ export function resetCapacityForecastCache() {
   capacityForecastCache = null;
 }
 
-function readCapacityForecastCached(nowMs?: number) {
-  if (nowMs !== undefined) return getCapacityForecast({ windowHours: 168, horizonDays: 90, nowMs });
+function readCapacityForecastCached(nowMs?: number, session?: TeamSession) {
+  if (nowMs !== undefined || session) return getCapacityForecast({ windowHours: 168, horizonDays: 90, nowMs, session });
   const now = Date.now();
   if (capacityForecastCache && now - capacityForecastCache.at < CAPACITY_FORECAST_CACHE_MS) return capacityForecastCache.value;
   const value = getCapacityForecast({ windowHours: 168, horizonDays: 90 });
@@ -44,14 +45,6 @@ function readCapacityForecastCached(nowMs?: number) {
   value.catch(() => { capacityForecastCache = null; });
   return value;
 }
-
-import {
-  getCapacityForecast,
-  type CapacityForecastResult,
-} from "./capacity-service";
-import type { CapacityMetricKey, ServerCapacityForecast } from "./capacity-predict";
-
-const logger = createLogger("health:capacity-alert");
 
 export const CAPACITY_ALERT_METRICS = [
   "capacity_cpu_days",
@@ -139,6 +132,7 @@ export async function evaluateCapacityLinkedAlerts(
   rules: CapacityAlertRuleSlice[],
   options?: {
     forecast?: CapacityForecastResult;
+    session?: TeamSession;
     nowMs?: number;
     /** Injected for tests — skip silence window helper */
     isSilent?: (windows: string[]) => boolean;
@@ -156,7 +150,7 @@ export async function evaluateCapacityLinkedAlerts(
 
   const forecast =
     options?.forecast ??
-    (await readCapacityForecastCached(options?.nowMs));
+    (await readCapacityForecastCached(options?.nowMs, options?.session));
 
   let fired = 0;
   let resolved = 0;
@@ -181,28 +175,25 @@ export async function evaluateCapacityLinkedAlerts(
       rule.serverIds.length > 0
         ? forecast.servers.filter((s) => rule.serverIds.includes(s.serverId))
         : forecast.servers;
-    if (rule.teamId != null) {
-      const teamServers: Array<{ id: string }> = [];
-      let serverCursor: { id: string } | undefined;
-      do {
-        const page = await prisma.server.findMany({
-          where: { teamId: rule.teamId },
-          select: { id: true },
-          orderBy: { id: "asc" },
-          take: 500,
-          ...(serverCursor ? { cursor: serverCursor, skip: 1 } : {}),
-        });
-        teamServers.push(...page);
-        serverCursor = page.length === 500 ? { id: page[page.length - 1]!.id } : undefined;
-      } while (serverCursor);
-      const allowed = new Set(teamServers.map((s) => s.id));
-      targets = targets.filter((s) => allowed.has(s.serverId));
+    const allowed = new Set<string>();
+    const candidates = targets.map((server) => server.serverId);
+    for (let offset = 0; offset < candidates.length; offset += 500) {
+      const live = await prisma.server.findMany({
+        where: {
+          id: { in: candidates.slice(offset, offset + 500) }, enabled: true,
+          ...(rule.teamId == null ? {} : { teamId: rule.teamId }), ...liveCustomerRowsWhere(),
+          ...(options?.session ? { AND: [serverTeamWhere(options.session)] } : {}),
+        },
+        select: { id: true },
+      });
+      for (const server of live) allowed.add(server.id);
     }
+    targets = targets.filter((server) => allowed.has(server.serverId));
 
     const matchState = parseAlertMatchState(rule.matchState);
     const now = new Date(options?.nowMs ?? Date.now());
     let stateChanged = false;
-    if (forecast.servers.length > 0) {
+    if (forecast.servers.length > 0 && !options?.session) {
       const targetIds = new Set(targets.map((server) => server.serverId));
       for (const id of Object.keys(matchState)) {
         if (!targetIds.has(id)) {
@@ -214,6 +205,7 @@ export async function evaluateCapacityLinkedAlerts(
     let latestFireAt: Date | null = null;
 
     for (const server of targets) {
+      if (isSilent(rule.silenceWindows)) break;
       const { value, reason } = daysValueFromServerForecast(server, key);
 
       const matches = value !== null && compare(rule.operator, value, rule.threshold);
@@ -230,6 +222,7 @@ export async function evaluateCapacityLinkedAlerts(
         // Recovered / not projected — resolve any open incident.
         const cleared = await resolveAlertIncident({
           ruleId: rule.id,
+          silenceWindows: rule.silenceWindows,
           ruleName: rule.name,
           serverId: server.serverId,
           metric: rule.metric,
@@ -247,6 +240,7 @@ export async function evaluateCapacityLinkedAlerts(
       if (!matches) {
         const cleared = await resolveAlertIncident({
           ruleId: rule.id,
+          silenceWindows: rule.silenceWindows,
           ruleName: rule.name,
           serverId: server.serverId,
           metric: rule.metric,
@@ -276,6 +270,8 @@ export async function evaluateCapacityLinkedAlerts(
 
       const fire = await openOrRefreshAlertIncident({
         ruleId: rule.id,
+        playbookIds: rule.playbookIds,
+        silenceWindows: rule.silenceWindows,
         ruleName: rule.name,
         serverId: server.serverId,
         serverName: server.serverName,
@@ -304,34 +300,6 @@ export async function evaluateCapacityLinkedAlerts(
       fired += 1;
       matchState[server.serverId] ??= now.toISOString();
       latestFireAt = now;
-      for (const playbookId of rule.playbookIds ?? []) {
-        try {
-          await runPlaybook({
-            playbookId,
-            dryRun: false,
-            sourceAlertTeamId: rule.teamId ?? null,
-            sourceAlertServerId: server.serverId,
-            triggerContext: {
-              type: "capacity_forecast",
-              alertRuleId: rule.id,
-              alertRuleName: rule.name,
-              serverId: server.serverId,
-              serverName: server.serverName,
-              metric: rule.metric,
-              operator: rule.operator,
-              threshold: rule.threshold,
-              value,
-              triggeredAt: now.toISOString(),
-              incidentId: fire.incidentId,
-            },
-          });
-        } catch (error) {
-          logger.warn("capacity-linked playbook failed", {
-            playbookId,
-            error: error instanceof Error ? error.message : String(error),
-          });
-        }
-      }
     }
 
     if (stateChanged || latestFireAt) {

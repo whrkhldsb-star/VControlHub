@@ -47,7 +47,7 @@ export type CpuTotals = { total: number; idle: number };
 export function parseCpuTotals(procStat: string): CpuTotals | null {
 	const line = procStat.split("\n")[0];
 	if (!line?.startsWith("cpu ")) return null;
-	const values = line.trim().split(/\s+/).slice(1).map(Number);
+	const values = line.trim().split(/\s+/).slice(1, 9).map(Number); // guest time is already included in user and nice
 	if (values.length < 5 || !values.every(Number.isFinite)) return null;
 	return {
 		total: values.reduce((sum, value) => sum + value, 0),

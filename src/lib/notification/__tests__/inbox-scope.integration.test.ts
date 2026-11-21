@@ -2,7 +2,7 @@
 import { randomUUID } from "node:crypto";
 import { afterAll, beforeAll, describe, expect, it, vi } from "vitest";
 import { prisma } from "@/lib/db";
-import { deleteNotification, getUnreadCount, listUserNotifications, markAllAsRead, markAsRead, readUnreadCount } from "../service";
+import { createNotification, deleteNotification, getUnreadCount, listUserNotifications, markAllAsRead, markAsRead, readUnreadCount } from "../service";
 
 import { getVisibleNotificationForPush } from "../inbox";
 
@@ -50,5 +50,15 @@ describe.skipIf(process.env.RUN_DATABASE_INTEGRATION_TESTS !== "1")("transferred
 		expect((await readUnreadCount(userId)).count).toBe(0);
 		const unread = await prisma.notification.findMany({ where: { userId, isRead: false }, select: { title: true } });
 		expect(unread.map(row => row.title).sort()).toEqual(["former", "legacy"]);
+	});
+
+	it("returns the one stored notification for concurrent attempts with the same delivery id", async () => {
+		const id = userId + "-step";
+		const send = () => createNotification({ userId, teamId: teamB, type: "playbook", title: "step", message: "done" }, id);
+		const rows = await Promise.all([send(), send()]);
+		expect(rows.map((row) => row.id)).toEqual([id, id]);
+		expect(await prisma.notification.count({ where: { userId, type: "playbook" } })).toBe(1);
+		const { pushNotification } = await import("@/lib/ws/notification-ws");
+		expect(pushNotification).toHaveBeenCalledOnce();
 	});
 });

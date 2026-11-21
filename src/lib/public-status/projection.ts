@@ -14,6 +14,7 @@
  */
 import { Prisma } from "@prisma/client";
 
+import { startOfMonthInAppTimeZone } from "@/lib/datetime/time-zone";
 import { prisma } from "@/lib/db";
 import { getPublicStatusSummary } from "@/lib/status/service";
 import { isTrafficQuotaMode } from "./billing";
@@ -41,6 +42,7 @@ export const MAX_BOARD_NODES = 5_000;
 export type VisibleNodeRow = {
 	serverId: string;
 	publicId: string;
+	publicationVersion: string;
 	displayName: string;
 	groupName: string | null;
 	region: string | null;
@@ -71,6 +73,8 @@ export type VisibleNodeRow = {
 	rxRateBps: number | null;
 	txRateBps: number | null;
 	rateIntervalSeconds: number | null;
+	hasRxBaseline: boolean;
+	hasTxBaseline: boolean;
 	periodStart: Date | null;
 	periodSince: Date | null;
 	periodRxBytes: bigint | number | null;
@@ -97,14 +101,15 @@ export type VisibleNodeRow = {
 };
 
 const ROW_COLUMNS = Prisma.sql`
-	n."serverId", n."publicId", n."displayName", n."groupName", n."region", n."tags", n."sortOrder", n."note", n."maintenance",
+	n."serverId", n."publicId", n.xmin::text AS "publicationVersion", n."displayName", n."groupName", n."region", n."tags", n."sortOrder", n."note", n."maintenance",
 	s."managementMode"::text AS "managementMode", s."agentLastSeenAt",
 	m."checkedAt", m."online", m."offlineReason", m."metricsAt", m."intervalSeconds",
 	m."cpuUsage", m."cpuCores", m."load1", m."load5", m."load15",
 	m."memUsage", m."memUsedMb", m."memTotalMb", m."swapUsage",
 	m."diskUsage", m."diskUsedBytes", m."diskTotalBytes", m."uptimeSeconds",
 	m."rxRateBps", m."txRateBps", m."rateIntervalSeconds",
-	m."periodStart", m."periodSince", m."periodRxBytes", m."periodTxBytes",
+	(m."netIface" IS NOT NULL AND m."netRxBytes" IS NOT NULL) AS "hasRxBaseline",
+	(m."netIface" IS NOT NULL AND m."netTxBytes" IS NOT NULL) AS "hasTxBaseline", m."periodStart", m."periodSince", m."periodRxBytes", m."periodTxBytes",
 	m."probeAt", m."probeOk", m."probeLatencyMs",
 	n."countryCode",
 	m."arch", m."kernelVersion", m."osName", m."cpuModel", m."virtualization",
@@ -133,13 +138,13 @@ export async function loadVisibleNodeRows(limit = MAX_BOARD_NODES + 1): Promise<
  * a node that was unpublished, disabled, moved to another customer or whose
  * customer was deleted after the cache was filled.
  */
-export async function loadVisiblePublicIds(limit = MAX_BOARD_NODES): Promise<Set<string>> {
-	const rows = await prisma.$queryRaw<Array<{ publicId: string }>>`
-		SELECT n."publicId" ${ROW_FROM}
+export async function loadVisiblePublications(limit = MAX_BOARD_NODES): Promise<Map<string, string>> {
+	const rows = await prisma.$queryRaw<Array<{ publicId: string; version: string }>>`
+		SELECT n."publicId", n.xmin::text AS version ${ROW_FROM}
 		WHERE ${VISIBLE_NODE_SQL}
 		ORDER BY n."sortOrder" ASC, n."displayName" ASC, n."publicId" ASC
 		LIMIT ${limit}`;
-	return new Set(rows.map((row) => row.publicId));
+	return new Map(rows.map((row) => [row.publicId, row.version]));
 }
 
 /** The visible node with this public id, or null (unpublished, hidden, unknown). */
@@ -253,11 +258,13 @@ export function toPublicNode(row: VisibleNodeRow, allowed: ReadonlySet<PublicMet
 	}
 	if (hasMetrics && allowed.has("traffic")) {
 		const limit = num(row.trafficQuotaBytes);
+		const current = row.periodStart?.getTime() === startOfMonthInAppTimeZone(now).getTime();
+		const known = current && (row.hasRxBaseline || row.hasTxBaseline);
 		metrics.traffic = {
-			periodRxBytes: row.periodStart ? num(row.periodRxBytes) : null,
-			periodTxBytes: row.periodStart ? num(row.periodTxBytes) : null,
-			periodStart: iso(row.periodStart),
-			countedSince: iso(row.periodSince),
+			periodRxBytes: current && row.hasRxBaseline ? num(row.periodRxBytes) : null,
+			periodTxBytes: current && row.hasTxBaseline ? num(row.periodTxBytes) : null,
+			periodStart: known ? iso(row.periodStart) : null,
+			countedSince: known ? iso(row.periodSince) : null,
 			...(limit !== null && limit > 0
 				? { quota: { limitBytes: limit, mode: isTrafficQuotaMode(row.trafficQuotaMode) ? row.trafficQuotaMode : "sum" } }
 				: {}),
@@ -422,6 +429,7 @@ export function applyBoardQuery(nodes: PublicNode[], query: PublicBoardQuery, al
 export type BoardSnapshot = {
 	site: PublicSiteConfig;
 	nodes: PublicNode[];
+	versions: ReadonlyMap<string, string>;
 	summary: PublicBoardSummary;
 	platform: PublicBoardResponse["platform"];
 	loadedAt: number;
@@ -439,21 +447,23 @@ export function invalidatePublicStatusCache() {
 }
 
 async function buildSnapshot(): Promise<BoardSnapshot> {
-	const now = new Date();
 	const [site, rows] = await Promise.all([loadPublicSite(), loadVisibleNodeRows()]);
+	const now = new Date();
 	const truncated = rows.length > MAX_BOARD_NODES;
 	const allowed = new Set(site.metrics);
-	const nodes = rows.slice(0, MAX_BOARD_NODES).map((row) => toPublicNode(row, allowed, now));
+	const page = rows.slice(0, MAX_BOARD_NODES);
+	const nodes = page.map((row) => toPublicNode(row, allowed, now));
+	const versions = new Map(page.map((row) => [row.publicId, row.publicationVersion]));
 	let platform: BoardSnapshot["platform"] = null;
 	if (site.showPlatformStatus) {
 		const status = await getPublicStatusSummary();
 		platform = { overall: status.summary.overall };
 	}
-	return { site, nodes, summary: summarizeNodes(nodes, truncated), platform, loadedAt: Date.now() };
+	return { site, nodes, versions, summary: summarizeNodes(nodes, truncated), platform, loadedAt: now.getTime() };
 }
 
 export async function getBoardSnapshot(): Promise<BoardSnapshot> {
-	if (snapshot && Date.now() - snapshot.loadedAt < CACHE_TTL_MS) return snapshot;
+	if (snapshot && Date.now() - snapshot.loadedAt < CACHE_TTL_MS && snapshot.loadedAt >= startOfMonthInAppTimeZone().getTime()) return snapshot;
 	if (inflight) return inflight;
 	const startedGeneration = generation;
 	const pending = buildSnapshot()
@@ -472,17 +482,16 @@ export async function getBoardSnapshot(): Promise<BoardSnapshot> {
  * The cached board limited to the nodes visible now. Totals are recomputed
  * from the remaining DTOs, so a hidden node leaves the counts as well.
  */
-export function restrictToVisible(board: BoardSnapshot, visible: ReadonlySet<string>): BoardSnapshot {
-	if (board.nodes.every((node) => visible.has(node.id))) return board;
-	const nodes = board.nodes.filter((node) => visible.has(node.id));
+export function restrictToVisible(board: BoardSnapshot, visible: ReadonlyMap<string, string>): BoardSnapshot {
+	const current = (node: PublicNode) => visible.has(node.id) && visible.get(node.id) === board.versions.get(node.id);
+	if (board.nodes.every(current)) return board;
+	const nodes = board.nodes.filter(current);
 	return { ...board, nodes, summary: summarizeNodes(nodes, board.summary.truncated) };
 }
 
-/** True when a visible node is missing from the cached list (it must be rebuilt). */
-export function snapshotMissesVisible(board: BoardSnapshot, visible: ReadonlySet<string>): boolean {
-	if (visible.size === 0) return false;
-	const cached = new Set(board.nodes.map((node) => node.id));
-	for (const id of visible) if (!cached.has(id)) return true;
+/** A saved text edit can make the old cached text unsafe under a new host. */
+export function snapshotMissesVisible(board: BoardSnapshot, visible: ReadonlyMap<string, string>): boolean {
+	for (const [id, version] of visible) if (board.versions.get(id) !== version) return true;
 	return false;
 }
 

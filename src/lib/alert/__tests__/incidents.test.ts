@@ -3,6 +3,8 @@ import { beforeEach, describe, expect, it, vi } from "vitest";
 const { prismaMock, createNotificationMock, sendEmailMock, sendTelegramMock, webhookMock } = vi.hoisted(() => ({
   prismaMock: {
     $transaction: vi.fn(),
+    $queryRaw: vi.fn(),
+    setting: { findUnique: vi.fn(), upsert: vi.fn(), deleteMany: vi.fn() },
     alertIncident: {
       findUnique: vi.fn(),
       create: vi.fn(),
@@ -46,6 +48,7 @@ import {
 describe("alert incidents", () => {
   beforeEach(() => {
     vi.clearAllMocks();
+    prismaMock.$transaction.mockImplementation((fn) => fn(prismaMock));
     prismaMock.user.findMany.mockResolvedValue([{ id: "admin1" }]);
     createNotificationMock.mockResolvedValue({});
     sendEmailMock.mockResolvedValue(undefined);
@@ -533,18 +536,15 @@ describe("alert incidents", () => {
     const firstArgs = escalationCalls[0]?.[0] as {
       orderBy?: Array<Record<string, string>>;
       skip?: number;
-      where?: { OR?: Array<Record<string, unknown>> };
+      where?: { id?: { gt: string } };
     };
     const secondArgs = escalationCalls[1]?.[0] as {
-      where?: { OR?: Array<Record<string, unknown>> };
+      where?: { id?: { gt: string } };
     };
-    expect(firstArgs?.orderBy).toEqual([{ updatedAt: "asc" }, { id: "asc" }]);
+    expect(firstArgs?.orderBy).toEqual({ id: "asc" });
     expect(firstArgs?.skip).toBeUndefined();
     // The cursor is derived from the last row of the previous page.
-    expect(secondArgs?.where?.OR).toEqual([
-      { updatedAt: { gt: newer } },
-      { updatedAt: newer, id: { gt: "inc199" } },
-    ]);
+    expect(secondArgs?.where?.id).toEqual({ gt: "inc199" });
   });
 
   it("skips escalate notify when conditional claim loses the race", async () => {
@@ -657,23 +657,15 @@ describe("alert incidents", () => {
     prismaMock.server.findMany.mockResolvedValue([{ id: "transferred" }]);
     prismaMock.alertIncident.findMany.mockResolvedValue([]);
     prismaMock.$transaction.mockImplementation(async (action) => action(prismaMock));
+    prismaMock.$queryRaw.mockResolvedValueOnce([{ id: "eligible" }]);
     await listAlertIncidents({ session: { userId: "u1", roles: ["operator"], currentTeamId: "team-b" } });
 
     expect(prismaMock.$transaction).toHaveBeenCalledWith(expect.any(Function), { isolationLevel: "RepeatableRead" });
-    expect(prismaMock.server.findMany).toHaveBeenCalledWith(expect.objectContaining({
-      where: { AND: [{ teamId: "team-b" }, { OR: [
-        { userAccess: { none: { userId: "u1" } } },
-        { userAccess: { some: { userId: "u1", canRead: true } } },
-      ] }] },
-    }));
-    expect(prismaMock.alertIncident.findMany).toHaveBeenCalledWith(expect.objectContaining({
-      where: {
-        OR: [
-          { serverId: { in: ["transferred"] }, rule: { OR: [{ teamId: "team-b" }, { teamId: null }] } },
-          { serverId: null, rule: { teamId: "team-b" } },
-        ],
-      },
-    }));
+    expect(prismaMock.server.findMany).not.toHaveBeenCalled();
+    const [parts, ...values] = prismaMock.$queryRaw.mock.lastCall!;
+    expect(parts.join("?")).toContain("EXISTS");
+    expect(values).toContain("team-b");
+    expect(prismaMock.alertIncident.findMany).toHaveBeenCalledWith(expect.objectContaining({ where: { id: { in: ["eligible"] } } }));
   });
 
   it("refuses to acknowledge an event owned by the transferred host's old customer", async () => {

@@ -162,7 +162,7 @@ describe("processPlaybookRun dual-owner races", () => {
   ])("checks a queued platform $type against the source host's current team ($hostTeamId)", async ({ type, hostTeamId }) => {
     mocks.playbookRunFindUnique
       .mockResolvedValueOnce({
-        id: "run", status: "queued", createdById: null, teamId: "team1", playbook,
+        id: "run", status: "queued", createdById: "u1", teamId: "team1", playbook,
         triggerContext: { type, alertRuleId: "platform", serverId: "host" },
       })
       .mockResolvedValueOnce({ status: "running", dryRun: false, teamId: "team1", stepResults: [] });
@@ -180,7 +180,7 @@ describe("processPlaybookRun dual-owner races", () => {
       await expect(processPlaybookRun("run", "job")).rejects.toBeInstanceOf(PlaybookAuthorizationError);
       expect(mocks.executePlaybookChain).not.toHaveBeenCalled();
     }
-    expect(mocks.serverFindFirst).toHaveBeenCalledWith({ where: { id: "host", teamId: "team1" }, select: { id: true } });
+    expect(mocks.serverFindFirst).toHaveBeenCalledWith({ where: { id: "host", teamId: "team1", enabled: true, OR: [{ teamId: null }, { team: { deletedAt: null } }] }, select: { id: true } });
   });
 
   it("refuses a platform run claimed after the requester became a customer member with playbook:run", async () => {
@@ -201,6 +201,53 @@ describe("processPlaybookRun dual-owner races", () => {
     await expect(processPlaybookRun("run", "job")).rejects.toBeInstanceOf(PlaybookAuthorizationError);
     expect(mocks.loadApiTokenOwnerSession).not.toHaveBeenCalled();
     expect(mocks.executePlaybookChain).not.toHaveBeenCalled();
+  });
+
+  it.each(["alert_rule", "manual"])("refuses a %s run when the frozen actor is gone after takeover", async (type) => {
+    mocks.playbookRunFindUnique.mockResolvedValueOnce({
+      id: "run", status: "queued", teamId: "team1", createdById: null, playbook,
+      executionState: { schemaVersion: 2, stepsSnapshot: playbook.steps, actorId: "old-owner", chainRetry: 0 },
+      triggerContext: { type },
+    });
+    mocks.playbookRunUpdateMany.mockResolvedValueOnce({ count: 1 });
+    mocks.loadApiTokenOwnerSession.mockImplementationOnce(async (id) => id === "old-owner" ? null : { roles: ["admin"] });
+    await expect(processPlaybookRun("run", "job")).rejects.toBeInstanceOf(PlaybookAuthorizationError);
+    expect(mocks.loadApiTokenOwnerSession).toHaveBeenCalledExactlyOnceWith("old-owner", "team1");
+    expect(mocks.executePlaybookChain).not.toHaveBeenCalled();
+  });
+
+  it.each([[2, 0, 5], [2, 5, 0], [1, 2, 0]])("uses the v%i queued budget of %i after the definition changes to %i", async (schemaVersion, frozen, current) => {
+    mocks.playbookRunFindUnique
+      .mockResolvedValueOnce({
+        id: "run", status: "queued", teamId: "team1", createdById: "u1", playbook: { ...playbook, chainRetry: current },
+        executionState: { schemaVersion, stepsSnapshot: playbook.steps, ...(schemaVersion === 2 ? { chainRetry: frozen, actorId: "u1" } : {}) },
+      })
+      .mockResolvedValueOnce({ status: "running", dryRun: false, teamId: "team1", stepResults: [] });
+    mocks.playbookRunUpdateMany.mockResolvedValue({ count: 1 });
+    mocks.executePlaybookChain.mockResolvedValueOnce({ results: [], summary: "done" });
+    await processPlaybookRun("run", "job", undefined, frozen + 1);
+    expect(mocks.executePlaybookChain).toHaveBeenCalledWith(expect.objectContaining({ playbook: expect.objectContaining({ chainRetry: frozen }) }));
+  });
+
+  it.each([null, { teamId: null }])("rechecks a deleted or reassigned alert rule before the next dispatch (%j)", async (changed) => {
+    mocks.playbookRunFindUnique
+      .mockResolvedValueOnce({
+        id: "run", status: "queued", teamId: "team1", createdById: "u1", playbook,
+        executionState: { schemaVersion: 2, stepsSnapshot: playbook.steps, actorId: "u1", chainRetry: 1, sourceRuleTeamId: "team1" },
+        triggerContext: { type: "alert_rule", alertRuleId: "rule", serverId: "host" },
+      })
+      .mockResolvedValueOnce({ status: "running", dryRun: false, teamId: "team1", stepResults: [] });
+    mocks.playbookRunUpdateMany.mockResolvedValue({ count: 1 });
+    mocks.alertRuleFindUnique.mockResolvedValueOnce({ teamId: "team1" }).mockResolvedValueOnce({ teamId: "team1" }).mockResolvedValueOnce(changed);
+    mocks.playbookFindUnique.mockResolvedValue({ teamId: "team1" });
+    mocks.serverFindFirst.mockResolvedValue({ id: "host" });
+    const dispatch = vi.fn();
+    mocks.executePlaybookChain.mockImplementationOnce(async ({ beforeDispatch }) => {
+      for (let step = 0; step < 2; step++) { await beforeDispatch(); dispatch(step); }
+      return { results: [], summary: "done" };
+    });
+    await expect(processPlaybookRun("run", "job")).rejects.toBeInstanceOf(PlaybookAuthorizationError);
+    expect(dispatch).toHaveBeenCalledExactlyOnceWith(0);
   });
 
   it("reloads the platform role before dispatch after the worker has claimed the run", async () => {

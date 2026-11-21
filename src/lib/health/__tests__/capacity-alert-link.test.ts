@@ -4,14 +4,12 @@ const {
   openOrRefreshMock,
   resolveMock,
   getCapacityForecastMock,
-  runPlaybookMock,
   alertRuleUpdateMock,
   teamServersMock,
 } = vi.hoisted(() => ({
   openOrRefreshMock: vi.fn(),
   resolveMock: vi.fn(),
   getCapacityForecastMock: vi.fn(),
-  runPlaybookMock: vi.fn(),
   alertRuleUpdateMock: vi.fn(),
   teamServersMock: vi.fn(),
 }));
@@ -23,10 +21,6 @@ vi.mock("@/lib/alert/incidents", () => ({
 
 vi.mock("@/lib/health/capacity-service", () => ({
   getCapacityForecast: getCapacityForecastMock,
-}));
-
-vi.mock("@/lib/playbook/service", () => ({
-  runPlaybook: runPlaybookMock,
 }));
 
 vi.mock("@/lib/db", () => ({
@@ -98,6 +92,7 @@ describe("evaluateCapacityLinkedAlerts", () => {
     vi.clearAllMocks();
     // The forecast is cached for 15 min in production (A2-11); each case here brings its own.
     resetCapacityForecastCache();
+    teamServersMock.mockImplementation(async ({ where }) => where.id.in.map((id: string) => ({ id })));
     openOrRefreshMock.mockResolvedValue({
       incidentId: "inc1",
       created: true,
@@ -107,6 +102,31 @@ describe("evaluateCapacityLinkedAlerts", () => {
     });
     resolveMock.mockResolvedValue({ resolved: true, incidentId: "inc1" });
     alertRuleUpdateMock.mockResolvedValue({ count: 1 });
+  });
+
+  it.each([null, "customer"])("revalidates enabled hosts and live ownership on each use of a cached forecast (team %s)", async (teamId) => {
+    const rule = {
+      id: "capacity", name: "Capacity", metric: "capacity_disk_days", operator: "lte", threshold: 14, teamId,
+      enabled: true, durationSeconds: 0, matchState: {}, updatedAt: new Date(), lastMatchedAt: null, lastTriggeredAt: null,
+      cooldownMinutes: 0, silenceWindows: [], serverIds: [], notifyChannels: ["in_app"], playbookIds: ["book"], webhookUrl: null, onCallUserIds: [],
+    };
+    getCapacityForecastMock.mockResolvedValue({ servers: [serverForecast({ serverId: "host" })] });
+    teamServersMock.mockResolvedValueOnce([{ id: "host" }]).mockResolvedValueOnce([]);
+    expect((await evaluateCapacityLinkedAlerts([rule])).fired).toBe(1);
+    expect((await evaluateCapacityLinkedAlerts([rule])).fired).toBe(0);
+    expect(getCapacityForecastMock).toHaveBeenCalledOnce();
+    expect(openOrRefreshMock).toHaveBeenCalledOnce();
+    expect(teamServersMock).toHaveBeenLastCalledWith({
+      where: { id: { in: ["host"] }, enabled: true, ...(teamId ? { teamId } : {}), OR: [{ teamId: null }, { team: { deletedAt: null } }] },
+      select: { id: true },
+    });
+    const session = { userId: "reader", roles: ["operator" as const], currentTeamId: "customer" };
+    await evaluateCapacityLinkedAlerts([rule], { session });
+    expect(getCapacityForecastMock).toHaveBeenCalledTimes(2);
+    expect(getCapacityForecastMock).toHaveBeenLastCalledWith(expect.objectContaining({ session }));
+    expect(teamServersMock).toHaveBeenLastCalledWith(expect.objectContaining({
+      where: expect.objectContaining({ AND: [expect.objectContaining({ AND: expect.arrayContaining([{ teamId: "customer" }]) })] }),
+    }));
   });
 
   it.each([{ serverIds: [] }, { serverIds: ["s1", "foreign"] }])("fires a capacity rule only for its own customer ($serverIds)", async ({ serverIds }) => {
@@ -155,15 +175,10 @@ describe("evaluateCapacityLinkedAlerts", () => {
 
     expect(result.fired).toBe(1);
     expect(openOrRefreshMock).toHaveBeenCalledTimes(1);
-    expect(runPlaybookMock).toHaveBeenCalledExactlyOnceWith(expect.objectContaining({
-      playbookId: "pb1",
-      sourceAlertTeamId: "team1",
-      sourceAlertServerId: "s1",
-      triggerContext: expect.objectContaining({ type: "capacity_forecast", serverId: "s1" }),
-    }));
     expect(openOrRefreshMock).toHaveBeenCalledWith(
       expect.objectContaining({
         ruleId: "rule_cap",
+        playbookIds: ["pb1"],
         // The rule's own delay reaches the escalation (and its retried notice).
         escalationMinutes: 45,
         serverId: "s1",

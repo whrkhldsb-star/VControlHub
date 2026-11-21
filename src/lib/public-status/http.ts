@@ -12,7 +12,7 @@ import { apiCopy } from "@/lib/i18n/api-copy";
 import { apiError } from "@/lib/http/api-error";
 import type { RateLimitConfig } from "@/lib/http/rate-limit-presets";
 import { getApiSession } from "@/lib/auth/api-session";
-import { isGlobalTeamManager } from "@/lib/auth/team-scope";
+import { canPreviewClosedBoard } from "./access";
 
 /** One bucket for every public status endpoint, per client address. */
 export const PUBLIC_STATUS_RATE_LIMIT: RateLimitConfig = { maxRequests: 240, windowMs: 60_000, bucketKey: "public-status" };
@@ -42,5 +42,5 @@ export async function previewAllowed(request: Request): Promise<boolean> {
 	}
 	if (!wanted) return false;
 	const session = await getApiSession();
-	return Boolean(session && isGlobalTeamManager(session));
+	return canPreviewClosedBoard(session);
 }

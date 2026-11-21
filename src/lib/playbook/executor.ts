@@ -6,6 +6,7 @@
  * dispatching the command twice.
  */
 
+import { createHash } from "node:crypto";
 import { prisma } from "@/lib/db";
 import { ForbiddenError } from "@/lib/errors";
 import { createCommandRequest, cancelCommandRequest } from "@/lib/command/service";
@@ -13,11 +14,11 @@ import { commandRequestTitle } from "@/lib/command/schema";
 import { LeaseLostError } from "@/lib/job/heartbeat-runner";
 import { recordJobEvent } from "@/lib/job/events";
 import { createNotification } from "@/lib/notification/service";
-import { fetchWebhookSafely } from "@/lib/security/webhook-url";
+import { fetchPlaybookWebhook } from "./webhook-dispatch";
 
 import type { PlaybookRecord, PlaybookStep, PlaybookStepResult } from "./types";
 import { describeWebhookStep, redactWebhookResult } from "./webhook-result";
-import { MAX_PLAYBOOK_RETRIES, MAX_PLAYBOOK_STEPS, playbookRetrySchema } from "./schema";
+import { MAX_PLAYBOOK_RETRIES, playbookStepsSchema, playbookRetrySchema } from "./schema";
 import { toJsonValue } from "@/lib/db/json";
 
 const TRUNCATE_AT = 280;
@@ -380,7 +381,7 @@ async function dispatchStep(input: {
         title: step.config.subject,
         message: step.config.body,
         teamId: input.teamId,
-      });
+      }, "playbook-" + createHash("sha256").update(JSON.stringify([input.runId, step.id])).digest("hex"));
       return `notification sent to ${step.config.recipientUserId}`;
     }
     case "call_webhook": {
@@ -398,13 +399,13 @@ async function dispatchStep(input: {
       const timer = setTimeout(() => controller.abort(), Math.max(1, step.timeoutSec) * 1_000);
       try {
         const marker = await markSideEffectDispatched(input, step.id);
-        const result = await fetchWebhookSafely(step.config.url, {
+        const result = await fetchPlaybookWebhook(step.config.url, {
           method: step.config.method,
           headers: step.config.headers ?? { "Content-Type": "application/json" },
           body: step.config.method === "GET" ? undefined : step.config.body,
           signal: input.signal ? AbortSignal.any([input.signal, controller.signal]) : controller.signal,
-          failOnBodyReadError: true,
-        }).catch(() => {
+        }, input.beforeDispatch).catch((error) => {
+          if (error instanceof ForbiddenError || error instanceof LeaseLostError) throw error;
           // An unexpected transport exception cannot prove that nothing was sent.
           throw new WebhookOutcomeUnknownError(`${label}: delivery outcome unknown`);
         });
@@ -491,7 +492,7 @@ export async function executePlaybookChain(input: {
   signal?: AbortSignal;
   beforeDispatch?: () => Promise<void>;
 }): Promise<{ results: PlaybookStepResult[]; summary: string }> {
-  const { steps, chainRetry = 0 } = input.playbook;
+  const { chainRetry = 0 } = input.playbook;
   let results: PlaybookStepResult[] = [];
   const rejectPlan = (message: string, stepId = "playbook") => ({
     results: [...results, failedResult({ id: stepId }, new Error(message), nowIso())],
@@ -499,27 +500,24 @@ export async function executePlaybookChain(input: {
   });
   // Stored JSON and queued snapshots can predate import validation. Check the
   // entire budget before the first step can dispatch, including on reclaim.
-  if (!Array.isArray(steps) || steps.length < 1 || steps.length > MAX_PLAYBOOK_STEPS) {
-    return rejectPlan(`Playbook must contain between 1 and ${MAX_PLAYBOOK_STEPS} steps`);
+  const parsed = playbookStepsSchema.safeParse(input.playbook.steps);
+  if (!parsed.success) {
+    const issue = parsed.error.issues[0]!;
+    const index = issue.path[0];
+    const step = typeof index === "number" ? input.playbook.steps[index] : undefined;
+    const id = typeof step?.id === "string" ? step.id : undefined;
+    if (issue.code === "custom" && issue.path[1] === "id") return rejectPlan("Step id is used by more than one step");
+    if (step?.type === "call_webhook") return rejectPlan(describeWebhookStep(step, { status: "failed" }), id);
+    return rejectPlan(`Invalid playbook ${issue.path.join(".") || "steps"}: ${issue.message}`, id);
   }
+  const steps = parsed.data;
   results = (input.resumeResults ?? []).map((result) =>
-    redactWebhookResult(steps.find((step) => step?.id === result.stepId), result),
+    redactWebhookResult(steps.find((step) => step.id === result.stepId), result),
   );
   if (!playbookRetrySchema.safeParse(chainRetry).success) {
     return rejectPlan(`Playbook chainRetry must be an integer from 0 to ${MAX_PLAYBOOK_RETRIES}`);
   }
   const totalSteps = steps.length;
-  const seenIds = new Set<string>();
-  for (const step of steps) {
-    if (!step || typeof step.id !== "string") return rejectPlan("Invalid playbook step");
-    if (step.retry !== undefined && !playbookRetrySchema.safeParse(step.retry).success) {
-      return rejectPlan(`Step retry must be an integer from 0 to ${MAX_PLAYBOOK_RETRIES}`, step.id);
-    }
-    if (seenIds.has(step.id)) {
-      return rejectPlan(`Step id "${step.id}" is used by more than one step`, step.id);
-    }
-    seenIds.add(step.id);
-  }
 
   for (let index = 0; index < totalSteps; index += 1) {
     const step = steps[index]!;

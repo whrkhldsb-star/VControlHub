@@ -1,7 +1,7 @@
 import { Prisma } from "@prisma/client";
 import { prisma } from "@/lib/db";
 import { createLogger } from "@/lib/logging";
-import { normalizeServerMetrics } from "@/lib/public-status/normalize";
+import { normalizeServerMetrics, pgNonnegativeInt } from "@/lib/public-status/normalize";
 import { writeLatestMetrics, type LatestMetricInput } from "@/lib/public-status/latest-writer";
 import type { HealthOverview, ServerHealth } from "./service-types";
 import { HEALTH_SAMPLE_INTERVAL_MINUTES } from "./service-types";
@@ -101,9 +101,9 @@ export async function snapshotHealthOverview(
       diskUsage: server.diskMax,
       isOnline: true,
       load1: typeof load1 === "number" && Number.isFinite(load1) ? load1 : null,
-      processCount: server.metrics?.system?.processes ?? null,
-      tcpConnections: server.metrics?.system?.tcpConnections ?? null,
-      udpConnections: server.metrics?.system?.udpConnections ?? null,
+      processCount: pgNonnegativeInt(server.metrics?.system?.processes),
+      tcpConnections: pgNonnegativeInt(server.metrics?.system?.tcpConnections),
+      udpConnections: pgNonnegativeInt(server.metrics?.system?.udpConnections),
       ...extra,
     }];
   });

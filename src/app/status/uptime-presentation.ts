@@ -23,7 +23,7 @@ export const MIN_SAMPLE_COVERAGE = 0.5;
 
 /** Minutes of a day that could have been covered; today only up to now. */
 export function expectedMinutesForDay(minutesElapsed = 1440): number {
-  return Math.max(1, Math.min(1440, Math.floor(minutesElapsed)));
+  return Math.max(1, Math.floor(minutesElapsed));
 }
 
 /** Covered minutes of a rollup row (older rows without minutes: samples × the former fixed cadence). */
@@ -35,7 +35,7 @@ export function coveredMinutes(day: UptimeSample): number {
 }
 
 export function describeUptimeDay(day: UptimeSample, expectedMinutes: number) {
-  const sampled = day.checkCount > 0;
+  const sampled = day.checkCount > 0 || coveredMinutes(day) > 0;
   const covered = coveredMinutes(day);
   const coverage = Math.min(1, covered / Math.max(1, expectedMinutes));
   return {
@@ -60,7 +60,7 @@ export function getUptimeColorClass(uptime: number, sampled: boolean, sufficient
 
 /** Availability over several days, weighted by each day's covered time. */
 export function calculateWeightedSla(days: UptimeSample[]): number | null {
-  const sampled = days.filter((day) => day.checkCount > 0);
+  const sampled = days.filter((day) => day.checkCount > 0 || coveredMinutes(day) > 0);
   const total = sampled.reduce((sum, day) => sum + coveredMinutes(day), 0);
   if (total === 0) return null;
   const weighted = sampled.reduce((sum, day) => sum + day.uptimePercent * coveredMinutes(day), 0);
@@ -72,7 +72,7 @@ export function calculateWeightedSla(days: UptimeSample[]): number | null {
  * before the first sample are a host that was not monitored yet, not a gap).
  */
 export function calculateWindowCoverage(days: Array<UptimeSample & { expectedMinutes: number }>) {
-  const first = days.findIndex((day) => day.checkCount > 0);
+  const first = days.findIndex((day) => day.checkCount > 0 || coveredMinutes(day) > 0);
   if (first < 0) return null;
   const window = days.slice(first);
   const expected = window.reduce((sum, day) => sum + day.expectedMinutes, 0);

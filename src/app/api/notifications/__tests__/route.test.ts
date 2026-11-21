@@ -52,11 +52,32 @@ describe("/api/notifications", () => {
     expect(response.status).toBe(200);
     expect(requireApiSessionMock).toHaveBeenCalled();
     expect(listUserNotificationsMock).toHaveBeenCalledWith(session, {
-      limit: 50,
+      limit: 51,
       skip: 0,
     });
     expect(getUnreadCountMock).toHaveBeenCalledWith(session);
     await expect(response.json()).resolves.toMatchObject({ unreadCount: 1 });
+  });
+
+  it.each([2, 3])("uses a lookahead row for a page with %i remaining notifications", async (remaining) => {
+    requireApiSessionMock.mockResolvedValueOnce(session);
+    const rows = Array.from({ length: remaining }, (_, id) => ({ id }));
+    listUserNotificationsMock.mockResolvedValueOnce(rows);
+    const response = await GET(new Request("https://example.com/api/notifications?limit=2&offset=5"));
+    expect(listUserNotificationsMock).toHaveBeenLastCalledWith(session, { limit: 3, skip: 5 });
+    expect(await response.json()).toMatchObject({ notifications: rows.slice(0, 2), hasMore: remaining > 2 });
+  });
+
+  it.each([{ notificationId: "n" }, { markAllAsRead: true }])("rejects explicit unknown actions with legacy fields %j", async (fields) => {
+    vi.clearAllMocks();
+    requireApiSessionMock.mockResolvedValueOnce(session);
+    const response = await PATCH(new Request("https://example.com/api/notifications", {
+      method: "PATCH", body: JSON.stringify({ action: "unknown", ...fields }),
+    }));
+    expect(response.status).toBe(400);
+    expect(markAsReadMock).not.toHaveBeenCalled();
+    expect(markAllAsReadMock).not.toHaveBeenCalled();
+    expect(auditUserAction).not.toHaveBeenCalled();
   });
 
   it.each([{ notificationId: "n_1" }, { action: "markAsRead", notificationId: "n_1" }])("marks and audits one notification using %j", async body => {
