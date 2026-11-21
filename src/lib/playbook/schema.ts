@@ -116,7 +116,7 @@ const triggerConfigSchema = z.union([
 export const playbookStepsSchema = z
   .array(stepSchema)
   .min(1, "At least 1 step is required")
-  .max(MAX_PLAYBOOK_STEPS, `At most ${MAX_PLAYBOOK_STEPS} steps are allowed`)
+  .max(MAX_PLAYBOOK_STEPS, "At most 32 steps are allowed")
   // A run tracks its steps by id: a second step with a taken id was taken
   // for done and skipped, and the run still reported success.
   .superRefine((steps, ctx) => {
