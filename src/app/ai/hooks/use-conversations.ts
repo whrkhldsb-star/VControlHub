@@ -1,6 +1,6 @@
 "use client";
 
-import { useCallback, useEffect, useState } from "react";
+import { useCallback, useEffect, useRef, useState } from "react";
 import { csrfFetch } from "@/lib/auth/csrf-client";
 import type { ConvItem, Message } from "../ai-types";
 
@@ -43,7 +43,12 @@ export function useConversations({
     initialConversations,
   );
   const [activeConvId, setActiveConvId] = useState<string | null>(null);
-  const [messages, setMessages] = useState<Message[]>([]);
+  const [messages, writeMessages] = useState<Message[]>([]);
+  const messageVersion = useRef(0);
+  const setMessages: React.Dispatch<React.SetStateAction<Message[]>> = useCallback((value) => {
+    messageVersion.current++;
+    writeMessages(value);
+  }, []);
   const [messagesError, setMessagesError] = useState<unknown>(null);
   const [reloadTick, setReloadTick] = useState(0);
 
@@ -60,22 +65,23 @@ export function useConversations({
       return;
     }
     let cancelled = false;
+    const version = messageVersion.current;
     csrfFetch<{ conversation?: { messages?: Message[] } }>(
       `/api/ai/conversations/${activeConvId}`,
     )
       .then((data) => {
-        if (cancelled) return;
+        if (cancelled || version !== messageVersion.current) return;
         if (data.conversation?.messages) setMessages(data.conversation.messages);
       })
       .catch((error: unknown) => {
         // The list stays empty, and the page says why: swallowed, the failure looked like a conversation in
         // which nothing had been said yet.
-        if (!cancelled) setMessagesError(error ?? new Error("load failed"));
+        if (!cancelled && version === messageVersion.current) setMessagesError(error ?? new Error("load failed"));
       });
     return () => {
       cancelled = true;
     };
-  }, [activeConvId, reloadTick]);
+  }, [activeConvId, reloadTick, setMessages]);
 
   const retryMessages = useCallback(() => setReloadTick((tick) => tick + 1), []);
 

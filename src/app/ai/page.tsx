@@ -1,7 +1,9 @@
 import { firstSearchParams } from "@/lib/http/first-search-param";
+import { sessionHasPermission } from "@/lib/auth/authorization";
 import { requirePagePermission } from "@/lib/auth/page-guard";
 import {
   listProviders,
+  listChatProviders,
   listConversations,
   serializeConversationListItem,
   serializeProvider,
@@ -17,7 +19,12 @@ export default async function AiPage({
 }) {
   // Match chat APIs: require ai:chat at the page boundary (not bare session).
   const session = await requirePagePermission("ai:chat", { redirectTo: "/ai" });
-  const providers = await listProviders(session.userId);
+  const canManageProviders = sessionHasPermission(session, "ai:manage");
+  const providers = canManageProviders
+    ? (await listProviders(session.userId)).map((p) => ({
+        ...serializeProvider(p), settings: JSON.stringify(p.settings ?? {}), defaultModel: p.defaultModel ?? "",
+      }))
+    : await listChatProviders(session.userId);
   const conversations = await listConversations(session);
   // "Ask AI" deep links (server cards, alert pages…) prefill the composer via
   // ?q=. Bounded like any user-supplied string rendered back into the page.
@@ -25,14 +32,8 @@ export default async function AiPage({
 
   return (
     <AiClient
-      // serializeProvider masks apiKey ciphertext before it reaches RSC → client HTML.
-      initialProviders={providers.map((p) => ({
-        ...serializeProvider(p),
-        // Provider UI expects settings as a JSON string, not Prisma JsonValue.
-        settings: JSON.stringify(p.settings ?? {}),
-        // Client Provider type omits createdBy; keep wire shape aligned.
-        defaultModel: p.defaultModel ?? "",
-      }))}
+      canManageProviders={canManageProviders}
+      initialProviders={providers}
       initialConversations={conversations.map(serializeConversationListItem)}
       initialDraft={draft}
     />

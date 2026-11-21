@@ -7,10 +7,14 @@
  * 3. 危险操作 → 创建审批请求 → 等待用户审批 → 执行 → 返回结果
  */
 
+import { assertChatGeneration } from "./chat-generation";
+import { withHostedServerSnapshot } from "./hosted-snapshot";
 import type { AiAutomationMode, Prisma } from "@prisma/client";
 import { sessionHasPermission } from "@/lib/auth/authorization";
 import type { RoleKey } from "@/lib/auth/rbac";
-import { serverTeamWhere, teamWhere } from "@/lib/auth/team-scope";
+import { playbookTeamWhere, serverTeamWhere, teamWhere } from "@/lib/auth/team-scope";
+import { lockForTransaction } from "@/lib/concurrency/advisory-lock";
+import type { PlaybookStep } from "@/lib/playbook/types";
 import { createCommandRequest } from "@/lib/command/service";
 import { createCommandSchema } from "@/lib/command/schema";
 import { prisma } from "@/lib/db";
@@ -29,6 +33,7 @@ import { firstSchemaSentence } from "@/lib/i18n/schema-copy";
 import {
   buildAssistantCommandRequestPayload,
   isHostedActionType,
+  missingHostedPermission,
   permissionDeniedMessage,
   requiredPermissionForAction,
   resolvePlaybookId,
@@ -66,10 +71,10 @@ export function parseToolCall(tc: ToolCall): ParsedToolCall | null {
   try {
     args = JSON.parse(tc.function.arguments);
   } catch {
-    // Malformed JSON arguments — default to empty so the tool call can still be surfaced.
-    args = {};
+    return null;
   }
 
+  if (!args || typeof args !== "object" || Array.isArray(args)) return null;
   return { toolCallId: tc.id, tool, args };
 }
 
@@ -78,13 +83,25 @@ export function parseToolCall(tc: ToolCall): ParsedToolCall | null {
  * run (it used to carry whatever name the model wrote, matched loosely at confirm time to the most recently updated
  * one), and a name that fits none or several comes back to the model as an error to correct.
  */
+function playbookTargets(steps: Prisma.JsonValue) {
+  if (!Array.isArray(steps)) return [];
+  return [...new Set(steps.flatMap((step) => {
+    if (!step || typeof step !== "object" || Array.isArray(step) || step.type !== "run_command") return [];
+    const config = step.config;
+    if (!config || typeof config !== "object" || Array.isArray(config) || !Array.isArray(config.serverIds)) return [];
+    return config.serverIds.filter((id): id is string => typeof id === "string");
+  }))].sort();
+}
+
 async function materializePlaybookProposal(
   args: Record<string, unknown>,
   session: HostedActionSession,
 ): Promise<Record<string, unknown>> {
   const playbook = await resolvePlaybookId(args, session);
-  if (!playbook) throw new BusinessError(t("backend.ai.playbookNotFoundOrOutsideTeamScope"));
-  return { ...args, playbookId: playbook.id, playbookName: playbook.name };
+  if (!playbook?.enabled || !Array.isArray(playbook.steps)) throw new BusinessError(t("backend.ai.playbookNotFoundOrOutsideTeamScope"));
+  const { assertPlaybookCommandStepsInScope } = await import("@/lib/playbook/service");
+  await assertPlaybookCommandStepsInScope(playbook.steps as unknown as PlaybookStep[], sessionForTeamScope(session));
+  return { ...args, playbookId: playbook.id, playbookName: playbook.name, targetServerIds: playbookTargets(playbook.steps) };
 }
 
 // ── 创建托管操作记录 ──────────────────────────────────────
@@ -113,11 +130,13 @@ function withHostedActionMode<T>(
 export async function createHostedAction(input: {
   conversationId: string;
   messageId: string;
+  userMessageId?: string;
   toolCallId: string;
   tool: HostedTool;
   args: Record<string, unknown>;
   userId: string;
   revalidate?: () => Promise<void>;
+  signal?: AbortSignal;
   /** Optional session for team-scoped server resolution. */
   session?: HostedActionSession | null;
 }) {
@@ -129,20 +148,34 @@ export async function createHostedAction(input: {
       roles: [] as RoleKey[],
       currentTeamId: null,
     } satisfies HostedActionSession);
+  input.signal?.throwIfAborted();
+  const missing = missingHostedPermission(session, tool.actionType);
+  if (missing) throw new ForbiddenError(t("backend.ai.permissionDenied.required", { permission: missing }));
+  const definition = HOSTED_TOOLS.find((entry) => entry.actionType === tool.actionType)!;
+  const properties = definition.parameters.properties as Record<string, { type: string; enum?: string[] }>;
+  const required = (definition.parameters.required ?? []) as string[];
+  if (required.some((key) => !Object.hasOwn(input.args, key)) || Object.entries(input.args).some(([key, value]) => {
+    if (!Object.hasOwn(properties, key)) return true;
+    const field = properties[key]!;
+    const type = Array.isArray(value) ? "array" : typeof value;
+    return value === null || type !== field.type || (field.enum && !field.enum.includes(String(value)));
+  })) throw new BusinessError(t("backend.ai.invalidActionParameters"));
   const automation = tool.actionType === "create_automation_task"
     ? await materializeAutomationProposal(input.args, session)
     : null;
   const args = automation ?? (tool.actionType === "run_playbook"
       ? await materializePlaybookProposal(input.args, session)
       : input.args);
-  const serverId = await resolveServerId(args, session);
-  const resolvedServer = serverId
-    ? await prisma.server.findUnique({ where: { id: serverId }, select: { teamId: true } })
-    : null;
-  // The server decides the customer (A7-03): an administrator viewing customer A
-  // who asks about customer B's server created an action B could never confirm.
+  const needsServer = !SERVERLESS_ACTION_TYPES.has(tool.actionType);
+  const serverId = needsServer ? await resolveServerId(args, session) : null;
+  const resolvedServer = serverId ? await prisma.server.findFirst({
+    where: { id: serverId, enabled: true, AND: [serverTeamWhere(sessionForTeamScope(session)!, "connect")] },
+    select: { id: true, name: true, host: true, teamId: true },
+  }) : null;
+  if (needsServer && !resolvedServer) throw new BusinessError(t("backend.ai.noServerSpecified"));
+  const snapshot = resolvedServer && { id: resolvedServer.id, name: resolvedServer.name, host: resolvedServer.host };
   const teamId = automation ? automation.teamId : resolvedServer?.teamId ?? session.currentTeamId ?? null;
-  const params = { ...args, ...(serverId ? { serverId } : {}) };
+  const params = { ...args, ...(serverId ? { serverId, serverSnapshot: snapshot } : {}) };
   // A change that could never become a command request (parameters the command builder refuses, a config file
   // too long for one request) was only found out when the person confirmed it. Refused here, it is an answer the
   // model can correct, and nobody is asked to confirm something that cannot run.
@@ -155,25 +188,35 @@ export async function createHostedAction(input: {
   }
   // Resolving a proposal may page through many targets before the card can be written.
   await input.revalidate?.();
-  return withHostedActionMode(conversationId, tool.actionType, (tx) => tx.aiHostedAction.create({
-    data: {
-      conversationId,
-      messageId,
-      toolCallId: input.toolCallId,
-      serverId,
-      teamId,
-      actionType: tool.actionType,
-      actionName: tool.actionName,
-      params: JSON.stringify(params),
-      riskLevel: tool.riskLevel,
-      autoApproved: tool.autoApproved,
-      status: tool.autoApproved ? "APPROVED" : "PENDING_APPROVAL",
-      requesterId: userId,
-      approvedAt: tool.autoApproved ? new Date() : null,
-    },
-    // The confirmation card names the server; without this it had only the id.
-    include: { server: { select: { id: true, name: true, host: true } } },
-  }));
+  return withHostedActionMode(conversationId, tool.actionType, async (tx) => {
+    if (input.userMessageId) await assertChatGeneration(tx, conversationId, input.userMessageId);
+    input.signal?.throwIfAborted();
+    const action = await tx.aiHostedAction.create({
+      data: {
+        conversationId,
+        messageId,
+        toolCallId: input.toolCallId,
+        serverId,
+        teamId,
+        actionType: tool.actionType,
+        actionName: tool.actionName,
+        params: JSON.stringify(params),
+        riskLevel: tool.riskLevel,
+        autoApproved: tool.autoApproved,
+        status: tool.autoApproved ? "APPROVED" : "PENDING_APPROVAL",
+        requesterId: userId,
+        approvedAt: tool.autoApproved ? new Date() : null,
+      },
+    });
+    if (!tool.autoApproved) {
+      await tx.aiMessage.create({ data: {
+        id: action.id, conversationId, role: "tool", toolCallId: input.toolCallId,
+        content: JSON.stringify({ actionId: action.id, status: "PENDING_APPROVAL", pendingApproval: true }),
+      } });
+    }
+    input.signal?.throwIfAborted();
+    return { ...action, server: snapshot };
+  });
 }
 
 // ── 执行安全操作（Agent 优先，SSH 回退） ───────────────────
@@ -191,10 +234,16 @@ export async function executeSafeAction(
     return { success: false, data: null, error: permissionDeniedMessage(action.actionType, context.locale) };
   }
 
+  context?.signal?.throwIfAborted();
+  if (SERVERLESS_ACTION_TYPES.has(action.actionType)) {
+    await context?.revalidate?.();
+    context?.signal?.throwIfAborted();
+  }
   const serverlessResult = await executeServerlessQuery(
     { actionType: action.actionType, params: action.params },
     sessionForTeamScope(context?.session),
     context?.locale,
+    context?.knowledgeBudget,
   );
   if (serverlessResult) return serverlessResult;
 
@@ -240,8 +289,10 @@ export async function executeSafeAction(
     let result: { stdout: string; stderr: string; exitCode: number | null } | null = null;
     if (server.managementMode === "AGENT") {
       await context?.revalidate?.();
+      context?.signal?.throwIfAborted();
       result = await executeCommandWithAgent({
         serverId: server.id, command, timeoutMs: 60_000,
+        signal: context?.signal,
         expectedIdentity: { tokenHash: server.agentTokenHash, teamId: server.teamId },
       });
     }
@@ -277,6 +328,7 @@ export async function executeSafeAction(
       }
       const ssh = await buildSshParamsFromServer(server, server.sshKey);
       await context?.revalidate?.();
+      context?.signal?.throwIfAborted();
       result = await execRemoteCommand({ ...ssh, command, timeout: 60_000 });
     }
     if (!result) {
@@ -296,6 +348,7 @@ export async function executeSafeAction(
         : undefined,
     };
   } catch (err) {
+    context?.signal?.throwIfAborted();
     if (err instanceof ForbiddenError) throw err;
     return {
       success: false,
@@ -371,39 +424,62 @@ function hostedArtifactUpdate(artifact: HostedArtifact, now: Date) {
 }
 
 async function persistHostedArtifact(action: HostedActionRef, artifact: HostedArtifact) {
-  await prisma.$transaction(async (tx) => {
-    await tx.aiHostedAction.update({
-      where: { id: action.id },
-      data: hostedArtifactUpdate(artifact, new Date()),
-    });
-    await persistHostedToolOutcome(action, { success: true, status: artifact.status, ...artifact.toolResult }, tx);
+  await recordHostedOutcome(action, hostedArtifactUpdate(artifact, new Date()), {
+    success: true, status: artifact.status, ...artifact.toolResult,
   });
 }
+
+// A legacy reply may need inserting. Acquire its parent's FK lock before locking the action,
+// in the same order as a clear or cascading conversation deletion.
+function withHostedToolWrite<T>(actionId: string, write: (tx: Prisma.TransactionClient) => Promise<T>) {
+  return prisma.$transaction(async (tx) => {
+    await tx.$queryRaw`SELECT c.id FROM ai_conversations c JOIN ai_hosted_actions a ON a."conversationId" = c.id
+      WHERE a.id = ${actionId} FOR SHARE OF c`;
+    return write(tx);
+  });
+}
+
+async function recordHostedOutcome(
+  action: HostedActionRef,
+  data: Prisma.AiHostedActionUncheckedUpdateInput,
+  outcome: Record<string, unknown>,
+) {
+  const completedAt = new Date();
+  await prisma.aiHostedAction.update({ where: { id: action.id }, data: { ...data, completedAt: action.toolCallId ? null : completedAt } });
+  if (!action.toolCallId) return;
+  // A committed result with no completion timestamp is a durable request for the maintenance sweep.
+  try {
+    await withHostedToolWrite(action.id, async (tx) => {
+      const pending = await tx.aiHostedAction.updateMany({ where: { id: action.id, completedAt: null }, data: { completedAt } });
+      if (pending.count) await persistHostedToolOutcome(action, outcome, tx);
+    });
+  } catch {
+    // Recovery retries just this projection. Never re-run the external operation.
+  }
+}
+
 
 async function persistHostedToolOutcome(
   action: HostedActionRef,
   outcome: Record<string, unknown>,
-  db: Prisma.TransactionClient = prisma,
+  db: Prisma.TransactionClient,
 ) {
   if (!action.toolCallId) return;
   const content = JSON.stringify({ actionId: action.id, ...outcome });
-  const updated = await db.aiMessage.updateMany({
-    where: {
-      conversationId: action.conversationId,
-      role: "tool",
-      toolCallId: action.toolCallId,
-    },
-    data: { content },
+  const where = { conversationId: action.conversationId, role: "tool", toolCallId: action.toolCallId };
+  const updated = await db.aiMessage.updateMany({ where: { ...where, id: action.id }, data: { content } });
+  if (updated.count) return;
+  // Keep the original position of pre-upgrade approval messages. Several placeholders can
+  // share a provider call ID, so only the server-written actionId identifies a legacy reply.
+  const legacy = await db.aiMessage.findMany({
+    where, orderBy: [{ createdAt: "asc" }, { id: "asc" }], select: { id: true, content: true, createdAt: true },
   });
-  if (updated.count > 0) return;
-  await db.aiMessage.create({
-    data: {
-      conversationId: action.conversationId,
-      role: "tool",
-      toolCallId: action.toolCallId,
-      content,
-    },
+  const linked = legacy.filter((message) => storedRecord(message.content).actionId === action.id);
+  await db.aiMessage.upsert({
+    where: { id: action.id }, update: { content },
+    create: { ...where, id: action.id, content, createdAt: linked[0]?.createdAt },
   });
+  if (linked.length) await db.aiMessage.deleteMany({ where: { ...where, id: { in: linked.map((message) => message.id) } } });
 }
 
 async function persistHostedActionFailure(
@@ -411,13 +487,7 @@ async function persistHostedActionFailure(
   error: unknown,
 ) {
   const message = error instanceof Error ? error.message : t("backend.ai.unknownError");
-  await prisma.$transaction(async (tx) => {
-    await tx.aiHostedAction.update({
-      where: { id: action.id },
-      data: { status: "FAILED", errorMessage: message, completedAt: new Date() },
-    });
-    await persistHostedToolOutcome(action, { success: false, status: "FAILED", error: message }, tx);
-  });
+  await recordHostedOutcome(action, { status: "FAILED", errorMessage: message }, { success: false, status: "FAILED", error: message });
 }
 
 type ClaimedAction = HostedActionRef & { actionType: string; params: string; teamId: string | null };
@@ -485,8 +555,8 @@ async function findHostedArtifact(action: ClaimedAction, params: Record<string, 
 // fails, leave the claim open so the maintenance worker can try again.
 async function recordArtifactCreationError(action: ClaimedAction, error: unknown) {
   const artifact = await findHostedArtifact(action, storedRecord(action.params));
-  if (artifact) await persistHostedArtifact(action, artifact);
-  else await persistHostedActionFailure(action, error);
+  if (artifact) return persistHostedArtifact(action, artifact);
+  await persistHostedActionFailure(action, error);
 }
 
 const INTERRUPTED_ACTION_AFTER_MS = 30 * 60_000;
@@ -498,6 +568,7 @@ export async function recoverInterruptedHostedActions(now = new Date()) {
     where: {
       OR: [
         { completedAt: null, OR: [
+          { status: { in: ["FAILED", "COMPLETED"] } },
           { status: "EXECUTING", executedAt: { lt: cutoff } },
           { status: "APPROVED", approvedAt: { lt: cutoff } },
           { status: "EXECUTING", executedAt: null, createdAt: { lt: cutoff } },
@@ -506,12 +577,25 @@ export async function recoverInterruptedHostedActions(now = new Date()) {
         { status: "APPROVED", result: ARTIFACT_PENDING_RECHECK, completedAt: { lt: cutoff } },
       ],
     },
-    select: { id: true, teamId: true, conversationId: true, toolCallId: true, actionType: true, params: true, result: true, status: true, approvedAt: true, executedAt: true, completedAt: true },
+    select: { id: true, teamId: true, conversationId: true, toolCallId: true, actionType: true, params: true, result: true, errorMessage: true, status: true, approvedAt: true, executedAt: true, completedAt: true },
     orderBy: [{ completedAt: { sort: "asc", nulls: "first" } }, { createdAt: "asc" }],
     take: 50,
   });
   let recovered = 0;
   for (const action of stale) {
+    if (!action.completedAt && (action.status === "COMPLETED" || action.status === "FAILED" || (action.status === "APPROVED" && action.result))) {
+      const result = storedRecord(action.result);
+      const outcome = action.status === "FAILED" ? { error: action.errorMessage }
+        : action.actionType === "run_playbook" ? { playbookId: result.playbookId, runId: result.runId, runStatus: result.status }
+        : action.status === "APPROVED" ? result : { data: result };
+      const synced = await withHostedToolWrite(action.id, async (tx) => {
+        const claimed = await tx.aiHostedAction.updateMany({ where: { id: action.id, status: action.status, result: action.result, completedAt: null }, data: { completedAt: now } });
+        if (claimed.count) await persistHostedToolOutcome(action, { success: action.status !== "FAILED", status: action.status, ...outcome }, tx);
+        return claimed.count;
+      });
+      recovered += synced;
+      continue;
+    }
     const params = storedRecord(action.params);
     // Earlier releases wrote the command pointer and its tool reply separately.
     // The original receipt remains evidence even if the command has since been deleted.
@@ -532,7 +616,7 @@ export async function recoverInterruptedHostedActions(now = new Date()) {
         status, errorMessage: error, completedAt: now,
         ...(unverified && { result: rechecked ? JSON.stringify({ verified: false }) : ARTIFACT_PENDING_RECHECK }),
       };
-    const settled = await prisma.$transaction(async (tx) => {
+    const settled = await withHostedToolWrite(action.id, async (tx) => {
       const claimed = await tx.aiHostedAction.updateMany({
         where: { id: action.id, status: action.status, approvedAt: action.approvedAt, executedAt: action.executedAt, result: action.result, completedAt: action.completedAt },
         data,
@@ -555,6 +639,8 @@ function claimPendingHostedAction(
   actionScope: Record<string, unknown>,
   status: "APPROVED" | "EXECUTING",
 ) {
+  const missing = missingHostedPermission(actor, action.actionType);
+  if (missing) throw new ForbiddenError(t("backend.ai.permissionDenied.required", { permission: missing }));
   return withHostedActionMode(action.conversationId, action.actionType, (tx) => tx.aiHostedAction.updateMany({
     where: { id: action.id, status: "PENDING_APPROVAL", ...actionScope },
     data: {
@@ -608,16 +694,11 @@ async function executeConfirmedServerlessAction(
     };
   }
 
-  await prisma.aiHostedAction.update({
-    where: { id: action.id },
-    data: {
-      status: execution.success ? "COMPLETED" : "FAILED",
-      result: JSON.stringify(execution.data ?? null),
-      errorMessage: execution.error ?? null,
-      completedAt: new Date(),
-    },
-  });
-  await persistHostedToolOutcome(action, {
+  await recordHostedOutcome(action, {
+    status: execution.success ? "COMPLETED" : "FAILED",
+    result: JSON.stringify(execution.data ?? null),
+    errorMessage: execution.error ?? null,
+  }, {
     success: execution.success,
     status: execution.success ? "COMPLETED" : "FAILED",
     data: execution.data ?? null,
@@ -644,8 +725,7 @@ async function executeConfirmedAutomationAction(
       action.teamId,
     );
   } catch (error) {
-    await recordArtifactCreationError(action, error);
-    throw error;
+    return recordArtifactCreationError(action, error);
   }
   await persistHostedArtifact(action, automationArtifact(result));
 }
@@ -680,7 +760,8 @@ export async function approveHostedAction(actionId: string, approver: HostedActi
   if (SERVERLESS_ACTION_TYPES.has(action.actionType)) {
     throw new BusinessError(t("backend.ai.listQueryToolsDoNotRequireCreatingA"));
   }
-  if (!sessionHasPermission(approver, "server:ssh")) throw new ForbiddenError(t("backend.ai.missingPermissionServerSsh"));
+  const missing = missingHostedPermission(approver, action.actionType);
+  if (missing) throw new ForbiddenError(t("backend.ai.permissionDenied.required", { permission: missing }));
   if (!action.serverId) throw new BusinessError(t("backend.ai.noTargetVpsBoundCannotCreateCommandRequest"));
 
   const params = JSON.parse(action.params) as Record<string, unknown>;
@@ -711,8 +792,7 @@ export async function approveHostedAction(actionId: string, approver: HostedActi
       },
     );
   } catch (error) {
-    await recordArtifactCreationError(action, error);
-    throw error;
+    return recordArtifactCreationError(action, error);
   }
 
   await persistHostedArtifact(action, commandArtifact(request));
@@ -756,7 +836,8 @@ export async function confirmHostedAction(actionId: string, requester: HostedAct
     return;
   }
 
-  if (!sessionHasPermission(requester, "server:ssh")) throw new ForbiddenError(t("backend.ai.missingPermissionServerSsh"));
+  const missing = missingHostedPermission(requester, action.actionType);
+  if (missing) throw new ForbiddenError(t("backend.ai.permissionDenied.required", { permission: missing }));
   if (!action.serverId) throw new BusinessError(t("backend.ai.noTargetVpsBoundCannotCreateCommandRequest"));
 
   const commandRequestPayload = await buildAssistantCommandRequestPayload({
@@ -781,8 +862,7 @@ export async function confirmHostedAction(actionId: string, requester: HostedAct
       { ...requester, currentTeamId: requester.currentTeamId ?? null },
     );
   } catch (error) {
-    await recordArtifactCreationError(action, error);
-    throw error;
+    return recordArtifactCreationError(action, error);
   }
 
   await persistHostedArtifact(action, commandArtifact(request));
@@ -797,52 +877,81 @@ export async function rejectHostedAction(actionId: string, actor: HostedActionSe
   const where = canApprove
     ? { id: actionId, status: "PENDING_APPROVAL" as const, ...approvalScope }
     : { id: actionId, status: "PENDING_APPROVAL" as const, requesterId: actor.userId, ...approvalScope };
-  const claimed = await prisma.aiHostedAction.updateMany({
-    where,
-    data: {
-      status: "REJECTED",
-      approverId: actor.userId,
-      errorMessage:
-        reason ||
-        t(
-          canApprove
-            ? "backend.ai.approvalRejected"
-            : "backend.ai.confirmationCancelled",
-        ),
-    },
-  });
-  if (claimed.count === 0) {
-    const action = await prisma.aiHostedAction.findFirst({
-      where: canApprove
-        ? { id: actionId, ...approvalScope }
-        : { id: actionId, requesterId: actor.userId },
+  return withHostedToolWrite(actionId, async (tx) => {
+    const claimed = await tx.aiHostedAction.updateMany({
+      where,
+      data: {
+        status: "REJECTED",
+        approverId: actor.userId,
+        errorMessage:
+          reason ||
+          t(
+            canApprove
+              ? "backend.ai.approvalRejected"
+              : "backend.ai.confirmationCancelled",
+          ),
+      },
     });
-    if (!action) {
-      if (canApprove) throw new NotFoundError(t("backend.ai.actionNotFoundOrNotAuthorizedToApprove"));
-      throw new NotFoundError(t("backend.ai.actionNotFoundOrNotAuthorizedToCancel"));
+    if (claimed.count === 0) {
+      const action = await tx.aiHostedAction.findFirst({
+        where: canApprove
+          ? { id: actionId, ...approvalScope }
+          : { id: actionId, requesterId: actor.userId },
+      });
+      if (!action) {
+        if (canApprove) throw new NotFoundError(t("backend.ai.actionNotFoundOrNotAuthorizedToApprove"));
+        throw new NotFoundError(t("backend.ai.actionNotFoundOrNotAuthorizedToCancel"));
+      }
+      throw new BusinessError(canApprove ? t("backend.ai.actionIsNotPendingApproval") : t("backend.ai.actionIsNotPendingConfirmation"));
     }
-    throw new BusinessError(canApprove ? t("backend.ai.actionIsNotPendingApproval") : t("backend.ai.actionIsNotPendingConfirmation"));
-  }
-  const action = await prisma.aiHostedAction.findUniqueOrThrow({
-    where: { id: actionId },
+    const action = await tx.aiHostedAction.findUniqueOrThrow({
+      where: { id: actionId },
+    });
+    await persistHostedToolOutcome(action, {
+      success: false,
+      status: "REJECTED",
+      error: action.errorMessage,
+    }, tx);
+    return action;
   });
-  await persistHostedToolOutcome(action, {
-    success: false,
-    status: "REJECTED",
-    error: action.errorMessage,
-  });
-  return action;
 }
 
 // ── 获取待审批操作 ────────────────────────────────────────
 
 export async function getPendingActions(session: HostedActionSession) {
-  return prisma.aiHostedAction.findMany({
+  const actions = await prisma.aiHostedAction.findMany({
     where: { status: "PENDING_APPROVAL", requesterId: session.userId, conversation: { teamId: session.currentTeamId ?? null }, ...teamWhere(sessionForTeamScope(session)!) },
-    include: { server: { select: { id: true, name: true, host: true } }, message: true },
+    include: { message: true },
     orderBy: { createdAt: "desc" },
-    take: 200, // P2: 单用户 PENDING 操作数有限
+    take: 200,
   });
+  return actions.map(withHostedServerSnapshot);
+}
+
+/** Hold the saved definition stable from target comparison until its worker snapshot commits. */
+async function queueReviewedPlaybook(playbookId: string, targets: unknown, actionId: string, actor: HostedActionSession) {
+  const { assertPlaybookCommandStepsInScope } = await import("@/lib/playbook/service");
+  const { queuePlaybookRunWithClient } = await import("@/lib/playbook/run-queue");
+  const { auditUserAction } = await import("@/lib/audit/service");
+  const session = { ...actor, currentTeamId: actor.currentTeamId ?? null };
+  const { run, teamId, stepCount } = await prisma.$transaction(async (tx) => {
+    await lockForTransaction(tx, "playbook-lifecycle", playbookId);
+    await tx.$queryRaw`SELECT id FROM playbooks WHERE id = ${playbookId} FOR SHARE`;
+    const playbook = await tx.playbook.findFirst({
+      where: { id: playbookId, enabled: true, ...playbookTeamWhere(session) },
+      select: { id: true, name: true, steps: true, chainRetry: true, createdById: true, teamId: true },
+    });
+    if (!playbook || !Array.isArray(playbook.steps) || JSON.stringify(targets) !== JSON.stringify(playbookTargets(playbook.steps))) {
+      throw new BusinessError(t("backend.ai.automationProposalChanged"));
+    }
+    const steps = playbook.steps as unknown as PlaybookStep[];
+    await assertPlaybookCommandStepsInScope(steps, session);
+    const queued = await queuePlaybookRunWithClient({ client: tx, playbook: { ...playbook, steps }, dryRun: false,
+      createdById: actor.userId, triggerKey: "ai-hosted-action:" + actionId, triggerContext: { source: "ai_hosted_action", hostedActionId: actionId } });
+    return { run: queued.run, teamId: playbook.teamId, stepCount: steps.length };
+  });
+  await auditUserAction(actor.userId, "playbook.run", { playbookId, runId: run.id, dryRun: false, status: run.status, stepCount }, undefined, teamId);
+  return run;
 }
 
 /**
@@ -863,15 +972,23 @@ async function runPlaybookHostedAction(
   const playbook = await resolvePlaybookId(params, actor);
   if (!playbook) throw new BusinessError(t("backend.ai.playbookNotFoundOrOutsideTeamScope"));
 
+  if (!Array.isArray(params.targetServerIds) && (params.serverId || params.serverQuery || action.serverId)) {
+    throw new BusinessError(t("backend.ai.automationProposalChanged"));
+  }
+  if (params.targetServerIds && JSON.stringify(params.targetServerIds) !== JSON.stringify(playbookTargets(playbook.steps))) {
+    throw new BusinessError(t("backend.ai.automationProposalChanged"));
+  }
   const claimed = await claimPendingHostedAction(action, actor, actionScope, "APPROVED");
   if (claimed.count === 0) {
     throw new BusinessError(t("backend.ai.actionIsNotPendingConfirmationMayHaveJust"));
   }
 
   const { runPlaybook } = await import("@/lib/playbook/service");
-  let run: Awaited<ReturnType<typeof runPlaybook>>;
+  let run: { id: string; status: string };
   try {
-    run = await runPlaybook({
+    run = Array.isArray(params.targetServerIds)
+      ? await queueReviewedPlaybook(playbook.id, params.targetServerIds, action.id, actor)
+      : await runPlaybook({
       playbookId: playbook.id,
       dryRun: false,
       createdById: actor.userId,
@@ -882,12 +999,10 @@ async function runPlaybookHostedAction(
       triggerContext: {
         source: "ai_hosted_action",
         hostedActionId: action.id,
-        serverId: typeof params.serverId === "string" ? params.serverId : action.serverId,
       },
     });
   } catch (error) {
-    await recordArtifactCreationError(action, error);
-    throw error;
+    return recordArtifactCreationError(action, error);
   }
   await persistHostedArtifact(action, playbookArtifact(playbook.id, playbook.name, run));
 }

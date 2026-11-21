@@ -104,11 +104,17 @@ describe("AiClient destructive actions", () => {
     mockAiFetches();
   });
 
+  it("keeps provider controls out of a chat-only workspace", () => {
+    render(<AiClient userId="user-1" initialProviders={[provider]} initialConversations={[]} canManageProviders={false} />);
+    expect(screen.queryByRole("button", { name: "提供商管理" })).not.toBeInTheDocument();
+    expect(screen.queryByRole("button", { name: /编辑提供商|添加提供商/ })).not.toBeInTheDocument();
+  });
+
   it("uses an in-app dialog before deleting a conversation instead of a browser confirm", async () => {
     const user = userEvent.setup();
     const confirmSpy = vi.spyOn(window, "confirm");
 
-    render(<AiClient userId="user-1" initialProviders={[provider]} initialConversations={[conversation]} />);
+    render(<AiClient canManageProviders userId="user-1" initialProviders={[provider]} initialConversations={[conversation]} />);
 
     await user.click(screen.getByText("生产排障助手"));
     await screen.findByText(/OpenAI · gpt-4o-mini/);
@@ -148,7 +154,7 @@ describe("AiClient destructive actions", () => {
       return {};
     });
 
-    render(<AiClient userId="user-1" initialProviders={[provider]} initialConversations={[conversation]} />);
+    render(<AiClient canManageProviders userId="user-1" initialProviders={[provider]} initialConversations={[conversation]} />);
     await user.click(screen.getByText("生产排障助手"));
     await screen.findByText(/OpenAI · gpt-4o-mini/);
 
@@ -167,7 +173,7 @@ describe("AiClient destructive actions", () => {
     const user = userEvent.setup();
     const promptSpy = vi.spyOn(window, "prompt");
 
-    render(<AiClient userId="user-1" initialProviders={[provider]} initialConversations={[conversation]} />);
+    render(<AiClient canManageProviders userId="user-1" initialProviders={[provider]} initialConversations={[conversation]} />);
     await user.click(screen.getByText("生产排障助手"));
     await screen.findByText(/OpenAI · gpt-4o-mini/);
     await user.click(screen.getByRole("button", { name: "重命名" }));
@@ -193,7 +199,7 @@ describe("AiClient destructive actions", () => {
     const user = userEvent.setup();
     vi.mocked(csrfFetch).mockResolvedValue({});
 
-    render(<AiClient userId="user-1" initialProviders={[]} initialConversations={[]} />);
+    render(<AiClient canManageProviders userId="user-1" initialProviders={[]} initialConversations={[]} />);
 
     await user.click(screen.getAllByRole("button", { name: "新对话" })[0]!);
 
@@ -211,7 +217,7 @@ describe("AiClient destructive actions", () => {
     const user = userEvent.setup();
     const confirmSpy = vi.spyOn(window, "confirm");
 
-    render(<AiClient userId="user-1" initialProviders={[provider]} initialConversations={[conversation]} />);
+    render(<AiClient canManageProviders userId="user-1" initialProviders={[provider]} initialConversations={[conversation]} />);
 
     await user.click(screen.getByRole("button", { name: "提供商管理" }));
     await user.click(screen.getByRole("button", { name: "删除提供商 OpenAI" }));
@@ -274,7 +280,7 @@ describe("AiClient destructive actions", () => {
       return {};
     });
 
-    render(<AiClient userId="user-1" initialProviders={[provider]} initialConversations={[conversation]} />);
+    render(<AiClient canManageProviders userId="user-1" initialProviders={[provider]} initialConversations={[conversation]} />);
     await user.click(screen.getByText("生产排障助手"));
     await screen.findByText(/OpenAI · gpt-4o-mini/);
     await user.type(screen.getByPlaceholderText(/输入消息/), "重启 nginx");
@@ -404,7 +410,7 @@ describe("AiClient destructive actions", () => {
       return {};
     });
 
-    render(<AiClient userId="user-1" initialProviders={[provider]} initialConversations={[conversation]} />);
+    render(<AiClient canManageProviders userId="user-1" initialProviders={[provider]} initialConversations={[conversation]} />);
     await user.click(screen.getByText("生产排障助手"));
     await screen.findByText(/OpenAI · gpt-4o-mini/);
     await user.type(screen.getByPlaceholderText(/输入消息/), "检查磁盘");

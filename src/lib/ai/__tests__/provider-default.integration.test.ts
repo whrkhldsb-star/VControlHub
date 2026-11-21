@@ -9,7 +9,9 @@ vi.mock("@/lib/crypto/service", () => ({
 }));
 
 import { prisma } from "@/lib/db";
-import { createProvider, updateProvider } from "../service-crud";
+import { serializeProvider } from "../service-serialize";
+import { providerConfigurationVersion } from "../ops/provider-binding";
+import { createProvider, getProviderById, listChatProviders, listProviders, updateProvider } from "../service-crud";
 
 /**
  * Moving the default flag and the write it belongs to are one transaction:
@@ -38,6 +40,35 @@ describe.skipIf(process.env.RUN_DATABASE_INTEGRATION_TESTS !== "1")("AI provider
 
   const currentDefault = async () =>
     (await prisma.aiProvider.findMany({ where: { createdBy: userId, isDefault: true }, select: { id: true } })).map((row) => row.id);
+
+  it("migrates short plaintext keys while exposing only a fixed configured marker", async () => {
+    const legacy = await prisma.aiProvider.create({ data: { name: "Legacy", apiKey: "old!", createdBy: userId, enabled: false } });
+    expect(serializeProvider(legacy).apiKey).toBe("••••••••");
+    const row = (await listProviders(userId)).find((p) => p.id === legacy.id)!;
+    expect(row.apiKey).toBe("enc:old!");
+    expect(providerConfigurationVersion({ ...legacy, apiKey: row.apiKey })).toBe(providerConfigurationVersion(legacy));
+    expect((await prisma.aiProvider.findUniqueOrThrow({ where: { id: row.id } })).apiKey).toBe(row.apiKey);
+    expect(serializeProvider(await getProviderById(row.id, userId)).apiKey).toBe("••••••••");
+    const choices = await listChatProviders(userId);
+    expect(choices.length).toBeGreaterThan(0);
+    expect(choices.some((p) => p.id === legacy.id)).toBe(false);
+    for (const choice of choices) expect(Object.keys(choice).sort()).toEqual(["availableModels", "defaultModel", "enabled", "id", "isDefault", "name", "type"]);
+  });
+
+  it("preserves valid settings on blank PATCH and closes keyless endpoint transitions", async () => {
+    for (const patch of [{ name: "   " }, { apiKey: "   " }]) await expect(updateProvider(defaultId, userId, patch)).rejects.toThrow();
+    expect(await getProviderById(defaultId, userId)).toMatchObject({ name: "Main", apiKey: "enc:sk-main" });
+    vi.stubEnv("AI_PROVIDER_PRIVATE_HOSTS", "localhost");
+    try {
+      const local = await createProvider({ name: "Local", apiKey: "", type: "OPENAI_COMPATIBLE", baseUrl: "http://localhost:11434/v1", createdBy: userId });
+      expect(local.apiKey).toBe("");
+      await expect(updateProvider(local.id, userId, { baseUrl: "http://localhost:11434/other" })).rejects.toThrow();
+      await expect(updateProvider(local.id, userId, { baseUrl: "https://example.com/v1" })).rejects.toThrow();
+      expect(await updateProvider(local.id, userId, { baseUrl: "https://example.com/v1", apiKey: "next" })).toMatchObject({ apiKey: "enc:next" });
+    } finally {
+      vi.unstubAllEnvs();
+    }
+  });
 
   it("keeps the default when a new default provider is refused for a taken name", async () => {
     await expect(createProvider({ name: "Spare", apiKey: "sk-x", isDefault: true, createdBy: userId }))

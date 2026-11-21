@@ -22,10 +22,10 @@ import { withApiRoute } from "@/lib/http/api-guard";
 import { GENERAL_READ_LIMIT, GENERAL_WRITE_LIMIT } from "@/lib/http/rate-limit-presets";
 import { AI_OPS_DEFAULT_SCHEDULE_HOUR } from "@/lib/ai/ops/types";
 import { aiOpsModeSettingSchema } from "@/lib/ai/ops/schema";
-import { getSetting, setManySettings } from "@/lib/settings/service";
+import { setManySettings } from "@/lib/settings/service";
 import { assertAiOpsPlatformReader } from "@/lib/ai/ops/authorization";
 import { auditUserAction } from "@/lib/audit/service";
-import { prepareAiOpsProviderBinding } from "@/lib/ai/ops/provider-binding";
+import { prepareAiOpsProviderBinding, readAiOpsSettings } from "@/lib/ai/ops/provider-binding";
 
 export const dynamic = "force-dynamic";
 
@@ -42,8 +42,7 @@ export async function GET(request: Request) {
 		},
 		async ({ session }) => {
 			assertAiOpsPlatformReader(session);
-			const mode = await getSetting("ai.ops.mode");
-			const providerId = await getSetting("ai.ops.provider");
+			const { mode, providerId } = await readAiOpsSettings();
 			return NextResponse.json({
 				mode: mode === "autonomous" ? "autonomous" : "recommendation",
 				providerId: providerId.trim() ? providerId : null,
@@ -67,8 +66,7 @@ export async function PATCH(request: Request) {
 			// AI-ops settings affect fleet-wide scans and are platform-admin only,
 			// even when a custom role has been granted the manage permission.
 			assertAiOpsPlatformReader(session);
-			const previousMode = await getSetting("ai.ops.mode");
-			const previousProvider = await getSetting("ai.ops.provider");
+			const { mode: previousMode, providerId: previousProvider } = await readAiOpsSettings();
 
 			// Provider is optional; if omitted, leave the stored value untouched.
 			const providerChanged =
@@ -116,7 +114,7 @@ export async function PATCH(request: Request) {
 						? { from: previousProvider, to: body.providerId ?? null }
 						: null,
 				},
-			undefined, session.currentTeamId);
+			undefined, null);
 
 			return NextResponse.json({
 				mode: body.mode,

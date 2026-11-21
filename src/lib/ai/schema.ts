@@ -1,3 +1,4 @@
+import { isLocalOllamaEndpoint } from "./provider-endpoint";
 import { z } from "zod";
 import {
   aiOpsModeSchema,
@@ -56,23 +57,25 @@ const MAX_PROVIDER_MODELS = 10_000;
 const MAX_PROVIDER_MODELS_TEXT = 400_000;
 
 export const createProviderSchema = z.object({
-  name: z.string().min(1, "Provider name is required").max(128, "Provider name is too long"),
+  name: z.string().trim().min(1, "Provider name is required").max(128, "Provider name is too long"),
   type: aiProviderTypeSchema.optional(),
-  apiKey: z.string().min(1, "API Key is required"),
+  apiKey: z.string().trim().default(""),
   baseUrl: z.string().trim().max(2048, "Base URL is too long").optional(),
   models: z.string().trim().max(MAX_PROVIDER_MODELS_TEXT, "Model list is too long").optional(),
   availableModels: z.array(z.string().trim().min(1).max(256)).max(MAX_PROVIDER_MODELS, "Too many models").optional(),
   defaultModel: z.string().trim().min(1).max(128).optional(),
   isDefault: z.boolean().optional(),
   enabled: z.boolean().optional(),
+}).refine((value) => Boolean(value.apiKey) || isLocalOllamaEndpoint(value.baseUrl, value.type), {
+  path: ["apiKey"], message: "API Key is required",
 });
 
 // PATCH /api/ai/providers/[id] body. All fields optional; empty body is
 // allowed (the service layer will treat it as a no-op).
 export const updateProviderSchema = z.object({
-  name: z.string().min(1).max(128).optional(),
+  name: z.string().trim().min(1).max(128).optional(),
   type: aiProviderTypeSchema.optional(),
-  apiKey: z.string().min(1).optional(),
+  apiKey: z.string().trim().min(1).optional(),
   baseUrl: z.string().trim().max(2048).optional(),
   models: z.string().trim().max(MAX_PROVIDER_MODELS_TEXT).optional(),
   availableModels: z.array(z.string().trim().min(1).max(256)).max(MAX_PROVIDER_MODELS).optional(),
@@ -133,9 +136,11 @@ export const aiModelsQuerySchema = z.object({
 export const probeModelsSchema = z.object({
   // The provider panel sends it; dropping it made every probe use Bearer auth.
   type: aiProviderTypeSchema.optional(),
-  apiKey: z.string().min(1, "Missing API Key"),
+  apiKey: z.string().trim().default(""),
   baseUrl: z.string().trim().max(2048, "Base URL is too long").optional(),
   defaultModel: z.string().trim().min(1).max(128).optional(),
+}).refine((value) => Boolean(value.apiKey) || isLocalOllamaEndpoint(value.baseUrl, value.type), {
+  path: ["apiKey"], message: "Missing API Key",
 });
 
 // POST /api/ai/chat body. The caller sends either `message` (newer clients)
@@ -165,7 +170,7 @@ export const chatRequestSchema = z
     content: z.string().max(64_000, "Message is too long").optional(),
     model: z.string().trim().min(1).max(128).optional(),
     providerId: z.string().trim().min(1).max(128).optional(),
-    imageUrls: z.array(z.string().trim().url()).max(8).optional(),
+    imageUrls: z.array(z.string().trim().max(2048).pipe(z.url({ protocol: /^https?$/ }))).max(8).optional(),
     imageBase64: z
       .array(
         z.object({

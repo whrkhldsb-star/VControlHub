@@ -1,5 +1,5 @@
 import { getPermissionsFromRoles, sessionHasPermission } from "@/lib/auth/authorization";
-import { permissionDeniedMessage, requiredPermissionForAction } from "./hosted-helpers";
+import { missingHostedPermission } from "./hosted-helpers";
 import type { SessionPayload } from "@/lib/auth/session";
 import { prisma } from "@/lib/db";
 import { AppError, ForbiddenError, NotFoundError } from "@/lib/errors";
@@ -17,7 +17,10 @@ import {
   parseToolCall,
 } from "./hosted-service";
 import { getOpenAIToolsFormat, toolAvailableInMode } from "./hosted-tools";
-import { buildKnowledgeContextForPrompt } from "./knowledge";
+import { finishChatGeneration, withChatGeneration } from "./chat-generation";
+import { AiProviderHttpError } from "./provider-errors";
+import { aiHttpErrorMessage } from "./provider-http";
+import { buildKnowledgeContextForPrompt, type KnowledgeBudget } from "./knowledge";
 import type { ChatRequestBody } from "./schema";
 import { createMessage, getConversationById, sendChatRequest } from "./service";
 import { detectModelCapabilities } from "./service-runtime";
@@ -33,6 +36,7 @@ const encoder = new TextEncoder();
 const PRIMARY_STREAM_IDLE_TIMEOUT_MS = 90_000;
 /** Tool rounds per message (A7-02); the final round answers in text. */
 const MAX_TOOL_ROUNDS = 5;
+const MAX_ANSWER_TOOL_CALLS = 32;
 const TOOL_FOLLOW_UP_IDLE_TIMEOUT_MS = 60_000;
 const STREAM_TOTAL_TIMEOUT_MS = 10 * 60_000;
 
@@ -128,6 +132,9 @@ async function currentHostedSession(input: HostedStreamIdentity & { locale: Loca
 }
 
 async function processHostedTools(input: HostedStreamIdentity & {
+  signal: AbortSignal;
+  userMessageId: string;
+  knowledgeBudget: KnowledgeBudget;
   toolCalls: AiToolCall[];
   conversationId: string;
   assistantMessageId: string;
@@ -145,16 +152,22 @@ async function processHostedTools(input: HostedStreamIdentity & {
   const runnableCalls = parsedCalls.filter((call) => !blockedCalls.includes(call));
 
   const results: ToolResult[] = [];
-  const revalidate = async () => { await currentHostedSession(input); };
+  const revalidate = async () => {
+    input.signal.throwIfAborted();
+    await currentHostedSession(input);
+    await withChatGeneration(input.conversationId, input.userMessageId, async () => undefined);
+    input.signal.throwIfAborted();
+  };
   // A call left without a result broke the thread: providers reject every
   // later request whose history holds an unanswered call. A call to a tool
   // that does not exist, or one that failed before its result was recorded,
   // is answered with the error, which the model then sees.
   const answerWithError = async (toolCallId: string, toolName: string, error: string) => {
     const execution = { success: false, data: null, error };
-    await prisma.aiMessage.create({
+    input.signal.throwIfAborted();
+    await withChatGeneration(input.conversationId, input.userMessageId, (tx) => tx.aiMessage.create({
       data: { conversationId: input.conversationId, role: "tool", content: JSON.stringify(execution), toolCallId },
-    }).catch((recordError) => logger.warn("failed to record a tool call error", {
+    })).catch((recordError) => logger.warn("failed to record a tool call error", {
       toolCallId,
       error: recordError instanceof Error ? recordError.message : String(recordError),
     }));
@@ -173,11 +186,14 @@ async function processHostedTools(input: HostedStreamIdentity & {
   // intentionally sequential rather than a batch or Promise.all.
   for (const { parsed } of runnableCalls) {
     const { tool, args, toolCallId } = parsed;
+    input.signal.throwIfAborted();
     const session = await currentHostedSession(input);
+    input.signal.throwIfAborted();
     // Permission before any row exists (A7-07): an unauthorised call used to
     // leave an APPROVED→FAILED action behind.
-    if (!sessionHasPermission(session, requiredPermissionForAction(tool.actionType))) {
-      await answerWithError(toolCallId, tool.name, permissionDeniedMessage(tool.actionType, input.locale));
+    const missing = missingHostedPermission(session, tool.actionType);
+    if (missing) {
+      await answerWithError(toolCallId, tool.name, t("backend.ai.permissionDenied.required", input.locale, { permission: missing }));
       continue;
     }
     let answered = false;
@@ -186,15 +202,18 @@ async function processHostedTools(input: HostedStreamIdentity & {
       const action = await createHostedAction({
         conversationId: input.conversationId,
         messageId: input.assistantMessageId,
+        userMessageId: input.userMessageId,
         toolCallId,
         tool,
         args,
         userId: session.userId,
         session,
+        signal: input.signal,
         revalidate,
       });
       actionId = action.id;
       const dispatchSession = await currentHostedSession(input);
+      input.signal.throwIfAborted();
       // Creation rechecks the live mode. A rejected proposal must never appear as awaiting approval.
       input.send({
         type: "tool_call",
@@ -211,18 +230,6 @@ async function processHostedTools(input: HostedStreamIdentity & {
       const params = JSON.parse(action.params) as Record<string, unknown>;
 
       if (!tool.autoApproved) {
-        await prisma.aiMessage.create({
-          data: {
-            conversationId: input.conversationId,
-            role: "tool",
-            content: JSON.stringify({
-              actionId: action.id,
-              status: "PENDING_APPROVAL",
-              pendingApproval: true,
-            }),
-            toolCallId,
-          },
-        });
         answered = true;
         input.send({
           type: "tool_approval_needed",
@@ -246,10 +253,10 @@ async function processHostedTools(input: HostedStreamIdentity & {
 
       const execution = await executeSafeAction(
         { actionType: tool.actionType, serverId: action.serverId, params },
-        { session: dispatchSession, locale: input.locale, revalidate },
+        { session: dispatchSession, locale: input.locale, revalidate, signal: input.signal, knowledgeBudget: input.knowledgeBudget },
       );
-      await prisma.$transaction([
-        prisma.aiHostedAction.update({
+      await withChatGeneration(input.conversationId, input.userMessageId, async (tx) => {
+        await tx.aiHostedAction.update({
           where: { id: action.id },
           data: {
             status: execution.success ? "COMPLETED" : "FAILED",
@@ -258,16 +265,17 @@ async function processHostedTools(input: HostedStreamIdentity & {
             executedAt: new Date(),
             completedAt: new Date(),
           },
-        }),
-        prisma.aiMessage.create({
+        });
+        await tx.aiMessage.create({
           data: {
             conversationId: input.conversationId,
+            id: action.id,
             role: "tool",
             content: JSON.stringify(execution),
             toolCallId,
           },
-        }),
-      ]);
+        });
+      });
       answered = true;
       await currentHostedSession(input);
       input.send({
@@ -295,12 +303,28 @@ async function processHostedTools(input: HostedStreamIdentity & {
         // The action row of a call that failed here would otherwise keep
         // showing as approved, never run.
         if (actionId) {
-          await prisma.aiHostedAction.updateMany({
-            where: { id: actionId, status: { in: ["APPROVED", "EXECUTING"] } },
-            data: { status: "FAILED", errorMessage: message.slice(0, 2000), completedAt: new Date() },
-          }).catch(() => undefined);
+          const id = actionId;
+          // Readers of a failed card and providers replaying this turn see the same outcome.
+          // A concurrent confirmation that claimed the card owns its result.
+          await withChatGeneration(input.conversationId, input.userMessageId, async (tx) => {
+            const updated = await tx.aiHostedAction.updateMany({
+              where: { id, status: tool.autoApproved ? "APPROVED" : "PENDING_APPROVAL" },
+              data: { status: "FAILED", errorMessage: message.slice(0, 2000), completedAt: new Date() },
+            });
+            if (!updated.count) return;
+            const content = JSON.stringify({ actionId: id, success: false, status: "FAILED", error: message });
+            await tx.aiMessage.upsert({
+              where: { id }, update: { content },
+              create: { id, conversationId: input.conversationId, role: "tool", content, toolCallId },
+            });
+          });
+          if (!(error instanceof HostedStreamAccessError) && !input.signal.aborted) {
+            input.send({ type: "tool_result", toolCallId, success: false, actionId: id });
+            results.push({ toolCallId, toolName: tool.name, result: { success: false, error: message }, needsApproval: false });
+          }
         }
-        if (!(error instanceof HostedStreamAccessError)) await answerWithError(toolCallId, tool.name, message);
+        input.signal.throwIfAborted();
+        if (!(error instanceof HostedStreamAccessError) && !actionId) await answerWithError(toolCallId, tool.name, message);
       }
       if (error instanceof HostedStreamAccessError) throw error;
     }
@@ -310,6 +334,7 @@ async function processHostedTools(input: HostedStreamIdentity & {
 
 function createStreamingResponse(input: HostedStreamIdentity & {
   signal?: AbortSignal;
+  knowledgeBudget: KnowledgeBudget;
   upstream: Response;
   providerType: string;
   startTime: number;
@@ -408,7 +433,14 @@ function createStreamingResponse(input: HostedStreamIdentity & {
           });
         }
 
-        const assistant = await prisma.aiMessage.create({
+        let remainingCalls = MAX_ANSWER_TOOL_CALLS;
+        function takeCalls(calls: AiToolCall[]) {
+          const accepted = calls.slice(0, remainingCalls);
+          remainingCalls -= accepted.length;
+          return accepted;
+        }
+        result.toolCalls = takeCalls(result.toolCalls);
+        const assistant = await withChatGeneration(input.conversationId, input.userMessageId, (tx) => tx.aiMessage.create({
           data: {
             conversationId: input.conversationId,
             role: "assistant",
@@ -424,13 +456,14 @@ function createStreamingResponse(input: HostedStreamIdentity & {
             outputTokens: result.outputTokens,
             latencyMs: Date.now() - input.startTime,
           },
-        });
+        }));
         assistantPersisted = true;
         // Partial text is useful history, but an interrupted tool request must
         // never execute or leave an unanswered tool call in the next prompt.
         if (result.readError || cancelled) return;
         const toolResults = input.hostingEnabled
           ? await processHostedTools({
+              signal: abortController.signal, userMessageId: input.userMessageId, knowledgeBudget: input.knowledgeBudget,
               toolCalls: result.toolCalls,
               conversationId: input.conversationId,
               assistantMessageId: assistant.id,
@@ -469,11 +502,14 @@ function createStreamingResponse(input: HostedStreamIdentity & {
           pendingResults.every((toolResult) => !toolResult.needsApproval)
         ) {
           rounds += 1;
-          const lastRound = rounds >= MAX_TOOL_ROUNDS;
+          const lastRound = rounds >= MAX_TOOL_ROUNDS || remainingCalls === 0;
           let followUpPersisted = false;
           let nextCalls: typeof result.toolCalls = [];
           let nextResults: typeof toolResults = [];
+          abortController.signal.throwIfAborted();
           await currentHostedSession(input);
+          await withChatGeneration(input.conversationId, input.userMessageId, async () => undefined);
+          abortController.signal.throwIfAborted();
           try {
             const followUp = await sendChatRequest(
               {
@@ -488,7 +524,7 @@ function createStreamingResponse(input: HostedStreamIdentity & {
                 stream: true,
                 tools: lastRound || !input.hostingEnabled
                   ? undefined
-                  : getOpenAIToolsFormat(input.automationMode, (tool) => sessionHasPermission(input.session, requiredPermissionForAction(tool.actionType))),
+                  : getOpenAIToolsFormat(input.automationMode, (tool) => !missingHostedPermission(input.session, tool.actionType)),
               },
               input.session.userId,
               abortController.signal,
@@ -502,9 +538,9 @@ function createStreamingResponse(input: HostedStreamIdentity & {
                 idleTimeoutMs: TOOL_FOLLOW_UP_IDLE_TIMEOUT_MS,
                 totalTimeoutMs: STREAM_TOTAL_TIMEOUT_MS,
               });
-              const calls = followUpResult.readError ? [] : followUpResult.toolCalls;
+              const calls = lastRound || followUpResult.readError ? [] : takeCalls(followUpResult.toolCalls);
               if (followUpResult.content || followUpResult.reasoning || calls.length > 0) {
-                const row = await prisma.aiMessage.create({
+                const row = await withChatGeneration(input.conversationId, input.userMessageId, (tx) => tx.aiMessage.create({
                   data: {
                     conversationId: input.conversationId,
                     role: "assistant",
@@ -518,11 +554,12 @@ function createStreamingResponse(input: HostedStreamIdentity & {
                     outputTokens: followUpResult.outputTokens,
                     latencyMs: Date.now() - followUp.startTime,
                   },
-                });
+                }));
                 followUpPersisted = Boolean(followUpResult.content || followUpResult.reasoning);
                 if (calls.length > 0) {
                   nextCalls = calls;
                   nextResults = await processHostedTools({
+                    signal: abortController.signal, userMessageId: input.userMessageId, knowledgeBudget: input.knowledgeBudget,
                     toolCalls: calls,
                     conversationId: input.conversationId,
                     assistantMessageId: row.id,
@@ -549,6 +586,7 @@ function createStreamingResponse(input: HostedStreamIdentity & {
                 (finalOutputTokens ?? 0) + (followUpResult.outputTokens ?? 0);
             }
           } catch (error) {
+            abortController.signal.throwIfAborted();
             if (error instanceof HostedStreamAccessError) throw error;
             logger.warn(
               "AI tool follow-up failed; keeping completed tool result",
@@ -562,7 +600,7 @@ function createStreamingResponse(input: HostedStreamIdentity & {
           if (!followUpPersisted) {
             const fallback = toolResultFallback(pendingResults, input.locale);
             send({ type: "content", content: fallback });
-            await prisma.aiMessage.create({
+            await withChatGeneration(input.conversationId, input.userMessageId, (tx) => tx.aiMessage.create({
               data: {
                 conversationId: input.conversationId,
                 role: "assistant",
@@ -570,7 +608,7 @@ function createStreamingResponse(input: HostedStreamIdentity & {
                 model: input.model,
                 latencyMs: Date.now() - input.startTime,
               },
-            });
+            }));
           }
           pendingCalls = nextCalls;
           pendingResults = nextResults;
@@ -620,7 +658,7 @@ function createStreamingResponse(input: HostedStreamIdentity & {
         });
       } finally {
         input.signal?.removeEventListener("abort", onRequestAbort);
-        close();
+        try { await finishChatGeneration(input.conversationId, input.userMessageId); } finally { close(); }
       }
     },
     cancel() {
@@ -635,24 +673,26 @@ function createStreamingResponse(input: HostedStreamIdentity & {
       "Content-Type": "text/event-stream",
       "Cache-Control": "no-cache",
       Connection: "keep-alive",
+      "X-AI-User-Message-Id": input.userMessageId,
     },
   });
 }
 
 async function persistInterruptedAssistant(input: {
   conversationId: string;
+  userMessageId: string;
   model: string;
   locale: Locale;
 }) {
   try {
-    await prisma.aiMessage.create({
+    await withChatGeneration(input.conversationId, input.userMessageId, (tx) => tx.aiMessage.create({
       data: {
         conversationId: input.conversationId,
         role: "assistant",
         content: t("apiAiChat.streamInterrupted", input.locale),
         model: input.model,
       },
-    });
+    }));
     return true;
   } catch (error) {
     logger.error("Failed to persist interrupted AI message", error, {
@@ -707,10 +747,13 @@ export async function createAiChatResponse(input: HostedStreamIdentity & {
   const userMessage = await createMessage({
     conversationId: conversation.id,
     role: "user",
+    expectedUpdatedAt: conversation.updatedAt,
     content: payload.persistedText,
+    attachmentMetadata: payload.attachmentMetadata,
     imageUrls: payload.allImageUrls,
   });
 
+  const knowledgeBudget: KnowledgeBudget = { seen: new Set() };
   const messages = [...payload.historyMessages];
   if (
     conversation.hostingEnabled &&
@@ -725,6 +768,7 @@ export async function createAiChatResponse(input: HostedStreamIdentity & {
   try {
     const { context } = await buildKnowledgeContextForPrompt({
       query: payload.userText,
+      budget: knowledgeBudget,
       session: input.session,
     });
     if (context) insertKnowledgeContext(messages, context);
@@ -754,7 +798,7 @@ export async function createAiChatResponse(input: HostedStreamIdentity & {
         // Only tools this account may use are offered (A7-07): a viewer without
         // server:ssh was otherwise sent read tools, called them, and got "no permission".
         tools: conversation.hostingEnabled
-          ? getOpenAIToolsFormat(conversation.automationMode, (tool) => sessionHasPermission(input.session, requiredPermissionForAction(tool.actionType)))
+          ? getOpenAIToolsFormat(conversation.automationMode, (tool) => !missingHostedPermission(input.session, tool.actionType))
           : undefined,
       },
       input.session.userId,
@@ -763,6 +807,7 @@ export async function createAiChatResponse(input: HostedStreamIdentity & {
     return createStreamingResponse({
       signal: input.signal,
       upstream: chat.response,
+      knowledgeBudget,
       providerType: chat.providerType,
       startTime: chat.startTime,
       conversationId: conversation.id,
@@ -783,13 +828,19 @@ export async function createAiChatResponse(input: HostedStreamIdentity & {
     });
   } catch (error) {
     await removeOrphanUserMessage(userMessage.id, conversation.id);
+    if (error instanceof AppError) throw error;
+    if (error instanceof AiProviderHttpError) {
+      throw new AppError({
+        code: error.status === 429 ? "RATE_LIMITED" : "EXTERNAL_SERVICE_ERROR",
+        status: error.status === 429 ? 429 : 502,
+        message: aiHttpErrorMessage(error.status, "", "chat"),
+        details: { providerStatus: error.status, category: error.failureKind },
+      });
+    }
     throw new AppError({
-      code: "INTERNAL_ERROR",
-      message: getErrorMessage(
-        error,
-        t("apiAiChat.requestFailedFallback", input.locale),
-      ),
-      status: 500,
+      code: "EXTERNAL_SERVICE_ERROR",
+      message: t("apiAiChat.requestFailedFallback", input.locale),
+      status: 502,
     });
   }
 }

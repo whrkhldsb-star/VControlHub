@@ -251,3 +251,12 @@ describe("provider model lists", () => {
     expect(updateProviderSchema.safeParse({ availableModels: Array.from({ length: 10_001 }, (_, i) => `m${i}`) }).success).toBe(false);
   });
 });
+
+it("limits durable image URLs to bounded HTTP(S) addresses and rejects blank provider patches", async () => {
+  const { chatRequestSchema, updateProviderSchema } = await import("../schema");
+  for (const url of ["data:image/png;base64,AA", "file:///tmp/photo", "https://example.test/" + "a".repeat(2048)]) {
+    expect(chatRequestSchema.safeParse({ content: "picture", imageUrls: [url] }).success).toBe(false);
+  }
+  expect(chatRequestSchema.safeParse({ content: "picture", imageUrls: ["https://example.test/a"] }).success).toBe(true);
+  for (const value of [{ apiKey: "  " }, { name: "\t" }]) expect(updateProviderSchema.safeParse(value).success).toBe(false);
+});

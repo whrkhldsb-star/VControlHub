@@ -33,10 +33,12 @@ const mocks = vi.hoisted(() => ({
 	getScheduledTask: vi.fn(),
 	toggleScheduledTask: vi.fn(),
 	listTemplates: vi.fn(),
+	queryTemplates: vi.fn(),
 }));
 
 vi.mock("@/lib/db", () => ({
 	prisma: {
+		$queryRaw: mocks.queryTemplates,
 		server: { findMany: mocks.serverFindMany },
 		backupRecord: { findMany: mocks.backupFindMany },
 		trafficSnapshot: { aggregate: mocks.trafficAggregate, findFirst: mocks.trafficFindFirst },
@@ -48,7 +50,7 @@ vi.mock("@/lib/scheduled-task/service", () => ({
 	getScheduledTask: mocks.getScheduledTask,
 	toggleScheduledTask: mocks.toggleScheduledTask,
 }));
-vi.mock("@/lib/command-template/service", () => ({ listTemplates: mocks.listTemplates }));
+vi.mock("@/lib/command-template/service", () => ({ listTemplates: mocks.listTemplates, seedBuiltinTemplates: vi.fn() }));
 
 import { executeServerlessQuery } from "../hosted-safe-queries";
 
@@ -299,19 +301,20 @@ describe("executeServerlessQuery", () => {
 			expect(res.data.tasks[0]!.lastResult).toHaveLength(200);
 		});
 
-		it("passes the scope to the template service and filters by query client-side", async () => {
+		it("passes the scope to the template service and filters in the scoped database query before LIMIT", async () => {
 			mocks.listTemplates.mockResolvedValue([
 				{ id: "c1", name: "restart nginx", description: null, command: "systemctl restart nginx", rollbackCommand: null, variables: [], tags: ["web"], isBuiltin: true },
 				{ id: "c2", name: "disk usage", description: null, command: "df -h", rollbackCommand: null, variables: [], tags: [], isBuiltin: true },
 			]);
 			await call("list_command_templates");
 			expect(mocks.listTemplates).toHaveBeenCalledWith(100, operator);
+			mocks.queryTemplates.mockResolvedValue([{ id: "c1" }]);
 			const res = (await call("list_command_templates", { query: "NGINX" })) as { data: { count: number } };
 			expect(res.data.count).toBe(1);
 		});
 
 		it("matches the query against tags as well as the name", async () => {
-			mocks.listTemplates.mockResolvedValue([
+			mocks.queryTemplates.mockResolvedValue([
 				{ id: "c1", name: "restart", description: null, command: "x", rollbackCommand: null, variables: [], tags: ["web"], isBuiltin: true },
 			]);
 			const res = (await call("list_command_templates", { query: "web" })) as { data: { count: number } };

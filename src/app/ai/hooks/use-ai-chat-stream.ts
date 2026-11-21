@@ -38,6 +38,7 @@ import type {
   ToolCallEvent,
 } from "../ai-types";
 import type { ToastFn } from "@/components/toast-provider";
+import { CHAT_REQUEST_MAX_BODY_BYTES, chatRequestSchema } from "@/lib/ai/schema";
 import { randomId } from "@/lib/ui/random-id";
 
 
@@ -73,7 +74,7 @@ export function useAiChatStream({
   refreshConversations,
   addToast,
 }: Args) {
-  const { t } = useI18n();
+  const { t, locale } = useI18n();
   const activeConvIdRef = useRef(activeConvId);
   const [streaming, setStreaming] = useState(false);
   const [streamContent, setStreamContent] = useState("");
@@ -87,15 +88,22 @@ export function useAiChatStream({
   const [approvalBusyById, setApprovalBusyById] = useState<
     Record<string, boolean>
   >({});
+  const generation = useRef(0);
+  const lastRequest = useRef<{ conversationId: string; messageId: string | null; args: SendArgs } | null>(null);
   const abortControllerRef = useRef<AbortController | null>(null);
   const approvalBusyRef = useRef<Set<string>>(new Set());
 
+  const invalidateGeneration = useCallback(() => {
+    generation.current++;
+    abortControllerRef.current?.abort();
+    abortControllerRef.current = null;
+  }, []);
+
   useEffect(() => {
     activeConvIdRef.current = activeConvId;
-    return () => {
-      abortControllerRef.current?.abort();
-    };
-  }, [activeConvId]);
+    lastRequest.current = null;
+    return invalidateGeneration;
+  }, [activeConvId, invalidateGeneration]);
 
   // Abort in-flight SSE and clear ephemeral stream/approval UI when the
   // user switches conversations (prevents cross-chat content flash).
@@ -111,31 +119,43 @@ export function useAiChatStream({
     approvalBusyRef.current.clear();
   }, [activeConvId]);
 
-  const stopGeneration = useCallback(() => {
-    if (abortControllerRef.current) {
-      abortControllerRef.current.abort();
-      abortControllerRef.current = null;
-    }
+  const resetStream = useCallback(() => {
+    invalidateGeneration();
     setStreaming(false);
+    setStreamContent("");
+    setStreamReasoning("");
+    setStreamSteps([]);
+  }, [invalidateGeneration]);
+
+  const clearConversationStream = useCallback(() => {
+    resetStream();
+    lastRequest.current = null;
+    setPendingApprovals([]);
+  }, [resetStream]);
+
+  const stopGeneration = useCallback(() => {
+    resetStream();
+    const version = generation.current;
     if (activeConvId) {
       const convId = activeConvId;
       csrfFetch(`/api/ai/conversations/${convId}`)
         .then((data) => {
           // The user may have opened another chat while this was in flight:
           // its transcript would then replace that chat's messages.
-          if (convId !== activeConvIdRef.current) return;
+          if (convId !== activeConvIdRef.current || version !== generation.current) return;
           if (data.conversation?.messages)
             setMessages(data.conversation.messages);
         })
-        .catch(() => addToast("error", t("aiPage.stopRefreshFailed")));
+        .catch(() => { if (version === generation.current) addToast("error", t("aiPage.stopRefreshFailed")); });
     }
-  }, [activeConvId, addToast, setMessages, t]);
+  }, [activeConvId, addToast, resetStream, setMessages, t]);
 
   const refreshActiveMessages = useCallback(async () => {
     if (!activeConvId) return;
     const convId = activeConvId;
+    const version = generation.current;
     const data = await csrfFetch(`/api/ai/conversations/${convId}`);
-    if (convId !== activeConvIdRef.current) return;
+    if (convId !== activeConvIdRef.current || version !== generation.current) return;
     if (data.conversation?.messages) setMessages(data.conversation.messages);
   }, [activeConvId, setMessages]);
 
@@ -145,7 +165,7 @@ export function useAiChatStream({
       approvalBusyRef.current.add(approval.actionId);
       setApprovalBusyById((prev) => ({ ...prev, [approval.actionId]: true }));
       try {
-        await csrfFetch(`/api/ai/hosted-actions/${approval.actionId}`, {
+        const decision = await csrfFetch(`/api/ai/hosted-actions/${approval.actionId}`, {
           method: "PATCH",
           headers: { "Content-Type": "application/json" },
           body: JSON.stringify(
@@ -157,18 +177,22 @@ export function useAiChatStream({
         setPendingApprovals((prev) =>
           prev.filter((item) => item.actionId !== approval.actionId),
         );
-        await refreshActiveMessages();
-        addToast(
-          "success",
-          action === "reject"
-            ? t("aiPage.rejected")
-            : approval.actionType === "manage_cron" ||
-                approval.actionType === "run_playbook"
-              ? t("aiPage.confirmed")
-              : t("aiPage.approved"),
-        );
+        const status = decision?.action?.status;
+        if (decision?.success === false || status === "FAILED") {
+          addToast("error", decision?.action?.errorMessage || t("aiPage.opFailed"));
+        } else if (action === "reject") {
+          addToast("success", t("aiPage.rejected"));
+        } else if (status === "EXECUTING" || status === "PENDING_APPROVAL") {
+          addToast("info", t(`aiPage.actionStatus.${status}`));
+        } else {
+          addToast("success", t(status === "APPROVED" ? "aiPage.actionStatus.APPROVED" : "aiPage.confirmed"));
+        }
+        await refreshActiveMessages().catch(() => addToast("error", t("aiPage.historyLoadFailed")));
       } catch (error) {
         addToast("error", getErrorMessage(error, t("aiPage.opFailed")));
+        if (error instanceof ApiError && error.body.accepted === true) {
+          setPendingApprovals((prev) => prev.filter((item) => item.actionId !== approval.actionId));
+        }
         // "Not found" / "no longer pending" (decided in another tab, or by the time limit): the card of a streamed
         // approval stayed for good. The transcript says what became of the action, and the card follows it.
         if (error instanceof ApiError && (error.status === 404 || error.status === 409 || error.status === 422)) {
@@ -187,7 +211,7 @@ export function useAiChatStream({
   );
 
   const sendMessage = useCallback(
-    async (args: SendArgs) => {
+    async (args: SendArgs, onAccepted?: (messageId: string | null) => void) => {
       // `streaming` is state, so it is stale for the whole tick in which the
       // first send was issued — two calls in one tick both pass that check and
       // the second overwrites `abortControllerRef`, orphaning the first stream
@@ -202,6 +226,23 @@ export function useAiChatStream({
       if (!activeConvId || streaming || abortControllerRef.current) return;
       // Pin conversation for this generation so switch-away cannot write into another chat.
       const convIdAtSend = activeConvId;
+      const body = { conversationId: convIdAtSend, ...args };
+      const serialized = JSON.stringify(body);
+      const validated = chatRequestSchema.safeParse(body);
+      if (!validated.success) {
+        const issue = validated.error.issues[0];
+        const categoryLimit = issue?.code === "too_big" && issue.origin === "array";
+        addToast("error", categoryLimit
+          ? (locale === "zh" ? "每类附件每条消息最多可发送 8 个。" : "Each message can include up to 8 attachments of each type.")
+          : issue?.message || t("aiPage.requestFailed"));
+        return;
+      }
+      if (new TextEncoder().encode(serialized).byteLength > CHAT_REQUEST_MAX_BODY_BYTES) {
+        addToast("error", t("aiPage.attachmentTooLarge", { name: t("aiPage.attachmentHint"), limit: 32 }));
+        return;
+      }
+      const version = ++generation.current;
+      const current = () => generation.current === version && activeConvIdRef.current === convIdAtSend;
       const abortController = new AbortController();
       abortControllerRef.current = abortController;
       setStreaming(true);
@@ -221,13 +262,7 @@ export function useAiChatStream({
         const response = await csrfFetch<Response>("/api/ai/chat", {
           method: "POST",
           headers: { "Content-Type": "application/json" },
-          body: JSON.stringify({
-            conversationId: convIdAtSend,
-            content: args.content,
-            imageUrls: args.imageUrls,
-            imageBase64: args.imageBase64,
-            fileAttachments: args.fileAttachments,
-          }),
+          body: serialized,
           signal: abortController.signal,
           raw: true,
         });
@@ -240,6 +275,10 @@ export function useAiChatStream({
             t("aiPage.requestFailed");
           return;
         }
+        if (!current()) return;
+        const messageId = response.headers?.get("X-AI-User-Message-Id") ?? null;
+        lastRequest.current = { conversationId: convIdAtSend, messageId, args };
+        onAccepted?.(messageId);
         const reader = response.body?.getReader();
         if (!reader) {
           terminalError = t("aiPage.requestFailed");
@@ -251,6 +290,7 @@ export function useAiChatStream({
         let finalReasoning = "";
         while (true) {
           const { done, value } = await reader.read();
+          if (!current()) { await reader.cancel(); break; }
           if (done) break;
           buffer += decoder.decode(value, { stream: true });
           const lines = buffer.split("\n");
@@ -331,50 +371,49 @@ export function useAiChatStream({
           terminalError = t("aiPage.networkError");
         }
       } finally {
-        setStreaming(false);
-        setStreamContent("");
-        setStreamReasoning("");
-        setStreamSteps([]);
-        abortControllerRef.current = null;
-        // Drop all transcript writes if the user switched conversations mid-stream.
-        const stillOnSameConv = convIdAtSend === activeConvIdRef.current;
-        if (terminalError) {
-          if (stillOnSameConv && incomplete && (incomplete.content || incomplete.reasoning)) {
-            const partial: Message = {
-              id: `stream-partial-${randomId()}`,
-              conversationId: convIdAtSend,
-              role: "assistant",
-              content: incomplete.content,
-              reasoningContent: incomplete.reasoning || null,
-              imageUrls: "[]",
-              model: activeConv?.model || null,
-              inputTokens: null,
-              outputTokens: null,
-              latencyMs: null,
-              createdAt: new Date().toISOString(),
-            };
-            setMessages((prev) => [...prev, partial]);
-          }
-          if (stillOnSameConv) {
+        if (current()) {
+          setStreaming(false);
+          setStreamContent("");
+          setStreamReasoning("");
+          setStreamSteps([]);
+          abortControllerRef.current = null;
+          // Drop all transcript writes if the user switched conversations mid-stream.
+          if (terminalError) {
+            if (incomplete && (incomplete.content || incomplete.reasoning)) {
+              const partial: Message = {
+                id: `stream-partial-${randomId()}`,
+                conversationId: convIdAtSend,
+                role: "assistant",
+                content: incomplete.content,
+                reasoningContent: incomplete.reasoning || null,
+                imageUrls: "[]",
+                model: activeConv?.model || null,
+                inputTokens: null,
+                outputTokens: null,
+                latencyMs: null,
+                createdAt: new Date().toISOString(),
+              };
+              setMessages((prev) => [...prev, partial]);
+            }
             const errorMsg = streamErrorMessage({ conversationId: convIdAtSend, text: terminalError, model: activeConv?.model || null });
             setMessages((prev) => [...prev, errorMsg]);
+            addToast("error", terminalError);
+          } else if (completedSuccessfully || aborted) {
+            try {
+              const data = await csrfFetch(
+                `/api/ai/conversations/${convIdAtSend}`,
+              );
+              // Checked again after the read: a switch during it must not
+              // put this chat's transcript under the one now open.
+              if (current() && data.conversation?.messages)
+                setMessages(data.conversation.messages);
+            } catch {
+              // Keep the local transcript, but tell the user the server copy may lag.
+              if (current()) addToast("error", t("aiPage.refreshMessagesFailed"));
+            }
           }
-          addToast("error", terminalError);
-        } else if (stillOnSameConv && (completedSuccessfully || aborted)) {
-          try {
-            const data = await csrfFetch(
-              `/api/ai/conversations/${convIdAtSend}`,
-            );
-            // Checked again after the read: a switch during it must not
-            // put this chat's transcript under the one now open.
-            if (convIdAtSend === activeConvIdRef.current && data.conversation?.messages)
-              setMessages(data.conversation.messages);
-          } catch {
-            // Keep the local transcript, but tell the user the server copy may lag.
-            addToast("error", t("aiPage.refreshMessagesFailed"));
-          }
+          if (current()) await refreshConversations();
         }
-        await refreshConversations();
       }
     },
     [
@@ -385,6 +424,7 @@ export function useAiChatStream({
       setMessages,
       t,
       streaming,
+      locale,
     ],
   );
 
@@ -397,6 +437,8 @@ export function useAiChatStream({
     setPendingApprovals,
     approvalBusyById,
     sendMessage,
+    lastRequest,
+    clearConversationStream,
     stopGeneration,
     decideApproval,
   };

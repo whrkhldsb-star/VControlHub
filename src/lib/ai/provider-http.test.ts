@@ -1,3 +1,6 @@
+// @vitest-environment node
+import { createServer } from "node:http";
+import type { AddressInfo } from "node:net";
 import { describe, expect, it, vi, beforeEach, afterEach } from "vitest";
 
 const { lookupMock } = vi.hoisted(() => ({ lookupMock: vi.fn() }));
@@ -9,12 +12,8 @@ vi.mock("node:dns/promises", () => ({
 // the real helper is covered by pinned-fetch.test.ts.
 vi.mock("@/lib/security/pinned-fetch", async (importOriginal) => ({
   ...(await importOriginal<typeof import("@/lib/security/pinned-fetch")>()),
-  fetchWithPinnedDns: (url: string | URL, init?: RequestInit, options?: { allowPrivateAddress?: boolean }) => {
-    pinnedOptions.push(options ?? {});
-    return globalThis.fetch(url, init);
-  },
+  fetchWithPinnedDns: (url: string | URL, init?: RequestInit) => globalThis.fetch(url, init),
 }));
-const pinnedOptions: Array<{ allowPrivateAddress?: boolean }> = [];
 
 import {
   fetchProviderModels,
@@ -34,6 +33,7 @@ describe("ai provider-http adapter", () => {
 
   afterEach(() => {
     globalThis.fetch = originalFetch;
+    vi.unstubAllEnvs();
   });
 
   describe("trimProviderBaseUrl", () => {
@@ -72,23 +72,57 @@ describe("ai provider-http adapter", () => {
     );
     });
 
-    it("formats chat kind with status code and truncated body", () => {
-      expect(aiHttpErrorMessage(429, "rate limit", "chat")).toBe("AI request failed (429): rate limit");
+    it("formats chat kind with status code and a stable category", () => {
+      expect(aiHttpErrorMessage(429, "rate limit", "chat")).toBe("AI request failed (429): rate limited");
     });
 
     it("falls back to Unknown error when chat body is empty", () => {
-      expect(aiHttpErrorMessage(500, "", "chat")).toBe("AI request failed (500): Unknown error");
+      expect(aiHttpErrorMessage(500, "", "chat")).toBe("AI request failed (500): provider unavailable");
     });
 
-    it("truncates chat error body to 500 chars", () => {
+    it("keeps upstream error bodies out of diagnostics", () => {
       const long = "x".repeat(800);
       const message = aiHttpErrorMessage(500, long, "chat");
-      expect(message.length).toBe("AI request failed (500): ".length + 500);
-      expect(message.endsWith("x")).toBe(true);
+      expect(message).toBe("AI request failed (500): provider unavailable");
+      expect(message).not.toContain(long.slice(0, 8));
     });
   });
 
   describe("fetchProviderModels", () => {
+    it("requires HTTPS for public discovery and chat before sending any credentials", async () => {
+      const fetch = vi.fn();
+      vi.stubGlobal("fetch", fetch);
+      lookupMock.mockResolvedValue([{ address: "93.184.216.34", family: 4 }]);
+      await expect(fetchProviderModels({ apiKey: "test", baseUrl: "http://public.example/v1" })).rejects.toThrow(/HTTPS/);
+      await expect(postProviderChat({ url: "http://public.example/v1/chat/completions", body: {}, headers: { Authorization: "Bearer test" } })).rejects.toThrow(/HTTPS/);
+      expect(fetch).not.toHaveBeenCalled();
+    });
+
+    it("rejects query-bearing roots on both save and probe", async () => {
+      const { normalizeProviderBaseUrl } = await import("./service-crud");
+      const url = "https://models.example/v1?region=one";
+      expect(() => normalizeProviderBaseUrl(url)).toThrow();
+      await expect(fetchProviderModels({ apiKey: "test", baseUrl: url })).rejects.toThrow();
+    });
+
+    it("uses the same keyless policy and omits Authorization on probe and chat", async () => {
+      const { sendChatRequestToProvider } = await import("./service-runtime");
+      const provider = { type: "OPENAI_COMPATIBLE" as const, baseUrl: "https://ollama.lan:11434/v1", apiKey: "" };
+      vi.stubEnv("AI_PROVIDER_PRIVATE_HOSTS", "ollama.lan");
+      const fetch = vi.fn().mockResolvedValueOnce(Response.json({ data: [{ id: "local-model" }] })).mockResolvedValueOnce(new Response("{}"));
+      vi.stubGlobal("fetch", fetch);
+      try {
+        expect(await fetchProviderModels(provider)).toEqual([{ id: "local-model" }]);
+        await sendChatRequestToProvider({ providerId: "local", model: "local-model", messages: [] }, provider);
+        expect(fetch).toHaveBeenCalledTimes(2);
+        for (const [, options] of fetch.mock.calls) expect(new Headers(options.headers).has("authorization")).toBe(false);
+        await expect(fetchProviderModels({ ...provider, baseUrl: "http://unlisted.lan:11434/v1" })).rejects.toThrow();
+        expect(fetch).toHaveBeenCalledTimes(2);
+      } finally {
+        vi.unstubAllEnvs();
+      }
+    });
+
     it("GETs /models with Bearer auth and returns id-validated rows from data.data", async () => {
       const fetchMock = vi.fn(async () =>
         new Response(
@@ -228,19 +262,44 @@ describe("ai provider-http adapter", () => {
       ).rejects.toThrow("必须填写 API Key");
     });
 
-    // A local Ollama or LM Studio could not be added at all: the operator lists such hosts explicitly.
-    it("reaches a private-network host the operator listed, and only that one", async () => {
-      vi.stubEnv("AI_PROVIDER_PRIVATE_HOSTS", "ollama.lan, 10.0.0.8");
-      lookupMock.mockResolvedValue([{ address: "192.168.1.20", family: 4 }]);
-      globalThis.fetch = vi.fn(async () => new Response(JSON.stringify({ data: [{ id: "llama3" }] }), { status: 200 })) as unknown as typeof fetch;
-      pinnedOptions.length = 0;
+    it("pins named and literal local HTTP providers and preserves the virtual host and authentication", async () => {
+      const received: Array<{ host?: string; authorization?: string }> = [];
+      const server = createServer((request, response) => {
+        received.push({ host: request.headers.host, authorization: request.headers.authorization });
+        response.end(JSON.stringify({ data: [{ id: "local-model" }] }));
+      });
+      await new Promise<void>((resolve, reject) => server.once("error", reject).listen(0, "127.0.0.1", resolve));
+      try {
+        const { port } = server.address() as AddressInfo;
+        vi.stubEnv("AI_PROVIDER_PRIVATE_HOSTS", "ollama.lan,127.0.0.1");
+        lookupMock.mockResolvedValue([{ address: "127.0.0.1", family: 4 }]);
+        const baseUrl = `http://ollama.lan:${port}/v1`;
+        const models = await fetchProviderModels({ apiKey: "test-key", baseUrl });
+        expect(models).toEqual([{ id: "local-model" }]);
+        const chat = await postProviderChat({ url: `${baseUrl}/chat/completions`, body: { stream: true } });
+        await expect(chat.json()).resolves.toHaveProperty("data");
+        await fetchProviderModels({ apiKey: "literal", baseUrl: `http://127.0.0.1:${port}/v1` });
+        await expect(fetchProviderModels({ apiKey: "test-key", baseUrl: `http://unlisted.lan:${port}/v1` })).rejects.toThrow();
+        expect(received).toEqual([
+          { host: `ollama.lan:${port}`, authorization: "Bearer test-key" },
+          { host: `ollama.lan:${port}`, authorization: undefined },
+          { host: `127.0.0.1:${port}`, authorization: "Bearer literal" },
+        ]);
+      } finally {
+        server.closeAllConnections();
+        await new Promise<void>((resolve) => server.close(() => resolve()));
+      }
+    });
 
-      await expect(fetchProviderModels({ apiKey: "sk-x", baseUrl: "http://ollama.lan:11434/v1" })).resolves.toEqual([expect.objectContaining({ id: "llama3" })]);
-      expect(pinnedOptions.at(-1)).toEqual({ allowPrivateAddress: true });
-      await expect(fetchProviderModels({ apiKey: "sk-x", baseUrl: "http://10.0.0.8:1234/v1" })).resolves.toHaveLength(1);
-      // Not listed: refused as before.
-      await expect(fetchProviderModels({ apiKey: "sk-x", baseUrl: "http://other.lan/v1" })).rejects.toThrow(/public HTTP\(S\) address/);
-      vi.unstubAllEnvs();
+    it("rejects listed public literals and public or mixed DNS answers for plaintext requests", async () => {
+      const { normalizeProviderBaseUrl } = await import("./service-crud");
+      vi.stubEnv("AI_PROVIDER_PRIVATE_HOSTS", "listed.test,93.184.216.34");
+      expect(() => normalizeProviderBaseUrl("http://93.184.216.34/v1")).toThrow(/HTTPS/);
+      for (const addresses of [["93.184.216.34"], ["10.0.0.8", "93.184.216.34"]]) {
+        lookupMock.mockResolvedValue(addresses.map((address) => ({ address, family: 4 })));
+        await expect(fetchProviderModels({ apiKey: "test", baseUrl: "http://listed.test/v1" })).rejects.toThrow(/HTTPS/);
+        await expect(postProviderChat({ url: "http://listed.test/v1/chat/completions", body: {} })).rejects.toThrow(/HTTPS/);
+      }
     });
 
     it("never reaches a metadata address, listed or not", async () => {
@@ -308,7 +367,7 @@ describe("ai provider-http adapter", () => {
       expect(await response.text()).toBe("ok-stream");
     });
 
-  it("throws AI request failed (status): <truncated body> on non-2xx", async () => {
+  it("returns a categorized chat error on non-2xx", async () => {
       const fetchMock = vi.fn(
         async () => new Response("rate limit reached", { status: 429 }),
       );
@@ -320,7 +379,7 @@ describe("ai provider-http adapter", () => {
           body: { model: "gpt-4o" },
           headers: { Authorization: "Bearer sk-test" },
         }),
-      ).rejects.toThrow("AI request failed (429): rate limit reached");
+      ).rejects.toThrow("AI request failed (429): rate limited");
   });
 
   it("turns provider timeouts into an actionable chat error", async () => {
@@ -413,7 +472,7 @@ describe("ai provider-http adapter", () => {
           url: "https://api.openai.com/v1/chat/completions",
           body: { model: "gpt-4o" },
         }),
-      ).rejects.toThrow("AI request failed (500): Unknown error");
+      ).rejects.toThrow("AI request failed (500): provider unavailable");
     });
 
     it("still applies Content-Type when caller passes no headers", async () => {

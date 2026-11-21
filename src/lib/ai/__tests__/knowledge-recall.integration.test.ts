@@ -67,6 +67,15 @@ describe.skipIf(process.env.RUN_DATABASE_INTEGRATION_TESTS !== "1")("knowledge s
     expect(scoped[0]?.documentTitle).toBe("Nginx reload SOP");
   });
 
+  it("shares the remaining excerpt quota between automatic recall and differently worded tool searches", async () => {
+    const budget = { seen: new Set<string>(), limit: 3 };
+    const recalled = await buildKnowledgeContextForPrompt({ query: "nginx", limit: 1, session, budget });
+    const searched = await searchKnowledge({ query: "nginx log", session, budget });
+    expect([recalled.hits.length, searched.length]).toEqual([1, 2]);
+    expect(new Set([...recalled.hits, ...searched].map((hit) => hit.chunkId)).size).toBe(3);
+    expect(await searchKnowledge({ query: "line", session, budget })).toEqual([]);
+  });
+
   it("still finds the newer chunks for a query only they match", async () => {
     const hits = await searchKnowledge({ query: "access log line 249", session, limit: 3 });
     expect(hits[0]?.content).toBe("nginx access log line 249");

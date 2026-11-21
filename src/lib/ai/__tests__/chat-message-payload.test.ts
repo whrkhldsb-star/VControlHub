@@ -283,3 +283,17 @@ describe("history budget", () => {
 		expect(JSON.stringify(historyMessages)).not.toContain("u0 ");
 	});
 });
+
+it("replays only adjacent tool results even when a later user turn reused the call ID", () => {
+	const call = { id: "same", type: "function", function: { name: "list_servers", arguments: "{}" } };
+	const messages = [
+		{ role: "user", content: "first" }, { role: "assistant", content: "", toolCalls: JSON.stringify([call]) },
+		{ role: "user", content: "second" }, { role: "tool", content: "stale", toolCallId: "same" },
+		{ role: "assistant", content: "", toolCalls: JSON.stringify([call]) },
+		{ role: "tool", content: "current", toolCallId: "same" },
+	];
+	const { historyMessages } = build({ conv: conv(messages), body: { content: "next" } });
+	expect(historyMessages.map((message) => [message.role, message.content])).toEqual([
+		["user", "first"], ["user", "second"], ["assistant", ""], ["tool", "current"], ["user", "next"],
+	]);
+});

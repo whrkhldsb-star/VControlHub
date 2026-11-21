@@ -53,7 +53,12 @@ export interface AiOpsFinding {
 }
 
 /** Recommendation (mode=recommendation) — admin must approve to act. */
-export interface AiOpsRecommendedAction {
+export interface AiOpsActionScope {
+	cleanup?: { cutoff: string; ids: string[] };
+	leaseId?: string;
+	approvalNeedsReview?: boolean;
+}
+export interface AiOpsRecommendedAction extends AiOpsActionScope {
 	id: string;
 	action: string;
 	risk: "low" | "medium" | "high";
@@ -71,7 +76,7 @@ export interface AiOpsRecommendedAction {
 }
 
 /** Autonomous execution record (mode=autonomous) — already executed or attempted. */
-export interface AiOpsExecutedAction {
+export interface AiOpsExecutedAction extends AiOpsActionScope {
 	id: string;
 	action: string;
 	risk: "low" | "medium" | "high";

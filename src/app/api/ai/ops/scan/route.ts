@@ -38,7 +38,7 @@ export async function POST(request: Request) {
 			// Queued, not run here (A7-04): the scan calls the provider (up to 90 s)
 			// and aggregates the fleet; inside the web request it outlived the proxy
 			// timeout and ran in a process whose workers are switched off.
-			const job = await requestAiOpsScan("manual", body.notes ?? null);
+			const job = await requestAiOpsScan("manual", body.notes ?? null, session.userId, body.mode);
 			const latest = await listAiOpsLogs({ limit: 1 });
 			await auditUserAction(
 				session.userId,
@@ -48,7 +48,7 @@ export async function POST(request: Request) {
 					jobId: job?.id ?? null,
 					notes: body.notes ?? null,
 				},
-			undefined, session.currentTeamId);
+			undefined, null);
 			return NextResponse.json({ triggered: job !== null, queued: job !== null, jobId: job?.id ?? null, latestLog: latest[0] ?? null }, { status: job ? 202 : 200 });
 		},
 	);
