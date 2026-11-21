@@ -226,7 +226,7 @@ type DashboardAuditLog = {
 type DashboardCommandRequest = {
   id: string;
   title: string;
-  command: string;
+  command: string | null;
   status: string;
   isAssistantInitiated: boolean;
   requester: { username: string; displayName: string | null };
@@ -274,7 +274,7 @@ export function DashboardRecentActivity({ recentRequests, recentAuditLogs }: { r
                 <Badge color="slate">{t("dashboard.targets", { count: request.targetCount })}</Badge>
               </div>
             </div>
-            <p className="mt-2 truncate rounded-md bg-[var(--surface-subtle)] px-2.5 py-1.5 font-mono text-xs text-[var(--text-secondary)]">{request.command}</p>
+            <p className="mt-2 truncate rounded-md bg-[var(--surface-subtle)] px-2.5 py-1.5 font-mono text-xs text-[var(--text-secondary)]">{request.command ?? t("dashboard.command-hidden")}</p>
           </article>
         ))}
       </ListPanel>

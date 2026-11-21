@@ -2,7 +2,6 @@ import { apiCopy } from "@/lib/i18n/api-copy";
 import { NextResponse } from "next/server";
 import { z } from "zod";
 
-import { withAdminInvariantLock } from "@/lib/user/admin-invariant";
 import { writeAuditLog } from "@/lib/audit/service";
 import { getPermissionsFromRoles, type RoleKey } from "@/lib/auth/rbac";
 import { resolveSessionPermissions } from "@/lib/auth/identity-templates";
@@ -15,7 +14,7 @@ import { GENERAL_WRITE_LIMIT } from "@/lib/http/rate-limit-presets";
 import { parseSearchParams } from "@/lib/http/parse-search-params";
 import { t } from "@/lib/i18n/service-translations";
 import { getStorageAccessUsage } from "@/lib/storage/access-control";
-import { setAccountType } from "@/lib/user/account-type";
+import { withAccountPermissionChange } from "@/lib/user/account-type";
 import { prepareResourceNarrowing } from "./route-patch";
 
 export const dynamic = "force-dynamic";
@@ -206,7 +205,7 @@ export async function PATCH(request: Request) {
       if (body.userId === session.userId) {
         return NextResponse.json({ error: apiCopy("apiCopy.cannot.modify.your.own.permissions.4a69d473") }, { status: 403 });
       }
-      await withAdminInvariantLock(() => prisma.$transaction(async (tx) => {
+      await withAccountPermissionChange(body.userId, session, async (tx, changeType) => {
         const target = await tx.user.findUnique({
           where: { id: body.userId },
           select: { id: true, username: true, teamMembership: { select: { teamId: true } } },
@@ -219,7 +218,7 @@ export async function PATCH(request: Request) {
           if (!teamId) throw new ValidationError(t("backend.user.adminResourceAccessIsRoleBased"));
           applyGrants = await prepareResourceNarrowing(tx, { ...body, teamId });
         }
-        if (body.account) await setAccountType(target.id, body.account, session, tx);
+        if (body.account) await changeType(body.account);
         await applyGrants?.();
         await writeAuditLog({
           actorType: "USER", actorId: session.userId, action: "user.permission_update", severity: "WARNING",
@@ -231,7 +230,7 @@ export async function PATCH(request: Request) {
             serverAccessCount: body.serverAccess?.length ?? null,
           },
         }, tx);
-      }, { isolationLevel: "Serializable" }));
+      });
       return NextResponse.json({ success: true });
     },
   );

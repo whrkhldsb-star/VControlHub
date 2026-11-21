@@ -14,6 +14,7 @@ const { serviceMock, guardCalls, teamSessionResponseMock } = vi.hoisted(() => ({
 		deleteTeam: vi.fn(),
 		restoreTeam: vi.fn(),
 		setCustomerMembership: vi.fn(),
+		updateTeamMemberTemplate: vi.fn(),
 		removeTeamMember: vi.fn(),
 		switchCurrentTeam: vi.fn(),
 	},
@@ -93,7 +94,7 @@ describe("customer API routes", () => {
 		expect(serviceMock.setCustomerMembership).toHaveBeenCalledWith({ teamId: "team_1", userId: "u_2", identityTemplateId: "identity:files" }, session);
 
 		await updateMemberRoute(json("PATCH", "https://app.test/api/teams/team_1/members/u_3", { identityTemplateId: "identity:viewer" }), params({ id: "team_1", userId: "u_3" }));
-		expect(serviceMock.setCustomerMembership).toHaveBeenLastCalledWith({ teamId: "team_1", userId: "u_3", identityTemplateId: "identity:viewer" }, session);
+		expect(serviceMock.updateTeamMemberTemplate).toHaveBeenCalledWith("team_1", "u_3", "identity:viewer", session);
 
 		await removeMemberRoute(new Request("https://app.test/api/teams/team_1/members/u_3", { method: "DELETE" }), params({ id: "team_1", userId: "u_3" }));
 		expect(serviceMock.removeTeamMember).toHaveBeenCalledWith("team_1", "u_3", session);

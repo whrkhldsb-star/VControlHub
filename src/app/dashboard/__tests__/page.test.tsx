@@ -188,6 +188,30 @@ describe("Dashboard", () => {
     expect(prisma.auditLog.findMany).not.toHaveBeenCalled();
   });
 
+  it.each([false, true])("serializes only authorized command bodies (can approve: %s)", async (canApprove) => {
+    vi.mocked(requireSession).mockResolvedValueOnce({
+      userId: "reader", username: "reader", roles: [], currentTeamId: "team_1", mustChangePassword: false,
+      permissions: canApprove ? ["command:read", "command:approve"] : ["command:read"],
+    });
+    vi.mocked(listCommandRequests).mockResolvedValueOnce(["reader", "colleague"].map((requesterId) => ({
+      id: requesterId, title: `Request by ${requesterId}`, command: `command-body-${requesterId}`,
+      requesterId, requester: { id: requesterId, username: requesterId, displayName: null },
+      status: "COMPLETED", isAssistantInitiated: false, targets: [],
+    })) as never);
+
+    const tree = await Dashboard();
+    const props = JSON.stringify(tree);
+    expect(props).toContain("command-body-reader");
+    if (canApprove) {
+      expect(props).toContain("command-body-colleague");
+    } else {
+      expect(props).not.toContain("command-body-colleague");
+      render(<I18nProvider initialLocale="en">{tree}</I18nProvider>);
+      expect(screen.getByText("Request by colleague")).toBeInTheDocument();
+      expect(screen.getByText("Command body hidden")).toBeInTheDocument();
+    }
+  });
+
   it("opens with what needs the account, asked of the pages that deal with it", async () => {
     render(<I18nProvider initialLocale="zh">{await Dashboard()}</I18nProvider>);
 

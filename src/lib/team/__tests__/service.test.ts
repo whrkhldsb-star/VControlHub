@@ -5,13 +5,14 @@ import { ForbiddenError, NotFoundError, ValidationError } from "@/lib/errors";
 const { prismaMock, auditUserActionMock } = vi.hoisted(() => ({
 	prismaMock: {
 		team: { findMany: vi.fn(), findUnique: vi.fn(), create: vi.fn(), update: vi.fn() },
-		teamMember: { findMany: vi.fn(), findUnique: vi.fn(), upsert: vi.fn(), delete: vi.fn(), deleteMany: vi.fn() },
+		teamMember: { findMany: vi.fn(), findUnique: vi.fn(), upsert: vi.fn(), updateMany: vi.fn(), delete: vi.fn(), deleteMany: vi.fn() },
 		user: { findUnique: vi.fn(), update: vi.fn(), updateMany: vi.fn() },
 		identityTemplate: { findUnique: vi.fn() },
 		storageNode: { create: vi.fn() },
 		userServerAccess: { deleteMany: vi.fn() },
 		userStorageAccess: { deleteMany: vi.fn() },
 		$transaction: vi.fn(),
+		$queryRaw: vi.fn(),
 	},
 	auditUserActionMock: vi.fn(),
 }));
@@ -28,6 +29,7 @@ const {
 	setCustomerMembership,
 	switchCurrentTeam,
 	updateTeam,
+	updateTeamMemberTemplate,
 } = await import("../service");
 
 const admin: SessionPayload = { userId: "u_admin", username: "admin", roles: ["admin"], mustChangePassword: false, currentTeamId: null };
@@ -49,6 +51,7 @@ describe("customer service", () => {
 			["restoreTeam", () => restoreTeam("team_a", customerAccount)],
 			["switchCurrentTeam", () => switchCurrentTeam("team_b", customerAccount)],
 			["setCustomerMembership", () => setCustomerMembership({ teamId: "team_a", userId: "u_x" }, customerAccount)],
+			["updateTeamMemberTemplate", () => updateTeamMemberTemplate("team_a", "u_x", "tpl", customerAccount)],
 			["removeTeamMember", () => removeTeamMember("team_a", "u_x", customerAccount)],
 		])("refuses %s for a customer account", async (_name, run) => {
 			await expect(run()).rejects.toBeInstanceOf(ForbiddenError);
@@ -147,16 +150,30 @@ describe("customer service", () => {
 		});
 
 		it("drops the old customer's per-resource narrowing when moving an account", async () => {
-			prismaMock.teamMember.findUnique.mockResolvedValue({ teamId: "team_old" });
+			// The competing first assignment becomes visible once its user lock is released.
+			prismaMock.teamMember.findUnique.mockResolvedValue(null);
+			prismaMock.$queryRaw.mockImplementationOnce(async () => {
+				prismaMock.teamMember.findUnique.mockResolvedValue({ teamId: "team_old" });
+				return [{ id: "u_x" }];
+			});
 			await setCustomerMembership({ teamId: "team_a", userId: "u_x" }, admin);
 			expect(prismaMock.teamMember.delete).toHaveBeenCalledWith({ where: { userId: "u_x" } });
 			expect(prismaMock.userServerAccess.deleteMany).toHaveBeenCalledWith({ where: { userId: "u_x" } });
 			expect(prismaMock.userStorageAccess.deleteMany).toHaveBeenCalledWith({ where: { userId: "u_x" } });
+			expect(prismaMock.teamMember.upsert).toHaveBeenCalledWith(expect.objectContaining({ create: expect.objectContaining({ teamId: "team_a" }) }));
+			expect(prismaMock.user.update).toHaveBeenCalledWith({ where: { id: "u_x" }, data: { currentTeamId: "team_a" } });
 		});
 
 		it("never puts a platform administrator into a customer", async () => {
-			prismaMock.user.findUnique.mockResolvedValue({ id: "u_x", username: "x", roles: [{ role: { key: "admin" } }] });
+			// A concurrent promotion commits while this transaction waits for the target.
+			prismaMock.$queryRaw.mockImplementationOnce(async () => {
+				prismaMock.user.findUnique.mockResolvedValue({ id: "u_x", roles: [{ role: { key: "admin" } }] });
+				return [{ id: "u_x" }];
+			});
 			await expect(setCustomerMembership({ teamId: "team_a", userId: "u_x" }, admin)).rejects.toBeInstanceOf(ValidationError);
+			expect(prismaMock.$queryRaw).toHaveBeenCalledWith(expect.anything(), "u_x");
+			expect(prismaMock.teamMember.findUnique).not.toHaveBeenCalled();
+			expect(prismaMock.teamMember.upsert).not.toHaveBeenCalled();
 		});
 
 		it("rejects an unknown identity template", async () => {
@@ -165,10 +182,38 @@ describe("customer service", () => {
 		});
 	});
 
+	describe("updateTeamMemberTemplate", () => {
+		beforeEach(() => {
+			prismaMock.identityTemplate.findUnique.mockResolvedValue({ id: "tpl" });
+		});
+
+		it("only updates the template of the named membership", async () => {
+			prismaMock.teamMember.updateMany.mockResolvedValue({ count: 1 });
+			const member = { teamId: "team_a", userId: "u_x", identityTemplateId: "tpl" };
+			await expect(updateTeamMemberTemplate("team_a", "u_x", "tpl", admin)).resolves.toEqual(member);
+			expect(prismaMock.teamMember.updateMany).toHaveBeenCalledWith({ where: { teamId: "team_a", userId: "u_x" }, data: { identityTemplateId: "tpl" } });
+			expect(auditUserActionMock).toHaveBeenCalledWith(admin.userId, "team.member.set", member, undefined, "team_a");
+			expect(prismaMock.user.update).not.toHaveBeenCalled();
+		});
+
+		it("returns not found for a member of another customer and preserves all grants", async () => {
+			prismaMock.teamMember.updateMany.mockResolvedValue({ count: 0 });
+			await expect(updateTeamMemberTemplate("team_a", "u_x", "tpl", admin)).rejects.toBeInstanceOf(NotFoundError);
+			expect(prismaMock.teamMember.upsert).not.toHaveBeenCalled();
+			expect(prismaMock.teamMember.delete).not.toHaveBeenCalled();
+			expect(prismaMock.userServerAccess.deleteMany).not.toHaveBeenCalled();
+			expect(prismaMock.userStorageAccess.deleteMany).not.toHaveBeenCalled();
+			expect(prismaMock.user.update).not.toHaveBeenCalled();
+			expect(auditUserActionMock).not.toHaveBeenCalled();
+		});
+	});
+
 	describe("removeTeamMember", () => {
 		it("removes the membership, its narrowing and the current customer", async () => {
 			prismaMock.teamMember.deleteMany.mockResolvedValue({ count: 1 });
 			await removeTeamMember("team_a", "u_x", admin);
+			expect(prismaMock.$queryRaw).toHaveBeenCalledWith(expect.anything(), "u_x");
+			expect(prismaMock.$queryRaw.mock.invocationCallOrder[0]).toBeLessThan(prismaMock.teamMember.deleteMany.mock.invocationCallOrder[0]!);
 			expect(prismaMock.teamMember.deleteMany).toHaveBeenCalledWith({ where: { teamId: "team_a", userId: "u_x" } });
 			expect(prismaMock.userServerAccess.deleteMany).toHaveBeenCalledWith({ where: { userId: "u_x" } });
 			expect(prismaMock.userStorageAccess.deleteMany).toHaveBeenCalledWith({ where: { userId: "u_x" } });

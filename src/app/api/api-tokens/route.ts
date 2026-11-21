@@ -102,8 +102,7 @@ export async function POST(request: Request) {
       }
       const expiresAt = parseExpiresAt(parsed.expiresAt);
       const result = await createApiToken({
-        userId: session.userId,
-        teamId: session.currentTeamId ?? "",
+        session,
         name: parsed.name,
         scopes,
         expiresAt,
@@ -146,7 +145,7 @@ export async function DELETE(request: Request) {
         tokenId: token.id,
         tokenPrefix: token.tokenPrefix,
         tokenSuffix: token.tokenSuffix,
-      }, undefined, session.currentTeamId);
+      }, undefined, token.teamId);
       return NextResponse.json({ token });
     },
   );

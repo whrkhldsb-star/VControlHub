@@ -4,7 +4,7 @@ import { NextResponse } from "next/server";
 import { withApiRoute } from "@/lib/http/api-guard";
 import { GENERAL_WRITE_LIMIT } from "@/lib/http/rate-limit-presets";
 import { updateTeamMemberSchema } from "@/lib/team/schema";
-import { removeTeamMember, setCustomerMembership } from "@/lib/team/service";
+import { removeTeamMember, updateTeamMemberTemplate } from "@/lib/team/service";
 
 export const dynamic = "force-dynamic";
 
@@ -17,7 +17,8 @@ export async function PATCH(request: Request, { params }: Params) {
 		{ permission: "team:manage", rateLimit: GENERAL_WRITE_LIMIT, bodySchema: updateTeamMemberSchema },
 		async ({ session, body }) => {
 			const { id, userId } = await params;
-			return NextResponse.json({ success: true, member: await setCustomerMembership({ teamId: id, userId, identityTemplateId: body.identityTemplateId }, session) });
+			const member = await updateTeamMemberTemplate(id, userId, body.identityTemplateId, session);
+			return NextResponse.json({ success: true, member });
 		},
 	);
 }

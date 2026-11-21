@@ -21,6 +21,7 @@ import { auditUserAction } from "@/lib/audit/service";
 import { t } from "@/lib/i18n/service-translations";
 import { tenantStorageBasePath } from "@/lib/storage/path-utils";
 import { DEFAULT_IDENTITY_TEMPLATE_ID } from "@/lib/auth/identity-templates";
+import { lockUserRow } from "@/lib/user/row-lock";
 import type { CreateTeamInput, UpdateTeamInput } from "./schema";
 
 async function findLiveCustomer(teamId: string, db: Prisma.TransactionClient = prisma) {
@@ -205,23 +206,42 @@ export async function setCustomerMembership(
   session: SessionPayload,
 ) {
   assertPlatformAdmin(session);
-  const target = await resolveCustomerMembershipTarget(input.teamId, input.identityTemplateId);
-  const user = await prisma.user.findUnique({
-    where: { id: input.userId },
-    select: { id: true, roles: { select: { role: { select: { key: true } } } } },
+  const member = await prisma.$transaction(async (tx) => {
+    await lockUserRow(tx, input.userId);
+    const user = await tx.user.findUnique({
+      where: { id: input.userId },
+      select: { id: true, roles: { select: { role: { select: { key: true } } } } },
+    });
+    if (!user) throw new NotFoundError(t("backend.team.userNotFound"));
+    if (user.roles.some((entry) => entry.role.key === "admin")) {
+      throw new ValidationError(t("backend.customer.adminHasNoCustomer"));
+    }
+    const target = await resolveCustomerMembershipTarget(input.teamId, input.identityTemplateId, tx);
+    const member = { userId: user.id, ...target };
+    await applyCustomerMembership(tx, member);
+    return member;
   });
-  if (!user) throw new NotFoundError(t("backend.team.userNotFound"));
-  if (user.roles.some((entry) => entry.role.key === "admin")) {
-    throw new ValidationError(t("backend.customer.adminHasNoCustomer"));
-  }
-  await prisma.$transaction((tx) => applyCustomerMembership(tx, { userId: user.id, ...target }));
-  await auditUserAction(session.userId, "team.member.set", { ...target, userId: user.id }, undefined, target.teamId);
-  return { userId: user.id, ...target };
+  await auditUserAction(session.userId, "team.member.set", member, undefined, member.teamId);
+  return member;
+}
+
+export async function updateTeamMemberTemplate(teamId: string, userId: string, identityTemplateId: string, session: SessionPayload) {
+  assertPlatformAdmin(session);
+  await prisma.$transaction(async (tx) => {
+    await lockUserRow(tx, userId);
+    await resolveCustomerMembershipTarget(teamId, identityTemplateId, tx);
+    const updated = await tx.teamMember.updateMany({ where: { teamId, userId }, data: { identityTemplateId } });
+    if (updated.count === 0) throw new NotFoundError(t("backend.team.thisUserIsNotATeamMember"));
+  });
+  const member = { teamId, userId, identityTemplateId };
+  await auditUserAction(session.userId, "team.member.set", member, undefined, teamId);
+  return member;
 }
 
 export async function removeTeamMember(teamId: string, userId: string, session: SessionPayload) {
   assertPlatformAdmin(session);
   await prisma.$transaction(async (tx) => {
+    await lockUserRow(tx, userId);
     const removed = await tx.teamMember.deleteMany({ where: { teamId, userId } });
     if (removed.count === 0) throw new NotFoundError(t("backend.team.thisUserIsNotATeamMember"));
     await tx.userServerAccess.deleteMany({ where: { userId } });

@@ -74,6 +74,7 @@ describe("/api/api-tokens", () => {
     }));
     mocks.revokeApiToken.mockResolvedValue({
       id: "tok1",
+      teamId: "token-owning-customer",
       tokenPrefix: "whr_plai",
       tokenSuffix: "n_once",
     });
@@ -140,9 +141,9 @@ describe("/api/api-tokens", () => {
     const body = await res.json();
     expect(body.token).toBe("whr_plain_once");
     expect(body.apiToken).not.toHaveProperty("tokenHash");
+    expect(mocks.createApiToken.mock.calls[0]![0].session).toBe(session);
     expect(mocks.createApiToken).toHaveBeenCalledWith({
-      userId: "u1",
-      teamId: "team_1",
+      session,
       name: "cli",
       scopes: ["read", "health:read"],
       expiresAt: new Date(expiresAt),
@@ -178,8 +179,7 @@ describe("/api/api-tokens", () => {
     expect(res.status).toBe(201);
     expect(res.headers.get("location")).toBeNull();
     expect(mocks.createApiToken).toHaveBeenCalledWith({
-      userId: "u1",
-      teamId: "team_1",
+      session,
       name: "mobile cli",
       scopes: ["read", "status:read"],
       expiresAt: null,
@@ -204,7 +204,7 @@ describe("/api/api-tokens", () => {
     expect(mocks.createApiToken).not.toHaveBeenCalled();
   });
 
-  it("revokes a token and records an audit event", async () => {
+  it("audits a revocation against the token's customer after the actor switches customers", async () => {
     const req = new Request("http://local/api/api-tokens?id=tok1", {
       method: "DELETE",
     });
@@ -218,7 +218,7 @@ describe("/api/api-tokens", () => {
       "u1",
       "api_token.revoke",
       expect.objectContaining({ tokenId: "tok1" }),
-    undefined, "team_1");
+    undefined, "token-owning-customer");
   });
 
   it("surfaces a 404 (not a 500) when revoking a nonexistent or non-owned token", async () => {

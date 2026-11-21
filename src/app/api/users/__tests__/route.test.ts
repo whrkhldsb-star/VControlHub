@@ -8,6 +8,8 @@ const { mocks } = vi.hoisted(() => ({
     auditUserAction: vi.fn(),
     assertAdminAccessMayBeRemoved: vi.fn(),
     withAdminInvariantLock: vi.fn(),
+    assertCurrentUserManager: vi.fn(),
+    transactionUpdate: vi.fn(),
     assertUserInActorScope: vi.fn(),
     userDirectoryWhere: vi.fn(),
     isGlobalTeamManager: vi.fn(),
@@ -52,6 +54,7 @@ vi.mock("@/lib/auth/password", () => ({
 vi.mock("@/lib/audit/service", () => ({
   auditUserAction: mocks.auditUserAction,
 }));
+vi.mock("@/lib/user/account-type", () => ({ assertCurrentUserManager: mocks.assertCurrentUserManager }));
 vi.mock("@/lib/user/admin-invariant", () => ({
   assertAdminAccessMayBeRemoved: mocks.assertAdminAccessMayBeRemoved,
   withAdminInvariantLock: mocks.withAdminInvariantLock,
@@ -89,7 +92,7 @@ describe("/api/users", () => {
     // would classify as global.
     mocks.isGlobalTeamManager.mockReturnValue(true);
     mocks.assertAdminAccessMayBeRemoved.mockResolvedValue(undefined);
-    mocks.withAdminInvariantLock.mockImplementation(async (operation) => operation());
+    mocks.withAdminInvariantLock.mockImplementation(async (operation) => operation({ user: { update: mocks.transactionUpdate } }));
     mocks.userDirectoryWhere.mockReturnValue({
       OR: [{ id: "admin1" }, { teamMembership: { is: { teamId: "team-a" } } }],
     });
@@ -177,9 +180,20 @@ describe("/api/users", () => {
     const res = await route.POST(post({ username: "ops2", password: "Secret123", account: { type: "admin" } }));
 
     expect(res.status).toBe(200);
+    expect(mocks.assertCurrentUserManager).toHaveBeenCalledWith(mocks.prisma, session);
+    expect(mocks.assertCurrentUserManager).toHaveBeenCalledBefore(mocks.prisma.user.create);
     const data = mocks.prisma.user.create.mock.calls[0]![0].data;
     expect(data.roles).toEqual({ create: { roleId: "role-admin" } });
     expect(data).not.toHaveProperty("teamMembership");
+  });
+
+  it("refuses to provision an administrator when the operator lost authorization", async () => {
+    const { ForbiddenError } = await import("@/lib/errors");
+    mocks.assertCurrentUserManager.mockRejectedValueOnce(new ForbiddenError());
+    const res = await route.POST(post({ username: "ops2", password: "Secret123", account: { type: "admin" } }));
+    expect(res.status).toBe(403);
+    expect(mocks.prisma.user.create).not.toHaveBeenCalled();
+    expect(mocks.auditUserAction).not.toHaveBeenCalled();
   });
 
   it("refuses a customer account for a deleted customer or an unknown template", async () => {
@@ -217,7 +231,10 @@ describe("/api/users", () => {
     expect(res.status).toBe(200);
     expect(mocks.assertUserInActorScope).toHaveBeenCalledWith(session, "user1");
     // Disabling also advances the session epoch so the account's old sessions stay dead after re-enabling.
-    expect(mocks.prisma.user.update).toHaveBeenCalledWith({
+    expect(mocks.assertAdminAccessMayBeRemoved).toHaveBeenCalledWith("user1", { user: { update: mocks.transactionUpdate } });
+    expect(mocks.assertAdminAccessMayBeRemoved).toHaveBeenCalledBefore(mocks.transactionUpdate);
+    expect(mocks.prisma.user.update).not.toHaveBeenCalled();
+    expect(mocks.transactionUpdate).toHaveBeenCalledWith({
       where: { id: "user1" },
       data: { status: "DISABLED", sessionEpoch: { increment: 1 } },
     });

@@ -23,6 +23,7 @@ vi.mock("@/lib/http/rate-limit-presets", () => ({
 const mocks = vi.hoisted(() => ({
 	listCustomerMembers: vi.fn(),
 	setCustomerMembership: vi.fn(),
+	updateTeamMemberTemplate: vi.fn(),
 	removeTeamMember: vi.fn(),
 	restoreTeam: vi.fn(),
 	transferServerToCustomer: vi.fn(),
@@ -30,6 +31,7 @@ const mocks = vi.hoisted(() => ({
 vi.mock("@/lib/team/service", () => ({
 	listCustomerMembers: mocks.listCustomerMembers,
 	setCustomerMembership: mocks.setCustomerMembership,
+	updateTeamMemberTemplate: mocks.updateTeamMemberTemplate,
 	removeTeamMember: mocks.removeTeamMember,
 	restoreTeam: mocks.restoreTeam,
 }));
@@ -76,7 +78,7 @@ describe("customer management routes (team:manage)", () => {
 
 		const changed = await member.PATCH(req("PATCH", "http://local/api/teams/team_2/members/u_9", { identityTemplateId: "identity:operator" }), { params: memberParams });
 		expect(changed.status).toBe(200);
-		expect(mocks.setCustomerMembership).toHaveBeenLastCalledWith({ teamId: "team_2", userId: "u_9", identityTemplateId: "identity:operator" }, expect.anything());
+		expect(mocks.updateTeamMemberTemplate).toHaveBeenCalledWith("team_2", "u_9", "identity:operator", expect.anything());
 
 		const removed = await member.DELETE(req("DELETE", "http://local/api/teams/team_2/members/u_9"), { params: memberParams });
 		expect(removed.status).toBe(200);

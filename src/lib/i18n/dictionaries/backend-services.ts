@@ -131,6 +131,7 @@ export const zh: Record<string, string> = {
 	"backend.common.unknownError": "未知错误",
 	"backend.auth.sessionCredentialsChanged": "会话凭据已变更，请重新登录",
 	"backend.auth.currentPasswordIncorrect": "当前密码不正确",
+	"backend.auth.temporaryPasswordReused": "新密码必须与当前临时密码不同",
 	"backend.auth.userNotFound": "账号不存在",
 	// deploy-export/service.ts
 	"backend.deployExport.appNameInvalid": "应用名称只能包含小写字母、数字和连字符，且必须以字母开头",
@@ -999,6 +1000,7 @@ export const en: Record<string, string> = {
 	"backend.common.unknownError": "Unknown error",
 	"backend.auth.sessionCredentialsChanged": "Session credentials have changed; please sign in again",
 	"backend.auth.currentPasswordIncorrect": "The current password is incorrect",
+	"backend.auth.temporaryPasswordReused": "Choose a new password that differs from your temporary password",
 	"backend.auth.userNotFound": "Account not found",
 	// deploy-export/service.ts
 	"backend.deployExport.appNameInvalid": "App name must contain only lowercase letters, digits, and hyphens, and must start with a letter",
