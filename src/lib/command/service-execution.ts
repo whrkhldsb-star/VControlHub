@@ -602,7 +602,7 @@ async function settleCommandRequest(commandRequestId: string, executorError?: st
       : "Background SSH execution found no executable targets.";
     const outcome = status === "COMPLETED" ? "completed" : status === "CANCELLED" ? "cancelled" : "failed";
     await writeExecutionLog({ data: { commandRequestId, serverId: null, summary } });
-    await auditSystemAction(`command.execute.${outcome}`, {
+    await auditSystemAction(status === "COMPLETED" ? "command.execute.completed" : status === "CANCELLED" ? "command.execute.cancelled" : "command.execute.failed", {
       commandRequestId, title, status, completedCount, totalCount, summary, requesterId,
       ...(executorError ? { phase: "executor_error" } : {}),
     }, status === "FAILED" ? "WARNING" : "INFO", teamId);
