@@ -91,7 +91,7 @@ describe("system health service", () => {
       session: { userId: "admin", roles: ["admin"], currentTeamId: null },
     });
 
-    expect(mockPrisma.server.count).toHaveBeenCalledWith({ where: {} });
+    expect(mockPrisma.server.count).toHaveBeenCalledWith({ where: { team: { isNot: { deletedAt: { not: null } } } } });
     expect(mockPrisma.storageNode.count).toHaveBeenCalledWith({ where: {} });
   });
 

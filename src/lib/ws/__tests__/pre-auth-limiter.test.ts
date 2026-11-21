@@ -1,5 +1,6 @@
-import { describe, expect, it } from "vitest";
-import { PreAuthLimiter, upgradeClientAddress } from "../pre-auth-limiter";
+import { PEER_ADDRESS_HEADER } from "@/lib/http/peer-address";
+import { describe, expect, it, vi } from "vitest";
+import { PreAuthLimiter, upgradeClientAddress, PEER_SIGNATURE_HEADER, signUpgradePeer } from "../pre-auth-limiter";
 
 describe("PreAuthLimiter", () => {
   it("holds a total and a per-address cap, and frees a place once", () => {
@@ -31,6 +32,18 @@ describe("PreAuthLimiter", () => {
 });
 
 describe("upgradeClientAddress", () => {
+  it("uses the socket peer directly and authenticates a loopback listener's observation", () => {
+    vi.stubEnv("TRUSTED_PROXY_HOPS", "0");
+    vi.stubEnv("SSH_WS_SECRET", "test-signature-key");
+    try {
+      const headers = { "x-forwarded-for": "192.0.2.6", "sec-websocket-key": "fixture", [PEER_ADDRESS_HEADER]: "192.0.2.5" };
+      const address = (peer: string, extra = {}) => upgradeClientAddress({ headers: { ...headers, ...extra }, socket: { remoteAddress: peer } });
+      expect(address("192.0.2.4")).toBe("192.0.2.4");
+      expect(address("127.0.0.1")).toBe("127.0.0.1");
+      const signed = signUpgradePeer("192.0.2.5", "fixture", "test-signature-key");
+      expect(address("127.0.0.1", { [PEER_SIGNATURE_HEADER]: signed })).toBe("192.0.2.5");
+    } finally { vi.unstubAllEnvs(); }
+  });
   it("reads the address the way HTTP rate limits do: the entry the nearest trusted proxy added", () => {
     // With the default of one trusted hop, the rightmost entry is the one the proxy appended; what the client
     // sent in front of it is not believed.

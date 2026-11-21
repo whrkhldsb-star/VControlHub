@@ -111,13 +111,15 @@ async function resolveLinuxHomeRoot(serverId: string, ssh: SshServerTarget["ssh"
     homeCache.set(key, { home, at: Date.now() });
     return home;
   } catch (error) {
+    ssh.signal?.throwIfAborted();
     logger.warn("sftp home directory lookup failed; using the conventional path", error, { serverId });
     return fallback;
   }
 }
 
 /** Windows file access uses OpenSSH credentials, never the RDP endpoint. */
-export async function loadEnabledServerForSftp(serverId: string, expectedTeamId?: string | null, expectedEndpoint?: SshEndpointIdentity): Promise<SshServerTarget & { rootPath: string }> {
+export async function loadEnabledServerForSftp(serverId: string, expectedTeamId?: string | null, expectedEndpoint?: SshEndpointIdentity, signal?: AbortSignal): Promise<SshServerTarget & { rootPath: string }> {
+  signal?.throwIfAborted();
   const { server } = await loadEnabledServerRef(serverId, expectedTeamId, expectedEndpoint);
   if (server.operatingSystem !== "WINDOWS") {
     assertDirectCredentialsConfigured(server);
@@ -125,9 +127,11 @@ export async function loadEnabledServerForSftp(serverId: string, expectedTeamId?
     if ((!target.ssh.agentServerId || target.ssh.password || target.ssh.privateKey) && !target.ssh.hostKeySha256?.trim()) {
       throw new BusinessError(t("backend.ssh.hostKeyNotPinned"));
     }
+    const ssh = { ...target.ssh, signal };
     return {
       ...target,
-      rootPath: await resolveLinuxHomeRoot(server.id, target.ssh, server.username === "root" ? "/root" : `/home/${server.username}`),
+      ssh,
+      rootPath: await resolveLinuxHomeRoot(server.id, ssh, server.username === "root" ? "/root" : `/home/${server.username}`),
     };
   }
 
@@ -140,7 +144,7 @@ export async function loadEnabledServerForSftp(serverId: string, expectedTeamId?
   }
   const ssh = resolveStorageSshCredentials({ ...node, server });
   if (!ssh.hostKeySha256?.trim()) throw new BusinessError(t("backend.ssh.hostKeyNotPinned"));
-  return { server, ssh: { ...ssh, enforceHostKeyPin: true }, rootPath: node.basePath };
+  return { server, ssh: { ...ssh, signal, enforceHostKeyPin: true }, rootPath: node.basePath };
 }
 
 /**

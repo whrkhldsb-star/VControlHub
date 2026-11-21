@@ -176,10 +176,6 @@ export async function PATCH(request: Request) {
     },
     async ({ session, body }) => {
       if (body.action === "sync") {
-        // Two overlapping syncs upserted the same rows against each other (A6-11).
-        const release = await tryAcquireAdvisoryLock("app-source-sync", body.sourceId ?? "all");
-        if (!release) throw new BusinessError(t("backend.appSource.syncInProgress"), undefined, 409);
-        try {
         if (body.sourceId) {
           const result = await syncSource(body.sourceId);
           await auditUserAction(session.userId, "app-source.sync", {
@@ -188,12 +184,16 @@ export async function PATCH(request: Request) {
           }, undefined, session.currentTeamId);
           return NextResponse.json({ result });
         }
-        const results = await syncAllSources();
-        await auditUserAction(session.userId, "app-source.sync", {
-          mode: "all",
-          resultCount: Array.isArray(results) ? results.length : null,
-        }, undefined, session.currentTeamId);
-        return NextResponse.json({ results });
+        // Two overlapping syncs upserted the same rows against each other (A6-11).
+        const release = await tryAcquireAdvisoryLock("app-source-sync", "all");
+        if (!release) throw new BusinessError(t("backend.appSource.syncInProgress"), undefined, 409);
+        try {
+          const results = await syncAllSources();
+          await auditUserAction(session.userId, "app-source.sync", {
+            mode: "all",
+            resultCount: Array.isArray(results) ? results.length : null,
+          }, undefined, session.currentTeamId);
+          return NextResponse.json({ results });
         } finally {
           await release();
         }

@@ -15,6 +15,7 @@
  *   twice its recorded interval (legacy rows: the former fixed 5 minutes).
  *   Time not covered is unknown, not up and not down.
  */
+import { sampleCoverageSql } from "@/lib/uptime/coverage";
 import { prisma } from "@/lib/db";
 import { LEGACY_SAMPLE_INTERVAL_SECONDS } from "./status";
 import type {
@@ -165,20 +166,12 @@ type CoverageRow = {
 export async function queryCoverage(serverId: string, from: Date, to: Date): Promise<{ samples: number; covered: number; onlineCovered: number; interval: number | null }> {
 	const rows = await prisma.$queryRaw<CoverageRow[]>`
 		SELECT
-			count(*) AS samples,
+			count(*) FILTER (WHERE in_window) AS samples,
 			sum(span) AS covered,
 			sum(span) FILTER (WHERE "isOnline") AS online_covered,
 			max(iv)::float8 AS intervals
-		FROM (
-			SELECT "isOnline",
-				COALESCE("intervalSeconds", ${LEGACY_SAMPLE_INTERVAL_SECONDS}) AS iv,
-				LEAST(
-					EXTRACT(EPOCH FROM (COALESCE(lead("createdAt") OVER (ORDER BY "createdAt"), ${to}::timestamp) - "createdAt")),
-					2 * COALESCE("intervalSeconds", ${LEGACY_SAMPLE_INTERVAL_SECONDS})
-				)::float8 AS span
-			FROM "metric_snapshots"
-			WHERE "serverId" = ${serverId} AND "createdAt" >= ${from}::timestamp AND "createdAt" < ${to}::timestamp
-		) s`;
+		FROM (${sampleCoverageSql(from, to, serverId)}) s
+		WHERE in_window OR span > 0`;
 	const row = rows[0];
 	return {
 		samples: n(row?.samples),

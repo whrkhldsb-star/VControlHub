@@ -7,6 +7,7 @@ import { apiCopy } from "@/lib/i18n/api-copy";
 
 import { withApiRoute } from "@/lib/http/api-guard";
 import { GENERAL_WRITE_LIMIT } from "@/lib/http/rate-limit-presets";
+import { loadEnabledServerForSftp } from "@/lib/ssh/server-target";
 import { downloadFile } from "@/lib/ssh/sftp-service";
 import { downloadQuerySchema } from "@/lib/ssh/sftp-schema";
 import { assertSftpPathAccess } from "@/lib/ssh/sftp-access-control";
@@ -33,8 +34,9 @@ export async function GET(
       const { id } = await params;
       const teamAccess = await assertServerTeamAccess(session, id, "fileRead");
       if (!teamAccess.ok) return teamAccess.response;
-      await assertSftpPathAccess({ session: session, serverId: id, paths: [query.path] });
-      const { stream, size } = await downloadFile(id, query.path);
+      const target = await loadEnabledServerForSftp(id, teamAccess.server.teamId, teamAccess.server, request.signal);
+      await assertSftpPathAccess({ session, serverId: id, paths: [query.path], target, signal: request.signal });
+      const { stream, size } = await downloadFile(id, query.path, request.signal, target.ssh);
       await auditUserAction(
         session.userId,
         "sftp.download",

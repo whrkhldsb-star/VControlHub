@@ -2,7 +2,8 @@ import { firstSearchParam } from "@/lib/http/first-search-param";
 import { requirePagePermission } from "@/lib/auth/page-guard";
 import { sessionHasPermission } from "@/lib/auth/authorization";
 import { countTickets } from "@/lib/ticket/service";
-import { listTicketBoard, listTicketPage, type TicketSlaFilter } from "@/lib/ticket/query";
+import { parseTicketFilters } from "@/lib/ticket/filters";
+import { listTicketBoard, listTicketPage } from "@/lib/ticket/query";
 import { PageShell, StatCard, StatGrid } from "@/components/page-shell";
 import { TicketsPageClient } from "./tickets-page-client";
 import { toWorkspaceBoard, toWorkspaceTicket } from "@/lib/ticket/workspace-dto";
@@ -10,8 +11,6 @@ import { listServerProfiles } from "@/lib/server/service-profiles";
 import { getServerLocale, t } from "@/lib/i18n/translations";
 
 export const dynamic = "force-dynamic";
-
-const SLA_FILTERS = new Set(["ok", "warning", "breached", "none"]);
 
 function param(value: string | string[] | undefined): string {
   return firstSearchParam(value)?.trim() ?? "";
@@ -28,14 +27,7 @@ export default async function Page({ searchParams }: { searchParams: Promise<Rec
   // The first view the URL asks for, filtered and paged in the database like
   // every later one the workspace fetches.
   const params = await searchParams;
-  const sla = param(params.sla);
-  const query = {
-    status: param(params.status) || undefined,
-    priority: param(params.priority) || undefined,
-    category: param(params.category) || undefined,
-    slaStatus: SLA_FILTERS.has(sla) ? (sla as TicketSlaFilter) : undefined,
-    search: param(params.q) || undefined,
-  };
+  const query = parseTicketFilters((key) => param(params[key]));
   const now = new Date();
   const board = param(params.view) === "board";
   const [counts, firstPage, firstBoard] = await Promise.all([

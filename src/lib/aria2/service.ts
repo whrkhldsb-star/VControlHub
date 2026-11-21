@@ -1,7 +1,6 @@
 import { writeFile, readFile, mkdir, unlink, chmod } from "fs/promises";
 import { access, constants } from "fs/promises";
 import path from "path";
-import { getAppSlug } from "@/lib/branding";
 import { findExecutable, IS_WINDOWS } from "@/lib/runtime/platform-paths";
 import { isValidTcpPort } from "@/lib/runtime/listen-port";
 import {
@@ -35,14 +34,10 @@ export function getAria2RuntimeConfig(env: Partial<NodeJS.ProcessEnv> = process.
 		throw new Error("ARIA2_RPC_PORT must be a valid TCP port");
 	}
 
-	const appSlug = getAppSlug(env as NodeJS.ProcessEnv);
-	const defaultRpcSecret = [appSlug, "default", "token"].join("_");
-	const rpcSecret = env.ARIA2_RPC_SECRET?.trim() || defaultRpcSecret;
-	if (env.NODE_ENV === "production" && !env.ARIA2_RPC_SECRET?.trim()) {
-		throw new Error("ARIA2_RPC_SECRET is required in production");
-	}
-	if (env.NODE_ENV === "production" && /(^|_)default_token$/.test(rpcSecret)) {
-		throw new Error("ARIA2_RPC_SECRET must not use the default token in production");
+	const rpcSecret = env.ARIA2_RPC_SECRET?.trim();
+	if (!rpcSecret) throw new Error("ARIA2_RPC_SECRET is required");
+	if (/REPLACE_WITH|CHANGE_ME|CHANGE_THIS|(?:^|_)default_token$/i.test(rpcSecret)) {
+		throw new Error("ARIA2_RPC_SECRET contains a placeholder");
 	}
 
 	const appDir = env.APP_DIR?.trim() || process.cwd();

@@ -11,13 +11,6 @@ const prismaMock = {
 };
 
 vi.mock("@/lib/db", () => ({ prisma: prismaMock }));
-vi.mock("@/lib/auth/team-scope", () => ({
-  isGlobalTeamManager: (session: { roles?: string[] }) => session.roles?.includes("admin") === true,
-  serverTeamWhere: (session: { currentTeamId?: string | null }) =>
-    session.currentTeamId
-      ? { teamId: session.currentTeamId }
-      : { id: "__unassigned_servers_require_team_manage__" },
-}));
 vi.mock("@/lib/auth/require-api-permission", () => ({
   requireApiPermission: vi.fn(async () => ({ session: { userId: "u1", roles: ["viewer"], currentTeamId: "team_a", mustChangePassword: false } })),
 }));
@@ -48,16 +41,11 @@ describe("/api/traffic/history", () => {
     const body = await response.json();
 
     expect(response.status).toBe(200);
-    expect(prismaMock.server.findMany).toHaveBeenCalledWith(
-      expect.objectContaining({
-        where: { teamId: "team_a" },
-        select: { id: true },
-      }),
-    );
+    expect(prismaMock.server.findMany).not.toHaveBeenCalled();
     expect(prismaMock.trafficSnapshot.findMany).toHaveBeenCalledWith(
       expect.objectContaining({
         where: expect.objectContaining({
-          OR: [{ serverId: { in: ["srv_a"] } }],
+          OR: [{ server: { is: { AND: [{ teamId: "team_a" }, expect.objectContaining({ team: { deletedAt: null }, OR: expect.any(Array) })] } } }],
         }),
       }),
     );

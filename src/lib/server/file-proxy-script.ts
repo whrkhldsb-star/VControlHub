@@ -202,7 +202,9 @@ ${stop ? `if result == "proxy_running":
         pass
     for attempt in range(20):
         result = state()
-        if result != "proxy_running":
+        # During exit Linux can expose an empty cmdline before the task becomes a zombie.
+        # Keep observing an unknown state, without sending another signal to this PID.
+        if result == "not_running":
             break
         time.sleep(0.1)` : ""}
 print(result)

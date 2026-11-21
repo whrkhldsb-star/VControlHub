@@ -9,8 +9,10 @@
  */
 import { prisma } from "@/lib/db";
 import { createLogger } from "@/lib/logging";
-import { HEALTH_SAMPLE_INTERVAL_MINUTES } from "@/lib/health/service-types";
+import { dayCoverageMinutes, sampleCoverageSql } from "./coverage";
 import { appTimeZoneDateKey, shiftAppTimeZoneDay, startOfDayInAppTimeZone } from "@/lib/datetime/time-zone";
+
+export { SAMPLE_SPAN_CAP_INTERVALS } from "./coverage";
 
 const logger = createLogger("uptime-rollup");
 
@@ -21,9 +23,6 @@ type DayRow = {
   online_s: number | null;
   offline_s: number | null;
 };
-
-/** Each sample covers the time to the next one, at most this many of its intervals. */
-export const SAMPLE_SPAN_CAP_INTERVALS = 2;
 
 function count(value: bigint | number): number {
   return typeof value === "bigint" ? Number(value) : value;
@@ -50,24 +49,15 @@ export async function rollupServerUptimeForDay(
   const dayEnd = shiftAppTimeZoneDay(dayStart, 1);
   const now = new Date();
   const coverEnd = now < dayEnd ? now : dayEnd;
-  const legacySeconds = HEALTH_SAMPLE_INTERVAL_MINUTES * 60;
-
+  const dayMinutes = dayCoverageMinutes(dayStart, now);
   const rows = await prisma.$queryRaw<DayRow[]>`
     SELECT "serverId",
-      count(*) FILTER (WHERE "isOnline") AS online,
-      count(*) FILTER (WHERE NOT "isOnline") AS offline,
+      count(*) FILTER (WHERE in_window AND "isOnline") AS online,
+      count(*) FILTER (WHERE in_window AND NOT "isOnline") AS offline,
       sum(span) FILTER (WHERE "isOnline") AS online_s,
       sum(span) FILTER (WHERE NOT "isOnline") AS offline_s
-    FROM (
-      SELECT ms."serverId", ms."isOnline",
-        GREATEST(0, LEAST(
-          EXTRACT(EPOCH FROM (COALESCE(lead(ms."createdAt") OVER (PARTITION BY ms."serverId" ORDER BY ms."createdAt"), ${coverEnd}::timestamp) - ms."createdAt")),
-          ${SAMPLE_SPAN_CAP_INTERVALS} * COALESCE(ms."intervalSeconds", ${legacySeconds})
-        ))::float8 AS span
-      FROM "metric_snapshots" ms
-      JOIN "servers" s ON s."id" = ms."serverId" AND s."enabled" = TRUE
-      WHERE ms."createdAt" >= ${dayStart}::timestamp AND ms."createdAt" < ${dayEnd}::timestamp
-    ) samples
+    FROM (${sampleCoverageSql(dayStart, coverEnd)}) samples
+    WHERE in_window OR span > 0
     GROUP BY "serverId"`;
 
   let upserted = 0;
@@ -77,13 +67,12 @@ export async function rollupServerUptimeForDay(
     const online = count(row.online);
     const offline = count(row.offline);
     const checkCount = online + offline;
-    if (checkCount <= 0) continue;
     sampleTotal += checkCount;
 
     const onlineSeconds = Math.max(0, row.online_s ?? 0);
     const offlineSeconds = Math.max(0, row.offline_s ?? 0);
-    const onlineMinutes = Math.min(1440, Math.round(onlineSeconds / 60));
-    const offlineMinutes = Math.min(1440 - onlineMinutes, Math.round(offlineSeconds / 60));
+    const onlineMinutes = Math.min(dayMinutes, Math.round(onlineSeconds / 60));
+    const offlineMinutes = Math.min(dayMinutes - onlineMinutes, Math.round(offlineSeconds / 60));
     const coveredSeconds = onlineSeconds + offlineSeconds;
     // Same-instant samples cover no time; fall back to the sample share.
     const uptimePercent = coveredSeconds > 0

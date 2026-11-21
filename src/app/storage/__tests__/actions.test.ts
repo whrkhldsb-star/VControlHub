@@ -27,7 +27,7 @@ const {
   lstatMock,
   rmMock,
   unlinkMock,
-  renameFsMock,
+  renameExclusiveMock,
 } = vi.hoisted(() => {
   const prismaMock: any = {
     fileEntry: {
@@ -85,7 +85,7 @@ const {
   lstatMock: vi.fn().mockRejectedValue(Object.assign(new Error("not found"), { code: "ENOENT" })),
   rmMock: vi.fn().mockResolvedValue(undefined),
   unlinkMock: vi.fn(),
-  renameFsMock: vi.fn(),
+  renameExclusiveMock: vi.fn(),
   };
 });
 
@@ -133,19 +133,21 @@ vi.mock("@/lib/ssh/client", () => ({
   }),
 }));
 
+vi.mock("@/lib/ssh/rename-exclusive", () => ({ renameLocalExclusive: renameExclusiveMock }));
+
 vi.mock("node:fs/promises", () => ({
   mkdir: mkdirMock,
   rmdir: rmdirMock,
   rm: rmMock,
   unlink: unlinkMock,
-  rename: renameFsMock,
+  rename: vi.fn(),
   readdir: vi.fn(async () => []),
   lstat: lstatMock,
   default: {
     mkdir: mkdirMock,
     rm: rmMock,
     unlink: unlinkMock,
-    rename: renameFsMock,
+    rename: vi.fn(),
     readdir: vi.fn(async () => []),
     lstat: vi.fn(async () => {
       throw Object.assign(new Error("not found"), { code: "ENOENT" });
@@ -610,7 +612,7 @@ describe("SFTP file entry actions", () => {
       entryForm("entry-1", { newName: "new.txt" }),
     );
 
-    expect(renameFsMock).not.toHaveBeenCalled();
+    expect(renameExclusiveMock).not.toHaveBeenCalled();
     expect(result.success).toContain("new.txt");
     expect(assertStorageAccess).toHaveBeenNthCalledWith(
       1,
@@ -728,7 +730,7 @@ describe("SFTP file entry actions", () => {
       }),
     );
     expect(renameRemoteFileMock).not.toHaveBeenCalled();
-    expect(renameFsMock).not.toHaveBeenCalled();
+    expect(renameExclusiveMock).not.toHaveBeenCalled();
     expect(prismaMock.fileEntry.update).not.toHaveBeenCalled();
   });
 
@@ -807,7 +809,7 @@ describe("SFTP file entry actions", () => {
       },
     });
     prismaMock.fileEntry.findFirst.mockResolvedValueOnce(null);
-    renameFsMock.mockResolvedValueOnce(undefined);
+    renameExclusiveMock.mockResolvedValueOnce(undefined);
     prismaMock.fileEntry.update.mockResolvedValueOnce({ id: "local-file" });
 
     const result = await renameFileEntryAction(
@@ -833,7 +835,7 @@ describe("SFTP file entry actions", () => {
     expect(mkdirMock).toHaveBeenCalledWith(localPath("docs"), {
       recursive: true,
     });
-    expect(renameFsMock).toHaveBeenCalledWith(
+    expect(renameExclusiveMock).toHaveBeenCalledWith(
       localPath("docs/old.txt"),
       localPath("docs/new.txt"),
     );
@@ -853,7 +855,7 @@ describe("SFTP file entry actions", () => {
     expect((await renameFileEntryAction(null, entryForm("entry-1", { newName: "new.txt" }))).error).toBeTruthy();
     expect(lockPaths.mock.invocationCallOrder[0]).toBeLessThan(lstatMock.mock.invocationCallOrder[0]!);
     expect(lstatMock).toHaveBeenCalledWith(localPath("docs/new.txt"));
-    expect(renameFsMock).not.toHaveBeenCalled();
+    expect(renameExclusiveMock).not.toHaveBeenCalled();
   });
 
   it("keeps both paths locked through rollback and preserves a replacement at the old name", async () => {
@@ -868,7 +870,7 @@ describe("SFTP file entry actions", () => {
     expect(result.error).toBeTruthy();
     expect(lockPaths).toHaveBeenCalledWith(entry.storageNodeId, "docs/new.txt", "docs/old.txt");
     expect(lockPaths.mock.invocationCallOrder[0]).toBeLessThan(lstatMock.mock.invocationCallOrder[0]!);
-    expect(renameFsMock.mock.calls).toEqual([[localPath("docs/old.txt"), localPath("docs/new.txt")]]);
+    expect(renameExclusiveMock.mock.calls).toEqual([[localPath("docs/old.txt"), localPath("docs/new.txt")]]);
     expect(lstatMock).toHaveBeenLastCalledWith(localPath("docs/old.txt"));
     expect(unlockPaths.mock.invocationCallOrder[0]).toBeGreaterThan(lstatMock.mock.invocationCallOrder.at(-1)!);
   });
@@ -899,7 +901,7 @@ describe("SFTP file entry actions", () => {
       storageNode: { driver: "LOCAL", basePath: "/srv/storage", host: null, port: null, username: null, server: null },
     });
     prismaMock.fileEntry.findFirst.mockResolvedValueOnce(null);
-    renameFsMock.mockResolvedValueOnce(undefined).mockRejectedValueOnce(new Error("EACCES: permission denied, rename"));
+    renameExclusiveMock.mockResolvedValueOnce(undefined).mockRejectedValueOnce(new Error("EACCES: permission denied, rename"));
     prismaMock.fileEntry.update.mockRejectedValueOnce(
       Object.assign(new Error("\nInvalid `prisma.fileEntry.update()` invocation:\n\n\nUnique constraint failed on the fields: (`storageNodeId`,`relativePath`)"), {
         name: "PrismaClientKnownRequestError",
@@ -922,7 +924,7 @@ describe("SFTP file entry actions", () => {
     expect(result.error).toBeTruthy();
     expect(prismaMock.fileEntry.findFirst).not.toHaveBeenCalled();
     expect(renameRemoteFileMock).not.toHaveBeenCalled();
-    expect(renameFsMock).not.toHaveBeenCalled();
+    expect(renameExclusiveMock).not.toHaveBeenCalled();
   });
 });
 

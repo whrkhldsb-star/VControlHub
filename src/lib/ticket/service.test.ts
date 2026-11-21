@@ -2,6 +2,7 @@ import { describe, expect, it, vi, beforeEach, onTestFinished } from "vitest";
 import type { Prisma } from "@prisma/client";
 const { mockPrisma } = vi.hoisted(() => ({
   mockPrisma: {
+    $queryRaw: vi.fn(),
     ticket: {
       create: vi.fn(),
       findMany: vi.fn(),
@@ -21,10 +22,7 @@ const { mockPrisma } = vi.hoisted(() => ({
 // Status changes commit with their timeline line; the mock runs the transaction on itself.
 Object.assign(mockPrisma, { $transaction: vi.fn(async (fn: (tx: unknown) => unknown) => fn(mockPrisma)) });
 vi.mock("@/lib/db", () => ({ prisma: mockPrisma }));
-vi.mock("@/lib/itsm/service", () => ({
-  safeFanOutTicketEvent: vi.fn(async () => undefined),
-  fanOutTicketEvent: vi.fn(async () => ({ sent: 0, failed: 0 })),
-}));
+vi.mock("@/lib/itsm/outbox", () => ({ enqueueTicketEvent: vi.fn() }));
 vi.mock("@/lib/auth/authorization", () => ({
   sessionHasPermission: (session: { roles?: string[] }, permission: string) =>
     permission === "team:manage" && session.roles?.includes("admin"),
@@ -35,7 +33,12 @@ const teamSession = { userId: "u1", roles: ["operator"] as never[], currentTeamI
 const adminSession = { userId: "admin", roles: ["admin"] as never[], currentTeamId: "team-a" };
 
 describe("ticket service", () => {
-  beforeEach(() => vi.clearAllMocks());
+  beforeEach(() => {
+    vi.clearAllMocks();
+    mockPrisma.ticket.findUnique.mockReset();
+    mockPrisma.ticket.findFirst.mockReset();
+    mockPrisma.ticket.update.mockReset().mockImplementation(async ({ data }) => ({ id: "tk1", ...data }));
+  });
   it("creates tickets and validates status transitions", async () => {
     mockPrisma.ticket.create.mockImplementation(async ({ data }: any) => ({ id: "tk1", ...data }));
     const ticket = await createTicket({ title: "Need VPS", description: "Please add node", createdBy: "u1" });
@@ -112,37 +115,34 @@ describe("ticket service", () => {
   });
 
   it("rejects assignee outside ticket team when session is present", async () => {
-    mockPrisma.ticket.findFirst.mockResolvedValueOnce({ teamId: "team-a" });
+    mockPrisma.ticket.findUnique.mockResolvedValueOnce({ teamId: "team-a" });
     mockPrisma.teamMember.findUnique.mockResolvedValueOnce(null);
 
     await expect(
       updateTicketStatus({ id: "tk1", assigneeId: "foreign-user", session: teamSession }),
     ).rejects.toThrow(/不是当前客户的账号|not a member of this customer/);
-    expect(mockPrisma.ticket.updateMany).not.toHaveBeenCalled();
+    expect(mockPrisma.ticket.update).not.toHaveBeenCalled();
   });
 
   it("allows self-assignment without membership lookup", async () => {
-    mockPrisma.ticket.findFirst
-      .mockResolvedValueOnce({ teamId: "team-a" })
-      .mockResolvedValueOnce({ id: "tk1", assigneeId: "u1", title: "t", description: "d", status: "OPEN", priority: "NORMAL", category: null, teamId: "team-a" });
-    mockPrisma.ticket.updateMany.mockResolvedValue({ count: 1 });
+    mockPrisma.ticket.findUnique
+      .mockResolvedValueOnce({ teamId: "team-a" });
 
     await updateTicketStatus({ id: "tk1", assigneeId: "u1", session: teamSession });
 
     expect(mockPrisma.teamMember.findUnique).not.toHaveBeenCalled();
-    expect(mockPrisma.ticket.updateMany).toHaveBeenCalled();
+    expect(mockPrisma.ticket.update).toHaveBeenCalled();
   });
 
   it("preserves assignee when status changes omit assigneeId and clears assignee only for explicit null", async () => {
     mockPrisma.ticket.findUnique.mockResolvedValue({ id: "tk1", status: "OPEN", teamId: null });
     mockPrisma.ticket.update.mockResolvedValue({ id: "tk1" });
-    mockPrisma.ticket.updateMany.mockResolvedValue({ count: 1 });
 
     await updateTicketStatus({ id: "tk1", status: "IN_PROGRESS" });
     await updateTicketStatus({ id: "tk1", assigneeId: null });
 
-    expect(mockPrisma.ticket.updateMany).toHaveBeenCalledWith({
-      where: { id: "tk1", status: "OPEN" },
+    expect(mockPrisma.ticket.update).toHaveBeenCalledWith({
+      where: { id: "tk1" },
       data: { status: "IN_PROGRESS", closedAt: null },
     });
     expect(mockPrisma.ticket.update).toHaveBeenCalledWith({
@@ -169,42 +169,37 @@ describe("ticket service", () => {
   });
 
   it("accepts valid status transitions", async () => {
-    mockPrisma.ticket.updateMany.mockResolvedValue({ count: 1 });
     // OPEN → IN_PROGRESS (valid)
     mockPrisma.ticket.findUnique
-      .mockResolvedValueOnce({ id: "tk1", status: "OPEN", teamId: null })
-      .mockResolvedValueOnce({ id: "tk1", status: "IN_PROGRESS" });
+      .mockResolvedValueOnce({ id: "tk1", status: "OPEN", teamId: null });
     mockPrisma.ticket.update.mockResolvedValueOnce({ id: "tk1", status: "IN_PROGRESS" });
     await updateTicketStatus({ id: "tk1", status: "IN_PROGRESS" });
-    expect(mockPrisma.ticket.updateMany).toHaveBeenLastCalledWith({
-      where: { id: "tk1", status: "OPEN" },
+    expect(mockPrisma.ticket.update).toHaveBeenLastCalledWith({
+      where: { id: "tk1" },
       data: { status: "IN_PROGRESS", closedAt: null },
     });
 
     // IN_PROGRESS → RESOLVED (valid)
     mockPrisma.ticket.findUnique
-      .mockResolvedValueOnce({ id: "tk1", status: "IN_PROGRESS", teamId: null })
-      .mockResolvedValueOnce({ id: "tk1", status: "RESOLVED" });
+      .mockResolvedValueOnce({ id: "tk1", status: "IN_PROGRESS", teamId: null });
     mockPrisma.ticket.update.mockResolvedValueOnce({ id: "tk1", status: "RESOLVED" });
     await updateTicketStatus({ id: "tk1", status: "RESOLVED" });
 
     // RESOLVED → CLOSED (valid, sets closedAt)
     mockPrisma.ticket.findUnique
-      .mockResolvedValueOnce({ id: "tk1", status: "RESOLVED", teamId: null })
-      .mockResolvedValueOnce({ id: "tk1", status: "CLOSED" });
+      .mockResolvedValueOnce({ id: "tk1", status: "RESOLVED", teamId: null });
     mockPrisma.ticket.update.mockResolvedValueOnce({ id: "tk1", status: "CLOSED" });
     await updateTicketStatus({ id: "tk1", status: "CLOSED" });
-    expect(mockPrisma.ticket.updateMany).toHaveBeenLastCalledWith(
+    expect(mockPrisma.ticket.update).toHaveBeenLastCalledWith(
       expect.objectContaining({ data: expect.objectContaining({ status: "CLOSED", closedAt: expect.any(Date) }) }),
     );
 
     // CLOSED → OPEN (re-open, valid, clears closedAt)
     mockPrisma.ticket.findUnique
-      .mockResolvedValueOnce({ id: "tk1", status: "CLOSED", teamId: null, createdAt: new Date(), priority: "NORMAL" })
-      .mockResolvedValueOnce({ id: "tk1", status: "OPEN" });
+      .mockResolvedValueOnce({ id: "tk1", status: "CLOSED", teamId: null, createdAt: new Date(), priority: "NORMAL" });
     mockPrisma.ticket.update.mockResolvedValueOnce({ id: "tk1", status: "OPEN" });
     await updateTicketStatus({ id: "tk1", status: "OPEN" });
-    expect(mockPrisma.ticket.updateMany).toHaveBeenLastCalledWith(
+    expect(mockPrisma.ticket.update).toHaveBeenLastCalledWith(
       expect.objectContaining({ data: expect.objectContaining({ status: "OPEN", closedAt: null }) }),
     );
   });
@@ -214,6 +209,7 @@ describe("ticket service", () => {
   });
 
   it("returns comment authors for newly added comments", async () => {
+    mockPrisma.ticket.findFirst.mockResolvedValueOnce({ id: "tk1" });
     mockPrisma.ticketComment.create.mockResolvedValueOnce({ id: "c1", author: { id: "u1", username: "alice", displayName: null } });
 
     await addTicketComment({ ticketId: "tk1", authorId: "u1", body: " please check " });
@@ -288,17 +284,14 @@ describe("ticket service", () => {
   });
 
   it("scopes updateTicketStatus mutations with teamWhere", async () => {
-    mockPrisma.ticket.findFirst
-      .mockResolvedValueOnce({ id: "tk1", status: "OPEN", teamId: "team-a" })
-      .mockResolvedValueOnce({ id: "tk1", status: "IN_PROGRESS", title: "t", description: "d", priority: "NORMAL", category: null, teamId: "team-a" });
-    mockPrisma.ticket.updateMany.mockResolvedValue({ count: 1 });
+    mockPrisma.ticket.findUnique
+      .mockResolvedValueOnce({ id: "tk1", status: "OPEN", teamId: "team-a" });
 
     await updateTicketStatus({ id: "tk1", status: "IN_PROGRESS", session: teamSession });
 
-    expect(mockPrisma.ticket.updateMany).toHaveBeenCalledWith({
+    expect(mockPrisma.ticket.update).toHaveBeenCalledWith({
       where: {
         id: "tk1",
-        status: "OPEN",
         teamId: "team-a",
       },
       data: { status: "IN_PROGRESS", closedAt: null },
@@ -306,7 +299,7 @@ describe("ticket service", () => {
   });
 
   it("throws NotFound when updateTicketStatus targets a foreign-team ticket", async () => {
-    mockPrisma.ticket.findFirst.mockResolvedValueOnce(null);
+    mockPrisma.ticket.findUnique.mockResolvedValueOnce(null);
 
     await expect(updateTicketStatus({ id: "tk-x", status: "IN_PROGRESS", session: teamSession })).rejects.toThrow(
       /工单不存在|Ticket not found/,
@@ -335,19 +328,8 @@ describe("ticket service", () => {
   });
 
   it("recomputes slaDueAt when priority changes on an open ticket", async () => {
-    mockPrisma.ticket.findFirst
-      .mockResolvedValueOnce({ status: "OPEN", teamId: "team_a", createdAt: new Date("2026-01-01T00:00:00Z") })
-      .mockResolvedValueOnce({
-        id: "tk1",
-        status: "IN_PROGRESS",
-        priority: "URGENT",
-        slaDueAt: new Date("2026-01-01T02:00:00Z"),
-        teamId: "team_a",
-        title: "t",
-        description: "d",
-        category: null,
-      });
-    mockPrisma.ticket.updateMany.mockResolvedValueOnce({ count: 1 });
+    mockPrisma.ticket.findUnique
+      .mockResolvedValueOnce({ status: "OPEN", teamId: "team_a", createdAt: new Date("2026-01-01T00:00:00Z") });
     const session = { userId: "u1", roles: ["admin"] as any, currentTeamId: "team_a" };
     const updated = await updateTicketStatus({
       id: "tk1",
@@ -356,7 +338,7 @@ describe("ticket service", () => {
       session,
       skipItsmFanOut: true,
     });
-    expect(mockPrisma.ticket.updateMany).toHaveBeenCalledWith(
+    expect(mockPrisma.ticket.update).toHaveBeenCalledWith(
       expect.objectContaining({
         data: expect.objectContaining({
           status: "IN_PROGRESS",
@@ -373,13 +355,11 @@ describe("ticket service", () => {
     // Regression: the guard must key off the RESULTING status, not the stale
     // pre-transition row. Reopening a RESOLVED ticket makes it active again, so
     // a priority change here must produce a fresh SLA deadline.
-    mockPrisma.ticket.findFirst
-      .mockResolvedValueOnce({ status: "RESOLVED", teamId: "team_a", createdAt: new Date("2026-01-01T00:00:00Z") })
-      .mockResolvedValueOnce({ id: "tk1", status: "IN_PROGRESS", priority: "HIGH", teamId: "team_a", title: "t", description: "d", category: null });
-    mockPrisma.ticket.updateMany.mockResolvedValueOnce({ count: 1 });
+    mockPrisma.ticket.findUnique
+      .mockResolvedValueOnce({ status: "RESOLVED", teamId: "team_a", createdAt: new Date("2026-01-01T00:00:00Z") });
     const session = { userId: "u1", roles: ["admin"] as any, currentTeamId: "team_a" };
     await updateTicketStatus({ id: "tk1", status: "IN_PROGRESS", priority: "HIGH", session, skipItsmFanOut: true });
-    const data = mockPrisma.ticket.updateMany.mock.calls[0]![0].data;
+    const data = mockPrisma.ticket.update.mock.calls[0]![0].data;
     expect(data.slaDueAt).toBeInstanceOf(Date);
     expect(data.escalatedAt).toBeNull();
   });
@@ -392,10 +372,11 @@ describe("ticket service", () => {
     const row = { id: "tk1", createdAt, escalatedAt: createdAt, escalatedTo: "u2" };
     const write = ({ data }: { data: object }) => Object.assign(row, data);
     const db = {
+      $queryRaw: vi.fn(),
       ticket: {
         create: write,
-        findFirst: () => row,
-        updateMany: (args: { data: object }) => { write(args); return { count: 1 }; },
+        findUnique: () => ({ ...row }),
+        update: write,
       },
       ticketEscalation: { create: vi.fn() },
     } as unknown as Prisma.TransactionClient;
@@ -419,13 +400,11 @@ describe("ticket service", () => {
   it("does NOT recompute SLA when resolving (IN_PROGRESS→RESOLVED) with a priority change", async () => {
     // Regression: old code keyed off the pre-transition status ("IN_PROGRESS")
     // and would reset the SLA on a ticket that is being resolved.
-    mockPrisma.ticket.findFirst
-      .mockResolvedValueOnce({ status: "IN_PROGRESS", teamId: "team_a", createdAt: new Date("2026-01-01T00:00:00Z") })
-      .mockResolvedValueOnce({ id: "tk1", status: "RESOLVED", priority: "HIGH", teamId: "team_a", title: "t", description: "d", category: null });
-    mockPrisma.ticket.updateMany.mockResolvedValueOnce({ count: 1 });
+    mockPrisma.ticket.findUnique
+      .mockResolvedValueOnce({ status: "IN_PROGRESS", teamId: "team_a", createdAt: new Date("2026-01-01T00:00:00Z") });
     const session = { userId: "u1", roles: ["admin"] as any, currentTeamId: "team_a" };
     await updateTicketStatus({ id: "tk1", status: "RESOLVED", priority: "HIGH", session, skipItsmFanOut: true });
-    const data = mockPrisma.ticket.updateMany.mock.calls[0]![0].data;
+    const data = mockPrisma.ticket.update.mock.calls[0]![0].data;
     expect(data.slaDueAt).toBeUndefined();
     expect("escalatedAt" in data).toBe(false);
   });

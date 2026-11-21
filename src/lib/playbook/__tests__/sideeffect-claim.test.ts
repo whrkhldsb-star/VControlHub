@@ -23,6 +23,7 @@ vi.mock("@/lib/db", () => ({
     teamMember: { findUnique: mocks.teamMemberFindUnique },
   },
 }));
+vi.mock("../webhook-dispatch", () => ({ fetchPlaybookWebhook: mocks.fetchWebhookSafely }));
 vi.mock("@/lib/security/webhook-url", () => ({
   fetchWebhookSafely: mocks.fetchWebhookSafely,
   validateWebhookUrlSyntax: (url: string) => ({ ok: true as const, url }),

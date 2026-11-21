@@ -3,6 +3,7 @@ import { randomUUID } from "node:crypto";
 import { afterAll, beforeAll, describe, expect, it } from "vitest";
 
 import { prisma } from "@/lib/db";
+import { listFileEntries } from "@/lib/storage/service-entries";
 
 import { countMediaItems, getMediaItem, getMediaNeighbors, listMediaItems, listMediaTags, listMediaTypeCounts, updateMediaTags } from "../service";
 
@@ -46,6 +47,20 @@ describe.skipIf(process.env.RUN_DATABASE_INTEGRATION_TESTS !== "1")("media libra
     await prisma.user.deleteMany({ where: { id: prefix } });
     await prisma.team.deleteMany({ where: { id: prefix } });
     await prisma.$disconnect();
+  });
+
+  it("returns empty file and media pages without a customer, even for a node manager", async () => {
+    const session = { ...narrowed, currentTeamId: null, permissions: ["storage:manage-node" as const] };
+    const entry = await prisma.fileEntry.create({ data: { name: "visible.png", relativePath: "visible.png", entryType: "FILE", storageNodeId: prefix } });
+    try {
+      const options = { cursor: entry.id, take: 1 };
+      expect(await listFileEntries(prefix, options, { ...session, currentTeamId: prefix })).toHaveLength(1);
+      expect(await listFileEntries(prefix, options, session)).toEqual([]);
+      expect(await listMediaItems({ session })).toEqual([]);
+      expect(await countMediaItems({ session })).toBe(0);
+    } finally {
+      await prisma.fileEntry.delete({ where: { id: entry.id } });
+    }
   });
 
   it("lists, counts and tags only the granted paths", async () => {

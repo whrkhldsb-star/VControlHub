@@ -163,7 +163,7 @@ describe("node publication (admin)", () => {
 	});
 
 	it("batch publish skips servers without a configured public name", async () => {
-		prismaMock.publicStatusNode.findMany.mockResolvedValue([{ serverId: "s1", displayName: "Tokyo", server: { teamId: "team_a" } }]);
+		prismaMock.publicStatusNode.findMany.mockResolvedValue([{ serverId: "s1", displayName: "Tokyo", server: { host: "node.test", teamId: "team_a" } }]);
 		prismaMock.publicStatusNode.update.mockResolvedValue({});
 		const result = await applyNodeBatch({ action: "publish", serverIds: ["s1", "s2"] }, "admin");
 		expect(result).toEqual({ changed: 1, skipped: ["s2"] });

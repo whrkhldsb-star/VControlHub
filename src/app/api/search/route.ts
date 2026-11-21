@@ -1,8 +1,10 @@
 import { NextResponse } from "next/server";
+import type { Prisma } from "@prisma/client";
 import { z } from "zod";
 
 import { sessionHasPermission } from "@/lib/auth/authorization";
 import { isGlobalTeamManager, playbookTeamWhere, serverTeamWhere } from "@/lib/auth/team-scope";
+import { escapeLikeLiteral } from "@/lib/db/like-pattern";
 import { prisma } from "@/lib/db";
 import { withApiRoute } from "@/lib/http/api-guard";
 import { SERVICE_CATALOG } from "@/lib/quick-service/catalog";
@@ -92,7 +94,17 @@ export async function GET(request: Request) {
 		}
 
 		if (session && sessionHasPermission(session, "docker:manage")) {
-			// Search across all instance keys (hub + remote VPS installs), not only hub-host.
+			const contains = { contains: escapeLikeLiteral(q), mode: "insensitive" } as const;
+			const fields: Prisma.QuickServiceWhereInput[] = ["name", "slug", "description", "status", "instanceKey"]
+				.map(field => ({ [field]: contains }));
+			const separator = q.indexOf("@");
+			if (separator >= 0) {
+				// A remote instance was also searchable by its status@instanceKey display value.
+				fields.push({
+					status: { endsWith: escapeLikeLiteral(q.slice(0, separator)), mode: "insensitive" },
+					instanceKey: { not: "hub-host", startsWith: escapeLikeLiteral(q.slice(separator + 1)), mode: "insensitive" },
+				});
+			}
 			const installed = await prisma.quickService.findMany({
 				where: {
 					// QuickService has no teamId of its own. Remote installs
@@ -102,29 +114,29 @@ export async function GET(request: Request) {
 					// run on the platform's own Docker daemon, which only platform
 					// managers may address (assertHubHostDockerAccess) — the same rule
 					// applies to listing them here.
+					AND: [{ OR: fields }],
 					OR: [
 						...(isGlobalTeamManager(session) ? [{ serverId: null }] : []),
 						{ server: serverTeamWhere(session) },
 					],
 				},
 				orderBy: [{ category: "asc" }, { name: "asc" }],
-				take: 500,
-				select: { slug: true, name: true, description: true, status: true, instanceKey: true },
+				distinct: ["slug"],
+				take,
+				select: { slug: true, name: true, description: true },
 			});
 			const remoteApps = await getRemoteApps();
-			const quickServices = [
-				...SERVICE_CATALOG.map((item) => ({ slug: item.slug, name: item.name, description: item.description, source: "catalog" })),
-				...installed.map((item) => ({
-					slug: item.slug,
-					name: item.name,
-					description: item.description,
-					source: item.instanceKey === "hub-host" ? item.status : `${item.status}@${item.instanceKey}`,
-				})),
-				...remoteApps.map((item) => ({ slug: item.slug, name: item.name, description: item.description, source: item.sourceName })),
-			]
-				.filter((item, index, list) => list.findIndex((candidate) => candidate.slug === item.slug) === index)
-				.filter((item) => includesQuery([item.name, item.slug, item.description, item.source], q))
-				.slice(0, take);
+			const matches = [
+				...SERVICE_CATALOG.filter(item => includesQuery([item.name, item.slug, item.description, "catalog"], q)),
+				...installed,
+				...remoteApps.filter(item => includesQuery([item.name, item.slug, item.description, item.sourceName], q)),
+			];
+			const seen = new Set<string>();
+			const quickServices = matches.filter(item => {
+				if (seen.has(item.slug)) return false;
+				seen.add(item.slug);
+				return true;
+			}).slice(0, take);
 
 			results.push(...quickServices.map((item) => ({
 				id: `quick-service:${item.slug}`,

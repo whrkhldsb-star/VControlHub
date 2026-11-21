@@ -15,6 +15,7 @@
 
 import { auditUserAction } from "@/lib/audit/service";
 import { prisma } from "@/lib/db";
+import { probeEndpointWhere } from "@/lib/server/service-profile-includes";
 import { ConflictError } from "@/lib/errors";
 import { withApiRoute } from "@/lib/http/api-guard";
 import { GENERAL_WRITE_LIMIT } from "@/lib/http/rate-limit-presets";
@@ -61,7 +62,7 @@ export async function POST(
       if (!teamAccess.ok) return teamAccess.response;
 
       const server = await prisma.server.findUnique({
-        where: { id, teamId: teamAccess.server.teamId },
+        where: { id, teamId: teamAccess.server.teamId, enabled: true },
         select: SSH_CONNECTION_SERVER_SELECT,
       });
       if (!server) {
@@ -83,15 +84,7 @@ export async function POST(
           dialect.distroName.startsWith("Unknown");
 
         const saved = await prisma.server.updateMany({
-          where: {
-            id,
-            teamId: server.teamId,
-            host: server.host,
-            port: server.port,
-            username: server.username,
-            operatingSystem: server.operatingSystem,
-            managementMode: server.managementMode,
-          },
+          where: probeEndpointWhere(server, true),
           data: {
             osDialect: serializeDialect(dialect),
             osInfo,

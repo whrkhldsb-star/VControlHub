@@ -1,3 +1,6 @@
+import { createHash } from "node:crypto";
+import { lockForTransaction } from "@/lib/concurrency/advisory-lock";
+import { PLATFORM_ONLY_CHANNELS, recordChannelGrant } from "./channel-grants";
 import type { AlertRule, Prisma } from "@prisma/client";
 import { apiCopy } from "@/lib/i18n/api-copy";
 import { sessionHasPermission } from "@/lib/auth/authorization";
@@ -65,8 +68,6 @@ async function assertPlaybookIdsInTeam(playbookIds: string[], session?: TeamSess
  * customer's. A customer rule on them sent the owner whatever its name said, on demand through the test button,
  * so only a platform administrator may route a rule there.
  */
-const PLATFORM_ONLY_CHANNELS = ["email", "telegram"];
-
 function mayUsePlatformChannels(session?: TeamSession | null): boolean {
 	return !session || isGlobalTeamManager(session);
 }
@@ -107,38 +108,49 @@ export async function listAlertRules(session?: TeamSession | null) {
 
 export async function createAlertRule(input: CreateAlertRuleInput, session?: TeamSession | null) {
 	const serverIds = input.serverIds ?? [];
-	const playbookIds = input.playbookIds ?? [];
+	const playbookIds = [...new Set(input.playbookIds ?? [])];
 	assertChannelsAllowed(input.notifyChannels, session);
 	await assertServerIdsInTeam(serverIds, session);
 	await assertPlaybookIdsInTeam(playbookIds, session);
 	await assertOnCallUserIdsInTeam(input.onCallUserIds ?? [], session);
 	const teamId = session ? teamCreateData(session).teamId : null;
-	return prisma.alertRule.create({
-		data: {
-			name: input.name,
-			metric: input.metric,
-			operator: input.operator,
-			threshold: input.threshold,
-			durationSeconds: input.durationSeconds ?? 0,
-			serverIds,
-			notifyChannels: input.notifyChannels ?? ["in_app"],
-			webhookUrl: input.webhookUrl ?? null,
-			playbookIds,
-			cooldownMinutes: input.cooldownMinutes ?? 30,
-			silenceWindows: input.silenceWindows ?? [],
-			escalationMinutes: input.escalationMinutes ?? 30,
-			onCallUserIds: input.onCallUserIds ?? [],
-			enabled: input.enabled ?? true,
-			teamId: teamId ?? null,
-		},
-	});
+	const data = ruleData(input, teamId ?? null);
+	if (teamId && session && input.notifyChannels?.some((channel) => PLATFORM_ONLY_CHANNELS.includes(channel))) {
+		return prisma.$transaction(async (tx) => {
+			const rule = await tx.alertRule.create({ data });
+			await recordChannelGrant(tx, rule, session.userId);
+			return rule;
+		});
+	}
+	return prisma.alertRule.create({ data });
 }
 
-type RuleTargets = Pick<AlertRule, "enabled" | "playbookIds" | "serverIds">;
+function ruleData(input: CreateAlertRuleInput, teamId: string | null): Prisma.AlertRuleUncheckedCreateInput {
+	return {
+		name: input.name,
+		metric: input.metric,
+		operator: input.operator,
+		threshold: input.threshold,
+		durationSeconds: input.durationSeconds ?? 0,
+		serverIds: input.serverIds ?? [],
+		notifyChannels: input.notifyChannels ?? ["in_app"],
+		webhookUrl: input.webhookUrl ?? null,
+		playbookIds: [...new Set(input.playbookIds ?? [])],
+		cooldownMinutes: input.cooldownMinutes ?? 30,
+		silenceWindows: input.silenceWindows ?? [],
+		escalationMinutes: input.escalationMinutes ?? 30,
+		onCallUserIds: input.onCallUserIds ?? [],
+		enabled: input.enabled ?? true,
+		teamId,
+	};
+}
+
+type RuleTargets = Pick<AlertRule, "enabled" | "playbookIds" | "serverIds" | "notifyChannels">;
 
 async function assertRuleChangeInScope(current: RuleTargets, input: Partial<CreateAlertRuleInput>, session: TeamSession) {
 	const disablingOnly = input.enabled === false && Object.keys(input).length === 1;
 	if (!disablingOnly) {
+		assertChannelsAllowed(input.notifyChannels ?? current.notifyChannels, session);
 		const requiresRun = input.playbookIds !== undefined || (input.enabled ?? current.enabled);
 		await assertPlaybookIdsInTeam(input.playbookIds ?? current.playbookIds, session, requiresRun);
 	}
@@ -153,10 +165,19 @@ async function updateScopedAlertRule(
 ) {
 	const where = { id, ...teamWhere(session) };
 	// The bindings, targets or enabled state may have changed after validation.
-	const [row] = await prisma.alertRule.updateManyAndReturn({
-		where: { ...where, enabled: current.enabled, playbookIds: { equals: current.playbookIds }, serverIds: { equals: current.serverIds } },
+	const update = (tx: Prisma.TransactionClient) => tx.alertRule.updateManyAndReturn({
+		where: { ...where, enabled: current.enabled, notifyChannels: { equals: current.notifyChannels }, playbookIds: { equals: current.playbookIds }, serverIds: { equals: current.serverIds } },
 		data,
 	});
+	const touchesPlatform = [...(current.notifyChannels ?? []), ...(Array.isArray(data.notifyChannels) ? data.notifyChannels : [])]
+		.some((channel) => PLATFORM_ONLY_CHANNELS.includes(channel));
+	const [row] = touchesPlatform ? await prisma.$transaction(async (tx) => {
+		const rows = await update(tx);
+		if (rows[0] && (isGlobalTeamManager(session) || !rows[0].notifyChannels.some((channel) => PLATFORM_ONLY_CHANNELS.includes(channel)))) {
+			await recordChannelGrant(tx, rows[0], session.userId);
+		}
+		return rows;
+	}) : await update(prisma);
 	if (row) return row;
 	if (await prisma.alertRule.findFirst({ where, select: { id: true } })) {
 		throw new ConflictError(t("backend.alert.ruleChanged"));
@@ -169,8 +190,9 @@ export async function updateAlertRule(
 	input: Partial<CreateAlertRuleInput> & { enabled?: boolean },
 	session?: TeamSession | null,
 ) {
+	if (input.playbookIds) input = { ...input, playbookIds: [...new Set(input.playbookIds)] };
 	assertChannelsAllowed(input.notifyChannels, session);
-	const select = { metric: true, webhookUrl: true, enabled: true, playbookIds: true, serverIds: true } as const;
+	const select = { metric: true, webhookUrl: true, enabled: true, playbookIds: true, serverIds: true, notifyChannels: true } as const;
 	let existing: Pick<AlertRule, keyof typeof select> | null = null;
 	if (session) {
 		existing = await prisma.alertRule.findFirst({ where: { id, ...teamWhere(session) }, select });
@@ -224,7 +246,7 @@ export async function deleteAlertRule(id: string, session?: TeamSession | null) 
 }
 
 export async function toggleAlertRule(id: string, session?: TeamSession | null) {
-	const select = { enabled: true, playbookIds: true, serverIds: true } as const;
+	const select = { enabled: true, playbookIds: true, serverIds: true, notifyChannels: true } as const;
 	const current = session
 		? await prisma.alertRule.findFirst({ where: { id, ...teamWhere(session) }, select })
 		: await prisma.alertRule.findUnique({ where: { id }, select });
@@ -406,23 +428,10 @@ export async function testAlertRule(id: string, session?: TeamSession | null): P
  * install does not silently stay in-app-only after ops configured delivery.
  */
 export async function ensureDefaultAlertRules(session?: TeamSession | null) {
-	const where = session ? teamWhere(session) : {};
-	// "No rules" cannot tell a fresh install from an owner who deleted every rule to silence alerting: the worker
-	// recreated the four fleet rules within a minute. A marker per scope records that the starter pack was offered.
-	const markerKey = Object.keys(where).length === 0
-		? DEFAULT_RULES_MARKER
-		: `${DEFAULT_RULES_MARKER}:${session?.currentTeamId ?? "none"}`;
-	if (await readDefaultRulesMarker(markerKey)) {
-		return { created: 0, skipped: true as const };
-	}
-	const existing = await prisma.alertRule.count({ where });
-	if (existing > 0) {
-		// An install from before the marker: its rules are the owner's choice from here on.
-		await writeDefaultRulesMarker(markerKey);
-		return { created: 0, skipped: true as const };
-	}
-
-	// A restricted reader may be the first to open the page. Leave seeding available to an unrestricted owner.
+	const teamId = session?.currentTeamId ?? null;
+	const markerKey = teamId ? `${DEFAULT_RULES_MARKER}:${teamId}` : DEFAULT_RULES_MARKER;
+	if (session && !teamId && !isGlobalTeamManager(session)) return { created: 0, skipped: true as const };
+	if ((await prisma.setting.findUnique({ where: { key: markerKey } }))?.value === "true") return { created: 0, skipped: true as const };
 	if (await hasDeniedServerReads(session)) return { created: 0, skipped: true as const };
 	const notifyChannels = await resolveDefaultNotifyChannels(session);
 
@@ -469,33 +478,26 @@ export async function ensureDefaultAlertRules(session?: TeamSession | null) {
 		},
 	];
 
-	const created = [];
-	for (const rule of defaults) {
-		created.push(await createAlertRule(rule, session));
-	}
-	await writeDefaultRulesMarker(markerKey);
-	return { created: created.length, skipped: false as const, rules: created };
+	return prisma.$transaction(async (tx) => {
+		await lockForTransaction(tx, "default-alert-rules", markerKey);
+		if ((await tx.setting.findUnique({ where: { key: markerKey } }))?.value === "true") return { created: 0, skipped: true as const };
+		const created = [];
+		if (!await tx.alertRule.count({ where: session ? teamWhere(session) : {} })) {
+			for (const input of defaults) {
+				const id = "starter-" + createHash("sha256").update(JSON.stringify([teamId, input.metric])).digest("hex");
+				const rule = await tx.alertRule.create({ data: { id, ...ruleData(input, teamId) } });
+				if (teamId && session && notifyChannels.some((channel) => PLATFORM_ONLY_CHANNELS.includes(channel))) {
+					await recordChannelGrant(tx, rule, session.userId);
+				}
+				created.push(rule);
+			}
+		}
+		await tx.setting.upsert({ where: { key: markerKey }, create: { key: markerKey, value: "true" }, update: { value: "true" } });
+		return created.length ? { created: created.length, skipped: false as const, rules: created } : { created: 0, skipped: true as const };
+	});
 }
 
 const DEFAULT_RULES_MARKER = "alerts.defaultRulesSeeded";
-
-async function readDefaultRulesMarker(key: string): Promise<boolean> {
-	try {
-		const { getSetting } = await import("@/lib/settings/service");
-		return (await getSetting(key)) === "true";
-	} catch {
-		return false;
-	}
-}
-
-async function writeDefaultRulesMarker(key: string): Promise<void> {
-	try {
-		const { setSetting } = await import("@/lib/settings/service");
-		await setSetting(key, "true");
-	} catch {
-		// Best effort: without the marker the next call falls back to counting rules, the old behaviour.
-	}
-}
 
 async function assertOnCallUserIdsInTeam(userIds: string[], session?: TeamSession | null) {
 	if (!session || userIds.length === 0) return;

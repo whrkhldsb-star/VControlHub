@@ -48,8 +48,8 @@ describe("Quick Services app-source fetch URL boundaries", () => {
 		]), { status: 200, headers: { "content-type": "application/json" } }));
 		globalThis.fetch = fetchMock as unknown as typeof fetch;
 
-		const first = await fetchSourceApps("catalog-one", "json", "https://catalog.example/one.json");
-		const second = await fetchSourceApps("catalog-two", "json", "https://catalog.example/two.json");
+		const { apps: first } = await fetchSourceApps("catalog-one", "json", "https://catalog.example/one.json");
+		const { apps: second } = await fetchSourceApps("catalog-two", "json", "https://catalog.example/two.json");
 
 		expect(first[0]).toMatchObject({ slug: "catalog-one-demo", sourceName: "catalog-one", volumesJson: [{ host: "/opt/catalog-one-demo/data", container: "/data" }] });
 		expect(second[0]).toMatchObject({ slug: "catalog-two-demo", sourceName: "catalog-two", volumesJson: [{ host: "/opt/catalog-two-demo/data", container: "/data" }] });
@@ -82,7 +82,7 @@ describe("Quick Services app-source fetch URL boundaries", () => {
 			}] } },
 		}), { status: 200 })) as unknown as typeof fetch;
 
-		const apps = await fetchSourceApps("LinuxServer", "linuxserver", "https://api.linuxserver.io/api/v1/images");
+		const { apps } = await fetchSourceApps("LinuxServer", "linuxserver", "https://api.linuxserver.io/api/v1/images");
 		expect(apps[0]).toMatchObject({
 			defaultPort: 7878,
 			internalPort: 7878,
@@ -93,6 +93,14 @@ describe("Quick Services app-source fetch URL boundaries", () => {
 		// What is stored of the source must carry the popularity: the table has no column for it, and without it
 		// the card's stars and monthly pulls (and the ordering by them) never had anything to show.
 		expect(JSON.parse(apps[0]!.rawJson!)).toMatchObject({ stars: 1, monthly_pulls: 2 });
+	});
+
+	it("reports a truncated raw snapshot even when filtering removes most entries", async () => {
+		const catalog = Array.from({ length: 5001 }, (_, index) => index === 0 ? { name: "Tool", image: "example/tool" } : {});
+		globalThis.fetch = vi.fn(async () => new Response(JSON.stringify(catalog), { status: 200 })) as unknown as typeof fetch;
+		const snapshot = await fetchSourceApps("catalog", "json", "https://catalog.example/apps.json");
+		expect(snapshot.complete).toBe(false);
+		expect(snapshot.apps.length).toBeLessThan(5000);
 	});
 
 	it("refuses a 200 response that is not a catalogue instead of reading it as empty", async () => {
@@ -109,8 +117,8 @@ describe("Quick Services app-source fetch URL boundaries", () => {
 			JSON.stringify(String(url).includes("lsio") ? { status: "OK", data: { repositories: { linuxserver: [] } } } : { apps: [] }),
 			{ status: 200, headers: { "content-type": "application/json" } },
 		)) as unknown as typeof fetch;
-		await expect(fetchSourceApps("catalog", "json", "https://catalog.example/apps.json")).resolves.toEqual([]);
-		await expect(fetchSourceApps("lsio", "linuxserver", "https://catalog.example/lsio.json")).resolves.toEqual([]);
+		await expect(fetchSourceApps("catalog", "json", "https://catalog.example/apps.json")).resolves.toEqual({ apps: [], complete: true });
+		await expect(fetchSourceApps("lsio", "linuxserver", "https://catalog.example/lsio.json")).resolves.toEqual({ apps: [], complete: true });
 	});
 });
 
@@ -236,7 +244,7 @@ describe("LinuxServer catalogue with UDP ports", () => {
 			headers: { "content-type": "application/json" },
 		})) as unknown as typeof fetch;
 
-		const apps = await fetchSourceApps("linuxserver", "linuxserver", "https://api.linuxserver.io/api/v1/images?include_config=true");
+		const { apps } = await fetchSourceApps("linuxserver", "linuxserver", "https://api.linuxserver.io/api/v1/images?include_config=true");
 		const bySlug = Object.fromEntries(apps.map((app) => [app.slug, app]));
 
 		expect(Object.keys(bySlug).sort()).toEqual(["linuxserver-heimdall", "linuxserver-syslog-ng"]);

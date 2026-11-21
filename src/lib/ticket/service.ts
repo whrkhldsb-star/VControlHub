@@ -1,5 +1,8 @@
-import { ValidationError, ConflictError, NotFoundError } from "@/lib/errors";
+import { ValidationError, NotFoundError } from "@/lib/errors";
 import { prisma } from "@/lib/db";
+import { sessionHasPermission } from "@/lib/auth/authorization";
+import { lockTicket, withTicketTransaction } from "./transaction";
+import { enqueueTicketEvent } from "@/lib/itsm/outbox";
 import type { Prisma } from "@prisma/client";
 import { serverTeamWhere, teamCreateData, teamWhere } from "@/lib/auth/team-scope";
 import type { RoleKey } from "@/lib/auth/rbac";
@@ -39,6 +42,7 @@ function ticketTeamFilter(session?: TeamSession | null): Record<string, unknown>
  * cross-tenant link IDOR already fixed on timeline link_* actions.
  */
 async function assertRelatedResourcesInTeamScope(
+  tx: Prisma.TransactionClient,
   input: {
     relatedServerId?: string | null;
     relatedCommandId?: string | null;
@@ -48,14 +52,14 @@ async function assertRelatedResourcesInTeamScope(
   if (!session) return;
   const scope = teamWhere(session);
   if (input.relatedServerId) {
-    const server = await prisma.server.findFirst({
+    const server = await tx.server.findFirst({
       where: { id: input.relatedServerId, ...serverTeamWhere(session) },
       select: { id: true },
     });
     if (!server) throw new ValidationError(t("backend.ticket.relatedServerNotFound"));
   }
   if (input.relatedCommandId) {
-    const cmd = await prisma.commandRequest.findFirst({
+    const cmd = await tx.commandRequest.findFirst({
       where: { id: input.relatedCommandId, ...scope },
       select: { id: true },
     });
@@ -69,13 +73,13 @@ async function assertRelatedResourcesInTeamScope(
  * arbitrary foreign-tenant userIds into assigneeId via PATCH.
  */
 async function assertAssigneeInTeamScope(
+  tx: Prisma.TransactionClient,
   assigneeId: string | null | undefined,
   session?: TeamSession | null,
   ticketTeamId?: string | null,
 ) {
   if (!assigneeId || !session) return;
   // Platform admins may assign anyone.
-  const { sessionHasPermission } = await import("@/lib/auth/authorization");
   if (sessionHasPermission(session, "team:manage")) return;
 
   const teamId = ticketTeamId ?? session.currentTeamId;
@@ -89,7 +93,7 @@ async function assertAssigneeInTeamScope(
 
   if (assigneeId === session.userId) return;
 
-  const membership = await prisma.teamMember.findUnique({
+  const membership = await tx.teamMember.findUnique({
     where: { teamId_userId: { teamId, userId: assigneeId } },
     select: { userId: true },
   });
@@ -107,15 +111,8 @@ export async function createTicket(input: {
   slaDueAt?: Date;
   session?: Pick<TeamSession, "userId" | "roles" | "currentTeamId"> | { currentTeamId: string | null };
   skipItsmFanOut?: boolean;
-  /**
-   * Run the writes on this transaction client, so a caller can commit them
-   * together with its own bookkeeping. Only with skipItsmFanOut: fan-out is
-   * an external side effect that must not run inside a transaction.
-   */
   db?: Prisma.TransactionClient;
 }) {
-  if (input.db && !input.skipItsmFanOut) throw new Error("a transaction client requires skipItsmFanOut");
-  const db = input.db ?? prisma;
   if (!input.title.trim() || !input.description.trim()) throw new ValidationError(t("backend.ticket.ticketTitleAndDescriptionCannotBeEmpty"));
   const priority = input.priority ?? "NORMAL";
   const { computeSlaDueAt } = await import("./sla");
@@ -126,42 +123,25 @@ export async function createTicket(input: {
     input.session && "roles" in input.session && Array.isArray(input.session.roles)
       ? (input.session as TeamSession)
       : null;
-  await assertRelatedResourcesInTeamScope(
-    {
-      relatedServerId: input.relatedServerId,
-      relatedCommandId: input.relatedCommandId,
-    },
-    teamSession,
-  );
-
-  const ticket = await db.ticket.create({
-    data: {
-      title: input.title.trim(),
-      description: input.description.trim(),
-      status: "OPEN",
-      priority,
-      category: input.category,
-      slaDueAt,
-      createdBy: input.createdBy,
-      relatedServerId: input.relatedServerId,
-      relatedCommandId: input.relatedCommandId,
-      ...(input.session ? teamCreateData(input.session) : {}),
-    },
-  });
-  if (!input.skipItsmFanOut) {
-    const { safeFanOutTicketEvent } = await import("@/lib/itsm/service");
-    await safeFanOutTicketEvent({
-      ticketId: ticket.id,
-      eventType: "ticket.created",
-      title: ticket.title,
-      description: ticket.description,
-      status: ticket.status,
-      priority: ticket.priority,
-      category: ticket.category,
-      teamId: ticket.teamId,
+  return withTicketTransaction(input.db, async (tx) => {
+    await assertRelatedResourcesInTeamScope(tx, input, teamSession);
+    const ticket = await tx.ticket.create({
+      data: {
+        title: input.title.trim(),
+        description: input.description.trim(),
+        status: "OPEN",
+        priority,
+        category: input.category,
+        slaDueAt,
+        createdBy: input.createdBy,
+        relatedServerId: input.relatedServerId,
+        relatedCommandId: input.relatedCommandId,
+        ...(input.session ? teamCreateData(input.session) : {}),
+      },
     });
-  }
-  return ticket;
+    if (!input.skipItsmFanOut) await enqueueTicketEvent(tx, ticket, "ticket.created");
+    return ticket;
+  });
 }
 
 export type TicketListInput =
@@ -296,181 +276,46 @@ export async function updateTicketStatus(input: {
   assigneeId?: string | null;
   priority?: string;
   skipItsmFanOut?: boolean;
-  /**
-   * Run the writes on this transaction client, so a caller can commit them
-   * together with its own bookkeeping. Only with skipItsmFanOut: fan-out is
-   * an external side effect that must not run inside a transaction.
-   */
   db?: Prisma.TransactionClient;
   session?: TeamSession | null;
 }) {
-  if (input.db && !input.skipItsmFanOut) throw new Error("a transaction client requires skipItsmFanOut");
-  const db = input.db ?? prisma;
-  const data: { status?: string; assigneeId?: string | null; closedAt?: Date | null; priority?: string; slaDueAt?: Date; escalatedAt?: null; escalatedTo?: null } = {};
-  const teamFilter = ticketTeamFilter(input.session);
-
-  if (input.status !== undefined) {
-    if (!STATUSES.has(input.status)) throw new ValidationError(t("backend.ticket.ticketStatusIsInvalid"));
-    // Enforce the state machine with CAS so concurrent PATCHes cannot
-    // both win illegal transitions (e.g. OPEN→IN_PROGRESS and OPEN→CLOSED).
-    const current = input.session
-      ? await db.ticket.findFirst({
-          where: { id: input.id, ...teamFilter },
-          select: { status: true, teamId: true, createdAt: true, priority: true, assigneeId: true },
-        })
-      : await db.ticket.findUnique({
-          where: { id: input.id },
-          select: { status: true, teamId: true, createdAt: true, priority: true, assigneeId: true },
-        });
+  if (input.status !== undefined && !STATUSES.has(input.status)) throw new ValidationError(t("backend.ticket.ticketStatusIsInvalid"));
+  if (input.status === undefined && input.priority === undefined && input.assigneeId === undefined) {
+    throw new ValidationError(t("backend.ticket.ticketUpdateContentCannotBeEmpty"));
+  }
+  return withTicketTransaction(input.db, async (tx) => {
+    await lockTicket(tx, input.id);
+    const where = { id: input.id, ...ticketTeamFilter(input.session) };
+    const current = await tx.ticket.findUnique({ where });
     if (!current) throw new NotFoundError(t("backend.ticket.ticketNotFound"));
-    const allowed = TRANSITIONS[current.status] ?? new Set<string>();
-    if (!allowed.has(input.status)) {
-      throw new ValidationError(
-        t("backend.ticket.ticketStatusTransitionInvalid", { from: current.status, to: input.status }),
-      );
+    if (input.status !== undefined && !TRANSITIONS[current.status]?.has(input.status)) {
+      throw new ValidationError(t("backend.ticket.ticketStatusTransitionInvalid", { from: current.status, to: input.status }));
     }
-    data.status = input.status;
-    data.closedAt = input.status === "CLOSED" ? new Date() : null;
-
-    if (input.assigneeId !== undefined) {
-      await assertAssigneeInTeamScope(input.assigneeId, input.session, current.teamId);
-      data.assigneeId = input.assigneeId;
-    }
-    if (input.priority !== undefined) data.priority = input.priority;
+    await assertAssigneeInTeamScope(tx, input.assigneeId, input.session, current.teamId);
     const { ticketSlaUpdate } = await import("./sla");
-    Object.assign(data, ticketSlaUpdate(current, input));
-
-    // The change and its line in the timeline commit together. Only SLA
-    // escalations used to be recorded: a ticket worked through to CLOSED and
-    // reopened showed nothing but "created".
-    const writeStatus = async (tx: Prisma.TransactionClient) => {
-      const claimed = await tx.ticket.updateMany({
-        where: {
-          id: input.id, status: current.status, ...teamFilter,
-          // A status-only reopen derives the deadline from the stored priority.
-          ...(data.slaDueAt && input.priority === undefined ? { priority: current.priority } : {}),
-        },
-        data,
-      });
-      if (claimed.count === 0) {
-        throw new ConflictError(t("backend.ticket.ticketStatusChangedConcurrentlyPleaseRetry"));
-      }
-      await tx.ticketEscalation.create({
-        data: {
-          ticketId: input.id,
-          fromStatus: current.status,
-          toStatus: data.status,
-          fromPriority: current.priority,
-          toPriority: data.priority ?? current.priority,
-          fromAssignee: current.assigneeId,
-          toAssignee: data.assigneeId === undefined ? current.assigneeId : data.assigneeId,
-          escalatedBy: input.session?.userId ?? null,
-        },
-      });
-    };
-    if (input.db) await writeStatus(input.db);
-    else await prisma.$transaction(writeStatus);
-    const updated = input.session
-      ? await db.ticket.findFirst({ where: { id: input.id, ...teamFilter } })
-      : await db.ticket.findUnique({ where: { id: input.id } });
-    if (!updated) throw new NotFoundError(t("backend.ticket.ticketNotFound"));
+    const updated = await tx.ticket.update({
+      where,
+      data: {
+        ...(input.priority !== undefined ? { priority: input.priority } : {}),
+        ...(input.assigneeId !== undefined ? { assigneeId: input.assigneeId } : {}),
+        ...(input.status !== undefined ? { status: input.status, closedAt: input.status === "CLOSED" ? new Date() : null } : {}),
+        ...ticketSlaUpdate(current, input),
+      },
+    });
+    if (input.status !== undefined) {
+      await tx.ticketEscalation.create({ data: {
+        ticketId: input.id,
+        fromStatus: current.status, toStatus: updated.status,
+        fromPriority: current.priority, toPriority: updated.priority,
+        fromAssignee: current.assigneeId, toAssignee: updated.assigneeId,
+        escalatedBy: input.session?.userId ?? null,
+      } });
+    }
     if (!input.skipItsmFanOut) {
-      const { safeFanOutTicketEvent } = await import("@/lib/itsm/service");
-      await safeFanOutTicketEvent({
-        ticketId: updated.id,
-        eventType: "ticket.status_changed",
-        title: updated.title,
-        description: updated.description,
-        status: updated.status,
-        priority: updated.priority,
-        category: updated.category,
-        teamId: updated.teamId,
-      });
+      await enqueueTicketEvent(tx, updated, input.status === undefined ? "ticket.updated" : "ticket.status_changed");
     }
     return updated;
-  }
-
-  if (input.assigneeId !== undefined) {
-    // Load ticket team for membership check before writing assigneeId.
-    const existing = input.session
-      ? await db.ticket.findFirst({
-          where: { id: input.id, ...teamFilter },
-          select: { teamId: true },
-        })
-      : await db.ticket.findUnique({
-          where: { id: input.id },
-          select: { teamId: true },
-        });
-    if (!existing) throw new NotFoundError(t("backend.ticket.ticketNotFound"));
-    await assertAssigneeInTeamScope(input.assigneeId, input.session, existing.teamId);
-    data.assigneeId = input.assigneeId;
-  }
-
-  let statusAtPriorityRead: string | undefined;
-  if (input.priority !== undefined) {
-    data.priority = input.priority;
-    const row = input.session
-      ? await db.ticket.findFirst({
-          where: { id: input.id, ...teamFilter },
-          select: { createdAt: true, status: true, priority: true },
-        })
-      : await db.ticket.findUnique({
-          where: { id: input.id },
-          select: { createdAt: true, status: true, priority: true },
-        });
-    if (!row) throw new NotFoundError(t("backend.ticket.ticketNotFound"));
-    statusAtPriorityRead = row.status;
-    const { ticketSlaUpdate } = await import("./sla");
-    Object.assign(data, ticketSlaUpdate(row, input));
-  }
-
-  if (Object.keys(data).length === 0) throw new ValidationError(t("backend.ticket.ticketUpdateContentCannotBeEmpty"));
-
-  // Team-scoped update: claim via updateMany so cross-team ids cannot mutate.
-  if (input.session || statusAtPriorityRead !== undefined) {
-    const claimed = await db.ticket.updateMany({
-      where: { id: input.id, ...teamFilter, ...(statusAtPriorityRead !== undefined ? { status: statusAtPriorityRead } : {}) },
-      data,
-    });
-    if (claimed.count === 0) {
-      if (statusAtPriorityRead !== undefined) {
-        throw new ConflictError(t("backend.ticket.ticketStatusChangedConcurrentlyPleaseRetry"));
-      }
-      throw new NotFoundError(t("backend.ticket.ticketNotFound"));
-    }
-    const updated = await db.ticket.findFirst({ where: { id: input.id, ...teamFilter } });
-    if (!updated) throw new NotFoundError(t("backend.ticket.ticketNotFound"));
-    if (!input.skipItsmFanOut) {
-      const { safeFanOutTicketEvent } = await import("@/lib/itsm/service");
-      await safeFanOutTicketEvent({
-        ticketId: updated.id,
-        eventType: "ticket.updated",
-        title: updated.title,
-        description: updated.description,
-        status: updated.status,
-        priority: updated.priority,
-        category: updated.category,
-        teamId: updated.teamId,
-      });
-    }
-    return updated;
-  }
-
-  const updated = await db.ticket.update({ where: { id: input.id }, data });
-  if (!input.skipItsmFanOut) {
-    const { safeFanOutTicketEvent } = await import("@/lib/itsm/service");
-    await safeFanOutTicketEvent({
-      ticketId: updated.id,
-      eventType: "ticket.updated",
-      title: updated.title,
-      description: updated.description,
-      status: updated.status,
-      priority: updated.priority,
-      category: updated.category,
-      teamId: updated.teamId,
-    });
-  }
-  return updated;
+  });
 }
 
 export async function addTicketComment(input: {
@@ -478,47 +323,23 @@ export async function addTicketComment(input: {
   authorId: string;
   body: string;
   skipItsmFanOut?: boolean;
-  /**
-   * Run the writes on this transaction client, so a caller can commit them
-   * together with its own bookkeeping. Only with skipItsmFanOut: fan-out is
-   * an external side effect that must not run inside a transaction.
-   */
   db?: Prisma.TransactionClient;
   session?: TeamSession | null;
 }) {
-  if (input.db && !input.skipItsmFanOut) throw new Error("a transaction client requires skipItsmFanOut");
-  const db = input.db ?? prisma;
   if (!input.body.trim()) throw new ValidationError(t("backend.ticket.replyContentCannotBeEmpty"));
-  const teamFilter = ticketTeamFilter(input.session);
-  if (input.session) {
-    const ticketExists = await db.ticket.findFirst({
-      where: { id: input.ticketId, ...teamFilter },
-      select: { id: true },
+  return withTicketTransaction(input.db, async (tx) => {
+    await lockTicket(tx, input.ticketId);
+    const session = input.session;
+    const scope = ticketListWhere(session ? {
+      session, userId: session.userId, includeAll: sessionHasPermission(session, "ticket:manage"),
+    } : undefined);
+    const ticket = await tx.ticket.findFirst({ where: { id: input.ticketId, ...scope } });
+    if (!ticket) throw new NotFoundError(t("backend.ticket.ticketNotFound"));
+    const comment = await tx.ticketComment.create({
+      data: { ticketId: ticket.id, authorId: input.authorId, body: input.body.trim() },
+      include: { author: { select: { id: true, username: true, displayName: true } } },
     });
-    if (!ticketExists) throw new NotFoundError(t("backend.ticket.ticketNotFound"));
-  }
-  const comment = await db.ticketComment.create({
-    data: { ticketId: input.ticketId, authorId: input.authorId, body: input.body.trim() },
-    include: { author: { select: { id: true, username: true, displayName: true } } },
+    if (!input.skipItsmFanOut) await enqueueTicketEvent(tx, ticket, "ticket.comment", comment.body);
+    return comment;
   });
-  if (!input.skipItsmFanOut) {
-    const ticket = input.session
-      ? await db.ticket.findFirst({ where: { id: input.ticketId, ...teamFilter } })
-      : await db.ticket.findUnique({ where: { id: input.ticketId } });
-    if (ticket) {
-      const { safeFanOutTicketEvent } = await import("@/lib/itsm/service");
-      await safeFanOutTicketEvent({
-        ticketId: ticket.id,
-        eventType: "ticket.comment",
-        title: ticket.title,
-        description: ticket.description,
-        status: ticket.status,
-        priority: ticket.priority,
-        category: ticket.category,
-        commentBody: comment.body,
-        teamId: ticket.teamId,
-      });
-    }
-  }
-  return comment;
 }

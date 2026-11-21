@@ -13,7 +13,7 @@ import {
   updateServerProfile,
 } from "@/lib/server/service";
 import { getServerLocale, t } from "@/lib/i18n/translations";
-import { billingInputFromForm, normalizeServerBilling, saveNewServerBilling, updateServerBilling } from "@/lib/server/billing";
+import { billingInputFromForm, normalizeServerBilling, updateServerBilling } from "@/lib/server/billing";
 import { SshHostKeyApprovalRequiredError } from "@/lib/ssh/host-key";
 import { getErrorMessage } from "@/lib/http/error-message";
 import { SERVER_SYNC_TARGET_AUTH_VALUES, type ServerSyncTargetAuth } from "@/lib/sync/target-auth";
@@ -132,7 +132,7 @@ async function createServerActionImpl(
       approvedHostKeySha256,
       saveAsDraftOnConnectionFailure,
     }, session);
-    if (billing) await saveNewServerBilling(created.id, billing);
+    if (billing) await updateServerBilling(created.id, created.teamId, billing, session);
 
     await auditUserAction(
       session.userId,
@@ -239,7 +239,7 @@ async function updateServerActionImpl(
     };
 
     const updated = await updateServerProfile(serverId, changes, session);
-    if (billing) await updateServerBilling(serverId, billing, session);
+    if (billing) await updateServerBilling(serverId, updated.teamId, billing, session);
 
     await auditUserAction(
       session.userId,

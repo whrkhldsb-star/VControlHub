@@ -7,12 +7,15 @@ import { tmpdir } from "node:os";
 import { join } from "node:path";
 import { once } from "node:events";
 import type { AddressInfo } from "node:net";
-import { expect, it, vi } from "vitest";
+import { afterEach, beforeEach, expect, it, vi } from "vitest";
 
 const io = vi.hoisted(() => ({ dns: vi.fn(), outbound: vi.fn() }));
 vi.mock("node:dns/promises", async original => ({ ...await original<typeof import("node:dns/promises")>(), lookup: io.dns }));
 vi.mock("undici", async original => ({ ...await original<typeof import("undici")>(), request: io.outbound }));
 import { prepareTrackerEgress } from "../tracker-egress";
+
+beforeEach(() => { vi.stubEnv("ARIA2_RPC_SECRET", "tracker-fixture-rpc-secret"); });
+afterEach(() => { vi.unstubAllEnvs(); });
 
 const uri = (trackers: string[]) => "magnet:?xt=urn:btih:" + "1".repeat(40) + trackers.map(tr => "&tr=" + encodeURIComponent(tr)).join("");
 function emptyTrackerReply() {

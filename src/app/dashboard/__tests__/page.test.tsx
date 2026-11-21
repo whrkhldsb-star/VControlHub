@@ -84,16 +84,12 @@ vi.mock("@/lib/notification/service", () => ({
   getUnreadCount: vi.fn().mockResolvedValue(0),
 }));
 
-vi.mock("@/lib/alert/incidents", () => ({
-  // Worst level first, as the service orders them; the dashboard names the newest. Titles are stored in English.
-  listAlertIncidents: vi.fn().mockResolvedValue([
-    { title: "Alert: hk-prod-1 disk usage", serverName: "hk-prod-1", metric: "disk_usage", level: 2, createdAt: new Date("2026-05-27T07:00:00.000Z") },
-    { title: "Alert: hk-prod-1 cpu usage", serverName: "hk-prod-1", metric: "cpu_usage", level: 1, createdAt: new Date("2026-05-27T08:00:00.000Z") },
-  ]),
+vi.mock("@/lib/dashboard/attention-queries", () => ({
+  openIncidentSummary: vi.fn().mockResolvedValue({ count: 2, latest: { title: "CPU", serverName: "hk-prod-1", metric: "cpu_usage" } }),
+  failedTaskSummary: vi.fn().mockResolvedValue({ count: 0, latest: undefined }),
 }));
-
-vi.mock("@/lib/operation-task/service", () => ({
-  listOperationTaskResult: vi.fn().mockResolvedValue({ tasks: [], sourceSummary: [], failureSummary: [] }),
+vi.mock("@/lib/dashboard/download-summary", () => ({
+  downloadSummary: vi.fn().mockResolvedValue({ totals: { COMPLETED: 1 }, days: [] }),
 }));
 
 vi.mock("@/lib/db", () => ({
@@ -142,8 +138,8 @@ import { listServerProfiles } from "@/lib/server/service";
 import { getStorageOverview } from "@/lib/storage/service";
 import { listCommandRequests } from "@/lib/command/service";
 import { prisma } from "@/lib/db";
-import { listAlertIncidents } from "@/lib/alert/incidents";
-import { listOperationTaskResult } from "@/lib/operation-task/service";
+import { openIncidentSummary, failedTaskSummary } from "@/lib/dashboard/attention-queries";
+import { downloadSummary } from "@/lib/dashboard/download-summary";
 
 const csrfFetchMock = vi.mocked(csrfFetch);
 
@@ -170,11 +166,20 @@ describe("Dashboard", () => {
     });
     await Dashboard();
     for (const query of [listServerProfiles, getStorageOverview, listCommandRequests,
-      prisma.auditLog.findMany, prisma.downloadTask.groupBy, prisma.scheduledTask.count,
+      prisma.auditLog.findMany, downloadSummary, prisma.scheduledTask.count,
       prisma.alertRule.count, prisma.backupSchedule.count, prisma.vpsBackupSchedule.count, prisma.server.count,
-      listAlertIncidents, listOperationTaskResult]) {
+      openIncidentSummary, failedTaskSummary]) {
       expect(query).not.toHaveBeenCalled();
     }
+  });
+
+  it("shows only the quick links admitted by a file-only account's page permissions", async () => {
+    vi.mocked(requireSession).mockResolvedValueOnce({
+      userId: "files", username: "files", roles: [], permissions: ["storage:read"], currentTeamId: "team", mustChangePassword: false,
+    });
+    const { container } = render(<I18nProvider initialLocale="en">{await Dashboard()}</I18nProvider>);
+    const links = container.querySelectorAll('[data-dashboard-widget="quick-links"] a');
+    expect([...links].map((link) => link.getAttribute("href"))).toEqual(["/files", "/downloads", "/notifications"]);
   });
 
   it("uses command:read for scheduled-task statistics", async () => {
@@ -186,6 +191,14 @@ describe("Dashboard", () => {
     expect(prisma.scheduledTask.count).toHaveBeenCalledWith({ where: { status: "ACTIVE", teamId: "team_1" } });
     expect(listCommandRequests).toHaveBeenCalled();
     expect(prisma.auditLog.findMany).not.toHaveBeenCalled();
+  });
+
+  it("shows an unavailable download count when the path ACL cannot be read", async () => {
+    vi.mocked(downloadSummary).mockRejectedValueOnce(new Error("ACL unavailable"));
+    const { container } = render(<I18nProvider initialLocale="en">{await Dashboard()}</I18nProvider>);
+    const downloadLinks = [...container.querySelectorAll('a[href="/downloads"]')];
+    expect(downloadLinks.some((link) => link.textContent?.includes("—"))).toBe(true);
+    expect(screen.getByRole("heading", { name: "Dashboard" })).toBeInTheDocument();
   });
 
   it.each([false, true])("serializes only authorized command bodies (can approve: %s)", async (canApprove) => {
@@ -220,8 +233,8 @@ describe("Dashboard", () => {
     expect(block).toHaveTextContent("最近一条：hk-prod-1 · CPU 使用率");
     expect(block).toHaveTextContent("24 小时内没有失败的任务");
     expect(block).toHaveTextContent("没有等待你审批的命令");
-    expect(listAlertIncidents).toHaveBeenCalledWith(expect.objectContaining({ status: "OPEN" }));
-    expect(listOperationTaskResult).toHaveBeenCalledWith({ status: "failed", limit: 50 }, expect.objectContaining({ userId: "u_1" }));
+    expect(openIncidentSummary).toHaveBeenCalledWith(expect.objectContaining({ userId: "u_1" }));
+    expect(failedTaskSummary).toHaveBeenCalledWith(expect.objectContaining({ userId: "u_1" }), expect.any(Date));
   });
 
   it("counts only what this account can act on, named as the task centre names it", async () => {
@@ -235,14 +248,9 @@ describe("Dashboard", () => {
     });
     // The reviewer's own request goes to another reviewer: the server refuses their decision on it.
     vi.mocked(listCommandRequests).mockResolvedValueOnce([request("cmd_own", "u_2", "Own restart"), request("cmd_other", "u_3", "Rotate logs")] as never);
-    vi.mocked(listOperationTaskResult).mockResolvedValueOnce({
-      tasks: [
-        { id: "t_old", source: "job", title: "Sync mirrors", status: "failed", updatedAt: new Date(Date.now() - 3 * 24 * 60 * 60 * 1000).toISOString() },
-        { id: "t_backup", source: "backup", taskType: "DATABASE", title: "DATABASE backup", status: "failed", updatedAt: new Date(Date.now() - 60 * 60 * 1000).toISOString() },
-      ],
-      sourceSummary: [],
-      failureSummary: [],
-    } as never);
+    vi.mocked(failedTaskSummary).mockResolvedValueOnce({
+      count: 1, latest: { count: 1, source: "backup", taskType: "DATABASE", title: "DATABASE backup", updatedAt: new Date() },
+    });
 
     render(<I18nProvider initialLocale="zh">{await Dashboard()}</I18nProvider>);
 
@@ -254,7 +262,7 @@ describe("Dashboard", () => {
     expect(block).not.toHaveTextContent("Own restart");
     // No alert row: this account does not manage alerts, so it cannot know.
     expect(block).not.toHaveTextContent("告警");
-    expect(listAlertIncidents).not.toHaveBeenCalled();
+    expect(openIncidentSummary).not.toHaveBeenCalled();
   });
 
   it("renders dashboard sections for servers and storage overview", async () => {

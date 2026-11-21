@@ -1,6 +1,10 @@
+import { NO_REPLACE_RENAME_PYTHON } from "./rename-exclusive";
 import { Client, type ConnectConfig } from "ssh2";
 import { getSshEnforceHostKeyPin } from "@/lib/settings/cached-flags";
-import type { SFTPWrapper } from "ssh2";
+import { atomicSftpWrite, sftpDeadline, sftpRequest } from "./sftp-operations";
+import { SFTP_TRANSFER_IDLE_TIMEOUT_MS } from "./sftp-timeout";
+import { isInsideRoot } from "./sftp-root";
+import type { FileEntryWithStats, SFTPWrapper } from "ssh2";
 import { createHash } from "node:crypto";
 import { StringDecoder } from "node:string_decoder";
 import { BusinessError } from "@/lib/errors";
@@ -11,6 +15,7 @@ import { t } from "@/lib/i18n/service-translations";
 import { decryptServerPassword, decryptStoredSshKey, type StoredSshKey } from "@/lib/ssh/ssh-key-crypto";
 
 export type SshConnectionParams = {
+  signal?: AbortSignal;
   host: string;
   port: number;
   username: string;
@@ -243,14 +248,14 @@ async function withReusableSshClient<T>(
   operation: (client: Client) => Promise<T>,
 ): Promise<T> {
   if (!shouldPoolSsh(input)) {
-    const client = await connectSsh(createSshConfig(input));
+    const client = await waitForSshResource(connectSsh(createSshConfig(input)), input.signal, client => { client.end(); });
     try {
       return await operation(client);
     } finally {
       client.end();
     }
   }
-  const { key, entry } = await acquirePooledSsh(input);
+  const { key, entry } = await waitForSshResource(acquirePooledSsh(input), input.signal, ({ key, entry }) => releasePooledSsh(key, entry));
   try {
     return await operation(entry.client);
   } finally {
@@ -263,7 +268,7 @@ function usesAgentOnly(input: SshConnectionParams) {
 }
 
 /** A file operation requires a successful Agent result. */
-async function execAgentOnly(input: SshConnectionParams, command: string, timeoutMs = 60_000, signal?: AbortSignal) {
+async function execAgentOnly(input: SshConnectionParams, command: string, timeoutMs = 60_000, signal = input.signal) {
   signal?.throwIfAborted();
   if (!input.agentServerId) throw new BusinessError(t("backend.server.agentIdentityMissing"));
   const { executeCommandWithAgent } = await import("@/lib/server/agent-service");
@@ -280,46 +285,59 @@ function pythonCommand(source: string, args: string[]) {
   return `python3 -c "$(printf %s ${shellQuote(encoded)} | base64 -d)" ${args.map(shellQuote).join(" ")}`;
 }
 
-async function withSftpChannel<T>(client: Client, operation: (sftp: SFTPWrapper) => Promise<T>): Promise<T> {
-  const sftp = await new Promise<SFTPWrapper>((resolve, reject) => {
-    client.sftp((error, channel) => {
-      if (error) reject(error);
-      else resolve(channel);
-    });
-  });
+async function withSftpChannel<T>(
+  client: Client, operation: (sftp: SFTPWrapper, progress: () => void) => Promise<T>,
+  signal?: AbortSignal, timeoutMs?: number,
+): Promise<T> {
+  let closed = false;
+  let channel: SFTPWrapper | undefined;
   try {
-    return await operation(sftp);
+    signal?.throwIfAborted();
+    const opening = () => sftpRequest<SFTPWrapper>(done => client.sftp((err, sftp) => {
+      if (!err && closed) { sftp.end(); return; }
+      channel = sftp;
+      done(err, sftp);
+    }));
+    const sftp = await sftpDeadline(opening, signal).catch(error => {
+      // A subsystem request that never produced a channel has no independent
+      // close handle. Retire its transport so it cannot strand a pool slot.
+      if (!channel) client.end();
+      throw error;
+    });
+    return await sftpDeadline(progress => operation(sftp, progress), signal, timeoutMs);
   } finally {
-    try { sftp.end(); } catch { /* best-effort channel cleanup */ }
+    closed = true;
+    channel?.end();
   }
 }
 
-function sftpReaddir(client: Client, remotePath: string): Promise<SftpListEntry[]> {
-  return withSftpChannel(client, (sftp) => new Promise((resolve, reject) => {
-      sftp.readdir(remotePath, (err2, entries) => {
-        if (err2) return reject(err2);
-        const result: SftpListEntry[] = entries.map((entry) => {
-          const attrs = entry.attrs;
-          const isDir = (attrs.mode! & 0o170000) === 0o040000;
-          return {
-            name: entry.filename,
-            longname: entry.longname,
-            type: isDir ? "directory" : attrs.isFile() ? "file" : "other",
-            symlink: (attrs.mode! & 0o170000) === 0o120000,
-            size: attrs.size,
-            modifyTime: (attrs.mtime ?? 0) * 1000,
-            accessTime: (attrs.atime ?? 0) * 1000,
-          };
-        });
-        resolve(result);
+async function sftpReaddir(client: Client, remotePath: string, limit: number, signal?: AbortSignal) {
+  return withSftpChannel(client, async sftp => {
+    const handle = await sftpRequest<Buffer>(done => sftp.opendir(remotePath, done));
+    const entries: SftpListEntry[] = [];
+    let bytes = 0;
+    // Closing the subsystem also releases its directory handle on a timeout.
+    for (;;) {
+      const batch = await sftpRequest<FileEntryWithStats[]>(done => sftp.readdir(handle, done)).catch(error => {
+        if (error?.code === 1) return null; // SSH_FX_EOF
+        throw error;
       });
-  }));
+      if (!batch) return { entries, truncated: false };
+      for (const { filename: name, longname, attrs } of batch) {
+        if (name === "." || name === "..") continue;
+        bytes += Buffer.byteLength(name) + Buffer.byteLength(longname) + 96;
+        if (entries.length >= limit || bytes > 4 * 1024 * 1024) return { entries, truncated: true };
+        entries.push({ name, longname, type: attrs.isDirectory() ? "directory" : attrs.isFile() ? "file" : "other",
+          symlink: (attrs.mode & 0o170000) === 0o120000, size: attrs.size, modifyTime: attrs.mtime * 1000, accessTime: attrs.atime * 1000 });
+      }
+    }
+  }, signal);
 }
 
 /** Entries an Agent-only listing returns when the caller names no limit (its output has to fit one job result). */
 const AGENT_LIST_LIMIT = 10_000;
 
-export async function listRemoteDirectory(input: SshConnectionParams & {
+type DirectoryInput = SshConnectionParams & {
   remotePath: string;
   maxEntries?: number;
   /**
@@ -327,24 +345,35 @@ export async function listRemoteDirectory(input: SshConnectionParams & {
    * Agent had to cut short is an error rather than a smaller directory.
    */
   requireComplete?: boolean;
-}): Promise<SftpListEntry[]> {
+};
+export async function listRemoteDirectory(input: DirectoryInput): Promise<SftpListEntry[]> {
+  const { entries, truncated } = await listRemoteDirectoryPage(input);
+  if (truncated && (input.requireComplete || (!usesAgentOnly(input) && input.maxEntries === undefined))) {
+    throw new BusinessError(t("backend.sftp.directoryListingTruncated", { limit: String(input.maxEntries ?? AGENT_LIST_LIMIT) }));
+  }
+  return entries;
+}
+
+export async function listRemoteDirectoryPage(input: DirectoryInput) {
+  const limit = Math.min(input.maxEntries ?? AGENT_LIST_LIMIT, AGENT_LIST_LIMIT);
   if (usesAgentOnly(input)) {
-    const source = "import json,os,stat,sys\np=sys.argv[1]; limit=int(sys.argv[2]); out=[]\ntry:\n names=os.listdir(p)\nexcept FileNotFoundError:\n print('null'); sys.exit(0)\nfor name in names[:limit]:\n q=os.path.join(p,name); s=os.lstat(q); mode=s.st_mode; kind='directory' if stat.S_ISDIR(mode) else ('file' if stat.S_ISREG(mode) else 'other'); out.append({'name':name,'longname':name,'type':kind,'symlink':stat.S_ISLNK(mode),'size':s.st_size,'modifyTime':int(s.st_mtime*1000),'accessTime':int(s.st_atime*1000)})\nprint(json.dumps({'total':len(names),'entries':out},ensure_ascii=False))";
-    const limit = input.maxEntries ?? AGENT_LIST_LIMIT;
+    const source = `import itertools,json,os,stat,sys
+p=sys.argv[1]; limit=int(sys.argv[2]); out=[]
+try:
+ with os.scandir(p) as directory: entries=list(itertools.islice(directory,limit+1))
+except FileNotFoundError:
+ print('null'); sys.exit(0)
+for entry in entries[:limit]:
+ name=entry.name; s=entry.stat(follow_symlinks=False); mode=s.st_mode
+ kind='directory' if stat.S_ISDIR(mode) else ('file' if stat.S_ISREG(mode) else 'other')
+ out.append({'name':name,'longname':name,'type':kind,'symlink':stat.S_ISLNK(mode),'size':s.st_size,'modifyTime':int(s.st_mtime*1000),'accessTime':int(s.st_atime*1000)})
+print(json.dumps({'total':len(entries),'entries':out},ensure_ascii=False))`;
     const result = await execAgentOnly(input, pythonCommand(source, [input.remotePath, String(limit)]));
     const listing = JSON.parse(result.stdout) as { total: number; entries: SftpListEntry[] } | null;
     if (listing === null) throw Object.assign(new Error("No such directory"), { code: "ENOENT" });
-    if (input.requireComplete && listing.total > listing.entries.length) {
-      throw new BusinessError(t("backend.sftp.directoryListingTruncated", { limit: String(limit) }));
-    }
-    return listing.entries;
+    return { entries: listing.entries, truncated: listing.total > listing.entries.length };
   }
-  return withReusableSshClient(input, async (client) => {
-    const entries = await sftpReaddir(client, input.remotePath);
-    // 过滤掉 . 和 ..
-    const visible = entries.filter((e) => e.name !== "." && e.name !== "..");
-    return input.maxEntries ? visible.slice(0, input.maxEntries) : visible;
-  });
+  return withReusableSshClient(input, client => sftpReaddir(client, input.remotePath, limit, input.signal));
 }
 
 export async function statRemoteEntry(input: SshConnectionParams & { remotePath: string }): Promise<SftpStatEntry> {
@@ -376,7 +405,7 @@ else:
             accessTime: (attrs.atime ?? 0) * 1000,
           });
         });
-    }));
+    }), input.signal);
   });
 }
 
@@ -387,11 +416,11 @@ export type RemoteTargetType = { type: "file" | "directory" | "other"; size: num
  * where it does not resolve, as for a dangling link. One SFTP channel, one
  * path at a time: a channel per path ran into the server's session limit.
  */
-export async function statRemoteTargetTypes(input: SshConnectionParams & { remotePaths: string[] }): Promise<RemoteTargetType[]> {
+export async function statRemoteTargetTypes(input: SshConnectionParams & { remotePaths: string[]; root?: { path: string; windows: boolean } }): Promise<RemoteTargetType[]> {
   if (input.remotePaths.length === 0) return [];
   if (usesAgentOnly(input)) {
-    const source = "import json,os,stat,sys\nout=[]\nfor p in sys.argv[1:]:\n try:\n  s=os.stat(p)\n except OSError:\n  out.append(None); continue\n m=s.st_mode; out.append({'type':'directory' if stat.S_ISDIR(m) else ('file' if stat.S_ISREG(m) else 'other'),'size':s.st_size})\nprint(json.dumps(out))";
-    const result = await execAgentOnly(input, pythonCommand(source, input.remotePaths));
+    const source = "import json,os,stat,sys\nout=[]\nroot=sys.argv[1]\nfor p in sys.argv[2:]:\n try:\n  p=os.path.realpath(p)\n  if root and os.path.commonpath([root,p])!=root: out.append(None); continue\n  s=os.stat(p)\n except OSError:\n  out.append(None); continue\n m=s.st_mode; out.append({'type':'directory' if stat.S_ISDIR(m) else ('file' if stat.S_ISREG(m) else 'other'),'size':s.st_size})\nprint(json.dumps(out))";
+    const result = await execAgentOnly(input, pythonCommand(source, [input.root?.path ?? "", ...input.remotePaths]));
     return JSON.parse(result.stdout) as RemoteTargetType[];
   }
   return withReusableSshClient(input, (client) =>
@@ -403,8 +432,14 @@ export async function statRemoteTargetTypes(input: SshConnectionParams & { remot
       const worker = async () => {
         while (next < input.remotePaths.length) {
           const index = next++;
+          let target = input.remotePaths[index]!;
+          if (input.root) {
+            const resolved = await sftpRequest<string>(done => sftp.realpath(target, done)).catch(() => null);
+            if (!resolved || !isInsideRoot(resolved, input.root.path, input.root.windows)) continue;
+            target = resolved;
+          }
           out[index] = await new Promise<RemoteTargetType>((resolve, reject) => {
-            sftp.stat(input.remotePaths[index]!, (error, attrs) => {
+            sftp.stat(target, (error, attrs) => {
               if (error) {
                 // Missing or unreadable target: an unusable link, not a failed listing.
                 if ([2, 3].includes((error as { code?: number }).code ?? -1)) return resolve(null);
@@ -417,7 +452,7 @@ export async function statRemoteTargetTypes(input: SshConnectionParams & { remot
       };
       await Promise.all(Array.from({ length: Math.min(16, input.remotePaths.length) }, worker));
       return out;
-    }),
+    }, input.signal),
   );
 }
 
@@ -441,7 +476,7 @@ export async function resolveRemoteHomeDirectory(input: SshConnectionParams): Pr
         if (!value.startsWith("/")) return reject(new Error("Unable to resolve remote home directory"));
         resolve(value);
       });
-    })),
+    }), input.signal),
   );
 }
 
@@ -470,7 +505,7 @@ export async function resolveRemoteRealPath(
   if (usesAgentOnly(input)) {
     // os.path.realpath resolves existing components and leaves the rest intact.
     const source = "import os,sys\nprint(os.path.realpath(sys.argv[1]))";
-    const result = await execAgentOnly(input, pythonCommand(source, [target]));
+    const result = await execAgentOnly(input, pythonCommand(source, [target]), 60_000, input.signal);
     const resolved = result.stdout.trim();
     // No answer is not an answer: returning the unresolved input here would
     // let every containment check pass without having looked at the host.
@@ -508,7 +543,7 @@ export async function resolveRemoteRealPath(
         if (i > 0) trailing.push(segments[i - 1]!);
       }
       throw new Error("Unable to resolve remote path");
-    }),
+    }, input.signal),
   );
 }
 
@@ -668,8 +703,9 @@ except FileExistsError:
         for (const remotePath of paths) {
           await sftpMkdir(sftp, remotePath, input.recursive !== false);
         }
-      });
+      }, input.signal);
     } catch (sftpError) {
+      input.signal?.throwIfAborted();
       if (!input.recursive) throw sftpError;
       const result = await execCommandOnClient(
         client,
@@ -767,27 +803,13 @@ except OSError as e:
             else resolve();
           });
         }
-    }));
+    }), input.signal);
   });
 }
 
 export async function renameRemoteFile(input: SshConnectionParams & { oldPath: string; newPath: string; noReplace?: boolean }): Promise<void> {
   if (usesAgentOnly(input)) {
-    const source = input.noReplace ? `import os,stat,sys
-src,dst=sys.argv[1:]
-if os.name == 'nt':
- os.rename(src,dst)
-elif stat.S_ISDIR(os.lstat(src).st_mode):
- os.mkdir(dst)
- reserved=os.lstat(dst)
- try:
-  os.rename(src,dst)
- except:
-  if os.path.samestat(reserved,os.lstat(dst)): os.rmdir(dst)
-  raise
-else:
- os.link(src,dst,follow_symlinks=False)
- os.unlink(src)` : "import os,sys\nos.rename(sys.argv[1],sys.argv[2])";
+    const source = input.noReplace ? NO_REPLACE_RENAME_PYTHON : "import os,sys\nos.rename(sys.argv[1],sys.argv[2])";
     await execAgentOnly(input, pythonCommand(source, [input.oldPath, input.newPath]));
     return;
   }
@@ -797,7 +819,7 @@ else:
           if (renameErr) reject(renameErr);
           else resolve();
         });
-    }));
+    }), input.signal);
   });
 }
 
@@ -831,11 +853,12 @@ export async function readRemoteFile(
     return content;
   }
   return withReusableSshClient(input, async (client) => {
-    return withSftpChannel(client, (sftp) => new Promise<Buffer>((resolve, reject) => {
+    return withSftpChannel(client, (sftp, progress) => new Promise<Buffer>((resolve, reject) => {
         const chunks: Buffer[] = [];
         let received = 0;
         const readStream = sftp.createReadStream(input.remotePath);
         readStream.on("data", (chunk: Buffer | string) => {
+          progress();
           const buf = typeof chunk === "string" ? Buffer.from(chunk) : chunk;
           received += buf.length;
           // Enforce the cap while streaming so an unindexed multi-GB file can
@@ -851,10 +874,8 @@ export async function readRemoteFile(
         readStream.on("end", () => {
           resolve(Buffer.concat(chunks));
         });
-readStream.on("error", (readErr: Error) => {
-        reject(readErr);
-        });
-    }));
+        readStream.on("error", reject);
+    }), input.signal, SFTP_TRANSFER_IDLE_TIMEOUT_MS);
   });
 }
 
@@ -867,25 +888,39 @@ readStream.on("error", (readErr: Error) => {
  */
 const AGENT_WRITE_CHUNK = 64 * 1024;
 
-export async function writeRemoteFile(input: SshConnectionParams & { remotePath: string; content: string | Buffer }): Promise<void> {
+export async function writeRemoteFile(input: SshConnectionParams & { remotePath: string; content: string | Buffer; root?: { path: string; windows: boolean } }): Promise<void> {
   if (usesAgentOnly(input)) {
     if (Buffer.byteLength(input.content) > AGENT_FILE_MAX_BYTES) throw new BusinessError(t("backend.server.agentWriteLimit"));
     const encoded = Buffer.from(input.content).toString("base64");
-    if (encoded.length <= AGENT_WRITE_CHUNK) {
-      await execAgentOnly(input, pythonCommand("import base64,sys\nopen(sys.argv[1],'wb').write(base64.b64decode(sys.argv[2]))", [input.remotePath, encoded]));
-      return;
-    }
-    // Larger files go to a private temp file in chunks, then are copied over
-    // the target: copyfile truncates it in place, keeping its mode and owner
-    // as the single write did.
-    const created = await execAgentOnly(input, pythonCommand("import base64,os,sys,tempfile\nfd,p=tempfile.mkstemp(prefix='vch-write-')\nos.write(fd,base64.b64decode(sys.argv[1]))\nos.close(fd)\nprint(p)", [encoded.slice(0, AGENT_WRITE_CHUNK)]));
-    const temp = created.stdout.trim();
-    if (!temp.startsWith("/")) throw new BusinessError(t("backend.server.agentCommandFailed", { code: 1 }));
+    const created = await execAgentOnly(input, pythonCommand(`import base64,json,os,sys,tempfile
+dst=os.path.realpath(sys.argv[1])
+if sys.argv[3] and os.path.commonpath([dst,sys.argv[3]])!=sys.argv[3]: raise PermissionError("Outside the authorized directory")
+fd,p=tempfile.mkstemp(dir=os.path.dirname(dst) or '.', prefix='.vch-upload-')
+try:
+ with os.fdopen(fd,'wb') as f: f.write(base64.b64decode(sys.argv[2]))
+except:
+ os.unlink(p)
+ raise
+print(json.dumps([p,dst]))`, [input.remotePath, encoded.slice(0, AGENT_WRITE_CHUNK), input.root?.path ?? ""]));
+    const [temp, destination] = JSON.parse(created.stdout) as string[];
+    if (!temp?.startsWith("/") || !destination?.startsWith("/")) throw new BusinessError(t("backend.server.agentCommandFailed", { code: 1 }));
     try {
       for (let offset = AGENT_WRITE_CHUNK; offset < encoded.length; offset += AGENT_WRITE_CHUNK) {
         await execAgentOnly(input, pythonCommand("import base64,sys\nopen(sys.argv[1],'ab').write(base64.b64decode(sys.argv[2]))", [temp, encoded.slice(offset, offset + AGENT_WRITE_CHUNK)]));
       }
-      await execAgentOnly(input, pythonCommand("import os,shutil,sys\nshutil.copyfile(sys.argv[1],sys.argv[2])\nos.remove(sys.argv[1])", [temp, input.remotePath]));
+      await execAgentOnly(input, pythonCommand(`import os,stat,sys
+tmp,dst=sys.argv[1:]
+try: st=os.lstat(dst)
+except FileNotFoundError: st=None
+if st:
+ if not stat.S_ISREG(st.st_mode): raise ValueError("Expected regular file")
+ stage=os.stat(tmp)
+ if (stage.st_uid,stage.st_gid)!=(st.st_uid,st.st_gid): os.chown(tmp,st.st_uid,st.st_gid)
+ os.chmod(tmp,st.st_mode & 0o777)
+else:
+ mask=os.umask(0o077)
+ os.chmod(tmp,0o666 & ~mask)
+os.replace(tmp,dst)`, [temp, destination]));
     } catch (error) {
       await execAgentOnly(input, pythonCommand("import os,sys\ntry:\n  os.remove(sys.argv[1])\nexcept FileNotFoundError:\n  pass", [temp])).catch(() => undefined);
       throw error;
@@ -893,12 +928,22 @@ export async function writeRemoteFile(input: SshConnectionParams & { remotePath:
     return;
   }
   await withReusableSshClient(input, async (client) => {
-    await withSftpChannel(client, (sftp) => new Promise<void>((resolve, reject) => {
-        const writeStream = sftp.createWriteStream(input.remotePath);
-        writeStream.on("close", () => resolve());
-        writeStream.on("error", (writeErr: Error) => reject(writeErr));
-        writeStream.end(input.content);
-    }));
+    await withSftpChannel(client, (sftp, progress) => atomicSftpWrite(sftp, input.remotePath, stream => new Promise<void>((resolve, reject) => {
+      const content = Buffer.isBuffer(input.content) ? input.content : Buffer.from(input.content);
+      let offset = 0;
+      stream.once("close", resolve);
+      stream.once("error", reject);
+      const next = (error?: Error | null) => {
+        if (error) { reject(error); return; }
+        if (stream.destroyed) return;
+        progress();
+        if (offset === content.length) { stream.end(); return; }
+        const chunk = content.subarray(offset, offset + 64 * 1024);
+        offset += chunk.length;
+        stream.write(chunk, next);
+      };
+      next();
+    }), input.root, 0o666, input.signal), input.signal, SFTP_TRANSFER_IDLE_TIMEOUT_MS);
   });
 }
 

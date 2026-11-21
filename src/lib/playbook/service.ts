@@ -544,6 +544,7 @@ export async function runPlaybook(input: {
   const releaseLock = await acquireAdvisoryLock("playbook-lifecycle", input.playbookId);
   let narrowedPlaybook: PlaybookRecord;
   let run: RawPlaybookRun;
+  const requesterId = input.session?.userId ?? input.createdById ?? null;
   // The run belongs to the playbook's customer, which is not necessarily the
   // caller's current one (a platform administrator can queue across customers).
   let auditTeamId: string | null = null;
@@ -581,8 +582,8 @@ export async function runPlaybook(input: {
         },
         dryRun: input.dryRun,
         triggerContext: input.triggerContext,
-        sourceAlert: input.sourceAlertTeamId === undefined ? undefined : { serverId: input.sourceAlertServerId },
-        createdById: input.createdById ?? null,
+        sourceAlert: input.sourceAlertTeamId === undefined ? undefined : { serverId: input.sourceAlertServerId, teamId: input.sourceAlertTeamId },
+        createdById: requesterId,
       }),
     );
     run = queued.run;
@@ -590,9 +591,9 @@ export async function runPlaybook(input: {
     await releaseLock();
   }
 
-  if (input.createdById) {
+  if (requesterId) {
     await auditUserAction(
-      input.createdById,
+      requesterId,
       input.dryRun ? "playbook.dry-run" : "playbook.run",
       {
         playbookId: input.playbookId,

@@ -39,12 +39,6 @@ export async function GET(request: Request) {
       // quarantined legacy data, so neither its id nor its traffic curve is
       // handed to every tenant.
       const teamFilter = serverTeamWhere(session);
-      const visibleServers = await prisma.server.findMany({
-        where: teamFilter,
-        select: { id: true },
-        take: 5000,
-      });
-      const visibleServerIds = visibleServers.map((s) => s.id);
       // The hub host's own interfaces belong to the platform, like /api/monitoring/stats: a customer sees its servers.
       const hubVisible = isGlobalTeamManager(session);
       const rows = await prisma.trafficSnapshot.findMany({
@@ -52,16 +46,10 @@ export async function GET(request: Request) {
           sampledAt: { gte: since },
           ...(source ? { source } : {}),
           ...(iface ? { iface } : {}),
-          ...(session
-            ? {
-                OR: [
-                  ...(hubVisible ? [{ serverId: null }] : []), // local hub NIC samples
-                  ...(visibleServerIds.length > 0
-                    ? [{ serverId: { in: visibleServerIds } }]
-                    : []),
-                ],
-              }
-            : {}),
+          OR: [
+            ...(hubVisible ? [{ serverId: null }] : []),
+            { server: { is: teamFilter } },
+          ],
         },
         // Newest rows in the window, re-sorted ascending for the chart below.
         // `asc` + `take` returned the OLDEST rows instead: local samples land

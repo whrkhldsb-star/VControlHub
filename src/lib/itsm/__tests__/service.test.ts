@@ -26,6 +26,7 @@ function reset() {
 const deletedTeams = vi.hoisted(() => new Set<string>());
 vi.mock("@/lib/db", async () => {
 	const prisma: Record<string, unknown> = {
+		$queryRaw: vi.fn(),
 		// A distinct client per transaction, backed by the same in-memory stores.
 		$transaction: vi.fn(async (callback: (tx: unknown) => unknown) => {
 			const events = prisma.itsmEvent as { update: (args: unknown) => unknown };
@@ -296,7 +297,7 @@ describe("ITSM adapters", () => {
 			comment: { body: "c".repeat(50_000) },
 		});
 		expect(n.eventType).toHaveLength(64);
-		expect(n.externalId).toHaveLength(256);
+		expect(n.externalId).toMatch(/^sha256:[a-f0-9]{64}$/);
 		expect(n.title).toHaveLength(256);
 		expect(n.description).toHaveLength(10_000);
 		expect(n.status).toHaveLength(32);
@@ -386,6 +387,14 @@ describe("ITSM service", () => {
 		await expect(
 			updateItsmConnection(conn.id, { direction: "outbound" }),
 		).rejects.toThrow();
+	});
+
+	it("validates effective inbound credentials on direction changes and re-enabling a connection", async () => {
+		const conn = await createItsmConnection({ name: "Slack", provider: "slack", direction: "outbound", config: { webhookUrl: "https://example.com/hooks" } });
+		await expect(updateItsmConnection(conn.id, { direction: "bidirectional" })).rejects.toThrow();
+		await updateItsmConnection(conn.id, { direction: "bidirectional", enabled: false });
+		await expect(updateItsmConnection(conn.id, { enabled: true })).rejects.toThrow();
+		expect(await updateItsmConnection(conn.id, { enabled: true, credentials: { signingSecret: "native" } })).toMatchObject({ enabled: true });
 	});
 
 	it("keeps the stored config when a PATCH does not mention it", async () => {
@@ -720,7 +729,7 @@ describe("ITSM service", () => {
 		});
 		expect(tx?.itsmEvent.update).toHaveBeenCalledExactlyOnceWith({
 			where: { id: expect.any(String) },
-			data: { ticketId, payload: { applied: true, action: "comment_status_update" } },
+			data: { ticketId, payload: { applied: true, action: "comment_status_update", sourceConnectionId: request.connectionId } },
 		});
 		expect(ticketStore.get(ticketId)?.status).toBe("IN_PROGRESS");
 	});
@@ -732,7 +741,7 @@ describe("ITSM service", () => {
 		expect(first.event).toMatchObject({ externalId: null, ticketId, payload: { applied: true, action: "comment_status_update" } });
 		const tx = vi.mocked(addTicketComment).mock.calls[0]![0].db;
 		expect(tx?.itsmEvent.update).toHaveBeenCalledWith({
-			where: { id: first.event.id }, data: { ticketId, payload: { applied: true, action: "comment_status_update" } },
+			where: { id: first.event.id }, data: { ticketId, payload: { applied: true, action: "comment_status_update", sourceConnectionId: request.connectionId } },
 		});
 		// A second unkeyed delivery is a new comment with the already-current status.
 		const second = await handleInboundWebhook(request);

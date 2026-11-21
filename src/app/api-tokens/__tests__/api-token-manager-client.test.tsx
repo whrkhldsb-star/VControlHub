@@ -2,7 +2,7 @@ import { renderWithI18n as render } from "@/lib/i18n/__tests__/test-helpers";
 import { fireEvent, screen, waitFor, within } from "@testing-library/react";
 import { afterEach, beforeEach, describe, expect, it, vi } from "vitest";
 
-import { ApiTokenManagerClient } from "../api-token-manager-client";
+import { ApiTokenManagerClient, type SafeApiToken } from "../api-token-manager-client";
 
 // The create form's unsaved-changes guard navigates with the router.
 vi.mock("next/navigation", () => ({
@@ -27,23 +27,87 @@ const token = {
 	team: { name: "Ops", slug: "ops" },
 };
 
+function page(tokens: SafeApiToken[], total = tokens.length, nextCursor: string | null = null) {
+	return { tokens, total, totalTokens: 230, activeTokens: 12, nextCursor };
+}
+
+function json(data: unknown, status = 200) {
+	return { ok: true, status, json: async () => data };
+}
+
 describe("ApiTokenManagerClient", () => {
 	beforeEach(() => {
 		vi.restoreAllMocks();
 	});
 
+	it("requests one cursor page at a time and keeps status totals separate from the visible rows", async () => {
+		const older = { ...token, id: "tok_2", name: "Older" };
+		const first = page([token], 230, token.id);
+		const fetchMock = vi.fn().mockResolvedValueOnce(json(page([older], 230))).mockResolvedValueOnce(json(first))
+			.mockResolvedValueOnce(json(page([older], 230)))
+			.mockResolvedValueOnce(json(page([token], 12))).mockResolvedValueOnce(json(page([], 0)))
+			.mockResolvedValueOnce(json(page([{ ...older, revokedAt: older.createdAt }], 218)));
+		vi.stubGlobal("fetch", fetchMock);
+		render(<ApiTokenManagerClient initialPage={first} pageSize={1} allowedScopes={["read"]} currentCustomerName="Ops" />, { locale: "en" });
+		expect(fetchMock).not.toHaveBeenCalled();
+		const stat = (label: string) => screen.getByText(label).closest("article");
+		expect(stat("Total tokens")).toHaveTextContent("230");
+		expect(stat("Currently active")).toHaveTextContent("12");
+		const lastQuery = () => Object.fromEntries(new URL(String(fetchMock.mock.lastCall![0]), "http://local").searchParams);
+		fireEvent.click(screen.getByRole("button", { name: "Next" }));
+		expect(await screen.findByRole("heading", { name: "Older" })).toBeInTheDocument();
+		expect(lastQuery()).toEqual({ status: "all", pageSize: "1", cursor: token.id });
+		expect(screen.queryByRole("heading", { name: "CLI" })).not.toBeInTheDocument();
+		fireEvent.click(screen.getByRole("button", { name: "Previous" }));
+		expect(await screen.findByRole("heading", { name: "CLI" })).toBeInTheDocument();
+		expect(lastQuery()).toEqual({ status: "all", pageSize: "1" });
+		fireEvent.click(screen.getByRole("button", { name: "Next" }));
+		await screen.findByRole("heading", { name: "Older" });
+
+		const filter = screen.getByRole("combobox", { name: "Filter by status" });
+		fireEvent.change(filter, { target: { value: "active" } });
+		await screen.findByRole("heading", { name: "CLI" });
+		expect(lastQuery()).toEqual({ status: "active", pageSize: "1" });
+		expect(screen.queryByRole("button", { name: "Previous" })).not.toBeInTheDocument();
+		fireEvent.change(filter, { target: { value: "expired" } });
+		await screen.findByText("No tokens with this status");
+		expect(lastQuery()).toEqual({ status: "expired", pageSize: "1" });
+		fireEvent.change(filter, { target: { value: "revoked" } });
+		await screen.findByRole("heading", { name: "Older" });
+		expect(lastQuery()).toEqual({ status: "revoked", pageSize: "1" });
+		expect(screen.getByText("218")).toBeInTheDocument();
+		expect(stat("Total tokens")).toHaveTextContent("230");
+		expect(stat("Currently active")).toHaveTextContent("12");
+		expect(fetchMock).toHaveBeenCalledTimes(6);
+	});
+
+	it("refreshes the active filter after revocation and retries a failed page read without repeating the write", async () => {
+		const active = page([token], 12);
+		const fetchMock = vi.fn().mockResolvedValueOnce(json(active))
+			.mockResolvedValueOnce(json({ token: { ...token, revokedAt: token.createdAt } }))
+			.mockResolvedValueOnce({ ok: false, status: 500, json: async () => ({ error: "Cannot load tokens" }) })
+			.mockResolvedValueOnce(json({ ...page([], 0), activeTokens: 0 }));
+		vi.stubGlobal("fetch", fetchMock);
+		render(<ApiTokenManagerClient initialPage={page([token])} pageSize={25} allowedScopes={["read"]} currentCustomerName="Ops" />, { locale: "en" });
+		fireEvent.change(screen.getByRole("combobox"), { target: { value: "active" } });
+		fireEvent.click(await screen.findByRole("button", { name: "Revoke CLI" }));
+		fireEvent.click(within(await screen.findByRole("dialog")).getByRole("button", { name: "Revoke" }));
+		await screen.findByText("Cannot load tokens");
+		fireEvent.click(screen.getByRole("button", { name: "Retry" }));
+		await screen.findByText("No tokens with this status");
+		expect(screen.getByText("Currently active").closest("article")).toHaveTextContent("0");
+		expect(screen.getByRole("combobox")).toHaveValue("active");
+		expect(fetchMock.mock.calls.filter(([, init]) => init.method === "DELETE")).toHaveLength(1);
+		expect(fetchMock.mock.lastCall![0]).toContain("status=active");
+	});
+
 	it("creates an API token through JSON and shows the plaintext only in the one-time result panel", async () => {
-		const fetchMock = vi.fn().mockResolvedValue({
-			ok: true,
-			status: 201,
-			json: async () => ({
-				token: "whr_plain_once",
-				apiToken: { ...token, id: "tok_2", name: "mobile", scopes: ["read", "status:read"], tokenSuffix: "n_once" },
-			}),
-		});
+		const created = { ...token, id: "tok_2", name: "mobile", scopes: ["read", "status:read"], tokenSuffix: "n_once" };
+		const fetchMock = vi.fn().mockResolvedValueOnce(json({ token: "whr_plain_once", apiToken: created }, 201))
+			.mockResolvedValueOnce(json(page([created, token])));
 		vi.stubGlobal("fetch", fetchMock);
 
-		render(<ApiTokenManagerClient header={header} initialTokens={[token]} allowedScopes={["read", "health:read", "status:read"]} currentCustomerName="Ops" />, { locale: "en" });
+		render(<ApiTokenManagerClient header={header} initialPage={page([token])} pageSize={25} allowedScopes={["read", "health:read", "status:read"]} currentCustomerName="Ops" />, { locale: "en" });
 
 		// The form opens from the header; the tokens come first.
 		expect(screen.queryByLabelText("Token name")).not.toBeInTheDocument();
@@ -58,7 +122,7 @@ describe("ApiTokenManagerClient", () => {
 			method: "POST",
 			body: JSON.stringify({ name: "mobile", scopes: ["read", "status:read"], expiresAt: null }),
 		}));
-		expect(screen.getByText("mobile")).toBeInTheDocument();
+		expect(await screen.findByText("mobile")).toBeInTheDocument();
 		// Created: the form closed under the plaintext, and the next token starts from the header again.
 		expect(screen.queryByLabelText("Token name")).not.toBeInTheDocument();
 		expect(screen.getByRole("button", { name: "Create API token" })).toBeInTheDocument();
@@ -66,7 +130,7 @@ describe("ApiTokenManagerClient", () => {
 
 	it("closes the form on Cancel and says a refusal inside it", async () => {
 		vi.stubGlobal("fetch", vi.fn().mockResolvedValue({ ok: false, status: 409, json: async () => ({ error: "A token with this name exists" }) }));
-		render(<ApiTokenManagerClient header={header} initialTokens={[]} allowedScopes={["read"]} currentCustomerName="Ops" />, { locale: "en" });
+		render(<ApiTokenManagerClient header={header} initialPage={{ ...page([]), totalTokens: 0, activeTokens: 0 }} pageSize={25} allowedScopes={["read"]} currentCustomerName="Ops" />, { locale: "en" });
 		// The empty list offers the same command as the header.
 		expect(screen.getAllByRole("button", { name: "Create API token" })).toHaveLength(2);
 		fireEvent.click(screen.getAllByRole("button", { name: "Create API token" })[0]!);
@@ -92,12 +156,10 @@ describe("ApiTokenManagerClient", () => {
 		});
 
 		async function createToken() {
-			vi.stubGlobal("fetch", vi.fn().mockResolvedValue({
-				ok: true,
-				status: 201,
-				json: async () => ({ token: "whr_plain_once", apiToken: { ...token, id: "tok_2", name: "mobile" } }),
-			}));
-			render(<ApiTokenManagerClient header={header} initialTokens={[token]} allowedScopes={["read"]} currentCustomerName="Ops" />, { locale: "en" });
+			const created = { ...token, id: "tok_2", name: "mobile" };
+			vi.stubGlobal("fetch", vi.fn().mockResolvedValueOnce(json({ token: "whr_plain_once", apiToken: created }, 201))
+				.mockResolvedValueOnce(json(page([created, token]))));
+			render(<ApiTokenManagerClient header={header} initialPage={page([token])} pageSize={25} allowedScopes={["read"]} currentCustomerName="Ops" />, { locale: "en" });
 			fireEvent.click(screen.getByRole("button", { name: "Create API token" }));
 			fireEvent.change(screen.getByLabelText("Token name"), { target: { value: "mobile" } });
 			fireEvent.click(screen.getByRole("button", { name: "Create token" }));
@@ -150,7 +212,7 @@ describe("ApiTokenManagerClient", () => {
 		});
 		vi.stubGlobal("fetch", fetchMock);
 
-		render(<ApiTokenManagerClient header={header} initialTokens={[token]} allowedScopes={["read", "health:read"]} currentCustomerName="Ops" />, { locale: "en" });
+		render(<ApiTokenManagerClient header={header} initialPage={page([token])} pageSize={25} allowedScopes={["read", "health:read"]} currentCustomerName="Ops" />, { locale: "en" });
 		fireEvent.click(screen.getByRole("button", { name: "Revoke CLI" }));
 
 		const dialog = await screen.findByRole("dialog", { name: "Revoke this API token?" });
@@ -171,7 +233,7 @@ describe("ApiTokenManagerClient", () => {
 		});
 		vi.stubGlobal("fetch", fetchMock);
 
-		render(<ApiTokenManagerClient header={header} initialTokens={[token]} allowedScopes={["read", "health:read"]} currentCustomerName="Ops" />, { locale: "en" });
+		render(<ApiTokenManagerClient header={header} initialPage={page([token])} pageSize={25} allowedScopes={["read", "health:read"]} currentCustomerName="Ops" />, { locale: "en" });
 		fireEvent.click(screen.getByRole("button", { name: "Revoke CLI" }));
 		const dialog = await screen.findByRole("dialog", { name: "Revoke this API token?" });
 		fireEvent.click(within(dialog).getByRole("button", { name: "Revoke" }));
@@ -183,13 +245,12 @@ describe("ApiTokenManagerClient", () => {
 	});
 
 	it("revokes an API token after in-app confirmation and updates the list", async () => {
-		const fetchMock = vi.fn().mockResolvedValue({
-			ok: true,
-			json: async () => ({ token: { ...token, revokedAt: "2026-01-02T00:00:00Z" } }),
-		});
+		const revoked = { ...token, revokedAt: "2026-01-02T00:00:00Z" };
+		const fetchMock = vi.fn().mockResolvedValueOnce(json({ token: revoked }))
+			.mockResolvedValueOnce(json(page([revoked])));
 		vi.stubGlobal("fetch", fetchMock);
 
-		render(<ApiTokenManagerClient header={header} initialTokens={[token]} allowedScopes={["read", "health:read"]} currentCustomerName="Ops" />, { locale: "en" });
+		render(<ApiTokenManagerClient header={header} initialPage={page([token])} pageSize={25} allowedScopes={["read", "health:read"]} currentCustomerName="Ops" />, { locale: "en" });
 		fireEvent.click(screen.getByRole("button", { name: "Revoke CLI" }));
 		const dialog = await screen.findByRole("dialog", { name: "Revoke this API token?" });
 		fireEvent.click(within(dialog).getByRole("button", { name: "Revoke" }));
@@ -197,6 +258,6 @@ describe("ApiTokenManagerClient", () => {
 		await waitFor(() => expect(fetchMock).toHaveBeenCalledWith("/api/api-tokens?id=tok_1", expect.objectContaining({
 			method: "DELETE",
 		})));
-		expect(await screen.findByText("Revoked")).toBeInTheDocument();
+		expect(await screen.findByText("Revoked", { selector: "span" })).toBeInTheDocument();
 	});
 });

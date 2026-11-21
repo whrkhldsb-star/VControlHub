@@ -177,6 +177,7 @@ export type PublicHistoryPoint = {
 	processes?: number | null;
 	tcp?: number | null;
 	udp?: number | null;
+	/** Per-bucket sample counts are published only with the availability category. */
 	online?: number;
 	offline?: number;
 };

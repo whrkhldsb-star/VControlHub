@@ -13,6 +13,9 @@ const shareSelect = { id: true, tokenHash: true, seenAt: true, writable: true } 
 type Channel = { id: string; tokenHash: string; writable: boolean };
 type Tx = Prisma.TransactionClient;
 type Payload = Record<string, string | number | boolean>;
+const readOperations = ["stat", "list", "read", "checksum"];
+export const FILE_AGENT_CLAIM_LEASE_MS = 15_000;
+export const FILE_AGENT_RECEIPT_GRACE_MS = 60 * 60_000;
 
 export async function pairFileShare(nodeId: string, session: SessionPayload) {
   return prisma.$transaction(async (tx) => {
@@ -101,7 +104,7 @@ export async function getFileChannel(nodeId: string, serverId?: string, expected
 }
 
 export async function callFileAgent(nodeId: string, channel: Channel, payload: Payload) {
-  const write = !["stat", "list", "read", "checksum"].includes(String(payload.op));
+  const write = !readOperations.includes(String(payload.op));
   const ttl = ["publish", "copy", "copy-step", "checksum"].includes(String(payload.op)) ? 10 * 60_000 : 45_000;
   const expiresAt = new Date(Date.now() + ttl);
   const call = await prisma.$transaction(async (tx) => {
@@ -142,12 +145,24 @@ export async function callFileAgent(nodeId: string, channel: Channel, payload: P
     }
     throw unavailable();
   } finally {
-    // An expired publish may already be on disk. Keep its ID and expected
-    // version until the claiming Agent reports what happened.
-    await prisma.agentFileCall.deleteMany({ where: { id: call.id, ...(payload.op === "publish" ? {
+    // A claimed write may already be on disk when its caller stops waiting.
+    await prisma.agentFileCall.deleteMany({ where: { id: call.id, ...(write ? {
       OR: [{ claimed: false }, { result: { not: Prisma.DbNull } }],
     } : {}) } });
   }
+}
+
+export function sweepExpiredFileAgentCalls(now = new Date()) {
+  return prisma.agentFileCall.deleteMany({
+    where: {
+      expiresAt: { lte: now },
+      OR: [
+        { claimed: false }, { result: { not: Prisma.DbNull } },
+        ...readOperations.map(op => ({ payload: { path: ["op"], equals: op } })),
+        { expiresAt: { lte: new Date(now.getTime() - FILE_AGENT_RECEIPT_GRACE_MS) } },
+      ],
+    },
+  });
 }
 
 export async function recordVerifiedFileRead(channel: Channel) {
@@ -162,7 +177,7 @@ export function parseFileCredential(authorization: string | null) {
   const match = /^Bearer (vcf_[a-z0-9]{16,40}_[a-f0-9]{64})$/.exec(authorization ?? "");
   return match ? digest(match[1]!) : null;
 }
-export async function pollFileAgent(hash: string, rootIdentity: string, writable: boolean, receipt?: Receipt) {
+export async function pollFileAgent(hash: string, rootIdentity: string, writable: boolean, receipt?: Receipt, deliveryVersion = 1) {
   return prisma.$transaction(async (tx) => {
     const share = await liveChannel(tx, { hash });
     if (!share || (share.rootIdentity && share.rootIdentity !== rootIdentity)) return null;
@@ -174,14 +189,18 @@ export async function pollFileAgent(hash: string, rootIdentity: string, writable
         shareId: share.id,
         tokenHash: hash,
         claimed: true,
-        OR: [{ expiresAt: { gt: now } }, { payload: { path: ["op"], equals: "publish" } }],
+        expiresAt: { gt: new Date(now.getTime() - FILE_AGENT_RECEIPT_GRACE_MS) },
         result: { equals: Prisma.DbNull },
       };
-      const call = await tx.agentFileCall.findFirst({ where, select: { payload: true } });
+      const call = await tx.agentFileCall.findFirst({ where, select: { payload: true, expiresAt: true } });
       if (call) {
-        const { op } = call.payload as Payload;
-        await tx.agentFileCall.updateMany({ where, data: { payload: {}, result: receipt.result } });
-        if (!receipt.result.error && (op === "publish" || (op === "copy-step" && (call.payload as Payload).step === "promote"))) observed.lastWriteAt = now;
+        const { op, step } = call.payload as Payload;
+        if (call.expiresAt > now || !readOperations.includes(String(op))) {
+          const completed = await tx.agentFileCall.updateMany({ where, data: { payload: {}, result: receipt.result } });
+          if (completed.count && !receipt.result.error && (op === "publish" || op === "copy" || (op === "copy-step" && step === "promote"))) {
+            observed.lastWriteAt = now;
+          }
+        }
       }
     }
     if (
@@ -196,12 +215,30 @@ export async function pollFileAgent(hash: string, rootIdentity: string, writable
         select: shareSelect,
       });
     }
+    // Only v2 Agents persist job IDs. A legacy claim has no lease and must
+    // never be replayed across an upgrade or to a downgraded Agent.
+    const leasedDelivery = deliveryVersion === 2;
+    const eligible = {
+      shareId: share.id, tokenHash: hash, expiresAt: { gt: now }, result: { equals: Prisma.DbNull },
+      OR: [
+        { claimed: false },
+        ...(leasedDelivery ? [{ payload: { path: ["claimLeaseUntilMs"], lte: now.getTime() } }] : []),
+      ],
+    };
     const next = await tx.agentFileCall.findFirst({
-      where: { shareId: share.id, tokenHash: hash, claimed: false, expiresAt: { gt: now } },
-      orderBy: { expiresAt: "asc" },
+      where: eligible, orderBy: [{ expiresAt: "asc" }, { id: "asc" }],
+      select: { id: true, payload: true, expiresAt: true },
     });
     if (!next) return { job: null };
-    await tx.agentFileCall.update({ where: { id: next.id }, data: { claimed: true } });
-    return { job: { id: next.id, remainingMs: Math.max(0, next.expiresAt.getTime() - Date.now()), operation: next.payload } };
+    const operation = { ...next.payload as Payload };
+    delete operation.claimLeaseUntilMs;
+    // liveChannel serializes polls for this share. The conditional update
+    // also handles a caller cancelling its unclaimed row in the meantime.
+    const claimed = await tx.agentFileCall.updateMany({
+      where: { ...eligible, id: next.id },
+      data: { claimed: true, ...(leasedDelivery ? { payload: { ...operation, claimLeaseUntilMs: now.getTime() + FILE_AGENT_CLAIM_LEASE_MS } } : {}) },
+    });
+    const remainingMs = next.expiresAt.getTime() - Date.now();
+    return { job: claimed.count && remainingMs > 0 ? { id: next.id, remainingMs, operation } : null };
   });
 }

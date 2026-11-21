@@ -7,6 +7,7 @@
  * Preview uses exactly the same projection as anonymous reads; it only
  * bypasses the "board closed" switch.
  */
+import { dayCoverageMinutes } from "@/lib/uptime/coverage";
 import { prisma } from "@/lib/db";
 import { appTimeZoneDateKey, shiftAppTimeZoneDay, startOfDayInAppTimeZone } from "@/lib/datetime/time-zone";
 import {
@@ -14,7 +15,7 @@ import {
 	getBoardSnapshot,
 	invalidatePublicStatusCache,
 	loadVisibleNodeRow,
-	loadVisiblePublicIds,
+	loadVisiblePublications,
 	restrictToVisible,
 	snapshotMissesVisible,
 	publicSiteInfo,
@@ -50,7 +51,7 @@ export async function readPublicBoard(query: PublicBoardQuery, options: PublicRe
 	// few-second cache, so closing the board, unpublishing, disabling a
 	// server, moving it to another customer or deleting the customer applies
 	// at once, in every process.
-	const [site, visible] = await Promise.all([loadPublicSite(), loadVisiblePublicIds()]);
+	const [site, visible] = await Promise.all([loadPublicSite(), loadVisiblePublications()]);
 	if (!site.enabled && !options.preview) return null;
 	let board = await getBoardSnapshot();
 	if (board.site.updatedAt !== site.updatedAt || snapshotMissesVisible(board, visible)) {
@@ -71,17 +72,18 @@ async function uptimeDays(serverId: string, now: Date): Promise<PublicUptimeDay[
 		take: 100,
 	});
 	const byDate = new Map(rows.map((row) => [appTimeZoneDateKey(row.date), row]));
-	const todayStart = startOfDayInAppTimeZone(now);
 	const days: PublicUptimeDay[] = [];
 	for (let offset = 89; offset >= 0; offset--) {
-		const date = appTimeZoneDateKey(shiftAppTimeZoneDay(now, -offset));
+		const start = shiftAppTimeZoneDay(now, -offset);
+		const date = appTimeZoneDateKey(start);
+		const expectedMinutes = dayCoverageMinutes(start, now);
 		const row = byDate.get(date);
 		days.push({
 			date,
-			uptimePercent: row && row.checkCount > 0 ? row.uptimePercent : null,
+			uptimePercent: row && (row.checkCount > 0 || row.onlineMinutes + row.offlineMinutes > 0) ? row.uptimePercent : null,
 			checkCount: row?.checkCount ?? 0,
-			coveredMinutes: row ? Math.min(1440, row.onlineMinutes + row.offlineMinutes) : 0,
-			expectedMinutes: offset === 0 ? Math.max(1, Math.floor((now.getTime() - todayStart.getTime()) / 60_000)) : 1440,
+			coveredMinutes: row ? Math.min(expectedMinutes, row.onlineMinutes + row.offlineMinutes) : 0,
+			expectedMinutes,
 		});
 	}
 	return days;
@@ -149,8 +151,7 @@ export async function readPublicHistory(publicId: string, range: PublicHistoryRa
 	const resources = wantsResources
 		? shaped.resources.map((point) => ({
 				t: point.t,
-				online: point.online,
-				offline: point.offline,
+				...(allowed.has("availability") ? { online: point.online, offline: point.offline } : {}),
 				...(allowed.has("cpu") ? { cpu: point.cpu } : {}),
 				...(allowed.has("memory") ? { memory: point.memory } : {}),
 				...(allowed.has("disk") ? { disk: point.disk } : {}),

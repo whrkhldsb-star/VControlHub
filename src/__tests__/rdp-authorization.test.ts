@@ -3,12 +3,14 @@ import { EventEmitter } from "node:events";
 import type { Server } from "node:http";
 import { afterEach, beforeEach, describe, expect, it, vi } from "vitest";
 import { instruction } from "@/lib/rdp/protocol";
+import { guacdHandshake } from "@/test/helpers/guacd";
 
 const mocks = vi.hoisted(() => ({ verify: vi.fn(), getServer: vi.fn(), tunnel: vi.fn(), webSocketServer: vi.fn(), clipboard: vi.fn(), audit: vi.fn(async () => undefined), images: vi.fn(async () => ["image/png", "image/jpeg"]) }));
 vi.mock("ws", () => ({
   WebSocket: { OPEN: 1 },
   WebSocketServer: class { constructor() { return mocks.webSocketServer(); } },
 }));
+vi.mock("@/lib/concurrency/advisory-lock", () => ({ acquireAdvisoryLock: async () => async () => {} }));
 vi.mock("node:net", () => ({ createConnection: () => mocks.tunnel() }));
 vi.mock("@/lib/auth/session", () => ({ getSessionCookieName: () => "session", verifySessionToken: mocks.verify }));
 vi.mock("@/lib/auth/authorization", () => ({ sessionHasPermission: () => true }));
@@ -35,7 +37,7 @@ describe("established RDP authorization", () => {
   });
   afterEach(() => { stop?.(); vi.useRealTimers(); });
 
-  async function connect(handshake = instruction("args") + instruction("ready", "tunnel")) {
+  async function connect(ready = true) {
     const tunnel = Object.assign(new EventEmitter(), { write: vi.fn(), end: vi.fn(), destroy: vi.fn(), pause: vi.fn(), resume: vi.fn(), writable: true, connecting: false, destroyed: false });
     mocks.tunnel.mockReturnValue(tunnel);
     const wss = Object.assign(new EventEmitter(), { clients: new Set(), close: vi.fn() });
@@ -49,7 +51,7 @@ describe("established RDP authorization", () => {
     stop = setupRdpWebSocket(new EventEmitter() as Server);
     wss.emit("connection", ws, { headers: { cookie: "session=authenticated", origin: "https://hub.test" } });
     await ws.listeners("message")[0]!(Buffer.from("single-use-ticket"), false);
-    tunnel.emit("data", Buffer.from(handshake));
+    await guacdHandshake(tunnel, instruction("args"), ready);
     expect(ws.close).not.toHaveBeenCalled();
     return { ws, tunnel };
   }
@@ -63,7 +65,7 @@ describe("established RDP authorization", () => {
     stop?.();
 
     mocks.audit.mockClear();
-    const unreachable = await connect(instruction("args"));
+    const unreachable = await connect(false);
     unreachable.tunnel.emit("data", Buffer.from(instruction("error", "Upstream not found", "519")));
     expect(unreachable.ws.close).toHaveBeenCalled();
     expect(failed()).toEqual([["u", "server.rdp.failed", { serverId: "s", status: "519", message: "Upstream not found" }, undefined, "t"]]);
@@ -109,7 +111,7 @@ describe("established RDP authorization", () => {
     expect(tunnel.end).toHaveBeenCalledWith(instruction("disconnect"));
     await vi.advanceTimersByTimeAsync(2_000);
     expect(tunnel.destroy).toHaveBeenCalled();
-    expect(mocks.verify).toHaveBeenCalledTimes(2);
+    expect(mocks.verify).toHaveBeenCalledTimes(3);
   });
 
   it("sends one guacd chunk to the browser as one message", async () => {
@@ -189,12 +191,12 @@ describe("established RDP authorization", () => {
 
   it("retains a healthy session across repeated authorization checks", async () => {
     const { ws } = await connect();
-    // Revalidation runs every 30 s (A3-08), not on every 5 s tick: the handshake, then 30 s and 60 s.
+    // Revalidation runs every 30 s (A3-08), not on every 5 s tick: the ticket and connect each check once, then again at 30 s and 60 s.
     await vi.advanceTimersByTimeAsync(20_000);
-    expect(mocks.verify).toHaveBeenCalledTimes(1);
+    expect(mocks.verify).toHaveBeenCalledTimes(2);
     await vi.advanceTimersByTimeAsync(45_000);
     expect(ws.close).not.toHaveBeenCalled();
-    expect(mocks.verify).toHaveBeenCalledTimes(3);
+    expect(mocks.verify).toHaveBeenCalledTimes(4);
   });
 });
 
@@ -218,7 +220,7 @@ describe("ending an RDP session", () => {
     stop = setupRdpWebSocket(new EventEmitter() as Server);
     wss.emit("connection", ws, { headers: { cookie: "session=authenticated", origin: "https://hub.test" } });
     await ws.listeners("message")[0]!(Buffer.from("single-use-ticket"), false);
-    tunnel.emit("data", Buffer.from(instruction("args") + instruction("ready", "tunnel")));
+    await guacdHandshake(tunnel);
     return { ws, tunnel };
   }
 

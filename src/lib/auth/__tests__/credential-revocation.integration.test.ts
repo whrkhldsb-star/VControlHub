@@ -34,6 +34,26 @@ describe.skipIf(process.env.RUN_DATABASE_INTEGRATION_TESTS !== "1")("credential 
     await prisma.$disconnect();
   });
 
+  it("commits a password rotation without extending an expired sign-in through its new credential proof", async () => {
+    const expiresAt = Date.now() + 60_000;
+    const session = await verifySessionToken(await createSessionToken({
+      userId: id, username: id, roles: [], mustChangePassword: false, currentTeamId: null,
+    }, { expiresAt }));
+    const clock = vi.spyOn(Date, "now").mockReturnValue(expiresAt + 1);
+    try {
+      const changed = await changePassword({ currentPassword, newPassword: nextPassword, confirmPassword: nextPassword }, session);
+      expect(changed.success).toBe(true);
+      if (!changed.success) throw new Error("Expected a committed password change");
+      const refresh = await createSessionToken({ ...session, mustChangePassword: false }, {
+        credentialBinding: changed.credentialBinding, expiresAt: expiresAt + 60_000,
+      });
+      await expect(verifySessionToken(refresh)).rejects.toMatchObject({ status: 401 });
+      expect(await prisma.user.findUniqueOrThrow({ where: { id } })).toMatchObject({ sessionEpoch: 5, mustChangePassword: false });
+    } finally {
+      clock.mockRestore();
+    }
+  });
+
   it.each(["disable", "password reset", "session revocation"])("does not overwrite a concurrent administrator %s", async (change) => {
     const token = await createSessionToken({ userId: id, username: id, roles: [], mustChangePassword: false, currentTeamId: null });
     const session = await verifySessionToken(token);

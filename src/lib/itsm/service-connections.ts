@@ -20,7 +20,6 @@ import {
 import type {
   ItsmConnectionConfig,
   ItsmConnectionRecord,
-  ItsmCredentials,
   ItsmEventRecord,
   ItsmProvider,
 } from "./types";
@@ -60,7 +59,7 @@ export async function createItsmConnection(
   const direction = parsed.direction ?? "bidirectional";
   const config = (parsed.config ?? {}) as ItsmConnectionConfig;
   const credentials = parsed.credentials ?? {};
-  if (supportsOutbound(direction)) {
+  if (parsed.enabled !== false && supportsOutbound(direction)) {
     assertOutboundReady(parsed.provider, config, credentials);
   }
   const teamId = resolveConnectionTeamId(session, parsed.teamId);
@@ -120,23 +119,18 @@ export async function updateItsmConnection(
     if (parsed.teamId !== existing.teamId) throw new ValidationError(t("backend.itsm.newConnectionForCustomer"));
   }
   if (parsed.config !== undefined) data.config = parsed.config as Prisma.InputJsonValue;
-  let effectiveCredentials: ItsmCredentials = {};
-  if (parsed.credentials !== undefined) {
-    const prev = decryptCredentials(existing.credentialsEnc);
-    effectiveCredentials = { ...prev, ...parsed.credentials };
-    data.credentialsEnc = encryptCredentials(effectiveCredentials);
-  }
-
-  // Re-validate outbound readiness after the update: a connection flipped to
-  // outbound (or whose credentials/config changed) must not pass validation
-  // only to fail at delivery time.
-  const finalDirection = parsed.direction ?? existing.direction;
-  if (supportsOutbound(finalDirection)) {
-    const effectiveConfig = (parsed.config ?? parseConfig(existing.config)) as ItsmConnectionConfig;
-    if (parsed.credentials === undefined) {
-      effectiveCredentials = decryptCredentials(existing.credentialsEnc);
+  const enabled = parsed.enabled ?? existing.enabled;
+  if (enabled || parsed.credentials !== undefined) {
+    const credentials = { ...decryptCredentials(existing.credentialsEnc), ...parsed.credentials };
+    if (parsed.credentials !== undefined) data.credentialsEnc = encryptCredentials(credentials);
+    if (enabled) {
+      const direction = parsed.direction ?? existing.direction;
+      const config = parsed.config ?? parseConfig(existing.config);
+      // Older generic connections used the provider spelling "webhook".
+      const provider = existing.provider === "webhook" ? "generic_webhook" : existing.provider;
+      createItsmConnectionSchema.parse({ name: parsed.name ?? existing.name, provider, direction, credentials, config });
+      if (supportsOutbound(direction)) assertOutboundReady(provider as ItsmProvider, config, credentials);
     }
-    assertOutboundReady(existing.provider as ItsmProvider, effectiveConfig, effectiveCredentials);
   }
 
   const updated = await prisma.itsmConnection.updateMany({

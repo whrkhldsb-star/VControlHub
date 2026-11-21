@@ -143,8 +143,10 @@ export function renderMarkdown(md: string): string {
 
 function isAllowedMarkdownLink(rawUrl: string): boolean {
   const trimmed = rawUrl.trim();
+  if (/[\t\r\n]/.test(trimmed)) return false;
   const lower = trimmed.toLowerCase();
-  if (lower.startsWith("/") && !lower.startsWith("//")) return true;
+  if (lower.startsWith("#")) return true;
+  if (lower.startsWith("/") && !/^\/[\/\\]/.test(lower)) return true;
   try {
     const parsed = new URL(trimmed);
     return ["http:", "https:", "mailto:"].includes(parsed.protocol);
@@ -153,39 +155,49 @@ function isAllowedMarkdownLink(rawUrl: string): boolean {
   }
 }
 
-/** Apply inline Markdown formatting (bold, italic, code, links) */
-function inlineFormat(text: string): string {
-  // Escaping the whole text is what keeps it inert: no tag or attribute can
-  // form, and links are allowed only to http(s)/mailto/relative URLs. A filter
-  // that deleted "on…=" and "data:" substrings first only mangled prose and
-  // inline code — "max_connections=200" rendered as "max_c".
-  text = escapeHtml(text).replace(/[\uE000\uE001]/g, "");
-  // Inline code is set aside while emphasis and links are applied, and put
-  // back last: run over it, `**keep**` turned bold, `2 * 3 * 4` lost its
-  // stars and a literal `[a](url)` became a link.
-  const codeSpans: string[] = [];
-  text = text.replace(/`([^`]+)`/g, (_match, code: string) => `\uE000${codeSpans.push(code) - 1}\uE001`);
-  // Bold + italic
-  text = text.replace(/\*\*\*(.+?)\*\*\*/g, "<strong><em>$1</em></strong>");
-  // Bold
-  text = text.replace(/\*\*(.+?)\*\*/g, "<strong>$1</strong>");
-  // Italic
-  text = text.replace(/\*(.+?)\*/g, "<em>$1</em>");
-  // Sanitize link URLs to prevent javascript: protocol XSS
-  text = text.replace(/\[([^\]]+)\]\(([^)]+)\)/g, (match, text, url) => {
-    const trimmed = url.trim();
-    if (!isAllowedMarkdownLink(trimmed)) {
-      return match; // Leave dangerous or unsupported links as escaped plain text
-    }
-    // Both were escaped with the rest of the line above; escaping again turned
-    // "a&b" into "a&amp;amp;b" and broke URLs with query strings.
-    // Only external links open a new tab (A11-04); in-app and anchor links stay in this one.
-    const external = /^(?:https?:)?\/\//i.test(trimmed) || /^mailto:/i.test(trimmed);
-    return external
-      ? `<a href="${trimmed}" target="_blank" rel="noopener noreferrer">${text}</a>`
-      : `<a href="${trimmed}">${text}</a>`;
+/** Match closing parentheses once so malformed nested destinations are linear to scan. */
+function replaceLinks(text: string, render: (label: string, url: string, source: string) => string) {
+  if (!text.includes("](")) return text;
+  const ends = new Map<number, number>();
+  const stack: number[] = [];
+  for (let i = 0; i < text.length; i++) {
+    if (text[i] === "\\") { i++; continue; }
+    if (text[i] === "(") stack.push(i);
+    if (text[i] === ")" && stack.length) ends.set(stack.pop()!, i);
+  }
+  const start = /!?\[([^\][\n]*)\]\(/g;
+  let output = "";
+  let copied = 0;
+  for (let match; (match = start.exec(text)); ) {
+    const open = start.lastIndex - 1;
+    const close = ends.get(open);
+    if (close === undefined) continue;
+    const source = text.slice(match.index, close + 1);
+    if (!match[1] && !source.startsWith("!")) continue;
+    const url = text.slice(open + 1, close).trim().replace(/\\([()])/g, "$1");
+    output += text.slice(copied, match.index) + render(match[1]!, url, source);
+    copied = start.lastIndex = close + 1;
+  }
+  return output + text.slice(copied);
+}
+
+/** Keep code and completed anchors opaque to the emphasis pass, including their attributes. */
+function inlineFormat(source: string): string {
+  const tokens: string[] = [];
+  const token = (html: string) => `\uE000${tokens.push(html) - 1}\uE001`;
+  const restore = (text: string) => text.replace(/\uE000(\d+)\uE001/g, (_, i: string) => tokens[Number(i)]!);
+  const emphasis = (text: string) => text
+    .replace(/\*\*\*(.+?)\*\*\*/g, "<strong><em>$1</em></strong>")
+    .replace(/\*\*(.+?)\*\*/g, "<strong>$1</strong>")
+    .replace(/\*(.+?)\*/g, "<em>$1</em>");
+  const text = source.replace(/[\uE000\uE001]/g, "").replace(/`([^`]+)`/g, (_, code: string) => token(`<code>${escapeHtml(code)}</code>`));
+  const linked = replaceLinks(text, (label, url, original) => {
+    if (!label || url.includes("\uE000") || !isAllowedMarkdownLink(url)) return original;
+    const external = /^(?:https?:\/\/|mailto:)/i.test(url);
+    const attrs = external ? ' target="_blank" rel="noopener noreferrer"' : "";
+    return (original.startsWith("!") ? "!" : "") + token(`<a href="${escapeHtml(url)}"${attrs}>${restore(emphasis(escapeHtml(label)))}</a>`);
   });
-  return text.replace(/\uE000(\d+)\uE001/g, (_match, index: string) => `<code>${codeSpans[Number(index)]}</code>`);
+  return restore(emphasis(escapeHtml(linked)));
 }
 
 /** Check if a line looks like a table row */
@@ -297,10 +309,8 @@ export function markdownToPlainText(md: string): string {
 function proseToPlainText(text: string): string {
   // Inline code spans are set aside first and put back verbatim.
   const spans: string[] = [];
-  return text
-    .replace(/`([^`\n]+)`/g, (_, code: string) => `\u0000${spans.push(code) - 1}\u0000`)
-    .replace(/!\[([^\]]*)\]\([^)]*\)/g, "$1")
-    .replace(/\[([^\]]+)\]\([^)]*\)/g, "$1")
+  const protectedText = text.replace(/`([^`\n]+)`/g, (_, code: string) => `\u0000${spans.push(code) - 1}\u0000`);
+  return replaceLinks(protectedText, (label) => label)
     .replace(/^[ \t]{0,3}#{1,6}[ \t]+/gm, "")
     .replace(/^[ \t]{0,3}>[ \t]?/gm, "")
     .replace(/^[ \t]*(?:[-*+]|\d+[.)])[ \t]+/gm, "")

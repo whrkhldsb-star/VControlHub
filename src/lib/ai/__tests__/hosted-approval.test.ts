@@ -260,7 +260,7 @@ describe("AI hosted action approvals", () => {
 			},
 		});
 		expect(prismaMock.server.findMany).toHaveBeenCalledWith({
-			where: { AND: [{ teamId: "team_a" }, { OR: [
+			where: { AND: [{ teamId: "team_a" }, { team: { deletedAt: null }, OR: [
 				{ userAccess: { none: { userId: "operator_1" } } },
 				{ userAccess: { some: { userId: "operator_1", canRead: true } } },
 			] }] },
@@ -481,7 +481,7 @@ describe("AI hosted action approvals", () => {
 		expect(prismaMock.server.findMany).toHaveBeenLastCalledWith({
 			where: {
 				AND: [
-					{ AND: [{ teamId: "team_a" }, { OR: [
+					{ AND: [{ teamId: "team_a" }, { team: { deletedAt: null }, OR: [
 						{ userAccess: { none: { userId: "user_1" } } },
 						{ userAccess: { some: { userId: "user_1", canRead: true } } },
 					] }] }, {
@@ -662,7 +662,7 @@ describe("AI hosted action approvals", () => {
 		await rejectHostedAction("action_1", { userId: "user_1", roles: ["operator"] }, "User rejected");
 
 		expect(prismaMock.aiHostedAction.updateMany).toHaveBeenCalledWith({
-			where: { id: "action_1", status: "PENDING_APPROVAL", requesterId: "user_1", teamId: "__no_active_team__" },
+			where: { id: "action_1", status: "PENDING_APPROVAL", requesterId: "user_1", teamId: { in: [] }, AND: { teamId: { in: [] } } },
 			data: expect.objectContaining({ status: "REJECTED", approverId: "user_1", errorMessage: "User rejected" }),
 		});
 		expect(prismaMock.aiHostedAction.findUniqueOrThrow).toHaveBeenCalledWith({ where: { id: "action_1" } });

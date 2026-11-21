@@ -49,12 +49,12 @@ type DashboardQueueSummary = {
     pending?: number;
     completed: number;
     failed: number;
-  };
+  } | null;
   unreadNotifications: number;
   activeScheduledTasks: number;
 };
 
-type DashboardQuickLinksProps = DashboardQueueSummary;
+type DashboardQuickLinksProps = DashboardQueueSummary & { visible?: { servers: boolean; storage: boolean; commands: boolean } };
 
 type DashboardAnnouncement = {
   id: string;
@@ -142,20 +142,21 @@ export function DashboardStatsSection({ storage, queue }: { storage: DashboardSt
   const pending = t("dashboard.pending-approvals");
   const downloads = t("dashboard.download-tasks");
 
-  const queued = queue.downloads.pending ?? 0;
-  const active = queue.downloads.running > 0 || queued > 0;
+  const counts = queue.downloads;
+  const queued = counts?.pending ?? 0;
+  const active = counts !== null && (counts.running > 0 || queued > 0);
   // A count and its word are one entry each ("1 running", "3 个运行中"): glued in code they could not agree.
-  const downloadValue = queue.downloads.running > 0
-    ? t("dashboard.count.running", { count: queue.downloads.running })
+  const downloadValue = !counts ? "—" : counts.running > 0
+    ? t("dashboard.count.running", { count: counts.running })
     : queued > 0
       ? t("dashboard.count.queued", { count: queued })
-      : String(queue.downloads.completed + queue.downloads.failed);
+      : String(counts.completed + counts.failed);
   const downloadDetail = active
     ? [
-        queue.downloads.running > 0 ? t("dashboard.count.running", { count: queue.downloads.running }) : null,
+        counts.running > 0 ? t("dashboard.count.running", { count: counts.running }) : null,
         queued > 0 ? t("dashboard.count.queued", { count: queued }) : null,
-        t("dashboard.count.completed", { count: queue.downloads.completed }),
-        t("dashboard.count.failed", { count: queue.downloads.failed }),
+        t("dashboard.count.completed", { count: counts.completed }),
+        t("dashboard.count.failed", { count: counts.failed }),
       ].filter(Boolean).join(" · ")
     : undefined;
 
@@ -184,7 +185,7 @@ export function DashboardStatsSection({ storage, queue }: { storage: DashboardSt
   );
 }
 
-export function DashboardQuickLinks({ pendingApprovals, downloads, unreadNotifications, activeScheduledTasks }: DashboardQuickLinksProps) {
+export function DashboardQuickLinks({ pendingApprovals, downloads, unreadNotifications, activeScheduledTasks, visible }: DashboardQuickLinksProps) {
   const { t } = useI18n();
   const labels = {
     servers: t("dashboard.quick.servers"),
@@ -203,11 +204,11 @@ export function DashboardQuickLinks({ pendingApprovals, downloads, unreadNotific
 
   return (
     <section data-dashboard-widget="quick-links" className="mt-6 grid gap-3 sm:grid-cols-2 lg:grid-cols-3">
-      <QuickLink href="/servers" title={labels.servers} desc={labels.serversDesc} icon={<IconServer />} />
-      <QuickLink href="/files" title={labels.files} desc={labels.filesDesc} icon={<IconFolder />} />
-      <QuickLink href="/downloads" title={labels.downloads} desc={labels.downloadsDesc} icon={<IconDownload />} badge={downloads.running > 0 ? t("dashboard.count.running", { count: downloads.running }) : undefined} badgeColor="cyan" />
-      <QuickLink href="/requests" title={labels.approvals} desc={labels.approvalsDesc} icon={<IconBadgeCheck />} badge={pendingApprovals > 0 ? t("dashboard.count.pending", { count: pendingApprovals }) : undefined} badgeColor="amber" />
-      <QuickLink href="/scheduled-tasks" title={labels.scheduled} desc={labels.scheduledDesc} icon={<IconCalendarClock />} badge={activeScheduledTasks > 0 ? t("dashboard.count.active", { count: activeScheduledTasks }) : undefined} badgeColor="cyan" />
+      {visible?.servers !== false && <QuickLink href="/servers" title={labels.servers} desc={labels.serversDesc} icon={<IconServer />} />}
+      {visible?.storage !== false && <QuickLink href="/files" title={labels.files} desc={labels.filesDesc} icon={<IconFolder />} />}
+      {visible?.storage !== false && <QuickLink href="/downloads" title={labels.downloads} desc={labels.downloadsDesc} icon={<IconDownload />} badge={downloads && downloads.running > 0 ? t("dashboard.count.running", { count: downloads.running }) : undefined} badgeColor="cyan" />}
+      {visible?.commands !== false && <QuickLink href="/requests" title={labels.approvals} desc={labels.approvalsDesc} icon={<IconBadgeCheck />} badge={pendingApprovals > 0 ? t("dashboard.count.pending", { count: pendingApprovals }) : undefined} badgeColor="amber" />}
+      {visible?.commands !== false && <QuickLink href="/scheduled-tasks" title={labels.scheduled} desc={labels.scheduledDesc} icon={<IconCalendarClock />} badge={activeScheduledTasks > 0 ? t("dashboard.count.active", { count: activeScheduledTasks }) : undefined} badgeColor="cyan" />}
       <QuickLink href="/notifications" title={labels.notifications} desc={labels.notificationsDesc} icon={<IconBell />} badge={unreadNotifications > 0 ? t("dashboard.count.unread", { count: unreadNotifications }) : undefined} badgeColor="amber" />
     </section>
   );

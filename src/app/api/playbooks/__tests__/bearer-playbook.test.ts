@@ -73,7 +73,7 @@ describe("effective Bearer permissions for playbook definitions and runs", () =>
     mocks.servers.mockResolvedValueOnce([]);
     expect((await run(request("POST"), ctx)).status).toBe(400);
     expect(mocks.servers).toHaveBeenCalledWith({
-      where: { id: { in: ["srv1"] }, AND: [{ teamId: "team1" }, { OR: [
+      where: { id: { in: ["srv1"] }, AND: [{ teamId: "team1" }, { team: { deletedAt: null }, OR: [
         { userAccess: { none: { userId: "u1" } } }, { userAccess: { some: { userId: "u1", canConnect: true } } },
       ] }] }, select: { id: true },
     });

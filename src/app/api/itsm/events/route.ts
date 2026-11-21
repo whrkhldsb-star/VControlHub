@@ -7,7 +7,8 @@ import { z } from "zod";
 
 import { withApiRoute } from "@/lib/http/api-guard";
 import { parseSearchParams } from "@/lib/http/parse-search-params";
-import { GENERAL_READ_LIMIT } from "@/lib/http/rate-limit-presets";
+import { GENERAL_READ_LIMIT, GENERAL_WRITE_LIMIT } from "@/lib/http/rate-limit-presets";
+import { reconcileDelivery } from "@/lib/itsm/service-outbound";
 import { listItsmEvents } from "@/lib/itsm/service";
 
 export const dynamic = "force-dynamic";
@@ -51,4 +52,12 @@ export async function GET(request: Request) {
 			return NextResponse.json({ events });
 		},
 	);
+}
+
+const reconciliation = z.object({ eventId: z.string().min(1).max(256), received: z.boolean() }).strict();
+
+export async function POST(request: Request) {
+	return withApiRoute(request, { permission: "ticket:manage", rateLimit: GENERAL_WRITE_LIMIT, bodySchema: reconciliation }, async ({ session, body }) => {
+		return NextResponse.json(await reconcileDelivery(session, body.eventId, body.received));
+	});
 }

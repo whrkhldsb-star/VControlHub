@@ -1,7 +1,8 @@
 "use client";
 import { EmptyState, ListPanel, ListRow, PageHeader, StatCard, StatGrid, SurfacePanel } from "@/components/page-shell";
 
-import { useCallback, useEffect, useMemo, useRef, useState } from "react";
+import { useCallback, useEffect, useRef, useState } from "react";
+import type { TokenStatus } from "@/lib/api-token/service";
 import { csrfFetch } from "@/lib/auth/csrf-client";
 import { useI18n } from "@/lib/i18n/use-locale";
 import { formatDateTime } from "@/lib/datetime/format";
@@ -9,7 +10,7 @@ import { getErrorMessage } from "@/lib/http/error-message";
 import { ActionButton } from "@/components/action-button";
 import { ConfirmDialog } from "@/components/confirm-dialog";
 import { StatusBadge, type StatusTone } from "@/components/status-badge";
-import { Badge, CheckboxField, FormField, FormGrid, Notice } from "@/components/ui-primitives";
+import { Badge, CheckboxField, FormField, FormGrid, InlineLoading, Notice } from "@/components/ui-primitives";
 import { Plus } from "@/components/icons";
 import { UI_INPUT } from "@/lib/ui/classes";
 import { copyText } from "@/lib/ui/clipboard";
@@ -29,10 +30,14 @@ export type SafeApiToken = {
   team: { name: string; slug: string } | null;
 };
 
+type TokenPage = { tokens: SafeApiToken[]; total: number; nextCursor: string | null; totalTokens: number; activeTokens: number };
+type TokenQuery = { status: TokenStatus; cursors: string[] };
+
 type Props = {
   /** Page header; rendered here so the create command sits in its actions. */
   header?: { eyebrow?: string; title: string; description?: string };
-  initialTokens: SafeApiToken[];
+  initialPage: TokenPage;
+  pageSize: number;
   allowedScopes: readonly string[];
   currentCustomerName: string | null;
 };
@@ -60,7 +65,7 @@ function ApiTokenCreateForm({ allowedScopes, currentCustomerName, onCreated, onC
   allowedScopes: readonly string[];
   currentCustomerName: string | null;
   /** `close` is false when the fields were changed while the token was being created: a next one is being written. */
-  onCreated: (apiToken: SafeApiToken, plaintext: string, close: boolean) => void;
+  onCreated: (plaintext: string, close: boolean) => void;
   onClose: () => void;
 }) {
   const { t } = useI18n();
@@ -101,13 +106,13 @@ function ApiTokenCreateForm({ allowedScopes, currentCustomerName, onCreated, onC
             return parsed.toISOString();
           })()
         : null;
-      const data = await csrfFetch("/api/api-tokens", {
+      const data = await csrfFetch<{ token: string }>("/api/api-tokens", {
         method: "POST",
         headers: { "Content-Type": "application/json" },
         body: JSON.stringify({ name, scopes: selectedScopes, expiresAt: expiresAtIso }),
       });
       const now = latest.current;
-      onCreated(data.apiToken, data.token, now.name === submitted.name && now.expiresAt === submitted.expiresAt && now.scopes.join() === submitted.scopes);
+      onCreated(data.token, now.name === submitted.name && now.expiresAt === submitted.expiresAt && now.scopes.join() === submitted.scopes);
     } catch (err) {
       setError(getErrorMessage(err, t("apiTokensPage.create.failed")));
     } finally {
@@ -155,9 +160,30 @@ function ApiTokenCreateForm({ allowedScopes, currentCustomerName, onCreated, onC
   );
 }
 
-export function ApiTokenManagerClient({ header, initialTokens, allowedScopes, currentCustomerName }: Props) {
+export function ApiTokenManagerClient({ header, initialPage, pageSize, allowedScopes, currentCustomerName }: Props) {
   const { t, locale } = useI18n();
-  const [tokens, setTokens] = useState(initialTokens);
+  const [query, setQuery] = useState<TokenQuery | null>(null);
+  const [result, setResult] = useState<{ query: TokenQuery | null; page: TokenPage; error?: unknown }>({ query: null, page: initialPage });
+  const { page } = result;
+  const loading = result.query !== query;
+  const status = query?.status ?? "all";
+  const cursors = query?.cursors ?? [];
+
+  useEffect(() => {
+    if (!query) return;
+    const controller = new AbortController();
+    const cursor = query.cursors.at(-1);
+    const params = { status: query.status, pageSize: String(pageSize), ...(cursor ? { cursor } : {}) };
+    csrfFetch<TokenPage>("/api/api-tokens", { params, signal: controller.signal }).then(data => {
+      if (!controller.signal.aborted) setResult({ query, page: data });
+    }).catch(error => {
+      if (!controller.signal.aborted) setResult(previous => ({ ...previous, query, error }));
+    });
+    return () => controller.abort();
+  }, [query, pageSize]);
+  // Mutations can move rows across both filters and cursor boundaries.
+  const refresh = useCallback(() => setQuery(current => ({ status: current?.status ?? "all", cursors: [] })), []);
+
   const [creating, setCreating] = useState(false);
   const panelRef = useRef<HTMLDivElement>(null);
   const [revokingId, setRevokingId] = useState<string | null>(null);
@@ -168,7 +194,6 @@ export function ApiTokenManagerClient({ header, initialTokens, allowedScopes, cu
   const [revokeError, setRevokeError] = useState<string | null>(null);
   const [tokenPendingRevoke, setTokenPendingRevoke] = useState<SafeApiToken | null>(null);
 
-  const activeCount = useMemo(() => tokens.filter((token) => !token.revokedAt).length, [tokens]);
   const closeForm = useCallback(() => setCreating(false), []);
   const openForm = !creating ? () => {
     setCreating(true);
@@ -181,19 +206,19 @@ export function ApiTokenManagerClient({ header, initialTokens, allowedScopes, cu
     if (creating) panelRef.current?.scrollIntoView?.({ behavior: "smooth", block: "start" });
   }, [creating]);
 
-  const handleCreated = useCallback((apiToken: SafeApiToken, plaintext: string, close: boolean) => {
-    setTokens((current) => [apiToken, ...current]);
+  const handleCreated = useCallback((plaintext: string, close: boolean) => {
+    refresh();
     setCreatedPlaintext(plaintext);
     setCopyOutcome(null);
     if (close) setCreating(false);
-  }, []);
+  }, [refresh]);
 
   const revokeToken = async (token: SafeApiToken) => {
     setRevokingId(token.id);
     setRevokeError(null);
     try {
-      const data = await csrfFetch(`/api/api-tokens?id=${encodeURIComponent(token.id)}`, { method: "DELETE" });
-      setTokens((current) => current.map((item) => (item.id === token.id ? { ...item, revokedAt: data.token?.revokedAt ?? new Date().toISOString() } : item)));
+      await csrfFetch(`/api/api-tokens?id=${encodeURIComponent(token.id)}`, { method: "DELETE" });
+      refresh();
       setTokenPendingRevoke(null);
     } catch (err) {
       setRevokeError(getErrorMessage(err, t("apiTokensPage.revoke.failed")));
@@ -201,6 +226,27 @@ export function ApiTokenManagerClient({ header, initialTokens, allowedScopes, cu
       setRevokingId(null);
     }
   };
+
+  const listReady = !loading && !result.error;
+  let empty;
+  if (loading) {
+    empty = <InlineLoading label={t("common.loading")} className="p-4" />;
+  } else if (result.error) {
+    empty = (
+      <Notice tone="danger" compact>
+        {getErrorMessage(result.error, t("apiTokensPage.list.failed"))}
+        <ActionButton size="sm" variant="secondary" onClick={() => setQuery({ status, cursors })}>{t("common.retry")}</ActionButton>
+      </Notice>
+    );
+  } else if (page.tokens.length === 0) {
+    const emptyInventory = status === "all" && page.totalTokens === 0;
+    empty = emptyInventory ? (
+      <EmptyState title={t("apiTokensPage.list.emptyTitle")} text={t("apiTokensPage.list.emptyHint")}
+        action={openForm && <ActionButton size="sm" variant="primary" icon={<Plus size={14} aria-hidden />} onClick={openForm}>
+          {t("apiTokensPage.create.heading")}
+        </ActionButton>} />
+    ) : <EmptyState title={t(cursors.length ? "apiTokensPage.list.emptyPage" : "apiTokensPage.list.noMatches")} />;
+  }
 
   return (
     <div className="space-y-6">
@@ -253,28 +299,24 @@ export function ApiTokenManagerClient({ header, initialTokens, allowedScopes, cu
       ) : null}
 
       <StatGrid cols={3}>
-        <StatCard label={t("apiTokensPage.stat.total")} value={tokens.length} />
-        <StatCard label={t("apiTokensPage.stat.active")} value={activeCount} accentColor="emerald" />
+        <StatCard label={t("apiTokensPage.stat.total")} value={page.totalTokens} />
+        <StatCard label={t("apiTokensPage.stat.active")} value={page.activeTokens} accentColor="emerald" />
         <StatCard label={t("apiTokensPage.stat.scopes")} value={allowedScopes.length} accentColor="cyan" />
       </StatGrid>
 
       <ListPanel
         title={t("apiTokensPage.list.heading")}
-        count={tokens.length}
+        count={listReady ? page.total : undefined}
+        actions={<select className={UI_INPUT} aria-label={t("apiTokensPage.filter.status")} value={status}
+          onChange={event => setQuery({ status: event.target.value as TokenStatus, cursors: [] })}>
+          <option value="all">{t("apiTokensPage.filter.all")}</option>
+          {(["active", "expired", "revoked"] as const).map(value =>
+            <option key={value} value={value}>{t(`apiTokensPage.status.${value}`)}</option>)}
+        </select>}
         description={t("apiTokensPage.list.note")}
-        empty={tokens.length === 0 ? (
-          <EmptyState
-            title={t("apiTokensPage.list.emptyTitle")}
-            text={t("apiTokensPage.list.emptyHint")}
-            action={openForm ? (
-              <ActionButton size="sm" variant="primary" icon={<Plus size={14} aria-hidden />} onClick={openForm}>
-                {t("apiTokensPage.create.heading")}
-              </ActionButton>
-            ) : undefined}
-          />
-        ) : undefined}
+        empty={empty}
       >
-        {tokens.map((token) => {
+        {listReady && page.tokens.map((token) => {
           const status = tokenStatus(t, token);
           return (
             <ListRow key={token.id} className="flex flex-col gap-4 lg:flex-row lg:items-start lg:justify-between">
@@ -303,6 +345,14 @@ export function ApiTokenManagerClient({ header, initialTokens, allowedScopes, cu
           );
         })}
       </ListPanel>
+      {listReady && (page.nextCursor || cursors.length > 0) && (
+        <nav aria-label={t("common.pagination.label")} className="flex gap-2">
+          <ActionButton variant="secondary" disabled={!cursors.length}
+            onClick={() => setQuery({ status, cursors: cursors.slice(0, -1) })}>{t("common.pagination.previous")}</ActionButton>
+          <ActionButton variant="secondary" disabled={!page.nextCursor}
+            onClick={() => page.nextCursor && setQuery({ status, cursors: [...cursors, page.nextCursor] })}>{t("common.pagination.next")}</ActionButton>
+        </nav>
+      )}
       <ConfirmDialog
         open={tokenPendingRevoke !== null}
         title={t("apiTokensPage.revoke.confirmTitle")}

@@ -22,7 +22,8 @@ vi.mock("@/lib/db", () => ({
 	prisma: prismaMock,
 	isUniqueViolation: (error: unknown) => (error as { code?: string })?.code === "P2002",
 }));
-vi.mock("@/lib/logging", () => ({ createLogger: () => ({ info: vi.fn(), error: vi.fn() }) }));
+vi.mock("@/lib/logging", () => ({ createLogger: () => ({ info: vi.fn(), warn: vi.fn(), error: vi.fn() }) }));
+vi.mock("@/lib/concurrency/advisory-lock", () => ({ acquireAdvisoryLock: vi.fn(async () => async () => {}) }));
 vi.mock("../adapters", () => ({ fetchSourceApps: fetchSourceAppsMock }));
 
 const { getRemoteApps, syncAllSources, syncSource } = await import("../app-source-sync");
@@ -32,6 +33,14 @@ describe("app source catalog bounds", () => {
 		vi.clearAllMocks();
 		prismaMock.appSource.findMany.mockResolvedValue([]);
 		prismaMock.appSourceApp.findMany.mockResolvedValue([]);
+	});
+
+	it("retains absent slugs when the adapter filtered a truncated raw response", async () => {
+		prismaMock.appSource.findUnique.mockResolvedValueOnce({ id: "feed", name: "feed", enabled: true });
+		fetchSourceAppsMock.mockResolvedValueOnce({ apps: [], complete: false });
+		await expect(syncSource("feed")).resolves.toEqual({ synced: 0, errors: 0 });
+		expect(prismaMock.appSourceApp.findMany).not.toHaveBeenCalled();
+		expect(prismaMock.appSourceApp.deleteMany).not.toHaveBeenCalled();
 	});
 
 	it("limits remote Quick Services catalog reads so the API cannot hydrate an unbounded app list", async () => {
@@ -167,7 +176,7 @@ describe("app source catalog bounds", () => {
 		}));
 
 		prismaMock.appSource.findUnique.mockResolvedValue({ id: "src1", name: "X", type: "lscr", url: "u", enabled: true });
-		fetchSourceAppsMock.mockResolvedValueOnce(fakeApps);
+		fetchSourceAppsMock.mockResolvedValueOnce({ apps: fakeApps, complete: true });
 		prismaMock.appSourceApp.findMany.mockResolvedValueOnce([]);
 		prismaMock.appSource.update.mockResolvedValue({});
 
@@ -199,7 +208,7 @@ describe("app source catalog bounds", () => {
 			{ slug: "ok-2", name: "ok-2", category: "t", icon: "x", description: "", image: "i", defaultPort: 3, internalPort: null, path: "/", envJson: {}, volumesJson: [], command: null, extraPorts: [], rawJson: null, sourceVersion: null },
 		];
 		prismaMock.appSource.findUnique.mockResolvedValue({ id: "src1", name: "X", type: "lscr", url: "u", enabled: true });
-		fetchSourceAppsMock.mockResolvedValueOnce(apps);
+		fetchSourceAppsMock.mockResolvedValueOnce({ apps, complete: true });
 		prismaMock.appSourceApp.findMany.mockResolvedValueOnce([]);
 		prismaMock.appSource.update.mockResolvedValue({});
 

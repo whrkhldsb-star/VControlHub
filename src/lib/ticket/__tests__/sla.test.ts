@@ -29,13 +29,14 @@ import { computeSlaDueAt, escalateBreachedTickets, isSlaBreached, getSlaStatus, 
 describe("ticket SLA service", () => {
 	beforeEach(() => {
 		vi.clearAllMocks();
-		txMocks.updateMany.mockResolvedValue({ count: 1 });
+		txMocks.updateMany.mockResolvedValue([{ title: "Disk", assigneeId: null, slaDueAt: new Date("2026-01-01") }]);
 		txMocks.createEscalation.mockResolvedValue({});
 		txMocks.findManagers.mockResolvedValue([]);
 		txMocks.createNotifications.mockResolvedValue([]);
 		announceMock.mockResolvedValue(undefined);
 		prismaMocks.transaction.mockImplementation(async (callback: (tx: unknown) => unknown) => callback({
-			ticket: { updateMany: txMocks.updateMany },
+			$queryRaw: vi.fn().mockResolvedValue([{ id: "team-1" }]),
+			ticket: { updateManyAndReturn: txMocks.updateMany },
 			ticketEscalation: { create: txMocks.createEscalation },
 			user: { findMany: txMocks.findManagers },
 			notification: { createManyAndReturn: txMocks.createNotifications },
@@ -177,7 +178,8 @@ describe("ticket SLA service", () => {
 				{ id: "n2", userId: "mgr-2", title: "t", message: "m", messageCode: "ticketSlaEscalated", messageParams: {}, actionUrl: "/tickets/ticket-1", teamId: "team-1", createdAt: dueAt },
 			];
 			const tx = {
-				ticket: { updateMany: txMocks.updateMany },
+				$queryRaw: vi.fn().mockResolvedValue([{ id: "team-1" }]),
+				ticket: { updateManyAndReturn: txMocks.updateMany },
 				ticketEscalation: { create: txMocks.createEscalation },
 				user: { findMany: txMocks.findManagers },
 				notification: { createManyAndReturn: txMocks.createNotifications },
@@ -214,6 +216,25 @@ describe("ticket SLA service", () => {
 				expect(announceMock).toHaveBeenCalledWith(stored);
 			});
 
+			it("pages past the first thousand eligible recipients and uses the claimed assignee and live owner", async () => {
+				const first = Array.from({ length: 1000 }, (_, i) => ({ id: "manager-" + String(i).padStart(4, "0") }));
+				txMocks.findManagers.mockResolvedValueOnce(first).mockResolvedValueOnce([{ id: "manager-1000" }]);
+				await expect(escalateBreachedTickets()).resolves.toBe(1);
+				expect(txMocks.findManagers.mock.calls[1]![0]).toMatchObject({ where: { id: { gt: "manager-0999" } }, orderBy: { id: "asc" } });
+				expect(txMocks.createNotifications.mock.calls[0]![0].data).toHaveLength(1000);
+				expect(txMocks.createNotifications.mock.calls[1]![0].data).toMatchObject([{ userId: "manager-1000" }]);
+				expect(txMocks.updateMany.mock.calls[0]![0].where).toMatchObject({
+					assigneeId: null, teamId: ticket.teamId, AND: [{ OR: [{ teamId: null }, { team: { deletedAt: null } }] }],
+				});
+			});
+
+			it("leaves the history and notices alone when reassignment wins the claim", async () => {
+				txMocks.updateMany.mockResolvedValueOnce([]);
+				await expect(escalateBreachedTickets()).resolves.toBe(0);
+				expect(txMocks.createEscalation).not.toHaveBeenCalled();
+				expect(txMocks.createNotifications).not.toHaveBeenCalled();
+			});
+
 			it("announces nothing for an escalation that did not commit", async () => {
 				prismaMocks.transaction.mockImplementationOnce(async (callback: (client: unknown) => unknown) => {
 					await callback(tx);
@@ -241,7 +262,8 @@ describe("ticket SLA service", () => {
 			prismaMocks.transaction
 				.mockRejectedValueOnce(new Error("database unavailable"))
 				.mockImplementationOnce(async (callback: (tx: unknown) => unknown) => callback({
-					ticket: { updateMany: txMocks.updateMany },
+					$queryRaw: vi.fn().mockResolvedValue([{ id: "team-1" }]),
+					ticket: { updateManyAndReturn: txMocks.updateMany },
 					ticketEscalation: { create: txMocks.createEscalation },
 					user: { findMany: txMocks.findManagers },
 					notification: { createManyAndReturn: txMocks.createNotifications },

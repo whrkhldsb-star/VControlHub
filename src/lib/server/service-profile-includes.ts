@@ -74,6 +74,13 @@ export function savedProfileBinding(saved: ProfileBinding) {
   return { teamId: saved.teamId, host: saved.host, port: saved.port, username: saved.username, managementMode: saved.managementMode };
 }
 
+/** Compare the endpoint and credentials that produced an asynchronous probe. */
+type ProbeEndpoint = Pick<Server, "id" | "teamId" | "host" | "port" | "username" | "managementMode" | "operatingSystem" | "hostKeySha256" | "connectionType" | "sshKeyId" | "password">;
+export function probeEndpointWhere(server: ProbeEndpoint, enabled: boolean) {
+  const { id, operatingSystem, hostKeySha256, connectionType, sshKeyId, password } = server;
+  return { ...savedProfileBinding(server), id, operatingSystem, hostKeySha256, connectionType, sshKeyId, password, enabled };
+}
+
 /** Hydrate the profile on the pool, outside the transaction that writes it. */
 export function findServerProfileForSession(
   serverId: string,

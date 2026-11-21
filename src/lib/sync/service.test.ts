@@ -67,7 +67,7 @@ describe("sync job team scope", () => {
 
     expect(prismaMock.syncJob.findMany).toHaveBeenCalledWith(
       expect.objectContaining({
-        where: expect.objectContaining({ id: "__unassigned_sync_jobs_require_team_manage__" }),
+        where: expect.objectContaining({ AND: { id: { in: [] } } }),
       }),
     );
   });

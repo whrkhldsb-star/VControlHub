@@ -10,7 +10,7 @@ import { notifyTaskConsecutiveFailed } from "@/lib/notification/service";
 import { createLogger } from "@/lib/logging";
 import type { SessionPayload } from "@/lib/auth/session";
 import { sessionHasPermission } from "@/lib/auth/authorization";
-import { serverTeamWhere, isGlobalTeamManager, teamCreateData, teamWhere } from "@/lib/auth/team-scope";
+import { activeCustomerTeamWhere, serverTeamWhere, isGlobalTeamManager, teamCreateData } from "@/lib/auth/team-scope";
 import { t } from "@/lib/i18n/service-translations";
 import { APP_TIME_ZONE } from "@/lib/datetime/time-zone";
 
@@ -128,7 +128,7 @@ async function assertTemplateInScope(id: string | null | undefined, teamId: stri
  */
 async function getScheduledTaskForSession(id: string, session: SessionScope) {
 	return prisma.scheduledTask.findFirst({
-		where: { id, ...teamWhere(session) },
+		where: { id, ...activeCustomerTeamWhere(session) },
 	});
 }
 
@@ -178,7 +178,7 @@ export async function listScheduledTasks(
 	session: SessionScope,
 ) {
 	return prisma.scheduledTask.findMany({
-		where: teamWhere(session),
+		where: activeCustomerTeamWhere(session),
 		orderBy: { createdAt: "desc" },
 		take: limit,
 		include: { creator: { select: { username: true, displayName: true } } },
@@ -290,7 +290,7 @@ export async function updateScheduledTask(
 	}
 	if (input.teamId !== undefined) data.teamId = input.teamId;
 	const updated = await prisma.scheduledTask.updateMany({
-		where: { id, ...teamWhere(session), approvalRequired: existing.approvalRequired, updatedAt: existing.updatedAt },
+		where: { id, ...activeCustomerTeamWhere(session), approvalRequired: existing.approvalRequired, updatedAt: existing.updatedAt },
 		data,
 	});
 	if (updated.count === 0) {
@@ -343,7 +343,7 @@ export async function deleteScheduledTask(
 		throw new ForbiddenError(t("backend.scheduled-task.manageUnattendedRequiresExecutor"));
 	}
 	const deleted = await prisma.scheduledTask.deleteMany({
-		where: { id, ...teamWhere(session), approvalRequired: existing.approvalRequired, updatedAt: existing.updatedAt },
+		where: { id, ...activeCustomerTeamWhere(session), approvalRequired: existing.approvalRequired, updatedAt: existing.updatedAt },
 	});
 	if (deleted.count === 0) {
 		const latest = await getScheduledTask(id, session);
@@ -399,7 +399,7 @@ export async function toggleScheduledTask(
 		await assertScheduledTaskServersInScope(current.serverIds, session, current.teamId, ForbiddenError);
 	}
 	const updated = await prisma.scheduledTask.updateMany({
-		where: { id, ...teamWhere(session), status: current.status, updatedAt: current.updatedAt, approvalRequired: current.approvalRequired },
+		where: { id, ...activeCustomerTeamWhere(session), status: current.status, updatedAt: current.updatedAt, approvalRequired: current.approvalRequired },
 		data: statusTransitionData({ ...current, status: newStatus }),
 	});
 	if (updated.count === 0) {
@@ -427,7 +427,7 @@ export async function retryScheduledTask(
 		// disables a one-time task): called for a retry, it gave a paused task a next run it would not keep and
 		// cancelled a one-time task that was still to come.
 		await prisma.scheduledTask.updateMany({
-			where: { id: task.id },
+			where: { id: task.id, ...activeCustomerTeamWhere(session), updatedAt: task.updatedAt },
 			data: { lastRunAt: new Date(), lastResult: t("backend.scheduled-task.manualRetryMissingTargetOrCreator") },
 		});
 		throw new BusinessError(t("backend.scheduled-task.scheduledTaskMissingTargetServerOrCreatorCannot"));
@@ -447,7 +447,7 @@ export async function retryScheduledTask(
 	}, undefined, undefined, async (tx, commandRequestId) => {
 		const dispatchedAt = new Date();
 		const changed = await tx.scheduledTask.updateMany({
-			where: { id, updatedAt: task.updatedAt, approvalRequired: task.approvalRequired },
+			where: { id, ...activeCustomerTeamWhere(session), updatedAt: task.updatedAt, approvalRequired: task.approvalRequired },
 			data: { lastRunAt: dispatchedAt, runCount: { increment: 1 }, lastResult: t("backend.scheduled-task.manualRetryDispatched", { id: commandRequestId }) },
 		});
 		if (!changed.count) throw new ConflictError(t("backend.scheduled-task.taskChangedRetry"));

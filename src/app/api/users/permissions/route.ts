@@ -5,17 +5,18 @@ import { z } from "zod";
 import { writeAuditLog } from "@/lib/audit/service";
 import { getPermissionsFromRoles, type RoleKey } from "@/lib/auth/rbac";
 import { resolveSessionPermissions } from "@/lib/auth/identity-templates";
-import { listIdentityTemplates } from "@/lib/auth/identity-template-service";
+import { identityTemplateOptions } from "@/lib/auth/identity-template-service";
 import { listLiveCustomerOptions } from "@/lib/team/service";
 import { prisma } from "@/lib/db";
-import { NotFoundError, ValidationError } from "@/lib/errors";
+import { ConflictError, NotFoundError, ValidationError } from "@/lib/errors";
 import { withApiRoute } from "@/lib/http/api-guard";
 import { GENERAL_WRITE_LIMIT } from "@/lib/http/rate-limit-presets";
 import { parseSearchParams } from "@/lib/http/parse-search-params";
 import { t } from "@/lib/i18n/service-translations";
 import { getStorageAccessUsage } from "@/lib/storage/access-control";
 import { withAccountPermissionChange } from "@/lib/user/account-type";
-import { prepareResourceNarrowing } from "./route-patch";
+import { optionFilter, readOptionPage } from "@/lib/user/permission-options";
+import { permissionAccountIdentity, permissionVersion, prepareResourceNarrowing, readPermissionAccount } from "./route-patch";
 
 export const dynamic = "force-dynamic";
 
@@ -63,6 +64,7 @@ const serverAccessItemSchema = z.object({
 
 const patchPermissionsSchema = z.object({
   userId: z.string().min(1),
+  version: z.string().max(64).optional(),
   account: z.discriminatedUnion("type", [
     z.object({ type: z.literal("admin") }),
     z.object({ type: z.literal("customer"), teamId: z.string().min(1), identityTemplateId: z.string().min(1).nullable().optional() }),
@@ -120,57 +122,63 @@ async function serializeStorageAccessGrants(
 
 export async function GET(request: Request) {
   return withApiRoute(request, { permission: "user:manage" }, async () => {
-    const { userId } = parseSearchParams(
-      request,
-      z.object({ userId: z.string().trim().min(1, "Missing userId Parameter") }),
-    );
-    const user = await prisma.user.findUnique({
-      where: { id: userId },
-      select: {
-        id: true,
-        username: true,
-        displayName: true,
-        roles: { select: { role: { select: { key: true } } } },
-        teamMembership: {
-          select: {
-            teamId: true,
-            team: { select: { name: true, deletedAt: true } },
-            identityTemplateId: true,
-            identityTemplate: { select: { permissions: true } },
-          },
-        },
-        storageAccess: {
-          include: { storageNode: { select: { id: true, name: true, driver: true, basePath: true } } },
-          orderBy: [{ storageNode: { name: "asc" } }, { pathPrefix: "asc" }],
-        },
-        serverAccess: { orderBy: { server: { name: "asc" } } },
-      },
-    });
-    if (!user) throw new NotFoundError(apiCopy("apiCopy.user.not.found.4a1793e9"));
+    const query = parseSearchParams(request, z.object({
+      userId: z.string().trim().min(1, "Missing userId Parameter"),
+      pageSize: z.coerce.number().int().min(1).max(200).optional(),
+      includeAssigned: z.literal("1").optional(),
+      resource: z.enum(["servers", "storageNodes", "identityTemplates"]).optional(),
+      search: z.string().trim().max(120).optional(), id: z.string().min(1).optional(),
+      templateAfter: z.string().min(1).optional(), storageAfter: z.string().min(1).optional(), serverAfter: z.string().min(1).optional(),
+    }));
+    // Browsing a picker only needs the target's customer. Read grants and
+    // calculate their usage/version once when the editor opens.
+    const user = query.resource ? null : await readPermissionAccount(prisma, query.userId);
+    const identity = query.resource ? await prisma.user.findUnique({
+      where: { id: query.userId }, select: permissionAccountIdentity,
+    }) : user;
+    if (!identity) throw new NotFoundError(apiCopy("apiCopy.user.not.found.4a1793e9"));
 
-    const roles = user.roles.map((entry) => entry.role.key).filter((key): key is RoleKey => key === "admin");
+    const roles = identity.roles.map((entry) => entry.role.key).filter((key): key is RoleKey => key === "admin");
     const isAdmin = roles.includes("admin");
-    const membership = isAdmin ? null : user.teamMembership;
+    const membership = isAdmin ? null : identity.teamMembership;
     const teamId = membership && !membership.team.deletedAt ? membership.teamId : null;
-    const [templates, customers, storageNodes, servers] = await Promise.all([
-      listIdentityTemplates(),
-      listLiveCustomerOptions(),
-      teamId
-        ? prisma.storageNode.findMany({ where: { teamId }, select: { id: true, name: true, driver: true, basePath: true }, orderBy: { name: "asc" }, take: 5000 })
-        : [],
-      teamId
-        ? prisma.server.findMany({ where: { teamId }, select: { id: true, name: true, operatingSystem: true, teamId: true }, orderBy: { name: "asc" }, take: 5000 })
-        : [],
+    const scope = { teamId, team: { deletedAt: null }, ...optionFilter(query) };
+    const orderBy = [{ name: "asc" }, { id: "asc" }] satisfies Array<{ name?: "asc"; id?: "asc" }>;
+    const optionsQuery = { ...query, pageSize: query.pageSize ?? (query.resource ? 25 : undefined) };
+    const emptyPage = { items: [], nextCursor: null };
+    const [templates, customers, nodes, serverPage] = await Promise.all([
+      !query.resource || query.resource === "identityTemplates"
+        ? identityTemplateOptions({ ...optionsQuery, after: query.templateAfter }) : emptyPage,
+      user ? listLiveCustomerOptions() : [],
+      teamId && (!query.resource || query.resource === "storageNodes")
+        ? readOptionPage({ ...optionsQuery, after: query.storageAfter }, (after, take) => prisma.storageNode.findMany({
+          where: scope, select: { id: true, name: true, driver: true, basePath: true }, orderBy, take,
+          ...(after ? { cursor: { id: after, teamId }, skip: 1 } : {}),
+        })) : emptyPage,
+      teamId && (!query.resource || query.resource === "servers")
+        ? readOptionPage({ ...optionsQuery, after: query.serverAfter }, (after, take) => prisma.server.findMany({
+          where: scope, select: { id: true, name: true, operatingSystem: true, teamId: true }, orderBy, take,
+          ...(after ? { cursor: { id: after, teamId }, skip: 1 } : {}),
+        })) : emptyPage,
     ]);
+    const options = {
+      nextCursor: { servers: serverPage.nextCursor, storageNodes: nodes.nextCursor, identityTemplates: templates.nextCursor },
+      identityTemplates: templates.items.map(({ id, name, isBuiltin, permissions }) => ({ id, name, isBuiltin, permissions })),
+      storageNodes: nodes.items,
+      servers: serverPage.items,
+    };
+    if (!user) return NextResponse.json(options);
     const effectivePermissions = resolveSessionPermissions({
       roles,
       accountPermissions: getPermissionsFromRoles(roles),
       identityPermissions: teamId && membership ? membership.identityTemplate.permissions : null,
     }).sort();
-    const visibleServerIds = new Set(servers.map((server) => server.id));
-    const visibleNodeIds = new Set(storageNodes.map((node) => node.id));
+    const visibleServerIds = new Set(options.servers.map((server) => server.id));
+    const visibleNodeIds = new Set(options.storageNodes.map((node) => node.id));
 
     return NextResponse.json({
+      ...options,
+      version: permissionVersion(user),
       user: {
         id: user.id,
         username: user.username,
@@ -179,13 +187,12 @@ export async function GET(request: Request) {
         teamId: membership?.teamId ?? null,
         identityTemplateId: membership?.identityTemplateId ?? null,
         effectivePermissions,
-        storageAccess: await serializeStorageAccessGrants(user.storageAccess.filter((grant) => visibleNodeIds.has(grant.storageNodeId))),
-        serverAccess: user.serverAccess.filter((grant) => visibleServerIds.has(grant.serverId)),
+        storageAccess: await serializeStorageAccessGrants(user.storageAccess.filter((grant) => query.includeAssigned
+          ? teamId !== null && grant.storageNode.teamId === teamId : visibleNodeIds.has(grant.storageNodeId))),
+        serverAccess: user.serverAccess.filter((grant) => query.includeAssigned
+          ? teamId !== null && grant.server.teamId === teamId : visibleServerIds.has(grant.serverId)),
       },
-      identityTemplates: templates.map((template) => ({ id: template.id, name: template.name, isBuiltin: template.isBuiltin, permissions: template.permissions })),
       customers,
-      storageNodes,
-      servers,
     });
   });
 }
@@ -205,12 +212,12 @@ export async function PATCH(request: Request) {
       if (body.userId === session.userId) {
         return NextResponse.json({ error: apiCopy("apiCopy.cannot.modify.your.own.permissions.4a69d473") }, { status: 403 });
       }
-      await withAccountPermissionChange(body.userId, session, async (tx, changeType) => {
-        const target = await tx.user.findUnique({
-          where: { id: body.userId },
-          select: { id: true, username: true, teamMembership: { select: { teamId: true } } },
-        });
+      const version = await withAccountPermissionChange(body.userId, session, async (tx, changeType) => {
+        const target = await readPermissionAccount(tx, body.userId);
         if (!target) throw new NotFoundError(apiCopy("apiCopy.user.not.found.4a1793e9"));
+        if (!body.version || body.version !== permissionVersion(target)) {
+          throw new ConflictError(t("backend.concurrency.lockBusy"));
+        }
         const previousTeamId = target.teamMembership?.teamId ?? null;
         const teamId = body.account ? (body.account.type === "customer" ? body.account.teamId : null) : previousTeamId;
         let applyGrants;
@@ -230,8 +237,10 @@ export async function PATCH(request: Request) {
             serverAccessCount: body.serverAccess?.length ?? null,
           },
         }, tx);
+        const updated = await readPermissionAccount(tx, body.userId);
+        return permissionVersion(updated!);
       });
-      return NextResponse.json({ success: true });
+      return NextResponse.json({ success: true, version });
     },
   );
 }

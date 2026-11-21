@@ -163,6 +163,7 @@ export async function resolveServerConnection(
 	});
 	if (!sftpNode || !srv.password || !sftpNode.username) return null;
 	return {
+	 teamId: srv.teamId,
 	 host: srv.host,
 	 port: sftpNode.port ?? 22,
 	 username: sftpNode.username,
@@ -178,6 +179,7 @@ export async function resolveServerConnection(
 	if (srv.connectionType === "PASSWORD" && !srv.password) return null;
 
 	return {
+	teamId: srv.teamId,
 	host: srv.host,
 	port: srv.port,
 	username: srv.username,
@@ -534,6 +536,10 @@ type ShellSession = {
 	userId: string;
 	serverId: string;
 	endpointHash: string;
+	teamId: string | null;
+	generation: number;
+	claiming: boolean;
+	authorizationTimer?: NodeJS.Timeout;
 	sshClient: Client;
 	stream: import("ssh2").ClientChannel | undefined;
 	/**
@@ -592,8 +598,7 @@ function setShellPaused(session: ShellSession, paused: boolean) {
  * shells left no trace there at all.
  */
 async function auditTerminal(session: ShellSession, action: "server.ssh.connected" | "server.ssh.closed" | "server.ssh.failed", detail: Record<string, string> = {}) {
-	const server = await prisma.server.findUnique({ where: { id: session.serverId }, select: { teamId: true } });
-	await auditUserAction(session.userId, action, { serverId: session.serverId, ...detail }, undefined, server?.teamId ?? null);
+	await auditUserAction(session.userId, action, { serverId: session.serverId, ...detail }, undefined, session.teamId);
 }
 
 function auditTerminalFailure(session: ShellSession, message: string) {
@@ -608,6 +613,7 @@ function endShellSession(session: ShellSession, notice?: ShellNotice, reason: Sh
 	if (session.stream) void auditTerminal(session, "server.ssh.closed").catch(() => undefined);
 	else if (!session.failureAudited) void auditTerminal(session, "server.ssh.failed", notice ? { message: t(notice.key, notice.vars) } : {}).catch(() => undefined);
 	session.ended = true;
+	clearInterval(session.authorizationTimer);
 	if (session.detachTimer) clearTimeout(session.detachTimer);
 	if (session.idleTimer) clearTimeout(session.idleTimer);
 	session.detachTimer = undefined;
@@ -624,6 +630,7 @@ function endShellSession(session: ShellSession, notice?: ShellNotice, reason: Sh
 
 /** The browser went away: keep the shell for a reconnect when allowed, else end it. */
 function detachShellSession(session: ShellSession) {
+	session.claiming = false;
 	session.attachment = null;
 	if (session.ended) return;
 	const roomLeft = detachedSessions.size < SSH_MAX_DETACHED_SESSIONS
@@ -654,6 +661,8 @@ function claimShellSession(id: string, userId: string, serverId: string, endpoin
 	if (!session || session.ended || session.userId !== userId || session.serverId !== serverId || session.endpointHash !== endpointHash) {
 		return null;
 	}
+	session.claiming = true;
+	session.generation++;
 	session.attachment?.replace();
 	session.attachment = null;
 	if (detachedSessions.delete(id)) adjustDetachedCount(userId, -1);
@@ -888,12 +897,16 @@ wss.on("connection", async (ws, req) => {
 	// How much of that shell's output the browser already has (absent: an older client).
 	const offsetParam = url.searchParams.get("offset");
 	const resumeOffset = offsetParam !== null && /^\d{1,15}$/.test(offsetParam) ? Number(offsetParam) : null;
+	if (resumeId && resumableSessions.get(resumeId)?.claiming) { closeSocket(ws, 1013, "SSH resume pending"); return; }
 	const resumedShell = resumeId ? claimShellSession(resumeId, session.userId, serverId, endpointHash) : null;
 	const shell: ShellSession = resumedShell ?? {
 		id: randomBytes(16).toString("hex"),
 		userId: session.userId,
 		serverId,
 		endpointHash,
+		teamId: connParams.teamId,
+		generation: 1,
+		claiming: true,
 		sshClient: new Client(),
 		stream: undefined,
 		window: null,
@@ -913,6 +926,8 @@ wss.on("connection", async (ws, req) => {
 		failureAudited: false,
 	};
 	const resumed = resumedShell !== null;
+	const generation = shell.generation;
+	const ownsClaim = () => shell.generation === generation && !shell.ended;
 
 	// The fingerprint the server presented, when it was refused: the pin may be missing or may differ.
 	let presentedHostKey: string | null = null;
@@ -921,14 +936,11 @@ wss.on("connection", async (ws, req) => {
 	let authorizationCheck: Promise<boolean> | null = null;
 	let pendingInputBytes = 0;
 	let pendingInputMessages = 0;
-	let authorizationTimer: NodeJS.Timeout | undefined;
 	let drainTimer: NodeJS.Timeout | undefined;
 	const releaseAttachment = () => {
 		if (stopped) return;
 		stopped = true;
-		clearInterval(authorizationTimer);
 		clearInterval(drainTimer);
-		authorizationTimer = undefined;
 		drainTimer = undefined;
 		if (shell.attachment?.ws === ws) shell.attachment = null;
 	};
@@ -955,7 +967,7 @@ wss.on("connection", async (ws, req) => {
 		else endShellSession(shell);
 	};
 	const ensureAuthorized = (force = false): Promise<boolean> => {
-		if (stopped) return Promise.resolve(false);
+		if (!ownsClaim() || (stopped && !force)) return Promise.resolve(false);
 		if (authorizationCheck) return authorizationCheck;
 		if (!force && Date.now() - lastAuthorizedAt < SSH_AUTH_REVALIDATION_MS) return Promise.resolve(true);
 		authorizationCheck = (async () => {
@@ -979,6 +991,8 @@ wss.on("connection", async (ws, req) => {
 				lastAuthorizedAt = Date.now();
 				return !stopped;
 			} catch (error) {
+				if (!ownsClaim()) return false;
+				if (stopped) { endShellSession(shell); return false; }
 				if (error instanceof TerminalAccessRefused) {
 					// Access was revoked or the endpoint changed: a retry is refused too.
 					stopTerminal(say("backend.sshTerminal.authFailed"), 1008, true);
@@ -1125,7 +1139,7 @@ wss.on("connection", async (ws, req) => {
 	let pingWindowStart = 0;
 	let pingsInWindow = 0;
 	ws.on("message", (raw, binary) => {
-		if (stopped) return;
+		if (stopped || !ownsClaim() || shell.attachment !== attachment) return;
 		try {
 			const text = raw.toString();
 			const messageBytes = Buffer.byteLength(text);
@@ -1168,7 +1182,7 @@ wss.on("connection", async (ws, req) => {
 			pendingSshInputBytes += messageBytes;
 			pendingInputMessages++;
 			void ensureAuthorized().then(async (allowed) => {
-				if (!allowed || stopped || shell.ended) return;
+				if (!allowed || stopped || !ownsClaim() || shell.attachment !== attachment) return;
 				if (msg.type === "resize") shell.window = { rows: msg.rows, cols: msg.cols };
 				const sshStream = shell.stream;
 				if (!sshStream) return;
@@ -1196,7 +1210,7 @@ wss.on("connection", async (ws, req) => {
 	});
 
 	ws.on("close", () => {
-		if (stopped) return;
+		if (stopped || !ownsClaim()) return;
 		releaseAttachment();
 		// Opted-in terminals keep their shell for a reconnect; others end here.
 		if (shell.keepAlive) detachShellSession(shell);
@@ -1209,25 +1223,31 @@ wss.on("connection", async (ws, req) => {
 	// (tab closed mid-handshake): connecting then would open an SSH shell that
 	// only the idle reaper — or nothing, when the idle timeout is disabled —
 	// would ever close. Bail instead (and give a claimed shell back).
+	clearInterval(shell.authorizationTimer);
+	shell.authorizationTimer = setInterval(() => { void ensureAuthorized(true); }, SSH_AUTH_REVALIDATION_MS);
+	shell.authorizationTimer.unref?.();
 	if (ws.readyState !== WebSocket.OPEN) {
+		releaseAttachment();
+		if (!resumed) endShellSession(shell);
 		if (resumed) detachShellSession(shell);
 		return;
 	}
-	if (!await ensureAuthorized(true)) return;
+	const authorized = await ensureAuthorized(true);
+	if (stopped || shell.generation !== generation || ws.readyState !== WebSocket.OPEN) return;
 	if (shell.ended) {
 		// The shell ended while this connection was being authorized.
 		ws.send(JSON.stringify({ type: "closed", data: say("backend.sshTerminal.connectionLost"), reason: "lost" }));
 		closeSocket(ws);
 		return;
 	}
+	if (!authorized) return;
 	// What this browser has not seen yet; planned before attaching resets the detach point.
 	const replay = resumed ? shellReplay(shell, resumeOffset) : null;
+	shell.claiming = false;
 	shell.attachment = attachment;
 	shell.detachedAt = null;
 	// From here on a reconnect may continue this shell (see claimShellSession).
 	if (shell.keepAlive) resumableSessions.set(shell.id, shell);
-	authorizationTimer = setInterval(() => { void ensureAuthorized(true); }, SSH_AUTH_REVALIDATION_MS);
-	authorizationTimer.unref?.();
 	drainTimer = setInterval(() => {
 		if (!shell.paused || stopped || shell.attachment !== attachment || ws.bufferedAmount >= SSH_RESUME_QUEUED_BYTES) return;
 		if (outputAckEnabled && unackedOutputBytes >= SSH_RESUME_QUEUED_BYTES) {

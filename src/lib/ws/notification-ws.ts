@@ -220,7 +220,12 @@ export async function recheckSocketSessions(minAgeMs = SESSION_RECHECK_INTERVAL_
 			const auth = socketAuth.get(client);
 			if (!auth || client.readyState !== WebSocket.OPEN || Date.now() - auth.checkedAt < minAgeMs) continue;
 			try {
-				await verifySessionToken(auth.token);
+				const session = await verifySessionToken(auth.token);
+				if (session.mustChangePassword) {
+					recordWsEvent("notification", "reject");
+					client.terminate();
+					continue;
+				}
 				auth.checkedAt = Date.now();
 			} catch (error) {
 				if (error instanceof AuthError) {
@@ -298,12 +303,18 @@ export function setupWebSocketServer(
 		(async () => {
 			try {
 				const session = await verifySessionToken(token);
-				if (!session || wss !== instance || socket.destroyed) {
+				if (!session || session.mustChangePassword || wss !== instance || socket.destroyed) {
 					recordWsEvent("notification", "reject");
 					socket.destroy();
 					return;
 				}
 
+				// No await between this capacity check and ws adding the client.
+				if (instance.clients.size >= MAX_WS_CONNECTIONS) {
+					recordWsEvent("notification", "reject");
+					socket.end("HTTP/1.1 503 Service Unavailable\r\nConnection: close\r\n\r\n");
+					return;
+				}
 				instance.handleUpgrade(request, socket, head, (ws) => {
 					instance.emit("connection", ws, request, session, token);
 				});

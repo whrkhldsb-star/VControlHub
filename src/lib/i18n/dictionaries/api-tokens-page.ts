@@ -6,6 +6,11 @@
  */
 
 export const zh: Record<string, string> = {
+	"apiTokensPage.filter.status": "按状态筛选",
+	"apiTokensPage.filter.all": "全部状态",
+	"apiTokensPage.list.failed": "加载 Token 列表失败",
+	"apiTokensPage.list.noMatches": "没有符合此状态的 Token",
+	"apiTokensPage.list.emptyPage": "本页没有 Token",
 	"apiTokensPage.create.expiresLabel": "过期时间（可选）",
 	"apiTokensPage.create.failed": "创建 Token 失败",
 	"apiTokensPage.create.heading": "创建 API Token",
@@ -61,6 +66,11 @@ export const zh: Record<string, string> = {
 };
 
 export const en: Record<string, string> = {
+	"apiTokensPage.filter.status": "Filter by status",
+	"apiTokensPage.filter.all": "All statuses",
+	"apiTokensPage.list.failed": "Failed to load tokens",
+	"apiTokensPage.list.noMatches": "No tokens with this status",
+	"apiTokensPage.list.emptyPage": "No tokens on this page",
 	"apiTokensPage.create.expiresLabel": "Expiry (optional)",
 	"apiTokensPage.create.failed": "Failed to create the token",
 	"apiTokensPage.create.heading": "Create API token",

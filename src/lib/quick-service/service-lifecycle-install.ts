@@ -231,7 +231,7 @@ async function installServiceUnlocked(opts: InstallOptions) {
 	try {
 		// Drop hub-local reservations immediately before docker -p so the daemon can bind.
 		if (reservedPorts.length > 0) releasePortReservations(reservedPorts);
-		await recreateDockerContainer(svc.id, template, hostPort, { userId, credentials: installNoticeCredentials, notes: installNoticeNotes, target });
+		return await recreateDockerContainer(svc.id, template, hostPort, { userId, credentials: installNoticeCredentials, notes: installNoticeNotes, target });
 	} catch (err) {
 		if (reservedPorts.length > 0) releasePortReservations(reservedPorts);
 		if (err instanceof ContainerCommittedError) {
@@ -272,8 +272,6 @@ async function installServiceUnlocked(opts: InstallOptions) {
 			t("backend.quick-service.installFailedWithMessage", { message: msg }),
 		);
 	}
-
-	return { ...svc, port: hostPort };
 }
 
 /**
@@ -289,6 +287,41 @@ export async function recreateDockerContainer(
 	validateTemplate(tmpl);
 	const target: DockerTarget = notice?.target ?? { kind: "local" };
 	const containerName = safeContainerName(tmpl.slug);
+	const internalPort = tmpl.internalPort ?? tmpl.defaultPort;
+	const args = [
+		"run",
+		"-d",
+		"--name",
+		containerName,
+		"--label",
+		"com.vcontrolhub.quick-service=true",
+		"--restart",
+		"unless-stopped",
+		"--add-host=host.docker.internal:host-gateway",
+		"-p",
+		`${hostPort}:${internalPort}`,
+	];
+	for (const ep of tmpl.extraPorts ?? []) args.push("-p", `${ep.host}:${ep.container}`);
+	// Remote nodes only get non-socket volume mounts as-is; host mkdir is skipped for remote.
+	for (const vol of tmpl.volumesJson) {
+		const host = normalizeVolumeEndpoint(vol.host, "Host mount");
+		if (target.kind === "remote" && host === DOCKER_SOCKET) {
+			// Avoid binding control-plane docker socket semantics onto remote hosts by default.
+			continue;
+		}
+		if (target.kind === "local" && host === DOCKER_SOCKET) {
+			// Templates declare the POSIX socket literal; Docker Desktop on
+			// Windows needs the host side as the named pipe instead.
+			args.push("-v", `${hubHostDockerSocketMount()}:${splitContainerPathAndOptions(vol.container)}`);
+			continue;
+		}
+		args.push("-v", `${host}:${splitContainerPathAndOptions(vol.container)}`);
+	}
+	for (const [key, value] of Object.entries(tmpl.envJson)) {
+		if (value !== "") args.push("-e", `${key}=${resolveEnvValue(String(value))}`);
+	}
+	args.push(tmpl.image, ...parseCommandArgs(tmpl.command));
+
 	// Side-by-side recreate: rename existing container so a failed run/post-install can restore it.
 	const backupName = `${containerName}__prev`;
 	let hadExisting: boolean;
@@ -333,41 +366,6 @@ export async function recreateDockerContainer(
 			}
 		}
 	}
-
-	const internalPort = tmpl.internalPort ?? tmpl.defaultPort;
-	const args = [
-		"run",
-		"-d",
-		"--name",
-		containerName,
-		"--label",
-		"com.vcontrolhub.quick-service=true",
-		"--restart",
-		"unless-stopped",
-		"--add-host=host.docker.internal:host-gateway",
-		"-p",
-		`${hostPort}:${internalPort}`,
-	];
-	for (const ep of tmpl.extraPorts ?? []) args.push("-p", `${ep.host}:${ep.container}`);
-	// Remote nodes only get non-socket volume mounts as-is; host mkdir is skipped for remote.
-	for (const vol of tmpl.volumesJson) {
-		const host = normalizeVolumeEndpoint(vol.host, "Host mount");
-		if (target.kind === "remote" && host === DOCKER_SOCKET) {
-			// Avoid binding control-plane docker socket semantics onto remote hosts by default.
-			continue;
-		}
-		if (target.kind === "local" && host === DOCKER_SOCKET) {
-			// Templates declare the POSIX socket literal; Docker Desktop on
-			// Windows needs the host side as the named pipe instead.
-			args.push("-v", `${hubHostDockerSocketMount()}:${splitContainerPathAndOptions(vol.container)}`);
-			continue;
-		}
-		args.push("-v", `${host}:${splitContainerPathAndOptions(vol.container)}`);
-	}
-	for (const [key, value] of Object.entries(tmpl.envJson)) {
-		if (value !== "") args.push("-e", `${key}=${resolveEnvValue(String(value))}`);
-	}
-	args.push(tmpl.image, ...parseCommandArgs(tmpl.command));
 
 	let containerId: string;
 	let health: string;
@@ -420,11 +418,12 @@ export async function recreateDockerContainer(
 		serverId: target.kind === "local" ? null : target.serverId,
 		...(target.kind === "remote" && target.expectedTeamId !== undefined ? { server: { teamId: target.expectedTeamId, ...target.endpoint } } : {}),
 	};
+	let saved;
 	try {
-		await prisma.quickService.update({ where, data: { status: "running", containerId, error: null } })
+		saved = await prisma.quickService.update({ where, data: { status: "running", containerId, error: null } })
 			.catch(async () => {
 				await new Promise((resolve) => setTimeout(resolve, 500));
-				await prisma.quickService.update({ where, data: { status: "running", containerId, error: null } });
+				return prisma.quickService.update({ where, data: { status: "running", containerId, error: null } });
 			});
 	} catch (error) {
 		throw new ContainerCommittedError(containerId, error);
@@ -441,6 +440,7 @@ export async function recreateDockerContainer(
 		},
 	});
 	await notifyQuickServiceInstallSuccess(notice?.userId, tmpl, hostPort, notice?.credentials ?? [], notice?.notes ?? [], target);
+	return saved;
 }
 
 async function applyPostInstallSetup(target: DockerTarget, tmpl: ServiceTemplate, containerName: string) {

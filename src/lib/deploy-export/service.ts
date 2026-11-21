@@ -1,3 +1,5 @@
+import { existsSync, readFileSync } from "node:fs";
+import path from "node:path";
 import { prisma } from "@/lib/db";
 import { BusinessError, ValidationError } from "@/lib/errors";
 import { t } from "@/lib/i18n/service-translations";
@@ -52,79 +54,41 @@ export function buildPortableDeploymentPackage(options: { domain?: string; appNa
 		`AUTH_SESSION_COOKIE_NAME="${appName}_session"`,
 		`AUTH_SESSION_ISSUER="${appName}"`,
 		`AUTH_SESSION_AUDIENCE="${appName}"`,
-		'DATABASE_URL="REPLACE_WITH_DATABASE_URL"',
-		'AUTH_SESSION_SECRET="REPLACE_WITH_A_RANDOM_SECRET_AT_LEAST_32_CHARS"',
-		'ENCRYPTION_KEY="REPLACE_WITH_A_RANDOM_SECRET_AT_LEAST_32_CHARS"',
-		'ADMIN_INITIAL_PASSWORD="REPLACE_WITH_A_SECURE_ADMIN_PASSWORD"',
+		'DATABASE_URL=""',
+		'AUTH_SESSION_SECRET=""',
+		'ENCRYPTION_KEY=""',
+		'ADMIN_INITIAL_PASSWORD=""',
+		'STORAGE_DIRECT_ACCESS_SECRET=""',
 		`NEXT_PUBLIC_APP_PUBLIC_LABEL="VPS Management & Distributed Cloud Drive"`,
 		'SSH_WS_HOST="127.0.0.1"',
 		// Literal values: systemd's EnvironmentFile (and dotenv) do not expand
 		// shell defaults, so "${PORT:-3000}" reached the server as text and it
 		// exited on an invalid port.
 		'SSH_WS_PORT="3001"',
-		'SSH_WS_SECRET="REPLACE_WITH_A_RANDOM_SECRET_AT_LEAST_32_CHARS"',
+		'SSH_WS_SECRET=""',
 		'PORT="3000"',
 		`SSH_WS_ALLOWED_ORIGINS="https://${domain}"`,
 		...DANGEROUS_ENV_FLAGS.map((key) => `${key}="false"`),
 	].join("\n");
-	const systemdUnit = [
-		"[Unit]",
-		`Description=${appName} Next.js app`,
-		"After=network-online.target postgresql.service",
-		"Wants=network-online.target",
-		"",
-		"[Service]",
-		"Type=simple",
-		`WorkingDirectory=/opt/${appName}`,
-		`EnvironmentFile=/opt/${appName}/.env.production`,
-		"Environment=NODE_ENV=production",
-		"Environment=VCONTROLHUB_WORKERS_DISABLED=true",
-		"ExecStart=/usr/bin/node dist/server.js",
-		"Restart=always",
-		"RestartSec=5",
-		"",
-		"[Install]",
-		"WantedBy=multi-user.target",
-		"",
-	].join("\n");
-	const workerUnit = [
-		"[Unit]",
-		`Description=${appName} background worker`,
-		"After=network-online.target postgresql.service",
-		"Wants=network-online.target",
-		"",
-		"[Service]",
-		"Type=simple",
-		`WorkingDirectory=/opt/${appName}`,
-		`EnvironmentFile=/opt/${appName}/.env.production`,
-		"Environment=NODE_ENV=production",
-		"ExecStart=/usr/bin/node dist/worker.js",
-		"Restart=always",
-		"RestartSec=5",
-		"",
-		"[Install]",
-		"WantedBy=multi-user.target",
-		"",
-	].join("\n");
-	const sshWsUnit = [
-		"[Unit]",
-		`Description=${appName} SSH WebSocket proxy`,
-		"After=network-online.target",
-		"Wants=network-online.target",
-		"",
-		"[Service]",
-		"Type=simple",
-		`WorkingDirectory=/opt/${appName}`,
-		`EnvironmentFile=/opt/${appName}/.env.production`,
-		"Environment=NODE_ENV=production",
-		"ExecStart=/usr/bin/node dist/ssh-ws-proxy.js",
-		"Restart=always",
-		"RestartSec=5",
-		"",
-		"[Install]",
-		"WantedBy=multi-user.target",
-		"",
-	].join("\n");
+	const appDir = "/opt/" + appName;
+	const unitParams: Record<string, string> = {
+		SITE_NAME: appName, APP_DIR: appDir, APP_SLUG: appName, SERVICE_PREFIX: appName, APP_USER: "vcontrolhub",
+		RUNTIME_ENV_FILE: appDir + "/.env.production", SYSTEMD_PATH: "/usr/local/bin:/usr/bin:/bin",
+		NODE_BIN: "/usr/bin/node", NEXT_PORT: "3000", SSH_WS_PORT: "3001", QUICK_SERVICE_READ_WRITE_PATHS: "",
+	};
+	// These assets belong to the server compilation. The runner ships its
+	// .next/server/chunks tree even when it omits the source deploy directory.
+	const renderUnit = (asset: URL, service: string) => {
+		const original = path.join(process.cwd(), "deploy/systemd", "vcontrolhub-" + service + ".service.example");
+		const file = existsSync(original) ? original : path.join(process.cwd(), ".next/server/chunks/static/media", path.basename(asset.pathname));
+		return readFileSync(file, "utf8").replace(/\{\{(\w+)\}\}/g, (_, key: string) => {
+			if (!Object.hasOwn(unitParams, key)) throw new Error("Unknown systemd template parameter " + key);
+			return unitParams[key]!;
+		});
+	};
+	const systemdUnit = renderUnit(new URL("../../../deploy/systemd/vcontrolhub-next.service.example", import.meta.url), "next");
+	const workerUnit = renderUnit(new URL("../../../deploy/systemd/vcontrolhub-worker.service.example", import.meta.url), "worker");
+	const sshWsUnit = renderUnit(new URL("../../../deploy/systemd/vcontrolhub-ssh-ws.service.example", import.meta.url), "ssh-ws");
 	// Ports are literal, as in the env template: {env.PORT} is Caddy's own
 	// environment, which never holds the app's, so every request went to
 	// "127.0.0.1:" (502). Remote desktop shares the WebSocket gateway.
@@ -174,6 +138,11 @@ export function buildPortableDeploymentPackage(options: { domain?: string; appNa
 		"\tesac",
 		'\texport "${line%%=*}=$value"',
 		'done < "$ENV_FILE"',
+		'for key in DATABASE_URL AUTH_SESSION_SECRET ADMIN_INITIAL_PASSWORD SSH_WS_SECRET STORAGE_DIRECT_ACCESS_SECRET ENCRYPTION_KEY; do',
+		'  case "${!key:-}" in ""|*REPLACE_WITH*|*CHANGE_ME*|*CHANGE_THIS*|*your-domain.example*|*example.com*|*"***"*) echo "Configure $key in $ENV_FILE" >&2; exit 1 ;; esac',
+		'done',
+		'[ "${#AUTH_SESSION_SECRET}" -ge 32 ] || { echo "AUTH_SESSION_SECRET is too short" >&2; exit 1; }',
+		...DANGEROUS_ENV_FLAGS.map(key => `[ "${"${"}${key}:-false}" != true ] || { echo "${key} is unsafe for production" >&2; exit 1; }`),
 		// "npm run build" refuses to run unless it is told this is a deployment
 		// (scripts/guard-live-next-build.mjs), and then only while the service
 		// is stopped: a build under a running server replaces the .next it serves.
@@ -194,6 +163,15 @@ export function buildPortableDeploymentPackage(options: { domain?: string; appNa
 		[`${appName}-worker.service`]: workerUnit,
 		[`${appName}-ssh-ws.service`]: sshWsUnit,
 		"Caddyfile.example": caddyfile,
+		"install-services.sh": [
+			"#!/usr/bin/env bash", "set -euo pipefail", 'cd "$(dirname "$0")"',
+			"systemd-sysusers - <<'ACCOUNT'", 'u vcontrolhub - "VControlHub service" /nonexistent', "ACCOUNT",
+			`install -d -m 0750 -o vcontrolhub -g vcontrolhub /var/lib/${appName}`,
+			`for dir in storage uploads downloads logs backups .next/cache; do install -d -m 0750 -o vcontrolhub -g vcontrolhub "${appDir}/$dir"; done`,
+			`chmod 0600 "${appDir}/.env.production"`,
+			`for unit in ${appName}-{next,worker,ssh-ws}.service; do install -m 0644 "$unit" /etc/systemd/system/; done`,
+			"systemctl daemon-reload", "",
+		].join("\n"),
 		"deploy.sh": deployScript,
 	};
 	const joined = Object.values(files).join("\n");

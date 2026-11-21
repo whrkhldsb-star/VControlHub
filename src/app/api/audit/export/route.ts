@@ -1,6 +1,4 @@
-import { NextResponse } from "next/server";
-
-import { AUDIT_EXPORT_MAX_ROWS, exportAuditLogs, iterateAuditLogsForExport, type AuditLogEntry } from "@/lib/audit/service";
+import { AUDIT_EXPORT_MAX_ROWS, prepareAuditExport, type AuditLogEntry } from "@/lib/audit/service";
 import { formatAuditDetail } from "@/lib/audit/detail-format";
 import { withApiRoute } from "@/lib/http/api-guard";
 import { csvCell } from "@/lib/http/csv";
@@ -56,44 +54,64 @@ export async function GET(request: Request) {
       querySchema: exportQuerySchema,
     },
     async ({ session, query: params }) => {
-    const filter = {
-      action: params.action,
-      severity: params.severity,
-      search: params.search,
-      session,
-    };
-
-    if (params.format === "json") {
-      return NextResponse.json(await exportAuditLogs(filter));
-    }
-
-    // Streamed in batches (A8-05); the last line says so when the cap cut the export short.
-    const encoder = new TextEncoder();
-    const stream = new ReadableStream<Uint8Array>({
-      async start(controller) {
-        try {
-          // The byte-order mark makes Excel (Windows) read the UTF-8 text as UTF-8 instead of the system code page.
-          controller.enqueue(encoder.encode(`\ufeff${csvHeader()}`));
-          let count = 0;
-          for await (const batch of iterateAuditLogsForExport(filter)) {
-            count += batch.length;
-            controller.enqueue(encoder.encode(`\n${csvRows(batch).join("\n")}`));
+      request.signal.throwIfAborted();
+      const { batches, truncated } = await prepareAuditExport({
+        action: params.action, severity: params.severity, search: params.search, session,
+      });
+      const json = params.format === "json";
+      const encoder = new TextEncoder();
+      const prefix = json ? "[" : `\ufeff${csvHeader()}`;
+      const suffix = json ? "]" : truncated ? `\n${csvCell(t("backend.audit.export.truncated", { max: AUDIT_EXPORT_MAX_ROWS }))}` : "";
+      let firstBatch = true;
+      let stopped = false;
+      let onAbort: () => void;
+      function finish() {
+        stopped = true;
+        request.signal.removeEventListener("abort", onAbort);
+      }
+      const stream = new ReadableStream<Uint8Array>({
+        start(controller) {
+          onAbort = () => {
+            finish();
+            controller.error(request.signal.reason);
+            // A query already sent may finish. Its page is discarded and
+            // returning the iterator prevents another query.
+            void batches.return(undefined).catch(() => undefined);
+          };
+          if (request.signal.aborted) return onAbort();
+          request.signal.addEventListener("abort", onAbort, { once: true });
+          controller.enqueue(encoder.encode(prefix));
+        },
+        async pull(controller) {
+          try {
+            const next = await batches.next();
+            if (stopped) return;
+            if (next.done) {
+              finish();
+              if (suffix) controller.enqueue(encoder.encode(suffix));
+              controller.close();
+              return;
+            }
+            const chunk = json
+              ? (firstBatch ? "" : ",") + next.value.map((log) => JSON.stringify(log)).join(",")
+              : "\n" + csvRows(next.value).join("\n");
+            firstBatch = false;
+            controller.enqueue(encoder.encode(chunk));
+          } catch (error) {
+            finish();
+            throw error;
           }
-          if (count >= AUDIT_EXPORT_MAX_ROWS) {
-            controller.enqueue(encoder.encode(`\n${csvCell(t("backend.audit.export.truncated", { max: AUDIT_EXPORT_MAX_ROWS }))}`));
-          }
-          controller.close();
-        } catch (error) {
-          controller.error(error);
-        }
-      },
-    });
-    return new Response(stream, {
-      status: 200,
-      headers: {
-        "Content-Type": "text/csv; charset=utf-8",
-        "Content-Disposition": `attachment; filename="audit-export-${new Date().toISOString().slice(0, 10)}.csv"`,
-      },
-    });
-  });
+        },
+        async cancel() {
+          finish();
+          await batches.return(undefined);
+        },
+      }, { highWaterMark: 0 });
+      return new Response(stream, {
+        headers: json
+          ? { "Content-Type": "application/json", "X-Audit-Export-Truncated": String(truncated) }
+          : { "Content-Type": "text/csv; charset=utf-8", "Content-Disposition": `attachment; filename="audit-export-${new Date().toISOString().slice(0, 10)}.csv"` },
+      });
+    },
+  );
 }

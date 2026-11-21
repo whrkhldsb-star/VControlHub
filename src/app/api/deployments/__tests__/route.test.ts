@@ -109,6 +109,15 @@ describe("/api/deployments", () => {
       expect.objectContaining({ userId: "u1" }),
     );
   });
+
+  it("rejects an oversized header even when the JSON body contains a valid key", async () => {
+    const response = await route.POST(new Request("http://local/api/deployments", {
+      method: "POST", headers: { "Content-Type": "application/json", "Idempotency-Key": "k".repeat(301) },
+      body: JSON.stringify({ templateId: "tmpl1", serverIds: ["srv1"], idempotencyKey: "body-key" }),
+    }));
+    expect(response.status).toBe(400);
+    expect(mocks.createDeploymentRunFromTemplate).not.toHaveBeenCalled();
+  });
   it("accepts browser form submissions and redirects back to deployments page", async () => {
     const req = new Request("http://local/api/deployments", {
       method: "POST",

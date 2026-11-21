@@ -1,5 +1,5 @@
 import { Agent, fetch as undiciFetch, type Dispatcher } from "undici";
-import { lookup } from "node:dns/promises";
+import { normalizedHostname, resolveOutboundAddresses } from "./outbound-dns";
 import { isIP } from "node:net";
 
 import { t } from "@/lib/i18n/service-translations";
@@ -7,10 +7,6 @@ import { recordDelivery } from "@/lib/monitoring/runtime-metrics";
 import { isBlockedIpAddress } from "@/lib/security/ip-blocklist";
 
 const BLOCKED_HOSTS = new Set(["localhost", "localhost.localdomain"]);
-
-function normalizedHostname(hostname: string) {
-	return hostname.toLowerCase().replace(/^\[|\]$/g, "");
-}
 
 /**
  * Why a webhook URL is refused, worded where it is decided: the reason is
@@ -39,15 +35,13 @@ export function validateWebhookUrlSyntax(value: string) {
 	return { ok: true as const, url: url.toString() };
 }
 
-async function resolveWebhookTarget(value: string) {
+async function resolveWebhookTarget(value: string, signal: AbortSignal) {
 	const syntax = validateWebhookUrlSyntax(value);
 	if (!syntax.ok) return syntax;
 	const hostname = normalizedHostname(new URL(syntax.url).hostname);
-	const family = isIP(hostname);
-	if (family) return { ...syntax, hostname, pinned: { address: hostname, family } };
 	try {
-		const addresses = await lookup(hostname, { all: true, verbatim: true });
-		if (addresses.length === 0 || addresses.some((entry) => isBlockedIpAddress(entry.address))) {
+		const addresses = await resolveOutboundAddresses(hostname, signal);
+		if (addresses.length === 0 || addresses.some(({ address }) => !isIP(address) || isBlockedIpAddress(address))) {
 			return { ok: false as const, error: t("backend.webhookUrl.dnsLocal") };
 		}
 		return { ...syntax, hostname, pinned: addresses[0]! };
@@ -57,7 +51,7 @@ async function resolveWebhookTarget(value: string) {
 }
 
 export async function assertWebhookUrlSafeForServerFetch(value: string) {
-	const target = await resolveWebhookTarget(value);
+	const target = await resolveWebhookTarget(value, AbortSignal.timeout(WEBHOOK_FETCH_TIMEOUT_MS));
 	return target.ok ? { ok: true as const, url: target.url } : target;
 }
 
@@ -134,7 +128,14 @@ export async function fetchWebhookSafely(
 		recordDelivery("webhook", { ok, durationMs: performance.now() - started });
 	};
 
-	const safe = await resolveWebhookTarget(url);
+	const callerSignal = init.signal instanceof AbortSignal ? init.signal : undefined;
+	const deadline = AbortSignal.timeout(WEBHOOK_FETCH_TIMEOUT_MS);
+	const signal = callerSignal ? AbortSignal.any([callerSignal, deadline]) : deadline;
+	const safe = await resolveWebhookTarget(url, signal);
+	if (signal.aborted) {
+		finish(false);
+		return { ok: false as const, error: "Webhook request aborted before dispatch", dispatched: false as const };
+	}
 	if (!safe.ok) {
 		finish(false);
 		return { ...safe, dispatched: false as const };
@@ -159,23 +160,11 @@ export async function fetchWebhookSafely(
 		},
 	});
 	try {
-		const callerSignal = "signal" in init && init.signal instanceof AbortSignal ? init.signal : undefined;
-		if (callerSignal?.aborted) {
-			finish(false);
-			return { ok: false as const, error: "Webhook request aborted before dispatch", dispatched: false as const };
-		}
 		const requestInit = {
 			...init,
 			dispatcher,
 			redirect: "error",
-			// Belt-and-braces overall cap: the agent stages already bound connect /
-			// headers / body, but a slow-drip body would otherwise only be cut by
-			// bodyTimeout — this guarantees the whole delivery settles. Callers that
-			// pass their own signal (playbook steps, ITSM adapters) keep their
-			// cancellation path via AbortSignal.any.
-			signal: callerSignal
-				? AbortSignal.any([callerSignal, AbortSignal.timeout(WEBHOOK_FETCH_TIMEOUT_MS)])
-				: AbortSignal.timeout(WEBHOOK_FETCH_TIMEOUT_MS),
+			signal,
 		} as unknown as Parameters<typeof undiciFetch>[1];
 		const response = await undiciFetch(safe.url, requestInit);
 		// Detach before the dispatcher goes away: an unread body makes

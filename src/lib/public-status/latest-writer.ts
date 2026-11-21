@@ -22,7 +22,8 @@ import { Prisma } from "@prisma/client";
 
 import { prisma } from "@/lib/db";
 import { startOfMonthInAppTimeZone } from "@/lib/datetime/time-zone";
-import type { NormalizedMetrics } from "./normalize";
+import { createLogger } from "@/lib/logging";
+import { counterOrNull, pgNonnegativeInt, type NormalizedMetrics } from "./normalize";
 
 export type LatestMetricInput = {
 	serverId: string;
@@ -48,23 +49,25 @@ const CHUNK = 200;
 function rowSql(input: LatestMetricInput) {
 	const m = input.metrics ?? null;
 	const v = m?.values ?? null;
-	const periodStart = m ? startOfMonthInAppTimeZone(m.sampledAt) : null;
+	const rx = counterOrNull(v?.netRxBytes);
+	const tx = counterOrNull(v?.netTxBytes);
+	const periodStart = m && v?.netIface && (rx !== null || tx !== null) ? startOfMonthInAppTimeZone(m.sampledAt) : null;
 	return Prisma.sql`(
 		${input.serverId}::text, ${input.checkedAt}::timestamp, ${input.online}::boolean, ${input.offlineReason ?? null}::text,
-		${m?.sampledAt ?? null}::timestamp, ${m?.source ?? null}::text, ${Math.max(1, Math.round(input.intervalSeconds))}::int,
-		${v?.cpuUsage ?? null}::float8, ${v?.cpuCores ?? null}::int,
+		${m?.sampledAt ?? null}::timestamp, ${m?.source ?? null}::text, ${pgNonnegativeInt(Math.max(1, Math.round(input.intervalSeconds)))}::int,
+		${v?.cpuUsage ?? null}::float8, ${pgNonnegativeInt(v?.cpuCores)}::int,
 		${v?.load1 ?? null}::float8, ${v?.load5 ?? null}::float8, ${v?.load15 ?? null}::float8,
-		${v?.memUsage ?? null}::float8, ${v?.memUsedMb ?? null}::int, ${v?.memTotalMb ?? null}::int,
+		${v?.memUsage ?? null}::float8, ${pgNonnegativeInt(v?.memUsedMb)}::int, ${pgNonnegativeInt(v?.memTotalMb)}::int,
 		${v?.swapUsage ?? null}::float8, ${v?.diskUsage ?? null}::float8,
 		${v?.diskUsedBytes ?? null}::float8, ${v?.diskTotalBytes ?? null}::float8,
-		${v?.uptimeSeconds ?? null}::int, ${v?.netIface ?? null}::text,
-		${v?.netRxBytes ?? null}::bigint, ${v?.netTxBytes ?? null}::bigint,
+		${pgNonnegativeInt(v?.uptimeSeconds)}::int, ${v?.netIface ?? null}::text,
+		${rx}::bigint, ${tx}::bigint,
 		${periodStart}::timestamp,
 		${input.probe?.at ?? null}::timestamp, ${input.probe ? input.probe.ok : null}::boolean,
 		${input.probe?.latencyMs ?? null}::float8,
 		${v?.arch ?? null}::text, ${v?.kernelVersion ?? null}::text, ${v?.osName ?? null}::text,
 		${v?.cpuModel ?? null}::text, ${v?.virtualization ?? null}::text,
-		${v?.processCount ?? null}::int, ${v?.tcpConnections ?? null}::int, ${v?.udpConnections ?? null}::int,
+		${pgNonnegativeInt(v?.processCount)}::int, ${pgNonnegativeInt(v?.tcpConnections)}::int, ${pgNonnegativeInt(v?.udpConnections)}::int,
 		(now() AT TIME ZONE 'UTC')
 	)`;
 }
@@ -99,8 +102,16 @@ async function writeWave(inputs: LatestMetricInput[]): Promise<number> {
 	let written = 0;
 	for (let i = 0; i < inputs.length; i += CHUNK) {
 		const chunk = inputs.slice(i, i + CHUNK);
-		if (chunk.length === 0) continue;
-		written += await prisma.$executeRaw`
+		written += await writeChunk(chunk);
+	}
+	return written;
+}
+
+const logger = createLogger("public-status:latest");
+
+async function writeChunk(chunk: LatestMetricInput[]): Promise<number> {
+	try {
+		return await prisma.$executeRaw`
 			INSERT INTO "server_metric_latest" AS t (
 				"serverId", "checkedAt", "online", "offlineReason",
 				"metricsAt", "metricsSource", "intervalSeconds",
@@ -113,7 +124,7 @@ async function writeWave(inputs: LatestMetricInput[]): Promise<number> {
 				"processCount", "tcpConnections", "udpConnections", "updatedAt",
 				"periodSince", "periodRxBytes", "periodTxBytes"
 			)
-			SELECT v.*, v."metricsAt", 0::bigint, 0::bigint
+			SELECT v.*, CASE WHEN v."periodStart" IS NOT NULL THEN v."metricsAt" END, 0::bigint, 0::bigint
 			FROM (VALUES ${Prisma.join(chunk.map(rowSql))}) AS v (
 				"serverId", "checkedAt", "online", "offlineReason",
 				"metricsAt", "metricsSource", "intervalSeconds",
@@ -151,22 +162,25 @@ async function writeWave(inputs: LatestMetricInput[]): Promise<number> {
 					WHEN t."metricsAt" IS NOT NULL THEN EXTRACT(EPOCH FROM (EXCLUDED."metricsAt" - t."metricsAt"))::float8
 					ELSE NULL END,
 				"periodRxBytes" = CASE
+					WHEN EXCLUDED."periodStart" IS NULL THEN t."periodRxBytes"
 					WHEN NOT (EXCLUDED."metricsAt" IS NOT NULL AND (t."metricsAt" IS NULL OR EXCLUDED."metricsAt" > t."metricsAt")) THEN t."periodRxBytes"
 					WHEN t."periodStart" IS DISTINCT FROM EXCLUDED."periodStart" THEN 0
 					WHEN EXCLUDED."netRxBytes" IS NULL OR t."netRxBytes" IS NULL OR t."netIface" IS DISTINCT FROM EXCLUDED."netIface" THEN t."periodRxBytes"
 					WHEN EXCLUDED."netRxBytes" >= t."netRxBytes" THEN t."periodRxBytes" + (EXCLUDED."netRxBytes" - t."netRxBytes")
 					ELSE t."periodRxBytes" + EXCLUDED."netRxBytes" END,
 				"periodTxBytes" = CASE
+					WHEN EXCLUDED."periodStart" IS NULL THEN t."periodTxBytes"
 					WHEN NOT (EXCLUDED."metricsAt" IS NOT NULL AND (t."metricsAt" IS NULL OR EXCLUDED."metricsAt" > t."metricsAt")) THEN t."periodTxBytes"
 					WHEN t."periodStart" IS DISTINCT FROM EXCLUDED."periodStart" THEN 0
 					WHEN EXCLUDED."netTxBytes" IS NULL OR t."netTxBytes" IS NULL OR t."netIface" IS DISTINCT FROM EXCLUDED."netIface" THEN t."periodTxBytes"
 					WHEN EXCLUDED."netTxBytes" >= t."netTxBytes" THEN t."periodTxBytes" + (EXCLUDED."netTxBytes" - t."netTxBytes")
 					ELSE t."periodTxBytes" + EXCLUDED."netTxBytes" END,
 				"periodSince" = CASE
+					WHEN EXCLUDED."periodStart" IS NULL THEN t."periodSince"
 					WHEN NOT (EXCLUDED."metricsAt" IS NOT NULL AND (t."metricsAt" IS NULL OR EXCLUDED."metricsAt" > t."metricsAt")) THEN t."periodSince"
 					WHEN t."periodStart" IS DISTINCT FROM EXCLUDED."periodStart" THEN EXCLUDED."metricsAt"
 					ELSE COALESCE(t."periodSince", EXCLUDED."metricsAt") END,
-				"periodStart" = CASE WHEN EXCLUDED."metricsAt" IS NOT NULL AND (t."metricsAt" IS NULL OR EXCLUDED."metricsAt" > t."metricsAt") THEN EXCLUDED."periodStart" ELSE t."periodStart" END,
+				"periodStart" = CASE WHEN EXCLUDED."periodStart" IS NOT NULL AND EXCLUDED."metricsAt" IS NOT NULL AND (t."metricsAt" IS NULL OR EXCLUDED."metricsAt" > t."metricsAt") THEN EXCLUDED."periodStart" ELSE t."periodStart" END,
 				"metricsSource" = CASE WHEN EXCLUDED."metricsAt" IS NOT NULL AND (t."metricsAt" IS NULL OR EXCLUDED."metricsAt" > t."metricsAt") THEN EXCLUDED."metricsSource" ELSE t."metricsSource" END,
 				"cpuUsage" = CASE WHEN EXCLUDED."metricsAt" IS NOT NULL AND (t."metricsAt" IS NULL OR EXCLUDED."metricsAt" > t."metricsAt") THEN EXCLUDED."cpuUsage" ELSE t."cpuUsage" END,
 				"cpuCores" = CASE WHEN EXCLUDED."metricsAt" IS NOT NULL AND (t."metricsAt" IS NULL OR EXCLUDED."metricsAt" > t."metricsAt") THEN EXCLUDED."cpuCores" ELSE t."cpuCores" END,
@@ -197,6 +211,17 @@ async function writeWave(inputs: LatestMetricInput[]): Promise<number> {
 				"metricsAt" = CASE WHEN EXCLUDED."metricsAt" IS NOT NULL AND (t."metricsAt" IS NULL OR EXCLUDED."metricsAt" > t."metricsAt") THEN EXCLUDED."metricsAt" ELSE t."metricsAt" END,
 				"updatedAt" = (now() AT TIME ZONE 'UTC')
 		`;
+	} catch (error) {
+		// Only isolate malformed data. Infrastructure errors still reach the caller.
+		const meta = error instanceof Prisma.PrismaClientKnownRequestError ? error.meta : undefined;
+		const adapter = meta?.driverAdapterError as { cause?: { originalCode?: string } } | undefined;
+		const sqlState = String(adapter?.cause?.originalCode ?? meta?.code ?? "");
+		if (!sqlState.startsWith("22") && !(error instanceof RangeError)) throw error;
+		if (chunk.length === 1) {
+			logger.warn("Skipped invalid latest metric row", { serverId: chunk[0]!.serverId, sqlState });
+			return 0;
+		}
+		const mid = Math.floor(chunk.length / 2);
+		return await writeChunk(chunk.slice(0, mid)) + await writeChunk(chunk.slice(mid));
 	}
-	return written;
 }

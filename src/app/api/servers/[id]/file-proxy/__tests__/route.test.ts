@@ -393,7 +393,7 @@ describe("/api/servers/[id]/file-proxy", () => {
     const response = await GET(new Request("http://local"), params);
     expect(response.status).toBe(404);
     expect(acquireLockMock).toHaveBeenCalledWith("server-delete", "srv_1");
-    expect(serverFindUniqueMock).toHaveBeenLastCalledWith(expect.objectContaining({ where: { id: "srv_1", teamId: "old" } }));
+    expect(serverFindUniqueMock).toHaveBeenLastCalledWith(expect.objectContaining({ where: { id: "srv_1", teamId: "old", enabled: true } }));
     expect(proxyFindUniqueMock).not.toHaveBeenCalled();
     expect(sshCommands).toEqual([]);
   });

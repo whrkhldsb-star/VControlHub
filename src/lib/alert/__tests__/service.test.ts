@@ -2,6 +2,9 @@ import { beforeEach, describe, expect, it, vi } from "vitest";
 
 const { prismaMock, createNotificationMock, fetchWebhookSafelyMock, sendAlertEmailMock, sendAlertTelegramMock } = vi.hoisted(() => ({
 	prismaMock: {
+		$transaction<T>(callback: (tx: unknown) => Promise<T>) { return callback(this); },
+		$executeRaw: vi.fn(),
+		setting: { upsert: vi.fn(), findUnique: vi.fn(), deleteMany: vi.fn() },
 		userServerAccess: { findFirst: vi.fn() },
 		server: { findMany: vi.fn() },
 		alertRule: {
@@ -39,7 +42,7 @@ vi.mock("@/lib/settings/service", () => ({
 
 const { createAlertRule, updateAlertRule, toggleAlertRule, testAlertRule, ensureDefaultAlertRules } = await import("../service");
 const { withApiCopyLocale } = await import("@/lib/i18n/api-copy");
-const settings = await import("@/lib/settings/service");
+
 
 describe("alert service", () => {
 	beforeEach(() => {
@@ -313,14 +316,14 @@ describe("alert service", () => {
 		expect(skipped).toEqual({ created: 0, skipped: true });
 		expect(prismaMock.alertRule.create).toHaveBeenCalledTimes(4);
 		// Both outcomes record that the starter pack was offered to this customer.
-		expect(settings.setSetting).toHaveBeenCalledWith("alerts.defaultRulesSeeded:team-a", "true");
+		expect(prismaMock.setting.upsert).toHaveBeenCalledWith(expect.objectContaining({ create: { key: "alerts.defaultRulesSeeded:team-a", value: "true" } }));
 	});
 
 	it("does not bring the starter rules back after every rule was deleted", async () => {
-		vi.mocked(settings.getSetting).mockResolvedValueOnce("true");
+		prismaMock.setting.findUnique.mockResolvedValueOnce({ value: "true" });
 		const result = await ensureDefaultAlertRules();
 		expect(result).toEqual({ created: 0, skipped: true });
-		expect(settings.getSetting).toHaveBeenCalledWith("alerts.defaultRulesSeeded");
+		expect(prismaMock.setting.findUnique).toHaveBeenCalledWith({ where: { key: "alerts.defaultRulesSeeded" } });
 		expect(prismaMock.alertRule.count).not.toHaveBeenCalled();
 		expect(prismaMock.alertRule.create).not.toHaveBeenCalled();
 	});
@@ -437,7 +440,7 @@ describe("editing what a rule watches", () => {
 
 describe("binding playbooks to a rule", () => {
 	// The rule starts the playbook with nobody approving it: the caller must be allowed to run playbooks by hand.
-	const rule = { name: "Disk full", metric: "disk_usage", operator: "gte" as const, threshold: 95, playbookIds: ["pb_1"], serverIds: [] };
+	const rule = { notifyChannels: ["in_app"], name: "Disk full", metric: "disk_usage", operator: "gte" as const, threshold: 95, playbookIds: ["pb_1"], serverIds: [] };
 	const notifier = { userId: "u_9", roles: ["operator" as const], currentTeamId: "team_1", permissions: ["notification:manage" as const] };
 
 	beforeEach(() => {
@@ -487,7 +490,7 @@ describe("binding playbooks to a rule", () => {
 		prismaMock.alertRule.updateManyAndReturn.mockResolvedValueOnce([]);
 		await expect(updateAlertRule("rule1", { threshold: 50 }, notifier)).rejects.toMatchObject({ name: "ConflictError", status: 409 });
 		expect(prismaMock.alertRule.updateManyAndReturn).toHaveBeenCalledWith({
-			where: { id: "rule1", teamId: "team_1", enabled: true, playbookIds: { equals: [] }, serverIds: { equals: [] } }, data: { threshold: 50 },
+			where: { id: "rule1", teamId: "team_1", enabled: true, notifyChannels: { equals: ["in_app"] }, playbookIds: { equals: [] }, serverIds: { equals: [] } }, data: { threshold: 50 },
 		});
 	});
 
@@ -510,7 +513,7 @@ describe("binding playbooks to a rule", () => {
 		expect(prismaMock.server.findMany).toHaveBeenCalledWith(expect.objectContaining({
 			where: {
 				id: { in: ["command-target"] },
-				AND: [{ teamId: "team_1" }, { OR: [
+				AND: [{ teamId: "team_1" }, { team: { deletedAt: null }, OR: [
 					{ userAccess: { none: { userId: "u_9" } } },
 					{ userAccess: { some: { userId: "u_9", canConnect: true } } },
 				] }],
@@ -550,6 +553,6 @@ describe("binding playbooks to a rule", () => {
 		prismaMock.alertRule.count.mockResolvedValue(0);
 		await expect(ensureDefaultAlertRules(notifier)).resolves.toEqual({ created: 0, skipped: true });
 		expect(prismaMock.alertRule.create).not.toHaveBeenCalled();
-		expect(settings.setSetting).not.toHaveBeenCalled();
+		expect(prismaMock.setting.upsert).not.toHaveBeenCalled();
 	});
 });

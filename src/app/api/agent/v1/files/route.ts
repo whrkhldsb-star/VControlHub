@@ -29,6 +29,7 @@ const result = z
 const poll = z.object({
   rootIdentity: z.string().regex(/^v2:[a-f0-9]{64}$/),
   writable: z.boolean(),
+  deliveryVersion: z.number().int().positive().optional(),
   receipt: z.object({ id: z.string().max(64), result }).optional(),
 });
 
@@ -47,7 +48,7 @@ export async function POST(request: Request) {
   } catch {
     return new Response(null, { status: 400 });
   }
-  const reply = await pollFileAgent(hash, body.rootIdentity, body.writable, body.receipt);
+  const reply = await pollFileAgent(hash, body.rootIdentity, body.writable, body.receipt, body.deliveryVersion);
   return reply
     ? NextResponse.json(reply, { headers: { "Cache-Control": "no-store" } })
     : new Response(null, { status: 401 });

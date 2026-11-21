@@ -2,6 +2,9 @@
 
 import { useCallback, type MouseEvent } from "react";
 
+import { useToast } from "@/components/toast-provider";
+import { useI18n } from "@/lib/i18n/use-locale";
+import { getErrorMessage } from "@/lib/http/error-message";
 import { csrfFetch } from "@/lib/auth/csrf-client";
 import { useSessionGate } from "@/lib/auth/session-context";
 import { getSafeNotificationActionUrl } from "./action-url";
@@ -16,6 +19,8 @@ type LinkedNotification = { teamId?: string | null; actionUrl: string | null };
  */
 export function useNotificationLink() {
 	const gate = useSessionGate();
+	const { addToast } = useToast();
+	const { t } = useI18n();
 	const isAdmin = gate.roles.includes("admin");
 	const currentTeamId = gate.currentTeamId ?? null;
 
@@ -30,10 +35,10 @@ export function useNotificationLink() {
 			headers: { "Content-Type": "application/json" },
 			body: JSON.stringify({ teamId }),
 		})
-			.catch(() => undefined)
 			// Every page follows the selected customer: load the target afresh.
-			.then(() => window.location.assign(href));
-	}, [isAdmin, currentTeamId]);
+			.then(() => window.location.assign(href))
+			.catch((error) => addToast("error", getErrorMessage(error, t("nav.customerSwitchFailed"))));
+	}, [isAdmin, currentTeamId, addToast, t]);
 
 	return { showCustomer: isAdmin, onOpen };
 }

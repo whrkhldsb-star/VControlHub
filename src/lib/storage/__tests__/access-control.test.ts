@@ -27,29 +27,6 @@ vi.mock("@/lib/concurrency/advisory-lock", () => ({
   acquireAdvisoryLock: vi.fn(async () => async () => undefined),
 }));
 
-vi.mock("@/lib/auth/team-scope", () => ({
-  isGlobalTeamManager: (session: { roles?: string[] }) => session.roles?.includes("admin") === true,
-  teamWhere: (session: { roles?: string[]; currentTeamId?: string | null }) => {
-    if (session.roles?.includes("admin")) return {};
-    if (session.currentTeamId) {
-      return { teamId: session.currentTeamId };
-    }
-    return { teamId: null };
-  },
-  serverTeamWhere: (session: { roles?: string[]; currentTeamId?: string | null }) => {
-    if (session.roles?.includes("admin")) return {};
-    return session.currentTeamId
-      ? { teamId: session.currentTeamId }
-      : { id: "__unassigned_servers_require_team_manage__" };
-  },
-  storageNodeTeamWhere: (session: { roles?: string[]; currentTeamId?: string | null }) => {
-    if (session.roles?.includes("admin")) return {};
-    return session.currentTeamId
-      ? { teamId: session.currentTeamId }
-      : { id: "__unassigned_storage_nodes_require_team_manage__" };
-  },
-}));
-
 const { prisma } = await import("@/lib/db");
 
 const baseSession = {
@@ -106,7 +83,7 @@ describe("storage access control", () => {
       operation: "read",
     });
     expect(vi.mocked(prisma.storageNode.findFirst).mock.calls.at(-1)![0]?.where).toEqual({
-      id: "__unassigned_storage_nodes_require_team_manage__",
+      id: "legacy-node", AND: { id: { in: [] } },
     });
 
     await assertStorageAccess({

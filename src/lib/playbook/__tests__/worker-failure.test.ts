@@ -22,6 +22,7 @@ const { mocks } = vi.hoisted(() => ({
     failJob: vi.fn(),
     failJobTerminal: vi.fn(),
     heartbeatJob: vi.fn(),
+    jobUpdateMany: vi.fn(),
     loadApiTokenOwnerSession: vi.fn(),
     sessionHasPermission: vi.fn(),
     teamMemberFindUnique: vi.fn(),
@@ -30,6 +31,8 @@ const { mocks } = vi.hoisted(() => ({
 
 vi.mock("@/lib/db", () => ({
   prisma: {
+    $transaction<T>(callback: (tx: unknown) => Promise<T>) { return callback(this); },
+    job: { updateMany: mocks.jobUpdateMany },
     playbookRun: {
       findUnique: mocks.playbookRunFindUnique,
       updateMany: mocks.playbookRunUpdateMany,
@@ -40,7 +43,8 @@ vi.mock("@/lib/db", () => ({
 vi.mock("@/lib/auth/authorization", () => ({
   sessionHasPermission: mocks.sessionHasPermission,
 }));
-vi.mock("@/lib/concurrency/advisory-lock", () => ({
+vi.mock("@/lib/concurrency/advisory-lock", async (original) => ({
+  ...await original<typeof import("@/lib/concurrency/advisory-lock")>(),
   acquireAdvisoryLock: mocks.acquireAdvisoryLock,
 }));
 vi.mock("../executor", () => ({
@@ -183,6 +187,24 @@ describe("playbook run job failure branch", () => {
     // Infrastructure throw goes through the retrying failJob, not the terminal one.
     expect(mocks.failJob).toHaveBeenCalled();
     expect(mocks.failJobTerminal).not.toHaveBeenCalled();
+  });
+
+  it.each([0, 1])("returns the attempt on lock contention only while the lease is owned (claim count %i)", async (count) => {
+    const { AdvisoryLockBusyError } = await import("@/lib/concurrency/advisory-lock");
+    claimedJob({ attempts: 1, maxAttempts: 1 });
+    runThatThrows(new Error("execution must wait"));
+    mocks.acquireAdvisoryLock.mockRejectedValueOnce(new AdvisoryLockBusyError("playbook-execute", "held", null));
+    mocks.jobUpdateMany.mockResolvedValueOnce({ count });
+    await runPlaybookRunWorkerOnce();
+    expect(mocks.jobUpdateMany).toHaveBeenCalledWith({
+      where: expect.objectContaining({ id: "job-x", status: "RUNNING", attempts: 1, workerId: expect.any(String), leaseExpiresAt: { gt: expect.any(Date) } }),
+      data: expect.objectContaining({ status: "PENDING", attempts: { decrement: 1 }, availableAt: expect.any(Date), workerId: null }),
+    });
+    const queuedWrites = mocks.playbookRunUpdateMany.mock.calls.filter(([args]) => args.data.status === "queued");
+    expect(queuedWrites).toHaveLength(count);
+    expect(mocks.executePlaybookChain).not.toHaveBeenCalled();
+    expect(mocks.failJobTerminal).not.toHaveBeenCalled();
+    expect(mocks.failJob).not.toHaveBeenCalled();
   });
 
   it("fails the run for good once attempts are exhausted", async () => {

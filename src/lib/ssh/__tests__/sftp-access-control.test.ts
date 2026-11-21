@@ -20,6 +20,7 @@ vi.mock("@/lib/auth/authorization", () => ({
 }));
 vi.mock("../client", () => ({
 	buildSshParamsFromServer: buildSshParamsMock,
+	resolveRemoteHomeDirectory: vi.fn(async () => "/home/alice"),
 	resolveRemoteRealPath: resolveRealPathMock,
 }));
 
@@ -57,7 +58,7 @@ describe("assertSftpPathAccess", () => {
 	});
 
 	it("allows operators inside the SSH user's home directory", async () => {
-		await expect(assertSftpPathAccess({ session, serverId: "s1", paths: ["/home/alice/files/a.txt"] })).resolves.toBeUndefined();
+		await expect(assertSftpPathAccess({ session, serverId: "s1", paths: ["/home/alice/files/a.txt"] })).resolves.toEqual({ path: "/home/alice", windows: false });
 	});
 
 	it("rejects traversal and absolute paths outside the home directory", async () => {

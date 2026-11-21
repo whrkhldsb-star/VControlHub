@@ -39,6 +39,7 @@ const live = (id = "team_a") => ({ id, slug: id, name: id.toUpperCase(), deleted
 describe("customer service", () => {
 	beforeEach(() => {
 		vi.resetAllMocks();
+		prismaMock.$queryRaw.mockImplementation(async (_sql, id: string) => [live(id)]);
 		prismaMock.$transaction.mockImplementation(async (arg: unknown) => (typeof arg === "function" ? arg(prismaMock) : Promise.all(arg as unknown[])));
 		prismaMock.team.findUnique.mockImplementation(async ({ where }: { where: { id: string } }) => live(where.id));
 	});
@@ -239,7 +240,7 @@ describe("customer service", () => {
 		});
 
 		it("refuses a deleted customer", async () => {
-			prismaMock.team.findUnique.mockResolvedValueOnce({ ...live("team_b"), deletedAt: new Date() });
+			prismaMock.$queryRaw.mockResolvedValueOnce([]);
 			await expect(switchCurrentTeam("team_b", admin)).rejects.toBeInstanceOf(NotFoundError);
 		});
 	});
