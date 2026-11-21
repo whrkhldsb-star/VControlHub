@@ -167,15 +167,19 @@ run_update() (
   # the requested revision's upgrade driver without changing that checkout.
   driver="${APP_DIR}/deploy/upgrade.sh"
   if [[ -d ${APP_DIR}/.git && ${SKIP_PULL:-0} != 1 ]]; then
-    git -c "safe.directory=${APP_DIR}" -C "${APP_DIR}" fetch origin "${BRANCH}"
+    local repo=(git -c "safe.directory=${APP_DIR}" -C "${APP_DIR}")
+    "${repo[@]}" fetch origin "${BRANCH}"
+    UPGRADE_COMMIT="$("${repo[@]}" rev-parse --verify 'FETCH_HEAD^{commit}')"
+    export UPGRADE_COMMIT
     fetched_dir="$(mktemp -d)"
     trap 'if [[ -n ${fetched_dir:-} ]]; then rm -rf -- "${fetched_dir}"; fi' EXIT
-    driver="${fetched_dir}/upgrade.sh"
-    git -c "safe.directory=${APP_DIR}" -C "${APP_DIR}" show FETCH_HEAD:deploy/upgrade.sh > "${driver}"
+    # The driver and its shell libraries come from the same immutable tree.
+    "${repo[@]}" archive "${UPGRADE_COMMIT}" deploy | tar -xf - -C "${fetched_dir}"
+    driver="${fetched_dir}/deploy/upgrade.sh"
   fi
   log "Starting staged update"
   APP_NAME="${APP_NAME}" APP_SLUG="${APP_SLUG}" SERVICE_PREFIX="${SERVICE_PREFIX}" \
-    APP_DIR="${APP_DIR}" UPGRADE_REF="${BRANCH}" bash "${driver}" "$@"
+    APP_DIR="${APP_DIR}" UPGRADE_REF="${UPGRADE_COMMIT:-${BRANCH}}" bash "${driver}" "$@"
 )
 
 run_uninstall() {

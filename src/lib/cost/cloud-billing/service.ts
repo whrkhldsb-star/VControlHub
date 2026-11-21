@@ -18,13 +18,15 @@ import type { SessionPayload } from "@/lib/auth/session";
 import { teamCreateData, teamWhere } from "@/lib/auth/team-scope";
 import { acquireAdvisoryLock } from "@/lib/concurrency/advisory-lock";
 import { decryptJsonCredentials, encryptJsonCredentials } from "@/lib/crypto/json-credentials";
+import { currentCopyLocale } from "@/lib/i18n/api-copy";
+import { costMessage } from "../messages";
 import { prisma } from "@/lib/db";
-import { NotFoundError, ValidationError } from "@/lib/errors";
+import { ConflictError, NotFoundError, ValidationError } from "@/lib/errors";
 import { createLogger } from "@/lib/logging";
 
 import type { CostCurrency } from "../types";
 import { tagValue } from "../service-internals";
-import { fetchCloudBillingItems } from "./adapters";
+import { csvNaturalKeyPrefix, fetchCloudBillingItems } from "./adapters";
 import {
 	createCloudBillingAccountSchema,
 	updateCloudBillingAccountSchema,
@@ -33,6 +35,7 @@ import { t } from "@/lib/i18n/service-translations";
 import { isCalendarDate } from "../calendar-date";
 import { appTimeZoneDateKey } from "@/lib/datetime/time-zone";
 import type {
+	BillingRowIssue,
 	CloudBillingAccountConfig,
 	CloudBillingAccountRecord,
 	CloudBillingCredentials,
@@ -45,6 +48,7 @@ import type {
 const logger = createLogger("cloud-billing");
 const DEFAULT_CURRENCY: CostCurrency = "USD";
 const SOURCE_TYPE = "cloud_billing";
+const NATURAL_ORDINAL_TAG = "csv-ordinal:v2";
 
 type SessionScope = Pick<SessionPayload, "userId" | "roles" | "currentTeamId">;
 
@@ -63,6 +67,26 @@ function encryptCredentials(creds: CloudBillingCredentials): string {
 
 function decryptCredentials(enc: string): CloudBillingCredentials {
 	return decryptJsonCredentials<CloudBillingCredentials>(enc, t("backend.cost.storedCloudBillingCredentialsAreCorrupt"));
+}
+
+// Older accounts contain free-form errors. Only validated fields from a new
+// diagnostic can contribute to a reader's summary.
+function accountDiagnostic(raw: string | null) {
+	if (raw?.startsWith("billing:v1:")) {
+		try {
+			const { detail, issues } = JSON.parse(raw.slice("billing:v1:".length));
+			if (typeof detail === "string" && Array.isArray(issues)) {
+				const safe: BillingRowIssue[] = [];
+				for (const issue of issues.slice(0, 20)) {
+					if (Number.isSafeInteger(issue?.row) && issue.row > 0 && (issue.reason === "date" || issue.reason === "amount")) {
+						safe.push({ row: issue.row, reason: issue.reason });
+					}
+				}
+				return { lastSyncError: detail, lastSyncIssues: safe };
+			}
+		} catch { /* Legacy, unstructured detail. */ }
+	}
+	return { lastSyncError: raw };
 }
 
 function toAccountRecord(row: {
@@ -94,7 +118,7 @@ function toAccountRecord(row: {
 		teamId: row.teamId ?? null,
 		lastSyncAt: iso(row.lastSyncAt),
 		lastSyncStatus: (row.lastSyncStatus as CloudBillingSyncStatus | null) ?? null,
-		lastSyncError: row.lastSyncError,
+		...accountDiagnostic(row.lastSyncError),
 		lastSyncImported: row.lastSyncImported,
 		lastSyncSkipped: row.lastSyncSkipped,
 		createdById: row.createdById,
@@ -216,10 +240,14 @@ export async function updateCloudBillingAccount(
 	}
 
 	const claimed = await prisma.cloudBillingAccount.updateMany({
-		where: { id, ...(session ? teamWhere(session) : {}) },
+		where: { id, ...(session ? teamWhere(session) : {}), updatedAt: existing.updatedAt,
+			...(parsed.credentials !== undefined ? { credentialsEnc: existing.credentialsEnc } : {}) },
 		data,
 	});
-	if (claimed.count === 0) throw new NotFoundError(t("backend.cost.cloudBillingAccountNotFound"));
+	if (!claimed.count) {
+		await getCloudBillingAccount(id, session);
+		throw new ConflictError(costMessage("accountChanged", currentCopyLocale()));
+	}
 	const row = await prisma.cloudBillingAccount.findFirst({
 		where: { id, ...(session ? teamWhere(session) : {}) },
 	});
@@ -249,44 +277,129 @@ export async function syncCloudBillingAccount(
 	accountId: string,
 	month = currentAppMonth(),
 	session?: SessionScope,
+	confirmLegacyDuplicates = false,
 ): Promise<CloudBillingSyncResult> {
 	// Serialize per account+month. Two concurrent imports upsert the same
 	// (sourceType, sourceRef, effectiveDate) keys and then both write
 	// lastSync* on the account, so the surviving counters describe neither run.
 	const releaseLock = await acquireAdvisoryLock("cloud-billing-sync", `${accountId}:${month}`);
 	try {
-		return await runCloudBillingSync(accountId, month, session);
+		return await runCloudBillingSync(accountId, month, session, confirmLegacyDuplicates);
 	} finally {
 		await releaseLock();
+	}
+}
+
+async function migrateMixedCsvGroups(tx: Prisma.TransactionClient, accountId: string, teamId: string | null,
+	items: CloudBillingLineItem[], incomplete: boolean, confirmDuplicates: boolean) {
+	const groups = new Map<string, { explicit: string[]; natural: CloudBillingLineItem[] }>();
+	for (const item of items) {
+		if (!item.productCode || !item.externalId.startsWith("csv:")) continue;
+		const prefix = `${accountId}:${csvNaturalKeyPrefix(item.effectiveDate, item.productCode)}`;
+		const group = groups.get(prefix) ?? { explicit: [], natural: [] };
+		if (item.externalId.startsWith("csv:id:")) group.explicit.push(sourceRefFor(accountId, item.externalId));
+		else group.natural.push(item);
+		groups.set(prefix, group);
+	}
+	for (const [prefix, { explicit, natural }] of groups) {
+		if (!explicit.length || !natural.length) continue;
+		const where = { sourceType: SOURCE_TYPE, teamId, effectiveDate: new Date(natural[0]!.effectiveDate), sourceRef: { startsWith: prefix } };
+		const existing = await tx.costEntry.findMany({ where, orderBy: { sourceRef: "asc" } });
+		const ordinals = existing.map(row => Number(row.sourceRef?.slice(prefix.length)));
+		if (!existing.some((row, i) => !row.tags.includes(NATURAL_ORDINAL_TAG) && ordinals[i]! > natural.length)) continue;
+
+		const review = () => new ConflictError(costMessage("reviewCsv", currentCopyLocale()));
+		if (incomplete || ordinals.some(n => !Number.isSafeInteger(n) || n < 1 || n > natural.length + explicit.length)) throw review();
+		const knownIds = await tx.costEntry.count({ where: { ...where, sourceRef: { in: explicit } } });
+		if (knownIds !== explicit.length) throw review();
+
+		// Match amounts and dimensions before changing identities. Old and new
+		// ordinals can overlap, so first vacate all displaced keys in this transaction.
+		const matches = (row: typeof existing[number], item: CloudBillingLineItem) =>
+			row.currency === item.currency && row.provider === item.providerLabel.slice(0, 128)
+			&& row.amount.equals(item.amount) && row.category === item.category && (!item.notes || row.notes === item.notes);
+		const available = new Set(existing);
+		const assigned = new Map<CloudBillingLineItem, typeof existing[number]>();
+		for (const item of natural) {
+			const ref = sourceRefFor(accountId, item.externalId);
+			const row = existing.find(r => r.sourceRef === ref && matches(r, item));
+			if (row) { assigned.set(item, row); available.delete(row); }
+		}
+		for (const item of natural) {
+			if (assigned.has(item)) continue;
+			const row = [...available].find(r => matches(r, item));
+			if (row) { assigned.set(item, row); available.delete(row); }
+		}
+		for (const row of available) {
+			const duplicate = [...assigned].find(([item]) => matches(row, item));
+			// Earlier imports supported partial CSVs. Even identical amounts may be
+			// separate charges missing from this export. Deletion requires the
+			// manager to attest that the complete original bill was checked.
+			if (!duplicate || !confirmDuplicates || row.tags.includes(NATURAL_ORDINAL_TAG)) throw review();
+			const priorTag = `adjustment-for:${row.id}`;
+			const nextTag = `adjustment-for:${duplicate[1].id}`;
+			await tx.$executeRaw`UPDATE cost_entries SET tags = array_replace(tags, ${priorTag}, ${nextTag})
+				WHERE "teamId" IS NOT DISTINCT FROM ${teamId} AND ${priorTag} = ANY(tags)`;
+			await tx.costEntry.delete({ where: { id: row.id } });
+		}
+		const moves = [...assigned].filter(([item, row]) => row.sourceRef !== sourceRefFor(accountId, item.externalId));
+		for (const [, row] of moves) {
+			await tx.costEntry.update({ where: { id: row.id }, data: { sourceRef: `${accountId}:migration:${row.id}` } });
+		}
+		for (const [item, row] of moves) {
+			await tx.costEntry.update({ where: { id: row.id }, data: { sourceRef: sourceRefFor(accountId, item.externalId) } });
+		}
 	}
 }
 
 async function runCloudBillingSync(
 	accountId: string,
 	month: string,
-	session?: SessionScope,
+	session: SessionScope | undefined,
+	confirmLegacyDuplicates: boolean,
 ): Promise<CloudBillingSyncResult> {
 	const account = await prisma.cloudBillingAccount.findFirst({
 		where: { id: accountId, ...(session ? teamWhere(session) : {}) },
 	});
 	if (!account) throw new NotFoundError(t("backend.cost.cloudBillingAccountNotFound"));
-	if (!account.enabled) {
-		throw new ValidationError(t("backend.cost.cloudBillingAccountIsDisabled"));
-	}
 
-	const run = await prisma.cloudBillingSyncRun.create({
-		data: {
-			accountId,
-			month,
-			status: "running",
-		},
+	// Holding the account/month lock proves any earlier running writer has gone.
+	const scope = { id: accountId, ...(session ? teamWhere(session) : {}) };
+	const run = await prisma.$transaction(async (tx) => {
+		const finishedAt = new Date();
+		const errorMessage = costMessage("interrupted", currentCopyLocale());
+		const stale = await tx.cloudBillingSyncRun.updateMany({
+			where: { accountId, month, status: "running" },
+			data: { status: "error", finishedAt, errorMessage },
+		});
+		if (!account.enabled) {
+			if (stale.count) await tx.cloudBillingAccount.update({ where: scope, data: {
+				lastSyncAt: finishedAt, lastSyncStatus: "error", lastSyncError: errorMessage, lastSyncImported: 0, lastSyncSkipped: 0,
+			} });
+			return null;
+		}
+		return tx.cloudBillingSyncRun.create({ data: { accountId, month, status: "running" } });
 	});
+	if (!run) throw new ValidationError(t("backend.cost.cloudBillingAccountIsDisabled"));
+	const finish = async (tx: Prisma.TransactionClient, status: CloudBillingSyncStatus, imported: number,
+		skipped: number, errorMessage: string | null, issues: BillingRowIssue[] = []) => {
+		const finishedAt = new Date();
+		const [savedRun] = await tx.cloudBillingSyncRun.updateManyAndReturn({
+			where: { id: run.id, status: "running" }, data: { status, imported, skipped, errorMessage, finishedAt },
+		});
+		// A recovered run no longer owns publication. This also keeps an
+		// ambiguous commit acknowledgement from relabelling a committed batch.
+		if (!savedRun) return null;
+		const savedAccount = await tx.cloudBillingAccount.update({
+			where: scope,
+			data: { lastSyncAt: finishedAt, lastSyncStatus: status, lastSyncImported: imported, lastSyncSkipped: skipped,
+				lastSyncError: errorMessage && issues.length ? `billing:v1:${JSON.stringify({ detail: errorMessage, issues })}` : errorMessage },
+		});
+		return { run: toRunRecord(savedRun), account: toAccountRecord(savedAccount), imported, skipped };
+	};
 
-	let imported = 0;
 	let skipped = 0;
 	let warnings: string[] = [];
-	let status: CloudBillingSyncStatus = "ok";
-	let errorMessage: string | null = null;
 
 	try {
 		const creds = decryptCredentials(account.credentialsEnc);
@@ -305,7 +418,7 @@ async function runCloudBillingSync(
 		const importNote = t("backend.cost.cloudBillingImportNote", { account: account.name, month });
 
 		// Check the full batch against the database's unique key before the first upsert.
-		const entries = new Map<string, { item: CloudBillingLineItem; sourceRef: string; amountNum: number }>();
+		const entries = new Map<string, { item: CloudBillingLineItem; sourceRef: string }>();
 		for (const item of fetched.items) {
 			// An impossible day would roll into the next month once stored.
 			if (!isCalendarDate(item.effectiveDate)) {
@@ -331,120 +444,66 @@ async function runCloudBillingSync(
 					id: item.externalId.slice(0, 180),
 				}));
 			}
-			entries.set(key, { item, sourceRef, amountNum });
+			entries.set(key, { item, sourceRef });
 		}
 
-		for (const { item, sourceRef, amountNum } of entries.values()) {
-			const effectiveDate = new Date(`${item.effectiveDate}T00:00:00Z`);
-			const tags = [
-				`source:${SOURCE_TYPE}`,
-				`category:${item.category}`,
-				`provider:${tagValue(item.providerLabel)}`,
-				`account:${tagValue(accountId)}`,
-				...(item.productCode ? [`product:${tagValue(item.productCode)}`] : []),
-				...(item.tags ?? []).map((t) => tagValue(t)),
-			];
-			await prisma.costEntry.upsert({
-				where: {
-					sourceType_sourceRef_effectiveDate: {
+		const result = await prisma.$transaction(async (tx) => {
+			await migrateMixedCsvGroups(tx, accountId, account.teamId, Array.from(entries.values(), entry => entry.item), skipped > 0, confirmLegacyDuplicates);
+			for (const { item, sourceRef } of entries.values()) {
+				const effectiveDate = new Date(`${item.effectiveDate}T00:00:00Z`);
+				const tags = [
+					`source:${SOURCE_TYPE}`,
+					...(item.externalId.startsWith("csv:natural:") ? [NATURAL_ORDINAL_TAG] : []),
+					`category:${item.category}`,
+					`provider:${tagValue(item.providerLabel)}`,
+					`account:${tagValue(accountId)}`,
+					...(item.productCode ? [`product:${tagValue(item.productCode)}`] : []),
+					...(item.tags ?? []).map((t) => tagValue(t)),
+				];
+				await tx.costEntry.upsert({
+					where: {
+						sourceType_sourceRef_effectiveDate: {
+							sourceType: SOURCE_TYPE,
+							sourceRef,
+							effectiveDate,
+						},
+					},
+					create: {
+						category: item.category,
+						provider: item.providerLabel.slice(0, 128),
+						amount: new Prisma.Decimal(item.amount),
+						currency: item.currency,
+						effectiveDate,
+						notes: item.notes ?? importNote,
 						sourceType: SOURCE_TYPE,
 						sourceRef,
-						effectiveDate,
+						createdById: account.createdById,
+						teamId: account.teamId ?? null,
+						tags,
 					},
-				},
-				create: {
-					category: item.category,
-					provider: item.providerLabel.slice(0, 128),
-					amount: new Prisma.Decimal(amountNum.toFixed(2)),
-					currency: item.currency,
-					effectiveDate,
-					notes: item.notes ?? importNote,
-					sourceType: SOURCE_TYPE,
-					sourceRef,
-					createdById: account.createdById,
-					teamId: account.teamId ?? null,
-					tags,
-				},
-				update: {
-					category: item.category,
-					provider: item.providerLabel.slice(0, 128),
-					amount: new Prisma.Decimal(amountNum.toFixed(2)),
-					currency: item.currency,
-					notes: item.notes ?? importNote,
-					teamId: account.teamId ?? null,
-					tags,
-				},
-			});
-			imported += 1;
-		}
-
-		// Unreadable source rows, or rows dated on a day that does not exist,
-		// mean the month is incomplete, whatever was imported. The reason is
-		// kept with the run and the account: after a reload the card said
-		// "ok" and showed no reason, once the one-time warning toast was gone.
-		if ((warnings.length > 0 && imported === 0) || (fetched.rejectedRows ?? 0) > 0 || invalidDates > 0) {
-			status = "partial";
-			errorMessage = warnings.join("; ").slice(0, 1000) || null;
-		}
+					update: {
+						category: item.category,
+						provider: item.providerLabel.slice(0, 128),
+						amount: new Prisma.Decimal(item.amount),
+						currency: item.currency,
+						notes: item.notes ?? importNote,
+						teamId: account.teamId ?? null,
+						tags,
+					},
+				});
+			}
+			const partial = (warnings.length > 0 && !entries.size) || Boolean(fetched.rejectedRows) || invalidDates > 0;
+			const published = await finish(tx, partial ? "partial" : "ok", entries.size, skipped,
+				partial ? warnings.join("; ").slice(0, 1000) || null : null, fetched.rowIssues);
+			if (!published) throw new ConflictError(costMessage("interrupted", currentCopyLocale()));
+			return published;
+		}, { timeout: 120_000 });
+		return { ...result, warnings };
 	} catch (err) {
-		errorMessage = err instanceof Error ? err.message : String(err);
-		// If some CostEntry rows already committed before the failure, surface
-		// "partial" instead of "error" so operators can see imported>0 mid-loop
-		// failures (upserts are not wrapped in a single transaction).
-		status = imported > 0 ? "partial" : "error";
-		logger.warn("cloud billing sync failed", {
-			accountId,
-			month,
-			error: errorMessage,
-			imported,
-			status,
-		});
+		const message = err instanceof Error ? err.message : String(err);
+		await prisma.$transaction((tx) => finish(tx, "error", 0, skipped, message));
+		logger.warn("cloud billing sync failed", { accountId, month, error: message });
+		if (err instanceof ConflictError) throw err;
+		throw new ValidationError(message);
 	}
-
-	const finishedAt = new Date();
-	const updatedRun = await prisma.cloudBillingSyncRun.update({
-		where: { id: run.id },
-		data: {
-			status,
-			imported,
-			skipped,
-			errorMessage,
-			finishedAt,
-		},
-	});
-
-	const accountClaimed = await prisma.cloudBillingAccount.updateMany({
-		where: { id: accountId, ...(session ? teamWhere(session) : {}) },
-		data: {
-			lastSyncAt: finishedAt,
-			lastSyncStatus: status,
-			lastSyncError: errorMessage,
-			lastSyncImported: imported,
-			lastSyncSkipped: skipped,
-		},
-	});
-	if (accountClaimed.count === 0) {
-		throw new NotFoundError(t("backend.cost.cloudBillingAccountNotFound"));
-	}
-	const updatedAccount = await prisma.cloudBillingAccount.findFirst({
-		where: { id: accountId, ...(session ? teamWhere(session) : {}) },
-	});
-	if (!updatedAccount) {
-		throw new NotFoundError(t("backend.cost.cloudBillingAccountNotFound"));
-	}
-
-	if (status === "error") {
-		// Do not throw after recording — caller can inspect run.status.
-		// But for API UX we rethrow so route returns 400/502 with message.
-		throw new ValidationError(errorMessage ?? "Cloud billing sync failed");
-	}
-
-	return {
-		run: toRunRecord(updatedRun),
-		account: toAccountRecord(updatedAccount),
-		imported,
-		skipped,
-		warnings,
-	};
 }
-

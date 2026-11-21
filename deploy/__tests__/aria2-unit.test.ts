@@ -56,6 +56,12 @@ describeLinux("confined aria2 relay unit", () => {
 		expect(result.stderr).toContain("ARIA2_RPC_SECRET is required");
 	});
 
+	it.each(["REPLACE_WITH_SECRET", "REPLACE_WITH_RANDOM_ARIA2_RPC_SECRET", "vcontrolhub_default_token"])("rejects the shipped placeholder %s at daemon startup", async value => {
+		const result = await run("bash", [path.resolve("deploy/aria2-daemon.sh")], { ARIA2_RPC_SECRET: value, ARIA2_BIN: "/bin/true" });
+		expect(result.code).not.toBe(0);
+		expect(result.stderr).toContain("production placeholder");
+	});
+
 	it("denies private, carrier-grade NAT, link-local and metadata ranges while keeping loopback for RPC", async () => {
 		const unit = await readFile(path.join(process.cwd(), "deploy/systemd/vcontrolhub-aria2.service.example"), "utf8");
 		const deny = unit.match(/^IPAddressDeny=(.*)$/m)?.[1]?.split(/\s+/) ?? [];

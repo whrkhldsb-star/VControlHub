@@ -3,6 +3,8 @@
 import { useI18n } from "@/lib/i18n/use-locale";
 import { useToast } from "@/components/toast-provider";
 import { EmptyState, ListPanel } from "@/components/page-shell";
+import { costMessage } from "@/lib/cost/messages";
+import { isSourceManagedCost } from "@/lib/cost/types";
 import { CostDeleteDialog, CostEntryFormModal } from "./cost-entry-dialogs";
 import { CostBudgetPanel } from "./cost-budget-panel";
 import { CostCloudBillingPanel } from "./cost-cloud-billing-panel";
@@ -251,6 +253,9 @@ export function CostPageClient({
 										{canManage ? (
 											<td className="px-3 py-2 text-right">
 												<div className="flex justify-end gap-2">
+													{isSourceManagedCost(e.sourceType) && (
+														<ActionButton size="sm" variant="secondary" onClick={() => openEdit(e, true)}>{costMessage("addAdjustment", locale)}</ActionButton>
+													)}
 													<ActionButton size="sm" variant="secondary" onClick={() => openEdit(e)}>{t("costPage.actions.edit")}</ActionButton>
 													<ActionButton size="sm" variant="danger" onClick={() => requestDelete(e)} disabled={deletingId === e.id}>
 														{deletingId === e.id ? t("costPage.actions.deleting") : t("costPage.actions.delete")}
@@ -278,6 +283,8 @@ export function CostPageClient({
 			<CostEntryFormModal
 				open={showForm && canManage}
 				editingId={editingId}
+				sourceDateLocked={state.sourceDateLocked}
+				adjustmentTitle={state.adjustmentForId ? costMessage("addAdjustment", locale) : undefined}
 				form={form}
 				availableCurrencies={availableCurrencies}
 				saving={saving}

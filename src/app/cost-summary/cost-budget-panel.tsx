@@ -396,7 +396,7 @@ export function CostBudgetPanel({
               <ProgressBar
                 label={budget.name}
                 value={budget.usagePercent}
-                tone={budget.usagePercent >= 100 ? "danger" : budget.usagePercent >= budget.alertThresholdPercent ? "warning" : "success"}
+                tone={budget.usageStatus === "exhausted" ? "danger" : budget.usageStatus === "threshold" ? "warning" : "success"}
                 className="mt-3"
               />
               <p className="mt-2 flex flex-wrap justify-between gap-x-3 text-xs text-[var(--text-secondary)]">

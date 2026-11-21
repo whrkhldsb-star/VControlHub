@@ -9,6 +9,7 @@
 set -euo pipefail
 
 : "${ARIA2_RPC_SECRET:?ARIA2_RPC_SECRET is required}"
+node "$(dirname "${BASH_SOURCE[0]}")/check-aria2-secret.mjs" --require-secret
 port="${ARIA2_RPC_PORT:-6800}"
 case "${port}" in ''|*[!0-9]*) echo "ARIA2_RPC_PORT must be numeric" >&2; exit 64 ;; esac
 rpc_dir="${ARIA2_RPC_DIR:-${APP_DIR:-${PWD}}/tmp/aria2}"

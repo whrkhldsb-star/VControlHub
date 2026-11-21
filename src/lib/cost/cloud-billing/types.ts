@@ -47,6 +47,8 @@ export type CloudBillingCredentials = {
 	roleArn?: string;
 };
 
+export type BillingRowIssue = { row: number; reason: "date" | "amount" };
+
 export interface CloudBillingAccountRecord {
 	id: string;
 	name: string;
@@ -59,6 +61,7 @@ export interface CloudBillingAccountRecord {
 	lastSyncAt: string | null;
 	lastSyncStatus: CloudBillingSyncStatus | null;
 	lastSyncError: string | null;
+	lastSyncIssues?: BillingRowIssue[];
 	lastSyncImported: number;
 	lastSyncSkipped: number;
 	createdById: string | null;
@@ -97,4 +100,5 @@ export interface CloudBillingFetchResult {
 	warnings: string[];
 	/** Source rows that could not be read (CSV); counted as skipped. */
 	rejectedRows?: number;
+	rowIssues?: BillingRowIssue[];
 }

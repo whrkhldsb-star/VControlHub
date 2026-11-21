@@ -11,6 +11,7 @@ WorkingDirectory={{APP_DIR}}
 EnvironmentFile={{RUNTIME_ENV_FILE}}
 Environment=NODE_ENV=production
 Environment=PATH={{SYSTEMD_PATH}}
+ExecStartPre={{NODE_BIN}} {{APP_DIR}}/deploy/check-aria2-secret.mjs
 ExecStart={{NODE_BIN}} {{APP_DIR}}/dist/worker.js
 Restart=always
 RestartSec=5

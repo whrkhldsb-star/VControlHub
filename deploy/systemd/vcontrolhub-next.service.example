@@ -13,6 +13,7 @@ Environment=NODE_ENV=production
 Environment=VCONTROLHUB_WORKERS_DISABLED=true
 Environment=PORT={{NEXT_PORT}}
 Environment=PATH={{SYSTEMD_PATH}}
+ExecStartPre={{NODE_BIN}} {{APP_DIR}}/deploy/check-aria2-secret.mjs
 ExecStart={{NODE_BIN}} {{APP_DIR}}/dist/server.js
 Restart=always
 RestartSec=5

@@ -3,7 +3,6 @@
  */
 import { z } from "zod";
 
-import { ValidationError } from "@/lib/errors";
 import { normalizePublicHttpUrl } from "@/lib/storage/direct-access-url";
 
 import { costCurrencySchema, costMonthSchema } from "../schema";
@@ -19,28 +18,6 @@ export const cloudBillingCredentialsSchema = z
 		roleArn: z.string().trim().max(512).optional(),
 	})
 	.strict();
-
-function normalizeBillingCsvUrl(
-	value: string,
-): { ok: true; url: string } | { ok: false; reason: string } {
-	try {
-		return {
-			ok: true,
-			url: normalizePublicHttpUrl(
-				value,
-				"billingCsvUrl must be a public http(s) URL without credentials",
-			),
-		};
-	} catch (error) {
-		return {
-			ok: false,
-			reason:
-				error instanceof ValidationError || error instanceof Error
-					? error.message
-					: "billingCsvUrl is not a valid public URL",
-		};
-	}
-}
 
 const cloudBillingConfigObjectSchema = z
 	.object({
@@ -69,15 +46,14 @@ export const cloudBillingConfigSchema = cloudBillingConfigObjectSchema.transform
 		// would have to wrap validation in try/catch to get a 400 instead of a 500.
 		let billingCsvUrl: string | undefined;
 		if (raw) {
-			const normalized = normalizeBillingCsvUrl(raw);
-			if (!normalized.ok) {
+			try {
+				billingCsvUrl = normalizePublicHttpUrl(raw);
+			} catch {
 				ctx.addIssue({
-					code: z.ZodIssueCode.custom,
+					code: "invalid_format",
+					format: "public HTTP(S) URL without credentials",
 					path: ["billingCsvUrl"],
-					message: normalized.reason,
 				});
-			} else {
-				billingCsvUrl = normalized.url;
 			}
 		}
 		return {
@@ -111,11 +87,9 @@ export const createCloudBillingAccountSchema = z
 		const hasSample = Boolean(val.config?.sampleCsv?.trim());
 		const hasUrl = Boolean(val.config?.billingCsvUrl?.trim());
 		if (!hasSample && !hasUrl) {
-			ctx.addIssue({
-				code: "custom",
-				message: `${val.provider} requires config.sampleCsv or config.billingCsvUrl`,
-				path: ["config"],
-			});
+			for (const field of ["sampleCsv", "billingCsvUrl"]) {
+				ctx.addIssue({ code: "custom", path: ["config", field], message: "At least one field must be provided" });
+			}
 		}
 	});
 
@@ -135,5 +109,6 @@ export const updateCloudBillingAccountSchema = z
 
 export const syncCloudBillingSchema = z.object({
 	month: costMonthSchema.optional(),
+	confirmLegacyDuplicates: z.boolean().optional(),
 });
 

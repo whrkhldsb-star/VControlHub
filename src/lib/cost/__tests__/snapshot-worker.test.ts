@@ -8,6 +8,8 @@
  *   - buildTodaySnapshot 抛错 → failJob + logger.error
  *   - 重入保护 (state.running)
  */
+import { acquireAdvisoryLock } from "@/lib/concurrency/advisory-lock";
+import { checkBudgetAlerts, syncServerMonthlyCosts } from "../service";
 import { beforeEach, describe, expect, it, vi } from "vitest";
 
 const {
@@ -26,6 +28,7 @@ const {
   jobIds: { next: 1 },
   jobMocks: {
     findFirst: vi.fn(),
+    updateMany: vi.fn(),
     enqueueJob: vi.fn(),
     claimNextJob: vi.fn(),
     heartbeatJob: vi.fn(),
@@ -49,6 +52,7 @@ vi.mock("@/lib/db", () => ({
   prisma: {
     job: {
       findFirst: jobMocks.findFirst,
+      updateMany: jobMocks.updateMany,
     },
     costEntry: {
       groupBy: groupByMock,
@@ -133,7 +137,7 @@ describe("cost-snapshot-worker", () => {
       id: `j-${jobIds.next++}`,
       ...req,
     }));
-    jobMocks.claimNextJob.mockResolvedValue({ id: "j-1" });
+    jobMocks.claimNextJob.mockResolvedValue({ id: "j-1", createdAt: new Date() });
     jobMocks.heartbeatJob.mockResolvedValue(undefined);
     jobMocks.completeJob.mockResolvedValue(undefined);
     jobMocks.failJob.mockResolvedValue(undefined);
@@ -183,6 +187,32 @@ describe("cost-snapshot-worker", () => {
     expect(errorMock).not.toHaveBeenCalled();
   });
 
+  it("keeps the enqueue lock until the insert is visible", async () => {
+    let resolve!: () => void;
+    const release = vi.fn(async () => undefined);
+    vi.mocked(acquireAdvisoryLock).mockResolvedValueOnce(release);
+    jobMocks.enqueueJob.mockReturnValueOnce(new Promise<void>(done => { resolve = done; }));
+    const tick = worker.runCostSnapshotWorkerOnce();
+    await vi.waitFor(() => expect(jobMocks.enqueueJob).toHaveBeenCalled());
+    expect(release).not.toHaveBeenCalled();
+    resolve();
+    await tick;
+    expect(release).toHaveBeenCalledTimes(1);
+  });
+
+  it.each([
+    { requestedAt: "2026-10-31T14:30:00Z" },
+    { targetDay: "2026-10-31", requestedAt: "2026-10-31T16:30:00Z" },
+  ])("keeps the requested business day and month on a November retry (%j)", async payload => {
+    vi.setSystemTime(new Date("2026-10-31T17:00:00Z"));
+    jobMocks.claimNextJob.mockResolvedValueOnce({ id: "old", payload });
+    await worker.runCostSnapshotWorkerOnce();
+    expect(jobMocks.enqueueJob.mock.calls[0]?.[0].payload.targetDay).toBe("2026-11-01");
+    expect(syncServerMonthlyCosts).toHaveBeenCalledWith("2026-10");
+    expect(upsertDailySnapshotMock.mock.calls[0]?.[0].snapshotDate).toEqual(new Date("2026-10-31"));
+    expect(checkBudgetAlerts).toHaveBeenCalledWith(new Date("2026-10-31T04:00:00Z"));
+  });
+
   it("skips enqueue when a PENDING/RUNNING job already exists", async () => {
     jobMocks.findFirst.mockResolvedValueOnce({ id: "j-existing" });
     // claimNextJob still finds it
@@ -204,6 +234,7 @@ describe("cost-snapshot-worker", () => {
     upsertDailySnapshotMock.mockRejectedValueOnce(new Error("DB down"));
     const result = await worker.runCostSnapshotWorkerOnce("interval");
     expect(result).toBe(true);
+    expect(checkBudgetAlerts).toHaveBeenCalled();
     expect(jobMocks.failJob).toHaveBeenCalledWith(
       "j-1",
       expect.stringContaining("cost-snapshot"),
@@ -214,6 +245,22 @@ describe("cost-snapshot-worker", () => {
       "Cost snapshot failed",
       expect.objectContaining({ error: expect.stringContaining("DB down") }),
     );
+  });
+
+  it.each(["snapshot", "budget"])("retries only the unfinished %s step after a checkpoint", async failed => {
+    const job = { id: "checkpoint", attempts: 1, payload: { targetDay: "2026-07-30" } };
+    jobMocks.claimNextJob.mockResolvedValueOnce(job);
+    if (failed === "snapshot") upsertDailySnapshotMock.mockRejectedValueOnce(new Error("snapshot down"));
+    else vi.mocked(checkBudgetAlerts).mockRejectedValueOnce(new Error("budget down"));
+    await worker.runCostSnapshotWorkerOnce();
+    const checkpoint = jobMocks.updateMany.mock.calls[0]?.[0];
+    expect(checkpoint.where).toMatchObject({ attempts: 1, id: job.id, status: "RUNNING" });
+    jobMocks.claimNextJob.mockResolvedValueOnce({ ...job, attempts: 2, result: checkpoint.data.result });
+    await worker.runCostSnapshotWorkerOnce();
+    expect(jobMocks.completeJob).toHaveBeenCalledTimes(1);
+    expect(upsertDailySnapshotMock).toHaveBeenCalledTimes(failed === "snapshot" ? 2 : 1);
+    expect(checkBudgetAlerts).toHaveBeenCalledTimes(failed === "budget" ? 2 : 1);
+    expect(syncServerMonthlyCosts).toHaveBeenCalledTimes(1);
   });
 
   it("state.running blocks a concurrent tick (re-entrancy guard)", async () => {

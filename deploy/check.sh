@@ -24,7 +24,7 @@ if [ -z "${ENV_FILE}" ]; then
     ENV_FILE="${APP_DIR}/.env.local"
   fi
 fi
-NEXT_HOST="${NEXT_HOST:-127.0.0.1}"
+source "$(dirname "${BASH_SOURCE[0]}")/lib/listen-address.sh"
 SSH_WS_HOST="${SSH_WS_HOST:-127.0.0.1}"
 CHECK_PUBLIC_URL="${CHECK_PUBLIC_URL:-}"
 RUN_NPM_CHECKS="${RUN_NPM_CHECKS:-0}"
@@ -63,18 +63,8 @@ set +a
 # The runtime env file leaves the ports out (systemd sets them per unit), so a
 # custom port was checked as 3000. Take them from the install's .env.local
 # when they were not given to this run.
-port_from_env_local() {
-  local file="$1" name="$2" line
-  [ -f "${file}" ] || return 0
-  line="$(grep "^${name}=" "${file}" 2>/dev/null | tail -n 1)" || return 0
-  line="${line#*=}"
-  line="${line%\"}"; line="${line#\"}"
-  line="${line%\'}"; line="${line#\'}"
-  printf '%s' "${line}"
-}
-[ -n "${NEXT_PORT:-}" ] || NEXT_PORT="$(port_from_env_local "${APP_DIR}/.env.local" NEXT_PORT)"
-[ -n "${SSH_WS_PORT:-}" ] || SSH_WS_PORT="$(port_from_env_local "${APP_DIR}/.env.local" SSH_WS_PORT)"
-NEXT_PORT="${NEXT_PORT:-3000}"
+health_url="$(web_health_url "${APP_DIR}" "${ENV_FILE}")"
+[ -n "${SSH_WS_PORT:-}" ] || SSH_WS_PORT="$(listen_setting "${APP_DIR}/.env.local" SSH_WS_PORT)"
 SSH_WS_PORT="${SSH_WS_PORT:-3001}"
 
 for required in DATABASE_URL AUTH_SESSION_SECRET ADMIN_INITIAL_PASSWORD SSH_WS_SECRET ENCRYPTION_KEY STORAGE_DIRECT_ACCESS_SECRET; do
@@ -103,7 +93,7 @@ if [ "${SKIP_LIVE_CHECKS}" != "1" ]; then
   fi
 
   if have_cmd curl; then
-    code="$(curl -sS -o /dev/null -w '%{http_code}' --max-time 10 "http://${NEXT_HOST}:${NEXT_PORT}/login" || true)"
+    code="$(curl -sS -o /dev/null -w '%{http_code}' --max-time 10 "${health_url}" || true)"
     [ "$code" = "200" ] || fail "Local /login returned HTTP ${code:-000}"
     log "Local /login HTTP 200"
 

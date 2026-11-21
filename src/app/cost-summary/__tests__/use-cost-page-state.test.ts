@@ -19,6 +19,7 @@ const mocks = vi.hoisted(() => ({ csrfFetch: vi.fn(), addToast: vi.fn() }));
 
 vi.mock("@/lib/auth/csrf-client", () => ({ csrfFetch: mocks.csrfFetch }));
 
+import type { CostEntryRecord } from "@/lib/cost/types";
 import { useCostPageState } from "../use-cost-page-state";
 
 /** What the API client hands back for a good answer: the parsed body. */
@@ -38,13 +39,13 @@ function deferred<T>() {
 	return { promise, resolve, reject };
 }
 
-function setup() {
+function setup(initialEntries: CostEntryRecord[] = []) {
 	return renderHook(() =>
 		useCostPageState({
 			initialMonth: "2026-08",
 			initialCurrency: "CNY",
 			initialSummary: null,
-			initialEntries: [],
+			initialEntries,
 			initialSnapshots: [],
 			canManage: true,
 			t: ((key: string) => key) as never,
@@ -163,6 +164,23 @@ describe("useCostPageState", () => {
 		const fill = (result: { current: ReturnType<typeof useCostPageState> }) => act(() => {
 			result.current.openCreate();
 			result.current.setForm({ category: "vps", provider: "aws", amount: "10.00", currency: "CNY", effectiveDate: "2026-08-01", notes: "" } as never);
+		});
+
+		it.each(["server_monthly", "cloud_billing"])("locks the %s date and posts a linked credit as a separate entry", async sourceType => {
+			const source: CostEntryRecord = { id: "source", category: "vps", provider: "fixture", amount: "10.00", currency: "CNY",
+				effectiveDate: "2026-08-01", sourceType, sourceRef: "external", notes: null, createdById: null, tags: [], createdAt: "", updatedAt: "" };
+			const { result } = setup([source]);
+			act(() => result.current.openEdit(source));
+			expect(result.current.sourceDateLocked).toBe(true);
+			await act(() => result.current.submitForm());
+			const patch = mocks.csrfFetch.mock.calls.find(([, opts]) => opts?.method === "PATCH");
+			expect(JSON.parse(patch?.[1].body)).not.toHaveProperty("effectiveDate");
+			act(() => result.current.openEdit(source, true));
+			expect(result.current.sourceDateLocked).toBe(false);
+			act(() => result.current.setForm({ ...result.current.form, amount: "-1.00", effectiveDate: "2026-08-03" }));
+			await act(() => result.current.submitForm());
+			const post = mocks.csrfFetch.mock.calls.find(([, opts]) => opts?.method === "POST");
+			expect(JSON.parse(post?.[1].body)).toMatchObject({ adjustmentForId: source.id, amount: "-1.00", effectiveDate: "2026-08-03" });
 		});
 
 		it("says the entry was saved, not the label of the button", async () => {

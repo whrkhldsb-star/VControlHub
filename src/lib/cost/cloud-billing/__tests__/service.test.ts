@@ -1,6 +1,8 @@
 /**
  * Cloud billing adapters + service unit tests.
  */
+import type { Prisma } from "@prisma/client";
+import { prisma } from "@/lib/db";
 import { afterEach, beforeEach, describe, expect, it, vi } from "vitest";
 
 const accountStore = new Map<string, Record<string, unknown>>();
@@ -28,6 +30,7 @@ const { acquireLockMock, lockAcquisitions } = vi.hoisted(() => {
 
 vi.mock("@/lib/db", () => ({
   prisma: {
+    $transaction: (run: (tx: Prisma.TransactionClient) => unknown) => run(prisma),
     cloudBillingAccount: {
       create: vi.fn(async ({ data }: { data: Record<string, unknown> }) => {
         seq += 1;
@@ -138,6 +141,8 @@ vi.mock("@/lib/db", () => ({
           const id = where.id as string;
           const prev = accountStore.get(id);
           if (!prev) return { count: 0 };
+          if (where.updatedAt && prev.updatedAt !== where.updatedAt) return { count: 0 };
+          if (where.credentialsEnc && prev.credentialsEnc !== where.credentialsEnc) return { count: 0 };
           if (where.teamId === null && prev.teamId != null) return { count: 0 };
           const or = where.OR as Array<Record<string, unknown>> | undefined;
           if (or) {
@@ -184,6 +189,7 @@ vi.mock("@/lib/db", () => ({
       ),
     },
     cloudBillingSyncRun: {
+      updateMany: vi.fn().mockResolvedValue({ count: 0 }),
       create: vi.fn(async ({ data }: { data: Record<string, unknown> }) => {
         seq += 1;
         const row = {
@@ -198,19 +204,19 @@ vi.mock("@/lib/db", () => ({
         runStore.set(row.id as string, row);
         return row;
       }),
-      update: vi.fn(
+      updateManyAndReturn: vi.fn(
         async ({
           where,
           data,
         }: {
-          where: { id: string };
+          where: { id: string; status: string };
           data: Record<string, unknown>;
         }) => {
           const prev = runStore.get(where.id);
-          if (!prev) throw new Error("missing run");
+          if (prev?.status !== where.status) return [];
           const next = { ...prev, ...data };
           runStore.set(where.id, next);
-          return next;
+          return [next];
         },
       ),
       findMany: vi.fn(async ({ where }: { where: { accountId: string } }) =>
@@ -220,6 +226,7 @@ vi.mock("@/lib/db", () => ({
       ),
     },
     costEntry: {
+      findMany: vi.fn().mockResolvedValue([]),
       upsert: vi.fn(
         async ({
           where,
@@ -360,6 +367,22 @@ describe("parseBillingCsv", () => {
       category: "other",
       notes: "final",
     });
+  });
+
+  it.each(["", "upstream temporarily unavailable", "date,total"])("rejects a headerless or invalid one-record bill (%s)", csv => {
+    expect(() => parseBillingCsv(csv, { currency: "USD", providerLabel: "CSV" })).toThrow();
+  });
+
+  it("accepts an empty month with a valid header", () => {
+    expect(parseBillingCsv("date,amount", { currency: "USD", providerLabel: "CSV" })).toEqual([]);
+  });
+
+  it.each(["external_id,id", "id,external_id"])("uses the external_id column regardless of position (%s)", columns => {
+    const ids = columns.startsWith("id,") ? ["first,same", "second,same"] : ["same,first", "same,second"];
+    const csv = ["date,amount," + columns, ...ids.map(pair => "2026-07-01,1," + pair)].join("\n");
+    expect(parseBillingCsv(csv, { currency: "USD", providerLabel: "CSV" }).map(item => item.externalId))
+      .toEqual(["csv:id:same", "csv:id:same"]);
+    expect(parseBillingCsv("date,amount,id\n2026-07-01,1,fallback", { currency: "USD", providerLabel: "CSV" })[0]?.externalId).toBe("csv:id:fallback");
   });
 
   it("rejects missing columns", () => {
@@ -723,6 +746,10 @@ describe("cloud billing service", () => {
 
     expect(result).toMatchObject({ imported: 1, skipped: 1, run: { status: "partial" } });
     expect(result.warnings.join(" ")).toContain("not-a-number");
+    const { redactCloudBillingAccountForReader } = await import("../redact");
+    const reader = redactCloudBillingAccountForReader(await getCloudBillingAccount(account.id), { roles: [] });
+    expect(reader).toMatchObject({ lastSyncError: "CSV #2 (amount)", lastSyncSkipped: 1 });
+    expect(JSON.stringify(reader)).not.toContain("not-a-number");
   });
 
   it("rejects a batch with a repeated external_id on the same date before writing any charges", async () => {
@@ -732,10 +759,10 @@ describe("cloud billing service", () => {
       credentials: {},
       config: {
         sampleCsv: [
-          "date,amount,external_id",
-          "2026-07-01,1.00,different-charge",
-          "2026-07-02,2.00,charge-42",
-          "2026-07-02,9.00,charge-42",
+          "date,amount,external_id,id",
+          "2026-07-01,1.00,different-charge,a",
+          "2026-07-02,2.00,charge-42,b",
+          "2026-07-02,9.00,charge-42,c",
         ].join("\n"),
       },
     });
@@ -797,6 +824,20 @@ describe("cloud billing service", () => {
     for (const ref of refs) {
       expect(ref.length).toBeLessThanOrEqual(180);
     }
+  });
+
+  it("detects overlapping partial credential rotations and permits a fresh merge", async () => {
+    const { updateCloudBillingAccount } = await import("../service");
+    const account = await createCloudBillingAccount({ name: "rotate", provider: "aws", credentials: { accessKeyId: "old", sessionToken: "old" } });
+    const edits = [{ accessKeyId: "new-key" }, { sessionToken: "new-token" }];
+    const result = await Promise.allSettled(edits.map(credentials => updateCloudBillingAccount(account.id, { credentials })));
+    expect(result.filter(r => r.status === "fulfilled")).toHaveLength(1);
+    const loser = result.findIndex(r => r.status === "rejected");
+    expect(result[loser]).toMatchObject({ reason: { status: 409 } });
+    await updateCloudBillingAccount(account.id, { credentials: edits[loser] });
+    const cipher = String(accountStore.get(account.id)?.credentialsEnc);
+    expect(cipher).toContain("new-key");
+    expect(cipher).toContain("new-token");
   });
 
   it("deletes account", async () => {

@@ -10,6 +10,7 @@ import CostSummaryPage from "../page";
 
 const account = {
 	id: "billing-1",
+	lastSyncError: "legacy internal supplier detail", lastSyncStatus: "error",
 	config: {
 		region: "us-east-1",
 		sampleCsv: "date,amount\n2026-07-01,42",
@@ -49,7 +50,7 @@ async function billingAccountsFor(permissions: Permission[]) {
 }
 
 it("omits the sample CSV and billing feed URL from the cost reader's initial client props", async () => {
-	expect(await billingAccountsFor(["cost:read"])).toStrictEqual([{ id: "billing-1", config: { region: "us-east-1" } }]);
+	expect(await billingAccountsFor(["cost:read"])).toStrictEqual([{ id: "billing-1", lastSyncError: "error", lastSyncStatus: "error", config: { region: "us-east-1" } }]);
 });
 
 it("passes the full billing config to a cost manager", async () => {

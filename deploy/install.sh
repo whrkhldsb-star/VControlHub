@@ -101,6 +101,7 @@ QUICK_SERVICE_PATHS_LIB="${SCRIPT_DIR}/lib/quick-service-paths.sh"
 [ -r "${QUICK_SERVICE_PATHS_LIB}" ] || fail "Missing Quick Service path inventory: ${QUICK_SERVICE_PATHS_LIB}"
 # shellcheck disable=SC1090
 source "${QUICK_SERVICE_PATHS_LIB}"
+source "${SCRIPT_DIR}/lib/release-paths.sh"
 
 shell_escape_sed_replacement() {
  # Escape &, \, /, #, and | for use in sed replacement strings.
@@ -625,15 +626,17 @@ sync_source() {
 		# Every pattern starts with "/": it names runtime data at the top of the install. Without it rsync matches the
 		# name at any depth, and "downloads", "backups" and "logs" left out src/lib/downloads, the downloads and
 		# backups pages with their routes and the AI operations log route (the tar branch below was always anchored).
-		rsync -a --delete \
---exclude /.git --exclude '/node_modules*' --exclude '/.next*' --exclude '/dist*' --exclude /backups --exclude /storage --exclude /tmp --exclude /uploads --exclude /downloads --exclude /logs --exclude /.env.local \
---exclude /.cache --exclude /.npm --exclude /coverage --exclude /.playwright-output --exclude /.dast-output --exclude /tsconfig.tsbuildinfo --exclude /.env.runtime \
+		rsync -a --delete --include="/${release_env_template}" --exclude="/${local_env_glob}" \
+--exclude /.git --exclude '/node_modules*' --exclude '/.next*' --exclude '/dist*' --exclude /backups --exclude /storage --exclude /tmp --exclude /uploads --exclude /downloads --exclude /logs \
+--exclude /.cache --exclude /.npm --exclude /coverage --exclude /.playwright-output --exclude /.dast-output --exclude /tsconfig.tsbuildinfo \
  "${SOURCE_DIR}/" "${APP_DIR}/"
     else
       warn "rsync not found; falling back to tar-based source sync"
+      local env_excludes=()
+      tar_env_excludes "${SOURCE_DIR}" env_excludes
       (cd "${SOURCE_DIR}" && tar \
-        --exclude ./.git --exclude './node_modules*' --exclude './.next*' --exclude './dist*' --exclude ./backups --exclude ./storage --exclude ./tmp --exclude ./uploads --exclude ./downloads --exclude ./logs --exclude ./.env.local \
-        --exclude ./.cache --exclude ./.npm --exclude ./coverage --exclude ./.playwright-output --exclude ./.dast-output --exclude ./tsconfig.tsbuildinfo --exclude ./.env.runtime \
+        --exclude ./.git --exclude './node_modules*' --exclude './.next*' --exclude './dist*' --exclude ./backups --exclude ./storage --exclude ./tmp --exclude ./uploads --exclude ./downloads --exclude ./logs \
+        --exclude ./.cache --exclude ./.npm --exclude ./coverage --exclude ./.playwright-output --exclude ./.dast-output --exclude ./tsconfig.tsbuildinfo "${env_excludes[@]}" \
         -cf - .) | (cd "${APP_DIR}" && tar -xf -)
     fi
   fi
@@ -1128,6 +1131,7 @@ build_app() {
 	npm run prisma:generate
 	if [ "${SKIP_DB_SETUP}" != "1" ]; then
 	npm run prisma:deploy
+	npm exec --no -- tsx deploy/prepare-cost-ledger.ts
 	fi
 	if [ "${SKIP_DB_SETUP}" != "1" ] && [ "${SKIP_SEED}" != "1" ]; then
 	log "Seeding database (admin user, roles, permissions)"

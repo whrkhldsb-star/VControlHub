@@ -11,7 +11,7 @@ import { describe, expect, it } from "vitest";
  */
 describe("Windows installer health check", () => {
 	it("polls the configured port instead of a fixed 3000", async () => {
-		const script = await readFile(path.join(process.cwd(), "deploy/windows/install.ps1"), "utf8");
+		const script = await readFile(path.join(process.cwd(), "deploy/windows/publish-release.ps1"), "utf8");
 		const healthCheck = script.slice(script.indexOf("$ready = $false"));
 		expect(script).toMatch(/\$webPort = if \(\$env:PORT\)/);
 		expect(healthCheck).toContain("-Uri $healthUrl");

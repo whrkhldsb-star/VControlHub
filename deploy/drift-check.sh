@@ -4,8 +4,7 @@ set -euo pipefail
 
 APP_DIR="${APP_DIR:-}"
 SERVICE_PREFIX="${SERVICE_PREFIX:-vcontrolhub}"
-NEXT_HOST="${NEXT_HOST:-127.0.0.1}"
-NEXT_PORT="${NEXT_PORT:-3000}"
+source "$(dirname "${BASH_SOURCE[0]}")/lib/listen-address.sh"
 
 log() { printf '\033[1;32m[drift]\033[0m %s\n' "$*"; }
 warn() { printf '\033[1;33m[drift]\033[0m %s\n' "$*" >&2; }
@@ -60,7 +59,7 @@ for artifact in dist/server.js dist/worker.js dist/ssh-ws-proxy.js .next/BUILD_I
 done
 
 if command -v curl >/dev/null 2>&1; then
-  code="$(curl -sS -o /dev/null -w '%{http_code}' --max-time 10 "http://${NEXT_HOST}:${NEXT_PORT}/login" || true)"
+  code="$(curl -sS -o /dev/null -w '%{http_code}' --max-time 10 "$(web_health_url "${APP_DIR}" "${ENV_FILE:-${APP_DIR}/.env.runtime}")" || true)"
   [ "$code" = "200" ] || fail "local /login returned HTTP ${code:-000}"
   log "local /login HTTP 200"
 fi
