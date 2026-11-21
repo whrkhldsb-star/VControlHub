@@ -1,3 +1,6 @@
+import { joinStoragePath } from "@/lib/storage/path-utils";
+import { assertNotRecycled } from "@/lib/storage/archive-access";
+import { lockStorageFileOverwrite } from "@/lib/storage/file-overwrite-lock";
 import { apiCopy } from "@/lib/i18n/api-copy";
 /**
  * TR-009 55c: POST /api/images/upload/[id]/complete — finalize a chunked
@@ -63,6 +66,7 @@ export async function POST(
 ) {
   const { id: sessionId } = await params;
   const locale = await getServerLocale();
+  let releasePath: (() => Promise<void>) | undefined;
   let storageAccess: Awaited<ReturnType<typeof assertStorageAccess>> | undefined;
   return withApiRoute(
     request,
@@ -176,13 +180,18 @@ export async function POST(
 
       let linkedStorageRelativePath: string | null = null;
       let linkedStorageNode: StorageFileNode | null = null;
-      if (existing.storageNodeId && existing.relativePath) {
-        storageAccess = await assertStorageAccess({ session, storageNodeId: existing.storageNodeId, relativePath: existing.relativePath, operation: "write", writeBytes: assembled.byteLength });
+      if (existing.storageNodeId) {
+        // Sessions initialized before root directories were persisted use null here.
+        const target = joinStoragePath(existing.relativePath ?? "", storageKey);
+        if (!target.ok) throw new ValidationError(target.reason);
+        linkedStorageRelativePath = target.path;
+        storageAccess = await assertStorageAccess({ session, storageNodeId: existing.storageNodeId, relativePath: target.path, operation: "write", writeBytes: assembled.byteLength });
         if (!storageAccess.allowed) throw new ForbiddenError(storageAccessDeniedCopy(storageAccess.reason));
         const node = await prisma.storageNode.findFirst({ where: { id: existing.storageNodeId, ...teamWhere(session), teamId: existing.teamId }, select: storageFileNodeSelect });
         if (!node || (node.driver !== "LOCAL" && node.driver !== "SFTP")) throw new ValidationError(apiCopy("apiCopy.storage.node.does.not.support.media.uploads.0d4e9d55"));
+        releasePath = await lockStorageFileOverwrite(node.id, target.path);
+        await assertNotRecycled(node.id, target.path, "write", node.driver);
         linkedStorageNode = node;
-        linkedStorageRelativePath = `${existing.relativePath.replace(/\/$/, "")}/${storageKey}`;
       }
       await lease.beforeWrite({ kind: "image", storageKey, checksum, paths: [originalPath, thumbPath], storageNodeId: existing.storageNodeId, relativePath: linkedStorageRelativePath });
       await mkdir(UPLOAD_DIR, { recursive: true });
@@ -284,5 +293,7 @@ export async function POST(
         lease.stop();
       }
     },
-  ).finally(() => releaseStorageQuotaGuard(storageAccess));
+  ).finally(async () => {
+    try { await releasePath?.(); } finally { await releaseStorageQuotaGuard(storageAccess); }
+  });
 }

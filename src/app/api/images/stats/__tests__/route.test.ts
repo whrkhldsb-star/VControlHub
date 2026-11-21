@@ -80,6 +80,8 @@ describe("/api/images/stats", () => {
       totalSizeBytes: 1024 * 1024,
       totalSizeMB: 1,
     });
+    expect(imageCountMock.mock.calls).toHaveLength(8);
+    for (const [{ where }] of imageCountMock.mock.calls) expect(where).toMatchObject({ teamId: "team_a", userId: "u_1" });
     expect(body.albums[0]).toMatchObject({ album: "cats", count: 2 });
   });
 

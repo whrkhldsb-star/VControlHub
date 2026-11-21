@@ -16,10 +16,10 @@ const {
   assertStorageAccessMock: vi.fn(),
   prismaMock: {
     storageNode: { findFirst: vi.fn() },
-    fileEntry: { findFirst: vi.fn() },
+    fileEntry: { findFirst: vi.fn(), findMany: vi.fn() },
   },
   createFileEntryMock: vi.fn(),
-  syncLocalDirectoryEntriesMock: vi.fn(async (_input: { relativePath?: string }) => ({ synced: 0, created: 0, updated: 0, deleted: 0, errors: [] })),
+  syncLocalDirectoryEntriesMock: vi.fn(async (_input: { relativePath?: string }) => ({ synced: 0, created: 0, updated: 0, deleted: 0, errors: [] as string[] })),
 }));
 
 vi.mock("@/lib/auth/require-api-permission", () => ({
@@ -29,6 +29,7 @@ vi.mock("@/lib/storage/access-control", () => ({
   assertStorageAccess: assertStorageAccessMock,
   releaseStorageQuotaGuard: vi.fn(async () => undefined),
 }));
+vi.mock("@/lib/storage/file-overwrite-lock", () => ({ lockStorageFileOverwrite: async () => async () => {} }));
 vi.mock("@/lib/db", () => ({ prisma: prismaMock }));
 vi.mock("@/lib/storage/service", () => ({
   createFileEntry: createFileEntryMock,
@@ -79,6 +80,8 @@ describe("POST /api/files/extract", () => {
     });
     assertStorageAccessMock.mockResolvedValue({ allowed: true });
     prismaMock.fileEntry.findFirst.mockResolvedValue(null);
+    prismaMock.fileEntry.findMany.mockResolvedValue([]);
+
     createFileEntryMock.mockResolvedValue({ id: "entry_1" });
   });
 
@@ -145,6 +148,10 @@ describe("POST /api/files/extract", () => {
     await createTarGz();
     localNode();
 
+    prismaMock.fileEntry.findMany.mockResolvedValueOnce([
+      { relativePath: "backup", entryType: "DIRECTORY" },
+      { relativePath: "backup/hello.txt", entryType: "FILE", size: BigInt(5) },
+    ]);
     const response = await POST(extractRequest("backup.tar.gz"));
 
     expect(response.status).toBe(200);
@@ -163,6 +170,7 @@ describe("POST /api/files/extract", () => {
       relativePath: ".",
       operation: "write",
       writeBytes: 5,
+      largestFileBytes: 5,
     });
     expect(syncLocalDirectoryEntriesMock.mock.calls.map(([input]) => input.relativePath)).toEqual([undefined, "backup"]);
   });
@@ -178,6 +186,12 @@ describe("POST /api/files/extract", () => {
     ]));
     localNode();
 
+    prismaMock.fileEntry.findMany.mockResolvedValueOnce([
+      { relativePath: "downloads/site", entryType: "DIRECTORY" },
+      { relativePath: "downloads/site/css", entryType: "DIRECTORY" },
+      { relativePath: "downloads/site/css/app.css", entryType: "FILE", size: BigInt(6) },
+      { relativePath: "downloads/site/index.html", entryType: "FILE", size: BigInt(11) },
+    ]);
     const response = await POST(extractRequest("downloads/site.zip"));
 
     expect(response.status).toBe(200);
@@ -186,6 +200,16 @@ describe("POST /api/files/extract", () => {
     expect(body.message).toContain("site");
     expect(await readFile(path.join(tempDir, "downloads", "site", "css", "app.css"), "utf8")).toBe("body{}");
     expect(syncLocalDirectoryEntriesMock.mock.calls.map(([input]) => input.relativePath)).toEqual(["downloads", "downloads/site", "downloads/site/css"]);
+  });
+
+  it("reports reconciliation when a sync skips a published member without an error", async () => {
+    await createTarGz();
+    localNode();
+    prismaMock.fileEntry.findMany.mockResolvedValueOnce([{ relativePath: "backup", entryType: "DIRECTORY" }]);
+    const response = await POST(extractRequest("backup.tar.gz"));
+    expect(response.status).toBe(500);
+    expect(await response.json()).toMatchObject({ folder: "backup", indexStatus: "reconciliation_required" });
+    expect(await readFile(path.join(tempDir, "backup/hello.txt"), "utf8")).toBe("hello");
   });
 
   it("refuses an archive with a traversal path and writes nothing", async () => {
@@ -434,6 +458,28 @@ describe("POST /api/files/extract", () => {
       error: expect.any(String),
     });
     expect(createFileEntryMock).not.toHaveBeenCalled();
+  });
+
+  it("keeps a gzip output claimed by an active index while handling an insert conflict", async () => {
+    await createGz();
+    localNode();
+    createFileEntryMock.mockImplementationOnce(async () => {
+      prismaMock.fileEntry.findFirst.mockResolvedValueOnce({ id: "sync-winner" });
+      throw new Error("insert conflict");
+    });
+    const response = await POST(extractRequest("notes.txt.gz"));
+    expect(response.ok).toBe(false);
+    expect(await readFile(path.join(tempDir, "notes.txt"), "utf8")).toBe("hello gzip");
+  });
+
+  it("reports an inventory failure after archive publication", async () => {
+    await createTarGz();
+    localNode();
+    syncLocalDirectoryEntriesMock.mockResolvedValueOnce({ synced: 0, created: 0, updated: 0, deleted: 0, errors: ["index unavailable"] });
+    const response = await POST(extractRequest("backup.tar.gz"));
+    expect(response.status).toBe(500);
+    expect(await response.json()).toMatchObject({ folder: "backup", indexStatus: "reconciliation_required" });
+    expect(await readFile(path.join(tempDir, "backup", "hello.txt"), "utf8")).toBe("hello");
   });
 
   it("cleans up the extracted .gz output when indexing fails", async () => {

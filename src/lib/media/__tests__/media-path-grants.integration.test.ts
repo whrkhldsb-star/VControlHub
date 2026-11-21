@@ -67,6 +67,26 @@ describe.skipIf(process.env.RUN_DATABASE_INTEGRATION_TESTS !== "1")("media libra
     await expect(updateMediaTags({ id: ids.outside!, tags: ["mine"], session: narrowed })).rejects.toMatchObject({ status: 404 });
   });
 
+  it("checks moved and individually recycled files against their live FileEntry for reads and mutations", async () => {
+    const relativePath = "projectA/temp.png";
+    const entry = await prisma.fileEntry.create({ data: { storageNodeId: prefix, name: "temp.png", relativePath, entryType: "FILE" } });
+    const item = await prisma.mediaItem.create({ data: { fileEntryId: entry.id, storageNodeId: prefix, relativePath, name: "temp.png", mimeType: "image/png", mediaType: "image" } });
+    try {
+      await updateMediaTags({ id: item.id, tags: ["ok"], favorite: true, session: narrowed });
+      await updateMediaTags({ id: item.id, tags: [], session: narrowed });
+      await prisma.fileEntry.update({ where: { id: entry.id }, data: { relativePath: "projectB/temp.png" } });
+      expect((await listMediaItems({ session: narrowed })).some(row => row.id === item.id)).toBe(false);
+      await expect(updateMediaTags({ id: item.id, tags: ["stale"], session: narrowed })).rejects.toMatchObject({ status: 404 });
+      expect(await getMediaItem(item.id, narrowed)).toBeNull();
+      await prisma.fileEntry.update({ where: { id: entry.id }, data: { relativePath, isDeleted: true } });
+      expect((await listMediaItems({ session: narrowed })).some(row => row.id === item.id)).toBe(false);
+      expect((await prisma.mediaItem.findUniqueOrThrow({ where: { id: item.id } })).tags).toEqual([]);
+    } finally {
+      await prisma.mediaItem.delete({ where: { id: item.id } });
+      await prisma.fileEntry.delete({ where: { id: entry.id } });
+    }
+  });
+
   it("still shows a whole node without grants, and everything to an administrator", async () => {
     await prisma.userStorageAccess.deleteMany({ where: { storageNodeId: prefix } });
     try {

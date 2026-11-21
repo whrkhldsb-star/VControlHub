@@ -16,6 +16,8 @@ import path from "node:path";
 import { Readable } from "node:stream";
 import { pipeline } from "node:stream/promises";
 
+import { normalizeStorageEntryName, normalizeStorageRelativePath } from "./path-utils";
+import { isStorageStagingPath } from "./staging-paths";
 import { walkTar, TarFormatError } from "./tar-reader";
 import { openZipEntryStream, readZipEntries, ZipFormatError, type ZipEntry } from "./zip-reader";
 
@@ -63,7 +65,10 @@ export function normalizeMemberPath(name: string): string | null {
 	const cleaned = name.replace(/\\/g, "/");
 	if (cleaned.includes("\0") || /^[A-Za-z]:/.test(cleaned)) throw new ArchiveExtractError("unsafePath", name);
 	const segments = cleaned.split("/").filter((segment) => segment !== "" && segment !== ".");
-	if (segments.some((segment) => segment === ".." || /[\u0000-\u001f]/.test(segment))) throw new ArchiveExtractError("unsafePath", name);
+	for (const segment of segments) {
+		const checked = normalizeStorageEntryName(segment);
+		if (!checked.ok || checked.path !== segment || isStorageStagingPath(segment)) throw new ArchiveExtractError("unsafePath", name);
+	}
 	return segments.length ? segments.join("/") : null;
 }
 
@@ -74,7 +79,7 @@ function formatError(error: unknown): never {
 
 /* ── Listing ─────────────────────────────────────────────────────────── */
 
-export async function listArchive(filePath: string, kind: ArchiveKind): Promise<ArchiveListEntry[]> {
+export async function listArchive(filePath: string, kind: ArchiveKind, signal?: AbortSignal): Promise<ArchiveListEntry[]> {
 	try {
 		if (kind === "zip") {
 			const entries = await readZipEntries(filePath, { maxEntries: MAX_EXTRACT_ENTRIES * 5 });
@@ -94,6 +99,9 @@ export async function listArchive(filePath: string, kind: ArchiveKind): Promise<
 				isDirectory: member.type === "directory",
 				modified: member.modified?.toISOString(),
 			});
+		}, {
+			maxExpandedBytes: 128 * 1024 * 1024,
+			signal: AbortSignal.any([AbortSignal.timeout(15_000), ...(signal ? [signal] : [])]),
 		});
 		return entries;
 	} catch (error) {
@@ -107,6 +115,7 @@ export type ExtractionPlan = {
 	files: number;
 	directories: number;
 	totalBytes: number;
+	largestFileBytes: number;
 	/** Links and special files, which are never extracted. */
 	skipped: number;
 	/** The single top-level folder every member sits in, if there is one. */
@@ -116,7 +125,7 @@ export type ExtractionPlan = {
 function planner() {
 	const roots = new Set<string>();
 	let rootIsFile = false;
-	const plan: ExtractionPlan = { files: 0, directories: 0, totalBytes: 0, skipped: 0, singleRoot: null };
+	const plan: ExtractionPlan = { files: 0, directories: 0, totalBytes: 0, largestFileBytes: 0, skipped: 0, singleRoot: null };
 	return {
 		plan,
 		add(relative: string | null, kind: "file" | "directory" | "skip", size: number) {
@@ -131,6 +140,7 @@ function planner() {
 			if (kind === "directory") plan.directories++;
 			else plan.files++;
 			plan.totalBytes += size;
+			if (kind === "file") plan.largestFileBytes = Math.max(plan.largestFileBytes, size);
 			if (plan.files + plan.directories > MAX_EXTRACT_ENTRIES) throw new ArchiveExtractError("tooManyEntries", String(MAX_EXTRACT_ENTRIES));
 			if (plan.totalBytes > MAX_EXTRACT_BYTES) throw new ArchiveExtractError("tooLarge", String(MAX_EXTRACT_BYTES));
 		},
@@ -188,15 +198,17 @@ function memberTarget(root: string, relative: string): string {
 	return target;
 }
 
-async function writeMember(root: string, relative: string, content: Readable | AsyncIterable<Buffer>, budget: { left: number }) {
+async function writeMember(root: string, relative: string, content: Readable | AsyncIterable<Buffer>, budget: { left: number; largest: number }) {
 	const target = memberTarget(root, relative);
 	await mkdir(path.dirname(target), { recursive: true });
 	// A later duplicate replaces an earlier one, as with tar and unzip -o.
 	await rm(target, { force: true, recursive: false }).catch(() => undefined);
 	const counted = async function* () {
+		let fileBytes = 0;
 		for await (const chunk of content as AsyncIterable<Buffer>) {
 			budget.left -= chunk.length;
-			if (budget.left < 0) throw new ArchiveExtractError("tooLarge", String(MAX_EXTRACT_BYTES));
+			fileBytes += chunk.length;
+			if (budget.left < 0 || fileBytes > budget.largest) throw new ArchiveExtractError("tooLarge", String(MAX_EXTRACT_BYTES));
 			yield chunk;
 		}
 	};
@@ -205,7 +217,7 @@ async function writeMember(root: string, relative: string, content: Readable | A
 
 async function extractInto(filePath: string, kind: ArchiveKind, root: string, plan: ExtractionPlan) {
 	// Same bound as planned: a file rewritten between planning and extraction cannot grow past it.
-	const budget = { left: plan.totalBytes };
+	const budget = { left: plan.totalBytes, largest: plan.largestFileBytes };
 	if (kind === "zip") {
 		const handle = await open(filePath, "r");
 		try {
@@ -231,17 +243,25 @@ async function extractInto(filePath: string, kind: ArchiveKind, root: string, pl
 }
 
 /** Defence in depth: the staged tree may only hold directories and regular files. */
-async function assertPlainTree(directory: string): Promise<string[]> {
+async function inspectStagedTree(directory: string, indexedRoot: string) {
+	const validRoot = normalizeStorageRelativePath(indexedRoot);
+	if (!validRoot.ok || validRoot.path !== indexedRoot || isStorageStagingPath(indexedRoot)) throw new ArchiveExtractError("unsafePath", indexedRoot);
 	const directories = [directory];
+	const members: Array<{ relativePath: string; size: number | null }> = [{ relativePath: indexedRoot, size: null }];
 	for (let index = 0; index < directories.length; index++) {
 		for (const entry of await readdir(directories[index]!, { withFileTypes: true })) {
 			const full = path.join(directories[index]!, entry.name);
+			const relative = path.relative(directory, full).split(path.sep).join("/");
+			const indexed = indexedRoot + "/" + relative;
+			const checked = normalizeStorageRelativePath(indexed);
+			if (!checked.ok || checked.path !== indexed || isStorageStagingPath(indexed)) throw new ArchiveExtractError("unsafePath", relative);
 			const stat = await lstat(full);
 			if (stat.isDirectory()) directories.push(full);
 			else if (!stat.isFile()) throw new ArchiveExtractError("unsafePath", entry.name);
+			members.push({ relativePath: indexed, size: stat.isDirectory() ? null : stat.size });
 		}
 	}
-	return directories;
+	return { directories, members };
 }
 
 async function exists(target: string) {
@@ -267,6 +287,7 @@ export type ExtractionResult = ExtractionPlan & {
 	folderName: string;
 	/** Absolute paths of every directory created, the new folder first. */
 	createdDirectories: string[];
+	members: Array<{ relativePath: string; size: number | null }>;
 };
 
 /**
@@ -274,11 +295,12 @@ export type ExtractionResult = ExtractionPlan & {
  * folder when it has one, otherwise a folder named after the archive. Never
  * writes into an existing folder; a taken name gets " (2)", " (3)"….
  */
-export async function extractArchive({ filePath, kind, archiveName, parentDir, plan, beforePublish }: {
+export async function extractArchive({ filePath, kind, archiveName, parentDir, parentRelativePath = "", plan, beforePublish }: {
 	filePath: string;
 	kind: ArchiveKind;
 	archiveName: string;
 	parentDir: string;
+	parentRelativePath?: string;
 	plan: ExtractionPlan;
 	beforePublish?: (folderName: string) => Promise<void>;
 }): Promise<ExtractionResult> {
@@ -290,13 +312,13 @@ export async function extractArchive({ filePath, kind, archiveName, parentDir, p
 		} catch (error) {
 			formatError(error);
 		}
-		await assertPlainTree(staging);
 		const source = plan.singleRoot ? path.join(staging, plan.singleRoot) : staging;
 		const folderName = await freeName(parentDir, plan.singleRoot ?? archiveBaseName(archiveName));
 		const destination = path.join(parentDir, folderName);
+		const { directories, members } = await inspectStagedTree(source, path.posix.join(parentRelativePath, folderName));
 		await beforePublish?.(folderName);
 		await rename(source, destination);
-		return { ...plan, folderName, createdDirectories: await assertPlainTree(destination) };
+		return { ...plan, folderName, members, createdDirectories: directories.map(dir => path.join(destination, path.relative(source, dir))) };
 	} finally {
 		await rm(staging, { recursive: true, force: true });
 	}

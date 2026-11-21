@@ -81,7 +81,7 @@ export async function GET(
 
       return respondWithStorageThumbnail({
         id: item.id,
-        updatedAt: item.updatedAt ?? null,
+        updatedAt: item.fileRevision ?? item.updatedAt ?? null,
         relativePath: normalizedRelative.path,
         node: item.storageNode,
       });

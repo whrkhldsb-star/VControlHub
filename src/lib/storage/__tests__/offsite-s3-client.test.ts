@@ -171,11 +171,11 @@ describe("S3Client — operations", () => {
 		// use `Response(null, ...)` to model real S3 204 responses.
 		const ok = makeFetchMock(() => new Response(null, { status: 204 }));
 		const c1 = new S3Client({ ...basicConfig(), fetchImpl: ok.fetchImpl });
-		await expect(c1.deleteObject("k")).resolves.toBeUndefined();
+		await expect(c1.deleteObject("k")).resolves.toBe("deleted");
 
 		const notFound = makeFetchMock(() => new Response("", { status: 404 }));
 		const c2 = new S3Client({ ...basicConfig(), fetchImpl: notFound.fetchImpl });
-		await expect(c2.deleteObject("k")).resolves.toBeUndefined();
+		await expect(c2.deleteObject("k")).resolves.toBe("absent");
 
 		const err = makeFetchMock(() => new Response("<Error><Code>InternalError</Code><Message>boom</Message></Error>", { status: 500 }));
 		const c3 = new S3Client({ ...basicConfig(), fetchImpl: err.fetchImpl });

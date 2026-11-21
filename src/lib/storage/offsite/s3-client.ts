@@ -417,7 +417,7 @@ export class S3Client {
 	}
 
 	/** DELETE an object. Idempotent (404 is treated as success). */
-	async deleteObject(key: string, versionId?: string | null): Promise<void> {
+	async deleteObject(key: string, versionId?: string | null): Promise<"absent" | "hidden" | "deleted"> {
 		assertDeletableObjectKey(key);
 		const url = this.buildUrl(key, new URLSearchParams(versionId ? { versionId } : {}));
 		const headers: Record<string, string> = {};
@@ -428,8 +428,9 @@ export class S3Client {
 			headers: signed.headers,
 			signal: AbortSignal.timeout(this.timeoutMs),
 		});
-		if (res.status === 404) return;
+		if (res.status === 404) return "absent";
 		await this.assertOk(res, "DELETE", key);
+		return !versionId && res.headers.get("x-amz-delete-marker") === "true" ? "hidden" : "deleted";
 	}
 
 	/** LIST objects v2 under an optional prefix. */

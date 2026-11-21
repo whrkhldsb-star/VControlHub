@@ -102,10 +102,7 @@ describe("image service — convertToAVIF", () => {
     const buf = await makeRedPng();
     const out = await convertToAVIF(buf);
     const meta = await extractMetadata(out);
-    // sharp 0.34 reports AVIF-encoded images with format="heif" (the
-    // underlying container) rather than the literal string "avif". Both
-    // indicate the AVIF encoder was used successfully.
-    expect(["heif", "avif"]).toContain(meta.format);
+    expect(meta).toMatchObject({ mediaType: "image/avif", format: "avif" });
     expect(out.length).toBeGreaterThan(0);
   });
 });

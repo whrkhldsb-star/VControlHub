@@ -463,7 +463,7 @@ describe("/api/storage/sftp-ops", () => {
       size: BigInt(5),
     });
     readRemoteFileMock.mockResolvedValueOnce(Buffer.from("hello"));
-    statRemoteEntryMock.mockResolvedValueOnce({ size: 5, modifyTime: 1000 });
+    statRemoteEntryMock.mockResolvedValueOnce({ size: 5, modifyTime: 1000 }).mockResolvedValueOnce({ size: 5, modifyTime: 1000 });
 
     const response = await POST(
       request({
@@ -536,8 +536,8 @@ describe("/api/storage/sftp-ops", () => {
       expect.objectContaining({ remotePath: "/data/files/old/file.txt" }),
     );
     expect(prismaMock.fileEntry.updateMany).toHaveBeenCalledWith({
-      where: { storageNodeId: "node_1", relativePath: "old/file.txt" },
-      data: { isDeleted: true },
+      where: { storageNodeId: "node_1", relativePath: "old/file.txt", isDeleted: false },
+      data: { isDeleted: true, deleteBatchId: expect.any(String) },
     });
   });
 
@@ -571,13 +571,13 @@ describe("/api/storage/sftp-ops", () => {
     );
     expect(prismaMock.fileEntry.updateMany).toHaveBeenCalledWith({
       where: {
-        storageNodeId: "node_1",
+        storageNodeId: "node_1", isDeleted: false,
         OR: [
           { relativePath: "old-folder" },
           { relativePath: { startsWith: "old-folder/" } },
         ],
       },
-      data: { isDeleted: true },
+      data: { isDeleted: true, deleteBatchId: expect.any(String) },
     });
   });
 
@@ -774,8 +774,8 @@ describe("/api/storage/sftp-ops", () => {
       }),
     );
     expect(prismaMock.fileEntry.updateMany).toHaveBeenCalledWith({
-      where: { storageNodeId: "node_1", relativePath: "old/file.txt" },
-      data: { isDeleted: true },
+      where: { storageNodeId: "node_1", relativePath: "old/file.txt", isDeleted: false },
+      data: { isDeleted: true, deleteBatchId: expect.any(String) },
     });
   });
 
@@ -886,15 +886,31 @@ describe("/api/storage/sftp-ops", () => {
       expect(writeRemoteFileMock).toHaveBeenCalled();
     });
 
-    it("tolerates sub-second mtime drift so a second-granular server does not false-positive", async () => {
+    it("rejects different bytes even when both SFTP versions have the same modification time", async () => {
       vi.clearAllMocks();
       requireApiSessionMock.mockResolvedValueOnce(session);
       sessionHasPermissionMock.mockReturnValue(true);
       assertStorageAccessMock.mockResolvedValue({ allowed: true });
       mockSftpNode();
-      prismaMock.fileEntry.findFirst.mockResolvedValueOnce(null).mockResolvedValueOnce({ id: "fe_1" });
+      prismaMock.fileEntry.findFirst.mockResolvedValue(null);
+      statRemoteEntryMock.mockResolvedValue({ size: 3, type: "file", modifyTime: 5_000 });
+      readRemoteFileMock.mockResolvedValueOnce(Buffer.from("new"));
+      const { createHash } = await import("node:crypto");
+      const response = await POST(request({ nodeId: "node_1", action: "write", path: "notes.txt", content: "edit",
+        expectedLastModifiedMs: 5_000, expectedContentVersion: createHash("sha256").update("old").digest("hex") }));
+      expect(response.status).toBe(409);
+      expect(writeRemoteFileMock).not.toHaveBeenCalled();
+    });
+
+    it("rejects even the next one-second remote revision", async () => {
+      vi.clearAllMocks();
+      requireApiSessionMock.mockResolvedValueOnce(session);
+      sessionHasPermissionMock.mockReturnValue(true);
+      assertStorageAccessMock.mockResolvedValue({ allowed: true });
+      mockSftpNode();
+      prismaMock.fileEntry.findFirst.mockResolvedValue(null);
       prismaMock.fileEntry.create.mockResolvedValue({ id: "fe_1" });
-      statRemoteEntryMock.mockResolvedValue({ size: 20, type: "file", modifyTime: 5_400, accessTime: 0, mode: 0 });
+      statRemoteEntryMock.mockResolvedValue({ size: 20, type: "file", modifyTime: 6_000, accessTime: 0, mode: 0 });
 
       const response = await POST(
         request({
@@ -906,7 +922,8 @@ describe("/api/storage/sftp-ops", () => {
         }),
       );
 
-      expect(response.status).toBe(200);
+      expect(response.status).toBe(409);
+      expect(writeRemoteFileMock).not.toHaveBeenCalled();
     });
 
     it("writes without a conflict check when no token is supplied", async () => {
@@ -929,8 +946,7 @@ describe("/api/storage/sftp-ops", () => {
       expect(writeRemoteFileMock).toHaveBeenCalled();
     });
 
-    it("still writes a brand-new file whose stat fails", async () => {
-      // A path that does not exist yet has nothing to conflict with.
+    it("rejects a missing file for which the client supplied an existing revision", async () => {
       vi.clearAllMocks();
       requireApiSessionMock.mockResolvedValueOnce(session);
       sessionHasPermissionMock.mockReturnValue(true);
@@ -950,8 +966,8 @@ describe("/api/storage/sftp-ops", () => {
         }),
       );
 
-      expect(response.status).toBe(200);
-      expect(writeRemoteFileMock).toHaveBeenCalled();
+      expect(response.status).toBe(409);
+      expect(writeRemoteFileMock).not.toHaveBeenCalled();
     });
 
     it("returns the post-write mtime so the next save's token matches", async () => {
@@ -980,6 +996,17 @@ describe("/api/storage/sftp-ops", () => {
 
       expect(response.status).toBe(200);
       await expect(response.json()).resolves.toMatchObject({ lastModifiedMs: 7_777 });
+    });
+
+    it("does not pair old bytes with a newer modification time for legacy editors", async () => {
+      requireApiSessionMock.mockResolvedValueOnce(session);
+      mockSftpNode();
+      prismaMock.fileEntry.findFirst.mockResolvedValue(null);
+      readRemoteFileMock.mockResolvedValueOnce(Buffer.from("hello"));
+      statRemoteEntryMock.mockResolvedValueOnce({ size: 5, type: "file", modifyTime: 1000 })
+        .mockResolvedValueOnce({ size: 5, type: "file", modifyTime: 2000 });
+      const response = await POST(request({ action: "read", nodeId: "node_1", path: "notes.txt" }));
+      expect(response.status).toBe(409);
     });
 
     it("hands the editor a lock token on read", async () => {

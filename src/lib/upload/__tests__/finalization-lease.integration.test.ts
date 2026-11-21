@@ -51,7 +51,7 @@ describe.skipIf(process.env.RUN_DATABASE_INTEGRATION_TESTS !== "1")("upload reco
     await recoverInterruptedFinalizations();
     const row = await prisma.mediaUploadSession.findUniqueOrThrow({ where: { id } });
     expect(row).toMatchObject({ status: "FAILED", recoveryRequired: true });
-    expect(await readSessionTempDir(id)).toContain("chunk-0");
+    expect(await readSessionTempDir(id)).toEqual(expect.arrayContaining([expect.stringMatching(/^chunk-0\.[a-f0-9-]{36}$/)]));
     await expect(claim(id)).rejects.toThrow();
     await expect(completeMediaUploadSession({ sessionId: id, userId, checksum: "a".repeat(64), allowedStatuses: ["FINALIZING"], finalizationToken: lease.token })).rejects.toThrow();
     await expect(lease.beforeWrite({ target: "remote/file.bin" })).rejects.toThrow();
@@ -80,7 +80,7 @@ describe.skipIf(process.env.RUN_DATABASE_INTEGRATION_TESTS !== "1")("upload reco
       await recoverInterruptedFinalizations();
       expect((await prisma.mediaUploadSession.findUniqueOrThrow({ where: { id } })).recoveryRequired).toBe(true);
       expect(await readFile(target, "utf8")).toBe("confirmed fixture bytes");
-      expect(await readSessionTempDir(id)).toContain("chunk-0");
+      expect(await readSessionTempDir(id)).toEqual(expect.arrayContaining([expect.stringMatching(/^chunk-0\.[a-f0-9-]{36}$/)]));
       await expect(claim(id)).rejects.toThrow();
     } finally { child.kill("SIGKILL"); await rm(directory, { recursive: true, force: true }); }
   });

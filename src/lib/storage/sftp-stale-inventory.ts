@@ -12,6 +12,7 @@
  * 复用 `sftp-sync.ts` 的 SSH 凭据解析 + `listRemoteDirectory` + 目录超时
  * 工具函数, 跟现有同步行为兼容, 失败模式 (凭据错 / 网络断) 一致。
  */
+import { randomUUID } from "node:crypto";
 import { escapeLikeLiteral } from "@/lib/db/like-pattern";
 import { Prisma } from "@prisma/client";
 
@@ -259,7 +260,7 @@ export async function detectAndPruneSftpStaleInventory(input: {
       const updateResult = await prisma.fileEntry.updateMany({
         // Re-checked at write time: a row rewritten while we compared is live.
         where: { id: { in: staleIds }, isDeleted: false, updatedAt: { lt: listingStartedAt } },
-        data: { isDeleted: true },
+        data: { isDeleted: true, deleteBatchId: randomUUID() },
       });
       logger.info("Pruned stale SFTP inventory", {
         nodeId: node.id,

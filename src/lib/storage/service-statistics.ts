@@ -1,3 +1,4 @@
+import { noRecycledAncestorSql } from "./archive-access";
 import { storageStagingPathRegex } from "@/lib/storage/staging-paths";
 import { Prisma } from "@prisma/client";
 import { prisma } from "@/lib/db";
@@ -40,8 +41,8 @@ export async function getFileIndexStatistics(nodeIds: string[], readable?: Reada
     WITH entries AS MATERIALIZED (
       SELECT "storageNodeId", "relativePath", "isDeleted", name, "mimeType",
         ("entryType" = 'DIRECTORY' OR "mimeType" = 'inode/directory') IS TRUE AS directory
-      FROM file_entries WHERE "storageNodeId" IN (${Prisma.join(nodeIds)}) AND ${readableStorageScopeSql(readable)}
-          AND "relativePath" !~ ${storageStagingPathRegex}
+      FROM file_entries e WHERE "storageNodeId" IN (${Prisma.join(nodeIds)}) AND ${readableStorageScopeSql(readable)}
+          AND ("isDeleted" OR ${noRecycledAncestorSql}) AND "relativePath" !~ ${storageStagingPathRegex}
     ), directories AS (
       SELECT DISTINCT e."storageNodeId", array_to_string((string_to_array(e."relativePath", '/'))[1:d.depth], '/') AS path
       FROM entries e CROSS JOIN LATERAL generate_series(1,

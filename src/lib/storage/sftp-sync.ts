@@ -1,3 +1,6 @@
+import { randomUUID } from "node:crypto";
+import { assertNotRecycled } from "./archive-access";
+import { lockStorageFileOverwrite } from "./file-overwrite-lock";
 import { Prisma } from "@prisma/client";
 
 import type { SessionPayload } from "@/lib/auth/session";
@@ -120,7 +123,7 @@ function describeError(error: unknown) {
  * one indexed lookup per batch, `createMany` for new paths, and no write at all
  * for entries that have not changed.
  */
-async function syncRemoteEntries(nodeId: string, allPayloads: RemoteEntryPayload[]) {
+async function syncRemoteEntries(nodeId: string, allPayloads: RemoteEntryPayload[], listingStartedAt: Date) {
   const counts = { created: 0, updated: 0, skipped: 0, errors: [] as string[] };
 
   // A path the unique index cannot hold (2704 bytes per entry) failed the whole createMany batch it was in, every
@@ -162,7 +165,7 @@ async function syncRemoteEntries(nodeId: string, allPayloads: RemoteEntryPayload
         // The predicate keeps a concurrent recycle-bin delete from being
         // resurrected; never write isDeleted=false here.
         const updated = await prisma.fileEntry.updateMany({
-          where: { id: existing.id, isDeleted: false },
+          where: { id: existing.id, isDeleted: false, updatedAt: { equals: existing.updatedAt, lt: listingStartedAt } },
           data: changedPayloadData(existing, payload),
         });
         counts.updated += updated.count;
@@ -185,14 +188,13 @@ async function syncRemoteEntries(nodeId: string, allPayloads: RemoteEntryPayload
       });
       counts.created += created.count;
       if (created.count === missing.length) continue;
-      // Someone else inserted the remainder — reconcile so the index reflects
-      // the listing we just read instead of the racing writer's version.
+      // Re-read conflicting inserts. Only a row older than this inventory can be reconciled.
       const raced = await loadIndexedEntries(nodeId, missing.map((payload) => payload.relativePath));
       for (const payload of missing) {
         const existing = raced.get(payload.relativePath);
         if (!existing || existing.isDeleted || isPayloadUnchanged(existing, payload)) continue;
         const updated = await prisma.fileEntry.updateMany({
-          where: { id: existing.id, isDeleted: false },
+          where: { id: existing.id, isDeleted: false, updatedAt: { equals: existing.updatedAt, lt: listingStartedAt } },
           data: changedPayloadData(existing, payload),
         });
         counts.updated += updated.count;
@@ -212,6 +214,7 @@ async function loadIndexedEntries(nodeId: string, paths: string[]) {
     select: {
       id: true,
       relativePath: true,
+      updatedAt: true,
       isDeleted: true,
       name: true,
       entryType: true,
@@ -265,7 +268,7 @@ async function pruneStaleEntries(
     const result = await prisma.fileEntry.updateMany({
       // Rechecked here: a row rewritten since it was read is not stale either.
       where: { id: { in: staleIds.slice(offset, offset + STALE_WRITE_BATCH_SIZE) }, isDeleted: false, updatedAt: { lt: listingStartedAt } },
-      data: { isDeleted: true },
+      data: { isDeleted: true, deleteBatchId: randomUUID() },
     });
     deleted += result.count;
   }
@@ -324,9 +327,12 @@ export async function syncSftpDirectoryEntries(input: {
     dirPath: string,
     currentDepth: number,
   ): Promise<void> {
+    const directory = computeDirectoryRelativePath(basePath, dirPath);
+    if (directory === null) return;
     let entries: SftpListEntry[];
     const listingStartedAt = new Date();
     try {
+      if (directory) await assertNotRecycled(node.id, directory);
       entries = await withDirectoryTimeout(
         listRemoteDirectory({
           ...credentials,
@@ -378,22 +384,30 @@ export async function syncSftpDirectoryEntries(input: {
       }
     }
 
-    const synced = await syncRemoteEntries(node.id, payloads);
-    result.created += synced.created;
-    result.updated += synced.updated;
-    result.errors.push(...synced.errors);
+    const release = await lockStorageFileOverwrite(node.id, directory);
+    try {
+      if (directory) await assertNotRecycled(node.id, directory);
+      const synced = await syncRemoteEntries(node.id, payloads, listingStartedAt);
+      result.created += synced.created;
+      result.updated += synced.updated;
+      result.errors.push(...synced.errors);
 
+      result.deleted += await pruneStaleEntries(
+        node.id,
+        basePath,
+        dirPath,
+        remoteRelativePaths,
+        listingStartedAt,
+      );
+
+    } catch (error) {
+      result.errors.push(`Indexing ${dirPath} failed: ${describeError(error)}`);
+      return;
+    } finally { await release(); }
     for (const child of childDirectories) {
       await syncDirectory(child.path, child.depth);
     }
 
-    result.deleted += await pruneStaleEntries(
-      node.id,
-      basePath,
-      dirPath,
-      remoteRelativePaths,
-      listingStartedAt,
-    );
   }
 
   await syncDirectory(normalizedStartPath, 0);

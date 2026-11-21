@@ -11,6 +11,7 @@ const {
     () => Promise<{ allowed: boolean; reason?: string }>
   >(() => Promise.resolve({ allowed: true })),
   prismaMock: {
+    fileEntry: { findFirst: vi.fn(), findMany: vi.fn(async (): Promise<{ relativePath: string }[]> => []) },
     storageNode: {
       findUnique: vi.fn(),
       findFirst: vi.fn(),
@@ -89,6 +90,21 @@ describe("/api/storage/sftp", () => {
     expect(response.status).toBe(400);
     await expect(response.json()).resolves.toMatchObject({ error: expect.stringMatching(/空白|whitespace/) });
     expect(listRemoteDirectoryMock).not.toHaveBeenCalled();
+  });
+
+  it("omits a recycled physical child while keeping its similar-looking sibling", async () => {
+    requireApiPermissionMock.mockResolvedValueOnce({
+      session: { userId: "reader", username: "reader", roles: ["admin"], currentTeamId: null },
+    });
+    mockSftpNode();
+    listRemoteDirectoryMock.mockResolvedValueOnce([{ name: "old" }, { name: "older" }]);
+    prismaMock.fileEntry.findMany.mockResolvedValueOnce([{ relativePath: "docs/old" }]);
+    const response = await GET(request("docs"));
+    expect(response.status).toBe(200);
+    expect((await response.json()).entries).toEqual([{ name: "older" }]);
+    expect(prismaMock.fileEntry.findMany).toHaveBeenCalledWith(expect.objectContaining({
+      where: { storageNodeId: "node_1", isDeleted: true, relativePath: { in: ["docs/old", "docs/older"] } },
+    }));
   });
 
   it("lists a remote directory through the canonical storage API", async () => {

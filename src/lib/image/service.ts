@@ -9,6 +9,7 @@ export interface ImageMetadata {
 	width: number;
 	height: number;
 	format?: string;
+	mediaType?: string;
 	sizeBytes: number;
 }
 
@@ -58,7 +59,8 @@ export async function extractMetadata(buffer: Buffer): Promise<ImageMetadata> {
 	return {
 		width: meta.autoOrient?.width ?? meta.width ?? 0,
 		height: meta.autoOrient?.height ?? meta.height ?? 0,
-		format: meta.format ?? undefined,
+		format: meta.format === "heif" && meta.mediaType === "image/avif" ? "avif" : meta.format,
+		mediaType: meta.mediaType,
 		sizeBytes: buffer.length,
 	};
 }

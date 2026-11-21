@@ -1,3 +1,4 @@
+import { noRecycledAncestorSql } from "@/lib/storage/archive-access";
 import { escapeLikeLiteral } from "@/lib/db/like-pattern";
 import { createHash, randomBytes, scrypt, timingSafeEqual } from "node:crypto";
 import { promisify } from "node:util";
@@ -16,7 +17,7 @@ import { t } from "@/lib/i18n/service-translations";
 import { createLogger } from "@/lib/logging";
 import { assertStorageAccess } from "@/lib/storage/access-control";
 import { storageAccessDeniedCopy } from "@/lib/storage/access-denied";
-import { isStorageStagingPath } from "@/lib/storage/staging-paths";
+import { isStorageStagingPath, storageStagingPathRegex } from "@/lib/storage/staging-paths";
 import { hasCaseInsensitiveLocalPaths, normalizeStorageRelativePath } from "@/lib/storage/path-utils";
 import { syncLocalDirectoryEntries } from "@/lib/storage/local-sync";
 import { syncSftpDirectoryEntries } from "@/lib/storage/sftp-sync";
@@ -497,7 +498,7 @@ export async function revokeShareLink(
   }
   const share = await prisma.shareLink.findFirst({ where, select: { id: true } });
   if (!share) throw new NotFoundError(t("backend.shareLink.notFoundOrUnauthorized"));
-  return prisma.shareLink.update({ where: { id: share.id }, data: { revokedAt: new Date() } });
+  return prisma.shareLink.update({ where: { id: share.id }, data: { revokedAt: new Date() }, select: { id: true, revokedAt: true } });
 }
 
 export async function resolveShareToken(
@@ -529,17 +530,19 @@ export async function resolveShareToken(
     if (share.maxDownloads != null && share.accessCount >= share.maxDownloads) throw new ValidationError(t("backend.shareLink.maxDownloadsExceeded"));
     return share;
   }
-  // Atomic quota claim: only increment when still under maxDownloads (or unlimited).
-  // Prevents concurrent downloads from exceeding the cap, and avoids a separate
-  // read-then-write race on accessCount.
-  const claimed = await prisma.shareLink.updateMany({
-    where: {
-      id: share.id, revokedAt: null,
-      ...(share.maxDownloads != null ? { accessCount: { lt: share.maxDownloads } } : {}),
-    },
-    data: { accessCount: { increment: 1 } },
-  });
-  if (claimed.count === 0) {
+  // A claim may wait behind a revocation or another download. Evaluate the database clock and
+  // remaining allowance on the locked row, including when the link expires during that wait.
+  const claimed = await prisma.$executeRaw(Prisma.sql`
+    WITH candidate AS MATERIALIZED (
+      SELECT id, "revokedAt", "expiresAt", "maxDownloads", "accessCount"
+      FROM share_links WHERE id = ${share.id} FOR UPDATE
+    )
+    UPDATE share_links AS s SET "accessCount" = c."accessCount" + 1, "updatedAt" = (clock_timestamp() AT TIME ZONE 'UTC')
+    FROM candidate c WHERE s.id = c.id AND c."revokedAt" IS NULL
+      AND (c."expiresAt" IS NULL OR c."expiresAt" > (clock_timestamp() AT TIME ZONE 'UTC'))
+      AND (c."maxDownloads" IS NULL OR c."accessCount" < c."maxDownloads")
+  `);
+  if (claimed === 0) {
     if (share.maxDownloads != null) throw new ValidationError(t("backend.shareLink.maxDownloadsExceeded"));
     throw new NotFoundError(t("backend.shareLink.notFoundOrRevoked"));
   }
@@ -680,22 +683,19 @@ export async function listShareDirectoryFiles(share: DirectoryShareForList) {
   if (share.entryType !== "DIRECTORY") return [];
   await refreshShareDirectoryIndex(share);
   const prefix = share.path.replace(/^\/+|\/+$/g, "");
-  return prisma.fileEntry.findMany({
-    where: {
-      storageNodeId: share.storageNodeId,
-      storageNode: activeDirectoryShare(share),
-      entryType: "FILE",
-      isDeleted: false,
-      OR: [
-        { relativePath: { startsWith: escapeLikeLiteral(`${prefix}/`) } },
-        { relativePath: prefix },
-      ],
-    },
-    orderBy: [{ relativePath: "asc" }],
-    // One past the cap: the landing page tells the visitor when files were left out (A4-22).
-    take: SHARE_DIRECTORY_LIST_LIMIT + 1,
-    select: { id: true, name: true, relativePath: true, size: true, mimeType: true, updatedAt: true },
-  });
+  // Filter before the landing page limit. Legacy active children of a recycled directory stay hidden.
+  return prisma.$queryRaw<Array<{ id: string; name: string; relativePath: string; size: bigint | null; mimeType: string | null; updatedAt: Date }>>(Prisma.sql`
+    SELECT e.id, e.name, e."relativePath", e.size, e."mimeType", e."updatedAt" FROM file_entries e
+    WHERE e."storageNodeId" = ${share.storageNodeId} AND e."entryType" = 'FILE' AND NOT e."isDeleted"
+      AND (e."relativePath" = ${prefix} OR starts_with(e."relativePath", ${prefix + "/"}))
+      AND ${noRecycledAncestorSql} AND e."relativePath" !~ ${storageStagingPathRegex}
+      ${share.id ? Prisma.sql`AND EXISTS (SELECT 1 FROM share_links s WHERE s.id = ${share.id}
+        AND s."storageNodeId" = e."storageNodeId" AND s."revokedAt" IS NULL
+        AND (s."expiresAt" IS NULL OR s."expiresAt" > (clock_timestamp() AT TIME ZONE 'UTC')))` : Prisma.empty}
+      ${share.agentRootIdentity ? Prisma.sql`AND EXISTS (SELECT 1 FROM agent_file_shares a
+        WHERE a."storageNodeId" = e."storageNodeId" AND a."rootIdentity" = ${share.agentRootIdentity})` : Prisma.empty}
+    ORDER BY e."relativePath" LIMIT ${SHARE_DIRECTORY_LIST_LIMIT + 1}
+  `);
 }
 
 /** Files a directory share lists; the page shows a notice beyond this many. */

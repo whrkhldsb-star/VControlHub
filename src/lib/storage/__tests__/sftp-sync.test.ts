@@ -16,6 +16,7 @@ const { prismaMock, listRemoteDirectoryMock } = vi.hoisted(() => ({
   listRemoteDirectoryMock: vi.fn(),
 }));
 
+vi.mock("@/lib/storage/file-overwrite-lock", () => ({ lockStorageFileOverwrite: async () => async () => {} }));
 vi.mock("@/lib/db", () => ({
   prisma: prismaMock,
 }));
@@ -224,7 +225,7 @@ describe("sftp sync service", () => {
     prismaMock.fileEntry.findMany.mockResolvedValue([
       { id: "a", relativePath: "a.txt", isDeleted: false, name: "a.txt", entryType: "FILE", mimeType: "text/plain", size: BigInt(10) },
       { id: "b", relativePath: "b.txt", isDeleted: false, name: "b.txt", entryType: "FILE", mimeType: "text/plain", size: BigInt(20) },
-      { id: "c", relativePath: "c.txt", isDeleted: false, name: "c.txt", entryType: "FILE", mimeType: "text/plain", size: BigInt(99) },
+      { id: "c", updatedAt: new Date(0), relativePath: "c.txt", isDeleted: false, name: "c.txt", entryType: "FILE", mimeType: "text/plain", size: BigInt(99) },
     ]);
     prismaMock.fileEntry.updateMany.mockResolvedValue({ count: 1 });
 
@@ -239,7 +240,7 @@ describe("sftp sync service", () => {
     // Only c.txt actually changed — a and b are left untouched.
     expect(prismaMock.fileEntry.updateMany).toHaveBeenCalledTimes(1);
     expect(prismaMock.fileEntry.updateMany).toHaveBeenCalledWith({
-      where: { id: "c", isDeleted: false },
+      where: { id: "c", isDeleted: false, updatedAt: { equals: new Date(0), lt: expect.any(Date) } },
       // Another size: the checksum recorded for the old content goes with it.
       data: expect.objectContaining({ name: "c.txt", size: BigInt(30), checksumSha256: null }),
     });
@@ -381,7 +382,7 @@ describe("sftp sync service", () => {
     expect(pruneQuery[0].values).toEqual(expect.arrayContaining(["node_1", "team-a/"]));
     expect(prismaMock.fileEntry.updateMany).toHaveBeenCalledWith({
       where: { id: { in: ["stale_1"] }, isDeleted: false, updatedAt: { lt: expect.any(Date) } },
-      data: { isDeleted: true },
+      data: { isDeleted: true, deleteBatchId: expect.any(String) },
     });
   });
 

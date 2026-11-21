@@ -116,7 +116,7 @@ export async function requireAccess(
   relativePath: string,
   operation: "read" | "write" | "delete",
   writeBytes?: number | bigint,
-  capacity?: { largestFileBytes?: number | bigint; movedFrom?: string },
+  capacity?: { measureMove?: Parameters<typeof assertStorageAccess>[0]["measureMove"]; largestFileBytes?: number | bigint; movedFrom?: string },
 ) {
   const decision = await assertStorageAccess({
     session,

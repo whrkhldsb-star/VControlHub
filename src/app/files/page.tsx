@@ -18,22 +18,12 @@ export const dynamic = "force-dynamic";
  * port, account, root path and WebDAV address, while `/api/storage/nodes` already gave them a trimmed list:
  * they get the name, type, health and file count; the connection stays with whoever manages nodes.
  */
-function withoutConnectionDetails<Node extends { basePath: string; directAccess: { mode: string; description: string; href: string | null } }>(node: Node) {
+function withoutConnectionDetails(node: Awaited<ReturnType<typeof getFilesListing>>["nodes"][number], description: string) {
   return {
-    ...node,
-    basePath: "",
-    host: null,
-    port: null,
-    username: null,
-    webdavConfig: undefined,
-    publicBaseUrl: null,
-    server: undefined,
-    fileAgent: undefined,
-    connectionSummary: "",
-    // Health errors quote the address that failed ("connect ECONNREFUSED 10.0.0.5:22").
-    lastHealthError: null,
-    directAccess: { ...node.directAccess, href: null },
-    connectionHidden: true,
+    id: node.id, name: node.name, driver: node.driver, teamName: node.teamName, isDefault: node.isDefault,
+    fileCount: node.fileCount, healthStatus: node.healthStatus, lastHealthCheckAt: node.lastHealthCheckAt,
+    lastHealthLatencyMs: node.lastHealthLatencyMs, basePath: "", connectionSummary: "", connectionHidden: true,
+    directAccess: { mode: node.directAccess.mode, description, href: null },
   };
 }
 
@@ -47,7 +37,6 @@ export default async function FilesPage({ searchParams }: FilesPageProps) {
   });
   const locale = await getServerLocale();
   const canManageNodes = sessionHasPermission(session, "storage:manage-node");
-  const canEditLocalFiles = sessionHasPermission(session, "storage:write");
   const query = readListFilesAddress((await searchParams) ?? {});
   // The node cards show each node's health. Its only automatic refresh was
   // the signed-in /status page: production nodes still read "checked
@@ -56,7 +45,7 @@ export default async function FilesPage({ searchParams }: FilesPageProps) {
   scheduleStorageNodeHealthProbe();
   const [{ listing: initialData, nodes }, formOptions] = await Promise.all([
     getFilesListing(session, query),
-    canManageNodes || canEditLocalFiles
+    canManageNodes
       ? getStorageFormOptions()
       : Promise.resolve({ servers: [], nodes: [] }),
   ]);
@@ -88,7 +77,7 @@ export default async function FilesPage({ searchParams }: FilesPageProps) {
         description={t("filesPage.description", locale)}
       >
         <StorageNodeManager
-          nodes={canManageNodes ? nodes : nodes.map(withoutConnectionDetails)}
+          nodes={canManageNodes ? nodes : nodes.map(node => withoutConnectionDetails(node, t("mediaItemCard.managedDownload", locale)))}
           servers={formOptions.servers}
           canManageNodes={canManageNodes}
         />

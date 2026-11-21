@@ -44,6 +44,7 @@ const { mockPrisma, listRemoteDirectoryMock, assertStorageAccessMock } =
 // Default-node changes run in a transaction; the mock runs it against itself.
 Object.assign(mockPrisma, { $transaction: vi.fn(async (fn: (tx: unknown) => unknown) => fn(mockPrisma)) });
 
+vi.mock("@/lib/storage/file-overwrite-lock", () => ({ lockStorageFileOverwrite: async () => async () => {} }));
 vi.mock("../service-statistics", () => ({
   getFileIndexStatistics: vi.fn(async () => ({totalEntries:1208,deletedEntries:0,previewableEntries:1,remoteDirectoryCount:2})),
 }));

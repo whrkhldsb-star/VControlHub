@@ -7,7 +7,7 @@ import { afterAll, afterEach, beforeAll, beforeEach, describe, expect, it } from
 
 import { prisma } from "@/lib/db";
 
-import { handleWebDavCopy, handleWebDavDelete, handleWebDavMove, handleWebDavPut } from "../handler";
+import { handleWebDavCopy, handleWebDavGetHead, handleWebDavDelete, handleWebDavMove, handleWebDavPropFind, handleWebDavPut } from "../handler";
 import { buildWebDavHref } from "../handler-internals";
 
 /**
@@ -63,6 +63,67 @@ describe.skipIf(process.env.RUN_DATABASE_INTEGRATION_TESTS !== "1")("WebDAV MOVE
     new Request(`${origin}/x`, { method, body, headers: { destination: `${origin}${buildWebDavHref(prefix, destination, false)}`, overwrite } });
   const read = (relativePath: string) => readFileSync(join(root, relativePath), "utf8");
   const status = async (promise: Promise<Response>) => promise.then((response) => response.status, (error: { status?: number }) => error.status ?? 500);
+
+  it("serves ranges and HEAD from the open physical version even when its index is stale", async () => {
+    await file("doc.txt", "x");
+    writeFileSync(join(root, "doc.txt"), "updated");
+    const head = await handleWebDavGetHead(ctx("doc.txt"), "HEAD");
+    expect(head.headers.get("content-length")).toBe("7");
+    const ranged = await handleWebDavGetHead({ ...ctx("doc.txt"), rangeHeader: "bytes=3-6" }, "GET");
+    expect(ranged.status).toBe(206);
+    expect(ranged.headers.get("content-range")).toBe("bytes 3-6/7");
+    expect(await ranged.text()).toBe("ated");
+    writeFileSync(join(root, "doc.txt"), "");
+    const invalid = await handleWebDavGetHead({ ...ctx("doc.txt"), rangeHeader: "bytes=1-3" }, "HEAD");
+    expect(invalid.status).toBe(416);
+    expect(invalid.headers.get("content-range")).toBe("bytes */0");
+  });
+
+  it("evaluates weak and strong PUT preconditions against the current physical revision", async () => {
+    const put = (headers: Record<string, string>, body: string) =>
+      handleWebDavPut(ctx("sync.txt"), new Request(origin, { method: "PUT", body, headers }));
+    expect((await put({ "If-Match": "*" }, "old")).status).toBe(412);
+    expect((await put({ "If-None-Match": "*" }, "old")).status).toBe(201);
+    const tag = (await handleWebDavGetHead(ctx("sync.txt"), "HEAD")).headers.get("etag")!;
+    expect(tag).toMatch(/^"[0-9a-f]{64}"$/);
+    const properties = await handleWebDavPropFind(ctx("sync.txt"), "0");
+    expect(await properties.text()).toContain("<D:getetag>" + tag.replaceAll('"', "&quot;") + "</D:getetag>");
+    expect((await put({ "If-None-Match": "W/" + tag }, "bad")).status).toBe(412);
+    expect((await put({ "If-Match": "W/" + tag }, "bad")).status).toBe(412);
+    const writes = await Promise.all([put({ "If-Match": tag }, "one"), put({ "If-Match": tag }, "two")]);
+    expect(writes.map(result => result.status).sort()).toEqual([204, 412]);
+    expect(["one", "two"]).toContain(read("sync.txt"));
+    expect((await handleWebDavGetHead(ctx("sync.txt"), "HEAD")).headers.get("etag")).not.toBe(tag);
+  });
+
+  it("meters staged COPY and requires a complete measured MOVE into a capacity-limited path", async () => {
+    const team = await prisma.team.create({ data: { name: prefix, slug: prefix } });
+    try {
+      await prisma.storageNode.update({ where: { id: prefix }, data: { teamId: team.id } });
+      await prisma.userStorageAccess.createMany({ data: ["src", "dst"].map(pathPrefix => ({
+        userId: prefix, storageNodeId: prefix, pathPrefix, canRead: true, canWrite: true,
+        ...(pathPrefix === "dst" && { maxFileBytes: 4, quotaBytes: 8 }),
+      })) });
+      const scoped = (file: string) => ({ ...ctx(file), session: { ...session, roles: ["operator" as const], currentTeamId: team.id, permissions: ["storage:read" as const, "storage:write" as const] } });
+      await dir("src");
+      await dir("dst");
+      await file("src/first", "tiny");
+      writeFileSync(join(root, "src/first"), "larger bytes");
+      expect(await status(handleWebDavCopy(scoped("src/first"), request("COPY", "dst/copy")))).toBe(422);
+      expect(readdirSync(join(root, "dst"))).toEqual([]);
+      writeFileSync(join(root, "src/first"), "four");
+      writeFileSync(join(root, "src/other"), "four");
+      const move = () => status(handleWebDavMove(scoped("src"), request("MOVE", "dst/tree")));
+      expect(await move()).not.toBe(201);
+      expect(existsSync(join(root, "dst/tree"))).toBe(false);
+      await file("src/other", "four");
+      expect(await move()).toBe(201);
+      expect(read("dst/tree/first")).toBe("four");
+      expect(read("dst/tree/other")).toBe("four");
+    } finally {
+      await prisma.team.delete({ where: { id: team.id } });
+    }
+  });
 
   it("MOVE with Overwrite:T of a file onto a file keeps the destination's entry, the replaced content as a version", async () => {
     // An editor's atomic save (write a temporary file, MOVE it over the

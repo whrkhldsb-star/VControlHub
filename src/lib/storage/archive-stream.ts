@@ -1,3 +1,4 @@
+import { PassThrough } from "node:stream";
 import { spawn } from "node:child_process";
 import path from "node:path";
 import { realpathSync } from "node:fs";
@@ -140,34 +141,30 @@ export function streamLocalTarGz(directoryPath: string, entryName: string, exclu
 	const tar = spawn(resolveLocalTarBinary(), buildLocalTarArgs(directoryPath, entryName, excluded), {
 		stdio: [useStdinExcludes ? "pipe" : "ignore", "pipe", "pipe"],
 	});
+	let exited = false;
+	const out = new PassThrough({
+		destroy(error, done) {
+			if (!exited) killSpawnedProcess(tar, "stdout-destroy");
+			done(error);
+		},
+	});
+	tar.stdout!.on("error", error => out.destroy(error));
+	tar.stdout!.pipe(out, { end: false });
 	if (useStdinExcludes) {
-		tar.stdin?.on("error", (error) => destroyReadableWithError(tar.stdout!, error));
+		tar.stdin?.on("error", (error) => out.destroy(error));
 		tar.stdin?.end(input);
 	}
 	tar.stderr!.on("data", (chunk) => {
 		logger.warn("local archive tar stderr", { message: String(chunk).slice(0, 500) });
 	});
-	const out = tar.stdout!;
-	// Client abort / Response cancel destroys stdout via nodeStreamToWeb; kill the
-	// tar child so cancelled downloads do not leave orphan tar/gzip processes.
-	const originalDestroy = out.destroy.bind(out);
-	out.destroy = (error?: Error) => {
-		killSpawnedProcess(tar, "stdout-destroy");
-		return originalDestroy(error);
-	};
 	tar.on("error", (error) => {
 		logger.warn("local archive tar process error", { message: error.message });
 		destroyReadableWithError(out, error);
 	});
 	tar.on("close", (code, signal) => {
-		if (code === 0 || code === null) {
-			if (signal) {
-				const error = new Error(`tar killed by signal ${signal}`);
-				logger.warn("local archive tar signal", { signal });
-				destroyReadableWithError(out, error);
-			}
-			return;
-		}
+		exited = true;
+		if (code === 0 && !signal) { out.end(); return; }
+		if (signal) { out.destroy(new Error(`tar killed by signal ${signal}`)); return; }
 		const error = new Error(`tar exited with code ${code}`);
 		logger.warn("local archive tar non-zero exit", { code, signal });
 		destroyReadableWithError(out, error);

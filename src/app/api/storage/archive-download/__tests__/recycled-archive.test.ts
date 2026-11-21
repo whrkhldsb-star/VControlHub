@@ -18,6 +18,7 @@ vi.mock("@/lib/concurrency/advisory-lock", () => ({
 vi.mock("@/lib/db", () => {
   const db = {
     $queryRaw: mocks.lockRoots,
+    $executeRaw: async () => 1,
     fileEntry: { findFirst: mocks.first, findMany: mocks.many },
     shareLink: {
       create: mocks.shareCreate,

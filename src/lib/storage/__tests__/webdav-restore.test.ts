@@ -1,5 +1,6 @@
 import { beforeEach, describe, expect, it, vi } from "vitest";
 const mocks = vi.hoisted(() => ({ findFirst: vi.fn(), findMany: vi.fn(), transaction: vi.fn(), update: vi.fn(), stat: vi.fn(), ssh: vi.fn(), agent: vi.fn() }));
+vi.mock("@/lib/storage/file-overwrite-lock", () => ({ lockStorageFileOverwrite: async () => async () => {} }));
 vi.mock("@/lib/storage/access-control", () => ({ assertStorageAccess: async () => ({ allowed: true }), releaseStorageQuotaGuard: async () => {}, getStorageAccessCapabilityKey: () => "child", getStorageAccessCapabilities: async () => new Map([["child", { canDelete: true }]]) }));
 vi.mock("@/lib/db", () => ({ prisma: { $transaction: mocks.transaction, fileEntry: { findFirst: mocks.findFirst, findMany: mocks.findMany, update: mocks.update } }, isUniqueViolation: () => false }));
 vi.mock("@/lib/storage/agent-file-queue", () => ({ getFileChannel: vi.fn(), callFileAgent: mocks.agent }));
@@ -12,10 +13,15 @@ const row = { id: "deleted-file", isDeleted: true, entryType: "FILE", relativePa
   storageNode: { id: "webdav", driver: "WEBDAV", basePath: "", teamId: "team-a", webdavConfigEncrypted: "encrypted" } };
 beforeEach(() => {
   vi.resetAllMocks();
-  mocks.findFirst.mockResolvedValue(row);
+  mocks.findFirst.mockImplementation(async ({ where }) => where.id ? row : null);
   mocks.stat.mockResolvedValue({ isDirectory: false });
 });
 describe("WebDAV recycle-bin restore", () => {
+  it("refuses to restore a file separately while its parent remains in the bin", async () => {
+    mocks.findFirst.mockImplementation(async ({ where }) => where.id ? row : { id: "recycled-parent" });
+    await expect(restoreFileEntry({ fileEntryId: row.id }, session)).rejects.toMatchObject({ status: 409 });
+    expect(mocks.update).not.toHaveBeenCalled();
+  });
   it("checks the backing object with the WebDAV adapter before restoring", async () => {
     await restoreFileEntry({ fileEntryId: row.id }, session);
     expect(mocks.stat).toHaveBeenCalledWith("docs/report.txt", true);

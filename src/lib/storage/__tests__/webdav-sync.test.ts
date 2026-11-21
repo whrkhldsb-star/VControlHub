@@ -5,6 +5,7 @@ const mocks = vi.hoisted(() => ({
   fileEntry: { findMany: vi.fn(), findFirst: vi.fn(), update: vi.fn(), updateMany: vi.fn(), create: vi.fn(), createMany: vi.fn(), deleteMany: vi.fn() },
   transaction: vi.fn(), queryRaw: vi.fn(),
 }));
+vi.mock("@/lib/storage/file-overwrite-lock", () => ({ lockStorageFileOverwrite: async () => async () => {} }));
 vi.mock("@/lib/db", () => ({ prisma: { fileEntry: mocks.fileEntry, $transaction: mocks.transaction }, isUniqueViolation: () => false }));
 vi.mock("@/lib/logging", () => ({ createLogger: () => ({ warn: mocks.warn }) }));
 vi.mock("../webdav-client", () => ({ createWebDavClient: () => ({ list: mocks.list }) }));
@@ -48,7 +49,7 @@ describe("WebDAV inventory sync", () => {
     mocks.fileEntry.findMany.mockResolvedValueOnce([unchanged("new", "new.txt"), { ...unchanged("raced", "raced.txt"), size: BigInt(1) }]);
     expect(await syncWebDavDirectoryEntries({ node })).toEqual({ synced: 2, created: 1, updated: 1, deleted: 0, errors: [] });
     expect(mocks.fileEntry.updateMany).toHaveBeenCalledTimes(1);
-    expect(mocks.fileEntry.updateMany).toHaveBeenCalledWith(expect.objectContaining({ where: { id: "raced", isDeleted: false } }));
+    expect(mocks.fileEntry.updateMany).toHaveBeenCalledWith(expect.objectContaining({ where: { id: "raced", isDeleted: false, updatedAt: { equals: new Date(0), lt: expect.any(Date) } } }));
   });
 
   it("drops the recorded checksum when the remote size changed, and only then", async () => {
@@ -59,7 +60,7 @@ describe("WebDAV inventory sync", () => {
       { ...unchanged("retyped", "renamed-type.bin"), mimeType: "text/plain" },
     ]);
     await syncWebDavDirectoryEntries({ node });
-    expect(mocks.fileEntry.updateMany).toHaveBeenCalledWith({ where: { id: "grown", isDeleted: false }, data: expect.objectContaining({ size: BigInt(3), checksumSha256: null }) });
+    expect(mocks.fileEntry.updateMany).toHaveBeenCalledWith({ where: { id: "grown", isDeleted: false, updatedAt: { equals: new Date(0), lt: expect.any(Date) } }, data: expect.objectContaining({ size: BigInt(3), checksumSha256: null }) });
     const retyped = mocks.fileEntry.updateMany.mock.calls.find(([call]) => call.where.id === "retyped")?.[0];
     expect(retyped.data).not.toHaveProperty("checksumSha256");
   });
@@ -90,7 +91,7 @@ describe("WebDAV inventory sync", () => {
     expect(result).toEqual({ synced: 1, created: 0, updated: 1, deleted: 0, errors: [] });
     expect(mocks.fileEntry.findFirst).not.toHaveBeenCalled();
     expect(mocks.queryRaw).toHaveBeenCalledTimes(1);
-    expect(mocks.fileEntry.updateMany).toHaveBeenCalledWith(expect.objectContaining({ where: { id: "live", isDeleted: false } }));
+    expect(mocks.fileEntry.updateMany).toHaveBeenCalledWith(expect.objectContaining({ where: { id: "live", isDeleted: false, updatedAt: { equals: new Date(0), lt: expect.any(Date) } } }));
     expect(mocks.fileEntry.createMany).not.toHaveBeenCalled();
   });
 
@@ -178,7 +179,7 @@ describe("WebDAV inventory sync", () => {
     mocks.queryRaw.mockResolvedValueOnce([row("folder-id", "folder")]);
     const result = await syncWebDavDirectoryEntries({ node });
     expect(result.synced).toBe(1);
-    expect(mocks.fileEntry.updateMany).toHaveBeenCalledWith({ where: { id: "folder-id", isDeleted: false }, data: { name: "folder", entryType: "DIRECTORY", mimeType: "inode/directory", size: null, storageVersion: null, checksumSha256: null } });
+    expect(mocks.fileEntry.updateMany).toHaveBeenCalledWith({ where: { id: "folder-id", isDeleted: false, updatedAt: { equals: new Date(0), lt: expect.any(Date) } }, data: { name: "folder", entryType: "DIRECTORY", mimeType: "inode/directory", size: null, storageVersion: null, checksumSha256: null } });
   });
 
   it("keeps a large unchanged inventory write-free across read pages", async () => {

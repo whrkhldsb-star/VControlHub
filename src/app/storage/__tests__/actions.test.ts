@@ -162,6 +162,7 @@ import {
 } from "../actions";
 
 const { assertStorageAccess } = await import("@/lib/storage/access-control");
+const { storageAccessDeniedCopy } = await import("@/lib/storage/access-denied");
 
 function folderForm(input: {
   storageNodeId?: string;
@@ -264,8 +265,7 @@ describe("createFolderAction", () => {
     );
   });
 
-  it("rejects createFolder when target path lacks write ACL before filesystem writes", async () => {
-    prismaMock.fileEntry.findFirst.mockResolvedValueOnce(null);
+  it("checks directory write ACL before inspecting path occupancy", async () => {
     prismaMock.storageNode.findFirst.mockResolvedValueOnce({
       id: "node-1",
       name: "remote",
@@ -297,6 +297,7 @@ describe("createFolderAction", () => {
       }),
     );
 
+    expect(prismaMock.fileEntry.findFirst).not.toHaveBeenCalled();
     expect(result).toEqual({ error: "请求路径无效或超出授权范围" });
     expect(assertStorageAccess).toHaveBeenCalledWith(
       expect.objectContaining({
@@ -429,6 +430,8 @@ function sftpEntry(overrides: Record<string, unknown> = {}) {
 describe("SFTP file entry actions", () => {
   beforeEach(() => {
     vi.clearAllMocks();
+    prismaMock.fileEntry.findFirst.mockReset().mockResolvedValue(null);
+    lstatMock.mockReset().mockRejectedValue(Object.assign(new Error("not found"), { code: "ENOENT" }));
     requirePermissionMock.mockResolvedValue({
       userId: "user-1",
       username: "alice",
@@ -528,6 +531,20 @@ describe("SFTP file entry actions", () => {
     expect(prismaMock.fileEntry.delete).toHaveBeenCalledWith({
       where: { id: "entry-1", isDeleted: true, deleteBatchId: "batch" },
     });
+  });
+
+  it("clears a legacy batchless tombstone only at its displayed row version", async () => {
+    const updatedAt = new Date("2026-01-01T12:00:00Z");
+    const form = entryForm("entry-1", { deletedAt: updatedAt.toISOString() });
+    const identity = { id: "entry-1", isDeleted: true, deleteBatchId: null, updatedAt };
+    prismaMock.fileEntry.findFirst.mockResolvedValueOnce(null);
+    expect((await permanentDeleteFileEntryAction(null, form)).error).toBeTruthy();
+    expect(deleteRemoteFileMock).not.toHaveBeenCalled();
+    prismaMock.fileEntry.findFirst.mockResolvedValueOnce({ storageNodeId: "node-sftp" }).mockResolvedValueOnce(sftpEntry());
+    deleteRemoteFileMock.mockRejectedValueOnce(Object.assign(new Error("missing"), { code: 2 }));
+    expect((await permanentDeleteFileEntryAction(null, form)).success).toBeTruthy();
+    expect(prismaMock.fileEntry.findFirst).toHaveBeenCalledWith(expect.objectContaining({ where: expect.objectContaining(identity) }));
+    expect(prismaMock.fileEntry.delete).toHaveBeenCalledWith({ where: identity });
   });
 
   it("permanent SFTP delete tolerates an already-missing remote file and still removes the recycle-bin row", async () => {
@@ -638,6 +655,19 @@ describe("SFTP file entry actions", () => {
 
     expect(result.success).toContain("new.txt");
     expect(prismaMock.shareLink.update).toHaveBeenCalledWith({ where: { id: "share-1" }, data: { path: "docs/new.txt" } });
+  });
+
+  it("refuses a directory rename into a limited prefix when the remote inventory cannot be verified", async () => {
+    prismaMock.fileEntry.findFirst.mockResolvedValueOnce(sftpEntry({ name: "old", relativePath: "old", entryType: "DIRECTORY", size: null }));
+    vi.mocked(assertStorageAccess).mockResolvedValueOnce({ allowed: true }).mockImplementationOnce(async input => {
+      await input.measureMove!();
+      return { allowed: true };
+    });
+    const result = await renameFileEntryAction(null, entryForm("entry-1", { newName: "limited" }));
+    expect(assertStorageAccess).toHaveBeenNthCalledWith(2, expect.objectContaining({ relativePath: "limited", movedFrom: "old", measureMove: expect.any(Function) }));
+    expect(result.error).toBe(storageAccessDeniedCopy("unmetered_tree_write"));
+    expect(renameRemoteFileMock).not.toHaveBeenCalled();
+    expect(prismaMock.fileEntry.update).not.toHaveBeenCalled();
   });
 
   it("rewrites only live (non-soft-deleted) descendants when renaming a directory", async () => {

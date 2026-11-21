@@ -8,6 +8,7 @@
  * real names and the entry types, so links and devices are never extracted.
  */
 import { createReadStream } from "node:fs";
+import { addAbortSignal } from "node:stream";
 import { createGunzip } from "node:zlib";
 
 export type TarMemberType = "file" | "directory" | "symlink" | "hardlink" | "other";
@@ -136,11 +137,15 @@ export async function walkTar(
 	filePath: string,
 	gzip: boolean,
 	visit: (member: TarMember, content: AsyncIterable<Buffer>) => Promise<void>,
+	limits: { maxExpandedBytes?: number; signal?: AbortSignal } = {},
 ): Promise<void> {
-	const file = createReadStream(filePath);
+	limits.signal?.throwIfAborted();
+	const file = createReadStream(filePath, { signal: limits.signal });
 	const source = gzip ? file.pipe(createGunzip()) : file;
+	if (limits.signal && gzip) addAbortSignal(limits.signal, source);
 	if (gzip) file.on("error", (error) => source.destroy(error));
 	const reader = new ByteReader(source);
+	let expanded = 0;
 	let longName: string | null = null;
 	let pax: Record<string, string> = {};
 	try {
@@ -151,6 +156,9 @@ export async function walkTar(
 			const typeflag = String.fromCharCode(header[156]!);
 			const size = pax.size ? Number(pax.size) : readNumber(header.subarray(124, 136));
 			const padded = Math.ceil(size / BLOCK) * BLOCK;
+			if (!Number.isSafeInteger(size) || size < 0) throw new TarFormatError("Invalid member size");
+			expanded += BLOCK + padded;
+			if (limits.maxExpandedBytes !== undefined && expanded > limits.maxExpandedBytes) throw new TarFormatError("Archive preview exceeds expanded byte limit");
 			if (typeflag === "L" || typeflag === "x" || typeflag === "K" || typeflag === "g") {
 				const body = await readAll(reader.take(size), 1024 * 1024);
 				await reader.skip(padded - size);

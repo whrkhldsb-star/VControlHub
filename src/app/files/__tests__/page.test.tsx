@@ -55,7 +55,7 @@ describe("FilesPage",() => {
     // Everyone who could read files got each node's host, port, account, root path and health error.
     const node = {id:"sftp",name:"Backup box",driver:"SFTP",isDefault:false,basePath:"/srv/backup",host:"10.0.0.5",port:22,username:"ops",
       connectionSummary:"ops@10.0.0.5:22 /srv/backup",lastHealthError:"connect ECONNREFUSED 10.0.0.5:22",fileCount:3,healthStatus:"UNHEALTHY",
-      directAccess:{mode:"proxy",description:"",href:"https://files.example/raw"}};
+      directAccess:{mode:"direct-url",description:"10.0.0.5:22",href:"https://files.example/raw",publicBaseUrl:"https://files.example/root"}};
     mocks.listing.mockResolvedValue({listing,nodes:[node]});
     render(await FilesPage({}));
     const reader = mocks.manager.mock.calls[0]![0].nodes[0];

@@ -1,3 +1,4 @@
+import { sessionHasPermission } from "@/lib/auth/authorization";
 import { apiCopy } from "@/lib/i18n/api-copy";
 import { NextResponse } from "next/server";
 
@@ -31,6 +32,7 @@ export async function GET(request: Request) {
       const driverFilter = parseSearchParams(request, driverFilterSchema);
 
       const storageNodes = await listStorageNodes(session, operation);
+      const manage = sessionHasPermission(session, "storage:manage-node");
       const nodes = storageNodes
         .filter((node) => !driverFilter || node.driver === driverFilter)
         .filter((node) =>
@@ -40,8 +42,8 @@ export async function GET(request: Request) {
           id: node.id,
           name: node.name,
           driver: node.driver,
-          basePath: node.basePath,
-          ...(node.driver === "SFTP"
+          ...(manage ? { basePath: node.basePath } : {}),
+          ...(manage && node.driver === "SFTP"
             ? {
                 serverId: node.serverId ?? null,
                 serverName: node.server?.name ?? null,

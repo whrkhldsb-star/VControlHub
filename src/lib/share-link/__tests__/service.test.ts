@@ -3,7 +3,7 @@ import { describe, expect, it, vi, beforeEach } from "vitest";
 
 const { mockPrisma } = vi.hoisted(() => ({
   mockPrisma: {
-    $transaction: vi.fn(), $queryRaw: vi.fn(),
+    $transaction: vi.fn(), $queryRaw: vi.fn(), $executeRaw: vi.fn(),
     shareLink: { create: vi.fn(), count: vi.fn(), findMany: vi.fn(), findUnique: vi.fn(), findFirst: vi.fn(), update: vi.fn(), updateMany: vi.fn() },
     shareAccessLog: { create: vi.fn() },
     fileEntry: { findFirst: vi.fn(), findMany: vi.fn() },
@@ -44,7 +44,7 @@ describe("share link service", () => {
   beforeEach(() => {
   vi.clearAllMocks();
   mockPrisma.fileEntry.findFirst.mockResolvedValue(null);
-  mockPrisma.shareLink.updateMany.mockResolvedValue({ count: 1 });
+  mockPrisma.$executeRaw.mockResolvedValue(1);
   mockPrisma.$transaction.mockImplementation(fn => fn(mockPrisma));
   mockPrisma.$queryRaw.mockResolvedValue([{ id: "node1", teamId: "team-1" }]);
   // A share belongs to its storage node's customer (service-owner.test.ts).
@@ -220,7 +220,7 @@ describe("share link service", () => {
     mockPrisma.shareAccessLog.create.mockResolvedValue({ id: "log1" });
     const result = await resolveShareToken("abc", "s3cret");
     expect(result.id).toBe("share1");
-    expect(mockPrisma.shareLink.updateMany).toHaveBeenCalledWith({ where: { id: "share1", revokedAt: null }, data: { accessCount: { increment: 1 } } });
+    expect(mockPrisma.$executeRaw.mock.lastCall![0].values).toEqual(["share1"]);
     expect(mockPrisma.shareAccessLog.create).toHaveBeenCalledWith(
       expect.objectContaining({
         data: expect.objectContaining({ shareLinkId: "share1", action: "download" }),
@@ -232,7 +232,7 @@ describe("share link service", () => {
     mockPrisma.shareLink.findUnique.mockResolvedValue({ id: "share-head", storageNode: { driver: "LOCAL" }, tokenHash: "x", expiresAt: null, revokedAt: null, maxDownloads: 1, accessCount: 0, passwordHash: null, permissionLevel: "download" });
     const result = await resolveShareToken("abc", undefined, undefined, { claimDownload: false });
     expect(result.id).toBe("share-head");
-    expect(mockPrisma.shareLink.updateMany).not.toHaveBeenCalled();
+    expect(mockPrisma.$executeRaw).not.toHaveBeenCalled();
     expect(mockPrisma.shareLink.update).not.toHaveBeenCalled();
     expect(mockPrisma.shareAccessLog.create).not.toHaveBeenCalled();
     // A used-up link still says so.
@@ -309,6 +309,7 @@ describe("share link service", () => {
     const session = { userId: "admin1", roles: ["admin"] as const, currentTeamId: "team_a" };
     await revokeShareLink("share_other", "admin1", session as any);
     const where = mockPrisma.shareLink.findFirst.mock.calls[0]![0]!.where;
+    expect(mockPrisma.shareLink.update).toHaveBeenCalledWith(expect.objectContaining({ select: { id: true, revokedAt: true } }));
     expect(where.id).toBe("share_other");
     expect(where.createdBy).toBeUndefined();
   });
@@ -341,7 +342,7 @@ describe("share link service", () => {
     expect(validTicket.storageNode?.name).toBe("prod-node");
   });
 
-  it("claims maxDownloads atomically via updateMany", async () => {
+  it("claims maxDownloads atomically on the locked share", async () => {
     mockPrisma.shareLink.findUnique.mockResolvedValue({
       id: "share-quota",
       storageNode: { driver: "LOCAL" },
@@ -353,32 +354,40 @@ describe("share link service", () => {
       passwordHash: null,
       permissionLevel: "download",
     });
-    mockPrisma.shareLink.updateMany.mockResolvedValue({ count: 1 });
     mockPrisma.shareAccessLog.create.mockResolvedValue({ id: "log1" });
     const result = await resolveShareToken("abc");
     expect(result.id).toBe("share-quota");
-    expect(mockPrisma.shareLink.updateMany).toHaveBeenCalledWith(
-      expect.objectContaining({
-        where: expect.objectContaining({ id: "share-quota", accessCount: { lt: 2 } }),
-        data: { accessCount: { increment: 1 } },
-      }),
-    );
+    const [query] = mockPrisma.$executeRaw.mock.lastCall!;
+    expect(query.values).toEqual(["share-quota"]);
+    expect(query.sql).toContain('c."accessCount" < c."maxDownloads"');
+  });
+
+  it.each([null, 2])("requires a still-live expiry when claiming a share with limit %s", async (maxDownloads) => {
+    const expiresAt = new Date(Date.now() + 60_000);
+    mockPrisma.shareLink.findUnique.mockResolvedValueOnce({ id: "race", storageNode: { driver: "LOCAL" }, path: "a", maxDownloads, accessCount: 0, expiresAt, revokedAt: null });
+    mockPrisma.$executeRaw.mockResolvedValueOnce(0);
+    await expect(resolveShareToken("abc")).rejects.toThrow();
+    const [query] = mockPrisma.$executeRaw.mock.lastCall!;
+    expect(query.sql).toContain('c."revokedAt" IS NULL');
+    expect(query.sql).toContain('c."expiresAt" > (clock_timestamp()');
+    expect(mockPrisma.shareAccessLog.create).not.toHaveBeenCalled();
   });
 
   it("rejects an unlimited download revoked between lookup and claim", async () => {
     mockPrisma.shareLink.findUnique.mockResolvedValueOnce({ id: "share", storageNode: { driver: "LOCAL" }, path: "docs/a", revokedAt: null, maxDownloads: null });
-    mockPrisma.shareLink.updateMany.mockResolvedValueOnce({ count: 0 });
+    mockPrisma.$executeRaw.mockResolvedValueOnce(0);
     await expect(resolveShareToken("abc")).rejects.toMatchObject({ status: 404 });
     expect(mockPrisma.shareAccessLog.create).not.toHaveBeenCalled();
   });
 
   it("requires a live share in the final directory listing query", async () => {
     const { listShareDirectoryFiles } = await import("../service");
-    mockPrisma.fileEntry.findMany.mockResolvedValueOnce([]);
+    mockPrisma.$queryRaw.mockResolvedValueOnce([]);
     await listShareDirectoryFiles({ id: "share", entryType: "DIRECTORY", path: "docs", storageNodeId: "node" });
-    expect(mockPrisma.fileEntry.findMany.mock.lastCall?.[0].where.storageNode).toEqual({
-      shareLinks: { some: { id: "share", revokedAt: null } },
-    });
+    const [query] = mockPrisma.$queryRaw.mock.lastCall!;
+    expect(query.sql).toContain('s."revokedAt" IS NULL');
+    expect(query.sql).toContain('s."storageNodeId" = e."storageNodeId"');
+    expect(query.values).toContain("share");
   });
 
   it("releaseShareQuotaClaim decrements accessCount when > 0", async () => {

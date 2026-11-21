@@ -88,21 +88,17 @@ export function RecycleBinSectionClient({ deletedEntries, canDelete, onRefresh, 
   async function runBulk(action: "restore" | "delete") {
     const targets = selectedEntries;
     if (!targets.length || bulk) return;
-    // A folder's purge removes everything under it, and its restore brings
-    // back what was deleted with it: an entry also selected under it then
-    // "failed" as no longer in the recycle bin. Folders go first; what they
-    // covered is only handled on its own if the folder itself failed. A file
-    // deleted before its folder, in another operation, stays in the recycle
-    // bin when the folder is restored: it is not covered.
-    const covers = (folder: DeletedEntryProp, entry: DeletedEntryProp) =>
+    const contains = (folder: DeletedEntryProp, entry: DeletedEntryProp) =>
       folder.entryType === "DIRECTORY" && folder.id !== entry.id
       && (folder.storageNodeId ?? folder.storageNodeName) === (entry.storageNodeId ?? entry.storageNodeName)
-      && entry.relativePath.startsWith(`${folder.relativePath}/`)
-      && (action === "delete" || (Boolean(folder.deleteBatchId) && folder.deleteBatchId === entry.deleteBatchId));
-    const ordered = targets.map((entry) => ({
-      entry,
-      ancestors: targets.filter((folder) => covers(folder, entry)),
-    })).sort((a, b) => a.ancestors.length - b.ancestors.length);
+      && entry.relativePath.startsWith(folder.relativePath + "/");
+    const ordered = targets.map(entry => {
+      const parents = targets.filter(folder => contains(folder, entry)).sort((a, b) => a.relativePath.length - b.relativePath.length);
+      const ancestors = parents.filter(folder => Boolean(folder.deleteBatchId) && folder.deleteBatchId === entry.deleteBatchId);
+      const chain = [...parents, entry];
+      const independent = parents.filter((folder, index) => !folder.deleteBatchId || folder.deleteBatchId !== chain[index + 1]!.deleteBatchId).length;
+      return { entry, ancestors, depth: parents.length, independent };
+    }).sort((a, b) => (action === "delete" ? b.independent - a.independent : 0) || a.depth - b.depth);
     setBulk({ action, done: 0, total: targets.length });
     setErrors([]);
     const failures: string[] = [];
@@ -116,6 +112,7 @@ export function RecycleBinSectionClient({ deletedEntries, canDelete, onRefresh, 
       }
       const formData = new FormData();
       formData.set("fileEntryId", entry.id);
+      if (entry.deletedAt) formData.set("deletedAt", new Date(entry.deletedAt).toISOString());
       if (action === "delete") formData.set("deleteBatchId", entry.deleteBatchId ?? "");
       try {
         const result = action === "restore"
@@ -147,7 +144,7 @@ export function RecycleBinSectionClient({ deletedEntries, canDelete, onRefresh, 
   const actions = (entry: DeletedEntryProp) => canDelete ? (
     <div className="flex flex-wrap items-start gap-2">
       <RestoreButton fileEntryId={entry.id} onRefresh={() => handleEntryCompleted(entry.id)} />
-      <PermanentDeleteButton deleteBatchId={entry.deleteBatchId} fileEntryId={entry.id} entryName={entry.name} onRefresh={() => handleEntryCompleted(entry.id)} />
+      <PermanentDeleteButton deletedAt={entry.deletedAt} deleteBatchId={entry.deleteBatchId} fileEntryId={entry.id} entryName={entry.name} onRefresh={() => handleEntryCompleted(entry.id)} />
     </div>
   ) : <span className="text-xs text-[var(--text-muted)]">{t("recycleBinSection.noPermission")}</span>;
   const typeLabel = (entry: DeletedEntryProp) => t(entry.entryType === "DIRECTORY" ? "recycleBinSection.entryType.directory" : "recycleBinSection.entryType.file");

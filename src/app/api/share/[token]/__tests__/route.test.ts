@@ -44,6 +44,23 @@ describe("share token file route", () => {
     }
   });
 
+  it.each(["HEAD", "GET"] as const)("refuses a file archive via %s before opening the SFTP connection", async method => {
+    const { releaseShareQuotaClaim } = await import("@/lib/share-link/service");
+    const ssh = await import("@/lib/ssh/client");
+    const connect = vi.spyOn(ssh, "connectSsh").mockRejectedValue(new Error("unexpected SSH"));
+    vi.mocked(releaseShareQuotaClaim).mockClear();
+    try {
+      vi.mocked(resolveShareToken).mockResolvedValueOnce({ id: "file-archive", entryType: "FILE", path: "f", storageNode: { driver: "SFTP" } } as never);
+      const response = await route[method](new Request("http://local/api/share/token?archive=1", { method }), { params: Promise.resolve({ token: "share-file-archive-test" }) });
+      expect(response.status).toBe(400);
+      expect(connect).not.toHaveBeenCalled();
+      expect(releaseShareQuotaClaim).toHaveBeenCalledTimes(method === "GET" ? 1 : 0);
+    } finally {
+      connect.mockRestore();
+      vi.mocked(releaseShareQuotaClaim).mockClear();
+    }
+  });
+
   it("delivers an anonymous WebDAV share inline without exposing credentials", async () => {
     const { streamStorageFile } = await import("@/lib/storage/file-content");
     vi.mocked(streamStorageFile).mockResolvedValueOnce({ stream: Readable.from("dav text"), size: 8, close: vi.fn() } as never);

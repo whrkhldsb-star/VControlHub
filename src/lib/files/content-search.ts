@@ -12,6 +12,7 @@
  * - Only text files are searched (binary files skipped via grep -I)
  */
 import fs from "node:fs/promises";
+import { indexedAncestors } from "@/lib/storage/archive-access";
 import { getRuntimeSettingNumberCached } from "@/lib/runtime-settings/cached";
 import path from "node:path";
 
@@ -31,7 +32,7 @@ type ContentSearchSession = {
 import { execRemoteCommand } from "@/lib/ssh/client";
 import { resolveStorageSshCredentials, STORAGE_SSH_SERVER_SELECT } from "@/lib/storage/ssh-credentials";
 import { resolveLocalAbsolutePath } from "@/lib/storage/service-entries";
-import { expandStorageBasePath } from "@/lib/storage/path-utils";
+import { expandStorageBasePath, hasCaseInsensitiveLocalPaths } from "@/lib/storage/path-utils";
 import { normalizeRemotePath, normalizeRemoteRelativePath } from "@/lib/storage/remote-path";
 
 import { shellQuote } from "@/lib/shell-quote";
@@ -444,6 +445,8 @@ export async function searchFileContents(params: {
 		},
 	});
 
+	const insensitiveNodes = new Set(nodes.filter(node => hasCaseInsensitiveLocalPaths(node.driver)).map(node => node.id));
+	const pathKey = (nodeId: string, path: string) => insensitiveNodes.has(nodeId) ? path.toLowerCase() : path;
 	const allResults: ContentSearchResult[] = [];
 	let nodeTruncated = false;
 
@@ -472,10 +475,11 @@ export async function searchFileContents(params: {
 					async (relativePaths) => {
 						if (relativePaths.length === 0) return new Set();
 						const rows = await prisma.fileEntry.findMany({
-							where: { storageNodeId: node.id, isDeleted: true, relativePath: { in: relativePaths } },
+							where: { storageNodeId: node.id, isDeleted: true, relativePath: { in: [...new Set(relativePaths.flatMap(indexedAncestors))], ...(insensitiveNodes.has(node.id) && { mode: "insensitive" }) } },
 							select: { relativePath: true },
 						});
-						return new Set(rows.map((row) => row.relativePath));
+						const hidden = new Set(rows.map(row => pathKey(node.id, row.relativePath)));
+						return new Set(relativePaths.filter(path => indexedAncestors(path).some(parent => hidden.has(pathKey(node.id, parent)))));
 					},
 				);
 				allResults.push(...local.results);
@@ -499,14 +503,14 @@ export async function searchFileContents(params: {
 	// Filter soft-deleted (recycle-bin) entries: their bytes are still on
 	// disk / on the SFTP host, so a raw grep hits them, but the UI never
 	// shows deleted files — surfacing their content would leak deleted data.
-	// Scope the tombstone lookup to the exact (node, path) pairs this search
+	// Scope the tombstone lookup to the matched paths and their ancestors on each node this search
 	// produced — the previous global scan pulled every tenant's tombstones
 	// with no node/team filter and silently truncated at 10k rows, letting
 	// deleted content from beyond the cap slip back into results.
 	const pathsByNode = new Map<string, Set<string>>();
 	for (const result of allResults) {
 		const paths = pathsByNode.get(result.nodeId) ?? new Set<string>();
-		paths.add(result.relativePath);
+		for (const ancestor of indexedAncestors(result.relativePath)) paths.add(ancestor);
 		pathsByNode.set(result.nodeId, paths);
 	}
 	const tombstoned = new Set<string>();
@@ -516,17 +520,17 @@ export async function searchFileContents(params: {
 				isDeleted: true,
 				OR: [...pathsByNode.entries()].map(([nodeId, paths]) => ({
 					storageNodeId: nodeId,
-					relativePath: { in: [...paths] },
+					relativePath: { in: [...paths], ...(insensitiveNodes.has(nodeId) && { mode: "insensitive" as const }) },
 				})),
 			},
 			select: { storageNodeId: true, relativePath: true },
 		});
 		for (const row of rows) {
-			tombstoned.add(`${row.storageNodeId}\0${row.relativePath}`);
+			tombstoned.add(`${row.storageNodeId}\0${pathKey(row.storageNodeId, row.relativePath)}`);
 		}
 	}
 	const visibleResults = allResults.filter(
-		(result) => !tombstoned.has(`${result.nodeId}\0${result.relativePath}`),
+		(result) => !indexedAncestors(result.relativePath).some(path => tombstoned.has(`${result.nodeId}\0${pathKey(result.nodeId, path)}`)),
 	);
 
 	// Sort: most snippets first
