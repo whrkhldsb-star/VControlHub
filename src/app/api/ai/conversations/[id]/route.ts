@@ -11,6 +11,8 @@ import {
 import { updateConversationSchema } from "@/lib/ai/schema";
 import { withApiRoute } from "@/lib/http/api-guard";
 import { GENERAL_WRITE_LIMIT } from "@/lib/http/rate-limit-presets";
+import { z } from "zod";
+import { parseSearchParams } from "@/lib/http/parse-search-params";
 import { NotFoundError } from "@/lib/errors";
 import { auditUserAction } from "@/lib/audit/service";
 
@@ -25,8 +27,13 @@ export async function GET(
     { permission: "ai:chat", errorMessage: apiCopy("apiCopy.not.found.e3ebaa16"), errorStatus: 404 },
     async ({ session }) => {
       const { id } = await params;
-      const conv = await getConversationById(id, session);
-      return NextResponse.json({ conversation: serializeConversation(conv) });
+      const { before, beforeId } = parseSearchParams(request, z.object({
+        before: z.iso.datetime().optional(), beforeId: z.string().min(1).max(128).optional(),
+      }));
+      const conv = before && beforeId
+        ? await getConversationById(id, session, { createdAt: new Date(before), id: beforeId })
+        : await getConversationById(id, session);
+      return NextResponse.json({ conversation: serializeConversation(conv), hasMore: conv.messages.length === 500 });
     },
   );
 }

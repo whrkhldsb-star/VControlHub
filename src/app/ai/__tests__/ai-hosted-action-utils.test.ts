@@ -80,14 +80,19 @@ describe("AI hosted action UI state", () => {
 });
 
 describe("approvalDetails", () => {
-  it("lists what each action will do, and truncates very long text", () => {
+  it("lists what each action will do, and preserves the complete saved content", () => {
     expect(approvalDetails("restart_service", { serviceName: "nginx", reason: "config changed" })).toEqual([
       { labelKey: "aiPage.approvalService", value: "nginx", block: false },
       { labelKey: "aiPage.approvalReason", value: "config changed", block: false },
     ]);
     const [row] = approvalDetails("execute_command", { command: "x".repeat(5_000) });
     expect(row!.block).toBe(true);
-    expect(row!.value.length).toBeLessThan(2_100);
+    expect(row!.value).toBe("x".repeat(5_000));
+    for (const content of ["first line\n" + "x".repeat(5_000) + "\nlast line", "  \n", ""]) {
+      expect(approvalDetails("modify_config", { configPath: "/etc/example", content })).toContainEqual({
+        labelKey: "aiPage.approvalConfigContent", value: content, block: true,
+      });
+    }
     expect(approvalDetails("list_servers", {})).toEqual([]);
   });
 

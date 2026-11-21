@@ -74,12 +74,17 @@ function safeJsonArray<T = unknown>(raw: string | null | undefined): T[] {
   }
 }
 
+export function isChatImageUrl(url: unknown): url is string {
+  if (typeof url !== "string" || url.length > 2048) return false;
+  try { return /^https?:$/.test(new URL(url).protocol); } catch { return false; }
+}
+
 export function buildAiChatMessagePayload(input: {
   body: AiChatBody;
   conv: ConversationForAiChat;
   isVisionCapable: boolean;
   locale: Locale;
-}): { allImageUrls: string[]; historyMessages: HistoryMessage[]; userText: string; persistedText: string } {
+}): { allImageUrls: string[]; historyMessages: HistoryMessage[]; userText: string; persistedText: string; attachmentMetadata?: string } {
   const { body, conv, isVisionCapable, locale } = input;
   const historyMessages: HistoryMessage[] = [];
 
@@ -90,40 +95,36 @@ export function buildAiChatMessagePayload(input: {
   // The history is the latest window of a long thread, cut by row count: it
   // can begin with tool results whose assistant call fell outside it.
   // Providers reject a result with no matching call, so those are dropped.
-  const announcedToolCalls = new Set<string>();
-  // The converse: a call that never got a result (an unknown tool, or one
-  // that failed before its result was recorded) made the provider reject
-  // every later request of the thread. Only answered calls are replayed.
-  const answeredToolCalls = new Set(
-    conv.messages.flatMap((msg) => (msg.role === "tool" && msg.toolCallId ? [msg.toolCallId] : [])),
-  );
   // The window can open mid-thread on an assistant turn; Anthropic rejects a
   // history that does not start with the user, so the history starts at the
   // first user turn (results of calls left out are then dropped below).
   let reachedUserTurn = false;
-  for (const msg of conv.messages) {
+  for (const [index, msg] of conv.messages.entries()) {
     if (msg.role === "system") continue;
     if (!reachedUserTurn) {
       if (msg.role !== "user") continue;
       reachedUserTurn = true;
     }
 
-    if (msg.role === "tool") {
-      if (!msg.toolCallId || !announcedToolCalls.has(msg.toolCallId)) continue;
-      historyMessages.push({ role: "tool", content: msg.content, tool_call_id: msg.toolCallId });
-      continue;
-    }
-
-    const toolCalls = safeJsonArray<AiToolCall>(msg.toolCalls).filter((call) => answeredToolCalls.has(call.id));
-    if (msg.role === "assistant" && toolCalls.length > 0) {
-      for (const call of toolCalls) announcedToolCalls.add(call.id);
-      historyMessages.push({ role: "assistant", content: msg.content || "", tool_calls: toolCalls });
-      continue;
+    if (msg.role === "tool") continue;
+    if (msg.role === "assistant") {
+      const calls = safeJsonArray<AiToolCall>(msg.toolCalls);
+      const replies = new Map<string, string>();
+      for (let j = index + 1; calls.length && conv.messages[j]?.role === "tool"; j++) {
+        const reply = conv.messages[j]!;
+        if (reply.toolCallId) replies.set(reply.toolCallId, reply.content);
+      }
+      const answered = calls.filter((call) => replies.has(call.id));
+      if (answered.length) {
+        historyMessages.push({ role: "assistant", content: msg.content || "", tool_calls: answered });
+        for (const call of answered) historyMessages.push({ role: "tool", content: replies.get(call.id)!, tool_call_id: call.id });
+        continue;
+      }
     }
     if (msg.role === "assistant" && !msg.content) continue;
 
     if (msg.role === "user" && isVisionCapable) {
-      const imageUrls = safeJsonArray<string>(msg.imageUrls);
+      const imageUrls = safeJsonArray<string>(msg.imageUrls).filter(isChatImageUrl);
       if (imageUrls.length > 0) {
         historyMessages.push({
           role: "user",
@@ -145,17 +146,23 @@ export function buildAiChatMessagePayload(input: {
   historyMessages.push(...replayed);
 
   const userText = (body.content ?? "").trim();
-  const imageUrls = body.imageUrls ?? [];
+  const imageUrls = (body.imageUrls ?? []).filter(isChatImageUrl);
   const imageBase64 = body.imageBase64 ?? [];
   const files = body.fileAttachments ?? [];
   const hasImages = isVisionCapable && (imageUrls.length > 0 || imageBase64.length > 0);
 
-  const fileText = files
-    .map((file) => `--- File: ${file.name} ---\n${file.content}\n--- End of ${file.name} ---`)
-    .join("\n\n");
-  const fullText = fileText
-    ? `${userText}${t("apiAiChat.attachmentPrefix", locale)}${fileText}`
-    : userText;
+  let fullText = userText;
+  const ranges = files.map((file, index) => {
+    fullText += (index ? "\n\n" : t("apiAiChat.attachmentPrefix", locale)) + `--- File: ${file.name} ---\n`;
+    const start = fullText.length;
+    fullText += file.content;
+    const end = fullText.length;
+    fullText += `\n--- End of ${file.name} ---`;
+    return { name: file.name, start, end };
+  });
+  const attachmentMetadata = files.length || imageBase64.length
+    ? JSON.stringify({ version: 1, textLength: userText.length, ranges, localFiles: imageBase64.length })
+    : undefined;
 
   if (hasImages) {
     historyMessages.push({
@@ -176,5 +183,5 @@ export function buildAiChatMessagePayload(input: {
   // Base64 data is provider-only and must never be persisted in chat history.
   // Text attachments are: `persistedText` is what the model saw this turn, so
   // the next turn (rebuilt from the database) can still refer to the file.
-  return { allImageUrls: [...imageUrls], historyMessages, userText, persistedText: fullText };
+  return { allImageUrls: [...imageUrls], historyMessages, userText, persistedText: fullText, attachmentMetadata };
 }

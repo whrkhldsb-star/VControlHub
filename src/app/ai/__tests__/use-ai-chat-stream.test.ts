@@ -127,6 +127,39 @@ describe("useAiChatStream", () => {
 		expect(chatCalls).toHaveLength(2);
 	});
 
+	it("ignores both the old finally and a late stop refresh after resending in the same conversation", async () => {
+		const first = Promise.withResolvers<Response>();
+		const refresh = Promise.withResolvers<unknown>();
+		const second = Promise.withResolvers<Response>();
+		mocks.csrfFetch.mockReturnValueOnce(first.promise).mockReturnValueOnce(refresh.promise)
+			.mockReturnValueOnce(second.promise).mockResolvedValueOnce({ conversation: { messages: [{ id: "new" }] } });
+		const { args, state } = setup();
+		const { result } = renderHook(() => useAiChatStream(args));
+		let old!: Promise<void>, current!: Promise<void>;
+		act(() => { old = result.current.sendMessage(sendArgs); });
+		act(() => result.current.stopGeneration());
+		act(() => { current = result.current.sendMessage(sendArgs); });
+		await act(async () => { first.resolve(sseResponse([{ type: "done" }])); await old; });
+		expect(result.current.streaming).toBe(true);
+		await act(async () => { second.resolve(sseResponse([{ type: "done" }])); await current; });
+		await act(async () => { refresh.resolve({ conversation: { messages: [{ id: "old" }] } }); });
+		expect(state.messages).toEqual([{ id: "new" }]);
+	});
+
+	it("keeps the draft until HTTP acceptance and refuses excessive attachment counts and encoded bytes locally", async () => {
+		const accepted = vi.fn();
+		const { args } = setup();
+		const { result } = renderHook(() => useAiChatStream(args));
+		const b64 = { mimeType: "image/png", data: "a".repeat(7_000_000) };
+		for (const input of [{ fileAttachments: Array(9).fill({ name: "a", content: "x" }) }, { imageBase64: Array(5).fill(b64) }]) {
+			await act(() => result.current.sendMessage({ ...sendArgs, ...input }, accepted));
+		}
+		expect(mocks.csrfFetch).not.toHaveBeenCalled();
+		mocks.csrfFetch.mockResolvedValueOnce(Response.json({ error: "refused" }, { status: 413 }));
+		await act(() => result.current.sendMessage(sendArgs, accepted));
+		expect(accepted).not.toHaveBeenCalled();
+	});
+
 	it("allows a new send after stopGeneration cleared the in-flight stream", async () => {
 		mocks.csrfFetch.mockImplementation(async (url: string) =>
 			url === "/api/ai/chat"
@@ -355,7 +388,7 @@ describe("useAiChatStream", () => {
 				expect(message.conversationId).not.toBe("conv_a");
 			}
 			// The toast still fires — the user should know the send failed.
-			expect(state.toasts.some((toast) => toast.kind === "error")).toBe(true);
+			expect(state.toasts.some((toast) => toast.kind === "error")).toBe(false);
 		});
 
 		it("clears ephemeral stream state when the conversation changes", async () => {
@@ -427,6 +460,34 @@ describe("useAiChatStream", () => {
 			actionType: "restart_service",
 			riskLevel: "high",
 		} as never;
+
+		it("shows a failed outcome even when the confirmation was accepted", async () => {
+			mocks.csrfFetch.mockResolvedValueOnce({ accepted: true, success: false, action: { status: "FAILED", errorMessage: "missing task" } })
+				.mockResolvedValueOnce({ conversation: { messages: [] } });
+			const { args, state } = setup();
+			const { result } = renderHook(() => useAiChatStream(args));
+			await act(() => result.current.decideApproval(approval, "confirm"));
+			expect(state.toasts).toEqual([{ kind: "error", message: "missing task" }]);
+		});
+
+		it("drops a failed accepted card when the HTTP client reports a non-success status", async () => {
+			mocks.csrfFetch.mockRejectedValueOnce(new ApiError(422, { accepted: true, error: "missing task" }))
+				.mockResolvedValueOnce({ conversation: { messages: [] } });
+			const { args, state } = setup();
+			const { result } = renderHook(() => useAiChatStream(args));
+			act(() => { result.current.setPendingApprovals([approval]); });
+			await act(() => result.current.decideApproval(approval, "confirm"));
+			expect(result.current.pendingApprovals).toEqual([]);
+			expect(state.toasts).toEqual([{ kind: "error", message: "missing task" }]);
+		});
+
+		it.each([["COMPLETED", "aiPage.confirmed"], ["APPROVED", "aiPage.actionStatus.APPROVED"]])("shows the saved %s status even if history cannot refresh", async (status, message) => {
+			mocks.csrfFetch.mockResolvedValueOnce({ accepted: true, action: { status } }).mockRejectedValueOnce(new Error("offline"));
+			const { args, state } = setup();
+			const { result } = renderHook(() => useAiChatStream(args));
+			await act(() => result.current.decideApproval(approval, "confirm"));
+			expect(state.toasts).toEqual([{ kind: "success", message }, { kind: "error", message: "aiPage.historyLoadFailed" }]);
+		});
 
 		it("confirms an action, drops it from the pending list, and re-reads the transcript", async () => {
 			mocks.csrfFetch.mockImplementation(async (url: string) =>

@@ -1,5 +1,6 @@
 "use client";
 
+import { isLocalOllamaEndpoint } from "@/lib/ai/provider-endpoint";
 import { CheckboxField, Chip, CONTROL_CLASS, FormField, Input } from "@/components/ui-primitives";
 import { useI18n } from "@/lib/i18n/use-locale";
 import { providerOrigin, resolveDefaultProviderBaseUrl } from "@/lib/ai/provider-endpoint";
@@ -83,7 +84,7 @@ export function AiProviderFields({ form, onChange, editing = false, keyRequired 
       </select>
     </FormField>
     <FormField label="API Key" htmlFor={`${prefix}-key`} className="sm:col-span-2">
-      <Input id={`${prefix}-key`} type="password" autoComplete="off" required={keyRequired} value={form.apiKey} onChange={(e) => onChange({ apiKey: e.target.value })} placeholder={keyRequired ? "sk-..." : t("aiPage.apiKeyPlaceholder")} className="font-mono" />
+      <Input id={`${prefix}-key`} type="password" autoComplete="off" required={keyRequired && !isLocalOllamaEndpoint(form.baseUrl, form.type)} value={form.apiKey} onChange={(e) => onChange({ apiKey: e.target.value })} placeholder={keyRequired ? "sk-..." : t("aiPage.apiKeyPlaceholder")} className="font-mono" />
     </FormField>
     <FormField label="Base URL" htmlFor={`${prefix}-base-url`} className="sm:col-span-2">
       <Input id={`${prefix}-base-url`} value={form.baseUrl} onChange={(e) => {

@@ -86,6 +86,20 @@ describe("AiProviderPanel", () => {
     expect(key).toBeRequired();
   });
 
+  it("omits an empty default model after changing provider type", async () => {
+    vi.mocked(csrfFetch).mockResolvedValueOnce({});
+    render(<AiProviderPanel show providers={[providerFixture]} provForm={DEFAULT_PROV_FORM}
+      onClose={vi.fn()} onCreateProvider={vi.fn()} onDeleteProvider={vi.fn()}
+      onRefreshProviders={vi.fn()} setProvForm={vi.fn()} />);
+    await userEvent.click(screen.getByRole("button", { name: "编辑 OpenAI" }));
+    await userEvent.selectOptions(screen.getByLabelText("类型"), "ANTHROPIC");
+    await userEvent.type(screen.getByLabelText("API Key"), "new-key");
+    await userEvent.click(screen.getByRole("button", { name: "保存修改" }));
+    const patch = JSON.parse(String(vi.mocked(csrfFetch).mock.calls.at(-1)?.[1]?.body));
+    expect(patch).toMatchObject({ type: "ANTHROPIC", apiKey: "new-key" });
+    expect(patch).not.toHaveProperty("defaultModel");
+  });
+
   it("locks editing and dismissal until a save finishes and prevents repeated PATCH requests", async () => {
     let resolve!: (value: unknown) => void;
     vi.mocked(csrfFetch).mockReturnValueOnce(new Promise((done) => { resolve = done; }));

@@ -45,8 +45,6 @@ export type ApprovalDetail = {
   block?: boolean;
 };
 
-const APPROVAL_TEXT_LIMIT = 2_000;
-
 function text(params: Record<string, unknown>, key: string): string | null {
   const value = params[key];
   return typeof value === "string" && value.trim() !== "" ? value : null;
@@ -66,7 +64,7 @@ export function approvalDetails(
   const rows: ApprovalDetail[] = [];
   const add = (labelKey: string, value: string | null, block = false) => {
     if (value === null) return;
-    rows.push({ labelKey, value: value.length > APPROVAL_TEXT_LIMIT ? `${value.slice(0, APPROVAL_TEXT_LIMIT)}…` : value, block });
+    rows.push({ labelKey, value, block });
   };
   switch (actionType) {
     case "execute_command":
@@ -77,7 +75,7 @@ export function approvalDetails(
       break;
     case "modify_config":
       add("aiPage.approvalConfigPath", text(params, "configPath"));
-      add("aiPage.approvalConfigContent", text(params, "content"), true);
+      add("aiPage.approvalConfigContent", typeof params.content === "string" ? params.content : null, true);
       break;
     case "deploy_docker": {
       add("aiPage.approvalImage", text(params, "imageName"));
@@ -97,6 +95,7 @@ export function approvalDetails(
       break;
     }
     case "run_playbook":
+      if (Array.isArray(params.targetServerIds)) add("aiPage.automationTargets", params.targetServerIds.join(listSeparator));
       add("aiPage.approvalPlaybook", text(params, "playbookName") ?? text(params, "playbookId"));
       break;
     case "manage_cron":

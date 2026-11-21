@@ -34,8 +34,8 @@ describe("generic AI automation proposals", () => {
       name: "Install SSH public key",
       command: "install-key '{{public_key}}'",
       rollbackCommand: "remove-key '{{public_key}}'",
-    variables: ["public_key"],
-    isBuiltin: true,
+      variables: ["public_key"],
+      isBuiltin: true,
     });
     serverFindMany.mockResolvedValue([
       { id: "srv_1", name: "A", host: "10.0.0.1", teamId: "team_1" },
@@ -69,8 +69,27 @@ describe("generic AI automation proposals", () => {
     const plan = {
       name: "Install key fleet-wide", plan: "Add the key.", reason: "Access rotation",
       executionMode: "now", targetScope: "all", templateId: "template_key",
-      variables: { public_key: "ssh-ed25519 AAAA test" }, approvalMode: "every_run",
+      variables: { public_key: "ssh-ed25519 AAAAC3NzaC1lZDI1NTE5AAAAIAABAgMEBQYHCAkKCwwNDg8QERITFBUWFxgZGhscHR4f test" }, approvalMode: "every_run",
     };
+
+    it.each([
+      ["port", "0"], ["port", "65536"], ["service", "-option"], ["container", "--help"],
+      ["public_key", "ssh-ed25519 AAAA invalid"],
+    ])("refuses an invalid built-in %s before showing its command", async (name, value) => {
+      commandTemplateFindFirst.mockResolvedValueOnce({ id: "template_key", name: "Builtin", isBuiltin: true,
+        command: "inspect {{"+ name +"}}", variables: [name], rollbackCommand: null });
+      await expect(materializeAutomationProposal({ ...plan, variables: { [name]: value } }, actor)).rejects.toThrow();
+      expect(serverFindMany).not.toHaveBeenCalled();
+    });
+
+    it("applies command and target limits to the materialized proposal", async () => {
+      commandTemplateFindFirst.mockResolvedValueOnce({ id: "template_key", name: "Custom", isBuiltin: false,
+        command: "{{value}}{{value}}", rollbackCommand: null, variables: ["value"] });
+      await expect(materializeAutomationProposal({ ...plan, variables: { value: "x".repeat(5001) } }, actor)).rejects.toThrow();
+      const servers = Array.from({ length: 501 }, (_, i) => ({ id: String(i), name: String(i), host: "local", teamId: "team_1" }));
+      serverFindMany.mockResolvedValueOnce(servers.slice(0, 500)).mockResolvedValueOnce(servers.slice(500));
+      await expect(materializeAutomationProposal(plan, actor)).rejects.toThrow();
+    });
 
     it("requires an identifiable customer even in the all-customers view", async () => {
       serverFindMany.mockResolvedValueOnce([{ id: "srv", name: "unassigned", teamId: null, operatingSystem: "LINUX" }]);
@@ -99,7 +118,7 @@ describe("generic AI automation proposals", () => {
       const confirmed = await materializeAutomationProposal(plan, actor);
       await executeAutomationProposal(confirmed, actor, "hosted_1", confirmed.teamId);
       expect(createCommandRequest).toHaveBeenCalledWith(
-        expect.objectContaining({ command: "install-key 'ssh-ed25519 AAAA test'", serverIds: ["srv_1", "srv_2"] }),
+        expect.objectContaining({ command: "install-key 'ssh-ed25519 AAAAC3NzaC1lZDI1NTE5AAAAIAABAgMEBQYHCAkKCwwNDg8QERITFBUWFxgZGhscHR4f test'", serverIds: ["srv_1", "srv_2"] }),
         expect.anything(),
       );
     });
@@ -137,12 +156,12 @@ describe("generic AI automation proposals", () => {
       dailyTime: "03:30",
       targetScope: "all",
       templateId: "template_key",
-      variables: { public_key: "ssh-ed25519 AAAA test" },
+      variables: { public_key: "ssh-ed25519 AAAAC3NzaC1lZDI1NTE5AAAAIAABAgMEBQYHCAkKCwwNDg8QERITFBUWFxgZGhscHR4f test" },
       approvalMode: "every_run",
     }, { userId: "u1", roles: ["operator"], currentTeamId: "team_1" });
 
-    expect(proposal.command).toBe("install-key 'ssh-ed25519 AAAA test'");
-    expect(proposal.rollbackCommand).toBe("remove-key 'ssh-ed25519 AAAA test'");
+    expect(proposal.command).toBe("install-key 'ssh-ed25519 AAAAC3NzaC1lZDI1NTE5AAAAIAABAgMEBQYHCAkKCwwNDg8QERITFBUWFxgZGhscHR4f test'");
+    expect(proposal.rollbackCommand).toBe("remove-key 'ssh-ed25519 AAAAC3NzaC1lZDI1NTE5AAAAIAABAgMEBQYHCAkKCwwNDg8QERITFBUWFxgZGhscHR4f test'");
     expect(proposal.serverIds).toEqual(["srv_1", "srv_2"]);
     expect(proposal.approvalRequired).toBe(true);
   });

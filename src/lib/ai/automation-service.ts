@@ -1,3 +1,5 @@
+import { utils } from "ssh2";
+import { isValidTcpPort } from "@/lib/runtime/listen-port";
 import { z } from "zod";
 
 import { sessionHasPermission } from "@/lib/auth/authorization";
@@ -17,10 +19,7 @@ import { createScheduledTask } from "@/lib/scheduled-task/service";
 
 import type { HostedActionSession } from "./hosted-helpers";
 
-function createAutomationSchema(
-  t: (key: string, vars?: Record<string, string | number>) => string,
-) {
-  return z.object({
+const automationProposalSchema = z.object({
   name: z.string().trim().min(1).max(200),
   plan: z.string().trim().min(1).max(10_000),
   // The limit of the command request each run files (createCommandSchema). Up to 2,000 characters were accepted
@@ -38,21 +37,8 @@ function createAutomationSchema(
   runAt: z.string().trim().optional(),
   dailyTime: z.string().regex(/^([01]\d|2[0-3]):[0-5]\d$/).optional(),
   approvalMode: z.enum(["approve_once", "every_run"]),
-  }).superRefine((value, ctx) => {
-  if (value.targetScope === "selected" && !value.serverIds?.length) {
-    ctx.addIssue({ code: "custom", path: ["serverIds"], message: t("backend.ai.automationSelectedScopeRequiresTargets") });
-  }
-  if (!value.templateId && !value.templateName && !value.command) {
-    ctx.addIssue({ code: "custom", path: ["command"], message: t("backend.ai.automationTemplateOrCommandRequired") });
-  }
-  if (value.executionMode === "once" && !value.runAt) {
-    ctx.addIssue({ code: "custom", path: ["runAt"], message: t("backend.ai.automationRunAtRequired") });
-  }
-  if (value.executionMode === "daily" && !value.dailyTime) {
-    ctx.addIssue({ code: "custom", path: ["dailyTime"], message: t("backend.ai.automationDailyTimeRequired") });
-  }
-  });
-}
+});
+
 
 function unique(values: string[]) {
   return [...new Set(values)];
@@ -84,10 +70,10 @@ function validateBuiltinVariables(
 ) {
   if (!template?.isBuiltin) return;
   for (const [name, value] of Object.entries(variables)) {
-    if (["days", "count", "port"].includes(name) && !/^\d{1,6}$/.test(value)) {
+    if (["days", "count", "port"].includes(name) && (!/^\d{1,6}$/.test(value) || (name === "port" && !isValidTcpPort(Number(value))))) {
       throw new ValidationError(t("backend.ai.automationVariableNumeric", { name }));
     }
-    if (["service", "container"].includes(name) && !/^[A-Za-z0-9_.@-]+$/.test(value)) {
+    if (["service", "container"].includes(name) && !/^[A-Za-z0-9][A-Za-z0-9_.@-]{0,127}$/.test(value)) {
       throw new ValidationError(t("backend.ai.automationVariableUnsupported", { name }));
     }
     if (name === "project_dir" && (!/^\/[A-Za-z0-9_./-]+$/.test(value) || value.split("/").includes(".."))) {
@@ -96,7 +82,7 @@ function validateBuiltinVariables(
   }
   if (variables.public_key !== undefined) {
     const key = variables.public_key ?? "";
-    if (!/^(ssh-(rsa|ed25519)|ecdsa-sha2-nistp\d+|sk-(ssh-ed25519|ecdsa-sha2-nistp256)@openssh\.com) [A-Za-z0-9+/=]+(?: [^\r\n]+)?$/.test(key)) {
+    if (!/^(ssh-(rsa|ed25519)|ecdsa-sha2-nistp\d+|sk-(ssh-ed25519|ecdsa-sha2-nistp256)@openssh\.com) [A-Za-z0-9+/=]+(?: [^\r\n]+)?$/.test(key) || /[\r\n]/.test(key) || utils.parseKey(key) instanceof Error) {
       throw new ValidationError(t("backend.ai.automationPublicKeyValid"));
     }
   }
@@ -108,7 +94,11 @@ export async function materializeAutomationProposal(
   confirmedTeamId?: string | null,
 ) {
   const t = await serviceT();
-  const input = createAutomationSchema(t).parse(raw);
+  const input = automationProposalSchema.parse(raw);
+  if (input.targetScope === "selected" && !input.serverIds?.length) throw new ValidationError(t("backend.ai.automationSelectedScopeRequiresTargets"));
+  if (!input.templateId && !input.templateName && !input.command) throw new ValidationError(t("backend.ai.automationTemplateOrCommandRequired"));
+  if (input.executionMode === "once" && !input.runAt) throw new ValidationError(t("backend.ai.automationRunAtRequired"));
+  if (input.executionMode === "daily" && !input.dailyTime) throw new ValidationError(t("backend.ai.automationDailyTimeRequired"));
   const session = { ...actor, currentTeamId: actor.currentTeamId ?? null };
   if (!sessionHasPermission(actor, "command:create")) {
     throw new ForbiddenError(t("backend.ai.missingPermissionCommandCreate"));
@@ -163,6 +153,8 @@ export async function materializeAutomationProposal(
     throw new ValidationError(t("backend.ai.automationUnresolvedVariables"));
   }
 
+  // Validate the rendered plan with the very same limits used to read it back on confirmation.
+  automationProposalSchema.parse({ ...input, command, rollbackCommand });
   const requestedIds = unique(input.serverIds ?? []);
   const servers: Array<{ id: string; name: string; host: string; teamId: string | null }> = [];
   let cursor: { id: string } | undefined;
@@ -182,6 +174,7 @@ export async function materializeAutomationProposal(
       throw new BusinessError(t("backend.ai.windowsHostedCommandUnsupported"));
     }
     servers.push(...batch);
+    if (servers.length > 500) throw new ValidationError(t("backend.ai.invalidActionParameters"));
     cursor = batch.length === 500 ? { id: batch[batch.length - 1]!.id } : undefined;
   } while (cursor);
   servers.sort((a, b) => a.name.localeCompare(b.name));

@@ -241,7 +241,7 @@ describe("resolvePlaybookId", () => {
 		await expect(resolvePlaybookId({ playbookId: "pb_1" }, operator)).resolves.toEqual({ id: "pb_1", name: "deploy" });
 		expect(mocks.playbookFindFirst).toHaveBeenCalledWith({
 			where: { id: "pb_1", teamId: "team_1" },
-			select: { id: true, name: true },
+			select: { id: true, name: true, steps: true, enabled: true },
 		});
 	});
 

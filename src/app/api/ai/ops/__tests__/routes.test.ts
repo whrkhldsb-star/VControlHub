@@ -78,7 +78,7 @@ vi.mock("@/lib/settings/service", async (importOriginal) => {
 });
 
 vi.mock("@/lib/db", () => ({
-	prisma: { aiProvider: { findFirst: mocks.aiProviderFindFirst } },
+	prisma: { setting: { findMany: vi.fn(async ({ where }) => Promise.all(where.key.in.map(async (key: string) => ({ key, value: await mocks.getSetting(key) })))) }, aiProvider: { findFirst: mocks.aiProviderFindFirst } },
 }));
 
 // Load all routes under test once; vi.hoisted ordering keeps the mocks
@@ -226,7 +226,7 @@ describe("/api/ai/ops/* routes", () => {
 				}),
 			);
 			expect(res.status).toBe(202);
-			expect(mocks.requestAiOpsScan).toHaveBeenCalledWith("manual", "investigate");
+			expect(mocks.requestAiOpsScan).toHaveBeenCalledWith("manual", "investigate", "u-admin", undefined);
 			expect(mocks.runAiOpsScanWorkerOnce).not.toHaveBeenCalled();
 			expect(mocks.auditUserAction).toHaveBeenCalledWith(
 				"u-admin",
@@ -345,6 +345,7 @@ describe("/api/ai/ops/* routes", () => {
 			expect(res.status).toBe(200);
 			await expect(res.json()).resolves.toEqual({ result: { ok: true } });
 			expect(mocks.approveRecommendation).toHaveBeenCalledWith({
+				approvedBy: "u-admin",
 				logId: "log-1",
 				actionId: "a-1",
 			});
@@ -369,6 +370,7 @@ describe("/api/ai/ops/* routes", () => {
 				{ params: Promise.resolve({ id: "log-1" }) },
 			);
 			expect(mocks.approveRecommendation).toHaveBeenCalledWith({
+				approvedBy: "u-admin",
 				logId: "log-1",
 				actionId: "a-1",
 			});

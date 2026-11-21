@@ -160,7 +160,7 @@ function applyOpenAiEvent(
     const id = stringValue(toolCall.id);
     const numbered = numberValue(toolCall.index);
     const providerIndex = numbered !== undefined && Number.isInteger(numbered) && numbered >= 0 ? numbered : undefined;
-    if ((providerIndex ?? state.toolCalls.length) > MAX_TOOL_INDEX) {
+    if (providerIndex !== undefined && providerIndex > MAX_TOOL_INDEX) {
       throw new Error("AI provider returned too many tool calls");
     }
 
@@ -174,6 +174,7 @@ function applyOpenAiEvent(
       const wanted = providerIndex ?? state.toolCalls.length;
       // The index already holds another call: keep both.
       const slot = state.toolCalls[wanted] ? state.toolCalls.length : wanted;
+      if (slot > MAX_TOOL_INDEX) throw new Error("AI provider returned too many tool calls");
       state.toolCalls[slot] = {
         id,
         type: "function",
@@ -290,8 +291,7 @@ export async function consumeProviderChatStream(input: {
     }
     if (!event) return;
     if (event.error || event.type === "error") {
-      const message = stringValue(record(event.error)?.message).slice(0, 500);
-      throw new Error(`AI provider stream failed${message ? `: ${message}` : ""}`);
+      throw new Error("AI provider stream failed");
     }
     if (input.providerType === "ANTHROPIC") {
       if (event.type === "message_stop") finished = true;

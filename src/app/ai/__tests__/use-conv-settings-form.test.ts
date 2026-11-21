@@ -86,3 +86,16 @@ describe("useConvSettingsForm when a save is refused", () => {
 		expect(result.current.dirty).toBe(true);
 	});
 });
+
+it("discards the automation mode before another edit in the same conversation", async () => {
+	fetchMock.mockReset().mockResolvedValue({});
+	const props = { activeConvId: "same", activeConv: { ...conversation("model-a"), automationMode: "PLAN_ONLY" as const }, refreshConversations: vi.fn(), onSaved: vi.fn(), addToast: vi.fn() };
+	const { result } = renderHook(() => useConvSettingsForm(props));
+	await waitFor(() => expect(result.current.settingsForm.automationMode).toBe("PLAN_ONLY"));
+	act(() => result.current.setSettingsForm((form) => ({ ...form, automationMode: "ASSISTED" })));
+	act(() => result.current.resetForm());
+	expect(result.current.dirty).toBe(false);
+	act(() => result.current.setSettingsForm((form) => ({ ...form, temperature: 0.9 })));
+	await act(() => result.current.handleSaveSettings());
+	expect(fetchMock).toHaveBeenLastCalledWith("/api/ai/conversations/same", expect.objectContaining({ body: JSON.stringify({ temperature: 0.9 }) }));
+});

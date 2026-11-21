@@ -53,7 +53,7 @@ export function useAiSendActions({
   messages: Message[];
   setMessages: Dispatch<SetStateAction<Message[]>>;
   autoTitle: (convId: string, firstMsg: string) => Promise<void> | void;
-  sendMessage: (args: SendArgs) => Promise<void>;
+  sendMessage: (args: SendArgs, onAccepted?: (messageId: string | null) => void) => Promise<void>;
   providers: Provider[];
   refreshConversations: () => Promise<void> | void;
   setActiveConvId: (id: string | null) => void;
@@ -77,9 +77,6 @@ export function useAiSendActions({
       .filter((f) => f.type === "image" && f.preview)
       .map((f) => f.preview!);
 
-    setInput("");
-    setImageUrls([]);
-    setFileAttachments([]);
 
     const optimisticUser: Message = {
       id: `temp-${randomId()}`,
@@ -94,14 +91,18 @@ export function useAiSendActions({
       latencyMs: null,
       createdAt: new Date().toISOString(),
     };
-    setMessages((prev) => [...prev, optimisticUser]);
-    if (messages.length === 0) autoTitle(activeConvId, userMsg);
 
     await sendMessage({
       content: userMsg,
       imageUrls: userImages,
       imageBase64: userImageBase64,
       fileAttachments: userFiles,
+    }, (messageId) => {
+      setInput("");
+      setImageUrls([]);
+      setFileAttachments([]);
+      setMessages((prev) => [...prev, { ...optimisticUser, id: messageId ?? optimisticUser.id }]);
+      if (messages.length === 0) void autoTitle(activeConvId, userMsg);
     });
   }, [
     activeConvId,

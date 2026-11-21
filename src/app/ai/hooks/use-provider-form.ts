@@ -7,6 +7,7 @@
  *
  * Extracted from ai-client.tsx in R31.
  */
+import { isLocalOllamaEndpoint } from "@/lib/ai/provider-endpoint";
 import { useCallback, useRef, useState } from "react";
 
 import { csrfFetch } from "@/lib/auth/csrf-client";
@@ -30,7 +31,7 @@ export function useProviderForm({
 
   const handleCreateProvider = useCallback(async () => {
     if (creatingRef.current) return;
-    if (!provForm.name.trim() || !provForm.apiKey.trim()) {
+    if (!provForm.name.trim() || (!provForm.apiKey.trim() && !isLocalOllamaEndpoint(provForm.baseUrl, provForm.type))) {
       addToast("error", t("aiPage.nameAndKeyRequired"));
       return;
     }
@@ -47,6 +48,7 @@ export function useProviderForm({
         headers: { "Content-Type": "application/json" },
         body: JSON.stringify({
           ...provForm,
+          defaultModel: provForm.defaultModel.trim() || undefined,
           ...(baseUrl ? { baseUrl } : {}),
           models: models.join(","),
           availableModels: models,

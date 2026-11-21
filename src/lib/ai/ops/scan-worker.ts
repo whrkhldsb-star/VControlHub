@@ -18,7 +18,9 @@
  *   - globalThis state mirror for re-entrancy
  */
 import { Prisma } from "@prisma/client";
-import { pruneAiOpsLogs } from "./retention";
+import { migrateLegacyProviderKeys } from "../service-crud";
+import { recoverPendingKnowledgeDocuments } from "../knowledge";
+import { planJobCleanup, pruneAiOpsLogs } from "./retention";
 import { prisma } from "@/lib/db";
 import { config } from "@/lib/config/env";
 import { acquireAdvisoryLock } from "@/lib/concurrency/advisory-lock";
@@ -35,7 +37,7 @@ import {
 } from "@/lib/job/service";
 import { createLogger } from "@/lib/logging";
 import { t } from "@/lib/i18n/service-translations";
-import { getSetting } from "@/lib/settings/service";
+import { readResponseTextLimited } from "@/lib/http/response-body";
 import { sendChatRequestToProvider } from "@/lib/ai/service-runtime";
 import { getSingletonIntervalWorkerState, type SingletonIntervalWorkerState } from "@/lib/workers/singleton-interval-worker";
 
@@ -48,14 +50,12 @@ import {
   type AiOpsMode,
   type AiOpsRecommendedAction,
 } from "./types";
-import { loadBoundAiOpsProvider } from "./provider-binding";
+import { loadBoundAiOpsProvider, providerConfigurationVersion, readAiOpsSettings } from "./provider-binding";
 import { createAiOpsLog, completeScan, findCompletedScanForJob, type CompleteScanInput } from "./service";
-import { executeAiOpsAction } from "./action-executor";
+import { executeScanAction, scanActionReceipts } from "./action-executor";
 import { failedProviderHealth, parseProviderHealth, type AiOpsProviderHealth } from "./provider-health";
 import { getPlatformDefaults } from "@/lib/settings/platform-defaults";
 
-/** The most completed runs any job type keeps on purpose (its prune's keepLatest). */
-const JOB_HISTORY_KEPT_PER_TYPE = 200;
 const logger = createLogger("ai-ops-scan-worker");
 
 export const AI_OPS_SCAN_LEASE_MS = computeLeaseMs("ai-ops-scan");
@@ -81,19 +81,21 @@ async function hasActiveScanJob(): Promise<boolean> {
 }
 
 /** Queue a scan for the worker (A7-04); null when one is already pending or running. */
-export async function requestAiOpsScan(reason: string, notes?: string | null) {
-  return enqueueScanJob(reason, notes);
+export async function requestAiOpsScan(reason: string, notes?: string | null, triggeredById?: string, mode?: AiOpsMode) {
+  return enqueueScanJob(reason, notes, triggeredById, mode);
 }
 
-async function enqueueScanJob(reason: string, notes?: string | null) {
+async function enqueueScanJob(reason: string, notes?: string | null, triggeredById?: string, mode?: AiOpsMode) {
   const release = await acquireAdvisoryLock("ai-ops-scan-enqueue", "global");
   try {
     if (await hasActiveScanJob()) return null;
-    return enqueueJob({
+    return await enqueueJob({
       type: AI_OPS_SCAN_JOB_TYPE,
       title: "AI ops daily scan",
+      createdBy: triggeredById,
       payload: {
         reason,
+        ...(mode && { mode }),
         requestedAt: new Date().toISOString(),
         ...(notes ? { notes } : {}),
       },
@@ -103,11 +105,6 @@ async function enqueueScanJob(reason: string, notes?: string | null) {
   } finally {
     await release();
   }
-}
-
-async function readModeFromSettings(): Promise<AiOpsMode> {
-  const mode = await getSetting("ai.ops.mode").catch(() => "recommendation");
-  return mode === "autonomous" ? "autonomous" : "recommendation";
 }
 
 const AI_OPS_ANALYSIS_MAX_TOKENS = 3000;
@@ -155,14 +152,14 @@ async function requestProviderAnalysis(
         },
         {
           role: "user",
-          content: JSON.stringify({ collectedAt: new Date().toISOString(), checks: AI_OPS_CHECKS, signals }),
+          content: JSON.stringify({ collectedAt: new Date().toISOString(), checks: AI_OPS_CHECKS, signals: signals.map(({ id, severity, title, body, source }) => ({ id, severity, title, body, source })) }),
         },
       ],
     },
     provider,
     signal,
   );
-  const payload = (await response.json().catch(() => null)) as
+  const payload = JSON.parse(await readResponseTextLimited(response, 256 * 1024)) as
     | {
         choices?: Array<{ finish_reason?: unknown; message?: { content?: unknown } }>;
         content?: Array<{ type?: string; text?: unknown }>;
@@ -187,6 +184,7 @@ async function requestProviderAnalysis(
 }
 
 interface SystemHealthSignal {
+  cleanup?: AiOpsRecommendedAction["cleanup"];
   id: string;
   severity: AiOpsFindingSeverity;
   title: string;
@@ -212,6 +210,7 @@ async function collectSystemHealthSignals(): Promise<SystemHealthSignal[]> {
 
   const since24h = new Date(Date.now() - 24 * 60 * 60 * 1000);
 
+  const cutoff = new Date(Date.now() - 7 * 24 * 60 * 60_000);
   const [
     alertCount,
     recentFailures,
@@ -243,20 +242,10 @@ async function collectSystemHealthSignals(): Promise<SystemHealthSignal[]> {
         createdAt: { gte: since24h },
       },
     })),
-    // Week-old completed jobs beyond what their type's retention keeps. Each
-    // type keeps its latest runs on purpose (up to 200) as its history, so
-    // counting every week-old completed job flagged that history on every
-    // scan with advice to clean up; only an excess means pruning stopped.
-    counted("job.queue", prisma.job
-      .groupBy({
-        by: ["type"],
-        where: {
-          status: "COMPLETED",
-          updatedAt: { lt: new Date(Date.now() - 7 * 24 * 60 * 60 * 1000) },
-        },
-        _count: { _all: true },
-      })
-      .then((groups) => groups.reduce((sum, group) => sum + Math.max(0, group._count._all - JOB_HISTORY_KEPT_PER_TYPE), 0))),
+    planJobCleanup(cutoff).catch(() => {
+      unreadChecks.push("job.queue");
+      return { count: 0, cutoff: cutoff.toISOString(), ids: [] };
+    }),
   ]);
 
   if (alertCount > 20) {
@@ -304,12 +293,13 @@ async function collectSystemHealthSignals(): Promise<SystemHealthSignal[]> {
       source: "backup.records",
     });
   }
-  if (staleJobs > 100) {
+  if (staleJobs.count > 100) {
     signals.push({
       id: "job.stale-accumulation",
+      cleanup: { cutoff: staleJobs.cutoff, ids: staleJobs.ids },
       severity: "info",
       title: "Stale job accumulation",
-      body: `${staleJobs} completed jobs older than 7 days exceed their job type's retention; check the retention workers.`,
+      body: `${staleJobs.count} completed jobs older than 7 days exceed their job type's retention; check the retention workers.`,
       source: "job.queue",
     });
   }
@@ -425,6 +415,7 @@ function buildScan(
       if (action) {
         out.push({
           id: `${s.id}.autonomous`,
+          ...(s.cleanup && { cleanup: s.cleanup }),
           action,
           risk: "low",
           executed: false,
@@ -451,6 +442,7 @@ function buildScan(
       s.severity === "critical" ? ("high" as const) : ("low" as const);
     return {
       id: `${s.id}.reco`,
+      ...(s.cleanup && { cleanup: s.cleanup }),
       action,
       risk,
       requiresApproval: s.severity === "critical",
@@ -512,7 +504,7 @@ export async function runAiOpsScanWorkerOnce(
       job.payload &&
       typeof job.payload === "object" &&
       !Array.isArray(job.payload)
-        ? (job.payload as { reason?: unknown; notes?: unknown })
+        ? job.payload
         : {};
     const payloadReason =
       typeof jobPayload.reason === "string" && jobPayload.reason.trim()
@@ -561,8 +553,12 @@ export async function runAiOpsScanWorkerOnce(
             if (lastAttempt) await reserveAcknowledgement(prisma);
             return previousScan;
           }
-          const [mode, providerSetting] = await Promise.all([readModeFromSettings(), getSetting("ai.ops.provider")]);
-          const providerId = providerSetting?.trim() || null;
+          const snapshot = await readAiOpsSettings().then(
+            (settings) => ({ ok: true as const, settings }),
+            (error: unknown) => ({ ok: false as const, error }),
+          );
+          const mode = snapshot.ok && jobPayload.mode !== "recommendation" ? snapshot.settings.mode : "recommendation";
+          const providerId = snapshot.ok && snapshot.settings.providerId || null;
           const log = await createAiOpsLog({
             jobId: job.id,
             // The daily timer passes "scheduled"; it was filed as manual.
@@ -571,11 +567,13 @@ export async function runAiOpsScanWorkerOnce(
                 ? "scheduled"
                 : "manual",
             mode,
-            triggeredById: null,
+            triggeredById: payloadReason === "manual" ? job.createdBy ?? null : null,
             providerId,
             notes: initialNotes,
           });
           aiOpsLogId = log.id;
+          if (!snapshot.ok) throw snapshot.error;
+          const settings = snapshot.settings;
 
           const signals = await collectSystemHealthSignals();
           const {
@@ -601,13 +599,17 @@ export async function runAiOpsScanWorkerOnce(
             providerHealth = { state: "unavailable", configurationVersion: "unavailable", consecutiveFailures: 0, failureKind: "configuration", httpStatus: null, retryAt: null };
           }
           if (provider && defaults && !signal.aborted) {
-            const configurationVersion = provider.updatedAt?.toISOString() ?? "legacy";
-            const parsedPrevious = parseProviderHealth(latest?.providerHealth);
-            const previous = parsedPrevious?.configurationVersion === configurationVersion ? parsedPrevious : null;
+            const configurationVersion = providerConfigurationVersion(provider);
+            const saved = parseProviderHealth(latest?.providerHealth);
+            // Older reports stored updatedAt. A model-list refresh could change it without a credential
+            // change. Carry that provider's existing backoff through the upgrade, then use the fingerprint.
+            const timestampVersion = saved && /^\d{4}-\d{2}-\d{2}T/.test(saved.configurationVersion);
+            const previous = saved && (saved.configurationVersion === configurationVersion || timestampVersion)
+              ? saved : null;
             const coolingDown = payloadReason !== "manual" && previous?.retryAt && Date.parse(previous.retryAt) > Date.now();
             if (coolingDown) {
               providerDegraded = true;
-              providerHealth = { ...previous, state: "cooldown" };
+              providerHealth = { ...previous, configurationVersion, state: "cooldown" };
             } else {
               try {
                 providerAnalysis = await requestProviderAnalysis(provider, signals, signal, defaults.locale);
@@ -623,16 +625,26 @@ export async function runAiOpsScanWorkerOnce(
           }
           if (providerDegraded) findings.push({ id: "ai.provider-unavailable", severity: "warning", title: "AI provider unavailable", body: "Rule-based scan results were preserved. Check provider configuration, access and balance; autonomous actions were withheld.", source: "ai.provider" });
           let actions = plannedActions;
-          if (mode === "autonomous" && plannedActions.length > 0) {
-            const dispatchMode = signal.aborted || providerDegraded ? null : await readModeFromSettings();
-            actions = await Promise.all(plannedActions.map((action) => {
-              let result: string;
-              if (signal.aborted) result = "Withheld because the scan lost its job lease";
-              else if (providerDegraded) result = "Withheld because provider analysis is unavailable";
-              else if (dispatchMode !== "autonomous") result = "Withheld because AI Ops is in recommendation mode";
-              else return executeAiOpsAction({ logId: log.id, id: action.id, action: action.action, risk: action.risk });
-              return { ...action, executed: false, result };
-            }));
+          // A successful cleanup removes its own finding. A retry still owes the operator that receipt.
+          const receipts = scanActionReceipts(jobPayload.actionReceipts);
+          if (mode === "autonomous") {
+            const pending = plannedActions.filter((action) => !receipts.some((saved) => saved.id === action.id));
+            actions = [...receipts];
+            for (const action of pending) {
+              const current = signal.aborted || providerDegraded ? null : await readAiOpsSettings();
+              const dispatchMode = current?.providerId === settings.providerId && current.binding === settings.binding ? current.mode : null;
+              if (!signal.aborted && dispatchMode === "autonomous") {
+                actions.push(await executeScanAction(job.id, AI_OPS_SCAN_WORKER_ID, job.attempts, action, signal));
+              } else {
+                const result = signal.aborted ? "Withheld because the scan lost its job lease"
+                  : providerDegraded ? "Withheld because provider analysis is unavailable" : "Withheld because AI Ops is in recommendation mode";
+                actions.push({ ...action, executed: false, result });
+              }
+            }
+          } else if (receipts.length) {
+            const recommendations = (plannedActions as AiOpsRecommendedAction[]).filter((action) =>
+              !receipts.some((saved) => saved.id === action.id.replace(/\.reco$/, ".autonomous")));
+            actions = [...recommendations, ...receipts.map((saved) => ({ ...saved, requiresApproval: false }))];
           }
 
           const report = buildExplainableReport(mode, signals, actions);
@@ -749,6 +761,8 @@ export async function startAiOpsScanWorker() {
   if (state.started) return state;
   state.started = true;
 
+  void migrateLegacyProviderKeys().catch(() => logger.warn("AI provider credential migration could not finish"));
+  void recoverPendingKnowledgeDocuments().catch(() => logger.warn("Pending knowledge documents could not be indexed"));
   // A restart must not re-bill a provider call for a scan that just ran (the
   // worker used to fire a real scan on every boot). Skip when a scan already
   // completed within the guard window; the next scheduled slot still runs.

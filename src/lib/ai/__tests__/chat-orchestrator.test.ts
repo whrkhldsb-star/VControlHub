@@ -4,6 +4,7 @@ import { beforeEach, describe, expect, it, vi } from "vitest";
 const { mocks } = vi.hoisted(() => ({
   mocks: {
     createMessage: vi.fn(),
+    generationWrite: vi.fn(),
     getConversationById: vi.fn(),
     sendChatRequest: vi.fn(),
     buildKnowledgeContextForPrompt: vi.fn(),
@@ -12,13 +13,20 @@ const { mocks } = vi.hoisted(() => ({
     executeSafeAction: vi.fn(),
     parseToolCall: vi.fn(),
     prisma: {
-      aiMessage: { create: vi.fn(), deleteMany: vi.fn() },
+      aiMessage: { upsert: vi.fn(), create: vi.fn(), deleteMany: vi.fn() },
       aiHostedAction: { update: vi.fn(), updateMany: vi.fn(async () => ({ count: 1 })) },
       $transaction: vi.fn(),
     },
   },
 }));
 
+vi.mock("../chat-generation", () => ({
+  finishChatGeneration: vi.fn(async () => undefined),
+  withChatGeneration: (_c: string, _u: string, write: (tx: typeof mocks.prisma) => unknown) => {
+    mocks.generationWrite();
+    return write(mocks.prisma);
+  },
+}));
 vi.mock("@/lib/ai/service", () => ({
   createMessage: mocks.createMessage,
   getConversationById: mocks.getConversationById,
@@ -88,6 +96,46 @@ describe("createAiChatResponse", () => {
     mocks.prisma.aiMessage.deleteMany.mockResolvedValue({ count: 1 });
     mocks.prisma.aiHostedAction.update.mockResolvedValue({ id: "action-1" });
     mocks.prisma.$transaction.mockResolvedValue([]);
+  });
+
+  function repeatedTools(batchSize: number) {
+    let sequence = 0;
+    mocks.getConversationById.mockResolvedValue({ ...conversation, hostingEnabled: true });
+    mocks.sendChatRequest.mockImplementation(async () => {
+      const calls = Array.from({ length: batchSize }, (_, index) => ({
+        index, id: "call-" + sequence++, function: { name: "list_servers", arguments: "{}" },
+      }));
+      return { response: new Response("data: " + JSON.stringify({ choices: [{ delta: { tool_calls: calls } }] }) + "\n\ndata: [DONE]\n\n"),
+        startTime: Date.now(), providerType: "OPENAI" };
+    });
+    mocks.parseToolCall.mockImplementation((call) => ({ toolCallId: call.id, args: {},
+      tool: { name: "list_servers", actionType: "list_servers", autoApproved: true, riskLevel: "low" } }));
+    mocks.createHostedAction.mockImplementation(async ({ toolCallId }) => ({ id: toolCallId, params: "{}", serverId: null }));
+    mocks.executeSafeAction.mockResolvedValue({ success: true, data: [] });
+  }
+
+  it.each([[1, 5], [15, 32]])("bounds repeated batches of %i calls to %i executions even when the provider ignores the final tool list", async (batch, executions) => {
+    repeatedTools(batch);
+    const response = await createAiChatResponse({ body: { conversationId: conversation.id, content: "go" }, session, reloadSession, locale: "en" });
+    await response.text();
+    expect(mocks.executeSafeAction).toHaveBeenCalledTimes(executions);
+    expect(mocks.sendChatRequest.mock.calls.at(-1)![0].tools).toBeUndefined();
+  });
+
+  it("stops a tool batch when a pending read finishes after cancellation", async () => {
+    repeatedTools(3);
+    const pending = Promise.withResolvers<unknown>();
+    mocks.executeSafeAction.mockReturnValueOnce(pending.promise);
+    const controller = new AbortController();
+    const response = await createAiChatResponse({ body: { conversationId: conversation.id, content: "go" },
+      signal: controller.signal, session, reloadSession, locale: "en" });
+    await vi.waitFor(() => expect(mocks.executeSafeAction).toHaveBeenCalledOnce());
+    controller.abort();
+    pending.resolve({ success: true, data: [] });
+    await response.text();
+    expect(mocks.createHostedAction).toHaveBeenCalledOnce();
+    expect(mocks.executeSafeAction.mock.calls[0]![1].signal.aborted).toBe(true);
+    expect(mocks.sendChatRequest).toHaveBeenCalledOnce();
   });
 
   it("persists both sides and emits a complete SSE response", async () => {
@@ -199,7 +247,7 @@ describe("createAiChatResponse", () => {
         session, reloadSession,
         locale: "en",
       }),
-    ).rejects.toMatchObject({ message: "provider unavailable" });
+    ).rejects.toMatchObject({ code: "EXTERNAL_SERVICE_ERROR", status: 502 });
 
     expect(mocks.prisma.aiMessage.deleteMany).toHaveBeenCalledWith({
       where: {
@@ -208,6 +256,15 @@ describe("createAiChatResponse", () => {
         role: "user",
       },
     });
+  });
+
+  it.each([[429, 429], [403, 502], [504, 502]])("exposes a stable category for provider HTTP %i", async (status, expectedStatus) => {
+    const { AiProviderHttpError } = await import("../provider-errors");
+    const diagnostic = "private upstream diagnostic";
+    mocks.sendChatRequest.mockRejectedValueOnce(new AiProviderHttpError(diagnostic, status, diagnostic, null));
+    await expect(createAiChatResponse({
+      body: { conversationId: conversation.id, content: "question" }, session, reloadSession, locale: "en",
+    })).rejects.toMatchObject({ status: expectedStatus, details: { providerStatus: status }, message: expect.not.stringContaining(diagnostic) });
   });
 
   it("returns a typed stream error when the provider has no response body", async () => {
@@ -356,9 +413,9 @@ describe("createAiChatResponse", () => {
   }));
     expect(mocks.executeSafeAction).toHaveBeenCalledWith(
       { actionType: "list_servers", serverId: null, params: {} },
-      { session: expect.objectContaining(session), locale: "en", revalidate: expect.any(Function) },
+      expect.objectContaining({ session: expect.objectContaining(session), locale: "en", revalidate: expect.any(Function), signal: expect.any(AbortSignal) }),
     );
-    expect(mocks.prisma.$transaction).toHaveBeenCalledTimes(1);
+    expect(mocks.generationWrite).toHaveBeenCalled();
     expect(mocks.prisma.aiHostedAction.update).toHaveBeenCalledWith({
       where: { id: "action-1" },
       data: expect.objectContaining({
@@ -469,18 +526,9 @@ describe("createAiChatResponse", () => {
     expect(body).toContain('"type":"tool_approval_needed"');
     expect(body).toContain('"actionId":"action-2"');
     expect(body).toContain('"needsApproval":true');
-    expect(mocks.prisma.aiMessage.create).toHaveBeenCalledWith({
-      data: {
-        conversationId: conversation.id,
-        role: "tool",
-        content: JSON.stringify({
-          actionId: "action-2",
-          status: "PENDING_APPROVAL",
-          pendingApproval: true,
-        }),
-        toolCallId: "tool-2",
-      },
-    });
+    expect(mocks.prisma.aiMessage.create).not.toHaveBeenCalledWith(expect.objectContaining({
+      data: expect.objectContaining({ role: "tool", toolCallId: "tool-2" }),
+    }));
     expect(mocks.executeSafeAction).not.toHaveBeenCalled();
     expect(mocks.prisma.$transaction).not.toHaveBeenCalled();
   });

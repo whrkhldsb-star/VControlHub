@@ -25,18 +25,26 @@ export async function exportConversationToMarkdown({
     if (!conv) {
       throw new Error(t("aiPage.exportNotFound"));
     }
+    const pages: Message[][] = [conv.messages];
+    let page = data;
+    while (page.hasMore) {
+      const first = page.conversation.messages[0] as Message;
+      const cursor = new URLSearchParams({ before: first.createdAt, beforeId: first.id });
+      page = await csrfFetch(`/api/ai/conversations/${conversationId}?${cursor}`);
+      pages.push(page.conversation.messages);
+    }
     const exportText = [
       `# ${conv.title}`,
       t("aiPage.modelMeta", { model: conv.model, provider: providerName || t("aiPage.modelUnknown") }),
       t("aiPage.createdMeta", { date: conv.createdAt }),
       "",
-      ...conv.messages.map((m: Message) => {
+      ...pages.reverse().flat().map((m: Message) => {
         const role =
           m.role === "user"
             ? t("aiPage.roleUser")
             : m.role === "assistant"
               ? t("aiPage.roleAssistant")
-              : t("aiPage.roleSystem");
+              : m.role === "tool" ? t("search.category.tool") : t("aiPage.roleSystem");
         return `---\n${role}:\n\n${m.content}\n`;
       }),
     ].join("\n");

@@ -125,5 +125,5 @@ export function useConvSettingsForm({
     t,
   ]);
 
-  return { settingsForm, setSettingsForm, handleSaveSettings, dirty };
+  return { settingsForm, setSettingsForm, handleSaveSettings, dirty, resetForm: () => setSettingsForm(baseline) };
 }

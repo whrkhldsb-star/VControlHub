@@ -23,6 +23,7 @@ import { apiCopy } from "@/lib/i18n/api-copy";
  *   - listFindings    (read-only, by log id)
  *   - summariseAiOps (counts for the dashboard)
  */
+import { randomUUID } from "node:crypto";
 import { Prisma } from "@prisma/client";
 
 import { prisma } from "@/lib/db";
@@ -51,6 +52,8 @@ const DEFAULT_LIST_LIMIT = 50;
 const MAX_LIST_LIMIT = 200;
 export const AI_OPS_ACTION_LEASE_MS = 10 * 60 * 1000;
 const ACTION_RESULT_WRITE_ATTEMPTS = 5;
+// Every successful CAS advances the stored version, including concurrent writes in the same millisecond.
+const nextVersion = (current: Date) => new Date(Math.max(Date.now(), current.getTime() + 1));
 
 function toRecord(row: {
 	id: string;
@@ -118,9 +121,44 @@ function parseActions(
 	const out: AiOpsRecommendedAction[] = [];
 	for (const raw of value) {
 		const parsed = aiOpsRecommendedActionSchema.safeParse(raw);
-		if (parsed.success) out.push(parsed.data);
+		if (parsed.success) {
+			const lostApproval = raw && typeof raw === "object" && !Array.isArray(raw) &&
+				parsed.data.result === "in_progress" && !("requiresApproval" in raw);
+			out.push(lostApproval ? { ...parsed.data, approvalNeedsReview: true } : parsed.data);
+		}
 	}
 	return out;
+}
+
+/** Only successful server-written approval events can restore metadata discarded by old workers. */
+async function restoreLegacyApprovals(records: Pick<AiOpsLogRecord, "id" | "actions">[]) {
+	const missing = records.flatMap((record) => record.actions.flatMap((action) =>
+		"requiresApproval" in action && action.approvalNeedsReview ? [{ logId: record.id, action }] : [],
+	));
+	if (!missing.length) return;
+	const events = await prisma.auditLog.findMany({
+		where: {
+			actorType: "USER", actorId: { not: null }, action: "ai.ops.recommendation.approve",
+			detail: { path: ["ok"], equals: true },
+			OR: missing.map(({ logId, action }) => ({ AND: [
+				{ detail: { path: ["logId"], equals: logId } }, { detail: { path: ["actionId"], equals: action.id } },
+			] })),
+		},
+		orderBy: { createdAt: "desc" }, select: { detail: true, actorId: true, createdAt: true },
+	});
+	for (const { logId, action } of missing) {
+		const approval = events.find(({ detail }) => detail && typeof detail === "object" && !Array.isArray(detail)
+			&& detail.logId === logId && detail.actionId === action.id);
+		if (approval) {
+			action.approved = true;
+			action.approvedBy = approval.actorId;
+			action.approvedAt = approval.createdAt.toISOString();
+			action.approvalNeedsReview = false;
+		}
+		if (action.executedAt && Date.now() - Date.parse(action.executedAt) >= AI_OPS_ACTION_LEASE_MS) {
+			action.reason ??= t("backend.ai.actionInterrupted");
+		}
+	}
 }
 
 export interface ListAiOpsLogsInput {
@@ -158,7 +196,9 @@ export async function listAiOpsLogs(
 		take: limit,
 		skip: Math.max(input.offset ?? 0, 0),
 	});
-	return rows.map(toRecord);
+	const records = rows.map(toRecord);
+	await restoreLegacyApprovals(records);
+	return records;
 }
 
 export async function countAiOpsLogs(
@@ -169,7 +209,10 @@ export async function countAiOpsLogs(
 
 export async function getAiOpsLog(id: string): Promise<AiOpsLogRecord | null> {
 	const row = await prisma.aiOpsLog.findUnique({ where: { id } });
-	return row ? toRecord(row) : null;
+	if (!row) return null;
+	const record = toRecord(row);
+	await restoreLegacyApprovals([record]);
+	return record;
 }
 
 export async function findCompletedScanForJob(jobId: string) {
@@ -268,6 +311,7 @@ export interface ExecuteRecommendationResult {
  * workflow that the UI "审批" button needs.
  */
 export async function approveRecommendation(input: {
+	approvedBy: string;
 	logId: string;
 	actionId: string;
 }): Promise<{ ok: boolean; errorMessage?: string }> {
@@ -285,6 +329,9 @@ export async function approveRecommendation(input: {
 	if (!match.requiresApproval) {
 		return { ok: false, errorMessage: apiCopy("apiCopy.this.recommendation.does.not.require.approval.e92dc5bf") };
 	}
+	if (match.executedAt && !match.leaseId) {
+		return { ok: false, errorMessage: t("backend.ai.actionInterrupted") };
+	}
 
 	// Atomic compare-and-swap: guard against two approvers acting on the
 	// same recommendation near-simultaneously (race loss). Use updatedAt
@@ -297,7 +344,7 @@ export async function approveRecommendation(input: {
 
 	const updatedActions = actions.map((a) => {
 		if ((a as { id: string }).id === input.actionId) {
-			return { ...a, approved: true } as AiOpsRecommendedAction;
+			return { ...a, approved: true, approvedBy: input.approvedBy, approvedAt: new Date().toISOString(), approvalNeedsReview: false } as AiOpsRecommendedAction;
 		}
 		return a;
 	});
@@ -305,6 +352,7 @@ export async function approveRecommendation(input: {
 	const claimed = await prisma.aiOpsLog.updateMany({
 		where: { id: log.id, updatedAt: log.updatedAt },
 		data: {
+			updatedAt: nextVersion(log.updatedAt),
 			actions: toJsonValue(updatedActions),
 		},
 	});
@@ -333,6 +381,9 @@ export async function executeRecommendation(
 	if (!match) {
 		return { ok: false, executed: false, errorMessage: apiCopy("apiCopy.recommendation.not.found.40263f52") };
 	}
+	if (match.result === "needs_manual_review") {
+		return { ok: false, executed: false, errorMessage: t("backend.ai.actionInterrupted") };
+	}
 	if ("executedAt" in match && match.executedAt) {
 		const inProgress =
 			("result" in match && match.result === "in_progress") ||
@@ -349,6 +400,18 @@ export async function executeRecommendation(
 				errorMessage: t(inProgress ? "backend.ai.recommendationInProgress" : "backend.ai.recommendationAlreadyExecuted"),
 			};
 		}
+	}
+
+	// Old workers could have completed an external effect before losing their lease.
+	// Recover approval evidence, but never dispatch an unverified operation a second time.
+	if (match.executedAt && !match.leaseId) {
+		await restoreLegacyApprovals([{ id: log.id, actions }]);
+		const errorMessage = t("backend.ai.actionInterrupted");
+		const reviewed = { ...match, result: "needs_manual_review", errorMessage };
+		await prisma.aiOpsLog.updateMany({ where: { id: log.id, updatedAt: log.updatedAt }, data: {
+			updatedAt: nextVersion(log.updatedAt), actions: toJsonValue(actions.map((a) => a.id === match.id ? reviewed : a)),
+		} });
+		return { ok: false, executed: false, errorMessage };
 	}
 
 	const safeSet = new Set<string>(AI_OPS_SAFE_AUTONOMOUS_ACTIONS);
@@ -370,6 +433,7 @@ export async function executeRecommendation(
 
 	const claimedAt = new Date();
 	const claimedAtIso = claimedAt.toISOString();
+	const leaseId = randomUUID();
 	let claimVersion = log.updatedAt;
 	let actionsAtClaim = actions;
 	let actionClaimed = false;
@@ -378,6 +442,7 @@ export async function executeRecommendation(
 			if (action.id !== match.id) return action;
 			const inProgressLease: AiOpsExecutedAction = {
 				...action,
+				leaseId,
 				executed: false,
 				executedAt: claimedAtIso,
 				result: "in_progress",
@@ -388,7 +453,7 @@ export async function executeRecommendation(
 		const claim = await prisma.aiOpsLog.updateMany({
 			where: { id: log.id, updatedAt: claimVersion },
 			data: {
-				updatedAt: claimedAt,
+				updatedAt: nextVersion(claimVersion),
 				actions: toJsonValue(claimedActions),
 			},
 		});
@@ -429,51 +494,23 @@ export async function executeRecommendation(
 		};
 	}
 
-	const executed = await executeAiOpsAction({
-		logId: log.id,
-		id: match.id,
-		action: match.action,
-		risk: match.risk,
-	});
-
-	let resultPersisted = false;
-	for (let attempt = 0; attempt < ACTION_RESULT_WRITE_ATTEMPTS; attempt += 1) {
-		const latest = await prisma.aiOpsLog.findUnique({ where: { id: log.id } });
-		if (!latest) break;
+	// A short transaction locks the claimed log, dispatches the durable alert job or deletes the
+	// frozen set, and saves its receipt. A crash can commit both or neither.
+	return prisma.$transaction(async (tx) => {
+		await tx.$queryRaw`SELECT id FROM ai_ops_logs WHERE id = ${log.id} FOR UPDATE`;
+		const latest = await tx.aiOpsLog.findUniqueOrThrow({ where: { id: log.id } });
 		const latestActions = parseActions(latest.actions, latest.mode as AiOpsMode);
-		const leasedAction = latestActions.find((action) => action.id === match.id);
-		if (!leasedAction || leasedAction.executedAt !== claimedAtIso) break;
-
-		const completedAction = { ...leasedAction, ...executed, result: executed.result };
-		const mergedActions = latestActions.map((action) =>
-			action.id === match.id ? completedAction : action,
-		);
-		const completedAt = new Date();
-		const persisted = await prisma.aiOpsLog.updateMany({
-			where: { id: log.id, updatedAt: latest.updatedAt },
-			data: {
-				updatedAt: completedAt,
-				actions: toJsonValue(mergedActions),
-			},
-		});
-		if (persisted.count === 1) {
-			resultPersisted = true;
-			break;
+		const leased = latestActions.find((action) => action.id === match.id);
+		if (leased?.leaseId !== leaseId || leased.result !== "in_progress" || Date.now() - claimedAt.getTime() >= AI_OPS_ACTION_LEASE_MS) {
+			return { ok: false, executed: false, errorMessage: t("backend.ai.recommendationChangedConcurrently") };
 		}
-	}
-
-	if (!resultPersisted) {
-		return {
-			ok: false,
-			executed: false,
-			errorMessage:
-				apiCopy("apiCopy.the.action.completed.but.its.result.could.not.be.saved.due.to.co.385bf3ad"),
-		};
-	}
-
-	return executed.executed
-		? { ok: true, executed: true, action: executed }
-		: { ok: false, executed: false, errorMessage: executed.errorMessage, action: executed };
+		const executed = await executeAiOpsAction(leased, tx, async () => {
+			if (Date.now() - claimedAt.getTime() >= AI_OPS_ACTION_LEASE_MS) throw new Error(t("backend.ai.recommendationChangedConcurrently"));
+		});
+		const merged = latestActions.map((action) => action.id === leased.id ? { ...leased, ...executed, result: executed.result } : action);
+		await tx.aiOpsLog.update({ where: { id: log.id }, data: { updatedAt: nextVersion(latest.updatedAt), actions: toJsonValue(merged) } });
+		return { ok: executed.executed, executed: executed.executed, action: executed, errorMessage: executed.errorMessage };
+	});
 }
 
 export interface AiOpsSummary {
@@ -510,7 +547,7 @@ export async function summariseAiOps(): Promise<AiOpsSummary> {
 		byStatus[r.status as AiOpsStatus] = (byStatus[r.status as AiOpsStatus] ?? 0) + 1;
 		byMode[r.mode as AiOpsMode] = (byMode[r.mode as AiOpsMode] ?? 0) + 1;
 		if (!lastScanAt) lastScanAt = r.createdAt.toISOString();
-		if (!lastErrorAt && r.errorMessage) lastErrorAt = r.createdAt.toISOString();
+		if (!lastErrorAt && (r.status === "error" || r.errorMessage)) lastErrorAt = r.createdAt.toISOString();
 		const health = parseProviderHealth(r.providerHealth);
 		if (!health) continue;
 		if (!latestProviderSeen) { provider.retryAt = health.retryAt; latestProviderSeen = true; }

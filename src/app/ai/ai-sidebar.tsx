@@ -20,7 +20,7 @@ interface SidebarProps {
   onSelectConv: (id: string) => void;
   onDeleteConv: (id: string) => void;
   onToggleSidebar: (v: boolean) => void;
-  onToggleProviders: () => void;
+  onToggleProviders?: () => void;
 }
 
 export function AiSidebar({
@@ -131,7 +131,7 @@ export function AiSidebar({
 
           {/* Bottom actions */}
           <div className="space-y-1 border-t border-[var(--border)] p-2">
-            <button type="button"
+            {onToggleProviders && <button type="button"
               onClick={onToggleProviders}
               className="flex w-full items-center gap-2 rounded-xl px-3 py-2 text-xs text-[var(--text-secondary)] transition hover:bg-[var(--surface-hover)] hover:text-[var(--text-primary)]"
             >
@@ -139,7 +139,7 @@ export function AiSidebar({
                 <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={1.5} d="M15 7a2 2 0 012 2m4 0a6 6 0 01-7.743 5.857L8 16H6v2H4v2H2v-2.586l7.44-7.44A6 6 0 0121 9z" />
               </svg>
               {t("aiPage.providerManagement")}
-            </button>
+            </button>}
             <button
               type="button"
               onClick={() => onToggleSidebar(false)}
