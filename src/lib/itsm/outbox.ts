@@ -29,9 +29,20 @@ export async function lockOutboundStream(tx: Prisma.TransactionClient, ticketId:
   await lockForTransaction(tx, "itsm-outbox", ticketId);
 }
 
-export async function scheduleDelivery(tx: Prisma.TransactionClient, event: { id: string; eventType: string; teamId: string | null }) {
+function deliveryLabel(event: { id: string; ticketId?: string | null; payload?: Prisma.JsonValue | null }) {
+  const snapshot = event.payload && typeof event.payload === "object" && !Array.isArray(event.payload)
+    ? (event.payload as Record<string, unknown>).snapshot : null;
+  const title = snapshot && typeof snapshot === "object" && !Array.isArray(snapshot)
+    ? (snapshot as Record<string, unknown>).title : null;
+  return typeof title === "string" && title.trim() ? title.trim().slice(0, 80) : event.ticketId ?? event.id;
+}
+
+export async function scheduleDelivery(
+  tx: Prisma.TransactionClient,
+  event: { id: string; eventType: string; teamId: string | null; ticketId?: string | null; payload?: Prisma.JsonValue | null },
+) {
   await enqueueJob({
-    type: ITSM_OUTBOUND_JOB_TYPE, title: `ITSM ${event.eventType}`,
+    type: ITSM_OUTBOUND_JOB_TYPE, title: `ITSM ${event.eventType}: ${deliveryLabel(event)}`,
     payload: { eventId: event.id }, teamId: event.teamId, maxAttempts: 5, priority: 1,
   }, tx);
 }
