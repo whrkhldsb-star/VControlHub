@@ -17,6 +17,7 @@ import {
 } from "./schema";
 import { cancelActiveCommandChild, enqueueApprovedCommandExecution } from "./service-execution";
 import { maySelfReviewCommands } from "./review-scope";
+import { RECENT_COMMAND_LOG_LIMIT, withVisibleCommandLogs } from "./visibility";
 import { createLogger } from "@/lib/logging";
 import { t } from "@/lib/i18n/service-translations";
 import { OPERATION_TARGET_SELECT, operationTargetAvailability } from "@/lib/server/availability";
@@ -116,7 +117,6 @@ function mapCommandRequest(
     targets: Array<Record<string, unknown>>;
     executionLogs: Array<Record<string, unknown>>;
   },
-  allowUnboundLogs: boolean,
 ) {
   const targets = request.targets.map((target) => {
     const server = target.server as { id: string; name: string; host: string; port: number; teamId: string | null } | undefined;
@@ -133,8 +133,7 @@ function mapCommandRequest(
       updatedAt: target.updatedAt instanceof Date ? target.updatedAt.toISOString() : target.updatedAt as string | undefined,
     };
   });
-  const visibleServerIds = new Set(targets.flatMap(target => target.server ? [target.server.id] : []));
-  const logs = request.executionLogs.filter(log => typeof log.serverId === "string" ? visibleServerIds.has(log.serverId) : allowUnboundLogs);
+  const logs = request.executionLogs;
   return {
     id: request.id,
     title: request.title,
@@ -555,7 +554,7 @@ const COMMAND_LIST_INCLUDE = {
       server: { select: { id: true, name: true, host: true, port: true, teamId: true } },
     },
   },
-  executionLogs: { orderBy: { createdAt: "desc" }, take: 3 },
+  executionLogs: { orderBy: { createdAt: "desc" }, take: RECENT_COMMAND_LOG_LIMIT },
 } satisfies Prisma.CommandRequestInclude;
 
 /** Requests still waiting for a decision or an execution: the ones people act on. */
@@ -594,5 +593,5 @@ export async function listCommandRequests(session?: CommandSessionScope | null) 
     .filter((request) => !seen.has(request.id) && seen.add(request.id))
     .sort((a, b) => b.createdAt.getTime() - a.createdAt.getTime());
 
-  return requests.map(request => mapCommandRequest(request, !session || session.roles.includes("admin")));
+  return (await withVisibleCommandLogs(requests, session)).map(mapCommandRequest);
 }

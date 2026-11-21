@@ -58,13 +58,14 @@ type InboundClaim = {
 async function claimInboundEvent(
   connectionId: string,
   teamId: string | null,
-  externalId: string,
+  externalId: string | null,
   eventType: string,
 ): Promise<{ done: ItsmEventRecord } | { done: null; claim: InboundClaim }> {
-  const existing = await prisma.itsmEvent.findFirst({
+  // Events without a sender ID get their own row and applied marker on every delivery.
+  const existing = externalId ? await prisma.itsmEvent.findFirst({
     where: { connectionId, externalId, teamId, ownerBound: true },
     orderBy: { createdAt: "desc" },
-  });
+  }) : null;
   if (existing && (existing.status === "ok" || existing.status === "ignored")) {
     return { done: toEventRecord(existing) };
   }
@@ -95,8 +96,7 @@ async function claimInboundEvent(
  * commit together or not at all: a retry can never find the ticket/comment/
  * status change applied while the marker says it was not.
  */
-async function markApplied(db: Prisma.TransactionClient, claim: InboundClaim | null, action: string, ticketId: string | null) {
-  if (!claim) return;
+async function markApplied(db: Prisma.TransactionClient, claim: InboundClaim, action: string, ticketId: string) {
   await db.itsmEvent.update({
     where: { id: claim.id },
     data: { ticketId, payload: { action, applied: true } },
@@ -163,6 +163,7 @@ export async function handleInboundWebhook(input: {
   if (!systemUserId) throw new BusinessError(t("backend.itsm.noSystemUserForInbound"), undefined, 503);
 
   const normalized = normalizeInboundTicket(input.json);
+  const status = normalizeStatus(normalized.status);
   const eventType = normalized.eventType;
   let ticketId = normalized.ticketId;
   let action = "ignored";
@@ -171,48 +172,23 @@ export async function handleInboundWebhook(input: {
     : async () => undefined;
   let claim: InboundClaim | null = null;
   try {
-    if (normalized.externalId) {
-      const claimed = await claimInboundEvent(row.id, row.teamId, normalized.externalId, eventType);
-      if (claimed.done) {
-        const event = claimed.done;
-        const previousAction = typeof event.payload.action === "string"
-          ? event.payload.action
-          : "duplicate";
-        return { event, ticketId: event.ticketId, action: previousAction };
-      }
-      claim = claimed.claim;
+    const claimed = await claimInboundEvent(row.id, row.teamId, normalized.externalId, eventType);
+    if (claimed.done) {
+      const event = claimed.done;
+      const previousAction = typeof event.payload.action === "string"
+        ? event.payload.action
+        : "duplicate";
+      return { event, ticketId: event.ticketId, action: previousAction };
     }
+    claim = claimed.claim;
 
-    if (claim?.applied) {
+    if (claim.applied) {
       // The side effect already happened on an earlier attempt that then
       // failed to record its outcome: finish the bookkeeping, never repeat it.
       action = claim.action ?? "acknowledged";
       ticketId = claim.ticketId ?? ticketId;
-    } else if (normalized.commentBody && ticketId) {
-      const commentTarget = await prisma.ticket.findFirst({
-        where: {
-          id: ticketId,
-          teamId: row.teamId,
-        },
-        select: { id: true },
-      });
-      if (!commentTarget) {
-        throw new NotFoundError(t("backend.itsm.ticketNotFoundForThisConnectionTeam"));
-      }
-      const commentTicketId = ticketId;
-      await prisma.$transaction(async (tx) => {
-        await addTicketComment({
-          ticketId: commentTicketId,
-          authorId: systemUserId,
-          body: `[ITSM inbound] ${normalized.commentBody}`,
-          skipItsmFanOut: true,
-          db: tx,
-        });
-        await markApplied(tx, claim, "comment", commentTicketId);
-      });
-      action = "comment";
     } else if (
-      (eventType.includes("create") || !ticketId) &&
+      (!ticketId || (eventType.includes("create") && !normalized.commentBody)) &&
       config.createOnInbound !== false &&
       normalized.title
     ) {
@@ -228,33 +204,38 @@ export async function handleInboundWebhook(input: {
           session: row.teamId ? { currentTeamId: row.teamId } : undefined,
           db: tx,
         });
-        await markApplied(tx, claim, "create", created.id);
+        await markApplied(tx, claimed.claim, "create", created.id);
         return created;
       });
       ticketId = ticket.id;
       action = "create";
-    } else if (ticketId && normalized.status) {
-      const status = normalizeStatus(normalized.status);
-      if (status) {
-        const statusTarget = await prisma.ticket.findFirst({
-          where: {
-            id: ticketId,
-            teamId: row.teamId,
-          },
-          select: { id: true },
+    } else if (ticketId && (normalized.commentBody || status)) {
+      const targetId = ticketId;
+      action = await prisma.$transaction(async (tx) => {
+        const target = await tx.ticket.findFirst({
+          where: { id: targetId, teamId: row.teamId },
+          select: { id: true, status: true },
         });
-        if (!statusTarget) {
+        if (!target) {
           throw new NotFoundError(t("backend.itsm.ticketNotFoundForThisConnectionTeam"));
         }
-        const statusTicketId = ticketId;
-        await prisma.$transaction(async (tx) => {
-          await updateTicketStatus({ id: statusTicketId, status, skipItsmFanOut: true, db: tx });
-          await markApplied(tx, claim, "status_update", statusTicketId);
-        });
-        action = "status_update";
-      } else {
-        action = "ignored_status";
-      }
+        let appliedAction = "comment";
+        if (normalized.commentBody) {
+          await addTicketComment({
+            ticketId: targetId, authorId: systemUserId, body: `[ITSM inbound] ${normalized.commentBody}`,
+            skipItsmFanOut: true, db: tx,
+          });
+        }
+        // Comment notifications can repeat the ticket's current status.
+        if (status && (!normalized.commentBody || status !== target.status)) {
+          await updateTicketStatus({ id: targetId, status, skipItsmFanOut: true, db: tx });
+          appliedAction = normalized.commentBody ? "comment_status_update" : "status_update";
+        }
+        await markApplied(tx, claimed.claim, appliedAction, targetId);
+        return appliedAction;
+      });
+    } else if (ticketId && normalized.status) {
+      action = "ignored_status";
     } else if (ticketId) {
       action = "acknowledged";
     } else {
@@ -263,21 +244,10 @@ export async function handleInboundWebhook(input: {
 
     const finalStatus = action.startsWith("ignored") ? "ignored" : "ok";
     const finalPayload = { action, title: normalized.title, status: normalized.status, applied: !action.startsWith("ignored") };
-    const event = claim
-      ? toEventRecord(await prisma.itsmEvent.update({
-        where: { id: claim.id },
-        data: { status: finalStatus, ticketId, payload: finalPayload, errorMessage: null },
-      }))
-      : await recordEvent({
-        connectionId: row.id,
-        teamId: row.teamId,
-        direction: "inbound",
-        eventType,
-        ticketId,
-        status: finalStatus,
-        externalId: normalized.externalId,
-        payload: finalPayload,
-      });
+    const event = toEventRecord(await prisma.itsmEvent.update({
+      where: { id: claim.id },
+      data: { status: finalStatus, ticketId, payload: finalPayload, errorMessage: null },
+    }));
     await prisma.itsmConnection.update({
       where: { id: row.id },
       data: { lastInboundAt: new Date(), lastError: null },

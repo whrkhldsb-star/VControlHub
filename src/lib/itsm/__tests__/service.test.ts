@@ -26,8 +26,11 @@ function reset() {
 const deletedTeams = vi.hoisted(() => new Set<string>());
 vi.mock("@/lib/db", async () => {
 	const prisma: Record<string, unknown> = {
-		// No real transaction here: the callback runs on the same mock.
-		$transaction: async (callback: (tx: unknown) => unknown) => callback(prisma),
+		// A distinct client per transaction, backed by the same in-memory stores.
+		$transaction: vi.fn(async (callback: (tx: unknown) => unknown) => {
+			const events = prisma.itsmEvent as { update: (args: unknown) => unknown };
+			return callback({ ...prisma, itsmEvent: { ...events, update: vi.fn((args: unknown) => events.update(args)) } });
+		}),
 		itsmConnection: {
 			create: vi.fn(async ({ data }: { data: Record<string, unknown> }) => {
 				seq += 1;
@@ -237,6 +240,8 @@ vi.mock("@/lib/security/webhook-url", () => ({
 }));
 
 import { createHmac } from "node:crypto";
+import { prisma } from "@/lib/db";
+import { addTicketComment, updateTicketStatus } from "@/lib/ticket/service";
 
 import { buildOutboundBody, normalizeInboundTicket, verifyInboundSignature } from "../adapters";
 import {
@@ -675,6 +680,66 @@ describe("ITSM service", () => {
 				systemUserId: "sys",
 			}),
 		).rejects.toThrow(/不存在|未找到|not found|customer/i);
+	});
+
+	async function combinedUpdateRequest(externalId?: string) {
+		const conn = await createItsmConnection({
+			name: "Inbound update", provider: "generic_webhook", direction: "inbound",
+			credentials: { webhookSecret: "sec" }, config: {},
+		});
+		const ticketId = "tk_combined";
+		ticketStore.set(ticketId, { id: ticketId, status: "OPEN", teamId: conn.teamId });
+		const json = { externalId, ticketId, commentBody: "Investigating", status: "in progress" };
+		const rawBody = JSON.stringify(json);
+		return {
+			connectionId: conn.id, json, rawBody, systemUserId: "sys",
+			signatureHeader: `sha256=${createHmac("sha256", "sec").update(rawBody).digest("hex")}`,
+		};
+	}
+
+	it("applies a comment and status change together and deduplicates them on retry", async () => {
+		const request = await combinedUpdateRequest("combined-1");
+		const { ticketId } = request.json;
+		failNextFinalEventUpdate = true;
+		await expect(handleInboundWebhook(request)).rejects.toThrow("event store unavailable");
+		expect(await handleInboundWebhook(request)).toMatchObject({
+			ticketId, action: "comment_status_update",
+			event: { status: "ok", payload: { applied: true, action: "comment_status_update" } },
+		});
+		await handleInboundWebhook(request);
+		expect(prisma.$transaction).toHaveBeenCalledTimes(1);
+		expect(addTicketComment).toHaveBeenCalledTimes(1);
+		const tx = vi.mocked(addTicketComment).mock.calls[0]![0].db;
+		expect(tx).toBeDefined();
+		expect(tx).not.toBe(prisma);
+		expect(addTicketComment).toHaveBeenCalledWith({
+			ticketId, authorId: "sys", body: "[ITSM inbound] Investigating", skipItsmFanOut: true, db: tx,
+		});
+		expect(updateTicketStatus).toHaveBeenCalledExactlyOnceWith({
+			id: ticketId, status: "IN_PROGRESS", skipItsmFanOut: true, db: tx,
+		});
+		expect(tx?.itsmEvent.update).toHaveBeenCalledExactlyOnceWith({
+			where: { id: expect.any(String) },
+			data: { ticketId, payload: { applied: true, action: "comment_status_update" } },
+		});
+		expect(ticketStore.get(ticketId)?.status).toBe("IN_PROGRESS");
+	});
+
+	it("records the combined update marker even without a sender event ID", async () => {
+		const request = await combinedUpdateRequest();
+		const { ticketId } = request.json;
+		const first = await handleInboundWebhook(request);
+		expect(first.event).toMatchObject({ externalId: null, ticketId, payload: { applied: true, action: "comment_status_update" } });
+		const tx = vi.mocked(addTicketComment).mock.calls[0]![0].db;
+		expect(tx?.itsmEvent.update).toHaveBeenCalledWith({
+			where: { id: first.event.id }, data: { ticketId, payload: { applied: true, action: "comment_status_update" } },
+		});
+		// A second unkeyed delivery is a new comment with the already-current status.
+		const second = await handleInboundWebhook(request);
+		expect(second.action).toBe("comment");
+		expect(second.event.id).not.toBe(first.event.id);
+		expect(addTicketComment).toHaveBeenCalledTimes(2);
+		expect(updateTicketStatus).toHaveBeenCalledTimes(1);
 	});
 
 	it("ignores non-admin body.teamId spoof on create", async () => {

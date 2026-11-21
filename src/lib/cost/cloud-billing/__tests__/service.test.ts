@@ -725,6 +725,49 @@ describe("cloud billing service", () => {
     expect(result.warnings.join(" ")).toContain("not-a-number");
   });
 
+  it("rejects a batch with a repeated external_id on the same date before writing any charges", async () => {
+    const account = await createCloudBillingAccount({
+      name: "duplicate-ids",
+      provider: "generic_csv",
+      credentials: {},
+      config: {
+        sampleCsv: [
+          "date,amount,external_id",
+          "2026-07-01,1.00,different-charge",
+          "2026-07-02,2.00,charge-42",
+          "2026-07-02,9.00,charge-42",
+        ].join("\n"),
+      },
+    });
+
+    await expect(syncCloudBillingAccount(account.id, "2026-07")).rejects.toThrow(/external_id/);
+    expect(entryStore.size).toBe(0);
+    expect([...runStore.values()]).toMatchObject([
+      { status: "error", imported: 0, errorMessage: expect.stringContaining("charge-42") },
+    ]);
+    expect(accountStore.get(account.id)).toMatchObject({ lastSyncStatus: "error", lastSyncImported: 0 });
+  });
+
+  it("allows the same external_id on different days and repeated rows without an id", async () => {
+    const account = await createCloudBillingAccount({
+      name: "valid-ids",
+      provider: "generic_csv",
+      credentials: {},
+      config: {
+        sampleCsv: [
+          "date,amount,external_id",
+          "2026-07-01,1.00,charge-42",
+          "2026-07-02,2.00,charge-42",
+          "2026-07-03,3.00,",
+          "2026-07-03,3.00,",
+        ].join("\n"),
+      },
+    });
+
+    expect(await syncCloudBillingAccount(account.id, "2026-07")).toMatchObject({ imported: 4, run: { status: "ok" } });
+    expect(entryStore.size).toBe(4);
+  });
+
   it("keeps distinct long external ids on distinct sourceRefs", async () => {
     // Same 140-char prefix and same tail — the shape that used to collapse into
     // one sourceRef, so the second line item overwrote the first.

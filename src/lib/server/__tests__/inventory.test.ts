@@ -1,14 +1,10 @@
 // @vitest-environment node
 import { beforeEach, describe, expect, it, vi } from "vitest";
 import { Prisma } from "@prisma/client";
+import { serverTeamWhere } from "@/lib/auth/team-scope";
 
 const mocks = vi.hoisted(() => ({ raw: vi.fn(), findMany: vi.fn(), transaction: vi.fn() }));
 vi.mock("@/lib/db", () => ({ prisma: { $transaction: mocks.transaction, server: { findMany: mocks.findMany } } }));
-vi.mock("@/lib/auth/team-scope", () => ({
-  isGlobalTeamManager: () => false,
-  seesAllCustomers: () => false,
-  serverTeamWhere: () => ({ teamId: "team-a" }),
-}));
 vi.mock("../service-internals", () => ({ enrichServer: (row: unknown) => row }));
 vi.mock("../service-profile-includes", () => ({ SERVER_PROFILE_INCLUDE: {} }));
 import { getServerInventory, normalizeInventoryQuery } from "../inventory";
@@ -41,7 +37,7 @@ describe("inventory operating-system filtering before pagination", () => {
       expect(sql.values).toContain("user-a");
     }
     expect(selection.values.slice(-2)).toEqual([12, 12]);
-    expect(mocks.findMany).toHaveBeenCalledWith(expect.objectContaining({ where: { AND: [{ teamId: "team-a" }, { id: { in: ["last-matching-server"] } }] } }));
+    expect(mocks.findMany).toHaveBeenCalledWith(expect.objectContaining({ where: { AND: [serverTeamWhere(session), { id: { in: ["last-matching-server"] } }] } }));
   });
   it("locks platform-assigned servers for customer accounts and hides the customer name", async () => {
     mocks.raw.mockResolvedValueOnce([{ total: 2, matching: 2, enabled: 2, storage: 0 }]).mockResolvedValueOnce([{ id: "p" }, { id: "c" }]);

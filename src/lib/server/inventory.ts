@@ -1,6 +1,6 @@
 import { Prisma } from "@prisma/client";
 import { prisma } from "@/lib/db";
-import { isGlobalTeamManager, seesAllCustomers, serverTeamWhere, type TeamSession } from "@/lib/auth/team-scope";
+import { isGlobalTeamManager, rawServerScope, serverTeamWhere, type TeamSession } from "@/lib/auth/team-scope";
 import { SERVER_PROFILE_INCLUDE } from "./service-profile-includes";
 import { enrichServer } from "./service-internals";
 import { OPERATION_TARGET_SELECT, operationTargetAvailability } from "./availability";
@@ -16,19 +16,6 @@ export function normalizeInventoryQuery(input: Record<string, unknown> = {}): In
     mode: input.mode === "DIRECT" || input.mode === "AGENT" ? input.mode : "all",
     page: Number.isSafeInteger(page) && page > 0 ? Math.min(page, 1_000_000) : 1,
   };
-}
-
-function rawServerScope(session: TeamSession, field: "canRead" | "canConnect" | "canManage") {
-  if (seesAllCustomers(session)) return Prisma.sql`TRUE`;
-  if (!session.currentTeamId) return Prisma.sql`FALSE`;
-  if (isGlobalTeamManager(session)) return Prisma.sql`s."teamId" = ${session.currentTeamId}`;
-  const allowedColumn = field === "canRead" ? Prisma.sql`a."canRead"`
-    : field === "canConnect" ? Prisma.sql`a."canConnect"` : Prisma.sql`a."canManage"`;
-  // Match serverTeamWhere: no override inherits account access; a row narrows it.
-  return Prisma.sql`s."teamId" = ${session.currentTeamId} AND (
-    NOT EXISTS (SELECT 1 FROM user_server_access a WHERE a."serverId" = s.id AND a."userId" = ${session.userId})
-    OR EXISTS (SELECT 1 FROM user_server_access a WHERE a."serverId" = s.id AND a."userId" = ${session.userId} AND ${allowedColumn} = true)
-  )`;
 }
 
 /** Count and select from one snapshot; hydrate relations only for the visible page. */

@@ -36,6 +36,7 @@ import type {
 	CloudBillingAccountConfig,
 	CloudBillingAccountRecord,
 	CloudBillingCredentials,
+	CloudBillingLineItem,
 	CloudBillingProvider,
 	CloudBillingSyncRunRecord,
 	CloudBillingSyncStatus,
@@ -303,6 +304,8 @@ async function runCloudBillingSync(
 		// For a line the file gives no note: where the entry came from.
 		const importNote = t("backend.cost.cloudBillingImportNote", { account: account.name, month });
 
+		// Check the full batch against the database's unique key before the first upsert.
+		const entries = new Map<string, { item: CloudBillingLineItem; sourceRef: string; amountNum: number }>();
 		for (const item of fetched.items) {
 			// An impossible day would roll into the next month once stored.
 			if (!isCalendarDate(item.effectiveDate)) {
@@ -321,6 +324,17 @@ async function runCloudBillingSync(
 				continue;
 			}
 			const sourceRef = sourceRefFor(accountId, item.externalId);
+			const key = `${item.effectiveDate}:${sourceRef}`;
+			if (entries.has(key)) {
+				throw new ValidationError(t("backend.cost.duplicateBillingLine", {
+					date: item.effectiveDate,
+					id: item.externalId.slice(0, 180),
+				}));
+			}
+			entries.set(key, { item, sourceRef, amountNum });
+		}
+
+		for (const { item, sourceRef, amountNum } of entries.values()) {
 			const effectiveDate = new Date(`${item.effectiveDate}T00:00:00Z`);
 			const tags = [
 				`source:${SOURCE_TYPE}`,

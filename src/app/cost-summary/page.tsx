@@ -10,6 +10,7 @@ import { requireSession } from "@/lib/auth/require-session";
 import { sessionHasPermission } from "@/lib/auth/authorization";
 import { listCostEntries, listRecentSnapshots, summarizeMonth, listCostBudgets } from "@/lib/cost/service";
 import { listCloudBillingAccounts } from "@/lib/cost/cloud-billing/service";
+import { redactCloudBillingAccountForReader } from "@/lib/cost/cloud-billing/redact";
 import { COST_CURRENCY_VALUES, type CostCurrency } from "@/lib/cost/types";
 import { getServerLocale, t } from "@/lib/i18n/translations";
 import { PageHeader, PageShell } from "@/components/page-shell";
@@ -59,7 +60,7 @@ export default async function CostSummaryPage() {
 				initialEntries={entries}
 				initialSnapshots={snapshots}
 				initialBudgets={budgets}
-				initialBillingAccounts={billingAccounts}
+				initialBillingAccounts={billingAccounts.map((account) => redactCloudBillingAccountForReader(account, session))}
 				canRead={canRead}
 				canManage={canManage}
 				availableCurrencies={[...COST_CURRENCY_VALUES]}
