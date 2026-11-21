@@ -1,12 +1,12 @@
 import { beforeEach, describe, expect, it, vi } from "vitest";
 
 const { mocks } = vi.hoisted(() => ({
-  mocks: { verifyTOTP: vi.fn(), userUpdateMany: vi.fn() },
+  mocks: { verifyTOTP: vi.fn(), userUpdateMany: vi.fn(), execute: vi.fn() },
 }));
 
 vi.mock("otplib", () => ({ verify: mocks.verifyTOTP }));
 vi.mock("@/lib/db", () => ({
-  prisma: { user: { updateMany: mocks.userUpdateMany } },
+  prisma: { $executeRaw: mocks.execute, user: { updateMany: mocks.userUpdateMany } },
 }));
 
 const { verifyTwoFactorChallenge, isAcceptableTwoFactorCodeShape } = await import(
@@ -30,6 +30,7 @@ describe("isAcceptableTwoFactorCodeShape", () => {
 describe("verifyTwoFactorChallenge", () => {
   beforeEach(() => {
     vi.clearAllMocks();
+    mocks.execute.mockResolvedValue(1);
     mocks.userUpdateMany.mockResolvedValue({ count: 1 });
   });
 
@@ -60,18 +61,12 @@ describe("verifyTwoFactorChallenge", () => {
     });
 
     expect(result).toEqual({ valid: true, usedRecoveryCode: true });
-    // CAS on the whole array: two concurrent uses of one code cannot both win.
-    expect(mocks.userUpdateMany).toHaveBeenCalledWith({
-      where: { id: "u1", twoFactorEnabled: true, twoFactorSecret: "SEED", status: { not: "DISABLED" }, twoFactorRecoveryCodes: { equals: generated.hashes } },
-      data: {
-        twoFactorRecoveryCodes: [generated.hashes[0], generated.hashes[2]],
-      },
-    });
+    expect(mocks.execute).toHaveBeenCalledWith(expect.anything(), generated.hashes[1], "u1", "SEED", generated.hashes[1]);
   });
 
   it("loses the race when another request already consumed the same code", async () => {
     mocks.verifyTOTP.mockResolvedValue({ valid: false });
-    mocks.userUpdateMany.mockResolvedValue({ count: 0 });
+    mocks.execute.mockResolvedValue(0);
     const generated = createTwoFactorRecoveryCodes(2);
 
     const result = await verifyTwoFactorChallenge({

@@ -6,7 +6,7 @@
 import { Prisma } from "@prisma/client";
 import { z } from "zod";
 
-import { optionFilter, readOptionPage, type OptionQuery } from "@/lib/user/permission-options";
+import { afterOption, optionFilter, readOptionPage, type OptionQuery } from "@/lib/user/permission-options";
 import { prisma } from "@/lib/db";
 import { ConflictError, NotFoundError, ValidationError } from "@/lib/errors";
 import { t } from "@/lib/i18n/service-translations";
@@ -56,10 +56,15 @@ export async function syncBuiltinIdentityTemplates() {
 
 export function identityTemplateOptions(query: OptionQuery) {
   return readOptionPage(query, (after, take) => prisma.identityTemplate.findMany({
-    where: optionFilter(query), orderBy: [{ isBuiltin: "desc" }, { name: "asc" }, { id: "asc" }],
-    ...(after ? { cursor: { id: after }, skip: 1 } : {}),
-    take, select: TEMPLATE_SELECT,
-  }));
+    where: {
+      ...optionFilter(query),
+      ...(after ? { OR: [
+        ...(after.isBuiltin ? [{ isBuiltin: false }] : []),
+        { isBuiltin: after.isBuiltin ?? false, ...afterOption(after) },
+      ] } : {}),
+    },
+    orderBy: [{ isBuiltin: "desc" }, { name: "asc" }, { id: "asc" }], take, select: TEMPLATE_SELECT,
+  }), id => prisma.identityTemplate.findUnique({ where: { id }, select: { id: true, name: true, isBuiltin: true } }));
 }
 
 export async function listIdentityTemplates() {
@@ -85,7 +90,14 @@ async function findEditable(id: string) {
 
 export async function updateIdentityTemplate(id: string, input: IdentityTemplateInput) {
   await findEditable(id);
-  return prisma.identityTemplate.update({ where: { id }, data: templateData(input), select: TEMPLATE_SELECT });
+  try {
+    return await prisma.identityTemplate.update({ where: { id, isBuiltin: false }, data: templateData(input), select: TEMPLATE_SELECT });
+  } catch (error) {
+    if (error instanceof Prisma.PrismaClientKnownRequestError && error.code === "P2025") {
+      throw new NotFoundError(t("backend.customer.templateNotFound"));
+    }
+    throw error;
+  }
 }
 
 export async function deleteIdentityTemplate(id: string) {

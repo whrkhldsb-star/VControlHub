@@ -11,6 +11,9 @@ describe.skipIf(process.env.RUN_DATABASE_INTEGRATION_TESTS !== "1")("API token i
   const id = `token-race-${randomUUID()}`;
   const roleKeyAdmin = id + "-key-admin";
   const roleGrantAdmin = id + "-grant-admin";
+  const pagingOwner = id + "-paging";
+  const movingOwner = id + "-moving";
+  const nextTeam = id + "-next";
   const fixtureRoleId = id + "-role";
   let adminRoleId: string;
   const grants = ["api-token:manage", "storage:read"];
@@ -31,26 +34,29 @@ describe.skipIf(process.env.RUN_DATABASE_INTEGRATION_TESTS !== "1")("API token i
           roles: { create: { roleId: role.id } },
         } });
       }
-      await tx.team.create({ data: { id, name: id, slug: id } });
+      await tx.team.createMany({ data: [id, nextTeam].map(key => ({ id: key, name: key, slug: key })) });
       await tx.identityTemplate.create({ data: { id, name: id, permissions: grants } });
-      await tx.user.create({ data: {
-        id, username: id, status: "ACTIVE", passwordHash: "test", mustChangePassword: false,
-        teamMembership: { create: { teamId: id, identityTemplateId: id } },
-      } });
+      for (const owner of [id, pagingOwner, movingOwner]) {
+        await tx.user.create({ data: {
+          id: owner, username: owner, status: "ACTIVE", passwordHash: "test", mustChangePassword: false,
+          teamMembership: { create: { teamId: id, identityTemplateId: id } },
+        } });
+      }
     });
     ready = true;
   });
   beforeEach(async () => {
+    await prisma.teamMember.update({ where: { userId: movingOwner }, data: { teamId: id } });
     await prisma.team.update({ where: { id }, data: { deletedAt: null } });
     await prisma.identityTemplate.update({ where: { id }, data: { permissions: grants } });
   });
   afterAll(async () => {
     if (ready) {
-      await prisma.auditLog.deleteMany({ where: { actorId: id } });
-      await prisma.user.deleteMany({ where: { id: { in: [id, roleKeyAdmin, roleGrantAdmin] } } });
+      await prisma.auditLog.deleteMany({ where: { actorId: { in: [id, movingOwner, pagingOwner] } } });
+      await prisma.user.deleteMany({ where: { id: { in: [id, roleKeyAdmin, roleGrantAdmin, pagingOwner, movingOwner] } } });
       await prisma.role.deleteMany({ where: { id: fixtureRoleId, users: { none: {} } } });
       await prisma.identityTemplate.delete({ where: { id } });
-      await prisma.team.delete({ where: { id } });
+      await prisma.team.deleteMany({ where: { id: { in: [id, nextTeam] } } });
     }
     await prisma.$disconnect();
   });
@@ -168,7 +174,7 @@ describe.skipIf(process.env.RUN_DATABASE_INTEGRATION_TESTS !== "1")("API token i
   });
 
   it("pages past expired and revoked tokens and counts only the requested owner's active tokens", async () => {
-    const owner = roleGrantAdmin;
+    const owner = pagingOwner;
     const createdAt = new Date("2025-01-01T00:00:00Z");
     const token = (index: number) => ({
       id: owner + "-" + index, name: "fixture", tokenHash: owner + "-" + index, createdBy: owner,
@@ -190,8 +196,42 @@ describe.skipIf(process.env.RUN_DATABASE_INTEGRATION_TESTS !== "1")("API token i
       .toMatchObject({ total: 1, totalTokens: 201, activeTokens: 1, nextCursor: null, tokens: [{ id: active.id }] });
     for (const status of ["expired", "revoked"] as const) {
       const filtered = await listApiTokenPage(owner, { pageSize: 1, status });
-      expect(filtered).toMatchObject({ total: 100, totalTokens: 201, activeTokens: 1, nextCursor: filtered.tokens[0]!.id });
+      expect(filtered).toMatchObject({ total: 100, totalTokens: 201, activeTokens: 1, nextCursor: expect.stringMatching(/^v1\./) });
       expect(filtered.tokens).toHaveLength(1);
     }
+  });
+
+  it("continues after a revoked or deleted boundary without skipping another active token", async () => {
+    await prisma.apiToken.createMany({ data: ["a", "b", "c"].map(key => ({
+      id: movingOwner + key, name: key, createdBy: movingOwner, teamId: id, scopes: ["read"],
+      tokenHash: movingOwner + key, tokenPrefix: key, tokenSuffix: key, createdAt: new Date(0),
+    })) });
+    const first = await listApiTokenPage(movingOwner, { status: "active", pageSize: 1 });
+    expect(first.tokens[0]?.name).toBe("c");
+    await revokeApiToken({ userId: movingOwner, id: first.tokens[0]!.id });
+    const next = await listApiTokenPage(movingOwner, { status: "active", pageSize: 1, cursor: first.nextCursor! });
+    expect(next.tokens[0]?.name).toBe("b");
+    await prisma.apiToken.delete({ where: { id: next.tokens[0]!.id } });
+    const last = await listApiTokenPage(movingOwner, { status: "active", pageSize: 1, cursor: next.nextCursor! });
+    expect(last).toMatchObject({ tokens: [{ name: "a" }], nextCursor: null, activeTokens: 1 });
+  });
+
+  it("keeps historical tokens revocable without resolving the former customer's current profile", async () => {
+    const old = await prisma.apiToken.create({ data: {
+      name: "before move", createdBy: movingOwner, teamId: id, scopes: ["read"],
+      tokenHash: randomUUID(), tokenPrefix: "fixture", tokenSuffix: "fixture",
+    } });
+    const legacy = await prisma.apiToken.create({ data: {
+      name: "legacy without customer", createdBy: movingOwner, teamId: null, scopes: ["read"],
+      tokenHash: randomUUID(), tokenPrefix: "fixture", tokenSuffix: "fixture",
+    } });
+    await prisma.teamMember.update({ where: { userId: movingOwner }, data: { teamId: nextTeam } });
+    await prisma.team.update({ where: { id }, data: { name: "renamed after transfer" } });
+    const page = await listApiTokenPage(movingOwner, { status: "unbound", pageSize: 10 });
+    expect(page.tokens).toContainEqual(expect.objectContaining({ id: old.id, team: null }));
+    expect(page.tokens).toContainEqual(expect.objectContaining({ id: legacy.id, team: null }));
+    expect(page.activeTokens).toBe(0);
+    expect((await listApiTokenPage(movingOwner, { status: "active", pageSize: 10 })).tokens).toEqual([]);
+    expect(await revokeApiToken({ userId: movingOwner, id: old.id })).toMatchObject({ revokedAt: expect.any(Date), team: null });
   });
 });

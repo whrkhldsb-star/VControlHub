@@ -49,6 +49,7 @@ function tokenStatus(t: Translate, token: SafeApiToken) {
   if (token.expiresAt && new Date(token.expiresAt).getTime() <= Date.now()) {
     return { label: t("apiTokensPage.status.expired"), tone: "warning" as StatusTone };
   }
+  if (!token.team) return { label: t("apiTokensPage.status.unbound"), tone: "warning" as StatusTone };
   return { label: t("apiTokensPage.status.active"), tone: "success" as StatusTone };
 }
 
@@ -310,7 +311,7 @@ export function ApiTokenManagerClient({ header, initialPage, pageSize, allowedSc
         actions={<select className={UI_INPUT} aria-label={t("apiTokensPage.filter.status")} value={status}
           onChange={event => setQuery({ status: event.target.value as TokenStatus, cursors: [] })}>
           <option value="all">{t("apiTokensPage.filter.all")}</option>
-          {(["active", "expired", "revoked"] as const).map(value =>
+          {(["active", "unbound", "expired", "revoked"] as const).map(value =>
             <option key={value} value={value}>{t(`apiTokensPage.status.${value}`)}</option>)}
         </select>}
         description={t("apiTokensPage.list.note")}

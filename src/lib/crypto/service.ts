@@ -89,8 +89,16 @@ export function encrypt(plaintext: string): string {
  * Accepts the current 4-segment envelope ("salt:iv:authTag:ciphertext") and
  * the legacy 3-segment format ("iv:authTag:ciphertext") that used a fixed salt.
  */
-export function decrypt(ciphertext: string): string {
+export function decrypt(ciphertext: string, corruptError?: () => Error): string {
 	const passphrase = getPassphrase();
+	try {
+		return decryptEnvelope(ciphertext, passphrase);
+	} catch (error) {
+		throw corruptError?.() ?? error;
+	}
+}
+
+function decryptEnvelope(ciphertext: string, passphrase: string): string {
 	const parts = ciphertext.split(":");
 	let salt: Buffer | string;
 	let ivB64: string | undefined;

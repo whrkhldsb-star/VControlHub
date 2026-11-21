@@ -44,7 +44,7 @@ async function resolveWebhookTarget(value: string, signal: AbortSignal) {
 		if (addresses.length === 0 || addresses.some(({ address }) => !isIP(address) || isBlockedIpAddress(address))) {
 			return { ok: false as const, error: t("backend.webhookUrl.dnsLocal") };
 		}
-		return { ...syntax, hostname, pinned: addresses[0]! };
+		return { ...syntax, hostname, addresses };
 	} catch {
 		return { ok: false as const, error: t("backend.webhookUrl.dnsFailed") };
 	}
@@ -140,7 +140,7 @@ export async function fetchWebhookSafely(
 		finish(false);
 		return { ...safe, dispatched: false as const };
 	}
-	const { pinned } = safe;
+	const { addresses } = safe;
 	const dispatcher = new Agent({
 		headersTimeout: WEBHOOK_HEADERS_TIMEOUT_MS,
 		bodyTimeout: WEBHOOK_BODY_TIMEOUT_MS,
@@ -152,10 +152,11 @@ export async function fetchWebhookSafely(
 					return;
 				}
 				if (typeof options === "object" && options?.all) {
-					callback(null, [{ address: pinned.address, family: pinned.family }], undefined as never);
+					callback(null, addresses, undefined as never);
 					return;
 				}
-				callback(null, pinned.address, pinned.family);
+				const first = addresses[0]!;
+				callback(null, first.address, first.family);
 			},
 		},
 	});

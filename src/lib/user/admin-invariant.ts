@@ -9,7 +9,7 @@ function isTransactionConflict(error: unknown): boolean {
   if (error.code === "P2034") return true;
   // The pg adapter wraps SQLSTATE 40001 from raw row locks as a P2010.
   const driverError = error.meta?.driverAdapterError as { cause?: { originalCode?: string } } | undefined;
-  return error.code === "P2010" && driverError?.cause?.originalCode === "40001";
+  return error.code === "P2010" && ["40001", "40P01"].includes(String(driverError?.cause?.originalCode ?? error.meta?.code));
 }
 
 export async function withAdminInvariantLock<T>(
@@ -21,6 +21,11 @@ export async function withAdminInvariantLock<T>(
     return operation(tx);
   };
   if (transaction) return run(transaction);
+  return withAccountTransaction(run);
+}
+
+/** Retry only database work so an aborted attempt never duplicates external effects. */
+export async function withAccountTransaction<T>(run: (tx: Prisma.TransactionClient) => Promise<T>): Promise<T> {
   for (let attempt = 1; ; attempt++) {
     try {
       return await prisma.$transaction(run, { isolationLevel: "Serializable" });

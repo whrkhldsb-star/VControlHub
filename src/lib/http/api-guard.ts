@@ -13,7 +13,7 @@ import {
 } from "@/lib/auth/bearer-token";
 import { ValidationError } from "@/lib/errors";
 import { apiCatch, apiError } from "@/lib/http/api-error";
-import { searchParamsToObject, zodIssueDetails } from "@/lib/http/parse-search-params";
+import { parseSearchParams, zodIssueDetails } from "@/lib/http/parse-search-params";
 import { type RateLimitConfig, rateLimitResponse, withRateLimit } from "@/lib/http/rate-limit-presets";
 import { createLogger } from "@/lib/logging";
 import { containsNul } from "@/lib/text/strip-nul";
@@ -289,15 +289,7 @@ async function runApiRoute<TBody = unknown, TQuery = unknown>(
 
     let query: TQuery = undefined as TQuery;
     if (options.querySchema) {
-      const url = new URL(request.url);
-      const obj = searchParamsToObject(url.searchParams);
-      if (containsNul(obj)) throw new ValidationError(t("backend.http.requestContainsNul"), { field: "query" });
-      const parsed = options.querySchema.safeParse(obj, requestParseParams());
-      if (!parsed.success) {
-        const { summary, issues } = zodIssueDetails(parsed.error, "query");
-        throw new ValidationError(summary, { field: "query", issues });
-      }
-      query = parsed.data;
+      query = parseSearchParams(request, options.querySchema);
     }
 
     const response = await handler({ session, body, query, requestId });

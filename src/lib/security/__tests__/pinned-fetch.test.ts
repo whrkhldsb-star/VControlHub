@@ -28,6 +28,7 @@ vi.mock("undici", () => ({
 	fetch: undiciFetchMock,
 }));
 
+import { fetchWebhookSafely } from "../webhook-url";
 import { fetchWithPinnedDns } from "../pinned-fetch";
 
 type ConnectLookupFn = (
@@ -46,6 +47,19 @@ describe("fetchWithPinnedDns", () => {
 	beforeEach(() => {
 		vi.clearAllMocks();
 		agentInstances.length = 0;
+	});
+
+	it("pins every verified webhook address for multi-address lookup", async () => {
+		const records = [{ address: "192.0.78.24", family: 4 }, { address: "2606:4700:4700::1111", family: 6 }];
+		lookupMock.mockResolvedValue(records);
+		undiciFetchMock.mockResolvedValue(new Response(null, { status: 204 }));
+		expect((await fetchWebhookSafely("https://hooks.example/test", { method: "POST" })).ok).toBe(true);
+		const cb = vi.fn();
+		agentConnectLookup()!("hooks.example", { all: true }, cb);
+		expect(cb).toHaveBeenCalledWith(null, records, undefined);
+		agentConnectLookup()!("hooks.example", {}, cb);
+		expect(cb).toHaveBeenLastCalledWith(null, records[0]!.address, 4);
+		expect(lookupMock).toHaveBeenCalledTimes(1);
 	});
 
 	it("verifies certificates unless a status-only probe asks otherwise, and stays pinned either way", async () => {

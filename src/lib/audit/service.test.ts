@@ -2,7 +2,7 @@ import { beforeEach, describe, expect, it, vi } from "vitest";
 
 const { mockPrisma } = vi.hoisted(() => ({
   mockPrisma: {
-    $transaction: vi.fn(async (queries: Promise<unknown>[]) => Promise.all(queries)),
+    $transaction: vi.fn(),
     auditLog: {
       create: vi.fn(),
       findMany: vi.fn(), findFirst: vi.fn(),
@@ -11,6 +11,8 @@ const { mockPrisma } = vi.hoisted(() => ({
     },
   },
 }));
+
+beforeEach(() => { mockPrisma.$transaction.mockImplementation(run => run(mockPrisma)); });
 
 vi.mock("@/lib/db", () => ({ prisma: mockPrisma }));
 vi.mock("@/lib/auth/authorization", () => ({
@@ -42,6 +44,13 @@ describe("listAuditLogs", () => {
     vi.clearAllMocks();
     mockPrisma.auditLog.findMany.mockResolvedValue([]);
     mockPrisma.auditLog.count.mockResolvedValue(0);
+  });
+
+  it("escapes literal search terms in both action and actor fields", async () => {
+    await listAuditLogs({ search: "srv_a%" });
+    const { where } = mockPrisma.auditLog.findMany.mock.calls[0]![0];
+    const match = { contains: "srv\\_a\\%", mode: "insensitive" };
+    expect(where.OR).toEqual([{ action: match }, { actor: { is: { OR: [{ username: match }, { displayName: match }] } } }]);
   });
 
   it("uses PostgreSQL-compatible case-insensitive search filters without querying enum fields for arbitrary terms", async () => {
@@ -122,7 +131,7 @@ describe("prepareAuditExport", () => {
 
   it("scopes export with teamWhere for non-admin sessions", async () => {
     await prepareAuditExport({ session: teamUser });
-    expect(mockPrisma.auditLog.findFirst).toHaveBeenCalledWith(
+    expect(mockPrisma.auditLog.findMany).toHaveBeenCalledWith(
       expect.objectContaining({
         where: { teamId: "team_a" },
       }),
@@ -162,8 +171,10 @@ it("groups terminal command execution events with historical bare actions and fi
 
 it.each([false, true])("probes the first omitted key before signalling truncation (%s)", async (overflow) => {
   const key = { id: "start", createdAt: new Date() };
-  mockPrisma.auditLog.findFirst.mockResolvedValueOnce(key).mockResolvedValueOnce(overflow ? key : null);
+  for (let i = 0; i < 50; i++) mockPrisma.auditLog.findMany.mockResolvedValueOnce(Array(1_000).fill(key));
+  mockPrisma.auditLog.findMany.mockResolvedValueOnce(overflow ? [key] : []);
   const result = await prepareAuditExport({ session: teamUser });
   expect(result.truncated).toBe(overflow);
-  expect(mockPrisma.auditLog.findFirst).toHaveBeenLastCalledWith(expect.objectContaining({ where: { teamId: "team_a" }, skip: 50000, select: { createdAt: true, id: true } }));
+  expect(mockPrisma.auditLog.findMany).toHaveBeenLastCalledWith(expect.objectContaining({ take: 1 }));
+  expect(mockPrisma.$transaction).toHaveBeenCalledWith(expect.any(Function), expect.objectContaining({ isolationLevel: "RepeatableRead" }));
 });

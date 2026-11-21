@@ -53,4 +53,25 @@ describe("nodeStreamToWeb", () => {
 		const source = new Readable({ read() { this.destroy(new Error("read failed")); } });
 		await expect(new Response(nodeStreamToWeb(source)).text()).rejects.toThrow("read failed");
 	});
+	it("suspends the upstream timeout under backpressure, then times a stalled read", async () => {
+		const source = new Readable({ read() {} });
+		const stream = nodeStreamToWeb(source, 20);
+		const paused = new Promise<void>(resolve => source.once("pause", resolve));
+		source.push(Buffer.alloc(64 * 1024));
+		await paused;
+		await new Promise(resolve => setTimeout(resolve, 50));
+		expect(source.destroyed).toBe(false);
+		const reader = stream.getReader();
+		expect((await reader.read()).value.byteLength).toBe(64 * 1024);
+		await expect(reader.read()).rejects.toThrow(/stalled/);
+	});
+
+	it("propagates close before end even after delivering initial bytes", async () => {
+		const source = new Readable({ read() {} });
+		const reader = nodeStreamToWeb(source).getReader();
+		source.push(Buffer.from("partial"));
+		expect((await reader.read()).done).toBe(false);
+		source.destroy();
+		await expect(reader.read()).rejects.toThrow(/before end/);
+	});
 });

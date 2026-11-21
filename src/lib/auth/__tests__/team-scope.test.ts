@@ -90,7 +90,7 @@ describe("security-root helpers (strict: null teamId is quarantined)", () => {
   for (const [name, helper] of STRICT_HELPERS) {
     describe(name, () => {
       it("applies no filter for an administrator viewing all customers", () => {
-        expect(helper(ADMIN)).toEqual(name === "serverTeamWhere" ? { team: { isNot: { deletedAt: { not: null } } } } : {});
+        expect(helper(ADMIN)).toEqual(["serverTeamWhere", "playbookTeamWhere", "imageTeamWhere"].includes(name) ? { team: { isNot: { deletedAt: { not: null } } } } : {});
       });
 
       it("scopes an administrator to the selected customer without per-user narrowing", () => {
@@ -103,6 +103,8 @@ describe("security-root helpers (strict: null teamId is quarantined)", () => {
             { userAccess: { none: { userId: MEMBER.userId } } },
             { userAccess: { some: { userId: MEMBER.userId, canRead: true } } },
           ] }] });
+        } else if (name === "playbookTeamWhere" || name === "imageTeamWhere") {
+          expect(helper(MEMBER)).toEqual({ teamId: "team_a", team: { deletedAt: null } });
         } else {
           expect(helper(MEMBER)).toEqual({ teamId: "team_a" });
         }

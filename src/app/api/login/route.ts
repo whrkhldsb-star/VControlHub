@@ -1,3 +1,4 @@
+import { clearPendingLogin } from "@/lib/auth/login-cookies";
 import { NextResponse } from "next/server";
 import { z } from "zod";
 
@@ -66,9 +67,10 @@ export async function POST(request: Request) {
 		const slowCheck = await checkRateLimitAsync(`login:slow:${clientIp}`, LOGIN_SLOW_RATE_LIMIT);
 
 		if (!fastCheck.allowed || !slowCheck.allowed) {
-			const retryAfter = !fastCheck.allowed
-				? Math.ceil(fastCheck.retryAfterMs / 1000)
-				: Math.ceil(slowCheck.retryAfterMs / 1000);
+			const retryAfter = Math.ceil(Math.max(
+				fastCheck.allowed ? 0 : fastCheck.retryAfterMs,
+				slowCheck.allowed ? 0 : slowCheck.retryAfterMs,
+			) / 1000);
 			const params = new URLSearchParams({ error: "rate_limited" });
 			// No teamId by design: this fires before authentication, so there is no
 			// customer to attribute it to. See buildAuditWhere in lib/audit/service.
@@ -205,10 +207,6 @@ export async function POST(request: Request) {
 		}
 
 		// ── No 2FA — create full session ──
-		// Password login is complete only on this branch; clear the lockout
-		// counter here (2FA users get it cleared by verify-login instead).
-		await clearLoginFailureAsync(username, clientIp);
-
 		const token = await createSessionToken({
 			userId: user.id,
 			username: user.username,
@@ -235,6 +233,8 @@ export async function POST(request: Request) {
 			path: "/",
 			maxAge: sessionMaxAge,
 		});
+		clearPendingLogin(response, cookieSecure);
+		await clearLoginFailureAsync(username, clientIp);
 		return response;
 	} catch (e) {
 		logger.error("login failed with system error", e);

@@ -4,6 +4,8 @@ import type { SessionPayload } from "@/lib/auth/session";
 import { teamWhere } from "@/lib/auth/team-scope";
 import { prisma } from "@/lib/db";
 import { createLogger } from "@/lib/logging";
+import { paginationOffset } from "@/lib/http/parse-search-params";
+import { escapeLikeLiteral } from "@/lib/db/like-pattern";
 import { stripNulDeep } from "@/lib/text/strip-nul";
 
 const ACTOR_TYPE_VALUES = new Set<ActorType>(["USER", "ASSISTANT", "SYSTEM"]);
@@ -120,14 +122,15 @@ function buildAuditWhere(input: {
 	if (input.severity) clauses.push({ severity: input.severity });
 	if (input.actorId) clauses.push({ actorId: input.actorId });
 	if (input.search) {
+		const literal = escapeLikeLiteral(input.search);
 		const searchClauses: Record<string, unknown>[] = [
-			{ action: { contains: input.search, mode: "insensitive" } },
+			{ action: { contains: literal, mode: "insensitive" } },
 			{
 				actor: {
 					is: {
 						OR: [
-							{ username: { contains: input.search, mode: "insensitive" } },
-							{ displayName: { contains: input.search, mode: "insensitive" } },
+							{ username: { contains: literal, mode: "insensitive" } },
+							{ displayName: { contains: literal, mode: "insensitive" } },
 						],
 					},
 				},
@@ -177,7 +180,7 @@ export async function listAuditLogs(
 				actor: { select: { username: true, displayName: true } },
 			},
 			orderBy: auditOrderBy(input.sort, input.direction),
-			skip: (page - 1) * pageSize,
+			skip: paginationOffset(page, pageSize),
 			take: pageSize,
 		}),
 		prisma.auditLog.count({ where }),
@@ -196,43 +199,38 @@ export const AUDIT_EXPORT_MAX_ROWS = 50_000;
 const EXPORT_ORDER = [{ createdAt: "desc" }, { id: "desc" }] satisfies Prisma.AuditLogOrderByWithRelationInput[];
 type ExportKey = { createdAt: Date; id: string };
 
-/** Establish both ends of the export on one snapshot before sending headers.
- * Only two keys cross the wire. Slow readers never hold a database transaction. */
-export async function prepareAuditExport(input: Omit<ListAuditLogsInput, "page" | "pageSize">) {
+/** Materialize bounded pages on one snapshot, then release the connection before streaming. */
+export async function prepareAuditExport(input: Omit<ListAuditLogsInput, "page" | "pageSize">, signal?: AbortSignal) {
 	const where = buildAuditWhere(input);
-	const boundary = { where, orderBy: EXPORT_ORDER, select: { createdAt: true, id: true } };
-	const [first, overflow] = await prisma.$transaction([
-		prisma.auditLog.findFirst(boundary),
-		prisma.auditLog.findFirst({ ...boundary, skip: AUDIT_EXPORT_MAX_ROWS }),
-	], { isolationLevel: "RepeatableRead" });
-	return {
-		truncated: Boolean(overflow),
-		batches: iterateAuditLogsForExport(where, first, overflow),
-	};
-}
-
-async function* iterateAuditLogsForExport(where: Prisma.AuditLogWhereInput, first: ExportKey | null, overflow: ExportKey | null) {
-	if (!first) return;
-	let cursor = first;
-	let sent = 0;
-	while (sent < AUDIT_EXPORT_MAX_ROWS) {
-		const take = Math.min(1_000, AUDIT_EXPORT_MAX_ROWS - sent);
-		const page: AuditLogEntry[] = await prisma.auditLog.findMany({
-			where: { AND: [
-				where,
-				{ OR: [{ createdAt: { lt: cursor.createdAt } }, { createdAt: cursor.createdAt, id: sent ? { lt: cursor.id } : { lte: cursor.id } }] },
-				...(overflow ? [{ OR: [{ createdAt: { gt: overflow.createdAt } }, { createdAt: overflow.createdAt, id: { gt: overflow.id } }] }] : []),
-			] },
-			include: { actor: { select: { username: true, displayName: true } } },
-			orderBy: EXPORT_ORDER,
-			take,
-		}) as unknown as AuditLogEntry[];
-		if (page.length === 0) return;
-		yield page;
-		if (page.length < take) return;
-		sent += page.length;
-		cursor = page[page.length - 1]!;
+	const { pages, truncated } = await prisma.$transaction(async (tx) => {
+		const pages: AuditLogEntry[][] = [];
+		let cursor: ExportKey | undefined;
+		let count = 0;
+		for (;;) {
+			signal?.throwIfAborted();
+			const remaining = AUDIT_EXPORT_MAX_ROWS - count;
+			const take = Math.min(1_000, remaining + 1);
+			const page = await tx.auditLog.findMany({
+				where: cursor ? { AND: [where, { OR: [
+					{ createdAt: { lt: cursor.createdAt } }, { createdAt: cursor.createdAt, id: { lt: cursor.id } },
+				] }] } : where,
+				include: { actor: { select: { username: true, displayName: true } } },
+				orderBy: EXPORT_ORDER, take,
+			}) as unknown as AuditLogEntry[];
+			if (page.length > remaining) {
+				if (remaining > 0) pages.push(page.slice(0, remaining));
+				return { pages, truncated: true };
+			}
+			if (page.length) pages.push(page);
+			if (page.length < take) return { pages, truncated: false };
+			count += page.length;
+			cursor = page.at(-1);
+		}
+	}, { isolationLevel: "RepeatableRead", timeout: 60_000 });
+	async function* batches() {
+		yield* pages;
 	}
+	return { batches: batches(), truncated };
 }
 
 /** Actions the audit overview counts as high-risk. */

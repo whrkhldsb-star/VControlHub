@@ -5,6 +5,7 @@ import {
   booleanFlagSchema,
   idQuerySchema,
   paginationQuerySchema,
+  paginationOffset,
   parseSearchParams,
   searchParamsToObject,
 } from "../parse-search-params";
@@ -49,6 +50,10 @@ describe("parseSearchParams", () => {
     tag: z.union([z.string(), z.array(z.string())]).optional(),
   });
 
+  it.each(["q=a%00b", "tag=ok&tag=%00", "bad%00key=ok"])("rejects a NUL before schema parsing (%s)", (query) => {
+    expect(() => parseSearchParams(new URL("http://local/?" + query), schema)).toThrow(expect.objectContaining({ status: 400 }));
+  });
+
   it("通过 Request 解析合法 query", () => {
     const req = new Request("http://local/api/x?page=3&q=hello");
     const out = parseSearchParams(req, schema);
@@ -76,6 +81,13 @@ describe("parseSearchParams", () => {
 });
 
 describe("paginationQuerySchema", () => {
+  it("bounds the computed offset at the PostgreSQL adapter's signed integer limit", () => {
+    expect(paginationOffset(2_147_483_648, 1)).toBe(2_147_483_647);
+    for (const [page, size] of [[4_294_967_297, 1], [21_474_838, 100]] as const) {
+      expect(() => paginationOffset(page, size)).toThrow(expect.objectContaining({ status: 400 }));
+    }
+  });
+
   it("默认值: page=1, pageSize=20, limit 缺省", () => {
     const out = paginationQuerySchema.parse({});
     expect(out).toEqual({ page: 1, pageSize: 20 });

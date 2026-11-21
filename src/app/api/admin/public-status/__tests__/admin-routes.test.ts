@@ -27,7 +27,8 @@ const mocks = vi.hoisted(() => ({
 	clearHistory: vi.fn(),
 	audit: vi.fn(),
 }));
-vi.mock("@/lib/public-status/site", () => ({ loadPublicSite: mocks.loadPublicSite, savePublicSite: mocks.savePublicSite }));
+vi.mock("@/lib/public-status/site", () => ({ loadPublicSite: mocks.loadPublicSite }));
+vi.mock("../mutations", () => ({ saveAuditedSite: mocks.savePublicSite, saveAuditedPublication: mocks.updateNodePublication }));
 vi.mock("@/lib/public-status/nodes-admin", async (original) => ({
 	...await original<typeof import("@/lib/public-status/nodes-admin")>(),
 	listAdminNodes: mocks.listAdminNodes,
@@ -56,7 +57,7 @@ describe("status board management routes", () => {
 		mocks.savePublicSite.mockResolvedValue({ ...SITE, updatedAt: "x" });
 		mocks.listAdminNodes.mockResolvedValue({ total: 0, rows: [] });
 		mocks.applyNodeBatch.mockResolvedValue({ changed: 1, skipped: [] });
-		mocks.updateNodePublication.mockResolvedValue({ publicId: "abcdefghijkl", published: true, wasPublished: false });
+		mocks.updateNodePublication.mockResolvedValue({ publicId: "abcdefghijkl", published: true });
 	});
 
 	it("refuses anonymous callers and customer administrators on every verb", async () => {
@@ -82,7 +83,6 @@ describe("status board management routes", () => {
 		expect(mocks.savePublicSite).toHaveBeenCalledWith(SITE, "u_admin");
 		expect(mocks.invalidate).toHaveBeenCalledTimes(1);
 		expect(mocks.clearHistory).toHaveBeenCalledTimes(1);
-		expect(mocks.audit).toHaveBeenCalledWith("u_admin", "public_status.site.update", expect.objectContaining({ enabledBefore: false, enabled: true }), "WARNING");
 	});
 
 	it("validates bodies strictly", async () => {
@@ -100,7 +100,6 @@ describe("status board management routes", () => {
 		expect(await response.json()).toEqual({ publicId: "abcdefghijkl", published: true });
 		expect(mocks.updateNodePublication).toHaveBeenCalledWith("srv_1", NODE, "u_admin");
 		expect(mocks.invalidate).toHaveBeenCalled();
-		expect(mocks.audit).toHaveBeenCalledWith("u_admin", "public_status.node.publish", expect.objectContaining({ serverId: "srv_1" }), "WARNING");
 	});
 
 	it("batch revocation clears caches and is audited", async () => {

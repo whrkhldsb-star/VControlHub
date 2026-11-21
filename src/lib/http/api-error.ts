@@ -131,7 +131,7 @@ export function apiCatch(
 		if (!isServerError) {
 			// A 4xx fallback swallowing an unexpected internal exception hides a
 			// real fault behind a client-looking status — keep it observable.
-			logger.warn(`unexpected non-AppError on a ${fallbackStatus} route: ${e.message}`);
+			logger.warn("unexpected route error", e, { fallbackStatus });
 		}
 	} else {
 		opts = {

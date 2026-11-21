@@ -13,9 +13,9 @@ import { withApiRoute } from "@/lib/http/api-guard";
 import { GENERAL_WRITE_LIMIT } from "@/lib/http/rate-limit-presets";
 import { parseSearchParams } from "@/lib/http/parse-search-params";
 import { t } from "@/lib/i18n/service-translations";
-import { getStorageAccessUsage } from "@/lib/storage/access-control";
+import { normalizeStorageTargetDirectory } from "@/lib/storage/path-utils";
 import { withAccountPermissionChange } from "@/lib/user/account-type";
-import { optionFilter, readOptionPage } from "@/lib/user/permission-options";
+import { afterOption, optionFilter, readOptionPage } from "@/lib/user/permission-options";
 import { permissionAccountIdentity, permissionVersion, prepareResourceNarrowing, readPermissionAccount } from "./route-patch";
 
 export const dynamic = "force-dynamic";
@@ -97,27 +97,27 @@ async function serializeStorageAccessGrants(
     updatedAt: Date;
   }>,
 ) {
-  return Promise.all(
-    grants.map(async (grant) => ({
-      id: grant.id,
-      storageNodeId: grant.storageNodeId,
-      storageNode: grant.storageNode,
-      pathPrefix: grant.pathPrefix,
-      canRead: grant.canRead,
-      canWrite: grant.canWrite,
-      canDelete: grant.canDelete,
-      quotaBytes: serializeBigInt(grant.quotaBytes),
-      maxFileBytes: serializeBigInt(grant.maxFileBytes),
-      usedBytes: (
-        await getStorageAccessUsage({
-          storageNodeId: grant.storageNodeId,
-          pathPrefix: grant.pathPrefix,
-        })
-      ).toString(),
-      createdAt: grant.createdAt.toISOString(),
-      updatedAt: grant.updatedAt.toISOString(),
-    })),
-  );
+  const prefixes = grants.flatMap(grant => {
+    const normalized = normalizeStorageTargetDirectory(grant.pathPrefix);
+    return normalized.ok ? [{ id: grant.id, node: grant.storageNodeId, prefix: normalized.path }] : [];
+  });
+  // A single query for the returned grants. starts_with treats every path character literally.
+  const usage = prefixes.length ? await prisma.$queryRaw<Array<{ id: string; bytes: string }>>`
+    SELECT g.id, COALESCE(sum(f.size), 0)::text AS bytes
+    FROM jsonb_to_recordset(${JSON.stringify(prefixes)}::jsonb) AS g(id text, node text, prefix text)
+    JOIN file_entries f ON f."storageNodeId" = g.node AND NOT f."isDeleted" AND f."entryType" = 'FILE'
+      AND (g.prefix = '' OR f."relativePath" = g.prefix OR starts_with(f."relativePath", g.prefix || '/'))
+    GROUP BY g.id` : [];
+  const byGrant = new Map(usage.map(row => [row.id, row.bytes]));
+  return grants.map(grant => ({
+    id: grant.id, storageNodeId: grant.storageNodeId, storageNode: grant.storageNode, pathPrefix: grant.pathPrefix,
+    canRead: grant.canRead, canWrite: grant.canWrite, canDelete: grant.canDelete,
+    quotaBytes: serializeBigInt(grant.quotaBytes),
+    maxFileBytes: serializeBigInt(grant.maxFileBytes),
+    usedBytes: byGrant.get(grant.id) ?? "0",
+    createdAt: grant.createdAt.toISOString(),
+    updatedAt: grant.updatedAt.toISOString(),
+  }));
 }
 
 export async function GET(request: Request) {
@@ -152,14 +152,12 @@ export async function GET(request: Request) {
       user ? listLiveCustomerOptions() : [],
       teamId && (!query.resource || query.resource === "storageNodes")
         ? readOptionPage({ ...optionsQuery, after: query.storageAfter }, (after, take) => prisma.storageNode.findMany({
-          where: scope, select: { id: true, name: true, driver: true, basePath: true }, orderBy, take,
-          ...(after ? { cursor: { id: after, teamId }, skip: 1 } : {}),
-        })) : emptyPage,
+          where: { ...scope, ...afterOption(after) }, select: { id: true, name: true, driver: true, basePath: true }, orderBy, take,
+        }), id => prisma.storageNode.findFirst({ where: { id, teamId }, select: { id: true, name: true } })) : emptyPage,
       teamId && (!query.resource || query.resource === "servers")
         ? readOptionPage({ ...optionsQuery, after: query.serverAfter }, (after, take) => prisma.server.findMany({
-          where: scope, select: { id: true, name: true, operatingSystem: true, teamId: true }, orderBy, take,
-          ...(after ? { cursor: { id: after, teamId }, skip: 1 } : {}),
-        })) : emptyPage,
+          where: { ...scope, ...afterOption(after) }, select: { id: true, name: true, operatingSystem: true, teamId: true }, orderBy, take,
+        }), id => prisma.server.findFirst({ where: { id, teamId }, select: { id: true, name: true } })) : emptyPage,
     ]);
     const options = {
       nextCursor: { servers: serverPage.nextCursor, storageNodes: nodes.nextCursor, identityTemplates: templates.nextCursor },
@@ -239,7 +237,7 @@ export async function PATCH(request: Request) {
         }, tx);
         const updated = await readPermissionAccount(tx, body.userId);
         return permissionVersion(updated!);
-      });
+      }, undefined, body.account?.type === "customer" ? body.account.teamId : undefined);
       return NextResponse.json({ success: true, version });
     },
   );

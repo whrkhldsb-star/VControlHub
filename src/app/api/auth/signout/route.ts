@@ -3,11 +3,13 @@ import { z } from "zod";
 
 import { getApiSession } from "@/lib/auth/api-session";
 import { getCsrfCookieName } from "@/lib/auth/csrf";
-import { getPending2faCookieName, getSessionCookieName } from "@/lib/auth/session";
+import { getSessionCookieName } from "@/lib/auth/session";
 import { accountSecurityAuditTeam, auditUserAction } from "@/lib/audit/service";
 import { withApiRoute } from "@/lib/http/api-guard";
 import { GENERAL_WRITE_LIMIT } from "@/lib/http/rate-limit-presets";
 import { isRequestHttps } from "@/lib/http/request-https";
+import { clearPendingLogin } from "@/lib/auth/login-cookies";
+import { createLogger } from "@/lib/logging";
 import { getClientIp } from "@/lib/rate-limit";
 
 /**
@@ -22,6 +24,7 @@ import { getClientIp } from "@/lib/rate-limit";
  *  - the pending-2FA cookie, so a signout mid-2FA does not leave a 5-minute
  *    ticket that still exchanges for a full session for that account.
  */
+const logger = createLogger("auth:signout");
 const signoutBodySchema = z.undefined();
 
 export async function POST(request: Request) {
@@ -29,23 +32,6 @@ export async function POST(request: Request) {
     request,
     { bodySchema: signoutBodySchema, rateLimit: GENERAL_WRITE_LIMIT },
     async () => {
-      // Best-effort: resolve session before cookie clear so logout is auditable.
-      const session = await getApiSession();
-      if (session?.userId) {
-        await auditUserAction(
-          session.userId,
-          "auth.signout",
-          {
-            username: session.username ?? null,
-            ip: getClientIp(request),
-          },
-          undefined,
-          // A platform administrator's sign-out is a platform event, as their sign-in is (login route): filed under
-          // the customer they had selected, it showed their address and times in that customer's audit log.
-          accountSecurityAuditTeam(session),
-        );
-      }
-
       const wantsJson = request.headers.get("accept")?.includes("application/json");
       const response = wantsJson
         ? NextResponse.json({ signedOut: true })
@@ -68,13 +54,26 @@ export async function POST(request: Request) {
         path: "/",
         maxAge: 0,
       });
-      response.cookies.set(getPending2faCookieName(), "", {
-        httpOnly: true,
-        sameSite: "lax",
-        secure: cookieSecure,
-        path: "/",
-        maxAge: 0,
-      });
+      clearPendingLogin(response, cookieSecure);
+      try {
+        const session = await getApiSession();
+        if (session?.userId) {
+          await auditUserAction(
+            session.userId,
+            "auth.signout",
+            {
+              username: session.username ?? null,
+              ip: getClientIp(request),
+            },
+            undefined,
+            // A platform administrator's sign-out is a platform event, as their sign-in is (login route): filed under
+            // the customer they had selected, it showed their address and times in that customer's audit log.
+            accountSecurityAuditTeam(session),
+          );
+        }
+      } catch (error) {
+        logger.warn("signout audit unavailable", error);
+      }
       return response;
     },
   );

@@ -88,3 +88,11 @@ describe("detachWebhookResponse", () => {
 		expect(await detached.text()).toBe("");
 	});
 });
+
+it.each([
+	["192.0.78.24", true], ["192.88.100.20", true], ["192.0.0.9", true], ["192.0.0.10", true],
+	["192.0.2.15", false], ["192.0.0.8", false], ["192.88.99.2", false],
+	["[::ffff:192.0.78.24]", true], ["[::ffff:192.0.0.8]", false],
+])("classifies the specific special-use prefix for %s", (ip, ok) => {
+	expect(validateWebhookUrlSyntax(`https://${ip}/`).ok).toBe(ok);
+});

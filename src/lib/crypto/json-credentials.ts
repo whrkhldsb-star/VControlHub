@@ -28,11 +28,12 @@ export function encryptJsonCredentials<T>(creds: T | null | undefined): string {
  * is not a JSON object.
  */
 export function decryptJsonCredentials<T>(enc: string, corruptMessage: string): T {
-	const plain = isEncrypted(enc) ? decrypt(enc) : enc;
+	const plain = isEncrypted(enc) ? decrypt(enc, () => new ValidationError(corruptMessage)) : enc;
 	try {
 		const parsed = JSON.parse(plain) as T;
-		return parsed && typeof parsed === "object" ? parsed : ({} as T);
+		if (parsed && typeof parsed === "object" && !Array.isArray(parsed)) return parsed;
 	} catch {
-		throw new ValidationError(corruptMessage);
+		// Malformed JSON and invalid legacy shapes share the caller's error.
 	}
+	throw new ValidationError(corruptMessage);
 }

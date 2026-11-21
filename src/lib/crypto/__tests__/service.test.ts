@@ -1,5 +1,7 @@
 import { afterEach, beforeEach, describe, expect, it, vi } from "vitest";
 
+import { decryptJsonCredentials } from "../json-credentials";
+import { ValidationError } from "@/lib/errors";
 import { decrypt, encrypt, isEncrypted } from "@/lib/crypto/service";
 
 describe("crypto service", () => {
@@ -42,6 +44,21 @@ describe("crypto service", () => {
       expect(decrypt(a)).toBe("same input");
       expect(decrypt(b)).toBe("same input");
     });
+  });
+
+  it("accepts credential objects and rejects corrupt JSON, non-objects and unauthenticated envelopes", () => {
+    const read = (stored: string) => decryptJsonCredentials(stored, "corrupt fixture");
+    for (const json of ["[]", "42", "null", '"value"', "{"]) {
+      expect(() => read(json)).toThrow(ValidationError);
+      expect(() => read(encrypt(json))).toThrow("corrupt fixture");
+    }
+    expect(read('{"field":1}')).toEqual({ field: 1 });
+    const envelope = encrypt('{"field":1}').split(":");
+    envelope[2] = Buffer.alloc(16).toString("base64");
+    expect(() => read(envelope.join(":"))).toThrow(ValidationError);
+    vi.stubEnv("NODE_ENV", "production");
+    vi.stubEnv("ENCRYPTION_KEY", "");
+    expect(() => read(envelope.join(":"))).toThrow(/ENCRYPTION_KEY/);
   });
 
   describe("isEncrypted", () => {

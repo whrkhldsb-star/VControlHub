@@ -9,6 +9,9 @@ const { requireSessionMock, verifyTotpMock, prismaMock } = vi.hoisted(() => ({
   requireSessionMock: vi.fn(),
   verifyTotpMock: vi.fn(),
   prismaMock: {
+    $executeRaw: vi.fn().mockResolvedValue(1),
+    $queryRaw: vi.fn(async () => []),
+    $transaction: vi.fn(),
     user: {
       update: vi.fn(),
       updateMany: vi.fn(),
@@ -100,6 +103,8 @@ vi.mock("@/lib/auth/two-factor-secret", () => ({
       ? stored.slice("sealed:".length)
       : stored,
 }));
+
+beforeEach(() => { prismaMock.$transaction.mockImplementation(run => run(prismaMock)); });
 
 const { createTwoFactorRecoveryCodes } = await import("@/lib/auth/two-factor-recovery");
 
@@ -320,10 +325,7 @@ describe("POST /api/auth/2fa/disable", () => {
 
     expect(res.status).toBe(200);
     // The code is burned on the way through, even though 2FA is being turned off.
-    expect(prismaMock.user.updateMany).toHaveBeenCalledWith({
-      where: { id: "u1", twoFactorEnabled: true, twoFactorSecret: "sealed:EXISTING_SECRET", status: { not: "DISABLED" }, twoFactorRecoveryCodes: { equals: generated.hashes } },
-      data: { twoFactorRecoveryCodes: [generated.hashes[1], generated.hashes[2]] },
-    });
+    expect(prismaMock.$executeRaw).toHaveBeenCalledWith(expect.anything(), generated.hashes[0], "u1", "sealed:EXISTING_SECRET", generated.hashes[0]);
     expect(prismaMock.user.updateMany).toHaveBeenCalled();
   });
 

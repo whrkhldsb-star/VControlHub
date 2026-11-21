@@ -1,4 +1,5 @@
 import { afterEach, beforeEach, describe, expect, it, vi } from "vitest";
+import { encodePageCursor } from "@/lib/http/page-cursor";
 import { createSessionToken, verifySessionToken } from "@/lib/auth/session";
 import { AuthError, ForbiddenError, ValidationError } from "@/lib/errors";
 
@@ -142,24 +143,29 @@ describe("api token service", () => {
   });
   it("bounds token list hydration newest-first for growing token history", async () => {
     mockPrisma.apiToken.findMany.mockResolvedValue([]);
-    mockPrisma.$transaction.mockImplementationOnce((queries) => Promise.all(queries));
+    mockPrisma.$transaction.mockImplementationOnce(run => run(mockPrisma));
     await listApiTokenPage("u1", { pageSize: 25 });
     expect(mockPrisma.apiToken.findMany).toHaveBeenCalledTimes(1);
     expect(mockPrisma.apiToken.findMany).toHaveBeenCalledWith(expect.objectContaining({
-      where: { createdBy: "u1" },
+      where: expect.objectContaining({ createdBy: "u1" }),
       orderBy: [{ createdAt: "desc" }, { id: "desc" }],
       take: 26,
     }));
   });
   it("includes older credentials in the manager and pages active tokens within the owner", async () => {
-    mockPrisma.$transaction.mockImplementationOnce((queries) => Promise.all(queries));
-    mockPrisma.apiToken.findMany.mockResolvedValueOnce([{ id: "older" }, { id: "next" }]);
+    mockPrisma.$transaction.mockImplementationOnce(run => run(mockPrisma));
+    const createdAt = new Date();
+    const cursor = encodePageCursor({ createdAt, id: "cursor" });
+    const row = { id: "older", createdAt };
+    mockPrisma.apiToken.findMany.mockResolvedValueOnce([row, { id: "next" }]).mockResolvedValueOnce([]);
     mockPrisma.apiToken.count.mockResolvedValueOnce(250).mockResolvedValueOnce(201);
-    expect(await listApiTokenPage("owner", { status: "active", cursor: "cursor", pageSize: 1 })).toEqual({
-      total: 201, totalTokens: 250, activeTokens: 201, nextCursor: "older", tokens: [{ id: "older" }],
+    expect(await listApiTokenPage("owner", { status: "active", cursor, pageSize: 1 })).toEqual({
+      total: 201, totalTokens: 250, activeTokens: 201, nextCursor: encodePageCursor({ createdAt, id: row.id }), tokens: [{ ...row, team: null }],
     });
-    expect(mockPrisma.apiToken.findMany).toHaveBeenLastCalledWith(expect.objectContaining({
-      take: 2, cursor: { id: "cursor", createdBy: "owner" }, where: { createdBy: "owner", revokedAt: null, OR: [{ expiresAt: null }, { expiresAt: { gt: expect.any(Date) } }] },
+    expect(mockPrisma.apiToken.findMany).toHaveBeenNthCalledWith(1, expect.objectContaining({
+      take: 2, where: { createdBy: "owner", AND: [expect.objectContaining({ revokedAt: null }), {
+        OR: [{ createdAt: { lt: createdAt } }, { createdAt, id: { lt: "cursor" } }],
+      }] },
     }));
   });
   it("rejects expired, revoked, or owner-disabled tokens", async () => {

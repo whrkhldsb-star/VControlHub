@@ -168,7 +168,10 @@ async function connectLockClient(namespace: string, resourceId: string) {
     logger.warn("advisory lock pool exhausted", { namespace, resourceId });
     throw new AdvisoryLockBusyError(namespace, "pool", error);
   });
+  const loss = new AbortController();
+  const onEnd = () => loss.abort(new Error("Advisory lock connection ended"));
   const onError = (error: Error) => {
+    loss.abort(error);
     logger.error("advisory lock connection lost; the lock is no longer held", {
       namespace,
       resourceId,
@@ -176,12 +179,14 @@ async function connectLockClient(namespace: string, resourceId: string) {
     });
   };
   client.on("error", onError);
+  client.on("end", onEnd);
   const giveBack = (error?: Error) => {
     client.removeListener("error", onError);
+    client.removeListener("end", onEnd);
     // With an error the pool closes the client instead of reusing it.
-    client.release(error);
+    client.release(error ?? (loss.signal.aborted ? new Error("Advisory lock connection lost") : undefined));
   };
-  return { client, giveBack };
+  return { client, giveBack, loss };
 }
 
 async function releaseClientLock(
@@ -243,16 +248,9 @@ function buildRelease(
 /** Cap blocking wait so a hung holder cannot pin the tiny advisory-lock pool forever. */
 const ADVISORY_LOCK_ACQUIRE_TIMEOUT_MS = 30_000;
 
-/**
- * Wait for the lock, at most `timeoutMs` (30 s by default). Throws
- * {@link AdvisoryLockBusyError} when the holder outlasts the wait or no lock
- * connection comes free.
- */
-export async function acquireAdvisoryLock(
-  namespace: string,
-  resourceId: string,
-  options: { timeoutMs?: number; additionalResourceId?: string; sharedResourceIds?: readonly string[] } = {},
-): Promise<() => Promise<void>> {
+type LockOptions = { timeoutMs?: number; additionalResourceId?: string; sharedResourceIds?: readonly string[] };
+
+async function acquireClientLocks(namespace: string, resourceId: string, options: LockOptions) {
   const { k1, k2 } = getLockKeys(namespace, resourceId);
   const exclusiveKeys = new Set([k2]);
   if (options.additionalResourceId !== undefined) exclusiveKeys.add(getLockKeys(namespace, options.additionalResourceId).k2);
@@ -263,7 +261,7 @@ export async function acquireAdvisoryLock(
   const pathKeys = [...exclusiveKeys, ...sharedKeys].sort((a, b) => a - b);
   // Interpolated into SET (which takes no parameters): keep it a whole number.
   const timeoutMs = Math.max(1, Math.floor(options.timeoutMs ?? ADVISORY_LOCK_ACQUIRE_TIMEOUT_MS));
-  const { client, giveBack } = await connectLockClient(namespace, resourceId);
+  const { client, giveBack, loss } = await connectLockClient(namespace, resourceId);
   try {
     // A session setting: it stays on this pooled connection, which only
     // ever serves advisory locks, and every blocking acquire sets it.
@@ -272,13 +270,59 @@ export async function acquireAdvisoryLock(
       await client.query(sharedKeys.has(key) ? "SELECT pg_advisory_lock_shared($1, $2)" : "SELECT pg_advisory_lock($1, $2)", [k1, key]);
     }
     logger.debug("advisory lock acquired", { namespace, resourceId, k1, k2 });
-    return buildRelease(client, giveBack, k1, pathKeys, sharedKeys, namespace, resourceId);
+    loss.signal.throwIfAborted();
+    return { client, loss, k1, pathKeys, release: buildRelease(client, giveBack, k1, pathKeys, sharedKeys, namespace, resourceId) };
   } catch (error) {
     // A later acquire can fail with the first lock already held. Closing the session releases both.
     giveBack(pathKeys.length > 1 ? new Error("Incomplete lock acquisition") : undefined);
     if (!isLockTimeout(error)) throw error;
     logger.warn("advisory lock wait timed out", { namespace, resourceId, timeoutMs });
     throw new AdvisoryLockBusyError(namespace, "held", error);
+  }
+}
+
+/** Wait for a dedicated session lock and return its idempotent release callback. */
+export async function acquireAdvisoryLock(namespace: string, resourceId: string, options: LockOptions = {}): Promise<() => Promise<void>> {
+  return (await acquireClientLocks(namespace, resourceId, options)).release;
+}
+
+/** Long-running holders persist the generation on the shared resource, combine the loss
+ * signal with job cancellation, and check both the persisted generation and ownership before dispatch. */
+export async function acquireMonitoredAdvisoryLock(namespace: string, resourceId: string, options: LockOptions = {}) {
+  const { client, loss, k1, pathKeys, release } = await acquireClientLocks(namespace, resourceId, options);
+  try {
+    // Allocate an epoch-qualified transaction ID on the holder's backend after acquisition.
+    // It increases across successive holders of this lock, so a late claim cannot replace a newer generation.
+    const { rows: [claim] } = await client.query<{ generation: string }>("SELECT pg_current_xact_id()::text AS generation");
+    loss.signal.throwIfAborted();
+    let released = false;
+    const assertHeld = async () => {
+      if (released) throw new Error("Advisory lock released");
+      loss.signal.throwIfAborted();
+      try {
+        const result = await client.query<{ held: boolean }>(
+          `SELECT count(DISTINCT objid) = cardinality($2::oid[]) AS held FROM pg_locks
+           WHERE pid = pg_backend_pid() AND locktype = 'advisory' AND granted
+             AND classid = $1::oid AND objid = ANY($2::oid[]) AND objsubid = 2`,
+          [k1 >>> 0, pathKeys.map(key => key >>> 0)],
+        );
+        if (!result.rows[0]?.held) throw new Error("Advisory lock lost");
+      } catch (error) {
+        loss.abort(error);
+      }
+      loss.signal.throwIfAborted();
+      if (released) throw new Error("Advisory lock released");
+    };
+    return {
+      generation: claim!.generation, signal: loss.signal, assertHeld,
+      release: async () => {
+        released = true;
+        await release();
+      },
+    };
+  } catch (error) {
+    await release();
+    throw error;
   }
 }
 

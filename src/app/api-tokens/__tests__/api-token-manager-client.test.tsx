@@ -40,6 +40,13 @@ describe("ApiTokenManagerClient", () => {
 		vi.restoreAllMocks();
 	});
 
+	it("marks a former customer's token as unbound and keeps its revocation available", () => {
+		render(<ApiTokenManagerClient initialPage={page([{ ...token, team: null }])} pageSize={1}
+			allowedScopes={["read"]} currentCustomerName="Current" />, { locale: "en" });
+		expect(screen.getByText("Customer access lost", { selector: "span" })).toBeInTheDocument();
+		expect(screen.getByRole("button", { name: /revoke.*CLI/i })).toBeEnabled();
+	});
+
 	it("requests one cursor page at a time and keeps status totals separate from the visible rows", async () => {
 		const older = { ...token, id: "tok_2", name: "Older" };
 		const first = page([token], 230, token.id);
