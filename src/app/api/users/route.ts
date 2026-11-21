@@ -12,6 +12,7 @@ import { GENERAL_WRITE_LIMIT } from "@/lib/http/rate-limit-presets";
 import { createUserSchema, updateUserSchema } from "@/lib/user/schema";
 import { DEFAULT_IDENTITY_TEMPLATE_ID } from "@/lib/auth/identity-templates";
 
+import { assertCurrentUserManager } from "@/lib/user/account-type";
 import { NotFoundError, ValidationError } from "@/lib/errors";
 import { t } from "@/lib/i18n/service-translations";
 import { z } from "zod";
@@ -99,6 +100,7 @@ export async function POST(request: Request) {
       // Check-then-create races with a concurrent creation of the same name: the
       // unique index decides, and that must read as 400, not 500 (A1-07).
       const user = await prisma.$transaction(async (tx) => {
+        await assertCurrentUserManager(tx, session);
         if (await tx.user.findUnique({ where: { username: body.username }, select: { id: true } })) {
           throw new ValidationError(t("backend.user.usernameAlreadyExists"));
         }
@@ -182,9 +184,9 @@ export async function PATCH(request: Request) {
       }
 
       if (userAction === "disable") {
-        await withAdminInvariantLock(async () => {
-          await assertAdminAccessMayBeRemoved(userId);
-          await prisma.user.update({
+        await withAdminInvariantLock(async (tx) => {
+          await assertAdminAccessMayBeRemoved(userId, tx);
+          await tx.user.update({
             where: { id: userId },
             // Disabling ends the sessions the account already has: advancing the epoch is what
             // stops them from coming back to life when the account is enabled again.

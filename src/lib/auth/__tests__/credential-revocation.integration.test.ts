@@ -4,6 +4,7 @@ import { afterAll, beforeAll, beforeEach, describe, expect, it, vi } from "vites
 import { prisma } from "@/lib/db";
 import { changePassword } from "../service";
 import { hashPassword } from "../password";
+import { createSessionToken, verifySessionToken } from "../session";
 
 describe.skipIf(process.env.RUN_DATABASE_INTEGRATION_TESTS !== "1")("credential changes under PostgreSQL concurrency", () => {
   const id = `credential-audit-${randomUUID()}`;
@@ -34,6 +35,8 @@ describe.skipIf(process.env.RUN_DATABASE_INTEGRATION_TESTS !== "1")("credential 
   });
 
   it.each(["disable", "password reset", "session revocation"])("does not overwrite a concurrent administrator %s", async (change) => {
+    const token = await createSessionToken({ userId: id, username: id, roles: [], mustChangePassword: false, currentTeamId: null });
+    const session = await verifySessionToken(token);
     let release!: () => void;
     let acquired!: (pid: number) => void;
     const unlocked = new Promise<void>((resolve) => { release = resolve; });
@@ -50,7 +53,7 @@ describe.skipIf(process.env.RUN_DATABASE_INTEGRATION_TESTS !== "1")("credential 
       await unlocked;
     }, { timeout: 15_000 });
     const blocker = await locked;
-    const passwordChange = changePassword({ userId: id, currentPassword, newPassword: nextPassword, confirmPassword: nextPassword });
+    const passwordChange = changePassword({ currentPassword, newPassword: nextPassword, confirmPassword: nextPassword }, session);
     try {
       await vi.waitFor(async () => {
         const waiters = await prisma.$queryRaw<Array<{ waiting: boolean }>>`

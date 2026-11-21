@@ -65,13 +65,13 @@ describe.skipIf(process.env.RUN_DATABASE_INTEGRATION_TESTS !== "1")("removeTeamM
       (error: unknown) => error,
     );
     try {
-      // Wait for the actual DELETE to block on the transfer's uncommitted row.
+      // The removal waits on the target user's row before touching membership.
       await expect.poll(async () => {
         const [session] = await prisma.$queryRaw<Array<{ blocked: boolean }>>`
           SELECT EXISTS (
             SELECT 1 FROM pg_stat_activity
             WHERE ${backend}::int = ANY(pg_blocking_pids(pid))
-              AND query LIKE '%DELETE%team_members%'
+              AND query LIKE '%"User"%FOR UPDATE%'
           ) AS blocked
         `;
         return session?.blocked;

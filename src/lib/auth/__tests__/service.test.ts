@@ -3,6 +3,7 @@ import { beforeEach, describe, expect, it, vi } from "vitest";
 
 import { authenticateUser, changePassword } from "@/lib/auth/service";
 import { hashPassword, verifyPassword } from "@/lib/auth/password";
+import { createSessionToken, verifySessionToken } from "@/lib/auth/session";
 import { prisma } from "@/lib/db";
 
 vi.mock("@/lib/db", () => ({
@@ -112,26 +113,28 @@ describe("authenticateUser", () => {
 });
 
 describe("changePassword", () => {
+ async function verifiedSession(passwordHash: string, mustChangePassword = false) {
+   const row = { id: "u_1", username: "alice", passwordHash, sessionEpoch: 0, mustChangePassword, status: "ACTIVE", roles: [] };
+   vi.mocked(prisma.user.findUnique).mockResolvedValue(row as never);
+   const token = await createSessionToken({ userId: row.id, username: row.username, roles: [], mustChangePassword, currentTeamId: null });
+   return verifySessionToken(token);
+ }
+
  it("updates password hash when current password is correct", async () => {
  const currentHash = await hashPassword("19970103");
-
- vi.mocked(prisma.user.findUnique).mockResolvedValueOnce({
- id: "u_1",
- passwordHash: currentHash,
- } as any);
+ const session = await verifiedSession(currentHash, true);
  vi.mocked(prisma.user.updateMany).mockResolvedValueOnce({ count: 1 });
 
  const result = await changePassword({
- userId: "u_1",
  currentPassword: "19970103",
  newPassword: "Newpass123",
  confirmPassword: "Newpass123",
- });
+ }, session);
 
  expect(result.success).toBe(true);
  expect(prisma.user.updateMany).toHaveBeenCalledWith(
  expect.objectContaining({
- where: { id: "u_1", passwordHash: currentHash, sessionEpoch: 0, status: { not: "DISABLED" } },
+ where: { id: "u_1", passwordHash: currentHash, sessionEpoch: 0, mustChangePassword: true, status: { not: "DISABLED" } },
  data: expect.objectContaining({
  mustChangePassword: false,
  status: "ACTIVE",
@@ -147,21 +150,43 @@ describe("changePassword", () => {
 
  it("rejects password change when current password is invalid", async () => {
  const currentHash = await hashPassword("19970103");
-
- vi.mocked(prisma.user.findUnique).mockResolvedValueOnce({
- id: "u_1",
- passwordHash: currentHash,
- } as any);
+ const session = await verifiedSession(currentHash);
 
  await expect(
  changePassword({
- userId: "u_1",
  currentPassword: "wrong-password",
  newPassword: "Newpass123",
  confirmPassword: "Newpass123",
- }),
+ }, session),
  ).resolves.toEqual({ success: false, error: t("backend.auth.currentPasswordIncorrect") });
  expect(prisma.user.update).not.toHaveBeenCalled();
  expect(prisma.user.updateMany).not.toHaveBeenCalled();
+ }, 15_000);
+
+ it("rejects a session revoked before the password row was read", async () => {
+   const passwordHash = await hashPassword("Temporary123");
+   const session = await verifiedSession(passwordHash);
+   vi.mocked(prisma.user.findUnique).mockResolvedValueOnce({ id: "u_1", sessionEpoch: 1, passwordHash, mustChangePassword: false } as never);
+
+   await expect(changePassword({
+     currentPassword: "Temporary123", newPassword: "Newpass123", confirmPassword: "Newpass123",
+   }, session)).rejects.toMatchObject({ code: "AUTH_REQUIRED" });
+   expect(prisma.user.updateMany).not.toHaveBeenCalled();
+ });
+
+ it.each(["same", "legacy equivalent"])("rejects the %s password during a forced change", async (kind) => {
+   const legacy = kind === "legacy equivalent";
+   const currentPassword = legacy ? "a".repeat(72) + "1" : "Temporary123";
+   const newPassword = legacy ? "a".repeat(72) + "2" : currentPassword;
+   const passwordHash = legacy
+     ? await (await import("bcrypt")).hash(currentPassword, 4)
+     : await hashPassword(currentPassword);
+   const session = await verifiedSession(passwordHash);
+   vi.mocked(prisma.user.findUnique).mockResolvedValueOnce({ id: "u_1", sessionEpoch: 0, passwordHash, mustChangePassword: true } as never);
+
+   await expect(changePassword({ currentPassword, newPassword, confirmPassword: newPassword }, session))
+     .rejects.toMatchObject({ code: "VALIDATION_FAILED", message: t("backend.auth.temporaryPasswordReused") });
+   expect(prisma.user.findUnique).toHaveBeenLastCalledWith(expect.objectContaining({ select: expect.objectContaining({ mustChangePassword: true }) }));
+   expect(prisma.user.updateMany).not.toHaveBeenCalled();
  }, 15_000);
 });

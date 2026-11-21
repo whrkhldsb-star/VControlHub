@@ -21,8 +21,8 @@ vi.mock("@/lib/http/rate-limit-presets", () => ({
 	rateLimitResponse: vi.fn(() => new Response("rate limited", { status: 429 })),
 }));
 
-const mocks = vi.hoisted(() => ({ restoreTeam: vi.fn(), listCustomerMembers: vi.fn(), setCustomerMembership: vi.fn(), removeTeamMember: vi.fn() }));
-vi.mock("@/lib/team/service", () => ({ restoreTeam: mocks.restoreTeam, listCustomerMembers: mocks.listCustomerMembers, setCustomerMembership: mocks.setCustomerMembership, removeTeamMember: mocks.removeTeamMember }));
+const mocks = vi.hoisted(() => ({ restoreTeam: vi.fn(), listCustomerMembers: vi.fn(), setCustomerMembership: vi.fn(), updateTeamMemberTemplate: vi.fn(), removeTeamMember: vi.fn() }));
+vi.mock("@/lib/team/service", () => mocks);
 
 const restore = await import("../restore/route");
 const members = await import("../members/route");
@@ -37,6 +37,7 @@ describe("customer restore and membership routes", () => {
 		routeSession.current = platformSession();
 		mocks.listCustomerMembers.mockResolvedValue([{ userId: "u_2", identityTemplateId: "tpl_1" }]);
 		mocks.setCustomerMembership.mockResolvedValue({ userId: "u_2", identityTemplateId: "tpl_2" });
+		mocks.updateTeamMemberTemplate.mockResolvedValue({ userId: "u_2", identityTemplateId: "tpl_2" });
 	});
 
 	it("all of them need team:manage", async () => {
@@ -65,10 +66,16 @@ describe("customer restore and membership routes", () => {
 		expect((await members.POST(json("POST", { userId: "" }), { params: teamParams })).status).toBe(400);
 		const patched = await member.PATCH(json("PATCH", { identityTemplateId: "tpl_2" }), { params: memberParams });
 		expect(patched.status).toBe(200);
-		expect(mocks.setCustomerMembership).toHaveBeenLastCalledWith({ teamId: "team_1", userId: "u_2", identityTemplateId: "tpl_2" }, expect.anything());
+		expect(mocks.updateTeamMemberTemplate).toHaveBeenCalledWith("team_1", "u_2", "tpl_2", expect.anything());
 		expect((await member.DELETE(json("DELETE"), { params: memberParams })).status).toBe(200);
 		expect(mocks.removeTeamMember).toHaveBeenCalledWith("team_1", "u_2", expect.anything());
 		mocks.removeTeamMember.mockRejectedValueOnce(new ForbiddenError("last admin"));
 		expect((await member.DELETE(json("DELETE"), { params: memberParams })).status).toBe(403);
+	});
+
+	it("returns 404 for a template change targeting another customer's member", async () => {
+		mocks.updateTeamMemberTemplate.mockRejectedValueOnce(new NotFoundError("Member not found"));
+		expect((await member.PATCH(json("PATCH", { identityTemplateId: "tpl_2" }), { params: memberParams })).status).toBe(404);
+		expect(mocks.setCustomerMembership).not.toHaveBeenCalled();
 	});
 });

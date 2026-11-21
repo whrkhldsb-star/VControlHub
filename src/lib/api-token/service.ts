@@ -1,8 +1,13 @@
 import { createHash, randomBytes } from "node:crypto";
 import { Prisma } from "@prisma/client";
+import { resolveSessionPermissions } from "@/lib/auth/identity-templates";
+import { getPermissionsFromRoles, type RoleKey } from "@/lib/auth/rbac";
+import { assertSessionCredentialBinding, type SessionPayload } from "@/lib/auth/session";
 import { prisma } from "@/lib/db";
-import { ForbiddenError, NotFoundError, ValidationError } from "@/lib/errors";
+import { AuthError, ForbiddenError, NotFoundError, ValidationError } from "@/lib/errors";
 import { t } from "@/lib/i18n/service-translations";
+import { lockUserRow } from "@/lib/user/row-lock";
+import { apiTokenScopeAllowedForSession } from "./authorization";
 
 const TOKEN_BYTES=32;
 const TOKEN_PREFIX="whr_";
@@ -55,39 +60,78 @@ const API_TOKEN_SAFE_SELECT = {
   team: { select: { name: true, slug: true } },
 } as const;
 
-export async function createApiToken(input: { userId: string; teamId: string; name: string; scopes?: string[]; expiresAt?: Date | null }) {
+export async function createApiToken(input: {
+  session: SessionPayload;
+  name: string;
+  scopes?: string[];
+  expiresAt?: Date | null;
+}) {
   const name = input.name.trim();
   if (!name) throw new ValidationError(t("backend.api-token.tokenNameIsRequired"));
-  if (!input.teamId) throw new ForbiddenError(t("backend.api-token.activeCustomerRequired"));
-  // A token is bound to a live customer its owner may act in: an
-  // administrator's selected customer, or a customer account's own customer.
-  const [team, owner] = await Promise.all([
-    prisma.team.findUnique({ where: { id: input.teamId }, select: { deletedAt: true } }),
-    prisma.user.findUnique({
-      where: { id: input.userId },
-      select: { teamMembership: { select: { teamId: true } }, roles: { select: { role: { select: { key: true } } } } },
-    }),
-  ]);
-  const ownerIsAdmin = owner?.roles.some((entry) => entry.role.key === "admin") === true;
-  if (!team || team.deletedAt || !owner || (!ownerIsAdmin && owner.teamMembership?.teamId !== input.teamId)) {
-    throw new ForbiddenError(t("backend.api-token.activeCustomerRequired"));
-  }
-  const token = `${TOKEN_PREFIX}${randomBytes(TOKEN_BYTES).toString("base64url")}`;
-  const tokenHash = hashApiToken(token);
-  const record = await prisma.apiToken.create({
-    data: {
-      name,
-      tokenHash,
-      tokenPrefix: token.slice(0, 8),
-      tokenSuffix: token.slice(-6),
-      scopes: normalizeScopes(input.scopes),
-      expiresAt: input.expiresAt ?? null,
-      createdBy: input.userId,
-      teamId: input.teamId,
-    },
-    select: API_TOKEN_SAFE_SELECT,
+  const { session } = input;
+  const { userId, currentTeamId: teamId } = session;
+  if (!teamId) throw new ForbiddenError(t("backend.api-token.activeCustomerRequired"));
+
+  return prisma.$transaction(async (tx) => {
+    // Customer deletion locks the team before updating its users' preferences.
+    const [team] = await tx.$queryRaw<Array<{ id: string }>>`
+      SELECT id FROM teams WHERE id = ${teamId} AND "deletedAt" IS NULL FOR SHARE`;
+    if (!team) throw new ForbiddenError(t("backend.api-token.activeCustomerRequired"));
+
+    await lockUserRow(tx, userId);
+    const owner = await tx.user.findUnique({
+      where: { id: userId },
+      select: {
+        passwordHash: true, sessionEpoch: true, status: true, mustChangePassword: true,
+      },
+    });
+    if (!owner || owner.status !== "ACTIVE" || owner.mustChangePassword) {
+      throw new AuthError(t("api.auth.sessionExpired"));
+    }
+    assertSessionCredentialBinding(session, owner);
+
+    // RBAC imports can change the role key independently of its assigned users.
+    const [adminGrant] = await tx.$queryRaw<Array<{ id: string }>>`
+      SELECT r.id FROM "UserRole" ur JOIN "Role" r ON r.id = ur."roleId"
+      WHERE ur."userId" = ${userId} AND r.key = 'admin' FOR SHARE OF ur, r`;
+    const roles: RoleKey[] = adminGrant ? ["admin"] : [];
+    let identityPermissions: string[] | null = null;
+    if (!adminGrant) {
+      // Editing a shared template does not touch any user's row.
+      const [membership] = await tx.$queryRaw<Array<{ permissions: string[] }>>`
+        SELECT template.permissions FROM team_members AS member
+        JOIN identity_templates AS template ON template.id = member."identityTemplateId"
+        WHERE member."userId" = ${userId} AND member."teamId" = ${teamId}
+        FOR SHARE OF member, template`;
+      if (!membership) throw new ForbiddenError(t("backend.api-token.activeCustomerRequired"));
+      identityPermissions = membership.permissions;
+    }
+    const permissions = resolveSessionPermissions({ roles, accountPermissions: getPermissionsFromRoles(roles), identityPermissions });
+    if (!permissions.includes("api-token:manage")) {
+      throw new ForbiddenError(t("apiCopy.insufficient.permissions.37e6815b"));
+    }
+    const scopes = normalizeScopes(input.scopes);
+    const liveSession = { ...session, roles, permissions };
+    if (scopes.some((scope) => !apiTokenScopeAllowedForSession(scope, liveSession))) {
+      throw new ForbiddenError(t("api.auth.scopeEscalation"));
+    }
+
+    const token = `${TOKEN_PREFIX}${randomBytes(TOKEN_BYTES).toString("base64url")}`;
+    const apiToken = await tx.apiToken.create({
+      data: {
+        name,
+        tokenHash: hashApiToken(token),
+        tokenPrefix: token.slice(0, 8),
+        tokenSuffix: token.slice(-6),
+        scopes,
+        expiresAt: input.expiresAt ?? null,
+        createdBy: userId,
+        teamId,
+      },
+      select: API_TOKEN_SAFE_SELECT,
+    });
+    return { token, apiToken };
   });
-  return { token, apiToken: record };
 }
 
 export async function listApiTokens(userId: string, limit = 200) {
@@ -100,22 +144,22 @@ export async function listApiTokens(userId: string, limit = 200) {
 }
 
 export async function revokeApiToken(input: { userId: string; id: string }) {
+  const owned = { id: input.id, createdBy: input.userId };
   try {
     return await prisma.apiToken.update({
-      where: { id: input.id, createdBy: input.userId },
+      where: { ...owned, revokedAt: null },
       data: { revokedAt: new Date() },
+      select: API_TOKEN_SAFE_SELECT,
     });
   } catch (error) {
-    // A nonexistent id, or a token owned by another user, yields P2025
-    // ("record not found") for the scoped where. Surface it as a 404 instead
-    // of leaking a generic 500 — the caller never proves the token exists.
-    if (
-      error instanceof Prisma.PrismaClientKnownRequestError &&
-      error.code === "P2025"
-    ) {
-      throw new NotFoundError(t("backend.api-token.tokenNotFound"));
-    }
-    throw error;
+    if (!(error instanceof Prisma.PrismaClientKnownRequestError && error.code === "P2025")) throw error;
+    // A repeated or concurrent revoke returns the first revocation timestamp.
+    const revoked = await prisma.apiToken.findUnique({
+      where: { ...owned, revokedAt: { not: null } },
+      select: API_TOKEN_SAFE_SELECT,
+    });
+    if (!revoked) throw new NotFoundError(t("backend.api-token.tokenNotFound"));
+    return revoked;
   }
 }
 

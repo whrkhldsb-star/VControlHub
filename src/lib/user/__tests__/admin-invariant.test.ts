@@ -1,32 +1,20 @@
 /** @vitest-environment node */
 import { beforeEach, describe, expect, it, vi } from "vitest";
 
-/**
- * The "there must always be one active admin" invariant. Both callers
- * (PATCH /api/users and PATCH /api/users/permissions) mock this module, so
- * nothing else pins its rules:
- *
- *   - only role-derived admin matters; a DISABLED admin does not count as cover
- *   - the target itself is excluded from the count, so "the last admin" is
- *     decided as of after the pending change
- *   - the check must be usable inside an advisory lock, and the lock must be
- *     released even when the guarded operation throws — a leaked global lock
- *     would wedge every later user mutation
- */
+import { Prisma } from "@prisma/client";
 
 const mocks = vi.hoisted(() => ({
-  acquireAdvisoryLock: vi.fn(),
-  release: vi.fn(),
+  transaction: vi.fn(),
+  executeRaw: vi.fn(),
   userFindUnique: vi.fn(),
   userCount: vi.fn(),
 }));
+const tx = {
+  user: { findUnique: mocks.userFindUnique, count: mocks.userCount },
+  $executeRaw: mocks.executeRaw,
+} as unknown as Prisma.TransactionClient;
 
-vi.mock("@/lib/concurrency/advisory-lock", () => ({
-  acquireAdvisoryLock: mocks.acquireAdvisoryLock,
-}));
-vi.mock("@/lib/db", () => ({
-  prisma: { user: { findUnique: mocks.userFindUnique, count: mocks.userCount } },
-}));
+vi.mock("@/lib/db", () => ({ prisma: { $transaction: mocks.transaction } }));
 vi.mock("@/lib/i18n/service-translations", () => ({ t: (key: string) => key }));
 
 const { assertAdminAccessMayBeRemoved, withAdminInvariantLock } = await import(
@@ -40,28 +28,42 @@ function withRoles(...keys: string[]) {
 describe("withAdminInvariantLock", () => {
   beforeEach(() => {
     vi.clearAllMocks();
-    mocks.acquireAdvisoryLock.mockResolvedValue(mocks.release);
-    mocks.release.mockResolvedValue(undefined);
+    mocks.transaction.mockImplementation(async (run) => run(tx));
   });
 
-  it("serializes on one global key so concurrent demotions cannot interleave", async () => {
-    await withAdminInvariantLock(async () => "done");
-
-    expect(mocks.acquireAdvisoryLock).toHaveBeenCalledWith("user-admin-invariant", "global");
+  it("takes the PostgreSQL transaction lock before handing the same transaction to the mutation", async () => {
+    const operation = vi.fn(async (client: Prisma.TransactionClient) => {
+      expect(client).toBe(tx);
+      return 42;
+    });
+    await expect(withAdminInvariantLock(operation)).resolves.toBe(42);
+    const { getLockKeys } = await import("@/lib/concurrency/advisory-lock");
+    const { k1, k2 } = getLockKeys("user-admin-invariant", "global");
+    const [sql, ...params] = mocks.executeRaw.mock.calls[0]!;
+    expect(sql.join("?")).toContain("pg_advisory_xact_lock(?::int, ?::int)");
+    expect(params).toEqual([k1, k2]);
+    expect(mocks.executeRaw).toHaveBeenCalledBefore(operation);
+    expect(mocks.transaction).toHaveBeenCalledOnce();
   });
 
-  it("returns the operation's value", async () => {
+  it("rolls the transaction back if the protected operation fails", async () => {
+    await expect(withAdminInvariantLock(async () => { throw new Error("update failed"); }))
+      .rejects.toThrow("update failed");
+    expect(mocks.executeRaw).toHaveBeenCalledOnce();
+  });
+  it("starts a fresh transaction on a serialization conflict and limits repeated contention", async () => {
+    const conflict = new Prisma.PrismaClientKnownRequestError("write conflict", {
+      code: "P2034", clientVersion: "test",
+    });
+    mocks.transaction.mockRejectedValueOnce(conflict);
     await expect(withAdminInvariantLock(async () => 42)).resolves.toBe(42);
+    expect(mocks.transaction).toHaveBeenCalledTimes(2);
+
+    mocks.transaction.mockClear().mockRejectedValue(conflict);
+    await expect(withAdminInvariantLock(async () => 42)).rejects.toMatchObject({ status: 409 });
+    expect(mocks.transaction).toHaveBeenCalledTimes(3);
   });
 
-  it("releases the lock when the operation throws", async () => {
-    await expect(
-      withAdminInvariantLock(async () => {
-        throw new Error("update failed");
-      }),
-    ).rejects.toThrow("update failed");
-    expect(mocks.release).toHaveBeenCalledOnce();
-  });
 });
 
 describe("assertAdminAccessMayBeRemoved", () => {
@@ -72,7 +74,7 @@ describe("assertAdminAccessMayBeRemoved", () => {
   it("allows the change outright when the target is not an admin", async () => {
     mocks.userFindUnique.mockResolvedValue(withRoles("operator", "viewer"));
 
-    await expect(assertAdminAccessMayBeRemoved("u1")).resolves.toBeUndefined();
+    await expect(assertAdminAccessMayBeRemoved("u1", tx)).resolves.toBeUndefined();
     // No need to count anything — the invariant cannot be affected.
     expect(mocks.userCount).not.toHaveBeenCalled();
   });
@@ -80,7 +82,7 @@ describe("assertAdminAccessMayBeRemoved", () => {
   it("allows the change when a missing user leaves nothing to protect", async () => {
     mocks.userFindUnique.mockResolvedValue(null);
 
-    await expect(assertAdminAccessMayBeRemoved("u1")).resolves.toBeUndefined();
+    await expect(assertAdminAccessMayBeRemoved("u1", tx)).resolves.toBeUndefined();
     expect(mocks.userCount).not.toHaveBeenCalled();
   });
 
@@ -88,31 +90,31 @@ describe("assertAdminAccessMayBeRemoved", () => {
     mocks.userFindUnique.mockResolvedValue(withRoles("admin"));
     mocks.userCount.mockResolvedValue(1);
 
-    await expect(assertAdminAccessMayBeRemoved("u1")).resolves.toBeUndefined();
+    await expect(assertAdminAccessMayBeRemoved("u1", tx)).resolves.toBeUndefined();
   });
 
   it("refuses to remove the last active admin", async () => {
     mocks.userFindUnique.mockResolvedValue(withRoles("admin"));
     mocks.userCount.mockResolvedValue(0);
 
-    await expect(assertAdminAccessMayBeRemoved("u1")).rejects.toMatchObject({
+    await expect(assertAdminAccessMayBeRemoved("u1", tx)).rejects.toMatchObject({
       name: "ConflictError",
       message: "backend.user.cannotRemoveLastAdmin",
     });
   });
 
-  it("excludes the target and every disabled account from the count", async () => {
+  it("counts only other ACTIVE administrators, excluding pending and disabled accounts", async () => {
     mocks.userFindUnique.mockResolvedValue(withRoles("admin"));
     mocks.userCount.mockResolvedValue(1);
 
-    await assertAdminAccessMayBeRemoved("u1");
+    await assertAdminAccessMayBeRemoved("u1", tx);
 
     // A DISABLED admin cannot log in, so counting one would leave the system with
     // no usable administrator.
     expect(mocks.userCount).toHaveBeenCalledWith({
       where: {
         id: { not: "u1" },
-        status: { not: "DISABLED" },
+        status: "ACTIVE",
         roles: { some: { role: { key: "admin" } } },
       },
     });
@@ -122,7 +124,7 @@ describe("assertAdminAccessMayBeRemoved", () => {
     // Someone granted every permission individually is still not an admin here.
     mocks.userFindUnique.mockResolvedValue(withRoles("operator"));
 
-    await expect(assertAdminAccessMayBeRemoved("u1")).resolves.toBeUndefined();
+    await expect(assertAdminAccessMayBeRemoved("u1", tx)).resolves.toBeUndefined();
     expect(mocks.userCount).not.toHaveBeenCalled();
   });
 });
