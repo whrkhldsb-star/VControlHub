@@ -31,7 +31,7 @@ describe("storage path utils", () => {
   });
 
   it("normalizes safe relative paths consistently", () => {
-    expect(normalizeStorageRelativePath(" team-a//docs/报告.pdf ")).toEqual({ ok: true, path: "team-a/docs/报告.pdf" });
+    expect(normalizeStorageRelativePath("team-a//docs/报告.pdf")).toEqual({ ok: true, path: "team-a/docs/报告.pdf" });
     expect(normalizeStorageRelativePath("team-a\\docs\\a.txt")).toEqual({ ok: true, path: "team-a/docs/a.txt" });
     expect(normalizeStorageTargetDirectory(".")).toEqual({ ok: true, path: "" });
     expect(normalizeStorageTargetDirectory(" /team-a//docs ").ok).toBe(false);
@@ -76,6 +76,7 @@ describe("storage path utils", () => {
   it("words a refusal in the language of the request", () => {
     // The reasons were English literals, and about forty callers show them to the user as they are.
     const refusals: Array<[() => { ok: boolean; reason?: string }, string, string]> = [
+      [() => normalizeStorageRelativePath("docs /a"), "Path segments cannot start or end with whitespace", "路径中的名称首尾不能有空白字符"],
       [() => normalizeStorageRelativePath(""), "Path cannot be empty", "路径不能为空"],
       [() => normalizeStorageRelativePath("/etc/passwd"), "Path must be a relative path", "路径必须是相对路径"],
       [() => normalizeStorageRelativePath("a/../b"), "Path must not contain . or ..", "路径不能包含 . 或 .."],
@@ -94,7 +95,8 @@ describe("storage path utils", () => {
 
   it("rejects empty target file path but allows empty target directory", () => {
     expect(normalizeStorageRelativePath(" ").ok).toBe(false);
-    expect(normalizeStorageTargetDirectory(" ")).toEqual({ ok: true, path: "" });
+    expect(normalizeStorageTargetDirectory("").ok).toBe(true);
+    expect(normalizeStorageTargetDirectory(" ").ok).toBe(false);
   });
 
   it("joins directories and names without allowing unsafe names", () => {

@@ -11,11 +11,11 @@ import {
   ValidationError,
 } from "@/lib/errors";
 import { t } from "@/lib/i18n/service-translations";
+import { assertNotRecycled } from "@/lib/storage/archive-access";
 import { assertStorageAccess } from "@/lib/storage/access-control";
 import { storageAccessDeniedCopy } from "@/lib/storage/access-denied";
 import {
   createManagedFolder,
-  deleteBackingObject,
 } from "@/lib/storage/fs-backend";
 import {
   type StorageFileNode,
@@ -23,7 +23,6 @@ import {
 } from "@/lib/storage/file-content";
 import {
   normalizeStorageRelativePath,
-  resolveStoragePathWithinBase,
 } from "@/lib/storage/path-utils";
 import { createFileEntry } from "@/lib/storage/service-entries";
 import type { PropFindItem } from "./xml";
@@ -247,6 +246,7 @@ export async function ensureDirectoryIndexAndBacking(input: {
   let built = "";
   for (const segment of segments) {
     built = built ? `${built}/${segment}` : segment;
+    await assertNotRecycled(input.storageNodeId, built, "write");
     const existing = await findEntry(input.storageNodeId, built);
     if (existing) {
       if (existing.entryType !== "DIRECTORY") {
@@ -257,26 +257,11 @@ export async function ensureDirectoryIndexAndBacking(input: {
       continue;
     }
     await requireAccess(input.session, input.storageNodeId, built, "write");
-    let backingCreated = false;
-    try {
-      await createManagedFolder({
-        storageNode: input.node,
-        relativePath: built,
-      });
-      backingCreated = true;
-    } catch (error) {
-      if (input.node.driver === "LOCAL") {
-        const { mkdir } = await import("node:fs/promises");
-        const resolved = resolveStoragePathWithinBase(
-          input.node.basePath,
-          built,
-        );
-        if (!resolved.ok) throw new ValidationError(resolved.reason);
-        await mkdir(resolved.path, { recursive: true });
-      } else {
-        throw error;
-      }
-    }
+    const directory = await createManagedFolder({
+      storageNode: input.node,
+      relativePath: built,
+      allowExisting: true,
+    });
     try {
       await createFileEntry({
         storageNodeId: input.storageNodeId,
@@ -285,15 +270,12 @@ export async function ensureDirectoryIndexAndBacking(input: {
         relativePath: built,
       });
     } catch (error) {
-      // Roll back only a directory created by this request. The LOCAL fallback
-      // may be adopting a pre-existing unindexed directory and must preserve it.
-      if (backingCreated) {
-        await deleteBackingObject({
-          storageNode: input.node,
-          relativePath: built,
-          isDirectory: true,
-          tolerateMissing: true,
-        }).catch(() => undefined);
+      if (directory.removeIfEmpty) {
+        // Another request may already have indexed this directory.
+        const indexed = await prisma.fileEntry.findFirst({
+          where: { storageNodeId: input.storageNodeId, relativePath: built }, select: { id: true },
+        }).catch(() => true);
+        if (!indexed) await directory.removeIfEmpty().catch(() => undefined);
       }
       throw error;
     }

@@ -19,11 +19,15 @@ import {
   NotFoundError,
   ValidationError,
 } from "@/lib/errors";
+import { apiCopy } from "@/lib/i18n/api-copy";
+import { resolveStorageSshCredentials } from "@/lib/storage/ssh-credentials";
+import { assertNotRecycled } from "@/lib/storage/archive-access";
 import { releaseStorageQuotaGuard } from "@/lib/storage/access-control";
 
 const webdavLogger = createLogger("webdav:handler");
 import {
   deleteBackingObject,
+  moveBackingObject,
   renameBackingObject,
   statBackingObject,
 } from "@/lib/storage/fs-backend";
@@ -125,6 +129,7 @@ export async function handleWebDavPropFind(
   }
 
   await requireAccess(ctx.session, ctx.storageNodeId, ctx.relativePath, "read");
+  await assertNotRecycled(ctx.storageNodeId, ctx.relativePath, "read");
   const node = await loadNode(ctx.storageNodeId, ctx.session);
   const items: PropFindItem[] = [];
   let listParent: string | null = null;
@@ -178,6 +183,7 @@ export async function handleWebDavGetHead(
   method: "GET" | "HEAD",
 ): Promise<Response> {
   await requireAccess(ctx.session, ctx.storageNodeId, ctx.relativePath, "read");
+  await assertNotRecycled(ctx.storageNodeId, ctx.relativePath, "read");
   if (!ctx.relativePath) {
     return new Response("WebDAV collection root", {
       status: 200,
@@ -305,6 +311,7 @@ export async function handleWebDavPut(
       size,
     );
     releaseOverwrite = await lockStorageFileOverwrite(ctx.storageNodeId, ctx.relativePath);
+    await assertNotRecycled(ctx.storageNodeId, ctx.relativePath, "write");
     const node = await loadNode(ctx.storageNodeId, ctx.session);
     const existing = await findEntry(ctx.storageNodeId, ctx.relativePath);
     if (existing?.entryType === "DIRECTORY") {
@@ -330,27 +337,6 @@ export async function handleWebDavPut(
         reason: "UPLOAD",
         note: "WebDAV PUT overwrite",
       }).catch(() => undefined);
-    } else {
-      // A recycle-bin file at this path still has its bytes there (file-manager
-      // delete is index-only). Keep them as a version of the revived entry
-      // before overwriting; if that is impossible, refuse instead of
-      // destroying them.
-      const recycled = await prisma.fileEntry.findFirst({
-        where: { storageNodeId: ctx.storageNodeId, relativePath: ctx.relativePath, isDeleted: true, entryType: "FILE" },
-        select: { id: true },
-      });
-      if (recycled && await statBackingObject({ storageNode: node, relativePath: ctx.relativePath })) {
-        const version = await snapshotFileVersionBeforeOverwrite({
-          fileEntryId: recycled.id,
-          userId: ctx.session.userId,
-          reason: "UPLOAD",
-          note: "WebDAV PUT over a recycle-bin file",
-          includeDeleted: true,
-        }).catch(() => null);
-        if (!version) {
-          throw new ConflictError(t("backend.webdav.destinationHeldByRecycleBin", { path: `/${ctx.relativePath}` }));
-        }
-      }
     }
 
     await writeStorageFileFromLocalPath(node, ctx.relativePath, temporaryPath);
@@ -364,26 +350,11 @@ export async function handleWebDavPut(
       // Not hashed here: a checksum recorded for the bytes this PUT replaces must not stay on the row.
       checksumSha256: null,
       entryType: "FILE" as const,
-      isDeleted: false as const,
-      // A revived recycle-bin row must leave its delete batch, or a later
-      // batch restore would treat this live file as part of it.
-      deleteBatchId: null,
     };
 
-    // Prefer unique-key lookup (includes soft-deleted) so concurrent PUTs converge.
-    const indexRow =
-      existing ??
-      (await prisma.fileEntry.findFirst({
-        where: {
-          storageNodeId: ctx.storageNodeId,
-          relativePath: ctx.relativePath,
-        },
-        select: { id: true },
-      }));
-
-    if (indexRow) {
+    if (existing) {
       await prisma.fileEntry.update({
-        where: { id: indexRow.id },
+        where: { id: existing.id, isDeleted: false },
         data: indexData,
       });
     } else {
@@ -410,16 +381,11 @@ export async function handleWebDavPut(
             String(error),
           );
         if (!isConflict) throw error;
-        const raced = await prisma.fileEntry.findFirst({
-          where: {
-            storageNodeId: ctx.storageNodeId,
-            relativePath: ctx.relativePath,
-          },
-          select: { id: true },
-        });
-        if (!raced) throw error;
+        await assertNotRecycled(ctx.storageNodeId, ctx.relativePath, "write");
+        const raced = await findEntry(ctx.storageNodeId, ctx.relativePath);
+        if (!raced || raced.entryType !== "FILE") throw error;
         await prisma.fileEntry.update({
-          where: { id: raced.id },
+          where: { id: raced.id, isDeleted: false },
           data: indexData,
         });
       }
@@ -448,6 +414,7 @@ export async function handleWebDavMkcol(ctx: WebDavContext): Promise<Response> {
     ctx.relativePath,
     "write",
   );
+  await assertNotRecycled(ctx.storageNodeId, ctx.relativePath, "write");
   const existing = await findEntry(ctx.storageNodeId, ctx.relativePath);
   if (existing) {
     // RFC 4918 §9.3.1: MKCOL on a mapped URL is 405. A 409 means "an
@@ -461,15 +428,6 @@ export async function handleWebDavMkcol(ctx: WebDavContext): Promise<Response> {
   }
 
   const node = await loadNode(ctx.storageNodeId, ctx.session);
-  const parentPath = parentRelativePath(ctx.relativePath);
-  if (parentPath) {
-    await ensureDirectoryIndexAndBacking({
-      session: ctx.session,
-      node,
-      storageNodeId: ctx.storageNodeId,
-      relativePath: parentPath,
-    });
-  }
   await ensureDirectoryIndexAndBacking({
     session: ctx.session,
     node,
@@ -497,6 +455,7 @@ export async function handleWebDavDelete(
     ctx.relativePath,
     "delete",
   );
+  await assertNotRecycled(ctx.storageNodeId, ctx.relativePath, "write");
   const entry = await findEntry(ctx.storageNodeId, ctx.relativePath);
   if (!entry) throw new NotFoundError(t("backend.webdav.resourceNotFound"));
 
@@ -725,19 +684,29 @@ export async function handleWebDavMove(
   );
   if (!destPath)
     throw new ValidationError(t("backend.webdav.invalidDestination"));
-  const entry = await findEntry(ctx.storageNodeId, ctx.relativePath);
-  if (!entry) throw new NotFoundError(t("backend.webdav.resourceNotFound"));
-  const moved = entry.entryType === "DIRECTORY" ? await prisma.fileEntry.aggregate({
+  const admittedEntry = await findEntry(ctx.storageNodeId, ctx.relativePath);
+  if (!admittedEntry) throw new NotFoundError(t("backend.webdav.resourceNotFound"));
+  const moved = admittedEntry.entryType === "DIRECTORY" ? await prisma.fileEntry.aggregate({
     where: { storageNodeId: ctx.storageNodeId, isDeleted: false, entryType: "FILE", relativePath: { startsWith: escapeLikePrefix(ctx.relativePath + "/") } },
     _sum: { size: true }, _max: { size: true },
   }) : null;
-  const movedBytes = moved ? moved._sum.size ?? BigInt(0) : BigInt(entry.size ?? 0);
+  const movedBytes = moved ? moved._sum.size ?? BigInt(0) : BigInt(admittedEntry.size ?? 0);
   const destinationAccess = await requireAccess(ctx.session, ctx.storageNodeId, destPath, "write", movedBytes, {
     largestFileBytes: moved ? moved._max.size ?? BigInt(0) : movedBytes, movedFrom: ctx.relativePath,
   });
   let releaseOverwrite: (() => Promise<void>) | undefined;
   try {
-  releaseOverwrite = await lockStorageFileOverwrite(ctx.storageNodeId, destPath);
+  releaseOverwrite = await lockStorageFileOverwrite(ctx.storageNodeId, destPath, ctx.relativePath);
+  await assertNotRecycled(ctx.storageNodeId, ctx.relativePath, "write");
+  await assertNotRecycled(ctx.storageNodeId, destPath, "write");
+  // Quota guards precede overwrite locks on every upload. Re-read the source
+  // under the lock so a replacement while waiting cannot use stale admission.
+  const entry = await findEntry(ctx.storageNodeId, ctx.relativePath);
+  if (!entry) throw new NotFoundError(t("backend.webdav.resourceNotFound"));
+  if (entry.id !== admittedEntry.id || entry.entryType !== admittedEntry.entryType ||
+      entry.size !== admittedEntry.size || entry.updatedAt?.getTime() !== admittedEntry.updatedAt?.getTime()) {
+    throw new ConflictError(apiCopy("apiCopy.files.op.changed"));
+  }
   const existingDest = await findEntry(ctx.storageNodeId, destPath);
   const overwrite =
     (request.headers.get("overwrite") ?? "T").toUpperCase() !== "F";
@@ -782,12 +751,39 @@ export async function handleWebDavMove(
   const stagedDestPath = existingDest
     ? `${destParent ? `${destParent}/` : ""}.vcontrolhub-webdav-${randomUUID()}.staged`
     : null;
+  const recoveryPaths = { storageNodeId: ctx.storageNodeId, sourcePath: ctx.relativePath, destPath, stagedDestPath };
+  async function restore(from: string, to: string) {
+    if (await statBackingObject({ storageNode: node, relativePath: to })) {
+      throw new ConflictError(t("backend.storage.pathAlreadyExists", { path: to }));
+    }
+    // Agent rename can replace a new file between the stat and the rename.
+    // Keep both paths for recovery when the backend lacks a no-replace move.
+    if (node.driver === "AGENT") throw new Error("Agent rename cannot guarantee exclusive restoration");
+    if (node.driver === "SFTP") {
+      const credentials = resolveStorageSshCredentials(node);
+      if (credentials.agentServerId && !credentials.privateKey && !credentials.password) {
+        throw new Error("Agent-only SFTP rename cannot guarantee exclusive restoration");
+      }
+    }
+    await moveBackingObject({ storageNode: node, oldRelativePath: from, newRelativePath: to });
+  }
+  async function rollback(error: unknown, moved: boolean) {
+    try {
+      if (moved) await restore(destPath, ctx.relativePath);
+      if (stagedDestPath) await restore(stagedDestPath, destPath);
+    } catch (rollbackError) {
+      webdavLogger.error("WebDAV MOVE rollback failed", { ...recoveryPaths, error, rollbackError });
+    }
+  }
+
   if (stagedDestPath) {
-    await renameBackingObject({
-      storageNode: node,
-      oldRelativePath: destPath,
-      newRelativePath: stagedDestPath,
-    });
+    try {
+      await renameBackingObject({ storageNode: node, oldRelativePath: destPath, newRelativePath: stagedDestPath });
+    } catch (error) {
+      // A remote server may commit the rename before its reply is lost.
+      webdavLogger.error("WebDAV MOVE could not confirm destination staging", { ...recoveryPaths, error });
+      throw error;
+    }
   }
 
   try {
@@ -797,13 +793,7 @@ export async function handleWebDavMove(
       newRelativePath: destPath,
     });
   } catch (error) {
-    if (stagedDestPath) {
-      await renameBackingObject({
-        storageNode: node,
-        oldRelativePath: stagedDestPath,
-        newRelativePath: destPath,
-      }).catch(() => undefined);
-    }
+    if (stagedDestPath) await rollback(error, false);
     throw error;
   }
 
@@ -863,24 +853,7 @@ export async function handleWebDavMove(
       // Recycle-bin descendants included: their bytes moved with the directory.
     });
   } catch (databaseError) {
-    const rollbackErrors: unknown[] = [];
-    await renameBackingObject({
-      storageNode: node,
-      oldRelativePath: destPath,
-      newRelativePath: ctx.relativePath,
-    }).catch((error) => rollbackErrors.push(error));
-    if (stagedDestPath) {
-      await renameBackingObject({
-        storageNode: node,
-        oldRelativePath: stagedDestPath,
-        newRelativePath: destPath,
-      }).catch((error) => rollbackErrors.push(error));
-    }
-    if (rollbackErrors.length)
-      webdavLogger.error("WebDAV MOVE rollback failed", {
-        databaseError,
-        rollbackErrors,
-      });
+    await rollback(databaseError, true);
     throw databaseError;
   }
   if (stagedDestPath) {
@@ -918,6 +891,7 @@ export async function handleWebDavCopy(
   if (!ctx.relativePath)
     throw new ValidationError(t("backend.webdav.cannotCopyCollectionRoot"));
   await requireAccess(ctx.session, ctx.storageNodeId, ctx.relativePath, "read");
+  await assertNotRecycled(ctx.storageNodeId, ctx.relativePath, "read");
   const destPath = destinationRelativePath(
     ctx.storageNodeId,
     request.headers.get("destination"),
@@ -953,6 +927,7 @@ export async function handleWebDavCopy(
   let releaseOverwrite: (() => Promise<void>) | undefined;
   try {
     releaseOverwrite = await lockStorageFileOverwrite(ctx.storageNodeId, destPath);
+    await assertNotRecycled(ctx.storageNodeId, destPath, "write");
     return await performWebDavCopy({
       ctx,
       request,

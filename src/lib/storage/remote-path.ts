@@ -2,7 +2,7 @@ import path from "node:path";
 
 import { ValidationError } from "@/lib/errors";
 import { t } from "@/lib/i18n/service-translations";
-import { hasWindowsInvalidNameChars, isWindowsStorageBasePath } from "@/lib/storage/path-utils";
+import { hasPaddedPathSegment, hasWindowsInvalidNameChars, isWindowsStorageBasePath } from "@/lib/storage/path-utils";
 
 /**
  * Normalize a user-supplied remote path so it is always rooted under the
@@ -44,14 +44,19 @@ export function normalizeRemotePath(
 }
 
 export function normalizeRemoteRelativePath(requestedPath?: string | null): string {
-  const requested = (requestedPath ?? "").trim();
+  const requested = requestedPath ?? "";
+  if (hasPaddedPathSegment(requested)) {
+    throw new ValidationError(t("backend.storagePath.segmentWhitespace"));
+  }
+  // ACL paths treat a backslash as a separator. A POSIX SFTP server treats it as part of the name.
+  if (requested.includes("\\")) throw new ValidationError(t("backend.storagePath.illegalChars"));
 
   if (!requested || requested === "/") {
     return "";
   }
 
   const relativeRequest = requested.replace(/^\/+/, "");
-  const normalizedRelative = path.posix.normalize(relativeRequest);
+  const normalizedRelative = path.posix.normalize(relativeRequest).replace(/\/+$/, "");
 
   if (
     normalizedRelative === "." ||

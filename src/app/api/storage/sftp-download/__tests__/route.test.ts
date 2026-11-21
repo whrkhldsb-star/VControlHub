@@ -196,6 +196,13 @@ describe("/api/storage/sftp-download", () => {
 		expect(endMock).toHaveBeenCalled();
 	});
 
+	it("rejects a padded final name before the query can trim it or open SSH", async () => {
+		const response = await GET(new Request("https://example.com/api/storage/sftp-download?nodeId=node_1&path=public%2Ffile%20"));
+		expect(response.status).toBe(400);
+		await expect(response.json()).resolves.toMatchObject({ error: expect.stringMatching(/空白|whitespace/) });
+		expect(connectMock).not.toHaveBeenCalled();
+	});
+
 	it("rejects paths outside the storage root before connecting", async () => {
 		const response = await GET(
 			new Request("https://example.com/api/storage/sftp-download?nodeId=node_1&path=..%2Fsecret.txt"),

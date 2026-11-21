@@ -1,7 +1,6 @@
 import { SFTP_TRANSFER_IDLE_TIMEOUT_MS } from "@/lib/ssh/sftp-timeout";
 import path from "node:path";
 import { Readable } from "node:stream";
-import { apiCopy } from "@/lib/i18n/api-copy";
 import { guessContentType } from "@/lib/http/mime-types";
 
 import { Client } from "ssh2";
@@ -86,22 +85,8 @@ export async function GET(request: Request) {
 
       const { node, credentials: connectionCredentials } = await getSftpNodeConnection(nodeId, session);
 
-      let normalizedRemotePath: string;
-      let normalizedRelativePath: string;
-      try {
-        normalizedRemotePath = normalizeRemoteTargetPath(
-          node.basePath,
-          remotePath,
-        );
-        normalizedRelativePath = normalizeRemoteRelativePath(remotePath);
-      } catch {
-        return NextResponse.json(
-          toClientStorageError(
-            apiCopy("apiCopy.requested.path.exceeds.storage.node.root.directory.d786fee2"),
-          ),
-          { status: 400 },
-        );
-      }
+      const normalizedRelativePath = normalizeRemoteRelativePath(remotePath);
+      let normalizedRemotePath = normalizeRemoteTargetPath(node.basePath, normalizedRelativePath);
 
       const accessDecision = await assertStorageAccess({
         session,

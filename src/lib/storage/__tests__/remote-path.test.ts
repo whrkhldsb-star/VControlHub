@@ -21,6 +21,18 @@ describe("remote path normalization", () => {
     expect(normalizeRemotePath("/data/file", "/")).toBe("/data/file");
   });
 
+  it.each([" public/secret", "public /secret", "public/ secret", "public/secret ", "public/ /secret"])(
+    "rejects a padded SFTP name before deriving the ACL or backing path (%j)",
+    (input) => {
+      expect(() => normalizeRemoteRelativePath(input)).toThrow(/空白|whitespace/);
+      expect(() => normalizeRemotePath("/data", input)).toThrow(/空白|whitespace/);
+    },
+  );
+
+  it("rejects backslash names whose separators would differ from ACL paths", () => {
+    expect(() => normalizeRemoteRelativePath("public\\secret")).toThrow();
+  });
+
   it("rejects parent traversal outside the storage base", () => {
     expect(() => normalizeRemotePath("/data/file", "../etc/passwd")).toThrow();
     expect(() => normalizeRemotePath("/data/file", "/../etc/passwd")).toThrow();

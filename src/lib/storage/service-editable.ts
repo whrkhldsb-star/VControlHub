@@ -24,6 +24,8 @@ import {
 } from "./service-entries";
 import { snapshotFileVersionBeforeOverwrite } from "./file-versions";
 import { lockStorageFileOverwrite } from "./file-overwrite-lock";
+import { assertNotRecycled } from "./archive-access";
+import { normalizeStorageRelativePath } from "./path-utils";
 
 async function resolveLocalEditableFileEntry(input: {
   fileEntryId: string;
@@ -54,10 +56,13 @@ async function resolveLocalEditableFileEntry(input: {
     throw new BusinessError(t("backend.storage.editableLocalOnly"));
   }
 
+  const normalized = normalizeStorageRelativePath(entry.relativePath);
+  if (!normalized.ok) throw new ValidationError(normalized.reason);
+  const relativePath = normalized.path;
   const storageAccess = await assertStorageAccess({
     session: input.session,
     storageNodeId: entry.storageNode.id,
-    relativePath: entry.relativePath,
+    relativePath,
     operation: input.operation,
     writeBytes: input.writeBytes,
   });
@@ -68,6 +73,7 @@ async function resolveLocalEditableFileEntry(input: {
   // A write holds the grant's quota lock from here; the caller releases it,
   // but only once this returns — a check failing below must release it here.
   try {
+    await assertNotRecycled(entry.storageNode.id, relativePath, input.operation);
     if (
       !isEditableTextFile({
         entryType: entry.entryType,
@@ -80,7 +86,7 @@ async function resolveLocalEditableFileEntry(input: {
 
     const absolutePath = resolveLocalAbsolutePath(
       entry.storageNode.basePath,
-      entry.relativePath,
+      relativePath,
     );
     await access(absolutePath);
     const fileStat = await stat(absolutePath);
@@ -93,7 +99,7 @@ async function resolveLocalEditableFileEntry(input: {
       throw new ValidationError(t("backend.storage.editableFileTooLarge"));
     }
 
-    return { entry, absolutePath, fileStat, storageAccess };
+    return { entry, relativePath, absolutePath, fileStat, storageAccess };
   } catch (error) {
     await releaseStorageQuotaGuard(storageAccess);
     throw error;
@@ -140,7 +146,7 @@ export async function saveLocalEditableFileDraft(input: {
     throw new ValidationError(t("backend.storage.editableFileTooLarge"));
   }
 
-  const { entry, absolutePath, storageAccess } =
+  const { entry, relativePath, absolutePath, storageAccess } =
     await resolveLocalEditableFileEntry({
       fileEntryId: input.fileEntryId,
       session: input.session,
@@ -149,17 +155,18 @@ export async function saveLocalEditableFileDraft(input: {
     });
 
   try {
-    const releaseLock = await lockStorageFileOverwrite(entry.storageNode.id, entry.relativePath);
+    const releaseLock = await lockStorageFileOverwrite(entry.storageNode.id, relativePath);
     try {
       // Compare against what is current now, under the lock: two saves that
       // both read the same version before locking must not both pass.
       const current = await prisma.fileEntry.findUnique({
-        where: { id: entry.id },
+        where: { id: entry.id, storageNodeId: entry.storageNode.id, relativePath: entry.relativePath },
         select: { updatedAt: true, isDeleted: true },
       });
       if (!current || current.isDeleted) {
         throw new NotFoundError(t("backend.storage.editableEntryNotFound"));
       }
+      await assertNotRecycled(entry.storageNode.id, relativePath, "write");
       const currentStat = await stat(absolutePath);
       const currentUpdatedAt = current.updatedAt.toISOString();
       if (

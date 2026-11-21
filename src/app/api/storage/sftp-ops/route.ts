@@ -4,7 +4,7 @@ import { NextResponse } from "next/server";
 import { sessionHasPermission } from "@/lib/auth/authorization";
 import type { SessionPayload } from "@/lib/auth/session";
 
-import { prisma } from "@/lib/db";
+import { isUniqueViolation, prisma } from "@/lib/db";
 import { assertStorageAccess, releaseStorageQuotaGuard } from "@/lib/storage/access-control";
 import { storageAccessDeniedCopy } from "@/lib/storage/access-denied";
 import {
@@ -45,36 +45,28 @@ const logger = createLogger("api:storage:sftp-ops");
 async function upsertSftpFileIndex(params: {
   storageNodeId: string;
   relativePath: string;
-  content: string | Buffer;
+  existingId?: string;
+  content: string;
 }) {
-  const name = path.posix.basename(params.relativePath);
-  const size = Buffer.isBuffer(params.content)
-    ? params.content.byteLength
-    : Buffer.byteLength(params.content);
+  const target = { storageNodeId: params.storageNodeId, relativePath: params.relativePath };
+  const data = {
+    name: path.posix.basename(params.relativePath),
+    mimeType: guessContentType(params.relativePath),
+    size: BigInt(Buffer.byteLength(params.content)),
+    checksumSha256: null,
+  };
+  // A delete racing the physical write reserves the row for restore.
+  if (params.existingId) {
+    await prisma.fileEntry.update({
+      where: { id: params.existingId, ...target, isDeleted: false, entryType: "FILE" },
+      data,
+    });
+    return;
+  }
   await prisma.fileEntry.upsert({
-    where: {
-      storageNodeId_relativePath: {
-        storageNodeId: params.storageNodeId,
-        relativePath: params.relativePath,
-      },
-    },
-    update: {
-      name,
-      entryType: "FILE",
-      mimeType: guessContentType(params.relativePath),
-      size: BigInt(size),
-      // The content was replaced and is not hashed here: a checksum recorded for the old bytes must not stay.
-      checksumSha256: null,
-      isDeleted: false,
-    },
-    create: {
-      storageNodeId: params.storageNodeId,
-      name,
-      entryType: "FILE",
-      mimeType: guessContentType(params.relativePath),
-      size: BigInt(size),
-      relativePath: params.relativePath,
-    },
+    where: { storageNodeId_relativePath: target, isDeleted: false, entryType: "FILE" },
+    update: data,
+    create: { ...target, ...data, entryType: "FILE" },
   });
 }
 
@@ -228,18 +220,8 @@ async function handlePost(body: SftpOpsBody, session: SessionPayload) {
 
   // Path containment only — physical ops go through fs-backend which
   // re-derives absolute/remote paths from the storage node.
-  let normalizedRelativePath: string;
-  try {
-    normalizeRemoteTargetPath(node.basePath, remotePath);
-    normalizedRelativePath = normalizeRemoteRelativePath(remotePath);
-  } catch {
-    return NextResponse.json(
-      toClientStorageError(
-        apiCopy("apiCopy.requested.path.exceeds.storage.node.root.directory.d786fee2"),
-      ),
-      { status: 400 },
-    );
-  }
+  const normalizedRelativePath = normalizeRemoteRelativePath(remotePath);
+  normalizeRemoteTargetPath(node.basePath, normalizedRelativePath);
 
   const operation =
     action === "read" ? "read" : action === "delete" ? "delete" : "write";
@@ -340,18 +322,8 @@ async function handlePost(body: SftpOpsBody, session: SessionPayload) {
             { status: 400 },
           );
         }
-        let normalizedNewRelativePath: string;
-        try {
-          // Validate the new path is within the storage root; the result is
-          // used implicitly by fs-backend which re-derives the absolute path.
-          normalizeRemoteTargetPath(node.basePath, body.newPath);
-          normalizedNewRelativePath = normalizeRemoteRelativePath(body.newPath);
-        } catch {
-          return NextResponse.json(
-            toClientStorageError("New path exceeds storage Node root directory"),
-            { status: 400 },
-          );
-        }
+        const normalizedNewRelativePath = normalizeRemoteRelativePath(body.newPath);
+        normalizeRemoteTargetPath(node.basePath, normalizedNewRelativePath);
         const indexed = await prisma.fileEntry.findFirst({
           where: { storageNodeId: node.id, relativePath: normalizedRelativePath, isDeleted: false },
           select: { entryType: true, size: true },
@@ -369,6 +341,8 @@ async function handlePost(body: SftpOpsBody, session: SessionPayload) {
           return NextResponse.json({ error: storageAccessDeniedCopy(renameAdmission.reason) }, { status: 403 });
         }
         releaseRenameLock = await lockStorageFileOverwrite(node.id, normalizedNewRelativePath, normalizedRelativePath);
+        await assertNotRecycled(node.id, normalizedRelativePath, "write");
+        await assertNotRecycled(node.id, normalizedNewRelativePath, "write");
         if (renameAdmission.matchedGrantId && size != null) {
           const { remotePath: source } = await resolveStorageRemotePath(node, normalizedRelativePath, { credentials });
           const stat = await statRemoteEntry({ ...credentials, remotePath: source });
@@ -549,21 +523,18 @@ async function handlePost(body: SftpOpsBody, session: SessionPayload) {
         // otherwise both "succeed" and the first is in neither file nor history.
         const releaseFileLock = await lockStorageFileOverwrite(node.id, normalizedRelativePath);
         try {
-        if (typeof body.expectedLastModifiedMs === "number") {
-          const remoteStat = await statBackingObject({
-            storageNode: node,
-            relativePath: normalizedRelativePath,
-          });
-          if (
-            remoteStat &&
-            remoteStat.lastModifiedMs > 0 &&
-            Math.abs(remoteStat.lastModifiedMs - body.expectedLastModifiedMs) > 1000
-          ) {
-            throw new ConflictError(t("backend.storage.editableFileChangedOnDisk"));
-          }
+        await assertNotRecycled(node.id, normalizedRelativePath, "write");
+        const previousStat = await statBackingObject({
+          storageNode: node,
+          relativePath: normalizedRelativePath,
+        });
+        if (
+          typeof body.expectedLastModifiedMs === "number" &&
+          previousStat && previousStat.lastModifiedMs > 0 &&
+          Math.abs(previousStat.lastModifiedMs - body.expectedLastModifiedMs) > 1000
+        ) {
+          throw new ConflictError(t("backend.storage.editableFileChangedOnDisk"));
         }
-        // If an index row already exists this is an overwrite — never delete the
-        // remote file when a later index upsert fails (would destroy the previous version).
         const indexed = await prisma.fileEntry.findFirst({
           where: {
             storageNodeId: node.id,
@@ -576,7 +547,6 @@ async function handlePost(body: SftpOpsBody, session: SessionPayload) {
         if (indexed?.isDeleted) {
           throw new ConflictError(t("backend.webdav.destinationHeldByRecycleBin", { path: `/${normalizedRelativePath}` }));
         }
-        const hadIndex = Boolean(indexed);
         // The editor saves SFTP files here: like the LOCAL editor (and the
         // version panel's promise), keep the previous body as a version first.
         // Without it an online edit of an SFTP file left no history.
@@ -595,13 +565,17 @@ async function handlePost(body: SftpOpsBody, session: SessionPayload) {
         });
         try {
           await upsertSftpFileIndex({
+            existingId: indexed?.id,
             storageNodeId: node.id,
             relativePath: normalizedRelativePath,
             content: body.content,
           });
         } catch (indexError) {
-          // Only remove brand-new files that never had an index (orphan cleanup).
-          if (!hadIndex) {
+          if (isUniqueViolation(indexError) || (indexError as NodeJS.ErrnoException)?.code === "P2025") {
+            throw new ConflictError(t("backend.storage.editableFileUpdatedByOther"));
+          }
+          // Inventory can lag behind the remote filesystem. Only clean up a new file.
+          if (!indexed && previousStat === null) {
             try {
               await deleteBackingObject({
                 storageNode: node,

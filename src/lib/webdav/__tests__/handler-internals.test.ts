@@ -18,6 +18,7 @@ const mocks = vi.hoisted(() => ({
   storageNodeFindFirst: vi.fn(),
   storageNodeFindUnique: vi.fn(),
   fileEntryFindFirst: vi.fn(),
+  recycledOnPath: vi.fn(),
   queryRaw: vi.fn(),
   teamWhere: vi.fn(),
   storageNodeTeamWhere: vi.fn(),
@@ -33,7 +34,12 @@ vi.mock("@/lib/db", () => ({
       findFirst: mocks.storageNodeFindFirst,
       findUnique: mocks.storageNodeFindUnique,
     },
-    fileEntry: { findFirst: mocks.fileEntryFindFirst },
+    fileEntry: {
+      findFirst: (args: { where: { isDeleted?: boolean; relativePath: string | { in: string[] } } }) =>
+        args.where.isDeleted && typeof args.where.relativePath === "object"
+          ? mocks.recycledOnPath(args.where.relativePath.in)
+          : mocks.fileEntryFindFirst(args),
+    },
     $queryRaw: mocks.queryRaw,
   },
 }));
@@ -279,7 +285,8 @@ describe("ensureDirectoryIndexAndBacking", () => {
   beforeEach(() => {
     vi.clearAllMocks();
     mocks.assertStorageAccess.mockResolvedValue({ allowed: true });
-    mocks.createManagedFolder.mockResolvedValue(undefined);
+    mocks.createManagedFolder.mockResolvedValue({ created: true });
+    mocks.recycledOnPath.mockResolvedValue(null);
     mocks.deleteBackingObject.mockResolvedValue(undefined);
     mocks.createFileEntry.mockResolvedValue({ id: "d_new" });
   });
@@ -295,26 +302,25 @@ describe("ensureDirectoryIndexAndBacking", () => {
     expect(mocks.createManagedFolder).not.toHaveBeenCalled();
   });
 
-  it("removes the backing directory it just created when indexing fails", async () => {
-    // Otherwise MKCOL leaves an unindexed directory on the backend that no
-    // subsequent request can see, let alone clean up.
+  it.each([true, false])("keeps remote folders after an index failure (created=%s)", async (created) => {
     mocks.fileEntryFindFirst.mockResolvedValue(null);
+    mocks.createManagedFolder.mockResolvedValue({ created });
     mocks.createFileEntry.mockRejectedValue(new Error("index unavailable"));
 
-    await expect(
-      ensureDirectoryIndexAndBacking({
-        session: session as never,
-        node: SFTP_NODE,
-        storageNodeId: "n1",
-        relativePath: "new-folder",
-      }),
-    ).rejects.toThrow("index unavailable");
-    expect(mocks.deleteBackingObject).toHaveBeenCalledWith({
-      storageNode: expect.objectContaining({ id: "n1" }),
-      relativePath: "new-folder",
-      isDirectory: true,
-      tolerateMissing: true,
-    });
+    await expect(ensureDirectoryIndexAndBacking({
+      session: session as never, node: SFTP_NODE, storageNodeId: "n1", relativePath: "new-folder",
+    })).rejects.toThrow("index unavailable");
+    expect(mocks.deleteBackingObject).not.toHaveBeenCalled();
+  });
+
+  it("checks even an indexed ancestor before it can create a physical child", async () => {
+    mocks.fileEntryFindFirst.mockResolvedValue({ id: "parent", entryType: "DIRECTORY" });
+    mocks.recycledOnPath.mockResolvedValue({ id: "deleted" });
+    await expect(ensureDirectoryIndexAndBacking({
+      session: session as never, node: SFTP_NODE, storageNodeId: "n1", relativePath: "trash/sub",
+    })).rejects.toMatchObject({ status: 409 });
+    expect(mocks.createManagedFolder).not.toHaveBeenCalled();
+    expect(mocks.deleteBackingObject).not.toHaveBeenCalled();
   });
 
   it("creates each missing ancestor in order", async () => {

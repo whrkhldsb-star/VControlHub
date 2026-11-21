@@ -172,6 +172,11 @@ export async function assertStorageAccess(input: {
     return { allowed: false, reason: STORAGE_ACCESS_DENIED_REASONS.noAccess };
   }
 
+  const targetPath = normalizeAccessPath(input.relativePath);
+  if (targetPath === null) {
+    return { allowed: false, reason: STORAGE_ACCESS_DENIED_REASONS.pathNotAllowed };
+  }
+
   // Administrators and node managers are not narrowed by path grants. The
   // permission check above still limits a token to the operation it carries.
   if (
@@ -189,10 +194,6 @@ export async function assertStorageAccess(input: {
     return { allowed: true };
   }
 
-  const targetPath = normalizeAccessPath(input.relativePath);
-  if (targetPath === null) {
-    return { allowed: false, reason: STORAGE_ACCESS_DENIED_REASONS.pathNotAllowed };
-  }
   const matchingGrants = grants.filter((grant: StorageAccessGrantRow) => pathMatchesGrant(targetPath, grant.pathPrefix));
   const operationGrant = matchingGrants.find((grant: StorageAccessGrantRow) => grantAllowsOperation(grant, input.operation));
 

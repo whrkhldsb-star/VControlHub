@@ -135,14 +135,14 @@ export type FileEntryMutationInput = z.infer<typeof fileEntryMutationSchema>;
 // caller omits them.
 export const storageFileQuerySchema = z.object({
   nodeId: z.string().trim().min(1).optional(),
-  path: z.string().trim().min(1).optional(),
+  path: z.string().min(1).optional(),
 });
 
 // SFTP directory listing query schema. Differs from `storageFileQuerySchema`
 // only in that `path` defaults to `/` (root of the SFTP node).
 export const sftpListQuerySchema = z.object({
   nodeId: z.string().trim().min(1).optional(),
-  path: z.string().trim().min(1).default("/"),
+  path: z.string().min(1).default("/"),
   limit: z.coerce.number().int().min(1).max(5000).optional().default(2000),
 });
 

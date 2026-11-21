@@ -1,4 +1,4 @@
-import { mkdtemp, rm, stat } from "node:fs/promises";
+import { mkdir, mkdtemp, readFile, rename, rm, stat, unlink, writeFile } from "node:fs/promises";
 import { tmpdir } from "node:os";
 import path from "node:path";
 
@@ -37,5 +37,33 @@ describe("createManagedFolder LOCAL filesystem", () => {
         relativePath,
       }),
     ).rejects.toMatchObject({ code: "EEXIST" });
+  });
+
+  it("adopts an existing directory without gaining cleanup rights", async () => {
+    temporaryDirectory = await mkdtemp(path.join(tmpdir(), "vcontrolhub-storage-"));
+    const node = { driver: "LOCAL", basePath: temporaryDirectory, host: null, port: null, username: null, hostKeySha256: null, server: null };
+    await mkdir(path.join(temporaryDirectory, "existing"));
+    expect(await createManagedFolder({ storageNode: node, relativePath: "existing", allowExisting: true })).toEqual({ created: false });
+    await writeFile(path.join(temporaryDirectory, "file"), "");
+    await expect(createManagedFolder({ storageNode: node, relativePath: "file", allowExisting: true })).rejects.toMatchObject({ code: "EEXIST" });
+  });
+
+  it("removes only the same empty directory after an indexing failure", async () => {
+    temporaryDirectory = await mkdtemp(path.join(tmpdir(), "vcontrolhub-storage-"));
+    const node = { driver: "LOCAL", basePath: temporaryDirectory, host: null, port: null, username: null, hostKeySha256: null, server: null };
+    const { removeIfEmpty } = await createManagedFolder({ storageNode: node, relativePath: "created" });
+    const target = path.join(temporaryDirectory, "created");
+    await writeFile(path.join(target, "concurrent"), "keep");
+    await expect(removeIfEmpty!()).rejects.toThrow();
+    expect(await readFile(path.join(target, "concurrent"), "utf8")).toBe("keep");
+    await unlink(path.join(target, "concurrent"));
+    await rename(target, target + "-saved");
+    await mkdir(target);
+    await expect(removeIfEmpty!()).rejects.toThrow();
+    expect((await stat(target)).isDirectory()).toBe(true);
+    await rm(target, { recursive: true });
+    await rename(target + "-saved", target);
+    await removeIfEmpty!();
+    await expect(stat(target)).rejects.toMatchObject({ code: "ENOENT" });
   });
 });

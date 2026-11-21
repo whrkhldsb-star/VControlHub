@@ -1,6 +1,7 @@
 import { escapeLikeLiteral } from "@/lib/db/like-pattern";
 import { apiCopy } from "@/lib/i18n/api-copy";
 import { lockStorageFileOverwrite } from "@/lib/storage/file-overwrite-lock";
+import { assertNotRecycled } from "@/lib/storage/archive-access";
 import { copyWorkspace } from "./copy-workspace";
 import { readdir, link, unlink, lstat, rmdir } from "node:fs/promises";
 import path from "node:path";
@@ -234,6 +235,7 @@ export async function copyFileEntry(input: {
       }
     };
     await ensureAccess(source.path, "read");
+    await assertNotRecycled(node.id, source.path);
     const items: CopyItem[] = [
       { path: source.path, directory: entry.entryType === "DIRECTORY" },
     ];
@@ -345,6 +347,9 @@ export async function copyFileEntry(input: {
         operation: "write" as const,
       })),
     ]);
+    // The operation lock keeps the chosen root and its ancestors stable
+    // during the copy. The occupant query below also covers its children.
+    await assertNotRecycled(node.id, root, "write");
     // Prefetch every indexed occupant in one paged query instead of one
     // findUnique per destination.
     const occupantRows: Array<{

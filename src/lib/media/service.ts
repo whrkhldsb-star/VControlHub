@@ -1,11 +1,14 @@
 import type { Prisma } from "@prisma/client";
 import { prisma } from "@/lib/db";
+import { escapeLikeLiteral } from "@/lib/db/like-pattern";
 import { teamWhere, type TeamSession } from "@/lib/auth/team-scope";
 import { getReadableStorageScope, readableStorageScopeWhere } from "@/lib/storage/readable-scope";
 import { NotFoundError } from "@/lib/errors";
 import { classifyMediaKind } from "@/lib/storage/mime-constants";
 import { t } from "@/lib/i18n/service-translations";
 import { SSH_KEY_CREDENTIAL_SELECT } from "@/lib/ssh/ssh-key-crypto";
+import { assertNotRecycled } from "@/lib/storage/archive-access";
+import { normalizeStorageRelativePath } from "@/lib/storage/path-utils";
 
 /**
  * Media has no teamId column — scope through StorageNode.teamId, then to the
@@ -23,6 +26,25 @@ async function mediaScopeWhere(session?: TeamSession | null): Promise<Prisma.Med
   if (readable) parts.push(readableStorageScopeWhere(readable));
   // Under AND: the readable scope carries its own OR, as does the search.
   return parts.length === 0 ? {} : { AND: parts };
+}
+
+/** Apply the same recycled folder boundaries to pages, counts, tags and navigation. */
+async function mediaLibraryScopeWhere(session?: TeamSession | null): Promise<Prisma.MediaItemWhereInput> {
+  const [scope, recycledFolders] = await Promise.all([
+    mediaScopeWhere(session),
+    prisma.fileEntry.findMany({
+      where: { isDeleted: true, entryType: "DIRECTORY", ...(session && { storageNode: teamWhere(session) }) },
+      select: { storageNodeId: true, relativePath: true },
+    }),
+  ]);
+  if (!recycledFolders.length) return scope;
+  return {
+    ...scope,
+    NOT: recycledFolders.map(({ storageNodeId, relativePath }) => ({
+      storageNodeId,
+      relativePath: { startsWith: escapeLikeLiteral(relativePath + "/") },
+    })),
+  };
 }
 
 export function classifyMedia(
@@ -163,7 +185,7 @@ async function mediaListWhere(input: MediaListFilters): Promise<Prisma.MediaItem
   const q = input.q?.trim();
   const tag = input.tag?.trim();
   return {
-    ...(await mediaScopeWhere(input.session)),
+    ...(await mediaLibraryScopeWhere(input.session)),
     mediaType: input.mediaType,
     favorite: input.favorite,
     ...(tag ? { tags: { has: tag } } : {}),
@@ -280,7 +302,7 @@ export async function listMediaTypeCounts(
 export async function listMediaTags(session?: TeamSession | null) {
   const items = await prisma.mediaItem.findMany({
     select: { tags: true },
-    where: { tags: { isEmpty: false }, ...(await mediaScopeWhere(session)) },
+    where: { tags: { isEmpty: false }, ...(await mediaLibraryScopeWhere(session)) },
     take: 1000,
   });
   const counts = new Map<string, number>();
@@ -319,7 +341,17 @@ export async function getMediaItem(
       ? mediaStreamItemSelect
       : mediaItemSelect,
   });
-  return item ? resolveAgainstFileEntry(item) : null;
+  const resolved = item && await resolveAgainstFileEntry(item);
+  if (!resolved?.storageNode) return null;
+  const path = normalizeStorageRelativePath(resolved.relativePath);
+  if (!path.ok) return null;
+  try {
+    await assertNotRecycled(resolved.storageNode.id, path.path, "read");
+  } catch (error) {
+    if (error instanceof NotFoundError) return null;
+    throw error;
+  }
+  return resolved;
 }
 
 /**
@@ -526,7 +558,7 @@ export async function updateMediaTags(input: {
   favorite?: boolean;
   session?: TeamSession | null;
 }) {
-  const teamScope = await mediaScopeWhere(input.session);
+  const teamScope = await mediaLibraryScopeWhere(input.session);
   const existing = await prisma.mediaItem.findFirst({
     where: { id: input.id, ...teamScope },
     select: { id: true },

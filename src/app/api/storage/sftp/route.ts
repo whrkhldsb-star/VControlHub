@@ -33,19 +33,8 @@ async function handleGet(request: Request, session: SessionPayload) {
 
   const { node, credentials: connectionCredentials } = await getSftpNodeConnection(nodeId, session);
 
-  let normalizedRemotePath: string;
-  let normalizedRelativePath: string;
-  try {
-    normalizedRemotePath = normalizeRemotePath(node.basePath, remotePath);
-    normalizedRelativePath = normalizeRemoteRelativePath(remotePath);
-  } catch {
-    return NextResponse.json(
-      toClientStorageError(
-        apiCopy("apiCopy.requested.path.exceeds.storage.node.root.directory.d786fee2"),
-      ),
-      { status: 400 },
-    );
-  }
+  const normalizedRelativePath = normalizeRemoteRelativePath(remotePath);
+  let normalizedRemotePath = normalizeRemotePath(node.basePath, normalizedRelativePath);
 
   const accessDecision = await assertStorageAccess({
     session,

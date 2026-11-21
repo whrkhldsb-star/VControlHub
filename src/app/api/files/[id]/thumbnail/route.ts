@@ -8,6 +8,7 @@ import { NextResponse } from "next/server";
 import { teamWhere } from "@/lib/auth/team-scope";
 import { prisma } from "@/lib/db";
 import { assertStorageAccess } from "@/lib/storage/access-control";
+import { assertNotRecycled } from "@/lib/storage/archive-access";
 import { storageAccessDeniedCopy } from "@/lib/storage/access-denied";
 import { normalizeStorageRelativePath } from "@/lib/storage/path-utils";
 import { toClientStorageError } from "@/lib/storage/remote-path";
@@ -76,13 +77,6 @@ export async function GET(
 			if (!entry) {
 				return apiError({ code: "NOT_FOUND", message: apiCopy("apiCopy.file.not.found.3521021a"), status: 404 });
 			}
-			if (!(entry.mimeType ?? "").toLowerCase().startsWith("image/")) {
-				return apiError({
-					code: "UNSUPPORTED_MEDIA_TYPE",
-					message: apiCopy("apiCopy.this.file.type.does.not.support.thumbnails.4b8e2d91"),
-					status: 415,
-				});
-			}
 			const relativePath = normalizeStorageRelativePath(entry.relativePath);
 			if (!relativePath.ok) {
 				return NextResponse.json(
@@ -98,6 +92,14 @@ export async function GET(
 			});
 			if (!access.allowed) {
 				return apiError({ code: "FORBIDDEN", message: storageAccessDeniedCopy(access.reason, locale), status: 403 });
+			}
+			await assertNotRecycled(entry.storageNode.id, relativePath.path, "read");
+			if (!(entry.mimeType ?? "").toLowerCase().startsWith("image/")) {
+				return apiError({
+					code: "UNSUPPORTED_MEDIA_TYPE",
+					message: apiCopy("apiCopy.this.file.type.does.not.support.thumbnails.4b8e2d91"),
+					status: 415,
+				});
 			}
 			return respondWithStorageThumbnail({
 				id: entry.id,

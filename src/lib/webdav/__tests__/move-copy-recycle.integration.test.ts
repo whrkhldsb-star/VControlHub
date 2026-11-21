@@ -178,15 +178,15 @@ describe.skipIf(process.env.RUN_DATABASE_INTEGRATION_TESTS !== "1")("WebDAV MOVE
     expect(code).toBe(409);
   });
 
-  it("PUT over a recycle-bin file keeps the recycled bytes as a version and clears the delete batch", async () => {
+  it("PUT over a recycle-bin file refuses and preserves its bytes and delete batch", async () => {
     const recycled = await file("b.txt", "recycled bytes", true);
     const put = new Request(`${origin}/x`, { method: "PUT", body: "uploaded bytes", headers: { "content-type": "text/plain", "content-length": "14" } });
-    expect([201, 204]).toContain(await status(handleWebDavPut(ctx("b.txt"), put)));
-    expect(read("b.txt")).toBe("uploaded bytes");
+    expect(await status(handleWebDavPut(ctx("b.txt"), put))).toBe(409);
+    expect(read("b.txt")).toBe("recycled bytes");
     const row = await prisma.fileEntry.findUniqueOrThrow({ where: { id: recycled.id } });
-    expect(row).toMatchObject({ isDeleted: false, deleteBatchId: null });
+    expect(row).toMatchObject({ isDeleted: true, deleteBatchId: recycled.deleteBatchId });
     const versions = await prisma.fileVersion.findMany({ where: { fileEntryId: recycled.id } });
-    expect(versions).toHaveLength(1);
+    expect(versions).toHaveLength(0);
   });
 
   it("an overwrite leaves no checksum of the content it replaced", async () => {

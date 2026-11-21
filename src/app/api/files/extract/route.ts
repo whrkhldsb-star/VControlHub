@@ -65,7 +65,7 @@ export async function POST(request: NextRequest) {
       const name = body.name ?? "archive";
       const nodeId = body.storageNodeId ?? body.nodeId ?? body.serverId;
       // Normalized as the index stores it: "dir//a.zip" otherwise slipped past the recycle-bin check below.
-      const relativePath = normalizeIndexedPath(body.remotePath ?? body.relativePath ?? "");
+      const relativePath = normalizeIndexedPath((body.remotePath ?? body.relativePath ?? "").replaceAll("\\", "/"));
 
       if (!nodeId || !relativePath) {
         throw new ValidationError(apiCopy("apiCopy.missing.required.parameters.656b8ae6"));
@@ -215,6 +215,7 @@ export async function POST(request: NextRequest) {
           // created it: two windows extracting the same file at once both
           // passed the "not there yet" check, and the later one's cleanup
           // deleted the output the other had already delivered.
+          await assertNotRecycled(node.id, outputRelativePath, "write");
           let created = false;
           const output = createWriteStream(outputPath.path, { flags: "wx" });
           output.once("open", () => { created = true; });
@@ -294,7 +295,10 @@ export async function POST(request: NextRequest) {
             );
           }
           try {
-            const result = await extractArchive({ filePath: fullPath, kind, archiveName: formatName, parentDir, plan }).catch(asValidation);
+            const result = await extractArchive({
+              filePath: fullPath, kind, archiveName: formatName, parentDir, plan,
+              beforePublish: (folderName) => assertNotRecycled(node.id, path.posix.join(parentRelative, folderName), "write"),
+            }).catch(asValidation);
             // Index the new folder and everything under it, so listings and
             // search show the files without visiting each folder first.
             await syncLocalDirectoryEntries({ node, relativePath: parentRelative || undefined });
