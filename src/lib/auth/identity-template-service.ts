@@ -3,8 +3,10 @@
  * Built-in templates are read-only and kept in sync with the definitions in
  * `identity-templates.ts`; custom ones are created by platform administrators.
  */
+import { Prisma } from "@prisma/client";
 import { z } from "zod";
 
+import { optionFilter, readOptionPage, type OptionQuery } from "@/lib/user/permission-options";
 import { prisma } from "@/lib/db";
 import { ConflictError, NotFoundError, ValidationError } from "@/lib/errors";
 import { t } from "@/lib/i18n/service-translations";
@@ -52,12 +54,16 @@ export async function syncBuiltinIdentityTemplates() {
   }
 }
 
+export function identityTemplateOptions(query: OptionQuery) {
+  return readOptionPage(query, (after, take) => prisma.identityTemplate.findMany({
+    where: optionFilter(query), orderBy: [{ isBuiltin: "desc" }, { name: "asc" }, { id: "asc" }],
+    ...(after ? { cursor: { id: after }, skip: 1 } : {}),
+    take, select: TEMPLATE_SELECT,
+  }));
+}
+
 export async function listIdentityTemplates() {
-  return prisma.identityTemplate.findMany({
-    orderBy: [{ isBuiltin: "desc" }, { name: "asc" }],
-    take: 200,
-    select: TEMPLATE_SELECT,
-  });
+  return (await identityTemplateOptions({})).items;
 }
 
 function templateData(input: IdentityTemplateInput) {
@@ -86,5 +92,15 @@ export async function deleteIdentityTemplate(id: string) {
   await findEditable(id);
   const inUse = await prisma.teamMember.count({ where: { identityTemplateId: id } });
   if (inUse > 0) throw new ConflictError(t("backend.customer.templateInUse", { count: inUse }));
-  await prisma.identityTemplate.delete({ where: { id } });
+  try {
+    await prisma.identityTemplate.delete({ where: { id, isBuiltin: false } });
+  } catch (error) {
+    if (!(error instanceof Prisma.PrismaClientKnownRequestError)) throw error;
+    if (error.code === "P2025") throw new NotFoundError(t("backend.customer.templateNotFound"));
+    if (error.code === "P2003") {
+      const count = await prisma.teamMember.count({ where: { identityTemplateId: id } });
+      throw new ConflictError(t("backend.customer.templateInUse", { count }));
+    }
+    throw error;
+  }
 }

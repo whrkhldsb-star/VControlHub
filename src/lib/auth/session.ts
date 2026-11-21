@@ -160,11 +160,15 @@ function credentialFingerprint(passwordHash: string): string {
 }
 
 /** The credential state actually proved by a login, before asynchronous work. */
-export type SessionCredentialBinding = { fingerprint: string; epoch: number };
+export type SessionCredentialBinding = { fingerprint: string; epoch: number; expiresAt?: number };
 
 // Keep the credential proof server-side and out of serialized session props.
 // The same session object flows from the API guard to its handler.
-const verifiedSessionBindings = new WeakMap<SessionPayload, SessionCredentialBinding>();
+const verifiedSessionBindings = new WeakMap<SessionPayload, SessionCredentialBinding & { expiresAt: number }>();
+
+export function verifiedSessionExpiresAt(session: SessionPayload): number | undefined {
+  return verifiedSessionBindings.get(session)?.expiresAt;
+}
 
 export function assertSessionCredentialBinding(
   session: SessionPayload,
@@ -228,8 +232,10 @@ export async function createSessionToken(payload: SessionPayload, options: {
   expiresAt?: number | null;
 } = {}) {
   const now = Date.now();
-  const ttlMs = options.expiresAt
-    ? Math.max(1_000, Math.min(options.expiresAt - now, (await getConfiguredSessionTtlSeconds(true)) * 1000))
+  // Credential refreshes inherit the lifetime of the session that authorized the change.
+  const expiresAt = options.credentialBinding?.expiresAt ?? options.expiresAt;
+  const ttlMs = expiresAt !== undefined
+    ? Math.min((expiresAt ?? now) - now, (await getConfiguredSessionTtlSeconds(true)) * 1000)
     : (await getConfiguredSessionTtlSeconds(options.remember === true)) * 1000;
   const { issuer, audience } = getSessionIdentity();
   // Read here rather than taking it as a parameter so every existing call site
@@ -244,7 +250,11 @@ export async function createSessionToken(payload: SessionPayload, options: {
     throw new AuthError(t("backend.auth.sessionCredentialsChanged"));
   }
   const envelope: SessionTokenEnvelope = {
-    ...payload,
+    userId: payload.userId,
+    username: payload.username,
+    roles: payload.roles,
+    mustChangePassword: payload.mustChangePassword,
+    currentTeamId: payload.currentTeamId,
     iss: issuer,
     aud: audience,
     iat: now,
@@ -257,15 +267,15 @@ export async function createSessionToken(payload: SessionPayload, options: {
 }
 
 /**
- * When a session cookie expires (epoch ms), read without verifying it — for
+ * When a session cookie expires (epoch ms), read from its signed envelope for
  * callers that already authenticated this very cookie and re-mint it.
  */
 export function sessionTokenExpiresAt(token: string | null | undefined): number | null {
-  const [encodedPayload] = (token ?? "").split(".");
-  if (!encodedPayload) return null;
+  const [encodedPayload, signature] = (token ?? "").split(".");
+  if (!encodedPayload || !signature || !verifyHmacTokenSignature(encodedPayload, signature, getSessionSecret())) return null;
   try {
     const exp = (JSON.parse(decodeBase64Url(encodedPayload)) as { exp?: unknown }).exp;
-    return typeof exp === "number" && Number.isFinite(exp) && exp > Date.now() ? exp : null;
+    return typeof exp === "number" && Number.isFinite(exp) ? exp : null;
   } catch {
     return null;
   }
@@ -310,7 +320,7 @@ export async function verifySessionToken(token: string) {
     throw new AuthError(apiCopy("apiCopy.pending.2fa.token.is.not.a.session.712ea82f"));
   }
 
-  if (payload.exp <= Date.now()) {
+  if (!Number.isFinite(payload.exp) || payload.exp <= Date.now()) {
     throw new AuthError(apiCopy("apiCopy.session.token.expired.f1044201"));
   }
 
@@ -391,7 +401,7 @@ export async function verifySessionToken(token: string) {
  mustChangePassword: user.mustChangePassword,
  currentTeamId,
  } satisfies SessionPayload;
- verifiedSessionBindings.set(session, captureSessionCredentialBinding(user));
+ verifiedSessionBindings.set(session, { ...captureSessionCredentialBinding(user), expiresAt: payload.exp });
  return session;
 }
 
@@ -452,38 +462,38 @@ export async function createPending2faToken(payload: Pending2faSessionPayload, o
 export async function verifyPending2faToken(token: string): Promise<(Pending2faSessionPayload & {
   credentialBinding: SessionCredentialBinding;
 }) | null> {
+  const [encodedPayload, providedSignature] = token.split(".");
+  if (!encodedPayload || !providedSignature) return null;
+  if (!verifyHmacTokenSignature(encodedPayload, providedSignature, getSessionSecret())) return null;
+
+  let payload: Pending2faPayload & { iss: string; aud: string; exp: number };
   try {
-    const [encodedPayload, providedSignature] = token.split(".");
-    if (!encodedPayload || !providedSignature) return null;
-
-    if (!verifyHmacTokenSignature(encodedPayload, providedSignature, getSessionSecret())) return null;
-
-    const payload = JSON.parse(decodeBase64Url(encodedPayload)) as Pending2faPayload & { iss: string; aud: string; iat: number; exp: number };
-
-    const { issuer, audience } = getSessionIdentity();
-    if (payload.iss !== issuer || payload.aud !== `${audience}-pending-2fa`) return null;
-    if (!Number.isFinite(payload.exp) || payload.exp <= Date.now()) return null;
-    if (!payload.pending2fa) return null;
-    // Pre-binding pending cookies expire within five minutes. Fail closed so
-    // a password reset or "sign out everywhere" also retires that login stage.
-    if (typeof payload.cfp !== "string" || !Number.isSafeInteger(payload.sep)) return null;
-    const credentialBinding = { fingerprint: payload.cfp, epoch: payload.sep };
-    const user = await prisma.user.findUnique({
-      where: { id: payload.userId },
-      select: { passwordHash: true, sessionEpoch: true, status: true },
-    });
-    if (!credentialBindingMatches(credentialBinding, user)) return null;
-
-    return {
-      userId: payload.userId,
-      username: payload.username,
-      roles: payload.roles,
-      mustChangePassword: payload.mustChangePassword,
-      currentTeamId: payload.currentTeamId ?? null,
-      remember: payload.remember === true,
-      credentialBinding,
-    };
+    payload = JSON.parse(decodeBase64Url(encodedPayload));
   } catch {
     return null;
   }
+  if (!payload || typeof payload.userId !== "string") return null;
+  const { issuer, audience } = getSessionIdentity();
+  if (payload.iss !== issuer || payload.aud !== `${audience}-pending-2fa`) return null;
+  if (!Number.isFinite(payload.exp) || payload.exp <= Date.now()) return null;
+  if (!payload.pending2fa) return null;
+  // Pre-binding pending cookies expire within five minutes. Fail closed so
+  // a password reset or "sign out everywhere" also retires that login stage.
+  if (typeof payload.cfp !== "string" || !Number.isSafeInteger(payload.sep)) return null;
+  const credentialBinding = { fingerprint: payload.cfp, epoch: payload.sep };
+  const user = await prisma.user.findUnique({
+    where: { id: payload.userId },
+    select: { passwordHash: true, sessionEpoch: true, status: true },
+  });
+  if (!credentialBindingMatches(credentialBinding, user)) return null;
+
+  return {
+    userId: payload.userId,
+    username: payload.username,
+    roles: payload.roles,
+    mustChangePassword: payload.mustChangePassword,
+    currentTeamId: payload.currentTeamId ?? null,
+    remember: payload.remember === true,
+    credentialBinding,
+  };
 }

@@ -246,40 +246,37 @@ export function dialectFromOsRelease(info: OsReleaseInfo): OsDialect {
  * 探测命令：`cat /etc/os-release 2>/dev/null || uname -a`
  * 如果 /etc/os-release 不存在（极老系统），fallback 到 uname。
  *
- * @returns 探测到的 OsDialect，失败时返回 DEFAULT_DIALECT
+ * @returns 探测到的 OsDialect，传输失败或没有远端结果时抛错
  */
 export async function detectOsDialect(sshParams: SshConnectionParams): Promise<OsDialect> {
-  try {
-    const { stdout, exitCode } = await execRemoteCommand({
-      ...sshParams,
-      command: "cat /etc/os-release 2>/dev/null",
-      timeout: 10_000,
-    });
+  const { stdout, exitCode } = await execRemoteCommand({
+    ...sshParams,
+    command: "cat /etc/os-release 2>/dev/null",
+    timeout: 10_000,
+  });
 
-    if (exitCode === 0 && stdout.trim()) {
-      const info = parseOsRelease(stdout);
-      const dialect = dialectFromOsRelease(info);
-      return { ...dialect, detectedAt: new Date().toISOString() };
-    }
-
-    // Fallback: 极老系统没有 /etc/os-release，用 uname 粗猜
-    const { stdout: unameOut } = await execRemoteCommand({
-      ...sshParams,
-      command: "uname -a",
-      timeout: 10_000,
-    });
-
-    if (unameOut.toLowerCase().includes("alpine")) {
-      return { ...ALPINE_PRESET, distroName: "Alpine (uname fallback)", detectedAt: new Date().toISOString() };
-    }
-    if (unameOut.toLowerCase().includes("centos") || unameOut.toLowerCase().includes("rhel")) {
-      return { ...RHEL_PRESET, distroName: "RHEL/CentOS (uname fallback)", detectedAt: new Date().toISOString() };
-    }
-
-    return { ...DEFAULT_DIALECT, distroName: "Unknown (uname fallback)", detectedAt: new Date().toISOString() };
-  } catch {
-    return { ...DEFAULT_DIALECT, detectedAt: new Date().toISOString() };
+  if (exitCode === 0 && stdout.trim()) {
+    const info = parseOsRelease(stdout);
+    const dialect = dialectFromOsRelease(info);
+    return { ...dialect, detectedAt: new Date().toISOString() };
   }
+
+  // Fallback: 极老系统没有 /etc/os-release，用 uname 粗猜
+  const { stdout: unameOut, exitCode: unameExit } = await execRemoteCommand({
+    ...sshParams,
+    command: "uname -a",
+    timeout: 10_000,
+  });
+
+  if (unameExit !== 0 || !unameOut.trim()) throw new Error("OS probe returned no remote result");
+  if (unameOut.toLowerCase().includes("alpine")) {
+    return { ...ALPINE_PRESET, distroName: "Alpine (uname fallback)", detectedAt: new Date().toISOString() };
+  }
+  if (unameOut.toLowerCase().includes("centos") || unameOut.toLowerCase().includes("rhel")) {
+    return { ...RHEL_PRESET, distroName: "RHEL/CentOS (uname fallback)", detectedAt: new Date().toISOString() };
+  }
+
+  return { ...DEFAULT_DIALECT, distroName: "Unknown (uname fallback)", detectedAt: new Date().toISOString() };
 }
 
 /* ── Command Builders ─────────────────────────────────────── */

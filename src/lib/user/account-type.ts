@@ -7,7 +7,7 @@ import { assertSessionCredentialBinding, type SessionPayload } from "@/lib/auth/
 import { AuthError, ForbiddenError, ValidationError } from "@/lib/errors";
 import { t } from "@/lib/i18n/service-translations";
 import { assertPlatformAdmin } from "@/lib/auth/platform-admin-guard";
-import { applyCustomerMembership, resolveCustomerMembershipTarget } from "@/lib/team/service";
+import { applyCustomerMembership, lockLiveCustomer, resolveCustomerMembershipTarget } from "@/lib/team/service";
 import { assertAdminAccessMayBeRemoved, withAdminInvariantLock } from "./admin-invariant";
 import { lockUserRow } from "./row-lock";
 
@@ -50,6 +50,8 @@ export async function withAccountPermissionChange<T>(
   return withAdminInvariantLock(async (tx) => {
     await assertCurrentUserManager(tx, session);
     await lockUserRow(tx, userId);
+    const membership = await tx.teamMember.findUnique({ where: { userId }, select: { teamId: true } });
+    if (membership) await lockLiveCustomer(tx, membership.teamId);
     return operation(tx, (input) => applyAccountType(tx, userId, input));
   }, transaction);
 }

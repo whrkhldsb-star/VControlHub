@@ -56,7 +56,7 @@ export function parseDfSizeLabel(label: string | undefined | null): number | nul
 	const value = Number(match[1]!.replace(",", "."));
 	if (!Number.isFinite(value)) return null;
 	const unit = (match[2] ?? "B").toUpperCase();
-	return Math.round(value * (SIZE_UNITS[unit] ?? 1));
+	return finiteOrNull(Math.round(value * (SIZE_UNITS[unit] ?? 1)));
 }
 
 /**
@@ -113,9 +113,14 @@ function percentOrNull(value: number | undefined | null): number | null {
 	return n === null ? null : Math.min(100, Math.max(0, n));
 }
 
-function counterOrNull(value: number | undefined): bigint | null {
+export function pgNonnegativeInt(value: number | undefined | null): number | null {
+	return typeof value === "number" && Number.isInteger(value) && value >= 0 && value <= 2_147_483_647 ? value : null;
+}
+
+export function counterOrNull(value: number | bigint | undefined | null): bigint | null {
+	if (typeof value === "bigint") return value >= BigInt(0) && value <= BigInt("9223372036854775807") ? value : null;
 	if (typeof value !== "number" || !Number.isFinite(value) || value < 0) return null;
-	return BigInt(Math.trunc(value));
+	return value < 2 ** 63 ? BigInt(Math.trunc(value)) : null;
 }
 
 /**
@@ -140,21 +145,21 @@ export function normalizeServerMetrics(metrics: ServerMetrics): NormalizedMetric
 	// reserved blocks from its percent, so used/total only approximates it.
 	const disk = fullestDisk(metrics.disk);
 	const primary = selectPrimaryInterface(metrics.network);
-	const memTotal = metrics.memory.totalMb > 0 ? metrics.memory.totalMb : null;
+	const memTotal = metrics.memory.totalMb > 0 ? pgNonnegativeInt(metrics.memory.totalMb) : null;
 	return {
 		cpuUsage: percentOrNull(metrics.cpu.usagePercent),
-		cpuCores: metrics.cpu.cores > 0 ? metrics.cpu.cores : null,
+		cpuCores: metrics.cpu.cores > 0 ? pgNonnegativeInt(metrics.cpu.cores) : null,
 		load1: finiteOrNull(metrics.cpu.loadAvg[0]),
 		load5: finiteOrNull(metrics.cpu.loadAvg[1]),
 		load15: finiteOrNull(metrics.cpu.loadAvg[2]),
 		memUsage: memTotal === null ? null : percentOrNull(metrics.memory.usagePercent),
-		memUsedMb: memTotal === null ? null : Math.round(metrics.memory.usedMb),
+		memUsedMb: memTotal === null ? null : pgNonnegativeInt(Math.round(metrics.memory.usedMb)),
 		memTotalMb: memTotal,
 		swapUsage: percentOrNull(metrics.swapUsagePercent),
 		diskUsage: percentOrNull(disk?.usagePercent),
 		diskUsedBytes: parseDfSizeLabel(disk?.usedGb),
 		diskTotalBytes: parseDfSizeLabel(disk?.totalGb),
-		uptimeSeconds: parseUptimeSeconds(metrics.uptime),
+		uptimeSeconds: pgNonnegativeInt(parseUptimeSeconds(metrics.uptime)),
 		netIface: primary ? primary.iface.slice(0, 64) : null,
 		netRxBytes: primary ? counterOrNull(primary.rxBytes) : null,
 		netTxBytes: primary ? counterOrNull(primary.txBytes) : null,
@@ -163,8 +168,8 @@ export function normalizeServerMetrics(metrics: ServerMetrics): NormalizedMetric
 		osName: metrics.system?.os ?? null,
 		cpuModel: metrics.system?.cpuModel ?? null,
 		virtualization: metrics.system?.virtualization ?? null,
-		processCount: metrics.system?.processes ?? null,
-		tcpConnections: metrics.system?.tcpConnections ?? null,
-		udpConnections: metrics.system?.udpConnections ?? null,
+		processCount: pgNonnegativeInt(metrics.system?.processes),
+		tcpConnections: pgNonnegativeInt(metrics.system?.tcpConnections),
+		udpConnections: pgNonnegativeInt(metrics.system?.udpConnections),
 	};
 }

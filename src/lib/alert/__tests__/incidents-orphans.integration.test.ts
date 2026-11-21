@@ -9,7 +9,7 @@ import { afterAll, beforeAll, describe, expect, it } from "vitest";
 
 import { prisma } from "@/lib/db";
 
-const { acknowledgeAlertIncident, buildAlertFingerprint, listAlertIncidents, resolveOrphanedAlertIncidents } = await import("../incidents");
+const { acknowledgeAlertIncident, buildAlertFingerprint, escalateOverdueAlertIncidents, listAlertIncidents, resolveOrphanedAlertIncidents } = await import("../incidents");
 
 const RUN = process.env.RUN_DATABASE_INTEGRATION_TESTS === "1";
 
@@ -120,6 +120,7 @@ describe.skipIf(!RUN)("alert incidents left behind by a changed rule (PostgreSQL
 			incident(rule("platform"), server("a"), "disk_usage"),
 		] });
 		const session = { userId: `${prefix}-reader`, roles: ["operator" as const], currentTeamId: otherTeam };
+		expect(await listAlertIncidents({ session: { ...session, currentTeamId: null } })).toEqual([]);
 		const rows = await listAlertIncidents({ session });
 		expect(rows.map((row) => [row.ruleId, row.serverId])).toEqual(expect.arrayContaining([
 			[rule("current"), host], [rule("platform"), host],
@@ -127,6 +128,20 @@ describe.skipIf(!RUN)("alert incidents left behind by a changed rule (PostgreSQL
 		expect(rows).toHaveLength(2);
 		await expect(acknowledgeAlertIncident({ incidentId: `${prefix}-old-event`, userId: session.userId, session }))
 			.rejects.toMatchObject({ status: 404 });
+	});
+
+	it("resolves rather than escalating a platform incident on an enabled host of a deleted customer", async () => {
+		const ruleId = rule("deleted-customer");
+		const host = server("moved");
+		await prisma.alertRule.create({ data: { id: ruleId, name: ruleId, metric: "cpu_usage", operator: "gte", threshold: 90 } });
+		await prisma.alertIncident.create({ data: { ...incident(ruleId, host, "cpu_usage"), lastNotifiedAt: new Date(0) } });
+		await prisma.team.update({ where: { id: otherTeam }, data: { deletedAt: new Date() } });
+		try {
+			await expect(escalateOverdueAlertIncidents({ ruleTeamWhere: { id: ruleId } })).resolves.toMatchObject({ escalated: 0, orphansResolved: 1 });
+			expect(await statusOf(ruleId, host, "cpu_usage")).toBe("RESOLVED");
+		} finally {
+			await prisma.team.update({ where: { id: otherTeam }, data: { deletedAt: null } });
+		}
 	});
 
 	it("reaches the incidents after the first page when that page ended on one it closed", async () => {
@@ -148,4 +163,29 @@ describe.skipIf(!RUN)("alert incidents left behind by a changed rule (PostgreSQL
 		expect(left).toEqual([]);
 		expect(await prisma.alertIncident.count({ where: { ruleId: rule("paged"), status: "OPEN" } })).toBe(499);
 	});
+
+	it("continues both bounded sweeps past a stable prefix on the next evaluation", async () => {
+		const base = prefix + "-rotation-";
+		const silent = base + "quiet";
+		const due = base + "due";
+		await prisma.alertRule.createMany({ data: [silent, due].map((id) => ({
+			id, teamId: team, name: id, metric: "cpu_usage", operator: "gte", threshold: 90, escalationMinutes: 1,
+			notifyChannels: [], silenceWindows: id === silent ? ["00:00-00:00"] : [],
+		})) });
+		// 4,000 quiet OPEN incidents and 21,000 valid ACKs exhaust the two pass budgets.
+		await prisma.$executeRaw`
+			INSERT INTO alert_incidents (id, fingerprint, "ruleId", "serverId", "serverName", metric, operator, threshold, value, title, message, status, "updatedAt")
+			SELECT ${base} || lpad(n::text, 5, '0'), ${base} || n::text, ${silent}, ${server("a")}, 'a', 'cpu_usage', 'gte', 90, 95, 't', 'm',
+				(CASE WHEN n <= 4000 THEN 'OPEN' ELSE 'ACKNOWLEDGED' END)::"AlertIncidentStatus", now()
+			FROM generate_series(1, 25000) n`;
+		await prisma.alertIncident.createMany({ data: [
+			incident(due, server("off"), "cpu_usage", base + "25001"),
+			{ ...incident(due, server("a"), "cpu_usage", base + "25002"), lastNotifiedAt: new Date(0) },
+		] });
+		const sweep = () => escalateOverdueAlertIncidents({ ruleTeamWhere: { id: { startsWith: base } } });
+		await expect(sweep()).resolves.toMatchObject({ orphansResolved: 0, escalated: 0 });
+		await expect(sweep()).resolves.toMatchObject({ orphansResolved: 1, escalated: 1 });
+		expect(await statusOf(due, server("off"), "cpu_usage")).toBe("RESOLVED");
+		expect(await prisma.alertIncident.findUnique({ where: { id: base + "25002" } })).toMatchObject({ level: 2 });
+	}, 60_000);
 });

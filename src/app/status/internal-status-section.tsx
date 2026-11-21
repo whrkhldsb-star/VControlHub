@@ -1,17 +1,18 @@
 import { getServerLocale, t } from "@/lib/i18n/translations";
-import { appTimeZoneDateKey, shiftAppTimeZoneDay, startOfDayInAppTimeZone } from "@/lib/datetime/time-zone";
+import { dayCoverageMinutes } from "@/lib/uptime/coverage";
+import { appTimeZoneDateKey, shiftAppTimeZoneDay } from "@/lib/datetime/time-zone";
 import { formatDateTime } from "@/lib/datetime/format";
 import { getPublicStatus } from "@/lib/status/service";
 import { createLogger } from "@/lib/logging";
 import { getAllUptimeDataInternal, type UptimeDay } from "@/lib/uptime/internal";
 import type { SessionPayload } from "@/lib/auth/session";
+import { canReadInternalStatus } from "@/lib/public-status/access";
 import { isGlobalTeamManager } from "@/lib/auth/team-scope";
 import type { SystemHealthCheck } from "@/lib/system-health/service";
 import {
   calculateWeightedSla,
   calculateWindowCoverage,
   describeUptimeDay,
-  expectedMinutesForDay,
   getUptimeColorClass,
 } from "./uptime-presentation";
 
@@ -60,11 +61,9 @@ function UptimeHeatmaps({ servers, locale }: { servers: Array<{ id: string; name
             });
             // Day cells follow the application time zone, like the rollup that fills them.
             const now = new Date();
-            const days: string[] = [];
-            for (let i = 89; i >= 0; i--) days.push(appTimeZoneDateKey(shiftAppTimeZoneDay(now, -i)));
-            const today = days[days.length - 1];
-            const minutesToday = (now.getTime() - startOfDayInAppTimeZone(now).getTime()) / 60_000;
-            const filled = days.map((date) => {
+            const days = Array.from({ length: 90 }, (_, i) => shiftAppTimeZoneDay(now, i - 89));
+            const filled = days.map((start) => {
+              const date = appTimeZoneDateKey(start);
               const sample = daysMap.get(date);
               const day = {
                 uptimePercent: sample?.uptimePercent ?? 0,
@@ -72,7 +71,7 @@ function UptimeHeatmaps({ servers, locale }: { servers: Array<{ id: string; name
                 onlineMinutes: sample?.onlineMinutes ?? 0,
                 offlineMinutes: sample?.offlineMinutes ?? 0,
               };
-              const expectedMinutes = expectedMinutesForDay(date === today ? minutesToday : 1440);
+              const expectedMinutes = dayCoverageMinutes(start, now);
               return { date, ...day, expectedMinutes, ...describeUptimeDay(day, expectedMinutes) };
             });
             const sla = calculateWeightedSla(server.data ?? []);
@@ -124,6 +123,7 @@ function UptimeHeatmaps({ servers, locale }: { servers: Array<{ id: string; name
  * heatmaps. Rendered below the public board, never part of its data.
  */
 export async function InternalStatusSection({ session }: { session: SessionPayload }) {
+  if (!canReadInternalStatus(session)) return null;
   const locale = await getServerLocale();
   // The component checks count every customer's servers and storage nodes ("N VPS instances enabled"): they are for
   // the platform's administrators. A customer account sees its own uptime below.

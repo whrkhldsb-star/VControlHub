@@ -13,7 +13,11 @@ import { Prisma } from "@prisma/client";
 export const VISIBLE_NODE_SQL = Prisma.sql`n."published" = TRUE
 	AND s."enabled" = TRUE
 	AND s."teamId" IS NOT DISTINCT FROM n."publishedTeamId"
-	AND (tm."id" IS NULL OR tm."deletedAt" IS NULL)`;
+	AND (tm."id" IS NULL OR tm."deletedAt" IS NULL)
+	AND NOT EXISTS (
+		SELECT 1 FROM unnest(ARRAY[n."displayName", n."groupName", n."region", n."note", n."countryCode"] || n."tags") AS field(value)
+		WHERE btrim(s.host) <> '' AND strpos(lower(field.value), lower(btrim(s.host))) > 0
+	)`;
 
 export type PublicationState = {
 	published: boolean;

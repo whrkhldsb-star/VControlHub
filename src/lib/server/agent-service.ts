@@ -1,5 +1,5 @@
 import { guardedLinuxAgentRemoval, linuxAgentSelfRemoval, windowsAgentSelfRemoval, withLinuxAgentInstallLock, withWindowsAgentInstallLock } from "./agent-lifecycle-scripts";
-import { createHash, randomBytes, timingSafeEqual } from "node:crypto";
+import { createHash, createHmac, randomBytes, timingSafeEqual } from "node:crypto";
 
 import { acquireAdvisoryLock } from "@/lib/concurrency/advisory-lock";
 import { Prisma } from "@prisma/client";
@@ -79,11 +79,48 @@ export async function authenticateServerAgent(token: string) {
   const match = /^vca_([^_]+)_([A-Za-z0-9_-]{32,})$/.exec(token);
   if (!match) return null;
   const server = await prisma.server.findUnique({ where: { id: match[1] }, select: { id: true, managementMode: true, operatingSystem: true, agentTokenHash: true } });
-  if (!server?.agentTokenHash || server.managementMode !== "AGENT") return null;
+  if (!server || server.managementMode !== "AGENT") return null;
+  if (match[2]!.startsWith("install-") && server.agentTokenHash !== tokenHash(token))
+    return authenticatePendingInstallation(server.id, token);
+  if (!server.agentTokenHash) return null;
   const actual = Buffer.from(tokenHash(token), "hex");
   const expected = Buffer.from(server.agentTokenHash, "hex");
   if (actual.length !== expected.length || !timingSafeEqual(actual, expected)) return null;
   return { id: server.id, operatingSystem: server.operatingSystem, agentTokenHash: server.agentTokenHash };
+}
+
+const installBindingSelect = {
+  id: true, teamId: true, host: true, port: true, username: true, managementMode: true, operatingSystem: true,
+  hostKeySha256: true, agentTokenHash: true, enabled: true,
+} as const;
+type InstallBinding = Prisma.ServerGetPayload<{ select: typeof installBindingSelect }>;
+
+function installProof(server: InstallBinding, token: string, expires: number) {
+  const fields = Object.keys(installBindingSelect) as Array<keyof InstallBinding>;
+  return createHmac("sha256", config.auth.secret).update(JSON.stringify(["linux-agent-install", expires, token, ...fields.map(field => server[field])])).digest("hex");
+}
+
+// The running candidate proves possession over HTTPS. The pending proof is
+// single-use, short-lived and bound to the old owner, endpoint and identity.
+async function authenticatePendingInstallation(id: string, token: string) {
+  const key = "agent.install." + id;
+  return prisma.$transaction(async tx => {
+    const server = await tx.server.findUnique({ where: { id, managementMode: "AGENT", operatingSystem: "LINUX" }, select: installBindingSelect });
+    const pending = await tx.setting.findUnique({ where: { key } });
+    if (!server) return null;
+    const agentTokenHash = tokenHash(token);
+    const activated = async () => {
+      const row = await tx.server.findUnique({ where: { id, managementMode: "AGENT", agentTokenHash }, select: { id: true, operatingSystem: true } });
+      return row && { ...row, agentTokenHash };
+    };
+    if (!pending) return activated();
+    const [timestamp, signature] = pending.value.split(".");
+    const expires = Number(timestamp);
+    if (!Number.isSafeInteger(expires) || expires <= Date.now() || signature !== installProof(server, token, expires)) return null;
+    if (!(await tx.setting.deleteMany({ where: { key, value: pending.value } })).count) return activated();
+    await tx.server.update({ where: server, data: { ...resetAgentForModeChange(), agentTokenHash }, select: { id: true, operatingSystem: true, agentTokenHash: true } });
+    return { id: server.id, operatingSystem: server.operatingSystem, agentTokenHash };
+  });
 }
 
 /** Installation, mode switches and deletion all change the service on the same host. */
@@ -496,7 +533,7 @@ async function withAgentCancellationDeadline<T>(query: PromiseLike<T>): Promise<
   } finally { clearTimeout(timer); }
 }
 
-export function buildAgentPython(hubUrl: string, token: string) {
+export function buildAgentPython(hubUrl: string, token: string, recoveryScript?: string) {
   const endpoint = new URL("/api/agent/v1/poll", hubUrl).toString();
   return `#!/usr/bin/env python3
 import base64, http.client, json, os, pwd, signal, subprocess, sys, threading, time, urllib.parse
@@ -784,7 +821,10 @@ while True:
             if recent: payload["updateFailed"]=recent[-1]
             try:
                 message=post(payload)
-                authenticated=True
+                ${recoveryScript ? `if not authenticated:
+                    try: os.remove(${JSON.stringify(recoveryScript)})
+                    except OSError: pass
+                ` : ""}authenticated=True
             except HubStatus as exc:
                 if exc.status == 400 and pending is not None:
                     # Resending a result the hub refuses would block every later
@@ -806,7 +846,10 @@ while True:
             # A new install starts before SSH confirms it and the hub activates
             # its token. systemd retries a first failure, but leaves a revoked
             # installation stopped after its first authenticated poll.
-            if status in (401,403): sys.exit(0 if authenticated else 1)
+            if status in (401,403):${recoveryScript ? `
+                if not authenticated and os.path.isfile(${JSON.stringify(recoveryScript)}):
+                    subprocess.call(["systemd-run","--quiet","/bin/sh",${JSON.stringify(recoveryScript)}])` : ""}
+                sys.exit(0 if authenticated else 1)
             time.sleep(30 if status == 429 else 5)
     except AgentStop:
         shutdown()
@@ -1202,36 +1245,83 @@ export async function installServerAgentUnderLock(serverId: string, teamId?: str
     ? Boolean(server.sshKeyId && server.sshKey?.privateKey)
     : Boolean(server.password);
   if (!hasSshCredential) throw new BusinessError(t("backend.server.agentInstallNeedsSsh"));
-  // Rotating the hash also revokes file-drive pairings. Activate only after SSH confirms the restart.
-  const token = generateServerAgentToken(serverId);
+  // The first authenticated candidate poll commits the new identity and revokes old pairings.
+  const token = `vca_${serverId}_install-${randomBytes(32).toString("base64url")}`;
+  const stamp = tokenHash(token);
   const identity = { ...scope, id: server.id, teamId: server.teamId, managementMode: "AGENT" as const, agentTokenHash: server.agentTokenHash };
-  const python = Buffer.from(buildAgentPython(hubUrl, token)).toString("base64");
+  const recovery = "/opt/vcontrolhub-agent/.install-" + stamp + "/restore.sh";
+  const python = Buffer.from(buildAgentPython(hubUrl, token, recovery)).toString("base64");
   const unit = `[Unit]\nDescription=VControlHub Agent\nAfter=network-online.target\nWants=network-online.target\n\n[Service]\nType=simple\nExecStart=/usr/bin/python3 /opt/vcontrolhub-agent/agent.py\nRestart=on-failure\nRestartSec=5\nNoNewPrivileges=true\n\n[Install]\nWantedBy=multi-user.target\n`;
+  const ssh = await buildSshParamsFromServer(server, server.sshKey);
+  const run = async (script: string) => {
+    // Once activation succeeds the previous agent identity is obsolete. The
+    // cleanup still uses the original pinned SSH connection under the host lock.
+    const result = await execRemoteCommand({ ...ssh,
+      command: asRoot(withLinuxAgentInstallLock(script)), timeout: 60_000 });
+    if (result.exitCode !== 0) throw new Error(result.stderr || result.stdout || "Agent installation failed");
+  };
+  const paths = `dir=/opt/vcontrolhub-agent
+unit=/etc/systemd/system/vcontrolhub-agent.service
+candidate="$dir/.install-${stamp}"`;
+  const restore = `if [ -f "$candidate/prepared" ]; then
+  [ "$(cat "$dir/install-id" 2>/dev/null || true)" = ${stamp} ] || exit 0
+  systemctl stop vcontrolhub-agent.service || true
+  for name in agent.py install-id; do
+    if [ -f "$candidate/old-$name" ]; then cp -p "$candidate/old-$name" "$dir/$name"; else rm -f "$dir/$name"; fi
+  done
+  if [ -f "$candidate/old-unit" ]; then cp -p "$candidate/old-unit" "$unit"; else rm -f "$unit"; fi
+  systemctl daemon-reload
+  if [ -f "$candidate/enabled" ]; then systemctl enable vcontrolhub-agent.service; else systemctl disable vcontrolhub-agent.service || true; fi
+  if [ -f "$candidate/active" ]; then systemctl start vcontrolhub-agent.service; fi
+fi
+rm -rf "$candidate"`;
   const script = [
-    "set -e",
-    `command -v python3 >/dev/null 2>&1 || { echo "The Agent needs python3" >&2; exit 1; }`,
-    `python3 -c 'import sys; sys.exit(0 if sys.version_info >= (3, 5) else 1)' || { echo "The Agent needs Python 3.5 or newer" >&2; exit 1; }`,
-    `command -v systemctl >/dev/null 2>&1 || { echo "The Agent needs systemd" >&2; exit 1; }`,
-    "install -d -m 700 /opt/vcontrolhub-agent",
-    `printf %s ${shellQuote(python)} | base64 -d > /opt/vcontrolhub-agent/agent.py`,
-    `printf '%s' ${shellQuote(tokenHash(token))} > /opt/vcontrolhub-agent/install-id`,
-    "chmod 700 /opt/vcontrolhub-agent/agent.py",
-    `printf %s ${shellQuote(unit)} > /etc/systemd/system/vcontrolhub-agent.service`,
-    "systemctl daemon-reload",
-    "systemctl enable vcontrolhub-agent.service >/dev/null",
-    // An installed Agent keeps its previous token in memory: restart, not just start.
+    "set -eu", "umask 077", paths,
+    'command -v python3 >/dev/null || { echo "The Agent needs python3" >&2; exit 1; }',
+    'command -v systemctl >/dev/null && command -v systemd-run >/dev/null || { echo "The Agent needs systemd" >&2; exit 1; }',
+    'install -d -m 700 "$dir" "$candidate"',
+    `printf %s ${shellQuote(python)} | base64 -d > "$candidate/agent.py"`,
+    'python3 -m py_compile "$candidate/agent.py"',
+    `printf %s ${shellQuote(stamp)} > "$candidate/install-id"`,
+    `printf %s ${shellQuote(unit)} > "$candidate/unit"`,
+    'for name in agent.py install-id; do if [ -f "$dir/$name" ]; then cp -p "$dir/$name" "$candidate/old-$name"; fi; done',
+    'if [ -f "$unit" ]; then cp -p "$unit" "$candidate/old-unit"; fi',
+    'if systemctl is-enabled --quiet vcontrolhub-agent.service; then touch "$candidate/enabled"; fi',
+    'if systemctl is-active --quiet vcontrolhub-agent.service; then touch "$candidate/active"; fi',
+    `printf %s ${shellQuote(withLinuxAgentInstallLock(["set -eu", paths, restore].join("\n")))} > "$candidate/restore.sh"`,
+    'touch "$candidate/prepared"',
+    'mv "$candidate/install-id" "$dir/install-id"; mv "$candidate/agent.py" "$dir/agent.py"',
+    'install -m 0644 "$candidate/unit" "$unit"',
+    "systemctl daemon-reload", "systemctl enable vcontrolhub-agent.service >/dev/null",
     "systemctl restart vcontrolhub-agent.service",
   ].join("\n");
+  const key = "agent.install." + serverId;
+  const expires = Date.now() + 100_000;
+  const value = expires + "." + installProof(server, token, expires);
+  await prisma.setting.upsert({ where: { key }, create: { key, value }, update: { value } });
   try {
-    const ssh = await buildSshParamsFromServer(server, server.sshKey);
-    const result = await execRemoteCommand({ ...ssh, command: asRoot(withLinuxAgentInstallLock(script)), timeout: 60_000 });
-    if (result.exitCode !== 0) throw new Error(result.stderr || result.stdout || "Agent installation failed");
+    await run(script);
+    while (Date.now() < expires) {
+      if (await prisma.server.findUnique({ where: { id: serverId, agentTokenHash: stamp }, select: { id: true } })) break;
+      await delay(500);
+    }
+    if (Date.now() >= expires) throw new Error("Agent installation authentication timed out");
   } catch (error) {
-    const reason = error instanceof Error ? error.message : String(error);
-    await prisma.server.updateMany({ where: identity, data: { agentLastError: reason.slice(0, 1000) } }).catch(() => undefined);
-    throw error;
+    // Deleting the proof serializes with the first poll. A lost SSH reply
+    // after successful activation must never restore obsolete credentials.
+    await prisma.setting.deleteMany({ where: { key, value } });
+    if (!(await prisma.server.findUnique({ where: { id: serverId, agentTokenHash: stamp }, select: { id: true } }))) {
+      const reason = error instanceof Error ? error.message : String(error);
+      try {
+        await run(["set -eu", paths, restore].join("\n"));
+      } finally {
+        await prisma.server.updateMany({ where: identity, data: { agentLastError: reason.slice(0, 1000) } });
+      }
+      throw error;
+    }
   }
-  await activateServerAgentToken(identity, token);
+  // A dropped cleanup connection after activation cannot undo the new identity.
+  await run([paths, 'rm -rf "$candidate"'].join("\n")).catch(() => undefined);
   return { installed: true };
 }
 

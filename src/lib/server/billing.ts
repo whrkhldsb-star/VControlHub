@@ -68,14 +68,10 @@ export function normalizeServerBilling(input: ServerBillingInput): ServerBilling
 	};
 }
 
-/** Store billing on a server this request just created. */
-export async function saveNewServerBilling(serverId: string, values: ServerBillingValues): Promise<void> {
-	await prisma.server.update({ where: { id: serverId }, data: values });
-}
-
-/** Store billing on an existing server the session may edit. */
-export async function updateServerBilling(serverId: string, values: ServerBillingValues, session: TeamSession): Promise<void> {
-	const server = await prisma.server.findFirst({ where: { AND: [{ id: serverId }, serverProfileTeamWhere(session)] }, select: { id: true } });
-	if (!server) throw new NotFoundError(t("backend.server.nodeNotFound"));
-	await prisma.server.update({ where: { id: serverId }, data: values });
+/** Bind the actual write to the owner of the profile returned to this form. */
+export async function updateServerBilling(serverId: string, teamId: string | null, values: ServerBillingValues, session: TeamSession): Promise<void> {
+	const saved = await prisma.server.updateMany({
+		where: { id: serverId, teamId, AND: serverProfileTeamWhere(session) }, data: values,
+	});
+	if (!saved.count) throw new NotFoundError(t("backend.server.nodeNotFound"));
 }

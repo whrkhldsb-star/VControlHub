@@ -72,6 +72,12 @@ describe("public status board routes", () => {
 		routeSession.current = platformSession();
 		await board.GET(new Request("http://local/api/status/board?preview=1"));
 		expect(read.readPublicBoard).toHaveBeenLastCalledWith(expect.anything(), { preview: true });
+		routeSession.current = { ...platformSession(), mustChangePassword: true };
+		await history.GET(new Request("http://local/api/status/nodes/abcdefghijkl/history?preview=1"), { params });
+		expect(read.readPublicHistory).toHaveBeenLastCalledWith("abcdefghijkl", "24h", { preview: false });
+		routeSession.current = platformSession({ permissions: [] });
+		await node.GET(new Request("http://local/api/status/nodes/abcdefghijkl?preview=1"), { params });
+		expect(read.readPublicNode).toHaveBeenLastCalledWith("abcdefghijkl", { preview: false });
 		// Without the parameter a signed-in administrator gets the plain public read.
 		await node.GET(new Request("http://local/api/status/nodes/abcdefghijkl"), { params });
 		expect(read.readPublicNode).toHaveBeenLastCalledWith("abcdefghijkl", { preview: false });

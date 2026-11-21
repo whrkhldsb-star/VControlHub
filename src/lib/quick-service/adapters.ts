@@ -218,7 +218,9 @@ function lsioTcpPorts(img: LSIOImage): Array<{ host: number; container: number }
 	});
 }
 
-async function fetchLinuxServer(url: string, sourceName: string): Promise<NormalizedApp[]> {
+type SourceSnapshot = { apps: NormalizedApp[]; complete: boolean };
+
+async function fetchLinuxServer(url: string, sourceName: string): Promise<SourceSnapshot> {
 	const data = (await fetchCatalogJson(url)) as LSIOResponse;
 	// Not a catalogue (an error body with HTTP 200, a changed format) is a
 	// failed sync: read as an empty catalogue it deleted every app of the source.
@@ -231,7 +233,7 @@ async function fetchLinuxServer(url: string, sourceName: string): Promise<Normal
 	// Also de-duplicate by image name (e.g. "linuxserver/jellyfin" vs our "jellyfin")
 	const localImages = new Set(SERVICE_CATALOG.map((t) => t.image.toLowerCase()));
 
-	return images
+	const apps = images
 		.slice(0, APP_SOURCE_MAX_APPS)
 		.filter((img) => img.stable && !img.deprecated)
 		// Quick services need a declared TCP web port. Images without one are
@@ -291,6 +293,7 @@ async function fetchLinuxServer(url: string, sourceName: string): Promise<Normal
 			};
 		})
 		.filter((app) => !/altus|chromium|firefox|chrome|desktop/i.test(app.slug));
+	return { apps, complete: images.length <= APP_SOURCE_MAX_APPS };
 }
 
 /* ── Custom JSON Adapter (generic) ───────────────────────────── */
@@ -299,7 +302,7 @@ async function fetchLinuxServer(url: string, sourceName: string): Promise<Normal
  * Generic JSON adapter for sources that serve a JSON array of app definitions.
  * Expected format: array of objects with at least { name, image } fields.
  */
-async function fetchGenericJSON(url: string, sourceName: string): Promise<NormalizedApp[]> {
+async function fetchGenericJSON(url: string, sourceName: string): Promise<SourceSnapshot> {
 	const data = await fetchCatalogJson(url) as Record<string, unknown> | unknown[];
 
 	const apps: NormalizedApp[] = [];
@@ -352,12 +355,12 @@ async function fetchGenericJSON(url: string, sourceName: string): Promise<Normal
 			rawJson: JSON.stringify(row).substring(0, 4000),
 		});
 	}
-	return apps;
+	return { apps, complete: items.length === candidateItems.length };
 }
 
 /* ── Adapter registry ─────────────────────────────────────────── */
 
-const ADAPTERS: Record<string, (url: string, sourceName: string) => Promise<NormalizedApp[]>> = {
+const ADAPTERS: Record<string, (url: string, sourceName: string) => Promise<SourceSnapshot>> = {
 	linuxserver: fetchLinuxServer,
 	json: fetchGenericJSON,
 	github: fetchGenericJSON, // For now, GitHub raw JSON falls through to generic
@@ -370,13 +373,13 @@ export async function fetchSourceApps(
 	sourceName: string,
 	sourceType: string,
 	url: string,
-): Promise<NormalizedApp[]> {
+): Promise<SourceSnapshot> {
 	const adapter = ADAPTERS[sourceType] || ADAPTERS["json"]!;
 	try {
 		const safeUrl = normalizePublicHttpUrl(url);
 		await assertPublicBaseUrlResolvesPublic(new URL(safeUrl).origin);
 		const apps = await adapter(safeUrl, sourceName);
-		logger.info(`Fetched ${apps.length} apps from ${sourceName} (${sourceType})`);
+		logger.info(`Fetched ${apps.apps.length} apps from ${sourceName} (${sourceType})`);
 		return apps;
 	} catch (err) {
 		logger.error(`Failed to fetch from ${sourceName}: ${err}`);

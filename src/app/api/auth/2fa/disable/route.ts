@@ -7,6 +7,7 @@
  * the only self-service way off 2FA once the authenticator device is gone.
  */
 import { z } from "zod";
+import { checkSecurityChallenge } from "@/lib/auth/security-challenge-budget";
 import { Prisma } from "@prisma/client";
 
 import {
@@ -15,7 +16,7 @@ import {
 } from "@/lib/auth/two-factor-challenge";
 import { updateTwoFactorCredentials } from "@/lib/auth/two-factor-settings";
 import { refreshedSessionResponse } from "@/lib/auth/refreshed-session-response";
-import { auditUserAction } from "@/lib/audit/service";
+import { accountSecurityAuditTeam, auditUserAction } from "@/lib/audit/service";
 import { prisma } from "@/lib/db";
 import { withApiRoute } from "@/lib/http/api-guard";
 import { GENERAL_WRITE_LIMIT } from "@/lib/http/rate-limit-presets";
@@ -56,12 +57,12 @@ export async function POST(request: Request) {
         throw new ValidationError(t("api.auth.twoFactor.notEnabled", locale));
       }
 
-      const challenge = await verifyTwoFactorChallenge({
+      const challenge = await checkSecurityChallenge(session.userId, () => verifyTwoFactorChallenge({
         userId: session.userId,
         code,
-        sealedSecret: user.twoFactorSecret,
+        sealedSecret: user.twoFactorSecret!,
         storedRecoveryCodes: user.twoFactorRecoveryCodes,
-      });
+      }), (proof) => proof.valid);
       if (!challenge.valid) {
         throw new ValidationError(t("api.auth.twoFactor.invalidCode", locale));
       }
@@ -79,7 +80,7 @@ export async function POST(request: Request) {
         "auth.2fa.disable",
         { userId: session.userId, usedRecoveryCode: challenge.usedRecoveryCode },
         "INFO",
-        session.currentTeamId,
+        accountSecurityAuditTeam(session),
       );
 
       return refreshedSessionResponse(session, request, { success: true }, credentialBinding);

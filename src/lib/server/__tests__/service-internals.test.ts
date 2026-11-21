@@ -87,7 +87,7 @@ describe("assertNoDuplicateServerHost", () => {
 	});
 
 	it("treats a teamless caller as colliding with nothing rather than with every legacy row", async () => {
-		// `serverTeamWhere` quarantines teamId:null: the sentinel id matches no row.
+		// `serverTeamWhere` quarantines teamId:null: the nested empty set matches no row.
 		// Failing this direction is safe — host uniqueness is a UX guard against
 		// managing one box twice (the column has no @@unique), not an invariant.
 		await assertNoDuplicateServerHost(normalized, {
@@ -95,7 +95,7 @@ describe("assertNoDuplicateServerHost", () => {
 		});
 		expect(mocks.findFirst).toHaveBeenCalledWith(
 			expect.objectContaining({
-				where: expect.objectContaining({ id: "__unassigned_servers_require_team_manage__" }),
+				where: expect.objectContaining({ AND: { id: { in: [] } } }),
 			}),
 		);
 	});
@@ -107,7 +107,7 @@ describe("assertNoDuplicateServerHost", () => {
 			session: { userId: "admin", roles: ["admin"] as never, currentTeamId: null },
 		});
 		expect(mocks.findFirst).toHaveBeenCalledWith(
-			expect.objectContaining({ where: { host: "203.0.113.10" } }),
+			expect.objectContaining({ where: { host: "203.0.113.10", team: { isNot: { deletedAt: { not: null } } } } }),
 		);
 	});
 

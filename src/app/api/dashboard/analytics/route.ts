@@ -7,8 +7,10 @@ import { z } from "zod";
 
 import { requestLocale, withApiRoute } from "@/lib/http/api-guard";
 import { sessionHasPermission } from "@/lib/auth/authorization";
-import { serverTeamWhere, teamWhere, seesAllCustomers } from "@/lib/auth/team-scope";
+import { serverTeamWhere, seesAllCustomers, imageTeamWhere, liveCustomerRowsWhere } from "@/lib/auth/team-scope";
 import { dailyAuditActivity, hourlyServerUsage } from "@/lib/dashboard/analytics-queries";
+import { downloadSummary } from "@/lib/dashboard/download-summary";
+import { hasBearerAuthorization } from "@/lib/auth/bearer-token";
 import { prisma } from "@/lib/db";
 import { parseSearchParams } from "@/lib/http/parse-search-params";
 
@@ -60,7 +62,7 @@ function canReadAnalyticsDomain(session: SessionPayload, type: AnalyticsDomain) 
   if (type === "servers") return sessionHasPermission(session, "server:read") || sessionHasPermission(session, "health:read");
   if (type === "downloads") return sessionHasPermission(session, "storage:read");
   if (type === "audit") return sessionHasPermission(session, "audit:read");
-  if (type === "image-bed") return sessionHasPermission(session, "image:read") || sessionHasPermission(session, "image:write") || sessionHasPermission(session, "media:manage");
+  if (type === "image-bed") return sessionHasPermission(session, "image:read");
   return false;
 }
 
@@ -70,18 +72,6 @@ function isAnalyticsDomain(value: string): value is AnalyticsDomain {
 
 function shouldIncludeAnalytics(session: SessionPayload, requested: string, type: AnalyticsDomain) {
   return (requested === "all" || requested === type) && canReadAnalyticsDomain(session, type);
-}
-
-/**
- * `teamWhere()` as the grouped audit statement takes it: one customer, or null
- * for all of them. A scope it cannot express must not widen into "all".
- */
-function auditCustomer(session: SessionPayload): string | null {
-  const scope = teamWhere(session);
-  const keys = Object.keys(scope);
-  if (keys.length === 0) return null;
-  if (keys.length === 1 && typeof scope.teamId === "string") return scope.teamId;
-  throw new Error("Audit analytics cannot express this customer scope");
 }
 
 function requestedDomainForbidden(session: SessionPayload, requested: string) {
@@ -110,7 +100,6 @@ export async function GET(request: Request) {
     }
 
     const results: Record<string, unknown> = {};
-    const resourceTeamFilter = teamWhere(session);
 
     // Server metrics trend (last 24h). Metric snapshots derive from Servers (a
     // security root): the servers are chosen with the strict server filter, so
@@ -128,64 +117,32 @@ export async function GET(request: Request) {
     // Download task trend (last 7 days)
     if (shouldIncludeAnalytics(session, type, "downloads")) {
       const sevenDaysAgo = new Date(Date.now() - 7 * DAY_MS);
-      const dayBuckets = new Map<
-        string,
-        {
-          completed: number;
-          failed: number;
-          running: number;
-          pending: number;
-        }
-      >();
-      await forEachAnalyticsPage(
-        (cursor) =>
-          prisma.downloadTask.findMany({
-            where: {
-              createdAt: { gte: sevenDaysAgo },
-              ...resourceTeamFilter,
-            },
-            orderBy: [{ createdAt: "asc" }, { id: "asc" }],
-            take: ANALYTICS_PAGE_SIZE,
-            ...(cursor ? { cursor: { id: cursor }, skip: 1 } : {}),
-            select: { id: true, status: true, createdAt: true },
-          }),
-        (download) => {
-          const day = appDayKey(download.createdAt);
-          if (!dayBuckets.has(day)) {
-            dayBuckets.set(day, {
-              completed: 0,
-              failed: 0,
-              running: 0,
-              pending: 0,
-            });
-          }
-          const bucket = dayBuckets.get(day)!;
-          const status = download.status.toLowerCase() as keyof typeof bucket;
-          if (status in bucket) bucket[status]++;
-        },
-      );
-      results.downloads = Array.from(dayBuckets.entries()).map(
-        ([date, data]) => ({ date, ...data }),
-      );
+      results.downloads = (await downloadSummary(session, sevenDaysAgo)).days;
     }
 
     // Audit log activity (last 30 days, grouped by day)
     if (shouldIncludeAnalytics(session, type, "audit")) {
       const thirtyDaysAgo = new Date(Date.now() - 30 * DAY_MS);
-      results.audit = await dailyAuditActivity(thirtyDaysAgo, auditCustomer(session));
+      const teamId = session.currentTeamId || null;
+      results.audit = teamId || seesAllCustomers(session)
+        ? await dailyAuditActivity(thirtyDaysAgo, teamId)
+        : [];
     }
 
     // Image bed storage trend (last 7 days)
     if (shouldIncludeAnalytics(session, type, "image-bed")) {
       const sevenDaysAgo = new Date(Date.now() - 7 * DAY_MS);
       const dayBuckets = new Map<string, { count: number; size: number }>();
+      const allOwners = !hasBearerAuthorization(request) &&
+        (sessionHasPermission(session, "team:manage") || sessionHasPermission(session, "media:manage"));
       await forEachAnalyticsPage(
         (cursor) =>
           prisma.imageUpload.findMany({
             where: {
               createdAt: { gte: sevenDaysAgo },
-              // ImageUpload.teamId is team-scoped (legacy null still visible via teamWhere).
-              ...resourceTeamFilter,
+              ...imageTeamWhere(session),
+              ...liveCustomerRowsWhere(),
+              ...(allOwners ? {} : { userId: session.userId }),
             },
             orderBy: [{ createdAt: "asc" }, { id: "asc" }],
             take: ANALYTICS_PAGE_SIZE,

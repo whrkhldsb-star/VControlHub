@@ -6,7 +6,7 @@ import { NextResponse } from "next/server";
 import { prisma } from "@/lib/db";
 import { apiCatch } from "@/lib/http/api-error";
 import type { SessionPayload } from "../session";
-import { createSessionToken, getSessionCookieName, verifySessionToken } from "../session";
+import { captureSessionCredentialBinding, createSessionToken, getSessionCookieName, verifySessionToken } from "../session";
 import { createTwoFactorEnrollmentToken } from "../two-factor-enrollment";
 import { POST as enable } from "@/app/api/auth/2fa/enable/route";
 import { POST as disable } from "@/app/api/auth/2fa/disable/route";
@@ -39,7 +39,7 @@ describe.skipIf(process.env.RUN_DATABASE_INTEGRATION_TESTS !== "1")("two-factor 
   let ready = false;
   const request = (secret = "JBSWY3DPEHPK3PXP") => new Request("http://localhost/api/auth/2fa/enable", {
     method: "POST", headers: { "content-type": "application/json" },
-    body: JSON.stringify({ code: "123456", enrollmentToken: createTwoFactorEnrollmentToken({ userId: id, secret }) }),
+    body: JSON.stringify({ code: "123456", enrollmentToken: createTwoFactorEnrollmentToken({ userId: id, secret, binding: captureSessionCredentialBinding({ passwordHash: originalHash, sessionEpoch: 4 }) }) }),
   });
 
   beforeAll(async () => {
@@ -145,6 +145,49 @@ describe.skipIf(process.env.RUN_DATABASE_INTEGRATION_TESTS !== "1")("two-factor 
     const cookie = (result as NextResponse).cookies.get(getSessionCookieName());
     expect(cookie).toBeDefined();
     await expect(verifySessionToken(cookie!.value)).resolves.toMatchObject({ userId: id });
+  });
+
+  it.each(["admin", "customer"])("files all three %s security changes under the account and retires the old enrollment", async (account) => {
+    const teamId = id + "-" + account;
+    const fixtureRole = id + "-admin-role";
+    await prisma.team.create({ data: { id: teamId, name: teamId, slug: teamId } });
+    try {
+      if (account === "admin") {
+        const role = await prisma.role.upsert({ where: { key: "admin" }, update: {}, create: { id: fixtureRole, key: "admin", name: "Administrator" } });
+        await prisma.userRole.create({ data: { userId: id, roleId: role.id } });
+      } else {
+        await prisma.identityTemplate.create({ data: { id: teamId, name: teamId, permissions: [] } });
+        await prisma.teamMember.create({ data: { userId: id, teamId, identityTemplateId: teamId } });
+      }
+      await prisma.auditLog.deleteMany({ where: { actorId: id } });
+      state.session = await verifySessionToken(await createSessionToken({ ...state.session!, currentTeamId: teamId }));
+      expect(state.session.currentTeamId).toBe(teamId);
+      const original = request();
+      const enabled = await enable(original.clone());
+      const readRotation = async (response: Response) => {
+        expect(response.status).toBe(200);
+        const cookie = (response as NextResponse).cookies.get(getSessionCookieName());
+        state.session = await verifySessionToken(cookie!.value);
+        return response.json();
+      };
+      const proof = (code: string) => new Request("http://localhost/api/auth/2fa", {
+        method: "POST", body: JSON.stringify({ code }),
+      });
+      const first = await readRotation(enabled);
+      const second = await readRotation(await regenerate(proof(first.recoveryCodes[0])));
+      await readRotation(await disable(proof(second.recoveryCodes[0])));
+      expect((await enable(original)).status).toBe(400);
+      expect((await prisma.user.findUniqueOrThrow({ where: { id } })).twoFactorEnabled).toBe(false);
+      const events = await prisma.auditLog.findMany({ where: { actorId: id }, orderBy: { action: "asc" }, select: { action: true, teamId: true } });
+      expect(events).toEqual(["auth.2fa.disable", "auth.2fa.enable", "auth.2fa.recovery_codes_regenerated"]
+        .map(action => ({ action, teamId: account === "admin" ? null : teamId })));
+    } finally {
+      await prisma.userRole.deleteMany({ where: { userId: id } });
+      await prisma.role.deleteMany({ where: { id: fixtureRole, users: { none: {} } } });
+      await prisma.teamMember.deleteMany({ where: { userId: id } });
+      await prisma.identityTemplate.deleteMany({ where: { id: teamId } });
+      await prisma.team.delete({ where: { id: teamId } });
+    }
   });
 
   it.each([

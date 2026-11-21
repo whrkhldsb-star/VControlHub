@@ -313,7 +313,7 @@ describe("/api/quick-services routes", () => {
         enabled: true,
         AND: [
           { teamId: "team_a" },
-          { OR: [
+          { team: { deletedAt: null }, OR: [
             { userAccess: { none: { userId: "u2" } } },
             { userAccess: { some: { userId: "u2", canManage: true } } },
           ] },

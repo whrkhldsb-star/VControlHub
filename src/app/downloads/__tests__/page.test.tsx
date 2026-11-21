@@ -31,13 +31,15 @@ vi.mock("../downloads-client", () => ({
 
 vi.mock("@/lib/db", () => ({
   prisma: {
+    storageNode: { findMany: vi.fn().mockResolvedValue([{ id: "node1" }]) },
+    userStorageAccess: { findMany: vi.fn().mockResolvedValue([]) },
     server: {
       findMany: vi.fn().mockResolvedValue([
         {
-          id: "srv1",
+          id: "srv1", teamId: "team-a", managementMode: "DIRECT", agentFileShares: [],
           name: "下载 VPS",
           host: "203.0.113.20",
-          storageNode: { id: "node1", basePath: "/data/downloads", driver: "SFTP", host: "203.0.113.20", port: 22, directAccessMode: "DIRECT", publicBaseUrl: "https://files.example.com", directAccessExpiresSeconds: 300 },
+          storageNode: { id: "node1", teamId: "team-a", name: "Downloads", basePath: "/data/downloads", driver: "SFTP", host: "203.0.113.20", port: 22, directAccessMode: "DIRECT", publicBaseUrl: "https://files.example.com", directAccessExpiresSeconds: 300 },
         },
       ]),
     },
@@ -66,7 +68,7 @@ describe("DownloadsPage", () => {
         AND: [
           { AND: [
             { teamId: "team-a" },
-            expect.objectContaining({ OR: expect.any(Array) }),
+            expect.objectContaining({ team: { deletedAt: null }, OR: expect.any(Array) }),
           ] },
           {
             enabled: true,
@@ -81,7 +83,8 @@ describe("DownloadsPage", () => {
         id: true,
         name: true,
         host: true,
-        storageNode: { select: { id: true, name: true, basePath: true, driver: true, host: true, port: true, directAccessMode: true, publicBaseUrl: true, directAccessExpiresSeconds: true } },
+        teamId: true,
+        storageNode: { select: { id: true, teamId: true, name: true, basePath: true, driver: true, host: true, port: true, directAccessMode: true, publicBaseUrl: true, directAccessExpiresSeconds: true } },
       }),
     }));
   });

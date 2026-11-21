@@ -97,9 +97,9 @@ describe("executeServerlessQuery", () => {
 			);
 		});
 
-		it("lets a platform manager see the whole fleet", async () => {
+		it("lists the live fleet for a platform manager", async () => {
 			await call("list_servers", {}, admin);
-			expect(mocks.serverFindMany).toHaveBeenCalledWith(expect.objectContaining({ where: {} }));
+			expect(mocks.serverFindMany).toHaveBeenCalledWith(expect.objectContaining({ where: { team: { isNot: { deletedAt: { not: null } } } } }));
 		});
 
 		it("never selects credentials, only connection metadata", async () => {

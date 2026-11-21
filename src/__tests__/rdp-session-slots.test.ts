@@ -3,12 +3,14 @@ import { EventEmitter } from "node:events";
 import type { Server } from "node:http";
 import { afterEach, beforeEach, describe, expect, it, vi } from "vitest";
 import { instruction } from "@/lib/rdp/protocol";
+import { guacdHandshake } from "@/test/helpers/guacd";
 
 const mocks = vi.hoisted(() => ({ verify: vi.fn(), getServer: vi.fn(), tunnel: vi.fn(), webSocketServer: vi.fn(), audit: vi.fn(async () => undefined), images: vi.fn(async () => ["image/png", "image/jpeg"]), policy: vi.fn(async () => ({ idleTimeoutMs: 0, maxSessionMs: 0 })) }));
 vi.mock("ws", () => ({
   WebSocket: { OPEN: 1 },
   WebSocketServer: class { constructor() { return mocks.webSocketServer(); } },
 }));
+vi.mock("@/lib/concurrency/advisory-lock", () => ({ acquireAdvisoryLock: async () => async () => {} }));
 vi.mock("node:net", () => ({ createConnection: () => mocks.tunnel() }));
 vi.mock("@/lib/auth/session", () => ({ getSessionCookieName: () => "session", verifySessionToken: mocks.verify }));
 vi.mock("@/lib/auth/authorization", () => ({ sessionHasPermission: () => true }));
@@ -54,7 +56,7 @@ describe("RDP session slots", () => {
     wss.clients.add(ws);
     wss.emit("connection", ws, { url, headers: { cookie: "session=authenticated", origin: "https://hub.test" } });
     await ws.listeners("message")[0]!(Buffer.from("single-use-ticket"), false);
-    tunnel.emit("data", Buffer.from(args + instruction("ready", "tunnel")));
+    if (ws.readyState === 1) await guacdHandshake(tunnel, args);
     return { ws, tunnel };
   }
   const errorStatus = (ws: FakeWs) => ws.send.mock.calls.map(([data]) => String(data)).find((data) => data.startsWith("5.error"));

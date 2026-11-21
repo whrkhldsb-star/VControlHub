@@ -5,6 +5,7 @@
  */
 import { Prisma } from "@prisma/client";
 
+import { liveCustomerRowsWhere } from "@/lib/auth/team-scope";
 import { NotFoundError } from "@/lib/errors";
 import { t } from "@/lib/i18n/service-translations";
 import { enqueueJob } from "@/lib/job/service";
@@ -27,7 +28,7 @@ export async function queuePlaybookRunWithClient(input: {
   playbook: QueueablePlaybook;
   dryRun: boolean;
   triggerContext?: unknown;
-  sourceAlert?: { serverId?: string };
+  sourceAlert?: { serverId?: string; teamId: string | null };
   triggerKey?: string | null;
   createdById?: string | null;
 }) {
@@ -37,7 +38,7 @@ export async function queuePlaybookRunWithClient(input: {
     const context = input.triggerContext as { serverId?: unknown } | null;
     const id = input.sourceAlert.serverId;
     const host = id && context?.serverId === id && await input.client.server.findFirst({
-      where: { id, teamId: input.playbook.teamId }, select: { id: true },
+      where: { id, teamId: input.playbook.teamId, enabled: true, ...liveCustomerRowsWhere() }, select: { id: true },
     });
     if (!host) throw new NotFoundError(t("backend.alert.oneOrMoreServeridsAreOutsideTheCurrent"));
   }
@@ -49,8 +50,12 @@ export async function queuePlaybookRunWithClient(input: {
     if (existing) return { run: existing, created: false };
   }
 
+  const actorId = input.createdById ?? (input.sourceAlert ? input.playbook.createdById : null);
   const executionState = toJsonValue({
-    schemaVersion: 1,
+    schemaVersion: 2,
+    actorId,
+    chainRetry: input.playbook.chainRetry,
+    ...(input.sourceAlert ? { sourceRuleTeamId: input.sourceAlert.teamId } : {}),
     stepsSnapshot: input.playbook.steps,
   });
   const run = await input.client.playbookRun.create({
@@ -63,7 +68,7 @@ export async function queuePlaybookRunWithClient(input: {
       stepResults: toJsonValue([]),
       executionState,
       startedAt: null,
-      createdById: input.createdById ?? null,
+      createdById: actorId,
       teamId: input.playbook.teamId ?? null,
     },
   });
@@ -75,7 +80,7 @@ export async function queuePlaybookRunWithClient(input: {
       type: "playbook.run",
       title: `Run playbook ${input.playbook.name}`,
       payload: { runId: run.id },
-      createdBy: input.createdById ?? null,
+      createdBy: actorId,
       teamId: input.playbook.teamId ?? null,
       priority: 0,
       maxAttempts: retries.success ? 1 + retries.data : 1,

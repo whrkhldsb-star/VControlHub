@@ -72,16 +72,20 @@ export function notificationContentData(content: NotificationContent) {
 	};
 }
 
-export async function createNotification(input: CreateNotificationInput) {
-	const record = await prisma.notification.create({
-		data: {
-			userId: input.userId,
-			type: input.type,
-			...notificationContentData(input),
-			actionUrl: input.actionUrl ?? null,
-			teamId: input.teamId ?? null,
-		},
-	});
+export async function createNotification(input: CreateNotificationInput, deliveryId?: string) {
+	const data = {
+		userId: input.userId,
+		type: input.type,
+		...notificationContentData(input),
+		actionUrl: input.actionUrl ?? null,
+		teamId: input.teamId ?? null,
+	};
+	// A lost commit acknowledgement can be retried with the same run/step
+	// key. Only the transaction that inserted the inbox row announces it.
+	const record = deliveryId
+		? (await prisma.notification.createManyAndReturn({ data: { ...data, id: deliveryId }, skipDuplicates: true }))[0]
+		: await prisma.notification.create({ data });
+	if (!record) return prisma.notification.findUniqueOrThrow({ where: { id: deliveryId } });
 	await announceStoredNotifications([record]);
 	return record;
 }
@@ -244,15 +248,24 @@ export async function notifyDownloadResult(
 	error?: string | { key: string },
 	teamId?: string | null,
 ) {
-	const truncatedUrl = url.length > 50 ? url.slice(0, 47) + "..." : url;
+	// Use only the hostname. Transfer URLs and errors quoting even a relative
+	// request target can carry credentials into the stored and pushed copy.
+	let source = "—";
+	try {
+		const parsed = new URL(url);
+		if (["http:", "https:"].includes(parsed.protocol)) source = parsed.hostname;
+	} catch { /* Malformed and legacy sources use the neutral label. */ }
+	const reason = typeof error === "string" && /[/\\?#=]/.test(error) ? undefined : error;
+	let notice: NotificationMessage = { code: "downloadCompleted", params: { url: source } };
+	if (status === "failed") {
+		notice = reason
+			? { code: "downloadFailedWithReason", params: { url: source, ...(typeof reason === "string" ? { error: reason } : { errorKey: reason.key }) } }
+			: { code: "downloadFailed", params: { url: source } };
+	}
 	return createNotification({
 		userId,
 		type: status === "completed" ? "download_completed" : "download_failed",
-		notice: status === "completed"
-			? { code: "downloadCompleted", params: { url: truncatedUrl } }
-			: error
-				? { code: "downloadFailedWithReason", params: { url: truncatedUrl, ...(typeof error === "string" ? { error } : { errorKey: error.key }) } }
-				: { code: "downloadFailed", params: { url: truncatedUrl } },
+		notice,
 		actionUrl: "/downloads",
 		teamId: teamId ?? null,
 	});

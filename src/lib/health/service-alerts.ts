@@ -12,8 +12,8 @@
  * would skip duration or clear pending state across unrelated hosts.
  */
 import { prisma } from "@/lib/db";
-import { liveCustomerRowsWhere } from "@/lib/auth/team-scope";
-import { createLogger } from "@/lib/logging";
+import { liveCustomerRowsWhere, type TeamSession } from "@/lib/auth/team-scope";
+import { verifiedRuleChannels } from "@/lib/alert/channel-grants";
 import {
   buildAlertFingerprint,
   escalateOverdueAlertIncidents,
@@ -21,20 +21,9 @@ import {
   resolveAlertIncident,
 } from "@/lib/alert/incidents";
 import { alertOperatorSign } from "@/lib/alert/operator";
-import { runPlaybook } from "@/lib/playbook/service";
 import { t } from "@/lib/i18n/service-translations";
 
-/** Metric name as copy (A2-10): alert titles and bodies used to be built in English and stored that way. */
-function alertMetricLabel(metric: string): string {
-  const key = `backend.metric.${metric}`;
-  const label = t(key);
-  return label === key ? metric.replace("_", " ") : label;
-}
-
 import { LEGACY_MATCH_KEY, parseAlertMatchState, matchStartedAtForServer, persistMatchState } from "./alert-match-state";
-
-const logger = createLogger("health:service-alerts");
-
 import { collectAllHealth } from "./service-collect";
 import { isNowInAlertSilenceWindow } from "./service-types";
 import {
@@ -42,10 +31,14 @@ import {
   isCapacityAlertMetric,
 } from "./capacity-alert-link";
 
-/** Open incidents read per evaluation to tell which servers still have one (far above any real queue). */
-const MAX_OPEN_INCIDENTS_READ = 10_000;
-
 export { parseAlertMatchState, matchStartedAtForServer, type AlertMatchState } from "./alert-match-state";
+
+/** Render metric names in the notification language. */
+function alertMetricLabel(metric: string): string {
+  const key = `backend.metric.${metric}`;
+  const label = t(key);
+  return label === key ? metric.replace("_", " ") : label;
+}
 
 /**
  * Evaluate alert rules against current fleet health.
@@ -56,12 +49,12 @@ export { parseAlertMatchState, matchStartedAtForServer, type AlertMatchState } f
  *    fragment) so a team operator only evaluates their own rules and never
  *    opens/escalates/notifies — or runs playbooks against — other tenants' hosts.
  */
-export async function evaluateAlerts(options?: { ruleWhere?: Record<string, unknown> }) {
+export async function evaluateAlerts(options?: { ruleWhere?: Record<string, unknown>; session?: TeamSession }) {
   // Fleet-wide passes cover platform rules and live customers' rules: a
   // deleted customer's rules would keep notifying its channels (and starting
   // its playbooks) and its open incidents kept escalating after removal.
-  const ruleScope = options?.ruleWhere ?? liveCustomerRowsWhere();
-  const escalateOptions = { ruleTeamWhere: ruleScope };
+  const ruleScope = options?.ruleWhere ? { AND: [liveCustomerRowsWhere(), options.ruleWhere] } : liveCustomerRowsWhere();
+  const escalateOptions = { ruleTeamWhere: options?.ruleWhere };
   const rules = [];
   let ruleCursorId: string | undefined;
   for (;;) {
@@ -93,7 +86,7 @@ export async function evaluateAlerts(options?: { ruleWhere?: Record<string, unkn
       take: 200,
       ...(ruleCursorId ? { cursor: { id: ruleCursorId }, skip: 1 } : {}),
     });
-    rules.push(...page);
+    for (const rule of page) rules.push({ ...rule, notifyChannels: await verifiedRuleChannels(rule) });
     if (page.length < 200) break;
     ruleCursorId = page[page.length - 1]!.id;
   }
@@ -106,10 +99,20 @@ export async function evaluateAlerts(options?: { ruleWhere?: Record<string, unkn
   const capacityRules = rules.filter((r) => isCapacityAlertMetric(r.metric));
   const liveRules = rules.filter((r) => !isCapacityAlertMetric(r.metric));
   if (capacityRules.length > 0) {
-    await evaluateCapacityLinkedAlerts(capacityRules);
+    await evaluateCapacityLinkedAlerts(capacityRules, { session: options?.session });
   }
 
-  const health = await collectAllHealth();
+  if (!liveRules.length) {
+    await escalateOverdueAlertIncidents(escalateOptions);
+    return;
+  }
+  const targets = liveRules.map((rule) => ({
+    ...(rule.teamId ? { teamId: rule.teamId } : {}),
+    ...(rule.serverIds.length ? { id: { in: rule.serverIds } } : {}),
+  }));
+  const health = await collectAllHealth(options?.session, {
+    serverWhere: { enabled: true, ...(targets.some((scope) => !Object.keys(scope).length) ? {} : { OR: targets }) },
+  });
   // Incidents still open for these rules. Recovery used to be read from the
   // rule's per-server match stamp alone: a stamp lost to a concurrent
   // evaluation (its write is a compare-and-set) or cleared by an edit of the
@@ -118,7 +121,6 @@ export async function evaluateAlerts(options?: { ruleWhere?: Record<string, unkn
     (await prisma.alertIncident.findMany({
       where: { status: { in: ["OPEN", "ACKNOWLEDGED"] }, serverId: { not: null }, rule: { enabled: true, ...ruleScope } },
       select: { fingerprint: true },
-      take: MAX_OPEN_INCIDENTS_READ,
     })).map((incident) => incident.fingerprint),
   );
   // Cache server ownership for both explicit targets and whole-customer rules.
@@ -169,6 +171,7 @@ export async function evaluateAlerts(options?: { ruleWhere?: Record<string, unkn
     let latestFireAt: Date | null = null;
 
     for (const server of targetServers) {
+      if (isNowInAlertSilenceWindow(rule.silenceWindows)) break;
       let value: number | undefined;
       switch (rule.metric) {
         case "cpu_usage":
@@ -247,6 +250,7 @@ export async function evaluateAlerts(options?: { ruleWhere?: Record<string, unkn
               : t("backend.alert.resolvedMessage.metric", { rule: rule.name, metric: alertMetricLabel(rule.metric), operator: alertOperatorSign(rule.operator), threshold: rule.threshold });
           await resolveAlertIncident({
             ruleId: rule.id,
+            silenceWindows: rule.silenceWindows,
             ruleName: rule.name,
             serverId: server.serverId,
             metric: rule.metric,
@@ -271,7 +275,7 @@ export async function evaluateAlerts(options?: { ruleWhere?: Record<string, unkn
       }
 
       const now = new Date();
-      if (rule.durationSeconds > 0) {
+      if (rule.durationSeconds > 0 && !openFingerprints.has(buildAlertFingerprint(rule.id, server.serverId, rule.metric))) {
         const started = matchStartedAtForServer(matchState, server.serverId);
         if (!started) {
           matchState[server.serverId] = now.toISOString();
@@ -295,6 +299,8 @@ export async function evaluateAlerts(options?: { ruleWhere?: Record<string, unkn
 
       const fire = await openOrRefreshAlertIncident({
         ruleId: rule.id,
+        playbookIds: rule.playbookIds,
+        silenceWindows: rule.silenceWindows,
         ruleName: rule.name,
         serverId: server.serverId,
         serverName: server.serverName,
@@ -312,50 +318,19 @@ export async function evaluateAlerts(options?: { ruleWhere?: Record<string, unkn
         escalationMinutes: rule.escalationMinutes ?? undefined,
       });
 
-      // Stamp lastTriggeredAt and run remediation on a fresh fire regardless of
-      // delivery outcome. `notified` reflects only whether a human was paged;
-      // best-effort delivery failure must not lose the trigger record or skip
-      // automation. Per-host notify spam control lives in the incident layer.
+      // The opening already queued any remediation. Stamp it even if delivery failed.
       if (fire.fired) {
         ruleFiredThisPass = true;
         latestFireAt = now;
-        for (const playbookId of rule.playbookIds ?? []) {
-          try {
-            await runPlaybook({
-              playbookId,
-              dryRun: false,
-              sourceAlertTeamId: rule.teamId ?? null,
-              sourceAlertServerId: server.serverId,
-              triggerContext: {
-                type: "alert_rule",
-                alertRuleId: rule.id,
-                alertRuleName: rule.name,
-                serverId: server.serverId,
-                serverName: server.serverName,
-                metric: rule.metric,
-                operator: rule.operator,
-                threshold: rule.threshold,
-                value,
-                triggeredAt: now.toISOString(),
-                incidentId: fire.incidentId,
-              },
-            });
-          } catch (error) {
-            // Best-effort, but not silent: a remediation that never starts
-            // (playbook disabled or deleted, its creator gone) left no trace.
-            logger.warn("alert remediation playbook did not start", {
-              ruleId: rule.id,
-              playbookId,
-              error: error instanceof Error ? error.message : String(error),
-            });
-          }
-        }
       }
 
-      // Keep this server's match stamp so recovery can clear it later.
-      matchState[server.serverId] = now.toISOString();
-      delete matchState[LEGACY_MATCH_KEY];
-      matchStateDirty = true;
+      // Keep the original crossing even when a notification is retried.
+      const started = matchStartedAtForServer(matchState, server.serverId);
+      if (!matchState[server.serverId]) {
+        matchState[server.serverId] = (started ?? now).toISOString();
+        delete matchState[LEGACY_MATCH_KEY];
+        matchStateDirty = true;
+      }
     }
 
     // Prune match stamps for servers that have left this rule's scope —
@@ -365,7 +340,7 @@ export async function evaluateAlerts(options?: { ruleWhere?: Record<string, unkn
     // and re-adding the same server later would inherit a stale match-start
     // and skip its duration window. Guard on a non-empty fleet snapshot so a
     // transient empty collectAllHealth() does not wipe in-progress timers.
-    if (health.servers.length > 0) {
+    if (health.servers.length > 0 && !options?.session) {
       const targetIds = new Set(targetServers.map((s) => s.serverId));
       for (const key of Object.keys(matchState)) {
         if (key === LEGACY_MATCH_KEY) continue;

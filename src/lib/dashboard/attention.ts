@@ -21,11 +21,13 @@ export type AttentionCheck = {
 /** A failed task stops being news after a day: the task centre keeps it, the dashboard stops asking for it. */
 export const FAILED_TASK_WINDOW_MS = 24 * 60 * 60 * 1000;
 
+type Summary = Pick<AttentionCheck, "count" | "latest">;
+
 export type AttentionInput = {
 	/** Open (not yet acknowledged) alert incidents, newest first; null when the account does not manage alerts. */
-	openIncidents: ReadonlyArray<{ title: string }> | null;
+	openIncidents: Summary | ReadonlyArray<{ title: string }> | null;
 	/** Failed tasks of any age; null when the account cannot read the task centre. */
-	failedTasks: ReadonlyArray<{ title: string; updatedAt: string | Date }> | null;
+	failedTasks: Summary | ReadonlyArray<{ title: string; updatedAt: string | Date }> | null;
 	/** Commands waiting for approval, newest first; null when the account cannot approve. */
 	pendingApprovals: ReadonlyArray<{ title: string }> | null;
 	now: Date;
@@ -40,22 +42,20 @@ export function buildAttentionChecks(input: AttentionInput): AttentionCheck[] {
 	if (input.openIncidents) {
 		checks.push({
 			kind: "alerts",
-			count: input.openIncidents.length,
-			latest: input.openIncidents[0]?.title ?? null,
+			...("count" in input.openIncidents ? input.openIncidents : { count: input.openIncidents.length, latest: input.openIncidents[0]?.title ?? null }),
 			href: "/alert-rules#incidents",
 			tone: "danger",
 		});
 	}
 	if (input.failedTasks) {
 		const since = input.now.getTime() - FAILED_TASK_WINDOW_MS;
-		const recent = input.failedTasks
+		const recent = "count" in input.failedTasks ? [] : input.failedTasks
 			.map((task) => ({ title: task.title, at: new Date(task.updatedAt).getTime() }))
 			.filter((task) => task.at >= since)
 			.sort((a, b) => b.at - a.at);
 		checks.push({
 			kind: "failedTasks",
-			count: recent.length,
-			latest: recent[0]?.title ?? null,
+			...("count" in input.failedTasks ? input.failedTasks : { count: recent.length, latest: recent[0]?.title ?? null }),
 			href: "/operation-tasks?status=failed",
 			tone: "danger",
 		});

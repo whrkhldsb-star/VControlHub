@@ -5,11 +5,12 @@ import { afterAll, beforeAll, describe, expect, it, vi } from "vitest";
 const { catalogues } = vi.hoisted(() => ({ catalogues: new Map<string, Array<Record<string, unknown>>>() }));
 vi.mock("../adapters", async (importOriginal) => ({
 	...(await importOriginal<typeof import("../adapters")>()),
-	fetchSourceApps: vi.fn(async (sourceName: string) => catalogues.get(sourceName) ?? []),
+	fetchSourceApps: vi.fn(async (sourceName: string) => ({ apps: catalogues.get(sourceName) ?? [], complete: true })),
 }));
 
 import { prisma } from "@/lib/db";
-import { syncSource } from "../app-source-sync";
+import { fetchSourceApps } from "../adapters";
+import { syncAllSources, syncSource } from "../app-source-sync";
 
 const app = (slug: string, image: string) => ({
 	slug, name: slug, category: "other", icon: "📦", description: "", image, defaultPort: 8080, path: "/",
@@ -47,6 +48,30 @@ describe.skipIf(process.env.RUN_DATABASE_INTEGRATION_TESTS !== "1")("app source 
 
 		const row = await prisma.appSourceApp.findUniqueOrThrow({ where: { slug } });
 		expect(row).toMatchObject({ sourceId: first.id, image: "first/demo:1" });
+	});
+
+	it("serializes an all-source snapshot with a newer single-source sync", async () => {
+		const source = await prisma.appSource.create({ data: { name: prefix + "-overlap", displayName: "overlap", url: "https://example.test/apps" } });
+		const entered = Promise.withResolvers<void>();
+		const finish = Promise.withResolvers<void>();
+		const key = prefix + "-item";
+		const original = vi.mocked(fetchSourceApps).getMockImplementation()!;
+		let reads = 0;
+		vi.mocked(fetchSourceApps).mockImplementation(async (name, type, url) => {
+			if (name !== source.name) return original(name, type, url);
+			if (++reads === 1) { entered.resolve(); await finish.promise; return { apps: [], complete: true }; }
+			return { apps: [{ ...app(key, "demo/new"), sourceName: name }], complete: true };
+		});
+		try {
+			const all = syncAllSources();
+			await entered.promise;
+			const single = syncSource(source.id);
+			await new Promise(resolve => setTimeout(resolve, 25));
+			expect(reads).toBe(1);
+			finish.resolve();
+			await Promise.all([all, single]);
+			expect((await prisma.appSourceApp.findUniqueOrThrow({ where: { slug: key } })).image).toBe("demo/new");
+		} finally { finish.resolve(); vi.mocked(fetchSourceApps).mockImplementation(original); }
 	});
 
 	it("keeps one owner when two sources sync the same slug at the same time", async () => {

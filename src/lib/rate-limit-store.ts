@@ -16,6 +16,8 @@ export type AccountLockoutState = {
   lastFailureAt: number;
 };
 
+type FailureCounter = { key: string; maxFailures: number };
+
 export interface RateLimitStore {
   /**
    * Add a timestamp for the given key. Returns the timestamps in the window,
@@ -39,7 +41,9 @@ export interface RateLimitStore {
     _state: AccountLockoutState,
     _ttlMs: number,
   ): Promise<void>;
-  deleteLockout(_key: string): Promise<void>;
+  /** Charge one failure to every supplied counter atomically. Results follow the input order. */
+  recordFailures(_counters: FailureCounter[], _lockoutMs: number, _retentionMs: number): Promise<AccountLockoutState[]>;
+  deleteLockouts(_keys: string[]): Promise<void>;
 }
 
 // ── In-memory implementation ────────────────────────────────────
@@ -131,24 +135,17 @@ class MemoryRateLimitStore implements RateLimitStore {
     return entries;
   }
 
-  async getLockout(key: string): Promise<AccountLockoutState | null> {
-    key = boundedKey(key);
+  private readLockout(key: string, now: number): AccountLockoutState | null {
     const row = this.lockouts.get(key);
     if (!row) return null;
-    if (row.expiresAt <= Date.now()) {
+    if (row.expiresAt <= now || (row.state.lockedUntil !== null && row.state.lockedUntil <= now)) {
       this.lockouts.delete(key);
       return null;
     }
-    return { ...row.state };
+    return row.state;
   }
 
-  async setLockout(
-    key: string,
-    state: AccountLockoutState,
-    ttlMs: number,
-  ): Promise<void> {
-    key = boundedKey(key);
-    const now = Date.now();
+  private writeLockout(key: string, state: AccountLockoutState, expiresAt: number, now: number) {
     if (!this.lockouts.has(key) && this.lockouts.size >= MEMORY_STORE_MAX_KEYS) {
       // Expired lockouts make room first, so a burst of failures cannot push out a live lock.
       if (now - this.lastLockoutSweepAt >= MEMORY_STORE_SWEEP_INTERVAL_MS) {
@@ -162,14 +159,35 @@ class MemoryRateLimitStore implements RateLimitStore {
         if (oldest !== undefined) this.lockouts.delete(oldest);
       }
     }
-    this.lockouts.set(key, {
-      state: { ...state },
-      expiresAt: now + Math.max(1, ttlMs),
+    this.lockouts.set(key, { state: { ...state }, expiresAt });
+  }
+
+  async getLockout(key: string): Promise<AccountLockoutState | null> {
+    const state = this.readLockout(boundedKey(key), Date.now());
+    return state && { ...state };
+  }
+
+  async setLockout(key: string, state: AccountLockoutState, ttlMs: number): Promise<void> {
+    const now = Date.now();
+    this.writeLockout(boundedKey(key), state, now + Math.max(1, ttlMs), now);
+  }
+
+  async recordFailures(counters: FailureCounter[], lockoutMs: number, retentionMs: number) {
+    const now = Date.now();
+    return counters.map(({ key, maxFailures }) => {
+      const bounded = boundedKey(key);
+      const previous = this.readLockout(bounded, now);
+      const failCount = previous && (previous.lockedUntil !== null || now - previous.lastFailureAt < retentionMs)
+        ? previous.failCount + 1 : 1;
+      const lockedUntil = previous?.lockedUntil ?? (failCount >= maxFailures ? now + lockoutMs : null);
+      const state = { failCount, lockedUntil, lastFailureAt: now };
+      this.writeLockout(bounded, state, lockedUntil ?? now + retentionMs, now);
+      return state;
     });
   }
 
-  async deleteLockout(key: string): Promise<void> {
-    this.lockouts.delete(boundedKey(key));
+  async deleteLockouts(keys: string[]): Promise<void> {
+    for (const key of keys) this.lockouts.delete(boundedKey(key));
   }
 
   private cleanup() {
@@ -211,9 +229,9 @@ interface RedisClientLike {
    * keeps those events from becoming uncaughtExceptions. */
   on(event: "error", listener: (error: unknown) => void): unknown;
   connect(): Promise<void>;
-  get(key: string): Promise<string | null>;
+  eval(script: string, options: { keys: string[]; arguments: string[] }): Promise<unknown>;
   set(key: string, value: string, options?: { PX?: number }): Promise<unknown>;
-  del(key: string): Promise<unknown>;
+  del(keys: string[]): Promise<unknown>;
   multi(): {
     zAdd(key: string, entry: { score: number; value: string }): unknown;
     zRemRangeByScore(key: string, min: number, max: number): unknown;
@@ -223,6 +241,54 @@ interface RedisClientLike {
     execAsPipeline(): Promise<RedisExecResult>;
   };
 }
+
+// Existing deployments store JSON with a short TTL grace period. Check the
+// embedded deadline and delete it in the same Redis operation as the read.
+const READ_LOCKOUT = `
+local clock = redis.call('TIME')
+local now = tonumber(clock[1]) * 1000 + math.floor(tonumber(clock[2]) / 1000)
+local function readLockout(key)
+  local raw = redis.call('GET', key)
+  if not raw then return nil end
+  local ok, state = pcall(cjson.decode, raw)
+  if not ok or type(state) ~= 'table' or type(state.failCount) ~= 'number'
+    or type(state.lastFailureAt) ~= 'number'
+    or (state.lockedUntil ~= cjson.null and type(state.lockedUntil) ~= 'number') then
+    return nil
+  end
+  if state.lockedUntil ~= cjson.null and state.lockedUntil <= now then
+    redis.call('DEL', key)
+    return nil
+  end
+  return state, raw
+end
+`;
+
+const GET_LOCKOUT = READ_LOCKOUT + `
+local _, raw = readLockout(KEYS[1])
+return raw or false
+`;
+
+const RECORD_FAILURES = READ_LOCKOUT + `
+local lockoutMs, retentionMs = tonumber(ARGV[1]), tonumber(ARGV[2])
+local result = {}
+for i, key in ipairs(KEYS) do
+  local state = readLockout(key)
+  if not state or (state.lockedUntil == cjson.null and now - state.lastFailureAt >= retentionMs) then
+    state = {failCount = 0, lockedUntil = cjson.null}
+  end
+  state.failCount = state.failCount + 1
+  state.lastFailureAt = now
+  if state.lockedUntil == cjson.null and state.failCount >= tonumber(ARGV[i + 2]) then
+    state.lockedUntil = now + lockoutMs
+  end
+  local ttl = state.lockedUntil == cjson.null and retentionMs or state.lockedUntil - now
+  result[i] = cjson.encode(state)
+  redis.call('SET', key, result[i], 'PX', ttl)
+end
+return result
+`;
+
 class RedisRateLimitStore implements RateLimitStore {
   private prefix = "rl:";
   private _client: RedisClientLike | null = null;
@@ -309,21 +375,8 @@ class RedisRateLimitStore implements RateLimitStore {
 
   async getLockout(key: string): Promise<AccountLockoutState | null> {
     const client = await this.getClient();
-    const raw = await client.get(`${this.prefix}lockout:${key}`);
-    if (!raw) return null;
-    try {
-      const parsed = JSON.parse(raw) as AccountLockoutState;
-      if (
-        typeof parsed.failCount !== "number" ||
-        typeof parsed.lastFailureAt !== "number" ||
-        !(parsed.lockedUntil === null || typeof parsed.lockedUntil === "number")
-      ) {
-        return null;
-      }
-      return parsed;
-    } catch {
-      return null;
-    }
+    const raw = await client.eval(GET_LOCKOUT, { keys: [`${this.prefix}lockout:${key}`], arguments: [] });
+    return typeof raw === "string" ? JSON.parse(raw) : null;
   }
 
   async setLockout(
@@ -337,9 +390,18 @@ class RedisRateLimitStore implements RateLimitStore {
     });
   }
 
-  async deleteLockout(key: string): Promise<void> {
+  async recordFailures(counters: FailureCounter[], lockoutMs: number, retentionMs: number): Promise<AccountLockoutState[]> {
     const client = await this.getClient();
-    await client.del(`${this.prefix}lockout:${key}`);
+    const rows = await client.eval(RECORD_FAILURES, {
+      keys: counters.map(({ key }) => `${this.prefix}lockout:${key}`),
+      arguments: [String(lockoutMs), String(retentionMs), ...counters.map(({ maxFailures }) => String(maxFailures))],
+    }) as string[];
+    return rows.map(row => JSON.parse(row));
+  }
+
+  async deleteLockouts(keys: string[]): Promise<void> {
+    const client = await this.getClient();
+    await client.del(keys.map(key => `${this.prefix}lockout:${key}`));
   }
 }
 

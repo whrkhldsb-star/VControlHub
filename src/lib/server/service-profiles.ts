@@ -4,7 +4,7 @@ import { mkdir } from "node:fs/promises";
 import type { SessionPayload } from "@/lib/auth/session";
 import { isGlobalTeamManager, serverOriginData, serverTeamWhere, teamCreateData, teamWhere } from "@/lib/auth/team-scope";
 import { prisma } from "@/lib/db";
-import { BusinessError, ForbiddenError, NotFoundError, ValidationError } from "@/lib/errors";
+import { BusinessError, ConflictError, ForbiddenError, NotFoundError, ValidationError } from "@/lib/errors";
 import { serviceT } from "@/lib/i18n/service-locale";
 import {
   buildSshParamsFromServer,
@@ -23,8 +23,8 @@ import { revokeInheritedSftpShares, revokeNodeShares } from "@/lib/storage/node-
 import { checkStorageNodeHealth } from "@/lib/storage/service-nodes";
 import { normalizeServerInput } from "./config";
 import { defaultStoragePath } from "./default-storage-path";
-import { findServerProfileForSession, savedProfileBinding, SERVER_PROFILE_INCLUDE, type ServerProfileRecord } from "./service-profile-includes";
-import { createServerSchema, type CreateServerInput } from "./schema";
+import { findServerProfileForSession, probeEndpointWhere, savedProfileBinding, SERVER_PROFILE_INCLUDE, type ServerProfileRecord } from "./service-profile-includes";
+import { createServerSchema, storagePathSchema, type CreateServerInput } from "./schema";
 import { parseServerSyncTargetAuth } from "@/lib/sync/target-auth";
 import { applyServerDirectGatewayState, applyServerDirectGatewayStateUnderLock } from "./service-direct-gateway";
 import { installServerAgent, installServerAgentUnderLock, removeAgentFromHost, resetAgentForModeChange, withServerLifecycleLock } from "./agent-service";
@@ -232,7 +232,7 @@ async function provisionNewServer(ctx: {
       const dialectSsh = await buildSshParamsFromServer(server, server.sshKey ?? null);
       const dialect = await detectOsDialect(dialectSsh);
       await prisma.server.update({
-        where: { id: server.id },
+        where: probeEndpointWhere(server, true),
         data: {
           osDialect: serializeDialect(dialect),
           osInfo: dialect.distroName,
@@ -247,7 +247,7 @@ async function provisionNewServer(ctx: {
 
   if (managementMode === "AGENT" && !isLocalHost && connectivityVerified) {
     try {
-      await installServerAgent(server.id);
+      await installServerAgent(server.id, server.teamId, probeEndpointWhere(server, true));
     } catch (error) {
       warnings.push(t("backend.server.agentInstallFailed", { error: getErrorMessage(error) }));
     }
@@ -263,28 +263,15 @@ async function provisionNewServer(ctx: {
 async function applyStoragePathChange(
   lifecycleLockHeld: boolean,
   server: ServerProfileRecord,
-  input: Pick<UpdateServerInput, "storagePath" | "repairStoragePath">,
+  rootMoved: boolean,
   session: TeamSession | null | undefined,
   t: TFn,
 ): Promise<string[]> {
-  const nextStoragePath = typeof input.storagePath === "string" ? input.storagePath.trim() : "";
-  const repairStoragePath = input.repairStoragePath === true;
   const storageNode = server.storageNode;
   const warnings: string[] = [];
-  if (storageNode && (nextStoragePath || repairStoragePath)) {
-    const targetPath = nextStoragePath || storageNode.basePath;
+  if (storageNode) {
+    const targetPath = storageNode.basePath;
     const remoteNode = storageNode.driver === "SFTP" || (!storageNode.driver && !isLocalHostLiteral(server.host));
-    // A local root stays inside the customer's own storage namespace.
-    if (!remoteNode && session && !isGlobalTeamManager(session)
-      && (!session.currentTeamId || !localBasePathBelongsToTenant(targetPath, session.currentTeamId))) {
-      throw new ForbiddenError(t("backend.server.localHostPlatformOnly"));
-    }
-    if (nextStoragePath && nextStoragePath !== storageNode.basePath) {
-      await prisma.storageNode.update({
-        where: { id: storageNode.id, serverId: server.id, teamId: server.teamId, basePath: storageNode.basePath, driver: storageNode.driver },
-        data: { basePath: targetPath, ...revokeNodeShares() },
-      });
-    }
     if (remoteNode) {
       try {
         await createRemoteDirectory({
@@ -299,7 +286,7 @@ async function applyStoragePathChange(
           error: getErrorMessage(error),
         }));
       }
-      if (nextStoragePath && nextStoragePath !== storageNode.basePath && server.directGatewayDesiredEnabled) {
+      if (rootMoved && server.directGatewayDesiredEnabled) {
         warnings.push(...await moveDirectGatewayRoot(lifecycleLockHeld, server, storageNode.id, targetPath, session, t));
       }
     } else {
@@ -490,7 +477,7 @@ export async function createServerProfile(
 
   if (connectivityVerified) {
     await prisma.server.update({
-      where: { id: server.id },
+      where: probeEndpointWhere(server, true),
       data: {
         onboardingStatus: onboardingWarnings.length > 0 ? "NEEDS_ATTENTION" : "READY",
         onboardingLastError: onboardingWarnings.length > 0
@@ -502,10 +489,11 @@ export async function createServerProfile(
 
   // Re-fetch to include the newly created storageNode relation (+ dialect fields)
   const refreshed = await prisma.server.findUnique({
-    where: { id: server.id },
+    where: probeEndpointWhere(server, connectivityVerified),
     include: SERVER_PROFILE_INCLUDE,
   });
 
+  if (!refreshed) throw new NotFoundError(t("backend.server.nodeNotFound"));
   safeRevalidatePath("/storage");
   safeRevalidatePath("/files");
 
@@ -547,6 +535,15 @@ async function saveServerProfile(serverId: string, current: ServerProfileRecord,
     throw new ValidationError(t("backend.server.osImmutable"));
   }
   if (current.operatingSystem === "WINDOWS") return updateWindowsServerProfile(serverId, current, input, session, t, reconfigureAgent);
+
+  const storagePath = storagePathSchema.parse(input.storagePath?.trim() || undefined);
+  const priorNode = current.storageNode;
+  const moveRoot = Boolean(priorNode && storagePath && storagePath !== priorNode.basePath);
+  const remoteNode = priorNode && (priorNode.driver === "SFTP" || (!priorNode.driver && !isLocalHostLiteral(current.host)));
+  if (priorNode && (storagePath || input.repairStoragePath) && !remoteNode && session && !isGlobalTeamManager(session)
+    && (!session.currentTeamId || !localBasePathBelongsToTenant(storagePath || priorNode.basePath, session.currentTeamId))) {
+    throw new ForbiddenError(t("backend.server.localHostPlatformOnly"));
+  }
 
   const removeSshCredential = input.removeSshCredential === true;
   const requestedManagementMode = input.managementMode ?? current.managementMode;
@@ -697,9 +694,15 @@ async function saveServerProfile(serverId: string, current: ServerProfileRecord,
         typeof input.enabled === "boolean" ? input.enabled : current.enabled,
     },
   } satisfies Prisma.ServerUpdateArgs;
-  updated = endpointChanged ? await prisma.$transaction(async (tx) => {
+  updated = endpointChanged || moveRoot ? await prisma.$transaction(async (tx) => {
     const saved = await tx.server.update(update);
-    await revokeInheritedSftpShares(tx, current, normalized);
+    if (endpointChanged) await revokeInheritedSftpShares(tx, current, normalized);
+    if (moveRoot && priorNode) {
+      await tx.storageNode.update({
+        where: { id: priorNode.id, serverId, teamId: current.teamId, driver: priorNode.driver, basePath: priorNode.basePath, host: priorNode.host, port: priorNode.port, username: priorNode.username },
+        data: { basePath: storagePath, ...revokeNodeShares() },
+      });
+    }
     return saved;
   }) : await prisma.server.update(update);
   } finally {
@@ -716,10 +719,10 @@ async function saveServerProfile(serverId: string, current: ServerProfileRecord,
     const node = profile?.storageNode;
     const prior = current.storageNode;
     if (!profile || !node || prior.id !== node.id || prior.teamId !== node.teamId || prior.driver !== node.driver ||
-      prior.basePath !== node.basePath || prior.host !== node.host || prior.port !== node.port || prior.username !== node.username) {
+      (storagePath || prior.basePath) !== node.basePath || prior.host !== node.host || prior.port !== node.port || prior.username !== node.username) {
       throw new NotFoundError(t("backend.server.nodeNotFound"));
     }
-    onboardingWarnings.push(...await applyStoragePathChange(reconfigureAgent, profile, input, session, t));
+    onboardingWarnings.push(...await applyStoragePathChange(reconfigureAgent, profile, moveRoot, session, t));
   }
 
   const refreshed = await findServerProfileForSession(serverId, session, binding);
@@ -741,9 +744,15 @@ export async function toggleServerEnabled(
   if (!current) throw new NotFoundError(t("backend.server.nodeNotFound"));
 
   if (!current.enabled) {
+    const changedEndpoint = (error: unknown): never => {
+      if (error instanceof Prisma.PrismaClientKnownRequestError && error.code === "P2025") {
+        throw new ConflictError(t("backend.command.connectionChanged"));
+      }
+      throw error;
+    };
     if (current.operatingSystem === "WINDOWS") {
       if (!current.rdpPassword) throw new ValidationError(t("backend.server.windowsPasswordRequiredToEnable"));
-      const updated = await prisma.server.update({ where: { id: serverId, teamId: current.teamId }, data: { enabled: true }, include: SERVER_PROFILE_INCLUDE });
+      const updated = await prisma.server.update({ where: { ...probeEndpointWhere(current, false), rdpPassword: current.rdpPassword }, data: { enabled: true }, include: SERVER_PROFILE_INCLUDE }).catch(changedEndpoint);
       return { ...enrichServer(updated), onboardingWarnings: [] as string[] };
     }
     const hasSshCredential = current.connectionType === "SSH_KEY"
@@ -756,9 +765,9 @@ export async function toggleServerEnabled(
       Date.now() - current.agentLastSeenAt.getTime() < 90_000
     ) {
       const updated = await prisma.server.update({
-        where: { id: serverId, teamId: current.teamId ?? null },
+        where: { ...probeEndpointWhere(current, false), agentTokenHash: current.agentTokenHash },
         data: { enabled: true, onboardingStatus: "READY", onboardingLastError: null },
-      });
+      }).catch(changedEndpoint);
       return { ...updated, onboardingWarnings: [] as string[] };
     }
     const normalized = normalizeServerInput({
@@ -829,12 +838,16 @@ export async function toggleServerEnabled(
 
     const updated = await prisma.$transaction(async (tx) => {
       const updated = await tx.server.update({
-        where: { id: serverId, teamId: current.teamId ?? null },
+        where: probeEndpointWhere(current, false),
         data: { enabled: true, hostKeySha256 },
       });
       if (current.storageNode) {
         await tx.storageNode.update({
-          where: { id: current.storageNode.id },
+          where: {
+            id: current.storageNode.id, serverId, teamId: current.teamId,
+            host: current.storageNode.host, port: current.storageNode.port, username: current.storageNode.username,
+            hostKeySha256: current.storageNode.hostKeySha256, driver: current.storageNode.driver, basePath: current.storageNode.basePath,
+          },
           data: {
             ...(current.storageNode.host == null && (current.storageNode.port ?? current.port) === current.port ? { hostKeySha256 } : {}),
             healthStatus: "UNKNOWN",
@@ -845,12 +858,12 @@ export async function toggleServerEnabled(
         });
       }
       return updated;
-    });
+    }).catch(changedEndpoint);
 
     const onboardingWarnings: string[] = [];
     if (current.managementMode === "AGENT" && !isLocalHostLiteral(current.host)) {
       try {
-        await installServerAgent(serverId);
+        await installServerAgent(serverId, current.teamId, probeEndpointWhere(updated, true));
       } catch (error) {
         onboardingWarnings.push(t("backend.server.agentInstallFailed", { error: getErrorMessage(error) }));
       }
@@ -891,7 +904,7 @@ export async function toggleServerEnabled(
       try {
         const dialect = await detectOsDialect({ ...ssh, hostKeySha256 });
         await prisma.server.update({
-          where: { id: serverId, teamId: current.teamId ?? null },
+          where: probeEndpointWhere(updated, true),
           data: {
             osDialect: serializeDialect(dialect),
             osInfo: dialect.distroName,
@@ -905,14 +918,14 @@ export async function toggleServerEnabled(
     }
 
     await prisma.server.update({
-      where: { id: serverId, teamId: current.teamId ?? null },
+      where: probeEndpointWhere(updated, true),
       data: {
         onboardingStatus: onboardingWarnings.length > 0 ? "NEEDS_ATTENTION" : "READY",
         onboardingLastError: onboardingWarnings.length > 0
           ? onboardingWarnings.join(" ").slice(0, 2000)
           : null,
       },
-    });
+    }).catch(changedEndpoint);
 
     return { ...updated, onboardingWarnings };
   }

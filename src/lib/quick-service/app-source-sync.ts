@@ -7,6 +7,7 @@
  * - Updates AppSource metadata (last sync time, status, etc.)
  */
 
+import { acquireAdvisoryLock } from "@/lib/concurrency/advisory-lock";
 import { Prisma } from "@prisma/client";
 
 import { isUniqueViolation, prisma } from "@/lib/db";
@@ -38,12 +39,21 @@ type RemoteAppRow = Prisma.AppSourceAppGetPayload<{ include: { source: { select:
 const SYNC_UPSERT_CONCURRENCY = 8;
 
 export async function syncSource(sourceId: string): Promise<{ synced: number; errors: number }> {
+	const release = await acquireAdvisoryLock("app-source-sync", sourceId);
+	try {
+		return await syncLockedSource(sourceId);
+	} finally {
+		await release();
+	}
+}
+
+async function syncLockedSource(sourceId: string) {
 	const source = await prisma.appSource.findUnique({ where: { id: sourceId } });
 	if (!source) throw new NotFoundError(t("backend.quick-service.sourceNotFound"));
 	if (!source.enabled) throw new BusinessError(t("backend.quick-service.sourceIsDisabled"));
 
 	try {
-		const apps = await fetchSourceApps(source.name, source.type, source.url);
+		const { apps, complete } = await fetchSourceApps(source.name, source.type, source.url);
 
 		let synced = 0;
 		let errors = 0;
@@ -114,7 +124,7 @@ export async function syncSource(sourceId: string): Promise<{ synced: number; er
 		let lastExistingId: string | undefined;
 		// The adapters cap remote results. Never delete rows when the source may
 		// have been truncated, otherwise a large healthy catalog can be damaged.
-		if (apps.length < MAX_REMOTE_APPS) {
+		if (complete) {
 			const staleIds: string[] = [];
 			while (true) {
 				const existing = await prisma.appSourceApp.findMany({

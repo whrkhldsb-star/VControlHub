@@ -3,9 +3,7 @@
  */
 import { z } from "zod";
 
-import { t } from "@/lib/i18n/service-translations";
-
-import { ITSM_DIRECTION_VALUES, ITSM_PROVIDER_VALUES } from "./types";
+import { ITSM_DIRECTION_VALUES, ITSM_PROVIDER_VALUES, type ItsmCredentials } from "./types";
 
 export const itsmProviderSchema = z.enum(ITSM_PROVIDER_VALUES);
 export const itsmDirectionSchema = z.enum(ITSM_DIRECTION_VALUES);
@@ -33,6 +31,7 @@ export const itsmCredentialsSchema = z
 const itsmConfigObjectSchema = z
 	.object({
 		webhookUrl: z.string().trim().max(2048).optional(),
+		idempotentDelivery: z.boolean().optional(),
 		chatId: z.string().trim().max(256).optional(),
 		defaultPriority: z
 			.enum(["LOW", "NORMAL", "HIGH", "URGENT", "low", "normal", "high", "urgent"])
@@ -46,7 +45,7 @@ const itsmConfigObjectSchema = z
 
 export const itsmConfigSchema = itsmConfigObjectSchema.default({});
 
-export const createItsmConnectionSchema = z
+const connectionFields = z
 	.object({
 		name: z.string().trim().min(1).max(128),
 		provider: itsmProviderSchema,
@@ -55,47 +54,53 @@ export const createItsmConnectionSchema = z
 		credentials: itsmCredentialsSchema.optional(),
 		config: itsmConfigSchema.optional(),
 		teamId: z.string().trim().min(1).max(64).optional().nullable(),
-	})
-	// Said in the request's language (the translator reads it when the schema runs): these sentences are what the
-	// form's toast shows for a field left empty.
-	.superRefine((val, ctx) => {
-		const direction = val.direction ?? "bidirectional";
-		const needsOutbound = direction === "outbound" || direction === "bidirectional";
-		const needsInbound = direction === "inbound" || direction === "bidirectional";
-		const url = val.config?.webhookUrl?.trim();
-		if (needsOutbound && val.provider !== "telegram" && !url) {
-			ctx.addIssue({
-				code: "custom",
-				message: t("backend.itsm.webhookurlIsRequired"),
-				path: ["config", "webhookUrl"],
-			});
-		}
-		if (val.provider === "telegram" && needsOutbound && !val.credentials?.botToken) {
-			ctx.addIssue({
-				code: "custom",
-				message: t("backend.itsm.telegramBottokenIsRequired"),
-				path: ["credentials", "botToken"],
-			});
-		}
-		if (val.provider === "telegram" && needsOutbound && !val.config?.chatId?.trim()) {
-			ctx.addIssue({
-				code: "custom",
-				message: t("backend.itsm.telegramChatidIsRequired"),
-				path: ["config", "chatId"],
-			});
-		}
-		if (needsInbound && !val.credentials?.webhookSecret && val.provider !== "telegram") {
-			// Allow missing secret but warn via validation only when inbound is primary without any secret
-			// Soft: require secret for pure inbound to avoid open endpoints.
-			if (direction === "inbound") {
-				ctx.addIssue({
-					code: "custom",
-					message: t("backend.itsm.inboundSecretIsRequired"),
-					path: ["credentials", "webhookSecret"],
-				});
-			}
-		}
 	});
+
+type ConnectionFields = z.infer<typeof connectionFields>;
+
+export function inboundSigningSecret(provider: string, credentials?: ItsmCredentials) {
+	return provider === "slack" || provider === "feishu"
+		? credentials?.signingSecret || credentials?.webhookSecret
+		: credentials?.webhookSecret || credentials?.signingSecret;
+}
+
+function checkReadiness(val: Pick<ConnectionFields, "config" | "credentials" | "direction" | "provider" | "enabled">, ctx: z.RefinementCtx) {
+	if (val.enabled === false) return;
+	const direction = val.direction ?? "bidirectional";
+	const needsOutbound = direction === "outbound" || direction === "bidirectional";
+	const needsInbound = direction === "inbound" || direction === "bidirectional";
+	const url = val.config?.webhookUrl?.trim();
+	if (needsOutbound && val.provider !== "telegram" && !url) {
+		ctx.addIssue({
+			code: "custom",
+			message: "Webhook URL is required when Webhook is enabled",
+			path: ["config", "webhookUrl"],
+		});
+	}
+	if (val.provider === "telegram" && needsOutbound && !val.credentials?.botToken) {
+		ctx.addIssue({
+			code: "custom",
+			message: "API Key is required",
+			path: ["credentials", "botToken"],
+		});
+	}
+	if (val.provider === "telegram" && needsOutbound && !val.config?.chatId?.trim()) {
+		ctx.addIssue({
+			code: "custom",
+			message: "Recipient is required",
+			path: ["config", "chatId"],
+		});
+	}
+	if (needsInbound && !inboundSigningSecret(val.provider, val.credentials)) {
+		ctx.addIssue({
+			code: "custom",
+			path: ["credentials", val.provider === "slack" ? "signingSecret" : "webhookSecret"],
+			message: "API Key is required",
+		});
+	}
+}
+
+export const createItsmConnectionSchema = connectionFields.superRefine(checkReadiness);
 
 export const updateItsmConnectionSchema = z
 	.object({

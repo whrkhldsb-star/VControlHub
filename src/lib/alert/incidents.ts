@@ -8,11 +8,14 @@
  *
  * On-call users (rule.onCallUserIds) receive in-app first; empty = notification:manage admins.
  */
-import type { Prisma } from "@prisma/client";
+import { createHash } from "node:crypto";
+import { Prisma, type AlertIncident } from "@prisma/client";
+import { queueIncidentRemediation } from "./remediation";
+import { verifiedRuleChannels } from "./channel-grants";
 import { prisma, isUniqueViolation } from "@/lib/db";
 import { canAlertRuleTargetTeam } from "./rule-scope";
 import type { SessionPayload } from "@/lib/auth/session";
-import { serverTeamWhere, teamWhere } from "@/lib/auth/team-scope";
+import { liveCustomerRowsWhere, rawServerScope, seesAllCustomers, serverTeamWhere, teamWhere } from "@/lib/auth/team-scope";
 import { NotFoundError, ValidationError } from "@/lib/errors";
 import { createLogger } from "@/lib/logging";
 import { createNotification, type NotificationType } from "@/lib/notification/service";
@@ -29,6 +32,8 @@ import { customerPermissionHoldersWhere, PLATFORM_ADMIN_WHERE } from "@/lib/auth
 const logger = createLogger("alert:incidents");
 
 export type AlertFireInput = {
+  playbookIds?: string[];
+  silenceWindows?: string[];
   ruleId: string;
   ruleName: string;
   serverId: string | null;
@@ -275,7 +280,6 @@ async function dispatchChannels(input: {
   return { delivered, failed };
 }
 
-/** Total delivery attempts for an incident's "fired" notification. */
 /** Fallback when the `alerts.notifyMaxAttempts` setting cannot be read. */
 const MAX_NOTIFY_ATTEMPTS = 8;
 
@@ -418,8 +422,10 @@ async function retryPendingIncidentDelivery(
   if (existing.status !== "OPEN" || pending.length === 0 || !existing.nextNotifyAt || existing.nextNotifyAt.getTime() > now.getTime() || attempts >= maxAttempts) {
     return { delivered: [], failed: [], attempted: false };
   }
+  if (isNowInAlertSilenceWindow(input.silenceWindows ?? [])) return { delivered: [], failed: [], attempted: false };
+  const round = { id: existing.id, status: "OPEN" as const, level: existing.level, lastNotifiedAt: existing.lastNotifiedAt ?? null };
   const claimed = await prisma.alertIncident.updateMany({
-    where: { id: existing.id, status: "OPEN", nextNotifyAt: existing.nextNotifyAt },
+    where: { ...round, notifyAttempts: attempts, nextNotifyAt: existing.nextNotifyAt },
     data: { notifyAttempts: attempts + 1, nextNotifyAt: nextNotifyRetryAt(now, attempts + 1) },
   });
   if (claimed.count === 0) return { delivered: [], failed: [], attempted: false };
@@ -442,7 +448,7 @@ async function retryPendingIncidentDelivery(
   // pending state, and this late level-N result must not clear it — nor the
   // state of a later opening of the same incident (same id, OPEN, level 1).
   await prisma.alertIncident.updateMany({
-    where: { id: existing.id, status: "OPEN", level: existing.level, lastNotifiedAt: existing.lastNotifiedAt ?? null },
+    where: { ...round, notifyAttempts: attempts + 1 },
     data: deliveryState(now, attempts + 1, dispatch.failed, maxAttempts),
   });
   if (dispatch.failed.length > 0) {
@@ -451,21 +457,14 @@ async function retryPendingIncidentDelivery(
   return { ...dispatch, attempted: true };
 }
 
-/**
- * Create or refresh an OPEN incident and send level-1 notifications.
- * Re-firing while OPEN/ACKNOWLEDGED only updates value and re-sends to the
- * channels that have not received the fired notification yet (with backoff);
- * channels that delivered are never paged again unless escalated.
- */
-/**
- * Reopen a RESOLVED incident only if it is still RESOLVED: two evaluations
- * (the worker and a manual run) that both read the resolved snapshot must not
- * both notify and both start the linked playbook. Null when another caller
- * reopened it first.
- */
-async function reopenResolvedIncident(id: string, data: Prisma.AlertIncidentUpdateManyMutationInput) {
-  const claimed = await prisma.alertIncident.updateMany({ where: { id, status: "RESOLVED" }, data });
-  return claimed.count === 1 ? prisma.alertIncident.findUniqueOrThrow({ where: { id } }) : null;
+/** Only the winning opening commits its remediation jobs. */
+async function saveOpening(input: AlertFireInput, now: Date, write: (tx: Prisma.TransactionClient) => Promise<AlertIncident | null>) {
+  return prisma.$transaction(async (tx) => {
+    if (isNowInAlertSilenceWindow(input.silenceWindows ?? [])) return null;
+    const row = await write(tx);
+    if (row) await queueIncidentRemediation(tx, input, row.id, now);
+    return row;
+  });
 }
 
 /** Lost the reopen race: the winner notifies; this caller reports no fire. */
@@ -474,14 +473,14 @@ async function alreadyReopened(id: string) {
   return { incidentId: id, created: false, fired: false, notified: false, level: current?.level ?? 1 };
 }
 
+/** Open an incident and queue its remediation, or refresh its value and retry pending channels. */
 export async function openOrRefreshAlertIncident(input: AlertFireInput): Promise<{
-  incidentId: string;
+  incidentId: string | null;
   created: boolean;
   /**
    * True only when an incident was opened or re-opened this pass (the dispatch
    * path was reached). Independent of whether any channel actually delivered —
-   * callers use this to stamp `lastTriggeredAt` and run remediation playbooks so
-   * a fire is recorded even when notification is best-effort and fails.
+   * callers use this to stamp `lastTriggeredAt` even when notification fails.
    */
   fired: boolean;
   notified: boolean;
@@ -493,7 +492,10 @@ export async function openOrRefreshAlertIncident(input: AlertFireInput): Promise
 }> {
   const fingerprint = buildAlertFingerprint(input.ruleId, input.serverId, input.metric);
   const existing = await prisma.alertIncident.findUnique({ where: { fingerprint } });
-  const now = new Date();
+  // A new opening must have its own stamp even with a fixed clock, or a
+  // resolve/reopen within one millisecond could reuse the old delivery key.
+  const now = new Date(Math.max(Date.now(), existing?.status === "RESOLVED" && existing.lastNotifiedAt
+    ? existing.lastNotifiedAt.getTime() + 1 : 0));
 
   if (existing && (existing.status === "OPEN" || existing.status === "ACKNOWLEDGED")) {
     await prisma.alertIncident.update({
@@ -558,15 +560,22 @@ export async function openOrRefreshAlertIncident(input: AlertFireInput): Promise
     lastNotifiedAt: now,
     ...initialDeliveryState(now, input.notifyChannels),
   };
+  const reopen = (previous: AlertIncident) => saveOpening(input, now, async (tx) => {
+    const [row] = await tx.alertIncident.updateManyAndReturn({
+      where: { id: previous.id, status: "RESOLVED", lastNotifiedAt: previous.lastNotifiedAt, resolvedAt: previous.resolvedAt },
+      data: reopenData,
+    });
+    return row ?? null;
+  });
   let incident;
   let created = false;
   if (existing) {
-    const reopened = await reopenResolvedIncident(existing.id, reopenData);
+    const reopened = await reopen(existing);
     if (!reopened) return alreadyReopened(existing.id);
     incident = reopened;
   } else {
     try {
-      incident = await prisma.alertIncident.create({
+      incident = await saveOpening(input, now, (tx) => tx.alertIncident.create({
         data: {
           fingerprint,
           ruleId: input.ruleId,
@@ -583,7 +592,7 @@ export async function openOrRefreshAlertIncident(input: AlertFireInput): Promise
           lastNotifiedAt: now,
           ...initialDeliveryState(now, input.notifyChannels),
         },
-      });
+      }));
       created = true;
     } catch (error) {
       // Concurrent create on unique fingerprint — re-load and treat as refresh.
@@ -610,12 +619,14 @@ export async function openOrRefreshAlertIncident(input: AlertFireInput): Promise
           level: raced.level,
         };
       }
-      const reopened = await reopenResolvedIncident(raced.id, reopenData);
-      if (!reopened) return alreadyReopened(raced.id);
-      incident = reopened;
+      // Reread cooldown and choose a stamp newer than the opening that raced us.
+      return openOrRefreshAlertIncident(input);
     }
   }
 
+  // Silence started while the evaluation waited. A still-matching host can
+  // claim its opening and remediation together when the window ends.
+  if (!incident) return { incidentId: null, created: false, fired: false, notified: false, level: 1 };
   const dispatch = await dispatchFiredNotice({ ...input, incidentId: incident.id }, input.notifyChannels);
   // Delivery state is kept apart from the incident state so a failed channel
   // is retried by later evaluations instead of being forgotten. Best effort:
@@ -626,7 +637,7 @@ export async function openOrRefreshAlertIncident(input: AlertFireInput): Promise
     // while this send ran, the incident has the same id, OPEN and level 1:
     // the late result cleared the new round's failed channels and retry.
     await prisma.alertIncident.updateMany({
-      where: { id: incident.id, status: "OPEN", level: 1, lastNotifiedAt: now },
+      where: { id: incident.id, status: "OPEN", level: 1, lastNotifiedAt: now, notifyAttempts: 1 },
       data: deliveryState(now, 1, dispatch.failed, await notifyMaxAttempts()),
     });
   } catch (error) {
@@ -666,6 +677,7 @@ export async function resolveAlertIncident(input: {
   title: string;
   message: string;
   notifyChannels: string[];
+  silenceWindows?: string[];
   webhookUrl?: string | null;
   onCallUserIds?: string[];
   teamId?: string | null;
@@ -683,10 +695,11 @@ export async function resolveAlertIncident(input: {
   }
 
   const now = new Date();
+  if (isNowInAlertSilenceWindow(input.silenceWindows ?? [], now)) return { resolved: false };
   // Only the caller that actually moves it to RESOLVED notifies: two
   // evaluations seeing the metric recover used to send "resolved" twice.
   const claimed = await prisma.alertIncident.updateMany({
-    where: { id: existing.id, status: { in: ["OPEN", "ACKNOWLEDGED"] } },
+    where: { id: existing.id, status: { in: ["OPEN", "ACKNOWLEDGED"] }, lastNotifiedAt: existing.lastNotifiedAt },
     data: { status: "RESOLVED", resolvedAt: now, pendingNotifyChannels: [], nextNotifyAt: null },
   });
   if (claimed.count === 0) return { resolved: false };
@@ -793,6 +806,24 @@ export async function acknowledgeAlertIncident(input: {
   return { id: incident.id, status: "ACKNOWLEDGED" as const };
 }
 
+/** Persist bounded sweep progress per scope. A slower evaluator cannot rewind a newer cursor. */
+async function scanCursor(kind: string, scope: Record<string, unknown> | undefined) {
+  const key = `alerts.scan.${kind}.${createHash("sha256").update(JSON.stringify(scope ?? {})).digest("hex")}`;
+  const prior = await prisma.setting.findUnique({ where: { key }, select: { value: true } });
+  return {
+    afterId: prior?.value,
+    async finish(afterId?: string) {
+      if (prior) {
+        const where = { key, value: prior.value };
+        if (afterId) await prisma.setting.updateMany({ where, data: { value: afterId } });
+        else await prisma.setting.deleteMany({ where });
+      } else if (afterId) {
+        await prisma.setting.createMany({ data: { key, value: afterId }, skipDuplicates: true });
+      }
+    },
+  };
+}
+
 /**
  * Resolve incidents that no evaluation can reach any more. `evaluateAlerts`
  * looks at enabled rules and, for each, at the existing, enabled servers the
@@ -826,7 +857,8 @@ export async function resolveOrphanedAlertIncidents(options?: {
       ? { rule: options.ruleTeamWhere }
       : {};
   let resolved = 0;
-  let afterId: string | undefined;
+  const cursor = await scanCursor("orphans", options?.ruleTeamWhere);
+  let afterId = cursor.afterId;
   // Keyset by id. Resuming from a cursor row skipped the row after it whenever
   // that cursor row had just been resolved: it no longer matched the status
   // filter, so the "skip the cursor row" step dropped a real one instead.
@@ -842,18 +874,18 @@ export async function resolveOrphanedAlertIncidents(options?: {
         id: true,
         serverId: true,
         metric: true,
-        rule: { select: { enabled: true, metric: true, serverIds: true, teamId: true } },
+        rule: { select: { enabled: true, metric: true, serverIds: true, teamId: true, team: { select: { deletedAt: true } } } },
       },
       take: 500,
       orderBy: { id: "asc" },
     });
-    if (active.length === 0) break;
+    if (active.length === 0) { afterId = undefined; break; }
     afterId = active[active.length - 1]!.id;
 
     const serverIds = Array.from(new Set(active.map((i) => i.serverId).filter((v): v is string => Boolean(v))));
     const live = serverIds.length
       ? await prisma.server.findMany({
-          where: { id: { in: serverIds }, enabled: true },
+          where: { id: { in: serverIds }, enabled: true, ...liveCustomerRowsWhere() },
           select: { id: true, teamId: true },
         })
       : [];
@@ -865,7 +897,7 @@ export async function resolveOrphanedAlertIncidents(options?: {
         if (!server) return true;
         const rule = incident.rule;
         if (!rule) return false;
-        if (!rule.enabled || rule.metric !== incident.metric) return true;
+        if (!rule.enabled || rule.team?.deletedAt || rule.metric !== incident.metric) return true;
         if (!canAlertRuleTargetTeam(rule.teamId, server.teamId)) return true;
         return rule.serverIds.length > 0 && !rule.serverIds.includes(incident.serverId);
       })
@@ -877,8 +909,9 @@ export async function resolveOrphanedAlertIncidents(options?: {
       });
       resolved += res.count;
     }
-    if (active.length < 500) break;
+    if (active.length < 500) { afterId = undefined; break; }
   }
+  await cursor.finish(afterId);
   if (resolved > 0) logger.info("auto-resolved orphaned alert incidents", { resolved });
   return { resolved };
 }
@@ -895,84 +928,54 @@ export async function resolveOrphanedAlertIncidents(options?: {
  * sweep and escalation to incidents whose rule is visible to that tenant, so one
  * team's "evaluate now" never drives another team's incident lifecycle.
  */
-/**
- * Keyset filter for {@link escalateOverdueAlertIncidents} pagination. A named
- * helper (rather than an inline ternary) breaks TypeScript's inference cycle:
- * the query result feeds the cursor, whose narrowed type would otherwise feed
- * the very query that produces it (TS7022).
- */
-function keysetCursorFilter(cursor: { updatedAt: Date; id: string } | null) {
-  if (!cursor) return {};
-  return {
-    OR: [
-      { updatedAt: { gt: cursor.updatedAt } },
-      { updatedAt: cursor.updatedAt, id: { gt: cursor.id } },
-    ],
-  };
-}
-
 export async function escalateOverdueAlertIncidents(options?: {
   ruleTeamWhere?: Record<string, unknown>;
 }): Promise<{ escalated: number; notifyFailures: number; orphansResolved: number }> {
   const { resolved: orphansResolved } = await resolveOrphanedAlertIncidents(options);
-  const ruleFilter =
-    options?.ruleTeamWhere && Object.keys(options.ruleTeamWhere).length > 0
-      ? { rule: options.ruleTeamWhere }
-      : {};
   let escalated = 0;
   // Escalations that reached zero channels — the caller/cron can surface this.
   let notifyFailures = 0;
-  const nowMs = Date.now();
   const defaultEscalationMinutes = await getRuntimeSettingNumber("alerts.defaultEscalationMinutes").catch(() => 30);
   const maxAttempts = await notifyMaxAttempts();
-  // Keyset pagination on (updatedAt, id). The previous skip/limit pagination
-  // iterated an offset while the loop itself MUTATED the ordering key
-  // (escalating an incident stamps lastNotifiedAt/updatedAt, reshuffling the
-  // result set), so rows could shift behind the offset and skip a round.
-  // Keyset ordering also puts just-escalated rows (updatedAt = now) beyond the
-  // cursor, so claimed rows are never revisited within one pass; not-due rows
-  // are passed over exactly once. Safety cap ≈ 4000 rows per pass as before.
-  let cursor: { updatedAt: Date; id: string } | null = null;
+  const cursor = await scanCursor("escalations", options?.ruleTeamWhere);
+  let afterId = cursor.afterId;
   for (let page = 0; page < 20; page += 1) {
     const open = await prisma.alertIncident.findMany({
       where: {
         status: "OPEN",
-        ...ruleFilter,
-        ...keysetCursorFilter(cursor),
+        rule: { AND: [options?.ruleTeamWhere ?? {}, liveCustomerRowsWhere(), { enabled: true }] },
+        level: { lt: 3 },
+        ...(afterId ? { id: { gt: afterId } } : {}),
       },
-      include: {
-        rule: {
-          select: {
-            id: true,
-            name: true,
-            teamId: true,
-            escalationMinutes: true,
-            onCallUserIds: true,
-            notifyChannels: true,
-            webhookUrl: true,
-            enabled: true,
-            silenceWindows: true,
-          },
-        },
-      },
+      include: { rule: true },
       take: 200,
-      orderBy: [{ updatedAt: "asc" }, { id: "asc" }],
+      orderBy: { id: "asc" },
     });
-    if (open.length === 0) break;
+    if (open.length === 0) { afterId = undefined; break; }
 
     for (const incident of open) {
       if (!incident.rule?.enabled) continue;
       // A silence window promises no in-app notice or webhook: hold the
       // escalation; its anchor is unchanged, so it goes out once the window ends.
-      if (isNowInAlertSilenceWindow(incident.rule.silenceWindows ?? [], new Date(nowMs))) continue;
+      if (isNowInAlertSilenceWindow(incident.rule.silenceWindows ?? [])) continue;
       const minutes = Math.max(1, incident.rule.escalationMinutes ?? defaultEscalationMinutes);
       const anchor = incident.lastNotifiedAt ?? incident.createdAt;
-      if (nowMs - anchor.getTime() < minutes * 60_000) continue;
+      if (Date.now() - anchor.getTime() < minutes * 60_000) continue;
       if (incident.level >= 3) continue;
 
       const nextLevel = Math.min(3, incident.level + 1);
-      const threshold = new Date(nowMs - minutes * 60_000);
+      if (incident.serverId) {
+        const rule = incident.rule;
+        if (rule.metric !== incident.metric || (rule.serverIds.length && !rule.serverIds.includes(incident.serverId))) continue;
+        const host = await prisma.server.findFirst({
+          where: { id: incident.serverId, enabled: true, ...(rule.teamId ? { teamId: rule.teamId } : {}), ...liveCustomerRowsWhere() },
+          select: { id: true },
+        });
+        if (!host) continue;
+      }
+      const channels = await verifiedRuleChannels(incident.rule);
       const escalatedAt = new Date();
+      if (isNowInAlertSilenceWindow(incident.rule.silenceWindows ?? [], escalatedAt)) continue;
       // The claim also persists the escalation's delivery intent (every
       // channel pending, attempt 1 claimed), replacing whatever the previous
       // level left pending: the escalation is the notice that matters now, and
@@ -983,14 +986,15 @@ export async function escalateOverdueAlertIncidents(options?: {
           id: incident.id,
           status: "OPEN",
           level: incident.level,
-          OR: [{ lastNotifiedAt: null }, { lastNotifiedAt: { lte: threshold } }],
+          lastNotifiedAt: incident.lastNotifiedAt,
+          rule: { updatedAt: incident.rule.updatedAt, enabled: true, ...liveCustomerRowsWhere() },
         },
         data: {
           level: nextLevel,
           escalatedAt,
           lastNotifiedAt: escalatedAt,
           escalationMinutes: minutes,
-          ...initialDeliveryState(escalatedAt, incident.rule.notifyChannels),
+          ...initialDeliveryState(escalatedAt, channels),
         },
       });
       if (claimed.count !== 1) continue;
@@ -1000,12 +1004,12 @@ export async function escalateOverdueAlertIncidents(options?: {
         rule: { ...incident.rule, teamId: incident.rule.teamId ?? null },
         level: nextLevel,
         minutes,
-      }, incident.rule.notifyChannels);
+      }, channels);
       // Best effort, like the fired notice: losing this write leaves every
       // channel pending, so the escalation is re-sent rather than forgotten.
       try {
         await prisma.alertIncident.updateMany({
-          where: { id: incident.id, status: "OPEN", level: nextLevel },
+          where: { id: incident.id, status: "OPEN", level: nextLevel, lastNotifiedAt: escalatedAt, notifyAttempts: 1 },
           data: deliveryState(escalatedAt, 1, escalationDispatch.failed, maxAttempts),
         });
       } catch (error) {
@@ -1035,10 +1039,10 @@ export async function escalateOverdueAlertIncidents(options?: {
       escalated += 1;
     }
 
-    const last: { updatedAt: Date; id: string } = open[open.length - 1]!;
-    cursor = { updatedAt: last.updatedAt, id: last.id };
-    if (open.length < 200) break;
+    afterId = open.length === 200 ? open[open.length - 1]!.id : undefined;
+    if (!afterId) break;
   }
+  await cursor.finish(afterId);
 
   return { escalated, notifyFailures, orphansResolved };
 }
@@ -1051,7 +1055,7 @@ export async function listAlertIncidents(options?: {
   const status = options?.status;
   const readIncidents = (db: Prisma.TransactionClient, scope: Prisma.AlertIncidentWhereInput = {}) => db.alertIncident.findMany({
     where: { ...(status ? { status } : {}), ...scope },
-    orderBy: [{ status: "asc" }, { level: "desc" }, { createdAt: "desc" }],
+    orderBy: [{ status: "asc" }, { level: "desc" }, { createdAt: "desc" }, { id: "asc" }],
     take: options?.take ?? 100,
     include: {
       rule: { select: { id: true, name: true, escalationMinutes: true, onCallUserIds: true, teamId: true } },
@@ -1059,24 +1063,21 @@ export async function listAlertIncidents(options?: {
     },
   });
   const session = options?.session;
-  if (!session) return readIncidents(prisma);
-  const teamFilter = teamWhere(session);
-  if (!teamFilter.teamId) return readIncidents(prisma);
+  if (!session || seesAllCustomers(session)) return readIncidents(prisma);
+  const teamId = session.currentTeamId;
+  if (!teamId) return [];
 
   // AlertIncident has no server relation. Read both sides on one snapshot so
   // a transfer during listing cannot mix the old fleet with newer incidents.
   return prisma.$transaction(async (tx) => {
-    const servers = await tx.server.findMany({
-      where: serverTeamWhere(session),
-      select: { id: true },
-      take: 5000,
-    });
-    return readIncidents(tx, { OR: [
-      {
-        serverId: { in: servers.map((server) => server.id) },
-        rule: { OR: [teamFilter, { teamId: null }] },
-      },
-      { serverId: null, rule: teamFilter },
-    ] });
+    const ids = await tx.$queryRaw<Array<{ id: string }>>`
+      SELECT i.id FROM alert_incidents i JOIN alert_rules r ON r.id = i."ruleId"
+      WHERE (${status ?? null}::"AlertIncidentStatus" IS NULL OR i.status = ${status ?? null}::"AlertIncidentStatus")
+        AND ((r."teamId" = ${teamId} AND i."serverId" IS NULL)
+          OR ((r."teamId" IS NULL OR r."teamId" = ${teamId}) AND EXISTS (
+            SELECT 1 FROM servers s WHERE s.id = i."serverId" AND ${rawServerScope(session, "canRead")}
+          )))
+      ORDER BY i.status ASC, i.level DESC, i."createdAt" DESC, i.id ASC LIMIT ${options?.take ?? 100}`;
+    return readIncidents(tx, { id: { in: ids.map((row) => row.id) } });
   }, { isolationLevel: "RepeatableRead" });
 }

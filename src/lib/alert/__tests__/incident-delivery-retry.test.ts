@@ -43,6 +43,7 @@ function apply(row: Row, data: Record<string, unknown>) {
 vi.mock("@/lib/db", () => ({
 	isUniqueViolation: () => false,
 	prisma: {
+		$transaction<T>(callback: (tx: unknown) => Promise<T>) { return callback(this); },
 		alertIncident: {
 			findUnique: vi.fn(async ({ where }: { where: { fingerprint?: string; id?: string } }) => {
 				const row = [...store.values()].find((item) => (where.id ? item.id === where.id : item.fingerprint === where.fingerprint));
@@ -53,6 +54,8 @@ vi.mock("@/lib/db", () => ({
 				store.set(row.id, row);
 				return { ...row };
 			}),
+			updateManyAndReturn: vi.fn(async ({ where, data }: { where: Record<string, unknown>; data: Record<string, unknown> }) =>
+				[...store.values()].filter((row) => matches(row, where)).map((row) => ({ ...apply(row, data) }))),
 			findUniqueOrThrow: vi.fn(async ({ where }: { where: { id: string } }) => ({ ...store.get(where.id)! })),
 			update: vi.fn(async ({ where, data }: { where: { id: string }; data: Record<string, unknown> }) => ({ ...apply(store.get(where.id)!, data) })),
 			updateMany: vi.fn(async ({ where, data }: { where: Record<string, unknown>; data: Record<string, unknown> }) => {
@@ -136,7 +139,7 @@ describe("alert notification delivery retry", () => {
 		expect(retry).toMatchObject({ fired: false, notified: true, deliveredChannels: ["webhook"] });
 		expect(webhook).toHaveBeenCalledTimes(2);
 		expect(sendEmail).toHaveBeenCalledTimes(1); // no duplicate page on the channel that worked
-		expect(store.get(first.incidentId)).toMatchObject({ status: "OPEN", pendingNotifyChannels: [], nextNotifyAt: null });
+		expect(store.get(first.incidentId!)).toMatchObject({ status: "OPEN", pendingNotifyChannels: [], nextNotifyAt: null });
 
 		// Nothing left to deliver: further evaluations stay quiet.
 		minutes(10);
@@ -226,6 +229,18 @@ describe("alert notification delivery retry", () => {
 		expect([...(later.deliveredChannels ?? [])].sort()).toEqual(["email", "webhook"]);
 	});
 
+	it("ignores a late first failure after a newer attempt has successfully delivered", async () => {
+		let finish!: (value: typeof webhookDown) => void;
+		webhook.mockImplementationOnce(() => new Promise((resolve) => { finish = resolve; })).mockResolvedValueOnce(webhookUp);
+		const first = openOrRefreshAlertIncident(fire);
+		await vi.waitFor(() => expect(webhook).toHaveBeenCalledOnce());
+		minutes(2);
+		await openOrRefreshAlertIncident(fire);
+		finish(webhookDown);
+		const { incidentId } = await first;
+		expect(store.get(incidentId!)).toMatchObject({ notifyAttempts: 2, pendingNotifyChannels: [], nextNotifyAt: null });
+	});
+
 	it("backs off between attempts and stops after the attempt limit", async () => {
 		webhook.mockResolvedValue(webhookDown);
 		const first = await openOrRefreshAlertIncident(fire);
@@ -236,7 +251,7 @@ describe("alert notification delivery retry", () => {
 			minutes(61);
 			await openOrRefreshAlertIncident(fire);
 		}
-		const row = store.get(first.incidentId)!;
+		const row = store.get(first.incidentId!)!;
 		expect(webhook.mock.calls.length).toBe(row.notifyAttempts);
 		expect(row.notifyAttempts).toBeLessThanOrEqual(8);
 		expect(row).toMatchObject({ pendingNotifyChannels: ["webhook"], nextNotifyAt: null });
@@ -246,7 +261,7 @@ describe("alert notification delivery retry", () => {
 	it("does not retry once a human acknowledged the incident or it resolved", async () => {
 		webhook.mockResolvedValue(webhookDown);
 		const first = await openOrRefreshAlertIncident(fire);
-		await acknowledgeAlertIncident({ incidentId: first.incidentId, userId: "admin1" });
+		await acknowledgeAlertIncident({ incidentId: first.incidentId!, userId: "admin1" });
 		minutes(5);
 		await openOrRefreshAlertIncident(fire);
 		expect(webhook).toHaveBeenCalledTimes(1);
@@ -254,6 +269,6 @@ describe("alert notification delivery retry", () => {
 		store.clear();
 		const second = await openOrRefreshAlertIncident(fire);
 		await resolveAlertIncident({ ...fire, notifyChannels: [] });
-		expect(store.get(second.incidentId)).toMatchObject({ status: "RESOLVED", pendingNotifyChannels: [], nextNotifyAt: null });
+		expect(store.get(second.incidentId!)).toMatchObject({ status: "RESOLVED", pendingNotifyChannels: [], nextNotifyAt: null });
 	});
 });

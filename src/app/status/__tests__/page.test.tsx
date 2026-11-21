@@ -123,6 +123,19 @@ describe("/status page exposure", () => {
     expect(html).toMatch(/edge-1/);
   });
 
+  it.each([
+    { roles: ["admin"], mustChangePassword: true },
+    { roles: ["admin"], permissions: [] },
+    { roles: ["operator"], permissions: [] },
+  ])("keeps a restricted session %j on the closed board summary", async (session) => {
+    getCurrentSessionMock.mockResolvedValue({ userId: "u1", ...session });
+    readPublicBoardMock.mockResolvedValue(null);
+    await renderPage({ preview: "1" });
+    expect(readPublicBoardMock).toHaveBeenCalledWith(expect.anything(), { preview: false });
+    expect(getAllUptimeDataInternalMock).not.toHaveBeenCalled();
+    expect(getPublicStatusMock).not.toHaveBeenCalled();
+  });
+
   it("guest preview: administrators bypass the closed switch and see no internal data", async () => {
     getCurrentSessionMock.mockResolvedValue({ userId: "u1", roles: ["admin"] });
     readPublicBoardMock.mockResolvedValue(BOARD);

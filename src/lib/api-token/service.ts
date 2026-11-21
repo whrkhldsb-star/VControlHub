@@ -1,8 +1,9 @@
 import { createHash, randomBytes } from "node:crypto";
-import { Prisma } from "@prisma/client";
+import type { Prisma } from "@prisma/client";
 import { resolveSessionPermissions } from "@/lib/auth/identity-templates";
 import { getPermissionsFromRoles, type RoleKey } from "@/lib/auth/rbac";
 import { assertSessionCredentialBinding, type SessionPayload } from "@/lib/auth/session";
+import { writeAuditLog } from "@/lib/audit/service";
 import { prisma } from "@/lib/db";
 import { AuthError, ForbiddenError, NotFoundError, ValidationError } from "@/lib/errors";
 import { t } from "@/lib/i18n/service-translations";
@@ -134,33 +135,52 @@ export async function createApiToken(input: {
   });
 }
 
-export async function listApiTokens(userId: string, limit = 200) {
+export type TokenStatus = "all" | "active" | "expired" | "revoked";
+type TokenPageOptions = { pageSize: number; cursor?: string; status?: TokenStatus };
+
+function tokenStatusWhere(status: TokenStatus, now: Date): Prisma.ApiTokenWhereInput {
+  if (status === "active") return { revokedAt: null, OR: [{ expiresAt: null }, { expiresAt: { gt: now } }] };
+  if (status === "expired") return { revokedAt: null, expiresAt: { lte: now } };
+  return status === "revoked" ? { revokedAt: { not: null } } : {};
+}
+
+function tokenRows(userId: string, take: number, cursor?: string, status?: Prisma.ApiTokenWhereInput) {
   return prisma.apiToken.findMany({
-    where: { createdBy: userId },
-    orderBy: { createdAt: "desc" },
-    take: limit,
+    where: { createdBy: userId, ...status }, orderBy: [{ createdAt: "desc" }, { id: "desc" }], take,
+    ...(cursor ? { cursor: { id: cursor, createdBy: userId }, skip: 1 } : {}),
     select: API_TOKEN_SAFE_SELECT,
   });
 }
 
+export async function listApiTokenPage(userId: string, { pageSize, cursor, status = "all" }: TokenPageOptions) {
+  const now = new Date();
+  const owner = { createdBy: userId };
+  const where = tokenStatusWhere(status, now);
+  const [rows, totalTokens, activeTokens, filteredCount] = await prisma.$transaction([
+    tokenRows(userId, pageSize + 1, cursor, where),
+    prisma.apiToken.count({ where: owner }),
+    prisma.apiToken.count({ where: { ...owner, ...tokenStatusWhere("active", now) } }),
+    ...(status === "expired" || status === "revoked" ? [prisma.apiToken.count({ where: { ...owner, ...where } })] : []),
+  ], { isolationLevel: "RepeatableRead" });
+  const tokens = rows.slice(0, pageSize);
+  const total = filteredCount ?? (status === "active" ? activeTokens : totalTokens);
+  return { tokens, total, totalTokens, activeTokens, nextCursor: rows.length > pageSize ? tokens.at(-1)!.id : null };
+}
+
 export async function revokeApiToken(input: { userId: string; id: string }) {
   const owned = { id: input.id, createdBy: input.userId };
-  try {
-    return await prisma.apiToken.update({
-      where: { ...owned, revokedAt: null },
-      data: { revokedAt: new Date() },
-      select: API_TOKEN_SAFE_SELECT,
-    });
-  } catch (error) {
-    if (!(error instanceof Prisma.PrismaClientKnownRequestError && error.code === "P2025")) throw error;
-    // A repeated or concurrent revoke returns the first revocation timestamp.
-    const revoked = await prisma.apiToken.findUnique({
-      where: { ...owned, revokedAt: { not: null } },
-      select: API_TOKEN_SAFE_SELECT,
-    });
-    if (!revoked) throw new NotFoundError(t("backend.api-token.tokenNotFound"));
-    return revoked;
-  }
+  return prisma.$transaction(async (tx) => {
+    const changed = await tx.apiToken.updateMany({ where: { ...owned, revokedAt: null }, data: { revokedAt: new Date() } });
+    const token = await tx.apiToken.findUnique({ where: owned, select: API_TOKEN_SAFE_SELECT });
+    if (!token) throw new NotFoundError(t("backend.api-token.tokenNotFound"));
+    if (changed.count) {
+      await writeAuditLog({
+        actorType: "USER", actorId: input.userId, action: "api_token.revoke", teamId: token.teamId,
+        detail: { tokenId: token.id, tokenPrefix: token.tokenPrefix, tokenSuffix: token.tokenSuffix },
+      }, tx);
+    }
+    return token;
+  });
 }
 
 /** Skip lastUsedAt writes when the token was already marked used within this window. */

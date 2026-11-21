@@ -94,7 +94,7 @@ export function readableStoragePath(scope: ReadableStorageScope | null, nodeId: 
 export function readableStorageScopeWhere(scope: ReadableStorageScope) {
   if (scope.nodesWithoutGrants.length === 0 && scope.grantRules.length === 0) {
     // Nothing readable — match no rows.
-    return { id: "" } as const;
+    return { id: { in: [] } };
   }
   const or: Array<Record<string, unknown>> = scope.nodesWithoutGrants.map((storageNodeId) => ({ storageNodeId }));
   for (const rule of scope.grantRules) {

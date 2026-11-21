@@ -1,5 +1,5 @@
 import { apiCopy } from "@/lib/i18n/api-copy";
-import path from "node:path/posix";
+import { isInsideRoot } from "./sftp-root";
 
 import type { SessionPayload } from "@/lib/auth/session";
 import { sessionHasPermission } from "@/lib/auth/authorization";
@@ -12,22 +12,6 @@ import { t } from "@/lib/i18n/service-translations";
 
 const logger = createLogger("sftp-access-control");
 
-function isInsideRoot(candidate: string, root: string, windows: boolean) {
-	const normalize = (value: string) => {
-		// Windows OpenSSH accepts /C:/... and can return C:/... from realpath.
-		const portable = windows ? value.replace(/\\/g, "/") : value;
-		const absolute = windows && /^[a-z]:\//i.test(portable) ? `/${portable}` : portable;
-		return path.normalize(absolute).replace(/\/+$/, "") || "/";
-	};
-	const normalizedRoot = normalize(root);
-	const normalizedCandidate = normalize(candidate);
-	// Relative paths execute from the remote login directory, which need not
-	// equal the allowed root. Only absolute paths have unambiguous containment.
-	if (!normalizedCandidate.startsWith("/")) return false;
-	return normalizedCandidate === normalizedRoot ||
-		normalizedCandidate.startsWith(normalizedRoot === "/" ? "/" : `${normalizedRoot}/`);
-}
-
 /**
  * Administrators can browse the whole SSH filesystem. Other server:ssh
  * operators are constrained to the Linux account home or Windows SFTP root.
@@ -36,6 +20,7 @@ export async function assertSftpPathAccess(input: {
 	session: SessionPayload;
 	serverId: string;
 	paths: string[];
+	signal?: AbortSignal;
 	target?: Awaited<ReturnType<typeof loadEnabledServerForSftp>>;
 }) {
 	if (sessionHasPermission(input.session, "server:sftp:unrestricted")) return;
@@ -51,7 +36,7 @@ export async function assertSftpPathAccess(input: {
 
 	async function canonicalPath(remotePath: string) {
 		try {
-			return await resolveRemoteRealPath({ ...params, remotePath });
+			return await resolveRemoteRealPath({ ...params, remotePath, signal: input.signal });
 		} catch (error) {
 			logger.warn("sftp realpath resolution failed; denying restricted access", error, {
 				serverId: input.serverId,
@@ -70,4 +55,5 @@ export async function assertSftpPathAccess(input: {
 			throw new ForbiddenError(t("backend.sftp.outsideHome", { homeRoot }));
 		}
 	}
+	return { path: realRoot, windows };
 }

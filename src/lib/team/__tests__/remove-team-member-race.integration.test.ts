@@ -43,6 +43,16 @@ describe.skipIf(process.env.RUN_DATABASE_INTEGRATION_TESTS !== "1")("removeTeamM
     await prisma.$disconnect();
   });
 
+  it("retains the membership while archived and makes it available on restoration", async () => {
+    await prisma.team.update({ where: { id: source }, data: { deletedAt: new Date() } });
+    try {
+      await expect(removeTeamMember(source, userId, admin)).rejects.toBeInstanceOf(NotFoundError);
+      expect(await prisma.teamMember.count({ where: { userId, teamId: source } })).toBe(1);
+    } finally {
+      await prisma.team.update({ where: { id: source }, data: { deletedAt: null } });
+    }
+  });
+
   it("returns NotFound after waiting on the transferred row and preserves the destination grants", async () => {
     const ready = Promise.withResolvers<number>();
     const commit = Promise.withResolvers<void>();

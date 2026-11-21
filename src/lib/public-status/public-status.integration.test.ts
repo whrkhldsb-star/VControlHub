@@ -77,7 +77,8 @@ describe.skipIf(!RUN)("public status board (PostgreSQL)", () => {
 		] });
 		const publish = async (serverId: string, name: string, published = true) => {
 			const saved = await updateNodePublication(serverId, {
-				displayName: name, groupName: "G", region: "R", tags: ["t"], sortOrder: 0, note: null, maintenance: false, published,
+				// Keep this group on the board when the attention suite publishes 5,000 other nodes.
+				displayName: name, groupName: prefix, region: "R", tags: ["t"], sortOrder: -1, note: null, maintenance: false, published,
 			}, "integration-admin");
 			publicIdOf.set(serverId, saved.publicId);
 		};
@@ -163,7 +164,7 @@ describe.skipIf(!RUN)("public status board (PostgreSQL)", () => {
 		const ghost = `${prefix}-ghost`;
 		const findMany = prisma.publicStatusNode.findMany.bind(prisma.publicStatusNode);
 		const spy = vi.spyOn(prisma.publicStatusNode, "findMany").mockImplementationOnce(((args: Parameters<typeof findMany>[0]) =>
-			findMany(args).then((rows) => [...rows, { serverId: ghost, displayName: "Ghost", server: { teamId: teamA } }])) as never);
+			findMany(args).then((rows) => [...rows, { serverId: ghost, displayName: "Ghost", server: { host: "missing.test", teamId: teamA } }])) as never);
 		try {
 			await expect(applyNodeBatch({ action: "publish", serverIds: [ids.metrics, ghost] }, "integration-admin")).rejects.toMatchObject({ code: "P2025" });
 		} finally {
@@ -185,7 +186,7 @@ describe.skipIf(!RUN)("public status board (PostgreSQL)", () => {
 		const publicId = publicIdOf.get(ids.pub)!;
 		// Warm the cache.
 		expect(await visibleIds()).toContain(publicId);
-		const total = (await readPublicBoard(query))!.summary.total;
+		expect((await readPublicBoard(query))!.summary.groups.find((group) => group.name === prefix)?.total).toBe(3);
 		const cases: Array<[string, () => Promise<unknown>, () => Promise<unknown>]> = [
 			["server disabled", () => prisma.server.update({ where: { id: ids.pub }, data: { enabled: false } }), () => prisma.server.update({ where: { id: ids.pub }, data: { enabled: true } })],
 			["moved to another customer", () => prisma.server.update({ where: { id: ids.pub }, data: { teamId: teamB } }), () => prisma.server.update({ where: { id: ids.pub }, data: { teamId: teamA } })],
@@ -197,12 +198,43 @@ describe.skipIf(!RUN)("public status board (PostgreSQL)", () => {
 			try {
 				const board = (await readPublicBoard(query))!;
 				expect(board.nodes.map((node) => node.id), label).not.toContain(publicId);
-				expect(board.summary.total, label).toBeLessThan(total);
+				expect(board.summary.groups.find((group) => group.name === prefix)?.total, label).toBe(board.filteredTotal);
+				expect(board.filteredTotal, label).toBeLessThan(3);
 			} finally {
 				await restore();
 			}
 			// Visible again at once: the cache is rebuilt when a visible node is missing.
 			expect(await visibleIds(), `${label} restored`).toContain(publicId);
+		}
+	});
+
+	it.each(["note", "tags"] as const)("rechecks the current host against saved %s on both batch paths and all public reads", async (field) => {
+		const publicId = publicIdOf.get(ids.pub)!;
+		const original = await prisma.publicStatusNode.findUniqueOrThrow({ where: { serverId: ids.pub } });
+		const { host } = await prisma.server.findUniqueOrThrow({ where: { id: ids.pub } });
+		const replacement = "standby.example.test";
+		try {
+			await prisma.publicStatusNode.update({ where: { serverId: ids.pub }, data: { [field]: field === "note" ? replacement : [replacement] } });
+			expect((await readPublicBoard(DEFAULT_BOARD_QUERY))?.nodes.some((n) => n.id === publicId)).toBe(true);
+			await prisma.server.update({ where: { id: ids.pub }, data: { host: replacement.toUpperCase() } });
+			expect((await readPublicBoard(DEFAULT_BOARD_QUERY))?.nodes.some((n) => n.id === publicId)).toBe(false);
+			expect(await readPublicNode(publicId)).toBeNull();
+			expect(await readPublicHistory(publicId, "1h")).toBeNull();
+			// The cached DTO still has the old text. Becoming visible again
+			// after a text edit must fetch the newly approved version.
+			await prisma.publicStatusNode.update({ where: { serverId: ids.pub }, data: { note: null, tags: [] } });
+			const safe = (await readPublicBoard(DEFAULT_BOARD_QUERY))?.nodes.find((n) => n.id === publicId);
+			expect(safe).toBeDefined();
+			expect(JSON.stringify(safe)).not.toContain(replacement);
+			await prisma.publicStatusNode.update({ where: { serverId: ids.pub }, data: { [field]: field === "note" ? replacement : [replacement] } });
+			await applyNodeBatch({ action: "unpublish", serverIds: [ids.pub] }, "admin");
+			for (const action of ["publish", "publish_named"] as const) {
+				await expect(applyNodeBatch({ action, serverIds: [ids.pub] }, "admin")).resolves.toEqual({ changed: 0, skipped: [ids.pub] });
+			}
+			expect((await prisma.publicStatusNode.findUniqueOrThrow({ where: { serverId: ids.pub } })).published).toBe(false);
+		} finally {
+			await prisma.server.update({ where: { id: ids.pub }, data: { host } });
+			await prisma.publicStatusNode.update({ where: { serverId: ids.pub }, data: { note: original.note, tags: original.tags, published: true } });
 		}
 	});
 
@@ -257,6 +289,29 @@ describe.skipIf(!RUN)("public status board (PostgreSQL)", () => {
 			...extra,
 		});
 		const read = () => prisma.serverMetricLatest.findUniqueOrThrow({ where: { serverId } });
+
+		it("nulls out-of-range int and bigint fields and keeps the other hosts in the batch", async () => {
+			const invalid = sample(10, BigInt("9223372036854775808"), null, { serverId: ids.hidden });
+			Object.assign(invalid.metrics!.values, { cpuCores: 2 ** 31, memTotalMb: 2 ** 40, processCount: 2 ** 31 });
+			invalid.intervalSeconds = 2 ** 31;
+			await expect(writeLatestMetrics([invalid, sample(10, null, null, { serverId: ids.unpub })])).resolves.toBe(2);
+			expect(await prisma.serverMetricLatest.findUniqueOrThrow({ where: { serverId: ids.hidden } })).toMatchObject({
+				cpuUsage: 10, cpuCores: null, memTotalMb: null, processCount: null, intervalSeconds: null, netRxBytes: null, periodStart: null,
+			});
+			expect(await prisma.serverMetricLatest.findUniqueOrThrow({ where: { serverId: ids.unpub } })).toMatchObject({
+				cpuCores: 2, periodStart: null, periodSince: null,
+			});
+		});
+
+		it("isolates a PostgreSQL data error while refreshing the healthy member of the same batch", async () => {
+			// A stored monthly total plus the incoming delta can exceed BIGINT even if both samples fit.
+			await writeLatestMetrics([sample(20, BigInt(1), BigInt(1), { serverId: ids.hidden })]);
+			await prisma.serverMetricLatest.update({ where: { serverId: ids.hidden }, data: { periodRxBytes: BigInt("9223372036854775807") } });
+			const bad = sample(21, BigInt(2), BigInt(2), { serverId: ids.hidden });
+			const good = sample(21, BigInt(2), BigInt(2), { serverId: ids.unpub });
+			await expect(writeLatestMetrics([bad, good])).resolves.toBe(1);
+			expect(await prisma.serverMetricLatest.findUniqueOrThrow({ where: { serverId: ids.unpub } })).toMatchObject({ metricsAt: at(21) });
+		});
 
 		beforeAll(async () => {
 			await prisma.serverMetricLatest.deleteMany({ where: { serverId } });
@@ -405,6 +460,20 @@ describe.skipIf(!RUN)("public status board (PostgreSQL)", () => {
 			expect(coverage.covered).toBeGreaterThan(40 * 60);
 			expect(coverage.covered).toBeLessThan(55 * 60);
 			expect(coverage.onlineCovered).toBeLessThan(coverage.covered);
+		});
+
+		it("removes historical online/offline counts immediately when only CPU remains published", async () => {
+			const site = await prisma.publicStatusSite.findUniqueOrThrow({ where: { id: "default" } });
+			const publicId = publicIdOf.get(ids.legacy)!;
+			expect((await readPublicHistory(publicId, "1h"))?.resources?.some((p) => p.offline)).toBe(true);
+			await prisma.publicStatusSite.update({ where: { id: site.id }, data: { metrics: ["cpu"] } });
+			try {
+				const history = await readPublicHistory(publicId, "1h");
+				expect(history?.resources?.some((p) => p.cpu === 50)).toBe(true);
+				expect(history?.resources?.every((p) => !("online" in p) && !("offline" in p))).toBe(true);
+			} finally {
+				await prisma.publicStatusSite.update({ where: { id: site.id }, data: { metrics: site.metrics } });
+			}
 		});
 
 		it("public history: bounded points, gaps, honest latency counts", async () => {

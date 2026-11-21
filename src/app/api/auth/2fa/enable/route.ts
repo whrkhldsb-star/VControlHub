@@ -12,12 +12,13 @@ import { NextResponse } from "next/server";
 import { z } from "zod";
 import { verify as verifyTOTP } from "otplib";
 
+import { assertSessionCredentialBinding, captureSessionCredentialBinding } from "@/lib/auth/session";
 import { openTwoFactorEnrollmentToken } from "@/lib/auth/two-factor-enrollment";
 import { sealTwoFactorSecret } from "@/lib/auth/two-factor-secret";
 import { createTwoFactorRecoveryCodes } from "@/lib/auth/two-factor-recovery";
 import { updateTwoFactorCredentials } from "@/lib/auth/two-factor-settings";
 import { refreshedSessionResponse } from "@/lib/auth/refreshed-session-response";
-import { auditUserAction } from "@/lib/audit/service";
+import { accountSecurityAuditTeam, auditUserAction } from "@/lib/audit/service";
 import { prisma } from "@/lib/db";
 import { withApiRoute } from "@/lib/http/api-guard";
 import { GENERAL_WRITE_LIMIT } from "@/lib/http/rate-limit-presets";
@@ -62,8 +63,10 @@ export async function POST(request: Request) {
       // Forged, expired, or issued-to-another-account tickets all land here.
       // Reported as an invalid code on purpose: the distinction is not useful to
       // a caller, and the recovery action is the same — restart setup.
+      assertSessionCredentialBinding(session, existing);
       const secret = openTwoFactorEnrollmentToken(enrollmentToken, {
         userId: session.userId,
+        binding: captureSessionCredentialBinding(existing),
       });
       if (!secret) {
         throw new ValidationError(t("api.auth.twoFactor.enrollmentExpired", locale));
@@ -96,7 +99,7 @@ export async function POST(request: Request) {
         "auth.2fa.enable",
         { userId: session.userId },
         "INFO",
-        session.currentTeamId,
+        accountSecurityAuditTeam(session),
       );
 
       // Plaintext recovery codes are returned once, over the authenticated

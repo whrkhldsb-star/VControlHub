@@ -2,6 +2,8 @@ import { beforeEach, describe, expect, it, vi } from "vitest";
 
 const { prismaMock, collectServerMetricsMock, tcpProbeMock, createNotificationMock, fetchWebhookSafelyMock, sendAlertEmailMock, sendAlertTelegramMock, runPlaybookMock } = vi.hoisted(() => ({
 	prismaMock: {
+		$transaction<T>(callback: (tx: unknown) => Promise<T>) { return callback(this); },
+		setting: { findUnique: vi.fn() },
 		server: {
 			findMany: vi.fn(),
 		},
@@ -44,7 +46,8 @@ vi.mock("@/lib/notification/service", () => ({ createNotification: createNotific
 vi.mock("@/lib/notification/email", () => ({ sendAlertEmail: sendAlertEmailMock }));
 vi.mock("@/lib/notification/telegram", () => ({ sendAlertTelegram: sendAlertTelegramMock }));
 vi.mock("@/lib/security/webhook-url", () => ({ fetchWebhookSafely: fetchWebhookSafelyMock }));
-vi.mock("@/lib/playbook/service", () => ({ runPlaybook: runPlaybookMock }));
+vi.mock("@/lib/alert/remediation", () => ({ queueIncidentRemediation: runPlaybookMock }));
+vi.mock("@/lib/health/capacity-service", () => ({ getCapacityForecast: async () => ({ servers: [] }) }));
 
 import { evaluateAlerts, isNowInAlertSilenceWindow } from "../service";
 
@@ -82,7 +85,7 @@ describe("evaluateAlerts", () => {
 		fetchWebhookSafelyMock.mockResolvedValue({ ok: true });
 		sendAlertEmailMock.mockResolvedValue({ accepted: ["ops@example.com"], rejected: [] });
 		sendAlertTelegramMock.mockResolvedValue({ accepted: [{ chatId: "100200300", messageId: 1 }], rejected: [] });
-	runPlaybookMock.mockResolvedValue({ id: "run1", status: "completed" });
+		runPlaybookMock.mockResolvedValue(undefined);
 	});
 
 	it("evaluates only platform and live customers' rules on a fleet-wide pass", async () => {
@@ -95,7 +98,63 @@ describe("evaluateAlerts", () => {
 		// A manual, team-scoped pass keeps the caller's scope.
 		prismaMock.alertRule.findMany.mockClear();
 		await evaluateAlerts({ ruleWhere: { teamId: "team_1" } });
-		expect(prismaMock.alertRule.findMany).toHaveBeenCalledWith(expect.objectContaining({ where: { enabled: true, teamId: "team_1" } }));
+		expect(prismaMock.alertRule.findMany).toHaveBeenCalledWith(expect.objectContaining({ where: { enabled: true, AND: [{ OR: [{ teamId: null }, { team: { deletedAt: null } }] }, { teamId: "team_1" }] } }));
+		await evaluateAlerts({ ruleWhere: {} });
+		expect(prismaMock.alertRule.findMany).toHaveBeenLastCalledWith(expect.objectContaining({ where: { enabled: true, AND: [{ OR: [{ teamId: null }, { team: { deletedAt: null } }] }, {}] } }));
+	});
+
+	const rule = {
+		id: "sustained", name: "CPU", metric: "cpu_usage", threshold: 80, operator: "gte", enabled: true,
+		durationSeconds: 0, matchState: {}, cooldownMinutes: 0, silenceWindows: [], serverIds: [], notifyChannels: ["in_app"], playbookIds: [],
+	};
+
+	it("scopes the manual probe query to readable targets and skips all probes for capacity-only rules", async () => {
+		const session = { userId: "reader", roles: ["operator" as const], currentTeamId: "own" };
+		const options = { ruleWhere: { teamId: "own" }, session };
+		prismaMock.alertRule.findMany.mockResolvedValueOnce([{ ...rule, metric: "capacity_disk_days", teamId: "own" }]);
+		await evaluateAlerts(options);
+		expect(prismaMock.server.findMany).not.toHaveBeenCalled();
+		expect(tcpProbeMock).not.toHaveBeenCalled();
+		prismaMock.alertRule.findMany.mockResolvedValueOnce([{ ...rule, teamId: "own", serverIds: ["srv1"] }]);
+		collectServerMetricsMock.mockResolvedValue(cpuMetrics(10));
+		await evaluateAlerts(options);
+		expect(prismaMock.server.findMany.mock.calls[0]![0].where.AND).toEqual([
+			{ enabled: true, OR: [{ teamId: "own", id: { in: ["srv1"] } }] },
+			{ OR: [{ teamId: null }, { team: { deletedAt: null } }] },
+			expect.objectContaining({ AND: expect.arrayContaining([{ teamId: "own" }]) }),
+		]);
+		expect(tcpProbeMock).toHaveBeenCalledOnce();
+	});
+
+	it("retries a due OPEN delivery one minute into a one-hour duration, even with a legacy reset stamp", async () => {
+		vi.useFakeTimers({ toFake: ["Date"] });
+		const opened = new Date("2026-05-25T01:00:00Z");
+		vi.setSystemTime(new Date(opened.getTime() + 60_000));
+		prismaMock.alertRule.findMany.mockResolvedValueOnce([{ ...rule, durationSeconds: 3600, matchState: { srv1: opened.toISOString() } }]);
+		prismaMock.alertIncident.findMany.mockResolvedValueOnce([{ fingerprint: "sustained::srv1::cpu_usage" }]);
+		prismaMock.alertIncident.findUnique.mockResolvedValueOnce({
+			id: "existing", level: 1, status: "OPEN", pendingNotifyChannels: ["in_app"], notifyAttempts: 1, nextNotifyAt: new Date(), lastNotifiedAt: opened,
+		});
+		collectServerMetricsMock.mockResolvedValue(cpuMetrics(95));
+		await evaluateAlerts();
+		expect(createNotificationMock).toHaveBeenCalledOnce();
+		expect(prismaMock.alertIncident.create).not.toHaveBeenCalled();
+		expect(prismaMock.alertRule.updateMany).not.toHaveBeenCalled();
+	});
+
+	it("defers the second host when delivery of the first host crosses the silence boundary", async () => {
+		vi.useFakeTimers({ toFake: ["Date"] });
+		vi.setSystemTime(new Date("2026-05-25T13:59:59Z"));
+		prismaMock.alertRule.findMany.mockResolvedValue([{ ...rule, silenceWindows: ["22:00-23:00"] }]);
+		prismaMock.server.findMany.mockResolvedValue(["a", "b"].map((id) => ({ id, name: id, host: id, port: 22, enabled: true })));
+		collectServerMetricsMock.mockResolvedValue(cpuMetrics(95));
+		createNotificationMock.mockImplementationOnce(async () => { vi.setSystemTime(new Date("2026-05-25T14:00:01Z")); });
+		await evaluateAlerts();
+		expect(prismaMock.alertIncident.create).toHaveBeenCalledExactlyOnceWith({ data: expect.objectContaining({ serverId: "a" }) });
+		expect(runPlaybookMock).toHaveBeenCalledOnce();
+		vi.setSystemTime(new Date("2026-05-25T15:01:00Z"));
+		await evaluateAlerts();
+		expect(prismaMock.alertIncident.create).toHaveBeenLastCalledWith({ data: expect.objectContaining({ serverId: "b" }) });
 	});
 
 	it("does not trigger rules with durationSeconds until the condition is sustained", async () => {
@@ -161,7 +220,7 @@ describe("evaluateAlerts", () => {
 			where: { id: "rule1" },
 			data: expect.objectContaining({
 				lastTriggeredAt: new Date("2026-05-25T00:01:01.000Z"),
-				matchState: { srv1: "2026-05-25T00:01:01.000Z" },
+				matchState: { srv1: "2026-05-25T00:00:00.000Z" },
 			}),
 		});
 	});
@@ -202,20 +261,10 @@ describe("evaluateAlerts", () => {
 		await evaluateAlerts();
 
 		expect(prismaMock.alertIncident.create).toHaveBeenCalledTimes(1);
-		expect(runPlaybookMock).toHaveBeenCalledTimes(2);
-		expect(runPlaybookMock).toHaveBeenCalledWith(expect.objectContaining({
-			playbookId: "pb_restart",
-			dryRun: false,
-			sourceAlertTeamId: "team1",
-			sourceAlertServerId: "srv1",
-			triggerContext: expect.objectContaining({
-				type: "alert_rule",
-				alertRuleId: "rule_auto",
-				serverId: "srv1",
-				metric: "cpu_usage",
-				value: 95,
-			}),
-		}));
+		expect(runPlaybookMock).toHaveBeenCalledExactlyOnceWith(prismaMock, expect.objectContaining({
+			ruleId: "rule_auto", teamId: "team1", serverId: "srv1", playbookIds: ["pb_restart", "pb_notify"],
+			metric: "cpu_usage", value: 95,
+		}), "inc1", expect.any(Date));
 		expect(prismaMock.alertRule.updateMany).toHaveBeenCalledWith({
 			where: { id: "rule_auto" },
 			data: expect.objectContaining({ lastTriggeredAt: new Date("2026-05-25T00:01:30.000Z") }),

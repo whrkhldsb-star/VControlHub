@@ -1,3 +1,4 @@
+import { acquireAdvisoryLock } from "@/lib/concurrency/advisory-lock";
 import { rdpCertificateOptions } from "./certificate";
 import { createConnection } from "node:net";
 import type { Server as HttpServer, IncomingMessage } from "node:http";
@@ -468,10 +469,10 @@ export function setupRdpWebSocket(server: HttpServer) {
     users.set(userId, (users.get(userId) ?? 0) + 1); authedSessions++; authenticated = true; releasePreAuth();
     slotKey = key; liveSessions.set(key, { userId, silentMs, supersede });
     audit("server.rdp.connecting");
-    let phase: "args" | "ready" | "stream" = "args";
+    let phase: "args" | "authorizing" | "ready" | "stream" = "args";
     const options: Record<string, string> = {
      hostname: target.host, port: String(target.port), username: target.username,
-     password: decrypt(target.rdpPassword!), domain: target.rdpDomain ?? "",
+     domain: target.rdpDomain ?? "",
      security: "nla", ...rdpCertificateOptions(target),
      ...(clipboardAllowed ? {} : { "disable-copy": "true", "disable-paste": "true" }),
      "enable-drive": "false",
@@ -516,11 +517,23 @@ export function setupRdpWebSocket(server: HttpServer) {
       if (row[0] !== "args") throw new Error("Expected args");
       const args = row.slice(1);
       rdpCertificateOptions(target, args);
-      tunnel?.write(instruction("size", String(desktop.width), String(desktop.height), "96") + instruction("audio", ...(audioAllowed ? RDP_AUDIO_MIMETYPES : [])) + instruction("video") + instruction("image", ...imageMimetypes) +
-       instruction("connect", ...args.map(key => key.startsWith("VERSION_") ? "VERSION_1_5_0" : options[key] ?? "")));
-      delete options.password;
-      phase = "ready"; return;
+      phase = "authorizing";
+      void (async () => {
+       const release = await acquireAdvisoryLock("server-delete", target.id);
+       try {
+        await revalidate!();
+        if (stopped || tunnelEnding || ws.readyState !== WebSocket.OPEN) return;
+        const password = decrypt(target.rdpPassword!);
+        tunnel?.write(instruction("size", String(desktop.width), String(desktop.height), "96") + instruction("audio", ...(audioAllowed ? RDP_AUDIO_MIMETYPES : [])) + instruction("video") + instruction("image", ...imageMimetypes) +
+         instruction("connect", ...args.map(key => key === "password" ? password : key.startsWith("VERSION_") ? "VERSION_1_5_0" : options[key] ?? "")));
+        phase = "ready";
+       } finally {
+        await release();
+       }
+      })().catch(() => close("RDP session authorization expired", 1008));
+      return;
      }
+     if (phase === "authorizing") throw new Error("Unexpected RDP handshake data");
      if (phase === "ready") {
       if (row[0] !== "ready") throw new Error("Expected ready");
       phase = "stream"; started = true; lastUserInput = Date.now(); clearTimeout(handshakeTimeout);

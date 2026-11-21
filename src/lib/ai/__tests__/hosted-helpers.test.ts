@@ -147,7 +147,7 @@ describe("resolveServerId", () => {
 		mocks.serverFindFirst.mockResolvedValue({ id: "srv_1" });
 		await expect(resolveServerId({ serverId: " srv_1 " }, operator)).resolves.toBe("srv_1");
 		expect(mocks.serverFindFirst).toHaveBeenCalledWith({
-			where: { id: "srv_1", AND: [{ teamId: "team_1" }, { OR: [
+			where: { id: "srv_1", AND: [{ teamId: "team_1" }, { team: { deletedAt: null }, OR: [
 				{ userAccess: { none: { userId: operator.userId } } },
 				{ userAccess: { some: { userId: operator.userId, canRead: true } } },
 			] }] },
@@ -202,11 +202,11 @@ describe("resolveServerId", () => {
 		);
 	});
 
-	it("lets a platform manager resolve any server", async () => {
+	it("lets a platform manager resolve servers across live customers", async () => {
 		mocks.serverFindFirst.mockResolvedValue({ id: "srv_1" });
 		await resolveServerId({ serverId: "srv_1" }, admin);
 		expect(mocks.serverFindFirst).toHaveBeenCalledWith(
-			expect.objectContaining({ where: { id: "srv_1" } }),
+			expect.objectContaining({ where: { id: "srv_1", team: { isNot: { deletedAt: { not: null } } } } }),
 		);
 	});
 

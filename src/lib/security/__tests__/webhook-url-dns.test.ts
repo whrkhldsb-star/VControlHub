@@ -63,3 +63,40 @@ describe("a webhook host that resolves where it must not", () => {
 		});
 	});
 });
+
+it.each(["64:ff9b::1234", "64:ff9b:1::42", "2002::1", "2001:0000::1", "2001:0db8::1", "3fff::1"])(
+	"uses the same transition-address policy for literals and DNS answers (%s)", async (address) => {
+		expect(validateWebhookUrlSyntax(`https://[${address}]/`).ok).toBe(false);
+		lookupMock.mockResolvedValue([{ address, family: 6 }]);
+		expect((await assertWebhookUrlSafeForServerFetch("https://hooks.example.com")).ok).toBe(false);
+	},
+);
+
+it("ends a webhook cancelled during lookup before dispatch", async () => {
+	const dns = Promise.withResolvers<never[]>();
+	lookupMock.mockReturnValue(dns.promise);
+	const controller = new AbortController();
+	const result = fetchWebhookSafely("https://hooks.example.com", { method: "POST", signal: controller.signal });
+	controller.abort();
+	await expect(result).resolves.toMatchObject({ ok: false, dispatched: false });
+	dns.resolve([]);
+});
+
+it("starts the delivery deadline before lookup even without a caller-supplied signal", async () => {
+	const dns = Promise.withResolvers<never[]>();
+	lookupMock.mockClear().mockReturnValue(dns.promise);
+	fetchMock.mockClear();
+	const deadline = new AbortController();
+	const timeout = vi.spyOn(AbortSignal, "timeout").mockReturnValueOnce(deadline.signal);
+	try {
+		const delivery = fetchWebhookSafely("https://hooks.example.com", { method: "POST" });
+		expect(timeout).toHaveBeenCalledWith(15_000);
+		expect(lookupMock).toHaveBeenCalledOnce();
+		deadline.abort();
+		await expect(delivery).resolves.toMatchObject({ ok: false, dispatched: false });
+		expect(fetchMock).not.toHaveBeenCalled();
+	} finally {
+		dns.resolve([]);
+		timeout.mockRestore();
+	}
+});

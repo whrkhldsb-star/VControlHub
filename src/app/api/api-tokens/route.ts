@@ -4,7 +4,7 @@ import { z } from "zod";
 
 import {
   createApiToken,
-  listApiTokens,
+  listApiTokenPage,
   normalizeScopes,
   revokeApiToken,
 } from "@/lib/api-token/service";
@@ -62,13 +62,19 @@ function parseExpiresAt(value?: string | null) {
   return expiresAt;
 }
 
+const tokenListQuery = z.object({
+  pageSize: z.coerce.number().int().min(1).max(200).default(200),
+  cursor: z.string().min(1).optional(),
+  status: z.enum(["all", "active", "expired", "revoked"]).default("all"),
+});
+
 export async function GET(request: Request) {
   return withApiRoute(
     request,
-    { permission: "api-token:manage" },
-    async ({ session }) => {
+    { permission: "api-token:manage", querySchema: tokenListQuery },
+    async ({ session, query }) => {
       return withCacheHeaders(
-        NextResponse.json({ tokens: await listApiTokens(session.userId) }),
+        NextResponse.json(await listApiTokenPage(session.userId, query)),
         CachePresets.noStore,
       );
     },
@@ -141,11 +147,6 @@ export async function DELETE(request: Request) {
     async ({ session }) => {
       const { id } = parseSearchParams(request, idQuerySchema);
       const token = await revokeApiToken({ userId: session.userId, id });
-      await auditUserAction(session.userId, "api_token.revoke", {
-        tokenId: token.id,
-        tokenPrefix: token.tokenPrefix,
-        tokenSuffix: token.tokenSuffix,
-      }, undefined, token.teamId);
       return NextResponse.json({ token });
     },
   );

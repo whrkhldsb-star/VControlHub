@@ -2,9 +2,10 @@ import { beforeEach, describe, expect, it, vi } from "vitest";
 
 const { mockPrisma } = vi.hoisted(() => ({
   mockPrisma: {
+    $transaction: vi.fn(async (queries: Promise<unknown>[]) => Promise.all(queries)),
     auditLog: {
       create: vi.fn(),
-      findMany: vi.fn(),
+      findMany: vi.fn(), findFirst: vi.fn(),
       count: vi.fn(),
       groupBy: vi.fn(),
     },
@@ -21,7 +22,7 @@ vi.mock("@/lib/auth/authorization", () => ({
   }),
 }));
 
-const { listAuditLogs, getAuditStats, exportAuditLogs, writeAuditLog } = await import("./service");
+const { listAuditLogs, getAuditStats, prepareAuditExport, writeAuditLog } = await import("./service");
 
 import type { RoleKey } from "@/lib/auth/rbac";
 
@@ -113,15 +114,15 @@ describe("listAuditLogs", () => {
   });
 });
 
-describe("exportAuditLogs", () => {
+describe("prepareAuditExport", () => {
   beforeEach(() => {
     vi.clearAllMocks();
     mockPrisma.auditLog.findMany.mockResolvedValue([]);
   });
 
   it("scopes export with teamWhere for non-admin sessions", async () => {
-    await exportAuditLogs({ session: teamUser });
-    expect(mockPrisma.auditLog.findMany).toHaveBeenCalledWith(
+    await prepareAuditExport({ session: teamUser });
+    expect(mockPrisma.auditLog.findFirst).toHaveBeenCalledWith(
       expect.objectContaining({
         where: { teamId: "team_a" },
       }),
@@ -147,4 +148,22 @@ describe("getAuditStats", () => {
       }),
     );
   });
+});
+
+it("groups terminal command execution events with historical bare actions and filters the same family", async () => {
+  mockPrisma.auditLog.groupBy.mockResolvedValueOnce([]).mockResolvedValueOnce([]).mockResolvedValueOnce(
+    ["command.execute", "command.execute.completed", "command.execute.failed", "command.execute.cancelled"].map(action => ({ action, _count: 1 })));
+  expect((await getAuditStats({ ...teamUser, currentTeamId: "stats-family" })).highRiskByAction).toEqual({ "command.execute": 4 });
+  await listAuditLogs({ action: "command.execute" });
+  expect(mockPrisma.auditLog.findMany).toHaveBeenLastCalledWith(expect.objectContaining({
+    where: { OR: [{ action: "command.execute" }, { action: { startsWith: "command.execute." } }] },
+  }));
+});
+
+it.each([false, true])("probes the first omitted key before signalling truncation (%s)", async (overflow) => {
+  const key = { id: "start", createdAt: new Date() };
+  mockPrisma.auditLog.findFirst.mockResolvedValueOnce(key).mockResolvedValueOnce(overflow ? key : null);
+  const result = await prepareAuditExport({ session: teamUser });
+  expect(result.truncated).toBe(overflow);
+  expect(mockPrisma.auditLog.findFirst).toHaveBeenLastCalledWith(expect.objectContaining({ where: { teamId: "team_a" }, skip: 50000, select: { createdAt: true, id: true } }));
 });

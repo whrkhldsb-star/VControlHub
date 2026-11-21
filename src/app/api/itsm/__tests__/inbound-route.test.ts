@@ -27,7 +27,13 @@ describe("POST /api/itsm/inbound/[connectionId]", () => {
 		expect(mocks.userFindFirst).not.toHaveBeenCalled();
 		const call = mocks.handleInboundWebhook.mock.calls[0]![0] as { resolveSystemUserId: () => Promise<string | null> };
 		await expect(call.resolveSystemUserId()).resolves.toBe("u_admin");
-		expect(mocks.userFindFirst).toHaveBeenCalledWith(expect.objectContaining({ where: { roles: { some: { roleId: "role_admin" } } } }));
+		expect(mocks.userFindFirst).toHaveBeenCalledWith(expect.objectContaining({ where: { status: "ACTIVE", roles: { some: { roleId: "role_admin" } } } }));
+	});
+
+	it("returns the verified Slack challenge in the provider's response format", async () => {
+		mocks.handleInboundWebhook.mockResolvedValueOnce({ action: "verified", challenge: "verified-only" });
+		expect(await (await post('{"type":"url_verification"}')).json()).toEqual({ challenge: "verified-only" });
+		expect(mocks.userFindFirst).not.toHaveBeenCalled();
 	});
 
 	it("rate limits per connection and per IP, and rejects oversized or malformed bodies", async () => {
@@ -46,5 +52,17 @@ describe("POST /api/itsm/inbound/[connectionId]", () => {
 		await post("{}");
 		const call = mocks.handleInboundWebhook.mock.calls[0]![0] as { resolveSystemUserId: () => Promise<string | null> };
 		await expect(call.resolveSystemUserId()).resolves.toBeNull();
+		expect(mocks.userFindFirst).toHaveBeenCalledWith(expect.objectContaining({ where: { status: "ACTIVE" } }));
+	});
+
+	it("skips the retired admin and limits a fallback author to active members of the connection owner", async () => {
+		mocks.userFindFirst.mockResolvedValueOnce(null).mockResolvedValueOnce({ id: "active-member" });
+		await post("{}");
+		const { resolveSystemUserId } = mocks.handleInboundWebhook.mock.calls[0]![0];
+		expect(await resolveSystemUserId("team-a")).toBe("active-member");
+		expect(mocks.userFindFirst.mock.calls.map(([args]) => args.where)).toEqual([
+			{ status: "ACTIVE", roles: { some: { roleId: "role_admin" } } },
+			{ status: "ACTIVE", teamMembership: { is: { teamId: "team-a" } } },
+		]);
 	});
 });

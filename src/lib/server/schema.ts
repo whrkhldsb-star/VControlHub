@@ -8,13 +8,14 @@ const serverTagSchema = z
   .min(1, "Tag is required")
   .max(32, "Tags must be at most 32 characters");
 
-const storagePathSchema = z
+export const storagePathSchema = z
   .string()
   .trim()
   .min(1, "Storage path is required")
   .max(500, "Path is too long")
   .refine((value) => value.startsWith("/"), "Storage path must be an absolute POSIX path")
   .refine((value) => !value.includes("\0") && !value.split("/").includes(".."), "Storage path must not contain traversal segments")
+  .transform((value) => "/" + value.split("/").filter((part) => part && part !== ".").join("/"))
   .refine((value) => !["/", "/proc", "/sys", "/dev"].includes(value.replace(/\/+$/, "") || "/"), "Storage path must not target a system root")
   // Omitted → the login user's own folder (see defaultStoragePath).
   .optional();

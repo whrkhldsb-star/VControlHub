@@ -39,7 +39,7 @@ describe("markdown preview sanitization", () => {
 
 		// The quotes stay encoded, so they cannot end the attribute: the
 		// would-be onclick is part of the URL, not an attribute of its own.
-		expect(html).toContain('href="https://example.com/&quot; onclick=&quot;alert(1"');
+		expect(html).toContain('href="https://example.com/&quot; onclick=&quot;alert(1)"');
 		expect(elementsOf(html).some((element) => element.hasAttribute("onclick"))).toBe(false);
 		expect(html).toContain('href="/files/readme.md"');
 		expect(html).not.toContain("<img");

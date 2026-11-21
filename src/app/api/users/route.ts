@@ -1,10 +1,13 @@
 import { apiCopy } from "@/lib/i18n/api-copy";
+import type { Prisma } from "@prisma/client";
+import { lockUserRow } from "@/lib/user/row-lock";
+import { lockLiveCustomer } from "@/lib/team/service";
 import { NextResponse } from "next/server";
 
 import { hashPassword } from "@/lib/auth/password";
 import { validatePasswordPolicy } from "@/lib/auth/password-policy";
 import { assertUserInActorScope, userDirectoryWhere } from "@/lib/auth/team-scope";
-import { auditUserAction } from "@/lib/audit/service";
+import { auditUserAction, writeAuditLog } from "@/lib/audit/service";
 import { isUniqueViolation, prisma } from "@/lib/db";
 import { withApiRoute } from "@/lib/http/api-guard";
 import { booleanFlagSchema, paginationQuerySchema, parseSearchParams } from "@/lib/http/parse-search-params";
@@ -105,11 +108,8 @@ export async function POST(request: Request) {
           throw new ValidationError(t("backend.user.usernameAlreadyExists"));
         }
         if (account.type === "customer") {
-          const [team, template] = await Promise.all([
-            tx.team.findUnique({ where: { id: account.teamId }, select: { deletedAt: true } }),
-            tx.identityTemplate.findUnique({ where: { id: identityTemplateId! }, select: { id: true } }),
-          ]);
-          if (!team || team.deletedAt) throw new NotFoundError(t("backend.customer.notFound"));
+          await lockLiveCustomer(tx, account.teamId);
+          const template = await tx.identityTemplate.findUnique({ where: { id: identityTemplateId! }, select: { id: true } });
           if (!template) throw new NotFoundError(t("backend.customer.templateNotFound"));
         }
         const adminRole = account.type === "admin"
@@ -165,80 +165,40 @@ export async function PATCH(request: Request) {
     async ({ session, body }) => {
       const { userId, action: userAction, newPassword } = body;
 
-      await assertUserInActorScope(session, userId);
-
-      const targetUser = await prisma.user.findUnique({
-        where: { id: userId },
-        include: { teamMembership: { select: { teamId: true } } },
-      });
-      if (!targetUser) {
-        throw new NotFoundError(t("backend.user.notFound"));
-      }
-      // The audit row belongs to the customer the account lives in (none for a platform
-      // administrator) — not to whichever customer the acting administrator has selected,
-      // which showed another customer's staff changes in the wrong customer's audit log.
-      const targetTeamId = targetUser.teamMembership?.teamId ?? null;
-
+      if (!userAction) throw new ValidationError(t("backend.user.missingAction"));
       if (userId === session.userId && userAction === "disable") {
         throw new ValidationError(t("backend.user.cannotDisableSelf"));
       }
-
-      if (userAction === "disable") {
-        await withAdminInvariantLock(async (tx) => {
-          await assertAdminAccessMayBeRemoved(userId, tx);
-          await tx.user.update({
-            where: { id: userId },
-            // Disabling ends the sessions the account already has: advancing the epoch is what
-            // stops them from coming back to life when the account is enabled again.
-            data: { status: "DISABLED", sessionEpoch: { increment: 1 } },
-          });
-        });
-        await auditUserAction(session.userId, "user.disable", {
-          targetUsername: targetUser.username,
-        }, undefined, targetTeamId);
-      } else if (userAction === "enable") {
-        await prisma.user.update({
-          where: { id: userId },
-          data: { status: "ACTIVE" },
-        });
-        await auditUserAction(session.userId, "user.enable", {
-          targetUsername: targetUser.username,
-        }, undefined, targetTeamId);
-      } else if (userAction === "reset_password") {
-        // The schema refines reset_password ⇒ newPassword, but narrow it here too
-        // so a future schema change cannot turn this into a silent no-op.
-        if (!newPassword) {
-          throw new ValidationError(t("backend.user.missingNewPassword"));
-        }
-        const resetPolicyError = await validatePasswordPolicy(newPassword);
-        if (resetPolicyError) {
-          throw new ValidationError(resetPolicyError);
-        }
-        const passwordHash = await hashPassword(newPassword);
-        await prisma.user.update({
-          where: { id: userId },
-          data: {
-            passwordHash,
-            mustChangePassword: true,
-            // mustChangePassword already gates password-reset sessions. Never
-            // write status from the earlier snapshot: disable may have won
-            // while hashing. Also retire sessions if the same hash is restored.
-            sessionEpoch: { increment: 1 },
-          },
-        });
-        await auditUserAction(
-          session.userId,
-          "user.password_reset",
-          { targetUsername: targetUser.username },
-          "WARNING",
-          targetTeamId,
-        );
+      let data: Prisma.UserUpdateInput;
+      if (userAction === "reset_password") {
+        if (!newPassword) throw new ValidationError(t("backend.user.missingNewPassword"));
+        const policyError = await validatePasswordPolicy(newPassword);
+        if (policyError) throw new ValidationError(policyError);
+        data = { passwordHash: await hashPassword(newPassword), mustChangePassword: true, sessionEpoch: { increment: 1 } };
       } else {
-        // `action` is optional in the schema (it also accepts newPassword only).
-        // Without it nothing above runs, and returning success would tell the
-        // caller a password reset happened when the account is untouched.
-        throw new ValidationError(t("backend.user.missingAction"));
+        data = userAction === "disable" ? { status: "DISABLED", sessionEpoch: { increment: 1 } } : { status: "ACTIVE" };
       }
+
+      const update = async (tx: Prisma.TransactionClient) => {
+        await lockUserRow(tx, userId);
+        await assertUserInActorScope(session, userId, tx);
+        const target = await tx.user.findUnique({
+          where: { id: userId }, select: { username: true, teamMembership: { select: { teamId: true } } },
+        });
+        if (!target) throw new NotFoundError(t("backend.user.notFound"));
+        const teamId = target.teamMembership?.teamId ?? null;
+        if (teamId) await lockLiveCustomer(tx, teamId);
+        if (userAction === "disable") await assertAdminAccessMayBeRemoved(userId, tx);
+        await tx.user.update({ where: { id: userId }, data });
+        await writeAuditLog({
+          actorType: "USER", actorId: session.userId, teamId,
+          action: userAction === "reset_password" ? "user.password_reset" : `user.${userAction}`,
+          severity: userAction === "reset_password" ? "WARNING" : "INFO",
+          detail: { targetUsername: target.username },
+        }, tx);
+      };
+      if (userAction === "disable") await withAdminInvariantLock(update);
+      else await prisma.$transaction(update);
 
       return NextResponse.json({ success: true });
     },

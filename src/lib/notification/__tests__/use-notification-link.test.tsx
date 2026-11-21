@@ -4,6 +4,9 @@ import { afterEach, beforeEach, describe, expect, it, vi } from "vitest";
 
 import { SessionGateProvider, type SessionGate } from "@/lib/auth/session-context";
 
+const addToast = vi.hoisted(() => vi.fn());
+vi.mock("@/components/toast-provider", () => ({ useToast: () => ({ addToast }) }));
+vi.mock("@/lib/i18n/use-locale", () => ({ useI18n: () => ({ t: (key: string) => key }) }));
 const csrfFetch = vi.hoisted(() => vi.fn());
 vi.mock("@/lib/auth/csrf-client", () => ({ csrfFetch }));
 
@@ -40,6 +43,14 @@ describe("useNotificationLink", () => {
 		await act(async () => {});
 		expect(csrfFetch).toHaveBeenCalledWith("/api/teams/switch", expect.objectContaining({ body: JSON.stringify({ teamId: "team_b" }) }));
 		expect(assign).toHaveBeenCalledWith("/servers");
+	});
+
+	it("keeps the current page and displays the API reason after a refused switch", async () => {
+		csrfFetch.mockRejectedValueOnce(new Error("Customer was removed"));
+		const link = render({ roles: ["admin"], currentTeamId: "team_a" });
+		click(link.onOpen({ teamId: "team_b", actionUrl: "/requests" }));
+		await vi.waitFor(() => expect(addToast).toHaveBeenCalledWith("error", "Customer was removed"));
+		expect(assign).not.toHaveBeenCalled();
 	});
 
 	it("opens links directly when the target is already visible", () => {

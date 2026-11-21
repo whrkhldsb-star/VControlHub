@@ -12,19 +12,6 @@ const { mockPrisma } = vi.hoisted(() => ({
 }));
 
 vi.mock("@/lib/db", () => ({ prisma: mockPrisma }));
-vi.mock("@/lib/auth/team-scope", async (importOriginal) => ({
-  ...await importOriginal<typeof import("@/lib/auth/team-scope")>(),
-  teamWhere: (session: { currentTeamId?: string | null }) =>
-    session.currentTeamId
-      ? { teamId: session.currentTeamId }
-      : {},
-  shareLinkTeamWhere: (session: { currentTeamId?: string | null }) =>
-    session.currentTeamId
-      ? { teamId: session.currentTeamId }
-      : { id: "__unassigned_share_links_require_team_manage__" },
-  isGlobalTeamManager: (session: { roles?: string[] }) =>
-    Array.isArray(session.roles) && session.roles.includes("admin"),
-}));
 vi.mock("@/lib/auth/authorization", () => ({
   sessionHasPermission: (session: { roles?: string[] }, perm: string) => {
     if (perm === "share:manage") {

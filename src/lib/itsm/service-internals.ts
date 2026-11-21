@@ -82,6 +82,8 @@ export function toEventRecord(row: {
     row.payload && typeof row.payload === "object" && !Array.isArray(row.payload)
       ? (row.payload as Record<string, unknown>)
       : {};
+  const visiblePayload = { ...payload };
+  delete visiblePayload.snapshot;
   return {
     id: row.id,
     connectionId: row.connectionId,
@@ -90,7 +92,7 @@ export function toEventRecord(row: {
     ticketId: row.ticketId,
     status: row.status as ItsmEventStatus,
     externalId: row.externalId,
-    payload,
+    payload: visiblePayload,
     errorMessage: row.errorMessage,
     createdAt: row.createdAt.toISOString(),
   };
@@ -143,7 +145,7 @@ export async function recordEvent(input: {
       const existing = await prisma.itsmEvent.findFirst({
         where: {
           connectionId: input.connectionId,
-          externalId: input.externalId, teamId: input.teamId, ownerBound: true,
+          direction: input.direction, externalId: input.externalId, teamId: input.teamId, ownerBound: true,
         },
         orderBy: { createdAt: "desc" },
       });

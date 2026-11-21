@@ -7,6 +7,7 @@ import { shiftAppTimeZoneDay, startOfDayInAppTimeZone } from "@/lib/datetime/tim
 import { rollupServerUptimeForDay } from "@/lib/uptime/rollup";
 import { sumTrafficSince } from "../service-collect";
 import { getMetricHistory } from "../service-metrics";
+import { queryCoverage } from "@/lib/public-status/history";
 
 /**
  * Health history, monthly traffic and the uptime rollup on a real
@@ -73,6 +74,20 @@ describe.skipIf(process.env.RUN_DATABASE_INTEGRATION_TESTS !== "1")("health hist
 		for (let i = 1; i < history.length; i += 1) {
 			expect(history[i]!.createdAt.getTime()).toBeGreaterThan(history[i - 1]!.createdAt.getTime());
 		}
+	});
+
+	it("carries four valid online minutes across midnight in rollups and rolling windows", async () => {
+		const midnight = shiftAppTimeZoneDay(new Date(), -5);
+		const at = (minutes: number) => new Date(midnight.getTime() + minutes * 60_000);
+		const serverId = server("uptime");
+		await prisma.metricSnapshot.createMany({ data: [-1, 4].map((m) => ({
+			serverId, isOnline: m < 0, createdAt: at(m), intervalSeconds: 300,
+		})) });
+		expect(await queryCoverage(serverId, midnight, at(10))).toMatchObject({ onlineCovered: 240, covered: 600, samples: 1 });
+		expect(await queryCoverage(serverId, midnight, at(2))).toMatchObject({ onlineCovered: 120, covered: 120, samples: 0 });
+		await rollupServerUptimeForDay(midnight);
+		expect(await prisma.serverUptimeSnapshot.findUniqueOrThrow({ where: { serverId_date: { serverId, date: midnight } } }))
+			.toMatchObject({ onlineMinutes: 4, offlineMinutes: 10, checkCount: 1 });
 	});
 
 	it("keeps a finished day's uptime when retention prunes part of its samples", async () => {

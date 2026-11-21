@@ -2,7 +2,12 @@
 import { randomUUID } from "node:crypto";
 import { afterAll, beforeAll, describe, expect, it, vi } from "vitest";
 
+import { Prisma } from "@prisma/client";
+import { rawServerScope, serverTeamWhere } from "@/lib/auth/team-scope";
+import { getServerInventory, getServerOperationTargets } from "@/lib/server/inventory";
+import { getAllUptimeDataInternal } from "@/lib/uptime/internal";
 import { prisma } from "@/lib/db";
+import { deleteScheduledTask, retryScheduledTask, toggleScheduledTask, updateScheduledTask } from "@/lib/scheduled-task/service";
 import { dispatchDueVpsBackupSchedules } from "@/lib/backup/vps-backup-schedule-service";
 import { tcpProbe } from "@/lib/server/connectivity";
 import { collectAllHealth } from "@/lib/health/service-collect";
@@ -56,6 +61,7 @@ describe.skipIf(process.env.RUN_DATABASE_INTEGRATION_TESTS !== "1")("a deleted c
 
   afterAll(async () => {
     const servers = [live.server, gone.server];
+    await prisma.scheduledTask.deleteMany({ where: { createdById: prefix } });
     await prisma.ticket.deleteMany({ where: { createdBy: prefix } });
     await prisma.shareLink.deleteMany({ where: { createdBy: prefix } });
     await prisma.storageNode.deleteMany({ where: { id: { in: [`${live.team}-node`, `${gone.team}-node`] } } });
@@ -67,6 +73,55 @@ describe.skipIf(process.env.RUN_DATABASE_INTEGRATION_TESTS !== "1")("a deleted c
     await prisma.team.deleteMany({ where: { id: { in: [live.team, gone.team] } } });
     await prisma.user.deleteMany({ where: { id: prefix } });
     await prisma.$disconnect();
+  });
+
+  it("applies the live customer boundary to both inventory queries and hydration", async () => {
+    for (const teamId of [null, gone.team]) {
+      const admin = { userId: prefix, roles: ["admin" as const], currentTeamId: teamId };
+      const filter = { id: { in: [live.server, gone.server] } };
+      const rows = await prisma.server.findMany({ where: { AND: [filter, serverTeamWhere(admin)] }, select: { id: true } });
+      const raw = await prisma.$queryRaw<{ id: string }[]>(Prisma.sql`SELECT s.id FROM servers s
+        WHERE s.id IN (${live.server}, ${gone.server}) AND ${rawServerScope(admin, "canRead")}`);
+      expect(rows).toEqual(teamId ? [] : [{ id: live.server }]);
+      expect(raw).toEqual(rows);
+      const inventory = await getServerInventory(admin, { query: prefix });
+      expect(inventory.stats.matching).toBe(rows.length);
+      expect(inventory.servers.map(server => server.id)).toEqual(rows.map(server => server.id));
+      const targets = await getServerOperationTargets(admin, "command", { query: prefix });
+      expect(targets.total).toBe(rows.length);
+      expect(targets.rows.map(server => server.id)).toEqual(rows.map(server => server.id));
+    }
+  });
+
+  it("preserves archived tasks across admin views and still allows a live customer's task to be deleted", async () => {
+    const task = { name: prefix, command: "uptime", cronExpression: "0 3 * * *", createdById: prefix, status: "PAUSED" as const };
+    const archived = await prisma.scheduledTask.create({ data: { ...task, teamId: gone.team, serverIds: [gone.server] } });
+    const active = await prisma.scheduledTask.create({ data: { ...task, teamId: live.team, serverIds: [live.server] } });
+    for (const session of [
+      { userId: prefix, roles: ["admin" as const], currentTeamId: null },
+      { userId: prefix, roles: ["admin" as const], currentTeamId: gone.team },
+      { userId: prefix, roles: ["operator" as const], currentTeamId: gone.team },
+    ]) {
+      await expect(deleteScheduledTask(archived.id, session)).rejects.toMatchObject({ status: 404 });
+      await expect(updateScheduledTask(archived.id, { name: "renamed" }, session)).rejects.toMatchObject({ status: 404 });
+      await expect(toggleScheduledTask(archived.id, session)).rejects.toMatchObject({ status: 404 });
+      await expect(retryScheduledTask(archived.id, session)).rejects.toMatchObject({ status: 404 });
+    }
+    expect(await prisma.scheduledTask.findUnique({ where: { id: archived.id } })).toEqual(archived);
+    await deleteScheduledTask(active.id, { userId: prefix, roles: ["admin"], currentTeamId: null });
+    expect(await prisma.scheduledTask.findUnique({ where: { id: active.id } })).toBeNull();
+  });
+
+  it("returns an empty uptime list for a teamless caller regardless of imported ids", async () => {
+    const id = "__unassigned_servers_require_team_manage__";
+    await prisma.server.create({ data: { id, name: prefix, teamId: live.team, host: "example.invalid", username: "fixture", tags: [] } });
+    try {
+      const session = { userId: prefix, currentTeamId: null, roles: [] };
+      expect(await getAllUptimeDataInternal({ session })).toEqual({ servers: [] });
+      expect(await prisma.$queryRaw(Prisma.sql`SELECT s.id FROM servers s WHERE ${rawServerScope(session, "canRead")}`)).toEqual([]);
+    } finally {
+      await prisma.server.delete({ where: { id, teamId: live.team } });
+    }
   });
 
   it("dispatches VPS backups for a live customer's server only", async () => {

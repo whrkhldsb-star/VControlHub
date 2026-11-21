@@ -10,7 +10,7 @@ import { Prisma } from "@prisma/client";
 import type { SessionPayload } from "@/lib/auth/session";
 import { assertStorageAccess, getStorageAccessCapabilities, getStorageAccessCapabilityKey, releaseStorageQuotaGuard, STORAGE_ACCESS_DENIED_REASONS } from "./access-control";
 import { storageAccessDeniedCopy } from "./access-denied";
-import { teamWhere } from "@/lib/auth/team-scope";
+import { seesAllCustomers, teamWhere } from "@/lib/auth/team-scope";
 import { prisma, isUniqueViolation } from "@/lib/db";
 import { BusinessError, ConflictError, NotFoundError, ValidationError } from "@/lib/errors";
 import { serviceT } from "@/lib/i18n/service-locale";
@@ -518,7 +518,8 @@ type FileEntryPageOptions = { take?: number; skip?: number; cursor?: string; ids
 async function visibleFilePageIds(storageNodeId: string | undefined, options: FileEntryPageOptions, session?: TeamSession | null, readable?: Awaited<ReturnType<typeof getReadableStorageScope>>) {
   const { take, skip, cursor } = buildPaginationArgs(options);
   if (options.ids?.length === 0 || take === 0) return [];
-  const teamId = session && teamWhere(session).teamId;
+  const teamId = session?.currentTeamId;
+  if (session && !teamId && !seesAllCustomers(session)) return [];
   const direction = take < 0 ? Prisma.sql`DESC` : Prisma.sql`ASC`;
   const cursorFilter = cursor
     ? Prisma.sql`AND (e."entryType", e."relativePath", e.id) ${take < 0 ? Prisma.sql`<=` : Prisma.sql`>=`}

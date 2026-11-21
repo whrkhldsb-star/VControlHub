@@ -42,6 +42,23 @@ describe("PublicNodeClient history", () => {
 		vi.useRealTimers();
 	});
 
+	it("shows coverage carried past midnight even when the day has no new sample", async () => {
+		const initial = {
+			...detail,
+			uptimeDays: [{ date: "2026-10-14", uptimePercent: 100, coveredMinutes: 4, expectedMinutes: 4, checkCount: 0 }],
+		};
+		api.get.mockImplementation(async (url: string) => url.includes("/history") ? history : initial);
+		render(
+			<ThemeProvider initialTheme="dark">
+				<I18nProvider initialLocale="en">
+					<PublicNodeClient initial={initial} initialRange="24h" preview={false} signedIn={false} />
+				</I18nProvider>
+			</ThemeProvider>,
+		);
+		expect(await screen.findByText(/288 samples/)).toBeInTheDocument();
+		expect(screen.getByRole("listitem", { name: /2026-10-14: 100% online \(100% of the day covered\)/ })).toBeInTheDocument();
+	});
+
 	it("says so when a later history refresh fails, and offers a retry, while keeping the last chart", async () => {
 		// The retained chart used to hide the failure: no warning, no retry.
 		let historyCalls = 0;

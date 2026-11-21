@@ -8,13 +8,14 @@
  * from the database and decrypts them before connecting.
  */
 
+import { atomicSftpWrite, sftpDeadline } from "./sftp-operations";
 import { Client } from "ssh2";
 import {
   AGENT_FILE_MAX_BYTES,
   createRemoteDirectory,
   createVerifiedSshConfig,
   deleteRemoteFile,
-  listRemoteDirectory,
+  listRemoteDirectoryPage,
   readRemoteFile,
   renameRemoteFile,
   statRemoteEntry,
@@ -175,48 +176,35 @@ type SftpSession = {
   close: () => void;
 };
 
-async function openSftpSession(conn: SshConnectionParams): Promise<SftpSession> {
+async function openSftpSession(conn: SshConnectionParams, signal?: AbortSignal): Promise<SftpSession> {
+  signal?.throwIfAborted();
   const client = new Client();
-
-  return new Promise<SftpSession>((resolve, reject) => {
-    const timeout = setTimeout(() => {
-      try { client.end(); } catch { /* best-effort cleanup on timeout */ }
-      reject(new Error(t("backend.ssh.connectionTimedOut")));
-    }, 15000);
-
-    client.on("ready", () => {
-      client.sftp((err, sftp) => {
-        clearTimeout(timeout);
-        if (err) {
-          try { client.end(); } catch { /* best-effort cleanup on SFTP error */ }
-          reject(new Error(t("backend.ssh.sftpSubsystemError", { message: err.message })));
-          return;
-        }
-        resolve({
-          sftp,
-          client,
-          close: () => {
-            try { sftp.end(); } catch { /* best-effort SFTP teardown */ }
-            try { client.end(); } catch { /* best-effort client teardown */ }
-          },
+  let closed = false;
+  let channel: SftpSession["sftp"] | undefined;
+  const close = () => {
+    if (closed) return;
+    closed = true;
+    try { channel?.end(); } finally { client.end(); }
+  };
+  try {
+    channel = await sftpDeadline(() => new Promise<SftpSession["sftp"]>((resolve, reject) => {
+      client.on("ready", () => {
+        if (closed) return;
+        client.sftp((err, sftp) => {
+          if (err) reject(new Error(t("backend.ssh.sftpSubsystemError", { message: err.message })));
+          else if (closed) sftp.end();
+          else resolve(sftp);
         });
       });
-    });
-
-    client.on("error", (err) => {
-      clearTimeout(timeout);
-      reject(mapSshConnectError(err));
-    });
-
-    const config = createVerifiedSshConfig({
-      ...conn,
-      enforceHostKeyPin: true,
-    });
-    config.readyTimeout = 15000;
-    config.keepaliveInterval = 5000;
-    config.keepaliveCountMax = 3;
-    client.connect(config);
-  });
+      client.on("error", err => reject(mapSshConnectError(err)));
+      const config = createVerifiedSshConfig({ ...conn, enforceHostKeyPin: true });
+      client.connect({ ...config, readyTimeout: 15_000, keepaliveInterval: 5000, keepaliveCountMax: 3 });
+    }), signal);
+    return { sftp: channel, client, close };
+  } catch (error) {
+    close();
+    throw error;
+  }
 }
 
 // ── Public operations ──────────────────────────────────────────────
@@ -224,12 +212,13 @@ async function openSftpSession(conn: SshConnectionParams): Promise<SftpSession> 
 export async function listDirectory(
   serverId: string,
   remotePath: string,
-): Promise<SftpDirEntry[]> {
+  authorized?: { ssh: SshConnectionParams; root?: { path: string; windows: boolean }; signal?: AbortSignal },
+) {
   const path = sanitizeRemotePath(remotePath);
-  const params = await resolveServerConnection(serverId);
+  const params = authorized?.ssh ?? await resolveServerConnection(serverId);
   // Mapped like delete/mkdir/rename: a folder the account may not read used
   // to come back as the generic 500 "list failed", not "permission denied".
-  const entries = await listRemoteDirectory({ ...params, remotePath: path }).catch(mapSftpError);
+  const { entries, truncated } = await listRemoteDirectoryPage({ ...params, signal: authorized?.signal, remotePath: path }).catch(mapSftpError);
   // readdir reports a link itself (lstat). The file manager opens what a link
   // points at, as `ls` and every SFTP client do: a linked folder was neither
   // enterable nor downloadable. Access to the target is still checked per
@@ -240,8 +229,12 @@ export async function listDirectory(
   if (links.length > 0) {
     const resolved = await statRemoteTargetTypes({
       ...params,
+      root: authorized?.root, signal: authorized?.signal,
       remotePaths: links.map((entry) => `${path.replace(/\/$/, "")}/${entry.name}`),
-    }).catch(() => [] as RemoteTargetType[]);
+    }).catch(() => {
+      authorized?.signal?.throwIfAborted();
+      return [] as RemoteTargetType[];
+    });
     links.forEach((entry, index) => targets.set(entry.name, resolved[index] ?? null));
   }
   const result: SftpDirEntry[] = entries.map((entry) => {
@@ -261,10 +254,10 @@ export async function listDirectory(
     };
   });
   result.sort((a, b) => {
-      if (a.isDirectory !== b.isDirectory) return a.isDirectory ? -1 : 1;
-      return a.name.localeCompare(b.name);
+    if (a.isDirectory !== b.isDirectory) return a.isDirectory ? -1 : 1;
+    return a.name.localeCompare(b.name);
   });
-  return result;
+  return { entries: result, truncated };
 }
 
 /**
@@ -276,6 +269,7 @@ export async function uploadFile(
   remotePath: string,
   sourceStream: Readable,
   authorizedConnection?: SshConnectionParams,
+  root?: { path: string; windows: boolean },
 ): Promise<number> {
   const path = sanitizeRemotePath(remotePath);
   const conn = authorizedConnection ?? await resolveServerConnection(serverId);
@@ -290,87 +284,79 @@ export async function uploadFile(
       }
       chunks.push(buffer);
     }
-    await writeRemoteFile({ ...conn, remotePath: path, content: Buffer.concat(chunks) });
+    await writeRemoteFile({ ...conn, remotePath: path, content: Buffer.concat(chunks), root });
     return size;
   }
-  const session = await openSftpSession(conn);
+  const session = await openSftpSession(conn, conn.signal);
 
   try {
-    const writeStream = session.sftp.createWriteStream(path, {
-      flags: "w",
-      mode: 0o644,
-      autoClose: true,
-    });
+    return await atomicSftpWrite(session.sftp, path, async writeStream => {
+      let bytesWritten = 0;
 
-    let bytesWritten = 0;
+      return await new Promise<number>((resolve, reject) => {
+        let settled = false;
+        let idleTimer: NodeJS.Timeout | undefined;
+        const fail = (err: Error) => {
+          if (settled) return;
+          settled = true;
+          if (idleTimer) clearTimeout(idleTimer);
+          // Destroy both ends so a half-failed pipe cannot leave the SSH
+          // session open after we reject (resource leak / fd exhaustion).
+          try {
+            sourceStream.destroy(err);
+          } catch {
+            /* best-effort */
+          }
+          try {
+            // ssh2 WriteStream.destroy typings omit the optional error arg.
+            (writeStream as unknown as { destroy: (err?: Error) => void }).destroy(err);
+          } catch {
+            /* best-effort */
+          }
+          reject(err);
+        };
+        // Reset on progress; fire only after a true stall (no data for the idle
+        // window) so an abandoned/hung upload frees the session instead of pinning
+        // it until GC.
+        const resetIdle = () => {
+          if (idleTimer) clearTimeout(idleTimer);
+          idleTimer = setTimeout(
+            () => fail(new Error(t("backend.ssh.uploadStalled", { seconds: SFTP_TRANSFER_IDLE_TIMEOUT_MS / 1000 }))),
+            SFTP_TRANSFER_IDLE_TIMEOUT_MS,
+          );
+        };
 
-    return await new Promise<number>((resolve, reject) => {
-      let settled = false;
-      let idleTimer: NodeJS.Timeout | undefined;
-      const fail = (err: Error) => {
-        if (settled) return;
-        settled = true;
-        if (idleTimer) clearTimeout(idleTimer);
-        // Destroy both ends so a half-failed pipe cannot leave the SSH
-        // session open after we reject (resource leak / fd exhaustion).
-        try {
-          sourceStream.destroy(err);
-        } catch {
-          /* best-effort */
-        }
-        try {
-          // ssh2 WriteStream.destroy typings omit the optional error arg.
-          (writeStream as unknown as { destroy: (err?: Error) => void }).destroy(err);
-        } catch {
-          /* best-effort */
-        }
-        reject(err);
-      };
-      // Reset on progress; fire only after a true stall (no data for the idle
-      // window) so an abandoned/hung upload frees the session instead of pinning
-      // it until GC.
-      const resetIdle = () => {
-        if (idleTimer) clearTimeout(idleTimer);
-        idleTimer = setTimeout(
-          () => fail(new Error(t("backend.ssh.uploadStalled", { seconds: SFTP_TRANSFER_IDLE_TIMEOUT_MS / 1000 }))),
-          SFTP_TRANSFER_IDLE_TIMEOUT_MS,
-        );
-      };
+        sourceStream.on("data", (chunk: Buffer) => {
+          bytesWritten += chunk.length;
+          resetIdle();
+        });
+        sourceStream.on("error", (err: Error) => {
+          fail(new Error(`Upload source error: ${err.message}`));
+        });
 
-      sourceStream.on("data", (chunk: Buffer) => {
-        bytesWritten += chunk.length;
+        writeStream.on("error", (err: Error) => {
+          // Typed like every other SFTP operation here: a missing directory, a
+          // refused write or a full disk used to reach the route as a plain
+          // Error, which it can only answer with a blank "Upload failed" 500.
+          try {
+            mapSftpError(err);
+          } catch (mapped) {
+            fail(mapped instanceof Error ? mapped : new Error(`Upload write error: ${err.message}`));
+          }
+        });
+
+        const succeed = () => {
+          if (settled) return;
+          settled = true;
+          if (idleTimer) clearTimeout(idleTimer);
+          resolve(bytesWritten);
+        };
+        writeStream.on("close", succeed);
+
         resetIdle();
+        sourceStream.pipe(writeStream);
       });
-      sourceStream.on("error", (err: Error) => {
-        fail(new Error(`Upload source error: ${err.message}`));
-      });
-
-      writeStream.on("error", (err: Error) => {
-        // Typed like every other SFTP operation here: a missing directory, a
-        // refused write or a full disk used to reach the route as a plain
-        // Error, which it can only answer with a blank "Upload failed" 500.
-        try {
-          mapSftpError(err);
-        } catch (mapped) {
-          fail(mapped instanceof Error ? mapped : new Error(`Upload write error: ${err.message}`));
-        }
-      });
-
-      // ssh2 WriteStream emits "close" after autoClose; Node Writable also
-      // emits "finish" when the final write completes. Accept either so we
-      // always settle (and the outer finally can tear down the SSH session).
-      const succeed = () => {
-        if (settled) return;
-        settled = true;
-        if (idleTimer) clearTimeout(idleTimer);
-        resolve(bytesWritten);
-      };
-      writeStream.on("close", succeed);
-      writeStream.on("finish", succeed);
-
-      resetIdle();
-      sourceStream.pipe(writeStream);
-    });
+    }, root, 0o644, conn.signal).catch(mapSftpError);
   } finally {
     // Always tear down the per-op SSH/SFTP session — including the success
     // path. The previous implementation only closed on sync throw before the
@@ -387,26 +373,28 @@ export async function uploadFile(
 export async function downloadFile(
   serverId: string,
   remotePath: string,
+  signal?: AbortSignal,
+  authorizedConnection?: SshConnectionParams,
 ): Promise<{ stream: Readable; size: number }> {
   const path = sanitizeRemotePath(remotePath);
-  const conn = await resolveServerConnection(serverId);
+  const conn = authorizedConnection ?? await resolveServerConnection(serverId);
   if (isAgentOnly(conn)) {
-    const content = await readRemoteFile({ ...conn, remotePath: path });
+    const content = await readRemoteFile({ ...conn, remotePath: path, signal });
     return { stream: Readable.from(content), size: content.length };
   }
-  const session = await openSftpSession(conn);
+  const session = await openSftpSession(conn, signal);
 
   // Get file size for Content-Length header
   // Wrap stat in try/catch so a stat failure (missing file, permission denied)
   // does not leak the SSH/SFTP session -- close before re-throwing.
   let stats: Stats;
   try {
-    stats = await new Promise<Stats>((resolve, reject) => {
+    stats = await sftpDeadline(() => new Promise<Stats>((resolve, reject) => {
       session.sftp.stat(path, (err, s) => {
         if (err) reject(err);
         else resolve(s);
       });
-    });
+    }), signal);
   } catch (err) {
     session.close();
     mapSftpError(err);
@@ -430,9 +418,11 @@ export async function downloadFile(
   // handler a cancelled download would pin the SSH connection until GC.
   let closed = false;
   let idleTimer: NodeJS.Timeout | undefined;
+  const abort = () => passthrough.destroy();
   const teardown = () => {
     if (closed) return;
     closed = true;
+    signal?.removeEventListener("abort", abort);
     if (idleTimer) clearTimeout(idleTimer);
     try {
       readStream.destroy();
@@ -466,6 +456,8 @@ export async function downloadFile(
 
   resetIdle();
   readStream.pipe(passthrough);
+  signal?.addEventListener("abort", abort, { once: true });
+  if (signal?.aborted) abort();
 
   return { stream: passthrough, size: stats.size };
 }
@@ -473,9 +465,10 @@ export async function downloadFile(
 export async function deleteFile(
   serverId: string,
   remotePath: string,
+  authorizedConnection?: SshConnectionParams,
 ): Promise<void> {
   const path = sanitizeRemotePath(remotePath);
-  const params = await resolveServerConnection(serverId);
+  const params = authorizedConnection ?? await resolveServerConnection(serverId);
   try {
     const stats = await statRemoteEntry({ ...params, remotePath: path });
     await deleteRemoteFile({ ...params, remotePath: path, isDirectory: stats.type === "directory" });
@@ -487,9 +480,10 @@ export async function deleteFile(
 export async function makeDirectory(
   serverId: string,
   remotePath: string,
+  authorizedConnection?: SshConnectionParams,
 ): Promise<void> {
   const path = sanitizeRemotePath(remotePath);
-  const conn = await resolveServerConnection(serverId);
+  const conn = authorizedConnection ?? await resolveServerConnection(serverId);
   try {
     await createRemoteDirectory({ ...conn, remotePath: path });
   } catch (error) {
@@ -501,10 +495,11 @@ export async function renameEntry(
   serverId: string,
   oldPath: string,
   newPath: string,
+  authorizedConnection?: SshConnectionParams,
 ): Promise<void> {
   const src = sanitizeRemotePath(oldPath);
   const dst = sanitizeRemotePath(newPath);
-  const conn = await resolveServerConnection(serverId);
+  const conn = authorizedConnection ?? await resolveServerConnection(serverId);
   try {
     await renameRemoteFile({ ...conn, oldPath: src, newPath: dst });
   } catch (error) {

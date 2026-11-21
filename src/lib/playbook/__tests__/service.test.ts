@@ -506,7 +506,7 @@ describe("playbook service", () => {
       playbookId: "pb1", dryRun: false, sourceAlertTeamId, sourceAlertServerId: "srv1",
       triggerContext: { type: "alert_rule", serverId: "srv1" },
     })).resolves.toMatchObject({ status: "queued" });
-    expect(mocks.serverFindFirst).toHaveBeenCalledWith({ where: { id: "srv1", teamId: "team1" }, select: { id: true } });
+    expect(mocks.serverFindFirst).toHaveBeenCalledWith({ where: { id: "srv1", teamId: "team1", enabled: true, OR: [{ teamId: null }, { team: { deletedAt: null } }] }, select: { id: true } });
     expect(mocks.jobCreate).toHaveBeenCalledWith({ data: expect.objectContaining({ teamId: "team1" }) });
   });
 
@@ -518,7 +518,7 @@ describe("playbook service", () => {
     for (const sourceAlertServerId of ["foreign", "substitute", undefined]) {
       await expect(runPlaybook({ ...run, sourceAlertServerId })).rejects.toMatchObject({ name: "NotFoundError" });
     }
-    expect(mocks.serverFindFirst).toHaveBeenCalledExactlyOnceWith({ where: { id: "foreign", teamId: "team1" }, select: { id: true } });
+    expect(mocks.serverFindFirst).toHaveBeenCalledExactlyOnceWith({ where: { id: "foreign", teamId: "team1", enabled: true, OR: [{ teamId: null }, { team: { deletedAt: null } }] }, select: { id: true } });
     expect(mocks.runCreate).not.toHaveBeenCalled();
   });
 
@@ -541,7 +541,7 @@ describe("playbook service", () => {
     expect(mocks.serverFindMany).toHaveBeenCalledExactlyOnceWith({
       where: expect.objectContaining({
         id: { in: ["moved", "denied", "allowed"] },
-        AND: [{ teamId: "team1" }, { OR: [{ userAccess: { none: { userId: "u1" } } }, { userAccess: { some: { userId: "u1", canRead: true } } }] }],
+        AND: [{ teamId: "team1" }, { team: { deletedAt: null }, OR: [{ userAccess: { none: { userId: "u1" } } }, { userAccess: { some: { userId: "u1", canRead: true } } }] }],
       }), select: { id: true },
     });
     expect((await listRecentPlaybookRunsForPlaybooks(["pb1"], session)).pb1?.map((r) => r.triggerContext)).toEqual(expected);
@@ -589,16 +589,18 @@ describe("playbook service", () => {
     }
   });
 
-  it("atomically persists a queued run and durable parent job", async () => {
+  it.each([undefined, "u1"])("freezes the session initiator with the run and job (explicit requester %s)", async (createdById) => {
     mocks.playbookFindFirst.mockResolvedValue(baseRow);
     mocks.runCreate.mockResolvedValue(queuedRun);
     mocks.runUpdate.mockResolvedValue({ ...queuedRun, jobId: "job-1" });
     mocks.jobCreate.mockResolvedValue({ id: "job-1" });
     mocks.jobEventCreate.mockResolvedValue({ id: "event-1" });
     const session = { userId: "u1", roles: ["operator"] as import("@/lib/auth/rbac").RoleKey[], currentTeamId: "team1" };
-    const run = await runPlaybook({ playbookId: "pb1", dryRun: false, createdById: "u1", session });
+    const run = await runPlaybook({ playbookId: "pb1", dryRun: false, createdById, session });
     expect(run.status).toBe("queued");
-    expect(mocks.runCreate).toHaveBeenCalledWith({ data: expect.objectContaining({ status: "queued", teamId: "team1" }) });
+    expect(mocks.runCreate).toHaveBeenCalledWith({ data: expect.objectContaining({
+      status: "queued", teamId: "team1", createdById: "u1", executionState: expect.objectContaining({ actorId: "u1" }),
+    }) });
     expect(mocks.jobCreate).toHaveBeenCalledWith({ data: expect.objectContaining({
       type: "playbook.run", payload: { runId: "run-1" }, maxAttempts: 3, teamId: "team1",
     }) });
@@ -643,14 +645,13 @@ describe("playbook service", () => {
       where: { id: "legacy-pb", teamId: "team1" },
     });
 
-    // A session with no current team gets the unmatchable sentinel rather than
-    // every unassigned playbook.
+    // A teamless session matches an empty set even when legacy rows have no owner.
     mocks.playbookFindMany.mockResolvedValueOnce([]);
     const teamless = { userId: "u2", roles: ["operator"] as import("@/lib/auth/rbac").RoleKey[], currentTeamId: null };
     expect(await listPlaybooks(teamless)).toEqual([]);
     expect(mocks.playbookFindMany).toHaveBeenLastCalledWith(
       expect.objectContaining({
-        where: { id: "__unassigned_playbooks_require_team_manage__" },
+        where: { AND: { id: { in: [] } } },
       }),
     );
 

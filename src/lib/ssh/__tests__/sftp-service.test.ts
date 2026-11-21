@@ -45,6 +45,12 @@ vi.mock("ssh2", () => {
 
     sftp(cb: (err: Error | null, sftp: unknown) => void) {
       cb(null, {
+        open: (_path: string, _flags: string, _mode: number, done: (err: null, handle: Buffer) => void) => done(null, Buffer.from("handle")),
+        lstat: (_path: string, done: (err: Error) => void) => done(Object.assign(new Error("not found"), { code: 2 })),
+        fstat: (_handle: unknown, done: (err: null, data: unknown) => void) => done(null, { mode: 0o600 }),
+        chmod: (_path: string, _mode: number, done: () => void) => done(),
+        rename: (_from: string, _to: string, done: () => void) => done(),
+        unlink: (_path: string, done: () => void) => done(),
         createWriteStream: createWriteStreamMock,
         createReadStream: createReadStreamMock,
         stat: statMock,
@@ -212,6 +218,7 @@ describe("uploadFile session lifecycle", () => {
 
   it("closes the SSH/SFTP session after a successful upload", async () => {
     const writeStream = new PassThrough();
+    writeStream.resume();
     createWriteStreamMock.mockReturnValue(writeStream);
 
     const source = Readable.from([Buffer.from("hello-upload")]);
@@ -227,6 +234,7 @@ describe("uploadFile session lifecycle", () => {
     // still request enforcement so an unpinned host key fails the handshake
     // instead of being silently accepted (parity with command execution).
     const writeStream = new PassThrough();
+    writeStream.resume();
     createWriteStreamMock.mockReturnValue(writeStream);
 
     const source = Readable.from([Buffer.from("hello-upload")]);
@@ -322,6 +330,26 @@ describe("downloadFile session lifecycle", () => {
     );
   });
 
+  it("closes both transports when a pending metadata request is cancelled", async () => {
+    const controller = new AbortController();
+    statMock.mockImplementationOnce(() => controller.abort(new Error("request cancelled")));
+    await expect(downloadFile("srv1", "/home/alice/in.txt", controller.signal)).rejects.toThrow("request cancelled");
+    expect(sftpEndMock).toHaveBeenCalledTimes(1);
+    expect(clientEndMock).toHaveBeenCalledTimes(1);
+    expect(createReadStreamMock).not.toHaveBeenCalled();
+  });
+
+  it("expires a stalled stat even while the SSH connection remains alive", async () => {
+    vi.useFakeTimers();
+    try {
+      statMock.mockImplementationOnce(() => {});
+      const failure = expect(downloadFile("srv1", "/home/alice/in.txt")).rejects.toThrow();
+      await vi.advanceTimersByTimeAsync(15_001);
+      await failure;
+      expect(clientEndMock).toHaveBeenCalledTimes(1);
+    } finally { vi.useRealTimers(); }
+  });
+
   it("closes the SSH/SFTP session after the read stream finishes", async () => {
     const readStream = new PassThrough();
     createReadStreamMock.mockReturnValue(readStream);
@@ -355,6 +383,16 @@ describe("downloadFile session lifecycle", () => {
       expect(readStream.destroyed).toBe(true);
       expect(clientEndMock).toHaveBeenCalled();
     });
+  });
+
+  it("releases a download cancelled between stat and HTTP consumption", async () => {
+    const controller = new AbortController();
+    const remote = new PassThrough();
+    createReadStreamMock.mockReturnValueOnce(remote);
+    const { stream } = await downloadFile("srv1", "/home/alice/in.txt", controller.signal);
+    controller.abort();
+    await vi.waitFor(() => expect(clientEndMock).toHaveBeenCalledTimes(1));
+    expect(remote.destroyed && stream.destroyed).toBe(true);
   });
 
   it("refuses a folder as a 400 the user can read, closing the session", async () => {

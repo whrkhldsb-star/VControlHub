@@ -1,11 +1,13 @@
+import { createHash } from "node:crypto";
 import type { SessionPayload } from "@/lib/auth/session";
-import { teamWhere } from "@/lib/auth/team-scope";
+import { seesAllCustomers, teamWhere } from "@/lib/auth/team-scope";
 import { prisma } from "@/lib/db";
-import { NotFoundError, ValidationError } from "@/lib/errors";
+import { acquireAdvisoryLock } from "@/lib/concurrency/advisory-lock";
+import { ConflictError, NotFoundError, ValidationError } from "@/lib/errors";
 import { t } from "@/lib/i18n/service-translations";
 import { createLogger } from "@/lib/logging";
-import { enqueueJob } from "@/lib/job/service";
-import { createNotification } from "@/lib/notification/service";
+import { lockOutboundStream, readTicketSnapshot, scheduleDelivery } from "./outbox";
+import type { ItsmEvent, Prisma } from "@prisma/client";
 
 import { assertOutboundReady, deliverOutbound } from "./adapters";
 import {
@@ -73,197 +75,122 @@ export async function testItsmConnection(
   return { ok: delivery.ok, event, error: delivery.ok ? undefined : delivery.error };
 }
 
-const OUTBOUND_DIRECTIONS = ["outbound", "bidirectional"];
-const CONNECTION_PAGE_SIZE = 50;
-
-export async function fanOutTicketEvent(input: {
-  ticketId: string;
-  eventType: string;
-  title: string;
-  description: string;
-  status: string;
-  priority: string;
-  category?: string | null;
-  commentBody?: string;
-  teamId?: string | null;
-  deliveryKey?: string;
-}): Promise<{ sent: number; failed: number }> {
-  // Every outbound-capable connection, page by page. One page of 50 of any
-  // direction, filtered afterwards, let inbound-only connections crowd out
-  // the outbound ones: they were never delivered to and the job completed.
-  const connections: Awaited<ReturnType<typeof prisma.itsmConnection.findMany>> = [];
-  for (let after: string | undefined; ;) {
-    const page = await prisma.itsmConnection.findMany({
-      where: {
-        enabled: true,
-        direction: { in: OUTBOUND_DIRECTIONS },
-        // A ticket fans out ONLY to its own team's connections. null-team
-        // connections are legacy/private (see connectionScope: they are "not
-        // global integrations that every tenant can inspect or mutate"), so
-        // including them for a team ticket would push one team's ticket data to
-        // an integration another user configured and manages — a cross-tenant
-        // leak. Legacy tickets with no team still reach legacy null-team
-        // connections (same quarantined scope), keeping the mapping symmetric.
-        teamId: input.teamId ?? null,
-        ...(after ? { id: { gt: after } } : {}),
-      },
-      orderBy: { id: "asc" },
-      take: CONNECTION_PAGE_SIZE,
-    });
-    connections.push(...page);
-    if (page.length < CONNECTION_PAGE_SIZE) break;
-    after = page[page.length - 1]!.id;
-  }
-  let sent = 0;
-  let failed = 0;
-  for (const row of connections) {
-    if (!supportsOutbound(row.direction)) continue;
-    const existing = input.deliveryKey
-      ? await prisma.itsmEvent.findFirst({
-          where: { connectionId: row.id, externalId: input.deliveryKey },
-        })
-      : null;
-    if (existing && (!existing.ownerBound || existing.teamId !== row.teamId)) {
-      // A pre-C13 delivery cannot be replayed or exposed to the current owner.
-      failed += 1;
-      continue;
-    }
-    if (existing?.status === "unknown") {
-      failed += 1;
-      continue;
-    }
-    if (existing?.status === "ok") {
-      sent += 1;
-      continue;
-    }
-    const config = parseConfig(row.config);
-    const credentials = decryptCredentials(row.credentialsEnc);
-    try {
-      assertOutboundReady(row.provider as ItsmProvider, config, credentials);
-    } catch (err) {
-      failed += 1;
-      const msg = err instanceof Error ? err.message : "not ready";
-      const eventInput = {
-        connectionId: row.id,
-        teamId: row.teamId,
-        direction: "outbound",
-        eventType: input.eventType,
-        ticketId: input.ticketId,
-        status: "error",
-        externalId: input.deliveryKey,
-        errorMessage: msg,
-      } as const;
-      if (existing) {
-        await prisma.itsmEvent.update({ where: { id: existing.id }, data: { status: "error", errorMessage: msg } });
-      } else {
-        await recordEvent(eventInput);
-      }
-      await prisma.itsmConnection.update({ where: { id: row.id }, data: { lastError: msg } });
-      continue;
-    }
-    const delivery = await deliverOutbound({
-      provider: row.provider as ItsmProvider,
-      config,
-      credentials,
-      payload: {
-        ticketId: input.ticketId,
-        title: input.title,
-        description: input.description,
-        status: input.status,
-        priority: input.priority,
-        category: input.category,
-        eventType: input.eventType,
-        commentBody: input.commentBody,
-      },
-    });
-    const eventData = {
-      connectionId: row.id,
-      teamId: row.teamId,
-      direction: "outbound",
-      eventType: input.eventType,
-      ticketId: input.ticketId,
-      status: delivery.outcomeUnknown ? "unknown" : delivery.ok ? "ok" : "error",
-      externalId: input.deliveryKey,
-      payload: {
-        statusCode: delivery.statusCode ?? null,
-        responseBody: delivery.responseBody ?? null,
-      },
-      errorMessage: delivery.ok ? null : delivery.error ?? "delivery failed",
-    } as const;
-    if (existing) {
-      await prisma.itsmEvent.update({
-        where: { id: existing.id },
-        data: {
-          status: eventData.status,
-          payload: { ...eventData.payload, terminalAtMs: Date.now() },
-          errorMessage: eventData.errorMessage,
-        },
-      });
-    } else {
-      await recordEvent(eventData);
-    }
-    await prisma.itsmConnection.update({
-      where: { id: row.id },
-      data: {
-        lastOutboundAt: new Date(),
-        lastError: delivery.ok ? null : delivery.error ?? "delivery failed",
-      },
-    });
-    if (delivery.ok) sent += 1;
-    else failed += 1;
-  }
-  if (sent + failed > 0) {
-    logger.info("ticket event fan-out complete", {
-      ticketId: input.ticketId,
-      eventType: input.eventType,
-      sent,
-      failed,
-    });
-  }
-  return { sent, failed };
+async function advanceStream(tx: Prisma.TransactionClient, event: ItsmEvent) {
+  const next = await tx.itsmEvent.findFirst({ where: {
+    ticketId: event.ticketId, connectionId: event.connectionId, teamId: event.teamId,
+    ownerBound: true, direction: "outbound", status: { in: ["pending", "error"] },
+    payload: { path: ["predecessor"], equals: event.id },
+  } });
+  if (next) await scheduleDelivery(tx, next);
 }
 
-export async function safeFanOutTicketEvent(
-  input: Parameters<typeof fanOutTicketEvent>[0],
-): Promise<{ ok: true } | { ok: false; error: string }> {
+async function predecessorComplete(db: Prisma.TransactionClient, payload: Prisma.JsonObject) {
+  if (typeof payload.predecessor !== "string") return true;
+  const prior = await db.itsmEvent.findUnique({ where: { id: payload.predecessor }, select: { status: true } });
+  // Retention only removes terminal receipts.
+  return !prior || prior.status === "ok" || prior.status === "ignored";
+}
+
+async function withDeliveryLock<T>(id: string, work: () => Promise<T>) {
+  const release = await acquireAdvisoryLock("itsm-delivery", id);
   try {
-    await enqueueJob({
-      type: "itsm.outbound",
-      title: `ITSM ${input.eventType}: ${input.title}`.slice(0, 200),
-      payload: { ...input },
-      teamId: input.teamId ?? null,
-      maxAttempts: 5,
-      priority: 1,
-    });
-    return { ok: true };
-  } catch (err) {
-    logger.error("ticket fan-out enqueue failed", err, {
-      ticketId: input.ticketId,
-      eventType: input.eventType,
-    });
-    try {
-      const ticket = await prisma.ticket.findUnique({
-        where: { id: input.ticketId },
-        select: { createdBy: true, teamId: true },
-      });
-      if (ticket?.createdBy) {
-        await createNotification({
-          userId: ticket.createdBy,
-          type: "system",
-          notice: {
-            code: "itsmFanOutFailed",
-            params: { eventType: input.eventType, error: err instanceof Error ? err.message : String(err) },
-          },
-          actionUrl: `/tickets/${input.ticketId}`,
-          teamId: ticket.teamId,
-        });
-      }
-    } catch (notificationError) {
-      logger.warn("ticket fan-out failure notification failed", notificationError);
-    }
-    return {
-      ok: false,
-      error: err instanceof Error ? err.message : String(err),
-    };
+    return await work();
+  } finally {
+    await release();
   }
+}
+
+export function deliverQueuedEvent(id: string) {
+  return withDeliveryLock(id, () => deliverReservedEvent(id));
+}
+
+/** Reserve a delivery before any network I/O. A process death after this point
+ * leaves a visible unknown receipt. A receiver without an idempotency contract
+ * must be reconciled before its next event can run. */
+async function deliverReservedEvent(id: string): Promise<{ sent: number; failed: number }> {
+  const event = await prisma.itsmEvent.findUniqueOrThrow({ where: { id } });
+  if (!event.ownerBound || event.direction !== "outbound" || !event.ticketId || !event.externalId) throw new Error("Invalid ITSM outbox event");
+  if (event.status === "ok" || event.status === "ignored") return { sent: Number(event.status === "ok"), failed: 0 };
+  const payload = event.payload as Prisma.JsonObject;
+  if (!await predecessorComplete(prisma, payload)) return { sent: 0, failed: 1 };
+  const snapshot = readTicketSnapshot(payload.snapshot ?? null);
+  if (snapshot.teamId !== event.teamId || snapshot.ticketId !== event.ticketId) throw new Error("Invalid ITSM event owner");
+  const row = event.connectionId ? await prisma.itsmConnection.findFirst({
+    where: { id: event.connectionId, teamId: event.teamId, enabled: true, direction: { in: ["outbound", "bidirectional"] } },
+  }) : null;
+  const live = !event.teamId || await prisma.team.findFirst({ where: { id: event.teamId, deletedAt: null }, select: { id: true } });
+  const finish = async (status: string, errorMessage: string | null, receipt: Prisma.InputJsonObject = {}) => {
+    await prisma.$transaction(async (tx) => {
+      await lockOutboundStream(tx, snapshot.ticketId);
+      const terminal = status === "ok" || status === "ignored";
+      const updated = await tx.itsmEvent.updateMany({
+        where: { id, status: { notIn: ["ok", "ignored"] } },
+        data: { status, errorMessage, payload: { ...payload, ...receipt, ...(terminal ? { terminalAtMs: Date.now() } : {}) } },
+      });
+      if (!updated.count) return;
+      if (row && live) await tx.itsmConnection.updateMany({
+        where: { id: row.id, teamId: event.teamId }, data: { lastOutboundAt: new Date(), lastError: errorMessage },
+      });
+      if (terminal) await advanceStream(tx, event);
+    });
+  };
+  if (!row || !live) {
+    await finish("ignored", t("backend.itsm.connectionIsDisabled"));
+    return { sent: 0, failed: 0 };
+  }
+  let config;
+  let credentials;
+  let idempotencyScope: string | null;
+  try {
+    config = parseConfig(row.config);
+    // A changed URL, credential, or receiver contract cannot deduplicate an earlier send.
+    idempotencyScope = row.provider === "generic_webhook" && config.idempotentDelivery === true
+      ? createHash("sha256").update(JSON.stringify([config.webhookUrl, config.headers, row.credentialsEnc])).digest("hex")
+      : null;
+    if (event.status === "unknown" && (!idempotencyScope || payload.idempotencyScope !== idempotencyScope)) return { sent: 0, failed: 1 };
+    credentials = decryptCredentials(row.credentialsEnc);
+    assertOutboundReady(row.provider as ItsmProvider, config, credentials);
+  } catch (error) {
+    await finish(event.status === "unknown" ? "unknown" : "error", error instanceof Error ? error.message : "Invalid connection configuration");
+    return { sent: 0, failed: 1 };
+  }
+  const reserved = await prisma.itsmEvent.updateMany({
+    where: { id, status: { in: idempotencyScope ? ["pending", "error", "unknown"] : ["pending", "error"] } },
+    data: { status: "unknown", payload: { ...payload, idempotencyScope }, errorMessage: null },
+  });
+  if (!reserved.count) return { sent: 0, failed: 1 };
+  const delivery = await deliverOutbound({
+    provider: row.provider as ItsmProvider, config, credentials,
+    payload: { ...snapshot, eventId: event.externalId, occurredAt: event.createdAt.toISOString() },
+  });
+  // A rejected retry does not settle a previous attempt whose response was lost.
+  const status = delivery.ok ? "ok" : delivery.outcomeUnknown || event.status === "unknown" ? "unknown" : "error";
+  await finish(status, delivery.error ?? null, { idempotencyScope, statusCode: delivery.statusCode ?? null, responseBody: delivery.responseBody ?? null });
+  logger.info("ticket event delivery", { id, status, connectionId: row.id });
+  return { sent: Number(delivery.ok), failed: Number(!delivery.ok) };
+}
+
+/** An operator checked the stable event ID with the receiver. Serialize that
+ * decision with sends, then resume the same stream in the receipt transaction. */
+export function reconcileDelivery(session: SessionPayload, id: string, received: boolean) {
+  return withDeliveryLock(id, () => prisma.$transaction(async (tx) => {
+    const owner = seesAllCustomers(session) ? {} : {
+      teamId: session.currentTeamId,
+      ...(!session.currentTeamId ? { connection: { createdById: session.userId, teamId: null } } : {}),
+    };
+    const event = await tx.itsmEvent.findFirst({ where: { id, ...owner, ownerBound: true, direction: "outbound" } });
+    if (!event) throw new NotFoundError();
+    const payload = event.payload as Prisma.JsonObject;
+    const canReconcile = event.status === "unknown" || (event.status === "error" && !received);
+    if (!canReconcile || !event.ticketId || !payload.snapshot) throw new ConflictError();
+    await lockOutboundStream(tx, event.ticketId);
+    if (!await predecessorComplete(tx, payload)) throw new ConflictError();
+    const updated = await tx.itsmEvent.update({ where: { id }, data: {
+      status: received ? "ok" : "pending", errorMessage: null,
+      payload: { ...payload, reconciledBy: session.userId, reconciledAt: new Date().toISOString(), ...(received ? { terminalAtMs: Date.now() } : {}) },
+    } });
+    if (received) await advanceStream(tx, updated);
+    else await scheduleDelivery(tx, updated);
+    return { id, status: updated.status };
+  }));
 }

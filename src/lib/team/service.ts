@@ -10,7 +10,7 @@
  * Deletion sets `deletedAt` and keeps every row: the customer's data stays
  * scoped and unreachable, and restoring clears the field.
  */
-import type { Prisma } from "@prisma/client";
+import { Prisma } from "@prisma/client";
 
 import { prisma, isUniqueViolation } from "@/lib/db";
 import { NotFoundError, ValidationError } from "@/lib/errors";
@@ -27,6 +27,15 @@ import type { CreateTeamInput, UpdateTeamInput } from "./schema";
 async function findLiveCustomer(teamId: string, db: Prisma.TransactionClient = prisma) {
   const team = await db.team.findUnique({ where: { id: teamId }, select: { id: true, slug: true, name: true, deletedAt: true } });
   if (!team || team.deletedAt) throw new NotFoundError(t("backend.customer.notFound"));
+  return team;
+}
+
+/** Hold a live customer through its member/grant mutation. Archival's
+ * UPDATE waits on this shared row lock (or wins before we acquire it). */
+export async function lockLiveCustomer(tx: Prisma.TransactionClient, teamId: string) {
+  const [team] = await tx.$queryRaw<{ id: string; name: string; slug: string; deletedAt: null }[]>`
+    SELECT id, name, slug, "deletedAt" FROM teams WHERE id = ${teamId} AND "deletedAt" IS NULL FOR SHARE`;
+  if (!team) throw new NotFoundError(t("backend.customer.notFound"));
   return team;
 }
 
@@ -85,7 +94,7 @@ export async function listCustomerMembers(teamId: string, session: SessionPayloa
   assertPlatformAdmin(session);
   await findLiveCustomer(teamId);
   return prisma.teamMember.findMany({
-    where: { teamId },
+    where: { teamId, team: { deletedAt: null } },
     orderBy: [{ joinedAt: "asc" }],
     select: {
       joinedAt: true,
@@ -132,13 +141,17 @@ export async function createTeam(input: CreateTeamInput, session: SessionPayload
 
 export async function updateTeam(teamId: string, input: UpdateTeamInput, session: SessionPayload) {
   assertPlatformAdmin(session);
-  await findLiveCustomer(teamId);
   const updated = await prisma.team.update({
-    where: { id: teamId },
+    where: { id: teamId, deletedAt: null },
     data: {
       ...(input.name !== undefined ? { name: input.name.trim() } : {}),
       ...(input.description !== undefined ? { description: input.description?.trim() || null } : {}),
     },
+  }).catch((error: unknown) => {
+    if (error instanceof Prisma.PrismaClientKnownRequestError && error.code === "P2025") {
+      throw new NotFoundError(t("backend.customer.notFound"));
+    }
+    throw error;
   });
   await auditUserAction(session.userId, "team.update", { teamId, name: updated.name }, undefined, teamId);
   return updated;
@@ -167,7 +180,7 @@ export async function restoreTeam(teamId: string, session: SessionPayload) {
 
 /** The live customer and existing identity template a membership may point at. */
 export async function resolveCustomerMembershipTarget(teamId: string, identityTemplateId?: string | null, db: Prisma.TransactionClient = prisma) {
-  await findLiveCustomer(teamId, db);
+  await lockLiveCustomer(db, teamId);
   const templateId = identityTemplateId || DEFAULT_IDENTITY_TEMPLATE_ID;
   const template = await db.identityTemplate.findUnique({ where: { id: templateId }, select: { id: true } });
   if (!template) throw new NotFoundError(t("backend.customer.templateNotFound"));
@@ -216,6 +229,8 @@ export async function setCustomerMembership(
     if (user.roles.some((entry) => entry.role.key === "admin")) {
       throw new ValidationError(t("backend.customer.adminHasNoCustomer"));
     }
+    const previous = await tx.teamMember.findUnique({ where: { userId: user.id }, select: { teamId: true } });
+    if (previous && previous.teamId !== input.teamId) await lockLiveCustomer(tx, previous.teamId);
     const target = await resolveCustomerMembershipTarget(input.teamId, input.identityTemplateId, tx);
     const member = { userId: user.id, ...target };
     await applyCustomerMembership(tx, member);
@@ -242,6 +257,7 @@ export async function removeTeamMember(teamId: string, userId: string, session: 
   assertPlatformAdmin(session);
   await prisma.$transaction(async (tx) => {
     await lockUserRow(tx, userId);
+    await lockLiveCustomer(tx, teamId);
     const removed = await tx.teamMember.deleteMany({ where: { teamId, userId } });
     if (removed.count === 0) throw new NotFoundError(t("backend.team.thisUserIsNotATeamMember"));
     await tx.userServerAccess.deleteMany({ where: { userId } });
@@ -254,8 +270,11 @@ export async function removeTeamMember(teamId: string, userId: string, session: 
 /** Administrators choose a customer to work in, or null for all customers. */
 export async function switchCurrentTeam(teamId: string | null, session: SessionPayload) {
   assertPlatformAdmin(session);
-  const team = teamId ? await findLiveCustomer(teamId) : null;
-  await prisma.user.update({ where: { id: session.userId }, data: { currentTeamId: team?.id ?? null } });
+  const team = await prisma.$transaction(async tx => {
+    const selected = teamId ? await lockLiveCustomer(tx, teamId) : null;
+    await tx.user.update({ where: { id: session.userId }, data: { currentTeamId: selected?.id ?? null } });
+    return selected;
+  });
   await auditUserAction(session.userId, "team.switch", { teamId: team?.id ?? null, slug: team?.slug ?? null }, undefined, team?.id ?? null);
   return team;
 }

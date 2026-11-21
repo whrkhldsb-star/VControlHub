@@ -3,7 +3,7 @@ import { notFound } from "next/navigation";
 
 import { PageShell } from "@/components/page-shell";
 import { getCurrentSession } from "@/lib/auth/server-session";
-import { isGlobalTeamManager } from "@/lib/auth/team-scope";
+import { canPreviewClosedBoard } from "@/lib/public-status/access";
 import { parseHistoryRange } from "@/lib/public-status/query";
 import { readPublicNode } from "@/lib/public-status/read";
 import { PublicNodeClient } from "./public-node-client";
@@ -24,8 +24,9 @@ export default async function PublicNodePage({
 	params: Promise<{ publicId: string }>;
 	searchParams: Promise<Record<string, string | string[] | undefined>>;
 }) {
-	const [{ publicId }, query, session] = await Promise.all([params, searchParams, getCurrentSession()]);
-	const preview = query.preview === "1" && Boolean(session && isGlobalTeamManager(session));
+	const [{ publicId }, query, rawSession] = await Promise.all([params, searchParams, getCurrentSession()]);
+	const session = rawSession?.mustChangePassword ? null : rawSession;
+	const preview = query.preview === "1" && canPreviewClosedBoard(session);
 	const detail = await readPublicNode(publicId, { preview });
 	if (!detail) notFound();
 	return (

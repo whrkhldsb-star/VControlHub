@@ -69,6 +69,14 @@ describe("QuickService lifecycle job enqueue", () => {
 		expect(mocks.enqueueJob).not.toHaveBeenCalled();
 	});
 
+	it("rejects an install requesting a different port after acquiring the enqueue lock", async () => {
+		const { SERVICE_CATALOG } = await import("./catalog");
+		const template = SERVICE_CATALOG.find(item => item.slug === "alist")!;
+		mocks.findMany.mockResolvedValueOnce([{ id: "first", status: "RUNNING", payload: { action: "install", slug: "alist", template, customPort: 10001 } }]);
+		await expect(enqueueQuickServiceJob({ title: "Install", payload: { action: "install", slug: "alist", template, customPort: 10002 } })).rejects.toThrow();
+		expect(mocks.enqueueJob).not.toHaveBeenCalled();
+	});
+
 	it("reuses only an equivalent active operation", async () => {
 		const existing = { id: "job_existing", status: "RUNNING", payload: { action: "uninstall", slug: "alist", deleteVolumes: false } };
 		mocks.findMany.mockResolvedValueOnce([existing]);

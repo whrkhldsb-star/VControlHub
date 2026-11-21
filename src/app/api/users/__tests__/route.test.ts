@@ -6,6 +6,7 @@ const { mocks } = vi.hoisted(() => ({
     requireApiSession: vi.fn(),
     hashPassword: vi.fn(),
     auditUserAction: vi.fn(),
+    writeAuditLog: vi.fn(),
     assertAdminAccessMayBeRemoved: vi.fn(),
     withAdminInvariantLock: vi.fn(),
     assertCurrentUserManager: vi.fn(),
@@ -40,6 +41,7 @@ const { mocks } = vi.hoisted(() => ({
         findUnique: vi.fn(),
       },
       $transaction: vi.fn(),
+      $queryRaw: vi.fn(),
     },
   },
 }));
@@ -52,7 +54,7 @@ vi.mock("@/lib/auth/password", () => ({
   hashPassword: mocks.hashPassword,
 }));
 vi.mock("@/lib/audit/service", () => ({
-  auditUserAction: mocks.auditUserAction,
+  auditUserAction: mocks.auditUserAction, writeAuditLog: mocks.writeAuditLog,
 }));
 vi.mock("@/lib/user/account-type", () => ({ assertCurrentUserManager: mocks.assertCurrentUserManager }));
 vi.mock("@/lib/user/admin-invariant", () => ({
@@ -92,7 +94,8 @@ describe("/api/users", () => {
     // would classify as global.
     mocks.isGlobalTeamManager.mockReturnValue(true);
     mocks.assertAdminAccessMayBeRemoved.mockResolvedValue(undefined);
-    mocks.withAdminInvariantLock.mockImplementation(async (operation) => operation({ user: { update: mocks.transactionUpdate } }));
+    mocks.prisma.$queryRaw.mockResolvedValue([{ id: "locked" }]);
+    mocks.withAdminInvariantLock.mockImplementation(async (operation) => operation(mocks.prisma));
     mocks.userDirectoryWhere.mockReturnValue({
       OR: [{ id: "admin1" }, { teamMembership: { is: { teamId: "team-a" } } }],
     });
@@ -197,7 +200,7 @@ describe("/api/users", () => {
   });
 
   it("refuses a customer account for a deleted customer or an unknown template", async () => {
-    mocks.prisma.team.findUnique.mockResolvedValueOnce({ deletedAt: new Date() });
+    mocks.prisma.$queryRaw.mockResolvedValueOnce([]);
     const deleted = await route.POST(post({ username: "bob", password: "Secret123", account: { type: "customer", teamId: "team-gone" } }));
     expect(deleted.status).toBe(404);
 
@@ -229,12 +232,11 @@ describe("/api/users", () => {
 
     const res = await route.PATCH(req);
     expect(res.status).toBe(200);
-    expect(mocks.assertUserInActorScope).toHaveBeenCalledWith(session, "user1");
+    expect(mocks.assertUserInActorScope).toHaveBeenCalledWith(session, "user1", mocks.prisma);
     // Disabling also advances the session epoch so the account's old sessions stay dead after re-enabling.
-    expect(mocks.assertAdminAccessMayBeRemoved).toHaveBeenCalledWith("user1", { user: { update: mocks.transactionUpdate } });
-    expect(mocks.assertAdminAccessMayBeRemoved).toHaveBeenCalledBefore(mocks.transactionUpdate);
-    expect(mocks.prisma.user.update).not.toHaveBeenCalled();
-    expect(mocks.transactionUpdate).toHaveBeenCalledWith({
+    expect(mocks.assertAdminAccessMayBeRemoved).toHaveBeenCalledWith("user1", mocks.prisma);
+    expect(mocks.assertAdminAccessMayBeRemoved).toHaveBeenCalledBefore(mocks.prisma.user.update);
+    expect(mocks.prisma.user.update).toHaveBeenCalledWith({
       where: { id: "user1" },
       data: { status: "DISABLED", sessionEpoch: { increment: 1 } },
     });
@@ -257,9 +259,9 @@ describe("/api/users", () => {
       }));
       expect(res.status).toBe(200);
     }
-    const calls = mocks.auditUserAction.mock.calls.filter((call) => String(call[1]).startsWith("user.") && /disable|enable/.test(String(call[1])));
-    expect(calls).toHaveLength(2);
-    for (const call of calls) expect(call[4]).toBe("team_of_alice");
+    for (const action of ["user.disable", "user.enable"]) {
+      expect(mocks.writeAuditLog).toHaveBeenCalledWith(expect.objectContaining({ action, teamId: "team_of_alice" }), mocks.prisma);
+    }
   });
 
   it("returns 404 when PATCH target is outside actor team scope", async () => {

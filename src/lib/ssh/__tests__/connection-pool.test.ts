@@ -1,8 +1,9 @@
 /** @vitest-environment node */
 import type { EventEmitter as EventEmitterType } from "node:events";
+import { PassThrough } from "node:stream";
 import { afterEach, describe, expect, it, vi } from "vitest";
 
-const state = vi.hoisted(() => ({ connectCount: 0, endCount: 0, sftpOpenCount: 0, sftpEndCount: 0, lastConfig: null as Record<string, unknown> | null }));
+const state = vi.hoisted(() => ({ connectCount: 0, endCount: 0, sftpOpenCount: 0, sftpEndCount: 0, read: vi.fn(), lastConfig: null as Record<string, unknown> | null }));
 
 vi.mock("ssh2", async () => {
   const { EventEmitter } = await import("node:events");
@@ -23,12 +24,16 @@ vi.mock("ssh2", async () => {
       });
     }
     sftp(callback: (error: Error | undefined, sftp: {
+      opendir: (path: string, done: (error: undefined, handle: Buffer) => void) => void;
       readdir: (path: string, done: (error: Error | undefined, entries: unknown[]) => void) => void;
+      createReadStream: typeof state.read;
       end: () => void;
     }) => void) {
       state.sftpOpenCount += 1;
       callback(undefined, {
-        readdir: (_path, done) => done(undefined, []),
+        opendir: (_path, done) => done(undefined, Buffer.from("handle")),
+        createReadStream: state.read,
+        readdir: (_path, done) => done(Object.assign(new Error("EOF"), { code: 1 }), []),
         end: () => { state.sftpEndCount += 1; },
       });
     }
@@ -47,7 +52,7 @@ vi.mock("@/lib/concurrency/advisory-lock", () => ({ acquireAdvisoryLock: acquire
 vi.mock("@/lib/db", () => ({ prisma: { server: { findUnique: findServer } } }));
 vi.mock("@/lib/server/agent-service", () => ({ executeCommandWithAgent: agent }));
 
-import { buildSshParamsFromServer, closeSshPool, execRemoteCommand, listRemoteDirectory } from "../client";
+import { buildSshParamsFromServer, closeSshPool, execRemoteCommand, listRemoteDirectory, readRemoteFile } from "../client";
 
 describe("SSH connection pool", () => {
   afterEach(async () => {
@@ -151,5 +156,20 @@ describe("SSH connection pool", () => {
     expect(state.sftpOpenCount).toBe(12);
     expect(state.sftpEndCount).toBe(12);
     expect(state.endCount).toBe(0);
+  });
+
+  it("lets a progressing file read outlive the metadata deadline and a full idle window", async () => {
+    vi.useFakeTimers();
+    try {
+      const input = new PassThrough();
+      state.read.mockReturnValueOnce(input);
+      const result = readRemoteFile({ host: "fixture", port: 22, username: "ops", password: "test", remotePath: "/data/file" });
+      await vi.advanceTimersByTimeAsync(60_000);
+      input.write("first ");
+      await vi.advanceTimersByTimeAsync(90_000);
+      input.end("last");
+      expect((await result).toString()).toBe("first last");
+      expect(state.sftpEndCount).toBe(1);
+    } finally { vi.useRealTimers(); }
   });
 });

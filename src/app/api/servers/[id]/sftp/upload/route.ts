@@ -131,10 +131,10 @@ async function handleUpload(
     const release = await acquireAdvisoryLock("server-delete", id);
     let bytesWritten: number;
     try {
-      const target = await loadEnabledServerForSftp(id, teamAccess.server.teamId, teamAccess.server);
-      await assertSftpPathAccess({ session, serverId: id, paths: [fullPath], target });
+      const target = await loadEnabledServerForSftp(id, teamAccess.server.teamId, teamAccess.server, request.signal);
+      const root = await assertSftpPathAccess({ session, serverId: id, paths: [fullPath], target, signal: request.signal });
       const stream = Readable.fromWeb(file.stream() as import("node:stream/web").ReadableStream);
-      bytesWritten = await uploadFile(id, fullPath, stream, target.ssh);
+      bytesWritten = await uploadFile(id, fullPath, stream, { ...target.ssh, signal: request.signal }, root);
     } finally {
       await release();
     }

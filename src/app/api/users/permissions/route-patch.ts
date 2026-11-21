@@ -1,8 +1,51 @@
+import { createHash } from "node:crypto";
 import type { Prisma } from "@prisma/client";
 import { ValidationError } from "@/lib/errors";
 import { t } from "@/lib/i18n/service-translations";
 import { parseNullableBigIntInput } from "@/lib/storage/access-control";
 import { normalizeStorageTargetDirectory } from "@/lib/storage/path-utils";
+
+export const permissionAccountIdentity = {
+  id: true, username: true, displayName: true,
+  roles: { select: { role: { select: { key: true } } } },
+  teamMembership: {
+    select: {
+      teamId: true, team: { select: { deletedAt: true } }, identityTemplateId: true,
+      identityTemplate: { select: { permissions: true } },
+    },
+  },
+} as const;
+
+export function readPermissionAccount(db: Prisma.TransactionClient, userId: string) {
+  return db.user.findUnique({
+    where: { id: userId },
+    select: {
+      ...permissionAccountIdentity,
+      storageAccess: {
+        include: { storageNode: { select: { id: true, name: true, driver: true, basePath: true, teamId: true } } },
+        orderBy: [{ storageNodeId: "asc" }, { pathPrefix: "asc" }],
+      },
+      serverAccess: {
+        include: { server: { select: { id: true, name: true, operatingSystem: true, teamId: true } } },
+        orderBy: { serverId: "asc" },
+      },
+    },
+  });
+}
+
+/** Hash only persisted inputs to authorization. Usage counters and resource
+ * display names may change while an administrator is editing. */
+export function permissionVersion(account: NonNullable<Awaited<ReturnType<typeof readPermissionAccount>>>) {
+  const member = account.teamMembership;
+  const snapshot = [
+    account.id, account.roles.map(({ role }) => role.key).sort(),
+    member && [member.teamId, member.team.deletedAt, member.identityTemplateId, [...member.identityTemplate.permissions].sort()],
+    account.serverAccess.map(row => [row.serverId, row.canRead, row.canConnect, row.canManage, row.canFileRead, row.canFileWrite, row.canFileDelete]),
+    account.storageAccess.map(row => [row.storageNodeId, row.pathPrefix, row.canRead, row.canWrite, row.canDelete,
+      row.quotaBytes?.toString(), row.maxFileBytes?.toString()]),
+  ];
+  return createHash("sha256").update(JSON.stringify(snapshot)).digest("hex");
+}
 
 type PermissionPatch = {
   userId: string;

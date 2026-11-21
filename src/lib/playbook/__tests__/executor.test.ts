@@ -23,6 +23,7 @@ vi.mock("@/lib/db", () => ({
 		teamMember: { findUnique: mocks.teamMemberFindUnique },
 	},
 }));
+vi.mock("../webhook-dispatch", () => ({ fetchPlaybookWebhook: mocks.fetchWebhookSafely }));
 vi.mock("@/lib/security/webhook-url", () => ({
 	fetchWebhookSafely: mocks.fetchWebhookSafely,
 	validateWebhookUrlSyntax: (url: string) => ({ ok: true as const, url }),
@@ -126,8 +127,8 @@ describe("executePlaybookChain", () => {
 
 	it.each([
 		{ count: 33, retry: 0, chainRetry: 0, error: /32 steps/ },
-		{ count: 2, retry: 6, chainRetry: 0, error: /step retry/i },
-		{ count: 2, retry: 0.5, chainRetry: 0, error: /step retry/i },
+		{ count: 2, retry: 6, chainRetry: 0, error: /retry/i },
+		{ count: 2, retry: 0.5, chainRetry: 0, error: /retry/i },
 		{ count: 2, retry: 0, chainRetry: 6, error: /chainRetry/ },
 	])("rejects a stored budget of $count steps, retry $retry, chainRetry $chainRetry before dispatch", async ({ count, retry, chainRetry, error }) => {
 		const steps = Array.from({ length: count }, (_, index) => ({
@@ -187,7 +188,7 @@ describe("executePlaybookChain", () => {
 			title: "hi",
 			message: "world",
 			teamId: null,
-		});
+		}, expect.stringMatching(/^playbook-/));
 	});
 
 	it("checks team membership before send_notification when run has teamId", async () => {
@@ -213,7 +214,7 @@ describe("executePlaybookChain", () => {
 			where: { teamId_userId: { teamId: "team1", userId: "u1" } },
 			select: { userId: true },
 		});
-		expect(mocks.notificationCreate).toHaveBeenCalledWith(expect.objectContaining({ userId: "u1", teamId: "team1" }));
+		expect(mocks.notificationCreate).toHaveBeenCalledWith(expect.objectContaining({ userId: "u1", teamId: "team1" }), expect.stringMatching(/^playbook-/));
 	});
 
 	it("fails send_notification when recipient is outside run team scope", async () => {
@@ -267,8 +268,30 @@ describe("executePlaybookChain", () => {
 		expect(JSON.stringify([results, onProgress.mock.calls, mocks.playbookRunUpdateMany.mock.calls])).not.toMatch(/private-hook|token=/);
 		expect(mocks.fetchWebhookSafely).toHaveBeenCalledWith(
 			url,
-			expect.objectContaining({ method: "POST", signal: expect.any(AbortSignal) }),
+			expect.objectContaining({ method: "POST", signal: expect.any(AbortSignal) }), undefined,
 		);
+	});
+
+	it("applies legacy step defaults and rejects an oversized timeout before the first side effect", async () => {
+		const old = { id: "old", name: "Notify", type: "send_notification", config: { recipientUserId: "u1", subject: "hi", body: "body" } };
+		const run = (steps: unknown[]) => executePlaybookChain({ playbook: buildPlaybook(steps as PlaybookRecord["steps"]), runId: "legacy", dryRun: false });
+		expect((await run([old, { ...old, id: "later", timeoutSec: 3601 }])).results.at(-1)).toMatchObject({ status: "failed", error: expect.stringContaining("timeoutSec") });
+		expect(mocks.notificationCreate).not.toHaveBeenCalled();
+		expect((await run([old])).results[0]?.status).toBe("ok");
+	});
+
+	it("reuses the inbox delivery id after losing the first insert acknowledgement", async () => {
+		const ids = new Set<string>();
+		mocks.notificationCreate.mockImplementation(async (_input, id: string) => {
+			if (ids.has(id)) return { id };
+			ids.add(id);
+			throw new Error("commit acknowledgement lost");
+		});
+		const step = { id: "notify", name: "Notify", type: "send_notification" as const, config: { recipientUserId: "u1", subject: "hi", body: "body" }, retry: 1, timeoutSec: 60 };
+		const result = await executePlaybookChain({ playbook: buildPlaybook([step]), runId: "lost-ack", dryRun: false });
+		expect(result.results[0]?.status).toBe("ok");
+		expect(mocks.notificationCreate).toHaveBeenCalledTimes(2);
+		expect([...ids]).toEqual([expect.stringMatching(/^playbook-[a-f0-9]{64}$/)]);
 	});
 
 	it("fails a saved playbook whose steps share an id instead of skipping the second", async () => {

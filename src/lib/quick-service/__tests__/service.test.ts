@@ -173,6 +173,21 @@ describe("quick service docker lifecycle", () => {
 		});
 	});
 
+	it("aborts reinstallation when the old service snapshot cannot be read", async () => {
+		prismaMock.quickService.findUnique.mockRejectedValueOnce(new Error("snapshot unavailable"));
+		await expect(installService({ template, userId: "user", customPort: 12345 })).rejects.toThrow("snapshot unavailable");
+		expect(prismaMock.quickService.delete).not.toHaveBeenCalled();
+		expect(prismaMock.quickService.update).not.toHaveBeenCalled();
+		expect(prismaMock.quickService.create).not.toHaveBeenCalled();
+		expect(execFileMock).not.toHaveBeenCalled();
+	});
+
+	it("rejects a malformed catalogue command before renaming or stopping an existing container", async () => {
+		const { recreateDockerContainer } = await import("../service-lifecycle-install");
+		await expect(recreateDockerContainer("svc", { ...template, command: "'unfinished" }, 18080)).rejects.toThrow();
+		expect(execFileMock).not.toHaveBeenCalled();
+	});
+
 	it.each([["hub-host", null], ["server-a", "server-a"]])("only lists services with the matching foreign key for %s", async (instanceKey, serverId) => {
 		await listQuickServices(instanceKey!, "team-a");
 		expect(prismaMock.quickService.findMany).toHaveBeenCalledWith(expect.objectContaining({
@@ -210,11 +225,11 @@ describe("quick service docker lifecycle", () => {
 
 	it("runs docker with argv arguments and stores running container id after install", async () => {
 		prismaMock.quickService.create.mockResolvedValueOnce({ ...hubIdentity, id: "svc-1", slug: "demo", port: 12345 });
-		prismaMock.quickService.update.mockResolvedValueOnce({});
+		prismaMock.quickService.update.mockResolvedValueOnce({ id: "svc-1", port: 12345, status: "running", containerId: "accepted" });
 
 		const svc = await installService({ template, userId: "user-1", customPort: 12345 });
 
-		expect(svc.port).toBe(12345);
+		expect(svc).toMatchObject({ port: 12345, status: "running", containerId: "accepted" });
 		expect(mkdirSyncMock).toHaveBeenCalledWith("/opt/demo/data", { recursive: true });
 		expect(execFileMock).toHaveBeenCalledWith(
 			"docker",
@@ -738,7 +753,7 @@ describe("quick service docker lifecycle", () => {
 
 		// The same port is free for the next attempt (it stayed reserved in this process).
 		prismaMock.quickService.create.mockResolvedValueOnce({ ...hubIdentity, id: "svc-1", slug: "demo", port: 12345 });
-		prismaMock.quickService.update.mockResolvedValueOnce({});
+		prismaMock.quickService.update.mockResolvedValueOnce({ port: 12345, status: "running" });
 		await expect(installService({ template, userId: "user-1", customPort: 12345 })).resolves.toMatchObject({ port: 12345 });
 	});
 

@@ -89,17 +89,13 @@ export type AdminNodeRow = {
 	lastSampleAt: string | null;
 };
 
-function containsHost(server: { host: string }, values: Array<string | null>): boolean {
-	const host = server.host.trim().toLowerCase();
-	if (!host) return false;
-	return values.some((value) => Boolean(value && value.toLowerCase().includes(host)));
-}
+const PUBLIC_TEXT_SELECT = { displayName: true, groupName: true, region: true, note: true, countryCode: true, tags: true } as const;
+type PublicText = Prisma.PublicStatusNodeGetPayload<{ select: typeof PUBLIC_TEXT_SELECT }>;
 
-/** Values that would expose the host must not be published as public text. */
-function assertNoHostLeak(server: { host: string; name: string }, values: Array<string | null>) {
-	if (containsHost(server, values)) {
-		throw new ValidationError(t("backend.publicStatus.containsHost"), { code: "PUBLIC_FIELD_CONTAINS_HOST" });
-	}
+function containsHost(host: string, text: Partial<Omit<PublicText, "displayName">> & { displayName?: string | null }, name = text.displayName) {
+	const needle = host.trim().toLowerCase();
+	return Boolean(needle) && [name, text.groupName, text.region, text.note, text.countryCode, ...(text.tags ?? [])]
+		.some((value) => value?.toLowerCase().includes(needle));
 }
 
 export function normalizePublication(input: NodePublicationInput) {
@@ -135,6 +131,7 @@ const SERVER_SELECT = {
 } as const;
 
 type ServerWithPublication = {
+	host: string;
 	id: string;
 	name: string;
 	enabled: boolean;
@@ -179,7 +176,7 @@ function toAdminRow(server: ServerWithPublication): AdminNodeRow {
 					note: node.note,
 					maintenance: node.maintenance,
 					publishedAt: node.publishedAt?.toISOString() ?? null,
-					hiddenReason: publicationHiddenReason({
+					hiddenReason: containsHost(server.host, node) ? "unpublished" : publicationHiddenReason({
 						published: node.published,
 						publishedTeamId: node.publishedTeamId,
 						server: { enabled: server.enabled, teamId: server.teamId, team: server.team },
@@ -248,7 +245,9 @@ export async function updateNodePublication(serverId: string, input: NodePublica
 	if (!values.displayName) {
 		throw new ValidationError(t("backend.publicStatus.nameRequired"), { code: "PUBLIC_NAME_REQUIRED" });
 	}
-	assertNoHostLeak(server, [values.displayName, values.groupName, values.region, values.note, ...values.tags]);
+	if (containsHost(server.host, values)) {
+		throw new ValidationError(t("backend.publicStatus.containsHost"), { code: "PUBLIC_FIELD_CONTAINS_HOST" });
+	}
 	const existing = await prisma.publicStatusNode.findUnique({ where: { serverId }, select: { published: true, publishedAt: true } });
 	const publishing = values.published;
 	const data = {
@@ -287,7 +286,7 @@ export async function updateNodePublication(serverId: string, input: NodePublica
 async function publishWithServerNames(ids: string[], actorId: string) {
 	const servers = await prisma.server.findMany({
 		where: { id: { in: ids } },
-		select: { id: true, name: true, host: true, teamId: true, publicStatusNode: { select: { displayName: true } } },
+		select: { id: true, name: true, host: true, teamId: true, publicStatusNode: { select: PUBLIC_TEXT_SELECT } },
 	});
 	const found = new Set(servers.map((server) => server.id));
 	const skipped = ids.filter((id) => !found.has(id));
@@ -296,7 +295,7 @@ async function publishWithServerNames(ids: string[], actorId: string) {
 	for (const server of servers) {
 		const current = server.publicStatusNode?.displayName.trim() || null;
 		const name = current ?? singleLine(server.name, DISPLAY_NAME_MAX);
-		if (!name || containsHost(server, [name])) {
+		if (!name || containsHost(server.host, server.publicStatusNode ?? {}, name)) {
 			skipped.push(server.id);
 			continue;
 		}
@@ -316,7 +315,7 @@ export async function applyNodeBatch(input: NodeBatchInput, actorId: string) {
 	if (input.action === "publish_named") return publishWithServerNames(ids, actorId);
 	const nodes = await prisma.publicStatusNode.findMany({
 		where: { serverId: { in: ids } },
-		select: { serverId: true, displayName: true, server: { select: { teamId: true } } },
+		select: { serverId: true, ...PUBLIC_TEXT_SELECT, server: { select: { teamId: true, host: true } } },
 	});
 	const configured = new Map(nodes.map((node) => [node.serverId, node]));
 	const skipped = ids.filter((id) => !configured.has(id));
@@ -331,7 +330,7 @@ export async function applyNodeBatch(input: NodeBatchInput, actorId: string) {
 		const updates = [];
 		for (const id of targets) {
 			const node = configured.get(id)!;
-			if (!node.displayName.trim()) {
+			if (!node.displayName.trim() || containsHost(node.server.host, node)) {
 				skipped.push(id);
 				continue;
 			}

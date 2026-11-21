@@ -9,10 +9,10 @@ import { createLogger } from "@/lib/logging";
 import { auditSystemAction } from "@/lib/audit/service";
 import { createSingletonIntervalWorker, type SingletonIntervalWorkerState } from "@/lib/workers/singleton-interval-worker";
 
-import { acquireAdvisoryLock } from "@/lib/concurrency/advisory-lock";
+import { acquireAdvisoryLock, AdvisoryLockBusyError } from "@/lib/concurrency/advisory-lock";
 import { loadJobOwnerSession } from "@/lib/api-token/authorization";
 import { sessionHasPermission } from "@/lib/auth/authorization";
-import { isGlobalTeamManager } from "@/lib/auth/team-scope";
+import { isGlobalTeamManager, liveCustomerRowsWhere } from "@/lib/auth/team-scope";
 import { ForbiddenError } from "@/lib/errors";
 import { t } from "@/lib/i18n/service-translations";
 import { assertRequesterMayExecuteCommand } from "@/lib/auth/command-execution-authz";
@@ -58,7 +58,9 @@ const logger = createLogger("playbook-run-worker");
 const PLAYBOOK_RUN_KEEP_LATEST = 25;
 
 type Payload = { runId: string };
-type ExecutionState = { schemaVersion: 1; stepsSnapshot: PlaybookStep[] };
+type ExecutionState =
+  | { schemaVersion: 1; stepsSnapshot: PlaybookStep[] }
+  | { schemaVersion: 2; stepsSnapshot: PlaybookStep[]; actorId: string | null; chainRetry: number; sourceRuleTeamId?: string | null };
 type State = SingletonIntervalWorkerState;
 
 const playbookRunWorker = createSingletonIntervalWorker({
@@ -101,26 +103,32 @@ function isAlertRunContext(context: Prisma.JsonValue): context is Prisma.JsonObj
     && (context.type === "alert_rule" || context.type === "capacity_forecast");
 }
 
-async function assertAlertRunScope(context: Prisma.JsonValue, playbookId: string, runTeamId: string | null) {
+async function assertAlertRunScope(context: Prisma.JsonValue, playbookId: string, runTeamId: string | null, sourceTeamId?: string | null) {
   if (!isAlertRunContext(context)) return;
   const [rule, playbook] = await Promise.all([
     typeof context.alertRuleId === "string" ? prisma.alertRule.findUnique({
-      where: { id: context.alertRuleId }, select: { teamId: true },
+      where: {
+        id: context.alertRuleId, enabled: true, playbookIds: { has: playbookId }, ...liveCustomerRowsWhere(),
+        AND: [{ OR: [
+          { serverIds: { isEmpty: true } },
+          ...(typeof context.serverId === "string" ? [{ serverIds: { has: context.serverId } }] : []),
+        ] }],
+      },
+      select: { teamId: true },
     }) : null,
-    prisma.playbook.findUnique({ where: { id: playbookId }, select: { teamId: true } }),
+    prisma.playbook.findUnique({ where: { id: playbookId, enabled: true, ...liveCustomerRowsWhere() }, select: { teamId: true } }),
   ]);
-  if (!rule || !playbook || playbook.teamId !== runTeamId || !canAlertRuleTargetTeam(rule.teamId, playbook.teamId)) {
+  if (!rule || !playbook || (sourceTeamId !== undefined && rule.teamId !== sourceTeamId) || playbook.teamId !== runTeamId || !canAlertRuleTargetTeam(rule.teamId, playbook.teamId)) {
     throw new PlaybookAuthorizationError(t("backend.alert.oneOrMorePlaybookidsAreOutsideTheCurrent"));
   }
-  if (runTeamId !== null) {
-    const host = typeof context.serverId === "string" && await prisma.server.findFirst({
-      where: { id: context.serverId, teamId: runTeamId }, select: { id: true },
-    });
-    if (!host) throw new PlaybookAuthorizationError(t("backend.alert.oneOrMoreServeridsAreOutsideTheCurrent"));
-  }
+  const host = typeof context.serverId === "string" && await prisma.server.findFirst({
+    where: { id: context.serverId, ...(runTeamId === null ? {} : { teamId: runTeamId }), enabled: true, ...liveCustomerRowsWhere() },
+    select: { id: true },
+  });
+  if (!host) throw new PlaybookAuthorizationError(t("backend.alert.oneOrMoreServeridsAreOutsideTheCurrent"));
 }
 
-export async function processPlaybookRun(runId: string, jobId: string, signal?: AbortSignal): Promise<{ status: "completed" | "failed"; summary: string }> {
+export async function processPlaybookRun(runId: string, jobId: string, signal?: AbortSignal, maxAttempts = 1): Promise<{ status: "completed" | "failed"; summary: string }> {
   const run = await prisma.playbookRun.findUnique({
     where: { id: runId },
     include: { playbook: true },
@@ -147,16 +155,14 @@ export async function processPlaybookRun(runId: string, jobId: string, signal?: 
   }
 
   signal?.throwIfAborted();
-  // Platform alert runs act for the playbook owner and have no requester.
-  // Other platform runs carry their own actor. Deleting that account clears
-  // the foreign key and must never substitute a different administrator.
-  const canUsePlaybookOwner = run.teamId !== null || isAlertRunContext(run.triggerContext);
-  const requesterId = run.createdById ?? (canUsePlaybookOwner ? run.playbook.createdById : null);
+  const state = run.executionState as unknown as ExecutionState | null;
+  // Old jobs only have their requester FK and the budget recorded on the job.
+  // An old run with no attributable actor cannot safely inherit an owner.
+  const requesterId = state?.schemaVersion === 2 ? state.actorId : run.createdById;
   await assertRunOwner(requesterId, run.teamId);
-  const executionState = run.executionState as unknown as ExecutionState | null;
-  const steps = executionState?.schemaVersion === 1 && Array.isArray(executionState.stepsSnapshot)
-    ? executionState.stepsSnapshot
-    : run.playbook.steps as unknown as PlaybookStep[];
+  const steps = state ? state.stepsSnapshot : run.playbook.steps as unknown as PlaybookStep[];
+  const chainRetry = state?.schemaVersion === 2 ? state.chainRetry : maxAttempts - 1;
+  const sourceTeamId = state?.schemaVersion === 2 ? state.sourceRuleTeamId : undefined;
   const hasCommandStep = Array.isArray(steps) && steps.some((step) => step?.type === "run_command");
   if (hasCommandStep && !requesterId) {
     throw new Error("playbook command step requires a creator/requester");
@@ -190,7 +196,7 @@ export async function processPlaybookRun(runId: string, jobId: string, signal?: 
     if (["completed", "failed", "cancelled"].includes(latest.status)) {
       return terminalJobResult(latest.status, latest.errorMessage);
     }
-    await assertAlertRunScope(run.triggerContext, run.playbook.id, latest.teamId);
+    await assertAlertRunScope(run.triggerContext, run.playbook.id, latest.teamId, sourceTeamId);
 
     // Ensure we still own a claimable row before dispatching side effects.
     const stillClaimable = await prisma.playbookRun.updateMany({
@@ -216,12 +222,13 @@ export async function processPlaybookRun(runId: string, jobId: string, signal?: 
         const lease = await heartbeatJob(jobId, WORKER_ID, { leaseMs: LEASE_MS });
         if (lease.count !== 1) throw new LeaseLostError(jobId);
         await assertRunOwner(requesterId, latest.teamId);
+        await assertAlertRunScope(run.triggerContext, run.playbook.id, latest.teamId, sourceTeamId);
         signal?.throwIfAborted();
       },
       playbook: {
         id: run.playbook.id,
         steps,
-        chainRetry: run.playbook.chainRetry,
+        chainRetry,
       },
       runId,
       dryRun: latest.dryRun,
@@ -290,7 +297,7 @@ async function handleJob(job: NonNullable<Awaited<ReturnType<typeof claimNextJob
       jobId: job.id,
       leaseMs: LEASE_MS,
       heartbeat: () => heartbeatJob(job.id, WORKER_ID, { leaseMs: LEASE_MS }),
-      run: (signal) => processPlaybookRun(runId, job.id, signal),
+      run: (signal) => processPlaybookRun(runId, job.id, signal, job.maxAttempts),
     });
     // Logical step failure already wrote PlaybookRun status=failed. Do NOT use
     // failJob() (requeues while attempts < maxAttempts). Terminal-fail the job
@@ -308,6 +315,21 @@ async function handleJob(job: NonNullable<Awaited<ReturnType<typeof claimNextJob
     return true;
   } catch (error) {
     if (error instanceof LeaseLostError) return true; // The new lease owner resolves it.
+    if (error instanceof AdvisoryLockBusyError && error.namespace === "playbook-execute") {
+      const { runId } = parsePayload(job.payload);
+      await prisma.$transaction(async (tx) => {
+        const now = new Date();
+        const released = await tx.job.updateMany({
+          where: { id: job.id, status: "RUNNING", attempts: job.attempts, workerId: WORKER_ID, leaseExpiresAt: { gt: now } },
+          data: {
+            status: "PENDING", availableAt: new Date(now.getTime() + 5_000), attempts: { decrement: 1 },
+            workerId: null, workerHeartbeatAt: null, leaseExpiresAt: null,
+          },
+        });
+        if (released.count) await tx.playbookRun.updateMany({ where: { id: runId, status: "running" }, data: { status: "queued" } });
+      });
+      return true;
+    }
     const message = error instanceof Error ? error.message : String(error);
     const payload = (() => { try { return parsePayload(job.payload); } catch { return null; } })();
     // Authorization failures are terminal: retrying under the same revoked

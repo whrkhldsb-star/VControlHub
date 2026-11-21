@@ -1,3 +1,4 @@
+import { Prisma } from "@prisma/client";
 import { beforeEach, describe, expect, it, vi } from "vitest";
 import { ConflictError, ValidationError } from "@/lib/errors";
 
@@ -47,6 +48,25 @@ describe("identity template service", () => {
 
 		prismaMock.teamMember.count.mockResolvedValue(0);
 		await service.deleteIdentityTemplate("tpl");
-		expect(prismaMock.identityTemplate.delete).toHaveBeenCalledWith({ where: { id: "tpl" } });
+		expect(prismaMock.identityTemplate.delete).toHaveBeenCalledWith({ where: { id: "tpl", isBuiltin: false } });
 	});
+});
+
+it.each([["P2003", 409], ["P2025", 404]])("maps a concurrent template delete error %s to HTTP %i", async (code, status) => {
+	prismaMock.identityTemplate.findUnique.mockResolvedValue({ id: "tpl", isBuiltin: false });
+	prismaMock.teamMember.count.mockResolvedValueOnce(0).mockResolvedValue(1);
+	prismaMock.identityTemplate.delete.mockRejectedValueOnce(new Prisma.PrismaClientKnownRequestError("concurrent write", { code: String(code), clientVersion: "test" }));
+	await expect(service.deleteIdentityTemplate("tpl")).rejects.toMatchObject({ status });
+});
+
+it("lists every legacy picker option and supports bounded template searches and exact ids", async () => {
+	const rows = Array.from({ length: 201 }, (_, i) => ({ id: String(i) }));
+	prismaMock.identityTemplate.findMany.mockResolvedValueOnce(rows).mockResolvedValueOnce(rows.slice(200));
+	expect(await service.listIdentityTemplates()).toHaveLength(201);
+	expect(prismaMock.identityTemplate.findMany).toHaveBeenLastCalledWith(expect.objectContaining({ cursor: { id: "199" }, skip: 1 }));
+	prismaMock.identityTemplate.findMany.mockResolvedValue(rows.slice(0, 2));
+	expect((await service.identityTemplateOptions({ pageSize: 1, search: "ops" })).nextCursor).toBe("0");
+	expect(prismaMock.identityTemplate.findMany).toHaveBeenLastCalledWith(expect.objectContaining({ where: { name: { contains: "ops", mode: "insensitive" } } }));
+	await service.identityTemplateOptions({ pageSize: 1, id: "assigned" });
+	expect(prismaMock.identityTemplate.findMany).toHaveBeenLastCalledWith(expect.objectContaining({ where: { id: "assigned" } }));
 });

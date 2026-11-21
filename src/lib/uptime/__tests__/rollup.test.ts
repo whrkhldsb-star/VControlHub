@@ -50,6 +50,25 @@ describe("rollupServerUptimeForDay", () => {
     );
   });
 
+  it.each([["2025-03-09T05:00:00Z", 1380], ["2025-11-02T04:00:00Z", 1500]] as const)("uses both local midnights for the DST day starting %s", async (start, minutes) => {
+    vi.stubEnv("NEXT_PUBLIC_APP_TIME_ZONE", "America/New_York");
+    vi.resetModules();
+    try {
+      const { dayCoverageMinutes } = await import("../coverage");
+      const { rollupServerUptimeForDay: rollup } = await import("../rollup");
+      const midnight = new Date(start);
+      expect(dayCoverageMinutes(midnight, new Date("2026-01-01"))).toBe(minutes);
+      prismaMock.$queryRaw.mockResolvedValueOnce([{ serverId: "s", online: 1, offline: 0, online_s: minutes * 60, offline_s: 0 }]);
+      await rollup(midnight);
+      expect(prismaMock.serverUptimeSnapshot.upsert).toHaveBeenLastCalledWith(expect.objectContaining({
+        create: expect.objectContaining({ date: midnight, onlineMinutes: minutes, uptimePercent: 100 }),
+      }));
+    } finally {
+      vi.unstubAllEnvs();
+      vi.resetModules();
+    }
+  });
+
   it("skips servers with no samples that day", async () => {
     prismaMock.$queryRaw.mockResolvedValueOnce([]);
     const result = await rollupServerUptimeForDay(new Date("2026-07-19T12:00:00Z"));

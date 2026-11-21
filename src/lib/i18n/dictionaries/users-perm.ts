@@ -6,6 +6,10 @@
  */
 
 export const zh: Record<string, string> = {
+	"usersPerm.options.query": "查找{resource}",
+	"usersPerm.options.search": "按名称搜索",
+	"usersPerm.options.byId": "按 ID 查找",
+	"usersPerm.options.noResults": "没有匹配的资源",
 	"usersPerm.action.addGrant": "添加授权",
 	"usersPerm.action.cancel": "取消",
 	"usersPerm.action.close": "关闭",
@@ -26,6 +30,7 @@ export const zh: Record<string, string> = {
 	"usersPerm.grants.maxFile": "单文件限制",
 	"usersPerm.grants.maxFilePlaceholder": "单文件限制，如 1GB",
 	"usersPerm.grants.node": "存储节点",
+	"usersPerm.grants.newNode": "要添加授权的存储节点",
 	"usersPerm.grants.path": "路径前缀",
 	"usersPerm.grants.pathPlaceholder": "路径前缀，空=整个节点",
 	"usersPerm.grants.quota": "容量限制",
@@ -61,6 +66,10 @@ export const zh: Record<string, string> = {
 };
 
 export const en: Record<string, string> = {
+	"usersPerm.options.query": "Find {resource}",
+	"usersPerm.options.search": "Search by name",
+	"usersPerm.options.byId": "Find by ID",
+	"usersPerm.options.noResults": "No matching resources",
 	"usersPerm.action.addGrant": "Add grant",
 	"usersPerm.action.cancel": "Cancel",
 	"usersPerm.action.close": "Close",
@@ -81,6 +90,7 @@ export const en: Record<string, string> = {
 	"usersPerm.grants.maxFile": "Max file size",
 	"usersPerm.grants.maxFilePlaceholder": "Max file size, e.g. 1GB",
 	"usersPerm.grants.node": "Storage node",
+	"usersPerm.grants.newNode": "Storage node for a new grant",
 	"usersPerm.grants.path": "Path prefix",
 	"usersPerm.grants.pathPlaceholder": "Path prefix, empty = whole node",
 	"usersPerm.grants.quota": "Quota",

@@ -47,13 +47,13 @@ describe("server uptime, RDP probe and SFTP routes", () => {
 	beforeEach(() => {
 		vi.clearAllMocks();
 		routeSession.current = customerSession(["server:read", "server:ssh"]);
-		mocks.assertServerTeamAccess.mockResolvedValue({ ok: true });
+		mocks.assertServerTeamAccess.mockResolvedValue({ ok: true, server: { id: "srv_1", teamId: "team_1" } });
 		mocks.snapshotFindMany.mockResolvedValue([{ date: new Date("2026-07-18T16:00:00Z"), uptimePercent: 99.5, onlineMinutes: 1430, offlineMinutes: 10, checkCount: 288 }]);
 		mocks.serverFindFirst.mockResolvedValue({ id: "srv_1", host: "203.0.113.5", port: 3389, operatingSystem: "WINDOWS" });
 		mocks.tcpProbe.mockResolvedValue({ ok: true, latencyMs: 12 });
 		mocks.assertSftpPathAccess.mockResolvedValue(undefined);
-		mocks.listDirectory.mockResolvedValue([{ name: "a.txt" }]);
-		mocks.loadEnabledServerForSftp.mockResolvedValue({ rootPath: "/root" });
+		mocks.listDirectory.mockResolvedValue({ entries: [{ name: "a.txt" }], truncated: false });
+		mocks.loadEnabledServerForSftp.mockResolvedValue({ rootPath: "/root", ssh: { host: "file-target" } });
 	});
 
 	it("uptime days are labelled on the application clock and gated by server access", async () => {
@@ -71,22 +71,22 @@ describe("server uptime, RDP probe and SFTP routes", () => {
 	});
 
 	it("SFTP operations check file-level access, then the path policy, then audit", async () => {
-		expect(await (await list.POST(req("POST", "http://local/api/servers/srv_1/sftp/list", {}), { params })).json()).toEqual({ path: "/root", entries: [{ name: "a.txt" }] });
+		expect(await (await list.POST(req("POST", "http://local/api/servers/srv_1/sftp/list", {}), { params })).json()).toEqual({ path: "/root", truncated: false, entries: [{ name: "a.txt" }] });
 		expect(mocks.assertServerTeamAccess).toHaveBeenCalledWith(expect.anything(), "srv_1", "fileRead");
-		expect(mocks.assertSftpPathAccess).toHaveBeenCalledWith({ session: expect.anything(), serverId: "srv_1", paths: ["/root"] });
+		expect(mocks.assertSftpPathAccess).toHaveBeenCalledWith(expect.objectContaining({ session: expect.anything(), serverId: "srv_1", paths: ["/root"], target: expect.anything() }));
 
 		await mkdir.POST(req("POST", "http://local/api/servers/srv_1/sftp/mkdir", { path: "/root/new" }), { params });
 		expect(mocks.assertServerTeamAccess).toHaveBeenLastCalledWith(expect.anything(), "srv_1", "fileWrite");
-		expect(mocks.makeDirectory).toHaveBeenCalledWith("srv_1", "/root/new");
+		expect(mocks.makeDirectory).toHaveBeenCalledWith("srv_1", "/root/new", { host: "file-target" });
 		expect(mocks.auditUserAction).toHaveBeenCalledWith("u_cust", "sftp.mkdir", { serverId: "srv_1", path: "/root/new" }, undefined, "team_1");
 
 		await rename.POST(req("POST", "http://local/api/servers/srv_1/sftp/rename", { oldPath: "/root/a", newPath: "/root/b" }), { params });
-		expect(mocks.assertSftpPathAccess).toHaveBeenLastCalledWith({ session: expect.anything(), serverId: "srv_1", paths: ["/root/a", "/root/b"] });
-		expect(mocks.renameEntry).toHaveBeenCalledWith("srv_1", "/root/a", "/root/b");
+		expect(mocks.assertSftpPathAccess).toHaveBeenLastCalledWith(expect.objectContaining({ session: expect.anything(), serverId: "srv_1", paths: ["/root/a", "/root/b"], target: expect.anything(), signal: expect.anything() }));
+		expect(mocks.renameEntry).toHaveBeenCalledWith("srv_1", "/root/a", "/root/b", { host: "file-target" });
 
 		await del.DELETE(req("DELETE", "http://local/api/servers/srv_1/sftp/delete?path=%2Froot%2Fa"), { params });
 		expect(mocks.assertServerTeamAccess).toHaveBeenLastCalledWith(expect.anything(), "srv_1", "fileDelete");
-		expect(mocks.deleteFile).toHaveBeenCalledWith("srv_1", "/root/a");
+		expect(mocks.deleteFile).toHaveBeenCalledWith("srv_1", "/root/a", { host: "file-target" });
 	});
 
 	it("a path outside the allowed roots is refused before any SFTP call", async () => {

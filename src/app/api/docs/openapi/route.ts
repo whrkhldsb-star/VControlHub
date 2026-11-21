@@ -9,6 +9,7 @@ import { NextResponse } from "next/server";
 import { withApiRoute } from "@/lib/http/api-guard";
 import { t } from "@/lib/i18n/translations";
 import { getServerLocale } from "@/lib/i18n/server-locale";
+import methodCatalog from "./method-catalog.json";
 import routeCatalog from "../../../../../docs/route-catalog.json";
 
 type TFunction = (key: string, vars?: Record<string, string | number>) => string;
@@ -17,11 +18,22 @@ type CatalogRoute = {
   path: string;
   methods: string[];
   guardMode: string;
-  declaredPermissions: string[];
 };
 
 type OpenApiOperation = Record<string, unknown>;
 type OpenApiPathItem = Record<string, OpenApiOperation>;
+
+const contracts: typeof machineContracts = {
+  ...machineContracts,
+  "/itsm/events": {
+    post: {
+      requestBody: { required: true, content: { "application/json": { schema: {
+        type: "object", additionalProperties: false, required: ["eventId", "received"],
+        properties: { eventId: { type: "string", minLength: 1, maxLength: 256 }, received: { type: "boolean" } },
+      } } } },
+    },
+  },
+};
 
 function toOpenApiPath(catalogPath: string): string {
   return catalogPath
@@ -45,7 +57,6 @@ function generatedOperation(
   path: string,
   tr: TFunction,
 ): OpenApiOperation {
-  const permissions = route.declaredPermissions;
   const security = path.startsWith("/agent/v1/")
     ? [{ agentTokenAuth: [] }]
     : path.startsWith("/webdav/")
@@ -73,9 +84,7 @@ function generatedOperation(
   return {
     tags: [generatedTag(path)],
     summary: `${method} ${path}`,
-    description: permissions.length > 0
-      ? tr("openapiSpec.generated.permissions", { permissions: permissions.join(", ") })
-      : authDescription,
+    description: authDescription,
     security,
     ...(parameters.length > 0 ? { parameters } : {}),
     responses: {
@@ -84,7 +93,6 @@ function generatedOperation(
       "401": { description: tr("openapiSpec.generated.unauthorized") },
       "403": { description: tr("openapiSpec.generated.forbidden") },
     },
-    "x-vcontrolhub-permissions": permissions,
   };
 }
 
@@ -93,17 +101,22 @@ function buildCatalogPaths(
   tr: TFunction,
 ): Record<string, OpenApiPathItem> {
   const paths: Record<string, OpenApiPathItem> = {};
+  const requirements: Record<string, Record<string, string[][]>> = methodCatalog;
   for (const route of routeCatalog.apiRoutes as CatalogRoute[]) {
     const path = toOpenApiPath(route.path);
     const item: OpenApiPathItem = {};
     for (const method of route.methods) {
       const key = method.toLowerCase();
       const base = detailedPaths[path]?.[key] ?? generatedOperation(route, method, path, tr);
-      const contract = machineContracts[path]?.[key];
+      const contract = contracts[path]?.[key];
+      const groups = requirements[route.path]?.[method] ?? [];
+      const expression = groups.map((group) => group.length > 1 ? "(" + group.join(" ∨ ") + ")" : group[0]).join(" ∧ ");
       item[key] = {
         ...base, ...contract,
         "x-vcontrolhub-contract": contract ? "documented" : "catalog",
-        description: [base.description, tr(contract ? "openapiSpec.generated.documented" : "openapiSpec.generated.catalog")].filter(Boolean).join(" "),
+        "x-vcontrolhub-permissions": groups.flat(),
+        "x-vcontrolhub-permission-groups": groups,
+        description: [base.description, expression && tr("openapiSpec.generated.permissions", { permissions: expression }), tr(contract ? "openapiSpec.generated.documented" : "openapiSpec.generated.catalog")].filter(Boolean).join(" "),
       };
     }
     paths[path] = item;

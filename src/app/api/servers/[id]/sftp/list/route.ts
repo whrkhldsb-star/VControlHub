@@ -31,14 +31,11 @@ export async function POST(
       const { id } = await params;
       const teamAccess = await assertServerTeamAccess(session, id, "fileRead");
       if (!teamAccess.ok) return teamAccess.response;
-      let directory = body.path;
-      if (directory === undefined) {
-        const { rootPath } = await loadEnabledServerForSftp(id);
-        directory = rootPath;
-      }
-      await assertSftpPathAccess({ session, serverId: id, paths: [directory] });
-      const entries = await listDirectory(id, directory);
-      return NextResponse.json({ path: directory, entries });
+      const target = await loadEnabledServerForSftp(id, teamAccess.server.teamId, teamAccess.server, request.signal);
+      const directory = body.path ?? target.rootPath;
+      const root = await assertSftpPathAccess({ session, serverId: id, paths: [directory], target, signal: request.signal });
+      const listing = await listDirectory(id, directory, { ssh: target.ssh, root, signal: request.signal });
+      return NextResponse.json({ path: directory, ...listing });
     },
   );
 }

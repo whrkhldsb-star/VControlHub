@@ -80,6 +80,13 @@ export type AuditLogListResult = {
 	totalPages: number;
 };
 
+const COMMAND_EXECUTION = "command.execute";
+function actionWhere(action: string): Prisma.AuditLogWhereInput {
+	return action === COMMAND_EXECUTION
+		? { OR: [{ action }, { action: { startsWith: COMMAND_EXECUTION + "." } }] }
+		: { action };
+}
+
 /**
  * Build Prisma where for audit list/export/stats.
  * Customer filter is AND-composed so it never overwrites search `OR` clauses.
@@ -109,7 +116,7 @@ function buildAuditWhere(input: {
 			clauses.push(scope);
 		}
 	}
-	if (input.action) clauses.push({ action: input.action });
+	if (input.action) clauses.push(actionWhere(input.action));
 	if (input.severity) clauses.push({ severity: input.severity });
 	if (input.actorId) clauses.push({ actorId: input.actorId });
 	if (input.search) {
@@ -185,58 +192,51 @@ export async function listAuditLogs(
 	};
 }
 
-/**
- * Export: return all matching logs (no pagination) for CSV/JSON download.
- * Max 50 000 records — beyond that add date-range constraint in the caller.
- */
-export async function exportAuditLogs(
-	input: Omit<ListAuditLogsInput, "page" | "pageSize">,
-): Promise<AuditLogEntry[]> {
-	const MAX_EXPORT = 50_000;
-	const where = buildAuditWhere(input);
+export const AUDIT_EXPORT_MAX_ROWS = 50_000;
+const EXPORT_ORDER = [{ createdAt: "desc" }, { id: "desc" }] satisfies Prisma.AuditLogOrderByWithRelationInput[];
+type ExportKey = { createdAt: Date; id: string };
 
-	return (await prisma.auditLog.findMany({
-		where,
-		include: { actor: { select: { username: true, displayName: true } } },
-		orderBy: { createdAt: "desc" },
-		take: MAX_EXPORT,
-	})) as unknown as AuditLogEntry[];
+/** Establish both ends of the export on one snapshot before sending headers.
+ * Only two keys cross the wire. Slow readers never hold a database transaction. */
+export async function prepareAuditExport(input: Omit<ListAuditLogsInput, "page" | "pageSize">) {
+	const where = buildAuditWhere(input);
+	const boundary = { where, orderBy: EXPORT_ORDER, select: { createdAt: true, id: true } };
+	const [first, overflow] = await prisma.$transaction([
+		prisma.auditLog.findFirst(boundary),
+		prisma.auditLog.findFirst({ ...boundary, skip: AUDIT_EXPORT_MAX_ROWS }),
+	], { isolationLevel: "RepeatableRead" });
+	return {
+		truncated: Boolean(overflow),
+		batches: iterateAuditLogsForExport(where, first, overflow),
+	};
 }
 
-export const AUDIT_EXPORT_MAX_ROWS = 50_000;
-
-/**
- * The export in batches (A8-05): the route streams them out instead of
- * holding up to 50 000 joined rows and one giant string in memory. Ordered by
- * (createdAt, id) so a page boundary never repeats or skips a row.
- */
-export async function* iterateAuditLogsForExport(
-	input: Omit<ListAuditLogsInput, "page" | "pageSize">,
-	batchSize = 1_000,
-): AsyncGenerator<AuditLogEntry[]> {
-	const where = buildAuditWhere(input);
-	let cursor: { createdAt: Date; id: string } | null = null;
+async function* iterateAuditLogsForExport(where: Prisma.AuditLogWhereInput, first: ExportKey | null, overflow: ExportKey | null) {
+	if (!first) return;
+	let cursor = first;
 	let sent = 0;
 	while (sent < AUDIT_EXPORT_MAX_ROWS) {
-		const rows = (await prisma.auditLog.findMany({
-			where: cursor
-				? { AND: [where, { OR: [{ createdAt: { lt: cursor.createdAt } }, { createdAt: cursor.createdAt, id: { lt: cursor.id } }] }] }
-				: where,
+		const take = Math.min(1_000, AUDIT_EXPORT_MAX_ROWS - sent);
+		const page: AuditLogEntry[] = await prisma.auditLog.findMany({
+			where: { AND: [
+				where,
+				{ OR: [{ createdAt: { lt: cursor.createdAt } }, { createdAt: cursor.createdAt, id: sent ? { lt: cursor.id } : { lte: cursor.id } }] },
+				...(overflow ? [{ OR: [{ createdAt: { gt: overflow.createdAt } }, { createdAt: overflow.createdAt, id: { gt: overflow.id } }] }] : []),
+			] },
 			include: { actor: { select: { username: true, displayName: true } } },
-			orderBy: [{ createdAt: "desc" }, { id: "desc" }],
-			take: Math.min(batchSize, AUDIT_EXPORT_MAX_ROWS - sent),
-		})) as unknown as AuditLogEntry[];
-		if (rows.length === 0) return;
-		sent += rows.length;
-		yield rows;
-		if (rows.length < batchSize) return;
-		const last = rows[rows.length - 1]!;
-		cursor = { createdAt: new Date(last.createdAt), id: last.id };
+			orderBy: EXPORT_ORDER,
+			take,
+		}) as unknown as AuditLogEntry[];
+		if (page.length === 0) return;
+		yield page;
+		if (page.length < take) return;
+		sent += page.length;
+		cursor = page[page.length - 1]!;
 	}
 }
 
 /** Actions the audit overview counts as high-risk. */
-export const HIGH_RISK_AUDIT_ACTIONS = ["command.execute", "storage.file_delete", "server.delete", "user.permission_update", "docker.container.restart", "docker.container.remove", "docker.container.stop", "api_token.create"] as const;
+export const HIGH_RISK_AUDIT_ACTIONS = [COMMAND_EXECUTION, "storage.file_delete", "server.delete", "user.permission_update", "docker.container.restart", "docker.container.remove", "docker.container.stop", "api_token.create"] as const;
 
 export async function getAuditStats(
 	session?: SessionScope | null,
@@ -288,18 +288,27 @@ async function computeAuditStats(baseWhere: Record<string, unknown>, session?: S
 		}),
 		prisma.auditLog.groupBy({
 			by: ["action"],
-			where: { AND: [baseWhere, { action: { in: [...HIGH_RISK_AUDIT_ACTIONS] } }] },
+			where: { AND: [baseWhere, { OR: HIGH_RISK_AUDIT_ACTIONS.map(actionWhere) }] },
 			_count: true,
 		}),
 	]);
 
+	const highRiskByAction: Record<string, number> = {};
+	for (const group of highRiskGroups) {
+		const family = group.action.startsWith(COMMAND_EXECUTION + ".") ? COMMAND_EXECUTION : group.action;
+		highRiskByAction[family] = (highRiskByAction[family] ?? 0) + group._count;
+	}
 	return {
 		bySeverity: Object.fromEntries(severityGroups.map((g) => [g.severity, g._count])),
 		byAction: Object.fromEntries(actionGroups.map((g) => [g.action, g._count])),
-		highRiskByAction: Object.fromEntries(highRiskGroups.map((g) => [g.action, g._count])),
+		highRiskByAction,
 		recentCount,
 		total,
 	};
+}
+
+export function accountSecurityAuditTeam(session: Pick<SessionPayload, "roles" | "currentTeamId">) {
+	return session.roles?.includes("admin") ? null : session.currentTeamId;
 }
 
 /** Convenience: persist a USER audit record before the caller completes. */

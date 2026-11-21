@@ -197,3 +197,39 @@ describe("fetchWithPinnedDns", () => {
 		expect(agentInstances.at(-1)!.destroyed).toBe(true);
 	});
 });
+
+it.each(["::ffff:a9fe:1234", "::a9fe:1234", "fd00:0ec2:0:0:0:0:0:0254", "64:ff9b::a9fe:1"])(
+	"applies private-provider exclusions to DNS and canonical URL literals (%s)", async (address) => {
+		lookupMock.mockResolvedValue([{ address, family: 6 }]);
+		for (const host of ["provider.test", `[${address}]`]) {
+			await expect(fetchWithPinnedDns(`https://${host}/`, {}, { allowPrivateAddress: true })).rejects.toThrow(/non-public/);
+		}
+	},
+);
+
+it("keeps outstanding DNS calls bounded when many callers cancel", async () => {
+	const dns = Promise.withResolvers<never[]>();
+	lookupMock.mockClear().mockReturnValue(dns.promise);
+	for (let i = 0; i < 64; i++) {
+		const controller = new AbortController();
+		const result = fetchWithPinnedDns("https://provider.test", { signal: controller.signal });
+		controller.abort();
+		await expect(result).rejects.toMatchObject({ name: "AbortError" });
+	}
+	await expect(fetchWithPinnedDns("https://provider.test", {})).rejects.toThrow(/pending DNS/);
+	expect(lookupMock).toHaveBeenCalledTimes(64);
+	dns.resolve([]);
+	await Promise.resolve();
+	await Promise.resolve();
+	lookupMock.mockResolvedValue([{ address: "10.1.1.1", family: 4 }]);
+	await expect(fetchWithPinnedDns("https://provider.test", {})).rejects.toThrow(/non-public/);
+});
+
+it("skips DNS for a bracketed public IPv6 direct-access URL", async () => {
+	const { assertPublicBaseUrlResolvesPublic } = await import("@/lib/storage/direct-access-url");
+	lookupMock.mockClear();
+	const url = "https://[2606:4700:4700::1111]:8443";
+	await expect(assertPublicBaseUrlResolvesPublic(url)).resolves.toBe(url);
+	await expect(assertPublicBaseUrlResolvesPublic("https://[fe80::1]")).rejects.toThrow();
+	expect(lookupMock).not.toHaveBeenCalled();
+});
