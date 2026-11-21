@@ -31,7 +31,7 @@ describe.skipIf(process.env.RUN_DATABASE_INTEGRATION_TESTS !== "1")("platform ba
 		const schedule = (id: string, retentionDays: number) => ({ id: `${prefix}-${id}`, name: id, cronExpression: "0 3 * * *", backupType: "FULL", retentionDays, teamId: prefix });
 		await prisma.backupSchedule.createMany({ data: [schedule("daily", 1), schedule("monthly", 30)] });
 		const record = (id: string, completedAt: Date, scheduleId: string | null) => ({
-			id: `${prefix}-${id}`, type: "FULL", status: "COMPLETED", filePath: `backups/${prefix}-${id}.tar.gz`, teamId: prefix, scheduleId, createdAt: completedAt, completedAt,
+			id: `${prefix}-${id}`, type: "FULL", status: "COMPLETED", filePath: `backups/${prefix}-${id}.tar.gz`, offsiteKey: `${prefix}-parked`, teamId: prefix, scheduleId, createdAt: completedAt, completedAt,
 		});
 		await prisma.backupRecord.createMany({
 			data: [
@@ -73,7 +73,7 @@ describe.skipIf(process.env.RUN_DATABASE_INTEGRATION_TESTS !== "1")("platform ba
 		await prisma.team.create({ data: { id: teamId, name: teamId, slug: teamId } });
 		try {
 			const rows = Array.from({ length: 506 }, (_, i) => ({ id: teamId + i, type: "DATABASE", teamId,
-				status: "COMPLETED", filePath: "backups/" + teamId + i, createdAt: daysAgo(i < 501 ? 1 : 40), fileSize: "7" }));
+				status: "COMPLETED", filePath: "backups/" + teamId + i, offsiteKey: `${prefix}-parked`, createdAt: daysAgo(i < 501 ? 1 : 40), fileSize: "7" }));
 			await prisma.backupRecord.createMany({ data: rows });
 			const admin = { userId: prefix, roles: ["admin" as const], currentTeamId: teamId };
 			const { listBackupRecords } = await import("../service-crud");
