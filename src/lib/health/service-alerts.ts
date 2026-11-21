@@ -121,7 +121,7 @@ export async function evaluateAlerts(options?: { ruleWhere?: Record<string, unkn
       take: MAX_OPEN_INCIDENTS_READ,
     })).map((incident) => incident.fingerprint),
   );
-  // Cache team → server ids so empty serverIds rules only cover their team.
+  // Cache server ownership for both explicit targets and whole-customer rules.
   const teamServerIdsCache = new Map<string, Set<string>>();
   async function serverIdsForTeam(teamId: string): Promise<Set<string>> {
     const hit = teamServerIdsCache.get(teamId);
@@ -151,8 +151,7 @@ export async function evaluateAlerts(options?: { ruleWhere?: Record<string, unkn
       rule.serverIds.length > 0
         ? health.servers.filter((s) => rule.serverIds.includes(s.serverId))
         : health.servers.filter((s) => s.enabled);
-    // Team-scoped rules with empty serverIds must not watch other teams' hosts.
-    if (rule.serverIds.length === 0 && rule.teamId) {
+    if (rule.teamId != null) {
       const allowed = await serverIdsForTeam(rule.teamId);
       targetServers = targetServers.filter((s) => allowed.has(s.serverId));
     }
@@ -325,6 +324,7 @@ export async function evaluateAlerts(options?: { ruleWhere?: Record<string, unkn
             await runPlaybook({
               playbookId,
               dryRun: false,
+              sourceAlertTeamId: rule.teamId ?? null,
               triggerContext: {
                 type: "alert_rule",
                 alertRuleId: rule.id,

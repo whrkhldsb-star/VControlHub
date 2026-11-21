@@ -5,7 +5,11 @@
  * customer whose slug exists here is that customer.
  */
 
+import { applyCustomerMembership } from "@/lib/team/service";
 import type { ExportFile, ImportOptions } from "@/lib/system/config-schema";
+import { byId, loadGrantUserScopes, loadImportReferences } from "./import-reference-scope";
+import { loadServerGrants, planServerGrantImport } from "./import-resource-grants";
+import { loadTeamMemberships, planTeamMemberImport } from "./import-team-members";
 import { parseDate, upsertById, upsertByIdWithSecondaryUnique } from "./import-executors-helpers";
 import type { Counts, Tx } from "./import-executors-helpers";
 
@@ -48,31 +52,28 @@ export async function importIdentityTemplates(tx: Tx, t: ExportFile["tables"], o
 export async function importTeamMembers(tx: Tx, t: ExportFile["tables"], options: ImportOptions, counts: Counts): Promise<void> {
   const records = t.teamMembers;
   if (records.length === 0) return;
-  const [teams, users, templates, existing] = await Promise.all([
-    idSet(tx.team.findMany({ where: { id: { in: [...new Set(records.map((r) => r.teamId))] } }, select: { id: true } })),
-    idSet(tx.user.findMany({ where: { id: { in: [...new Set(records.map((r) => r.userId))] } }, select: { id: true } })),
-    idSet(tx.identityTemplate.findMany({ where: { id: { in: [...new Set(records.map((r) => r.identityTemplateId))] } }, select: { id: true } })),
-    tx.teamMember.findMany({ where: { userId: { in: records.map((r) => r.userId) } }, select: { userId: true } }),
+  const [teams, users, templates, members] = await Promise.all([
+    idSet(loadImportReferences(records.map((r) => r.teamId), (ids) => tx.team.findMany({ where: { id: { in: ids } }, select: { id: true } }))),
+    idSet(loadImportReferences(records.map((r) => r.userId), (ids) => tx.user.findMany({ where: { id: { in: ids } }, select: { id: true } }))),
+    idSet(loadImportReferences(records.map((r) => r.identityTemplateId), (ids) => tx.identityTemplate.findMany({ where: { id: { in: ids } }, select: { id: true } }))),
+    loadTeamMemberships(tx, records),
   ]);
-  const member = new Set(existing.map((row) => row.userId));
-  for (const r of records) {
-    if (!teams.has(r.teamId) || !users.has(r.userId) || !templates.has(r.identityTemplateId)) {
-      counts.skipped += 1;
+  const plan = planTeamMemberImport(records, options, members, users, teams, templates);
+  for (const { row, action, moved } of plan) {
+    const { teamId, userId, identityTemplateId } = row;
+    if (action === "create") {
+      await tx.teamMember.create({ data: { teamId, userId, identityTemplateId, joinedAt: parseDate(row.joinedAt, "teamMembers.joinedAt") } });
+      counts.created += 1;
       continue;
     }
-    if (member.has(r.userId)) {
-      if (!options.overwriteExisting) {
-        counts.skipped += 1;
-        continue;
-      }
-      await tx.teamMember.update({ where: { userId: r.userId }, data: { teamId: r.teamId, identityTemplateId: r.identityTemplateId } });
-      counts.updated += 1;
-      continue;
+    if (moved) {
+      await applyCustomerMembership(tx, { teamId, userId, identityTemplateId });
+    } else {
+      await tx.teamMember.update({ where: { userId }, data: { identityTemplateId } });
     }
-    await tx.teamMember.create({ data: { teamId: r.teamId, userId: r.userId, identityTemplateId: r.identityTemplateId, joinedAt: parseDate(r.joinedAt, "teamMembers.joinedAt") } });
-    member.add(r.userId);
-    counts.created += 1;
+    counts.updated += 1;
   }
+  counts.skipped += records.length - plan.length;
 }
 
 // Per-server permissions (after users and servers).
@@ -80,27 +81,22 @@ export async function importUserServerAccess(tx: Tx, t: ExportFile["tables"], op
   const records = t.userServerAccess;
   if (records.length === 0) return;
   const [users, servers, existing] = await Promise.all([
-    idSet(tx.user.findMany({ where: { id: { in: [...new Set(records.map((r) => r.userId))] } }, select: { id: true } })),
-    idSet(tx.server.findMany({ where: { id: { in: [...new Set(records.map((r) => r.serverId))] } }, select: { id: true } })),
-    tx.userServerAccess.findMany({ where: { userId: { in: [...new Set(records.map((r) => r.userId))] } }, select: { userId: true, serverId: true } }),
+    loadGrantUserScopes(tx, records.map((row) => row.userId)),
+    loadImportReferences(records.map((row) => row.serverId), (ids) => tx.server.findMany({
+      where: { id: { in: ids } }, select: { id: true, teamId: true },
+    })).then(byId),
+    loadServerGrants(tx, records),
   ]);
-  const present = new Set(existing.map((row) => `${row.userId}:${row.serverId}`));
-  for (const r of records) {
-    if (!users.has(r.userId) || !servers.has(r.serverId)) {
-      counts.skipped += 1;
-      continue;
-    }
-    const flags = { canRead: r.canRead, canConnect: r.canConnect, canManage: r.canManage, canFileRead: r.canFileRead, canFileWrite: r.canFileWrite, canFileDelete: r.canFileDelete };
-    if (present.has(`${r.userId}:${r.serverId}`)) {
-      if (!options.overwriteExisting) {
-        counts.skipped += 1;
-        continue;
-      }
-      await tx.userServerAccess.update({ where: { userId_serverId: { userId: r.userId, serverId: r.serverId } }, data: flags });
+  const plan = planServerGrantImport(records, existing, options, users, servers);
+  for (const { row, action } of plan) {
+    const { userId, serverId, ...flags } = row;
+    if (action === "update") {
+      await tx.userServerAccess.update({ where: { userId_serverId: { userId, serverId } }, data: flags });
       counts.updated += 1;
-      continue;
+    } else {
+      await tx.userServerAccess.create({ data: { userId, serverId, ...flags } });
+      counts.created += 1;
     }
-    await tx.userServerAccess.create({ data: { userId: r.userId, serverId: r.serverId, ...flags } });
-    counts.created += 1;
   }
+  counts.skipped += records.length - plan.length;
 }

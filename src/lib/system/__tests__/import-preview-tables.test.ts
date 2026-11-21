@@ -18,10 +18,13 @@ const db: Record<string, Row[]> = {};
 
 function model(name: string) {
   return {
-    findMany: vi.fn(async ({ where }: { where: Record<string, { in: string[] }> }) => {
+    findMany: vi.fn(async ({ where }: { where: { OR?: Array<Record<string, string>> } & Record<string, { in: string[] }>  }) => {
       const rows = db[name] ?? [];
+      if (where.OR) return rows.filter((row) => where.OR!.some((key) =>
+        Object.entries(key).every(([field, value]) => row[field] === value),
+      ));
       const [field, filter] = Object.entries(where)[0] ?? [];
-      if (!field || !filter) return rows;
+      if (!field || !filter || Array.isArray(filter)) return rows;
       const wanted = new Set(filter.in);
       return rows.filter((r) => wanted.has(String(r[field])));
     }),
@@ -39,6 +42,9 @@ for (const name of [
   "userRole",
   "sshKey",
   "storageNode",
+  "team",
+  "teamMember",
+  "identityTemplate",
   "userStorageAccess",
 ]) {
   prismaMock.value[name] = model(name);
@@ -64,6 +70,9 @@ const NO_USERS = { ...OVERWRITE, importUsers: false } satisfies ImportOptions;
 
 function tables(partial: Record<string, unknown>): ExportFile["tables"] {
   return {
+    teams: [],
+    teamMembers: [],
+    identityTemplates: [],
     permissions: [],
     roles: [],
     rolePermissions: [],
@@ -242,12 +251,24 @@ describe("previewUserRoles (foreign keys honour importUsers)", () => {
 });
 
 describe("previewUserStorageAccess", () => {
+  it("projects a bundled admin role before a grant is evaluated", async () => {
+    db.user = [{ id: "u1", username: "alice", roles: [], teamMembership: null }];
+    db.storageNode = [{ id: "n1", teamId: "team-b" }];
+    expect(await previewUserStorageAccess(tables({
+      roles: [{ id: "admin-role", key: "admin" }],
+      userRoles: [{ userId: "u1", roleId: "admin-role" }],
+      userStorageAccess: [{ id: "a1", userId: "u1", storageNodeId: "n1", pathPrefix: "/" }],
+    }), OVERWRITE)).toEqual({ create: 1, update: 0, skip: 0 });
+  });
   it("accepts a grant whose user and node come from the bundle", async () => {
     expect(
       await previewUserStorageAccess(
         tables({
           users: [{ id: "u1", username: "alice" }],
-          storageNodes: [{ id: "n1" }],
+          teams: [{ id: "team-b", slug: "team-b" }],
+          identityTemplates: [{ id: "template" }],
+          teamMembers: [{ userId: "u1", teamId: "team-b", identityTemplateId: "template" }],
+          storageNodes: [{ id: "n1", teamId: "team-b" }],
           userStorageAccess: [{ id: "a1", userId: "u1", storageNodeId: "n1" }],
         }),
         OVERWRITE,
@@ -256,7 +277,7 @@ describe("previewUserStorageAccess", () => {
   });
 
   it("skips a grant whose storage node exists nowhere", async () => {
-    db.user = [{ id: "u1" }];
+    db.user = [{ id: "u1", roles: [], teamMembership: { teamId: "team-b" } }];
     expect(
       await previewUserStorageAccess(
         tables({ userStorageAccess: [{ id: "a1", userId: "u1", storageNodeId: "ghost" }] }),
@@ -266,9 +287,9 @@ describe("previewUserStorageAccess", () => {
   });
 
   it("counts an existing grant as an update or a skip depending on the option", async () => {
-    db.userStorageAccess = [{ id: "a1" }];
-    db.user = [{ id: "u1" }];
-    db.storageNode = [{ id: "n1" }];
+    db.userStorageAccess = [{ id: "a1", userId: "u1", storageNodeId: "n1", pathPrefix: "/" }];
+    db.user = [{ id: "u1", roles: [], teamMembership: { teamId: "team-b" } }];
+    db.storageNode = [{ id: "n1", teamId: "team-b" }];
     const bundle = tables({
       userStorageAccess: [{ id: "a1", userId: "u1", storageNodeId: "n1" }],
     });

@@ -60,7 +60,7 @@ describe.skipIf(!RUN)("alert incidents left behind by a changed rule (PostgreSQL
 				// Was a CPU rule when its incident opened.
 				{ id: rule("metric"), name: "metric", metric: "mem_usage", serverIds: [], ...base },
 				// Watched servers a and b when its incidents opened.
-				{ id: rule("scoped"), name: "scoped", metric: "cpu_usage", serverIds: [server("a")], ...base },
+				{ id: rule("scoped"), name: "scoped", metric: "cpu_usage", serverIds: [server("a"), server("moved")], ...base },
 				{ id: rule("paged"), name: "paged", metric: "cpu_usage", serverIds: [], ...base },
 			],
 		});
@@ -82,12 +82,13 @@ describe.skipIf(!RUN)("alert incidents left behind by a changed rule (PostgreSQL
 				incident(rule("metric"), server("a"), "cpu_usage"),
 				incident(rule("scoped"), server("a"), "cpu_usage"),
 				incident(rule("scoped"), server("b"), "cpu_usage"),
+				incident(rule("scoped"), server("moved"), "cpu_usage"),
 			],
 		});
 
 		const result = await resolveOrphanedAlertIncidents({ ruleTeamWhere: { id: { startsWith: `${prefix}-rule-` }, NOT: { id: rule("paged") } } });
 
-		expect(result.resolved).toBe(4);
+		expect(result.resolved).toBe(5);
 		// Still evaluated: the rule is on, watches this metric and this server.
 		expect(await statusOf(rule("live"), server("a"), "cpu_usage")).toBe("OPEN");
 		expect(await statusOf(rule("scoped"), server("a"), "cpu_usage")).toBe("OPEN");
@@ -98,6 +99,7 @@ describe.skipIf(!RUN)("alert incidents left behind by a changed rule (PostgreSQL
 		// The server was taken off the rule's list, or moved to another customer.
 		expect(await statusOf(rule("scoped"), server("b"), "cpu_usage")).toBe("RESOLVED");
 		expect(await statusOf(rule("live"), server("moved"), "cpu_usage")).toBe("RESOLVED");
+		expect(await statusOf(rule("scoped"), server("moved"), "cpu_usage")).toBe("RESOLVED");
 		// A closed incident has no notice left to retry.
 		const closed = await prisma.alertIncident.findUniqueOrThrow({ where: { fingerprint: buildAlertFingerprint(rule("disabled"), server("a"), "cpu_usage") } });
 		expect(closed).toMatchObject({ pendingNotifyChannels: [], nextNotifyAt: null });

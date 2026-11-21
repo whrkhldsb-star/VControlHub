@@ -5,7 +5,7 @@ import { ForbiddenError, NotFoundError, ValidationError } from "@/lib/errors";
 const { prismaMock, auditUserActionMock } = vi.hoisted(() => ({
 	prismaMock: {
 		team: { findMany: vi.fn(), findUnique: vi.fn(), create: vi.fn(), update: vi.fn() },
-		teamMember: { findMany: vi.fn(), findUnique: vi.fn(), upsert: vi.fn(), delete: vi.fn() },
+		teamMember: { findMany: vi.fn(), findUnique: vi.fn(), upsert: vi.fn(), delete: vi.fn(), deleteMany: vi.fn() },
 		user: { findUnique: vi.fn(), update: vi.fn(), updateMany: vi.fn() },
 		identityTemplate: { findUnique: vi.fn() },
 		storageNode: { create: vi.fn() },
@@ -167,15 +167,21 @@ describe("customer service", () => {
 
 	describe("removeTeamMember", () => {
 		it("removes the membership, its narrowing and the current customer", async () => {
-			prismaMock.teamMember.findUnique.mockResolvedValue({ teamId: "team_a" });
+			prismaMock.teamMember.deleteMany.mockResolvedValue({ count: 1 });
 			await removeTeamMember("team_a", "u_x", admin);
-			expect(prismaMock.teamMember.delete).toHaveBeenCalledWith({ where: { userId: "u_x" } });
+			expect(prismaMock.teamMember.deleteMany).toHaveBeenCalledWith({ where: { teamId: "team_a", userId: "u_x" } });
+			expect(prismaMock.userServerAccess.deleteMany).toHaveBeenCalledWith({ where: { userId: "u_x" } });
+			expect(prismaMock.userStorageAccess.deleteMany).toHaveBeenCalledWith({ where: { userId: "u_x" } });
 			expect(prismaMock.user.update).toHaveBeenCalledWith({ where: { id: "u_x" }, data: { currentTeamId: null } });
 		});
 
 		it("refuses an account of another customer", async () => {
-			prismaMock.teamMember.findUnique.mockResolvedValue({ teamId: "team_b" });
+			prismaMock.teamMember.deleteMany.mockResolvedValue({ count: 0 });
 			await expect(removeTeamMember("team_a", "u_x", admin)).rejects.toBeInstanceOf(NotFoundError);
+			expect(prismaMock.userServerAccess.deleteMany).not.toHaveBeenCalled();
+			expect(prismaMock.userStorageAccess.deleteMany).not.toHaveBeenCalled();
+			expect(prismaMock.user.update).not.toHaveBeenCalled();
+			expect(auditUserActionMock).not.toHaveBeenCalled();
 		});
 	});
 

@@ -14,6 +14,7 @@ import { loadJobOwnerSession } from "@/lib/api-token/authorization";
 import { sessionHasPermission } from "@/lib/auth/authorization";
 import { t } from "@/lib/i18n/service-translations";
 import { assertRequesterMayExecuteCommand } from "@/lib/auth/command-execution-authz";
+import { canAlertRuleTargetTeam } from "@/lib/alert/rule-scope";
 import { executePlaybookChain } from "./executor";
 import type { PlaybookStep, PlaybookStepResult } from "./types";
 import { toJsonValue } from "@/lib/db/json";
@@ -81,6 +82,20 @@ function terminalJobResult(status: string, errorMessage: string | null | undefin
     status: status === "completed" ? "completed" : "failed",
     summary: errorMessage ?? status,
   };
+}
+
+async function assertAlertRunScope(context: Prisma.JsonValue, playbookId: string, runTeamId: string | null) {
+  if (!context || typeof context !== "object" || Array.isArray(context)) return;
+  if (context.type !== "alert_rule" && context.type !== "capacity_forecast") return;
+  const [rule, playbook] = await Promise.all([
+    typeof context.alertRuleId === "string" ? prisma.alertRule.findUnique({
+      where: { id: context.alertRuleId }, select: { teamId: true },
+    }) : null,
+    prisma.playbook.findUnique({ where: { id: playbookId }, select: { teamId: true } }),
+  ]);
+  if (!rule || !playbook || playbook.teamId !== runTeamId || !canAlertRuleTargetTeam(rule.teamId, playbook.teamId)) {
+    throw new PlaybookAuthorizationError(t("backend.alert.oneOrMorePlaybookidsAreOutsideTheCurrent"));
+  }
 }
 
 export async function processPlaybookRun(runId: string, jobId: string, signal?: AbortSignal): Promise<{ status: "completed" | "failed"; summary: string }> {
@@ -152,6 +167,7 @@ export async function processPlaybookRun(runId: string, jobId: string, signal?: 
     if (["completed", "failed", "cancelled"].includes(latest.status)) {
       return terminalJobResult(latest.status, latest.errorMessage);
     }
+    await assertAlertRunScope(run.triggerContext, run.playbook.id, latest.teamId);
 
     // Ensure we still own a claimable row before dispatching side effects.
     const stillClaimable = await prisma.playbookRun.updateMany({

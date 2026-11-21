@@ -3,6 +3,8 @@ import { beforeEach, describe, expect, it, vi } from "vitest";
 const { mocks } = vi.hoisted(() => ({
   mocks: {
     playbookRunFindUnique: vi.fn(),
+    alertRuleFindUnique: vi.fn(),
+    playbookFindUnique: vi.fn(),
     playbookRunUpdateMany: vi.fn(),
     acquireAdvisoryLock: vi.fn(),
     executePlaybookChain: vi.fn(),
@@ -18,6 +20,8 @@ const { mocks } = vi.hoisted(() => ({
 
 vi.mock("@/lib/db", () => ({
   prisma: {
+    alertRule: { findUnique: mocks.alertRuleFindUnique },
+    playbook: { findUnique: mocks.playbookFindUnique },
     playbookRun: {
       findUnique: mocks.playbookRunFindUnique,
       updateMany: mocks.playbookRunUpdateMany,
@@ -68,7 +72,7 @@ vi.mock("@/lib/config/env", () => ({
   },
 }));
 
-import { processPlaybookRun } from "../worker";
+import { PlaybookAuthorizationError, processPlaybookRun } from "../worker";
 
 const playbook = {
   id: "pb1",
@@ -130,6 +134,22 @@ describe("processPlaybookRun dual-owner races", () => {
     expect(mocks.acquireAdvisoryLock).toHaveBeenCalledWith("playbook-execute", "pb1");
     expect(mocks.releaseLock).toHaveBeenCalledTimes(1);
     expect(mocks.auditSystemAction).not.toHaveBeenCalled();
+  });
+
+  it.each(["alert_rule", "capacity_forecast"])("fails a queued %s run for a playbook in another customer", async (type) => {
+    mocks.playbookRunFindUnique
+      .mockResolvedValueOnce({
+        id: "run-1", status: "queued", teamId: "team-b", startedAt: null,
+        createdById: "u1", playbook, triggerContext: { type, alertRuleId: "rule-a" },
+      })
+      .mockResolvedValueOnce({ status: "running", dryRun: false, teamId: "team-b", stepResults: [] });
+    mocks.playbookRunUpdateMany.mockResolvedValueOnce({ count: 1 });
+    mocks.alertRuleFindUnique.mockResolvedValue({ teamId: "team-a" });
+    mocks.playbookFindUnique.mockResolvedValue({ teamId: "team-b" });
+
+    await expect(processPlaybookRun("run-1", "job-1")).rejects.toBeInstanceOf(PlaybookAuthorizationError);
+    expect(mocks.executePlaybookChain).not.toHaveBeenCalled();
+    expect(mocks.releaseLock).toHaveBeenCalledOnce();
   });
 
   it("CAS finalize preserves cancelled written while the chain was in flight", async () => {

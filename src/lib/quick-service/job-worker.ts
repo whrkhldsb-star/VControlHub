@@ -22,7 +22,7 @@ import {
 	updateService,
 	type UninstallServiceOptions,
 } from "./service";
-import { HUB_HOST_INSTANCE_KEY, type DockerTarget } from "./docker-cli";
+import { HUB_HOST_INSTANCE_KEY, targetFromService } from "./docker-cli";
 import { assertQuickServiceExecutionAuthorized } from "./execution-authorization";
 import { toJsonValue } from "@/lib/db/json";
 
@@ -103,7 +103,7 @@ export function parseQuickServiceJobPayload(payload: Prisma.JsonValue): QuickSer
 	const instanceKey = typeof payload.instanceKey === "string" && payload.instanceKey.trim()
 		? payload.instanceKey.trim()
 		: HUB_HOST_INSTANCE_KEY;
-	const serverId = typeof payload.serverId === "string" && payload.serverId.trim()
+	const serverId = payload.serverId === null ? null : typeof payload.serverId === "string" && payload.serverId.trim()
 		? payload.serverId.trim()
 		: instanceKey !== HUB_HOST_INSTANCE_KEY ? instanceKey : null;
 
@@ -287,9 +287,7 @@ async function executeQuickServiceJob(job: { id: string; payload: Prisma.JsonVal
 
 	if (payload.action === "install") {
 		const instanceKey = payload.instanceKey ?? HUB_HOST_INSTANCE_KEY;
-		const target: DockerTarget = instanceKey === HUB_HOST_INSTANCE_KEY
-			? { kind: "local" }
-			: { kind: "remote", serverId: payload.serverId || instanceKey };
+		const target = targetFromService(payload);
 		await updateQuickServiceJobProgress(job.id, `Installing ${payload.slug} on ${instanceKey}: pulling image and creating container`);
 		const service = await installService({
 			template: payload.template,
@@ -318,7 +316,7 @@ async function executeQuickServiceJob(job: { id: string; payload: Prisma.JsonVal
 
 	if (payload.action === "start") {
 		await updateQuickServiceJobProgress(job.id, `Starting ${payload.slug}: starting or recreating container`);
-		await startService(payload.slug, payload.instanceKey ?? HUB_HOST_INSTANCE_KEY);
+		await startService(payload.slug, payload.instanceKey ?? HUB_HOST_INSTANCE_KEY, job);
 		await completeJob(job.id, QUICK_SERVICE_WORKER_ID, {
 			action: payload.action,
 			slug: payload.slug,
@@ -330,7 +328,7 @@ async function executeQuickServiceJob(job: { id: string; payload: Prisma.JsonVal
 
 	if (payload.action === "stop") {
 		await updateQuickServiceJobProgress(job.id, `Stopping ${payload.slug}: stopping Docker container`);
-		await stopService(payload.slug, payload.instanceKey ?? HUB_HOST_INSTANCE_KEY);
+		await stopService(payload.slug, payload.instanceKey ?? HUB_HOST_INSTANCE_KEY, job);
 		await completeJob(job.id, QUICK_SERVICE_WORKER_ID, {
 			action: payload.action,
 			slug: payload.slug,
@@ -342,7 +340,7 @@ async function executeQuickServiceJob(job: { id: string; payload: Prisma.JsonVal
 
 	if (payload.action === "sync") {
 		await updateQuickServiceJobProgress(job.id, `Refreshing ${payload.slug}: reading Docker container status`);
-		const status = await syncServiceStatus(payload.slug, payload.instanceKey ?? HUB_HOST_INSTANCE_KEY);
+		const status = await syncServiceStatus(payload.slug, payload.instanceKey ?? HUB_HOST_INSTANCE_KEY, job);
 		await completeJob(job.id, QUICK_SERVICE_WORKER_ID, {
 			action: payload.action,
 			slug: payload.slug,
@@ -354,7 +352,7 @@ async function executeQuickServiceJob(job: { id: string; payload: Prisma.JsonVal
 
 	if (payload.action === "update") {
 		await updateQuickServiceJobProgress(job.id, `Updating ${payload.slug}: pulling image and recreating container`);
-		const result = await updateService(payload.slug, payload.instanceKey ?? HUB_HOST_INSTANCE_KEY);
+		const result = await updateService(payload.slug, payload.instanceKey ?? HUB_HOST_INSTANCE_KEY, job);
 		await completeJob(job.id, QUICK_SERVICE_WORKER_ID, {
 			action: payload.action,
 			slug: payload.slug,
@@ -370,7 +368,7 @@ async function executeQuickServiceJob(job: { id: string; payload: Prisma.JsonVal
 
 	const options: UninstallServiceOptions = { deleteVolumes: payload.deleteVolumes === true };
 	await updateQuickServiceJobProgress(job.id, options.deleteVolumes ? `Uninstalling ${payload.slug}: removing container and cleaning data directory` : `Uninstalling ${payload.slug}: removing container and keeping data directory`);
-	await uninstallService(payload.slug, { ...options, instanceKey: payload.instanceKey ?? HUB_HOST_INSTANCE_KEY });
+	await uninstallService(payload.slug, { ...options, instanceKey: payload.instanceKey ?? HUB_HOST_INSTANCE_KEY, requester: job });
 	await completeJob(job.id, QUICK_SERVICE_WORKER_ID, {
 		action: payload.action,
 		slug: payload.slug,

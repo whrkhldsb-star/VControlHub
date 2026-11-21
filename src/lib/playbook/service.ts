@@ -1,3 +1,4 @@
+import { canAlertRuleTargetTeam } from "@/lib/alert/rule-scope";
 import { apiCopy } from "@/lib/i18n/api-copy";
 /**
  * TR-023 M04: Playbook service — CRUD + chain execution entry point.
@@ -480,6 +481,7 @@ export async function runPlaybook(input: {
   triggerContext?: unknown;
   createdById?: string;
   session?: TeamSession;
+  sourceAlertTeamId?: string | null;
 }): Promise<PlaybookRunRecord> {
   const releaseLock = await acquireAdvisoryLock("playbook-lifecycle", input.playbookId);
   let narrowedPlaybook: PlaybookRecord;
@@ -492,7 +494,7 @@ export async function runPlaybook(input: {
     const playbook = await prisma.playbook.findFirst({
       where: { id: input.playbookId, ...scope },
     });
-    if (!playbook) {
+    if (!playbook || !canAlertRuleTargetTeam(input.sourceAlertTeamId, playbook.teamId)) {
       throw new NotFoundError(
         t("backend.playbook.notFoundWithId", { id: input.playbookId }),
       );
