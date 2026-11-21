@@ -9,6 +9,76 @@ import { describe, expect, it } from "vitest";
 
 const run = promisify(execFile);
 
+describe.skipIf(process.platform !== "linux")("installer destination ownership", () => {
+	it.each(["clone", "archive", "wrong origin", "nested checkout"])("refuses a nonempty %s destination before host setup", async mode => {
+		const root = await mkdtemp(path.join(os.tmpdir(), "vch-install-target-"));
+		const app = path.join(root, "app");
+		const requestedRemote = path.join(root, "unreachable-origin");
+		try {
+			await mkdir(app);
+			await writeFile(path.join(app, ".local-backup"), "retained");
+			if (mode === "wrong origin" || mode === "nested checkout") {
+				const repo = mode === "wrong origin" ? app : root;
+				await run("git", ["-C", repo, "init", "-q"]);
+				await run("git", ["-C", repo, "remote", "add", "origin", mode === "wrong origin" ? "unrelated" : requestedRemote]);
+				if (mode === "wrong origin") {
+					// A second, matching URL does not change where git actually fetches.
+					await run("git", ["-C", repo, "config", "--add", "remote.origin.url", requestedRemote]);
+				}
+			}
+			await expect(run("bash", ["deploy/install.sh"], {
+				env: {
+					...process.env, APP_DIR: app, SOURCE_DIR: process.cwd(), REPO_URL: mode === "archive" ? "" : requestedRemote,
+					DESTDIR: path.join(root, "fakeroot"), INSTALL_SYSTEMD_UNITS: "1", SKIP_RESTART: "1", SKIP_PACKAGES: "1",
+				},
+			})).rejects.toMatchObject({
+				stderr: expect.stringContaining("Refusing nonempty APP_DIR"),
+				stdout: expect.not.stringContaining("Syncing application"),
+			});
+			expect(await readFile(path.join(app, ".local-backup"), "utf8")).toBe("retained");
+			expect(existsSync(path.join(root, "fakeroot"))).toBe(false);
+		} finally {
+			await rm(root, { recursive: true, force: true });
+		}
+	});
+
+	it("clones into an empty directory and updates the matching checkout", async () => {
+		const root = await mkdtemp(path.join(os.tmpdir(), "vch-install-clone-"));
+		const origin = path.join(root, "origin");
+		const app = path.join(root, "app");
+		const git = (...args: string[]) => run("git", ["-C", origin, "-c", "user.name=t", "-c", "user.email=t@t", ...args]);
+		try {
+			await mkdir(origin);
+			await mkdir(app);
+			await git("init", "-q");
+			await writeFile(path.join(origin, "version"), "one");
+			await mkdir(path.join(origin, "uploads"));
+			await writeFile(path.join(origin, "uploads/.gitkeep"), "");
+			await git("add", "version", "uploads/.gitkeep");
+			await git("commit", "-qm", "one");
+			const installer = await readFile("deploy/install.sh", "utf8");
+			const directoryFunctions = installer.slice(installer.indexOf("record_created_data_dir()"), installer.indexOf("prepare_quick_service_storage()"));
+			const sync = installer.slice(installer.indexOf("is_app_source_tree()"), installer.indexOf("write_env_if_missing()"));
+			const runSync = () => run("bash", ["-c", [
+				"set -euo pipefail", "log() { :; }", "warn() { :; }", "fail() { echo \"$*\" >&2; exit 1; }",
+				"chown() { :; }", directoryFunctions, sync, "sync_source",
+			].join("\n")], { env: { ...process.env, APP_USER: "app", INSTANCE_STATE_DIR: root, APP_DIR: app, REPO_URL: origin, SOURCE_DIR: process.cwd() } });
+			await runSync();
+			expect(await readFile(path.join(app, "version"), "utf8")).toBe("one");
+			const inventory = await readFile(path.join(root, "directories"), "utf8");
+			expect(inventory.split("\n").filter(row => row.startsWith("tree\t")).map(row => row.split("\t")[2])).toContain(path.join(app, "uploads"));
+			await writeFile(path.join(app, ".env.local"), "retained");
+			await writeFile(path.join(origin, "version"), "two");
+			await git("commit", "-qam", "two");
+			await runSync();
+			expect(await readFile(path.join(app, "version"), "utf8")).toBe("two");
+			expect(await readFile(path.join(app, ".env.local"), "utf8")).toBe("retained");
+		} finally {
+			await rm(root, { recursive: true, force: true });
+		}
+	});
+});
+
 function hasRsync() {
 	try {
 		execFileSync("rsync", ["--version"], { stdio: "ignore" });

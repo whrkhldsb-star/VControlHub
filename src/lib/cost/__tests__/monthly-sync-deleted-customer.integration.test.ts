@@ -47,7 +47,27 @@ describe.skipIf(process.env.RUN_DATABASE_INTEGRATION_TESTS !== "1")("monthly ser
 
 	it("does not bill the servers of a deleted customer", async () => {
 		await syncServerMonthlyCosts("2030-03");
-		const billed = await prisma.costEntry.findMany({ where: { sourceType: "server_monthly", sourceRef: { startsWith: prefix } }, select: { sourceRef: true } });
+		const billed = await prisma.costEntry.findMany({ where: { sourceType: "server_monthly", sourceRef: { in: [`${live}-srv`, `${gone}-srv`] } }, select: { sourceRef: true } });
 		expect(billed.map((row) => row.sourceRef)).toEqual([`${live}-srv`]);
+	});
+
+	it("keeps the server version across backfills and preserves closed-month rows after repricing", async () => {
+		const originalDate = new Date("2001-01-15T12:00:00Z");
+		const serverId = `${prefix}-historical`;
+		await prisma.server.create({ data: {
+			id: serverId, name: serverId, host: `${serverId}.test`, username: "root", tags: [], teamId: live,
+			createdAt: originalDate, updatedAt: originalDate, costAutoSync: true, costMonthlyAmount: "12.00", costCurrency: "USD",
+		} });
+		const session = { userId: prefix, roles: ["operator" as const], currentTeamId: live };
+		await syncServerMonthlyCosts("2001-04", session);
+		await syncServerMonthlyCosts("2001-05", session);
+		expect((await prisma.server.findUniqueOrThrow({ where: { id: serverId } })).updatedAt).toEqual(originalDate);
+		await prisma.server.update({ where: { id: serverId }, data: { costMonthlyAmount: "99.00", costCurrency: "CNY" } });
+		await syncServerMonthlyCosts("2001-04", session);
+		await syncServerMonthlyCosts("2001-06", session);
+		const rows = await prisma.costEntry.findMany({ where: { sourceType: "server_monthly", sourceRef: serverId }, orderBy: { effectiveDate: "asc" } });
+		expect(rows.map(row => [row.effectiveDate.toISOString().slice(0, 7), row.teamId, row.amount.toFixed(2), row.currency])).toEqual([
+			["2001-04", live, "12.00", "USD"], ["2001-05", live, "12.00", "USD"],
+		]);
 	});
 });

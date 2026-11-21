@@ -11,7 +11,16 @@ import { pgConnection, runBinary } from "../scripts/lib/backup-common.mjs";
 const identifier = /(?:[A-Z_][\w$]*|")/.source;
 const tableHeader = new RegExp(`^ALTER TABLE (?:IF EXISTS )?(?:ONLY )?${identifier}(?: \\. ${identifier})* `);
 const addColumn = new RegExp(`^ADD COLUMN (?:IF NOT EXISTS )?${identifier} ${identifier}(?: |$)`);
-const addConstraint = new RegExp(`^ADD CONSTRAINT ${identifier} (?:CHECK|FOREIGN KEY|PRIMARY KEY|UNIQUE|EXCLUDE|NOT NULL)(?: |$)`);
+const addUnvalidatedForeignKey = new RegExp(`^ADD CONSTRAINT ${identifier} FOREIGN KEY \\( .* \\) REFERENCES .* NOT VALID$`);
+
+function isAdditiveTableAction(action) {
+  if (!addColumn.test(action)) return addUnvalidatedForeignKey.test(action);
+  // Column-level constraints can restrict the old writer just like ADD CONSTRAINT.
+  if (/ (?:CHECK|PRIMARY KEY|UNIQUE|EXCLUDE|REFERENCES)(?: |$)/.test(action)) return false;
+  if (!/ NOT NULL(?: |$)/.test(action)) return true;
+  // A rolled-back application omits this column on INSERT.
+  return / DEFAULT /.test(action) && !/ DEFAULT (?:\( )*NULL(?: |$)/.test(action);
+}
 
 function hasOnlyAdditiveTableActions(words) {
   const closing = [];
@@ -25,7 +34,7 @@ function hasOnlyAdditiveTableActions(words) {
     } else if (i === words.length || (word === "," && closing.length === 0)) {
       let action = words.slice(start, i).join(" ");
       if (start === 0) action = action.replace(tableHeader, "");
-      if (!addColumn.test(action) && !addConstraint.test(action)) return false;
+      if (!isAdditiveTableAction(action)) return false;
       start = i + 1;
     }
   }

@@ -27,38 +27,18 @@ describe("uninstall service list", () => {
 	});
 });
 
-/**
- * The path check asks that a directory named in the environment file contains the application slug, so that a typo
- * there cannot remove another application's data. It was also applied to the installer's own list of Quick Service
- * directories (/opt/adguardhome/conf, ...), none of which contains the slug: every complete uninstall stopped at
- * the first of them, after the services, the database and the data directories were gone and before the
- * application directory, its secrets and its user were removed. Nothing is deleted here: only the check runs.
- */
 describe.skipIf(process.platform === "win32")("uninstall path check", () => {
 	const run = promisify(execFile);
-	async function check(pathToCheck: string, ...extra: string[]) {
-		const uninstall = await readFile(path.join(process.cwd(), "deploy/uninstall.sh"), "utf8");
-		const start = uninstall.indexOf("safe_data_path() {");
-		const fn = uninstall.slice(start, uninstall.indexOf("\n}\n", start) + 3);
-		const script = `set -euo pipefail\nAPP_SLUG=vcontrolhub\nFORCE_PATHS=0\nfail() { echo "$*" >&2; exit 1; }\nnormalize_path() { realpath -m -- "$1"; }\n${fn}\nsafe_data_path "$@"`;
-		return run("bash", ["-c", script, "bash", pathToCheck, ...extra]).then((result) => ({ ok: true, out: result.stdout }), (error: { stderr: string }) => ({ ok: false, out: error.stderr }));
-	}
-
-	it("accepts the installer's own Quick Service directories and still questions a path from the environment file", async () => {
-		expect(await check("/opt/adguardhome/conf", "inventory")).toEqual({ ok: true, out: "/opt/adguardhome/conf" });
-		expect(await check("/srv/photos/library", "inventory")).toEqual({ ok: true, out: "/srv/photos/library" });
-		// From the environment file: the slug is still required.
-		const fromEnv = await check("/opt/other-app/data");
-		expect(fromEnv.ok).toBe(false);
-		expect(fromEnv.out).toContain("does not contain the APP_SLUG");
-		expect(await check("/var/lib/vcontrolhub/storage")).toEqual({ ok: true, out: "/var/lib/vcontrolhub/storage" });
-		// The inventory does not open system directories.
-		expect((await check("/var/lib/docker/volumes", "inventory")).ok).toBe(false);
-		expect((await check("/etc/passwd", "inventory")).ok).toBe(false);
-	});
-
-	it("passes the inventory marker for the Quick Service list only", async () => {
-		const uninstall = await readFile(path.join(process.cwd(), "deploy/uninstall.sh"), "utf8");
-		expect(uninstall.match(/safe_data_path "\$\{data_path\}" inventory/g)?.length).toBe(1);
+	it("restricts registered paths to canonical data directories outside protected system trees", async () => {
+		const script = await readFile(path.join(process.cwd(), "deploy/uninstall.sh"), "utf8");
+		const fn = script.match(/safe_data_path\(\) \{[\s\S]*?\n\}/)![0];
+		const check = (candidate: string) => run("bash", ["-c",
+			`APP_DIR=/opt/app; normalize_path() { realpath -m -- "$1"; }; ${fn}\nsafe_data_path "$1"`, "bash", candidate]);
+		for (const dir of ["/opt/jellyfin/config", "/srv/photos/library", "/var/lib/vcontrolhub"]) {
+			await expect(check(dir)).resolves.toBeDefined();
+		}
+		for (const dir of ["/srv", "/opt/app", "/var/lib/docker/volumes", "/srv/photos/../library", "/etc/postgresql"]) {
+			await expect(check(dir)).rejects.toMatchObject({ code: 1 });
+		}
 	});
 });

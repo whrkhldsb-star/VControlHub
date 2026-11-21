@@ -202,8 +202,17 @@ describe("ALTER TABLE migration classification", () => {
 			ALTER TABLE IF EXISTS ONLY public."t,1"
 				ADD COLUMN IF NOT EXISTS "a,b" numeric(12, 2),
 				ADD COLUMN label text DEFAULT 'x,y',
-				ADD CONSTRAINT label_check CHECK (label IN ('x,y', 'z'));
+				ADD CONSTRAINT label_fk FOREIGN KEY (label) REFERENCES labels(name) NOT VALID;
 		`)).toBe(true);
+	});
+
+	it.each([
+		"ADD COLUMN a text NOT NULL DEFAULT 'value'",
+		"ADD COLUMN a integer DEFAULT 0 NOT /* required */ NULL",
+		'ADD COLUMN "NOT NULL" text',
+		'ADD CONSTRAINT "fk" FOREIGN KEY (a, b) REFERENCES public.t2(x, y) ON DELETE SET DEFAULT NOT VALID',
+	])("accepts %s", actions => {
+		expect(isAutomaticMigration(`ALTER TABLE t ${actions};`)).toBe(true);
 	});
 
 	it.each([
@@ -211,6 +220,20 @@ describe("ALTER TABLE migration classification", () => {
 		"ENABLE ROW LEVEL SECURITY, ADD COLUMN a int",
 		"ADD COLUMN a numeric(10, 2), OWNER TO new_owner, ADD COLUMN b int",
 		"ADD COLUMN a int, ADD unknown_action",
+		"ADD COLUMN a text NOT NULL",
+		'ADD COLUMN "DEFAULT" text NOT NULL /* DEFAULT placeholder */',
+		"ADD COLUMN a integer NOT NULL DEFAULT (NULL)",
+		"ADD COLUMN a text DEFAULT 'DEFAULT', ADD COLUMN b text NOT NULL",
+		"ADD COLUMN a int NOT NULL REFERENCES parents(id) ON DELETE SET DEFAULT",
+		"ADD COLUMN a int DEFAULT 1 UNIQUE",
+		"ADD COLUMN a int CHECK (a IS NULL)",
+		"ADD CONSTRAINT positive CHECK (a IN (1, 2))",
+		"ADD CONSTRAINT positive CHECK (a IN (1, 2)) NOT VALID",
+		"ADD CONSTRAINT distinct_pair UNIQUE (a, b)",
+		"ADD CONSTRAINT pk PRIMARY KEY (a)",
+		"ADD CONSTRAINT required NOT NULL a",
+		"ADD CONSTRAINT fk FOREIGN KEY (a) REFERENCES t2(b) /* NOT VALID */",
+		'ADD CONSTRAINT fk FOREIGN KEY (a) REFERENCES "NOT VALID"(b)',
 	])("requires review for %s", actions => {
 		expect(isAutomaticMigration(`ALTER TABLE t ${actions};`)).toBe(false);
 	});
@@ -235,7 +258,11 @@ describeLinux("automatic migration preflight", () => {
 			await writeFile(path.join(dirs[1]!, "migration.sql"), pending);
 			expect(run).not.toThrow();
 		}
-		for (const pending of ["DROP TABLE t", "ALTER TABLE t ADD x int, DROP /* comment */ COLUMN y", "UPDATE t SET x = NULL", "TRUNCATE t", "DELETE FROM t", "DO $$ BEGIN EXECUTE q; END $$"]) {
+		for (const pending of [
+			"DROP TABLE t", "ALTER TABLE t ADD x int, DROP /* comment */ COLUMN y", "UPDATE t SET x = NULL",
+			"TRUNCATE t", "DELETE FROM t", "DO $$ BEGIN EXECUTE q; END $$",
+			"ALTER TABLE t ADD COLUMN required integer NOT NULL", "ALTER TABLE t ADD CONSTRAINT uq UNIQUE (id)",
+		]) {
 			await writeFile(path.join(dirs[1]!, "migration.sql"), pending);
 			expect(run).toThrow(/Manual migration review.*002/);
 		}
