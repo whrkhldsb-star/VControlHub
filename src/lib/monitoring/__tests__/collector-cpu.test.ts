@@ -59,6 +59,13 @@ describe("collectMonitoringStats CPU usage", () => {
 		expect((await collectMonitoringStats()).cpu.usage).toBe("90.0%");
 	});
 
+	it("counts guest jiffies once in the aggregate CPU delta", async () => {
+		withStat(procStat(100, 100));
+		await collectMonitoringStats();
+		withStat("cpu 140 10 0 150 0 0 0 0 40 10");
+		expect((await collectMonitoringStats()).cpu.usage).toBe("50.0%");
+	});
+
 	it("keeps the previous window when two calls land in the same jiffy", async () => {
 		withStat(procStat(100, 900));
 		(await collectMonitoringStats());

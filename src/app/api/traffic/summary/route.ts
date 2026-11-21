@@ -203,7 +203,15 @@ export async function GET(req: NextRequest) {
       const serverFilter = serverTeamWhere(session);
       const storageNodes = sessionHasPermission(session, "storage:read")
         ? await prisma.storageNode.findMany({
-        where: storageNodeTeamWhere(session),
+        where: {
+          ...storageNodeTeamWhere(session),
+          ...(isGlobalTeamManager(session) || sessionHasPermission(session, "storage:manage-node") ? {} : {
+            OR: [
+              { accessGrants: { none: { userId: session.userId } } },
+              { accessGrants: { some: { userId: session.userId, canRead: true } } },
+            ],
+          }),
+        },
         select: {
           id: true,
           name: true,
@@ -284,7 +292,7 @@ export async function GET(req: NextRequest) {
             id: node.id,
             name: node.name,
             driver: node.driver,
-            serverId: node.serverId,
+            serverId: visibleNode.server?.id ?? null,
             server: visibleNode.server,
             host: node.host,
             port: node.port,

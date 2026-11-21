@@ -1,6 +1,7 @@
 import { type ServerUptimeSnapshot } from "@prisma/client";
 
 import { serverTeamWhere, type TeamSession } from "@/lib/auth/team-scope";
+import { canReadInternalStatus } from "@/lib/public-status/access";
 import { prisma } from "@/lib/db";
 import { appTimeZoneDateKey, shiftAppTimeZoneDay } from "@/lib/datetime/time-zone";
 
@@ -32,7 +33,7 @@ export type UptimeListOptions = {
    * When provided, list is filtered with the same teamWhere rules as server lists.
    * Omit/null fails closed with an empty list. Uptime data is tenant-scoped.
    */
-  session?: TeamSession | null;
+  session?: (TeamSession & { mustChangePassword?: boolean }) | null;
 };
 
 /**
@@ -41,7 +42,7 @@ export type UptimeListOptions = {
  * their team (+ legacy null teamId) nodes.
  */
 export async function getAllUptimeDataInternal(options: UptimeListOptions = {}) {
-  if (!options.session) return { servers: [] };
+  if (!canReadInternalStatus(options.session)) return { servers: [] };
   const ninetyDaysAgo = shiftAppTimeZoneDay(new Date(), -89);
 
   // Servers are a security root: a customer account limited to some servers sees only those here too, as in health,

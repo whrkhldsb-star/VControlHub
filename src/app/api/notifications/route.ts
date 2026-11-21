@@ -35,8 +35,8 @@ const patchSchema = z.union([
     z.object({ action: z.literal("delete"), notificationId: z.string().min(1) }),
   ]),
   // Legacy format support
-  z.object({ markAllAsRead: z.literal(true) }),
-  z.object({ notificationId: z.string().min(1) }),
+  z.strictObject({ markAllAsRead: z.literal(true) }),
+  z.strictObject({ notificationId: z.string().min(1) }),
 ]);
 
 export async function GET(request: Request) {
@@ -46,15 +46,15 @@ export async function GET(request: Request) {
     async ({ session }) => {
       const { limit, offset } = parseSearchParams(request, listNotificationsQuerySchema);
       const [notifications, unreadCount] = await Promise.all([
-        listUserNotifications(session, { limit, skip: offset }),
+        listUserNotifications(session, { limit: limit + 1, skip: offset }),
         getUnreadCount(session),
       ]);
       return NextResponse.json({
-        notifications,
+        notifications: notifications.slice(0, limit),
         unreadCount,
         limit,
         offset,
-        hasMore: notifications.length === limit,
+        hasMore: notifications.length > limit,
       });
     },
   );

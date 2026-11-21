@@ -8,6 +8,7 @@ import { PUBLIC_METRIC_CATEGORIES, type PublicMetricCategory } from "../site-con
 import { DEFAULT_BOARD_QUERY, parseBoardQuery, boardQueryToSearch } from "../query";
 import { publicationHiddenReason } from "../visibility";
 import type { PublicNode } from "../types";
+import { startOfMonthInAppTimeZone } from "@/lib/datetime/time-zone";
 
 const now = new Date("2026-10-13T12:00:00.000Z");
 const ALL = new Set<PublicMetricCategory>(PUBLIC_METRIC_CATEGORIES);
@@ -16,6 +17,7 @@ function row(overrides: Partial<VisibleNodeRow> = {}): VisibleNodeRow {
 	return {
 		serverId: "srv_internal_1",
 		publicId: "abcdefghijkl",
+		publicationVersion: "1",
 		displayName: "Tokyo 1",
 		groupName: "Asia",
 		region: "JP",
@@ -46,7 +48,9 @@ function row(overrides: Partial<VisibleNodeRow> = {}): VisibleNodeRow {
 		rxRateBps: 1000.4,
 		txRateBps: 2000.6,
 		rateIntervalSeconds: 300,
-		periodStart: new Date("2026-09-30T16:00:00.000Z"),
+		hasRxBaseline: true,
+		hasTxBaseline: true,
+		periodStart: startOfMonthInAppTimeZone(now),
 		periodSince: new Date("2026-10-01T00:00:00.000Z"),
 		periodRxBytes: BigInt(10),
 		periodTxBytes: BigInt(20),
@@ -243,6 +247,17 @@ describe("board query", () => {
 });
 
 describe("summary", () => {
+	it("excludes offline last-month counters and legacy zeroes with no interface baseline", () => {
+		const stale = toPublicNode(row({ online: false, periodStart: new Date("2026-09-01T00:00:00Z") }), ALL, now);
+		const unmeasured = toPublicNode(row({ hasRxBaseline: false, hasTxBaseline: false }), ALL, now);
+		for (const node of [stale, unmeasured]) {
+			expect(node.metrics.traffic).toMatchObject({ periodStart: null, countedSince: null, periodRxBytes: null, periodTxBytes: null });
+		}
+		expect(summarizeNodes([stale, unmeasured], false)).toMatchObject({ periodRxBytes: null, periodTxBytes: null });
+		const partial = toPublicNode(row({ hasTxBaseline: false }), ALL, now);
+		expect(summarizeNodes([stale, unmeasured, partial], false)).toMatchObject({ periodRxBytes: 10, periodTxBytes: null });
+	});
+
 	it("counts statuses, groups and regions, and sums only known rates", () => {
 		const nodes = makeNodes(20);
 		const summary = summarizeNodes(nodes, false);

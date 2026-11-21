@@ -97,7 +97,7 @@ export async function sumTrafficSince(serverIds: string[], since: Date): Promise
 
 export async function collectAllHealth(
   session?: Pick<SessionPayload, "userId" | "roles" | "currentTeamId">,
-  options: { persistTraffic?: boolean } = {},
+  options: { persistTraffic?: boolean; serverWhere?: Prisma.ServerWhereInput } = {},
 ): Promise<HealthOverview> {
   const servers: Array<{
     id: string;
@@ -115,7 +115,9 @@ export async function collectAllHealth(
       // The background sweep (no session) probes live customers' servers
       // only: a deleted customer's servers are kept for its history, not
       // probed over SSH, alerted on or counted.
-      where: session ? serverTeamWhere(session) : liveCustomerRowsWhere(),
+      where: options.serverWhere ? {
+        AND: [options.serverWhere, liveCustomerRowsWhere(), ...(session ? [serverTeamWhere(session)] : [])],
+      } : session ? serverTeamWhere(session) : liveCustomerRowsWhere(),
       select: { id: true, name: true, host: true, port: true, enabled: true, managementMode: true, agentLastSeenAt: true, operatingSystem: true },
       orderBy: { id: "asc" },
       take: SERVER_PAGE_SIZE,

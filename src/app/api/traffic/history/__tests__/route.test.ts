@@ -48,16 +48,11 @@ describe("/api/traffic/history", () => {
     const body = await response.json();
 
     expect(response.status).toBe(200);
-    expect(prismaMock.server.findMany).toHaveBeenCalledWith(
-      expect.objectContaining({
-        where: { teamId: "team_a" },
-        select: { id: true },
-      }),
-    );
+    expect(prismaMock.server.findMany).not.toHaveBeenCalled();
     expect(prismaMock.trafficSnapshot.findMany).toHaveBeenCalledWith(
       expect.objectContaining({
         where: expect.objectContaining({
-          OR: [{ serverId: { in: ["srv_a"] } }],
+          OR: [{ server: { is: { teamId: "team_a" } } }],
         }),
       }),
     );

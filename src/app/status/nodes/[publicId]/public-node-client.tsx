@@ -82,7 +82,7 @@ function UptimeStrip({ days, t }: { days: PublicUptimeDay[]; t: T }) {
 	return (
 		<ol className="flex flex-wrap gap-1" aria-label={t("publicStatus.uptime90.label")}>
 			{days.map((day) => {
-				const sampled = day.checkCount > 0 && day.uptimePercent !== null;
+				const sampled = day.uptimePercent !== null;
 				const coverage = Math.min(1, day.coveredMinutes / Math.max(1, day.expectedMinutes));
 				const sufficient = sampled && coverage >= MIN_SAMPLE_COVERAGE;
 				const label = sampled

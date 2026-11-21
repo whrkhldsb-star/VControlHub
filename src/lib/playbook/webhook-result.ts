@@ -70,7 +70,7 @@ const historyReceipt = z.object({
 /** Mutable playbook definitions cannot identify the step that produced an old receipt. */
 export function redactRunHistory(executionState: unknown, results: unknown, errorMessage: string | null) {
   const state = executionState as { schemaVersion?: number; stepsSnapshot?: PlaybookStep[] } | null;
-  const steps = state?.schemaVersion === 1 && Array.isArray(state.stepsSnapshot) ? state.stepsSnapshot : [];
+  const steps = (state?.schemaVersion === 1 || state?.schemaVersion === 2) && Array.isArray(state.stepsSnapshot) ? state.stepsSnapshot : [];
   const byId = new Map(steps.filter((step) => step?.id).map((step) => [step.id, step]));
   let rebuildParentError = !Array.isArray(results) || !steps.length || steps.some((step) => step?.type === "call_webhook");
   const stepResults: PlaybookStepResult[] = [];

@@ -1,6 +1,7 @@
 import { PageHeader, PageShell } from "@/components/page-shell";
 import { ButtonLink } from "@/components/action-button";
 import { getCurrentSession } from "@/lib/auth/server-session";
+import { canPreviewClosedBoard, canReadInternalStatus } from "@/lib/public-status/access";
 import { isGlobalTeamManager } from "@/lib/auth/team-scope";
 import { formatDateTime } from "@/lib/datetime/format";
 import { getServerLocale, t } from "@/lib/i18n/translations";
@@ -25,9 +26,10 @@ export const revalidate = 0;
  *   their customer's uptime below (not in guest preview).
  */
 export default async function Page({ searchParams }: { searchParams?: Promise<Record<string, string | string[] | undefined>> }) {
-  const [session, locale, params] = await Promise.all([getCurrentSession(), getServerLocale(), searchParams ?? Promise.resolve({} as Record<string, string | string[] | undefined>)]);
+  const [rawSession, locale, params] = await Promise.all([getCurrentSession(), getServerLocale(), searchParams ?? Promise.resolve({} as Record<string, string | string[] | undefined>)]);
+  const session = rawSession?.mustChangePassword ? null : rawSession;
   const isAdmin = Boolean(session && isGlobalTeamManager(session));
-  const preview = params.preview === "1" && isAdmin;
+  const preview = params.preview === "1" && canPreviewClosedBoard(session);
   const board = await readPublicBoard(parseBoardQuery(params), { preview }).catch((error) => {
     logger.error("Failed to load the public board", error);
     return null;
@@ -40,7 +42,7 @@ export default async function Page({ searchParams }: { searchParams?: Promise<Re
       ) : (
         <ClosedBoard signedIn={Boolean(session)} isAdmin={isAdmin} locale={locale} />
       )}
-      {session && !preview ? <InternalStatusSection session={session} /> : null}
+      {canReadInternalStatus(session) && !preview ? <InternalStatusSection session={session} /> : null}
     </PageShell>
   );
 }

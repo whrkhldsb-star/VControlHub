@@ -26,7 +26,7 @@ vi.mock("@/lib/ws/notification-ws", () => ({
   pushUnreadCount: pushUnreadCountMock,
 }));
 
-const { announceStoredNotifications, listUserNotifications, getUnreadCount, readUnreadCount, markAsRead, markAllAsRead, deleteNotification, notificationContentData, notifyCommandPending } = await import("../service");
+const { announceStoredNotifications, listUserNotifications, getUnreadCount, readUnreadCount, markAsRead, markAllAsRead, deleteNotification, notifyDownloadResult, notificationContentData, notifyCommandPending } = await import("../service");
 const { setBackgroundCopyLocale } = await import("@/lib/i18n/api-copy");
 
 const customer = { userId: "u_1", roles: [], currentTeamId: "team_a" };
@@ -44,6 +44,26 @@ describe("notification service state synchronization", () => {
     prismaMock.$queryRaw.mockImplementation(async (_sql: TemplateStringsArray, inbox: { values: string[] }) => [
       { count: await prismaMock.notification.count({ where: { userId: inbox.values[0], isRead: false } }), asOfUs: BigInt(++readAt) },
     ]);
+  });
+
+  it("keeps signed source URLs out of stored and pushed download copy", async () => {
+    const url = "https://alice:pass@cdn.test/path-token?sig=query-token";
+    prismaMock.notification.create.mockImplementation(async ({ data }) => ({ id: "n", createdAt: new Date(), ...data }));
+    for (const status of ["completed", "failed"] as const) {
+      await notifyDownloadResult("u_1", url, status, `Failed to fetch ${url}`, "team_a");
+      const payload = JSON.stringify([prismaMock.notification.create.mock.lastCall, pushNotificationMock.mock.lastCall]);
+      expect(payload).toContain("cdn.test");
+      expect(payload).not.toMatch(/path-token|query-token|alice:pass/);
+    }
+    await notifyDownloadResult("u_1", url, "failed", "HTTP 403 on /path-token?sig=query-token", "team_a");
+    expect(prismaMock.notification.create.mock.lastCall?.[0].data).toMatchObject({
+      messageCode: "downloadFailed", messageParams: { url: "cdn.test" },
+    });
+    expect(JSON.stringify(pushNotificationMock.mock.lastCall)).not.toMatch(/path-token|query-token/);
+    await notifyDownloadResult("u_1", url, "failed", { key: "notification.reason.downloadTimedOut" }, "team_a");
+    expect(prismaMock.notification.create.mock.lastCall?.[0].data.messageParams).toEqual({
+      url: "cdn.test", errorKey: "notification.reason.downloadTimedOut",
+    });
   });
 
   it("applies the same customer and explicit announcement predicate to reads and every mutation", async () => {

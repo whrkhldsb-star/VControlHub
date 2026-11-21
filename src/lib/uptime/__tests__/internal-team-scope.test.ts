@@ -50,6 +50,15 @@ describe("getAllUptimeDataInternal team scope", () => {
     expect(findManyServer).toHaveBeenCalledWith(expect.objectContaining({ where: expect.objectContaining({ enabled: true, teamId: "team_a" }) }));
   });
 
+  it.each([false, true])("checks feature permission and password state before querying (reset=%s)", async (mustChangePassword) => {
+    const { getAllUptimeDataInternal } = await import("../internal");
+    const result = await getAllUptimeDataInternal({ session: {
+      userId: "u", currentTeamId: "a", roles: ["operator"], permissions: mustChangePassword ? ["server:read"] : [], mustChangePassword,
+    } });
+    expect(result.servers).toEqual([]);
+    expect(findManyServer).not.toHaveBeenCalled();
+  });
+
   it("fails closed instead of exposing server names without a session", async () => {
     const { getAllUptimeDataInternal } = await import("../internal");
     const result = await getAllUptimeDataInternal({});

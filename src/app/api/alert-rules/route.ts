@@ -337,7 +337,7 @@ export async function PUT(request: Request) {
       // running their playbooks. teamWhere({}) for a global manager keeps the
       // fleet-wide behaviour; the background worker still calls it with no arg.
       // Worded for the people it notifies, not for whoever started it.
-      await withPlatformCopyLocale(() => evaluateAlerts({ ruleWhere: teamWhere(session) }));
+      await withPlatformCopyLocale(() => evaluateAlerts({ ruleWhere: teamWhere(session), session }));
       await auditUserAction(session.userId, "alert_rule.evaluate", {
         manual: true,
       }, undefined, session.currentTeamId);

@@ -112,6 +112,19 @@ describe("traffic summary route", () => {
     expect(body.servers[0]).toMatchObject({ id: "srv", host: "127.0.0.1" });
   });
 
+  it("applies node read grants and removes the id of a hidden linked server", async () => {
+    requireApiPermissionMock.mockImplementationOnce(async () => ({ session: { userId: "u1", roles: ["viewer"], currentTeamId: "team" } }));
+    const { prisma } = await import("@/lib/db");
+    vi.mocked(prisma.server.findMany).mockResolvedValueOnce([]);
+    const response = await GET(new Request("http://localhost/api/traffic/summary") as Parameters<typeof GET>[0]);
+    expect(vi.mocked(prisma.storageNode.findMany)).toHaveBeenLastCalledWith(expect.objectContaining({
+      where: { teamId: "team", OR: [
+        { accessGrants: { none: { userId: "u1" } } }, { accessGrants: { some: { userId: "u1", canRead: true } } },
+      ] },
+    }));
+    expect((await response.json()).storageNodes[1]).toMatchObject({ serverId: null, server: null, remoteServerId: null });
+  });
+
   it("quarantines servers and storage nodes without an active workspace", async () => {
     requireApiPermissionMock.mockImplementation(async () => ({ session: { userId: "u1", roles: ["viewer"] } }));
     // A viewer with no current team must not reach null-team servers: they are
@@ -130,7 +143,7 @@ describe("traffic summary route", () => {
       }),
     );
     expect(vi.mocked(prisma.storageNode.findMany)).toHaveBeenCalledWith(
-      expect.objectContaining({ where: { id: "__unassigned_storage_nodes_require_team_manage__" } }),
+      expect.objectContaining({ where: expect.objectContaining({ id: "__unassigned_storage_nodes_require_team_manage__" }) }),
     );
   });
 });
