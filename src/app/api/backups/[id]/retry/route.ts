@@ -3,7 +3,9 @@ import { NextResponse } from "next/server";
 
 import { auditUserAction } from "@/lib/audit/service";
 import { BACKUP_CREATE_JOB_TYPE } from "@/lib/backup/job-worker";
-import { prepareBackupRecordRetry } from "@/lib/backup/service";
+import { getBackupRecord, prepareBackupRecordRetry } from "@/lib/backup/service";
+import { NotFoundError } from "@/lib/errors";
+import { t } from "@/lib/i18n/service-translations";
 import { prisma } from "@/lib/db";
 import { withApiRoute } from "@/lib/http/api-guard";
 import { GENERAL_WRITE_LIMIT } from "@/lib/http/rate-limit-presets";
@@ -14,42 +16,25 @@ export const dynamic = "force-dynamic";
 export async function POST(request: Request, { params }: { params: Promise<{ id: string }> }) {
   return withApiRoute(request, { permission: "backup:create", rateLimit: GENERAL_WRITE_LIMIT, errorStatus: 500, errorMessage: apiCopy("apiCopy.operation.failed.4e1af7c7") }, async ({ session }) => {
     const { id } = await params;
-    // Deduplicate in-flight create jobs for this backupId before CAS re-queue.
-    // Double-click / concurrent retry would otherwise leave orphan PENDING jobs after the
-    // second prepareBackupRecordRetry fails (record already PENDING from the first CAS).
-    const existing = await prisma.job.findFirst({
-      where: {
-        type: BACKUP_CREATE_JOB_TYPE,
-        status: { in: ["PENDING", "RUNNING"] },
-        payload: { path: ["backupId"], equals: id },
-      },
-      select: { id: true },
-    });
-    if (existing) {
-      await auditUserAction(session.userId, "backup.retry", { backupId: id, jobId: existing.id, deduped: true }, undefined, session.currentTeamId);
-      return NextResponse.json({ jobId: existing.id, taskId: `job:${existing.id}`, deduped: true }, { status: 202 });
-    }
-    const backup = await prepareBackupRecordRetry({ id, session: session });
-    let job: Awaited<ReturnType<typeof enqueueJob>>;
-    try {
-      job = await enqueueJob({
-        type: BACKUP_CREATE_JOB_TYPE,
-        title: `Retry ${backup.type} backup`,
-        payload: { backupId: backup.id, teamId: session.currentTeamId ?? backup.teamId ?? null },
-        createdBy: session.userId,
-        teamId: session.currentTeamId ?? null,
-        maxAttempts: 1,
+    const result = await prisma.$transaction(async (tx) => {
+      const record = await getBackupRecord(id, session, tx);
+      if (!record) throw new NotFoundError(t("backend.backup.recordNotFound"));
+      const existing = await tx.job.findFirst({
+        where: {
+          teamId: record.teamId, type: BACKUP_CREATE_JOB_TYPE,
+          status: { in: ["PENDING", "RUNNING"] }, payload: { path: ["backupId"], equals: record.id },
+        },
+        select: { id: true },
       });
-    } catch (error) {
-      // The record is PENDING with no job to run it, and a PENDING backup
-      // cannot be retried: put it back to FAILED so the user can try again.
-      await prisma.backupRecord.updateMany({
-        where: { id: backup.id, status: "PENDING" },
-        data: { status: "FAILED", errorMessage: apiCopy("apiCopy.backup.retryNotQueued") },
-      }).catch(() => undefined);
-      throw error;
-    }
-    await auditUserAction(session.userId, "backup.retry", { backupId: id, jobId: job.id }, undefined, session.currentTeamId);
-    return NextResponse.json({ backup, jobId: job.id, taskId: `job:${job.id}`, deduped: false }, { status: 202 });
+      if (existing) return { jobId: existing.id, deduped: true };
+      const backup = await prepareBackupRecordRetry({ id, session }, tx);
+      const job = await enqueueJob({
+        type: BACKUP_CREATE_JOB_TYPE, title: `Retry ${backup.type} backup`,
+        payload: { backupId: id, teamId: backup.teamId }, createdBy: session.userId, teamId: backup.teamId, maxAttempts: 1,
+      }, tx);
+      return { backup, jobId: job.id, deduped: false };
+    });
+    await auditUserAction(session.userId, "backup.retry", { backupId: id, jobId: result.jobId, deduped: result.deduped }, undefined, session.currentTeamId);
+    return NextResponse.json({ ...result, taskId: `job:${result.jobId}` }, { status: 202 });
   });
 }

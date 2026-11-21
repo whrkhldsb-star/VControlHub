@@ -30,6 +30,25 @@ describe("empty secrets", () => {
 		prismaMock.$transaction.mockImplementation(async (operations: Array<Promise<unknown>>) => Promise.all(operations));
 	});
 
+	it("filters public settings before reading rows and gives a fresh SMTP form the TLS default", async () => {
+		const rows = Array.from({ length: 505 }, (_, i) => ({ key: "internal." + i, value: "1" }));
+		rows.push({ key: "smtp.host", value: "mail.test" });
+		prismaMock.setting.findMany.mockImplementationOnce(async ({ where, take }) =>
+			rows.filter((r) => !where || where.key.in.includes(r.key)).slice(0, take ?? rows.length));
+		const masked = await getAllSettingsMasked();
+		expect(masked).toMatchObject({ "smtp.host": "mail.test", "smtp.requireTls": "false" });
+		expect(masked).not.toHaveProperty("internal.0");
+	});
+
+	it("keeps credential rotation independent of a concurrent offsite region edit", async () => {
+		const { saveOffsiteConfig } = await import("@/lib/storage/offsite/schema");
+		prismaMock.setting.findMany.mockResolvedValue([{ key: "offsite.secretAccessKey", value: "original" }]);
+		await Promise.all([saveOffsiteConfig({ region: "west", secretAccessKey: "***" }), saveOffsiteConfig({ secretAccessKey: "rotated" })]);
+		expect(prismaMock.setting.upsert.mock.calls.map(([call]) => [call.where.key, call.update.value]).sort()).toEqual([
+			["offsite.region", "west"], ["offsite.secretAccessKey", "encrypted:rotated"],
+		]);
+	});
+
 	it("stores an empty secret as empty, not as the encryption of nothing", async () => {
 		// encrypt("") gave a value like salt:iv:tag: that read back as a 75-character "password": the settings page
 		// showed "***" for a secret nobody set, and an empty Turnstile secret refused every login.

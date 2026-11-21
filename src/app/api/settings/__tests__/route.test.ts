@@ -65,6 +65,22 @@ describe("/api/settings audit coverage", () => {
     mocks.setManySettings.mockResolvedValue(undefined);
   });
 
+  it("rejects malformed explicit offsite settings atomically and stores canonical valid fields only", async () => {
+    mocks.isValidSettingKey.mockReturnValue(true);
+    const patch = (data: Record<string, string>) => route.PATCH(new Request("http://local/api/settings", {
+      method: "PATCH", headers: { "x-forwarded-for": "192.0.2.8" }, body: JSON.stringify(data),
+    }));
+    for (const bad of ["", "nope", "12.3", "0", "3651"]) {
+      expect((await patch({ "offsite.retentionDays": bad, "platform.name": "changed" })).status).toBe(400);
+    }
+    expect((await patch({ "offsite.enabled": "off" })).status).toBe(400);
+    expect(mocks.setManySettings).not.toHaveBeenCalled();
+    expect((await patch({ "offsite.retentionDays": " 0365 ", "offsite.pathPrefix": "archive", "offsite.enabled": "1" })).status).toBe(200);
+    expect(mocks.setManySettings).toHaveBeenCalledWith([
+      { key: "offsite.retentionDays", value: "365" }, { key: "offsite.pathPrefix", value: "archive/" }, { key: "offsite.enabled", value: "true" },
+    ], "u1");
+  });
+
   it("audits changed setting keys without leaking secret values", async () => {
     const response = await route.PATCH(new Request("http://local/api/settings", {
       method: "PATCH",

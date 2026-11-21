@@ -13,14 +13,20 @@ import type {
 } from "./service-types";
 import { isBackupType } from "./service-types";
 
-type BackupFailureCategory =
-	| "path"
-	| "permission"
-	| "timeout"
-	| "script"
-	| "missing"
-	| "storage"
-	| "unknown";
+type BackupFailureCategory = BackupFailureSummaryItem["category"];
+
+export const DEFAULT_RETENTION_DAYS = 30;
+export const DEFAULT_KEEP_LATEST_PER_TYPE = 3;
+
+// Ordered identically for the in-memory and PostgreSQL summaries.
+export const FAILURE_CATEGORIES: ReadonlyArray<[BackupFailureCategory, RegExp]> = [
+	["permission", /permission|denied|readonly|read-only|只读|权限|eacces|eperm/],
+	["path", /路径|path|portable|traversal|invalid/],
+	["timeout", /timeout|timed out|超时/],
+	["missing", /no such file|enoent|not found|不存在|missing/],
+	["storage", /no space|enospc|disk|write|写入|空间/],
+	["script", /exit code|command failed|backup\.sh|restore-db\.sh|脚本|execution failed/],
+];
 
 function parseBackupSizeBytes(value: string | number | bigint | null | undefined) {
 	if (value == null) return 0;
@@ -31,13 +37,7 @@ function parseBackupSizeBytes(value: string | number | bigint | null | undefined
 
 function classifyBackupFailure(message: string | null | undefined): BackupFailureCategory {
 	const value = (message || "").toLowerCase();
-	if (/permission|denied|readonly|read-only|只读|权限|eacces|eperm/.test(value)) return "permission";
-	if (/路径|path|portable|traversal|invalid/.test(value)) return "path";
-	if (/timeout|timed out|超时/.test(value)) return "timeout";
-	if (/no such file|enoent|not found|不存在|missing/.test(value)) return "missing";
-	if (/no space|enospc|disk|write|写入|空间/.test(value)) return "storage";
-	if (/exit code|command failed|backup\.sh|restore-db\.sh|脚本|Execution failed/.test(value)) return "script";
-	return "unknown";
+	return FAILURE_CATEGORIES.find(([, pattern]) => pattern.test(value))?.[0] ?? "unknown";
 }
 
 function summarizeBackupFailures(records: BackupRecordForSummary[]): BackupFailureSummaryItem[] {
@@ -118,8 +118,8 @@ export function pruneOldBackupRecords(
 	records: BackupRecordForSummary[],
 	options: { olderThanDays?: number; keepLatestPerType?: number; now?: Date } = {},
 ): BackupRetentionPlan {
-	const olderThanDays = options.olderThanDays ?? 30;
-	const keepLatestPerType = options.keepLatestPerType ?? 3;
+	const olderThanDays = options.olderThanDays ?? DEFAULT_RETENTION_DAYS;
+	const keepLatestPerType = options.keepLatestPerType ?? DEFAULT_KEEP_LATEST_PER_TYPE;
 	const now = options.now ?? new Date();
 	const cutoff = new Date(now.getTime() - olderThanDays * 24 * 60 * 60 * 1000);
 
@@ -162,8 +162,11 @@ export function pruneOldBackupRecords(
 	return { candidates, olderThanDays, keepLatestPerType, cutoff, oldestKeptByType };
 }
 
-export function summarizeBackupPolicy(records: BackupRecordForSummary[], now = new Date()): BackupPolicySummary {
-	const cutoff = new Date(now.getTime() - 30 * 24 * 60 * 60 * 1000);
+export function summarizeBackupPolicy(records: BackupRecordForSummary[] & { policySummary?: BackupPolicySummary }, now?: Date): BackupPolicySummary {
+	// A history page contains a bounded list and its database-wide policy
+	// summary. Ordinary arrays (and explicit point-in-time calls) use the reducer.
+	if (records.policySummary && now === undefined) return records.policySummary;
+	const cutoff = new Date((now?.getTime() ?? Date.now()) - 30 * 24 * 60 * 60 * 1000);
 	const byType: BackupPolicySummary["byType"] = {
 		DATABASE: { count: 0, sizeBytes: 0 },
 		FILES: { count: 0, sizeBytes: 0 },

@@ -158,11 +158,12 @@ describe("BackupsPage", () => {
     const esc = (value: string) => value.replace(/[.*+?^${}()|[\]\\]/g, "\\$&");
     const win32 = process.platform === "win32";
     const backupScript = esc(backupRunnerSpec().script) + (win32 ? "'" : "");
-    const restoreScript = (type: "DATABASE" | "FILES" | "FULL") => esc(restoreRunnerSpec(type).script);
+    const restoreScript = (type: "DATABASE" | "FILES" | "FULL") => esc(restoreRunnerSpec(type).script) + (win32 ? "'" : "");
+    const flag = (name: string) => (win32 ? `'${name}'` : name);
     // The backup command names the file under the backup root, as absolute path (A9-04).
     expect(screen.getByText(new RegExp(`${backupScript} '[^']*[/\\\\]backups[/\\\\]database\\.sql\\.gz'`))).toBeInTheDocument();
-    expect(screen.getByText(new RegExp(`${backupScript} --files '[^']*[/\\\\]backups[/\\\\]files\\.tar\\.gz'`))).toBeInTheDocument();
-    expect(screen.getByText(new RegExp(`${backupScript} --full '[^']*[/\\\\]backups[/\\\\]full\\.tar\\.gz'`))).toBeInTheDocument();
+    expect(screen.getByText(new RegExp(`${backupScript} ${flag("--files")} '[^']*[/\\\\]backups[/\\\\]files\\.tar\\.gz'`))).toBeInTheDocument();
+    expect(screen.getByText(new RegExp(`${backupScript} ${flag("--full")} '[^']*[/\\\\]backups[/\\\\]full\\.tar\\.gz'`))).toBeInTheDocument();
     expect(screen.getByText(new RegExp(win32 ? `${restoreScript("DATABASE")} 'database' 'backups/database\\.sql\\.gz'` : `${restoreScript("DATABASE")} 'backups/database\\.sql\\.gz'`))).toBeInTheDocument();
     expect(screen.getByText(new RegExp(win32 ? `${restoreScript("FILES")} 'files'.*'backups/files\\.tar\\.gz'` : `${restoreScript("FILES")}.*'backups/files\\.tar\\.gz'`))).toBeInTheDocument();
     expect(screen.getByText(new RegExp(win32 ? `${restoreScript("FULL")} 'full'.*'backups/full\\.tar\\.gz'` : `${restoreScript("FULL")}.*'backups/full\\.tar\\.gz'`))).toBeInTheDocument();

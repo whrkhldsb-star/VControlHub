@@ -19,6 +19,7 @@ import { Transform } from "node:stream";
 import { pipeline } from "node:stream/promises";
 
 import { offsiteDestination } from "@/lib/storage/offsite/destination";
+import { tryAcquireAdvisoryLock } from "@/lib/concurrency/advisory-lock";
 import { failStaleBackupRecords } from "./stale-records";
 import { prisma } from "@/lib/db";
 import { loadJobOwnerSession } from "@/lib/api-token/authorization";
@@ -83,7 +84,7 @@ export type VpsOffsiteUploadResult =
   | {
       ok: true;
       skipped: true;
-      reason: "offsite_disabled" | "already_uploaded" | "backup_not_completed" | "offsite_expired";
+      reason: "offsite_disabled" | "already_uploaded" | "backup_not_completed" | "offsite_expired" | "backup_busy";
     }
   | { ok: false; skipped: false; error: string };
 
@@ -93,6 +94,24 @@ export async function uploadVpsBackupToOffsite(
   /** alert: email this record's failure (default; the catch-up sweep sends one summary). */
   options: { alert?: boolean } = {},
 ): Promise<VpsOffsiteUploadResult> {
+  // Serialize the PUT and its receipt with removal of the same archive. A
+  // deletion must see an upload that started before its cleanup claim.
+  let release: (() => Promise<void>) | null = null;
+  try {
+    release = await tryAcquireAdvisoryLock("vps-backup-artifact", recordId);
+    if (!release) return { ok: true, skipped: true, reason: "backup_busy" };
+    return await uploadCompletedVpsBackup(recordId, options);
+  } catch (error) {
+    // The local backup is already COMPLETED. A catch-up can retry the upload.
+    const message = error instanceof Error ? error.message : String(error);
+    vpsBackupLogger.warn("Could not prepare VPS offsite upload", { recordId, error: message });
+    return { ok: false, skipped: false, error: message };
+  } finally {
+    await release?.();
+  }
+}
+
+async function uploadCompletedVpsBackup(recordId: string, options: { alert?: boolean }): Promise<VpsOffsiteUploadResult> {
   const record = await prisma.vpsBackupRecord.findUnique({
     where: { id: recordId },
     select: {
@@ -715,8 +734,18 @@ export async function listVpsBackupRecords(
   });
 }
 
-/** Delete a VpsBackupRecord, its local file, and best-effort offsite object. */
+/** Remove the record once both its local file and its offsite object are gone. */
 export async function deleteVpsBackupRecord(recordId: string): Promise<void> {
+  const release = await tryAcquireAdvisoryLock("vps-backup-artifact", recordId);
+  if (!release) throw new ConflictError(t("backend.concurrency.lockBusy"));
+  try {
+    await removeVpsBackupArtifacts(recordId);
+  } finally {
+    await release();
+  }
+}
+
+async function removeVpsBackupArtifacts(recordId: string) {
   const record = await prisma.vpsBackupRecord.findUnique({
     where: { id: recordId },
     select: { localPath: true, status: true, offsiteKey: true, offsiteDestination: true, offsiteVersionId: true },
@@ -730,6 +759,14 @@ export async function deleteVpsBackupRecord(recordId: string): Promise<void> {
     throw new ConflictError(t("vpsBackupApi.errorDeleteRunningRecord"));
   }
 
+  // Claim before the first external operation. A retry resumes the two recorded paths.
+  const offsite = { offsiteKey: record.offsiteKey, offsiteDestination: record.offsiteDestination, offsiteVersionId: record.offsiteVersionId };
+  const claimed = await prisma.vpsBackupRecord.updateMany({
+    where: { id: recordId, status: record.status, localPath: record.localPath, ...offsite },
+    data: { status: "DELETING" },
+  });
+  if (!claimed.count) throw new ConflictError(t("vpsBackupApi.errorDeleteRunningRecord"));
+
   if (record.offsiteKey) {
     const { loadOffsiteConfig, validateOffsiteConfigForUse } = await import("@/lib/storage/offsite/schema");
     const config = await loadOffsiteConfig();
@@ -738,31 +775,24 @@ export async function deleteVpsBackupRecord(recordId: string): Promise<void> {
     }
     const { S3Client } = await import("@/lib/storage/offsite/s3-client");
     await new S3Client(config).deleteObject(record.offsiteKey, record.offsiteVersionId);
+    await prisma.vpsBackupRecord.update({
+      where: { id: recordId, status: "DELETING", ...offsite },
+      data: { offsiteKey: null, offsiteDestination: null, offsiteVersionId: null, offsiteUploadedAt: null, offsiteSize: null },
+    });
   }
 
   if (record.localPath) {
     try {
-      const absPath = resolveVpsBackupFilePath(record.localPath);
-      unlinkSync(absPath);
-    } catch (err) {
-      // File missing or path rejected — still remove the DB row.
-      vpsBackupLogger.warn(
-        "deleteVpsBackupRecord: local file cleanup skipped",
-        {
-          recordId,
-          error: err instanceof Error ? err.message : String(err),
-        },
-      );
+      unlinkSync(resolveVpsBackupFilePath(record.localPath));
+    } catch (error) {
+      if ((error as NodeJS.ErrnoException).code !== "ENOENT") throw error;
     }
+    await prisma.vpsBackupRecord.update({
+      where: { id: recordId, status: "DELETING", localPath: record.localPath }, data: { localPath: null },
+    });
   }
-
-  // CAS: do not delete if status flipped to RUNNING between read and delete.
-  const deleted = await prisma.vpsBackupRecord.deleteMany({
-    where: { id: recordId, status: { not: "RUNNING" } },
-  });
-  if (deleted.count === 0) {
-    throw new ConflictError(t("vpsBackupApi.errorDeleteRunningRecord"));
-  }
+  const deleted = await prisma.vpsBackupRecord.deleteMany({ where: { id: recordId, status: "DELETING", localPath: null, offsiteKey: null } });
+  if (!deleted.count) throw new ConflictError(t("vpsBackupApi.errorDeleteRecordFailed"));
 }
 
 /** Get the absolute local path for a VpsBackupRecord (for download) */

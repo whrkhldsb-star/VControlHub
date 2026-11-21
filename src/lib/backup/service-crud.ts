@@ -8,6 +8,7 @@ import { apiCopy } from "@/lib/i18n/api-copy";
  * (mark-as-void, queue-for-retry) that compose the CRUD primitives.
  */
 import { Prisma } from "@prisma/client";
+import { getBackupPolicySummary } from "./policy-summary";
 import { failStaleBackupRecords } from "./stale-records";
 import { prisma } from "@/lib/db";
 import { teamWhere } from "@/lib/auth/team-scope";
@@ -72,18 +73,20 @@ export async function hasBackupArtifactReference(tx: Prisma.TransactionClient, a
 }
 
 export async function listBackupRecords(session?: Pick<SessionPayload, "userId" | "roles" | "currentTeamId">, take = 500) {
-	return prisma.backupRecord.findMany({
+	const rows = prisma.backupRecord.findMany({
 		where: session ? teamWhere(session) : {},
 		orderBy: { createdAt: "desc" },
 		take,
 		include: { creator: { select: { username: true, displayName: true } } },
 	});
+	const [records, policySummary] = await Promise.all([rows, getBackupPolicySummary(session)]);
+	return Object.assign(records, { policySummary });
 }
 
-export async function getBackupRecord(id: string, session?: Pick<SessionPayload, "userId" | "roles" | "currentTeamId">) {
+export async function getBackupRecord(id: string, session?: Pick<SessionPayload, "userId" | "roles" | "currentTeamId">, client: Pick<typeof prisma, "backupRecord"> = prisma) {
 	return session
-		? prisma.backupRecord.findFirst({ where: { id, ...teamWhere(session) } })
-		: prisma.backupRecord.findUnique({ where: { id } });
+		? client.backupRecord.findFirst({ where: { id, ...teamWhere(session) } })
+		: client.backupRecord.findUnique({ where: { id } });
 }
 
 export async function updateBackupRecordStatus(
@@ -132,8 +135,8 @@ export async function voidBackupRecord(input: { id: string; reason: string; sess
 	return updated;
 }
 
-export async function prepareBackupRecordRetry(input: { id: string; session?: Pick<SessionPayload, "userId" | "roles" | "currentTeamId"> }) {
-	const record = await getBackupRecord(input.id, input.session);
+export async function prepareBackupRecordRetry(input: { id: string; session?: Pick<SessionPayload, "userId" | "roles" | "currentTeamId"> }, client: Pick<typeof prisma, "backupRecord"> = prisma) {
+	const record = await getBackupRecord(input.id, input.session, client);
 	if (!record) throw new NotFoundError(t("backend.backup.recordNotFound"));
 	if (record.status === "COMPLETED") throw new BusinessError(t("backend.backup.cannotRetryCompleted"));
 	if (record.status === "RUNNING") throw new BusinessError(t("backend.backup.cannotRetryRunning"));
@@ -143,14 +146,14 @@ export async function prepareBackupRecordRetry(input: { id: string; session?: Pi
 	if (!isBackupType(record.type)) throw new ValidationError(t("backend.backup.invalidType"));
 	assertPortableBackupPath(record.filePath);
 	// CAS: only re-queue while still FAILED.
-	const claimed = await prisma.backupRecord.updateMany({
+	const claimed = await client.backupRecord.updateMany({
 		where: { id: record.id, status: "FAILED", updatedAt: record.updatedAt },
 		data: { status: "PENDING", errorMessage: null },
 	});
 	if (claimed.count === 0) {
 		throw new ConflictError(t("backend.backup.backupStatusChangedConcurrentlyCannotRetry"));
 	}
-	const updated = await getBackupRecord(record.id, input.session);
+	const updated = await getBackupRecord(record.id, input.session, client);
 	if (!updated) throw new NotFoundError(t("backend.backup.recordNotFound"));
 	return updated;
 }

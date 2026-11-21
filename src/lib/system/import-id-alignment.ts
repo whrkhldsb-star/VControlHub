@@ -13,10 +13,10 @@
 
 import { ValidationError } from "@/lib/errors";
 import { t } from "@/lib/i18n/service-translations";
-import type { ExportFile } from "@/lib/system/config-schema";
+import { importPlaybooksSchema, type ExportFile } from "@/lib/system/config-schema";
 
 import type { Tx } from "./import-executors-helpers";
-import { loadGrantUserScopes } from "./import-reference-scope";
+import { loadGrantUserScopes, projectTeamRows } from "./import-reference-scope";
 import { alignStorageNodeCustomer } from "./import-executors-infrastructure";
 
 type Tables = ExportFile["tables"];
@@ -143,7 +143,11 @@ export async function alignImportIds(db: Db, tables: Tables): Promise<Tables> {
 		storageNodes: tables.storageNodes.map((r) => alignStorageNodeCustomer(r, teamOrNull(r.teamId))),
 		userStorageAccess: tables.userStorageAccess.map((r) => ({ ...r, userId: user(r.userId) })),
 		commandTemplates: tables.commandTemplates.map((r) => ({ ...r, teamId: teamOrNull(r.teamId), createdById: userOrNull(r.createdById) })),
-		playbooks: tables.playbooks.map((r) => ({ ...r, teamId: teamOrNull(r.teamId), createdById: userOrNull(r.createdById) })),
+		playbooks: importPlaybooksSchema.parse(tables.playbooks).map((r) => ({
+			...r, teamId: teamOrNull(r.teamId), createdById: userOrNull(r.createdById),
+			steps: r.steps.map((s) => s.type === "send_notification"
+				? { ...s, config: { ...s.config, recipientUserId: user(s.config.recipientUserId) } } : s),
+		})),
 		alertRules: tables.alertRules.map((r) => ({ ...r, teamId: teamOrNull(r.teamId), onCallUserIds: (r.onCallUserIds ?? []).map(user) })),
 		aiProviders: tables.aiProviders.map((r) => ({ ...r, createdBy: user(r.createdBy) })),
 		announcements: tables.announcements.map((r) => ({ ...r, createdBy: userOrNull(r.createdBy) })),
@@ -156,13 +160,10 @@ export async function alignImportIds(db: Db, tables: Tables): Promise<Tables> {
  * package nor here: importing them would fail on the foreign key and roll the
  * whole import back (packages exported before customers were included).
  */
-export async function findMissingTeamIds(db: Pick<Tx, "team">, tables: Tables): Promise<string[]> {
+export async function findMissingTeamIds(db: Pick<Tx, "team">, tables: Tables, overwrite: boolean): Promise<string[]> {
 	const referenced = unique([
 		...tables.sshKeys, ...tables.servers, ...tables.storageNodes, ...tables.commandTemplates, ...tables.playbooks, ...tables.alertRules,
 	].map((row) => row.teamId).filter((teamId): teamId is string => Boolean(teamId)));
-	const inPackage = new Set(tables.teams.map((team) => team.id));
-	const outside = referenced.filter((teamId) => !inPackage.has(teamId));
-	if (outside.length === 0) return [];
-	const here = new Set((await inChunks(outside, (ids) => db.team.findMany({ where: { id: { in: ids } }, select: { id: true } }))).map((team) => team.id));
-	return outside.filter((teamId) => !here.has(teamId));
+	const projected = await projectTeamRows(db, referenced, tables.teams, overwrite);
+	return referenced.filter((teamId) => !projected.has(teamId));
 }

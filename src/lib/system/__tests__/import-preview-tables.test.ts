@@ -79,6 +79,7 @@ function tables(partial: Record<string, unknown>): ExportFile["tables"] {
     users: [],
     userRoles: [],
     sshKeys: [],
+    servers: [],
     storageNodes: [],
     userStorageAccess: [],
     ...partial,

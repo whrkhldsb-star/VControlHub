@@ -13,6 +13,8 @@ import { describe, it, expect, vi } from "vitest";
 // Mock prisma
 vi.mock("@/lib/db", () => ({
   prisma: {
+    $executeRaw: vi.fn(),
+    $transaction(callback: (client: unknown) => unknown) { return callback(this); },
     permission: { findMany: vi.fn().mockResolvedValue([]) },
     role: { findMany: vi.fn().mockResolvedValue([]) },
     rolePermission: { findMany: vi.fn().mockResolvedValue([]) },
@@ -153,6 +155,24 @@ function globalExport(mode: "standard" | "full" = "standard") {
 }
 
 describe("export-service sanitization", () => {
+  it("collects the package in a read-only repeatable snapshot and forwards the webhook redaction mode", async () => {
+    const { prisma } = await import("@/lib/db");
+    const transaction = vi.spyOn(prisma, "$transaction");
+    const row = { id: "hook", name: "Notify", steps: [{ id: "step", type: "call_webhook", config: {
+      method: "POST", url: "https://private.example.test/fixture-url", headers: { Authorization: "fixture-header" }, body: "fixture-body",
+    } }], createdAt: new Date() };
+    try {
+      vi.mocked(prisma.playbook.findMany).mockResolvedValueOnce([row] as never);
+      const standard = await globalExport();
+      expect(standard.tables.playbooks).toHaveLength(1);
+      expect(JSON.stringify(standard.tables.playbooks)).not.toMatch(/private.example|fixture-(url|header|body)/);
+      expect(transaction).toHaveBeenCalledWith(expect.any(Function), expect.objectContaining({ isolationLevel: "RepeatableRead" }));
+      expect(prisma.$executeRaw).toHaveBeenCalledWith(["SET TRANSACTION READ ONLY"]);
+      vi.mocked(prisma.playbook.findMany).mockResolvedValueOnce([row] as never);
+      expect((await globalExport("full")).tables.playbooks[0]?.steps).toEqual(row.steps);
+    } finally { transaction.mockRestore(); }
+  });
+
   it("should strip User.passwordHash and twoFactorSecret", async () => {
     const result = await globalExport();
     const user = result.tables.users[0]!;

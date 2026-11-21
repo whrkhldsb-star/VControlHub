@@ -1,3 +1,4 @@
+import { getAppName } from "@/lib/branding";
 import { ValidationError } from "@/lib/errors";
 import { t } from "@/lib/i18n/service-translations";
 import { prisma } from "@/lib/db";
@@ -35,7 +36,7 @@ export function readStoredSecret(value: string): string {
 
 /* ── Default settings ─────────────────────────────────────── */
 const DEFAULTS: Record<string, string> = {
-	"platform.name": "VPS Unified Control Platform",
+	"platform.name": getAppName(),
 	"platform.logo": "",
 	"session.timeout": "86400",
 	"password.minLength": "8",
@@ -49,6 +50,7 @@ const DEFAULTS: Record<string, string> = {
 	"smtp.from": "",
 	"smtp.alertRecipients": "",
 	"smtp.enabled": "false",
+	"smtp.requireTls": "false",
 	// TR-020 M02: 仪表盘拖拽重排默认开启 (admin 可关)
 	"dashboard.layout.dragReorderEnabled": "true",
 	// TR-007 M03: 异地备份 (S3-compatible, 默认全部关闭)
@@ -111,7 +113,7 @@ export async function getSetting(key: string): Promise<string> {
 }
 
 export async function getAllSettings(): Promise<Record<string, string>> {
-	const rows = await prisma.setting.findMany({ select: { key: true, value: true }, take: 500 }); // P2: setting 表总行数有限
+	const rows = await prisma.setting.findMany({ where: { key: { in: VALID_SETTING_KEYS } }, select: { key: true, value: true } });
 	const result: Record<string, string> = { ...DEFAULTS };
 	for (const row of rows) {
 		result[row.key] = isSensitiveKey(row.key) ? readStoredSecret(row.value) : row.value;

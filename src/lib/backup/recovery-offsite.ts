@@ -24,20 +24,24 @@ export async function uploadRecoveryBackup(input: { directory: string; enabled: 
 	const key = `${config.pathPrefix.replace(/\/+$/, "")}/recovery/${name.slice(0, -7)}-${digest}.tar.gz`.replace(/^\//, "");
 	const client = new S3Client({ endpoint: config.endpoint, region: config.region, bucket: config.bucket, accessKeyId: config.accessKeyId, secretAccessKey: config.secretAccessKey, timeoutMs: 30 * 60 * 1000 });
 	const existing = await client.headObject(key);
-	if (!existing || existing.size !== info.size) await client.putFile(key, filePath, "application/gzip");
-	// Read the stored object back as a stream; a successful PUT or matching
-	// byte count alone cannot establish that the recovery copy is intact.
-	const remote = await client.getObject(key);
-	if (!remote || remote.size !== info.size) throw new Error("Offsite recovery copy size verification failed; local archive retained");
-	const hash = createHash("sha256");
-	let received = 0;
-	for await (const chunk of Readable.fromWeb(remote.body as import("node:stream/web").ReadableStream<Uint8Array>)) {
-		received += chunk.length;
-		if (received > info.size) throw new Error("Offsite recovery copy exceeded its expected size; local archive retained");
-		hash.update(chunk);
+	const existingSizeMatches = existing?.size === info.size;
+	const verifyRemote = async () => {
+		const remote = await client.getObject(key);
+		if (!remote || remote.size !== info.size) throw new Error("Offsite recovery copy size verification failed; local archive retained");
+		const hash = createHash("sha256");
+		let received = 0;
+		for await (const chunk of Readable.fromWeb(remote.body as import("node:stream/web").ReadableStream<Uint8Array>)) {
+			received += chunk.length;
+			if (received > info.size) throw new Error("Offsite recovery copy exceeded its expected size; local archive retained");
+			hash.update(chunk);
+		}
+		return received === info.size && hash.digest("hex") === digest;
+	};
+	if (!existingSizeMatches || !await verifyRemote()) {
+		await client.putFile(key, filePath, "application/gzip");
+		if (!await verifyRemote()) throw new Error("Offsite recovery copy SHA-256 verification failed; local archive retained");
 	}
-	if (received !== info.size || hash.digest("hex") !== digest) throw new Error("Offsite recovery copy SHA-256 verification failed; local archive retained");
-	const receipt = { key, sha256: digest, bytes: received, verifiedAt: new Date().toISOString() };
+	const receipt = { key, sha256: digest, bytes: info.size, verifiedAt: new Date().toISOString() };
 	const temporary = `${filePath}.offsite.json.partial-${randomUUID()}`;
 	try {
 		await writeFile(temporary, JSON.stringify(receipt) + "\n", { mode: 0o600, flag: "wx" });

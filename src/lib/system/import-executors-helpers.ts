@@ -125,24 +125,33 @@ export async function upsertById<TRecord extends { id: string }>(
   ops: {
     listExistingIds(ids: string[]): Promise<Set<string>>;
     createManySkipDuplicates(records: TRecord[]): Promise<number>;
-    updateById(record: TRecord): Promise<void>;
+    updateById(record: TRecord): Promise<void | number>;
   },
 ): Promise<void> {
   if (records.length === 0) return;
 
+  const seen = new Set<string>();
+  records = records.filter((row) => {
+    if (seen.has(row.id)) { counts.skipped++; return false; }
+    seen.add(row.id);
+    return true;
+  });
   const existingIds = await ops.listExistingIds(records.map((r) => r.id));
   const toCreate = records.filter((r) => !existingIds.has(r.id));
   const toUpdate = records.filter((r) => existingIds.has(r.id));
 
   if (toCreate.length > 0) {
-    counts.created += await ops.createManySkipDuplicates(toCreate);
+    const created = await ops.createManySkipDuplicates(toCreate);
+    counts.created += created;
+    counts.skipped += toCreate.length - created;
   }
 
   if (options.overwriteExisting) {
     for (const r of toUpdate) {
-      await ops.updateById(r);
+      const updated = await ops.updateById(r) ?? 1;
+      counts.updated += updated;
+      counts.skipped += 1 - updated;
     }
-    counts.updated += toUpdate.length;
   } else {
     counts.skipped += toUpdate.length;
   }
@@ -170,36 +179,42 @@ export async function upsertByIdWithSecondaryUnique<TRecord extends { id: string
     secondaryValueOf(record: TRecord): string | undefined;
     createManySkipDuplicates(records: TRecord[]): Promise<number>;
     hasSecondaryClash(record: TRecord): Promise<boolean>;
-    updateById(record: TRecord): Promise<void>;
+    updateById(record: TRecord): Promise<void | number>;
   },
 ): Promise<void> {
   if (records.length === 0) return;
 
+  const seen = new Set<string>();
+  records = records.filter((row) => {
+    if (seen.has(row.id)) { counts.skipped++; return false; }
+    seen.add(row.id);
+    return true;
+  });
   const existingIds = await ops.listExistingIds(records.map((r) => r.id));
   let toCreate = records.filter((r) => !existingIds.has(r.id));
   const toUpdate = records.filter((r) => existingIds.has(r.id));
 
   if (toCreate.length > 0) {
-    // Secondary unique: only rows carrying a non-empty secondary value compete.
+    // An empty string still occupies a non-null unique key in PostgreSQL.
     const values = [
-      ...new Set(toCreate.map((r) => ops.secondaryValueOf(r)).filter((value): value is string => Boolean(value))),
+      ...new Set(toCreate.map((r) => ops.secondaryValueOf(r)).filter((value): value is string => value !== undefined)),
     ];
     if (values.length > 0) {
       const taken = await ops.listTakenSecondaryValues(values);
-      const skippedSecondary = toCreate.filter((r) => {
-        const value = ops.secondaryValueOf(r);
-        return value !== undefined && taken.has(value);
-      });
       toCreate = toCreate.filter((r) => {
-        const value = ops.secondaryValueOf(r);
-        return value === undefined || !taken.has(value);
+        const key = ops.secondaryValueOf(r);
+        if (key === undefined) return true;
+        if (taken.has(key)) { counts.skipped++; return false; }
+        taken.add(key);
+        return true;
       });
-      counts.skipped += skippedSecondary.length;
     }
   }
 
   if (toCreate.length > 0) {
-    counts.created += await ops.createManySkipDuplicates(toCreate);
+    const created = await ops.createManySkipDuplicates(toCreate);
+    counts.created += created;
+    counts.skipped += toCreate.length - created;
   }
 
   if (options.overwriteExisting) {
@@ -208,8 +223,9 @@ export async function upsertByIdWithSecondaryUnique<TRecord extends { id: string
         counts.skipped += 1;
         continue;
       }
-      await ops.updateById(r);
-      counts.updated += 1;
+      const updated = await ops.updateById(r) ?? 1;
+      counts.updated += updated;
+      counts.skipped += 1 - updated;
     }
   } else {
     counts.skipped += toUpdate.length;

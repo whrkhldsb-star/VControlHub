@@ -166,7 +166,7 @@ describe("UnifiedSettingsPageClient", () => {
     await waitFor(() => {
       expect(csrfFetch).toHaveBeenCalledWith("/api/settings", expect.objectContaining({
         method: "PATCH",
-        body: JSON.stringify({ "platform.name": "新平台名称", "platform.logo": "", "platform.defaultLocale": "", "platform.defaultTheme": "" }),
+        body: JSON.stringify({ "platform.name": "新平台名称" }),
       }));
     });
   });

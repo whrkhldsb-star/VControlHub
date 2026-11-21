@@ -62,7 +62,7 @@ describe.skipIf(process.env.RUN_DATABASE_INTEGRATION_TESTS !== "1")("config expo
 		// Made by an administrator who is not part of the customer.
 		await prisma.user.create({ data: { id: `${p}-maker`, username: `${p}-maker`, passwordHash: "hash" } });
 		await prisma.commandTemplate.create({ data: { id: `${p}-tpl`, name: `${p}-restart`, command: "systemctl restart app", teamId: `${p}-team-src`, createdById: `${p}-maker` } });
-		await prisma.playbook.create({ data: { id: `${p}-pb`, name: `${p}-heal`, triggerType: "manual", triggerConfig: {},
+		await prisma.playbook.create({ data: { id: `${p}-pb`, name: `${p}-heal`, triggerType: "cron", triggerConfig: { expression: "0 1 * * *" },
 			steps: [{ id: "notify", name: "Notify", type: "send_notification", config: { recipientUserId: `${p}-user`, subject: "Status", body: "Done" } }],
 			teamId: `${p}-team-src`, createdById: `${p}-maker` } });
 		await prisma.announcement.create({ data: { id: `${p}-ann`, title: `${p}-notice`, body: "maintenance", createdBy: `${p}-maker` } });

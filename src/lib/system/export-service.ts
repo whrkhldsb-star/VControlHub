@@ -25,6 +25,8 @@ import {
 import type { SessionPayload } from "@/lib/auth/session";
 import { ValidationError, ForbiddenError } from "@/lib/errors";
 import { t } from "@/lib/i18n/service-translations";
+import type { Prisma } from "@prisma/client";
+import { prisma } from "@/lib/db";
 import { isPlatformAdmin } from "./platform-admin";
 
 import {
@@ -110,7 +112,14 @@ export async function buildExportFile(options: ExportOptions): Promise<ExportFil
     teamId: options.teamId,
   });
 
-  const users = await exportUsers(mode, scope, teamId);
+  return prisma.$transaction(async (tx) => {
+    await tx.$executeRaw`SET TRANSACTION READ ONLY`;
+    return collectExport(tx, sourceDomain, mode, scope, teamId);
+  }, { isolationLevel: "RepeatableRead", maxWait: 20_000, timeout: 120_000 });
+}
+
+async function collectExport(tx: Prisma.TransactionClient, sourceDomain: string, mode: ExportMode, scope: ExportScope, teamId: string | null): Promise<ExportFile> {
+  const users = await exportUsers(mode, scope, teamId, tx);
   const userIds = users.map((u) => u.id);
 
   const [
@@ -130,30 +139,30 @@ export async function buildExportFile(options: ExportOptions): Promise<ExportFil
     announcements,
     snippets,
   ] = await Promise.all([
-    exportPermissions(),
-    exportRoles(),
-    exportRolePermissions(),
-    exportUserRoles(scope, userIds),
-    exportSshKeys(mode, scope, teamId),
-    exportServers(mode, scope, teamId),
-    exportStorageNodes(mode, scope, teamId),
-    exportCommandTemplates(scope, teamId),
-    exportQuickServices(mode, scope, teamId),
-    exportPlaybooks(mode, scope, teamId),
-    exportAlertRules(mode, scope, teamId),
-    exportSettings(mode, scope),
-    exportAiProviders(mode, scope),
-    exportAnnouncements(scope),
-    exportSnippets(scope, userIds),
+    exportPermissions(tx),
+    exportRoles(tx),
+    exportRolePermissions(tx),
+    exportUserRoles(scope, userIds, tx),
+    exportSshKeys(mode, scope, teamId, tx),
+    exportServers(mode, scope, teamId, tx),
+    exportStorageNodes(mode, scope, teamId, tx),
+    exportCommandTemplates(scope, teamId, tx),
+    exportQuickServices(mode, scope, teamId, tx),
+    exportPlaybooks(mode, scope, teamId, tx),
+    exportAlertRules(mode, scope, teamId, tx),
+    exportSettings(mode, scope, tx),
+    exportAiProviders(mode, scope, tx),
+    exportAnnouncements(scope, tx),
+    exportSnippets(scope, userIds, tx),
   ]);
 
   const storageNodeIds = storageNodes.map((n) => n.id);
-  const userStorageAccess = await exportUserStorageAccess(scope, storageNodeIds, userIds);
-  const teams = await exportTeams(scope, teamId);
-  const teamMembers = await exportTeamMembers(teams.map((team) => team.id), userIds);
+  const userStorageAccess = await exportUserStorageAccess(scope, storageNodeIds, userIds, tx);
+  const teams = await exportTeams(scope, teamId, tx);
+  const teamMembers = await exportTeamMembers(teams.map((team) => team.id), userIds, tx);
   const [identityTemplates, userServerAccess] = await Promise.all([
-    exportIdentityTemplates(scope, [...new Set(teamMembers.map((member) => member.identityTemplateId))]),
-    exportUserServerAccess(userIds, servers.map((server) => server.id)),
+    exportIdentityTemplates(scope, [...new Set(teamMembers.map((member) => member.identityTemplateId))], tx),
+    exportUserServerAccess(userIds, servers.map((server) => server.id), tx),
   ]);
 
   return {

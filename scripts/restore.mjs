@@ -39,11 +39,12 @@ import os from "node:os";
 import path from "node:path";
 import { fileURLToPath } from "node:url";
 import { createGunzip } from "node:zlib";
-import { createInterface } from "node:readline";
 import { pipeline } from "node:stream/promises";
 
 import {
   acquireRestoreLock,
+  checkedDatabaseDump,
+  inspectArchive,
   FILE_VERSIONS_MANIFEST,
   ENV_MEMBERS,
   INTEGRITY_MANIFEST,
@@ -256,15 +257,8 @@ async function restoreDatabase(backupFile, { psql, connArgs, childEnv }) {
   try {
     await Promise.all([
       completed,
-      pipeline(source, ...(gunzip ? [gunzip] : []), async function* (chunks) {
-        let tail = "";
-        for await (const chunk of chunks) {
-          tail = (tail + chunk.subarray(-4096).toString("latin1")).slice(-4096);
-          yield chunk;
-        }
-        if (!/^-- PostgreSQL database dump complete\r?$/m.test(tail)) {
-          throw new Error("Missing pg_dump completion marker");
-        }
+      pipeline(source, ...(gunzip ? [gunzip] : []), checkedDatabaseDump, async function* (chunks) {
+        yield* chunks;
         yield "\nSET LOCAL vch.restore_complete = 'yes';\n";
       }, child.stdin),
     ]);
@@ -275,64 +269,6 @@ async function restoreDatabase(backupFile, { psql, connArgs, childEnv }) {
     await completed.catch(() => undefined);
   }
   log("Restore completed");
-}
-
-/** Scan the entire index; bounded diagnostic output must not truncate validation. */
-async function scanArchiveLines(archive, flag, onLine) {
-  const tar = await findTar();
-  const child = spawn(tar, [flag, archive], { stdio: ["ignore", "pipe", "pipe"] });
-  let stderr = "";
-  child.stderr.on("data", (chunk) => { stderr = (stderr + String(chunk)).slice(-16 * 1024); });
-  const completed = new Promise((resolve, reject) => {
-    child.on("error", reject);
-    child.on("close", (code) => code === 0 ? resolve() : reject(new Error(`tar exited with code ${code}: ${stderr.trim()}`)));
-  });
-  const lines = createInterface({ input: child.stdout, crlfDelay: Infinity });
-  try {
-    await Promise.all([completed, (async () => {
-      for await (const line of lines) if (line.trim()) onLine(line.trim());
-    })()]);
-  } finally {
-    lines.close();
-    if (child.exitCode === null && child.signalCode === null) child.kill();
-    await completed.catch(() => undefined);
-  }
-}
-
-/** Verify every member is a plain file or directory (no links/specials). */
-async function assertArchiveMemberTypes(archive) {
-  await scanArchiveLines(archive, "-tvzf", (line) => {
-    // GNU and bsdtar listing lines both begin with the entry type character.
-    const typeChar = line[0];
-    if (typeChar !== "-" && typeChar !== "d") {
-      fail("archive links and special files are not supported");
-    }
-  });
-}
-
-async function inspectArchive(archive) {
-  let databaseMember = null;
-  await scanArchiveLines(archive, "-tzf", (member) => {
-    assertSafeMemberNames([member]);
-    if (member === "database.sql.gz" || member === "./database.sql.gz") databaseMember = member;
-  });
-  await assertArchiveMemberTypes(archive);
-  return { databaseMember };
-}
-
-function assertSafeMemberNames(members) {
-  for (const member of members) {
-    const normalized = member.replace(/\\/g, "/");
-    if (
-      normalized.startsWith("/") ||
-      normalized.startsWith("..") ||
-      normalized.includes("/../") ||
-      normalized.endsWith("/..") ||
-      /^[A-Za-z]:/.test(normalized)
-    ) {
-      fail(`unsafe archive member: ${member}`);
-    }
-  }
 }
 
 async function containsNoSymlinks(root) {
@@ -465,7 +401,7 @@ async function prepareRecoveryEnvironment(staging, appDir) {
  * Extract and vet the archive's files in a private staging directory. Nothing
  * in appDir changes until {@link applyStagedFiles}.
  */
-async function stageFiles(archive, appDir, inspected = false) {
+async function stageFiles(archive, appDir, parent, inspected = false) {
   if (!archive) fail("archive path is required");
   try { await fs.access(archive); } catch { fail(`archive not found: ${archive}`); }
   if (!appDir) fail("application directory is required");
@@ -479,17 +415,12 @@ async function stageFiles(archive, appDir, inspected = false) {
   if (!inspected) await inspectArchive(archive);
 
   const tar = await findTar();
-  const staging = await fs.mkdtemp(path.join(os.tmpdir(), "vch-restore-files-"));
-  try {
-    await runBinary(tar, ["-xzf", archive, "-C", staging, "--no-same-owner", "--exclude=database.sql.gz"]);
-    await containsNoSymlinks(staging);
-    await dropNonDataMembers(staging);
-    await prepareRecoveryEnvironment(staging, appDir);
-  } catch (error) {
-    await fs.rm(staging, { recursive: true, force: true }).catch(() => undefined);
-    await fs.rm(`${staging}-file-versions`, { recursive: true, force: true }).catch(() => undefined);
-    throw error;
-  }
+  const staging = path.join(parent, "files");
+  await fs.mkdir(staging);
+  await runBinary(tar, ["-xzf", archive, "-C", staging, "--no-same-owner", "--exclude=database.sql.gz"]);
+  await containsNoSymlinks(staging);
+  await dropNonDataMembers(staging);
+  await prepareRecoveryEnvironment(staging, appDir);
   return staging;
 }
 
@@ -518,39 +449,33 @@ async function giveToInstallationOwner(appDir, paths) {
  */
 async function applyStagedFiles(staging, appDir) {
   const versions = `${staging}-file-versions`;
-  try {
-    const topLevel = (await fs.readdir(staging)).map((name) => path.join(appDir, name));
-    const overlays = [{ source: staging, destination: appDir }];
-    let historyTarget;
-    if (await pathExists(versions)) {
-      const envFile = (await readEnvFile(process.env.ENV_FILE?.trim() || path.join(appDir, ".env.local"))) ?? {};
-      historyTarget = fileVersionDir({ ...envFile, ...process.env });
-      overlays.push({ source: versions, destination: historyTarget });
-    }
-    await applyFileOverlays(overlays);
-    await giveToInstallationOwner(appDir, topLevel);
-    if (historyTarget) {
-      await giveToInstallationOwner(appDir, [historyTarget]);
-      log(`File history restored to ${historyTarget}`);
-    }
-  } finally {
-    await fs.rm(staging, { recursive: true, force: true }).catch(() => undefined);
-    await fs.rm(versions, { recursive: true, force: true }).catch(() => undefined);
+  const topLevel = (await fs.readdir(staging)).map((name) => path.join(appDir, name));
+  const overlays = [{ source: staging, destination: appDir }];
+  let historyTarget;
+  if (await pathExists(versions)) {
+    const envFile = (await readEnvFile(process.env.ENV_FILE?.trim() || path.join(appDir, ".env.local"))) ?? {};
+    historyTarget = fileVersionDir({ ...envFile, ...process.env });
+    overlays.push({ source: versions, destination: historyTarget });
+  }
+  await applyFileOverlays(overlays);
+  await giveToInstallationOwner(appDir, topLevel);
+  if (historyTarget) {
+    await giveToInstallationOwner(appDir, [historyTarget]);
+    log(`File history restored to ${historyTarget}`);
   }
   log(`Files restored to ${appDir}`);
 }
 
 async function restoreFiles(archive, appDir, databaseTarget, inspected = false) {
-  const staged = await stageFiles(archive, appDir, inspected);
+  const parent = await fs.mkdtemp(path.join(os.tmpdir(), "vch-restore-files-"));
   try {
+    const staged = await stageFiles(archive, appDir, parent, inspected);
     await assertPlatformServicesStopped();
     await assertNoOtherDatabaseClients(databaseTarget);
-  } catch (error) {
-    await fs.rm(staged, { recursive: true, force: true }).catch(() => undefined);
-    await fs.rm(`${staged}-file-versions`, { recursive: true, force: true }).catch(() => undefined);
-    throw error;
+    await applyStagedFiles(staged, appDir);
+  } finally {
+    await fs.rm(parent, { recursive: true, force: true });
   }
-  await applyStagedFiles(staged, appDir);
 }
 
 async function extractDatabaseMember(archive, targetDir, databaseMember) {
@@ -673,34 +598,28 @@ async function runRestore(component, archive, componentArg, appDirArg) {
   const databaseTarget = await prepareDatabaseRestore(targetDir);
   if (which === "database" || which === "all") {
     const staging = await fs.mkdtemp(path.join(os.tmpdir(), "vch-restore-full-"));
-    let stagedFiles = null;
     try {
       const databaseDump = await extractDatabaseMember(archive, staging, databaseMember);
       // Everything that can fail without touching the live system runs first:
       // extract + vet the files, then the all-or-nothing database transaction.
       // Only after the database committed are the staged files copied in, so a
       // failing dump leaves both database and files exactly as they were.
-      if (which === "all") stagedFiles = await stageFiles(archive, targetDir, true);
+      const stagedFiles = which === "all" ? await stageFiles(archive, targetDir, staging, true) : null;
       await restoreDatabase(databaseDump, databaseTarget);
       if (stagedFiles) {
-        const files = stagedFiles;
-        stagedFiles = null;
         try {
           // The database transaction proved nothing else was connected when it
           // started; prove it again before the file phase, which no table lock
           // protects.
           await assertPlatformServicesStopped();
           await assertNoOtherDatabaseClients(databaseTarget);
-          await applyStagedFiles(files, targetDir);
+          await applyStagedFiles(stagedFiles, targetDir);
         } catch (error) {
-          await fs.rm(files, { recursive: true, force: true }).catch(() => undefined);
           fail(`PARTIAL RESTORE: the database was restored but copying files into ${targetDir} failed (${error instanceof Error ? error.message : String(error)}). Restore the pre-restore safety snapshot or re-run a files-only restore.`);
         }
       }
       await upgradeRestoredDatabase(databaseTarget);
     } finally {
-      if (stagedFiles) await fs.rm(stagedFiles, { recursive: true, force: true }).catch(() => undefined);
-      if (stagedFiles) await fs.rm(`${stagedFiles}-file-versions`, { recursive: true, force: true }).catch(() => undefined);
       await fs.rm(staging, { recursive: true, force: true }).catch(() => undefined);
     }
   } else {

@@ -44,7 +44,7 @@ export async function importIdentityTemplates(tx: Tx, t: ExportFile["tables"], o
         skipDuplicates: true,
       })).count,
     updateById: async (r) => {
-      await tx.identityTemplate.updateMany({ where: { id: r.id, isBuiltin: false }, data: { name: r.name, description: r.description, permissions: r.permissions } });
+      return (await tx.identityTemplate.updateMany({ where: { id: r.id, isBuiltin: false }, data: { name: r.name, description: r.description, permissions: r.permissions } })).count;
     },
   });
 }

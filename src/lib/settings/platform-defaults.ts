@@ -1,8 +1,9 @@
+import { isPlatformLogoUrl } from "./schema";
 import { prisma } from "@/lib/db";
 
 export type PlatformLocaleDefault = "zh" | "en";
 export type PlatformThemeDefault = "dark" | "light";
-export type PlatformDefaults = { locale: PlatformLocaleDefault; theme: PlatformThemeDefault };
+export type PlatformDefaults = { locale: PlatformLocaleDefault; theme: PlatformThemeDefault; name?: string; logo?: string };
 
 const FALLBACK: PlatformDefaults = { locale: "zh", theme: "dark" };
 const TTL_MS = 15_000;
@@ -22,13 +23,17 @@ export async function getPlatformDefaults(): Promise<PlatformDefaults> {
   let value = FALLBACK;
   try {
     const rows = await prisma.setting.findMany({
-      where: { key: { in: ["platform.defaultLocale", "platform.defaultTheme"] } },
+      where: { key: { in: ["platform.defaultLocale", "platform.defaultTheme", "platform.name", "platform.logo"] } },
       select: { key: true, value: true },
     });
     const map = new Map(rows.map((row) => [row.key, row.value]));
     const locale = map.get("platform.defaultLocale");
     const theme = map.get("platform.defaultTheme");
+    const name = map.get("platform.name")?.trim();
+    const logo = map.get("platform.logo")?.trim();
     value = {
+      ...(name ? { name } : {}),
+      ...(logo && isPlatformLogoUrl(logo) ? { logo } : {}),
       locale: locale === "en" ? "en" : "zh",
       theme: theme === "light" ? "light" : "dark",
     };

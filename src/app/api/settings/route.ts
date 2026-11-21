@@ -1,7 +1,7 @@
 import { AI_OPS_BINDING_KEY, prepareAiOpsProviderBinding } from "@/lib/ai/ops/provider-binding";
 import { assertAiOpsPlatformReader } from "@/lib/ai/ops/authorization";
 import { sessionHasPermission } from "@/lib/auth/authorization";
-import { parseConfigFromMap } from "@/lib/storage/offsite/schema";
+import { OFFSITE_SETTING_KEYS, parseConfigFromMap } from "@/lib/storage/offsite/schema";
 import { checkTurnstileSecret } from "@/lib/auth/turnstile";
 import { apiCopy, currentCopyLocale } from "@/lib/i18n/api-copy";
 import { NextResponse } from "next/server";
@@ -11,9 +11,8 @@ import {
 	getSetting,
 	setManySettings,
 	isValidSettingKey,
-	getAllSettings,
 } from "@/lib/settings/service";
-import { SettingKey, MASKED_VALUE, isSensitiveKey } from "@/lib/settings/schema";
+import { SettingKey, MASKED_VALUE, isPlatformLogoUrl, isSensitiveKey } from "@/lib/settings/schema";
 import { isRuntimeSettingKey, normalizeRuntimeSettingValue } from "@/lib/runtime-settings/service";
 import { withApiRoute } from "@/lib/http/api-guard";
 import { GENERAL_WRITE_LIMIT } from "@/lib/http/rate-limit-presets";
@@ -62,16 +61,7 @@ function normalizeBooleanSetting(key: string, value: string) {
 
 function normalizeOptionalHttpUrl(key: string, value: string) {
 	const trimmed = value.trim();
-	if (!trimmed) return { key, value: "" };
-	if (trimmed.startsWith("/")) return { key, value: trimmed };
-	try {
-		const parsed = new URL(trimmed);
-		if (parsed.protocol !== "http:" && parsed.protocol !== "https:") {
-			throw new ValidationError(t("backend.settings.logoUrlInvalid"));
-		}
-	} catch {
-		throw new ValidationError(t("backend.settings.logoUrlInvalid"));
-	}
+	if (!isPlatformLogoUrl(trimmed)) throw new ValidationError(t("backend.settings.logoUrlInvalid"));
 	return { key, value: trimmed };
 }
 
@@ -96,6 +86,7 @@ function normalizeSettingValue(key: string, value: string) {
 		case "password.requireNumber":
 		case "password.requireSpecial":
 		case "smtp.enabled":
+		case "offsite.compress":
 		case "smtp.requireTls":
 			return normalizeBooleanSetting(key, value);
 		case "smtp.port":
@@ -249,8 +240,12 @@ export async function PATCH(request: Request) {
 		const offsiteEntries = entries.filter((entry) => entry.key.startsWith("offsite."));
 		if (offsiteEntries.length > 0) {
 			try {
-				const current = await getAllSettings();
-				parseConfigFromMap({ ...current, ...Object.fromEntries(offsiteEntries.map((entry) => [entry.key, entry.value])) });
+				const config = parseConfigFromMap(Object.fromEntries(offsiteEntries.map((entry) => [entry.key, entry.value])), true);
+				for (const entry of offsiteEntries) {
+					if (OFFSITE_SETTING_KEYS.some((key) => key === entry.key)) {
+						entry.value = String(config[entry.key.slice(8) as keyof typeof config]);
+					}
+				}
 			} catch (error) {
 				validationErrors.push(
 					error instanceof z.ZodError

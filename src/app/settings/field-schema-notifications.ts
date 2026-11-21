@@ -41,7 +41,7 @@ export const NOTIFICATION_SETTINGS_SECTIONS: SectionDef[] = [
 				key: "smtp.requireTls",
 				labelKey: "settingsClient.field.smtp.requireTls.label",
 				type: "switch",
-				defaultValue: "",
+				defaultValue: "false",
 				disabled: isSmtpDisabled,
 				helperTextKey: (s) => (isSmtpDisabled(s) ? "settingsClient.helper.smtp.disabledHint" : "settingsClient.field.smtp.requireTls.helper"),
 				riskLevel: "medium",

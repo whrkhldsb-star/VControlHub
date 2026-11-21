@@ -11,6 +11,8 @@ const { mocks } = vi.hoisted(() => ({
   },
 }));
 
+const tx = vi.hoisted(() => ({}));
+vi.mock("@/lib/db", () => ({ prisma: { $transaction: (work: (db: unknown) => unknown) => work(tx) } }));
 vi.mock("@/lib/auth/require-api-permission", () => ({ requireApiPermission: mocks.requireApiPermission }));
 vi.mock("@/lib/backup/service", () => ({
   runBackupRecord: mocks.runBackupRecord,
@@ -28,9 +30,9 @@ describe("/api/backups", () => {
     vi.clearAllMocks();
     mocks.requireApiPermission.mockResolvedValue({ session: { userId: "u1", user: { id: "u1" } } });
     mocks.listBackupRecords.mockResolvedValue([{ id: "bak1" }]);
-    mocks.createBackupRecord.mockImplementation(async (input: any) => ({ id: "bak1", status: "PENDING", ...input }));
+    mocks.createBackupRecord.mockImplementation(async (input: Record<string, unknown>) => ({ id: "bak1", status: "PENDING", ...input }));
     mocks.enqueueJob.mockResolvedValue({ id: "job1", status: "PENDING" });
-    mocks.runBackupRecord.mockImplementation(async (input: any) => ({ id: "bak1", status: "COMPLETED", ...input }));
+    mocks.runBackupRecord.mockImplementation(async (input: Record<string, unknown>) => ({ id: "bak1", status: "COMPLETED", ...input }));
   });
 
   it("requires backup:read for listing backups", async () => {
@@ -44,8 +46,8 @@ describe("/api/backups", () => {
     const req = new Request("http://local/api/backups", { method: "POST", body: JSON.stringify({ type: "FULL", note: "  before upgrade  " }) });
     const res = await route.POST(req);
     expect(res.status).toBe(202);
-    expect(mocks.createBackupRecord).toHaveBeenCalledWith({ type: "FULL", createdBy: "u1", note: "before upgrade", teamId: null });
-    expect(mocks.enqueueJob).toHaveBeenCalledWith(expect.objectContaining({ type: "backup.create", payload: { backupId: "bak1", teamId: null } }));
+    expect(mocks.createBackupRecord).toHaveBeenCalledWith({ type: "FULL", createdBy: "u1", note: "before upgrade", teamId: null }, tx);
+    expect(mocks.enqueueJob).toHaveBeenCalledWith(expect.objectContaining({ type: "backup.create", payload: { backupId: "bak1", teamId: null } }), tx);
     await expect(res.json()).resolves.toMatchObject({ backup: { id: "bak1" }, jobId: "job1", taskId: "job:job1" });
   });
 
@@ -94,8 +96,8 @@ describe("/api/backups", () => {
     const res = await route.POST(req);
     expect(res.status).toBe(303);
     expect(res.headers.get("location")).toBe("http://local/backups");
-    expect(mocks.createBackupRecord).toHaveBeenCalledWith({ type: "DATABASE", createdBy: "u1", note: "pre upgrade", teamId: null });
-    expect(mocks.enqueueJob).toHaveBeenCalledWith(expect.objectContaining({ type: "backup.create", payload: { backupId: "bak1", teamId: null } }));
+    expect(mocks.createBackupRecord).toHaveBeenCalledWith({ type: "DATABASE", createdBy: "u1", note: "pre upgrade", teamId: null }, tx);
+    expect(mocks.enqueueJob).toHaveBeenCalledWith(expect.objectContaining({ type: "backup.create", payload: { backupId: "bak1", teamId: null } }), tx);
     expect(mocks.auditUserAction).toHaveBeenCalledWith("u1", "backup.create", expect.objectContaining({ backupId: "bak1", jobId: "job1" }), undefined, undefined);
   });
 

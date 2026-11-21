@@ -30,7 +30,7 @@ const mocks = vi.hoisted(() => ({
 }));
 vi.mock("@/lib/backup/service", () => ({ getBackupRecord: mocks.getBackupRecord, prepareBackupRecordRetry: mocks.prepareBackupRecordRetry, voidBackupRecord: mocks.voidBackupRecord }));
 vi.mock("@/lib/job/service", () => ({ enqueueJob: mocks.enqueueJob }));
-vi.mock("@/lib/db", () => ({ prisma: { job: { findFirst: mocks.jobFindFirst } } }));
+vi.mock("@/lib/db", () => ({ prisma: { job: { findFirst: mocks.jobFindFirst }, $transaction(work: (tx: unknown) => unknown) { return work(this); } } }));
 vi.mock("@/lib/audit/service", () => ({ auditUserAction: mocks.auditUserAction }));
 
 const drill = await import("../drill/route");
@@ -79,8 +79,8 @@ describe("backup drill, retry and void routes", () => {
 	it("retry re-queues through the CAS helper and dedupes an in-flight create", async () => {
 		const res = await retry.POST(post("retry"), { params });
 		expect(res.status).toBe(202);
-		expect(mocks.prepareBackupRecordRetry).toHaveBeenCalledWith({ id: "bk_1", session: expect.objectContaining({ userId: "u_admin" }) });
-		expect(mocks.enqueueJob).toHaveBeenCalledWith(expect.objectContaining({ type: "backup.create", payload: expect.objectContaining({ backupId: "bk_1" }) }));
+		expect(mocks.prepareBackupRecordRetry).toHaveBeenCalledWith({ id: "bk_1", session: expect.objectContaining({ userId: "u_admin" }) }, expect.anything());
+		expect(mocks.enqueueJob).toHaveBeenCalledWith(expect.objectContaining({ type: "backup.create", payload: expect.objectContaining({ backupId: "bk_1" }) }), expect.anything());
 
 		mocks.jobFindFirst.mockResolvedValue({ id: "job_running" });
 		expect(await (await retry.POST(post("retry"), { params })).json()).toMatchObject({ deduped: true });

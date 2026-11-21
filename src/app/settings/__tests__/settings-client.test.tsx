@@ -1,7 +1,7 @@
 import fs from "node:fs";
 import path from "node:path";
 
-import { screen, waitFor, within } from "@testing-library/react";
+import { fireEvent, screen, waitFor, within } from "@testing-library/react";
 import userEvent from "@testing-library/user-event";
 import { beforeEach, describe, expect, it, vi } from "vitest";
 
@@ -39,7 +39,7 @@ describe("SettingsClient", () => {
     const user = userEvent.setup();
     vi.mocked(csrfFetch).mockResolvedValueOnce({ success: true });
 
-    render(<SettingsClient settings={{ "platform.name": "旧名称", "platform.logo": "" }} canManage />);
+    render(<SettingsClient visibleSectionIds={["platform", "dashboard"]} settings={{ "platform.name": "旧名称", "platform.logo": "" }} canManage />);
     const input = screen.getByLabelText("平台名称");
     await user.clear(input);
     await user.type(input, "新平台名称");
@@ -49,7 +49,7 @@ describe("SettingsClient", () => {
       expect(csrfFetch).toHaveBeenCalledWith("/api/settings", {
         method: "PATCH",
         headers: { "Content-Type": "application/json" },
-        body: JSON.stringify({ "platform.name": "新平台名称", "platform.logo": "", "platform.defaultLocale": "", "platform.defaultTheme": "" }),
+        body: JSON.stringify({ "platform.name": "新平台名称" }),
       });
     });
     expect(await screen.findByText(/设置已保存/)).toBeInTheDocument();
@@ -60,7 +60,7 @@ describe("SettingsClient", () => {
     const user = userEvent.setup();
     vi.mocked(csrfFetch).mockResolvedValueOnce({ success: true });
 
-    render(<><SettingsClient settings={{ "platform.name": "旧名称", "platform.logo": "" }} canManage /><a href="/servers">前往节点</a></>);
+    render(<><SettingsClient visibleSectionIds={["platform", "dashboard"]} settings={{ "platform.name": "旧名称", "platform.logo": "" }} canManage /><a href="/servers">前往节点</a></>);
     const input = screen.getByLabelText("平台名称");
     await user.clear(input);
     await user.type(input, "***");
@@ -77,7 +77,7 @@ describe("SettingsClient", () => {
 
   it("protects unsaved changes during client-side navigation", async () => {
     const user = userEvent.setup();
-    render(<><SettingsClient settings={{ "platform.name": "旧名称", "platform.logo": "" }} canManage /><a href="/servers">前往节点</a></>);
+    render(<><SettingsClient visibleSectionIds={["platform", "dashboard"]} settings={{ "platform.name": "旧名称", "platform.logo": "" }} canManage /><a href="/servers">前往节点</a></>);
     await user.clear(screen.getByLabelText("平台名称"));
     await user.type(screen.getByLabelText("平台名称"), "未保存名称");
 
@@ -104,7 +104,8 @@ describe("SettingsClient", () => {
     const user = userEvent.setup();
     vi.mocked(csrfFetch).mockRejectedValueOnce(new Error("权限不足"));
 
-    render(<SettingsClient settings={{ "platform.name": "旧名称", "platform.logo": "" }} canManage />);
+    render(<SettingsClient visibleSectionIds={["platform", "dashboard"]} settings={{ "platform.name": "旧名称", "platform.logo": "" }} canManage />);
+    fireEvent.change(screen.getByLabelText("平台名称"), { target: { value: "更新" } });
     await user.click(screen.getAllByRole("button", { name: "保存" })[0]!);
 
     expect(await screen.findByText("权限不足")).toBeInTheDocument();
@@ -115,31 +116,18 @@ describe("SettingsClient", () => {
     const user = userEvent.setup();
     vi.mocked(csrfFetch).mockResolvedValueOnce({ success: true });
 
-    render(<SettingsClient settings={{ "runtime.commandExecutionTimeoutMs": "300000", "runtime.commandOutputLimitBytes": "262144", "runtime.commandStaleRunningAfterMs": "600000", "runtime.commandExecutionHeartbeatMs": "60000", "runtime.commandReconcileIntervalMs": "60000", "runtime.sftpSyncDirectoryTimeoutMs": "60000", "runtime.sshWsHeartbeatIntervalMs": "25000", "runtime.sshIdleTimeoutSec": "600", "runtime.operationTaskListLimit": "100", "runtime.aiProviderListLimit": "100", "runtime.aiConversationListLimit": "200" }} canManage />);
+    render(<SettingsClient visibleSectionIds={["runtime", "jobs"]} settings={{ "runtime.commandExecutionTimeoutMs": "300000", "runtime.commandOutputLimitBytes": "262144", "runtime.commandStaleRunningAfterMs": "600000", "runtime.commandExecutionHeartbeatMs": "60000", "runtime.commandReconcileIntervalMs": "60000", "runtime.sftpSyncDirectoryTimeoutMs": "60000", "runtime.sshWsHeartbeatIntervalMs": "25000", "runtime.sshIdleTimeoutSec": "600", "runtime.operationTaskListLimit": "100", "runtime.aiProviderListLimit": "100", "runtime.aiConversationListLimit": "200" }} canManage />);
     await user.clear(screen.getByLabelText("命令执行超时（毫秒）"));
     await user.type(screen.getByLabelText("命令执行超时（毫秒）"), "120000");
     // runtime.commandExecutionTimeoutMs is a high-risk field, so Save opens the confirm modal
-    await user.click(screen.getAllByRole("button", { name: "保存" })[2]!);
+    await user.click(within(document.getElementById("runtime")!).getByRole("button", { name: "保存" }));
     await screen.findByTestId("high-risk-confirm-modal");
     await user.click(screen.getByRole("button", { name: "确认保存" }));
 
     await waitFor(() => {
       expect(csrfFetch).toHaveBeenCalledWith("/api/settings", expect.objectContaining({
         method: "PATCH",
-        body: JSON.stringify({
-          "runtime.commandExecutionTimeoutMs": "120000",
-          "runtime.commandOutputLimitBytes": "262144",
-          "runtime.commandStaleRunningAfterMs": "600000",
-          "runtime.commandExecutionHeartbeatMs": "60000",
-          "runtime.commandReconcileIntervalMs": "60000",
-          "runtime.sftpSyncDirectoryTimeoutMs": "60000",
-          "runtime.sshWsHeartbeatIntervalMs": "25000",
-          "runtime.sshIdleTimeoutSec": "600",
-          "rdp.webpImages": "",
-          "runtime.operationTaskListLimit": "100",
-          "runtime.aiProviderListLimit": "100",
-          "runtime.aiConversationListLimit": "200",
-        }),
+        body: JSON.stringify({ "runtime.commandExecutionTimeoutMs": "120000" }),
       }));
     });
   });
@@ -151,7 +139,7 @@ describe("SettingsClient", () => {
     const summary = (key: string, value: number, source: "environment" | "default" | "database") => ({
       key, label: key, unit: "", env: "X", value, defaultValue: value, min: 1, max: 10_000_000, source, sourceLabel: source, applies: "", requiresRestart: false,
     });
-    render(<SettingsClient settings={values} canManage runtimeSettings={[
+    render(<SettingsClient visibleSectionIds={["runtime", "jobs"]} settings={values} canManage runtimeSettings={[
       summary("runtime.commandReconcileIntervalMs", 45000, "environment"),
       summary("runtime.commandOutputLimitBytes", 262144, "default"),
       summary("runtime.commandExecutionTimeoutMs", 300000, "default"),
@@ -159,17 +147,17 @@ describe("SettingsClient", () => {
     ]} />);
     await user.clear(screen.getByLabelText("命令执行超时（毫秒）"));
     await user.type(screen.getByLabelText("命令执行超时（毫秒）"), "120000");
-    await user.click(screen.getAllByRole("button", { name: "保存" })[2]!);
+    await user.click(within(document.getElementById("runtime")!).getByRole("button", { name: "保存" }));
     await screen.findByTestId("high-risk-confirm-modal");
     await user.click(screen.getByRole("button", { name: "确认保存" }));
 
     await waitFor(() => expect(csrfFetch).toHaveBeenCalled());
     const body = JSON.parse(String(vi.mocked(csrfFetch).mock.calls[0]![1]!.body));
-    // Edited: sent. Inherited and unchanged (env 45000, default 262144): left alone. Stored in the database: sent as before.
+    // Edited: sent. Inherited and unchanged (env 45000, default 262144): left alone. Unchanged database overrides are left alone too.
     expect(body["runtime.commandExecutionTimeoutMs"]).toBe("120000");
     expect(body).not.toHaveProperty("runtime.commandReconcileIntervalMs");
     expect(body).not.toHaveProperty("runtime.commandOutputLimitBytes");
-    expect(body["runtime.sshIdleTimeoutSec"]).toBe("600");
+    expect(body).not.toHaveProperty("runtime.sshIdleTimeoutSec");
   });
 
   it("keeps runtime setting labels visible and grouped for visual usability", () => {
@@ -292,7 +280,7 @@ describe("SettingsClient", () => {
     vi.mocked(csrfFetch).mockResolvedValueOnce({ success: true });
 
     render(<SettingsClient settings={{ "runtime.commandExecutionTimeoutMs": "1", "runtime.commandOutputLimitBytes": "262144", "runtime.commandStaleRunningAfterMs": "600000", "runtime.commandExecutionHeartbeatMs": "60000", "runtime.commandReconcileIntervalMs": "60000", "runtime.sftpSyncDirectoryTimeoutMs": "60000", "runtime.sshWsHeartbeatIntervalMs": "25000", "runtime.sshIdleTimeoutSec": "600", "runtime.operationTaskListLimit": "100", "runtime.aiProviderListLimit": "100", "runtime.aiConversationListLimit": "200" }} canManage />);
-    await user.click(screen.getAllByRole("button", { name: "保存" })[2]!);
+    await user.click(within(document.getElementById("runtime")!).getByRole("button", { name: "保存" }));
 
     expect(screen.getByText("命令执行超时（毫秒） 必须在 5000 到 3600000 之间")).toBeInTheDocument();
     expect(csrfFetch).not.toHaveBeenCalled();
@@ -325,6 +313,7 @@ describe("SettingsClient", () => {
       const user = userEvent.setup();
       vi.mocked(csrfFetch).mockRejectedValueOnce(new Error("权限不足"));
       render(<SettingsClient settings={{ "platform.name": "旧名称", "platform.logo": "", "session.timeout": "3600", "password.minLength": "12" }} canManage />);
+      await user.click(section("password").getAllByRole("switch")[0]!);
       await user.click(section("password").getByRole("button", { name: "保存" }));
 
       const refusal = await section("password").findByText("权限不足");
@@ -338,6 +327,7 @@ describe("SettingsClient", () => {
       let finish: (value: unknown) => void = () => {};
       vi.mocked(csrfFetch).mockImplementationOnce(() => new Promise((resolve) => { finish = resolve; }));
       render(<SettingsClient settings={{ "platform.name": "旧名称", "platform.logo": "", "runtime.commandExecutionTimeoutMs": "60000" }} canManage />);
+      fireEvent.change(screen.getByLabelText("平台名称"), { target: { value: "更新" } });
       await user.click(section("platform").getByRole("button", { name: "保存" }));
 
       // Only the pressed button says so; the others wait.

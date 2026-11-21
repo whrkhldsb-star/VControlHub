@@ -15,7 +15,8 @@
 
 import { z } from "zod";
 
-import { playbookRetrySchema, playbookStepsSchema } from "@/lib/playbook/schema";
+import { createPlaybookSchema } from "@/lib/playbook/schema";
+import { isAnnouncementWindowValid } from "@/lib/announcement/schema";
 import { isSensitiveKey } from "@/lib/settings/schema";
 import { EXPORT_SCHEMA_VERSION } from "./config-format";
 
@@ -105,7 +106,7 @@ const serverExportSchema = z.object({
   username: z.string(),
   sshKeyId: z.string().nullable(),
   // password: null in standard mode, actual password in full mode
-  password: z.string().nullable(),
+  password: z.string().nullable().optional(),
   description: z.string().nullable(),
   tags: z.array(z.string()),
   enabled: z.boolean(),
@@ -238,8 +239,8 @@ const quickServiceSchema = z.object({
   internalPort: z.number().nullable(),
   extraPortsJson: z.string(),
   command: z.string().nullable(),
-  envJson: z.string(),
-  volumesJson: z.string(),
+  envJson: z.string().optional(),
+  volumesJson: z.string().optional(),
   status: z.string(),
   createdAt: z.string(),
   // Multi-instance target (optional for older export packages)
@@ -262,9 +263,9 @@ const playbookSchema = z.object({
   createdAt: z.string(),
 });
 
-export const importPlaybooksSchema = z.array(playbookSchema.extend({
-  steps: playbookStepsSchema,
-  chainRetry: playbookRetrySchema,
+export const importPlaybooksSchema = z.array(createPlaybookSchema.safeExtend({
+  id: playbookSchema.shape.id, teamId: playbookSchema.shape.teamId, createdById: playbookSchema.shape.createdById,
+  createdAt: playbookSchema.shape.createdAt, description: playbookSchema.shape.description,
 }));
 
 const alertRuleSchema = z.object({
@@ -376,12 +377,28 @@ const snapshotSchema = z.object({
 // executable configuration when accepting a snapshot for preview or import.
 export type ExportFile = z.infer<typeof snapshotSchema>;
 export const exportFileSchema = snapshotSchema.extend({
-  tables: snapshotSchema.shape.tables.extend({ playbooks: importPlaybooksSchema }),
+  tables: snapshotSchema.shape.tables.extend({
+    playbooks: importPlaybooksSchema,
+    announcements: z.array(announcementSchema.refine((r) => r.startsAt === null ||
+      isAnnouncementWindowValid(Date.parse(r.startsAt), r.expiresAt === null ? null : Date.parse(r.expiresAt)), {
+      message: "expiresAt must be after startsAt", path: ["expiresAt"],
+    })),
+  }),
 });
 
 // ── 导入预览结构 ──────────────────────────────────────────
 
+export type ImportIssue = {
+  table: "servers" | "storageNodes" | "sshKeys" | "aiProviders" | "alertRules";
+  id: string;
+  reason: string;
+  blocking?: boolean;
+  ownerMismatch?: { incoming: string | null; existing: string | null };
+  replacementId?: string;
+};
+
 export type ImportPreview = {
+  issues?: ImportIssue[];
   summary: Record<string, { create: number; update: number; skip: number }>;
   warnings: string[];
   totalRecords: number;

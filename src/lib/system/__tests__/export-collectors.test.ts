@@ -44,6 +44,7 @@ const {
   exportAiProviders,
   exportAnnouncements,
   exportQuickServices,
+  exportCommandTemplates,
   exportStorageNodes,
   exportAlertRules,
 } = await import("../export-collectors");
@@ -56,6 +57,14 @@ function model(name: (typeof models)[number]) {
 
 beforeEach(() => {
   for (const name of models) model(name).findMany.mockReset().mockResolvedValue([]);
+});
+
+it("gives locally seeded command templates the same catalog identity on independent instances", async () => {
+  const builtin = { name: "Inspect", isBuiltin: true, createdAt: new Date() };
+  for (const id of ["first-seed-id", "second-seed-id"]) {
+    model("commandTemplate").findMany.mockResolvedValueOnce([{ id, ...builtin }, { ...builtin, id: "custom", isBuiltin: false }]);
+    expect((await exportCommandTemplates("global", null)).map((row) => row.id)).toEqual(["builtin:Inspect", "custom"]);
+  }
 });
 
 describe("readAllPages", () => {
@@ -89,7 +98,7 @@ describe("readAllPages", () => {
     expect(rows).toHaveLength(501);
     expect(model("permission").findMany).toHaveBeenCalledTimes(2);
     expect(model("permission").findMany).toHaveBeenLastCalledWith(
-      expect.objectContaining({ take: 500, skip: 500 }),
+      expect.objectContaining({ take: 500, skip: 1, cursor: { id: "p499" } }),
     );
   });
 

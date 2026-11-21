@@ -1,3 +1,4 @@
+import { execFileSync } from "node:child_process";
 import { createHash } from "node:crypto";
 import { mkdtemp, writeFile } from "node:fs/promises";
 import { tmpdir } from "node:os";
@@ -5,7 +6,6 @@ import path from "node:path";
 import { gzipSync } from "node:zlib";
 import { beforeEach, describe, expect, it, vi } from "vitest";
 
-import { resolveLocalTarBinary } from "@/lib/runtime/tar-binary";
 
 const mocks = vi.hoisted(() => ({ getBackupRecord: vi.fn(), runBackupCommand: vi.fn() }));
 vi.mock("../service-crud", () => ({ getBackupRecord: mocks.getBackupRecord, createBackupRecord: vi.fn(), listBackupRecords: vi.fn(), updateBackupRecordStatus: vi.fn() }));
@@ -26,7 +26,7 @@ describe("non-destructive backup drill", () => {
     await import("node:fs/promises").then(({ mkdir }) => mkdir(backupDir));
     // The gzip integrity + format probes run in-process (Node zlib), so the
     // artifact must be a real gzip stream carrying PostgreSQL SQL.
-    const bytes = gzipSync(Buffer.from("-- PostgreSQL database dump\nSET statement_timeout = 0;\n"));
+    const bytes = gzipSync(Buffer.from("-- PostgreSQL database dump\nSET statement_timeout = 0;\n-- PostgreSQL database dump complete\n"));
     await writeFile(path.join(backupDir, "database.sql.gz"), bytes);
     const checksum = createHash("sha256").update(bytes).digest("hex");
     mocks.getBackupRecord.mockResolvedValue({ id: "b1", type: "DATABASE", status: "COMPLETED", filePath: "database.sql.gz", checksumSha256: checksum });
@@ -56,42 +56,32 @@ describe("non-destructive backup drill", () => {
     await expect(drillBackupRecord({ id: "b4", projectRoot: root })).rejects.toThrow("磁盘上找不到备份产物文件");
   });
 
-  it("uses tar -tzf archive argv without -- as filename for FILES drills", async () => {
-    const root = await mkdtemp(path.join(tmpdir(), "backup-drill-files-"));
+  it("validates regular FILES members and rejects incomplete SQL in DATABASE and FULL archives", async () => {
+    const root = await mkdtemp(path.join(tmpdir(), "backup-drill-contract-"));
+    const { mkdir, rm } = await import("node:fs/promises");
     const backupDir = path.join(root, "backups");
-    await import("node:fs/promises").then(({ mkdir }) => mkdir(backupDir));
-    // Real gzip wrapper so the in-process integrity probe passes; the tar
-    // listing itself stays mocked.
-    const bytes = gzipSync(Buffer.from("files-archive-placeholder"));
-    const archiveRel = "files.tar.gz";
-    const archiveAbs = path.join(backupDir, archiveRel);
-    await writeFile(archiveAbs, bytes);
-    const checksum = createHash("sha256").update(bytes).digest("hex");
-    mocks.getBackupRecord.mockResolvedValue({
-      id: "b3",
-      type: "FILES",
-      status: "COMPLETED",
-      filePath: archiveRel,
-      checksumSha256: checksum,
-    });
-    mocks.runBackupCommand.mockImplementation(async (input: { file: string; args: string[] }) => {
-      if (input.file === resolveLocalTarBinary()) {
-        expect(input.args).toEqual(["-tzf", archiveAbs]);
-        return { stdout: "./\na.txt\n", stderr: "" };
+    await mkdir(backupDir);
+    const drill = async (type: string, name: string, bytes: Buffer) => {
+      await writeFile(path.join(backupDir, name), bytes);
+      mocks.getBackupRecord.mockResolvedValue({ id: "contract", type, status: "COMPLETED", filePath: name, checksumSha256: createHash("sha256").update(bytes).digest("hex") });
+      return drillBackupRecord({ id: "contract", projectRoot: root });
+    };
+    try {
+      await writeFile(path.join(root, "file.txt"), "fixture");
+      const tar = (member: string) => execFileSync("tar", ["-czf", "-", "-C", root, member]);
+      const valid = await drill("FILES", "files.tar.gz", tar("file.txt"));
+      expect(valid.checks.map((c) => c.name)).toEqual(["artifact", "sha256", "gzip", "archive-index"]);
+      const incomplete = gzipSync("-- PostgreSQL database dump\n");
+      await expect(drill("DATABASE", "bad.sql.gz", incomplete)).rejects.toThrow("completion marker");
+      await writeFile(path.join(root, "database.sql.gz"), incomplete);
+      await expect(drill("FULL", "full.tar.gz", tar("database.sql.gz"))).rejects.toThrow("completion marker");
+      if (process.platform !== "win32") {
+        await import("node:fs/promises").then(({ symlink }) => symlink("file.txt", path.join(root, "link")));
+        await expect(drill("FILES", "link.tar.gz", tar("link"))).rejects.toThrow("links and special files");
       }
-      return { stdout: "", stderr: "" };
-    });
-    const report = await drillBackupRecord({ id: "b3", projectRoot: root });
-    expect(report.checks.map((c) => c.name)).toEqual(["artifact", "sha256", "gzip", "archive-index"]);
-    expect(mocks.runBackupCommand).toHaveBeenCalledWith(
-      expect.objectContaining({ file: resolveLocalTarBinary(), args: ["-tzf", archiveAbs] }),
-    );
-    // Regression: never invoke shell form that treats `--` as the archive name.
-    expect(mocks.runBackupCommand).not.toHaveBeenCalledWith(
-      expect.objectContaining({
-        file: "bash",
-        args: expect.arrayContaining([expect.stringContaining("tar -tzf --")]),
-      }),
-    );
+      expect(mocks.runBackupCommand).not.toHaveBeenCalled();
+    } finally {
+      await rm(root, { recursive: true, force: true });
+    }
   });
 });

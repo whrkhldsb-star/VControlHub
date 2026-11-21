@@ -6,6 +6,8 @@
  * - mode=standard|full  (full requires platform admin)
  * - scope=team|global   (default team; global requires platform admin)
  */
+import { CONFIG_MAX_FILE_BYTES } from "@/lib/system/config-format";
+import { t } from "@/lib/i18n/service-translations";
 import { NextResponse } from "next/server";
 
 import { withApiRoute } from "@/lib/http/api-guard";
@@ -40,6 +42,10 @@ export async function GET(request: Request) {
           teamId: session.currentTeamId,
           session,
         });
+        const json = JSON.stringify(file, null, 2);
+        if (Buffer.byteLength(json, "utf8") > CONFIG_MAX_FILE_BYTES) {
+          return NextResponse.json({ error: t("systemConfig.import.fileTooLarge", { limit: `${CONFIG_MAX_FILE_BYTES} B` }) }, { status: 413 });
+        }
         const summary = getExportSummary(file);
 
         await auditUserAction(
@@ -56,7 +62,6 @@ export async function GET(request: Request) {
           session.currentTeamId,
         );
 
-        const json = JSON.stringify(file, null, 2);
         const timestamp = new Date().toISOString().slice(0, 19).replace(/[:T]/g, "-");
         const scopeTag = file.exportScope === "global" ? "global" : "team";
         const filename = `vch-config-${scopeTag}-${timestamp}.json`;

@@ -1,3 +1,5 @@
+import { z } from "zod";
+import { verifyBackupPayload } from "../../../scripts/lib/backup-common.mjs";
 import { apiCopy } from "@/lib/i18n/api-copy";
 import { resolveLocalTarBinary } from "@/lib/runtime/tar-binary";
 /**
@@ -25,11 +27,12 @@ import {
   mkdtemp,
   rename,
   readFile,
+  realpath,
   rm,
   stat,
   writeFile,
 } from "node:fs/promises";
-import { basename, dirname, extname, join, relative, resolve } from "node:path";
+import { basename, dirname, isAbsolute, join, relative, resolve } from "node:path";
 import { execFile } from "node:child_process";
 import { promisify } from "node:util";
 
@@ -58,30 +61,22 @@ const logger = createLogger("backup:migration");
 export const MIGRATION_MANIFEST_VERSION = 1 as const;
 export const MIGRATION_PACKAGE_DIR = "migration-packages";
 
-export type MigrationManifest = {
-  version: typeof MIGRATION_MANIFEST_VERSION;
-  packageId: string;
-  createdAt: string;
-  source: {
-    app: "VControlHub";
-    hostname: string;
-    recordId: string;
-    teamId: string | null;
-  };
-  backup: {
-    type: BackupType;
-    originalFilePath: string;
-    payloadFileName: string;
-    fileSize: number;
-    checksumSha256: string;
-    note: string | null;
-    completedAt: string | null;
-  };
-  instructions: {
-    import: string;
-    restore: string;
-  };
-};
+const manifestSchema = z.object({
+  version: z.literal(MIGRATION_MANIFEST_VERSION),
+  packageId: z.string(),
+  createdAt: z.iso.datetime({ offset: true }),
+  source: z.object({
+    app: z.literal("VControlHub"), hostname: z.string().trim().min(1), recordId: z.string().trim().min(1),
+    teamId: z.string().min(1).nullable(),
+  }),
+  backup: z.object({
+    type: z.enum(["DATABASE", "FILES", "FULL"]), originalFilePath: z.string().min(1), payloadFileName: z.string().min(1),
+    fileSize: z.number().int().positive(), checksumSha256: z.string().regex(/^[a-f0-9]{64}$/i),
+    note: z.string().nullable(), completedAt: z.iso.datetime({ offset: true }).nullable(),
+  }),
+  instructions: z.object({ import: z.string(), restore: z.string() }),
+});
+export type MigrationManifest = z.infer<typeof manifestSchema>;
 
 export type MigrationExportResult = {
   packageId: string;
@@ -89,6 +84,7 @@ export type MigrationExportResult = {
   manifestRelativePath: string;
   payloadRelativePath: string;
   absoluteDir: string;
+  tarballRelativePath: string | null;
   manifest: MigrationManifest;
 };
 
@@ -122,10 +118,15 @@ function packagesRoot(root = projectRoot()): string {
   return join(getBackupStorageRoot(root), MIGRATION_PACKAGE_DIR);
 }
 
-function payloadExtension(type: BackupType, originalPath: string): string {
-  const ext = extname(originalPath);
-  if (ext) return ext.replace(/^\./, "") || (type === "DATABASE" ? "sql.gz" : "tar.gz");
-  return type === "DATABASE" ? "sql.gz" : "tar.gz";
+/** Compare every existing path component with its real path, including the backup root. */
+async function assertRealPath(file: string) {
+  const absolute = resolve(file);
+  if (await realpath(absolute) === absolute) return;
+  // Windows also expands short 8.3 names in realpath. Inspect the components
+  // to distinguish an ordinary alias from a junction or symbolic link.
+  for (let part = absolute; part !== dirname(part); part = dirname(part)) {
+    if ((await lstat(part)).isSymbolicLink()) throw new ValidationError(t("backend.backup.packageOutsideRoot"));
+  }
 }
 
 function assertSafePackageId(id: string): string {
@@ -153,7 +154,7 @@ export async function resolveMigrationPackageDir(
   const storageRoot = getBackupStorageRoot(root);
   let candidate = ref;
 
-  if (!ref.startsWith("/")) {
+  if (!isAbsolute(ref)) {
     // portable relative under backup root
     const portable = assertPortableBackupPath(ref.replace(/^\.?\//, ""));
     candidate = join(storageRoot, portable);
@@ -163,26 +164,29 @@ export async function resolveMigrationPackageDir(
   const resolvedRoot = resolve(storageRoot);
   const resolvedCandidate = resolve(candidate);
   const rel = relative(resolvedRoot, resolvedCandidate);
-  if (rel.startsWith("..") || rel === ".." || resolve(resolvedRoot, rel) !== resolvedCandidate) {
+  if (isAbsolute(rel) || rel.startsWith("..") || resolve(resolvedRoot, rel) !== resolvedCandidate) {
     throw new ValidationError(t("backend.backup.packageOutsideRoot"));
   }
   candidate = resolvedCandidate;
 
-  const info = await stat(candidate).catch(() => null);
+  const info = await lstat(candidate).catch(() => null);
   if (!info) throw new NotFoundError(t("backend.backup.packagePathNotFound"));
 
+  await assertRealPath(resolvedRoot);
+  await assertRealPath(candidate);
   if (info.isDirectory()) {
     return { packageDir: candidate };
   }
 
   // file: only accept .tar.gz under storage root — extract to temp under packages root
-  if (!candidate.endsWith(".tar.gz") && !candidate.endsWith(".tgz")) {
+  if (!info.isFile() || (!candidate.endsWith(".tar.gz") && !candidate.endsWith(".tgz"))) {
     throw new ValidationError(t("backend.backup.packageMustBeDirOrTgz"));
   }
 
-  const extractId = `import-${randomUUID().slice(0, 12)}`;
-  const extractDir = join(packagesRoot(root), extractId);
-  await mkdir(extractDir, { recursive: true });
+  const parent = packagesRoot(root);
+  await mkdir(parent, { recursive: true });
+  await assertRealPath(parent);
+  const extractDir = await mkdtemp(join(parent, "import-"));
   try {
     const [{ stdout: memberNames }, { stdout: memberDetails }] = await Promise.all([
       runFile(
@@ -277,6 +281,8 @@ export async function readMigrationManifest(packageDir: string): Promise<Migrati
   const manifestPath = join(packageDir, "manifest.json");
   let raw: string;
   try {
+    await assertRealPath(manifestPath);
+    if (!(await lstat(manifestPath)).isFile()) throw new Error();
     raw = await readFile(manifestPath, "utf8");
   } catch {
     throw new ValidationError(t("backend.backup.manifestMissing"));
@@ -287,17 +293,10 @@ export async function readMigrationManifest(packageDir: string): Promise<Migrati
   } catch {
     throw new ValidationError(t("backend.backup.manifestInvalidJson"));
   }
-  const m = parsed as Partial<MigrationManifest>;
-  if (m.version !== MIGRATION_MANIFEST_VERSION) {
-    throw new ValidationError(apiCopy("apiCopy.unsupported.migration.manifest.version.bceb6f90", { v0: String(String(m.version)) }));
-  }
-  if (!m.packageId || !m.backup?.type || !m.backup.payloadFileName || !m.backup.checksumSha256) {
-    throw new ValidationError(t("backend.backup.manifestMissingFields"));
-  }
+  const result = manifestSchema.safeParse(parsed);
+  if (!result.success) throw new ValidationError(t("backend.backup.manifestMissingFields"));
+  const m = result.data;
   assertSafePackageId(m.packageId);
-  if (!isBackupType(m.backup.type)) {
-    throw new ValidationError(apiCopy("apiCopy.invalid.backup.type.in.manifest.e328a818", { v0: String(m.backup.type) }));
-  }
   if (
     basename(m.backup.payloadFileName) !== m.backup.payloadFileName ||
     m.backup.payloadFileName === "." ||
@@ -307,13 +306,7 @@ export async function readMigrationManifest(packageDir: string): Promise<Migrati
   ) {
     throw new ValidationError(t("backend.backup.payloadNameInvalid"));
   }
-  if (!/^[a-f0-9]{64}$/i.test(m.backup.checksumSha256)) {
-    throw new ValidationError(t("backend.backup.payloadChecksumInvalid"));
-  }
-  if (!Number.isSafeInteger(m.backup.fileSize) || m.backup.fileSize < 0) {
-    throw new ValidationError(t("backend.backup.payloadSizeInvalid"));
-  }
-  return m as MigrationManifest;
+  return m;
 }
 
 function assertMigrationTeamAccess(
@@ -360,7 +353,8 @@ export async function validateMigrationPackage(
   }
   try {
     const payloadInfo = await lstat(payloadAbsolutePath);
-    if (!payloadInfo.isFile() || payloadInfo.isSymbolicLink()) {
+    if (payloadInfo.isFile()) await assertRealPath(payloadAbsolutePath);
+    if (!payloadInfo.isFile()) {
       issues.push(`payload is not a regular file: ${manifest.backup.payloadFileName}`);
     }
   } catch {
@@ -381,6 +375,14 @@ export async function validateMigrationPackage(
     checksumMatches = digest.toLowerCase() === manifest.backup.checksumSha256.toLowerCase();
     if (!checksumMatches) {
       issues.push("payload sha256 does not match manifest");
+    }
+  }
+
+  if (!issues.length) {
+    try {
+      await verifyBackupPayload(manifest.backup.type, payloadAbsolutePath);
+    } catch (error) {
+      issues.push(error instanceof Error ? error.message : String(error));
     }
   }
 
@@ -421,11 +423,15 @@ export async function exportMigrationPackage(input: {
     throw new BusinessError(t("backend.backup.artifactMissing"));
   }
 
+  await assertRealPath(sourcePath);
+  if (!sourceInfo.size) throw new BusinessError(t("backend.backup.artifactEmpty"));
+
   const packageId = `mig-${new Date().toISOString().replace(/[:.]/g, "-")}-${randomUUID()}`;
   const packageRelativeDir = `${MIGRATION_PACKAGE_DIR}/${packageId}`;
   const absoluteDir = join(getBackupStorageRoot(root), packageRelativeDir);
-  const payloadFileName = `payload.${payloadExtension(record.type, record.filePath)}`;
+  const payloadFileName = `payload.${record.type === "DATABASE" ? "sql.gz" : "tar.gz"}`;
   await mkdir(dirname(absoluteDir), { recursive: true });
+  await assertRealPath(dirname(absoluteDir));
   const staging = await mkdtemp(join(dirname(absoluteDir), ".export-"));
   let manifest: MigrationManifest;
   try {
@@ -462,6 +468,7 @@ export async function exportMigrationPackage(input: {
           "After import, run a restore drill first (non-destructive). Restore is offline: Restore on the imported record verifies its checksum and gives the runbook — stop the platform services, take the safety snapshot, run the restore command, start the services.",
       },
     };
+    await verifyBackupPayload(record.type, payload);
     await writeFile(join(staging, "manifest.json"), `${JSON.stringify(manifest, null, 2)}\n`, "utf8");
     await rename(staging, absoluteDir);
   } finally {
@@ -471,6 +478,7 @@ export async function exportMigrationPackage(input: {
   // Optional convenience tarball next to the directory
   const tarRelative = `${packageRelativeDir}.tar.gz`;
   const tarAbsolute = join(getBackupStorageRoot(root), tarRelative);
+  let tarballRelativePath: string | null = null;
   const tarTemporary = `${tarAbsolute}.partial`;
   try {
     await runFile(
@@ -479,6 +487,7 @@ export async function exportMigrationPackage(input: {
       { timeout: 180_000, maxBuffer: 2 * 1024 * 1024 },
     );
     await rename(tarTemporary, tarAbsolute);
+    tarballRelativePath = tarRelative;
   } catch (error) {
     // A tar stopped by the time limit (or a full disk) leaves the beginning of
     // an archive behind. Listed as the package's tarball, it was what an
@@ -503,6 +512,7 @@ export async function exportMigrationPackage(input: {
     manifestRelativePath: `${packageRelativeDir}/manifest.json`,
     payloadRelativePath: `${packageRelativeDir}/${payloadFileName}`,
     absoluteDir,
+    tarballRelativePath,
     manifest,
   };
 }
@@ -533,6 +543,7 @@ export async function importMigrationPackage(input: {
       assertPortableBackupPath(portablePath);
       destAbsolute = resolveBackupPath(root, portablePath);
       await mkdir(dirname(destAbsolute), { recursive: true });
+      await assertRealPath(dirname(destAbsolute));
       try {
         await copyFile(payloadAbsolutePath, destAbsolute, fsConstants.COPYFILE_EXCL);
         break;
@@ -624,6 +635,7 @@ export async function listMigrationPackages(
     return [];
   }
   const { readdir } = await import("node:fs/promises");
+  await assertRealPath(rootDir);
   const entries = await readdir(rootDir, { withFileTypes: true });
   const results: Array<{
     packageId: string;
@@ -648,13 +660,14 @@ export async function listMigrationPackages(
       const relativeDir = `${MIGRATION_PACKAGE_DIR}/${packageId}`;
       const dir = join(rootDir, packageId);
       const manifest = await readMigrationManifest(dir).catch(() => null);
-      const sourceTeamId = manifest?.source?.teamId ?? null;
+      if (!manifest) continue;
+      const sourceTeamId = manifest.source.teamId;
       // Team-scoped list: include this team's packages and legacy unscoped packages.
       if (filterByTeam && sourceTeamId !== null && sourceTeamId !== teamId) {
         continue;
       }
       const tarPath = join(getBackupStorageRoot(root), `${relativeDir}.tar.gz`);
-      const hasTarball = await stat(tarPath)
+      const hasTarball = await lstat(tarPath)
         .then((s) => s.isFile())
         .catch(() => false);
       results.push({

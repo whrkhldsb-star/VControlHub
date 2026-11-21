@@ -20,12 +20,14 @@ export function planTeamMemberImport(
   templates: ReadonlySet<string>,
 ) {
   const plan: Array<{ row: Member; action: "create" | "update"; moved: boolean }> = [];
+  const seen = new Set<string>();
   for (const row of records) {
     if (!users.has(row.userId) || !teams.has(row.teamId) || !templates.has(row.identityTemplateId)) continue;
+    if (seen.has(row.userId)) continue;
+    seen.add(row.userId);
     const previousTeamId = members.get(row.userId);
     if (previousTeamId !== undefined && !options.overwriteExisting) continue;
     plan.push({ row, action: previousTeamId === undefined ? "create" : "update", moved: previousTeamId !== undefined && previousTeamId !== row.teamId });
-    members.set(row.userId, row.teamId);
   }
   return plan;
 }

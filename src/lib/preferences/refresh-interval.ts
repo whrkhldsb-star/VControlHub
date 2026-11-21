@@ -1,3 +1,4 @@
+import { activePreferencesStorageKey } from "./cache-scope";
 /** The intervals the preferences offer; each is named by `preferencesPage.interval.<seconds>`. */
 export const REFRESH_INTERVAL_OPTIONS: ReadonlyArray<{ value: number }> = [
 	{ value: 0 },
@@ -11,7 +12,7 @@ export const REFRESH_INTERVAL_OPTIONS: ReadonlyArray<{ value: number }> = [
 export const DEFAULT_REFRESH_INTERVAL_SECONDS = 30;
 export const MIN_REFRESH_INTERVAL_SECONDS = 5;
 export const MAX_REFRESH_INTERVAL_SECONDS = 300;
-export const REFRESH_PREFERENCES_STORAGE_KEY = "vps-preferences";
+export { PREFERENCES_KEY as REFRESH_PREFERENCES_STORAGE_KEY } from "./cache-scope";
 
 export type RefreshPreferences = {
 	autoRefreshInterval?: unknown;
@@ -39,7 +40,8 @@ export function getRefreshIntervalLabel(seconds: number, t: (key: string, vars?:
 export function getRefreshIntervalFromStorage(storage: Pick<Storage, "getItem"> | null | undefined, fallback = DEFAULT_REFRESH_INTERVAL_SECONDS): number {
 	if (!storage) return fallback;
 	try {
-		const raw = storage.getItem(REFRESH_PREFERENCES_STORAGE_KEY);
+		const key = activePreferencesStorageKey(storage);
+		const raw = key && storage.getItem(key);
 		if (!raw) return fallback;
 		const prefs = JSON.parse(raw) as RefreshPreferences;
 		return normalizeRefreshIntervalSeconds(prefs.autoRefreshInterval, fallback);

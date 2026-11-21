@@ -3,19 +3,24 @@ import type { Permission, RoleKey } from "@/lib/auth/rbac";
 import { NotFoundError, ValidationError } from "@/lib/errors";
 import { prisma } from "@/lib/db";
 import { t } from "@/lib/i18n/service-translations";
+import { isAnnouncementWindowValid } from "./schema";
 
 /** Publishing is platform-only; reading active announcements needs only a session. */
 export function canManageAnnouncements(session: { roles: RoleKey[]; permissions?: Permission[] }): boolean {
 	return sessionHasPermission(session, "announcement:manage");
 }
 
+export function assertAnnouncementWindow(startsAt: Date, expiresAt: Date | null) {
+	if (!isAnnouncementWindowValid(startsAt.getTime(), expiresAt?.getTime() ?? null)) {
+		throw new ValidationError(t("backend.announcement.expiresAtMustBeAfterStartsAt"));
+	}
+}
+
 export async function createAnnouncement(input: { title: string; body: string; level?: string; pinned?: boolean; published?: boolean; startsAt?: Date; expiresAt?: Date | null; createdBy?: string }) {
 	if (!input.title.trim() || !input.body.trim()) throw new ValidationError(t("backend.announcement.announcementTitleAndContentCannotBeEmpty"));
 	const startsAt = input.startsAt ?? new Date();
 	const expiresAt = input.expiresAt ?? null;
-	if (expiresAt && expiresAt.getTime() <= startsAt.getTime()) {
-		throw new ValidationError(t("backend.announcement.expiresAtMustBeAfterStartsAt"));
-	}
+	assertAnnouncementWindow(startsAt, expiresAt);
 	return prisma.announcement.create({ data: { title: input.title.trim(), body: input.body.trim(), level: input.level ?? "info", pinned: input.pinned ?? false, published: input.published ?? false, startsAt, expiresAt, createdBy: input.createdBy ?? null } });
 }
 
@@ -37,24 +42,25 @@ export async function listAnnouncements() {
 }
 
 export async function updateAnnouncement(id: string, input: { startsAt?: Date; title?: string; body?: string; level?: string; pinned?: boolean; published?: boolean; expiresAt?: Date | null }) {
-	const existing = await prisma.announcement.findUnique({ where: { id } });
-	if (!existing) throw new NotFoundError(t("backend.announcement.announcementNotFound"));
-	const data: Record<string, unknown> = {};
-	if (input.title !== undefined) data.title = input.title.trim();
-	if (input.body !== undefined) data.body = input.body.trim();
-	if (input.level !== undefined) data.level = input.level;
-	if (input.pinned !== undefined) data.pinned = input.pinned;
-	if (input.published !== undefined) data.published = input.published;
-	if (input.expiresAt !== undefined) data.expiresAt = input.expiresAt;
-	if (input.startsAt !== undefined) data.startsAt = input.startsAt;
-	if (Object.keys(data).length === 0) return existing;
-	const nextExpiresAt =
-		input.expiresAt !== undefined ? input.expiresAt : existing.expiresAt;
-	const nextStartsAt = input.startsAt ?? existing.startsAt;
-	if (nextExpiresAt && nextExpiresAt.getTime() <= nextStartsAt.getTime()) {
-		throw new ValidationError(t("backend.announcement.expiresAtMustBeAfterStartsAt"));
-	}
-	return prisma.announcement.update({ where: { id }, data });
+	return prisma.$transaction(async (tx) => {
+		await tx.$queryRaw`SELECT id FROM announcements WHERE id = ${id} FOR UPDATE`;
+		const existing = await tx.announcement.findUnique({ where: { id } });
+		if (!existing) throw new NotFoundError(t("backend.announcement.announcementNotFound"));
+		const data: Record<string, unknown> = {};
+		if (input.title !== undefined) data.title = input.title.trim();
+		if (input.body !== undefined) data.body = input.body.trim();
+		if (input.level !== undefined) data.level = input.level;
+		if (input.pinned !== undefined) data.pinned = input.pinned;
+		if (input.published !== undefined) data.published = input.published;
+		if (input.expiresAt !== undefined) data.expiresAt = input.expiresAt;
+		if (input.startsAt !== undefined) data.startsAt = input.startsAt;
+		if (Object.keys(data).length === 0) return existing;
+		const nextExpiresAt =
+			input.expiresAt !== undefined ? input.expiresAt : existing.expiresAt;
+		const nextStartsAt = input.startsAt ?? existing.startsAt;
+		assertAnnouncementWindow(nextStartsAt, nextExpiresAt);
+		return tx.announcement.update({ where: { id }, data });
+	});
 }
 
 export async function deleteAnnouncement(id: string) {

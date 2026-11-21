@@ -163,6 +163,7 @@ describe("PreferencesPage", () => {
 		await user.click(screen.getByRole("button", { name: "VPS 管理" }));
 
 		expect(await screen.findByRole("status")).toHaveTextContent("设置已保存");
+		expect(csrfFetch).toHaveBeenCalledWith("/api/preferences", expect.objectContaining({ method: "PUT", body: JSON.stringify({ defaultPage: "/servers" }) }));
 		expect(JSON.parse(localStorage.getItem("vps-preferences") || "{}").defaultPage).toBe("/servers");
 		expect(dispatchSpy).toHaveBeenCalledWith(expect.objectContaining({ type: "vps-preferences-updated" }));
 	});

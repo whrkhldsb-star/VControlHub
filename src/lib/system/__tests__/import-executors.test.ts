@@ -95,7 +95,7 @@ vi.mock("../import-executors-helpers", () => ({}));
 
 const { executeImport } = await import("../import-executors");
 
-const FILE = { tables: {} } as unknown as ExportFile;
+const FILE = { tables: { aiProviders: [] } } as unknown as ExportFile;
 const OPTIONS = {
   dryRun: false,
   overwriteExisting: true,
@@ -179,8 +179,7 @@ describe("executeImport", () => {
     expect(result.updated).toBe(0);
     expect(result.rolledBack).toBe(true);
     expect(result.errors).toEqual(["Transaction failed: P2028 transaction closed"]);
-    // `skipped` survives on purpose: a skipped record was never written, so its
-    // count is still true of the database after a rollback.
+    // This fixture has no input rows.
     expect(result.skipped).toBe(0);
   });
 

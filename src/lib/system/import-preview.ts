@@ -16,7 +16,7 @@
 import { decrypt, isEncrypted } from "@/lib/crypto/service";
 import { prisma } from "@/lib/db";
 import { decryptServerPassword, decryptSshPrivateKey } from "@/lib/ssh/ssh-key-crypto";
-import type { ExportFile, ImportOptions, ImportPreview } from "@/lib/system/config-schema";
+import type { ExportFile, ImportIssue, ImportOptions, ImportPreview } from "@/lib/system/config-schema";
 
 import { alignImportIds, findMissingTeamIds } from "./import-id-alignment";
 
@@ -147,10 +147,11 @@ export async function previewImport(
   const t = await alignImportIds(prisma, file.tables);
   const summary: ImportPreview["summary"] = {};
   const warnings: string[] = [];
+  const issues: ImportIssue[] = [];
   let totalRecords = 0;
 
   // The import refuses a package whose resources name customers it cannot find.
-  if ((await findMissingTeamIds(prisma, t)).length > 0) warnings.push(W.missingCustomers);
+  if ((await findMissingTeamIds(prisma, t, options.overwriteExisting)).length > 0) warnings.push(W.missingCustomers);
   if (t.servers.some((server) => server.managementMode === "AGENT")) warnings.push(W.agentReinstall);
   // What the import leaves out instead of failing on (import-executors-infrastructure).
   if (await previewServerKeysMissing(t, options)) warnings.push(W.serverKeysMissing);
@@ -172,7 +173,7 @@ export async function previewImport(
 
   // ── RolePermissions ──
   {
-    const r = await previewRolePermissions(t);
+    const r = await previewRolePermissions(t, options);
     summary[T.rolePermissions] = r;
     totalRecords += r.create;
   }
@@ -214,14 +215,14 @@ export async function previewImport(
 
   // ── SshKeys ──
   {
-    const r = await previewSshKeys(t, options);
+    const r = await previewSshKeys(t, options, issues);
     summary[T.sshKeys] = r;
     totalRecords += r.create + r.update;
   }
 
   // ── Servers ──
   {
-    const r = await previewServers(t, options);
+    const r = await previewServers(t, options, issues);
     summary[T.servers] = r;
     totalRecords += r.create + r.update;
   }
@@ -235,7 +236,7 @@ export async function previewImport(
 
   // ── StorageNodes ──
   {
-    const r = await previewStorageNodes(t, options);
+    const r = await previewStorageNodes(t, options, issues);
     summary[T.storageNodes] = r;
     totalRecords += r.create + r.update;
   }
@@ -270,7 +271,7 @@ export async function previewImport(
 
   // ── AlertRules ──
   {
-    const r = await previewAlertRules(t, options);
+    const r = await previewAlertRules(t, options, file.exportMode, issues);
     summary[T.alertRules] = r;
     totalRecords += r.create + r.update;
   }
@@ -278,7 +279,7 @@ export async function previewImport(
   // ── Settings ──
   {
     if (options.importSettings) {
-      const r = await previewSettings(t, options);
+      const r = await previewSettings(t, options, file.exportMode);
       summary[T.settings] = r;
       totalRecords += r.create + r.update;
     } else {
@@ -289,7 +290,7 @@ export async function previewImport(
 
   // ── AiProviders ──
   {
-    const r = await previewAiProviders(t, options);
+    const r = await previewAiProviders(t, options, issues);
     summary[T.aiProviders] = r;
     totalRecords += r.create + r.update;
   }
@@ -334,5 +335,5 @@ export async function previewImport(
     if (credentialsNeedSourceKey(t)) warnings.push(W.credentialsNeedSourceKey);
   }
 
-  return { summary, warnings, totalRecords };
+  return { summary, warnings, totalRecords, ...(issues.length ? { issues } : {}) };
 }

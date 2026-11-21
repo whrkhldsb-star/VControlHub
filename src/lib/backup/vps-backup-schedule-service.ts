@@ -116,71 +116,71 @@ export async function updateVpsBackupSchedule(
 	}>,
 	actorUserId?: string,
 ) {
-	// Read once before calculating the resulting schedule. Besides giving a
-	// friendly not-found error, this avoids the old resume bug where ACTIVE was
-	// restored but nextRunAt remained null forever.
-	const existing = await prisma.vpsBackupSchedule.findUnique({
-		where: { id, serverId },
-		select: {
-			backupType: true,
-			paths: true,
-			cronExpression: true,
-			status: true,
-		},
+	return prisma.$transaction(async (tx) => {
+		await tx.$queryRaw`SELECT id FROM vps_backup_schedules WHERE id = ${id} AND "serverId" = ${serverId} FOR UPDATE`;
+		const existing = await tx.vpsBackupSchedule.findUnique({
+			where: { id, serverId },
+			select: {
+				backupType: true,
+				paths: true,
+				cronExpression: true,
+				status: true,
+			},
+		});
+		if (!existing) {
+			throw new NotFoundError(t("vpsBackupApi.errorScheduleNotFound"));
+		}
+
+		const data: Record<string, unknown> = {};
+		if (input.name !== undefined) {
+			const name = input.name.trim();
+			if (!name) throw new ValidationError(t("backend.backup.scheduleNameRequired"));
+			if (name.length > 100) throw new ValidationError(t("backend.backup.scheduleNameTooLong"));
+			data.name = name;
+		}
+		if (input.cronExpression !== undefined) {
+			data.cronExpression = validateVpsCronExpression(input.cronExpression);
+		}
+		if (input.backupType !== undefined) {
+			if (!isVpsBackupPresetType(input.backupType)) {
+				throw new ValidationError(apiCopy("apiCopy.invalid.backuptype.d98f6f5a", { v0: String(input.backupType) }));
+			}
+			data.backupType = input.backupType;
+		}
+		if (input.paths !== undefined) data.paths = input.paths.map((path) => path.trim()).filter(Boolean);
+		if (input.note !== undefined) data.note = input.note.trim() || null;
+		if (input.retentionDays !== undefined) {
+			validateVpsRetentionDays(input.retentionDays);
+			data.retentionDays = input.retentionDays;
+		}
+		if (input.status !== undefined) {
+			if (!VPS_BACKUP_SCHEDULE_STATUSES.includes(input.status)) {
+				throw new ValidationError(t("backend.backup.statusInvalid"));
+			}
+			data.status = input.status;
+		}
+
+		const nextType = (data.backupType as string | undefined) ?? existing.backupType;
+		const nextPaths = (data.paths as string[] | undefined) ?? existing.paths;
+		if (nextType === "custom" && nextPaths.length === 0) {
+			throw new ValidationError(t("vpsBackupApi.errorCustomPathsRequired"));
+		}
+		if (nextType === "custom") assertCustomBackupPaths(nextPaths);
+
+		if (input.claimOwnership && actorUserId) data.createdById = actorUserId;
+
+		const nextStatus = (data.status as VpsBackupScheduleStatus | undefined) ?? (existing.status as VpsBackupScheduleStatus);
+		if (nextStatus !== "ACTIVE") {
+			// A paused schedule must never remain eligible for a delayed worker tick.
+			data.nextRunAt = null;
+		} else if (input.cronExpression !== undefined || existing.status !== "ACTIVE") {
+			data.nextRunAt = computeNextRun(
+				(data.cronExpression as string | undefined) ?? existing.cronExpression,
+			);
+		}
+
+		return tx.vpsBackupSchedule.update({ where: { id, serverId }, data });
 	});
-	if (!existing) {
-		throw new NotFoundError(t("vpsBackupApi.errorScheduleNotFound"));
-	}
-
-	const data: Record<string, unknown> = {};
-	if (input.name !== undefined) {
-		const name = input.name.trim();
-		if (!name) throw new ValidationError(t("backend.backup.scheduleNameRequired"));
-		if (name.length > 100) throw new ValidationError(t("backend.backup.scheduleNameTooLong"));
-		data.name = name;
-	}
-	if (input.cronExpression !== undefined) {
-		data.cronExpression = validateVpsCronExpression(input.cronExpression);
-	}
-	if (input.backupType !== undefined) {
-		if (!isVpsBackupPresetType(input.backupType)) {
-			throw new ValidationError(apiCopy("apiCopy.invalid.backuptype.d98f6f5a", { v0: String(input.backupType) }));
-		}
-		data.backupType = input.backupType;
-	}
-	if (input.paths !== undefined) data.paths = input.paths.map((path) => path.trim()).filter(Boolean);
-	if (input.note !== undefined) data.note = input.note.trim() || null;
-	if (input.retentionDays !== undefined) {
-		validateVpsRetentionDays(input.retentionDays);
-		data.retentionDays = input.retentionDays;
-	}
-	if (input.status !== undefined) {
-		if (!VPS_BACKUP_SCHEDULE_STATUSES.includes(input.status)) {
-			throw new ValidationError(t("backend.backup.statusInvalid"));
-		}
-		data.status = input.status;
-	}
-
-	const nextType = (data.backupType as string | undefined) ?? existing.backupType;
-	const nextPaths = (data.paths as string[] | undefined) ?? existing.paths;
-	if (nextType === "custom" && nextPaths.length === 0) {
-		throw new ValidationError(t("vpsBackupApi.errorCustomPathsRequired"));
-	}
-	if (nextType === "custom") assertCustomBackupPaths(nextPaths);
-
-	if (input.claimOwnership && actorUserId) data.createdById = actorUserId;
-
-	const nextStatus = (data.status as VpsBackupScheduleStatus | undefined) ?? (existing.status as VpsBackupScheduleStatus);
-	if (nextStatus !== "ACTIVE") {
-		// A paused schedule must never remain eligible for a delayed worker tick.
-		data.nextRunAt = null;
-	} else if (input.cronExpression !== undefined || existing.status !== "ACTIVE") {
-		data.nextRunAt = computeNextRun(
-			(data.cronExpression as string | undefined) ?? existing.cronExpression,
-		);
-	}
-
-	return prisma.vpsBackupSchedule.update({ where: { id, serverId }, data });
 }
 
 export async function deleteVpsBackupSchedule(

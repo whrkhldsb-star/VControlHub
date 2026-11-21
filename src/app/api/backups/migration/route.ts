@@ -54,7 +54,8 @@ export async function POST(request: Request) {
           packageRelativeDir: result.packageRelativeDir,
           manifestRelativePath: result.manifestRelativePath,
           payloadRelativePath: result.payloadRelativePath,
-          tarballRelativePath: `${result.packageRelativeDir}.tar.gz`,
+          // Older clients infer a tar filename for null or missing fields.
+          tarballRelativePath: result.tarballRelativePath ?? "",
           manifest: result.manifest,
         });
       }

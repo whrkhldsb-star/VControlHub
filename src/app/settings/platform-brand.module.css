@@ -1,0 +1,8 @@
+.customLogo :is([data-app-sidebar], [data-topbar]) a[href="/dashboard"] > span[aria-hidden="true"]:first-child {
+	background: var(--platform-logo) center / contain no-repeat;
+	box-shadow: none;
+}
+
+.customLogo :is([data-app-sidebar], [data-topbar]) a[href="/dashboard"] > span[aria-hidden="true"]:first-child > svg {
+	visibility: hidden;
+}
