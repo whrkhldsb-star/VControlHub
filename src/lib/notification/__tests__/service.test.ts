@@ -10,6 +10,7 @@ const { prismaMock, pushUnreadCountMock, pushNotificationMock } = vi.hoisted(() 
       deleteMany: vi.fn(),
     },
     user: {
+      findUnique: vi.fn(),
       findMany: vi.fn(),
     },
     // readUnreadCount: one statement returning the count and its read time.
@@ -25,17 +26,62 @@ vi.mock("@/lib/ws/notification-ws", () => ({
   pushUnreadCount: pushUnreadCountMock,
 }));
 
-const { announceStoredNotifications, markAsRead, markAllAsRead, deleteNotification, notificationContentData, notifyCommandPending } = await import("../service");
+const { announceStoredNotifications, listUserNotifications, getUnreadCount, readUnreadCount, markAsRead, markAllAsRead, deleteNotification, notificationContentData, notifyCommandPending } = await import("../service");
 const { setBackgroundCopyLocale } = await import("@/lib/i18n/api-copy");
+
+const customer = { userId: "u_1", roles: [], currentTeamId: "team_a" };
+const announcement = { teamId: null, type: "announcement" };
+const customerWhere = { userId: "u_1", OR: [{ teamId: "team_a" }, announcement] };
 
 describe("notification service state synchronization", () => {
   beforeEach(() => {
     vi.clearAllMocks();
     prismaMock.notification.count.mockResolvedValue(0);
+    prismaMock.user.findUnique.mockResolvedValue({
+      roles: [], teamMembership: { teamId: "team_a", team: { deletedAt: null } },
+    });
     let readAt = 0;
-    prismaMock.$queryRaw.mockImplementation(async (_sql: TemplateStringsArray, userId: string) => [
-      { count: await prismaMock.notification.count({ where: { userId, isRead: false } }), asOfUs: BigInt(++readAt) },
+    prismaMock.$queryRaw.mockImplementation(async (_sql: TemplateStringsArray, inbox: { values: string[] }) => [
+      { count: await prismaMock.notification.count({ where: { userId: inbox.values[0], isRead: false } }), asOfUs: BigInt(++readAt) },
     ]);
+  });
+
+  it("applies the same customer and explicit announcement predicate to reads and every mutation", async () => {
+    prismaMock.notification.updateMany.mockResolvedValue({ count: 1 });
+    prismaMock.notification.deleteMany.mockResolvedValue({ count: 1 });
+    await listUserNotifications(customer);
+    await getUnreadCount(customer);
+    expect(prismaMock.notification.findMany).toHaveBeenCalledWith(expect.objectContaining({ where: customerWhere }));
+    expect(prismaMock.notification.count).toHaveBeenCalledWith({ where: { ...customerWhere, isRead: false } });
+    await markAsRead("one", customer);
+    await markAllAsRead(customer);
+    await deleteNotification("two", customer);
+    expect(prismaMock.notification.updateMany).toHaveBeenCalledWith({ where: { ...customerWhere, id: "one" }, data: { isRead: true } });
+    expect(prismaMock.notification.updateMany).toHaveBeenCalledWith({ where: { ...customerWhere, isRead: false }, data: { isRead: true } });
+    expect(prismaMock.notification.deleteMany).toHaveBeenCalledWith({ where: { ...customerWhere, id: "two" } });
+  });
+
+  it("scopes id-only page and socket reads to live membership, including after a transfer", async () => {
+    prismaMock.user.findUnique.mockResolvedValue({ roles: [], teamMembership: { teamId: "team_b", team: { deletedAt: null } } });
+    await listUserNotifications("u_1");
+    expect(prismaMock.notification.findMany).toHaveBeenCalledWith(expect.objectContaining({
+      where: { userId: "u_1", OR: [{ teamId: "team_b" }, announcement] },
+    }));
+    await readUnreadCount("u_1");
+    const [query, inbox] = prismaMock.$queryRaw.mock.calls.at(-1)!;
+    expect(query.join("?")).toContain('AND n."isRead" = false');
+    expect(inbox.values).toEqual(["u_1", "announcement"]);
+    expect(inbox.text).toContain('n."teamId" = t.id');
+    expect(inbox.text).toContain('n."teamId" IS NULL AND n.type = $2');
+  });
+
+  it("limits unassigned customers to announcements and lets admins read their whole inbox", async () => {
+    await listUserNotifications({ ...customer, currentTeamId: null });
+    expect(prismaMock.notification.findMany).toHaveBeenLastCalledWith(expect.objectContaining({
+      where: { userId: "u_1", OR: [announcement] },
+    }));
+    await listUserNotifications({ ...customer, roles: ["admin"] });
+    expect(prismaMock.notification.findMany).toHaveBeenLastCalledWith(expect.objectContaining({ where: { userId: "u_1" } }));
   });
 
   it("pushes unread counts only after mark-as-read persistence completes", async () => {
@@ -46,7 +92,7 @@ describe("notification service state synchronization", () => {
     prismaMock.notification.updateMany.mockReturnValueOnce(updatePromise);
     prismaMock.notification.count.mockResolvedValueOnce(3);
 
-    const resultPromise = markAsRead("n_1", "u_1");
+    const resultPromise = markAsRead("n_1", customer);
     await Promise.resolve();
 
     expect(prismaMock.notification.count).not.toHaveBeenCalled();
@@ -64,7 +110,7 @@ describe("notification service state synchronization", () => {
   it("rejects mark-as-read when the notification does not belong to the user", async () => {
     prismaMock.notification.updateMany.mockResolvedValueOnce({ count: 0 });
 
-    await expect(markAsRead("n_missing", "u_1")).rejects.toThrow("通知不存在或无权访问");
+    await expect(markAsRead("n_missing", customer)).rejects.toThrow("通知不存在或无权访问");
     expect(prismaMock.notification.count).not.toHaveBeenCalled();
     expect(pushUnreadCountMock).not.toHaveBeenCalled();
   });
@@ -76,7 +122,7 @@ describe("notification service state synchronization", () => {
     });
     prismaMock.notification.updateMany.mockReturnValueOnce(updatePromise);
 
-    const resultPromise = markAllAsRead("u_1");
+    const resultPromise = markAllAsRead(customer);
     await Promise.resolve();
 
     expect(pushUnreadCountMock).not.toHaveBeenCalled();
@@ -91,7 +137,7 @@ describe("notification service state synchronization", () => {
     // "0" overwrote the badge that had just announced it.
     prismaMock.notification.updateMany.mockResolvedValueOnce({ count: 1 });
     prismaMock.notification.count.mockResolvedValueOnce(1);
-    await markAllAsRead("u_1");
+    await markAllAsRead(customer);
     expect(prismaMock.notification.count).toHaveBeenCalledWith({ where: { userId: "u_1", isRead: false } });
     expect(pushUnreadCountMock).toHaveBeenLastCalledWith("u_1", 1, expect.any(Number));
   });
@@ -104,7 +150,7 @@ describe("notification service state synchronization", () => {
     prismaMock.notification.deleteMany.mockReturnValueOnce(deletePromise);
     prismaMock.notification.count.mockResolvedValueOnce(2);
 
-    const resultPromise = deleteNotification("n_1", "u_1");
+    const resultPromise = deleteNotification("n_1", customer);
     await Promise.resolve();
 
     expect(prismaMock.notification.count).not.toHaveBeenCalled();
@@ -118,7 +164,7 @@ describe("notification service state synchronization", () => {
   it("rejects delete when the notification does not belong to the user", async () => {
     prismaMock.notification.deleteMany.mockResolvedValueOnce({ count: 0 });
 
-    await expect(deleteNotification("n_missing", "u_1")).rejects.toThrow("通知不存在或无权访问");
+    await expect(deleteNotification("n_missing", customer)).rejects.toThrow("通知不存在或无权访问");
     expect(prismaMock.notification.count).not.toHaveBeenCalled();
     expect(pushUnreadCountMock).not.toHaveBeenCalled();
   });
@@ -180,6 +226,7 @@ describe("notification service state synchronization", () => {
     const row = (id: string, userId: string) => ({
       id,
       userId,
+      type: "ticket_escalation",
       title: `title ${id}`,
       message: `message ${id}`,
       messageCode: "ticketSlaEscalated",
@@ -187,6 +234,17 @@ describe("notification service state synchronization", () => {
       actionUrl: `/tickets/${id}`,
       teamId: "team_a",
       createdAt: at,
+    });
+
+    it("publishes only the current customer's rows and explicitly public announcements", async () => {
+      await announceStoredNotifications([
+        row("current", "u1"),
+        { ...row("former", "u1"), teamId: "team_b" },
+        { ...row("private", "u1"), teamId: null, type: "system" },
+        { ...row("broadcast", "u1"), teamId: null, type: "announcement" },
+        { ...row("foreign-announcement", "u1"), teamId: "team_b", type: "announcement" },
+      ]);
+      expect(pushNotificationMock.mock.calls.map(([, notice]) => notice.id)).toEqual(["current", "broadcast"]);
     });
 
     it("announces every row, and each recipient's unread count once", async () => {

@@ -325,6 +325,7 @@ export async function evaluateAlerts(options?: { ruleWhere?: Record<string, unkn
               playbookId,
               dryRun: false,
               sourceAlertTeamId: rule.teamId ?? null,
+              sourceAlertServerId: server.serverId,
               triggerContext: {
                 type: "alert_rule",
                 alertRuleId: rule.id,

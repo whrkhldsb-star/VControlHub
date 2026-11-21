@@ -1,4 +1,5 @@
 import { beforeEach, expect, it, vi } from "vitest";
+import { ForbiddenError } from "@/lib/errors";
 
 const { mocks } = vi.hoisted(() => ({
   mocks: {
@@ -13,13 +14,12 @@ const { mocks } = vi.hoisted(() => ({
 }));
 
 vi.mock("@/lib/command/service", () => ({ createCommandRequest: mocks.createCommandRequest }));
+vi.mock("@/lib/notification/service", () => ({ createNotification: mocks.notificationCreate }));
 vi.mock("@/lib/job/events", () => ({ recordJobEvent: mocks.recordJobEvent }));
 vi.mock("@/lib/db", () => ({
   prisma: {
-    notification: { create: mocks.notificationCreate },
     playbookRun: { updateMany: mocks.playbookRunUpdateMany },
     commandRequest: { findUnique: mocks.commandRequestFindUnique },
-    commandTarget: { count: vi.fn(async () => 0) },
     teamMember: { findUnique: mocks.teamMemberFindUnique },
   },
 }));
@@ -57,6 +57,23 @@ function buildPlaybook(steps: PlaybookRecord["steps"]): PlaybookRecord {
   };
 }
 
+const effects: PlaybookRecord["steps"] = [
+  { id: "cmd", type: "run_command", name: "cmd", config: { command: "pwd", serverIds: ["server"] }, timeoutSec: 30, retry: 2 },
+  { id: "msg", type: "send_notification", name: "msg", config: { recipientUserId: "u", subject: "subject", body: "body" }, timeoutSec: 30, retry: 2 },
+  { id: "hook", type: "call_webhook", name: "hook", config: { url: "https://example.invalid/test", method: "POST" }, timeoutSec: 30, retry: 2 },
+];
+
+it.each(effects)("checks authorization immediately before $type and stops on revocation", async (step) => {
+  const beforeDispatch = vi.fn().mockResolvedValueOnce(undefined).mockRejectedValue(new ForbiddenError());
+  const { results } = await executePlaybookChain({
+    playbook: buildPlaybook([step]), runId: "demoted", requesterId: "u", teamId: null, dryRun: false, beforeDispatch,
+  });
+  expect(results[0]?.status).toBe("failed");
+  expect(beforeDispatch).toHaveBeenCalledTimes(2);
+  expect(mocks.createCommandRequest).not.toHaveBeenCalled();
+  expect(mocks.notificationCreate).not.toHaveBeenCalled();
+  expect(mocks.fetchWebhookSafely).not.toHaveBeenCalled();
+});
 
 it("propagates lost lease without persisting progress or dispatching later steps", async () => {
   const { LeaseLostError } = await import("@/lib/job/heartbeat-runner");

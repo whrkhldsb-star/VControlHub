@@ -4,6 +4,7 @@ import { NextResponse } from "next/server";
 import { withApiRoute } from "@/lib/http/api-guard";
 import { GENERAL_READ_LIMIT } from "@/lib/http/rate-limit-presets";
 import { requirePlaybookId } from "@/lib/playbook/route-params";
+import { PLAYBOOK_SERVER_READ_PERMISSION } from "@/lib/playbook/permissions";
 import { listPlaybookRuns } from "@/lib/playbook/service";
 
 export const dynamic = "force-dynamic";
@@ -13,7 +14,7 @@ type Context = { params: Promise<{ id?: string }> };
 export async function GET(request: Request, { params }: Context) {
   return withApiRoute(
     request,
-    { permission: "playbook:read", rateLimit: GENERAL_READ_LIMIT, errorMessage: apiCopy("apiCopy.failed.to.load.playbook.runs.4443c703") },
+    { permission: "playbook:read", optionalTokenPermissions: [PLAYBOOK_SERVER_READ_PERMISSION], rateLimit: GENERAL_READ_LIMIT, errorMessage: apiCopy("apiCopy.failed.to.load.playbook.runs.4443c703") },
     async ({ session }) => {
       const id = await requirePlaybookId(params);
       const runs = await listPlaybookRuns(id, session);

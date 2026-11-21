@@ -5,6 +5,8 @@
  */
 import { Prisma } from "@prisma/client";
 
+import { NotFoundError } from "@/lib/errors";
+import { t } from "@/lib/i18n/service-translations";
 import { enqueueJob } from "@/lib/job/service";
 
 import { playbookRetrySchema } from "./schema";
@@ -25,9 +27,20 @@ export async function queuePlaybookRunWithClient(input: {
   playbook: QueueablePlaybook;
   dryRun: boolean;
   triggerContext?: unknown;
+  sourceAlert?: { serverId?: string };
   triggerKey?: string | null;
   createdById?: string | null;
 }) {
+  if (input.sourceAlert && input.playbook.teamId !== null) {
+    // A platform rule may bind playbooks in several customers. Only the owner of the
+    // triggering host may receive this sample. Resolve ownership again at enqueue.
+    const context = input.triggerContext as { serverId?: unknown } | null;
+    const id = input.sourceAlert.serverId;
+    const host = id && context?.serverId === id && await input.client.server.findFirst({
+      where: { id, teamId: input.playbook.teamId }, select: { id: true },
+    });
+    if (!host) throw new NotFoundError(t("backend.alert.oneOrMoreServeridsAreOutsideTheCurrent"));
+  }
   const triggerKey = input.triggerKey?.trim() || null;
   if (triggerKey) {
     const existing = await input.client.playbookRun.findFirst({

@@ -158,6 +158,7 @@ describe("evaluateCapacityLinkedAlerts", () => {
     expect(runPlaybookMock).toHaveBeenCalledExactlyOnceWith(expect.objectContaining({
       playbookId: "pb1",
       sourceAlertTeamId: "team1",
+      sourceAlertServerId: "s1",
       triggerContext: expect.objectContaining({ type: "capacity_forecast", serverId: "s1" }),
     }));
     expect(openOrRefreshMock).toHaveBeenCalledWith(

@@ -310,6 +310,7 @@ export async function evaluateCapacityLinkedAlerts(
             playbookId,
             dryRun: false,
             sourceAlertTeamId: rule.teamId ?? null,
+            sourceAlertServerId: server.serverId,
             triggerContext: {
               type: "capacity_forecast",
               alertRuleId: rule.id,

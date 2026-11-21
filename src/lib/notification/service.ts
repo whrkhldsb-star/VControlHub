@@ -1,3 +1,4 @@
+import { isGlobalTeamManager, type TeamSession } from "@/lib/auth/team-scope";
 import { prisma } from "@/lib/db";
 import { pushNotification, pushUnreadCount } from "@/lib/ws/notification-ws";
 import { createLogger } from "@/lib/logging";
@@ -8,11 +9,15 @@ import { t } from "@/lib/i18n/service-translations";
 import { renderNotificationFallback, type NotificationMessage } from "./message";
 import { permissionHoldersWhere } from "@/lib/auth/permission-holders";
 
+import { currentRecipient, inboxWhere, PLATFORM_ANNOUNCEMENT, pushPayload, readUnreadCount, type StoredNotification } from "./inbox";
+export { getUnreadCount, listUserNotifications, readUnreadCount, STORED_NOTIFICATION_SELECT, type StoredNotification } from "./inbox";
+
 const logger = createLogger("notification:service");
 
 /* ── Types ────────────────────────────────────────────────── */
 
 export type NotificationType =
+	| typeof PLATFORM_ANNOUNCEMENT
 	| "command_pending"
 	| "command_approved"
 	| "command_rejected"
@@ -46,7 +51,7 @@ export type CreateNotificationInput = NotificationContent & {
 	userId: string;
 	type: NotificationType;
 	actionUrl?: string;
-	/** Optional multi-tenant stamp (null = shared/legacy). */
+	/** A null stamp is private to administrators except for explicit platform announcements. */
 	teamId?: string | null;
 };
 
@@ -66,34 +71,6 @@ export function notificationContentData(content: NotificationContent) {
 		messageParams: content.notice?.params ?? undefined,
 	};
 }
-
-/** A stored notification row: as much of it as the recipient's open pages are told. */
-export type StoredNotification = {
-	id: string;
-	userId: string;
-	title: string;
-	message: string;
-	messageCode: string | null;
-	messageParams: unknown;
-	actionUrl: string | null;
-	teamId: string | null;
-	createdAt: Date;
-};
-
-/** The columns of a `StoredNotification`, for a `select`. */
-export const STORED_NOTIFICATION_SELECT = {
-	id: true,
-	userId: true,
-	title: true,
-	message: true,
-	messageCode: true,
-	messageParams: true,
-	actionUrl: true,
-	teamId: true,
-	createdAt: true,
-} as const;
-
-/* ── CRUD ─────────────────────────────────────────────────── */
 
 export async function createNotification(input: CreateNotificationInput) {
 	const record = await prisma.notification.create({
@@ -130,17 +107,14 @@ export async function announceStoredNotifications(records: readonly StoredNotifi
 	for (const [userId, rows] of byRecipient) {
 		try {
 			await timeDelivery("in_app_ws", async () => {
+				const recipient = await currentRecipient(userId);
+				if (!recipient) return;
 				for (const row of rows) {
-					pushNotification(userId, {
-						id: row.id,
-						title: row.title,
-						message: row.message,
-						messageCode: row.messageCode,
-						messageParams: row.messageParams,
-						actionUrl: row.actionUrl,
-						teamId: row.teamId,
-						createdAt: row.createdAt.toISOString(),
-					});
+					const visible = row.teamId === null
+						? row.type === PLATFORM_ANNOUNCEMENT
+						: row.teamId === recipient.currentTeamId;
+					if (!visible && !isGlobalTeamManager(recipient)) continue;
+					pushNotification(userId, pushPayload(row));
 				}
 				await pushCurrentUnreadCount(userId);
 			});
@@ -150,49 +124,14 @@ export async function announceStoredNotifications(records: readonly StoredNotifi
 	}
 }
 
-export async function listUserNotifications(userId: string, opts?: { unreadOnly?: boolean; limit?: number; skip?: number }) {
-	return prisma.notification.findMany({
-		where: {
-			userId,
-			...(opts?.unreadOnly ? { isRead: false } : {}),
-		},
-		// The id breaks createdAt ties, so offset pages neither repeat nor skip.
-		orderBy: [{ createdAt: "desc" }, { id: "desc" }],
-		take: opts?.limit ?? 50,
-		...(opts?.skip && opts.skip > 0 ? { skip: opts.skip } : {}),
-		// Administrators receive notifications from every customer; name the source.
-		include: { team: { select: { name: true } } },
-	});
-}
-
-export async function getUnreadCount(userId: string): Promise<number> {
-	return prisma.notification.count({
-		where: { userId, isRead: false },
-	});
-}
-
-/**
- * The unread count with the moment its counting statement started, in
- * microseconds of database time. Counts are pushed from several places and
- * processes (the web server, the worker through the notification bus) and
- * can arrive out of order: a count read earlier must not replace one read
- * later, so the browser keeps the newest by this stamp.
- */
-export async function readUnreadCount(userId: string): Promise<{ count: number; asOfUs: number }> {
-	const [row] = await prisma.$queryRaw<Array<{ count: number; asOfUs: bigint }>>`
-		SELECT count(*)::int AS count, (extract(epoch FROM statement_timestamp()) * 1000000)::bigint AS "asOfUs"
-		FROM notifications WHERE "userId" = ${userId} AND "isRead" = false`;
-	return { count: row?.count ?? 0, asOfUs: Number(row?.asOfUs ?? 0) };
-}
-
 async function pushCurrentUnreadCount(userId: string) {
 	const { count, asOfUs } = await readUnreadCount(userId);
 	pushUnreadCount(userId, count, asOfUs);
 }
 
-export async function markAsRead(notificationId: string, userId: string) {
+export async function markAsRead(notificationId: string, session: TeamSession) {
 	const result = await prisma.notification.updateMany({
-		where: { id: notificationId, userId },
+		where: { ...inboxWhere(session), id: notificationId },
 		data: { isRead: true },
 	});
 	if (result.count === 0) {
@@ -200,38 +139,38 @@ export async function markAsRead(notificationId: string, userId: string) {
 	}
 	// Push updated unread count after marking as read (best-effort; DB already committed)
 	try {
-		await pushCurrentUnreadCount(userId);
+		await pushCurrentUnreadCount(session.userId);
 	} catch (err) {
 		logger.warn("WS unread push failed after markAsRead", err);
 	}
 	return result;
 }
 
-export async function markAllAsRead(userId: string) {
+export async function markAllAsRead(session: TeamSession) {
 	const result = await prisma.notification.updateMany({
-		where: { userId, isRead: false },
+		where: { ...inboxWhere(session), isRead: false },
 		data: { isRead: true },
 	});
 	// The count as it is now, not 0: a notification created while the update
 	// ran is still unread, and a late "0" overwrote its badge.
 	try {
-		await pushCurrentUnreadCount(userId);
+		await pushCurrentUnreadCount(session.userId);
 	} catch (err) {
 		logger.warn("WS unread push failed after markAllAsRead", err);
 	}
 	return result;
 }
 
-export async function deleteNotification(notificationId: string, userId: string) {
+export async function deleteNotification(notificationId: string, session: TeamSession) {
 	const result = await prisma.notification.deleteMany({
-		where: { id: notificationId, userId },
+		where: { ...inboxWhere(session), id: notificationId },
 	});
 	if (result.count === 0) {
 		throw new NotFoundError(t("backend.notification.notificationNotFoundOrForbidden"));
 	}
 	// Push updated unread count after deletion (best-effort; DB already committed)
 	try {
-		await pushCurrentUnreadCount(userId);
+		await pushCurrentUnreadCount(session.userId);
 	} catch (err) {
 		logger.warn("WS unread push failed after deleteNotification", err);
 	}

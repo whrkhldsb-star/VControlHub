@@ -21,6 +21,8 @@ const { mocks } = vi.hoisted(() => ({
     executeRaw: vi.fn(async () => 0),
     auditUserAction: vi.fn(),
     serverFindMany: vi.fn(),
+    serverFindFirst: vi.fn(),
+    queryRaw: vi.fn(),
     teamMemberFindUnique: vi.fn(),
     userFindUnique: vi.fn(),
     acquireAdvisoryLock: vi.fn(),
@@ -46,12 +48,13 @@ vi.mock("@/lib/db", () => ({
     teamMember: { findUnique: mocks.teamMemberFindUnique },
     user: { findUnique: mocks.userFindUnique },
     $transaction: mocks.transaction,
+    $queryRaw: mocks.queryRaw,
   },
 }));
 vi.mock("@/lib/audit/service", () => ({ auditUserAction: mocks.auditUserAction }));
 vi.mock("@/lib/concurrency/advisory-lock", () => ({ acquireAdvisoryLock: mocks.acquireAdvisoryLock }));
 
-import { createPlaybook, deletePlaybook, getPlaybook, listPlaybookRuns, listPlaybooks, runPlaybook, updatePlaybook } from "../service";
+import { createPlaybook, deletePlaybook, getPlaybook, getPlaybookRun, listPlaybookRuns, listRecentPlaybookRunsForPlaybooks, listPlaybooks, runPlaybook, updatePlaybook } from "../service";
 
 const date = new Date("2026-01-01T00:00:00Z");
 const baseRow = {
@@ -103,6 +106,7 @@ describe("playbook service", () => {
       playbook: { deleteMany: mocks.playbookDeleteMany, findFirst: mocks.playbookFindFirst, updateMany: mocks.playbookUpdateMany },
       alertRule: { findFirst: mocks.alertRuleFindFirst },
       playbookRun: { create: mocks.runCreate, update: mocks.runUpdate },
+      server: { findFirst: mocks.serverFindFirst },
       job: { create: mocks.jobCreate },
       jobEvent: { create: mocks.jobEventCreate },
       $executeRaw: mocks.executeRaw,
@@ -490,15 +494,99 @@ describe("playbook service", () => {
     expect(mocks.jobCreate).not.toHaveBeenCalled();
   });
 
-  it("queues a same-customer playbook from a customer alert", async () => {
+  it.each(["team1", null])("queues a same-host-customer playbook from rule team %s", async (sourceAlertTeamId) => {
+    mocks.serverFindFirst.mockResolvedValue({ id: "srv1" });
     mocks.playbookFindFirst.mockResolvedValue(baseRow);
     mocks.runCreate.mockResolvedValue(queuedRun);
     mocks.runUpdate.mockResolvedValue({ ...queuedRun, jobId: "job-1" });
     mocks.jobCreate.mockResolvedValue({ id: "job-1" });
     mocks.jobEventCreate.mockResolvedValue({ id: "event-1" });
 
-    await expect(runPlaybook({ playbookId: "pb1", dryRun: false, sourceAlertTeamId: "team1" })).resolves.toMatchObject({ status: "queued" });
+    await expect(runPlaybook({
+      playbookId: "pb1", dryRun: false, sourceAlertTeamId, sourceAlertServerId: "srv1",
+      triggerContext: { type: "alert_rule", serverId: "srv1" },
+    })).resolves.toMatchObject({ status: "queued" });
+    expect(mocks.serverFindFirst).toHaveBeenCalledWith({ where: { id: "srv1", teamId: "team1" }, select: { id: true } });
     expect(mocks.jobCreate).toHaveBeenCalledWith({ data: expect.objectContaining({ teamId: "team1" }) });
+  });
+
+  it.each(["alert_rule", "capacity_forecast"])("rejects platform %s data from another customer's host at enqueue", async (type) => {
+    mocks.playbookFindFirst.mockResolvedValue(baseRow);
+    mocks.serverFindFirst.mockResolvedValue(null);
+    const run = { playbookId: "pb1", dryRun: false, sourceAlertTeamId: null,
+      triggerContext: { type, serverId: "foreign", value: 97 } };
+    for (const sourceAlertServerId of ["foreign", "substitute", undefined]) {
+      await expect(runPlaybook({ ...run, sourceAlertServerId })).rejects.toMatchObject({ name: "NotFoundError" });
+    }
+    expect(mocks.serverFindFirst).toHaveBeenCalledExactlyOnceWith({ where: { id: "foreign", teamId: "team1" }, select: { id: true } });
+    expect(mocks.runCreate).not.toHaveBeenCalled();
+  });
+
+  it("uses the reader's current host grants on old and new alert, capacity and metric history", async () => {
+    const session = { userId: "u1", roles: ["operator" as const], currentTeamId: "team1" };
+    const contexts = [
+      { type: "alert_rule", serverId: "moved", serverName: "old host", value: 97 },
+      { type: "capacity_forecast", serverId: "denied", serverName: "restricted host", value: 7 },
+      { type: "metric", readings: [{ serverId: "allowed", value: 12 }, { serverId: "denied", value: 98 }] },
+      { type: "alert_rule", serverId: "allowed", serverName: "visible host", value: 33 },
+    ];
+    const rows = contexts.map((triggerContext, index) => ({ ...queuedRun, id: String(index), triggerContext }));
+    mocks.playbookFindFirst.mockResolvedValue(baseRow);
+    mocks.runFindMany.mockResolvedValue(rows);
+    mocks.queryRaw.mockResolvedValue(rows);
+    mocks.runFindFirst.mockResolvedValue(rows[0]);
+    mocks.serverFindMany.mockResolvedValue([{ id: "allowed" }]);
+    const expected = [null, null, { type: "metric", readings: [{ serverId: "allowed", value: 12 }] }, contexts[3]];
+    expect((await listPlaybookRuns("pb1", session)).map((run) => run.triggerContext)).toEqual(expected);
+    expect(mocks.serverFindMany).toHaveBeenCalledExactlyOnceWith({
+      where: expect.objectContaining({
+        id: { in: ["moved", "denied", "allowed"] },
+        AND: [{ teamId: "team1" }, { OR: [{ userAccess: { none: { userId: "u1" } } }, { userAccess: { some: { userId: "u1", canRead: true } } }] }],
+      }), select: { id: true },
+    });
+    expect((await listRecentPlaybookRunsForPlaybooks(["pb1"], session)).pb1?.map((r) => r.triggerContext)).toEqual(expected);
+    expect((await getPlaybookRun("0", session))?.triggerContext).toBeNull();
+    expect((await listPlaybookRuns("pb1", { ...session, permissions: ["playbook:read"] })).map((r) => r.triggerContext))
+      .toEqual([null, null, { type: "metric", readings: [] }, null]);
+  });
+
+  it("only exposes recognized host details from malformed historical trigger contexts", async () => {
+    const session = { userId: "u1", roles: ["operator" as const], currentTeamId: "team1" };
+    mocks.playbookFindFirst.mockResolvedValue(baseRow);
+    mocks.serverFindMany.mockResolvedValue([{ id: "allowed" }]);
+    const contexts = [
+      "private-host", ["private-host"], { type: "metric", readings: { "private-host": 98 }, other: "private-host" },
+      { type: "metric", readings: [null, { serverId: "allowed", value: 10, extra: { serverName: "private-host" } }] },
+      { type: "unknown", serverName: "private-host" },
+    ];
+    mocks.runFindMany.mockResolvedValue(contexts.map((triggerContext) => ({ ...queuedRun, triggerContext })));
+    const runs = await listPlaybookRuns("pb1", session);
+    expect(runs.map((r) => r.triggerContext)).toEqual([
+      null, null, { type: "metric", readings: [] }, { type: "metric", readings: [{ serverId: "allowed", value: 10 }] }, null,
+    ]);
+  });
+
+  it("redacts receipts and parent errors on every history read, including rows without a step snapshot", async () => {
+    const session = { userId: "u1", roles: ["operator" as const], currentTeamId: "team1" };
+    const url = "https://example.org/private-token?key=secret";
+    const hook = { id: "s1", type: "call_webhook", config: { url, method: "POST" } };
+    const failed = { stepId: "s1", status: "failed", httpStatus: 403, error: url, summary: url, responseBody: url };
+    const row = { ...queuedRun, errorMessage: url, stepResults: [failed], executionState: { schemaVersion: 1, stepsSnapshot: [hook] } };
+    const legacy = { ...row, executionState: null, stepResults: [
+      null, 19, { status: url }, { ...failed, stepId: "missing", completedAt: url },
+    ] };
+    mocks.playbookFindFirst.mockResolvedValue(baseRow); // definition has since changed to a command
+    mocks.runFindMany.mockResolvedValue([row, legacy]);
+    mocks.runFindFirst.mockResolvedValue(row);
+    mocks.queryRaw.mockResolvedValue([row, legacy]);
+    const history = await listPlaybookRuns("pb1", session);
+    expect(history[0]).toMatchObject({ errorMessage: "webhook step s1 POST example.org: HTTP 403", stepResults: [{
+      stepId: "s1", status: "failed", error: "webhook step s1 POST example.org: HTTP 403", summary: "",
+    }] });
+    expect(history[1]).toMatchObject({ errorMessage: "failed", stepResults: [{ error: "failed" }] });
+    for (const result of [history, await getPlaybookRun(row.id, session), await listRecentPlaybookRunsForPlaybooks(["pb1"], session)]) {
+      expect(JSON.stringify(result)).not.toMatch(/private-token|key=secret|responseBody/);
+    }
   });
 
   it("atomically persists a queued run and durable parent job", async () => {

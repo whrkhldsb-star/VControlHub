@@ -20,7 +20,7 @@ type PlaybookRouteContext = { params: Promise<{ id?: string }> };
 export async function GET(request: Request, { params }: PlaybookRouteContext) {
   return withApiRoute(
     request,
-    { permission: "playbook:read", rateLimit: GENERAL_READ_LIMIT, errorStatus: 500, errorMessage: apiCopy("apiCopy.server.error.dfe0c2e8") },
+    { permission: "playbook:read", optionalTokenPermissions: ["playbook:manage"], rateLimit: GENERAL_READ_LIMIT, errorStatus: 500, errorMessage: apiCopy("apiCopy.server.error.dfe0c2e8") },
     async ({ session }) => {
       const id = await requirePlaybookId(params);
       const playbook = await getPlaybook(id, session);

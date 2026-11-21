@@ -19,7 +19,7 @@ vi.mock("@/lib/db", () => ({
 	prisma: {
 		playbookRun: { updateMany: mocks.playbookRunUpdateMany },
 		commandRequest: { findUnique: mocks.commandRequestFindUnique },
-		commandTarget: { count: vi.fn(async () => 0) },
+		commandTarget: { findMany: vi.fn(async () => [{ status: "FAILED", outcomeUnknown: false }]) },
 		teamMember: { findUnique: mocks.teamMemberFindUnique },
 	},
 }));

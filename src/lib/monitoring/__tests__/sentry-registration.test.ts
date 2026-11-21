@@ -14,10 +14,10 @@ import { afterEach, beforeEach, describe, expect, it, vi } from "vitest";
  * and command output. Only on-error replay is enabled, and only when a DSN is
  * present.
  */
-const mocks = vi.hoisted(() => ({ init: vi.fn(), httpIntegration: vi.fn(), browserTracingIntegration: vi.fn() }));
+const mocks = vi.hoisted(() => ({ init: vi.fn(), httpIntegration: vi.fn(), nativeNodeFetchIntegration: vi.fn(), browserTracingIntegration: vi.fn() }));
 
 vi.mock("@sentry/react", () => ({ init: mocks.init, browserTracingIntegration: mocks.browserTracingIntegration }));
-vi.mock("@sentry/node", () => ({ init: mocks.init, httpIntegration: mocks.httpIntegration }));
+vi.mock("@sentry/node", () => ({ init: mocks.init, httpIntegration: mocks.httpIntegration, nativeNodeFetchIntegration: mocks.nativeNodeFetchIntegration }));
 
 const ENV_KEYS = [
 	"NEXT_RUNTIME",
@@ -133,6 +133,45 @@ describe("sentry registration", () => {
 			registerServerSentry();
 			expect(mocks.httpIntegration).toHaveBeenCalledWith({ disableIncomingRequestSpans: true });
 			expect(mocks.init.mock.calls[0]![0]).not.toHaveProperty("replaysOnErrorSampleRate");
+		});
+
+		it("sends only origins for outbound spans, breadcrumbs and errors across SDK hooks", async () => {
+			process.env.NEXT_RUNTIME = "nodejs";
+			process.env.SENTRY_DSN = "https://key@sentry.test/2";
+			const { registerServerSentry } = await import("../sentry.server");
+			registerServerSentry();
+			const hooks = mocks.init.mock.calls[0]![0];
+			const url = "https://user:SECRET@api.telegram.org/botSECRET/sendMessage?key=SECRET#SECRET";
+			const origin = "https://api.telegram.org";
+			const makeData = () => ({
+				url, "url.full": url, "http.url": url, "url.path": "/botSECRET/sendMessage",
+				"url.query": "token=SECRET", "http.query": "token=SECRET", "http.fragment": "#SECRET", "sentry.status.message": "invalid /SECRET", "http.status_text": url,
+				description: `POST ${url}`, status_code: 403,
+			});
+			const makeCrumb = () => ({ category: "http", message: `POST ${url}`, data: makeData() });
+			expect(hooks.beforeBreadcrumb(makeCrumb())).toEqual({
+				category: "http", message: origin,
+				data: { url: origin, "url.full": origin, "http.url": origin, description: origin, status_code: 403 },
+			});
+			for (const send of [hooks.beforeSend, hooks.beforeSendTransaction]) {
+				const result = send({
+					transaction: `POST ${url}`, message: `fetch failed at ${url}`, exception: { values: [{ value: url }] },
+					contexts: { trace: { op: "http.client", description: url, data: makeData() } },
+					spans: [
+						{ op: "http.client", description: `POST ${url}`, data: makeData(), status: "failed on /SECRET" },
+						{ op: "http.client", description: "POST /hooks/SECRET", data: { url: "/hooks/SECRET" } },
+						{ op: "db", description: "lookup", data: {} },
+					],
+					breadcrumbs: [makeCrumb()],
+				});
+				expect(JSON.stringify(result)).not.toContain("SECRET");
+				expect(result.spans.map((span: { description: string }) => span.description)).toEqual([origin, "HTTP request", "lookup"]);
+				expect(result.transaction).toBe(origin);
+			}
+			const span = { updateName: vi.fn(), setAttributes: vi.fn() };
+			mocks.nativeNodeFetchIntegration.mock.calls[0]![0].requestHook(span, { origin: url, path: "/SECRET" });
+			expect(span.updateName).toHaveBeenCalledWith(origin);
+			expect(span.setAttributes).toHaveBeenCalledWith({ "url.full": origin, "url.path": "", "url.query": "" });
 		});
 
 		it("does not initialise while Next builds production routes", async () => {

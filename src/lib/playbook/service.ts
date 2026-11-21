@@ -28,7 +28,6 @@ import type {
   PlaybookRecord,
   PlaybookRunRecord,
   PlaybookStep,
-  PlaybookStepResult,
   TriggerConfig,
   TriggerType,
 } from "./types";
@@ -39,6 +38,8 @@ import {
   normalizePlaybookCronExpression,
 } from "./trigger-utils";
 import { queuePlaybookRunWithClient } from "./run-queue";
+import { projectTriggerContexts } from "./trigger-context";
+import { projectWebhookConfig, redactRunHistory } from "./webhook-result";
 import { toJsonValue } from "@/lib/db/json";
 
 /**
@@ -127,12 +128,16 @@ function assertPlaybookCommandAuthoring(
   }
 }
 
-async function assertPlaybookStepsInScope(
+export async function assertPlaybookCommandStepsInScope(
   steps: PlaybookStep[],
   session?: TeamSession | null,
 ): Promise<void> {
   assertPlaybookCommandAuthoring(steps, session);
   await assertPlaybookCommandServersInScope(steps, session);
+}
+
+async function assertPlaybookStepsInScope(steps: PlaybookStep[], session?: TeamSession | null): Promise<void> {
+  await assertPlaybookCommandStepsInScope(steps, session);
   await assertPlaybookNotificationRecipientsInScope(steps, session);
 }
 
@@ -162,6 +167,7 @@ type RawPlaybookRun = {
   triggerContext: unknown;
   triggerKey: string | null;
   stepResults: unknown;
+  executionState: unknown;
   errorMessage: string | null;
   startedAt: Date | null;
   completedAt: Date | null;
@@ -195,16 +201,30 @@ function narrowPlaybook(row: RawPlaybook & { creator?: { status: string; mustCha
   };
 }
 
-function narrowPlaybookRun(row: RawPlaybookRun): PlaybookRunRecord {
+function projectPlaybook(playbook: PlaybookRecord, session?: TeamSession | null) {
+  if (session && sessionHasPermission(session, "playbook:manage")) return playbook;
+  return {
+    ...playbook,
+    steps: (Array.isArray(playbook.steps) ? playbook.steps : []).filter((step) => step?.type).map((step) => {
+      if (step.type !== "call_webhook") return step;
+      const config = projectWebhookConfig(step);
+      return {
+        id: step.id, name: /https?:\/\//i.test(step.name) ? `${config.method} ${config.host}` : step.name,
+        type: step.type, retry: step.retry, timeoutSec: step.timeoutSec, config,
+      };
+    }),
+  };
+}
+
+function narrowPlaybookRun(row: RawPlaybookRun, triggerContext = row.triggerContext): PlaybookRunRecord {
   return {
     id: row.id,
     playbookId: row.playbookId,
     status: row.status as PlaybookRunRecord["status"],
     dryRun: row.dryRun,
-    triggerContext: row.triggerContext,
+    triggerContext,
     triggerKey: row.triggerKey,
-    stepResults: (row.stepResults ?? []) as PlaybookStepResult[],
-    errorMessage: row.errorMessage,
+    ...redactRunHistory(row.executionState, row.stepResults, row.errorMessage),
     startedAt: row.startedAt,
     completedAt: row.completedAt,
     createdById: row.createdById,
@@ -213,7 +233,7 @@ function narrowPlaybookRun(row: RawPlaybookRun): PlaybookRunRecord {
   };
 }
 
-export async function listPlaybooks(session?: TeamSession): Promise<PlaybookRecord[]> {
+export async function listPlaybooks(session?: TeamSession) {
   const where = session ? { ...playbookTeamWhere(session) } : {};
   const rows = await prisma.playbook.findMany({
     where,
@@ -221,10 +241,10 @@ export async function listPlaybooks(session?: TeamSession): Promise<PlaybookReco
     take: 500, // P2: playbook 总数有限
     include: { creator: { select: { status: true, mustChangePassword: true } } },
   });
-  return rows.map((row) => narrowPlaybook(row));
+  return rows.map((row) => projectPlaybook(narrowPlaybook(row), session));
 }
 
-export async function getPlaybook(
+async function getPlaybookDefinition(
   id: string,
   session?: TeamSession | null,
 ): Promise<PlaybookRecord | null> {
@@ -234,11 +254,20 @@ export async function getPlaybook(
   return row ? narrowPlaybook(row) : null;
 }
 
+export async function getPlaybook(id: string, session?: TeamSession | null) {
+  const playbook = await getPlaybookDefinition(id, session);
+  return playbook ? projectPlaybook(playbook, session) : null;
+}
+
 export async function createPlaybook(
   input: CreatePlaybookInput,
   createdById: string,
   session?: TeamSession | null,
 ): Promise<PlaybookRecord> {
+  // The create schema supports cron and metric triggers, both automatic when enabled.
+  if (input.enabled && session && !sessionHasPermission(session, PLAYBOOK_RUN_PERMISSION)) {
+    throw new ForbiddenError(t("backend.playbook.triggerChangeRequiresRun"));
+  }
   await assertPlaybookStepsInScope(input.steps as PlaybookStep[], session);
   try {
     assertValidPlaybookTriggerConfig(input.triggerType, input.triggerConfig);
@@ -314,7 +343,7 @@ export async function updatePlaybook(
   const releaseLock = await acquireAdvisoryLock("playbook-lifecycle", id);
   let narrowed: PlaybookRecord;
   try {
-    const existing = await getPlaybook(id, session);
+    const existing = await getPlaybookDefinition(id, session);
     if (!existing) throw new NotFoundError(t("backend.playbook.notFound"));
     const effectiveTriggerType = rest.triggerType ?? existing.triggerType;
     const effectiveTriggerConfig = (rest.triggerConfig ?? existing.triggerConfig) as TriggerConfig;
@@ -327,7 +356,7 @@ export async function updatePlaybook(
       if (lacksRun) {
         throw new ForbiddenError(t("backend.playbook.triggerChangeRequiresRun"));
       }
-      if (rest.steps === undefined) assertPlaybookCommandAuthoring(existing.steps, session);
+      if (rest.steps === undefined) await assertPlaybookCommandStepsInScope(existing.steps, session);
     }
     if (rest.steps !== undefined) {
       await assertPlaybookStepsInScope(rest.steps as PlaybookStep[], session);
@@ -375,7 +404,7 @@ export async function updatePlaybook(
       ? await updatePlaybookWithoutRunPermission(where, data)
       : await prisma.playbook.updateMany({ where, data });
     if (updated.count === 0) throw new NotFoundError(t("backend.playbook.notFound"));
-    const row = await getPlaybook(id, session);
+    const row = await getPlaybookDefinition(id, session);
     if (!row) throw new NotFoundError(t("backend.playbook.notFound"));
     narrowed = row;
   } finally {
@@ -403,7 +432,7 @@ export async function deletePlaybook(
 ): Promise<void> {
   const releaseLock = await acquireAdvisoryLock("playbook-lifecycle", id);
   try {
-    const existing = await getPlaybook(id, session);
+    const existing = await getPlaybookDefinition(id, session);
     if (!existing) throw new NotFoundError(t("backend.playbook.notFound"));
     // PlaybookRun statuses are lowercase: queued | running | completed | failed | cancelled
     const activeRun = await prisma.playbookRun.findFirst({
@@ -435,13 +464,26 @@ export async function deletePlaybook(
   );
 }
 
+async function projectRuns(rows: RawPlaybookRun[], session?: TeamSession): Promise<PlaybookRunRecord[]> {
+  const contexts = session && await projectTriggerContexts(rows.map((row) => row.triggerContext), session);
+  return rows.map((row, index) => narrowPlaybookRun(row, contexts ? contexts[index] : row.triggerContext));
+}
+
+export async function getPlaybookRun(id: string, session: TeamSession): Promise<PlaybookRunRecord | null> {
+  const scope = playbookTeamWhere(session);
+  const row = await prisma.playbookRun.findFirst({ where: { AND: [{ id }, scope, { playbook: scope }] } });
+  if (!row) return null;
+  const [run] = await projectRuns([row], session);
+  return run ?? null;
+}
+
 export async function listPlaybookRuns(
   playbookId: string,
   session?: TeamSession,
 ): Promise<PlaybookRunRecord[]> {
   // Ensure the parent playbook itself is in scope before leaking run history.
   if (session) {
-    const playbook = await getPlaybook(playbookId, session);
+    const playbook = await getPlaybookDefinition(playbookId, session);
     if (!playbook) throw new NotFoundError(t("backend.playbook.notFound"));
   }
   const rows = await prisma.playbookRun.findMany({
@@ -449,7 +491,7 @@ export async function listPlaybookRuns(
     orderBy: { createdAt: "desc" },
     take: 50,
   });
-  return rows.map(narrowPlaybookRun);
+  return projectRuns(rows, session);
 }
 
 /**
@@ -482,10 +524,10 @@ export async function listRecentPlaybookRunsForPlaybooks(
     },
     orderBy: [{ createdAt: "desc" }, { id: "desc" }],
   });
-  for (const row of rows) {
+  for (const row of await projectRuns(rows, session)) {
     const list = out[row.playbookId] ?? (out[row.playbookId] = []);
     if (list.length >= perPlaybook) continue;
-    list.push(narrowPlaybookRun(row));
+    list.push(row);
   }
   return out;
 }
@@ -497,6 +539,7 @@ export async function runPlaybook(input: {
   createdById?: string;
   session?: TeamSession;
   sourceAlertTeamId?: string | null;
+  sourceAlertServerId?: string;
 }): Promise<PlaybookRunRecord> {
   const releaseLock = await acquireAdvisoryLock("playbook-lifecycle", input.playbookId);
   let narrowedPlaybook: PlaybookRecord;
@@ -522,6 +565,9 @@ export async function runPlaybook(input: {
       );
     }
 
+    if (input.session && !input.dryRun) {
+      await assertPlaybookCommandStepsInScope(narrowedPlaybook.steps, input.session);
+    }
     const queued = await prisma.$transaction((tx) =>
       queuePlaybookRunWithClient({
         client: tx,
@@ -535,6 +581,7 @@ export async function runPlaybook(input: {
         },
         dryRun: input.dryRun,
         triggerContext: input.triggerContext,
+        sourceAlert: input.sourceAlertTeamId === undefined ? undefined : { serverId: input.sourceAlertServerId },
         createdById: input.createdById ?? null,
       }),
     );

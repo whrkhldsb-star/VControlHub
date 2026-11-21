@@ -51,11 +51,11 @@ describe("/api/notifications", () => {
 
     expect(response.status).toBe(200);
     expect(requireApiSessionMock).toHaveBeenCalled();
-    expect(listUserNotificationsMock).toHaveBeenCalledWith("u_1", {
+    expect(listUserNotificationsMock).toHaveBeenCalledWith(session, {
       limit: 50,
       skip: 0,
     });
-    expect(getUnreadCountMock).toHaveBeenCalledWith("u_1");
+    expect(getUnreadCountMock).toHaveBeenCalledWith(session);
     await expect(response.json()).resolves.toMatchObject({ unreadCount: 1 });
   });
 
@@ -71,7 +71,7 @@ describe("/api/notifications", () => {
     );
 
     expect(response.status).toBe(200);
-    expect(markAsReadMock).toHaveBeenCalledWith("n_1", "u_1");
+    expect(markAsReadMock).toHaveBeenCalledWith("n_1", session);
     expect(auditUserAction).toHaveBeenCalledExactlyOnceWith("u_1", "notification.update",
       { scope: "markAsRead", notificationId: "n_1" }, undefined, "team_1");
   });
@@ -88,7 +88,7 @@ describe("/api/notifications", () => {
     );
 
     expect(response.status).toBe(200);
-    expect(markAllAsReadMock).toHaveBeenCalledWith("u_1");
+    expect(markAllAsReadMock).toHaveBeenCalledWith(session);
     expect(auditUserAction).toHaveBeenCalledExactlyOnceWith("u_1", "notification.update",
       { scope: "markAllAsRead" }, undefined, "team_1");
   });
@@ -104,6 +104,6 @@ describe("/api/notifications", () => {
     );
 
     expect(response.status).toBe(200);
-    expect(deleteNotificationMock).toHaveBeenCalledWith("n_1", "u_1");
+    expect(deleteNotificationMock).toHaveBeenCalledWith("n_1", session);
   });
 });

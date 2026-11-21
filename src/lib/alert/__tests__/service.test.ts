@@ -2,6 +2,8 @@ import { beforeEach, describe, expect, it, vi } from "vitest";
 
 const { prismaMock, createNotificationMock, fetchWebhookSafelyMock, sendAlertEmailMock, sendAlertTelegramMock } = vi.hoisted(() => ({
 	prismaMock: {
+		userServerAccess: { findFirst: vi.fn() },
+		server: { findMany: vi.fn() },
 		alertRule: {
 			create: vi.fn(),
 			count: vi.fn(),
@@ -435,10 +437,13 @@ describe("editing what a rule watches", () => {
 
 describe("binding playbooks to a rule", () => {
 	// The rule starts the playbook with nobody approving it: the caller must be allowed to run playbooks by hand.
-	const rule = { name: "Disk full", metric: "disk_usage", operator: "gte" as const, threshold: 95, playbookIds: ["pb_1"] };
+	const rule = { name: "Disk full", metric: "disk_usage", operator: "gte" as const, threshold: 95, playbookIds: ["pb_1"], serverIds: [] };
 	const notifier = { userId: "u_9", roles: ["operator" as const], currentTeamId: "team_1", permissions: ["notification:manage" as const] };
 
-	beforeEach(() => vi.clearAllMocks());
+	beforeEach(() => {
+		vi.clearAllMocks();
+		prismaMock.userServerAccess.findFirst.mockResolvedValue(null);
+	});
 
 	it("refuses a caller who may manage notifications but not run playbooks", async () => {
 		prismaMock.alertRule.create.mockResolvedValue({ id: "rule_pb" });
@@ -448,7 +453,7 @@ describe("binding playbooks to a rule", () => {
 
 	it("lets a caller with playbook:run bind playbooks of their own team", async () => {
 		prismaMock.alertRule.create.mockResolvedValue({ id: "rule_pb" });
-		prismaMock.playbook.findMany.mockResolvedValue([{ id: "pb_1" }]);
+		prismaMock.playbook.findMany.mockResolvedValue([{ id: "pb_1", steps: [] }]);
 		const runner = { userId: "u_9", roles: ["operator" as const], currentTeamId: "team_1", permissions: ["notification:manage" as const, "playbook:run" as const] };
 		await createAlertRule(rule, runner);
 		expect(prismaMock.playbook.findMany).toHaveBeenCalledWith(expect.objectContaining({ where: expect.objectContaining({ id: { in: ["pb_1"] } }) }));
@@ -480,9 +485,71 @@ describe("binding playbooks to a rule", () => {
 	it("keeps the permission check on the write when an unbound rule gains a binding after the read", async () => {
 		prismaMock.alertRule.findFirst.mockResolvedValueOnce({ ...rule, playbookIds: [], enabled: true }).mockResolvedValueOnce({ id: "rule1" });
 		prismaMock.alertRule.updateManyAndReturn.mockResolvedValueOnce([]);
-		await expect(updateAlertRule("rule1", { threshold: 50 }, notifier)).rejects.toMatchObject({ name: "ForbiddenError", status: 403 });
+		await expect(updateAlertRule("rule1", { threshold: 50 }, notifier)).rejects.toMatchObject({ name: "ConflictError", status: 409 });
 		expect(prismaMock.alertRule.updateManyAndReturn).toHaveBeenCalledWith({
-			where: { id: "rule1", teamId: "team_1", OR: [{ enabled: false }, { playbookIds: { isEmpty: true } }] }, data: { threshold: 50 },
+			where: { id: "rule1", teamId: "team_1", enabled: true, playbookIds: { equals: [] }, serverIds: { equals: [] } }, data: { threshold: 50 },
 		});
+	});
+
+	const runner = { ...notifier, permissions: [...notifier.permissions, "playbook:run" as const] };
+	const commandRunner = { ...runner, permissions: [...runner.permissions, "command:execute" as const] };
+	const commandStep = { type: "run_command", config: { serverIds: ["command-target"] } };
+
+	it.each(["create", "edit", "enable"] as const)("checks command and connect grants before %s with a borrowed command playbook", async (operation) => {
+		prismaMock.playbook.findMany.mockResolvedValue([{ id: "pb_1", steps: [commandStep] }]);
+		prismaMock.alertRule.findFirst.mockResolvedValue({ ...rule, enabled: operation !== "enable" });
+		const perform = (session: typeof commandRunner | typeof runner) => {
+			if (operation === "create") return createAlertRule(rule, session);
+			if (operation === "enable") return toggleAlertRule("rule1", session);
+			return updateAlertRule("rule1", { threshold: 55 }, session);
+		};
+
+		await expect(perform(runner)).rejects.toMatchObject({ status: 403 });
+		prismaMock.server.findMany.mockResolvedValue([]);
+		await expect(perform(commandRunner)).rejects.toMatchObject({ name: "ValidationError" });
+		expect(prismaMock.server.findMany).toHaveBeenCalledWith(expect.objectContaining({
+			where: {
+				id: { in: ["command-target"] },
+				AND: [{ teamId: "team_1" }, { OR: [
+					{ userAccess: { none: { userId: "u_9" } } },
+					{ userAccess: { some: { userId: "u_9", canConnect: true } } },
+				] }],
+			},
+		}));
+		expect(prismaMock.alertRule.create).not.toHaveBeenCalled();
+		expect(prismaMock.alertRule.updateManyAndReturn).not.toHaveBeenCalled();
+		prismaMock.server.findMany.mockResolvedValue([{ id: "command-target" }]);
+		prismaMock.alertRule.updateManyAndReturn.mockResolvedValue([{ ...rule, enabled: true }]);
+		prismaMock.alertRule.create.mockResolvedValue(rule);
+		await expect(perform(commandRunner)).resolves.toMatchObject({ name: rule.name });
+	});
+
+	it("requires restricted readers to select readable targets on creation, edit and enable", async () => {
+		prismaMock.userServerAccess.findFirst.mockResolvedValue({ serverId: "hidden" });
+		const unbound = { ...rule, serverIds: [], playbookIds: [], enabled: false };
+		prismaMock.alertRule.findFirst.mockResolvedValue(unbound);
+		await expect(createAlertRule(unbound, notifier)).rejects.toMatchObject({ status: 403 });
+		await expect(updateAlertRule("rule1", { webhookUrl: "https://example.test/hook" }, notifier)).rejects.toMatchObject({ status: 403 });
+		await expect(toggleAlertRule("rule1", notifier)).rejects.toMatchObject({ status: 403 });
+		expect(prismaMock.userServerAccess.findFirst).toHaveBeenCalledWith({
+			where: { userId: notifier.userId, server: { teamId: notifier.currentTeamId }, canRead: false },
+			select: { serverId: true },
+		});
+		prismaMock.server.findMany.mockResolvedValue([]);
+		await expect(updateAlertRule("rule1", { serverIds: ["hidden"] }, notifier)).rejects.toMatchObject({ name: "ValidationError" });
+		expect(prismaMock.alertRule.create).not.toHaveBeenCalled();
+		expect(prismaMock.alertRule.updateManyAndReturn).not.toHaveBeenCalled();
+
+		prismaMock.server.findMany.mockResolvedValue([{ id: "readable" }]);
+		prismaMock.alertRule.updateManyAndReturn.mockResolvedValue([{ id: "rule1" }]);
+		await expect(updateAlertRule("rule1", { serverIds: ["readable"] }, notifier)).resolves.toMatchObject({ id: "rule1" });
+	});
+
+	it("leaves starter rules for an unrestricted account when a restricted reader opens an empty list", async () => {
+		prismaMock.userServerAccess.findFirst.mockResolvedValue({ serverId: "hidden" });
+		prismaMock.alertRule.count.mockResolvedValue(0);
+		await expect(ensureDefaultAlertRules(notifier)).resolves.toEqual({ created: 0, skipped: true });
+		expect(prismaMock.alertRule.create).not.toHaveBeenCalled();
+		expect(settings.setSetting).not.toHaveBeenCalled();
 	});
 });
