@@ -1,7 +1,7 @@
 // @vitest-environment node
 import { execFileSync, spawn, spawnSync } from "node:child_process";
 import { randomUUID } from "node:crypto";
-import { existsSync, mkdtempSync, readdirSync, rmSync, writeFileSync } from "node:fs";
+import { existsSync, mkdtempSync, readdirSync, rmSync, statSync, writeFileSync } from "node:fs";
 import { createServer, type Server } from "node:http";
 import type { AddressInfo } from "node:net";
 import { tmpdir } from "node:os";
@@ -43,12 +43,26 @@ describe.skipIf(!supported)("direct download stop command (real bash/curl proces
     for (const id of taskIds.splice(0)) {
       spawnSync("pkill", ["-KILL", "-f", `\\.vch-${id}\\.part`]);
       rmSync(`/tmp/app-dl-${id}.pid`, { force: true });
-      rmSync(`/tmp/app-dl-${id}.pid.exit`, { force: true });
+      for (const suffix of ["", ".publish", ".lock"]) rmSync(`/tmp/app-dl-${id}.pid.exit${suffix}`, { force: true });
       rmSync(`/tmp/app-dl-${id}.log`, { force: true });
       rmSync(`/tmp/app-dl-${id}.cancel`, { force: true });
     }
     if (targetDir) rmSync(targetDir, { recursive: true, force: true });
   });
+  it.each([true, false])("recognizes publication after the remote process exits (exit marker present=%s)", marked => {
+    const id = randomUUID();
+    taskIds.push(id);
+    targetDir = mkdtempSync(join(tmpdir(), "direct-published-"));
+    const output = join(targetDir, "file");
+    writeFileSync(output, "published");
+    const st = statSync(output);
+    writeFileSync(`/tmp/app-dl-${id}.pid.exit.publish`, `${st.dev}:${st.ino}\n`);
+    if (marked) writeFileSync(`/tmp/app-dl-${id}.pid.exit`, "0\n");
+    const result = spawnSync("sh", ["-c", buildDirectDownloadStopCommand(id, targetDir, { cancel: true, fileName: "file" })], { encoding: "utf8" });
+    expect(parseDirectDownloadStopResult({ stdout: result.stdout, exitCode: result.status })).toBe("PUBLISHED");
+    expect(existsSync(`/tmp/app-dl-${id}.cancel`)).toBe(false);
+  });
+
   afterAll(async () => {
     server.closeAllConnections();
     await new Promise((resolve) => server.close(resolve));

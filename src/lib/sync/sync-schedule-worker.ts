@@ -91,7 +91,7 @@ async function dispatchOne(job: DueJob, reason: string): Promise<boolean> {
     // re-check after lock
     const fresh = await prisma.syncJob.findUnique({
       where: { id: job.id },
-      select: { schedule: true, lastSyncAt: true, createdAt: true, status: true },
+      select: { schedule: true, lastSyncAt: true, createdAt: true, status: true, updatedAt: true },
     });
     if (!fresh) return false;
     const attempts = await lastFailedAttempts([{ id: job.id, status: fresh.status }]);
@@ -108,7 +108,7 @@ async function dispatchOne(job: DueJob, reason: string): Promise<boolean> {
     // findMany above only picks IDLE/ERROR), so the rsync no longer holds one
     // of the 2-4 shared advisory-lock connections for its whole duration.
     // release() is idempotent, so the finally below is a safe no-op.
-    await executeSyncJob(job.id, { onClaimed: release });
+    await executeSyncJob(job.id, { onClaimed: release, expectedOccurrence: { schedule: fresh.schedule, lastSyncAt: fresh.lastSyncAt, updatedAt: fresh.updatedAt } });
     return true;
   } catch (error) {
     logger.error("scheduled sync job failed", {

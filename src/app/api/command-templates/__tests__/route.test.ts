@@ -54,9 +54,10 @@ describe("/api/command-templates audit coverage", () => {
     await route.POST(new Request("http://local/api/command-templates", {
       method: "POST",
       headers: { "content-type": "application/json" },
-      body: JSON.stringify({ name: "Restart app", description: "restart service", command: "systemctl restart app", tags: ["systemd"] }),
+      body: JSON.stringify({ name: "Restart app", description: "restart service", command: "systemctl restart app", tags: ["systemd"], variables: ["region"] }),
     }));
 
+    expect(mocks.createTemplate).toHaveBeenCalledWith(expect.objectContaining({ variables: ["region"] }));
     await route.PATCH(new Request("http://local/api/command-templates", {
       method: "PATCH",
       headers: { "content-type": "application/json" },

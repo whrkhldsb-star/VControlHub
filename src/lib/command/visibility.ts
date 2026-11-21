@@ -16,6 +16,7 @@ export async function withVisibleCommandLogs<Request extends {
 }>(requests: Request[], session?: TeamSession | null): Promise<Request[]> {
   const candidates = requests.flatMap(({ id, teamId, executionLogs }) => {
     const serverIds = (executionLogs ?? []).flatMap(log => log.serverId ? [log.serverId] : []);
+    if (executionLogs?.length === RECENT_COMMAND_LOG_LIMIT) return [{ commandRequestId: id, server: { teamId } }];
     return serverIds.length ? [{ commandRequestId: id, serverId: { in: serverIds }, server: { teamId } }] : [];
   });
   const targets = candidates.length ? await prisma.commandTarget.findMany({
@@ -30,9 +31,19 @@ export async function withVisibleCommandLogs<Request extends {
   }
 
   const allowUnboundLogs = !session || session.roles.includes("admin");
-  return requests.map(request => ({
-    ...request,
-    executionLogs: (request.executionLogs ?? []).filter(log => log.serverId === null
-      ? allowUnboundLogs : visibleServers.get(request.id)?.has(log.serverId)),
+  return Promise.all(requests.map(async request => {
+    const ids = visibleServers.get(request.id) ?? new Set<string>();
+    const preview = (request.executionLogs ?? []).filter(log => log.serverId === null ? allowUnboundLogs : ids.has(log.serverId));
+    if (request.executionLogs?.length === RECENT_COMMAND_LOG_LIMIT && preview.length < RECENT_COMMAND_LOG_LIMIT) {
+      const visible = await prisma.executionLog.findMany({
+        where: { commandRequestId: request.id, OR: [
+          { serverId: { in: [...ids] } }, ...(allowUnboundLogs ? [{ serverId: null }] : []),
+        ] },
+        orderBy: [{ createdAt: "desc" }, { id: "desc" }],
+        take: RECENT_COMMAND_LOG_LIMIT,
+      });
+      return { ...request, executionLogs: visible };
+    }
+    return { ...request, executionLogs: preview };
   }));
 }

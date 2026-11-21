@@ -106,6 +106,8 @@ export async function runWithLeaseHeartbeat<T>(input: {
     const result = await input.run(controller.signal);
     if (leaseLost) throw leaseLost;
     return result;
+  } catch (error) {
+    throw leaseLost ?? error;
   } finally {
     stopped = true;
     clearInterval(timer);

@@ -68,6 +68,7 @@ vi.mock("@/lib/upload/service", () => ({
   sweepExpiredMediaUploadSessions: vi.fn(async () => 0),
 }));
 
+vi.mock("@/lib/downloads/relay-cleanup", () => ({ sweepTerminalRelays: vi.fn(async () => {}) }));
 vi.mock("@/lib/downloads/reconcile", () => ({
   reconcileStaleRunningDownloadTasks: vi.fn(async () => ({ completed: 0, failed: 0, ids: [] })),
 }));
@@ -90,8 +91,7 @@ describe("abandonOrphanPendingJobs", () => {
 
   it("cancels unknown job types after soft timeout", async () => {
     mocks.findMany.mockResolvedValueOnce([
-      { id: "j1", type: "playbook.command", createdAt: new Date(Date.now() - 2 * 24 * 3600_000), title: "orphan" },
-      { id: "j2", type: "playbook.run", createdAt: new Date(Date.now() - 2 * 24 * 3600_000), title: "known" },
+      { id: "j1", attempts: 0, type: "playbook.command", updatedAt: new Date(Date.now() - 2 * 24 * 3600_000), title: "orphan" },
     ]);
 
     const result = await abandonOrphanPendingJobs({ olderThanMs: 24 * 3600_000, hardOrphanMs: 7 * 24 * 3600_000 });
@@ -99,7 +99,7 @@ describe("abandonOrphanPendingJobs", () => {
     expect(result.ids).toEqual(["j1"]);
     expect(mocks.updateMany).toHaveBeenCalledWith(
       expect.objectContaining({
-        where: { id: "j1", status: "PENDING" },
+        where: expect.objectContaining({ id: "j1", status: "PENDING", attempts: 0, updatedAt: expect.any(Date), OR: expect.any(Array) }),
         data: expect.objectContaining({
           status: "CANCELLED",
           errorMessage: expect.stringContaining("no consumer"),

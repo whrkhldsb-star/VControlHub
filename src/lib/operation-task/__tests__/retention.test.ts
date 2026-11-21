@@ -61,6 +61,18 @@ beforeEach(() => {
 });
 
 describe("pruneOperationTaskHistory — TR-006 跨来源保留策略", () => {
+  it("does not delete a tenant batch after losing the lease while reading retained ids", async () => {
+    const lease = new AbortController();
+    mockPrisma.commandRequest.groupBy.mockResolvedValueOnce([{ teamId: "first" }, { teamId: "second" }]);
+    mockPrisma.commandRequest.findMany.mockImplementationOnce(async () => {
+      lease.abort(new Error("lease lost"));
+      return [{ id: "keep" }];
+    });
+    await expect(pruneOperationTaskHistory({ signal: lease.signal })).rejects.toThrow("lease lost");
+    expect(mockPrisma.commandRequest.findMany).toHaveBeenCalledTimes(1);
+    expect(mockPrisma.commandRequest.deleteMany).not.toHaveBeenCalled();
+  });
+
   it("默认 90 天 / 100 条：传空表 → 5 来源 totalDeleted=0, olderThan 距 now 正好 90d", async () => {
     const now = new Date("2026-06-15T00:00:00Z");
     const result = await pruneOperationTaskHistory({ now });

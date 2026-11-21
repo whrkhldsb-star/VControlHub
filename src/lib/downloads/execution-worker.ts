@@ -16,8 +16,8 @@ import {
 import { notifyDownloadResult } from "@/lib/notification/service";
 import { failRelayTask, reconcileStaleRunningDownloadTasks } from "./reconcile";
 import { executionRefusal, loadExecutionActor } from "@/lib/auth/execution-actor";
-import { deriveDownloadFileNameFromUrl, isMagnetLink } from "./helpers";
-import { getStorageWriteCapacity } from "@/lib/storage/access-control";
+import { downloadNotificationSource, deriveDownloadFileNameFromUrl, isMagnetLink } from "./helpers";
+import { downloadWriteCapacity } from "./write-capacity";
 import { t } from "@/lib/i18n/service-translations";
 import { createLogger } from "@/lib/logging";
 import { prisma } from "@/lib/db";
@@ -157,7 +157,7 @@ export async function enqueueDownloadExecutionJob(input: {
    */
   storageNodeId?: string | null;
   sourceResolution?: DownloadSourceResolution;
-}) {
+}, client?: Prisma.TransactionClient) {
   // Defensive trim + non-empty check: an empty/whitespace taskId would
   // create a real durable job row that the worker cannot dispatch against
   // (the worker re-fetches by id). Keep this as a hard contract — the
@@ -185,7 +185,7 @@ export async function enqueueDownloadExecutionJob(input: {
     targetStorageNodeId: input.storageNodeId ?? null,
     priority: 0,
     maxAttempts: 3,
-  });
+  }, ...(client ? [client] as const : []));
 }
 
 async function loadTaskRow(taskId: string) {
@@ -377,9 +377,8 @@ async function handleClaimedJob(
     // A remote download's size is only known as it runs: carry the creator's
     // per-file limit and what the quota has left into the transfer.
     const httpName = !isMagnetLink(task.url) ? task.fileName || deriveDownloadFileNameFromUrl(task.url) || "download" : null;
-    const capacityPath = httpName && targetRelativePath !== null ? [targetRelativePath, httpName].filter(Boolean).join("/") : targetRelativePath;
-    const limits = actor && capacityPath !== null
-      ? await getStorageWriteCapacity({ session: actor, storageNodeId: task.server.storageNode.id, relativePath: capacityPath })
+    const limits = actor && targetRelativePath !== null
+      ? await downloadWriteCapacity({ session: actor, storageNodeId: task.server.storageNode.id, relativePath: targetRelativePath }, task.fileName || httpName)
       : undefined;
 
     if (task.agentStorageNodeId && (!task.agentRootIdentity || task.server.managementMode !== "AGENT" || payload.mode !== "aria2_relay" || task.server.storageNode.driver !== "AGENT")) {
@@ -452,6 +451,7 @@ async function handleClaimedJob(
             payload.sourceResolution,
             limits,
             task.maxSpeedKb,
+            signal,
           );
         }
       },
@@ -525,7 +525,7 @@ async function handleClaimedJob(
       const changed = await failRelayTask(postTask, reason, true);
       const userId = postTask.createdBy ?? payload.userId;
       if (changed && userId) {
-        await notifyDownloadResult(userId, postTask.url, "failed", reason, postTask.teamId)
+        await notifyDownloadResult(userId, downloadNotificationSource(postTask.url), "failed", reason, postTask.teamId)
           .catch(err => logger.warn("Download failure notification failed", { taskId: postTask.id, error: String(err) }));
       }
     }

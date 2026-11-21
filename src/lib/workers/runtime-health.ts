@@ -7,6 +7,7 @@ export type WorkerRuntimeHealth = {
   id: WorkerId;
   label: string;
   jobType: string;
+  instances?: Array<{ instanceId: string; status: string; lastHeartbeatAt: string }>;
   started: boolean;
   healthy: boolean;
   status: "RUNNING" | "FAILED" | "STOPPED" | "STALE" | "MISSING";
@@ -18,30 +19,16 @@ export type WorkerRuntimeHealth = {
 
 export async function getWorkerRuntimeHealth(now = new Date()): Promise<WorkerRuntimeHealth[]> {
   const definitions = getWorkerDefinitions();
-  // Hard upper bound so a retention gap in the heartbeat reaper cannot turn
-  // this admin route into a full-table read. The table holds one row per
-  // worker × instance (upserted), and rows are ordered by lastHeartbeatAt so
-  // the first row seen per workerId below stays the freshest instance.
-  const rows = await prisma.workerRuntime.findMany({
-    orderBy: { lastHeartbeatAt: "desc" },
-    take: 500,
-    select: {
-      workerId: true,
-      instanceId: true,
-      status: true,
-      startedAt: true,
-      lastHeartbeatAt: true,
-      lastError: true,
-    },
-  });
-  const latestByWorker = new Map<string, (typeof rows)[number]>();
-  for (const row of rows) {
-    if (!latestByWorker.has(row.workerId)) latestByWorker.set(row.workerId, row);
-  }
   const staleBefore = now.getTime() - WORKER_HEARTBEAT_STALE_MS;
-
+  const rows = await prisma.workerRuntime.findMany({
+    where: { workerId: { in: definitions.map(definition => definition.id) } },
+    orderBy: [{ lastHeartbeatAt: "desc" }, { instanceId: "asc" }],
+    select: { workerId: true, instanceId: true, status: true, startedAt: true, lastHeartbeatAt: true, lastError: true },
+  });
   return definitions.map((definition) => {
-    const runtime = latestByWorker.get(definition.id);
+    const members = rows.filter(row => row.workerId === definition.id);
+    const instances = members.map(row => ({ instanceId: row.instanceId, status: row.status, lastHeartbeatAt: row.lastHeartbeatAt.toISOString() }));
+    const runtime = members.find(row => row.status === "RUNNING" && row.lastHeartbeatAt.getTime() >= staleBefore) ?? members[0];
     if (!runtime) {
       return {
         ...definition,
@@ -59,7 +46,7 @@ export async function getWorkerRuntimeHealth(now = new Date()): Promise<WorkerRu
     const healthy = runtime.status === "RUNNING" && fresh;
     return {
       ...definition,
-      started: healthy,
+      instances, started: healthy,
       healthy,
       status: fresh ? runtime.status : "STALE",
       instanceId: runtime.instanceId,

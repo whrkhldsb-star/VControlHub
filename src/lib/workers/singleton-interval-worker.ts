@@ -26,6 +26,7 @@
  */
 
 export type SingletonIntervalWorkerState = {
+  starting?: Promise<SingletonIntervalWorkerStartResult>;
   started: boolean;
   running: boolean;
   timer: NodeJS.Timeout | null;
@@ -74,6 +75,7 @@ export function stopSingletonIntervalWorkerForTests(globalKey: string): Singleto
   if (state.timer) {
     clearInterval(state.timer);
   }
+  delete state.starting;
   state.started = false;
   state.running = false;
   state.timer = null;
@@ -103,6 +105,8 @@ export function createSingletonIntervalWorker(config: {
       const state = getState();
       if (state.started) return Promise.resolve({ state, alreadyStarted: true });
 
+      if (state.starting) return state.starting.then(() => ({ state, alreadyStarted: true }));
+
       const begin = (intervalMs: number) => {
         state.started = true;
         config.tick(state, "startup");
@@ -118,7 +122,14 @@ export function createSingletonIntervalWorker(config: {
       if (typeof resolved === "number") {
         return Promise.resolve({ state: begin(resolved), alreadyStarted: false });
       }
-      return resolved.then((intervalMs) => ({ state: begin(intervalMs), alreadyStarted: false }));
+      const starting = resolved.then(intervalMs => {
+        if (state.starting !== starting) return { state, alreadyStarted: true };
+        return { state: begin(intervalMs), alreadyStarted: false };
+      }).finally(() => {
+        if (state.starting === starting) delete state.starting;
+      });
+      state.starting = starting;
+      return starting;
     },
     stopForTests() {
       stopSingletonIntervalWorkerForTests(config.globalKey);

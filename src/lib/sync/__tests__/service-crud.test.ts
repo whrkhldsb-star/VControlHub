@@ -108,6 +108,19 @@ describe("sync job CRUD scoping", () => {
 			});
 		});
 
+		it("allows a read-only source and write-only destination, and requires deletion for a mirror", async () => {
+			const session = { ...storageManager, permissions: ["storage:read", "storage:write", "storage:delete"] as never };
+			const allowed = (id: string, read: boolean, write: boolean) => ({ id, pathPrefix: "", canRead: read, canWrite: write, canDelete: false, quotaBytes: null, maxFileBytes: null });
+			vi.mocked(mocks.prisma.userStorageAccess.findMany).mockImplementation((async ({ where }: { where: { storageNodeId: string } }) =>
+				[allowed(where.storageNodeId, where.storageNodeId === "srv_a-drive", where.storageNodeId === "srv_b-drive")]) as never);
+			const input = { ...baseInput, sourcePath: "/srv/storage/source", targetPath: "/srv/storage/dest", session };
+			try {
+				await expect(createSyncJob({ ...input, syncType: "BACKUP" })).resolves.toBeDefined();
+				await expect(createSyncJob({ ...input, syncType: "MIRROR" })).rejects.toThrow();
+				expect(mocks.prisma.syncJob.create).toHaveBeenCalledOnce();
+			} finally { mocks.prisma.userStorageAccess.findMany.mockResolvedValue([]); }
+		});
+
 		it("refuses when an endpoint is outside the caller's scope", async () => {
 			// Only one of the two ids came back — the other belongs to another team.
 			mocks.prisma.server.findMany.mockResolvedValue([{ id: "srv_a" }]);
@@ -348,11 +361,28 @@ describe("sync job CRUD scoping", () => {
 			expect(mocks.prisma.syncJob.updateMany).not.toHaveBeenCalled();
 		});
 
+		it("revalidates the other endpoint after losing a concurrent edit", async () => {
+			const job = { ...jobRow, targetServerId: jobRow.sourceServerId, updatedAt: new Date() };
+			mocks.prisma.syncJob.findFirst.mockResolvedValueOnce(job).mockResolvedValueOnce({ ...job, sourcePath: "/new" });
+			mocks.prisma.server.findMany.mockResolvedValue([{ id: jobRow.sourceServerId }]);
+			mocks.prisma.syncJob.updateMany.mockResolvedValueOnce({ count: 0 });
+			await expect(updateSyncJob(job.id, { targetPath: "/new/copy" }, operator)).rejects.toMatchObject({ status: 400 });
+			expect(mocks.prisma.syncJob.updateMany).toHaveBeenCalledTimes(1);
+		});
+
+		it("refuses to return endpoints hidden on the post-update read", async () => {
+			mocks.prisma.syncJob.findFirst.mockResolvedValueOnce(jobRow).mockResolvedValueOnce(null);
+			await expect(updateSyncJob(jobRow.id, { name: "edited" }, operator)).rejects.toMatchObject({ status: 404 });
+			expect(mocks.prisma.syncJob.findFirst.mock.lastCall?.[0].where).toMatchObject({
+				sourceServer: { is: expect.any(Object) }, targetServer: { is: expect.any(Object) },
+			});
+		});
+
 		it("writes only the provided fields and clears the schedule on null", async () => {
 			mocks.prisma.syncJob.findFirst.mockResolvedValue({ ...jobRow, createdBy: "u_1" });
 			await updateSyncJob("job_1", { schedule: null, name: "renamed" }, operator);
 			expect(mocks.prisma.syncJob.updateMany).toHaveBeenCalledWith({
-				where: { id: "job_1", teamId: "team_1" },
+				where: expect.objectContaining({ id: "job_1", teamId: "team_1", sourcePath: jobRow.sourcePath, targetPath: jobRow.targetPath }),
 				data: { name: "renamed", schedule: null },
 			});
 		});

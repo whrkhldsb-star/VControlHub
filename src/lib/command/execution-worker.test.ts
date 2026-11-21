@@ -125,6 +125,7 @@ describe("command execution durable job worker", () => {
           teamId: "team_1",
           createdBy: "user_1",
         }),
+        expect.objectContaining({ commandRequest: { findUnique: findUniqueCommandRequestMock } }),
       );
     expect(findUniqueCommandRequestMock).toHaveBeenCalledWith({
       where: { id: "req-42" },
@@ -161,6 +162,15 @@ describe("command execution durable job worker", () => {
   });
 
   describe("runCommandExecutionJobWorkerOnce", () => {
+    it("does not dispatch or finalize a command after its initial lease is lost", async () => {
+      claimNextJobMock.mockResolvedValueOnce(makeJob());
+      heartbeatJobMock.mockResolvedValueOnce({ count: 0 });
+      await runCommandExecutionJobWorkerOnce();
+      expect(executeAndFinalizeCommandMock).not.toHaveBeenCalled();
+      expect(markCommandExecutionFailedMock).not.toHaveBeenCalled();
+      expect(completeJobMock).not.toHaveBeenCalled();
+    });
+
     it("completes the job with the commandRequest terminal status", async () => {
       claimNextJobMock.mockResolvedValueOnce(makeJob());
       executeAndFinalizeCommandMock.mockResolvedValueOnce({
@@ -182,7 +192,7 @@ describe("command execution durable job worker", () => {
         expect.stringContaining(":command-execution:"),
         expect.objectContaining({ progress: expect.stringContaining("req-1") }),
       );
-      expect(executeAndFinalizeCommandMock).toHaveBeenCalledWith("req-1");
+      expect(executeAndFinalizeCommandMock).toHaveBeenCalledWith("req-1", expect.any(AbortSignal));
       expect(completeJobMock).toHaveBeenCalledWith(
         "job-cmd-1",
         expect.stringContaining(":command-execution:"),

@@ -20,7 +20,7 @@ vi.mock("@/lib/db", () => ({ prisma: prismaMock }));
 
 const aria2 = {
   ensureAria2Daemon: vi.fn(async () => undefined),
-  addUri: vi.fn(async () => "gid-new"),
+  addUri: vi.fn(async (_urls: string[], options: Record<string, string>) => options.gid),
   removeDownload: vi.fn(async () => undefined),
   tellStatus: vi.fn(async () => ({ status: "complete", completedLength: "0", totalLength: "0", downloadSpeed: "0" })),
   getPublicAria2Error: vi.fn(() => "aria2 error"),
@@ -131,14 +131,33 @@ describe("executeAria2RelayDownload claim ordering", () => {
     expect(aria2.addUri).toHaveBeenCalledTimes(1);
     const claimCall = prismaMock.downloadTask.updateMany.mock.calls[0]?.[0] as {
       where: { status: string };
-      data: { status: string };
+      data: { status: string; aria2Gid: string };
     };
     expect(claimCall.where.status).toBe("PENDING");
     expect(claimCall.data.status).toBe("RUNNING");
+    expect(claimCall.data.aria2Gid).toMatch(/^[a-f0-9]{16}$/);
+    expect(aria2.addUri.mock.calls[0]?.[1].gid).toBe(claimCall.data.aria2Gid);
     // The claim (call 0) must precede addUri.
     const claimOrder = prismaMock.downloadTask.updateMany.mock.invocationCallOrder[0]!;
     const addUriOrder = aria2.addUri.mock.invocationCallOrder[0]!;
     expect(claimOrder).toBeLessThan(addUriOrder);
+  });
+
+  it("reclaims the reserved gid after a crash and settles a reservation the daemon never received", async () => {
+    vi.useFakeTimers();
+    const gid = "0123456789abcdef";
+    prismaMock.downloadTask.updateMany.mockResolvedValueOnce({ count: 0 });
+    prismaMock.downloadTask.findUnique.mockResolvedValueOnce({ teamId: "team-1" })
+      .mockResolvedValue({ status: "RUNNING", aria2Gid: gid, transferManifest: null });
+    aria2.tellStatus.mockRejectedValueOnce(new Error("GID is not found"));
+    const run = executeAria2RelayDownload("reserved", server, ["https://fixture.invalid/file"], "/target");
+    await vi.advanceTimersByTimeAsync(5000);
+    await run;
+    expect(aria2.addUri).not.toHaveBeenCalled();
+    expect(aria2.tellStatus).toHaveBeenCalledWith(gid);
+    expect(prismaMock.downloadTask.updateMany).toHaveBeenCalledWith(expect.objectContaining({
+      where: { id: "reserved", status: "RUNNING" }, data: expect.objectContaining({ status: "FAILED" }),
+    }));
   });
 });
 

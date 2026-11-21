@@ -47,8 +47,10 @@ const {
       update: vi.fn(),
       updateMany: vi.fn(),
       updateManyAndReturn: vi.fn(),
+      deleteMany: vi.fn(),
       delete: vi.fn(),
     },
+    job: { findFirst: vi.fn(), fields: { maxAttempts: "maxAttempts" } },
     fileEntry: {
       findFirst: vi.fn(),
       createMany: vi.fn(),
@@ -271,7 +273,7 @@ vi.mock("@/lib/server/team-access", () => ({
   assertServerTeamAccess: vi.fn(async () => ({ ok: true as const })),
 }));
 
-const session = { userId: "u_1", username: "alice", roles: ["admin"] as string[], currentTeamId: "team_1" as string | null, mustChangePassword: false };
+const session = { userId: "u_1", username: "alice", roles: ["admin"] as import("@/lib/auth/rbac").RoleKey[], currentTeamId: "team_1" as string | null, mustChangePassword: false };
 
 vi.mock("@/lib/auth/require-api-permission", async () => {
   const { NextResponse } = await import("next/server");
@@ -488,6 +490,20 @@ describe("/api/downloads", () => {
     expect(execRemoteCommandMock).not.toHaveBeenCalled();
   });
 
+  it("admits a known replacement at full quota while retaining the independent file limit", async () => {
+    getStorageWriteCapacityMock.mockResolvedValue({ maxFileBytes: BigInt(16), remainingBytes: BigInt(0) });
+    prismaMock.fileEntry.findFirst.mockResolvedValueOnce({ size: BigInt(20) });
+    const { downloadWriteCapacity } = await import("@/lib/downloads/write-capacity");
+    const { largestAllowedWrite } = await import("@/lib/storage/access-control");
+    const capacity = await downloadWriteCapacity({ session, storageNodeId: "store_1", relativePath: "downloads" }, "app.iso");
+    expect(capacity.remainingBytes).toBe(BigInt(20));
+    expect(largestAllowedWrite(capacity)).toBe(BigInt(16));
+    prismaMock.fileEntry.findFirst.mockResolvedValueOnce({ size: BigInt(20) });
+    const response = await POST(request({ url: "https://example.com/app.iso", serverId: "srv_1", targetPath: "downloads", fileName: "app.iso" }));
+    expect(response.ok).toBe(true);
+    expect(prismaMock.downloadTask.create).toHaveBeenCalledOnce();
+  });
+
   it("refuses a remote download into a folder whose quota is used up, before creating a task", async () => {
     getStorageWriteCapacityMock.mockResolvedValueOnce({ maxFileBytes: BigInt(1_000), remainingBytes: BigInt(0) });
 
@@ -500,7 +516,7 @@ describe("/api/downloads", () => {
 
     expect(response.status).toBe(403);
     expect(prismaMock.downloadTask.create).not.toHaveBeenCalled();
-    expect(getStorageWriteCapacityMock).toHaveBeenCalledWith(expect.objectContaining({ relativePath: "downloads" }));
+    expect(getStorageWriteCapacityMock).toHaveBeenCalledWith(expect.objectContaining({ relativePath: "downloads/app.iso" }));
   });
 
   it("records the pid and leaves the file index untouched until the direct download completes", async () => {
@@ -823,10 +839,26 @@ describe("/api/downloads", () => {
     expect(ensureAria2DaemonMock).toHaveBeenCalledOnce();
     expect(tellStatusMock).toHaveBeenCalledWith("gid_1");
     expect(prismaMock.downloadTask.updateMany).toHaveBeenCalledWith(expect.objectContaining({
-      where: { id: "task_relay", status: { in: ["PENDING", "RUNNING"] } },
+      where: expect.objectContaining({ id: "task_relay", status: "RUNNING", aria2Gid: "gid_1" }),
       data: expect.not.objectContaining({ status: "COMPLETED" }),
     }));
     expect(getGlobalStatMock).toHaveBeenCalledOnce();
+  });
+
+  it("keeps the original pause deadline and metadata gid when listing a legacy paused task", async () => {
+    const updatedAt = new Date("2025-04-01T02:00:00Z");
+    const metadataGid = "0123456789abcdef";
+    prismaMock.downloadTask.findMany.mockResolvedValueOnce([{
+      id: "paused-legacy", createdBy: "u_1", targetPath: "/srv/cloud/downloads", server: serverFixture(),
+      status: "PENDING", aria2Gid: "gid", transferManifest: { metadataGid }, updatedAt,
+    }]);
+    tellStatusMock.mockResolvedValueOnce({ gid: "gid", status: "paused", completedLength: "10", totalLength: "20", downloadSpeed: "0" });
+    const response = await GET(new Request("https://example.com/api/downloads"));
+    expect(response.status).toBe(200);
+    expect(prismaMock.downloadTask.updateMany).toHaveBeenCalledWith({
+      where: { id: "paused-legacy", status: "PENDING", aria2Gid: "gid", updatedAt },
+      data: expect.objectContaining({ transferManifest: { metadataGid, pausedUntil: updatedAt.getTime() + 24 * 3600_000 } }),
+    });
   });
 
   it("leaves a download cancelled while aria2 answered as cancelled", async () => {
@@ -859,7 +891,7 @@ describe("/api/downloads", () => {
     const response = await GET(new Request("https://example.com/api/downloads"));
 
     expect(prismaMock.downloadTask.updateMany).toHaveBeenCalledWith({
-      where: { id: "task_gone", status: { in: ["PENDING", "RUNNING"] } },
+      where: expect.objectContaining({ id: "task_gone", status: "RUNNING", aria2Gid: "gid_2" }),
       data: expect.objectContaining({ status: "FAILED", completedBytes: "100", totalBytes: "200", downloadSpeed: "0" }),
     });
     const listed = ((await response.json()) as { tasks: Array<{ id: string; status: string; completedBytes: string | null }> }).tasks.find((row) => row.id === "task_gone");
@@ -1021,7 +1053,7 @@ describe("/api/downloads", () => {
     });
     // Written only while the task is still in progress.
     expect(prismaMock.downloadTask.updateMany).toHaveBeenCalledWith(expect.objectContaining({
-      where: { id: "task_relay", status: { in: ["PENDING", "RUNNING"] } },
+      where: expect.objectContaining({ id: "task_relay", status: "RUNNING", aria2Gid: "gid_1" }),
       data: expect.objectContaining({
         status: "RUNNING",
         completedBytes: "4096",
@@ -1168,6 +1200,70 @@ describe("/api/downloads", () => {
     expect(prismaMock.downloadTask.updateMany).not.toHaveBeenCalled();
   });
 
+  it("keeps the metadata gid when pausing the torrent content", async () => {
+    const receipt = { metadataGid: "1234567890abcdef" };
+    prismaMock.downloadTask.findFirst.mockResolvedValueOnce({
+      id: "torrent", createdBy: "u_1", server: serverFixture(), targetPath: "/srv/cloud/downloads",
+      status: "RUNNING", aria2Gid: "1111111111111111", transferManifest: receipt,
+    });
+    const response = await PATCH(new Request("https://example.com/api/downloads", {
+      method: "PATCH", body: JSON.stringify({ taskId: "torrent", action: "pause" }),
+    }));
+    expect(response.status).toBe(200);
+    expect(prismaMock.downloadTask.updateMany).toHaveBeenCalledWith({
+      where: { id: "torrent", status: "RUNNING", aria2Gid: "1111111111111111", transferManifest: { equals: receipt } },
+      data: expect.objectContaining({ status: "PENDING", transferManifest: { ...receipt, pausedUntil: expect.any(Number) } }),
+    });
+  });
+
+  it("preserves a legacy paused task's original deadline when refresh advances updatedAt", async () => {
+    const updatedAt = new Date(Date.now() - 8 * 3600_000);
+    prismaMock.downloadTask.findFirst.mockResolvedValueOnce({
+      id: "legacy", status: "PENDING", createdBy: "u_1", server: serverFixture(), targetPath: "/srv/cloud/downloads",
+      aria2Gid: "gid", updatedAt, transferManifest: null,
+    });
+    tellStatusMock.mockResolvedValueOnce({ status: "active", completedLength: "1", totalLength: "5", downloadSpeed: "0" });
+    const response = await PATCH(new Request("https://example.com/api/downloads", {
+      method: "PATCH", body: JSON.stringify({ taskId: "legacy", action: "refresh" }),
+    }));
+    expect(await response.json()).toMatchObject({ status: "PENDING" });
+    expect(prismaMock.downloadTask.updateMany).toHaveBeenCalledWith(expect.objectContaining({
+      data: expect.objectContaining({ transferManifest: { pausedUntil: updatedAt.getTime() + 24 * 3600_000 } }),
+    }));
+  });
+
+  it.each([true, false])("resumes a paused relay with a durable executor (live executor=%s)", async live => {
+    const metadataGid = "1234567890abcdef";
+    prismaMock.downloadTask.findFirst.mockResolvedValueOnce({ id: "paused", createdBy: "u_1", teamId: "team_1", server: serverFixture(),
+      targetPath: "/srv/cloud/downloads", status: "PENDING", aria2Gid: "gid", transferManifest: { metadataGid, pausedUntil: Date.now() + 60_000 }, updatedAt: new Date() });
+    prismaMock.job.findFirst.mockResolvedValueOnce(live ? { id: "live" } : null);
+    enqueueDownloadExecutionJobMock.mockResolvedValueOnce({ id: "resume" } as never);
+    const response = await PATCH(new Request("https://example.com/api/downloads", { method: "PATCH",
+      body: JSON.stringify({ taskId: "paused", action: "resume" }) }));
+    expect(response.ok).toBe(true);
+    expect(enqueueDownloadExecutionJobMock).toHaveBeenCalledTimes(live ? 0 : 1);
+    expect(prismaMock.job.findFirst.mock.lastCall?.[0].where.OR).toContainEqual({
+      status: "PENDING", attempts: { lt: prismaMock.job.fields.maxAttempts },
+    });
+    if (!live) expect(enqueueDownloadExecutionJobMock).toHaveBeenCalledWith(expect.objectContaining({ taskId: "paused", mode: "aria2_relay" }), prismaMock);
+    expect(prismaMock.downloadTask.updateMany).toHaveBeenCalledWith({
+      where: expect.objectContaining({ id: "paused", status: "PENDING", aria2Gid: "gid" }),
+      data: expect.objectContaining({ status: "RUNNING", transferManifest: { metadataGid } }),
+    });
+  });
+
+  it.each(["pause", "resume", "refresh"])("returns the winning cancellation after a concurrent %s RPC", async action => {
+    prismaMock.downloadTask.findFirst.mockResolvedValueOnce({ id: "racing", createdBy: "u_1", server: serverFixture(),
+      targetPath: "/srv/cloud/downloads", status: action === "resume" ? "PENDING" : "RUNNING", updatedAt: new Date(), aria2Gid: "gid", transferManifest: null });
+    prismaMock.downloadTask.findUnique.mockResolvedValueOnce({ status: "CANCELLED", progress: null });
+    if (action === "refresh") tellStatusMock.mockResolvedValueOnce({ status: "active", completedLength: "10", totalLength: "25", downloadSpeed: "0" });
+    prismaMock.downloadTask.updateMany.mockResolvedValueOnce({ count: 0 });
+    const response = await PATCH(new Request("https://example.com/api/downloads", { method: "PATCH", body: JSON.stringify({ taskId: "racing", action }) }));
+    expect(response.status).toBe(action === "refresh" ? 200 : 409);
+    expect(await response.json()).toMatchObject({ status: "CANCELLED" });
+    expect(enqueueDownloadExecutionJobMock).not.toHaveBeenCalled();
+  });
+
   it("does not mark an aria2 task resumed when the real resume operation fails", async () => {
     prismaMock.downloadTask.findFirst.mockResolvedValueOnce({
       id: "task_relay",
@@ -1177,8 +1273,10 @@ describe("/api/downloads", () => {
       status: "PENDING",
       aria2Gid: "gid_1",
       progress: "已暂停",
+      updatedAt: new Date(),
     });
     unpauseDownloadMock.mockRejectedValueOnce(new Error("aria2 unavailable"));
+    tellStatusMock.mockResolvedValueOnce({ status: "paused" });
 
     const response = await PATCH(new Request("https://example.com/api/downloads", {
       method: "PATCH",
@@ -1254,17 +1352,17 @@ describe("/api/downloads", () => {
       url: "https://example.com/file.iso",
       status: "COMPLETED",
       pid: 12345,
-      aria2Gid: "gid_done",
+      aria2Gid: null,
       relayMode: false,
       server: serverFixture(),
     });
-    prismaMock.downloadTask.delete.mockResolvedValueOnce({ id: "task_done" });
+    prismaMock.downloadTask.deleteMany.mockResolvedValueOnce({ count: 1 });
 
     const response = await DELETE(new Request("https://example.com/api/downloads?taskId=task_done&purge=1", { method: "DELETE" }));
 
     expect(response.status).toBe(200);
     await expect(response.json()).resolves.toMatchObject({ success: true, purged: true });
-    expect(prismaMock.downloadTask.delete).toHaveBeenCalledWith({ where: { id: "task_done" } });
+    expect(prismaMock.downloadTask.deleteMany).toHaveBeenCalledWith({ where: expect.objectContaining({ id: "task_done", status: "COMPLETED", OR: expect.any(Array) }) });
     expect(removeDownloadMock).not.toHaveBeenCalled();
     expect(execRemoteCommandMock).not.toHaveBeenCalled();
     expect(prismaMock.downloadTask.update).not.toHaveBeenCalledWith(expect.objectContaining({

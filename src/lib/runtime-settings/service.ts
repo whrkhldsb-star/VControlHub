@@ -2,6 +2,8 @@ import { apiCopy } from "@/lib/i18n/api-copy";
 import { prisma } from "@/lib/db";
 import { ValidationError } from "@/lib/errors";
 
+export const MAX_COMMAND_HEARTBEAT_MS = 10 * 60_000;
+
 export const RUNTIME_SETTING_DEFINITIONS = {
   "runtime.commandExecutionTimeoutMs": {
     env: "COMMAND_EXECUTION_TIMEOUT_MS",
@@ -34,7 +36,7 @@ export const RUNTIME_SETTING_DEFINITIONS = {
     env: "COMMAND_EXECUTION_HEARTBEAT_MS",
     defaultValue: 60_000,
     min: 5_000,
-    max: 10 * 60 * 1000,
+    max: MAX_COMMAND_HEARTBEAT_MS,
     label: "Command execution heartbeat interval",
     unit: "ms",
     applies: "Takes effect immediately for newly started background command executions",

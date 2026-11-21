@@ -3,7 +3,8 @@ import { CronExpressionParser } from "cron-parser";
 import { prisma } from "@/lib/db";
 import type { CommandRequestStatus, ScheduledTask } from "@prisma/client";
 import { createCommandRequest } from "@/lib/command/service";
-import { commandRequestTitle } from "@/lib/command/schema";
+import { commandTemplateScopeWhere } from "@/lib/command-template/service";
+import { createCommandSchema, commandRequestTitle } from "@/lib/command/schema";
 import { BusinessError, ConflictError, ForbiddenError, NotFoundError, ValidationError } from "@/lib/errors";
 import { notifyTaskConsecutiveFailed } from "@/lib/notification/service";
 import { createLogger } from "@/lib/logging";
@@ -95,13 +96,14 @@ function normalizeServerIds(serverIds: string[]) {
 async function assertScheduledTaskServersInScope(
 	serverIds: string[],
 	session: SessionScope,
+	teamId: string | null,
 	ScopeError = ValidationError,
 ): Promise<void> {
 	const ids = normalizeServerIds(serverIds);
 	if (ids.length === 0) return;
 	const scope = serverTeamWhere(session, "connect");
 	const servers = await prisma.server.findMany({
-		where: { id: { in: ids }, AND: scope },
+		where: { id: { in: ids }, teamId, AND: scope },
 		select: { id: true },
 	});
 	if (servers.length !== ids.length) {
@@ -109,6 +111,15 @@ async function assertScheduledTaskServersInScope(
 			apiCopy("apiCopy.one.or.more.target.servers.were.not.found.or.are.outside.your.te.8f5645a2"),
 		);
 	}
+}
+
+async function assertTemplateInScope(id: string | null | undefined, teamId: string | null, session: SessionScope) {
+	if (!id) return;
+	const template = await prisma.commandTemplate.findFirst({
+		where: { id, AND: [commandTemplateScopeWhere(session), { OR: [{ isBuiltin: true }, { teamId }] }] },
+		select: { id: true },
+	});
+	if (!template) throw new NotFoundError(t("backend.command-template.commandTemplateNotFound"));
 }
 
 /**
@@ -137,7 +148,8 @@ export async function createScheduledTask(
 	if (serverIds.length === 0) {
 		throw new ValidationError(t("backend.scheduled-task.atLeastOneTargetServer"));
 	}
-	await assertScheduledTaskServersInScope(serverIds, session);
+	await assertScheduledTaskServersInScope(serverIds, session, teamId);
+	await assertTemplateInScope(input.templateId, teamId, session);
 	return prisma.scheduledTask.create({
 		data: {
 			id,
@@ -145,7 +157,7 @@ export async function createScheduledTask(
 			cronExpression: schedule.cronExpression,
 			scheduleType: schedule.scheduleType,
 			runAt: schedule.runAt,
-			command: input.command,
+			command: createCommandSchema.shape.command.parse(input.command),
 			reason: input.reason ?? null,
 			plan: input.plan ?? null,
 			verificationCommand: input.verificationCommand ?? null,
@@ -203,12 +215,16 @@ async function assertScheduledTaskEditAllowed(
 	if (!existing.approvalRequired && changesSchedule && !sessionHasPermission(session, "command:execute")) {
 		throw new ForbiddenError(t("backend.scheduled-task.manageUnattendedRequiresExecutor"));
 	}
+	const teamId = input.teamId === undefined ? existing.teamId : input.teamId;
+	if (input.teamId !== undefined || input.templateId !== undefined) {
+		await assertTemplateInScope(input.templateId === undefined ? existing.templateId : input.templateId, teamId, session);
+	}
 	if (!(input.approvalRequired ?? existing.approvalRequired) && (changesSchedule || existing.approvalRequired)) {
-		await assertScheduledTaskServersInScope(input.serverIds ?? existing.serverIds, session, ForbiddenError);
-	} else if (input.serverIds !== undefined) {
-		await assertScheduledTaskServersInScope(input.serverIds, session);
+		await assertScheduledTaskServersInScope(input.serverIds ?? existing.serverIds, session, teamId, ForbiddenError);
+	} else if (input.serverIds !== undefined || input.teamId !== undefined) {
+		await assertScheduledTaskServersInScope(input.serverIds ?? existing.serverIds, session, teamId);
 	} else if (input.command !== undefined && input.command !== existing.command) {
-		await assertScheduledTaskServersInScope(existing.serverIds, session);
+		await assertScheduledTaskServersInScope(existing.serverIds, session, teamId);
 	}
 	if (input.teamId !== undefined && !isGlobalTeamManager(session) && input.teamId !== session.currentTeamId) {
 		throw new ValidationError(t("backend.scheduled-task.teamChangeRequiresManager"));
@@ -242,7 +258,7 @@ export async function updateScheduledTask(
 		// A pending claim belongs to the old schedule's occurrence.
 		data.claimedOccurrenceAt = null;
 	}
-	if (input.command !== undefined) data.command = input.command;
+	if (input.command !== undefined) data.command = createCommandSchema.shape.command.parse(input.command);
 	if (input.reason !== undefined) data.reason = input.reason;
 	if (input.plan !== undefined) data.plan = input.plan;
 	if (input.verificationCommand !== undefined) data.verificationCommand = input.verificationCommand;
@@ -290,7 +306,10 @@ function changesScheduleDefinition(
 	input: Pick<UpdateScheduledTaskInput, "scheduleType" | "cronExpression" | "runAt">,
 ) {
 	if (input.scheduleType !== undefined && input.scheduleType !== existing.scheduleType) return true;
-	if (input.cronExpression !== undefined && input.cronExpression !== existing.cronExpression) return true;
+	if (existing.scheduleType === "CRON") {
+		const normalize = (value: string) => value.trim().replace(/\s+/g, " ");
+		return input.cronExpression !== undefined && normalize(input.cronExpression) !== normalize(existing.cronExpression);
+	}
 	if (input.runAt !== undefined) {
 		const next = input.runAt === null ? null : new Date(input.runAt).getTime();
 		const current = existing.runAt ? existing.runAt.getTime() : null;
@@ -324,10 +343,14 @@ export async function deleteScheduledTask(
 		throw new ForbiddenError(t("backend.scheduled-task.manageUnattendedRequiresExecutor"));
 	}
 	const deleted = await prisma.scheduledTask.deleteMany({
-		where: { id, ...teamWhere(session) },
+		where: { id, ...teamWhere(session), approvalRequired: existing.approvalRequired, updatedAt: existing.updatedAt },
 	});
 	if (deleted.count === 0) {
-		throw new NotFoundError(t("backend.scheduled-task.scheduledTaskNotFound"));
+		const latest = await getScheduledTask(id, session);
+		if (!latest.approvalRequired && !sessionHasPermission(session, "command:execute")) {
+			throw new ForbiddenError(t("backend.scheduled-task.manageUnattendedRequiresExecutor"));
+		}
+		throw new ConflictError(t("backend.scheduled-task.taskChangedRetry"));
 	}
 	return existing;
 }
@@ -373,7 +396,7 @@ export async function toggleScheduledTask(
 	}
 	const newStatus = desiredStatus ?? (current.status === "ACTIVE" ? "PAUSED" : "ACTIVE");
 	if (newStatus === "ACTIVE" && !current.approvalRequired) {
-		await assertScheduledTaskServersInScope(current.serverIds, session, ForbiddenError);
+		await assertScheduledTaskServersInScope(current.serverIds, session, current.teamId, ForbiddenError);
 	}
 	const updated = await prisma.scheduledTask.updateMany({
 		where: { id, ...teamWhere(session), status: current.status, updatedAt: current.updatedAt, approvalRequired: current.approvalRequired },
@@ -398,7 +421,7 @@ export async function retryScheduledTask(
 	if (!task.approvalRequired && !sessionHasPermission(session, "command:execute")) {
 		throw new ForbiddenError(t("backend.scheduled-task.retryUnattendedRequiresExecutor"));
 	}
-	await assertScheduledTaskServersInScope(task.serverIds, session, ForbiddenError);
+	await assertScheduledTaskServersInScope(task.serverIds, session, task.teamId, ForbiddenError);
 	if (task.serverIds.length === 0 || !task.createdById) {
 		// Only the outcome is written. recordTaskRun closes a scheduled occurrence (it sets the next run, and
 		// disables a one-time task): called for a retry, it gave a paused task a next run it would not keep and
@@ -411,7 +434,8 @@ export async function retryScheduledTask(
 	}
 
 	// System path (no session on createCommandRequest): stamp teamId from the parent task.
-	const result = await createCommandRequest({
+	let dispatchedTask = task;
+	await createCommandRequest({
 		title: commandRequestTitle("Scheduled task retry: ", task.name),
 		command: task.command,
 		reason: task.reason ?? `Manually retry scheduled task ${task.name}`,
@@ -420,10 +444,17 @@ export async function retryScheduledTask(
 		serverIds: task.serverIds,
 		teamId: task.teamId ?? null,
 		approvalRequired: task.approvalRequired,
+	}, undefined, undefined, async (tx, commandRequestId) => {
+		const dispatchedAt = new Date();
+		const changed = await tx.scheduledTask.updateMany({
+			where: { id, updatedAt: task.updatedAt, approvalRequired: task.approvalRequired },
+			data: { lastRunAt: dispatchedAt, runCount: { increment: 1 }, lastResult: t("backend.scheduled-task.manualRetryDispatched", { id: commandRequestId }) },
+		});
+		if (!changed.count) throw new ConflictError(t("backend.scheduled-task.taskChangedRetry"));
+		await tx.scheduledTaskRun.create({ data: { scheduledTaskId: id, commandRequestId, dispatchedAt, manual: true } });
+		dispatchedTask = await tx.scheduledTask.findUniqueOrThrow({ where: { id } });
 	});
-
-	await recordTaskDispatch(task.id, result.id, true);
-	return prisma.scheduledTask.findUniqueOrThrow({ where: { id } });
+	return dispatchedTask;
 }
 
 /**
@@ -475,7 +506,7 @@ export async function recordTaskDispatch(id: string, commandRequestId: string, m
 
 const TERMINAL_COMMAND_STATUSES = new Set(["COMPLETED", "FAILED", "REJECTED", "CANCELLED"]);
 
-export async function reconcileScheduledTaskRuns(limit = 500) {
+export async function reconcileScheduledTaskRuns(limit = 500, signal?: AbortSignal) {
 	// Only runs whose request has finished: reading the oldest DISPATCHED
 	// first let 500 requests waiting for approval hide every finished one.
 	const pendingRuns = await prisma.scheduledTaskRun.findMany({
@@ -489,6 +520,7 @@ export async function reconcileScheduledTaskRuns(limit = 500) {
 	});
 	let reconciled = 0;
 	for (const run of pendingRuns) {
+		signal?.throwIfAborted();
 		const status = run.commandRequest.status;
 		if (!TERMINAL_COMMAND_STATUSES.has(status)) continue;
 		const failed = status !== "COMPLETED";

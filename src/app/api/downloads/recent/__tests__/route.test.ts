@@ -51,7 +51,7 @@ describe("GET /api/downloads/recent", () => {
         server: expect.objectContaining({ AND: expect.any(Array) }),
         OR: [{ server: { storageNode: { isNot: null } } }, { agentStorageNodeId: { not: null } }],
       },
-      orderBy: { updatedAt: "desc" },
+      orderBy: [{ updatedAt: "desc" }, { id: "desc" }],
     }));
     await expect(response.json()).resolves.toEqual({
       downloads: [{
@@ -92,10 +92,10 @@ describe("GET /api/downloads/recent", () => {
       server: { storageNode: { id: "node_1", name: "Storage", driver: "SFTP", basePath: "/srv/cloud" } },
     });
     const rows = [
-      ...Array.from({ length: 10 }, (_, i) => task(`hidden_${i}`, i)),
-      ...Array.from({ length: 9 }, (_, i) => task(`mine_${i}`, 10 + i)),
+      ...Array.from({ length: 50 }, (_, i) => task(`hidden_${i}`, i)),
+      ...Array.from({ length: 9 }, (_, i) => task(`mine_${i}`, 50 + i)),
     ];
-    prismaMock.downloadTask.findMany.mockImplementationOnce(async ({ take }: { take: number }) => rows.slice(0, take));
+    prismaMock.downloadTask.findMany.mockResolvedValueOnce(rows.slice(0, 50)).mockResolvedValueOnce(rows.slice(50));
 
     const response = await GET(new Request("https://example.com/api/downloads/recent"));
     const { downloads } = (await response.json()) as { downloads: Array<{ id: string }> };

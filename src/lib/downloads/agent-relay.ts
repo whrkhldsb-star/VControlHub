@@ -14,7 +14,7 @@ import { createAgentFileClient } from "@/lib/storage/agent-file-client";
 import { assertNotRecycled } from "@/lib/storage/archive-access";
 import { lockStorageFileOverwrite } from "@/lib/storage/file-overwrite-lock";
 import { snapshotFileVersionBeforeOverwrite } from "@/lib/storage/file-versions";
-import { deriveDownloadFileNameFromUrl, getPublicDownloadError, indexDownloadedFileEntry, normalizeDownloadFileName } from "./helpers";
+import { downloadNotificationSource, deriveDownloadFileNameFromUrl, getPublicDownloadError, indexDownloadedFileEntry, normalizeDownloadFileName } from "./helpers";
 import { pinnedDownloadAgent, resolveDownloadRedirects } from "./redirect-chain";
 import { getDownloadTargetRelativePath } from "./target-path";
 import { hashTransferFile, parseTransferManifest, type TransferManifest } from "./transfer-manifest";
@@ -124,6 +124,7 @@ export async function receiveAgentHttpDownload(input: HttpDownload) {
   const root = relayTempDir(taskId);
   let dir: string | undefined;
   let journaled = task.transferManifest !== null;
+  let completed = false;
   try {
     const previous = parseTransferManifest(task.transferManifest);
     if (!input.publishSftp && (!task.agentRootIdentity || (previous && previous.agentRootIdentity !== task.agentRootIdentity))) {
@@ -162,15 +163,16 @@ export async function receiveAgentHttpDownload(input: HttpDownload) {
     const total = String(file.size);
     const done = await prisma.downloadTask.updateMany({ where, data: { status: "COMPLETED", fileName: file.name,
       completedBytes: total, totalBytes: total, fileSize: total, progress: t("backend.downloads.progress.completedAndTransferred") } });
-    if (done.count && task.createdBy) await notifyDownloadResult(task.createdBy, input.url, "completed", undefined, task.teamId).catch(() => {});
+    completed = done.count > 0;
+    if (completed && task.createdBy) await notifyDownloadResult(task.createdBy, downloadNotificationSource(input.url), "completed", undefined, task.teamId).catch(() => {});
   } catch (error) {
     if (signal?.aborted || journaled) throw error;
     const message = error instanceof BusinessError ? error.message : getPublicDownloadError(error);
     const failed = await prisma.downloadTask.updateMany({ where, data: { status: "FAILED", errorMessage: message } });
-    if (failed.count && task.createdBy) await notifyDownloadResult(task.createdBy, input.url, "failed", message, task.teamId).catch(() => {});
+    if (failed.count && task.createdBy) await notifyDownloadResult(task.createdBy, downloadNotificationSource(input.url), "failed", message, task.teamId).catch(() => {});
   } finally {
     if (dir) await rm(dir, { recursive: true, force: true });
-    if (!signal?.aborted && !await prisma.downloadTask.count({ where }))
+    if (!signal?.aborted && (completed || (!journaled && !await prisma.downloadTask.count({ where }))))
       await rm(root, { recursive: true, force: true });
   }
 }

@@ -371,9 +371,14 @@ function buildTarTargetScripts(input: { targetPath: string; deleteOrphans: boole
 	const publish = input.confined
 		? `[ -d ${stage} ] && [ ! -L ${stage} ] || exit 1\nvch_link=$(find . -type l -print -quit) && [ -z "$vch_link" ] || exit 1\n`
 		: "";
+	// Measure the extracted regular files before publication. Only numbers cross SSH.
+	const measure = [
+		"{ find . -type f -exec stat -c %s -- {} + && echo done; }",
+		`LC_ALL=C awk '$0 == "done" {done=1; next} {n++; b+=$1} END {if (!done) exit 1; printf "Number of files: %.0f\\nNumber of regular files transferred: %.0f\\nTotal transferred file size: %.0f\\n", n, n, b}'`,
+	].join(" | ");
 	return {
 		receive: `${pin}umask 077 && mkdir -- ${stage} || exit 1\n${stageCwd}\ntar xf -`,
-		commit: pin + publish + (input.deleteOrphans
+		commit: pin + publish + `( ${stageCwd}\n${measure} ) || { rm -rf -- ${stage}; exit 1; }\n` + (input.deleteOrphans
 			? buildMirrorCommitScript(target, shellQuote(stageName), shellQuote(prevName))
 			: `cp -a ${input.confined ? "--remove-destination " : ""}-- ${stage}/. ${target}/ && rm -rf -- ${stage}`),
 		abort: `${pin}rm -rf -- ${stage}`,

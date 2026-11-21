@@ -14,7 +14,7 @@ import { prisma } from "@/lib/db";
 import { getPermissionsFromRoles, type Permission } from "@/lib/auth/rbac";
 import { serverTeamWhere, syncJobTeamWhere, teamCreateData } from "@/lib/auth/team-scope";
 import type { SessionPayload } from "@/lib/auth/session";
-import { ForbiddenError, NotFoundError, ValidationError } from "@/lib/errors";
+import { ConflictError, ForbiddenError, NotFoundError, ValidationError } from "@/lib/errors";
 import { assertNotRecycled } from "@/lib/storage/archive-access";
 import { resolveStorageRemotePath } from "@/lib/storage/remote-containment";
 import { STORAGE_SSH_SERVER_SELECT, resolveStorageSshCredentials } from "@/lib/storage/ssh-credentials";
@@ -22,7 +22,7 @@ import { assertStorageAccess } from "@/lib/storage/access-control";
 import { storageAccessDeniedCopy } from "@/lib/storage/access-denied";
 import { storageNodeTeamWhere } from "@/lib/auth/team-scope";
 import { expandStorageBasePath, normalizeStorageTargetDirectory } from "@/lib/storage/path-utils";
-import { isBidirectionalSyncType, effectiveDeleteOrphans, isProtectedDeleteTarget, syncEndpointsOverlap } from "./bidirectional";
+import { syncEndpointAccess, effectiveDeleteOrphans, isProtectedDeleteTarget, syncEndpointsOverlap } from "./bidirectional";
 import { t } from "@/lib/i18n/service-translations";
 
 /** The caller's scope and, when known, its effective permissions (an identity template or API token may grant fewer than its roles). */
@@ -41,6 +41,8 @@ export type SyncJobInput = {
 	createdBy?: string;
 	session?: SyncSessionScope;
 };
+
+const serverSummary = { select: { id: true, name: true, host: true } } as const;
 
 export function assertDisjointSyncEndpoints(input: Pick<SyncJobInput, "sourceServerId" | "targetServerId" | "sourcePath" | "targetPath">) {
 	if (syncEndpointsOverlap(input)) {
@@ -92,7 +94,7 @@ type SyncReachEndpoint = {
 	serverId: string;
 	path: string;
 	unmeteredTreeWrite?: boolean;
-	operations?: Array<"read" | "write" | "delete">;
+	operations: Array<"read" | "write" | "delete">;
 	/** Snapshot the runner will actually use for rsync and for credential cleanup. */
 	server?: { host: string; port: number; username: string; hostKeySha256: string | null };
 };
@@ -131,7 +133,7 @@ export async function assertSyncEndpointsWithinReach(
 				: t("backend.sync.endpointNeedsSshPermission", { path: endpoint.path }));
 		}
 		if (!node || !root) continue;
-		const operations = endpoint.operations ?? ["read", "write"] as const;
+		const operations = endpoint.operations;
 		const relativePath = inside ? posixPath.relative(root, posixPath.normalize(endpoint.path)) : "";
 		if (confined) {
 			for (const operation of operations) {
@@ -173,10 +175,11 @@ export async function createSyncJob(input: SyncJobInput) {
 		[input.sourceServerId, input.targetServerId],
 		input.session ?? null,
 	);
+	const access = syncEndpointAccess(input.syncType ?? "MIRROR", input.deleteOrphans ?? false);
 	await assertSyncEndpointsWithinReach(
 		[
-			{ serverId: input.sourceServerId, path: input.sourcePath, unmeteredTreeWrite: isBidirectionalSyncType(input.syncType) },
-			{ serverId: input.targetServerId, path: input.targetPath, unmeteredTreeWrite: true },
+			{ serverId: input.sourceServerId, path: input.sourcePath, ...access.source },
+			{ serverId: input.targetServerId, path: input.targetPath, ...access.target },
 		],
 		input.session,
 	);
@@ -197,13 +200,13 @@ export async function createSyncJob(input: SyncJobInput) {
 			...teamData,
 		},
 		include: {
-			sourceServer: { select: { id: true, name: true, host: true } },
-			targetServer: { select: { id: true, name: true, host: true } },
+			sourceServer: serverSummary,
+			targetServer: serverSummary,
 		},
 	});
 }
 
-function syncVisibility(session?: SyncSessionScope, write = false) {
+export function syncVisibility(session?: SyncSessionScope, write = false) {
 	if (!session) return {};
 	const server = serverTeamWhere(session, write ? "connect" : "read");
 	return { ...syncJobTeamWhere(session), sourceServer: { is: server }, targetServer: { is: server } };
@@ -211,7 +214,7 @@ function syncVisibility(session?: SyncSessionScope, write = false) {
 
 type SyncPaths = Pick<SyncJobInput, "sourceServerId" | "targetServerId" | "sourcePath" | "targetPath">;
 
-async function visibleSyncPaths(jobs: SyncPaths[], session?: SyncSessionScope, write = false, db: Prisma.TransactionClient = prisma) {
+export async function visibleSyncPaths(jobs: SyncPaths[], session?: SyncSessionScope, write = false, db: Prisma.TransactionClient = prisma) {
 	const permissions = session?.permissions ?? getPermissionsFromRoles(session?.roles ?? []);
 	if (!session || jobs.length === 0 || permissions.includes("server:ssh")) return () => true;
 	const userId = session.userId;
@@ -240,8 +243,8 @@ export async function listSyncJobs(
 	const page = (cursor?: string) => prisma.syncJob.findMany({
 		where: syncVisibility(session),
 		include: {
-			sourceServer: { select: { id: true, name: true, host: true } },
-			targetServer: { select: { id: true, name: true, host: true } },
+			sourceServer: serverSummary,
+			targetServer: serverSummary,
 			creator: { select: { id: true, username: true, displayName: true } },
 			_count: { select: { syncLogs: true } },
 		},
@@ -327,67 +330,70 @@ export async function updateSyncJob(
 	> & { schedule?: string | null },
 	session?: Pick<SessionPayload, "userId" | "roles" | "currentTeamId">,
 ) {
-	const existing = await getSyncJob(id, session, true);
-	if (!existing) throw new NotFoundError(t("backend.sync.syncJobNotFound"));
-	// Being in the job's team is not enough to edit it: the editor must reach both servers itself, the same check
-	// createSyncJob makes. Otherwise a member barred from a server could repoint a teammate's job at it.
-	if (session) await assertSyncServersInScope([existing.sourceServerId, existing.targetServerId], session);
-	// createSyncJob refuses an endpoint that syncs a path onto itself; a PATCH of
-	// sourcePath/targetPath must not be able to reach that state either. On one
-	// server with the same path and deleteOrphans, the tar fallback pipes
-	// `tar cf - -C <path> .` into a remote `find ... -exec rm -rf` on that very
-	// path — it would wipe the directory while still reading from it.
-	assertDisjointSyncEndpoints({
-		sourceServerId: existing.sourceServerId,
-		targetServerId: existing.targetServerId,
-		sourcePath: data.sourcePath ?? existing.sourcePath,
-		targetPath: data.targetPath ?? existing.targetPath,
-	});
-	assertSafeDeleteTarget(
-		data.syncType ?? existing.syncType,
-		Boolean(data.deleteOrphans ?? existing.deleteOrphans),
-		data.targetPath ?? existing.targetPath,
-	);
-	if (data.sourcePath !== undefined || data.targetPath !== undefined) {
-		await assertSyncEndpointsWithinReach(
-			[
-				{ serverId: existing.sourceServerId, path: data.sourcePath ?? existing.sourcePath, unmeteredTreeWrite: isBidirectionalSyncType(data.syncType ?? existing.syncType) },
-				{ serverId: existing.targetServerId, path: data.targetPath ?? existing.targetPath, unmeteredTreeWrite: true },
-			],
-			session,
+	for (let attempt = 0; attempt < 3; attempt++) {
+		const existing = await getSyncJob(id, session, true);
+		if (!existing) throw new NotFoundError(t("backend.sync.syncJobNotFound"));
+		// Being in the job's team is not enough to edit it: the editor must reach both servers itself, the same check
+		// createSyncJob makes. Otherwise a member barred from a server could repoint a teammate's job at it.
+		if (session) await assertSyncServersInScope([existing.sourceServerId, existing.targetServerId], session);
+		// createSyncJob refuses an endpoint that syncs a path onto itself; a PATCH of
+		// sourcePath/targetPath must not be able to reach that state either. On one
+		// server with the same path and deleteOrphans, the tar fallback pipes
+		// `tar cf - -C <path> .` into a remote `find ... -exec rm -rf` on that very
+		// path — it would wipe the directory while still reading from it.
+		assertDisjointSyncEndpoints({
+			sourceServerId: existing.sourceServerId,
+			targetServerId: existing.targetServerId,
+			sourcePath: data.sourcePath ?? existing.sourcePath,
+			targetPath: data.targetPath ?? existing.targetPath,
+		});
+		assertSafeDeleteTarget(
+			data.syncType ?? existing.syncType,
+			Boolean(data.deleteOrphans ?? existing.deleteOrphans),
+			data.targetPath ?? existing.targetPath,
 		);
+		if (data.sourcePath !== undefined || data.targetPath !== undefined || data.syncType !== undefined || data.deleteOrphans !== undefined) {
+			const access = syncEndpointAccess(data.syncType ?? existing.syncType, data.deleteOrphans ?? existing.deleteOrphans);
+			await assertSyncEndpointsWithinReach(
+				[
+					{ serverId: existing.sourceServerId, path: data.sourcePath ?? existing.sourcePath, ...access.source },
+					{ serverId: existing.targetServerId, path: data.targetPath ?? existing.targetPath, ...access.target },
+				],
+				session,
+			);
+		}
+		const patch: Record<string, unknown> = {};
+		if (data.name !== undefined) patch.name = data.name;
+		if (data.sourcePath !== undefined) patch.sourcePath = data.sourcePath;
+		if (data.targetPath !== undefined) patch.targetPath = data.targetPath;
+		if (data.compress !== undefined) patch.compress = data.compress;
+		if (data.schedule !== undefined) patch.schedule = data.schedule; // null clears
+		if (data.syncType !== undefined || data.deleteOrphans !== undefined) {
+			const syncType = data.syncType ?? existing.syncType;
+			const deleteOrphans = data.deleteOrphans ?? existing.deleteOrphans;
+			patch.deleteOrphans = effectiveDeleteOrphans(syncType, Boolean(deleteOrphans));
+			if (data.syncType !== undefined) patch.syncType = data.syncType;
+		}
+		// A scheduled run acts as the job's creator. Whoever changes what it copies, where, or when becomes that
+		// creator, so the run is authorised against the editor's own rights and not a teammate's.
+		const changesWhatRuns = data.sourcePath !== undefined || data.targetPath !== undefined || data.schedule !== undefined
+			|| data.syncType !== undefined || data.deleteOrphans !== undefined;
+		if (session?.userId && changesWhatRuns && session.userId !== existing.createdBy) patch.createdBy = session.userId;
+		const result = await prisma.$transaction(async tx => {
+			const visible = { id, ...syncVisibility(session, true) };
+			const updated = await tx.syncJob.updateMany({
+				where: { ...visible, teamId: existing.teamId, updatedAt: existing.updatedAt,
+					sourcePath: existing.sourcePath, targetPath: existing.targetPath, syncType: existing.syncType, deleteOrphans: existing.deleteOrphans },
+				data: patch,
+			});
+			if (!updated.count) return null;
+			const row = await tx.syncJob.findFirst({
+				where: visible, include: { sourceServer: serverSummary, targetServer: serverSummary },
+			});
+			if (!row || !(await visibleSyncPaths([row], session, true, tx))(row)) throw new NotFoundError(t("backend.sync.syncJobNotFound"));
+			return row;
+		});
+		if (result) return result;
 	}
-	const patch: Record<string, unknown> = {};
-	if (data.name !== undefined) patch.name = data.name;
-	if (data.sourcePath !== undefined) patch.sourcePath = data.sourcePath;
-	if (data.targetPath !== undefined) patch.targetPath = data.targetPath;
-	if (data.compress !== undefined) patch.compress = data.compress;
-	if (data.schedule !== undefined) patch.schedule = data.schedule; // null clears
-	if (data.syncType !== undefined || data.deleteOrphans !== undefined) {
-		const syncType = data.syncType ?? existing.syncType;
-		const deleteOrphans = data.deleteOrphans ?? existing.deleteOrphans;
-		patch.deleteOrphans = effectiveDeleteOrphans(syncType, Boolean(deleteOrphans));
-		if (data.syncType !== undefined) patch.syncType = data.syncType;
-	}
-	// A scheduled run acts as the job's creator. Whoever changes what it copies, where, or when becomes that
-	// creator, so the run is authorised against the editor's own rights and not a teammate's.
-	const changesWhatRuns = data.sourcePath !== undefined || data.targetPath !== undefined || data.schedule !== undefined
-		|| data.syncType !== undefined || data.deleteOrphans !== undefined;
-	if (session?.userId && changesWhatRuns && session.userId !== existing.createdBy) patch.createdBy = session.userId;
-	const updated = await prisma.syncJob.updateMany({
-		where: { id, teamId: existing.teamId ?? null },
-		data: patch,
-	});
-	if (updated.count === 0) {
-		throw new NotFoundError(t("backend.sync.syncJobNotFound"));
-	}
-	const result = await prisma.syncJob.findFirst({
-		where: { id, teamId: existing.teamId ?? null },
-		include: {
-			sourceServer: { select: { id: true, name: true, host: true } },
-			targetServer: { select: { id: true, name: true, host: true } },
-		},
-	});
-	if (!result) throw new NotFoundError(t("backend.sync.syncJobNotFound"));
-	return result;
+	throw new ConflictError(apiCopy("apiCopy.failed.to.update.sync.job.bf8ef139"));
 }

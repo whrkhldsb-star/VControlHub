@@ -56,6 +56,7 @@ import { resolveSyncTargetAuth, SYNC_TARGET_AUTH_SETTING, type SyncTargetAuth } 
 import {
 	effectiveDeleteOrphans,
 	formatBidirectionalResult,
+	syncEndpointAccess,
 	isBidirectionalSyncType,
 	mergeSyncStats,
 	rsyncFlagsForJob,
@@ -500,6 +501,7 @@ export async function executeSyncJob(
 	jobId: string,
 	options?: {
 		onClaimed?: () => void | Promise<void>;
+		expectedOccurrence?: { updatedAt: Date; schedule: string | null; lastSyncAt: Date | null };
 		/** Who runs it now (a manual run); a scheduled run acts as the job's creator. */
 		actor?: SessionPayload;
 	},
@@ -524,7 +526,7 @@ export async function executeSyncJob(
 		});
 		if (busy) throw new Error("Sync destination is already in use");
 		const claimed = await tx.syncJob.updateMany({
-			where: { id: jobId, updatedAt: job.updatedAt, status: { in: ["IDLE", "ERROR"] } },
+			where: { id: jobId, updatedAt: job.updatedAt, ...options?.expectedOccurrence, status: { in: ["IDLE", "ERROR"] } },
 			data: { status: "RUNNING", activeRunId: leaseId },
 		});
 		if (!claimed.count) throw new Error("Sync job is already running or paused");
@@ -573,11 +575,10 @@ export async function executeSyncJob(
 			});
 			if (refusal) throw new ForbiddenError(refusal);
 			assertDisjointSyncEndpoints(current);
+			const access = syncEndpointAccess(current.syncType, current.deleteOrphans, reverse);
 			const paths = await assertSyncEndpointsWithinReach([
-				{ serverId: current.sourceServerId, server: current.sourceServer, path: current.sourcePath, unmeteredTreeWrite: bidirectional,
-					operations: reverse ? ["write"] : bidirectional ? ["read", "write"] : ["read"] },
-				{ serverId: current.targetServerId, server: current.targetServer, path: current.targetPath, unmeteredTreeWrite: !reverse,
-					operations: reverse ? ["read"] : [...(bidirectional ? ["read" as const] : []), "write", ...(deleteOrphans ? ["delete" as const] : [])] },
+				{ serverId: current.sourceServerId, server: current.sourceServer, path: current.sourcePath, ...access.source },
+				{ serverId: current.targetServerId, server: current.targetServer, path: current.targetPath, ...access.target },
 			], session);
 			const sourcePath = paths?.[0]?.remotePath ?? current.sourcePath;
 			const targetPath = paths?.[1]?.remotePath ?? current.targetPath;

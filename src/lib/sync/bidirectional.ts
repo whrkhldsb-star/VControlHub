@@ -13,6 +13,21 @@ export function effectiveDeleteOrphans(
   return deleteOrphans;
 }
 
+/** Required storage operations on each endpoint of a sync leg. */
+export function syncEndpointAccess(syncType: string, deleteOrphans: boolean, reverse = false) {
+  const bidirectional = isBidirectionalSyncType(syncType);
+  type Operation = "read" | "write" | "delete";
+  const source: Operation[] = reverse ? ["write"] : bidirectional ? ["read", "write"] : ["read"];
+  const target: Operation[] = reverse ? ["read"] : [
+    ...(bidirectional ? ["read" as const] : []), "write",
+    ...(effectiveDeleteOrphans(syncType, deleteOrphans) ? ["delete" as const] : []),
+  ];
+  return {
+    source: { operations: source, unmeteredTreeWrite: source.includes("write") },
+    target: { operations: target, unmeteredTreeWrite: target.includes("write") },
+  };
+}
+
 /** Directories a run that deletes what the source lacks must never be pointed at (the directory itself, not below it). */
 const PROTECTED_DELETE_TARGETS = new Set([
   "/", "/bin", "/boot", "/dev", "/etc", "/home", "/lib", "/lib32", "/lib64", "/opt", "/proc", "/root", "/run", "/sbin", "/srv", "/sys", "/usr", "/var",

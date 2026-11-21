@@ -90,7 +90,7 @@ vi.mock("@/lib/logging", () => ({
   }),
 }));
 
-import { startScheduledTaskWorker, stopScheduledTaskWorkerForTests } from "./worker";
+import { dispatchDueScheduledTasks, startScheduledTaskWorker, stopScheduledTaskWorkerForTests } from "./worker";
 
 function makeTask(overrides: Partial<Record<string, unknown>> = {}) {
   return {
@@ -112,7 +112,7 @@ function makeTask(overrides: Partial<Record<string, unknown>> = {}) {
 
 function makeJob(overrides: Partial<Record<string, unknown>> = {}) {
   return {
-    id: "job-1",
+    id: "job-1", attempts: 1,
     type: "scheduled-task.tick",
     payload: { reason: "test", requestedAt: new Date().toISOString() } as Prisma.JsonValue,
     ...overrides,
@@ -166,6 +166,17 @@ describe("scheduled-task durable job worker", () => {
     expect(claimNextJobMock.mock.calls.length).toBeGreaterThanOrEqual(3);
   });
 
+  it("stops before claiming another occurrence after the tick loses its lease", async () => {
+    const lease = new AbortController();
+    scheduledTaskFindManyMock.mockResolvedValueOnce([makeTask(), makeTask({ id: "second" })]);
+    recordTaskDispatchMock.mockImplementationOnce(async () => lease.abort(new Error("lease lost")));
+
+    await expect(dispatchDueScheduledTasks("test", lease.signal)).rejects.toThrow("lease lost");
+    expect(createCommandRequestMock).toHaveBeenCalledTimes(1);
+    expect(scheduledTaskUpdateManyMock).toHaveBeenCalledTimes(1);
+    expect(recordTaskRunMock).not.toHaveBeenCalled();
+  });
+
   it("claims via the jobs table and completes with the dispatched count", async () => {
     claimNextJobMock.mockResolvedValueOnce(makeJob());
     scheduledTaskFindManyMock.mockResolvedValueOnce([makeTask({ reason: "Nightly backup" })]);
@@ -199,6 +210,7 @@ describe("scheduled-task durable job worker", () => {
       "job-1",
       expect.stringContaining(":scheduled-task:"),
     { dispatched: 1, reconciled: 0 },
+      1,
     );
   });
 
@@ -267,6 +279,7 @@ describe("scheduled-task durable job worker", () => {
       "job-1",
       expect.any(String),
     { dispatched: 0, reconciled: 0 },
+      1,
     );
   });
 
@@ -316,6 +329,7 @@ describe("scheduled-task durable job worker", () => {
       "job-1",
       expect.any(String),
     { dispatched: 0, reconciled: 0 },
+      1,
     );
   });
 
@@ -344,6 +358,7 @@ describe("scheduled-task durable job worker", () => {
       "job-1",
       expect.any(String),
     { dispatched: 1, reconciled: 0 },
+      1,
     );
   });
 
@@ -405,6 +420,7 @@ describe("scheduled-task durable job worker", () => {
       "job-1",
       expect.any(String),
     { dispatched: 0, reconciled: 0 },
+      1,
     );
   });
 
@@ -445,6 +461,7 @@ describe("scheduled-task durable job worker", () => {
       "job-1",
       expect.any(String),
     { dispatched: 0, reconciled: 0 },
+      1,
     );
   });
 

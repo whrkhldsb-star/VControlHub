@@ -4,6 +4,7 @@ import { tmpdir } from "node:os";
 import { join } from "node:path";
 import { afterEach, beforeEach, describe, expect, it, vi } from "vitest";
 
+import { parseRsyncOutput } from "../service-runtime";
 import { buildRsyncCommand, buildSyncGateScript, buildTarSyncCommand, createSyncReceiverLease, retireSyncReceiverLease } from "@/lib/sync/service-commands";
 
 /**
@@ -109,6 +110,7 @@ for (const mode of ["credential", "one-time-key"] as const) describe.skipIf(!pos
     writeFileSync(join(source, "fresh.txt"), "new data");
     const result = runTarSync({ deleteOrphans: true });
     expect(result.status, result.stderr).toBe(0);
+    expect(parseRsyncOutput(result.stdout)).toMatchObject({ transferredFiles: 1, totalSize: 8 });
     expect(listTree(target)).toEqual(["fresh.txt"]);
     expect(readFileSync(join(target, "fresh.txt"), "utf8")).toBe("new data");
   });
@@ -138,6 +140,16 @@ for (const mode of ["credential", "one-time-key"] as const) describe.skipIf(!pos
     expect(result.status, result.stderr).toBe(0);
     expect(listTree(target)).toEqual(["fresh.txt", "keep-dir", "keep-dir/nested.txt", "valuable.txt"]);
     expect(readFileSync(join(target, "valuable.txt"), "utf8")).toBe("updated");
+  });
+
+  it("stops before publication when staging file sizes cannot be measured", () => {
+    writeFileSync(join(source, "fresh.txt"), "new data");
+    writeExecutable(join(bin, "stat"), "#!/bin/sh\nexit 1\n");
+    const result = runTarSync({ deleteOrphans: false });
+    expect(result.status).not.toBe(0);
+    expect(existsSync(join(target, "fresh.txt"))).toBe(false);
+    expect(listTree(target)).toEqual(["keep-dir", "keep-dir/nested.txt", "valuable.txt"]);
+    expect(result.stdout).not.toContain("Number of regular files transferred: 0");
   });
 
   it.each([true, false])("fails and leaves the target untouched when the source tar exits non-zero (deleteOrphans=%s)", (deleteOrphans) => {

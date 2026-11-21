@@ -106,6 +106,16 @@ describe("executeSyncJob onClaimed ordering", () => {
     expect(onClaimed).not.toHaveBeenCalled();
   });
 
+  it("claims only the version and occurrence confirmed by the scheduler", async () => {
+    const expectedOccurrence = { schedule: "every:1h", lastSyncAt: new Date(0), updatedAt: new Date(12345) };
+    prismaMock.syncJob.updateMany.mockResolvedValueOnce({ count: 0 });
+    await expect(executeSyncJob("job-1", { expectedOccurrence })).rejects.toThrow(/already running or paused/);
+    expect(prismaMock.syncJob.updateMany).toHaveBeenCalledWith(expect.objectContaining({
+      where: expect.objectContaining(expectedOccurrence),
+    }));
+    expect(prismaMock.syncLog.create).not.toHaveBeenCalled();
+  });
+
   it("runs without an onClaimed callback (manual /run path)", async () => {
     const result = await executeSyncJob("job-1");
     expect(result.ok).toBe(false);

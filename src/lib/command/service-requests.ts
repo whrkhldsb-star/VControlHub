@@ -288,45 +288,55 @@ export async function cancelCommandRequest(input: {
   const now = new Date();
   const reason = input.reason?.trim();
 
-  // CAS claim FIRST so a concurrent finalize/recovery that already moved the
-  // request to COMPLETED/FAILED/CANCELLED does not get SIGTERM while history
-  // stays terminal (kill only after we own the cancel transition).
-  const claimed = await prisma.commandRequest.updateMany({
-    where: {
-      id: commandRequestId,
-      status: request.status,
-      ...(input.session ? commandRequestTeamWhere(input.session) : {}),
-    },
-    data: request.status === "RUNNING"
-      ? { status: "CANCELLING" }
-      : { status: "CANCELLED", workerId: null, workerHeartbeatAt: null },
-  });
-  if (claimed.count === 0) {
-    throw new BusinessError(t("backend.command.cannotCancelEnded"));
-  }
+  const stderr = `Command cancellation requested.${reason ? ` Reason: ${reason}` : ""}`;
+  await prisma.$transaction(async tx => {
+    // CAS claim FIRST so a concurrent finalize/recovery that already moved the
+    // request to COMPLETED/FAILED/CANCELLED does not get SIGTERM while history
+    // stays terminal (kill only after we own the cancel transition).
+    const claimed = await tx.commandRequest.updateMany({
+      where: {
+        id: commandRequestId,
+        status: request.status,
+        ...(input.session ? commandRequestTeamWhere(input.session) : {}),
+      },
+      data: request.status === "RUNNING"
+        ? { status: "CANCELLING" }
+        : { status: "CANCELLED", workerId: null, workerHeartbeatAt: null },
+    });
+    if (claimed.count === 0) {
+      throw new BusinessError(t("backend.command.cannotCancelEnded"));
+    }
 
+    await tx.commandTarget.updateMany({
+      where: {
+        commandRequestId,
+        status: { in: ["PENDING_APPROVAL", "APPROVED"] },
+      },
+      data: {
+        status: "CANCELLED",
+        stderr,
+        exitCode: 130,
+        finishedAt: now,
+      },
+    });
+    if (request.status === "RUNNING") {
+      await tx.commandTarget.updateMany({
+        where: { commandRequestId, status: "RUNNING" },
+        data: { status: "CANCELLING", stderr },
+      });
+    } else {
+      // Older enqueue failures could restore APPROVED on the parent while
+      // leaving a target RUNNING. Its transport outcome cannot be confirmed.
+      await tx.commandTarget.updateMany({
+        where: { commandRequestId, status: { in: ["RUNNING", "CANCELLING"] } },
+        data: { status: "FAILED", outcomeUnknown: true, stderr, exitCode: 255, finishedAt: now },
+      });
+    }
+  });
   const killedCount = cancellableTargetIds.reduce(
     (count, targetId) => count + (cancelActiveCommandChild(targetId) ? 1 : 0),
     0,
   );
-  const stderr = `Command cancellation requested.${reason ? ` Reason: ${reason}` : ""}`;
-
-  await prisma.commandTarget.updateMany({
-    where: {
-      commandRequestId,
-      status: { in: ["PENDING_APPROVAL", "APPROVED"] },
-    },
-    data: {
-      status: "CANCELLED",
-      stderr,
-      exitCode: 130,
-      finishedAt: now,
-    },
-  });
-  await prisma.commandTarget.updateMany({
-    where: { commandRequestId, status: "RUNNING" },
-    data: { status: "CANCELLING", stderr },
-  });
   await prisma.executionLog.create({
     data: {
       commandRequestId,
@@ -347,6 +357,7 @@ export async function createCommandRequest(
   input: CreateCommandInput,
   session?: CommandSessionScope | null,
   source?: "api",
+  recordCreation?: (tx: Prisma.TransactionClient, commandRequestId: string) => Promise<void>,
 ) {
   const payload = createCommandSchema.parse(input);
   const teamId = resolveCommandTeamId(payload.teamId, session);
@@ -408,7 +419,7 @@ export async function createCommandRequest(
     targets: Prisma.CommandTargetGetPayload<{ select: typeof SUBMISSION_TARGET_SELECT }>[];
   };
   try {
-    commandRequest = await prisma.commandRequest.create({
+    const insert = (db: Prisma.TransactionClient) => db.commandRequest.create({
       data: {
         title: payload.title,
         command: payload.command,
@@ -426,6 +437,11 @@ export async function createCommandRequest(
       },
       include: { targets: visibleTargets },
     });
+    commandRequest = recordCreation ? await prisma.$transaction(async tx => {
+      const created = await insert(tx);
+      await recordCreation(tx, created.id);
+      return created;
+    }) : await insert(prisma);
   } catch (error) {
     if (storedKey && isUniqueViolation(error)) {
       const existing = await replay(storedKey);
@@ -525,6 +541,23 @@ export async function reviewCommandRequest(
         comment: payload.comment,
       },
     });
+    if (!payload.approved) {
+      await tx.commandTarget.updateMany({
+        where: { commandRequestId: payload.commandRequestId },
+        data: {
+          status: "REJECTED",
+          finishedAt: new Date(),
+        },
+      });
+
+      await tx.executionLog.create({
+        data: {
+          commandRequestId: payload.commandRequestId,
+          serverId: null,
+          summary: t("backend.command.rejectedSummary"),
+        },
+      });
+    }
   });
 
   if (payload.approved) {
@@ -547,22 +580,6 @@ export async function reviewCommandRequest(
       where: { id: payload.commandRequestId },
     });
   }
-
-  await prisma.commandTarget.updateMany({
-    where: { commandRequestId: payload.commandRequestId },
-    data: {
-      status: "REJECTED",
-      finishedAt: new Date(),
-    },
-  });
-
-  await prisma.executionLog.create({
-    data: {
-      commandRequestId: payload.commandRequestId,
-      serverId: null,
-      summary: t("backend.command.rejectedSummary"),
-    },
-  });
 
   // Notify requester: command rejected
   notifyCommandResult(request.requesterId, request.title, "rejected", request.teamId).catch((err) => { commandLogger.warn("notifyCommandResult failed", { error: err instanceof Error ? err.message : String(err) }); });

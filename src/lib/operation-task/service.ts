@@ -3,6 +3,9 @@ import { CommandRequestStatus, DownloadTaskStatus, JobStatus, Prisma, SyncJobSta
 import { rawServerScope, serverTeamWhere, teamWhere } from "@/lib/auth/team-scope";
 import { sessionHasPermission } from "@/lib/auth/authorization";
 import { RECENT_COMMAND_LOG_LIMIT, withVisibleCommandLogs } from "@/lib/command/visibility";
+import { canAccessDownloadTask } from "@/lib/downloads/route-helpers";
+import { downloadDriveSelect, resolveTaskDrive } from "@/lib/downloads/destination";
+import { syncVisibility, visibleSyncPaths } from "@/lib/sync/service-crud";
 import { actorName } from "@/lib/ticket/timeline";
 import { prisma } from "@/lib/db";
 import { getOperationTaskListLimit } from "@/lib/runtime-settings/service";
@@ -30,6 +33,7 @@ import type {
 export type { OperationTaskListOptions, OperationTaskListResult, OperationTaskStatus };
 
 type JobTaskRow = Job & {
+  foldedCount?: number;
   creator?: { username: string; displayName: string | null } | null;
   _count?: { events: number };
 };
@@ -209,43 +213,6 @@ function compactLogPreview(parts: Array<string | null | undefined>) {
 
 const FOLDABLE_COMPLETED_JOB_TYPES = new Set(["alert.evaluate"]);
 
-function foldCompletedPeriodicJobs(tasks: OperationTask[]) {
-  const folded = new Map<string, OperationTask>();
-  const visible: OperationTask[] = [];
-
-  for (const task of tasks) {
-    if (task.source !== "job" || task.status !== "completed" || !task.taskType || !FOLDABLE_COMPLETED_JOB_TYPES.has(task.taskType)) {
-      visible.push(task);
-      continue;
-    }
-
-    const existing = folded.get(task.taskType);
-    if (!existing) {
-      const representative = { ...task, foldedCount: 1 };
-      folded.set(task.taskType, representative);
-      visible.push(representative);
-      continue;
-    }
-
-    existing.foldedCount = (existing.foldedCount ?? 1) + 1;
-    if (new Date(task.createdAt).getTime() > new Date(existing.createdAt).getTime()) {
-      existing.id = task.id;
-      existing.sourceId = task.sourceId;
-      existing.title = task.title;
-      existing.createdAt = task.createdAt;
-      existing.updatedAt = task.updatedAt;
-      existing.actor = task.actor;
-      existing.progress = task.progress;
-      existing.logPreview = task.logPreview;
-      existing.href = task.href;
-      existing.workerId = task.workerId;
-      existing.workerHeartbeatAt = task.workerHeartbeatAt;
-    }
-  }
-
-  return visible;
-}
-
 function normalizeStatusFilter(status: OperationTaskListFilters["status"]) {
   if (!status) return null;
   return new Set(Array.isArray(status) ? status : [status]);
@@ -338,6 +305,7 @@ export type OperationTaskSessionScope = {
   userId: string;
   roles: import("@/lib/auth/rbac").RoleKey[];
   currentTeamId: string | null;
+  permissions?: import("@/lib/auth/rbac").Permission[];
 };
 
 export async function listOperationTaskResult(options: OperationTaskListOptions, session: OperationTaskSessionScope): Promise<OperationTaskListResult> {
@@ -371,7 +339,7 @@ export async function listOperationTaskResult(options: OperationTaskListOptions,
   const attentionLevels: Array<ReadonlySet<OperationTaskStatus>> = (["failed", "running", "pending"] as const)
     .map((status) => new Set<OperationTaskStatus>([status]));
   const statusPasses: Array<ReadonlySet<OperationTaskStatus> | null> = requestedStatuses
-    ? [requestedStatuses]
+    ? options.sort === "attention" ? [...requestedStatuses].map(status => new Set([status])) : [requestedStatuses]
     : options.sort === "attention" ? [null, ...attentionLevels] : [null];
   /** Run one source query per status pass and merge by id (newest first). */
   async function fetchSource<T extends { id: string; createdAt: Date }>(
@@ -393,15 +361,66 @@ export async function listOperationTaskResult(options: OperationTaskListOptions,
   // Only jobs and backups carry a task type; other sources cannot match one.
   const typedWhere = taskType ? { type: taskType } : {};
   const untypedWhere = taskType ? null : {};
+  // ACLs and folding can discard a whole source page. Continue in the same
+  // stable database order until this source has enough distinct visible rows.
+  async function pageVisible<T extends { id: string }>(
+    read: (cursor?: string) => Promise<T[]>,
+    filter: (rows: T[]) => Promise<T[]>,
+  ) {
+    const result: T[] = [];
+    let cursor: string | undefined;
+    do {
+      const page = await read(cursor);
+      const rows = await filter(page);
+      result.push(...rows);
+      cursor = page.length === limit ? page.at(-1)?.id : undefined;
+    } while (cursor && result.length < limit);
+    return result;
+  }
+  const paging = (cursor?: string) => ({
+    take: limit, orderBy: [{ createdAt: "desc" as const }, { id: "desc" as const }],
+    ...(cursor ? { cursor: { id: cursor }, skip: 1 } : {}),
+  });
+  async function readJobs(where: WhereClause) {
+    const visible = new Map<string, JobTaskRow>();
+    let cursor: string | undefined;
+    do {
+      const rows = await prisma.job.findMany({ where, ...paging(cursor),
+        include: { creator: { select: { username: true, displayName: true } }, _count: { select: { events: true } } } });
+      for (const row of rows) {
+        if (row.status === "COMPLETED" && FOLDABLE_COMPLETED_JOB_TYPES.has(row.type)) {
+          const key = `fold:${row.type}`;
+          const representative = visible.get(key);
+          if (representative) representative.foldedCount = (representative.foldedCount ?? 1) + 1;
+          else visible.set(key, { ...row, foldedCount: 1 });
+        } else visible.set(row.id, row);
+      }
+      cursor = rows.length === limit ? rows.at(-1)?.id : undefined;
+    } while (cursor && visible.size < limit);
+    return [...visible.values()];
+  }
+  const readStorage = sessionHasPermission(session, "storage:read") ? untypedWhere : null;
   const [jobs, commandRows, downloads, syncJobs, backups, deployments] = await Promise.all([
-    fetchSource("createdBy", (statuses) => rawStatusWhere(statuses, Object.values(JobStatus), false), typedWhere, (where) =>
-      prisma.job.findMany({ where, take: limit, orderBy: { createdAt: "desc" }, include: { creator: { select: { username: true, displayName: true } }, _count: { select: { events: true } } } })),
+    fetchSource("createdBy", (statuses) => rawStatusWhere(statuses, Object.values(JobStatus), false), typedWhere, readJobs),
     fetchSource("requesterId", (statuses) => rawStatusWhere(statuses, Object.values(CommandRequestStatus), false), untypedWhere, (where) =>
       prisma.commandRequest.findMany({ where, take: limit, orderBy: { createdAt: "desc" }, include: commandTaskInclude(session) })),
-    fetchSource("createdBy", (statuses) => rawStatusWhere(statuses, Object.values(DownloadTaskStatus), false), untypedWhere, (where) =>
-      prisma.downloadTask.findMany({ where, take: limit, orderBy: { createdAt: "desc" }, include: { creator: { select: { username: true, displayName: true } } } })),
-    fetchSource("createdBy", syncStatusWhere, untypedWhere, (where) =>
-      prisma.syncJob.findMany({ where, take: limit, orderBy: { createdAt: "desc" }, include: { creator: { select: { username: true, displayName: true } } } })),
+    fetchSource("createdBy", statuses => rawStatusWhere(statuses, Object.values(DownloadTaskStatus), false), readStorage, where =>
+      pageVisible(cursor => prisma.downloadTask.findMany({
+        where: { ...where, server: serverTeamWhere(session) }, ...paging(cursor),
+        include: { creator: { select: { username: true, displayName: true } }, server: { select: {
+          storageNode: { select: downloadDriveSelect }, agentFileShares: { select: { node: { select: downloadDriveSelect } } },
+        } } },
+      }), async rows => {
+        const flags = await Promise.all(rows.map(task => canAccessDownloadTask({
+          task: resolveTaskDrive(task), session: { username: "", mustChangePassword: false, ...session }, operation: "read",
+        })));
+        return rows.filter((_, i) => flags[i]);
+      })),
+    fetchSource("createdBy", syncStatusWhere, readStorage, where =>
+      pageVisible(cursor => prisma.syncJob.findMany({
+        where: { AND: [where, syncVisibility(session)] }, ...paging(cursor),
+        include: { creator: { select: { username: true, displayName: true } } },
+      }), async rows => rows.filter(await visibleSyncPaths(rows, session)))),
     fetchSource("createdBy", (statuses) => rawStatusWhere(statuses, KNOWN_RAW_STATUSES, true), typedWhere, (where) =>
       prisma.backupRecord.findMany({ where, take: limit, orderBy: { createdAt: "desc" }, include: { creator: { select: { username: true, displayName: true } } } })),
     fetchSource("createdBy", deploymentStatusWhere, untypedWhere, (where) =>
@@ -435,6 +454,7 @@ export async function listOperationTaskResult(options: OperationTaskListOptions,
       workerHeartbeatAt: item.workerHeartbeatAt ? toIso(item.workerHeartbeatAt) : null,
       taskType: item.type,
       eventCount: item._count?.events ?? 0,
+      ...(item.foldedCount ? { foldedCount: item.foldedCount } : {}),
     })),
     ...commands.map((item: CommandTaskRow) => ({
       ...commandTaskOrigin(item),
@@ -523,8 +543,7 @@ export async function listOperationTaskResult(options: OperationTaskListOptions,
     })),
   ];
 
-  const foldedTasks = foldCompletedPeriodicJobs(tasks);
-  const filteredTasks = sortOperationTasks(filterOperationTasks(foldedTasks, options), options.sort)
+  const filteredTasks = sortOperationTasks(filterOperationTasks(tasks, options), options.sort)
     .slice(0, limit);
   return {
     // A job's progress and failure are sentences its worker stored: said in the reader's language. The

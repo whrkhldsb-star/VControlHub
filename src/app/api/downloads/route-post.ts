@@ -7,14 +7,15 @@ import { enqueueDownloadExecutionJob } from "@/lib/downloads/execution-worker";
 import { assertDownloadSourceUrlSafe } from "@/lib/downloads/source-url";
 import type { DownloadSourceResolution } from "@/lib/downloads/source-url";
 import {
-  normalizeDownloadFileName,
+  deriveDownloadFileNameFromUrl, normalizeDownloadFileName,
   isMagnetLink,
 } from "@/lib/downloads/helpers";
 import {
   getDownloadTargetRelativePath,
   resolveDownloadTargetPath,
 } from "@/lib/downloads/target-path";
-import { STORAGE_ACCESS_DENIED_REASONS, assertStorageAccess, getStorageWriteCapacity, largestAllowedWrite } from "@/lib/storage/access-control";
+import { downloadWriteCapacity } from "@/lib/downloads/write-capacity";
+import { STORAGE_ACCESS_DENIED_REASONS, assertStorageAccess, largestAllowedWrite } from "@/lib/storage/access-control";
 import { storageAccessDeniedCopy } from "@/lib/storage/access-denied";
 import { withApiRoute } from "@/lib/http/api-guard";
 import { GENERAL_WRITE_LIMIT } from "@/lib/http/rate-limit-presets";
@@ -164,20 +165,6 @@ export async function POST(request: Request) {
           { status: 403 },
         );
       }
-      // The size is only known as the download runs, where the worker holds
-      // it to these limits; a destination with no room at all is refused now.
-      const capacity = await getStorageWriteCapacity({
-        session,
-        storageNodeId: storageNode.id,
-        relativePath: targetRelativePath,
-      });
-      if (largestAllowedWrite(capacity) === BigInt(0)) {
-        return NextResponse.json(
-          { error: storageAccessDeniedCopy(STORAGE_ACCESS_DENIED_REASONS.quotaExceeded, locale) },
-          { status: 403 },
-        );
-      }
-
       let safeFileName: string | null;
       try {
         safeFileName = normalizeDownloadFileName(fileName);
@@ -195,6 +182,22 @@ export async function POST(request: Request) {
       //  - Single HTTP or magnet relay: a single task (magnet relay may carry
       //    multiple magnet URLs into one aria2 task, handled below).
       const taskUrls = isHttpBatch ? allUrls : [allUrls[0]!];
+      for (const taskUrl of taskUrls) {
+        const name = (!isHttpBatch && safeFileName) || (isMagnetLink(taskUrl) ? null : deriveDownloadFileNameFromUrl(taskUrl) || "download");
+        // The size is only known as the download runs, where the worker holds
+        // it to these limits; a destination with no room at all is refused now.
+        const capacity = await downloadWriteCapacity({
+          session,
+          storageNodeId: storageNode.id,
+          relativePath: targetRelativePath,
+        }, name);
+        if (largestAllowedWrite(capacity) === BigInt(0) && !("replacing" in capacity)) {
+          return NextResponse.json(
+            { error: storageAccessDeniedCopy(STORAGE_ACCESS_DENIED_REASONS.quotaExceeded, locale) },
+            { status: 403 },
+          );
+        }
+      }
       // A download lands on exactly one server, so in the all-customers view it is recorded under that
       // server's customer instead of asking for one to be chosen first. A server without a customer still
       // needs the choice (teamCreateData refuses).

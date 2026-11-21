@@ -21,7 +21,7 @@ import type { Prisma } from "@prisma/client";
 import { prisma } from "@/lib/db";
 import { logError } from "@/lib/logging";
 import { execRemoteCommand, buildSshParamsFromServer } from "@/lib/ssh/client";
-import { safeTaskFileStem, shellQuote } from "@/lib/downloads/remote-command";
+import { directPublishReceiptMatches, safeTaskFileStem, shellQuote } from "@/lib/downloads/remote-command";
 import { ensureAria2Daemon, removeDownload } from "@/lib/aria2/service";
 import { t } from "@/lib/i18n/service-translations";
 import { rm } from "node:fs/promises";
@@ -70,7 +70,9 @@ export async function probeDirectDownloadRemote(input: {
   const probeCommand = [
     `id=${shellQuote(stem)}`,
     'pat="\\\\.vch-$id\\\\.part"',
-    `if [ -f ${shellQuote(exitFile)} ]; then`,
+    `if ${directPublishReceiptMatches(exitFile, output)} && size=$(stat -c %s -- ${output}); then`,
+    `  printf '%s\\n' COMPLETED "$size" ${output}`,
+    `elif [ -f ${shellQuote(exitFile)} ]; then`,
     "  status=$(cat " + shellQuote(exitFile) + " 2>/dev/null || echo 1)",
     `  if [ "$status" = 0 ] && [ -f ${output} ] && [ ! -L ${output} ] && size=$(stat -c %s -- ${output}); then`,
     `    printf '%s\\n' COMPLETED "$size" ${output}`,
@@ -135,9 +137,9 @@ export async function failRelayTask(task: { id: string; aria2Gid: string | null;
   return true;
 }
 
-async function failRunningTask(taskId: string, errorMessage: string): Promise<boolean> {
+async function failRunningTask(task: { id: string; updatedAt: Date }, errorMessage: string): Promise<boolean> {
   const res = await prisma.downloadTask.updateMany({
-    where: { id: taskId, status: "RUNNING" },
+    where: { id: task.id, status: "RUNNING", updatedAt: task.updatedAt },
     data: { status: "FAILED", errorMessage: errorMessage.slice(0, 500) },
   });
   return res.count > 0;
@@ -153,9 +155,20 @@ export function directProgress(probe: Extract<ProbeResult, { state: "RUNNING" }>
   };
 }
 
-async function reconcileDirectTask(
+export async function reconcileDirectTask(
   task: { id: string; url: string; fileName: string | null; targetPath: string; pid: number | null; updatedAt: Date; completedBytes: string | null; server: ReconcileServer },
+  retryChangedSnapshot = true,
 ): Promise<"completed" | "failed" | "running" | "skipped"> {
+  async function failSnapshot(reason: string): Promise<"completed" | "failed" | "running" | "skipped"> {
+    if (await failRunningTask(task, reason)) return "failed";
+    if (!retryChangedSnapshot) return "skipped";
+    const fresh = await prisma.downloadTask.findFirst({
+      where: { id: task.id, status: "RUNNING", relayMode: false, aria2Gid: null },
+      include: { server: { include: { sshKey: true, storageNode: true } } },
+    });
+    if (!fresh || (fresh.directStorageNodeId && fresh.server.storageNode?.id !== fresh.directStorageNodeId)) return "skipped";
+    return reconcileDirectTask(fresh, false);
+  }
   const sshParams = await buildSshParamsFromServer(task.server, task.server.sshKey);
   let probe: ProbeResult;
   try {
@@ -172,7 +185,7 @@ async function reconcileDirectTask(
     // Remote unreachable — only give up after a generous window so a transient
     // SSH blip never fails an in-flight download.
     if (Date.now() - task.updatedAt.getTime() > UNREACHABLE_FAIL_MS) {
-      return (await failRunningTask(task.id, t("backend.downloads.reconcile.serverUnreachable"))) ? "failed" : "skipped";
+      return failSnapshot(t("backend.downloads.reconcile.serverUnreachable"));
     }
     return "skipped";
   }
@@ -185,11 +198,11 @@ async function reconcileDirectTask(
     return "running";
   }
   if (probe.state === "FAILED") {
-    return (await failRunningTask(task.id, t("backend.downloads.reconcile.remoteProcessFailed"))) ? "failed" : "skipped";
+    return failSnapshot(t("backend.downloads.reconcile.remoteProcessFailed"));
   }
   if (probe.state === "UNKNOWN") {
     if (Date.now() - task.updatedAt.getTime() > UNREACHABLE_FAIL_MS) {
-      return (await failRunningTask(task.id, t("backend.downloads.reconcile.indeterminate"))) ? "failed" : "skipped";
+      return failSnapshot(t("backend.downloads.reconcile.indeterminate"));
     }
     return "skipped";
   }
@@ -223,7 +236,7 @@ type StaleTaskRow = Prisma.DownloadTaskGetPayload<{
 function failStaleTask(task: StaleTaskRow, message: string) {
   return task.relayMode || task.aria2Gid || task.agentStorageNodeId
     ? failRelayTask(task, message)
-    : failRunningTask(task.id, message);
+    : failRunningTask(task, message);
 }
 
 type ReconcileServer = NonNullable<StaleTaskRow["server"]>;

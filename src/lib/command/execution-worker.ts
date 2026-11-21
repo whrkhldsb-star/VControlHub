@@ -1,4 +1,5 @@
 import { config } from "@/lib/config/env";
+import { LeaseLostError, runWithLeaseHeartbeat } from "@/lib/job/heartbeat-runner";
 import { computeLeaseMs } from "@/lib/job/lease";
 import { claimNextJob, completeJob, failJob, heartbeatJob } from "@/lib/job/service";
 import { createLogger } from "@/lib/logging";
@@ -71,20 +72,6 @@ async function handleClaimedJob(
   // CommandRequest has its own heartbeat, but the durable Job lease is separate.
   // Without mid-SSH job heartbeats, claimNextJob can reclaim this RUNNING job
   // after lease expiry and start a second executeAndFinalizeCommand (duplicate SSH).
-  const jobLeaseHeartbeat = setInterval(() => {
-    heartbeatJob(job.id, COMMAND_EXECUTION_WORKER_ID, {
-      attempts: job.attempts,
-      leaseMs: COMMAND_EXECUTION_LEASE_MS,
-      progress: `Executing command request ${payload.commandRequestId}`,
-    }).catch((err) => {
-      logger.warn("command execution job lease heartbeat failed", {
-        jobId: job.id,
-        error: err instanceof Error ? err.message : String(err),
-      });
-    });
-  }, Math.max(15_000, Math.floor(COMMAND_EXECUTION_LEASE_MS / 3)));
-  jobLeaseHeartbeat.unref?.();
-
   try {
     const initialLease = await heartbeatJob(job.id, COMMAND_EXECUTION_WORKER_ID, {
       attempts: job.attempts,
@@ -92,7 +79,13 @@ async function handleClaimedJob(
       progress: `Dispatching command request ${payload.commandRequestId}`,
     });
     if (!initialLease.count) return true;
-    const finalRequest = await executeAndFinalizeCommand(payload.commandRequestId);
+    const finalRequest = await runWithLeaseHeartbeat({
+      jobId: job.id, leaseMs: COMMAND_EXECUTION_LEASE_MS,
+      heartbeat: () => heartbeatJob(job.id, COMMAND_EXECUTION_WORKER_ID, {
+        attempts: job.attempts, leaseMs: COMMAND_EXECUTION_LEASE_MS, progress: `Executing command request ${payload.commandRequestId}`,
+      }),
+      run: signal => executeAndFinalizeCommand(payload.commandRequestId, signal),
+    });
     const terminalStatus = finalRequest?.status ?? null;
     // Avoid "false success": COMPLETED job must not hide a FAILED command.
     // Operation Tasks previously showed job COMPLETED even when every SSH
@@ -113,6 +106,7 @@ async function handleClaimedJob(
     return true;
   } catch (error) {
     const message = error instanceof Error ? error.message : String(error);
+    if (error instanceof LeaseLostError) return true;
     // Ensure commandRequest/targets leave RUNNING if finalize threw mid-flight.
     // Previously this path only failed the job row, so the request could stay
     // RUNNING until a separate recovery sweep (false "still running" UX).
@@ -132,8 +126,6 @@ async function handleClaimedJob(
       error: message,
     });
     return true;
-  } finally {
-    clearInterval(jobLeaseHeartbeat);
   }
 }
 

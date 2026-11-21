@@ -20,6 +20,17 @@ const now = new Date("2026-07-29T12:00:00.000Z");
 describe("getWorkerRuntimeHealth", () => {
   beforeEach(() => findManyMock.mockReset());
 
+  it("keeps a fresh running sibling healthy during a rolling stop", async () => {
+    const row = { workerId: "backup", startedAt: now, lastError: null };
+    findManyMock.mockResolvedValueOnce([
+      { ...row, instanceId: "stopping", status: "STOPPED", lastHeartbeatAt: now },
+      { ...row, instanceId: "serving", status: "RUNNING", lastHeartbeatAt: new Date(now.getTime() - 10_000) },
+    ]);
+    const [health] = await getWorkerRuntimeHealth(now);
+    expect(health).toMatchObject({ instanceId: "serving", healthy: true,
+      instances: [{ instanceId: "stopping", status: "STOPPED" }, { instanceId: "serving", status: "RUNNING" }] });
+  });
+
   it("reports recent running, missing, stale, and failed runtimes accurately", async () => {
     findManyMock.mockResolvedValue([
       {

@@ -59,6 +59,7 @@ describe("GET /api/commands/[id]/tickets", () => {
 		await route.GET(req, ctx);
 		expect(mocks.guardCalls[0]).toMatchObject({
 			permission: "command:read",
+			optionalTokenPermissions: ["ticket:read"],
 			rateLimit: { maxRequests: 120, windowMs: 60_000 },
 		});
 	});

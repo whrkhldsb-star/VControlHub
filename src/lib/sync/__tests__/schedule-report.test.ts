@@ -9,6 +9,11 @@ describe("sync schedule", () => {
     expect(normalizeSyncSchedule("every:1h")).toBe("every:1h");
   });
 
+  it.each(["constructor", "__proto__", "toString", "*/2 * * * * *"])("rejects unsupported schedule %s at validation and dispatch", schedule => {
+    expect(isValidSyncSchedule(schedule)).toBe(false);
+    expect(isSyncJobDue({ schedule, status: "IDLE", lastSyncAt: null })).toBe(false);
+  });
+
   it("validates presets and rejects garbage", () => {
     expect(isValidSyncSchedule("every:15m")).toBe(true);
     expect(isValidSyncSchedule("0 * * * *")).toBe(true);

@@ -11,6 +11,7 @@ import { withApiRoute } from "@/lib/http/api-guard";
 import { getServerLocale, t } from "@/lib/i18n/translations";
 import { isGlobalTeamManager, serverTeamWhere, teamWhere } from "@/lib/auth/team-scope";
 import { canAccessDownloadTask, taskDownloadAccess } from "@/lib/downloads/route-helpers";
+import { parseTransferManifest, relayPauseDeadline, relayPauseReceipt } from "@/lib/downloads/transfer-manifest";
 
 const DOWNLOAD_PAGE_SIZE = 100;
 
@@ -70,10 +71,10 @@ export async function GET(request: Request) {
       );
       const visibleTasks = tasks.filter((_, i) => accessFlags[i]);
 
-      const activeGids = new Map<string, string>();
+      const activeGids = new Map<string, (typeof visibleTasks)[number]>();
       for (const t of visibleTasks) {
         if (t.aria2Gid && ["PENDING", "RUNNING"].includes(t.status)) {
-          activeGids.set(t.aria2Gid, t.id);
+          activeGids.set(t.aria2Gid, t);
         }
       }
       // aria2 completion is only the first half of a relay workflow. The worker
@@ -86,6 +87,7 @@ export async function GET(request: Request) {
         completedBytes?: string | null;
         totalBytes?: string | null;
         downloadSpeed?: string | null;
+        transferManifest?: ReturnType<typeof relayPauseReceipt>;
       };
       const aria2FieldByTaskId = new Map<string, Aria2LiveFields>();
       // Rows that changed while aria2 was asked (cancelled, say): shown as stored.
@@ -104,7 +106,8 @@ export async function GET(request: Request) {
           await ensureAria2Daemon();
           aria2Available = true;
           const updates: Promise<unknown>[] = [];
-          for (const [gid, taskId] of activeGids) {
+          for (const [gid, task] of activeGids) {
+            const taskId = task.id;
             updates.push(
               relayContentStatus(gid).then(({ status: a }) => {
                 const progress = buildProgressText(a);
@@ -134,12 +137,13 @@ export async function GET(request: Request) {
                         totalBytes,
                         downloadSpeed,
                       };
-                // Shown only once stored: the list must not report a state the
-                // database does not hold. Only over a task still active: one
-                // cancelled while aria2 answered was turned back into FAILED
-                // (aria2 reports a cancelled download as "removed").
+                // Legacy pauses use the last write time for their deadline. Save it
+                // before this progress write advances updatedAt.
+                if (task.status === "PENDING" && !terminalUpdate.status && !parseTransferManifest(task.transferManifest)) {
+                  terminalUpdate.transferManifest = relayPauseReceipt(task.transferManifest, relayPauseDeadline(task));
+                }
                 return prisma.downloadTask
-                  .updateMany({ where: { id: taskId, status: { in: ["PENDING", "RUNNING"] } }, data: terminalUpdate })
+                  .updateMany({ where: { id: taskId, status: task.status, aria2Gid: gid, updatedAt: task.updatedAt }, data: terminalUpdate })
                   .then(async ({ count }) => {
                     if (count) {
                       aria2FieldByTaskId.set(taskId, terminalUpdate);

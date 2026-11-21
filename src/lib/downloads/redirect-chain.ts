@@ -80,7 +80,7 @@ export function pinHttpSourceForAria2(
 	return { uri: parsed.toString(), options: { header: `Host: ${resolution.hostname}` } };
 }
 
-export function pinnedDownloadAgent(resolution: DownloadSourceResolution) {
+export function pinnedDownloadAgent(resolution: Pick<DownloadSourceResolution, "hostname" | "address">) {
 	return new Agent({
 		headersTimeout: PROBE_TIMEOUT_MS,
 		bodyTimeout: PROBE_TIMEOUT_MS,

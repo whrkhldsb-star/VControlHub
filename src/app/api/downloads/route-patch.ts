@@ -1,3 +1,6 @@
+import { Prisma } from "@prisma/client";
+import { enqueueDownloadExecutionJob, DOWNLOAD_EXECUTION_JOB_TYPE } from "@/lib/downloads/execution-worker";
+import { RELAY_PAUSE_MS, parseTransferManifest, relayMetadataGid, relayPauseDeadline, relayPauseReceipt } from "@/lib/downloads/transfer-manifest";
 import { relayContentStatus } from "@/lib/downloads/relay-status";
 import { resolveTaskDrive } from "@/lib/downloads/destination";
 import { NextResponse } from "next/server";
@@ -114,7 +117,18 @@ export async function PATCH(request: Request) {
         return NextResponse.json({ error: t("apiDownloads.taskNotActive", locale) }, { status: 409 });
       }
 
+      const currentOutcome = async (status = 200) => {
+        const row = await prisma.downloadTask.findUnique({ where: { id: taskId }, select: { status: true, progress: true } });
+        if (!row) throw new NotFoundError(t("apiDownloads.taskNotFound", locale));
+        return NextResponse.json(row, { status });
+      };
+      const relaySnapshot = {
+        id: taskId, status: task.status, aria2Gid: task.aria2Gid,
+        transferManifest: { equals: task.transferManifest ?? Prisma.DbNull },
+      };
       if (action === "pause" && task.aria2Gid) {
+        if (parseTransferManifest(task.transferManifest)) return NextResponse.json({ error: t("apiDownloads.finishingTransfer", locale) }, { status: 409 });
+        if (task.status === "PENDING") return currentOutcome();
         try {
           await pauseDownload(task.aria2Gid);
         } catch (err) {
@@ -124,27 +138,47 @@ export async function PATCH(request: Request) {
             { status: 502 },
           );
         }
-        await prisma.downloadTask.updateMany({
-          where: whileActive,
-          data: { status: "PENDING", progress: t("apiDownloads.paused", locale) },
+        const changed = await prisma.downloadTask.updateMany({
+          where: relaySnapshot,
+          data: { status: "PENDING", transferManifest: relayPauseReceipt(task.transferManifest, Date.now() + RELAY_PAUSE_MS), progress: t("apiDownloads.paused", locale) },
         });
+        if (!changed.count) return currentOutcome(409);
         return NextResponse.json({ success: true });
       }
 
       if (action === "resume" && task.aria2Gid) {
+        if (task.status === "PENDING" && relayPauseDeadline(task) <= Date.now()) return currentOutcome(409);
         try {
           await unpauseDownload(task.aria2Gid);
         } catch (err) {
           logError("[DownloadAPI] Failed to unpause aria2 download:", err);
-          return NextResponse.json(
-            { error: t("apiDownloads.unpauseFailed", locale) },
-            { status: 502 },
-          );
+          // A preceding resume may have reached the daemon but lost its DB transaction.
+          const live = await relayContentStatus(task.aria2Gid).catch(() => null);
+          if (!live || !["active", "waiting", "complete"].includes(live.status.status)) {
+            return NextResponse.json({ error: t("apiDownloads.unpauseFailed", locale) }, { status: 502 });
+          }
         }
-        await prisma.downloadTask.updateMany({
-          where: whileActive,
-          data: { status: "RUNNING", progress: t("apiDownloads.resuming", locale) },
+        const metadataGid = relayMetadataGid(task.transferManifest);
+        const resumed = await prisma.$transaction(async tx => {
+          const changed = await tx.downloadTask.updateMany({
+            where: relaySnapshot,
+            data: { status: "RUNNING", ...(task.status === "PENDING" ? { transferManifest: metadataGid ? { metadataGid } : Prisma.DbNull } : {}), progress: t("apiDownloads.resuming", locale) },
+          });
+          if (!changed.count) return false;
+          const now = new Date();
+          const retryable = { lt: tx.job.fields.maxAttempts };
+          const executor = await tx.job.findFirst({ where: {
+            type: DOWNLOAD_EXECUTION_JOB_TYPE, payload: { path: ["taskId"], equals: taskId },
+            OR: [
+              { status: "PENDING", attempts: retryable },
+              { status: "RUNNING", OR: [{ leaseExpiresAt: { gte: now } }, { attempts: retryable }] },
+            ],
+          }, select: { id: true } });
+          if (!executor) await enqueueDownloadExecutionJob({ taskId, mode: "aria2_relay", teamId: task.teamId, userId: task.createdBy,
+            storageNodeId: task.server.storageNode?.id }, tx);
+          return true;
         });
+        if (!resumed) return currentOutcome(409);
         return NextResponse.json({ success: true });
       }
 
@@ -165,25 +199,31 @@ export async function PATCH(request: Request) {
             ? t("apiDownloads.transferPending", locale)
             : buildProgressText(st);
           const newStatus = mapAria2RelayStatus(st.status);
-          await prisma.downloadTask.updateMany({
-            where: whileActive,
+          const status = task.status === "PENDING" && newStatus !== "FAILED" ? task.status : newStatus;
+          const pauseReceipt = status === "PENDING" && !parseTransferManifest(task.transferManifest)
+            ? relayPauseReceipt(task.transferManifest, task.status === "PENDING" ? relayPauseDeadline(task) : Date.now() + RELAY_PAUSE_MS)
+            : undefined;
+          const changed = await prisma.downloadTask.updateMany({
+            where: relaySnapshot,
             data: {
-              status: newStatus,
+              status,
+              ...(pauseReceipt ? { transferManifest: pauseReceipt } : {}),
               progress,
               completedBytes: st.completedLength,
               totalBytes: st.totalLength,
               downloadSpeed: st.downloadSpeed,
             },
           });
+          if (!changed.count) return currentOutcome();
           const downloadAccess = taskDownloadAccess({
             ...task,
             locale,
-            status: newStatus,
+            status,
             fileName: task.fileName ?? null,
             relayMode: task.relayMode ?? null,
           });
           return NextResponse.json({
-            status: newStatus,
+            status,
             progress,
             completedBytes: st.completedLength,
             totalBytes: st.totalLength,
@@ -192,19 +232,12 @@ export async function PATCH(request: Request) {
           });
         } catch (err) {
           logError("[DownloadAPI] aria2 refresh failed:", err);
-          return NextResponse.json({
-            status: task.status,
-            progress: task.progress,
-          });
+          return currentOutcome();
         }
       }
 
       // Non-aria2 refresh: inspect the real remote process/exit marker before reporting status.
       if (action === "refresh") {
-        const currentOutcome = async () => {
-          const now = await prisma.downloadTask.findUnique({ where: { id: taskId }, select: { status: true, progress: true } });
-          return NextResponse.json({ status: now?.status ?? task.status, progress: now?.progress ?? task.progress });
-        };
         if (task.directStorageNodeId && !task.server.storageNode) return currentOutcome();
         if (task.pid && task.status === "RUNNING") {
           try {

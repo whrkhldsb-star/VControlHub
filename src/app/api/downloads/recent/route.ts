@@ -19,7 +19,7 @@ export async function GET(request: Request) {
     request,
     { permission: "storage:read", errorMessage: apiCopy("apiCopy.failed.to.fetch.recent.downloads.a2df5c2c") },
     async ({ session }) => {
-      const tasks = await prisma.downloadTask.findMany({
+      const page = (cursor?: string) => prisma.downloadTask.findMany({
         where: {
           status: "COMPLETED",
           ...teamWhere(session),
@@ -39,16 +39,21 @@ export async function GET(request: Request) {
             },
           },
         },
-        orderBy: { updatedAt: "desc" },
+        orderBy: [{ updatedAt: "desc" }, { id: "desc" }],
+        ...(cursor ? { cursor: { id: cursor }, skip: 1 } : {}),
         // Filtered by per-path access below: reading only the newest 8 showed
         // an account with narrow grants fewer (or none) of its own downloads.
         take: RECENT_DOWNLOADS_SCAN,
       }).then(rows => rows.map(resolveTaskDrive));
 
-      const accessFlags = await Promise.all(
-        tasks.map((task) => canAccessDownloadTask({ session, task, operation: "read" })),
-      );
-      const visibleTasks = tasks.filter((_, i) => accessFlags[i]).slice(0, RECENT_DOWNLOADS_SHOWN);
+      const visibleTasks: Awaited<ReturnType<typeof page>> = [];
+      let cursor: string | undefined;
+      do {
+        const tasks = await page(cursor);
+        const flags = await Promise.all(tasks.map(task => canAccessDownloadTask({ session, task, operation: "read" })));
+        visibleTasks.push(...tasks.filter((_, i) => flags[i]).slice(0, RECENT_DOWNLOADS_SHOWN - visibleTasks.length));
+        cursor = tasks.length === RECENT_DOWNLOADS_SCAN ? tasks.at(-1)?.id : undefined;
+      } while (cursor && visibleTasks.length < RECENT_DOWNLOADS_SHOWN);
 
       const downloads = visibleTasks.flatMap((task) => {
         const storageNode = task.server.storageNode;

@@ -24,8 +24,9 @@ type StaleRequest = {
 export async function recoverStaleRunningCommandRequests(now = new Date()) {
   const runtimeConfig = await getCommandRuntimeConfigValues();
   const staleCutoff = new Date(now.getTime() - runtimeConfig.staleRunningAfterMs);
-  const staleRequests = await prisma.commandRequest.findMany({
+  const page = (after?: string) => prisma.commandRequest.findMany({
     where: {
+      ...(after ? { id: { gt: after } } : {}),
       status: { in: ["RUNNING", "CANCELLING"] },
       OR: [
         { workerHeartbeatAt: { lt: staleCutoff } },
@@ -39,14 +40,21 @@ export async function recoverStaleRunningCommandRequests(now = new Date()) {
       workerHeartbeatAt: true,
       targets: { select: { id: true, status: true } },
     },
+    orderBy: { id: "asc" },
     take: 50,
   });
 
   // An approved request is marked RUNNING when its execution job is queued, but its heartbeat is renewed only once
   // the worker starts it, and the worker runs one command at a time. A request still waiting its turn behind slow
   // ones was failed here after ten minutes ("executor lost, outcome unknown") without ever having been tried.
-  const waiting = await idsWithWaitingExecutionJob(staleRequests.map((request) => request.id));
-  const lost = staleRequests.filter((request) => !waiting.has(request.id));
+  const lost: StaleRequest[] = [];
+  let after: string | undefined;
+  do {
+    const rows = await page(after);
+    const waiting = await idsWithWaitingExecutionJob(rows.map(row => row.id));
+    lost.push(...rows.filter(row => !waiting.has(row.id)).slice(0, 50 - lost.length));
+    after = rows.length === 50 ? rows.at(-1)?.id : undefined;
+  } while (after && lost.length < 50);
 
   let recovered = 0;
   // Process stale requests in bounded-concurrency chunks. Each request's
@@ -103,38 +111,40 @@ async function recoverOne(request: StaleRequest, now: Date): Promise<boolean> {
     // CAS request first: operator cancel can race this sweep. Mutating targets
     // before the claim left CANCELLED requests with FAILED targets when cancel
     // won on the request after recovery rewrote targets.
-    const claimed = await prisma.commandRequest.updateMany({
-      where: stillStale(request),
-      data: { status: "FAILED", workerId: null, workerHeartbeatAt: null },
+    return prisma.$transaction(async tx => {
+      const claimed = await tx.commandRequest.updateMany({
+        where: stillStale(request),
+        data: { status: "FAILED", workerId: null, workerHeartbeatAt: null },
+      });
+      if (claimed.count === 0) {
+        return false;
+      }
+      await tx.commandTarget.updateMany({
+        where: {
+          commandRequestId: request.id,
+          status: { in: ["RUNNING", "CANCELLING", "APPROVED", "PENDING_APPROVAL"] },
+        },
+        data: {
+          status: "FAILED",
+          stderr: "The background SSH executor may have been interrupted by a service restart or process exit; it has been automatically marked as failed. Cancellation could not be confirmed; check the remote process before retrying.",
+          exitCode: 255,
+          finishedAt: now,
+          // The executor was lost mid-run: whether the command ran is unknown.
+          outcomeUnknown: true,
+        },
+      });
+      const heartbeatDetail = request.workerHeartbeatAt
+        ? `, last heartbeat ${request.workerHeartbeatAt.toISOString()}`
+        : ", no worker heartbeat record";
+      await tx.executionLog.create({
+        data: {
+          commandRequestId: request.id,
+          serverId: null,
+          summary: `Stale RUNNING command detected: background executor ${request.workerId ?? "unknown"}${heartbeatDetail}, likely lost during service restart; automatically recovered to FAILED to avoid the task center being stuck long-term.`,
+        },
+      });
+      return true;
     });
-    if (claimed.count === 0) {
-      return false;
-    }
-    await prisma.commandTarget.updateMany({
-      where: {
-        commandRequestId: request.id,
-        status: { in: ["RUNNING", "CANCELLING", "APPROVED", "PENDING_APPROVAL"] },
-      },
-      data: {
-        status: "FAILED",
-        stderr: "The background SSH executor may have been interrupted by a service restart or process exit; it has been automatically marked as failed. Cancellation could not be confirmed; check the remote process before retrying.",
-        exitCode: 255,
-        finishedAt: now,
-        // The executor was lost mid-run: whether the command ran is unknown.
-        outcomeUnknown: true,
-      },
-    });
-    const heartbeatDetail = request.workerHeartbeatAt
-      ? `, last heartbeat ${request.workerHeartbeatAt.toISOString()}`
-      : ", no worker heartbeat record";
-    await prisma.executionLog.create({
-      data: {
-        commandRequestId: request.id,
-        serverId: null,
-        summary: `Stale RUNNING command detected: background executor ${request.workerId ?? "unknown"}${heartbeatDetail}, likely lost during service restart; automatically recovered to FAILED to avoid the task center being stuck long-term.`,
-      },
-    });
-    return true;
   }
 
   const allCompleted = targetStatuses.length > 0 && targetStatuses.every((status) => status === "COMPLETED");

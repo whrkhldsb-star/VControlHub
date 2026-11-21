@@ -38,7 +38,9 @@ describe.skipIf(!supported)("direct download size limit (real bash/curl processe
   });
   afterEach(() => {
     for (const id of taskIds.splice(0)) {
-      for (const suffix of [".pid", ".pid.exit", ".log", ".cancel"]) rmSync(`/tmp/app-dl-${id}${suffix}`, { force: true });
+      for (const suffix of [".pid", ".pid.total", ".pid.exit", ".pid.exit.publish", ".pid.exit.lock", ".log", ".cancel"]) {
+        rmSync(`/tmp/app-dl-${id}${suffix}`, { force: true });
+      }
     }
     if (targetDir) rmSync(targetDir, { recursive: true, force: true });
   });
@@ -64,6 +66,19 @@ describe.skipIf(!supported)("direct download size limit (real bash/curl processe
     for (let i = 0; i < 200 && !existsSync(exitFile); i += 1) await new Promise((resolve) => setTimeout(resolve, 50));
     return { status: Number(readFileSync(exitFile, "utf8").trim()), files: readdirSync(targetDir), log: readFileSync(`/tmp/app-dl-${id}.log`, "utf8") };
   }
+
+  it("fails before spawning when the publication lock tool is unavailable", () => {
+    targetDir = mkdtempSync(join(tmpdir(), "vch-dl-preflight-"));
+    const bash = spawnSync("sh", ["-c", "command -v bash"], { encoding: "utf8" }).stdout.trim();
+    symlinkSync(bash, join(targetDir, "bash"));
+    const command = buildDirectDownloadCommand({
+      taskId: randomUUID(), url: "http://fixture.invalid/file", basePath: targetDir, physicalTargetDir: targetDir,
+      targetPath: targetDir, fileName: "file", sourceResolution: { hostname: "fixture.invalid", address: "127.0.0.1", port: 80 },
+    });
+    const result = spawnSync("/bin/sh", ["-c", command], { env: { ...process.env, PATH: targetDir } });
+    expect(result.status).toBe(65);
+    expect(readdirSync(targetDir)).toEqual(["bash"]);
+  });
 
   it.each(["directory", "staging", "destination"])("refuses a %s symlink without touching its target", async link => {
     const id = `t${randomUUID().replace(/-/g, "")}`;

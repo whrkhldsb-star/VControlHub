@@ -123,10 +123,14 @@ export async function recordJobEvent(
 
 export async function listJobEvents(options: ListJobEventsOptions): Promise<JobEvent[]> {
   const limit = normalizeLimit(options.limit);
+  const cursor = options.beforeId ? await prisma.jobEvent.findFirst({
+    where: { jobId: options.jobId, id: options.beforeId }, select: { createdAt: true, id: true },
+  }) : null;
+  if (options.beforeId && !cursor) return [];
   return prisma.jobEvent.findMany({
     where: {
       jobId: options.jobId,
-      ...(options.beforeId ? { id: { lt: options.beforeId } } : {}),
+      ...(cursor ? { OR: [{ createdAt: { lt: cursor.createdAt } }, { createdAt: cursor.createdAt, id: { lt: cursor.id } }] } : {}),
     },
     orderBy: [{ createdAt: "desc" }, { id: "desc" }],
     take: limit,
