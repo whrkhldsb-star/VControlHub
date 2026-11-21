@@ -524,7 +524,7 @@ async function handleClaimedJob(
       return true;
     }
     const failed = await failJob(job.id, DOWNLOAD_EXECUTION_WORKER_ID, message.slice(0, 2000));
-    if (postTask && payload.mode === "aria2_relay" && failed.count && job.attempts >= job.maxAttempts) {
+    if (postTask && (postTask.relayMode || payload.mode === "aria2_relay") && failed.count && job.attempts >= job.maxAttempts) {
       const reason = t("backend.downloads.error.executionFailed");
       const changed = await failRelayTask(postTask, reason, true);
       const userId = postTask.createdBy ?? payload.userId;

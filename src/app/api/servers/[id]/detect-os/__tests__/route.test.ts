@@ -5,7 +5,7 @@ const {
   detectOsDialectMock,
   buildSshParamsFromServerMock,
   serverFindUniqueMock,
-  serverUpdateMock,
+  serverUpdateManyMock,
   assertServerTeamAccessMock,
   sessionHasPermissionMock,
 } = vi.hoisted(() => ({
@@ -13,7 +13,7 @@ const {
   detectOsDialectMock: vi.fn(),
   buildSshParamsFromServerMock: vi.fn(),
   serverFindUniqueMock: vi.fn(),
-  serverUpdateMock: vi.fn(),
+  serverUpdateManyMock: vi.fn(),
   assertServerTeamAccessMock: vi.fn(),
   sessionHasPermissionMock: vi.fn(() => true),
 }));
@@ -37,7 +37,7 @@ vi.mock("@/lib/db", () => ({
   prisma: {
     server: {
       findUnique: serverFindUniqueMock,
-      update: serverUpdateMock,
+      updateMany: serverUpdateManyMock,
     },
   },
 }));
@@ -74,12 +74,16 @@ describe("POST /api/servers/[id]/detect-os", () => {
   beforeEach(() => {
     vi.clearAllMocks();
     sessionHasPermissionMock.mockReturnValue(true);
-    assertServerTeamAccessMock.mockResolvedValue({ ok: true });
+    assertServerTeamAccessMock.mockResolvedValue({ ok: true, server: { id: "srv_1", teamId: "team_1" } });
     serverFindUniqueMock.mockResolvedValue({
       id: "srv_1",
+      teamId: "team_1",
       host: "203.0.113.10",
       port: 22,
       username: "root",
+      operatingSystem: "LINUX",
+      managementMode: "DIRECT",
+      connectionType: "SSH_KEY",
       sshKeyId: "key_1",
       password: null,
       hostKeySha256: "SHA256:abc",
@@ -91,7 +95,7 @@ describe("POST /api/servers/[id]/detect-os", () => {
       username: "root",
       privateKey: "PRIVATE",
     });
-    serverUpdateMock.mockResolvedValue({});
+    serverUpdateManyMock.mockResolvedValue({ count: 1 });
     auditUserActionMock.mockResolvedValue(undefined);
   });
 
@@ -102,7 +106,20 @@ describe("POST /api/servers/[id]/detect-os", () => {
 
     expect(response.status).toBe(400);
     expect(detectOsDialectMock).not.toHaveBeenCalled();
-    expect(serverUpdateMock).not.toHaveBeenCalled();
+    expect(serverUpdateManyMock).not.toHaveBeenCalled();
+  });
+
+  it("skips the probe when the server leaves the authorized team before loading its connection", async () => {
+    serverFindUniqueMock.mockResolvedValueOnce(null);
+
+    const response = await POST(request(), params);
+
+    expect(serverFindUniqueMock).toHaveBeenCalledWith(expect.objectContaining({
+      where: { id: "srv_1", teamId: "team_1" },
+    }));
+    expect(response.status).toBe(404);
+    expect(detectOsDialectMock).not.toHaveBeenCalled();
+    expect(serverUpdateManyMock).not.toHaveBeenCalled();
   });
 
   it("persists dialect + osInfo and returns a dialect summary with teamId audit", async () => {
@@ -137,9 +154,17 @@ describe("POST /api/servers/[id]/detect-os", () => {
     });
 
     expect(detectOsDialectMock).toHaveBeenCalledTimes(1);
-    expect(serverUpdateMock).toHaveBeenCalledWith(
+    expect(serverUpdateManyMock).toHaveBeenCalledWith(
       expect.objectContaining({
-        where: { id: "srv_1" },
+        where: {
+          id: "srv_1",
+          teamId: "team_1",
+          host: "203.0.113.10",
+          port: 22,
+          username: "root",
+          operatingSystem: "LINUX",
+          managementMode: "DIRECT",
+        },
         data: expect.objectContaining({
           osInfo: "Ubuntu 22.04 LTS",
           osDialect: expect.stringContaining("\"packageManager\":\"apt\""),
@@ -157,6 +182,21 @@ describe("POST /api/servers/[id]/detect-os", () => {
       }),
       "INFO",
       "team_1",
+    );
+  });
+
+  it("discards the result when ownership or connection settings changed during the probe", async () => {
+    detectOsDialectMock.mockResolvedValueOnce({ distroName: "Ubuntu 22.04 LTS" });
+    serverUpdateManyMock.mockResolvedValueOnce({ count: 0 });
+
+    const response = await POST(request(), params);
+
+    expect(serverUpdateManyMock).toHaveBeenCalledTimes(1);
+    expect(response.status).toBe(409);
+    await expect(response.json()).resolves.toMatchObject({ code: "CONFLICT" });
+    expect(auditUserActionMock).toHaveBeenCalledTimes(1);
+    expect(auditUserActionMock).toHaveBeenCalledWith(
+      "u1", "server.detect_os_error", expect.objectContaining({ serverId: "srv_1" }), "WARNING", "team_1",
     );
   });
 

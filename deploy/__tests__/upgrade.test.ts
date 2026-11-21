@@ -1,9 +1,10 @@
 // @vitest-environment node
 import { execFileSync, spawn } from "node:child_process";
-import { mkdtemp, mkdir, readFile, rm, writeFile } from "node:fs/promises";
+import { mkdtemp, mkdir, readFile, rm, stat, writeFile } from "node:fs/promises";
 import { tmpdir } from "node:os";
 import path from "node:path";
 import { afterEach, describe, expect, it } from "vitest";
+import { isAutomaticMigration } from "../check-upgrade-migrations.mjs";
 
 const roots: string[] = [];
 afterEach(async () => { for (const root of roots.splice(0)) await rm(root, { recursive: true, force: true }); });
@@ -149,6 +150,37 @@ describeLinux("deploy/upgrade.sh pulling a one-click install", () => {
 });
 
 
+describeLinux("archive upgrade environment files", () => {
+	it.each(["installed tree", "separate archive"])("preserves the installed environment when staging from the %s", async source => {
+		const root = await mkdtemp(path.join(tmpdir(), "vch-upgrade-env-"));
+		roots.push(root);
+		const app = path.join(root, "app");
+		await mkdir(app);
+		const custom = path.join(app, ".env.custom");
+		await writeFile(custom, "installed settings\n", { mode: 0o600 });
+		const original = await stat(custom);
+		await writeFile(path.join(app, ".env.local"), 'DOMAIN=""\n');
+		await writeFile(path.join(app, ".env.example"), "installed template\n");
+
+		const env = await fixtureCommands(root);
+		const separate = source === "separate archive";
+		const sourceDir = separate ? path.join(root, "release") : app;
+		if (separate) {
+			await mkdir(sourceDir);
+			await writeFile(path.join(sourceDir, ".env.custom"), "archive settings\n");
+			await writeFile(path.join(sourceDir, ".env.preview"), "archive-only settings\n");
+			await writeFile(path.join(sourceDir, ".env.example"), "release template\n");
+		}
+
+		const result = await invoke(app, { ...env, SOURCE_DIR: sourceDir, SKIP_PULL: "1", SKIP_POST_CHECK: "1" });
+		expect(result.code, result.text).toBe(0);
+		expect(await readFile(custom, "utf8")).toBe("installed settings\n");
+		expect(await stat(custom)).toMatchObject({ ino: original.ino, mode: original.mode });
+		expect(await readFile(path.join(app, ".env.example"), "utf8")).toBe(separate ? "release template\n" : "installed template\n");
+		await expect(stat(path.join(app, ".env.preview"))).rejects.toMatchObject({ code: "ENOENT" });
+	});
+});
+
 describeLinux("staged release recovery", () => {
 	it.each(["build", "start", "health"])("recovers from %s failure", async fail => {
 		const result = await runUpgrade('DOMAIN=""\n', { FAIL: fail });
@@ -161,6 +193,26 @@ describeLinux("staged release recovery", () => {
 			expect(result.log.indexOf("npm run build:runtime")).toBeLessThan(result.log.indexOf("systemctl stop"));
 			expect(result.log.trim().split("\n").at(-1)).toBe("systemctl start vcontrolhub-next.service vcontrolhub-ssh-ws.service");
 		}
+	});
+});
+
+describe("ALTER TABLE migration classification", () => {
+	it("accepts multiple explicit additions with nested or quoted commas", () => {
+		expect(isAutomaticMigration(`
+			ALTER TABLE IF EXISTS ONLY public."t,1"
+				ADD COLUMN IF NOT EXISTS "a,b" numeric(12, 2),
+				ADD COLUMN label text DEFAULT 'x,y',
+				ADD CONSTRAINT label_check CHECK (label IN ('x,y', 'z'));
+		`)).toBe(true);
+	});
+
+	it.each([
+		"ADD COLUMN a int, DISABLE TRIGGER ALL",
+		"ENABLE ROW LEVEL SECURITY, ADD COLUMN a int",
+		"ADD COLUMN a numeric(10, 2), OWNER TO new_owner, ADD COLUMN b int",
+		"ADD COLUMN a int, ADD unknown_action",
+	])("requires review for %s", actions => {
+		expect(isAutomaticMigration(`ALTER TABLE t ${actions};`)).toBe(false);
 	});
 });
 
