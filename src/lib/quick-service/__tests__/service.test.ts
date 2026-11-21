@@ -1,6 +1,6 @@
 import { describe, expect, it, vi, beforeEach } from "vitest";
 
-const { prismaMock, execFileSyncMock, execFileMock, spawnSyncMock, mkdirSyncMock, rmSyncMock, writeAuditLogMock, busyPorts } = vi.hoisted(() => ({
+const { prismaMock, execFileSyncMock, execFileMock, spawnSyncMock, mkdirSyncMock, rmSyncMock, writeAuditLogMock, busyPorts, loadOwnerMock, remoteCommandMock } = vi.hoisted(() => ({
 	prismaMock: {
 		quickService: {
 			findMany: vi.fn(),
@@ -9,6 +9,7 @@ const { prismaMock, execFileSyncMock, execFileMock, spawnSyncMock, mkdirSyncMock
 			update: vi.fn(),
 			delete: vi.fn(),
 		},
+		server: { findFirst: vi.fn() },
 		auditLog: {
 			findMany: vi.fn(),
 		},
@@ -19,10 +20,17 @@ const { prismaMock, execFileSyncMock, execFileMock, spawnSyncMock, mkdirSyncMock
 	mkdirSyncMock: vi.fn(),
 	rmSyncMock: vi.fn(),
 	writeAuditLogMock: vi.fn(),
+	loadOwnerMock: vi.fn(),
+	remoteCommandMock: vi.fn(),
 	// Ports the in-process net.createServer probe reports as busy (EADDRINUSE).
 	busyPorts: new Set<number>(),
 }));
 
+vi.mock("@/lib/api-token/authorization", () => ({
+	loadApiTokenOwnerSession: loadOwnerMock,
+	loadJobOwnerSession: loadOwnerMock,
+}));
+vi.mock("@/lib/ssh/client", () => ({ execRemoteCommand: remoteCommandMock }));
 vi.mock("@/lib/db", () => ({ prisma: prismaMock }));
 vi.mock("@/lib/audit/service", () => ({ writeAuditLog: writeAuditLogMock }));
 vi.mock("node:fs", async (importOriginal) => {
@@ -68,6 +76,7 @@ vi.mock("node:net", () => {
 
 import { checkPort, installService, listQuickServiceHistory, resetQuickServiceProcessStateForTests, startService, stopService, syncServiceStatus, uninstallService, updateService } from "../service";
 import { containerHealthGate, getDockerEnvironmentStatus } from "../docker-cli";
+import { ForbiddenError } from "@/lib/errors";
 import { hubHostDockerSocketMount } from "@/lib/runtime/platform-paths";
 import type { ServiceTemplate } from "../types";
 
@@ -899,5 +908,39 @@ describe("quick service docker lifecycle", () => {
 				}),
 			}),
 		}));
+	});
+});
+
+describe("lifecycle validates the stored Docker target", () => {
+	const requester = { createdBy: "operator", teamId: "team-a" };
+
+	it.each([
+		["start", () => startService("demo", "server-a", requester)],
+		["stop", () => stopService("demo", "server-a", requester)],
+		["update", () => updateService("demo", "server-a", requester)],
+		["sync", () => syncServiceStatus("demo", "server-a", requester)],
+		["uninstall", () => uninstallService("demo", { instanceKey: "server-a", requester, deleteVolumes: true })],
+	])("rejects mismatched persisted targets before %s can run Docker", async (_name, operation) => {
+		vi.clearAllMocks();
+		prismaMock.quickService.findUnique.mockResolvedValue({ slug: "demo", instanceKey: "server-a", serverId: "server-b" });
+
+		await expect(operation()).rejects.toBeInstanceOf(ForbiddenError);
+		expect(execFileMock).not.toHaveBeenCalled();
+		expect(remoteCommandMock).not.toHaveBeenCalled();
+		expect(rmSyncMock).not.toHaveBeenCalled();
+	});
+
+	it("checks the operator's current server access on the valid persisted target", async () => {
+		vi.clearAllMocks();
+		prismaMock.quickService.findUnique.mockResolvedValue({ slug: "demo", instanceKey: "server-a", serverId: "server-a" });
+		loadOwnerMock.mockResolvedValue({ userId: "operator", roles: [], permissions: ["docker:manage"], currentTeamId: "team-a" });
+		prismaMock.server.findFirst.mockResolvedValue(null);
+
+		await expect(startService("demo", "server-a", requester)).rejects.toBeInstanceOf(ForbiddenError);
+		expect(loadOwnerMock).toHaveBeenCalledWith("operator", "team-a");
+		expect(prismaMock.server.findFirst).toHaveBeenCalledWith(expect.objectContaining({
+			where: { AND: [{ id: "server-a", enabled: true }, expect.any(Object)] },
+		}));
+		expect(remoteCommandMock).not.toHaveBeenCalled();
 	});
 });

@@ -9,6 +9,8 @@ import { Prisma } from "@prisma/client";
 
 import type { ExportFile, ImportOptions } from "@/lib/system/config-schema";
 import { creatorResolver, upsertById, type Tx, type Counts } from "./import-executors-helpers";
+import { byId, loadGrantUserScopes, loadImportReferences, planAlertRuleImport, quickServiceTarget } from "./import-reference-scope";
+import { planQuickServiceImport } from "./import-quick-services";
 import { computeNextPlaybookCronRun, isCronTriggerConfig } from "@/lib/playbook/trigger-utils";
 
 // 10. CommandTemplates
@@ -74,9 +76,7 @@ export async function importQuickServices(
     envJson: r.envJson,
     volumesJson: r.volumesJson,
     // Multi-instance: preserve target (hub-host default if absent)
-    instanceKey:
-      (r as { instanceKey?: string | null }).instanceKey ?? "hub-host",
-    serverId: (r as { serverId?: string | null }).serverId ?? null,
+    ...quickServiceTarget(r),
     // Never restore live runtime state from config package
     status: "stopped",
   });
@@ -98,26 +98,26 @@ export async function importQuickServices(
     // keys: not in the package means keep ours.
     ...(r.envJson && r.envJson !== "{}" ? { envJson: r.envJson } : {}),
     ...(r.volumesJson && r.volumesJson !== "[]" ? { volumesJson: r.volumesJson } : {}),
-    instanceKey:
-      (r as { instanceKey?: string | null }).instanceKey ?? "hub-host",
-    serverId: (r as { serverId?: string | null }).serverId ?? null,
+    ...quickServiceTarget(r),
   });
-  await upsertById(t.quickServices, options, counts, {
-    listExistingIds: async (ids) =>
-      new Set(
-        (await tx.quickService.findMany({ where: { id: { in: ids } }, select: { id: true } })).map((e) => e.id),
-      ),
-    createManySkipDuplicates: async (rows) =>
-      (
-        await tx.quickService.createMany({
-          data: rows.map(toCreateData),
-          skipDuplicates: true,
-        })
-      ).count,
-    updateById: async (r) => {
-      await tx.quickService.update({ where: { id: r.id }, data: toUpdateData(r) });
-    },
-  });
+  const records = t.quickServices;
+  const targets = records.flatMap((row) => row.serverId ? [row.serverId] : []);
+  const servers = new Set((await loadImportReferences(targets, (ids) => tx.server.findMany({
+    where: { id: { in: ids } }, select: { id: true },
+  }))).map((row) => row.id));
+  const plan = await planQuickServiceImport(tx, records, options, servers);
+  const creates = plan.filter(({ action }) => action === "create").map(({ row }) => toCreateData(row));
+  if (creates.length > 0) {
+    const result = await tx.quickService.createMany({ data: creates, skipDuplicates: true });
+    counts.created += result.count;
+    counts.skipped += creates.length - result.count;
+  }
+  for (const { row, action } of plan) {
+    if (action !== "update") continue;
+    await tx.quickService.update({ where: { id: row.id }, data: toUpdateData(row) });
+    counts.updated += 1;
+  }
+  counts.skipped += records.length - plan.length;
 }
 
 // 12. Playbooks
@@ -211,22 +211,29 @@ export async function importAlertRules(
     // Multi-tenant: preserve export teamId (null stays legacy-shared)
     teamId: r.teamId ?? null,
   });
-  await upsertById(t.alertRules, options, counts, {
-    listExistingIds: async (ids) =>
-      new Set(
-        (await tx.alertRule.findMany({ where: { id: { in: ids } }, select: { id: true } })).map((e) => e.id),
-      ),
-    createManySkipDuplicates: async (rows) =>
-      (
-        await tx.alertRule.createMany({
-          data: rows.map((r) => ({ id: r.id, ...toData(r) })),
-          skipDuplicates: true,
-        })
-      ).count,
-    updateById: async (r) => {
-      // A standard export leaves webhook addresses out: overwriting a rule from it keeps the address it has.
-      const { webhookUrl, ...rest } = toData(r);
-      await tx.alertRule.update({ where: { id: r.id }, data: exportMode === "full" || webhookUrl ? { ...rest, webhookUrl } : rest });
-    },
-  });
+  const records = t.alertRules;
+  const [servers, playbooks, users] = await Promise.all([
+    loadImportReferences(records.flatMap((r) => r.serverIds), (ids) => tx.server.findMany({
+      where: { id: { in: ids } }, select: { id: true, teamId: true },
+    })).then(byId),
+    loadImportReferences(records.flatMap((r) => r.playbookIds ?? []), (ids) => tx.playbook.findMany({
+      where: { id: { in: ids } }, select: { id: true, teamId: true },
+    })).then(byId),
+    loadGrantUserScopes(tx, records.flatMap((r) => r.onCallUserIds ?? [])),
+  ]);
+  const plan = await planAlertRuleImport(tx, records, options, servers, playbooks, users);
+  const creates = plan.filter(({ action }) => action === "create").map(({ row }) => ({ id: row.id, ...toData(row) }));
+  if (creates.length > 0) {
+    const result = await tx.alertRule.createMany({ data: creates, skipDuplicates: true });
+    counts.created += result.count;
+    counts.skipped += creates.length - result.count;
+  }
+  for (const { row, action } of plan) {
+    if (action !== "update") continue;
+    // A standard export leaves webhook addresses out: keep the address the rule has.
+    const { webhookUrl, ...rest } = toData(row);
+    await tx.alertRule.update({ where: { id: row.id }, data: exportMode === "full" || webhookUrl ? { ...rest, webhookUrl } : rest });
+    counts.updated += 1;
+  }
+  counts.skipped += records.length - plan.length;
 }

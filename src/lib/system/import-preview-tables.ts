@@ -1,5 +1,9 @@
 import { prisma } from "@/lib/db";
 import type { ExportFile, ImportOptions } from "@/lib/system/config-schema";
+import { canBindServerKey, planAlertRuleImport } from "./import-reference-scope";
+import { planQuickServiceImport } from "./import-quick-services";
+import { loadServerGrants, loadStorageGrants, planServerGrantImport, planStorageGrantImport } from "./import-resource-grants";
+import { previewMembershipImport, projectGrantUserScopes, projectOwnedRows, projectServers, projectUniqueImportRows } from "./import-preview-references";
 import { canBindStorageServer, loadStorageServers } from "./import-storage-servers";
 
 /** dryRun 预览的单表统计。 */
@@ -7,6 +11,11 @@ export type PreviewCounts = { create: number; update: number; skip: number };
 
 const ZERO: PreviewCounts = { create: 0, update: 0, skip: 0 };
 const CHUNK = 500;
+
+function countsFromPlan(total: number, plan: Array<{ action: "create" | "update" }>): PreviewCounts {
+  const create = plan.filter(({ action }) => action === "create").length;
+  return { create, update: plan.length - create, skip: total - plan.length };
+}
 
 async function chunkedExistingIds<T extends { id: string }>(
   ids: string[],
@@ -296,34 +305,17 @@ export async function previewUserStorageAccess(
 ): Promise<PreviewCounts> {
   const records = t.userStorageAccess;
   if (records.length === 0) return { ...ZERO };
-  const [existingIds, users, nodes] = await Promise.all([
-    chunkedExistingIds(records.map((r) => r.id), (ids) => prisma.userStorageAccess.findMany({
-      where: { id: { in: ids } },
-      select: { id: true },
+  const [existing, nodes] = await Promise.all([
+    loadStorageGrants(prisma, records),
+    projectOwnedRows(records.map((row) => row.storageNodeId), t.storageNodes, false, (ids) => prisma.storageNode.findMany({
+      where: { id: { in: ids } }, select: { id: true, teamId: true },
     })),
-    availableIds(
-      records.map((r) => r.userId),
-      options.importUsers ? t.users.map((r) => r.id) : [],
-      (ids) => prisma.user.findMany({ where: { id: { in: ids } }, select: { id: true } }),
-    ),
-    availableIds(
-      records.map((r) => r.storageNodeId),
-      t.storageNodes.map((r) => r.id),
-      (ids) => prisma.storageNode.findMany({ where: { id: { in: ids } }, select: { id: true } }),
-    ),
   ]);
-  const out: PreviewCounts = { create: 0, update: 0, skip: 0 };
-  for (const r of records) {
-    if (existingIds.has(r.id)) {
-      if (options.overwriteExisting) out.update += 1;
-      else out.skip += 1;
-      continue;
-    }
-    // FK pre-filter: the executor skips a grant pointing at a missing user or node.
-    if (!users.has(r.userId) || !nodes.has(r.storageNodeId)) out.skip += 1;
-    else out.create += 1;
-  }
-  return out;
+  const { users, movedUsers } = await projectGrantUserScopes([
+    ...records.map((row) => row.userId), ...existing.map((row) => row.userId),
+  ], t, options);
+  const retained = existing.filter((row) => !movedUsers.has(row.userId));
+  return countsFromPlan(records.length, planStorageGrantImport(records, retained, options, users, nodes));
 }
 
 export async function previewCommandTemplates(
@@ -342,10 +334,10 @@ export async function previewQuickServices(
   options: ImportOptions,
 ): Promise<PreviewCounts> {
   const records = t.quickServices;
-  return previewById(records, options, (ids) => prisma.quickService.findMany({
-    where: { id: { in: ids } },
-    select: { id: true },
-  }));
+  if (records.length === 0) return { ...ZERO };
+  const servers = await projectServers(records.flatMap((row) => row.serverId ? [row.serverId] : []), t);
+  const plan = await planQuickServiceImport(prisma, records, options, new Set(servers.keys()));
+  return countsFromPlan(records.length, plan);
 }
 
 export async function previewPlaybooks(
@@ -366,10 +358,15 @@ export async function previewAlertRules(
 ): Promise<PreviewCounts> {
   const records = t.alertRules;
   if (records.length === 0) return { ...ZERO };
-  return previewById(records, options, (ids) => prisma.alertRule.findMany({
-    where: { id: { in: ids } },
-    select: { id: true },
-  }));
+  const [servers, playbooks, { users }] = await Promise.all([
+    projectServers(records.flatMap((row) => row.serverIds), t),
+    projectOwnedRows(records.flatMap((row) => row.playbookIds ?? []), t.playbooks, options.overwriteExisting, (ids) => prisma.playbook.findMany({
+      where: { id: { in: ids } }, select: { id: true, teamId: true },
+    })),
+    projectGrantUserScopes(records.flatMap((row) => row.onCallUserIds ?? []), t, options),
+  ]);
+  const plan = await planAlertRuleImport(prisma, records, options, servers, playbooks, users);
+  return countsFromPlan(records.length, plan);
 }
 
 export async function previewSettings(
@@ -442,58 +439,41 @@ export async function previewIdentityTemplates(t: ExportFile["tables"], options:
 
 /** A user belongs to one customer: an existing membership is replaced only with overwrite. */
 export async function previewTeamMembers(t: ExportFile["tables"], options: ImportOptions): Promise<PreviewCounts> {
-  const records = t.teamMembers;
-  if (records.length === 0) return { ...ZERO };
-  const [members, users] = await Promise.all([
-    chunkedExistingKeys(records.map((r) => r.userId), "userId", (chunk) => prisma.teamMember.findMany({ where: { userId: { in: chunk } }, select: { userId: true } })),
-    availableIds(records.map((r) => r.userId), options.importUsers ? t.users.map((r) => r.id) : [], (ids) => prisma.user.findMany({ where: { id: { in: ids } }, select: { id: true } })),
-  ]);
-  const out: PreviewCounts = { create: 0, update: 0, skip: 0 };
-  for (const r of records) {
-    if (!users.has(r.userId)) out.skip += 1;
-    else if (members.has(r.userId)) out[options.overwriteExisting ? "update" : "skip"] += 1;
-    else out.create += 1;
-  }
-  return out;
+  const plan = await previewMembershipImport(t, options);
+  return countsFromPlan(t.teamMembers.length, plan);
 }
 
 export async function previewUserServerAccess(t: ExportFile["tables"], options: ImportOptions): Promise<PreviewCounts> {
   const records = t.userServerAccess;
   if (records.length === 0) return { ...ZERO };
-  const [existing, users] = await Promise.all([
-    prisma.userServerAccess.findMany({ where: { userId: { in: [...new Set(records.map((r) => r.userId))] } }, select: { userId: true, serverId: true } }),
-    availableIds(records.map((r) => r.userId), options.importUsers ? t.users.map((r) => r.id) : [], (ids) => prisma.user.findMany({ where: { id: { in: ids } }, select: { id: true } })),
+  const [existing, servers, { users, movedUsers }] = await Promise.all([
+    loadServerGrants(prisma, records),
+    projectServers(records.map((row) => row.serverId), t),
+    projectGrantUserScopes(records.map((row) => row.userId), t, options),
   ]);
-  const present = new Set(existing.map((row) => `${row.userId}:${row.serverId}`));
-  const out: PreviewCounts = { create: 0, update: 0, skip: 0 };
-  for (const r of records) {
-    if (!users.has(r.userId)) out.skip += 1;
-    else if (present.has(`${r.userId}:${r.serverId}`)) out[options.overwriteExisting ? "update" : "skip"] += 1;
-    else out.create += 1;
+  const retained = existing.filter((row) => !movedUsers.has(row.userId));
+  return countsFromPlan(records.length, planServerGrantImport(records, retained, options, users, servers));
+}
+
+/** An explicit SSH key may be absent or belong to a different customer. */
+export async function previewServerKeysMissing(t: ExportFile["tables"], options: ImportOptions): Promise<boolean> {
+  let servers = t.servers.filter((row) => row.sshKeyId);
+  if (servers.length === 0) return false;
+  if (!options.overwriteExisting) {
+    const existing = await chunkedExistingIds(servers.map((row) => row.id), (ids) => prisma.server.findMany({
+      where: { id: { in: ids } }, select: { id: true },
+    }));
+    servers = servers.filter((row) => !existing.has(row.id));
   }
-  return out;
-}
-
-/**
- * Whether some record names a row of `target` that the import will not find:
- * neither in the package nor on this instance. The import then leaves the
- * reference out (a server without its key, a storage node without its server).
- */
-async function hasUnresolvedReference(
-  referenced: Array<string | null | undefined>,
-  bundleIds: string[],
-  findIds: (chunk: string[]) => Promise<{ id: string }[]>,
-): Promise<boolean> {
-  const wanted = referenced.filter((id): id is string => Boolean(id));
-  if (wanted.length === 0) return false;
-  const available = await availableIds(wanted, bundleIds, findIds);
-  return wanted.some((id) => !available.has(id));
-}
-
-/** A server whose SSH key is neither in the package nor here (another customer's key). */
-export function previewServerKeysMissing(t: ExportFile["tables"]): Promise<boolean> {
-  return hasUnresolvedReference(t.servers.map((r) => r.sshKeyId), t.sshKeys.map((r) => r.id),
-    (ids) => prisma.sshKey.findMany({ where: { id: { in: ids } }, select: { id: true } }));
+  const keys = await projectUniqueImportRows(servers.map((row) => row.sshKeyId!), t.sshKeys, false,
+    (ids) => prisma.sshKey.findMany({ where: { id: { in: ids } }, select: { id: true, fingerprint: true, teamId: true } }),
+    (fingerprints) => prisma.sshKey.findMany({ where: { fingerprint: { in: fingerprints } }, select: { id: true, fingerprint: true, teamId: true } }),
+    (key) => key.fingerprint,
+  );
+  return servers.some((server) => {
+    const key = keys.get(server.sshKeyId!);
+    return !canBindServerKey(server, key && { teamId: key.teamId ?? null });
+  });
 }
 
 /** Preview the server profiles the node import will see after the servers have been imported. */

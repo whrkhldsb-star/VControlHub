@@ -6,12 +6,14 @@ const {
   getCapacityForecastMock,
   runPlaybookMock,
   alertRuleUpdateMock,
+  teamServersMock,
 } = vi.hoisted(() => ({
   openOrRefreshMock: vi.fn(),
   resolveMock: vi.fn(),
   getCapacityForecastMock: vi.fn(),
   runPlaybookMock: vi.fn(),
   alertRuleUpdateMock: vi.fn(),
+  teamServersMock: vi.fn(),
 }));
 
 vi.mock("@/lib/alert/incidents", () => ({
@@ -30,6 +32,7 @@ vi.mock("@/lib/playbook/service", () => ({
 vi.mock("@/lib/db", () => ({
   prisma: {
     alertRule: { updateMany: alertRuleUpdateMock },
+    server: { findMany: teamServersMock },
   },
 }));
 
@@ -106,19 +109,20 @@ describe("evaluateCapacityLinkedAlerts", () => {
     alertRuleUpdateMock.mockResolvedValue({ count: 1 });
   });
 
-  it("fires when days-to-85 is within threshold (lte)", async () => {
+  it.each([{ serverIds: [] }, { serverIds: ["s1", "foreign"] }])("fires a capacity rule only for its own customer ($serverIds)", async ({ serverIds }) => {
+    teamServersMock.mockResolvedValue([{ id: "s1" }]);
     getCapacityForecastMock.mockResolvedValue({
       summary: {
-        serverCount: 1,
-        forecastable: 1,
+        serverCount: 2,
+        forecastable: 2,
         insufficientData: 0,
-        byRisk: { ok: 0, watch: 0, warning: 1, critical: 0, insufficient_data: 0 },
+        byRisk: { ok: 0, watch: 0, warning: 2, critical: 0, insufficient_data: 0 },
         worstRisk: "warning",
         horizonDays: 90,
         windowHours: 168,
         generatedAt: new Date().toISOString(),
       },
-      servers: [serverForecast({ serverId: "s1", serverName: "node-a" })],
+      servers: [serverForecast({ serverId: "s1", serverName: "node-a" }), serverForecast({ serverId: "foreign" })],
     });
 
     const result = await evaluateCapacityLinkedAlerts(
@@ -137,9 +141,10 @@ describe("evaluateCapacityLinkedAlerts", () => {
           lastTriggeredAt: null,
           cooldownMinutes: 30,
           silenceWindows: [],
-          serverIds: [],
+          serverIds,
+          teamId: "team1",
           notifyChannels: ["in_app"],
-          playbookIds: [],
+          playbookIds: ["pb1"],
           webhookUrl: null,
           onCallUserIds: [],
           escalationMinutes: 45,
@@ -149,6 +154,12 @@ describe("evaluateCapacityLinkedAlerts", () => {
     );
 
     expect(result.fired).toBe(1);
+    expect(openOrRefreshMock).toHaveBeenCalledTimes(1);
+    expect(runPlaybookMock).toHaveBeenCalledExactlyOnceWith(expect.objectContaining({
+      playbookId: "pb1",
+      sourceAlertTeamId: "team1",
+      triggerContext: expect.objectContaining({ type: "capacity_forecast", serverId: "s1" }),
+    }));
     expect(openOrRefreshMock).toHaveBeenCalledWith(
       expect.objectContaining({
         ruleId: "rule_cap",

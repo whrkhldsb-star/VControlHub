@@ -10,6 +10,7 @@
  */
 import type { Prisma } from "@prisma/client";
 import { prisma, isUniqueViolation } from "@/lib/db";
+import { canAlertRuleTargetTeam } from "./rule-scope";
 import type { SessionPayload } from "@/lib/auth/session";
 import { serverTeamWhere, teamWhere } from "@/lib/auth/team-scope";
 import { NotFoundError, ValidationError } from "@/lib/errors";
@@ -865,9 +866,8 @@ export async function resolveOrphanedAlertIncidents(options?: {
         const rule = incident.rule;
         if (!rule) return false;
         if (!rule.enabled || rule.metric !== incident.metric) return true;
-        if (rule.serverIds.length > 0) return !rule.serverIds.includes(incident.serverId);
-        // A customer's rule without a server list covers that customer's servers only.
-        return Boolean(rule.teamId) && server.teamId !== rule.teamId;
+        if (!canAlertRuleTargetTeam(rule.teamId, server.teamId)) return true;
+        return rule.serverIds.length > 0 && !rule.serverIds.includes(incident.serverId);
       })
       .map((incident) => incident.id);
     if (orphanIds.length > 0) {

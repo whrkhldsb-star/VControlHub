@@ -76,7 +76,7 @@ describe.skipIf(process.env.RUN_DATABASE_INTEGRATION_TESTS !== "1")("config expo
 		await cleanup();
 		await prisma.role.create({ data: { id: `${p}-role-dst`, key: `${p}-ops`, name: "Ops" } });
 		await prisma.team.create({ data: { id: `${p}-team-dst`, slug: `${p}-acme`, name: "Acme" } });
-		await prisma.sshKey.create({ data: { id: `${p}-key-dst`, name: "deploy", fingerprint: `SHA256:${p}`, publicKey: "ssh-ed25519 AAAA" } });
+		await prisma.sshKey.create({ data: { id: `${p}-key-dst`, name: "deploy", fingerprint: `SHA256:${p}`, publicKey: "ssh-ed25519 AAAA", teamId: `${p}-team-dst` } });
 	}, 60_000);
 	afterAll(async () => {
 		await cleanup();

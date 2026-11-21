@@ -425,6 +425,24 @@ describe("playbook service", () => {
     await expect(runPlaybook({ playbookId: "pb1", dryRun: false })).rejects.toThrow(/disabled|已禁用/);
   });
 
+  it.each(["other-team", null])("rejects a customer's alert before queueing a playbook owned by %s", async (teamId) => {
+    mocks.playbookFindFirst.mockResolvedValue({ ...baseRow, teamId });
+    await expect(runPlaybook({ playbookId: "pb1", dryRun: false, sourceAlertTeamId: "team1" })).rejects.toThrow(/不存在|not found/);
+    expect(mocks.runCreate).not.toHaveBeenCalled();
+    expect(mocks.jobCreate).not.toHaveBeenCalled();
+  });
+
+  it("queues a same-customer playbook from a customer alert", async () => {
+    mocks.playbookFindFirst.mockResolvedValue(baseRow);
+    mocks.runCreate.mockResolvedValue(queuedRun);
+    mocks.runUpdate.mockResolvedValue({ ...queuedRun, jobId: "job-1" });
+    mocks.jobCreate.mockResolvedValue({ id: "job-1" });
+    mocks.jobEventCreate.mockResolvedValue({ id: "event-1" });
+
+    await expect(runPlaybook({ playbookId: "pb1", dryRun: false, sourceAlertTeamId: "team1" })).resolves.toMatchObject({ status: "queued" });
+    expect(mocks.jobCreate).toHaveBeenCalledWith({ data: expect.objectContaining({ teamId: "team1" }) });
+  });
+
   it("atomically persists a queued run and durable parent job", async () => {
     mocks.playbookFindFirst.mockResolvedValue(baseRow);
     mocks.runCreate.mockResolvedValue(queuedRun);

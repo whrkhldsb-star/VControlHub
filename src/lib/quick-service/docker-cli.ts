@@ -9,7 +9,7 @@ import { execFile, execFileSync, spawnSync } from "child_process";
 import { getRuntimeSettingNumberCached } from "@/lib/runtime-settings/cached";
 import { promisify } from "util";
 
-import { BusinessError } from "@/lib/errors";
+import { BusinessError, ForbiddenError } from "@/lib/errors";
 import { createLogger } from "@/lib/logging";
 import { serviceT } from "@/lib/i18n/service-locale";
 import { t } from "@/lib/i18n/service-translations";
@@ -17,11 +17,12 @@ import { shellQuote } from "@/lib/shell-quote";
 import { isValidTcpPort } from "@/lib/runtime/listen-port";
 import { loadEnabledServerForSsh } from "@/lib/ssh/server-target";
 import { execRemoteCommand } from "@/lib/ssh/client";
+import { HUB_HOST_INSTANCE_KEY, isQuickServiceTargetConsistent } from "./target-identity";
 
 const runFile = promisify(execFile);
 const logger = createLogger("quick-service-docker");
 
-export const HUB_HOST_INSTANCE_KEY = "hub-host";
+export { HUB_HOST_INSTANCE_KEY };
 
 export type DockerTarget =
   | { kind: "local" }
@@ -35,10 +36,12 @@ export function targetFromService(svc: {
   instanceKey?: string | null;
   serverId?: string | null;
 }): DockerTarget {
-  if (!svc.instanceKey || svc.instanceKey === HUB_HOST_INSTANCE_KEY) {
-    return { kind: "local" };
+  const instanceKey = svc.instanceKey ?? HUB_HOST_INSTANCE_KEY;
+  const serverId = svc.serverId ?? null;
+  if (!isQuickServiceTargetConsistent(instanceKey, serverId)) {
+    throw new ForbiddenError(t("backend.quickService.targetMismatch"));
   }
-  return { kind: "remote", serverId: svc.serverId || svc.instanceKey };
+  return serverId === null ? { kind: "local" } : { kind: "remote", serverId };
 }
 
 function buildDockerCommand(args: string[]): string {

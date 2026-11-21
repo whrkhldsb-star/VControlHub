@@ -67,7 +67,7 @@ describe("evaluateAlerts", () => {
 		// to drive collectServerMetrics. The service-collect.test.ts file
 		// exercises the failure / warning paths explicitly.
 		tcpProbeMock.mockResolvedValue({ ok: true, latencyMs: 5 });
-		prismaMock.server.findMany.mockResolvedValue([{ id: "srv1", name: "Prod", host: "10.0.0.1", port: 22, enabled: true }]);
+		prismaMock.server.findMany.mockReset().mockResolvedValue([{ id: "srv1", name: "Prod", host: "10.0.0.1", port: 22, enabled: true }]);
 		prismaMock.user.findMany.mockResolvedValue([{ id: "admin1" }]);
 		prismaMock.alertRule.update.mockResolvedValue({});
 		prismaMock.alertRule.updateMany.mockResolvedValue({ count: 1 });
@@ -166,7 +166,7 @@ describe("evaluateAlerts", () => {
 		});
 	});
 
-	it("runs linked playbooks with alert context when a rule triggers", async () => {
+	it.each([{ serverIds: [] }, { serverIds: ["srv1", "foreign"] }])("only evaluates customer servers and stamps their playbooks ($serverIds)", async ({ serverIds }) => {
 		vi.useFakeTimers();
 		vi.setSystemTime(new Date("2026-05-25T00:01:30.000Z"));
 		prismaMock.alertRule.findMany.mockResolvedValue([
@@ -182,20 +182,31 @@ describe("evaluateAlerts", () => {
 				lastMatchedAt: null,
 				cooldownMinutes: 0,
 				silenceWindows: [],
-				serverIds: [],
+				serverIds,
+				teamId: "team1",
 				notifyChannels: ["in_app"],
 				playbookIds: ["pb_restart", "pb_notify"],
 				webhookUrl: null,
 			},
 		]);
+		prismaMock.server.findMany.mockImplementation(async ({ where }) =>
+			where.teamId === "team1"
+				? [{ id: "srv1" }]
+				: [
+					{ id: "srv1", name: "Own", host: "10.0.0.1", port: 22, enabled: true },
+					{ id: "foreign", name: "Foreign", host: "10.0.0.2", port: 22, enabled: true },
+				],
+		);
 		collectServerMetricsMock.mockResolvedValue(cpuMetrics(95));
 
 		await evaluateAlerts();
 
+		expect(prismaMock.alertIncident.create).toHaveBeenCalledTimes(1);
 		expect(runPlaybookMock).toHaveBeenCalledTimes(2);
 		expect(runPlaybookMock).toHaveBeenCalledWith(expect.objectContaining({
 			playbookId: "pb_restart",
 			dryRun: false,
+			sourceAlertTeamId: "team1",
 			triggerContext: expect.objectContaining({
 				type: "alert_rule",
 				alertRuleId: "rule_auto",

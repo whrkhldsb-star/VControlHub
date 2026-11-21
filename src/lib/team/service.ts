@@ -221,14 +221,13 @@ export async function setCustomerMembership(
 
 export async function removeTeamMember(teamId: string, userId: string, session: SessionPayload) {
   assertPlatformAdmin(session);
-  const membership = await prisma.teamMember.findUnique({ where: { userId }, select: { teamId: true } });
-  if (!membership || membership.teamId !== teamId) throw new NotFoundError(t("backend.team.thisUserIsNotATeamMember"));
-  await prisma.$transaction([
-    prisma.teamMember.delete({ where: { userId } }),
-    prisma.userServerAccess.deleteMany({ where: { userId } }),
-    prisma.userStorageAccess.deleteMany({ where: { userId } }),
-    prisma.user.update({ where: { id: userId }, data: { currentTeamId: null } }),
-  ]);
+  await prisma.$transaction(async (tx) => {
+    const removed = await tx.teamMember.deleteMany({ where: { teamId, userId } });
+    if (removed.count === 0) throw new NotFoundError(t("backend.team.thisUserIsNotATeamMember"));
+    await tx.userServerAccess.deleteMany({ where: { userId } });
+    await tx.userStorageAccess.deleteMany({ where: { userId } });
+    await tx.user.update({ where: { id: userId }, data: { currentTeamId: null } });
+  });
   await auditUserAction(session.userId, "team.member.remove", { teamId, userId }, undefined, teamId);
 }
 

@@ -129,7 +129,7 @@ describe("QuickService lifecycle job worker observability", () => {
 
 		const ran = await runQuickServiceJobWorkerOnce(undefined, "test");
 		expect(ran).not.toBe(false);
-		expect(quickService.updateService).toHaveBeenCalledWith("alist", "hub-host");
+		expect(quickService.updateService).toHaveBeenCalledWith("alist", "hub-host", expect.objectContaining({ id: "job_update" }));
 		expect(mocks.completeJob).toHaveBeenCalled();
 	});
 });

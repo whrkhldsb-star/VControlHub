@@ -176,23 +176,35 @@ function accessTx(opts: {
   userIds?: string[];
   nodeIds?: string[];
   createCount?: number;
+  isAdmin?: boolean;
 }) {
   const accessFindMany = vi
     .fn()
-    .mockResolvedValue((opts.existingIds ?? []).map((id) => ({ id })));
+    .mockResolvedValue((opts.existingIds ?? []).map((id) => access({ id })));
   const createMany = vi.fn().mockResolvedValue({ count: opts.createCount ?? 0 });
   const update = vi.fn().mockResolvedValue({});
   const tx = {
     userStorageAccess: { findMany: accessFindMany, createMany, update },
-    user: { findMany: vi.fn().mockResolvedValue((opts.userIds ?? ["u1"]).map((id) => ({ id }))) },
+    user: { findMany: vi.fn().mockResolvedValue((opts.userIds ?? ["u1"]).map((id) => ({
+      id,
+      teamMembership: opts.isAdmin ? null : { teamId: "team-b" },
+      roles: opts.isAdmin ? [{ role: { key: "admin" } }] : [],
+    }))) },
     storageNode: {
-      findMany: vi.fn().mockResolvedValue((opts.nodeIds ?? ["n1"]).map((id) => ({ id }))),
+      findMany: vi.fn().mockResolvedValue((opts.nodeIds ?? ["n1"]).map((id) => ({ id, teamId: "team-b" }))),
     },
   } as unknown as Tx;
   return { tx, createMany, update };
 }
 
 describe("importUserStorageAccess", () => {
+  it("allows an administrator without a customer membership to receive a grant", async () => {
+    const { tx, createMany } = accessTx({ isAdmin: true, createCount: 1 });
+    const c = counts();
+    await importUserStorageAccess(tx, tables({ userStorageAccess: [access()] }), OVERWRITE, c);
+    expect(createMany).toHaveBeenCalledOnce();
+    expect(c).toEqual({ created: 1, updated: 0, skipped: 0 });
+  });
   it("skips a grant whose user no longer exists", async () => {
     const { tx, createMany } = accessTx({ userIds: [], createCount: 0 });
     const c = counts();
@@ -325,13 +337,13 @@ describe("references to rows that are neither in the package nor here", () => {
   it("creates a server without a key it cannot link, and with one it can", async () => {
     const createMany = vi.fn().mockResolvedValue({ count: 3 });
     const tx = {
-      sshKey: { findMany: vi.fn().mockResolvedValue([{ id: "key-here" }]) },
+      sshKey: { findMany: vi.fn().mockResolvedValue([{ id: "key-here", teamId: "team-b" }]) },
       server: { findMany: vi.fn().mockResolvedValue([]), createMany, update: vi.fn() },
     } as unknown as Tx;
 
     await importServers(tx, tables({ servers: [server("s-gone", "key-gone"), server("s-here", "key-here"), server("s-none", null)] }), OVERWRITE, counts());
 
-    expect(tx.sshKey.findMany).toHaveBeenCalledWith({ where: { id: { in: ["key-gone", "key-here"] } }, select: { id: true } });
+    expect(tx.sshKey.findMany).toHaveBeenCalledWith({ where: { id: { in: ["key-gone", "key-here"] } }, select: { id: true, teamId: true } });
     const rows = createMany.mock.calls[0]![0].data as Array<{ id: string; sshKeyId: string | null }>;
     expect(rows.map((row) => [row.id, row.sshKeyId])).toEqual([["s-gone", null], ["s-here", "key-here"], ["s-none", null]]);
   });
@@ -339,14 +351,14 @@ describe("references to rows that are neither in the package nor here", () => {
   it("leaves an existing server on its key when the package's key cannot be linked", async () => {
     const update = vi.fn().mockResolvedValue({});
     const tx = {
-      sshKey: { findMany: vi.fn().mockResolvedValue([{ id: "key-here" }]) },
-      server: { findUniqueOrThrow: vi.fn(async ({ where }) => server(where.id, null)), findMany: vi.fn().mockResolvedValue([{ id: "s-gone" }, { id: "s-here" }, { id: "s-none" }]), createMany: vi.fn(), update },
+      sshKey: { findMany: vi.fn().mockResolvedValue([{ id: "key-here", teamId: "team-b" }]) },
+      server: { findUniqueOrThrow: vi.fn(async ({ where }) => ({ ...server(where.id, "retained"), sshKey: { teamId: "team-b" } })), findMany: vi.fn().mockResolvedValue([{ id: "s-gone" }, { id: "s-here" }, { id: "s-none" }]), createMany: vi.fn(), update },
     } as unknown as Tx;
 
     await importServers(tx, tables({ servers: [server("s-gone", "key-gone"), server("s-here", "key-here"), server("s-none", null)] }), OVERWRITE, counts());
 
     const data = (id: string) => update.mock.calls.find(([call]) => call.where.id === id)![0].data as Record<string, unknown>;
-    expect("sshKeyId" in data("s-gone")).toBe(false);
+    expect(data("s-gone")).toMatchObject({ sshKeyId: "retained" });
     expect(data("s-here")).toMatchObject({ sshKeyId: "key-here" });
     // The package says "no key": that is restored as such.
     expect(data("s-none")).toMatchObject({ sshKeyId: null });

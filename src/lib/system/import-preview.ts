@@ -153,7 +153,7 @@ export async function previewImport(
   if ((await findMissingTeamIds(prisma, t)).length > 0) warnings.push(W.missingCustomers);
   if (t.servers.some((server) => server.managementMode === "AGENT")) warnings.push(W.agentReinstall);
   // What the import leaves out instead of failing on (import-executors-infrastructure).
-  if (await previewServerKeysMissing(t)) warnings.push(W.serverKeysMissing);
+  if (await previewServerKeysMissing(t, options)) warnings.push(W.serverKeysMissing);
   if (await previewStorageServersMissing(t, options)) warnings.push(W.storageServersMissing);
 
   // ── Permissions ──

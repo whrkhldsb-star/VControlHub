@@ -8,7 +8,6 @@ const { jobOwner } = vi.hoisted(() => ({ jobOwner: (load: (userId: string, teamI
   } }));
 vi.mock("@/lib/api-token/authorization", () => ({ loadApiTokenOwnerSession: state.load, loadJobOwnerSession: jobOwner(state.load) }));
 vi.mock("@/lib/db", () => ({ prisma: { server: { findFirst: state.server } } }));
-vi.mock("../docker-cli", () => ({ HUB_HOST_INSTANCE_KEY: "hub-host" }));
 import { assertQuickServiceExecutionAuthorized } from "../execution-authorization";
 import { t } from "@/lib/i18n/service-translations";
 
@@ -24,7 +23,7 @@ it.each(["disabled", "removed", "demoted", "node-disabled"])("rejects a queued D
   if (reason === "removed") state.load.mockResolvedValueOnce(actor).mockResolvedValueOnce(null);
   if (reason === "demoted") state.load.mockResolvedValueOnce(actor).mockResolvedValueOnce({ ...actor, permissions: [] });
   if (reason === "node-disabled") state.server.mockResolvedValue(null);
-  await expect(assertQuickServiceExecutionAuthorized({ createdBy: "requester", teamId: "team" }, { instanceKey: "node" })).rejects.toThrow();
+  await expect(assertQuickServiceExecutionAuthorized({ createdBy: "requester", teamId: "team" }, { instanceKey: "node", serverId: "node" })).rejects.toThrow();
 });
 it("requires a current platform administrator for hub Docker work", async () => {
   await expect(assertQuickServiceExecutionAuthorized({ createdBy: "requester", teamId: "team" }, {})).rejects.toThrow(t("backend.quickService.platformRequired"));
@@ -32,6 +31,15 @@ it("requires a current platform administrator for hub Docker work", async () => 
   await expect(assertQuickServiceExecutionAuthorized({ createdBy: "requester", teamId: "team" }, {})).resolves.toBeUndefined();
 });
 it("refuses an anonymous requester or conflicting target identifiers", async () => {
-  await expect(assertQuickServiceExecutionAuthorized({}, { instanceKey: "node" })).rejects.toThrow(t("backend.quickService.requesterMissing"));
+  await expect(assertQuickServiceExecutionAuthorized({}, { instanceKey: "node", serverId: "node" })).rejects.toThrow(t("backend.quickService.requesterMissing"));
   await expect(assertQuickServiceExecutionAuthorized({ createdBy: "requester", teamId: "team" }, { instanceKey: "node", serverId: "different-node" })).rejects.toThrow(t("backend.quickService.targetMismatch"));
+});
+
+it.each([
+  { instanceKey: "hub-host", serverId: "node" },
+  { instanceKey: "node", serverId: null },
+])("rejects inconsistent target identifiers before checking permissions: %j", async (identity) => {
+  await expect(assertQuickServiceExecutionAuthorized({ createdBy: "requester", teamId: "team" }, identity))
+    .rejects.toThrow(t("backend.quickService.targetMismatch"));
+  expect(state.server).not.toHaveBeenCalled();
 });

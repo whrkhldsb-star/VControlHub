@@ -181,9 +181,7 @@ export async function evaluateCapacityLinkedAlerts(
       rule.serverIds.length > 0
         ? forecast.servers.filter((s) => rule.serverIds.includes(s.serverId))
         : forecast.servers;
-    // Empty serverIds + team-scoped rule: only evaluate servers in that team
-    // (forecast is global; without this, capacity rules would fire across tenants).
-    if (rule.serverIds.length === 0 && rule.teamId) {
+    if (rule.teamId != null) {
       const teamServers: Array<{ id: string }> = [];
       let serverCursor: { id: string } | undefined;
       do {
@@ -311,6 +309,7 @@ export async function evaluateCapacityLinkedAlerts(
           await runPlaybook({
             playbookId,
             dryRun: false,
+            sourceAlertTeamId: rule.teamId ?? null,
             triggerContext: {
               type: "capacity_forecast",
               alertRuleId: rule.id,
