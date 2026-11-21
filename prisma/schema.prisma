@@ -1829,6 +1829,7 @@ model AiConversation {
   hostingEnabled   Boolean          @default(false) // AI托管模式：允许AI操作VPS
   automationMode   AiAutomationMode @default(ASSISTED)
   createdBy        String
+  teamId           String? // Customer at creation. Legacy conversations have no verified customer.
   createdAt        DateTime         @default(now())
   updatedAt        DateTime         @updatedAt
   provider         AiProvider       @relation(fields: [providerId], references: [id], onDelete: Cascade)
@@ -1837,6 +1838,7 @@ model AiConversation {
   hostedActions    AiHostedAction[]
 
   @@index([createdBy, updatedAt])
+  @@index([createdBy, teamId, updatedAt])
   @@map("ai_conversations")
 }
 
@@ -2114,6 +2116,7 @@ model CloudBillingSyncRun {
 // v1; the schema is permissive enough to evolve.
 model AiOpsLog {
   id             String    @id @default(cuid())
+  jobId          String?
   triggerType    String // "scheduled" | "manual" | "recommendation_followup"
   mode           String // "recommendation" | "autonomous"
   status         String // "ok" | "warning" | "error" | "skipped" | "running"
@@ -2143,6 +2146,7 @@ model AiOpsLog {
   @@index([status, createdAt])
   @@index([mode, createdAt])
   @@index([triggeredById, createdAt])
+  @@index([jobId, completedAt])
   @@map("ai_ops_logs")
 }
 

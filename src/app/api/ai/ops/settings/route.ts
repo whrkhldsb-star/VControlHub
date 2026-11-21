@@ -22,11 +22,10 @@ import { withApiRoute } from "@/lib/http/api-guard";
 import { GENERAL_READ_LIMIT, GENERAL_WRITE_LIMIT } from "@/lib/http/rate-limit-presets";
 import { AI_OPS_DEFAULT_SCHEDULE_HOUR } from "@/lib/ai/ops/types";
 import { aiOpsModeSettingSchema } from "@/lib/ai/ops/schema";
-import { getSetting, setSetting } from "@/lib/settings/service";
+import { getSetting, setManySettings } from "@/lib/settings/service";
 import { assertAiOpsPlatformReader } from "@/lib/ai/ops/authorization";
 import { auditUserAction } from "@/lib/audit/service";
-import { prisma } from "@/lib/db";
-import { ValidationError } from "@/lib/errors";
+import { prepareAiOpsProviderBinding } from "@/lib/ai/ops/provider-binding";
 
 export const dynamic = "force-dynamic";
 
@@ -90,26 +89,10 @@ export async function PATCH(request: Request) {
 			// Only a provider that is being chosen now has to be the caller's own. The one already saved may be
 			// a colleague's, and the page sends it back unchanged: refusing it there meant that only the
 			// administrator who had picked the provider could change the mode.
-			if (normalizedProviderId && providerChanged) {
-				const provider = await prisma.aiProvider.findFirst({
-					where: {
-						id: normalizedProviderId,
-						createdBy: session.userId,
-						enabled: true,
-					},
-					select: { id: true },
-				});
-				if (!provider) {
-					throw new ValidationError(
-						apiCopy("apiCopy.the.selected.ai.provider.was.not.found.is.disabled.or.belongs.to.62229a8e"),
-					);
-				}
-			}
-
-			await setSetting("ai.ops.mode", body.mode, session.userId);
-			if (providerChanged) {
-				await setSetting("ai.ops.provider", normalizedProviderId, session.userId);
-			}
+			const providerEntries = providerChanged
+				? await prepareAiOpsProviderBinding(normalizedProviderId, session.userId)
+				: [];
+			await setManySettings([{ key: "ai.ops.mode", value: body.mode }, ...providerEntries], session.userId);
 
 			// Normalize the response:
 			//   - body.providerId === undefined  → keep the previously stored value (unchanged)

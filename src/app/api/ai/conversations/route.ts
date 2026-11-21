@@ -17,7 +17,7 @@ export async function GET(request: Request) {
     request,
     { permission: "ai:chat", errorMessage: apiCopy("apiCopy.server.error.dfe0c2e8") },
     async ({ session }) => {
-      const conversations = await listConversations(session.userId);
+      const conversations = await listConversations(session);
       return NextResponse.json({
         conversations: conversations.map(serializeConversationListItem),
       });
@@ -35,10 +35,7 @@ export async function POST(request: Request) {
       bodySchema: createConversationSchema,
     },
     async ({ session, body }) => {
-      const conv = await createConversation({
-        ...body,
-        createdBy: session.userId,
-      });
+      const conv = await createConversation(body, session);
       return NextResponse.json(
         {
           conversation: {

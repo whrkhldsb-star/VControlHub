@@ -18,7 +18,7 @@ export default async function AiPage({
   // Match chat APIs: require ai:chat at the page boundary (not bare session).
   const session = await requirePagePermission("ai:chat", { redirectTo: "/ai" });
   const providers = await listProviders(session.userId);
-  const conversations = await listConversations(session.userId);
+  const conversations = await listConversations(session);
   // "Ask AI" deep links (server cards, alert pages…) prefill the composer via
   // ?q=. Bounded like any user-supplied string rendered back into the page.
   const draft = firstSearchParams(await searchParams).q?.slice(0, 2000) ?? "";

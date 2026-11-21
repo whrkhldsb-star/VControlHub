@@ -166,6 +166,18 @@ describe("executeAiOpsAction", () => {
 			expect(result.result).toContain("7");
 		});
 
+		it("retains a completed report while its job is waiting for acknowledgement", async () => {
+			mocks.aiOpsLogFindMany.mockResolvedValue([{ id: "boundary", createdAt: new Date() }]);
+			mocks.jobFindMany.mockResolvedValueOnce([]).mockResolvedValueOnce([{ id: "unacknowledged" }]);
+			await executeAiOpsAction(input("cache.purge:stale"));
+			expect(mocks.jobFindMany).toHaveBeenCalledWith({
+				where: { type: "ai.ops.scan", status: { in: ["PENDING", "RUNNING"] } }, select: { id: true },
+			});
+			expect(mocks.aiOpsLogDeleteMany).toHaveBeenCalledWith({ where: expect.objectContaining({
+				AND: [{ OR: [{ jobId: null }, { jobId: { notIn: ["unacknowledged"] } }] }],
+			}) });
+		});
+
 		it("does not issue an unbounded delete when the keep query returns nothing", async () => {
 			// `notIn: []` matches every row — the guard is the `length > 0` check, so
 			// an empty keep-set must skip the delete entirely rather than wipe the

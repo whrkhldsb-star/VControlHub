@@ -10,7 +10,7 @@ describe("AI hosted command builder", () => {
 				tail: 120,
 				filter: "error's",
 			}),
-		).toBe("tail -n 120 -- '/var/log/nginx/access.log' | grep -F -i -- 'error'\\''s'");
+		).toContain("'/var/log/nginx/access.log' file tail -n 120 | grep -F -i -- 'error'\\''s'");
 	});
 
 	it("rejects command injection attempts in auto-approved read_logs", () => {

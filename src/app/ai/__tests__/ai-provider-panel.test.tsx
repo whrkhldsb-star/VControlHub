@@ -1,5 +1,5 @@
 import { renderWithI18n as render } from "@/lib/i18n/__tests__/test-helpers";
-import { act, screen, waitFor } from "@testing-library/react";
+import { act, fireEvent, screen, waitFor } from "@testing-library/react";
 import userEvent from "@testing-library/user-event";
 import { beforeEach, describe, expect, it, vi } from "vitest";
 
@@ -65,6 +65,25 @@ describe("AiProviderPanel", () => {
     await userEvent.selectOptions(screen.getByLabelText("类型"), "GOOGLE");
     const update = setProvForm.mock.calls.at(-1)?.[0] as (form: typeof DEFAULT_PROV_FORM) => typeof DEFAULT_PROV_FORM;
     expect(update(DEFAULT_PROV_FORM).baseUrl).toBe("https://generativelanguage.googleapis.com/v1beta/openai");
+  });
+
+  it("clears the typed credential on an origin or preset change and requires the new destination's key", async () => {
+    const user = userEvent.setup();
+    const setProvForm = vi.fn();
+    render(<AiProviderPanel show providers={[providerFixture]} provForm={{ ...DEFAULT_PROV_FORM, apiKey: "old" }}
+      onClose={vi.fn()} onCreateProvider={vi.fn()} onDeleteProvider={vi.fn()}
+      onRefreshProviders={vi.fn()} setProvForm={setProvForm} />);
+    await user.click(screen.getByRole("button", { name: "Anthropic" }));
+    expect(setProvForm.mock.calls.at(-1)?.[0]({ ...DEFAULT_PROV_FORM, apiKey: "old" }).apiKey).toBe("");
+    await user.click(screen.getByRole("button", { name: "编辑 OpenAI" }));
+    const key = screen.getByLabelText(/API Key/);
+    const endpoint = screen.getByLabelText("Base URL");
+    await user.type(key, "private");
+    fireEvent.change(endpoint, { target: { value: "https://api.openai.com/v2" } });
+    expect(key).toHaveValue("private");
+    fireEvent.change(endpoint, { target: { value: "https://new.example/v1" } });
+    expect(key).toHaveValue("");
+    expect(key).toBeRequired();
   });
 
   it("locks editing and dismissal until a save finishes and prevents repeated PATCH requests", async () => {

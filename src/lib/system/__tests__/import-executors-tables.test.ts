@@ -7,6 +7,7 @@ import type { Counts, Tx } from "../import-executors-helpers";
 import { importPermissions } from "../import-executors-rbac";
 import { importServers, importStorageNodes, importUserStorageAccess } from "../import-executors-infrastructure";
 import { importAlertRules } from "../import-executors-automation";
+import { importAiProviders } from "../import-executors-config";
 
 /**
  * Per-table import behaviour that the orchestration test cannot see: which rows
@@ -31,6 +32,41 @@ const NO_OVERWRITE = { ...OVERWRITE, overwriteExisting: false } satisfies Import
 function tables(partial: Record<string, unknown>): ExportFile["tables"] {
   return partial as unknown as ExportFile["tables"];
 }
+
+describe("importAiProviders credential ownership", () => {
+  const current = { id: "p1", type: "OPENAI", baseUrl: "https://one.example/v1" };
+
+  function importer() {
+    const updateMany = vi.fn().mockResolvedValue({ count: 1 });
+    const tx = { aiProvider: { findMany: vi.fn().mockResolvedValue([current]), updateMany } } as unknown as Tx;
+    const write = (patch: Record<string, unknown>) => importAiProviders(
+      tx, tables({ aiProviders: [{ ...current, apiKey: null, ...patch }] }), OVERWRITE, counts(),
+    );
+    return { write, updateMany };
+  }
+
+  it("requires a replacement key when the imported origin or type changes", async () => {
+    const { write, updateMany } = importer();
+    await expect(write({ baseUrl: "https://two.example/v1" })).rejects.toThrow(ValidationError);
+    await expect(write({ type: "OPENAI_COMPATIBLE" })).rejects.toThrow(ValidationError);
+    expect(updateMany).not.toHaveBeenCalled();
+    await write({ baseUrl: "https://one.example/v2" });
+    expect(updateMany).toHaveBeenCalledWith(expect.objectContaining({ where: current }));
+    expect(updateMany.mock.calls[0]![0].data).not.toHaveProperty("apiKey");
+  });
+
+  it("compares the live endpoint and key when a full import supplies a replacement", async () => {
+    const { write, updateMany } = importer();
+    const patch = { baseUrl: "https://two.example/v1", apiKey: "new-ciphertext" };
+    await write(patch);
+    expect(updateMany).toHaveBeenCalledWith({
+      where: { ...current, apiKey: { not: patch.apiKey } },
+      data: expect.objectContaining(patch),
+    });
+    updateMany.mockResolvedValueOnce({ count: 0 });
+    await expect(write(patch)).rejects.toThrow(ValidationError);
+  });
+});
 
 // ── importPermissions ───────────────────────────────────
 

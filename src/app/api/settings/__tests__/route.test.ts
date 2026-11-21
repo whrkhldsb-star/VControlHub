@@ -3,6 +3,7 @@ import { beforeEach, describe, expect, it, vi } from "vitest";
 const { mocks } = vi.hoisted(() => ({
   mocks: {
     requireApiPermission: vi.fn(),
+    provider: vi.fn(),
     getAllSettingsMasked: vi.fn(),
     setManySettings: vi.fn(),
     isValidSettingKey: vi.fn(),
@@ -12,6 +13,7 @@ const { mocks } = vi.hoisted(() => ({
   },
 }));
 
+vi.mock("@/lib/db", async (importOriginal) => ({ ...(await importOriginal<typeof import("@/lib/db")>()), prisma: { aiProvider: { findFirst: mocks.provider } } }));
 vi.mock("@/lib/auth/require-api-permission", () => ({ requireApiPermission: mocks.requireApiPermission }));
 vi.mock("@/lib/settings/service", () => ({
   getAllSettingsMasked: mocks.getAllSettingsMasked,
@@ -85,6 +87,21 @@ describe("/api/settings audit coverage", () => {
     }, undefined, null);
     expect(JSON.stringify(mocks.auditUserAction.mock.calls)).not.toContain("super-secret-session-value-that-must-not-leak");
     expect(JSON.stringify(mocks.auditUserAction.mock.calls)).not.toContain("控制台");
+  });
+
+  it("requires an owned, enabled provider and an active administrator for a general AI Ops settings write", async () => {
+    mocks.requireApiPermission.mockResolvedValue({ session: { userId: "u1", roles: ["admin"] } });
+    mocks.isValidSettingKey.mockReturnValue(true);
+    mocks.provider.mockResolvedValue(null);
+    const response = await route.PATCH(new Request("http://local/api/settings", {
+      method: "PATCH", body: JSON.stringify({ "ai.ops.provider": "foreign", "platform.name": "pending" }),
+    }));
+    expect(response.status).toBe(400);
+    expect(mocks.provider).toHaveBeenCalledWith(expect.objectContaining({ where: expect.objectContaining({
+      id: "foreign", createdBy: "u1", enabled: true,
+      creator: { status: "ACTIVE", mustChangePassword: false, roles: { some: { role: { key: "admin" } } } },
+    }) }));
+    expect(mocks.setManySettings).not.toHaveBeenCalled();
   });
 
   it("keeps a secret sent back as the *** sentinel and clears one sent empty", async () => {

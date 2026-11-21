@@ -9,6 +9,7 @@ import { useEffect, useMemo, useRef, useState } from "react";
 import { Dialog } from "@/components/ui/dialog";
 import { Badge, IconButton } from "@/components/ui-primitives";
 import { Pencil, Trash2 } from "@/components/icons";
+import { providerEndpointChanged } from "@/lib/ai/provider-endpoint";
 import { AiProviderFields } from "./ai-provider-fields";
 import { modelsForEditing, parseStoredModels } from "./provider-models";
 
@@ -168,6 +169,8 @@ export function AiProviderPanel({
 
   if (!show) return null;
 
+  const original = providers.find((provider) => provider.id === editingProviderId);
+
   return (
     <Dialog
       size="xl"
@@ -245,7 +248,7 @@ export function AiProviderPanel({
                 <h4 className="ui-title-group">{t("aiPage.editProviderTitle")}</h4>
                 <ActionButton type="button" variant="ghost" onClick={cancelEditing}>{t("aiPage.cancelEditing")}</ActionButton>
               </div>
-              <AiProviderFields form={editForm} editing onChange={(patch) => setEditForm((form) => form ? { ...form, ...patch } : form)} />
+              <AiProviderFields form={editForm} editing keyRequired={!original || providerEndpointChanged(original, editForm)} onChange={(patch) => setEditForm((form) => form ? { ...form, ...patch } : form)} />
               <ActionButton type="submit" disabled={busy} className="w-full">{t("common.saveChanges")}</ActionButton>
             </form>
           ) : (
