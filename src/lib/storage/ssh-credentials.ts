@@ -45,6 +45,8 @@ export type StorageSshCredentialNode = {
 };
 
 export type ResolvedStorageSshCredentials = {
+  /** The selected host is the registered Windows server's OpenSSH endpoint. */
+  windowsOpenSsh?: boolean;
   host: string;
   port: number;
   username: string;
@@ -103,5 +105,10 @@ export function resolveStorageSshCredentials(node: StorageSshCredentialNode): Re
     ? node.server?.hostKeySha256 ?? node.hostKeySha256 ?? null
     : node.hostKeySha256 ?? node.server?.hostKeySha256 ?? null;
 
-  return { host, port, username, connectionType, privateKey, ...(key?.passphrase ? { passphrase: key.passphrase } : {}), password, hostKeySha256, ...(agentServerId ? { agentServerId } : {}) };
+  // Windows profiles register the SSH key independently of their RDP port.
+  // A node can override the endpoint even on the same hostname.
+  const windowsOpenSsh = node.server?.operatingSystem === "WINDOWS"
+    && host.toLowerCase() === node.server.host.toLowerCase()
+    && Boolean(hostKeySha256) && hostKeySha256 === node.server.hostKeySha256;
+  return { host, port, username, connectionType, privateKey, ...(key?.passphrase ? { passphrase: key.passphrase } : {}), password, hostKeySha256, ...(agentServerId ? { agentServerId } : {}), ...(windowsOpenSsh ? { windowsOpenSsh } : {}) };
 }

@@ -51,6 +51,20 @@ it.each(["parent", "parent/docs"])(
   },
 );
 
+it("checks Windows ancestors and descendant exclusions using the same case-insensitive identity", async () => {
+  const open = vi.fn(() => new PassThrough());
+  mocks.deleted.mockResolvedValueOnce([{ relativePath: "Parent/Docs" }]);
+  await expect(openManagedArchive({ ...base, caseInsensitive: true, open })).rejects.toThrow();
+  expect(open).not.toHaveBeenCalled();
+  mocks.deleted.mockResolvedValueOnce([{ relativePath: "Parent/Docs/File" }]);
+  await openManagedArchive({ ...base, caseInsensitive: true, open });
+  expect(mocks.deleted.mock.lastCall?.[0].where.OR).toEqual([
+    { relativePath: { in: ["parent", "parent/docs"], mode: "insensitive" } },
+    { relativePath: { startsWith: "parent/docs/", mode: "insensitive" } },
+  ]);
+  expect(open).toHaveBeenCalledWith(["docs/File"]);
+});
+
 it("does not truncate the deletion list and expose unfiltered bytes", async () => {
   mocks.deleted.mockResolvedValue(
     Array.from({ length: 10001 }, (_, n) => ({

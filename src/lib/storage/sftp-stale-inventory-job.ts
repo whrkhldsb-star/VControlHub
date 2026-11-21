@@ -24,8 +24,12 @@ import {
   completeJob,
   enqueueJob,
   failJob,
+  failJobTerminal,
   heartbeatJob,
 } from "@/lib/job/service";
+import { ForbiddenError } from "@/lib/errors";
+import { t } from "@/lib/i18n/service-translations";
+import { assertSftpJobTargets, readSftpJobScope, requireSftpJobActor, type SftpJob } from "./sftp-job-scope";
 import { createLogger } from "@/lib/logging";
 import { runWithLeaseHeartbeat } from "@/lib/job/heartbeat-runner";
 import { createSingletonIntervalWorker } from "@/lib/workers/singleton-interval-worker";
@@ -53,6 +57,7 @@ const SFTP_STALE_INVENTORY_WORKER_ID = `${
 }:sftp-stale-inventory:${process.pid}`;
 
 const DEFAULT_MAX_DEPTH = 5;
+const PERIODIC_SWEEP_TITLE = "SFTP stale inventory sweep (all nodes)";
 /** Nodes one periodic sweep scans; the rest wait for the next run (A4-18). */
 const PERIODIC_SWEEP_NODES_PER_RUN = 4;
 const lastSweepAt = new Map<string, number>();
@@ -172,10 +177,7 @@ function scanNodeWithHeartbeat(
   });
 }
 
-async function executeStaleInventoryJob(job: {
-  id: string;
-  payload: Prisma.JsonValue;
-}) {
+async function executeStaleInventoryJob(job: SftpJob & { title: string }) {
   const payload = parseSftpStaleInventoryJobPayload(job.payload);
   const maxDepth = payload.maxDepth ?? DEFAULT_MAX_DEPTH;
   const dryRun = payload.dryRun ?? false;
@@ -189,57 +191,50 @@ async function executeStaleInventoryJob(job: {
         : "Scanning all SFTP nodes",
   });
 
+  // Early API jobs also stored just a reason. Their titles differ from the
+  // periodic producer's even after account deletion clears the creator FK.
+  const periodic = job.title === PERIODIC_SWEEP_TITLE && job.createdBy === null && job.teamId === null && isRecord(job.payload)
+    && typeof job.payload.reason === "string" && Object.keys(job.payload).length === 1;
+  const nodeIds = payload.nodeId ? [payload.nodeId] : payload.nodeIds;
+  const scope = periodic ? null : readSftpJobScope(job, nodeIds, "storage:manage-node");
+  const actor = scope ? await requireSftpJobActor(scope) : undefined;
+
+  let nodes;
   if (payload.nodeId) {
-    // System worker path: node id was validated at enqueue (API) or is system-scheduled.
-    // Looked up directly: searched for in the first 500 nodes by name, a
-    // later one was reported missing although the API had just accepted it.
-    const node = await findSftpNodeForStaleInventory(payload.nodeId);
-    if (!node) {
-      throw new Error(`Storage node not found: ${payload.nodeId}`);
-    }
-    const result = await scanNodeWithHeartbeat(job, node, maxDepth, dryRun);
-    logSweepNodeErrors(job.id, "single", [result]);
-    await completeJob(job.id, SFTP_STALE_INVENTORY_WORKER_ID, toJsonValue({
-      mode: "single",
-      results: [result],
-      totals: summarize([result]),
-    }));
-    return;
+    const node = await findSftpNodeForStaleInventory(payload.nodeId, actor);
+    nodes = node ? [node] : [];
+  } else {
+    nodes = await listSftpNodesForStaleInventory(actor, nodeIds);
   }
-
-  // nodeIds present (including []) => team-scoped multi-node job; never widen to global.
-  const allNodes = await listSftpNodesForStaleInventory(undefined, payload.nodeIds);
-  // The periodic sweep (no explicit node set) walks a few nodes per run, least
-  // recently scanned first (A4-18): every healthy node five levels deep every
-  // 30 minutes was a constant SSH load on a fleet, and one slow node held the
-  // whole sweep. A scoped or on-demand sweep still covers what it was given.
-  const nodes = payload.nodeIds === undefined
-    ? [...allNodes].sort((a, b) => (lastSweepAt.get(a.id) ?? 0) - (lastSweepAt.get(b.id) ?? 0)).slice(0, PERIODIC_SWEEP_NODES_PER_RUN)
-    : allNodes;
-  for (const node of nodes) lastSweepAt.set(node.id, Date.now());
-
-  if (nodes.length === 0) {
-    await completeJob(job.id, SFTP_STALE_INVENTORY_WORKER_ID, toJsonValue({
-      mode: payload.nodeIds !== undefined ? "scoped" : "all",
-      results: [],
-      totals: { nodes: 0, scanned: 0, stale: 0, errors: 0, durationMs: 0 },
-    }));
-    return;
+  if (scope) {
+    assertSftpJobTargets(scope.targetTeams, nodes);
+  } else {
+    nodes.sort((a, b) => (lastSweepAt.get(a.id) ?? 0) - (lastSweepAt.get(b.id) ?? 0));
+    nodes = nodes.slice(0, PERIODIC_SWEEP_NODES_PER_RUN);
   }
 
   const results: SftpStaleInventoryResult[] = [];
-  for (const node of nodes) {
+  for (let node of nodes) {
+    // A previous node may have taken minutes to scan. Recheck before opening
+    // the next connection, including when an administrator queued a fleet job.
+    if (scope && results.length > 0) {
+      const currentActor = await requireSftpJobActor(scope);
+      const currentNode = await findSftpNodeForStaleInventory(node.id, currentActor);
+      if (!currentNode || currentNode.teamId !== node.teamId) throw new ForbiddenError(t("backend.storage.sftpJobTargetChanged"));
+      node = currentNode;
+    }
+    lastSweepAt.set(node.id, Date.now());
     await heartbeatJob(job.id, SFTP_STALE_INVENTORY_WORKER_ID, {
       leaseMs: SFTP_STALE_INVENTORY_LEASE_MS,
-      progress: `Scanning ${node.name} (${nodes.indexOf(node) + 1}/${nodes.length})`,
+      progress: `Scanning ${node.name} (${results.length + 1}/${nodes.length})`,
     });
-    const result = await scanNodeWithHeartbeat(job, node, maxDepth, dryRun);
-    results.push(result);
+    results.push(await scanNodeWithHeartbeat(job, node, maxDepth, dryRun));
   }
 
-  logSweepNodeErrors(job.id, payload.nodeIds !== undefined ? "scoped" : "all", results);
+  const mode = payload.nodeId ? "single" : scope ? "scoped" : "all";
+  logSweepNodeErrors(job.id, mode, results);
   await completeJob(job.id, SFTP_STALE_INVENTORY_WORKER_ID, toJsonValue({
-    mode: payload.nodeIds !== undefined ? "scoped" : "all",
+    mode,
     results,
     totals: summarize(results),
   }));
@@ -330,7 +325,7 @@ export async function enqueueSftpStaleInventorySweepIfIdle(
     if (active) return false;
     await enqueueJob({
       type: SFTP_STALE_INVENTORY_JOB_TYPE,
-      title: "SFTP stale inventory sweep (all nodes)",
+      title: PERIODIC_SWEEP_TITLE,
       payload: { reason },
       maxAttempts: 1,
     });
@@ -375,9 +370,11 @@ export async function runSftpStaleInventoryJobWorkerOnce(
         jobId: job.id,
         error: message,
       });
-      await failJob(job.id, SFTP_STALE_INVENTORY_WORKER_ID, message, {
-        retryAfterMs: 5 * 60_000,
-      });
+      if (error instanceof ForbiddenError) {
+        await failJobTerminal(job.id, SFTP_STALE_INVENTORY_WORKER_ID, message);
+      } else {
+        await failJob(job.id, SFTP_STALE_INVENTORY_WORKER_ID, message, { retryAfterMs: 5 * 60_000 });
+      }
     }
     return true;
   } catch (error) {

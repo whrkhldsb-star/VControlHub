@@ -4,7 +4,7 @@ import { mkdtemp, mkdir, writeFile, rm } from "node:fs/promises";
 import os from "node:os";
 import path from "node:path";
 import type { Client } from "ssh2";
-import { expect, it } from "vitest";
+import { expect, it, vi } from "vitest";
 
 import { ValidationError } from "@/lib/errors";
 import {
@@ -16,6 +16,7 @@ import {
 // Windows tar (bsdtar) matches --exclude as globs, so the literal
 // "[draft].txt" exclusion this test asserts cannot be expressed; the SFTP
 // variant also needs /bin/sh. GNU-tar semantics are enforced on Linux CI.
+const linuxNode = { basePath: "/srv", host: null, port: null, server: { operatingSystem: "LINUX", host: "storage.test", port: 22 } };
 const itGnuTar = process.platform === "win32" ? it.skip : it;
 
 itGnuTar.each(["LOCAL", "SFTP"])(
@@ -59,7 +60,7 @@ itGnuTar.each(["LOCAL", "SFTP"])(
       const stream =
         driver === "LOCAL"
           ? streamLocalTarGz(directory, path.basename(directory), excluded)
-          : await streamRemoteTarGz(client, directory, excluded);
+          : await streamRemoteTarGz(client, linuxNode, directory, excluded);
       const bytes = Buffer.from(
         await archiveStreamResponse(stream, "test.tar.gz").arrayBuffer(),
       );
@@ -77,33 +78,15 @@ itGnuTar.each(["LOCAL", "SFTP"])(
   },
 );
 
-itGnuTar("passes Windows (bsdtar) exclusions as single quoted arguments", async () => {
-  // bsdtar takes exclusions on argv. Unquoted, "old notes.txt" became the
-  // exclusion "…/old" plus a member "notes.txt" that tar could not find, and
-  // the whole download failed. GNU tar reads the same argv here.
-  const root = await mkdtemp(path.join(os.tmpdir(), "archive-bsdtar-"));
-  const directory = path.join(root, "docs");
-  try {
-    await mkdir(directory, { recursive: true });
-    await writeFile(path.join(directory, "old notes.txt"), "deleted");
-    await writeFile(path.join(directory, "keep.txt"), "keep");
-    let command = "";
-    const client = {
-      exec(cmd: string, callback: (error: null, stream: unknown) => void) {
-        command = cmd;
-        const child = spawn("/bin/sh", ["-c", cmd], { stdio: "pipe" });
-        callback(null, Object.assign(child.stdout, { stderr: child.stderr, end: (input: string) => child.stdin.end(input) }));
-      },
-    } as unknown as Client;
-    const stream = await streamRemoteTarGz(client, directory, ["docs/old notes.txt"], { bsdtar: true });
-    const bytes = Buffer.from(await archiveStreamResponse(stream, "test.tar.gz").arrayBuffer());
-    const listing = execFileSync("tar", ["-tzf", "-"], { input: bytes, encoding: "utf8" });
-    expect(command).toContain("'--exclude=docs/old notes.txt'");
-    expect(listing).toContain("docs/keep.txt");
-    expect(listing).not.toContain("old notes.txt");
-  } finally {
-    await rm(root, { recursive: true, force: true });
-  }
+it.each([
+  { ...linuxNode, server: { ...linuxNode.server, operatingSystem: "WINDOWS" } },
+  { ...linuxNode, server: null },
+  { ...linuxNode, host: "another.test" },
+  { ...linuxNode, basePath: "/C:/Shares" },
+])("refuses to start a shell archive on an unconfirmed POSIX endpoint", async (node) => {
+  const exec = vi.fn();
+  await expect(streamRemoteTarGz({ exec } as unknown as Client, node, "/data/docs")).rejects.toThrow(ValidationError);
+  expect(exec).not.toHaveBeenCalled();
 });
 
 it("rejects newline exclusions before spawning a process", () => {

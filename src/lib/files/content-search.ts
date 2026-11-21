@@ -29,10 +29,10 @@ type ContentSearchSession = {
 };
 
 import { execRemoteCommand } from "@/lib/ssh/client";
-import { SSH_KEY_CREDENTIAL_SELECT } from "@/lib/ssh/ssh-key-crypto";
-import { resolveStorageSshCredentials } from "@/lib/storage/ssh-credentials";
+import { resolveStorageSshCredentials, STORAGE_SSH_SERVER_SELECT } from "@/lib/storage/ssh-credentials";
 import { resolveLocalAbsolutePath } from "@/lib/storage/service-entries";
 import { expandStorageBasePath } from "@/lib/storage/path-utils";
+import { normalizeRemotePath, normalizeRemoteRelativePath } from "@/lib/storage/remote-path";
 
 import { shellQuote } from "@/lib/shell-quote";
 
@@ -248,12 +248,11 @@ async function searchLocalNode(
  * Search SFTP storage node by executing `grep -rlF` on the remote server.
  */
 async function searchSftpNode(
-	nodeId: string,
-	nodeName: string,
-	basePath: string,
+	target: { id: string; name: string; basePath: string; teamId: string | null },
 	query: string,
 	searchPath: string,
 ): Promise<NodeSearchOutcome> {
+	const { id: nodeId, name: nodeName, basePath } = target;
 	const none: NodeSearchOutcome = { results: [], truncated: false };
 	const sanitizedQuery = sanitizeSearchQuery(query);
 
@@ -264,7 +263,7 @@ async function searchSftpNode(
 	// search of it failed and returned nothing; overrides and Agent-managed
 	// servers were ignored too.
 	const node = await prisma.storageNode.findUnique({
-		where: { id: nodeId },
+		where: { id: nodeId, teamId: target.teamId, driver: "SFTP", basePath },
 		select: {
 			id: true,
 			name: true,
@@ -274,21 +273,7 @@ async function searchSftpNode(
 			username: true,
 			teamId: true,
 			hostKeySha256: true,
-			server: {
-				select: {
-					id: true,
-					operatingSystem: true,
-					teamId: true,
-					host: true,
-					port: true,
-					username: true,
-					connectionType: true,
-					managementMode: true,
-					password: true,
-					hostKeySha256: true,
-					sshKey: { select: SSH_KEY_CREDENTIAL_SELECT },
-				},
-			},
+			server: { select: STORAGE_SSH_SERVER_SELECT },
 		},
 	});
 
@@ -308,16 +293,8 @@ async function searchSftpNode(
 
 	const sshParams = resolveStorageSshCredentials(node);
 
-	// Build the remote search path — validate against path traversal
-	const sanitizedSearchPath = (searchPath || "").replace(/^\/+/, "");
-	// A `..` segment is traversal; "v1..v2" is a directory name (A4-11).
-	if (sanitizedSearchPath.split("/").includes("..")) {
-		logger.warn("SFTP content search rejected: path traversal detected", { nodeId, searchPath });
-		return none;
-	}
-	const remoteSearchPath = sanitizedSearchPath
-		? `${basePath}/${sanitizedSearchPath}`
-		: basePath;
+	const remoteRoot = normalizeRemotePath(basePath);
+	const remoteSearchPath = path.posix.join(remoteRoot, searchPath);
 
 	// Use grep -r (recursive) -F (fixed string, no regex) -I (skip binary)
 	// -l (list filenames only) --include to limit file types
@@ -329,14 +306,15 @@ async function searchSftpNode(
 	// remote-containment.ts): no link hop below the root, which also keeps a
 	// path grant from reaching a sibling through a link. Recursion itself
 	// (grep -r) does not follow links below the starting point.
-	const relativeSearchPath = path.posix.normalize(sanitizedSearchPath || ".").replace(/\/+$/, "");
 	const containment = [
-		`root=$(cd -P -- ${shellQuote(basePath)} 2>/dev/null && pwd -P) || exit 2`,
+		`root=$(cd -P -- ${shellQuote(remoteRoot)} 2>/dev/null && pwd -P) || exit 2`,
 		`target=$(cd -P -- ${shellQuote(remoteSearchPath)} 2>/dev/null && pwd -P) || exit 2`,
-		`expected="\${root%/}"${relativeSearchPath === "." ? "" : shellQuote(`/${relativeSearchPath}`)}`,
+		`expected="\${root%/}"${searchPath ? shellQuote(`/${searchPath}`) : ""}`,
 		'[ "$target" = "${expected:-/}" ] || exit 3',
 	].join("\n");
-	const grepCmd = `${containment}\ngrep -rFIl ${REMOTE_SEARCH_INCLUDES} --max-count=${MAX_SNIPPETS_PER_FILE} -- ${shellQuote(sanitizedQuery)} ${shellQuote(remoteSearchPath)} 2>/dev/null | head -${MAX_RESULTS + 1}`;
+	// NUL separates complete names, even when a file contains a newline. Base64
+	// carries this list through both SSH and the Agent's text result store.
+	const grepCmd = `${containment}\ngrep -rFIlZ ${REMOTE_SEARCH_INCLUDES} --max-count=${MAX_SNIPPETS_PER_FILE} -- ${shellQuote(sanitizedQuery)} ${shellQuote(remoteSearchPath)} 2>/dev/null | head -z -n ${MAX_RESULTS + 1} | base64`;
 
 	logger.debug("Remote content search", { nodeId, remoteSearchPath, query: sanitizedQuery });
 
@@ -362,11 +340,22 @@ async function searchSftpNode(
 		}
 
 		// One file past the cap tells that the listing was cut.
-		const listed = result.stdout.split("\n").filter(Boolean);
+		const listing = new TextDecoder("utf-8", { fatal: true }).decode(Buffer.from(result.stdout, "base64"));
+		const listed = listing.split("\0").slice(0, -1);
 		const truncated = listed.length > MAX_RESULTS;
-		const matchedFiles = listed.slice(0, MAX_RESULTS);
+		const rootPrefix = remoteRoot.endsWith("/") ? remoteRoot : remoteRoot + "/";
+		const searchPrefix = remoteSearchPath.endsWith("/") ? remoteSearchPath : remoteSearchPath + "/";
+		const matchedFiles = listed.slice(0, MAX_RESULTS).filter((filePath) => {
+			if (!filePath.startsWith(searchPrefix) || /[\r\n]/.test(filePath)) return false;
+			const relative = filePath.slice(rootPrefix.length);
+			try {
+				return normalizeRemoteRelativePath(relative) === relative;
+			} catch {
+				return false;
+			}
+		});
 
-		if (matchedFiles.length === 0) return none;
+		if (matchedFiles.length === 0) return { results: [], truncated };
 
 		// For each matched file, fetch matching lines with context in ONE
 		// remote command — one grep per file meant one sequential SSH exec per
@@ -379,9 +368,9 @@ async function searchSftpNode(
 		if (batch.length > 0) {
 			// -H prefixes every match line with its filename so a single grep
 			// run covers the whole batch and lines can be attributed back.
-			const snippetCmd = `grep -HnIF --max-count=${MAX_SNIPPETS_PER_FILE} -- ${shellQuote(sanitizedQuery)} ${batch
+			const snippetCmd = `grep -HnIFZ --max-count=${MAX_SNIPPETS_PER_FILE} -- ${shellQuote(sanitizedQuery)} ${batch
 				.map((filePath) => shellQuote(filePath))
-				.join(" ")} 2>/dev/null | head -${batch.length * MAX_SNIPPETS_PER_FILE}`;
+				.join(" ")} 2>/dev/null | head -${batch.length * MAX_SNIPPETS_PER_FILE} | base64`;
 			let snippetLines: string[] = [];
 			try {
 				const snippetResult = await execRemoteCommand({
@@ -389,7 +378,7 @@ async function searchSftpNode(
 					command: snippetCmd,
 					timeout: 15_000,
 				});
-				snippetLines = snippetResult.stdout.split("\n").filter(Boolean);
+				snippetLines = Buffer.from(snippetResult.stdout, "base64").toString("utf8").split("\n");
 			} catch {
 				// Whole-batch transport failure: report nothing rather than
 				// falling back to the per-file exec storm.
@@ -397,19 +386,16 @@ async function searchSftpNode(
 			}
 
 			for (const filePath of batch) {
-				const linePrefix = `${filePath}:`;
+				const linePrefix = `${filePath}\0`;
 				const snippets = snippetLines
 					.filter((line) => line.startsWith(linePrefix))
 					.map((line) => truncateSnippet(line.slice(linePrefix.length)))
 					.slice(0, MAX_SNIPPETS_PER_FILE);
 
 				if (snippets.length > 0) {
-					const relativePath = filePath.startsWith(basePath)
-						? filePath.slice(basePath.length).replace(/^\/+/, "")
-						: filePath;
 					results.push({
 						filePath,
-						relativePath,
+						relativePath: filePath.slice(rootPrefix.length),
 						nodeId,
 						nodeName,
 						nodeDriver: "SFTP",
@@ -454,6 +440,7 @@ export async function searchFileContents(params: {
 			name: true,
 			driver: true,
 			basePath: true,
+			teamId: true,
 		},
 	});
 
@@ -462,12 +449,13 @@ export async function searchFileContents(params: {
 
 	for (const node of nodes) {
 		try {
+			const relativePath = node.driver === "SFTP" ? normalizeRemoteRelativePath(searchPath) : searchPath ?? "";
 			// Path-level ACL: teamWhere only scopes nodes; grants may restrict prefixes.
 			if (session) {
 				const access = await assertStorageAccess({
 					session: session as SessionPayload,
 					storageNodeId: node.id,
-					relativePath: searchPath ?? "",
+					relativePath,
 					operation: "read",
 				});
 				if (!access.allowed) {
@@ -480,7 +468,7 @@ export async function searchFileContents(params: {
 					node.name,
 					node.basePath,
 					query,
-					searchPath ?? "",
+					relativePath,
 					async (relativePaths) => {
 						if (relativePaths.length === 0) return new Set();
 						const rows = await prisma.fileEntry.findMany({
@@ -494,11 +482,9 @@ export async function searchFileContents(params: {
 				nodeTruncated ||= local.truncated;
 			} else if (node.driver === "SFTP") {
 				const sftp = await searchSftpNode(
-					node.id,
-					node.name,
-					node.basePath,
+					node,
 					query,
-					searchPath ?? "",
+					relativePath,
 				);
 				allResults.push(...sftp.results);
 				nodeTruncated ||= sftp.truncated;

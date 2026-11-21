@@ -2,12 +2,13 @@ import { apiCopy } from "@/lib/i18n/api-copy";
 import { NextRequest, NextResponse } from "next/server";
 import path from "node:path";
 import {
+  normalizeStorageRelativePath,
   resolveStoragePathWithinBase,
   sanitizeArchiveEntries,
 } from "@/lib/storage/path-utils";
 import { withApiRoute } from "@/lib/http/api-guard";
 import { parseSearchParams } from "@/lib/http/parse-search-params";
-import { assertNotRecycled, normalizeIndexedPath } from "@/lib/storage/archive-access";
+import { assertNotRecycled } from "@/lib/storage/archive-access";
 import { assertStorageAccess } from "@/lib/storage/access-control";
 import { storageAccessDeniedCopy } from "@/lib/storage/access-denied";
 import { teamWhere } from "@/lib/auth/team-scope";
@@ -38,12 +39,12 @@ export async function GET(request: NextRequest) {
         request,
         archiveListQuerySchema,
       );
-      // The recycle-bin and access checks compare against indexed (normalized) paths.
-      const relativePath = rawRelativePath ? normalizeIndexedPath(rawRelativePath) : rawRelativePath;
-
-      if (!relativePath) {
+      if (!rawRelativePath) {
         throw new ValidationError(apiCopy("apiCopy.missing.file.path.76fdb830"));
       }
+      const normalized = normalizeStorageRelativePath(rawRelativePath);
+      if (!normalized.ok) throw new ValidationError(normalized.reason);
+      const relativePath = normalized.path;
 
       const node = await prisma.storageNode.findFirst({
         where: { id: nodeId, ...teamWhere(session) },
@@ -70,9 +71,6 @@ export async function GET(request: NextRequest) {
         );
       }
 
-      // A deleted archive is still on disk; it must not be listed or unpacked into visible files.
-      await assertNotRecycled(node.id, relativePath);
-
       const accessDecision = await assertStorageAccess({
         session,
         storageNodeId: node.id,
@@ -86,6 +84,7 @@ export async function GET(request: NextRequest) {
         );
       }
 
+      await assertNotRecycled(node.id, relativePath, "read", node.driver);
       const fullPath = resolvedPath.path;
       // Prefer on-disk basename for format detection; client `name` is only a fallback.
       const formatName = path.basename(relativePath) || name;

@@ -107,12 +107,24 @@ describe("POST /api/images/publish-from-storage", () => {
     generateThumbnailMock.mockResolvedValue(Buffer.from("thumb"));
   });
 
-  it("refuses an image that is in the recycle bin, whose bytes are still at its path", async () => {
-    fileEntryFindFirstMock.mockResolvedValueOnce({ id: "deleted-image" });
-    const response = await POST(publishRequest());
-    expect(response.status).toBe(404);
-    expect(imageCreateMock).not.toHaveBeenCalled();
-    expect(await listFiles(uploadRoot)).toEqual([]);
+  it.each(["LOCAL", "SFTP"])("checks %s ancestor tombstones before reading image bytes on Windows", async (driver) => {
+    const platform = vi.spyOn(process, "platform", "get").mockReturnValue("win32");
+    try {
+      storageFindUniqueMock.mockResolvedValueOnce({ id: "node_1", driver, basePath: storageRoot });
+      fileEntryFindFirstMock.mockResolvedValueOnce({ id: "deleted-folder" });
+      const response = await POST(publishRequest({ relativePath: "Gallery/SOURCE.png" }));
+      expect(response.status).toBe(404);
+      expect(fileEntryFindFirstMock).toHaveBeenCalledWith(expect.objectContaining({
+        where: {
+          storageNodeId: "node_1", isDeleted: true,
+          relativePath: { in: ["Gallery", "Gallery/SOURCE.png"], ...(driver === "LOCAL" ? { mode: "insensitive" } : {}) },
+        },
+      }));
+      expect(imageCreateMock).not.toHaveBeenCalled();
+      expect(await listFiles(uploadRoot)).toEqual([]);
+    } finally {
+      platform.mockRestore();
+    }
   });
 
   afterEach(async () => {
@@ -121,9 +133,12 @@ describe("POST /api/images/publish-from-storage", () => {
   });
 
   it("authorizes the exact source storage path before publishing it as a public image", async () => {
-    const response = await POST(publishRequest());
+    const response = await POST(publishRequest({ relativePath: "gallery\\source.png" }));
 
     expect(response.status).toBe(201);
+    expect(fileEntryFindFirstMock).toHaveBeenCalledWith(expect.objectContaining({
+      where: { storageNodeId: "node_1", isDeleted: true, relativePath: expect.objectContaining({ in: ["gallery", "gallery/source.png"] }) },
+    }));
     expect(requireApiPermissionMock).toHaveBeenCalledWith("image:write");
     expect(assertStorageAccessMock).toHaveBeenCalledWith({
       session,

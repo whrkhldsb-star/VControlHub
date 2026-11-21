@@ -11,7 +11,7 @@ vi.mock("@/lib/api-token/authorization", async (original) => ({
 	loadApiTokenOwnerSession: mocks.loadApiTokenOwnerSession,
 }));
 
-const { authenticateBearerForPermissions } = await import("../bearer-token");
+const { authenticateBearerForPermissions, verifiedBearerTokenId } = await import("../bearer-token");
 
 const owner = { userId: "u_owner", username: "owner", roles: ["admin"], mustChangePassword: false, currentTeamId: null };
 const request = (method: string) =>
@@ -45,6 +45,8 @@ describe("authenticateBearerForPermissions", () => {
 	it("still grants a write scope on a write request", async () => {
 		mocks.verifyApiToken.mockResolvedValue({ userId: "u_owner", scopes: ["image:write"], tokenId: "tok_1", teamId: null });
 		const result = await authenticateBearerForPermissions(request("POST"), ["image:write"]);
-		expect((result as { session: { permissions: string[] } }).session.permissions).toEqual(["image:write"]);
+		if (!result || result instanceof Response) throw new Error("Expected a token session");
+		expect(result.session.permissions).toEqual(["image:write"]);
+		expect(verifiedBearerTokenId(result.session)).toBe("tok_1");
 	});
 });

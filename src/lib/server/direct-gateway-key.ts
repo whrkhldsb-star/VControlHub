@@ -16,17 +16,21 @@ import { createHmac } from "node:crypto";
  */
 export const DIRECT_GATEWAY_KEY_SHARED = 1;
 export const DIRECT_GATEWAY_KEY_PER_SERVER = 2;
+// Only the Windows installer receives this key. A Windows-format URL can
+// never be replayed on a Linux gateway previously installed for this server.
+export const DIRECT_GATEWAY_KEY_WINDOWS = 3;
 
-export function deriveDirectGatewayServerKey(secret: string, serverId: string): string {
+export function deriveDirectGatewayServerKey(secret: string, serverId: string, keyVersion = DIRECT_GATEWAY_KEY_PER_SERVER): string {
   if (!secret) throw new Error("Direct gateway secret is required");
   if (!serverId) throw new Error("Server id is required to derive a direct gateway key");
-  return createHmac("sha256", secret).update(`vcontrolhub-direct-gateway:v2:${serverId}`).digest("hex");
+  const domain = keyVersion === DIRECT_GATEWAY_KEY_WINDOWS ? "v3:windows" : "v2";
+  return createHmac("sha256", secret).update(`vcontrolhub-direct-gateway:${domain}:${serverId}`).digest("hex");
 }
 
 /** The key the hub signs links for this gateway with: its own key, or the shared secret of an older install. */
 export function directGatewaySigningKey(secret: string, gateway: { serverId: string | null; keyVersion: number }): string {
   if (gateway.keyVersion >= DIRECT_GATEWAY_KEY_PER_SERVER && gateway.serverId) {
-    return deriveDirectGatewayServerKey(secret, gateway.serverId);
+    return deriveDirectGatewayServerKey(secret, gateway.serverId, gateway.keyVersion);
   }
   return secret;
 }

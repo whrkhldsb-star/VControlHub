@@ -1,7 +1,7 @@
 import { Prisma } from "@prisma/client";
 
 import type { SessionPayload } from "@/lib/auth/session";
-import { teamWhere } from "@/lib/auth/team-scope";
+import { liveCustomerRowsWhere, teamWhere } from "@/lib/auth/team-scope";
 import { prisma } from "@/lib/db";
 import { guessMimeType } from "@/lib/image-bed/constants";
 import { listRemoteDirectory, type SftpListEntry } from "@/lib/ssh/client";
@@ -414,7 +414,7 @@ export async function getSftpSyncNode(
   return prisma.storageNode.findFirst({
     where: {
       id: nodeId,
-      ...(session ? teamWhere(session) : {}),
+      ...(session ? { ...teamWhere(session), ...liveCustomerRowsWhere() } : {}),
     },
     select: {
       id: true,

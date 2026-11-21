@@ -9,27 +9,27 @@ const mocks = vi.hoisted(() => ({
   many: vi.fn(),
   shareCreate: vi.fn(),
   shareUnique: vi.fn(),
-  shareUpdate: vi.fn(),
+  lockRoots: vi.fn(),
   accessLog: vi.fn(),
 }));
 vi.mock("@/lib/concurrency/advisory-lock", () => ({
   tryAcquireAdvisoryLock: async () => async () => {},
 }));
-vi.mock("@/lib/db", () => ({
-  prisma: {
+vi.mock("@/lib/db", () => {
+  const db = {
+    $queryRaw: mocks.lockRoots,
     fileEntry: { findFirst: mocks.first, findMany: mocks.many },
     shareLink: {
       create: mocks.shareCreate,
       findUnique: mocks.shareUnique,
-      update: mocks.shareUpdate,
+      updateMany: async () => ({ count: 1 }),
     },
     shareAccessLog: { create: mocks.accessLog },
-    // A share belongs to the customer of the node its file is on.
-    storageNode: { findUnique: async () => ({ teamId: "team" }) },
     // The share's customer is live.
     team: { count: async () => 0 },
-  },
-}));
+  };
+  return { prisma: { ...db, $transaction: (work: (tx: typeof db) => unknown) => work(db) } };
+});
 vi.mock("@/lib/http/api-guard", () => ({
   withApiRoute: async (
     _r: unknown,
@@ -94,6 +94,7 @@ it.each(["authenticated", "public"])(
                 e.isDeleted === where.isDeleted),
           ) ?? null,
       );
+      mocks.lockRoots.mockResolvedValue([entries[0]!.storageNode]);
       mocks.many.mockResolvedValue([entries[1]]);
       mocks.shareCreate.mockImplementation(async ({ data }) => ({
         ...data,

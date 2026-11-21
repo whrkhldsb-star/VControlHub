@@ -15,6 +15,12 @@ const server = (overrides: Partial<NonNullable<StorageSshCredentialNode["server"
 });
 
 describe("resolveStorageSshCredentials host key pin", () => {
+  it("uses Windows physical path rules only for the registered Windows host", () => {
+    const node = { teamId: null, host: null, port: 2222, username: null, hostKeySha256: null, server: server({ operatingSystem: "WINDOWS" }) };
+    expect(resolveStorageSshCredentials(node).windowsOpenSsh).toBe(true);
+    expect(resolveStorageSshCredentials({ ...node, host: "198.51.100.9" }).windowsOpenSsh).toBeUndefined();
+    expect(resolveStorageSshCredentials({ ...node, hostKeySha256: "SHA256:other" }).windowsOpenSsh).toBeUndefined();
+  });
   it("follows the server's pin for a node that takes its host from a Linux server", () => {
     // The server's key was approved again after a reinstall; the copy the node kept is the old one.
     const credentials = resolveStorageSshCredentials({ teamId: null, host: null, port: null, username: null, hostKeySha256: "SHA256:old-key", server: server() });

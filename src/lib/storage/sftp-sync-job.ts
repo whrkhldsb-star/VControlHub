@@ -6,8 +6,13 @@ import {
   claimNextJob,
   completeJob,
   failJob,
+  failJobTerminal,
   heartbeatJob,
 } from "@/lib/job/service";
+import { ForbiddenError } from "@/lib/errors";
+import { assertStorageAccess } from "./access-control";
+import { assertSftpJobTargets, readSftpJobScope, requireSftpJobActor, type SftpJob } from "./sftp-job-scope";
+import { normalizeRemoteRelativePath } from "./remote-path";
 import { createLogger } from "@/lib/logging";
 import { getSftpSyncNode, syncSftpDirectoryEntries, type SftpSyncResult } from "./sftp-sync";
 import { serviceT } from "@/lib/i18n/service-locale";
@@ -101,21 +106,24 @@ export function formatSftpSyncFailure(result: SftpSyncResult): string {
   return `${summary}: ${detail}`.slice(0, 2000);
 }
 
-async function executeSftpSyncJob(job: {
-  id: string;
-  payload: Prisma.JsonValue;
-}) {
+async function executeSftpSyncJob(job: SftpJob) {
   const payload = parseSftpSyncJobPayload(job.payload);
   await heartbeatJob(job.id, SFTP_SYNC_WORKER_ID, {
     leaseMs: SFTP_SYNC_WORKER_LEASE_MS,
     progress: "Loading SFTP nodes",
   });
 
-  const node = await getSftpSyncNode(payload.nodeId);
+  const scope = readSftpJobScope(job, [payload.nodeId], "storage:write");
+  const actor = await requireSftpJobActor(scope);
+  const node = await getSftpSyncNode(payload.nodeId, actor);
   const t = await serviceT();
-  if (!node) throw new Error(t("backend.storage.nodeNotFoundShort"));
+  if (!node) throw new ForbiddenError(t("backend.storage.sftpJobTargetChanged"));
+  assertSftpJobTargets(scope.targetTeams, [node]);
   if (node.driver !== "SFTP") throw new Error(t("backend.storage.notSftpNode"));
 
+  const remotePath = normalizeRemoteRelativePath(payload.remotePath);
+  const access = await assertStorageAccess({ session: actor, storageNodeId: node.id, relativePath: remotePath, operation: "write" });
+  if (!access.allowed) throw new ForbiddenError(t("backend.execution.storageRevoked"));
   await heartbeatJob(job.id, SFTP_SYNC_WORKER_ID, {
     leaseMs: SFTP_SYNC_WORKER_LEASE_MS,
     progress: `Syncing ${node.name}`,
@@ -131,7 +139,7 @@ async function executeSftpSyncJob(job: {
     run: () =>
       syncSftpDirectoryEntries({
         node,
-        remotePath: payload.remotePath,
+        remotePath,
         recursive: payload.recursive,
         maxDepth: payload.maxDepth,
       }),
@@ -178,9 +186,11 @@ export async function runSftpSyncJobWorkerOnce(
         jobId: job.id,
         error: message,
       });
-      await failJob(job.id, SFTP_SYNC_WORKER_ID, message, {
-        retryAfterMs: 60_000,
-      });
+      if (error instanceof ForbiddenError) {
+        await failJobTerminal(job.id, SFTP_SYNC_WORKER_ID, message);
+      } else {
+        await failJob(job.id, SFTP_SYNC_WORKER_ID, message, { retryAfterMs: 60_000 });
+      }
     }
   } catch (error) {
     logger.error("SFTP sync job tick failed", {

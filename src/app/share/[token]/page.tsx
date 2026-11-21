@@ -72,7 +72,7 @@ export default async function SharePage({
         "storageNodeId" in share &&
         typeof (share as { storageNodeId?: string }).storageNodeId === "string"
       ) {
-        files = await listShareDirectoryFiles(share as { entryType: string; path: string; storageNodeId: string; storageNode?: { basePath?: string; driver?: string } | null });
+        files = await listShareDirectoryFiles(share);
       }
     } catch (err) {
       errorMessage = getErrorMessage(err, t("sharePage.invalidToken", locale));

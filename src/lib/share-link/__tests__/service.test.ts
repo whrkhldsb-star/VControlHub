@@ -3,9 +3,10 @@ import { describe, expect, it, vi, beforeEach } from "vitest";
 
 const { mockPrisma } = vi.hoisted(() => ({
   mockPrisma: {
+    $transaction: vi.fn(), $queryRaw: vi.fn(),
     shareLink: { create: vi.fn(), count: vi.fn(), findMany: vi.fn(), findUnique: vi.fn(), findFirst: vi.fn(), update: vi.fn(), updateMany: vi.fn() },
     shareAccessLog: { create: vi.fn() },
-    fileEntry: { findFirst: vi.fn() },
+    fileEntry: { findFirst: vi.fn(), findMany: vi.fn() },
     storageNode: { findUnique: vi.fn() },
   },
 }));
@@ -43,6 +44,9 @@ describe("share link service", () => {
   beforeEach(() => {
   vi.clearAllMocks();
   mockPrisma.fileEntry.findFirst.mockResolvedValue(null);
+  mockPrisma.shareLink.updateMany.mockResolvedValue({ count: 1 });
+  mockPrisma.$transaction.mockImplementation(fn => fn(mockPrisma));
+  mockPrisma.$queryRaw.mockResolvedValue([{ id: "node1", teamId: "team-1" }]);
   // A share belongs to its storage node's customer (service-owner.test.ts).
   mockPrisma.storageNode.findUnique.mockResolvedValue({ teamId: "team-1" });
   });
@@ -63,6 +67,16 @@ describe("share link service", () => {
     expect(mockPrisma.shareLink.create.mock.calls[0]![0]!.data.path).toBe("docs/report.pdf");
   });
 
+  it("discards an in-flight share if its root changed before insert", async () => {
+    mockPrisma.storageNode.findUnique.mockResolvedValueOnce({ teamId: "team-1", basePath: "/old" });
+    mockPrisma.$queryRaw.mockResolvedValueOnce([{ id: "node1", teamId: "team-1", basePath: "/new" }]);
+    await expect(createShareLink({
+      session: { userId: "u1", username: "alice", roles: ["operator"], mustChangePassword: false, currentTeamId: "team-1" },
+      storageNodeId: "node1", path: "a.txt",
+    })).rejects.toMatchObject({ status: 404 });
+    expect(mockPrisma.shareLink.create).not.toHaveBeenCalled();
+  });
+
   it("says in words why a share outside the caller's path grants is refused", async () => {
     // The decision's reason is a code for programs ("no_access"). It was thrown as the message, so the share
     // dialog showed the code itself.
@@ -79,13 +93,26 @@ describe("share link service", () => {
 
   it("treats a file as deleted when it or any folder above it is in the trash", async () => {
     mockPrisma.fileEntry.findFirst.mockResolvedValueOnce({ id: "trashed-folder" });
-    await expect(assertShareTargetNotDeleted("node1", "docs/old/report.pdf")).rejects.toThrow();
+    await expect(assertShareTargetNotDeleted("node1", "docs/old/report.pdf", "SFTP")).rejects.toThrow();
     expect(mockPrisma.fileEntry.findFirst).toHaveBeenCalledWith(expect.objectContaining({
       where: { storageNodeId: "node1", relativePath: { in: ["docs", "docs/old", "docs/old/report.pdf"] }, isDeleted: true },
     }));
 
     mockPrisma.fileEntry.findFirst.mockResolvedValueOnce(null);
-    await expect(assertShareTargetNotDeleted("node1", "docs/report.pdf")).resolves.toBeUndefined();
+    await expect(assertShareTargetNotDeleted("node1", "docs/report.pdf", "SFTP")).resolves.toBeUndefined();
+  });
+
+  it("checks every ancestor of a Windows LOCAL path case-insensitively", async () => {
+    const platform = vi.spyOn(process, "platform", "get").mockReturnValue("win32");
+    try {
+      mockPrisma.fileEntry.findFirst.mockResolvedValueOnce({ id: "DeletedFolder" });
+      await expect(assertShareTargetNotDeleted("node1", "Docs/OLD/file.txt", "LOCAL")).rejects.toMatchObject({ status: 404 });
+      expect(mockPrisma.fileEntry.findFirst.mock.lastCall?.[0].where.relativePath).toEqual({
+        in: ["Docs", "Docs/OLD", "Docs/OLD/file.txt"], mode: "insensitive",
+      });
+    } finally {
+      platform.mockRestore();
+    }
   });
 
   it("rejects download-only controls on metadata-only shares", async () => {
@@ -132,17 +159,24 @@ describe("share link service", () => {
   it("normalizes share paths and rejects traversal or unsafe absolute paths", () => {
     expect(normalizeSharePath("/docs//report.pdf")).toBe("docs/report.pdf");
     expect(normalizeSharePath("docs\\nested\\report.pdf")).toBe("docs/nested/report.pdf");
-    // Storage trims segments when it resolves a path, so a padded spelling is the same file: it must
-    // normalize to the same string the trash and prefix checks see.
-    expect(normalizeSharePath("docs/ secret.txt")).toBe("docs/secret.txt");
-    expect(normalizeSharePath("docs/ /secret.txt")).toBe("docs/secret.txt");
-    expect(normalizeSharePath("docs / sub /x.txt")).toBe("docs/sub/x.txt");
+    for (const padded of ["docs/ secret.txt", "docs/ /secret.txt", "docs / sub /x.txt"]) {
+      expect(() => normalizeSharePath(padded)).toThrow(/安全相对路径/);
+    }
     expect(() => normalizeSharePath("docs/ ../secret.txt")).toThrow(/安全相对路径/);
     expect(() => normalizeSharePath("../secret.txt")).toThrow(/安全相对路径/);
     expect(() => normalizeSharePath("docs/../../secret.txt")).toThrow(/安全相对路径/);
     expect(() => normalizeSharePath("C:\\secret.txt")).toThrow(/安全相对路径/);
     expect(() => normalizeSharePath("//server/share.txt")).toThrow(/安全相对路径/);
     expect(() => normalizeSharePath("docs/\u0000secret.txt")).toThrow(/安全相对路径/);
+  });
+
+  it.each(["docs/ report.pdf", "docs/report.pdf ", "docs//report.pdf", "docs\\report.pdf"])("refuses to rewrite legacy entry path %j when sharing by id", async (relativePath) => {
+    mockPrisma.fileEntry.findFirst.mockResolvedValueOnce({ id: "old", storageNodeId: "node", relativePath });
+    await expect(createShareLinkFromFileEntry({
+      session: { userId: "u1", username: "alice", roles: ["operator"], mustChangePassword: false, currentTeamId: "team_a" },
+      fileEntryId: "old",
+    })).rejects.toMatchObject({ name: "ValidationError" });
+    expect(mockPrisma.shareLink.create).not.toHaveBeenCalled();
   });
 
   it("rejects expired public share tokens", async () => {
@@ -183,7 +217,7 @@ describe("share link service", () => {
     mockPrisma.shareAccessLog.create.mockResolvedValue({ id: "log1" });
     const result = await resolveShareToken("abc", "s3cret");
     expect(result.id).toBe("share1");
-    expect(mockPrisma.shareLink.update).toHaveBeenCalled();
+    expect(mockPrisma.shareLink.updateMany).toHaveBeenCalledWith({ where: { id: "share1", revokedAt: null }, data: { accessCount: { increment: 1 } } });
     expect(mockPrisma.shareAccessLog.create).toHaveBeenCalledWith(
       expect.objectContaining({
         data: expect.objectContaining({ shareLinkId: "share1", action: "download" }),
@@ -326,6 +360,22 @@ describe("share link service", () => {
         data: { accessCount: { increment: 1 } },
       }),
     );
+  });
+
+  it("rejects an unlimited download revoked between lookup and claim", async () => {
+    mockPrisma.shareLink.findUnique.mockResolvedValueOnce({ id: "share", storageNode: { driver: "LOCAL" }, path: "docs/a", revokedAt: null, maxDownloads: null });
+    mockPrisma.shareLink.updateMany.mockResolvedValueOnce({ count: 0 });
+    await expect(resolveShareToken("abc")).rejects.toMatchObject({ status: 404 });
+    expect(mockPrisma.shareAccessLog.create).not.toHaveBeenCalled();
+  });
+
+  it("requires a live share in the final directory listing query", async () => {
+    const { listShareDirectoryFiles } = await import("../service");
+    mockPrisma.fileEntry.findMany.mockResolvedValueOnce([]);
+    await listShareDirectoryFiles({ id: "share", entryType: "DIRECTORY", path: "docs", storageNodeId: "node" });
+    expect(mockPrisma.fileEntry.findMany.mock.lastCall?.[0].where.storageNode).toEqual({
+      shareLinks: { some: { id: "share", revokedAt: null } },
+    });
   });
 
   it("releaseShareQuotaClaim decrements accessCount when > 0", async () => {

@@ -90,6 +90,19 @@ describe("/api/share/[token]", () => {
 		expect(mocks.releaseShareQuotaClaim).toHaveBeenCalledWith("sh_1");
 	});
 
+	it("keeps the granted Windows directory spelling when checking a case variant of a binned child", async () => {
+		const platform = vi.spyOn(process, "platform", "get").mockReturnValue("win32");
+		try {
+			mocks.resolveShareToken.mockResolvedValueOnce({ ...dirShare, path: "Docs", storageNode: { driver: "LOCAL", basePath: "C:/Shared" } });
+			mocks.assertShareTargetNotDeleted.mockRejectedValueOnce(new Error("deleted"));
+			expect((await get("?path=dOcS/OLD/file.txt")).status).toBe(404);
+			expect(mocks.assertShareTargetNotDeleted).toHaveBeenCalledWith("node_1", "Docs/OLD/file.txt", "LOCAL");
+			expect(mocks.releaseShareQuotaClaim).toHaveBeenCalledWith("sh_1");
+		} finally {
+			platform.mockRestore();
+		}
+	});
+
 	it("exchanges a password for a download-ticket cookie and never leaks it on failure", async () => {
 		const ok = await post({ password: "s3cret" });
 		expect(ok.status).toBe(200);

@@ -12,6 +12,12 @@ describe("direct gateway keys", () => {
     expect(a).not.toContain("master-secret");
   });
 
+  it("uses a distinct Windows signing key even after reinstalling the same server", () => {
+    const windows = directGatewaySigningKey("master-secret", { serverId: "srv_a", keyVersion: 3 });
+    expect(windows).toBe(deriveDirectGatewayServerKey("master-secret", "srv_a", 3));
+    expect(windows).not.toBe(deriveDirectGatewayServerKey("master-secret", "srv_a", 2));
+  });
+
   it("refuses to derive without a secret or a server", () => {
     expect(() => deriveDirectGatewayServerKey("", "srv_a")).toThrow();
     expect(() => deriveDirectGatewayServerKey("master-secret", "")).toThrow();

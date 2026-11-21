@@ -202,6 +202,7 @@ describe("/api/storage/archive-download", () => {
           hostKeySha256: "aa".repeat(32),
           server: {
             teamId: null,
+            operatingSystem: "LINUX",
             host: "203.0.113.20",
             port: 2222,
             username: "deploy",

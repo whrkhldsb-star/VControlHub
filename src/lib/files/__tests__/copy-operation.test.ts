@@ -11,6 +11,7 @@ import {
 import os from "node:os";
 import path from "node:path";
 import type { SessionPayload } from "@/lib/auth/session";
+import { apiCopy } from "@/lib/i18n/api-copy";
 import { closeSshPool } from "@/lib/ssh/client";
 
 const mocks = vi.hoisted(() => ({
@@ -190,6 +191,17 @@ const copy = (policy: "rename" | "skip" | "overwrite" = "rename") =>
   });
 
 describe("copyFileEntry with real local files", () => {
+  it.skipIf(process.platform === "win32").each([Buffer.from("part\\name.txt"), Buffer.from([0xff])])("rejects a member that cannot round-trip through a storage path (%s)", async (name) => {
+    await mkdir(path.join(root, "folder"));
+    await writeFile(Buffer.concat([Buffer.from(path.join(root, "folder") + "/"), name]), "literal name");
+    mocks.first.mockResolvedValue({
+      id: "source", storageNodeId: "node", relativePath: "folder", name: "folder", entryType: "DIRECTORY",
+      storageNode: { id: "node", driver: "LOCAL", basePath: root },
+    });
+    await expect(copy()).rejects.toThrow(apiCopy("apiCopy.files.op.invalid"));
+    expect(mocks.upsert).not.toHaveBeenCalled();
+    expect(await readdir(path.join(root, "destination"))).toEqual([]);
+  });
   it("revalidates the source after acquiring the operation lock", async () => {
     const source = await mocks.first();
     mocks.first

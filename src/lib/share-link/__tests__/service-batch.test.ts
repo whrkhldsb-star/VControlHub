@@ -5,7 +5,7 @@ const { mockPrisma, assertStorageAccess } = vi.hoisted(() => ({
   mockPrisma: {
     shareLink: { create: vi.fn() },
     fileEntry: { findMany: vi.fn() },
-    $transaction: vi.fn(),
+    $transaction: vi.fn(), $queryRaw: vi.fn(),
   },
   assertStorageAccess: vi.fn(),
 }));
@@ -30,13 +30,16 @@ beforeEach(() => {
   vi.clearAllMocks();
   assertStorageAccess.mockResolvedValue({ allowed: true });
   mockPrisma.shareLink.create.mockImplementation(({ data }: { data: Record<string, unknown> }) => Promise.resolve({ id: `share_${String(data.path)}`, ...data, createdAt: new Date(), updatedAt: new Date() }));
-  mockPrisma.$transaction.mockImplementation(async (operations: Array<Promise<unknown>>) => Promise.all(operations));
+  mockPrisma.$transaction.mockImplementation(fn => fn(mockPrisma));
+  mockPrisma.$queryRaw.mockResolvedValue([{ id: "node_a", teamId: "team_a" }]);
 });
 
 // Several files selected in the drive: one link each, made by one request.
 describe("sharing several files at once", () => {
   it("makes one link per file in the order asked, each with its node's customer, in one transaction", async () => {
     mockPrisma.fileEntry.findMany.mockResolvedValue([entry("f2", "b.pdf", "node_b", null), entry("f1", "a.pdf", "node_a", "team_a")]);
+
+    mockPrisma.$queryRaw.mockResolvedValueOnce([{ id: "node_a", teamId: "team_a" }, { id: "node_b", teamId: null }]);
 
     const created = await createShareLinksFromFileEntries({ session: administrator, fileEntryIds: ["f1", "f2", "f1"], expiresInHours: 24 });
 
@@ -70,6 +73,12 @@ describe("sharing several files at once", () => {
     await expect(createShareLinksFromFileEntries({ session: administrator, fileEntryIds: ["f1", "f2"] })).rejects.toMatchObject({ status: 403 });
     expect(mockPrisma.shareLink.create).not.toHaveBeenCalled();
     expect(assertStorageAccess).toHaveBeenCalledWith(expect.objectContaining({ storageNodeId: "node_a", relativePath: "docs/b.pdf", operation: "read" }));
+  });
+
+  it("rejects the whole batch when an indexed path would be rewritten", async () => {
+    mockPrisma.fileEntry.findMany.mockResolvedValue([entry("f1", "good.txt", "n", null), entry("f2", " padded.txt", "n", null)]);
+    await expect(createShareLinksFromFileEntries({ session: administrator, fileEntryIds: ["f1", "f2"] })).rejects.toMatchObject({ name: "ValidationError" });
+    expect(mockPrisma.shareLink.create).not.toHaveBeenCalled();
   });
 
   it("gives every link the same policy and hashes a password once", async () => {

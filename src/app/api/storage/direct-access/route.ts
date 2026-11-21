@@ -13,7 +13,7 @@ import { UPLOAD_LIMIT } from "@/lib/http/rate-limit-presets";
 import { parseSearchParams } from "@/lib/http/parse-search-params";
 import { assertStorageAccess } from "@/lib/storage/access-control";
 import { storageAccessDeniedCopy } from "@/lib/storage/access-denied";
-import { assertPublicBaseUrlResolvesPublic, normalizePublicBaseUrl } from "@/lib/storage/direct-access-url";
+import { normalizePublicBaseUrl } from "@/lib/storage/direct-access-url";
 import { fetchWithPinnedDns } from "@/lib/security/pinned-fetch";
 import { ForbiddenError, NotFoundError } from "@/lib/errors";
 import {
@@ -25,7 +25,8 @@ import {
   directAccessInputSchema,
 } from "@/lib/storage/schema";
 import { getErrorMessage } from "@/lib/http/error-message";
-import { DIRECT_GATEWAY_KEY_PER_SERVER, directGatewaySigningKey } from "@/lib/server/direct-gateway-key";
+import { DIRECT_GATEWAY_LINUX_FILE_PROTOCOL } from "@/lib/server/direct-gateway";
+import { DIRECT_GATEWAY_KEY_PER_SERVER, DIRECT_GATEWAY_KEY_WINDOWS, directGatewaySigningKey } from "@/lib/server/direct-gateway-key";
 import { assertNotRecycled } from "@/lib/storage/archive-access";
 
 export const dynamic = "force-dynamic";
@@ -99,6 +100,7 @@ function buildSignedDirectUrl(input: {
   publicBaseUrl: string;
   relativePath: string;
   expiresSeconds: number;
+  linuxTargetPath: string | null;
   /** The server whose gateway serves the node, and which key that gateway holds. */
   gateway: { serverId: string | null; keyVersion: number };
 }) {
@@ -119,39 +121,32 @@ function buildSignedDirectUrl(input: {
   // Each gateway installed since the per-server keys verifies with its own key (see direct-gateway-key.ts).
   const signingKey = directGatewaySigningKey(secret, input.gateway);
 
-  const signedPath = normalizeDirectGatewaySignedPath({
-    publicBaseUrl: input.publicBaseUrl,
-    relativePath: input.relativePath,
-  });
+  const message = input.linuxTargetPath === null
+    ? `${normalizeDirectGatewaySignedPath(input)}.${expires}`
+    : `${DIRECT_GATEWAY_LINUX_FILE_PROTOCOL}\0${input.linuxTargetPath}\0${expires}`;
   const signature = crypto
     .createHmac("sha256", signingKey)
-    .update(`${signedPath}.${expires}`)
+    .update(message)
     .digest("hex");
   url.searchParams.set("expires", String(expires));
   url.searchParams.set("signature", signature);
   return url.toString();
 }
 
-async function isDirectGatewayHealthy(publicBaseUrl: string) {
-  await assertPublicBaseUrlResolvesPublic(publicBaseUrl);
-  const healthUrl = new URL(
-    "/__vch_health",
-    publicBaseUrl.endsWith("/") ? publicBaseUrl : `${publicBaseUrl}/`,
-  );
+async function probeDirectGateway(url: URL, linuxFile: boolean) {
   const controller = new AbortController();
   const timer = setTimeout(() => controller.abort(), DIRECT_GATEWAY_HEALTH_TIMEOUT_MS);
   try {
-    // Pinned dispatch: connect to the address the assertion above verified —
-    // a plain fetch would re-resolve DNS and could be rebound to loopback.
-    const response = await fetchWithPinnedDns(healthUrl, {
-      method: "GET",
+    const response = await fetchWithPinnedDns(url, {
+      method: linuxFile ? "HEAD" : "GET",
       redirect: "manual",
       signal: controller.signal,
     });
-    // Only the status is needed. Cancelling releases the pinned dispatcher
-    // even when the gateway sends a body that never finishes.
+    // The probe uses only headers. Cancel any response body to release the dispatcher.
     try {
-      return response.status === 200;
+      return response.status === 200 && (
+        !linuxFile || response.headers.get("x-vch-file-access") === DIRECT_GATEWAY_LINUX_FILE_PROTOCOL
+      );
     } finally {
       await response.body?.cancel().catch(() => undefined);
     }
@@ -177,7 +172,11 @@ async function resolveDirectAccessPayload(input: {
       publicBaseUrl: true,
       directAccessExpiresSeconds: true,
       serverId: true,
-      server: { select: { directGatewayKeyVersion: true } },
+      teamId: true,
+      host: true,
+      port: true,
+      username: true,
+      server: { select: { directGatewayKeyVersion: true, operatingSystem: true, teamId: true, host: true, port: true, username: true, publicUrl: true } },
     },
   });
 
@@ -185,9 +184,10 @@ async function resolveDirectAccessPayload(input: {
     throw new NotFoundError(apiCopy("apiCopy.storage.node.not.found.3b3ec488"));
   }
 
+  let targetPath: string;
   let normalizedRelativePath: string;
   try {
-    normalizeRemoteTargetPath(node.basePath, relativePath);
+    targetPath = normalizeRemoteTargetPath(node.basePath, relativePath);
     normalizedRelativePath = normalizeRemoteRelativePath(relativePath);
   } catch {
     return NextResponse.json(
@@ -218,6 +218,18 @@ async function resolveDirectAccessPayload(input: {
   // to files on gateways it has no access to. Only the platform administrator, who holds that secret anyway, still
   // gets such links; everyone else is served through the hub until the gateway is enabled again.
   const gateway = { serverId: node.serverId ?? null, keyVersion: node.server?.directGatewayKeyVersion ?? 1 };
+  const linuxFile = node.server?.operatingSystem !== "WINDOWS";
+  if (node.server && (
+    node.teamId !== node.server.teamId ||
+    (node.host != null && node.host.toLowerCase() !== node.server.host.toLowerCase()) ||
+    (linuxFile && node.port != null && node.port !== node.server.port) ||
+    (linuxFile && node.username != null && node.username !== node.server.username)
+  )) {
+    return { mode: "managed-download", fallbackUrl: fallback };
+  }
+  if (!linuxFile && (!gateway.serverId || gateway.keyVersion !== DIRECT_GATEWAY_KEY_WINDOWS)) {
+    return { mode: "managed-download", fallbackUrl: fallback };
+  }
   const gatewayHasOwnKey = Boolean(gateway.serverId) && gateway.keyVersion >= DIRECT_GATEWAY_KEY_PER_SERVER;
   if (!gatewayHasOwnKey && !isGlobalTeamManager(session)) {
     return { mode: "managed-download", fallbackUrl: fallback };
@@ -228,20 +240,27 @@ async function resolveDirectAccessPayload(input: {
       try {
         const publicBaseUrl = normalizePublicBaseUrl(node.publicBaseUrl);
         if (publicBaseUrl) {
-          if (node.directAccessMode === "AUTO") {
-            const healthy = await isDirectGatewayHealthy(publicBaseUrl);
-            if (!healthy) {
+          if (!linuxFile && publicBaseUrl !== normalizePublicBaseUrl(node.server?.publicUrl)) {
+            return { mode: "managed-download", fallbackUrl: fallback };
+          }
+          const url = buildSignedDirectUrl({
+            publicBaseUrl,
+            relativePath: normalizedRelativePath,
+            expiresSeconds: node.directAccessExpiresSeconds ?? 300,
+            linuxTargetPath: linuxFile ? targetPath : null,
+            gateway,
+          });
+          // Linux HEAD goes through the same descriptor checks as GET. Both direct
+          // modes use the proxy if this gateway cannot serve the exact signed file.
+          if (linuxFile || node.directAccessMode === "AUTO") {
+            const probeUrl = linuxFile ? new URL(url) : new URL("/__vch_health", publicBaseUrl);
+            if (!await probeDirectGateway(probeUrl, linuxFile)) {
               return { mode: "managed-download", fallbackUrl: fallback };
             }
           }
           return {
             mode: "direct-url",
-            url: buildSignedDirectUrl({
-              publicBaseUrl,
-              relativePath: normalizedRelativePath,
-              expiresSeconds: node.directAccessExpiresSeconds ?? 300,
-              gateway,
-            }),
+            url,
             fallbackUrl: fallback,
             expiresSeconds: node.directAccessExpiresSeconds ?? 300,
           };

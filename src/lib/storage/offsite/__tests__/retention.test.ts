@@ -8,7 +8,8 @@ const { listObjects, deleteObject, appRows, vpsRows, appUpdate, vpsUpdate } = vi
 	appUpdate: vi.fn(async () => ({ count: 1 })),
 	vpsUpdate: vi.fn(async () => ({ count: 0 })),
 }));
-vi.mock("../s3-client", () => ({
+vi.mock("../s3-client", async (importOriginal) => ({
+	...(await importOriginal<typeof import("../s3-client")>()),
 	S3Client: class {
 		listObjects = listObjects;
 		deleteObject = deleteObject;
@@ -26,6 +27,20 @@ import { pruneOffsiteObjects } from "../retention";
 
 describe("pruneOffsiteObjects", () => {
 	beforeEach(() => vi.clearAllMocks());
+
+	it("skips unrepresentable listed keys before clearing references or choosing the newest recovery", async () => {
+		const keys = ["vch/./a.gz", "vch/recovery/../b.gz", "vch/recovery/keep.gz", "vch/archive..gz"];
+		listObjects.mockResolvedValueOnce({ objects: keys.map((key, i) => ({
+			key, size: 20, lastModified: i === 1 ? "2026-03-01" : "2026-01-01",
+		})) });
+		appRows.mockResolvedValueOnce([]);
+		const summary = await pruneOffsiteObjects({ now: new Date("2026-10-20") });
+		expect(summary.errors).toHaveLength(2);
+		expect(summary.deleted).toBe(1);
+		expect(deleteObject.mock.calls).toEqual([["vch/archive..gz"]]);
+		expect(appUpdate).toHaveBeenCalledTimes(1);
+		expect(vpsUpdate).toHaveBeenCalledTimes(1);
+	});
 
 	it("never prunes the newest offsite copy of a kind, however old", async () => {
 		// Uploads failing for longer than the window: every object is old.

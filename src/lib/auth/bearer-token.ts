@@ -25,6 +25,14 @@ export type BearerTokenResult = {
 	session: SessionPayload;
 };
 
+// A queued operation may need to revalidate the exact credential after the
+// request ends. Keep its database id out of serialized session objects.
+const verifiedBearerIds = new WeakMap<SessionPayload, string>();
+
+export function verifiedBearerTokenId(session: SessionPayload): string | null {
+	return verifiedBearerIds.get(session) ?? null;
+}
+
 const SAFE_TOKEN_METHODS = new Set(["GET", "HEAD", "OPTIONS"]);
 
 export function hasBearerAuthorization(request: Request): boolean {
@@ -76,8 +84,10 @@ export async function authenticateBearerForPermissions(
 			{ status: 403 },
 		);
 	}
+	const session: SessionPayload = { ...ownerSession, roles: [], permissions: grantedPermissions };
+	verifiedBearerIds.set(session, verified.tokenId);
 	return {
-		session: { ...ownerSession, roles: [], permissions: grantedPermissions },
+		session,
 		scopes: verified.scopes,
 		tokenId: verified.tokenId,
 	};

@@ -151,6 +151,7 @@ export const zh: Record<string, string> = {
 	"backend.storage.remotePathNotDirectory": "原始远端路径已不是目录，无法恢复索引",
 	"backend.storage.remotePathNotFile": "原始远端路径已不是文件，无法恢复索引",
 	"backend.storage.fileEntryNotInRecycleBin": "文件条目未在回收站中",
+	"backend.storage.archiveNeedsLinuxSsh": "此 SFTP 节点仅支持逐个文件下载。目录归档需要已确认的 Linux SSH 端点。",
 	"backend.storage.archiveExclusionInvalid": "归档排除项包含非法字符",
 	"backend.storage.archiveExclusionTooLarge": "归档排除列表过大",
 	"backend.storage.archiveExclusionTooLargeWindows":
@@ -372,6 +373,8 @@ export const zh: Record<string, string> = {
 	"backend.storage.pathExceedsRoot": "路径超出存储根目录",
 	"backend.storage.notSftpNode": "该节点不是 SFTP 存储节点",
 	"backend.storage.syncJobMissingNode": "SFTP 同步任务缺少存储节点",
+	"backend.storage.sftpJobScopeInvalid": "无法确认此 SFTP 任务的发起人和原始节点范围，请重新提交任务。",
+	"backend.storage.sftpJobTargetChanged": "SFTP 任务的目标节点已不可用或所属客户已变更。",
 	"backend.storage.connectionCredentialsUnavailable": "连接凭据不可用：{error}",
 	"backend.storage.pathExceedsNodeRoot": "请求路径超出存储节点根目录",
 	"backend.storage.windowsNameCharacters": "这个存储节点在 Windows 上，名称不能包含 : * ? \" < > |",
@@ -1019,6 +1022,7 @@ export const en: Record<string, string> = {
 	"backend.storage.remotePathNotDirectory": "The original remote path is no longer a directory; cannot restore the index",
 	"backend.storage.remotePathNotFile": "The original remote path is no longer a file; cannot restore the index",
 	"backend.storage.fileEntryNotInRecycleBin": "File entry is not in the recycle bin",
+	"backend.storage.archiveNeedsLinuxSsh": "Download files individually from this SFTP node. Folder archives require a known Linux SSH endpoint.",
 	"backend.storage.archiveExclusionInvalid": "Archive exclusion contains invalid characters",
 	"backend.storage.archiveExclusionTooLarge": "Archive exclusion list is too large",
 	"backend.storage.archiveExclusionTooLargeWindows":
@@ -1244,6 +1248,8 @@ export const en: Record<string, string> = {
 	"backend.storage.pathExceedsRoot": "Path exceeds storage root directory",
 	"backend.storage.notSftpNode": "This node is not an SFTP storage node",
 	"backend.storage.syncJobMissingNode": "The SFTP sync job is missing its storage node",
+	"backend.storage.sftpJobScopeInvalid": "The requester and original target scope of this SFTP job could not be verified. Submit the job again.",
+	"backend.storage.sftpJobTargetChanged": "A target storage node is unavailable or belongs to a different customer.",
 	"backend.storage.connectionCredentialsUnavailable": "Connection credentials are unavailable: {error}",
 	"backend.storage.pathExceedsNodeRoot": "Requested path exceeds storage node root",
 	"backend.storage.windowsNameCharacters": "This storage node is on Windows: names cannot contain : * ? \" < > |",

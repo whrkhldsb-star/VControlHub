@@ -13,6 +13,7 @@ import { describe, expect, it, vi } from "vitest";
 const { mockPrisma, listRemoteDirectoryMock, assertStorageAccessMock } =
   vi.hoisted(() => ({
     mockPrisma: {
+      shareLink: { updateMany: vi.fn() },
       $queryRaw: vi.fn(async () => [{ id: "bound-server" }]),
       storageNode: {
         updateMany: vi.fn(),
@@ -505,7 +506,7 @@ describe("storage service", () => {
     } as any);
     vi.mocked(prisma.storageNode.updateMany).mockResolvedValueOnce({ count: 1 } as any);
     vi.mocked(prisma.storageNode.findFirst).mockResolvedValueOnce({
-      id: "node_2",
+      id: "node_2", _count: { shareLinks: 1 },
     } as any);
 
     await updateStorageNode({
@@ -520,7 +521,7 @@ describe("storage service", () => {
 
     expect(prisma.storageNode.updateMany).toHaveBeenCalledWith(
       expect.objectContaining({
-        where: { id: "node_2", isDefault: false },
+        where: expect.objectContaining({ id: "node_2", isDefault: false, driver: "SFTP", basePath: "/data/media" }),
         data: expect.objectContaining({
           driver: "LOCAL",
           serverId: null,
@@ -533,6 +534,30 @@ describe("storage service", () => {
     );
     const [write] = vi.mocked(prisma.storageNode.updateMany).mock.calls[0]!;
     expect(write?.data).not.toHaveProperty("isDefault");
+  });
+
+  it.each([
+    { basePath: "/new" }, { host: "new.test" }, { port: 2222 }, { serverId: "other" }, { username: "other" }, { driver: "LOCAL" as const },
+  ])("revokes active public links in the node update transaction for %j", async (change) => {
+    vi.clearAllMocks();
+    const current = {
+      id: "n", driver: "SFTP" as const, name: "Node", teamId: null, basePath: "/old", isDefault: false,
+      host: "old.test", port: 22, username: "user", serverId: null, webdavConfigEncrypted: null,
+      directAccessMode: "PROXY", publicBaseUrl: null, directAccessExpiresSeconds: 300,
+    };
+    mockPrisma.storageNode.findUnique.mockResolvedValueOnce(current);
+    mockPrisma.storageNode.updateMany.mockResolvedValueOnce({ count: 1 });
+    mockPrisma.storageNode.findFirst.mockResolvedValueOnce({ ...current, ...change, _count: { shareLinks: 2 } });
+    await updateStorageNode({ storageNodeId: "n", ...change });
+    expect(mockPrisma.shareLink.updateMany).toHaveBeenCalledWith({
+      where: { storageNodeId: "n", revokedAt: null }, data: { revokedAt: expect.any(Date) },
+    });
+    mockPrisma.shareLink.updateMany.mockClear();
+    mockPrisma.storageNode.findUnique.mockResolvedValueOnce(current);
+    mockPrisma.storageNode.updateMany.mockResolvedValueOnce({ count: 1 });
+    mockPrisma.storageNode.findFirst.mockResolvedValueOnce({ ...current, _count: { shareLinks: 2 } });
+    await updateStorageNode({ storageNodeId: "n", name: "Display name" });
+    expect(mockPrisma.shareLink.updateMany).not.toHaveBeenCalled();
   });
 
   it("rejects switching a remote node to local storage outside its workspace", async () => {
@@ -1192,7 +1217,7 @@ describe("storage service", () => {
       server: null,
     } as any);
     vi.mocked(prisma.storageNode.updateMany).mockResolvedValueOnce({ count: 1 } as any);
-    vi.mocked(prisma.storageNode.findFirst).mockResolvedValueOnce({} as any);
+    vi.mocked(prisma.storageNode.findFirst).mockResolvedValueOnce({ id: "node_1", _count: { shareLinks: 0 } } as any);
 
     await updateStorageNode({
       storageNodeId: "node_1",

@@ -1,8 +1,8 @@
-import { Prisma } from "@prisma/client";
+import { Prisma, type Server } from "@prisma/client";
 import { mkdir } from "node:fs/promises";
 
 import type { SessionPayload } from "@/lib/auth/session";
-import { isGlobalTeamManager, serverOriginData, serverProfileTeamWhere, serverTeamWhere, teamCreateData, teamWhere } from "@/lib/auth/team-scope";
+import { isGlobalTeamManager, serverOriginData, serverTeamWhere, teamCreateData, teamWhere } from "@/lib/auth/team-scope";
 import { prisma } from "@/lib/db";
 import { BusinessError, ForbiddenError, NotFoundError, ValidationError } from "@/lib/errors";
 import { serviceT } from "@/lib/i18n/service-locale";
@@ -19,10 +19,11 @@ import { assertSshKeyTeam, encryptServerPasswordIfPlain, SSH_KEY_CREDENTIAL_SELE
 import type { TFn } from "@/lib/i18n/core";
 import { resolveStorageSshCredentials } from "@/lib/storage/ssh-credentials";
 import { localBasePathBelongsToTenant } from "@/lib/storage/path-utils";
+import { revokeInheritedSftpShares, revokeNodeShares } from "@/lib/storage/node-root";
 import { checkStorageNodeHealth } from "@/lib/storage/service-nodes";
 import { normalizeServerInput } from "./config";
 import { defaultStoragePath } from "./default-storage-path";
-import { SERVER_PROFILE_INCLUDE, type ServerProfileRecord } from "./service-profile-includes";
+import { findServerProfileForSession, savedProfileBinding, SERVER_PROFILE_INCLUDE, type ServerProfileRecord } from "./service-profile-includes";
 import { createServerSchema, type CreateServerInput } from "./schema";
 import { parseServerSyncTargetAuth } from "@/lib/sync/target-auth";
 import { applyServerDirectGatewayState } from "./service-direct-gateway";
@@ -73,23 +74,6 @@ function toStoredDirectGatewayProtocol(value: "http" | "https") {
 
 function fromStoredDirectGatewayProtocol(value: string | null | undefined): "http" | "https" {
   return value === "HTTPS" || value === "https" ? "https" : "http";
-}
-
-async function findServerProfileForSession(
-  serverId: string,
-  session?: TeamSession | null,
-  include: typeof SERVER_PROFILE_INCLUDE | undefined = SERVER_PROFILE_INCLUDE,
-) {
-  if (session) {
-    return prisma.server.findFirst({
-      where: { id: serverId, ...serverProfileTeamWhere(session) },
-      include,
-    });
-  }
-  return prisma.server.findUnique({
-    where: { id: serverId },
-    include,
-  });
 }
 
 const SSH_KEY_PREFLIGHT_SELECT = {
@@ -295,8 +279,8 @@ async function applyStoragePathChange(
     }
     if (nextStoragePath && nextStoragePath !== storageNode.basePath) {
       await prisma.storageNode.update({
-        where: { id: storageNode.id },
-        data: { basePath: targetPath },
+        where: { id: storageNode.id, serverId: server.id, teamId: server.teamId, basePath: storageNode.basePath, driver: storageNode.driver },
+        data: { basePath: targetPath, ...revokeNodeShares() },
       });
     }
     if (remoteNode) {
@@ -619,7 +603,7 @@ async function saveServerProfile(serverId: string, current: ServerProfileRecord,
   }
 
   // Assigned under host lock before post-update onboarding uses it.
-  let updated!: ServerProfileRecord;
+  let updated: Server;
   const onboardingWarnings: string[] = [];
   const releaseHostLock = await acquireAdvisoryLock("server-host", normalized.host.toLowerCase());
   try {
@@ -680,8 +664,8 @@ async function saveServerProfile(serverId: string, current: ServerProfileRecord,
     }
   }
 
-  updated = await prisma.server.update({
-    where: { id: serverId, teamId: current.teamId ?? null, managementMode: current.managementMode, host: current.host, port: current.port },
+  const update = {
+    where: { id: serverId, teamId: current.teamId ?? null, managementMode: current.managementMode, host: current.host, port: current.port, username: current.username },
     data: {
       ...(reconfigureAgent ? resetAgentForModeChange() : {}),
       name: normalized.name,
@@ -708,26 +692,34 @@ async function saveServerProfile(serverId: string, current: ServerProfileRecord,
       enabled:
         typeof input.enabled === "boolean" ? input.enabled : current.enabled,
     },
-    include: SERVER_PROFILE_INCLUDE,
-  });
+  } satisfies Prisma.ServerUpdateArgs;
+  updated = endpointChanged ? await prisma.$transaction(async (tx) => {
+    const saved = await tx.server.update(update);
+    await revokeInheritedSftpShares(tx, current, normalized);
+    return saved;
+  }) : await prisma.server.update(update);
   } finally {
     await releaseHostLock();
   }
 
+  const binding = savedProfileBinding(updated);
   if (reconfigureAgent && updated.managementMode === "AGENT" && updated.enabled && !isLocalHostLiteral(updated.host)) {
-    try { await installServerAgentUnderLock(serverId); }
+    try { await installServerAgentUnderLock(serverId, updated.teamId, binding); }
     catch (error) { onboardingWarnings.push(t("backend.server.agentInstallFailed", { error: getErrorMessage(error) })); }
   }
-  onboardingWarnings.push(...await applyStoragePathChange(updated, input, session, t));
-
-  const refreshed = await prisma.server.findUnique({
-    where: { id: serverId },
-    include: SERVER_PROFILE_INCLUDE,
-  });
-
-  if (!refreshed || (refreshed.teamId ?? null) !== (current.teamId ?? null)) {
-    throw new NotFoundError(t("backend.server.nodeNotFound"));
+  if (current.storageNode && (input.storagePath?.trim() || input.repairStoragePath)) {
+    const profile = await findServerProfileForSession(serverId, session, binding);
+    const node = profile?.storageNode;
+    const prior = current.storageNode;
+    if (!profile || !node || prior.id !== node.id || prior.teamId !== node.teamId || prior.driver !== node.driver ||
+      prior.basePath !== node.basePath || prior.host !== node.host || prior.port !== node.port || prior.username !== node.username) {
+      throw new NotFoundError(t("backend.server.nodeNotFound"));
+    }
+    onboardingWarnings.push(...await applyStoragePathChange(profile, input, session, t));
   }
+
+  const refreshed = await findServerProfileForSession(serverId, session, binding);
+  if (!refreshed) throw new NotFoundError(t("backend.server.nodeNotFound"));
 
   return {
     ...enrichServer(refreshed),

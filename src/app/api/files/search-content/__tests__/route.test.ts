@@ -90,11 +90,11 @@ describe("GET /api/files/search-content", () => {
 	});
 
 	it("passes nodeId and path filters through", async () => {
-		await route.GET(get("?q=needle&nodeId=node_2&path=docs/sub"));
+		await route.GET(get("?q=needle&nodeId=node_2&path=docs/sub%20"));
 		expect(mocks.searchFileContents).toHaveBeenCalledWith({
 			query: "needle",
 			nodeId: "node_2",
-			searchPath: "docs/sub",
+			searchPath: "docs/sub ",
 			session,
 		});
 	});

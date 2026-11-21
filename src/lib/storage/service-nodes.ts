@@ -16,6 +16,7 @@ import { normalizeRemotePath } from "@/lib/storage/remote-path";
 import { purgeStorageNodeVersionBlobs } from "@/lib/storage/file-versions";
 import { resolveStorageSshCredentials, resolveStorageSshPort } from "@/lib/storage/ssh-credentials";
 import { expandStorageBasePath, localBasePathBelongsToTenant } from "@/lib/storage/path-utils";
+import { sameStorageRoot, type StorageRoot } from "./node-root";
 import { decrypt, encrypt } from "@/lib/crypto/service";
 
 import {
@@ -67,6 +68,7 @@ function encryptWebdavConfig(input: NonNullable<UpdateStorageNodeInput["webdavCo
         password: input.password || (sameIdentity ? previous?.password : undefined) }
     : { url: input.url, authType: input.authType,
         token: input.token || (sameIdentity ? previous?.token : undefined) });
+  if (ciphertext && previous && JSON.stringify(config) === JSON.stringify(previous)) return ciphertext;
   return encrypt(JSON.stringify(config));
 }
 
@@ -426,6 +428,18 @@ export async function updateStorageNode(
     await assertServerInTeamScope(payload.serverId, session);
   }
 
+  const nextRoot: StorageRoot = {
+    driver: nextDriver,
+    basePath: payload.basePath ?? current.basePath,
+    host: nextDriver === "SFTP" ? nextHost ?? null : null,
+    port: nextDriver === "SFTP" ? nextPort : null,
+    username: nextDriver === "SFTP" ? nextUsername : null,
+    webdavConfigEncrypted,
+    serverId: nextDriver === "WEBDAV" || nextDriver === "AGENT" ? null : nextServerId ?? null,
+  };
+  const rootChanged = !sameStorageRoot(current, nextRoot) ||
+    (nextDriver === "AGENT" && !current.agentFileShare && Boolean(payload.serverId));
+
   // Promote, then retire the previous default, in one transaction under the
   // customer's default lock (see createStorageNode).
   let updated;
@@ -435,17 +449,13 @@ export async function updateStorageNode(
       if (nextServerId && nextDriver === "SFTP") await lockStorageServer(tx, nextServerId, current.teamId);
       const claimed = await tx.storageNode.updateMany({
         where: { ...(session ? teamWhere(session) : {}), id: payload.storageNodeId, teamId: current.teamId,
+          basePath: current.basePath, driver: current.driver, host: current.host, port: current.port,
+          username: current.username, serverId: current.serverId, webdavConfigEncrypted: current.webdavConfigEncrypted,
           ...(driverChanged || payload.isDefault === false ? { isDefault: false } : {}) },
         data: {
           name: payload.name ?? current.name,
-          driver: nextDriver,
-          basePath: payload.basePath ?? current.basePath,
+          ...nextRoot,
           ...(payload.isDefault ? { isDefault: true } : {}),
-          host: nextDriver === "SFTP" ? nextHost ?? null : null,
-          port: nextDriver === "SFTP" ? nextPort : null,
-          username: nextDriver === "SFTP" ? nextUsername : null,
-          webdavConfigEncrypted,
-          serverId: nextDriver === "WEBDAV" || nextDriver === "AGENT" ? null : nextServerId ?? null,
           directAccessMode: nextAccessMode,
           publicBaseUrl: nextPublicBaseUrl,
           directAccessExpiresSeconds:
@@ -466,13 +476,20 @@ export async function updateStorageNode(
       }
       const row = await tx.storageNode.findFirst({
         where: { id: payload.storageNodeId, ...(session ? teamWhere(session) : {}) },
-        include: STORAGE_NODE_SERVER_INCLUDE,
+        include: {
+          ...STORAGE_NODE_SERVER_INCLUDE,
+          _count: rootChanged && { select: { shareLinks: { where: { revokedAt: null } } } },
+        },
       });
       if (!row) {
         throw new NotFoundError(t("backend.storage.nodeNotFound"));
       }
+      const { _count, ...node } = row;
+      if (rootChanged && _count.shareLinks > 0) {
+        await tx.shareLink.updateMany({ where: { storageNodeId: node.id, revokedAt: null }, data: { revokedAt: new Date() } });
+      }
       await ensureDefaultNodeState(payload.isDefault, row.teamId, payload.storageNodeId, tx);
-      return row;
+      return node;
     });
   } catch (error) {
     // A server carries one storage node: binding it to a second one is the

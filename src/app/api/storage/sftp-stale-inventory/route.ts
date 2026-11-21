@@ -15,7 +15,7 @@ import { apiCopy } from "@/lib/i18n/api-copy";
  * - wait=1 query: 同步执行, 返 200 + 结果 (debug / 手动验证用)
  *
  * 权限: storage:manage-node (跟节点管理一致)
- * 租户边界: 所有用户触发路径均经 teamWhere / isGlobalTeamManager 约束；
+ * 租户边界: 所有用户触发路径均经 teamWhere 约束；
  * 系统 worker 周期任务仍可走无 session 全量列表。
  */
 import { NextRequest, NextResponse } from "next/server";
@@ -37,8 +37,7 @@ import {
   type SftpStaleInventoryBody as SharedSftpStaleInventoryBody,
 } from "@/lib/storage/schema";
 import { auditUserAction } from "@/lib/audit/service";
-import { isGlobalTeamManager } from "@/lib/auth/team-scope";
-import type { SessionPayload } from "@/lib/auth/session";
+import { sftpJobScope } from "@/lib/storage/sftp-job-scope";
 
 export const dynamic = "force-dynamic";
 
@@ -48,7 +47,6 @@ export const dynamic = "force-dynamic";
 // field stayed in the shared body schema).
 const staleInventorySchema = sftpStaleInventoryBodySchema;
 type StaleInventoryInput = SharedSftpStaleInventoryBody;
-type TeamSession = Pick<SessionPayload, "userId" | "roles" | "currentTeamId">;
 
 export async function POST(request: NextRequest) {
   return withApiRoute(
@@ -65,15 +63,16 @@ export async function POST(request: NextRequest) {
 
       const { wait } = parseSearchParams(request, sftpWaitQuerySchema);
 
-      if (data.nodeId) {
-        const target = await findSftpNodeForStaleInventory(data.nodeId, session);
-        if (!target) throw new NotFoundError(apiCopy("apiCopy.storage.node.not.found.3b3ec488"));
-      }
+      const singleNode = data.nodeId ? await findSftpNodeForStaleInventory(data.nodeId, session) : null;
+      if (data.nodeId && !singleNode) throw new NotFoundError(apiCopy("apiCopy.storage.node.not.found.3b3ec488"));
+      const nodes = singleNode ? [singleNode] : await listSftpNodesForStaleInventory(session);
 
       if (wait) {
-        const results = data.nodeId
-          ? [await scanOneNode(data, session)]
-          : await scanAllNodes(data, session);
+        // Scan sequentially to limit the load on remote hosts.
+        const results = [];
+        for (const node of nodes) {
+          results.push(await detectAndPruneSftpStaleInventory({ node, maxDepth: data.maxDepth, dryRun: data.dryRun }));
+        }
         await auditUserAction(session.userId, "storage.sftp-stale-cleanup", { nodeId: data.nodeId ?? "all", dryRun: data.dryRun ?? false }, undefined, session.currentTeamId);
         return NextResponse.json({
           success: true,
@@ -83,34 +82,19 @@ export async function POST(request: NextRequest) {
         });
       }
 
-      // Async path: pin team-scoped node ids into the job so the system
-      // worker cannot widen a storage_manager "all nodes" request.
-      const jobPayload: {
-        nodeId?: string;
-        nodeIds?: string[];
-        maxDepth?: number;
-        dryRun?: boolean;
-        reason: string;
-      } = {
-        nodeId: data.nodeId,
-        maxDepth: data.maxDepth,
-        dryRun: data.dryRun,
-        reason: data.reason ?? "api",
-      };
-
-      if (!data.nodeId && !isGlobalTeamManager(session)) {
-        const scoped = await listSftpNodesForStaleInventory(session);
-        jobPayload.nodeIds = scoped.map((n) => n.id);
-      }
-
       const job = await enqueueJob({
         type: SFTP_STALE_INVENTORY_JOB_TYPE,
         title: data.nodeId
           ? `SFTP stale inventory: ${data.nodeId}`
-          : jobPayload.nodeIds
-            ? `SFTP stale inventory: team scope (${jobPayload.nodeIds.length})`
-            : "SFTP stale inventory: all nodes",
-        payload: { ...jobPayload, teamId: session.currentTeamId ?? null },
+          : `SFTP stale inventory: scoped nodes (${nodes.length})`,
+        payload: {
+          ...sftpJobScope(session, nodes),
+          nodeId: data.nodeId,
+          nodeIds: data.nodeId ? undefined : nodes.map(node => node.id),
+          maxDepth: data.maxDepth,
+          dryRun: data.dryRun,
+          reason: data.reason ?? "api",
+        },
         createdBy: session.userId,
         teamId: session.currentTeamId ?? null,
         maxAttempts: 2,
@@ -129,36 +113,6 @@ export async function POST(request: NextRequest) {
       );
     },
   );
-}
-
-async function scanOneNode(input: StaleInventoryInput, session: TeamSession) {
-  const node = await findSftpNodeForStaleInventory(input.nodeId!, session);
-  if (!node) throw new NotFoundError(apiCopy("apiCopy.storage.node.not.found.3b3ec488"));
-  return detectAndPruneSftpStaleInventory({
-    node: node as unknown as Parameters<typeof detectAndPruneSftpStaleInventory>[0]["node"],
-    maxDepth: input.maxDepth,
-    dryRun: input.dryRun,
-  });
-}
-
-async function scanAllNodes(input: StaleInventoryInput, session: TeamSession) {
-  const nodes = await listSftpNodesForStaleInventory(session);
-  if (nodes.length === 0) {
-    return [] as Awaited<ReturnType<typeof detectAndPruneSftpStaleInventory>>[];
-  }
-  // wait=1 同步入口: scan every team-scoped node (sequential to limit SSH load).
-  // Prefer async enqueue for large fleets; this path is for debug / manual verify.
-  const results: Awaited<ReturnType<typeof detectAndPruneSftpStaleInventory>>[] = [];
-  for (const node of nodes) {
-    results.push(
-      await detectAndPruneSftpStaleInventory({
-        node: node as unknown as Parameters<typeof detectAndPruneSftpStaleInventory>[0]["node"],
-        maxDepth: input.maxDepth,
-        dryRun: input.dryRun,
-      }),
-    );
-  }
-  return results;
 }
 
 function summarize(results: Array<{ stale: number; errors: string[]; scanned: number; durationMs: number }>) {

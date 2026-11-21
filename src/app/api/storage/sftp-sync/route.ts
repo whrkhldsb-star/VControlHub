@@ -5,6 +5,7 @@ import { withApiRoute } from "@/lib/http/api-guard";
 import { parseSearchParams } from "@/lib/http/parse-search-params";
 import { GENERAL_WRITE_LIMIT } from "@/lib/http/rate-limit-presets";
 import { enqueueJob } from "@/lib/job/service";
+import { sftpJobScope } from "@/lib/storage/sftp-job-scope";
 import { SFTP_SYNC_JOB_TYPE } from "@/lib/storage/sftp-sync-job";
 
 import { assertStorageAccess } from "@/lib/storage/access-control";
@@ -117,10 +118,11 @@ export async function POST(request: Request) {
           remotePath: normalizedRelativePath,
           recursive,
           maxDepth,
-          teamId: session.currentTeamId ?? node.teamId ?? null,
+          ...sftpJobScope(session, [node]),
         },
         createdBy: session.userId,
         teamId: session.currentTeamId ?? node.teamId ?? null,
+        targetStorageNodeId: nodeId,
         maxAttempts: 3,
       });
       await auditUserAction(session.userId, "storage.sftp-sync", { nodeId, remotePath: normalizedRelativePath || null }, undefined, session.currentTeamId);

@@ -92,17 +92,26 @@ describe("GET /api/files/archive-list", () => {
     });
   });
 
-  it("does not list an archive that is in the recycle bin (404 as if it were gone)", async () => {
+  it("rejects a Windows LOCAL archive below a recycled folder regardless of case or separator spelling", async () => {
     // Deleting only marks the index; the bytes stay on disk and used to be listed like any other archive.
     await createTarGz();
     prismaMock.storageNode.findFirst.mockResolvedValue({ id: "node_1", name: "local", driver: "LOCAL", basePath: tempDir });
-    prismaMock.fileEntry.findFirst.mockResolvedValueOnce({ id: "deleted-archive" });
+    prismaMock.fileEntry.findFirst.mockResolvedValueOnce({ id: "deleted-folder" });
 
-    const response = await GET(
-      new NextRequest(`https://app.example.test/api/files/archive-list?nodeId=node_1&driver=LOCAL&relativePath=backup.tar.gz&name=backup.tar.gz`),
-    );
+    const platform = vi.spyOn(process, "platform", "get").mockReturnValue("win32");
+    try {
+      const response = await GET(
+        new NextRequest("https://app.example.test/api/files/archive-list?nodeId=node_1&relativePath=FOLDER%5Cbackup.tar.gz"),
+      );
 
-    expect(response.status).toBe(404);
+      expect(response.status).toBe(404);
+      expect(prismaMock.fileEntry.findFirst).toHaveBeenCalledWith(expect.objectContaining({
+        where: { storageNodeId: "node_1", isDeleted: true, relativePath: { in: ["FOLDER", "FOLDER/backup.tar.gz"], mode: "insensitive" } },
+      }));
+      expect(assertStorageAccessMock).toHaveBeenCalledWith(expect.objectContaining({ relativePath: "FOLDER/backup.tar.gz" }));
+    } finally {
+      platform.mockRestore();
+    }
   });
 
   it("lists a ZIP's contents (unzip -l on Ubuntu printed dates the parser skipped, so every ZIP looked empty)", async () => {

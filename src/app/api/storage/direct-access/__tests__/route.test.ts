@@ -59,6 +59,7 @@ describe("/api/storage/direct-access", () => {
 
   beforeEach(() => {
     vi.unstubAllGlobals();
+    vi.stubGlobal("fetch", vi.fn().mockResolvedValue(new Response(null, { headers: { "X-VCH-File-Access": "linux-file-v1" } })));
   });
 
   it("returns 403 when the session lacks storage read permission", async () => {
@@ -134,7 +135,11 @@ describe("/api/storage/direct-access", () => {
         publicBaseUrl: true,
         directAccessExpiresSeconds: true,
         serverId: true,
-        server: { select: { directGatewayKeyVersion: true } },
+        teamId: true,
+        host: true,
+        port: true,
+        username: true,
+        server: { select: { directGatewayKeyVersion: true, operatingSystem: true, teamId: true, host: true, port: true, username: true, publicUrl: true } },
       },
     });
     await expect(response.json()).resolves.toMatchObject({
@@ -351,10 +356,10 @@ describe("/api/storage/direct-access", () => {
     });
   });
 
-  it("redirects GET requests to the generated storage-server URL for file-list links when AUTO health is healthy", async () => {
+  it("redirects GET requests to the generated storage-server URL for file-list links after the Linux gateway confirms the signed file", async () => {
     vi.clearAllMocks();
     const cancel = vi.fn();
-    const fetchMock = vi.fn().mockResolvedValue(new Response(new ReadableStream({ cancel }), { status: 200 }));
+    const fetchMock = vi.fn().mockResolvedValue(new Response(new ReadableStream({ cancel }), { status: 200, headers: { "X-VCH-File-Access": "linux-file-v1" } }));
     vi.stubGlobal("fetch", fetchMock);
     requireApiPermissionMock.mockResolvedValueOnce({
       session: { userId: "u_1", username: "admin", roles: ["admin"], currentTeamId: null },
@@ -390,17 +395,16 @@ describe("/api/storage/direct-access", () => {
     const expires = redirectedUrl.searchParams.get("expires") ?? "";
     const expectedSignature = crypto
       .createHmac("sha256", "test-secret")
-      .update(`/media/movies/demo file.mp4.${expires}`)
+      .update(`linux-file-v1\0/data/file/movies/demo file.mp4\0${expires}`)
       .digest("hex");
     expect(redirectedUrl.searchParams.get("signature")).toBe(expectedSignature);
-    expect(fetchMock).toHaveBeenCalledWith(new URL("https://cdn.example.com/__vch_health"), expect.objectContaining({ method: "GET" }));
+    expect(fetchMock).toHaveBeenCalledWith(redirectedUrl, expect.objectContaining({ method: "HEAD", redirect: "manual" }));
     expect(cancel).toHaveBeenCalledTimes(1);
   });
 
-  it("signs with the server's own key once its gateway was installed with one, and with the shared secret before", async () => {
-    // A gateway installed since the per-server keys holds HMAC(secret, server id), so a link signed with the shared
-    // secret (which root on another managed server knows) must not verify there; an older gateway still holds the
-    // shared secret and must keep working until it is enabled again. GET: the POST route is rate limited.
+  it("uses the configured key for a gateway that confirms the path-bound file request", async () => {
+    // Administrators can also configure a gateway with the shared key. Its probe
+    // must confirm the path-bound protocol before the signed URL is returned.
     const { deriveDirectGatewayServerKey } = await import("@/lib/server/direct-gateway-key");
     const sign = async (server: { directGatewayKeyVersion: number } | null) => {
       vi.clearAllMocks();
@@ -419,7 +423,7 @@ describe("/api/storage/direct-access", () => {
       return { expires: url.searchParams.get("expires") ?? "", signature: url.searchParams.get("signature") };
     };
     const signedWith = (key: string, expires: string) =>
-      crypto.createHmac("sha256", key).update(`/media/movies/demo.mp4.${expires}`).digest("hex");
+      crypto.createHmac("sha256", key).update(`linux-file-v1\0/data/file/movies/demo.mp4\0${expires}`).digest("hex");
 
     const perServer = await sign({ directGatewayKeyVersion: 2 });
     expect(perServer.signature).toBe(signedWith(deriveDirectGatewayServerKey("test-secret", "srv_1"), perServer.expires));
@@ -456,8 +460,66 @@ describe("/api/storage/direct-access", () => {
     const url = new URL(own.headers.get("location") ?? "");
     const expires = url.searchParams.get("expires") ?? "";
     expect(url.searchParams.get("signature")).toBe(
-      crypto.createHmac("sha256", deriveDirectGatewayServerKey("test-secret", "srv_9")).update(`/media/backups/db.sql.gz.${expires}`).digest("hex"),
+      crypto.createHmac("sha256", deriveDirectGatewayServerKey("test-secret", "srv_9")).update(`linux-file-v1\0/data/file/backups/db.sql.gz\0${expires}`).digest("hex"),
     );
+  });
+
+  it.each(["DIRECT", "AUTO"])("uses managed download in %s mode when the gateway lacks descriptor checks", async (directAccessMode) => {
+    requireApiPermissionMock.mockResolvedValueOnce({
+      session: { userId: "u_1", roles: ["admin"], currentTeamId: null },
+    });
+    assertStorageAccessMock.mockResolvedValueOnce({ allowed: true });
+    prismaMock.storageNode.findFirst.mockResolvedValueOnce(directNode({ directAccessMode, publicBaseUrl: "https://cdn.example.com" }));
+    vi.stubGlobal("fetch", vi.fn().mockResolvedValue(new Response(null, { status: 200 })));
+
+    const result = await GET(new Request("https://app.example.com/api/storage/direct-access?nodeId=node_1&path=sample.txt"));
+    expect(result.headers.get("location")).toBe("/api/storage/sftp-download?nodeId=node_1&path=sample.txt");
+  });
+
+  it.each([
+    { host: "other.example.com" }, { port: 2222 }, { username: "new-user" }, { teamId: "another-customer" },
+  ])("does not sign through a server bound to a different SFTP endpoint or customer (%j)", async (change) => {
+    requireApiPermissionMock.mockResolvedValueOnce({
+      session: { userId: "u_1", roles: ["admin"], currentTeamId: null },
+    });
+    assertStorageAccessMock.mockResolvedValueOnce({ allowed: true });
+    prismaMock.storageNode.findFirst.mockResolvedValueOnce(directNode({
+      directAccessMode: "DIRECT", publicBaseUrl: "https://cdn.example.com",
+      serverId: "srv_1", teamId: "customer",
+      server: { operatingSystem: "LINUX", directGatewayKeyVersion: 2, teamId: "customer", host: "sftp.example.com", port: 22, username: "storage" },
+      ...change,
+    }));
+    const result = await GET(new Request("https://app.example.com/api/storage/direct-access?nodeId=node_1&path=sample.txt"));
+    expect(result.headers.get("location")).toBe("/api/storage/sftp-download?nodeId=node_1&path=sample.txt");
+  });
+
+  it.each([1, 2])("refuses Windows-format links with a key previously used on Linux (version %d)", async (keyVersion) => {
+    requireApiPermissionMock.mockResolvedValueOnce({
+      session: { userId: "u_1", roles: ["admin"], currentTeamId: null },
+    });
+    assertStorageAccessMock.mockResolvedValueOnce({ allowed: true });
+    prismaMock.storageNode.findFirst.mockResolvedValueOnce(directNode({
+      directAccessMode: "DIRECT", publicBaseUrl: "https://cdn.example.com",
+      basePath: "/C:/Data", serverId: "srv_1", server: { operatingSystem: "WINDOWS", directGatewayKeyVersion: keyVersion },
+    }));
+    const result = await GET(new Request("https://app.example.com/api/storage/direct-access?nodeId=node_1&path=sample.txt"));
+    expect(result.headers.get("location")).toBe("/api/storage/sftp-download?nodeId=node_1&path=sample.txt");
+  });
+
+  it("uses a Windows-only key for its legacy signature format", async () => {
+    requireApiPermissionMock.mockResolvedValueOnce({
+      session: { userId: "u_1", roles: ["admin"], currentTeamId: null },
+    });
+    assertStorageAccessMock.mockResolvedValueOnce({ allowed: true });
+    prismaMock.storageNode.findFirst.mockResolvedValueOnce(directNode({
+      directAccessMode: "DIRECT", publicBaseUrl: "https://cdn.example.com",
+      basePath: "/C:/Data", serverId: "srv_1", server: { operatingSystem: "WINDOWS", directGatewayKeyVersion: 3, publicUrl: "https://cdn.example.com" },
+    }));
+    const result = await GET(new Request("https://app.example.com/api/storage/direct-access?nodeId=node_1&path=sample.txt"));
+    const url = new URL(result.headers.get("location") ?? "");
+    const { deriveDirectGatewayServerKey } = await import("@/lib/server/direct-gateway-key");
+    expect(url.searchParams.get("signature")).toBe(crypto.createHmac("sha256", deriveDirectGatewayServerKey("test-secret", "srv_1", 3))
+      .update(`/sample.txt.${url.searchParams.get("expires")}`).digest("hex"));
   });
 
   it("falls back to managed SFTP when AUTO direct gateway health is unavailable", async () => {

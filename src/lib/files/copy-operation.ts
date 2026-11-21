@@ -105,14 +105,18 @@ async function listChildren(
     });
     const entries = await readdir(resolved.absolutePath, {
       withFileTypes: true,
+      encoding: "buffer",
     });
     return entries.map((entry) => {
+      const name = entry.name.toString("utf8");
+      if (!Buffer.from(name, "utf8").equals(entry.name))
+        throw new Error(apiCopy("apiCopy.files.op.invalid"));
       if (!entry.isDirectory() && !entry.isFile())
         throw new Error(
-          apiCopy("apiCopy.files.op.special", { v0: entry.name }),
+          apiCopy("apiCopy.files.op.special", { v0: name }),
         );
       return {
-        path: `${relativePath}/${entry.name}`,
+        path: `${relativePath}/${name}`,
         directory: entry.isDirectory(),
       };
     });
@@ -264,7 +268,7 @@ export async function copyFileEntry(input: {
       for (const child of await listChildren(node, current.path)) {
         const normalized = normalizeStorageRelativePath(child.path);
         if (
-          !normalized.ok ||
+          !normalized.ok || normalized.path !== child.path ||
           !child.path.startsWith(`${current.path}/`) ||
           child.path.slice(current.path.length + 1).includes("/")
         )

@@ -16,7 +16,7 @@ import {
   DIRECT_GATEWAY_DEFAULT_PORT,
   DIRECT_GATEWAY_HTTPS_PUBLIC_PORT,
 } from "./direct-gateway";
-import { DIRECT_GATEWAY_KEY_PER_SERVER, deriveDirectGatewayServerKey } from "./direct-gateway-key";
+import { DIRECT_GATEWAY_KEY_PER_SERVER, DIRECT_GATEWAY_KEY_WINDOWS, deriveDirectGatewayServerKey } from "./direct-gateway-key";
 import { buildInstallWindowsDirectGatewayCommand, buildPrepareWindowsDirectGatewayCommand, buildUninstallWindowsDirectGatewayCommand, buildWindowsDirectGatewaySource, WINDOWS_GATEWAY_SCRIPT_NAME } from "./windows-direct-gateway";
 import { getErrorMessage, safeRevalidatePath } from "./service-internals";
 import { t } from "@/lib/i18n/service-translations";
@@ -183,6 +183,7 @@ async function clearDirectGatewayDbState(serverId: string) {
 
 async function markDirectGatewayEnabledDb(input: {
   serverId: string;
+  keyVersion: number;
   publicBaseUrl: string;
 }) {
   await prisma.server.update({
@@ -191,7 +192,7 @@ async function markDirectGatewayEnabledDb(input: {
       fileProxyPort: DIRECT_GATEWAY_DEFAULT_PORT,
       publicUrl: input.publicBaseUrl,
       // The gateway just installed verifies with this server's own key: sign its links with that key from now on.
-      directGatewayKeyVersion: DIRECT_GATEWAY_KEY_PER_SERVER,
+      directGatewayKeyVersion: input.keyVersion,
     },
   });
   await prisma.storageNode.updateMany({
@@ -288,6 +289,7 @@ async function applyGatewayState(input: GatewayOptions, server: GatewayServer | 
   const basePath = server.storageNode?.basePath || "/root";
   const publicProtocol = input.publicProtocol ?? "http";
   const windows = server.operatingSystem === "WINDOWS";
+  const keyVersion = windows ? DIRECT_GATEWAY_KEY_WINDOWS : DIRECT_GATEWAY_KEY_PER_SERVER;
   if (windows && input.enabled && publicProtocol === "https") {
     throw new ValidationError(t("backend.server.windowsGatewayHttpOnly"));
   }
@@ -359,7 +361,7 @@ async function applyGatewayState(input: GatewayOptions, server: GatewayServer | 
         ? buildInstallDirectGatewayCommand({
           rootPath: basePath,
           // The gateway gets a key of its own, never the hub's shared secret (see direct-gateway-key.ts).
-          secret: deriveDirectGatewayServerKey(getConfiguredDirectAccessSecret(), input.serverId),
+          secret: deriveDirectGatewayServerKey(getConfiguredDirectAccessSecret(), input.serverId, keyVersion),
           port: DIRECT_GATEWAY_DEFAULT_PORT,
           bindAddress,
           autoReverseProxy,
@@ -390,7 +392,7 @@ async function applyGatewayState(input: GatewayOptions, server: GatewayServer | 
         }
         const remoteScriptPath = `/${nativeDir.replaceAll("\\", "/")}/${WINDOWS_GATEWAY_SCRIPT_NAME}`;
         const gatewaySource = buildWindowsDirectGatewaySource({
-          rootPath: basePath, secret: deriveDirectGatewayServerKey(getConfiguredDirectAccessSecret(), input.serverId), publicListen: bindAddress !== "127.0.0.1",
+          rootPath: basePath, secret: deriveDirectGatewayServerKey(getConfiguredDirectAccessSecret(), input.serverId, keyVersion), publicListen: bindAddress !== "127.0.0.1",
         });
         await writeRemoteFile({ ...ssh, remotePath: remoteScriptPath, content: Buffer.concat([Buffer.from([0xef, 0xbb, 0xbf]), Buffer.from(gatewaySource, "utf8")]) });
       }
@@ -488,6 +490,7 @@ async function applyGatewayState(input: GatewayOptions, server: GatewayServer | 
 
     await markDirectGatewayEnabledDb({
       serverId: input.serverId,
+      keyVersion,
       publicBaseUrl,
     });
   } else if (!cleanupSkipped && !deleted) {

@@ -44,14 +44,14 @@ describe("files schema", () => {
       expect(result.success).toBe(false);
     });
 
-    it("trims whitespace from string fields", () => {
+    it("keeps the path verbatim for storage validation while trimming display and ID fields", () => {
       const parsed = archiveListQuerySchema.parse({
         nodeId: "  node_1  ",
         relativePath: "  /srv/archive.zip  ",
         name: "  snapshot  ",
       });
       expect(parsed.nodeId).toBe("node_1");
-      expect(parsed.relativePath).toBe("/srv/archive.zip");
+      expect(parsed.relativePath).toBe("  /srv/archive.zip  ");
       expect(parsed.name).toBe("snapshot");
     });
 

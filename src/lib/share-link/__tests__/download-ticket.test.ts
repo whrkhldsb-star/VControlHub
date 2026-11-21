@@ -1,8 +1,5 @@
-import { createHmac } from "node:crypto";
-
 import { describe, expect, it, vi } from "vitest";
 
-import { config } from "@/lib/config/env";
 import {
   createShareDownloadTicket,
   verifyShareDownloadTicket,
@@ -25,13 +22,17 @@ describe("share download ticket", () => {
     vi.useRealTimers();
   });
 
-  it("is not signed with the gateway secret itself, which every managed server's gateway holds", () => {
-    // Anyone with root on a server that runs the direct-download gateway reads that secret.
-    const secret = config.auth.storageGatewaySecret ?? config.auth.sessionSecret ?? "dev-only-share-download-ticket-secret";
-    const encoded = Buffer.from(JSON.stringify({ shareId: "share_1", tokenHash: "hash_a", exp: Date.now() + 60_000 })).toString("base64url");
-    const forged = `${encoded}.${createHmac("sha256", secret).update(encoded).digest("base64url")}`;
-
-    expect(verifyShareDownloadTicket(forged, "hash_a")).toBeNull();
-    expect(verifyShareDownloadTicket(createShareDownloadTicket({ shareId: "share_1", tokenHash: "hash_a" }), "hash_a")).toBe("share_1");
+  it("depends only on the control-plane signing key across gateway rotations", () => {
+    try {
+      vi.stubEnv("AUTH_SESSION_SECRET", "test-session-A");
+      vi.stubEnv("STORAGE_DIRECT_ACCESS_SECRET", "test-gateway-A");
+      const ticket = createShareDownloadTicket({ shareId: "share_1", tokenHash: "hash_a" });
+      vi.stubEnv("STORAGE_DIRECT_ACCESS_SECRET", "test-gateway-B");
+      expect(verifyShareDownloadTicket(ticket, "hash_a")).toBe("share_1");
+      vi.stubEnv("AUTH_SESSION_SECRET", "test-session-B");
+      expect(verifyShareDownloadTicket(ticket, "hash_a")).toBeNull();
+    } finally {
+      vi.unstubAllEnvs();
+    }
   });
 });
