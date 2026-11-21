@@ -40,7 +40,9 @@ export * from "./import-executors-tenancy";
 
 import { lockForTransaction } from "@/lib/concurrency/advisory-lock";
 import { prisma } from "@/lib/db";
-import type { ExportFile, ImportOptions } from "@/lib/system/config-schema";
+import { lockSettingBindings, relatedSettingKeys } from "@/lib/settings/bindings";
+import { rememberSaved } from "@/lib/settings/service";
+import { parseImportFile, type ExportFile, type ImportOptions } from "@/lib/system/config-schema";
 import type { Counts, ImportResult, Tx } from "./import-executors-helpers";
 import { ProviderDefaultBusy } from "./import-config-plan";
 import {
@@ -84,6 +86,7 @@ export async function executeImport(
 ): Promise<ImportResult> {
   // Large multi-table imports easily exceed Prisma's default 5s interactive
   // transaction timeout (P2028). Give operators a realistic window.
+  let stage: keyof ExportFile["tables"] | "validation" | "transaction" = "validation";
   const write = async (tx: Tx) => {
     const counts: Counts = { created: 0, updated: 0, skipped: 0 };
     // LOCK is a utility command and precedes the first snapshot-taking SELECT.
@@ -93,63 +96,71 @@ export async function executeImport(
     if (file.tables.aiProviders.some((row) => row.isDefault)) {
       await tx.$executeRaw`LOCK TABLE ai_providers IN SHARE ROW EXCLUSIVE MODE`;
     }
+    if (options.importSettings && relatedSettingKeys(file.tables.settings.map((row) => row.key)).size) await lockSettingBindings(tx);
     await lockForTransaction(tx, "user-admin-invariant", "global");
     // 0. Take this instance's ids for objects it already has under the same
     //    business key, and refuse references to customers that exist nowhere.
-    const t = await alignImportIds(tx, file.tables);
+    stage = "users";
+    const t = await alignImportIds(tx, file.tables, options.overwriteExisting);
+    stage = "teams";
     const missingTeams = await findMissingTeamIds(tx, t, options.overwriteExisting);
     if (missingTeams.length > 0) {
       throw new ValidationError(translate("backend.system.importMissingCustomers", { ids: missingTeams.slice(0, 5).join(", "), count: missingTeams.length }));
     }
-    // 1. Permissions
+    stage = "permissions";
     await importPermissions(tx, t, options, counts);
-    // 2. Roles
+    stage = "roles";
     await importRoles(tx, t, options, counts);
-    // 3. RolePermissions
+    stage = "rolePermissions";
     await importRolePermissions(tx, t, options, counts);
-    // 3a. Customers and identity templates
+    stage = "teams";
     await importTeams(tx, t, options, counts);
+    stage = "identityTemplates";
     await importIdentityTemplates(tx, t, options, counts);
-    // 4. Users (可选)
+    stage = "users";
     await importUsers(tx, t, options, counts, file.exportMode);
-    // 5. UserRoles
+    stage = "userRoles";
     await importUserRoles(tx, t, options, counts);
-    // 5a. Customer memberships
+    stage = "teamMembers";
     await importTeamMembers(tx, t, options, counts);
-    // 6. SshKeys
-    await importSshKeys(tx, t, options, counts);
-    // 7. Servers
+    stage = "sshKeys";
+    await importSshKeys(tx, t, options, counts, file.exportMode);
+    stage = "servers";
     await importServers(tx, t, options, counts, file.exportMode);
-    // 7a. Per-server permissions
+    stage = "userServerAccess";
     await importUserServerAccess(tx, t, options, counts);
-    // 8. StorageNodes
-    await importStorageNodes(tx, t, options, counts);
-    // 9. UserStorageAccess
+    stage = "storageNodes";
+    await importStorageNodes(tx, t, options, counts, file.exportMode);
+    stage = "userStorageAccess";
     await importUserStorageAccess(tx, t, options, counts);
-    // 10. CommandTemplates
+    stage = "commandTemplates";
     await importCommandTemplates(tx, t, options, counts);
-    // 11. QuickServices
+    stage = "quickServices";
     await importQuickServices(tx, t, options, counts, file.exportMode);
-    // 12. Playbooks
+    stage = "playbooks";
     await importPlaybooks(tx, t, options, counts, file.exportMode);
-    // 13. AlertRules
+    stage = "alertRules";
     await importAlertRules(tx, t, options, counts, file.exportMode);
-    // 14. Settings (可选)
-    await importSettings(tx, t, options, counts, file.exportMode);
-    // 15. AiProviders
-    await importAiProviders(tx, t, options, counts);
-    // 16. Announcements
+    stage = "settings";
+    const settings = await importSettings(tx, t, options, counts, file.exportMode);
+    stage = "aiProviders";
+    await importAiProviders(tx, t, options, counts, file.exportMode);
+    stage = "announcements";
     await importAnnouncements(tx, t, options, counts);
-    // 17. Snippets
+    stage = "snippets";
     await importSnippets(tx, t, options, counts);
+    stage = "users";
     await assertImportHasActiveAdmin(tx);
-    return counts;
+    return { counts, settings };
   };
 
   try {
+    file = parseImportFile(file);
+    stage = "transaction";
     for (let attempt = 1; ; attempt++) {
       try {
-        const counts = await prisma.$transaction(write, { timeout: 120_000, maxWait: 20_000, isolationLevel: "Serializable" });
+        const { counts, settings } = await prisma.$transaction(write, { timeout: 120_000, maxWait: 20_000, isolationLevel: "Serializable" });
+        rememberSaved(settings);
         return { ...counts, errors: [] };
       } catch (error) {
         if (!(error instanceof ProviderDefaultBusy) || attempt >= 3) throw error;
@@ -157,9 +168,8 @@ export async function executeImport(
         await prisma.$transaction((tx) => lockForTransaction(tx, "ai-provider-default", error.owner), { timeout: 120_000 });
       }
     }
-  } catch (err) {
-    const msg = err instanceof Error ? err.message : String(err);
+  } catch {
     const skipped = Object.values(file.tables).reduce((total, rows) => total + rows.length, 0);
-    return { created: 0, updated: 0, skipped, errors: [`Transaction failed: ${msg}`], rolledBack: true };
+    return { created: 0, updated: 0, skipped, errors: [`IMPORT_FAILED.${stage}`], rolledBack: true };
   }
 }

@@ -62,4 +62,5 @@ export async function applyFileOverlays(overlays) {
     throw error;
   }
   for (const { saved } of changes) if (saved) await fs.unlink(saved);
+  return changes.map(({ target }) => target);
 }

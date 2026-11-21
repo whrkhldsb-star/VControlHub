@@ -406,8 +406,8 @@ export function SystemConfigSection({
 
             {/* Warnings */}
             {preview.issues?.map((issue) => (
-              <Notice tone={issue.blocking ? "danger" : "warning"} compact key={issue.table + ":" + issue.id}>
-                {t(`systemConfig.import.preview.table.${issue.table}`)} · {issue.id} · {t(issue.reason)}
+              <Notice tone={issue.blocking ? "danger" : "warning"} compact key={issue.table + ":" + issue.id + ":" + issue.reason}>
+                {t(`systemConfig.import.preview.table.${issue.table}`)} · {issue.id} · {t(issue.reason, { key: issue.id })}
                 {issue.ownerMismatch && ` (${issue.ownerMismatch.incoming ?? t("monitoringPage.field.platform")} ≠ ${issue.ownerMismatch.existing ?? t("monitoringPage.field.platform")})`}
                 {issue.replacementId && ` → ${issue.replacementId}`}
               </Notice>

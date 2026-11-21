@@ -22,6 +22,7 @@ import path from "node:path";
 import { config as appConfig } from "@/lib/config/env";
 import { prisma } from "@/lib/db";
 import { createLogger } from "@/lib/logging";
+import { tryAcquireAdvisoryLock } from "@/lib/concurrency/advisory-lock";
 import { getSetting } from "@/lib/settings/service";
 import { sendEmail } from "@/lib/notification/email";
 
@@ -29,7 +30,7 @@ import { S3Client, S3Error, type S3ClientConfig } from "@/lib/storage/offsite/s3
 import { loadOffsiteConfig, validateOffsiteConfigForUse } from "@/lib/storage/offsite/schema";
 
 import { compressBuffer, compressFileToGz } from "./compress";
-import { resolveBackupPath } from "./service-types";
+import { resolveBackupPath, PLATFORM_RECEIPT_PREFIX, platformOffsiteDestination } from "./service-types";
 
 const logger = createLogger("backup-offsite-uploader");
 
@@ -71,7 +72,7 @@ export type OffsiteUploadResult =
 	| {
 			ok: true;
 			skipped: true;
-			reason: "offsite_disabled" | "backup_not_completed" | "offsite_expired";
+			reason: "offsite_disabled" | "backup_not_completed" | "offsite_expired" | "already_uploaded" | "backup_busy";
 	  }
 	| {
 			ok: false;
@@ -84,7 +85,7 @@ export type OffsiteUploadResult =
  * 把指定 backup 推到 offsite S3 (best-effort)。
  * 不抛 — 返 OffsiteUploadResult 让 caller 决定怎么处理。
  */
-export async function uploadBackupToOffsite(input: {
+type PlatformUpload = {
 	backupId: string;
 	projectRoot?: string;
 	/**
@@ -93,7 +94,22 @@ export async function uploadBackupToOffsite(input: {
 	 * sweep meant one email per pending backup per attempt.
 	 */
 	alert?: boolean;
-}): Promise<OffsiteUploadResult> {
+};
+
+export async function uploadBackupToOffsite(input: PlatformUpload): Promise<OffsiteUploadResult> {
+	let release;
+	try {
+		release = await tryAcquireAdvisoryLock("platform-backup-artifact", input.backupId);
+		if (!release) return { ok: true, skipped: true, reason: "backup_busy" };
+		return await uploadLocked(input);
+	} catch {
+		return { ok: false, skipped: false, code: "UploadError", error: "Offsite upload failed" };
+	} finally {
+		await release?.();
+	}
+}
+
+async function uploadLocked(input: PlatformUpload): Promise<OffsiteUploadResult> {
 	const projectRoot = input.projectRoot || appConfig.app.appDir || process.cwd();
 	const alertOn = input.alert !== false;
 	// Load the record first so every actionable failure can be persisted.
@@ -105,7 +121,8 @@ export async function uploadBackupToOffsite(input: {
 		return { ok: true, skipped: true, reason: "backup_not_completed" };
 	}
 
-	if (!record.offsiteKey && record.offsiteSize != null) {
+	if (record.offsiteKey) return { ok: true, skipped: true, reason: "already_uploaded" };
+	if (record.offsiteSize != null) {
 		return { ok: true, skipped: true, reason: "offsite_expired" };
 	}
 
@@ -238,22 +255,25 @@ export async function uploadBackupToOffsite(input: {
 		secretAccessKey: config.secretAccessKey,
 		timeoutMs: 30 * 60 * 1000,
 	};
-	const client = new S3Client(clientConfig);
 	try {
-		const { etag } = uploadPath
+		const client = new S3Client(clientConfig);
+		const { etag, versionId } = uploadPath
 			? await client.putFile(key, uploadPath, contentType, compressed ? undefined : record.checksumSha256)
 			: await client.putObject(key, body!, contentType);
 		// 7. 写 DB
 		const uploadedAt = new Date();
-		await prisma.backupRecord.update({
-			where: { id: record.id },
+		const receiptKey = PLATFORM_RECEIPT_PREFIX + record.id;
+		const receipt = JSON.stringify({ destination: platformOffsiteDestination(config), key, versionId: versionId ?? null, type: record.type, uploadedAt });
+		await prisma.$transaction([prisma.setting.upsert({ where: { key: receiptKey }, create: { key: receiptKey, value: receipt }, update: { value: receipt } }),
+			prisma.backupRecord.update({
+			where: { id: record.id, status: "COMPLETED", offsiteKey: null, offsiteSize: null },
 			data: {
 				offsiteKey: key,
 				offsiteUploadedAt: uploadedAt,
 				offsiteSize: String(compressedSize),
 				errorMessage: null,
 			},
-		});
+		})]);
 		logger.info("offsite upload ok", {
 			backupId: record.id,
 			key,

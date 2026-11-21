@@ -215,6 +215,9 @@ describe("dispatchDueVpsBackupSchedules overlap guard", () => {
   const dueSchedule = {
     id: "schedule-1",
     serverId: "server-1",
+    createdById: "owner-1",
+    updatedAt: new Date("2019-12-31T00:00:00Z"),
+    paths: [],
     name: "Nightly",
     backupType: "nginx-config",
     cronExpression: "0 3 * * *",
@@ -258,7 +261,11 @@ describe("dispatchDueVpsBackupSchedules overlap guard", () => {
     expect(dispatched).toBe(0);
     const retry = prismaMock.vpsBackupSchedule.updateMany.mock.calls.at(-1)![0];
     // Compare-and-set on the occurrence we read: never overwrites another worker's claim.
-    expect(retry.where).toEqual({ id: "schedule-1", status: "ACTIVE", nextRunAt: dueSchedule.nextRunAt });
+    expect(retry.where).toEqual({
+      id: dueSchedule.id, status: "ACTIVE", nextRunAt: dueSchedule.nextRunAt, updatedAt: dueSchedule.updatedAt,
+      backupType: dueSchedule.backupType, cronExpression: dueSchedule.cronExpression, createdById: dueSchedule.createdById,
+      serverId: dueSchedule.serverId, name: dueSchedule.name, paths: { equals: dueSchedule.paths },
+    });
     expect(retry.data.lastResult).toBe("DISPATCH_FAILED: connection reset");
     expect(retry.data.nextRunAt.getTime()).toBeLessThanOrEqual(before + 5 * 60_000 + 1_000);
     expect(prismaMock.vpsBackupSchedule.update).not.toHaveBeenCalledWith(expect.objectContaining({ data: expect.objectContaining({ lastResult: expect.stringContaining("DISPATCH_FAILED") }) }));

@@ -18,10 +18,12 @@ import { resolveLocalTarBinary } from "@/lib/runtime/tar-binary";
  *    via the existing restore pipeline.
  */
 import { randomUUID } from "node:crypto";
-import { constants as fsConstants } from "node:fs";
+import { createReadStream } from "node:fs";
+import { pipeline } from "node:stream/promises";
 import {
   access,
-  copyFile,
+  open,
+  chmod,
   lstat,
   mkdir,
   mkdtemp,
@@ -112,6 +114,19 @@ type MigrationSession = Pick<SessionPayload, "userId" | "roles" | "currentTeamId
 
 function projectRoot(): string {
   return config.app.appDir || process.cwd();
+}
+
+async function copyPrivateArtifact(source: string, destination: string) {
+  const handle = await open(destination, "wx", 0o600);
+  try {
+    await pipeline(createReadStream(source), handle.createWriteStream());
+  } catch (error) {
+    await handle.close();
+    await rm(destination, { force: true });
+    throw error;
+  } finally {
+    await handle.close();
+  }
 }
 
 function packagesRoot(root = projectRoot()): string {
@@ -221,7 +236,7 @@ export async function resolveMigrationPackageDir(
     }).catch(async () => {
       // BusyBox/older tar may not support --restrict; fall back then verify members.
       await rm(extractDir, { recursive: true, force: true });
-      await mkdir(extractDir, { recursive: true });
+      await mkdir(extractDir, { recursive: true, mode: 0o700 });
       await runFile(
       resolveLocalTarBinary(), ["-xzf", candidate, "-C", extractDir, "--no-same-owner", "--no-same-permissions"], {
         timeout: 120_000,
@@ -255,26 +270,14 @@ export async function resolveMigrationPackageDir(
   }
   try {
     await assertNoEscape(extractDir, resolve(extractDir));
+    const entries = await readdir(extractDir);
+    const only = entries.length === 1 ? join(extractDir, entries[0]!) : null;
+    const packageDir = only && (await stat(only)).isDirectory() ? only : extractDir;
+    return { packageDir, cleanup: () => rm(extractDir, { recursive: true, force: true }) };
   } catch (error) {
-    await rm(extractDir, { recursive: true, force: true }).catch(() => undefined);
+    await rm(extractDir, { recursive: true, force: true });
     throw error;
   }
-
-  // If archive contains a single top-level dir, use it
-  const entries = await readdir(extractDir);
-  let packageDir = extractDir;
-  if (entries.length === 1) {
-    const only = join(extractDir, entries[0]!);
-    const onlyStat = await stat(only);
-    if (onlyStat.isDirectory()) packageDir = only;
-  }
-
-  return {
-    packageDir,
-    cleanup: async () => {
-      await rm(extractDir, { recursive: true, force: true }).catch(() => undefined);
-    },
-  };
 }
 
 export async function readMigrationManifest(packageDir: string): Promise<MigrationManifest> {
@@ -331,71 +334,68 @@ export async function validateMigrationPackage(
   session?: MigrationSession | null,
 ): Promise<MigrationValidateResult & { cleanup?: () => Promise<void> }> {
   const resolved = await resolveMigrationPackageDir(packageRef, root);
-  const issues: string[] = [];
-  let manifest: MigrationManifest;
   try {
-    manifest = await readMigrationManifest(resolved.packageDir);
+    const issues: string[] = [];
+    const manifest = await readMigrationManifest(resolved.packageDir);
     assertMigrationTeamAccess(manifest, session);
+    const payloadAbsolutePath = resolve(resolved.packageDir, manifest.backup.payloadFileName);
+    const payloadRelativePath = relative(resolve(resolved.packageDir), payloadAbsolutePath);
+    if (
+      payloadRelativePath.startsWith("..") ||
+      payloadRelativePath === ".." ||
+      resolve(resolved.packageDir, payloadRelativePath) !== payloadAbsolutePath
+    ) {
+      throw new ValidationError(t("backend.backup.packageOutsideRoot"));
+    }
+    try {
+      const payloadInfo = await lstat(payloadAbsolutePath);
+      if (payloadInfo.isFile()) await assertRealPath(payloadAbsolutePath);
+      if (!payloadInfo.isFile()) {
+        issues.push(`payload is not a regular file: ${manifest.backup.payloadFileName}`);
+      }
+    } catch {
+      issues.push(`payload missing: ${manifest.backup.payloadFileName}`);
+    }
+
+    let checksumMatches = false;
+    let sizeMatches = false;
+    if (issues.length === 0) {
+      const info = await stat(payloadAbsolutePath);
+      sizeMatches = info.size === manifest.backup.fileSize;
+      if (!sizeMatches) {
+        issues.push(
+          `payload size mismatch: expected ${manifest.backup.fileSize}, got ${info.size}`,
+        );
+      }
+      const digest = await sha256File(payloadAbsolutePath);
+      checksumMatches = digest.toLowerCase() === manifest.backup.checksumSha256.toLowerCase();
+      if (!checksumMatches) {
+        issues.push("payload sha256 does not match manifest");
+      }
+    }
+
+    if (!issues.length) {
+      try {
+        await verifyBackupPayload(manifest.backup.type, payloadAbsolutePath);
+      } catch (error) {
+        issues.push(error instanceof Error ? error.message : String(error));
+      }
+    }
+
+    return {
+      ok: issues.length === 0,
+      packageDir: resolved.packageDir,
+      manifest,
+      payloadAbsolutePath,
+      checksumMatches,
+      sizeMatches,
+      issues,
+      cleanup: resolved.cleanup,
+    };
   } catch (error) {
-    if (resolved.cleanup) await resolved.cleanup();
+    await resolved.cleanup?.();
     throw error;
   }
-
-  const payloadAbsolutePath = resolve(resolved.packageDir, manifest.backup.payloadFileName);
-  const payloadRelativePath = relative(resolve(resolved.packageDir), payloadAbsolutePath);
-  if (
-    payloadRelativePath.startsWith("..") ||
-    payloadRelativePath === ".." ||
-    resolve(resolved.packageDir, payloadRelativePath) !== payloadAbsolutePath
-  ) {
-    if (resolved.cleanup) await resolved.cleanup();
-    throw new ValidationError(t("backend.backup.packageOutsideRoot"));
-  }
-  try {
-    const payloadInfo = await lstat(payloadAbsolutePath);
-    if (payloadInfo.isFile()) await assertRealPath(payloadAbsolutePath);
-    if (!payloadInfo.isFile()) {
-      issues.push(`payload is not a regular file: ${manifest.backup.payloadFileName}`);
-    }
-  } catch {
-    issues.push(`payload missing: ${manifest.backup.payloadFileName}`);
-  }
-
-  let checksumMatches = false;
-  let sizeMatches = false;
-  if (issues.length === 0) {
-    const info = await stat(payloadAbsolutePath);
-    sizeMatches = info.size === manifest.backup.fileSize;
-    if (!sizeMatches) {
-      issues.push(
-        `payload size mismatch: expected ${manifest.backup.fileSize}, got ${info.size}`,
-      );
-    }
-    const digest = await sha256File(payloadAbsolutePath);
-    checksumMatches = digest.toLowerCase() === manifest.backup.checksumSha256.toLowerCase();
-    if (!checksumMatches) {
-      issues.push("payload sha256 does not match manifest");
-    }
-  }
-
-  if (!issues.length) {
-    try {
-      await verifyBackupPayload(manifest.backup.type, payloadAbsolutePath);
-    } catch (error) {
-      issues.push(error instanceof Error ? error.message : String(error));
-    }
-  }
-
-  return {
-    ok: issues.length === 0,
-    packageDir: resolved.packageDir,
-    manifest,
-    payloadAbsolutePath,
-    checksumMatches,
-    sizeMatches,
-    issues,
-    cleanup: resolved.cleanup,
-  };
 }
 
 export async function exportMigrationPackage(input: {
@@ -436,7 +436,7 @@ export async function exportMigrationPackage(input: {
   let manifest: MigrationManifest;
   try {
     const payload = join(staging, payloadFileName);
-    await copyFile(sourcePath, payload);
+    await copyPrivateArtifact(sourcePath, payload);
     const checksum = await sha256File(payload);
     if (record.checksumSha256 && checksum !== record.checksumSha256.toLowerCase()) {
       throw new BusinessError(t("backend.backup.checksumMismatch"));
@@ -479,24 +479,29 @@ export async function exportMigrationPackage(input: {
   const tarRelative = `${packageRelativeDir}.tar.gz`;
   const tarAbsolute = join(getBackupStorageRoot(root), tarRelative);
   let tarballRelativePath: string | null = null;
-  const tarTemporary = `${tarAbsolute}.partial`;
+  let privateDir: string | undefined;
   try {
+    privateDir = await mkdtemp(join(dirname(tarAbsolute), ".archive-"));
+    const tarTemporary = join(privateDir, "package.tar.gz");
+    await writeFile(tarTemporary, "", { flag: "wx", mode: 0o600 });
     await runFile(
       resolveLocalTarBinary(),
       ["-czf", tarTemporary, "-C", dirname(absoluteDir), basename(absoluteDir)],
       { timeout: 180_000, maxBuffer: 2 * 1024 * 1024 },
     );
+    await chmod(tarTemporary, 0o600);
     await rename(tarTemporary, tarAbsolute);
     tarballRelativePath = tarRelative;
   } catch (error) {
     // A tar stopped by the time limit (or a full disk) leaves the beginning of
     // an archive behind. Listed as the package's tarball, it was what an
     // operator copied to the other host, where it failed to extract.
-    await rm(tarTemporary, { force: true }).catch(() => undefined);
     logger.warn("migration package tarball creation failed (directory package still valid)", {
       packageId,
       error: error instanceof Error ? error.message : String(error),
     });
+  } finally {
+    if (privateDir) await rm(privateDir, { recursive: true, force: true });
   }
 
   logger.info("migration package exported", {
@@ -545,7 +550,7 @@ export async function importMigrationPackage(input: {
       await mkdir(dirname(destAbsolute), { recursive: true });
       await assertRealPath(dirname(destAbsolute));
       try {
-        await copyFile(payloadAbsolutePath, destAbsolute, fsConstants.COPYFILE_EXCL);
+        await copyPrivateArtifact(payloadAbsolutePath, destAbsolute);
         break;
       } catch (error) {
         if ((error as NodeJS.ErrnoException).code !== "EEXIST" || attempt >= 3) throw error;

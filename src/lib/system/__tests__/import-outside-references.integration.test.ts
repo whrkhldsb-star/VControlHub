@@ -6,6 +6,7 @@ import { prisma } from "@/lib/db";
 import { closeAdvisoryLockPoolForTests } from "@/lib/concurrency/advisory-lock";
 import { exportFileSchema, type ExportFile } from "../config-schema";
 import { buildExportFile } from "../export-service";
+import { sshFixture } from "./ssh-fixture";
 import { createImportAdmin } from "./import-admin-fixture";
 import { executeImport } from "../import-executors";
 import { previewImport } from "../import-preview";
@@ -36,8 +37,8 @@ describe.skipIf(process.env.RUN_DATABASE_INTEGRATION_TESTS !== "1")("config impo
 		}
 		// ── The source instance ──
 		await prisma.team.createMany({ data: [{ id: `${p}-team-a`, slug: `${p}-a`, name: "A" }, { id: `${p}-team-b`, slug: `${p}-b`, name: "B" }] });
-		await prisma.sshKey.create({ data: { id: `${p}-key-a`, name: "a-deploy", fingerprint: `SHA256:${p}-a`, publicKey: "ssh-ed25519 AAAA", privateKey: "enc:key", teamId: `${p}-team-a` } });
-		await prisma.sshKey.create({ data: { id: `${p}-key-b`, name: "b-deploy", fingerprint: `SHA256:${p}-b`, publicKey: "ssh-ed25519 BBBB", privateKey: "enc:key", teamId: `${p}-team-b` } });
+		await prisma.sshKey.create({ data: { id: `${p}-key-a`, name: "a-deploy", ...sshFixture(), teamId: `${p}-team-a` } });
+		await prisma.sshKey.create({ data: { id: `${p}-key-b`, name: "b-deploy", ...sshFixture(), teamId: `${p}-team-b` } });
 		await prisma.server.create({ data: { id: `${p}-host-a`, name: `${p}-host-a`, host: `${p}-a.test`, username: "root", teamId: `${p}-team-a`, connectionType: "PASSWORD" } });
 		// Transferred from A: the customer changed, the key did not.
 		await prisma.server.create({ data: { id: `${p}-moved`, name: `${p}-moved`, host: `${p}-moved.test`, username: "root", teamId: `${p}-team-b`, connectionType: "SSH_KEY", sshKeyId: `${p}-key-a` } });

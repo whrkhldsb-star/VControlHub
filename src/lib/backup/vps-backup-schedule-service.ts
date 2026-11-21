@@ -213,6 +213,11 @@ export async function dispatchDueVpsBackupSchedules(): Promise<number> {
 
 	let dispatched = 0;
 	for (const schedule of due) {
+		const occurrence = {
+			id: schedule.id, updatedAt: schedule.updatedAt, status: "ACTIVE" as const, nextRunAt: schedule.nextRunAt,
+			createdById: schedule.createdById, backupType: schedule.backupType, cronExpression: schedule.cronExpression,
+			paths: { equals: schedule.paths }, name: schedule.name, serverId: schedule.serverId,
+		};
 		try {
 			// Claim the occurrence, create the record and enqueue the job in one
 			// transaction. The claim is a compare-and-set that moves nextRunAt to
@@ -222,7 +227,7 @@ export async function dispatchDueVpsBackupSchedules(): Promise<number> {
 			// schedule for good.)
 			const outcome = await prisma.$transaction(async (tx) => {
 				const claimed = await tx.vpsBackupSchedule.updateMany({
-					where: { id: schedule.id, status: "ACTIVE", nextRunAt: schedule.nextRunAt },
+					where: occurrence,
 					data: { nextRunAt: computeNextRun(schedule.cronExpression) },
 				});
 				if (claimed.count === 0) return "claimed-elsewhere" as const;
@@ -297,7 +302,7 @@ export async function dispatchDueVpsBackupSchedules(): Promise<number> {
 			try {
 				const retryAt = new Date(Math.min(Date.now() + VPS_DISPATCH_RETRY_MS, computeNextRun(schedule.cronExpression).getTime()));
 				await prisma.vpsBackupSchedule.updateMany({
-					where: { id: schedule.id, status: "ACTIVE", nextRunAt: schedule.nextRunAt },
+					where: occurrence,
 					data: {
 						nextRunAt: retryAt,
 						lastResult: `DISPATCH_FAILED: ${errMsg}`.slice(0, 500),

@@ -69,7 +69,10 @@ describe("non-destructive backup drill", () => {
     try {
       await writeFile(path.join(root, "file.txt"), "fixture");
       const tar = (member: string) => execFileSync("tar", ["-czf", "-", "-C", root, member]);
-      const valid = await drill("FILES", "files.tar.gz", tar("file.txt"));
+      await expect(drill("FILES", "unknown.tar.gz", tar("file.txt"))).rejects.toThrow("unrecognized installation member");
+      await mkdir(path.join(root, "storage"));
+      await writeFile(path.join(root, "storage", "file.txt"), "fixture");
+      const valid = await drill("FILES", "files.tar.gz", tar("storage"));
       expect(valid.checks.map((c) => c.name)).toEqual(["artifact", "sha256", "gzip", "archive-index"]);
       const incomplete = gzipSync("-- PostgreSQL database dump\n");
       await expect(drill("DATABASE", "bad.sql.gz", incomplete)).rejects.toThrow("completion marker");

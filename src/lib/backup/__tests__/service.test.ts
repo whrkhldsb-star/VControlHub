@@ -177,11 +177,11 @@ describe("backup service", () => {
     expect(toPosix(call.args.at(-1) ?? "")).toMatch(/^\/var\/backups\/vcontrolhub\/backups\/full-.*\.tar\.gz$/);
     expect(call.options).toEqual(expect.objectContaining({ cwd: "/opt/app", env: expect.objectContaining({ APP_DIR: "/opt/app" }) }));
     expect(mockPrisma.backupRecord.updateMany).toHaveBeenCalledWith({
-      where: { id: "bak1", status: "PENDING" },
+      where: { id: "bak1", status: "PENDING", filePath: expect.any(String), updatedAt: undefined },
       data: { status: "RUNNING", errorMessage: null },
     });
     expect(mockPrisma.backupRecord.update).toHaveBeenCalledWith({
-      where: { id: "bak1" },
+      where: { id: "bak1", status: "RUNNING", filePath: expect.any(String) },
       data: expect.objectContaining({ status: "COMPLETED", fileSize: "1234", errorMessage: null, checksumSha256: expect.stringMatching(/^[a-f0-9]{64}$/) }),
     });
     expect(record.status).toBe("COMPLETED");
@@ -325,8 +325,9 @@ describe("backup service", () => {
     expect(record.errorMessage).toBeNull();
     expect(mockPrisma.backupRecord.updateMany).toHaveBeenCalledWith({
       where: { id: "bak-failed", status: "FAILED", updatedAt: current.updatedAt },
-      data: { status: "PENDING", errorMessage: null },
+      data: { status: "PENDING", errorMessage: null, filePath: expect.stringMatching(/\.sql\.gz$/) },
     });
+    expect(record.filePath).not.toBe("backups/failed.sql.gz");
   });
 
   it("refuses unsafe backup retry states and paths", async () => {
