@@ -26,11 +26,9 @@ vi.mock("@/lib/ai/service", () => ({
 vi.mock("@/lib/ai/knowledge", () => ({
   buildKnowledgeContextForPrompt: mocks.buildKnowledgeContextForPrompt,
 }));
-vi.mock("@/lib/ai/hosted-tools", () => ({
+vi.mock("@/lib/ai/hosted-tools", async (importOriginal) => ({
+  ...await importOriginal<typeof import("../hosted-tools")>(),
   getOpenAIToolsFormat: mocks.getOpenAIToolsFormat,
-  // The real rule: plan-only conversations may run the auto-approved tools and schedule, nothing that changes.
-  toolAvailableInMode: (tool: { autoApproved: boolean; actionType: string }, mode: string) =>
-    mode !== "PLAN_ONLY" || tool.autoApproved || tool.actionType === "create_automation_task",
 }));
 vi.mock("@/lib/ai/hosted-service", () => ({
   createHostedAction: mocks.createHostedAction,
@@ -483,6 +481,39 @@ describe("createAiChatResponse", () => {
     });
     expect(mocks.executeSafeAction).not.toHaveBeenCalled();
     expect(mocks.prisma.$transaction).not.toHaveBeenCalled();
+  });
+
+  it("answers an in-flight change call without a card when the conversation switches to plan-only", async () => {
+    const hosted = await vi.importActual<typeof import("../hosted-service")>("../hosted-service");
+    mocks.parseToolCall.mockImplementationOnce(hosted.parseToolCall);
+    mocks.createHostedAction.mockImplementationOnce(hosted.createHostedAction);
+    let automationMode = "ASSISTED";
+    mocks.getConversationById.mockResolvedValueOnce({ ...conversation, hostingEnabled: true, automationMode });
+    const tx = {
+      $queryRaw: vi.fn(async () => [{ automationMode }]),
+      aiHostedAction: { create: vi.fn() },
+    };
+    mocks.prisma.$transaction.mockImplementationOnce((write) => write(tx));
+    const providerStream = new TransformStream();
+    mocks.sendChatRequest.mockResolvedValueOnce({
+      response: new Response(providerStream.readable), providerType: "OPENAI", startTime: Date.now(),
+    });
+    const response = await createAiChatResponse({ body: { conversationId: conversation.id, content: "pause task" }, session, locale: "en" });
+    automationMode = "PLAN_ONLY";
+    const writer = providerStream.writable.getWriter();
+    const call = { index: 0, id: "late_call", function: { name: "manage_cron", arguments: '{"action":"pause","taskId":"task"}' } };
+    await writer.write(new TextEncoder().encode(`data: ${JSON.stringify({ choices: [{ delta: { tool_calls: [call] } }] })}\n\ndata: [DONE]\n\n`));
+    writer.releaseLock();
+    const body = await response.text();
+
+    expect(tx.$queryRaw).toHaveBeenCalledWith(expect.any(Array), conversation.id);
+    expect(tx.aiHostedAction.create).not.toHaveBeenCalled();
+    expect(mocks.executeSafeAction).not.toHaveBeenCalled();
+    expect(body).not.toContain('"type":"tool_call"');
+    expect(body).not.toContain('"type":"tool_approval_needed"');
+    expect(mocks.prisma.aiMessage.create).toHaveBeenCalledWith({
+      data: expect.objectContaining({ role: "tool", toolCallId: "late_call", content: expect.stringMatching(/plan-only|方案模式/) }),
+    });
   });
 });
 

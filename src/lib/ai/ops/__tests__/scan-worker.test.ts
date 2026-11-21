@@ -166,6 +166,7 @@ vi.mock("@/lib/db", () => ({
 }));
 
 import {
+  AI_OPS_SCAN_LEASE_MS,
   millisecondsUntilNextLocalHour,
   runAiOpsScanWorkerOnce,
   startAiOpsScanWorker,
@@ -173,6 +174,7 @@ import {
 } from "../scan-worker";
 import { APP_TIME_ZONE } from "@/lib/datetime/time-zone";
 import { prisma } from "@/lib/db";
+import { evaluateAlerts } from "@/lib/health/service-alerts";
 
 describe("millisecondsUntilNextLocalHour", () => {
   // APP_TIME_ZONE is Asia/Shanghai (UTC+8, no DST) — 02:00 wall clock is
@@ -212,7 +214,7 @@ beforeEach(() => {
     payload: { reason: "manual", requestedAt: new Date().toISOString() },
   });
   jobMocks.heartbeatJob.mockReset();
-  jobMocks.heartbeatJob.mockResolvedValue(undefined);
+  jobMocks.heartbeatJob.mockResolvedValue({ count: 1 });
   jobMocks.completeJob.mockReset();
   jobMocks.completeJob.mockResolvedValue(undefined);
   jobMocks.failJob.mockReset();
@@ -365,6 +367,7 @@ describe("runAiOpsScanWorkerOnce", () => {
         stream: false,
       }),
       "admin-1",
+      expect.any(AbortSignal),
     );
     const completedLog = jobMocks.completeJob.mock.calls[0]?.[2] as {
       logId?: string;
@@ -440,6 +443,98 @@ describe("runAiOpsScanWorkerOnce", () => {
     expect(data.providerHealth).toMatchObject({ state: "unavailable", failureKind: "configuration" });
     expect(data.findings).toEqual(expect.arrayContaining([expect.objectContaining({ source: "ai.provider" }), expect.objectContaining({ source: expect.stringContaining("backup") })]));
     expect(data.actions).toEqual(expect.arrayContaining([expect.objectContaining({ executed: false })]));
+  });
+
+  describe("autonomous action dispatch", () => {
+    const analysis = {
+      providerType: "OPENAI_COMPATIBLE",
+      response: { json: async () => ({ choices: [{ message: { content: "Review the failed backup." } }] }) },
+    };
+
+    beforeEach(() => {
+      getSettingMock.mockImplementation(async (key: string) => key === "ai.ops.provider" ? "provider-1" : "autonomous");
+      providerFindFirstMock.mockResolvedValue({ id: "provider-1", createdBy: "admin-1", defaultModel: "ops-model" });
+      backupFailureCountMock.mockResolvedValue(1);
+      vi.mocked(evaluateAlerts).mockClear();
+    });
+
+    it.each([
+      { mode: "recommendation", executions: 0 },
+      { mode: "autonomous", executions: 1 },
+    ])("uses the persisted $mode mode after provider analysis", async ({ mode, executions }) => {
+      const reply = Promise.withResolvers<typeof analysis>();
+      sendChatRequestMock.mockReturnValue(reply.promise);
+      const scan = runAiOpsScanWorkerOnce("manual");
+      await vi.waitFor(() => expect(sendChatRequestMock).toHaveBeenCalledOnce());
+      getSettingMock.mockResolvedValue(mode);
+      reply.resolve(analysis);
+      await scan;
+
+      expect(evaluateAlerts).toHaveBeenCalledTimes(executions);
+      const data = vi.mocked(prisma.aiOpsLog.update).mock.calls.at(-1)![0].data;
+      expect(data.findings).toEqual([expect.objectContaining({ id: "backup.failure" })]);
+      expect(data.notes).toContain("Review the failed backup.");
+      expect(data.actions).toEqual([expect.objectContaining({ action: "alert.evaluate", executed: executions === 1 })]);
+    });
+
+    it.each(["returns an analysis", "rejects the request"])("keeps diagnostics when the lease expires and the provider %s", async (outcome) => {
+      vi.useFakeTimers();
+      jobMocks.heartbeatJob.mockResolvedValueOnce({ count: 1 }).mockResolvedValue({ count: 0 });
+      const reply = Promise.withResolvers<typeof analysis>();
+      sendChatRequestMock.mockReturnValue(reply.promise);
+      const scan = runAiOpsScanWorkerOnce("manual");
+      await vi.advanceTimersByTimeAsync(0);
+      const signal = sendChatRequestMock.mock.calls[0]![2] as AbortSignal;
+      expect(signal.aborted).toBe(false);
+      await vi.advanceTimersByTimeAsync(AI_OPS_SCAN_LEASE_MS);
+      expect(signal.aborted).toBe(true);
+      if (outcome === "returns an analysis") reply.resolve(analysis);
+      else reply.reject(signal.reason);
+      await scan;
+
+      expect(evaluateAlerts).not.toHaveBeenCalled();
+      expect(jobMocks.completeJob).not.toHaveBeenCalled();
+      expect(jobMocks.failJob).not.toHaveBeenCalled();
+      const data = vi.mocked(prisma.aiOpsLog.update).mock.calls.at(-1)![0].data;
+      expect(data.findings).toEqual([expect.objectContaining({ id: "backup.failure" })]);
+      expect(data.actions).toEqual([expect.objectContaining({ action: "alert.evaluate", executed: false, result: expect.stringContaining("lease") })]);
+      if (outcome === "returns an analysis") expect(data.notes).toContain("Review the failed backup.");
+      else expect(data.providerHealth).toBeUndefined();
+    });
+
+    it("stops before scanning if the first heartbeat already lost the lease", async () => {
+      jobMocks.heartbeatJob.mockResolvedValueOnce({ count: 0 });
+      await runAiOpsScanWorkerOnce("manual");
+      expect(sendChatRequestMock).not.toHaveBeenCalled();
+      expect(evaluateAlerts).not.toHaveBeenCalled();
+      expect(jobMocks.completeJob).not.toHaveBeenCalled();
+      expect(jobMocks.failJob).not.toHaveBeenCalled();
+    });
+
+    it("checks the lease again when the dispatch mode read returns autonomous", async () => {
+      vi.useFakeTimers();
+      jobMocks.heartbeatJob.mockResolvedValueOnce({ count: 1 }).mockResolvedValue({ count: 0 });
+      const mode = Promise.withResolvers<string>();
+      const readDispatchMode = vi.fn(() => mode.promise);
+      sendChatRequestMock.mockImplementationOnce(async () => {
+        getSettingMock.mockImplementation(readDispatchMode);
+        return analysis;
+      });
+      const scan = runAiOpsScanWorkerOnce("manual");
+      await vi.advanceTimersByTimeAsync(0);
+      expect(readDispatchMode).toHaveBeenCalledWith("ai.ops.mode");
+      const signal = sendChatRequestMock.mock.calls[0]![2] as AbortSignal;
+      expect(signal.aborted).toBe(false);
+      await vi.advanceTimersByTimeAsync(AI_OPS_SCAN_LEASE_MS);
+      expect(signal.aborted).toBe(true);
+      mode.resolve("autonomous");
+      await scan;
+
+      expect(evaluateAlerts).not.toHaveBeenCalled();
+      const data = vi.mocked(prisma.aiOpsLog.update).mock.calls.at(-1)![0].data;
+      expect(data.notes).toContain("Review the failed backup.");
+      expect(data.actions).toEqual([expect.objectContaining({ executed: false, result: expect.stringContaining("lease") })]);
+    });
   });
 
   it("honours persisted provider cooldowns for scheduled scans and allows a manual retry", async () => {
