@@ -1,31 +1,22 @@
 import { beforeEach, describe, expect, it, vi } from "vitest";
 
-const { jobMocks, fanOutMock } = vi.hoisted(() => ({
+const { jobMocks, deliveryMock } = vi.hoisted(() => ({
   jobMocks: {
     claimNextJob: vi.fn(),
     heartbeatJob: vi.fn(),
     completeJob: vi.fn(),
     failJob: vi.fn(),
   },
-  fanOutMock: vi.fn(),
+  deliveryMock: vi.fn(),
 }));
 
 vi.mock("@/lib/job/service", () => jobMocks);
-vi.mock("../service-outbound", () => ({ fanOutTicketEvent: fanOutMock }));
+vi.mock("../service-outbound", () => ({ deliverQueuedEvent: deliveryMock }));
 
 const { runItsmOutboundWorkerOnce, stopItsmOutboundWorkerForTests } =
   await import("../outbound-worker");
 
-const validPayload = {
-  ticketId: "ticket-1",
-  eventType: "ticket.updated",
-  title: "Database alert",
-  description: "Connection saturation",
-  status: "OPEN",
-  priority: "HIGH",
-  category: "database",
-  teamId: "team-1",
-};
+const validPayload = { eventId: "event-1" };
 
 describe("ITSM outbound worker", () => {
   beforeEach(() => {
@@ -35,17 +26,13 @@ describe("ITSM outbound worker", () => {
     jobMocks.heartbeatJob.mockResolvedValue({ count: 1 });
     jobMocks.completeJob.mockResolvedValue({ count: 1 });
     jobMocks.failJob.mockResolvedValue({ count: 1 });
-    fanOutMock.mockResolvedValue({ sent: 2, failed: 0 });
+    deliveryMock.mockResolvedValue({ sent: 2, failed: 0 });
   });
 
   it("completes a durable job after all connections accept the event", async () => {
     await expect(runItsmOutboundWorkerOnce()).resolves.toBe(true);
 
-    expect(fanOutMock).toHaveBeenCalledWith({
-      ...validPayload,
-      commentBody: undefined,
-      deliveryKey: "job-1",
-    });
+    expect(deliveryMock).toHaveBeenCalledWith("event-1");
     expect(jobMocks.completeJob).toHaveBeenCalledWith(
       "job-1",
       expect.stringContaining(":itsm-outbound:"),
@@ -55,7 +42,7 @@ describe("ITSM outbound worker", () => {
   });
 
   it("retries when any connection fails and does not mark the job complete", async () => {
-    fanOutMock.mockResolvedValue({ sent: 1, failed: 1 });
+    deliveryMock.mockResolvedValue({ sent: 1, failed: 1 });
 
     await expect(runItsmOutboundWorkerOnce()).resolves.toBe(true);
 
@@ -73,7 +60,7 @@ describe("ITSM outbound worker", () => {
 
     await expect(runItsmOutboundWorkerOnce()).resolves.toBe(true);
 
-    expect(fanOutMock).not.toHaveBeenCalled();
+    expect(deliveryMock).not.toHaveBeenCalled();
     expect(jobMocks.failJob).toHaveBeenCalledWith(
       "job-2",
       expect.stringContaining(":itsm-outbound:"),
@@ -85,6 +72,6 @@ describe("ITSM outbound worker", () => {
   it("returns false when no outbound job is ready", async () => {
     jobMocks.claimNextJob.mockResolvedValue(null);
     await expect(runItsmOutboundWorkerOnce()).resolves.toBe(false);
-    expect(fanOutMock).not.toHaveBeenCalled();
+    expect(deliveryMock).not.toHaveBeenCalled();
   });
 });

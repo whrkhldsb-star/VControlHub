@@ -4,9 +4,10 @@ import { computeLeaseMs } from "@/lib/job/lease";
 import { claimNextJob, completeJob, failJob, heartbeatJob } from "@/lib/job/service";
 import { createLogger } from "@/lib/logging";
 import { createSingletonIntervalWorker } from "@/lib/workers/singleton-interval-worker";
-import { fanOutTicketEvent } from "./service-outbound";
+import { deliverQueuedEvent } from "./service-outbound";
 
-export const ITSM_OUTBOUND_JOB_TYPE = "itsm.outbound";
+import { adoptLegacyTicketJobs, ITSM_OUTBOUND_JOB_TYPE, readTicketSnapshot } from "./outbox";
+export { ITSM_OUTBOUND_JOB_TYPE };
 const INTERVAL_MS = 5_000;
 const LEASE_MS = computeLeaseMs("itsm-outbound");
 const WORKER_ID = `${config.app.hostname || "vcontrolhub"}:itsm-outbound:${process.pid}`;
@@ -22,24 +23,6 @@ const itsmOutboundWorker = createSingletonIntervalWorker({
 
 function state() {
   return itsmOutboundWorker.getState();
-}
-
-function parsePayload(payload: unknown) {
-  if (!payload || typeof payload !== "object" || Array.isArray(payload)) throw new Error("Invalid ITSM outbound job payload");
-  const value = payload as Record<string, unknown>;
-  const required = ["ticketId", "eventType", "title", "description", "status", "priority"] as const;
-  for (const key of required) if (typeof value[key] !== "string" || !String(value[key]).trim()) throw new Error(`Invalid ITSM outbound payload field: ${key}`);
-  return {
-    ticketId: String(value.ticketId),
-    eventType: String(value.eventType),
-    title: String(value.title),
-    description: String(value.description),
-    status: String(value.status),
-    priority: String(value.priority),
-    category: typeof value.category === "string" ? value.category : null,
-    commentBody: typeof value.commentBody === "string" ? value.commentBody : undefined,
-    teamId: typeof value.teamId === "string" ? value.teamId : null,
-  };
 }
 
 export async function runItsmOutboundWorkerOnce(): Promise<boolean> {
@@ -61,7 +44,14 @@ export async function runItsmOutboundWorkerOnce(): Promise<boolean> {
           leaseMs: LEASE_MS,
           progress: "Delivering ITSM event",
         }),
-        run: () => fanOutTicketEvent({ ...parsePayload(job.payload), deliveryKey: job.id }),
+        run: async () => {
+          const payload = job.payload;
+          if (payload && typeof payload === "object" && !Array.isArray(payload) && typeof payload.eventId === "string") {
+            return deliverQueuedEvent(payload.eventId);
+          }
+          await adoptLegacyTicketJobs(readTicketSnapshot(payload).ticketId);
+          return { sent: 0, failed: 0 };
+        },
       });
       if (result.failed > 0) throw new Error(`${result.failed} ITSM connection(s) failed; ${result.sent} delivered`);
       await completeJob(job.id, WORKER_ID, result);

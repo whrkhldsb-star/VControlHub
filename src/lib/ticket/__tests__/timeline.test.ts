@@ -2,17 +2,19 @@ import { beforeEach, describe, expect, it, vi } from "vitest";
 
 const { prismaMock } = vi.hoisted(() => ({
   prismaMock: {
+    $queryRaw: vi.fn(),
     ticket: {
       findUnique: vi.fn(),
       update: vi.fn(),
       findMany: vi.fn(),
     },
-    ticketEscalation: { create: vi.fn() },
-    commandRequest: { findUnique: vi.fn() },
+    ticketEscalation: { createMany: vi.fn() },
+    commandRequest: { findUnique: vi.fn(), findFirst: vi.fn() },
     server: { findUnique: vi.fn() },
   },
 }));
 
+Object.assign(prismaMock, { $transaction: (fn: (tx: unknown) => unknown) => fn(prismaMock) });
 vi.mock("@/lib/db", () => ({ prisma: prismaMock }));
 
 import { getTicketTimeline, linkTicketCommand, listTicketsForCommand } from "../timeline";
@@ -98,13 +100,13 @@ describe("ticket timeline", () => {
       relatedCommandId: null,
       status: "OPEN",
     });
-    prismaMock.commandRequest.findUnique.mockResolvedValue({
+    prismaMock.commandRequest.findFirst.mockResolvedValue({
       id: "cmd9",
       title: "x",
       status: "PENDING_APPROVAL",
     });
     prismaMock.ticket.update.mockResolvedValue({ id: "tk1", relatedCommandId: "cmd9" });
-    prismaMock.ticketEscalation.create.mockResolvedValue({});
+    prismaMock.ticketEscalation.createMany.mockResolvedValue({});
 
     await linkTicketCommand({
       ticketId: "tk1",
@@ -115,7 +117,7 @@ describe("ticket timeline", () => {
       where: { id: "tk1" },
       data: { relatedCommandId: "cmd9" },
     });
-    expect(prismaMock.ticketEscalation.create).toHaveBeenCalled();
+    expect(prismaMock.ticketEscalation.createMany).toHaveBeenCalled();
   });
 });
 

@@ -1,12 +1,15 @@
 import type { Prisma } from "@prisma/client";
 import { prisma } from "@/lib/db";
-import { ForbiddenError, NotFoundError, ValidationError, BusinessError } from "@/lib/errors";
+import { ConflictError, ForbiddenError, NotFoundError, ValidationError, BusinessError } from "@/lib/errors";
 import { t } from "@/lib/i18n/service-translations";
 import { createLogger } from "@/lib/logging";
 import { addTicketComment, createTicket, updateTicketStatus } from "@/lib/ticket/service";
+import { lockTicket } from "@/lib/ticket/transaction";
+import { normalizeTicketPriority } from "@/lib/ticket/priority";
 import { acquireAdvisoryLock } from "@/lib/concurrency/advisory-lock";
 
 import { normalizeInboundTicket, verifyInboundSignature } from "./adapters";
+import { inboundSigningSecret } from "./schema";
 import {
   decryptCredentials,
   parseConfig,
@@ -32,16 +35,17 @@ function normalizeStatus(raw: string | null): string | null {
   return map[upper] ?? null;
 }
 
-function normalizePriority(raw: string | null | undefined, fallback = "NORMAL"): string {
-  if (!raw) return fallback;
-  const upper = raw.trim().toUpperCase();
-  if (upper === "MEDIUM") return "NORMAL";
-  if (["LOW", "NORMAL", "HIGH", "URGENT"].includes(upper)) return upper;
-  return fallback;
+function inboundPriority(value: string | null, defaultPriority?: string) {
+  for (const candidate of [value, defaultPriority]) {
+    const priority = normalizeTicketPriority(candidate?.trim());
+    if (priority && ["LOW", "NORMAL", "HIGH", "URGENT"].includes(priority)) return priority;
+  }
+  return "NORMAL";
 }
 
 type InboundClaim = {
   id: string;
+  sourceConnectionId: string;
   /** A previous attempt already performed the side effect (ticket/comment/status). */
   applied: boolean;
   action: string | null;
@@ -66,6 +70,7 @@ async function claimInboundEvent(
     where: { connectionId, externalId, teamId, ownerBound: true },
     orderBy: { createdAt: "desc" },
   }) : null;
+  if (existing && existing.direction !== "inbound") throw new ConflictError();
   if (existing && (existing.status === "ok" || existing.status === "ignored")) {
     return { done: toEventRecord(existing) };
   }
@@ -77,6 +82,7 @@ async function claimInboundEvent(
     });
     const claim: InboundClaim = {
       id: existing.id,
+      sourceConnectionId: connectionId,
       applied: payload.applied === true,
       action: typeof payload.action === "string" ? payload.action : null,
       ticketId: existing.ticketId,
@@ -84,9 +90,9 @@ async function claimInboundEvent(
     return { done: null, claim };
   }
   const row = await prisma.itsmEvent.create({
-    data: { connectionId, teamId, ownerBound: true, direction: "inbound", eventType, status: "pending", externalId, payload: {} },
+    data: { connectionId, teamId, ownerBound: true, direction: "inbound", eventType, status: "pending", externalId, payload: { sourceConnectionId: connectionId } },
   });
-  const claim: InboundClaim = { id: row.id, applied: false, action: null, ticketId: null };
+  const claim: InboundClaim = { id: row.id, sourceConnectionId: connectionId, applied: false, action: null, ticketId: null };
   return { done: null, claim };
 }
 
@@ -99,7 +105,7 @@ async function claimInboundEvent(
 async function markApplied(db: Prisma.TransactionClient, claim: InboundClaim, action: string, ticketId: string) {
   await db.itsmEvent.update({
     where: { id: claim.id },
-    data: { ticketId, payload: { action, applied: true } },
+    data: { ticketId, payload: { action, applied: true, sourceConnectionId: claim.sourceConnectionId } },
   });
 }
 
@@ -116,8 +122,8 @@ export async function handleInboundWebhook(input: {
   json: Record<string, unknown>;
   systemUserId?: string;
   /** Looked up only once the call has verified (A8-08): a forged request cost 2–3 user queries before. */
-  resolveSystemUserId?: () => Promise<string | null>;
-}): Promise<{ event: ItsmEventRecord; ticketId: string | null; action: string }> {
+  resolveSystemUserId?: (teamId: string | null) => Promise<string | null>;
+}): Promise<{ event: ItsmEventRecord; ticketId: string | null; action: string; challenge?: string }> {
   const row = await prisma.itsmConnection.findUnique({ where: { id: input.connectionId } });
   // A deleted customer's connection takes no events until it is restored:
   // they would keep creating and changing its hidden tickets.
@@ -133,7 +139,7 @@ export async function handleInboundWebhook(input: {
   const verified = verifyInboundSignature({
     rawBody: input.rawBody,
     headerSignature: input.signatureHeader,
-    secret: credentials.webhookSecret ?? credentials.signingSecret,
+    secret: inboundSigningSecret(row.provider, credentials),
     provider: row.provider,
     headers: input.headers ?? null,
   });
@@ -159,10 +165,19 @@ export async function handleInboundWebhook(input: {
     throw new ForbiddenError(verified.error);
   }
 
-  const systemUserId = input.systemUserId ?? (await input.resolveSystemUserId?.()) ?? null;
+  if (row.provider === "slack" && input.json.type === "url_verification") {
+    const challenge = input.json.challenge;
+    if (typeof challenge !== "string" || !challenge || challenge.length > 4096) {
+      throw new ValidationError(t("apiCopy.validation.invalidValue"), { field: "challenge" });
+    }
+    const event = await recordEvent({ connectionId: row.id, teamId: row.teamId, direction: "inbound", eventType: "url_verification", status: "ok" });
+    return { event, ticketId: null, action: "verified", challenge };
+  }
+
+  const systemUserId = input.systemUserId ?? (await input.resolveSystemUserId?.(row.teamId)) ?? null;
   if (!systemUserId) throw new BusinessError(t("backend.itsm.noSystemUserForInbound"), undefined, 503);
 
-  const normalized = normalizeInboundTicket(input.json);
+  const normalized = normalizeInboundTicket(input.json, row.provider);
   const status = normalizeStatus(normalized.status);
   const eventType = normalized.eventType;
   let ticketId = normalized.ticketId;
@@ -187,6 +202,8 @@ export async function handleInboundWebhook(input: {
       // failed to record its outcome: finish the bookkeeping, never repeat it.
       action = claim.action ?? "acknowledged";
       ticketId = claim.ticketId ?? ticketId;
+    } else if (normalized.invalidStatus || (normalized.status && !status)) {
+      throw new ValidationError(t("backend.ticket.ticketStatusIsInvalid"));
     } else if (
       (!ticketId || (eventType.includes("create") && !normalized.commentBody)) &&
       config.createOnInbound !== false &&
@@ -197,13 +214,14 @@ export async function handleInboundWebhook(input: {
         const created = await createTicket({
           title,
           description: normalized.description || title,
-          priority: normalizePriority(normalized.priority ?? config.defaultPriority),
+          priority: inboundPriority(normalized.priority, config.defaultPriority),
           category: normalized.category ?? config.defaultCategory,
           createdBy: systemUserId,
           skipItsmFanOut: true,
           session: row.teamId ? { currentTeamId: row.teamId } : undefined,
           db: tx,
         });
+        if (status && status !== created.status) await updateTicketStatus({ id: created.id, status, skipItsmFanOut: true, db: tx });
         await markApplied(tx, claimed.claim, "create", created.id);
         return created;
       });
@@ -212,6 +230,7 @@ export async function handleInboundWebhook(input: {
     } else if (ticketId && (normalized.commentBody || status)) {
       const targetId = ticketId;
       action = await prisma.$transaction(async (tx) => {
+        await lockTicket(tx, targetId);
         const target = await tx.ticket.findFirst({
           where: { id: targetId, teamId: row.teamId },
           select: { id: true, status: true },
@@ -219,7 +238,7 @@ export async function handleInboundWebhook(input: {
         if (!target) {
           throw new NotFoundError(t("backend.itsm.ticketNotFoundForThisConnectionTeam"));
         }
-        let appliedAction = "comment";
+        let appliedAction = normalized.commentBody ? "comment" : "acknowledged";
         if (normalized.commentBody) {
           await addTicketComment({
             ticketId: targetId, authorId: systemUserId, body: `[ITSM inbound] ${normalized.commentBody}`,
@@ -227,15 +246,13 @@ export async function handleInboundWebhook(input: {
           });
         }
         // Comment notifications can repeat the ticket's current status.
-        if (status && (!normalized.commentBody || status !== target.status)) {
+        if (status && status !== target.status) {
           await updateTicketStatus({ id: targetId, status, skipItsmFanOut: true, db: tx });
           appliedAction = normalized.commentBody ? "comment_status_update" : "status_update";
         }
         await markApplied(tx, claimed.claim, appliedAction, targetId);
         return appliedAction;
       });
-    } else if (ticketId && normalized.status) {
-      action = "ignored_status";
     } else if (ticketId) {
       action = "acknowledged";
     } else {
@@ -243,7 +260,7 @@ export async function handleInboundWebhook(input: {
     }
 
     const finalStatus = action.startsWith("ignored") ? "ignored" : "ok";
-    const finalPayload = { terminalAtMs: Date.now(), action, title: normalized.title, status: normalized.status, applied: !action.startsWith("ignored") };
+    const finalPayload = { terminalAtMs: Date.now(), action, title: normalized.title, status: normalized.status, applied: !action.startsWith("ignored"), sourceConnectionId: row.id };
     const event = toEventRecord(await prisma.itsmEvent.update({
       where: { id: claim.id },
       data: { status: finalStatus, ticketId, payload: finalPayload, errorMessage: null },

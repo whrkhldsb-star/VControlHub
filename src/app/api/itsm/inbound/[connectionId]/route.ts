@@ -87,13 +87,13 @@ export async function POST(request: Request, context: RouteContext) {
 	}
 
 	// System-authored inbound tickets are created as the earliest administrator,
-	// else the first user; resolved by the service only after the call verified (A8-08).
-	const resolveSystemUserId = async () => {
+	// else an active user of the connection owner; resolved by the service only after the call verified (A8-08).
+	const resolveSystemUserId = async (teamId: string | null) => {
 		const adminRole = await prisma.role.findFirst({ where: { key: "admin" }, select: { id: true } });
 		const systemUser =
 			(adminRole
-				? await prisma.user.findFirst({ where: { roles: { some: { roleId: adminRole.id } } }, select: { id: true }, orderBy: { createdAt: "asc" } })
-				: null) ?? (await prisma.user.findFirst({ select: { id: true }, orderBy: { createdAt: "asc" } }));
+				? await prisma.user.findFirst({ where: { status: "ACTIVE", roles: { some: { roleId: adminRole.id } } }, select: { id: true }, orderBy: [{ createdAt: "asc" }, { id: "asc" }] })
+				: null) ?? (await prisma.user.findFirst({ where: { status: "ACTIVE", ...(teamId ? { teamMembership: { is: { teamId } } } : {}) }, select: { id: true }, orderBy: [{ createdAt: "asc" }, { id: "asc" }] }));
 		return systemUser?.id ?? null;
 	};
 
@@ -106,6 +106,7 @@ export async function POST(request: Request, context: RouteContext) {
 			json,
 			resolveSystemUserId,
 		});
+		if (result.challenge !== undefined) return NextResponse.json({ challenge: result.challenge });
 		return NextResponse.json({
 			ok: result.event.status === "ok" || result.event.status === "ignored",
 			action: result.action,

@@ -4,7 +4,8 @@ import { sessionHasPermission } from "@/lib/auth/authorization";
 import { auditUserAction } from "@/lib/audit/service";
 import { createTicket, listTickets, updateTicketStatus } from "@/lib/ticket/service";
 import { listTicketsAdvanced, getTicketKanban } from "@/lib/ticket/sla";
-import { listTicketBoard, listTicketPage, type TicketQuery, type TicketSlaFilter } from "@/lib/ticket/query";
+import { parseTicketFilters } from "@/lib/ticket/filters";
+import { listTicketBoard, listTicketPage } from "@/lib/ticket/query";
 import { toWorkspaceBoard, toWorkspaceTicket } from "@/lib/ticket/workspace-dto";
 import { normalizeTicketPriority, ticketPriorityInputSchema } from "@/lib/ticket/priority";
 import { withApiRoute } from "@/lib/http/api-guard";
@@ -42,19 +43,11 @@ function normalizeStatus(status: string) {
 }
 export const dynamic = "force-dynamic";
 
-const SLA_FILTERS = new Set(["ok", "warning", "breached", "none"]);
-
 export async function GET(request: Request) {
   return withApiRoute(request, { permission: "ticket:read", rateLimit: GENERAL_READ_LIMIT }, async ({ session }) => {
     const url = new URL(request.url);
     const view = url.searchParams.get("view");
-    const status = url.searchParams.get("status") ?? undefined;
-    // As it is stored: "medium" and "critical" are accepted when a ticket is filed and kept as NORMAL and URGENT.
-    const priority = normalizeTicketPriority(url.searchParams.get("priority") ?? undefined);
-    const category = url.searchParams.get("category") ?? undefined;
-    const assigneeId = url.searchParams.get("assigneeId") ?? undefined;
-    const slaStatus = url.searchParams.get("slaStatus") ?? undefined;
-    const search = url.searchParams.get("search") ?? undefined;
+    const workspaceQuery = parseTicketFilters((key) => url.searchParams.get(key));
 
     // The workspace: filtered in the query, one page (or one board) at a time,
     // with the total each belongs to.
@@ -62,14 +55,6 @@ export async function GET(request: Request) {
       userId: session.userId,
       includeAll: Boolean(sessionHasPermission(session, "ticket:manage")),
       session,
-    };
-    const workspaceQuery: TicketQuery = {
-      status: status?.toUpperCase(),
-      priority,
-      category,
-      assigneeId,
-      slaStatus: SLA_FILTERS.has(slaStatus ?? "") ? (slaStatus as TicketSlaFilter) : undefined,
-      search,
     };
     if (view === "board") {
       return NextResponse.json({ columns: toWorkspaceBoard(await listTicketBoard({ ...listScope, query: workspaceQuery })) });
@@ -93,17 +78,8 @@ export async function GET(request: Request) {
     }
 
     // FEAT-P1-1: Advanced filtered list
-    const hasFilters = status || priority || category || assigneeId || slaStatus || search;
-    if (hasFilters) {
-      const tickets = await listTicketsAdvanced({
-        session,
-        status: status?.toUpperCase(),
-        priority,
-        category,
-        assigneeId,
-        slaStatus: slaStatus as "ok" | "warning" | "breached" | "none" | undefined,
-        search,
-      });
+    if (Object.values(workspaceQuery).some(Boolean)) {
+      const tickets = await listTicketsAdvanced({ session, ...workspaceQuery });
       return NextResponse.json({ tickets });
     }
 

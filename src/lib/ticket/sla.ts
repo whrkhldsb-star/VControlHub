@@ -40,7 +40,7 @@ export function ticketSlaUpdate(
   change: { status?: string; priority?: string },
 ) {
   if (isTerminalStatus(change.status ?? current.status)) return {};
-  if (change.priority === undefined && !isTerminalStatus(current.status)) return {};
+  if ((change.priority === undefined || change.priority === current.priority) && !isTerminalStatus(current.status)) return {};
   return {
     slaDueAt: computeSlaDueAt(current.createdAt, change.priority ?? current.priority),
     escalatedAt: null,
@@ -76,7 +76,8 @@ export async function escalateBreachedTickets(input: { teamId?: string | null } 
       // The fleet-wide pass skips a deleted customer's tickets: they were
       // re-escalated every hour, notifying its ticket managers. (AND: the
       // live-customer filter is an OR, and so is the retry condition below.)
-      ...(input.teamId !== undefined ? { teamId: input.teamId } : { AND: [liveCustomerRowsWhere()] }),
+      AND: [liveCustomerRowsWhere()],
+      ...(input.teamId !== undefined ? { teamId: input.teamId } : {}),
       slaDueAt: { lt: now },
       status: { in: ["OPEN", "IN_PROGRESS"] },
       OR: [{ escalatedAt: null }, { escalatedAt: { lt: retryBefore } }],
@@ -103,11 +104,17 @@ export async function escalateBreachedTickets(input: { teamId?: string | null } 
     const priorityChanges = newPriority !== ticket.priority;
     try {
       // Announced to the managers' open pages once the transaction has committed.
-      let notices: StoredNotification[] = [];
+      const notices: StoredNotification[] = [];
       const didEscalate = await prisma.$transaction(async (tx) => {
-        const claimed = await tx.ticket.updateMany({
+        if (ticket.teamId) {
+          const live = await tx.$queryRaw<{ id: string }[]>`SELECT id FROM teams WHERE id = ${ticket.teamId} AND "deletedAt" IS NULL FOR SHARE`;
+          if (!live.length) return false;
+        }
+        const [claimed] = await tx.ticket.updateManyAndReturn({
           where: {
             id: ticket.id,
+            teamId: ticket.teamId, assigneeId: ticket.assigneeId,
+            AND: [liveCustomerRowsWhere()],
             status: ticket.status,
             priority: ticket.priority,
             slaDueAt: { lt: now },
@@ -119,7 +126,7 @@ export async function escalateBreachedTickets(input: { teamId?: string | null } 
             escalatedTo: ticket.assigneeId,
           },
         });
-        if (claimed.count === 0) return false;
+        if (!claimed) return false;
 
         if (priorityChanges) {
           await tx.ticketEscalation.create({
@@ -129,19 +136,21 @@ export async function escalateBreachedTickets(input: { teamId?: string | null } 
               toStatus: ticket.status,
               fromPriority: ticket.priority,
               toPriority: newPriority,
-              fromAssignee: ticket.assigneeId,
-              toAssignee: ticket.assigneeId,
-              reason: `SLA breach: due ${ticket.slaDueAt?.toISOString()}`,
+              fromAssignee: claimed.assigneeId,
+              toAssignee: claimed.assigneeId,
+              reason: `SLA breach: due ${claimed.slaDueAt?.toISOString()}`,
             },
           });
 
-          const managers = await tx.user.findMany({
-            where: { status: { not: "DISABLED" }, ...permissionHoldersWhere("ticket:manage", ticket.teamId) },
-            select: { id: true },
-            take: 1000,
-          });
-          if (managers.length > 0) {
-            notices = await tx.notification.createManyAndReturn({
+          for (let after: string | undefined; ;) {
+            const managers = await tx.user.findMany({
+              where: { ...(after ? { id: { gt: after } } : {}), status: { not: "DISABLED" }, ...permissionHoldersWhere("ticket:manage", ticket.teamId) },
+              select: { id: true },
+              orderBy: { id: "asc" },
+              take: 1000,
+            });
+            if (!managers.length) break;
+            notices.push(...await tx.notification.createManyAndReturn({
               select: STORED_NOTIFICATION_SELECT,
               data: managers.map((manager) => ({
                 userId: manager.id,
@@ -150,7 +159,7 @@ export async function escalateBreachedTickets(input: { teamId?: string | null } 
                   notice: {
                     code: "ticketSlaEscalated",
                     params: {
-                      title: ticket.title,
+                      title: claimed.title,
                       fromKey: `ticketsDetail.priority.${ticket.priority}`,
                       toKey: `ticketsDetail.priority.${newPriority}`,
                     },
@@ -159,7 +168,9 @@ export async function escalateBreachedTickets(input: { teamId?: string | null } 
                 type: "ticket_escalation",
                 actionUrl: `/tickets/${ticket.id}`,
               })),
-            });
+            }));
+            if (managers.length < 1000) break;
+            after = managers[managers.length - 1]!.id;
           }
         }
         return true;

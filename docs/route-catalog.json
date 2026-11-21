@@ -1,5 +1,5 @@
 {
-  "generatedAt": "2026-11-21T07:49:00.924Z",
+  "generatedAt": "2026-11-21T16:49:02.660Z",
   "summary": {
     "sidebarMain": 26,
     "sidebarSystem": 12,
@@ -1590,10 +1590,10 @@
         "audit:read",
         "health:read",
         "image:read",
-        "image:write",
         "media:manage",
         "server:read",
-        "storage:read"
+        "storage:read",
+        "team:manage"
       ]
     },
     {
@@ -2085,7 +2085,8 @@
       "path": "/api/itsm/events",
       "file": "src/app/api/itsm/events/route.ts",
       "methods": [
-        "GET"
+        "GET",
+        "POST"
       ],
       "guardMode": "withApiRoute",
       "declaredPermissions": [

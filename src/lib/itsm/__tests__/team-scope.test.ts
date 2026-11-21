@@ -122,6 +122,7 @@ describe("ITSM team scope", () => {
     }));
     const row = await createItsmConnection(
       {
+        direction: "outbound",
         name: "Spoof",
         provider: "slack",
         config: { webhookUrl: "https://hooks.example.com/x" },

@@ -1,5 +1,5 @@
 import { PageShell } from "@/components/page-shell";
-import { listAlertIncidents } from "@/lib/alert/incidents";
+import { failedTaskSummary, openIncidentSummary } from "@/lib/dashboard/attention-queries";
 import { listActiveAnnouncements } from "@/lib/announcement/service";
 import { sessionHasPermission } from "@/lib/auth/authorization";
 import { requireSession } from "@/lib/auth/require-session";
@@ -13,8 +13,9 @@ import { buildSetupChecklist, filterSetupChecklist } from "@/lib/dashboard/setup
 import { prisma } from "@/lib/db";
 import { getOperationTaskTitle } from "@/lib/i18n/domain-labels";
 import { getServerLocale, t } from "@/lib/i18n/translations";
+import { logError } from "@/lib/logging";
 import { getUnreadCount } from "@/lib/notification/service";
-import { listOperationTaskResult } from "@/lib/operation-task/service";
+import { downloadSummary } from "@/lib/dashboard/download-summary";
 import { listServerProfiles } from "@/lib/server/service";
 import { getSetting } from "@/lib/settings/service";
 import { getStorageOverview } from "@/lib/storage/service";
@@ -52,12 +53,13 @@ export async function DashboardContent({ sessionPath }: { sessionPath: "/" | "/d
 	// The checks at the top follow the pages that deal with what they find.
 	const canReadTasks = sessionHasPermission(session, "task:read");
 	const canApproveCommands = canReadCommands && sessionHasPermission(session, "command:approve");
+	const checkedAt = new Date();
 	const [
 		servers,
 		storage,
 		requests,
 		recentAuditLogs,
-		downloadStats,
+		downloads,
 		unreadNotifications,
 		activeScheduledTasks,
 		dragReorderEnabledRaw,
@@ -82,8 +84,11 @@ export async function DashboardContent({ sessionPath }: { sessionPath: "/" | "/d
 			include: { actor: { select: { username: true, displayName: true } } },
 		}) : Promise.resolve([]),
 		canReadStorage
-			? prisma.downloadTask.groupBy({ by: ["status"], where: teamScope, _count: true })
-			: Promise.resolve([]),
+			? downloadSummary(session).then((result) => result.totals).catch((error) => {
+				logError("Dashboard download ACL summary unavailable", error);
+				return null;
+			})
+			: Promise.resolve(null),
 		getUnreadCount(session.userId),
 		canReadCommands
 			? prisma.scheduledTask.count({ where: { status: "ACTIVE", ...teamScope } })
@@ -113,21 +118,19 @@ export async function DashboardContent({ sessionPath }: { sessionPath: "/" | "/d
 		// A check that cannot be made is left out of the block rather than reported as clear. OPEN incidents are the
 		// ones nobody has acknowledged yet; the list comes worst level first.
 		canManageNotifications
-			? listAlertIncidents({ status: "OPEN", take: 500, session }).catch(() => null)
+			? openIncidentSummary(session).catch(() => null)
 			: Promise.resolve(null),
 		canReadTasks
-			? listOperationTaskResult({ status: "failed", limit: 50 }, session)
-				.then((result) => result.tasks)
+			? failedTaskSummary(session, checkedAt)
 				.catch(() => null)
 			: Promise.resolve(null),
 	]);
 
 	const enabledServers = servers.filter((server) => server.enabled);
-	const downloads = Object.fromEntries(downloadStats.map((item) => [item.status, item._count]));
 	const pendingApprovals = requests.filter((request) => request.status === "PENDING_APPROVAL").length;
 	const queue = {
 		pendingApprovals,
-		downloads: {
+		downloads: downloads && {
 			running: downloads.RUNNING ?? 0,
 			pending: downloads.PENDING ?? 0,
 			completed: downloads.COMPLETED ?? 0,
@@ -163,19 +166,16 @@ export async function DashboardContent({ sessionPath }: { sessionPath: "/" | "/d
 		}),
 		(permission) => sessionHasPermission(session, permission),
 	);
-	const checkedAt = new Date();
 	// Named the way their own pages name them, in the viewer's language: incidents store English text for the
 	// outbound channels, and a backup task's stored title reads "DATABASE backup".
 	const translate = (key: string, vars?: Record<string, string | number>) => t(key, locale, vars);
 	const attentionChecks = buildAttentionChecks({
-		openIncidents: openIncidents
-			? [...openIncidents]
-				.sort((a, b) => b.createdAt.getTime() - a.createdAt.getTime())
-				.map((incident) => ({ title: incidentTitle(incident, translate) }))
-			: null,
-		failedTasks: failedTasks
-			? failedTasks.map((task) => ({ title: getOperationTaskTitle(translate, task), updatedAt: task.updatedAt }))
-			: null,
+		openIncidents: openIncidents && {
+			count: openIncidents.count, latest: openIncidents.latest ? incidentTitle(openIncidents.latest, translate) : null,
+		},
+		failedTasks: failedTasks && {
+			count: failedTasks.count, latest: failedTasks.latest ? getOperationTaskTitle(translate, failedTasks.latest) : null,
+		},
 		// Waiting for this account: its own requests go to another reviewer (unless it manages the team).
 		pendingApprovals: canApproveCommands
 			? requests.filter((request) => request.status === "PENDING_APPROVAL" && mayReviewCommandRequest(session, request.requester.id))
@@ -217,7 +217,7 @@ export async function DashboardContent({ sessionPath }: { sessionPath: "/" | "/d
 						directGateway: servers.filter((server) => server.directGateway?.enabled).length,
 					}}
 				/>
-				<DashboardQuickLinks {...queue} />
+				<DashboardQuickLinks {...queue} visible={{ servers: canReadServers, storage: canReadStorage, commands: canReadCommands }} />
 				<div data-dashboard-widget="analytics">
 					<DashboardAnalyticsPanel />
 				</div>

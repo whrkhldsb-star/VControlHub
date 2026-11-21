@@ -55,6 +55,7 @@ export function buildOutboundBody(
 	const field = (value: string) => (Number.isFinite(fieldMax) ? clip(value, fieldMax) : value);
 	const base = {
 		source: "vcontrolhub",
+		eventId: payload.eventId,
 		eventType: payload.eventType,
 		ticket: {
 			id: payload.ticketId,
@@ -66,12 +67,13 @@ export function buildOutboundBody(
 		},
 		comment: payload.commentBody ? { body: field(payload.commentBody) } : undefined,
 		workspace: config.workspace ?? null,
-		timestamp: new Date().toISOString(),
+		timestamp: payload.occurredAt ?? new Date().toISOString(),
 	};
 
 	const text = clip(
 		[
 			`[VControlHub] ${payload.eventType}`,
+			provider !== "generic_webhook" && payload.eventId ? `Event ${payload.eventId}` : null,
 			`#${payload.ticketId.slice(0, 8)} ${payload.title}`,
 			`status=${payload.status} priority=${payload.priority}`,
 			payload.commentBody ? `comment: ${payload.commentBody}` : payload.description.slice(0, 280),
@@ -177,6 +179,7 @@ export async function deliverOutbound(input: {
 				return {
 					ok: false,
 					statusCode: res.status,
+					outcomeUnknown: res.status >= 500,
 					error: `Telegram API HTTP ${res.status}`,
 					responseBody: responseBody.slice(0, 500),
 				};
@@ -185,6 +188,7 @@ export async function deliverOutbound(input: {
 		} catch (err) {
 			return {
 				ok: false,
+				outcomeUnknown: true,
 				error: err instanceof Error ? err.message : "Telegram delivery failed",
 			};
 		}
@@ -198,8 +202,14 @@ export async function deliverOutbound(input: {
 	const headers: Record<string, string> = {
 		"Content-Type": packed.contentType,
 		"User-Agent": "VControlHub-ITSM/1.0",
-		...(input.config.headers ?? {}),
+		...input.config.headers,
 	};
+	if (input.provider === "generic_webhook" && input.payload.eventId) {
+		for (const key of Object.keys(headers)) {
+			if (key.toLowerCase() === "idempotency-key") delete headers[key];
+		}
+		headers["Idempotency-Key"] = input.payload.eventId;
+	}
 	if (input.credentials.accessToken) {
 		headers.Authorization = `Bearer ${input.credentials.accessToken}`;
 	}
@@ -220,7 +230,7 @@ export async function deliverOutbound(input: {
 			signal: controller.signal,
 		});
 		if (!result.ok) {
-			return { ok: false, error: result.error };
+			return { ok: false, error: result.error, outcomeUnknown: result.dispatched !== false };
 		}
 		const responseBody = await readResponseTextLimited(
 			result.response,
@@ -230,6 +240,7 @@ export async function deliverOutbound(input: {
 			return {
 				ok: false,
 				statusCode: result.response.status,
+				outcomeUnknown: result.response.status >= 500,
 				error: `Webhook HTTP ${result.response.status}`,
 				responseBody: responseBody.slice(0, 500),
 			};
@@ -255,6 +266,7 @@ export async function deliverOutbound(input: {
 	} catch (err) {
 		return {
 			ok: false,
+			outcomeUnknown: true,
 			error: err instanceof Error ? err.message : "Webhook delivery failed",
 		};
 	} finally {
@@ -377,31 +389,57 @@ function objectField(raw: Record<string, unknown>, key: string): Record<string, 
 	return value && typeof value === "object" && !Array.isArray(value) ? (value as Record<string, unknown>) : {};
 }
 
+/** Keep short sender IDs compatible with existing receipts. Reserve the digest
+ * prefix so that a literal sender ID cannot alias a digest of a longer one. */
+function eventIdentity(...values: unknown[]): string | null {
+	for (const value of values) {
+		if (value == null) continue;
+		if (typeof value === "number" && Number.isSafeInteger(value)) return String(value);
+		if (typeof value !== "string") throw new ValidationError(t("apiCopy.validation.invalidValue"), { field: "externalId" });
+		const id = value.trim();
+		if (!id) continue;
+		if (id.length <= 256 && !id.startsWith("sha256:")) return id;
+		return "sha256:" + createHash("sha256").update(id).digest("hex");
+	}
+	return null;
+}
+
 /**
  * Map the loosely shaped payloads ITSM/IM providers send onto ticket fields.
  * The signature proves who sent the body, not that its fields are sane, so
  * every field is bounded before it reaches a ticket or the event log.
  */
-export function normalizeInboundTicket(raw: Record<string, unknown>): {
+export function normalizeInboundTicket(raw: Record<string, unknown>, provider?: string): {
 	eventType: string;
 	externalId: string | null;
 	title: string | null;
 	description: string | null;
 	status: string | null;
+	invalidStatus: boolean;
 	priority: string | null;
 	category: string | null;
 	ticketId: string | null;
 	commentBody: string | null;
 } {
+	if (provider === "telegram" && "update_id" in raw) {
+		const message = objectField(raw, "message");
+		raw = { externalId: raw.update_id, text: message.text };
+	} else if (provider === "slack" && raw.type === "event_callback") {
+		const event = objectField(raw, "event");
+		const isMessage = (event.type === "message" || event.type === "app_mention") && !event.bot_id && !event.subtype;
+		raw = { externalId: raw.event_id, text: isMessage ? event.text : undefined };
+	}
 	const ticket = objectField(raw, "ticket");
 	const comment = objectField(raw, "comment");
 	const text = firstText(10_000, raw.text, raw.message);
+	const status = [ticket.status, raw.status].find((value) => value != null && !(typeof value === "string" && !value.trim()));
 	return {
 		eventType: firstText(64, raw.eventType, raw.type) ?? "ticket.update",
-		externalId: firstText(256, raw.externalId, raw.id),
+		externalId: eventIdentity(raw.externalId, raw.eventId, raw.id),
 		title: firstText(256, ticket.title, raw.title) ?? (text ? text.slice(0, 120) : null),
 		description: firstText(10_000, ticket.description, raw.description) ?? text,
-		status: firstText(32, ticket.status, raw.status),
+		status: firstText(32, status),
+		invalidStatus: status !== undefined && (typeof status !== "string" || status.trim().length > 32),
 		priority: firstText(32, ticket.priority, raw.priority),
 		category: firstText(64, ticket.category, raw.category),
 		ticketId: firstText(64, ticket.id, raw.ticketId),

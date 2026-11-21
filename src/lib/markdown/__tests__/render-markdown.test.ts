@@ -103,3 +103,14 @@ describe("renderMarkdown hardening", () => {
 		expect(Date.now() - started).toBeLessThan(2_000);
 	});
 });
+
+it("keeps fragments and balanced destinations intact, with validation on the complete destination", () => {
+	const source = "[本页](#billing) [费用](/manual/(v2)/fees) [remote](https://example.test/a(b(c)))";
+	const html = renderMarkdown(source);
+	expect(html).toContain('<a href="#billing">本页</a>');
+	expect(html).toContain('<a href="/manual/(v2)/fees">费用</a>');
+	expect(html).toContain('href="https://example.test/a(b(c))" target="_blank"');
+	expect(markdownExcerpt(source)).toBe("本页 费用 remote");
+	expect(markdownExcerpt("before ![](/a(b)) ![pic](/img) after")).toBe("before pic after");
+	expect(renderMarkdown("[bad](javascript:fn(1)) [open](/a(b)")).not.toContain("<a ");
+});
