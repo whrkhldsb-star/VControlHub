@@ -9,15 +9,14 @@
  * CRUD paths live in `./service-crud`; DTO serializers in
  * `./service-serialize`; this module owns the request-time paths.
  */
+import type { AiProvider } from "@prisma/client";
 import { prisma } from "@/lib/db";
 import { NotFoundError, ValidationError } from "@/lib/errors";
-import { defaultAiBaseUrl, fetchProviderModels, postProviderChat, trimProviderBaseUrl } from "./provider-http";
+import { resolveDefaultProviderBaseUrl, fetchProviderModels, postProviderChat, providerApiRoot, trimProviderBaseUrl } from "./provider-http";
 
 import { safeDecryptApiKey } from "./service-crud";
 import { t } from "@/lib/i18n/service-translations";
 import { assertImageOnlyAttachments, toAnthropicMessages } from "./anthropic-messages";
-
-const DEFAULT_AI_BASE_URL = defaultAiBaseUrl();
 
 /* ── Messages ───────────────────────────────────────────────── */
 
@@ -86,7 +85,7 @@ export async function fetchModelsFromCredentials(input: {
 	type?: string;
 }): Promise<AiModelInfo[]> {
 	if (!input.apiKey.trim()) throw new ValidationError(t("backend.ai.apiKeyCannotBeEmpty"));
-	const baseUrl = trimProviderBaseUrl(input.baseUrl, DEFAULT_AI_BASE_URL);
+	const baseUrl = trimProviderBaseUrl(input.baseUrl, resolveDefaultProviderBaseUrl(input.type));
 
 	const rawModels = await fetchProviderModels({ apiKey: input.apiKey, baseUrl, type: input.type });
 	const models = rawModels
@@ -112,7 +111,7 @@ export async function fetchModelsFromProvider(providerId: string, userId: string
 	});
 	if (!provider) throw new NotFoundError(t("backend.ai.providerNotFoundOrDisabled"));
 
-	const baseUrl = trimProviderBaseUrl(provider.baseUrl, DEFAULT_AI_BASE_URL);
+	const baseUrl = trimProviderBaseUrl(provider.baseUrl, resolveDefaultProviderBaseUrl(provider.type));
 
 	// Try the OpenAI-compatible /models endpoint
 	const rawApiKey = safeDecryptApiKey(provider.apiKey);
@@ -300,8 +299,17 @@ export async function sendChatRequest(req: ChatCompletionRequest, userId: string
 	});
 	if (!provider) throw new NotFoundError(t("backend.ai.providerNotFoundOrDisabled"));
 
+	return sendChatRequestToProvider(req, provider, signal);
+}
+
+export async function sendChatRequestToProvider(
+	req: ChatCompletionRequest,
+	provider: Pick<AiProvider, "apiKey" | "type" | "baseUrl">,
+	signal?: AbortSignal,
+) {
+	signal?.throwIfAborted();
 	const rawApiKey = safeDecryptApiKey(provider.apiKey);
-	const baseUrl = provider.baseUrl.replace(/\/+$/, "");
+	const baseUrl = providerApiRoot(provider.baseUrl, provider.type);
 	const headers: Record<string, string> = { "Content-Type": "application/json" };
 	let url: string;
 	let body: Record<string, unknown>;

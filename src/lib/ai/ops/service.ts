@@ -172,7 +172,16 @@ export async function getAiOpsLog(id: string): Promise<AiOpsLogRecord | null> {
 	return row ? toRecord(row) : null;
 }
 
+export async function findCompletedScanForJob(jobId: string) {
+	const row = await prisma.aiOpsLog.findFirst({
+		where: { jobId, completedAt: { not: null }, status: { in: ["ok", "warning"] } },
+		orderBy: { completedAt: "desc" },
+	});
+	return row ? toRecord(row) : null;
+}
+
 export interface CreateAiOpsLogInput {
+	jobId?: string;
 	triggerType: AiOpsTriggerType;
 	mode: AiOpsMode;
 	triggeredById?: string | null;
@@ -185,6 +194,7 @@ export async function createAiOpsLog(
 ): Promise<AiOpsLogRecord> {
 	const row = await prisma.aiOpsLog.create({
 		data: {
+			jobId: input.jobId,
 			triggerType: input.triggerType,
 			mode: input.mode,
 			status: "running",
@@ -209,8 +219,11 @@ export interface CompleteScanInput {
 	providerHealth?: AiOpsProviderHealth | null;
 }
 
-export async function completeScan(input: CompleteScanInput): Promise<AiOpsLogRecord> {
-	const startedRow = await prisma.aiOpsLog.findUnique({
+export async function completeScan(
+	input: CompleteScanInput,
+	db: Pick<Prisma.TransactionClient, "aiOpsLog"> = prisma,
+): Promise<AiOpsLogRecord> {
+	const startedRow = await db.aiOpsLog.findUnique({
 		where: { id: input.logId },
 		select: { startedAt: true },
 	});
@@ -219,7 +232,7 @@ export async function completeScan(input: CompleteScanInput): Promise<AiOpsLogRe
 		? Math.max(0, completedAt.getTime() - startedRow.startedAt.getTime())
 		: null;
 
-	const row = await prisma.aiOpsLog.update({
+	const row = await db.aiOpsLog.update({
 		where: { id: input.logId },
 		data: {
 			status: input.status,

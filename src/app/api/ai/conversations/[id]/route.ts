@@ -25,7 +25,7 @@ export async function GET(
     { permission: "ai:chat", errorMessage: apiCopy("apiCopy.not.found.e3ebaa16"), errorStatus: 404 },
     async ({ session }) => {
       const { id } = await params;
-      const conv = await getConversationById(id, session.userId);
+      const conv = await getConversationById(id, session);
       return NextResponse.json({ conversation: serializeConversation(conv) });
     },
   );
@@ -49,12 +49,12 @@ export async function PATCH(
 
       // Special action: clear all messages in the conversation
       if (body.clearMessages) {
-        await clearConversationMessages(id, session.userId);
-        const conv = await getConversationById(id, session.userId);
+        await clearConversationMessages(id, session);
+        const conv = await getConversationById(id, session);
         return NextResponse.json({ conversation: serializeConversation(conv) });
       }
 
-      const conv = await updateConversation(id, session.userId, body);
+      const conv = await updateConversation(id, session, body);
       if (!conv) throw new NotFoundError(apiCopy("apiCopy.conversation.not.found.d8e4dcef"));
       await auditUserAction(session.userId, "conversation.update", { conversationId: id }, undefined, session.currentTeamId);
       return NextResponse.json({
@@ -82,7 +82,7 @@ export async function DELETE(
     },
     async ({ session }) => {
       const { id } = await params;
-      await deleteConversation(id, session.userId);
+      await deleteConversation(id, session);
       await auditUserAction(session.userId, "conversation.delete", { conversationId: id }, undefined, session.currentTeamId);
       return NextResponse.json({ ok: true });
     },

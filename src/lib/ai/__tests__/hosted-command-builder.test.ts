@@ -1,3 +1,7 @@
+import { spawnSync } from "node:child_process";
+import { mkdtempSync, mkdirSync, rmSync, symlinkSync, writeFileSync } from "node:fs";
+import { tmpdir } from "node:os";
+import { join } from "node:path";
 import { describe, expect, it } from "vitest";
 import { buildCommand, isSensitiveRemotePath } from "../hosted-command-builder";
 
@@ -12,10 +16,89 @@ describe("hosted AI command builder", () => {
 	});
 
 	it("single-quotes file paths handed to tail and find", () => {
-		expect(buildCommand("read_file", { filePath: "/var/log/app log.txt", tail: 20 })).toBe("tail -n 20 -- '/var/log/app log.txt'");
+		expect(buildCommand("read_file", { filePath: "/var/log/app log.txt", tail: 20 })).toContain("'/var/log/app log.txt' file tail -n 20");
 		expect(buildCommand("list_files", { path: "/srv" })).toContain("find '/srv' -mindepth 1 -maxdepth 1");
 		expect(buildCommand("read_file", { filePath: "/etc/../etc/passwd" })).toBeNull();
 		expect(buildCommand("read_file", { filePath: "/etc/passwd;id" })).toBeNull();
+	});
+
+	it.skipIf(process.platform !== "linux")("keeps mandatory credential exclusions for every search pattern", () => {
+		const dir = mkdtempSync(join(tmpdir(), "hosted-search-"));
+		try {
+			for (const name of [".env.production", "id_rsa.old", "tls.KEY", "signing.jks", "ok.log"]) {
+				writeFileSync(join(dir, name), "matching fixture\n");
+			}
+			symlinkSync(join(dir, "tls.KEY"), join(dir, "alias.log"));
+			mkdirSync(join(dir, ".ssh"));
+			writeFileSync(join(dir, ".ssh", "file.log"), "matching fixture\n");
+			symlinkSync(join(dir, ".ssh"), join(dir, "linked-dir"));
+			for (const filePattern of [undefined, "*", "*.log", ".env*", "id_rsa.*", "*.KEY", "*.jks"]) {
+				const command = buildCommand("search_files", { path: dir, query: "matching", filePattern });
+				const result = spawnSync("sh", ["-c", command!], { encoding: "utf8" });
+				expect(result.status).toBe(0);
+				const allowed = !filePattern || ["*", "*.log"].includes(filePattern);
+				expect(result.stdout.trim(), filePattern).toBe(allowed ? `${dir}/ok.log:1:matching fixture` : "");
+			}
+			const searchLink = buildCommand("search_files", { path: join(dir, "linked-dir"), query: "matching" });
+			const result = spawnSync("sh", ["-c", searchLink!], { encoding: "utf8" });
+			expect(result.status).not.toBe(0);
+			expect(result.stdout).toBe("");
+		} finally {
+			rmSync(dir, { recursive: true, force: true });
+		}
+	});
+
+	it.skipIf(process.platform !== "linux")("reads allowed links and refuses protected targets for both tail tools", () => {
+		const dir = mkdtempSync(join(tmpdir(), "hosted-read-"));
+		try {
+			const privateDir = join(dir, ".ssh");
+			mkdirSync(privateDir);
+			writeFileSync(join(privateDir, "fixture"), "directory fixture\n");
+			writeFileSync(join(dir, "fixture.KEY"), "name fixture\n");
+			writeFileSync(join(dir, "regular.log"), "old\nrecent\n");
+			symlinkSync(join(dir, "regular.log"), join(dir, "safe.log"));
+			symlinkSync(join(dir, "fixture.KEY"), join(dir, "private.log"));
+			symlinkSync(privateDir, join(dir, "alias-dir"));
+			for (const type of ["read_file", "read_logs"] as const) {
+				for (const relative of ["safe.log", "private.log", "alias-dir/fixture"]) {
+					const path = join(dir, relative);
+					const command = buildCommand(type, { filePath: path, logPath: path, tail: 1 });
+					const result = spawnSync("sh", ["-c", command!], { encoding: "utf8" });
+					if (relative === "safe.log") {
+						expect(result.status).toBe(0);
+						expect(result.stdout).toBe("recent\n");
+					} else {
+						expect(result.status).not.toBe(0);
+						expect(result.stdout).toBe("");
+					}
+				}
+			}
+		} finally {
+			rmSync(dir, { recursive: true, force: true });
+		}
+	});
+
+	it.skipIf(process.platform !== "linux")("tails the checked descriptor across a log rotation", () => {
+		const dir = mkdtempSync(join(tmpdir(), "hosted-rotate-"));
+		try {
+			const path = join(dir, "service.log");
+			writeFileSync(path, "opened log\n");
+			// Rotate the log just as tail starts, after the descriptor has been checked.
+			writeFileSync(join(dir, "tail"), [
+				"#!/bin/sh",
+				'mv "$FIXTURE_LOG" "$FIXTURE_LOG.1"',
+				'echo replacement > "$FIXTURE_LOG"',
+				'exec /usr/bin/tail "$@"',
+			].join("\n"), { mode: 0o755 });
+			const command = buildCommand("read_logs", { logPath: path, tail: 1 });
+			const result = spawnSync("sh", ["-c", command!], {
+				encoding: "utf8", env: { ...process.env, PATH: `${dir}:${process.env.PATH}`, FIXTURE_LOG: path },
+			});
+			expect(result.status).toBe(0);
+			expect(result.stdout).toBe("opened log\n");
+		} finally {
+			rmSync(dir, { recursive: true, force: true });
+		}
 	});
 
 	it("keeps the unattended read tools out of credential files, key stores and device nodes", () => {

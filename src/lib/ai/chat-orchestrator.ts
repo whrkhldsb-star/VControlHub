@@ -1,8 +1,8 @@
-import { sessionHasPermission } from "@/lib/auth/authorization";
+import { getPermissionsFromRoles, sessionHasPermission } from "@/lib/auth/authorization";
 import { permissionDeniedMessage, requiredPermissionForAction } from "./hosted-helpers";
 import type { SessionPayload } from "@/lib/auth/session";
 import { prisma } from "@/lib/db";
-import { AppError, NotFoundError } from "@/lib/errors";
+import { AppError, ForbiddenError, NotFoundError } from "@/lib/errors";
 import { getErrorMessage } from "@/lib/http/error-message";
 import { t, type Locale } from "@/lib/i18n/service-translations";
 import { createLogger } from "@/lib/logging";
@@ -103,11 +103,34 @@ function isConversationDeletedDuringStream(error: unknown): boolean {
   return /ai_messages_conversationId_fkey|conversationId/i.test(detail);
 }
 
-async function processHostedTools(input: {
+type HostedStreamIdentity = {
+  session: SessionPayload;
+  reloadSession: () => Promise<SessionPayload | null>;
+};
+
+class HostedStreamAccessError extends ForbiddenError {}
+
+async function currentHostedSession(input: HostedStreamIdentity & { locale: Locale }) {
+  const original = input.session;
+  const current = await input.reloadSession().catch((error: unknown) => {
+    logger.warn("Could not revalidate hosted chat access", error, { userId: original.userId });
+    return null;
+  });
+  const permissions = original.permissions ?? getPermissionsFromRoles(original.roles);
+  if (!current || current.mustChangePassword || current.userId !== original.userId ||
+      current.currentTeamId !== original.currentTeamId ||
+      original.roles.some((role) => !current.roles.includes(role)) ||
+      permissions.some((permission) => !sessionHasPermission(current, permission))) {
+    throw new HostedStreamAccessError(t("backend.ai.hostedAuthorizationChanged", input.locale));
+  }
+  // A stream may use only the roles and grants with which its request started.
+  return { ...current, roles: original.roles, permissions };
+}
+
+async function processHostedTools(input: HostedStreamIdentity & {
   toolCalls: AiToolCall[];
   conversationId: string;
   assistantMessageId: string;
-  session: SessionPayload;
   locale: Locale;
   automationMode: "ASSISTED" | "PLAN_ONLY";
   send: (payload: unknown) => void;
@@ -122,6 +145,7 @@ async function processHostedTools(input: {
   const runnableCalls = parsedCalls.filter((call) => !blockedCalls.includes(call));
 
   const results: ToolResult[] = [];
+  const revalidate = async () => { await currentHostedSession(input); };
   // A call left without a result broke the thread: providers reject every
   // later request whose history holds an unanswered call. A call to a tool
   // that does not exist, or one that failed before its result was recorded,
@@ -149,9 +173,10 @@ async function processHostedTools(input: {
   // intentionally sequential rather than a batch or Promise.all.
   for (const { parsed } of runnableCalls) {
     const { tool, args, toolCallId } = parsed;
+    const session = await currentHostedSession(input);
     // Permission before any row exists (A7-07): an unauthorised call used to
     // leave an APPROVED→FAILED action behind.
-    if (!sessionHasPermission(input.session, requiredPermissionForAction(tool.actionType))) {
+    if (!sessionHasPermission(session, requiredPermissionForAction(tool.actionType))) {
       await answerWithError(toolCallId, tool.name, permissionDeniedMessage(tool.actionType, input.locale));
       continue;
     }
@@ -164,10 +189,12 @@ async function processHostedTools(input: {
         toolCallId,
         tool,
         args,
-        userId: input.session.userId,
-        session: input.session,
+        userId: session.userId,
+        session,
+        revalidate,
       });
       actionId = action.id;
+      const dispatchSession = await currentHostedSession(input);
       // Creation rechecks the live mode. A rejected proposal must never appear as awaiting approval.
       input.send({
         type: "tool_call",
@@ -219,7 +246,7 @@ async function processHostedTools(input: {
 
       const execution = await executeSafeAction(
         { actionType: tool.actionType, serverId: action.serverId, params },
-        { session: input.session, locale: input.locale },
+        { session: dispatchSession, locale: input.locale, revalidate },
       );
       await prisma.$transaction([
         prisma.aiHostedAction.update({
@@ -242,6 +269,7 @@ async function processHostedTools(input: {
         }),
       ]);
       answered = true;
+      await currentHostedSession(input);
       input.send({
         type: "tool_result",
         toolCallId,
@@ -272,14 +300,15 @@ async function processHostedTools(input: {
             data: { status: "FAILED", errorMessage: message.slice(0, 2000), completedAt: new Date() },
           }).catch(() => undefined);
         }
-        await answerWithError(toolCallId, tool.name, message);
+        if (!(error instanceof HostedStreamAccessError)) await answerWithError(toolCallId, tool.name, message);
       }
+      if (error instanceof HostedStreamAccessError) throw error;
     }
   }
   return results;
 }
 
-function createStreamingResponse(input: {
+function createStreamingResponse(input: HostedStreamIdentity & {
   signal?: AbortSignal;
   upstream: Response;
   providerType: string;
@@ -288,7 +317,6 @@ function createStreamingResponse(input: {
   model: string;
   hostingEnabled: boolean;
   automationMode: "ASSISTED" | "PLAN_ONLY";
-  session: SessionPayload;
   locale: Locale;
   userMessageId: string;
   providerId: string;
@@ -407,6 +435,7 @@ function createStreamingResponse(input: {
               conversationId: input.conversationId,
               assistantMessageId: assistant.id,
               session: input.session,
+              reloadSession: input.reloadSession,
               locale: input.locale,
               automationMode: input.automationMode,
               send,
@@ -444,6 +473,7 @@ function createStreamingResponse(input: {
           let followUpPersisted = false;
           let nextCalls: typeof result.toolCalls = [];
           let nextResults: typeof toolResults = [];
+          await currentHostedSession(input);
           try {
             const followUp = await sendChatRequest(
               {
@@ -497,6 +527,7 @@ function createStreamingResponse(input: {
                     conversationId: input.conversationId,
                     assistantMessageId: row.id,
                     session: input.session,
+                    reloadSession: input.reloadSession,
                     locale: input.locale,
                     automationMode: input.automationMode,
                     send,
@@ -518,6 +549,7 @@ function createStreamingResponse(input: {
                 (finalOutputTokens ?? 0) + (followUpResult.outputTokens ?? 0);
             }
           } catch (error) {
+            if (error instanceof HostedStreamAccessError) throw error;
             logger.warn(
               "AI tool follow-up failed; keeping completed tool result",
               error,
@@ -646,9 +678,8 @@ async function removeOrphanUserMessage(
   }
 }
 
-export async function createAiChatResponse(input: {
+export async function createAiChatResponse(input: HostedStreamIdentity & {
   body: ChatRequestBody & { conversationId: string; content: string };
-  session: SessionPayload;
   locale: Locale;
   signal?: AbortSignal;
 }): Promise<Response> {
@@ -657,7 +688,7 @@ export async function createAiChatResponse(input: {
   try {
     conversation = await getConversationById(
       input.body.conversationId,
-      input.session.userId,
+      input.session,
     );
   } catch {
     throw new NotFoundError(t("apiAiChat.conversationNotFound", input.locale));
@@ -739,6 +770,7 @@ export async function createAiChatResponse(input: {
       hostingEnabled: conversation.hostingEnabled,
       automationMode: conversation.automationMode,
       session: input.session,
+      reloadSession: input.reloadSession,
       locale: input.locale,
       userMessageId: userMessage.id,
       providerId: conversation.provider.id,

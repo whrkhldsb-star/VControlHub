@@ -58,17 +58,17 @@ describe("AI conversation, hosted action and ops log routes", () => {
 
 	it("conversation routes are per user: the owner id always comes from the session", async () => {
 		expect(await (await conversation.GET(req("GET", "http://local/api/ai/conversations/c_1"), { params })).json()).toEqual({ conversation: { id: "c_1", title: "chat" } });
-		expect(mocks.getConversationById).toHaveBeenCalledWith("c_1", "u_cust");
+		expect(mocks.getConversationById).toHaveBeenCalledWith("c_1", routeSession.current);
 
 		const renamed = await conversation.PATCH(req("PATCH", "http://local/api/ai/conversations/c_1", { title: "renamed" }), { params });
 		expect(renamed.status).toBe(200);
-		expect(mocks.updateConversation).toHaveBeenCalledWith("c_1", "u_cust", expect.objectContaining({ title: "renamed" }));
+		expect(mocks.updateConversation).toHaveBeenCalledWith("c_1", routeSession.current, expect.objectContaining({ title: "renamed" }));
 
 		await conversation.PATCH(req("PATCH", "http://local/api/ai/conversations/c_1", { clearMessages: true }), { params });
-		expect(mocks.clearConversationMessages).toHaveBeenCalledWith("c_1", "u_cust");
+		expect(mocks.clearConversationMessages).toHaveBeenCalledWith("c_1", routeSession.current);
 
 		expect((await conversation.DELETE(req("DELETE", "http://local/api/ai/conversations/c_1"), { params })).status).toBe(200);
-		expect(mocks.deleteConversation).toHaveBeenCalledWith("c_1", "u_cust");
+		expect(mocks.deleteConversation).toHaveBeenCalledWith("c_1", routeSession.current);
 
 		mocks.getConversationById.mockRejectedValueOnce(new NotFoundError("missing"));
 		expect((await conversation.GET(req("GET", "http://local/api/ai/conversations/c_1"), { params })).status).toBe(404);

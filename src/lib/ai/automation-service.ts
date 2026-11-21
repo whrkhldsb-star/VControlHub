@@ -105,6 +105,7 @@ function validateBuiltinVariables(
 export async function materializeAutomationProposal(
   raw: Record<string, unknown>,
   actor: HostedActionSession,
+  confirmedTeamId?: string | null,
 ) {
   const t = await serviceT();
   const input = createAutomationSchema(t).parse(raw);
@@ -169,24 +170,36 @@ export async function materializeAutomationProposal(
     const batch = await prisma.server.findMany({
       where: {
         enabled: true,
-    ...serverTeamWhere(session, "connect"),
+        ...serverTeamWhere(session, "connect"),
         ...(input.targetScope === "selected" ? { id: { in: requestedIds } } : {}),
       },
-      select: { id: true, name: true, host: true, teamId: true },
+      select: { id: true, name: true, host: true, teamId: true, operatingSystem: true },
       orderBy: { id: "asc" },
       take: 500,
       ...(cursor ? { cursor, skip: 1 } : {}),
     });
+    if (batch.some((server) => server.operatingSystem === "WINDOWS")) {
+      throw new BusinessError(t("backend.ai.windowsHostedCommandUnsupported"));
+    }
     servers.push(...batch);
     cursor = batch.length === 500 ? { id: batch[batch.length - 1]!.id } : undefined;
   } while (cursor);
   servers.sort((a, b) => a.name.localeCompare(b.name));
+  if (confirmedTeamId !== undefined) {
+    // Confirmation re-reads the template and the current server inventory.
+    const confirmedIds = new Set(Array.isArray(raw.serverIds) ? raw.serverIds : []);
+    if (raw.command !== command || raw.teamId !== confirmedTeamId || !servers.length ||
+        confirmedIds.size !== servers.length ||
+        servers.some((server) => server.teamId !== confirmedTeamId || !confirmedIds.has(server.id))) {
+      throw new BusinessError(t("backend.ai.automationProposalChanged"));
+    }
+  }
   if (!servers.length) throw new BusinessError(t("backend.ai.automationNoEnabledTargets"));
   if (input.targetScope === "selected" && servers.length !== requestedIds.length) {
     throw new BusinessError(t("backend.ai.automationSelectedTargetsUnavailable"));
   }
-  const teamIds = unique(servers.map((server) => server.teamId ?? ""));
-  if (teamIds.length !== 1) {
+  const teamId = servers[0]!.teamId;
+  if (!teamId || servers.some((server) => server.teamId !== teamId)) {
     throw new BusinessError(t("backend.ai.automationSingleCustomer"));
   }
 
@@ -200,7 +213,7 @@ export async function materializeAutomationProposal(
     templateName: template?.name ?? null,
     serverIds: servers.map((server) => server.id),
     servers: servers.map(({ id, name, host }) => ({ id, name, host })),
-    teamId: servers[0]!.teamId,
+    teamId,
     approvalRequired: input.approvalMode === "every_run",
     timeZone: APP_TIME_ZONE,
   };
@@ -210,21 +223,11 @@ export async function executeAutomationProposal(
   raw: Record<string, unknown>,
   actor: HostedActionSession,
   hostedActionId: string,
+  actionTeamId: string | null,
 ) {
-  const proposal = await materializeAutomationProposal(raw, actor);
-  // What runs must be what was confirmed. Materializing again re-reads the
-  // template and resolves an "all servers" scope again, so a template edited
-  // or a server added after the plan was shown changed the command or its
-  // targets without anyone seeing it.
-  const confirmedIds = Array.isArray(raw.serverIds) ? unique(raw.serverIds.map(String)).sort() : null;
-  if (
-    (typeof raw.command === "string" && raw.command !== proposal.command) ||
-    (confirmedIds && confirmedIds.join("\n") !== unique(proposal.serverIds).sort().join("\n"))
-  ) {
-    const t = await serviceT();
-    throw new BusinessError(t("backend.ai.automationProposalChanged"));
-  }
-  const session = { ...actor, currentTeamId: actor.currentTeamId ?? null };
+  const proposal = await materializeAutomationProposal(raw, actor, actionTeamId);
+  // Narrow even an all-customers administrator for the service's final target check.
+  const session = { ...actor, currentTeamId: proposal.teamId };
   if (proposal.executionMode === "now") {
     const request = await createCommandRequest({
       title: commandRequestTitle("AI automation: ", proposal.name),
@@ -263,7 +266,7 @@ export async function executeAutomationProposal(
     serverIds: proposal.serverIds,
     createdById: actor.userId,
     teamId: proposal.teamId,
-  }, session);
+  }, session, scheduledAutomationTaskId(hostedActionId));
   return {
     kind: "scheduled_task",
     scheduledTaskId: task.id,
@@ -274,4 +277,9 @@ export async function executeAutomationProposal(
     command: proposal.command,
     timeZone: APP_TIME_ZONE,
   };
+}
+
+// A crash after the insert must leave an unambiguous link back to the card.
+export function scheduledAutomationTaskId(hostedActionId: string) {
+  return `ai-automation:${hostedActionId}`;
 }

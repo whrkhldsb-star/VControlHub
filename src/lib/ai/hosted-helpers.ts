@@ -23,6 +23,7 @@ export type HostedActionSession = Pick<SessionPayload, "userId" | "roles"> &
 export type HostedActionExecutionContext = {
   session: HostedActionSession;
   requiredPermission?: Permission;
+  revalidate?: () => Promise<void>;
   locale?: Locale;
 };
 
@@ -153,13 +154,16 @@ export async function buildAssistantCommandRequestPayload(input: {
 }) {
   const server = await prisma.server.findFirst({
     where: { id: input.serverId, teamId: input.teamId ?? null },
-    select: { osDialect: true, teamId: true },
+    select: { operatingSystem: true, osDialect: true, teamId: true },
   });
   if (!server) throw new Error(t("backend.ai.serverNotFoundOrOutsideTeamScope"));
   const dialect = server.osDialect ? deserializeDialect(server.osDialect) : undefined;
   const { buildCommand } = await import("./hosted-command-builder");
-  const command = buildCommand(input.tool.actionType, input.args, dialect);
-  if (!command) throw new Error(t("backend.ai.invalidActionParameters"));
+  const command = buildCommand(input.tool.actionType, input.args, dialect, server.operatingSystem);
+  if (!command) {
+    if (server.operatingSystem === "WINDOWS") throw new BusinessError(t("backend.ai.windowsHostedCommandUnsupported"));
+    throw new Error(t("backend.ai.invalidActionParameters"));
+  }
   // The model's own words, cut to what a command request takes: a longer reason failed the request after the
   // person had confirmed the action.
   const reason = (typeof input.args.reason === "string" && input.args.reason.trim()

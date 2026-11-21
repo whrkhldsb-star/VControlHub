@@ -1,3 +1,4 @@
+import type { SessionPayload } from "@/lib/auth/session";
 import { beforeEach, describe, expect, it, vi } from "vitest";
 
 const { mocks } = vi.hoisted(() => ({
@@ -46,6 +47,7 @@ const session = {
   mustChangePassword: false,
   currentTeamId: null,
 };
+const reloadSession = vi.fn(async (): Promise<SessionPayload | null> => session);
 const conversation = {
   id: "conversation-1",
   systemPrompt: null,
@@ -91,7 +93,7 @@ describe("createAiChatResponse", () => {
   it("persists both sides and emits a complete SSE response", async () => {
     const response = await createAiChatResponse({
       body: { conversationId: conversation.id, content: "question" },
-      session,
+      session, reloadSession,
       locale: "en",
     });
     const body = await response.text();
@@ -121,7 +123,7 @@ describe("createAiChatResponse", () => {
     mocks.buildKnowledgeContextForPrompt.mockResolvedValue({ context });
     await (await createAiChatResponse({
       body: { conversationId: conversation.id, content: "question" },
-      session,
+      session, reloadSession,
       locale: "en",
     })).text();
     const messages = mocks.sendChatRequest.mock.calls[0]![0]!.messages as Array<{ role: string; content: unknown }>;
@@ -135,7 +137,7 @@ describe("createAiChatResponse", () => {
     const cancel = vi.fn();
     const body = new ReadableStream<Uint8Array>({ cancel });
     mocks.sendChatRequest.mockResolvedValueOnce({ response: new Response(body), providerType: "OPENAI", startTime: Date.now() });
-    const response = await createAiChatResponse({ body: { conversationId: conversation.id, content: "question" }, session, locale: "en", signal: controller.signal });
+    const response = await createAiChatResponse({ body: { conversationId: conversation.id, content: "question" }, session, reloadSession, locale: "en", signal: controller.signal });
     const completion = response.text();
     controller.abort();
     expect(await completion).not.toContain('"type":"done"');
@@ -150,7 +152,7 @@ describe("createAiChatResponse", () => {
 
     const response = await createAiChatResponse({
       body: { conversationId: conversation.id, content: "question" },
-      session,
+      session, reloadSession,
       locale: "en",
     });
     const body = await response.text();
@@ -176,7 +178,7 @@ describe("createAiChatResponse", () => {
 
     const response = await createAiChatResponse({
       body: { conversationId: conversation.id, content: "question" },
-      session,
+      session, reloadSession,
       locale: "en",
     });
     const body = await response.text();
@@ -194,7 +196,7 @@ describe("createAiChatResponse", () => {
     await expect(
       createAiChatResponse({
         body: { conversationId: conversation.id, content: "question" },
-        session,
+        session, reloadSession,
         locale: "en",
       }),
     ).rejects.toMatchObject({ message: "provider unavailable" });
@@ -217,7 +219,7 @@ describe("createAiChatResponse", () => {
 
     const response = await createAiChatResponse({
       body: { conversationId: conversation.id, content: "question" },
-      session,
+      session, reloadSession,
       locale: "en",
     });
 
@@ -260,7 +262,7 @@ describe("createAiChatResponse", () => {
 
     const response = await createAiChatResponse({
       body: { conversationId: conversation.id, content: "question" },
-      session,
+      session, reloadSession,
       locale: "en",
     });
     const reader = response.body!.getReader();
@@ -292,7 +294,7 @@ describe("createAiChatResponse", () => {
       ),
       providerType: "OPENAI", startTime: Date.now(),
     });
-    const response = await createAiChatResponse({ body: { conversationId: conversation.id, content: "question" }, session, locale: "en" });
+    const response = await createAiChatResponse({ body: { conversationId: conversation.id, content: "question" }, session, reloadSession, locale: "en" });
     const body = await response.text();
     expect(body).toContain('"type":"error"');
     expect(mocks.parseToolCall).not.toHaveBeenCalled();
@@ -336,7 +338,7 @@ describe("createAiChatResponse", () => {
 
     const response = await createAiChatResponse({
       body: { conversationId: conversation.id, content: "list servers" },
-      session,
+      session, reloadSession,
       locale: "en",
     });
     const body = await response.text();
@@ -354,7 +356,7 @@ describe("createAiChatResponse", () => {
   }));
     expect(mocks.executeSafeAction).toHaveBeenCalledWith(
       { actionType: "list_servers", serverId: null, params: {} },
-      { session, locale: "en" },
+      { session: expect.objectContaining(session), locale: "en", revalidate: expect.any(Function) },
     );
     expect(mocks.prisma.$transaction).toHaveBeenCalledTimes(1);
     expect(mocks.prisma.aiHostedAction.update).toHaveBeenCalledWith({
@@ -412,7 +414,7 @@ describe("createAiChatResponse", () => {
 
     const response = await createAiChatResponse({
       body: { conversationId: conversation.id, content: "list templates" },
-      session,
+      session, reloadSession,
       locale: "en",
     });
     const body = await response.text();
@@ -459,7 +461,7 @@ describe("createAiChatResponse", () => {
 
     const response = await createAiChatResponse({
       body: { conversationId: conversation.id, content: "restart it" },
-      session,
+      session, reloadSession,
       locale: "en",
     });
     const body = await response.text();
@@ -483,6 +485,39 @@ describe("createAiChatResponse", () => {
     expect(mocks.prisma.$transaction).not.toHaveBeenCalled();
   });
 
+  it.each(["disabled", "permission revoked", "customer reassigned"])(
+    "stops the remaining batch when the account is %s between cards",
+    async (change) => {
+      const original: SessionPayload = {
+        ...session, roles: ["operator"], currentTeamId: "team-a", permissions: ["ai:chat", "server:read"],
+      };
+      const changed = change === "disabled" ? null : change === "permission revoked"
+        ? { ...original, permissions: ["ai:chat" as const] }
+        : { ...original, currentTeamId: "team-b" };
+      reloadSession.mockResolvedValueOnce(original).mockResolvedValueOnce(original).mockResolvedValueOnce(original).mockResolvedValueOnce(changed);
+      mocks.getConversationById.mockResolvedValueOnce({ ...conversation, hostingEnabled: true });
+      const calls = ["call-1", "call-2", "call-3"].map((id, index) => ({
+        id, index, function: { name: "list_servers", arguments: "{}" },
+      }));
+      mocks.sendChatRequest.mockResolvedValueOnce({
+        response: new Response(`data: ${JSON.stringify({ choices: [{ delta: { tool_calls: calls } }] })}\n\ndata: [DONE]\n\n`),
+        providerType: "OPENAI", startTime: Date.now(),
+      });
+      const hosted = await vi.importActual<typeof import("../hosted-service")>("../hosted-service");
+      mocks.parseToolCall.mockImplementation(hosted.parseToolCall);
+      mocks.createHostedAction.mockResolvedValue({ id: "card", params: "{}", serverId: null });
+      mocks.executeSafeAction.mockResolvedValue({ success: true, data: [] });
+
+      const response = await createAiChatResponse({
+        body: { conversationId: conversation.id, content: "list" }, session: original, reloadSession, locale: "en",
+      });
+      expect(await response.text()).toContain("Hosted actions have stopped");
+      expect(mocks.createHostedAction).toHaveBeenCalledTimes(1);
+      expect(mocks.executeSafeAction).toHaveBeenCalledTimes(1);
+      expect(mocks.sendChatRequest).toHaveBeenCalledTimes(1);
+    },
+  );
+
   it("answers an in-flight change call without a card when the conversation switches to plan-only", async () => {
     const hosted = await vi.importActual<typeof import("../hosted-service")>("../hosted-service");
     mocks.parseToolCall.mockImplementationOnce(hosted.parseToolCall);
@@ -490,7 +525,7 @@ describe("createAiChatResponse", () => {
     let automationMode = "ASSISTED";
     mocks.getConversationById.mockResolvedValueOnce({ ...conversation, hostingEnabled: true, automationMode });
     const tx = {
-      $queryRaw: vi.fn(async () => [{ automationMode }]),
+      $queryRaw: vi.fn(async () => [{ hostingEnabled: true, automationMode }]),
       aiHostedAction: { create: vi.fn() },
     };
     mocks.prisma.$transaction.mockImplementationOnce((write) => write(tx));
@@ -498,7 +533,7 @@ describe("createAiChatResponse", () => {
     mocks.sendChatRequest.mockResolvedValueOnce({
       response: new Response(providerStream.readable), providerType: "OPENAI", startTime: Date.now(),
     });
-    const response = await createAiChatResponse({ body: { conversationId: conversation.id, content: "pause task" }, session, locale: "en" });
+    const response = await createAiChatResponse({ body: { conversationId: conversation.id, content: "pause task" }, session, reloadSession, locale: "en" });
     automationMode = "PLAN_ONLY";
     const writer = providerStream.writable.getWriter();
     const call = { index: 0, id: "late_call", function: { name: "manage_cron", arguments: '{"action":"pause","taskId":"task"}' } };
@@ -542,7 +577,7 @@ describe("tool calls that get no result", () => {
   it("answers a call to a tool that does not exist with an error", async () => {
     mocks.parseToolCall.mockReturnValue(null);
 
-    const response = await createAiChatResponse({ body: { conversationId: conversation.id, content: "go" }, session, locale: "en" });
+    const response = await createAiChatResponse({ body: { conversationId: conversation.id, content: "go" }, session, reloadSession, locale: "en" });
     await response.text();
 
     expect(mocks.prisma.aiMessage.create).toHaveBeenCalledWith({
@@ -558,7 +593,7 @@ describe("tool calls that get no result", () => {
     });
     mocks.createHostedAction.mockRejectedValueOnce(new Error("server not in scope"));
 
-    const response = await createAiChatResponse({ body: { conversationId: conversation.id, content: "go" }, session, locale: "en" });
+    const response = await createAiChatResponse({ body: { conversationId: conversation.id, content: "go" }, session, reloadSession, locale: "en" });
     const body = await response.text();
 
     expect(body).toContain('"type":"tool_result"');
@@ -597,7 +632,7 @@ describe("plan-only conversations", () => {
       tool: { name: "restart_service", actionName: "Restart service", actionType: "restart_service", riskLevel: "medium", autoApproved: false },
     });
 
-    const response = await createAiChatResponse({ body: { conversationId: conversation.id, content: "restart nginx" }, session, locale: "en" });
+    const response = await createAiChatResponse({ body: { conversationId: conversation.id, content: "restart nginx" }, session, reloadSession, locale: "en" });
     const body = await response.text();
     expect(mocks.createHostedAction).not.toHaveBeenCalled();
     expect(mocks.executeSafeAction).not.toHaveBeenCalled();

@@ -30,7 +30,7 @@ vi.mock("@/lib/ai/service", () => ({
 
 const route = await import("../route");
 
-const session = { userId: "user-a", username: "alice" };
+const session = { userId: "user-a", username: "alice", currentTeamId: "team-a" };
 
 const fakeConv = {
   id: "c1", title: "Plan", createdAt: new Date("2026-01-01T00:00:00Z"), updatedAt: new Date("2026-01-01T00:00:00Z"),
@@ -48,14 +48,14 @@ describe("/api/ai/conversations/[id] - ownership enforcement", () => {
     mocks.serializeConversation.mockImplementation((c) => c);
   });
 
-  it("GET calls getConversationById with session.userId (owner-scoped)", async () => {
+  it("GET calls getConversationById with the authenticated customer session", async () => {
     const req = new Request("http://local/api/ai/conversations/c1", { method: "GET" });
     const res = await route.GET(req, { params: Promise.resolve({ id: "c1" }) });
     expect(res.status).toBe(200);
-    expect(mocks.getConversationById).toHaveBeenCalledWith("c1", "user-a");
+    expect(mocks.getConversationById).toHaveBeenCalledWith("c1", session);
   });
 
-  it("PATCH calls updateConversation with session.userId (owner-scoped)", async () => {
+  it("PATCH calls updateConversation with the authenticated customer session", async () => {
     const req = new Request("http://local/api/ai/conversations/c1", {
       method: "PATCH",
       headers: { "content-type": "application/json" },
@@ -63,10 +63,10 @@ describe("/api/ai/conversations/[id] - ownership enforcement", () => {
     });
     const res = await route.PATCH(req, { params: Promise.resolve({ id: "c1" }) });
     expect(res.status).toBe(200);
-    expect(mocks.updateConversation).toHaveBeenCalledWith("c1", "user-a", expect.objectContaining({ title: "New title" }));
+    expect(mocks.updateConversation).toHaveBeenCalledWith("c1", session, expect.objectContaining({ title: "New title" }));
   });
 
-  it("PATCH clearMessages calls clearConversationMessages with session.userId", async () => {
+  it("PATCH clearMessages calls clearConversationMessages with the authenticated customer session", async () => {
     const req = new Request("http://local/api/ai/conversations/c1", {
       method: "PATCH",
       headers: { "content-type": "application/json" },
@@ -74,13 +74,13 @@ describe("/api/ai/conversations/[id] - ownership enforcement", () => {
     });
     const res = await route.PATCH(req, { params: Promise.resolve({ id: "c1" }) });
     expect(res.status).toBe(200);
-    expect(mocks.clearConversationMessages).toHaveBeenCalledWith("c1", "user-a");
+    expect(mocks.clearConversationMessages).toHaveBeenCalledWith("c1", session);
   });
 
-  it("DELETE calls deleteConversation with session.userId (owner-scoped)", async () => {
+  it("DELETE calls deleteConversation with the authenticated customer session", async () => {
     const req = new Request("http://local/api/ai/conversations/c1", { method: "DELETE" });
     const res = await route.DELETE(req, { params: Promise.resolve({ id: "c1" }) });
     expect(res.status).toBe(200);
-    expect(mocks.deleteConversation).toHaveBeenCalledWith("c1", "user-a");
+    expect(mocks.deleteConversation).toHaveBeenCalledWith("c1", session);
   });
 });

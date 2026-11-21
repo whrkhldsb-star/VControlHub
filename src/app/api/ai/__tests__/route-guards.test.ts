@@ -263,7 +263,7 @@ describe("AI API shared guard migration", () => {
     );
     expect(listResponse.status).toBe(200);
     expect(mocks.requireApiPermission).toHaveBeenCalledWith("ai:chat");
-    expect(mocks.listConversations).toHaveBeenCalledWith("u1");
+    expect(mocks.listConversations).toHaveBeenCalledWith(session);
 
     const createResponse = await conversationsRoute.POST(
       new Request("http://local/api/ai/conversations", {
@@ -282,8 +282,7 @@ describe("AI API shared guard migration", () => {
       title: "New chat",
       providerId: "p1",
       model: "gpt-test",
-      createdBy: "u1",
-    });
+    }, session);
 
     const detailParams = { params: Promise.resolve({ id: "c1" }) };
     const patchResponse = await conversationDetailRoute.PATCH(
@@ -296,7 +295,7 @@ describe("AI API shared guard migration", () => {
     );
     expect(patchResponse.status).toBe(200);
     expect(mocks.requireApiPermission).toHaveBeenCalledWith("ai:chat");
-    expect(mocks.updateConversation).toHaveBeenCalledWith("c1", "u1", {
+    expect(mocks.updateConversation).toHaveBeenCalledWith("c1", session, {
       title: "Renamed chat",
     });
 
@@ -306,7 +305,7 @@ describe("AI API shared guard migration", () => {
     );
     expect(deleteResponse.status).toBe(200);
     expect(mocks.requireApiPermission).toHaveBeenCalledWith("ai:chat");
-    expect(mocks.deleteConversation).toHaveBeenCalledWith("c1", "u1");
+    expect(mocks.deleteConversation).toHaveBeenCalledWith("c1", session);
   });
 
   it("checks ai:chat permission before validating chat request bodies", async () => {

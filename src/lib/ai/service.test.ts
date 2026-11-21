@@ -48,6 +48,8 @@ vi.mock("@/lib/runtime-settings/service", () => ({
 
 const { listProviders, listConversations, createProvider, updateProvider, createConversation, deleteConversation } = await import("./service");
 
+const session = { userId: "u1", roles: ["operator" as const], currentTeamId: "team-a" };
+
 describe("AI service list hydration limits", () => {
   beforeEach(() => {
     vi.clearAllMocks();
@@ -79,10 +81,10 @@ describe("AI service list hydration limits", () => {
   });
 
   it("uses the runtime-tunable AI conversation list limit", async () => {
-    await listConversations("u1");
+    await listConversations(session);
 
     expect(prismaMock.aiConversation.findMany).toHaveBeenCalledWith(expect.objectContaining({
-      where: { createdBy: "u1" },
+      where: { createdBy: "u1", teamId: "team-a" },
       orderBy: { updatedAt: "desc" },
       take: 123,
     }));
@@ -104,6 +106,39 @@ describe("AI service list hydration limits", () => {
         availableModels: JSON.stringify(["gpt-4o", "gpt-4.1"]),
       }),
     }));
+  });
+
+  it.each([
+    ["ANTHROPIC", "https://api.anthropic.com/"],
+    ["GOOGLE", "https://generativelanguage.googleapis.com/"],
+    ["OPENAI", "https://api.openai.com/v1"],
+  ])("creates a %s provider with its own default endpoint", async (type, baseUrl) => {
+    await createProvider({ name: "Native", type, apiKey: "native-key", createdBy: "u1" });
+    expect(prismaMock.aiProvider.create).toHaveBeenCalledWith(expect.objectContaining({
+      data: expect.objectContaining({ type, baseUrl }),
+    }));
+  });
+
+  it("requires a replacement key for an origin or type change and guards the endpoint on the write", async () => {
+    const endpoint = { type: "OPENAI", baseUrl: "https://api.openai.com/v1" };
+    prismaMock.aiProvider.findFirst.mockResolvedValue(endpoint);
+    for (const patch of [
+      { baseUrl: "https://other.example/v1" }, { type: "OPENAI_COMPATIBLE" },
+      { baseUrl: "https://other.example/v1", apiKey: "   " },
+    ]) {
+      await expect(updateProvider("p1", "u1", patch)).rejects.toThrow(/API [Kk]ey/);
+    }
+    expect(prismaMock.aiProvider.updateMany).not.toHaveBeenCalled();
+    await updateProvider("p1", "u1", { baseUrl: "https://API.OPENAI.com:443/other-path" });
+    expect(prismaMock.aiProvider.updateMany).toHaveBeenCalledWith({
+      where: { id: "p1", createdBy: "u1", ...endpoint },
+      data: { baseUrl: "https://api.openai.com/other-path" },
+    });
+    await updateProvider("p1", "u1", { type: "ANTHROPIC", apiKey: "new-key" });
+    expect(prismaMock.aiProvider.updateMany).toHaveBeenLastCalledWith({
+      where: { id: "p1", createdBy: "u1", ...endpoint },
+      data: { type: "ANTHROPIC", baseUrl: "https://api.anthropic.com/", apiKey: "encrypted:new-key" },
+    });
   });
 
   it("rejects private AI provider Base URLs before persistence", async () => {
@@ -145,8 +180,7 @@ describe("AI service list hydration limits", () => {
       createConversation({
         providerId: "other-provider",
         model: "gpt-4o",
-        createdBy: "u1",
-      }),
+      }, session),
     ).rejects.toThrow(/不存在|not found/i);
 
     expect(prismaMock.aiProvider.findFirst).toHaveBeenCalledWith({
@@ -161,12 +195,11 @@ describe("AI service list hydration limits", () => {
     await createConversation({
       providerId: "p1",
       model: "gpt-4o",
-      createdBy: "u1",
-    });
+    }, session);
 
     expect(prismaMock.aiConversation.create).toHaveBeenCalledWith(
       expect.objectContaining({
-        data: expect.objectContaining({ providerId: "p1", createdBy: "u1" }),
+        data: expect.objectContaining({ providerId: "p1", createdBy: "u1", teamId: "team-a" }),
         include: {
           provider: {
             select: expect.not.objectContaining({ apiKey: true }),
@@ -180,26 +213,14 @@ describe("AI service list hydration limits", () => {
     expect(createCall?.include?.provider?.select?.apiKey).toBeUndefined();
   });
 
-  it("deletes hosted actions and messages after an owner-scoped lookup", async () => {
-    prismaMock.aiConversation.findFirst.mockResolvedValueOnce({ id: "c1" });
+  it("scopes the cascading conversation deletion to both owner and customer", async () => {
     prismaMock.aiConversation.deleteMany.mockResolvedValueOnce({ count: 1 });
-    await deleteConversation("c1", "u1");
-    expect(prismaMock.aiConversation.findFirst).toHaveBeenCalledWith({
-      where: { id: "c1", createdBy: "u1" },
-      select: { id: true },
-    });
-    expect(prismaMock.aiHostedAction.deleteMany).toHaveBeenCalledWith({
-      where: { conversationId: "c1" },
-    });
-    expect(prismaMock.aiMessage.deleteMany).toHaveBeenCalledWith({
-      where: { conversationId: "c1" },
-    });
+    await deleteConversation("c1", session);
     expect(prismaMock.aiConversation.deleteMany).toHaveBeenCalledWith({
-      where: { id: "c1", createdBy: "u1" },
+      where: { id: "c1", createdBy: "u1", teamId: "team-a" },
     });
-    expect(prismaMock.$transaction).toHaveBeenCalledOnce();
 
-    prismaMock.aiConversation.findFirst.mockResolvedValueOnce(null);
-    await expect(deleteConversation("c-missing", "u1")).rejects.toThrow(/不存在|not found/i);
+    prismaMock.aiConversation.deleteMany.mockResolvedValueOnce({ count: 0 });
+    await expect(deleteConversation("c-missing", session)).rejects.toThrow(/不存在|not found/i);
   });
 });

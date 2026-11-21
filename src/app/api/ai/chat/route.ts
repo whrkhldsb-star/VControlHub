@@ -3,7 +3,7 @@ import { NextResponse } from "next/server";
 import { createAiChatResponse } from "@/lib/ai/chat-orchestrator";
 import { CHAT_REQUEST_MAX_BODY_BYTES, chatRequestSchema } from "@/lib/ai/schema";
 import { ValidationError } from "@/lib/errors";
-import { withApiRoute } from "@/lib/http/api-guard";
+import { enforceApiGuard, withApiRoute } from "@/lib/http/api-guard";
 import { getServerLocale, t } from "@/lib/i18n/translations";
 import { checkRateLimitAsync, getClientIp } from "@/lib/rate-limit";
 
@@ -54,6 +54,10 @@ export async function POST(request: Request) {
       return createAiChatResponse({
         body: { ...body, conversationId: body.conversationId, content },
         session,
+        reloadSession: async () => {
+          const live = await enforceApiGuard({ request, permission: "ai:chat" });
+          return live instanceof Response ? null : live;
+        },
         locale,
         signal: request.signal,
       });
