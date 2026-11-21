@@ -22,6 +22,9 @@ export { shellQuote };
 /* ── Types ────────────────────────────────────────────────── */
 
 type SyncTransportBase = {
+	receiverLease?: string;
+	/** Operate relative to the already authorized physical directories. */
+	confined?: boolean;
 	targetUser: string;
 	targetHost: string;
 	targetPort: number;
@@ -217,6 +220,54 @@ function withCredentialCleanup(command: string, input: SyncTransportInput): stri
 	return `trap 'rm -f -- ${paths.map(shellQuote).join(" ")}' EXIT\n${command}`;
 }
 
+/** A per-leg remote directory, created exclusively for this run and shared by all its receiving phases. */
+export function syncReceiverLeasePath(legId: string) {
+	return `/tmp/app-sync-receiver-${safeFileStem(legId)}`;
+}
+
+export function createSyncReceiverLease(path: string) {
+	const dir = shellQuote(path);
+	return `command -v flock >/dev/null || { echo "Sync requires flock on the receiver" >&2; exit 1; }
+umask 077 && mkdir -- ${dir} || exit 1
+if (exec 8<${dir} && flock -x -n 8 && [ -d /proc/self/fd/8 ] && command -v stat >/dev/null && command -v id >/dev/null && [ "$(stat -Lc %u /proc/self/fd/8)" = "$(id -u)" ]); then : > ${dir}/active
+else rmdir -- ${dir}; echo "Cannot lock sync receiver directory" >&2; exit 1; fi`;
+}
+
+/** A quiet receiver can survive SSH channel closure. Keep a shell holding fd 8 until its child exits. */
+function holdSyncReceiverLease(path: string) {
+	const dir = shellQuote(path);
+	return `[ ! -L ${dir} ] && [ -d ${dir} ] || exit 1; exec 8<${dir} || exit 1; flock -s -n 8 && [ -f /proc/self/fd/8/active ] || exit 1`;
+}
+
+/** Revocation blocks future phases. Only an exclusive lock proves prior writers have finished. */
+export function retireSyncReceiverLease(path: string) {
+	const dir = shellQuote(path);
+	return `if [ -e ${dir} ] || [ -L ${dir} ]; then
+  [ ! -L ${dir} ] && [ -d ${dir} ] || exit 1
+  exec 8<${dir} || exit 1
+  [ "$(stat -Lc %u /proc/self/fd/8)" = "$(id -u)" ] && rm -f -- /proc/self/fd/8/active && flock -x -n 8 && rmdir -- ${dir} || exit 1
+  exec 8<&-
+fi`;
+}
+
+/** Pin cwd before opening files. An ancestor replaced by a link after SFTP realpath must fail here. */
+function enterPhysicalDirectory(path: string): string {
+	return `cd -P -- ${shellQuote(path)} && [ "$(pwd -P)" = ${shellQuote(path)} ] || exit 1`;
+}
+
+/** Create missing components from their checked parent cwd, never through a symlink. */
+export function preparePhysicalDirectory(path: string): string {
+	const parts = path.split("/").filter(Boolean).map(shellQuote).join(" ");
+	return [
+		"cd / || exit 1", "vch_expected=",
+		`for vch_part in ${parts}; do`,
+		'  vch_expected="$vch_expected/$vch_part"',
+		'  [ -d "./$vch_part" ] || mkdir -- "./$vch_part" || exit 1',
+		'  cd -P -- "./$vch_part" && [ "$(pwd -P)" = "$vch_expected" ] || exit 1',
+		"done",
+	].join("\n");
+}
+
 /**
  * One-time key mode: the remote side is the gate ({@link buildSyncGateScript}):
  * it runs `rsync --server` into the directory the hub fixed when it installed
@@ -239,11 +290,20 @@ export function buildRsyncCommand(input: RsyncCommandInput): string {
 	// `--` ends the options, and a relative source gets "./": otherwise a path that begins with "-" is an option and one
 	// holding "host:" is another machine (jobs stored before the path check existed could still carry such a value).
 	const source = input.sourcePath.replace(/\/$/, "");
-	const sourceArg = shellQuote(`${source.startsWith("/") ? source : `./${source}`}/`);
+	const sourceArg = input.confined ? "./" : shellQuote(`${source.startsWith("/") ? source : `./${source}`}/`);
+	let receiver = "";
+	if (input.auth === "credential" && (input.confined || input.receiverLease)) {
+		const run = [
+			...(input.receiverLease ? [holdSyncReceiverLease(input.receiverLease)] : []),
+			...(input.confined ? [enterPhysicalDirectory(input.targetPath)] : []),
+			'rsync "$@"', "exit $?",
+		].join("; ");
+		receiver = ` --rsync-path=${shellQuote(`sh -c ${shellQuote(run)} vch-sync-receiver`)}`;
+	}
 	const command = input.auth === "one-time-key"
 		? `unset RSYNC_PROTECT_ARGS; rsync ${input.flags.join(" ")} -e ${shellDoubleQuote(transport)} -- ${sourceArg} ${shellQuote(`${address}:.`)} 2>&1`
-		: `${envSetup ? `${envSetup} && ` : ""}rsync ${input.flags.join(" ")} -s -e ${shellDoubleQuote(transport)} -- ${sourceArg} ${shellQuote(`${address}:${input.targetPath.replace(/\/$/, "")}/`)} 2>&1`;
-	return withCredentialCleanup(command, input);
+		: `${envSetup ? `${envSetup} && ` : ""}rsync ${input.flags.join(" ")} -s -e ${shellDoubleQuote(transport)}${receiver} -- ${sourceArg} ${shellQuote(`${address}:${input.confined ? "." : input.targetPath.replace(/\/$/, "")}/`)} 2>&1`;
+	return withCredentialCleanup(input.confined ? `${enterPhysicalDirectory(input.sourcePath)}\n${command}` : command, input);
 }
 
 const TAR_STAGE_PREFIX = ".vch-sync-stage-";
@@ -297,18 +357,26 @@ function buildMirrorCommitScript(target: string, stage: string, prev: string): s
  * inside the gate and the source only names the phase; in credential mode the
  * source sends them as the remote command.
  */
-function buildTarTargetScripts(input: { targetPath: string; deleteOrphans: boolean; jobId?: string }) {
-	const target = shellQuote(input.targetPath);
+function buildTarTargetScripts(input: { targetPath: string; deleteOrphans: boolean; jobId?: string; confined?: boolean }) {
+	const directory = input.confined ? "." : input.targetPath;
+	const target = shellQuote(directory);
+	const pin = input.confined ? enterPhysicalDirectory(input.targetPath) + "\n" : "";
 	const stem = safeFileStem(input.jobId ?? "sync");
 	const stageName = `${TAR_STAGE_PREFIX}${stem}`;
 	const prevName = `${TAR_PREV_PREFIX}${stem}`;
-	const stage = shellQuote(`${input.targetPath.replace(/\/+$/, "")}/${stageName}`);
+	const stage = shellQuote(`${directory.replace(/\/+$/, "")}/${stageName}`);
+	// A merge overlays existing directories. Refuse links anywhere in that tree, including the
+	// stage, before cp opens its destination. Replacing a hard-linked file must unlink it first.
+	const stageCwd = input.confined ? enterPhysicalDirectory(`${input.targetPath.replace(/\/+$/, "")}/${stageName}`) : `cd -P -- ${stage} || exit 1`;
+	const publish = input.confined
+		? `[ -d ${stage} ] && [ ! -L ${stage} ] || exit 1\nvch_link=$(find . -type l -print -quit) && [ -z "$vch_link" ] || exit 1\n`
+		: "";
 	return {
-		receive: `rm -rf -- ${stage} && mkdir -p -- ${stage} && tar xf - -C ${stage}`,
-		commit: input.deleteOrphans
+		receive: `${pin}umask 077 && mkdir -- ${stage} || exit 1\n${stageCwd}\ntar xf -`,
+		commit: pin + publish + (input.deleteOrphans
 			? buildMirrorCommitScript(target, shellQuote(stageName), shellQuote(prevName))
-			: `cp -a -- ${stage}/. ${target}/ && rm -rf -- ${stage}`,
-		abort: `rm -rf -- ${stage}`,
+			: `cp -a ${input.confined ? "--remove-destination " : ""}-- ${stage}/. ${target}/ && rm -rf -- ${stage}`),
+		abort: `${pin}rm -rf -- ${stage}`,
 	};
 }
 
@@ -327,16 +395,19 @@ export function buildTarSyncCommand(input: TarSyncCommandInput): string {
 	const { transport, envSetup } = buildSshTransport(input, shellQuote);
 	const address = shellQuote(buildSshTargetAddress(input.targetUser, input.targetHost));
 	const scripts = input.auth === "credential"
-		? buildTarTargetScripts({ targetPath: input.targetPath, deleteOrphans: input.deleteOrphans, jobId: input.jobId })
+		? buildTarTargetScripts({ targetPath: input.targetPath, deleteOrphans: input.deleteOrphans, jobId: input.jobId, confined: input.confined })
 		: null;
 	// One-time key: name the phase, the gate runs its own copy. Credential: send the script.
-	const remote = (phase: string, script: string | undefined) => `${transport} ${address} ${shellQuote(script ?? phase)}`;
+	const remote = (phase: string, script: string | undefined) => {
+		const guarded = script && input.receiverLease ? `${holdSyncReceiverLease(input.receiverLease)}\n${script}\nexit $?` : script;
+		return `${transport} ${address} ${shellQuote(guarded ?? phase)}`;
+	};
 	const command = [
 		// The password must reach every ssh below, so export it once instead of
 		// prefixing one command.
 		...(envSetup ? [envSetup] : []),
 		`vch_tar_status=$(mktemp "\${TMPDIR:-/tmp}/vch-sync-tar.XXXXXX") || exit 1`,
-		`{ tar cf - -C ${shellQuote(input.sourcePath)} .; echo "$?" > "$vch_tar_status"; } | ${remote(SYNC_GATE_TAR_RECEIVE, scripts?.receive)} 2>&1`,
+		`{ tar cf - -C ${shellQuote(input.confined ? "." : input.sourcePath)} .; echo "$?" > "$vch_tar_status"; } | ${remote(SYNC_GATE_TAR_RECEIVE, scripts?.receive)} 2>&1`,
 		`vch_receive_status=$?`,
 		`vch_source_status=$(cat "$vch_tar_status" 2>/dev/null); rm -f -- "$vch_tar_status"`,
 		`if [ "$vch_source_status" != 0 ] || [ "$vch_receive_status" -ne 0 ]; then`,
@@ -346,7 +417,7 @@ export function buildTarSyncCommand(input: TarSyncCommandInput): string {
 		`fi`,
 		`${remote(SYNC_GATE_TAR_COMMIT, scripts?.commit)} 2>&1`,
 	].join("\n");
-	return withCredentialCleanup(command, input);
+	return withCredentialCleanup(input.confined ? `${enterPhysicalDirectory(input.sourcePath)}\n${command}` : command, input);
 }
 
 /**
@@ -372,6 +443,8 @@ export function parseSyncPeerProbe(output: string): string | null | undefined {
 /* ── Gate on the target ───────────────────────────────────── */
 
 export type SyncGateInput = {
+	receiverLease?: string;
+	confined?: boolean;
 	/** rsync receiver, or the tar fallback's receive/commit/abort phases. */
 	mode: "rsync" | "tar";
 	/** The only directory the key may write into. */
@@ -412,9 +485,10 @@ export function buildSyncGateScript(input: SyncGateInput): string {
 		"set -f",
 		`vch_refuse() { printf 'vch-sync gate: refused %s\\n' "$1" >&2; exit 126; }`,
 	];
+	if (input.receiverLease) lines.push(holdSyncReceiverLease(input.receiverLease));
 	const cases = [`  ${shellQuote(SYNC_GATE_HELLO)}) printf 'VCH_SYNC_PEER=%s\\n' "\${SSH_CLIENT%% *}"; exit 0 ;;`];
 	if (input.mode === "tar") {
-		const scripts = buildTarTargetScripts({ targetPath: input.targetPath, deleteOrphans: input.allowDelete, jobId: input.jobId });
+		const scripts = buildTarTargetScripts({ targetPath: input.targetPath, deleteOrphans: input.allowDelete, jobId: input.jobId, confined: input.confined });
 		for (const [name, phase, body] of [
 			["vch_tar_receive", SYNC_GATE_TAR_RECEIVE, scripts.receive],
 			["vch_tar_commit", SYNC_GATE_TAR_COMMIT, scripts.commit],
@@ -460,7 +534,9 @@ function buildRsyncReceiverGate(input: SyncGateInput): string[] {
 		`  vch_opts="$vch_opts $vch_arg"`,
 		"done",
 		`[ -n "$vch_dot" ] || vch_refuse 'an rsync command without its "." argument'`,
-		`exec rsync --server $vch_opts . ${shellQuote(`${target}/`)}`,
+		...(input.confined ? [enterPhysicalDirectory(input.targetPath)] : []),
+		`${input.receiverLease ? "" : "exec "}rsync --server $vch_opts . ${shellQuote(input.confined ? "./" : `${target}/`)}`,
+		...(input.receiverLease ? ["exit $?"] : []),
 	];
 }
 
@@ -489,7 +565,8 @@ export function parseSyncSourceProbe(output: string): SyncSourceState | null {
 }
 
 /** Create the target and report whether it already holds entries. */
-export function buildSyncTargetPrepareCommand(targetPath: string): string {
+export function buildSyncTargetPrepareCommand(targetPath: string, confined = false): string {
+	if (confined) return preparePhysicalDirectory(targetPath) + '\nif [ -z "$(ls -A . | head -n 1)" ]; then echo VCH_SYNC_TARGET=empty; else echo VCH_SYNC_TARGET=nonempty; fi';
 	const target = shellQuote(targetPath);
 	return `mkdir -p -- ${target} && if [ -z "$(ls -A ${target} 2>/dev/null | head -n 1)" ]; then echo VCH_SYNC_TARGET=empty; else echo VCH_SYNC_TARGET=nonempty; fi`;
 }

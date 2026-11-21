@@ -12,6 +12,7 @@ import {
   execRemoteCommand,
 } from "@/lib/ssh/client";
 import { config } from "@/lib/config/env";
+import { needsLegacyGatewayStop } from "./direct-gateway-key";
 import { getResolvedDirectGatewayProtocol } from "./direct-gateway";
 import { t } from "@/lib/i18n/service-translations";
 import { toServerBillingDto } from "./billing-form";
@@ -112,6 +113,7 @@ export type ServerWithRelations = {
   teamId?: string | null;
   onboardingStatus?: "READY" | "DRAFT" | "NEEDS_ATTENTION";
   onboardingLastError?: string | null;
+  directGatewayKeyVersion?: number;
   directGatewayDesiredEnabled?: boolean;
   directGatewayDesiredProtocol?: "HTTP" | "HTTPS" | "http" | "https";
   directGatewayDesiredDomain?: string | null;
@@ -382,6 +384,11 @@ export function enrichServer(server: ServerWithRelations) {
         server.fileProxyPort > 0 &&
         server.publicUrl
       ),
+      // Older uninstallers and interrupted deployments can have no public URL
+      // while their remote service still accepts the old customer's links.
+      needsStopConfirmation: Boolean(needsLegacyGatewayStop(server)
+        || server.directGatewayDesiredEnabled || server.fileProxyPort || server.publicUrl
+        || (server.storageNode?.driver === "SFTP" && server.storageNode.directAccessMode !== "PROXY" && server.storageNode.publicBaseUrl)),
       publicUrl: server.publicUrl ?? null,
       port: server.fileProxyPort ?? 0,
       // TR-002 R3: bind + protocol come from the runtime env (single source

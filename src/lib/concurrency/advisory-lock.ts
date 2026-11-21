@@ -189,6 +189,7 @@ async function releaseClientLock(
   giveBack: (error?: Error) => void,
   k1: number,
   pathKeys: readonly number[],
+  sharedKeys: ReadonlySet<number>,
   namespace: string,
   resourceId: string,
 ) {
@@ -196,7 +197,7 @@ async function releaseClientLock(
   try {
     for (const k2 of pathKeys) {
       const result = await client.query<{ unlocked: boolean }>(
-        "SELECT pg_advisory_unlock($1, $2) AS unlocked",
+        sharedKeys.has(k2) ? "SELECT pg_advisory_unlock_shared($1, $2) AS unlocked" : "SELECT pg_advisory_unlock($1, $2) AS unlocked",
         [k1, k2],
       );
       if (result.rows[0]?.unlocked !== true)
@@ -227,6 +228,7 @@ function buildRelease(
   giveBack: (error?: Error) => void,
   k1: number,
   pathKeys: readonly number[],
+  sharedKeys: ReadonlySet<number>,
   namespace: string,
   resourceId: string,
 ) {
@@ -234,7 +236,7 @@ function buildRelease(
   return async () => {
     if (released) return;
     released = true;
-    await releaseClientLock(client, giveBack, k1, pathKeys, namespace, resourceId);
+    await releaseClientLock(client, giveBack, k1, pathKeys, sharedKeys, namespace, resourceId);
   };
 }
 
@@ -249,11 +251,16 @@ const ADVISORY_LOCK_ACQUIRE_TIMEOUT_MS = 30_000;
 export async function acquireAdvisoryLock(
   namespace: string,
   resourceId: string,
-  options: { timeoutMs?: number; additionalResourceId?: string } = {},
+  options: { timeoutMs?: number; additionalResourceId?: string; sharedResourceIds?: readonly string[] } = {},
 ): Promise<() => Promise<void>> {
   const { k1, k2 } = getLockKeys(namespace, resourceId);
-  const pathKeys = options.additionalResourceId === undefined ? [k2]
-    : [...new Set([k2, getLockKeys(namespace, options.additionalResourceId).k2])].sort((a, b) => a - b);
+  const exclusiveKeys = new Set([k2]);
+  if (options.additionalResourceId !== undefined) exclusiveKeys.add(getLockKeys(namespace, options.additionalResourceId).k2);
+  const sharedKeys = new Set((options.sharedResourceIds ?? []).map(id => getLockKeys(namespace, id).k2));
+  // A move can mention one path as both a target and an ancestor. Acquire the
+  // stronger lock once, and take every key in the same order across clients.
+  for (const key of exclusiveKeys) sharedKeys.delete(key);
+  const pathKeys = [...exclusiveKeys, ...sharedKeys].sort((a, b) => a - b);
   // Interpolated into SET (which takes no parameters): keep it a whole number.
   const timeoutMs = Math.max(1, Math.floor(options.timeoutMs ?? ADVISORY_LOCK_ACQUIRE_TIMEOUT_MS));
   const { client, giveBack } = await connectLockClient(namespace, resourceId);
@@ -261,9 +268,11 @@ export async function acquireAdvisoryLock(
     // A session setting: it stays on this pooled connection, which only
     // ever serves advisory locks, and every blocking acquire sets it.
     await client.query(`SET lock_timeout = ${timeoutMs}`);
-    for (const key of pathKeys) await client.query("SELECT pg_advisory_lock($1, $2)", [k1, key]);
+    for (const key of pathKeys) {
+      await client.query(sharedKeys.has(key) ? "SELECT pg_advisory_lock_shared($1, $2)" : "SELECT pg_advisory_lock($1, $2)", [k1, key]);
+    }
     logger.debug("advisory lock acquired", { namespace, resourceId, k1, k2 });
-    return buildRelease(client, giveBack, k1, pathKeys, namespace, resourceId);
+    return buildRelease(client, giveBack, k1, pathKeys, sharedKeys, namespace, resourceId);
   } catch (error) {
     // A later acquire can fail with the first lock already held. Closing the session releases both.
     giveBack(pathKeys.length > 1 ? new Error("Incomplete lock acquisition") : undefined);
@@ -295,7 +304,7 @@ export async function tryAcquireAdvisoryLock(
       k1,
       k2,
     });
-    return buildRelease(client, giveBack, k1, [k2], namespace, resourceId);
+    return buildRelease(client, giveBack, k1, [k2], new Set(), namespace, resourceId);
   } catch (error) {
     giveBack();
     throw error;

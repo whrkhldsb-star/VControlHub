@@ -11,6 +11,7 @@ import (
 	"os"
 	"path"
 	"path/filepath"
+	"runtime"
 	"strings"
 	"time"
 )
@@ -18,6 +19,42 @@ import (
 const chunkSize = 1024 * 1024
 
 func (s share) stageDir() string { return ".vch-transfers-" + digest([]byte(s.namespace)) }
+
+// Reserve the destination even when another process writes it after our Lstat.
+func (s share) renameExclusive(from, to string) error {
+	source, err := s.root.Lstat(from)
+	if err != nil {
+		return err
+	}
+	if source.Mode().IsRegular() {
+		if err := s.root.Link(from, to); err != nil {
+			return err
+		}
+		// A failed unlink leaves both names referring to the complete file.
+		return s.root.Remove(from)
+	}
+	if !source.IsDir() {
+		return denied
+	}
+	if runtime.GOOS == "windows" {
+		// Windows rename does not replace directories.
+		return s.root.Rename(from, to)
+	}
+	if err := s.root.Mkdir(to, 0700); err != nil {
+		return err
+	}
+	reserved, err := s.root.Lstat(to)
+	if err != nil {
+		return err
+	}
+	if err := s.root.Rename(from, to); err != nil {
+		if current, statErr := s.root.Lstat(to); statErr == nil && os.SameFile(reserved, current) {
+			_ = s.root.Remove(to)
+		}
+		return err
+	}
+	return nil
+}
 
 func (s share) ensureStageDir() error {
 	dir := s.stageDir()
@@ -47,6 +84,7 @@ type operation struct {
 	Version     string `json:"version"`
 	Data        []byte `json:"data"`
 	Directory   bool   `json:"directory"`
+	Recursive   bool   `json:"recursive"`
 	Overwrite   bool   `json:"overwrite"`
 }
 type entry struct {
@@ -237,26 +275,29 @@ func (s share) handle(op operation) (result, error) {
 		out.Digest = digest(b)
 	case "mkdir":
 		return out, s.root.Mkdir(op.Path, 0750)
-	case "delete":
+	case "delete", "rmdir":
 		info, err := s.root.Lstat(op.Path)
 		if err != nil {
 			return out, err
 		}
-		if info.IsDir() != op.Directory || metadata(info).Version != op.Version {
+		if (op.Op == "rmdir" && !op.Directory) || info.IsDir() != op.Directory || metadata(info).Version != op.Version {
 			return out, changed
 		}
-		if op.Directory {
+		if op.Op == "delete" && op.Directory && op.Recursive {
 			return out, s.root.RemoveAll(op.Path)
 		}
 		return out, s.root.Remove(op.Path)
 	case "copy-step":
 		return s.copyStep(op)
-	case "rename", "copy":
+	case "rename", "rename-exclusive", "copy":
 		if op.Destination == "." || !validPath(op.Destination) {
 			return out, denied
 		}
 		if err := s.check(op.Destination, true); err != nil {
 			return out, err
+		}
+		if op.Op == "rename-exclusive" {
+			return out, s.renameExclusive(op.Path, op.Destination)
 		}
 		if !op.Overwrite {
 			if _, err := s.root.Lstat(op.Destination); !errors.Is(err, fs.ErrNotExist) {
@@ -264,6 +305,9 @@ func (s share) handle(op operation) (result, error) {
 			}
 		}
 		if op.Op == "rename" {
+			if !op.Overwrite {
+				return out, s.renameExclusive(op.Path, op.Destination)
+			}
 			return out, s.root.Rename(op.Path, op.Destination)
 		}
 		src, err := s.openRegular(op.Path, os.O_RDONLY)
@@ -422,7 +466,7 @@ func (s share) cleanup(now time.Time) {
 	}
 }
 
-// Capture the old inode under a private name before inspecting it. A writer
+// Capture the checked regular file under a private name and recheck it. A writer
 // arriving during verification wins the no-replace link. Keep any displaced
 // inode whose restoration conflicts so it can be recovered by operation ID.
 func (s share) publishChecked(op operation, tmp string) error {
@@ -431,10 +475,21 @@ func (s share) publishChecked(op operation, tmp string) error {
 	}
 	backup := path.Join(path.Dir(op.Path), ".vch-publish-"+digest([]byte(s.namespace+"\x00"+op.jobID)))
 	if op.Version != "absent" {
-		if _, err := s.root.Lstat(backup); !errors.Is(err, fs.ErrNotExist) {
+		st, err := s.root.Lstat(op.Path)
+		if err != nil || !st.Mode().IsRegular() || metadata(st).Version != op.Version {
 			return changed
 		}
+		// A directory swapped in after Lstat cannot be renamed over a regular file.
+		placeholder, err := s.root.OpenFile(backup, os.O_CREATE|os.O_EXCL|os.O_WRONLY, 0600)
+		if err != nil {
+			return err
+		}
+		if err := placeholder.Close(); err != nil {
+			s.root.Remove(backup)
+			return err
+		}
 		if err := s.root.Rename(op.Path, backup); err != nil {
+			s.root.Remove(backup)
 			return err
 		}
 	}

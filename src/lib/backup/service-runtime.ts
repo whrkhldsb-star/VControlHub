@@ -23,9 +23,10 @@ import { tmpdir } from "node:os";
 import { join } from "node:path";
 import { createGunzip } from "node:zlib";
 
+import { lockForTransaction } from "@/lib/concurrency/advisory-lock";
 import { prisma } from "@/lib/db";
 import { config } from "@/lib/config/env";
-import { BusinessError, ConflictError, NotFoundError, ValidationError } from "@/lib/errors";
+import { BusinessError, ConflictError, ForbiddenError, NotFoundError, ValidationError } from "@/lib/errors";
 import { createLogger } from "@/lib/logging";
 import type { SessionPayload } from "@/lib/auth/session";
 
@@ -38,6 +39,9 @@ import {
 import { buildBackupRestoreCommand, buildPortableBackupCommand } from "./service-commands";
 import { IS_WINDOWS } from "@/lib/runtime/platform-paths";
 import {
+	backupArtifactKey,
+	canCreatePlatformBackup,
+	hasBackupArtifactReference,
 	createBackupRecord,
 	getBackupRecord,
 	listBackupRecords,
@@ -152,23 +156,26 @@ async function statBackupArtifact(backupPath: string) {
 
 export async function runBackupRecord(input: { type: "DATABASE" | "FILES" | "FULL"; createdBy?: string | null; note?: string; projectRoot?: string; teamId?: string | null }) {
 	const record = await createBackupRecord(input);
-	return runExistingBackupRecord({ id: record.id, projectRoot: input.projectRoot });
+	return runExistingBackupRecord({ id: record.id, projectRoot: input.projectRoot, requestedBy: input.createdBy ?? undefined });
 }
 
-export async function runExistingBackupRecord(input: { id: string; projectRoot?: string; session?: Pick<import("@/lib/auth/session").SessionPayload, "userId" | "roles" | "currentTeamId"> }) {
+export async function runExistingBackupRecord(input: { id: string; projectRoot?: string; requestedBy?: string | null; session?: Pick<import("@/lib/auth/session").SessionPayload, "userId" | "roles" | "currentTeamId"> }) {
 	const projectRoot = input.projectRoot || config.app.appDir || process.cwd();
 	const record = await getBackupRecord(input.id, input.session);
 	if (!record) throw new NotFoundError(t("backend.backup.recordNotFound"));
 	if (!isBackupType(record.type)) throw new ValidationError(t("backend.backup.invalidType"));
-	let outputPath: string;
-	try {
-		outputPath = resolveBackupPath(projectRoot, record.filePath);
-	} catch (error) {
-		const message = error instanceof Error ? error.message : "Invalid backup path";
-		return updateBackupRecordStatus(record.id, { status: "FAILED", errorMessage: message.slice(0, 2000) });
+	// A deleted user's foreign keys are SET NULL. A queued create always needs
+	// its submitting user, including a retry submitted by a different admin.
+	const ownerId = input.requestedBy === undefined ? record.createdBy : input.requestedBy;
+	const authorized = ownerId ? await canCreatePlatformBackup(ownerId) : input.requestedBy === undefined && !record.scheduleId;
+	if (!authorized) {
+		const reason = t("backend.execution.ownerInactive");
+		await prisma.backupRecord.updateMany({
+			where: { id: record.id, status: "PENDING", updatedAt: record.updatedAt },
+			data: { status: "FAILED", errorMessage: reason, completedAt: new Date() },
+		});
+		throw new ForbiddenError(reason);
 	}
-	const args = record.type === "FILES" ? ["--files", outputPath] : record.type === "FULL" ? ["--full", outputPath] : [outputPath];
-
 	// CAS claim: only one worker can move PENDING → RUNNING.
 	const claimed = await prisma.backupRecord.updateMany({
 		where: { id: record.id, status: "PENDING" },
@@ -187,6 +194,8 @@ export async function runExistingBackupRecord(input: { id: string; projectRoot?:
 	}
 
 	try {
+		const outputPath = resolveBackupPath(projectRoot, record.filePath);
+		const args = record.type === "FILES" ? ["--files", outputPath] : record.type === "FULL" ? ["--full", outputPath] : [outputPath];
 		await runBackupCommand({
 			...buildBackupInvocation(args),
 			options: { cwd: projectRoot, env: { ...process.env, APP_DIR: projectRoot, ...(record.type === "FULL" ? { BACKUP_REQUIRE_COVERAGE: "1" } : {}) } },
@@ -317,7 +326,7 @@ export async function prepareOfflineRestore(input: {
 		checksumVerifiedAt: new Date().toISOString(),
 		commands: {
 			stopServices: systemd ? `sudo systemctl stop ${PLATFORM_SERVICE_UNITS.join(" ")}` : null,
-			safetySnapshot: buildPortableBackupCommand({ projectRoot, outputPath: snapshotPath, type: snapshotType }),
+			safetySnapshot: buildPortableBackupCommand({ projectRoot, outputPath: snapshotPath, type: snapshotType, restoreSnapshot: type === "FULL" && component !== "database" }),
 			// The file just verified: records hold a path relative to the backup
 			// storage root (BACKUP_DIR), not to the app directory the command
 			// runs in, so the relative path pointed at a file that is not there.
@@ -483,6 +492,7 @@ export async function pruneOldBackupRecordsNow(input: {
 			...(input.scheduleId !== undefined ? { scheduleId: input.scheduleId } : {}),
 			OR: [
 				{ status: { in: ["COMPLETED", "FAILED", "VOIDED"] }, createdAt: { lt: cutoffForQuery } },
+				{ status: "PRUNING" },
 				// still load recent completed so keepLatestPerType can protect newest
 				{ status: "COMPLETED" },
 			],
@@ -497,8 +507,8 @@ export async function pruneOldBackupRecordsNow(input: {
 	// nominates COMPLETED ones, so failures and their partial files piled up and
 	// pushed real backups out of the page's 200-row window.
 	for (const record of records) {
-		if (record.status !== "FAILED" && record.status !== "VOIDED") continue;
-		if (record.createdAt >= plan.cutoff || plan.candidates.some((candidate) => candidate.id === record.id)) continue;
+		if (!["FAILED", "VOIDED", "PRUNING"].includes(record.status)) continue;
+		if (record.status !== "PRUNING" && record.createdAt >= plan.cutoff) continue;
 		plan.candidates.push({
 			id: record.id,
 			type: record.type,
@@ -513,79 +523,43 @@ export async function pruneOldBackupRecordsNow(input: {
 	const fileErrors: string[] = [];
 	const deletedIds: string[] = [];
 
+	const observed = new Map(records.map((record) => [record.id, record]));
 	for (const candidate of plan.candidates) {
-		let artifactCleanupSucceeded = !candidate.filePath;
-		if (candidate.filePath) {
-			let fileExists = true;
-			let fullPath: string | null = null;
-			try {
-				fullPath = resolveBackupPath(projectRoot, candidate.filePath);
-			} catch (pathError) {
-				const message = pathError instanceof Error ? pathError.message : String(pathError);
-				fileErrors.push(`${candidate.id}: ${message.slice(0, 200)}`);
-				retentionLogger.warn("backup retention: file cleanup failed", {
-					backupId: candidate.id,
-					filePath: candidate.filePath,
-					error: message,
-				});
-			}
-				if (fullPath) {
-					try {
-						await stat(fullPath);
-					} catch (statError) {
-						if ((statError as NodeJS.ErrnoException).code === "ENOENT") {
-							fileExists = false;
-							artifactCleanupSucceeded = true;
-						} else {
-						const message = statError instanceof Error ? statError.message : String(statError);
-						fileErrors.push(`${candidate.id}: ${message.slice(0, 200)}`);
-						retentionLogger.warn("backup retention: stat failed", {
-							backupId: candidate.id,
-							filePath: fullPath,
-							error: message,
-						});
-					}
-				}
-					if (fileExists) {
-						try {
-							await rm(fullPath, { force: true });
-							filesDeleted += 1;
-							artifactCleanupSucceeded = true;
-						} catch (rmError) {
-							if ((rmError as NodeJS.ErrnoException).code === "ENOENT") {
-								filesSkipped += 1;
-								artifactCleanupSucceeded = true;
-						} else {
-							const message = rmError instanceof Error ? rmError.message : String(rmError);
-							fileErrors.push(`${candidate.id}: ${message.slice(0, 200)}`);
-							retentionLogger.warn("backup retention: rm failed", {
-								backupId: candidate.id,
-								filePath: fullPath,
-								error: message,
-							});
-						}
-					}
-				} else {
-					filesSkipped += 1;
-				}
-			}
-		} else {
-			filesSkipped += 1;
-		}
-		if (!artifactCleanupSucceeded) {
-			continue;
-		}
+		const record = observed.get(candidate.id)!;
+		// Commit the claim before touching the filesystem. A worker crash, even
+		// after unlink but before DB commit, leaves a resumable, non-retryable row.
+		const claimed = await prisma.backupRecord.updateMany({
+			where: { id: record.id, status: record.status, updatedAt: record.updatedAt },
+			data: { status: "PRUNING" },
+		});
+		if (!claimed.count) continue;
 
 		try {
-			await prisma.backupRecord.delete({ where: { id: candidate.id } });
-			deletedIds.push(candidate.id);
-		} catch (deleteError) {
-			const message = deleteError instanceof Error ? deleteError.message : String(deleteError);
-			retentionLogger.error("backup retention: DB delete failed", {
-				backupId: candidate.id,
-				error: message,
+			const artifactKey = backupArtifactKey(record.filePath);
+			const outcome = await prisma.$transaction(async (tx) => {
+				// Two historical records can share a filename. Serialize their
+				// reference checks so the last committed removal unlinks the file.
+				await lockForTransaction(tx, "backup-retention-path", artifactKey);
+				const removed = await tx.backupRecord.deleteMany({ where: { id: record.id, status: "PRUNING" } });
+				if (!removed.count) return "already-removed";
+				if (await hasBackupArtifactReference(tx, artifactKey)) return "shared";
+				const fullPath = resolveBackupPath(projectRoot, record.filePath);
+				try {
+					await rm(fullPath);
+					return "deleted";
+				} catch (error) {
+					if ((error as NodeJS.ErrnoException).code === "ENOENT") return "missing";
+					throw error;
+				}
 			});
-			throw deleteError;
+			if (outcome === "already-removed") continue;
+			deletedIds.push(record.id);
+			if (outcome === "deleted") filesDeleted++;
+			else filesSkipped++;
+		} catch (error) {
+			const message = error instanceof Error ? error.message : String(error);
+			fileErrors.push(`${candidate.id}: ${message.slice(0, 200)}`);
+			retentionLogger.warn("backup retention: cleanup failed", { backupId: record.id, error: message });
 		}
 	}
 

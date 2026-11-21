@@ -3,6 +3,7 @@ import path from "node:path";
 import { PassThrough } from "node:stream";
 import { beforeEach, describe, expect, it, vi } from "vitest";
 
+import { localStorageStagingPatterns, storageStagingPatterns } from "@/lib/storage/staging-paths";
 import { resolveLocalTarBinary } from "@/lib/runtime/tar-binary";
 
 const {
@@ -85,10 +86,10 @@ vi.mock("ssh2", () => ({
     }
     exec(command: string, callback: (err: Error | null, stream: PassThrough & { stderr: PassThrough }) => void) {
       execMock(command);
-      const stream = new PassThrough() as PassThrough & { stderr: PassThrough };
+      const stream = new PassThrough({ autoDestroy: false }) as PassThrough & { stderr: PassThrough };
       stream.stderr = new PassThrough();
       callback(null, stream);
-      stream.end("archive");
+      stream.end("archive", () => stream.emit("close", 0));
     }
     end() {
       endMock();
@@ -130,6 +131,8 @@ describe("/api/storage/archive-download", () => {
     queueMicrotask(() => stdout.end("archive"));
   });
 
+  const hiddenStages = storageStagingPatterns.map(pattern => `--exclude=${pattern}`);
+
   it("streams a local directory as a tar.gz archive", async () => {
     prismaMock.fileEntry.findFirst.mockResolvedValueOnce(localDirectoryEntry());
 
@@ -142,7 +145,7 @@ describe("/api/storage/archive-download", () => {
       expect.objectContaining({ storageNodeId: "node_1", relativePath: "photos", operation: "read" }),
     );
     expect(statMock).toHaveBeenCalledWith(path.resolve("/srv/storage/photos"));
-    expect(spawnMock).toHaveBeenCalledWith(resolveLocalTarBinary(), ["-czf", "-", "-C", path.resolve("/srv/storage"), "--", "photos"], expect.any(Object));
+    expect(spawnMock).toHaveBeenCalledWith(resolveLocalTarBinary(), ["-czf", "-", "-C", path.resolve("/srv/storage"), ...localStorageStagingPatterns.map(pattern => `--exclude=${pattern}`), "--", "photos"], expect.any(Object));
     expect(response.headers.get("content-disposition")).toContain("photos.tar.gz");
   });
 
@@ -229,7 +232,7 @@ describe("/api/storage/archive-download", () => {
         hostVerifier: expect.any(Function),
       }),
     );
-    expect(execMock).toHaveBeenCalledWith("tar -czf - -C '/data/files' -- 'photos'");
+    expect(execMock).toHaveBeenCalledWith(`tar -czf - -C '/data/files' ${hiddenStages.map(flag => `'${flag}'`).join(" ")} -- 'photos'`);
     expect(spawnMock).not.toHaveBeenCalled();
   });
 

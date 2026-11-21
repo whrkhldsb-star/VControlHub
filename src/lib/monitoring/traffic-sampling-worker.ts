@@ -15,7 +15,7 @@
  * - Persist one row per primary interface sample into traffic_snapshots.
  * - Prune completed traffic.sample jobs after each successful tick.
  */
-import { getRuntimeSettingNumber } from "@/lib/runtime-settings/service";
+import { getRuntimeSettingNumberStrict } from "@/lib/runtime-settings/service";
 import { startOfMonthInAppTimeZone } from "@/lib/datetime/time-zone";
 import { JobStatus } from "@prisma/client";
 
@@ -54,8 +54,6 @@ const TRAFFIC_SAMPLE_LEASE_MS = Math.max(
 );
 const TRAFFIC_SAMPLE_WORKER_ID = `${config.app.hostname || "vcontrolhub"}:traffic-sampling:${process.pid}`;
 const TRAFFIC_SAMPLE_JOB_KEEP_LATEST = 50;
-/** Fallback when the `retention.trafficSnapshotsDays` setting cannot be read. */
-const TRAFFIC_SNAPSHOT_RETENTION_DAYS = 14;
 const logger = createLogger("traffic-sampling-worker");
 
 const previousLocalSamples = new Map<string, TrafficCounterSample>();
@@ -137,7 +135,11 @@ export function trafficSnapshotPruneCutoff(now: Date, retentionDays: number): Da
 }
 
 async function pruneOldTrafficSnapshots() {
-  const retentionDays = await getRuntimeSettingNumber("retention.trafficSnapshotsDays").catch(() => TRAFFIC_SNAPSHOT_RETENTION_DAYS);
+  const retentionDays = await getRuntimeSettingNumberStrict("retention.trafficSnapshotsDays").catch((error) => {
+    logger.warn("Skipping snapshot cleanup because the retention policy could not be read", { error: String(error) });
+    return null;
+  });
+  if (retentionDays === null) return { count: 0 };
   return prisma.trafficSnapshot.deleteMany({
     where: { sampledAt: { lt: trafficSnapshotPruneCutoff(new Date(), retentionDays) } },
   });

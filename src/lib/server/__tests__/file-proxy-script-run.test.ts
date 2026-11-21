@@ -1,12 +1,12 @@
 /** @vitest-environment node */
 import { spawn, spawnSync, type ChildProcess } from "node:child_process";
-import { mkdtemp, mkdir, rm, symlink, writeFile } from "node:fs/promises";
+import { mkdtemp, mkdir, readFile, rm, stat, symlink, writeFile } from "node:fs/promises";
 import net from "node:net";
 import os from "node:os";
 import path from "node:path";
 import { afterEach, describe, expect, it } from "vitest";
 
-import { buildFileProxyScript } from "../file-proxy-script";
+import { buildFileProxyScript, fileProxyProcessCommand, startFileProxyCommand } from "../file-proxy-script";
 
 const hasPython = spawnSync("python3", ["--version"]).status === 0 && process.platform !== "win32";
 const itPython = hasPython ? it : it.skip;
@@ -49,6 +49,30 @@ describe("file proxy script (run with python3)", () => {
       proxy!.on("exit", (code) => reject(new Error(`proxy exited ${code}`)));
     });
   }
+
+  it.skipIf(!hasPython || process.platform !== "linux")("writes mode 0600 before release and confirms termination on the target", async () => {
+    const script = buildFileProxyScript({ accessToken: "private-test-token", expiresAtMs: Date.now() + 60_000, serveDir: "/tmp", port: 0, allowedOrigin: "" });
+    const launch = spawnSync("sh", ["-c", `umask 022\n${startFileProxyCommand}`], { input: script, encoding: "utf8" });
+    expect(launch.status).toBe(0);
+    const [pid, dir] = launch.stdout.trim().split(" ");
+    expect(dir).toMatch(/^\/tmp\/\.vps_file_proxy_[a-zA-Z0-9]{10}$/);
+    root = dir!;
+    const check = (stop: boolean) => spawnSync("sh", ["-c", fileProxyProcessCommand(Number(pid), stop)], { encoding: "utf8" });
+    try {
+      expect((await stat(root)).mode & 0o777).toBe(0o700);
+      expect((await stat(path.join(root, "proxy.py"))).mode & 0o777).toBe(0o600);
+      expect((await stat(path.join(root, "proxy.out"))).mode & 0o777).toBe(0o600);
+      expect(await readFile(path.join(root, "proxy.py"), "utf8")).toContain("private-test-token");
+      expect(check(false).stdout.trim()).toBe("proxy_running");
+      expect(await readFile(path.join(root, "proxy.out"), "utf8")).toBe("");
+      await writeFile(path.join(root, "start"), "");
+      await expect.poll(() => readFile(path.join(root, "proxy.out"), "utf8")).toMatch(/^PROXY_READY:/);
+      expect(check(true).stdout.trim()).toBe("not_running");
+      expect(check(false).stdout.trim()).toBe("not_running");
+    } finally {
+      check(true);
+    }
+  });
 
   itPython("serves files below a linked root, including names with a literal %XX", async () => {
     const port = await start();

@@ -30,6 +30,7 @@ vi.mock("@/lib/logging", () => ({ createLogger: () => loggerMock }));
 vi.mock("node:http", () => ({ default: { request: httpRequestMock } }));
 
 const route = await import("../route");
+const engine = await import("@/lib/docker/engine-client");
 
 // Requests without a serverId are served by the hub host's own daemon — shared
 // platform infrastructure — so the default fixture is a platform manager.
@@ -239,6 +240,22 @@ describe("/api/docker/containers audit coverage", () => {
 
     expect(response.status).toBe(502);
     expect(await response.json()).toMatchObject({ ok: false });
+  });
+
+  it("removes entire multiline values from inspect for a connect-only operator", async () => {
+    mocks.assertServerTeamAccess.mockResolvedValueOnce({ ok: true, server: { id: "srv", teamId: "team-a" } })
+      .mockResolvedValueOnce({ ok: false, response: Response.json({}, { status: 404 }) });
+    const request = vi.spyOn(engine, "dockerRequest").mockResolvedValueOnce({
+      scope: engine.remoteVpsDockerScope("srv", "server"),
+      result: { ok: true, status: 200, data: { Config: { Env: ["KEY=first\nsecond=third", "EMPTY=", "FLAG"] } } },
+    });
+    try {
+      const response = await route.GET(new NextRequest("http://local/api/docker/containers?serverId=srv&id=app"));
+      expect(request).toHaveBeenCalledWith("/containers/app/json", expect.objectContaining({ serverId: "srv", expectedTeamId: "team-a" }));
+      expect(await response.json()).toMatchObject({ data: { Config: { Env: ["KEY=***", "EMPTY=***", "FLAG"] } } });
+    } finally {
+      request.mockRestore();
+    }
   });
 
   it("rejects remote serverId outside team scope before touching Docker", async () => {

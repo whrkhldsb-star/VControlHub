@@ -4,6 +4,7 @@ import { mkdtemp, mkdir, readFile, readdir, rm, symlink, writeFile } from "node:
 import os from "node:os";
 import path from "node:path";
 import { promisify } from "node:util";
+import { pathToFileURL } from "node:url";
 import { gzipSync } from "node:zlib";
 import { afterEach, beforeEach, describe, expect, it } from "vitest";
 import { resolveLocalTarBinary } from "@/lib/runtime/tar-binary";
@@ -74,6 +75,9 @@ describe("restore runner destination and preflight", () => {
     const capture = path.join(tmp, "connection.json");
     await writeFile(path.join(target, ".env.local"), "DATABASE_URL=postgresql://tester:target-secret@127.0.0.1/audit_target\n");
     await writeFile(path.join(source, ".env.local"), "DATABASE_URL=postgresql://tester:archive-secret@127.0.0.1/archive_database\n");
+    const runtime = "DATABASE_URL=postgresql://target/runtime\nREDIS_URL=redis://target\nPORT=4242\nAPP_DOMAIN=target.test\nENCRYPTION_KEY=old-key\n";
+    await writeFile(path.join(target, ".env.runtime"), runtime);
+    await writeFile(path.join(source, ".env.runtime"), "DATABASE_URL=postgresql://archive/runtime\nREDIS_URL=redis://archive\nPORT=4567\nAPP_DOMAIN=archive.test\nENCRYPTION_KEY=recovered-key\n");
     // The ./database.sql.gz spelling is valid too.
     await runFile(resolveLocalTarBinary(), ["-czf", archive, "-C", source, "."]);
     await runFile(process.execPath, [runner, "full", archive, "all", target], { env: {
@@ -86,7 +90,31 @@ describe("restore runner destination and preflight", () => {
     // The import opens with the offline guard inside its single transaction.
     expect(connection.args).toEqual(expect.arrayContaining(["--single-transaction", "-f", "-"]));
     expect(connection.sql).toMatch(/^DO \$vch_offline\$/);
-    expect(await readFile(path.join(target, ".env.local"), "utf8")).toContain("archive_database");
+    const local = await readFile(path.join(target, ".env.local"), "utf8");
+    expect(local).toContain("/audit_target");
+    expect(local).not.toContain("archive_database");
+    const restoredRuntime = await readFile(path.join(target, ".env.runtime"), "utf8");
+    expect(restoredRuntime).toContain("DATABASE_URL=postgresql://target/runtime");
+    expect(restoredRuntime).toContain("REDIS_URL=redis://target");
+    expect(restoredRuntime).toContain("PORT=4242");
+    expect(restoredRuntime).toContain("APP_DOMAIN=target.test");
+    expect(restoredRuntime).toContain("ENCRYPTION_KEY='recovered-key'");
+    expect(restoredRuntime).not.toContain("archive");
+    expect(restoredRuntime).not.toContain("old-key");
+  });
+
+  it.skipIf(posixOnly)("rejects a multiline recovery key before changing the target database or files", async () => {
+    const previous = "DATABASE_URL=postgresql://tester@127.0.0.1/audit_target\nENCRYPTION_KEY=original\n";
+    await writeFile(path.join(target, ".env.local"), previous);
+    await writeFile(path.join(source, ".env.local"), 'ENCRYPTION_KEY="first-line\nDATABASE_URL=archive"\n');
+    await runFile(resolveLocalTarBinary(), ["-czf", archive, "-C", source, "."]);
+    const capture = path.join(tmp, "database-call.json");
+    await expect(runFile(process.execPath, [runner, "full", archive, "all", target], {
+      env: { ...env, ENV_FILE: path.join(target, ".env.local"), RESTORE_CAPTURE: capture },
+    })).rejects.toMatchObject({ stderr: expect.stringContaining("ENCRYPTION_KEY requires manual installation") });
+    await expect(readFile(capture)).rejects.toMatchObject({ code: "ENOENT" });
+    expect(await readdir(target)).toEqual([".env.local"]);
+    expect(await readFile(path.join(target, ".env.local"), "utf8")).toBe(previous);
   });
 
   it.skipIf(process.platform === "win32")("validates early archive members even when the index exceeds the diagnostic buffer", async () => {
@@ -112,6 +140,46 @@ describe("restore runner destination and preflight", () => {
     expect(await readdir(target)).toEqual([]);
     // A refused restore must not remove the live owner's lock.
     expect(await readdir(lock)).toEqual(["owner"]);
+  });
+
+  it("permits one claimant for a dead restore owner and ignores a replacement token on release", async () => {
+    const lock = path.join(fallback, ".restore.lock");
+    const owner = path.join(lock, "owner");
+    await mkdir(lock);
+    await writeFile(owner, `pid=${2 ** 22 + 7}\nhost=${os.hostname()}\nstartedAt=then\n`);
+    const common = pathToFileURL(path.resolve("scripts/lib/backup-common.mjs")).href;
+    const program = `
+      import {acquireRestoreLock} from ${JSON.stringify(common)};
+      import fs from "node:fs/promises";
+      const attempts = await Promise.allSettled(Array.from({ length: 12 }, () => acquireRestoreLock(${JSON.stringify(fallback)})));
+      const winners = attempts.filter((result) => result.status === "fulfilled");
+      console.log(winners.length);
+      const ownerPath = ${JSON.stringify(owner)};
+      const current = await fs.readFile(ownerPath, "utf8");
+      await fs.writeFile(ownerPath, current.replace(/^token=.+$/m, "token=replacement"));
+      await Promise.all(winners.map((result) => result.value()));
+    `;
+    const result = await runFile(process.execPath, ["--input-type=module", "-e", program]);
+    expect(result.stdout.trim()).toBe("1");
+    expect(await readFile(owner, "utf8")).toContain("token=replacement");
+  });
+
+  it.skipIf(posixOnly)("rolls back overwritten and newly created files when the history overlay fails", async () => {
+    await mkdir(path.join(source, "history"));
+    await writeFile(path.join(source, "history", "blob"), "new");
+    await writeFile(path.join(source, "file-versions.json"), JSON.stringify({ version: 1, member: "history" }));
+    await writeFile(path.join(source, ".env.runtime"), "ENCRYPTION_KEY=archive-key");
+    await writeFile(path.join(source, "added.txt"), "new");
+    await writeFile(path.join(target, "hello.txt"), "original");
+    const versions = path.join(tmp, "custom-history");
+    await mkdir(path.join(versions, "blob"), { recursive: true });
+    await runFile(resolveLocalTarBinary(), ["-czf", archive, "-C", source, "."]);
+    await expect(runFile(process.execPath, [runner, "full", archive, "files", target], {
+      env: { ...env, FILE_VERSION_DIR: versions },
+    })).rejects.toMatchObject({ stderr: expect.stringContaining("non-regular restore target") });
+    expect(await readdir(target)).toEqual(["hello.txt"]);
+    expect(await readFile(path.join(target, "hello.txt"), "utf8")).toBe("original");
+    expect(await readdir(path.join(versions, "blob"))).toEqual([]);
   });
 
   it.skipIf(posixOnly).each(["node", "bash"])("%s restore reclaims a lock left by a dead process and releases it afterwards", async (kind) => {

@@ -45,15 +45,8 @@ function fingerprintFor(seed: string) {
 }
 
 describe("SSH terminal channel host-key enforcement", () => {
-  it("rejects the host key during the handshake when no fingerprint is pinned (fail-closed)", () => {
-    const config = buildTerminalSshConfig({ ...CONN, hostKeySha256: null }, RUNTIME);
-    // Without enforceHostKeyPin the unpinned verifier would accept (TOFU
-    // compat) — a false verdict here means the terminal is not fail-closed.
-    expect(config.hostHash).toBe("sha256");
-    expect(typeof config.hostVerifier).toBe("function");
-    const verifier = config.hostVerifier as (key: string) => boolean;
-    const { hex } = fingerprintFor("unpinned-host");
-    expect(verifier(hex)).toBe(false);
+  it("requires the saved fingerprint before opening the terminal connection", () => {
+    expect(() => buildTerminalSshConfig({ ...CONN, hostKeySha256: null }, RUNTIME)).toThrow(/主机密钥|host key/i);
   });
 
   it("accepts the handshake when the presented key matches the pinned fingerprint", () => {
@@ -78,7 +71,7 @@ describe("SSH terminal channel host-key enforcement", () => {
   });
 
   it("carries the terminal keepalive settings onto the connect config", () => {
-    const config = buildTerminalSshConfig({ ...CONN, hostKeySha256: null }, RUNTIME);
+    const config = buildTerminalSshConfig({ ...CONN, hostKeySha256: fingerprintFor("pinned").standard }, RUNTIME);
     expect(config.keepaliveInterval).toBe(RUNTIME.sshKeepaliveIntervalMs);
     expect(config.keepaliveCountMax).toBe(RUNTIME.sshKeepaliveCountMax);
   });

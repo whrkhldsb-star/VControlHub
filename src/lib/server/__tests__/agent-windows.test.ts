@@ -46,15 +46,16 @@ describe("Windows agent script generation", () => {
     expect(script).not.toContain("file");
   });
 
-  it("reaches the hub from Server 2016, names itself, and backs off when refused", () => {
+  it("reaches the hub from Server 2016 and stops both a rejected job and its polling loop", () => {
     const script = buildAgentPowerShell(HUB, TOKEN);
     // .NET before 4.7 offers no TLS 1.2 by default; SystemDefault (0) stays.
     expect(script.indexOf("-bor 3072")).toBeGreaterThanOrEqual(0);
     expect(script.indexOf("-bor 3072")).toBeLessThan(script.indexOf("New-Object System.Net.Http.HttpClient"));
     expect(script).toContain("if ($tlsProtocols -ne 0)");
     expect(script).toContain("'VControlHub-Agent/' + $VERSION + ' (windows)'");
-    // A revoked token or an edge refusal is retried rarely, not every 5 s.
-    expect(script).toContain("$script:LastStatus -eq 401 -or $script:LastStatus -eq 403) { $sleepMilliseconds = 60000 }");
+    expect(script).toContain("if ($script:LastStatus -in 401,403) { $cancelled = $true; break }");
+    expect(script.indexOf("taskkill /PID ")).toBeLessThan(script.indexOf("throw 'Agent authorization revoked'"));
+    expect(script).toContain("if ($script:LastStatus -in 401,403) { break }");
     // A result the hub refuses is replaced once instead of resent forever.
     expect(script).toContain("$script:LastStatus -eq 400 -and $null -ne $pending");
     // Output is cut by its encoded size, not its length.
@@ -116,6 +117,21 @@ describe("Windows agent script generation", () => {
     expect(script.indexOf("WaitOne")).toBeLessThan(script.indexOf("-ne 'original'"));
     expect(script.indexOf("-ne 'original'")).toBeLessThan(script.indexOf("Stop-ScheduledTask"));
     expect(script.indexOf("Unregister-ScheduledTask")).toBeLessThan(script.indexOf("Remove-Item"));
+  });
+
+  it("verifies the directory and a fresh script's protected DACL before writing the token", () => {
+    const script = buildWindowsAgentInstaller(HUB, TOKEN);
+    const guardDirectory = script.indexOf("Protect-AgentPath $agentDir $true");
+    const createScript = script.indexOf("[IO.FileMode]::CreateNew");
+    const guardScript = script.indexOf("Protect-AgentPath $agentPath $false");
+    expect(script).toContain("icacls.exe $Path /inheritance:r /grant:r");
+    expect(script).toContain("if ($LASTEXITCODE -ne 0)");
+    expect(script).toContain("@('S-1-5-18', 'S-1-5-32-544')");
+    expect(script).toContain("!$acl.AreAccessRulesProtected");
+    expect(guardDirectory).toBeGreaterThanOrEqual(0);
+    expect(createScript).toBeGreaterThan(guardDirectory);
+    expect(guardScript).toBeGreaterThan(createScript);
+    expect(script.indexOf("::WriteAllBytes")).toBeGreaterThan(guardScript);
   });
 });
 

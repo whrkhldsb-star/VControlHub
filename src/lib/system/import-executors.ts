@@ -38,10 +38,12 @@ export * from "./import-executors-tenancy";
 
 // ── executeImport 编排函数 ───────────────────────────────
 
+import { lockForTransaction } from "@/lib/concurrency/advisory-lock";
 import { prisma } from "@/lib/db";
 import type { ExportFile, ImportOptions } from "@/lib/system/config-schema";
 import type { Counts, ImportResult } from "./import-executors-helpers";
 import {
+  assertImportHasActiveAdmin,
   importPermissions,
   importRoles,
   importRolePermissions,
@@ -86,6 +88,7 @@ export async function executeImport(
   // transaction timeout (P2028). Give operators a realistic window.
   let rolledBack = false;
   await prisma.$transaction(async (tx) => {
+    await lockForTransaction(tx, "user-admin-invariant", "global");
     // 0. Take this instance's ids for objects it already has under the same
     //    business key, and refuse references to customers that exist nowhere.
     const t = await alignImportIds(tx, file.tables);
@@ -123,17 +126,18 @@ export async function executeImport(
     // 11. QuickServices
     await importQuickServices(tx, t, options, counts);
     // 12. Playbooks
-    await importPlaybooks(tx, t, options, counts);
+    await importPlaybooks(tx, t, options, counts, file.exportMode);
     // 13. AlertRules
     await importAlertRules(tx, t, options, counts, file.exportMode);
     // 14. Settings (可选)
-    await importSettings(tx, t, options, counts);
+    await importSettings(tx, t, options, counts, file.exportMode);
     // 15. AiProviders
     await importAiProviders(tx, t, options, counts);
     // 16. Announcements
     await importAnnouncements(tx, t, options, counts);
     // 17. Snippets
     await importSnippets(tx, t, options, counts);
+    await assertImportHasActiveAdmin(tx);
   }, { timeout: 120_000, maxWait: 20_000, isolationLevel: "Serializable" }).catch((err: unknown) => {
     // 事务失败时全部写入都会回滚。不要把事务内累计的计数伪装成
     // 已落库结果，否则 UI 会显示“创建了 N 条”但数据库实际为 0。

@@ -15,6 +15,7 @@
  *
  * LOG_RETENTION_DAYS overrides every table's default; 0 disables pruning.
  */
+import type { Prisma } from "@prisma/client";
 import { config } from "@/lib/config/env";
 import { prisma } from "@/lib/db";
 
@@ -28,8 +29,40 @@ type Pruner = {
 	days: number;
 	/** IDs of up to `take` prunable rows older than `before`, oldest first. */
 	find: (before: Date, take: number) => Promise<Array<{ id: string }>>;
-	remove: (ids: string[]) => Promise<{ count: number }>;
+	prepare?: (now: Date) => Promise<unknown>;
+	remove: (ids: string[], before: Date) => Promise<{ count: number }>;
 };
+
+function itsmPruner(days: number, rejected: boolean): Pruner {
+	const where = (before: Date): Prisma.ItsmEventWhereInput => ({
+		eventType: rejected ? "security.rejected" : { not: "security.rejected" },
+		OR: [{ status: { in: ["ok", "ignored"] } }, { status: "error", externalId: null }],
+		createdAt: { lt: before },
+		payload: { path: ["terminalAtMs"], lt: before.getTime() },
+	});
+	return {
+		days,
+		find: (before, take) => prisma.itsmEvent.findMany({
+			where: where(before), orderBy: { createdAt: "asc" }, take, select: { id: true },
+		}),
+		remove: (ids, before) => prisma.itsmEvent.deleteMany({ where: { ...where(before), id: { in: ids } } }),
+	};
+}
+
+// Older rows have no terminal timestamp. Start their clock at first observation
+// instead of guessing from createdAt. Bound the upgrade work on each sweep.
+function dateLegacyTerminalEvents(now: Date) {
+	return prisma.$executeRaw`
+		WITH legacy AS (
+			SELECT id FROM itsm_events WHERE
+				(status IN ('ok', 'ignored') OR (status = 'error' AND "externalId" IS NULL))
+				AND jsonb_typeof(payload) = 'object' AND NOT (payload ? 'terminalAtMs')
+			ORDER BY "createdAt", id LIMIT ${BATCH_SIZE} FOR UPDATE SKIP LOCKED
+		)
+		UPDATE itsm_events e SET payload = jsonb_set(e.payload, '{terminalAtMs}', to_jsonb(${now.getTime()}::bigint))
+		FROM legacy WHERE e.id = legacy.id
+	`;
+}
 
 export const LOG_RETENTION_TABLES = {
 	serverAgentJob: {
@@ -83,23 +116,8 @@ export const LOG_RETENTION_TABLES = {
 		}),
 		remove: (ids) => prisma.syncLog.deleteMany({ where: { id: { in: ids } } }),
 	},
-	itsmEvent: {
-		days: 90,
-		find: (before, take) => prisma.itsmEvent.findMany({
-			where: { createdAt: { lt: before }, eventType: { not: "security.rejected" } },
-			orderBy: { createdAt: "asc" }, take, select: { id: true },
-		}),
-		remove: (ids) => prisma.itsmEvent.deleteMany({ where: { id: { in: ids } } }),
-	},
-	itsmRejectedEvent: {
-		// Forged or misconfigured callbacks (A8-08/A8-10): a week is enough to notice a pattern.
-		days: 7,
-		find: (before, take) => prisma.itsmEvent.findMany({
-			where: { createdAt: { lt: before }, eventType: "security.rejected" },
-			orderBy: { createdAt: "asc" }, take, select: { id: true },
-		}),
-		remove: (ids) => prisma.itsmEvent.deleteMany({ where: { id: { in: ids } } }),
-	},
+	itsmEvent: { ...itsmPruner(90, false), prepare: dateLegacyTerminalEvents },
+	itsmRejectedEvent: itsmPruner(7, true),
 	shareAccessLog: {
 		days: 180,
 		find: (before, take) => prisma.shareAccessLog.findMany({
@@ -137,10 +155,11 @@ export async function pruneLogTables(options: { now?: Date; overrideDays?: numbe
 		const before = new Date(now.getTime() - days * DAY_MS);
 		let deleted = 0;
 		try {
+			await pruner.prepare?.(now);
 			for (let batch = 0; batch < MAX_BATCHES_PER_TABLE; batch++) {
 				const rows = await pruner.find(before, BATCH_SIZE);
 				if (rows.length === 0) break;
-				deleted += (await pruner.remove(rows.map((row) => row.id))).count;
+				deleted += (await pruner.remove(rows.map((row) => row.id), before)).count;
 				if (rows.length < BATCH_SIZE) break;
 				if (batch === MAX_BATCHES_PER_TABLE - 1) result.truncated.push(name);
 			}

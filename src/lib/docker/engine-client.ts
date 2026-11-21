@@ -4,7 +4,7 @@ import { createLogger } from "@/lib/logging";
 import { execRemoteCommand, buildSshParamsFromServer } from "@/lib/ssh/client";
 import { prisma } from "@/lib/db";
 import { dockerEngineEndpoint, dockerEngineSocketPath } from "@/lib/runtime/platform-paths";
-import { SSH_CONNECTION_SERVER_SELECT } from "@/lib/ssh/server-connection-select";
+import { SSH_CONNECTION_SERVER_SELECT, type SshEndpointIdentity } from "@/lib/ssh/server-connection-select";
 
 const UNAVAILABLE_CODES = new Set(["ENOENT", "ECONNREFUSED", "EACCES"]);
 
@@ -220,6 +220,8 @@ export async function requestRemoteDockerEngine(
 	serverId: string,
 	apiPath: string,
 	options: {
+		expectedTeamId?: string | null;
+		expectedEndpoint?: SshEndpointIdentity;
 		method?: string;
 		body?: string;
 		unavailableData: unknown;
@@ -250,11 +252,12 @@ export async function requestRemoteDockerEngine(
 
 	// Fetch server + SSH key from DB
 	const server = await prisma.server.findUnique({
-		where: { id: serverId },
+		where: { ...options.expectedEndpoint, id: serverId, ...(options.expectedTeamId !== undefined && { teamId: options.expectedTeamId }) },
 		select: {
 			...SSH_CONNECTION_SERVER_SELECT,
 			name: true,
 			enabled: true,
+			agentTokenHash: true,
 		},
 	});
 
@@ -265,7 +268,7 @@ export async function requestRemoteDockerEngine(
 		return { ok: false, status: 403, data: { message: "Server is disabled" } };
 	}
 
-	const sshParams = await buildSshParamsFromServer(server, server.sshKey);
+	const sshParams = await buildSshParamsFromServer(server, server.sshKey, options.expectedTeamId);
 
 	// Build curl command. Use -s (silent), -w to get HTTP status, output body to stdout.
 	// For methods other than GET, add -X method. For body, pipe via heredoc-free approach.
@@ -335,6 +338,8 @@ export async function requestRemoteDockerEngine(
 export async function dockerRequest(
 	apiPath: string,
 	options: {
+		expectedTeamId?: string | null;
+		expectedEndpoint?: SshEndpointIdentity;
 		method?: string;
 		body?: string;
 		unavailableData: unknown;
@@ -350,7 +355,7 @@ export async function dockerRequest(
 	if (serverId) {
 		// Remote VPS Docker
 		const server = await prisma.server.findUnique({
-			where: { id: serverId },
+			where: { ...options.expectedEndpoint, id: serverId, ...(options.expectedTeamId !== undefined && { teamId: options.expectedTeamId }) },
 			select: { name: true },
 		});
 		const scope = remoteVpsDockerScope(serverId, server?.name ?? serverId);

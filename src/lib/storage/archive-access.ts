@@ -1,6 +1,7 @@
 import { escapeLikeLiteral } from "@/lib/db/like-pattern";
 import type { Readable } from "node:stream";
 import path from "node:path";
+import { isStorageStagingPath } from "./staging-paths";
 import { prisma } from "@/lib/db";
 import { ConflictError, NotFoundError, ValidationError } from "@/lib/errors";
 import { t } from "@/lib/i18n/service-translations";
@@ -50,12 +51,17 @@ export async function recycledAround(storageNodeId: string, rawRelativePath: str
 export async function assertNotRecycled(
   storageNodeId: string, relativePath: string, operation: "read" | "write" = "read", driver?: string,
 ): Promise<void> {
+  const caseInsensitive = hasCaseInsensitiveLocalPaths(driver);
+  const normalized = normalizeIndexedPath(relativePath);
+  if (isStorageStagingPath(caseInsensitive ? normalized.toLowerCase() : normalized)) {
+    throw new NotFoundError(apiCopy("apiCopy.files.op.missing"));
+  }
   const deleted = await prisma.fileEntry.findFirst({
     where: {
       storageNodeId, isDeleted: true,
       relativePath: {
-        in: indexedAncestors(normalizeIndexedPath(relativePath)),
-        ...(hasCaseInsensitiveLocalPaths(driver) ? { mode: "insensitive" } : {}),
+        in: indexedAncestors(normalized),
+        ...(caseInsensitive ? { mode: "insensitive" } : {}),
       },
     },
     select: { id: true },
@@ -89,10 +95,11 @@ export async function openManagedArchive(input: {
   ) => NodeJS.ReadableStream | Promise<NodeJS.ReadableStream>;
 }): Promise<NodeJS.ReadableStream> {
   input.signal.throwIfAborted();
-  const parts = input.relativePath.split("/");
-  const ancestors = parts.map((_, index) =>
-    parts.slice(0, index + 1).join("/"),
-  );
+  const relativePath = normalizeIndexedPath(input.relativePath);
+  const pathKey = (value: string) => input.caseInsensitive ? value.toLowerCase() : value;
+  if (isStorageStagingPath(pathKey(relativePath))) throw new NotFoundError(apiCopy("apiCopy.files.op.missing"));
+  const parts = relativePath.split("/");
+  const ancestors = indexedAncestors(relativePath);
   const mode = input.caseInsensitive ? { mode: "insensitive" as const } : {};
   const deleted = await prisma.fileEntry.findMany({
     where: {
@@ -100,7 +107,7 @@ export async function openManagedArchive(input: {
       isDeleted: true,
       OR: [
         { relativePath: { in: ancestors, ...mode } },
-        { relativePath: { startsWith: escapeLikeLiteral(`${input.relativePath}/`), ...mode } },
+        { relativePath: { startsWith: escapeLikeLiteral(`${relativePath}/`), ...mode } },
       ],
     },
     select: { relativePath: true },
@@ -108,14 +115,13 @@ export async function openManagedArchive(input: {
   });
   if (deleted.length > 10000)
     throw new ValidationError(apiCopy("apiCopy.files.op.entries"));
-  const pathKey = (value: string) => input.caseInsensitive ? value.toLowerCase() : value;
   const ancestorKeys = new Set(ancestors.map(pathKey));
   if (deleted.some((entry) => ancestorKeys.has(pathKey(entry.relativePath))))
     throw new NotFoundError(apiCopy("apiCopy.files.op.missing"));
-  const name = path.posix.basename(input.relativePath);
+  const name = path.posix.basename(relativePath);
   const excluded = deleted.map((entry) => {
     const child = entry.relativePath.split("/");
-    if (child.length <= parts.length || pathKey(child.slice(0, parts.length).join("/")) !== pathKey(input.relativePath))
+    if (child.length <= parts.length || pathKey(child.slice(0, parts.length).join("/")) !== pathKey(relativePath))
       throw new ValidationError(apiCopy("apiCopy.files.op.invalid"));
     return [name, ...child.slice(parts.length)].join("/");
   });

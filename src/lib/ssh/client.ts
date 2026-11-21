@@ -29,6 +29,8 @@ export type SshConnectionParams = {
   enforceHostKeyPin?: boolean;
   /** Agent transport fallback used when no SSH credential is stored. */
   agentServerId?: string;
+  /** Server identity captured when loading a tenant-authorized operation. */
+  expectedIdentity?: { serverId: string; teamId: string | null; tokenHash: string | null };
 };
 
 export type SftpListEntry = {
@@ -70,6 +72,10 @@ function standardSha256Fingerprint(hexDigest: string): string | null {
 }
 
 function createSshConfig(input: SshConnectionParams): ConnectConfig {
+ const expectedHostKey = stripHostKeyFingerprintPrefix(input.hostKeySha256);
+ if (input.enforceHostKeyPin && !expectedHostKey && !(input.onHostKeySha256 && input.rejectUnknownHostKeyAfterCapture)) {
+   throw new BusinessError(t("backend.ssh.hostKeyNotPinned"));
+ }
  const config: ConnectConfig = {
   host: input.host,
   port: input.port,
@@ -92,7 +98,6 @@ function createSshConfig(input: SshConnectionParams): ConnectConfig {
   config.password = input.password;
  }
 
- const expectedHostKey = stripHostKeyFingerprintPrefix(input.hostKeySha256);
  const enforceHostKeyPin = input.enforceHostKeyPin ?? getSshEnforceHostKeyPin();
  const needsVerifier = expectedHostKey || input.onHostKeySha256 || enforceHostKeyPin;
  if (needsVerifier) {
@@ -131,7 +136,7 @@ export function connectSsh(config: ConnectConfig | SshConnectionParams): Promise
     client.setMaxListeners(0);
     client.on("ready", () => resolve(client));
     client.on("error", (err) => reject(err));
-    client.connect("hostKeySha256" in config ? createSshConfig(config) : config);
+    client.connect("hostKeySha256" in config || "enforceHostKeyPin" in config || "onHostKeySha256" in config ? createSshConfig(config) : config);
   });
 }
 
@@ -262,7 +267,7 @@ async function execAgentOnly(input: SshConnectionParams, command: string, timeou
   signal?.throwIfAborted();
   if (!input.agentServerId) throw new BusinessError(t("backend.server.agentIdentityMissing"));
   const { executeCommandWithAgent } = await import("@/lib/server/agent-service");
-  const result = await executeCommandWithAgent({ serverId: input.agentServerId, command, timeoutMs, signal });
+  const result = await executeCommandWithAgent({ serverId: input.agentServerId, command, timeoutMs, signal, expectedIdentity: input.expectedIdentity });
   if (!result) throw new BusinessError(t("backend.server.agentOfflineNoFallback"));
   if (result.exitCode !== 0) {
     throw new BusinessError(result.stderr || result.stdout || t("backend.server.agentCommandFailed", { code: result.exitCode }));
@@ -324,10 +329,11 @@ export async function listRemoteDirectory(input: SshConnectionParams & {
   requireComplete?: boolean;
 }): Promise<SftpListEntry[]> {
   if (usesAgentOnly(input)) {
-    const source = "import json,os,stat,sys\np=sys.argv[1]; limit=int(sys.argv[2]); out=[]\nnames=os.listdir(p)\nfor name in names[:limit]:\n q=os.path.join(p,name); s=os.lstat(q); mode=s.st_mode; kind='directory' if stat.S_ISDIR(mode) else ('file' if stat.S_ISREG(mode) else 'other'); out.append({'name':name,'longname':name,'type':kind,'symlink':stat.S_ISLNK(mode),'size':s.st_size,'modifyTime':int(s.st_mtime*1000),'accessTime':int(s.st_atime*1000)})\nprint(json.dumps({'total':len(names),'entries':out},ensure_ascii=False))";
+    const source = "import json,os,stat,sys\np=sys.argv[1]; limit=int(sys.argv[2]); out=[]\ntry:\n names=os.listdir(p)\nexcept FileNotFoundError:\n print('null'); sys.exit(0)\nfor name in names[:limit]:\n q=os.path.join(p,name); s=os.lstat(q); mode=s.st_mode; kind='directory' if stat.S_ISDIR(mode) else ('file' if stat.S_ISREG(mode) else 'other'); out.append({'name':name,'longname':name,'type':kind,'symlink':stat.S_ISLNK(mode),'size':s.st_size,'modifyTime':int(s.st_mtime*1000),'accessTime':int(s.st_atime*1000)})\nprint(json.dumps({'total':len(names),'entries':out},ensure_ascii=False))";
     const limit = input.maxEntries ?? AGENT_LIST_LIMIT;
     const result = await execAgentOnly(input, pythonCommand(source, [input.remotePath, String(limit)]));
-    const listing = JSON.parse(result.stdout) as { total: number; entries: SftpListEntry[] };
+    const listing = JSON.parse(result.stdout) as { total: number; entries: SftpListEntry[] } | null;
+    if (listing === null) throw Object.assign(new Error("No such directory"), { code: "ENOENT" });
     if (input.requireComplete && listing.total > listing.entries.length) {
       throw new BusinessError(t("backend.sftp.directoryListingTruncated", { limit: String(limit) }));
     }
@@ -719,18 +725,37 @@ function sftpRemoveRecursive(sftp: SFTPWrapper, remotePath: string): Promise<voi
   });
 }
 
-export async function deleteRemoteFile(input: SshConnectionParams & { remotePath: string; isDirectory?: boolean }): Promise<void> {
+export async function deleteRemoteFile(input: SshConnectionParams & { remotePath: string; isDirectory?: boolean; emptyOnly?: boolean }): Promise<void> {
   if (usesAgentOnly(input)) {
-    // shutil.rmtree gives the agent path the same recursive semantics as SFTP.
-    const source = input.isDirectory
-      ? "import shutil,sys\nshutil.rmtree(sys.argv[1])"
-      : "import os,sys\nos.unlink(sys.argv[1])";
-    await execAgentOnly(input, pythonCommand(source, [input.remotePath]));
+    const remove = input.isDirectory ? (input.emptyOnly ? "os.rmdir" : "shutil.rmtree") : "os.unlink";
+    const source = `import errno,os,shutil,sys
+p=sys.argv[1]
+try:
+ ${remove}(p)
+except FileNotFoundError:
+ if os.path.lexists(p): raise
+ print("missing")
+except OSError as e:
+ if e.errno not in (errno.EEXIST, errno.ENOTEMPTY): raise
+ print("not-empty")`;
+    const result = await execAgentOnly(input, pythonCommand(source, [input.remotePath]));
+    if (result.stdout.trim() === "not-empty") throw Object.assign(new Error("Directory not empty"), { code: "ENOTEMPTY" });
+    if (result.stdout.trim() === "missing") throw Object.assign(new Error("No such file"), { code: "ENOENT" });
     return;
   }
   await withReusableSshClient(input, async (client) => {
     await withSftpChannel(client, (sftp) => new Promise<void>((resolve, reject) => {
-        if (input.isDirectory) {
+        if (input.isDirectory && input.emptyOnly) {
+          sftp.rmdir(input.remotePath, (err) => {
+            if (!err) return resolve();
+            // SFTP v3 often reports a generic FAILURE for a nonempty directory.
+            if ((err as { code?: number }).code !== 4) return reject(err);
+            sftp.readdir(input.remotePath, (readErr, rows) => {
+              if (readErr || !rows.some(row => row.filename !== "." && row.filename !== "..")) return reject(err);
+              reject(Object.assign(new Error("Directory not empty"), { code: "ENOTEMPTY" }));
+            });
+          });
+        } else if (input.isDirectory) {
           // Recursively remove the whole tree (contents + directory) so the
           // physical delete matches the recursive index soft-delete. Previously
           // a non-empty directory was rejected, leaving files orphaned on disk
@@ -746,9 +771,24 @@ export async function deleteRemoteFile(input: SshConnectionParams & { remotePath
   });
 }
 
-export async function renameRemoteFile(input: SshConnectionParams & { oldPath: string; newPath: string }): Promise<void> {
+export async function renameRemoteFile(input: SshConnectionParams & { oldPath: string; newPath: string; noReplace?: boolean }): Promise<void> {
   if (usesAgentOnly(input)) {
-    await execAgentOnly(input, pythonCommand("import os,sys\nos.rename(sys.argv[1],sys.argv[2])", [input.oldPath, input.newPath]));
+    const source = input.noReplace ? `import os,stat,sys
+src,dst=sys.argv[1:]
+if os.name == 'nt':
+ os.rename(src,dst)
+elif stat.S_ISDIR(os.lstat(src).st_mode):
+ os.mkdir(dst)
+ reserved=os.lstat(dst)
+ try:
+  os.rename(src,dst)
+ except:
+  if os.path.samestat(reserved,os.lstat(dst)): os.rmdir(dst)
+  raise
+else:
+ os.link(src,dst,follow_symlinks=False)
+ os.unlink(src)` : "import os,sys\nos.rename(sys.argv[1],sys.argv[2])";
+    await execAgentOnly(input, pythonCommand(source, [input.oldPath, input.newPath]));
     return;
   }
   await withReusableSshClient(input, async (client) => {
@@ -878,20 +918,53 @@ function waitForSshResource<T>(resource: Promise<T>, signal: AbortSignal | undef
   });
 }
 
-export async function execRemoteCommand(
- input: SshConnectionParams & { command: string; timeout?: number; signal?: AbortSignal; preferAgent?: boolean },
-): Promise<{ stdout: string; stderr: string; exitCode: number | null }> {
+async function assertCurrentCommandEndpoint(input: SshConnectionParams) {
+  if (!input.expectedIdentity) return;
+  const { prisma } = await import("@/lib/db");
+  const current = await prisma.server.findUnique({
+    where: {
+      id: input.expectedIdentity.serverId, teamId: input.expectedIdentity.teamId, enabled: true,
+      host: input.host, port: input.port, username: input.username, hostKeySha256: input.hostKeySha256,
+      managementMode: input.agentServerId ? "AGENT" : "DIRECT",
+      ...(input.agentServerId && { agentTokenHash: input.expectedIdentity.tokenHash }),
+    },
+    select: { id: true },
+  });
+  if (!current) throw new BusinessError(t("backend.command.connectionChanged"));
+}
+
+type RemoteCommandInput = SshConnectionParams & { command: string; timeout?: number; signal?: AbortSignal; preferAgent?: boolean };
+
+export async function execRemoteCommand(input: RemoteCommandInput): Promise<{ stdout: string; stderr: string; exitCode: number | null }> {
  input.signal?.throwIfAborted();
- if (input.agentServerId && (input.preferAgent || usesAgentOnly(input))) {
+ const tryAgent = Boolean(input.agentServerId && (input.preferAgent || usesAgentOnly(input)));
+ if (input.agentServerId && tryAgent) {
    const { executeCommandWithAgent } = await import("@/lib/server/agent-service");
    const result = await executeCommandWithAgent({
-     serverId: input.agentServerId, command: input.command, timeoutMs: input.timeout ?? 120_000, signal: input.signal,
+     serverId: input.agentServerId, expectedIdentity: input.expectedIdentity, command: input.command, timeoutMs: input.timeout ?? 120_000, signal: input.signal,
    });
    input.signal?.throwIfAborted();
    if (result) return { stdout: result.stdout, stderr: result.stderr, exitCode: result.exitCode };
    // Only null proves the Agent never took this job. A nonzero result or a lost
    // acknowledgement must never execute the operation a second time over SSH.
    if (usesAgentOnly(input)) throw new BusinessError(t("backend.server.agentOfflineNoFallback"));
+ }
+ // The Agent enqueue transaction already fences transfers. Direct SSH has no
+ // job row: take the transfer lock for this command (including SSH fallback)
+ // so its last ownership check remains valid until the remote command ends.
+ if (!input.expectedIdentity) return executeSshCommand(input, tryAgent);
+ const { acquireAdvisoryLock } = await import("@/lib/concurrency/advisory-lock");
+ const release = await acquireAdvisoryLock("server-delete", input.expectedIdentity.serverId);
+ try {
+   input.signal?.throwIfAborted();
+   return await executeSshCommand(input, tryAgent);
+ } finally {
+   await release();
+ }
+}
+
+async function executeSshCommand(input: RemoteCommandInput, agentFallback: boolean) {
+ if (agentFallback && input.agentServerId) {
    if (!input.hostKeySha256) throw new BusinessError(t("backend.ssh.hostKeyNotPinned"));
    // The node could have changed while its Agent job was pending. Verify the
    // saved endpoint and credential again before opening a fallback connection.
@@ -899,7 +972,8 @@ export async function execRemoteCommand(
    const { SSH_CONNECTION_SERVER_SELECT } = await import("./server-connection-select");
    const current = await prisma.server.findUnique({
      where: { id: input.agentServerId, enabled: true, managementMode: "AGENT", host: input.host,
-       port: input.port, username: input.username, hostKeySha256: input.hostKeySha256 },
+       port: input.port, username: input.username, hostKeySha256: input.hostKeySha256,
+       ...(input.expectedIdentity && { teamId: input.expectedIdentity.teamId, agentTokenHash: input.expectedIdentity.tokenHash }) },
      select: SSH_CONNECTION_SERVER_SELECT,
    });
    if (!current) throw new BusinessError(t("backend.command.connectionChanged"));
@@ -907,10 +981,13 @@ export async function execRemoteCommand(
    if (login.password !== input.password || login.privateKey !== input.privateKey || login.passphrase !== input.passphrase) {
      throw new BusinessError(t("backend.command.connectionChanged"));
    }
+ } else {
+   await assertCurrentCommandEndpoint(input);
  }
  if (!shouldPoolSsh(input)) {
    const client = await waitForSshResource(connectSsh(createSshConfig(input)), input.signal, (client) => { client.end(); });
    try {
+     await assertCurrentCommandEndpoint(input);
      return await execCommandOnClient(client, input.command, input.timeout ?? 120_000, input.signal);
    } finally {
      client.end();
@@ -918,6 +995,7 @@ export async function execRemoteCommand(
  }
  const { key, entry } = await waitForSshResource(acquirePooledSsh(input), input.signal, ({ key, entry }) => releasePooledSsh(key, entry));
  try {
+   await assertCurrentCommandEndpoint(input);
    return await execCommandOnClient(entry.client, input.command, input.timeout ?? 120_000, input.signal);
  } finally {
    releasePooledSsh(key, entry);
@@ -935,6 +1013,7 @@ export async function buildSshParamsFromServer(server: {
    * without hostKeySha256 the saved pin was not checked.
    */
   teamId?: string | null;
+  agentTokenHash?: string | null;
   operatingSystem: string;
   host: string;
   port: number;
@@ -945,9 +1024,12 @@ export async function buildSshParamsFromServer(server: {
   hostKeySha256: string | null;
   id: string;
   managementMode: string;
-}, sshKey?: StoredSshKey | null): Promise<SshConnectionParams> {
+}, sshKey?: StoredSshKey | null, expectedTeamId?: string | null): Promise<SshConnectionParams> {
   if (server.operatingSystem === "WINDOWS") throw new BusinessError(t("backend.server.linuxOnly"));
+  if (expectedTeamId !== undefined && server.teamId !== expectedTeamId) throw new BusinessError(t("backend.command.connectionChanged"));
   const base = {
+    enforceHostKeyPin: true,
+    ...(expectedTeamId !== undefined && { expectedIdentity: { serverId: server.id, teamId: expectedTeamId, tokenHash: server.agentTokenHash ?? null } }),
     host: server.host,
     port: server.port,
     username: server.username,

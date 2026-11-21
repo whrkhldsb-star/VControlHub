@@ -16,7 +16,7 @@ import { createLogger } from "@/lib/logging";
 import { acquireAdvisoryLock } from "@/lib/concurrency/advisory-lock";
 import { collectAllHealth } from "./service-collect";
 import { HEALTH_SAMPLE_INTERVAL_MINUTES } from "./service-types";
-import { getRuntimeSettingNumber } from "@/lib/runtime-settings/service";
+import { getRuntimeSettingNumber, getRuntimeSettingNumberStrict } from "@/lib/runtime-settings/service";
 import {
   pruneMetricSnapshots,
   snapshotHealthOverview,
@@ -116,10 +116,11 @@ async function processSample(jobId: string) {
       error: error instanceof Error ? error.message : String(error),
     });
   }
-  const retentionDays = await getRuntimeSettingNumber("retention.healthSamplesDays").catch(() => 30);
-  const pruned = await pruneMetricSnapshots(
-    new Date(Date.now() - retentionDays * DAY_MS),
-  );
+  const retentionDays = await getRuntimeSettingNumberStrict("retention.healthSamplesDays").catch((error) => {
+    logger.warn("Skipping snapshot cleanup because the retention policy could not be read", { error: String(error) });
+    return null;
+  });
+  const pruned = retentionDays === null ? { count: 0 } : await pruneMetricSnapshots(new Date(Date.now() - retentionDays * DAY_MS));
   // Feed /status 90-day heatmap from metric samples (table was previously never written).
   const uptime = await rollupRecentServerUptime();
   return {

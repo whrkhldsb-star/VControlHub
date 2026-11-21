@@ -12,7 +12,7 @@ const { mocks } = vi.hoisted(() => ({
     uploadFile: vi.fn(),
     assertSftpPathAccess: vi.fn(),
     auditUserAction: vi.fn(),
-    loadEnabledServerForSftp: vi.fn(async () => ({ rootPath: "/home/deploy" })),
+    loadEnabledServerForSftp: vi.fn(async () => ({ rootPath: "/home/deploy", ssh: { host: "vps" } })),
     serverFindUnique: vi.fn(
       async (): Promise<{ id: string; teamId: string | null }> => ({ id: "srv1", teamId: null }),
     ),
@@ -22,6 +22,10 @@ const { mocks } = vi.hoisted(() => ({
 
 vi.mock("@/lib/auth/require-api-permission", () => ({
   requireApiPermission: mocks.requireApiPermission,
+}));
+
+vi.mock("@/lib/concurrency/advisory-lock", () => ({
+  acquireAdvisoryLock: vi.fn(async () => vi.fn()),
 }));
 
 vi.mock("@/lib/db", () => ({
@@ -318,7 +322,8 @@ describe("/api/servers/[id]/sftp/upload", () => {
 
     expect(res.status).toBe(200);
     expect(json).toEqual({ success: true, path: "/root/a.txt", size: 7 });
-    expect(mocks.uploadFile).toHaveBeenCalledWith("srv1", "/root/a.txt", expect.anything());
+    expect(mocks.loadEnabledServerForSftp).toHaveBeenCalledWith("srv1", "team_1", { id: "srv1", teamId: "team_1" });
+    expect(mocks.uploadFile).toHaveBeenCalledWith("srv1", "/root/a.txt", expect.anything(), { host: "vps" });
     expect(mocks.auditUserAction).toHaveBeenCalledWith(
       "u1",
       "sftp.upload",
@@ -371,7 +376,8 @@ describe("/api/servers/[id]/sftp/upload", () => {
       multipartRequest({ file: { name: "a.txt", content: "content" }, path: "/root/" }),
       { params: params() },
     );
-    expect(mocks.uploadFile).toHaveBeenCalledWith("srv1", "/root/a.txt", expect.anything());
+    expect(mocks.loadEnabledServerForSftp).toHaveBeenCalledWith("srv1", "team_1", { id: "srv1", teamId: "team_1" });
+    expect(mocks.uploadFile).toHaveBeenCalledWith("srv1", "/root/a.txt", expect.anything(), { host: "vps" });
   });
 
   it("checks the ACL against the composed destination, not the directory", async () => {
@@ -383,7 +389,22 @@ describe("/api/servers/[id]/sftp/upload", () => {
       session: operator,
       serverId: "srv1",
       paths: ["/root/sub/a.txt"],
+      target: { rootPath: "/home/deploy", ssh: { host: "vps" } },
     });
+  });
+
+  it("aborts when the scoped target cannot be loaded after reading the multipart body", async () => {
+    const { BusinessError } = await import("@/lib/errors");
+    mocks.loadEnabledServerForSftp.mockRejectedValueOnce(new BusinessError("endpoint changed"));
+    const res = await uploadRoute.POST(
+      multipartRequest({ file: { name: "a.txt", content: "content" }, path: "/root" }),
+      { params: params() },
+    );
+    expect(res.ok).toBe(false);
+    expect(mocks.loadEnabledServerForSftp).toHaveBeenCalledWith("srv1", "team_1", expect.objectContaining({ teamId: "team_1" }));
+    expect(mocks.assertSftpPathAccess).not.toHaveBeenCalled();
+    expect(mocks.uploadFile).not.toHaveBeenCalled();
+    expect(mocks.auditUserAction).not.toHaveBeenCalled();
   });
 
   it("404s a server outside the caller's team without touching the filesystem", async () => {

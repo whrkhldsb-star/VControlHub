@@ -8,10 +8,12 @@ import { afterAll, beforeAll, describe, expect, it, vi } from "vitest";
  * between "command created" and "dispatch recorded" ended up DISABLED with
  * no next run, so the run the user had just scheduled never happened.
  */
-const { createCommandRequest } = vi.hoisted(() => ({ createCommandRequest: vi.fn() }));
+const { authorize, createCommandRequest } = vi.hoisted(() => ({
+  authorize: vi.fn(async () => ({ ok: true })), createCommandRequest: vi.fn(),
+}));
 vi.mock("@/lib/command/service", () => ({ createCommandRequest }));
 vi.mock("@/lib/auth/command-execution-authz", () => ({
-  assertRequesterMayExecuteCommand: vi.fn(async () => ({ ok: true })),
+  assertRequesterMayExecuteCommand: authorize,
 }));
 
 import { BusinessError } from "@/lib/errors";
@@ -64,6 +66,39 @@ describe.skipIf(process.env.RUN_DATABASE_INTEGRATION_TESTS !== "1")("scheduled-t
     expect(after.status).toBe("ACTIVE");
     expect(after.nextRunAt?.toISOString()).toBe(later.toISOString());
     expect(after.runCount).toBe(failed ? 0 : 1);
+  });
+
+  it("reauthorizes the latest definition after the pending claim loses its version", async () => {
+    const due = new Date(Date.now() - 60_000);
+    const task = await prisma.scheduledTask.create({
+      data: { name: prefix, scheduleType: "ONCE", runAt: due, nextRunAt: due, cronExpression: "",
+        command: "uptime", serverIds: ["srv"], createdById: prefix, approvalRequired: true },
+    });
+    authorize.mockImplementationOnce(async () => {
+      await prisma.scheduledTask.update({ where: { id: task.id }, data: { command: "pwd", approvalRequired: false } });
+      return { ok: true };
+    });
+    createCommandRequest.mockClear();
+    await dispatchDueScheduledTasks("stale");
+    expect(createCommandRequest).not.toHaveBeenCalled();
+    createCommandRequest.mockImplementationOnce(createRequest);
+    await dispatchDueScheduledTasks("fresh");
+    expect(createCommandRequest).toHaveBeenCalledExactlyOnceWith(expect.objectContaining({ command: "pwd", approvalRequired: false }));
+  });
+
+  it("lets a successor advance an occurrence already recorded by the previous worker", async () => {
+    const occurrence = new Date(Date.now() - 3600_000);
+    const request = await createRequest();
+    const task = await prisma.scheduledTask.create({
+      data: { name: prefix, scheduleType: "ONCE", runAt: occurrence, nextRunAt: new Date(Date.now() - 60_000),
+        claimedOccurrenceAt: occurrence, cronExpression: "", command: "uptime", serverIds: ["srv"],
+        createdById: prefix, runCount: 1, runs: { create: { commandRequestId: request.id, dispatchedAt: occurrence } } },
+    });
+    createCommandRequest.mockResolvedValueOnce(request);
+    await dispatchDueScheduledTasks("takeover");
+    expect(await prisma.scheduledTask.findUniqueOrThrow({ where: { id: task.id } }))
+      .toMatchObject({ status: "DISABLED", nextRunAt: null, claimedOccurrenceAt: null, runCount: 1 });
+    expect(await prisma.scheduledTaskRun.count({ where: { scheduledTaskId: task.id } })).toBe(1);
   });
 
   it("still closes a ONCE task that nobody edited", async () => {

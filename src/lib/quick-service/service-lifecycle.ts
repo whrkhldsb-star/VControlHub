@@ -23,17 +23,19 @@ import {
 	isDockerNoSuchContainerError,
 	assertContainerStarted,
 	HUB_HOST_INSTANCE_KEY,
+	type DockerTarget,
 } from "./docker-cli";
 import {
 	assertServiceNotBusy,
 	captureQuickServiceSnapshot,
 	findPortLine,
 	getRemovableHostVolumes,
+	assertExclusiveHostVolumes,
+	removeExclusiveHostVolumes,
 	readListeningSockets,
 	safeContainerName,
 	withServiceOperationLock,
 	writeQuickServiceAudit,
-	__internals,
 } from "./service-internals";
 import { installService, recreateDockerContainer } from "./service-lifecycle-install";
 import { resolveQuickServiceExecutionTarget, type QuickServiceRequester } from "./execution-authorization";
@@ -43,8 +45,6 @@ import { createLogger } from "@/lib/logging";
 
 const qsLogger = createLogger("quick-service-lifecycle");
 const runFile = promisify(execFile);
-
-const { rmSync } = __internals;
 
 
 export { installService };
@@ -77,9 +77,12 @@ const QUICK_SERVICE_LIST_SELECT = {
 	server: { select: { id: true, name: true, host: true } },
 } as const;
 
-export async function listQuickServices(instanceKey: string = HUB_HOST_INSTANCE_KEY) {
+export async function listQuickServices(instanceKey: string = HUB_HOST_INSTANCE_KEY, teamId?: string | null) {
 	return prisma.quickService.findMany({
-		where: { instanceKey },
+		where: {
+			instanceKey, serverId: instanceKey === HUB_HOST_INSTANCE_KEY ? null : instanceKey,
+			...(instanceKey !== HUB_HOST_INSTANCE_KEY && teamId !== undefined ? { server: { teamId } } : {}),
+		},
 		orderBy: [{ category: "asc" }, { name: "asc" }],
 		take: 200,
 		select: QUICK_SERVICE_LIST_SELECT,
@@ -95,8 +98,11 @@ export async function listQuickServiceHistory(limit = 20) {
 	});
 }
 
-function serviceWhere(slug: string, instanceKey: string = HUB_HOST_INSTANCE_KEY) {
-	return { instanceKey_slug: { instanceKey, slug } } as const;
+function serviceWhere(slug: string, instanceKey: string, target?: DockerTarget) {
+	return {
+		instanceKey_slug: { instanceKey, slug },
+		...(target?.kind === "remote" && target.expectedTeamId !== undefined ? { server: { id: target.serverId, teamId: target.expectedTeamId, ...target.endpoint } } : {}),
+	};
 }
 
 
@@ -105,11 +111,13 @@ export async function uninstallService(slug: string, options: UninstallServiceOp
 	return withServiceOperationLock(`${instanceKey}:${slug}`, "uninstall", async () => {
 		const svc = await prisma.quickService.findUnique({ where: serviceWhere(slug, instanceKey) });
 		if (!svc) throw new NotFoundError(t("backend.quick-service.serviceNotFound"));
-		const target = await resolveQuickServiceExecutionTarget(svc, instanceKey, options.requester);
+		const target = await resolveQuickServiceExecutionTarget(svc, instanceKey, "uninstall", options.requester);
 		assertServiceNotBusy(svc, "uninstall");
-		const before = await captureQuickServiceSnapshot(slug, instanceKey);
+		const hostPaths = options.deleteVolumes ? getRemovableHostVolumes(svc.volumesJson) : [];
+		if (target.kind === "local") await assertExclusiveHostVolumes(svc.id, hostPaths);
+		const before = await captureQuickServiceSnapshot(slug, instanceKey, target);
 		await writeQuickServiceAudit({
-			instanceKey,
+			target,
 			action: "uninstall",
 			slug: svc.slug,
 			status: "started",
@@ -122,9 +130,9 @@ export async function uninstallService(slug: string, options: UninstallServiceOp
 			await dockerExec(target, ["rm", "-f", containerName], 15_000);
 		} catch (err) {
 			const msg = dockerErrorMessage(err);
-			await prisma.quickService.update({ where: serviceWhere(slug, instanceKey), data: { status: "error", error: `Uninstall failed: ${msg}` } });
+			await prisma.quickService.update({ where: serviceWhere(slug, instanceKey, target), data: { status: "error", error: `Uninstall failed: ${msg}` } });
 			await writeQuickServiceAudit({
-				instanceKey,
+				target,
 				action: "uninstall",
 				slug: svc.slug,
 				status: "failed",
@@ -143,11 +151,8 @@ export async function uninstallService(slug: string, options: UninstallServiceOp
 			// rmSync is only safe for local installs; remote installs must
 			// not wipe hub paths that merely share the same string.
 			if (target.kind === "local") {
-				for (const hostPath of getRemovableHostVolumes(svc.volumesJson)) {
-					rmSync(hostPath, { recursive: true, force: true });
-				}
+				await removeExclusiveHostVolumes(svc.id, hostPaths);
 			} else {
-				const hostPaths = getRemovableHostVolumes(svc.volumesJson);
 				if (hostPaths.length > 0) {
 					qsLogger.warn("skipping hub-local volume rmSync for remote quick-service uninstall; remote data left for operator cleanup", {
 						slug: svc.slug,
@@ -160,7 +165,7 @@ export async function uninstallService(slug: string, options: UninstallServiceOp
 		}
 
 		try {
-			await prisma.quickService.delete({ where: serviceWhere(slug, instanceKey) });
+			await prisma.quickService.delete({ where: serviceWhere(slug, instanceKey, target) });
 		} catch (err) {
 			// The container is already gone but the DB row deletion failed
 			// (e.g. transient connection drop) — keep the row but mark the
@@ -168,9 +173,9 @@ export async function uninstallService(slug: string, options: UninstallServiceOp
 			// delete cleanly. The diff captures the "should have been
 			// deleted" intent for the audit reader.
 			const msg = err instanceof Error ? err.message.slice(0, 500) : String(err);
-			await prisma.quickService.update({ where: serviceWhere(slug, instanceKey), data: { status: "stopped", error: `Uninstall rollback: DB delete failed ${msg}` } }).catch((err) => { qsLogger.warn("quickService status update failed", { error: err instanceof Error ? err.message : String(err) }); });
+			await prisma.quickService.update({ where: serviceWhere(slug, instanceKey, target), data: { status: "stopped", error: `Uninstall rollback: DB delete failed ${msg}` } }).catch((err) => { qsLogger.warn("quickService status update failed", { error: err instanceof Error ? err.message : String(err) }); });
 			await writeQuickServiceAudit({
-				instanceKey,
+				target,
 				action: "uninstall",
 				slug: svc.slug,
 				status: "failed",
@@ -182,7 +187,7 @@ export async function uninstallService(slug: string, options: UninstallServiceOp
 			);
 		}
 		await writeQuickServiceAudit({
-			instanceKey,
+			target,
 			action: "uninstall",
 			slug: svc.slug,
 			status: "succeeded",
@@ -196,11 +201,11 @@ export async function startService(slug: string, instanceKey: string = HUB_HOST_
 	return withServiceOperationLock(`${instanceKey}:${slug}`, "start", async () => {
 		const svc = await prisma.quickService.findUnique({ where: serviceWhere(slug, instanceKey) });
 		if (!svc) throw new NotFoundError(t("backend.quick-service.serviceNotFound"));
-		const target = await resolveQuickServiceExecutionTarget(svc, instanceKey, requester);
+		const target = await resolveQuickServiceExecutionTarget(svc, instanceKey, "start", requester);
 		assertServiceNotBusy(svc, "start");
-		const before = await captureQuickServiceSnapshot(slug, instanceKey);
+		const before = await captureQuickServiceSnapshot(slug, instanceKey, target);
 		await writeQuickServiceAudit({
-			instanceKey,
+			target,
 			action: "start",
 			slug: svc.slug,
 			status: "started",
@@ -222,9 +227,9 @@ export async function startService(slug: string, instanceKey: string = HUB_HOST_
 				await assertContainerStarted(target, containerName);
 			} catch (error) {
 				const msg = dockerErrorMessage(error);
-				await prisma.quickService.update({ where: serviceWhere(slug, instanceKey), data: { status: "error", error: msg } });
+				await prisma.quickService.update({ where: serviceWhere(slug, instanceKey, target), data: { status: "error", error: msg } });
 				await writeQuickServiceAudit({
-					instanceKey,
+					target,
 					action: "start",
 					slug: svc.slug,
 					status: "failed",
@@ -235,9 +240,9 @@ export async function startService(slug: string, instanceKey: string = HUB_HOST_
 			}
 			// Bookkeeping failures after a successful start propagate as-is; they
 			// must not fall into the recreate path below.
-			await prisma.quickService.update({ where: serviceWhere(slug, instanceKey), data: { status: "running", error: null } });
+			await prisma.quickService.update({ where: serviceWhere(slug, instanceKey, target), data: { status: "running", error: null } });
 			await writeQuickServiceAudit({
-				instanceKey,
+				target,
 				action: "start",
 				slug: svc.slug,
 				status: "succeeded",
@@ -251,9 +256,9 @@ export async function startService(slug: string, instanceKey: string = HUB_HOST_
 			// re-creating it would not fix that and would replace a container the
 			// operator may need to inspect.
 			const msg = dockerErrorMessage(startError);
-			await prisma.quickService.update({ where: serviceWhere(slug, instanceKey), data: { status: "error", error: msg } });
+			await prisma.quickService.update({ where: serviceWhere(slug, instanceKey, target), data: { status: "error", error: msg } });
 			await writeQuickServiceAudit({
-				instanceKey,
+				target,
 				action: "start",
 				slug: svc.slug,
 				status: "failed",
@@ -268,7 +273,7 @@ export async function startService(slug: string, instanceKey: string = HUB_HOST_
 			try {
 				await recreateDockerContainer(svc.id, tmpl, svc.port, { target, auditAction: "start" });
 				await writeQuickServiceAudit({
-					instanceKey,
+					target,
 					action: "start",
 					slug: svc.slug,
 					status: "succeeded",
@@ -277,9 +282,9 @@ export async function startService(slug: string, instanceKey: string = HUB_HOST_
 				});
 			} catch (err) {
 				const msg = dockerErrorMessage(err);
-				await prisma.quickService.update({ where: serviceWhere(slug, instanceKey), data: { status: "error", error: msg } });
+				await prisma.quickService.update({ where: serviceWhere(slug, instanceKey, target), data: { status: "error", error: msg } });
 				await writeQuickServiceAudit({
-					instanceKey,
+					target,
 					action: "start",
 					slug: svc.slug,
 					status: "failed",
@@ -332,13 +337,13 @@ export async function updateService(slug: string, instanceKey: string = HUB_HOST
 	return withServiceOperationLock(`${instanceKey}:${slug}`, "update", async () => {
 		const svc = await prisma.quickService.findUnique({ where: serviceWhere(slug, instanceKey) });
 		if (!svc) throw new NotFoundError(t("backend.quick-service.serviceNotFound"));
-		const target = await resolveQuickServiceExecutionTarget(svc, instanceKey, requester);
+		const target = await resolveQuickServiceExecutionTarget(svc, instanceKey, "update", requester);
 		assertServiceNotBusy(svc, "update");
 		const containerName = safeContainerName(svc.slug);
-		const before = await captureQuickServiceSnapshot(slug, instanceKey);
+		const before = await captureQuickServiceSnapshot(slug, instanceKey, target);
 		const oldImage = svc.image;
 		await writeQuickServiceAudit({
-			instanceKey,
+			target,
 			action: "update",
 			slug: svc.slug,
 			status: "started",
@@ -350,12 +355,12 @@ export async function updateService(slug: string, instanceKey: string = HUB_HOST
 
 		try {
 			await dockerExec(target, ["pull", svc.image], 300_000);
-			await prisma.quickService.update({ where: serviceWhere(slug, instanceKey), data: { status: "installing", error: null } });
+			await prisma.quickService.update({ where: serviceWhere(slug, instanceKey, target), data: { status: "installing", error: null } });
 			await recreateDockerContainer(svc.id, tmpl, svc.port, { target, auditAction: "update" });
 			const health = await getContainerHealthFor(target, containerName);
 			const logTail = await getContainerLogTailFor(target, containerName);
 			await writeQuickServiceAudit({
-				instanceKey,
+				target,
 				action: "update",
 				slug: svc.slug,
 				status: "succeeded",
@@ -368,9 +373,9 @@ export async function updateService(slug: string, instanceKey: string = HUB_HOST
 			return { status: "running", health, logTail };
 		} catch (err) {
 			const msg = dockerErrorMessage(err);
-			await prisma.quickService.update({ where: serviceWhere(slug, instanceKey), data: { status: "error", error: `Update failed: ${msg}` } });
+			await prisma.quickService.update({ where: serviceWhere(slug, instanceKey, target), data: { status: "error", error: `Update failed: ${msg}` } });
 			await writeQuickServiceAudit({
-				instanceKey,
+				target,
 				action: "update",
 				slug: svc.slug,
 				status: "failed",
@@ -388,11 +393,11 @@ export async function stopService(slug: string, instanceKey: string = HUB_HOST_I
 	return withServiceOperationLock(`${instanceKey}:${slug}`, "stop", async () => {
 		const svc = await prisma.quickService.findUnique({ where: serviceWhere(slug, instanceKey) });
 		if (!svc) throw new NotFoundError(t("backend.quick-service.serviceNotFound"));
-		const target = await resolveQuickServiceExecutionTarget(svc, instanceKey, requester);
+		const target = await resolveQuickServiceExecutionTarget(svc, instanceKey, "stop", requester);
 		assertServiceNotBusy(svc, "stop");
-		const before = await captureQuickServiceSnapshot(slug, instanceKey);
+		const before = await captureQuickServiceSnapshot(slug, instanceKey, target);
 		await writeQuickServiceAudit({
-			instanceKey,
+			target,
 			action: "stop",
 			slug: svc.slug,
 			status: "started",
@@ -402,9 +407,9 @@ export async function stopService(slug: string, instanceKey: string = HUB_HOST_I
 		const containerName = safeContainerName(svc.slug);
 		try {
 			await dockerExec(target, ["stop", containerName], 30_000);
-			await prisma.quickService.update({ where: serviceWhere(slug, instanceKey), data: { status: "stopped", error: null } });
+			await prisma.quickService.update({ where: serviceWhere(slug, instanceKey, target), data: { status: "stopped", error: null } });
 			await writeQuickServiceAudit({
-				instanceKey,
+				target,
 				action: "stop",
 				slug: svc.slug,
 				status: "succeeded",
@@ -412,9 +417,9 @@ export async function stopService(slug: string, instanceKey: string = HUB_HOST_I
 			});
 		} catch (err) {
 			const msg = dockerErrorMessage(err);
-			await prisma.quickService.update({ where: serviceWhere(slug, instanceKey), data: { status: "error", error: msg } });
+			await prisma.quickService.update({ where: serviceWhere(slug, instanceKey, target), data: { status: "error", error: msg } });
 			await writeQuickServiceAudit({
-				instanceKey,
+				target,
 				action: "stop",
 				slug: svc.slug,
 				status: "failed",
@@ -431,10 +436,10 @@ export async function stopService(slug: string, instanceKey: string = HUB_HOST_I
 export async function syncServiceStatus(slug: string, instanceKey: string = HUB_HOST_INSTANCE_KEY, requester?: QuickServiceRequester) {
 	const svc = await prisma.quickService.findUnique({ where: serviceWhere(slug, instanceKey) });
 	if (!svc) throw new NotFoundError(t("backend.quick-service.serviceNotFound"));
-	const target = await resolveQuickServiceExecutionTarget(svc, instanceKey, requester);
-	const before = await captureQuickServiceSnapshot(slug, instanceKey);
+	const target = await resolveQuickServiceExecutionTarget(svc, instanceKey, "sync", requester);
+	const before = await captureQuickServiceSnapshot(slug, instanceKey, target);
 	await writeQuickServiceAudit({
-		instanceKey,
+		target,
 		action: "sync",
 		slug: svc.slug,
 		status: "started",
@@ -448,11 +453,11 @@ export async function syncServiceStatus(slug: string, instanceKey: string = HUB_
 		const [state = "", containerId = ""] = (await dockerExec(target, ["inspect", "--format={{.State.Status}}|{{.Id}}", containerName], 10_000)).trim().split("|");
 		const status = state === "running" ? "running" : "stopped";
 		await prisma.quickService.update({
-			where: serviceWhere(slug, instanceKey),
+			where: serviceWhere(slug, instanceKey, target),
 			data: { status, error: null, ...(containerId ? { containerId: containerId.slice(0, 64) } : {}) },
 		});
 		await writeQuickServiceAudit({
-			instanceKey,
+			target,
 			action: "sync",
 			slug: svc.slug,
 			status: "succeeded",
@@ -466,9 +471,9 @@ export async function syncServiceStatus(slug: string, instanceKey: string = HUB_
 		// keep the recorded status, record why, and let the refresh fail.
 		const message = dockerErrorMessage(error);
 		if (!isDockerNoSuchContainerError(error)) {
-			await prisma.quickService.update({ where: serviceWhere(slug, instanceKey), data: { error: message.slice(0, 1000) } });
+			await prisma.quickService.update({ where: serviceWhere(slug, instanceKey, target), data: { error: message.slice(0, 1000) } });
 			await writeQuickServiceAudit({
-				instanceKey,
+				target,
 				action: "sync",
 				slug: svc.slug,
 				status: "failed",
@@ -477,9 +482,9 @@ export async function syncServiceStatus(slug: string, instanceKey: string = HUB_
 			});
 			throw new BusinessError(message.slice(0, 500));
 		}
-		await prisma.quickService.update({ where: serviceWhere(slug, instanceKey), data: { status: "stopped" } });
+		await prisma.quickService.update({ where: serviceWhere(slug, instanceKey, target), data: { status: "stopped" } });
 		await writeQuickServiceAudit({
-			instanceKey,
+			target,
 			action: "sync",
 			slug: svc.slug,
 			status: "succeeded",

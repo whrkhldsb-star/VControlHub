@@ -5,6 +5,8 @@
  * customer whose slug exists here is that customer.
  */
 
+import { ValidationError } from "@/lib/errors";
+import { t as translate } from "@/lib/i18n/service-translations";
 import { applyCustomerMembership } from "@/lib/team/service";
 import type { ExportFile, ImportOptions } from "@/lib/system/config-schema";
 import { byId, loadGrantUserScopes, loadImportReferences } from "./import-reference-scope";
@@ -54,13 +56,14 @@ export async function importTeamMembers(tx: Tx, t: ExportFile["tables"], options
   if (records.length === 0) return;
   const [teams, users, templates, members] = await Promise.all([
     idSet(loadImportReferences(records.map((r) => r.teamId), (ids) => tx.team.findMany({ where: { id: { in: ids } }, select: { id: true } }))),
-    idSet(loadImportReferences(records.map((r) => r.userId), (ids) => tx.user.findMany({ where: { id: { in: ids } }, select: { id: true } }))),
+    loadGrantUserScopes(tx, records.map((r) => r.userId)),
     idSet(loadImportReferences(records.map((r) => r.identityTemplateId), (ids) => tx.identityTemplate.findMany({ where: { id: { in: ids } }, select: { id: true } }))),
     loadTeamMemberships(tx, records),
   ]);
-  const plan = planTeamMemberImport(records, options, members, users, teams, templates);
+  const plan = planTeamMemberImport(records, options, members, new Set(users.keys()), teams, templates);
   for (const { row, action, moved } of plan) {
     const { teamId, userId, identityTemplateId } = row;
+    if (users.get(userId)?.isAdmin) throw new ValidationError(translate("backend.system.importAccountTypeConflict", { id: userId }));
     if (action === "create") {
       await tx.teamMember.create({ data: { teamId, userId, identityTemplateId, joinedAt: parseDate(row.joinedAt, "teamMembers.joinedAt") } });
       counts.created += 1;

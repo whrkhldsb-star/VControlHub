@@ -7,6 +7,7 @@ import { t } from "@/lib/i18n/service-translations";
 import { createRemoteStorageClient } from "./agent-file-client";
 import type { WebDavStorageNode } from "./webdav-credentials";
 import { normalizeStorageTargetDirectory } from "./path-utils";
+import { isStorageStagingPath } from "./staging-paths";
 import { readDirectoryIndex } from "./directory-index";
 
 const logger = createLogger("storage.webdav-sync");
@@ -37,7 +38,9 @@ export async function syncWebDavDirectoryEntries(input: { node: WebDavStorageNod
   try {
     // Finish the remote read before opening a database transaction.
     const listingStartedAt = new Date();
-    const entries = [...new Map((await createRemoteStorageClient(input.node).list(dir.path)).map((entry) => [entry.relativePath, entry])).values()];
+    const listing = await createRemoteStorageClient(input.node).list(dir.path);
+    const entries = [...new Map(listing.filter(entry => !isStorageStagingPath(entry.relativePath))
+      .map(entry => [entry.relativePath, entry])).values()];
     const paths = new Set(entries.map((entry) => entry.relativePath));
     phase = "index";
     const counts = await prisma.$transaction(async (tx) => {

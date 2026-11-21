@@ -232,3 +232,71 @@ func TestCopyRollbackKeepsChangedTargetAndOriginalBackup(t *testing.T) {
 		t.Fatal("restore did not recover original file")
 	}
 }
+
+func TestPublishAndDeletePreserveNonemptyDirectory(t *testing.T) {
+	root, err := os.OpenRoot(t.TempDir())
+	if err != nil {
+		t.Fatal(err)
+	}
+	defer root.Close()
+	s := share{root: root, writable: true, namespace: "fixture"}
+	if err := root.Mkdir("folder", 0700); err != nil {
+		t.Fatal(err)
+	}
+	if err := root.WriteFile("folder/other", []byte("keep"), 0600); err != nil {
+		t.Fatal(err)
+	}
+	dir, err := root.Stat("folder")
+	if err != nil {
+		t.Fatal(err)
+	}
+	op := operation{Op: "begin", Path: "folder", Digest: digest(nil)}
+	if _, err := s.handle(op); err != nil {
+		t.Fatal(err)
+	}
+	op.Op, op.Version, op.jobID, op.deadline = "publish", metadata(dir).Version, "job", time.Now().Add(time.Minute)
+	if _, err := s.handle(op); !errors.Is(err, changed) {
+		t.Fatalf("publish accepted directory: %v", err)
+	}
+	for _, method := range []string{"delete", "rmdir"} {
+		if _, err := s.handle(operation{Op: method, Path: "folder", Directory: true, Version: op.Version}); err == nil {
+			t.Fatalf("%s accepted a nonempty directory", method)
+		}
+	}
+	if contents, err := root.ReadFile("folder/other"); err != nil || string(contents) != "keep" {
+		t.Fatalf("lost batch-external file: %q, %v", contents, err)
+	}
+	if err := root.Remove("folder/other"); err != nil {
+		t.Fatal(err)
+	}
+	dir, err = root.Stat("folder")
+	if err != nil {
+		t.Fatal(err)
+	}
+	if _, err := s.handle(operation{Op: "rmdir", Path: "folder", Directory: true, Version: metadata(dir).Version}); err != nil {
+		t.Fatal(err)
+	}
+}
+
+func TestExclusiveRenameKeepsBothFilesAtOccupiedDestination(t *testing.T) {
+	root, err := os.OpenRoot(t.TempDir())
+	if err != nil {
+		t.Fatal(err)
+	}
+	defer root.Close()
+	s := share{root: root, writable: true}
+	for _, name := range []string{"source", "unindexed"} {
+		if err := root.WriteFile(name, []byte(name), 0600); err != nil {
+			t.Fatal(err)
+		}
+	}
+	if _, err := s.handle(operation{Op: "rename-exclusive", Path: "source", Destination: "unindexed"}); !errors.Is(err, fs.ErrExist) {
+		t.Fatal(err)
+	}
+	for _, name := range []string{"source", "unindexed"} {
+		body, err := root.ReadFile(name)
+		if err != nil || string(body) != name {
+			t.Fatal(name, string(body), err)
+		}
+	}
+}

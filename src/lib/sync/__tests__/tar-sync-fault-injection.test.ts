@@ -1,10 +1,10 @@
-import { spawnSync } from "node:child_process";
-import { chmodSync, mkdirSync, mkdtempSync, readdirSync, readFileSync, rmSync, writeFileSync } from "node:fs";
+import { spawn, spawnSync } from "node:child_process";
+import { chmodSync, existsSync, mkdirSync, mkdtempSync, readdirSync, readFileSync, rmSync, symlinkSync, writeFileSync } from "node:fs";
 import { tmpdir } from "node:os";
 import { join } from "node:path";
-import { afterEach, beforeEach, describe, expect, it } from "vitest";
+import { afterEach, beforeEach, describe, expect, it, vi } from "vitest";
 
-import { buildSyncGateScript, buildTarSyncCommand } from "@/lib/sync/service-commands";
+import { buildRsyncCommand, buildSyncGateScript, buildTarSyncCommand, createSyncReceiverLease, retireSyncReceiverLease } from "@/lib/sync/service-commands";
 
 /**
  * Executes the real tar fallback command in a scratch directory, in both login
@@ -29,14 +29,14 @@ function writeExecutable(path: string, body: string) {
   chmodSync(path, 0o755);
 }
 
-function runTarSync(options: { deleteOrphans: boolean; failArchive?: boolean; failExtract?: boolean; failCommit?: boolean }) {
+function runTarSync(options: { deleteOrphans: boolean; confined?: boolean; failArchive?: boolean; failExtract?: boolean; failCommit?: boolean }) {
   const jobId = "fault-injection";
-  const transport = { targetUser: "audit", targetHost: "fixture.invalid", targetPort: 22, jobId };
+  const transport = { targetUser: "audit", targetHost: "fixture.invalid", targetPort: 22, jobId, confined: options.confined };
   let gate = "";
   let command: string;
   if (auth === "one-time-key") {
     gate = join(root, "gate.sh");
-    writeFileSync(gate, buildSyncGateScript({ mode: "tar", targetPath: target, allowDelete: options.deleteOrphans, jobId }));
+    writeFileSync(gate, buildSyncGateScript({ mode: "tar", confined: options.confined, targetPath: target, allowDelete: options.deleteOrphans, jobId }));
     command = buildTarSyncCommand({ ...transport, auth, sourcePath: source });
   } else {
     command = buildTarSyncCommand({ ...transport, auth, sourcePath: source, targetPath: target, deleteOrphans: options.deleteOrphans });
@@ -113,6 +113,24 @@ for (const mode of ["credential", "one-time-key"] as const) describe.skipIf(!pos
     expect(readFileSync(join(target, "fresh.txt"), "utf8")).toBe("new data");
   });
 
+  it("publishes a confined tree from a fresh stage into the checked directory", () => {
+    writeFileSync(join(source, "new.txt"), "copied");
+    const result = runTarSync({ deleteOrphans: false, confined: true });
+    expect(result.status, result.stderr || result.stdout).toBe(0);
+    expect(readFileSync(join(target, "new.txt"), "utf8")).toBe("copied");
+  });
+
+  it("refuses a confined merge when a destination directory is a link", () => {
+    const sibling = join(root, "sibling");
+    mkdirSync(sibling);
+    mkdirSync(join(source, "docs"));
+    symlinkSync(sibling, join(target, "docs"));
+    writeFileSync(join(source, "docs", "fresh.txt"), "new data");
+    const result = runTarSync({ deleteOrphans: false, confined: true });
+    expect(result.status).not.toBe(0);
+    expect(listTree(sibling)).toEqual([]);
+  });
+
   it("merges without deleting when orphan deletion is off", () => {
     writeFileSync(join(source, "fresh.txt"), "new data");
     writeFileSync(join(source, "valuable.txt"), "updated");
@@ -172,4 +190,70 @@ for (const mode of ["credential", "one-time-key"] as const) describe.skipIf(!pos
     expect(result.status, result.stderr).toBe(0);
     expect(listTree(target)).toEqual([".vch-sync-stage-other-job", ".vch-sync-stage-other-job/inflight.txt", "fresh.txt"]);
   });
+});
+
+
+// SSH can close a channel without terminating a quiet remote child. A successor must see the
+// receiver as busy until its real process exits, even after the previous run's permit is removed.
+it.skipIf(process.platform !== "linux")("fences a quiet tar receiver after channel loss and denies its later commit", async () => {
+  const dir = mkdtempSync(join(tmpdir(), "vch-sync-fence-"));
+  const lease = join(dir, "lease");
+  const shell = (command: string) => spawnSync("/bin/sh", ["-c", command]);
+  const gate = buildSyncGateScript({ mode: "tar", targetPath: dir, allowDelete: false, jobId: "fixture", receiverLease: lease });
+  writeExecutable(join(dir, "tar"), '#!/bin/sh\ntouch "$TEST_ROOT/started" || exit 1\nwhile [ ! -e "$TEST_ROOT/release" ]; do sleep 0.05; done\n');
+  const env = { ...process.env, PATH: dir + ":" + process.env.PATH, TEST_ROOT: dir };
+  const missingTool = spawnSync("/bin/sh", ["-c", createSyncReceiverLease(lease)], { env: { NODE_ENV: "test", PATH: dir } });
+  expect(missingTool.status).not.toBe(0);
+  expect(existsSync(lease)).toBe(false);
+  expect(shell(createSyncReceiverLease(lease)).status).toBe(0);
+  const child = spawn("/bin/sh", ["-c", gate], { env: { ...env, SSH_ORIGINAL_COMMAND: "vch-sync tar-receive" } });
+  const exit = new Promise<number | null>(resolve => child.once("close", resolve));
+  try {
+    await vi.waitFor(() => expect(existsSync(join(dir, "started"))).toBe(true));
+    child.stdout.destroy();
+    child.stderr.destroy();
+    child.stdin.end();
+    expect(shell(retireSyncReceiverLease(lease)).status).not.toBe(0);
+    expect(existsSync(join(lease, "active"))).toBe(false);
+    expect(spawnSync("/bin/sh", ["-c", gate], { env: { ...env, SSH_ORIGINAL_COMMAND: "vch-sync tar-commit" } }).status).not.toBe(0);
+    writeFileSync(join(dir, "release"), "");
+    expect(await exit).toBe(0);
+    expect(shell(retireSyncReceiverLease(lease)).status).toBe(0);
+    expect(existsSync(lease)).toBe(false);
+  } finally {
+    writeFileSync(join(dir, "release"), "");
+    await exit;
+    rmSync(dir, { recursive: true, force: true });
+  }
+});
+
+it.skipIf(process.platform !== "linux" || spawnSync("rsync", ["--version"]).status !== 0)("confined credential rsync replaces a linked target child and rejects a revoked receiver", () => {
+  const dir = mkdtempSync(join(tmpdir(), "vch-sync-rsync-"));
+  const lease = join(dir, "lease");
+  const src = join(dir, "source");
+  const dst = join(dir, "target");
+  const sibling = join(dir, "sibling");
+  const env = { ...process.env, PATH: dir + ":" + process.env.PATH };
+  const shell = (command: string) => spawnSync("/bin/sh", ["-c", command], { env, encoding: "utf8" });
+  try {
+    mkdirSync(join(src, "docs"), { recursive: true });
+    mkdirSync(dst);
+    mkdirSync(sibling);
+    symlinkSync(sibling, join(dst, "docs"));
+    writeFileSync(join(src, "docs", "file"), "copied");
+    writeExecutable(join(dir, "ssh"), '#!/bin/sh\nwhile [ "$#" -gt 0 ] && [ "$1" != "fixture.invalid" ]; do shift; done\nshift || exit 1\nexec sh -c "$*"\n');
+    const command = buildRsyncCommand({ auth: "credential", targetUser: "fixture", targetHost: "fixture.invalid", targetPort: 22,
+      sourcePath: src, targetPath: dst, flags: ["-a"], confined: true, receiverLease: lease });
+    expect(shell(createSyncReceiverLease(lease)).status).toBe(0);
+    const first = shell(command);
+    expect(first.status, first.stdout + first.stderr).toBe(0);
+    expect(readFileSync(join(dst, "docs", "file"), "utf8")).toBe("copied");
+    expect(listTree(sibling)).toEqual([]);
+    expect(shell(retireSyncReceiverLease(lease)).status).toBe(0);
+    writeFileSync(join(src, "new-file"), "");
+    expect(shell(command).status).not.toBe(0);
+    expect(existsSync(join(dst, "new-file"))).toBe(false);
+  } finally {
+    rmSync(dir, { recursive: true, force: true });
+  }
 });

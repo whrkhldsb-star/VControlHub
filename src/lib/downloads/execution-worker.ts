@@ -22,11 +22,13 @@ import { t } from "@/lib/i18n/service-translations";
 import { createLogger } from "@/lib/logging";
 import { prisma } from "@/lib/db";
 import { createSingletonIntervalWorker } from "@/lib/workers/singleton-interval-worker";
-import { decryptServerPassword, decryptStoredSshKey, type StoredSshKey } from "@/lib/ssh/ssh-key-crypto";
+import type { StorageSshCredentialNode } from "@/lib/storage/ssh-credentials";
+import { BusinessError } from "@/lib/errors";
 
 import {
   executeAria2RelayDownload,
   executeDirectDownload,
+  resolveBoundDownloadEndpoint,
   type DownloadServer,
 } from "./execution";
 import type { DownloadSourceResolution } from "./source-url";
@@ -194,42 +196,29 @@ async function loadTaskRow(taskId: string) {
   }).then(row => row ? resolveTaskDrive(row) : null);
 }
 
-function buildServerForExec(server: {
-  teamId: string | null;
-  id: string;
-  host: string;
-  port: number;
-  username: string;
-  operatingSystem: string;
-  managementMode: string;
-  connectionType: string;
-  sshKeyId: string | null;
-  password: string | null;
-  hostKeySha256?: string | null;
-  storageNode?: { id: string; basePath: string | null } | null;
-  sshKey?: StoredSshKey | null;
-}): DownloadServer {
-  // decryptStoredSshKey keeps a legacy key's passphrase (unlocking the key
-  // when it can); decrypting only privateKey left such keys unusable.
-  const decryptedKey = decryptStoredSshKey(server.sshKey, server.teamId);
-  // Everything the SSH parameters are decided with: dropping the id and
-  // management mode sent an Agent-managed server's download over SSH.
+function buildServerForExec(
+  server: NonNullable<StorageSshCredentialNode["server"]> & { sshKeyId: string | null },
+  node: Omit<StorageSshCredentialNode, "server"> & { id: string; basePath: string; driver: string },
+  agentDrive: boolean,
+): DownloadServer {
+  if (!agentDrive && node.driver !== "SFTP") throw new BusinessError(t("backend.downloads.taskStorageMissing"));
+  const credentials = agentDrive ? null : resolveBoundDownloadEndpoint({ ...node, server });
   return {
     id: server.id,
     teamId: server.teamId,
-    host: server.host,
-    port: server.port,
-    username: server.username,
+    host: credentials?.host ?? server.host,
+    port: credentials?.port ?? server.port,
+    username: credentials?.username ?? server.username,
     operatingSystem: server.operatingSystem,
     managementMode: server.managementMode,
     connectionType: server.connectionType,
     sshKeyId: server.sshKeyId,
-    password: server.password,
-    hostKeySha256: server.hostKeySha256 ?? null,
-    storageNode: server.storageNode
-      ? { id: server.storageNode.id, basePath: server.storageNode.basePath }
-      : null,
-    sshKey: decryptedKey ? { ...decryptedKey, teamId: server.teamId } : null,
+    password: credentials?.password ?? null,
+    hostKeySha256: credentials?.hostKeySha256 ?? null,
+    storageNode: { id: node.id, basePath: node.basePath },
+    sshKey: credentials?.privateKey ? {
+      teamId: server.teamId, privateKey: credentials.privateKey, passphrase: credentials.passphrase,
+    } : null,
   };
 }
 
@@ -241,11 +230,6 @@ async function failTaskBeforeStart(taskId: string, errorMessage: string) {
   }).catch((error: unknown) => logger.warn("Could not fail a download task that cannot start", { taskId, error: String(error) }));
 }
 
-function decryptServerPasswordField(server: { password: string | null }) {
-  if (!server.password) return null;
-  return decryptServerPassword(server.password);
-}
-
 async function handleClaimedJob(
   job: NonNullable<Awaited<ReturnType<typeof claimNextJob>>>,
 ) {
@@ -255,13 +239,14 @@ async function handleClaimedJob(
   } catch (parseError) {
     const message =
       parseError instanceof Error ? parseError.message : "download.execute task payload parsing failed";
-    await failJobTerminal(job.id, DOWNLOAD_EXECUTION_WORKER_ID, message.slice(0, 2000),);
+    await failJobTerminal(job.id, DOWNLOAD_EXECUTION_WORKER_ID, message.slice(0, 2000), { attempts: job.attempts });
     logger.error("Download execution job payload invalid", { jobId: job.id, error: message });
     return true;
   }
 
   try {
-    await heartbeatJob(job.id, DOWNLOAD_EXECUTION_WORKER_ID, {
+    const initialLease = await heartbeatJob(job.id, DOWNLOAD_EXECUTION_WORKER_ID, {
+      attempts: job.attempts,
       leaseMs: DOWNLOAD_EXECUTION_LEASE_MS,
       progress:
         payload.mode === "aria2_relay"
@@ -269,9 +254,10 @@ async function handleClaimedJob(
           : `Preparing direct download ${payload.taskId}`,
     });
 
+    if (!initialLease.count) throw new LeaseLostError(job.id);
     const task = await loadTaskRow(payload.taskId);
     if (!task) {
-      await failJobTerminal(job.id, DOWNLOAD_EXECUTION_WORKER_ID, `Download task ${payload.taskId} does not exist`);
+      await failJobTerminal(job.id, DOWNLOAD_EXECUTION_WORKER_ID, `Download task ${payload.taskId} does not exist`, { attempts: job.attempts });
       return true;
     }
     // The task itself fails with the reason (A5-03): only the job did before,
@@ -279,7 +265,7 @@ async function handleClaimedJob(
     // RUNNING rows.
     if (!task.server) {
       await failTaskBeforeStart(payload.taskId, t("backend.downloads.taskServerMissing"));
-      await failJobTerminal(job.id, DOWNLOAD_EXECUTION_WORKER_ID, `Download task ${payload.taskId} is missing a VPS node`);
+      await failJobTerminal(job.id, DOWNLOAD_EXECUTION_WORKER_ID, `Download task ${payload.taskId} is missing a VPS node`, { attempts: job.attempts });
       return true;
     }
     if (!task.server.storageNode) {
@@ -288,6 +274,7 @@ async function handleClaimedJob(
         job.id,
         DOWNLOAD_EXECUTION_WORKER_ID,
         `The VPS for download task ${payload.taskId} is not bound to a storage node`,
+        { attempts: job.attempts },
       );
       return true;
     }
@@ -319,7 +306,7 @@ async function handleClaimedJob(
         taskId: payload.taskId,
         mode: payload.mode,
         status: "already_completed",
-      });
+      }, job.attempts);
       logger.info(
         "Download execution job found the task already COMPLETED; completing job without re-dispatching",
         { jobId: job.id, taskId: payload.taskId, mode: payload.mode },
@@ -334,6 +321,7 @@ async function handleClaimedJob(
         job.id,
         DOWNLOAD_EXECUTION_WORKER_ID,
         (task.errorMessage ?? "Download task failed").slice(0, 2000),
+        { attempts: job.attempts },
       );
       logger.info(
         "Download execution job found the task already FAILED; failing job without retrying",
@@ -346,6 +334,7 @@ async function handleClaimedJob(
         job.id,
         DOWNLOAD_EXECUTION_WORKER_ID,
         (task.errorMessage ?? "Download task cancelled").slice(0, 2000),
+        { attempts: job.attempts },
       );
       logger.info(
         "Download execution job found the task CANCELLED; failing job without retrying",
@@ -381,7 +370,7 @@ async function handleClaimedJob(
         where: { id: task.id, status: { in: ["PENDING", "RUNNING"] } },
         data: { status: "FAILED", errorMessage: refusal.slice(0, 2000) },
       });
-      await failJobTerminal(job.id, DOWNLOAD_EXECUTION_WORKER_ID, refusal.slice(0, 2000));
+      await failJobTerminal(job.id, DOWNLOAD_EXECUTION_WORKER_ID, refusal.slice(0, 2000), { attempts: job.attempts });
       return true;
     }
 
@@ -396,7 +385,7 @@ async function handleClaimedJob(
     if (task.agentStorageNodeId && (!task.agentRootIdentity || task.server.managementMode !== "AGENT" || payload.mode !== "aria2_relay" || task.server.storageNode.driver !== "AGENT")) {
       const message = t("backend.downloads.taskStorageMissing");
       await failTaskBeforeStart(task.id, message);
-      await failJobTerminal(job.id, DOWNLOAD_EXECUTION_WORKER_ID, message);
+      await failJobTerminal(job.id, DOWNLOAD_EXECUTION_WORKER_ID, message, { attempts: job.attempts });
       return true;
     }
     // A detached curl publishes on its own. Stage quota-bound HTTP with the pinned
@@ -407,16 +396,19 @@ async function handleClaimedJob(
       const switched = await prisma.downloadTask.updateMany({ where: { id: task.id, status: "PENDING" }, data: { relayMode: true } });
       if (!switched.count) throw new Error("Download changed before relay selection");
     }
-    const serverForExec = buildServerForExec(task.agentStorageNodeId ? { ...task.server, sshKey: null } : task.server);
+    let serverForExec: DownloadServer;
+    try {
+      serverForExec = buildServerForExec(task.server, task.server.storageNode, Boolean(task.agentStorageNodeId));
+    } catch (error) {
+      const message = error instanceof BusinessError ? error.message : t("backend.downloads.taskStorageMissing");
+      await failTaskBeforeStart(task.id, message);
+      await failJobTerminal(job.id, DOWNLOAD_EXECUTION_WORKER_ID, message, { attempts: job.attempts });
+      return true;
+    }
     if (task.agentStorageNodeId) {
       serverForExec.agentStorageNodeId = task.agentStorageNodeId;
       serverForExec.agentRootIdentity = task.agentRootIdentity!;
     }
-    // The downstream execute* helpers re-decrypt server.password on demand (see
-    // transferFileViaSsh2 which reads it again for sshpass). Surface the same
-    // decrypted value here so the in-memory copy we dispatch with is the
-    // plaintext password the original fire-and-forget path was using.
-    serverForExec.password = task.agentStorageNodeId ? null : decryptServerPasswordField(task.server);
 
     // Continuous lease heartbeat for the transfer body. Aria2 relays can run
     // for up to ~2h; a single opening heartbeat left the lease exposed for the
@@ -428,8 +420,10 @@ async function handleClaimedJob(
     await runWithLeaseHeartbeat({
       jobId: job.id,
       leaseMs: DOWNLOAD_EXECUTION_LEASE_MS,
-      heartbeat: () =>
+      attempts: job.attempts,
+      heartbeat: (attempts) =>
         heartbeatJob(job.id, DOWNLOAD_EXECUTION_WORKER_ID, {
+          attempts,
           leaseMs: DOWNLOAD_EXECUTION_LEASE_MS,
           progress: transferProgress,
         }),
@@ -471,6 +465,7 @@ async function handleClaimedJob(
         job.id,
         DOWNLOAD_EXECUTION_WORKER_ID,
         (outcome?.errorMessage ?? `Download task ${outcome?.status ?? "no longer exists"}`).slice(0, 2000),
+        { attempts: job.attempts },
       );
       return true;
     }
@@ -478,7 +473,7 @@ async function handleClaimedJob(
       taskId: payload.taskId,
       mode: payload.mode,
       status: outcome.status === "COMPLETED" ? "completed" : "dispatched",
-    });
+    }, job.attempts);
     return true;
   } catch (error) {
     if (error instanceof LeaseLostError) {
@@ -504,12 +499,13 @@ async function handleClaimedJob(
           taskId: payload.taskId,
           mode: payload.mode,
           status: "already_completed_after_error",
-        });
+        }, job.attempts);
       } else {
         await failJobTerminal(
           job.id,
           DOWNLOAD_EXECUTION_WORKER_ID,
           (postTask.errorMessage ?? message).slice(0, 2000),
+          { attempts: job.attempts },
         );
       }
       logger.info(
@@ -523,7 +519,7 @@ async function handleClaimedJob(
       );
       return true;
     }
-    const failed = await failJob(job.id, DOWNLOAD_EXECUTION_WORKER_ID, message.slice(0, 2000));
+    const failed = await failJob(job.id, DOWNLOAD_EXECUTION_WORKER_ID, message.slice(0, 2000), { attempts: job.attempts });
     if (postTask && (postTask.relayMode || payload.mode === "aria2_relay") && failed.count && job.attempts >= job.maxAttempts) {
       const reason = t("backend.downloads.error.executionFailed");
       const changed = await failRelayTask(postTask, reason, true);

@@ -36,10 +36,11 @@ export async function assertSftpPathAccess(input: {
 	session: SessionPayload;
 	serverId: string;
 	paths: string[];
+	target?: Awaited<ReturnType<typeof loadEnabledServerForSftp>>;
 }) {
 	if (sessionHasPermission(input.session, "server:sftp:unrestricted")) return;
 
-	const { server, ssh: params, rootPath: homeRoot } = await loadEnabledServerForSftp(input.serverId);
+	const { server, ssh: params, rootPath: homeRoot } = input.target ?? await loadEnabledServerForSftp(input.serverId);
 	const windows = server.operatingSystem === "WINDOWS";
 	const safePaths = input.paths.map((rawPath) => sanitizeRemotePath(windows ? rawPath.replace(/\\/g, "/") : rawPath));
 	for (const safePath of safePaths) {

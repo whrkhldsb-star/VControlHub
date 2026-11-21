@@ -221,7 +221,6 @@ export async function updateWindowsServerProfile(
       costProvider: input.costProvider !== undefined ? input.costProvider || null : current.costProvider,
       enabled: input.enabled ?? current.enabled,
     } });
-    await revokeInheritedSftpShares(tx, current, payload);
     if (nextSftp) {
       if (existingSftp) {
         const rootChanged = nextSftp.basePath !== existingSftp.basePath || nextSftp.port !== existingSftp.port
@@ -243,6 +242,9 @@ export async function updateWindowsServerProfile(
         } });
       }
     }
+    // Node deletion holds its row before cascading to shares. Take any node
+    // update above before revoking links to the inherited server endpoint.
+    await revokeInheritedSftpShares(tx, current, payload);
     return saved;
     });
     if (reconfigureAgent && nextManagementMode === "AGENT") onboardingWarnings.push(t("backend.server.agentInstallPending"));

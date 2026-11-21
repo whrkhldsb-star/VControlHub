@@ -3,7 +3,7 @@ import { randomUUID } from "node:crypto";
 import { afterAll, beforeAll, describe, expect, it } from "vitest";
 
 import { prisma } from "@/lib/db";
-import { getSnippet, listSnippets, type SnippetViewer } from "../service";
+import { createSnippet, getSnippet, listSnippets, type SnippetViewer } from "../service";
 
 /**
  * A snippet not marked "visible only to me" is shared within its creator's
@@ -29,7 +29,8 @@ describe.skipIf(process.env.RUN_DATABASE_INTEGRATION_TESTS !== "1")("shared snip
     await prisma.user.create({ data: { id: ids.a, username: ids.a, passwordHash: "x", currentTeamId: ids.teamA, teamMembership: { create: { teamId: ids.teamA, identityTemplateId: ids.template } } } });
     await prisma.user.create({ data: { id: ids.b, username: ids.b, passwordHash: "x", currentTeamId: ids.teamB, teamMembership: { create: { teamId: ids.teamB, identityTemplateId: ids.template } } } });
     for (const [key, createdBy, isPrivate] of [["admin", ids.admin, false], ["a", ids.a, false], ["aPrivate", ids.a, true], ["b", ids.b, false]] as const) {
-      const row = await prisma.snippet.create({ data: { title: `${prefix} ${key}`, content: key, createdBy, isPrivate } });
+      const teamId = createdBy === ids.a ? ids.teamA : createdBy === ids.b ? ids.teamB : null;
+      const row = await createSnippet({ title: `${prefix} ${key}`, content: key, createdBy, isPrivate }, viewer(createdBy, teamId, createdBy === ids.admin));
       snippets[key] = row.id;
     }
   });
@@ -56,4 +57,17 @@ describe.skipIf(process.env.RUN_DATABASE_INTEGRATION_TESTS !== "1")("shared snip
     await expect(getSnippet(snippets.admin!, viewer(ids.a, ids.teamA))).resolves.toMatchObject({ content: "admin" });
     await expect(getSnippet(snippets.b!, viewer(ids.admin, null, true))).resolves.toMatchObject({ content: "b" });
   });
+  it("keeps a shared snippet in its original scope after author transfer and promotion", async () => {
+    const legacy = await prisma.snippet.create({ data: { title: `${prefix} legacy`, content: "legacy", createdBy: ids.a } });
+    await prisma.teamMember.update({ where: { userId: ids.a }, data: { teamId: ids.teamB } });
+    expect(await titles(viewer(ids.b, ids.teamB))).not.toContain("a");
+    await expect(getSnippet(snippets.a!, viewer(ids.b, ids.teamB))).rejects.toMatchObject({ name: "NotFoundError" });
+    const adminRole = await prisma.role.findUniqueOrThrow({ where: { key: "admin" } });
+    await prisma.user.update({ where: { id: ids.a }, data: { currentTeamId: ids.teamB, roles: { create: { roleId: adminRole.id } } } });
+    const other = viewer(ids.b, ids.teamB);
+    expect(await titles(other)).toEqual(["admin", "b"]);
+    await expect(getSnippet(snippets.a!, other)).rejects.toMatchObject({ name: "NotFoundError" });
+    await expect(getSnippet(legacy.id, other)).rejects.toMatchObject({ name: "NotFoundError" });
+  });
+
 });

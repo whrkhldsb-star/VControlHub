@@ -2,6 +2,7 @@ import { beforeEach, describe, expect, it, vi } from "vitest";
 
 const { mockPrisma, configState } = vi.hoisted(() => ({
   mockPrisma: {
+    setting: { findUnique: async () => null },
     job: {
       create: vi.fn(),
       findFirst: vi.fn(),
@@ -123,7 +124,7 @@ describe("durable job service", () => {
     await heartbeatJob("job1", "worker-a", { progress: "50%", leaseMs: 120_000, now });
 
     expect(mockPrisma.job.updateMany).toHaveBeenCalledWith({
-      where: { id: "job1", status: "RUNNING", workerId: "worker-a" },
+      where: { id: "job1", status: "RUNNING", workerId: "worker-a", attempts: 0, leaseExpiresAt: { gt: now } },
       data: { workerHeartbeatAt: now, leaseExpiresAt: new Date("2026-06-08T09:02:00Z"), progress: "50%" },
     });
   });
@@ -132,9 +133,24 @@ describe("durable job service", () => {
     await completeJob("job1", "worker-a", { artifact: "backup.tar.gz" });
 
     expect(mockPrisma.job.updateMany).toHaveBeenCalledWith(expect.objectContaining({
-      where: { id: "job1", status: "RUNNING", workerId: "worker-a" },
+      where: { id: "job1", status: "RUNNING", workerId: "worker-a", attempts: 0 },
       data: expect.objectContaining({ status: "COMPLETED", result: { artifact: "backup.tar.gz" }, leaseExpiresAt: null, progress: "100%" }),
     }));
+  });
+
+  it.each([1, 2])("guards every callback with the captured attempt %i after a same-worker reclaim", async attempts => {
+    const workerId = "reused";
+    const id = "reclaimed-job";
+    const now = new Date();
+    mockPrisma.job.findUnique.mockResolvedValueOnce({ attempts: 2, maxAttempts: 3 });
+    await heartbeatJob(id, workerId, { attempts, now });
+    await completeJob(id, workerId, undefined, attempts);
+    await failJob(id, workerId, "retry", { attempts });
+    await failJobTerminal(id, workerId, "error", { attempts });
+    const claim = { id, status: "RUNNING", workerId, attempts };
+    expect(mockPrisma.job.updateMany.mock.calls.map(([query]) => query.where)).toEqual([
+      { ...claim, leaseExpiresAt: { gt: now } }, claim, claim, claim,
+    ]);
   });
 
   it("requeues retryable failures and finalizes exhausted failures", async () => {
@@ -213,7 +229,7 @@ describe("durable job service", () => {
     expect(result).toEqual({ count: 1 });
     expect(mockPrisma.job.updateMany).toHaveBeenCalledWith(
       expect.objectContaining({
-        where: { id: "job-term-1", status: "RUNNING", workerId: "worker-1" },
+        where: { id: "job-term-1", status: "RUNNING", workerId: "worker-1", attempts: 0 },
         data: expect.objectContaining({
           status: "FAILED",
           errorMessage: "playbook step failed",

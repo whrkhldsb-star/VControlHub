@@ -26,7 +26,7 @@ import { defaultStoragePath } from "./default-storage-path";
 import { findServerProfileForSession, savedProfileBinding, SERVER_PROFILE_INCLUDE, type ServerProfileRecord } from "./service-profile-includes";
 import { createServerSchema, type CreateServerInput } from "./schema";
 import { parseServerSyncTargetAuth } from "@/lib/sync/target-auth";
-import { applyServerDirectGatewayState } from "./service-direct-gateway";
+import { applyServerDirectGatewayState, applyServerDirectGatewayStateUnderLock } from "./service-direct-gateway";
 import { installServerAgent, installServerAgentUnderLock, removeAgentFromHost, resetAgentForModeChange, withServerLifecycleLock } from "./agent-service";
 import { createWindowsServerProfile, updateWindowsServerProfile } from "./service-profiles-windows";
 import { acquireAdvisoryLock } from "@/lib/concurrency/advisory-lock";
@@ -211,6 +211,7 @@ async function provisionNewServer(ctx: {
   if (payload.enableDirectGateway && !isLocalHost && connectivityVerified) {
     const directResult = await applyServerDirectGatewayState({
       serverId: server.id,
+      expectedTeamId: server.teamId,
       enabled: true,
       bestEffort: true,
       publicProtocol: payload.directGatewayProtocol,
@@ -260,6 +261,7 @@ async function provisionNewServer(ctx: {
  * directory; returns warnings instead of failing the update.
  */
 async function applyStoragePathChange(
+  lifecycleLockHeld: boolean,
   server: ServerProfileRecord,
   input: Pick<UpdateServerInput, "storagePath" | "repairStoragePath">,
   session: TeamSession | null | undefined,
@@ -298,7 +300,7 @@ async function applyStoragePathChange(
         }));
       }
       if (nextStoragePath && nextStoragePath !== storageNode.basePath && server.directGatewayDesiredEnabled) {
-        warnings.push(...await moveDirectGatewayRoot(server, storageNode.id, targetPath, session, t));
+        warnings.push(...await moveDirectGatewayRoot(lifecycleLockHeld, server, storageNode.id, targetPath, session, t));
       }
     } else {
       try {
@@ -322,6 +324,7 @@ async function applyStoragePathChange(
  * stop handing out direct links until it is fixed.
  */
 async function moveDirectGatewayRoot(
+  lifecycleLockHeld: boolean,
   server: ServerProfileRecord,
   storageNodeId: string,
   targetPath: string,
@@ -329,9 +332,10 @@ async function moveDirectGatewayRoot(
   t: TFn,
 ): Promise<string[]> {
   try {
-    const { applyServerDirectGatewayState } = await import("./service-direct-gateway");
-    await applyServerDirectGatewayState({
+    const apply = lifecycleLockHeld ? applyServerDirectGatewayStateUnderLock : applyServerDirectGatewayState;
+    await apply({
       serverId: server.id,
+      expectedTeamId: server.teamId,
       enabled: true,
       session,
       publicProtocol: server.directGatewayDesiredProtocol === "HTTPS" ? "https" : "http",
@@ -339,7 +343,7 @@ async function moveDirectGatewayRoot(
     });
     return [];
   } catch (error) {
-    await prisma.storageNode.update({ where: { id: storageNodeId }, data: { directAccessMode: "PROXY" } }).catch(() => undefined);
+    await prisma.storageNode.update({ where: { id: storageNodeId, serverId: server.id, teamId: server.teamId }, data: { directAccessMode: "PROXY" } }).catch(() => undefined);
     return [t("backend.server.update.directGatewayRootFailed", { path: targetPath, error: getErrorMessage(error) })];
   }
 }
@@ -715,7 +719,7 @@ async function saveServerProfile(serverId: string, current: ServerProfileRecord,
       prior.basePath !== node.basePath || prior.host !== node.host || prior.port !== node.port || prior.username !== node.username) {
       throw new NotFoundError(t("backend.server.nodeNotFound"));
     }
-    onboardingWarnings.push(...await applyStoragePathChange(profile, input, session, t));
+    onboardingWarnings.push(...await applyStoragePathChange(reconfigureAgent, profile, input, session, t));
   }
 
   const refreshed = await findServerProfileForSession(serverId, session, binding);
@@ -869,6 +873,7 @@ export async function toggleServerEnabled(
     if (current.directGatewayDesiredEnabled && !isLocalHostLiteral(current.host)) {
       const directResult = await applyServerDirectGatewayState({
         serverId,
+        expectedTeamId: current.teamId,
         enabled: true,
         bestEffort: true,
         publicProtocol: fromStoredDirectGatewayProtocol(current.directGatewayDesiredProtocol),

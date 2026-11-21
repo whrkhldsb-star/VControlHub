@@ -46,7 +46,7 @@ const resultOf = (polls: Poll[]) => polls.map((poll) => poll.body.result as Reco
 // The real agent.py against a fake hub: what the Linux Agent sends and how it
 // survives output that is not UTF-8, a job killed by a signal and a revoked token.
 describe.skipIf(!hasPython)("Linux Agent (agent.py) against a fake hub", () => {
-  it("reports metrics, survives odd job output, and backs off once its token is revoked", async () => {
+  it("reports metrics, survives odd job output, and exits once its token is revoked", async () => {
     const polls: Poll[] = [];
     const replies: Array<{ status: number; body: unknown }> = [
       { status: 200, body: { pollAfterMs: 0, job: { id: "job1", command: "printf 'caf\\377 ok'; exit 3", timeoutMs: 5000 } } },
@@ -79,8 +79,7 @@ describe.skipIf(!hasPython)("Linux Agent (agent.py) against a fake hub", () => {
       expect(second!.body.result).toEqual({ jobId: "job1", stdout: "caf� ok", stderr: "", exitCode: 3 });
       // SIGKILL is -9 to Python; the hub only takes 0-255, as a shell reports it.
       expect(third!.body.result).toMatchObject({ jobId: "job2", exitCode: 137 });
-      // After the 401 the next attempt is a minute away, not five seconds.
-      await new Promise((resolve) => setTimeout(resolve, 6_500));
+      await expect.poll(() => agent.exitCode).toBe(0);
       expect(polls).toHaveLength(3);
     } finally {
       agent.kill("SIGKILL");
@@ -88,6 +87,30 @@ describe.skipIf(!hasPython)("Linux Agent (agent.py) against a fake hub", () => {
       rmSync(dir, { recursive: true, force: true });
     }
   }, 30_000);
+
+  it.each([401, 403])("kills the running job and exits on a %i heartbeat", async status => {
+    const dir = mkdtempSync(join(tmpdir(), "vch-agent-"));
+    const script = join(dir, "agent.py");
+    const pidFile = join(dir, "pid");
+    const hub = await startHub([
+      { status: 200, body: { job: { id: "revoked", command: `echo $$ > ${pidFile}; exec sleep 30`, timeoutMs: 60_000 } } },
+      { status, body: {} },
+    ]);
+    writeFileSync(script, buildAgentPython(hub.url, TOKEN).replace("HEARTBEAT_SECONDS=20", "HEARTBEAT_SECONDS=0.1"));
+    const agent = spawn("python3", [script], { stdio: "ignore" });
+    try {
+      await expect.poll(() => agent.exitCode, { timeout: 10_000 }).toBe(0);
+      expect(hub.polls.map(poll => poll.body.heartbeatJobId)).toEqual([undefined, "revoked"]);
+      expect(() => process.kill(Number(readFileSync(pidFile, "utf8").trim()), 0)).toThrow();
+    } finally {
+      agent.kill("SIGKILL");
+      if (existsSync(pidFile)) {
+        try { process.kill(-Number(readFileSync(pidFile, "utf8").trim()), "SIGKILL"); } catch { /* already gone */ }
+      }
+      await hub.close();
+      rmSync(dir, { recursive: true, force: true });
+    }
+  });
 
   it("reports a command too long to start instead of leaving its job unanswered", async () => {
     // `sh -c <command>` is one argument, capped at 128 KiB by Linux: Popen

@@ -64,7 +64,7 @@ export class S3Error extends Error {
 
 /* ── URL helpers ─────────────────────────────────────────── */
 
-function normalizeEndpoint(endpoint: string): string {
+export function normalizeEndpoint(endpoint: string): string {
 	const trimmed = endpoint.trim().replace(/\/+$/, "");
 	if (!trimmed) throw new S3Error("endpoint is required", 0, "InvalidEndpoint");
 	let parsed: URL;

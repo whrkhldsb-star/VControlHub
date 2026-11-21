@@ -60,7 +60,7 @@ function toIso(value: Date | string | null | undefined) {
 }
 
 const RAW_STATUS_GROUPS: Array<[OperationTaskStatus, readonly string[]]> = [
-  ["running", ["RUNNING", "CANCELLING", "ACTIVE", "IN_PROGRESS", "APPROVED"]],
+  ["running", ["RUNNING", "PRUNING", "CANCELLING", "ACTIVE", "IN_PROGRESS", "APPROVED"]],
   ["completed", ["COMPLETED", "IDLE"]],
   // SyncJob ERROR is a failed run (it used to fall through to "pending").
   ["failed", ["FAILED", "REJECTED", "EXPIRED", "ERROR"]],

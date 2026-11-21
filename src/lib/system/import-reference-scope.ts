@@ -78,9 +78,11 @@ export async function planAlertRuleImport(
 ) {
   const valid = records.filter((rule) => hasImportableAlertReferences(rule, servers, playbooks, users));
   const existing = await loadImportReferences(valid.map((row) => row.id), (ids) => db.alertRule.findMany({
-    where: { id: { in: ids } }, select: { id: true },
+    where: { id: { in: ids } }, select: { id: true, teamId: true },
   }));
-  return planUniqueImport(valid, existing.map(({ id }) => ({ id, key: id })), (row) => row.id, options.overwriteExisting);
+  const current = byId(existing);
+  const sameTeam = valid.filter((row) => !current.has(row.id) || current.get(row.id)!.teamId === (row.teamId ?? null));
+  return planUniqueImport(sameTeam, existing.map(({ id }) => ({ id, key: id })), (row) => row.id, options.overwriteExisting);
 }
 
 export function byId<T extends { id: string }>(rows: T[]): Map<string, T> {

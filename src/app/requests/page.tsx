@@ -98,7 +98,7 @@ export default async function RequestsPage() {
 										<p className="mt-1 text-xs text-[var(--text-muted)]">{t("requestsPage.card.requester", locale)}{request.requester.displayName || request.requester.username}</p>
 										</div>
 										<div data-tile className="shrink-0 px-3 py-2 text-xs text-[var(--text-secondary)]">
-										{t("requestsPage.card.targetCount", locale, { count: request.targets.length })}
+										{t("requestsPage.card.targetCount", locale, { count: request.targetCount })}
 										</div>
 								</div>
 

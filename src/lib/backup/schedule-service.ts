@@ -17,7 +17,7 @@ import { NotFoundError, ValidationError } from "@/lib/errors";
 import { computeNextRun } from "@/lib/scheduled-task/service";
 import { CronExpressionParser } from "cron-parser";
 import { isBackupType, type BackupType } from "./service-types";
-import { createBackupRecord } from "./service-crud";
+import { canCreatePlatformBackup, createBackupRecord } from "./service-crud";
 import { BACKUP_CREATE_JOB_TYPE } from "./job-worker";
 import { enqueueJob } from "@/lib/job/service";
 import { t } from "@/lib/i18n/service-translations";
@@ -242,10 +242,14 @@ export async function dispatchDueSchedule(schedule: {
   return prisma.$transaction(async (tx) => {
     const now = new Date();
     const claimed = await tx.backupSchedule.updateMany({
-      where: { id: schedule.id, status: "ACTIVE", nextRunAt: schedule.nextRunAt },
+      where: { id: schedule.id, status: "ACTIVE", createdById, nextRunAt: schedule.nextRunAt },
       data: { nextRunAt: computeNextRun(schedule.cronExpression), lastRunAt: now, runCount: { increment: 1 } },
     });
     if (claimed.count === 0) return null;
+    if (!await canCreatePlatformBackup(createdById, tx)) {
+      await tx.backupSchedule.update({ where: { id: schedule.id }, data: { lastResult: t("backend.execution.ownerInactive") } });
+      return null;
+    }
     const backup = await createBackupRecord({ type: backupType, createdBy: createdById, teamId: schedule.teamId ?? null, scheduleId: schedule.id, note }, tx);
     const job = await enqueueJob({
       type: BACKUP_CREATE_JOB_TYPE,

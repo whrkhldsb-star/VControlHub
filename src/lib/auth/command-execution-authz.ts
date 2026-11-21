@@ -1,3 +1,4 @@
+import type { Prisma } from "@prisma/client";
 import { loadApiTokenOwnerSession, loadJobOwnerSession } from "@/lib/api-token/authorization";
 import { sessionHasPermission } from "@/lib/auth/authorization";
 import { serverTeamWhere } from "@/lib/auth/team-scope";
@@ -31,9 +32,10 @@ export async function assertRequesterMayExecuteCommand(
   requesterId: string,
   teamId: string | null,
   serverId?: string,
-  options: { requireExecutePermission?: boolean } = {},
+  options: { requireExecutePermission?: boolean; db?: Pick<Prisma.TransactionClient, "user" | "team" | "server"> } = {},
 ): Promise<{ ok: true } | { ok: false; reason: string }> {
-  const accountSession = await loadApiTokenOwnerSession(requesterId);
+  const db = options.db ?? prisma;
+  const accountSession = await loadApiTokenOwnerSession(requesterId, undefined, db);
   if (!accountSession) {
     return { ok: false, reason: "command requester is disabled or no longer valid" };
   }
@@ -42,14 +44,14 @@ export async function assertRequesterMayExecuteCommand(
     return { ok: false, reason: "command target has no customer" };
   }
   // The command's customer, not the one an administrator has selected now.
-  const teamSession = await loadJobOwnerSession(requesterId, teamId);
+  const teamSession = await loadJobOwnerSession(requesterId, teamId, db);
   if (!teamSession) {
     return { ok: false, reason: "command requester is no longer a member of the target team" };
   }
   if (options.requireExecutePermission !== false && !sessionHasPermission(teamSession, "command:execute")) {
     return { ok: false, reason: platformAdmin ? "command requester lacks command:execute permission" : "command requester lacks command:execute permission in the target team" };
   }
-  if (serverId && !await prisma.server.findFirst({
+  if (serverId && !await db.server.findFirst({
     where: { AND: [{ id: serverId, enabled: true }, serverTeamWhere(teamSession, "connect")] },
     select: { id: true },
   })) {

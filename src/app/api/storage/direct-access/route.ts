@@ -27,6 +27,7 @@ import {
 import { getErrorMessage } from "@/lib/http/error-message";
 import { DIRECT_GATEWAY_LINUX_FILE_PROTOCOL } from "@/lib/server/direct-gateway";
 import { DIRECT_GATEWAY_KEY_PER_SERVER, DIRECT_GATEWAY_KEY_WINDOWS, directGatewaySigningKey } from "@/lib/server/direct-gateway-key";
+import { isServerStorageEndpoint } from "@/lib/server/storage-endpoint";
 import { assertNotRecycled } from "@/lib/storage/archive-access";
 
 export const dynamic = "force-dynamic";
@@ -119,7 +120,7 @@ function buildSignedDirectUrl(input: {
     throw new Error("Direct access signing key is not configured STORAGE_DIRECT_ACCESS_SECRET");
   }
   // Each gateway installed since the per-server keys verifies with its own key (see direct-gateway-key.ts).
-  const signingKey = directGatewaySigningKey(secret, input.gateway);
+  const signingKey = directGatewaySigningKey(secret, { ...input.gateway, operatingSystem: input.linuxTargetPath === null ? "WINDOWS" : "LINUX" });
 
   const message = input.linuxTargetPath === null
     ? `${normalizeDirectGatewaySignedPath(input)}.${expires}`
@@ -176,7 +177,8 @@ async function resolveDirectAccessPayload(input: {
       host: true,
       port: true,
       username: true,
-      server: { select: { directGatewayKeyVersion: true, operatingSystem: true, teamId: true, host: true, port: true, username: true, publicUrl: true } },
+      hostKeySha256: true,
+      server: { select: { directGatewayKeyVersion: true, operatingSystem: true, teamId: true, host: true, port: true, username: true, hostKeySha256: true, publicUrl: true } },
     },
   });
 
@@ -206,9 +208,9 @@ async function resolveDirectAccessPayload(input: {
   if (!access.allowed) {
     throw new ForbiddenError(storageAccessDeniedCopy(access.reason));
   }
-  await assertNotRecycled(nodeId, normalizedRelativePath);
+  await assertNotRecycled(nodeId, normalizedRelativePath, "read", node.driver);
 
-  if (node.driver !== "SFTP") {
+  if (node.driver !== "SFTP" || (node.server && !isServerStorageEndpoint(node.server, node))) {
     return { mode: "managed-download", fallbackUrl: fallback };
   }
 
@@ -219,15 +221,10 @@ async function resolveDirectAccessPayload(input: {
   // gets such links; everyone else is served through the hub until the gateway is enabled again.
   const gateway = { serverId: node.serverId ?? null, keyVersion: node.server?.directGatewayKeyVersion ?? 1 };
   const linuxFile = node.server?.operatingSystem !== "WINDOWS";
-  if (node.server && (
-    node.teamId !== node.server.teamId ||
-    (node.host != null && node.host.toLowerCase() !== node.server.host.toLowerCase()) ||
-    (linuxFile && node.port != null && node.port !== node.server.port) ||
-    (linuxFile && node.username != null && node.username !== node.server.username)
-  )) {
+  if (linuxFile && node.server && node.username != null && node.username !== node.server.username) {
     return { mode: "managed-download", fallbackUrl: fallback };
   }
-  if (!linuxFile && (!gateway.serverId || gateway.keyVersion !== DIRECT_GATEWAY_KEY_WINDOWS)) {
+  if (!linuxFile && (!gateway.serverId || gateway.keyVersion < DIRECT_GATEWAY_KEY_WINDOWS)) {
     return { mode: "managed-download", fallbackUrl: fallback };
   }
   const gatewayHasOwnKey = Boolean(gateway.serverId) && gateway.keyVersion >= DIRECT_GATEWAY_KEY_PER_SERVER;

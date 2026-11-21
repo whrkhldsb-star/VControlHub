@@ -1,5 +1,5 @@
 import { JobStatus, Prisma } from "@prisma/client";
-import { getRuntimeSettingNumber } from "@/lib/runtime-settings/service";
+import { getRuntimeSettingNumberStrict } from "@/lib/runtime-settings/service";
 
 import { prisma } from "@/lib/db";
 import { t } from "@/lib/i18n/service-translations";
@@ -293,7 +293,7 @@ export async function pruneTerminalJobs(
   const now = options?.now ?? new Date();
   const statuses = options?.statuses ?? [JobStatus.FAILED, JobStatus.CANCELLED];
   if (statuses.length === 0) return { count: 0 };
-  const retentionDays = await getRuntimeSettingNumber("retention.terminalJobsDays").catch(() => TERMINAL_JOB_RETENTION_DAYS);
+  const retentionDays = await getRuntimeSettingNumberStrict("retention.terminalJobsDays");
   const olderThan =
     options?.olderThan ??
     new Date(now.getTime() - retentionDays * 24 * 60 * 60 * 1000);

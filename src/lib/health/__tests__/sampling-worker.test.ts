@@ -2,6 +2,7 @@ import { beforeEach, describe, expect, it, vi } from "vitest";
 
 const mocks = vi.hoisted(() => ({
   jobFindFirst: vi.fn(),
+  settingFindUnique: vi.fn(),
   enqueueJob: vi.fn(),
   claimNextJob: vi.fn(),
   heartbeatJob: vi.fn(),
@@ -15,7 +16,7 @@ const mocks = vi.hoisted(() => ({
 }));
 
 vi.mock("@/lib/db", () => ({
-  prisma: { job: { findFirst: mocks.jobFindFirst } },
+  prisma: { setting: { findUnique: mocks.settingFindUnique }, job: { findFirst: mocks.jobFindFirst } },
 }));
 vi.mock("@/lib/concurrency/advisory-lock", () => ({
   acquireAdvisoryLock: vi.fn(async () => vi.fn(async () => undefined)),
@@ -48,6 +49,7 @@ import {
 describe("fleet health background sampling", () => {
   beforeEach(() => {
     vi.clearAllMocks();
+    mocks.settingFindUnique.mockResolvedValue(null);
     stopHealthSamplingWorkerForTests();
     mocks.jobFindFirst.mockResolvedValue(null);
     mocks.enqueueJob.mockResolvedValue({ id: "queued" });
@@ -79,6 +81,13 @@ describe("fleet health background sampling", () => {
     mocks.pruneMetricSnapshots.mockResolvedValue({ count: 4 });
     mocks.rollupRecentServerUptime.mockResolvedValue({ upserted: 3 });
     mocks.pruneCompletedJobsByType.mockResolvedValue({ count: 0 });
+  });
+
+  it("finishes sampling without pruning when the retention policy is unavailable", async () => {
+    mocks.settingFindUnique.mockRejectedValue(new Error("DB unavailable"));
+    expect(await runHealthSamplingWorkerOnce("test")).toBe(true);
+    expect(mocks.pruneMetricSnapshots).not.toHaveBeenCalled();
+    expect(mocks.completeJob).toHaveBeenCalledWith("job1", expect.any(String), expect.objectContaining({ pruned: 0 }));
   });
 
   it("does not enqueue a duplicate pending/running sample", async () => {

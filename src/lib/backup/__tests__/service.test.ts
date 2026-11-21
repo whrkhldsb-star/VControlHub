@@ -11,6 +11,7 @@ const platformPath = (posixPath: string) =>
 
 const { mockPrisma, runBackupCommandMock, statMock, createReadStreamMock } = vi.hoisted(() => ({
   mockPrisma: {
+    user: { count: vi.fn() },
     backupRecord: { create: vi.fn(), findMany: vi.fn(), findUnique: vi.fn(), findFirst: vi.fn(), update: vi.fn(), updateMany: vi.fn() },
     job: { count: vi.fn(async () => 0) },
     $queryRaw: vi.fn(),
@@ -59,6 +60,7 @@ const {
   buildBackupRestoreCommand,
   resolveBackupPath,
   runBackupRecord,
+  runExistingBackupRecord,
   updateBackupRecordStatus,
   voidBackupRecord,
   prepareBackupRecordRetry,
@@ -74,6 +76,7 @@ const {
 describe("backup service", () => {
   beforeEach(() => {
     vi.clearAllMocks();
+    mockPrisma.user.count.mockResolvedValue(1);
     process.env.BACKUP_DIR = "/var/backups/vcontrolhub";
     let lastCreatedBackupRecord: any = null;
     mockPrisma.backupRecord.create.mockImplementation(async ({ data }: any) => {
@@ -127,6 +130,28 @@ describe("backup service", () => {
   it("persists the current team on newly created backup records", async () => {
     await createBackupRecord({ type: "DATABASE", createdBy: "u1", teamId: "team-1" });
     expect(mockPrisma.backupRecord.create).toHaveBeenCalledWith(expect.objectContaining({ data: expect.objectContaining({ teamId: "team-1" }) }));
+  });
+
+  it("uses distinct archive paths for records created in the same millisecond", async () => {
+    vi.useFakeTimers();
+    vi.setSystemTime(new Date("2026-05-01T00:00:00Z"));
+    const records = await Promise.all([createBackupRecord({ type: "FULL" }), createBackupRecord({ type: "FULL" })]);
+    expect(records[0].filePath).not.toBe(records[1].filePath);
+  });
+
+  it.each(["revoked", null])("aborts queued work for owner %s before running any backup command", async (requestedBy) => {
+    const record = { id: "bak", type: "FULL", updatedAt: new Date(0), status: "PENDING", createdBy: "old-owner" };
+    mockPrisma.backupRecord.findUnique.mockResolvedValueOnce(record);
+    if (requestedBy) mockPrisma.user.count.mockResolvedValueOnce(0);
+    await expect(runExistingBackupRecord({ id: record.id, requestedBy })).rejects.toThrow();
+    if (requestedBy) expect(mockPrisma.user.count).toHaveBeenCalledWith({ where: {
+      id: requestedBy, status: "ACTIVE", mustChangePassword: false, teamMembership: null, roles: { some: { role: { key: "admin" } } },
+    } });
+    expect(mockPrisma.backupRecord.updateMany).toHaveBeenCalledWith({
+      where: { id: record.id, status: "PENDING", updatedAt: record.updatedAt },
+      data: expect.objectContaining({ status: "FAILED" }),
+    });
+    expect(runBackupCommandMock).not.toHaveBeenCalled();
   });
 
   it("executes the requested backup command and records the real artifact size", async () => {
@@ -274,7 +299,7 @@ describe("backup service", () => {
   });
 
   it("prepares failed backup records for retry without deleting audit history", async () => {
-    const current = { id: "bak-failed", type: "DATABASE", status: "FAILED", filePath: "backups/failed.sql.gz", errorMessage: "readonly path" as string | null };
+    const current = { id: "bak-failed", type: "DATABASE", status: "FAILED", filePath: "backups/failed.sql.gz", updatedAt: new Date(0), errorMessage: "readonly path" as string | null };
     mockPrisma.backupRecord.findUnique
       .mockResolvedValueOnce(current)
       .mockImplementation(async () => current);
@@ -288,7 +313,7 @@ describe("backup service", () => {
     expect(record.status).toBe("PENDING");
     expect(record.errorMessage).toBeNull();
     expect(mockPrisma.backupRecord.updateMany).toHaveBeenCalledWith({
-      where: { id: "bak-failed", status: "FAILED" },
+      where: { id: "bak-failed", status: "FAILED", updatedAt: current.updatedAt },
       data: { status: "PENDING", errorMessage: null },
     });
   });
@@ -369,7 +394,7 @@ describe("backup service", () => {
     expect(plan.component).toBe("files");
     if (process.platform !== "win32") {
       expect(plan.commands.restore).toBe("cd '/opt/app' && CONFIRM_RESTORE=1 bash scripts/restore-full.sh '/var/backups/vcontrolhub/backups/full.tar.gz' 'files' '/opt/app'");
-      expect(plan.commands.safetySnapshot).toContain("--files '/var/backups/vcontrolhub/pre-restore-bak-full-");
+      expect(plan.commands.safetySnapshot).toContain("--files --restore-snapshot '/var/backups/vcontrolhub/pre-restore-bak-full-");
     }
   });
 

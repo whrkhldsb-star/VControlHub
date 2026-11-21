@@ -25,7 +25,7 @@ import {
 import {
 	allocatePort,
 	assertTemplatePortsAvailable,
-	captureQuickServiceSnapshot,
+	readQuickServiceSnapshot,
 	parseCommandArgs,
 	releasePortReservations,
 	resolveEnvValue,
@@ -39,10 +39,7 @@ import {
 	__internals,
 } from "./service-internals";
 import type { ServiceTemplate } from "./types";
-import { createLogger } from "@/lib/logging";
 import { hubHostDockerSocketMount } from "@/lib/runtime/platform-paths";
-
-const qsLogger = createLogger("quick-service-lifecycle");
 
 const { normalizeVolumeEndpoint, splitContainerPathAndOptions, mkdirSync, DOCKER_SOCKET, TRUSTED_HOST_MOUNTS } = __internals;
 
@@ -55,19 +52,11 @@ class ContainerCommittedError extends Error {
 }
 
 async function rollbackInstallToSnapshot(
-	slug: string,
+	where: { id: string; instanceKey: string; slug: string; serverId: string | null },
 	before: QuickServiceSnapshot | null,
-	error: string,
-	instanceKey: string = "hub-host",
 ) {
-	const where = { instanceKey_slug: { instanceKey, slug } } as const;
 	if (!before) {
-		try {
-			await prisma.quickService.delete({ where });
-		} catch {
-			// Record no longer exists (concurrent delete) — mark as errored instead.
-			await prisma.quickService.update({ where, data: { status: "error", error } }).catch((err) => { qsLogger.warn("quickService status update failed", { error: err instanceof Error ? err.message : String(err) }); });
-		}
+		await prisma.quickService.delete({ where });
 		return { status: "deleted", reason: "fresh-install-failed" };
 	}
 
@@ -110,6 +99,10 @@ async function installServiceUnlocked(opts: InstallOptions) {
 	const target: DockerTarget = opts.target ?? { kind: "local" };
 	const instanceKey = instanceKeyForTarget(target);
 	const serverId = target.kind === "remote" ? target.serverId : null;
+	const identity = { instanceKey, serverId, slug: template.slug };
+	const server = target.kind === "remote" ? { id: target.serverId, teamId: target.expectedTeamId, ...target.endpoint } : undefined;
+	const ownerScope = server ? { server } : {};
+	const before = await readQuickServiceSnapshot(template.slug, instanceKey, target);
 
 	// Pre-flight: ensure Docker is available on the selected target
 	const dockerStatus = await getDockerEnvironmentStatusFor(target);
@@ -118,9 +111,8 @@ async function installServiceUnlocked(opts: InstallOptions) {
 	}
 
 	validateTemplate(template);
-	const before = await captureQuickServiceSnapshot(template.slug, instanceKey);
 	await writeQuickServiceAudit({
-		instanceKey: instanceKey,
+		target,
 		userId,
 		action: "install",
 		slug: template.slug,
@@ -137,7 +129,7 @@ async function installServiceUnlocked(opts: InstallOptions) {
 	const hostPort = await withPortAllocationLock(portScope, async () => {
 		if (target.kind === "remote") {
 			if (customPort) {
-				const free = await isRemotePortAvailable(target.serverId, customPort);
+				const free = await isRemotePortAvailable(target, customPort);
 				if (!free) {
 					throw new BusinessError(
 						t("backend.quick-service.portInUseOnTarget", { port: customPort }),
@@ -150,9 +142,9 @@ async function installServiceUnlocked(opts: InstallOptions) {
 				candidates.push(10000 + Math.floor(Math.random() * (65535 - 10000 + 1)));
 			}
 			for (const candidate of candidates) {
-				if (await isRemotePortAvailable(target.serverId, candidate)) {
+				if (await isRemotePortAvailable(target, candidate)) {
 					for (const ep of template.extraPorts ?? []) {
-						const free = await isRemotePortAvailable(target.serverId, ep.host);
+						const free = await isRemotePortAvailable(target, ep.host);
 						if (!free) {
 							throw new BusinessError(
 								t("backend.quick-service.extraPortInUseOnTarget", {
@@ -200,50 +192,30 @@ async function installServiceUnlocked(opts: InstallOptions) {
 
 	let svc;
 	try {
-		svc = await prisma.quickService.upsert({
-			where: { instanceKey_slug: { instanceKey, slug: template.slug } },
-			update: {
-				status: "installing",
-				image: template.image,
-				port: hostPort,
-				path: template.path,
-				// The port inside the container, whichever host port was chosen (see templateFromStoredService).
-				internalPort: template.internalPort ?? template.defaultPort,
-				extraPortsJson: extraPortsStr,
-				command: template.command ?? null,
-				envJson: envStr,
-				volumesJson: volStr,
-				serverId,
-				error: null,
-			},
-			create: {
-				slug: template.slug,
-				instanceKey,
-				serverId,
-				name: template.name,
-				category: template.category,
-				icon: template.icon,
-				description: template.description,
-				image: template.image,
-				port: hostPort,
-				path: template.path,
-				internalPort: template.internalPort ?? template.defaultPort,
-				extraPortsJson: extraPortsStr,
-				command: template.command ?? null,
-				envJson: envStr,
-				volumesJson: volStr,
-				status: "installing",
-				createdBy: userId ?? null,
-			},
-		});
+		const configuration = {
+			status: "installing", image: template.image, port: hostPort, path: template.path,
+			internalPort: template.internalPort ?? template.defaultPort,
+			extraPortsJson: extraPortsStr, command: template.command ?? null, envJson: envStr,
+			volumesJson: volStr, error: null,
+		};
+		// A concurrent insert after an empty snapshot must conflict. Updating it
+		// would make our fresh-install rollback delete someone else's row.
+		svc = before
+			? await prisma.quickService.update({ where: { id: before.id, ...identity, ...ownerScope }, data: configuration })
+			: await prisma.quickService.create({
+				data: {
+					instanceKey, slug: template.slug, ...(server && { server: { connect: server } }),
+					...configuration, name: template.name, category: template.category,
+					icon: template.icon, description: template.description, createdBy: userId ?? null,
+				},
+			});
 	} catch (err) {
 		if (reservedPorts.length > 0) releasePortReservations(reservedPorts);
-		// Upsert itself failed (db connectivity / unique constraint edge
-		// case) — record a "failed" audit with the pre-install snapshot so
+		// The conditional write failed. Record the pre-install snapshot so
 		// operators can see what state was supposed to be transitioned to.
 		const msg = err instanceof Error ? err.message.slice(0, 500) : String(err);
 		await writeQuickServiceAudit({
-			instanceKey: instanceKey,
+			target,
 			userId,
 			action: "install",
 			slug: template.slug,
@@ -267,6 +239,7 @@ async function installServiceUnlocked(opts: InstallOptions) {
 			// already holds the new configuration: keep it, do not roll back.
 			const msg = dockerErrorMessage(err.cause);
 			await writeQuickServiceAudit({
+				target,
 				userId,
 				action: "install",
 				slug: template.slug,
@@ -281,9 +254,9 @@ async function installServiceUnlocked(opts: InstallOptions) {
 		// delete that restored container (or a healthy one whose bookkeeping
 		// failed afterwards).
 		const msg = dockerErrorMessage(err);
-		const rollback = await rollbackInstallToSnapshot(template.slug, before, msg.slice(0, 500), instanceKey);
+		const rollback = await rollbackInstallToSnapshot({ id: svc.id, ...identity, ...ownerScope }, before);
 		await writeQuickServiceAudit({
-			instanceKey: instanceKey,
+			target,
 			userId,
 			action: "install",
 			slug: template.slug,
@@ -442,17 +415,22 @@ export async function recreateDockerContainer(
 	// database failure must not be "undone" by restoring the old row (it
 	// would describe a container that no longer exists). Retry once, then
 	// tell the caller the container is committed.
+	const where = {
+		id: serviceId, slug: tmpl.slug, instanceKey: instanceKeyForTarget(target),
+		serverId: target.kind === "local" ? null : target.serverId,
+		...(target.kind === "remote" && target.expectedTeamId !== undefined ? { server: { teamId: target.expectedTeamId, ...target.endpoint } } : {}),
+	};
 	try {
-		await prisma.quickService.update({ where: { id: serviceId }, data: { status: "running", containerId, error: null } })
+		await prisma.quickService.update({ where, data: { status: "running", containerId, error: null } })
 			.catch(async () => {
 				await new Promise((resolve) => setTimeout(resolve, 500));
-				await prisma.quickService.update({ where: { id: serviceId }, data: { status: "running", containerId, error: null } });
+				await prisma.quickService.update({ where, data: { status: "running", containerId, error: null } });
 			});
 	} catch (error) {
 		throw new ContainerCommittedError(containerId, error);
 	}
 	await writeQuickServiceAudit({
-		instanceKey: instanceKeyForTarget(target),
+		target,
 		userId: notice?.userId,
 		action: notice?.auditAction ?? "install",
 		slug: tmpl.slug,
@@ -479,8 +457,9 @@ async function notifyQuickServiceInstallSuccess(userId: string | undefined, tmpl
 	if (!userId) return;
 	try {
 		const remoteHost = target.kind === "remote"
-			? (await prisma.server.findUnique({ where: { id: target.serverId }, select: { host: true } }))?.host
+			? (await prisma.server.findUnique({ where: { id: target.serverId, teamId: target.expectedTeamId, ...target.endpoint }, select: { host: true } }))?.host
 			: null;
+		if (target.kind === "remote" && !remoteHost) return;
 		const notice = buildInstallNotice(tmpl, hostPort, credentials, notes, remoteHost ? { host: remoteHost, protocol: "http:" } : undefined);
 		await createNotification({
 			userId,

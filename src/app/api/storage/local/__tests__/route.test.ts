@@ -59,6 +59,7 @@ vi.mock("node:fs/promises", () => ({
     access: accessMock,
     mkdir: mkdirMock,
     stat: statMock,
+  lstat: statMock,
     writeFile: writeFileMock,
     unlink: unlinkMock,
     rename: renameMock,
@@ -66,6 +67,7 @@ vi.mock("node:fs/promises", () => ({
   access: accessMock,
   mkdir: mkdirMock,
   stat: statMock,
+  lstat: statMock,
   writeFile: writeFileMock,
   unlink: unlinkMock,
   rename: renameMock,
@@ -147,7 +149,7 @@ describe("/api/storage/local", () => {
     vi.clearAllMocks();
     requireApiPermissionMock.mockResolvedValue({ session });
     statRemoteEntryMock.mockRejectedValue(Object.assign(new Error("No such file"), { code: 2 }));
-    statMock.mockResolvedValue({ isFile: () => true, size: 11 });
+    statMock.mockResolvedValue({ isFile: () => true, isDirectory: () => false, size: 11 });
   });
 
   it("returns 400 when path is missing", async () => {
@@ -436,7 +438,7 @@ describe("/api/storage/local", () => {
     expect(response.status).toBe(400);
   });
 
-  it.each([false, true])("cleans up failed SFTP uploads according to backing file existence (%s)", async (existed) => {
+  it.each([false, true])("never publishes an SFTP upload after failed indexing, regardless of prior occupancy (%s)", async (existed) => {
     if (existed) statRemoteEntryMock.mockResolvedValueOnce({ size: 13, modifyTime: 1000 });
     // i18n: error message now in English ("Failed to write upload index: ...")
     prismaMock.storageNode.findUnique.mockResolvedValueOnce({
@@ -486,18 +488,8 @@ describe("/api/storage/local", () => {
     await expect(response.json()).resolves.toMatchObject({
       error: expect.stringMatching(/写入上传索引失败|Failed to write upload index/),
     });
-    expect(statRemoteEntryMock.mock.invocationCallOrder[0]).toBeLessThan(writeRemoteFileMock.mock.invocationCallOrder[0]!);
-    expect(writeRemoteFileMock).toHaveBeenCalled();
-    if (existed) {
-      expect(deleteRemoteFileMock).not.toHaveBeenCalled();
-      return;
-    }
-    expect(deleteRemoteFileMock).toHaveBeenCalledWith(
-      expect.objectContaining({
-        host: "203.0.113.20",
-        remotePath: "/data/storage/nested/docs/notes.txt",
-      }),
-    );
+    expect(writeRemoteFileMock).not.toHaveBeenCalled();
+    expect(deleteRemoteFileMock).not.toHaveBeenCalled();
   });
 
   it("cleans up LOCAL uploads when DB indexing fails after the disk write", async () => {
@@ -522,7 +514,8 @@ describe("/api/storage/local", () => {
     await expect(response.json()).resolves.toMatchObject({
       error: expect.stringMatching(/写入上传索引失败|Failed to write upload index/),
     });
-    expect(unlinkMock).toHaveBeenCalledWith(path.resolve("/tmp/storage/docs/notes.txt"));
+    expect(unlinkMock).toHaveBeenCalledWith(writeFileMock.mock.calls[0]![0]);
+    expect(unlinkMock).not.toHaveBeenCalledWith(path.resolve("/tmp/storage/docs/notes.txt"));
   });
 
   it("stages a LOCAL upload when an unindexed file occupies the path", async () => {
@@ -530,14 +523,13 @@ describe("/api/storage/local", () => {
     const node = { id: "node_1", name: "local", driver: "LOCAL", basePath: "/tmp/storage" };
     prismaMock.storageNode.findFirst.mockResolvedValueOnce(node);
     prismaMock.fileEntry.findFirst.mockResolvedValueOnce(null);
-    writeFileMock.mockRejectedValueOnce(Object.assign(new Error("already exists"), { code: "EEXIST" }));
     prismaMock.fileEntry.create.mockRejectedValueOnce(new Error("db down"));
 
     const response = await POST(uploadRequest("docs/notes.txt"));
 
     expect(response.status).toBe(500);
-    expect(writeFileMock).toHaveBeenNthCalledWith(1, target, expect.any(Buffer), { flag: "wx" });
-    const staged = writeFileMock.mock.calls[1]![0] as string;
+    expect(writeFileMock).not.toHaveBeenCalledWith(target, expect.anything(), expect.anything());
+    const staged = writeFileMock.mock.calls[0]![0] as string;
     expect(path.dirname(staged)).toBe(path.dirname(target));
     expect(staged).not.toBe(target);
     expect(unlinkMock).toHaveBeenCalledWith(staged);
@@ -549,13 +541,12 @@ describe("/api/storage/local", () => {
     const target = path.resolve("/tmp/storage/docs/notes.txt");
     prismaMock.storageNode.findFirst.mockResolvedValueOnce({ id: "node_1", driver: "LOCAL", basePath: "/tmp/storage" });
     prismaMock.fileEntry.findFirst.mockResolvedValueOnce(null);
-    writeFileMock.mockRejectedValueOnce(Object.assign(new Error("already exists"), { code: "EEXIST" }));
     const writtenIndex = { id: "fe_1", updatedAt: new Date() };
     prismaMock.fileEntry.create.mockResolvedValueOnce(writtenIndex);
     renameMock.mockRejectedValueOnce(new Error("rename failed"));
 
     expect((await POST(uploadRequest("docs/notes.txt"))).status).toBe(500);
-    expect(prismaMock.fileEntry.deleteMany).toHaveBeenCalledWith({ where: { ...writtenIndex, isDeleted: false } });
+    expect(prismaMock.fileEntry.deleteMany).toHaveBeenCalledWith({ where: { ...writtenIndex, isDeleted: false, storageNodeId: "node_1", relativePath: "docs/notes.txt" } });
     expect(unlinkMock).not.toHaveBeenCalledWith(target);
   });
 
@@ -611,9 +602,9 @@ describe("/api/storage/local", () => {
     const node = { id: "node_1", name: "主控本机", driver: "LOCAL", basePath: "/tmp/storage" };
     prismaMock.storageNode.findUnique.mockResolvedValueOnce(node);
     prismaMock.storageNode.findFirst.mockResolvedValueOnce(node);
-    const previous = { name: "notes.txt", entryType: "FILE", size: BigInt(42), mimeType: "text/plain", checksumSha256: "prior", isDeleted: false, deleteBatchId: null };
+    const previous = { name: "notes.txt", entryType: "FILE", size: BigInt(42), mimeType: "text/plain", checksumSha256: "prior" };
     const indexedAt = new Date();
-    prismaMock.fileEntry.findFirst.mockResolvedValueOnce({ id: "file_existing", ...previous });
+    prismaMock.fileEntry.findFirst.mockResolvedValueOnce({ id: "file_existing", isDeleted: false, ...previous });
     prismaMock.fileEntry.update.mockResolvedValueOnce({ updatedAt: indexedAt });
     renameMock.mockRejectedValueOnce(Object.assign(new Error("EXDEV"), { code: "EXDEV" }));
     unlinkMock.mockResolvedValueOnce(undefined);
@@ -623,7 +614,7 @@ describe("/api/storage/local", () => {
     expect(response.status).toBe(500);
     const staged = writeFileMock.mock.calls[0]![0] as string;
     expect(unlinkMock).toHaveBeenCalledWith(staged);
-    expect(prismaMock.fileEntry.updateMany).toHaveBeenCalledWith({ where: { id: "file_existing", updatedAt: indexedAt, isDeleted: false }, data: previous });
+    expect(prismaMock.fileEntry.updateMany).toHaveBeenCalledWith({ where: { id: "file_existing", updatedAt: indexedAt, isDeleted: false, entryType: "FILE", storageNodeId: "node_1", relativePath: "docs/notes.txt" }, data: previous });
   });
 
   it("names the staged file independently of the target, so a long name still fits", async () => {
@@ -686,6 +677,20 @@ describe("/api/storage/local", () => {
       expect.objectContaining({ where: { id: "file_winner", storageNodeId: "node_1", relativePath: "docs/notes.txt", isDeleted: false, entryType: "FILE" } }),
     );
     expect(unlinkMock).not.toHaveBeenCalled();
+  });
+
+  it.each([
+    { relativePath: Array(6).fill("a".repeat(180)).join("/"), mimeType: "text/plain" },
+    { relativePath: "docs/notes.txt", mimeType: "text/" + "a".repeat(256) },
+  ])("rejects invalid index metadata before touching the backing store", async ({ relativePath, mimeType }) => {
+    prismaMock.storageNode.findFirst.mockResolvedValueOnce({ id: "node_1", driver: "LOCAL", basePath: "/tmp/storage" });
+
+    const response = await POST(uploadRequest(relativePath, new File(["payload"], "notes.txt", { type: mimeType })));
+
+    expect(response.status).toBe(400);
+    expect(mkdirMock).not.toHaveBeenCalled();
+    expect(writeFileMock).not.toHaveBeenCalled();
+    expect(prismaMock.fileEntry.create).not.toHaveBeenCalled();
   });
 
   it("rejects unsafe upload relativePath before storage node lookup or writes", async () => {

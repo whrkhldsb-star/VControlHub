@@ -16,6 +16,7 @@ import { t } from "@/lib/i18n/service-translations";
 import { createLogger } from "@/lib/logging";
 import { assertStorageAccess } from "@/lib/storage/access-control";
 import { storageAccessDeniedCopy } from "@/lib/storage/access-denied";
+import { isStorageStagingPath } from "@/lib/storage/staging-paths";
 import { hasCaseInsensitiveLocalPaths, normalizeStorageRelativePath } from "@/lib/storage/path-utils";
 import { syncLocalDirectoryEntries } from "@/lib/storage/local-sync";
 import { syncSftpDirectoryEntries } from "@/lib/storage/sftp-sync";
@@ -76,9 +77,14 @@ export async function assertShareTargetNotDeleted(
 ): Promise<void> {
   // The file itself or any folder above it may be in the trash: the bytes of a trashed folder's files stay on disk.
   const segments = typeof relativePath === "string" ? relativePath.split("/").filter(Boolean) : [];
+  const path = segments.join("/");
+  const caseInsensitive = hasCaseInsensitiveLocalPaths(driver);
+  if (isStorageStagingPath(caseInsensitive ? path.toLowerCase() : path)) {
+    throw new NotFoundError(t("backend.shareLink.notFoundOrRevoked"));
+  }
   const paths = segments.map((_, index) => segments.slice(0, index + 1).join("/"));
   const trashed = await prisma.fileEntry.findFirst({
-    where: { storageNodeId, relativePath: { in: paths.length ? paths : [relativePath], ...(hasCaseInsensitiveLocalPaths(driver) ? { mode: "insensitive" } : {}) }, isDeleted: true },
+    where: { storageNodeId, relativePath: { in: paths.length ? paths : [relativePath], ...(caseInsensitive ? { mode: "insensitive" } : {}) }, isDeleted: true },
     select: { id: true },
   });
   if (trashed) {

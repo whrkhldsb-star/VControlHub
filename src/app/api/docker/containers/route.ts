@@ -18,6 +18,7 @@ import { parseDockerStats } from "@/lib/docker/stats";
 import { withApiRoute } from "@/lib/http/api-guard";
 import { COMMAND_LIMIT } from "@/lib/http/rate-limit-presets";
 import { parseSearchParams } from "@/lib/http/parse-search-params";
+import type { SshEndpointIdentity } from "@/lib/ssh/server-connection-select";
 import { assertServerTeamAccess } from "@/lib/server/team-access";
 import { sessionHasPermission } from "@/lib/auth/authorization";
 import { assertHubHostDockerAccess } from "@/lib/docker/hub-host-access";
@@ -83,9 +84,13 @@ export async function GET(req: NextRequest) {
 
       // Remote VPS Docker must stay inside the caller's team (same as SFTP/SSH);
       // the hub host belongs to no team, so it needs platform-manager rights.
+      let expectedTeamId: string | null | undefined;
+      let expectedEndpoint: SshEndpointIdentity | undefined;
       if (serverId) {
         const teamAccess = await assertServerTeamAccess(session, serverId, "connect");
         if (!teamAccess.ok) return teamAccess.response;
+        expectedTeamId = teamAccess.server.teamId;
+        expectedEndpoint = teamAccess.server;
       } else {
         const hubAccess = assertHubHostDockerAccess(session);
         if (!hubAccess.ok) return hubAccess.response;
@@ -94,7 +99,7 @@ export async function GET(req: NextRequest) {
       if (stats) {
         const { result: statsResult } = await dockerRequest(
           `/containers/${stats}/stats?stream=false`,
-          { serverId, unavailableData: {}, loggerScope: "api:docker:containers" },
+          { serverId, expectedTeamId, expectedEndpoint, unavailableData: {}, loggerScope: "api:docker:containers" },
         );
         if (!statsResult.ok) return NextResponse.json(statsResult);
         // Engine-unreachable is reported as ok:true + dockerAvailable:false with
@@ -113,8 +118,9 @@ export async function GET(req: NextRequest) {
         }
         const { result: detailResult } = await dockerRequest(
           `/containers/${stats}/json`,
-          { serverId, unavailableData: {}, loggerScope: "api:docker:containers" },
+          { serverId, expectedTeamId, expectedEndpoint, unavailableData: {}, loggerScope: "api:docker:containers" },
         );
+        if (!detailResult.ok) return NextResponse.json(detailResult, { status: detailResult.status >= 400 ? detailResult.status : 502 });
         const detailData =
           detailResult.data && typeof detailResult.data === "object"
             ? (detailResult.data as { Name?: string })
@@ -134,7 +140,7 @@ export async function GET(req: NextRequest) {
       if (logs) {
         const { result: logsResult, scope: logsScope } = await dockerRequest(
           `/containers/${logs}/logs?stdout=true&stderr=true&tail=${tail}`,
-          { serverId, unavailableData: {}, loggerScope: "api:docker:containers", decode: "docker-logs" },
+          { serverId, expectedTeamId, expectedEndpoint, unavailableData: {}, loggerScope: "api:docker:containers", decode: "docker-logs" },
         );
         return NextResponse.json({ ...logsResult, dockerScope: logsScope });
       }
@@ -142,19 +148,24 @@ export async function GET(req: NextRequest) {
       if (id) {
         const { result: inspectResult, scope: inspectScope } = await dockerRequest(
           `/containers/${id}/json`,
-          { serverId, unavailableData: {}, loggerScope: "api:docker:containers" },
+          { serverId, expectedTeamId, expectedEndpoint, unavailableData: {}, loggerScope: "api:docker:containers" },
         );
         // Config.Env carries database passwords and generated admin credentials
         // (A6-04): only a caller who may manage the target sees it, as the quick
         // service list already hides env values from everyone else.
-        const canManage = serverId
-          ? (await assertServerTeamAccess(session, serverId, "manage")).ok
+        const manageAccess = serverId ? await assertServerTeamAccess(session, serverId, "manage") : null;
+        const canManage = manageAccess
+          ? manageAccess.ok && manageAccess.server.teamId === expectedTeamId
           : sessionHasPermission(session, "docker:manage");
         const data = inspectResult.data;
         if (!canManage && data && typeof data === "object" && "Config" in data) {
           const config = (data as { Config?: { Env?: unknown } }).Config;
           if (config && typeof config === "object" && Array.isArray(config.Env)) {
-            (data as { Config: { Env: unknown } }).Config = { ...config, Env: config.Env.map((entry) => String(entry).replace(/=.*$/, "=[redacted]")) };
+            config.Env = config.Env.map((entry) => {
+              const text = String(entry);
+              const separator = text.indexOf("=");
+              return separator < 0 ? text : text.slice(0, separator) + "=***";
+            });
           }
         }
         return NextResponse.json({ ...inspectResult, dockerScope: inspectScope });
@@ -162,7 +173,7 @@ export async function GET(req: NextRequest) {
 
       const { result: listResult, scope: listScope } = await dockerRequest(
         "/containers/json?all=true",
-        { serverId, unavailableData: [], loggerScope: "api:docker:containers" },
+        { serverId, expectedTeamId, expectedEndpoint, unavailableData: [], loggerScope: "api:docker:containers" },
       );
       return NextResponse.json({ ...listResult, dockerScope: listScope });
     },
@@ -189,9 +200,13 @@ export async function POST(req: NextRequest) {
         );
       }
 
+      let expectedTeamId: string | null | undefined;
+      let expectedEndpoint: SshEndpointIdentity | undefined;
       if (serverId) {
         const teamAccess = await assertServerTeamAccess(session, serverId, "manage");
         if (!teamAccess.ok) return teamAccess.response;
+        expectedTeamId = teamAccess.server.teamId;
+        expectedEndpoint = teamAccess.server;
       } else {
         // stop/remove against the hub host hits the platform's own containers.
         const hubAccess = assertHubHostDockerAccess(session);
@@ -208,7 +223,7 @@ export async function POST(req: NextRequest) {
       const target = actionMap[action]!;
       const { result } = await dockerRequest(target.path, {
         method: target.method,
-        serverId,
+        serverId, expectedTeamId, expectedEndpoint,
         unavailableData: {},
         loggerScope: "api:docker:containers",
       });

@@ -9,7 +9,7 @@ import { chmod, mkdtemp, readFile, rm, stat, writeFile } from "node:fs/promises"
 import { tmpdir } from "node:os";
 import path from "node:path";
 import { randomBytes } from "node:crypto";
-import { AGENT_FILE_MAX_BYTES, deleteRemoteFile, execRemoteCommand, listRemoteDirectory, readRemoteFile, statRemoteEntry, writeRemoteFile } from "../client";
+import { AGENT_FILE_MAX_BYTES, deleteRemoteFile, execRemoteCommand, listRemoteDirectory, readRemoteFile, renameRemoteFile, statRemoteEntry, writeRemoteFile } from "../client";
 
 describe("Agent-only file fallback", () => {
   beforeEach(() => {
@@ -133,6 +133,24 @@ describe("Agent-only file fallback", () => {
     await expect(readRemoteFile({ host: "fixture", port: 22, username: "ops", agentServerId: "srv_agent", remotePath: "/file" })).rejects.toThrow();
   });
 
+  it.skipIf(process.platform === "win32")("the Agent-only rmdir refuses unindexed members and distinguishes a missing directory", async () => {
+    mocks.executeCommandWithAgent.mockImplementation(({ command }: { command: string }) => new Promise(resolve => {
+      execFile("/bin/sh", ["-c", command], (error, stdout, stderr) => resolve({ stdout, stderr, exitCode: error ? 1 : 0 }));
+    }));
+    const dir = await mkdtemp(path.join(tmpdir(), "agent-rmdir-"));
+    const input = { host: "fixture", port: 22, username: "ops", agentServerId: "agent", remotePath: dir };
+    const remove = () => deleteRemoteFile({ ...input, isDirectory: true, emptyOnly: true });
+    try {
+      await writeFile(path.join(dir, "new"), "retain");
+      await expect(remove()).rejects.toMatchObject({ code: "ENOTEMPTY" });
+      expect(await readFile(path.join(dir, "new"), "utf8")).toBe("retain");
+      await rm(path.join(dir, "new"));
+      await remove();
+      await expect(remove()).rejects.toMatchObject({ code: "ENOENT" });
+      await expect(listRemoteDirectory(input)).rejects.toMatchObject({ code: "ENOENT" });
+    } finally { await rm(dir, { recursive: true, force: true }); }
+  });
+
   it("identifies and removes an empty directory through Agent without SSH credentials", async () => {
     mocks.executeCommandWithAgent
       .mockResolvedValueOnce({
@@ -153,6 +171,28 @@ describe("Agent-only file fallback", () => {
     });
     await expect(deleteRemoteFile({ ...connection, remotePath: "/data/empty", isDirectory: true })).resolves.toBeUndefined();
     expect(mocks.executeCommandWithAgent).toHaveBeenCalledTimes(2);
+  });
+
+  it.skipIf(process.platform === "win32")("preserves both files at an occupied no-replace rename destination", async () => {
+    mocks.executeCommandWithAgent.mockImplementation(({ command }: { command: string }) => new Promise(resolve => {
+      execFile("/bin/sh", ["-c", command], (error, stdout, stderr) => resolve({ stdout, stderr, exitCode: error ? 1 : 0 }));
+    }));
+    const dir = await mkdtemp(path.join(tmpdir(), "agent-exclusive-"));
+    try {
+      const source = path.join(dir, "source");
+      const destination = path.join(dir, "destination");
+      await writeFile(source, "source");
+      await writeFile(destination, "unindexed");
+      const move = () => renameRemoteFile({ host: "fixture", port: 22, username: "ops", agentServerId: "srv_agent",
+        oldPath: source, newPath: destination, noReplace: true });
+      await expect(move()).rejects.toThrow();
+      expect(await readFile(source, "utf8")).toBe("source");
+      expect(await readFile(destination, "utf8")).toBe("unindexed");
+      await rm(destination);
+      await move();
+      expect(await readFile(destination, "utf8")).toBe("source");
+      await expect(stat(source)).rejects.toMatchObject({ code: "ENOENT" });
+    } finally { await rm(dir, { recursive: true, force: true }); }
   });
 
   // A POSIX shell, python3 and file modes: the Linux Agent's environment.

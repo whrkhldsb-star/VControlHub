@@ -8,6 +8,7 @@ import { isWindowsStorageBasePath, resolveThroughExistingAncestor } from "./path
 import { IS_WINDOWS } from "@/lib/runtime/platform-paths";
 import { resolveLocalTarBinary } from "@/lib/runtime/tar-binary";
 import { shellQuote } from "@/lib/shell-quote";
+import { localStorageStagingPatterns, storageStagingPatterns } from "./staging-paths";
 import { ValidationError } from "@/lib/errors";
 import { t } from "@/lib/i18n/service-translations";
 
@@ -86,6 +87,7 @@ function bsdtarExclude(name: string) {
 	return "--exclude=" + name.replace(/[[\\*?]/g, "\\$&");
 }
 
+const localStagingExcludes = localStorageStagingPatterns.map(pattern => `--exclude=${pattern}`);
 const EXCLUDE_OPTIONS = ["--no-wildcards", "--anchored", "--exclude-from=-"];
 
 /**
@@ -96,7 +98,7 @@ const EXCLUDE_OPTIONS = ["--no-wildcards", "--anchored", "--exclude-from=-"];
  * tar (which reads "C:\..." as a remote host) can never be picked here.
  */
 function buildLocalTarArgs(directoryPath: string, entryName: string, excluded: string[]): string[] {
-	const base = ["-czf", "-", "-C", path.dirname(directoryPath)];
+	const base = ["-czf", "-", "-C", path.dirname(directoryPath), ...localStagingExcludes];
 	if (!excluded.length) return [...base, "--", entryName];
 	if (IS_WINDOWS) {
 		const excludeArgs: string[] = [];
@@ -124,10 +126,10 @@ function buildLocalTarArgs(directoryPath: string, entryName: string, excluded: s
  * must contain (POSIX GNU tar reads it from a file; Windows bsdtar takes each name as an argument).
  */
 export function localTarExclusion(excluded: string[], excludeFilePath: string): { options: string[]; fileContent: string | null } {
-	if (!excluded.length) return { options: [], fileContent: null };
+	if (!excluded.length) return { options: localStagingExcludes, fileContent: null };
 	const content = archiveExclusionInput(excluded);
-	if (IS_WINDOWS) return { options: excluded.map(bsdtarExclude), fileContent: null };
-	return { options: ["--no-wildcards", "--anchored", `--exclude-from=${excludeFilePath}`], fileContent: content };
+	if (IS_WINDOWS) return { options: [...localStagingExcludes, ...excluded.map(bsdtarExclude)], fileContent: null };
+	return { options: [...localStagingExcludes, "--no-wildcards", "--anchored", `--exclude-from=${excludeFilePath}`], fileContent: content };
 }
 
 export function streamLocalTarGz(directoryPath: string, entryName: string, excluded: string[] = []) {
@@ -199,7 +201,8 @@ export async function streamRemoteTarGz(
 	return new Promise<NodeJS.ReadableStream>((resolve, reject) => {
 		const parent = path.posix.dirname(remoteDirectoryPath);
 		const name = path.posix.basename(remoteDirectoryPath);
-		const excludeArgs = input ? EXCLUDE_OPTIONS : [];
+		// GNU tar applies matching options positionally. Keep staging globs before literal tombstones.
+		const excludeArgs = [...storageStagingPatterns.map(pattern => shellQuote(`--exclude=${pattern}`)), ...(input ? EXCLUDE_OPTIONS : [])];
 		const command = `tar -czf - -C ${shellQuote(parent)}${excludeArgs.length ? ` ${excludeArgs.join(" ")}` : ""} -- ${shellQuote(name)}`;
 		client.exec(command, (err, stream) => {
 			if (err) return reject(err);

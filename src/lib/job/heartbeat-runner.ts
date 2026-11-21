@@ -21,7 +21,9 @@ function isLeaseLostResult(result: unknown): boolean {
 export async function runWithLeaseHeartbeat<T>(input: {
   jobId: string;
   leaseMs: number;
-  heartbeat: () => Promise<unknown>;
+  /** Captured at claim time for workers that pass the job between contexts. */
+  attempts?: number;
+  heartbeat: (attempts?: number) => Promise<unknown>;
   /**
    * The unit of work. Receives an AbortSignal that fires the moment the lease
    * can no longer be renewed, so long in-flight operations (poll loops, remote
@@ -79,7 +81,7 @@ export async function runWithLeaseHeartbeat<T>(input: {
     heartbeatInFlight = true;
     const renewalStartedAt = Date.now();
     void Promise.resolve()
-      .then(input.heartbeat)
+      .then(() => input.heartbeat(input.attempts))
       .then((result) => {
         if (stopped || leaseLost) return;
         if (isLeaseLostResult(result) || Date.now() >= leaseDeadline) {

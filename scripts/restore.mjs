@@ -45,6 +45,8 @@ import { pipeline } from "node:stream/promises";
 import {
   acquireRestoreLock,
   FILE_VERSIONS_MANIFEST,
+  ENV_MEMBERS,
+  INTEGRITY_MANIFEST,
   fileVersionDir,
   findBinary,
   findTar,
@@ -54,6 +56,9 @@ import {
   redactConnectionString,
   runBinary,
 } from "./lib/backup-common.mjs";
+
+import { applyFileOverlays } from "./lib/restore-file-overlay.mjs";
+import dotenv from "dotenv";
 
 const { log } = makeLogger("restore");
 function fail(message) { throw new Error(message); }
@@ -368,6 +373,10 @@ async function removeStagedMember(staging, member) {
  * reads it and where it can fill the application's disk.
  */
 async function dropNonDataMembers(staging) {
+  await fs.rm(path.join(staging, INTEGRITY_MANIFEST), { force: true });
+  for (const name of await fs.readdir(staging)) {
+    if (name.toLowerCase().startsWith(".restore.lock")) fail("archive contains a restore lock");
+  }
   // File history bodies kept outside the app directory go back to the
   // history directory, not under appDir; set them aside until then.
   const versionsManifest = path.join(staging, FILE_VERSIONS_MANIFEST);
@@ -401,6 +410,57 @@ async function dropNonDataMembers(staging) {
   if (kept.length > 0) log(`Kept this installation's own ${kept.join(", ")}; the archive's copies are the code of the version that made it`);
 }
 
+// Match whole dotenv assignments so a key-looking line inside a different
+// multiline value is preserved. Keep target comments and surrounding layout.
+function setRecoveryKey(content, quotedKey) {
+  const assignment = /^([ \t]*(?:export[ \t]+)?([\w.-]+)[ \t]*=[ \t]*)('(?:\\'|[^'])*'|"(?:\\"|[^"])*"|`(?:\\`|[^`])*`|[^#\r\n]*)([ \t]*(?:#[^\r\n]*)?)$/gm;
+  let replaced = false;
+  const result = content.replace(assignment, (line, prefix, name, _value, comment) => {
+    if (name !== "ENCRYPTION_KEY") return line;
+    replaced = true;
+    return prefix + quotedKey + comment;
+  });
+  return replaced ? result : `${content}${content && !content.endsWith("\n") ? "\n" : ""}ENCRYPTION_KEY=${quotedKey}\n`;
+}
+
+// The archive's deployment settings belong to its source host. Render only
+// the data-encryption key into the target's own environment text. Defer this
+// preparation until the archive has been validated, before any database write.
+async function prepareRecoveryEnvironment(staging, appDir) {
+  let key;
+  const sourceMembers = new Set();
+  for (const name of ENV_MEMBERS) {
+    const file = path.join(staging, name);
+    if (!(await pathExists(file))) continue;
+    const value = dotenv.parse(await fs.readFile(file)).ENCRYPTION_KEY;
+    if (value) { key = value; sourceMembers.add(name); }
+    await fs.unlink(file);
+  }
+  // Unknown dotenv variants could otherwise override connection settings.
+  for (const name of await fs.readdir(staging)) {
+    if (/^\.env(?:$|\.)/i.test(name)) await fs.rm(path.join(staging, name), { recursive: true, force: true });
+  }
+  if (!key) return;
+  // Keep the literal safe for dotenv, systemd and shell-based installations.
+  const quote = !key.includes("'") ? "'" : '"';
+  if (/[\r\n\0]/.test(key) || (quote === '"' && /["\\$\x60]/.test(key))) {
+    fail("Archived ENCRYPTION_KEY requires manual installation before restore");
+  }
+  for (const name of ENV_MEMBERS) {
+    const target = path.join(appDir, name);
+    const previous = await fs.readFile(target, "utf8").catch((error) => {
+      if (error.code === "ENOENT") return null;
+      throw error;
+    });
+    const current = previous === null ? undefined : dotenv.parse(previous).ENCRYPTION_KEY;
+    const runtime = name === ".env.local" || name === ".env.runtime";
+    if (current === key || !(sourceMembers.has(name) || current !== undefined || (runtime && previous !== null))) continue;
+    const merged = setRecoveryKey(previous ?? "", quote + key + quote);
+    if (dotenv.parse(merged).ENCRYPTION_KEY !== key) fail(`Cannot merge the encryption key into ${name}`);
+    await fs.writeFile(path.join(staging, name), merged, { mode: 0o600 });
+  }
+}
+
 /**
  * Extract and vet the archive's files in a private staging directory. Nothing
  * in appDir changes until {@link applyStagedFiles}.
@@ -424,6 +484,7 @@ async function stageFiles(archive, appDir, inspected = false) {
     await runBinary(tar, ["-xzf", archive, "-C", staging, "--no-same-owner", "--exclude=database.sql.gz"]);
     await containsNoSymlinks(staging);
     await dropNonDataMembers(staging);
+    await prepareRecoveryEnvironment(staging, appDir);
   } catch (error) {
     await fs.rm(staging, { recursive: true, force: true }).catch(() => undefined);
     await fs.rm(`${staging}-file-versions`, { recursive: true, force: true }).catch(() => undefined);
@@ -459,15 +520,18 @@ async function applyStagedFiles(staging, appDir) {
   const versions = `${staging}-file-versions`;
   try {
     const topLevel = (await fs.readdir(staging)).map((name) => path.join(appDir, name));
-    await fs.cp(path.join(staging, "."), appDir, { recursive: true, force: true });
-    await giveToInstallationOwner(appDir, topLevel);
+    const overlays = [{ source: staging, destination: appDir }];
+    let historyTarget;
     if (await pathExists(versions)) {
       const envFile = (await readEnvFile(process.env.ENV_FILE?.trim() || path.join(appDir, ".env.local"))) ?? {};
-      const target = fileVersionDir({ ...envFile, ...process.env });
-      await fs.mkdir(target, { recursive: true });
-      await fs.cp(path.join(versions, "."), target, { recursive: true, force: true });
-      await giveToInstallationOwner(appDir, [target]);
-      log(`File history restored to ${target}`);
+      historyTarget = fileVersionDir({ ...envFile, ...process.env });
+      overlays.push({ source: versions, destination: historyTarget });
+    }
+    await applyFileOverlays(overlays);
+    await giveToInstallationOwner(appDir, topLevel);
+    if (historyTarget) {
+      await giveToInstallationOwner(appDir, [historyTarget]);
+      log(`File history restored to ${historyTarget}`);
     }
   } finally {
     await fs.rm(staging, { recursive: true, force: true }).catch(() => undefined);
@@ -605,7 +669,7 @@ async function runRestore(component, archive, componentArg, appDirArg) {
   }
 
   const targetDir = appDirArg || APP_DIR;
-  // Capture the destination configuration before restored .env files replace it.
+  // Pin the target connection throughout database import and migration.
   const databaseTarget = await prepareDatabaseRestore(targetDir);
   if (which === "database" || which === "all") {
     const staging = await fs.mkdtemp(path.join(os.tmpdir(), "vch-restore-full-"));

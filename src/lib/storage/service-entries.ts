@@ -31,6 +31,7 @@ import {
   type FileEntryMutationInput,
 } from "./schema";
 import { buildDirectAccessStrategy } from "./service-direct-access";
+import { isStorageStagingPath, storageStagingPathRegex } from "./staging-paths";
 import { createRemoteStorageClient } from "./agent-file-client";
 import { SSH_KEY_CREDENTIAL_SELECT } from "@/lib/ssh/ssh-key-crypto";
 
@@ -279,6 +280,7 @@ type DeletedFileEntryWithNode = Prisma.FileEntryGetPayload<{
         driver: true;
         basePath: true;
         webdavConfigEncrypted: true;
+        agentFileShare: { select: { rootIdentity: true } };
         host: true;
         port: true;
         username: true;
@@ -306,16 +308,22 @@ type DeletedFileEntryWithNode = Prisma.FileEntryGetPayload<{
 
 export type { DeletedFileEntryWithNode };
 
-async function assertDeletedEntryStillExists(entry: DeletedFileEntryWithNode) {
+async function assertDeletedEntryStillExists(entry: Pick<DeletedFileEntryWithNode, "storageNode" | "entryType" | "relativePath" | "deletedAgentRoot" | "storageVersion">) {
   const t = await serviceT();
-  if (entry.storageNode.driver === "WEBDAV" || entry.storageNode.driver === "AGENT") {
+  const agent = entry.storageNode.driver === "AGENT";
+  if ((agent || entry.deletedAgentRoot) && (!agent || !entry.deletedAgentRoot || !entry.storageVersion ||
+      entry.storageNode.agentFileShare?.rootIdentity !== entry.deletedAgentRoot)) {
+    throw new ConflictError(t("backend.storage.recycledAgentChanged"));
+  }
+  if (entry.storageNode.driver === "WEBDAV" || agent) {
     let remoteEntry;
     try {
-      remoteEntry = await createRemoteStorageClient(entry.storageNode).stat(entry.relativePath);
+      remoteEntry = await createRemoteStorageClient({ ...entry.storageNode, expectedRoot: entry.deletedAgentRoot ?? undefined }).stat(entry.relativePath, true);
     } catch {
       throw new BusinessError(t("backend.storage.remoteFileCheckFailed"));
     }
     if (!remoteEntry) throw new BusinessError(t("backend.storage.remoteFileMissing"));
+    if (agent && remoteEntry.etag !== entry.storageVersion) throw new ConflictError(t("backend.storage.recycledAgentChanged"));
     if (entry.entryType === "DIRECTORY" && !remoteEntry.isDirectory) {
       throw new BusinessError(t("backend.storage.remotePathNotDirectory"));
     }
@@ -401,6 +409,7 @@ export async function restoreFileEntry(
           driver: true,
           basePath: true,
           webdavConfigEncrypted: true,
+          agentFileShare: { select: { rootIdentity: true } },
           host: true,
           port: true,
           username: true,
@@ -443,7 +452,7 @@ export async function restoreFileEntry(
       isDeleted: true,
       relativePath: { startsWith: escapeLikeLiteral(`${current.relativePath}/`) },
     },
-    select: { id: true, relativePath: true, entryType: true, size: true },
+    select: { id: true, relativePath: true, entryType: true, size: true, deletedAgentRoot: true, storageVersion: true, updatedAt: true },
   }) : [];
   if (children.length > 0) {
     // One batched capability lookup for the whole batch instead of 2–3
@@ -465,37 +474,76 @@ export async function restoreFileEntry(
   const capacity = await assertStorageAccess({ session: actor, storageNodeId: current.storageNodeId, relativePath: current.relativePath, operation: "delete", writeBytes: bytes, largestFileBytes: largest });
   if (!capacity.allowed) throw new BusinessError(storageAccessDeniedCopy(capacity.reason));
   try {
-  await assertDeletedEntryStillExists(current);
-  if (children.length) {
-    return await prisma.$transaction(async (tx) => {
-      await tx.fileEntry.updateMany({ where: { id: { in: [current.id, ...children.map((row) => row.id)] }, storageNodeId: current.storageNodeId, isDeleted: true, deleteBatchId: current.deleteBatchId }, data: { isDeleted: false, deleteBatchId: null } });
-      return tx.fileEntry.findUniqueOrThrow({ where: { id: current.id } });
+    const batch = [current, ...children];
+    for (const member of batch) {
+      await assertDeletedEntryStillExists({ ...member, storageNode: current.storageNode });
+    }
+    const restoreWhere = {
+      storageNodeId: current.storageNodeId,
+      storageNode: {
+        teamId: current.storageNode.teamId ?? null,
+        ...(current.deletedAgentRoot ? { agentFileShare: { is: { rootIdentity: current.deletedAgentRoot } } } : {}),
+      },
+      deleteBatchId: current.deleteBatchId,
+      isDeleted: true,
+    };
+    const data = { isDeleted: false, deleteBatchId: null, deletedAgentRoot: null };
+    if (children.length) {
+      return await prisma.$transaction(async (tx) => {
+        const restored = await tx.fileEntry.updateMany({
+          where: { ...restoreWhere, OR: batch.map(({ id, relativePath, updatedAt }) => ({ id, relativePath, updatedAt })) },
+          data,
+        });
+        if (restored.count !== batch.length) throw new ConflictError(t("backend.storage.recycleBatchChanged"));
+        return tx.fileEntry.findUniqueOrThrow({ where: { id: current.id } });
+      });
+    }
+    return await prisma.fileEntry.update({
+      where: { ...restoreWhere, id: current.id, relativePath: current.relativePath, updatedAt: current.updatedAt },
+      data,
     });
-  }
-  return await prisma.fileEntry.update({
-    where: {
-      id: payload.fileEntryId,
-      storageNode: { teamId: current.storageNode.teamId ?? null },
-    },
-    data: { isDeleted: false, deleteBatchId: null },
-  });
   } finally { await releaseStorageQuotaGuard(capacity); }
+}
+
+type FileEntryPageOptions = { take?: number; skip?: number; cursor?: string; ids?: string[] };
+
+async function visibleFilePageIds(storageNodeId: string | undefined, options: FileEntryPageOptions, session?: TeamSession | null) {
+  const { take, skip, cursor } = buildPaginationArgs(options);
+  // The file manager has already paged these visible ids. Hydration checks their current paths again.
+  if (options.ids && options.ids.length <= take && !skip && !cursor) return options.ids;
+  if (options.ids?.length === 0 || take === 0) return [];
+  const teamId = session && teamWhere(session).teamId;
+  const direction = take < 0 ? Prisma.sql`DESC` : Prisma.sql`ASC`;
+  const cursorFilter = cursor
+    ? Prisma.sql`AND (e."entryType", e."relativePath", e.id) ${take < 0 ? Prisma.sql`<=` : Prisma.sql`>=`}
+        (SELECT "entryType", "relativePath", id FROM file_entries WHERE id = ${cursor.id})`
+    : Prisma.empty;
+  const rows = await prisma.$queryRaw<Array<{ id: string }>>(Prisma.sql`
+    SELECT e.id FROM file_entries e
+    WHERE e."isDeleted" = false AND e."relativePath" !~ ${storageStagingPathRegex}
+      ${storageNodeId ? Prisma.sql`AND e."storageNodeId" = ${storageNodeId}` : Prisma.empty}
+      ${teamId ? Prisma.sql`AND e."storageNodeId" IN (SELECT id FROM "StorageNode" WHERE "teamId" = ${teamId})` : Prisma.empty}
+      ${options.ids ? Prisma.sql`AND e.id IN (${Prisma.join(options.ids)})` : Prisma.empty}
+      ${cursorFilter}
+    ORDER BY e."entryType" ${direction}, e."relativePath" ${direction}, e.id ${direction}
+    LIMIT ${Math.abs(take)} OFFSET ${skip ?? 0}
+  `);
+  return rows.map(row => row.id);
 }
 
 export async function listFileEntries(
   storageNodeId?: string,
-  options: { take?: number; skip?: number; cursor?: string; ids?: string[] } = {},
+  options: FileEntryPageOptions = {},
   session?: TeamSession | null,
 ) {
+  const ids = await visibleFilePageIds(storageNodeId, options, session);
+  if (!ids.length) return [];
   const where = {
     isDeleted: false,
     ...(storageNodeId ? { storageNodeId } : {}),
-    ...(options.ids ? { id: { in: options.ids } } : {}),
+    id: { in: ids },
     ...storageNodeTeamFilter(session),
   };
-
-  // P2 收敛: 默认 take=1000 上界, caller 传 take 显式覆盖。防止 fileEntry 表无界增长后单次拉爆内存。
-  const paginationArgs = buildPaginationArgs(options);
 
   const entries = await prisma.fileEntry.findMany({
     where,
@@ -518,10 +566,9 @@ export async function listFileEntries(
         },
       },
     },
-    ...paginationArgs,
   });
 
-  return entries.map((entry: FileEntryListRow) => {
+  return entries.filter(entry => !isStorageStagingPath(entry.relativePath)).map((entry: FileEntryListRow) => {
     const directAccess = buildDirectAccessStrategy({
       driver: entry.storageNode.driver,
       nodeId: entry.storageNode.id,

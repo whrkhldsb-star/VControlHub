@@ -16,6 +16,7 @@ import { t } from "@/lib/i18n/service-translations";
 import { shellQuote } from "@/lib/shell-quote";
 import { isValidTcpPort } from "@/lib/runtime/listen-port";
 import { loadEnabledServerForSsh } from "@/lib/ssh/server-target";
+import type { SshEndpointIdentity } from "@/lib/ssh/server-connection-select";
 import { execRemoteCommand } from "@/lib/ssh/client";
 import { HUB_HOST_INSTANCE_KEY, isQuickServiceTargetConsistent } from "./target-identity";
 
@@ -24,9 +25,18 @@ const logger = createLogger("quick-service-docker");
 
 export { HUB_HOST_INSTANCE_KEY };
 
-export type DockerTarget =
-  | { kind: "local" }
-  | { kind: "remote"; serverId: string };
+type RemoteDockerTarget = {
+  kind: "remote";
+  serverId: string;
+  expectedTeamId?: string | null;
+  endpoint?: SshEndpointIdentity;
+};
+
+export type DockerTarget = { kind: "local" } | RemoteDockerTarget;
+
+async function loadRemoteTarget(target: RemoteDockerTarget) {
+  return loadEnabledServerForSsh(target.serverId, target.expectedTeamId, target.endpoint);
+}
 
 export function instanceKeyForTarget(target: DockerTarget): string {
   return target.kind === "local" ? HUB_HOST_INSTANCE_KEY : target.serverId;
@@ -80,7 +90,7 @@ export async function dockerExec(
   if (target.kind === "local") {
     return dockerExecLocal(args, timeoutMs);
   }
-  const { server, ssh } = await loadEnabledServerForSsh(target.serverId);
+  const { server, ssh } = await loadRemoteTarget(target);
   const command = buildDockerCommand(args);
   logger.debug("remote docker exec", {
     serverId: server.id,
@@ -112,7 +122,7 @@ export async function dockerRun(
     });
     return { stdout: String(stdout), stderr: String(stderr) };
   }
-  const { server, ssh } = await loadEnabledServerForSsh(target.serverId);
+  const { server, ssh } = await loadRemoteTarget(target);
   const result = await execRemoteCommand({
     ...ssh,
     preferAgent: true,
@@ -139,9 +149,9 @@ export function dockerErrorMessage(error: unknown): string {
 
 
 /** Probe whether a TCP port is free on a remote VPS (ss via SSH). */
-export async function isRemotePortAvailable(serverId: string, port: number): Promise<boolean> {
+export async function isRemotePortAvailable(target: RemoteDockerTarget, port: number): Promise<boolean> {
   if (!isValidTcpPort(port)) return false;
-  const { server, ssh } = await loadEnabledServerForSsh(serverId);
+  const { server, ssh } = await loadRemoteTarget(target);
   // The answer is printed, not returned as an exit status: a server reached
   // through its Agent alone reports every non-zero exit as a failed command,
   // so "in use" (exit 1) surfaced as an error and installs there stopped at
@@ -182,8 +192,8 @@ export function parseRemoteListeningPorts(output: string): number[] {
 }
 
 /** List TCP listen ports on a remote VPS with one SSH round-trip. */
-export async function getRemoteUsedPorts(serverId: string): Promise<number[]> {
-  const { server, ssh } = await loadEnabledServerForSsh(serverId);
+export async function getRemoteUsedPorts(target: RemoteDockerTarget): Promise<number[]> {
+  const { server, ssh } = await loadRemoteTarget(target);
   const command =
     `if command -v ss >/dev/null 2>&1; then ` +
     `ss -tlnH 2>/dev/null | awk '{print $4}'; ` +
@@ -361,7 +371,7 @@ export async function getContainerLogTailFor(
       return logs ? logs.slice(-2000) : null;
     }
     // Remote path: dockerExec only returns stdout; append 2>&1 so stderr is captured.
-    const { ssh } = await loadEnabledServerForSsh(target.serverId);
+    const { ssh } = await loadRemoteTarget(target);
     const command = `${buildDockerCommand(["logs", "--tail", "20", containerName])} 2>&1`;
     const result = await execRemoteCommand({
       ...ssh,
@@ -434,7 +444,7 @@ export async function getDockerEnvironmentStatusFor(
   const t = await serviceT();
   const dockerInstallHint = t("backend.quick-service.dockerInstallHintRemote");
   try {
-    const { server } = await loadEnabledServerForSsh(target.serverId);
+    const { server } = await loadRemoteTarget(target);
     const version = (await dockerExec(target, ["--version"], 10_000)).trim();
     await dockerExec(target, ["info"], 20_000);
     return {

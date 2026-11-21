@@ -195,7 +195,7 @@ export async function fanOutTicketEvent(input: {
         where: { id: existing.id },
         data: {
           status: eventData.status,
-          payload: eventData.payload,
+          payload: { ...eventData.payload, terminalAtMs: Date.now() },
           errorMessage: eventData.errorMessage,
         },
       });

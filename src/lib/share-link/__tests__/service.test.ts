@@ -110,6 +110,9 @@ describe("share link service", () => {
       expect(mockPrisma.fileEntry.findFirst.mock.lastCall?.[0].where.relativePath).toEqual({
         in: ["Docs", "Docs/OLD", "Docs/OLD/file.txt"], mode: "insensitive",
       });
+      mockPrisma.fileEntry.findFirst.mockClear();
+      await expect(assertShareTargetNotDeleted("node1", "Docs/.VCONTROLHUB-WEBDAV-test.STAGED/file.txt", "LOCAL")).rejects.toMatchObject({ status: 404 });
+      expect(mockPrisma.fileEntry.findFirst).not.toHaveBeenCalled();
     } finally {
       platform.mockRestore();
     }

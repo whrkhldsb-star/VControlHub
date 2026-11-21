@@ -1,5 +1,6 @@
 import { PassThrough, Readable } from "node:stream";
 
+import { localStorageStagingPatterns } from "../staging-paths";
 import { resolveLocalTarBinary } from "@/lib/runtime/tar-binary";
 
 import { describe, expect, it, vi } from "vitest";
@@ -157,7 +158,7 @@ describe("streamLocalTarGz", () => {
 		streamLocalTarGz("/srv/data/reports", "reports");
 		expect(mocks.spawn).toHaveBeenCalledWith(
 			resolveLocalTarBinary(),
-			["-czf", "-", "-C", "/srv/data", "--", "reports"],
+			["-czf", "-", "-C", "/srv/data", ...localStorageStagingPatterns.map(pattern => `--exclude=${pattern}`), "--", "reports"],
 			{ stdio: ["ignore", "pipe", "pipe"] },
 		);
 	});

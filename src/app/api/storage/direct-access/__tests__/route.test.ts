@@ -139,7 +139,8 @@ describe("/api/storage/direct-access", () => {
         host: true,
         port: true,
         username: true,
-        server: { select: { directGatewayKeyVersion: true, operatingSystem: true, teamId: true, host: true, port: true, username: true, publicUrl: true } },
+        hostKeySha256: true,
+        server: { select: { directGatewayKeyVersion: true, operatingSystem: true, teamId: true, host: true, port: true, username: true, hostKeySha256: true, publicUrl: true } },
       },
     });
     await expect(response.json()).resolves.toMatchObject({
@@ -435,6 +436,19 @@ describe("/api/storage/direct-access", () => {
     expect(noServer.signature).toBe(signedWith("test-secret", noServer.expires));
   });
 
+  it.each([{ host: "storage-elsewhere" }, { port: 2222 }, { teamId: "former-owner" }])("falls back to SFTP for a node with an independent endpoint %o", async (override) => {
+    requireApiPermissionMock.mockResolvedValueOnce({
+      session: { userId: "u_1", username: "admin", roles: ["admin"], currentTeamId: null },
+    });
+    assertStorageAccessMock.mockResolvedValueOnce({ allowed: true });
+    prismaMock.storageNode.findFirst.mockResolvedValueOnce(directNode({
+      directAccessMode: "DIRECT", publicBaseUrl: "https://cdn.example.com", serverId: "srv_1",
+      teamId: "owner", server: { host: "server", port: 22, operatingSystem: "LINUX", directGatewayKeyVersion: 2, teamId: "owner" }, ...override,
+    }));
+    const response = await GET(new Request("https://app.example.com/api/storage/direct-access?nodeId=node_1&path=file"));
+    expect(response.headers.get("location")).toBe("/api/storage/sftp-download?nodeId=node_1&path=file");
+  });
+
   it("never signs a customer's link with the shared secret, and still signs it with a gateway's own key", async () => {
     // A customer picks the signed path through its node's publicBaseUrl and the relative path; with the shared
     // secret that signature would open any older gateway's files.
@@ -500,25 +514,25 @@ describe("/api/storage/direct-access", () => {
     assertStorageAccessMock.mockResolvedValueOnce({ allowed: true });
     prismaMock.storageNode.findFirst.mockResolvedValueOnce(directNode({
       directAccessMode: "DIRECT", publicBaseUrl: "https://cdn.example.com",
-      basePath: "/C:/Data", serverId: "srv_1", server: { operatingSystem: "WINDOWS", directGatewayKeyVersion: keyVersion },
+      basePath: "/C:/Data", serverId: "srv_1", server: { operatingSystem: "WINDOWS", directGatewayKeyVersion: keyVersion, hostKeySha256: "SHA256:server", publicUrl: "https://cdn.example.com" },
     }));
     const result = await GET(new Request("https://app.example.com/api/storage/direct-access?nodeId=node_1&path=sample.txt"));
     expect(result.headers.get("location")).toBe("/api/storage/sftp-download?nodeId=node_1&path=sample.txt");
   });
 
-  it("uses a Windows-only key for its legacy signature format", async () => {
+  it.each([3, 4])("uses a Windows-only key for its legacy signature format at generation %d", async keyVersion => {
     requireApiPermissionMock.mockResolvedValueOnce({
       session: { userId: "u_1", roles: ["admin"], currentTeamId: null },
     });
     assertStorageAccessMock.mockResolvedValueOnce({ allowed: true });
     prismaMock.storageNode.findFirst.mockResolvedValueOnce(directNode({
       directAccessMode: "DIRECT", publicBaseUrl: "https://cdn.example.com",
-      basePath: "/C:/Data", serverId: "srv_1", server: { operatingSystem: "WINDOWS", directGatewayKeyVersion: 3, publicUrl: "https://cdn.example.com" },
+      basePath: "/C:/Data", serverId: "srv_1", server: { operatingSystem: "WINDOWS", directGatewayKeyVersion: keyVersion, hostKeySha256: "SHA256:server", publicUrl: "https://cdn.example.com" },
     }));
     const result = await GET(new Request("https://app.example.com/api/storage/direct-access?nodeId=node_1&path=sample.txt"));
     const url = new URL(result.headers.get("location") ?? "");
     const { deriveDirectGatewayServerKey } = await import("@/lib/server/direct-gateway-key");
-    expect(url.searchParams.get("signature")).toBe(crypto.createHmac("sha256", deriveDirectGatewayServerKey("test-secret", "srv_1", 3))
+    expect(url.searchParams.get("signature")).toBe(crypto.createHmac("sha256", deriveDirectGatewayServerKey("test-secret", "srv_1", keyVersion, "WINDOWS"))
       .update(`/sample.txt.${url.searchParams.get("expires")}`).digest("hex"));
   });
 

@@ -8,6 +8,7 @@ const { prismaMock } = vi.hoisted(() => ({
       create: vi.fn(),
       updateMany: vi.fn(),
     },
+    storageNode: { findMany: vi.fn(async () => []) },
     server: {
       findMany: vi.fn(),
     },

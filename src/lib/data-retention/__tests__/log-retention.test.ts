@@ -12,7 +12,7 @@ const delegates = vi.hoisted(() => {
 		cloudBillingSyncRun: make(),
 	};
 });
-vi.mock("@/lib/db", () => ({ prisma: delegates }));
+vi.mock("@/lib/db", () => ({ prisma: { ...delegates, $executeRaw: vi.fn() } }));
 vi.mock("@/lib/config/env", () => ({ config: { retention: { logRetentionDays: null } } }));
 
 import { LOG_RETENTION_TABLES, pruneLogTables } from "../log-retention";
@@ -40,6 +40,20 @@ describe("pruneLogTables", () => {
 		expect(delegates.mediaUploadSession.findMany.mock.calls[0]![0].where.status.in).not.toContain("UPLOADING");
 		expect(delegates.shareAccessLog.findMany.mock.calls[0]![0].where.accessedAt.lt).toEqual(daysAgo(180));
 		expect(delegates.serverAgentJob.deleteMany).toHaveBeenCalledWith({ where: { id: { in: ["j1", "j2"] } } });
+	});
+
+	it("rechecks terminal status, completed retention and category before deleting ITSM ids", async () => {
+		delegates.itsmEvent.findMany.mockResolvedValueOnce([{ id: "normal" }]).mockResolvedValueOnce([{ id: "rejected" }]);
+		await pruneLogTables({ now: NOW });
+		for (const [index, id, days] of [[0, "normal", 90], [1, "rejected", 7]] as const) {
+			const where = delegates.itsmEvent.findMany.mock.calls[index]![0].where;
+			expect(where).toEqual({
+				eventType: index === 0 ? { not: "security.rejected" } : "security.rejected",
+				OR: [{ status: { in: ["ok", "ignored"] } }, { status: "error", externalId: null }],
+				createdAt: { lt: daysAgo(days) }, payload: { path: ["terminalAtMs"], lt: daysAgo(days).getTime() },
+			});
+			expect(delegates.itsmEvent.deleteMany).toHaveBeenCalledWith({ where: { ...where, id: { in: [id] } } });
+		}
 	});
 
 	it("keeps upload sessions that await manual recovery", async () => {

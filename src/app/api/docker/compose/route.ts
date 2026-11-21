@@ -16,6 +16,7 @@ import {
 import { withApiRoute } from "@/lib/http/api-guard";
 import { COMMAND_LIMIT, GENERAL_READ_LIMIT } from "@/lib/http/rate-limit-presets";
 import { parseSearchParams } from "@/lib/http/parse-search-params";
+import type { SshEndpointIdentity } from "@/lib/ssh/server-connection-select";
 import { assertServerTeamAccess } from "@/lib/server/team-access";
 import { assertHubHostDockerAccess } from "@/lib/docker/hub-host-access";
 
@@ -41,16 +42,20 @@ export async function GET(request: Request) {
     },
     async ({ session }) => {
       const { serverId } = parseSearchParams(request, listQuerySchema);
+      let expectedTeamId: string | null | undefined;
+      let expectedEndpoint: SshEndpointIdentity | undefined;
       if (serverId) {
         const teamAccess = await assertServerTeamAccess(session, serverId, "connect");
         if (!teamAccess.ok) return teamAccess.response;
+        expectedTeamId = teamAccess.server.teamId;
+        expectedEndpoint = teamAccess.server;
       } else {
         // No serverId means the hub host's own daemon — shared platform
         // infrastructure, not this tenant's.
         const hubAccess = assertHubHostDockerAccess(session);
         if (!hubAccess.ok) return hubAccess.response;
       }
-      const result = await listComposeProjects(serverId);
+      const result = await listComposeProjects(serverId, expectedTeamId, expectedEndpoint);
       return NextResponse.json({
         projects: result.projects,
         dockerScope: result.scope,
@@ -72,9 +77,13 @@ export async function POST(request: Request) {
     },
     async ({ session, body }) => {
       const serverId = body.serverId?.trim() || undefined;
+      let expectedTeamId: string | null | undefined;
+      let expectedEndpoint: SshEndpointIdentity | undefined;
       if (serverId) {
         const teamAccess = await assertServerTeamAccess(session, serverId, "manage");
         if (!teamAccess.ok) return teamAccess.response;
+        expectedTeamId = teamAccess.server.teamId;
+        expectedEndpoint = teamAccess.server;
       } else {
         // `down` on a hub-host project can stop the platform itself.
         const hubAccess = assertHubHostDockerAccess(session);
@@ -85,7 +94,7 @@ export async function POST(request: Request) {
         result = await runComposeProjectAction({
           project: body.project,
           action: body.action,
-          serverId,
+          serverId, expectedTeamId, expectedEndpoint,
           removeVolumes: body.removeVolumes === true,
         });
       } catch (error) {

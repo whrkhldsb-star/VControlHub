@@ -7,6 +7,7 @@ import { getReadableStorageScope, readableStoragePath } from "@/lib/storage/read
 import { storageAccessDeniedCopy } from "@/lib/storage/access-denied";
 import { listStorageNodes } from "@/lib/storage/service-nodes";
 import { listFileEntries } from "@/lib/storage/service-entries";
+import { isStorageStagingPath } from "@/lib/storage/staging-paths";
 import { getFileIndexStatisticsCached } from "@/lib/storage/service-statistics";
 import {
   getStorageAccessCapabilities,
@@ -106,7 +107,7 @@ export async function getFilesListing(
     : undefined;
   if (nodeId && !selectedNode)
     throw new NotFoundError(apiCopy("apiCopy.storage.node.not.found.3b3ec488"));
-  if (!nodeId && currentPath) throw new NotFoundError(apiCopy("apiCopy.directory.not.found.33df1f77"));
+  if ((!nodeId && currentPath) || isStorageStagingPath(currentPath)) throw new NotFoundError(apiCopy("apiCopy.directory.not.found.33df1f77"));
   if (selectedNode && !readableStoragePath(readable, nodeId, currentPath, true)) {
     throw new ForbiddenError(storageAccessDeniedCopy("no_access"));
   }
@@ -207,9 +208,7 @@ export async function getFilesListing(
           .then((rows) => new Set(rows.map((row) => row.fileEntryId)))
       : Promise.resolve(new Set<string>()),
   ]);
-  if (readable) {
-    for (const node of nodes) node.fileCount = folderCounts.get(`${node.id}:`)?.fileCount ?? 0;
-  }
+  for (const node of nodes) node.fileCount = folderCounts.get(`${node.id}:`)?.fileCount ?? 0;
   const virtualPath = (row: { storageNodeId: string; relativePath: string }) =>
     selectedNode
       ? row.relativePath

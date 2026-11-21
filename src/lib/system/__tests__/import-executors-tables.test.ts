@@ -413,13 +413,14 @@ describe("importAlertRules", () => {
   const rule = (webhookUrl: string | null) => ({ id: "r1", name: "CPU", metric: "cpu", operator: "gt", threshold: 90, durationSeconds: 60, serverIds: [], notifyChannels: ["webhook"], playbookIds: [], webhookUrl, cooldownMinutes: 5, silenceWindows: [], escalationMinutes: 30, onCallUserIds: [], enabled: true, teamId: null, createdAt: "2026-01-01T00:00:00.000Z" });
   const ruleTx = () => {
     const update = vi.fn().mockResolvedValue({});
-    return { update, tx: { alertRule: { findMany: vi.fn().mockResolvedValue([{ id: "r1" }]), createMany: vi.fn().mockResolvedValue({ count: 0 }), update } } as unknown as Tx };
+    return { update, tx: { alertRule: { findMany: vi.fn().mockResolvedValue([{ id: "r1", teamId: null }]), createMany: vi.fn().mockResolvedValue({ count: 0 }), update } } as unknown as Tx };
   };
 
   // The standard export leaves webhook addresses out; overwriting from it must not wipe the one the rule has.
   it("keeps a rule's webhook address when a standard export overwrites it", async () => {
     const { tx, update } = ruleTx();
     await importAlertRules(tx, tables({ alertRules: [rule(null)] }), OVERWRITE, counts(), "standard");
+    expect(update.mock.calls[0]![0].where).toEqual({ id: "r1", teamId: null });
     expect(update.mock.calls[0]![0].data).not.toHaveProperty("webhookUrl");
   });
 

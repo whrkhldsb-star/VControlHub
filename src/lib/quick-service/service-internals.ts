@@ -13,12 +13,17 @@ import { apiCopy } from "@/lib/i18n/api-copy";
  */
 import { execFile } from "child_process";
 import net from "node:net";
-import { mkdirSync, rmSync } from "node:fs";
+import path, { posix } from "node:path";
+import type { Prisma } from "@prisma/client";
+import type { DockerTarget } from "./docker-cli";
+import { isQuickServiceTargetConsistent, quickServiceEndpointFingerprint } from "./target-identity";
+import { SSH_ENDPOINT_IDENTITY_SELECT } from "@/lib/ssh/server-connection-select";
+import { mkdirSync, realpathSync, rmSync } from "node:fs";
 import { promisify } from "node:util";
 
 import { writeAuditLog } from "@/lib/audit/service";
 import { prisma } from "@/lib/db";
-import { BusinessError, ConflictError, ValidationError } from "@/lib/errors";
+import { BusinessError, ConflictError, ForbiddenError, ValidationError } from "@/lib/errors";
 import { createLogger } from "@/lib/logging";
 import { isValidTcpPort } from "@/lib/runtime/listen-port";
 import type { ServiceTemplate } from "./types";
@@ -118,7 +123,7 @@ function normalizeVolumeEndpoint(value: unknown, label: string) {
 	if (!trimmed.startsWith("/") || trimmed.includes("\0") || trimmed.includes("..")) {
 		throw new ValidationError(apiCopy("apiCopy.path.is.invalid.fd173ea1", { v0: String(label) }));
 	}
-	return trimmed.replace(/\/+$/, "") || "/";
+	return posix.normalize(trimmed).replace(/\/+$/, "") || "/";
 }
 
 function splitContainerPathAndOptions(raw: string) {
@@ -152,21 +157,65 @@ function isRemovableHostVolume(hostPath: string) {
 	return HOST_VOLUME_ROOTS.some((root) => hostPath.startsWith(root));
 }
 
-export function getRemovableHostVolumes(rawVolumesJson: string | null | undefined) {
-	let volumes: Array<{ host?: unknown }> = [];
+function hostVolumePaths(rawVolumesJson: string) {
+	const volumes: unknown = JSON.parse(rawVolumesJson);
+	if (!Array.isArray(volumes)) throw new ValidationError(t("backend.quickService.unreadableVolumes"));
+	return volumes.map((volume: { host: unknown }) => normalizeVolumeEndpoint(volume?.host, "Host mount"));
+}
+
+export function getRemovableHostVolumes(rawVolumesJson: string) {
+	return [...new Set(hostVolumePaths(rawVolumesJson).filter(isRemovableHostVolume))];
+}
+
+// Docker bind mounts follow links in host paths. Resolve existing ancestors
+// even when a service has not created its final data directory yet.
+function physicalHostPath(host: string): string {
 	try {
-		const parsed = JSON.parse(rawVolumesJson || "[]");
-		if (Array.isArray(parsed)) volumes = parsed;
-	} catch {
-		return [];
+		return realpathSync.native(host);
+	} catch (error) {
+		const parent = path.dirname(host);
+		if ((error as NodeJS.ErrnoException).code !== "ENOENT" || parent === host) throw error;
+		return path.join(physicalHostPath(parent), path.basename(host));
 	}
-	const paths = new Set<string>();
-	for (const vol of volumes) {
-		if (typeof vol.host !== "string") continue;
-		const host = normalizeVolumeEndpoint(vol.host, "Host mount");
-		if (isRemovableHostVolume(host)) paths.add(host);
+}
+
+function containsPath(parent: string, child: string) {
+	const relative = path.relative(parent, child);
+	return relative === "" || (relative !== ".." && !relative.startsWith(".." + path.sep) && !path.isAbsolute(relative));
+}
+
+export async function assertExclusiveHostVolumes(
+	serviceId: string,
+	paths: string[],
+	db: Pick<Prisma.TransactionClient, "quickService"> = prisma,
+) {
+	if (!paths.length) return;
+	const candidates = paths.map(host => ({ host, physical: physicalHostPath(host) }));
+	for (const { host, physical } of candidates) {
+		if (process.platform !== "win32" && !isRemovableHostVolume(physical)) {
+			throw new ConflictError(t("backend.quick-service.hostMountOutsideAllowedRoots", { path: host }));
+		}
 	}
-	return [...paths];
+	const others = await db.quickService.findMany({ where: { id: { not: serviceId }, OR: [{ instanceKey: "hub-host" }, { serverId: null }] }, select: { volumesJson: true } });
+	for (const other of others) {
+		for (const host of hostVolumePaths(other.volumesJson)) {
+			const physical = physicalHostPath(host);
+			const overlap = candidates.find(candidate => containsPath(physical, candidate.physical) || containsPath(candidate.physical, physical)
+				|| containsPath(host, candidate.host) || containsPath(candidate.host, host));
+			if (overlap) throw new ConflictError(t("backend.quickService.volumeInUse", { path: overlap.host }));
+		}
+	}
+}
+
+export async function removeExclusiveHostVolumes(serviceId: string, paths: string[]) {
+	if (!paths.length) return;
+	await prisma.$transaction(async (tx) => {
+		// Protect the last reference check and removal against concurrent inserts
+		// and volume changes, including those from another worker.
+		await tx.$executeRaw`LOCK TABLE "quick_services" IN SHARE MODE`;
+		await assertExclusiveHostVolumes(serviceId, paths, tx);
+		for (const path of paths) rmSync(path, { recursive: true, force: true });
+	});
 }
 
 export function validateTemplate(template: ServiceTemplate) {
@@ -236,7 +285,6 @@ export const __internals = {
 	normalizeVolumeEndpoint,
 	splitContainerPathAndOptions,
 	mkdirSync,
-	rmSync,
 	TRUSTED_HOST_MOUNTS,
 	DOCKER_SOCKET,
 };
@@ -248,19 +296,7 @@ export type QuickServiceDiff = {
 	after?: Record<string, unknown> | null;
 };
 
-export type QuickServiceSnapshot = {
-	status: string;
-	port: number;
-	containerId: string | null;
-	image: string;
-	path: string;
-	internalPort: number | null;
-	extraPortsJson: string;
-	command: string | null;
-	envJson: string;
-	volumesJson: string;
-	error?: string;
-};
+export type QuickServiceSnapshot = NonNullable<Awaited<ReturnType<typeof readQuickServiceSnapshot>>>;
 
 /**
  * What an audit entry may keep of a service's configuration: the environment is stored with its generated
@@ -281,6 +317,7 @@ export function redactSnapshotForAudit(snapshot: Record<string, unknown> | null 
 export async function writeQuickServiceAudit(input: {
 	/** The server the service runs on (its id), or the hub host: the entry belongs to that server's customer. */
 	instanceKey?: string;
+	target?: DockerTarget;
 	userId?: string | null;
 	action: "install" | "start" | "stop" | "sync" | "update" | "uninstall";
 	slug: string;
@@ -298,7 +335,8 @@ export async function writeQuickServiceAudit(input: {
 			detail.diff = { before: redactSnapshotForAudit(input.diff.before), after: redactSnapshotForAudit(input.diff.after) } as unknown as PrismaJsonValue;
 		}
 		// The customer's own audit page lists entries by team; these used to carry none, so only the platform saw them.
-		const teamId = input.instanceKey && input.instanceKey !== "hub-host"
+		const teamId = input.target?.kind === "remote" ? input.target.expectedTeamId
+			: input.instanceKey && input.instanceKey !== "hub-host"
 			? (await prisma.server.findUnique({ where: { id: input.instanceKey }, select: { teamId: true } }))?.teamId ?? null
 			: undefined;
 		await writeAuditLog({
@@ -321,41 +359,34 @@ export async function writeQuickServiceAudit(input: {
  * audit log can render a real "before/after" diff. Returns null for new
  * slugs that have never been installed.
  */
-export async function captureQuickServiceSnapshot(slug: string, instanceKey: string = "hub-host"): Promise<QuickServiceSnapshot | null> {
+export async function readQuickServiceSnapshot(slug: string, instanceKey: string, target?: DockerTarget) {
+	const row = await prisma.quickService.findUnique({
+		where: { instanceKey_slug: { instanceKey, slug } },
+		select: {
+			id: true, slug: true, instanceKey: true, serverId: true,
+			server: target?.kind === "remote" ? { select: { teamId: true, ...SSH_ENDPOINT_IDENTITY_SELECT } } : false,
+			status: true, port: true, containerId: true, image: true, path: true, internalPort: true,
+			extraPortsJson: true, command: true, envJson: true, volumesJson: true, error: true,
+		},
+	});
+	if (!row) return null;
+	if (row.slug !== slug || row.instanceKey !== instanceKey || !isQuickServiceTargetConsistent(instanceKey, row.serverId)) {
+		throw new ForbiddenError(t("backend.quickService.targetMismatch"));
+	}
+	const { server, ...snapshot } = row;
+	if (target?.kind === "remote" && target.expectedTeamId !== undefined && (!server || target.expectedTeamId !== server.teamId ||
+		(target.endpoint && quickServiceEndpointFingerprint(target.endpoint) !== quickServiceEndpointFingerprint(server)))) {
+		throw new ForbiddenError(t("backend.command.connectionChanged"));
+	}
+	return snapshot;
+}
+
+export async function captureQuickServiceSnapshot(slug: string, instanceKey: string = "hub-host", target?: DockerTarget) {
 	try {
-		const row = await prisma.quickService.findUnique({
-			where: { instanceKey_slug: { instanceKey, slug } },
-			select: {
-				status: true,
-				port: true,
-				containerId: true,
-				image: true,
-				path: true,
-				internalPort: true,
-				extraPortsJson: true,
-				command: true,
-				envJson: true,
-				volumesJson: true,
-				error: true,
-			},
-		});
-		if (!row) return null;
-		return {
-			status: row.status,
-			port: row.port,
-			containerId: row.containerId,
-			image: row.image,
-			path: row.path,
-			internalPort: row.internalPort,
-			extraPortsJson: row.extraPortsJson,
-			command: row.command,
-			envJson: row.envJson,
-			volumesJson: row.volumesJson,
-			...(row.error ? { error: row.error } : {}),
-		};
+		return await readQuickServiceSnapshot(slug, instanceKey, target);
 	} catch {
-		// Snapshot failures must not block the operation itself; an empty
-		// diff is preferable to dropping the audit entry.
+		// A missing audit diff does not prevent a lifecycle operation. Installs
+		// need the actual rollback state and use the strict reader directly.
 		return null;
 	}
 }

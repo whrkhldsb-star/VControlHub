@@ -62,6 +62,19 @@ describe("advisory-lock service", () => {
     expect(mocks.release).toHaveBeenCalledTimes(1);
   });
 
+  it("protects a publish against concurrent ancestor deletion without excluding sibling writes", async () => {
+    const { lockStorageFileOverwrite } = await import("@/lib/storage/file-overwrite-lock");
+    mocks.query.mockResolvedValue({ rows: [{ unlocked: true }] });
+    const unlock = await lockStorageFileOverwrite("node", "album/sub/image");
+    const namespace = 45073;
+    for (const ancestor of ["album", "album/sub"]) {
+      expect(mocks.query).toHaveBeenCalledWith("SELECT pg_advisory_lock_shared($1, $2)", [namespace, hashToInt32(`node:${ancestor}`)]);
+    }
+    expect(mocks.query).toHaveBeenCalledWith("SELECT pg_advisory_lock($1, $2)", [namespace, hashToInt32("node:album/sub/image")]);
+    await unlock();
+    expect(mocks.query).toHaveBeenCalledWith("SELECT pg_advisory_unlock_shared($1, $2) AS unlocked", [namespace, hashToInt32("node:album")]);
+  });
+
   it("releases the client immediately when a non-blocking lock is busy", async () => {
     mocks.query.mockResolvedValueOnce({ rows: [{ acquired: false }] });
     await expect(tryAcquireAdvisoryLock("vps-backup-schedule", "global")).resolves.toBeNull();

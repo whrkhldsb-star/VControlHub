@@ -24,6 +24,7 @@ describe("resolveStorageSshCredentials host key pin", () => {
   it("follows the server's pin for a node that takes its host from a Linux server", () => {
     // The server's key was approved again after a reinstall; the copy the node kept is the old one.
     const credentials = resolveStorageSshCredentials({ teamId: null, host: null, port: null, username: null, hostKeySha256: "SHA256:old-key", server: server() });
+    expect(credentials.enforceHostKeyPin).toBe(true);
     expect(credentials.hostKeySha256).toBe("SHA256:new-key");
   });
 

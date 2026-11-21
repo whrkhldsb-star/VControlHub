@@ -5,13 +5,11 @@
  * build itself when it is idle (agentSelfUpdateFor); older ones keep theirs until they are installed again
  * over SSH, and Windows Agents until a new install command is run.
  *
- * Linux 1.5.2: a stop that arrives while a command is being started, or while its result is put together, no
- * longer leaves the command running and unreported (the hub waited out its lease).
+ * Both builds stop a running job when the hub rejects its heartbeat credentials.
  */
-export const AGENT_VERSION = "1.5.2";
+export const AGENT_VERSION = "1.5.3";
 
-/** The Windows (PowerShell) Agent build: bounds stdout and stderr while reading. */
-export const WINDOWS_AGENT_VERSION = "1.5.3";
+export const WINDOWS_AGENT_VERSION = "1.5.4";
 
 export type AgentPlatform = "linux" | "windows";
 

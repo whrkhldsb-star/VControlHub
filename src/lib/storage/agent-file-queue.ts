@@ -2,7 +2,7 @@ import { createHash, randomBytes } from "node:crypto";
 import { setTimeout as delay } from "node:timers/promises";
 import { Prisma } from "@prisma/client";
 import { prisma } from "@/lib/db";
-import { BusinessError, ForbiddenError } from "@/lib/errors";
+import { BusinessError, ConflictError, ForbiddenError } from "@/lib/errors";
 import { t } from "@/lib/i18n/service-translations";
 import { teamWhere, serverTeamWhere } from "@/lib/auth/team-scope";
 import type { SessionPayload } from "@/lib/auth/session";
@@ -37,6 +37,18 @@ export async function pairFileShare(nodeId: string, session: SessionPayload) {
     });
     if (!share?.server.agentTokenHash || share.server.teamId !== share.node.teamId) throw unavailable();
     const token = `vcf_${share.id}_${randomBytes(32).toString("hex")}`;
+    // Node deletion and reconfiguration claim the node before its file binding.
+    await tx.storageNode.update({
+      where: { id: nodeId },
+      data: {
+        lastHealthyAt: null,
+        lastHealthyTransport: null,
+        healthStatus: "UNKNOWN",
+        lastHealthCheckAt: null,
+        lastHealthError: null,
+        lastHealthLatencyMs: null,
+      },
+    });
     await tx.agentFileShare.update({
       where: { id: share.id, serverId: binding.serverId, storageNodeId: nodeId },
       data: {
@@ -50,36 +62,35 @@ export async function pairFileShare(nodeId: string, session: SessionPayload) {
         lastWriteAt: null,
       },
     });
-    await tx.storageNode.update({
-      where: { id: nodeId },
-      data: {
-        lastHealthyAt: null,
-        lastHealthyTransport: null,
-        healthStatus: "UNKNOWN",
-        lastHealthCheckAt: null,
-        lastHealthError: null,
-        lastHealthLatencyMs: null,
-      },
-    });
     await tx.shareLink.updateMany({ where: { storageNodeId: nodeId, revokedAt: null }, data: { revokedAt: new Date() } });
     await tx.agentFileCall.deleteMany({ where: { shareId: share.id } });
     return token;
   });
 }
 
-// Lock all three records until the enqueue or claim commits. Re-pairing, moving a
-// drive or revoking a management identity cannot expose old work to its successor.
+// Each stage needs the preceding locked row. Pairing, transfer and node deletion
+// can therefore take the same server, node and binding locks without a cycle.
 async function liveChannel(tx: Tx, by: { nodeId?: string; hash?: string; serverId?: string }) {
   const rows = await tx.$queryRaw<Array<Channel & { seenAt: Date | null; rootIdentity: string | null }>>`
-    SELECT sh.id, sh."tokenHash", sh.writable, sh."seenAt", sh."rootIdentity" FROM agent_file_shares sh
-    JOIN servers s ON s.id = sh."serverId" JOIN "StorageNode" n ON n.id = sh."storageNodeId"
-    WHERE ${by.nodeId ? Prisma.sql`n.id = ${by.nodeId}` : Prisma.sql`sh."tokenHash" = ${by.hash}`}
-      ${by.serverId ? Prisma.sql`AND s.id = ${by.serverId}` : Prisma.empty}
-      AND n.driver = 'AGENT' AND s.enabled AND s."managementMode" = 'AGENT'
-      AND sh."tokenHash" IS NOT NULL AND sh."agentHash" = s."agentTokenHash"
-      AND s."teamId" IS NOT DISTINCT FROM n."teamId" AND sh."teamId" IS NOT DISTINCT FROM n."teamId"
-      AND NOT EXISTS (SELECT 1 FROM teams WHERE id = n."teamId" AND "deletedAt" IS NOT NULL)
-    FOR UPDATE OF sh FOR SHARE OF s,n`;
+    WITH locked_server AS MATERIALIZED (
+      SELECT s.id AS "serverId", s."teamId", s."agentTokenHash", sh.id AS "shareId", sh."storageNodeId", sh."tokenHash"
+      FROM servers s JOIN agent_file_shares sh ON sh."serverId" = s.id
+      WHERE ${by.nodeId ? Prisma.sql`sh."storageNodeId" = ${by.nodeId}` : Prisma.sql`sh."tokenHash" = ${by.hash}`}
+        ${by.serverId ? Prisma.sql`AND s.id = ${by.serverId}` : Prisma.empty}
+        AND s.enabled AND s."managementMode" = 'AGENT'
+      FOR SHARE OF s
+    ), locked_node AS MATERIALIZED (
+      SELECT s.* FROM locked_server s JOIN "StorageNode" n ON n.id = s."storageNodeId"
+      WHERE n.driver = 'AGENT' AND n."teamId" IS NOT DISTINCT FROM s."teamId"
+        AND NOT EXISTS (SELECT 1 FROM teams WHERE id = n."teamId" AND "deletedAt" IS NOT NULL)
+      FOR SHARE OF n
+    )
+    SELECT sh.id, sh."tokenHash", sh.writable, sh."seenAt", sh."rootIdentity"
+    FROM locked_node n JOIN agent_file_shares sh ON sh.id = n."shareId"
+    WHERE sh."serverId" = n."serverId" AND sh."storageNodeId" = n."storageNodeId"
+      AND sh."tokenHash" = n."tokenHash" AND sh."agentHash" = n."agentTokenHash"
+      AND sh."teamId" IS NOT DISTINCT FROM n."teamId"
+    FOR UPDATE OF sh`;
   return rows[0];
 }
 
@@ -119,6 +130,10 @@ export async function callFileAgent(nodeId: string, channel: Channel, payload: P
         const reply = row.result as Record<string, unknown>;
         if (reply.error === "missing")
           throw Object.assign(new Error(t("backend.fileAgent.missing")), { code: "ENOENT" });
+        if (payload.op === "rmdir") {
+          if (reply.error === "exists") throw new ConflictError(t("backend.storage.recycledDirectoryConflict"));
+          if (reply.error === "changed") throw new ConflictError(t("backend.storage.recycleBatchChanged"));
+        }
         if (reply.error === "invalid" && payload.op === "copy-step") throw new BusinessError(t("backend.fileAgent.copyUpgrade"));
         if (reply.error) throw new BusinessError(t("backend.fileAgent.refused"));
         return reply;

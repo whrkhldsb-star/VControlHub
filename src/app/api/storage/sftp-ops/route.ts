@@ -24,6 +24,9 @@ import {
   normalizeRemoteRelativePath,
   toClientStorageError,
 } from "@/lib/storage/remote-path";
+import { outsideDeleteBatchWhere } from "@/lib/files/recycle-bin";
+import { acquireAdvisoryLock } from "@/lib/concurrency/advisory-lock";
+import { previousFileIndexFields, writeFileIndex } from "@/lib/storage/file-write-index";
 import { createLogger } from "@/lib/logging";
 import { GENERAL_WRITE_LIMIT } from "@/lib/http/rate-limit-presets";
 import { guessContentType } from "@/lib/http/mime-types";
@@ -31,6 +34,7 @@ import { withApiRoute } from "@/lib/http/api-guard";
 import { MAX_EDITABLE_FILE_SIZE_BYTES, MAX_INLINE_REMOTE_READ_BYTES } from "@/lib/storage/mime-constants";
 import {
   sftpOpsBodySchema,
+  validateStorageFileIndex,
   type SftpOpsBody,
 } from "@/lib/storage/schema";
 
@@ -41,34 +45,6 @@ import { moveSharePaths } from "@/lib/share-link/follow-path";
 import { snapshotFileVersionBeforeOverwrite } from "@/lib/storage/file-versions";
 import { lockStorageFileOverwrite } from "@/lib/storage/file-overwrite-lock";
 const logger = createLogger("api:storage:sftp-ops");
-
-async function upsertSftpFileIndex(params: {
-  storageNodeId: string;
-  relativePath: string;
-  existingId?: string;
-  content: string;
-}) {
-  const target = { storageNodeId: params.storageNodeId, relativePath: params.relativePath };
-  const data = {
-    name: path.posix.basename(params.relativePath),
-    mimeType: guessContentType(params.relativePath),
-    size: BigInt(Buffer.byteLength(params.content)),
-    checksumSha256: null,
-  };
-  // A delete racing the physical write reserves the row for restore.
-  if (params.existingId) {
-    await prisma.fileEntry.update({
-      where: { id: params.existingId, ...target, isDeleted: false, entryType: "FILE" },
-      data,
-    });
-    return;
-  }
-  await prisma.fileEntry.upsert({
-    where: { storageNodeId_relativePath: target, isDeleted: false, entryType: "FILE" },
-    update: data,
-    create: { ...target, ...data, entryType: "FILE" },
-  });
-}
 
 /** Hard cap for directory-descendant rewrites. Hitting the cap must fail closed. */
 const DIRECTORY_CHILD_REWRITE_LIMIT = 10_000;
@@ -251,7 +227,8 @@ async function handlePost(body: SftpOpsBody, session: SessionPayload) {
     );
   }
   let renameAdmission: Awaited<ReturnType<typeof assertStorageAccess>> | undefined;
-  let releaseRenameLock: (() => Promise<void>) | undefined;
+  let releaseDeleteTreeLock: (() => Promise<void>) | undefined;
+  let releasePathLock: (() => Promise<void>) | undefined;
   // Everything after the access check runs inside the try that releases the
   // grant's quota lock: a containment failure returned (or threw) here and
   // kept that lock — and its pooled connection — until the process restarted.
@@ -270,6 +247,8 @@ async function handlePost(body: SftpOpsBody, session: SessionPayload) {
   try {
     switch (action) {
       case "delete": {
+        releaseDeleteTreeLock = await acquireAdvisoryLock("storage-file-operation", node.id);
+        releasePathLock = await lockStorageFileOverwrite(node.id, normalizedRelativePath);
         // Trust the live file index for directory vs file when present; never
         // let the client force recursive soft-delete by lying about entryType.
         const isDirectory = await resolveIndexedIsDirectory(
@@ -277,6 +256,16 @@ async function handlePost(body: SftpOpsBody, session: SessionPayload) {
           normalizedRelativePath,
           body.isDirectory,
         );
+        await assertNotRecycled(node.id, normalizedRelativePath, "write");
+        if (isDirectory) {
+          const recycled = await prisma.fileEntry.findFirst({
+            where: outsideDeleteBatchWhere(node.id, normalizedRelativePath),
+            select: { relativePath: true },
+          });
+          if (recycled) {
+            throw new ConflictError(t("backend.webdav.destinationHeldByRecycleBin", { path: `/${recycled.relativePath}` }));
+          }
+        }
         // Index-first: mark DB entries as deleted before removing the physical
         // backing object. If the physical delete fails, the index is already
         // soft-deleted so the UI no longer shows the entry — but the file
@@ -340,7 +329,7 @@ async function handlePost(body: SftpOpsBody, session: SessionPayload) {
         if (!renameAdmission.allowed) {
           return NextResponse.json({ error: storageAccessDeniedCopy(renameAdmission.reason) }, { status: 403 });
         }
-        releaseRenameLock = await lockStorageFileOverwrite(node.id, normalizedNewRelativePath, normalizedRelativePath);
+        releasePathLock = await lockStorageFileOverwrite(node.id, normalizedNewRelativePath, normalizedRelativePath);
         await assertNotRecycled(node.id, normalizedRelativePath, "write");
         await assertNotRecycled(node.id, normalizedNewRelativePath, "write");
         if (renameAdmission.matchedGrantId && size != null) {
@@ -507,6 +496,10 @@ async function handlePost(body: SftpOpsBody, session: SessionPayload) {
             { status: 413 },
           );
         }
+        const index = validateStorageFileIndex({
+          storageNodeId: node.id, relativePath: normalizedRelativePath,
+          size: writeBytes, mimeType: guessContentType(normalizedRelativePath),
+        });
         // Optimistic lock. The LOCAL editable route (`PUT /api/files/editable/[id]`)
         // has always refused a write whose `expectedLastModifiedMs` no longer
         // matches the file on disk; this path had no equivalent, so two people
@@ -540,8 +533,11 @@ async function handlePost(body: SftpOpsBody, session: SessionPayload) {
             storageNodeId: node.id,
             relativePath: normalizedRelativePath,
           },
-          select: { id: true, isDeleted: true },
+          select: previousFileIndexFields,
         });
+        if (previousStat?.isDirectory || indexed?.entryType === "DIRECTORY") {
+          throw new ConflictError(t("backend.webdav.cannotOverwriteACollectionWithAFile"));
+        }
         // A recycle-bin file keeps its bytes at its path. Writing over it destroyed what a restore would bring back,
         // and the upsert revived the row half-way; every other upload path refuses this.
         if (indexed?.isDeleted) {
@@ -558,44 +554,20 @@ async function handlePost(body: SftpOpsBody, session: SessionPayload) {
             note: "Before text editor save",
           }).catch(() => undefined);
         }
-        const { byteSize: writtenSize } = await writeBackingObject({
-          storageNode: node,
-          relativePath: normalizedRelativePath,
-          content: body.content,
-        });
+        let rollback: Awaited<ReturnType<typeof writeFileIndex>>;
         try {
-          await upsertSftpFileIndex({
-            existingId: indexed?.id,
-            storageNodeId: node.id,
-            relativePath: normalizedRelativePath,
-            content: body.content,
-          });
-        } catch (indexError) {
-          if (isUniqueViolation(indexError) || (indexError as NodeJS.ErrnoException)?.code === "P2025") {
+          rollback = await writeFileIndex(index, indexed);
+        } catch (error) {
+          if (isUniqueViolation(error) || (error as NodeJS.ErrnoException)?.code === "P2025") {
             throw new ConflictError(t("backend.storage.editableFileUpdatedByOther"));
           }
-          // Inventory can lag behind the remote filesystem. Only clean up a new file.
-          if (!indexed && previousStat === null) {
-            try {
-              await deleteBackingObject({
-                storageNode: node,
-                relativePath: normalizedRelativePath,
-                isDirectory: false,
-                tolerateMissing: true,
-              });
-            } catch (cleanupError) {
-              logger.warn("failed to clean up remote file after index persistence failed", cleanupError, {
-                nodeId,
-                relativePath: normalizedRelativePath,
-              });
-            }
-          } else {
-            logger.warn("index upsert failed after overwrite; left remote content in place", {
-              nodeId,
-              relativePath: normalizedRelativePath,
-            });
-          }
-          throw indexError;
+          throw error;
+        }
+        try {
+          await writeBackingObject({ storageNode: node, relativePath: normalizedRelativePath, content: body.content });
+        } catch (error) {
+          await rollback();
+          throw error;
         }
         // Hand back the post-write mtime so the editor's *next* save carries a
         // token matching what is now on the remote. Reusing the local clock here
@@ -606,7 +578,7 @@ async function handlePost(body: SftpOpsBody, session: SessionPayload) {
         });
         return NextResponse.json({
           success: true,
-          byteSize: writtenSize,
+          byteSize: writeBytes,
           lastModifiedMs: afterWriteStat?.lastModifiedMs ?? null,
         });
         } finally {
@@ -633,7 +605,8 @@ async function handlePost(body: SftpOpsBody, session: SessionPayload) {
     );
   }
   } finally {
-    try { await releaseRenameLock?.(); } finally {
+    try { await releasePathLock?.(); } finally {
+      await releaseDeleteTreeLock?.();
       if (renameAdmission) await releaseStorageQuotaGuard(renameAdmission);
       await releaseStorageQuotaGuard(accessDecision);
     }

@@ -7,6 +7,7 @@ import { apiCopy } from "@/lib/i18n/api-copy";
  * Extracted from route.ts for maintainability.
  */
 
+import type { Prisma } from "@prisma/client";
 import { prisma } from "@/lib/db";
 import { createLogger, logError } from "@/lib/logging";
 
@@ -42,6 +43,7 @@ import {
 import { executionRefusal, loadExecutionActor } from "@/lib/auth/execution-actor";
 import { lockStorageFileOverwrite } from "@/lib/storage/file-overwrite-lock";
 import { assertRemotePathContained } from "@/lib/storage/remote-containment";
+import { resolveStorageSshCredentials, STORAGE_SSH_SERVER_SELECT, type StorageSshCredentialNode } from "@/lib/storage/ssh-credentials";
 import { resolveDownloadTargetPath } from "./target-path";
 import { assertNotRecycled } from "@/lib/storage/archive-access";
 import { BusinessError } from "@/lib/errors";
@@ -450,6 +452,37 @@ export function relayExceedsLimits(files: Array<{ size: number }>, limits: Stora
   || (limits.remainingBytes !== null && total > limits.remainingBytes);
 }
 
+/** Detached processes are controlled via the bound server throughout their lifetime. */
+export function resolveBoundDownloadEndpoint(node: StorageSshCredentialNode) {
+ const endpoint = resolveStorageSshCredentials(node);
+ const server = node.server;
+ if (!server || endpoint.host.toLowerCase() !== server.host.toLowerCase() || endpoint.port !== server.port
+  || endpoint.username !== server.username || endpoint.hostKeySha256 !== server.hostKeySha256) {
+  throw new BusinessError(t("backend.downloads.storageEndpointMismatch"));
+ }
+ return endpoint;
+}
+
+async function verifyRelayDestination(db: Pick<Prisma.TransactionClient, "storageNode">, server: DownloadServer,
+ node: { id: string; basePath: string | null }) {
+ const current = await db.storageNode.findFirst({
+  where: { id: node.id, driver: "SFTP", serverId: server.id, teamId: server.teamId,
+   server: { enabled: true, teamId: server.teamId } },
+  select: { basePath: true, teamId: true, host: true, port: true, username: true, hostKeySha256: true,
+   server: { select: STORAGE_SSH_SERVER_SELECT } },
+ });
+ if (!current?.server || current.basePath !== node.basePath
+  || current.server.operatingSystem !== server.operatingSystem || current.server.managementMode !== server.managementMode) {
+  throw new BusinessError(t("backend.downloads.taskStorageMissing"));
+ }
+ const endpoint = resolveBoundDownloadEndpoint(current);
+ if (endpoint.host.toLowerCase() !== server.host.toLowerCase() || endpoint.port !== server.port
+  || endpoint.username !== server.username || endpoint.hostKeySha256 !== server.hostKeySha256
+  || endpoint.connectionType !== server.connectionType) {
+  throw new BusinessError(t("backend.downloads.storageEndpointMismatch"));
+ }
+}
+
 /** Re-admit the actual file and hold the quota and overwrite locks through its index update. */
 async function publishSftpDownloadFile(taskId: string, server: DownloadServer, targetPath: string,
  localPath: string, file: TransferManifest["files"][number], signal?: AbortSignal) {
@@ -471,13 +504,26 @@ async function publishSftpDownloadFile(taskId: string, server: DownloadServer, t
   try {
    signal?.throwIfAborted();
    await assertNotRecycled(node.id, relative, "write");
+   await verifyRelayDestination(prisma, server, node);
    const params = await buildSshParamsFromServer(server, server.sshKey);
    const remote = await assertRemotePathContained(params, resolveDownloadTargetPath(node.basePath, ""), toRemoteChildPath(targetPath, file.name));
    const mkdir = await execRemoteCommand({ ...params, command: `mkdir -p -- ${shellQuote(path.posix.dirname(remote))}`, timeout: 15000, signal });
    if (mkdir.exitCode !== 0) throw new Error("Cannot prepare relay destination");
-   await transferFileViaSsh2(server, localPath, remote, taskId, signal, file.sha256);
-   await indexDownloadedFileEntry({ storageNode: node, targetPath: path.posix.dirname(toRemoteChildPath(targetPath, file.name)),
-    fileName: path.posix.basename(file.name), size: file.size });
+   // Stage and checksum the file outside the transaction. Pin the current binding
+   // across the final rename and index write, including a recovered, already-published file.
+   await transferFileViaSsh2(server, localPath, remote, taskId, signal, file.sha256, async rename => {
+    await prisma.$transaction(async tx => {
+     const binding = await tx.$queryRaw<{ id: string }[]>`
+      SELECT n.id FROM "StorageNode" n JOIN servers s ON s.id = n."serverId"
+      WHERE n.id = ${node.id} AND s.id = ${server.id} FOR SHARE OF n, s`;
+     if (!binding.length) throw new BusinessError(t("backend.downloads.taskStorageMissing"));
+     await verifyRelayDestination(tx, server, node);
+     signal?.throwIfAborted();
+     await rename();
+     await indexDownloadedFileEntry({ storageNode: node, targetPath: path.posix.dirname(toRemoteChildPath(targetPath, file.name)),
+      fileName: path.posix.basename(file.name), size: file.size }, tx);
+    }, { timeout: 30000 });
+   });
   } finally { await unlock(); }
  } finally { await releaseStorageQuotaGuard(admission); }
 }
@@ -554,17 +600,20 @@ maxSpeedKb?: number | null,
   if (!resolved.ok) throw new DownloadSourceRejectedError(resolved.reason);
 
   const finalName = fileName || deriveDownloadFileNameFromUrl(url) || "download";
-  if (server.storageNode) {
-   const relative = relativePathFromDownloadTarget(server.storageNode.basePath, targetPath, finalName);
-   if (!relative) throw new BusinessError(t("backend.downloads.taskStorageMissing"));
-   await assertNotRecycled(server.storageNode.id, relative, "write");
-  }
+  const node = server.storageNode;
+  if (!node) throw new BusinessError(t("backend.downloads.taskStorageMissing"));
+  const relative = relativePathFromDownloadTarget(node.basePath, targetPath, finalName);
+  if (!relative) throw new BusinessError(t("backend.downloads.taskStorageMissing"));
+  await assertNotRecycled(node.id, relative, "write");
   sshParams = await buildSshParamsFromServer(server, server.sshKey);
-  await execRemoteCommand({ ...sshParams, command: `mkdir -p -- ${shellQuote(targetPath)}`, timeout: 15000 });
+  const basePath = resolveDownloadTargetPath(node.basePath, "");
+  const physicalFile = await assertRemotePathContained(sshParams, basePath, toRemoteChildPath(targetPath, finalName));
 
   const downloadCmd = buildDirectDownloadCommand({
    taskId,
    url: resolved.url,
+   basePath,
+   physicalTargetDir: path.posix.dirname(physicalFile),
    targetPath,
    // Named after the link the user gave, as the task list, the refresh probe
    // and reconciliation name it — not the CDN object the chain ended at.
@@ -595,7 +644,7 @@ maxSpeedKb?: number | null,
    const { stdout: logContent } = await execRemoteCommand({ ...sshParams, command: getDirectDownloadLogCommand(taskId), timeout: 8000 });
    // 127 is the launcher's own "no bash on this host" (remote-command.ts); the log is empty then.
    const errMsg = exitCode === 127 && !logContent.trim() ? t("backend.downloads.remoteBashMissing") : (logContent.trim() || t("backend.downloads.startFailed"));
-   if (exitCode === 127) spawnAttempted = false;
+   if (exitCode === 127 || exitCode === 65) spawnAttempted = false;
    throw new DownloadSourceRejectedError(errMsg);
   }
  } catch (error) {
@@ -648,6 +697,7 @@ export async function transferFileViaSsh2(
  taskId: string,
  signal?: AbortSignal,
  expectedSha256?: string,
+ commit: (rename: () => Promise<void>) => Promise<void> = rename => rename(),
 ): Promise<void> {
  if (!server.hostKeySha256?.trim()) {
   throw new BusinessError(t("backend.downloads.hostKeyFingerprintRequiredForRelay"));
@@ -664,6 +714,7 @@ export async function transferFileViaSsh2(
  // Covers process death after rename but before the database commit, even
  // when the local relay temp file has already disappeared.
  if (verified.stdout.trim() === "COMMITTED") {
+  await commit(async () => {});
   await execRemoteCommand({ ...sshParams, command: cleanStaging, timeout: 10000, signal });
   return;
  }
@@ -712,9 +763,14 @@ export async function transferFileViaSsh2(
     });
    });
    signal?.throwIfAborted();
-   const published = await execRemoteCommand({ ...sshParams, signal, timeout: 120000,
-    command: `set -e\n[ "$(sha256sum -- ${shellQuote(staging)} | cut -d ' ' -f 1)" = ${shellQuote(expected)} ]\n[ -f ${shellQuote(staging)} ] && [ ! -L ${shellQuote(staging)} ] || exit 1\nmv -fT -- ${shellQuote(staging)} ${shellQuote(remoteFilePath)}\n[ -f ${shellQuote(remoteFilePath)} ] && [ ! -L ${shellQuote(remoteFilePath)} ]` });
-   if (published.exitCode !== 0) throw new Error("Relay file checksum or atomic publication failed");
+   const checksum = await execRemoteCommand({ ...sshParams, signal, timeout: 120000,
+    command: `[ ! -L ${shellQuote(staging)} ] && [ -f ${shellQuote(staging)} ] && [ "$(sha256sum -- ${shellQuote(staging)} | cut -d ' ' -f 1)" = ${shellQuote(expected)} ]` });
+   if (checksum.exitCode !== 0) throw new Error("Relay file checksum failed");
+   await commit(async () => {
+    const published = await execRemoteCommand({ ...sshParams, signal, timeout: 15000,
+     command: `set -e\n[ -f ${shellQuote(staging)} ] && [ ! -L ${shellQuote(staging)} ] || exit 1\nmv -fT -- ${shellQuote(staging)} ${shellQuote(remoteFilePath)}\n[ -f ${shellQuote(remoteFilePath)} ] && [ ! -L ${shellQuote(remoteFilePath)} ]` });
+    if (published.exitCode !== 0) throw new Error("Relay file atomic publication failed");
+   });
    await execRemoteCommand({ ...sshParams, command: cleanStaging, timeout: 10000, signal });
   } catch (error) {
    try { await execRemoteCommand({ ...sshParams, command: `rm -f -- ${shellQuote(staging)}`, timeout: 10000 }); }

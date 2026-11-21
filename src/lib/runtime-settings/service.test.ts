@@ -13,6 +13,7 @@ vi.mock("@/lib/db", () => ({ prisma: prismaMock }));
 
 const {
   getRuntimeSettingNumber,
+  getRuntimeSettingNumberStrict,
   getCommandRuntimeConfig,
   getSshTerminalRuntimeConfig,
   getOperationTaskListLimit,
@@ -31,6 +32,14 @@ describe("runtime settings", () => {
     // getRuntimeSettingNumbers reads persisted rows via findMany; default to
     // "no rows" so each test's findUnique/findMany mocks decide the values.
     prismaMock.setting.findMany.mockResolvedValue([]);
+  });
+
+  it("distinguishes a missing retention key, permanent retention and a failed policy read", async () => {
+    const key = "retention.auditLogDays";
+    prismaMock.setting.findUnique.mockResolvedValueOnce(null).mockResolvedValueOnce({ value: "0" }).mockRejectedValueOnce(new Error("DB unavailable"));
+    await expect(getRuntimeSettingNumberStrict(key)).resolves.toBe(getRuntimeSettingFallback(key));
+    await expect(getRuntimeSettingNumberStrict(key)).resolves.toBe(0);
+    await expect(getRuntimeSettingNumberStrict(key)).rejects.toThrow("DB unavailable");
   });
 
   it("prefers persisted runtime settings over env/default fallbacks", async () => {

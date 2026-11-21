@@ -354,6 +354,7 @@ export const zh: Record<string, string> = {
 	"serverCardActions.directGateway.disabledDetail": "点击启用会由节点 Agent 管理目标直连入口；Agent 不可用时可通过 SSH 回退安装。失败时仍保持网站中转。",
 	"serverCardActions.directGateway.pendingDisable": "删除服务中…",
 	"serverCardActions.directGateway.pendingEnable": "安装服务中…",
+	"serverCardActions.directGateway.confirmStopped": "停止远端网关并确认退出",
 	"serverCardActions.directGateway.disableLabel": "切回网站中转",
 	"serverCardActions.directGateway.enableLabel": "启用目标直连",
 	"serverCardActions.directGateway.protocol": "直连公网协议",

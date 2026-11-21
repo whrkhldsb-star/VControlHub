@@ -13,13 +13,9 @@ import {
   streamRemoteTarGz,
 } from "../archive-stream";
 
-// Windows tar (bsdtar) matches --exclude as globs, so the literal
-// "[draft].txt" exclusion this test asserts cannot be expressed; the SFTP
-// variant also needs /bin/sh. GNU-tar semantics are enforced on Linux CI.
 const linuxNode = { basePath: "/srv", host: null, port: null, server: { operatingSystem: "LINUX", host: "storage.test", port: 22 } };
-const itGnuTar = process.platform === "win32" ? it.skip : it;
-
-itGnuTar.each(["LOCAL", "SFTP"])(
+// The SFTP transport fixture uses /bin/sh. Local archives use the host's native tar on both platforms.
+it.each(process.platform === "win32" ? ["LOCAL"] : ["LOCAL", "SFTP"])(
   "%s tar excludes literal deleted paths and entire deleted subtrees",
   async (driver) => {
     const root = await mkdtemp(path.join(os.tmpdir(), "archive-filter-"));
@@ -39,6 +35,11 @@ itGnuTar.each(["LOCAL", "SFTP"])(
         path.join(directory, "[draft].txt"),
         "recycled literal brackets",
       );
+      const stageName = process.platform === "win32" ? ".VCONTROLHUB-WEBDAV-delete-test.STAGED" : ".vcontrolhub-webdav-delete-test.staged";
+      const stagedDirectory = path.join(directory, "active", stageName);
+      await mkdir(stagedDirectory);
+      await writeFile(path.join(stagedDirectory, "private.txt"), "removed bytes");
+      await writeFile(path.join(directory, ".vch-backup-abcd"), "old bytes");
       await writeFile(path.join(directory, "d.txt"), "keep wildcard match");
       const excluded = ["docs'quoted/deleted", "docs'quoted/[draft].txt"];
       // Exercise the actual SSH shell command and stdin against a local tar process;
@@ -70,6 +71,8 @@ itGnuTar.each(["LOCAL", "SFTP"])(
       });
       expect(listing).not.toContain("docs'quoted/deleted/");
       expect(listing).not.toContain("[draft].txt");
+      expect(listing).not.toContain(stageName);
+      expect(listing).not.toContain(".vch-backup-abcd");
       expect(listing).toContain("active/deleted/keep.txt");
       expect(listing).toContain("docs'quoted/d.txt");
     } finally {

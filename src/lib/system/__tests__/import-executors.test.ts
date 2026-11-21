@@ -16,7 +16,10 @@ import type { ExportFile, ImportOptions } from "@/lib/system/config-schema";
 
 const ORDER: string[] = [];
 
-const mocks = vi.hoisted(() => ({ transaction: vi.fn() }));
+const mocks = vi.hoisted(() => ({
+  transaction: vi.fn(), lock: vi.fn(), assertAdmin: vi.fn(),
+}));
+vi.mock("@/lib/concurrency/advisory-lock", () => ({ lockForTransaction: mocks.lock }));
 
 vi.mock("@/lib/db", () => ({ prisma: { $transaction: mocks.transaction } }));
 
@@ -52,6 +55,7 @@ const executors = {
 };
 
 vi.mock("../import-executors-rbac", () => ({
+  assertImportHasActiveAdmin: mocks.assertAdmin,
   importPermissions: executors.importPermissions,
   importRoles: executors.importRoles,
   importRolePermissions: executors.importRolePermissions,
@@ -103,13 +107,17 @@ describe("executeImport", () => {
   beforeEach(() => {
     vi.clearAllMocks();
     ORDER.length = 0;
+    mocks.lock.mockImplementation(() => { ORDER.push("admin-lock"); });
+    mocks.assertAdmin.mockImplementation(() => { ORDER.push("active-admin-check"); });
     mocks.transaction.mockImplementation(async (fn: (tx: unknown) => Promise<void>) => fn({}));
   });
 
   it("runs every table exactly once, in dependency order", async () => {
     await executeImport(FILE, OPTIONS);
 
+    expect(mocks.lock).toHaveBeenCalledWith(expect.anything(), "user-admin-invariant", "global");
     expect(ORDER).toEqual([
+      "admin-lock",
       "permissions",
       "roles",
       "rolePermissions",
@@ -131,6 +139,7 @@ describe("executeImport", () => {
       "aiProviders",
       "announcements",
       "snippets",
+      "active-admin-check",
     ]);
   });
 
@@ -151,6 +160,14 @@ describe("executeImport", () => {
       maxWait: 20_000,
       isolationLevel: "Serializable",
     });
+  });
+
+  it("rolls back the import if the final administrator check fails", async () => {
+    mocks.assertAdmin.mockRejectedValueOnce(new Error("last active admin"));
+    const result = await executeImport(FILE, OPTIONS);
+    expect(result).toMatchObject({ created: 0, updated: 0, rolledBack: true, errors: ["Transaction failed: last active admin"] });
+    expect(mocks.assertAdmin).toHaveBeenCalledWith(mocks.lock.mock.calls[0]?.[0]);
+    expect(ORDER.at(-1)).toBe("snippets");
   });
 
   it("zeroes created/updated when the transaction rolls back", async () => {

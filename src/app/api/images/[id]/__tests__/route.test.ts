@@ -1,3 +1,5 @@
+import { createHash } from "node:crypto";
+import { Readable } from "node:stream";
 import path from "node:path";
 
 import { describe, expect, it, vi } from "vitest";
@@ -5,15 +7,14 @@ import { describe, expect, it, vi } from "vitest";
 /** Matches the mocked UPLOAD_DIR below; resolved natively per platform. */
 const uploadDir = (...segments: string[]) =>
   path.join("/tmp/vcontrolhub-image-delete-test", ...segments);
-const linkedStoragePath = (...segments: string[]) =>
-  path.resolve("/srv/images", ...segments);
+const imageGeneration = { sizeBytes: 3, checksum: createHash("sha256").update("img").digest("hex"), createdAt: new Date(12345) };
 
 const {
   requireApiSessionMock,
   sessionHasPermissionMock,
   imageFindUniqueMock,
   imageDeleteMock,
-  storageFindFirstMock,
+  storageFindManyMock,
   mediaDeleteManyMock,
   fileDeleteManyMock,
   transactionMock,
@@ -23,12 +24,13 @@ const {
   sessionHasPermissionMock: vi.fn(),
   imageFindUniqueMock: vi.fn(),
   imageDeleteMock: vi.fn(),
-  storageFindFirstMock: vi.fn(),
+  storageFindManyMock: vi.fn(),
   mediaDeleteManyMock: vi.fn(),
-  fileDeleteManyMock: vi.fn(),
-  transactionMock: vi.fn(async (operations: Array<Promise<unknown>>) =>
-    Promise.all(operations),
-  ),
+  fileDeleteManyMock: vi.fn().mockResolvedValue({ count: 1 }),
+  transactionMock: vi.fn(async (callback: (tx: unknown) => Promise<unknown>) => callback({
+    fileEntry: { deleteMany: fileDeleteManyMock },
+    mediaItem: { deleteMany: mediaDeleteManyMock },
+  })),
   unlinkMock: vi.fn(),
 }));
 
@@ -45,13 +47,16 @@ vi.mock("@/lib/auth/team-scope", () => ({
   seesAllCustomers: () => false,
   teamWhere: () => ({ teamId: "team_1" }),
 }));
-// Linked LOCAL paths are directories (legacy records) unless a test says otherwise.
-const statMock = vi.hoisted(() => vi.fn(async (): Promise<{ isDirectory: () => boolean }> => ({ isDirectory: () => true })));
-vi.mock("node:fs/promises", () => ({
-  default: { unlink: unlinkMock, stat: statMock },
-  unlink: unlinkMock,
-  stat: statMock,
+const { accessMock, lockMock, readEntryMock, streamMock } = vi.hoisted(() => ({
+  accessMock: vi.fn().mockResolvedValue({ allowed: true }),
+  lockMock: vi.fn(async () => async () => {}),
+  readEntryMock: vi.fn().mockResolvedValue({ id: "img_1" }),
+  streamMock: vi.fn(async () => ({ size: 3, stream: Readable.from([Buffer.from("img")]), close: () => {} })),
 }));
+vi.mock("@/lib/storage/access-control", () => ({ assertStorageAccess: accessMock }));
+vi.mock("@/lib/storage/file-overwrite-lock", () => ({ lockStorageFileOverwrite: lockMock }));
+vi.mock("@/lib/storage/file-content", () => ({ storageFileNodeSelect: { id: true }, streamStorageFile: streamMock }));
+vi.mock("node:fs/promises", () => ({ default: { unlink: unlinkMock }, unlink: unlinkMock }));
 vi.mock("@/lib/db", () => ({
   prisma: {
     imageUpload: {
@@ -59,15 +64,27 @@ vi.mock("@/lib/db", () => ({
       delete: imageDeleteMock,
     },
     storageNode: {
-      findFirst: storageFindFirstMock,
+      findMany: storageFindManyMock,
     },
     mediaItem: { deleteMany: mediaDeleteManyMock },
-    fileEntry: { deleteMany: fileDeleteManyMock },
+    fileEntry: { findFirst: readEntryMock, deleteMany: fileDeleteManyMock },
     $transaction: transactionMock,
   },
 }));
-const deleteBackingObjectMock = vi.hoisted(() => vi.fn(async () => undefined));
-vi.mock("@/lib/storage/fs-backend", () => ({ deleteBackingObject: deleteBackingObjectMock }));
+const { deleteBackingObjectMock, renameBackingObjectMock, moveBackingObjectMock, statBackingObjectMock } = vi.hoisted(() => {
+  const renameBackingObjectMock = vi.fn(async (_input: { oldRelativePath: string; newRelativePath: string }) => {});
+  const statBackingObjectMock = vi.fn(async ({ relativePath }: { relativePath: string }): Promise<{ size: number; isDirectory: boolean } | null> =>
+    renameBackingObjectMock.mock.calls.some(([move]) => move.oldRelativePath === relativePath) ? null : { size: 3, isDirectory: false });
+  return {
+    renameBackingObjectMock, statBackingObjectMock,
+    deleteBackingObjectMock: vi.fn(async (_input: { relativePath: string }) => {}),
+    moveBackingObjectMock: vi.fn(async (_input: { oldRelativePath: string; newRelativePath: string }) => {}),
+  };
+});
+vi.mock("@/lib/storage/fs-backend", () => ({
+  deleteBackingObject: deleteBackingObjectMock, statBackingObject: statBackingObjectMock,
+  renameBackingObject: renameBackingObjectMock, moveBackingObject: moveBackingObjectMock,
+}));
 vi.mock("@/lib/image-bed/constants", () => ({
   UPLOAD_DIR: "/tmp/vcontrolhub-image-delete-test",
 }));
@@ -187,11 +204,13 @@ describe("/api/images/[id]", () => {
       storageKey: "img.png",
       storageNodeId: "node_1",
       relativePath: "album/img.png",
+      ...imageGeneration,
     });
-    storageFindFirstMock.mockResolvedValueOnce({
+    storageFindManyMock.mockResolvedValueOnce([{
+      id: "node_1",
       driver: "LOCAL",
       basePath: "/srv/images",
-    });
+    }]);
     unlinkMock.mockResolvedValue(undefined);
     imageDeleteMock.mockResolvedValueOnce({ id: "img_1" });
 
@@ -206,18 +225,15 @@ describe("/api/images/[id]", () => {
     expect(unlinkMock).toHaveBeenCalledWith(
       uploadDir("img.png"),
     );
-    expect(unlinkMock).toHaveBeenCalledWith(linkedStoragePath("album/img.png"));
-    expect(mediaDeleteManyMock).toHaveBeenCalledWith({
-      where: { storageNodeId: "node_1", relativePath: "album/img.png" },
-    });
-    expect(fileDeleteManyMock).toHaveBeenCalledWith({
-      where: { storageNodeId: "node_1", relativePath: "album/img.png" },
-    });
-    expect(transactionMock).toHaveBeenCalled();
-    expect(imageDeleteMock).toHaveBeenCalledWith({ where: { id: "img_1" } });
-    expect(transactionMock.mock.invocationCallOrder[0]).toBeLessThan(
-      unlinkMock.mock.invocationCallOrder[0]!,
-    );
+    expect(deleteBackingObjectMock).toHaveBeenCalledWith(expect.objectContaining({ relativePath: expect.stringMatching(/^album\/\.vch-backup-/), isDirectory: false }));
+    expect(fileDeleteManyMock).toHaveBeenCalledWith({ where: {
+      id: "img_1", storageNodeId: "node_1", relativePath: "album/img.png", updatedAt: imageGeneration.createdAt,
+      entryType: "FILE", isDeleted: false, size: BigInt(3), checksumSha256: imageGeneration.checksum,
+    } });
+    expect(mediaDeleteManyMock).toHaveBeenCalledWith({ where: { storageNodeId: "node_1", relativePath: "album/img.png", fileEntryId: "img_1" } });
+    expect(imageDeleteMock.mock.invocationCallOrder[0]).toBeLessThan(deleteBackingObjectMock.mock.invocationCallOrder[0]!);
+    expect(lockMock.mock.invocationCallOrder[0]).toBeLessThan(accessMock.mock.invocationCallOrder[0]!);
+    expect(accessMock).toHaveBeenCalledWith(expect.objectContaining({ operation: "delete", relativePath: "album/img.png" }));
   });
 
   it("deletes the copy an upload wrote to an SFTP folder", async () => {
@@ -226,17 +242,17 @@ describe("/api/images/[id]", () => {
     vi.clearAllMocks();
     requireApiSessionMock.mockResolvedValueOnce(session);
     sessionHasPermissionMock.mockImplementation((_session: unknown, permission: string) => permission === "image:write");
-    imageFindUniqueMock.mockResolvedValueOnce({ id: "img_s", userId: "u_1", teamId: "team_1", storageKey: "img.png", storageNodeId: "node_s", relativePath: "album/img.png" });
+    imageFindUniqueMock.mockResolvedValueOnce({ id: "img_s", userId: "u_1", teamId: "team_1", storageKey: "img.png", storageNodeId: "node_s", relativePath: "album/img.png", ...imageGeneration });
     const node = { id: "node_s", driver: "SFTP", basePath: "/data" };
-    storageFindFirstMock.mockResolvedValueOnce(node);
+    storageFindManyMock.mockResolvedValueOnce([node]);
     unlinkMock.mockResolvedValue(undefined);
     imageDeleteMock.mockResolvedValueOnce({ id: "img_s" });
 
     const response = await DELETE(new Request("https://example.com/api/images/img_s", { method: "DELETE" }), { params: Promise.resolve({ id: "img_s" }) });
 
     expect(response.status).toBe(200);
-    expect(deleteBackingObjectMock).toHaveBeenCalledWith({ storageNode: node, relativePath: "album/img.png", isDirectory: false, tolerateMissing: true });
-    expect(fileDeleteManyMock).toHaveBeenCalledWith({ where: { storageNodeId: "node_s", relativePath: "album/img.png" } });
+    expect(deleteBackingObjectMock).toHaveBeenCalledWith({ storageNode: node, relativePath: expect.stringMatching(/^album\/\.vch-backup-/), isDirectory: false, tolerateMissing: true });
+    expect(fileDeleteManyMock).toHaveBeenCalledWith({ where: expect.objectContaining({ id: "img_s", storageNodeId: "node_s", relativePath: "album/img.png" }) });
   });
 
   it("leaves the user's own source file alone for an image published from storage", async () => {
@@ -254,8 +270,6 @@ describe("/api/images/[id]", () => {
       storageNodeId: "node_1",
       relativePath: "source/photo.png",
     });
-    storageFindFirstMock.mockResolvedValueOnce({ driver: "LOCAL", basePath: "/srv/images" });
-    statMock.mockResolvedValueOnce({ isDirectory: () => false });
     unlinkMock.mockResolvedValue(undefined);
     imageDeleteMock.mockResolvedValueOnce({ id: "img_1" });
 
@@ -280,17 +294,11 @@ describe("/api/images/[id]", () => {
       teamId: "team_1",
       storageKey: "img.png",
       storageNodeId: "node_1",
-      relativePath: "album/subdir",
+      relativePath: "album/img.png",
+      ...imageGeneration,
     });
-    storageFindFirstMock.mockResolvedValueOnce({
-      driver: "LOCAL",
-      basePath: "/srv/images",
-    });
-    unlinkMock.mockImplementation((filePath: string) =>
-      filePath.startsWith(path.resolve("/srv/images"))
-        ? Promise.reject(Object.assign(new Error("EACCES"), { code: "EACCES" }))
-        : Promise.resolve(),
-    );
+    storageFindManyMock.mockResolvedValueOnce([{ id: "node_1", driver: "LOCAL", basePath: "/srv/images" }]);
+    deleteBackingObjectMock.mockRejectedValueOnce(new Error("permission denied"));
     imageDeleteMock.mockResolvedValueOnce({ id: "img_1" });
 
     const response = await DELETE(
@@ -308,6 +316,93 @@ describe("/api/images/[id]", () => {
       cleanupPending: true,
       cleanupFailures: ["linkedStorage"],
     });
+  });
+
+  it.each(["replacement row", "same-size external replacement", "delete grant revoked", "changed during index deletion"])(
+    "detaches the image and preserves stored bytes for %s", async reason => {
+      vi.clearAllMocks();
+      requireApiSessionMock.mockResolvedValueOnce(session);
+      sessionHasPermissionMock.mockImplementation((_s, permission) => permission === "image:write");
+      imageFindUniqueMock.mockResolvedValueOnce({ ...imageGeneration, id: "img_1", userId: session.userId, teamId: "team_1", storageKey: "img.png", storageNodeId: "node_1", relativePath: "album/img.png" });
+      storageFindManyMock.mockResolvedValueOnce([{ id: "node_1", driver: "LOCAL", basePath: "/srv/images" }]);
+      if (reason === "replacement row") readEntryMock.mockResolvedValueOnce(null);
+      if (reason === "delete grant revoked") accessMock.mockResolvedValueOnce({ allowed: false });
+      if (reason === "same-size external replacement") streamMock.mockResolvedValueOnce({ size: 3, stream: Readable.from(["new"]), close: () => {} });
+      if (reason === "changed during index deletion") fileDeleteManyMock.mockResolvedValueOnce({ count: 0 });
+      const response = await DELETE(new Request("https://example.com/api/images/img_1", { method: "DELETE" }), { params: Promise.resolve({ id: "img_1" }) });
+      expect(response.status).toBe(200);
+      expect(imageDeleteMock).toHaveBeenCalled();
+      expect(mediaDeleteManyMock).not.toHaveBeenCalled();
+      expect(deleteBackingObjectMock).not.toHaveBeenCalled();
+    },
+  );
+
+  it.each(["before index cleanup", "after index claim"])("preserves a new file at the public path %s", async timing => {
+    vi.clearAllMocks();
+    requireApiSessionMock.mockResolvedValueOnce(session);
+    sessionHasPermissionMock.mockImplementation((_s, permission) => permission === "image:write");
+    const publicPath = "album/img.png";
+    const files = new Map([[publicPath, "img"]]);
+    const node = { id: "node_1", driver: "LOCAL", basePath: "/srv/images" };
+    imageFindUniqueMock.mockResolvedValueOnce({ ...imageGeneration, id: "img_1", userId: session.userId, teamId: "team_1", storageKey: "img.png", storageNodeId: node.id, relativePath: publicPath });
+    storageFindManyMock.mockResolvedValueOnce([node]);
+    renameBackingObjectMock.mockImplementationOnce(async ({ oldRelativePath, newRelativePath }) => {
+      files.set(newRelativePath, files.get(oldRelativePath)!);
+      files.delete(oldRelativePath);
+      if (timing === "before index cleanup") files.set(publicPath, "new");
+    });
+    statBackingObjectMock.mockResolvedValueOnce({ size: 3, isDirectory: false })
+      .mockResolvedValueOnce({ size: 3, isDirectory: false })
+      .mockImplementationOnce(async ({ relativePath }) => files.has(relativePath) ? { size: 3, isDirectory: false } : null);
+    if (timing === "after index claim") {
+      fileDeleteManyMock.mockImplementationOnce(async () => {
+        files.set(publicPath, "new");
+        return { count: 1 };
+      });
+    }
+    deleteBackingObjectMock.mockImplementationOnce(async ({ relativePath }) => { files.delete(relativePath); });
+
+    const response = await DELETE(new Request("http://local/api/images/img_1", { method: "DELETE" }), { params: Promise.resolve({ id: "img_1" }) });
+    expect(response.status).toBe(200);
+    const stage = renameBackingObjectMock.mock.calls[0]![0].newRelativePath;
+    expect(streamMock).toHaveBeenCalledWith(node, stage);
+    expect([...files]).toEqual([[publicPath, "new"]]);
+    expect(fileDeleteManyMock).toHaveBeenCalledTimes(timing === "before index cleanup" ? 0 : 1);
+  });
+
+  it.each(["different bytes", "index failure"])("uses a no-replace restore for %s and preserves the staging copy on conflict", async reason => {
+    vi.clearAllMocks();
+    requireApiSessionMock.mockResolvedValueOnce(session);
+    sessionHasPermissionMock.mockImplementation((_s, permission) => permission === "image:write");
+    const node = { id: "node_1", driver: "SFTP", basePath: "/srv/images" };
+    const publicPath = "album/img.png";
+    imageFindUniqueMock.mockResolvedValueOnce({ ...imageGeneration, id: "img_1", userId: session.userId, teamId: "team_1", storageKey: "img.png", storageNodeId: node.id, relativePath: publicPath });
+    storageFindManyMock.mockResolvedValueOnce([node]);
+    if (reason === "different bytes") streamMock.mockResolvedValueOnce({ size: 3, stream: Readable.from(["new"]), close: () => {} });
+    else fileDeleteManyMock.mockRejectedValueOnce(new Error("index failed"));
+    moveBackingObjectMock.mockRejectedValueOnce(Object.assign(new Error("destination occupied"), { code: "EEXIST" }));
+
+    const response = await DELETE(new Request("http://local/api/images/img_1", { method: "DELETE" }), { params: Promise.resolve({ id: "img_1" }) });
+    expect(response.status).toBe(207);
+    const stage = renameBackingObjectMock.mock.calls[0]![0].newRelativePath;
+    expect(moveBackingObjectMock).toHaveBeenCalledWith({ storageNode: node, oldRelativePath: stage, newRelativePath: publicPath });
+    expect(deleteBackingObjectMock).not.toHaveBeenCalled();
+    expect(mediaDeleteManyMock).not.toHaveBeenCalled();
+  });
+
+  it("cleans only the exact index rows when the linked file is already absent", async () => {
+    vi.clearAllMocks();
+    requireApiSessionMock.mockResolvedValueOnce(session);
+    sessionHasPermissionMock.mockImplementation((_s, permission) => permission === "image:write");
+    imageFindUniqueMock.mockResolvedValueOnce({ ...imageGeneration, id: "img_1", userId: session.userId, teamId: "team_1", storageKey: "img.png", storageNodeId: "node_1", relativePath: "album/img.png" });
+    storageFindManyMock.mockResolvedValueOnce([{ id: "node_1", driver: "LOCAL", basePath: "/srv/images" }]);
+    statBackingObjectMock.mockResolvedValueOnce(null).mockResolvedValueOnce(null);
+
+    const response = await DELETE(new Request("http://local/api/images/img_1", { method: "DELETE" }), { params: Promise.resolve({ id: "img_1" }) });
+    expect(response.status).toBe(200);
+    expect(fileDeleteManyMock).toHaveBeenCalledTimes(1);
+    expect(renameBackingObjectMock).not.toHaveBeenCalled();
+    expect(deleteBackingObjectMock).not.toHaveBeenCalled();
   });
 
   it("rejects deletion by non-owner non-admin sessions", async () => {
@@ -465,8 +560,9 @@ describe("/api/images/[id]", () => {
       storageKey: "img.png",
       storageNodeId: "node_foreign",
       relativePath: "album/img.png",
+      ...imageGeneration,
     });
-    storageFindFirstMock.mockResolvedValueOnce(null);
+    storageFindManyMock.mockResolvedValueOnce([]);
     unlinkMock.mockResolvedValue(undefined);
     imageDeleteMock.mockResolvedValueOnce({ id: "img_1" });
 

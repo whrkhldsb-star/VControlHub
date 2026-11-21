@@ -101,6 +101,7 @@ export function createAgentFileClient(nodeId: string, serverId?: string, expecte
     beforePublish?: () => Promise<void>,
   ) {
     const previous = await stat(path);
+    if (previous?.isDirectory) throw new BusinessError(t("backend.storage.targetIsDirectory"));
     const common = { size, digest: checksum };
     const staging = await call("begin", path, common);
     const at = staging.offset;
@@ -125,8 +126,8 @@ export function createAgentFileClient(nodeId: string, serverId?: string, expecte
   }
   return {
     stat,
-    async matches(path: string, size: number, checksum: string) {
-      const entry = await stat(path);
+    async matches(path: string, size: number, checksum: string, existing?: WebDavEntry) {
+      const entry = existing ?? await stat(path);
       return !!entry?.etag && !entry.isDirectory && entry.size === size &&
         (await call("checksum", path, { version: entry.etag })).digest === checksum;
     },
@@ -188,18 +189,20 @@ export function createAgentFileClient(nodeId: string, serverId?: string, expecte
     async mkdir(path: string) {
       await call("mkdir", path);
     },
-    async rename(path: string, destination: string, overwrite = false) {
-      await call("rename", path, { destination: checkedPath(destination), overwrite });
+    async rename(path: string, destination: string, overwrite = false, requireExclusive = false) {
+      // Older Agents recognize rename but cannot guarantee no-replace after their stat.
+      await call(requireExclusive ? "rename-exclusive" : "rename", path, { destination: checkedPath(destination), overwrite });
     },
     async copy(path: string, destination: string) {
       await call("copy", path, { destination: checkedPath(destination) });
     },
-    async delete(path: string, isDirectory?: boolean, version?: string) {
+    async delete(path: string, isDirectory?: boolean, version?: string, emptyOnly = false) {
       const entry = await stat(path);
-      if (!entry) throw Object.assign(bad(), { code: "ENOENT" });
+      if (!entry) throw Object.assign(new Error(t("backend.fileAgent.missing")), { code: "ENOENT" });
       if (!entry.etag || (isDirectory !== undefined && entry.isDirectory !== isDirectory) ||
           (version && entry.etag !== version)) throw bad();
-      await call("delete", path, { directory: entry.isDirectory, version: entry.etag });
+      // Older Agents only know recursive directory deletion. They reject rmdir safely.
+      await call(emptyOnly && entry.isDirectory ? "rmdir" : "delete", path, { directory: entry.isDirectory, version: entry.etag, recursive: entry.isDirectory && !emptyOnly });
     },
   };
 }

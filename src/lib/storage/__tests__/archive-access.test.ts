@@ -57,7 +57,7 @@ it("checks Windows ancestors and descendant exclusions using the same case-insen
   await expect(openManagedArchive({ ...base, caseInsensitive: true, open })).rejects.toThrow();
   expect(open).not.toHaveBeenCalled();
   mocks.deleted.mockResolvedValueOnce([{ relativePath: "Parent/Docs/File" }]);
-  await openManagedArchive({ ...base, caseInsensitive: true, open });
+  await openManagedArchive({ ...base, relativePath: "parent//docs/", caseInsensitive: true, open });
   expect(mocks.deleted.mock.lastCall?.[0].where.OR).toEqual([
     { relativePath: { in: ["parent", "parent/docs"], mode: "insensitive" } },
     { relativePath: { startsWith: "parent/docs/", mode: "insensitive" } },
@@ -106,5 +106,16 @@ it("opens nothing for a request already aborted", async () => {
   controller.abort();
   const open = vi.fn();
   await expect(openManagedArchive({ ...base, signal: controller.signal, open })).rejects.toThrow();
+  expect(open).not.toHaveBeenCalled();
+});
+
+it.each([
+  { relativePath: "docs/.vcontrolhub-webdav-delete-abc.staged/sub", caseInsensitive: false },
+  { relativePath: "docs//.VCONTROLHUB-WEBDAV-delete-abc.STAGED/sub/", caseInsensitive: true },
+])("refuses a leftover staged subtree before reading the index: $relativePath", async (input) => {
+  const open = vi.fn();
+  await expect(openManagedArchive({ ...base, ...input, open }))
+    .rejects.toMatchObject({ status: 404 });
+  expect(mocks.deleted).not.toHaveBeenCalled();
   expect(open).not.toHaveBeenCalled();
 });

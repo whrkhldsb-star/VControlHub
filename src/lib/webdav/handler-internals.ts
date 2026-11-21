@@ -11,6 +11,7 @@ import {
   ValidationError,
 } from "@/lib/errors";
 import { t } from "@/lib/i18n/service-translations";
+import { storageStagingPathRegex } from "@/lib/storage/staging-paths";
 import { assertNotRecycled } from "@/lib/storage/archive-access";
 import { assertStorageAccess } from "@/lib/storage/access-control";
 import { storageAccessDeniedCopy } from "@/lib/storage/access-denied";
@@ -228,6 +229,7 @@ export async function listDirectChildren(
       AND "relativePath" LIKE ${`${escapeLikePrefix(prefix)}%`} ESCAPE '\\'
       AND length("relativePath") > length(${prefix}::text)
       AND position('/' in substring("relativePath" from (length(${prefix}::text) + 1))) = 0
+      AND "relativePath" !~ ${storageStagingPathRegex}
     ORDER BY "entryType" ASC, name ASC, id ASC
     LIMIT ${limit + 1}
   `;

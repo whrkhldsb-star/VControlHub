@@ -8,6 +8,7 @@ const { mocks } = vi.hoisted(() => ({
     failJobTerminal: vi.fn(),
     heartbeatJob: vi.fn(),
     getBackupRecord: vi.fn(),
+    canCreatePlatformBackup: vi.fn(),
     runExistingBackupRecord: vi.fn(),
     drillBackupRecord: vi.fn(),
     pruneOldBackupRecordsNow: vi.fn(),
@@ -48,6 +49,8 @@ vi.mock("@/lib/logging", () => ({
   }),
 }));
 
+vi.mock("../service-crud", () => ({ canCreatePlatformBackup: mocks.canCreatePlatformBackup }));
+
 vi.mock("@/lib/backup/service", () => ({
   getBackupRecord: mocks.getBackupRecord,
   runExistingBackupRecord: mocks.runExistingBackupRecord,
@@ -80,6 +83,7 @@ const {
 describe("backup job worker create path", () => {
   beforeEach(() => {
     vi.clearAllMocks();
+    mocks.canCreatePlatformBackup.mockResolvedValue(true);
     mocks.heartbeatJob.mockResolvedValue({ count: 1 });
     mocks.completeJob.mockResolvedValue({ count: 1 });
     mocks.failJob.mockResolvedValue({ count: 1 });
@@ -232,7 +236,7 @@ describe("backup job worker create path", () => {
 
   it("runs backup retention under lease-renewal and completes with the prune summary", async () => {
     mocks.claimNextJob.mockResolvedValueOnce({
-      id: "job_retention",
+      id: "job_retention", createdBy: "admin",
       type: BACKUP_RETENTION_JOB_TYPE,
       payload: { olderThanDays: 30, teamId: "team_1" },
     });
@@ -268,6 +272,17 @@ describe("backup job worker create path", () => {
     );
     expect(mocks.failJob).not.toHaveBeenCalled();
     expect(mocks.failJobTerminal).not.toHaveBeenCalled();
+  });
+
+  it("stops scheduled retention if the user has lost platform access since enqueue", async () => {
+    mocks.claimNextJob.mockResolvedValueOnce({
+      id: "job_revoked", createdBy: "owner", type: BACKUP_RETENTION_JOB_TYPE,
+      payload: { scheduleId: "schedule", platformScope: true },
+    });
+    mocks.canCreatePlatformBackup.mockResolvedValueOnce(false);
+    await runBackupJobWorkerOnce();
+    expect(mocks.failJobTerminal).toHaveBeenCalledWith("job_revoked", expect.any(String), expect.any(String));
+    expect(mocks.pruneOldBackupRecordsNow).not.toHaveBeenCalled();
   });
 
   it("runs only the offsite sweep for the platform's daily retention tick", async () => {

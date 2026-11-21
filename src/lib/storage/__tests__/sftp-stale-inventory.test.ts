@@ -18,17 +18,6 @@ vi.mock("@/lib/ssh/client", () => ({
   listRemoteDirectory: listRemoteDirectoryMock,
 }));
 
-vi.mock("@/lib/storage/ssh-credentials", () => ({
-  resolveStorageSshCredentials: vi.fn(() => ({
-    host: "203.0.113.10",
-    port: 22,
-    username: "root",
-    privateKey: "[REDACTED PRIVATE KEY]",
-    password: null,
-    hostKeySha256: "STALE-PIN",
-  })),
-}));
-
 vi.mock("@/lib/runtime-settings/service", () => ({
   getSftpSyncDirectoryTimeoutMs: vi.fn(async () => 60_000),
 }));
@@ -113,6 +102,7 @@ describe("detectAndPruneSftpStaleInventory", () => {
     expect(listRemoteDirectoryMock).toHaveBeenCalledWith(
       expect.objectContaining({
         hostKeySha256: "STALE-PIN",
+        enforceHostKeyPin: true,
         remotePath: "/data",
       }),
     );

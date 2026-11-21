@@ -4,7 +4,7 @@ import { lookup } from "node:dns/promises";
 import { isIP } from "node:net";
 import { Agent, fetch as undiciFetch } from "undici";
 import { XMLParser, XMLValidator } from "fast-xml-parser";
-import { BusinessError, ValidationError } from "@/lib/errors";
+import { BusinessError, ConflictError, ValidationError } from "@/lib/errors";
 import { validateWebhookUrlSyntax } from "@/lib/security/webhook-url";
 import { isUnsafePublicHttpHost } from "./direct-access-url";
 import { resolveStorageWebDavCredentials, type WebDavStorageNode } from "./webdav-credentials";
@@ -144,7 +144,7 @@ export function createWebDavClient(node: WebDavStorageNode, dependencies: { tran
     if (!response.ok) { await response.body?.cancel().catch(() => undefined); throw new WebDavHttpError(response.status); }
     return response;
   }
-  async function propfind(path: string, depth: "0" | "1"): Promise<WebDavEntry[]> {
+  async function propfind(path: string, depth: "0" | "1", requireResourceType = false): Promise<WebDavEntry[]> {
     const response = await request("PROPFIND", path, { Depth: depth, "Content-Type": "application/xml; charset=utf-8" }, '<?xml version="1.0"?><d:propfind xmlns:d="DAV:"><d:prop><d:resourcetype/><d:getcontentlength/><d:getlastmodified/><d:getetag/></d:prop></d:propfind>');
     const xml = (await limited(response, XML_LIMIT)).toString("utf8");
     if (/<!DOCTYPE|<!ENTITY/i.test(xml) || XMLValidator.validate(xml) !== true) throw new BusinessError(apiCopy("apiCopy.invalid.webdav.xml.response.d22c80c4"));
@@ -174,9 +174,13 @@ export function createWebDavClient(node: WebDavStorageNode, dependencies: { tran
         if (/^HTTP\/\S+ 2\d\d(?:\s|$)/.test(String(block.status))) Object.assign(props, object(block.prop));
       }
       if (!Object.keys(props).length) {
-        const status = Number(String(row.status ?? object(array(row.propstat)[0]).status).match(/\s(\d{3})(?:\s|$)/)?.[1]);
+        // A missing property is not a missing resource. Destructive callers
+        // may infer absence only from an explicit resource-level 404.
+        const reported = row.status ?? (requireResourceType ? undefined : object(array(row.propstat)[0]).status);
+        const status = Number(String(reported).match(/\s(\d{3})(?:\s|$)/)?.[1]);
         throw new WebDavHttpError(Number.isInteger(status) && status >= 400 ? status : 502);
       }
+      if (requireResourceType && !Object.hasOwn(props, "resourcetype")) throw new WebDavHttpError(502);
       const size = Number(props.getcontentlength ?? 0);
       if (!Number.isSafeInteger(size) || size < 0) throw new BusinessError(apiCopy("apiCopy.invalid.webdav.file.size.088f4b9f"));
       // Only a single strong, quoted validator can identify a version for If-Match.
@@ -193,14 +197,14 @@ export function createWebDavClient(node: WebDavStorageNode, dependencies: { tran
     if (response.status === 207) throw new BusinessError(apiCopy("apiCopy.webdav.operation.returned.partial.multistatus.completion.not.con.c8ca2522"));
   }
   return {
-    async list(path = ""): Promise<WebDavEntry[]> {
+    async list(path = "", requireResourceType = false): Promise<WebDavEntry[]> {
       const key = segments(path).join("/");
-      const entries = await propfind(path, "1");
+      const entries = await propfind(path, "1", requireResourceType);
       // A missing collection row is an incomplete inventory, not an empty directory.
       if (!entries.some((e) => e.relativePath === key && e.isDirectory)) throw new WebDavHttpError(502);
       return entries.filter((e) => e.relativePath !== key);
     },
-    async stat(path: string): Promise<WebDavEntry | null> { try { const entries = await propfind(path, "0"); if (!entries[0]) throw new BusinessError(apiCopy("apiCopy.empty.webdav.stat.response.3856e537")); return entries[0]; } catch (e) { if (e instanceof WebDavHttpError && e.status === 404) return null; throw e; } },
+    async stat(path: string, requireResourceType = false): Promise<WebDavEntry | null> { try { const entries = await propfind(path, "0", requireResourceType); if (!entries[0] || (requireResourceType && entries.length !== 1)) throw new BusinessError(apiCopy("apiCopy.empty.webdav.stat.response.3856e537")); return entries[0]; } catch (e) { if (e instanceof WebDavHttpError && e.status === 404) return null; throw e; } },
     async read(path: string, maxBytes = READ_LIMIT): Promise<Buffer> { return limited(await request("GET", path), maxBytes); },
     async stream(path: string, range?: { start: number; end: number }, expectedSize?: number, etag?: string): Promise<ReadableStream<Uint8Array>> {
       if (range && (!Number.isSafeInteger(range.start) || !Number.isSafeInteger(range.end) || range.start < 0 || range.end < range.start || !Number.isSafeInteger(range.end + 1))) throw new ValidationError(t("backend.webdav.rangeInvalid"));
@@ -272,6 +276,48 @@ export function createWebDavClient(node: WebDavStorageNode, dependencies: { tran
     async mkdir(path: string): Promise<void> { await mutate("MKCOL", path); },
     async copy(oldPath: string, newPath: string): Promise<void> { if (!segments(newPath).length) throw new ValidationError(apiCopy("apiCopy.cannot.replace.webdav.root.path.eaa87e14")); await mutate("COPY", oldPath, { Destination: target(newPath).href.replace(/\/$/, ""), Overwrite: "F", Depth: "0" }); },
     async rename(oldPath: string, newPath: string, overwrite = false): Promise<void> { if (!segments(newPath).length) throw new ValidationError(apiCopy("apiCopy.cannot.replace.webdav.root.path.eaa87e14")); await mutate("MOVE", oldPath, { Destination: target(newPath).href.replace(/\/$/, ""), Overwrite: overwrite ? "T" : "F" }); },
+    // DAV DELETE is recursive. An exclusive depth-infinity lock makes the
+    // emptiness check and conditional delete equivalent to rmdir on this tree.
+    async deleteRecycledBatch(root: string, leavesFirst: { relativePath: string; entryType: string }[]) {
+      const physicalRoot = await this.stat(root, true);
+      if (!physicalRoot) return;
+      if (leavesFirst.length === 1 && leavesFirst[0]?.entryType === "FILE") {
+        if (physicalRoot.isDirectory) throw new ConflictError(t("backend.storage.recycleBatchChanged"));
+        if (physicalRoot.etag) {
+          await mutate("DELETE", root, { "If-Match": physicalRoot.etag });
+          return;
+        }
+      }
+      const lock = await request("LOCK", root, {
+        Depth: "infinity", Timeout: "Second-300", "If-Match": "*", "Content-Type": "application/xml; charset=utf-8",
+      }, '<d:lockinfo xmlns:d="DAV:"><d:lockscope><d:exclusive/></d:lockscope><d:locktype><d:write/></d:locktype></d:lockinfo>');
+      const token = lock.headers.get("Lock-Token");
+      await lock.body?.cancel();
+      if (lock.status !== 200 || !token || !/^<[^\s<>]+>$/.test(token)) throw new ConflictError(t("backend.storage.recycleBatchChanged"));
+      const types = new Map(leavesFirst.map(row => [row.relativePath, row.entryType]));
+      let removedRoot = false;
+      try {
+        for (const row of leavesFirst) {
+          const actual = await this.stat(row.relativePath, true);
+          if (!actual) continue;
+          if (actual.isDirectory !== (row.entryType === "DIRECTORY")) throw new ConflictError(t("backend.storage.recycleBatchChanged"));
+          if (actual.isDirectory && (await this.list(row.relativePath, true)).some(child =>
+            types.get(child.relativePath) !== (child.isDirectory ? "DIRECTORY" : "FILE"))) {
+            throw new ConflictError(t("backend.storage.recycledDirectoryConflict"));
+          }
+        }
+        for (const row of leavesFirst) {
+          const actual = await this.stat(row.relativePath, true);
+          if (!actual) continue;
+          if (actual.isDirectory && (await this.list(row.relativePath, true)).length) throw new ConflictError(t("backend.storage.recycledDirectoryConflict"));
+          await mutate("DELETE", row.relativePath, { If: `(${token})` });
+          if (row.relativePath === root) removedRoot = true;
+        }
+      } finally {
+        // Deleting the lock root also removes its lock.
+        if (!removedRoot) await mutate("UNLOCK", root, { "Lock-Token": token }).catch(() => undefined);
+      }
+    },
     async delete(path: string): Promise<void> { await mutate("DELETE", path); },
   };
 }

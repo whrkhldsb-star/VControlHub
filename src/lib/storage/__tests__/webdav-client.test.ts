@@ -76,6 +76,53 @@ describe("WebDAV actual HTTP adapter", () => {
     expect(await dav.stat("folder/moved.txt")).toBeNull();
     expect(requests.some((r) => r.auth === `Basic ${Buffer.from("alice:secret-password").toString("base64")}`)).toBe(true);
   });
+  it("requires a successful resource type before a destructive operation can infer file or absence", async () => {
+    const testTransport = vi.fn<WebDavTransport>().mockImplementation(async () => new Response(
+      '<multistatus><response><href>/dav/root/file</href><propstat><status>HTTP/1.1 404 Not Found</status>' +
+      '<prop><resourcetype/></prop></propstat></response></multistatus>', { status: 207 },
+    ));
+    const dav = createWebDavClient({ basePath: "/root", webdavConfigEncrypted: encryptWebDavConfig(config) }, { transport: testTransport });
+    await expect(dav.deleteRecycledBatch("file", [{ relativePath: "file", entryType: "FILE" }])).rejects.toMatchObject({ status: 502 });
+    expect(testTransport.mock.calls.map(([, init]) => init.method)).toEqual(["PROPFIND"]);
+  });
+
+  it("holds a collection lock while removing only verified leaves and empty directories", async () => {
+    const paths = new Map([["tree", true], ["tree/batch", false], ["tree/new", false]]);
+    const deleted: string[] = [];
+    const methods: string[] = [];
+    const token = "<urn:uuid:test>";
+    const testTransport: WebDavTransport = async (url, request) => {
+      const path = url.pathname.slice("/dav/root/".length);
+      const headers = new Headers(request.headers);
+      methods.push(request.method!);
+      if (request.method === "LOCK") {
+        expect(headers.get("Depth")).toBe("infinity");
+        return new Response(null, { headers: { "Lock-Token": token } });
+      }
+      if (request.method === "UNLOCK") return new Response(null, { status: 204 });
+      if (request.method === "DELETE") {
+        expect(headers.get("If")).toBe(`(${token})`);
+        paths.delete(path);
+        deleted.push(path);
+        return new Response(null, { status: 204 });
+      }
+      expect(request.method).toBe("PROPFIND");
+      if (!paths.has(path)) return new Response(null, { status: 404 });
+      const entries = [...paths].filter(([key]) => key === path || (headers.get("Depth") === "1" && key.startsWith(path + "/")));
+      return new Response(`<multistatus xmlns="DAV:">${entries.map(([key, dir]) =>
+        `<response><href>/dav/root/${key}</href><propstat><status>HTTP/1.1 200 OK</status><prop><resourcetype>${dir ? "<collection/>" : ""}</resourcetype></prop></propstat></response>`
+      ).join("")}</multistatus>`, { status: 207 });
+    };
+    const dav = createWebDavClient({ basePath: "/root", webdavConfigEncrypted: encryptWebDavConfig(config) }, { transport: testTransport });
+    const batch = [{ relativePath: "tree/batch", entryType: "FILE" }, { relativePath: "tree", entryType: "DIRECTORY" }];
+    await expect(dav.deleteRecycledBatch("tree", batch)).rejects.toMatchObject({ status: 409 });
+    expect(deleted).toEqual([]);
+    expect(methods.at(-1)).toBe("UNLOCK");
+    paths.delete("tree/new");
+    await dav.deleteRecycledBatch("tree", batch);
+    expect(deleted).toEqual(["tree/batch", "tree"]);
+  });
+
   it("maps errors without leaking credentials and refuses redirects", async () => {
     await expect(client().read("denied")).rejects.toThrow("WebDAV HTTP 401");
     await expect(client().read("denied")).rejects.not.toThrow("secret-password");

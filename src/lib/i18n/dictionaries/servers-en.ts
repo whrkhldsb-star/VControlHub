@@ -343,6 +343,7 @@ export const en: Record<string, string> = {
 	"serverCardActions.directGateway.disabledDetail": "Node Agent manages the direct endpoint, with SSH installation fallback when available. Web relay stays active if setup fails.",
 	"serverCardActions.directGateway.pendingDisable": "Removing service…",
 	"serverCardActions.directGateway.pendingEnable": "Installing service…",
+	"serverCardActions.directGateway.confirmStopped": "Stop and verify the remote gateway",
 	"serverCardActions.directGateway.disableLabel": "Switch to web relay",
 	"serverCardActions.directGateway.enableLabel": "Enable target direct access",
 	"serverCardActions.directGateway.protocol": "Direct public protocol",

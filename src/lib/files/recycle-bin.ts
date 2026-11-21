@@ -1,7 +1,19 @@
 import { z } from "zod";
 import { storageNodeTeamWhere, type TeamSession } from "@/lib/auth/team-scope";
 import { prisma } from "@/lib/db";
+import { escapeLikeLiteral } from "@/lib/db/like-pattern";
 import { getReadableStorageScope, readableStorageScopeWhere } from "@/lib/storage/readable-scope";
+
+/** Direct deletes own no tombstones. A purge owns only the rows in its batch. */
+export function outsideDeleteBatchWhere(storageNodeId: string, relativePath: string, deleteBatchId?: string) {
+  return {
+    storageNodeId,
+    relativePath: { startsWith: escapeLikeLiteral(`${relativePath}/`) },
+    ...(deleteBatchId
+      ? { OR: [{ isDeleted: false }, { deleteBatchId: null }, { deleteBatchId: { not: deleteBatchId } }] }
+      : { isDeleted: true }),
+  };
+}
 
 export const recycleBinQuerySchema = z.object({
   page: z.coerce.number().int().min(1).max(1_000_000).catch(1),

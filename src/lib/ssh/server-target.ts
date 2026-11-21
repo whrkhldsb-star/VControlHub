@@ -6,6 +6,7 @@
  * ValidationError / raw Error → 500). Linux operations share one connection
  * builder; SFTP also supports Windows' separately configured OpenSSH endpoint.
  */
+import type { SshEndpointIdentity } from "./server-connection-select";
 import { prisma } from "@/lib/db";
 import { BusinessError } from "@/lib/errors";
 import { t } from "@/lib/i18n/service-translations";
@@ -29,6 +30,7 @@ const SSH_SERVER_SELECT = {
   connectionType: true,
   password: true,
   managementMode: true,
+  agentTokenHash: true,
   hostKeySha256: true,
   sshKeyId: true,
   sshKey: { select: { teamId: true, privateKey: true, passphrase: true } },
@@ -46,6 +48,7 @@ export type SshServerRow = {
   connectionType: string;
   password: string | null;
   managementMode: string;
+  agentTokenHash: string | null;
   hostKeySha256: string | null;
   sshKeyId: string | null;
   sshKey: { teamId: string | null; privateKey: string | null; passphrase: string | null } | null;
@@ -78,28 +81,14 @@ export function assertDirectCredentialsConfigured(server: SshServerRow): void {
  * decrypted SSH connection params. Throws typed BusinessErrors so API routes
  * surface 4xx with actionable copy instead of a generic 500.
  */
-export async function loadEnabledServerForSsh(serverId: string): Promise<SshServerTarget> {
-  const { server } = await loadEnabledServerRef(serverId);
-  return buildServerSshTarget(server);
+export async function loadEnabledServerForSsh(serverId: string, expectedTeamId?: string | null, expectedEndpoint?: SshEndpointIdentity): Promise<SshServerTarget> {
+  const { server } = await loadEnabledServerRef(serverId, expectedTeamId, expectedEndpoint);
+  return buildServerSshTarget(server, expectedTeamId);
 }
 
-async function buildServerSshTarget(server: SshServerRow): Promise<SshServerTarget> {
-  const ssh = await buildSshParamsFromServer(
-    {
-      operatingSystem: server.operatingSystem,
-      host: server.host,
-      port: server.port,
-      username: server.username,
-      connectionType: server.connectionType,
-      sshKeyId: server.sshKeyId,
-      password: server.password,
-      hostKeySha256: server.hostKeySha256,
-      id: server.id,
-      teamId: server.teamId,
-      managementMode: server.managementMode,
-    },
-    server.sshKey,
-  );
+async function buildServerSshTarget(server: SshServerRow, expectedTeamId?: string | null): Promise<SshServerTarget> {
+  if (server.managementMode !== "AGENT" && !server.hostKeySha256?.trim()) throw new BusinessError(t("backend.ssh.hostKeyNotPinned"));
+  const ssh = await buildSshParamsFromServer(server, server.sshKey, expectedTeamId);
   return { server, ssh };
 }
 
@@ -113,7 +102,7 @@ const HOME_CACHE_MAX = 500;
 const homeCache = new Map<string, { home: string; at: number }>();
 
 async function resolveLinuxHomeRoot(serverId: string, ssh: SshServerTarget["ssh"], fallback: string): Promise<string> {
-  const key = JSON.stringify([serverId, ssh.host, ssh.port, ssh.username, ssh.hostKeySha256, Boolean(ssh.agentServerId && !ssh.privateKey && !ssh.password)]);
+  const key = JSON.stringify([serverId, ssh.expectedIdentity?.teamId, ssh.host, ssh.port, ssh.username, ssh.hostKeySha256, Boolean(ssh.agentServerId && !ssh.privateKey && !ssh.password)]);
   const cached = homeCache.get(key);
   if (cached && Date.now() - cached.at < HOME_CACHE_MS) return cached.home;
   try {
@@ -128,11 +117,14 @@ async function resolveLinuxHomeRoot(serverId: string, ssh: SshServerTarget["ssh"
 }
 
 /** Windows file access uses OpenSSH credentials, never the RDP endpoint. */
-export async function loadEnabledServerForSftp(serverId: string): Promise<SshServerTarget & { rootPath: string }> {
-  const { server } = await loadEnabledServerRef(serverId);
+export async function loadEnabledServerForSftp(serverId: string, expectedTeamId?: string | null, expectedEndpoint?: SshEndpointIdentity): Promise<SshServerTarget & { rootPath: string }> {
+  const { server } = await loadEnabledServerRef(serverId, expectedTeamId, expectedEndpoint);
   if (server.operatingSystem !== "WINDOWS") {
     assertDirectCredentialsConfigured(server);
-    const target = await buildServerSshTarget(server);
+    const target = await buildServerSshTarget(server, expectedTeamId);
+    if ((!target.ssh.agentServerId || target.ssh.password || target.ssh.privateKey) && !target.ssh.hostKeySha256?.trim()) {
+      throw new BusinessError(t("backend.ssh.hostKeyNotPinned"));
+    }
     return {
       ...target,
       rootPath: await resolveLinuxHomeRoot(server.id, target.ssh, server.username === "root" ? "/root" : `/home/${server.username}`),
@@ -147,7 +139,8 @@ export async function loadEnabledServerForSftp(serverId: string): Promise<SshSer
     throw new BusinessError(t("backend.server.windowsStorageRequiresSftp"));
   }
   const ssh = resolveStorageSshCredentials({ ...node, server });
-  return { server, ssh, rootPath: node.basePath };
+  if (!ssh.hostKeySha256?.trim()) throw new BusinessError(t("backend.ssh.hostKeyNotPinned"));
+  return { server, ssh: { ...ssh, enforceHostKeyPin: true }, rootPath: node.basePath };
 }
 
 /**
@@ -157,9 +150,11 @@ export async function loadEnabledServerForSftp(serverId: string): Promise<SshSer
  */
 export async function loadEnabledServerRef(
   serverId: string,
+  expectedTeamId?: string | null,
+  expectedEndpoint?: SshEndpointIdentity,
 ): Promise<{ server: SshServerRow }> {
   const server = (await prisma.server.findUnique({
-    where: { id: serverId },
+    where: { ...expectedEndpoint, id: serverId, ...(expectedTeamId !== undefined && { teamId: expectedTeamId }) },
     select: SSH_SERVER_SELECT,
   })) as SshServerRow | null;
   if (!server) {

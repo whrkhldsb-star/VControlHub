@@ -3,6 +3,7 @@ import { beforeEach, describe, expect, it, vi } from "vitest";
 
 const mocks = vi.hoisted(() => ({
   jobFindFirst: vi.fn(),
+  settingFindUnique: vi.fn(),
   enqueueJob: vi.fn(),
   claimNextJob: vi.fn(),
   heartbeatJob: vi.fn(),
@@ -38,6 +39,7 @@ vi.mock("node:fs", async (importOriginal) => {
 
 vi.mock("@/lib/db", () => ({
   prisma: {
+    setting: { findUnique: mocks.settingFindUnique },
     job: { findFirst: mocks.jobFindFirst },
     trafficSnapshot: {
       create: mocks.trafficSnapshotCreate,
@@ -79,6 +81,7 @@ Inter-|   Receive                                                |  Transmit
 describe("traffic sampling worker", () => {
   beforeEach(() => {
     vi.clearAllMocks();
+    mocks.settingFindUnique.mockResolvedValue(null);
     stopTrafficSamplingWorkerForTests();
     mocks.jobFindFirst.mockResolvedValue(null);
     mocks.enqueueJob.mockResolvedValue({ id: "queued" });
@@ -153,6 +156,13 @@ describe("traffic sampling worker", () => {
     } finally {
       vi.useRealTimers();
     }
+  });
+
+  it("finishes sampling without pruning when the retention policy is unavailable", async () => {
+    mocks.settingFindUnique.mockRejectedValue(new Error("DB unavailable"));
+    expect(await runTrafficSamplingWorkerOnce("test")).toBe(true);
+    expect(mocks.trafficSnapshotDeleteMany).not.toHaveBeenCalled();
+    expect(mocks.completeJob).toHaveBeenCalledWith("job1", expect.any(String), expect.objectContaining({ prunedSnapshots: 0 }));
   });
 
   it("does not enqueue a duplicate pending/running sample", async () => {

@@ -99,12 +99,13 @@ async function dispatchDueTask(task: {
   serverIds: string[];
   createdById: string | null;
   nextRunAt: Date | null;
+  updatedAt: Date;
   claimedOccurrenceAt?: Date | null;
   approvalRequired: boolean;
   /** Propagate parent ScheduledTask.teamId so the spawned CommandRequest is not global (null = shared). */
   teamId: string | null;
 }): Promise<boolean> {
-  const expected = { nextRunAt: task.nextRunAt, claimedOccurrenceAt: task.claimedOccurrenceAt ?? null };
+  const expected = { updatedAt: task.updatedAt, approvalRequired: task.approvalRequired, nextRunAt: task.nextRunAt, claimedOccurrenceAt: task.claimedOccurrenceAt ?? null };
   if (task.serverIds.length === 0 || !task.createdById) {
     await recordTaskRun(task.id, t("backend.scheduled-task.skippedMissingTargetOrCreator"), "skipped", expected);
     return false;
@@ -156,7 +157,7 @@ async function dispatchDueTask(task: {
     where: {
       id: task.id,
       status: "ACTIVE",
-      nextRunAt: task.nextRunAt,
+      ...expected,
     },
     data: { nextRunAt: claimLease, claimedOccurrenceAt: occurrence },
   });
@@ -182,7 +183,7 @@ async function dispatchDueTask(task: {
       requesterId: task.createdById,
       serverIds: task.serverIds,
       teamId: task.teamId,
-    approvalRequired: task.approvalRequired,
+      approvalRequired: task.approvalRequired,
       idempotencyKey: `scheduled-task:${task.id}:${occurrence?.toISOString() ?? "manual"}`,
     });
 

@@ -12,6 +12,8 @@ import { assertStorageAccess } from "@/lib/storage/access-control";
 import { storageAccessDeniedCopy } from "@/lib/storage/access-denied";
 import { createFileEntry } from "@/lib/storage/service";
 import { tryAcquireAdvisoryLock } from "@/lib/concurrency/advisory-lock";
+import { lockStorageFileOverwrite } from "@/lib/storage/file-overwrite-lock";
+import { ConflictError } from "@/lib/errors";
 import { apiCopy } from "@/lib/i18n/api-copy";
 import {
   createManagedFolder,
@@ -232,6 +234,7 @@ async function renameFileEntryActionImpl(
         id: true,
         name: true,
         entryType: true,
+        updatedAt: true,
         relativePath: true,
         storageNodeId: true,
         storageNode: {
@@ -294,19 +297,16 @@ async function renameFileEntryActionImpl(
     // operations, and the advisory lock is the established coordination
     // point (executeMoveFile / executeCopyFile / executeDeleteFile).
     const release = await tryAcquireAdvisoryLock("storage-file-operation", entry.storageNodeId);
-    let lockReleased = false;
-    const releaseOnce = () => {
-      if (!lockReleased) {
-        lockReleased = true;
-        void release?.();
-      }
-    };
+    if (!release) return { error: apiCopy("apiCopy.files.op.busy") };
+    let releasePaths: (() => Promise<void>) | undefined;
     try {
-      if (!release) {
-        return {
-          error: apiCopy("apiCopy.files.op.busy"),
-        } satisfies StorageActionState;
-      }
+    releasePaths = await lockStorageFileOverwrite(entry.storageNodeId, newRelativePath, entry.relativePath);
+    const sourceIdentity = {
+      id: fileEntryId, storageNodeId: entry.storageNodeId,
+      relativePath: entry.relativePath, isDeleted: false, updatedAt: entry.updatedAt,
+    };
+    const sourceStillIndexed = () => prisma.fileEntry.findUnique({ where: sourceIdentity, select: { id: true } });
+    if (!await sourceStillIndexed()) return { error: apiCopy("apiCopy.files.op.changed") };
 
     // Include soft-deleted (recycle-bin) rows: the physical rename overwrites
     // the target bytes, but a soft-deleted occupant's file is still on disk.
@@ -327,16 +327,6 @@ async function renameFileEntryActionImpl(
         error: occupant.isDeleted
           ? t("storagePage.action.pathInRecycleBin", { path: newRelativePath })
           : t("storagePage.action.pathAlreadyExists", { path: newRelativePath }),
-      } satisfies StorageActionState;
-    }
-
-    // Guard against an un-indexed physical file at the destination (e.g. an
-    // in-flight upload or an SSH-written file not yet scanned). The DB check
-    // above cannot see it, and the raw rename would silently replace its
-    // bytes. Mirrors executeMoveFile's physical occupancy check.
-    if (await statBackingObject({ storageNode: entry.storageNode, relativePath: newRelativePath })) {
-      return {
-        error: t("storagePage.action.pathAlreadyExists", { path: newRelativePath }),
       } satisfies StorageActionState;
     }
 
@@ -366,10 +356,21 @@ async function renameFileEntryActionImpl(
       }
     }
 
+    // Guard against an un-indexed physical file at the destination (e.g. an
+    // in-flight upload or an SSH-written file not yet scanned). The DB check
+    // above cannot see it, and the raw rename would silently replace its
+    // bytes. Mirrors executeMoveFile's physical occupancy check.
+    if (await statBackingObject({ storageNode: entry.storageNode, relativePath: newRelativePath })) {
+      return {
+        error: t("storagePage.action.pathAlreadyExists", { path: newRelativePath }),
+      } satisfies StorageActionState;
+    }
+
     await renameBackingObject({
       storageNode: entry.storageNode,
       oldRelativePath: entry.relativePath,
       newRelativePath,
+      noReplace: true,
     });
 
     try {
@@ -401,7 +402,7 @@ async function renameFileEntryActionImpl(
         const extensionOf = (name: string) => { const i = name.lastIndexOf("."); return i > 0 ? name.slice(i + 1).toLowerCase() : ""; };
         const retype = entry.entryType === "FILE" && extensionOf(entry.name) !== extensionOf(normalizedNewName);
         await tx.fileEntry.update({
-          where: { id: fileEntryId },
+          where: sourceIdentity,
           data: { name: normalizedNewName, relativePath: newRelativePath, ...(retype ? { mimeType: guessContentType(normalizedNewName) } : {}) },
         });
         // Shares follow the renamed entry, as they follow a move.
@@ -415,10 +416,15 @@ async function renameFileEntryActionImpl(
     } catch (databaseError) {
       // Physical rename already succeeded — roll back so disk and index stay aligned.
       try {
+        if (!await sourceStillIndexed() ||
+            await statBackingObject({ storageNode: entry.storageNode, relativePath: entry.relativePath })) {
+          throw new ConflictError(apiCopy("apiCopy.files.op.changed"));
+        }
         await renameBackingObject({
           storageNode: entry.storageNode,
           oldRelativePath: newRelativePath,
           newRelativePath: entry.relativePath,
+          noReplace: true,
         });
       } catch (compensationError) {
         return {
@@ -450,7 +456,7 @@ async function renameFileEntryActionImpl(
 
     return { success: t("storagePage.action.fileRenamed", { name: normalizedNewName }) } satisfies StorageActionState;
     } finally {
-      releaseOnce();
+      try { await releasePaths?.(); } finally { await release(); }
     }
   } catch (error) {
     return {

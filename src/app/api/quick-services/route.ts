@@ -1,3 +1,4 @@
+import { quickServiceCapability, quickServiceEndpointFingerprint, quickServiceRemoteTarget } from "@/lib/quick-service/target-identity";
 import { cachedProbe, dockerStatusCache, usedPortsCache } from "@/lib/quick-service/route-probe-cache";
 import { t } from "@/lib/i18n/service-translations";
 import { apiCopy } from "@/lib/i18n/api-copy";
@@ -70,11 +71,13 @@ export async function GET(request: Request) {
 		const url = new URL(request.url);
 		const serverId = url.searchParams.get("serverId")?.trim() || "";
 		const instanceKey = serverId || HUB_HOST_INSTANCE_KEY;
+		let remote: ReturnType<typeof quickServiceRemoteTarget> | undefined;
 		if (serverId) {
 			// "connect", like the same probe in check-port: the platform SSHes to the server with its own credentials to list
 			// its listening ports and Docker state, which "read" alone (a member narrowed to read-only) must not trigger.
 			const access = await assertServerTeamAccess(session, serverId, "connect");
 			if (!access.ok) return access.response;
+			remote = quickServiceRemoteTarget(access.server);
 		} else {
 			// No serverId means the hub host's own daemon — shared platform
 			// infrastructure. Its installed-service list alone discloses the control
@@ -98,7 +101,7 @@ export async function GET(request: Request) {
 				});
 			}
 		}
-		const installedRows = await listQuickServices(instanceKey);
+		const installedRows = await listQuickServices(instanceKey, remote?.expectedTeamId ?? null);
 		// The page never read envJson, and it holds the generated administrator passwords of every installed service
 		// (MinIO, n8n, Pi-hole ...): only how many variables there are leaves the server.
 		const installed = installedRows.map(({ envJson, ...row }) => ({ ...row, envKeyCount: countEnvKeys(envJson) }));
@@ -157,10 +160,11 @@ export async function GET(request: Request) {
 		// While a service installs, every open tab polls this route every 3 s;
 		// the port inventory and the Docker environment probe (an SSH session
 		// each on a remote target) are reused for a short while (A6-06).
+		const probeKey = JSON.stringify([instanceKey, remote?.expectedTeamId, remote && quickServiceEndpointFingerprint(remote.endpoint)]);
 		const [usedPorts, docker, servers] = await Promise.all([
 			// An unreachable or Windows server answers the probe with an error; the list of services must still load.
-			cachedProbe(usedPortsCache, serverId || "hub-host", USED_PORTS_TTL_MS, () => (serverId ? getRemoteUsedPorts(serverId).catch(() => []) : getUsedPorts())),
-			cachedProbe(dockerStatusCache, serverId || "hub-host", DOCKER_STATUS_TTL_MS, () => getDockerEnvironmentStatusFor(serverId ? { kind: "remote", serverId } : { kind: "local" })),
+			cachedProbe(usedPortsCache, probeKey, USED_PORTS_TTL_MS, () => (remote ? getRemoteUsedPorts(remote).catch(() => []) : getUsedPorts())),
+			cachedProbe(dockerStatusCache, probeKey, DOCKER_STATUS_TTL_MS, () => getDockerEnvironmentStatusFor(remote ?? { kind: "local" })),
 			listInstallTargets(session),
 		]);
 		return NextResponse.json({
@@ -199,6 +203,7 @@ export async function POST(request: Request) {
 		const { slug, customPort } = body;
 		const serverId = body.serverId?.trim() || "";
 		const instanceKey = serverId || HUB_HOST_INSTANCE_KEY;
+		let remote: ReturnType<typeof quickServiceRemoteTarget> | undefined;
 		if (!serverId) {
 			// Installing on the hub host runs `docker run` against the platform's own
 			// daemon, and two catalogue templates (Portainer, Gladys) mount that
@@ -239,9 +244,10 @@ export async function POST(request: Request) {
 			}
 		}
 		if (serverId) {
-			const access = await assertServerTeamAccess(session, serverId, "manage");
+			const access = await assertServerTeamAccess(session, serverId, quickServiceCapability.install);
 			if (!access.ok) return access.response;
-			const server = await prisma.server.findUnique({ where: { id: serverId }, select: { id: true, enabled: true, name: true } });
+			remote = quickServiceRemoteTarget(access.server);
+			const server = await prisma.server.findUnique({ where: { id: serverId, teamId: remote.expectedTeamId, ...remote.endpoint }, select: { enabled: true } });
 			if (!server || !server.enabled) throw new ValidationError(apiCopy("apiCopy.target.vps.not.found.or.disabled.398d5671"));
 		}
 
@@ -250,9 +256,10 @@ export async function POST(request: Request) {
 			title: t("backend.quick-service.job.install", { name: template.name }),
 			// A hub-host install is platform work (A6-05): booking it under whichever
 			// customer the administrator happened to be viewing misfiled the audit.
-			teamId: serverId ? session.currentTeamId ?? null : null,
-				createdBy: session.userId,
+			teamId: remote?.expectedTeamId ?? null,
+			createdBy: session.userId,
 			payload: {
+				...(remote && { endpointFingerprint: quickServiceEndpointFingerprint(remote.endpoint) }),
 				action: "install",
 				slug: template.slug,
 				template: prepared.template,
@@ -268,7 +275,7 @@ export async function POST(request: Request) {
 			templateName: template.name,
 			instanceKey,
 			serverId: serverId || null,
-		}, undefined, serverId ? session.currentTeamId : null);
+		}, undefined, remote?.expectedTeamId ?? null);
 		// A reused task installs with its own generated settings: the ones made
 		// for this request are not used, and returning them handed the caller
 		// sign-in details the service will not have. The task's own are shown

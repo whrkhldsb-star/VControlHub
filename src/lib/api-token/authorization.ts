@@ -1,3 +1,4 @@
+import type { Prisma } from "@prisma/client";
 import { sessionHasPermission } from "@/lib/auth/authorization";
 import {
 	DEFAULT_ROLE_PERMISSIONS,
@@ -42,8 +43,9 @@ export function apiTokenScopeAllowedForSession(
 export async function loadApiTokenOwnerSession(
 	userId: string,
 	boundTeamId?: string,
+	db: Pick<Prisma.TransactionClient, "user" | "team"> = prisma,
 ): Promise<SessionPayload | null> {
-	const user = await prisma.user.findUnique({
+	const user = await db.user.findUnique({
 		where: { id: userId },
 		select: {
 			id: true,
@@ -72,7 +74,7 @@ export async function loadApiTokenOwnerSession(
 	let currentTeamId: string | null;
 	if (isAdmin) {
 		const teamId = boundTeamId ?? user.currentTeamId;
-		const team = teamId ? await prisma.team.findUnique({ where: { id: teamId }, select: { deletedAt: true } }) : null;
+		const team = teamId ? await db.team.findUnique({ where: { id: teamId }, select: { deletedAt: true } }) : null;
 		currentTeamId = team && !team.deletedAt ? teamId : null;
 	} else {
 		currentTeamId = membership && (!boundTeamId || membership.teamId === boundTeamId) ? membership.teamId : null;
@@ -101,8 +103,12 @@ export async function loadApiTokenOwnerSession(
  * without a customer runs across all customers. Null once the creator may no
  * longer act there.
  */
-export async function loadJobOwnerSession(userId: string, teamId: string | null | undefined): Promise<SessionPayload | null> {
-	if (teamId) return loadApiTokenOwnerSession(userId, teamId);
-	const account = await loadApiTokenOwnerSession(userId);
+export async function loadJobOwnerSession(
+	userId: string,
+	teamId: string | null | undefined,
+	db: Pick<Prisma.TransactionClient, "user" | "team"> = prisma,
+): Promise<SessionPayload | null> {
+	if (teamId) return loadApiTokenOwnerSession(userId, teamId, db);
+	const account = await loadApiTokenOwnerSession(userId, undefined, db);
 	return account && account.roles.includes("admin") ? { ...account, currentTeamId: null } : account;
 }

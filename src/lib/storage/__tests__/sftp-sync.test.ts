@@ -125,6 +125,7 @@ describe("sftp sync service", () => {
         password: "decrypted-password:ENCRYPTED PASSWORD",
         privateKey: undefined,
         hostKeySha256: null,
+        enforceHostKeyPin: true,
         remotePath: "/data/files",
       }),
     );

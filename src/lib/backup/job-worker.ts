@@ -1,3 +1,4 @@
+import { ForbiddenError } from "@/lib/errors";
 import type { RoleKey } from "@/lib/auth/rbac";
 import { Prisma } from "@prisma/client";
 import { prisma } from "@/lib/db";
@@ -21,6 +22,7 @@ import {
 } from "@/lib/job/service";
 import { createLogger } from "@/lib/logging";
 import { t } from "@/lib/i18n/service-translations";
+import { canCreatePlatformBackup } from "./service-crud";
 import { BACKUP_CREATE_JOB_TYPE } from "./service-types";
 
 /** The offsite prune is platform-wide; keep it to one run per day across retention tasks. */
@@ -197,6 +199,10 @@ function workerSession(
   };
 }
 
+async function requirePlatformBackupOwner(userId: string | null) {
+  if (!userId || !await canCreatePlatformBackup(userId)) throw new ForbiddenError(t("backend.execution.ownerInactive"));
+}
+
 async function handleJob(job: Awaited<ReturnType<typeof claimNextJob>>) {
   if (!job) return false;
   try {
@@ -229,6 +235,7 @@ async function handleJob(job: Awaited<ReturnType<typeof claimNextJob>>) {
         run: () =>
           runExistingBackupRecord({
             id: payload.backupId,
+            requestedBy: job.createdBy ?? null,
             projectRoot: payload.projectRoot,
             session: scope,
           }),
@@ -304,6 +311,8 @@ async function handleJob(job: Awaited<ReturnType<typeof claimNextJob>>) {
 
     if (job.type === BACKUP_RETENTION_JOB_TYPE) {
       const payload = parseRetentionPayload(job.payload);
+      // Only the system daily offsite sweep has no submitting account.
+      if (job.createdBy || !payload.offsiteOnly) await requirePlatformBackupOwner(job.createdBy);
       await heartbeatJob(job.id, WORKER_ID, {
         leaseMs: LEASE_MS,
         progress: "Cleaning up old backups",
@@ -439,6 +448,7 @@ async function handleJob(job: Awaited<ReturnType<typeof claimNextJob>>) {
     }
 
     if (job.type === BACKUP_DRILL_JOB_TYPE) {
+      await requirePlatformBackupOwner(job.createdBy);
       const payload = parseCreatePayload(job.payload);
       const scope = workerSession(job, payload.teamId);
       await heartbeatJob(job.id, WORKER_ID, {
@@ -471,7 +481,7 @@ async function handleJob(job: Awaited<ReturnType<typeof claimNextJob>>) {
     // Permanent failures (bad payload, unsupported type, missing record) must
     // not be retried — burning maxAttempts on an unchangeable outcome only
     // delays the row reaching FAILED and clutters the retry queue.
-    if (error instanceof PermanentBackupJobError) {
+    if (error instanceof PermanentBackupJobError || error instanceof ForbiddenError) {
       await failJobTerminal(job.id, WORKER_ID, message.slice(0, 2000));
     } else {
       await failJob(job.id, WORKER_ID, message.slice(0, 2000), {
@@ -481,7 +491,7 @@ async function handleJob(job: Awaited<ReturnType<typeof claimNextJob>>) {
     logger.error("backup job failed", {
       jobId: job.id,
       type: job.type,
-      permanent: error instanceof PermanentBackupJobError,
+      permanent: error instanceof PermanentBackupJobError || error instanceof ForbiddenError,
       error: message,
     });
     return true;

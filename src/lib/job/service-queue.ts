@@ -1,5 +1,6 @@
 import { JobStatus, Prisma } from "@prisma/client";
 
+import { beginJobClaim } from "./claim-context";
 import { config } from "@/lib/config/env";
 import { prisma } from "@/lib/db";
 import { getRuntimeSettingNumberCached } from "@/lib/runtime-settings/cached";
@@ -60,6 +61,7 @@ export async function enqueueJob(
 }
 
 export async function claimNextJob(options: ClaimJobOptions) {
+  const binding = beginJobClaim();
   const now = options.now ?? new Date();
   const leaseExpiresAt = futureFrom(now, options.leaseMs ?? DEFAULT_LEASE_MS);
   const maxGlobal = config.job.maxConcurrentGlobal;
@@ -73,7 +75,7 @@ export async function claimNextJob(options: ClaimJobOptions) {
     OR: [{ leaseExpiresAt: null }, { leaseExpiresAt: { gte: now } }],
   };
 
-  return prisma.$transaction(async (tx) => {
+  const job = await prisma.$transaction(async (tx) => {
     // Serialize count-and-claim only when caps are enabled. Row locks alone
     // cannot protect a shared budget when workers claim different jobs.
     if (maxGlobal > 0 || maxPerUser > 0 || maxPerNode > 0) {
@@ -140,6 +142,7 @@ export async function claimNextJob(options: ClaimJobOptions) {
       const claimed = await tx.job.updateMany({
         where: {
           id: candidate.id,
+          attempts: candidate.attempts,
           OR: [
             { status: JobStatus.PENDING, availableAt: { lte: now } },
             { status: JobStatus.RUNNING, leaseExpiresAt: { lt: now } },
@@ -176,4 +179,6 @@ export async function claimNextJob(options: ClaimJobOptions) {
     }
     return null;
   });
+  if (job) binding.claim = { id: job.id, workerId: options.workerId, attempts: job.attempts };
+  return job;
 }

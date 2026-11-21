@@ -21,8 +21,8 @@ const fingerprint = (script: string) => createHash("sha256").update(script.repla
  * fails, raise that version (agent-version.ts) and record the new fingerprint here.
  */
 const RECORDED = {
-	linux: { version: "1.5.2", fingerprint: "fb1b823253f0620c" },
-	windows: { version: "1.5.3", fingerprint: "4ae3f2c76fce1e06" },
+	linux: { version: "1.5.3", fingerprint: "08e42989f03e8d41" },
+	windows: { version: "1.5.4", fingerprint: "2bf1d3302df26637" },
 };
 
 describe("Agent versions", () => {
@@ -32,8 +32,10 @@ describe("Agent versions", () => {
 	});
 
 	it("a script that changed moved its version", () => {
-		expect({ version: AGENT_VERSION, fingerprint: fingerprint(buildAgentPython(HUB, TOKEN)) }, "Linux Agent").toEqual(RECORDED.linux);
-		expect({ version: WINDOWS_AGENT_VERSION, fingerprint: fingerprint(buildAgentPowerShell(HUB, TOKEN)) }, "Windows Agent").toEqual(RECORDED.windows);
+		expect({
+			linux: { version: AGENT_VERSION, fingerprint: fingerprint(buildAgentPython(HUB, TOKEN)) },
+			windows: { version: WINDOWS_AGENT_VERSION, fingerprint: fingerprint(buildAgentPowerShell(HUB, TOKEN)) },
+		}).toEqual(RECORDED);
 	});
 
 	it("a Linux release does not ask Windows nodes to install again", () => {

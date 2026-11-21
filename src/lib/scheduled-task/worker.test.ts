@@ -104,7 +104,8 @@ function makeTask(overrides: Partial<Record<string, unknown>> = {}) {
     // nextRunAt on its updateMany `where` clause, so every fixture that
     // dispatches must carry it.
     nextRunAt: new Date("2026-01-01T00:00:00Z"),
-  approvalRequired: true,
+    approvalRequired: true,
+    updatedAt: new Date("2025-12-31T00:00:00Z"),
     ...overrides,
   };
 }
@@ -384,6 +385,8 @@ describe("scheduled-task durable job worker", () => {
       expect.objectContaining({
         where: expect.objectContaining({
           id: "raced",
+          updatedAt: new Date("2025-12-31T00:00:00Z"),
+          approvalRequired: true,
           status: "ACTIVE",
           nextRunAt: new Date("2026-01-01T00:00:00Z"),
         }),

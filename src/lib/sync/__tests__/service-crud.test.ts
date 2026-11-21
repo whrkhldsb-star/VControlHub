@@ -11,8 +11,10 @@ import { beforeEach, describe, expect, it, vi } from "vitest";
  * tests pin the actual filters, not a restatement of them.
  */
 const mocks = vi.hoisted(() => ({
+	realpath: vi.fn(async ({ remotePath }: { remotePath: string }) => remotePath),
 	prisma: {
 		server: { findMany: vi.fn() },
+		fileEntry: { findFirst: vi.fn() },
 		storageNode: { findMany: vi.fn(), findFirst: vi.fn(async () => ({ id: "node" })) },
 		userStorageAccess: { findMany: vi.fn(async () => []) },
 		syncJob: {
@@ -25,6 +27,7 @@ const mocks = vi.hoisted(() => ({
 	},
 }));
 
+vi.mock("@/lib/ssh/client", () => ({ resolveRemoteRealPath: mocks.realpath, RemoteDanglingLinkError: class extends Error {} }));
 vi.mock("@/lib/db", () => ({ prisma: { ...mocks.prisma, $transaction: (fn: (tx: typeof mocks.prisma) => unknown) => fn(mocks.prisma) } }));
 vi.mock("@/lib/i18n/service-translations", () => ({ t: (key: string) => key }));
 vi.mock("@/lib/logging", () => ({
@@ -61,6 +64,12 @@ const jobRow = {
 	deleteOrphans: false,
 };
 
+function storageNode(serverId: string, basePath = "/srv/storage") {
+	return { id: serverId + "-drive", serverId, teamId: "team_1", basePath, host: null, port: null, username: null, hostKeySha256: null,
+		server: { id: serverId, teamId: "team_1", host: serverId, port: 22, username: "fixture", password: "fixture",
+			connectionType: "PASSWORD", managementMode: "SSH", operatingSystem: "LINUX", sshKey: null, hostKeySha256: null } };
+}
+
 describe("sync job CRUD scoping", () => {
 	beforeEach(() => {
 		for (const stub of [
@@ -74,10 +83,12 @@ describe("sync job CRUD scoping", () => {
 		]) {
 			stub.mockReset();
 		}
+		mocks.realpath.mockImplementation(async ({ remotePath }) => remotePath);
+		mocks.prisma.fileEntry.findFirst.mockReset().mockResolvedValue(null);
 		mocks.prisma.server.findMany.mockResolvedValue([{ id: "srv_a" }, { id: "srv_b" }]);
 		mocks.prisma.storageNode.findMany.mockResolvedValue([
-			{ serverId: "srv_a", basePath: "/srv/storage" },
-			{ serverId: "srv_b", basePath: "/srv/storage" },
+			storageNode("srv_a"),
+			storageNode("srv_b"),
 		]);
 		mocks.prisma.syncJob.create.mockResolvedValue({ ...jobRow });
 		mocks.prisma.syncJob.findFirst.mockResolvedValue({ ...jobRow });
@@ -171,19 +182,52 @@ describe("sync job CRUD scoping", () => {
 	describe("endpoints of a caller without server:ssh", () => {
 		// rsync runs as the server's SSH user anywhere on the machine, the reach of a terminal: a caller who may not
 		// open one there is confined to the storage root its storage:write already covers.
-		it("lets a caller with server:ssh sync any path, without consulting the storage nodes", async () => {
+		it("lets a caller with server:ssh sync paths outside managed storage", async () => {
 			await createSyncJob({ ...baseInput, sourcePath: "/etc", targetPath: "/var/backups/etc", session: operator });
-			expect(mocks.prisma.storageNode.findMany).not.toHaveBeenCalled();
+			expect(mocks.prisma.fileEntry.findFirst).not.toHaveBeenCalled();
 			expect(mocks.prisma.syncJob.create).toHaveBeenCalled();
 		});
 
 		it("lets a storage manager sync paths inside both servers' storage roots", async () => {
 			await createSyncJob({ ...baseInput, sourcePath: "/srv/storage/photos", targetPath: "/srv/storage/", session: storageManager });
 			expect(mocks.prisma.storageNode.findMany).toHaveBeenCalledWith({
-				where: { serverId: { in: ["srv_a", "srv_b"] }, teamId: "team_1" },
-				select: { id: true, serverId: true, basePath: true },
+				where: { driver: "SFTP", serverId: { in: ["srv_a", "srv_b"] }, teamId: "team_1" },
+				select: expect.objectContaining({ server: expect.any(Object), host: true, port: true, basePath: true }),
 			});
 			expect(mocks.prisma.syncJob.create).toHaveBeenCalled();
+		});
+
+		it("rejects a lexical child whose actual directory differs from the grant", async () => {
+			mocks.realpath.mockImplementation(async ({ remotePath }) => remotePath.endsWith("/linked") ? "/different" : remotePath);
+			await expect(createSyncJob({ ...baseInput, sourcePath: "/srv/storage", targetPath: "/srv/storage/linked", session: storageManager }))
+				.rejects.toThrow("remotePathLeavesNodeRoot");
+			expect(mocks.prisma.syncJob.create).not.toHaveBeenCalled();
+		});
+
+		it.each([{ host: "another-endpoint" }, { port: 2222 }, { username: "other-account" }])("refuses a drive with an independent SSH endpoint %o", async override => {
+			mocks.prisma.storageNode.findMany.mockResolvedValue([storageNode("srv_a"), { ...storageNode("srv_b"), ...override }]);
+			await expect(createSyncJob({ ...baseInput, sourcePath: "/srv/storage/a", targetPath: "/srv/storage/b", session: storageManager }))
+				.rejects.toThrow("connectionChanged");
+			expect(mocks.prisma.syncJob.create).not.toHaveBeenCalled();
+		});
+
+		it.each(["srv_a", "srv_b"])("checks recycle-bin ancestors and descendants on %s", async blocked => {
+			for (const kind of ["in", "startsWith"]) {
+				mocks.prisma.fileEntry.findFirst.mockImplementation(async ({ where }) =>
+					where.storageNodeId === blocked + "-drive" && where.relativePath?.[kind] ? { id: "deleted" } : null);
+				await expect(createSyncJob({ ...baseInput, sourcePath: "/srv/storage/a", targetPath: "/srv/storage/b", session: storageManager }))
+					.rejects.toThrow();
+			}
+			expect(mocks.prisma.syncJob.create).not.toHaveBeenCalled();
+		});
+
+		it("checks the entire node for recycled entries when syncing its root or a parent", async () => {
+			mocks.prisma.fileEntry.findFirst.mockImplementation(async ({ where }) =>
+				where.storageNodeId === "srv_b-drive" && !where.relativePath ? { id: "deleted" } : null);
+			for (const targetPath of ["/srv/storage", "/srv"]) {
+				await expect(createSyncJob({ ...baseInput, syncType: "BACKUP", targetPath, session: operator }))
+					.rejects.toThrow("destinationHeldByRecycleBin");
+			}
 		});
 
 		it("refuses a storage manager an endpoint outside the storage root, or one it cannot place", async () => {
@@ -195,7 +239,7 @@ describe("sync job CRUD scoping", () => {
 		});
 
 		it("refuses a storage manager a server that has no storage root", async () => {
-			mocks.prisma.storageNode.findMany.mockResolvedValue([{ serverId: "srv_a", basePath: "/srv/storage" }]);
+			mocks.prisma.storageNode.findMany.mockResolvedValue([storageNode("srv_a")]);
 			await expect(createSyncJob({ ...baseInput, sourcePath: "/srv/storage/photos", targetPath: "/srv/storage", session: storageManager }))
 				.rejects.toThrow(/backend\.sync\.endpointNeedsSshPermission/);
 		});
@@ -210,8 +254,8 @@ describe("sync job CRUD scoping", () => {
 
 		it("expands the deployment placeholder in a storage root", async () => {
 			mocks.prisma.storageNode.findMany.mockResolvedValue([
-				{ serverId: "srv_a", basePath: "/srv/${APP_SLUG:-vcontrolhub}/files" },
-				{ serverId: "srv_b", basePath: "/srv/${APP_SLUG:-vcontrolhub}/files" },
+				storageNode("srv_a", "/srv/${APP_SLUG:-vcontrolhub}/files"),
+				storageNode("srv_b", "/srv/${APP_SLUG:-vcontrolhub}/files"),
 			]);
 			await createSyncJob({ ...baseInput, sourcePath: "/srv/vcontrolhub/files/a", targetPath: "/srv/vcontrolhub/files/b", session: storageManager });
 			expect(mocks.prisma.syncJob.create).toHaveBeenCalled();

@@ -26,6 +26,7 @@ import hmac
 import http.server
 import os
 import posixpath
+import sys
 import time
 import urllib.parse
 
@@ -130,6 +131,22 @@ class AuthHandler(http.server.SimpleHTTPRequestHandler):
         self.send_response(204)
         self.end_headers()
 
+# The hub records our PID before allowing the token to serve any files.
+if len(sys.argv) == 2:
+    deadline = time.monotonic() + 30
+    while not os.path.isfile(sys.argv[1]):
+        if time.monotonic() >= deadline:
+            # A lost SSH response or failed database write never released us.
+            workdir = os.path.dirname(sys.argv[0])
+            for name in ("proxy.py", "proxy.out"):
+                try:
+                    os.unlink(os.path.join(workdir, name))
+                except FileNotFoundError:
+                    pass
+            os.rmdir(workdir)
+            sys.exit(1)
+        time.sleep(0.1)
+
 port = ${input.port || 0}
 os.chdir(SERVE_DIR)
 with http.server.ThreadingHTTPServer(("0.0.0.0", port), AuthHandler) as httpd:
@@ -140,4 +157,54 @@ with http.server.ThreadingHTTPServer(("0.0.0.0", port), AuthHandler) as httpd:
     except KeyboardInterrupt:
         pass
 `.trim();
+}
+
+/** The secret-bearing Python source is sent on SSH stdin, outside the shell command line. */
+export const startFileProxyCommand = `set -eu
+umask 077
+dir=$(mktemp -d /tmp/.vps_file_proxy_XXXXXXXXXX)
+chmod 700 "$dir"
+: > "$dir/proxy.py"
+: > "$dir/proxy.out"
+chmod 600 "$dir/proxy.py" "$dir/proxy.out"
+cat > "$dir/proxy.py"
+nohup python3 "$dir/proxy.py" "$dir/start" > "$dir/proxy.out" 2>&1 < /dev/null &
+echo "$! $dir"`;
+
+/** Linux procfs distinguishes a reused PID from the proxy. Inspection failures are never proof of exit. */
+export function fileProxyProcessCommand(pid: number, stop: boolean) {
+  if (!Number.isSafeInteger(pid) || pid <= 0) throw new Error("Invalid file proxy PID");
+  return `python3 - <<'PY'
+import os, re, signal, time
+
+pid = ${pid}
+def state():
+    try:
+        os.kill(pid, 0)
+        with open(f"/proc/{pid}/cmdline", "rb") as cmdline:
+            args = cmdline.read().split(b"\\x00")
+        if not args[0]:
+            with open(f"/proc/{pid}/stat", "rb") as stat:
+                return "not_running" if stat.read().rsplit(b") ", 1)[1].startswith(b"Z ") else "unknown"
+        is_proxy = len(args) >= 2 and os.path.basename(args[0]) == b"python3" and re.fullmatch(
+            rb"/tmp/\\.vps_file_proxy_(?:[a-fA-F0-9]{32}\\.py|[a-zA-Z0-9]{10}/proxy\\.py)", args[1])
+        return "proxy_running" if is_proxy else "not_running"
+    except ProcessLookupError:
+        return "not_running"
+    except OSError:
+        return "unknown"
+
+result = state()
+${stop ? `if result == "proxy_running":
+    try:
+        os.kill(pid, signal.SIGTERM)
+    except OSError:
+        pass
+    for attempt in range(20):
+        result = state()
+        if result != "proxy_running":
+            break
+        time.sleep(0.1)` : ""}
+print(result)
+PY`;
 }

@@ -22,6 +22,7 @@ const { mockPrisma, spawnMock, pendingExecutions } = vi.hoisted(() => ({
       findUniqueOrThrow: vi.fn(),
     },
     commandTarget: {
+      findFirst: vi.fn(),
       updateMany: vi.fn(),
       findMany: vi.fn(),
       findUnique: vi.fn(),
@@ -241,7 +242,7 @@ describe("command service execution flow", () => {
       },
     ]);
     mockPrisma.commandRequest.update.mockResolvedValue({ id: "req_user_1", status: "RUNNING" });
-    mockPrisma.commandRequest.findUnique.mockResolvedValue({ id: "req_user_1", targets: [{ id: "target_1" }] });
+    mockPrisma.commandRequest.findUnique.mockResolvedValue({ id: "req_user_1", targets: [{ id: "target_1", status: "COMPLETED" }] });
 
     const result = await createCommandRequest({
       title: "Run uptime",
@@ -370,7 +371,7 @@ describe("command service execution flow", () => {
       heartbeatChild.kill = vi.fn(() => true);
       return heartbeatChild;
     });
-    mockPrisma.commandRequest.findUnique.mockResolvedValue({ id: "req_heartbeat_1", targets: [{ id: "target_heartbeat" }] });
+    mockPrisma.commandRequest.findUnique.mockResolvedValue({ id: "req_heartbeat_1", targets: [{ id: "target_heartbeat", status: "COMPLETED" }] });
 
     await createCommandRequest({
       title: "Long command with heartbeat",
@@ -433,7 +434,7 @@ describe("command service execution flow", () => {
       },
     ]);
     mockPrisma.commandRequest.update.mockResolvedValue({ id: "req_pw_1", status: "RUNNING" });
-    mockPrisma.commandRequest.findUnique.mockResolvedValue({ id: "req_pw_1", targets: [{ id: "target_pw_1" }] });
+    mockPrisma.commandRequest.findUnique.mockResolvedValue({ id: "req_pw_1", targets: [{ id: "target_pw_1", status: "COMPLETED" }] });
 
     await createCommandRequest({
       title: "Run uptime",
@@ -481,7 +482,7 @@ describe("command service execution flow", () => {
       },
     ]);
     mockPrisma.commandRequest.update.mockResolvedValue({ id: "req_known_hosts_1", status: "RUNNING" });
-    mockPrisma.commandRequest.findUnique.mockResolvedValue({ id: "req_known_hosts_1", targets: [{ id: "target_known_hosts_1" }] });
+    mockPrisma.commandRequest.findUnique.mockResolvedValue({ id: "req_known_hosts_1", targets: [{ id: "target_known_hosts_1", status: "COMPLETED" }] });
 
     await createCommandRequest({
       title: "Run uptime",
@@ -529,7 +530,7 @@ describe("command service execution flow", () => {
       },
     ]);
     mockPrisma.commandRequest.update.mockResolvedValue({ id: "req_nopin_1", status: "RUNNING" });
-    mockPrisma.commandRequest.findUnique.mockResolvedValue({ id: "req_nopin_1", targets: [{ id: "target_nopin_1" }] });
+    mockPrisma.commandRequest.findUnique.mockResolvedValue({ id: "req_nopin_1", targets: [{ id: "target_nopin_1", status: "FAILED" }] });
 
     await createCommandRequest({
       title: "Run uptime",
@@ -689,7 +690,7 @@ describe("command service execution flow", () => {
         return child;
       });
     mockPrisma.commandRequest.update.mockResolvedValue({ id: "req_partial_1", status: "RUNNING" });
-    mockPrisma.commandRequest.findUnique.mockResolvedValue({ id: "req_partial_1", targets: [{ id: "target_ok" }, { id: "target_fail" }] });
+    mockPrisma.commandRequest.findUnique.mockResolvedValue({ id: "req_partial_1", targets: [{ id: "target_ok", status: "COMPLETED" }, { id: "target_fail", status: "FAILED" }] });
 
     await createCommandRequest({
       title: "Deploy",
@@ -769,7 +770,7 @@ describe("command service execution flow", () => {
       return child;
     });
     mockPrisma.commandRequest.update.mockResolvedValue({ id: "req_parallel_1", status: "RUNNING" });
-    mockPrisma.commandRequest.findUnique.mockResolvedValue({ id: "req_parallel_1", targets: [{ id: "target_slow" }, { id: "target_fast" }] });
+    mockPrisma.commandRequest.findUnique.mockResolvedValue({ id: "req_parallel_1", targets: [{ id: "target_slow", status: "COMPLETED" }, { id: "target_fast", status: "COMPLETED" }] });
 
     await createCommandRequest({
       title: "Deploy in parallel",
@@ -837,7 +838,7 @@ describe("command service execution flow", () => {
       },
     ]);
     mockPrisma.commandRequest.updateMany.mockResolvedValue({ count: 1 });
-    mockPrisma.commandRequest.findUnique.mockResolvedValue({ id: "req_queued_1", targets: [{ id: "target_queued_1" }] });
+    mockPrisma.commandRequest.findUnique.mockResolvedValue({ id: "req_queued_1", targets: [{ id: "target_queued_1", status: "COMPLETED" }] });
 
     const result = await recoverQueuedApprovedCommandRequests();
 
@@ -932,7 +933,7 @@ describe("command service execution flow", () => {
       return timeoutChild;
     });
     mockPrisma.commandRequest.update.mockResolvedValue({ id: "req_timeout_1", status: "RUNNING" });
-    mockPrisma.commandRequest.findUnique.mockResolvedValue({ id: "req_timeout_1", targets: [{ id: "target_timeout" }] });
+    mockPrisma.commandRequest.findUnique.mockResolvedValue({ id: "req_timeout_1", targets: [{ id: "target_timeout", status: "FAILED" }] });
 
     await createCommandRequest({
       title: "Slow command",
@@ -1223,7 +1224,7 @@ describe("command service execution flow", () => {
       return child;
     });
     mockPrisma.commandRequest.update.mockResolvedValue({ id: "req_output_1", status: "RUNNING" });
-    mockPrisma.commandRequest.findUnique.mockResolvedValue({ id: "req_output_1", targets: [{ id: "target_output" }] });
+    mockPrisma.commandRequest.findUnique.mockResolvedValue({ id: "req_output_1", targets: [{ id: "target_output", status: "COMPLETED" }] });
 
     await createCommandRequest({
       title: "Chatty command",
@@ -1483,7 +1484,7 @@ describe("command service execution flow", () => {
       expect.objectContaining({
         where: expect.objectContaining({
           idempotencyKey: "playbook:shared-key",
-          teamId: "team_a",
+          teamId: "team_a", requesterId: "u_team_a",
         }),
       }),
     );
@@ -1495,8 +1496,9 @@ describe("command service execution flow", () => {
       status: "PENDING_APPROVAL",
       teamId: "team_a",
       command: "uptime",
-      targets: [{ id: "t1" }],
+      targets: [{ serverId: "srv_1" }],
     });
+    mockPrisma.commandTarget.findMany.mockResolvedValueOnce([]);
 
     const result = await createCommandRequest(
       {
@@ -1514,10 +1516,67 @@ describe("command service execution flow", () => {
       },
     );
 
+    expect(result.targets).toEqual([]);
+    expect(mockPrisma.commandTarget.findMany).toHaveBeenCalledWith({
+      where: { commandRequestId: "req_existing", server: { AND: [
+        { teamId: "team_a" }, expect.objectContaining({ AND: expect.any(Array) }),
+      ] } },
+      select: { id: true, serverId: true, status: true },
+    });
     expect(result.id).toBe("req_existing");
     expect(result.requiresApproval).toBe(true);
     expect(mockPrisma.commandRequest.create).not.toHaveBeenCalled();
     expect(mockPrisma.server.findMany).not.toHaveBeenCalled();
+  });
+
+  it.each([
+    ["different body", "old command", ["srv_a", "srv_b"]],
+    ["different targets", "uptime", ["srv_a", "srv_c"]],
+  ] as const)("returns conflict on replay with %s, including after a concurrent insert", async (_scenario, command, servers) => {
+    const input = { title: "Replay", command: "uptime", requesterId: "user", teamId: "team_a", submissionMode: "assistant" as const, serverIds: ["srv_b", "srv_a"], idempotencyKey: "key" };
+    const existing = { id: "req", command, status: "PENDING_APPROVAL", targets: servers.map(serverId => ({ serverId })) };
+    mockPrisma.commandRequest.findFirst.mockResolvedValueOnce(existing);
+    await expect(createCommandRequest(input)).rejects.toMatchObject({ status: 409 });
+    mockPrisma.commandRequest.findFirst.mockResolvedValueOnce(null).mockResolvedValueOnce(existing);
+    mockPrisma.commandRequest.create.mockRejectedValueOnce(Object.assign(new Error("concurrent insert"), { code: "P2002" }));
+    await expect(createCommandRequest(input)).rejects.toMatchObject({ status: 409 });
+  });
+
+  it("replays a matching legacy public key but refuses a reserved key even for its original author", async () => {
+    const input = { title: "Check", command: "uptime", requesterId: "user", submissionMode: "assistant" as const, serverIds: ["srv"] };
+    const session = { userId: "user", roles: ["operator" as const], currentTeamId: "team" };
+    const existing = { id: "prior", command: "uptime", status: "PENDING_APPROVAL", targets: [{ serverId: "srv" }] };
+    mockPrisma.commandRequest.findFirst.mockResolvedValueOnce(null).mockResolvedValueOnce(existing);
+    mockPrisma.commandTarget.findMany.mockResolvedValueOnce([]);
+    expect(await createCommandRequest({ ...input, idempotencyKey: "client:check" }, session, "api")).toMatchObject({ id: "prior", targets: [] });
+    mockPrisma.commandRequest.findFirst.mockResolvedValueOnce(null).mockResolvedValueOnce(existing);
+    await expect(createCommandRequest({ ...input, idempotencyKey: "ai-hosted-action:check" }, session, "api")).rejects.toMatchObject({ status: 409 });
+    expect(mockPrisma.commandRequest.create).not.toHaveBeenCalled();
+  });
+
+  it("gives public submissions separate keys per team and requester, including automation-shaped inputs", async () => {
+    mockPrisma.commandRequest.findFirst.mockResolvedValue(null);
+    mockPrisma.commandRequest.create.mockResolvedValue({ id: "new", status: "PENDING_APPROVAL", targets: [] });
+    for (const [requesterId, currentTeamId] of [["a", "one"], ["b", "one"], ["a", "two"]] as const) {
+      await createCommandRequest({
+        title: "Check", command: "uptime", submissionMode: "assistant", requesterId, serverIds: ["server"], idempotencyKey: "scheduled-task:fixture:slot",
+      }, { userId: requesterId, roles: ["operator"], currentTeamId }, "api");
+    }
+    const keys = mockPrisma.commandRequest.create.mock.calls.map(([args]) => args.data.idempotencyKey);
+    expect(new Set(keys).size).toBe(3);
+    expect(keys.every(key => /^api:[a-f0-9]{64}$/.test(key))).toBe(true);
+  });
+
+  it("denies approval when any target is outside the reviewer's live server read scope", async () => {
+    mockPrisma.commandRequest.findFirst.mockResolvedValueOnce({ id: "req", requesterId: "author", teamId: "team", status: "PENDING_APPROVAL" });
+    mockPrisma.commandRequest.updateMany.mockResolvedValueOnce({ count: 0 });
+    mockPrisma.commandTarget.findFirst.mockResolvedValueOnce({ id: "hidden" });
+    await expect(reviewCommandRequest({ commandRequestId: "req", approverId: "reviewer", approved: true },
+      { userId: "reviewer", roles: ["operator"], currentTeamId: "team" })).rejects.toMatchObject({ status: 403 });
+    const guard = mockPrisma.commandRequest.updateMany.mock.calls[0]![0].where.targets.every.server;
+    expect(JSON.stringify(guard)).toContain("canRead");
+    expect(JSON.stringify(guard)).toContain("reviewer");
+    expect(mockPrisma.commandApproval.create).not.toHaveBeenCalled();
   });
 
   it("quarantines cancel/review loads with commandRequestTeamWhere when session is provided", async () => {
@@ -1740,7 +1799,7 @@ describe("command service execution flow", () => {
 
     expect(mockPrisma.commandRequest.updateMany).toHaveBeenCalledWith({
       where: { id: "req_mark_fail_cancel_race", status: { in: ["RUNNING", "CANCELLING", "APPROVED"] } },
-      data: { status: "FAILED", workerId: null, workerHeartbeatAt: null },
+      data: { workerHeartbeatAt: expect.any(Date) },
     });
     expect(mockPrisma.commandTarget.updateMany).not.toHaveBeenCalled();
     expect(mockPrisma.executionLog.create).not.toHaveBeenCalledWith(
@@ -1759,7 +1818,8 @@ describe("command service execution flow", () => {
       id: "req_mark_fail_ok",
       title: "Boom",
       requesterId: "u_1",
-      status: "FAILED",
+      status: "RUNNING",
+      targets: [{ status: "FAILED" }],
       teamId: "team_a",
     });
 
@@ -1859,11 +1919,11 @@ describe("command service execution flow", () => {
     const row = (id: string, status: string, iso: string) => ({
       id, status, title: id, command: "uptime", reason: null, initiatedByType: "USER", requesterId: "u_1",
       createdAt: new Date(iso), updatedAt: new Date(iso), requester: { id: "u_1", username: "alice", displayName: null },
-      approvals: [], targets: [], executionLogs: [],
+      approvals: [], targets: [], executionLogs: [], _count: { targets: 0 },
     });
     const oldPending = row("old-pending", "PENDING_APPROVAL", "2026-10-01T00:00:00Z");
     const newestDone = {
-      ...row("newest-done", "COMPLETED", "2026-10-28T00:00:00Z"), teamId: "prior",
+      ...row("newest-done", "COMPLETED", "2026-10-28T00:00:00Z"), teamId: "prior", _count: { targets: 73 },
       targets: [{ id: "moved-target", status: "COMPLETED", executionChannel: "SSH", server: { id: "srv-moved", teamId: "next", name: "new owner", host: "example.invalid", port: 22 } }],
       executionLogs: [{ serverId: "srv-moved", summary: "moved server details" }, { serverId: null, summary: "Request completed" }],
     };
@@ -1876,6 +1936,8 @@ describe("command service execution flow", () => {
     const listed = await listCommandRequests();
 
     expect(listed.map((request) => request.id)).toEqual(["newest-done", "also-open", "old-pending"]);
+    expect(listed[0]?.targetCount).toBe(73);
+    expect(mockPrisma.commandRequest.findMany.mock.calls[0]![0].include._count).toEqual({ select: { targets: true } });
     expect(listed[0]?.targets[0]).toMatchObject({ id: "moved-target", server: null, executionChannel: "SSH" });
     expect(listed[0]?.targetSummary).toEqual(["moved-target · COMPLETED"]);
     expect(listed[0]?.executionLogs.map(log => log.summary)).toEqual(["Request completed"]);

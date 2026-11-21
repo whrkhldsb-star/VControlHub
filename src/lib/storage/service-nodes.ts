@@ -506,48 +506,32 @@ export async function deleteStorageNode(
   storageNodeId: string,
   session?: TeamSession | null,
 ) {
-  const node = session
-    ? await prisma.storageNode.findFirst({
-        where: { id: storageNodeId, ...teamWhere(session) },
-        select: { id: true, isDefault: true },
-      })
-    : await prisma.storageNode.findUnique({
-        where: { id: storageNodeId },
-        select: { id: true, isDefault: true },
-      });
-
   const t = await serviceT();
-  if (!node) {
-    throw new NotFoundError(t("backend.storage.nodeNotFound"));
-  }
-
-  if (node.isDefault) {
-    throw new BusinessError(t("backend.storage.defaultCannotDelete"));
-  }
-
-  // Counted, not loaded: every entry of the node (recycle bin included) used
-  // to be read into memory to find out whether one was still live.
-  const activeEntryCount = await prisma.fileEntry.count({
-    where: { storageNodeId: node.id, isDeleted: false },
-  });
-  if (activeEntryCount > 0) {
-    throw new BusinessError(t("backend.storage.nodeHasEntries"));
-  }
-
-  // Media rows carry no foreign key to their file entry, so those of
-  // recycle-bin files stay until a rescan, and the node's RESTRICT key then
-  // failed this delete with a database error. They go with the node.
-  const [, deleted] = await prisma.$transaction([
-    prisma.mediaItem.deleteMany({ where: { storageNodeId: node.id } }),
-    prisma.storageNode.deleteMany({
+  await prisma.$transaction(async (tx) => {
+    // FileEntry inserts take a foreign-key lock on this row. A concurrent
+    // upload or default promotion must either finish before this check or
+    // observe the completed deletion.
+    await tx.$queryRaw`SELECT id FROM "StorageNode" WHERE id = ${storageNodeId} FOR UPDATE`;
+    const node = await tx.storageNode.findFirst({
       where: { id: storageNodeId, ...(session ? teamWhere(session) : {}) },
-    }),
-  ]);
-  if (deleted.count === 0) {
-    throw new NotFoundError(t("backend.storage.nodeNotFound"));
-  }
-  // The version rows went with the node (cascade); their blobs did not.
-  await purgeStorageNodeVersionBlobs(node.id).catch(() => undefined);
+      select: { id: true, isDefault: true },
+    });
+    if (!node) throw new NotFoundError(t("backend.storage.nodeNotFound"));
+    if (node.isDefault) throw new BusinessError(t("backend.storage.defaultCannotDelete"));
+    const activeCount = await tx.fileEntry.count({ where: { storageNodeId, isDeleted: false } });
+    if (activeCount > 0) throw new BusinessError(t("backend.storage.nodeHasEntries"));
+
+    // Restoring an existing recycled row need not re-check its foreign key.
+    // Claim those rows before the final check, so a restore that won that row
+    // lock becomes visible and rolls the entire delete back.
+    await tx.fileEntry.deleteMany({ where: { storageNodeId, isDeleted: true } });
+    await tx.mediaItem.deleteMany({ where: { storageNodeId } });
+    const deleted = await tx.storageNode.deleteMany({
+      where: { id: storageNodeId, isDefault: false, fileEntries: { none: { isDeleted: false } } },
+    });
+    if (!deleted.count) throw new BusinessError(t("backend.storage.nodeHasEntries"));
+  });
+  await purgeStorageNodeVersionBlobs(storageNodeId).catch(() => undefined);
   return { deleted: true };
 }
 

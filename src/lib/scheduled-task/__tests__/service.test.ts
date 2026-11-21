@@ -17,6 +17,8 @@ const { mockPrisma, mockCreateCommandRequest, mockTeamWhere, mockTeamCreateData,
       deleteMany: vi.fn(),
     },
     scheduledTaskRun: {
+      createMany: vi.fn(),
+      findUniqueOrThrow: vi.fn(),
       findUnique: vi.fn(),
       findMany: vi.fn(),
       findFirst: vi.fn(),
@@ -62,7 +64,7 @@ describe("scheduled task service", () => {
     mockTeamCreateData.mockImplementation((session: SessionScope) => ({ teamId: session.currentTeamId ?? undefined }));
     mockPrisma.$transaction.mockImplementation(async (callback: (tx: typeof mockPrisma) => unknown) => callback(mockPrisma));
     mockPrisma.scheduledTaskRun.findUnique.mockResolvedValue(null);
-    mockPrisma.scheduledTaskRun.create.mockResolvedValue({ id: "run1" });
+    mockPrisma.scheduledTaskRun.createMany.mockResolvedValue({ count: 1 });
     mockPrisma.server.findMany.mockImplementation(async ({ where }: { where: { id: { in: string[] } } }) =>
       (where.id.in ?? []).map((id: string) => ({ id })),
     );
@@ -153,7 +155,7 @@ describe("scheduled task service", () => {
 
   it("updates scheduled task target server ids exactly once after trimming blanks", async () => {
     const updatedAt = new Date("2026-11-19T01:00:00Z");
-    mockPrisma.scheduledTask.findFirst.mockResolvedValue({ id: "task1", teamId: null, approvalRequired: true, updatedAt, command: "df -h", serverIds: ["srv0"] });
+    mockPrisma.scheduledTask.findFirst.mockResolvedValue({ id: "task1", teamId: null, approvalRequired: true, updatedAt, createdById: "previous-author", command: "df -h", serverIds: ["srv0"] });
     mockPrisma.scheduledTask.updateMany.mockResolvedValue({ count: 1 });
 
     await service.updateScheduledTask("task1", {
@@ -162,7 +164,20 @@ describe("scheduled task service", () => {
 
     expect(mockPrisma.scheduledTask.updateMany).toHaveBeenCalledWith({
       where: { id: "task1", approvalRequired: true, updatedAt },
-      data: { serverIds: ["srv1", "srv2"] },
+      data: { serverIds: ["srv1", "srv2"], createdById: PLATFORM.userId },
+    });
+  });
+
+  it.each(["CRON", "ONCE"])("advances a reclaimed %s occurrence with an existing run exactly once", async (scheduleType) => {
+    const claim = { occurrence: new Date("2026-01-01"), lease: new Date("2026-01-02") };
+    mockPrisma.scheduledTask.findUnique.mockResolvedValue({ scheduleType, cronExpression: "* * * * *" });
+    mockPrisma.scheduledTaskRun.createMany.mockResolvedValueOnce({ count: 0 });
+    await service.recordTaskDispatch("task1", "linked", false, claim);
+    expect(mockPrisma.scheduledTask.update).not.toHaveBeenCalled();
+    expect(mockPrisma.scheduledTask.updateMany).toHaveBeenCalledExactlyOnceWith({
+      where: { id: "task1", status: "ACTIVE", nextRunAt: claim.lease, claimedOccurrenceAt: claim.occurrence },
+      data: scheduleType === "ONCE" ? { claimedOccurrenceAt: null, nextRunAt: null, status: "DISABLED" }
+        : { claimedOccurrenceAt: null, nextRunAt: expect.any(Date) },
     });
   });
 
@@ -265,7 +280,8 @@ describe("scheduled task service", () => {
         runCount: { increment: 1 },
       }),
     });
-    expect(mockPrisma.scheduledTaskRun.create).toHaveBeenCalledWith({
+    expect(mockPrisma.scheduledTaskRun.createMany).toHaveBeenCalledWith({
+      skipDuplicates: true,
       data: {
         scheduledTaskId: "task1",
         commandRequestId: "cmd1",
@@ -461,6 +477,16 @@ describe("scheduled task service", () => {
       expect(mockPrisma.scheduledTask.updateMany).toHaveBeenCalledTimes(1);
     });
 
+    it.each(["toggle", "status", "cron"] as const)("refuses an unattended %s edit when one target is unreachable", async (change) => {
+      const executor: SessionScope = { ...createOnly, permissions: ["command:create", "command:execute"] };
+      mockPrisma.scheduledTask.findFirst.mockResolvedValue({ ...unattended, status: "PAUSED", scheduleType: "CRON", cronExpression: "0 2 * * *", runAt: null });
+      mockPrisma.server.findMany.mockResolvedValueOnce([{ id: "srv1" }]);
+      const action = change === "toggle" ? service.toggleScheduledTask("task1", executor, "ACTIVE")
+        : service.updateScheduledTask("task1", change === "status" ? { status: "ACTIVE" } : { cronExpression: "* * * * *" }, executor);
+      await expect(action).rejects.toMatchObject({ name: "ForbiddenError" });
+      expect(mockPrisma.scheduledTask.updateMany).not.toHaveBeenCalled();
+    });
+
     it("checks the editor's reach to the existing targets and files later runs in the editor's name", async () => {
       mockPrisma.scheduledTask.findFirst.mockResolvedValue({ ...unattended, approvalRequired: true });
       mockPrisma.server.findMany.mockResolvedValueOnce([{ id: "srv1" }]); // srv2 is outside the editor's reach
@@ -508,7 +534,7 @@ describe("scheduled task service", () => {
         select: { id: true },
       });
       expect(mockCreateCommandRequest).not.toHaveBeenCalled();
-      expect(mockPrisma.scheduledTaskRun.create).not.toHaveBeenCalled();
+      expect(mockPrisma.scheduledTaskRun.createMany).not.toHaveBeenCalled();
       expect(mockPrisma.scheduledTask.updateMany).not.toHaveBeenCalled();
       expect(mockPrisma.scheduledTask.update).not.toHaveBeenCalled();
     });

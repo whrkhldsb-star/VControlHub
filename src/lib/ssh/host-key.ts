@@ -48,7 +48,9 @@ export async function probeSshHostKey(input: SshConnectionParams): Promise<SshHo
   let captured: string | null = null;
   try {
     const result = await execRemoteCommand({
-      ...input,
+      host: input.host,
+      port: input.port,
+      username: input.username,
       hostKeySha256: null,
       onHostKeySha256: (fingerprint) => {
         captured = canonicalHostKeyFingerprint(fingerprint);

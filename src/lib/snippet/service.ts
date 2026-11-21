@@ -1,3 +1,4 @@
+import { createHash, randomUUID } from "node:crypto";
 import { ForbiddenError, NotFoundError, ValidationError } from "@/lib/errors";
 import { prisma } from "@/lib/db";
 import { isGlobalTeamManager, type TeamSession } from "@/lib/auth/team-scope";
@@ -10,23 +11,28 @@ export function snippetViewer(session: TeamSession): SnippetViewer {
   return { userId: session.userId, currentTeamId: session.currentTeamId ?? null, platformAdmin: isGlobalTeamManager(session) };
 }
 
-/**
- * A snippet that is not private is shared within its creator's customer, and
- * a platform administrator's with everyone (as before). Unticking "visible
- * only to me" used to share a customer's snippet with every other customer.
- */
+// Snippet has no ownership column. Its server-generated, immutable ID records
+// the original sharing scope. Legacy CUIDs have no provable scope and only
+// their owner and platform administrators can read them.
+function teamSnippetPrefix(teamId: string) {
+  return `sn-team-${createHash("sha256").update(teamId).digest("hex")}-`;
+}
+
+const PLATFORM_PREFIX = "sn-platform-";
+
 function sharedSnippetWhere(viewer: SnippetViewer) {
   if (viewer.platformAdmin) return { isPrivate: false };
+  const admin = { roles: { some: { role: { key: "admin" } } } };
+  const teamId = viewer.currentTeamId;
   return {
     isPrivate: false,
-    creator: {
-      is: {
-        OR: [
-          { roles: { some: { role: { key: "admin" } } } },
-          ...(viewer.currentTeamId ? [{ teamMembership: { is: { teamId: viewer.currentTeamId } } }] : []),
-        ],
-      },
-    },
+    OR: [
+      { id: { startsWith: PLATFORM_PREFIX }, creator: { is: admin } },
+      ...(teamId ? [{
+        id: { startsWith: teamSnippetPrefix(teamId) },
+        creator: { is: { OR: [admin, { teamMembership: { is: { teamId } } }] } },
+      }] : []),
+    ],
   };
 }
 
@@ -46,10 +52,22 @@ function canMutateSnippet(
   return Boolean(ownerId && actor?.userId && ownerId === actor.userId);
 }
 
-export async function createSnippet(input: { title: string; content: string; language?: string; description?: string; tags?: string[]; isPrivate?: boolean; createdBy?: string }) {
+export async function createSnippet(input: { title: string; content: string; language?: string; description?: string; tags?: string[]; isPrivate?: boolean; createdBy?: string }, viewer?: SnippetViewer) {
   requireNonBlank(input.title, t("backend.snippet.titleAndContentRequired"));
   requireNonBlank(input.content, t("backend.snippet.titleAndContentRequired"));
-  return prisma.snippet.create({ data: { title: input.title.trim(), content: input.content, language: input.language?.trim() || "text", description: input.description?.trim() || null, tags: tags(input.tags), isPrivate: input.isPrivate ?? false, createdBy: input.createdBy ?? null } });
+  const prefix = viewer?.currentTeamId ? teamSnippetPrefix(viewer.currentTeamId) : viewer?.platformAdmin ? PLATFORM_PREFIX : null;
+  return prisma.snippet.create({
+    data: {
+      ...(prefix ? { id: prefix + randomUUID() } : {}),
+      title: input.title.trim(),
+      content: input.content,
+      language: input.language?.trim() || "text",
+      description: input.description?.trim() || null,
+      tags: tags(input.tags),
+      isPrivate: input.isPrivate ?? false,
+      createdBy: viewer?.userId ?? input.createdBy ?? null,
+    },
+  });
 }
 
 const SNIPPET_LIST_PREVIEW_CHARS = 240;
@@ -104,14 +122,14 @@ export async function getSnippet(
   id: string,
   actor: SnippetViewer & { canManageAll?: boolean },
 ) {
-  const existing = await prisma.snippet.findUnique({ where: { id } });
-  if (!existing) throw new NotFoundError(t("backend.snippet.snippetNotFound"));
-  if (actor.canManageAll || existing.createdBy === actor.userId) return existing;
-  if (existing.isPrivate) throw new ForbiddenError(t("backend.snippet.noPermissionToModifyOthersSnippets"));
-  // Shared, but with another customer: as if it did not exist.
-  const visible = await prisma.snippet.count({ where: { id, ...sharedSnippetWhere(actor) } });
-  if (visible === 0) throw new NotFoundError(t("backend.snippet.snippetNotFound"));
-  return existing;
+  const visible = await prisma.snippet.findFirst({
+    where: {
+      id,
+      ...(actor.platformAdmin && actor.canManageAll ? {} : { OR: [{ createdBy: actor.userId }, sharedSnippetWhere(actor)] }),
+    },
+  });
+  if (!visible) throw new NotFoundError(t("backend.snippet.snippetNotFound"));
+  return visible;
 }
 
 export async function updateSnippet(

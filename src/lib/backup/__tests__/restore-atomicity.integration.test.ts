@@ -4,7 +4,7 @@ import { tmpdir } from "node:os";
 import { join, resolve } from "node:path";
 import { gzipSync } from "node:zlib";
 import { Client } from "pg";
-import { afterAll, beforeAll, describe, expect, it } from "vitest";
+import { afterAll, beforeAll, describe, expect, it, vi } from "vitest";
 
 import { installFakeRestoreTools } from "../../../../scripts/__tests__/helpers/fake-restore-tools";
 
@@ -255,7 +255,7 @@ describe.skipIf(!enabled)("restore.mjs atomicity against PostgreSQL", () => {
       const slowDump = join(work, "slow.sql.gz");
       // Hold the import transaction open after its DROP/CREATE/COPY ran.
       writeFileSync(slowDump, gzipSync(`${dump.stdout}
-SELECT pg_sleep(2);
+SELECT pg_sleep(3);
 `));
       writeFileSync(join(work, ".env.race"), `DATABASE_URL=${scratchUrl}
 `);
@@ -263,7 +263,20 @@ SELECT pg_sleep(2);
       mkdirSync(appDir);
       const restore = spawn(process.execPath, [RESTORE_SCRIPT, "database", slowDump], { env: restoreEnv(appDir, join(work, ".env.race")) });
       const restored = new Promise<number | null>((resolveExit) => restore.on("close", resolveExit));
-      await new Promise((resolveDelay) => setTimeout(resolveDelay, 800));
+      // Startup time varies with system load. Observe the import holding the
+      // target locks from another database so our probe passes the offline guard.
+      const observer = new Client({ connectionString: adminUrl("postgres") });
+      await observer.connect();
+      try {
+        await vi.waitFor(async () => {
+          const { rows } = await observer.query(
+            "SELECT 1 FROM pg_stat_activity WHERE datname = $1 AND wait_event = 'PgSleep'", [scratch],
+          );
+          expect(rows).toHaveLength(1);
+        }, { timeout: 30_000, interval: 30 });
+      } finally {
+        await observer.end();
+      }
       // A service started mid-restore: its first query blocks on the import's
       // locks and returns only after the commit — never the pre-restore row.
       const late = new Client({ connectionString: scratchUrl });

@@ -8,7 +8,7 @@
  * queue honest without reintroducing those dead types.
  */
 import { JobStatus, Prisma } from "@prisma/client";
-import { getRuntimeSettingNumber } from "@/lib/runtime-settings/service";
+import { getRuntimeSettingNumberStrict } from "@/lib/runtime-settings/service";
 
 import { config } from "@/lib/config/env";
 import { prisma } from "@/lib/db";
@@ -427,7 +427,7 @@ async function tick(reason: string) {
     // monopolising the table; AUDIT_RETENTION_DAYS=0 disables pruning.
     await runStep("prune-audit-logs", async () => {
       const pruned = await pruneAuditLogs({
-        retentionDays: await getRuntimeSettingNumber("retention.auditLogDays").catch(() => undefined),
+        retentionDays: await getRuntimeSettingNumberStrict("retention.auditLogDays"),
       });
       if (pruned.deleted > 0 || pruned.truncated) {
         logger.info("pruned audit logs", {

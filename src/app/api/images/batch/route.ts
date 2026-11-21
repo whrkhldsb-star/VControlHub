@@ -54,6 +54,9 @@ export async function POST(request: Request) {
             select: {
               id: true,
               storageKey: true,
+              createdAt: true,
+              checksum: true,
+              sizeBytes: true,
               storageNodeId: true,
               relativePath: true,
             },

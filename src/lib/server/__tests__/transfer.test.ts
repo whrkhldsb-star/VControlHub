@@ -9,7 +9,9 @@ const mocks = vi.hoisted(() => ({
   imageUploadCount: vi.fn(),
   commandTargetCount: vi.fn(),
   downloadTaskCount: vi.fn(),
+  fileProxyCount: vi.fn(),
   transaction: vi.fn(),
+  lockRows: vi.fn(async () => []),
   serverUpdate: vi.fn((args: unknown) => ({ op: "server.update", args })),
   storageNodeUpdateMany: vi.fn((args: unknown) => ({ op: "storageNode.updateMany", args })),
   costUpdateMany: vi.fn(),
@@ -28,11 +30,13 @@ const mocks = vi.hoisted(() => ({
 
 vi.mock("@/lib/db", () => ({
   prisma: {
+    $queryRaw: mocks.lockRows,
     server: { findUnique: mocks.serverFindUnique, update: mocks.serverUpdate },
     team: { findUnique: mocks.teamFindUnique },
     imageUpload: { count: mocks.imageUploadCount },
     commandTarget: { count: mocks.commandTargetCount },
     downloadTask: { count: mocks.downloadTaskCount },
+    serverFileProxy: { count: mocks.fileProxyCount },
     agentFileShare: { deleteMany: mocks.revoke, createMany: mocks.rebind },
     storageNode: { findFirst: vi.fn(async () => null), updateMany: mocks.storageNodeUpdateMany },
     costEntry: { updateMany: mocks.costUpdateMany },
@@ -61,12 +65,13 @@ const NO_IMPACT = { shares: 0, scheduledTasks: 0, alertRules: 0, playbooks: 0, s
 describe("transferServerToCustomer", () => {
   beforeEach(() => {
     vi.clearAllMocks();
-    mocks.serverFindUnique.mockResolvedValue({ id: "srv_1", name: "web", teamId: "team_a", storageNode: { id: "node_1" } });
+    mocks.serverFindUnique.mockResolvedValue({ id: "srv_1", name: "web", teamId: "team_a", directGatewayKeyVersion: 1 });
     mocks.teamFindUnique.mockResolvedValue({ id: "team_b", name: "Beta", deletedAt: null });
     mocks.impact.mockResolvedValue(NO_IMPACT);
     mocks.imageUploadCount.mockResolvedValue(0);
     mocks.commandTargetCount.mockResolvedValue(0);
     mocks.downloadTaskCount.mockResolvedValue(0);
+    mocks.fileProxyCount.mockResolvedValue(0);
     mocks.bindings.mockResolvedValue([{ id: "node_1", driver: "SFTP", teamId: "team_a" }, { id: "agent_disk", driver: "AGENT", teamId: "team_a" }]);
     mocks.transaction.mockImplementation(async run => run((await import("@/lib/db")).prisma));
   });
@@ -82,12 +87,14 @@ describe("transferServerToCustomer", () => {
     expect(mocks.costUpdateMany).toHaveBeenCalledWith({ where: { sourceType: "server_monthly", sourceRef: "srv_1", effectiveDate: expect.any(Date) }, data: { teamId: "team_b" } });
     expect(mocks.revoke).toHaveBeenCalledWith({ where: { serverId: "srv_1", storageNodeId: { in: ["agent_disk"] } } });
     expect(mocks.revoke).toHaveBeenCalledBefore(mocks.rebind);
+    expect(mocks.lockRows).toHaveBeenCalledTimes(2);
+    expect(mocks.lockRows.mock.invocationCallOrder[1]).toBeLessThan(mocks.revoke.mock.invocationCallOrder[0]!);
     expect(mocks.rebind).toHaveBeenCalledWith({ data: [{ serverId: "srv_1", storageNodeId: "agent_disk", teamId: "team_b" }] });
     // Backup ownership follows the transfer (A2-03): the old customer's creator can no longer run them.
     expect(mocks.vpsBackupScheduleUpdateMany).toHaveBeenCalledWith({ where: { serverId: "srv_1" }, data: { createdById: "u_admin" } });
     expect(mocks.serverUpdate).toHaveBeenCalledWith({
       where: { id: "srv_1" },
-      data: expect.objectContaining({ teamId: "team_b", agentTokenHash: null,
+      data: expect.objectContaining({ teamId: "team_b", agentTokenHash: null, directGatewayKeyVersion: 3,
         agentJobs: { updateMany: expect.arrayContaining([
           expect.objectContaining({ where: { status: "PENDING" }, data: expect.objectContaining({ status: "CANCELLED" }) }),
           expect.objectContaining({ where: { status: "CLAIMED" }, data: expect.objectContaining({ status: "CANCELLED", completedAt: null }) }),
@@ -101,6 +108,48 @@ describe("transferServerToCustomer", () => {
   it("refuses while the previous customer still uses the server", async () => {
     mocks.impact.mockResolvedValue({ ...NO_IMPACT, shares: 2, unfinishedCommands: 1 });
     await expect(transferServerToCustomer("srv_1", "team_b", ADMIN)).rejects.toThrow(/backend\.server\.transfer\.blocked/);
+    expect(mocks.serverUpdate).not.toHaveBeenCalled();
+  });
+
+  it("requires remote shutdown even for an unexpired legacy proxy marked stopped", async () => {
+    mocks.fileProxyCount.mockResolvedValue(1);
+    await expect(transferServerToCustomer("srv_1", "team_b", ADMIN)).rejects.toThrow("backend.server.transfer.blocker.fileProxies");
+    expect(mocks.fileProxyCount).toHaveBeenCalledWith({ where: { serverId: "srv_1", OR: [
+      { status: { not: "stopped" } },
+      { pid: { not: null } },
+      { accessToken: { not: null }, OR: [{ expiresAt: null }, { expiresAt: { gt: expect.any(Date) } }] },
+    ] } });
+    expect(mocks.serverUpdate).not.toHaveBeenCalled();
+  });
+
+  it.each([{ directGatewayDesiredEnabled: true }, { fileProxyPort: 8443 }, { publicUrl: "https://gateway.test" }, { directGatewayKeyVersion: 2 }, { operatingSystem: "WINDOWS", directGatewayKeyVersion: 3 }])(
+    "refuses handover while a direct gateway is configured (%o)", async fields => {
+      mocks.serverFindUnique.mockResolvedValue({ id: "srv_1", teamId: "team_a", ...fields });
+      await expect(transferServerToCustomer("srv_1", "team_b", ADMIN)).rejects.toThrow("backend.server.transfer.disableGateway");
+      expect(mocks.serverUpdate).not.toHaveBeenCalled();
+    });
+
+  it("requires an independently configured SFTP direct URL to be disabled", async () => {
+    mocks.bindings.mockResolvedValue([{ id: "node_1", driver: "SFTP", teamId: "team_a", directAccessMode: "AUTO", publicBaseUrl: "https://gateway.test" }]);
+    await expect(transferServerToCustomer("srv_1", "team_b", ADMIN)).rejects.toThrow("backend.server.transfer.disableGateway");
+    expect(mocks.serverUpdate).not.toHaveBeenCalled();
+  });
+
+  it.each([
+    { operatingSystem: "LINUX", currentVersion: 3, nextVersion: 4 },
+    { operatingSystem: "WINDOWS", currentVersion: 1, nextVersion: 4 },
+    { operatingSystem: "WINDOWS", currentVersion: 4, nextVersion: 5 },
+  ])("advances the key once on transfer ($operatingSystem, $currentVersion → $nextVersion)", async ({ operatingSystem, currentVersion, nextVersion }) => {
+    mocks.serverFindUnique.mockResolvedValue({ id: "srv_1", teamId: "team_a", operatingSystem, directGatewayKeyVersion: currentVersion });
+    await transferServerToCustomer("srv_1", "team_b", ADMIN);
+    expect(mocks.serverUpdate).toHaveBeenCalledTimes(1);
+    expect(mocks.serverUpdate).toHaveBeenCalledWith(expect.objectContaining({ data: expect.objectContaining({ directGatewayKeyVersion: nextVersion }) }));
+    expect(mocks.storageNodeUpdateMany).toHaveBeenCalledWith({ where: { serverId: "srv_1", driver: "SFTP" }, data: { directAccessMode: "PROXY", publicBaseUrl: null } });
+  });
+
+  it("blocks unfinished management Agent work even without a CommandTarget", async () => {
+    mocks.impact.mockResolvedValue({ ...NO_IMPACT, unfinishedCommands: 0, unfinishedAgentJobs: 1 });
+    await expect(transferServerToCustomer("srv_1", "team_b", ADMIN)).rejects.toThrow("backend.server.transfer.blocker.unfinishedAgentJobs");
     expect(mocks.serverUpdate).not.toHaveBeenCalled();
   });
 

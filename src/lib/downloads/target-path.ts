@@ -2,6 +2,7 @@ import path from "node:path";
 
 import { ValidationError } from "@/lib/errors";
 import { t } from "@/lib/i18n/service-translations";
+import { shellQuote } from "@/lib/shell-quote";
 
 function normalizeBasePath(basePath: string | null | undefined): string {
   const requested = (basePath ?? "").trim() || "/root/downloads";
@@ -71,4 +72,33 @@ export function resolveDownloadTargetPath(
   }
 
   return candidate;
+}
+
+/** Enter each directory from its verified parent. Only the configured root may be a link. */
+export function enterDownloadTargetDirectory(basePath: string, targetPath: string, physicalTargetDir: string): string {
+  const root = normalizeBasePath(basePath);
+  const relative = getDownloadTargetRelativePath(root, targetPath);
+  const parts = relative.split("/").filter(Boolean);
+  // The controller resolved the requested file through the storage connection.
+  // Carry that same physical root into the shell, including when the root itself is a link.
+  const physicalRoot = parts.reduce(parent => path.posix.dirname(parent), physicalTargetDir);
+  const components = parts.map(shellQuote).join(" ");
+  return [
+    "CDPATH=",
+    `base_dir=${shellQuote(root)}`,
+    `physical_root=${shellQuote(physicalRoot)}`,
+    '[ "$(realpath -m -- "$base_dir")" = "$physical_root" ] || exit 65',
+    '[ -d "$base_dir" ] || mkdir -p -- "$base_dir" || exit 65',
+    'cd -P -- "$base_dir" || exit 65',
+    'expected_dir=$(pwd -P) || exit 65',
+    '[ "$expected_dir" = "$physical_root" ] || exit 65',
+    `for component in ${components}; do`,
+    '  [ ! -L "./$component" ] || exit 65',
+    '  [ -d "./$component" ] || mkdir -- "./$component" || [ -d "./$component" ] || exit 65',
+    '  cd -P -- "./$component" || exit 65',
+    '  expected_dir=${expected_dir%/}/$component',
+    '  [ "$(pwd -P)" = "$expected_dir" ] || exit 65',
+    'done',
+    'export expected_dir',
+  ].join("\n");
 }

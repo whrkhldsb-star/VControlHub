@@ -51,6 +51,7 @@ vi.mock("@/lib/command/service", () => ({
       approvalStateLabel: "待审批",
       isAssistantInitiated: true,
       requester: { id: "u_1", username: "admin", displayName: "管理员" },
+      targetCount: 73,
       targets: [
         {
           id: "target_1",
@@ -72,6 +73,7 @@ vi.mock("@/lib/command/service", () => ({
       approvalStateLabel: "待审批",
       isAssistantInitiated: false,
       requester: { id: "u_2", username: "operator", displayName: "运维同事" },
+      targetCount: 1,
       targets: [
         {
           id: "target_2",
@@ -118,6 +120,7 @@ describe("RequestsPage", () => {
     expect(screen.getByText(/运维同事/)).toBeInTheDocument();
     expect(screen.getByText("助手授权")).toBeInTheDocument();
     expect(screen.getByText("用户审批")).toBeInTheDocument();
+    expect(screen.getByText("目标 73 台")).toBeInTheDocument();
     expect(screen.getByText("hk-prod-1")).toBeInTheDocument();
     expect(screen.getAllByText("执行记录")).toHaveLength(2);
     expect(screen.getByText("命令审批已通过，任务正在进入执行器队列。")).toBeInTheDocument();

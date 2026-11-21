@@ -227,6 +227,8 @@ export async function POST(
         });
         if (linkedStorageRelativePath && existing.storageNodeId) {
           await indexLinkedStorageImage({
+            imageId: image.id,
+            createdAt: image.createdAt,
             storageNodeId: existing.storageNodeId,
             relativePath: linkedStorageRelativePath,
             originalName: filename,

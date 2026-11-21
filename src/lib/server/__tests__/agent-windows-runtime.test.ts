@@ -50,6 +50,47 @@ describe.skipIf(process.platform !== "win32")("Windows Agent scripts in Windows 
     expect(parseErrors("install-command", installCommand)).toBe("");
   });
 
+  it("removes old explicit grants and verifies both ACLs before installing the script", () => {
+    const installer = buildWindowsAgentInstaller(HUB, TOKEN);
+    const protect = installer.slice(installer.indexOf("function Protect-AgentPath"), installer.indexOf("Protect-AgentPath $agentDir $true"));
+    const file = join(dir, "permissions.ps1");
+    writeFileSync(file, [
+      "$ErrorActionPreference = 'Stop'",
+      protect,
+      "$agentDir = Join-Path $PSScriptRoot 'acl-fixture'",
+      "New-Item -Type Directory -Path $agentDir | Out-Null",
+      "& icacls.exe $agentDir /grant '*S-1-5-32-545:(OI)(CI)R' | Out-Null",
+      "if ($LASTEXITCODE -ne 0) { throw 'fixture ACL failed' }",
+      "Protect-AgentPath $agentDir $true",
+      "$agentPath = Join-Path $agentDir 'agent.ps1'",
+      "[IO.File]::Open($agentPath, [IO.FileMode]::CreateNew).Dispose()",
+      "Protect-AgentPath $agentPath $false",
+      "foreach ($path in @($agentDir, $agentPath)) {",
+      "  $acl = Get-Acl -LiteralPath $path",
+      "  $sids = $acl.GetAccessRules($true, $true, [Security.Principal.SecurityIdentifier]) | ForEach-Object { $_.IdentityReference.Value } | Sort-Object",
+      "  if (!$acl.AreAccessRulesProtected -or ($sids -join ',') -ne 'S-1-5-18,S-1-5-32-544') { throw 'Unexpected permissions' }",
+      "}",
+    ].join("\n"), "utf8");
+    const result = powershell(["-File", file]);
+    expect(result.status, result.stderr).toBe(0);
+  });
+
+  it.each([401, 403])("stops a long job on HTTP %i", status => {
+    const script = buildAgentPowerShell(HUB, TOKEN);
+    const file = join(dir, `revoke-${status}.ps1`);
+    writeFileSync(file, [
+      script.slice(0, script.indexOf("$pending = $null")),
+      "$HEARTBEAT_SECONDS = 0",
+      "$script:lastMetrics = [DateTime]::UtcNow",
+      `function Invoke-AgentPost { $script:LastStatus = ${status}; throw 'denied' }`,
+      "$watch = [Diagnostics.Stopwatch]::StartNew()",
+      "try { Invoke-AgentJob ([pscustomobject]@{ id = 'running'; command = 'ping -n 30 127.0.0.1'; timeoutMs = 60000 }); exit 1 }",
+      "catch { if ($_.Exception.Message -ne 'Agent authorization revoked' -or $watch.Elapsed.TotalSeconds -gt 15) { exit 1 } }",
+    ].join("\n"), "utf8");
+    const result = powershell(["-File", file]);
+    expect(result.status, result.stderr).toBe(0);
+  }, 30_000);
+
   it("leaves a replacement installation and its task alone during deferred removal", () => {
     const command = windowsAgentSelfRemoval("VControlHubAgent", "previous");
     const script = Buffer.from(command.match(/'-EncodedCommand','([A-Za-z0-9+/=]+)'/)![1]!, "base64").toString("utf16le");

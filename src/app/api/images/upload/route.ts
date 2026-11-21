@@ -255,6 +255,8 @@ async function handleUpload(request: Request, userId: string, session: SessionPa
       });
       if (linkedStorageRelativePath && storageNodeId) {
         await indexLinkedStorageImage({
+          imageId: image.id,
+          createdAt: image.createdAt,
           storageNodeId,
           relativePath: linkedStorageRelativePath,
           originalName,

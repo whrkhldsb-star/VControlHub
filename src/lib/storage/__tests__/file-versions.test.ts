@@ -253,10 +253,30 @@ describe("file-versions service", () => {
     fileLockEvents.length = 0;
     readBufferMock.mockImplementation(async () => { fileLockEvents.push("snapshot read"); return Buffer.from("current body"); });
     writeBufferMock.mockImplementation(async () => { fileLockEvents.push("write"); });
+    const updatedAt = store.entries.get("fe_1").updatedAt;
     await mod.restoreFileVersion({ fileEntryId: "fe_1", versionId: snap!.id, session: { userId: "u1" } as never });
     const entry = store.entries.get("fe_1");
+    const { prisma } = await import("@/lib/db");
+    expect(prisma.fileEntry.update).toHaveBeenCalledWith(expect.objectContaining({
+      where: { id: "fe_1", storageNodeId: entry.storageNodeId, relativePath: entry.relativePath, isDeleted: false, updatedAt },
+    }));
     expect(fileLockEvents).toEqual([`lock ${entry.storageNodeId}:${entry.relativePath}`, "snapshot read", "write", "unlock"]);
   });
+
+  it.each([{ relativePath: "moved" }, { storageNodeId: "another-node" }, { isDeleted: true }])(
+    "rejects a file changed while waiting for the overwrite lock (%j)", async change => {
+      const mod = await import("@/lib/storage/file-versions");
+      const { lockStorageFileOverwrite } = await import("@/lib/storage/file-overwrite-lock");
+      const snap = await mod.snapshotFileVersionBeforeOverwrite({ fileEntryId: "fe_1", reason: "MANUAL" });
+      vi.mocked(lockStorageFileOverwrite).mockImplementationOnce(async () => {
+        store.entries.set("fe_1", { ...store.entries.get("fe_1"), ...change });
+        return async () => {};
+      });
+      await expect(mod.restoreFileVersion({ fileEntryId: "fe_1", versionId: snap!.id, session: { userId: "u1" } as never }))
+        .rejects.toThrow();
+      expect(writeBufferMock).not.toHaveBeenCalled();
+    },
+  );
 
   it("skips oversize automatic snapshots BEFORE reading the body", async () => {
     process.env.FILE_VERSION_MAX_BYTES = "4";
