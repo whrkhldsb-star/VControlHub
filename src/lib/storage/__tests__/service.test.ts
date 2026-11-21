@@ -4,6 +4,7 @@ import {
   mkdtemp,
   rm,
   readFile as readFileToDisk,
+  readdir,
   writeFile as writeFileToDisk,
 } from "node:fs/promises";
 import * as path from "node:path";
@@ -13,6 +14,7 @@ import { describe, expect, it, vi } from "vitest";
 const { mockPrisma, listRemoteDirectoryMock, assertStorageAccessMock } =
   vi.hoisted(() => ({
     mockPrisma: {
+      shareLink: { updateMany: vi.fn() },
       $queryRaw: vi.fn(async () => [{ id: "bound-server" }]),
       storageNode: {
         updateMany: vi.fn(),
@@ -28,6 +30,7 @@ const { mockPrisma, listRemoteDirectoryMock, assertStorageAccessMock } =
         findFirst: vi.fn(),
       },
       fileEntry: {
+        count: vi.fn(),
         create: vi.fn(),
         findMany: vi.fn(),
         findUnique: vi.fn(),
@@ -308,7 +311,7 @@ describe("storage service", () => {
     expect(result[0]?.localEditable).toBe(true);
   });
 
-  it("passes take / skip / cursor through to the fileEntry findMany call", async () => {
+  it("applies take / skip / cursor to visible file ids before hydrating the page", async () => {
     vi.clearAllMocks();
     vi.mocked(prisma.fileEntry.findMany).mockResolvedValueOnce([
       {
@@ -341,22 +344,16 @@ describe("storage service", () => {
       } as any,
     ]);
 
-    const result = await listFileEntries(undefined, {
-      take: 25,
-      skip: 10,
-      cursor: "file_seed",
-    });
+    mockPrisma.$queryRaw.mockResolvedValueOnce([{ id: "file_paginated" }]);
+    const result = await listFileEntries(undefined, { take: 25, skip: 10, cursor: "file_seed" });
 
-    expect(prisma.fileEntry.findMany).toHaveBeenCalledWith(
-      expect.objectContaining({
-        where: { isDeleted: false },
-        orderBy: [{ entryType: "asc" }, { relativePath: "asc" }, { id: "asc" }],
-        take: 25,
-        // skip is bumped by 1 so the cursor row is included in the page
-        skip: 11,
-        cursor: { id: "file_seed" },
-      }),
-    );
+    expect(prisma.$queryRaw).toHaveBeenCalledWith(expect.objectContaining({
+      values: expect.arrayContaining(["file_seed", 25, 11]),
+    }));
+    expect(prisma.fileEntry.findMany).toHaveBeenCalledWith(expect.objectContaining({
+      where: { isDeleted: false, id: { in: ["file_paginated"] } },
+      orderBy: [{ entryType: "asc" }, { relativePath: "asc" }, { id: "asc" }],
+    }));
     expect(result).toHaveLength(1);
     expect(result[0]?.id).toBe("file_paginated");
   });
@@ -367,13 +364,9 @@ describe("storage service", () => {
 
     await listFileEntries(undefined, { cursor: "file_seed" });
 
-    const callArgs = vi.mocked(prisma.fileEntry.findMany).mock
-      .calls[0]?.[0] as Record<string, unknown>;
-    expect(callArgs).toMatchObject({
-      where: { isDeleted: false },
-      cursor: { id: "file_seed" },
-    });
-    expect("skip" in callArgs ? callArgs.skip : undefined).toBeUndefined();
+    expect(prisma.$queryRaw).toHaveBeenCalledWith(expect.objectContaining({
+      values: expect.arrayContaining(["file_seed", 1000, 0]),
+    }));
   });
 
   it("passes pagination options through listDeletedFileEntries to findMany", async () => {
@@ -415,7 +408,9 @@ describe("storage service", () => {
         updatedAt: new Date(),
       } as any,
     ]);
+    mockPrisma.$queryRaw.mockResolvedValueOnce([{ id: "dir_1" }, { id: "file_1" }]);
     vi.mocked(prisma.fileEntry.findMany)
+      .mockResolvedValueOnce([]) // The deleted listing runs in parallel with visible id selection.
       .mockResolvedValueOnce([
         {
           id: "dir_1",
@@ -465,8 +460,7 @@ describe("storage service", () => {
             server: null,
           },
         } as any,
-      ])
-      .mockResolvedValueOnce([]);
+      ]);
 
     const result = await getStorageOverview({ userId: "admin", roles: ["admin" as const], currentTeamId: null });
 
@@ -505,7 +499,7 @@ describe("storage service", () => {
     } as any);
     vi.mocked(prisma.storageNode.updateMany).mockResolvedValueOnce({ count: 1 } as any);
     vi.mocked(prisma.storageNode.findFirst).mockResolvedValueOnce({
-      id: "node_2",
+      id: "node_2", _count: { shareLinks: 1 },
     } as any);
 
     await updateStorageNode({
@@ -520,7 +514,7 @@ describe("storage service", () => {
 
     expect(prisma.storageNode.updateMany).toHaveBeenCalledWith(
       expect.objectContaining({
-        where: { id: "node_2", isDefault: false },
+        where: expect.objectContaining({ id: "node_2", isDefault: false, driver: "SFTP", basePath: "/data/media" }),
         data: expect.objectContaining({
           driver: "LOCAL",
           serverId: null,
@@ -533,6 +527,30 @@ describe("storage service", () => {
     );
     const [write] = vi.mocked(prisma.storageNode.updateMany).mock.calls[0]!;
     expect(write?.data).not.toHaveProperty("isDefault");
+  });
+
+  it.each([
+    { basePath: "/new" }, { host: "new.test" }, { port: 2222 }, { serverId: "other" }, { username: "other" }, { driver: "LOCAL" as const },
+  ])("revokes active public links in the node update transaction for %j", async (change) => {
+    vi.clearAllMocks();
+    const current = {
+      id: "n", driver: "SFTP" as const, name: "Node", teamId: null, basePath: "/old", isDefault: false,
+      host: "old.test", port: 22, username: "user", serverId: null, webdavConfigEncrypted: null,
+      directAccessMode: "PROXY", publicBaseUrl: null, directAccessExpiresSeconds: 300,
+    };
+    mockPrisma.storageNode.findUnique.mockResolvedValueOnce(current);
+    mockPrisma.storageNode.updateMany.mockResolvedValueOnce({ count: 1 });
+    mockPrisma.storageNode.findFirst.mockResolvedValueOnce({ ...current, ...change, _count: { shareLinks: 2 } });
+    await updateStorageNode({ storageNodeId: "n", ...change });
+    expect(mockPrisma.shareLink.updateMany).toHaveBeenCalledWith({
+      where: { storageNodeId: "n", revokedAt: null }, data: { revokedAt: expect.any(Date) },
+    });
+    mockPrisma.shareLink.updateMany.mockClear();
+    mockPrisma.storageNode.findUnique.mockResolvedValueOnce(current);
+    mockPrisma.storageNode.updateMany.mockResolvedValueOnce({ count: 1 });
+    mockPrisma.storageNode.findFirst.mockResolvedValueOnce({ ...current, _count: { shareLinks: 2 } });
+    await updateStorageNode({ storageNodeId: "n", name: "Display name" });
+    expect(mockPrisma.shareLink.updateMany).not.toHaveBeenCalled();
   });
 
   it("rejects switching a remote node to local storage outside its workspace", async () => {
@@ -586,7 +604,7 @@ describe("storage service", () => {
 
   it("blocks deleting the default node even when it has no files", async () => {
     vi.clearAllMocks();
-    vi.mocked(prisma.storageNode.findUnique).mockResolvedValueOnce({
+    vi.mocked(prisma.storageNode.findFirst).mockResolvedValueOnce({
       id: "node_default",
       isDefault: true,
       fileEntries: [],
@@ -595,7 +613,19 @@ describe("storage service", () => {
     await expect(deleteStorageNode("node_default")).rejects.toThrow(
       /默认存储节点/,
     );
+    expect(vi.mocked(prisma.$queryRaw).mock.calls[0]?.[0]).toEqual(expect.arrayContaining([expect.stringContaining("FOR UPDATE")]));
     expect(prisma.storageNode.deleteMany).not.toHaveBeenCalled();
+  });
+
+  it("counts live entries after locking the node and checking its current default status", async () => {
+    vi.clearAllMocks();
+    mockPrisma.storageNode.findFirst.mockResolvedValueOnce({ id: "n", isDefault: false });
+    mockPrisma.fileEntry.count.mockResolvedValueOnce(1);
+    await expect(deleteStorageNode("n")).rejects.toThrow();
+    expect(mockPrisma.fileEntry.count).toHaveBeenCalledWith({ where: { storageNodeId: "n", isDeleted: false } });
+    expect(mockPrisma.$queryRaw.mock.invocationCallOrder[0]).toBeLessThan(mockPrisma.storageNode.findFirst.mock.invocationCallOrder[0]!);
+    expect(mockPrisma.storageNode.findFirst.mock.invocationCallOrder[0]).toBeLessThan(mockPrisma.fileEntry.count.mock.invocationCallOrder[0]!);
+    expect(mockPrisma.storageNode.deleteMany).not.toHaveBeenCalled();
   });
 
   it("normalizes safe public direct-access URLs before storage-node persistence", async () => {
@@ -958,7 +988,7 @@ describe("storage service", () => {
         "new content",
       );
       expect(prisma.fileEntry.update).toHaveBeenCalledWith({
-        where: { id: "file_save" },
+        where: { id: "file_save", storageNodeId: "node_1", relativePath, isDeleted: false, updatedAt: editableEntrySave.updatedAt },
         data: expect.objectContaining({
           size: BigInt(11),
           checksumSha256: null,
@@ -973,6 +1003,29 @@ describe("storage service", () => {
     } finally {
       await rm(tempRoot, { recursive: true, force: true });
     }
+  });
+
+  it("leaves the previous editor bytes intact and removes the staged file when the index update fails", async () => {
+    vi.clearAllMocks();
+    const root = await mkdtemp(path.join(tmpdir(), "storage-editable-index-"));
+    const relativePath = "notes.txt";
+    const absolutePath = path.join(root, relativePath);
+    const entry = {
+      id: "editor-row", name: "notes.txt", entryType: "FILE", mimeType: "text/plain",
+      size: BigInt(3), checksumSha256: "prior", updatedAt: new Date(), isDeleted: false, relativePath,
+      storageNode: { id: "node_1", driver: "LOCAL", basePath: root },
+    };
+    try {
+      await writeFileToDisk(absolutePath, "old");
+      mockPrisma.fileEntry.findUnique.mockResolvedValueOnce(entry).mockResolvedValueOnce(entry);
+      mockPrisma.fileEntry.update.mockRejectedValueOnce(new Error("index unavailable"));
+      assertStorageAccessMock.mockResolvedValueOnce({ allowed: true });
+
+      await expect(saveLocalEditableFileDraft({ fileEntryId: entry.id, content: "replacement", session: storageSession }))
+        .rejects.toThrow("index unavailable");
+      expect(await readFileToDisk(absolutePath, "utf8")).toBe("old");
+      expect(await readdir(root)).toEqual([relativePath]);
+    } finally { await rm(root, { recursive: true, force: true }); }
   });
 
   it("rejects stale editable saves when the stored file version changed", async () => {
@@ -1192,7 +1245,7 @@ describe("storage service", () => {
       server: null,
     } as any);
     vi.mocked(prisma.storageNode.updateMany).mockResolvedValueOnce({ count: 1 } as any);
-    vi.mocked(prisma.storageNode.findFirst).mockResolvedValueOnce({} as any);
+    vi.mocked(prisma.storageNode.findFirst).mockResolvedValueOnce({ id: "node_1", _count: { shareLinks: 0 } } as any);
 
     await updateStorageNode({
       storageNodeId: "node_1",
@@ -1280,11 +1333,11 @@ describe("storage service", () => {
         }),
       );
       expect(prisma.fileEntry.update).toHaveBeenCalledWith({
-        where: {
+        where: expect.objectContaining({
           id: "file_restore_local",
           storageNode: { teamId: "team-1" },
-        },
-        data: { isDeleted: false, deleteBatchId: null },
+        }),
+        data: { isDeleted: false, deleteBatchId: null, deletedAgentRoot: null },
       });
     } finally {
       await rm(tempRoot, { recursive: true, force: true });
@@ -1392,11 +1445,11 @@ describe("storage service", () => {
       }),
     );
     expect(prisma.fileEntry.update).toHaveBeenCalledWith({
-      where: {
+      where: expect.objectContaining({
         id: "file_restore_sftp",
         storageNode: { teamId: "team-1" },
-      },
-      data: { isDeleted: false, deleteBatchId: null },
+      }),
+      data: { isDeleted: false, deleteBatchId: null, deletedAgentRoot: null },
     });
   });
 

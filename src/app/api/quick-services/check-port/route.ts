@@ -1,3 +1,4 @@
+import { quickServiceRemoteTarget } from "@/lib/quick-service/target-identity";
 import { apiCopy } from "@/lib/i18n/api-copy";
 import { z } from "zod";
 
@@ -33,9 +34,11 @@ const checkPortQuerySchema = z
 export async function GET(request: Request) {
 	return withApiRoute(request, { permission: "docker:manage", rateLimit: GENERAL_READ_LIMIT, errorStatus: 500, errorMessage: apiCopy("apiCopy.server.error.dfe0c2e8") }, async ({ session }) => {
 		const { action, port, preferred, serverId } = parseSearchParams(request, checkPortQuerySchema);
+		let remote: ReturnType<typeof quickServiceRemoteTarget> | undefined;
 		if (serverId) {
 			const access = await assertServerTeamAccess(session, serverId, "connect");
 			if (!access.ok) return access.response;
+			remote = quickServiceRemoteTarget(access.server);
 		} else {
 			// The hub host's used-port list is a port scan of the control plane.
 			const hubAccess = assertHubHostDockerAccess(session);
@@ -45,9 +48,9 @@ export async function GET(request: Request) {
 		// action=allocate: suggest a free port
 		if (action === "allocate") {
 			try {
-				if (serverId) {
+				if (remote) {
 					const start = preferred ?? 10_000;
-					const usedPorts = new Set(await getRemoteUsedPorts(serverId));
+					const usedPorts = new Set(await getRemoteUsedPorts(remote));
 					for (let offset = 0; offset < 2_000; offset += 1) {
 						const candidate = ((start - 1 + offset) % 65_535) + 1;
 						if (!usedPorts.has(candidate)) {
@@ -69,7 +72,7 @@ export async function GET(request: Request) {
 
 		// action=used-ports: list all currently used ports
 		if (action === "used-ports") {
-			return NextResponse.json({ usedPorts: serverId ? await getRemoteUsedPorts(serverId) : await getUsedPorts() });
+			return NextResponse.json({ usedPorts: remote ? await getRemoteUsedPorts(remote) : await getUsedPorts() });
 		}
 
 		// Default: check a specific port
@@ -77,9 +80,9 @@ export async function GET(request: Request) {
 			throw new ValidationError(apiCopy("apiCopy.please.provide.the.port.parameter.b3868220"));
 		}
 
-		const result = serverId
+		const result = remote
 			? {
-					available: await isRemotePortAvailable(serverId, port),
+					available: await isRemotePortAvailable(remote, port),
 					usedBy: null as string | null,
 				}
 			: await checkPort(port);

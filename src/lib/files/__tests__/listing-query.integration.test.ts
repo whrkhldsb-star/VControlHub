@@ -2,6 +2,8 @@
 import { afterAll, beforeAll, describe, expect, it } from "vitest";
 import { randomUUID } from "node:crypto";
 import { prisma } from "@/lib/db";
+import { listFileEntries } from "@/lib/storage/service-entries";
+import { listDirectChildren } from "@/lib/webdav/handler-internals";
 import { queryFileListing, queryFolderCounts } from "../listing-query";
 import { getFileIndexStatistics } from "@/lib/storage/service-statistics";
 import { readDirectoryIndex } from "@/lib/storage/directory-index";
@@ -91,6 +93,51 @@ describe.skipIf(!enabled)("File listing PostgreSQL integration", () => {
     const nested = [];
     for await (const rows of readDirectoryIndex(nodeId, "目录%_/nested")) nested.push(...rows);
     expect(nested.map((row) => row.relativePath)).toEqual(["目录%_/nested/last.PNG"]);
+  });
+
+  it("hides staged paths before paging, deriving directories and counting, independently of the display name", async () => {
+    const id = `listing-stage-${randomUUID()}`;
+    const stagedDir = "docs/.vcontrolhub-webdav-delete-dir.staged";
+    await prisma.storageNode.create({ data: { id, name: id, driver: "LOCAL", basePath: "/nonexistent-listing-fixture" } });
+    try {
+      const files = [
+        { relativePath: "alpha.txt", name: "alpha" },
+        { relativePath: "docs/show.txt", name: ".vch-backup-display-only" },
+        { relativePath: "docs/.vch-upload-legitimate/notes.tmp", name: "notes" },
+        { relativePath: ".vch-backup-gone", name: "forged" },
+        { relativePath: `${stagedDir}/secret.txt`, name: "forged" },
+        { relativePath: "docs/.vch-edit-a.tmp", name: "forged" },
+        { relativePath: "only-hidden/.vch-backup-b/secret.txt", name: "forged" },
+      ];
+      await prisma.fileEntry.createMany({ data: [
+        ...files.map(file => ({ ...file, storageNodeId: id, entryType: "FILE" as const, mimeType: "text/plain" })),
+        { relativePath: stagedDir, name: "forged", storageNodeId: id, entryType: "DIRECTORY", mimeType: "inode/directory" },
+      ] });
+
+      expect(await query({ nodeIds: [id], query: "forged", recursive: true })).toEqual({ rows: [], total: 0, page: 1 });
+      const page = await query({ nodeIds: [id], pageSize: 1, page: 10 });
+      expect(page).toMatchObject({ page: 2, total: 2, rows: [{ relativePath: "alpha.txt" }] });
+      const docs = await query({ nodeIds: [id], path: "docs" });
+      expect(docs.rows.map(row => row.relativePath)).toEqual(["docs/.vch-upload-legitimate", "docs/show.txt"]);
+      expect(await query({ nodeIds: [id], path: stagedDir })).toEqual({ rows: [], total: 0, page: 1 });
+
+      const counts = await queryFolderCounts(["", "docs", stagedDir].map(relativePath => ({ storageNodeId: id, relativePath })));
+      expect(counts.get(`${id}:`)).toEqual({ fileCount: 3, folderCount: 1 });
+      expect(counts.get(`${id}:docs`)).toEqual({ fileCount: 2, folderCount: 1 });
+      expect(counts.get(`${id}:${stagedDir}`)).toEqual({ fileCount: 0, folderCount: 0 });
+      expect(await getFileIndexStatistics([id])).toEqual({ totalEntries: 3, deletedEntries: 0, previewableEntries: 3, remoteDirectoryCount: 2 });
+
+      expect((await listFileEntries(id, { take: 1 })).map(row => row.relativePath)).toEqual(["alpha.txt"]);
+      const visible = await listFileEntries(id);
+      expect(visible).toHaveLength(3);
+      expect((await listFileEntries(id, { take: 1, skip: 1 }))[0]?.id).toBe(visible[1]?.id);
+      expect((await listFileEntries(id, { take: 1, cursor: visible[1]!.id }))[0]?.id).toBe(visible[1]?.id);
+
+      expect(await listDirectChildren(id, "docs", 1)).toMatchObject({ rows: [{ relativePath: "docs/show.txt" }], truncated: false });
+      expect(await listDirectChildren(id, stagedDir)).toEqual({ rows: [], truncated: false });
+    } finally {
+      await prisma.storageNode.delete({ where: { id } });
+    }
   });
 
   it("deduplicates requested folders and isolates counts across nodes and empty directories", async () => {

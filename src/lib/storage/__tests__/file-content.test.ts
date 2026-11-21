@@ -86,7 +86,7 @@ function sftpNode(): StorageFileNode {
 			sshKey: null,
 			managementMode: "DIRECT",
 			operatingSystem: "LINUX",
-			hostKeySha256: null,
+			hostKeySha256: "SHA256:AQEBAQEBAQEBAQEBAQEBAQEBAQEBAQEBAQEBAQEBAQE",
 		},
 		host: null,
 		port: null,
@@ -117,7 +117,7 @@ describe("storage file content helpers", () => {
 		await expect(readStorageFileBuffer(sftpNode(), "gallery/source.png")).resolves.toEqual(Buffer.from("remote"));
 		await expect(writeStorageFileBuffer(sftpNode(), "gallery/upload.png", Buffer.from("upload"))).resolves.toBe("/srv/media/gallery/upload.png");
 
-		expect(connectMock).toHaveBeenCalledWith(expect.objectContaining({ host: "127.0.0.1", username: "root", password: "secret" }));
+		expect(connectMock).toHaveBeenCalledWith(expect.objectContaining({ host: "127.0.0.1", username: "root", password: "secret", hostVerifier: expect.any(Function) }));
 		expect(sftpReadFileMock).toHaveBeenCalledWith("/srv/media/gallery/source.png", expect.any(Function));
 		expect(sftpWriteFileMock).toHaveBeenCalledWith("/srv/media/gallery/upload.png", Buffer.from("upload"), expect.any(Function));
 	});

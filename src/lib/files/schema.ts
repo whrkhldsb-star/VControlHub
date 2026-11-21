@@ -27,7 +27,7 @@ import { z } from "zod";
 export const archiveListQuerySchema = z.object({
   // Required: handler always loads StorageNode by id; missing id is a 400, not a 404.
   nodeId: z.string().trim().min(1, "nodeId is required"),
-  relativePath: z.string().trim().optional(),
+  relativePath: z.string().optional(),
   driver: z.enum(["LOCAL", "SFTP"]).default("LOCAL"),
   name: z.string().trim().min(1).default("archive"),
 });
@@ -118,7 +118,7 @@ export const createFileVersionBodySchema = z.object({
 export const searchFileContentQuerySchema = z.object({
   q: z.string().trim().min(1).max(200),
   nodeId: z.string().trim().min(1).optional(),
-  path: z.string().trim().optional(),
+  path: z.string().optional(),
 });
 
 export const cancelFileOperationSchema = z.object({ id: z.string().uuid() });

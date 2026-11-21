@@ -135,13 +135,19 @@ function makeTaskRow() {
     maxSpeedKb: null,
     createdBy: "u-1",
     server: {
+      teamId: "team-1",
+      id: "server-1",
+      operatingSystem: "LINUX",
+      managementMode: "DIRECT",
+      connectionType: "SSH_KEY",
+      hostKeySha256: "pin",
       host: "203.0.113.10",
       port: 22,
       username: "root",
       sshKeyId: "key_1",
       password: "encrypted-password",
-      storageNode: { id: "store_1", basePath: "/srv/cloud" },
-      sshKey: { privateKey: "encrypted-key" },
+      storageNode: { id: "store_1", basePath: "/srv/cloud", driver: "SFTP", teamId: "team-1", host: null, port: null, username: null, hostKeySha256: null },
+      sshKey: { teamId: "team-1", privateKey: "encrypted-key" },
     },
   };
 }
@@ -272,15 +278,15 @@ describe("download execution durable job worker", () => {
         expect.objectContaining({ where: { id: "task-1" } }),
       );
       expect(decryptSshPrivateKeyMock).toHaveBeenCalledWith("encrypted-key");
-      expect(decryptServerPasswordMock).toHaveBeenCalledWith("encrypted-password");
+      expect(decryptServerPasswordMock).not.toHaveBeenCalled();
       expect(executeDirectDownloadMock).toHaveBeenCalledWith(
         "task-1",
         expect.objectContaining({
           host: "203.0.113.10",
           port: 22,
           username: "root",
-          password: "decrypted:encrypted-password",
-          sshKey: { privateKey: "decrypted:encrypted-key" },
+          password: null,
+          sshKey: { teamId: "team-1", privateKey: "decrypted:encrypted-key" },
           storageNode: { id: "store_1", basePath: "/srv/cloud" },
         }),
         "https://example.com/file.iso",
@@ -305,6 +311,7 @@ describe("download execution durable job worker", () => {
           mode: "direct",
           status: "dispatched",
         }),
+        1,
       );
       expect(failJobMock).not.toHaveBeenCalled();
       expect(runWithLeaseHeartbeat).toHaveBeenCalledWith(
@@ -315,6 +322,19 @@ describe("download execution durable job worker", () => {
           run: expect.any(Function),
         }),
       );
+    });
+
+    it.each([{ host: "files.example" }, { port: 2022 }, { username: "files" }])("rejects a bound drive endpoint override before dispatch (%o)", async override => {
+      const task = makeTaskRow();
+      Object.assign(task.server.storageNode, override);
+      prismaDownloadTaskFindUniqueMock.mockResolvedValueOnce(task);
+      claimNextJobMock.mockResolvedValueOnce(makeJob());
+      await runDownloadExecutionJobWorkerOnce();
+      expect(executeDirectDownloadMock).not.toHaveBeenCalled();
+      expect(executeAria2RelayDownloadMock).not.toHaveBeenCalled();
+      expect(prisma.downloadTask.updateMany).toHaveBeenCalledWith(expect.objectContaining({
+        data: { status: "FAILED", errorMessage: expect.stringMatching(/SSH/) },
+      }));
     });
 
     it("dispatches an aria2 relay job via executeAria2RelayDownload", async () => {
@@ -357,6 +377,7 @@ describe("download execution durable job worker", () => {
         "job-dl-1",
         expect.stringContaining(":download-execution:"),
         expect.objectContaining({ mode: "aria2_relay" }),
+        1,
       );
     });
 
@@ -368,7 +389,7 @@ describe("download execution durable job worker", () => {
 
       expect(executeDirectDownloadMock).not.toHaveBeenCalled();
       expect(executeAria2RelayDownloadMock).not.toHaveBeenCalled();
-      expect(failJobTerminalMock).toHaveBeenCalledWith("job-dl-1", expect.any(String), "creator disabled");
+      expect(failJobTerminalMock).toHaveBeenCalledWith("job-dl-1", expect.any(String), "creator disabled", { attempts: 1 });
     });
 
     it("falls back to task.createdBy when payload userId is missing", async () => {
@@ -426,6 +447,7 @@ describe("download execution durable job worker", () => {
         "job-dl-1",
         expect.stringContaining(":download-execution:"),
         expect.stringContaining("task-1"),
+        { attempts: 1 },
       );
       expect(executeDirectDownloadMock).not.toHaveBeenCalled();
       expect(completeJobMock).not.toHaveBeenCalled();
@@ -443,6 +465,7 @@ describe("download execution durable job worker", () => {
         "job-dl-1",
         expect.stringContaining(":download-execution:"),
         expect.stringContaining("taskId"),
+        { attempts: 1 },
       );
       expect(executeDirectDownloadMock).not.toHaveBeenCalled();
     });
@@ -458,6 +481,7 @@ describe("download execution durable job worker", () => {
         "job-dl-1",
         expect.stringContaining(":download-execution:"),
         expect.stringContaining("prisma down"),
+        { attempts: 1 },
       );
       expect(completeJobMock).not.toHaveBeenCalled();
       expect(errorMock).toHaveBeenCalled();
@@ -486,7 +510,7 @@ describe("download execution durable job worker", () => {
         task.id, expect.anything(), [task.url], task.targetPath, task.fileName, task.maxSpeedKb,
         task.createdBy, expect.any(AbortSignal), limits, true,
       );
-      expect(failJobMock).toHaveBeenCalledWith("job-dl-1", expect.any(String), "transfer interrupted");
+      expect(failJobMock).toHaveBeenCalledWith("job-dl-1", expect.any(String), "transfer interrupted", { attempts: 3 });
       expect(prisma.$queryRaw).toHaveBeenCalledTimes(1);
       expect(notifyDownloadResult).toHaveBeenCalledWith(task.createdBy, task.url, "failed", expect.any(String), task.teamId);
       if (transferManifest) {
@@ -596,6 +620,7 @@ describe("download execution durable job worker", () => {
         "job-dl-1",
         expect.stringContaining(":download-execution:"),
         expect.objectContaining({ status: "already_completed" }),
+        1,
       );
       expect(failJobMock).not.toHaveBeenCalled();
       expect(infoMock).toHaveBeenCalledWith(
@@ -620,7 +645,8 @@ describe("download execution durable job worker", () => {
       expect(failJobTerminalMock).toHaveBeenCalledWith(
         "job-dl-1",
         expect.stringContaining(":download-execution:"),
-        "aria2 RPC 403: upstream rejected",);
+        "aria2 RPC 403: upstream rejected",
+        { attempts: 1 },);
       expect(completeJobMock).not.toHaveBeenCalled();
       expect(infoMock).toHaveBeenCalledWith(
         expect.stringContaining("already FAILED"),
@@ -643,7 +669,8 @@ describe("download execution durable job worker", () => {
       expect(failJobTerminalMock).toHaveBeenCalledWith(
         "job-dl-1",
         expect.stringContaining(":download-execution:"),
-        "User manually cancelled",);
+        "User manually cancelled",
+        { attempts: 1 },);
       expect(completeJobMock).not.toHaveBeenCalled();
     });
 
@@ -671,7 +698,8 @@ describe("download execution durable job worker", () => {
       expect(failJobTerminalMock).toHaveBeenCalledWith(
         "job-dl-1",
         expect.stringContaining(":download-execution:"),
-        "exec helper inner crash",);
+        "exec helper inner crash",
+        { attempts: 1 },);
       expect(completeJobMock).not.toHaveBeenCalled();
       expect(infoMock).toHaveBeenCalledWith(
         expect.stringContaining("threw but the business row already reached a terminal state"),

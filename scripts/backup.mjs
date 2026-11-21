@@ -36,7 +36,11 @@ import {
   timestamp,
   fileVersionDir,
   FILE_VERSIONS_MANIFEST,
+  ENV_MEMBERS,
+  INTEGRITY_MANIFEST,
 } from "./lib/backup-common.mjs";
+
+import { expectedArchiveFiles, verifyArchiveFiles } from "./lib/backup-file-integrity.mjs";
 
 const { log, fail } = makeLogger("backup");
 const SCRIPT_DIR = path.dirname(fileURLToPath(import.meta.url));
@@ -76,8 +80,7 @@ function resolveOutputPath(arg, mode) {
   return path.isAbsolute(arg) ? arg : path.join(APP_DIR, arg);
 }
 
-async function dumpDatabase(outputPath, envFile) {
-  const env = { ...process.env, ...envFile };
+async function dumpDatabase(outputPath, env) {
   const pgDump = await findBinary("pg_dump");
   if (!pgDump) fail("pg_dump not found. Install PostgreSQL client tools or set PG_INSTALL_DIR.");
   const { connArgs, childEnv } = pgConnection(env);
@@ -193,26 +196,27 @@ async function assertScheduledCoverage(env, roots) {
   }
 }
 
-async function archivePaths(outputPath, members, extraDir, envFile) {
+async function archivePaths(outputPath, members, extraDir, env, { full = false, restoreSnapshot = false } = {}) {
   const tar = await findTar();
   // GNU tar stores a second name of a hard-linked file as a link; store its
   // content instead, as for any other file.
   const gnuTar = /GNU tar/.test((await runBinary(tar, ["--version"]).catch(() => ({ stdout: "" }))).stdout);
   const existing = [];
   for (const member of members) {
-    await fs.access(path.join(APP_DIR, member)).then(() => existing.push(member)).catch(() => undefined);
+    try { await fs.access(path.join(APP_DIR, member)); existing.push(member); }
+    catch (error) { if (error.code !== "ENOENT") throw error; }
   }
-  if (existing.length === 0) fail(`No files found for backup under ${APP_DIR}`);
+  if (!extraDir && existing.length === 0) throw new Error(`No files found for backup under ${APP_DIR}`);
   const args = [...(gnuTar ? ["--hard-dereference"] : []), "-czf", outputPath, "-C", APP_DIR, ...existing];
+  const roots = existing.map((member) => ({ member, directory: path.resolve(APP_DIR, member) }));
   if (extraDir) {
-    args.push("-C", extraDir, "database.sql.gz");
-    const extraPaths = JSON.parse(process.env.BACKUP_EXTRA_PATHS_JSON || envFile.BACKUP_EXTRA_PATHS_JSON || "[]");
+    if (full) args.push("-C", extraDir, "database.sql.gz");
+    const extraPaths = full ? JSON.parse(env.BACKUP_EXTRA_PATHS_JSON || "[]") : [];
     if (!Array.isArray(extraPaths) || extraPaths.some((entry) => typeof entry !== "string" || !path.isAbsolute(entry))) {
       throw new Error("BACKUP_EXTRA_PATHS_JSON must be an array of absolute paths");
     }
-    const env = { ...envFile, ...process.env };
     const archived = await Promise.all(existing.map((name) => fs.realpath(path.join(APP_DIR, name))));
-    const storage = env.STORAGE_ROOT?.trim() && await fs.realpath(expandLocalRoot(env.STORAGE_ROOT.trim(), env));
+    const storage = full && env.STORAGE_ROOT?.trim() && await fs.realpath(expandLocalRoot(env.STORAGE_ROOT.trim(), env));
     if (storage && !archived.some((root) => covers(root, storage))) extraPaths.push(storage);
     const versions = await fs.realpath(fileVersionDir(env)).catch((error) => {
       if (error.code === "ENOENT" && !(env.BACKUP_REQUIRE_COVERAGE === "1" && env.FILE_VERSION_DIR)) return null;
@@ -220,9 +224,10 @@ async function archivePaths(outputPath, members, extraDir, envFile) {
     });
     const manifest = [];
     const external = [...new Set(await Promise.all(extraPaths.map((entry) => fs.realpath(entry))))];
-    if (env.BACKUP_REQUIRE_COVERAGE === "1") await assertScheduledCoverage(env, [...archived, ...external]);
+    if (full && env.BACKUP_REQUIRE_COVERAGE === "1") await assertScheduledCoverage(env, [...archived, ...external]);
     for (const real of external) {
       if (external.some((other) => other !== real && covers(other, real))) continue;
+      // FILE_VERSION_DIR is archived separately, under its own manifest.
       const root = path.parse(real).root;
       const member = path.relative(root, real).split(path.sep).join("/");
       if (!member || members.some((name) => member === name || member.startsWith(`${name}/`)) || path.resolve(outputPath).startsWith(`${real}${path.sep}`)) {
@@ -232,6 +237,7 @@ async function archivePaths(outputPath, members, extraDir, envFile) {
       if (real === versions) continue;
       args.push("-C", root, member);
       manifest.push({ source: real, member });
+      roots.push({ directory: real, member });
     }
     if (manifest.length) {
       await fs.writeFile(path.join(extraDir, "external-data.json"), JSON.stringify({ version: 1, paths: manifest }, null, 2), { mode: 0o600 });
@@ -245,6 +251,7 @@ async function archivePaths(outputPath, members, extraDir, envFile) {
       if (insideApp && !insideApp.startsWith("..") && !path.isAbsolute(insideApp)) {
         const member = insideApp.split(path.sep).join("/");
         if (!existing.some((name) => member === name || member.startsWith(`${name}/`))) args.push("-C", APP_DIR, member);
+        roots.push({ directory: versions, member });
         // Named as file history here too: a restore puts it into the target's
         // own FILE_VERSION_DIR. Without the note it was copied to the same
         // place under the target's app directory, where a differently
@@ -257,23 +264,45 @@ async function archivePaths(outputPath, members, extraDir, envFile) {
         if (members.some((name) => member === name || member.startsWith(`${name}/`))) {
           throw new Error("FILE_VERSION_DIR overlaps archive members");
         }
+        roots.push({ directory: versions, member });
         await fs.writeFile(path.join(extraDir, FILE_VERSIONS_MANIFEST), JSON.stringify({ version: 1, source: versions, member }, null, 2), { mode: 0o600 });
         args.push("-C", root, member, "-C", extraDir, FILE_VERSIONS_MANIFEST);
       }
     }
-    if ((process.env.BACKUP_INCLUDE_ENV || envFile.BACKUP_INCLUDE_ENV) === "true") {
-      for (const name of [".env", ".env.local", ".env.runtime", ".env.production"]) {
-        if (await fs.stat(path.join(APP_DIR, name)).then((info) => info.isFile()).catch(() => false)) args.push("-C", APP_DIR, name);
+    if (restoreSnapshot || env.BACKUP_INCLUDE_ENV === "true") {
+      for (const name of ENV_MEMBERS) {
+        const info = await fs.lstat(path.join(APP_DIR, name)).catch((error) => {
+          if (error.code === "ENOENT") return null;
+          throw error;
+        });
+        if (!info) continue;
+        if (!info.isFile()) throw new Error(`Cannot snapshot non-regular environment file: ${name}`);
+        args.push("-C", APP_DIR, name);
       }
     }
+    if (full) {
+      // Publication is conditional on the post-pack verification below.
+      await fs.writeFile(path.join(extraDir, INTEGRITY_MANIFEST), JSON.stringify({
+        version: 1, databaseFileReferences: "verified", tarWarningsAllowed: false,
+      }));
+      args.push("-C", extraDir, INTEGRITY_MANIFEST);
+    }
   }
-  // GNU tar exits 1 when a file changed (or vanished) while it was being read: the archive is written and the
-  // rest is intact. The backup used to fail whole whenever anything was written under storage/, downloads/
-  // or logs/ during the minutes it took (a download, an upload, a VPS backup), publishing nothing. Only 2 and
-  // above are failures; the archive's members are verified right after either way.
-  const created = await runBinary(tar, args, process.platform === "win32" ? {} : { okExitCodes: [1] });
+  // A normal files archive can tolerate hot log writes. A full backup and
+  // a pre-restore snapshot must be complete before being published.
+  const strict = full || restoreSnapshot || process.platform === "win32";
+  const created = await runBinary(tar, args, { okExitCodes: strict ? [] : [1] });
+  // Some tar implementations warn about a disappearing member but still exit
+  // zero. The file need not have a database row (for example an env file).
+  if ((full || restoreSnapshot) && created.stderr.trim()) {
+    throw new Error(`Incomplete backup: tar reported a packing warning: ${created.stderr.trim().slice(0, 500)}`);
+  }
   if (created.code === 1) log(`tar reported files changing while they were archived (exit 1): ${created.stderr.trim().slice(0, 500)}`);
-  await assertRestorableMembers(tar, outputPath);
+  if (full) {
+    const references = await expectedArchiveFiles(path.join(extraDir, "database.sql.gz"), env, APP_DIR, roots, fileVersionDir(env), expandLocalRoot);
+    const count = await verifyArchiveFiles(outputPath, references, INTEGRITY_MANIFEST);
+    log(`Verified archive integrity against ${count} database file reference(s)`);
+  } else await assertRestorableMembers(tar, outputPath);
   const size = (await fs.stat(outputPath)).size;
   log(`Completed backup: ${outputPath} (${size} bytes)`);
 }
@@ -284,16 +313,24 @@ async function main() {
   const argv = process.argv.slice(2);
   let mode = "database";
   let positional = "";
+  let restoreSnapshot = false;
   while (argv.length > 0) {
     const arg = argv.shift();
     if (arg === "--files") mode = "files";
     else if (arg === "--full") mode = "full";
+    else if (arg === "--restore-snapshot") restoreSnapshot = true;
     else if (arg === "--database") mode = "database";
     else if (arg) positional = arg;
   }
 
   await fs.mkdir(BACKUP_DIR, { recursive: true });
   const envFile = await loadEnvFile();
+  // ENV_FILE historically selects the database. Runtime overrides still
+  // select archive directories and the recovery/scheduled-backup options.
+  const env = { ...envFile, ...process.env };
+  for (const [key, value] of Object.entries(envFile)) {
+    if (key.startsWith("DATABASE_") || key.startsWith("PG")) env[key] = value;
+  }
 
   if (mode === "database") {
     // Mode, not extension: resolveOutputPath branches on "database" to emit
@@ -301,25 +338,27 @@ async function main() {
     // the archive branch and produced a misnamed .tar.gz that the retention
     // pruner never matches — so default DB backups accumulated forever.
     const output = resolveOutputPath(positional, "database");
-    await dumpDatabase(output, envFile);
+    await dumpDatabase(output, env);
     await pruneOldBackups(output);
     return;
   }
 
   const output = resolveOutputPath(positional, mode === "full" ? "full" : "files");
   await fs.mkdir(path.dirname(output), { recursive: true });
-  if (mode === "files") {
+  if (mode === "files" && !restoreSnapshot) {
     log(`Starting files backup: ${output}`);
-    await publishBackup(output, (temporary) => archivePaths(temporary, FILES_MODE_PATHS));
+    await publishBackup(output, (temporary) => archivePaths(temporary, FILES_MODE_PATHS, null, env));
     await pruneOldBackups(output);
     return;
   }
   // full: stage the db dump beside the file set without archiving backups/ itself.
-  log(`Starting full backup: ${output}`);
+  log(`Starting ${mode} backup: ${output}`);
   const staging = await fs.mkdtemp(path.join(os.tmpdir(), "vch-backup-full-"));
   try {
-    await dumpDatabase(path.join(staging, "database.sql.gz"), envFile);
-    await publishBackup(output, (temporary) => archivePaths(temporary, FULL_MODE_PATHS, staging, envFile));
+    const full = mode === "full";
+    if (full) await dumpDatabase(path.join(staging, "database.sql.gz"), env);
+    await publishBackup(output, (temporary) => archivePaths(temporary,
+      full ? FULL_MODE_PATHS : FILES_MODE_PATHS, staging, env, { full, restoreSnapshot }));
     await pruneOldBackups(output);
   } finally {
     await fs.rm(staging, { recursive: true, force: true }).catch(() => undefined);

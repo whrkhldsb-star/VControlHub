@@ -199,10 +199,13 @@ async function assertScheduledTaskEditAllowed(
 	}
 	// Resuming, pausing or rescheduling an unattended task decides when it runs unreviewed: the toggle and delete
 	// paths already require command:execute for that (A6-09), and this path must not be the way around them.
-	if (!existing.approvalRequired && changesWhenItRuns(existing, input) && !sessionHasPermission(session, "command:execute")) {
+	const changesSchedule = changesScheduleDefinition(existing, input) || (input.status !== undefined && input.status !== existing.status);
+	if (!existing.approvalRequired && changesSchedule && !sessionHasPermission(session, "command:execute")) {
 		throw new ForbiddenError(t("backend.scheduled-task.manageUnattendedRequiresExecutor"));
 	}
-	if (input.serverIds !== undefined) {
+	if (!(input.approvalRequired ?? existing.approvalRequired) && (changesSchedule || existing.approvalRequired)) {
+		await assertScheduledTaskServersInScope(input.serverIds ?? existing.serverIds, session, ForbiddenError);
+	} else if (input.serverIds !== undefined) {
 		await assertScheduledTaskServersInScope(input.serverIds, session);
 	} else if (input.command !== undefined && input.command !== existing.command) {
 		await assertScheduledTaskServersInScope(existing.serverIds, session);
@@ -222,11 +225,11 @@ export async function updateScheduledTask(
 	const data: Record<string, unknown> = {};
 	// Every run files its request as the task's creator. Whoever rewrites the command must reach the servers it
 	// runs on and becomes that creator: approvers then see who wrote it, and the self-review rule applies to them.
-	if (input.command !== undefined && input.command !== existing.command) {
-		if (session?.userId && session.userId !== existing.createdById) data.createdById = session.userId;
+	if (changesWhatRuns(existing, input) && session.userId !== existing.createdById) {
+		data.createdById = session.userId;
 	}
 	if (input.name !== undefined) data.name = input.name;
-	if (input.scheduleType !== undefined || input.cronExpression !== undefined || input.runAt !== undefined) {
+	if (changesScheduleDefinition(existing, input)) {
 		const schedule = resolveSchedule({
 			scheduleType: input.scheduleType ?? existing.scheduleType,
 			cronExpression: input.cronExpression ?? existing.cronExpression,
@@ -282,12 +285,10 @@ export async function updateScheduledTask(
 	return getScheduledTask(id, session);
 }
 
-/** Whether an edit changes when a task runs: its status or any schedule field. */
-function changesWhenItRuns(
-	existing: { status: string; scheduleType: string; cronExpression: string; runAt: Date | null },
-	input: Pick<UpdateScheduledTaskInput, "status" | "scheduleType" | "cronExpression" | "runAt">,
+function changesScheduleDefinition(
+	existing: { scheduleType: string; cronExpression: string; runAt: Date | null },
+	input: Pick<UpdateScheduledTaskInput, "scheduleType" | "cronExpression" | "runAt">,
 ) {
-	if (input.status !== undefined && input.status !== existing.status) return true;
 	if (input.scheduleType !== undefined && input.scheduleType !== existing.scheduleType) return true;
 	if (input.cronExpression !== undefined && input.cronExpression !== existing.cronExpression) return true;
 	if (input.runAt !== undefined) {
@@ -371,6 +372,9 @@ export async function toggleScheduledTask(
 		throw new BusinessError(t(desiredStatus === "PAUSED" ? "backend.ai.cron.cannotPauseStatus" : "backend.ai.cron.cannotResumeStatus", { status: current.status }));
 	}
 	const newStatus = desiredStatus ?? (current.status === "ACTIVE" ? "PAUSED" : "ACTIVE");
+	if (newStatus === "ACTIVE" && !current.approvalRequired) {
+		await assertScheduledTaskServersInScope(current.serverIds, session, ForbiddenError);
+	}
 	const updated = await prisma.scheduledTask.updateMany({
 		where: { id, ...teamWhere(session), status: current.status, updatedAt: current.updatedAt, approvalRequired: current.approvalRequired },
 		data: statusTransitionData({ ...current, status: newStatus }),
@@ -433,17 +437,17 @@ export interface ScheduledTaskClaim {
 
 export async function recordTaskDispatch(id: string, commandRequestId: string, manual = false, claim?: ScheduledTaskClaim) {
 	return prisma.$transaction(async (tx) => {
-		const existing = await tx.scheduledTaskRun.findUnique({ where: { commandRequestId } });
 		const task = await tx.scheduledTask.findUnique({
 			where: { id },
 			select: { cronExpression: true, scheduleType: true },
 		});
 		if (!task) return null;
-		if (!existing) {
-			const dispatchedAt = new Date();
-			await tx.scheduledTaskRun.create({
-				data: { scheduledTaskId: id, commandRequestId, manual, dispatchedAt },
-			});
+		const dispatchedAt = new Date();
+		const recorded = await tx.scheduledTaskRun.createMany({
+			data: { scheduledTaskId: id, commandRequestId, manual, dispatchedAt },
+			skipDuplicates: true,
+		});
+		if (recorded.count) {
 			await tx.scheduledTask.update({
 				where: { id },
 				data: {
@@ -452,21 +456,20 @@ export async function recordTaskDispatch(id: string, commandRequestId: string, m
 					runCount: { increment: 1 },
 				},
 			});
-			if (!manual) {
-				// Advance only the schedule this dispatch claimed. An edit saved
-				// meanwhile (a ONCE task moved to next week) replaced the claim, and
-				// overwriting it disabled the task: the new run never happened.
-				await tx.scheduledTask.updateMany({
-					where: { id, ...(claim ? { nextRunAt: claim.lease, claimedOccurrenceAt: claim.occurrence } : {}) },
-					data: {
-						claimedOccurrenceAt: null,
-						nextRunAt: task.scheduleType === "ONCE" ? null : computeNextRun(task.cronExpression),
-						...(task.scheduleType === "ONCE" ? { status: "DISABLED" as const } : {}),
-					},
-				});
-			}
 		}
-		return existing ?? { scheduledTaskId: id, commandRequestId, status: "DISPATCHED", manual };
+		// A predecessor may have linked the request after losing the lease. Only
+		// the current holder advances the occurrence, even if it was already linked.
+		if (!manual && claim) {
+			await tx.scheduledTask.updateMany({
+				where: { id, status: "ACTIVE", nextRunAt: claim.lease, claimedOccurrenceAt: claim.occurrence },
+				data: {
+					claimedOccurrenceAt: null,
+					nextRunAt: task.scheduleType === "ONCE" ? null : computeNextRun(task.cronExpression),
+					...(task.scheduleType === "ONCE" ? { status: "DISABLED" as const } : {}),
+				},
+			});
+		}
+		return tx.scheduledTaskRun.findUniqueOrThrow({ where: { commandRequestId } });
 	});
 }
 

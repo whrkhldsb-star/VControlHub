@@ -12,6 +12,7 @@ import { prisma } from "@/lib/db";
 import { isSensitiveSettingKey } from "@/lib/system/config-schema";
 import { parseServerSyncTargetAuth } from "@/lib/sync/target-auth";
 
+import { redactPlaybookWebhooks } from "./playbook-webhooks";
 import type { ExportMode, ExportScope } from "./export-types";
 
 function dateToISO(d: Date | null | undefined): string | null {
@@ -510,6 +511,7 @@ function mapQuickService(
 }
 
 export async function exportPlaybooks(
+  mode: ExportMode,
   scope: ExportScope,
   teamId: string | null,
 ) {
@@ -525,7 +527,7 @@ export async function exportPlaybooks(
     description: r.description,
     triggerType: r.triggerType,
     triggerConfig: r.triggerConfig,
-    steps: r.steps,
+    steps: mode === "full" ? r.steps : redactPlaybookWebhooks(r.steps),
     chainRetry: r.chainRetry,
     enabled: r.enabled,
     createdById: r.createdById,

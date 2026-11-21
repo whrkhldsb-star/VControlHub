@@ -1,7 +1,7 @@
 import { createHmac, timingSafeEqual } from "node:crypto";
 
 import { getAppSlug } from "@/lib/branding";
-import { config } from "@/lib/config/env";
+import { getSessionSigningSecret } from "@/lib/auth/session";
 
 const DOWNLOAD_TICKET_TTL_MS = 2 * 60 * 1000;
 
@@ -11,22 +11,9 @@ type ShareDownloadTicketPayload = {
   exp: number;
 };
 
-function getTicketSecret(): string {
-  const configured = config.auth.storageGatewaySecret ?? config.auth.sessionSecret;
-  if (configured) return configured;
-  if (config.isProduction) {
-    throw new Error("A storage or session secret must be configured before serving password-protected share downloads");
-  }
-  return "dev-only-share-download-ticket-secret";
-}
-
-/**
- * The ticket key is derived from the configured secret with a label of its own. That secret is the one every managed
- * server's direct-download gateway holds (it signs the gateway's links), so a ticket signed with it directly could be
- * forged by anyone with root on such a server for any password-protected share whose id and link they knew.
- */
+/** The control plane alone holds the session key, including on installations with legacy gateways. */
 function ticketKey(): Buffer {
-  return createHmac("sha256", getTicketSecret()).update("share-download-ticket:v1").digest();
+  return createHmac("sha256", getSessionSigningSecret()).update("share-download-ticket:v2").digest();
 }
 
 function sign(payload: string): string {

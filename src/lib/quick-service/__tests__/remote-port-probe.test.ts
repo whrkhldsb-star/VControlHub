@@ -40,13 +40,13 @@ describe.skipIf(process.platform === "win32")("remote port probe on a server rea
 		// The Agent transport reports a non-zero exit as a failed command. The
 		// probe used to say "in use" with exit 1: it threw, and an install with
 		// no fixed port stopped at the first taken candidate.
-		await expect(isRemotePortAvailable("srv_agent", 8080)).resolves.toBe(false);
-		await expect(isRemotePortAvailable("srv_agent", 9000)).resolves.toBe(false);
+		await expect(isRemotePortAvailable({ kind: "remote", serverId: "srv_agent" }, 8080)).resolves.toBe(false);
+		await expect(isRemotePortAvailable({ kind: "remote", serverId: "srv_agent" }, 9000)).resolves.toBe(false);
 	});
 
 	it("answers that a free port is free", async () => {
-		await expect(isRemotePortAvailable("srv_agent", 8081)).resolves.toBe(true);
+		await expect(isRemotePortAvailable({ kind: "remote", serverId: "srv_agent" }, 8081)).resolves.toBe(true);
 		// 80 is not 8080: the match is on the whole port.
-		await expect(isRemotePortAvailable("srv_agent", 80)).resolves.toBe(true);
+		await expect(isRemotePortAvailable({ kind: "remote", serverId: "srv_agent" }, 80)).resolves.toBe(true);
 	});
 });

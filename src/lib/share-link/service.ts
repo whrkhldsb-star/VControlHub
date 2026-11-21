@@ -6,6 +6,8 @@ import { promisify } from "node:util";
 const scryptAsync = promisify(scrypt) as (password: string, salt: Buffer, keylen: number) => Promise<Buffer>;
 import { shareLinkTeamWhere, storageNodeTeamWhere } from "@/lib/auth/team-scope";
 
+import { Prisma } from "@prisma/client";
+import { sameStorageRoot, storageRootSelect, type StorageRoot } from "@/lib/storage/node-root";
 import { prisma } from "@/lib/db";
 import { ForbiddenError, NotFoundError, ValidationError } from "@/lib/errors";
 import { serviceT } from "@/lib/i18n/service-locale";
@@ -14,8 +16,10 @@ import { t } from "@/lib/i18n/service-translations";
 import { createLogger } from "@/lib/logging";
 import { assertStorageAccess } from "@/lib/storage/access-control";
 import { storageAccessDeniedCopy } from "@/lib/storage/access-denied";
+import { isStorageStagingPath } from "@/lib/storage/staging-paths";
+import { hasCaseInsensitiveLocalPaths, normalizeStorageRelativePath } from "@/lib/storage/path-utils";
 import { syncLocalDirectoryEntries } from "@/lib/storage/local-sync";
-import { getSftpSyncNode, syncSftpDirectoryEntries } from "@/lib/storage/sftp-sync";
+import { syncSftpDirectoryEntries } from "@/lib/storage/sftp-sync";
 import type { SessionPayload } from "@/lib/auth/session";
 import { sessionHasPermission } from "@/lib/auth/authorization";
 const logger = createLogger("share-link");
@@ -25,33 +29,18 @@ export function hashShareToken(token: string) {
 }
 
 export function normalizeSharePath(path: string) {
-  const rawPath = path.trim();
-  if (!rawPath) {
-    throw new ValidationError(t("backend.shareLink.invalidSharePath"));
-  }
+  const portable = path.replace(/\\/g, "/");
+  if (/^(?:[a-z]:|\/\/)/i.test(portable)) throw new ValidationError(t("backend.shareLink.invalidSharePath"));
+  const normalized = normalizeStorageRelativePath(portable.replace(/^\//, ""));
+  if (!normalized.ok) throw new ValidationError(t("backend.shareLink.invalidSharePath"));
+  return normalized.path;
+}
 
-  if (/\0|[\u0000-\u001F\u007F]/.test(rawPath)) {
-    throw new ValidationError(t("backend.shareLink.invalidSharePath"));
-  }
-
-  if (/^[a-zA-Z]:/.test(rawPath) || rawPath.startsWith("//")) {
-    throw new ValidationError(t("backend.shareLink.invalidSharePath"));
-  }
-
-  const normalizedPath = rawPath
-    .replace(/\\/g, "/")
-    .replace(/^\/+/, "")
-    .replace(/\/+/g, "/");
-
-  // Storage resolution trims every segment (see validateSegments in storage/path-utils), so "docs/ a.txt"
-  // and "docs/a.txt" are the same file on disk. The checks made on this string (inside the shared folder,
-  // not in the trash) must see the same path, or a padded spelling slips past them.
-  const segments = normalizedPath.split("/").map((segment) => segment.trim()).filter(Boolean);
-  if (segments.length === 0 || segments.some((segment) => segment === "." || segment === "..")) {
-    throw new ValidationError(t("backend.shareLink.invalidSharePath"));
-  }
-
-  return segments.join("/");
+/** Indexed paths already identify a particular file. Reject any rewrite of a legacy name. */
+function indexedSharePath(path: string) {
+  const normalized = normalizeSharePath(path);
+  if (normalized !== path) throw new ValidationError(t("backend.shareLink.invalidSharePath"));
+  return path;
 }
 
 export async function hashSharePassword(password: string) {
@@ -84,12 +73,18 @@ const SHARE_STORAGE_NODE_INCLUDE = {
 export async function assertShareTargetNotDeleted(
   storageNodeId: string,
   relativePath: string,
+  driver: string,
 ): Promise<void> {
   // The file itself or any folder above it may be in the trash: the bytes of a trashed folder's files stay on disk.
   const segments = typeof relativePath === "string" ? relativePath.split("/").filter(Boolean) : [];
+  const path = segments.join("/");
+  const caseInsensitive = hasCaseInsensitiveLocalPaths(driver);
+  if (isStorageStagingPath(caseInsensitive ? path.toLowerCase() : path)) {
+    throw new NotFoundError(t("backend.shareLink.notFoundOrRevoked"));
+  }
   const paths = segments.map((_, index) => segments.slice(0, index + 1).join("/"));
   const trashed = await prisma.fileEntry.findFirst({
-    where: { storageNodeId, relativePath: { in: paths.length ? paths : [relativePath] }, isDeleted: true },
+    where: { storageNodeId, relativePath: { in: paths.length ? paths : [relativePath], ...(caseInsensitive ? { mode: "insensitive" } : {}) }, isDeleted: true },
     select: { id: true },
   });
   if (trashed) {
@@ -149,7 +144,7 @@ async function assertSharePolicy(policy: SharePolicy) {
 }
 
 /** The row of a new share and the token that opens it; only the token's hash is stored. */
-const shareNodeSelect = { teamId: true, driver: true, agentFileShare: { select: { rootIdentity: true } } } as const;
+const shareNodeSelect = { ...storageRootSelect, teamId: true, server: { select: { host: true, port: true, username: true, operatingSystem: true } }, agentFileShare: { select: { rootIdentity: true } } } as const;
 
 function shareRoot(node: { driver: string; agentFileShare?: { rootIdentity: string | null } | null }) {
   if (node.driver !== "AGENT") return null;
@@ -199,21 +194,59 @@ function withoutShareSecrets<Row extends { tokenHash: string; passwordHash: stri
   return safeShare;
 }
 
-export async function createShareLink(input: SharePolicy & {
+type ShareNode = Prisma.StorageNodeGetPayload<{ select: typeof shareNodeSelect }>;
+
+/** Hold the authorized roots until insert commits. A concurrent rebind either revokes these links or wins first. */
+async function insertShareRows(rows: ReturnType<typeof newShareRow>[], bindings: Map<string, ShareNode>) {
+  return prisma.$transaction(async (tx) => {
+    // Server profile updates take the server lock before updating any bound node. Use the same order.
+    const sftp = [...bindings.values()].filter(node => node.driver === "SFTP" && node.serverId);
+    if (sftp.length) {
+      const servers = await tx.$queryRaw<(NonNullable<ShareNode["server"]> & { id: string })[]>`
+        SELECT id, host, port, username, "operatingSystem" FROM servers
+        WHERE id IN (${Prisma.join(sftp.map(node => node.serverId!))}) ORDER BY id FOR SHARE`;
+      const byId = new Map(servers.map(server => [server.id, server]));
+      for (const node of sftp) {
+        const server = byId.get(node.serverId!);
+        const expected = node.server;
+        if (!server || !expected || expected.operatingSystem !== server.operatingSystem ||
+          (node.host == null && expected.host !== server.host) ||
+          (node.port == null && expected.operatingSystem !== "WINDOWS" && expected.port !== server.port) ||
+          (node.username == null && expected.username !== server.username)) {
+          throw new NotFoundError(t("backend.shareLink.fileNotFound"));
+        }
+      }
+    }
+    const roots = await tx.$queryRaw<(StorageRoot & { id: string; teamId: string | null })[]>`
+      SELECT id, "teamId", "basePath", driver::text, host, port, username, "serverId", "webdavConfigEncrypted"
+      FROM "StorageNode" WHERE id IN (${Prisma.join([...bindings.keys()])}) ORDER BY id FOR SHARE`;
+    if (roots.length !== bindings.size || roots.some(root => {
+      const expected = bindings.get(root.id);
+      return !expected || expected.teamId !== root.teamId || !sameStorageRoot(expected, root);
+    })) throw new NotFoundError(t("backend.shareLink.fileNotFound"));
+    return Promise.all(rows.map(({ data }) => tx.shareLink.create({ data })));
+  });
+}
+
+type CreateShareInput = SharePolicy & {
   session: SessionPayload;
   storageNodeId: string;
   path: string;
   entryType?: "FILE" | "DIRECTORY";
   name?: string;
-}) {
-  await assertSharePolicy(input);
-  const normalizedPath = normalizeSharePath(input.path);
-  // Capture the scoped binding before checking path access. A concurrent
-  // transfer or re-pair must invalidate this link at redemption.
+};
+
+export async function createShareLink(input: CreateShareInput) {
   const node = await prisma.storageNode.findUnique({
     where: { id: input.storageNodeId, AND: storageNodeTeamWhere(input.session) },
     select: shareNodeSelect,
   });
+  return createShareForNode(input, node);
+}
+
+async function createShareForNode(input: CreateShareInput, node: ShareNode | null) {
+  await assertSharePolicy(input);
+  const normalizedPath = normalizeSharePath(input.path);
   const access = await assertStorageAccess({ session: input.session, storageNodeId: input.storageNodeId, relativePath: normalizedPath, operation: "read" });
   if (!access.allowed) {
     // The reason is a code for programs ("no_access"); the share dialog showed it as the message.
@@ -233,8 +266,8 @@ export async function createShareLink(input: SharePolicy & {
     policy: input,
     passwordHash: input.password ? await hashSharePassword(input.password) : null,
   });
-  const share = await prisma.shareLink.create({ data });
-  return { share: withoutShareSecrets(share), token };
+  const [share] = await insertShareRows([{ token, data }], new Map([[input.storageNodeId, node]]));
+  return { share: withoutShareSecrets(share!), token };
 }
 
 /**
@@ -262,7 +295,7 @@ export async function createShareLinksFromFileEntries(input: SharePolicy & {
 
   const targets = ids.map((id) => {
     const entry = byId.get(id)!;
-    return { entry, path: normalizeSharePath(entry.relativePath) };
+    return { entry, path: indexedSharePath(entry.relativePath) };
   });
   for (const target of targets) {
     const access = await assertStorageAccess({ session: input.session, storageNodeId: target.entry.storageNodeId, relativePath: target.path, operation: "read" });
@@ -282,7 +315,7 @@ export async function createShareLinksFromFileEntries(input: SharePolicy & {
     policy: input,
     passwordHash,
   }));
-  const shares = await prisma.$transaction(rows.map((row) => prisma.shareLink.create({ data: row.data })));
+  const shares = await insertShareRows(rows, new Map(entries.map((entry) => [entry.storageNodeId, entry.storageNode])));
   return shares.map((share, index) => ({ fileEntryId: ids[index]!, share: withoutShareSecrets(share), token: rows[index]!.token }));
 }
 
@@ -306,26 +339,29 @@ export async function createShareLinkFromFileEntry(input: {
       isDeleted: false,
       storageNode: storageNodeTeamWhere(input.session),
     },
-    include: { storageNode: true },
+    include: { storageNode: { select: shareNodeSelect } },
   });
   if (!entry) throw new NotFoundError(t("backend.shareLink.fileNotFound"));
 
-  return createShareLink({
+  return createShareForNode({
     session: input.session,
     storageNodeId: entry.storageNodeId,
-    path: entry.relativePath,
+    path: indexedSharePath(entry.relativePath),
     entryType: entry.entryType === "DIRECTORY" ? "DIRECTORY" : "FILE",
     name: input.name ?? entry.name,
     expiresInHours: input.expiresInHours,
     maxDownloads: input.maxDownloads,
     password: input.password,
     permissionLevel: input.permissionLevel,
-  });
+  }, entry.storageNode);
 }
 
 async function loadActiveShare(token: string) {
   const t = await serviceT();
-  const share = await prisma.shareLink.findUnique({ where: { tokenHash: hashShareToken(token) }, include: SHARE_STORAGE_NODE_INCLUDE });
+  // Prisma may fetch the included node in a second statement. It must be the same snapshot as revokedAt.
+  const share = await prisma.$transaction(tx => tx.shareLink.findUnique({
+    where: { tokenHash: hashShareToken(token) }, include: SHARE_STORAGE_NODE_INCLUDE,
+  }), { isolationLevel: "RepeatableRead" });
   if (!share || share.revokedAt || share.teamId !== share.storageNode?.teamId ||
       (share.agentRootIdentity ?? null) !== shareRoot(share.storageNode)) throw new NotFoundError(t("backend.shareLink.notFoundOrRevoked"));
   if (share.expiresAt && share.expiresAt.getTime() < Date.now()) throw new ValidationError(t("backend.shareLink.expired"));
@@ -335,7 +371,7 @@ async function loadActiveShare(token: string) {
   if (teamIds.length > 0 && (await prisma.team.count({ where: { id: { in: teamIds }, deletedAt: { not: null } } })) > 0) {
     throw new NotFoundError(t("backend.shareLink.notFoundOrRevoked"));
   }
-  await assertShareTargetNotDeleted(share.storageNodeId, share.path);
+  await assertShareTargetNotDeleted(share.storageNodeId, share.path, share.storageNode.driver);
   return share;
 }
 
@@ -496,20 +532,16 @@ export async function resolveShareToken(
   // Atomic quota claim: only increment when still under maxDownloads (or unlimited).
   // Prevents concurrent downloads from exceeding the cap, and avoids a separate
   // read-then-write race on accessCount.
-  if (share.maxDownloads != null) {
-    const claimed = await prisma.shareLink.updateMany({
-      where: {
-        id: share.id,
-        revokedAt: null,
-        accessCount: { lt: share.maxDownloads },
-      },
-      data: { accessCount: { increment: 1 } },
-    });
-    if (claimed.count === 0) {
-      throw new ValidationError(t("backend.shareLink.maxDownloadsExceeded"));
-    }
-  } else {
-    await prisma.shareLink.update({ where: { id: share.id }, data: { accessCount: { increment: 1 } } });
+  const claimed = await prisma.shareLink.updateMany({
+    where: {
+      id: share.id, revokedAt: null,
+      ...(share.maxDownloads != null ? { accessCount: { lt: share.maxDownloads } } : {}),
+    },
+    data: { accessCount: { increment: 1 } },
+  });
+  if (claimed.count === 0) {
+    if (share.maxDownloads != null) throw new ValidationError(t("backend.shareLink.maxDownloadsExceeded"));
+    throw new NotFoundError(t("backend.shareLink.notFoundOrRevoked"));
   }
   // Record access log (best-effort, non-blocking on failure).
   await recordShareAccess({ shareLinkId: share.id, action: "download", ip: context?.ip, userAgent: context?.userAgent });
@@ -582,6 +614,7 @@ export async function peekShareToken(
 }
 
 type DirectoryShareForList = {
+  id?: string;
   entryType: string;
   path: string;
   storageNodeId: string;
@@ -620,24 +653,26 @@ async function refreshShareDirectoryIndex(share: DirectoryShareForList) {
     }
     return;
   }
-  if (share.storageNode?.driver === "WEBDAV" || share.storageNode?.driver === "AGENT") {
-    const node = await prisma.storageNode.findUnique({
-      where: { id: share.storageNodeId },
-      select: { id: true, driver: true, basePath: true, webdavConfigEncrypted: true },
-    });
-    if (node) {
-      const { syncWebDavDirectoryEntries } = await import("@/lib/storage/webdav-sync");
-      const result = await syncWebDavDirectoryEntries({ node: { ...node, expectedRoot: share.agentRootIdentity ?? undefined }, relativePath: share.path });
-      if (result.errors.length) throw new ValidationError(result.errors[0]);
-    }
-    return;
+  if (!["WEBDAV", "AGENT", "SFTP"].includes(share.storageNode?.driver ?? "")) return;
+  const node = await prisma.storageNode.findUnique({
+    where: { id: share.storageNodeId, ...activeDirectoryShare(share) },
+    include: SHARE_STORAGE_NODE_INCLUDE.storageNode.include,
+  });
+  if (!node) throw new NotFoundError(t("backend.shareLink.notFoundOrRevoked"));
+  if (node.driver === "SFTP") {
+    await syncSftpDirectoryEntries({ node, remotePath: share.path, recursive: false, maxDepth: 1 });
+  } else if (node.driver === "WEBDAV" || node.driver === "AGENT") {
+    const { syncWebDavDirectoryEntries } = await import("@/lib/storage/webdav-sync");
+    const result = await syncWebDavDirectoryEntries({ node: { ...node, expectedRoot: share.agentRootIdentity ?? undefined }, relativePath: share.path });
+    if (result.errors.length) throw new ValidationError(result.errors[0]);
   }
-  if (share.storageNode?.driver === "SFTP") {
-    const node = await getSftpSyncNode(share.storageNodeId);
-    if (node) {
-      await syncSftpDirectoryEntries({ node, remotePath: share.path, recursive: false, maxDepth: 1 });
-    }
-  }
+}
+
+function activeDirectoryShare(share: DirectoryShareForList) {
+  return {
+    ...(share.id ? { shareLinks: { some: { id: share.id, revokedAt: null } } } : {}),
+    ...(share.agentRootIdentity ? { agentFileShare: { rootIdentity: share.agentRootIdentity } } : {}),
+  };
 }
 
 export async function listShareDirectoryFiles(share: DirectoryShareForList) {
@@ -648,7 +683,7 @@ export async function listShareDirectoryFiles(share: DirectoryShareForList) {
   return prisma.fileEntry.findMany({
     where: {
       storageNodeId: share.storageNodeId,
-      ...(share.agentRootIdentity ? { storageNode: { agentFileShare: { rootIdentity: share.agentRootIdentity } } } : {}),
+      storageNode: activeDirectoryShare(share),
       entryType: "FILE",
       isDeleted: false,
       OR: [

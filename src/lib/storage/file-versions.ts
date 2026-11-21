@@ -507,7 +507,7 @@ export async function restoreFileVersion(input: {
    */
   allowWithoutRestorePoint?: boolean;
 }): Promise<{ restored: FileVersionView; newRestorePoint: FileVersionView | null }> {
-  const entry = await resolveAccessibleFileEntry({
+  const initial = await resolveAccessibleFileEntry({
     fileEntryId: input.fileEntryId,
     session: input.session,
     operation: "write",
@@ -541,8 +541,8 @@ export async function restoreFileVersion(input: {
   // new size, like every other quota-checked write.
   const quota = await assertStorageAccess({
     session: input.session,
-    storageNodeId: entry.storageNodeId,
-    relativePath: entry.relativePath,
+    storageNodeId: initial.storageNodeId,
+    relativePath: initial.relativePath,
     operation: "write",
     writeBytes: buffer.byteLength,
   });
@@ -555,7 +555,11 @@ export async function restoreFileVersion(input: {
   try {
     // The editor's lock: a save between our restore point and our write
     // would succeed, then vanish from both the file and its history.
-    releaseFileLock = await lockStorageFileOverwrite(entry.storageNodeId, entry.relativePath);
+    releaseFileLock = await lockStorageFileOverwrite(initial.storageNodeId, initial.relativePath);
+    const entry = await resolveAccessibleFileEntry({ fileEntryId: input.fileEntryId, session: input.session, operation: "write" });
+    if (entry.storageNodeId !== initial.storageNodeId || entry.relativePath !== initial.relativePath) {
+      throw new ConflictError(t("apiCopy.files.op.changed"));
+    }
     const node = entry.storageNode as StorageFileNode;
     if (node.driver === "LOCAL") {
       node.basePath = expandStorageBasePath(node.basePath);
@@ -581,12 +585,11 @@ export async function restoreFileVersion(input: {
     await writeStorageFileBuffer(node, entry.relativePath, buffer);
 
     await prisma.fileEntry.update({
-      where: { id: entry.id },
+      where: { id: entry.id, storageNodeId: entry.storageNodeId, relativePath: entry.relativePath, isDeleted: false, updatedAt: entry.updatedAt },
       data: {
         size: BigInt(buffer.byteLength),
         mimeType: version.mimeType ?? entry.mimeType,
         checksumSha256: blobChecksum,
-        isDeleted: false,
         updatedAt: new Date(),
       },
     });

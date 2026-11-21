@@ -17,6 +17,7 @@ import { apiCopy } from "@/lib/i18n/api-copy";
  * the server does not exist or is outside the caller's team scope.
  */
 
+import { SSH_ENDPOINT_IDENTITY_SELECT, type SshEndpointIdentity } from "@/lib/ssh/server-connection-select";
 import { prisma } from "@/lib/db";
 import type { SessionPayload } from "@/lib/auth/session";
 import { isGlobalTeamManager, seesAllCustomers } from "@/lib/auth/team-scope";
@@ -24,7 +25,7 @@ import { NextResponse } from "next/server";
 import { SERVER_ACCESS_FIELDS, type ServerAccessCapability } from "./resource-access";
 
 export type ServerTeamAccessResult =
-  | { ok: true; server: { id: string; teamId: string | null } }
+  | { ok: true; server: { id: string; teamId: string | null } & SshEndpointIdentity }
   | { ok: false; response: NextResponse };
 
 /**
@@ -56,7 +57,7 @@ export async function assertServerTeamAccess(
 
   const server = await prisma.server.findUnique({
     where: { id: serverId },
-    select: { id: true, teamId: true },
+    select: { id: true, teamId: true, ...SSH_ENDPOINT_IDENTITY_SELECT },
   });
 
   if (!server) {

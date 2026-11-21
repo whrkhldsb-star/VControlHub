@@ -41,7 +41,11 @@ describe.skipIf(process.env.RUN_DATABASE_INTEGRATION_TESTS !== "1")("backup sche
     if (!["localhost", "127.0.0.1", "[::1]"].includes(database.hostname) || !/audit|test|_ci/.test(database.pathname)) {
       throw new Error("requires an isolated loopback audit/test database");
     }
-    await prisma.user.create({ data: { id: prefix, username: prefix, passwordHash: "not-a-login-hash" } });
+    const admin = await prisma.role.upsert({ where: { key: "admin" }, create: { key: "admin", name: "Admin" }, update: {} });
+    await prisma.user.create({ data: {
+      id: prefix, username: prefix, passwordHash: "not-a-login-hash", status: "ACTIVE", mustChangePassword: false,
+      roles: { create: { roleId: admin.id } },
+    } });
     await prisma.server.create({ data: { id: prefix, name: prefix, host: "192.0.2.10", username: "root", tags: [] } });
   });
   beforeEach(() => {

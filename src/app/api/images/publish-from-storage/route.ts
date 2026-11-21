@@ -22,6 +22,7 @@ import { assertStorageAccess } from "@/lib/storage/access-control";
 import { storageAccessDeniedCopy } from "@/lib/storage/access-denied";
 import { assertNotRecycled } from "@/lib/storage/archive-access";
 import { statBackingObject } from "@/lib/storage/fs-backend";
+import { normalizeStorageRelativePath } from "@/lib/storage/path-utils";
 import { readStorageFileBuffer, storageFileNodeSelect } from "@/lib/storage/file-content";
 import { IMAGE_EXTENSIONS } from "@/lib/storage/mime-constants";
 import { extractMetadata, generateThumbnail } from "@/lib/image/service";
@@ -65,7 +66,7 @@ export async function POST(request: Request) {
       bodySchema: publishSchema,
     },
     async ({ session, body }) => {
-      const { storageNodeId, relativePath, filename, album } = body;
+      const { storageNodeId, filename, album } = body;
 
       // Verify the storage node exists, is in team scope, and is a supported driver.
       const storageNode = await prisma.storageNode.findFirst({
@@ -85,6 +86,9 @@ export async function POST(request: Request) {
         );
       }
 
+      const normalized = normalizeStorageRelativePath(body.relativePath);
+      if (!normalized.ok) throw new ValidationError(normalized.reason);
+      const relativePath = normalized.path;
       const ext = path.extname(relativePath).toLowerCase();
       if (!IMAGE_EXTENSIONS.has(ext) || BLOCKED_IMAGE_EXTENSIONS.has(ext))
         return NextResponse.json(
@@ -104,7 +108,7 @@ export async function POST(request: Request) {
       }
       // A file in the recycle bin keeps its bytes at its path: publishing it handed a teammate's deleted image
       // a new, possibly public, life on the image bed.
-      await assertNotRecycled(storageNodeId, relativePath);
+      await assertNotRecycled(storageNodeId, relativePath, "read", storageNode.driver);
 
       // Size pre-check BEFORE buffering the file: reading a multi-GB storage
       // object into memory only to reject it over the cap would OOM the route.

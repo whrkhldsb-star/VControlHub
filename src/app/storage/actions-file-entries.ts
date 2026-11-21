@@ -9,8 +9,9 @@ import { storageAccessDeniedCopy } from "@/lib/storage/access-denied";
 import { prisma } from "@/lib/db";
 import { serverT, withServerActionLocale } from "@/lib/i18n/server-locale";
 import { restoreFileEntry } from "@/lib/storage/service";
-import { deleteBackingObject } from "@/lib/storage/fs-backend";
-import { purgeAllFileVersionBlobs, purgeDirectoryFileVersionBlobs } from "@/lib/storage/file-versions";
+import { deleteRecycledBackingObjects } from "@/lib/storage/recycled-backing";
+import { outsideDeleteBatchWhere } from "@/lib/files/recycle-bin";
+import { purgeFileEntryVersionDirectories } from "@/lib/storage/file-versions";
 import { tryAcquireAdvisoryLock } from "@/lib/concurrency/advisory-lock";
 import { apiCopy } from "@/lib/i18n/api-copy";
 
@@ -144,130 +145,87 @@ async function permanentDeleteFileEntryActionImpl(
       return { error: apiCopy("apiCopy.files.op.busy") } satisfies StorageActionState;
     }
     try {
-    const entry = await prisma.fileEntry.findFirst({
-      where: { ...where, storageNodeId: target.storageNodeId },
-      select: {
-        id: true,
-        name: true,
-        entryType: true,
-        relativePath: true,
-        storageNodeId: true,
-        deletedAgentRoot: true,
-        storageVersion: true,
-        storageNode: {
-          select: {
-            id: true,
-            driver: true,
-            basePath: true,
-            // The WebDAV backend reads its connection from here: without it a
-            // permanent delete on a WebDAV node failed before any request.
-            webdavConfigEncrypted: true,
-            host: true,
-            port: true,
-            username: true,
-            teamId: true,
-            hostKeySha256: true,
-            server: { select: STORAGE_SSH_SERVER_SELECT },
+      const entry = await prisma.fileEntry.findFirst({
+        where: { ...where, storageNodeId: target.storageNodeId },
+        select: {
+          id: true,
+          name: true,
+          entryType: true,
+          relativePath: true,
+          storageNodeId: true,
+          deletedAgentRoot: true,
+          storageVersion: true,
+          storageNode: {
+            select: {
+              id: true,
+              driver: true,
+              basePath: true,
+              // The WebDAV backend reads its connection from here: without it a
+              // permanent delete on a WebDAV node failed before any request.
+              webdavConfigEncrypted: true,
+              host: true,
+              port: true,
+              username: true,
+              teamId: true,
+              hostKeySha256: true,
+              server: { select: STORAGE_SSH_SERVER_SELECT },
+            },
           },
         },
-      },
-    });
-
-    if (!entry) {
-      return { error: t("storagePage.action.fileEntryNotFound") } satisfies StorageActionState;
-    }
-
-    const permDeleteAccess = await assertStorageAccess({
-      session,
-      storageNodeId: entry.storageNodeId,
-      relativePath: entry.relativePath,
-      operation: "delete",
-    });
-    if (!permDeleteAccess.allowed) {
-      return { error: storageAccessDeniedCopy(permDeleteAccess.reason) } satisfies StorageActionState;
-    }
-
-    const affectedShareIds = await findAffectedShareIds({
-    storageNodeId: entry.storageNodeId,
-    relativePath: entry.relativePath,
-    isDirectory: entry.entryType === "DIRECTORY",
-  });
-
-  // A recycled directory's bytes stay in place and nothing stops live entries
-  // from being created under it later (an upload to "docs/new.txt" while "docs"
-  // sits in the bin). Removing the directory from disk would take those live
-  // files with it (A4-27): refuse until they are moved or deleted themselves.
-  if (entry.entryType === "DIRECTORY") {
-    const live = await prisma.fileEntry.count({
-      where: { storageNodeId: entry.storageNodeId, OR: [{ isDeleted: false }, { deleteBatchId: null }, { deleteBatchId: { not: deleteBatchId } }], relativePath: { startsWith: escapeLikeLiteral(`${entry.relativePath}/`) } },
-    });
-    if (live > 0) {
-      const t = await serverT();
-      return { error: t("storagePage.action.liveEntriesUnderRecycledDirectory", { count: live }) } satisfies StorageActionState;
-    }
-  }
-  // Delete backing first. If this fails, keep the tombstone and share records
-  // intact so the user can retry and the operation cannot report false success.
-  if ((entry.storageNode.driver === "AGENT" || entry.deletedAgentRoot) &&
-      (entry.storageNode.driver !== "AGENT" || !entry.deletedAgentRoot || !entry.storageVersion)) {
-    return { error: apiCopy("apiCopy.files.op.changed") };
-  }
-  await deleteBackingObject({
-    expectedRoot: entry.deletedAgentRoot ?? undefined,
-    version: entry.storageVersion ?? undefined,
-    storageNode: entry.storageNode,
-    relativePath: entry.relativePath,
-    isDirectory: entry.entryType === "DIRECTORY",
-    tolerateMissing: true,
-  });
-
-  const revokeShares = prisma.shareLink.updateMany({
-    where: { id: { in: affectedShareIds }, revokedAt: null },
-    data: { revokedAt: new Date() },
-  });
-    if (entry.entryType === "DIRECTORY") {
-      const prefix = entry.relativePath + "/";
-      // Purge version blobs for the directory's own entry AND every descendant
-      // before the cascade drops their FileVersion rows — otherwise the blob
-      // files leak on disk and deleted content stays readable on the control plane.
-      // One subtree query + bounded-concurrency unlinks; a per-descendant loop
-      // here cost 1 + D queries and a sequential rm chain for large trees.
-      await purgeDirectoryFileVersionBlobs({
-        storageNodeId: entry.storageNodeId,
-        prefix: entry.relativePath,
       });
-      await purgeAllFileVersionBlobs(fileEntryId);
+
+      if (!entry) {
+        return { error: t("storagePage.action.fileEntryNotFound") } satisfies StorageActionState;
+      }
+
+      const permDeleteAccess = await assertStorageAccess({
+        session,
+        storageNodeId: entry.storageNodeId,
+        relativePath: entry.relativePath,
+        operation: "delete",
+      });
+      if (!permDeleteAccess.allowed) {
+        return { error: storageAccessDeniedCopy(permDeleteAccess.reason) } satisfies StorageActionState;
+      }
+
+      const isDirectory = entry.entryType === "DIRECTORY";
+      if (isDirectory) {
+        const outside = await prisma.fileEntry.count({
+          where: outsideDeleteBatchWhere(entry.storageNodeId, entry.relativePath, deleteBatchId),
+        });
+        if (outside > 0) {
+          return { error: t("storagePage.action.liveEntriesUnderRecycledDirectory", { count: outside }) };
+        }
+      }
+      const children = isDirectory ? await prisma.fileEntry.findMany({
+        where: {
+          storageNodeId: entry.storageNodeId, isDeleted: true, deleteBatchId,
+          relativePath: { startsWith: escapeLikeLiteral(`${entry.relativePath}/`) },
+        },
+        select: { id: true, relativePath: true, entryType: true, deletedAgentRoot: true, storageVersion: true },
+      }) : [];
+      const affectedShareIds = await findAffectedShareIds({
+        storageNodeId: entry.storageNodeId, relativePath: entry.relativePath, isDirectory,
+      });
+      await deleteRecycledBackingObjects(entry.storageNode, entry, children);
       await prisma.$transaction([
         prisma.fileEntry.deleteMany({
-          where: {
-            storageNodeId: entry.storageNodeId,
-            isDeleted: true, deleteBatchId,
-            relativePath: { startsWith: escapeLikeLiteral(prefix) },
-          },
+          where: { id: { in: children.map(row => row.id) }, storageNodeId: entry.storageNodeId, isDeleted: true, deleteBatchId },
         }),
-        prisma.fileEntry.delete({
-          where: { id: fileEntryId, isDeleted: true, deleteBatchId },
-        }),
-    revokeShares,
+        prisma.fileEntry.delete({ where: { id: fileEntryId, isDeleted: true, deleteBatchId } }),
+        prisma.shareLink.updateMany({ where: { id: { in: affectedShareIds }, revokedAt: null }, data: { revokedAt: new Date() } }),
       ]);
-    } else {
-    // Purge version blobs before the cascade removes their rows (see above).
-    await purgeAllFileVersionBlobs(fileEntryId);
-    await prisma.$transaction([
-    prisma.fileEntry.delete({ where: { id: fileEntryId, isDeleted: true, deleteBatchId } }),
-    revokeShares,
-    ]);
-    }
+      await purgeFileEntryVersionDirectories(entry.storageNodeId, [entry.id, ...children.map(row => row.id)]);
 
-    await auditUserAction(
-      session.userId,
-      "storage.file_permanent_delete",
-      { entryId: entry.id, entryName: entry.name, relativePath: entry.relativePath },
-      "WARNING",
-      session.currentTeamId,
-    );
+      await auditUserAction(
+        session.userId,
+        "storage.file_permanent_delete",
+        { entryId: entry.id, entryName: entry.name, relativePath: entry.relativePath },
+        "WARNING",
+        session.currentTeamId,
+      );
 
-    return { success: t("storagePage.action.filePermanentlyDeleted", { name: entry.name }) } satisfies StorageActionState;
+      return { success: t("storagePage.action.filePermanentlyDeleted", { name: entry.name }) } satisfies StorageActionState;
     } finally {
       await permRelease();
     }

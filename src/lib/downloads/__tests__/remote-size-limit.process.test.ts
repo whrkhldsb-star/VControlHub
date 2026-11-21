@@ -1,7 +1,7 @@
 // @vitest-environment node
 import { spawnSync } from "node:child_process";
 import { randomUUID } from "node:crypto";
-import { existsSync, mkdtempSync, readFileSync, readdirSync, rmSync } from "node:fs";
+import { existsSync, mkdirSync, mkdtempSync, readFileSync, readdirSync, rmSync, symlinkSync, writeFileSync } from "node:fs";
 import { createServer, type Server } from "node:http";
 import type { AddressInfo } from "node:net";
 import { tmpdir } from "node:os";
@@ -53,6 +53,8 @@ describe.skipIf(!supported)("direct download size limit (real bash/curl processe
     spawnSync("sh", ["-c", buildDirectDownloadCommand({
       taskId: id,
       url: `http://127.0.0.1:${port}/${file}`,
+      basePath: targetDir,
+      physicalTargetDir: targetDir,
       targetPath: targetDir,
       fileName: file,
       sourceResolution: { hostname: "127.0.0.1", address: "127.0.0.1", port: port as 80 },
@@ -62,6 +64,56 @@ describe.skipIf(!supported)("direct download size limit (real bash/curl processe
     for (let i = 0; i < 200 && !existsSync(exitFile); i += 1) await new Promise((resolve) => setTimeout(resolve, 50));
     return { status: Number(readFileSync(exitFile, "utf8").trim()), files: readdirSync(targetDir), log: readFileSync(`/tmp/app-dl-${id}.log`, "utf8") };
   }
+
+  it.each(["directory", "staging", "destination"])("refuses a %s symlink without touching its target", async link => {
+    const id = `t${randomUUID().replace(/-/g, "")}`;
+    taskIds.push(id);
+    targetDir = mkdtempSync(join(tmpdir(), "vch-dl-path-"));
+    const drive = join(targetDir, "drive");
+    const outside = join(targetDir, "outside");
+    const folder = join(drive, "nested");
+    mkdirSync(drive);
+    mkdirSync(outside);
+    const preserved = join(outside, "file.bin");
+    writeFileSync(preserved, "preserved");
+    if (link === "directory") symlinkSync(outside, folder);
+    else {
+      mkdirSync(folder);
+      symlinkSync(preserved, join(folder, link === "staging" ? `file.bin.vch-${id}.part` : "file.bin"));
+    }
+    const result = spawnSync("sh", ["-c", buildDirectDownloadCommand({
+      taskId: id, basePath: drive, targetPath: folder, physicalTargetDir: folder, fileName: "file.bin",
+      url: `http://127.0.0.1:${port}/small.bin`,
+      sourceResolution: { hostname: "127.0.0.1", address: "127.0.0.1", port: port as 80 },
+    })], { timeout: 30_000 });
+    if (link === "directory") expect(result.status).toBe(65);
+    else {
+      const exitFile = `/tmp/app-dl-${id}.pid.exit`;
+      for (let i = 0; i < 200 && !existsSync(exitFile); i++) await new Promise(resolve => setTimeout(resolve, 50));
+      expect(Number(readFileSync(exitFile, "utf8"))).not.toBe(0);
+    }
+    expect(readFileSync(preserved, "utf8")).toBe("preserved");
+    expect(readdirSync(outside)).toEqual(["file.bin"]);
+  });
+
+  it("refuses a root alias retargeted after physical authorization, before preparing any directories", () => {
+    targetDir = mkdtempSync(join(tmpdir(), "vch-dl-root-"));
+    const drive = join(targetDir, "drive");
+    const authorizedRoot = join(targetDir, "original");
+    const newRoot = join(targetDir, "other");
+    mkdirSync(authorizedRoot);
+    mkdirSync(newRoot);
+    symlinkSync(newRoot, drive);
+    const id = `t${randomUUID().replace(/-/g, "")}`;
+    taskIds.push(id);
+    const result = spawnSync("sh", ["-c", buildDirectDownloadCommand({
+      taskId: id, basePath: drive, targetPath: join(drive, "missing"), physicalTargetDir: join(authorizedRoot, "missing"),
+      fileName: "file.bin", url: `http://127.0.0.1:${port}/small.bin`,
+      sourceResolution: { hostname: "127.0.0.1", address: "127.0.0.1", port: port as 80 },
+    })]);
+    expect(result.status).toBe(65);
+    expect(readdirSync(newRoot)).toEqual([]);
+  });
 
   it("publishes a file within the limit", async () => {
     await expect(download("small.bin", BigInt(2_048))).resolves.toMatchObject({ status: 0, files: ["small.bin"] });

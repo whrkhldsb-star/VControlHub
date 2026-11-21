@@ -85,6 +85,7 @@ vi.mock("@/lib/ssh/client", () => ({
 }));
 
 import { executeSyncJob } from "../service-runtime";
+import { assertSyncEndpointsWithinReach } from "../service-crud";
 
 const EXISTING = "ssh-ed25519 AAAAC3NzaC1lZDI1NTE5AAAAIExistingAdminKeyExistingAdminKeyExistingAd admin@laptop";
 let source: string;
@@ -167,6 +168,19 @@ describe.skipIf(!posix)("one-time target key, end to end", () => {
     // The source named no destination; the gate supplied the job's.
     expect(transfer?.command).toMatch(/ \. \.$/);
     expectNothingLeftBehind();
+  });
+
+  it.skipIf(!hasRsync)("uses the authorized physical paths on both rsync hosts", async () => {
+    useJob("ONE_WAY");
+    state.job = { ...state.job, sourcePath: join(state.root, "logical-source"), targetPath: join(state.root, "logical-target") };
+    vi.mocked(assertSyncEndpointsWithinReach).mockResolvedValueOnce([
+      { remotePath: source, credentials: { host: "source", username: me, port: 22, connectionType: "PASSWORD", password: "fixture" } },
+      { remotePath: target, credentials: { host: "target", username: me, port: 22, connectionType: "PASSWORD", password: "fixture" } },
+    ]);
+    const result = await executeSyncJob(JOB_ID);
+    expect(result.ok, result.errorMessage).toBe(true);
+    expect(readFileSync(join(target, "fresh.txt"), "utf8")).toBe("new data");
+    expect(existsSync(join(state.root, "logical-target"))).toBe(false);
   });
 
   it("mirrors with the tar fallback through the gate's fixed phases, and cleans up", async () => {

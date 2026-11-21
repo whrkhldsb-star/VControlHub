@@ -16,6 +16,7 @@ import { normalizeRemotePath } from "@/lib/storage/remote-path";
 import { purgeStorageNodeVersionBlobs } from "@/lib/storage/file-versions";
 import { resolveStorageSshCredentials, resolveStorageSshPort } from "@/lib/storage/ssh-credentials";
 import { expandStorageBasePath, localBasePathBelongsToTenant } from "@/lib/storage/path-utils";
+import { sameStorageRoot, type StorageRoot } from "./node-root";
 import { decrypt, encrypt } from "@/lib/crypto/service";
 
 import {
@@ -67,6 +68,7 @@ function encryptWebdavConfig(input: NonNullable<UpdateStorageNodeInput["webdavCo
         password: input.password || (sameIdentity ? previous?.password : undefined) }
     : { url: input.url, authType: input.authType,
         token: input.token || (sameIdentity ? previous?.token : undefined) });
+  if (ciphertext && previous && JSON.stringify(config) === JSON.stringify(previous)) return ciphertext;
   return encrypt(JSON.stringify(config));
 }
 
@@ -426,6 +428,18 @@ export async function updateStorageNode(
     await assertServerInTeamScope(payload.serverId, session);
   }
 
+  const nextRoot: StorageRoot = {
+    driver: nextDriver,
+    basePath: payload.basePath ?? current.basePath,
+    host: nextDriver === "SFTP" ? nextHost ?? null : null,
+    port: nextDriver === "SFTP" ? nextPort : null,
+    username: nextDriver === "SFTP" ? nextUsername : null,
+    webdavConfigEncrypted,
+    serverId: nextDriver === "WEBDAV" || nextDriver === "AGENT" ? null : nextServerId ?? null,
+  };
+  const rootChanged = !sameStorageRoot(current, nextRoot) ||
+    (nextDriver === "AGENT" && !current.agentFileShare && Boolean(payload.serverId));
+
   // Promote, then retire the previous default, in one transaction under the
   // customer's default lock (see createStorageNode).
   let updated;
@@ -435,17 +449,13 @@ export async function updateStorageNode(
       if (nextServerId && nextDriver === "SFTP") await lockStorageServer(tx, nextServerId, current.teamId);
       const claimed = await tx.storageNode.updateMany({
         where: { ...(session ? teamWhere(session) : {}), id: payload.storageNodeId, teamId: current.teamId,
+          basePath: current.basePath, driver: current.driver, host: current.host, port: current.port,
+          username: current.username, serverId: current.serverId, webdavConfigEncrypted: current.webdavConfigEncrypted,
           ...(driverChanged || payload.isDefault === false ? { isDefault: false } : {}) },
         data: {
           name: payload.name ?? current.name,
-          driver: nextDriver,
-          basePath: payload.basePath ?? current.basePath,
+          ...nextRoot,
           ...(payload.isDefault ? { isDefault: true } : {}),
-          host: nextDriver === "SFTP" ? nextHost ?? null : null,
-          port: nextDriver === "SFTP" ? nextPort : null,
-          username: nextDriver === "SFTP" ? nextUsername : null,
-          webdavConfigEncrypted,
-          serverId: nextDriver === "WEBDAV" || nextDriver === "AGENT" ? null : nextServerId ?? null,
           directAccessMode: nextAccessMode,
           publicBaseUrl: nextPublicBaseUrl,
           directAccessExpiresSeconds:
@@ -466,13 +476,20 @@ export async function updateStorageNode(
       }
       const row = await tx.storageNode.findFirst({
         where: { id: payload.storageNodeId, ...(session ? teamWhere(session) : {}) },
-        include: STORAGE_NODE_SERVER_INCLUDE,
+        include: {
+          ...STORAGE_NODE_SERVER_INCLUDE,
+          _count: rootChanged && { select: { shareLinks: { where: { revokedAt: null } } } },
+        },
       });
       if (!row) {
         throw new NotFoundError(t("backend.storage.nodeNotFound"));
       }
+      const { _count, ...node } = row;
+      if (rootChanged && _count.shareLinks > 0) {
+        await tx.shareLink.updateMany({ where: { storageNodeId: node.id, revokedAt: null }, data: { revokedAt: new Date() } });
+      }
       await ensureDefaultNodeState(payload.isDefault, row.teamId, payload.storageNodeId, tx);
-      return row;
+      return node;
     });
   } catch (error) {
     // A server carries one storage node: binding it to a second one is the
@@ -489,48 +506,32 @@ export async function deleteStorageNode(
   storageNodeId: string,
   session?: TeamSession | null,
 ) {
-  const node = session
-    ? await prisma.storageNode.findFirst({
-        where: { id: storageNodeId, ...teamWhere(session) },
-        select: { id: true, isDefault: true },
-      })
-    : await prisma.storageNode.findUnique({
-        where: { id: storageNodeId },
-        select: { id: true, isDefault: true },
-      });
-
   const t = await serviceT();
-  if (!node) {
-    throw new NotFoundError(t("backend.storage.nodeNotFound"));
-  }
-
-  if (node.isDefault) {
-    throw new BusinessError(t("backend.storage.defaultCannotDelete"));
-  }
-
-  // Counted, not loaded: every entry of the node (recycle bin included) used
-  // to be read into memory to find out whether one was still live.
-  const activeEntryCount = await prisma.fileEntry.count({
-    where: { storageNodeId: node.id, isDeleted: false },
-  });
-  if (activeEntryCount > 0) {
-    throw new BusinessError(t("backend.storage.nodeHasEntries"));
-  }
-
-  // Media rows carry no foreign key to their file entry, so those of
-  // recycle-bin files stay until a rescan, and the node's RESTRICT key then
-  // failed this delete with a database error. They go with the node.
-  const [, deleted] = await prisma.$transaction([
-    prisma.mediaItem.deleteMany({ where: { storageNodeId: node.id } }),
-    prisma.storageNode.deleteMany({
+  await prisma.$transaction(async (tx) => {
+    // FileEntry inserts take a foreign-key lock on this row. A concurrent
+    // upload or default promotion must either finish before this check or
+    // observe the completed deletion.
+    await tx.$queryRaw`SELECT id FROM "StorageNode" WHERE id = ${storageNodeId} FOR UPDATE`;
+    const node = await tx.storageNode.findFirst({
       where: { id: storageNodeId, ...(session ? teamWhere(session) : {}) },
-    }),
-  ]);
-  if (deleted.count === 0) {
-    throw new NotFoundError(t("backend.storage.nodeNotFound"));
-  }
-  // The version rows went with the node (cascade); their blobs did not.
-  await purgeStorageNodeVersionBlobs(node.id).catch(() => undefined);
+      select: { id: true, isDefault: true },
+    });
+    if (!node) throw new NotFoundError(t("backend.storage.nodeNotFound"));
+    if (node.isDefault) throw new BusinessError(t("backend.storage.defaultCannotDelete"));
+    const activeCount = await tx.fileEntry.count({ where: { storageNodeId, isDeleted: false } });
+    if (activeCount > 0) throw new BusinessError(t("backend.storage.nodeHasEntries"));
+
+    // Restoring an existing recycled row need not re-check its foreign key.
+    // Claim those rows before the final check, so a restore that won that row
+    // lock becomes visible and rolls the entire delete back.
+    await tx.fileEntry.deleteMany({ where: { storageNodeId, isDeleted: true } });
+    await tx.mediaItem.deleteMany({ where: { storageNodeId } });
+    const deleted = await tx.storageNode.deleteMany({
+      where: { id: storageNodeId, isDefault: false, fileEntries: { none: { isDeleted: false } } },
+    });
+    if (!deleted.count) throw new BusinessError(t("backend.storage.nodeHasEntries"));
+  });
+  await purgeStorageNodeVersionBlobs(storageNodeId).catch(() => undefined);
   return { deleted: true };
 }
 

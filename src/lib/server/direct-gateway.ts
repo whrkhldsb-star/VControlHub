@@ -1,5 +1,6 @@
 import { shellQuote } from "@/lib/shell-quote";
 
+export const DIRECT_GATEWAY_LINUX_FILE_PROTOCOL = "linux-file-v1";
 export const DIRECT_GATEWAY_DEFAULT_PORT = 31888;
 export const DIRECT_GATEWAY_HTTPS_PUBLIC_PORT = 443;
 export const DIRECT_GATEWAY_SERVICE_NAME = "vcontrolhub-direct.service";
@@ -98,15 +99,15 @@ export function pythonGatewaySource() {
   return String.raw`#!/usr/bin/env python3
 import hmac
 import hashlib
-import mimetypes
 import os
-import posixpath
+import stat
 import re
 import time
 from http.server import ThreadingHTTPServer, SimpleHTTPRequestHandler
-from urllib.parse import unquote, urlparse, parse_qs
+from urllib.parse import unquote, urlsplit, parse_qs
 
-ROOT = os.environ.get("DIRECT_ROOT", "/root")
+ROOT = os.path.normpath(os.environ.get("DIRECT_ROOT", "/root"))
+DIRECTORY_FLAGS = os.O_RDONLY | os.O_DIRECTORY | os.O_NOFOLLOW
 SECRET = os.environ.get("DIRECT_SECRET", "")
 
 class Handler(SimpleHTTPRequestHandler):
@@ -120,12 +121,11 @@ class Handler(SimpleHTTPRequestHandler):
             self.wfile.write(message.encode("utf-8"))
 
     def _validate(self):
-        self._vch_target = None
         if not SECRET:
             return None, (500, "direct secret missing")
-        parsed = urlparse(self.path)
+        parsed = urlsplit(self.path)
         if parsed.path == "/__vch_health":
-            return "__health__", None
+            return None, None
         qs = parse_qs(parsed.query)
         expires = qs.get("expires", [""])[0]
         signature = qs.get("signature", [""])[0]
@@ -139,36 +139,58 @@ class Handler(SimpleHTTPRequestHandler):
         # only come from someone who holds the signing secret.
         if expires_int > int(time.time()) + 90000:
             return None, (403, "invalid expires")
-        normalized = posixpath.normpath("/" + unquote(parsed.path).lstrip("/"))
-        if normalized.startswith("/../") or normalized == "/..":
+        relative = unquote(parsed.path)[1:]
+        if any(part in ("", ".", "..") for part in relative.split("/")) or "\0" in relative:
             return None, (400, "invalid path")
-        expected = hmac.new(SECRET.encode("utf-8"), f"{normalized}.{expires}".encode("utf-8"), hashlib.sha256).hexdigest()
+        # Bind to the node's actual filesystem path, including its configured root.
+        # Older gateways signed only the URL pathname and cannot accept this ticket.
+        target = os.path.join(ROOT, relative)
+        message = f"${DIRECT_GATEWAY_LINUX_FILE_PROTOCOL}\0{target}\0{expires}".encode("utf-8")
+        expected = hmac.new(SECRET.encode("utf-8"), message, hashlib.sha256).hexdigest()
         if not hmac.compare_digest(expected, signature):
             return None, (403, "bad signature")
-        fs_path = os.path.realpath(os.path.join(ROOT, normalized.lstrip("/")))
-        root_real = os.path.realpath(ROOT)
-        if fs_path != root_real and not fs_path.startswith(root_real + os.sep):
-            return None, (400, "path outside root")
-        return fs_path, None
+        return relative, None
+
+    def _open_file(self, relative):
+        parts = relative.split("/")
+        parent = os.dup(ROOT_FD)
+        try:
+            for part in parts[:-1]:
+                child = os.open(part, DIRECTORY_FLAGS, dir_fd=parent)
+                os.close(parent)
+                parent = child
+            return os.open(parts[-1], os.O_RDONLY | os.O_NOFOLLOW | os.O_NONBLOCK, dir_fd=parent)
+        finally:
+            os.close(parent)
 
     def _serve(self, head):
         target, error = self._validate()
-        if target == "__health__":
+        if error:
+            return self._reject(*error)
+        if target is None:
             self.send_response(200)
             self.send_header("Content-Type", "text/plain")
             self.end_headers()
             if not head:
                 self.wfile.write(b"ok")
             return
-        if error:
-            return self._reject(*error)
-        if not os.path.isfile(target):
+        try:
+            fd = self._open_file(target)
+        except OSError:
             return self._reject(404, "not found")
-        # Serve exactly the file validated above (never re-parse self.path:
-        # "a%20.txt" became "a .txt" and "a.txt#v2" lost "#v2" that way), with
-        # Range support so media players can seek and downloads can resume.
-        self._vch_target = target
-        return self._send_file(target, head)
+        try:
+            metadata = os.fstat(fd)
+            # A parent may have been renamed during the walk. Verify the opened
+            # inode still has the signed name and read only from this descriptor.
+            try:
+                actual = os.readlink(f"/proc/self/fd/{fd}")
+            except OSError:
+                return self._reject(404, "not found")
+            if not stat.S_ISREG(metadata.st_mode) or actual != os.path.join(ROOT, target):
+                return self._reject(404, "not found")
+            return self._send_file(target, fd, metadata, head)
+        finally:
+            os.close(fd)
 
     def _range_not_satisfiable(self, size):
         self.send_response(416)
@@ -176,8 +198,8 @@ class Handler(SimpleHTTPRequestHandler):
         self.send_header("Content-Length", "0")
         self.end_headers()
 
-    def _send_file(self, target, head):
-        size = os.path.getsize(target)
+    def _send_file(self, target, fd, metadata, head):
+        size = metadata.st_size
         start, end, status = 0, size - 1, 200
         range_header = self.headers.get("Range")
         if range_header:
@@ -199,23 +221,23 @@ class Handler(SimpleHTTPRequestHandler):
         length = end - start + 1 if size > 0 else 0
         self.send_response(status)
         self.send_header("Content-Type", self.guess_type(target))
+        self.send_header("X-VCH-File-Access", "${DIRECT_GATEWAY_LINUX_FILE_PROTOCOL}")
         self.send_header("Accept-Ranges", "bytes")
         self.send_header("Content-Length", str(length))
         if status == 206:
             self.send_header("Content-Range", "bytes " + str(start) + "-" + str(end) + "/" + str(size))
-        self.send_header("Last-Modified", self.date_time_string(os.path.getmtime(target)))
+        self.send_header("Last-Modified", self.date_time_string(metadata.st_mtime))
         self.end_headers()
         if head or length == 0:
             return
-        with open(target, "rb") as handle:
-            handle.seek(start)
-            remaining = length
-            while remaining > 0:
-                chunk = handle.read(min(65536, remaining))
-                if not chunk:
-                    break
-                self.wfile.write(chunk)
-                remaining -= len(chunk)
+        os.lseek(fd, start, os.SEEK_SET)
+        remaining = length
+        while remaining > 0:
+            chunk = os.read(fd, min(65536, remaining))
+            if not chunk:
+                break
+            self.wfile.write(chunk)
+            remaining -= len(chunk)
 
     def do_GET(self):
         return self._serve(False)
@@ -225,19 +247,11 @@ class Handler(SimpleHTTPRequestHandler):
         # file, and downloaders ask HEAD first.
         return self._serve(True)
 
-    def translate_path(self, path):
-        target = getattr(self, "_vch_target", None)
-        if target:
-            return target
-        parsed = urlparse(path)
-        normalized = posixpath.normpath("/" + unquote(parsed.path).lstrip("/"))
-        return os.path.realpath(os.path.join(ROOT, normalized.lstrip("/")))
-
 if __name__ == "__main__":
     port = int(os.environ.get("DIRECT_PORT", "31888"))
     # TR-002: 默认 127.0.0.1，仅本机可访问；显式 DIRECT_BIND=0.0.0.0 才监听全部接口。
     bind = os.environ.get("DIRECT_BIND", "127.0.0.1")
-    os.chdir(ROOT)
+    ROOT_FD = os.open(ROOT, DIRECTORY_FLAGS)
     ThreadingHTTPServer((bind, port), Handler).serve_forever()
 `;
 }

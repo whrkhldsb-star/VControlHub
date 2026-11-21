@@ -2,6 +2,7 @@ import { apiCopy } from "@/lib/i18n/api-copy";
 import type { Prisma } from "@prisma/client";
 import { prisma } from "@/lib/db";
 import type { SessionPayload } from "@/lib/auth/session";
+import { isServerStorageEndpoint } from "./storage-endpoint";
 import { withServerLifecycleLock } from "./agent-service";
 import { serverProfileTeamWhere } from "@/lib/auth/team-scope";
 import { config } from "@/lib/config/env";
@@ -16,7 +17,7 @@ import {
   DIRECT_GATEWAY_DEFAULT_PORT,
   DIRECT_GATEWAY_HTTPS_PUBLIC_PORT,
 } from "./direct-gateway";
-import { DIRECT_GATEWAY_KEY_PER_SERVER, deriveDirectGatewayServerKey } from "./direct-gateway-key";
+import { deriveDirectGatewayServerKey, firstDirectGatewayKeyVersion, needsLegacyGatewayStop } from "./direct-gateway-key";
 import { buildInstallWindowsDirectGatewayCommand, buildPrepareWindowsDirectGatewayCommand, buildUninstallWindowsDirectGatewayCommand, buildWindowsDirectGatewaySource, WINDOWS_GATEWAY_SCRIPT_NAME } from "./windows-direct-gateway";
 import { getErrorMessage, safeRevalidatePath } from "./service-internals";
 import { t } from "@/lib/i18n/service-translations";
@@ -150,7 +151,10 @@ export async function loadServerForDirectGateway(
       select: {
         id: true,
         basePath: true,
+        teamId: true,
         driver: true,
+        host: true,
+        hostKeySha256: true,
         port: true,
         username: true,
         fileEntries: { select: { id: true }, take: 1 },
@@ -170,10 +174,14 @@ export async function loadServerForDirectGateway(
   });
 }
 
-async function clearDirectGatewayDbState(serverId: string) {
+async function clearDirectGatewayDbState(serverId: string, confirmedStopVersion?: number) {
   await prisma.server.update({
     where: { id: serverId },
-    data: { fileProxyPort: 0, publicUrl: null },
+    data: {
+      fileProxyPort: 0, publicUrl: null,
+      // Mark a legacy deployment stopped only after its remote check succeeds.
+      ...(confirmedStopVersion !== undefined ? { directGatewayKeyVersion: confirmedStopVersion } : {}),
+    },
   });
   await prisma.storageNode.updateMany({
     where: { serverId },
@@ -183,6 +191,7 @@ async function clearDirectGatewayDbState(serverId: string) {
 
 async function markDirectGatewayEnabledDb(input: {
   serverId: string;
+  keyVersion: number;
   publicBaseUrl: string;
 }) {
   await prisma.server.update({
@@ -191,7 +200,7 @@ async function markDirectGatewayEnabledDb(input: {
       fileProxyPort: DIRECT_GATEWAY_DEFAULT_PORT,
       publicUrl: input.publicBaseUrl,
       // The gateway just installed verifies with this server's own key: sign its links with that key from now on.
-      directGatewayKeyVersion: DIRECT_GATEWAY_KEY_PER_SERVER,
+      directGatewayKeyVersion: input.keyVersion,
     },
   });
   await prisma.storageNode.updateMany({
@@ -208,6 +217,7 @@ async function markDirectGatewayEnabledDb(input: {
 }
 
 type GatewayOptions = {
+  expectedTeamId?: string | null;
   serverId: string;
   enabled: boolean;
   session?: DirectGatewaySession | null;
@@ -241,7 +251,15 @@ export function removeDeletedServerGateway(server: GatewayServer) {
 }
 
 export async function applyServerDirectGatewayState(input: GatewayOptions) {
-  return applyGatewayState(input, await loadServerForDirectGateway(input.serverId, input.session));
+  return withServerLifecycleLock(input.serverId, () => applyServerDirectGatewayStateUnderLock(input));
+}
+
+export async function applyServerDirectGatewayStateUnderLock(input: GatewayOptions) {
+  const server = await loadServerForDirectGateway(input.serverId, input.session);
+  if (server && input.expectedTeamId !== undefined && server.teamId !== input.expectedTeamId) {
+    throw new NotFoundError(t("backend.server.nodeNotFound"));
+  }
+  return applyGatewayState(input, server);
 }
 
 async function applyGatewayState(input: GatewayOptions, server: GatewayServer | null, deleted = false) {
@@ -258,6 +276,9 @@ async function applyGatewayState(input: GatewayOptions, server: GatewayServer | 
   const isLocalHost = /^(127\.0\.0\.1|localhost|::1|0\.0\.0\.0)$/i.test(
     server.host.trim(),
   );
+  if (!input.enabled && !deleted && isLocalHost && needsLegacyGatewayStop(server)) {
+    throw new BusinessError(t("backend.server.directGatewayOperationFailed"));
+  }
   if (input.enabled && isLocalHost) {
     const errorMessage = t("backend.server.localNodeDirectGatewayNotNeeded");
     if (input.bestEffort) {
@@ -272,9 +293,11 @@ async function applyGatewayState(input: GatewayOptions, server: GatewayServer | 
   }
   if (
     input.enabled &&
-    (!server.storageNode || server.storageNode.driver !== "SFTP")
+    (!server.storageNode || server.storageNode.driver !== "SFTP" || !isServerStorageEndpoint(server, server.storageNode))
   ) {
-    const errorMessage = t("backend.server.directGatewayRequiresSftp");
+    const errorMessage = server.storageNode?.driver === "SFTP"
+      ? t("apiServersFileProxy.endpointMismatch")
+      : t("backend.server.directGatewayRequiresSftp");
     if (input.bestEffort) {
       return {
         enabled: false,
@@ -288,6 +311,7 @@ async function applyGatewayState(input: GatewayOptions, server: GatewayServer | 
   const basePath = server.storageNode?.basePath || "/root";
   const publicProtocol = input.publicProtocol ?? "http";
   const windows = server.operatingSystem === "WINDOWS";
+  const keyVersion = Math.max(firstDirectGatewayKeyVersion(server.operatingSystem), server.directGatewayKeyVersion ?? 1);
   if (windows && input.enabled && publicProtocol === "https") {
     throw new ValidationError(t("backend.server.windowsGatewayHttpOnly"));
   }
@@ -349,6 +373,7 @@ async function applyGatewayState(input: GatewayOptions, server: GatewayServer | 
         username: server.storageNode.username,
         password: decryptServerPassword(server.password),
         hostKeySha256: server.hostKeySha256,
+        enforceHostKeyPin: true,
       };
       command = input.enabled
         ? buildInstallWindowsDirectGatewayCommand({ publicListen: bindAddress !== "127.0.0.1" })
@@ -359,7 +384,7 @@ async function applyGatewayState(input: GatewayOptions, server: GatewayServer | 
         ? buildInstallDirectGatewayCommand({
           rootPath: basePath,
           // The gateway gets a key of its own, never the hub's shared secret (see direct-gateway-key.ts).
-          secret: deriveDirectGatewayServerKey(getConfiguredDirectAccessSecret(), input.serverId),
+          secret: deriveDirectGatewayServerKey(getConfiguredDirectAccessSecret(), input.serverId, keyVersion),
           port: DIRECT_GATEWAY_DEFAULT_PORT,
           bindAddress,
           autoReverseProxy,
@@ -368,7 +393,8 @@ async function applyGatewayState(input: GatewayOptions, server: GatewayServer | 
             : undefined,
           tlsHost: publicHost,
         })
-        : buildUninstallDirectGatewayCommand();
+        : `${buildUninstallDirectGatewayCommand()}
+test "$(systemctl show -p ActiveState --value vcontrolhub-direct.service)" = inactive`;
     }
   } catch (error) {
     if (!input.bestEffort) throw error;
@@ -380,6 +406,14 @@ async function applyGatewayState(input: GatewayOptions, server: GatewayServer | 
     };
   }
   if (!isLocalHost) {
+    // Reserve the deployment before SSH. A lost response or partial install must
+    // still block transfer until an operator confirms the gateway has stopped.
+    if (input.enabled) {
+      await prisma.server.update({
+        where: { id: input.serverId, teamId: server.teamId, directGatewayKeyVersion: server.directGatewayKeyVersion },
+        data: { directGatewayDesiredEnabled: true },
+      });
+    }
     try {
       if (windows && input.enabled) {
         const prepared = await execRemoteCommand({ ...ssh, command: buildPrepareWindowsDirectGatewayCommand(), timeout: 30_000 });
@@ -390,7 +424,7 @@ async function applyGatewayState(input: GatewayOptions, server: GatewayServer | 
         }
         const remoteScriptPath = `/${nativeDir.replaceAll("\\", "/")}/${WINDOWS_GATEWAY_SCRIPT_NAME}`;
         const gatewaySource = buildWindowsDirectGatewaySource({
-          rootPath: basePath, secret: deriveDirectGatewayServerKey(getConfiguredDirectAccessSecret(), input.serverId), publicListen: bindAddress !== "127.0.0.1",
+          rootPath: basePath, secret: deriveDirectGatewayServerKey(getConfiguredDirectAccessSecret(), input.serverId, keyVersion, "WINDOWS"), publicListen: bindAddress !== "127.0.0.1",
         });
         await writeRemoteFile({ ...ssh, remotePath: remoteScriptPath, content: Buffer.concat([Buffer.from([0xef, 0xbb, 0xbf]), Buffer.from(gatewaySource, "utf8")]) });
       }
@@ -399,7 +433,7 @@ async function applyGatewayState(input: GatewayOptions, server: GatewayServer | 
         command,
         timeout: 180_000,
       });
-      if (result.exitCode && result.exitCode !== 0) {
+      if (result.exitCode !== 0) {
         linuxInstallLeftovers = input.enabled && !windows;
         const diagnostic = (result.stderr || result.stdout).trim().slice(0, 500);
         throw new BusinessError(
@@ -488,10 +522,11 @@ async function applyGatewayState(input: GatewayOptions, server: GatewayServer | 
 
     await markDirectGatewayEnabledDb({
       serverId: input.serverId,
+      keyVersion,
       publicBaseUrl,
     });
   } else if (!cleanupSkipped && !deleted) {
-    await clearDirectGatewayDbState(input.serverId);
+    await clearDirectGatewayDbState(input.serverId, needsLegacyGatewayStop(server) ? keyVersion + 1 : undefined);
   }
 
   safeRevalidatePath("/servers");
@@ -530,7 +565,7 @@ export async function setServerDirectGatewayEnabled(
   session?: DirectGatewaySession | null,
 ) {
   return withServerLifecycleLock(serverId, async () => {
-    const result = await applyServerDirectGatewayState({
+    const result = await applyServerDirectGatewayStateUnderLock({
       serverId,
       enabled,
       session,

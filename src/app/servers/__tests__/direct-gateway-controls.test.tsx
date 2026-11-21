@@ -32,11 +32,15 @@ vi.mock("@/components/submit-button", () => ({
   SubmitButton: ({
     children,
     className,
+    name,
+    value,
   }: {
     children: React.ReactNode;
     className?: string;
+    name?: string;
+    value?: string;
   }) => (
-    <button type="submit" className={className}>
+    <button type="submit" className={className} name={name} value={value}>
       {children}
     </button>
   ),
@@ -105,7 +109,7 @@ describe("server direct gateway controls", () => {
       screen.getByRole("button", { name: "启用目标直连" }),
     ).toBeInTheDocument();
     expect(
-      document.querySelector('input[name="enabledDirectGateway"]'),
+      document.querySelector('button[name="enabledDirectGateway"]'),
     ).toHaveAttribute("value", "true");
   });
 
@@ -132,8 +136,18 @@ describe("server direct gateway controls", () => {
       screen.getByRole("button", { name: "切回网站中转" }),
     ).toBeInTheDocument();
     expect(
-      document.querySelector('input[name="enabledDirectGateway"]'),
+      document.querySelector('button[name="enabledDirectGateway"]'),
     ).toHaveAttribute("value", "false");
+  });
+
+  it("allows verification of a previously deployed gateway whose URL was already cleared", () => {
+    render(<ServerCardActions serverId="srv_1" serverName="prod" host="203.0.113.10" port={22}
+      enabled canManageServers directGateway={{ enabled: false, needsStopConfirmation: true, publicUrl: null, port: 0 }} />);
+    const form = screen.getByRole("form", { name: "目标服务器直连网关控制" }) as HTMLFormElement;
+    const stop = screen.getByRole("button", { name: "停止远端网关并确认退出" });
+    const enable = screen.getByRole("button", { name: "启用目标直连" });
+    expect(new FormData(form, stop).get("enabledDirectGateway")).toBe("false");
+    expect(new FormData(form, enable).get("enabledDirectGateway")).toBe("true");
   });
 
   it("shows direct gateway eligibility and recovery guidance with accessible status", () => {

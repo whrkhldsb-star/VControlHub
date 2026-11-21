@@ -11,6 +11,7 @@ const {
   releaseLockMock,
   sshCommands,
   sshReplies,
+  sshStdin,
 } = vi.hoisted(() => ({
   requireApiSessionMock: vi.fn(),
   sessionHasPermissionMock: vi.fn(),
@@ -22,7 +23,8 @@ const {
   releaseLockMock: vi.fn(),
   sshCommands: [] as string[],
   /** What the remote shell prints for a command containing the key. */
-  sshReplies: [] as Array<[string, string]>,
+  sshReplies: [] as Array<[string, string, number?]>,
+  sshStdin: [] as string[],
 }));
 
 vi.mock("ssh2", () => ({
@@ -47,6 +49,7 @@ vi.mock("ssh2", () => ({
       const handlers: Record<string, (...args: unknown[]) => void> = {};
       const stderrHandlers: Record<string, (...args: unknown[]) => void> = {};
       const stream = {
+        end(data?: string) { if (data) sshStdin.push(data); },
         on(event: string, handler: (...args: unknown[]) => void) {
           handlers[event] = handler;
           return stream;
@@ -60,16 +63,17 @@ vi.mock("ssh2", () => ({
       };
       callback(null, stream);
       queueMicrotask(() => {
-        const scripted = sshReplies.find(([key]) => command.includes(key))?.[1];
+        const reply = sshReplies.find(([key]) => command.includes(key));
+        const scripted = reply?.[1];
         const stdout = scripted !== undefined
           ? scripted
           : command.includes("nohup python3")
-          ? "4242\n"
-          : command.includes("tail -n 20")
-            ? "bind failed\n__PROXY_EXITED__\n"
+          ? "4242 /tmp/.vps_file_proxy_aB12345678\n"
+          : command.includes("signal.SIGTERM")
+            ? "not_running\n"
             : "";
         if (stdout) handlers.data?.(Buffer.from(stdout));
-        handlers.close?.(0);
+        handlers.close?.(reply?.[2] ?? 0);
       });
     }
 
@@ -109,6 +113,7 @@ vi.mock("@/lib/audit/service", () => ({
   auditUserAction: vi.fn(),
 }));
 
+import { auditUserAction } from "@/lib/audit/service";
 import { buildFileProxyScript } from "@/lib/server/file-proxy-script";
 import { DELETE, GET, POST } from "../route";
 
@@ -130,13 +135,15 @@ describe("/api/servers/[id]/file-proxy", () => {
       publicUrl: "https://node.example.com",
       fileProxyPort: 0,
       teamId: null,
-      storageNode: { id: "node_1", basePath: "/srv/vcontrolhub/storage" },
+      storageNode: { id: "node_1", driver: "SFTP", teamId: null, basePath: "/srv/vcontrolhub/storage" },
     });
     proxyFindUniqueMock.mockResolvedValue(null);
     proxyUpdateMock.mockResolvedValue({});
+    proxyUpsertMock.mockResolvedValue({ id: "proxy_1" });
     releaseLockMock.mockResolvedValue(undefined);
     acquireLockMock.mockResolvedValue(releaseLockMock);
     sshCommands.length = 0;
+    sshStdin.length = 0;
     sshReplies.length = 0;
   });
 
@@ -145,7 +152,7 @@ describe("/api/servers/[id]/file-proxy", () => {
     // a kill by hand it is free for any other process, and the row keeps it:
     // an expired entry sent SIGTERM to that number on every status call, and
     // "ps -p" reported whatever process had it as the running proxy.
-    const IDENTITY = "tr '\\0' ' ' < /proc/4242/cmdline 2>/dev/null | grep -q '.vps_file_proxy_'";
+    const IDENTITY = 'open(f"/proc/{pid}/cmdline"';
     const proxyRow = (overrides: Record<string, unknown> = {}) => ({
       id: "proxy_1",
       serverId: "srv_1",
@@ -158,20 +165,20 @@ describe("/api/servers/[id]/file-proxy", () => {
       ...overrides,
     });
     const status = () => GET(new Request("http://local/api/servers/srv_1/file-proxy"), params);
-    const signals = () => sshCommands.filter((command) => /\bkill\b/.test(command));
+    const signals = () => sshCommands.filter((command) => command.includes("signal.SIGTERM"));
 
     it("reports the proxy running only when that process is the proxy", async () => {
       proxyFindUniqueMock.mockResolvedValue(proxyRow());
 
-      sshReplies.push(["/proc/4242/cmdline", "proxy_running\n"]);
+      sshReplies.push(["pid = 4242", "proxy_running\n"]);
       await expect((await status()).json()).resolves.toMatchObject({ status: "running", proxy: { port: 8765, accessToken: "token-123" } });
       expect(sshCommands[0]).toContain(IDENTITY);
 
       // Another process has the number now.
       sshReplies.length = 0;
-      sshReplies.push(["/proc/4242/cmdline", "not_running\n"]);
+      sshReplies.push(["pid = 4242", "not_running\n"]);
       await expect((await status()).json()).resolves.toEqual({ status: "stopped", proxy: null });
-      expect(proxyUpdateMock).toHaveBeenCalledWith({ where: { id: "proxy_1" }, data: { status: "stopped" } });
+      expect(proxyUpdateMock).toHaveBeenCalledWith({ where: { id: "proxy_1" }, data: { status: "stopped", accessToken: null, pid: null, expiresAt: null } });
       expect(signals()).toEqual([]);
     });
 
@@ -181,11 +188,12 @@ describe("/api/servers/[id]/file-proxy", () => {
       await expect((await status()).json()).resolves.toEqual({ status: "stopped", proxy: null });
 
       expect(signals()).toHaveLength(1);
-      expect(signals()[0]).toContain(`if ${IDENTITY}; then kill 4242 2>/dev/null; fi`);
+      expect(signals()[0]).toContain(IDENTITY);
+      expect(signals()[0]).toContain('if result == "proxy_running"');
     });
 
     it("sends nothing for an expired entry that was already stopped", async () => {
-      proxyFindUniqueMock.mockResolvedValue(proxyRow({ status: "stopped", expiresAt: new Date(Date.now() - 86_400_000) }));
+      proxyFindUniqueMock.mockResolvedValue(proxyRow({ status: "stopped", pid: null, accessToken: null, expiresAt: null }));
 
       await status();
       await status();
@@ -200,12 +208,42 @@ describe("/api/servers/[id]/file-proxy", () => {
 
       await expect(response.json()).resolves.toEqual({ status: "stopped" });
       expect(signals()).toHaveLength(1);
-      expect(signals()[0]).toContain(`if ${IDENTITY}; then kill 4242 2>/dev/null; fi`);
+      expect(signals()[0]).toContain(IDENTITY);
+      expect(signals()[0]).toContain('if result == "proxy_running"');
+    });
+
+    it.each([
+      ["proxy_running", 0, 409],
+      ["unknown", 0, 502],
+      ["not_running", 255, 502],
+    ] as const)("retains retryable remote state on %s with exit %s", async (out, exit, statusCode) => {
+      proxyFindUniqueMock.mockResolvedValue(proxyRow());
+      sshReplies.push(["pid = 4242", out, exit]);
+      const response = await DELETE(new Request("http://local", { method: "DELETE" }), params);
+      expect(response.status).toBe(statusCode);
+      expect(proxyUpdateMock).not.toHaveBeenCalled();
+      expect(auditUserAction).not.toHaveBeenCalled();
+    });
+
+    it("keeps a proxy active when a status probe cannot confirm liveness", async () => {
+      proxyFindUniqueMock.mockResolvedValue(proxyRow());
+      sshReplies.push(["pid = 4242", "", 255]);
+      expect((await status()).status).toBe(502);
+      expect(proxyUpdateMock).not.toHaveBeenCalled();
+      expect((await POST(new Request("http://local", { method: "POST" }), params)).status).toBe(502);
+      expect(proxyUpsertMock).not.toHaveBeenCalled();
+    });
+
+    it.each([60_000, -60_000])("verifies the PID of legacy stopped records even across expiry (%s)", async (offset) => {
+      proxyFindUniqueMock.mockResolvedValue(proxyRow({ status: "stopped", expiresAt: new Date(Date.now() + offset) }));
+      sshReplies.push(["pid = 4242", "proxy_running"]);
+      expect((await status()).status).toBe(409);
+      expect(proxyUpdateMock).not.toHaveBeenCalled();
     });
 
     it("recognises a live proxy before starting another", async () => {
       proxyFindUniqueMock.mockResolvedValue(proxyRow());
-      sshReplies.push(["/proc/4242/cmdline", "proxy_running\n"]);
+      sshReplies.push(["pid = 4242", "proxy_running\n"]);
 
       const response = await POST(new Request("http://local/api/servers/srv_1/file-proxy", { method: "POST" }), params);
 
@@ -297,7 +335,7 @@ describe("/api/servers/[id]/file-proxy", () => {
     await expect(response.json()).resolves.toMatchObject({
       error: expect.stringContaining("SFTP 存储节点"),
     });
-    expect(proxyFindUniqueMock).not.toHaveBeenCalled();
+    expect(sshCommands).toEqual([]);
     expect(proxyUpsertMock).not.toHaveBeenCalled();
   });
 
@@ -313,7 +351,7 @@ describe("/api/servers/[id]/file-proxy", () => {
       publicUrl: "https://node.example.com",
       fileProxyPort: 0,
       teamId: null,
-      storageNode: { id: "node_1", basePath: "/srv/vcontrolhub/storage" },
+      storageNode: { id: "node_1", driver: "SFTP", teamId: null, basePath: "/srv/vcontrolhub/storage" },
     });
 
     const response = await POST(
@@ -328,12 +366,36 @@ describe("/api/servers/[id]/file-proxy", () => {
       expect.arrayContaining([
         expect.stringContaining("nohup python3"),
         expect.stringContaining("kill -0 4242"),
-        expect.stringContaining("kill 4242"),
+        expect.stringContaining("signal.SIGTERM"),
       ]),
     );
     expect(sshCommands.some((command) => command.includes(".out"))).toBe(true);
-    expect(proxyUpsertMock).not.toHaveBeenCalled();
+    expect(proxyUpsertMock).toHaveBeenCalledWith(expect.objectContaining({ create: expect.objectContaining({ pid: 4242, status: "starting" }) }));
+    expect(proxyUpdateMock).toHaveBeenCalledWith(expect.objectContaining({ data: expect.objectContaining({ status: "stopped", accessToken: null }) }));
+    expect(sshStdin[0]).toContain("TOKEN = ");
+    expect(sshCommands.every(command => !command.includes("TOKEN = "))).toBe(true);
     expect(releaseLockMock).toHaveBeenCalledTimes(1);
+  });
+
+  it.each([{ host: "other" }, { port: 2222 }, { teamId: "former-owner" }])("rejects a storage node on a different endpoint %o before SSH", async (override) => {
+    serverFindUniqueMock.mockResolvedValue({
+      id: "srv_1", teamId: null, host: "server", port: 22, publicUrl: "https://node.example.com",
+      storageNode: { teamId: null, driver: "SFTP", basePath: "/data", ...override },
+    });
+    const response = await POST(new Request("http://local", { method: "POST" }), params);
+    expect(response.status).toBe(400);
+    expect(sshCommands).toEqual([]);
+    expect(proxyUpsertMock).not.toHaveBeenCalled();
+  });
+
+  it("rechecks the authorized team under the transfer lock before accessing a token", async () => {
+    serverFindUniqueMock.mockImplementation(async ({ where }) => "teamId" in where ? null : { id: "srv_1", teamId: "old" });
+    const response = await GET(new Request("http://local"), params);
+    expect(response.status).toBe(404);
+    expect(acquireLockMock).toHaveBeenCalledWith("server-delete", "srv_1");
+    expect(serverFindUniqueMock).toHaveBeenLastCalledWith(expect.objectContaining({ where: { id: "srv_1", teamId: "old" } }));
+    expect(proxyFindUniqueMock).not.toHaveBeenCalled();
+    expect(sshCommands).toEqual([]);
   });
 
   it("generates a scoped proxy script with header tokens and restricted CORS", () => {

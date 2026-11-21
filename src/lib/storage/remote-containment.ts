@@ -35,7 +35,7 @@ import {
  * change by someone who already controls the remote account.
  */
 export async function assertRemotePathContained(
-  connection: SshConnectionParams,
+  connection: SshConnectionParams & { windowsOpenSsh?: boolean },
   basePath: string,
   lexicalPath: string,
 ): Promise<string> {
@@ -53,20 +53,22 @@ export async function assertRemotePathContained(
         throw error;
       })
     : realRoot;
-  const expected = relative ? path.posix.join(portable(realRoot), relative) : portable(realRoot);
-  const actual = portable(realTarget);
-  const windows = /^\/[a-z]:\//i.test(expected);
-  if ((windows ? actual.toLowerCase() : actual) !== (windows ? expected.toLowerCase() : expected)) {
+  const windows = connection.windowsOpenSsh === true;
+  const root = physicalPath(realRoot, windows);
+  const expected = relative ? path.posix.join(root, windows ? relative.toLowerCase() : relative) : root;
+  if (physicalPath(realTarget, windows) !== expected) {
     throw new ValidationError(t("backend.storage.remotePathLeavesNodeRoot"));
   }
   return realTarget;
 }
 
 /** Windows OpenSSH reports C:/... or C:\\...; compare as /C:/... */
-function portable(value: string) {
-  const slashes = value.replace(/\\/g, "/");
-  const absolute = /^[a-z]:\//i.test(slashes) ? `/${slashes}` : slashes;
-  return path.posix.normalize(absolute).replace(/\/+$/, "") || "/";
+function physicalPath(value: string, windows: boolean) {
+  if (windows) {
+    value = value.replace(/\\/g, "/").toLowerCase();
+    if (/^[a-z]:\//.test(value)) value = `/${value}`;
+  }
+  return path.posix.normalize(value).replace(/\/+$/, "") || "/";
 }
 
 /**

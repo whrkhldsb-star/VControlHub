@@ -4,6 +4,7 @@ import type { SessionPayload } from "@/lib/auth/session";
 
 import { assertStorageAccess } from "@/lib/storage/access-control";
 import { storageAccessDeniedCopy } from "@/lib/storage/access-denied";
+import { isStorageStagingPath } from "@/lib/storage/staging-paths";
 import { listRemoteDirectory } from "@/lib/ssh/client";
 import { getSftpNodeConnection } from "@/lib/storage/sftp-node";
 import { assertRemotePathContained } from "@/lib/storage/remote-containment";
@@ -59,15 +60,11 @@ async function handleGet(request: Request, session: SessionPayload) {
   }
 
   try {
+    if (isStorageStagingPath(normalizedRelativePath)) {
+      return NextResponse.json({ entries: [], truncated: false, limit, nodeId: node.id, nodeName: node.name, remotePath });
+    }
     const entries = await listRemoteDirectory({
-      host: connectionCredentials.host,
-      port: connectionCredentials.port,
-      username: connectionCredentials.username,
-      privateKey: connectionCredentials.privateKey,
-      passphrase: connectionCredentials.passphrase,
-      password: connectionCredentials.password,
-      hostKeySha256: connectionCredentials.hostKeySha256,
-      agentServerId: connectionCredentials.agentServerId,
+      ...connectionCredentials,
       remotePath: normalizedRemotePath,
       maxEntries: limit + 1,
     });
@@ -76,7 +73,7 @@ async function handleGet(request: Request, session: SessionPayload) {
       nodeId: node.id,
       nodeName: node.name,
       remotePath: remotePath.startsWith("/") ? remotePath : `/${remotePath}`,
-      entries: truncated ? entries.slice(0, limit) : entries,
+      entries: entries.slice(0, limit).filter(entry => !isStorageStagingPath(entry.name)),
       truncated,
       limit,
     });

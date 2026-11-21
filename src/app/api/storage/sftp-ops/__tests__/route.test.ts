@@ -27,7 +27,8 @@ const {
       findFirst: vi.fn(),
     },
     fileEntry: {
-      upsert: vi.fn(),
+      create: vi.fn(),
+      deleteMany: vi.fn(),
       updateMany: vi.fn(),
       findFirst: vi.fn(),
       findMany: vi.fn(),
@@ -64,6 +65,7 @@ const { fileLockMock, fileUnlockMock } = vi.hoisted(() => {
   const fileUnlockMock = vi.fn(async () => undefined);
   return { fileUnlockMock, fileLockMock: vi.fn(async () => fileUnlockMock) };
 });
+vi.mock("@/lib/concurrency/advisory-lock", () => ({ acquireAdvisoryLock: vi.fn(async () => async () => {}) }));
 vi.mock("@/lib/storage/file-overwrite-lock", () => ({ lockStorageFileOverwrite: fileLockMock }));
 
 vi.mock("@/lib/http/rate-limit-presets", async (importOriginal) => ({
@@ -205,22 +207,9 @@ describe("/api/storage/sftp-ops", () => {
         recursive: true,
       }),
     );
-    expect(prismaMock.fileEntry.upsert).toHaveBeenCalledWith({
-      where: {
-        isDeleted: false,
-        entryType: "FILE",
-        storageNodeId_relativePath: {
-          storageNodeId: "node_1",
-          relativePath: "new-folder/hello.txt",
-        },
-      },
-      update: expect.objectContaining({
-        name: "hello.txt",
-        size: BigInt(5),
-        // A checksum recorded for the content this write replaces must not stay.
-        checksumSha256: null,
-      }),
-      create: expect.objectContaining({
+    expect(prismaMock.fileEntry.create).toHaveBeenCalledWith({
+      select: { id: true, updatedAt: true },
+      data: expect.objectContaining({
         storageNodeId: "node_1",
         name: "hello.txt",
         entryType: "FILE",
@@ -230,7 +219,7 @@ describe("/api/storage/sftp-ops", () => {
     });
   });
 
-  it.each([false, true])("cleans up after failed indexing according to backing file existence (%s)", async (existed) => {
+  it.each([false, true])("preserves remote bytes after failed indexing regardless of prior occupancy (%s)", async (existed) => {
     vi.clearAllMocks();
     requireApiSessionMock.mockResolvedValueOnce({
       userId: "u_1",
@@ -241,7 +230,7 @@ describe("/api/storage/sftp-ops", () => {
     mockSftpNode();
     if (existed) statRemoteEntryMock.mockResolvedValueOnce({ type: "file", size: 14, modifyTime: 1000 });
     else statRemoteEntryMock.mockRejectedValueOnce(Object.assign(new Error("No such file"), { code: 2 }));
-    prismaMock.fileEntry.upsert.mockRejectedValueOnce(new Error("db unavailable"));
+    prismaMock.fileEntry.create.mockRejectedValueOnce(new Error("db unavailable"));
 
     const response = await POST(
       request({
@@ -256,18 +245,59 @@ describe("/api/storage/sftp-ops", () => {
     await expect(response.json()).resolves.toMatchObject({
       error: expect.stringContaining("Remote file operation failed"),
     });
-    expect(writeRemoteFileMock).toHaveBeenCalledWith(
-      expect.objectContaining({ remotePath: "/data/files/new-folder/hello.txt" }),
-    );
     expect(fileLockMock.mock.invocationCallOrder[0]).toBeLessThan(statRemoteEntryMock.mock.invocationCallOrder[0]!);
-    expect(statRemoteEntryMock.mock.invocationCallOrder[0]).toBeLessThan(writeRemoteFileMock.mock.invocationCallOrder[0]!);
-    if (existed) {
-      expect(deleteRemoteFileMock).not.toHaveBeenCalled();
-      return;
-    }
-    expect(deleteRemoteFileMock).toHaveBeenCalledWith(
-      expect.objectContaining({ remotePath: "/data/files/new-folder/hello.txt" }),
-    );
+    expect(writeRemoteFileMock).not.toHaveBeenCalled();
+    expect(deleteRemoteFileMock).not.toHaveBeenCalled();
+  });
+
+  it("rolls back just the SFTP index revision it wrote when publication fails", async () => {
+    vi.clearAllMocks();
+    requireApiSessionMock.mockResolvedValueOnce(session);
+    mockSftpNode();
+    const previous = {
+      id: "old-row", name: "notes.txt", entryType: "FILE", isDeleted: false,
+      size: BigInt(3), mimeType: "text/plain", checksumSha256: "prior", updatedAt: new Date(1),
+    };
+    const writtenAt = new Date(2);
+    prismaMock.fileEntry.findFirst.mockResolvedValueOnce(null).mockResolvedValueOnce(previous);
+    statRemoteEntryMock.mockResolvedValueOnce({ type: "file", size: 3, modifyTime: 1000 });
+    prismaMock.fileEntry.update.mockResolvedValueOnce({ id: previous.id, updatedAt: writtenAt });
+    writeRemoteFileMock.mockRejectedValueOnce(new Error("write denied"));
+
+    expect((await POST(request({ action: "write", nodeId: "node_1", path: "notes.txt", content: "replacement" }))).status).toBe(502);
+    expect(prismaMock.fileEntry.update.mock.invocationCallOrder[0]).toBeLessThan(writeRemoteFileMock.mock.invocationCallOrder[0]!);
+    expect(prismaMock.fileEntry.updateMany).toHaveBeenCalledWith({
+      where: { id: previous.id, storageNodeId: "node_1", relativePath: "notes.txt", entryType: "FILE", isDeleted: false, updatedAt: writtenAt },
+      data: { name: "notes.txt", entryType: "FILE", size: previous.size, mimeType: "text/plain", checksumSha256: "prior", updatedAt: previous.updatedAt },
+    });
+  });
+
+  it("rejects an invalid index path before an SFTP write or index change", async () => {
+    vi.clearAllMocks();
+    requireApiSessionMock.mockResolvedValueOnce(session);
+    mockSftpNode();
+    const response = await POST(request({ action: "write", nodeId: "node_1", path: "p/" + "a".repeat(256), content: "new" }));
+    expect(response.status).toBe(400);
+    expect(writeRemoteFileMock).not.toHaveBeenCalled();
+    expect(prismaMock.fileEntry.create).not.toHaveBeenCalled();
+  });
+
+  it("blocks a direct directory delete when it contains an independently recycled file", async () => {
+    vi.clearAllMocks();
+    requireApiSessionMock.mockResolvedValueOnce(session);
+    mockSftpNode();
+    prismaMock.fileEntry.findFirst
+      .mockResolvedValueOnce({ entryType: "DIRECTORY" })
+      .mockResolvedValueOnce(null)
+      .mockResolvedValueOnce({ relativePath: "dir_1/old.txt" });
+    const response = await POST(request({ action: "delete", nodeId: "node_1", path: "dir_1", isDirectory: false }));
+    expect(response.status).toBe(409);
+    expect(prismaMock.fileEntry.findFirst).toHaveBeenLastCalledWith({
+      where: { storageNodeId: "node_1", relativePath: { startsWith: "dir\\_1/" }, isDeleted: true },
+      select: { relativePath: true },
+    });
+    expect(deleteRemoteFileMock).not.toHaveBeenCalled();
+    expect(prismaMock.fileEntry.updateMany).not.toHaveBeenCalled();
   });
 
   it.each(["write", "rename"])("rejects %s into a recycled directory before changing the backing file or index", async (action) => {
@@ -282,7 +312,7 @@ describe("/api/storage/sftp-ops", () => {
       action, nodeId: "node_1", path: action === "write" ? target : "live.txt", newPath: target, content: "v2",
     }));
     expect(response.status).toBe(409);
-    expect(prismaMock.fileEntry.upsert).not.toHaveBeenCalled();
+    expect(prismaMock.fileEntry.create).not.toHaveBeenCalled();
     expect(prismaMock.fileEntry.updateMany).not.toHaveBeenCalled();
     expect(writeRemoteFileMock).not.toHaveBeenCalled();
     expect(renameRemoteFileMock).not.toHaveBeenCalled();
@@ -302,7 +332,7 @@ describe("/api/storage/sftp-ops", () => {
     });
     const response = await POST(request({ nodeId: "node_1", action: "write", path: "notes.txt", content: "v2" }));
     expect(response.status).toBe(409);
-    expect(prismaMock.fileEntry.upsert).not.toHaveBeenCalled();
+    expect(prismaMock.fileEntry.create).not.toHaveBeenCalled();
     expect(deleteRemoteFileMock).not.toHaveBeenCalled();
   });
 
@@ -829,7 +859,7 @@ describe("/api/storage/sftp-ops", () => {
 
       expect(response.status).toBe(409);
       expect(writeRemoteFileMock).not.toHaveBeenCalled();
-      expect(prismaMock.fileEntry.upsert).not.toHaveBeenCalled();
+      expect(prismaMock.fileEntry.create).not.toHaveBeenCalled();
     });
 
     it("allows the write when the token still matches", async () => {
@@ -839,7 +869,7 @@ describe("/api/storage/sftp-ops", () => {
       assertStorageAccessMock.mockResolvedValue({ allowed: true });
       mockSftpNode();
       prismaMock.fileEntry.findFirst.mockResolvedValueOnce(null).mockResolvedValueOnce({ id: "fe_1" });
-      prismaMock.fileEntry.upsert.mockResolvedValue({ id: "fe_1" });
+      prismaMock.fileEntry.create.mockResolvedValue({ id: "fe_1" });
       statRemoteEntryMock.mockResolvedValue({ size: 20, type: "file", modifyTime: 5_000, accessTime: 0, mode: 0 });
 
       const response = await POST(
@@ -863,7 +893,7 @@ describe("/api/storage/sftp-ops", () => {
       assertStorageAccessMock.mockResolvedValue({ allowed: true });
       mockSftpNode();
       prismaMock.fileEntry.findFirst.mockResolvedValueOnce(null).mockResolvedValueOnce({ id: "fe_1" });
-      prismaMock.fileEntry.upsert.mockResolvedValue({ id: "fe_1" });
+      prismaMock.fileEntry.create.mockResolvedValue({ id: "fe_1" });
       statRemoteEntryMock.mockResolvedValue({ size: 20, type: "file", modifyTime: 5_400, accessTime: 0, mode: 0 });
 
       const response = await POST(
@@ -888,7 +918,7 @@ describe("/api/storage/sftp-ops", () => {
       assertStorageAccessMock.mockResolvedValue({ allowed: true });
       mockSftpNode();
       prismaMock.fileEntry.findFirst.mockResolvedValueOnce(null).mockResolvedValueOnce({ id: "fe_1" });
-      prismaMock.fileEntry.upsert.mockResolvedValue({ id: "fe_1" });
+      prismaMock.fileEntry.create.mockResolvedValue({ id: "fe_1" });
       statRemoteEntryMock.mockResolvedValue({ size: 20, type: "file", modifyTime: 9_999, accessTime: 0, mode: 0 });
 
       const response = await POST(
@@ -907,7 +937,7 @@ describe("/api/storage/sftp-ops", () => {
       assertStorageAccessMock.mockResolvedValue({ allowed: true });
       mockSftpNode();
       prismaMock.fileEntry.findFirst.mockResolvedValue(null);
-      prismaMock.fileEntry.upsert.mockResolvedValue({ id: "fe_new" });
+      prismaMock.fileEntry.create.mockResolvedValue({ id: "fe_new" });
       statRemoteEntryMock.mockRejectedValue(Object.assign(new Error("No such file"), { code: 2 }));
 
       const response = await POST(
@@ -933,7 +963,7 @@ describe("/api/storage/sftp-ops", () => {
       assertStorageAccessMock.mockResolvedValue({ allowed: true });
       mockSftpNode();
       prismaMock.fileEntry.findFirst.mockResolvedValueOnce(null).mockResolvedValueOnce({ id: "fe_1" });
-      prismaMock.fileEntry.upsert.mockResolvedValue({ id: "fe_1" });
+      prismaMock.fileEntry.create.mockResolvedValue({ id: "fe_1" });
       statRemoteEntryMock
         .mockResolvedValueOnce({ size: 20, type: "file", modifyTime: 5_000, accessTime: 0, mode: 0 })
         .mockResolvedValueOnce({ size: 7, type: "file", modifyTime: 7_777, accessTime: 0, mode: 0 });

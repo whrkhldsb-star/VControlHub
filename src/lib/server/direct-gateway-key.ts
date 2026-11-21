@@ -16,17 +16,35 @@ import { createHmac } from "node:crypto";
  */
 export const DIRECT_GATEWAY_KEY_SHARED = 1;
 export const DIRECT_GATEWAY_KEY_PER_SERVER = 2;
+// First generation installed with a Windows-specific key derivation domain.
+export const DIRECT_GATEWAY_KEY_WINDOWS = 3;
 
-export function deriveDirectGatewayServerKey(secret: string, serverId: string): string {
+export function firstDirectGatewayKeyVersion(operatingSystem?: string) {
+  return operatingSystem === "WINDOWS" ? DIRECT_GATEWAY_KEY_WINDOWS : DIRECT_GATEWAY_KEY_PER_SERVER;
+}
+
+// These generations were installed before uninstallers verified remote shutdown.
+export function needsLegacyGatewayStop(server: { operatingSystem?: string; directGatewayKeyVersion?: number }) {
+  const version = server.directGatewayKeyVersion ?? DIRECT_GATEWAY_KEY_SHARED;
+  return version >= DIRECT_GATEWAY_KEY_PER_SERVER && version <= firstDirectGatewayKeyVersion(server.operatingSystem);
+}
+
+export function deriveDirectGatewayServerKey(
+  secret: string,
+  serverId: string,
+  keyVersion = DIRECT_GATEWAY_KEY_PER_SERVER,
+  operatingSystem = "LINUX",
+): string {
   if (!secret) throw new Error("Direct gateway secret is required");
   if (!serverId) throw new Error("Server id is required to derive a direct gateway key");
-  return createHmac("sha256", secret).update(`vcontrolhub-direct-gateway:v2:${serverId}`).digest("hex");
+  const domain = operatingSystem === "WINDOWS" ? `v${keyVersion}:windows` : `v${keyVersion}`;
+  return createHmac("sha256", secret).update(`vcontrolhub-direct-gateway:${domain}:${serverId}`).digest("hex");
 }
 
 /** The key the hub signs links for this gateway with: its own key, or the shared secret of an older install. */
-export function directGatewaySigningKey(secret: string, gateway: { serverId: string | null; keyVersion: number }): string {
+export function directGatewaySigningKey(secret: string, gateway: { serverId: string | null; keyVersion: number; operatingSystem?: string }): string {
   if (gateway.keyVersion >= DIRECT_GATEWAY_KEY_PER_SERVER && gateway.serverId) {
-    return deriveDirectGatewayServerKey(secret, gateway.serverId);
+    return deriveDirectGatewayServerKey(secret, gateway.serverId, gateway.keyVersion, gateway.operatingSystem);
   }
   return secret;
 }

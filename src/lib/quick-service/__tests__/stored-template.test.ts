@@ -61,6 +61,14 @@ describe("redactSnapshotForAudit", () => {
 });
 
 describe("writeQuickServiceAudit customer", () => {
+	it("records the customer that authorized the operation even if the target has since moved", async () => {
+		const { writeQuickServiceAudit } = await import("../service-internals");
+		serverFindUnique.mockClear();
+		await writeQuickServiceAudit({ target: { kind: "remote", serverId: "srv-1", expectedTeamId: "team-before" }, action: "update", slug: "minio", status: "failed" });
+		expect(serverFindUnique).not.toHaveBeenCalled();
+		expect(writeAuditLogMock).toHaveBeenLastCalledWith(expect.objectContaining({ teamId: "team-before" }));
+	});
+
 	it("stamps an entry about a service on a customer's server with that customer, and leaves hub-host entries to the platform", async () => {
 		const { writeQuickServiceAudit } = await import("../service-internals");
 		serverFindUnique.mockResolvedValueOnce({ teamId: "team-9" });

@@ -9,11 +9,15 @@ import { apiCopy } from "@/lib/i18n/api-copy";
 import type { Prisma } from "@prisma/client";
 import posixPath from "node:path/posix";
 
+import { escapeLikeLiteral } from "@/lib/db/like-pattern";
 import { prisma } from "@/lib/db";
 import { getPermissionsFromRoles, type Permission } from "@/lib/auth/rbac";
 import { serverTeamWhere, syncJobTeamWhere, teamCreateData } from "@/lib/auth/team-scope";
 import type { SessionPayload } from "@/lib/auth/session";
 import { ForbiddenError, NotFoundError, ValidationError } from "@/lib/errors";
+import { assertNotRecycled } from "@/lib/storage/archive-access";
+import { resolveStorageRemotePath } from "@/lib/storage/remote-containment";
+import { STORAGE_SSH_SERVER_SELECT, resolveStorageSshCredentials } from "@/lib/storage/ssh-credentials";
 import { assertStorageAccess } from "@/lib/storage/access-control";
 import { storageAccessDeniedCopy } from "@/lib/storage/access-denied";
 import { storageNodeTeamWhere } from "@/lib/auth/team-scope";
@@ -84,31 +88,75 @@ export function syncPathWithinRoot(path: string, root: string): boolean {
  * `storage:write` already lets it read and write through the file pages; a server without a storage node has no such
  * root to confine it to.
  */
+type SyncReachEndpoint = {
+	serverId: string;
+	path: string;
+	unmeteredTreeWrite?: boolean;
+	operations?: Array<"read" | "write" | "delete">;
+	/** Snapshot the runner will actually use for rsync and for credential cleanup. */
+	server?: { host: string; port: number; username: string; hostKeySha256: string | null };
+};
+
+async function assertSyncTreeAvailable(storageNodeId: string, relativePath: string, write: boolean) {
+	await assertNotRecycled(storageNodeId, relativePath, write ? "write" : "read");
+	const deleted = await prisma.fileEntry.findFirst({
+		where: { storageNodeId, isDeleted: true,
+			...(relativePath ? { relativePath: { startsWith: escapeLikeLiteral(`${relativePath}/`) } } : {}) },
+		select: { id: true },
+	});
+	if (deleted) throw new ForbiddenError(t("backend.webdav.destinationHeldByRecycleBin", { path: `/${relativePath}` }));
+}
+
+/** Return the canonical paths used by a storage-confined transfer, in endpoint order. */
 export async function assertSyncEndpointsWithinReach(
-	endpoints: Array<{ serverId: string; path: string; unmeteredTreeWrite?: boolean; operations?: Array<"read" | "write" | "delete"> }>,
+	endpoints: SyncReachEndpoint[],
 	session: SyncSessionScope | null | undefined,
-): Promise<void> {
+): Promise<Awaited<ReturnType<typeof resolveStorageRemotePath>>[] | undefined> {
 	if (!session) return;
 	const permissions = session.permissions ?? getPermissionsFromRoles(session.roles);
-	if (permissions.includes("server:ssh")) return;
+	const confined = !permissions.includes("server:ssh");
 	const nodes = await prisma.storageNode.findMany({
-		where: { serverId: { in: Array.from(new Set(endpoints.map((endpoint) => endpoint.serverId))) }, ...storageNodeTeamWhere(session) },
-		select: { id: true, serverId: true, basePath: true },
+		where: { driver: "SFTP", serverId: { in: Array.from(new Set(endpoints.map((endpoint) => endpoint.serverId))) }, ...storageNodeTeamWhere(session) },
+		select: { id: true, serverId: true, basePath: true, teamId: true, host: true, port: true, username: true, hostKeySha256: true,
+			server: { select: STORAGE_SSH_SERVER_SELECT } },
 	});
+	const paths: Awaited<ReturnType<typeof resolveStorageRemotePath>>[] = [];
 	for (const endpoint of endpoints) {
-		const node = nodes.find((node) => node.serverId === endpoint.serverId && syncPathWithinRoot(endpoint.path, expandStorageBasePath(node.basePath)));
-		if (!node) {
-			const other = nodes.find((node) => node.serverId === endpoint.serverId);
-			throw new ForbiddenError(other
-				? t("backend.sync.endpointOutsideStorageRoot", { path: endpoint.path, root: expandStorageBasePath(other.basePath) })
+		const node = nodes.find(node => node.serverId === endpoint.serverId);
+		const root = node && expandStorageBasePath(node.basePath);
+		const inside = root && syncPathWithinRoot(endpoint.path, root);
+		if (confined && !inside) {
+			throw new ForbiddenError(root
+				? t("backend.sync.endpointOutsideStorageRoot", { path: endpoint.path, root })
 				: t("backend.sync.endpointNeedsSshPermission", { path: endpoint.path }));
 		}
-		const relativePath = posixPath.relative(expandStorageBasePath(node.basePath), posixPath.normalize(endpoint.path));
-		for (const operation of endpoint.operations ?? ["read", "write"]) {
-			const access = await assertStorageAccess({ session: { ...session, username: "", mustChangePassword: false }, storageNodeId: node.id, relativePath, operation, ...(endpoint.unmeteredTreeWrite ? { unmeteredTreeWrite: true } : {}) });
-			if (!access.allowed) throw new ForbiddenError(storageAccessDeniedCopy(access.reason));
+		if (!node || !root) continue;
+		const operations = endpoint.operations ?? ["read", "write"] as const;
+		const relativePath = inside ? posixPath.relative(root, posixPath.normalize(endpoint.path)) : "";
+		if (confined) {
+			for (const operation of operations) {
+				const access = await assertStorageAccess({ session: { ...session, username: "", mustChangePassword: false }, storageNodeId: node.id, relativePath, operation, ...(endpoint.unmeteredTreeWrite ? { unmeteredTreeWrite: true } : {}) });
+				if (!access.allowed) throw new ForbiddenError(storageAccessDeniedCopy(access.reason));
+			}
+		}
+		// A shell-capable caller can name a parent of an indexed root, which includes its whole recycle bin.
+		if (inside || syncPathWithinRoot(root, endpoint.path)) {
+			await assertSyncTreeAvailable(node.id, relativePath, operations.some(operation => operation !== "read"));
+		}
+		if (confined) {
+			const credentials = resolveStorageSshCredentials(node);
+			const server = endpoint.server ?? node.server;
+			// Sync opens a server-to-server shell and reclaims secrets through the server records. A node
+			// with an independent SSH endpoint cannot safely use that transport.
+			if (!server || credentials.host !== server.host || credentials.port !== server.port ||
+				credentials.username !== server.username || (credentials.hostKeySha256 ?? null) !== server.hostKeySha256) {
+				throw new ForbiddenError(t("backend.command.connectionChanged"));
+			}
+			if (node.server?.operatingSystem !== "LINUX") throw new ForbiddenError(t("backend.server.linuxOnly"));
+			paths.push(await resolveStorageRemotePath({ ...node, basePath: root }, relativePath, { allowRoot: true, credentials }));
 		}
 	}
+	return confined ? paths : undefined;
 }
 
 /** A job that deletes what the source lacks may not target a system directory. */

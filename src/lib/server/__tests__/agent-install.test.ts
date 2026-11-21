@@ -59,6 +59,7 @@ describe("Linux Agent install over SSH", () => {
     expect(command).toContain("The Agent needs systemd");
     // `enable --now` left an installed Agent running with its revoked token.
     expect(command).toContain("systemctl restart vcontrolhub-agent.service");
+    expect(command).toContain("Restart=on-failure");
     expect(command).not.toContain("enable --now");
     expect(mocks.execRemoteCommand.mock.invocationCallOrder[0]!).toBeLessThan(mocks.serverUpdate.mock.invocationCallOrder[0]!);
     expect(mocks.serverUpdate.mock.calls[0]![0].data.agentTokenHash).toEqual(expect.any(String));

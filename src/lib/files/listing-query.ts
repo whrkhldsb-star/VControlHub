@@ -1,3 +1,4 @@
+import { storageStagingPathRegex } from "@/lib/storage/staging-paths";
 import { escapeLikeLiteral } from "@/lib/db/like-pattern";
 import { Prisma } from "@prisma/client";
 import { prisma } from "@/lib/db";
@@ -55,6 +56,7 @@ export async function queryFileListing(input: {
         substring("relativePath" from length(${prefix}::text) + 1) AS remainder
       FROM file_entries
       WHERE "storageNodeId" IN (${Prisma.join(input.nodeIds)}) AND "isDeleted" = false AND ${readableStorageScopeSql(input.readable)}
+        AND "relativePath" !~ ${storageStagingPathRegex}
         AND starts_with("relativePath", ${prefix}) AND "relativePath" <> ${input.path}
     ), directory_paths AS (${directoryPaths}), indexed_directories AS MATERIALIZED (
       SELECT * FROM entries WHERE directory
@@ -127,6 +129,7 @@ export async function queryFolderCounts(
         FROM file_entries
         WHERE "storageNodeId" = ${storageNodeId} AND NOT "isDeleted" AND "relativePath" <> ''
           AND ${readableStorageScopeSql(readable)}
+          AND "relativePath" !~ ${storageStagingPathRegex}
       ) e
     `);
     counts.set(`${storageNodeId}:`, { fileCount: Number(row?.fileCount ?? 0), folderCount: Number(row?.folderCount ?? 0) });
@@ -147,6 +150,7 @@ export async function queryFolderCounts(
           AND ${group.parent ? Prisma.sql`"relativePath" LIKE ${`${escapeLikeLiteral(group.parent)}/%`} ESCAPE '\\'` : Prisma.sql`TRUE`}
           AND cardinality(string_to_array("relativePath", '/')) > ${depth + 1}
           AND ${readableStorageScopeSql(readable)}
+          AND "relativePath" !~ ${storageStagingPathRegex}
       ) e
       WHERE e.child IN (${Prisma.join([...group.children])})
       GROUP BY e.child

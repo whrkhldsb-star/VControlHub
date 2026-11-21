@@ -75,7 +75,7 @@ function formatRestoreStepsAsShell(projectRoot: string, steps: BackupRestoreStep
 	return `${prefix}cd ${shellQuote(projectRoot)} && ${parts.join(" && ")}`;
 }
 
-export function buildPortableBackupCommand(input: { projectRoot: string; outputPath: string; type?: BackupType }) {
+export function buildPortableBackupCommand(input: { projectRoot: string; outputPath: string; type?: BackupType; restoreSnapshot?: boolean }) {
 	const outputPath = assertPortableBackupPath(input.outputPath);
 	const modeFlag = input.type === "FILES" ? " --files" : input.type === "FULL" ? " --full" : "";
 	const { file, script } = backupRunnerSpec();
@@ -83,7 +83,7 @@ export function buildPortableBackupCommand(input: { projectRoot: string; outputP
 	// Absolute, under BACKUP_DIR (A9-04): a relative path is resolved by
 	// scripts/backup.mjs against the app directory, which is not where the
 	// application lists, retains or uploads backups from.
-	return `cd ${shellQuote(input.projectRoot)} && ${quotedScript}${modeFlag} ${shellQuote(join(getBackupStorageRoot(input.projectRoot), outputPath))}`;
+	return `cd ${shellQuote(input.projectRoot)} && ${quotedScript}${modeFlag}${input.restoreSnapshot ? " --restore-snapshot" : ""} ${shellQuote(join(getBackupStorageRoot(input.projectRoot), outputPath))}`;
 }
 
 export function buildBackupRestoreCommand(input: {

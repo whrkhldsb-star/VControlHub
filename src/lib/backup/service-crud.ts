@@ -7,6 +7,7 @@ import { apiCopy } from "@/lib/i18n/api-copy";
  * and `prepareBackupRecordRetry` are the user-facing lifecycle transitions
  * (mark-as-void, queue-for-retry) that compose the CRUD primitives.
  */
+import { Prisma } from "@prisma/client";
 import { failStaleBackupRecords } from "./stale-records";
 import { prisma } from "@/lib/db";
 import { teamWhere } from "@/lib/auth/team-scope";
@@ -38,6 +39,36 @@ export async function createBackupRecord(
 			note: input.note?.trim() || undefined,
 		},
 	});
+}
+
+/** Platform backups contain every customer. Only a current platform administrator can create one. */
+export async function canCreatePlatformBackup(userId: string, client: Pick<typeof prisma, "user"> = prisma) {
+	return (await client.user.count({
+		where: {
+			id: userId, status: "ACTIVE", mustChangePassword: false, teamMembership: null,
+			roles: { some: { role: { key: "admin" } } },
+		},
+	})) === 1;
+}
+
+const foldBackupPathCase = process.platform === "win32" || process.platform === "darwin";
+
+/** Match the surrounding whitespace stripped by assertPortableBackupPath, also
+ * folding case on hosts that commonly use case-insensitive filesystems. */
+export function backupArtifactKey(filePath: string) {
+	const portable = assertPortableBackupPath(filePath);
+	return foldBackupPathCase ? portable.toLowerCase() : portable;
+}
+
+export async function hasBackupArtifactReference(tx: Prisma.TransactionClient, artifactKey: string) {
+	// PostgreSQL btrim defaults to ASCII space. Supply the ECMAScript trim characters.
+	const whitespace = " \t\n\r\v\f\u00a0\u1680\u2000\u2001\u2002\u2003\u2004\u2005\u2006\u2007\u2008\u2009\u200a\u2028\u2029\u202f\u205f\u3000\ufeff";
+	const trimmed = Prisma.sql`btrim("filePath", ${whitespace})`;
+	const path = foldBackupPathCase ? Prisma.sql`lower(${trimmed})` : trimmed;
+	const [row] = await tx.$queryRaw<{ used: boolean }[]>`
+		SELECT EXISTS (SELECT FROM backup_records WHERE ${path} = ${artifactKey}) AS used
+	`;
+	return row!.used;
 }
 
 export async function listBackupRecords(session?: Pick<SessionPayload, "userId" | "roles" | "currentTeamId">, take = 500) {
@@ -113,7 +144,7 @@ export async function prepareBackupRecordRetry(input: { id: string; session?: Pi
 	assertPortableBackupPath(record.filePath);
 	// CAS: only re-queue while still FAILED.
 	const claimed = await prisma.backupRecord.updateMany({
-		where: { id: record.id, status: "FAILED" },
+		where: { id: record.id, status: "FAILED", updatedAt: record.updatedAt },
 		data: { status: "PENDING", errorMessage: null },
 	});
 	if (claimed.count === 0) {

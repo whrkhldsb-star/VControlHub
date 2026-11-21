@@ -160,7 +160,18 @@ describe("searchFileContents", () => {
 		}
 	});
 
-	it("fetches SFTP snippets in ONE batched remote command", async () => {
+	it("rejects an ambiguous SFTP search root before authorization or traversal", async () => {
+		findManyMock.mockResolvedValue([{ id: "node-sftp", name: "remote", driver: "SFTP", basePath: "/data" }]);
+		const result = await searchFileContents({
+			query: "needle", searchPath: "projects\\docs",
+			session: { userId: "user", roles: ["operator"], currentTeamId: "team" },
+		});
+		expect(result.results).toEqual([]);
+		expect(accessMock).not.toHaveBeenCalled();
+		expect(findUniqueMock).not.toHaveBeenCalled();
+	});
+
+	it("authorizes a canonical search root and batches only its losslessly representable SFTP matches", async () => {
 		findManyMock.mockResolvedValue([
 			{ teamId: "team-a", id: "node-sftp", name: "remote", driver: "SFTP", basePath: "/srv/data" },
 		]);
@@ -187,22 +198,30 @@ describe("searchFileContents", () => {
 		vi.mocked(execRemoteCommand)
 			.mockResolvedValueOnce({
 				exitCode: 0,
-				stdout: "/srv/data/a.txt\n/srv/data/b.txt\n",
+				stdout: Buffer.from([
+					"/srv/data/docs/a.txt", "/srv/data/docs/a.txt:b.txt", "/srv/data/docs-extra/c.txt",
+					"/srv/data/docs/old\\copy.txt", "",
+				].join("\0")).toString("base64"),
 				stderr: "",
 			})
 			.mockResolvedValueOnce({
 				exitCode: 0,
-				stdout: "/srv/data/a.txt:3:match alpha\n/srv/data/b.txt:7:match beta\n",
+				stdout: Buffer.from("/srv/data/docs/a.txt\x003:match alpha\n/srv/data/docs/a.txt:b.txt\x007:match beta\n").toString("base64"),
 				stderr: "",
 			});
 
 		const result = await searchFileContents({
 			query: "match",
 			nodeId: "node-sftp",
+			searchPath: "/docs//",
 			session: { userId: "u1", roles: ["operator"], currentTeamId: "team-a" },
 		});
 
 		expect(result.results).toHaveLength(2);
+		expect(accessMock).toHaveBeenCalledWith(expect.objectContaining({ relativePath: "docs" }));
+		expect(vi.mocked(execRemoteCommand).mock.calls[0]![0].command).toContain("cd -P -- '/srv/data/docs'");
+		expect(result.results.map((row) => row.relativePath)).toEqual(["docs/a.txt", "docs/a.txt:b.txt"]);
+		expect(result.results[0]!.snippets).toHaveLength(1);
 		expect(result.results[0]!.snippets[0]).toContain("match alpha");
 		expect(result.results[1]!.snippets[0]).toContain("match beta");
 		// One exec for the grep -l sweep plus ONE for the whole snippet batch —
@@ -212,8 +231,15 @@ describe("searchFileContents", () => {
 			vi.mocked(execRemoteCommand).mock.calls[1]![0] as { command: string }
 		).command;
 		expect(snippetCommand).toContain("grep -HnIF");
-		expect(snippetCommand).toContain("/srv/data/a.txt");
-		expect(snippetCommand).toContain("/srv/data/b.txt");
+		expect(snippetCommand).toContain("/srv/data/docs/a.txt");
+		expect(snippetCommand).toContain("/srv/data/docs/a.txt:b.txt");
+		expect(snippetCommand).not.toContain("copy.txt");
+		expect(snippetCommand).not.toContain("docs-extra");
+
+		const fullPage = "/srv/data/docs/old\\copy.txt\0".repeat(101);
+		vi.mocked(execRemoteCommand).mockResolvedValueOnce({ exitCode: 0, stdout: Buffer.from(fullPage).toString("base64"), stderr: "" });
+		expect(await searchFileContents({ query: "match", searchPath: "docs" })).toMatchObject({ results: [], truncated: true });
+		expect(execRemoteCommand).toHaveBeenCalledTimes(3);
 	});
 
 	it("connects to an SFTP node the way file operations do: its own endpoint and the server's key", async () => {

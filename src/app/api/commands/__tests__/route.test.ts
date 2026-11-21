@@ -53,6 +53,7 @@ describe("/api/commands audit coverage", () => {
     mocks.createCommandRequest.mockResolvedValue({
       id: "cmd1",
       title: "Restart nginx",
+      workerId: "private-worker", idempotencyKey: "private-key",
       command: "systemctl restart nginx",
       reason: "routine maintenance",
       status: "PENDING_APPROVAL",
@@ -107,6 +108,10 @@ describe("/api/commands audit coverage", () => {
     }));
 
     expect(response.status).toBe(201);
+    const receipt = (await response.json()).command;
+    expect(receipt).toMatchObject({ id: "cmd1", requiresApproval: true });
+    expect(receipt).not.toHaveProperty("workerId");
+    expect(receipt).not.toHaveProperty("idempotencyKey");
     expect(mocks.auditUserAction).toHaveBeenCalledWith("u1", "command.submit", {
       commandRequestId: "cmd1",
       title: "Restart nginx",
@@ -136,6 +141,7 @@ describe("/api/commands audit coverage", () => {
         serverIds: ["srv1", "srv2"],
       }),
       expect.objectContaining({ userId: "u1" }),
+      "api",
     );
     expect(mocks.auditUserAction).toHaveBeenCalledWith("u1", "command.submit", expect.objectContaining({
       targetCount: 2,
@@ -179,6 +185,7 @@ describe("/api/commands audit coverage", () => {
     expect(mocks.createCommandRequest).toHaveBeenCalledWith(
       expect.objectContaining({ submissionMode: "user", approvalRequired: true }),
       expect.objectContaining({ userId: "u1" }),
+      "api",
     );
   });
 
@@ -200,6 +207,7 @@ describe("/api/commands audit coverage", () => {
     expect(mocks.createCommandRequest).toHaveBeenCalledWith(
       expect.objectContaining({ submissionMode: "assistant" }),
       expect.objectContaining({ userId: "u1" }),
+      "api",
     );
   });
 

@@ -254,11 +254,12 @@ async function fetchLinuxServer(url: string, sourceName: string): Promise<Normal
 			const ports = lsioTcpPorts(img);
 			const primaryPort = ports[0]!;
 			const extraPorts = ports.slice(1);
+			const slug = `${prefix}-${sourceSlug(img.name)}`;
 			const volumes = (img.config?.volumes ?? [])
 				.filter((volume) => volume.path?.startsWith("/"))
-				.map((volume) => ({ host: `/opt/${img.name}${volume.path}`, container: volume.path }));
+				.map((volume) => ({ host: `/opt/${slug}${volume.path}`, container: volume.path }));
 			return {
-				slug: `${prefix}-${sourceSlug(img.name)}`,
+				slug,
 				name: img.name
 					.replace(/-/g, " ")
 					.replace(/\b\w/g, (c) => c.toUpperCase()),
@@ -312,7 +313,7 @@ async function fetchGenericJSON(url: string, sourceName: string): Promise<Normal
 		if (!item || typeof item !== "object") continue;
 		const row = item as Record<string, unknown>;
 		if (typeof row.name !== "string" || typeof row.image !== "string") continue;
-		const slug = sourceSlug(typeof row.slug === "string" ? row.slug : row.name);
+		const slug = `${prefix}-${sourceSlug(typeof row.slug === "string" ? row.slug : row.name)}`;
 		// Shapes are checked here, not trusted (A6-03): a volume entry must be
 		// {host, container} strings with the host under the service's own data
 		// directory; anything else is rewritten to /opt/<slug>/… as the LinuxServer
@@ -335,7 +336,7 @@ async function fetchGenericJSON(url: string, sourceName: string): Promise<Normal
 		);
 		const tcpPort = (value: unknown) => (typeof value === "number" && Number.isInteger(value) && value >= 1 && value <= 65_535 ? value : undefined);
 		apps.push({
-			slug: `${prefix}-${slug}`,
+			slug,
 			name: typeof row.displayName === "string" ? row.displayName : row.name,
 			category: mapCategory(typeof row.category === "string" ? row.category : "other"),
 			icon: typeof row.icon === "string" ? row.icon : CATEGORY_ICONS[mapCategory(typeof row.category === "string" ? row.category : "other")] || "📦",

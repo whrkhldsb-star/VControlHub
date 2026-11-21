@@ -1,4 +1,5 @@
 // @vitest-environment node
+import { createHash } from "node:crypto";
 import { execFile } from "node:child_process";
 import { chmod, chown, mkdtemp, mkdir, readFile, readdir, rm, stat, symlink, utimes, writeFile } from "node:fs/promises";
 import os from "node:os";
@@ -14,6 +15,16 @@ import { installFakeRestoreTools } from "./helpers/fake-restore-tools";
 const runFile = promisify(execFile);
 const runner = path.resolve("scripts/backup.mjs");
 const common = path.resolve("scripts/lib/backup-common.mjs");
+function storageDump(rows = "", versions = "") {
+  return [
+    'COPY public."StorageNode" (id, driver, "basePath") FROM stdin;',
+    "local\tLOCAL\tstorage", "\\.",
+    'COPY public.file_entries ("storageNodeId", "relativePath", "entryType", "isDeleted", "deleteBatchId", size, "checksumSha256") FROM stdin;',
+    ...(rows ? [rows] : []), "\\.",
+    'COPY public.file_versions ("blobRelativePath", "sizeBytes", "checksumSha256") FROM stdin;',
+    ...(versions ? [versions] : []), "\\.", "-- PostgreSQL database dump complete", "",
+  ].join("\n");
+}
 
 describe.skipIf(process.platform === "win32")("backup runner recovery guarantees", () => {
   let tmp: string;
@@ -33,12 +44,13 @@ describe.skipIf(process.platform === "win32")("backup runner recovery guarantees
     await writeFile(path.join(app, "storage", "local.txt"), "local fixture");
     await writeFile(path.join(app, ".env.local"), "DATABASE_URL=postgresql://test:secret%21@127.0.0.1/fixture\n");
     env = { ...process.env, APP_DIR: app, ENV_FILE: path.join(app, ".env.local"), APP_NAME: "fixture", BACKUP_DIR: backups, BACKUP_RETENTION_DAYS: "30", PATH: `${bin}${path.delimiter}${process.env.PATH}` };
+    delete env.DATABASE_URL;
     delete env.BACKUP_EXTRA_PATHS_JSON;
     // Never this host's real history directory.
     env.FILE_VERSION_DIR = path.join(tmp, "no-file-versions");
     delete env.BACKUP_INCLUDE_ENV;
     delete env.BACKUP_MAX_BYTES;
-    await fakeDump("process.stdout.write('SELECT 1;\\n');");
+    await fakeDump(`process.stdout.write(${JSON.stringify(storageDump())});`);
   });
 
   afterEach(async () => { await rm(tmp, { recursive: true, force: true }); });
@@ -70,6 +82,17 @@ process.exit(result.status ?? 2);
     await runFile(process.execPath, [runner, "--files", output], { env: withFakeTar });
     expect((await runFile("tar", ["-tzf", output])).stdout).toContain("storage/local.txt");
 
+    const fullOutput = path.join(backups, "full.tar.gz");
+    await expect(runFile(process.execPath, [runner, "--full", fullOutput], { env: withFakeTar }))
+      .rejects.toMatchObject({ stderr: expect.stringContaining("exited with code 1") });
+    await expect(stat(fullOutput)).rejects.toMatchObject({ code: "ENOENT" });
+
+    // Some tar builds leave the exit code at zero for a vanished member.
+    await fakeTar(0);
+    await expect(runFile(process.execPath, [runner, "--full", fullOutput], { env: withFakeTar }))
+      .rejects.toMatchObject({ stderr: expect.stringContaining("tar reported a packing warning") });
+    await expect(stat(fullOutput)).rejects.toMatchObject({ code: "ENOENT" });
+
     await rm(output, { force: true });
     await fakeTar(2);
     await expect(runFile(process.execPath, [runner, "--files", output], { env: withFakeTar })).rejects.toMatchObject({ stderr: expect.stringContaining("exited with code 2") });
@@ -88,7 +111,7 @@ process.exit(result.status ?? 2);
     const manifest = JSON.parse((await runFile("tar", ["-xOzf", output, "external-data.json"])).stdout);
     expect((await runFile("tar", ["-xOzf", output, `${manifest.paths[0].member}/real.txt`])).stdout).toBe("external fixture");
     const { stdout: sql } = await runFile("tar", ["-xOzf", output, "database.sql.gz"], { encoding: "buffer" });
-    expect(gunzipSync(sql).toString()).toBe("SELECT 1;\n");
+    expect(gunzipSync(sql).toString()).toBe(storageDump());
     expect((await stat(output)).mode & 0o777).toBe(0o600);
   });
 
@@ -133,6 +156,44 @@ process.exit(result.status ?? 2);
     const second = path.join(backups, "full-inside.tar.gz");
     await runFile(process.execPath, [runner, "--full", second], { env: { ...env, FILE_VERSION_DIR: inside } });
     expect((await runFile("tar", ["-xOzf", second, "file-versions/v2.blob"])).stdout).toBe("kept");
+  });
+
+  it("checks the archived bodies against the embedded dump before publishing", async () => {
+    const output = path.join(backups, "checked.tar.gz");
+    const hash = createHash("sha256").update("local fixture").digest("hex");
+    const row = (file: string, checksum = hash) => `local\t${file}\tFILE\tf\t\\N\t13\t${checksum}`;
+    for (const [rows, versions, error] of [
+      [row("lost.txt"), "", "missing 1 referenced file"],
+      [row("recycled.txt").replace("f\t\\N", "t\tbatch"), "", "missing 1 referenced file"],
+      [row("local.txt", "0".repeat(64)), "", "checksum mismatch"],
+      [row("local.txt"), "v1.blob\t13\t" + hash, "outside archive coverage"],
+    ] as const) {
+      await fakeDump(`process.stdout.write(${JSON.stringify(storageDump(rows, versions))});`);
+      await expect(runFile(process.execPath, [runner, "--full", output], { env }))
+        .rejects.toMatchObject({ stderr: expect.stringContaining(error) });
+      expect(await readdir(backups)).toEqual([]);
+    }
+    await fakeDump(`process.stdout.write(${JSON.stringify(storageDump(row("local.txt")))});`);
+    const result = await runFile(process.execPath, [runner, "--full", output], { env });
+    expect(result.stdout).toContain("Verified archive integrity against 1 database file reference");
+    expect(JSON.parse((await runFile("tar", ["-xOzf", output, "backup-integrity.json"])).stdout)).toMatchObject({
+      databaseFileReferences: "verified", tarWarningsAllowed: false,
+    });
+  });
+
+  it("takes a files-only restore snapshot of the installation environment and configured version store", async () => {
+    const versions = path.join(tmp, "target-history");
+    await mkdir(versions);
+    await writeFile(path.join(versions, "before.blob"), "original");
+    await writeFile(path.join(app, ".env.runtime"), "ENCRYPTION_KEY=original-key");
+    const output = path.join(backups, "safety.tar.gz");
+    await runFile("bash", [path.resolve("deploy/backup.sh"), "--files", "--restore-snapshot", output], {
+      env: { ...env, FILE_VERSION_DIR: versions, BACKUP_INCLUDE_ENV: "false" },
+    });
+    const manifest = JSON.parse((await runFile("tar", ["-xOzf", output, "file-versions.json"])).stdout);
+    expect((await runFile("tar", ["-xOzf", output, `${manifest.member}/before.blob`])).stdout).toBe("original");
+    expect((await runFile("tar", ["-xOzf", output, ".env.runtime"])).stdout).toBe("ENCRYPTION_KEY=original-key");
+    expect((await runFile("tar", ["-tzf", output])).stdout).not.toContain("database.sql.gz");
   });
 
   it("stores hard-linked files as files, so the backup restores", async () => {

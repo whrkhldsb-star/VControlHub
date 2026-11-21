@@ -15,6 +15,7 @@ import { promisify } from "node:util";
 
 import { BusinessError, ValidationError } from "@/lib/errors";
 import { createLogger } from "@/lib/logging";
+import type { SshEndpointIdentity } from "@/lib/ssh/server-connection-select";
 import { execRemoteCommand } from "@/lib/ssh/client";
 import { loadEnabledServerForSsh, loadEnabledServerRef } from "@/lib/ssh/server-target";
 import { acquireAdvisoryLock } from "@/lib/concurrency/advisory-lock";
@@ -146,7 +147,9 @@ export function groupComposeProjects(containers: EngineContainer[]): ComposeProj
     });
 }
 
-async function listAllContainers(serverId?: string): Promise<{
+type ComposeTarget = { serverId?: string; expectedTeamId?: string | null; expectedEndpoint?: SshEndpointIdentity };
+
+async function listAllContainers(target: ComposeTarget): Promise<{
   containers: EngineContainer[];
   scope: DockerScope;
   dockerAvailable: boolean;
@@ -155,7 +158,7 @@ async function listAllContainers(serverId?: string): Promise<{
   const { result, scope } = await dockerRequest("/containers/json?all=true", {
     unavailableData: [],
     loggerScope: "docker:compose:list",
-    serverId,
+    ...target,
   });
   if (!result.ok && result.dockerAvailable === false) {
     return {
@@ -181,13 +184,13 @@ async function listAllContainers(serverId?: string): Promise<{
   };
 }
 
-export async function listComposeProjects(serverId?: string): Promise<{
+export async function listComposeProjects(serverId?: string, expectedTeamId?: string | null, expectedEndpoint?: SshEndpointIdentity): Promise<{
   projects: ComposeProjectSummary[];
   scope: DockerScope;
   dockerAvailable: boolean;
   message?: string;
 }> {
-  const listed = await listAllContainers(serverId);
+  const listed = await listAllContainers({ serverId, expectedTeamId, expectedEndpoint });
   return {
     projects: groupComposeProjects(listed.containers),
     scope: listed.scope,
@@ -196,11 +199,11 @@ export async function listComposeProjects(serverId?: string): Promise<{
   };
 }
 
-async function resolveScope(serverId?: string): Promise<DockerScope> {
+async function resolveScope({ serverId, expectedTeamId, expectedEndpoint }: ComposeTarget): Promise<DockerScope> {
   if (!serverId) return hubHostDockerScope;
   // Unified loader errors (typed, canonical copy) without decrypting creds:
   // the scope descriptor only needs id + name.
-  const { server } = await loadEnabledServerRef(serverId);
+  const { server } = await loadEnabledServerRef(serverId, expectedTeamId, expectedEndpoint);
   return remoteVpsDockerScope(server.id, server.name);
 }
 
@@ -237,9 +240,11 @@ async function runRemoteDockerCommand(
   serverId: string,
   command: string,
   timeoutMs: number,
+  expectedTeamId?: string | null,
+  expectedEndpoint?: SshEndpointIdentity,
 ): Promise<{ stdout: string; stderr: string; exitCode: number }> {
   // Unified SSH-target loader (typed not-found/disabled errors).
-  const { ssh } = await loadEnabledServerForSsh(serverId);
+  const { ssh } = await loadEnabledServerForSsh(serverId, expectedTeamId, expectedEndpoint);
   const result = await execRemoteCommand({
     ...ssh,
     preferAgent: true,
@@ -305,14 +310,15 @@ function buildComposeCliArgs(
 async function tryComposeCli(
   project: string,
   action: ComposeProjectAction,
-  serverId: string | undefined,
+  target: ComposeTarget,
   options: { removeVolumes?: boolean; workingDir?: string | null; configFiles?: string | null },
 ): Promise<{ ok: boolean; stdout: string; stderr: string; mode: "compose-cli" }> {
+  const { serverId, expectedTeamId, expectedEndpoint } = target;
   const { argv, remoteCommand, timeoutMs } = buildComposeCliArgs(project, action, options);
   let result: Awaited<ReturnType<typeof runLocalCommand>>;
   try {
     result = serverId
-      ? await runRemoteDockerCommand(serverId, remoteCommand, timeoutMs)
+      ? await runRemoteDockerCommand(serverId, remoteCommand, timeoutMs, expectedTeamId, expectedEndpoint)
       : await runLocalCommand(argv, timeoutMs);
   } catch (error) {
     // No docker CLI on this host at all, only Engine access: as when the
@@ -391,13 +397,14 @@ export function isComposeCliFallbackError(combinedLower: string): boolean {
 async function tryEngineBulkActionViaCli(
   action: "start" | "stop" | "restart" | "remove",
   ids: string[],
-  serverId: string | undefined,
+  target: ComposeTarget,
 ): Promise<boolean> {
+  const { serverId, expectedTeamId, expectedEndpoint } = target;
   if (ids.length === 0) return true;
   const argv = ["docker", ...(action === "remove" ? ["rm", "-f"] : [action]), ...ids];
   try {
     const result = serverId
-      ? await runRemoteDockerCommand(serverId, argv.map(shellQuote).join(" "), 120_000)
+      ? await runRemoteDockerCommand(serverId, argv.map(shellQuote).join(" "), 120_000, expectedTeamId, expectedEndpoint)
       : await runLocalCommand(argv, 120_000);
     if (result.exitCode === 0) return true;
     logger.warn("bulk container action failed via docker CLI; falling back to per-container Engine API", {
@@ -421,9 +428,9 @@ async function tryEngineBulkActionViaCli(
 async function engineActionOnProjectContainers(
   project: string,
   action: Exclude<ComposeProjectAction, "ps" | "up" | "down"> | "start" | "stop" | "restart" | "remove",
-  serverId: string | undefined,
+  target: ComposeTarget,
 ): Promise<ComposeContainerSummary[]> {
-  const listed = await listAllContainers(serverId);
+  const listed = await listAllContainers(target);
   // requestDockerEngine resolves missing socket as ok:true + dockerAvailable:false for list UX.
   // Lifecycle fallback must never treat that as a successful start/stop/remove.
   if (listed.dockerAvailable === false) {
@@ -442,7 +449,7 @@ async function engineActionOnProjectContainers(
   // Single bulk CLI command per action first; per-container Engine requests
   // remain as the fallback so a partial CLI failure still surfaces per-id.
   const targetIds = targets.map((c) => c.Id).filter((id): id is string => Boolean(id));
-  if (!(await tryEngineBulkActionViaCli(action, targetIds, serverId))) {
+  if (!(await tryEngineBulkActionViaCli(action, targetIds, target))) {
     for (const c of targets) {
       const id = c.Id;
       if (!id) continue;
@@ -461,7 +468,7 @@ async function engineActionOnProjectContainers(
         method,
         unavailableData: {},
         loggerScope: "docker:compose:fallback",
-        serverId,
+        ...target,
       });
       if (result.dockerAvailable === false) {
         throw new BusinessError(
@@ -479,7 +486,7 @@ async function engineActionOnProjectContainers(
     }
   }
 
-  const after = await listAllContainers(serverId);
+  const after = await listAllContainers(target);
   return summarizeContainers(
     after.containers.filter((c) => c.Labels?.[COMPOSE_PROJECT_LABEL] === project),
   );
@@ -489,11 +496,14 @@ export async function runComposeProjectAction(input: {
   project: string;
   action: ComposeProjectAction;
   serverId?: string;
+  expectedTeamId?: string | null;
+  expectedEndpoint?: SshEndpointIdentity;
   removeVolumes?: boolean;
 }): Promise<ComposeActionResult> {
   const project = assertValidComposeProjectName(input.project);
   const action = input.action;
-  const scope = await resolveScope(input.serverId);
+  const target = { serverId: input.serverId, expectedTeamId: input.expectedTeamId, expectedEndpoint: input.expectedEndpoint };
+  const scope = await resolveScope(target);
   // Concurrent lifecycle ops on the same project (esp. down/up) race on engine state.
   // ps stays unlocked (read-only). Resource key includes server scope.
   const lockResource = `${scope.scope}:${scope.serverId ?? "local"}:${project}`;
@@ -504,7 +514,7 @@ export async function runComposeProjectAction(input: {
   try {
 
   // Snapshot labels for working dir / compose files
-  const listed = await listAllContainers(input.serverId);
+  const listed = await listAllContainers(target);
   const projectContainers = listed.containers.filter(
     (c) => c.Labels?.[COMPOSE_PROJECT_LABEL] === project,
   );
@@ -522,7 +532,7 @@ export async function runComposeProjectAction(input: {
 
   if (action === "ps") {
     // Prefer live compose ps; fall back to engine summary.
-    const cli = await tryComposeCli(project, "ps", input.serverId, { workingDir, configFiles });
+    const cli = await tryComposeCli(project, "ps", target, { workingDir, configFiles });
     if (cli.ok) {
       return {
         project,
@@ -547,13 +557,13 @@ export async function runComposeProjectAction(input: {
   }
 
   // For lifecycle mutations, try compose CLI first.
-  const cli = await tryComposeCli(project, action, input.serverId, {
+  const cli = await tryComposeCli(project, action, target, {
     removeVolumes: input.removeVolumes === true,
     workingDir,
     configFiles,
   });
   if (cli.ok) {
-    const after = await listAllContainers(input.serverId);
+    const after = await listAllContainers(target);
     const containers = summarizeContainers(
       after.containers.filter((c) => c.Labels?.[COMPOSE_PROJECT_LABEL] === project),
     );
@@ -571,7 +581,7 @@ export async function runComposeProjectAction(input: {
 
   // Fallback mapping
   if (action === "up" || action === "start") {
-    const containers = await engineActionOnProjectContainers(project, "start", input.serverId);
+    const containers = await engineActionOnProjectContainers(project, "start", target);
     return {
       project,
       action,
@@ -582,7 +592,7 @@ export async function runComposeProjectAction(input: {
     };
   }
   if (action === "stop") {
-    const containers = await engineActionOnProjectContainers(project, "stop", input.serverId);
+    const containers = await engineActionOnProjectContainers(project, "stop", target);
     return {
       project,
       action,
@@ -593,7 +603,7 @@ export async function runComposeProjectAction(input: {
     };
   }
   if (action === "restart") {
-    const containers = await engineActionOnProjectContainers(project, "restart", input.serverId);
+    const containers = await engineActionOnProjectContainers(project, "restart", target);
     return {
       project,
       action,
@@ -605,8 +615,8 @@ export async function runComposeProjectAction(input: {
   }
   if (action === "down") {
     // stop then remove containers; never delete volumes unless explicitly requested (and only via CLI path).
-    await engineActionOnProjectContainers(project, "stop", input.serverId);
-    const containers = await engineActionOnProjectContainers(project, "remove", input.serverId);
+    await engineActionOnProjectContainers(project, "stop", target);
+    const containers = await engineActionOnProjectContainers(project, "remove", target);
     return {
       project,
       action,

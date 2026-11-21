@@ -72,6 +72,8 @@ describe.skipIf(!supported)("direct download stop command (real bash/curl proces
     const command = buildDirectDownloadCommand({
       taskId: id,
       url: `http://127.0.0.1:${port}/big.bin`,
+      basePath: targetDir,
+      physicalTargetDir: targetDir,
       targetPath: targetDir,
       fileName: "big.bin",
       sourceResolution: { hostname: "127.0.0.1", address: "127.0.0.1", port: port as 80 },
@@ -134,6 +136,8 @@ describe.skipIf(!supported)("direct download stop command (real bash/curl proces
     runRemote(buildDirectDownloadCommand({
       taskId: id,
       url: `http://127.0.0.1:${port}/big.bin`,
+      basePath: targetDir,
+      physicalTargetDir: targetDir,
       targetPath: targetDir,
       fileName: "big.bin",
       sourceResolution: { hostname: "127.0.0.1", address: "127.0.0.1", port: port as 80 },

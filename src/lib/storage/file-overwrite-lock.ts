@@ -9,12 +9,16 @@ import { acquireAdvisoryLock } from "@/lib/concurrency/advisory-lock";
  * remote file edited before it was ever listed) are covered too.
  */
 export function lockStorageFileOverwrite(storageNodeId: string, relativePath: string, sourcePath?: string) {
-  if (sourcePath !== undefined) {
-    // Both names on one connection: an upload cannot replace the source between
-    // the no-clobber link and unlink, or while an index failure is rolled back.
-    return acquireAdvisoryLock("storage-editable", `${storageNodeId}:${relativePath}`, {
-      additionalResourceId: `${storageNodeId}:${sourcePath}`,
-    });
+  const ancestors = new Set<string>();
+  for (const target of sourcePath === undefined ? [relativePath] : [relativePath, sourcePath]) {
+    for (let slash = target.indexOf("/"); slash >= 0; slash = target.indexOf("/", slash + 1)) {
+      ancestors.add(`${storageNodeId}:${target.slice(0, slash)}`);
+    }
   }
-  return acquireAdvisoryLock("storage-editable", `${storageNodeId}:${relativePath}`);
+  // Sibling writes can proceed together. Taking the ancestor shared locks on
+  // this connection makes directory deletes exclusive with descendant writes.
+  return acquireAdvisoryLock("storage-editable", `${storageNodeId}:${relativePath}`, {
+    additionalResourceId: sourcePath === undefined ? undefined : `${storageNodeId}:${sourcePath}`,
+    sharedResourceIds: [...ancestors],
+  });
 }

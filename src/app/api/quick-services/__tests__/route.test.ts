@@ -19,7 +19,7 @@ const { mocks } = vi.hoisted(() => ({
     getRemoteUsedPorts: vi.fn(),
     getRemoteApps: vi.fn(),
     serverFindMany: vi.fn(async () => [] as Array<{ id: string; name: string; host: string }>),
-    serverFindUnique: vi.fn(async () => ({ id: "srv1", enabled: true, name: "vps-1" })),
+    serverFindUnique: vi.fn(),
     userServerAccessFindUnique: vi.fn(async () => null),
   },
 }));
@@ -109,6 +109,10 @@ describe("/api/quick-services routes", () => {
     mocks.enqueueQuickServiceJob.mockResolvedValue({ job: { id: "job_qs_1", status: "PENDING" }, taskId: "job:job_qs_1", reused: false });
     mocks.getRemoteApps.mockResolvedValue([]);
     mocks.serverFindMany.mockResolvedValue([]);
+    mocks.serverFindUnique.mockImplementation(async ({ where }) => ({
+      id: where.id, teamId: "team_a", host: "node.test", port: 22, username: "user", hostKeySha256: "pin",
+      managementMode: "DIRECT", agentTokenHash: null, enabled: true,
+    }));
   });
 
   it("uses docker:manage rather than broad user management for Quick Services access", async () => {
@@ -277,7 +281,7 @@ describe("/api/quick-services routes", () => {
       });
       const response = await rootRoute.GET(new Request("http://local/api/quick-services"));
       expect(response.status).toBe(200);
-      expect(mocks.listQuickServices).toHaveBeenCalledWith("hub-host");
+      expect(mocks.listQuickServices).toHaveBeenCalledWith("hub-host", null);
     });
   });
 
@@ -328,7 +332,7 @@ describe("/api/quick-services routes", () => {
 
     expect(response.status).toBe(200);
     expect(json.usedPorts).toEqual([22, 443]);
-    expect(mocks.getRemoteUsedPorts).toHaveBeenCalledWith("srv_remote");
+    expect(mocks.getRemoteUsedPorts).toHaveBeenCalledWith(expect.objectContaining({ kind: "remote", serverId: "srv_remote", expectedTeamId: "team_a", endpoint: expect.objectContaining({ host: "node.test", hostKeySha256: "pin" }) }));
     expect(mocks.getUsedPorts).not.toHaveBeenCalled();
   });
 
@@ -361,6 +365,16 @@ describe("/api/quick-services routes", () => {
 
     expect(response.status).toBe(200);
     expect(json.usedPorts).toEqual([]);
+  });
+
+  it("queues a cross-customer administrator install under the actual owner with a pinned endpoint", async () => {
+    const response = await rootRoute.POST(new Request("http://local/api/quick-services", {
+      method: "POST", headers: { "content-type": "application/json" }, body: JSON.stringify({ slug: "alist", serverId: "srv_remote" }),
+    }));
+    expect(response.status).toBe(202);
+    expect(mocks.enqueueQuickServiceJob).toHaveBeenCalledWith(expect.objectContaining({
+      teamId: "team_a", payload: expect.objectContaining({ endpointFingerprint: expect.stringMatching(/^[a-f0-9]{64}$/) }),
+    }));
   });
 
   it("queues local service installation for the authorized user", async () => {
@@ -521,7 +535,7 @@ describe("/api/quick-services routes", () => {
 
     expect(response.status).toBe(200);
     expect(await body(response)).toEqual({ port: 5244, available: true, usedBy: null });
-    expect(mocks.isRemotePortAvailable).toHaveBeenCalledWith("srv_remote", 5244);
+    expect(mocks.isRemotePortAvailable).toHaveBeenCalledWith(expect.objectContaining({ kind: "remote", serverId: "srv_remote", expectedTeamId: "team_a", endpoint: expect.objectContaining({ host: "node.test", hostKeySha256: "pin" }) }), 5244);
     expect(mocks.checkPort).not.toHaveBeenCalled();
   });
 

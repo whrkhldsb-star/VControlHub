@@ -6,6 +6,7 @@ import { pack } from "tar-stream";
 import type { SessionPayload } from "@/lib/auth/session";
 import { ValidationError } from "@/lib/errors";
 import { apiCopy } from "@/lib/i18n/api-copy";
+import { isStorageStagingPath } from "./staging-paths";
 import { assertStorageAccess } from "./access-control";
 import { createRemoteStorageClient } from "./agent-file-client";
 
@@ -35,7 +36,7 @@ export async function streamRemoteDriveArchive(
       if (!entry.name || entry.name === "." || entry.name === ".." || /[\\/\x00]/.test(entry.name) ||
           entry.relativePath !== relativePath + "/" + entry.name) throw new ValidationError(apiCopy("apiCopy.files.op.invalid"));
       const child = name + "/" + entry.name;
-      if (omitted.has(child)) continue;
+      if (omitted.has(child) || isStorageStagingPath(entry.name)) continue;
       const access = await assertStorageAccess({ session, storageNodeId: node.id, relativePath: entry.relativePath, operation: "read" });
       if (!access.allowed) continue;
       if (entry.isDirectory) await visit(entry.relativePath, child, depth + 1);

@@ -25,6 +25,7 @@ const mocks = vi.hoisted(() => ({
   releaseStorageQuotaGuard: vi.fn(),
   storageNodeFindFirst: vi.fn(),
   fileEntryFindFirst: vi.fn(),
+  indexCreate: vi.fn(),
   fileEntryUpdate: vi.fn(),
   fileEntryUpdateMany: vi.fn(),
   fileEntryFindMany: vi.fn(async (): Promise<Array<{ id: string; relativePath: string; entryType: string }>> => []),
@@ -36,7 +37,7 @@ const mocks = vi.hoisted(() => ({
   queryRaw: vi.fn(),
   transaction: vi.fn(),
   streamStorageFile: vi.fn(),
-  statBackingObject: vi.fn(async (): Promise<{ size: number; lastModifiedMs: number } | null> => null),
+  statBackingObject: vi.fn(async (): Promise<{ size: number; lastModifiedMs: number; isDirectory?: boolean } | null> => null),
   copyStorageFile: vi.fn(),
   writeStorageFileBuffer: vi.fn(),
   deleteStorageFileBuffer: vi.fn(),
@@ -52,6 +53,7 @@ const mocks = vi.hoisted(() => ({
 
 vi.mock("@/lib/storage/file-overwrite-lock", () => ({ lockStorageFileOverwrite: mocks.lockStorageFileOverwrite }));
 vi.mock("@/lib/db", () => ({
+  isUniqueViolation: (e: { code?: string }) => e.code === "P2002",
   prisma: {
     storageNode: { findFirst: mocks.storageNodeFindFirst },
     // No recycle-bin rows at the destination unless a test says otherwise.
@@ -62,6 +64,8 @@ vi.mock("@/lib/db", () => ({
           ? mocks.recycledOnPath(args.where.relativePath.in)
           : mocks.fileEntryFindFirst(args),
       findMany: mocks.fileEntryFindMany,
+      create: mocks.indexCreate,
+      updateMany: mocks.fileEntryUpdateMany,
       update: mocks.fileEntryUpdate,
       deleteMany: mocks.fileEntryDeleteMany,
     },
@@ -177,9 +181,84 @@ describe("webdav handlers", () => {
       driver: "LOCAL",
       basePath: "/srv/docs",
     });
+    mocks.snapshotFileVersionBeforeOverwrite.mockResolvedValue(undefined);
+    mocks.fileEntryDeleteMany.mockResolvedValue({ count: 1 });
+    mocks.indexCreate.mockResolvedValue({ id: "created", updatedAt: new Date(1) });
     mocks.queryRaw.mockResolvedValue([]);
     mocks.renameBackingObject.mockResolvedValue(undefined);
     mocks.deleteBackingObject.mockResolvedValue(undefined);
+  });
+
+  describe("physical destination protection", () => {
+    it.each([handleWebDavMove, handleWebDavCopy])("checks an unindexed destination under the overwrite lock for Overwrite: F", async (handler) => {
+      const ctx = context("source");
+      mocks.fileEntryFindFirst.mockImplementation(async ({ where }) => where.relativePath === "source"
+        ? { id: "s", entryType: "FILE", relativePath: "source", size: BigInt(2) } : null);
+      mocks.statBackingObject.mockResolvedValueOnce({ size: 3, lastModifiedMs: 4 });
+      await expect(handler(ctx, new Request(ctx.requestUrl, {
+        headers: { destination: "/api/webdav/n1/other", overwrite: "F" },
+      }))).rejects.toMatchObject({ status: 412 });
+      expect(mocks.statBackingObject.mock.invocationCallOrder[0]).toBeGreaterThan(mocks.lockStorageFileOverwrite.mock.invocationCallOrder[0]!);
+      expect(mocks.renameBackingObject).not.toHaveBeenCalled();
+      expect(mocks.copyStorageFile).not.toHaveBeenCalled();
+    });
+
+    it.each([
+      ["AGENT", "docs/a", "docs/%61"], ["SFTP", "dir", "dir/"], ["AGENT", "dir", "dir/sub"], ["SFTP", "dir/sub", "dir"], ["SFTP", "folder/A.txt", "folder/a.txt"],
+      ["AGENT", "Docs", "docs/child"], ["SFTP", "Docs/child", "docs"],
+    ])("refuses overlapping MOVE paths before staging on %s (%s to %s)", async (driver, source, dest) => {
+      mocks.storageNodeFindFirst.mockResolvedValue({ id: "n1", driver, basePath: "/C:/files", server: { operatingSystem: "WINDOWS" } });
+      const ctx = context(source);
+      await expect(handleWebDavMove(ctx, new Request(ctx.requestUrl, {
+        headers: { destination: "/api/webdav/n1/" + dest },
+      }))).rejects.toMatchObject({ status: 400 });
+      expect(mocks.renameBackingObject).not.toHaveBeenCalled();
+    });
+
+    it("rejects PUT to an unindexed upstream collection before indexing or publishing", async () => {
+      const ctx = context("docs");
+      mocks.fileEntryFindFirst.mockResolvedValue(null);
+      mocks.storageNodeFindFirst.mockResolvedValue({ id: "n1", driver: "WEBDAV" });
+      mocks.statBackingObject.mockResolvedValueOnce({ size: 0, lastModifiedMs: 3, isDirectory: true });
+      await expect(handleWebDavPut(ctx, new Request(ctx.requestUrl, { method: "PUT", body: "abc" }))).rejects.toMatchObject({ status: 409 });
+      expect(mocks.writeStorageFileBuffer).not.toHaveBeenCalled();
+      expect(mocks.indexCreate).not.toHaveBeenCalled();
+    });
+
+    it("rejects an unindexable MIME type before creating parents or staging bytes on the node", async () => {
+      const ctx = context("newdir/file");
+      await expect(handleWebDavPut(ctx, new Request(ctx.requestUrl, {
+        method: "PUT", body: "new", headers: { "content-type": "x".repeat(256) },
+      }))).rejects.toMatchObject({ status: 400 });
+      expect(mocks.createManagedFolder).not.toHaveBeenCalled();
+      expect(mocks.writeStorageFileBuffer).not.toHaveBeenCalled();
+    });
+
+    it("keeps the original bytes when indexing a PUT overwrite fails", async () => {
+      const ctx = context("doc");
+      mocks.fileEntryFindFirst.mockResolvedValue({ id: "f", updatedAt: new Date(1), entryType: "FILE" });
+      mocks.fileEntryUpdate.mockRejectedValueOnce(new Error("index refused"));
+      await expect(handleWebDavPut(ctx, new Request(ctx.requestUrl, { method: "PUT", body: "new" }))).rejects.toThrow("index refused");
+      expect(mocks.writeStorageFileBuffer).not.toHaveBeenCalled();
+    });
+
+    it("aborts a stale DELETE before revoking shares or dropping descendants", async () => {
+      const ctx = context("docs");
+      const changedAt = new Date(24);
+      mocks.fileEntryFindFirst.mockResolvedValue({ id: "d", entryType: "DIRECTORY", relativePath: "docs", updatedAt: changedAt });
+      mocks.fileEntryDeleteMany.mockResolvedValueOnce({ count: 0 });
+      mocks.transaction.mockImplementation(fn => fn(txClient()));
+      await expect(handleWebDavDelete(ctx)).rejects.toMatchObject({ status: 409 });
+      expect(mocks.lockStorageFileOverwrite).toHaveBeenCalledWith("n1", "docs");
+      expect(mocks.fileEntryDeleteMany).toHaveBeenCalledExactlyOnceWith({
+        where: { id: "d", updatedAt: changedAt, isDeleted: false, storageNodeId: "n1", relativePath: "docs" },
+      });
+      expect(mocks.shareLink.updateMany).not.toHaveBeenCalled();
+      expect(mocks.deleteBackingObject).not.toHaveBeenCalled();
+      expect(mocks.moveBackingObject).toHaveBeenCalledWith(expect.objectContaining({
+        oldRelativePath: expect.stringMatching(/^\.vcontrolhub-webdav-delete-.*\.staged$/), newRelativePath: "docs",
+      }));
+    });
   });
 
   describe("recycled ancestor", () => {
@@ -467,7 +546,7 @@ describe("webdav handlers", () => {
       expect(accessCalls()[0]?.operation).toBe("delete");
     });
 
-    it("deletes a directory for good: its rows in ONE statement, its links, then its version blobs", async () => {
+    it("deletes a directory for good after matching its identity, then removes descendants, links and version blobs", async () => {
       mocks.fileEntryFindFirst.mockResolvedValue({
         id: "d1",
         entryType: "DIRECTORY",
@@ -487,8 +566,13 @@ describe("webdav handlers", () => {
       // recycle-bin rows below the folder (whose bytes go too) included.
       expect(mocks.fileEntryUpdate).not.toHaveBeenCalled();
       expect(mocks.fileEntryUpdateMany).not.toHaveBeenCalled();
-      expect(mocks.fileEntryDeleteMany).toHaveBeenCalledTimes(1);
-      expect(mocks.fileEntryDeleteMany).toHaveBeenCalledWith({ where: { storageNodeId: "n1", ...atOrBelow("docs") } });
+      expect(mocks.fileEntryDeleteMany).toHaveBeenCalledTimes(2);
+      expect(mocks.fileEntryDeleteMany).toHaveBeenNthCalledWith(1, {
+        where: expect.objectContaining({ storageNodeId: "n1", id: "d1", isDeleted: false, relativePath: "docs" }),
+      });
+      expect(mocks.fileEntryDeleteMany).toHaveBeenNthCalledWith(2, {
+        where: { storageNodeId: "n1", relativePath: { startsWith: "docs/" } },
+      });
       // A link to the folder, or into it, must not serve what is put there later.
       expect(mocks.shareLink.updateMany).toHaveBeenCalledWith({
         where: { storageNodeId: "n1", revokedAt: null, OR: [{ path: "docs" }, { path: { startsWith: "docs/" } }] },
@@ -518,7 +602,9 @@ describe("webdav handlers", () => {
         (call) => call[0] as { oldRelativePath: string; newRelativePath: string },
       );
       expect(renames[0]?.oldRelativePath).toBe("a.txt");
-      expect(renames[1]?.newRelativePath).toBe("a.txt");
+      expect(mocks.moveBackingObject).toHaveBeenCalledWith(expect.objectContaining({
+        oldRelativePath: renames[0]?.newRelativePath, newRelativePath: "a.txt",
+      }));
       expect(mocks.deleteBackingObject).not.toHaveBeenCalled();
       // The file is back, and so is its history.
       expect(mocks.purgeFileEntryVersionDirectories).not.toHaveBeenCalled();
@@ -1092,7 +1178,7 @@ describe("webdav handlers", () => {
       );
 
       expect(response.status).toBe(204);
-      expect(mocks.copyStorageFile).toHaveBeenCalledWith(expect.anything(), "src.txt", "dst.txt");
+      expect(mocks.copyStorageFile).toHaveBeenCalledWith(expect.anything(), "src.txt", "dst.txt", true);
       // A second FileEntry on the same relativePath would violate the unique index.
       expect(mocks.createFileEntry).not.toHaveBeenCalled();
       expect(mocks.fileEntryUpdate).toHaveBeenCalledWith(
@@ -1171,7 +1257,7 @@ describe("webdav handlers", () => {
       }));
     });
 
-    it.each(["AGENT", "SFTP"])("retains moved bytes on an Agent-only %s backend after an index failure", async (driver) => {
+    it.each(["AGENT", "SFTP"])("preserves the moved bytes after an index failure on Agent-only %s", async (driver) => {
       mocks.storageNodeFindFirst.mockResolvedValue({
         id: "n1", driver, basePath: "/data", teamId: "t", server: {
           id: "s", teamId: "t", host: "host", port: 22, username: "user", operatingSystem: "LINUX",
@@ -1186,10 +1272,7 @@ describe("webdav handlers", () => {
       await expect(handleWebDavMove(ctx, new Request(ctx.requestUrl, {
         headers: { destination: "/api/webdav/n1/dst.txt" },
       }))).rejects.toThrow("index unavailable");
-      expect(mocks.moveBackingObject).not.toHaveBeenCalled();
-      expect(mocks.logError).toHaveBeenCalledWith("WebDAV MOVE rollback failed", expect.objectContaining({
-        sourcePath: "src.txt", destPath: "dst.txt",
-      }));
+      expect(mocks.moveBackingObject).toHaveBeenCalledWith(expect.objectContaining({ oldRelativePath: "dst.txt", newRelativePath: "src.txt" }));
     });
 
     it("keeps all three files for recovery when another writer takes the source path", async () => {

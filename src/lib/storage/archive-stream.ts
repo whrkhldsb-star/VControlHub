@@ -1,11 +1,14 @@
 import { spawn } from "node:child_process";
 import path from "node:path";
+import { realpathSync } from "node:fs";
 
 import { Client, type ConnectConfig } from "ssh2";
 import { connectSsh, type SshConnectionParams } from "@/lib/ssh/client";
+import { isWindowsStorageBasePath, resolveThroughExistingAncestor } from "./path-utils";
 import { IS_WINDOWS } from "@/lib/runtime/platform-paths";
 import { resolveLocalTarBinary } from "@/lib/runtime/tar-binary";
 import { shellQuote } from "@/lib/shell-quote";
+import { localStorageStagingPatterns, storageStagingPatterns } from "./staging-paths";
 import { ValidationError } from "@/lib/errors";
 import { t } from "@/lib/i18n/service-translations";
 
@@ -84,6 +87,7 @@ function bsdtarExclude(name: string) {
 	return "--exclude=" + name.replace(/[[\\*?]/g, "\\$&");
 }
 
+const localStagingExcludes = localStorageStagingPatterns.map(pattern => `--exclude=${pattern}`);
 const EXCLUDE_OPTIONS = ["--no-wildcards", "--anchored", "--exclude-from=-"];
 
 /**
@@ -94,12 +98,19 @@ const EXCLUDE_OPTIONS = ["--no-wildcards", "--anchored", "--exclude-from=-"];
  * tar (which reads "C:\..." as a remote host) can never be picked here.
  */
 function buildLocalTarArgs(directoryPath: string, entryName: string, excluded: string[]): string[] {
-	const base = ["-czf", "-", "-C", path.dirname(directoryPath)];
+	const base = ["-czf", "-", "-C", path.dirname(directoryPath), ...localStagingExcludes];
 	if (!excluded.length) return [...base, "--", entryName];
 	if (IS_WINDOWS) {
 		const excludeArgs: string[] = [];
+		const physicalRoot = realpathSync.native(directoryPath);
 		for (const name of excluded) {
-			const arg = bsdtarExclude(name);
+			// bsdtar matches member spelling. A case-only rename on NTFS may differ from its tombstone.
+			const suffix = name.split("/").slice(1).join("/");
+			const physical = resolveThroughExistingAncestor(path.join(physicalRoot, suffix));
+			if (!physical) throw new ValidationError(t("backend.storage.archiveExclusionInvalid"));
+			const member = path.relative(physicalRoot, physical).split(path.sep).join("/");
+			if (member.toLowerCase() !== suffix.toLowerCase()) throw new ValidationError(t("backend.storage.archiveExclusionInvalid"));
+			const arg = bsdtarExclude(entryName + "/" + member);
 			if (excludeArgs.join(" ").length + arg.length > 30_000) {
 				throw new ValidationError(t("backend.storage.archiveExclusionTooLargeWindows"));
 			}
@@ -115,10 +126,10 @@ function buildLocalTarArgs(directoryPath: string, entryName: string, excluded: s
  * must contain (POSIX GNU tar reads it from a file; Windows bsdtar takes each name as an argument).
  */
 export function localTarExclusion(excluded: string[], excludeFilePath: string): { options: string[]; fileContent: string | null } {
-	if (!excluded.length) return { options: [], fileContent: null };
+	if (!excluded.length) return { options: localStagingExcludes, fileContent: null };
 	const content = archiveExclusionInput(excluded);
-	if (IS_WINDOWS) return { options: excluded.map(bsdtarExclude), fileContent: null };
-	return { options: ["--no-wildcards", "--anchored", `--exclude-from=${excludeFilePath}`], fileContent: content };
+	if (IS_WINDOWS) return { options: [...localStagingExcludes, ...excluded.map(bsdtarExclude)], fileContent: null };
+	return { options: [...localStagingExcludes, "--no-wildcards", "--anchored", `--exclude-from=${excludeFilePath}`], fileContent: content };
 }
 
 export function streamLocalTarGz(directoryPath: string, entryName: string, excluded: string[] = []) {
@@ -168,37 +179,30 @@ export function connectArchiveSsh(config: ConnectConfig | SshConnectionParams): 
 	return connectSsh(config);
 }
 
-/**
- * Remote Windows OpenSSH sessions resolve `tar` to the bundled bsdtar, which
- * has no `--exclude-from=-` / `--no-wildcards` / `--anchored` (same constraint
- * as the local Windows path above). `bsdtar: true` switches the exclusion list
- * to repeated `--exclude` argv entries with the same length cap.
- */
-export function streamRemoteTarGz(
-	client: Client,
-	remoteDirectoryPath: string,
-	excluded: string[] = [],
-	options: { bsdtar?: boolean } = {},
+type ArchiveNode = {
+	basePath: string;
+	host: string | null;
+	port: number | null;
+	server: { operatingSystem: string; host: string; port: number } | null;
+};
+
+/** The tar command below requires the POSIX shell of the bound Linux SSH endpoint. */
+export function supportsRemoteTar(node: ArchiveNode): boolean {
+	return node.server?.operatingSystem === "LINUX" && !isWindowsStorageBasePath(node.basePath)
+		&& (node.host == null || node.host.toLowerCase() === node.server.host.toLowerCase())
+		&& (node.port == null || node.port === node.server.port);
+}
+
+export async function streamRemoteTarGz(
+	client: Client, node: ArchiveNode, remoteDirectoryPath: string, excluded: string[] = [],
 ) {
-	const input = options.bsdtar ? "" : archiveExclusionInput(excluded);
+	if (!supportsRemoteTar(node)) throw new ValidationError(t("backend.storage.archiveNeedsLinuxSsh"));
+	const input = archiveExclusionInput(excluded);
 	return new Promise<NodeJS.ReadableStream>((resolve, reject) => {
 		const parent = path.posix.dirname(remoteDirectoryPath);
 		const name = path.posix.basename(remoteDirectoryPath);
-		let excludeArgs: string[];
-		if (options.bsdtar && excluded.length) {
-			excludeArgs = [];
-			for (const pattern of excluded) {
-				// Quoted like the other arguments: a name with a space was split
-				// into an exclusion and a separate member tar could not find.
-				const arg = shellQuote(bsdtarExclude(pattern));
-				if (excludeArgs.join(" ").length + arg.length > 30_000) {
-					return reject(new ValidationError(t("backend.storage.archiveExclusionTooLargeWindows")));
-				}
-				excludeArgs.push(arg);
-			}
-		} else {
-			excludeArgs = input ? EXCLUDE_OPTIONS : [];
-		}
+		// GNU tar applies matching options positionally. Keep staging globs before literal tombstones.
+		const excludeArgs = [...storageStagingPatterns.map(pattern => shellQuote(`--exclude=${pattern}`)), ...(input ? EXCLUDE_OPTIONS : [])];
 		const command = `tar -czf - -C ${shellQuote(parent)}${excludeArgs.length ? ` ${excludeArgs.join(" ")}` : ""} -- ${shellQuote(name)}`;
 		client.exec(command, (err, stream) => {
 			if (err) return reject(err);

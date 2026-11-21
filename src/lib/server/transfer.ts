@@ -9,7 +9,7 @@
  * per-storage narrowing rows belong to the old customer's accounts and are
  * dropped.
  */
-import type { Prisma } from "@prisma/client";
+import { Prisma } from "@prisma/client";
 import type { SessionPayload } from "@/lib/auth/session";
 import { assertPlatformAdmin } from "@/lib/auth/platform-admin-guard";
 import { auditUserAction } from "@/lib/audit/service";
@@ -20,14 +20,21 @@ import { t } from "@/lib/i18n/service-translations";
 import { appTimeZoneDateKey } from "@/lib/datetime/time-zone";
 import { startOfMonthUtc } from "@/lib/cost/service-internals";
 import { resetAgentForModeChange } from "./agent-service";
+import { firstDirectGatewayKeyVersion, needsLegacyGatewayStop } from "./direct-gateway-key";
 import { getServerDeletionImpact, listServerStorageNodes } from "./service-deletion-impact";
 
 /** Old-customer work that would cross customers if the server moved. */
 async function getServerTransferBlockers(serverId: string, bindings: Awaited<ReturnType<typeof listServerStorageNodes>>, tx: Prisma.TransactionClient) {
   const storageNodeIds = bindings.map(node => node.id);
-  const [impact, imageUploads] = await Promise.all([
+  const [impact, imageUploads, fileProxies] = await Promise.all([
     getServerDeletionImpact(serverId, tx, bindings),
     storageNodeIds.length ? tx.imageUpload.count({ where: { storageNodeId: { in: storageNodeIds } } }) : 0,
+    tx.serverFileProxy.count({ where: { serverId, OR: [
+      { status: { not: "stopped" } },
+      // Older stop operations retained credentials even when remote termination failed.
+      { pid: { not: null } },
+      { accessToken: { not: null }, OR: [{ expiresAt: null }, { expiresAt: { gt: new Date() } }] },
+    ] } }),
   ]);
   const { unfinishedCommands, unfinishedDownloads } = impact;
   const blockers = {
@@ -38,6 +45,8 @@ async function getServerTransferBlockers(serverId: string, bindings: Awaited<Ret
     playbooks: impact.playbooks,
     syncJobs: impact.syncJobs,
     unfinishedCommands,
+    unfinishedAgentJobs: impact.unfinishedAgentJobs,
+    fileProxies,
     unfinishedDownloads,
   };
   return Object.entries(blockers).filter(([, count]) => count > 0) as Array<[keyof typeof blockers, number]>;
@@ -48,9 +57,11 @@ export async function transferServerToCustomer(serverId: string, targetTeamId: s
   const releaseLock = await acquireAdvisoryLock("server-delete", serverId);
   try {
     const { server, target } = await prisma.$transaction(async (tx) => {
+      await tx.$queryRaw`SELECT id FROM servers WHERE id = ${serverId} FOR UPDATE`;
       const server = await tx.server.findUnique({
         where: { id: serverId },
-        select: { id: true, name: true, teamId: true, sshKeyId: true },
+        select: { id: true, name: true, teamId: true, sshKeyId: true, operatingSystem: true, directGatewayKeyVersion: true,
+          directGatewayDesiredEnabled: true, fileProxyPort: true, publicUrl: true },
       });
       if (!server) throw new NotFoundError(t("backend.server.nodeNotFound"));
       if (server.teamId === targetTeamId) throw new ValidationError(t("backend.server.transfer.sameCustomer"));
@@ -62,6 +73,13 @@ export async function transferServerToCustomer(serverId: string, targetTeamId: s
       const bindings = await listServerStorageNodes(serverId, tx);
       const storageNodeIds = bindings.map(node => node.id);
       if (bindings.some(node => node.teamId !== server.teamId)) throw new ValidationError(t("backend.fileAgent.binding"));
+      // Gateways verify old links offline. Their remote listener must stop before ownership changes.
+      // Older uninstalls could clear all public markers while the listener still held the previous key.
+      if (needsLegacyGatewayStop(server) ||
+        server.directGatewayDesiredEnabled || server.fileProxyPort > 0 || server.publicUrl ||
+        bindings.some(node => node.driver === "SFTP" && node.directAccessMode !== "PROXY" && node.publicBaseUrl)) {
+        throw new BusinessError(t("backend.server.transfer.disableGateway"));
+      }
       const blockers = await getServerTransferBlockers(serverId, bindings, tx);
       if (blockers.length > 0) {
         throw new BusinessError(t("backend.server.transfer.blocked", {
@@ -70,13 +88,22 @@ export async function transferServerToCustomer(serverId: string, targetTeamId: s
       }
 
       const existingDefault = await tx.storageNode.findFirst({ where: { teamId: target.id, isDefault: true }, select: { id: true } });
+      // Node deletion takes the node lock before cascading to its file binding.
+      // Server credential rotation can touch that binding through a trigger.
+      if (storageNodeIds.length) await tx.$queryRaw`
+        SELECT id FROM "StorageNode" WHERE id IN (${Prisma.join(storageNodeIds)}) ORDER BY id FOR UPDATE`;
       // Revoke the old file credentials and their pending calls in this transaction,
       // including on schemas that were provisioned without the migration triggers.
       const agentNodeIds = bindings.filter(node => node.driver === "AGENT").map(node => node.id);
       if (agentNodeIds.length) {
         await tx.agentFileShare.deleteMany({ where: { serverId, storageNodeId: { in: agentNodeIds } } });
       }
-      await tx.server.update({ where: { id: serverId }, data: { teamId: target.id, ...resetAgentForModeChange() } });
+      await tx.server.update({ where: { id: serverId }, data: {
+        teamId: target.id, ...resetAgentForModeChange(),
+        directGatewayKeyVersion: Math.max(firstDirectGatewayKeyVersion(server.operatingSystem), server.directGatewayKeyVersion) + 1,
+        directGatewayDesiredDomain: null,
+      } });
+      await tx.storageNode.updateMany({ where: { serverId, driver: "SFTP" }, data: { directAccessMode: "PROXY", publicBaseUrl: null } });
       await Promise.all([
         tx.storageNode.updateMany({ where: { id: { in: storageNodeIds } }, data: { teamId: target.id, ...(existingDefault ? { isDefault: false } : {}) } }),
         tx.costEntry.updateMany({

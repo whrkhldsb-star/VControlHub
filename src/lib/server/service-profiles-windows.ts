@@ -3,7 +3,7 @@ import { Prisma } from "@prisma/client";
 import { serverOriginData, teamCreateData } from "@/lib/auth/team-scope";
 import { encrypt } from "@/lib/crypto/service";
 import { prisma } from "@/lib/db";
-import { ValidationError } from "@/lib/errors";
+import { NotFoundError, ValidationError } from "@/lib/errors";
 import type { TFn } from "@/lib/i18n/core";
 import { acquireAdvisoryLock } from "@/lib/concurrency/advisory-lock";
 import { rdpCertificatePinSupported } from "@/lib/rdp/certificate";
@@ -13,7 +13,7 @@ import { requireApprovedSshHostKey } from "@/lib/ssh/host-key";
 import { decryptServerPassword, encryptServerPasswordIfPlain } from "@/lib/ssh/ssh-key-crypto";
 import { removeAgentFromHost, resetAgentForModeChange } from "./agent-service";
 import { createServerSchema, type CreateServerInput, type CreateServerPayload } from "./schema";
-import { SERVER_PROFILE_INCLUDE, type ServerProfileRecord } from "./service-profile-includes";
+import { findServerProfileForSession, savedProfileBinding, SERVER_PROFILE_INCLUDE, type ServerProfileRecord } from "./service-profile-includes";
 import {
   assertNoDuplicateServerHost,
   enrichServer,
@@ -22,6 +22,7 @@ import {
   type ProfileSession,
 } from "./service-internals";
 import type { UpdateServerInput } from "./service-profiles";
+import { revokeInheritedSftpShares, revokeNodeShares } from "@/lib/storage/node-root";
 import { firstSchemaSentence } from "@/lib/i18n/schema-copy";
 
 /**
@@ -199,7 +200,7 @@ export async function updateWindowsServerProfile(
       if (!cleanup.removed) onboardingWarnings.push(t(cleanup.requested ? "backend.server.agentCleanupRequested" : "backend.server.agentCleanupPending"));
     }
     const updated = await prisma.$transaction(async (tx) => {
-    const saved = await tx.server.update({ where: { id: serverId, teamId: current.teamId, managementMode: current.managementMode, host: current.host, port: current.port }, data: {
+    const saved = await tx.server.update({ where: { id: serverId, teamId: current.teamId, managementMode: current.managementMode, host: current.host, port: current.port, username: current.username }, data: {
       ...(reconfigureAgent ? { ...resetAgentForModeChange(), onboardingStatus: "NEEDS_ATTENTION", onboardingLastError: null } : {}),
       name: payload.name, host: payload.host, port: payload.port, username: payload.username,
       description: payload.description, tags: payload.tags,
@@ -219,10 +220,16 @@ export async function updateWindowsServerProfile(
       costCurrency: input.costCurrency ?? current.costCurrency,
       costProvider: input.costProvider !== undefined ? input.costProvider || null : current.costProvider,
       enabled: input.enabled ?? current.enabled,
-    }, include: SERVER_PROFILE_INCLUDE });
+    } });
     if (nextSftp) {
       if (existingSftp) {
-        await tx.storageNode.update({ where: { id: existingSftp.id }, data: {
+        const rootChanged = nextSftp.basePath !== existingSftp.basePath || nextSftp.port !== existingSftp.port
+          || nextSftp.username !== existingSftp.username || existingSftp.host != null;
+        await tx.storageNode.update({ where: {
+          id: existingSftp.id, serverId, teamId: current.teamId, driver: "SFTP",
+          basePath: existingSftp.basePath, port: existingSftp.port, username: existingSftp.username, host: existingSftp.host,
+        }, data: {
+          ...(rootChanged ? revokeNodeShares() : {}),
           basePath: nextSftp.basePath, port: nextSftp.port, username: nextSftp.username,
           host: null, hostKeySha256: nextSftpHostKey,
         } });
@@ -235,12 +242,16 @@ export async function updateWindowsServerProfile(
         } });
       }
     }
+    // Node deletion holds its row before cascading to shares. Take any node
+    // update above before revoking links to the inherited server endpoint.
+    await revokeInheritedSftpShares(tx, current, payload);
     return saved;
     });
     if (reconfigureAgent && nextManagementMode === "AGENT") onboardingWarnings.push(t("backend.server.agentInstallPending"));
-    const refreshed = nextSftp ? await prisma.server.findUnique({ where: { id: serverId }, include: SERVER_PROFILE_INCLUDE }) : updated;
+    const refreshed = await findServerProfileForSession(serverId, sessionForTeamWhere(session), savedProfileBinding(updated));
+    if (!refreshed) throw new NotFoundError(t("backend.server.nodeNotFound"));
     safeRevalidatePath("/storage");
     safeRevalidatePath("/files");
-    return { ...enrichServer(refreshed ?? updated), onboardingWarnings };
+    return { ...enrichServer(refreshed), onboardingWarnings };
   } finally { await release(); }
 }

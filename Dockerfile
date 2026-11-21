@@ -57,7 +57,7 @@ COPY --from=builder /app/scripts/check-ssh-gateway.mjs /app/scripts/check-app-re
 # Platform backup and restore entrypoints (src/lib/backup/platform-runner.ts).
 COPY --from=builder /app/deploy/backup.sh ./deploy/backup.sh
 COPY --from=builder /app/scripts/backup.mjs /app/scripts/restore.mjs /app/scripts/restore-db.sh /app/scripts/restore-files.sh /app/scripts/restore-full.sh ./scripts/
-COPY --from=builder /app/scripts/lib/backup-common.mjs ./scripts/lib/backup-common.mjs
+COPY --from=builder /app/scripts/lib/backup-common.mjs /app/scripts/lib/backup-file-integrity.mjs /app/scripts/lib/restore-file-overlay.mjs ./scripts/lib/
 
 RUN chmod +x ./docker-entrypoint.sh && mkdir -p storage tmp uploads downloads backups logs file-versions
 

@@ -174,14 +174,7 @@ export async function detectAndPruneSftpStaleInventory(input: {
     try {
       entries = await withDirectoryTimeout(
         listRemoteDirectory({
-          host: credentials.host,
-          port: credentials.port,
-          username: credentials.username,
-          privateKey: credentials.privateKey,
-          passphrase: credentials.passphrase,
-          password: credentials.password,
-          hostKeySha256: credentials.hostKeySha256,
-          agentServerId: credentials.agentServerId,
+          ...credentials,
           remotePath: dirPath,
           // What is missing from this list gets marked deleted, so an Agent listing cut at 10,000 must fail.
           requireComplete: true,
@@ -310,9 +303,8 @@ export async function listSftpNodesForStaleInventory(
   const where = {
     driver: "SFTP" as const,
     ...(nodeIds ? { id: { in: nodeIds } } : {}),
-    // The system sweep (no session) skips a deleted customer's nodes: it
-    // kept connecting to its servers over SSH after the customer was gone.
-    ...(session ? teamWhere(session) : liveCustomerRowsWhere()),
+    ...liveCustomerRowsWhere(),
+    ...(session ? teamWhere(session) : {}),
   };
   const nodes = [];
   let cursor: { id: string } | undefined;
@@ -341,6 +333,7 @@ export async function findSftpNodeForStaleInventory(
     where: {
       id: nodeId,
       driver: "SFTP",
+      ...liveCustomerRowsWhere(),
       ...(session ? teamWhere(session) : {}),
     },
     select: SFTP_STALE_INVENTORY_NODE_SELECT,

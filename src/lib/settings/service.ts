@@ -1,6 +1,8 @@
+import { ValidationError } from "@/lib/errors";
+import { t } from "@/lib/i18n/service-translations";
 import { prisma } from "@/lib/db";
 import {
-	VALID_SETTING_KEYS,
+	VALID_SETTING_KEYS, SETTING_VALUE_SCHEMAS, type SettingKey,
 	isSensitiveKey,
 	MASKED_VALUE,
 } from "@/lib/settings/schema";
@@ -18,10 +20,14 @@ import { invalidateCachedFlags } from "@/lib/settings/cached-flags";
  */
 const LEGACY_EMPTY_SECRET = /^[^:]+:[^:]+:[^:]+:$/;
 
-function safeDecrypt(value: string): string {
+export function decodeStoredSecret(value: string): string {
 	if (LEGACY_EMPTY_SECRET.test(value)) return "";
+	return isEncrypted(value) ? decrypt(value) : value;
+}
+
+export function readStoredSecret(value: string): string {
 	try {
-		return isEncrypted(value) ? decrypt(value) : value;
+		return decodeStoredSecret(value);
 	} catch {
 		return value;
 	}
@@ -101,14 +107,14 @@ function auditKeys(detail: unknown): string[] {
 export async function getSetting(key: string): Promise<string> {
 	const row = await prisma.setting.findUnique({ where: { key }, select: { key: true, value: true } });
 	const raw = row?.value ?? DEFAULTS[key] ?? "";
-	return isSensitiveKey(key) ? safeDecrypt(raw) : raw;
+	return isSensitiveKey(key) ? readStoredSecret(raw) : raw;
 }
 
 export async function getAllSettings(): Promise<Record<string, string>> {
 	const rows = await prisma.setting.findMany({ select: { key: true, value: true }, take: 500 }); // P2: setting 表总行数有限
 	const result: Record<string, string> = { ...DEFAULTS };
 	for (const row of rows) {
-		result[row.key] = isSensitiveKey(row.key) ? safeDecrypt(row.value) : row.value;
+		result[row.key] = isSensitiveKey(row.key) ? readStoredSecret(row.value) : row.value;
 	}
 	return result;
 }
@@ -215,12 +221,21 @@ export async function getAllSettingsMasked(): Promise<Record<string, string>> {
 
 /** `actorId`: the user making the change (null for system writes). */
 /** A secret is stored encrypted; an empty one is stored empty (it means "not set"). */
-function toStoredValue(key: string, value: string): string {
+export function toStoredValue(key: string, value: string): string {
 	return isSensitiveKey(key) && value !== "" ? encrypt(value) : value;
 }
 
+export function normalizeStoredSetting(key: string, value: string): string {
+	if (isRuntimeSettingKey(key)) return normalizeRuntimeSettingValue(key, value);
+	const schema = Object.hasOwn(SETTING_VALUE_SCHEMAS, key) ? SETTING_VALUE_SCHEMAS[key as SettingKey] : undefined;
+	if (!schema) return value;
+	const result = schema.safeParse(value);
+	if (!result.success) throw new ValidationError(t("backend.settings.invalidValue", { key }));
+	return result.data;
+}
+
 export async function setSetting(key: string, value: string, actorId: string | null = null): Promise<void> {
-	const normalizedValue = isRuntimeSettingKey(key) ? normalizeRuntimeSettingValue(key, value) : value;
+	const normalizedValue = normalizeStoredSetting(key, value);
 	const storedValue = toStoredValue(key, normalizedValue);
 	await prisma.setting.upsert({
 		where: { key },
@@ -244,10 +259,10 @@ export async function setManySettings(
 	/** The user making the change (null for system writes). */
 	actorId: string | null = null,
 ): Promise<void> {
+	const normalized = entries.map(({ key, value }) => ({ key, value: normalizeStoredSetting(key, value) }));
 	await prisma.$transaction(
-		entries.map(({ key, value }) => {
-			const normalizedValue = isRuntimeSettingKey(key) ? normalizeRuntimeSettingValue(key, value) : value;
-			const storedValue = toStoredValue(key, normalizedValue);
+		normalized.map(({ key, value }) => {
+			const storedValue = toStoredValue(key, value);
 			return prisma.setting.upsert({
 				where: { key },
 				update: { value: storedValue, updatedBy: actorId },
@@ -255,7 +270,7 @@ export async function setManySettings(
 			});
 		})
 	);
-	rememberSaved(entries.map(({ key, value }) => ({ key, value: isRuntimeSettingKey(key) ? normalizeRuntimeSettingValue(key, value) : value })));
+	rememberSaved(normalized);
 }
 
 /**

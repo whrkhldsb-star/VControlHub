@@ -9,6 +9,7 @@ import { beforeEach, describe, expect, it, vi } from "vitest";
 
 const { mockPrisma } = vi.hoisted(() => ({
   mockPrisma: {
+    $transaction: vi.fn(), $queryRaw: vi.fn(),
     shareLink: { create: vi.fn() },
     storageNode: { findUnique: vi.fn() },
     fileEntry: { findFirst: vi.fn() },
@@ -26,12 +27,14 @@ const { createShareLink, createShareLinkFromFileEntry } = await import("../servi
 const administrator = (currentTeamId: string | null) => ({ userId: "admin_1", username: "root", roles: ["admin" as const], mustChangePassword: false, currentTeamId });
 const customerAccount = { userId: "u_1", username: "alice", roles: ["operator" as const], mustChangePassword: false, currentTeamId: "team_a" };
 
-function nodeOf(teamId: string | null) {
+function nodeOf(teamId: string | null, id = "node_1") {
+  mockPrisma.$queryRaw.mockResolvedValue([{ id, teamId }]);
   mockPrisma.storageNode.findUnique.mockResolvedValue({ teamId });
 }
 
 beforeEach(() => {
   vi.clearAllMocks();
+  mockPrisma.$transaction.mockImplementation(fn => fn(mockPrisma));
   mockPrisma.shareLink.create.mockImplementation(async ({ data }: { data: Record<string, unknown> }) => ({ id: "share_1", ...data, createdAt: new Date(), updatedAt: new Date() }));
 });
 
@@ -45,13 +48,13 @@ describe("the customer a share belongs to", () => {
     const result = await createShareLink({ session: administrator(null), storageNodeId: "node_1", path: "docs/report.pdf" });
 
     expect(result.token).toHaveLength(48);
-    expect(mockPrisma.storageNode.findUnique).toHaveBeenCalledWith({ where: { id: "node_1", AND: {} }, select: { teamId: true, driver: true, agentFileShare: { select: { rootIdentity: true } } } });
+    expect(mockPrisma.storageNode.findUnique).toHaveBeenCalledWith({ where: { id: "node_1", AND: {} }, select: expect.objectContaining({ teamId: true, driver: true, basePath: true, agentFileShare: { select: { rootIdentity: true } } }) });
     expect(mockPrisma.shareLink.create.mock.calls[0]![0].data).toMatchObject({ storageNodeId: "node_1", path: "docs/report.pdf", teamId: "team_a", createdBy: "admin_1" });
   });
 
   // Only that view can open a node that belongs to no customer, and it is documented as able to share from it.
   it("is nobody's for a node that belongs to no customer", async () => {
-    nodeOf(null);
+    nodeOf(null, "node_legacy");
 
     await createShareLink({ session: administrator(null), storageNodeId: "node_legacy", path: "a.txt" });
 
@@ -70,7 +73,7 @@ describe("the customer a share belongs to", () => {
   });
 
   it("is found the same way when sharing an indexed file", async () => {
-    mockPrisma.fileEntry.findFirst.mockResolvedValue({ id: "file_1", name: "report.pdf", relativePath: "docs/report.pdf", entryType: "FILE", storageNodeId: "node_1" });
+    mockPrisma.fileEntry.findFirst.mockResolvedValue({ id: "file_1", name: "report.pdf", relativePath: "docs/report.pdf", entryType: "FILE", storageNodeId: "node_1", storageNode: { teamId: "team_b" } });
     nodeOf("team_b");
 
     const result = await createShareLinkFromFileEntry({ session: administrator(null), fileEntryId: "file_1", expiresInHours: 24 });

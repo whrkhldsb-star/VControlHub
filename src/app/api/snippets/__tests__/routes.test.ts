@@ -248,7 +248,7 @@ describe("/api/snippets routes", () => {
 				content: "systemctl restart nginx",
 				language: "bash",
 				createdBy: "u_1",
-			});
+			}, { userId: "u_1", currentTeamId: "team_1", platformAdmin: false });
 			expect(mocks.auditUserAction).toHaveBeenCalledWith(
 				"u_1",
 				"snippet.create",
@@ -263,7 +263,7 @@ describe("/api/snippets routes", () => {
 			// otherwise `{ ...body, createdBy: session.userId }` order would decide
 			// authorship and a caller could forge someone else's snippet.
 			await route.POST(req("POST", { title: "t", content: "c", createdBy: "u_victim" }));
-			expect(mocks.createSnippet).toHaveBeenCalledWith({ title: "t", content: "c", createdBy: "u_1" });
+			expect(mocks.createSnippet).toHaveBeenCalledWith({ title: "t", content: "c", createdBy: "u_1" }, { userId: "u_1", currentTeamId: "team_1", platformAdmin: false });
 		});
 
 		it("rejects a missing title", async () => {

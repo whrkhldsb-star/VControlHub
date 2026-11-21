@@ -44,15 +44,15 @@ describe("Quick Services app-source fetch URL boundaries", () => {
 
 	it("namespaces generic app slugs by source and disables redirects", async () => {
 		const fetchMock = vi.fn(async () => new Response(JSON.stringify([
-			{ name: "Demo App", slug: "demo", image: "example/demo:1", port: 8080 },
+			{ name: "Demo App", slug: "demo", image: "example/demo:1", port: 8080, volumes: [{ host: "/opt/demo/data", container: "/data" }] },
 		]), { status: 200, headers: { "content-type": "application/json" } }));
 		globalThis.fetch = fetchMock as unknown as typeof fetch;
 
 		const first = await fetchSourceApps("catalog-one", "json", "https://catalog.example/one.json");
 		const second = await fetchSourceApps("catalog-two", "json", "https://catalog.example/two.json");
 
-		expect(first[0]).toMatchObject({ slug: "catalog-one-demo", sourceName: "catalog-one" });
-		expect(second[0]).toMatchObject({ slug: "catalog-two-demo", sourceName: "catalog-two" });
+		expect(first[0]).toMatchObject({ slug: "catalog-one-demo", sourceName: "catalog-one", volumesJson: [{ host: "/opt/catalog-one-demo/data", container: "/data" }] });
+		expect(second[0]).toMatchObject({ slug: "catalog-two-demo", sourceName: "catalog-two", volumesJson: [{ host: "/opt/catalog-two-demo/data", container: "/data" }] });
 		expect(fetchMock).toHaveBeenCalledWith(
 			"https://catalog.example/one.json",
 			expect.objectContaining({ redirect: "error", signal: expect.any(AbortSignal) }),
@@ -87,7 +87,7 @@ describe("Quick Services app-source fetch URL boundaries", () => {
 			defaultPort: 7878,
 			internalPort: 7878,
 			envJson: { PUID: "1000", PGID: "1000" },
-			volumesJson: [{ host: "/opt/demo-web/config", container: "/config" }],
+			volumesJson: [{ host: "/opt/linuxserver-demo-web/config", container: "/config" }],
 			extraPorts: [{ host: 9898, container: 9898 }],
 		});
 		// What is stored of the source must carry the popularity: the table has no column for it, and without it

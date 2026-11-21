@@ -5,6 +5,9 @@
  * 从 import-executors.ts 按域拆分而来。
  */
 
+import { ValidationError } from "@/lib/errors";
+import { t } from "@/lib/i18n/service-translations";
+import { expandStorageBasePath, localBasePathBelongsToTenant, normalizeStorageEntryName, normalizeStorageTargetDirectory, tenantStorageBasePath } from "@/lib/storage/path-utils";
 import { resetAgentForModeChange } from "@/lib/server/agent-service";
 import { Prisma } from "@prisma/client";
 
@@ -208,6 +211,29 @@ export async function importServers(
 }
 
 // 8. StorageNodes
+
+/** A source installation may have a different STORAGE_ROOT. Only carry the
+ * suffix of its teams/<customer> namespace into the local customer root. */
+export function alignStorageNodeCustomer(node: ExportFile["tables"]["storageNodes"][number], teamId: typeof node.teamId) {
+  if (node.teamId === teamId || node.driver !== "LOCAL" || !node.teamId || !teamId) return { ...node, teamId };
+  const invalidRoot = () => new ValidationError(t("backend.system.importLocalRootConflict", { id: node.id }));
+  if (!normalizeStorageEntryName(node.teamId).ok || !normalizeStorageEntryName(teamId).ok) throw invalidRoot();
+  // Older packages have no source STORAGE_ROOT. Recognise the local configuration
+  // and the shipped relative/production layouts, including unexpanded deployment placeholders.
+  const portable = (value: string) => expandStorageBasePath(value).replace(/\\/g, "/").replace(/^\.\//, "");
+  const imported = portable(node.basePath);
+  const sourceRoots = [tenantStorageBasePath(node.teamId), tenantStorageBasePath(node.teamId, "storage"),
+    tenantStorageBasePath(node.teamId, "/var/lib/vcontrolhub/storage"),
+    tenantStorageBasePath(node.teamId, "/var/lib/${APP_SLUG:-vcontrolhub}/storage")].map(portable);
+  const sourceRoot = sourceRoots.find((root) => imported === root || imported.startsWith(`${root}/`));
+  if (!sourceRoot || imported.split("/").includes("..")) throw invalidRoot();
+  const suffix = normalizeStorageTargetDirectory(imported.slice(sourceRoot.length + 1));
+  if (!suffix.ok) throw invalidRoot();
+  const root = tenantStorageBasePath(teamId);
+  const basePath = suffix.path ? `${root}/${suffix.path}` : root;
+  if (!localBasePathBelongsToTenant(basePath, teamId)) throw invalidRoot();
+  return { ...node, teamId, basePath };
+}
 
 /** After import, keep a single default storage node per teamId group (null = shared). */
 async function normalizeStorageNodeDefaults(tx: Tx): Promise<void> {

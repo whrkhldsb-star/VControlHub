@@ -12,9 +12,9 @@ import { assertQuickServiceExecutionAuthorized } from "../execution-authorizatio
 import { t } from "@/lib/i18n/service-translations";
 
 const actor = { userId: "requester", username: "requester", roles: ["operator"], permissions: ["docker:manage"], currentTeamId: "team" };
-beforeEach(() => { state.load.mockReset(); state.server.mockReset(); state.load.mockResolvedValue(actor); state.server.mockResolvedValue({ id: "node" }); });
+beforeEach(() => { state.load.mockReset(); state.server.mockReset(); state.load.mockResolvedValue(actor); state.server.mockResolvedValue({ host: "node.test", teamId: "team" }); });
 it("checks live account, workspace permission and node access before execution", async () => {
-  await expect(assertQuickServiceExecutionAuthorized({ createdBy: "requester", teamId: "team" }, { instanceKey: "node", serverId: "node" })).resolves.toBeUndefined();
+  await expect(assertQuickServiceExecutionAuthorized({ createdBy: "requester", teamId: "team" }, { action: "install", instanceKey: "node", serverId: "node" })).resolves.toEqual({ kind: "remote", serverId: "node", expectedTeamId: "team", endpoint: { host: "node.test" } });
   expect(state.load).toHaveBeenNthCalledWith(2, "requester", "team");
   expect(state.server).toHaveBeenCalledWith(expect.objectContaining({ where: { AND: [expect.objectContaining({ enabled: true }), expect.any(Object)] } }));
 });
@@ -23,23 +23,39 @@ it.each(["disabled", "removed", "demoted", "node-disabled"])("rejects a queued D
   if (reason === "removed") state.load.mockResolvedValueOnce(actor).mockResolvedValueOnce(null);
   if (reason === "demoted") state.load.mockResolvedValueOnce(actor).mockResolvedValueOnce({ ...actor, permissions: [] });
   if (reason === "node-disabled") state.server.mockResolvedValue(null);
-  await expect(assertQuickServiceExecutionAuthorized({ createdBy: "requester", teamId: "team" }, { instanceKey: "node", serverId: "node" })).rejects.toThrow();
+  await expect(assertQuickServiceExecutionAuthorized({ createdBy: "requester", teamId: "team" }, { action: "install", instanceKey: "node", serverId: "node" })).rejects.toThrow();
 });
 it("requires a current platform administrator for hub Docker work", async () => {
-  await expect(assertQuickServiceExecutionAuthorized({ createdBy: "requester", teamId: "team" }, {})).rejects.toThrow(t("backend.quickService.platformRequired"));
+  await expect(assertQuickServiceExecutionAuthorized({ createdBy: "requester", teamId: "team" }, { action: "update" })).rejects.toThrow(t("backend.quickService.platformRequired"));
   state.load.mockResolvedValue({ ...actor, roles: ["admin"] });
-  await expect(assertQuickServiceExecutionAuthorized({ createdBy: "requester", teamId: "team" }, {})).resolves.toBeUndefined();
+  await expect(assertQuickServiceExecutionAuthorized({ createdBy: "requester", teamId: "team" }, { action: "update" })).resolves.toEqual({ kind: "local" });
 });
 it("refuses an anonymous requester or conflicting target identifiers", async () => {
-  await expect(assertQuickServiceExecutionAuthorized({}, { instanceKey: "node", serverId: "node" })).rejects.toThrow(t("backend.quickService.requesterMissing"));
-  await expect(assertQuickServiceExecutionAuthorized({ createdBy: "requester", teamId: "team" }, { instanceKey: "node", serverId: "different-node" })).rejects.toThrow(t("backend.quickService.targetMismatch"));
+  await expect(assertQuickServiceExecutionAuthorized({}, { action: "install", instanceKey: "node", serverId: "node" })).rejects.toThrow(t("backend.quickService.requesterMissing"));
+  await expect(assertQuickServiceExecutionAuthorized({ createdBy: "requester", teamId: "team" }, { action: "install", instanceKey: "node", serverId: "different-node" })).rejects.toThrow(t("backend.quickService.targetMismatch"));
 });
 
 it.each([
   { instanceKey: "hub-host", serverId: "node" },
   { instanceKey: "node", serverId: null },
 ])("rejects inconsistent target identifiers before checking permissions: %j", async (identity) => {
-  await expect(assertQuickServiceExecutionAuthorized({ createdBy: "requester", teamId: "team" }, identity))
+  await expect(assertQuickServiceExecutionAuthorized({ createdBy: "requester", teamId: "team" }, { ...identity, action: "update" }))
     .rejects.toThrow(t("backend.quickService.targetMismatch"));
   expect(state.server).not.toHaveBeenCalled();
+});
+
+it.each(["install", "update", "uninstall", "start", "stop", "sync"] as const)("requires live manage capability for %s", async action => {
+  // The account can still connect, but its per-node manage permission has been revoked.
+  state.server.mockImplementation(async ({ where }) => JSON.stringify(where).includes('"canManage":true') ? null : { teamId: "team" });
+  await expect(assertQuickServiceExecutionAuthorized({ createdBy: actor.userId, teamId: "team" }, { action, instanceKey: "node", serverId: "node" }))
+    .rejects.toThrow(t("backend.quickService.targetInaccessible"));
+});
+
+it("rejects an endpoint changed after enqueue even with manage access to the same customer", async () => {
+  const { quickServiceEndpointFingerprint } = await import("../target-identity");
+  const endpoint = { host: "old.example", port: 22, username: "admin", hostKeySha256: "pin", managementMode: "DIRECT", agentTokenHash: null } as const;
+  state.server.mockResolvedValue({ teamId: "team", ...endpoint, host: "new.example" });
+  await expect(assertQuickServiceExecutionAuthorized({ createdBy: actor.userId, teamId: "team" }, {
+    action: "install", instanceKey: "node", serverId: "node", endpointFingerprint: quickServiceEndpointFingerprint(endpoint),
+  })).rejects.toThrow(t("backend.command.connectionChanged"));
 });

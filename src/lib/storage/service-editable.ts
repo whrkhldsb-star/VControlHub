@@ -23,6 +23,7 @@ import {
   resolveLocalAbsolutePath,
 } from "./service-entries";
 import { snapshotFileVersionBeforeOverwrite } from "./file-versions";
+import { validateStorageFileIndex } from "./schema";
 import { lockStorageFileOverwrite } from "./file-overwrite-lock";
 import { assertNotRecycled } from "./archive-access";
 import { normalizeStorageRelativePath } from "./path-utils";
@@ -161,7 +162,7 @@ export async function saveLocalEditableFileDraft(input: {
       // both read the same version before locking must not both pass.
       const current = await prisma.fileEntry.findUnique({
         where: { id: entry.id, storageNodeId: entry.storageNode.id, relativePath: entry.relativePath },
-        select: { updatedAt: true, isDeleted: true },
+        select: { updatedAt: true, isDeleted: true, size: true, checksumSha256: true, mimeType: true },
       });
       if (!current || current.isDeleted) {
         throw new NotFoundError(t("backend.storage.editableEntryNotFound"));
@@ -187,6 +188,7 @@ export async function saveLocalEditableFileDraft(input: {
         throw new ConflictError(t("backend.storage.editableFileChangedOnDisk"));
       }
 
+      validateStorageFileIndex({ storageNodeId: entry.storageNode.id, relativePath, size: byteSize, mimeType: current.mimeType });
       // Snapshot previous body before overwrite (best-effort).
       await snapshotFileVersionBeforeOverwrite({
         fileEntryId: entry.id,
@@ -198,28 +200,32 @@ export async function saveLocalEditableFileDraft(input: {
       // Temp file + rename: a crash mid-save must not leave a truncated file (A4-26).
       const temporaryPath = path.join(path.dirname(absolutePath), `.vch-edit-${randomUUID()}.tmp`);
       try {
-        await writeFile(temporaryPath, content, "utf8");
-        await rename(temporaryPath, absolutePath);
+        await writeFile(temporaryPath, content, { encoding: "utf8", flag: "wx" });
+        const identity = { id: entry.id, storageNodeId: entry.storageNode.id, relativePath, isDeleted: false };
+        const updated = await prisma.fileEntry.update({
+          where: { ...identity, updatedAt: current.updatedAt },
+          data: { size: BigInt(byteSize), checksumSha256: null, updatedAt: new Date() },
+        });
+        try {
+          await rename(temporaryPath, absolutePath);
+        } catch (error) {
+          await prisma.fileEntry.updateMany({
+            where: { ...identity, updatedAt: updated.updatedAt },
+            data: { size: current.size, checksumSha256: current.checksumSha256, updatedAt: current.updatedAt },
+          });
+          throw error;
+        }
+        const nextStat = await stat(absolutePath);
+        return {
+          fileEntryId: entry.id,
+          name: entry.name,
+          relativePath: entry.relativePath,
+          byteSize: nextStat.size,
+          previousByteSize: currentStat.size,
+          lastModifiedMs: nextStat.mtimeMs,
+          updatedAt: updated.updatedAt?.toISOString?.() ?? updated.updatedAt,
+        };
       } finally { await rm(temporaryPath, { force: true }).catch(() => undefined); }
-      const nextStat = await stat(absolutePath);
-      const updated = await prisma.fileEntry.update({
-        where: { id: entry.id },
-        data: {
-          size: BigInt(nextStat.size),
-          updatedAt: new Date(),
-          checksumSha256: null,
-        },
-      });
-
-      return {
-        fileEntryId: entry.id,
-        name: entry.name,
-        relativePath: entry.relativePath,
-        byteSize: nextStat.size,
-        previousByteSize: currentStat.size,
-        lastModifiedMs: nextStat.mtimeMs,
-        updatedAt: updated.updatedAt?.toISOString?.() ?? updated.updatedAt,
-      };
     } finally {
       await releaseLock();
     }

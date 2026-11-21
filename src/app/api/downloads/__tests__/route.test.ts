@@ -126,6 +126,7 @@ vi.mock("@/lib/aria2/service", () => ({
   computeProgress: () => 0,
 }));
 vi.mock("@/lib/ssh/client", () => ({
+  resolveRemoteRealPath: vi.fn(async ({ remotePath }) => remotePath),
   execRemoteCommand: execRemoteCommandMock,
   buildSshParamsFromServer: buildSshParamsFromServerMock,
 }));

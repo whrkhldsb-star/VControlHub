@@ -542,6 +542,7 @@ describe("operation task service", () => {
   });
 
   it("maps a sync job in ERROR to failed, not pending", () => {
+    expect(mapOperationStatus("PRUNING")).toBe("running");
     expect(mapOperationStatus("ERROR")).toBe("failed");
     expect(mapOperationStatus("PENDING_APPROVAL")).toBe("pending");
     expect(mapOperationStatus("SOMETHING_NEW")).toBe("pending");

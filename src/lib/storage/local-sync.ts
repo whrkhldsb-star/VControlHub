@@ -1,3 +1,4 @@
+import { isStorageStagingPath } from "./staging-paths";
 import { readdir, stat } from "node:fs/promises";
 import path from "node:path";
 
@@ -132,7 +133,7 @@ export async function syncLocalDirectoryEntries(input: {
   const missing: Prisma.FileEntryCreateManyInput[] = [];
   for (const entry of entries) {
     // Symlinks and special files are intentionally not exposed by the file manager.
-    if (!entry.isDirectory() && !entry.isFile()) continue;
+    if ((!entry.isDirectory() && !entry.isFile()) || isStorageStagingPath(`${normalizedDir.path}/${entry.name}`)) continue;
     const relativePath = joinStoragePath(normalizedDir.path, entry.name);
     if (
       !relativePath.ok ||

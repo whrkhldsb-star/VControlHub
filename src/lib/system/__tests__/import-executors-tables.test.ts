@@ -34,37 +34,48 @@ function tables(partial: Record<string, unknown>): ExportFile["tables"] {
 }
 
 describe("importAiProviders credential ownership", () => {
-  const current = { id: "p1", type: "OPENAI", baseUrl: "https://one.example/v1" };
+  const current = {
+    id: "p1", type: "OPENAI", createdBy: "u1",
+    baseUrl: "https://one.example/v1", apiKey: "old-ciphertext", updatedAt: new Date("2026-11-20T00:00:00Z"),
+  };
 
   function importer() {
-    const updateMany = vi.fn().mockResolvedValue({ count: 1 });
-    const tx = { aiProvider: { findMany: vi.fn().mockResolvedValue([current]), updateMany } } as unknown as Tx;
+    const update = vi.fn().mockImplementation(async ({ data }: { data: Record<string, unknown> }) => ({ ...current, ...data }));
+    const tx = { aiProvider: { findMany: vi.fn().mockResolvedValue([current]), update } } as unknown as Tx;
     const write = (patch: Record<string, unknown>) => importAiProviders(
-      tx, tables({ aiProviders: [{ ...current, apiKey: null, ...patch }] }), OVERWRITE, counts(),
+      tx, tables({ aiProviders: [{ ...current, enabled: true, apiKey: null, ...patch }] }), OVERWRITE, counts(),
     );
-    return { write, updateMany };
+    return { write, update };
   }
 
-  it("requires a replacement key when the imported origin or type changes", async () => {
-    const { write, updateMany } = importer();
-    await expect(write({ baseUrl: "https://two.example/v1" })).rejects.toThrow(ValidationError);
-    await expect(write({ type: "OPENAI_COMPATIBLE" })).rejects.toThrow(ValidationError);
-    expect(updateMany).not.toHaveBeenCalled();
+  it("clears key and disables provider when imported origin or type changes without a replacement key", async () => {
+    const { write, update } = importer();
+    await write({ baseUrl: "https://two.example/v1" });
+    expect(update).toHaveBeenLastCalledWith(expect.objectContaining({
+      where: { id: current.id, createdBy: current.createdBy, type: current.type, baseUrl: current.baseUrl, updatedAt: current.updatedAt },
+      data: expect.objectContaining({ apiKey: "", enabled: false }),
+    }));
+    await write({ type: "OPENAI_COMPATIBLE" });
+    expect(update).toHaveBeenLastCalledWith(expect.objectContaining({
+      data: expect.objectContaining({ apiKey: "", enabled: false }),
+    }));
     await write({ baseUrl: "https://one.example/v2" });
-    expect(updateMany).toHaveBeenCalledWith(expect.objectContaining({ where: current }));
-    expect(updateMany.mock.calls[0]![0].data).not.toHaveProperty("apiKey");
+    expect(update.mock.calls[2]![0].data).not.toHaveProperty("apiKey");
+    expect(update.mock.calls[2]![0].data.enabled).toBe(true);
   });
 
   it("compares the live endpoint and key when a full import supplies a replacement", async () => {
-    const { write, updateMany } = importer();
+    const { write, update } = importer();
     const patch = { baseUrl: "https://two.example/v1", apiKey: "new-ciphertext" };
     await write(patch);
-    expect(updateMany).toHaveBeenCalledWith({
-      where: { ...current, apiKey: { not: patch.apiKey } },
-      data: expect.objectContaining(patch),
-    });
-    updateMany.mockResolvedValueOnce({ count: 0 });
-    await expect(write(patch)).rejects.toThrow(ValidationError);
+    expect(update).toHaveBeenLastCalledWith(expect.objectContaining({
+      where: { id: current.id, createdBy: current.createdBy, type: current.type, baseUrl: current.baseUrl, updatedAt: current.updatedAt },
+      data: expect.objectContaining({ ...patch, enabled: true }),
+    }));
+    await write({ baseUrl: "https://two.example/v1", apiKey: current.apiKey });
+    expect(update).toHaveBeenLastCalledWith(expect.objectContaining({
+      data: expect.objectContaining({ apiKey: "", enabled: false }),
+    }));
   });
 });
 
@@ -449,13 +460,14 @@ describe("importAlertRules", () => {
   const rule = (webhookUrl: string | null) => ({ id: "r1", name: "CPU", metric: "cpu", operator: "gt", threshold: 90, durationSeconds: 60, serverIds: [], notifyChannels: ["webhook"], playbookIds: [], webhookUrl, cooldownMinutes: 5, silenceWindows: [], escalationMinutes: 30, onCallUserIds: [], enabled: true, teamId: null, createdAt: "2026-01-01T00:00:00.000Z" });
   const ruleTx = () => {
     const update = vi.fn().mockResolvedValue({});
-    return { update, tx: { alertRule: { findMany: vi.fn().mockResolvedValue([{ id: "r1" }]), createMany: vi.fn().mockResolvedValue({ count: 0 }), update } } as unknown as Tx };
+    return { update, tx: { alertRule: { findMany: vi.fn().mockResolvedValue([{ id: "r1", teamId: null }]), createMany: vi.fn().mockResolvedValue({ count: 0 }), update } } as unknown as Tx };
   };
 
   // The standard export leaves webhook addresses out; overwriting from it must not wipe the one the rule has.
   it("keeps a rule's webhook address when a standard export overwrites it", async () => {
     const { tx, update } = ruleTx();
     await importAlertRules(tx, tables({ alertRules: [rule(null)] }), OVERWRITE, counts(), "standard");
+    expect(update.mock.calls[0]![0].where).toEqual({ id: "r1", teamId: null });
     expect(update.mock.calls[0]![0].data).not.toHaveProperty("webhookUrl");
   });
 

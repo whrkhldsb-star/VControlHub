@@ -243,7 +243,7 @@ export async function handleInboundWebhook(input: {
     }
 
     const finalStatus = action.startsWith("ignored") ? "ignored" : "ok";
-    const finalPayload = { action, title: normalized.title, status: normalized.status, applied: !action.startsWith("ignored") };
+    const finalPayload = { terminalAtMs: Date.now(), action, title: normalized.title, status: normalized.status, applied: !action.startsWith("ignored") };
     const event = toEventRecord(await prisma.itsmEvent.update({
       where: { id: claim.id },
       data: { status: finalStatus, ticketId, payload: finalPayload, errorMessage: null },

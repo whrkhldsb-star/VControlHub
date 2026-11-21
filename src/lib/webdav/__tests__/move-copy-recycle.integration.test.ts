@@ -89,6 +89,26 @@ describe.skipIf(process.env.RUN_DATABASE_INTEGRATION_TESTS !== "1")("WebDAV MOVE
     expect(read("b.txt")).toBe("old destination bytes");
   });
 
+  it.each([["MOVE", handleWebDavMove], ["COPY", handleWebDavCopy]] as const)(
+    "%s with Overwrite:F preserves an unindexed destination and its source", async (verb, handler) => {
+      const source = await file("a.txt", "source");
+      writeFileSync(join(root, "b.txt"), "outside the index");
+      expect(await status(handler(ctx("a.txt"), request(verb, "b.txt", "F")))).toBe(412);
+      expect(read("a.txt")).toBe("source");
+      expect(read("b.txt")).toBe("outside the index");
+      const rows = await prisma.fileEntry.findMany({ where: { storageNodeId: prefix } });
+      expect(rows.map(row => row.id)).toEqual([source.id]);
+    },
+  );
+
+  it("PUT preserves an unindexed physical directory and its children", async () => {
+    mkdirSync(join(root, "docs"));
+    writeFileSync(join(root, "docs/keep"), "contents");
+    expect(await status(handleWebDavPut(ctx("docs"), new Request(origin, { method: "PUT", body: "new bytes" })))).toBe(409);
+    expect(read("docs/keep")).toBe("contents");
+    expect(await prisma.fileEntry.count({ where: { storageNodeId: prefix } })).toBe(0);
+  });
+
   it("MOVE onto a recycle-bin file refuses and keeps the recycled bytes", async () => {
     await file("a.txt", "source bytes");
     await file("b.txt", "recycled bytes", true);

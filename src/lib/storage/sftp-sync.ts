@@ -1,7 +1,7 @@
 import { Prisma } from "@prisma/client";
 
 import type { SessionPayload } from "@/lib/auth/session";
-import { teamWhere } from "@/lib/auth/team-scope";
+import { liveCustomerRowsWhere, teamWhere } from "@/lib/auth/team-scope";
 import { prisma } from "@/lib/db";
 import { guessMimeType } from "@/lib/image-bed/constants";
 import { listRemoteDirectory, type SftpListEntry } from "@/lib/ssh/client";
@@ -329,14 +329,7 @@ export async function syncSftpDirectoryEntries(input: {
     try {
       entries = await withDirectoryTimeout(
         listRemoteDirectory({
-          host: credentials.host,
-          port: credentials.port,
-          username: credentials.username,
-          privateKey: credentials.privateKey,
-          passphrase: credentials.passphrase,
-          password: credentials.password,
-          hostKeySha256: credentials.hostKeySha256,
-          agentServerId: credentials.agentServerId,
+          ...credentials,
           remotePath: dirPath,
           // What is missing from this list gets marked deleted, so an Agent listing cut at 10,000 must fail.
           requireComplete: true,
@@ -414,7 +407,7 @@ export async function getSftpSyncNode(
   return prisma.storageNode.findFirst({
     where: {
       id: nodeId,
-      ...(session ? teamWhere(session) : {}),
+      ...(session ? { ...teamWhere(session), ...liveCustomerRowsWhere() } : {}),
     },
     select: {
       id: true,

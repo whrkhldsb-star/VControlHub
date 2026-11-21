@@ -14,7 +14,7 @@ export async function planQuickServiceImport(
   servers: ReadonlySet<string>,
 ) {
   const valid = records.filter((row) => hasImportableQuickServiceTarget(row, servers));
-  const select = { id: true, instanceKey: true, slug: true } as const;
+  const select = { id: true, instanceKey: true, serverId: true, slug: true } as const;
   const [byId, byTarget] = await Promise.all([
     loadImportReferences(valid.map((row) => row.id), (ids) => db.quickService.findMany({ where: { id: { in: ids } }, select })),
     loadImportReferences(valid, (rows) => db.quickService.findMany({ where: {
@@ -22,5 +22,11 @@ export async function planQuickServiceImport(
     }, select })),
   ]);
   const existing = [...byId, ...byTarget].map((row) => ({ id: row.id, key: keyOf(row) }));
-  return planUniqueImport(valid, existing, keyOf, options.overwriteExisting);
+  const previous = new Map(byId.map((row) => [row.id, row]));
+  const sameTarget = valid.filter((row) => {
+    const current = previous.get(row.id);
+    const target = quickServiceTarget(row);
+    return !current || (target.instanceKey === current.instanceKey && target.serverId === current.serverId);
+  });
+  return planUniqueImport(sameTarget, existing, keyOf, options.overwriteExisting);
 }

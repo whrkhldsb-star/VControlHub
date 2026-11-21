@@ -174,6 +174,54 @@ export const VALID_SETTING_KEYS: string[] = [
 	"sync.targetAuthDefault",
 ];
 
+// Shared persistence rules for settings writes from the API and configuration
+// packages. Runtime numeric settings use RUNTIME_SETTING_DEFINITIONS instead.
+const bool = z.enum(["true", "false"]);
+const optionalBool = z.union([z.literal(""), bool]);
+function integer(min: number, max: number, empty?: string) {
+	return z.string().transform((value) => Math.trunc(Number(value || empty)))
+		.pipe(z.number().int().min(min).max(max)).transform(String);
+}
+const address = /^.+@.+\..+$/;
+const separated = z.string().transform((value) => value.split(/[\n,;，；]+/).map((s) => s.trim()).filter(Boolean));
+const turnstile = z.string().trim().max(200).regex(/^\S*$/);
+
+export const SETTING_VALUE_SCHEMAS: Partial<Record<SettingKey, z.ZodType<string>>> = {
+	"platform.name": z.string().trim().min(1).max(80),
+	"platform.logo": z.string().trim().refine((v) => !v || v.startsWith("/") || /^https?:$/.test(URL.parse(v)?.protocol ?? "")),
+	"session.timeout": integer(300, 2_592_000),
+	"password.minLength": integer(8, 128),
+	"password.requireUppercase": bool,
+	"password.requireNumber": bool,
+	"password.requireSpecial": bool,
+	"smtp.enabled": bool,
+	"smtp.requireTls": bool,
+	"smtp.port": integer(1, 65_535, "587"),
+	"smtp.from": z.string().trim().refine((v) => !v || address.test(v)),
+	"smtp.alertRecipients": separated.refine((v) => v.every((email) => address.test(email))).transform((v) => v.join(",")),
+	"smtp.host": z.string().trim(),
+	"smtp.user": z.string().trim(),
+	"smtp.pass": z.string().trim(),
+	"dashboard.layout.dragReorderEnabled": bool,
+	"offsite.enabled": bool,
+	"offsite.compress": bool,
+	"offsite.provider": z.enum(["s3", "r2", "b2", "minio"]),
+	"offsite.dailyWindowHour": integer(0, 23, "3"),
+	"offsite.retentionDays": integer(1, 3650, "30"),
+	"ai.ops.mode": z.enum(["recommendation", "autonomous"]),
+	"ai.ops.provider": z.string().regex(/^[A-Za-z0-9._:-]{0,64}$/),
+	"telegram.enabled": bool,
+	"telegram.botToken": z.string().trim(),
+	"telegram.chatId": separated.refine((v) => v.every((id) => /^-?\d+$|^@[A-Za-z0-9_]{4,}$/.test(id))).transform((v) => v.join(",")),
+	"security.sshEnforceHostKeyPin": optionalBool,
+	"rdp.webpImages": optionalBool,
+	"platform.defaultLocale": z.string().trim().toLowerCase().pipe(z.enum(["", "zh", "en"])),
+	"platform.defaultTheme": z.string().trim().toLowerCase().pipe(z.enum(["", "dark", "light"])),
+	"security.turnstileSiteKey": turnstile,
+	"security.turnstileSecretKey": turnstile,
+	"sync.targetAuthDefault": z.enum(["credential", "one-time-key"]),
+};
+
 /* ── Sensitive key detection ──────────────────────────────── */
 
 /**
@@ -186,6 +234,7 @@ const SENSITIVE_KEYS = new Set([
 	"offsite.accessKeyId",
 	"offsite.secretAccessKey",
 	"security.turnstileSecretKey",
+	"offsite.access-key-id",
 ]);
 
 /**
@@ -199,8 +248,8 @@ export function isSensitiveKey(key: string): boolean {
 	if (/^(pass|password|secret|token|apiKey|apikey|privateKey|accessKey|secretKey)$/i.test(leaf)) {
 		return true;
 	}
-	// Nested secret fields like *.secretAccessKey / *.botToken already covered by leaf.
-	return false;
+	// Older offsite versions wrote kebab-case leaves such as secret-access-key.
+	return /-(?:secret|key|token|password)$/i.test(leaf);
 }
 
 /* ── Sentinel value ───────────────────────────────────────── */

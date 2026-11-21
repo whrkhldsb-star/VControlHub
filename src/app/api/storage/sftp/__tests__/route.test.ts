@@ -123,6 +123,7 @@ describe("/api/storage/sftp", () => {
         port: 22,
         username: "root",
         privateKey: "decrypted:PRIVATE KEY",
+        enforceHostKeyPin: true,
         remotePath: "/data/files",
       }),
     );

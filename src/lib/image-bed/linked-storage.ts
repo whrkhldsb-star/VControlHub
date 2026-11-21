@@ -4,6 +4,8 @@ import type { Prisma } from "@prisma/client";
 import { prisma } from "@/lib/db";
 
 export async function indexLinkedStorageImage(input: {
+  imageId: string;
+  createdAt: Date;
   storageNodeId: string;
   relativePath: string;
   originalName: string;
@@ -17,6 +19,7 @@ export async function indexLinkedStorageImage(input: {
     mimeType: input.mimeType,
     size: BigInt(input.size),
     checksumSha256: input.checksum,
+    updatedAt: input.createdAt,
     isDeleted: false,
   };
 
@@ -29,6 +32,7 @@ export async function indexLinkedStorageImage(input: {
       },
     },
     create: {
+      id: input.imageId,
       storageNodeId: input.storageNodeId,
       relativePath: input.relativePath,
       ...data,

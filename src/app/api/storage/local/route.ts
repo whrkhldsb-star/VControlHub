@@ -15,12 +15,13 @@ import { storageAccessDeniedCopy } from "@/lib/storage/access-denied";
 import { logError } from "@/lib/logging";
 import { statBackingObject } from "@/lib/storage/fs-backend";
 import { lockStorageFileOverwrite } from "@/lib/storage/file-overwrite-lock";
+import { validateStorageFileIndex } from "@/lib/storage/schema";
+import { previousFileIndexFields, writeFileIndex } from "@/lib/storage/file-write-index";
 import { snapshotFileVersionBeforeOverwrite } from "@/lib/storage/file-versions";
 import { resolveManagedLocalPath } from "@/lib/storage/managed-path";
 import { normalizeStorageRelativePath } from "@/lib/storage/path-utils";
 import {
   createRemoteDirectory,
-  deleteRemoteFile,
   writeRemoteFile,
 } from "@/lib/ssh/client";
 import { resolveStorageSshCredentials } from "@/lib/storage/ssh-credentials";
@@ -34,12 +35,11 @@ import { PROXY_CLIENT_MAX_BODY_BYTES } from "@/lib/http/proxy-body-limit";
 import { requestContentLengthExceeds } from "@/lib/http/request-body";
 
 import { ConflictError, ValidationError } from "@/lib/errors";
-import { isUniqueViolation } from "@/lib/db";
 import { getErrorMessage } from "@/lib/http/error-message";
 import { t as serviceTranslate } from "@/lib/i18n/service-translations";
 import { getServerLocale, t, type Locale } from "@/lib/i18n/translations";
 import { handleLocalStorageGet } from "./route-get";
-import { writeStorageFileBuffer, deleteStorageFileBuffer } from "@/lib/storage/file-content";
+import { writeStorageFileBuffer } from "@/lib/storage/file-content";
 import { SSH_KEY_CREDENTIAL_SELECT } from "@/lib/ssh/ssh-key-crypto";
 
 type UploadLike = {
@@ -230,28 +230,15 @@ async function handlePost(request: Request, session: SessionPayload, locale: Loc
   let releaseOverwrite: (() => Promise<void>) | undefined;
   try {
   releaseOverwrite = await lockStorageFileOverwrite(storageNodeId, normalizedRelativePath);
-  const mimeType = file.type || null;
-  const fileName = path.posix.basename(normalizedRelativePath);
-
-  let createdLocalPath: string | null = null;
-  // An overwrite of a LOCAL file is written beside it and moved into place
-  // once the index took it. Written in place, a failed index update was
-  // "compensated" by deleting the path: the previous file was gone too (and
-  // above the version size limit it had no copy in the history).
-  let stagedLocalPath: string | null = null;
-  let createdRemotePath: string | null = null;
-  let createdRemoteBuffer = false;
-  let sftpCredentials: ReturnType<typeof resolveStorageSshCredentials> | null =
-    null;
-
-  // Look up existing index early so we can snapshot before overwrite.
-  const previousFields = { id: true, entryType: true, isDeleted: true, name: true, size: true, mimeType: true, checksumSha256: true, deleteBatchId: true } as const;
+  const index = validateStorageFileIndex({
+    storageNodeId, relativePath: normalizedRelativePath, mimeType: file.type, size: byteSize,
+  });
   const existingEntryForVersion = await prisma.fileEntry.findFirst({
     where: {
       storageNodeId,
       relativePath: normalizedRelativePath,
     },
-    select: previousFields,
+    select: previousFileIndexFields,
   });
   // A folder (or one in the recycle bin) of that name is in the way: writing would turn its row into a file's
   // and the move into place fail on the real folder.
@@ -269,38 +256,9 @@ async function handlePost(request: Request, session: SessionPayload, locale: Loc
     });
   }
 
-  if (storageNode.driver === "LOCAL") {
-    if (!absolutePath) {
-      return NextResponse.json(
-        { error: t("api.storage.resolveLocalPathFailed", locale) },
-        { status: 400 },
-      );
-    }
-    const parentDir = path.dirname(absolutePath);
-    await mkdir(parentDir, { recursive: true });
-    if (!existingEntryForVersion) {
-      try {
-        await writeFile(absolutePath, fileBuffer, { flag: "wx" });
-        createdLocalPath = absolutePath;
-      } catch (error) {
-        if ((error as NodeJS.ErrnoException).code !== "EEXIST") throw error;
-      }
-    }
-    if (!createdLocalPath) {
-      stagedLocalPath = path.join(parentDir, `.vch-upload-${randomBytes(6).toString("hex")}.tmp`);
-      await writeFile(stagedLocalPath, fileBuffer, { flag: "wx" });
-    }
-  } else if (storageNode.driver === "WEBDAV" || storageNode.driver === "AGENT") {
-    const isNew = !existingEntryForVersion && await statBackingObject({ storageNode, relativePath: normalizedRelativePath }) === null;
-    await writeStorageFileBuffer(storageNode, normalizedRelativePath, fileBuffer);
-    createdRemoteBuffer = isNew;
-  } else {
-    if (!remotePath) {
-      return NextResponse.json(
-        { error: t("api.storage.resolveRemotePathFailed", locale) },
-        { status: 400 },
-      );
-    }
+  // Resolve remote containment and check for a collection before recording the new metadata.
+  let sftpCredentials: ReturnType<typeof resolveStorageSshCredentials> | undefined;
+  if (storageNode.driver === "SFTP" && remotePath) {
     try {
       sftpCredentials = resolveStorageSshCredentials(storageNode);
     } catch (error) {
@@ -312,131 +270,61 @@ async function handlePost(request: Request, session: SessionPayload, locale: Loc
     try {
       remotePath = await assertRemotePathContained(sftpCredentials, storageNode.basePath, remotePath);
     } catch (error) {
-      if (error instanceof ValidationError) {
-        return NextResponse.json({ error: error.message }, { status: 400 });
-      }
+      if (error instanceof ValidationError) return NextResponse.json({ error: error.message }, { status: 400 });
       throw error;
     }
-    const remoteParent = path.posix.dirname(remotePath);
+  }
+  const backing = await statBackingObject({ storageNode, relativePath: normalizedRelativePath });
+  if (backing?.isDirectory) {
+    return NextResponse.json({ error: t("api.storage.targetIsDirectory", locale) }, { status: 409 });
+  }
+
+  let stagedLocalPath: string | undefined;
+  try {
+    if (absolutePath) {
+      const parent = path.dirname(absolutePath);
+      await mkdir(parent, { recursive: true });
+      stagedLocalPath = path.join(parent, `.vch-upload-${randomBytes(6).toString("hex")}.tmp`);
+      await writeFile(stagedLocalPath, fileBuffer, { flag: "wx" });
+    }
+
+    let rollback: Awaited<ReturnType<typeof writeFileIndex>>;
     try {
-      const isNew = !existingEntryForVersion && await statBackingObject({ storageNode, relativePath: normalizedRelativePath }) === null;
-      await createRemoteDirectory({
-        ...sftpCredentials,
-        remotePath: remoteParent,
-        recursive: true,
-      });
-      await writeRemoteFile({
-        ...sftpCredentials,
-        remotePath,
-        content: fileBuffer,
-      });
-      if (isNew) createdRemotePath = remotePath;
+      rollback = await writeFileIndex(index, existingEntryForVersion);
     } catch (error) {
-      logError("[/api/storage/local] sftp upload error:", error);
+      if (error instanceof ConflictError) throw error;
+      if ((error as NodeJS.ErrnoException)?.code === "P2025") {
+        throw new ConflictError(serviceTranslate("backend.storage.editableFileUpdatedByOther"));
+      }
+      logError("[/api/storage/local] upload index error:", error);
       return NextResponse.json(
-        { error: getErrorMessage(error, t("api.storage.remoteUploadFailed", locale)) },
-        { status: 502 },
+        { error: t("api.storage.writeIndexFailed", locale, { message: getErrorMessage(error, "Unknown error") }) },
+        { status: 500 },
       );
     }
-  }
-
-  const indexData = {
-    name: fileName,
-    entryType: "FILE" as const,
-    mimeType,
-    size: BigInt(byteSize),
-    // Not hashed here: a checksum recorded for the bytes this upload replaces must not stay on the row.
-    checksumSha256: null,
-  };
-
-  let previousEntry = existingEntryForVersion;
-  let writtenIndex: { id: string; updatedAt: Date } | undefined;
-  try {
-    if (!previousEntry) {
-      try {
-        writtenIndex = await prisma.fileEntry.create({
-          data: { storageNodeId, relativePath: normalizedRelativePath, ...indexData },
-          select: { id: true, updatedAt: true },
-        });
-      } catch (createError) {
-        if (!isUniqueViolation(createError)) throw createError;
-        previousEntry = await prisma.fileEntry.findFirst({
-          where: { storageNodeId, relativePath: normalizedRelativePath },
-          select: previousFields,
-        });
-        if (!previousEntry || previousEntry.isDeleted || previousEntry.entryType === "DIRECTORY") throw createError;
-      }
-    }
-    if (previousEntry) {
-      writtenIndex = await prisma.fileEntry.update({
-        where: { id: previousEntry.id, storageNodeId, relativePath: normalizedRelativePath, isDeleted: false, entryType: "FILE" },
-        data: indexData,
-        select: { id: true, updatedAt: true },
-      });
-    }
-  } catch (error) {
-    logError("[/api/storage/local] upload index error:", error);
-    // Never cleanup on unique-constraint races — the competing request owns
-    // a valid FileEntry that still points at this blob path.
-    if (!isUniqueViolation(error) && !previousEntry) {
-      if (createdRemoteBuffer) {
-        await deleteStorageFileBuffer(storageNode, normalizedRelativePath).catch((cleanupError) => {
-          logError("WebDAV upload cleanup failed", cleanupError);
-        });
-      }
-      if (createdLocalPath) {
-        try {
-          await unlink(createdLocalPath);
-        } catch (cleanupError) {
-          logError(
-            "[/api/storage/local] local upload cleanup error:",
-            cleanupError,
-          );
-        }
-      }
-      // Only a file this upload created: an overwritten remote file is the
-      // user's previous file, not a leftover.
-      if (createdRemotePath && sftpCredentials) {
-        try {
-          await deleteRemoteFile({
-            ...sftpCredentials,
-            remotePath: createdRemotePath,
-          });
-        } catch (cleanupError) {
-          logError(
-            "[/api/storage/local] sftp upload cleanup error:",
-            cleanupError,
-          );
-        }
-      }
-    }
-    if (stagedLocalPath) await unlink(stagedLocalPath).catch(() => undefined);
-    if ((error as NodeJS.ErrnoException)?.code === "P2025") {
-      throw new ConflictError(serviceTranslate("backend.storage.editableFileUpdatedByOther"));
-    }
-    const message = getErrorMessage(error, "Unknown error");
-    return NextResponse.json(
-      { error: t("api.storage.writeIndexFailed", locale, { message }) },
-      { status: 500 },
-    );
-  }
-  if (stagedLocalPath && absolutePath) {
     try {
-      await rename(stagedLocalPath, absolutePath);
+      if (absolutePath && stagedLocalPath) {
+        await rename(stagedLocalPath, absolutePath);
+        stagedLocalPath = undefined;
+      } else if (remotePath && sftpCredentials) {
+        await createRemoteDirectory({ ...sftpCredentials, remotePath: path.posix.dirname(remotePath), recursive: true });
+        await writeRemoteFile({ ...sftpCredentials, remotePath, content: fileBuffer });
+      } else {
+        await writeStorageFileBuffer(storageNode, normalizedRelativePath, fileBuffer);
+      }
     } catch (error) {
-      await unlink(stagedLocalPath).catch(() => undefined);
-      // The rename failed, so the old bytes are still at the target. Restore every field
-      // changed by indexData, provided no later writer has taken ownership of this row.
-      if (writtenIndex) {
-        if (previousEntry) {
-          const { id, ...previous } = previousEntry;
-          await prisma.fileEntry.updateMany({ where: { id, updatedAt: writtenIndex.updatedAt, isDeleted: false }, data: previous });
-        } else {
-          await prisma.fileEntry.deleteMany({ where: { ...writtenIndex, isDeleted: false } });
-        }
+      await rollback();
+      if (storageNode.driver === "SFTP") {
+        logError("[/api/storage/local] sftp upload error:", error);
+        return NextResponse.json(
+          { error: getErrorMessage(error, t("api.storage.remoteUploadFailed", locale)) },
+          { status: 502 },
+        );
       }
       throw error;
     }
+  } finally {
+    if (stagedLocalPath) await unlink(stagedLocalPath).catch(() => undefined);
   }
 
   return NextResponse.json({

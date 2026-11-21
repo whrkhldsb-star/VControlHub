@@ -79,6 +79,19 @@ describe("snippet service", () => {
       expect(state.createCalls[0]!.data.tags).toEqual(["a", "b"]);
     });
 
+    it("binds a new snippet to its creation scope even if the author later becomes a platform admin", async () => {
+      const author = { userId: "owner", currentTeamId: "team-a", platformAdmin: false };
+      const input = { title: "shared", content: "body", isPrivate: false };
+      await createSnippet(input, author);
+      await createSnippet(input, { ...author, currentTeamId: "team-b" });
+      await createSnippet(input, { ...author, currentTeamId: null, platformAdmin: true });
+      const ids = state.createCalls.map(call => String(call.data.id));
+      expect(ids[0]).toMatch(/^sn-team-[0-9a-f]{64}-/);
+      expect(ids[1]!.slice(0, 72)).not.toBe(ids[0]!.slice(0, 72));
+      expect(ids[2]).toMatch(/^sn-platform-/);
+      expect(state.createCalls[0]!.data.createdBy).toBe(author.userId);
+    });
+
     it("caps tags at 20 entries", async () => {
       const tags = Array.from({ length: 25 }, (_, i) => `t${i}`);
       await createSnippet({ title: "t", content: "c", tags });

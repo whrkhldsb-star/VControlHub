@@ -196,6 +196,9 @@ Unregister-ScheduledTask -TaskName '${TASK_NAME}' -Confirm:$false -ErrorAction S
 Remove-NetFirewallRule -DisplayName '${FIREWALL_RULE}' -ErrorAction SilentlyContinue
 $dir = Join-Path $env:ProgramData 'VControlHub\direct-gateway'
 if (Test-Path -LiteralPath $dir) { Remove-Item -LiteralPath $dir -Recurse -Force }
+if (Get-ScheduledTask -ErrorAction Stop | Where-Object TaskName -eq '${TASK_NAME}') { throw 'Gateway task still registered' }
+$script = Join-Path $dir '${WINDOWS_GATEWAY_SCRIPT_NAME}'
+if (Get-CimInstance Win32_Process -Filter "Name='powershell.exe'" -ErrorAction Stop | Where-Object { $_.CommandLine -and $_.CommandLine.IndexOf($script, [StringComparison]::OrdinalIgnoreCase) -ge 0 }) { throw 'Gateway process still running' }
 `;
   return encodedCommand(uninstall);
 }

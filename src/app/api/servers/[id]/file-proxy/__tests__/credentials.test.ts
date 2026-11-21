@@ -10,11 +10,12 @@ vi.mock("ssh2", () => ({
     exec(_command: string, _options: unknown, callback: (error: Error | null, stream: unknown) => void) {
       const handlers: Record<string, (...args: unknown[]) => void> = {};
       const stream = {
+        end() {},
         on(event: string, handler: (...args: unknown[]) => void) { handlers[event] = handler; return stream; },
         stderr: { on() { return stream.stderr; } },
       };
       callback(null, stream);
-      queueMicrotask(() => { handlers.data?.(Buffer.from("123\n")); handlers.close?.(0); });
+      queueMicrotask(() => { handlers.data?.(Buffer.from("proxy_running\n")); handlers.close?.(0); });
     }
     end() {}
   },
@@ -35,7 +36,8 @@ vi.mock("@/lib/db", () => ({
 }));
 // The stored key is passphrase-protected: decrypting the key alone leaves it
 // encrypted; the stored-key helper unlocks it with its passphrase.
-vi.mock("@/lib/ssh/ssh-key-crypto", () => ({
+vi.mock("@/lib/ssh/ssh-key-crypto", async (importOriginal) => ({
+  ...await importOriginal<typeof import("@/lib/ssh/ssh-key-crypto")>(),
   decryptServerPassword: (value: string) => `plain:${value}`,
   decryptSshPrivateKey: () => "-----BEGIN ENCRYPTED PRIVATE KEY-----",
   decryptStoredSshKey: (key: { privateKey?: string | null; passphrase?: string | null } | null) =>
@@ -50,7 +52,7 @@ vi.mock("@/lib/audit/service", () => ({ auditUserAction: vi.fn() }));
 import { GET } from "../route";
 
 const params = { params: Promise.resolve({ id: "srv_1" }) };
-const baseServer = { id: "srv_1", host: "203.0.113.5", port: 22, username: "root", hostKeySha256: "SHA256:x", publicUrl: "https://n.example.com", teamId: null };
+const baseServer = { id: "srv_1", host: "203.0.113.5", port: 22, username: "root", hostKeySha256: "SHA256:x", publicUrl: "https://n.example.com", teamId: null, storageNode: { teamId: null, driver: "SFTP", basePath: "/data" } };
 
 describe("file proxy SSH credentials", () => {
   beforeEach(() => {

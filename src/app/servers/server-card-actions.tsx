@@ -12,7 +12,7 @@ import {
 	updateServerAction,
 	type ServerActionState,
 } from "./actions";
-import { ServerCardDirectGatewayForm } from "./server-card-actions-direct-gateway";
+import { ServerCardDirectGatewayForm, type ServerCardDirectGateway } from "./server-card-actions-direct-gateway";
 import { ServerCardTransferForm } from "./server-card-transfer-form";
 import { ServerCardDeleteForm } from "./server-card-delete-form";
 import { ServerCardEditForm } from "./server-card-edit-form";
@@ -67,11 +67,7 @@ type ServerCardActionsProps = {
 	teamId?: string | null;
 	canUseSshTerminal?: boolean;
 	onSshConnect?: () => void;
-	directGateway?: {
-		enabled: boolean;
-		publicUrl: string | null;
-		port: number;
-	};
+	directGateway?: ServerCardDirectGateway;
 };
 
 export function ServerCardActions({

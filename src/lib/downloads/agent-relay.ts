@@ -44,8 +44,11 @@ export async function publishAgentDownloadFile(input: Destination & { localPath:
     try {
       await verify();
       const client = createAgentFileClient(nodeId, input.serverId, task.agentRootIdentity);
-      if (!await client.matches(relativePath, file.size, file.sha256)) {
-        const occupant = await prisma.fileEntry.findUnique({ where: { storageNodeId_relativePath: { storageNodeId: nodeId, relativePath } } });
+      const existing = await client.stat(relativePath);
+      if (existing?.isDirectory) throw new BusinessError(t("backend.storage.targetIsDirectory"));
+      const occupant = await prisma.fileEntry.findUnique({ where: { storageNodeId_relativePath: { storageNodeId: nodeId, relativePath } } });
+      if (occupant?.entryType === "DIRECTORY") throw new BusinessError(t("backend.storage.targetIsDirectory"));
+      if (!existing || !await client.matches(relativePath, file.size, file.sha256, existing)) {
         if (occupant) await snapshotFileVersionBeforeOverwrite({ fileEntryId: occupant.id, userId: actor.userId, reason: "UPLOAD" });
         await client.writeLocal(relativePath, input.localPath, file.sha256, verify);
       }

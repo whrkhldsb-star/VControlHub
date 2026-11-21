@@ -1,10 +1,11 @@
+import { createHash } from "node:crypto";
 import type { CommandRequestStatus, Prisma } from "@prisma/client";
 import { isProtectedByApproval } from "@/lib/auth/rbac";
 import { sessionHasPermission } from "@/lib/auth/authorization";
 import type { RoleKey } from "@/lib/auth/rbac";
 import { commandRequestTeamWhere, serverTeamWhere, teamCreateData } from "@/lib/auth/team-scope";
 import { prisma, isUniqueViolation } from "@/lib/db";
-import { BusinessError, NotFoundError, ValidationError } from "@/lib/errors";
+import { BusinessError, ConflictError, ForbiddenError, NotFoundError, ValidationError } from "@/lib/errors";
 import {
   notifyCommandPending,
   notifyCommandResult,
@@ -112,6 +113,7 @@ function mapCommandRequest(
   request: Awaited<
     ReturnType<typeof prisma.commandRequest.findMany>
   >[number] & {
+    _count: { targets: number };
     requester: { id: string; username: string; displayName: string | null };
     approvals: Array<Record<string, unknown>>;
     targets: Array<Record<string, unknown>>;
@@ -170,6 +172,7 @@ function mapCommandRequest(
       }),
     ),
     targets,
+    targetCount: request._count.targets,
     executionLogs: logs.map(
       (
         log: Record<string, unknown> & {
@@ -335,26 +338,60 @@ export async function cancelCommandRequest(input: {
   return prisma.commandRequest.findUniqueOrThrow({ where: { id: commandRequestId } });
 }
 
+// Older public submissions had no provenance column. A collision with any
+// internal producer's prefix cannot safely identify a public receipt.
+const RESERVED_COMMAND_KEY = /^(?:api|playbook|scheduled-task|deployment(?:-rollback)?|ai-hosted-action|ai-automation):/;
+const SUBMISSION_TARGET_SELECT = { id: true, serverId: true, status: true } as const;
+
 export async function createCommandRequest(
   input: CreateCommandInput,
   session?: CommandSessionScope | null,
+  source?: "api",
 ) {
   const payload = createCommandSchema.parse(input);
   const teamId = resolveCommandTeamId(payload.teamId, session);
-  if (payload.idempotencyKey) {
-    // Scope idempotency replay by team so a shared/global key cannot return
-    // another tenant's CommandRequest (and its command text / targets).
-    // Sessioned callers are quarantined via commandRequestTeamWhere (null-team
-    // is not shared); sessionless system callers replay only within their own
-    // stamped teamId (or the null-team quarantine), never across all teams.
+  const rawKey = payload.idempotencyKey;
+  // Internal producers recover by their stable keys. A public submission must
+  // never occupy those keys, even when it runs under the same service account.
+  const storedKey = rawKey && source === "api"
+    ? `api:${createHash("sha256").update(JSON.stringify([teamId, payload.requesterId, rawKey])).digest("hex")}`
+    : rawKey;
+  const visibleTargets = {
+    select: SUBMISSION_TARGET_SELECT,
+    ...(session ? { where: { server: { AND: [{ teamId }, serverTeamWhere(session)] } } } : {}),
+  };
+
+  async function replay(idempotencyKey: string, legacyPublic = false) {
     const existing = await prisma.commandRequest.findFirst({
-      where: {
-        idempotencyKey: payload.idempotencyKey,
-        ...(session ? commandRequestTeamWhere(session) : { teamId: teamId ?? null }),
-      },
-      include: { targets: true },
+      where: { idempotencyKey, teamId, requesterId: payload.requesterId, ...(session ? { AND: commandRequestTeamWhere(session) } : {}) },
+      include: { targets: { select: { serverId: true } } },
     });
-    if (existing) return { ...existing, requiresApproval: existing.status === "PENDING_APPROVAL" };
+    if (!existing) return null;
+    if (legacyPublic && RESERVED_COMMAND_KEY.test(idempotencyKey)) {
+      throw new ConflictError(t("backend.command.idempotencyKeyInUse"));
+    }
+    const serverIds = new Set(existing.targets.map(target => target.serverId));
+    if (existing.command !== payload.command || serverIds.size !== payload.serverIds.length ||
+        payload.serverIds.some(id => !serverIds.has(id))) {
+      throw new ConflictError(t("backend.command.idempotencyKeyInUse"));
+    }
+    // The comparison needs every original target. The caller only receives
+    // the currently readable targets, without command output or credentials.
+    const targets = await prisma.commandTarget.findMany({
+      ...visibleTargets, where: { commandRequestId: existing.id, ...visibleTargets.where },
+    });
+    return { ...existing, targets, requiresApproval: existing.status === "PENDING_APPROVAL" };
+  }
+
+  if (storedKey) {
+    const existing = await replay(storedKey);
+    if (existing) return existing;
+    // Read old public keys for clients retrying a submission across an upgrade.
+    // The legacy lookup enforces the same author, team, payload and read scope.
+    if (rawKey && storedKey !== rawKey) {
+      const legacy = await replay(rawKey, true);
+      if (legacy) return legacy;
+    }
   }
 
   // Scope servers by session teamWhere, or by stamped teamId on system paths
@@ -368,7 +405,7 @@ export async function createCommandRequest(
 
   const status = requiresApproval ? "PENDING_APPROVAL" : "APPROVED";
   let commandRequest: Awaited<ReturnType<typeof prisma.commandRequest.create>> & {
-    targets: Awaited<ReturnType<typeof prisma.commandTarget.findMany>>;
+    targets: Prisma.CommandTargetGetPayload<{ select: typeof SUBMISSION_TARGET_SELECT }>[];
   };
   try {
     commandRequest = await prisma.commandRequest.create({
@@ -382,29 +419,18 @@ export async function createCommandRequest(
           | "ASSISTANT",
         status,
         teamId,
-        idempotencyKey: payload.idempotencyKey ?? null,
+        idempotencyKey: storedKey ?? null,
         targets: {
           create: payload.serverIds.map((serverId) => ({ serverId, status })),
         },
       },
-      include: { targets: true },
+      include: { targets: visibleTargets },
     });
   } catch (error) {
-    // Global unique on idempotencyKey: another team may already own this key.
-    // Never return foreign rows; surface a conflict instead of P2002 leak.
-    if (payload.idempotencyKey && isUniqueViolation(error)) {
-      const scopedReplay = await prisma.commandRequest.findFirst({
-        where: {
-          idempotencyKey: payload.idempotencyKey,
-          // Same quarantine as the pre-create replay lookup above.
-          ...(session ? commandRequestTeamWhere(session) : { teamId: teamId ?? null }),
-        },
-        include: { targets: true },
-      });
-      if (scopedReplay) {
-        return { ...scopedReplay, requiresApproval: scopedReplay.status === "PENDING_APPROVAL" };
-      }
-      throw new ValidationError(t("backend.command.idempotencyKeyInUse"));
+    if (storedKey && isUniqueViolation(error)) {
+      const existing = await replay(storedKey);
+      if (existing) return existing;
+      throw new ConflictError(t("backend.command.idempotencyKeyInUse"));
     }
     throw error;
   }
@@ -464,22 +490,17 @@ export async function reviewCommandRequest(
   }
 
   const nextStatus = payload.approved ? "APPROVED" : "REJECTED";
+  const reviewTargetScope = session && payload.approved
+    ? { server: { AND: [{ teamId: request.teamId }, serverTeamWhere(session)] } }
+    : null;
 
   // Atomic compare-and-swap: prevent concurrent approvers from double-executing
   await prisma.$transaction(async (tx) => {
-    await tx.commandApproval.create({
-      data: {
-        commandRequestId: payload.commandRequestId,
-        approverId: payload.approverId,
-        approved: payload.approved,
-        comment: payload.comment,
-      },
-    });
-
     const claimed = await tx.commandRequest.updateMany({
       where: {
         id: payload.commandRequestId,
         status: "PENDING_APPROVAL",
+        ...(reviewTargetScope ? { targets: { every: reviewTargetScope } } : {}),
         ...(session ? commandRequestTeamWhere(session) : {}),
       },
       data: payload.approved
@@ -488,8 +509,22 @@ export async function reviewCommandRequest(
     });
 
     if (claimed.count === 0) {
+      if (reviewTargetScope && await tx.commandTarget.findFirst({
+        where: { commandRequestId: request.id, NOT: reviewTargetScope },
+        select: { id: true },
+      })) {
+        throw new ForbiddenError(t("backend.command.targetsOutOfScope"));
+      }
       throw new BusinessError(t("backend.command.alreadyReviewed"));
     }
+    await tx.commandApproval.create({
+      data: {
+        commandRequestId: payload.commandRequestId,
+        approverId: payload.approverId,
+        approved: payload.approved,
+        comment: payload.comment,
+      },
+    });
   });
 
   if (payload.approved) {
@@ -540,6 +575,7 @@ export async function reviewCommandRequest(
 }
 
 const COMMAND_LIST_INCLUDE = {
+  _count: { select: { targets: true } },
   requester: { select: { id: true, username: true, displayName: true } },
   approvals: {
     orderBy: { createdAt: "desc" },

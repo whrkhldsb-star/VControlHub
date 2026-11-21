@@ -150,6 +150,22 @@ describe("isMissingBackingObjectError", () => {
     expect(isMissingBackingObjectError(err2)).toBe(true);
   });
 
+  it.each(["EACCES", "EPERM", "EROFS", 3, 4])("propagates structured delete failure %s despite missing text in the path", async code => {
+    const err = Object.assign(new Error("permission denied: /data/not found"), { code });
+    expect(isMissingBackingObjectError(err)).toBe(false);
+    unlinkMock.mockRejectedValueOnce(err);
+    await expect(deleteBackingObject({ storageNode: localNode, relativePath: "not found", isDirectory: false, tolerateMissing: true })).rejects.toBe(err);
+  });
+
+  it("honors explicit HTTP statuses even when the provider message says not found", () => {
+    expect(isMissingBackingObjectError(Object.assign(new Error("not found"), { status: 403 }))).toBe(false);
+    expect(isMissingBackingObjectError(Object.assign(new Error("provider error"), { status: 404 }))).toBe(true);
+    expect(isMissingBackingObjectError({ status: 404, code: "BUSINESS_RULE_FAILED" })).toBe(true);
+    expect(isMissingBackingObjectError({ status: 404, code: "EACCES" })).toBe(false);
+    expect(isMissingBackingObjectError({ status: 403, code: "ENOENT" })).toBe(false);
+    expect(isMissingBackingObjectError({ status: 404, code: 4 })).toBe(false);
+  });
+
   it("matches common 'not found' error messages", () => {
     expect(
       isMissingBackingObjectError(new Error("No such file or directory")),

@@ -1,6 +1,11 @@
 import path from "node:path";
 
 import { beforeEach, describe, expect, it, vi } from "vitest";
+const { lockPaths, unlockPaths } = vi.hoisted(() => {
+  const unlockPaths = vi.fn(async () => undefined);
+  return { lockPaths: vi.fn(async () => unlockPaths), unlockPaths };
+});
+vi.mock("@/lib/storage/file-overwrite-lock", () => ({ lockStorageFileOverwrite: lockPaths }));
 vi.mock("@/lib/concurrency/advisory-lock", () => ({ tryAcquireAdvisoryLock: vi.fn().mockResolvedValue(async () => undefined) }));
 // The user's language as the cookie says it; "zh" is what the real lookup answers outside a request.
 const getServerLocaleMock = vi.hoisted(() => vi.fn(async (): Promise<"zh" | "en"> => "zh"));
@@ -39,6 +44,7 @@ const {
       findUnique: vi.fn(),
       findFirst: vi.fn(),
     },
+    auditLog: { create: vi.fn().mockResolvedValue({}) },
     shareLink: {
       findMany: vi.fn().mockResolvedValue([]),
       update: vi.fn().mockResolvedValue({}),
@@ -77,7 +83,7 @@ const {
   mkdirMock: vi.fn(),
   rmdirMock: vi.fn().mockResolvedValue(undefined),
   lstatMock: vi.fn().mockRejectedValue(Object.assign(new Error("not found"), { code: "ENOENT" })),
-  rmMock: vi.fn(),
+  rmMock: vi.fn().mockResolvedValue(undefined),
   unlinkMock: vi.fn(),
   renameFsMock: vi.fn(),
   };
@@ -120,6 +126,7 @@ vi.mock("@/lib/ssh/client", () => ({
   resolveRemoteRealPath: vi.fn(async ({ remotePath }: { remotePath: string }) => remotePath),
   createRemoteDirectory: createRemoteDirectoryMock,
   deleteRemoteFile: deleteRemoteFileMock,
+  listRemoteDirectory: vi.fn(async () => []),
   renameRemoteFile: renameRemoteFileMock,
   statRemoteEntry: vi.fn(async () => {
     throw Object.assign(new Error("no such file"), { code: 2 });
@@ -430,6 +437,7 @@ describe("SFTP file entry actions", () => {
     });
     // clearAllMocks wipes the default; restore so permanent-delete's version-blob
     // purge is a no-op (no versions / no descendants) unless a test overrides it.
+    prismaMock.fileEntry.findUnique.mockResolvedValue({ id: "source" });
     prismaMock.fileVersion.findMany.mockResolvedValue([]);
     prismaMock.fileEntry.findMany.mockResolvedValue([]);
   });
@@ -444,7 +452,7 @@ describe("SFTP file entry actions", () => {
     expect(result.physicalDeleted).toBe(false);
     expect(prismaMock.fileEntry.update).toHaveBeenCalledWith(
       expect.objectContaining({
-        where: { id: "entry-1" },
+        where: expect.objectContaining({ id: "entry-1", relativePath: "docs/old.txt", isDeleted: false }),
         data: expect.objectContaining({ isDeleted: true }),
       }),
     );
@@ -514,6 +522,7 @@ describe("SFTP file entry actions", () => {
       expect.objectContaining({
         remotePath: "/data/root/docs",
         isDirectory: true,
+        emptyOnly: true,
       }),
     );
     expect(prismaMock.fileEntry.delete).toHaveBeenCalledWith({
@@ -611,7 +620,7 @@ describe("SFTP file entry actions", () => {
     );
     expect(prismaMock.fileEntry.update).toHaveBeenCalledWith(
       expect.objectContaining({
-        where: { id: "entry-1" },
+        where: expect.objectContaining({ id: "entry-1", relativePath: "docs/old.txt", storageNodeId: "node-sftp", isDeleted: false }),
         data: { name: "new.txt", relativePath: "docs/new.txt" },
       }),
     );
@@ -663,7 +672,7 @@ describe("SFTP file entry actions", () => {
     // Descendants are rewritten by one UPDATE over the live subtree (A4-28), not a row at a time.
     expect(prismaMock.$executeRaw).toHaveBeenCalledTimes(1);
     expect(prismaMock.fileEntry.update).toHaveBeenCalledWith({
-      where: { id: "entry-1" },
+      where: expect.objectContaining({ id: "entry-1", relativePath: "docs", isDeleted: false }),
       data: { name: "docs-renamed", relativePath: "docs-renamed" },
     });
   });
@@ -743,7 +752,7 @@ describe("SFTP file entry actions", () => {
     expect(unlinkMock).not.toHaveBeenCalled();
     expect(prismaMock.fileEntry.update).toHaveBeenCalledWith(
       expect.objectContaining({
-        where: { id: "local-file" },
+        where: expect.objectContaining({ id: "local-file", relativePath: "reports/report.txt", isDeleted: false }),
         data: expect.objectContaining({ isDeleted: true }),
       }),
     );
@@ -800,10 +809,52 @@ describe("SFTP file entry actions", () => {
     );
     expect(prismaMock.fileEntry.update).toHaveBeenCalledWith(
       expect.objectContaining({
-        where: { id: "local-file" },
+        where: expect.objectContaining({ id: "local-file", relativePath: "docs/old.txt", isDeleted: false }),
         data: { name: "new.txt", relativePath: "docs/new.txt" },
       }),
     );
+  });
+
+  it("refuses an unindexed rename destination occupied under the overwrite lock", async () => {
+    const entry = sftpEntry({ storageNode: { driver: "LOCAL", basePath: "/srv/storage" } });
+    prismaMock.fileEntry.findFirst.mockResolvedValueOnce(entry).mockResolvedValueOnce(null);
+    lstatMock.mockResolvedValueOnce({ size: 10, mtimeMs: 2, isDirectory: () => false });
+
+    expect((await renameFileEntryAction(null, entryForm("entry-1", { newName: "new.txt" }))).error).toBeTruthy();
+    expect(lockPaths.mock.invocationCallOrder[0]).toBeLessThan(lstatMock.mock.invocationCallOrder[0]!);
+    expect(lstatMock).toHaveBeenCalledWith(localPath("docs/new.txt"));
+    expect(renameFsMock).not.toHaveBeenCalled();
+  });
+
+  it("keeps both paths locked through rollback and preserves a replacement at the old name", async () => {
+    const entry = sftpEntry({ updatedAt: new Date(), storageNode: { driver: "LOCAL", basePath: "/srv/storage" } });
+    prismaMock.fileEntry.findFirst.mockResolvedValueOnce(entry).mockResolvedValueOnce(null);
+    lstatMock.mockRejectedValueOnce(Object.assign(new Error("missing"), { code: "ENOENT" }))
+      .mockResolvedValueOnce({ size: 3, mtimeMs: 2, isDirectory: () => false });
+    prismaMock.fileEntry.update.mockRejectedValueOnce(new Error("index failed"));
+
+    const result = await renameFileEntryAction(null, entryForm("entry-1", { newName: "new.txt" }));
+
+    expect(result.error).toBeTruthy();
+    expect(lockPaths).toHaveBeenCalledWith(entry.storageNodeId, "docs/new.txt", "docs/old.txt");
+    expect(lockPaths.mock.invocationCallOrder[0]).toBeLessThan(lstatMock.mock.invocationCallOrder[0]!);
+    expect(renameFsMock.mock.calls).toEqual([[localPath("docs/old.txt"), localPath("docs/new.txt")]]);
+    expect(lstatMock).toHaveBeenLastCalledWith(localPath("docs/old.txt"));
+    expect(unlockPaths.mock.invocationCallOrder[0]).toBeGreaterThan(lstatMock.mock.invocationCallOrder.at(-1)!);
+  });
+
+  it("refuses an action rename if the source changed while waiting for its overwrite lock", async () => {
+    const updatedAt = new Date();
+    prismaMock.fileEntry.findFirst.mockResolvedValueOnce(sftpEntry({ updatedAt }));
+    prismaMock.fileEntry.findUnique.mockResolvedValueOnce(null);
+
+    expect((await renameFileEntryAction(null, entryForm("entry-1", { newName: "new.txt" }))).error).toBeTruthy();
+    expect(prismaMock.fileEntry.findUnique).toHaveBeenCalledWith({
+      where: { id: "entry-1", storageNodeId: "node-sftp", relativePath: "docs/old.txt", updatedAt, isDeleted: false },
+      select: { id: true },
+    });
+    expect(renameRemoteFileMock).not.toHaveBeenCalled();
+    expect(unlockPaths).toHaveBeenCalled();
   });
 
   it("names a failed index write without the query when the rollback fails too", async () => {

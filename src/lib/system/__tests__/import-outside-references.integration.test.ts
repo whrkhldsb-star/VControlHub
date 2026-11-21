@@ -6,6 +6,7 @@ import { prisma } from "@/lib/db";
 import { closeAdvisoryLockPoolForTests } from "@/lib/concurrency/advisory-lock";
 import { exportFileSchema, type ExportFile } from "../config-schema";
 import { buildExportFile } from "../export-service";
+import { createImportAdmin } from "./import-admin-fixture";
 import { executeImport } from "../import-executors";
 import { previewImport } from "../import-preview";
 
@@ -51,9 +52,11 @@ describe.skipIf(process.env.RUN_DATABASE_INTEGRATION_TESTS !== "1")("config impo
 
 		// ── The target instance: none of it exists ──
 		await cleanup();
+		await createImportAdmin(admin.userId);
 	}, 60_000);
 	afterAll(async () => {
 		await cleanup();
+		await prisma.user.deleteMany({ where: { id: admin.userId } });
 		await closeAdvisoryLockPoolForTests();
 		await prisma.$disconnect();
 	});

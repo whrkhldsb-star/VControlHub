@@ -8,7 +8,6 @@ const {
   findSftpNodeForStaleInventoryMock,
   detectAndPruneSftpStaleInventoryMock,
   apiCatchMock,
-  isGlobalTeamManagerMock,
 } = vi.hoisted(() => ({
   enqueueJobMock: vi.fn(),
   withApiRouteMock: vi.fn(),
@@ -16,7 +15,6 @@ const {
   findSftpNodeForStaleInventoryMock: vi.fn(),
   detectAndPruneSftpStaleInventoryMock: vi.fn(),
   apiCatchMock: vi.fn(),
-  isGlobalTeamManagerMock: vi.fn(),
 }));
 
 vi.mock("@/lib/http/api-guard", () => ({
@@ -31,10 +29,7 @@ vi.mock("@/lib/job/service", () => ({
   enqueueJob: enqueueJobMock,
 }));
 
-vi.mock("@/lib/auth/team-scope", () => ({
-  isGlobalTeamManager: isGlobalTeamManagerMock,
-  teamWhere: vi.fn(() => ({})),
-}));
+vi.mock("@/lib/audit/service", () => ({ auditUserAction: vi.fn() }));
 
 vi.mock("@/lib/storage/sftp-stale-inventory", () => ({
   listSftpNodesForStaleInventory: listSftpNodesForStaleInventoryMock,
@@ -44,11 +39,12 @@ vi.mock("@/lib/storage/sftp-stale-inventory", () => ({
 
 import { POST } from "../route";
 
-const session = { userId: "u_1", username: "admin", roles: ["admin"] };
+const session = { userId: "u_1", username: "admin", roles: ["admin"], currentTeamId: null };
 const sampleNode = {
   id: "node_1",
   name: "remote",
   driver: "SFTP",
+  teamId: "team_a",
   basePath: "/data/files",
   healthStatus: "HEALTHY",
   lastHealthError: null,
@@ -88,7 +84,6 @@ describe("/api/storage/sftp-stale-inventory", () => {
         return apiCatchMock(error);
       }
     });
-    isGlobalTeamManagerMock.mockReturnValue(true);
     listSftpNodesForStaleInventoryMock.mockResolvedValue([sampleNode]);
     findSftpNodeForStaleInventoryMock.mockImplementation(async (nodeId: string) =>
       nodeId === sampleNode.id ? sampleNode : null,
@@ -128,6 +123,9 @@ describe("/api/storage/sftp-stale-inventory", () => {
         type: "storage.sftp-stale-inventory",
         payload: expect.objectContaining({
           nodeId: "node_1",
+          userId: "u_1",
+          teamId: null,
+          targetTeams: { node_1: "team_a" },
           reason: "api",
         }),
         createdBy: "u_1",
@@ -147,7 +145,7 @@ describe("/api/storage/sftp-stale-inventory", () => {
     expect(response.status).toBe(202);
     expect(enqueueJobMock).toHaveBeenCalledWith(
       expect.objectContaining({
-        payload: expect.objectContaining({ nodeId: undefined }),
+        payload: expect.objectContaining({ nodeIds: ["node_1"], targetTeams: { node_1: "team_a" } }),
         targetStorageNodeId: null,
       }),
     );
@@ -198,14 +196,13 @@ describe("/api/storage/sftp-stale-inventory", () => {
     expect(findSftpNodeForStaleInventoryMock).toHaveBeenCalledWith("node_missing", session);
   });
 
-  it("pins team-scoped nodeIds when a non-admin queues all nodes", async () => {
+  it.each(["storage_manager", "admin"])("pins the current customer’s node set when %s queues all nodes", async (role) => {
     const teamSession = {
       userId: "u_sm",
       username: "storage_mgr",
-      roles: ["storage_manager"],
+      roles: [role],
       currentTeamId: "team_a",
     };
-    isGlobalTeamManagerMock.mockReturnValue(false);
     listSftpNodesForStaleInventoryMock.mockResolvedValueOnce([
       { ...sampleNode, id: "node_team_a" },
       { ...sampleNode, id: "node_team_a2" },
@@ -221,7 +218,10 @@ describe("/api/storage/sftp-stale-inventory", () => {
     expect(enqueueJobMock).toHaveBeenCalledWith(
       expect.objectContaining({
         payload: expect.objectContaining({
+          userId: "u_sm",
+          teamId: "team_a",
           nodeIds: ["node_team_a", "node_team_a2"],
+          targetTeams: { node_team_a: "team_a", node_team_a2: "team_a" },
           reason: "api",
         }),
         targetStorageNodeId: null,

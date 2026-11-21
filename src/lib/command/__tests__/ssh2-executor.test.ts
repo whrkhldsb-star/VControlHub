@@ -53,6 +53,7 @@ function input(overrides: Partial<Parameters<typeof runSsh2Command>[0]> = {}) {
     port: 22,
     username: "root",
     password: "super-secret",
+    hostKeySha256: "SHA256:test-pinned-command-host",
     command: "uptime",
     runtimeConfig: RUNTIME_CONFIG,
     ...overrides,
@@ -85,6 +86,11 @@ describe("ssh2-executor (Windows password transport)", () => {
     vi.clearAllMocks();
     instances.length = 0;
     vi.useRealTimers();
+  });
+
+  it("rejects a command without a saved host fingerprint before opening the connection", async () => {
+    await expect(runSsh2Command(input({ hostKeySha256: null }))).rejects.toMatchObject({ code: "BUSINESS_RULE_FAILED" });
+    expect(connectMock).not.toHaveBeenCalled();
   });
 
   it("returns joined stdout/stderr with the remote exit code on stream close", async () => {

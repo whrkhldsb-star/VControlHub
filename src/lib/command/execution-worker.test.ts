@@ -190,6 +190,7 @@ describe("command execution durable job worker", () => {
           commandRequestId: "req-1",
           status: "COMPLETED",
         }),
+        1,
       );
       expect(failJobMock).not.toHaveBeenCalled();
     });
@@ -208,6 +209,7 @@ describe("command execution durable job worker", () => {
         "job-cmd-1",
         expect.stringContaining(":command-execution:"),
         expect.stringContaining("FAILED"),
+        { attempts: 1 },
       );
       expect(completeJobMock).not.toHaveBeenCalled();
     });
@@ -237,6 +239,7 @@ describe("command execution durable job worker", () => {
         "job-cmd-1",
         expect.stringContaining(":command-execution:"),
         expect.stringContaining("prisma down"),
+        { attempts: 1 },
       );
       expect(completeJobMock).not.toHaveBeenCalled();
       expect(errorMock).toHaveBeenCalled();
@@ -252,6 +255,7 @@ describe("command execution durable job worker", () => {
         "job-cmd-1",
         expect.stringContaining(":command-execution:"),
         expect.stringContaining("commandRequestId"),
+        { attempts: 1 },
       );
       expect(executeAndFinalizeCommandMock).not.toHaveBeenCalled();
     });

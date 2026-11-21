@@ -93,18 +93,6 @@ export type SftpDirEntry = {
   group: number;
 };
 
-type ResolvedConnection = {
-  host: string;
-  port: number;
-  username: string;
-  connectionType: string;
-  privateKey?: string;
-  passphrase?: string;
-  password?: string;
-  hostKeySha256?: string | null;
-  agentServerId?: string;
-};
-
 // ── Path safety ────────────────────────────────────────────────────
 
 /**
@@ -156,35 +144,11 @@ export function sanitizeFileName(raw: string): string {
 
 // ── Connection resolution ──────────────────────────────────────────
 
-async function resolveServerConnection(serverId: string): Promise<ResolvedConnection> {
-  const { ssh } = await loadEnabledServerForSftp(serverId);
-  return {
-    host: ssh.host,
-    port: ssh.port ?? 22,
-    username: ssh.username,
-    connectionType: ssh.privateKey ? "SSH_KEY" : "PASSWORD",
-    hostKeySha256: ssh.hostKeySha256,
-    ...(ssh.privateKey ? { privateKey: ssh.privateKey } : {}),
-    ...(ssh.passphrase ? { passphrase: ssh.passphrase } : {}),
-    ...(ssh.password ? { password: ssh.password } : {}),
-    ...(ssh.agentServerId ? { agentServerId: ssh.agentServerId } : {}),
-  };
+async function resolveServerConnection(serverId: string): Promise<SshConnectionParams> {
+  return (await loadEnabledServerForSftp(serverId)).ssh;
 }
 
-function toConnectionParams(conn: ResolvedConnection): SshConnectionParams {
-  return {
-    host: conn.host,
-    port: conn.port,
-    username: conn.username,
-    hostKeySha256: conn.hostKeySha256,
-    ...(conn.privateKey ? { privateKey: conn.privateKey } : {}),
-    ...(conn.passphrase ? { passphrase: conn.passphrase } : {}),
-    ...(conn.password ? { password: conn.password } : {}),
-    ...(conn.agentServerId ? { agentServerId: conn.agentServerId } : {}),
-  };
-}
-
-function isAgentOnly(conn: ResolvedConnection) {
+function isAgentOnly(conn: SshConnectionParams) {
   return Boolean(conn.agentServerId && !conn.privateKey && !conn.password);
 }
 
@@ -211,8 +175,7 @@ type SftpSession = {
   close: () => void;
 };
 
-async function openSftpSession(serverId: string): Promise<SftpSession> {
-  const conn = await resolveServerConnection(serverId);
+async function openSftpSession(conn: SshConnectionParams): Promise<SftpSession> {
   const client = new Client();
 
   return new Promise<SftpSession>((resolve, reject) => {
@@ -246,17 +209,8 @@ async function openSftpSession(serverId: string): Promise<SftpSession> {
     });
 
     const config = createVerifiedSshConfig({
-      host: conn.host,
-      port: conn.port,
-      username: conn.username,
-      hostKeySha256: conn.hostKeySha256,
-      // OPEN-1 parity with the command-execution path: refuse SFTP sessions
-      // against servers whose host key has never been pinned (fail-closed)
-      // instead of silently accepting whatever key the host presents.
+      ...conn,
       enforceHostKeyPin: true,
-      ...(conn.connectionType === "SSH_KEY"
-        ? { privateKey: conn.privateKey, ...(conn.passphrase ? { passphrase: conn.passphrase } : {}) }
-        : { password: conn.password }),
     });
     config.readyTimeout = 15000;
     config.keepaliveInterval = 5000;
@@ -272,8 +226,7 @@ export async function listDirectory(
   remotePath: string,
 ): Promise<SftpDirEntry[]> {
   const path = sanitizeRemotePath(remotePath);
-  const conn = await resolveServerConnection(serverId);
-  const params = toConnectionParams(conn);
+  const params = await resolveServerConnection(serverId);
   // Mapped like delete/mkdir/rename: a folder the account may not read used
   // to come back as the generic 500 "list failed", not "permission denied".
   const entries = await listRemoteDirectory({ ...params, remotePath: path }).catch(mapSftpError);
@@ -322,9 +275,10 @@ export async function uploadFile(
   serverId: string,
   remotePath: string,
   sourceStream: Readable,
+  authorizedConnection?: SshConnectionParams,
 ): Promise<number> {
   const path = sanitizeRemotePath(remotePath);
-  const conn = await resolveServerConnection(serverId);
+  const conn = authorizedConnection ?? await resolveServerConnection(serverId);
   if (isAgentOnly(conn)) {
     const chunks: Buffer[] = [];
     let size = 0;
@@ -336,10 +290,10 @@ export async function uploadFile(
       }
       chunks.push(buffer);
     }
-    await writeRemoteFile({ ...toConnectionParams(conn), remotePath: path, content: Buffer.concat(chunks) });
+    await writeRemoteFile({ ...conn, remotePath: path, content: Buffer.concat(chunks) });
     return size;
   }
-  const session = await openSftpSession(serverId);
+  const session = await openSftpSession(conn);
 
   try {
     const writeStream = session.sftp.createWriteStream(path, {
@@ -437,10 +391,10 @@ export async function downloadFile(
   const path = sanitizeRemotePath(remotePath);
   const conn = await resolveServerConnection(serverId);
   if (isAgentOnly(conn)) {
-    const content = await readRemoteFile({ ...toConnectionParams(conn), remotePath: path });
+    const content = await readRemoteFile({ ...conn, remotePath: path });
     return { stream: Readable.from(content), size: content.length };
   }
-  const session = await openSftpSession(serverId);
+  const session = await openSftpSession(conn);
 
   // Get file size for Content-Length header
   // Wrap stat in try/catch so a stat failure (missing file, permission denied)
@@ -521,8 +475,7 @@ export async function deleteFile(
   remotePath: string,
 ): Promise<void> {
   const path = sanitizeRemotePath(remotePath);
-  const conn = await resolveServerConnection(serverId);
-  const params = toConnectionParams(conn);
+  const params = await resolveServerConnection(serverId);
   try {
     const stats = await statRemoteEntry({ ...params, remotePath: path });
     await deleteRemoteFile({ ...params, remotePath: path, isDirectory: stats.type === "directory" });
@@ -538,7 +491,7 @@ export async function makeDirectory(
   const path = sanitizeRemotePath(remotePath);
   const conn = await resolveServerConnection(serverId);
   try {
-    await createRemoteDirectory({ ...toConnectionParams(conn), remotePath: path });
+    await createRemoteDirectory({ ...conn, remotePath: path });
   } catch (error) {
     mapSftpError(error);
   }
@@ -553,7 +506,7 @@ export async function renameEntry(
   const dst = sanitizeRemotePath(newPath);
   const conn = await resolveServerConnection(serverId);
   try {
-    await renameRemoteFile({ ...toConnectionParams(conn), oldPath: src, newPath: dst });
+    await renameRemoteFile({ ...conn, oldPath: src, newPath: dst });
   } catch (error) {
     mapSftpError(error);
   }

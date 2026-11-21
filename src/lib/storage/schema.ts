@@ -1,4 +1,7 @@
 import { z } from "zod";
+import { firstSchemaSentence } from "@/lib/i18n/schema-copy";
+import { ValidationError } from "@/lib/errors";
+import { normalizeStorageRelativePath } from "./path-utils";
 
 import { MAX_EDITABLE_FILE_SIZE_BYTES } from "@/lib/storage/mime-constants";
 import { t } from "@/lib/i18n/service-translations";
@@ -109,6 +112,26 @@ export const createFileEntrySchema = z.object({
   relativePath: z.string().trim().min(1, "Relative path is required").max(1024, "Relative path is too long"),
   parentId: z.string().trim().optional(),
 });
+
+/** Validate the exact path and metadata an upload will put in the index before it writes any bytes. */
+export function validateStorageFileIndex(input: {
+  storageNodeId: string;
+  relativePath: string;
+  size: number;
+  mimeType?: string | null;
+}) {
+  const normalized = normalizeStorageRelativePath(input.relativePath);
+  if (!normalized.ok) throw new ValidationError(normalized.reason);
+  const result = createFileEntrySchema.safeParse({
+    ...input,
+    relativePath: normalized.path,
+    name: normalized.path.slice(normalized.path.lastIndexOf("/") + 1),
+    entryType: "FILE",
+    mimeType: input.mimeType ?? undefined,
+  });
+  if (!result.success) throw new ValidationError(firstSchemaSentence(result.error));
+  return { ...result.data, size: input.size, entryType: "FILE" as const };
+}
 
 export const fileEntryMutationSchema = z.object({
   fileEntryId: z.string().trim().min(1, "File entry is required"),

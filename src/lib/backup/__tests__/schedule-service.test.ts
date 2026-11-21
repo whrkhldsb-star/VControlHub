@@ -9,6 +9,7 @@ const {
   backupScheduleDeleteMock,
   createBackupRecordMock,
   voidBackupRecordMock,
+  canCreateMock,
   enqueueJobMock,
 } = vi.hoisted(() => ({
   backupScheduleCreateMock: vi.fn(),
@@ -19,6 +20,7 @@ const {
   backupScheduleDeleteMock: vi.fn(),
   createBackupRecordMock: vi.fn(),
   voidBackupRecordMock: vi.fn(),
+  canCreateMock: vi.fn(),
   enqueueJobMock: vi.fn(),
 }));
 
@@ -61,6 +63,7 @@ vi.mock("cron-parser", () => ({
 vi.mock("@/lib/backup/service-crud", () => ({
   createBackupRecord: createBackupRecordMock,
   voidBackupRecord: voidBackupRecordMock,
+  canCreatePlatformBackup: canCreateMock,
 }));
 
 vi.mock("@/lib/backup/job-worker", () => ({
@@ -89,6 +92,7 @@ import { ValidationError, NotFoundError } from "@/lib/errors";
 describe("backup schedule service", () => {
   beforeEach(() => {
     vi.clearAllMocks();
+    canCreateMock.mockResolvedValue(true);
     backupScheduleCreateMock.mockResolvedValue({ id: "s1" });
     backupScheduleFindUniqueMock.mockResolvedValue({
       id: "s1",
@@ -258,7 +262,7 @@ describe("backup schedule service", () => {
         jobId: "j1",
       });
       expect(backupScheduleUpdateManyMock).toHaveBeenCalledWith(expect.objectContaining({
-        where: { id: "s1", status: "ACTIVE", nextRunAt: observed },
+        where: { id: "s1", status: "ACTIVE", createdById: "u1", nextRunAt: observed },
         data: expect.objectContaining({ nextRunAt: expect.any(Date) }),
       }));
       const tx = expect.objectContaining({ backupSchedule: expect.anything() });
@@ -293,6 +297,18 @@ describe("backup schedule service", () => {
       expect(result).toBeNull();
       expect(createBackupRecordMock).not.toHaveBeenCalled();
       expect(enqueueJobMock).not.toHaveBeenCalled();
+    });
+    it("records a skipped occurrence when the owner loses platform backup access", async () => {
+      backupScheduleUpdateManyMock.mockResolvedValue({ count: 1 });
+      canCreateMock.mockResolvedValueOnce(false);
+      const result = await dispatchDueSchedule({
+        id: "s1", name: "Nightly", backupType: "FULL", cronExpression: "0 3 * * *",
+        note: null, retentionDays: null, createdById: "revoked", nextRunAt: new Date(),
+      });
+      expect(result).toBeNull();
+      expect(backupScheduleUpdateMock).toHaveBeenCalledWith({ where: { id: "s1" }, data: { lastResult: expect.any(String) } });
+      expect(enqueueJobMock).not.toHaveBeenCalled();
+      expect(createBackupRecordMock).not.toHaveBeenCalled();
     });
     it("returns null and records skip when createdById is null", async () => {
       const result = await dispatchDueSchedule({

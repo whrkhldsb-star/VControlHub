@@ -1,7 +1,9 @@
 import { escapeLikeLiteral } from "@/lib/db/like-pattern";
 import { auditUserAction } from "@/lib/audit/service";
 import { createAgentFileClient } from "@/lib/storage/agent-file-client";
+import { lockStorageFileOverwrite } from "@/lib/storage/file-overwrite-lock";
 import crypto from "node:crypto";
+import type { Prisma } from "@prisma/client";
 import type { SessionPayload } from "@/lib/auth/session";
 import { teamWhere } from "@/lib/auth/team-scope";
 import {
@@ -58,6 +60,7 @@ export async function executeDeleteFile(
 
   const t = await serviceT(locale);
   let release: (() => Promise<void>) | null = null;
+  let unlockPath: (() => Promise<void>) | undefined;
   try {
     const fileEntryId = String(formData.get("fileEntryId") ?? "").trim();
 
@@ -111,9 +114,10 @@ export async function executeDeleteFile(
     }
     release = await tryAcquireAdvisoryLock("storage-file-operation", entry.storageNodeId);
     if (!release) throw new Error(apiCopy("apiCopy.files.op.busy"));
+    unlockPath = await lockStorageFileOverwrite(entry.storageNodeId, entry.relativePath);
     const current = await prisma.fileEntry.findFirst({
       where: { id: fileEntryId, isDeleted: false, storageNode: teamWhere(session) },
-      select: { relativePath: true, storageNodeId: true, entryType: true },
+      select: { relativePath: true, storageNodeId: true, entryType: true, updatedAt: true },
     });
     if (!current || current.relativePath !== entry.relativePath ||
         current.storageNodeId !== entry.storageNodeId || current.entryType !== entry.entryType) {
@@ -130,8 +134,14 @@ export async function executeDeleteFile(
       return { error: storageAccessDeniedCopy(deleteAccess.reason, locale) } satisfies StorageDeleteActionState;
     }
 
-    if (entry.entryType === "DIRECTORY") {
-      const descendants = await prisma.fileEntry.findMany({ where: { storageNodeId: entry.storageNodeId, relativePath: { startsWith: escapeLikeLiteral(`${entry.relativePath}/`) }, isDeleted: false }, select: { relativePath: true }, take: 10001 });
+    const descendants = entry.entryType === "DIRECTORY"
+      ? await prisma.fileEntry.findMany({
+          where: { storageNodeId: entry.storageNodeId, relativePath: { startsWith: escapeLikeLiteral(`${entry.relativePath}/`) }, isDeleted: false },
+          select: { id: true, entryType: true, updatedAt: true, relativePath: true },
+          take: 10001,
+        })
+      : [];
+    if (descendants.length) {
       if (descendants.length > 10000) {
         throw new BusinessError(t("backend.storageHardening.files.tooManyChildren"));
       }
@@ -159,59 +169,52 @@ export async function executeDeleteFile(
       }
     }
 
-  const affectedShareIds = await findAffectedShareIds({
-    storageNodeId: entry.storageNodeId,
-    relativePath: entry.relativePath,
-    isDirectory: entry.entryType === "DIRECTORY",
-  });
-  const revokeShares = prisma.shareLink.updateMany({
-    where: { id: { in: affectedShareIds }, revokedAt: null },
-    data: { revokedAt: new Date() },
-  });
-
+    const affectedShareIds = await findAffectedShareIds({
+      storageNodeId: entry.storageNodeId,
+      relativePath: entry.relativePath,
+      isDirectory: entry.entryType === "DIRECTORY",
+    });
     const deletedAgentRoot = entry.storageNode.agentFileShare?.rootIdentity ?? null;
-    let agentVersion: string | undefined;
+    const versions = new Map<string, string>();
     if (entry.storageNode.driver === "AGENT") {
       if (!deletedAgentRoot?.startsWith("v2:")) throw new Error(apiCopy("apiCopy.files.op.changed"));
-      const physical = await createAgentFileClient(entry.storageNodeId, undefined, deletedAgentRoot).stat(entry.relativePath);
-      if (!physical?.etag || physical.isDirectory !== (entry.entryType === "DIRECTORY")) {
-        throw new Error(apiCopy("apiCopy.files.op.changed"));
+      const agent = createAgentFileClient(entry.storageNodeId, undefined, deletedAgentRoot);
+      for (const member of [entry, ...descendants]) {
+        const physical = await agent.stat(member.relativePath);
+        if (!physical?.etag || physical.isDirectory !== (member.entryType === "DIRECTORY")) {
+          throw new Error(apiCopy("apiCopy.files.op.changed"));
+        }
+        versions.set(member.id, physical.etag);
       }
-      agentVersion = physical.etag;
     }
-    // Soft-delete is index-only. Revoke every direct, descendant, or parent
-    // directory share in the same transaction so recycle-bin bytes cannot be
-    // reached through an already-issued public token.
-    if (entry.entryType === "DIRECTORY") {
-      const prefix = entry.relativePath + "/";
-      // Tag every soft-deleted row with this operation's batch id so a later
-      // directory restore can revive exactly this batch — not descendants
-      // that were already sitting in the recycle bin before this delete.
-      const deleteBatchId = crypto.randomUUID();
-      await prisma.$transaction([
-        prisma.fileEntry.updateMany({
-          where: {
-            storageNodeId: entry.storageNodeId,
-            relativePath: { startsWith: escapeLikeLiteral(prefix) },
-            isDeleted: false,
-          },
-          data: { isDeleted: true, deleteBatchId, deletedAgentRoot },
-        }),
-        prisma.fileEntry.update({
-          where: { id: fileEntryId },
-          data: { isDeleted: true, deleteBatchId, deletedAgentRoot, storageVersion: agentVersion },
-        }),
-    revokeShares,
-      ]);
-    } else {
+
+    const deleted = { isDeleted: true, deleteBatchId: crypto.randomUUID(), deletedAgentRoot };
+    const storageNodeId = entry.storageNodeId;
+    const children: Prisma.PrismaPromise<unknown>[] = [];
+    if (versions.size) {
+      for (const child of descendants) {
+        children.push(prisma.fileEntry.update({
+          where: { id: child.id, storageNodeId, relativePath: child.relativePath, isDeleted: false, updatedAt: child.updatedAt },
+          data: { ...deleted, storageVersion: versions.get(child.id) },
+        }));
+      }
+    } else if (descendants.length) {
+      children.push(prisma.fileEntry.updateMany({
+        where: { id: { in: descendants.map(child => child.id) }, storageNodeId, isDeleted: false },
+        data: deleted,
+      }));
+    }
     await prisma.$transaction([
-    prisma.fileEntry.update({
-      where: { id: fileEntryId },
-      data: { isDeleted: true, deleteBatchId: crypto.randomUUID(), deletedAgentRoot, storageVersion: agentVersion },
-    }),
-    revokeShares,
+      ...children,
+      prisma.fileEntry.update({
+        where: { id: fileEntryId, storageNodeId, relativePath: entry.relativePath, isDeleted: false, updatedAt: current.updatedAt },
+        data: { ...deleted, storageVersion: versions.get(fileEntryId) },
+      }),
+      prisma.shareLink.updateMany({
+        where: { id: { in: affectedShareIds }, revokedAt: null },
+        data: { revokedAt: new Date() },
+      }),
     ]);
-    }
 
     await auditUserAction(
       session.userId,
@@ -237,6 +240,6 @@ export async function executeDeleteFile(
       error: getErrorMessage(error, t("storagePage.action.fileDeleteFailed")),
     } satisfies StorageDeleteActionState;
   } finally {
-    await release?.();
+    try { await unlockPath?.(); } finally { await release?.(); }
   }
 }

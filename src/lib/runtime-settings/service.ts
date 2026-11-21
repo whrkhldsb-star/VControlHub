@@ -493,16 +493,18 @@ type RuntimeSettingDelegate = {
   }) => Promise<Array<{ key: string; value: string | null }> | null | undefined>;
 };
 
+/** Destructive consumers may use the default only after a successful lookup. */
+export async function getRuntimeSettingNumberStrict(key: RuntimeSettingKey): Promise<number> {
+  const row = await prisma.setting.findUnique({ where: { key }, select: { value: true } });
+  if (row === null || row.value === "") return getRuntimeSettingFallback(key);
+  return Number(normalizeRuntimeSettingValue(key, row.value));
+}
+
 export async function getRuntimeSettingNumber(key: RuntimeSettingKey): Promise<number> {
-  const fallback = getRuntimeSettingFallback(key);
   try {
-    const settingDelegate = (prisma as unknown as { setting?: RuntimeSettingDelegate }).setting;
-    if (!settingDelegate?.findUnique) return fallback;
-    const row = await settingDelegate.findUnique({ where: { key }, select: { value: true } });
-    if (!row?.value) return fallback;
-    return Number(normalizeRuntimeSettingValue(key, row.value));
+    return await getRuntimeSettingNumberStrict(key);
   } catch {
-    return fallback;
+    return getRuntimeSettingFallback(key);
   }
 }
 

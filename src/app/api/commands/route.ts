@@ -57,7 +57,7 @@ export async function POST(request: Request) {
           apiCopy("apiCopy.command.execute.permission.is.required.for.submissions.that.bypa.123f619f"),
         );
       }
-      const command = await createCommandRequest(parsed, session);
+      const command = await createCommandRequest(parsed, session, "api");
       await auditUserAction(session.userId, "command.submit", {
         commandRequestId: command.id,
         title: command.title,
@@ -66,7 +66,11 @@ export async function POST(request: Request) {
         requiresApproval: Boolean(command.requiresApproval),
         submissionMode: parsed.submissionMode,
       }, undefined, session.currentTeamId);
-      return NextResponse.json({ command }, { status: 201 });
+      const { id, title, reason, status, requesterId, initiatedByType, createdAt, updatedAt, targets, requiresApproval } = command;
+      return NextResponse.json({ command: {
+        id, title, command: command.command, reason, status, requesterId, initiatedByType,
+        createdAt, updatedAt, targets, requiresApproval,
+      } }, { status: 201 });
     },
   );
 }

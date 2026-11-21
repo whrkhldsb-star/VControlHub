@@ -22,6 +22,11 @@ describe.skipIf(process.env.RUN_DATABASE_INTEGRATION_TESTS !== "1")("platform ba
 		if (!["localhost", "127.0.0.1", "[::1]"].includes(database.hostname) || !/audit|test|_ci/.test(database.pathname)) {
 			throw new Error("requires an isolated loopback audit/test database");
 		}
+		const admin = await prisma.role.upsert({ where: { key: "admin" }, create: { key: "admin", name: "Admin" }, update: {} });
+		await prisma.user.create({ data: {
+			id: prefix, username: prefix, passwordHash: "not-a-login-hash", status: "ACTIVE", mustChangePassword: false,
+			roles: { create: { roleId: admin.id } },
+		} });
 		await prisma.team.create({ data: { id: prefix, slug: prefix, name: prefix } });
 		const schedule = (id: string, retentionDays: number) => ({ id: `${prefix}-${id}`, name: id, cronExpression: "0 3 * * *", backupType: "FULL", retentionDays, teamId: prefix });
 		await prisma.backupSchedule.createMany({ data: [schedule("daily", 1), schedule("monthly", 30)] });
@@ -43,6 +48,7 @@ describe.skipIf(process.env.RUN_DATABASE_INTEGRATION_TESTS !== "1")("platform ba
 		await prisma.backupRecord.deleteMany({ where: { teamId: prefix } });
 		await prisma.backupSchedule.deleteMany({ where: { teamId: prefix } });
 		await prisma.team.deleteMany({ where: { id: prefix } });
+		await prisma.user.deleteMany({ where: { id: prefix } });
 		await prisma.$disconnect();
 	});
 
@@ -53,7 +59,7 @@ describe.skipIf(process.env.RUN_DATABASE_INTEGRATION_TESTS !== "1")("platform ba
 			title: "Backup retention (1d)",
 			payload: { olderThanDays: 1, teamId: prefix, projectRoot, scheduleId: `${prefix}-daily` },
 			teamId: prefix,
-			maxAttempts: 1,
+			createdBy: prefix, maxAttempts: 1,
 		});
 		await expect(runBackupJobWorkerOnce()).resolves.toBe(true);
 		const left = (await prisma.backupRecord.findMany({ where: { teamId: prefix }, select: { id: true } })).map((row) => row.id.slice(prefix.length + 1)).sort();

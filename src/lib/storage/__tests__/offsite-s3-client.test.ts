@@ -104,6 +104,17 @@ describe("S3Client — path style + signing", () => {
 });
 
 describe("S3Client — operations", () => {
+	it.each([true, false])("preserves the exact key of every sent DELETE (pathStyle=%s)", async (pathStyle) => {
+		const { fetchImpl, calls } = makeFetchMock(() => new Response(null, { status: 204 }));
+		const client = new S3Client(basicConfig({ pathStyle, fetchImpl }));
+		for (const key of ["backups/./old.gz", "backups/recovery/../old.gz", "backups/.."]) {
+			await expect(client.deleteObject(key)).rejects.toMatchObject({ code: "InvalidObjectKey" });
+		}
+		expect(calls).toHaveLength(0);
+		const key = "backups//%2E/..old.gz";
+		await client.deleteObject(key);
+		expect(decodeURIComponent(new URL(calls[0]!.url).pathname)).toBe(`${pathStyle ? "/my-bucket" : ""}/${key}`);
+	});
 	it("putObject: returns etag stripped of quotes and includes server-side encryption header", async () => {
 		const { fetchImpl, calls } = makeFetchMock(() => new Response("", { status: 200, headers: { etag: '"deadbeef"' } }));
 		const client = new S3Client({ ...basicConfig(), fetchImpl });

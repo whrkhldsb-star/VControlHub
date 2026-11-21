@@ -149,6 +149,16 @@ describe("requestRemoteDockerEngine", () => {
 		expect(result.status).toBe(404);
 	});
 
+	it("refuses remote operations if a transfer changed the customer after authorization", async () => {
+		vi.mocked(prisma.server.findUnique).mockResolvedValue(null);
+		const result = await requestRemoteDockerEngine("srv-1", "/containers/app/restart", {
+			expectedTeamId: "old", method: "POST", unavailableData: {}, loggerScope: "test",
+		});
+		expect(prisma.server.findUnique).toHaveBeenCalledWith(expect.objectContaining({ where: { id: "srv-1", teamId: "old" } }));
+		expect(result).toMatchObject({ status: 404, ok: false });
+		expect(execRemoteCommand).not.toHaveBeenCalled();
+	});
+
 	it("returns 403 for disabled server", async () => {
 		vi.mocked(prisma.server.findUnique).mockResolvedValue({
 			...mockServer,

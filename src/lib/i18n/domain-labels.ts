@@ -13,6 +13,7 @@ const STATUS_KEYS: Record<string, string> = {
   CANCELLED: "common.status.cancelled",
   REJECTED: "common.status.rejected",
   VOIDED: "common.status.voided",
+  PRUNING: "common.status.pruning",
   PAUSED: "common.status.paused",
   ACTIVE: "common.status.active",
   READY: "common.status.ready",

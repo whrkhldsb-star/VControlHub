@@ -4,6 +4,8 @@ const {
   claimNextJobMock,
   completeJobMock,
   failJobMock,
+  failJobTerminalMock,
+  loadJobOwnerSessionMock,
   heartbeatJobMock,
   enqueueJobMock,
   jobFindFirstMock,
@@ -17,6 +19,8 @@ const {
   claimNextJobMock: vi.fn(),
   completeJobMock: vi.fn(),
   failJobMock: vi.fn(),
+  failJobTerminalMock: vi.fn(),
+  loadJobOwnerSessionMock: vi.fn(),
   heartbeatJobMock: vi.fn(),
   enqueueJobMock: vi.fn(),
   jobFindFirstMock: vi.fn(),
@@ -39,6 +43,7 @@ vi.mock("@/lib/job/service", () => ({
   claimNextJob: claimNextJobMock,
   completeJob: completeJobMock,
   failJob: failJobMock,
+  failJobTerminal: failJobTerminalMock,
   heartbeatJob: heartbeatJobMock,
   enqueueJob: enqueueJobMock,
 }));
@@ -54,6 +59,7 @@ vi.mock("@/lib/concurrency/advisory-lock", () => ({
   acquireAdvisoryLock: acquireAdvisoryLockMock,
 }));
 
+vi.mock("@/lib/api-token/authorization", () => ({ loadJobOwnerSession: loadJobOwnerSessionMock }));
 vi.mock("../sftp-stale-inventory", () => ({
   detectAndPruneSftpStaleInventory: detectAndPruneSftpStaleInventoryMock,
   listSftpNodesForStaleInventory: listSftpNodesForStaleInventoryMock,
@@ -68,6 +74,24 @@ import {
   stopSftpStaleInventoryWorkerForTests,
 } from "../sftp-stale-inventory-job";
 
+const actor = { userId: "admin", roles: ["admin"], currentTeamId: "team_a", permissions: ["storage:manage-node"] };
+const periodicJob = { title: "SFTP stale inventory sweep (all nodes)", createdBy: null, teamId: null, payload: { reason: "interval" } };
+function userJob(id: string, nodeIds: string[], single = false) {
+  return {
+    id,
+    createdBy: actor.userId,
+    teamId: actor.currentTeamId,
+    payload: {
+      userId: actor.userId,
+      apiTokenId: null,
+      teamId: actor.currentTeamId,
+      targetTeams: Object.fromEntries(nodeIds.map(nodeId => [nodeId, actor.currentTeamId])),
+      ...(single ? { nodeId: nodeIds[0] } : { nodeIds }),
+      maxDepth: 4,
+    },
+  };
+}
+
 const sampleResult = {
   nodeId: "node_1",
   nodeName: "remote",
@@ -81,7 +105,8 @@ const sampleResult = {
 
 describe("SFTP stale inventory durable job worker", () => {
   beforeEach(() => {
-    vi.clearAllMocks();
+    vi.resetAllMocks();
+    loadJobOwnerSessionMock.mockResolvedValue(actor);
     heartbeatJobMock.mockResolvedValue({ count: 1 });
     completeJobMock.mockResolvedValue({ count: 1 });
     failJobMock.mockResolvedValue({ count: 1 });
@@ -194,6 +219,7 @@ describe("SFTP stale inventory durable job worker", () => {
       const node = {
         id: "node_1",
         name: "remote",
+        teamId: "team_a",
         driver: "SFTP" as const,
         basePath: "/data",
         healthStatus: "HEALTHY" as const,
@@ -201,10 +227,7 @@ describe("SFTP stale inventory durable job worker", () => {
       };
       // Looked up by id, not searched for in the first 500 nodes by name.
       findSftpNodeForStaleInventoryMock.mockResolvedValueOnce(node);
-      claimNextJobMock.mockResolvedValueOnce({
-        id: "job_1",
-        payload: { nodeId: "node_1", maxDepth: 4 },
-      });
+      claimNextJobMock.mockResolvedValueOnce(userJob("job_1", ["node_1"], true));
       detectAndPruneSftpStaleInventoryMock.mockResolvedValueOnce(sampleResult);
 
       const result = await runSftpStaleInventoryJobWorkerOnce();
@@ -230,11 +253,76 @@ describe("SFTP stale inventory durable job worker", () => {
       );
     });
 
+    it.each(["revoked permission", "moved node", "deleted creator", "legacy unpinned request"])("aborts the customer sweep for a %s", async reason => {
+      const job = userJob("api-job", ["n1", "n2"]);
+      if (reason === "revoked permission") loadJobOwnerSessionMock.mockResolvedValueOnce({ ...actor, permissions: [] });
+      // A scoped query omits a node after its transfer. Abort before scanning even the first node.
+      listSftpNodesForStaleInventoryMock.mockResolvedValueOnce([{ id: "n1", teamId: "team_a" }]);
+      claimNextJobMock.mockResolvedValueOnce({
+        ...job,
+        createdBy: reason === "deleted creator" ? null : actor.userId,
+        payload: reason === "legacy unpinned request" ? { teamId: "team_a", reason: "api" } : job.payload,
+      });
+
+      await runSftpStaleInventoryJobWorkerOnce();
+
+      expect(failJobTerminalMock).toHaveBeenCalledWith(job.id, expect.any(String), expect.any(String));
+      expect(detectAndPruneSftpStaleInventoryMock).not.toHaveBeenCalled();
+      if (reason === "moved node") expect(listSftpNodesForStaleInventoryMock).toHaveBeenCalledWith(actor, ["n1", "n2"]);
+      else expect(listSftpNodesForStaleInventoryMock).not.toHaveBeenCalled();
+    });
+
+    it("stops a multi-node job when permission is revoked during its first scan", async () => {
+      claimNextJobMock.mockResolvedValueOnce(userJob("api-job", ["n1", "n2"]));
+      const nodes = ["n1", "n2"].map(id => ({ id, teamId: "team_a", name: id, healthStatus: "HEALTHY" }));
+      listSftpNodesForStaleInventoryMock.mockResolvedValueOnce(nodes);
+      loadJobOwnerSessionMock.mockResolvedValueOnce(actor).mockResolvedValueOnce({ ...actor, permissions: [] });
+      detectAndPruneSftpStaleInventoryMock.mockResolvedValueOnce({ ...sampleResult, nodeId: "n1" });
+
+      await runSftpStaleInventoryJobWorkerOnce();
+
+      expect(detectAndPruneSftpStaleInventoryMock).toHaveBeenCalledTimes(1);
+      expect(failJobTerminalMock).toHaveBeenCalled();
+    });
+
+    it("rejects a legacy user sweep whose account was deleted", async () => {
+      claimNextJobMock.mockResolvedValueOnce({ ...periodicJob, id: "legacy", title: "SFTP stale inventory: all nodes" });
+      await runSftpStaleInventoryJobWorkerOnce();
+      expect(failJobTerminalMock).toHaveBeenCalled();
+      expect(listSftpNodesForStaleInventoryMock).not.toHaveBeenCalled();
+    });
+
+    it("revalidates an old customer-bound inventory job with an explicit target list", async () => {
+      claimNextJobMock.mockResolvedValueOnce({
+        id: "legacy", createdBy: actor.userId, teamId: "team_a",
+        payload: { teamId: "team_a", nodeIds: ["n1"], reason: "api" },
+      });
+      listSftpNodesForStaleInventoryMock.mockResolvedValueOnce([{ id: "n1", name: "n1", teamId: "team_a", healthStatus: "HEALTHY" }]);
+      detectAndPruneSftpStaleInventoryMock.mockResolvedValueOnce({ ...sampleResult, nodeId: "n1" });
+      await runSftpStaleInventoryJobWorkerOnce();
+      expect(loadJobOwnerSessionMock).toHaveBeenCalledWith(actor.userId, "team_a");
+      expect(listSftpNodesForStaleInventoryMock).toHaveBeenCalledWith(actor, ["n1"]);
+      expect(completeJobMock).toHaveBeenCalled();
+    });
+
+    it("compares the queued node owner for an administrator in all-customers mode", async () => {
+      const job = userJob("api-job", ["n1"], true);
+      claimNextJobMock.mockResolvedValueOnce({ ...job, teamId: null, payload: { ...job.payload, teamId: null } });
+      loadJobOwnerSessionMock.mockResolvedValueOnce({ ...actor, currentTeamId: null });
+      findSftpNodeForStaleInventoryMock.mockResolvedValueOnce({ id: "n1", teamId: "team_b" });
+
+      await runSftpStaleInventoryJobWorkerOnce();
+
+      expect(failJobTerminalMock).toHaveBeenCalled();
+      expect(detectAndPruneSftpStaleInventoryMock).not.toHaveBeenCalled();
+    });
+
     it("scans all SFTP nodes when no nodeId is specified", async () => {
       const nodes = [
         {
           id: "n1",
           name: "alpha",
+          teamId: "team_a",
           driver: "SFTP" as const,
           basePath: "/a",
           healthStatus: "HEALTHY" as const,
@@ -243,6 +331,7 @@ describe("SFTP stale inventory durable job worker", () => {
         {
           id: "n2",
           name: "beta",
+          teamId: "team_a",
           driver: "SFTP" as const,
           basePath: "/b",
           healthStatus: "HEALTHY" as const,
@@ -250,10 +339,7 @@ describe("SFTP stale inventory durable job worker", () => {
         },
       ];
       listSftpNodesForStaleInventoryMock.mockResolvedValueOnce(nodes);
-      claimNextJobMock.mockResolvedValueOnce({
-        id: "job_2",
-        payload: { maxDepth: 2 },
-      });
+      claimNextJobMock.mockResolvedValueOnce({ ...periodicJob, id: "job_2" });
       detectAndPruneSftpStaleInventoryMock
         .mockResolvedValueOnce({ ...sampleResult, nodeId: "n1" })
         .mockResolvedValueOnce({ ...sampleResult, nodeId: "n2", stale: 5 });
@@ -276,6 +362,7 @@ describe("SFTP stale inventory durable job worker", () => {
         {
           id: "n1",
           name: "broken",
+          teamId: "team_a",
           driver: "SFTP" as const,
           basePath: "/a",
           healthStatus: "UNHEALTHY" as const,
@@ -284,6 +371,7 @@ describe("SFTP stale inventory durable job worker", () => {
         {
           id: "n2",
           name: "ok",
+          teamId: "team_a",
           driver: "SFTP" as const,
           basePath: "/b",
           healthStatus: "HEALTHY" as const,
@@ -291,10 +379,7 @@ describe("SFTP stale inventory durable job worker", () => {
         },
       ];
       listSftpNodesForStaleInventoryMock.mockResolvedValueOnce(nodes);
-      claimNextJobMock.mockResolvedValueOnce({
-        id: "job_3",
-        payload: {},
-      });
+      claimNextJobMock.mockResolvedValueOnce({ ...periodicJob, id: "job_3" });
       detectAndPruneSftpStaleInventoryMock.mockResolvedValueOnce(sampleResult);
 
       await runSftpStaleInventoryJobWorkerOnce();
@@ -313,15 +398,13 @@ describe("SFTP stale inventory durable job worker", () => {
       findSftpNodeForStaleInventoryMock.mockResolvedValueOnce({
         id: "n1",
         name: "x",
+        teamId: "team_a",
         driver: "SFTP" as const,
         basePath: "/",
         healthStatus: "HEALTHY" as const,
         lastHealthError: null,
       });
-      claimNextJobMock.mockResolvedValueOnce({
-        id: "job_4",
-        payload: { nodeId: "n1" },
-      });
+      claimNextJobMock.mockResolvedValueOnce(userJob("job_4", ["n1"], true));
       detectAndPruneSftpStaleInventoryMock.mockRejectedValueOnce(
         new Error("ssh handshake failed"),
       );
@@ -341,6 +424,7 @@ describe("SFTP stale inventory durable job worker", () => {
         {
           id: "n1",
           name: "alpha",
+          teamId: "team_a",
           driver: "SFTP" as const,
           basePath: "/a",
           healthStatus: "HEALTHY" as const,
@@ -348,7 +432,7 @@ describe("SFTP stale inventory durable job worker", () => {
         },
       ];
       listSftpNodesForStaleInventoryMock.mockResolvedValueOnce(nodes);
-      claimNextJobMock.mockResolvedValueOnce({ id: "job_realerr", payload: {} });
+      claimNextJobMock.mockResolvedValueOnce({ ...periodicJob, id: "job_realerr" });
       // A node that connected but failed mid-scan: real error, not a skip.
       detectAndPruneSftpStaleInventoryMock.mockResolvedValueOnce({
         ...sampleResult,
@@ -378,6 +462,7 @@ describe("SFTP stale inventory durable job worker", () => {
         {
           id: "n1",
           name: "broken",
+          teamId: "team_a",
           driver: "SFTP" as const,
           basePath: "/a",
           healthStatus: "UNHEALTHY" as const,
@@ -385,7 +470,7 @@ describe("SFTP stale inventory durable job worker", () => {
         },
       ];
       listSftpNodesForStaleInventoryMock.mockResolvedValueOnce(nodes);
-      claimNextJobMock.mockResolvedValueOnce({ id: "job_skip", payload: {} });
+      claimNextJobMock.mockResolvedValueOnce({ ...periodicJob, id: "job_skip" });
 
       await runSftpStaleInventoryJobWorkerOnce();
 
@@ -400,10 +485,7 @@ describe("SFTP stale inventory durable job worker", () => {
 
     it("completes immediately with empty results when no SFTP nodes exist", async () => {
       listSftpNodesForStaleInventoryMock.mockResolvedValueOnce([]);
-      claimNextJobMock.mockResolvedValueOnce({
-        id: "job_5",
-        payload: {},
-      });
+      claimNextJobMock.mockResolvedValueOnce({ ...periodicJob, id: "job_5" });
 
       await runSftpStaleInventoryJobWorkerOnce();
 
@@ -422,6 +504,7 @@ describe("SFTP stale inventory durable job worker", () => {
         {
           id: "n1",
           name: "alpha",
+          teamId: "team_a",
           driver: "SFTP" as const,
           basePath: "/a",
           healthStatus: "HEALTHY" as const,
@@ -430,6 +513,7 @@ describe("SFTP stale inventory durable job worker", () => {
         {
           id: "n2",
           name: "beta",
+          teamId: "team_a",
           driver: "SFTP" as const,
           basePath: "/b",
           healthStatus: "HEALTHY" as const,
@@ -438,6 +522,7 @@ describe("SFTP stale inventory durable job worker", () => {
         {
           id: "n3",
           name: "gamma",
+          teamId: "team_a",
           driver: "SFTP" as const,
           basePath: "/c",
           healthStatus: "HEALTHY" as const,
@@ -445,10 +530,8 @@ describe("SFTP stale inventory durable job worker", () => {
         },
       ];
       listSftpNodesForStaleInventoryMock.mockImplementationOnce(async (_session: unknown, ids?: string[]) => nodes.filter((node) => !ids || ids.includes(node.id)));
-      claimNextJobMock.mockResolvedValueOnce({
-        id: "job_scoped",
-        payload: { nodeIds: ["n1", "n3"] },
-      });
+      findSftpNodeForStaleInventoryMock.mockImplementationOnce(async (id: string) => nodes.find(node => node.id === id));
+      claimNextJobMock.mockResolvedValueOnce(userJob("job_scoped", ["n1", "n3"]));
       detectAndPruneSftpStaleInventoryMock
         .mockResolvedValueOnce({ ...sampleResult, nodeId: "n1" })
         .mockResolvedValueOnce({ ...sampleResult, nodeId: "n3" });
@@ -471,6 +554,7 @@ describe("SFTP stale inventory durable job worker", () => {
         {
           id: "n1",
           name: "alpha",
+          teamId: "team_a",
           driver: "SFTP" as const,
           basePath: "/a",
           healthStatus: "HEALTHY" as const,
@@ -479,10 +563,7 @@ describe("SFTP stale inventory durable job worker", () => {
       ];
       // The scope is applied in the query: an empty list asks for no node.
       listSftpNodesForStaleInventoryMock.mockImplementationOnce(async (_session: unknown, ids?: string[]) => all.filter((node) => !ids || ids.includes(node.id)));
-      claimNextJobMock.mockResolvedValueOnce({
-        id: "job_empty_scope",
-        payload: { nodeIds: [] },
-      });
+      claimNextJobMock.mockResolvedValueOnce(userJob("job_empty_scope", []));
 
       await runSftpStaleInventoryJobWorkerOnce();
 

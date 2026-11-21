@@ -72,7 +72,6 @@ vi.mock("@/lib/db", () => ({
       findUnique: vi.fn(async () => null),
       update: fileEntryUpdateMock,
       create: fileEntryCreateMock,
-      upsert: fileEntryUpdateMock,
     },
   },
 }));
@@ -128,8 +127,8 @@ describe("completeStorageFileUpload", () => {
       "/tmp/assembled-fixture",
       expect.objectContaining({ onVersion: expect.any(Function) }),
     );
-    expect(fileEntryUpdateMock).toHaveBeenCalledWith(expect.objectContaining({
-      create: expect.objectContaining({
+    expect(fileEntryCreateMock).toHaveBeenCalledWith(expect.objectContaining({
+      data: expect.objectContaining({
         storageNodeId: "node_local",
         name: "report.bin",
         relativePath: "docs/report.bin",
@@ -153,19 +152,34 @@ describe("completeStorageFileUpload", () => {
   });
 
   it("updates existing file index instead of creating a new one", async () => {
-    fileEntryFindFirstMock.mockResolvedValueOnce({ id: "fe_existing" });
+    const updatedAt = new Date(0);
+    fileEntryFindFirstMock.mockResolvedValueOnce({ id: "fe_existing", updatedAt });
     await completeStorageFileUpload({
       sessionId: "sess_1",
       session: { userId: "user_1" } as never,
     });
     expect(fileEntryUpdateMock).toHaveBeenCalledWith(expect.objectContaining({
-      update: expect.objectContaining({
+      where: { id: "fe_existing", storageNodeId: "node_local", relativePath: "docs/report.bin", isDeleted: false, updatedAt },
+      data: expect.objectContaining({
         name: "report.bin",
-        isDeleted: false,
         size: BigInt(11),
       }),
     }));
     expect(fileEntryCreateMock).not.toHaveBeenCalled();
+  });
+
+  it("does not recreate a row that was recycled before the guarded index update", async () => {
+    const updatedAt = new Date(0);
+    fileEntryFindFirstMock.mockResolvedValueOnce({ id: "old", isDeleted: false, updatedAt });
+    fileEntryUpdateMock.mockImplementationOnce(async ({ where }) => {
+      if (where.id === "old" && where.isDeleted === false && where.updatedAt === updatedAt) {
+        throw Object.assign(new Error("entry recycled"), { code: "P2025" });
+      }
+    });
+    await expect(completeStorageFileUpload({ sessionId: "sess_1", session: { userId: "user_1" } as never }))
+      .rejects.toMatchObject({ code: "UPLOAD_OUTCOME_UNKNOWN" });
+    expect(fileEntryCreateMock).not.toHaveBeenCalled();
+    expect(completeMock).not.toHaveBeenCalled();
   });
 
   describe("a folder in the way", () => {
@@ -182,7 +196,7 @@ describe("completeStorageFileUpload", () => {
       getNodeMock.mockResolvedValue({ id: "node_dav", driver: "WEBDAV", basePath: "" });
       webdavStatMock.mockResolvedValue({ isDirectory: true });
       await expect(completeStorageFileUpload({ sessionId: "sess_1", session: { userId: "user_1" } as never })).rejects.toMatchObject({ status: 409 });
-      expect(webdavStatMock).toHaveBeenCalledWith("docs/report.bin");
+      expect(webdavStatMock).toHaveBeenCalledWith("docs/report.bin", true);
       expect(writeBufferMock).not.toHaveBeenCalled();
     });
 

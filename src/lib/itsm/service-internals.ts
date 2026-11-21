@@ -125,7 +125,7 @@ export async function recordEvent(input: {
         ticketId: input.ticketId ?? null,
         status: input.status,
         externalId: input.externalId ?? null,
-        payload: (input.payload ?? {}) as Prisma.InputJsonValue,
+        payload: { ...input.payload, terminalAtMs: Date.now() } as Prisma.InputJsonValue,
         errorMessage: input.errorMessage ?? null,
       },
     });

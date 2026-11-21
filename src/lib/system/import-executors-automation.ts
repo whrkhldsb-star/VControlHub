@@ -10,6 +10,7 @@ import { Prisma } from "@prisma/client";
 import { importPlaybooksSchema, type ExportFile, type ImportOptions } from "@/lib/system/config-schema";
 import { creatorResolver, upsertById, type Tx, type Counts } from "./import-executors-helpers";
 import { byId, loadGrantUserScopes, loadImportReferences, planAlertRuleImport, quickServiceTarget } from "./import-reference-scope";
+import { resolvePlaybookWebhooks } from "./playbook-webhooks";
 import { planQuickServiceImport } from "./import-quick-services";
 import { computeNextPlaybookCronRun, isCronTriggerConfig } from "@/lib/playbook/trigger-utils";
 
@@ -98,7 +99,6 @@ export async function importQuickServices(
     // keys: not in the package means keep ours.
     ...(r.envJson && r.envJson !== "{}" ? { envJson: r.envJson } : {}),
     ...(r.volumesJson && r.volumesJson !== "[]" ? { volumesJson: r.volumesJson } : {}),
-    ...quickServiceTarget(r),
   });
   const records = t.quickServices;
   const targets = records.flatMap((row) => row.serverId ? [row.serverId] : []);
@@ -114,7 +114,7 @@ export async function importQuickServices(
   }
   for (const { row, action } of plan) {
     if (action !== "update") continue;
-    await tx.quickService.update({ where: { id: row.id }, data: toUpdateData(row) });
+    await tx.quickService.update({ where: { id: row.id, ...quickServiceTarget(row) }, data: toUpdateData(row) });
     counts.updated += 1;
   }
   counts.skipped += records.length - plan.length;
@@ -126,21 +126,25 @@ export async function importPlaybooks(
   t: ExportFile["tables"],
   options: ImportOptions,
   counts: Counts,
+  exportMode?: ExportFile["exportMode"],
 ): Promise<void> {
   const records = importPlaybooksSchema.parse(t.playbooks);
   const creator = await creatorResolver(tx, records.map((r) => r.createdById));
-  const toData = (r: (typeof records)[number]) => ({
-    name: r.name,
-    description: r.description,
-    triggerType: r.triggerType,
-    triggerConfig: r.triggerConfig as Prisma.InputJsonValue,
-    steps: r.steps,
-    chainRetry: r.chainRetry,
-    enabled: r.enabled,
-    createdById: creator(r.createdById),
-    // Multi-tenant: preserve export teamId (null stays legacy-shared)
-    teamId: r.teamId ?? null,
-  });
+  const toData = (r: (typeof records)[number], previous?: Prisma.JsonValue) => {
+    const { steps, unresolved } = resolvePlaybookWebhooks(r.steps, exportMode === "full" ? undefined : previous);
+    return {
+      name: r.name,
+      description: r.description,
+      triggerType: r.triggerType,
+      triggerConfig: r.triggerConfig as Prisma.InputJsonValue,
+      steps,
+      chainRetry: r.chainRetry,
+      enabled: r.enabled && !unresolved,
+      createdById: creator(r.createdById),
+      // Multi-tenant: preserve export teamId (null stays legacy-shared)
+      teamId: r.teamId ?? null,
+    };
+  };
   await upsertById(records, options, counts, {
     listExistingIds: async (ids) =>
       new Set(
@@ -156,19 +160,21 @@ export async function importPlaybooks(
     updateById: async (r) => {
       const before = await tx.playbook.findUnique({
         where: { id: r.id },
-        select: { triggerType: true, triggerConfig: true, enabled: true },
+        select: { triggerType: true, triggerConfig: true, enabled: true, steps: true, teamId: true, createdById: true, updatedAt: true },
       });
       const triggerChanged = !before
         || before.triggerType !== r.triggerType
         || JSON.stringify(before.triggerConfig) !== JSON.stringify(r.triggerConfig);
+      const sameOwner = before && before.teamId === (r.teamId ?? null) && before.createdById === r.createdById;
+      const data = toData(r, sameOwner ? before.steps : undefined);
       // The schedule state derives from the trigger, as an edit recomputes it:
       // an overwritten cron kept its old nextRunAt (months away) and the
       // startup sweep only fills a missing one.
       await tx.playbook.update({
-        where: { id: r.id },
+        where: { id: r.id, updatedAt: before?.updatedAt },
         data: {
-          ...toData(r),
-          ...(triggerChanged || before?.enabled !== r.enabled ? { nextRunAt: nextPlaybookRunAt(r) } : {}),
+          ...data,
+          ...(triggerChanged || before?.enabled !== data.enabled ? { nextRunAt: nextPlaybookRunAt(data) } : {}),
           ...(triggerChanged ? { metricMatchState: Prisma.DbNull } : {}),
         },
       });
@@ -233,7 +239,7 @@ export async function importAlertRules(
     if (action !== "update") continue;
     // A standard export leaves webhook addresses out: keep the address the rule has.
     const { webhookUrl, ...rest } = toData(row);
-    await tx.alertRule.update({ where: { id: row.id }, data: exportMode === "full" || webhookUrl ? { ...rest, webhookUrl } : rest });
+    await tx.alertRule.update({ where: { id: row.id, teamId: row.teamId ?? null }, data: exportMode === "full" || webhookUrl ? { ...rest, webhookUrl } : rest });
     counts.updated += 1;
   }
   counts.skipped += records.length - plan.length;

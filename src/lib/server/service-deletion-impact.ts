@@ -21,6 +21,7 @@ export type ServerDeletionImpact = {
    * fetching). Moving the server is refused for the same reason.
    */
   unfinishedCommands: number;
+  unfinishedAgentJobs: number;
   unfinishedDownloads: number;
 };
 
@@ -38,7 +39,7 @@ function jsonReferencesServer(value: unknown, serverId: string): boolean {
 export function listServerStorageNodes(serverId: string, db: Prisma.TransactionClient = prisma) {
   return db.storageNode.findMany({
     where: { OR: [{ serverId }, { driver: "AGENT", agentFileShare: { is: { serverId } } }] },
-    select: { id: true, driver: true, teamId: true },
+    select: { id: true, driver: true, teamId: true, directAccessMode: true, publicBaseUrl: true },
   });
 }
 
@@ -61,6 +62,7 @@ export async function getServerDeletionImpact(serverId: string, db: Prisma.Trans
     backupSchedules,
     backupRecords,
     unfinishedCommands,
+    unfinishedAgentJobs,
     unfinishedDownloads,
   ] = await Promise.all([
     storageScope ? db.fileEntry.count({ where: storageScope }) : 0,
@@ -80,6 +82,10 @@ export async function getServerDeletionImpact(serverId: string, db: Prisma.Trans
     db.vpsBackupSchedule.count({ where: { serverId } }),
     db.vpsBackupRecord.count({ where: { serverId } }),
     db.commandTarget.count({ where: { serverId, status: { in: ["PENDING_APPROVAL", "APPROVED", "RUNNING", "CANCELLING"] } } }),
+    // CLAIMED includes running commands. A cancellation request has no completedAt until the Agent acknowledges it.
+    db.serverAgentJob.count({ where: { serverId, OR: [
+      { status: { in: ["PENDING", "CLAIMED"] } }, { status: "CANCELLED", completedAt: null },
+    ] } }),
     db.downloadTask.count({ where: { serverId, status: { in: ["PENDING", "RUNNING"] } } }),
   ]);
 
@@ -97,6 +103,7 @@ export async function getServerDeletionImpact(serverId: string, db: Prisma.Trans
     backupSchedules,
     backupRecords,
     unfinishedCommands,
+    unfinishedAgentJobs,
     unfinishedDownloads,
   };
 }
@@ -123,6 +130,7 @@ const BLOCKER_COPY: Record<BlockingImpact, string> = {
   backupSchedules: "backend.server.deletionBlocker.backupSchedules",
   backupRecords: "backend.server.deletionBlocker.backupRecords",
   unfinishedCommands: "backend.server.deletionBlocker.unfinishedCommands",
+  unfinishedAgentJobs: "backend.server.deletionBlocker.unfinishedAgentJobs",
   unfinishedDownloads: "backend.server.deletionBlocker.unfinishedDownloads",
 };
 

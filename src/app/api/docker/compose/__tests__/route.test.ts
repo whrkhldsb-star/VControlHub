@@ -181,7 +181,7 @@ describe("/api/docker/compose", () => {
 				dockerAvailable: true,
 				message: null,
 			});
-			expect(mocks.listComposeProjects).toHaveBeenCalledWith(undefined);
+			expect(mocks.listComposeProjects).toHaveBeenCalledWith(undefined, undefined, undefined);
 		});
 	});
 
@@ -210,6 +210,8 @@ describe("/api/docker/compose", () => {
 				project: "app",
 				action: "restart",
 				serverId: "srv_1",
+				expectedTeamId: "team_1",
+				expectedEndpoint: { id: "srv_1", teamId: "team_1" },
 				removeVolumes: false,
 			});
 		});
@@ -218,7 +220,7 @@ describe("/api/docker/compose", () => {
 			currentSession = tenantOperator;
 			await route.GET(get("?serverId=srv_1"));
 			expect(mocks.teamAccess).toHaveBeenCalledWith(tenantOperator, "srv_1", "connect");
-			expect(mocks.listComposeProjects).toHaveBeenCalledWith("srv_1");
+			expect(mocks.listComposeProjects).toHaveBeenCalledWith("srv_1", "team_1", { id: "srv_1", teamId: "team_1" });
 		});
 	});
 

@@ -23,8 +23,9 @@ import {
   safeArchiveName,
   streamLocalTarGz,
   streamRemoteTarGz,
+  supportsRemoteTar,
 } from "@/lib/storage/archive-stream";
-import { normalizeStorageRelativePath, resolveStoragePathWithinBase } from "@/lib/storage/path-utils";
+import { hasCaseInsensitiveLocalPaths, normalizeStorageRelativePath, resolveStoragePathWithinBase } from "@/lib/storage/path-utils";
 import { normalizeRemoteTargetPath, toClientStorageError } from "@/lib/storage/remote-path";
 import { assertRemotePathContained } from "@/lib/storage/remote-containment";
 import { resolveStorageSshCredentials } from "@/lib/storage/ssh-credentials";
@@ -156,6 +157,7 @@ export async function GET(request: Request) {
       }
       const stream = await openManagedArchive({
         storageNodeId: entry.storageNode.id, relativePath: entry.relativePath, signal: request.signal,
+        caseInsensitive: hasCaseInsensitiveLocalPaths(entry.storageNode.driver),
         open: (excluded) => streamLocalTarGz(resolved.path, path.basename(resolved.path), excluded),
       });
       return archiveStreamResponse(stream, archiveName);
@@ -172,6 +174,8 @@ export async function GET(request: Request) {
     if (entry.storageNode.driver !== "SFTP") {
       throw new ValidationError(apiCopy("apiCopy.this.storage.node.does.not.support.directory.download.9454c3ca"));
     }
+
+    if (!supportsRemoteTar(entry.storageNode)) throw new ValidationError(t("backend.storage.archiveNeedsLinuxSsh", locale));
 
     // Never echo resolveStorageSshCredentials' internal failure text to the
     // client (it can embed host/credential details); answer with the stable
@@ -214,11 +218,7 @@ export async function GET(request: Request) {
       const archiveClient = client;
       const stream = await openManagedArchive({
         storageNodeId: entry.storageNode.id, relativePath: entry.relativePath, signal: request.signal,
-        // Remote Windows OpenSSH resolves tar to bsdtar — exclusions must ride
-        // argv, not the GNU-only --exclude-from=- stdin list.
-        open: (excluded) => streamRemoteTarGz(archiveClient, remotePath, excluded, {
-          bsdtar: entry.storageNode.server?.operatingSystem === "WINDOWS",
-        }),
+        open: (excluded) => streamRemoteTarGz(archiveClient, entry.storageNode, remotePath, excluded),
       });
       closeSshClientOnStreamEnd(stream, client);
       client = null;

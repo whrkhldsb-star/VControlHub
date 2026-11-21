@@ -6,6 +6,7 @@
  * helper goes through `config.storage.*` / `config.app.*` for
  * testability rather than reading `process.env` directly.
  */
+import { randomUUID } from "node:crypto";
 import { join, normalize, sep } from "node:path";
 
 import { config } from "@/lib/config/env";
@@ -67,7 +68,7 @@ export function isBackupType(value: string): value is BackupType {
 export function buildBackupFilePath(type: BackupType, now = new Date()) {
 	const stamp = now.toISOString().replace(/[:.]/g, "-");
 	const extension = type === "DATABASE" ? "sql.gz" : "tar.gz";
-	return `backups/${type.toLowerCase()}-${stamp}.${extension}`;
+	return `backups/${type.toLowerCase()}-${stamp}-${randomUUID()}.${extension}`;
 }
 
 export function getBackupStorageRoot(projectRoot: string) {

@@ -82,7 +82,7 @@ async function assertUploadTargetIsNotFolder(
     const resolved = resolveStoragePathWithinBase(node.basePath, relativePath);
     if (resolved.ok && (await lstat(resolved.path).catch(() => null))?.isDirectory()) throw conflict();
   } else if (node.driver === "WEBDAV" || node.driver === "AGENT") {
-    if ((await createRemoteStorageClient(node).stat(relativePath))?.isDirectory) throw conflict();
+    if ((await createRemoteStorageClient(node).stat(relativePath, true))?.isDirectory) throw conflict();
   }
 }
 
@@ -211,6 +211,7 @@ export async function completeStorageFileUpload(params: {
     });
   }
 
+  if (assembled.size !== byteSize) throw new ValidationError(t("backend.storage.assembledSizeChanged"));
   let storageVersion: string | null = null;
   const activeLease = lease;
   const beforePublish = () => activeLease.beforeWrite({ kind: "storage", storageNodeId: storageNode.id, relativePath: normalizedRelativePath, checksum: assembled.checksum, size: assembled.size });
@@ -229,19 +230,11 @@ export async function completeStorageFileUpload(params: {
     throw error;
   }
 
-  const fileName = path.posix.basename(normalizedRelativePath);
-  const mimeType = existing.mimeType || null;
-  if (assembled.size !== byteSize) throw new ValidationError(t("backend.storage.assembledSizeChanged"));
-
   const indexData = {
-    name: fileName,
+    name: path.posix.basename(normalizedRelativePath),
     entryType: "FILE" as const,
-    mimeType,
+    mimeType: existing.mimeType || null,
     size: BigInt(byteSize),
-    isDeleted: false as const,
-    // The row leaves the recycle bin on this overwrite — clear the batch
-    // marker so a later directory restore cannot revive a stale copy of it.
-    deleteBatchId: null,
     checksumSha256: assembled.checksum,
     storageVersion,
   };
@@ -249,11 +242,15 @@ export async function completeStorageFileUpload(params: {
   await activeLease.assertActive();
   const finalizationToken = activeLease.token;
   const view = await prisma.$transaction(async (tx) => {
-    await tx.fileEntry.upsert({
-      where: { storageNodeId_relativePath: { storageNodeId: existing.storageNodeId!, relativePath: normalizedRelativePath } },
-      create: { storageNodeId: existing.storageNodeId!, relativePath: normalizedRelativePath, ...indexData },
-      update: indexData,
-    });
+    const target = { storageNodeId: existing.storageNodeId!, relativePath: normalizedRelativePath };
+    if (existingEntry) {
+      await tx.fileEntry.update({
+        where: { ...target, id: existingEntry.id, updatedAt: existingEntry.updatedAt, isDeleted: false },
+        data: indexData,
+      });
+    } else {
+      await tx.fileEntry.create({ data: { ...target, ...indexData } });
+    }
     return completeMediaUploadSession({ sessionId, userId: session.userId, checksum: assembled.checksum, allowedStatuses: ["FINALIZING"], finalizationToken, transaction: tx });
   });
   await cleanupMediaUploadTempDir(sessionId).catch((error) => logError("storage-upload:cleanup-failed", error));

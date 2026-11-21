@@ -36,10 +36,17 @@ export type StorageNodeWithCredentials = StorageSshCredentialNode & {
  * delete) or surface it as a real failure.
  */
 export function isMissingBackingObjectError(error: unknown) {
-  if (!(error instanceof Error)) return false;
-  const code = (error as { code?: unknown }).code;
-  if (code === "ENOENT" || code === 2) return true;
-  return /no such file|not found|does not exist|不存在|no_such_file/i.test(
+  if (typeof error !== "object" || error === null) return false;
+  const { code, status, statusCode } = error as { code?: unknown; status?: unknown; statusCode?: unknown };
+  const httpStatus = status ?? statusCode;
+  if (httpStatus != null && httpStatus !== 404 && httpStatus !== "404") return false;
+  if (code != null) {
+    if (code === "ENOENT" || code === 2 || code === "2" || code === 404 || code === "404") return true;
+    // WebDavHttpError inherits the application's generic business-error code.
+    return httpStatus != null && (code === "BUSINESS_RULE_FAILED" || code === "NOT_FOUND");
+  }
+  if (httpStatus != null) return true;
+  return error instanceof Error && /no such file|not found|does not exist|不存在|no_such_file/i.test(
     error.message,
   );
 }
@@ -239,8 +246,8 @@ export async function readBackingObject(input: {
 export async function statBackingObject(input: {
   storageNode: StorageNodeWithCredentials;
   relativePath: string;
-}): Promise<{ size: number; lastModifiedMs: number } | null> {
-  if (input.storageNode.driver === "WEBDAV" || input.storageNode.driver === "AGENT") { const entry = await createRemoteStorageClient(input.storageNode).stat(input.relativePath); return entry ? { size: entry.size, lastModifiedMs: entry.lastModifiedMs } : null; }
+}): Promise<{ size: number; lastModifiedMs: number; isDirectory: boolean } | null> {
+  if (input.storageNode.driver === "WEBDAV" || input.storageNode.driver === "AGENT") { const entry = await createRemoteStorageClient(input.storageNode).stat(input.relativePath, true); return entry ? { size: entry.size, lastModifiedMs: entry.lastModifiedMs, isDirectory: entry.isDirectory } : null; }
   if (input.storageNode.driver === "LOCAL") {
     const { absolutePath } = await resolveManagedLocalEntryPath({
       basePath: input.storageNode.basePath,
@@ -249,7 +256,7 @@ export async function statBackingObject(input: {
     try {
       const { lstat } = await import("node:fs/promises");
       const fileStat = await lstat(absolutePath);
-      return { size: fileStat.size, lastModifiedMs: fileStat.mtimeMs };
+      return { size: fileStat.size, lastModifiedMs: fileStat.mtimeMs, isDirectory: fileStat.isDirectory() };
     } catch (error) {
       if (error && typeof error === "object" && "code" in error && error.code === "ENOENT") return null;
       throw error;
@@ -260,7 +267,7 @@ export async function statBackingObject(input: {
     const { remotePath, credentials } = await resolveStorageRemotePath(input.storageNode, input.relativePath);
     try {
       const entry = await statRemoteEntry({ ...credentials, remotePath });
-      return { size: entry.size ?? 0, lastModifiedMs: entry.modifyTime ?? 0 };
+      return { size: entry.size ?? 0, lastModifiedMs: entry.modifyTime ?? 0, isDirectory: entry.type === "directory" };
     } catch (error) {
       // Occupancy decides whether a later rollback may delete or restore bytes.
       // A filename in a permission or transport error can itself contain "not found".
@@ -287,6 +294,7 @@ export async function deleteBackingObject(input: {
   relativePath: string;
   isDirectory: boolean;
   tolerateMissing: boolean;
+  emptyOnly?: boolean;
   expectedRoot?: string;
   version?: string;
 }) {
@@ -294,17 +302,22 @@ export async function deleteBackingObject(input: {
     if (input.storageNode.driver === "AGENT") {
       if (!input.storageNode.id) throw new ValidationError(t("backend.fileAgent.unavailable"));
       await createAgentFileClient(input.storageNode.id, undefined, input.expectedRoot)
-        .delete(input.relativePath, input.isDirectory, input.version);
+        .delete(input.relativePath, input.isDirectory, input.version, input.emptyOnly);
       return;
     }
-    if (input.storageNode.driver === "WEBDAV") { await createRemoteStorageClient(input.storageNode).delete(input.relativePath); return; }
+    if (input.storageNode.driver === "WEBDAV") {
+      if (input.emptyOnly) throw new ConflictError(t("backend.storage.recycledDirectoryConflict"));
+      await createRemoteStorageClient(input.storageNode).delete(input.relativePath);
+      return;
+    }
     if (input.storageNode.driver === "LOCAL") {
       const { absolutePath } = await resolveManagedLocalEntryPath({
         basePath: input.storageNode.basePath,
         relativePath: input.relativePath,
       });
       if (input.isDirectory) {
-        await rm(absolutePath, { recursive: true, force: false });
+        if (input.emptyOnly) await rmdir(absolutePath);
+        else await rm(absolutePath, { recursive: true, force: false });
       } else {
         await unlink(absolutePath);
       }
@@ -317,6 +330,7 @@ export async function deleteBackingObject(input: {
         ...credentials,
         remotePath,
         isDirectory: input.isDirectory,
+        ...(input.emptyOnly ? { emptyOnly: true } : {}),
       });
       return;
     }
@@ -325,6 +339,10 @@ export async function deleteBackingObject(input: {
       apiCopy("apiCopy.unsupported.storage.driver.for.delete.960924c3", { v0: String(input.storageNode.driver) }),
     );
   } catch (error) {
+    const code = (error as { code?: unknown } | null)?.code;
+    if (input.emptyOnly && (code === "ENOTEMPTY" || code === "EEXIST" || code === 18)) {
+      throw new ConflictError(t("backend.storage.recycledDirectoryConflict"));
+    }
     if (input.tolerateMissing && isMissingBackingObjectError(error)) return;
     throw error;
   }
@@ -341,8 +359,17 @@ export async function renameBackingObject(input: {
   storageNode: StorageNodeWithCredentials;
   oldRelativePath: string;
   newRelativePath: string;
+  noReplace?: boolean;
 }) {
-  if (input.storageNode.driver === "WEBDAV" || input.storageNode.driver === "AGENT") { await createRemoteStorageClient(input.storageNode).rename(input.oldRelativePath, input.newRelativePath); return; }
+  if (input.storageNode.driver === "WEBDAV" || input.storageNode.driver === "AGENT") {
+    const client = createRemoteStorageClient(input.storageNode);
+    if (input.storageNode.driver === "AGENT" && input.noReplace) {
+      await client.rename(input.oldRelativePath, input.newRelativePath, false, true);
+    } else {
+      await client.rename(input.oldRelativePath, input.newRelativePath);
+    }
+    return;
+  }
   if (input.storageNode.driver === "LOCAL") {
     const oldPath = await resolveManagedLocalEntryPath({
       basePath: input.storageNode.basePath,
@@ -375,7 +402,8 @@ export async function renameBackingObject(input: {
         recursive: true,
       });
     }
-    await renameRemoteFile({ ...credentials, oldPath, newPath });
+    const agentOnly = credentials.agentServerId && !credentials.privateKey && !credentials.password;
+    await renameRemoteFile({ ...credentials, oldPath, newPath, ...(agentOnly && input.noReplace ? { noReplace: true } : {}) });
     return;
   }
 
@@ -395,7 +423,7 @@ export async function moveBackingObject(input: {
   oldRelativePath: string;
   newRelativePath: string;
 }) {
-  if (input.storageNode.driver !== "LOCAL") return renameBackingObject(input);
+  if (input.storageNode.driver !== "LOCAL") return renameBackingObject({ ...input, noReplace: true });
   const source = await resolveManagedLocalEntryPath({ basePath: input.storageNode.basePath, relativePath: input.oldRelativePath });
   const target = await resolveManagedLocalEntryPath({ basePath: input.storageNode.basePath, relativePath: input.newRelativePath });
   await mkdir(target.path.dirname(target.absolutePath), { recursive: true });

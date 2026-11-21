@@ -64,7 +64,7 @@ export class S3Error extends Error {
 
 /* ── URL helpers ─────────────────────────────────────────── */
 
-function normalizeEndpoint(endpoint: string): string {
+export function normalizeEndpoint(endpoint: string): string {
 	const trimmed = endpoint.trim().replace(/\/+$/, "");
 	if (!trimmed) throw new S3Error("endpoint is required", 0, "InvalidEndpoint");
 	let parsed: URL;
@@ -101,6 +101,13 @@ export function uriEncodeKey(key: string): string {
 		.split("/")
 		.map((segment) => encodeURIComponent(segment).replace(/[!'()*]/g, (c) => `%${c.charCodeAt(0).toString(16).toUpperCase()}`))
 		.join("/");
+}
+
+/** A WHATWG URL folds whole dot segments, even when the dots are percent-encoded. */
+export function assertDeletableObjectKey(key: string): void {
+	if (!key || !key.isWellFormed() || key.split("/").some((part) => part === "." || part === "..")) {
+		throw new S3Error("Object key cannot be represented exactly in a DELETE URL", 0, "InvalidObjectKey");
+	}
 }
 
 function buildBaseUrl(cfg: S3ClientConfig, key = ""): string {
@@ -411,6 +418,7 @@ export class S3Client {
 
 	/** DELETE an object. Idempotent (404 is treated as success). */
 	async deleteObject(key: string, versionId?: string | null): Promise<void> {
+		assertDeletableObjectKey(key);
 		const url = this.buildUrl(key, new URLSearchParams(versionId ? { versionId } : {}));
 		const headers: Record<string, string> = {};
 		const signed = this.sign("DELETE", url, headers, Buffer.alloc(0));

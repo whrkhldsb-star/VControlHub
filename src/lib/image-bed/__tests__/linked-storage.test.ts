@@ -19,6 +19,8 @@ vi.mock("@/lib/db", () => ({ prisma: { fileEntry: { upsert: mocks.upsert } } }))
 import { indexLinkedStorageImage } from "../linked-storage";
 
 const input = {
+	imageId: "img_1",
+	createdAt: new Date(),
 	storageNodeId: "node_1",
 	relativePath: "images/2026/08/photo.png",
 	originalName: "photo.png",
@@ -57,6 +59,8 @@ describe("indexLinkedStorageImage", () => {
 		for (const key of Object.keys(call.update)) {
 			expect(call.create[key]).toEqual(call.update[key]);
 		}
+		expect(call.create.id).toBe(input.imageId);
+		expect(call.create.updatedAt).toBe(input.createdAt);
 		expect(call.create.storageNodeId).toBe("node_1");
 		expect(call.create.relativePath).toBe("images/2026/08/photo.png");
 	});

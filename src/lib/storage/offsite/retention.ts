@@ -6,7 +6,7 @@ import { offsiteDestination } from "./destination";
 import { prisma } from "@/lib/db";
 import { createLogger } from "@/lib/logging";
 import { loadOffsiteConfig, validateOffsiteConfigForUse } from "./schema";
-import { S3Client, type S3Object } from "./s3-client";
+import { assertDeletableObjectKey, S3Client, type S3Object } from "./s3-client";
 
 const logger = createLogger("offsite-retention");
 
@@ -69,6 +69,13 @@ export async function pruneOffsiteObjects(options?: {
   let listed = 0;
   let deleted = 0;
   const errors: string[] = [];
+  let errorCount = 0;
+  const warn = (message: string, key: string, error: unknown) => {
+    const reason = error instanceof Error ? error.message : String(error);
+    errorCount++;
+    if (errors.length < 20) errors.push(`${key}: ${reason.slice(0, 200)}`);
+    logger.warn(message, { key, error: reason });
+  };
   let token: string | undefined;
   // Disaster-recovery bundles (recovery/) are uploaded by a script and have no database row, so they were pruned by
   // age alone - the last one included. The newest of them is kept like the newest copy of every other kind.
@@ -89,9 +96,7 @@ export async function pruneOffsiteObjects(options?: {
       deleted += 1;
       return true;
     } catch (err) {
-      const msg = err instanceof Error ? err.message : String(err);
-      errors.push(`${key}: ${msg.slice(0, 200)}`);
-      logger.warn("offsite prune delete failed", { key, error: msg });
+      warn("offsite prune delete failed", key, err);
       return false;
     }
   };
@@ -106,7 +111,13 @@ export async function pruneOffsiteObjects(options?: {
       if (deleted >= maxDeletes) break;
       const lastModified = obj.lastModified ? new Date(obj.lastModified) : null;
       if (!lastModified || Number.isNaN(lastModified.getTime())) continue;
-      if (!obj.key) continue;
+      try {
+        assertDeletableObjectKey(obj.key);
+        if (!obj.key.startsWith(prefix)) throw new Error("Object key outside the listed prefix");
+      } catch (error) {
+        warn("Skipping offsite object during retention", obj.key, error);
+        continue;
+      }
       const isRecovery = obj.key.startsWith(recoveryPrefix);
       if (isRecovery && (!newestRecovery || lastModified.getTime() > newestRecovery.at)) {
         newestRecovery = { key: obj.key, at: lastModified.getTime() };
@@ -131,7 +142,7 @@ export async function pruneOffsiteObjects(options?: {
   logger.info("offsite prune finished", {
     listed,
     deleted,
-    errors: errors.length,
+    errors: errorCount,
     retentionDays,
     cutoff: cutoff.toISOString(),
   });
@@ -140,7 +151,7 @@ export async function pruneOffsiteObjects(options?: {
     enabled: true,
     listed,
     deleted,
-    errors: errors.slice(0, 20),
+    errors,
     retentionDays,
     cutoffIso: cutoff.toISOString(),
   };

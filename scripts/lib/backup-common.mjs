@@ -9,6 +9,7 @@
  */
 import { spawn } from "node:child_process";
 import fs from "node:fs/promises";
+import { randomUUID } from "node:crypto";
 import os from "node:os";
 import path from "node:path";
 
@@ -107,6 +108,8 @@ export function fileVersionDir(env) {
 
 /** Manifest naming the archive member that holds file history bodies kept outside the app directory. */
 export const FILE_VERSIONS_MANIFEST = "file-versions.json";
+export const ENV_MEMBERS = [".env", ".env.production", ".env.local", ".env.runtime"];
+export const INTEGRITY_MANIFEST = "backup-integrity.json";
 
 export function redactConnectionString(text) {
   return text.replace(/(postgres(ql)?:\/\/)[^@\s]+@/g, "$1[REDACTED]@");
@@ -221,7 +224,7 @@ export function restoreLockPath(appDir) {
 function readLockOwner(content) {
   const owner = {};
   for (const line of content.split(/\r?\n/)) {
-    const match = line.match(/^(pid|host|startedAt)=(.*)$/);
+    const match = line.match(/^(pid|host|startedAt|token)=(.*)$/);
     if (match) owner[match[1]] = match[2];
   }
   return owner;
@@ -236,33 +239,77 @@ function processIsAlive(pid) {
   }
 }
 
+function staleOwner(owner) {
+  const pid = Number(owner.pid);
+  return owner.host === os.hostname() && Number.isInteger(pid) && pid > 0 && !processIsAlive(pid);
+}
+
+async function lockOwner(lockDir) {
+  return readLockOwner(await fs.readFile(path.join(lockDir, "owner"), "utf8").catch((error) => {
+    if (error.code === "ENOENT") return "";
+    throw error;
+  }));
+}
+
+async function retireLock(lockDir) {
+  // Once renamed, a new owner can acquire lockDir without our cleanup ever
+  // touching its directory.
+  const retired = `${lockDir}.retired-${randomUUID()}`;
+  await fs.rename(lockDir, retired);
+  await fs.rm(retired, { recursive: true });
+}
+
+async function reclaimStaleLock(lockDir) {
+  const claim = `${lockDir}.reclaim`;
+  try {
+    await fs.mkdir(claim, { mode: 0o700 });
+  } catch (error) {
+    if (error.code === "EEXIST") {
+      throw new Error(`Restore lock recovery is already in progress (${claim}). Retry after the other restore runner exits. If it was killed during recovery, confirm all restore runners have stopped before removing the abandoned ${claim} directory.`);
+    }
+    throw error;
+  }
+  try {
+    // Recheck under the exclusion shared by all reclaimers, including when
+    // reading a legacy owner file with no token.
+    if (!staleOwner(await lockOwner(lockDir))) return false;
+    await retireLock(lockDir);
+    return true;
+  } finally {
+    await fs.rmdir(claim);
+  }
+}
+
 export async function acquireRestoreLock(appDir) {
   const lockDir = restoreLockPath(appDir);
   for (let attempt = 0; attempt < 2; attempt += 1) {
     try {
-      await fs.mkdir(lockDir);
+      await fs.mkdir(lockDir, { mode: 0o700 });
     } catch (error) {
       if (error?.code !== "EEXIST") throw error;
-      const owner = readLockOwner(await fs.readFile(path.join(lockDir, "owner"), "utf8").catch(() => ""));
-      const pid = Number(owner.pid);
-      const stale = owner.host === os.hostname() && Number.isInteger(pid) && pid > 0 && !processIsAlive(pid);
-      if (attempt === 0 && stale) {
-        await fs.rm(lockDir, { recursive: true, force: true });
-        continue;
-      }
+      const owner = await lockOwner(lockDir);
+      if (attempt === 0 && staleOwner(owner) && await reclaimStaleLock(lockDir)) continue;
       throw new Error(
         `another restore is already running for ${appDir} (lock ${lockDir}, pid ${owner.pid ?? "unknown"} on ${owner.host ?? "unknown host"} since ${owner.startedAt ?? "unknown"}). Wait for it to finish; remove the lock only if that process is gone.`,
       );
     }
-    await fs.writeFile(
-      path.join(lockDir, "owner"),
-      `pid=${process.pid}\nhost=${os.hostname()}\nstartedAt=${new Date().toISOString()}\n`,
-    );
+    const token = randomUUID();
+    try {
+      await fs.writeFile(path.join(lockDir, "owner"),
+        `pid=${process.pid}\nhost=${os.hostname()}\nstartedAt=${new Date().toISOString()}\ntoken=${token}\n`,
+        { flag: "wx", mode: 0o600 });
+    } catch (error) {
+      await retireLock(lockDir);
+      throw error;
+    }
     let released = false;
     return async () => {
       if (released) return;
       released = true;
-      await fs.rm(lockDir, { recursive: true, force: true }).catch(() => undefined);
+      const owner = await lockOwner(lockDir);
+      if (owner.token === token && owner.host === os.hostname() && owner.pid === String(process.pid)) {
+        await retireLock(lockDir);
+      }
     };
   }
   throw new Error(`could not acquire restore lock ${lockDir}`);

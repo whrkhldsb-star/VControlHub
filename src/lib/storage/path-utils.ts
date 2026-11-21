@@ -57,6 +57,11 @@ export function isWindowsStorageBasePath(basePath: string): boolean {
   return /^\/?[A-Za-z]:(?:[\\/]|$)/.test(basePath.trim());
 }
 
+/** LOCAL paths follow the filesystem of the control-plane host. */
+export function hasCaseInsensitiveLocalPaths(driver: string | undefined): boolean {
+  return driver === "LOCAL" && process.platform === "win32";
+}
+
 /** True when a name or relative path holds a character Windows does not allow in names. */
 export function hasWindowsInvalidNameChars(relativePath: string): boolean {
   return WINDOWS_INVALID_SEGMENT_CHARS.test(relativePath);
@@ -169,7 +174,7 @@ export function getPathName(relativePath: string): string {
   return parts[parts.length - 1] ?? "";
 }
 
-function resolveThroughExistingAncestor(absolutePath: string): string | null {
+export function resolveThroughExistingAncestor(absolutePath: string): string | null {
   let current = path.resolve(absolutePath);
   const missingSegments: string[] = [];
 

@@ -2,7 +2,7 @@
 import { randomUUID } from "node:crypto";
 import { afterAll, afterEach, beforeAll, beforeEach, describe, expect, it, vi } from "vitest";
 import { prisma } from "@/lib/db";
-import { claimNextJob, completeJob, heartbeatJob, recoverStaleRunningJobs } from "../service";
+import { claimNextJob, completeJob, failJob, failJobTerminal, heartbeatJob, recoverStaleRunningJobs } from "../service";
 
 describe.skipIf(process.env.RUN_DATABASE_INTEGRATION_TESTS !== "1")("durable queue PostgreSQL contention", () => {
   const prefix = `queue-audit-${randomUUID()}`;
@@ -83,6 +83,27 @@ describe.skipIf(process.env.RUN_DATABASE_INTEGRATION_TESTS !== "1")("durable que
     expect(await completeJob(first.id, "crashed-worker")).toEqual({ count: 0 });
     expect(await completeJob(first.id, "replacement-worker")).toEqual({ count: 1 });
     expect(await completeJob(first.id, "replacement-worker")).toEqual({ count: 0 });
+  });
+
+  it("fences old heartbeats and terminal callbacks after the same worker reclaims its job", async () => {
+    const workerId = "same-worker";
+    const first = (await claim(workerId))!;
+    await prisma.job.update({ where: { id: first.id }, data: { leaseExpiresAt: new Date(0), priority: 100 } });
+    expect(await heartbeatJob(first.id, workerId, { attempts: first.attempts })).toEqual({ count: 0 });
+
+    // Schedule a legacy callback in the original worker's async context.
+    let release!: () => void;
+    const delayed = new Promise<void>(resolve => { release = resolve; })
+      .then(() => completeJob(first.id, workerId));
+    const second = (await claim(workerId))!;
+    expect(second).toMatchObject({ id: first.id, attempts: first.attempts + 1 });
+    release();
+    expect(await delayed).toEqual({ count: 0 });
+    expect(await heartbeatJob(first.id, workerId, { attempts: first.attempts })).toEqual({ count: 0 });
+    expect(await failJob(first.id, workerId, "retry", { attempts: first.attempts })).toEqual({ count: 0 });
+    expect(await failJobTerminal(first.id, workerId, "terminal", { attempts: first.attempts })).toEqual({ count: 0 });
+    expect(await completeJob(first.id, workerId, undefined, first.attempts)).toEqual({ count: 0 });
+    expect(await completeJob(second.id, workerId, undefined, second.attempts)).toEqual({ count: 1 });
   });
 
   it("recovers an interrupted job once and fences late completion from its old worker", async () => {

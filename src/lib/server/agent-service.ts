@@ -13,6 +13,7 @@ import { MONITOR_SCRIPT, isUsableMonitorOutput, parseMonitorScriptOutput } from 
 import { normalizeServerMetrics } from "@/lib/public-status/normalize";
 import { writeLatestMetrics } from "@/lib/public-status/latest-writer";
 import { createLogger } from "@/lib/logging";
+import { assertRequesterMayExecuteCommand } from "@/lib/auth/command-execution-authz";
 import { CommandCancellationUnconfirmedError } from "@/lib/command/cancellation-error";
 import { AGENT_VERSION, WINDOWS_AGENT_VERSION } from "./agent-version";
 import { stripNul } from "@/lib/text/strip-nul";
@@ -329,6 +330,34 @@ export async function claimNextServerAgentJob(serverId: string, authenticatedHas
       next = liveId ? await tx.serverAgentJob.findFirst({ where: { id: liveId, status: "PENDING" } }) : null;
     }
     if (!next || Date.now() - next.createdAt.getTime() > next.timeoutMs + AGENT_PENDING_GRACE_MS) return null;
+    if (next.commandTargetId) {
+      const target = await tx.commandTarget.findUnique({
+        where: { id: next.commandTargetId, serverId, status: "RUNNING", commandRequest: { status: "RUNNING" } },
+        select: { commandRequest: { select: {
+          requesterId: true, teamId: true,
+          approvals: { where: { approved: true }, select: { id: true }, take: 1 },
+        } } },
+      });
+      // A fresh Agent poll can arrive long after the executor originally
+      // authorized the command. Resolve the creator against this customer's
+      // current grants, on the same connection that will commit the claim.
+      const request = target?.commandRequest;
+      const authorization = request && await assertRequesterMayExecuteCommand(request.requesterId, request.teamId, serverId, {
+        requireExecutePermission: request.approvals.length === 0, db: tx,
+      });
+      if (!authorization?.ok) {
+        const stderr = authorization ? `Command dispatch denied: ${authorization.reason}` : "Command target is no longer runnable";
+        const denied = await tx.serverAgentJob.updateMany({
+          where: { id: next.id, status: "PENDING" },
+          data: { status: request ? "FAILED" : "CANCELLED", exitCode: request ? 255 : 130, stderr, completedAt: now },
+        });
+        if (denied.count && request) await tx.commandTarget.updateMany({
+          where: { id: next.commandTargetId, serverId, status: "RUNNING" },
+          data: { status: "FAILED", exitCode: 255, stderr, finishedAt: now },
+        });
+        return null;
+      }
+    }
     const claimed = await tx.serverAgentJob.updateMany({
       where: { id: next.id, status: "PENDING", createdAt: { gte: new Date(Date.now() - next.timeoutMs - AGENT_PENDING_GRACE_MS) }, timeoutMs: next.timeoutMs },
       data: {
@@ -339,10 +368,17 @@ export async function claimNextServerAgentJob(serverId: string, authenticatedHas
     });
     if (claimed.count !== 1) return null;
     if (next.commandTargetId) {
-      await tx.commandTarget.updateMany({
-        where: { id: next.commandTargetId, serverId },
-        data: { executionChannel: "AGENT" },
+      const dispatched = await tx.commandTarget.updateMany({
+        where: { id: next.commandTargetId, serverId, status: "RUNNING", commandRequest: { status: "RUNNING" } },
+        data: { executionChannel: "AGENT", outcomeUnknown: true },
       });
+      if (!dispatched.count) {
+        await tx.serverAgentJob.update({
+          where: { id: next.id },
+          data: { status: "CANCELLED", exitCode: 130, stderr: "Cancelled before Agent dispatch", completedAt: now, leaseExpiresAt: null },
+        });
+        return null;
+      }
     }
     return next;
   });
@@ -359,15 +395,16 @@ export async function executeCommandWithAgent(input: {
 }) {
   const cancelledBeforeDispatch = () => ({ stdout: "", stderr: "Cancelled before Agent dispatch", exitCode: 130, cancelled: true });
   if (input.signal?.aborted) return cancelledBeforeDispatch();
-  // Take the same row lock as a claim: a concurrent mode change either
-  // retires this queued job or commits before we check the current identity.
+  // Write the parent in the enqueue transaction. A serializable transfer with an older
+  // snapshot must retry if a job was just inserted, even one without a CommandTarget.
   const job = await prisma.$transaction(async (tx) => {
     const live = await tx.$queryRaw<{ id: string }[]>`
-      SELECT id FROM servers WHERE id = ${input.serverId} AND "managementMode" = 'AGENT'
+      UPDATE servers SET "updatedAt" = now() AT TIME ZONE 'UTC'
+      WHERE id = ${input.serverId} AND "managementMode" = 'AGENT'
         AND enabled AND "agentTokenHash" IS NOT NULL
         ${input.expectedIdentity ? Prisma.sql`AND "agentTokenHash" = ${input.expectedIdentity.tokenHash} AND "teamId" IS NOT DISTINCT FROM ${input.expectedIdentity.teamId}` : Prisma.empty}
         AND "agentLastSeenAt" > (now() AT TIME ZONE 'UTC') - ${AGENT_FRESH_MS} * interval '1 millisecond'
-      FOR SHARE`;
+      RETURNING id`;
     if (!live.length || input.signal?.aborted) return null;
     return tx.serverAgentJob.create({
       data: { serverId: input.serverId, commandTargetId: input.commandTargetId, command: input.command, timeoutMs: input.timeoutMs },
@@ -497,6 +534,7 @@ def job_environment():
     return env, (env["HOME"] if os.path.isdir(env.get("HOME") or "") else "/")
 JOB_ENV, JOB_DIR = job_environment()
 pending=None
+authenticated=False
 last_metrics=None
 metrics_error=None
 update_error=None
@@ -591,9 +629,9 @@ class Capture(object):
         # Reported: keep draining a pipe a background process still holds, store nothing.
         self.limit=0
         self.data=bytearray()
-def terminate(proc, captures):
+def terminate(proc, captures, force=False):
     # The whole group: the shell may have exited while children still own its pipes.
-    for sig in (signal.SIGTERM, signal.SIGKILL):
+    for sig in ((signal.SIGKILL,) if force else (signal.SIGTERM, signal.SIGKILL)):
         try: os.killpg(proc.pid, sig)
         except OSError: pass
         end=time.monotonic()+5
@@ -646,6 +684,11 @@ def run(job):
                 break
             try:
                 heartbeat=post(job_heartbeat(job))
+            except HubStatus as exc:
+                if exc.status in (401,403):
+                    terminate(proc,(out,err),force=True)
+                    sys.exit(0)
+                heartbeat={}
             except Exception:
                 heartbeat={}
             if heartbeat.get("cancelled"):
@@ -741,6 +784,7 @@ while True:
             if recent: payload["updateFailed"]=recent[-1]
             try:
                 message=post(payload)
+                authenticated=True
             except HubStatus as exc:
                 if exc.status == 400 and pending is not None:
                     # Resending a result the hub refuses would block every later
@@ -759,9 +803,11 @@ while True:
             except Exception: pass
             conn=None
             status=getattr(exc,"status",None)
-            # 401: the token was revoked (reinstalled or removed); 403: an edge
-            # proxy refuses. Neither changes within seconds, so ask again rarely.
-            time.sleep(60 if status in (401,403) else 30 if status == 429 else 5)
+            # A new install starts before SSH confirms it and the hub activates
+            # its token. systemd retries a first failure, but leaves a revoked
+            # installation stopped after its first authenticated poll.
+            if status in (401,403): sys.exit(0 if authenticated else 1)
+            time.sleep(30 if status == 429 else 5)
     except AgentStop:
         shutdown()
 `;
@@ -974,7 +1020,9 @@ public static class AgentOutput {
     "        }",
     "        $beat = Invoke-AgentPost (($beatPayload | ConvertTo-Json -Compress))",
     "        if ($beat -and $beat.cancelled) { $cancelled = $true; break }",
-    "      } catch { }",
+    "      } catch {",
+    "        if ($script:LastStatus -in 401,403) { $cancelled = $true; break }",
+    "      }",
     "      $lastHeartbeat = [DateTime]::UtcNow",
     "    }",
     "    Start-Sleep -Milliseconds 500",
@@ -1007,6 +1055,7 @@ public static class AgentOutput {
     "  $process.StandardOutput.Close()",
     "  $process.StandardError.Close()",
     "  $process.Dispose()",
+    "  if ($script:LastStatus -in 401,403) { throw 'Agent authorization revoked' }",
     "  return [ordered]@{ jobId = [string]$Job.id; stdout = (Limit-Text $stdout $OUTPUT_LIMIT); stderr = (Limit-Text $stderr $ERROR_LIMIT); exitCode = $exitCode }",
     "}",
     "",
@@ -1048,9 +1097,8 @@ public static class AgentOutput {
     "      try { $sleepMilliseconds = [Math]::Max(1000, [Math]::Min([int]$message.pollAfterMs, 30000)) } catch { }",
     "    }",
     "  } catch {",
-    "    # 401: the token was revoked (reinstalled or removed); 403: an edge proxy refuses. Ask again rarely.",
-    "    if ($script:LastStatus -eq 401 -or $script:LastStatus -eq 403) { $sleepMilliseconds = 60000 }",
-    "    elseif ($script:LastStatus -eq 429) { $sleepMilliseconds = 30000 }",
+    "    if ($script:LastStatus -in 401,403) { break }",
+    "    if ($script:LastStatus -eq 429) { $sleepMilliseconds = 30000 }",
     "    else { $sleepMilliseconds = 5000 }",
     "  }",
     "  Start-Sleep -Milliseconds $sleepMilliseconds",
@@ -1084,9 +1132,41 @@ export function buildWindowsAgentInstaller(hubUrl: string, token: string) {
     "} catch { }",
     "$agentDir = Join-Path $env:ProgramData 'VControlHub'",
     "New-Item -ItemType Directory -Path $agentDir -Force | Out-Null",
+    `function Protect-AgentPath($Path, [bool]$Directory) {
+  $item = Get-Item -Force -LiteralPath $Path
+  if ($item.Attributes -band [IO.FileAttributes]::ReparsePoint) { throw 'Unexpected Agent installation reparse point' }
+  $trusted = @('S-1-5-18', 'S-1-5-32-544')
+  $rights = if ($Directory) { '(OI)(CI)F' } else { 'F' }
+  & icacls.exe $Path /setowner '*S-1-5-32-544' | Out-Null
+  if ($LASTEXITCODE -ne 0) { throw 'Cannot secure Agent installation owner' }
+  & icacls.exe $Path /inheritance:r /grant:r ("*S-1-5-18:" + $rights) ("*S-1-5-32-544:" + $rights) | Out-Null
+  if ($LASTEXITCODE -ne 0) { throw 'Cannot secure Agent installation permissions' }
+  $sidType = [Security.Principal.SecurityIdentifier]
+  $acl = if ($Directory) { [IO.Directory]::GetAccessControl($Path) } else { [IO.File]::GetAccessControl($Path) }
+  foreach ($rule in $acl.GetAccessRules($true, $false, $sidType)) {
+    if ($rule.IdentityReference.Value -notin $trusted) {
+      & icacls.exe $Path /remove ('*' + $rule.IdentityReference.Value) | Out-Null
+      if ($LASTEXITCODE -ne 0) { throw 'Cannot remove old Agent installation permissions' }
+    }
+  }
+  $acl = if ($Directory) { [IO.Directory]::GetAccessControl($Path) } else { [IO.File]::GetAccessControl($Path) }
+  $rules = @($acl.GetAccessRules($true, $true, $sidType))
+  if (!$acl.AreAccessRulesProtected -or $acl.GetOwner($sidType).Value -ne 'S-1-5-32-544' -or $rules.Count -ne 2) { throw 'Unexpected Agent installation ACL' }
+  foreach ($sid in $trusted) {
+    $allowed = @($rules | Where-Object { $_.IdentityReference.Value -eq $sid -and $_.AccessControlType -eq 'Allow' -and $_.FileSystemRights -eq 'FullControl' -and !$_.IsInherited -and $_.PropagationFlags -eq 'None' })
+    if ($allowed.Count -ne 1 -or ($Directory -and [int]$allowed[0].InheritanceFlags -ne 3)) { throw 'Agent installation ACL verification failed' }
+  }
+}`,
+    "Protect-AgentPath $agentDir $true",
     "$agentPath = Join-Path $agentDir 'agent.ps1'",
+    // Replace legacy files so an old read handle or hard link cannot see the new token.
+    "if (Test-Path -LiteralPath $agentPath) { Remove-Item -LiteralPath $agentPath -Force }",
+    "[IO.File]::Open($agentPath, [IO.FileMode]::CreateNew).Dispose()",
+    "Protect-AgentPath $agentPath $false",
     `[System.IO.File]::WriteAllBytes($agentPath, [Convert]::FromBase64String(${JSON.stringify(agentBase64)}))`,
-    `[System.IO.File]::WriteAllText((Join-Path $agentDir 'install-id'), '${tokenHash(token)}')`,
+    "$stamp = Join-Path $agentDir 'install-id'",
+    "if (Test-Path -LiteralPath $stamp) { Remove-Item -LiteralPath $stamp -Force }",
+    `[System.IO.File]::WriteAllText($stamp, '${tokenHash(token)}')`,
     "$action = New-ScheduledTaskAction -Execute 'powershell.exe' -Argument ('-NoProfile -ExecutionPolicy Bypass -WindowStyle Hidden -File \"' + $agentPath + '\"')",
     "$trigger = New-ScheduledTaskTrigger -AtStartup",
     "# A zero execution time limit means none: the Agent runs as long as the machine does.",
@@ -1126,7 +1206,7 @@ export async function installServerAgentUnderLock(serverId: string, teamId?: str
   const token = generateServerAgentToken(serverId);
   const identity = { ...scope, id: server.id, teamId: server.teamId, managementMode: "AGENT" as const, agentTokenHash: server.agentTokenHash };
   const python = Buffer.from(buildAgentPython(hubUrl, token)).toString("base64");
-  const unit = `[Unit]\nDescription=VControlHub Agent\nAfter=network-online.target\nWants=network-online.target\n\n[Service]\nType=simple\nExecStart=/usr/bin/python3 /opt/vcontrolhub-agent/agent.py\nRestart=always\nRestartSec=5\nNoNewPrivileges=true\n\n[Install]\nWantedBy=multi-user.target\n`;
+  const unit = `[Unit]\nDescription=VControlHub Agent\nAfter=network-online.target\nWants=network-online.target\n\n[Service]\nType=simple\nExecStart=/usr/bin/python3 /opt/vcontrolhub-agent/agent.py\nRestart=on-failure\nRestartSec=5\nNoNewPrivileges=true\n\n[Install]\nWantedBy=multi-user.target\n`;
   const script = [
     "set -e",
     `command -v python3 >/dev/null 2>&1 || { echo "The Agent needs python3" >&2; exit 1; }`,

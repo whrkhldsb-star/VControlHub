@@ -1,6 +1,6 @@
 // @vitest-environment node
 import { randomUUID } from "node:crypto";
-import { mkdtemp,readFile,writeFile,rm } from "node:fs/promises";
+import { mkdtemp,mkdir,readFile,writeFile,rm } from "node:fs/promises";
 import {join} from "node:path";
 import {tmpdir} from "node:os";
 import {beforeAll,afterAll,describe,expect,it,vi} from "vitest";
@@ -31,7 +31,7 @@ afterAll(async()=>{
  await rm(dir,{recursive:true,force:true});await rm(join(process.env.FILE_VERSION_DIR!,id),{recursive:true,force:true});await prisma.$disconnect();
 });
 async function upload(filename:string,content:string){
- const buffer=Buffer.from(content);const s=await initMediaUploadSession({userId:id,filename,mimeType:"text/plain",totalSize:buffer.length,chunkSize:131072,storageNodeId:id,relativePath:filename,session:actor});sessions.push(s.id);
+ const buffer=Buffer.from(content);const s=await initMediaUploadSession({userId:id,filename:filename.split("/").at(-1)!,mimeType:"text/plain",totalSize:buffer.length,chunkSize:131072,storageNodeId:id,relativePath:filename,session:actor});sessions.push(s.id);
  await appendMediaUploadChunk({sessionId:s.id,userId:id,teamId:actor.currentTeamId,index:0,size:buffer.length,buffer});return s;
 }
 it("refuses overwrite of recoverable recycle-bin content",async()=>{
@@ -61,6 +61,44 @@ it("serializes upload with editor and refuses a stale editor instead of losing a
  const bodies=await Promise.all(versions.map(v=>readFile(join(process.env.FILE_VERSION_DIR!,v.blobRelativePath),"utf8")));
  expect(bodies).toContain("original before both");
  expect(await readFile(join(dir,"race.txt"),"utf8")).toBe("delayed upload wins");
+});
+it("recycles a directory after its publishing descendant and keeps the completed bytes in the batch", async () => {
+  const { executeDeleteFile } = await import("@/lib/files/delete-operation");
+  const folder = "recycle-race";
+  const target = `${folder}/body.txt`;
+  await mkdir(join(dir, folder));
+  const root = await prisma.fileEntry.create({ data: { storageNodeId: id, name: folder, relativePath: folder, entryType: "DIRECTORY" } });
+  const pending = await upload(target, "finished bytes");
+  let resume!: () => void;
+  control.wait = new Promise(resolve => { resume = resolve; });
+  const arrived = new Promise<void>(resolve => { control.entered = resolve; });
+  control.pause = true;
+  const publishing = completeStorageFileUpload({ sessionId: pending.id, session: actor });
+  try {
+    await Promise.race([arrived, publishing]);
+    const form = new FormData();
+    form.set("fileEntryId", root.id);
+    const deleting = executeDeleteFile({ ...actor, permissions: [...actor.permissions!, "storage:delete"] }, form);
+    try {
+      await vi.waitFor(async () => {
+        const waiting = await prisma.$queryRaw<{ waiting: boolean }[]>`
+          SELECT EXISTS (SELECT 1 FROM pg_stat_activity WHERE datname = current_database()
+            AND wait_event = 'advisory' AND query LIKE '%pg_advisory_lock(%') AS waiting`;
+        expect(waiting[0]?.waiting).toBe(true);
+      }, { timeout: 3000 });
+    } finally {
+      resume();
+    }
+    expect((await publishing).session.status).toBe("COMPLETED");
+    expect((await deleting).success).toBeTruthy();
+    const recycled = await prisma.fileEntry.findMany({ where: { storageNodeId: id, relativePath: { in: [folder, target] } } });
+    expect(recycled).toHaveLength(2);
+    expect(recycled.every(row => row.isDeleted && row.deleteBatchId === recycled[0]!.deleteBatchId)).toBe(true);
+    expect(await readFile(join(dir, target), "utf8")).toBe("finished bytes");
+  } finally {
+    resume();
+    control.pause = false;
+  }
 });
 it("serializes complete uploads across different grants sharing the same directory",async()=>{
  const peer={...actor,userId:`${id}-peer`,username:`${id}-peer`};

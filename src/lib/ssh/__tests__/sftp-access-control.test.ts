@@ -46,10 +46,10 @@ describe("assertSftpPathAccess", () => {
 			connectionType: "PASSWORD",
 			password: "enc",
 			managementMode: "DIRECT",
-			hostKeySha256: null,
+			hostKeySha256: "SHA256:pin",
 			sshKey: null,
 		});
-		buildSshParamsMock.mockResolvedValue({ host: "h", port: 22, username: "alice" });
+		buildSshParamsMock.mockResolvedValue({ host: "h", port: 22, username: "alice", hostKeySha256: "SHA256:pin" });
 		// Default: realpath is an identity (no symlinks) so lexical == canonical.
 		resolveRealPathMock.mockImplementation(async ({ remotePath }: { remotePath: string }) =>
 			remotePath.startsWith("/") ? remotePath : `/home/alice/${remotePath}`,

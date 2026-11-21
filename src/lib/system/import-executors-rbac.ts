@@ -7,6 +7,8 @@
 
 import { Prisma } from "@prisma/client";
 
+import { ConflictError, ValidationError } from "@/lib/errors";
+import { t as translate } from "@/lib/i18n/service-translations";
 import type { ExportFile, ImportOptions } from "@/lib/system/config-schema";
 import { upsertByIdWithSecondaryUnique } from "./import-executors-helpers";
 import { parseDate } from "./import-executors-helpers";
@@ -94,6 +96,14 @@ export async function importRoles(
         }),
       ),
     updateById: async (r) => {
+      // Renaming a role also changes every existing assignment, even when this
+      // partial package contains no users or membership rows.
+      if (r.key === "admin") {
+        const customer = await tx.user.findFirst({
+          where: { roles: { some: { roleId: r.id } }, teamMembership: { isNot: null } }, select: { id: true },
+        });
+        if (customer) throw new ValidationError(translate("backend.system.importAccountTypeConflict", { id: customer.id }));
+      }
       await tx.role.update({
         where: { id: r.id },
         data: { key: r.key, name: r.name, description: r.description },
@@ -146,11 +156,13 @@ export async function importUsers(
     counts.skipped += t.users.length;
     return;
   }
+  const previous = new Map<string, { status: string; mustChangePassword: boolean }>();
   await upsertByIdWithSecondaryUnique(t.users, options, counts, {
-    listExistingIds: async (ids) =>
-      new Set(
-        (await tx.user.findMany({ where: { id: { in: ids } }, select: { id: true } })).map((e) => e.id),
-      ),
+    listExistingIds: async (ids) => {
+      const users = await tx.user.findMany({ where: { id: { in: ids } }, select: { id: true, status: true, mustChangePassword: true } });
+      for (const user of users) previous.set(user.id, user);
+      return new Set(previous.keys());
+    },
     listTakenSecondaryValues: async (values) =>
       new Set(
         (await tx.user.findMany({ where: { username: { in: values } }, select: { username: true } })).map(
@@ -167,7 +179,7 @@ export async function importUsers(
             displayName: r.displayName,
             // Full mode: restore actual hash; Standard: force password reset
             passwordHash: r.passwordHash ?? "DISABLED_IMPORT_RESET",
-            status: (r.passwordHash ? r.status : "PENDING_PASSWORD_RESET") as never,
+            status: (r.passwordHash || r.status === "DISABLED" ? r.status : "PENDING_PASSWORD_RESET") as never,
             mustChangePassword: r.passwordHash ? r.mustChangePassword : true,
             // A standard export leaves the secret out. "Enabled" without a
             // secret is no second factor at all: login skips it, yet the
@@ -188,6 +200,8 @@ export async function importUsers(
         }),
       ),
     updateById: async (r) => {
+      const current = previous.get(r.id)!;
+      const restricted = (r.status === "DISABLED" && current.status !== "DISABLED") || (r.mustChangePassword && !current.mustChangePassword);
       await tx.user.update({
         where: { id: r.id },
         data: {
@@ -208,9 +222,8 @@ export async function importUsers(
               ? Prisma.DbNull
               : r.twoFactorRecoveryCodes == null ? Prisma.DbNull : r.twoFactorRecoveryCodes as Prisma.InputJsonValue,
           } : {}),
-          // Credential-bearing restores retire every existing/pending session.
-          // Do this in the same write even when the restored hash is identical.
-          ...(r.passwordHash || exportMode === "full" || r.twoFactorSecret !== null || r.twoFactorRecoveryCodes != null
+          // Retire sessions atomically for new restrictions and credential restores.
+          ...(restricted || r.passwordHash || exportMode === "full" || r.twoFactorSecret !== null || r.twoFactorRecoveryCodes != null
             ? { sessionEpoch: { increment: 1 } } : {}),
           // Mirror createMany: restore UI prefs / locale / layout on overwrite
           ...(r.preferences !== undefined
@@ -218,6 +231,7 @@ export async function importUsers(
             : {}),
         },
       });
+      previous.set(r.id, r);
     },
   });
 }
@@ -253,12 +267,16 @@ export async function importUserRoles(
   const createRoleIds = [...new Set(toCreate.map((r) => r.roleId))];
   const validUsers = await tx.user.findMany({
     where: { id: { in: createUserIds } },
-    select: { id: true },
+    select: { id: true, teamMembership: { select: { teamId: true } } },
   });
   const validRoles = await tx.role.findMany({
     where: { id: { in: createRoleIds } },
-    select: { id: true },
+    select: { id: true, key: true },
   });
+  const customerIds = new Set(validUsers.filter((user) => user.teamMembership).map((user) => user.id));
+  const adminId = validRoles.find((role) => role.key === "admin")?.id;
+  const conflict = toCreate.find((row) => row.roleId === adminId && customerIds.has(row.userId));
+  if (conflict) throw new ValidationError(translate("backend.system.importAccountTypeConflict", { id: conflict.userId }));
   const validUserIds = new Set(validUsers.map((u) => u.id));
   const validRoleIds = new Set(validRoles.map((r) => r.id));
   const validToCreate = toCreate.filter(
@@ -279,4 +297,17 @@ export async function importUserRoles(
     counts.created += result.count;
     counts.skipped += validToCreate.length - result.count;
   }
+}
+
+/** A locking read also invalidates a serializable snapshot if the previous
+ * administrator-lock holder changed the selected user or role during lock acquisition. */
+export async function assertImportHasActiveAdmin(tx: Tx) {
+  const admins = await tx.$queryRaw<Array<{ id: string }>>`
+    SELECT u.id FROM "User" u
+    JOIN "UserRole" ur ON ur."userId" = u.id
+    JOIN "Role" r ON r.id = ur."roleId"
+    WHERE u.status = 'ACTIVE' AND r.key = 'admin'
+      AND NOT EXISTS (SELECT 1 FROM team_members m WHERE m."userId" = u.id)
+    LIMIT 1 FOR SHARE OF u, ur, r`;
+  if (!admins.length) throw new ConflictError(translate("backend.user.cannotRemoveLastAdmin"));
 }

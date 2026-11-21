@@ -40,11 +40,14 @@ vi.mock("ssh2", async () => {
   return { Client: FakeClient };
 });
 
-const { agent, findServer } = vi.hoisted(() => ({ agent: vi.fn(), findServer: vi.fn() }));
+const { agent, findServer, acquireLock, releaseLock } = vi.hoisted(() => ({
+  agent: vi.fn(), findServer: vi.fn(), acquireLock: vi.fn(), releaseLock: vi.fn(),
+}));
+vi.mock("@/lib/concurrency/advisory-lock", () => ({ acquireAdvisoryLock: acquireLock }));
 vi.mock("@/lib/db", () => ({ prisma: { server: { findUnique: findServer } } }));
 vi.mock("@/lib/server/agent-service", () => ({ executeCommandWithAgent: agent }));
 
-import { closeSshPool, execRemoteCommand, listRemoteDirectory } from "../client";
+import { buildSshParamsFromServer, closeSshPool, execRemoteCommand, listRemoteDirectory } from "../client";
 
 describe("SSH connection pool", () => {
   afterEach(async () => {
@@ -73,6 +76,54 @@ describe("SSH connection pool", () => {
     findServer.mockResolvedValueOnce({ ...target, id: "test-node", operatingSystem: "LINUX", managementMode: "AGENT", connectionType: "PASSWORD" });
     await execRemoteCommand(target);
     expect(state.connectCount).toBe(1);
+  });
+
+  it("checks the authorized customer and Agent token when a claimed identity falls back to SSH", async () => {
+    const server = { id: "srv", teamId: "old", agentTokenHash: "token", host: "vps", port: 22,
+      username: "ops", password: "test", hostKeySha256: "pin", operatingSystem: "LINUX",
+      managementMode: "AGENT", connectionType: "PASSWORD", sshKeyId: null };
+    const target = await buildSshParamsFromServer(server, null, "old");
+    acquireLock.mockResolvedValueOnce(releaseLock);
+    agent.mockResolvedValueOnce(null);
+    findServer.mockResolvedValueOnce(null);
+    await expect(execRemoteCommand({ ...target, preferAgent: true, command: "uptime" })).rejects.toThrow();
+    expect(agent).toHaveBeenCalledWith(expect.objectContaining({ expectedIdentity: expect.objectContaining({ teamId: "old", tokenHash: "token" }) }));
+    expect(findServer).toHaveBeenCalledWith(expect.objectContaining({ where: expect.objectContaining({
+      id: "srv", teamId: "old", agentTokenHash: "token", host: "vps", hostKeySha256: "pin",
+    }) }));
+    expect(state.connectCount).toBe(0);
+  });
+
+  it("checks the owner after a concurrent transfer releases its lock and holds that lock through dispatch", async () => {
+    const target = { host: "host", port: 22, username: "ops", password: "pw", hostKeySha256: "pin",
+      expectedIdentity: { serverId: "srv", teamId: "old", tokenHash: null }, command: "uptime" };
+    const lock = Promise.withResolvers<typeof releaseLock>();
+    acquireLock.mockReturnValueOnce(lock.promise);
+    const pending = execRemoteCommand(target);
+    await vi.waitFor(() => expect(acquireLock).toHaveBeenCalledWith("server-delete", "srv"));
+    expect(state.connectCount).toBe(0);
+    findServer.mockResolvedValueOnce(null);
+    lock.resolve(releaseLock);
+    await expect(pending).rejects.toThrow();
+    expect(state.connectCount).toBe(0);
+    expect(releaseLock).toHaveBeenCalled();
+
+    let released = false;
+    acquireLock.mockResolvedValueOnce(() => { released = true; });
+    findServer.mockImplementation(async () => {
+      expect(released).toBe(false);
+      return { id: "srv" };
+    });
+    await expect(execRemoteCommand(target)).resolves.toMatchObject({ exitCode: 0 });
+    expect(released).toBe(true);
+  });
+
+  it("rejects persisted SSH credentials without a pin before dialing", async () => {
+    const params = await buildSshParamsFromServer({ id: "srv", teamId: "a", operatingSystem: "LINUX", managementMode: "DIRECT",
+      connectionType: "PASSWORD", sshKeyId: null, password: "secret", host: "vps", port: 22, username: "ops", hostKeySha256: null });
+    await expect(execRemoteCommand({ ...params, command: "uptime" })).rejects.toThrow();
+    await expect(listRemoteDirectory({ ...params, remotePath: "/" })).rejects.toThrow();
+    expect(state.connectCount).toBe(0);
   });
 
   it("keeps pooled connections alive, so one dropped silently is closed and replaced (C-2)", async () => {

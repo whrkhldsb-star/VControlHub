@@ -1,5 +1,8 @@
 import { shellQuote } from "@/lib/shell-quote";
 import type { DownloadSourceResolution } from "@/lib/downloads/source-url";
+import { enterDownloadTargetDirectory } from "./target-path";
+import { isPlainDownloadName } from "./file-name";
+
 export { shellQuote };
 
 export function toRemoteChildPath(parentPath: string, childName: string): string {
@@ -23,6 +26,8 @@ type DirectDownloadCommandInput = {
   taskId: string;
   url: string;
   targetPath: string;
+  basePath: string;
+  physicalTargetDir: string;
   fileName?: string | null;
   sourceResolution: DownloadSourceResolution;
   /** The creator's storage limit for this file (per-file limit or what the quota has left); null: none. */
@@ -35,6 +40,8 @@ export function buildDirectDownloadCommand({
   taskId,
   url,
   targetPath,
+  basePath,
+  physicalTargetDir,
   fileName,
   sourceResolution,
   maxBytes = null,
@@ -44,7 +51,8 @@ export function buildDirectDownloadCommand({
   const pidFile = `/tmp/app-dl-${safeTaskId}.pid`;
   const logFile = `/tmp/app-dl-${safeTaskId}.log`;
   const exitFile = `${pidFile}.exit`;
-  const outputPath = fileName ? toRemoteChildPath(targetPath, fileName) : "";
+  const name = fileName || new URL(url).pathname.split("/").pop() || "download";
+  if (!isPlainDownloadName(name)) throw new Error("Invalid download file name");
   const resolvedAddress = sourceResolution.address.includes(":")
     ? `[${sourceResolution.address}]`
     : sourceResolution.address;
@@ -57,7 +65,7 @@ export function buildDirectDownloadCommand({
     "set +e",
     `download_url=${shellQuote(url)}`,
     `target_dir=${shellQuote(targetPath)}`,
-    `output_path=${shellQuote(outputPath)}`,
+    `output_path=${shellQuote("./" + name)}`,
     `log_file=${shellQuote(logFile)}`,
     `pid_file=${shellQuote(pidFile)}`,
     `exit_file=${shellQuote(exitFile)}`,
@@ -71,30 +79,29 @@ export function buildDirectDownloadCommand({
     // start the transfer (see buildDirectDownloadStopCommand).
     `cancel_file=${shellQuote(cancelFileFor(safeTaskId))}`,
     'if [ -e "$cancel_file" ]; then rm -f "$pid_file"; exit 130; fi',
-    "if [ -z \"$output_path\" ]; then",
-    "  clean_url=${download_url%%[?#]*}",
-    "  base_name=${clean_url##*/}",
-    "  if [ -z \"$base_name\" ] || [ \"$base_name\" = \"$clean_url\" ]; then base_name=download; fi",
-    "  output_path=${target_dir%/}/$base_name",
-    "fi",
     `partial_suffix=${shellQuote(`.vch-${safeTaskId}.part`)}`,
     'partial_path=$output_path$partial_suffix',
-    "if command -v curl >/dev/null 2>&1; then",
+    // Pin the staging inode before curl starts. Never reopen its pathname for writing.
+    'transfer() {',
+    '  [ "$(pwd -P)" = "$expected_dir" ] && [ "$(realpath -e -- "$target_dir")" = "$expected_dir" ] || return 1',
+    '  [ ! -L "$output_path" ] && [ ! -e "$partial_path" ] && [ ! -L "$partial_path" ] || return 1',
+    '  set -C',
+    '  exec 3>"$partial_path" || return 1',
+    '  set +C',
+    '  [ -f /proc/self/fd/3 ] || return 1',
     // Pin the public DNS result and fail on any redirect. A redirect target
     // has not passed the controller's DNS allowlist and may be an intranet IP.
     // --max-filesize stops a too-large file early when its size is announced.
-    `  curl --dump-header >(${lengthFilter}) --fail --show-error -L --max-redirs 0 --proto =https,http --proto-redir =https,http \${max_bytes:+--max-filesize \"$max_bytes\"} \${limit_rate:+--limit-rate \"$limit_rate\"} \${resolve_entry:+--resolve \"$resolve_entry\"} -o \"$partial_path\" \"$download_url\" >\"$log_file\" 2>&1`,
-    "else",
-    "  echo \"ERROR: curl is required for DNS-pinned downloads\" >\"$log_file\"",
-    "  false",
-    "fi",
-    "status=$?",
-    // Unannounced sizes (and curl before 8.4) are only known at the end.
-    'if [ "$status" = 0 ] && [ -n "$max_bytes" ] && [ "$(wc -c <"$partial_path")" -gt "$max_bytes" ]; then echo "ERROR: the file is larger than the storage limit allows" >>"$log_file"; status=63; fi',
-    // Publish only complete files. Interrupted downloads never truncate the
-    // destination; a retry uses its own task-owned staging file.
-    'if [ "$status" = 0 ]; then [ -f "$partial_path" ] && [ ! -L "$partial_path" ] && mv -fT -- "$partial_path" "$output_path" && [ -f "$output_path" ] && [ ! -L "$output_path" ]; status=$?; fi',
-    'if [ "$status" != 0 ]; then rm -f -- "$partial_path"; fi',
+    `  (exec -a "curl $partial_suffix" curl --dump-header >(${lengthFilter}) --fail --show-error -L --max-redirs 0 --proto =https,http --proto-redir =https,http \${max_bytes:+--max-filesize \"$max_bytes\"} \${limit_rate:+--limit-rate \"$limit_rate\"} \${resolve_entry:+--resolve \"$resolve_entry\"} -o - "$download_url" >&3 2>"$log_file") || return $?`,
+    // Measure the open inode, even if somebody replaced the directory entry during transfer.
+    '  if [ -n "$max_bytes" ] && [ "$(stat -Lc %s /proc/self/fd/3)" -gt "$max_bytes" ]; then echo "ERROR: the file is larger than the storage limit allows" >>"$log_file"; return 63; fi',
+    '  [ "$(pwd -P)" = "$expected_dir" ] && [ "$(realpath -e -- "$target_dir")" = "$expected_dir" ] || return 1',
+    '  [ ! -L "$output_path" ] && [ ! -L "$partial_path" ] && [ "$partial_path" -ef /proc/self/fd/3 ] || return 1',
+    '  mv -fT -- "$partial_path" "$output_path" && [ ! -L "$output_path" ] && [ "$output_path" -ef /proc/self/fd/3 ]',
+    '}',
+    'transfer',
+    'status=$?',
+    'if [ "$status" != 0 ] && [ ! -L "$partial_path" ] && [ "$partial_path" -ef /proc/self/fd/3 ]; then rm -f -- "$partial_path"; fi',
     'echo $status >"$exit_file.tmp" && mv -f -- "$exit_file.tmp" "$exit_file"',
     'rm -f "$pid_file" "$pid_file.total"',
     "exit $status",
@@ -104,6 +111,7 @@ export function buildDirectDownloadCommand({
     // The script is bash; a host without it (Alpine) answered with an empty log
     // and a generic failure. Exit 127 names the cause (A5-14).
     "command -v bash >/dev/null 2>&1 || exit 127",
+    enterDownloadTargetDirectory(basePath, targetPath, physicalTargetDir),
     `nohup bash -lc ${shellQuote(script)} >/dev/null 2>&1 &`,
     `echo $! > ${shellQuote(pidFile)}`,
     `cat ${shellQuote(pidFile)}`,
@@ -119,7 +127,7 @@ export type DirectDownloadStopState = "STOPPED" | "NOT_RUNNING";
  * SIGTERM but its foreground curl is not signalled and keeps writing. The pid
  * marker is not needed either (and may be missing when the controller died
  * before storing it). Both processes carry the task-owned staging suffix
- * `.vch-<task>.part` in their command line (bash in its script, curl in `-o`),
+ * `.vch-<task>.part` in their command line (bash in its script, curl in argv[0]),
  * a task-unique identity that cannot match a process that merely reused a pid.
  * The pattern is assembled at runtime so this command's own shell never
  * matches it.

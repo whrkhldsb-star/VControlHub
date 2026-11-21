@@ -2,6 +2,8 @@ import { beforeEach, describe, expect, it, vi } from "vitest";
 
 const mocks = vi.hoisted(() => ({
   findMany: vi.fn(),
+  settingFindUnique: vi.fn(),
+  auditLogFindMany: vi.fn(),
   updateMany: vi.fn(),
   deleteMany: vi.fn(),
   recoverStaleRunningJobs: vi.fn(async (
@@ -17,6 +19,8 @@ const mocks = vi.hoisted(() => ({
 
 vi.mock("@/lib/db", () => ({
   prisma: {
+    setting: { findUnique: mocks.settingFindUnique },
+    auditLog: { findMany: mocks.auditLogFindMany },
     job: {
       findMany: mocks.findMany,
       updateMany: mocks.updateMany,
@@ -26,7 +30,7 @@ vi.mock("@/lib/db", () => ({
 }));
 
 vi.mock("@/lib/config/env", () => ({
-  config: { app: { hostname: "test-host" } },
+  config: { app: { hostname: "test-host" }, audit: { retentionDays: 365, pruneBatchSize: 100 } },
 }));
 
 vi.mock("@/lib/logging", () => ({
@@ -151,6 +155,21 @@ describe("abandonOrphanPendingJobs", () => {
     const known = _knownJobTypesForTests();
     const missing = [...declared].filter((type) => !known.has(type)).sort();
     expect(missing).toEqual([]);
+  });
+
+  it("skips audit deletion for this tick if the policy lookup fails", async () => {
+    mocks.findMany.mockResolvedValueOnce([]);
+    mocks.settingFindUnique.mockRejectedValue(new Error("DB unavailable"));
+    mocks.auditLogFindMany.mockClear();
+    try {
+      await startJobMaintenanceWorker({ intervalMs: 60_000 });
+      await vi.waitFor(() => expect(mocks.settingFindUnique).toHaveBeenCalledWith({
+        where: { key: "retention.auditLogDays" }, select: { value: true },
+      }));
+      expect(mocks.auditLogFindMany).not.toHaveBeenCalled();
+    } finally {
+      stopJobMaintenanceWorkerForTests();
+    }
   });
 
   it("startup tick also recovers stale RUNNING leases", async () => {

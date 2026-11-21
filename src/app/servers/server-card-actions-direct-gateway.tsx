@@ -20,6 +20,7 @@ const initialState: ServerActionState = {
 
 export type ServerCardDirectGateway = {
   enabled: boolean;
+  needsStopConfirmation?: boolean;
   publicUrl: string | null;
   port: number;
 };
@@ -57,12 +58,6 @@ export function ServerCardDirectGatewayForm({
       data-inset className="space-y-3 p-3"
     >
       <input type="hidden" name="serverId" value={serverId} />
-      <input
-        type="hidden"
-        name="enabledDirectGateway"
-        value={directGateway.enabled ? "false" : "true"}
-      />
-
       {!directGateway.enabled ? (
         <div className="space-y-2">
           <div className="space-y-1">
@@ -166,6 +161,8 @@ export function ServerCardDirectGatewayForm({
       </div>
 
       <SubmitButton
+        name="enabledDirectGateway"
+        value={directGateway.enabled ? "false" : "true"}
         pendingLabel={
           directGateway.enabled
             ? t("serverCardActions.directGateway.pendingDisable")
@@ -178,6 +175,13 @@ export function ServerCardDirectGatewayForm({
           ? t("serverCardActions.directGateway.disableLabel")
           : t("serverCardActions.directGateway.enableLabel")}
       </SubmitButton>
+
+      {!directGateway.enabled && directGateway.needsStopConfirmation ? (
+        <SubmitButton name="enabledDirectGateway" value="false" variant="ghost" className="w-full"
+          pendingLabel={t("serverCardActions.directGateway.pendingDisable")}>
+          {t("serverCardActions.directGateway.confirmStopped")}
+        </SubmitButton>
+      ) : null}
 
       {directState.error ? (
         <div role="alert" className="text-xs text-[var(--danger)]">

@@ -1,5 +1,6 @@
 import { utils } from "ssh2";
 import { afterEach, beforeEach, describe, expect, it, vi } from "vitest";
+import { t } from "@/lib/i18n/service-translations";
 
 /**
  * How a sync run's source host logs in to its target, per target server
@@ -54,10 +55,10 @@ const remote = {
   failures: [] as Failure[],
   failWrite: false,
   rsyncInstalled: true,
-  onTransfer: null as null | (() => void),
+  onTransfer: null as null | ((signal?: AbortSignal) => unknown),
 };
 
-const execRemoteCommand = vi.fn(async ({ host, command }: { host: string; command: string }) => {
+const execRemoteCommand = vi.fn(async ({ host, command, signal }: { host: string; command: string; signal?: AbortSignal }) => {
   remote.calls.push({ host, command });
   for (const failure of remote.failures) {
     if (failure.host !== host || !failure.pattern.test(command)) continue;
@@ -73,7 +74,7 @@ const execRemoteCommand = vi.fn(async ({ host, command }: { host: string; comman
   if (command.includes("echo VCH_SYNC_KEY_REVOKED")) return { stdout: "VCH_SYNC_KEY_REVOKED\n", stderr: "", exitCode: 0 };
   if (command.includes("'vch-sync hello'")) return { stdout: `VCH_SYNC_PEER=${host === "source" ? "203.0.113.10" : "203.0.113.20"}\n`, stderr: "", exitCode: 0 };
   if (command.startsWith("trap ")) {
-    remote.onTransfer?.();
+    await remote.onTransfer?.(signal);
     return { stdout: "Number of regular files transferred: 3\n", stderr: "", exitCode: 0 };
   }
   return { stdout: "", stderr: "", exitCode: 0 };
@@ -93,6 +94,7 @@ vi.mock("@/lib/ssh/client", () => ({
 }));
 
 const { executeSyncJob, reclaimStaleRunningSyncJobs } = await import("../service-runtime");
+const { buildSshParamsFromServer } = await import("@/lib/ssh/client");
 
 function useJob(overrides: {
   syncType?: string;
@@ -169,6 +171,33 @@ afterEach(() => {
 });
 
 describe("what the source host receives with a one-time key", () => {
+  it.each([null, "SHA256:fixture"])("requires a saved host key for the peer SSH connection to an Agent-only target (pin %s)", async (pin) => {
+    const target = {
+      id: "dst", teamId: "team-1", managementMode: "AGENT", operatingSystem: "LINUX", host: "target", port: 22,
+      username: "backup", connectionType: "PASSWORD", sshKeyId: null, password: null, sshKey: null, hostKeySha256: pin,
+      syncTargetAuth: "one-time-key",
+    };
+    jobState.job!.targetServer = target;
+    const ssh = await vi.importActual<typeof import("@/lib/ssh/client")>("@/lib/ssh/client");
+    vi.mocked(buildSshParamsFromServer)
+      .mockResolvedValueOnce({ host: "source", port: 22, username: "root", password: "source-own-password" })
+      .mockResolvedValueOnce(await ssh.buildSshParamsFromServer(target));
+    if (pin) {
+      execRemoteCommand.mockResolvedValueOnce({ stdout: "target ssh-ed25519 fixture", stderr: "", exitCode: 0 });
+      execRemoteCommand.mockResolvedValueOnce({ stdout: `256 ${pin} target`, stderr: "", exitCode: 0 });
+    }
+
+    const result = await executeSyncJob("job-1");
+    if (!pin) {
+      expect(result).toMatchObject({ ok: false, errorMessage: t("backend.ssh.hostKeyNotPinned") });
+      expect(remote.calls).toEqual([]);
+      expect(remote.writes).toEqual([]);
+    } else {
+      expect(result.ok, result.errorMessage).toBe(true);
+      expect(transfers()[0]?.command).toContain("StrictHostKeyChecking=yes");
+    }
+  });
+
   it.each([
     ["a key-based target, rsync", "SSH_KEY", true],
     ["a key-based target, tar fallback", "SSH_KEY", false],
@@ -336,12 +365,57 @@ describe("runs that died", () => {
     }
   });
 
-  it("does not stop the reclaim when a server cannot be reached", async () => {
-    prismaMock.syncJob.findMany.mockResolvedValueOnce([{ id: "job-1" }]);
-    remote.failures = [{ host: "target", pattern: /VCH_SYNC_KEY_REVOKED/, drop: true }];
+  it("retains the original credential run id while cleanup fails, then releases it on confirmed retry", async () => {
+    prismaMock.syncJob.findMany.mockResolvedValueOnce([{ id: "job-1", activeRunId: "dead-run" }]);
+    remote.failures = [{ host: "source", pattern: /VCH_SYNC_KEY_REVOKED/, exitCode: 1 }];
 
+    await expect(reclaimStaleRunningSyncJobs()).resolves.toEqual([]);
+    expect(prismaMock.syncJob.updateMany).toHaveBeenCalledWith(expect.objectContaining({
+      data: expect.objectContaining({ activeRunId: "cleanup:dead-run" }),
+    }));
+    expect(prismaMock.syncJob.updateMany).not.toHaveBeenCalledWith(expect.objectContaining({
+      data: expect.objectContaining({ activeRunId: null }),
+    }));
+    remote.failures = [];
+    prismaMock.syncJob.findMany.mockResolvedValueOnce([{ id: "job-1", activeRunId: "cleanup:dead-run" }]);
     await expect(reclaimStaleRunningSyncJobs()).resolves.toEqual(["job-1"]);
-    expect(revocations("source")).toHaveLength(1);
+    expect(revocations("source").at(-1)?.command).toContain("app-sync-env-dead-run-fwd-leg");
+    expect(prismaMock.syncJob.updateMany).toHaveBeenLastCalledWith({
+      where: { id: "job-1", status: "RUNNING", activeRunId: "cleanup:dead-run" },
+      data: expect.objectContaining({ activeRunId: null, status: "ERROR" }),
+    });
+  });
+
+  it("never confirms stale cleanup against a replacement endpoint", async () => {
+    await executeSyncJob("job-1");
+    const claimed = prismaMock.syncJob.updateMany.mock.calls.find(([args]) => args.data.status === "RUNNING")![0].data.activeRunId;
+    const job = jobState.job!;
+    jobState.job = { ...job, sourceServer: { ...job.sourceServer as object, host: "replacement" } };
+    prismaMock.syncJob.findMany.mockResolvedValueOnce([{ id: "job-1", activeRunId: claimed }]);
+    remote.calls.length = 0;
+    await expect(reclaimStaleRunningSyncJobs()).resolves.toEqual([]);
+    expect(remote.calls).toHaveLength(0);
+    expect(prismaMock.syncJob.updateMany).toHaveBeenLastCalledWith(expect.objectContaining({
+      data: expect.objectContaining({ activeRunId: "cleanup:" + claimed }),
+    }));
+  });
+
+  it("aborts the transfer already in flight when its heartbeat loses the run", async () => {
+    vi.useFakeTimers();
+    let started!: () => void;
+    const inFlight = new Promise<void>(resolve => { started = resolve; });
+    let aborted = false;
+    remote.onTransfer = signal => new Promise<void>((_resolve, reject) => {
+      prismaMock.syncJob.updateMany.mockResolvedValue({ count: 0 });
+      signal?.addEventListener("abort", () => { aborted = true; reject(signal.reason); }, { once: true });
+      started();
+    });
+    const done = executeSyncJob("job-1");
+    await inFlight;
+    await vi.advanceTimersByTimeAsync(5 * 60 * 1000);
+    expect(aborted).toBe(true);
+    expect(await done).toMatchObject({ ok: false, errorMessage: "Sync run no longer owns this job" });
+    expect(prismaMock.syncLog.update).not.toHaveBeenCalled();
   });
 
   it("are not mistaken for live ones: a long transfer keeps the job's own row fresh", async () => {
@@ -353,7 +427,7 @@ describe("runs that died", () => {
     await executeSyncJob("job-1");
 
     expect(prismaMock.syncJob.updateMany).toHaveBeenCalledWith({
-      where: { id: "job-1", status: "RUNNING", activeRunId: "run-1" },
+      where: { id: "job-1", status: "RUNNING", activeRunId: expect.stringMatching(/^run-1~[0-9a-f]{64}$/) },
       data: { updatedAt: expect.any(Date) },
     });
   });
@@ -473,6 +547,37 @@ describe("choosing the mode", () => {
     // The reverse leg's source (the job's target) gets only a one-time key, never the job source's credential.
     expect(remote.writes.find((write) => write.host === "target")!.content).toMatch(/^-----BEGIN OPENSSH PRIVATE KEY-----/);
     expect(remote.writes.find((write) => write.host === "target")!.content).not.toBe(TARGET_KEY);
+  });
+
+  it("reloads the manual runner and reverse grants before opening the reverse connection", async () => {
+    useJob({ syncType: "BIDIRECTIONAL", targetAuth: "credential" });
+    const { assertSyncEndpointsWithinReach } = await import("../service-crud");
+    const { loadExecutionActor } = await import("@/lib/auth/execution-actor");
+    const manual = { userId: "manual", username: "manual", mustChangePassword: false, currentTeamId: "team-1", roles: [] as never[], permissions: ["storage:write" as const] };
+    vi.mocked(loadExecutionActor).mockResolvedValueOnce({ ...manual, permissions: ["storage:write", "server:ssh"] });
+    remote.onTransfer = () => { vi.mocked(assertSyncEndpointsWithinReach).mockRejectedValueOnce(new Error("reverse write revoked")); };
+    const result = await executeSyncJob("job-1", { actor: manual });
+    expect(result.lastSyncResult).toContain("reverse write revoked");
+    expect(loadExecutionActor).toHaveBeenCalledWith("manual", "team-1");
+    expect(assertSyncEndpointsWithinReach).toHaveBeenLastCalledWith([
+      expect.objectContaining({ serverId: "src", operations: ["write"], unmeteredTreeWrite: true }),
+      expect.objectContaining({ serverId: "dst", operations: ["read"] }),
+    ], expect.objectContaining({ userId: "manual", permissions: ["storage:write"] }));
+    expect(transfers()).toHaveLength(1);
+    expect(installs("source")).toHaveLength(0);
+  });
+
+  it("stops before reverse SSH if an endpoint changed after forward", async () => {
+    useJob({ syncType: "BIDIRECTIONAL" });
+    remote.onTransfer = () => {
+      const current = jobState.job!;
+      jobState.job = { ...current, sourceServer: { ...current.sourceServer as object, host: "changed" } };
+    };
+    const result = await executeSyncJob("job-1");
+    expect(result.ok).toBe(false);
+    expect(result.lastSyncResult).toContain("reverse failed");
+    expect(transfers()).toHaveLength(1);
+    expect(installs("source")).toHaveLength(0);
   });
 
   it("refuses to guess when the platform setting holds an unknown value", async () => {

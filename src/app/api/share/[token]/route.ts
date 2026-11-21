@@ -16,6 +16,7 @@ import {
 	safeArchiveName,
 	streamLocalTarGz,
 	streamRemoteTarGz,
+	supportsRemoteTar,
 } from "@/lib/storage/archive-stream";
 import { buildContentDisposition } from "@/lib/http/content-disposition";
 import { nodeStreamToWeb } from "@/lib/http/node-to-web-stream";
@@ -28,7 +29,7 @@ import {
 	releaseShareQuotaClaim,
 	resolveShareToken,
 } from "@/lib/share-link/service";
-import { resolveStoragePathWithinBase } from "@/lib/storage/path-utils";
+import { hasCaseInsensitiveLocalPaths, resolveStoragePathWithinBase } from "@/lib/storage/path-utils";
 import { normalizeRemoteTargetPath } from "@/lib/storage/remote-path";
 import { assertRemotePathContained } from "@/lib/storage/remote-containment";
 import { resolveStorageSshCredentials } from "@/lib/storage/ssh-credentials";
@@ -278,13 +279,15 @@ async function serveShareIn(
 		return response;
 	};
 
+	const node = share.storageNode;
+	const ignoreCase = hasCaseInsensitiveLocalPaths(node.driver);
 	let targetPath = share.path;
 	let query: { path?: string; archive: boolean; inline: boolean };
 	try {
 		query = parseSearchParams(
 			request,
 			z.object({
-				path: z.string().trim().min(1).optional(),
+				path: z.string().regex(/\S/).optional(),
 				archive: z
 					.string()
 					.optional()
@@ -313,21 +316,29 @@ async function serveShareIn(
 			} catch {
 				return denyAfterClaim(apiError({ code: "VALIDATION_FAILED", message: t("apiShareToken.invalidPath", locale), status: 400 }));
 			}
-			const prefix = `${share.path.replace(/^\/+|\/+$/g, "")}/`;
-			if (targetPath !== share.path && !targetPath.startsWith(prefix)) {
+			const rootParts = share.path.split("/");
+			const childParts = targetPath.split("/");
+			const inShare = rootParts.every((part, index) => ignoreCase
+				? part.toLowerCase() === childParts[index]?.toLowerCase()
+				: part === childParts[index]);
+			if (!inShare) {
 				return denyAfterClaim(apiError({ code: "FORBIDDEN", message: t("apiShareToken.outOfRange", locale), status: 403 }));
 			}
+			// Keep the granted root's spelling even if a Windows directory enables per-folder case sensitivity.
+			targetPath = [...rootParts, ...childParts.slice(rootParts.length)].join("/");
 		}
 	} else if (share.entryType !== "FILE") {
 		return denyAfterClaim(apiError({ code: "VALIDATION_FAILED", message: t("apiShareToken.notDownloadable", locale), status: 400 }));
 		}
 	try {
-		await assertShareTargetNotDeleted(share.storageNodeId, targetPath);
+		await assertShareTargetNotDeleted(share.storageNodeId, targetPath, node.driver);
 	} catch {
 		return denyAfterClaim(apiError({ code: "NOT_FOUND", message: t("apiShareToken.invalidToken", locale), status: 404 }));
 	}
 
-	const node = share.storageNode;
+	if (wantsArchive && node.driver === "SFTP" && !supportsRemoteTar(node)) {
+		return denyAfterClaim(apiError({ code: "VALIDATION_FAILED", message: t("backend.storage.archiveNeedsLinuxSsh", locale), status: 400 }));
+	}
 	const fileName = targetPath.split("/").pop() || share.name || targetPath;
 	if (head) {
 		const headers = wantsArchive ? buildArchiveHeaders(safeArchiveName(share.name || fileName)) : fileHeaders({ fileName, inline });
@@ -362,6 +373,7 @@ async function serveShareIn(
 				}
 				const stream = await openManagedArchive({
 					storageNodeId: node.id,
+					caseInsensitive: ignoreCase,
 					relativePath: targetPath,
 					signal: request.signal,
 					open: (excluded) => streamLocalTarGz(absolutePath, path.basename(absolutePath), excluded),
@@ -444,10 +456,7 @@ async function serveShareIn(
 					storageNodeId: node.id,
 					relativePath: targetPath,
 					signal: request.signal,
-					// Windows OpenSSH runs bsdtar, as for the signed-in folder download.
-					open: (excluded) => streamRemoteTarGz(archiveClient, remotePath, excluded, {
-						bsdtar: node.server?.operatingSystem === "WINDOWS",
-					}),
+					open: (excluded) => streamRemoteTarGz(archiveClient, node, remotePath, excluded),
 				});
 				closeSshClientOnStreamEnd(stream, client);
 				client = null;

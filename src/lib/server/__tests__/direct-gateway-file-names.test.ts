@@ -1,7 +1,7 @@
 // @vitest-environment node
 import { spawn, type ChildProcess } from "node:child_process";
 import { createHmac } from "node:crypto";
-import { mkdtemp, rm, writeFile } from "node:fs/promises";
+import { mkdir, mkdtemp, rm, symlink, writeFile } from "node:fs/promises";
 import { connect, createServer } from "node:net";
 import { tmpdir } from "node:os";
 import path from "node:path";
@@ -31,7 +31,7 @@ describe.skipIf(!runnable)("direct gateway file names", () => {
 
 	beforeAll(async () => {
 		root = await mkdtemp(path.join(tmpdir(), "vch-direct-names-"));
-		for (const [name, body] of [["report%20.txt", "percent"], ["report .txt", "space"], ["report.txt#v2", "hash"], ["report.txt", "plain"]]) {
+		for (const [name, body] of [["report%20.txt", "percent"], ["report;v2", "semicolon"], ["report .txt", "space"], ["report.txt#v2", "hash"], ["report.txt", "plain"]]) {
 			await writeFile(path.join(root, name!), body!);
 		}
 		const script = path.join(root, "..", `${path.basename(root)}-gateway.py`);
@@ -53,17 +53,17 @@ describe.skipIf(!runnable)("direct gateway file names", () => {
 		}
 	});
 
-	async function download(name: string) {
-		const expires = String(Math.floor(Date.now() / 1000) + 300);
-		const signature = createHmac("sha256", secret).update(`/${name}.${expires}`).digest("hex");
-		const response = await fetch(`http://127.0.0.1:${port}/${encodeURIComponent(name)}?expires=${expires}&signature=${signature}`);
-		return { status: response.status, body: await response.text() };
+	function signedPath(name: string, expires = String(Math.floor(Date.now() / 1000) + 300), nodeRoot = root) {
+		const signature = createHmac("sha256", secret)
+			.update(`linux-file-v1\0${nodeRoot}/${name}\0${expires}`)
+			.digest("hex");
+		const pathname = name.split("/").map(encodeURIComponent).join("/");
+		return `/${pathname}?expires=${expires}&signature=${signature}`;
 	}
 
-	function signedPath(name: string) {
-		const expires = String(Math.floor(Date.now() / 1000) + 300);
-		const signature = createHmac("sha256", secret).update(`/${name}.${expires}`).digest("hex");
-		return `/${encodeURIComponent(name)}?expires=${expires}&signature=${signature}`;
+	async function download(name: string) {
+		const response = await fetch(`http://127.0.0.1:${port}${signedPath(name)}`);
+		return { status: response.status, body: await response.text() };
 	}
 
 	/** The raw reply to a request, as written on the wire: fetch drops a HEAD body unseen. */
@@ -93,12 +93,45 @@ describe.skipIf(!runnable)("direct gateway file names", () => {
 	it("refuses a link whose expiry is further away than the hub ever signs", async () => {
 		// A signature that never expires can only come from someone who holds the secret.
 		const expires = String(Math.floor(Date.now() / 1000) + 10 * 86400);
-		const signature = createHmac("sha256", secret).update(`/report.txt.${expires}`).digest("hex");
-		const response = await fetch(`http://127.0.0.1:${port}/report.txt?expires=${expires}&signature=${signature}`);
+		const response = await fetch(`http://127.0.0.1:${port}${signedPath("report.txt", expires)}`);
 		expect(response.status).toBe(403);
 		const day = String(Math.floor(Date.now() / 1000) + 86400);
-		const ok = createHmac("sha256", secret).update(`/report.txt.${day}`).digest("hex");
-		expect((await fetch(`http://127.0.0.1:${port}/report.txt?expires=${day}&signature=${ok}`)).status).toBe(200);
+		expect((await fetch(`http://127.0.0.1:${port}${signedPath("report.txt", day)}`)).status).toBe(200);
+	});
+
+	it("opens only regular files through real directory components", async () => {
+		await mkdir(path.join(root, "nested"));
+		await writeFile(path.join(root, "nested", "sample.txt"), "sample");
+		await symlink("nested", path.join(root, "directory-link"));
+		await symlink("sample.txt", path.join(root, "nested", "file-link"));
+		expect(await download("nested/sample.txt")).toEqual({ status: 200, body: "sample" });
+		for (const name of ["directory-link/sample.txt", "nested/file-link", "nested"]) {
+			expect(await download(name)).toEqual({ status: 404, body: "not found" });
+		}
+	});
+
+	it("keeps a literal semicolon in the final filename", async () => {
+		const target = signedPath("report;v2").replace("%3B", ";");
+		const result = await fetch(`http://127.0.0.1:${port}${target}`);
+		expect(result.status).toBe(200);
+		expect(await result.text()).toBe("semicolon");
+	});
+
+	it("requires the node and gateway to map the signed file to the same absolute path", async () => {
+		const expires = String(Math.floor(Date.now() / 1000) + 300);
+		const target = signedPath("report.txt", expires, `${root}/different-root`);
+		const response = await fetch(`http://127.0.0.1:${port}${target}`, { method: "HEAD" });
+		expect(response.status).toBe(403);
+	});
+
+	it("returns range metadata and bytes for the verified file", async () => {
+		const response = await fetch(`http://127.0.0.1:${port}${signedPath("report.txt")}`, {
+			headers: { Range: "bytes=1-3" },
+		});
+		expect(response.status).toBe(206);
+		expect(response.headers.get("Content-Range")).toBe("bytes 1-3/5");
+		expect(response.headers.get("X-VCH-File-Access")).toBe("linux-file-v1");
+		expect(await response.text()).toBe("lai");
 	});
 
 	it.each([

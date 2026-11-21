@@ -7,6 +7,7 @@ import { syncBuiltinIdentityTemplates } from "@/lib/auth/identity-template-servi
 import { closeAdvisoryLockPoolForTests } from "@/lib/concurrency/advisory-lock";
 import { exportFileSchema, type ExportFile } from "../config-schema";
 import { buildExportFile } from "../export-service";
+import { createImportAdmin } from "./import-admin-fixture";
 import { executeImport } from "../import-executors";
 
 /**
@@ -77,6 +78,7 @@ describe.skipIf(process.env.RUN_DATABASE_INTEGRATION_TESTS !== "1")("config expo
 
 		// ── The target instance: same business keys, other ids ──
 		await cleanup();
+		await createImportAdmin(admin.userId);
 		await prisma.role.create({ data: { id: `${p}-role-dst`, key: `${p}-ops`, name: "Ops" } });
 		await prisma.team.create({ data: { id: `${p}-team-dst`, slug: `${p}-acme`, name: "Acme" } });
 		await prisma.sshKey.create({ data: { id: `${p}-key-dst`, name: "deploy", fingerprint: `SHA256:${p}`, publicKey: "ssh-ed25519 AAAA", teamId: `${p}-team-dst` } });

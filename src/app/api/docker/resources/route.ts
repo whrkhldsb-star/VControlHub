@@ -7,6 +7,7 @@ import { dockerRequest } from "@/lib/docker/engine-client";
 import { withApiRoute } from "@/lib/http/api-guard";
 import { COMMAND_LIMIT } from "@/lib/http/rate-limit-presets";
 import { parseSearchParams } from "@/lib/http/parse-search-params";
+import type { SshEndpointIdentity } from "@/lib/ssh/server-connection-select";
 import { assertServerTeamAccess } from "@/lib/server/team-access";
 import { assertHubHostDockerAccess } from "@/lib/docker/hub-host-access";
 
@@ -30,9 +31,13 @@ const postBodySchema = z.object({
 export async function GET(req: NextRequest) {
   return withApiRoute(req, { permission: "docker:manage", errorMessage: apiCopy("apiCopy.failed.to.fetch.docker.resources.60665bd6") }, async ({ session }) => {
     const { type, name, serverId } = parseSearchParams(req, getQuerySchema);
+    let expectedTeamId: string | null | undefined;
+    let expectedEndpoint: SshEndpointIdentity | undefined;
     if (serverId) {
       const teamAccess = await assertServerTeamAccess(session, serverId, "connect");
       if (!teamAccess.ok) return teamAccess.response;
+      expectedTeamId = teamAccess.server.teamId;
+      expectedEndpoint = teamAccess.server;
     } else {
       // The hub host's networks/volumes describe shared platform plumbing.
       const hubAccess = assertHubHostDockerAccess(session);
@@ -40,13 +45,13 @@ export async function GET(req: NextRequest) {
     }
     if (type === "networks") {
       const { result } = await dockerRequest(name ? `/networks/${encodeURIComponent(name)}` : "/networks", {
-        serverId, unavailableData: { networks: [], volumes: [] }, loggerScope: "api:docker:resources",
+        serverId, expectedTeamId, expectedEndpoint, unavailableData: { networks: [], volumes: [] }, loggerScope: "api:docker:resources",
       });
       return NextResponse.json(result);
     }
 
     const { result } = await dockerRequest(name ? `/volumes/${encodeURIComponent(name)}` : "/volumes", {
-      serverId, unavailableData: { networks: [], volumes: [] }, loggerScope: "api:docker:resources",
+      serverId, expectedTeamId, expectedEndpoint, unavailableData: { networks: [], volumes: [] }, loggerScope: "api:docker:resources",
     });
     return NextResponse.json(result);
   });
@@ -59,9 +64,13 @@ export async function POST(req: NextRequest) {
     async ({ session, body: input }) => {
       const { type, action, name, driver = type === "networks" ? "bridge" : "local", serverId } = input;
 
+      let expectedTeamId: string | null | undefined;
+      let expectedEndpoint: SshEndpointIdentity | undefined;
       if (serverId) {
         const teamAccess = await assertServerTeamAccess(session, serverId, "manage");
         if (!teamAccess.ok) return teamAccess.response;
+        expectedTeamId = teamAccess.server.teamId;
+        expectedEndpoint = teamAccess.server;
       } else {
         // Removing a hub-host volume can delete another tenant's data.
         const hubAccess = assertHubHostDockerAccess(session);
@@ -82,7 +91,7 @@ export async function POST(req: NextRequest) {
         : undefined;
 
       const { result } = await dockerRequest(path, {
-        method, body, serverId,
+        method, body, serverId, expectedTeamId, expectedEndpoint,
         unavailableData: { networks: [], volumes: [] },
         loggerScope: "api:docker:resources",
       });

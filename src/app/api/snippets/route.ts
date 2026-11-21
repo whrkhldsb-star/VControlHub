@@ -61,7 +61,7 @@ export async function POST(request: Request) {
       bodySchema: createSnippetSchema,
     },
     async ({ session, body }) => {
-      const snippet = await createSnippet({ ...body, createdBy: session.userId });
+      const snippet = await createSnippet({ ...body, createdBy: session.userId }, snippetViewer(session));
       await auditUserAction(session.userId, "snippet.create", { snippetId: snippet.id }, undefined, session.currentTeamId);
       return NextResponse.json(
         { snippet },

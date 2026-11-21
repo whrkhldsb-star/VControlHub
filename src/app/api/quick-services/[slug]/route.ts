@@ -1,3 +1,4 @@
+import { quickServiceCapability, quickServiceEndpointFingerprint, quickServiceRemoteTarget } from "@/lib/quick-service/target-identity";
 import { t } from "@/lib/i18n/service-translations";
 import { apiCopy } from "@/lib/i18n/api-copy";
 import { NextResponse } from "next/server";
@@ -27,9 +28,11 @@ export async function PATCH(request: Request, { params }: { params: Promise<{ sl
 		const { action } = body;
 		const serverId = body.serverId?.trim() || "";
 		const instanceKey = serverId || HUB_HOST_INSTANCE_KEY;
+		let remote: ReturnType<typeof quickServiceRemoteTarget> | undefined;
 		if (serverId) {
-			const access = await assertServerTeamAccess(session, serverId, "manage");
+			const access = await assertServerTeamAccess(session, serverId, quickServiceCapability[action]);
 			if (!access.ok) return access.response;
+			remote = quickServiceRemoteTarget(access.server);
 		} else {
 			// start/stop/update against the hub host acts on the platform's own
 			// containers, not this tenant's.
@@ -38,9 +41,9 @@ export async function PATCH(request: Request, { params }: { params: Promise<{ sl
 		}
 		const { job, taskId, reused } = await enqueueQuickServiceJob({
 			title: t("backend.quick-service.job.action", { action, slug, instance: instanceKey }),
-			teamId: serverId ? session.currentTeamId ?? null : null,
+			teamId: remote?.expectedTeamId ?? null,
 			createdBy: session.userId,
-			payload: { action, slug, instanceKey, serverId: serverId || null },
+			payload: { ...(remote && { endpointFingerprint: quickServiceEndpointFingerprint(remote.endpoint) }), action, slug, instanceKey, serverId: serverId || null },
 		});
 		return NextResponse.json({
 			success: true,
@@ -60,6 +63,7 @@ export async function DELETE(request: Request, { params }: { params: Promise<{ s
 		const deleteVolumes = body?.deleteVolumes === true;
 		const serverId = body?.serverId?.trim() || "";
 		const instanceKey = serverId || HUB_HOST_INSTANCE_KEY;
+		let remote: ReturnType<typeof quickServiceRemoteTarget> | undefined;
 		if (!serverId) {
 			// Uninstalling on the hub host removes a platform container, and with
 			// deleteVolumes it rm -rf's host paths under /opt or /srv.
@@ -67,8 +71,9 @@ export async function DELETE(request: Request, { params }: { params: Promise<{ s
 			if (!hubAccess.ok) return hubAccess.response;
 		}
 		if (serverId) {
-			const access = await assertServerTeamAccess(session, serverId, "manage");
+			const access = await assertServerTeamAccess(session, serverId, quickServiceCapability.uninstall);
 			if (!access.ok) return access.response;
+			remote = quickServiceRemoteTarget(access.server);
 			if (deleteVolumes) {
 				return NextResponse.json({
 					error: apiCopy("apiCopy.remote.data.directory.deletion.is.not.supported.because.the.host.d20afa43"),
@@ -77,11 +82,11 @@ export async function DELETE(request: Request, { params }: { params: Promise<{ s
 		}
 		const { job, taskId, reused } = await enqueueQuickServiceJob({
 			title: t("backend.quick-service.job.uninstall", { slug, instance: instanceKey }),
-			teamId: serverId ? session.currentTeamId ?? null : null,
+			teamId: remote?.expectedTeamId ?? null,
 			createdBy: session.userId,
-			payload: { action: "uninstall", slug, deleteVolumes, instanceKey, serverId: serverId || null },
+			payload: { ...(remote && { endpointFingerprint: quickServiceEndpointFingerprint(remote.endpoint) }), action: "uninstall", slug, deleteVolumes, instanceKey, serverId: serverId || null },
 		});
-		await auditUserAction(session.userId, "quick_service.uninstall", { slug, instanceKey, serverId: serverId || null }, undefined, serverId ? session.currentTeamId : null);
+		await auditUserAction(session.userId, "quick_service.uninstall", { slug, instanceKey, serverId: serverId || null }, undefined, remote?.expectedTeamId ?? null);
 		return NextResponse.json({
 			success: true,
 			queued: true,

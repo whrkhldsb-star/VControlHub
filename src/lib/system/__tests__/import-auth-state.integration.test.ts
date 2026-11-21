@@ -4,6 +4,7 @@ import { afterAll, beforeAll, describe, expect, it } from "vitest";
 import { prisma } from "@/lib/db";
 import { createSessionToken, verifySessionToken } from "@/lib/auth/session";
 import { exportFileSchema } from "../config-schema";
+import { createImportAdmin } from "./import-admin-fixture";
 import { executeImport } from "../import-executors";
 
 describe.skipIf(process.env.RUN_DATABASE_INTEGRATION_TESTS !== "1")("imported authentication state", () => {
@@ -12,9 +13,10 @@ describe.skipIf(process.env.RUN_DATABASE_INTEGRATION_TESTS !== "1")("imported au
   beforeAll(async () => {
     const db = new URL(process.env.DATABASE_URL!);
     if (!["127.0.0.1", "localhost", "[::1]"].includes(db.hostname) || !/audit|test|_ci/.test(db.pathname)) throw new Error("Disposable database required");
+    await createImportAdmin(`${id}-admin`);
     await prisma.user.create({ data: { id, username: id, passwordHash: "unchanged-hash", status: "ACTIVE", mustChangePassword: false, twoFactorEnabled: true, twoFactorSecret: "old-seed" } });
   });
-  afterAll(async () => { await prisma.user.deleteMany({ where: { id } }); await prisma.$disconnect(); });
+  afterAll(async () => { await prisma.user.deleteMany({ where: { id: { in: [id, `${id}-admin`] } } }); await prisma.$disconnect(); });
   const file = (enabled: boolean, secret: string | null, mode = "full") => exportFileSchema.parse({ schemaVersion: 1, exportedAt: new Date().toISOString(), sourceDomain: "audit.invalid", exportMode: mode, tables: {
     ...Object.fromEntries(["permissions", "roles", "rolePermissions", "userRoles", "sshKeys", "servers", "storageNodes", "userStorageAccess", "commandTemplates", "quickServices", "playbooks", "alertRules", "settings", "aiProviders", "announcements", "snippets"].map((key) => [key, []])),
     users: [{ id, username: id, displayName: null, passwordHash: "unchanged-hash", status: "ACTIVE", mustChangePassword: false, twoFactorEnabled: enabled, twoFactorSecret: secret, twoFactorRecoveryCodes: null, preferences: null, createdAt: new Date().toISOString() }],

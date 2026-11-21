@@ -63,7 +63,7 @@ async function handleClaimedJob(
   } catch (parseError) {
     const message =
       parseError instanceof Error ? parseError.message : "Command execution task payload parse failed";
-    await failJob(job.id, COMMAND_EXECUTION_WORKER_ID, message.slice(0, 2000));
+    await failJob(job.id, COMMAND_EXECUTION_WORKER_ID, message.slice(0, 2000), { attempts: job.attempts });
     logger.error("Command execution job payload invalid", { jobId: job.id, error: message });
     return true;
   }
@@ -73,6 +73,7 @@ async function handleClaimedJob(
   // after lease expiry and start a second executeAndFinalizeCommand (duplicate SSH).
   const jobLeaseHeartbeat = setInterval(() => {
     heartbeatJob(job.id, COMMAND_EXECUTION_WORKER_ID, {
+      attempts: job.attempts,
       leaseMs: COMMAND_EXECUTION_LEASE_MS,
       progress: `Executing command request ${payload.commandRequestId}`,
     }).catch((err) => {
@@ -85,10 +86,12 @@ async function handleClaimedJob(
   jobLeaseHeartbeat.unref?.();
 
   try {
-    await heartbeatJob(job.id, COMMAND_EXECUTION_WORKER_ID, {
+    const initialLease = await heartbeatJob(job.id, COMMAND_EXECUTION_WORKER_ID, {
+      attempts: job.attempts,
       leaseMs: COMMAND_EXECUTION_LEASE_MS,
       progress: `Dispatching command request ${payload.commandRequestId}`,
     });
+    if (!initialLease.count) return true;
     const finalRequest = await executeAndFinalizeCommand(payload.commandRequestId);
     const terminalStatus = finalRequest?.status ?? null;
     // Avoid "false success": COMPLETED job must not hide a FAILED command.
@@ -99,13 +102,14 @@ async function handleClaimedJob(
         job.id,
         COMMAND_EXECUTION_WORKER_ID,
         `Command request ${payload.commandRequestId} ended with ${terminalStatus}`,
+        { attempts: job.attempts },
       );
       return true;
     }
     await completeJob(job.id, COMMAND_EXECUTION_WORKER_ID, {
       commandRequestId: payload.commandRequestId,
       status: terminalStatus,
-    });
+    }, job.attempts);
     return true;
   } catch (error) {
     const message = error instanceof Error ? error.message : String(error);
@@ -121,7 +125,7 @@ async function handleClaimedJob(
         error: markError instanceof Error ? markError.message : String(markError),
       });
     }
-    await failJob(job.id, COMMAND_EXECUTION_WORKER_ID, message.slice(0, 2000));
+    await failJob(job.id, COMMAND_EXECUTION_WORKER_ID, message.slice(0, 2000), { attempts: job.attempts });
     logger.error("Command execution job failed", {
       jobId: job.id,
       commandRequestId: payload.commandRequestId,

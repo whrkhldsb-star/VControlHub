@@ -43,7 +43,8 @@ describe("shared files listing",() => {
     expect(mocks.preferences).toHaveBeenCalledWith({where:{userId:"viewer",fileEntryId:{in:[file.id]},favorite:true},select:{fileEntryId:true}});
   });
   it("names each node's customer and file count for the drive's locations",async () => {
-    mocks.nodes.mockResolvedValue([{...node,teamName:"Acme",fileCount:7}]);
+    mocks.nodes.mockResolvedValue([{...node,teamName:"Acme",fileCount:9}]);
+    mocks.counts.mockResolvedValue(new Map([[`${node.id}:`,{fileCount:7,folderCount:0}]]));
     const {listing} = await getFilesListing(session,listFilesQuerySchema.parse({nodeId:node.id}));
     expect(listing.nodes[0]).toMatchObject({id:node.id,teamName:"Acme",fileCount:7});
   });
@@ -98,6 +99,12 @@ describe("shared files listing",() => {
     await expect(getFilesListing(session,listFilesQuerySchema.parse({nodeId:"other-team"}))).rejects.toThrow("Storage node not found");
     expect(mocks.query).not.toHaveBeenCalled();
     expect(mocks.sftpSync).not.toHaveBeenCalled();
+  });
+  it("hides a staging directory before an explicit navigation can sync or generate its breadcrumb", async () => {
+    const input = listFilesQuerySchema.parse({ nodeId: node.id, path: "docs/.vcontrolhub-webdav-delete-a.staged/nested" });
+    await expect(getFilesListing(session, input)).rejects.toMatchObject({ status: 404 });
+    expect(mocks.sftpSync).not.toHaveBeenCalled();
+    expect(mocks.query).not.toHaveBeenCalled();
   });
   it.each(["../etc","docs/../../etc","docs/./item"])("rejects traversal %s before synchronization",async (path) => {
     await expect(getFilesListing(session,listFilesQuerySchema.parse({nodeId:node.id,path}))).rejects.toThrow("Invalid directory path");

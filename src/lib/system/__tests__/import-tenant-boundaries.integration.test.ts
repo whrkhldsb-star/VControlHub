@@ -4,6 +4,7 @@ import { afterAll, beforeAll, describe, expect, it } from "vitest";
 
 import { prisma } from "@/lib/db";
 import { EXPORT_SCHEMA_VERSION, exportFileSchema, type ExportFile } from "../config-schema";
+import { createImportAdmin } from "./import-admin-fixture";
 import { executeImport } from "../import-executors";
 import { previewImport } from "../import-preview";
 
@@ -69,6 +70,7 @@ describe.skipIf(process.env.RUN_DATABASE_INTEGRATION_TESTS !== "1")("tenant-scop
     if (!["127.0.0.1", "localhost", "[::1]"].includes(db.hostname) || !/audit|test|_ci/.test(db.pathname)) {
       throw new Error("requires an isolated loopback audit/test database");
     }
+    await createImportAdmin(id("admin"));
     await prisma.team.createMany({ data: [a, b].map((id) => ({ id, slug: id, name: id })) });
     await prisma.identityTemplate.create({ data: { id: template, name: template, permissions: [] } });
     await prisma.user.createMany({ data: [userA, userB, moved, detached].map((id) => ({ id, username: id, passwordHash: "test" })) });

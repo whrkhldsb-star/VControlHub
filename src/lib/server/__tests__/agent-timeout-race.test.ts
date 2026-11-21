@@ -6,10 +6,12 @@ import { afterEach, beforeEach, describe, expect, it, vi } from "vitest";
  * must never be reported as finished (or fall back to SSH) unless the Agent
  * itself reported; only a job that provably stayed PENDING may fall back.
  */
-type Job = { id: string; serverId: string; status: string; completedAt: Date | null; exitCode: number | null; stdout: string | null; stderr: string | null; leaseExpiresAt: Date | null; claimedAt: Date | null; createdAt: Date; command: string };
+type Job = { commandTargetId?: string; timeoutMs?: number; id: string; serverId: string; status: string; completedAt: Date | null; exitCode: number | null; stdout: string | null; stderr: string | null; leaseExpiresAt: Date | null; claimedAt: Date | null; createdAt: Date; command: string };
 
-const { jobs, hooks } = vi.hoisted(() => ({
+const { jobs, hooks, commandTarget, authorize } = vi.hoisted(() => ({
   jobs: new Map<string, Job>(),
+  commandTarget: { findUnique: vi.fn(), updateMany: vi.fn() },
+  authorize: vi.fn(),
   hooks: { beforeUpdate: null as null | ((where: Record<string, unknown>) => void) },
 }));
 
@@ -50,10 +52,11 @@ vi.mock("@/lib/db", () => {
   const prisma = {
     server: { findUnique: vi.fn(async () => ({ operatingSystem: "LINUX", managementMode: "AGENT", agentLastSeenAt: new Date() })) },
     serverAgentJob,
-    $transaction: vi.fn(async (callback: (tx: unknown) => unknown) => callback({ serverAgentJob, $queryRaw: async () => [{ id: "srv1" }] })),
+    $transaction: vi.fn(async (callback: (tx: unknown) => unknown) => callback({ serverAgentJob, commandTarget, $queryRaw: async () => [{ id: "srv1" }] })),
   };
   return { prisma };
 });
+vi.mock("@/lib/auth/command-execution-authz", () => ({ assertRequesterMayExecuteCommand: authorize }));
 vi.mock("@/lib/ssh/client", () => ({ buildSshParamsFromServer: vi.fn(), execRemoteCommand: vi.fn() }));
 vi.mock("../monitor", () => ({ MONITOR_SCRIPT: "echo metrics" }));
 
@@ -123,6 +126,24 @@ describe("Agent job lease expiry", () => {
 });
 
 describe("PENDING jobs nobody claimed", () => {
+  it.each([true, false])("checks the requester inside the claim transaction before delivering command text (grant=%s)", async (allowed) => {
+    const now = new Date();
+    jobs.set("cmd", { id: "cmd", serverId: "srv1", commandTargetId: "target", command: "uptime", status: "PENDING",
+      createdAt: now, timeoutMs: 60_000, claimedAt: null, completedAt: null, exitCode: null, stdout: null, stderr: null, leaseExpiresAt: null });
+    commandTarget.findUnique.mockResolvedValue({ commandRequest: { requesterId: "creator", teamId: "team", approvals: [] } });
+    authorize.mockResolvedValue(allowed ? { ok: true } : { ok: false, reason: "membership revoked" });
+    commandTarget.updateMany.mockResolvedValue({ count: 1 });
+    const claimed = await claimNextServerAgentJob("srv1", "digest");
+    expect(authorize).toHaveBeenCalledWith("creator", "team", "srv1", { requireExecutePermission: true, db: expect.objectContaining({ commandTarget }) });
+    if (allowed) {
+      expect(claimed?.id).toBe("cmd");
+      expect(commandTarget.updateMany).toHaveBeenLastCalledWith(expect.objectContaining({ data: { executionChannel: "AGENT", outcomeUnknown: true } }));
+    } else {
+      expect(claimed).toBeNull();
+      expect(jobs.get("cmd")).toMatchObject({ status: "FAILED", completedAt: now, stderr: expect.stringContaining("revoked") });
+      expect(commandTarget.updateMany).toHaveBeenLastCalledWith(expect.objectContaining({ data: expect.objectContaining({ status: "FAILED" }) }));
+    }
+  });
   it("retires a job that outlived its own timeout and claims the next one", async () => {
     // The caller waits for the job's timeout and then cancels it; a job still PENDING long after that outlived a
     // caller that could not (the hub restarted). An Agent back from an outage must not run it with nobody waiting.

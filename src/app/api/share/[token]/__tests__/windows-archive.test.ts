@@ -1,4 +1,3 @@
-import { Readable } from "node:stream";
 import { describe, expect, it, vi } from "vitest";
 
 const mocks = vi.hoisted(() => ({ streamRemoteTarGz: vi.fn(), connect: vi.fn() }));
@@ -28,9 +27,7 @@ const { resolveShareToken } = await import("@/lib/share-link/service");
 const route = await import("../route");
 
 describe("public folder share archive on a Windows node", () => {
-  it("builds the archive with bsdtar argv exclusions, as the signed-in download does", async () => {
-    mocks.connect.mockResolvedValue({ end: vi.fn() });
-    mocks.streamRemoteTarGz.mockResolvedValue(Readable.from([Buffer.from([0x1f, 0x8b])]));
+  it.each(["GET", "HEAD"] as const)("refuses a %s archive request before opening SSH", async (method) => {
     vi.mocked(resolveShareToken).mockResolvedValueOnce({
       id: "share_1",
       storageNode: { id: "node_1", name: "Windows", driver: "SFTP", basePath: "/C:/Shares", server: { operatingSystem: "WINDOWS" } },
@@ -40,12 +37,12 @@ describe("public folder share archive on a Windows node", () => {
       name: "docs",
     } as never);
 
-    const response = await route.GET(new Request("http://local/api/share/token?archive=1"), {
+    const response = await route[method](new Request("http://local/api/share/token?archive=1"), {
       params: Promise.resolve({ token: "share-token-12345" }),
     });
 
-    expect(response.status).toBe(200);
-    // Without the option, GNU-only --exclude-from=- reached Windows tar.
-    expect(mocks.streamRemoteTarGz).toHaveBeenCalledWith(expect.anything(), "/C:/Shares/docs", ["docs/old notes.txt"], { bsdtar: true });
+    expect(response.status).toBe(400);
+    expect(mocks.connect).not.toHaveBeenCalled();
+    expect(mocks.streamRemoteTarGz).not.toHaveBeenCalled();
   });
 });

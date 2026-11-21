@@ -30,10 +30,10 @@ describe("server deletion impact", () => {
 		// Every count that can block has its words in both languages.
 		const all: ServerDeletionImpact = {
 			storageNodes: 1, files: 1, fileVersions: 1, shares: 1, mediaItems: 1, scheduledTasks: 1, alertRules: 1, playbooks: 1,
-			syncJobs: 1, quickServices: 1, backupSchedules: 1, backupRecords: 1, unfinishedCommands: 1, unfinishedDownloads: 1,
+			syncJobs: 1, quickServices: 1, backupSchedules: 1, backupRecords: 1, unfinishedCommands: 1, unfinishedDownloads: 1, unfinishedAgentJobs: 1,
 		};
 		const everything = getBlockingServerDeletionImpact(all);
-		expect(everything).toHaveLength(13);
+		expect(everything).toHaveLength(14);
 		for (const say of [zh, en]) {
 			const sentence = describeServerDeletionBlockers(everything, say);
 			expect(sentence).not.toMatch(/backend\.|[a-z][A-Z]|=/);
@@ -50,5 +50,8 @@ describe("server deletion impact", () => {
 		expect(impact).toMatchObject({ unfinishedCommands: 1, unfinishedDownloads: 1 });
 		expect(getBlockingServerDeletionImpact(impact).map(([name]) => name).sort()).toEqual(["unfinishedCommands", "unfinishedDownloads"]);
 		expect(count).toHaveBeenCalledWith("commandTarget", { where: { serverId: "srv_1", status: { in: ["PENDING_APPROVAL", "APPROVED", "RUNNING", "CANCELLING"] } } });
+		expect(count).toHaveBeenCalledWith("serverAgentJob", { where: { serverId: "srv_1", OR: [
+			{ status: { in: ["PENDING", "CLAIMED"] } }, { status: "CANCELLED", completedAt: null },
+		] } });
 	});
 });

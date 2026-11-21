@@ -14,6 +14,7 @@ const {
   syncSftpDirectoryEntriesMock: vi.fn(),
 }));
 
+vi.mock("@/lib/audit/service", () => ({ auditUserAction: vi.fn() }));
 vi.mock("@/lib/http/api-guard", () => ({
   withApiRoute: withApiRouteMock,
 }));
@@ -38,8 +39,8 @@ vi.mock("@/lib/storage/sftp-sync", () => ({
 
 import { POST } from "../route";
 
-const session = { userId: "u_1", username: "admin", roles: ["admin"] };
-const node = { id: "node_1", name: "remote", driver: "SFTP", basePath: "/data/files" };
+const session = { userId: "u_1", username: "admin", roles: ["admin"], currentTeamId: null };
+const node = { id: "node_1", name: "remote", driver: "SFTP", teamId: "team_a", basePath: "/data/files" };
 
 function syncRequest(body: Record<string, unknown>, search = "") {
   return new Request(`https://example.test/api/storage/sftp-sync${search}`, {
@@ -77,9 +78,10 @@ describe("/api/storage/sftp-sync", () => {
     expect(enqueueJobMock).toHaveBeenCalledWith({
       type: "storage.sftp-sync",
       title: "SFTP Sync: remote",
-      payload: { nodeId: "node_1", remotePath: "", recursive: true, maxDepth: 5, teamId: null },
+      payload: { nodeId: "node_1", remotePath: "", recursive: true, maxDepth: 5, userId: "u_1", apiTokenId: null, teamId: null, targetTeams: { node_1: "team_a" } },
       createdBy: "u_1",
-      teamId: null,
+      teamId: "team_a",
+      targetStorageNodeId: "node_1",
       maxAttempts: 3,
     });
     expect(syncSftpDirectoryEntriesMock).not.toHaveBeenCalled();

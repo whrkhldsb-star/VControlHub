@@ -20,7 +20,7 @@ import type { SessionPayload } from "@/lib/auth/session";
 import { teamWhere } from "@/lib/auth/team-scope";
 import { AGENT_FILE_MAX_BYTES, connectSsh, createRemoteDirectory, deleteRemoteFile, readRemoteFile, writeRemoteFile, renameRemoteFile } from "@/lib/ssh/client";
 import { prisma } from "@/lib/db";
-import { BusinessError, ValidationError } from "@/lib/errors";
+import { BusinessError, ConflictError, ValidationError } from "@/lib/errors";
 import { resolveStorageSshCredentials, type StorageSshCredentialNode } from "@/lib/storage/ssh-credentials";
 import { normalizeRemoteRelativePath } from "@/lib/storage/remote-path";
 import { resolveStorageRemotePath } from "@/lib/storage/remote-containment";
@@ -28,6 +28,8 @@ import { resolveStoragePathWithinBase } from "@/lib/storage/path-utils";
 import { t } from "@/lib/i18n/service-translations";
 import { createWebDavClient } from "@/lib/storage/webdav-client";
 import { createAgentFileClient, createRemoteStorageClient } from "@/lib/storage/agent-file-client";
+import { publishLocalFile } from "@/lib/storage/publish-local-file";
+import { createLogger } from "@/lib/logging";
 import { SSH_KEY_CREDENTIAL_SELECT } from "@/lib/ssh/ssh-key-crypto";
 
 /** A node as storageFileNodeSelect loads it (the SFTP connection in full). */
@@ -339,25 +341,42 @@ async function matchDirectoryMode(filePath: string, directory: string): Promise<
   }
 }
 
-/**
- * `posix-rename@openssh.com` where the server offers it; other SFTP servers
- * (ProFTPD mod_sftp, NAS gateways) answer OP_UNSUPPORTED, which used to fail
- * every resumable upload while plain uploads worked (A4-04). The fallback is
- * unlink + rename: not atomic, but the target is a temp file of our own.
- */
-function sftpAtomicRename(sftp: import("ssh2").SFTPWrapper, from: string, to: string): Promise<void> {
-  const unsupported = (error: unknown) =>
-    (error as { code?: number }).code === 8 || /unsupported|not supported|extension/i.test(error instanceof Error ? error.message : String(error));
-  return new Promise<void>((resolve, reject) => {
-    sftp.ext_openssh_rename(from, to, (error) => {
-      if (!error) return resolve();
-      if (!unsupported(error)) return reject(error);
-      sftp.unlink(to, (unlinkError) => {
-        if (unlinkError && (unlinkError as { code?: number }).code !== 2) return reject(unlinkError);
-        sftp.rename(from, to, (renameError) => (renameError ? reject(renameError) : resolve()));
-      });
-    });
-  });
+/** SFTP v3 RENAME refuses an occupied name. Only POSIX rename can replace it atomically. */
+async function sftpAtomicRename(sftp: import("ssh2").SFTPWrapper, from: string, to: string): Promise<void> {
+  const renameExclusive = (source: string, target: string) => new Promise<void>((resolve, reject) =>
+    sftp.rename(source, target, error => error ? reject(error) : resolve()));
+  const target = await new Promise<import("ssh2").Stats | null>((resolve, reject) =>
+    sftp.lstat(to, (error, stats) => {
+      if (!error) return resolve(stats);
+      if ((error as { code?: number }).code === 2) return resolve(null);
+      reject(error);
+    }));
+  if (!target) return renameExclusive(from, to);
+  if (!target.isFile()) throw new ConflictError(t("backend.storage.targetIsDirectory"));
+  try {
+    await new Promise<void>((resolve, reject) =>
+      sftp.ext_openssh_rename(from, to, error => error ? reject(error) : resolve()));
+    return;
+  } catch (error) {
+    const code = (error as { code?: unknown }).code;
+    // ssh2 throws synchronously when the extension was not advertised.
+    if (code !== 8 && (code !== undefined || !(error instanceof Error) ||
+        !/unsupported|not supported|does not support/i.test(error.message))) throw error;
+  }
+
+  const backup = path.posix.join(path.posix.dirname(to), `.vch-backup-${randomUUID()}`);
+  await renameExclusive(to, backup);
+  try {
+    await renameExclusive(from, to);
+  } catch (error) {
+    // A competing/ambiguously published file keeps its name. Retain the backup if restoration fails.
+    await renameExclusive(backup, to).catch(rollbackError =>
+      createLogger("storage:sftp").error("SFTP publish rollback failed", { to, backup, error, rollbackError }));
+    throw error;
+  }
+  await new Promise<void>((resolve, reject) =>
+    sftp.unlink(backup, error => error ? reject(error) : resolve()))
+    .catch(error => createLogger("storage:sftp").warn("SFTP publish backup cleanup failed", { backup, error }));
 }
 
 /**
@@ -411,7 +430,9 @@ export async function writeStorageFileFromLocalPath(node: StorageFileNode, relat
         const staged = await client.stat(temporaryRelativePath);
         upload.onVersion(staged?.etag ?? (staged?.lastModifiedMs ? String(staged.lastModifiedMs) : null));
       }
-      await client.rename(temporaryRelativePath, relativePath, true);
+      const destination = await client.stat(relativePath, true);
+      if (destination?.isDirectory) throw new ConflictError(t("backend.storage.targetIsDirectory"));
+      await client.rename(temporaryRelativePath, relativePath, Boolean(destination));
       return relativePath;
     } catch (error) { await client.delete(temporaryRelativePath).catch(() => undefined); throw error; }
     finally { source?.destroy(); }
@@ -509,6 +530,7 @@ export async function copyStorageFile(
   node: StorageFileNode,
   sourceRelativePath: string,
   destinationRelativePath: string,
+  overwrite = true,
 ): Promise<{ size: number }> {
   if (sourceRelativePath === destinationRelativePath) {
     throw new ValidationError(t("backend.storage.copySourceDestinationMustDiffer"));
@@ -540,7 +562,11 @@ export async function copyStorageFile(
       await mkdir(path.dirname(dest.path), { recursive: true });
       await copyFile(source.path, tempPath);
       const stats = await statFile(tempPath);
-      await rename(tempPath, dest.path);
+      if (overwrite) await rename(tempPath, dest.path);
+      else {
+        await publishLocalFile(tempPath, dest.path, destinationRelativePath);
+        await rm(tempPath, { force: true });
+      }
       return { size: stats.size };
     } catch (error) {
       await rm(tempPath, { force: true }).catch(() => undefined);
@@ -556,7 +582,13 @@ export async function copyStorageFile(
     if (credentials.agentServerId && !credentials.privateKey && !credentials.password) {
       const buffer = await readRemoteFile({ ...credentials, remotePath: sourceRemote });
       await createRemoteDirectory({ ...credentials, remotePath: path.posix.dirname(destRemote), recursive: true });
-      await writeRemoteFile({ ...credentials, remotePath: destRemote, content: buffer });
+      try {
+        await writeRemoteFile({ ...credentials, remotePath: tempRemote, content: buffer });
+        await renameRemoteFile({ ...credentials, oldPath: tempRemote, newPath: destRemote, noReplace: !overwrite });
+      } catch (error) {
+        await deleteRemoteFile({ ...credentials, remotePath: tempRemote }).catch(() => undefined);
+        throw error;
+      }
       return { size: buffer.length };
     }
     let client: Client | null = null;
