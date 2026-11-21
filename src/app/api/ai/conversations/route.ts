@@ -38,18 +38,7 @@ export async function POST(request: Request) {
       const conv = await createConversation(body, session);
       return NextResponse.json(
         {
-          conversation: {
-            ...conv,
-            createdAt: conv.createdAt.toISOString(),
-            updatedAt: conv.updatedAt.toISOString(),
-            provider: conv.provider
-              ? {
-                  ...conv.provider,
-                  createdAt: conv.provider.createdAt.toISOString(),
-                  updatedAt: conv.provider.updatedAt.toISOString(),
-                }
-              : null,
-          },
+          conversation: serializeConversationListItem(conv),
         },
         { status: 201 },
       );

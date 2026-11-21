@@ -11,9 +11,10 @@
  */
 import type { AiProvider } from "@prisma/client";
 import { prisma } from "@/lib/db";
-import { NotFoundError, ValidationError } from "@/lib/errors";
-import { resolveDefaultProviderBaseUrl, fetchProviderModels, postProviderChat, providerApiRoot, trimProviderBaseUrl } from "./provider-http";
+import { ConflictError, NotFoundError, ValidationError } from "@/lib/errors";
+import { allowsKeylessProvider, resolveDefaultProviderBaseUrl, fetchProviderModels, postProviderChat, providerApiRoot, trimProviderBaseUrl } from "./provider-http";
 
+import { ACTIVE_GENERATION, GENERATION_EXPIRY_MS } from "./chat-generation";
 import { safeDecryptApiKey } from "./service-crud";
 import { t } from "@/lib/i18n/service-translations";
 import { assertImageOnlyAttachments, toAnthropicMessages } from "./anthropic-messages";
@@ -23,6 +24,8 @@ import { assertImageOnlyAttachments, toAnthropicMessages } from "./anthropic-mes
 export async function createMessage(input: {
 	conversationId: string;
 	role: string;
+	expectedUpdatedAt?: Date;
+	attachmentMetadata?: string;
 	content: string;
 	reasoningContent?: string;
 	imageUrls?: string[];
@@ -34,23 +37,28 @@ export async function createMessage(input: {
 	// A message is activity: the sidebar orders conversations by updatedAt,
 	// which an insert into ai_messages does not touch on its own, so a
 	// conversation picked up again stayed where it was (or off the list).
-	const [message] = await prisma.$transaction([
-		prisma.aiMessage.create({
-		data: {
-			conversationId: input.conversationId,
-			role: input.role,
-			content: input.content,
+	return prisma.$transaction(async (tx) => {
+		const [parent] = await tx.$queryRaw<Array<{ updatedAt: Date }>>`SELECT "updatedAt" FROM ai_conversations WHERE id = ${input.conversationId} FOR UPDATE`;
+		if (!parent) throw new NotFoundError(t("backend.ai.conversationNotFound"));
+		if (input.expectedUpdatedAt) {
+			const where = { conversationId: input.conversationId, role: "user", toolCallId: ACTIVE_GENERATION };
+			const cutoff = new Date(Date.now() - GENERATION_EXPIRY_MS);
+			if (parent.updatedAt.getTime() !== input.expectedUpdatedAt.getTime() ||
+				await tx.aiMessage.findFirst({ where: { ...where, createdAt: { gt: cutoff } }, select: { id: true } })) {
+				throw new ConflictError(t("backend.concurrency.lockBusy"));
+			}
+			await tx.aiMessage.updateMany({ where: { ...where, createdAt: { lte: cutoff } }, data: { toolCallId: null } });
+		}
+		await tx.aiConversation.update({ where: { id: input.conversationId }, data: { updatedAt: new Date(Math.max(Date.now(), parent.updatedAt.getTime() + 1)) } });
+		return tx.aiMessage.create({ data: {
+			conversationId: input.conversationId, role: input.role, content: input.content,
+			toolCallId: input.expectedUpdatedAt ? ACTIVE_GENERATION : null,
+			toolCalls: input.attachmentMetadata,
 			reasoningContent: input.reasoningContent || null,
-			imageUrls: JSON.stringify(input.imageUrls ?? []),
-			model: input.model || null,
-			inputTokens: input.inputTokens ?? null,
-			outputTokens: input.outputTokens ?? null,
-			latencyMs: input.latencyMs ?? null,
-		},
-		}),
-		prisma.aiConversation.updateMany({ where: { id: input.conversationId }, data: { updatedAt: new Date() } }),
-	]);
-	return message;
+			imageUrls: JSON.stringify(input.imageUrls ?? []), model: input.model || null,
+			inputTokens: input.inputTokens ?? null, outputTokens: input.outputTokens ?? null, latencyMs: input.latencyMs ?? null,
+		} });
+	});
 }
 
 /* ── Model discovery ─────────────────────────────────────────── */
@@ -84,7 +92,6 @@ export async function fetchModelsFromCredentials(input: {
 	defaultModel?: string;
 	type?: string;
 }): Promise<AiModelInfo[]> {
-	if (!input.apiKey.trim()) throw new ValidationError(t("backend.ai.apiKeyCannotBeEmpty"));
 	const baseUrl = trimProviderBaseUrl(input.baseUrl, resolveDefaultProviderBaseUrl(input.type));
 
 	const rawModels = await fetchProviderModels({ apiKey: input.apiKey, baseUrl, type: input.type });
@@ -310,6 +317,7 @@ export async function sendChatRequestToProvider(
 	signal?.throwIfAborted();
 	const rawApiKey = safeDecryptApiKey(provider.apiKey);
 	const baseUrl = providerApiRoot(provider.baseUrl, provider.type);
+	if (!rawApiKey && !allowsKeylessProvider(baseUrl, provider.type)) throw new ValidationError(t("backend.ai.apiKeyIsRequired"));
 	const headers: Record<string, string> = { "Content-Type": "application/json" };
 	let url: string;
 	let body: Record<string, unknown>;
@@ -352,7 +360,7 @@ export async function sendChatRequestToProvider(
 		// ── Google Gemini API ──
 		// Use OpenAI-compatible proxy if available; otherwise native format
 		url = `${baseUrl}/chat/completions`;
-		headers["Authorization"] = `Bearer ${rawApiKey}`;
+		if (rawApiKey) headers["Authorization"] = `Bearer ${rawApiKey}`;
 		assertImageOnlyAttachments(req.messages);
 		body = {
 			model: req.model,
@@ -368,7 +376,7 @@ export async function sendChatRequestToProvider(
 	} else {
 		// ── OpenAI / OpenAI-Compatible ──
 		url = `${baseUrl}/chat/completions`;
-		headers["Authorization"] = `Bearer ${rawApiKey}`;
+		if (rawApiKey) headers["Authorization"] = `Bearer ${rawApiKey}`;
 		assertImageOnlyAttachments(req.messages);
 		const streaming = req.stream ?? true;
 		// OpenAI's own endpoint: the o-series and GPT-5 refuse `max_tokens` (they take `max_completion_tokens`) and the

@@ -38,6 +38,7 @@ export async function POST(
 			const result = await approveRecommendation({
 				logId: id,
 				actionId: body.actionId,
+				approvedBy: session.userId,
 			});
 			await auditUserAction(
 				session.userId,
@@ -47,7 +48,7 @@ export async function POST(
 					actionId: body.actionId,
 					ok: result.ok,
 				},
-			undefined, session.currentTeamId);
+			undefined, null);
 			return NextResponse.json({ result });
 		},
 	);

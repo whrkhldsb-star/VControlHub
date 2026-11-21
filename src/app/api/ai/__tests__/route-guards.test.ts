@@ -192,7 +192,7 @@ describe("AI API shared guard migration", () => {
       params,
     );
     const body = await response.json();
-    expect(body.provider.apiKey).toBe("sk-12345...cdef");
+    expect(body.provider.apiKey).toBe("••••••••");
     expect(body.provider.createdAt).toBe("2026-01-01T00:00:00.000Z");
   });
 

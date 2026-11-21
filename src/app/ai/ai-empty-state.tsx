@@ -17,7 +17,7 @@ type Props = {
   hasProviders: boolean;
   /** The conversation sidebar is open, and its title is the page's heading. */
   sidebarShown: boolean;
-  onOpenProviders: () => void;
+  onOpenProviders?: () => void;
   onNewConv: () => void;
   onOpenSidebar: () => void;
   /** Prefills the composer (creating a conversation first when needed). */
@@ -70,7 +70,7 @@ export function AiEmptyState({
             <h2 className="ui-title-page">
               {t("aiPage.emptyNoProvider")}
             </h2>
-            <p className="mt-3 text-sm leading-6 text-[var(--text-muted)]">
+            {onOpenProviders && <><p className="mt-3 text-sm leading-6 text-[var(--text-muted)]">
               {t("aiPage.emptyNoProviderHint")}
             </p>
             <ActionButton variant="primary"
@@ -78,7 +78,7 @@ export function AiEmptyState({
               className="mt-5"
             >
               {t("aiPage.configProviders")}
-            </ActionButton>
+            </ActionButton></>}
           </>
         ) : (
           <>

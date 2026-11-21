@@ -1,5 +1,6 @@
 "use client";
 
+import { isLocalOllamaEndpoint } from "@/lib/ai/provider-endpoint";
 import type { Provider, ModelInfo } from "./ai-types";
 import { PROVIDER_TYPES } from "./ai-types";
 import { csrfFetch } from "@/lib/auth/csrf-client";
@@ -76,7 +77,7 @@ export function AiProviderPanel({
   const fetchProviderModels = async () => {
     if (probeRef.current) return;
     const baseUrl = provForm.baseUrl.trim();
-    if (!provForm.apiKey.trim()) {
+    if (!provForm.apiKey.trim() && !isLocalOllamaEndpoint(provForm.baseUrl, provForm.type)) {
       addToast("error", t("aiPage.apiKeyRequiredHint"));
       return;
     }
@@ -124,7 +125,7 @@ export function AiProviderPanel({
       name: provider.name,
       type: provider.type,
       apiKey: "",
-      baseUrl: provider.baseUrl,
+      baseUrl: provider.baseUrl ?? "",
       defaultModel: provider.defaultModel,
       availableModels: modelsForEditing(provider.availableModels),
       isDefault: provider.isDefault,
@@ -145,7 +146,7 @@ export function AiProviderPanel({
       name: editForm.name.trim(),
       type: editForm.type,
       baseUrl: editForm.baseUrl.trim(),
-      defaultModel: editForm.defaultModel.trim(),
+      ...(editForm.defaultModel.trim() && { defaultModel: editForm.defaultModel.trim() }),
       availableModels,
       isDefault: editForm.isDefault,
     };

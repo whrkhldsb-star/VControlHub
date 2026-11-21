@@ -1,5 +1,5 @@
 {
-  "generatedAt": "2026-11-21T14:51:14.227Z",
+  "generatedAt": "2026-11-21T17:50:38.232Z",
   "summary": {
     "sidebarMain": 26,
     "sidebarSystem": 12,
@@ -217,7 +217,8 @@
       "inSidebarMain": true,
       "inSidebarSystem": false,
       "declaredPermissions": [
-        "ai:chat"
+        "ai:chat",
+        "ai:manage"
       ],
       "navigationPermissions": [
         "ai:chat"

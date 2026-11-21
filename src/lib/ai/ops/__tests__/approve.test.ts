@@ -48,7 +48,7 @@ describe("approveRecommendation", () => {
   });
 
   it("happy path: marks the recommendation as approved via atomic updateMany", async () => {
-    const result = await approveRecommendation({ logId: "log-1", actionId: "act-1" });
+    const result = await approveRecommendation({ approvedBy: "admin", logId: "log-1", actionId: "act-1" });
 
     expect(result.ok).toBe(true);
     expect(mocks.prisma.aiOpsLog.updateMany).toHaveBeenCalledTimes(1);
@@ -77,7 +77,7 @@ describe("approveRecommendation", () => {
       ],
     });
 
-    const result = await approveRecommendation({ logId: "log-1", actionId: "act-1" });
+    const result = await approveRecommendation({ approvedBy: "admin", logId: "log-1", actionId: "act-1" });
 
     expect(result.ok).toBe(false);
     expect(result.errorMessage).toContain("already been approved");
@@ -87,7 +87,7 @@ describe("approveRecommendation", () => {
   it("returns an error when the CAS guard loses the race (updateMany count 0)", async () => {
     mocks.prisma.aiOpsLog.updateMany.mockResolvedValue({ count: 0 });
 
-    const result = await approveRecommendation({ logId: "log-1", actionId: "act-1" });
+    const result = await approveRecommendation({ approvedBy: "admin", logId: "log-1", actionId: "act-1" });
 
     expect(result.ok).toBe(false);
     expect(result.errorMessage).toContain("another approver");
@@ -96,7 +96,7 @@ describe("approveRecommendation", () => {
   it("returns an error when the log is not found", async () => {
     mocks.prisma.aiOpsLog.findUnique.mockResolvedValue(null);
 
-    const result = await approveRecommendation({ logId: "missing", actionId: "act-1" });
+    const result = await approveRecommendation({ approvedBy: "admin", logId: "missing", actionId: "act-1" });
 
     expect(result.ok).toBe(false);
     expect(result.errorMessage).toBe("Log not found");
@@ -110,7 +110,7 @@ describe("approveRecommendation", () => {
       ],
     });
 
-    const result = await approveRecommendation({ logId: "log-1", actionId: "act-1" });
+    const result = await approveRecommendation({ approvedBy: "admin", logId: "log-1", actionId: "act-1" });
 
     expect(result.ok).toBe(false);
     expect(result.errorMessage).toContain("does not require approval");

@@ -4,15 +4,15 @@ export interface Provider {
   id: string;
   name: string;
   type: string;
-  apiKey: string;
-  baseUrl: string;
+  apiKey?: string;
+  baseUrl?: string;
   defaultModel: string;
   availableModels: string;
   isDefault: boolean;
   enabled: boolean;
-  settings: string;
-  createdAt: string;
-  updatedAt: string;
+  settings?: string;
+  createdAt?: string;
+  updatedAt?: string;
 }
 
 export interface ConvItem {
@@ -42,6 +42,7 @@ export interface Message {
   content: string;
   reasoningContent: string | null;
   imageUrls: string;
+  requiresLocalFiles?: boolean;
   toolCalls?: string;
   toolCallId?: string | null;
   model: string | null;

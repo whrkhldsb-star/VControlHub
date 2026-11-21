@@ -14,8 +14,19 @@ export function providerOrigin(baseUrl: string | undefined, type?: string): stri
 	}
 }
 
-type ProviderEndpoint = { type: string; baseUrl: string };
+type ProviderEndpoint = { type: string; baseUrl?: string };
 
 export function providerEndpointChanged(previous: ProviderEndpoint, next: ProviderEndpoint): boolean {
 	return previous.type !== next.type || providerOrigin(previous.baseUrl, previous.type) !== providerOrigin(next.baseUrl, next.type);
+}
+
+/** Ollama's local OpenAI-compatible API. Server-side use also requires the private host allowlist. */
+export function isLocalOllamaEndpoint(baseUrl?: string, type?: string): boolean {
+	if (type !== "OPENAI_COMPATIBLE" || !baseUrl) return false;
+	try {
+		const url = new URL(baseUrl);
+		return url.port === "11434" && url.pathname.replace(/\/+$/, "") === "/v1";
+	} catch {
+		return false;
+	}
 }

@@ -14,7 +14,7 @@ import { createHash } from "node:crypto";
 import { Prisma } from "@prisma/client";
 
 import type { SessionPayload } from "@/lib/auth/session";
-import { teamWhere } from "@/lib/auth/team-scope";
+import { teamCreateData, teamWhere } from "@/lib/auth/team-scope";
 import { prisma } from "@/lib/db";
 import { escapeLikeLiteral } from "@/lib/db/like-pattern";
 import { BusinessError, NotFoundError, ValidationError } from "@/lib/errors";
@@ -170,7 +170,7 @@ export async function listKnowledgeBases(
   session?: Pick<SessionPayload, "userId" | "roles" | "currentTeamId">,
 ) {
   const PAGE = 100;
-  const where = { isActive: true, ...(session ? teamWhere(session) : {}) };
+  const where = { isActive: true, teamId: { not: null }, ...(session ? teamWhere(session) : {}) };
   const bases = [];
   let cursor: { id: string } | undefined;
   do {
@@ -203,7 +203,7 @@ export async function createKnowledgeBase(input: {
       name,
       description: input.description?.trim() || null,
       createdBy: input.session?.userId ?? null,
-      teamId: input.session?.currentTeamId ?? null,
+      ...teamCreateData(input.session ?? { currentTeamId: null }),
     },
   });
 }
@@ -220,7 +220,7 @@ export async function getKnowledgeBase(
   return prisma.knowledgeBase.findFirst({
     where: {
       id,
-      ...(session ? teamWhere(session) : {}),
+      teamId: { not: null }, ...(session ? teamWhere(session) : {}),
     },
     include: {
       documents: {
@@ -251,41 +251,10 @@ export async function deleteKnowledgeBase(
   const existing = await getKnowledgeBase(id, session);
   if (!existing) throw new NotFoundError(t("backend.ai.knowledgeBaseNotFound"));
   const deleted = await prisma.knowledgeBase.deleteMany({
-    where: { id, ...(session ? teamWhere(session) : {}) },
+    where: { id, teamId: { not: null }, ...(session ? teamWhere(session) : {}) },
   });
   if (deleted.count === 0) throw new NotFoundError(t("backend.ai.knowledgeBaseNotFound"));
   return { id };
-}
-
-async function reindexDocument(documentId: string) {
-  const doc = await prisma.knowledgeDocument.findUnique({ where: { id: documentId } });
-  if (!doc) throw new NotFoundError(t("backend.ai.documentNotFound"));
-
-  const chunks = chunkKnowledgeText(doc.content);
-  await prisma.$transaction(async (tx) => {
-    await tx.knowledgeChunk.deleteMany({ where: { documentId } });
-    if (chunks.length > 0) {
-      await tx.knowledgeChunk.createMany({
-        data: chunks.map((chunk) => ({
-          knowledgeBaseId: doc.knowledgeBaseId,
-          documentId,
-          chunkIndex: chunk.chunkIndex,
-          content: chunk.content,
-          tokenEstimate: chunk.tokenEstimate,
-          searchText: chunk.searchText,
-        })),
-      });
-    }
-    await tx.knowledgeDocument.update({
-      where: { id: documentId },
-      data: {
-        status: "READY",
-        errorMessage: null,
-        chunkCount: chunks.length,
-      },
-    });
-  });
-  return chunks.length;
 }
 
 export async function ingestKnowledgeDocument(input: {
@@ -307,32 +276,50 @@ export async function ingestKnowledgeDocument(input: {
     throw new ValidationError(apiCopy("apiCopy.document.exceeds.characters.32f5385e", { v0: String(MAX_DOCUMENT_CHARS) }));
   }
 
-  const contentHash = hashKnowledgeContent(content);
-  const doc = await prisma.knowledgeDocument.create({
-    data: {
-      knowledgeBaseId: input.knowledgeBaseId,
-      title: title.slice(0, 200),
-      sourceType: input.sourceType ?? "TEXT",
-      content,
-      contentHash,
-      status: "PENDING",
-      createdBy: input.session?.userId ?? null,
-    },
-  });
-
-  try {
-    const chunkCount = await reindexDocument(doc.id);
-    const ready = await prisma.knowledgeDocument.findUnique({ where: { id: doc.id } });
-    return { document: ready!, chunkCount };
-  } catch (error) {
-    await prisma.knowledgeDocument.update({
-      where: { id: doc.id },
+  const chunks = chunkKnowledgeText(content);
+  return prisma.$transaction(async (tx) => {
+    const document = await tx.knowledgeDocument.create({
       data: {
-        status: "FAILED",
-        errorMessage: error instanceof Error ? error.message.slice(0, 500) : "Indexing failed",
+        knowledgeBaseId: kb.id,
+        title: title.slice(0, 200),
+        sourceType: input.sourceType ?? "TEXT",
+        content,
+        contentHash: hashKnowledgeContent(content),
+        status: "READY",
+        chunkCount: chunks.length,
+        createdBy: input.session?.userId ?? null,
       },
     });
-    throw error;
+    await tx.knowledgeChunk.createMany({
+      data: chunks.map((chunk) => ({ ...chunk, knowledgeBaseId: kb.id, documentId: document.id })),
+    });
+    return { document, chunkCount: chunks.length };
+  });
+}
+
+/** Finish uploads left between the two commits used by older versions. */
+export async function recoverPendingKnowledgeDocuments() {
+  let cursor: string | undefined;
+  for (;;) {
+    const documents: Array<{ id: string; knowledgeBaseId: string; content: string }> = await prisma.knowledgeDocument.findMany({
+      where: { status: "PENDING", knowledgeBase: { teamId: { not: null } }, ...(cursor && { id: { gt: cursor } }) },
+      select: { id: true, knowledgeBaseId: true, content: true }, orderBy: { id: "asc" }, take: 25,
+    });
+    for (const doc of documents) {
+      const chunks = chunkKnowledgeText(doc.content);
+      await prisma.$transaction(async (tx) => {
+        await tx.$queryRaw`SELECT id FROM knowledge_bases WHERE id = ${doc.knowledgeBaseId} FOR SHARE`;
+        const claimed = await tx.knowledgeDocument.updateMany({
+          where: { id: doc.id, status: "PENDING", knowledgeBase: { teamId: { not: null } } },
+          data: { status: "READY", chunkCount: chunks.length, errorMessage: null },
+        });
+        if (!claimed.count) return;
+        await tx.knowledgeChunk.deleteMany({ where: { documentId: doc.id } });
+        await tx.knowledgeChunk.createMany({ data: chunks.map((chunk) => ({ ...chunk, knowledgeBaseId: doc.knowledgeBaseId, documentId: doc.id })) });
+      });
+    }
+    if (documents.length < 25) return;
+    cursor = documents[documents.length - 1]!.id;
   }
 }
 
@@ -386,19 +373,27 @@ async function rankKnowledgeCandidateIds(scope: Prisma.Sql, query: string, token
   return rows.map((row) => row.id);
 }
 
+/** Shared by automatic retrieval and all hosted searches in a single answer. */
+export type KnowledgeBudget = { seen: Set<string>; limit?: number };
+
 export async function searchKnowledge(input: {
   query: string;
   knowledgeBaseId?: string;
   limit?: number;
+  budget?: KnowledgeBudget;
   session?: Pick<SessionPayload, "userId" | "roles" | "currentTeamId">;
 }): Promise<KnowledgeHit[]> {
   const query = input.query.trim().slice(0, MAX_QUERY_CHARS);
   if (!query) return [];
+  const budget = input.budget ?? { seen: new Set<string>() };
+  budget.limit ??= await getRuntimeSettingNumber("ai.knowledgeMaxResults").catch(() => MAX_RESULTS);
+  const remaining = budget.limit - budget.seen.size;
+  if (remaining <= 0) return [];
   const tokens = tokenizeQuery(query);
   if (tokens.length === 0 && query.length < 2) return [];
 
   const team = input.session ? teamWhere(input.session) : {};
-  const filters: Prisma.Sql[] = [Prisma.sql`TRUE`];
+  const filters: Prisma.Sql[] = [Prisma.sql`b."teamId" IS NOT NULL`];
   if (team.teamId !== undefined) filters.push(Prisma.sql`b."teamId" = ${team.teamId}`);
   if (input.knowledgeBaseId) filters.push(Prisma.sql`b.id = ${input.knowledgeBaseId}`);
   const candidateIds = await rankKnowledgeCandidateIds(Prisma.join(filters, " AND "), query, tokens);
@@ -406,8 +401,8 @@ export async function searchKnowledge(input: {
   const candidates = await prisma.knowledgeChunk.findMany({
     where: {
       id: { in: candidateIds },
-      knowledgeBase: { isActive: true, ...team, ...(input.knowledgeBaseId ? { id: input.knowledgeBaseId } : {}) },
-      document: { status: "READY", knowledgeBase: { isActive: true, ...team } },
+      knowledgeBase: { isActive: true, teamId: { not: null }, ...team, ...(input.knowledgeBaseId ? { id: input.knowledgeBaseId } : {}) },
+      document: { status: "READY", knowledgeBase: { isActive: true, teamId: { not: null }, ...team } },
     },
     include: {
       knowledgeBase: { select: { name: true } },
@@ -433,10 +428,10 @@ export async function searchKnowledge(input: {
   }
 
   ranked.sort((a, b) => b.score - a.score || a.chunkIndex - b.chunkIndex);
-  const maxResults = await getRuntimeSettingNumber("ai.knowledgeMaxResults").catch(() => MAX_RESULTS);
-  // The platform setting is the per-answer budget; a caller may only ask for fewer.
-  const limit = Math.min(maxResults, Math.max(1, input.limit ?? maxResults));
-  return ranked.slice(0, limit);
+  const hits = ranked.filter((hit) => !budget.seen.has(hit.chunkId))
+    .slice(0, Math.min(budget.limit - budget.seen.size, Math.max(1, input.limit ?? remaining)));
+  for (const hit of hits) budget.seen.add(hit.chunkId);
+  return hits;
 }
 
 /**
@@ -461,9 +456,11 @@ export async function buildKnowledgeContextForPrompt(input: {
   session?: Pick<SessionPayload, "userId" | "roles" | "currentTeamId">;
   knowledgeBaseId?: string;
   limit?: number;
+  budget?: KnowledgeBudget;
 }): Promise<{ context: string; hits: KnowledgeHit[] }> {
   const hits = await searchKnowledge({
     query: input.query,
+    budget: input.budget,
     session: input.session,
     knowledgeBaseId: input.knowledgeBaseId,
     limit: input.limit,

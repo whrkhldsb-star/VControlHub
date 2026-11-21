@@ -8,8 +8,11 @@
  * through to the SSH execution path when this module returns null.
  */
 
+import { Prisma, type CommandTemplate } from "@prisma/client";
+import { escapeLikeLiteral } from "@/lib/db/like-pattern";
+import type { KnowledgeBudget } from "./knowledge";
 import type { SessionPayload } from "@/lib/auth/session";
-import { isGlobalTeamManager, serverTeamWhere, teamWhere } from "@/lib/auth/team-scope";
+import { isGlobalTeamManager, seesAllCustomers, serverTeamWhere, teamWhere } from "@/lib/auth/team-scope";
 import { prisma } from "@/lib/db";
 import { t, type Locale } from "@/lib/i18n/service-translations";
 
@@ -43,6 +46,7 @@ export async function executeServerlessQuery(
   action: { actionType: string; params: Record<string, unknown> },
   scope: TeamScope,
   locale: Locale = "zh",
+  budget?: KnowledgeBudget,
 ): Promise<SafeActionResult | null> {
   if (action.actionType === "search_knowledge") {
     const query = typeof action.params.query === "string" ? action.params.query : "";
@@ -58,6 +62,7 @@ export async function executeServerlessQuery(
     const { searchKnowledge } = await import("./knowledge");
     const hits = await searchKnowledge({
       query,
+      budget,
       knowledgeBaseId,
       limit: Number.isFinite(limit) ? limit : 5,
       // Always pass a session when available so teamWhere applies; never force currentTeamId=null.
@@ -226,15 +231,22 @@ export async function executeServerlessQuery(
   }
 
   if (action.actionType === "list_command_templates") {
-    const { listTemplates } = await import("@/lib/command-template/service");
     if (!scope) return scopeRequired(locale);
-    const templates = await listTemplates(100, scope);
-    const query = typeof action.params.query === "string" ? action.params.query.trim().toLowerCase() : "";
-    const filtered = query
-      ? templates.filter((template) => [template.name, template.description, ...template.tags]
-          .filter(Boolean)
-          .some((value) => String(value).toLowerCase().includes(query)))
-      : templates;
+    const { listTemplates, seedBuiltinTemplates } = await import("@/lib/command-template/service");
+    const query = typeof action.params.query === "string" ? action.params.query.trim() : "";
+    let filtered: CommandTemplate[];
+    if (!query) {
+      filtered = await listTemplates(100, scope);
+    } else {
+      await seedBuiltinTemplates();
+      const pattern = `%${escapeLikeLiteral(query)}%`;
+      const tenant = seesAllCustomers(scope) ? Prisma.sql`TRUE` : Prisma.sql`("isBuiltin" OR "teamId" = ${scope.currentTeamId})`;
+      filtered = await prisma.$queryRaw<CommandTemplate[]>`
+        SELECT * FROM command_templates WHERE ${tenant}
+          AND (name ILIKE ${pattern} OR description ILIKE ${pattern}
+            OR EXISTS (SELECT 1 FROM unnest(tags) AS tag WHERE tag ILIKE ${pattern}))
+        ORDER BY "isBuiltin" DESC, name, id LIMIT 100`;
+    }
     return {
       success: true,
       data: {

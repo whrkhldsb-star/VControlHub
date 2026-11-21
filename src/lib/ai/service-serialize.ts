@@ -5,6 +5,7 @@
  * Lives next to `service-crud` (owns the read queries) and
  * `service-runtime` (owns the chat-completion / model-fetch paths).
  */
+import { isChatImageUrl } from "./chat-message-payload";
 import type { createProvider, getConversationById, listConversations } from "./service-crud";
 
 /* ── Serialization ──────────────────────────────────────────── */
@@ -12,10 +13,20 @@ import type { createProvider, getConversationById, listConversations } from "./s
 export function serializeProvider(p: Awaited<ReturnType<typeof createProvider>>) {
 	return {
 		...p,
-		apiKey: p.apiKey.slice(0, 8) + "..." + p.apiKey.slice(-4),
+		apiKey: p.apiKey ? "••••••••" : "",
 		createdAt: p.createdAt.toISOString(),
 		updatedAt: p.updatedAt.toISOString(),
 	};
+}
+
+function storedImages(raw: string) {
+	try {
+		const urls: unknown = JSON.parse(raw);
+		const safe = Array.isArray(urls) ? urls.filter(isChatImageUrl) : [];
+		return { imageUrls: JSON.stringify(safe), removed: Array.isArray(urls) && urls.length !== safe.length };
+	} catch {
+		return { imageUrls: "[]", removed: false };
+	}
 }
 
 export function serializeConversation(c: Awaited<ReturnType<typeof getConversationById>>) {
@@ -23,24 +34,22 @@ export function serializeConversation(c: Awaited<ReturnType<typeof getConversati
 		...c,
 		createdAt: c.createdAt.toISOString(),
 		updatedAt: c.updatedAt.toISOString(),
-		provider: c.provider
-			? {
-					...c.provider,
-					createdAt: c.provider.createdAt.toISOString(),
-					updatedAt: c.provider.updatedAt.toISOString(),
-				} satisfies { apiKey?: never; createdAt: string; updatedAt: string }
-			: null,
-		messages: c.messages.map((m) => ({
-			...m,
-			createdAt: m.createdAt.toISOString(),
-			hostedActions: m.hostedActions.map((action) => ({
-				...action,
-				createdAt: action.createdAt.toISOString(),
-				approvedAt: action.approvedAt?.toISOString() ?? null,
-				executedAt: action.executedAt?.toISOString() ?? null,
-				completedAt: action.completedAt?.toISOString() ?? null,
-			})),
-		})),
+		messages: c.messages.map((m) => {
+			const { imageUrls, removed } = storedImages(m.imageUrls);
+			return {
+				...m,
+				imageUrls,
+				...(m.role === "user" && removed && { requiresLocalFiles: true }),
+				createdAt: m.createdAt.toISOString(),
+				hostedActions: m.hostedActions.map((action) => ({
+					...action,
+					createdAt: action.createdAt.toISOString(),
+					approvedAt: action.approvedAt?.toISOString() ?? null,
+					executedAt: action.executedAt?.toISOString() ?? null,
+					completedAt: action.completedAt?.toISOString() ?? null,
+				})),
+			};
+		}),
 	};
 }
 
@@ -51,10 +60,5 @@ export function serializeConversationListItem(
 		...c,
 		createdAt: c.createdAt.toISOString(),
 		updatedAt: c.updatedAt.toISOString(),
-		provider: c.provider
-			? {
-					...c.provider,
-				}
-			: null,
 	};
 }

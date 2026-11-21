@@ -1,112 +1,65 @@
-/**
- * TR-032 E03: concrete executor for AI ops safe actions.
- *
- * The AI ops service keeps the autonomous allow-list gate, then delegates the
- * side effect here. Keeping the executor small and explicit prevents a
- * recommendation string from becoming arbitrary code execution.
- */
+import type { Prisma } from "@prisma/client";
+import { apiCopy, currentCopyLocale } from "@/lib/i18n/api-copy";
 import { prisma } from "@/lib/db";
-import { evaluateAlerts } from "@/lib/health/service-alerts";
-import { pruneCompletedJobsByType } from "@/lib/job/service";
-
-import { pruneAiOpsLogs } from "./retention";
+import { toJsonValue } from "@/lib/db/json";
+import { enqueueJob } from "@/lib/job/service";
+import { LeaseLostError } from "@/lib/job/heartbeat-runner";
+import { pruneReviewedJobs } from "./retention";
+import { aiOpsExecutedActionSchema } from "./schema";
 import { AI_OPS_SAFE_AUTONOMOUS_ACTIONS, type AiOpsExecutedAction } from "./types";
 
-type ActionInput = {
-	logId?: string;
-	id: string;
-	action: string;
-	risk: "low" | "medium" | "high";
-};
+type ActionInput = Pick<AiOpsExecutedAction, "id" | "action" | "risk" | "cleanup">;
+const safeSet = new Set<string>(AI_OPS_SAFE_AUTONOMOUS_ACTIONS);
 
-const SAFE_ACTIONS = new Set<string>(AI_OPS_SAFE_AUTONOMOUS_ACTIONS);
-
-function unsupportedAction(input: ActionInput, reason: string): AiOpsExecutedAction {
-	return {
-		id: input.id,
-		action: input.action,
-		risk: input.risk,
-		executed: false,
-		executedAt: new Date().toISOString(),
-		errorMessage: reason,
-	};
+/** Both effects are database writes. The caller commits them with their receipt. */
+export async function executeAiOpsAction(
+	input: ActionInput, tx: Prisma.TransactionClient, checkLease: () => Promise<void>,
+): Promise<AiOpsExecutedAction> {
+	const outcome = { id: input.id, action: input.action, risk: input.risk, ...(input.cleanup && { cleanup: input.cleanup }), executedAt: new Date().toISOString() };
+	if (!safeSet.has(input.action)) return { ...outcome, executed: false, errorMessage: apiCopy("apiCopy.action.is.not.in.the.autonomous.safe.set.manual.execution.requir.54b8adc7", { v0: input.action }) };
+	if (input.action === "alert.evaluate") {
+		await checkLease();
+		const job = await enqueueJob({
+			type: "alert.evaluate", title: "Alert rule evaluation", payload: { reason: "ai.ops", actionId: input.id },
+			maxAttempts: 1, priority: -10,
+		}, tx);
+		return { ...outcome, executed: true, result: `Alert rule evaluation queued (job ${job.id})` };
+	}
+	if (!input.cleanup) {
+		const errorMessage = currentCopyLocale() === "zh"
+			? "此旧建议未保存清理范围，请重新扫描。"
+			: "This older recommendation has no saved cleanup scope. Run a new scan.";
+		return { ...outcome, executed: false, errorMessage };
+	}
+	await checkLease();
+	const removed = await pruneReviewedJobs(tx, input.cleanup);
+	return { ...outcome, executed: true, result: `Pruned ${removed} stale completed jobs` };
 }
 
-/**
- * Execute one whitelisted AI ops action and return an auditable result row.
- *
- * Supported real side effects (FEAT-P1-3 expanded):
- * - `alert.evaluate`: runs alert evaluation, may trigger notifications.
- * - `cache.purge:stale`: prunes old completed jobs and AI ops logs.
- *
- * All executions produce an auditable result row with structured output.
- */
-export async function executeAiOpsAction(input: ActionInput): Promise<AiOpsExecutedAction> {
-	if (!SAFE_ACTIONS.has(input.action)) {
-		return unsupportedAction(input, `Action ${input.action} is not in the autonomous safe set`);
-	}
+export function scanActionReceipts(value: unknown): AiOpsExecutedAction[] {
+	return value === undefined ? [] : aiOpsExecutedActionSchema.array().parse(value);
+}
 
-	try {
-		switch (input.action) {
-			case "alert.evaluate": {
-				const before = await prisma.alertRule.count({ where: { enabled: true } }).catch(() => null);
-				await evaluateAlerts();
-				const suffix = before === null ? "" : ` (enabled rules: ${before})`;
-				return {
-					id: input.id,
-					action: input.action,
-					risk: input.risk,
-					executed: true,
-					executedAt: new Date().toISOString(),
-					result: `Alert rule evaluation executed${suffix}`,
-				};
-			}
-			case "cache.purge:stale": {
-				// Prune completed jobs across all types, keeping latest 25 per type.
-				// Prune AI ops logs with AI_OPS_LOG_RETENTION_KEEP (same as scan-worker).
-				// No take cap: every distinct job.type must be prune-eligible.
-				const jobTypes = await prisma.job.findMany({ select: { type: true }, distinct: ["type"] });
-				let totalPruned = 0;
-				let failedSteps = 0;
-				for (const { type } of jobTypes) {
-					try {
-						const result = await pruneCompletedJobsByType({ type, keepLatest: 25 });
-						totalPruned += result.count;
-					} catch {
-						failedSteps++;
-					}
-				}
-
-				try {
-					const deleted = await pruneAiOpsLogs(input.logId);
-					totalPruned += deleted.count;
-				} catch {
-					failedSteps++;
-				}
-				if (failedSteps) {
-					return unsupportedAction(input, `Pruned ${totalPruned} stale records. ${failedSteps} cleanup steps failed.`);
-				}
-
-				return {
-					id: input.id,
-					action: input.action,
-					risk: input.risk,
-					executed: true,
-					executedAt: new Date().toISOString(),
-					result: `Pruned ${totalPruned} stale records (including job queue and ops logs)`,
-				};
-			}
-			default:
-				return unsupportedAction(input, `Unknown safe action ${input.action}`);
-		}
-	} catch (error) {
-		return {
-			id: input.id,
-			action: input.action,
-			risk: input.risk,
-			executed: false,
-			executedAt: new Date().toISOString(),
-			errorMessage: error instanceof Error ? error.message : String(error),
+export function executeScanAction(jobId: string, workerId: string, attempts: number, action: ActionInput, signal: AbortSignal) {
+	// Receipts live as long as the job, including while its event history is pruned.
+	return prisma.$transaction(async (tx) => {
+		const checkLease = async () => {
+			signal.throwIfAborted();
+			const rows = await tx.$queryRaw<Array<{ id: string }>>`SELECT id FROM jobs WHERE id = ${jobId}
+				AND "workerId" = ${workerId} AND attempts = ${attempts} AND status = 'RUNNING'
+				AND "leaseExpiresAt" > clock_timestamp() FOR UPDATE`;
+			signal.throwIfAborted();
+			if (!rows.length) throw new LeaseLostError(jobId);
 		};
-	}
+		await checkLease();
+		const job = await tx.job.findUniqueOrThrow({ where: { id: jobId }, select: { payload: true } });
+		const payload = job.payload && typeof job.payload === "object" && !Array.isArray(job.payload) ? job.payload : {};
+		const prior = scanActionReceipts(payload.actionReceipts);
+		const saved = prior.find((entry) => entry.id === action.id);
+		if (saved) return saved;
+		const result = await executeAiOpsAction(action, tx, checkLease);
+		const actionReceipts: AiOpsExecutedAction[] = [...prior, result];
+		await tx.job.update({ where: { id: jobId }, data: { payload: { ...payload, actionReceipts: toJsonValue(actionReceipts) } } });
+		return result;
+	});
 }

@@ -12,6 +12,9 @@
  * formats the human-readable string for the kind of call being made.
  */
 
+import { lookup } from "node:dns/promises";
+import { BlockList, isIP } from "node:net";
+import { Agent, fetch as undiciFetch } from "undici";
 import { ValidationError } from "@/lib/errors";
 import {
 	assertPublicBaseUrlResolvesPublic,
@@ -20,8 +23,9 @@ import {
 import { fetchWithPinnedDns, isLinkLocalAddress } from "@/lib/security/pinned-fetch";
 import { config } from "@/lib/config/env";
 import { t } from "@/lib/i18n/service-translations";
+import { currentCopyLocale } from "@/lib/i18n/api-copy";
 import { readResponseTextLimited } from "@/lib/http/response-body";
-import { resolveDefaultProviderBaseUrl } from "./provider-endpoint";
+import { isLocalOllamaEndpoint, resolveDefaultProviderBaseUrl } from "./provider-endpoint";
 import { AiProviderHttpError } from "./provider-errors";
 
 export interface ProviderModelRow {
@@ -46,6 +50,34 @@ export interface ProviderChatRequest {
 }
 
 export { resolveDefaultProviderBaseUrl };
+
+export function allowsKeylessProvider(url: string, type?: string) {
+	return isLocalOllamaEndpoint(url, type) && isListedPrivateProviderHost(url);
+}
+
+const localNetworks = new BlockList();
+localNetworks.addSubnet("127.0.0.0", 8);
+localNetworks.addSubnet("10.0.0.0", 8);
+localNetworks.addSubnet("172.16.0.0", 12);
+localNetworks.addSubnet("192.168.0.0", 16);
+localNetworks.addSubnet("100.64.0.0", 10);
+localNetworks.addAddress("::1", "ipv6");
+localNetworks.addSubnet("fc00::", 7, "ipv6");
+
+function localProviderAddress(address: string) {
+	return !isLinkLocalAddress(address) && localNetworks.check(address, isIP(address) === 6 ? "ipv6" : "ipv4");
+}
+
+function publicHttpError() {
+	return new ValidationError(currentCopyLocale() === "en" ? "Public AI providers require HTTPS" : "公网 AI 提供方必须使用 HTTPS");
+}
+
+export function checkProviderTransport(url: URL) {
+	const host = url.hostname.replace(/^\[|\]$/g, "");
+	if (url.protocol === "http:" && (!isListedPrivateProviderHost(url.href) || (isIP(host) && !localProviderAddress(host)))) {
+		throw publicHttpError();
+	}
+}
 const MODELS_PATH = "/models";
 /** Bound hung upstream AI hosts so model-list / chat routes cannot stall until platform kill. */
 const AI_PROVIDER_MODELS_TIMEOUT_MS = 30_000;
@@ -108,19 +140,22 @@ async function assertProviderUrlSafe(rawUrl: string): Promise<void> {
 		throw new ValidationError(t("backend.ai.aiProviderUrlMustNotPointToA"));
 	}
 	await assertPublicBaseUrlResolvesPublic(url.origin);
+	checkProviderTransport(url);
 }
 
 /** The native adapters append /messages or /chat/completions to an API root. */
 export function providerApiRoot(value: string | undefined, type?: string): string {
 	const official = resolveDefaultProviderBaseUrl(type);
 	const baseUrl = trimProviderBaseUrl(value, official);
+	let parsed: URL;
+	try {
+		parsed = new URL(baseUrl);
+	} catch {
+		throw new ValidationError(t("backend.ai.invalidAiProviderUrl"));
+	}
+	if (parsed.search || baseUrl.includes("?")) throw new ValidationError(t("backend.ai.invalidAiProviderUrl"));
+	parsed.hash = "";
 	if (type === "ANTHROPIC" || type === "GOOGLE") {
-		let parsed: URL;
-		try {
-			parsed = new URL(baseUrl);
-		} catch {
-			throw new ValidationError(t("backend.ai.invalidAiProviderUrl"));
-		}
 		// Older rows could contain the generic database default for either native type.
 		if (parsed.hostname.replace(/\.$/, "") === "api.openai.com") {
 			throw new ValidationError(t("backend.ai.invalidAiProviderUrl"));
@@ -129,12 +164,12 @@ export function providerApiRoot(value: string | undefined, type?: string): strin
 			return official + (type === "ANTHROPIC" ? "/v1" : "/v1beta/openai");
 		}
 	}
-	return baseUrl;
+	return trimTrailingSlash(parsed.href);
 }
 
 export function aiHttpErrorMessage(
 	status: number,
-	errorText: string,
+	_errorText: string,
 	kind: "models" | "chat",
 ): string {
 	if (kind === "models") {
@@ -149,9 +184,41 @@ export function aiHttpErrorMessage(
 		}
 		return `Failed to fetch model list (${status}); check the Base URL and provider compatibility`;
 	}
-	const trimmed = (errorText || "").trim();
-	const body = (trimmed || "Unknown error").slice(0, 500);
-	return `AI request failed (${status}): ${body}`;
+	const category = status === 401 || status === 403 ? "access denied"
+		: status === 429 ? "rate limited" : status >= 500 ? "provider unavailable" : "request rejected";
+	return `AI request failed (${status}): ${category}`;
+}
+
+/** Preserve the HTTP virtual host while connecting only to verified private addresses. */
+async function fetchPrivateHttpProvider(url: URL, init: RequestInit): Promise<Response> {
+	checkProviderTransport(url);
+	const hostname = url.hostname.replace(/^\[|\]$/g, "");
+	const family = isIP(hostname);
+	const addresses = family ? [{ address: hostname, family }] : await lookup(hostname, { all: true, verbatim: true });
+	if (!addresses.length || addresses.some(({ address }) => !localProviderAddress(address))) throw publicHttpError();
+	init.signal?.throwIfAborted();
+	const first = addresses[0]!;
+	const dispatcher = new Agent({
+		connect: {
+			timeout: 15_000,
+			lookup(name, options, callback) {
+				if (name !== hostname) {
+					callback(new Error("Unexpected provider host"), undefined as never, undefined as never);
+				} else if (options.all) {
+					callback(null, addresses, undefined as never);
+				} else {
+					callback(null, first.address, first.family);
+				}
+			},
+		},
+	});
+	try {
+		const response = await undiciFetch(url, { ...init, redirect: "error", dispatcher } as Parameters<typeof undiciFetch>[1]);
+		return response as unknown as Response;
+	} finally {
+		// Graceful close lets the caller consume or cancel an in-flight streaming response.
+		void dispatcher.close().catch(() => dispatcher.destroy()).catch(() => undefined);
+	}
 }
 
 async function fetchProviderResponse(
@@ -162,11 +229,14 @@ async function fetchProviderResponse(
 	callerSignal?: AbortSignal,
 ): Promise<Response> {
 	try {
+		const endpoint = new URL(url);
+		if (endpoint.protocol === "http:") return await fetchPrivateHttpProvider(endpoint, init);
 		// Pinned dispatch: assertProviderUrlSafe validated this URL a moment
 		// ago; the fetch itself must connect to the address that validation
 		// saw, not whatever DNS answers on a second resolution (rebinding).
 		return await fetchWithPinnedDns(url, init, { allowPrivateAddress: isListedPrivateProviderHost(url) });
 	} catch (error) {
+		if (error instanceof ValidationError) throw error;
 		if (callerSignal?.aborted) throw callerSignal.reason;
 		const name =
 			typeof error === "object" && error && "name" in error
@@ -176,19 +246,14 @@ async function fetchProviderResponse(
 			const operation = kind === "models" ? "model list request" : "chat request";
 			throw new Error(`AI provider ${operation} timed out after ${timeoutMs / 1000} seconds`);
 		}
-		const message =
-			typeof error === "object" && error && "message" in error
-				? String(error.message)
-				: "";
-		const details = message ? `: ${message}` : "";
-		throw new Error(`Unable to connect to AI provider${details}`);
+		throw new Error("Unable to connect to AI provider");
 	}
 }
 
 export async function fetchProviderModels(
 	input: ProviderModelsRequest,
 ): Promise<ProviderModelRow[]> {
-	if (!input.apiKey.trim()) {
+	if (!input.apiKey.trim() && !allowsKeylessProvider(input.baseUrl, input.type)) {
 		throw new ValidationError(t("backend.ai.apiKeyIsRequired"));
 	}
 	const baseUrl = providerApiRoot(input.baseUrl, input.type);
@@ -202,7 +267,7 @@ export async function fetchProviderModels(
 		redirect: "error",
 		headers: anthropic
 			? { "x-api-key": input.apiKey.trim(), "anthropic-version": "2023-06-01" }
-			: { Authorization: `Bearer ${input.apiKey.trim()}` },
+			: input.apiKey.trim() ? { Authorization: `Bearer ${input.apiKey.trim()}` } : {},
 		signal: AbortSignal.timeout(AI_PROVIDER_MODELS_TIMEOUT_MS),
 	}, "models", AI_PROVIDER_MODELS_TIMEOUT_MS);
 	if (!response.ok) {

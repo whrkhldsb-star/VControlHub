@@ -37,36 +37,23 @@ export async function PATCH(
     async ({ session, body }) => {
       const { id } = await params;
 
-      if (body.action === "confirm") {
-        await confirmHostedAction(id, session);
+      if (body.action === "confirm" || body.action === "approve") {
+        const decide = body.action === "confirm" ? confirmHostedAction : approveHostedAction;
+        await decide(id, session);
         await auditUserAction(
           session.userId,
           "ai.hosted-action.update",
-          { actionId: id, decision: "confirm" },
+          { actionId: id, decision: body.action },
           undefined,
           session.currentTeamId,
         );
         const { prisma } = await import("@/lib/db");
-        const action = await prisma.aiHostedAction.findUnique({
-          where: { id },
-        });
-        return NextResponse.json({ success: true, action });
-      }
-
-      if (body.action === "approve") {
-        await approveHostedAction(id, session);
-        await auditUserAction(
-          session.userId,
-          "ai.hosted-action.update",
-          { actionId: id, decision: "approve" },
-          undefined,
-          session.currentTeamId,
-        );
-        const { prisma } = await import("@/lib/db");
-        const action = await prisma.aiHostedAction.findUnique({
-          where: { id },
-        });
-        return NextResponse.json({ success: true, action });
+        const action = await prisma.aiHostedAction.findUnique({ where: { id } });
+        if (!action || action.status === "FAILED" || action.status === "CANCELLED" || action.status === "REJECTED") {
+          const error = action?.errorMessage || apiCopy("apiCopy.operation.failed.4e1af7c7");
+          return NextResponse.json({ accepted: true, completed: false, success: false, error, action }, { status: action ? 422 : 404 });
+        }
+        return NextResponse.json({ accepted: true, completed: action.status === "COMPLETED", success: true, action });
       }
 
       const result = await rejectHostedAction(

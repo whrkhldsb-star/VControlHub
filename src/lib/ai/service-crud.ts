@@ -6,6 +6,7 @@
  * `./service-runtime`; DTO serializers in `./service-serialize`; this
  * module owns the prisma CRUD paths plus the input types.
  */
+import { withHostedServerSnapshot } from "./hosted-snapshot";
 import { isUniqueViolation, prisma } from "@/lib/db";
 import { encrypt, decrypt, isEncrypted } from "@/lib/crypto/service";
 import { BusinessError, ForbiddenError, NotFoundError, ValidationError } from "@/lib/errors";
@@ -16,7 +17,7 @@ import { getAiConversationListLimit, getAiProviderListLimit } from "@/lib/runtim
 import { normalizePublicHttpUrl } from "@/lib/storage/direct-access-url";
 import { isLinkLocalAddress } from "@/lib/security/pinned-fetch";
 import { aiProviderTypeSchema, type AiProviderType } from "./schema";
-import { resolveDefaultProviderBaseUrl, isListedPrivateProviderHost, providerApiRoot } from "./provider-http";
+import { checkProviderTransport, allowsKeylessProvider, resolveDefaultProviderBaseUrl, isListedPrivateProviderHost, providerApiRoot } from "./provider-http";
 
 import { providerEndpointChanged } from "./provider-endpoint";
 
@@ -51,10 +52,13 @@ export function normalizeProviderBaseUrl(value: string | undefined, type?: strin
 		if (url.protocol !== "https:" && url.protocol !== "http:") throw new ValidationError(t("backend.ai.aiProviderUrlMustUseHttpS"));
 		if (url.username || url.password) throw new ValidationError(t("backend.ai.aiProviderUrlMustNotContainCredentials"));
 		if (isLinkLocalAddress(url.hostname)) throw new ValidationError(t("backend.ai.aiProviderUrlMustNotPointToA"));
+		checkProviderTransport(url);
 		url.hash = "";
 		return url.toString();
 	}
-	return normalizePublicHttpUrl(raw);
+	const normalized = normalizePublicHttpUrl(raw);
+	checkProviderTransport(new URL(normalized));
+	return normalized;
 }
 
 /* ── Types ───────────────────────────────────────────────────── */
@@ -143,12 +147,13 @@ function resolveProviderType(raw: string | undefined): AiProviderType {
 
 export async function createProvider(input: CreateProviderInput) {
 	if (!input.name.trim()) throw new ValidationError(t("backend.ai.providerNameIsRequired"));
-	if (!input.apiKey.trim()) throw new ValidationError(t("backend.ai.apiKeyIsRequired"));
 
 	const providerType = resolveProviderType(input.type);
 	const normalizedBaseUrl = normalizeProviderBaseUrl(input.baseUrl, providerType);
 	const normalizedModels = normalizeProviderModels(input.availableModels);
-	const encryptedKey = encrypt(input.apiKey.trim());
+	const key = input.apiKey.trim();
+	if (!key && !allowsKeylessProvider(normalizedBaseUrl, providerType)) throw new ValidationError(t("backend.ai.apiKeyIsRequired"));
+	const encryptedKey = key ? encrypt(key) : "";
 
 	// The default moves in the same transaction as the write: a create
 	// refused for a name the user already has used to leave them with no
@@ -192,14 +197,45 @@ async function withProviderNameCheck<T>(write: () => Promise<T>): Promise<T> {
 	}
 }
 
+async function upgradeStoredProviderKey<T extends { id: string; apiKey: string }>(row: T): Promise<T> {
+	if (!row.apiKey || isEncrypted(row.apiKey)) return row;
+	const apiKey = encrypt(row.apiKey);
+	await prisma.aiProvider.updateMany({ where: { id: row.id, apiKey: row.apiKey }, data: { apiKey } });
+	return { ...row, apiKey };
+}
+
+/** Upgrade dormant as well as active legacy rows when the AI worker starts. The CAS preserves a concurrent key rotation. */
+export async function migrateLegacyProviderKeys() {
+	let after: string | undefined;
+	for (;;) {
+		const rows: Array<{ id: string; apiKey: string }> = await prisma.aiProvider.findMany({
+			where: { apiKey: { not: "" }, ...(after && { id: { gt: after } }) },
+			select: { id: true, apiKey: true }, orderBy: { id: "asc" }, take: 50,
+		});
+		for (const row of rows) await upgradeStoredProviderKey(row);
+		if (rows.length < 50) return;
+		after = rows[rows.length - 1]!.id;
+	}
+}
+
+export async function listChatProviders(userId: string) {
+	return prisma.aiProvider.findMany({
+		where: { createdBy: userId, enabled: true },
+		orderBy: [{ isDefault: "desc" }, { createdAt: "desc" }],
+		take: await getAiProviderListLimit(),
+		select: { id: true, name: true, type: true, defaultModel: true, availableModels: true, isDefault: true, enabled: true },
+	});
+}
+
 export async function listProviders(userId: string) {
 	const limit = await getAiProviderListLimit();
-	return prisma.aiProvider.findMany({
+	const rows = await prisma.aiProvider.findMany({
 		where: { createdBy: userId },
 		orderBy: [{ isDefault: "desc" }, { createdAt: "desc" }],
 		take: limit,
 		select: AI_PROVIDER_LIST_SELECT,
 	});
+	return Promise.all(rows.map(upgradeStoredProviderKey));
 }
 
 export async function getProviderById(id: string, userId: string) {
@@ -208,17 +244,21 @@ export async function getProviderById(id: string, userId: string) {
 		select: AI_PROVIDER_LIST_SELECT,
 	});
 	if (!provider) throw new NotFoundError(t("backend.ai.providerNotFound"));
-	return provider;
+	return upgradeStoredProviderKey(provider);
 }
 
 export async function updateProvider(id: string, userId: string, input: UpdateProviderInput) {
 	const data: Record<string, unknown> = {};
-	if (input.name !== undefined) data.name = input.name.trim();
+	if (input.name !== undefined) {
+		if (!input.name.trim()) throw new ValidationError(t("backend.ai.providerNameIsRequired"));
+		data.name = input.name.trim();
+	}
 	const newType = input.type === undefined ? undefined : resolveProviderType(input.type);
 	if (newType) data.type = newType;
 	if (input.apiKey !== undefined) {
-		if (!input.apiKey.trim()) throw new ValidationError(t("backend.ai.apiKeyIsRequired"));
-		data.apiKey = encrypt(input.apiKey.trim());
+		const key = input.apiKey.trim();
+		if (!key) throw new ValidationError(t("backend.ai.apiKeyIsRequired"));
+		data.apiKey = encrypt(key);
 	}
 	// An empty model is not a choice: switching the provider type cleared it and
 	// every new conversation then failed with 400 (A7-06).
@@ -246,17 +286,18 @@ export async function updateProvider(id: string, userId: string, input: UpdatePr
 		let endpointGuard = {};
 		if (newType || input.baseUrl !== undefined || input.apiKey !== undefined) {
 			const current = await tx.aiProvider.findFirst({
-				where: { id, createdBy: userId }, select: { type: true, baseUrl: true },
+				where: { id, createdBy: userId }, select: { type: true, baseUrl: true, apiKey: true },
 			});
 			if (!current) throw new NotFoundError(t("backend.ai.providerNotFound"));
 			const nextType = newType ?? current.type;
 			const typeChanged = nextType !== current.type;
 			const nextBaseUrl = normalizeProviderBaseUrl(input.baseUrl ?? (typeChanged ? undefined : current.baseUrl), nextType);
-			if (providerEndpointChanged(current, { type: nextType, baseUrl: nextBaseUrl }) && !input.apiKey?.trim()) {
-				throw new ValidationError(t("backend.ai.providerKeyForNewEndpoint"));
+			if (!input.apiKey && (providerEndpointChanged(current, { type: nextType, baseUrl: nextBaseUrl }) || current.apiKey === "")) {
+				if (!allowsKeylessProvider(nextBaseUrl, nextType)) throw new ValidationError(t("backend.ai.providerKeyForNewEndpoint"));
+				data.apiKey = "";
 			}
 			data.baseUrl = nextBaseUrl;
-			endpointGuard = { type: current.type, baseUrl: current.baseUrl };
+			endpointGuard = { type: current.type, baseUrl: current.baseUrl, apiKey: current.apiKey };
 		}
 		const updated = await tx.aiProvider.updateMany({
 			where: { id, createdBy: userId, ...endpointGuard },
@@ -307,20 +348,7 @@ export async function createConversation(input: CreateConversationInput, session
 		},
 		// Never include provider.apiKey ciphertext on conversation create responses.
 		include: {
-			provider: {
-				select: {
-					id: true,
-					name: true,
-					type: true,
-					baseUrl: true,
-					defaultModel: true,
-					availableModels: true,
-					isDefault: true,
-					enabled: true,
-					createdAt: true,
-					updatedAt: true,
-				},
-			},
+			provider: { select: { id: true, name: true, type: true } },
 		},
 	});
 }
@@ -336,34 +364,20 @@ export async function listConversations(session: TeamSession) {
 	});
 }
 
-export async function getConversationById(id: string, session: TeamSession) {
+export async function getConversationById(id: string, session: TeamSession, before?: { createdAt: Date; id: string }) {
 	// Cap message payload size for long threads (chat path loads conversation often).
 	const MESSAGE_TAKE = 500;
 	const conv = await prisma.aiConversation.findFirst({
 		where: { id, ...conversationOwnerWhere(session) },
 		include: {
 			// Exclude apiKey ciphertext from API-facing conversation payloads.
-			provider: {
-				select: {
-					id: true,
-					name: true,
-					type: true,
-					baseUrl: true,
-					defaultModel: true,
-					availableModels: true,
-					isDefault: true,
-					enabled: true,
-					settings: true,
-					createdBy: true,
-					createdAt: true,
-					updatedAt: true,
-				},
-			},
+			provider: { select: { id: true, name: true, type: true } },
 			// Latest window first, then reverse to chronological for UI. The id
 			// orders turns written within one millisecond (an assistant turn and
 			// its tool results): by createdAt alone a result could precede its
 			// call, be dropped from the history, and leave the call unanswered.
 			messages: {
+				...(before && { where: { OR: [{ createdAt: { lt: before.createdAt } }, { createdAt: before.createdAt, id: { lt: before.id } }] } }),
 				orderBy: [{ createdAt: "desc" }, { id: "desc" }],
 				take: MESSAGE_TAKE,
 				include: {
@@ -387,9 +401,6 @@ export async function getConversationById(id: string, session: TeamSession) {
 							approvedAt: true,
 							executedAt: true,
 							completedAt: true,
-							server: {
-								select: { id: true, name: true, host: true },
-							},
 						},
 					},
 				},
@@ -397,7 +408,7 @@ export async function getConversationById(id: string, session: TeamSession) {
 		},
 	});
 	if (!conv) throw new NotFoundError(t("backend.ai.conversationNotFound"));
-	return { ...conv, messages: [...conv.messages].reverse() };
+	return { ...conv, messages: conv.messages.reverse().map((message) => ({ ...message, hostedActions: message.hostedActions.map(withHostedServerSnapshot) })) };
 }
 
 export async function updateConversation(id: string, session: TeamSession, input: UpdateConversationInput) {
@@ -414,29 +425,15 @@ export async function updateConversation(id: string, session: TeamSession, input
 	if (input.hostingEnabled !== undefined) data.hostingEnabled = input.hostingEnabled;
 	if (input.automationMode !== undefined) data.automationMode = input.automationMode;
 
-	const updated = await prisma.aiConversation.updateMany({
-		where: { id, ...conversationOwnerWhere(session) },
-		data,
-	});
-	if (updated.count === 0) throw new NotFoundError(t("backend.ai.conversationNotFound"));
-	return prisma.aiConversation.findFirst({
-		where: { id, ...conversationOwnerWhere(session) },
-		include: {
-			provider: {
-				select: {
-					id: true,
-					name: true,
-					type: true,
-					baseUrl: true,
-					defaultModel: true,
-					availableModels: true,
-					isDefault: true,
-					enabled: true,
-					createdAt: true,
-					updatedAt: true,
-				},
-			},
-		},
+	const owner = conversationOwnerWhere(session);
+	return prisma.$transaction(async (tx) => {
+		const [row] = await tx.$queryRaw<Array<{ updatedAt: Date }>>`SELECT "updatedAt" FROM ai_conversations
+			WHERE id = ${id} AND "createdBy" = ${owner.createdBy} AND "teamId" IS NOT DISTINCT FROM ${owner.teamId} FOR UPDATE`;
+		if (!row) throw new NotFoundError(t("backend.ai.conversationNotFound"));
+		return tx.aiConversation.update({
+			where: { id, ...owner }, data: { ...data, updatedAt: new Date(Math.max(Date.now(), row.updatedAt.getTime() + 1)) },
+			include: { provider: { select: { id: true, name: true, type: true } } },
+		});
 	});
 }
 
@@ -448,10 +445,11 @@ export async function deleteConversation(id: string, session: TeamSession) {
 
 export async function clearConversationMessages(id: string, session: TeamSession) {
 	const owner = conversationOwnerWhere(session);
-	const conv = await prisma.aiConversation.findFirst({ where: { id, ...owner }, select: { id: true } });
-	if (!conv) throw new NotFoundError(t("backend.ai.conversationNotFound"));
-	await prisma.$transaction([
-		prisma.aiHostedAction.deleteMany({ where: { conversationId: id, conversation: owner } }),
-		prisma.aiMessage.deleteMany({ where: { conversationId: id, conversation: owner } }),
-	]);
+	await prisma.$transaction(async (tx) => {
+		const advanced = await tx.$executeRaw`UPDATE ai_conversations
+			SET "updatedAt" = GREATEST(clock_timestamp(), "updatedAt" + interval '1 millisecond')
+			WHERE id = ${id} AND "createdBy" = ${owner.createdBy} AND "teamId" IS NOT DISTINCT FROM ${owner.teamId}`;
+		if (!advanced) throw new NotFoundError(t("backend.ai.conversationNotFound"));
+		await tx.aiMessage.deleteMany({ where: { conversationId: id } });
+	});
 }

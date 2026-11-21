@@ -48,6 +48,14 @@ describe("consumeProviderChatStream", () => {
     ]);
   });
 
+  it("caps the allocated slot when different calls reuse the last provider index", async () => {
+    const calls = ["one", "over-limit"].map((id) => ({ index: 1023, id, function: { name: "list_servers", arguments: "{}" } }));
+    const result = await consumeProviderChatStream({ providerType: "OPENAI",
+      body: streamChunks(["data: " + JSON.stringify({ choices: [{ delta: { tool_calls: calls } }] }) + "\n\n"]), onEvent: vi.fn() });
+    expect(result.readError).toEqual(expect.objectContaining({ message: expect.stringContaining("too many tool calls") }));
+    expect(result.toolCalls.map((c) => c.id)).not.toContain("over-limit");
+  });
+
   it("keeps every tool call of an OpenAI-compatible provider that numbers or names them differently", async () => {
     const calls = async (lines: string[]) => (await consumeProviderChatStream({
       providerType: "OPENAI_COMPATIBLE",

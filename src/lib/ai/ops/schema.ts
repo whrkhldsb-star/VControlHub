@@ -29,10 +29,16 @@ export const aiOpsFindingSchema = z.object({
 	resourceRef: z.string().max(256).optional(),
 });
 
+const cleanupScopeSchema = z.object({
+	cutoff: z.iso.datetime(), ids: z.array(z.string().min(1)).max(1000),
+});
 export const aiOpsRecommendedActionSchema = z.object({
 	id: z.string().min(1, "action.id is required").max(128),
 	action: z.string().min(1, "action.action is required").max(256),
 	risk: z.enum(["low", "medium", "high"]),
+	leaseId: z.string().optional(),
+	cleanup: cleanupScopeSchema.optional(),
+	approvalNeedsReview: z.boolean().optional(),
 	requiresApproval: z.boolean().default(true),
 	reason: z.string().max(1000).optional(),
 	approved: z.boolean().optional(),
@@ -49,6 +55,9 @@ export const aiOpsExecutedActionSchema = z.object({
 	id: z.string().min(1).max(128),
 	action: z.string().min(1).max(256),
 	risk: z.enum(["low", "medium", "high"]),
+	leaseId: z.string().optional(),
+	cleanup: cleanupScopeSchema.optional(),
+	approvalNeedsReview: z.boolean().optional(),
 	executed: z.boolean(),
 	executedAt: z.string().optional(),
 	result: z.string().max(4000).optional(),

@@ -5,6 +5,8 @@
  * lifecycle (create -> execute -> approve/confirm/reject).
  */
 
+import { sessionHasPermission } from "@/lib/auth/authorization";
+import type { KnowledgeBudget } from "./knowledge";
 import type { Permission } from "@/lib/auth/rbac";
 import type { SessionPayload } from "@/lib/auth/session";
 import { playbookTeamWhere, serverTeamWhere, type TeamSession } from "@/lib/auth/team-scope";
@@ -23,6 +25,8 @@ export type HostedActionSession = Pick<SessionPayload, "userId" | "roles"> &
 export type HostedActionExecutionContext = {
   session: HostedActionSession;
   requiredPermission?: Permission;
+  signal?: AbortSignal;
+  knowledgeBudget?: KnowledgeBudget;
   revalidate?: () => Promise<void>;
   locale?: Locale;
 };
@@ -48,6 +52,14 @@ export function requiredPermissionForAction(actionType: string): Permission {
   // absolute paths of the VPS as its SSH user — nothing like the storage nodes
   // that storage:read scopes — so they need the same permission as read_logs.
   return "server:ssh";
+}
+
+export function missingHostedPermission(session: HostedActionSession, actionType: string): Permission | undefined {
+  const required = requiredPermissionForAction(actionType);
+  if (!sessionHasPermission(session, required)) return required;
+  if (["execute_command", "restart_service", "modify_config", "deploy_docker"].includes(actionType) &&
+      !sessionHasPermission(session, "command:create")) return "command:create";
+  if (actionType === "create_automation_task" && !sessionHasPermission(session, "server:ssh")) return "server:ssh";
 }
 
 export function permissionDeniedMessage(
@@ -120,20 +132,20 @@ export async function resolveServerId(args: Record<string, unknown>, session?: H
   }));
 }
 
-export async function resolvePlaybookId(args: Record<string, unknown>, session?: HostedActionSession | null): Promise<{ id: string; name: string } | null> {
+export async function resolvePlaybookId(args: Record<string, unknown>, session?: HostedActionSession | null) {
   const scope = sessionForTeamScope(session);
   // Strict: the assistant resolves a playbook in order to run it, and a
   // `teamId: null` playbook replays frozen server ids the caller may not own.
   const teamFilter = scope ? playbookTeamWhere(scope) : {};
   const explicitId = typeof args.playbookId === "string" ? args.playbookId.trim() : "";
   if (explicitId) {
-    return prisma.playbook.findFirst({ where: { id: explicitId, ...teamFilter }, select: { id: true, name: true } });
+    return prisma.playbook.findFirst({ where: { id: explicitId, ...teamFilter }, select: { id: true, name: true, steps: true, enabled: true } });
   }
   const name = typeof args.playbookName === "string" ? args.playbookName.trim() : "";
   if (!name) return null;
   // A name picks one playbook or none. It used to take the most recently updated of everything that contained the
   // text (and "%" matched them all), so what the user confirmed by name could be another playbook than the one run.
-  const select = { id: true, name: true } as const;
+  const select = { id: true, name: true, steps: true, enabled: true } as const;
   const named = await prisma.playbook.findMany({ where: { AND: [teamFilter, { OR: [{ id: name }, { name }] }] }, select, take: 2 });
   if (named.length > 0) return named.length === 1 ? named[0]! : null;
   const similar = await prisma.playbook.findMany({

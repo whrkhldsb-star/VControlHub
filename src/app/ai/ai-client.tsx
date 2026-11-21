@@ -45,6 +45,7 @@ import { useAiChatStream } from "./hooks/use-ai-chat-stream";
 import { useAiConfirmAction } from "./hooks/use-ai-confirm-action";
 import { useAiSendActions } from "./hooks/use-ai-send-actions";
 import { useConversations } from "./hooks/use-conversations";
+import { recoverChatDraft } from "./ai-retry";
 import { useConvRename } from "./hooks/use-conv-rename";
 import { useConvSettingsForm } from "./hooks/use-conv-settings-form";
 import { useFileAttachments } from "./hooks/use-file-attachments";
@@ -57,6 +58,7 @@ export function AiClient({
   initialProviders,
   initialConversations,
   initialDraft = "",
+  canManageProviders = false,
 }: {
   /** Kept optional for older tests/call-sites; auth is session/API-backed. */
   userId?: string;
@@ -64,8 +66,9 @@ export function AiClient({
   initialConversations: ConvItem[];
   /** Prefilled composer text (e.g. ?q= "Ask AI" deep links from ops pages). */
   initialDraft?: string;
+  canManageProviders?: boolean;
 }) {
-  const { t } = useI18n();
+  const { t, locale } = useI18n();
   const { addToast } = useToast();
   const [providers, setProviders] = useState(initialProviders);
   const {
@@ -131,6 +134,8 @@ export function AiClient({
     approvalBusyById,
     sendMessage,
     stopGeneration,
+    lastRequest,
+    clearConversationStream,
     decideApproval,
   } = useAiChatStream({
     activeConv,
@@ -228,7 +233,10 @@ export function AiClient({
     clearActiveConv: () => setActiveConvId(null),
     refreshConversations,
     refreshProviders,
-    clearMessages: () => setMessages([]),
+    clearMessages: () => {
+      clearConversationStream();
+      setMessages([]);
+    },
   });
 
   const rename = useConvRename({
@@ -254,7 +262,7 @@ export function AiClient({
     providers,
     refreshConversations,
     setActiveConvId,
-    openProviderPanel: () => setShowProviders(true),
+    openProviderPanel: () => setShowProviders(canManageProviders),
     addToast,
   });
 
@@ -264,19 +272,22 @@ export function AiClient({
     if (!activeConvId || streaming) return;
     const lastUser = [...messages].reverse().find((m) => m.role === "user");
     if (!lastUser) return;
-    let parsedUrls: string[] = [];
-    try {
-      parsedUrls = JSON.parse(lastUser.imageUrls || "[]");
-    } catch {
-      parsedUrls = [];
+    const saved = lastRequest.current;
+    if (saved?.conversationId === activeConvId && saved.messageId === lastUser.id) {
+      void sendMessage(saved.args);
+      return;
     }
-    void sendMessage({
-      content: lastUser.content,
-      imageUrls: parsedUrls.filter((u) => typeof u === "string" && /^https?:\/\//.test(u)),
-      imageBase64: [],
-      fileAttachments: [],
-    });
-  }, [activeConvId, streaming, messages, sendMessage]);
+    const recovered = recoverChatDraft(lastUser);
+    if (recovered.needsFiles) {
+      setInput(recovered.args.content);
+      setImageUrls(recovered.args.imageUrls);
+      setFileAttachments(recovered.args.fileAttachments.map((file) => ({ ...file, type: "text", mimeType: "text/plain" })));
+      addToast("info", locale === "zh" ? "请重新选择这条消息中的本地附件。" : "Select the local attachments for this message again.");
+      fileInputRef.current?.click();
+      return;
+    }
+    void sendMessage(recovered.args);
+  }, [activeConvId, streaming, messages, sendMessage, lastRequest, setFileAttachments, addToast, locale]);
 
   /** One-step model switch from the chat header pill (PATCH + refresh). */
   const handleQuickSwitchModel = useCallback(
@@ -311,6 +322,7 @@ export function AiClient({
     settingsForm,
     setSettingsForm,
     handleSaveSettings,
+    resetForm,
     dirty: settingsDirty,
   } = useConvSettingsForm({
     activeConv,
@@ -325,7 +337,7 @@ export function AiClient({
     discardDialog: settingsDiscardDialog,
   } = useUnsavedChangesGuard({
     dirty: showSettings && settingsDirty,
-    onDiscard: () => setShowSettings(false),
+    onDiscard: () => { resetForm(); setShowSettings(false); },
   });
 
   /* ── Export conversation to markdown ───────────────────────── */
@@ -402,7 +414,7 @@ export function AiClient({
           });
         }}
         onToggleSidebar={setShowSidebar}
-        onToggleProviders={() => setShowProviders(!showProviders)}
+        onToggleProviders={canManageProviders ? () => setShowProviders(!showProviders) : undefined}
       />
       <div className="flex-1 flex flex-col min-w-0">
         {activeConv ? (
@@ -493,7 +505,7 @@ export function AiClient({
           <AiEmptyState
             hasProviders={providers.length > 0}
             sidebarShown={showSidebar}
-            onOpenProviders={() => setShowProviders(true)}
+            onOpenProviders={canManageProviders ? () => setShowProviders(true) : undefined}
             onNewConv={handleNewConv}
             onOpenSidebar={() => setShowSidebar(true)}
             onExample={(prompt) => {
@@ -514,7 +526,7 @@ export function AiClient({
         )}
       </div>
 
-      <AiProviderPanelLazy
+      {canManageProviders && <AiProviderPanelLazy
         show={showProviders}
         providers={providers}
         provForm={provForm}
@@ -531,7 +543,7 @@ export function AiClient({
         onRefreshProviders={refreshProviders}
         setProvForm={setProvForm}
         creatingProvider={creatingProvider}
-      />
+      />}
       {settingsDiscardDialog}
     </div>
   );

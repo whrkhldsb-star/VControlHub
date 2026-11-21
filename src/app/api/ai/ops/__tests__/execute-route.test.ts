@@ -51,7 +51,7 @@ describe("POST /api/ai/ops/logs/[id]/execute", () => {
 		const res = await post({ actionId: "a1" });
 		expect(res.status).toBe(200);
 		expect(mocks.executeRecommendation).toHaveBeenCalledWith({ logId: "log_1", actionId: "a1", forceAutonomous: undefined });
-		expect(mocks.auditUserAction).toHaveBeenCalledWith("u_cust", "ai.ops.recommendation.execute", expect.objectContaining({ logId: "log_1", actionId: "a1", forceAutonomous: false, executed: true }), undefined, "team_1");
+		expect(mocks.auditUserAction).toHaveBeenCalledWith("u_cust", "ai.ops.recommendation.execute", expect.objectContaining({ logId: "log_1", actionId: "a1", forceAutonomous: false, executed: true }), undefined, null);
 	});
 
 	it("refuses forceAutonomous without ai:ops:autonomous, and allows it with", async () => {

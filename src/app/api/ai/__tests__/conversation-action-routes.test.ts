@@ -48,7 +48,7 @@ describe("AI conversation, hosted action and ops log routes", () => {
 	beforeEach(() => {
 		vi.clearAllMocks();
 		routeSession.current = customerSession(["ai:chat", "ai:ops:read", "ai:ops:manage"]);
-		mocks.getConversationById.mockResolvedValue({ id: "c_1", title: "chat" });
+		mocks.getConversationById.mockResolvedValue({ id: "c_1", title: "chat", messages: [] });
 		mocks.updateConversation.mockResolvedValue({ id: "c_1", title: "renamed", createdAt: new Date("2026-10-11T00:00:00Z"), updatedAt: new Date("2026-10-11T00:00:00Z") });
 		mocks.hostedFindUnique.mockResolvedValue({ id: "c_1", status: "APPROVED" });
 		mocks.rejectHostedAction.mockResolvedValue({ id: "c_1", status: "REJECTED" });
@@ -57,7 +57,7 @@ describe("AI conversation, hosted action and ops log routes", () => {
 	});
 
 	it("conversation routes are per user: the owner id always comes from the session", async () => {
-		expect(await (await conversation.GET(req("GET", "http://local/api/ai/conversations/c_1"), { params })).json()).toEqual({ conversation: { id: "c_1", title: "chat" } });
+		expect(await (await conversation.GET(req("GET", "http://local/api/ai/conversations/c_1"), { params })).json()).toEqual({ conversation: { id: "c_1", title: "chat", messages: [] }, hasMore: false });
 		expect(mocks.getConversationById).toHaveBeenCalledWith("c_1", routeSession.current);
 
 		const renamed = await conversation.PATCH(req("PATCH", "http://local/api/ai/conversations/c_1", { title: "renamed" }), { params });
@@ -74,6 +74,21 @@ describe("AI conversation, hosted action and ops log routes", () => {
 		expect((await conversation.GET(req("GET", "http://local/api/ai/conversations/c_1"), { params })).status).toBe(404);
 		routeSession.current = customerSession([]);
 		expect((await conversation.GET(req("GET", "http://local/api/ai/conversations/c_1"), { params })).status).toBe(403);
+	});
+
+	it("reports a failed execution after accepting confirmation", async () => {
+		const failure = { id: "c_1", status: "FAILED", errorMessage: "task missing" };
+		mocks.hostedFindUnique.mockResolvedValueOnce(failure);
+		const response = await hosted.PATCH(req("PATCH", "http://local/api/ai/hosted-actions/c_1", { action: "confirm" }), { params });
+		expect(response.status).toBe(422);
+		expect(await response.json()).toMatchObject({ accepted: true, completed: false, success: false, error: "task missing", action: failure });
+	});
+
+	it.each([["APPROVED", false], ["COMPLETED", true]])("reports the hosted completion state for %s", async (status, completed) => {
+		mocks.hostedFindUnique.mockResolvedValueOnce({ id: "c_1", status });
+		const response = await hosted.PATCH(req("PATCH", "http://local/api/ai/hosted-actions/c_1", { action: "confirm" }), { params });
+		expect(response.status).toBe(200);
+		expect(await response.json()).toMatchObject({ accepted: true, completed, success: true, action: { status } });
 	});
 
 	it("hosted action decisions delegate their permission checks to the service and audit the decision", async () => {
@@ -109,7 +124,7 @@ describe("AI conversation, hosted action and ops log routes", () => {
 
 		const approved = await approve.POST(req("POST", "http://local/api/ai/ops/logs/c_1/approve", { actionId: "a1" }), { params });
 		expect(await approved.json()).toEqual({ result: { ok: true } });
-		expect(mocks.approveRecommendation).toHaveBeenCalledWith({ logId: "c_1", actionId: "a1" });
+		expect(mocks.approveRecommendation).toHaveBeenCalledWith({ logId: "c_1", actionId: "a1", approvedBy: "u_admin" });
 		expect(mocks.auditUserAction).toHaveBeenCalledWith("u_admin", "ai.ops.recommendation.approve", expect.objectContaining({ logId: "c_1", actionId: "a1", ok: true }), undefined, null);
 	});
 });

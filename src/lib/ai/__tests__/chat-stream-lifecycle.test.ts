@@ -87,7 +87,7 @@ describe("provider stream lifecycle", () => {
     } });
     const result = await consumeProviderChatStream({ body, providerType: "OPENAI", onEvent: vi.fn() });
     expect(result.content).toBe("partial");
-    expect(result.readError).toEqual(new Error("AI provider stream failed: capacity exhausted"));
+    expect(result.readError).toEqual(new Error("AI provider stream failed"));
   });
 
   it("bounds an unterminated line and cancels its source", async () => {

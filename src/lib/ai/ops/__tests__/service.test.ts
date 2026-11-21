@@ -43,11 +43,19 @@ function resetStore() {
 }
 
 function makePrismaMock() {
-	return {
+	let pending = Promise.resolve<unknown>(undefined);
+	const client = {
+		$queryRaw: vi.fn(async () => []),
+		$transaction: vi.fn((run: (tx: unknown) => Promise<unknown>) => {
+			const next = pending.then(() => run(client));
+			pending = next.catch(() => undefined);
+			return next;
+		}),
 		alertRule: {
 			count: vi.fn(async () => 3),
 		},
 		job: {
+			deleteMany: vi.fn(async () => ({ count: 0 })),
 			findMany: vi.fn(async () => []),
 		},
 		aiOpsLog: {
@@ -68,6 +76,7 @@ function makePrismaMock() {
 					return row;
 				},
 			),
+			findUniqueOrThrow: vi.fn(async ({ where }: { where: { id: string } }) => store.logs.get(where.id)!),
 			findUnique: vi.fn(async ({ where }: { where: { id: string } }) => {
 				return store.logs.get(where.id) ?? null;
 			}),
@@ -106,7 +115,7 @@ function makePrismaMock() {
 					const next: AiOpsLogRow = {
 						...row,
 						...data,
-						updatedAt: new Date("2026-06-17T01:00:00Z"),
+						updatedAt: data.updatedAt ?? new Date("2026-06-17T01:00:00Z"),
 					};
 					store.logs.set(row.id, next);
 					return next;
@@ -128,6 +137,7 @@ function makePrismaMock() {
 			deleteMany: vi.fn(async () => ({ count: 0 })),
 		},
 	};
+	return client;
 }
 
 vi.mock("@/lib/db", () => ({ prisma: makePrismaMock() }));
@@ -136,7 +146,7 @@ vi.mock("@/lib/db", () => ({ prisma: makePrismaMock() }));
 // durable-job claim/complete path. The service tests don't exercise the
 // worker, but importing it transitively pulls in the worker module.
 vi.mock("@/lib/job/service", () => ({
-	enqueueJob: vi.fn(),
+	enqueueJob: vi.fn(async () => ({ id: "alert-job" })),
 	claimNextJob: vi.fn(),
 	completeJob: vi.fn(),
 	failJob: vi.fn(),
@@ -392,7 +402,7 @@ describe("executeRecommendation — mode-aware action gating", () => {
 			findings: [],
 			actions: [
 				{ id: "a1", action: "alert.evaluate", risk: "low", executed: false },
-				{ id: "a2", action: "cache.purge:stale", risk: "low", executed: false },
+				{ id: "a2", action: "cache.purge:stale", cleanup: { ids: [], cutoff: "2020-01-01T00:00:00.000Z" }, risk: "low", executed: false },
 			],
 		});
 
@@ -407,7 +417,7 @@ describe("executeRecommendation — mode-aware action gating", () => {
 		expect(saved?.actions.every((action) => action.executed)).toBe(true);
 	});
 
-	it("reclaims an in-progress action after its execution lease expires", async () => {
+	it("marks an expired legacy dispatch with no receipt for review", async () => {
 		const log = await createAiOpsLog({ triggerType: "manual", mode: "autonomous" });
 		await completeScan({
 			logId: log.id,
@@ -429,7 +439,8 @@ describe("executeRecommendation — mode-aware action gating", () => {
 			forceAutonomous: true,
 		});
 
-		expect(result.executed).toBe(true);
+		expect(result.executed).toBe(false);
+		expect((await getAiOpsLog(log.id))?.actions[0]?.result).toBe("needs_manual_review");
 	});
 
 	it.each([
@@ -498,6 +509,12 @@ describe("summariseAiOps", () => {
 		expect(s.byMode.autonomous).toBe(1);
 		expect(s.lastScanAt).toBeTruthy();
 		expect(s.lastErrorAt).toBeTruthy();
+	});
+
+	it("includes an older failed scan whose diagnostic was only stored in notes", async () => {
+		const log = await createAiOpsLog({ triggerType: "scheduled", mode: "recommendation" });
+		await completeScan({ logId: log.id, status: "error", findings: [], actions: [], notes: "worker failure" });
+		expect((await summariseAiOps()).lastErrorAt).toBe(log.createdAt);
 	});
 });
 
