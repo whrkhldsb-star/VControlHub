@@ -68,6 +68,8 @@ export type PlaybookStepResult = {
   // Persisted before a command is awaited, allowing a reclaimed parent job
   // to resume polling without dispatching the remote command a second time.
   commandRequestId?: string;
+  // Numeric receipt used to reconstruct webhook summaries without copying free-form errors.
+  httpStatus?: number;
   outcomeUnknown?: boolean;
   // Persisted before a non-idempotent side effect (webhook/notification) fires,
   // so a reclaimed job refuses to replay it (at-most-once) rather than

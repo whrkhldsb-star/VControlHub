@@ -61,16 +61,19 @@ describe.skipIf(process.env.RUN_DATABASE_INTEGRATION_TESTS !== "1")("config expo
 		// Made by an administrator who is not part of the customer.
 		await prisma.user.create({ data: { id: `${p}-maker`, username: `${p}-maker`, passwordHash: "hash" } });
 		await prisma.commandTemplate.create({ data: { id: `${p}-tpl`, name: `${p}-restart`, command: "systemctl restart app", teamId: `${p}-team-src`, createdById: `${p}-maker` } });
-		await prisma.playbook.create({ data: { id: `${p}-pb`, name: `${p}-heal`, triggerType: "manual", triggerConfig: {}, steps: [], teamId: `${p}-team-src`, createdById: `${p}-maker` } });
+		await prisma.playbook.create({ data: { id: `${p}-pb`, name: `${p}-heal`, triggerType: "manual", triggerConfig: {},
+			steps: [{ id: "notify", name: "Notify", type: "send_notification", config: { recipientUserId: `${p}-user`, subject: "Status", body: "Done" } }],
+			teamId: `${p}-team-src`, createdById: `${p}-maker` } });
 		await prisma.announcement.create({ data: { id: `${p}-ann`, title: `${p}-notice`, body: "maintenance", createdBy: `${p}-maker` } });
 		await prisma.snippet.create({ data: { id: `${p}-snip`, title: `${p}-snippet`, content: "echo ok", createdBy: `${p}-maker` } });
 
 		const exported = await buildExportFile({ session: admin as never, mode: "full", scope: "global", sourceDomain: "source.test" });
-		// As uploaded: JSON, validated by the import schema; only this test's rows.
-		const parsed = exportFileSchema.parse(JSON.parse(JSON.stringify(exported)));
+		// Validate this test's rows as uploaded JSON. Other suites sharing the
+		// database may deliberately seed invalid legacy Playbooks.
 		const ours = <T>(rows: T[]) => rows.filter((row) => JSON.stringify(row).includes(p));
-		file = { ...parsed, tables: Object.fromEntries(Object.entries(parsed.tables).map(([name, rows]) => [name,
-			name === "identityTemplates" ? (rows as Array<{ id: string }>).filter((row) => row.id === "identity:customer_admin") : ours(rows as unknown[])])) as ExportFile["tables"] };
+		const tables = Object.fromEntries(Object.entries(exported.tables).map(([name, rows]) => [name,
+			name === "identityTemplates" ? (rows as Array<{ id: string }>).filter((row) => row.id === "identity:customer_admin") : ours(rows as unknown[])]));
+		file = exportFileSchema.parse(JSON.parse(JSON.stringify({ ...exported, tables })));
 
 		// ── The target instance: same business keys, other ids ──
 		await cleanup();

@@ -14,6 +14,7 @@ import { importPlaybooks } from "../import-executors-automation";
 describe.skipIf(process.env.RUN_DATABASE_INTEGRATION_TESTS !== "1")("playbook import and its schedule (PostgreSQL)", () => {
 	const id = `pbimport-${randomUUID().slice(0, 8)}`;
 	const yearly = new Date(Date.now() + 200 * 86_400_000);
+	const steps = [{ id: "notify", name: "Notify", type: "send_notification", config: { recipientUserId: "user", subject: "Schedule", body: "Due" } }];
 
 	beforeAll(async () => {
 		const database = new URL(process.env.DATABASE_URL!);
@@ -21,7 +22,7 @@ describe.skipIf(process.env.RUN_DATABASE_INTEGRATION_TESTS !== "1")("playbook im
 			throw new Error("requires an isolated loopback audit/test database");
 		}
 		await prisma.playbook.create({
-			data: { id, name: id, triggerType: "cron", triggerConfig: { expression: "0 0 1 1 *" }, steps: [], enabled: true, nextRunAt: yearly, metricMatchState: { matched: true } },
+			data: { id, name: id, triggerType: "cron", triggerConfig: { expression: "0 0 1 1 *" }, steps, enabled: true, nextRunAt: yearly, metricMatchState: { matched: true } },
 		});
 	});
 	afterAll(async () => {
@@ -30,8 +31,8 @@ describe.skipIf(process.env.RUN_DATABASE_INTEGRATION_TESTS !== "1")("playbook im
 	});
 
 	const row = (expression: string, enabled = true) => ({
-		id, name: id, description: null, triggerType: "cron", triggerConfig: { expression }, steps: [], chainRetry: 0, enabled, createdById: null, teamId: null,
-	}) as never;
+		id, name: id, description: null, triggerType: "cron", triggerConfig: { expression }, steps, chainRetry: 0, enabled, createdById: null, teamId: null, createdAt: new Date().toISOString(),
+	});
 
 	it("schedules an overwritten cron by its new expression", async () => {
 		const counts = { created: 0, updated: 0, skipped: 0 };

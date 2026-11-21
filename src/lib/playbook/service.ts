@@ -10,14 +10,14 @@ import { apiCopy } from "@/lib/i18n/api-copy";
  */
 
 import { Prisma } from "@prisma/client";
-import { assertUserInActorScope, isGlobalTeamManager, playbookTeamWhere, serverTeamWhere, teamCreateData } from "@/lib/auth/team-scope";
-import type { SessionPayload } from "@/lib/auth/session";
+import { assertUserInActorScope, isGlobalTeamManager, playbookTeamWhere, serverTeamWhere, teamCreateData, type TeamSession } from "@/lib/auth/team-scope";
 
 import { prisma } from "@/lib/db";
 import { auditUserAction } from "@/lib/audit/service";
 import { acquireAdvisoryLock } from "@/lib/concurrency/advisory-lock";
 import { NotFoundError, ValidationError, BusinessError, ForbiddenError } from "@/lib/errors";
 import { sessionHasPermission } from "@/lib/auth/authorization";
+import { PLAYBOOK_COMMAND_PERMISSION, PLAYBOOK_RUN_PERMISSION } from "./permissions";
 
 import type {
   CreatePlaybookInput,
@@ -40,8 +40,6 @@ import {
 } from "./trigger-utils";
 import { queuePlaybookRunWithClient } from "./run-queue";
 import { toJsonValue } from "@/lib/db/json";
-
-type TeamSession = Pick<SessionPayload, "userId" | "roles" | "currentTeamId">;
 
 /**
  * Reject playbook steps that target servers outside the caller's team.
@@ -122,7 +120,7 @@ function assertPlaybookCommandAuthoring(
 ): void {
   if (!session) return;
   const hasCommandStep = steps.some((step) => step.type === "run_command");
-  if (hasCommandStep && !sessionHasPermission(session, "command:execute")) {
+  if (hasCommandStep && !sessionHasPermission(session, PLAYBOOK_COMMAND_PERMISSION)) {
     throw new ForbiddenError(
       apiCopy("apiCopy.playbooks.with.command.steps.require.the.command.execute.permiss.e411b7bc"),
     );
@@ -288,6 +286,25 @@ export async function createPlaybook(
   return narrowed;
 }
 
+async function hasAutomaticTrigger(db: Prisma.TransactionClient, id: string, triggerType: string): Promise<boolean> {
+  // Imports and legacy rows can carry a manual trigger. Alert rules can still start those by id.
+  if (triggerType !== "manual") return true;
+  return Boolean(await db.alertRule.findFirst({ where: { playbookIds: { has: id } }, select: { id: true } }));
+}
+
+async function updatePlaybookWithoutRunPermission(where: Prisma.PlaybookWhereInput, data: Prisma.PlaybookUncheckedUpdateManyInput) {
+  // Alert bindings and configuration imports do not take the lifecycle lock. Read all the fields that allow
+  // a non-runner to edit and write the playbook on a single serializable snapshot.
+  return prisma.$transaction(async (tx) => {
+    const current = await tx.playbook.findFirst({ where, select: { id: true, enabled: true, triggerType: true } });
+    if (!current) throw new NotFoundError(t("backend.playbook.notFound"));
+    if (current.enabled && await hasAutomaticTrigger(tx, current.id, current.triggerType)) {
+      throw new ForbiddenError(t("backend.playbook.triggerChangeRequiresRun"));
+    }
+    return tx.playbook.updateMany({ where, data });
+  }, { isolationLevel: "Serializable" });
+}
+
 export async function updatePlaybook(
   input: UpdatePlaybookInput,
   updatedById: string,
@@ -299,21 +316,21 @@ export async function updatePlaybook(
   try {
     const existing = await getPlaybook(id, session);
     if (!existing) throw new NotFoundError(t("backend.playbook.notFound"));
-    if (rest.steps !== undefined) {
-      await assertPlaybookStepsInScope(rest.steps as PlaybookStep[], session);
-    }
-
     const effectiveTriggerType = rest.triggerType ?? existing.triggerType;
     const effectiveTriggerConfig = (rest.triggerConfig ?? existing.triggerConfig) as TriggerConfig;
+    const effectiveEnabled = rest.enabled ?? existing.enabled;
     const triggerChanged = rest.triggerType !== undefined || rest.triggerConfig !== undefined;
-    // Trigger, enabled and retries decide when the playbook runs unattended, as its owner. Changing them is the
-    // decision to run it: it takes playbook:run, and command steps keep needing command:execute (the authoring
-    // rule above), so playbook:manage alone cannot put another member's command playbook on a cron.
-    if (session && (triggerChanged || rest.enabled !== undefined || rest.chainRetry !== undefined)) {
-      if (!sessionHasPermission(session, "playbook:run")) {
+    const schedulingChanged = triggerChanged || rest.enabled !== undefined || rest.chainRetry !== undefined;
+    const lacksRun = session && !sessionHasPermission(session, PLAYBOOK_RUN_PERMISSION);
+    // Unattended runs use the owner's authority, including when the caller only edits the steps.
+    if (session && (schedulingChanged || (effectiveEnabled && await hasAutomaticTrigger(prisma, id, effectiveTriggerType)))) {
+      if (lacksRun) {
         throw new ForbiddenError(t("backend.playbook.triggerChangeRequiresRun"));
       }
       if (rest.steps === undefined) assertPlaybookCommandAuthoring(existing.steps, session);
+    }
+    if (rest.steps !== undefined) {
+      await assertPlaybookStepsInScope(rest.steps as PlaybookStep[], session);
     }
     // Taking a playbook over makes its runs act as the claimer. It is meant for an orphaned one (R0-07); a live
     // owner's playbook only changes hands through a platform administrator.
@@ -333,8 +350,6 @@ export async function updatePlaybook(
     const normalizedTriggerConfig = triggerChanged && effectiveTriggerType === "cron" && isCronTriggerConfig(effectiveTriggerConfig)
       ? { expression: normalizePlaybookCronExpression(effectiveTriggerConfig.expression) }
       : effectiveTriggerConfig;
-    const effectiveEnabled = rest.enabled ?? existing.enabled;
-
     const data: Prisma.PlaybookUncheckedUpdateManyInput = {};
     if (rest.name !== undefined) data.name = rest.name;
     // A playbook whose creator is gone runs as nobody; an administrator takes it over (R0-07).
@@ -355,10 +370,10 @@ export async function updatePlaybook(
         : null;
     }
     if (triggerChanged) data.metricMatchState = Prisma.DbNull;
-    const updated = await prisma.playbook.updateMany({
-      where: { id, ...(session ? playbookTeamWhere(session) : {}) },
-      data,
-    });
+    const where = { id, ...(session ? playbookTeamWhere(session) : {}) };
+    const updated = lacksRun
+      ? await updatePlaybookWithoutRunPermission(where, data)
+      : await prisma.playbook.updateMany({ where, data });
     if (updated.count === 0) throw new NotFoundError(t("backend.playbook.notFound"));
     const row = await getPlaybook(id, session);
     if (!row) throw new NotFoundError(t("backend.playbook.notFound"));

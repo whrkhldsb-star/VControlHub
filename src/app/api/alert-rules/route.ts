@@ -12,6 +12,7 @@ import {
   ensureDefaultAlertRules,
 } from "@/lib/alert/service";
 import { auditUserAction } from "@/lib/audit/service";
+import { PLAYBOOK_RUN_PERMISSION } from "@/lib/playbook/permissions";
 import { toAlertRuleDto } from "@/lib/alert/rule-dto";
 import { evaluateAlerts } from "@/lib/health/service";
 import { requestLocale, withApiRoute } from "@/lib/http/api-guard";
@@ -258,6 +259,7 @@ export async function PATCH(request: Request) {
     request,
     {
       permission: "notification:manage",
+      optionalTokenPermissions: [PLAYBOOK_RUN_PERMISSION],
       rateLimit: GENERAL_WRITE_LIMIT,
       errorStatus: 400,
       errorMessage: apiCopy("apiCopy.failed.to.update.8eb4917b"),

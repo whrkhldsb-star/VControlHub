@@ -16,6 +16,7 @@ import { t } from "@/lib/i18n/service-translations";
 import { assertRequesterMayExecuteCommand } from "@/lib/auth/command-execution-authz";
 import { canAlertRuleTargetTeam } from "@/lib/alert/rule-scope";
 import { executePlaybookChain } from "./executor";
+import { redactWebhookResult } from "./webhook-result";
 import type { PlaybookStep, PlaybookStepResult } from "./types";
 import { toJsonValue } from "@/lib/db/json";
 
@@ -80,7 +81,9 @@ function terminalJobResult(status: string, errorMessage: string | null | undefin
   // cancelled maps to failed so the durable job is not requeued.
   return {
     status: status === "completed" ? "completed" : "failed",
-    summary: errorMessage ?? status,
+    // A terminal row may predate webhook redaction. The job needs only its
+    // failure status when reclaimed; never copy that historical error into a new event.
+    summary: status === "failed" ? status : errorMessage ?? status,
   };
 }
 
@@ -134,7 +137,7 @@ export async function processPlaybookRun(runId: string, jobId: string, signal?: 
   const steps = executionState?.schemaVersion === 1 && Array.isArray(executionState.stepsSnapshot)
     ? executionState.stepsSnapshot
     : run.playbook.steps as unknown as PlaybookStep[];
-  const hasCommandStep = steps.some((step) => step.type === "run_command");
+  const hasCommandStep = Array.isArray(steps) && steps.some((step) => step?.type === "run_command");
   if (hasCommandStep && !requesterId) {
     throw new Error("playbook command step requires a creator/requester");
   }
@@ -210,7 +213,11 @@ export async function processPlaybookRun(runId: string, jobId: string, signal?: 
       eventJobId: jobId,
       onProgress: (progress) => heartbeatJob(jobId, WORKER_ID, { leaseMs: LEASE_MS, progress }),
     });
-    const failed = chain.results.find((result) => result.status === "failed");
+    const stepResults = chain.results.map((result) => redactWebhookResult(
+      Array.isArray(steps) ? steps.find((step) => step?.id === result.stepId) : undefined, result,
+    ));
+    const failed = stepResults.find((result) => result.status === "failed");
+    const failedError = failed?.error ?? null;
     const status = failed ? "failed" : "completed";
     // CAS finalize: never overwrite cancelled (or an already-terminal row)
     // written while the chain was in flight.
@@ -218,8 +225,8 @@ export async function processPlaybookRun(runId: string, jobId: string, signal?: 
       where: { id: runId, status: { in: ["queued", "running"] } },
       data: {
         status,
-        stepResults: toJsonValue(chain.results),
-        errorMessage: failed?.error ?? null,
+        stepResults: toJsonValue(stepResults),
+        errorMessage: failedError,
         completedAt: new Date(),
       },
     });
@@ -242,7 +249,7 @@ export async function processPlaybookRun(runId: string, jobId: string, signal?: 
         dryRun: latest.dryRun,
         summary: chain.summary,
         failedStepId: failed?.stepId ?? null,
-        failedError: failed?.error ?? null,
+        failedError,
         stepCount: chain.results.length,
       },
       status === "completed" ? "INFO" : "WARNING",
