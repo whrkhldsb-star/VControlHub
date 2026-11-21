@@ -123,6 +123,42 @@ describe("/api/users/permissions", () => {
     expect(mocks.prisma.server.findMany).toHaveBeenLastCalledWith(expect.objectContaining({ where: expect.objectContaining({ teamId: "team-a", id: "z" }) }));
   });
 
+  it("includes only the saved customer's assignments outside the option page on the editor's initial read", async () => {
+    const nodeGrant = (teamId: string) => ({
+      id: teamId, storageNodeId: teamId, storageNode: { id: teamId, name: teamId, teamId },
+      pathPrefix: "", quotaBytes: null, maxFileBytes: null, createdAt: new Date(), updatedAt: new Date(),
+    });
+    const serverGrant = (teamId: string) => ({ serverId: teamId, server: { id: teamId, name: teamId, teamId } });
+    mocks.prisma.user.findUnique.mockResolvedValue({ ...initialAccount,
+      serverAccess: ["team-a", "former-team"].map(serverGrant), storageAccess: ["team-a", "former-team"].map(nodeGrant) });
+    const url = "http://local/api/users/permissions?userId=user1&pageSize=1&includeAssigned=1";
+    const body = await (await route.GET(new Request(url))).json();
+    expect(body.servers).toEqual([]);
+    expect(body.storageNodes).toEqual([{ id: "node-a" }]);
+    expect(body.user.serverAccess).toEqual([serverGrant("team-a")]);
+    expect(body.user.storageAccess.map((row: { storageNodeId: string }) => row.storageNodeId)).toEqual(["team-a"]);
+    expect(mocks.getStorageAccessUsage).toHaveBeenCalledTimes(1);
+  });
+
+  it("browses a single picker without loading grants, usage, customers or the other option lists", async () => {
+    mocks.prisma.server.findMany.mockResolvedValueOnce([{ id: "s2" }]);
+    const url = "http://local/api/users/permissions?userId=user1&resource=servers&serverAfter=s1&search=ops&pageSize=1";
+    const body = await (await route.GET(new Request(url))).json();
+    expect(body.servers).toEqual([{ id: "s2" }]);
+    expect(body).not.toHaveProperty("user");
+    const { select } = mocks.prisma.user.findUnique.mock.calls[0]![0];
+    expect(select).not.toHaveProperty("serverAccess");
+    expect(select).not.toHaveProperty("storageAccess");
+    expect(mocks.prisma.server.findMany).toHaveBeenCalledWith(expect.objectContaining({
+      where: { teamId: "team-a", team: { deletedAt: null }, name: { contains: "ops", mode: "insensitive" } },
+      cursor: { id: "s1", teamId: "team-a" }, skip: 1, take: 2,
+    }));
+    expect(mocks.prisma.storageNode.findMany).not.toHaveBeenCalled();
+    expect(mocks.prisma.team.findMany).not.toHaveBeenCalled();
+    expect(mocks.listIdentityTemplates).not.toHaveBeenCalled();
+    expect(mocks.getStorageAccessUsage).not.toHaveBeenCalled();
+  });
+
   it("PATCH changes the account type through the account service", async () => {
     const res = await patch({ userId: "user1", account: { type: "customer", teamId: "team-b", identityTemplateId: "identity:files" } });
     expect(res.status).toBe(200);

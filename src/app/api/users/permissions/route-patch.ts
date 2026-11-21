@@ -5,23 +5,30 @@ import { t } from "@/lib/i18n/service-translations";
 import { parseNullableBigIntInput } from "@/lib/storage/access-control";
 import { normalizeStorageTargetDirectory } from "@/lib/storage/path-utils";
 
+export const permissionAccountIdentity = {
+  id: true, username: true, displayName: true,
+  roles: { select: { role: { select: { key: true } } } },
+  teamMembership: {
+    select: {
+      teamId: true, team: { select: { deletedAt: true } }, identityTemplateId: true,
+      identityTemplate: { select: { permissions: true } },
+    },
+  },
+} as const;
+
 export function readPermissionAccount(db: Prisma.TransactionClient, userId: string) {
   return db.user.findUnique({
     where: { id: userId },
     select: {
-      id: true, username: true, displayName: true,
-      roles: { select: { role: { select: { key: true } } } },
-      teamMembership: {
-        select: {
-          teamId: true, team: { select: { deletedAt: true } }, identityTemplateId: true,
-          identityTemplate: { select: { permissions: true } },
-        },
-      },
+      ...permissionAccountIdentity,
       storageAccess: {
-        include: { storageNode: { select: { id: true, name: true, driver: true, basePath: true } } },
+        include: { storageNode: { select: { id: true, name: true, driver: true, basePath: true, teamId: true } } },
         orderBy: [{ storageNodeId: "asc" }, { pathPrefix: "asc" }],
       },
-      serverAccess: { orderBy: { serverId: "asc" } },
+      serverAccess: {
+        include: { server: { select: { id: true, name: true, operatingSystem: true, teamId: true } } },
+        orderBy: { serverId: "asc" },
+      },
     },
   });
 }

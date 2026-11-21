@@ -35,9 +35,13 @@ function grouped(rows: Grant[], resource: Resource) {
 function changedResources(resource: Resource, before: Grant[], after: Grant[], scope: string[]) {
   const saved = grouped(before, resource);
   const draft = grouped(after, resource);
-  const ids = new Set(scope.filter(id =>
-    JSON.stringify(saved.get(id)?.sort() ?? []) !== JSON.stringify(draft.get(id)?.sort() ?? [])));
-  return { ids: [...ids], rows: after.filter(row => ids.has(String(row[fields[resource][0]]))) };
+  const ids = new Set(scope);
+  for (const id of ids) {
+    if (JSON.stringify(saved.get(id)?.sort() ?? []) === JSON.stringify(draft.get(id)?.sort() ?? [])) ids.delete(id);
+  }
+  const rows = after.filter(row => ids.has(String(row[fields[resource][0]])))
+    .map(row => Object.fromEntries(fields[resource].map(key => [key, row[key]])));
+  return { ids: [...ids], rows };
 }
 
 export function permissionChanges(view: EditorView, body: PermissionDraft): PermissionDraft {

@@ -135,10 +135,10 @@ export async function createApiToken(input: {
   });
 }
 
-type TokenStatus = "all" | "active" | "expired" | "revoked";
+export type TokenStatus = "all" | "active" | "expired" | "revoked";
 type TokenPageOptions = { pageSize: number; cursor?: string; status?: TokenStatus };
 
-function tokenStatusWhere(status: TokenStatus = "all", now = new Date()): Prisma.ApiTokenWhereInput {
+function tokenStatusWhere(status: TokenStatus, now: Date): Prisma.ApiTokenWhereInput {
   if (status === "active") return { revokedAt: null, OR: [{ expiresAt: null }, { expiresAt: { gt: now } }] };
   if (status === "expired") return { revokedAt: null, expiresAt: { lte: now } };
   return status === "revoked" ? { revokedAt: { not: null } } : {};
@@ -152,25 +152,19 @@ function tokenRows(userId: string, take: number, cursor?: string, status?: Prism
   });
 }
 
-export async function listApiTokenPage(userId: string, { pageSize, cursor, status }: TokenPageOptions) {
-  const where = tokenStatusWhere(status);
-  const [rows, total] = await prisma.$transaction([
+export async function listApiTokenPage(userId: string, { pageSize, cursor, status = "all" }: TokenPageOptions) {
+  const now = new Date();
+  const owner = { createdBy: userId };
+  const where = tokenStatusWhere(status, now);
+  const [rows, totalTokens, activeTokens, filteredCount] = await prisma.$transaction([
     tokenRows(userId, pageSize + 1, cursor, where),
-    prisma.apiToken.count({ where: { createdBy: userId, ...where } }),
+    prisma.apiToken.count({ where: owner }),
+    prisma.apiToken.count({ where: { ...owner, ...tokenStatusWhere("active", now) } }),
+    ...(status === "expired" || status === "revoked" ? [prisma.apiToken.count({ where: { ...owner, ...where } })] : []),
   ], { isolationLevel: "RepeatableRead" });
   const tokens = rows.slice(0, pageSize);
-  return { tokens, total, nextCursor: rows.length > pageSize ? tokens.at(-1)!.id : null };
-}
-
-/** The existing server-rendered manager consumes the complete inventory. */
-export async function listApiTokens(userId: string, pageSize = 200) {
-  const tokens = await tokenRows(userId, pageSize);
-  let batch = tokens;
-  while (batch.length === pageSize && batch.length > 0) {
-    batch = await tokenRows(userId, pageSize, batch[batch.length - 1]!.id);
-    tokens.push(...batch);
-  }
-  return tokens;
+  const total = filteredCount ?? (status === "active" ? activeTokens : totalTokens);
+  return { tokens, total, totalTokens, activeTokens, nextCursor: rows.length > pageSize ? tokens.at(-1)!.id : null };
 }
 
 export async function revokeApiToken(input: { userId: string; id: string }) {

@@ -182,11 +182,16 @@ describe.skipIf(process.env.RUN_DATABASE_INTEGRATION_TESTS !== "1")("API token i
       })),
     ] });
     const first = await listApiTokenPage(owner, { pageSize: 200 });
-    expect(first.total).toBe(201);
+    expect(first).toMatchObject({ total: 201, totalTokens: 201, activeTokens: 1 });
     expect(first.tokens).toHaveLength(200);
     const last = await listApiTokenPage(owner, { pageSize: 200, cursor: first.nextCursor! });
     expect(last).toMatchObject({ total: 201, nextCursor: null, tokens: [{ id: active.id }] });
     expect(await listApiTokenPage(owner, { pageSize: 1, status: "active" }))
-      .toMatchObject({ total: 1, nextCursor: null, tokens: [{ id: active.id }] });
+      .toMatchObject({ total: 1, totalTokens: 201, activeTokens: 1, nextCursor: null, tokens: [{ id: active.id }] });
+    for (const status of ["expired", "revoked"] as const) {
+      const filtered = await listApiTokenPage(owner, { pageSize: 1, status });
+      expect(filtered).toMatchObject({ total: 100, totalTokens: 201, activeTokens: 1, nextCursor: filtered.tokens[0]!.id });
+      expect(filtered.tokens).toHaveLength(1);
+    }
   });
 });

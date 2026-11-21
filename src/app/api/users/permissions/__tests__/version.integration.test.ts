@@ -66,6 +66,11 @@ describe.skipIf(process.env.RUN_DATABASE_INTEGRATION_TESTS !== "1")("versioned a
     expect((await save(latest.version, storage)).status).toBe(200);
     expect(await prisma.userServerAccess.findUnique({ where: { userId_serverId: { userId: id, serverId: id } } })).toMatchObject(server);
     expect(await prisma.userStorageAccess.findFirst({ where: { userId: id } })).toMatchObject({ canRead: false });
+    const offPage = await (await GET(new Request(url + "?userId=" + id + "&pageSize=1&includeAssigned=1&id=absent"))).json();
+    expect(offPage.servers).toEqual([]);
+    expect(offPage.storageNodes).toEqual([]);
+    expect(offPage.user.serverAccess).toMatchObject([{ serverId: id, server: { id, teamId: id } }]);
+    expect(offPage.user.storageAccess).toMatchObject([{ storageNodeId: id, storageNode: { id, name: id } }]);
   });
 
   it("commits only one of two simultaneous edits based on the same version", async () => {
