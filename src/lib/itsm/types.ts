@@ -27,6 +27,8 @@ export type ItsmEventDirection = (typeof ITSM_EVENT_DIRECTION_VALUES)[number];
 export type ItsmConnectionConfig = {
 	/** Outbound HTTPS webhook URL (required for outbound-capable providers). */
 	webhookUrl?: string;
+	/** Generic receiver guarantees deduplication by Idempotency-Key. */
+	idempotentDelivery?: boolean;
 	/** Telegram chat id / Slack channel label / display target */
 	chatId?: string;
 	/** Default priority for inbound-created tickets */
@@ -83,6 +85,8 @@ export interface ItsmEventRecord {
 }
 
 export type ItsmOutboundTicketPayload = {
+	eventId?: string;
+	occurredAt?: string;
 	ticketId: string;
 	title: string;
 	description: string;

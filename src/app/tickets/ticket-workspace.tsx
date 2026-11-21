@@ -3,6 +3,7 @@
 import Link from "next/link";
 import { useEffect, useMemo, useRef, useState } from "react";
 import { useUrlQueryState } from "@/lib/hooks/use-url-query-state";
+import { parseTicketFilters } from "@/lib/ticket/filters";
 import { csrfFetch } from "@/lib/auth/csrf-client";
 import { getErrorMessage } from "@/lib/http/error-message";
 import type { TicketWorkspaceBoard, TicketWorkspacePage, TicketWorkspaceTicket } from "@/lib/ticket/workspace-dto";
@@ -131,20 +132,25 @@ export function TicketWorkspace({ initialPage, initialBoard, canManage, now, onC
     category: "",
     sla: "",
     q: "",
+    search: "",
+    slaStatus: "",
+    assigneeId: "",
     page: "1",
   });
   const view = (urlState.view === "board" ? "board" : "list") as ViewMode;
   const setView = (value: ViewMode) => setUrlField("view", value);
-  const status = urlState.status || "";
+  const filters = parseTicketFilters((key) => urlState[key as keyof typeof urlState]);
+  const status = filters.status ?? "";
   const setStatus = (value: string) => patchUrl({ status: value, page: "1" });
-  const priority = urlState.priority || "";
+  const priority = filters.priority ?? "";
   const setPriority = (value: string) => patchUrl({ priority: value, page: "1" });
   const category = urlState.category || "";
   const setCategory = (value: string) => patchUrl({ category: value, page: "1" });
-  const slaStatus = urlState.sla || "";
-  const setSlaStatus = (value: string) => patchUrl({ sla: value, page: "1" });
-  const search = urlState.q || "";
-  const setSearch = (value: string) => patchUrl({ q: value, page: "1" });
+  const slaStatus = filters.slaStatus ?? "";
+  const setSlaStatus = (value: string) => patchUrl({ sla: value, slaStatus: "", page: "1" });
+  const search = urlState.search || urlState.q || "";
+  const assigneeId = filters.assigneeId;
+  const setSearch = (value: string) => patchUrl({ q: value, search: "", page: "1" });
   const page = Math.max(1, Number.parseInt(urlState.page || "1", 10) || 1);
   const setPage = (value: number) => setUrlField("page", String(Math.max(1, value)));
   // SLA labels are judged at the time the list was read: the server's render
@@ -177,10 +183,11 @@ export function TicketWorkspace({ initialPage, initialBoard, canManage, now, onC
     if (status) params.set("status", status);
     if (priority) params.set("priority", priority);
     if (category) params.set("category", category);
+    if (assigneeId) params.set("assigneeId", assigneeId);
     if (slaStatus) params.set("slaStatus", slaStatus);
     if (search.trim()) params.set("search", search.trim());
     return `/api/tickets?${params.toString()}`;
-  }, [category, page, priority, search, slaStatus, status, view]);
+  }, [assigneeId, category, page, priority, search, slaStatus, status, view]);
   // The server already rendered what the URL first asked for.
   const renderedRequest = useRef(request);
   // Only the newest request may show its answer: an older one answering
@@ -218,10 +225,10 @@ export function TicketWorkspace({ initialPage, initialBoard, canManage, now, onC
   }, [reloadKey, request, view]);
 
   const clearFilters = () => {
-    patchUrl({ status: "", priority: "", category: "", sla: "", q: "", page: "1" });
+    patchUrl({ status: "", priority: "", category: "", sla: "", q: "", slaStatus: "", search: "", assigneeId: "", page: "1" });
   };
 
-  const filtersActive = Boolean(status || priority || category || slaStatus || search.trim());
+  const filtersActive = Boolean(status || priority || category || assigneeId || slaStatus || search.trim());
   const listTickets = listPage?.tickets ?? [];
   const total = view === "board"
     ? STATUSES.reduce((sum, columnStatus) => sum + (board?.[columnStatus]?.total ?? 0), 0)

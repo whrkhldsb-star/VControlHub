@@ -13,6 +13,7 @@ import type { Permission, RoleKey } from "@/lib/auth/rbac";
 import { sessionHasPermission } from "@/lib/auth/authorization";
 import type { Prisma } from "@prisma/client";
 import { commandRequestTeamWhere, serverTeamWhere, teamWhere } from "@/lib/auth/team-scope";
+import { lockTicket } from "./transaction";
 import { prisma } from "@/lib/db";
 import { NotFoundError, ValidationError } from "@/lib/errors";
 import { t } from "@/lib/i18n/service-translations";
@@ -88,146 +89,45 @@ export function actorName(user?: { username?: string | null; displayName?: strin
   return user.displayName || user.username || null;
 }
 
-export async function linkTicketCommand(input: {
-  ticketId: string;
-  commandRequestId: string | null;
-  actorId?: string;
-  session?: TeamSession | null;
-}) {
-  const teamFilter = ticketTeamFilter(input.session);
-  const ticket = input.session
-    ? await prisma.ticket.findFirst({
-        where: { id: input.ticketId, ...teamFilter },
-        select: { id: true, relatedCommandId: true, status: true },
-      })
-    : await prisma.ticket.findUnique({
-        where: { id: input.ticketId },
-        select: { id: true, relatedCommandId: true, status: true },
-      });
-  if (!ticket) throw new NotFoundError(t("backend.ticket.ticketNotFound"));
+type LinkInput = { ticketId: string; actorId?: string; session?: TeamSession | null };
 
-  if (input.commandRequestId) {
-    const cmd = input.session
-      ? await prisma.commandRequest.findFirst({
-          where: {
-            id: input.commandRequestId,
-            ...commandRequestTeamWhere(input.session),
-          },
-          select: { id: true, title: true, status: true },
-        })
-      : await prisma.commandRequest.findUnique({
-          where: { id: input.commandRequestId },
-          select: { id: true, title: true, status: true },
-        });
-    if (!cmd) throw new ValidationError(t("backend.command.requestNotFound"));
-  }
-
-  const previous = ticket.relatedCommandId;
-  if (input.session) {
-    const claimed = await prisma.ticket.updateMany({
-      where: { id: input.ticketId, ...teamFilter },
-      data: { relatedCommandId: input.commandRequestId },
-    });
-    if (claimed.count === 0) throw new NotFoundError(t("backend.ticket.ticketNotFound"));
-  } else {
-    await prisma.ticket.update({
-      where: { id: input.ticketId },
-      data: { relatedCommandId: input.commandRequestId },
-    });
-  }
-  const updated = input.session
-    ? await prisma.ticket.findFirst({ where: { id: input.ticketId, ...teamFilter } })
-    : await prisma.ticket.findUnique({ where: { id: input.ticketId } });
-  if (!updated) throw new NotFoundError(t("backend.ticket.ticketNotFound"));
-
-  if (previous !== input.commandRequestId) {
-    await prisma.ticketEscalation.create({
-      data: {
-        ticketId: input.ticketId,
-        fromStatus: ticket.status,
-        toStatus: ticket.status,
-        reason: input.commandRequestId
-          ? `Linked command request ${input.commandRequestId}`
-          : previous
-            ? `Unlinked command request ${previous}`
-            : "Command link updated",
-        escalatedBy: input.actorId ?? null,
-      },
-    });
-  }
-
-  return updated;
+function updateTicketLink(input: LinkInput, field: "relatedServerId" | "relatedCommandId", next: string | null) {
+  return prisma.$transaction(async (tx) => {
+    await lockTicket(tx, input.ticketId);
+    const where = { id: input.ticketId, ...ticketTeamFilter(input.session) };
+    const ticket = await tx.ticket.findUnique({ where });
+    if (!ticket) throw new NotFoundError(t("backend.ticket.ticketNotFound"));
+    const serverLink = field === "relatedServerId";
+    if (next) {
+      const target = serverLink
+        ? await tx.server.findFirst({ where: { id: next, ...(input.session ? serverTeamWhere(input.session) : {}) }, select: { id: true } })
+        : await tx.commandRequest.findFirst({ where: { id: next, ...(input.session ? commandRequestTeamWhere(input.session) : {}) }, select: { id: true } });
+      if (!target) throw new ValidationError(serverLink ? t("backend.ticket.serverNotFound") : t("backend.command.requestNotFound"));
+    }
+    const previous = ticket[field];
+    if (previous === next) return ticket;
+    const updated = await tx.ticket.update({ where, data: { [field]: next } });
+    const label = serverLink ? "server" : "command request";
+    const history = [
+      ...(previous ? [`Unlinked ${label} ${previous}`] : []),
+      ...(next ? [`Linked ${label} ${next}`] : []),
+    ];
+    await tx.ticketEscalation.createMany({ data: history.map((reason) => ({
+      ticketId: ticket.id, fromStatus: ticket.status, toStatus: ticket.status, reason, escalatedBy: input.actorId ?? null,
+    })) });
+    return updated;
+  });
 }
 
-export async function linkTicketServer(input: {
-  ticketId: string;
-  serverId: string | null;
-  actorId?: string;
-  session?: TeamSession | null;
-}) {
-  const teamFilter = ticketTeamFilter(input.session);
-  const ticket = input.session
-    ? await prisma.ticket.findFirst({
-        where: { id: input.ticketId, ...teamFilter },
-        select: { id: true, relatedServerId: true, status: true },
-      })
-    : await prisma.ticket.findUnique({
-        where: { id: input.ticketId },
-        select: { id: true, relatedServerId: true, status: true },
-      });
-  if (!ticket) throw new NotFoundError(t("backend.ticket.ticketNotFound"));
-
-  if (input.serverId) {
-    const server = input.session
-      ? await prisma.server.findFirst({
-          where: { id: input.serverId, ...serverTeamWhere(input.session) },
-          select: { id: true },
-        })
-      : await prisma.server.findUnique({
-          where: { id: input.serverId },
-          select: { id: true },
-        });
-    if (!server) throw new ValidationError(t("backend.ticket.serverNotFound"));
-  }
-
-  const previous = ticket.relatedServerId;
-  if (input.session) {
-    const claimed = await prisma.ticket.updateMany({
-      where: { id: input.ticketId, ...teamFilter },
-      data: { relatedServerId: input.serverId },
-    });
-    if (claimed.count === 0) throw new NotFoundError(t("backend.ticket.ticketNotFound"));
-  } else {
-    await prisma.ticket.update({
-      where: { id: input.ticketId },
-      data: { relatedServerId: input.serverId },
-    });
-  }
-  const updated = input.session
-    ? await prisma.ticket.findFirst({ where: { id: input.ticketId, ...teamFilter } })
-    : await prisma.ticket.findUnique({ where: { id: input.ticketId } });
-  if (!updated) throw new NotFoundError(t("backend.ticket.ticketNotFound"));
-
-  if (previous !== input.serverId) {
-    await prisma.ticketEscalation.create({
-      data: {
-        ticketId: input.ticketId,
-        fromStatus: ticket.status,
-        toStatus: ticket.status,
-        reason: input.serverId
-          ? `Linked server ${input.serverId}`
-          : previous
-            ? `Unlinked server ${previous}`
-            : "Server link updated",
-        escalatedBy: input.actorId ?? null,
-      },
-    });
-  }
-
-  return updated;
+export function linkTicketCommand(input: LinkInput & { commandRequestId: string | null }) {
+  return updateTicketLink(input, "relatedCommandId", input.commandRequestId);
 }
 
-export async function getTicketTimeline(ticketId: string, session?: TeamSession | null): Promise<{
+export function linkTicketServer(input: LinkInput & { serverId: string | null }) {
+  return updateTicketLink(input, "relatedServerId", input.serverId);
+}
+
+type TicketTimeline = {
   ticketId: string;
   events: TimelineEvent[];
   related: {
@@ -241,7 +141,13 @@ export async function getTicketTimeline(ticketId: string, session?: TeamSession 
     } | null;
     reverseTickets: Array<{ id: string; title: string; status: string }>;
   };
-}> {
+};
+
+export function getTicketTimeline(ticketId: string, session?: TeamSession | null) {
+  return prisma.$transaction((tx) => readTicketTimeline(tx, ticketId, session), { isolationLevel: "RepeatableRead" });
+}
+
+async function readTicketTimeline(tx: Prisma.TransactionClient, ticketId: string, session?: TeamSession | null): Promise<TicketTimeline> {
   const teamFilter = ticketTeamFilter(session);
   const ticketInclude = {
     creator: { select: { username: true, displayName: true } },
@@ -253,11 +159,11 @@ export async function getTicketTimeline(ticketId: string, session?: TeamSession 
     escalations: { orderBy: { createdAt: "asc" as const } },
   };
   const ticket = session
-    ? await prisma.ticket.findFirst({
-        where: { id: ticketId, ...teamFilter },
+    ? await tx.ticket.findFirst({
+        where: { id: ticketId, AND: [teamFilter, ticketParticipantFilter(session)] },
         include: ticketInclude,
       })
-    : await prisma.ticket.findUnique({
+    : await tx.ticket.findUnique({
         where: { id: ticketId },
         include: ticketInclude,
       });
@@ -267,7 +173,7 @@ export async function getTicketTimeline(ticketId: string, session?: TeamSession 
   const actorIds = [...new Set(ticket.escalations.map((esc) => esc.escalatedBy).filter((id): id is string => Boolean(id)))];
   const actors = new Map(
     actorIds.length
-      ? (await prisma.user.findMany({ where: { id: { in: actorIds } }, select: { id: true, username: true, displayName: true } }))
+      ? (await tx.user.findMany({ where: { id: { in: actorIds } }, select: { id: true, username: true, displayName: true } }))
           .map((user) => [user.id, actorName(user)] as const)
       : [],
   );
@@ -284,18 +190,32 @@ export async function getTicketTimeline(ticketId: string, session?: TeamSession 
     meta: { priority: ticket.priority, status: ticket.status },
   });
 
-  if (ticket.relatedServerId) {
+  const canReadServer = !session || sessionHasPermission(session, "server:read");
+  const serverHistoryId = (reason: string | null) => /^(?:Linked|Unlinked) server (.+)$/.exec(reason ?? "")?.[1];
+  const serverIds = new Set(ticket.escalations.map((row) => serverHistoryId(row.reason)).filter((id): id is string => Boolean(id)));
+  if (ticket.relatedServerId) serverIds.add(ticket.relatedServerId);
+  const visibleServers = canReadServer && serverIds.size
+    ? await tx.server.findMany({
+        where: { id: { in: [...serverIds] }, ...(session ? serverTeamWhere(session) : {}) },
+        select: relatedServerSelect,
+      })
+    : [];
+  const serversById = new Map(visibleServers.map((server) => [server.id, server]));
+  const relatedServer = ticket.relatedServerId ? serversById.get(ticket.relatedServerId) ?? null : null;
+  if (relatedServer) {
     events.push({
       id: `ticket-server-${ticket.id}`,
       at: ticket.createdAt.toISOString(),
       type: "ticket.linked_server",
       title: "Linked VPS",
-      detail: ticket.relatedServerId,
-      meta: { serverId: ticket.relatedServerId },
+      detail: relatedServer.id,
+      meta: { serverId: relatedServer.id },
     });
   }
 
   for (const esc of ticket.escalations) {
+    const historicalServer = serverHistoryId(esc.reason);
+    if (historicalServer && !serversById.has(historicalServer)) continue;
     const isLink =
       (esc.reason ?? "").includes("Linked command") ||
       (esc.reason ?? "").includes("Unlinked command") ||
@@ -348,20 +268,6 @@ export async function getTicketTimeline(ticketId: string, session?: TeamSession 
     });
   }
 
-  let relatedServer: { id: string; name: string; host: string } | null = null;
-  if (ticket.relatedServerId) {
-    const server = session
-      ? await prisma.server.findFirst({
-          where: { id: ticket.relatedServerId, ...serverTeamWhere(session) },
-          select: relatedServerSelect,
-        })
-      : await prisma.server.findUnique({
-          where: { id: ticket.relatedServerId },
-          select: relatedServerSelect,
-        });
-    if (server) relatedServer = server;
-  }
-
   let relatedCommand: {
     id: string;
     title: string;
@@ -373,16 +279,16 @@ export async function getTicketTimeline(ticketId: string, session?: TeamSession 
   const canReadCommand = !session || sessionHasPermission(session, "command:read");
   if (ticket.relatedCommandId && canReadCommand) {
     const cmd = session
-      ? await prisma.commandRequest.findFirst({
+      ? await tx.commandRequest.findFirst({
           // Command requests carry the command text, approvals and execution
           // logs — strict scope, so a null-team (quarantined) request is not
           // rendered into another tenant's ticket timeline.
           where: { id: ticket.relatedCommandId, ...commandRequestTeamWhere(session) },
           include: { ...relatedCommandInclude, targets: {
-            ...relatedCommandInclude.targets, where: { server: serverTeamWhere(session) },
+            ...relatedCommandInclude.targets, where: canReadServer ? { server: serverTeamWhere(session) } : { id: { in: [] } },
           } },
         })
-      : await prisma.commandRequest.findUnique({
+      : await tx.commandRequest.findUnique({
           where: { id: ticket.relatedCommandId },
           include: relatedCommandInclude,
         });
@@ -468,7 +374,7 @@ export async function getTicketTimeline(ticketId: string, session?: TeamSession 
 
   // Reverse: other tickets that share this command (or tickets linked from same server for context)
   const reverseTickets = relatedCommand && ticket.relatedCommandId
-    ? await prisma.ticket.findMany({
+    ? await tx.ticket.findMany({
         where: {
           relatedCommandId: ticket.relatedCommandId,
           NOT: { id: ticket.id },

@@ -55,10 +55,10 @@ describe.skipIf(process.env.RUN_DATABASE_INTEGRATION_TESTS !== "1")("ITSM inboun
   afterAll(async () => {
     await prisma.$executeRawUnsafe(`DROP TRIGGER IF EXISTS ${trigger} ON itsm_events`);
     await prisma.$executeRawUnsafe(`DROP FUNCTION IF EXISTS ${trigger}()`);
-    await prisma.itsmEvent.deleteMany({ where: { connectionId } });
+    await prisma.itsmEvent.deleteMany({ where: { teamId: prefix } });
     await prisma.ticketComment.deleteMany({ where: { ticket: { teamId: prefix } } });
     await prisma.ticket.deleteMany({ where: { teamId: prefix } });
-    await prisma.itsmConnection.deleteMany({ where: { id: connectionId } });
+    await prisma.itsmConnection.deleteMany({ where: { teamId: prefix } });
     await prisma.user.deleteMany({ where: { id: prefix } });
     await prisma.team.deleteMany({ where: { id: prefix } });
     await prisma.$disconnect();
@@ -116,5 +116,65 @@ describe.skipIf(process.env.RUN_DATABASE_INTEGRATION_TESTS !== "1")("ITSM inboun
 
     await expect(deliver(event)).resolves.toMatchObject({ action: "status_update" });
     expect((await prisma.ticket.findUniqueOrThrow({ where: { id: target.id } })).status).toBe("IN_PROGRESS");
+  });
+
+  it("rejects an unknown status before the comment, accepts a correction, and acknowledges an unchanged status", async () => {
+    const target = await ticket("State sync");
+    const input = { id: 7301, ticketId: target.id, commentBody: "Note", status: "unmapped" };
+    await expect(deliver(input)).rejects.toMatchObject({ status: 400 });
+    await expect(deliver({ ...input, status: 7 })).rejects.toMatchObject({ status: 400 });
+    await expect(deliver({ ...input, status: "OPEN" + " ".repeat(40) + "invalid" })).rejects.toMatchObject({ status: 400 });
+    expect(await prisma.ticketComment.count({ where: { ticketId: target.id } })).toBe(0);
+    const where = { connectionId_externalId: { connectionId, externalId: "7301" } };
+    expect(await prisma.itsmEvent.findUnique({ where })).toMatchObject({ status: "error" });
+    for (let replay = 0; replay < 2; replay++) {
+      await expect(deliver({ ...input, status: "in progress" })).resolves.toMatchObject({ action: "comment_status_update" });
+    }
+    expect(await prisma.ticketComment.count({ where: { ticketId: target.id } })).toBe(1);
+    await expect(deliver({ id: 7302, ticketId: target.id, status: "IN_PROGRESS" })).resolves.toMatchObject({ action: "acknowledged", event: { status: "ok" } });
+    expect(await prisma.ticketEscalation.count({ where: { ticketId: target.id } })).toBe(1);
+  });
+
+  it("keeps distinct long sender IDs and maps both critical and an unrecognized priority", async () => {
+    const sender = "s".repeat(256);
+    const first = await deliver({ externalId: sender + "1", title: "first", priority: "critical" });
+    const second = await deliver({ externalId: sender + "2", title: "second", priority: "unmapped" });
+    expect(first.event.externalId).not.toBe(second.event.externalId);
+    expect(first.event.payload.sourceConnectionId).toBe(connectionId);
+    const urgent = await prisma.ticket.findUniqueOrThrow({ where: { id: first.ticketId! } });
+    expect(urgent.priority).toBe("URGENT");
+    expect(Math.abs(urgent.slaDueAt!.getTime() - urgent.createdAt.getTime() - 2 * 3_600_000)).toBeLessThan(2_000);
+    expect(await prisma.ticket.findUnique({ where: { id: second.ticketId! } })).toMatchObject({ priority: "NORMAL" });
+    expect((await deliver({ externalId: sender + "1", title: "replay" })).ticketId).toBe(first.ticketId);
+    await expect(deliver({ externalId: {}, title: "malformed" })).rejects.toMatchObject({ status: 400 });
+  });
+
+  it("authenticates native Telegram and Slack envelopes, including the Slack challenge", async () => {
+    const native = async (provider: string) => (await prisma.itsmConnection.create({ data: {
+      name: provider, provider, direction: "inbound",
+      credentialsEnc: JSON.stringify({ signingSecret: secret, ...(provider === "slack" ? { webhookSecret: "outbound-only" } : {}) }), teamId: prefix,
+    } })).id;
+    const telegram = await native("telegram");
+    const json = { update_id: 700, message: { text: "Database unavailable" } };
+    const tg = { connectionId: telegram, json, rawBody: JSON.stringify(json), headers: new Headers({ "X-Telegram-Bot-Api-Secret-Token": secret }), signatureHeader: null, systemUserId: prefix };
+    const created = await handleInboundWebhook(tg);
+    expect(created.event).toMatchObject({ connectionId: telegram, externalId: "700", status: "ok" });
+    expect(await prisma.ticket.findUnique({ where: { id: created.ticketId! } })).toMatchObject({ title: json.message.text, createdBy: prefix });
+    expect((await handleInboundWebhook(tg)).ticketId).toBe(created.ticketId);
+    const slack = await native("slack");
+    const call = (json: Record<string, unknown>, key: string) => {
+      const ts = String(Math.floor(Date.now() / 1000));
+      const rawBody = JSON.stringify(json);
+      const signature = "v0=" + createHmac("sha256", key).update("v0:" + ts + ":" + rawBody).digest("hex");
+      return handleInboundWebhook({ connectionId: slack, json, rawBody, signatureHeader: signature,
+        headers: new Headers({ "x-slack-request-timestamp": ts }), systemUserId: prefix });
+    };
+    const hello = { type: "url_verification", challenge: "challenge-value" };
+    await expect(call(hello, "wrong")).rejects.toMatchObject({ status: 403 });
+    await expect(call(hello, secret)).resolves.toMatchObject({ challenge: hello.challenge, ticketId: null });
+    const message = { type: "event_callback", event_id: "Ev7", event: { type: "message", text: "Disk full" } };
+    const slackTicket = await call(message, secret);
+    expect(slackTicket.event).toMatchObject({ connectionId: slack, externalId: "Ev7" });
+    expect(await prisma.ticket.findUnique({ where: { id: slackTicket.ticketId! } })).toMatchObject({ title: "Disk full" });
   });
 });

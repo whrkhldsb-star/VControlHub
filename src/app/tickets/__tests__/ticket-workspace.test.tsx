@@ -92,6 +92,22 @@ describe("TicketWorkspace", () => {
     expect(await screen.findByText("Add staging VPS")).toBeInTheDocument();
   });
 
+  it("keeps lowercase status and the critical alias selected across the first render and reload", async () => {
+    window.history.replaceState({}, "", "/tickets?status=open&priority=critical");
+    const view = (rows: TicketWorkspaceTicket[]) => (
+      <I18nProvider initialLocale="en">
+        <TicketWorkspace initialPage={firstPage(rows)} initialBoard={null} canManage now="2026-01-02T00:00:00.000Z" />
+      </I18nProvider>
+    );
+    const { rerender } = render(view([tickets[0]!]));
+    expect(screen.getByLabelText("Status")).toHaveValue("OPEN");
+    expect(screen.getByLabelText("Priority")).toHaveValue("URGENT");
+    expect(csrfFetch).not.toHaveBeenCalled();
+    rerender(view([tickets[0]!]));
+    await waitFor(() => expect(csrfFetch).toHaveBeenCalledWith("/api/tickets?page=1&status=OPEN&priority=URGENT"));
+    expect(screen.getByText("Database outage")).toBeInTheDocument();
+  });
+
   it("says why the list could not be read, or only that it could not, and shows no empty list under it", async () => {
     const user = userEvent.setup();
     render(

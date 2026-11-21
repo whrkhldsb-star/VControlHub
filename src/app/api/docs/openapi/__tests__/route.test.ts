@@ -11,6 +11,8 @@ vi.mock("@/lib/auth/api-session", () => ({
   isSessionPayload: (value: unknown) => Boolean(value),
 }));
 
+import methodCatalog from "../method-catalog.json";
+import { buildMethodCatalog } from "../build-method-catalog";
 import { GET } from "../route";
 
 describe("GET /api/docs/openapi", () => {
@@ -21,6 +23,22 @@ describe("GET /api/docs/openapi", () => {
       username: "admin",
       permissions: ["*"],
     });
+  });
+
+  it("keeps the method catalog current and documents alternatives and cumulative checks", async () => {
+    expect(methodCatalog).toEqual(buildMethodCatalog());
+    const { paths } = await (await GET(new Request("http://local/api/docs/openapi"))).json();
+    expect(paths["/cost/budgets"].get["x-vcontrolhub-permissions"]).toEqual(["cost:read"]);
+    expect(paths["/cost/budgets"].post["x-vcontrolhub-permissions"]).toEqual(["cost:manage"]);
+    expect(paths["/tickets/{id}"].post["x-vcontrolhub-permission-groups"]).toEqual([["ticket:create", "ticket:manage", "ticket:read"]]);
+    expect(paths["/commands/{id}/tickets"].get["x-vcontrolhub-permission-groups"]).toEqual([["command:read"], ["ticket:read"]]);
+    expect(paths["/downloads"].delete["x-vcontrolhub-permissions"]).toEqual(["storage:write"]);
+    expect(paths["/servers/{id}/sftp/upload"].post["x-vcontrolhub-permissions"]).toEqual(["server:ssh"]);
+    expect(paths["/servers/{id}/file-proxy"].get.description).toContain("server:ssh ∧ storage:manage-node");
+    expect(paths["/storage/nodes"].get.description).toContain("storage:write ∨ storage:read");
+    expect(paths["/files/operations"].post.description).toContain("storage:delete ∨ storage:write");
+    expect(paths["/itsm/events"].post.requestBody.content["application/json"].schema.required).toEqual(["eventId", "received"]);
+    expect(paths["/playbooks"].get.description).not.toContain("playbook:manage");
   });
 
   it("follows configured cookie names", async () => {
