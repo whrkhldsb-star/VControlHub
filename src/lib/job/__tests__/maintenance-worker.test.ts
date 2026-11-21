@@ -62,6 +62,8 @@ vi.mock("@/lib/backup/service", () => ({
   abandonStaleRunningBackupRecords: vi.fn(async () => ({ abandoned: 0, ids: [] })),
 }));
 
+vi.mock("@/lib/storage/agent-file-queue", () => ({ sweepExpiredFileAgentCalls: vi.fn(async () => ({ count: 0 })) }));
+
 vi.mock("@/lib/upload/finalization-lease", () => ({ recoverInterruptedFinalizations: vi.fn(async () => 0) }));
 
 vi.mock("@/lib/upload/service", () => ({
@@ -188,6 +190,8 @@ describe("abandonOrphanPendingJobs", () => {
         heartbeatStaleBefore: expect.any(Date),
       }),
     );
+    const { sweepExpiredFileAgentCalls } = await import("@/lib/storage/agent-file-queue");
+    expect(sweepExpiredFileAgentCalls).toHaveBeenCalled();
     const recoveryOptions = mocks.recoverStaleRunningJobs.mock.calls[0]?.[0];
     expect(recoveryOptions?.heartbeatStaleBefore).toBeInstanceOf(Date);
     if (!recoveryOptions?.heartbeatStaleBefore) throw new Error("missing heartbeat fallback cutoff");

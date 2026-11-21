@@ -180,14 +180,14 @@ describe("loadNode", () => {
 
   it("quarantines unassigned nodes instead of matching the null-team arm", async () => {
     mocks.storageNodeTeamWhere.mockReturnValueOnce({
-      id: "__unassigned_storage_nodes_require_team_manage__",
+      AND: { id: { in: [] } },
     });
     mocks.storageNodeFindFirst.mockResolvedValue(null);
 
     await expect(loadNode("legacy-node", { ...session, currentTeamId: null })).rejects.toThrow();
 
     expect(mocks.storageNodeFindFirst.mock.calls[0]?.[0]?.where).toEqual({
-      id: "__unassigned_storage_nodes_require_team_manage__",
+      id: "legacy-node", AND: { id: { in: [] } },
     });
   });
 

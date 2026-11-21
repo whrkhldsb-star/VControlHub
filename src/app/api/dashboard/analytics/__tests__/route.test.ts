@@ -31,7 +31,7 @@ vi.mock("@/lib/dashboard/analytics-queries", () => ({
 
 const route = await import("../route");
 
-const session = { userId: "u1", username: "viewer", roles: ["viewer"] };
+const session = { userId: "u1", username: "viewer", roles: ["viewer"], currentTeamId: "team_a" };
 
 describe("/api/dashboard/analytics", () => {
   beforeEach(() => {
@@ -163,12 +163,13 @@ describe("/api/dashboard/analytics", () => {
     mocks.sessionHasPermission.mockReturnValue(true);
     mocks.requireApiSession.mockResolvedValue({ ...session, roles: ["viewer"], currentTeamId: null });
 
-    await route.GET(new Request("http://local/api/dashboard/analytics?type=all"));
+    const response = await route.GET(new Request("http://local/api/dashboard/analytics?type=all"));
 
-    // No server matches the sentinel; the audit scope names a customer that does not exist, not "all".
-    expect(mocks.prisma.server.findMany).toHaveBeenCalledWith({ where: { id: "__unassigned_servers_require_team_manage__" }, select: { id: true } });
+    expect(response.status).toBe(200);
+    expect(await response.json()).toMatchObject({ servers: [], audit: [], downloads: [], imageBed: [] });
+    expect(mocks.prisma.server.findMany).toHaveBeenCalledWith({ where: { AND: { id: { in: [] } } }, select: { id: true } });
     expect(mocks.hourlyServerUsage).toHaveBeenCalledWith(expect.any(Date), []);
-    expect(mocks.dailyAuditActivity).toHaveBeenCalledWith(expect.any(Date), "__no_active_team__");
+    expect(mocks.dailyAuditActivity).not.toHaveBeenCalled();
   });
 
   it("files download tasks under their application-time (Asia/Shanghai) day", async () => {

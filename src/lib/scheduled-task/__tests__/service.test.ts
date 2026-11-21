@@ -3,7 +3,7 @@ import type { RoleKey } from "@/lib/auth/rbac";
 import { serverTeamWhere } from "@/lib/auth/team-scope";
 import type { SessionScope } from "../service";
 
-const { mockPrisma, mockCreateCommandRequest, mockTeamWhere, mockTeamCreateData, mockNotifyTaskConsecutiveFailed } = vi.hoisted(() => ({
+const { mockPrisma, mockCreateCommandRequest, mockTeamCreateData, mockNotifyTaskConsecutiveFailed } = vi.hoisted(() => ({
   mockPrisma: {
     commandTemplate: { findFirst: vi.fn() },
     scheduledTask: {
@@ -32,7 +32,6 @@ const { mockPrisma, mockCreateCommandRequest, mockTeamWhere, mockTeamCreateData,
     $transaction: vi.fn(),
   },
   mockCreateCommandRequest: vi.fn(),
-  mockTeamWhere: vi.fn(),
   mockTeamCreateData: vi.fn(),
   mockNotifyTaskConsecutiveFailed: vi.fn(),
 }));
@@ -44,7 +43,6 @@ vi.mock("@/lib/notification/service", () => ({
 }));
 vi.mock("@/lib/auth/team-scope", async (importOriginal) => ({
   ...await importOriginal<typeof import("@/lib/auth/team-scope")>(),
-  teamWhere: mockTeamWhere,
   teamCreateData: mockTeamCreateData,
 }));
 
@@ -61,7 +59,6 @@ const PLATFORM: SessionScope = { userId: "u1", roles: ["admin"] as RoleKey[], cu
 describe("scheduled task service", () => {
   beforeEach(() => {
     vi.clearAllMocks();
-    mockTeamWhere.mockImplementation((session: SessionScope) => (session.currentTeamId ? { teamId: session.currentTeamId } : {}));
     mockTeamCreateData.mockImplementation((session: SessionScope) => ({ teamId: session.currentTeamId ?? undefined }));
     mockPrisma.$transaction.mockImplementation(async (callback: (tx: typeof mockPrisma) => unknown) => callback(mockPrisma));
     mockPrisma.scheduledTaskRun.findUnique.mockResolvedValue(null);
@@ -164,7 +161,7 @@ describe("scheduled task service", () => {
     }, PLATFORM);
 
     expect(mockPrisma.scheduledTask.updateMany).toHaveBeenCalledWith({
-      where: { id: "task1", approvalRequired: true, updatedAt },
+      where: { id: "task1", team: { isNot: { deletedAt: { not: null } } }, approvalRequired: true, updatedAt },
       data: { serverIds: ["srv1", "srv2"], createdById: PLATFORM.userId },
     });
   });
@@ -188,21 +185,20 @@ describe("scheduled task service", () => {
     await service.listScheduledTasks(200, PLATFORM);
 
     expect(mockPrisma.scheduledTask.findMany).toHaveBeenCalledWith({
-      where: {},
+      where: { team: { isNot: { deletedAt: { not: null } } } },
       orderBy: { createdAt: "desc" },
       take: 200,
       include: { creator: { select: { username: true, displayName: true } } },
     });
   });
 
-  it("scopes list queries with teamWhere when session is provided", async () => {
+  it("limits list queries to the selected live customer", async () => {
     mockPrisma.scheduledTask.findMany.mockResolvedValue([]);
 
     await service.listScheduledTasks(50, teamSession);
 
-    expect(mockTeamWhere).toHaveBeenCalledWith(teamSession);
     expect(mockPrisma.scheduledTask.findMany).toHaveBeenCalledWith({
-      where: { teamId: "team_a" },
+      where: { teamId: "team_a", team: { deletedAt: null } },
       orderBy: { createdAt: "desc" },
       take: 50,
       include: { creator: { select: { username: true, displayName: true } } },
@@ -377,7 +373,6 @@ describe("scheduled task service", () => {
 
     await service.toggleScheduledTask("task1", teamSession);
 
-    expect(mockTeamWhere).toHaveBeenCalledWith(teamSession);
     expect(mockPrisma.scheduledTask.updateMany).toHaveBeenCalledWith({
       where: expect.objectContaining({ id: "task1", teamId: "team_a", status: "ACTIVE" }),
       data: { status: "PAUSED", claimedOccurrenceAt: null, nextRunAt: null },
@@ -416,7 +411,7 @@ describe("scheduled task service", () => {
 
   describe("tasks that run without per-run approval", () => {
     // Which commands such a task runs, and where, is what an approver signed off on.
-    const unattended = { scheduleType: "CRON" as const, cronExpression: "0 2 * * *", id: "task1", teamId: "team_a", approvalRequired: false, command: "systemctl restart app", serverIds: ["srv1", "srv2"], createdById: "admin1" };
+    const unattended = { updatedAt: new Date("2026-11-19T01:00:00Z"), scheduleType: "CRON" as const, cronExpression: "0 2 * * *", id: "task1", teamId: "team_a", approvalRequired: false, command: "systemctl restart app", serverIds: ["srv1", "srv2"], createdById: "admin1" };
     const createOnly: SessionScope = { userId: "u2", roles: ["operator"] as RoleKey[], currentTeamId: "team_a", permissions: ["command:create", "command:read"] };
     const approver: SessionScope = { userId: "u3", roles: ["operator"] as RoleKey[], currentTeamId: "team_a", permissions: ["command:create", "command:approve"] };
 
@@ -434,7 +429,7 @@ describe("scheduled task service", () => {
       mockPrisma.scheduledTask.deleteMany.mockResolvedValueOnce({ count: 0 });
       await expect(service.deleteScheduledTask("task1", createOnly)).rejects.toMatchObject({ name: "ForbiddenError" });
       expect(mockPrisma.scheduledTask.deleteMany).toHaveBeenCalledExactlyOnceWith({
-        where: { id: "task1", teamId: unattended.teamId, updatedAt, approvalRequired: true },
+        where: { id: "task1", teamId: unattended.teamId, team: { deletedAt: null }, updatedAt, approvalRequired: true },
       });
     });
 
@@ -497,10 +492,10 @@ describe("scheduled task service", () => {
       await expect(service.updateScheduledTask("task1", { command: "uptime" }, createOnly)).rejects.toMatchObject({ name: error });
 
       expect(mockPrisma.scheduledTask.updateMany).toHaveBeenCalledExactlyOnceWith({
-        where: { id: "task1", teamId: "team_a", approvalRequired: true, updatedAt },
+        where: { id: "task1", teamId: "team_a", team: { deletedAt: null }, approvalRequired: true, updatedAt },
         data: { command: "uptime", createdById: createOnly.userId },
       });
-      expect(mockPrisma.scheduledTask.findFirst).toHaveBeenNthCalledWith(2, { where: { id: "task1", teamId: "team_a" } });
+      expect(mockPrisma.scheduledTask.findFirst).toHaveBeenNthCalledWith(2, { where: { id: "task1", teamId: "team_a", team: { deletedAt: null } } });
     });
 
     it("refuses resuming or rescheduling an unattended task through the edit form without command:execute", async () => {
@@ -592,7 +587,7 @@ describe("scheduled task service", () => {
       expect(mockPrisma.scheduledTask.update).not.toHaveBeenCalled();
       expect(mockPrisma.scheduledTask.updateMany).toHaveBeenCalledTimes(1);
       const written = mockPrisma.scheduledTask.updateMany.mock.calls[0]![0] as { where: unknown; data: Record<string, unknown> };
-      expect(written.where).toEqual({ id: "task1" });
+      expect(written.where).toEqual({ id: "task1", teamId: "team_a", team: { deletedAt: null }, updatedAt: unattended.updatedAt });
       expect(Object.keys(written.data).sort()).toEqual(["lastResult", "lastRunAt"]);
     });
   });

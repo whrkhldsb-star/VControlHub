@@ -115,7 +115,7 @@ describe("Recycle bin pagination", () => {
       where: {
         isDeleted: true,
         storageNode: { teamId: "team-a" },
-        id: "",
+        id: { in: [] },
       },
     });
   });

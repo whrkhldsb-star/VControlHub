@@ -25,17 +25,10 @@ vi.mock("@/lib/command-template/service", async () => {
   const actual = await vi.importActual<typeof import("@/lib/command-template/service")>("@/lib/command-template/service");
   return { ...actual, seedBuiltinTemplates: vi.fn(actual.seedBuiltinTemplates) };
 });
-vi.mock("@/lib/auth/team-scope", () => ({
+vi.mock("@/lib/auth/team-scope", async importOriginal => ({
+  ...await importOriginal<typeof import("@/lib/auth/team-scope")>(),
   teamWhere: mockTeamWhere,
   deploymentRunTeamWhere: mockDeploymentRunTeamWhere,
-  seesAllCustomers: (session: { roles?: string[]; currentTeamId?: string | null }) =>
-    session.roles?.includes("admin") === true && !session.currentTeamId,
-  serverTeamWhere: (session: { roles?: string[]; currentTeamId?: string | null }) => {
-    if (session.roles?.includes("admin")) return {};
-    return session.currentTeamId
-      ? { teamId: session.currentTeamId }
-      : { id: "__unassigned_servers_require_team_manage__" };
-  },
   teamCreateData: mockTeamCreateData,
   isGlobalTeamManager: (session: { roles?: string[] }) => session.roles?.includes("admin") ?? false,
 }));

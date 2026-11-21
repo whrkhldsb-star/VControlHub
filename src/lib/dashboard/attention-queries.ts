@@ -1,11 +1,12 @@
 import { Prisma } from "@prisma/client";
 import { sessionHasPermission } from "@/lib/auth/authorization";
-import { rawServerScope, teamWhere, type TeamSession } from "@/lib/auth/team-scope";
+import { rawServerScope, rawTeamScope, seesAllCustomers, type TeamSession } from "@/lib/auth/team-scope";
 import { prisma } from "@/lib/db";
 import { FAILED_TASK_WINDOW_MS } from "./attention";
 
 export async function openIncidentSummary(session: TeamSession) {
-	const { teamId } = teamWhere(session);
+	const teamId = session.currentTeamId;
+	if (!teamId && !seesAllCustomers(session)) return { count: 0, latest: undefined };
 	const scope = teamId ? Prisma.sql`AND (
 		(i."serverId" IS NULL AND r."teamId" = ${teamId}) OR
 		((r."teamId" = ${teamId} OR r."teamId" IS NULL) AND EXISTS (
@@ -22,8 +23,7 @@ export async function openIncidentSummary(session: TeamSession) {
 
 /** The task centre's six sources and owner scope. A deployment follows its linked command's outcome. */
 export async function failedTaskSummary(session: TeamSession, now: Date) {
-	const { teamId } = teamWhere(session);
-	const customer = teamId ? Prisma.sql`AND t."teamId" = ${teamId}` : Prisma.empty;
+	const customer = Prisma.sql`AND ${rawTeamScope(session, Prisma.sql`t."teamId"`)}`;
 	const teamTasks = sessionHasPermission(session, "team:manage");
 	const owner = teamTasks ? Prisma.empty : Prisma.sql`AND t."createdBy" = ${session.userId}`;
 	const requester = teamTasks ? Prisma.empty : Prisma.sql`AND t."requesterId" = ${session.userId}`;

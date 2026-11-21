@@ -100,7 +100,7 @@ describe("sync job CRUD scoping", () => {
 		it("resolves both endpoints under the caller's server scope", async () => {
 			await createSyncJob({ ...baseInput, session: operator });
 			expect(mocks.prisma.server.findMany).toHaveBeenCalledWith({
-				where: { id: { in: ["srv_a", "srv_b"] }, AND: [{ teamId: "team_1" }, { OR: [
+				where: { id: { in: ["srv_a", "srv_b"] }, AND: [{ teamId: "team_1" }, { team: { deletedAt: null }, OR: [
 					{ userAccess: { none: { userId: "u_1" } } },
 					{ userAccess: { some: { userId: "u_1", canConnect: true } } },
 				] }] },
@@ -134,21 +134,16 @@ describe("sync job CRUD scoping", () => {
 		it("gives a teamless session no server scope to work with", async () => {
 			mocks.prisma.server.findMany.mockResolvedValue([]);
 			await expect(createSyncJob({ ...baseInput, session: teamless })).rejects.toThrow();
-			expect(mocks.prisma.server.findMany).toHaveBeenCalledWith(
-				expect.objectContaining({
-					where: expect.objectContaining({ id: expect.anything() }),
-				}),
-			);
-			const where = mocks.prisma.server.findMany.mock.calls[0]?.[0]?.where as Record<string, unknown>;
-			// A null currentTeamId must not degrade to "no filter".
-			expect(where.teamId).toBeUndefined();
-			expect(where.id).not.toEqual({ in: ["srv_a", "srv_b"] });
+			expect(mocks.prisma.server.findMany).toHaveBeenCalledWith({
+				where: { id: { in: ["srv_a", "srv_b"] }, AND: { id: { in: [] } } },
+				select: { id: true },
+			});
 		});
 
 		it("limits an administrator to the servers of the selected customer", async () => {
 			await createSyncJob({ ...baseInput, session: admin });
 			expect(mocks.prisma.server.findMany).toHaveBeenCalledWith({
-				where: { id: { in: ["srv_a", "srv_b"] }, teamId: "team_1" },
+				where: { id: { in: ["srv_a", "srv_b"] }, teamId: "team_1", team: { deletedAt: null } },
 				select: { id: true },
 			});
 		});
@@ -302,7 +297,7 @@ describe("sync job CRUD scoping", () => {
 			await getSyncJob("job_1", teamless);
 			const where = mocks.prisma.syncJob.findFirst.mock.calls[0]?.[0]?.where as Record<string, unknown>;
 			// Not `{ teamId: null }`: an unassigned job is quarantined, not shared.
-			expect(where.id).toBe("__unassigned_sync_jobs_require_team_manage__");
+			expect(where).toMatchObject({ id: "job_1", AND: { id: { in: [] } } });
 		});
 
 		it("never hands SSH credentials to the display query", async () => {

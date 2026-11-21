@@ -669,7 +669,7 @@ describe("/api/downloads", () => {
     expect(response.status).toBe(200);
     // The selected customer scopes both the task and its server.
     expect(prismaMock.downloadTask.findMany).toHaveBeenCalledWith(expect.objectContaining({
-      where: { teamId: "team_1", server: { teamId: "team_1" } },
+      where: { teamId: "team_1", server: { teamId: "team_1", team: { deletedAt: null } } },
       orderBy: [ { createdAt: "desc" }, { id: "desc" }],
       take: 101,
     }));

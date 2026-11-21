@@ -541,7 +541,7 @@ describe("playbook service", () => {
     expect(mocks.serverFindMany).toHaveBeenCalledExactlyOnceWith({
       where: expect.objectContaining({
         id: { in: ["moved", "denied", "allowed"] },
-        AND: [{ teamId: "team1" }, { OR: [{ userAccess: { none: { userId: "u1" } } }, { userAccess: { some: { userId: "u1", canRead: true } } }] }],
+        AND: [{ teamId: "team1" }, { team: { deletedAt: null }, OR: [{ userAccess: { none: { userId: "u1" } } }, { userAccess: { some: { userId: "u1", canRead: true } } }] }],
       }), select: { id: true },
     });
     expect((await listRecentPlaybookRunsForPlaybooks(["pb1"], session)).pb1?.map((r) => r.triggerContext)).toEqual(expected);
@@ -645,14 +645,13 @@ describe("playbook service", () => {
       where: { id: "legacy-pb", teamId: "team1" },
     });
 
-    // A session with no current team gets the unmatchable sentinel rather than
-    // every unassigned playbook.
+    // A teamless session matches an empty set even when legacy rows have no owner.
     mocks.playbookFindMany.mockResolvedValueOnce([]);
     const teamless = { userId: "u2", roles: ["operator"] as import("@/lib/auth/rbac").RoleKey[], currentTeamId: null };
     expect(await listPlaybooks(teamless)).toEqual([]);
     expect(mocks.playbookFindMany).toHaveBeenLastCalledWith(
       expect.objectContaining({
-        where: { id: "__unassigned_playbooks_require_team_manage__" },
+        where: { AND: { id: { in: [] } } },
       }),
     );
 

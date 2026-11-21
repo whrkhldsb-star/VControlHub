@@ -513,7 +513,7 @@ describe("binding playbooks to a rule", () => {
 		expect(prismaMock.server.findMany).toHaveBeenCalledWith(expect.objectContaining({
 			where: {
 				id: { in: ["command-target"] },
-				AND: [{ teamId: "team_1" }, { OR: [
+				AND: [{ teamId: "team_1" }, { team: { deletedAt: null }, OR: [
 					{ userAccess: { none: { userId: "u_9" } } },
 					{ userAccess: { some: { userId: "u_9", canConnect: true } } },
 				] }],

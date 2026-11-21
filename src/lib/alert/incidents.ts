@@ -15,7 +15,7 @@ import { verifiedRuleChannels } from "./channel-grants";
 import { prisma, isUniqueViolation } from "@/lib/db";
 import { canAlertRuleTargetTeam } from "./rule-scope";
 import type { SessionPayload } from "@/lib/auth/session";
-import { liveCustomerRowsWhere, rawServerScope, serverTeamWhere, teamWhere } from "@/lib/auth/team-scope";
+import { liveCustomerRowsWhere, rawServerScope, seesAllCustomers, serverTeamWhere, teamWhere } from "@/lib/auth/team-scope";
 import { NotFoundError, ValidationError } from "@/lib/errors";
 import { createLogger } from "@/lib/logging";
 import { createNotification, type NotificationType } from "@/lib/notification/service";
@@ -1063,9 +1063,9 @@ export async function listAlertIncidents(options?: {
     },
   });
   const session = options?.session;
-  if (!session) return readIncidents(prisma);
-  const teamFilter = teamWhere(session);
-  if (!teamFilter.teamId) return readIncidents(prisma);
+  if (!session || seesAllCustomers(session)) return readIncidents(prisma);
+  const teamId = session.currentTeamId;
+  if (!teamId) return [];
 
   // AlertIncident has no server relation. Read both sides on one snapshot so
   // a transfer during listing cannot mix the old fleet with newer incidents.
@@ -1073,8 +1073,8 @@ export async function listAlertIncidents(options?: {
     const ids = await tx.$queryRaw<Array<{ id: string }>>`
       SELECT i.id FROM alert_incidents i JOIN alert_rules r ON r.id = i."ruleId"
       WHERE (${status ?? null}::"AlertIncidentStatus" IS NULL OR i.status = ${status ?? null}::"AlertIncidentStatus")
-        AND ((r."teamId" = ${teamFilter.teamId} AND i."serverId" IS NULL)
-          OR ((r."teamId" IS NULL OR r."teamId" = ${teamFilter.teamId}) AND EXISTS (
+        AND ((r."teamId" = ${teamId} AND i."serverId" IS NULL)
+          OR ((r."teamId" IS NULL OR r."teamId" = ${teamId}) AND EXISTS (
             SELECT 1 FROM servers s WHERE s.id = i."serverId" AND ${rawServerScope(session, "canRead")}
           )))
       ORDER BY i.status ASC, i.level DESC, i."createdAt" DESC, i.id ASC LIMIT ${options?.take ?? 100}`;

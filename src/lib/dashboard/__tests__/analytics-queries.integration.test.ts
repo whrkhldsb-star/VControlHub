@@ -108,6 +108,12 @@ describe.skipIf(!RUN)("dashboard analytics, grouped in PostgreSQL", () => {
 		expect(await openIncidentSummary(session)).toMatchObject({ count: 502, latest: { title: "incident 501", serverName: "visible" } });
 	});
 
+	it("returns empty incident and failed-task summaries for a teamless reader", async () => {
+		const teamless = { ...session, currentTeamId: null };
+		expect(await openIncidentSummary(teamless)).toEqual({ count: 0, latest: undefined });
+		expect(await failedTaskSummary(teamless, new Date())).toEqual({ count: 0, latest: undefined });
+	});
+
 	it("averages the measured samples of the given servers per UTC hour, oldest first", async () => {
 		expect(await hourlyServerUsage(since, [server("a"), server("b")])).toEqual([
 			{ time: hourA.toISOString(), cpu: 40, memory: 50, disk: 50 },

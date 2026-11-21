@@ -1,6 +1,6 @@
 import { Prisma, type StorageDriver } from "@prisma/client";
 import { prisma } from "@/lib/db";
-import { teamWhere, type TeamSession } from "@/lib/auth/team-scope";
+import { rawTeamScope, type TeamSession } from "@/lib/auth/team-scope";
 import { getReadableStorageScope, readableStorageScopeSql } from "@/lib/storage/readable-scope";
 import { noRecycledAncestorSql } from "@/lib/storage/archive-access";
 import { storageStagingPathRegex } from "@/lib/storage/staging-paths";
@@ -24,7 +24,6 @@ export const MEDIA_MAX_PAGE_SIZE = 200;
 
 /** Legacy media without a FileEntry id keeps its path. Linked media derives its identity and visibility from the current file. */
 export async function visibleMediaQuery(filters: MediaListFilters, id?: string) {
-  const teamId = filters.session && teamWhere(filters.session).teamId;
   const readable = filters.session && await getReadableStorageScope(filters.session);
   const q = filters.q?.trim(), tag = filters.tag?.trim();
   return Prisma.sql`SELECT e.* FROM (
@@ -39,7 +38,7 @@ export async function visibleMediaQuery(filters: MediaListFilters, id?: string) 
       (f.id = m."fileEntryId" OR (m."fileEntryId" IS NULL AND f."relativePath" = m."relativePath"))
     WHERE (m."fileEntryId" IS NULL OR f.id IS NOT NULL) AND f."isDeleted" IS NOT TRUE
       ${id ? Prisma.sql`AND m.id = ${id}` : Prisma.empty}
-      ${teamId ? Prisma.sql`AND n."teamId" = ${teamId}` : Prisma.empty}
+      ${filters.session ? Prisma.sql`AND ${rawTeamScope(filters.session, Prisma.sql`n."teamId"`)}` : Prisma.empty}
   ) e WHERE ${readableStorageScopeSql(readable)} AND ${noRecycledAncestorSql} AND e."relativePath" !~ ${storageStagingPathRegex}
     ${filters.mediaType ? Prisma.sql`AND e."mediaType" = ${filters.mediaType}` : Prisma.empty}
     ${filters.favorite !== undefined ? Prisma.sql`AND e.favorite = ${filters.favorite}` : Prisma.empty}

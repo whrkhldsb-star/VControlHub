@@ -120,6 +120,7 @@ describe.skipIf(!RUN)("alert incidents left behind by a changed rule (PostgreSQL
 			incident(rule("platform"), server("a"), "disk_usage"),
 		] });
 		const session = { userId: `${prefix}-reader`, roles: ["operator" as const], currentTeamId: otherTeam };
+		expect(await listAlertIncidents({ session: { ...session, currentTeamId: null } })).toEqual([]);
 		const rows = await listAlertIncidents({ session });
 		expect(rows.map((row) => [row.ruleId, row.serverId])).toEqual(expect.arrayContaining([
 			[rule("current"), host], [rule("platform"), host],

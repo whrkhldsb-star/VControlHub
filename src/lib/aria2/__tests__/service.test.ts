@@ -30,7 +30,7 @@ afterEach(() => {
 
 describe("aria2 runtime config", () => {
   it("defaults to portable app-scoped paths and loopback RPC", () => {
-    const config = getAria2RuntimeConfig({ APP_DIR: "/opt/whrkhldsb" });
+    const config = getAria2RuntimeConfig({ APP_DIR: "/opt/whrkhldsb", ARIA2_RPC_SECRET: "custom-token" });
 
     expect(config.rpcHost).toBe("127.0.0.1");
     expect(config.rpcPort).toBe(6800);
@@ -53,12 +53,20 @@ describe("aria2 runtime config", () => {
     expect(config.rpcDir).toBe("/srv/aria2-state");
   });
 
-  it("rejects invalid ports and placeholder production secrets", () => {
+  it("rejects invalid ports and missing secrets", () => {
     expect(() => getAria2RuntimeConfig({ ARIA2_RPC_PORT: "bad" })).toThrow("ARIA2_RPC_PORT must be a valid TCP port");
-    expect(() => getAria2RuntimeConfig({ NODE_ENV: "production" })).toThrow("ARIA2_RPC_SECRET is required in production");
-    expect(() =>
-      getAria2RuntimeConfig({ NODE_ENV: "production", ARIA2_RPC_SECRET: "whrkhldsb_default_token" }),
-    ).toThrow("ARIA2_RPC_SECRET must not use the default token in production");
+    expect(() => getAria2RuntimeConfig({ NODE_ENV: "production" })).toThrow("ARIA2_RPC_SECRET is required");
+    expect(() => getAria2RuntimeConfig({ ARIA2_RPC_SECRET: "  " })).toThrow("ARIA2_RPC_SECRET is required");
+  });
+
+  it.each(["prefix_REPLACE_WITH_random", "change_me_now", "xChAnGe_ThIs!", "DEFAULT_TOKEN", " app_DeFaUlT_ToKeN "])("rejects template secret %s at runtime", secret => {
+    for (const NODE_ENV of ["production", "development"] as const) {
+      expect(() => getAria2RuntimeConfig({ NODE_ENV, ARIA2_RPC_SECRET: secret })).toThrow("ARIA2_RPC_SECRET contains a placeholder");
+    }
+  });
+
+  it.each([" 32f1d08cf2d84d85937182562462f287 ", "nondefault_token", "app_default_token_rotated"])("accepts a configured secret outside the deployment patterns", secret => {
+    expect(getAria2RuntimeConfig({ NODE_ENV: "production", ARIA2_RPC_SECRET: secret }).rpcSecret).toBe(secret.trim());
   });
 
   it("builds an aria2 config from runtime settings without hardcoded /tmp state or persisted RPC secrets", () => {
@@ -86,6 +94,7 @@ describe("aria2 runtime config", () => {
   it("leaves no launch configuration when the selected binary is missing", async () => {
     const dir = await mkdtemp(path.join(tmpdir(), "vch-aria2-"));
     try {
+      vi.stubEnv("ARIA2_RPC_SECRET", "unit-test-secret");
       vi.stubEnv("ARIA2_BIN", path.join(dir, "missing"));
       vi.stubEnv("ARIA2_RPC_DIR", dir);
       vi.stubEnv("ARIA2_RPC_PORT", "1");

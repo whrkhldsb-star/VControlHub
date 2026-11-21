@@ -62,6 +62,12 @@ export function teamWhere(session: TeamSession): { teamId?: string | { in: never
 	return { teamId: { in: [] }, AND: { teamId: { in: [] } } };
 }
 
+/** SQL equivalent of teamWhere for a tenant-owned column. */
+export function rawTeamScope(session: TeamSession, column: Prisma.Sql) {
+	if (seesAllCustomers(session)) return Prisma.sql`TRUE`;
+	return session.currentTeamId ? Prisma.sql`${column} = ${session.currentTeamId}` : Prisma.sql`FALSE`;
+}
+
 /**
  * Rows that still belong to the live service: those of a live customer plus
  * null-team legacy rows. A deleted customer (`Team.deletedAt` set) keeps its

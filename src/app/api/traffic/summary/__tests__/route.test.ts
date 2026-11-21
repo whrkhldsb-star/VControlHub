@@ -138,12 +138,12 @@ describe("traffic summary route", () => {
       expect.objectContaining({
         where: {
           enabled: true,
-          id: "__unassigned_servers_require_team_manage__",
+          AND: { id: { in: [] } },
         },
       }),
     );
     expect(vi.mocked(prisma.storageNode.findMany)).toHaveBeenCalledWith(
-      expect.objectContaining({ where: expect.objectContaining({ id: "__unassigned_storage_nodes_require_team_manage__" }) }),
+      expect.objectContaining({ where: expect.objectContaining({ AND: { id: { in: [] } } }) }),
     );
   });
 });

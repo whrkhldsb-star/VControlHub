@@ -7,7 +7,7 @@ import { z } from "zod";
 
 import { requestLocale, withApiRoute } from "@/lib/http/api-guard";
 import { sessionHasPermission } from "@/lib/auth/authorization";
-import { serverTeamWhere, teamWhere, seesAllCustomers, imageTeamWhere, liveCustomerRowsWhere } from "@/lib/auth/team-scope";
+import { serverTeamWhere, seesAllCustomers, imageTeamWhere, liveCustomerRowsWhere } from "@/lib/auth/team-scope";
 import { dailyAuditActivity, hourlyServerUsage } from "@/lib/dashboard/analytics-queries";
 import { downloadSummary } from "@/lib/dashboard/download-summary";
 import { hasBearerAuthorization } from "@/lib/auth/bearer-token";
@@ -74,18 +74,6 @@ function shouldIncludeAnalytics(session: SessionPayload, requested: string, type
   return (requested === "all" || requested === type) && canReadAnalyticsDomain(session, type);
 }
 
-/**
- * `teamWhere()` as the grouped audit statement takes it: one customer, or null
- * for all of them. A scope it cannot express must not widen into "all".
- */
-function auditCustomer(session: SessionPayload): string | null {
-  const scope = teamWhere(session);
-  const keys = Object.keys(scope);
-  if (keys.length === 0) return null;
-  if (keys.length === 1 && typeof scope.teamId === "string") return scope.teamId;
-  throw new Error("Audit analytics cannot express this customer scope");
-}
-
 function requestedDomainForbidden(session: SessionPayload, requested: string) {
   if (requested === "all") return false;
   if (!isAnalyticsDomain(requested)) return false;
@@ -135,7 +123,10 @@ export async function GET(request: Request) {
     // Audit log activity (last 30 days, grouped by day)
     if (shouldIncludeAnalytics(session, type, "audit")) {
       const thirtyDaysAgo = new Date(Date.now() - 30 * DAY_MS);
-      results.audit = await dailyAuditActivity(thirtyDaysAgo, auditCustomer(session));
+      const teamId = session.currentTeamId || null;
+      results.audit = teamId || seesAllCustomers(session)
+        ? await dailyAuditActivity(thirtyDaysAgo, teamId)
+        : [];
     }
 
     // Image bed storage trend (last 7 days)

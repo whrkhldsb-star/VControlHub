@@ -57,6 +57,7 @@ describe("/api/search", () => {
     expect(mocks.prisma.quickService.findMany).toHaveBeenCalledWith(
       expect.objectContaining({
         where: {
+          AND: [{ OR: ["name", "slug", "description", "status", "instanceKey"].map(field => ({ [field]: { contains: "alist", mode: "insensitive" } })) }],
           OR: [{ server: expect.objectContaining({ AND: expect.arrayContaining([{ teamId: "team_a" }]) }) }],
         },
       }),

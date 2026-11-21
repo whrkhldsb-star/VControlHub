@@ -2577,7 +2577,7 @@ describe("server service", () => {
     expect(prisma.server.findMany).not.toHaveBeenCalled();
   });
 
-  it("does not filter listServerProfiles for administrators viewing all customers", async () => {
+  it("lists live customers’ servers for administrators viewing all customers", async () => {
     vi.mocked(prisma.server.findMany).mockResolvedValueOnce([]);
 
     await listServerProfiles({
@@ -2588,7 +2588,7 @@ describe("server service", () => {
 
     expect(prisma.server.findMany).toHaveBeenCalledWith(
       expect.objectContaining({
-        where: {},
+        where: { team: { isNot: { deletedAt: { not: null } } } },
       }),
     );
   });

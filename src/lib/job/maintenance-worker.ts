@@ -7,7 +7,7 @@
  * can leave forever-PENDING rows that no worker claims. This keeps the
  * queue honest without reintroducing those dead types.
  */
-import { JobStatus, Prisma } from "@prisma/client";
+import { JobStatus } from "@prisma/client";
 import { getRuntimeSettingNumberStrict } from "@/lib/runtime-settings/service";
 
 import { config } from "@/lib/config/env";
@@ -30,6 +30,7 @@ import { pruneLogTables } from "@/lib/data-retention/log-retention";
 import { reconcileStaleRunningDownloadTasks } from "@/lib/downloads/reconcile";
 import { recoverInterruptedFinalizations } from "@/lib/upload/finalization-lease";
 import { sweepExpiredMediaUploadSessions } from "@/lib/upload/service";
+import { sweepExpiredFileAgentCalls } from "@/lib/storage/agent-file-queue";
 import { sweepOrphanedUploadStaging } from "@/lib/upload/staging";
 import { pruneThumbnailCache } from "@/lib/media/thumbnail-cache";
 import { createSingletonIntervalWorker } from "@/lib/workers/singleton-interval-worker";
@@ -335,9 +336,7 @@ async function tick(reason: string) {
     // closed / network dropped). The sweep function existed but was never
     // scheduled, so /tmp and mediaUploadSession grew unbounded.
     await runStep("sweep-expired-file-agent-calls", async () => {
-      await prisma.agentFileCall.deleteMany({ where: { expiresAt: { lt: new Date() }, OR: [
-        { claimed: false }, { result: { not: Prisma.DbNull } }, { NOT: { payload: { path: ["op"], equals: "publish" } } },
-      ] } });
+      await sweepExpiredFileAgentCalls();
     });
     await runStep("recover-interrupted-upload-finalizations", async () => {
       const recovered = await recoverInterruptedFinalizations();

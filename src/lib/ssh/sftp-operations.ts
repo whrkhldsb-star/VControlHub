@@ -62,10 +62,12 @@ export async function atomicSftpWrite<T>(
     const finalMode = (metadata ?? stage).mode & 0o777;
     if ((stage.mode & 0o777) !== 0o600)
       await request<void>(done => sftp.fchmod(handle, 0o600, done));
-    const stream = sftp.createWriteStream(tmp, { handle, autoClose: true });
+    // ssh2's autoClose destroys the stream inside _final, before Node emits
+    // finish. Close the remote handle after every write has been acknowledged.
+    const stream = sftp.createWriteStream(tmp, { handle, autoClose: false });
     streamOwnsHandle = true;
     let finished = false;
-    stream.once("finish", () => { finished = true; });
+    stream.once("finish", () => { finished = true; stream.destroy(); });
     const abort = () => stream.destroy();
     signal?.addEventListener("abort", abort, { once: true });
     let result: T;
@@ -73,6 +75,7 @@ export async function atomicSftpWrite<T>(
       result = await write(stream);
       signal?.throwIfAborted();
     } finally {
+      if (!finished) stream.destroy();
       signal?.removeEventListener("abort", abort);
     }
     if (!finished) throw new Error(t("backend.sftp.operationFailed"));
