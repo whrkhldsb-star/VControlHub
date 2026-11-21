@@ -61,6 +61,8 @@ export interface AiOpsRecommendedAction {
 	reason?: string;
 	/** Set to true after an admin approves this recommendation for execution. */
 	approved?: boolean;
+	approvedBy?: string | null;
+	approvedAt?: string | null;
 	/** Lease / terminal marker while or after executeRecommendation runs. */
 	executedAt?: string;
 	executed?: boolean;

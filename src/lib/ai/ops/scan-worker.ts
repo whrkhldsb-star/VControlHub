@@ -17,12 +17,13 @@
  *   - next-local-time setTimeout + fire-once-on-startup
  *   - globalThis state mirror for re-entrancy
  */
+import { Prisma } from "@prisma/client";
 import { pruneAiOpsLogs } from "./retention";
 import { prisma } from "@/lib/db";
 import { config } from "@/lib/config/env";
 import { acquireAdvisoryLock } from "@/lib/concurrency/advisory-lock";
 import { APP_TIME_ZONE, zonedDateTimeToDate } from "@/lib/datetime/time-zone";
-import { runWithLeaseHeartbeat } from "@/lib/job/heartbeat-runner";
+import { LeaseLostError, runWithLeaseHeartbeat } from "@/lib/job/heartbeat-runner";
 import { computeLeaseMs } from "@/lib/job/lease";
 import {
   claimNextJob,
@@ -138,6 +139,7 @@ const AI_OPS_CHECKS = [
 async function requestProviderAnalysis(
   provider: { id: string; createdBy: string; defaultModel: string },
   signals: SystemHealthSignal[],
+  signal: AbortSignal,
 ): Promise<string> {
   const { locale } = await getPlatformDefaults();
   const { response, providerType } = await sendChatRequest(
@@ -167,6 +169,7 @@ async function requestProviderAnalysis(
       ],
     },
     provider.createdBy,
+    signal,
   );
   const payload = (await response.json().catch(() => null)) as
     | {
@@ -536,10 +539,11 @@ export async function runAiOpsScanWorkerOnce(
 
     let aiOpsLogId: string | null = null;
     try {
-      await heartbeatJob(job.id, AI_OPS_SCAN_WORKER_ID, {
+      const initialHeartbeat = await heartbeatJob(job.id, AI_OPS_SCAN_WORKER_ID, {
         leaseMs: AI_OPS_SCAN_LEASE_MS,
         progress: "Collecting system health signals",
       });
+      if (initialHeartbeat.count === 0) throw new LeaseLostError(job.id);
       const { findings, actions, completed } = await runWithLeaseHeartbeat({
         jobId: job.id,
         leaseMs: AI_OPS_SCAN_LEASE_MS,
@@ -547,7 +551,7 @@ export async function runAiOpsScanWorkerOnce(
           leaseMs: AI_OPS_SCAN_LEASE_MS,
           progress: "Running AI operations scan",
         }),
-        run: async () => {
+        run: async (signal) => {
           const [mode, configured] = await Promise.all([
             readModeFromSettings(),
             readConfiguredProvider(),
@@ -579,9 +583,9 @@ export async function runAiOpsScanWorkerOnce(
             providerDegraded = true;
             providerHealth = { state: "unavailable", configurationVersion: "unavailable", consecutiveFailures: 0, failureKind: "configuration", httpStatus: null, retryAt: null };
           }
-          if (provider) {
+          if (provider && !signal.aborted) {
             const configurationVersion = provider.updatedAt?.toISOString() ?? "legacy";
-            const latest = await prisma.aiOpsLog.findFirst({ where: { providerId: provider.id, completedAt: { not: null } }, orderBy: { completedAt: "desc" }, select: { providerHealth: true } });
+            const latest = await prisma.aiOpsLog.findFirst({ where: { providerId: provider.id, completedAt: { not: null }, providerHealth: { not: Prisma.DbNull } }, orderBy: { completedAt: "desc" }, select: { providerHealth: true } });
             const parsedPrevious = parseProviderHealth(latest?.providerHealth);
             const previous = parsedPrevious?.configurationVersion === configurationVersion ? parsedPrevious : null;
             const coolingDown = payloadReason !== "manual" && previous?.retryAt && Date.parse(previous.retryAt) > Date.now();
@@ -590,31 +594,30 @@ export async function runAiOpsScanWorkerOnce(
               providerHealth = { ...previous, state: "cooldown" };
             } else {
               try {
-                providerAnalysis = await requestProviderAnalysis(provider, signals);
+                providerAnalysis = await requestProviderAnalysis(provider, signals, signal);
                 providerHealth = { state: "success", configurationVersion, consecutiveFailures: 0, failureKind: null, httpStatus: null, retryAt: null };
               } catch (error) {
-                providerDegraded = true;
-                providerHealth = failedProviderHealth(error, configurationVersion, previous);
-                logger.warn("AI provider analysis unavailable; retaining deterministic scan", { providerId: provider.id, httpStatus: providerHealth.httpStatus, failureKind: providerHealth.failureKind, retryAt: providerHealth.retryAt });
+                if (!signal.aborted) {
+                  providerDegraded = true;
+                  providerHealth = failedProviderHealth(error, configurationVersion, previous);
+                  logger.warn("AI provider analysis unavailable; retaining deterministic scan", { providerId: provider.id, httpStatus: providerHealth.httpStatus, failureKind: providerHealth.failureKind, retryAt: providerHealth.retryAt });
+                }
               }
             }
           }
           if (providerDegraded) findings.push({ id: "ai.provider-unavailable", severity: "warning", title: "AI provider unavailable", body: "Rule-based scan results were preserved. Check provider configuration, access and balance; autonomous actions were withheld.", source: "ai.provider" });
-          const actions =
-            mode === "autonomous" && !providerDegraded
-              ? await Promise.all(
-                  (plannedActions as AiOpsExecutedAction[]).map((action) =>
-                    executeAiOpsAction({
-                      logId: log.id,
-                      id: action.id,
-                      action: action.action,
-                      risk: action.risk,
-                    }),
-                  ),
-                )
-              : providerDegraded && mode === "autonomous"
-                ? (plannedActions as AiOpsExecutedAction[]).map((action) => ({ ...action, executed: false, result: "Withheld because provider analysis is unavailable" }))
-                : plannedActions;
+          let actions = plannedActions;
+          if (mode === "autonomous" && plannedActions.length > 0) {
+            const dispatchMode = signal.aborted || providerDegraded ? null : await readModeFromSettings();
+            actions = await Promise.all(plannedActions.map((action) => {
+              let result: string;
+              if (signal.aborted) result = "Withheld because the scan lost its job lease";
+              else if (providerDegraded) result = "Withheld because provider analysis is unavailable";
+              else if (dispatchMode !== "autonomous") result = "Withheld because AI Ops is in recommendation mode";
+              else return executeAiOpsAction({ logId: log.id, id: action.id, action: action.action, risk: action.risk });
+              return { ...action, executed: false, result };
+            }));
+          }
 
           const report = buildExplainableReport(mode, signals, actions);
           const completedNotes = operatorNotes
@@ -622,12 +625,12 @@ export async function runAiOpsScanWorkerOnce(
             : `ai.ops.scan reason=${payloadReason}\n${report}${providerAnalysis ? `\nproviderAnalysis:\n${providerAnalysis}` : ""}`;
           const completed = await completeScan({
             logId: log.id,
-            status: providerDegraded ? "warning" : status,
+            status: signal.aborted || providerDegraded ? "warning" : status,
             findings,
             actions,
             notes: completedNotes,
             providerHealth,
-            ...(providerDegraded ? { errorMessage: t("backend.ai.providerUnavailable") } : {}),
+            errorMessage: signal.aborted ? "The scan lost its job lease" : providerDegraded ? t("backend.ai.providerUnavailable") : null,
           });
           return { findings, actions, completed };
         },
@@ -669,6 +672,9 @@ export async function runAiOpsScanWorkerOnce(
 
       return true;
     } catch (error) {
+      // The heartbeat runner reports lease loss after the callback saves its diagnostics.
+      // Leave the durable job to its owner and keep this scan's findings intact.
+      if (error instanceof LeaseLostError) return true;
       const message =
         error instanceof Error ? error.message : "AI ops scan failed";
       if (aiOpsLogId) {

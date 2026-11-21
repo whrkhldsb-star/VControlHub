@@ -2,6 +2,8 @@ import { beforeEach, describe, expect, it, vi } from "vitest";
 import type { Permission, RoleKey } from "@/lib/auth/rbac";
 
 const prismaMock = vi.hoisted(() => ({
+	$transaction: vi.fn(),
+	$queryRaw: vi.fn(),
 	aiHostedAction: {
 		create: vi.fn(),
 		findFirst: vi.fn(),
@@ -53,6 +55,8 @@ vi.mock("ssh2", () => ({ Client: vi.fn() }));
 describe("AI hosted action approvals", () => {
 	beforeEach(() => {
 		vi.clearAllMocks();
+		prismaMock.$transaction.mockImplementation((write) => write(prismaMock));
+		prismaMock.$queryRaw.mockResolvedValue([{ automationMode: "ASSISTED" }]);
 		prismaMock.aiHostedAction.updateMany.mockResolvedValue({ count: 1 });
 	});
 
@@ -130,6 +134,44 @@ describe("AI hosted action approvals", () => {
 		await expect(approveHostedAction("action_1", { userId: "admin_1", roles: ["admin"], currentTeamId: "team_a" }))
 			.rejects.toThrow();
 		expect(commandServiceMock.createCommandRequest).not.toHaveBeenCalled();
+	});
+
+	it.each(["confirmHostedAction", "approveHostedAction"] as const)(
+		"rejects an existing change card via %s after the conversation switches to plan-only",
+		async (method) => {
+			const service = await import("../hosted-service");
+			const { getToolByName } = await import("../hosted-tools");
+			const requester = { userId: "requester", roles: ["operator"] as RoleKey[], currentTeamId: "team_a" };
+			const approver = { userId: "approver", roles: ["admin"] as RoleKey[], currentTeamId: "team_a" };
+			const tool = getToolByName("manage_cron")!;
+			prismaMock.aiHostedAction.create.mockImplementationOnce(({ data }) => ({ id: "action_cron", ...data }));
+			const action = await service.createHostedAction({
+				conversationId: "conv_cron", messageId: "message", toolCallId: "call", tool,
+				args: { action: "pause", taskId: "task_1" }, userId: requester.userId, session: requester,
+			});
+			expect(action.status).toBe("PENDING_APPROVAL");
+			prismaMock.aiHostedAction.findFirst.mockResolvedValueOnce(action);
+			prismaMock.$queryRaw.mockResolvedValue([{ automationMode: "PLAN_ONLY" }]);
+
+			await expect(service[method](action.id, method === "confirmHostedAction" ? requester : approver))
+				.rejects.toMatchObject({ name: "BusinessError", message: expect.stringMatching(/plan-only|方案模式/) });
+			expect(prismaMock.$queryRaw).toHaveBeenLastCalledWith(expect.any(Array), action.conversationId);
+			expect(prismaMock.aiHostedAction.updateMany).not.toHaveBeenCalled();
+			expect(scheduledTaskServiceMock.toggleScheduledTask).not.toHaveBeenCalled();
+		},
+	);
+
+	it("allows a read-only tool with a different stored action type in plan-only mode", async () => {
+		const { createHostedAction } = await import("../hosted-service");
+		const { getToolByName } = await import("../hosted-tools");
+		prismaMock.$queryRaw.mockResolvedValueOnce([{ automationMode: "PLAN_ONLY" }]);
+		prismaMock.aiHostedAction.create.mockImplementationOnce(({ data }) => ({ id: "status", ...data }));
+
+		const action = await createHostedAction({
+			conversationId: "conv_status", messageId: "msg", toolCallId: "call",
+			tool: getToolByName("get_server_status")!, args: {}, userId: "operator",
+		});
+		expect(action).toMatchObject({ actionType: "get_status", status: "APPROVED" });
 	});
 
 	it("does not let a team approver approve another team's hosted action by id", async () => {

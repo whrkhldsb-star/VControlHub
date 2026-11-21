@@ -7,6 +7,7 @@
  */
 import { afterEach, beforeEach, describe, expect, it, vi } from "vitest";
 
+import * as actionExecutor from "../action-executor";
 import {
 	AI_OPS_SAFE_AUTONOMOUS_ACTIONS,
 	type AiOpsLogRecord,
@@ -147,6 +148,7 @@ vi.mock("@/lib/health/service-alerts", () => ({
 }));
 
 import {
+	AI_OPS_ACTION_LEASE_MS,
 	countAiOpsLogs,
 	completeScan,
 	createAiOpsLog,
@@ -428,6 +430,34 @@ describe("executeRecommendation — mode-aware action gating", () => {
 		});
 
 		expect(result.executed).toBe(true);
+	});
+
+	it.each([
+		{ requiresApproval: true, approved: true, approvedBy: "admin-1", approvedAt: "2026-06-17T11:00:00Z" },
+		{ requiresApproval: false },
+	])("retries an expired recommendation lease with its original requiresApproval=$requiresApproval", async (approval) => {
+		const log = await createAiOpsLog({ triggerType: "manual", mode: "recommendation" });
+		const recommendation = { id: "a1", action: "alert.evaluate", risk: "low" as const, ...approval };
+		await completeScan({ logId: log.id, status: "warning", findings: [], actions: [recommendation] });
+		const input = { logId: log.id, actionId: recommendation.id };
+		const executor = vi.spyOn(actionExecutor, "executeAiOpsAction")
+			.mockRejectedValueOnce(new Error("Worker stopped after claiming the action"));
+		vi.useFakeTimers({ toFake: ["Date"] });
+		try {
+			await expect(executeRecommendation(input)).rejects.toThrow("Worker stopped");
+			expect((await getAiOpsLog(log.id))?.actions[0]).toMatchObject({
+				...recommendation,
+				executed: false,
+				result: "in_progress",
+			});
+
+			vi.setSystemTime(Date.now() + AI_OPS_ACTION_LEASE_MS);
+			await expect(executeRecommendation(input)).resolves.toMatchObject({ ok: true, executed: true });
+			expect((await getAiOpsLog(log.id))?.actions[0]).toMatchObject({ ...recommendation, executed: true });
+		} finally {
+			vi.useRealTimers();
+			executor.mockRestore();
+		}
 	});
 });
 

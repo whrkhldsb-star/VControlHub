@@ -7,6 +7,7 @@
  * 3. 危险操作 → 创建审批请求 → 等待用户审批 → 执行 → 返回结果
  */
 
+import type { AiAutomationMode, Prisma } from "@prisma/client";
 import { sessionHasPermission } from "@/lib/auth/authorization";
 import type { RoleKey } from "@/lib/auth/rbac";
 import { serverTeamWhere, teamWhere } from "@/lib/auth/team-scope";
@@ -19,7 +20,7 @@ import { deserializeDialect } from "@/lib/ssh/os-dialect";
 import { executeCommandWithAgent } from "@/lib/server/agent-service";
 import { buildCommand } from "./hosted-command-builder";
 export { buildCommand } from "./hosted-command-builder";
-import { getToolByName, type HostedTool } from "./hosted-tools";
+import { getToolByName, HOSTED_TOOLS, toolAvailableInMode, type HostedTool } from "./hosted-tools";
 import { executeServerlessQuery } from "./hosted-safe-queries";
 import { t } from "@/lib/i18n/service-translations";
 import { executeAutomationProposal, materializeAutomationProposal } from "./automation-service";
@@ -88,6 +89,26 @@ async function materializePlaybookProposal(
 
 // ── 创建托管操作记录 ──────────────────────────────────────
 
+function withHostedActionMode<T>(
+  conversationId: string,
+  actionType: string,
+  write: (tx: Prisma.TransactionClient) => Promise<T>,
+) {
+  return prisma.$transaction(async (tx) => {
+    // A mode switch and the creation or claim of a card must agree on their order.
+    // Hold the conversation row only for this write, before any external execution.
+    const [conversation] = await tx.$queryRaw<Array<{ automationMode: AiAutomationMode }>>`
+      SELECT "automationMode" FROM ai_conversations WHERE id = ${conversationId} FOR SHARE`;
+    if (!conversation) throw new NotFoundError(t("backend.ai.conversationNotFound"));
+    const tool = HOSTED_TOOLS.find((entry) => entry.actionType === actionType);
+    if (!tool) throw new BusinessError(t("backend.ai.unsupportedActionType"));
+    if (!toolAvailableInMode(tool, conversation.automationMode)) {
+      throw new BusinessError(t("apiAiChat.toolUnavailableInPlanMode", { name: tool.name }));
+    }
+    return write(tx);
+  });
+}
+
 export async function createHostedAction(input: {
   conversationId: string;
   messageId: string;
@@ -129,7 +150,7 @@ export async function createHostedAction(input: {
       throw new BusinessError(firstSchemaSentence(parsed.error) ?? t("backend.ai.invalidActionParameters"));
     }
   }
-  return prisma.aiHostedAction.create({
+  return withHostedActionMode(conversationId, tool.actionType, (tx) => tx.aiHostedAction.create({
     data: {
       conversationId,
       messageId,
@@ -147,7 +168,7 @@ export async function createHostedAction(input: {
     },
     // The confirmation card names the server; without this it had only the id.
     include: { server: { select: { id: true, name: true, host: true } } },
-  });
+  }));
 }
 
 // ── 执行安全操作（Agent 优先，SSH 回退） ───────────────────
@@ -413,6 +434,23 @@ export async function recoverInterruptedHostedActions(now = new Date()) {
   return { recovered };
 }
 
+function claimPendingHostedAction(
+  action: { id: string; conversationId: string; actionType: string },
+  actor: HostedActionSession,
+  actionScope: Record<string, unknown>,
+  status: "APPROVED" | "EXECUTING",
+) {
+  return withHostedActionMode(action.conversationId, action.actionType, (tx) => tx.aiHostedAction.updateMany({
+    where: { id: action.id, status: "PENDING_APPROVAL", ...actionScope },
+    data: {
+      status,
+      approverId: actor.userId,
+      approvedAt: new Date(),
+      ...(status === "EXECUTING" && { executedAt: new Date() }),
+    },
+  }));
+}
+
 async function executeConfirmedServerlessAction(
   action: {
     id: string;
@@ -430,15 +468,7 @@ async function executeConfirmedServerlessAction(
     throw new ForbiddenError(permissionDeniedMessage(action.actionType));
   }
 
-  const claimed = await prisma.aiHostedAction.updateMany({
-    where: { id: action.id, status: "PENDING_APPROVAL", ...actionScope },
-    data: {
-      status: "EXECUTING",
-      approverId: actor.userId,
-      approvedAt: new Date(),
-      executedAt: new Date(),
-    },
-  });
+  const claimed = await claimPendingHostedAction(action, actor, actionScope, "EXECUTING");
   if (claimed.count === 0) {
     throw new BusinessError(
       t("backend.ai.actionIsNotPendingConfirmationMayHaveJust"),
@@ -491,15 +521,7 @@ async function executeConfirmedAutomationAction(
   actor: HostedActionSession,
   actionScope: Record<string, unknown>,
 ) {
-  const claimed = await prisma.aiHostedAction.updateMany({
-    where: { id: action.id, status: "PENDING_APPROVAL", ...actionScope },
-    data: {
-      status: "EXECUTING",
-      approverId: actor.userId,
-      approvedAt: new Date(),
-      executedAt: new Date(),
-    },
-  });
+  const claimed = await claimPendingHostedAction(action, actor, actionScope, "EXECUTING");
   if (claimed.count === 0) {
     throw new BusinessError(t("backend.ai.actionIsNotPendingConfirmationMayHaveJust"));
   }
@@ -569,10 +591,7 @@ export async function approveHostedAction(actionId: string, approver: HostedActi
   // Atomic compare-and-swap first, as confirmHostedAction does: creating the
   // command before it let a rejection that won the swap leave a command
   // request behind that still ran.
-  const claimed = await prisma.aiHostedAction.updateMany({
-    where: { id: actionId, status: "PENDING_APPROVAL", ...actionScope },
-    data: { status: "APPROVED", approverId: approver.userId, approvedAt: new Date() },
-  });
+  const claimed = await claimPendingHostedAction(action, approver, actionScope, "APPROVED");
   if (claimed.count === 0) {
     throw new BusinessError(t("backend.ai.actionIsNotPendingApproval"));
   }
@@ -672,14 +691,7 @@ export async function confirmHostedAction(actionId: string, requester: HostedAct
 
   // Atomic compare-and-swap: prevent two concurrent confirmations from
   // both creating a command request and overwriting APPROVED state.
-  const claimed = await prisma.aiHostedAction.updateMany({
-    where: { id: actionId, status: "PENDING_APPROVAL", ...actionScope },
-    data: {
-      status: "APPROVED",
-      approverId: requester.userId,
-      approvedAt: new Date(),
-    },
-  });
+  const claimed = await claimPendingHostedAction(action, requester, actionScope, "APPROVED");
   if (claimed.count === 0) {
     throw new BusinessError(t("backend.ai.actionIsNotPendingConfirmationMayHaveJust"));
   }
@@ -773,14 +785,7 @@ async function runPlaybookHostedAction(
   const playbook = await resolvePlaybookId(params, actor);
   if (!playbook) throw new BusinessError(t("backend.ai.playbookNotFoundOrOutsideTeamScope"));
 
-  const claimed = await prisma.aiHostedAction.updateMany({
-    where: { id: action.id, status: "PENDING_APPROVAL", ...actionScope },
-    data: {
-      status: "APPROVED",
-      approverId: actor.userId,
-      approvedAt: new Date(),
-    },
-  });
+  const claimed = await claimPendingHostedAction(action, actor, actionScope, "APPROVED");
   if (claimed.count === 0) {
     throw new BusinessError(t("backend.ai.actionIsNotPendingConfirmationMayHaveJust"));
   }

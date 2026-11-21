@@ -121,21 +121,6 @@ async function processHostedTools(input: {
   const blockedCalls = parsedCalls.filter(({ parsed }) => !toolAvailableInMode(parsed.tool, input.automationMode));
   const runnableCalls = parsedCalls.filter((call) => !blockedCalls.includes(call));
 
-  for (const { toolCall, parsed } of runnableCalls) {
-    input.send({
-      type: "tool_call",
-      toolCall: {
-        id: toolCall.id,
-        name: parsed.tool.name,
-        args: parsed.args,
-        riskLevel: parsed.tool.riskLevel,
-        autoApproved: parsed.tool.autoApproved,
-        actionName: parsed.tool.actionName,
-        actionType: parsed.tool.actionType,
-      },
-    });
-  }
-
   const results: ToolResult[] = [];
   // A call left without a result broke the thread: providers reject every
   // later request whose history holds an unanswered call. A call to a tool
@@ -183,6 +168,19 @@ async function processHostedTools(input: {
         session: input.session,
       });
       actionId = action.id;
+      // Creation rechecks the live mode. A rejected proposal must never appear as awaiting approval.
+      input.send({
+        type: "tool_call",
+        toolCall: {
+          id: toolCallId,
+          name: tool.name,
+          args,
+          riskLevel: tool.riskLevel,
+          autoApproved: tool.autoApproved,
+          actionName: tool.actionName,
+          actionType: tool.actionType,
+        },
+      });
       const params = JSON.parse(action.params) as Record<string, unknown>;
 
       if (!tool.autoApproved) {

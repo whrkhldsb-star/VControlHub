@@ -357,21 +357,21 @@ export async function executeRecommendation(
 
 	const claimedAt = new Date();
 	const claimedAtIso = claimedAt.toISOString();
-	const inProgressLease: AiOpsExecutedAction = {
-		id: match.id,
-		action: match.action,
-		risk: match.risk,
-		executed: false,
-		executedAt: claimedAtIso,
-		result: "in_progress",
-	};
 	let claimVersion = log.updatedAt;
 	let actionsAtClaim = actions;
 	let actionClaimed = false;
 	for (let attempt = 0; attempt < ACTION_RESULT_WRITE_ATTEMPTS; attempt += 1) {
-		const claimedActions = actionsAtClaim.map((action) =>
-			action.id === match.id ? inProgressLease : action,
-		);
+		const claimedActions = actionsAtClaim.map((action) => {
+			if (action.id !== match.id) return action;
+			const inProgressLease: AiOpsExecutedAction = {
+				...action,
+				executed: false,
+				executedAt: claimedAtIso,
+				result: "in_progress",
+				errorMessage: undefined,
+			};
+			return inProgressLease;
+		});
 		const claim = await prisma.aiOpsLog.updateMany({
 			where: { id: log.id, updatedAt: claimVersion },
 			data: {
@@ -431,8 +431,9 @@ export async function executeRecommendation(
 		const leasedAction = latestActions.find((action) => action.id === match.id);
 		if (!leasedAction || leasedAction.executedAt !== claimedAtIso) break;
 
+		const completedAction = { ...leasedAction, ...executed, result: executed.result };
 		const mergedActions = latestActions.map((action) =>
-			action.id === match.id ? executed : action,
+			action.id === match.id ? completedAction : action,
 		);
 		const completedAt = new Date();
 		const persisted = await prisma.aiOpsLog.updateMany({
