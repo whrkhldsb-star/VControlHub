@@ -73,13 +73,15 @@ vi.mock("@/lib/settings/service", () => ({
 }));
 
 vi.mock("@/lib/ai/service-runtime", () => ({
-  sendChatRequest: sendChatRequestMock,
+  sendChatRequestToProvider: sendChatRequestMock,
 }));
 
 vi.mock("@/lib/db", () => ({
   prisma: {
+    $transaction: vi.fn(async (run) => run(prisma)),
     job: {
       findFirst: jobMocks.findFirst,
+      updateMany: vi.fn(async () => ({ count: 1 })),
       count: vi.fn(async () => 0),
       groupBy: jobGroupByMock,
     },
@@ -174,7 +176,23 @@ import {
 } from "../scan-worker";
 import { APP_TIME_ZONE } from "@/lib/datetime/time-zone";
 import { prisma } from "@/lib/db";
+import { serializeAiOpsProviderBinding, AI_OPS_BINDING_KEY } from "../provider-binding";
 import { evaluateAlerts } from "@/lib/health/service-alerts";
+
+const boundProvider = {
+  id: "provider-1", createdBy: "admin-1", defaultModel: "ops-model",
+  type: "OPENAI_COMPATIBLE", baseUrl: "https://provider.example/v1", apiKey: "encrypted-key",
+} as const;
+
+function configureProvider(mode: string, defaultModel = "ops-model") {
+  const provider = { ...boundProvider, defaultModel };
+  providerFindFirstMock.mockResolvedValue(provider);
+  getSettingMock.mockImplementation(async (key: string) => {
+    if (key === AI_OPS_BINDING_KEY) return serializeAiOpsProviderBinding(provider);
+    if (key === "ai.ops.provider") return provider.id;
+    return mode;
+  });
+}
 
 describe("millisecondsUntilNextLocalHour", () => {
   // APP_TIME_ZONE is Asia/Shanghai (UTC+8, no DST) — 02:00 wall clock is
@@ -216,7 +234,7 @@ beforeEach(() => {
   jobMocks.heartbeatJob.mockReset();
   jobMocks.heartbeatJob.mockResolvedValue({ count: 1 });
   jobMocks.completeJob.mockReset();
-  jobMocks.completeJob.mockResolvedValue(undefined);
+  jobMocks.completeJob.mockResolvedValue({ count: 1 });
   jobMocks.failJob.mockReset();
   jobMocks.failJob.mockResolvedValue(undefined);
   alertCountMock.mockReset();
@@ -339,15 +357,59 @@ describe("runAiOpsScanWorkerOnce", () => {
     expect(failArgs?.[2]).toMatch(/db down/);
   });
 
-  it("uses the configured provider for analysis and records it on the scan log", async () => {
-    getSettingMock.mockImplementation(async (key: string) =>
-      key === "ai.ops.provider" ? "provider-1" : "recommendation",
-    );
-    providerFindFirstMock.mockResolvedValue({
-      id: "provider-1",
-      createdBy: "admin-1",
-      defaultModel: "ops-model",
+  it("acknowledges a completed scan on retry without repeating autonomous actions or clearing the report", async () => {
+    getSettingMock.mockImplementation(async (key: string) => key === "ai.ops.mode" ? "autonomous" : "");
+    backupFailureCountMock.mockResolvedValue(1);
+    vi.mocked(evaluateAlerts).mockClear();
+    jobMocks.claimNextJob.mockResolvedValue({ id: "job_1", payload: { reason: "manual" }, attempts: 2, maxAttempts: 2 });
+    jobMocks.completeJob.mockRejectedValueOnce(new Error("ack failed"));
+    await runAiOpsScanWorkerOnce();
+    expect(jobMocks.failJob).not.toHaveBeenCalled();
+    expect(prisma.job.updateMany).toHaveBeenCalledWith({
+      where: { id: "job_1", status: "RUNNING", workerId: expect.any(String) },
+      data: expect.objectContaining({ status: "PENDING", attempts: { decrement: 1 } }),
     });
+    expect(prisma.$transaction).toHaveBeenCalled();
+    expect(prisma.job.updateMany).toHaveBeenCalledWith({
+      where: expect.objectContaining({ id: "job_1", status: "RUNNING", attempts: 2, maxAttempts: 2 }),
+      data: { maxAttempts: { increment: 1 } },
+    });
+    const writes = vi.mocked(prisma.aiOpsLog.update).mock;
+    const saved = await writes.results.at(-1)!.value;
+    expect(saved.findings).toEqual([expect.objectContaining({ id: "backup.failure" })]);
+    expect(saved.actions).toEqual([expect.objectContaining({ executed: true })]);
+    expect(vi.mocked(prisma.aiOpsLog.create).mock.calls.at(-1)?.[0].data.jobId).toBe("job_1");
+    const createCount = vi.mocked(prisma.aiOpsLog.create).mock.calls.length;
+    vi.mocked(prisma.aiOpsLog.findFirst).mockResolvedValueOnce({ ...saved, mode: "autonomous" });
+    await runAiOpsScanWorkerOnce();
+    expect(prisma.aiOpsLog.findFirst).toHaveBeenCalledWith(expect.objectContaining({ where: expect.objectContaining({ jobId: "job_1", completedAt: { not: null } }) }));
+    expect(evaluateAlerts).toHaveBeenCalledOnce();
+    expect(prisma.aiOpsLog.create).toHaveBeenCalledTimes(createCount);
+    expect(jobMocks.completeJob).toHaveBeenLastCalledWith("job_1", expect.any(String), expect.objectContaining({
+      logId: saved.id, findingCount: 1, actionCount: 1, status: "warning",
+    }));
+  });
+
+  it.each(["owner demoted", "endpoint changed", "owner changed", "legacy binding"])("pauses sharing fleet health when %s", async (change) => {
+    configureProvider("autonomous");
+    if (change === "owner demoted") providerFindFirstMock.mockResolvedValue(null);
+    if (change === "endpoint changed") providerFindFirstMock.mockResolvedValue({ ...boundProvider, baseUrl: "https://different.example/" });
+    if (change === "owner changed") providerFindFirstMock.mockResolvedValue({ ...boundProvider, createdBy: "new-owner" });
+    if (change === "legacy binding") getSettingMock.mockImplementation(async (key: string) => key === "ai.ops.provider" ? boundProvider.id : key === AI_OPS_BINDING_KEY ? "" : "autonomous");
+    backupFailureCountMock.mockResolvedValue(1);
+    await runAiOpsScanWorkerOnce();
+    expect(providerFindFirstMock).toHaveBeenCalledWith(expect.objectContaining({ where: expect.objectContaining({
+      enabled: true, creator: { status: "ACTIVE", mustChangePassword: false, roles: { some: { role: { key: "admin" } } } },
+    }) }));
+    expect(sendChatRequestMock).not.toHaveBeenCalled();
+    const report = vi.mocked(prisma.aiOpsLog.update).mock.calls.at(-1)![0].data;
+    expect(report.providerHealth).toMatchObject({ state: "unavailable", failureKind: "configuration" });
+    expect(report.findings).toContainEqual(expect.objectContaining({ id: "ai.provider-unavailable" }));
+    expect(report.actions).toContainEqual(expect.objectContaining({ executed: false }));
+  });
+
+  it("uses the configured provider for analysis and records it on the scan log", async () => {
+    configureProvider("recommendation");
     sendChatRequestMock.mockResolvedValue({
       providerType: "OPENAI_COMPATIBLE",
       response: {
@@ -366,7 +428,7 @@ describe("runAiOpsScanWorkerOnce", () => {
         model: "ops-model",
         stream: false,
       }),
-      "admin-1",
+      boundProvider,
       expect.any(AbortSignal),
     );
     const completedLog = jobMocks.completeJob.mock.calls[0]?.[2] as {
@@ -381,8 +443,7 @@ describe("runAiOpsScanWorkerOnce", () => {
     expect(jobMocks.failJob).not.toHaveBeenCalled();
   });
   it("tells the provider which checks ran and answers in the platform language", async () => {
-    getSettingMock.mockImplementation(async (key: string) => key === "ai.ops.provider" ? "provider-1" : "recommendation");
-    providerFindFirstMock.mockResolvedValue({ id: "provider-1", createdBy: "admin-1", defaultModel: "glm-5.3" });
+    configureProvider("recommendation", "glm-5.3");
     sendChatRequestMock.mockResolvedValue({ providerType: "OPENAI_COMPATIBLE", response: { json: async () => ({ choices: [{ message: { content: "所有检查均通过。" } }] }) } });
     await runAiOpsScanWorkerOnce("manual");
     const request = sendChatRequestMock.mock.calls[0]![0] as { messages: Array<{ role: string; content: string }> };
@@ -403,8 +464,7 @@ describe("runAiOpsScanWorkerOnce", () => {
   });
 
   it("gives reasoning models room to answer and reports a budget spent on thinking", async () => {
-    getSettingMock.mockImplementation(async (key: string) => key === "ai.ops.provider" ? "provider-1" : "recommendation");
-    providerFindFirstMock.mockResolvedValue({ id: "provider-1", createdBy: "admin-1", defaultModel: "glm-5.3" });
+    configureProvider("recommendation", "glm-5.3");
     sendChatRequestMock.mockResolvedValue({ providerType: "OPENAI_COMPATIBLE", response: { json: async () => ({ choices: [{ finish_reason: "length", message: { content: "" } }] }) } });
     await runAiOpsScanWorkerOnce("manual");
     expect(sendChatRequestMock.mock.calls[0]![0].max_tokens).toBeGreaterThanOrEqual(2000);
@@ -420,8 +480,7 @@ describe("runAiOpsScanWorkerOnce", () => {
   });
 
   it("preserves deterministic findings and withholds autonomous actions when the provider rejects access", async () => {
-    getSettingMock.mockImplementation(async (key: string) => key === "ai.ops.provider" ? "provider-1" : "autonomous");
-    providerFindFirstMock.mockResolvedValue({ id: "provider-1", createdBy: "admin-1", defaultModel: "ops-model" });
+    configureProvider("autonomous", "ops-model");
     sendChatRequestMock.mockRejectedValue(new Error("403 insufficient balance secret-upstream-text"));
     backupFailureCountMock.mockResolvedValue(1);
     await expect(runAiOpsScanWorkerOnce("manual")).resolves.toBe(true);
@@ -452,8 +511,7 @@ describe("runAiOpsScanWorkerOnce", () => {
     };
 
     beforeEach(() => {
-      getSettingMock.mockImplementation(async (key: string) => key === "ai.ops.provider" ? "provider-1" : "autonomous");
-      providerFindFirstMock.mockResolvedValue({ id: "provider-1", createdBy: "admin-1", defaultModel: "ops-model" });
+      configureProvider("autonomous", "ops-model");
       backupFailureCountMock.mockResolvedValue(1);
       vi.mocked(evaluateAlerts).mockClear();
     });
@@ -538,9 +596,14 @@ describe("runAiOpsScanWorkerOnce", () => {
   });
 
   it("honours persisted provider cooldowns for scheduled scans and allows a manual retry", async () => {
-    getSettingMock.mockImplementation(async (key: string) => key === "ai.ops.provider" ? "provider-1" : "recommendation");
-    providerFindFirstMock.mockResolvedValue({ id: "provider-1", createdBy: "admin-1", defaultModel: "ops-model" });
-    vi.mocked(prisma.aiOpsLog.findFirst).mockResolvedValue({ providerHealth: { state: "failed", configurationVersion: "legacy", consecutiveFailures: 2, failureKind: "quota", httpStatus: 403, retryAt: new Date(Date.now() + 86_400_000).toISOString() } } as never);
+    configureProvider("recommendation", "ops-model");
+    // Each scan checks for a completed job report before looking up provider health.
+    const history = { providerHealth: {
+      state: "failed", configurationVersion: "legacy", consecutiveFailures: 2, failureKind: "quota",
+      httpStatus: 403, retryAt: new Date(Date.now() + 86_400_000).toISOString(),
+    } };
+    vi.mocked(prisma.aiOpsLog.findFirst).mockResolvedValueOnce(null).mockResolvedValueOnce(history as never)
+      .mockResolvedValueOnce(null).mockResolvedValueOnce(history as never);
     jobMocks.claimNextJob.mockResolvedValueOnce({ id: "scheduled-job", payload: { reason: "interval" } });
     await runAiOpsScanWorkerOnce("interval");
     expect(sendChatRequestMock).not.toHaveBeenCalled();
@@ -562,7 +625,7 @@ describe("AI ops scan retry wake", () => {
     try {
       const aiOpsLogFindFirst = prisma.aiOpsLog.findFirst as ReturnType<typeof vi.fn>;
       aiOpsLogFindFirst.mockReset();
-      aiOpsLogFindFirst.mockResolvedValue({ id: "log_recent", completedAt: new Date() }); // no startup scan
+      aiOpsLogFindFirst.mockImplementation(async (args) => args.where.jobId ? null : { id: "log_recent", completedAt: new Date() }); // no startup scan
       const dueAt = new Date(Date.now() + 60 * 60 * 1000);
       jobMocks.findFirst.mockReset();
       jobMocks.findFirst.mockImplementation(async (args: { select?: { availableAt?: boolean } }) => (args?.select?.availableAt ? { availableAt: dueAt } : { id: "job_retry" }));
@@ -589,7 +652,7 @@ describe("AI ops scan requested from the page", () => {
     try {
       const aiOpsLogFindFirst = prisma.aiOpsLog.findFirst as ReturnType<typeof vi.fn>;
       aiOpsLogFindFirst.mockReset();
-      aiOpsLogFindFirst.mockResolvedValue({ id: "log_recent", completedAt: new Date() }); // no startup scan
+      aiOpsLogFindFirst.mockImplementation(async (args) => args.where.jobId ? null : { id: "log_recent", completedAt: new Date() }); // no startup scan
       let queuedAt: Date | null = null;
       jobMocks.findFirst.mockReset();
       jobMocks.findFirst.mockImplementation(async (args: { select?: { availableAt?: boolean } }) =>

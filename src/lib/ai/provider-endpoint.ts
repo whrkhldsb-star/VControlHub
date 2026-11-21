@@ -1,0 +1,21 @@
+// Shared with the provider form, which must compare the effective origins even
+// when one of the Base URL fields is empty.
+export function resolveDefaultProviderBaseUrl(type?: string): string {
+	if (type === "ANTHROPIC") return "https://api.anthropic.com";
+	if (type === "GOOGLE") return "https://generativelanguage.googleapis.com";
+	return "https://api.openai.com/v1";
+}
+
+export function providerOrigin(baseUrl: string | undefined, type?: string): string | null {
+	try {
+		return new URL(baseUrl?.trim() || resolveDefaultProviderBaseUrl(type)).origin;
+	} catch {
+		return null;
+	}
+}
+
+type ProviderEndpoint = { type: string; baseUrl: string };
+
+export function providerEndpointChanged(previous: ProviderEndpoint, next: ProviderEndpoint): boolean {
+	return previous.type !== next.type || providerOrigin(previous.baseUrl, previous.type) !== providerOrigin(next.baseUrl, next.type);
+}

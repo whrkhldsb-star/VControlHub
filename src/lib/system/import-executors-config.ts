@@ -7,6 +7,9 @@
 
 import { Prisma } from "@prisma/client";
 
+import { providerEndpointChanged } from "@/lib/ai/provider-endpoint";
+import { ValidationError } from "@/lib/errors";
+import { t as translate } from "@/lib/i18n/service-translations";
 import { isSensitiveSettingKey, type ExportFile, type ImportOptions } from "@/lib/system/config-schema";
 import { isValidSettingKey } from "@/lib/settings/service";
 import { creatorResolver, parseDate, upsertById, type Tx, type Counts } from "./import-executors-helpers";
@@ -79,16 +82,21 @@ export async function importAiProviders(
   const ids = records.map((r) => r.id);
   const existing = await tx.aiProvider.findMany({
     where: { id: { in: ids } },
-    select: { id: true },
+    select: { id: true, type: true, baseUrl: true },
   });
-  const existingIds = new Set(existing.map((e) => e.id));
-  const toCreate = records.filter((r) => !existingIds.has(r.id));
-  const toUpdate = records.filter((r) => existingIds.has(r.id));
+  const existingById = new Map(existing.map((provider) => [provider.id, provider]));
+  const toCreate = records.filter((r) => !existingById.has(r.id));
+  const toUpdate = records.filter((r) => existingById.has(r.id));
 
   if (options.overwriteExisting) {
     for (const r of toUpdate) {
-      await tx.aiProvider.update({
-        where: { id: r.id },
+      const current = existingById.get(r.id)!;
+      const changed = providerEndpointChanged(current, r);
+      if (changed && !r.apiKey?.trim()) throw new ValidationError(translate("backend.ai.providerKeyForNewEndpoint"));
+      const updated = await tx.aiProvider.updateMany({
+        // A full backup may contain the very ciphertext it is about to redirect.
+        // Check it and the previously compared endpoint in the write itself.
+        where: { ...current, ...(changed && r.apiKey ? { apiKey: { not: r.apiKey } } : {}) },
         data: {
           name: r.name,
           type: r.type as never,
@@ -102,6 +110,7 @@ export async function importAiProviders(
           settings: r.settings as Prisma.InputJsonValue,
         },
       });
+      if (!updated.count) throw new ValidationError(translate("backend.ai.providerKeyForNewEndpoint"));
     }
     counts.updated += toUpdate.length;
   } else {

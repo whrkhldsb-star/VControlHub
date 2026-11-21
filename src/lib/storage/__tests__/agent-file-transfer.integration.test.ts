@@ -8,7 +8,7 @@ import { join } from "node:path";
 import { setTimeout as delay } from "node:timers/promises";
 import { beforeAll, afterAll, describe, expect, it, vi } from "vitest";
 import { prisma } from "@/lib/db";
-import type { SessionPayload } from "@/lib/auth/session";
+import { createSessionToken, verifySessionToken, type SessionPayload } from "@/lib/auth/session";
 import { initMediaUploadSession, appendMediaUploadChunk, cleanupMediaUploadTempDir } from "@/lib/upload/service";
 import { createApiToken } from "@/lib/api-token/service";
 import { GET as download } from "@/app/api/storage/webdav-download/route";
@@ -93,19 +93,20 @@ describe.skipIf(process.env.RUN_DATABASE_INTEGRATION_TESTS !== "1" || !binary)(
         { stdio: "ignore" },
       );
       await prisma.team.create({ data: { id, slug: id, name: id } });
-      await prisma.identityTemplate.create({ data: { id, name: id, permissions: ["storage:read", "storage:write"] } });
+      await prisma.identityTemplate.create({ data: { id, name: id, permissions: ["storage:read", "storage:write", "api-token:manage"] } });
       await prisma.user.create({
         data: {
           id,
           username: id,
           passwordHash: "not-a-login",
+          status: "ACTIVE",
           mustChangePassword: false,
           currentTeamId: id,
           teamMembership: { create: { teamId: id, identityTemplateId: id } },
         },
       });
       apiToken = (
-        await createApiToken({ userId: id, teamId: id, name: "download fixture", scopes: ["storage:read", "storage:write"] })
+        await createApiToken({ session: await verifySessionToken(await createSessionToken(actor)), name: "download fixture", scopes: ["storage:read", "storage:write"] })
       ).token;
       await prisma.server.create({
         data: {

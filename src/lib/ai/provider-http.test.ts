@@ -21,6 +21,7 @@ import {
   postProviderChat,
   aiHttpErrorMessage,
   trimProviderBaseUrl,
+  resolveDefaultProviderBaseUrl,
 } from "./provider-http";
 
 describe("ai provider-http adapter", () => {
@@ -118,6 +119,18 @@ describe("ai provider-http adapter", () => {
         { id: "gpt-4o", name: "GPT-4o", owned_by: "openai" },
         { id: "gpt-4.1" },
       ]);
+    });
+
+    it.each([
+      ["ANTHROPIC", "https://api.anthropic.com/v1/models?limit=1000"],
+      ["GOOGLE", "https://generativelanguage.googleapis.com/v1beta/openai/models"],
+    ])("probes the %s native default and rejects legacy OpenAI destinations", async (type, url) => {
+      const fetch = vi.fn(async () => Response.json({ data: [{ id: "native-model" }] }));
+      globalThis.fetch = fetch;
+      await fetchProviderModels({ type, baseUrl: resolveDefaultProviderBaseUrl(type), apiKey: "native-key" });
+      expect(fetch).toHaveBeenCalledWith(url, expect.anything());
+      await expect(fetchProviderModels({ type, baseUrl: "https://api.openai.com/v1", apiKey: "native-key" })).rejects.toThrow();
+      expect(fetch).toHaveBeenCalledTimes(1);
     });
 
     it("authenticates an Anthropic model list with x-api-key and asks for every page entry", async () => {

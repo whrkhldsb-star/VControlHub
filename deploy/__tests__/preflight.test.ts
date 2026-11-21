@@ -76,7 +76,10 @@ async function runPreflight(args: {
 
 async function makeAppDir() {
   const appDir = await mkdtemp(path.join(tmpdir(), "whrkhldsb-preflight-"));
-  await writeFile(path.join(appDir, "package.json"), "{}");
+  await writeFile(path.join(appDir, "package.json"), '{"name":"vcontrolhub"}');
+  await mkdir(path.join(appDir, "deploy/systemd"), { recursive: true });
+  await writeFile(path.join(appDir, "deploy/install.sh"), "#!/bin/bash\n");
+  await writeFile(path.join(appDir, "deploy/systemd/vcontrolhub-next.service.example"), "[Unit]\n");
   for (const dir of [
     "storage",
     "tmp",
@@ -549,10 +552,10 @@ describeOrSkip("deploy/install.sh", () => {
 
     expect(script).toContain('PG_DB_NAME must be a safe unquoted PostgreSQL identifier');
     expect(script).toContain('PG_DB_USER must be a safe unquoted PostgreSQL identifier');
-    expect(script).toContain('psql -tAc "SELECT 1 FROM pg_database');
+    expect(script).toContain("SELECT oid FROM pg_database WHERE datname=");
     expect(script).not.toContain("psql -lqtAc");
     expect(script).toContain('createdb --owner="${PG_DB_USER}" "${PG_DB_NAME}"');
-    expect(script).toContain('(cd / && sudo -u postgres "$@")');
+    expect(script).toContain('PGHOST=/var/run/postgresql PGPORT=5432 PGDATABASE=postgres');
   });
 
   it("allows the root postinstall hook to run in a production-only dependency tree", async () => {
@@ -584,7 +587,7 @@ describeOrSkip("deploy/install.sh", () => {
     expect(script).toContain("quick_service_read_write_paths");
     expect(script).toContain("Skipping Docker Engine installation (SKIP_DOCKER=1)");
     expect(script).toContain("Skipping Docker Engine installation for DESTDIR isolated install");
-    expect(script).toMatch(/need_root\s+install_packages\s+install_docker\s+prepare_app_user\s+add_app_user_to_docker_group\s+prepare_quick_service_storage/);
+    expect(script).toMatch(/validate_source_target\s+need_root\s+init_instance_state\s+install_packages\s+install_docker\s+prepare_app_user\s+add_app_user_to_docker_group\s+prepare_quick_service_storage/);
   });
 
   it("derives PostgreSQL default identifiers safely from dashed app slugs", async () => {
@@ -1319,14 +1322,13 @@ describeOrSkip("deploy/uninstall.sh", () => {
     expect(script).not.toContain("--purge-data");
     expect(script).toContain("--dry-run");
     expect(script).toContain("--yes");
-    expect(script).toContain("Complete uninstall selected; no application information will be retained");
-    expect(script).toContain('label=com.vcontrolhub.quick-service=true');
-    expect(script).toContain('[[ "${name}" == qs-* ]]');
-    expect(script).toContain("quick_service_removable_data_paths");
+    expect(script).toContain('com.vcontrolhub.instance=');
+    expect(script).not.toContain("qs-*");
+    expect(script).not.toContain("quick_service_removable_data_paths");
     expect(script).toContain("Complete uninstall verified");
     expect(script).toContain("# Managed by VControlHub installer:");
     expect(script).toContain("Refusing unsafe APP_DIR");
-    expect(script).toContain("Refusing unsafe data path");
+    expect(script).toContain("Preserving unverified or shared data directory");
     expect(script).not.toContain('units+=("vcontrolhub-direct.service")');
     expect(script).not.toContain("apt-get remove");
     expect(script).not.toContain("rm -rf");

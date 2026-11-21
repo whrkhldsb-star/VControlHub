@@ -8,17 +8,18 @@ vi.mock("@/lib/storage/file-content", () => ({ streamStorageFile: vi.fn() }));
 import path from "node:path";
 import { tmpdir } from "node:os";
 import { afterEach, beforeEach, describe, expect, it, vi } from "vitest";
+import { getRateLimitStore } from "@/lib/rate-limit-store";
 
-vi.mock("@/lib/share-link/service", () => ({
+vi.mock("@/lib/share-link/service", async (importOriginal) => ({
+  hashShareToken: (await importOriginal<typeof import("@/lib/share-link/service")>()).hashShareToken,
   authorizeShareDownload: vi.fn(),
   assertShareTargetNotDeleted: vi.fn(async () => undefined),
-  hashShareToken: vi.fn((token: string) => `hash:${token}`),
   normalizeSharePath: vi.fn((value: string) => value.replace(/^\/+/, "")),
   releaseShareQuotaClaim: vi.fn(async () => undefined),
   resolveShareToken: vi.fn(),
 }));
 
-const { authorizeShareDownload, resolveShareToken } = await import("@/lib/share-link/service");
+const { authorizeShareDownload, hashShareToken, resolveShareToken } = await import("@/lib/share-link/service");
 const route = await import("../route");
 
 describe("share token file route", () => {
@@ -162,6 +163,29 @@ describe("share token file route", () => {
     }
 
     expect(last?.status).toBe(429);
+  });
+
+  it.each(["GET", "HEAD", "POST"] as const)("uses only the share digest and client address in %s rate-limit keys", async (method) => {
+    vi.stubEnv("REDIS_URL", "");
+    vi.stubEnv("TRUSTED_PROXY_HOPS", "1");
+    const token = "private-share-token-0123456789";
+    const digest = hashShareToken(token);
+    const ip = "203.0.113.52";
+    const post = method === "POST";
+    const request = new Request(`https://local/api/share/${token}`, {
+      method, headers: { "x-forwarded-for": ip, "x-share-password": "test-password" },
+      body: post ? JSON.stringify({ password: "test-password" }) : undefined,
+    });
+    vi.mocked(post ? authorizeShareDownload : resolveShareToken).mockRejectedValueOnce(new Error("expired"));
+    const store = vi.spyOn(getRateLimitStore(), "addAndGetWindow");
+    try {
+      await route[method](request, { params: Promise.resolve({ token }) });
+      expect(store.mock.calls.map(([key]) => key)).toEqual([
+        `share-access:${digest}:60/60000:${ip}`, `share-password-client:${ip}`, `share-password:${digest}:${ip}`,
+      ]);
+    } finally {
+      store.mockRestore();
+    }
   });
 
   it("throttles password guesses per client address, not per share for everyone", async () => {

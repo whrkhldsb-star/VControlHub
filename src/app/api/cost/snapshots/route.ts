@@ -3,6 +3,8 @@ import { apiCopy } from "@/lib/i18n/api-copy";
  * TR-031 E01: /api/cost/snapshots — recent daily snapshots for the trend chart.
  *
  * GET ?limit=30  →  { snapshots: DailySnapshot[] }  (cost:read)
+ * POST { month? } → { result } (cost:manage). For closed months, sync keeps
+ * recorded charges and reports servers whose historical rate/owner cannot be verified.
  *
  * The list is ordered most-recent-first. Limit is clamped to [1, 365].
  */

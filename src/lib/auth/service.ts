@@ -1,13 +1,14 @@
 import { prisma } from "@/lib/db";
 
 import { auditUserAction } from "@/lib/audit/service";
+import { ValidationError } from "@/lib/errors";
 import { hashPassword, verifyPassword } from "./password";
 import { validatePasswordPolicy } from "./password-policy";
 import { changePasswordSchema, loginSchema, type ChangePasswordInput, type LoginInput } from "./schema";
 import { DEFAULT_ROLE_PERMISSIONS, getPermissionsFromRoles, type Permission, type RoleKey } from "./rbac";
 import { normalizeUserPreferencesForSession, type UserPreferences } from "@/lib/preferences/user-preferences";
 import { resolveSessionPermissions } from "./identity-templates";
-import { captureSessionCredentialBinding, type SessionCredentialBinding } from "./session";
+import { assertSessionCredentialBinding, captureSessionCredentialBinding, type SessionCredentialBinding, type SessionPayload } from "./session";
 import { t } from "@/lib/i18n/service-translations";
 
 export type AuthenticatedUser = {
@@ -129,7 +130,7 @@ export async function authenticateUser(input: LoginInput): Promise<Authenticated
  };
 }
 
-export async function changePassword(input: ChangePasswordInput & { userId: string }): Promise<ChangePasswordResult> {
+export async function changePassword(input: ChangePasswordInput, session: SessionPayload): Promise<ChangePasswordResult> {
   const payload = changePasswordSchema.parse({
     currentPassword: input.currentPassword,
     newPassword: input.newPassword,
@@ -137,21 +138,27 @@ export async function changePassword(input: ChangePasswordInput & { userId: stri
   });
 
   const user = await prisma.user.findUnique({
-    where: { id: input.userId },
+    where: { id: session.userId },
     select: {
       id: true,
       passwordHash: true,
       sessionEpoch: true,
+      mustChangePassword: true,
     },
   });
 
   if (!user) {
     return { success: false, error: t("backend.auth.userNotFound") };
   }
+  assertSessionCredentialBinding(session, user);
 
   const passwordMatches = await verifyPassword(payload.currentPassword, user.passwordHash);
   if (!passwordMatches) {
     return { success: false, error: t("backend.auth.currentPasswordIncorrect") };
+  }
+
+  if (user.mustChangePassword && await verifyPassword(payload.newPassword, user.passwordHash)) {
+    throw new ValidationError(t("backend.auth.temporaryPasswordReused"));
   }
 
   const policyError = await validatePasswordPolicy(payload.newPassword);
@@ -163,9 +170,10 @@ export async function changePassword(input: ChangePasswordInput & { userId: stri
 
   const updated = await prisma.user.updateMany({
     where: {
-      id: input.userId,
+      id: session.userId,
       passwordHash: user.passwordHash,
       sessionEpoch: user.sessionEpoch ?? 0,
+      mustChangePassword: user.mustChangePassword,
       status: { not: "DISABLED" },
     },
     data: {
@@ -180,7 +188,7 @@ export async function changePassword(input: ChangePasswordInput & { userId: stri
   }
 
   // Account-level, deliberately unstamped — see auth.password_change_skipped.
-  await auditUserAction(input.userId, "auth.password_change", { userId: input.userId });
+  await auditUserAction(session.userId, "auth.password_change", { userId: session.userId });
 
   return {
     success: true,

@@ -30,6 +30,19 @@ async function body(type: string, model: string, stream = true) {
 describe("OpenAI request body", () => {
 	beforeEach(() => mocks.postProviderChat.mockClear());
 
+	it.each([
+		["GOOGLE", "https://generativelanguage.googleapis.com/v1beta/openai/chat/completions"],
+		["ANTHROPIC", "https://api.anthropic.com/v1/messages"],
+	])("uses the native endpoint for %s chat and refuses an old generic default", async (type, url) => {
+		const req = { providerId: "p1", model: "native", messages: [] };
+		mocks.findFirst.mockResolvedValue({ type, baseUrl: "", apiKey: "native-key" });
+		await sendChatRequest(req, "u1");
+		expect(mocks.postProviderChat).toHaveBeenCalledWith(expect.objectContaining({ url }));
+		mocks.findFirst.mockResolvedValue({ type, baseUrl: "https://api.openai.com/v1", apiKey: "native-key" });
+		await expect(sendChatRequest(req, "u1")).rejects.toThrow();
+		expect(mocks.postProviderChat).toHaveBeenCalledOnce();
+	});
+
 	it.each(["o3-mini", "o1", "o4-mini", "gpt-5", "gpt-5-mini"])("asks %s for max_completion_tokens and leaves sampling out", async (model) => {
 		const sent = await body("OPENAI", model);
 		expect(sent.max_completion_tokens).toBe(4096);

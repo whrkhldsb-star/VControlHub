@@ -4,7 +4,6 @@
 
 set -euo pipefail
 
-SCRIPT_DIR="$(cd "$(dirname "${BASH_SOURCE[0]}")" && pwd)"
 APP_SLUG="${APP_SLUG:-vcontrolhub}"
 SERVICE_PREFIX="${SERVICE_PREFIX:-${APP_SLUG}}"
 APP_DIR="${APP_DIR:-/opt/VControlHub}"
@@ -12,7 +11,6 @@ APP_USER="${APP_USER:-${APP_SLUG}}"
 ENV_FILE="${ENV_FILE:-${APP_DIR}/.env.local}"
 ASSUME_YES=0
 DRY_RUN=0
-FORCE_PATHS=0
 
 log() { printf '\033[1;32m[uninstall]\033[0m %s\n' "$*"; }
 warn() { printf '\033[1;33m[uninstall]\033[0m %s\n' "$*" >&2; }
@@ -23,17 +21,13 @@ usage() {
 Usage: sudo deploy/uninstall.sh [--yes] [--dry-run] [--force-paths]
 
 This is always a complete uninstall. It removes application services, source,
-configuration/secrets, PostgreSQL database and role, runtime data, the app
-system user, installer-managed proxy configuration, and local Quick Service
-containers/data. It does not remove shared OS packages or unrelated Docker
-resources.
+configuration/secrets, the app system user and installer-managed proxy configuration.
+Database objects, data directories and Docker resources require instance ownership.
 
 Options:
   --yes       Skip the interactive confirmation (for explicit automation).
   --dry-run   Print the resolved removal scope without changing the host.
-  --force-paths  Also delete data paths whose name does not contain the APP_SLUG
-              (refused otherwise: a typo in the env file must not remove another
-              application's directory).
+  --force-paths  Accepted for compatibility. Directory ownership is always verified.
   -h, --help  Show this help.
 EOF
 }
@@ -42,7 +36,7 @@ while [ "$#" -gt 0 ]; do
   case "$1" in
     --yes) ASSUME_YES=1 ;;
     --dry-run) DRY_RUN=1 ;;
-    --force-paths) FORCE_PATHS=1 ;;
+    --force-paths) : ;;
     -h|--help) usage; exit 0 ;;
     *) fail "Unknown argument: $1. Use --help for usage." ;;
   esac
@@ -54,84 +48,226 @@ done
 [[ "${SERVICE_PREFIX}" =~ ^[a-zA-Z0-9][a-zA-Z0-9_.@-]*$ ]] || fail "Unsafe SERVICE_PREFIX=${SERVICE_PREFIX}"
 [[ "${APP_USER}" =~ ^[a-z_][a-z0-9_-]*$ ]] || fail "Unsafe APP_USER=${APP_USER}"
 
-QUICK_SERVICE_PATHS_LIB="${SCRIPT_DIR}/lib/quick-service-paths.sh"
-[ -r "${QUICK_SERVICE_PATHS_LIB}" ] || fail "Missing Quick Service path inventory: ${QUICK_SERVICE_PATHS_LIB}"
-# shellcheck disable=SC1090
-source "${QUICK_SERVICE_PATHS_LIB}"
-
 normalize_path() {
   realpath -m -- "$1"
 }
 
+[[ ! -L ${APP_DIR} ]] || fail "Refusing symlink APP_DIR=${APP_DIR}"
 APP_DIR="$(normalize_path "${APP_DIR}")"
 case "${APP_DIR}" in
   /opt/*|/srv/*|/home/*|/root/*) ;;
   *) fail "Refusing unsafe APP_DIR=${APP_DIR}; expected a child of /opt, /srv, /home, or /root." ;;
 esac
 
-read_env_value() {
-  local key="$1" value=""
-  [ -f "${ENV_FILE}" ] || return 0
-  value="$(awk -v wanted="${key}" '
-    $0 ~ "^[[:space:]]*" wanted "[[:space:]]*=" {
-      sub("^[[:space:]]*" wanted "[[:space:]]*=[[:space:]]*", "")
-      print
-      exit
-    }
-  ' "${ENV_FILE}")"
-  value="${value%$'\r'}"
-  if [[ "${value}" == \"*\" ]] || [[ "${value}" == \'*\' ]]; then
-    value="${value:1:${#value}-2}"
-  fi
-  printf '%s' "${value}"
+instance_key="$(printf '%s\0%s' "${APP_SLUG}" "${APP_DIR}" | sha256sum | cut -d' ' -f1)"
+INSTANCE_STATE_DIR="/etc/vcontrolhub/instances/${instance_key}"
+for dir in /etc/vcontrolhub /etc/vcontrolhub/instances "${INSTANCE_STATE_DIR}"; do
+  [[ -e ${dir} || -L ${dir} ]] || continue
+  [[ -d ${dir} && ! -L ${dir} && "$(stat -c %u -- "${dir}")" == "${EUID}" ]] ||
+    fail "Untrusted installer state directory: ${dir}"
+  mode="$(stat -c %a -- "${dir}")"
+  (( (8#${mode} & 0022) == 0 )) || fail "Writable installer state directory: ${dir}"
+done
+docker_instance_label=""
+if [[ -f ${INSTANCE_STATE_DIR}/docker-instance && ! -L ${INSTANCE_STATE_DIR}/docker-instance ]]; then
+  docker_id="$(< "${INSTANCE_STATE_DIR}/docker-instance")"
+  if [[ ${docker_id} =~ ^[0-9a-f]{32}$ ]]; then docker_instance_label="com.vcontrolhub.instance=${docker_id}"; fi
+fi
+if [[ -e ${APP_DIR} && ( ! -f ${APP_DIR}/deploy/install.sh || ! -f ${APP_DIR}/deploy/systemd/vcontrolhub-next.service.example ) ]]; then
+  fail "Refusing to remove an unrecognized application directory: ${APP_DIR}"
+fi
+
+# URL checks are read-only. Only the installer-generated loopback endpoint is
+# eligible. Check the recorded service and migration environments before postgres
+# is even contacted; never source an application-writable environment file here.
+load_owned_database() {
+  local record_file="${INSTANCE_STATE_DIR}/database" mode extra
+  local -a record
+  [[ -f ${record_file} && ! -L ${record_file} ]] || return 1
+  mapfile -t record < "${record_file}"
+  [[ ${#record[@]} == 3 ]] || return 1
+  read -r mode db_port db_name db_role db_cluster db_oid role_oid extra <<< "${record[0]}"
+  [[ ${mode} == local && ${db_port} == 5432 && -z ${extra} &&
+     ${db_name} =~ ^[a-z_][a-z0-9_]{0,62}$ && ${db_role} =~ ^[a-z_][a-z0-9_]{0,62}$ &&
+     ${db_cluster} =~ ^[0-9]+$ && ${db_oid} =~ ^[0-9]+$ && ${role_oid} =~ ^[0-9]+$ &&
+     ( ${db_oid} != 0 || ${role_oid} != 0 ) ]] || return 1
+  VCH_DB_URL="${DATABASE_URL:-}" python3 - "${db_name}" "${db_role}" "${db_port}" "${record[1]}" "${record[2]}" "${ENV_FILE}" "${RUNTIME_ENV_FILE:-${APP_DIR}/.env.runtime}" <<'PY'
+import os, re, sys
+from pathlib import Path
+from urllib.parse import unquote, urlsplit
+db, role, port, env_file, runtime_file, *additional = sys.argv[1:]
+
+def matches(value):
+    # The installer URL has escaped credentials. Shell expansion and multiline
+    # systemd quoting cannot establish a literal endpoint.
+    if any(c.isspace() or c in ("\\", "'", '"', "$", "`") for c in value):
+        return False
+    url = urlsplit(value)
+    return (url.scheme in ("postgres", "postgresql") and url.hostname in ("127.0.0.1", "::1", "localhost")
+            and (url.port if url.port is not None else 5432) == int(port) and unquote(url.username or "") == role
+            and unquote(url.path) == "/" + db and not url.fragment
+            and (not url.query or re.fullmatch(r"schema=[A-Za-z_][A-Za-z0-9_]*", url.query)))
+
+def file_matches(path):
+    value = ""
+    for line in Path(path).read_text().splitlines():
+        line = line.strip()
+        if not line or line.startswith(("#", ";")):
+            continue
+        # Accept the installer's one-assignment-per-line format. A line that
+        # looks like DATABASE_URL inside a multiline value is not an assignment.
+        match = re.fullmatch(r"(?:export\s+)?([A-Za-z_][A-Za-z0-9_]*)\s*=\s*(.*)", line)
+        if not match:
+            return False
+        key, field = match.groups()
+        if field.startswith(("'", '"')):
+            quote = field[0]
+            if not field.endswith(quote) or field.count(quote) != 2 or field.endswith("\\" + quote):
+                return False
+            field = field[1:-1]
+        elif field.endswith("\\") or any(c in field for c in ("'", '"', ";")):
+            return False
+        if key == "DATABASE_URL":
+            value = field
+    return matches(value)
+
+try:
+    paths = {env_file, runtime_file, *(p for p in additional if p and Path(p).exists())}
+    supplied = os.environ["VCH_DB_URL"]
+    valid = (not supplied or matches(supplied)) and all(file_matches(p) for p in paths)
+except (OSError, UnicodeError, ValueError):
+    valid = False
+sys.exit(0 if valid else 1)
+PY
 }
 
-PG_DB_NAME="${PG_DB_NAME:-$(read_env_value PG_DB_NAME)}"
-PG_DB_USER="${PG_DB_USER:-$(read_env_value PG_DB_USER)}"
-STORAGE_ROOT="${STORAGE_ROOT:-$(read_env_value STORAGE_ROOT)}"
-DOWNLOAD_ROOT="${DOWNLOAD_ROOT:-$(read_env_value DOWNLOAD_ROOT)}"
-BACKUP_DIR="${BACKUP_DIR:-$(read_env_value BACKUP_DIR)}"
-ARIA2_RPC_DIR="${ARIA2_RPC_DIR:-$(read_env_value ARIA2_RPC_DIR)}"
-PG_DB_NAME="${PG_DB_NAME:-${APP_SLUG//-/_}}"
-PG_DB_USER="${PG_DB_USER:-${APP_SLUG//-/_}}"
-STORAGE_ROOT="${STORAGE_ROOT:-/var/lib/${APP_SLUG}/storage}"
-DOWNLOAD_ROOT="${DOWNLOAD_ROOT:-/var/lib/${APP_SLUG}/downloads}"
-BACKUP_DIR="${BACKUP_DIR:-/var/backups/${APP_SLUG}}"
-ARIA2_RPC_DIR="${ARIA2_RPC_DIR:-/var/lib/${APP_SLUG}/aria2}"
+local_admin_psql() {
+  (cd / && sudo -u postgres env -i PATH="/usr/bin:/bin" PGHOST=/var/run/postgresql PGPORT="${db_port}" PGDATABASE=postgres \
+    psql -X -w -Atq -v ON_ERROR_STOP=1 "$@")
+}
 
-[[ "${PG_DB_NAME}" =~ ^[a-z_][a-z0-9_]*$ ]] || fail "Unsafe PG_DB_NAME=${PG_DB_NAME}"
-[[ "${PG_DB_USER}" =~ ^[a-z_][a-z0-9_]*$ ]] || fail "Unsafe PG_DB_USER=${PG_DB_USER}"
+plan_database_cleanup() {
+  remove_local_db=0
+  if load_owned_database; then
+    remove_local_db=1
+    log "Local PostgreSQL cluster ${db_cluster} on port ${db_port}; database ${db_name} (owned OID ${db_oid}), role ${db_role} (owned OID ${role_oid}); 0 means retained."
+  else
+    warn "External or unverified DATABASE_URL/ownership. Preserving PostgreSQL data and roles for manual handling by the operator."
+  fi
+}
+
+check_database_cluster() {
+  if [[ ${remove_local_db} == 1 ]]; then
+    local current_cluster
+    current_cluster="$(local_admin_psql -c 'SELECT system_identifier FROM pg_control_system()')" ||
+      fail "Cannot verify the installer-created local PostgreSQL cluster."
+    if [[ ${current_cluster} != "${db_cluster}" ]]; then
+      warn "The local PostgreSQL cluster has changed. Preserving database and role for manual handling."
+      remove_local_db=0
+    fi
+  fi
+}
+
+remove_owned_database() {
+  [[ ${remove_local_db} == 1 ]] || return 0
+  # The operator may have changed the effective URL while confirmation was open.
+  local approved="${db_port} ${db_name} ${db_role} ${db_cluster} ${db_oid} ${role_oid}"
+  if ! load_owned_database || [[ "${approved}" != "${db_port} ${db_name} ${db_role} ${db_cluster} ${db_oid} ${role_oid}" ]]; then
+    warn "Database configuration or ownership changed. Preserving PostgreSQL objects for manual handling."
+    return 0
+  fi
+  # Check cluster and OIDs in the same session that executes the drops. A
+  # recreated database/role with the old name has a different OID. Zero means
+  # the resource predated installation. Either case leaves it to the operator.
+  local_admin_psql -v cluster="${db_cluster}" -v db="${db_name}" -v role="${db_role}" -v db_oid="${db_oid}" -v role_oid="${role_oid}" <<'SQL'
+SELECT format('DROP DATABASE %I WITH (FORCE)', datname)
+  FROM pg_database, pg_control_system()
+  WHERE system_identifier = :'cluster' AND oid = :'db_oid' AND datname = :'db' \gexec
+SELECT format('DROP ROLE %I', rolname)
+  FROM pg_roles, pg_control_system()
+  WHERE system_identifier = :'cluster' AND oid = :'role_oid' AND rolname = :'role' \gexec
+SQL
+}
 
 safe_data_path() {
-  local value
-  value="$(normalize_path "$1")"
-  case "${value}" in
-    /var/lib/*|/var/backups/*|/opt/*/*|/srv/*/*|/home/*/*/*|/root/*/*) ;;
-    *) fail "Refusing unsafe data path: ${value}" ;;
+  case "$1" in
+    /var/lib/docker|/var/lib/docker/*|/var/lib/containerd|/var/lib/containerd/*|/var/lib/postgresql|/var/lib/postgresql/*|/var/lib/mysql|/var/lib/mysql/*|/var/lib/apt|/var/lib/apt/*|/var/lib/dpkg|/var/lib/dpkg/*|/var/lib/systemd|/var/lib/systemd/*|/opt/containerd|/opt/containerd/*|*/.ssh|*/.ssh/*) return 1 ;;
+    /var/lib/*|/var/backups/*|/opt/*/*|/srv/*/*|/home/*/*/*|/root/*/*|/mnt/*/*|/data/*) ;;
+    *) return 1 ;;
   esac
-  # Well-known system and other-application directories are never ours (A10-06),
-  # whatever the env file says.
-  case "${value}" in
-    /var/lib/docker|/var/lib/docker/*|/var/lib/containerd|/var/lib/containerd/*|/var/lib/postgresql|/var/lib/postgresql/*|/var/lib/mysql|/var/lib/mysql/*|/var/lib/apt|/var/lib/apt/*|/var/lib/dpkg|/var/lib/dpkg/*|/var/lib/systemd|/var/lib/systemd/*|/opt/containerd/*|/home/*/.ssh/*)
-      fail "Refusing to delete system/third-party data path: ${value}" ;;
-  esac
-  # A path from the environment file that does not even mention the application slug needs --force-paths. The
-  # installer's own inventory of Quick Service directories ("inventory" as second argument) is a fixed list whose
-  # names never contain the slug: held to this rule, every complete uninstall stopped at its first entry, after
-  # the database and the data were gone and before the application directory and its user were removed.
-  if [ "${2:-}" != "inventory" ]; then
-    case "${value}" in
-      *"${APP_SLUG}"*) ;;
-      *) [ "${FORCE_PATHS}" = "1" ] || fail "Data path ${value} does not contain the APP_SLUG '${APP_SLUG}'. Check the env file; pass --force-paths if it really belongs to this instance." ;;
-    esac
-  fi
-  printf '%s' "${value}"
+  [[ "$1" == "$(normalize_path "$1")" && "$1" != "${APP_DIR}" && "${APP_DIR}" != "$1/"* ]]
 }
 
-STORAGE_ROOT="$(safe_data_path "${STORAGE_ROOT}")"
-DOWNLOAD_ROOT="$(safe_data_path "${DOWNLOAD_ROOT}")"
-BACKUP_DIR="$(safe_data_path "${BACKUP_DIR}")"
-ARIA2_RPC_DIR="$(safe_data_path "${ARIA2_RPC_DIR}")"
+# Pin the directory before checking the receipt again and traversing its contents.
+# The caller retains anything that is still present, including a concurrent replacement.
+remove_recorded_directory() (
+  local kind="$1" identity="$2" path="$3"
+  cd -P -- "${path}" || return 0
+  [[ ${PWD} == "${path}" && "$(TZ=UTC stat -c '%d:%i:%w' .)" == "${identity}" ]] || return 0
+  refuse_mounted_paths "${path}"
+  if [[ ${kind} == tree ]]; then
+    find . -xdev -depth -mindepth 1 -delete
+  fi
+  if [[ . -ef ${path} ]]; then rmdir --ignore-fail-on-non-empty -- "${path}"; fi
+)
+
+retained_data_paths=()
+contains_retained_data() {
+  local retained
+  for retained in "${retained_data_paths[@]}"; do
+    [[ ${retained} != "$1" && ${retained} != "$1/"* ]] || return 0
+  done
+  return 1
+}
+
+visit_owned_directories() {
+  local action="$1" kind identity path ordered
+  local -A kinds=() identities=()
+  if [[ ! -f ${INSTANCE_STATE_DIR}/directories ]]; then
+    warn "No installer data directory inventory. Review pre-existing runtime and Quick Service directories manually."
+    return 0
+  fi
+  while IFS=$'\t' read -r kind identity path; do
+    [[ ${path} == /* ]] || fail "Invalid path in installer directory inventory"
+    kinds["${path}"]="${kind}"
+    identities["${path}"]="${identity}"
+  done < "${INSTANCE_STATE_DIR}/directories"
+  [[ ${#kinds[@]} -gt 0 ]] || return 0
+  # Reverse lexical order visits each child before its parent. A surviving
+  # child protects the parent from recursive deletion, even after a reinstall.
+  ordered="$(printf '%s\n' "${!kinds[@]}" | LC_ALL=C sort -r)"
+  while IFS= read -r path; do
+    [[ -e ${path} || -L ${path} ]] || continue
+    kind="${kinds["${path}"]}"
+    identity="${identities["${path}"]}"
+    if [[ ${kind} != tree && ${kind} != empty ]] || ! safe_data_path "${path}" ||
+       [[ ! -d ${path} || ${identity} == *:- || "$(TZ=UTC stat -c '%d:%i:%w' -- "${path}")" != "${identity}" ]] ||
+       contains_retained_data "${path}"; then
+      warn "Preserving unverified or shared data directory: ${path}"
+      retained_data_paths+=("${path}" "$(normalize_path "${path}")")
+    elif [[ ${action} == plan ]]; then
+      refuse_mounted_paths "${path}"
+      log "  - ${path} (${kind})"
+    else
+      remove_recorded_directory "${kind}" "${identity}" "${path}"
+      if [[ -e ${path} || -L ${path} ]]; then
+        warn "Preserving remaining data at ${path}"
+        retained_data_paths+=("${path}")
+      fi
+    fi
+  done <<< "${ordered}"
+}
+
+refuse_mounted_paths() {
+  local path="$1" mounts mount
+  mounts="$(findmnt --noheadings --raw --output TARGET)"
+  while IFS= read -r mount; do
+    printf -v mount '%b' "${mount}"
+    if [[ ${mount} == "${path}" || ${mount} == "${path}/"* ]]; then
+      fail "Refusing to remove mounted data at ${mount}; unmount it first."
+    fi
+  done <<< "${mounts}"
+}
 
 # Every unit install.sh writes (next, worker, ssh-ws, aria2, the nightly backup
 # timer and its service), plus the direct gateway. aria2 was missing: its
@@ -147,51 +283,30 @@ units=(
   "${SERVICE_PREFIX}-direct.service"
 )
 
-log "Complete uninstall selected; no application information will be retained."
+log "Removing application and verified instance resources."
 log "Application directory: ${APP_DIR}"
+log "Source, configuration and build output will be removed. Unregistered data under the application directory will be retained."
 log "Services: ${units[*]}"
-log "Database: ${PG_DB_NAME}; role: ${PG_DB_USER}; user: ${APP_USER}"
-log "Runtime paths: ${STORAGE_ROOT}, ${DOWNLOAD_ROOT}, ${BACKUP_DIR}, ${ARIA2_RPC_DIR}"
-log "Local Quick Service containers and catalog data paths will be removed."
-# The exact directories that will be deleted, before any confirmation (A10-06).
-log "Directories that will be deleted:"
-while IFS= read -r planned_path; do
-  [ -n "${planned_path}" ] && log "  - $(normalize_path "${planned_path}")"
-done <<EOF
-${APP_DIR}
-${STORAGE_ROOT}
-${DOWNLOAD_ROOT}
-${BACKUP_DIR}
-${ARIA2_RPC_DIR}
-$(quick_service_removable_data_paths)
-EOF
-warn "Shared OS packages and unrelated Docker resources will remain installed."
+plan_database_cleanup
+if [[ -n ${docker_instance_label} ]]; then
+  log "Docker cleanup requires the instance label ${docker_instance_label}. Review legacy containers manually."
+else
+  warn "No verified Docker instance label. Review containers, volumes and networks manually."
+fi
+log "Registered data directories:"
+visit_owned_directories plan
 
 if [ "${DRY_RUN}" = "1" ]; then
   log "Dry run complete; no changes made."
   exit 0
 fi
 
-command -v psql >/dev/null 2>&1 || fail "PostgreSQL tools are unavailable; cannot guarantee complete database removal."
-id postgres >/dev/null 2>&1 || fail "PostgreSQL system user is unavailable; cannot guarantee complete database removal."
-(cd / && sudo -u postgres psql -tAc 'SELECT 1' >/dev/null) || fail "PostgreSQL is not reachable; start it before uninstalling."
-if command -v docker >/dev/null 2>&1; then
+check_database_cluster
+if [[ -n ${docker_instance_label} ]] && command -v docker >/dev/null 2>&1; then
   docker info >/dev/null 2>&1 || fail "Docker is installed but unavailable; cannot guarantee complete Quick Service removal."
 fi
 
-while IFS= read -r candidate_path; do
-  candidate_path="$(normalize_path "${candidate_path}")"
-  if command -v mountpoint >/dev/null 2>&1 && mountpoint -q "${candidate_path}"; then
-    fail "Refusing to delete mounted application path ${candidate_path}; unmount it first."
-  fi
-done <<EOF
-${APP_DIR}
-${STORAGE_ROOT}
-${DOWNLOAD_ROOT}
-${BACKUP_DIR}
-${ARIA2_RPC_DIR}
-$(quick_service_removable_data_paths)
-EOF
+refuse_mounted_paths "${APP_DIR}"
 
 if [ "${ASSUME_YES}" != "1" ]; then
   [ -r /dev/tty ] && [ -w /dev/tty ] || fail "No interactive terminal. Re-run with --yes after reviewing --dry-run."
@@ -235,69 +350,99 @@ if [ -f "${apache_available}" ] && grep -Fxq "${managed_marker}" "${apache_avail
 fi
 
 remove_quick_service_containers() {
+  [[ -n ${docker_instance_label} ]] || return 0
   command -v docker >/dev/null 2>&1 || return 0
-  local id name
-  declare -A container_ids=()
+  local id ids
+  local filter="label=${docker_instance_label}"
+  ids="$(docker ps -aq --no-trunc --filter "${filter}")"
   while IFS= read -r id; do
-    [ -n "${id}" ] && container_ids["${id}"]=1
-  done < <(docker ps -aq --filter "label=com.vcontrolhub.quick-service=true")
-  while IFS='|' read -r id name; do
-    [[ "${name}" == qs-* ]] && container_ids["${id}"]=1
-  done < <(docker ps -a --format '{{.ID}}|{{.Names}}')
-  for id in "${!container_ids[@]}"; do
-    docker rm -f "${id}" >/dev/null
-    log "Removed VControlHub Quick Service container ${id}"
-  done
+    [[ -z ${id} ]] || docker rm -f "${id}" >/dev/null
+  done <<< "${ids}"
+  ids="$(docker volume ls -q --filter "${filter}")"
   while IFS= read -r id; do
-    [ -n "${id}" ] && docker volume rm -f "${id}" >/dev/null
-  done < <(docker volume ls -q --filter "label=com.vcontrolhub.quick-service=true")
+    [[ -z ${id} ]] || docker volume rm "${id}" >/dev/null
+  done <<< "${ids}"
+  ids="$(docker network ls -q --filter "${filter}")"
   while IFS= read -r id; do
-    [ -n "${id}" ] && docker network rm "${id}" >/dev/null
-  done < <(docker network ls -q --filter "label=com.vcontrolhub.quick-service=true")
+    [[ -z ${id} ]] || docker network rm "${id}" >/dev/null
+  done <<< "${ids}"
 }
+
+cleanup_app_directory() (
+  [[ -d ${APP_DIR} ]] || return 0
+  cd -P -- "${APP_DIR}"
+  [[ ${PWD} == "${APP_DIR}" && -f deploy/install.sh && -f deploy/systemd/vcontrolhub-next.service.example ]] ||
+    fail "Application directory changed during uninstall: ${APP_DIR}"
+  refuse_mounted_paths "${APP_DIR}"
+  local path absolute name raw setting file line
+  local -a values=()
+  local settings='STORAGE_ROOT|DOWNLOAD_ROOT|BACKUP_DIR|ARIA2_RPC_DIR|FILE_VERSION_DIR|MEDIA_UPLOAD_TMP_DIR|MEDIA_THUMB_CACHE_DIR'
+  local assignment="^[[:space:]]*(export[[:space:]]+)?(${settings})[[:space:]]*=[[:space:]]*(.*)$"
+  # A legacy install can put configured data below a source directory. Read
+  # its paths as data, even when there is no installer ownership inventory.
+  for setting in ${settings//|/ }; do values+=("${!setting:-}"); done
+  for file in "${ENV_FILE}" "${RUNTIME_ENV_FILE:-.env.runtime}" .env.local .env .env.production; do
+    [[ -f ${file} ]] || continue
+    while IFS= read -r line || [[ -n ${line} ]]; do
+      if [[ ${line} =~ ${assignment} ]]; then values+=("${BASH_REMATCH[3]}"); fi
+    done < "${file}"
+  done
+  for raw in "${values[@]}"; do
+    raw="${raw%$'\r'}"
+    case "${raw}" in
+      \"*) raw="${raw#\"}"; raw="${raw%%\"*}" ;;
+      \'*) raw="${raw#\'}"; raw="${raw%%\'*}" ;;
+      *) raw="${raw%%[[:space:]]#*}" ;;
+    esac
+    case "${raw}" in
+      '') continue ;;
+      '$APP_DIR'|'${APP_DIR}') raw="${APP_DIR}" ;;
+      '$APP_DIR/'*|'${APP_DIR}/'*) raw="${APP_DIR}/${raw#*/}" ;;
+    esac
+    if [[ -d ${raw} ]]; then retained_data_paths+=("$(normalize_path "${raw}")"); fi
+  done
+  for path in "${retained_data_paths[@]}"; do
+    if [[ ${path} == "${APP_DIR}" ]]; then
+      warn "Retaining application directory configured as a data root: ${path}"
+      return 0
+    fi
+  done
+
+  shopt -s dotglob nullglob
+  for path in ./*; do
+    name="${path#./}"
+    absolute="${PWD}/${name}"
+    if contains_retained_data "${absolute}"; then
+      warn "Retaining application path with operator data: ${absolute}"
+      continue
+    fi
+    case "${name}" in
+      .git|.githooks|.github|agent-files|deploy|docker|docs|e2e|prisma|public|scripts|src|.next|dist|node_modules)
+        find "${path}" -xdev -depth -delete ;;
+      .dockerignore|.env|.env.local|.env.runtime|.env.production|.env.example|.gitattributes|.gitignore|\
+      AGENTS.md|CHANGELOG.md|Dockerfile|Makefile|README.md|deploy.sh|docker-compose.yml|docker-entrypoint.sh|\
+      eslint.config.mjs|install.sh|knip.json|next.config.ts|next-env.d.ts|package-lock.json|package.json|\
+      playwright.config.ts|postcss.config.mjs|prisma.config.ts|tsconfig.json|tsconfig.tsbuildinfo|vitest.config.ts)
+        if [[ -d ${path} && ! -L ${path} ]]; then
+          warn "Retaining unexpected directory: ${absolute}"
+        else
+          unlink -- "${path}"
+        fi ;;
+      *)
+        warn "Retaining unregistered application path: ${absolute}" ;;
+    esac
+  done
+  if [[ . -ef ${APP_DIR} ]]; then rmdir --ignore-fail-on-non-empty -- "${APP_DIR}"; fi
+)
 
 remove_quick_service_containers
 
+remove_owned_database
 cd /
-sudo -u postgres psql -v ON_ERROR_STOP=1 -c \
-  "SELECT pg_terminate_backend(pid) FROM pg_stat_activity WHERE datname = '${PG_DB_NAME}' AND pid <> pg_backend_pid();" >/dev/null
-sudo -u postgres dropdb --if-exists "${PG_DB_NAME}"
-sudo -u postgres dropuser --if-exists "${PG_DB_USER}"
 
-declare -A seen_paths=()
-remove_checked_data_path() {
-  local data_path="$1" parent_path
-  [ -n "${data_path}" ] || return 0
-  [ -z "${seen_paths[${data_path}]+x}" ] || return 0
-  seen_paths["${data_path}"]=1
-  [ ! -e "${data_path}" ] || find "${data_path}" -xdev -depth -delete
-  parent_path="$(dirname "${data_path}")"
-  case "${parent_path}" in /opt/*|/srv/*) rmdir "${parent_path}" 2>/dev/null || true ;; esac
-}
-# The assignment stays on its own line: a path the check refuses must stop the script (errexit), and a failing
-# command substitution passed as an argument would not.
-while IFS= read -r data_path; do
-  data_path="$(safe_data_path "${data_path}")"
-  remove_checked_data_path "${data_path}"
-done <<EOF
-${STORAGE_ROOT}
-${DOWNLOAD_ROOT}
-${BACKUP_DIR}
-${ARIA2_RPC_DIR}
-/var/lib/${APP_SLUG}
-/var/backups/${APP_SLUG}
-EOF
-while IFS= read -r data_path; do
-  [ -n "${data_path}" ] || continue
-  data_path="$(safe_data_path "${data_path}" inventory)"
-  remove_checked_data_path "${data_path}"
-done <<EOF
-$(quick_service_removable_data_paths)
-EOF
+visit_owned_directories remove
 
-if [ -e "${APP_DIR}" ]; then
-  find "${APP_DIR}" -xdev -depth -delete
-fi
+cleanup_app_directory
 
 if id "${APP_USER}" >/dev/null 2>&1; then
   user_record="$(getent passwd "${APP_USER}")"
@@ -315,23 +460,17 @@ for unit in "${units[@]}"; do
     fail "Residual systemd unit remains: ${unit}"
   fi
 done
-[ ! -e "${APP_DIR}" ] || fail "Residual application directory remains: ${APP_DIR}"
-[ ! -e "/var/lib/${APP_SLUG}" ] || fail "Residual runtime data remains: /var/lib/${APP_SLUG}"
-[ ! -e "/var/backups/${APP_SLUG}" ] || fail "Residual backup data remains: /var/backups/${APP_SLUG}"
+if [[ -d ${APP_DIR} ]]; then warn "Review retained files in ${APP_DIR}."; fi
 if id "${APP_USER}" >/dev/null 2>&1; then
   fail "Residual application user remains: ${APP_USER}"
 fi
-if sudo -u postgres psql -tAc "SELECT 1 FROM pg_database WHERE datname='${PG_DB_NAME}'" | grep -q 1; then
-  fail "Residual PostgreSQL database remains: ${PG_DB_NAME}"
+if [[ -n ${docker_instance_label} ]] && command -v docker >/dev/null 2>&1; then
+  remaining="$(docker ps -aq --filter "label=${docker_instance_label}")"
+  [ -z "${remaining}" ] || fail "Residual instance-labeled containers remain."
 fi
-if sudo -u postgres psql -tAc "SELECT 1 FROM pg_roles WHERE rolname='${PG_DB_USER}'" | grep -q 1; then
-  fail "Residual PostgreSQL role remains: ${PG_DB_USER}"
-fi
-if command -v docker >/dev/null 2>&1; then
-  [ -z "$(docker ps -aq --filter 'label=com.vcontrolhub.quick-service=true')" ] || fail "Residual labeled Quick Service containers remain."
-  if docker ps -a --format '{{.Names}}' | grep -Eq '^qs-'; then
-    fail "Residual legacy Quick Service containers remain."
-  fi
+if [[ -d ${INSTANCE_STATE_DIR} ]]; then
+  rm -f -- "${INSTANCE_STATE_DIR}/database" "${INSTANCE_STATE_DIR}/directories" "${INSTANCE_STATE_DIR}/docker-instance"
+  rmdir -- "${INSTANCE_STATE_DIR}"
 fi
 
-log "Complete uninstall verified. No VControlHub application data was retained."
+log "Complete uninstall verified for installer-owned resources."

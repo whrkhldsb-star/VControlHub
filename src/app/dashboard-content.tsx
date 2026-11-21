@@ -6,6 +6,7 @@ import { requireSession } from "@/lib/auth/require-session";
 import { teamWhere } from "@/lib/auth/team-scope";
 import { mayReviewCommandRequest } from "@/lib/command/review-scope";
 import { listCommandRequests } from "@/lib/command/service";
+import { canReadCommandBody } from "@/lib/command/visibility";
 import { formatDateTime, formatShortTime } from "@/lib/datetime/format";
 import { buildAttentionChecks } from "@/lib/dashboard/attention";
 import { buildSetupChecklist, filterSetupChecklist } from "@/lib/dashboard/setup-checklist";
@@ -144,7 +145,7 @@ export async function DashboardContent({ sessionPath }: { sessionPath: "/" | "/d
 	const recentRequests = requests.slice(0, 5).map((request) => ({
 		id: request.id,
 		title: request.title,
-		command: request.command,
+		command: canReadCommandBody(session.userId, request.requesterId, canApproveCommands) ? request.command : null,
 		status: request.status,
 		isAssistantInitiated: request.isAssistantInitiated,
 		requester: request.requester,

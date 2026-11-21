@@ -21,6 +21,7 @@ import { fetchWithPinnedDns, isLinkLocalAddress } from "@/lib/security/pinned-fe
 import { config } from "@/lib/config/env";
 import { t } from "@/lib/i18n/service-translations";
 import { readResponseTextLimited } from "@/lib/http/response-body";
+import { resolveDefaultProviderBaseUrl } from "./provider-endpoint";
 import { AiProviderHttpError } from "./provider-errors";
 
 export interface ProviderModelRow {
@@ -44,7 +45,7 @@ export interface ProviderChatRequest {
 	signal?: AbortSignal;
 }
 
-const DEFAULT_AI_BASE_URL = "https://api.openai.com/v1";
+export { resolveDefaultProviderBaseUrl };
 const MODELS_PATH = "/models";
 /** Bound hung upstream AI hosts so model-list / chat routes cannot stall until platform kill. */
 const AI_PROVIDER_MODELS_TIMEOUT_MS = 30_000;
@@ -109,8 +110,26 @@ async function assertProviderUrlSafe(rawUrl: string): Promise<void> {
 	await assertPublicBaseUrlResolvesPublic(url.origin);
 }
 
-export function defaultAiBaseUrl(): string {
-	return DEFAULT_AI_BASE_URL;
+/** The native adapters append /messages or /chat/completions to an API root. */
+export function providerApiRoot(value: string | undefined, type?: string): string {
+	const official = resolveDefaultProviderBaseUrl(type);
+	const baseUrl = trimProviderBaseUrl(value, official);
+	if (type === "ANTHROPIC" || type === "GOOGLE") {
+		let parsed: URL;
+		try {
+			parsed = new URL(baseUrl);
+		} catch {
+			throw new ValidationError(t("backend.ai.invalidAiProviderUrl"));
+		}
+		// Older rows could contain the generic database default for either native type.
+		if (parsed.hostname.replace(/\.$/, "") === "api.openai.com") {
+			throw new ValidationError(t("backend.ai.invalidAiProviderUrl"));
+		}
+		if (baseUrl.toLowerCase() === official && parsed.origin === official) {
+			return official + (type === "ANTHROPIC" ? "/v1" : "/v1beta/openai");
+		}
+	}
+	return baseUrl;
 }
 
 export function aiHttpErrorMessage(
@@ -172,7 +191,7 @@ export async function fetchProviderModels(
 	if (!input.apiKey.trim()) {
 		throw new ValidationError(t("backend.ai.apiKeyIsRequired"));
 	}
-	const baseUrl = trimTrailingSlash(input.baseUrl);
+	const baseUrl = providerApiRoot(input.baseUrl, input.type);
 	await assertProviderUrlSafe(baseUrl);
 	// Anthropic reads an API key from x-api-key (Bearer is for OAuth tokens
 	// there) and returns 20 models a page: with Bearer the key was refused as

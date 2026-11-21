@@ -1,5 +1,6 @@
 /** @vitest-environment node */
 import { beforeEach, describe, expect, it, vi } from "vitest";
+import { AuthError } from "@/lib/errors";
 
 /**
  * Session cookies are bound to the password they were minted against, so a
@@ -161,6 +162,18 @@ describe("changePasswordAction", () => {
     const result = await changePasswordAction(null, formData(GOOD_INPUT));
 
     expect(result.error).toBe("Current password is incorrect");
+    expect(mocks.createSessionToken).not.toHaveBeenCalled();
+    expect(mocks.cookieSet).not.toHaveBeenCalled();
+  });
+
+  it("passes the verified session through and issues no cookie after credential revocation", async () => {
+    const session = { userId: "u1", username: "alice", roles: [], mustChangePassword: true, currentTeamId: null };
+    mocks.requireSession.mockResolvedValueOnce(session);
+    mocks.changePassword.mockRejectedValueOnce(new AuthError("Session revoked"));
+
+    expect(await changePasswordAction(null, formData(GOOD_INPUT))).toEqual({ error: "Session revoked" });
+    expect(mocks.changePassword.mock.calls[0]).toEqual([GOOD_INPUT, session]);
+    expect(mocks.changePassword.mock.calls[0]![1]).toBe(session);
     expect(mocks.createSessionToken).not.toHaveBeenCalled();
     expect(mocks.cookieSet).not.toHaveBeenCalled();
   });

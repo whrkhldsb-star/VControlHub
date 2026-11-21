@@ -2,13 +2,15 @@
 
 import { CheckboxField, Chip, CONTROL_CLASS, FormField, Input } from "@/components/ui-primitives";
 import { useI18n } from "@/lib/i18n/use-locale";
+import { providerOrigin, resolveDefaultProviderBaseUrl } from "@/lib/ai/provider-endpoint";
 import type { ProviderFormState } from "./ai-provider-panel";
 import { COMMON_BASE_URLS, PROVIDER_PRESETS, PROVIDER_TYPES } from "./ai-types";
 
-export function AiProviderFields({ form, onChange, editing = false, models = [] }: {
+export function AiProviderFields({ form, onChange, editing = false, keyRequired = !editing, models = [] }: {
   form: ProviderFormState;
   onChange: (patch: Partial<ProviderFormState>) => void;
   editing?: boolean;
+  keyRequired?: boolean;
   models?: string[];
 }) {
   const { t } = useI18n();
@@ -18,6 +20,7 @@ export function AiProviderFields({ form, onChange, editing = false, models = [] 
     onChange({
       name: preset.name,
       type: preset.type,
+      apiKey: "",
       baseUrl: preset.baseUrl,
       defaultModel: preset.models[0] ?? "",
       availableModels: preset.models.join(","),
@@ -74,16 +77,20 @@ export function AiProviderFields({ form, onChange, editing = false, models = [] 
     </FormField>
     <FormField label={t("aiPage.typeLabel")} htmlFor={`${prefix}-type`}>
       <select id={`${prefix}-type`} data-input className={CONTROL_CLASS} value={form.type} onChange={(e) => onChange({
-        type: e.target.value, baseUrl: COMMON_BASE_URLS[e.target.value] || form.baseUrl, availableModels: "", defaultModel: "",
+        type: e.target.value, apiKey: "", baseUrl: COMMON_BASE_URLS[e.target.value] || form.baseUrl, availableModels: "", defaultModel: "",
       })}>
         {Object.entries(PROVIDER_TYPES).map(([key, label]) => <option key={key} value={key}>{label}</option>)}
       </select>
     </FormField>
     <FormField label="API Key" htmlFor={`${prefix}-key`} className="sm:col-span-2">
-      <Input id={`${prefix}-key`} type="password" autoComplete="off" required={!editing} value={form.apiKey} onChange={(e) => onChange({ apiKey: e.target.value })} placeholder={editing ? t("aiPage.apiKeyPlaceholder") : "sk-..."} className="font-mono" />
+      <Input id={`${prefix}-key`} type="password" autoComplete="off" required={keyRequired} value={form.apiKey} onChange={(e) => onChange({ apiKey: e.target.value })} placeholder={keyRequired ? "sk-..." : t("aiPage.apiKeyPlaceholder")} className="font-mono" />
     </FormField>
     <FormField label="Base URL" htmlFor={`${prefix}-base-url`} className="sm:col-span-2">
-      <Input id={`${prefix}-base-url`} value={form.baseUrl} onChange={(e) => onChange({ baseUrl: e.target.value })} placeholder="https://api.openai.com/v1" />
+      <Input id={`${prefix}-base-url`} value={form.baseUrl} onChange={(e) => {
+        const baseUrl = e.target.value;
+        const origin = providerOrigin(baseUrl, form.type);
+        onChange({ baseUrl, ...(!origin || origin !== providerOrigin(form.baseUrl, form.type) ? { apiKey: "" } : {}) });
+      }} placeholder={resolveDefaultProviderBaseUrl(form.type)} />
     </FormField>
     <FormField label={t("aiPage.defaultModelLabel")} htmlFor={`${prefix}-default-model`} className="sm:col-span-2">
       {!editing && models.length > 0 ? <select id={`${prefix}-default-model`} data-input className={CONTROL_CLASS} value={form.defaultModel || models[0]} onChange={(e) => onChange({ defaultModel: e.target.value })}>

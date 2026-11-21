@@ -76,7 +76,15 @@ const PSEUDO_FILESYSTEM_ROOTS = /^\/(?:proc\/(?:\d+|self|thread-self)(?:\/|$)|sy
 /** Directories whose contents are credentials, wherever they sit. */
 const SENSITIVE_PATH_SEGMENTS = new Set([".ssh", ".gnupg", ".aws", ".kube", ".docker", ".config/gcloud", ".azure"]);
 /** Files that hold secrets or shell history. */
-const SENSITIVE_FILE_NAMES = /^(?:\.netrc|\.pgpass|\.my\.cnf|\.git-credentials|\.npmrc|\.pypirc|\.env(?:\..+)?|\.(?:bash|zsh|mysql|psql|python)_history|id_(?:rsa|dsa|ecdsa|ed25519)(?:\..*)?|.*\.(?:pem|key|p12|pfx|jks|keystore))$/i;
+const SENSITIVE_FILE_GLOBS = [
+  ".netrc", ".pgpass", ".my.cnf", ".git-credentials", ".npmrc", ".pypirc", ".env", ".env.*",
+  ".bash_history", ".zsh_history", ".mysql_history", ".psql_history", ".python_history",
+  ...["id_rsa", "id_dsa", "id_ecdsa", "id_ed25519"].flatMap((name) => [name, `${name}.*`]),
+  "*.pem", "*.key", "*.p12", "*.pfx", "*.jks", "*.keystore", "*.kdbx",
+];
+const SENSITIVE_FILE_NAMES = new RegExp(
+  `^(?:${SENSITIVE_FILE_GLOBS.map((glob) => glob.replaceAll(".", "\\.").replaceAll("*", ".*")).join("|")})$`, "i",
+);
 /** System files that hold password hashes or private keys, and device/process nodes that are not files to read. */
 const SENSITIVE_SYSTEM_PATHS = /^\/(?:etc\/(?:shadow|gshadow|shadow-|gshadow-|sudoers(?:\.d(?:\/.*)?)?|ssh\/ssh_host_[^/]*_key|master\.passwd)|dev(?:\/.*)?|proc\/\d+\/(?:mem|environ|maps))$/;
 
@@ -99,10 +107,44 @@ function normalizeReadablePath(value: unknown): string | null {
   return path && !isSensitiveRemotePath(path) ? path : null;
 }
 
+const SEARCH_EXCLUDED_DIRS = [".ssh", ".gnupg", ".aws", ".kube", ".docker", ".azure", "gcloud", "sudoers.d", "proc", "sys", "dev"];
+
+// Use the same policy in the target's filesystem namespace. Check both the resolved path
+// and the opened descriptor, then give that descriptor to tail or use it as grep's cwd.
+// A renamed directory or replaced symlink cannot redirect a later open of the input path.
+const OPEN_READABLE_TARGET = `import os, re, stat, sys
+def check(path):
+    if (not path.startswith("/") or path.endswith(" (deleted)") or "\\n" in path or "\\r" in path or
+        re.match(r"${PSEUDO_FILESYSTEM_ROOTS.source}", path) or
+        re.match(r"${SENSITIVE_SYSTEM_PATHS.source}", path) or
+        re.fullmatch(r"${SENSITIVE_FILE_NAMES.source}", os.path.basename(path), re.IGNORECASE) or
+        (sys.argv[2] == "directory" and any(part in ${JSON.stringify(SEARCH_EXCLUDED_DIRS)} for part in path.split("/"))) or
+        any("/" + part + "/" in path + "/" for part in ${JSON.stringify([...SENSITIVE_PATH_SEGMENTS])})):
+        sys.exit("Protected path")
+
+path = os.path.realpath(sys.argv[1])
+check(path)
+fd = os.open(path, os.O_RDONLY | os.O_NONBLOCK | os.O_NOCTTY | os.O_NOFOLLOW)
+check(os.readlink("/proc/self/fd/" + str(fd)))
+mode = os.fstat(fd).st_mode
+if sys.argv[2] == "directory" and stat.S_ISDIR(mode):
+    os.fchdir(fd)
+elif sys.argv[2] == "file" and stat.S_ISREG(mode):
+    os.dup2(fd, 0)
+else:
+    sys.exit("Unexpected file type")
+os.execvp(sys.argv[3], sys.argv[3:])`;
+
+function openReadableTarget(path: string, kind: "file" | "directory") {
+  return `python3 -I -c ${shellQuote(OPEN_READABLE_TARGET)} ${shellQuote(path)} ${kind}`;
+}
+
 /** grep flags that keep a recursive search out of credential files and directories. */
 const SEARCH_EXCLUDE_FLAGS = [
-  ...[".ssh", ".gnupg", ".aws", ".kube", ".docker", ".azure", "gcloud", "sudoers.d", "proc", "sys", "dev"].map((dir) => `--exclude-dir=${shellQuote(dir)}`),
-  ...["shadow", "gshadow", "shadow-", "gshadow-", "sudoers", "master.passwd", "ssh_host_*_key", "id_rsa", "id_dsa", "id_ecdsa", "id_ed25519", ".netrc", ".pgpass", ".my.cnf", ".git-credentials", ".npmrc", ".pypirc", ".env", ".env.*", "*_history", "*.pem", "*.key", "*.p12", "*.pfx", "*.kdbx"].map((name) => `--exclude=${shellQuote(name)}`),
+  ...SEARCH_EXCLUDED_DIRS.map((dir) => `--exclude-dir=${shellQuote(dir)}`),
+  ...["shadow", "gshadow", "shadow-", "gshadow-", "sudoers", "master.passwd", "ssh_host_*_key", "*_history", ...SENSITIVE_FILE_GLOBS].map(
+    (name) => `--exclude=${shellQuote(name.replace(/[a-z]/g, (c) => `[${c}${c.toUpperCase()}]`))}`,
+  ),
 ].join(" ");
 
 function normalizeLiteralQuery(value: unknown): string | null {
@@ -165,7 +207,9 @@ function normalizeEnvVars(value: unknown): string | null {
   }
 }
 
-export function buildCommand(actionType: HostedActionType, params: Record<string, unknown>, dialect?: OsDialect): string | null {
+export function buildCommand(actionType: HostedActionType, params: Record<string, unknown>, dialect?: OsDialect, operatingSystem = "LINUX"): string | null {
+  // Every command below runs in a POSIX shell. Windows Agent uses ComSpec.
+  if (operatingSystem !== "LINUX") return null;
   const sm = dialect?.serviceManager ?? "systemd";
   const sudo = dialect?.sudoPattern ?? "sudo -n";
   switch (actionType) {
@@ -178,7 +222,7 @@ export function buildCommand(actionType: HostedActionType, params: Record<string
       const tail = normalizeTail(params.tail);
       const filter = normalizeFilter(params.filter);
       if (!logPath || !tail || filter === null) return null;
-      let cmd = `tail -n ${tail} -- ${shellQuote(logPath)}`;
+      let cmd = `${openReadableTarget(logPath, "file")} tail -n ${tail}`;
       if (filter) cmd += ` | grep -F -i -- ${shellQuote(filter)}`;
       return cmd;
     }
@@ -204,14 +248,20 @@ export function buildCommand(actionType: HostedActionType, params: Record<string
       if (!path || !query || !pattern) return null;
       // A recursive grep reads every file below the directory; the credential
       // files the read tools refuse by name are skipped here too (A7-01).
-      return `grep -rFInI ${SEARCH_EXCLUDE_FLAGS} --include=${shellQuote(pattern)} -- ${shellQuote(query)} ${shellQuote(path)} 2>/dev/null | head -200`;
+      // GNU grep uses the last matching include/exclude flag. Start in a checked
+      // directory and use -r so links discovered during descent are skipped.
+      // Preserve the caller's absolute paths in the search results. normalizeAbsolutePath
+      // permits none of the sed replacement metacharacters (backslash, ampersand, delimiter).
+      const displayPrefix = path === "/" ? "" : path;
+      const search = `grep -rFInI "$@" . 2>/dev/null | head -200 | sed ${shellQuote(`s|^\\./|${displayPrefix}/|`)}`;
+      return `${openReadableTarget(path, "directory")} sh -c ${shellQuote(search)} sh --include=${shellQuote(pattern)} ${SEARCH_EXCLUDE_FLAGS} -- ${shellQuote(query)}`;
     }
 
     case "read_file": {
       const filePath = normalizeReadablePath(params.filePath);
       const tail = normalizeTail(params.tail ?? 100);
       if (!filePath || !tail) return null;
-      return `tail -n ${tail} -- ${shellQuote(filePath)}`;
+      return `${openReadableTarget(filePath, "file")} tail -n ${tail}`;
     }
 
     case "get_docker_logs": {
