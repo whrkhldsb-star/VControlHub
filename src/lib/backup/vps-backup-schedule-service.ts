@@ -216,7 +216,7 @@ export async function dispatchDueVpsBackupSchedules(): Promise<number> {
 		const occurrence = {
 			id: schedule.id, updatedAt: schedule.updatedAt, status: "ACTIVE" as const, nextRunAt: schedule.nextRunAt,
 			createdById: schedule.createdById, backupType: schedule.backupType, cronExpression: schedule.cronExpression,
-			paths: { equals: schedule.paths }, name: schedule.name, serverId: schedule.serverId,
+			...(schedule.paths.length > 0 ? { paths: { equals: schedule.paths } } : {}), name: schedule.name, serverId: schedule.serverId,
 		};
 		try {
 			// Claim the occurrence, create the record and enqueue the job in one

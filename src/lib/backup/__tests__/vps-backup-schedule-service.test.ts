@@ -264,7 +264,7 @@ describe("dispatchDueVpsBackupSchedules overlap guard", () => {
     expect(retry.where).toEqual({
       id: dueSchedule.id, status: "ACTIVE", nextRunAt: dueSchedule.nextRunAt, updatedAt: dueSchedule.updatedAt,
       backupType: dueSchedule.backupType, cronExpression: dueSchedule.cronExpression, createdById: dueSchedule.createdById,
-      serverId: dueSchedule.serverId, name: dueSchedule.name, paths: { equals: dueSchedule.paths },
+      serverId: dueSchedule.serverId, name: dueSchedule.name,
     });
     expect(retry.data.lastResult).toBe("DISPATCH_FAILED: connection reset");
     expect(retry.data.nextRunAt.getTime()).toBeLessThanOrEqual(before + 5 * 60_000 + 1_000);
