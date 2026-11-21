@@ -9,6 +9,7 @@ const { prismaMock, createNotificationMock, fetchWebhookSafelyMock, sendAlertEma
 			findUnique: vi.fn(),
 			findFirst: vi.fn(),
 			update: vi.fn(),
+			updateManyAndReturn: vi.fn(),
 			delete: vi.fn(),
 		},
 		user: {
@@ -34,7 +35,7 @@ vi.mock("@/lib/settings/service", () => ({
 	setSetting: vi.fn(async () => undefined),
 }));
 
-const { createAlertRule, updateAlertRule, testAlertRule, ensureDefaultAlertRules } = await import("../service");
+const { createAlertRule, updateAlertRule, toggleAlertRule, testAlertRule, ensureDefaultAlertRules } = await import("../service");
 const { withApiCopyLocale } = await import("@/lib/i18n/api-copy");
 const settings = await import("@/lib/settings/service");
 
@@ -435,10 +436,12 @@ describe("editing what a rule watches", () => {
 describe("binding playbooks to a rule", () => {
 	// The rule starts the playbook with nobody approving it: the caller must be allowed to run playbooks by hand.
 	const rule = { name: "Disk full", metric: "disk_usage", operator: "gte" as const, threshold: 95, playbookIds: ["pb_1"] };
+	const notifier = { userId: "u_9", roles: ["operator" as const], currentTeamId: "team_1", permissions: ["notification:manage" as const] };
+
+	beforeEach(() => vi.clearAllMocks());
 
 	it("refuses a caller who may manage notifications but not run playbooks", async () => {
 		prismaMock.alertRule.create.mockResolvedValue({ id: "rule_pb" });
-		const notifier = { userId: "u_9", roles: ["operator" as const], currentTeamId: "team_1", permissions: ["notification:manage" as const] };
 		await expect(createAlertRule(rule, notifier)).rejects.toThrow(/playbook:run/);
 		expect(prismaMock.alertRule.create).not.toHaveBeenCalled();
 	});
@@ -450,5 +453,36 @@ describe("binding playbooks to a rule", () => {
 		await createAlertRule(rule, runner);
 		expect(prismaMock.playbook.findMany).toHaveBeenCalledWith(expect.objectContaining({ where: expect.objectContaining({ id: { in: ["pb_1"] } }) }));
 		expect(prismaMock.alertRule.create).toHaveBeenCalled();
+	});
+
+	it.each([
+		{ metric: "cpu_usage" }, { operator: "gt" }, { threshold: 50 }, { durationSeconds: 0 },
+		{ serverIds: [] }, { silenceWindows: [] }, { enabled: true }, { playbookIds: ["pb_2"] },
+	])("requires playbook:run to edit an enabled bound rule with %j", async (change) => {
+		prismaMock.alertRule.findFirst.mockResolvedValue({ ...rule, enabled: true });
+		await expect(updateAlertRule("rule1", change, notifier)).rejects.toMatchObject({ name: "ForbiddenError", status: 403 });
+		expect(prismaMock.alertRule.updateManyAndReturn).not.toHaveBeenCalled();
+	});
+
+	it("checks the stored binding before toggling a disabled rule on", async () => {
+		prismaMock.alertRule.findFirst.mockResolvedValue({ ...rule, enabled: false });
+		await expect(toggleAlertRule("rule1", notifier)).rejects.toMatchObject({ name: "ForbiddenError", status: 403 });
+		expect(prismaMock.alertRule.updateManyAndReturn).not.toHaveBeenCalled();
+	});
+
+	it("allows disabling or unbinding a rule without run permission", async () => {
+		prismaMock.alertRule.findFirst.mockResolvedValue({ ...rule, enabled: true });
+		prismaMock.alertRule.updateManyAndReturn.mockResolvedValueOnce([{ enabled: false }]).mockResolvedValueOnce([{ playbookIds: [] }]);
+		await expect(toggleAlertRule("rule1", notifier)).resolves.toMatchObject({ enabled: false });
+		await expect(updateAlertRule("rule1", { playbookIds: [], threshold: 50 }, notifier)).resolves.toMatchObject({ playbookIds: [] });
+	});
+
+	it("keeps the permission check on the write when an unbound rule gains a binding after the read", async () => {
+		prismaMock.alertRule.findFirst.mockResolvedValueOnce({ ...rule, playbookIds: [], enabled: true }).mockResolvedValueOnce({ id: "rule1" });
+		prismaMock.alertRule.updateManyAndReturn.mockResolvedValueOnce([]);
+		await expect(updateAlertRule("rule1", { threshold: 50 }, notifier)).rejects.toMatchObject({ name: "ForbiddenError", status: 403 });
+		expect(prismaMock.alertRule.updateManyAndReturn).toHaveBeenCalledWith({
+			where: { id: "rule1", teamId: "team_1", OR: [{ enabled: false }, { playbookIds: { isEmpty: true } }] }, data: { threshold: 50 },
+		});
 	});
 });

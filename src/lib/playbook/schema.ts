@@ -21,6 +21,11 @@ import {
 import { validateWebhookUrlSyntax } from "@/lib/security/webhook-url";
 import { isValidPlaybookCronExpression } from "./trigger-utils";
 
+export const MAX_PLAYBOOK_STEPS = 32;
+export const MAX_PLAYBOOK_RETRIES = 5;
+
+export const playbookRetrySchema = z.number().int().min(0).max(MAX_PLAYBOOK_RETRIES);
+
 const stepNameSchema = z
   .string()
   .trim()
@@ -65,8 +70,7 @@ const stepSchema = z
     id: z.string().trim().min(1).max(64),
     name: stepNameSchema,
     type: z.enum(STEP_TYPES),
-    config: z.unknown(), // narrowed by the union below
-    retry: z.number().int().min(0).max(5).default(0),
+    retry: playbookRetrySchema.default(0),
     timeoutSec: z.number().int().min(1).max(3_600).default(60),
   })
   .and(
@@ -109,29 +113,29 @@ const triggerConfigSchema = z.union([
   metricTriggerConfigSchema,
 ]);
 
-const chainRetrySchema = z.number().int().min(0).max(5);
+export const playbookStepsSchema = z
+  .array(stepSchema)
+  .min(1, "At least 1 step is required")
+  .max(MAX_PLAYBOOK_STEPS, `At most ${MAX_PLAYBOOK_STEPS} steps are allowed`)
+  // A run tracks its steps by id: a second step with a taken id was taken
+  // for done and skipped, and the run still reported success.
+  .superRefine((steps, ctx) => {
+    const seen = new Set<string>();
+    steps.forEach((step, index) => {
+      if (seen.has(step.id)) {
+        ctx.addIssue({ code: z.ZodIssueCode.custom, path: [index, "id"], message: `Step id "${step.id}" is used by more than one step` });
+      }
+      seen.add(step.id);
+    });
+  });
 
 const baseCreatePlaybookObject = z.object({
   name: z.string().trim().min(1, "Name is required").max(120),
   description: z.string().trim().max(500).optional().nullable(),
   triggerType: z.enum(TRIGGER_TYPES),
   triggerConfig: triggerConfigSchema,
-  steps: z
-    .array(stepSchema)
-    .min(1, "At least 1 step is required")
-    .max(32, "At most 32 steps are allowed")
-    // A run tracks its steps by id: a second step with a taken id was taken
-    // for done and skipped, and the run still reported success.
-    .superRefine((steps, ctx) => {
-      const seen = new Set<string>();
-      steps.forEach((step, index) => {
-        if (seen.has(step.id)) {
-          ctx.addIssue({ code: z.ZodIssueCode.custom, path: [index, "id"], message: `Step id "${step.id}" is used by more than one step` });
-        }
-        seen.add(step.id);
-      });
-    }),
-  chainRetry: chainRetrySchema.default(0),
+  steps: playbookStepsSchema,
+  chainRetry: playbookRetrySchema.default(0),
   enabled: z.boolean().default(true),
 });
 
@@ -173,7 +177,7 @@ export const updatePlaybookSchema = z
     // update said "enabled, no chain retries". Switching a playbook on or off reset its chain retries to 0, claiming
     // one (`{ id, claimOwnership }`) or renaming it switched a disabled playbook back on, and every update needed
     // playbook:run (the switch and the retries take it).
-    chainRetry: chainRetrySchema.optional(),
+    chainRetry: playbookRetrySchema.optional(),
     enabled: z.boolean().optional(),
     /** Make the caller the owner whose permissions scheduled runs use. */
     claimOwnership: z.literal(true).optional(),

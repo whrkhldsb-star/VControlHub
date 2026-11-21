@@ -7,7 +7,7 @@
 
 import { Prisma } from "@prisma/client";
 
-import type { ExportFile, ImportOptions } from "@/lib/system/config-schema";
+import { importPlaybooksSchema, type ExportFile, type ImportOptions } from "@/lib/system/config-schema";
 import { creatorResolver, upsertById, type Tx, type Counts } from "./import-executors-helpers";
 import { byId, loadGrantUserScopes, loadImportReferences, planAlertRuleImport, quickServiceTarget } from "./import-reference-scope";
 import { planQuickServiceImport } from "./import-quick-services";
@@ -127,20 +127,21 @@ export async function importPlaybooks(
   options: ImportOptions,
   counts: Counts,
 ): Promise<void> {
-  const creator = await creatorResolver(tx, t.playbooks.map((r) => r.createdById));
-  const toData = (r: ExportFile["tables"]["playbooks"][number]) => ({
+  const records = importPlaybooksSchema.parse(t.playbooks);
+  const creator = await creatorResolver(tx, records.map((r) => r.createdById));
+  const toData = (r: (typeof records)[number]) => ({
     name: r.name,
     description: r.description,
     triggerType: r.triggerType,
     triggerConfig: r.triggerConfig as Prisma.InputJsonValue,
-    steps: r.steps as Prisma.InputJsonValue,
+    steps: r.steps,
     chainRetry: r.chainRetry,
     enabled: r.enabled,
     createdById: creator(r.createdById),
     // Multi-tenant: preserve export teamId (null stays legacy-shared)
     teamId: r.teamId ?? null,
   });
-  await upsertById(t.playbooks, options, counts, {
+  await upsertById(records, options, counts, {
     listExistingIds: async (ids) =>
       new Set(
         (await tx.playbook.findMany({ where: { id: { in: ids } }, select: { id: true } })).map((e) => e.id),

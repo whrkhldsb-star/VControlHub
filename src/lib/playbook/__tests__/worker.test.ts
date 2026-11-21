@@ -226,6 +226,40 @@ describe("processPlaybookRun dual-owner races", () => {
     expect(mocks.acquireAdvisoryLock).not.toHaveBeenCalled();
     expect(mocks.executePlaybookChain).not.toHaveBeenCalled();
   });
+
+  it("reconstructs the webhook audit error from the snapshot and numeric receipt", async () => {
+    const url = "https://example.com/secret-path?token=private";
+    const step = { id: "hook", type: "call_webhook", config: { method: "POST", url } };
+    mocks.playbookRunFindUnique
+      .mockResolvedValueOnce({
+        id: "run-1", status: "running", createdById: "u1", teamId: "team1", playbook,
+        executionState: { schemaVersion: 1, stepsSnapshot: [step] },
+      })
+      .mockResolvedValueOnce({ status: "running", dryRun: false, stepResults: [], teamId: "team1" });
+    mocks.playbookRunUpdateMany.mockResolvedValue({ count: 1 });
+    mocks.executePlaybookChain.mockResolvedValue({
+      results: [{ stepId: "hook", status: "failed", error: `POST ${url} returned 500`, httpStatus: 500 }],
+      summary: "completed 0/1 steps, 1 failed",
+    });
+    await processPlaybookRun("run-1", "job-1");
+    const failedError = "webhook step hook POST example.com: HTTP 500";
+    expect(mocks.auditSystemAction).toHaveBeenCalledWith("playbook.run.failed", expect.objectContaining({ failedStepId: "hook", failedError }), "WARNING", "team1");
+    expect(JSON.stringify([mocks.auditSystemAction.mock.calls, mocks.playbookRunUpdateMany.mock.calls])).not.toMatch(/secret-path|token=/);
+    expect(mocks.playbookRunUpdateMany).toHaveBeenLastCalledWith(expect.objectContaining({
+      data: expect.objectContaining({
+        status: "failed", errorMessage: failedError,
+        stepResults: [expect.objectContaining({ status: "failed", error: failedError })],
+      }),
+    }));
+  });
+
+  it("does not forward a historical terminal webhook error into the reclaimed job", async () => {
+    mocks.playbookRunFindUnique.mockResolvedValueOnce({
+      status: "failed", errorMessage: "webhook POST https://example.com/secret-path?token=private returned 500",
+    });
+    await expect(processPlaybookRun("run-1", "job-1")).resolves.toEqual({ status: "failed", summary: "failed" });
+    expect(mocks.executePlaybookChain).not.toHaveBeenCalled();
+  });
 });
 
 describe("processPlaybookRun command-step live authorization", () => {

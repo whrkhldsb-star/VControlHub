@@ -1,5 +1,5 @@
 import { prisma } from "@/lib/db";
-import type { ExportFile, ImportOptions } from "@/lib/system/config-schema";
+import { importPlaybooksSchema, type ExportFile, type ImportOptions } from "@/lib/system/config-schema";
 import { canBindServerKey, planAlertRuleImport } from "./import-reference-scope";
 import { planQuickServiceImport } from "./import-quick-services";
 import { loadServerGrants, loadStorageGrants, planServerGrantImport, planStorageGrantImport } from "./import-resource-grants";
@@ -344,8 +344,7 @@ export async function previewPlaybooks(
   t: ExportFile["tables"],
   options: ImportOptions,
 ): Promise<PreviewCounts> {
-  const records = t.playbooks;
-  if (records.length === 0) return { ...ZERO };
+  const records = importPlaybooksSchema.parse(t.playbooks);
   return previewById(records, options, (ids) => prisma.playbook.findMany({
     where: { id: { in: ids } },
     select: { id: true },

@@ -347,7 +347,7 @@ export const zh: Record<string, string> = {
 
 	"backend.playbook.notFound": "Playbook 不存在",
 	"backend.playbook.cannotDeleteWhileRunning": "Playbook 有进行中的运行，无法删除",
-	"backend.playbook.triggerChangeRequiresRun": "修改 Playbook 的触发方式、启用状态或重试次数需要 Playbook 运行权限",
+	"backend.playbook.triggerChangeRequiresRun": "编辑已启用的自动 Playbook，或更改触发方式、启用状态或重试次数，需要 playbook:run 权限",
 	"backend.playbook.claimRequiresAdmin": "只有平台管理员，或在原负责人已停用时，才能接管这个 Playbook",
 	"backend.storage.unsupportedNodeType": "不支持的存储节点类型",
 	"backend.storage.versionBlobMissing": "版本内容在磁盘上缺失",
@@ -814,7 +814,7 @@ export const zh: Record<string, string> = {
 	"backend.cost.billingcsvurlHostIsNotAllowedSsrfProtection": "billingCsvUrl 主机不允许访问（SSRF 防护）",
 	"backend.cost.billingcsvurlResponseTooLarge": "billingCsvUrl 响应过大",
 	"backend.alert.oneOrMoreServeridsAreOutsideTheCurrent": "部分 serverId 不在当前客户范围内",
-	"backend.alert.bindingPlaybooksRequiresRun": "把 Playbook 绑定到告警规则会让它无人值守地运行，需要 playbook:run 权限",
+	"backend.alert.bindingPlaybooksRequiresRun": "此规则可触发 Playbook，进行这项更改需要 playbook:run 权限",
 	"backend.alert.platformChannelsAdminOnly": "邮件和 Telegram 渠道发送到平台自己的收件人，只有平台管理员可以选择",
 	"backend.alert.oneOrMorePlaybookidsAreOutsideTheCurrent": "部分 playbookId 不在当前客户范围内",
 	"backend.alert.ruleNotFound": "规则不存在",
@@ -1216,7 +1216,7 @@ export const en: Record<string, string> = {
 
 	"backend.playbook.notFound": "Playbook not found",
 	"backend.playbook.cannotDeleteWhileRunning": "Cannot delete a playbook with pending or running executions",
-	"backend.playbook.triggerChangeRequiresRun": "Changing a playbook's trigger, whether it is enabled, or its retries needs the playbook run permission",
+	"backend.playbook.triggerChangeRequiresRun": "Editing an enabled automatic playbook or changing its trigger, enabled state, or retries requires playbook:run",
 	"backend.playbook.claimRequiresAdmin": "Only a platform administrator may take over this playbook, unless its owner has been deactivated",
 
 	"backend.storage.unsupportedNodeType": "Unsupported storage node type",
@@ -1704,7 +1704,7 @@ export const en: Record<string, string> = {
 	"backend.cost.billingcsvurlHostIsNotAllowedSsrfProtection": "billingCsvUrl host is not allowed (SSRF protection)",
 	"backend.cost.billingcsvurlResponseTooLarge": "billingCsvUrl response too large",
 	"backend.alert.oneOrMoreServeridsAreOutsideTheCurrent": "One or more serverIds are outside the current customer scope",
-	"backend.alert.bindingPlaybooksRequiresRun": "Binding a playbook to an alert rule runs it unattended: that needs the playbook:run permission",
+	"backend.alert.bindingPlaybooksRequiresRun": "This alert rule can trigger a playbook. This change requires playbook:run.",
 	"backend.alert.platformChannelsAdminOnly": "The email and Telegram channels deliver to the platform's own recipients, so only a platform administrator may choose them",
 	"backend.alert.oneOrMorePlaybookidsAreOutsideTheCurrent": "One or more playbookIds are outside the current customer scope",
 	"backend.alert.ruleNotFound": "Rule not found",

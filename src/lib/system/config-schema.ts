@@ -15,17 +15,11 @@
 
 import { z } from "zod";
 
+import { playbookRetrySchema, playbookStepsSchema } from "@/lib/playbook/schema";
 import { isSensitiveKey } from "@/lib/settings/schema";
+import { EXPORT_SCHEMA_VERSION } from "./config-format";
 
-// ── 导出文件顶层结构 ──────────────────────────────────────
-
-export const EXPORT_SCHEMA_VERSION = 1;
-
-/**
- * Largest import request (file plus options). A full export is not bounded by
- * the generic 1 MiB API body limit, so its own exports must fit through here.
- */
-export const CONFIG_IMPORT_MAX_BODY_BYTES = 32 * 1024 * 1024;
+export { CONFIG_IMPORT_MAX_BODY_BYTES, EXPORT_SCHEMA_VERSION } from "./config-format";
 
 /** 敏感 Setting key 模式 — 值在导出时清空 */
 const SENSITIVE_SETTING_PATTERN =
@@ -268,6 +262,11 @@ const playbookSchema = z.object({
   createdAt: z.string(),
 });
 
+export const importPlaybooksSchema = z.array(playbookSchema.extend({
+  steps: playbookStepsSchema,
+  chainRetry: playbookRetrySchema,
+}));
+
 const alertRuleSchema = z.object({
   teamId: z.string().nullable().optional(),
 
@@ -338,7 +337,7 @@ const snippetSchema = z.object({
 
 // ── 完整导出文件 schema ──────────────────────────────────
 
-export const exportFileSchema = z.object({
+const snapshotSchema = z.object({
   schemaVersion: z.literal(EXPORT_SCHEMA_VERSION),
   exportedAt: z.string(),
   sourceDomain: z.string(),
@@ -373,7 +372,12 @@ export const exportFileSchema = z.object({
   }),
 });
 
-export type ExportFile = z.infer<typeof exportFileSchema>;
+// Snapshots preserve the stored JSON, including legacy rows. Validate their
+// executable configuration when accepting a snapshot for preview or import.
+export type ExportFile = z.infer<typeof snapshotSchema>;
+export const exportFileSchema = snapshotSchema.extend({
+  tables: snapshotSchema.shape.tables.extend({ playbooks: importPlaybooksSchema }),
+});
 
 // ── 导入预览结构 ──────────────────────────────────────────
 

@@ -124,6 +124,43 @@ describe("executePlaybookChain", () => {
 		);
 	});
 
+	it.each([
+		{ count: 33, retry: 0, chainRetry: 0, error: /32 steps/ },
+		{ count: 2, retry: 6, chainRetry: 0, error: /step retry/i },
+		{ count: 2, retry: 0.5, chainRetry: 0, error: /step retry/i },
+		{ count: 2, retry: 0, chainRetry: 6, error: /chainRetry/ },
+	])("rejects a stored budget of $count steps, retry $retry, chainRetry $chainRetry before dispatch", async ({ count, retry, chainRetry, error }) => {
+		const steps = Array.from({ length: count }, (_, index) => ({
+			id: `s${index}`,
+			name: "Notify",
+			type: "send_notification" as const,
+			config: { recipientUserId: "u1", subject: "s", body: "b" },
+			retry: index === count - 1 ? retry : 0,
+			timeoutSec: 60,
+		}));
+		const { results } = await executePlaybookChain({
+			playbook: { id: "pb", steps, chainRetry }, runId: "run-budget", dryRun: false,
+		});
+
+		expect(results).toEqual([expect.objectContaining({ status: "failed", error: expect.stringMatching(error) })]);
+		expect(mocks.notificationCreate).not.toHaveBeenCalled();
+	});
+
+	it("allows six attempts per round and six rounds at the valid retry limits", async () => {
+		const playbook = buildPlaybook([{
+			id: "s1", name: "cmd", type: "run_command", config: { command: "pwd", serverIds: ["srv1"] }, retry: 5, timeoutSec: 60,
+		}]);
+		mocks.createCommandRequest.mockRejectedValue(new Error("queue unavailable"));
+		mocks.commandRequestFindUnique.mockResolvedValue(null);
+
+		const { results } = await executePlaybookChain({
+			playbook: { ...playbook, chainRetry: 5 }, runId: "run-boundary", dryRun: false,
+		});
+
+		expect(results[0]).toMatchObject({ status: "failed" });
+		expect(mocks.createCommandRequest).toHaveBeenCalledTimes(36);
+	});
+
 	it("creates a Notification row for send_notification step without teamId", async () => {
 		const playbook = buildPlaybook([
 			{
@@ -203,6 +240,7 @@ describe("executePlaybookChain", () => {
 	});
 
 	it("calls the webhook URL via fetchWebhookSafely and records ok on 2xx", async () => {
+		const url = "https://example.com/private-hook?token=sensitive";
 		mocks.fetchWebhookSafely.mockResolvedValueOnce({
 			ok: true,
 			response: { ok: true, status: 200, statusText: "OK" },
@@ -210,22 +248,25 @@ describe("executePlaybookChain", () => {
 		const playbook = buildPlaybook([
 			{
 				id: "s1",
-				name: "hook",
+				name: url,
 				type: "call_webhook",
-				config: { url: "https://example.com/webhook", method: "POST" },
+				config: { url, method: "POST" },
 				retry: 0,
 				timeoutSec: 60,
 			},
 		]);
-		const { results: results, summary: _chainSummary } = await executePlaybookChain({
+		const onProgress = vi.fn();
+		const { results } = await executePlaybookChain({
 			playbook,
 			runId: "run-1",
 			dryRun: false,
+			onProgress,
 		});
 		expect(results[0]?.status).toBe("ok");
-		expect(results[0]?.summary).toContain("200");
+		expect(results[0]?.summary).toBe("webhook step s1 POST example.com: HTTP 200");
+		expect(JSON.stringify([results, onProgress.mock.calls, mocks.playbookRunUpdateMany.mock.calls])).not.toMatch(/private-hook|token=/);
 		expect(mocks.fetchWebhookSafely).toHaveBeenCalledWith(
-			"https://example.com/webhook",
+			url,
 			expect.objectContaining({ method: "POST", signal: expect.any(AbortSignal) }),
 		);
 	});
@@ -247,28 +288,28 @@ describe("executePlaybookChain", () => {
 
 	it("spends the chain's failure retries on an ordinary step failure", async () => {
 		// chainRetry only set the job's attempt limit, which a step failure
-		// never reaches: a 500 then 200 webhook failed for good.
+		// never reaches: an idempotent GET should retry a known HTTP failure.
 		mocks.fetchWebhookSafely
 			.mockResolvedValueOnce({ ok: true, response: { ok: false, status: 500, statusText: "Server Error" } })
 			.mockResolvedValueOnce({ ok: true, response: { ok: true, status: 200, statusText: "OK" } });
-		const playbook = { ...buildPlaybook([{ id: "s1", name: "hook", type: "call_webhook" as const, config: { url: "https://example.com/webhook", method: "POST" as const }, retry: 0, timeoutSec: 60 }]), chainRetry: 2 };
+		const playbook = { ...buildPlaybook([{ id: "s1", name: "hook", type: "call_webhook" as const, config: { url: "https://example.com/webhook", method: "GET" as const }, retry: 0, timeoutSec: 60 }]), chainRetry: 2 };
 		const { results } = await executePlaybookChain({ playbook, runId: "run-chain", dryRun: false });
 		expect(results[0]?.status).toBe("ok");
 		expect(mocks.fetchWebhookSafely).toHaveBeenCalledTimes(2);
 	});
 
-	it("fails the webhook step on non-2xx response (no silent success)", async () => {
+	it("records only the status of a rejected POST and never repeats the non-idempotent request", async () => {
 		mocks.fetchWebhookSafely.mockResolvedValueOnce({
 			ok: true,
-			response: { ok: false, status: 503, statusText: "Service Unavailable" },
+			response: { ok: false, status: 503, statusText: "private-hook?token=sensitive" },
 		});
 		const playbook = buildPlaybook([
 			{
 				id: "s1",
 				name: "hook",
 				type: "call_webhook",
-				config: { url: "https://example.com/broken", method: "POST" },
-				retry: 0,
+				config: { url: "https://example.com/private-hook?token=sensitive", method: "POST" },
+				retry: 3,
 				timeoutSec: 60,
 			},
 		]);
@@ -278,7 +319,66 @@ describe("executePlaybookChain", () => {
 			dryRun: false,
 		});
 		expect(results[0]?.status).toBe("failed");
-		expect(results[0]?.error).toContain("503");
+		expect(results[0]?.error).toBe("webhook step s1 POST example.com: HTTP 503");
+		expect(results[0]?.sideEffectDispatched).toBe(true);
+		expect(mocks.fetchWebhookSafely).toHaveBeenCalledTimes(1);
+		expect(JSON.stringify(mocks.playbookRunUpdateMany.mock.calls)).not.toMatch(/private-hook|token=/);
+	});
+
+	it("stops all retries after an unknown transport receipt, including on reclaim", async () => {
+		const url = "https://example.com/private-hook?token=sensitive";
+		const playbook = buildPlaybook([{ id: "h", name: url, type: "call_webhook", config: { url, method: "POST" }, retry: 3, timeoutSec: 60 }]);
+		playbook.chainRetry = 2;
+		mocks.fetchWebhookSafely.mockResolvedValue({ ok: false, dispatched: true, error: `error from ${url}` });
+		const input = { playbook, runId: "unknown", dryRun: false };
+		const { results } = await executePlaybookChain(input);
+		expect(results[0]).toMatchObject({
+			status: "failed", error: "webhook step h POST example.com: delivery outcome unknown",
+			sideEffectDispatched: true, outcomeUnknown: true,
+		});
+		await executePlaybookChain({ ...input, resumeResults: results });
+		expect(mocks.fetchWebhookSafely).toHaveBeenCalledTimes(1);
+		expect(mocks.playbookRunUpdateMany.mock.calls.every(([update]) => update.data.stepResults[0]?.sideEffectDispatched)).toBe(true);
+		expect(JSON.stringify(mocks.playbookRunUpdateMany.mock.calls)).not.toMatch(/private-hook|token=/);
+	});
+
+	it("can retry a POST refused before dispatch", async () => {
+		mocks.fetchWebhookSafely
+			.mockResolvedValueOnce({ ok: false, dispatched: false, error: "DNS failed" })
+			.mockResolvedValueOnce({ ok: true, response: { ok: true, status: 204 } });
+		const playbook = buildPlaybook([{ id: "h", name: "hook", type: "call_webhook", config: { url: "https://example.com/h", method: "POST" }, retry: 1, timeoutSec: 60 }]);
+		const { results } = await executePlaybookChain({ playbook, runId: "retry", dryRun: false });
+		expect(results[0]).toMatchObject({ status: "ok", httpStatus: 204 });
+		expect(mocks.fetchWebhookSafely).toHaveBeenCalledTimes(2);
+	});
+
+	it("keeps infrastructure exceptions and invalid legacy methods out of webhook errors", async () => {
+		const url = "https://example.com/private-hook?token=sensitive";
+		const playbook = buildPlaybook([{ id: "h", name: url, type: "call_webhook", config: { url, method: url as "POST" }, retry: 0, timeoutSec: 60 }]);
+		const beforeDispatch = vi.fn().mockRejectedValue(new Error(`could not claim ${url}`));
+		const { results } = await executePlaybookChain({ playbook, runId: "before-send", dryRun: false, beforeDispatch });
+		expect(results[0]?.error).toBe("webhook step h (invalid method) example.com: delivery failed");
+		expect(JSON.stringify([results, mocks.playbookRunUpdateMany.mock.calls])).not.toMatch(/private-hook|token=/);
+		expect(mocks.fetchWebhookSafely).not.toHaveBeenCalled();
+	});
+
+	it("redacts webhook URLs from dry runs and from old failed rows on reclaim", async () => {
+		const url = "https://example.com/private-hook?token=sensitive";
+		const playbook = buildPlaybook([{ id: "h", name: url, type: "call_webhook", config: { url, method: "POST" }, retry: 0, timeoutSec: 60 }]);
+		const dry = await executePlaybookChain({ playbook, runId: "dry", dryRun: true });
+		const resumedDry = await executePlaybookChain({
+			playbook, runId: "dry", dryRun: true,
+			resumeResults: [{ stepId: "h", status: "dry_run", summary: `dry-run: ${url}`, startedAt: "", completedAt: "" }],
+		});
+		const resumed = await executePlaybookChain({
+			playbook, runId: "old", dryRun: false,
+			resumeResults: [{ stepId: "h", status: "failed", summary: url, error: url, startedAt: "", completedAt: "", outcomeUnknown: true, sideEffectDispatched: true }],
+		});
+		expect(dry.results[0]?.summary).toBe("dry-run: webhook step h POST example.com");
+		expect(resumedDry.results[0]).toMatchObject({ status: "dry_run", summary: dry.results[0]?.summary });
+		expect(resumed.results[0]?.error).toBe("webhook step h POST example.com: delivery outcome unknown");
+		expect(JSON.stringify([dry, resumedDry, resumed, mocks.playbookRunUpdateMany.mock.calls])).not.toMatch(/private-hook|token=/);
+		expect(mocks.fetchWebhookSafely).not.toHaveBeenCalled();
 	});
 
 	it("aborts the chain on the first failed step in non-dryRun mode (no synthetic skipped entry)", async () => {

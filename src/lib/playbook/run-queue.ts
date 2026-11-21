@@ -7,6 +7,7 @@ import { Prisma } from "@prisma/client";
 
 import { enqueueJob } from "@/lib/job/service";
 
+import { playbookRetrySchema } from "./schema";
 import type { PlaybookStep } from "./types";
 import { toJsonValue } from "@/lib/db/json";
 
@@ -53,6 +54,9 @@ export async function queuePlaybookRunWithClient(input: {
       teamId: input.playbook.teamId ?? null,
     },
   });
+  // A legacy invalid budget gets one job attempt to record the executor's
+  // validation failure. It must not grant extra durable retries.
+  const retries = playbookRetrySchema.safeParse(input.playbook.chainRetry);
   const job = await enqueueJob(
     {
       type: "playbook.run",
@@ -61,7 +65,7 @@ export async function queuePlaybookRunWithClient(input: {
       createdBy: input.createdById ?? null,
       teamId: input.playbook.teamId ?? null,
       priority: 0,
-      maxAttempts: Math.max(1, input.playbook.chainRetry + 1),
+      maxAttempts: retries.success ? 1 + retries.data : 1,
     },
     input.client,
   );

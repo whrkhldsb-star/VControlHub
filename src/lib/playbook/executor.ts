@@ -15,6 +15,8 @@ import { createNotification } from "@/lib/notification/service";
 import { fetchWebhookSafely } from "@/lib/security/webhook-url";
 
 import type { PlaybookRecord, PlaybookStep, PlaybookStepResult } from "./types";
+import { describeWebhookStep, redactWebhookResult } from "./webhook-result";
+import { MAX_PLAYBOOK_RETRIES, MAX_PLAYBOOK_STEPS, playbookRetrySchema } from "./schema";
 import { toJsonValue } from "@/lib/db/json";
 
 const TRUNCATE_AT = 280;
@@ -32,6 +34,8 @@ const COMMAND_TERMINAL = new Set(["COMPLETED", "FAILED", "REJECTED", "CANCELLED"
  * {@link executeWithRetries} treats this error as terminal: no retry, no splice.
  */
 class NonRetryableStepError extends Error {}
+
+class WebhookOutcomeUnknownError extends NonRetryableStepError {}
 
 class SideEffectAlreadyDispatchedError extends NonRetryableStepError {
   constructor(message: string) {
@@ -70,18 +74,18 @@ function describeStep(step: PlaybookStep): string {
     case "send_notification":
       return `send_notification "${truncate(step.config.subject, 60)}" to ${step.config.recipientUserId}`;
     case "call_webhook":
-      return `call_webhook ${step.config.method} ${truncate(step.config.url, 80)}`;
+      return describeWebhookStep(step);
   }
 }
 
-function failedResult(step: PlaybookStep, error: unknown, startedAt: string): PlaybookStepResult {
+function failedResult(step: Pick<PlaybookStep, "id">, error: unknown, startedAt: string): PlaybookStepResult {
   return {
     stepId: step.id,
     status: "failed",
     startedAt,
     completedAt: nowIso(),
     summary: "",
-    ...(error instanceof CommandOutcomeUnknownError ? { outcomeUnknown: true } : {}),
+    ...(error instanceof CommandOutcomeUnknownError || error instanceof WebhookOutcomeUnknownError ? { outcomeUnknown: true } : {}),
     error: truncate(error instanceof Error ? error.message : String(error)),
   };
 }
@@ -367,26 +371,41 @@ async function dispatchStep(input: {
       // non-idempotent action (restart service, send SMS). Never auto-replay a
       // dispatched-but-unconfirmed webhook on reclaim.
       const priorWebhook = input.results.find((r) => r.stepId === step.id);
-      if (input.attempt === 0 && priorWebhook?.sideEffectDispatched) {
+      const label = describeWebhookStep(step);
+      if (priorWebhook?.sideEffectDispatched) {
         throw new SideEffectAlreadyDispatchedError(
-          `webhook step ${step.id} was already dispatched in a prior attempt; not re-calling (at-most-once)`,
+          `${label}: already dispatched (at-most-once)`,
         );
       }
       const controller = new AbortController();
       const timer = setTimeout(() => controller.abort(), Math.max(1, step.timeoutSec) * 1_000);
       try {
-        await markSideEffectDispatched(input, step.id);
+        const marker = await markSideEffectDispatched(input, step.id);
         const result = await fetchWebhookSafely(step.config.url, {
           method: step.config.method,
           headers: step.config.headers ?? { "Content-Type": "application/json" },
           body: step.config.method === "GET" ? undefined : step.config.body,
           signal: input.signal ? AbortSignal.any([input.signal, controller.signal]) : controller.signal,
+          failOnBodyReadError: true,
+        }).catch(() => {
+          // An unexpected transport exception cannot prove that nothing was sent.
+          throw new WebhookOutcomeUnknownError(`${label}: delivery outcome unknown`);
         });
-        if (!result.ok) throw new Error(result.error ?? `webhook URL blocked: ${step.config.url}`);
-        if (!result.response.ok) {
-          throw new Error(`webhook ${step.config.method} ${step.config.url} returned ${result.response.status} ${result.response.statusText}`);
+        if (!result.ok) {
+          if (result.dispatched !== false) throw new WebhookOutcomeUnknownError(`${label}: delivery outcome unknown`);
+          delete marker.sideEffectDispatched;
+          throw new Error(`${label}: blocked before dispatch`);
         }
-        return `webhook ${step.config.method} ${step.config.url} → ${result.response.status}`;
+        marker.httpStatus = result.response.status;
+        const receipt = describeWebhookStep(step, marker);
+        if (!result.response.ok) {
+          // An HTTP error need not mean the remote action was rolled back.
+          // Retry a confirmed HTTP failure only for an idempotent method.
+          if (step.config.method !== "GET" && step.config.method !== "PUT") throw new NonRetryableStepError(receipt);
+          delete marker.sideEffectDispatched;
+          throw new Error(receipt);
+        }
+        return receipt;
       } finally {
         clearTimeout(timer);
       }
@@ -403,7 +422,7 @@ async function dispatchStep(input: {
 async function markSideEffectDispatched(
   input: { runId: string; results: PlaybookStepResult[]; existing?: PlaybookStepResult; signal?: AbortSignal; beforeDispatch?: () => Promise<void> },
   stepId: string,
-): Promise<void> {
+): Promise<PlaybookStepResult> {
   const marker: PlaybookStepResult = {
     stepId,
     status: "running",
@@ -419,6 +438,7 @@ async function markSideEffectDispatched(
   await persistProgress(input.runId, input.results);
   await input.beforeDispatch?.();
   input.signal?.throwIfAborted();
+  return marker;
 }
 
 async function executeWithRetries<T>(
@@ -454,22 +474,38 @@ export async function executePlaybookChain(input: {
   signal?: AbortSignal;
   beforeDispatch?: () => Promise<void>;
 }): Promise<{ results: PlaybookStepResult[]; summary: string }> {
-  const results = [...(input.resumeResults ?? [])];
-  const totalSteps = input.playbook.steps.length;
-
-  // Saved before step ids had to be unique: the later step would be skipped
-  // as already done while the run reported success. Fail it plainly instead.
+  const { steps, chainRetry = 0 } = input.playbook;
+  let results: PlaybookStepResult[] = [];
+  const rejectPlan = (message: string, stepId = "playbook") => ({
+    results: [...results, failedResult({ id: stepId }, new Error(message), nowIso())],
+    summary: message,
+  });
+  // Stored JSON and queued snapshots can predate import validation. Check the
+  // entire budget before the first step can dispatch, including on reclaim.
+  if (!Array.isArray(steps) || steps.length < 1 || steps.length > MAX_PLAYBOOK_STEPS) {
+    return rejectPlan(`Playbook must contain between 1 and ${MAX_PLAYBOOK_STEPS} steps`);
+  }
+  results = (input.resumeResults ?? []).map((result) =>
+    redactWebhookResult(steps.find((step) => step?.id === result.stepId), result),
+  );
+  if (!playbookRetrySchema.safeParse(chainRetry).success) {
+    return rejectPlan(`Playbook chainRetry must be an integer from 0 to ${MAX_PLAYBOOK_RETRIES}`);
+  }
+  const totalSteps = steps.length;
   const seenIds = new Set<string>();
-  for (const step of input.playbook.steps) {
+  for (const step of steps) {
+    if (!step || typeof step.id !== "string") return rejectPlan("Invalid playbook step");
+    if (step.retry !== undefined && !playbookRetrySchema.safeParse(step.retry).success) {
+      return rejectPlan(`Step retry must be an integer from 0 to ${MAX_PLAYBOOK_RETRIES}`, step.id);
+    }
     if (seenIds.has(step.id)) {
-      results.push(failedResult(step, new Error(`Step id "${step.id}" is used by more than one step; give each step its own id`), nowIso()));
-      return { results, summary: `failed: duplicate step id ${step.id}` };
+      return rejectPlan(`Step id "${step.id}" is used by more than one step`, step.id);
     }
     seenIds.add(step.id);
   }
 
   for (let index = 0; index < totalSteps; index += 1) {
-    const step = input.playbook.steps[index]!;
+    const step = steps[index]!;
     const existingIndex = results.findIndex((result) => result.stepId === step.id);
     const existing = existingIndex >= 0 ? results[existingIndex] : undefined;
     if (existing?.outcomeUnknown) break;
@@ -493,9 +529,9 @@ export async function executePlaybookChain(input: {
         // round gives that step its own retries once more. They only became
         // the job's attempt limit, which an ordinary step failure never
         // reaches, so the setting did nothing.
-        const rounds = 1 + Math.max(0, input.playbook.chainRetry ?? 0);
+        const rounds = 1 + chainRetry;
         const summary = await executeWithRetries(
-          Math.max(1, step.retry + 1) * rounds,
+          (1 + (step.retry ?? 0)) * rounds,
           async () => {
             input.signal?.throwIfAborted();
             await input.beforeDispatch?.();
@@ -517,6 +553,12 @@ export async function executePlaybookChain(input: {
             });
           },
           async (error) => {
+            const live = results.find((item) => item.stepId === step.id);
+            // The lease/permission check can throw before dispatchStep has
+            // examined a marker left by the previous worker.
+            if (step.type === "call_webhook" && live?.sideEffectDispatched) {
+              throw new WebhookOutcomeUnknownError(describeWebhookStep(step, { outcomeUnknown: true }));
+            }
             if (step.type === "run_command") {
               // Before the link to the failed attempt's command is dropped:
               // every command it may have created must be known to have
@@ -525,8 +567,7 @@ export async function executePlaybookChain(input: {
               // create or the progress write threw).
               const failedAttempt = attemptIndex - 1;
               const ids = new Set<string>();
-              const live = results.find((item) => item.stepId === step.id)?.commandRequestId;
-              if (live) ids.add(live);
+              if (live?.commandRequestId) ids.add(live.commandRequestId);
               try {
                 const byKey = await prisma.commandRequest.findUnique({
                   where: { idempotencyKey: `playbook:${input.runId}:step:${step.id}:a${failedAttempt}` },
@@ -559,17 +600,22 @@ export async function executePlaybookChain(input: {
         };
         const live = results.find((item) => item.stepId === step.id);
         if (live?.commandRequestId) result.commandRequestId = live.commandRequestId;
+        if (live?.httpStatus !== undefined) result.httpStatus = live.httpStatus;
       } catch (error) {
         if (error instanceof LeaseLostError) throw error;
         input.signal?.throwIfAborted();
         result = failedResult(step, error, startedAt);
         const live = results.find((item) => item.stepId === step.id);
         if (live?.commandRequestId) result.commandRequestId = live.commandRequestId;
+        if (live?.httpStatus !== undefined) result.httpStatus = live.httpStatus;
         // Carry the marker onto the failed row. Without this the "we already
         // fired this webhook" fact is lost the moment the failure is recorded,
         // and a reclaim between this write and the run being finalized would
         // dispatch the side effect a second time.
         if (live?.sideEffectDispatched) result.sideEffectDispatched = true;
+        // A lease check, progress write or transport exception can include
+        // arbitrary context. Persist only the webhook's structured fields.
+        if (step.type === "call_webhook") result.error = describeWebhookStep(step, result);
       }
     }
 
@@ -581,7 +627,8 @@ export async function executePlaybookChain(input: {
     }
     input.signal?.throwIfAborted();
     await persistProgress(input.runId, results);
-    await input.onProgress?.(`step ${index + 1}/${totalSteps}: ${step.name || step.id} ${result.status}`);
+    const progressLabel = step.type === "call_webhook" ? describeWebhookStep(step, result) : step.name || step.id;
+    await input.onProgress?.(`step ${index + 1}/${totalSteps}: ${progressLabel} ${result.status}`);
     await recordJobEvent({
       jobId: input.eventJobId ?? input.runId,
       type: "progress",

@@ -5,6 +5,7 @@ const { mocks } = vi.hoisted(() => ({
     playbookFindMany: vi.fn(),
     playbookFindUnique: vi.fn(),
     playbookFindFirst: vi.fn(),
+    alertRuleFindFirst: vi.fn(),
     playbookCreate: vi.fn(),
     playbookUpdate: vi.fn(),
     playbookUpdateMany: vi.fn(),
@@ -40,6 +41,7 @@ vi.mock("@/lib/db", () => ({
       deleteMany: mocks.playbookDeleteMany,
     },
     playbookRun: { findMany: mocks.runFindMany, findFirst: mocks.runFindFirst },
+    alertRule: { findFirst: mocks.alertRuleFindFirst },
     server: { findMany: mocks.serverFindMany },
     teamMember: { findUnique: mocks.teamMemberFindUnique },
     user: { findUnique: mocks.userFindUnique },
@@ -98,7 +100,8 @@ describe("playbook service", () => {
     mocks.acquireAdvisoryLock.mockResolvedValue(mocks.releaseAdvisoryLock);
     mocks.releaseAdvisoryLock.mockResolvedValue(undefined);
     mocks.transaction.mockImplementation(async (callback: (tx: unknown) => unknown) => callback({
-      playbook: { deleteMany: mocks.playbookDeleteMany },
+      playbook: { deleteMany: mocks.playbookDeleteMany, findFirst: mocks.playbookFindFirst, updateMany: mocks.playbookUpdateMany },
+      alertRule: { findFirst: mocks.alertRuleFindFirst },
       playbookRun: { create: mocks.runCreate, update: mocks.runUpdate },
       job: { create: mocks.jobCreate },
       jobEvent: { create: mocks.jobEventCreate },
@@ -184,10 +187,65 @@ describe("playbook service", () => {
     const runWithoutExecute: Session = { ...manageOnly, permissions: ["playbook:read", "playbook:manage", "playbook:run"] };
     await expect(updatePlaybook({ id: "pb1", enabled: false }, "u9", runWithoutExecute)).rejects.toMatchObject({ name: "ForbiddenError" });
     expect(mocks.playbookUpdateMany).not.toHaveBeenCalled();
-    // Renaming changes nothing about when it runs.
-    mocks.playbookFindUnique.mockResolvedValue(baseRow);
+    await expect(updatePlaybook({ id: "pb1", name: "Renamed" }, "u9", manageOnly)).rejects.toMatchObject({ name: "ForbiddenError", status: 403 });
+    mocks.playbookFindFirst.mockResolvedValue({ ...baseRow, enabled: false });
     await updatePlaybook({ id: "pb1", name: "Renamed" }, "u9", manageOnly);
     expect(mocks.playbookUpdateMany).toHaveBeenCalledTimes(1);
+  });
+
+  describe("editing the steps of an existing automation", () => {
+    const manageOnly = { userId: "u9", currentTeamId: "team1", roles: ["operator" as const], permissions: ["playbook:manage" as const] };
+    const hook = {
+      id: "s1", name: "Notify hook", type: "call_webhook" as const, config: { method: "POST" as const, url: "https://example.com/hook" }, retry: 0, timeoutSec: 30,
+    };
+    const steps = [hook];
+
+    it.each(["cron", "metric", "manual"])("requires playbook:run when the stored %s playbook runs automatically", async (triggerType) => {
+      mocks.playbookFindFirst.mockResolvedValue({ ...baseRow, triggerType });
+      mocks.alertRuleFindFirst.mockResolvedValue({ id: "rule1" });
+      await expect(updatePlaybook({ id: "pb1", steps }, "u9", manageOnly)).rejects.toMatchObject({ name: "ForbiddenError", status: 403 });
+      if (triggerType === "manual") {
+        expect(mocks.alertRuleFindFirst).toHaveBeenCalledWith({ where: { playbookIds: { has: "pb1" } }, select: { id: true } });
+      }
+      expect(mocks.playbookUpdateMany).not.toHaveBeenCalled();
+    });
+
+    it("allows a manager to edit a purely manual or disabled playbook", async () => {
+      mocks.alertRuleFindFirst.mockResolvedValue(null);
+      for (const state of [{ triggerType: "manual", enabled: true }, { triggerType: "cron", enabled: false }]) {
+        mocks.playbookFindFirst.mockResolvedValue({ ...baseRow, ...state });
+        await updatePlaybook({ id: "pb1", steps }, "u9", manageOnly);
+      }
+      expect(mocks.playbookUpdateMany).toHaveBeenCalledTimes(2);
+    });
+
+    it.each(["enabled cron", "new alert binding"])("rechecks %s inside the non-runner's write transaction", async (concurrentChange) => {
+      mocks.playbookFindFirst.mockResolvedValue({ ...baseRow, enabled: false, triggerType: "manual" });
+      const findCurrent = vi.fn().mockResolvedValue({
+        id: "pb1", enabled: true, triggerType: concurrentChange === "enabled cron" ? "cron" : "manual",
+      });
+      const findBinding = vi.fn().mockResolvedValue({ id: "rule1" });
+      const write = vi.fn();
+      mocks.transaction.mockImplementationOnce(async (apply) => apply({
+        playbook: { findFirst: findCurrent, updateMany: write }, alertRule: { findFirst: findBinding },
+      }));
+      await expect(updatePlaybook({ id: "pb1", steps }, "u9", manageOnly)).rejects.toMatchObject({ name: "ForbiddenError", status: 403 });
+      expect(mocks.transaction).toHaveBeenCalledWith(expect.any(Function), { isolationLevel: "Serializable" });
+      expect(findCurrent).toHaveBeenCalledWith(expect.objectContaining({ where: { id: "pb1", teamId: "team1" } }));
+      if (concurrentChange === "new alert binding") expect(findBinding).toHaveBeenCalledWith({ where: { playbookIds: { has: "pb1" } }, select: { id: true } });
+      expect(write).not.toHaveBeenCalled();
+      expect(mocks.playbookUpdateMany).not.toHaveBeenCalled();
+    });
+
+    it("allows a runner to change webhook steps and still requires command:execute for command steps", async () => {
+      const runner = { ...manageOnly, permissions: ["playbook:manage" as const, "playbook:run" as const] };
+      mocks.playbookFindFirst.mockResolvedValue(baseRow);
+      await updatePlaybook({ id: "pb1", steps }, "u9", runner);
+      await expect(updatePlaybook({ id: "pb1", steps: [{
+        ...hook, type: "run_command", config: { command: "uptime", serverIds: ["srv1"] },
+      }] }, "u9", runner)).rejects.toMatchObject({ name: "ForbiddenError", status: 403, message: expect.stringContaining("command:execute") });
+      expect(mocks.playbookUpdateMany).toHaveBeenCalledTimes(1);
+    });
   });
 
   it("lets a non-administrator take over a playbook only once its owner is deactivated", async () => {
@@ -471,6 +529,18 @@ describe("playbook service", () => {
       undefined,
       "team1",
     );
+  });
+
+  it("does not give a legacy playbook with an excessive chainRetry extra job attempts", async () => {
+    mocks.playbookFindFirst.mockResolvedValue({ ...baseRow, chainRetry: 100_000 });
+    mocks.runCreate.mockResolvedValue(queuedRun);
+    mocks.runUpdate.mockResolvedValue({ ...queuedRun, jobId: "job-1" });
+    mocks.jobCreate.mockResolvedValue({ id: "job-1" });
+    mocks.jobEventCreate.mockResolvedValue({ id: "event-1" });
+
+    await runPlaybook({ playbookId: "pb1", dryRun: false });
+
+    expect(mocks.jobCreate).toHaveBeenCalledWith({ data: expect.objectContaining({ maxAttempts: 1 }) });
   });
 
   it("quarantines a null-team playbook instead of exposing it to every tenant", async () => {

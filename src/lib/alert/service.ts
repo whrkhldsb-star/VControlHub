@@ -1,7 +1,8 @@
+import type { AlertRule, Prisma } from "@prisma/client";
 import { apiCopy } from "@/lib/i18n/api-copy";
-import type { RoleKey } from "@/lib/auth/rbac";
 import { sessionHasPermission } from "@/lib/auth/authorization";
-import { isGlobalTeamManager, playbookTeamWhere, serverTeamWhere, teamCreateData, teamWhere } from "@/lib/auth/team-scope";
+import { PLAYBOOK_RUN_PERMISSION } from "@/lib/playbook/permissions";
+import { isGlobalTeamManager, playbookTeamWhere, serverTeamWhere, teamCreateData, teamWhere, type TeamSession } from "@/lib/auth/team-scope";
 import { prisma } from "@/lib/db";
 import { ForbiddenError, NotFoundError, ValidationError } from "@/lib/errors";
 
@@ -13,8 +14,6 @@ import { t } from "@/lib/i18n/service-translations";
 import { permissionHoldersWhere } from "@/lib/auth/permission-holders";
 
 /* ── Types ────────────────────────────────────────────────── */
-
-type TeamSession = { userId: string; roles: RoleKey[]; currentTeamId: string | null };
 
 async function assertServerIdsInTeam(serverIds: string[], session?: TeamSession | null) {
 	if (!session || serverIds.length === 0) return;
@@ -33,7 +32,7 @@ async function assertPlaybookIdsInTeam(playbookIds: string[], session?: TeamSess
 	if (!session || playbookIds.length === 0) return;
 	// The rule fires the playbook with nobody approving it: notification:manage alone must not start what the
 	// caller could not run by hand.
-	if (!sessionHasPermission(session, "playbook:run")) throw new ForbiddenError(t("backend.alert.bindingPlaybooksRequiresRun"));
+	if (!sessionHasPermission(session, PLAYBOOK_RUN_PERMISSION)) throw new ForbiddenError(t("backend.alert.bindingPlaybooksRequiresRun"));
 	if (sessionHasPermission(session, "team:manage")) return;
 	const allowed = await prisma.playbook.findMany({
 		// Strict: an alert rule binds a playbook that later fires unattended, so a
@@ -120,17 +119,50 @@ export async function createAlertRule(input: CreateAlertRuleInput, session?: Tea
 	});
 }
 
+type RuleAutomation = Pick<AlertRule, "enabled" | "playbookIds">;
+
+function permittedRuleState(
+	current: RuleAutomation,
+	change: Partial<RuleAutomation>,
+	session: TeamSession,
+): Prisma.AlertRuleWhereInput | undefined {
+	if (sessionHasPermission(session, PLAYBOOK_RUN_PERMISSION) || change.enabled === false || change.playbookIds?.length === 0) return;
+	if ((change.enabled ?? current.enabled) && (change.playbookIds ?? current.playbookIds).length > 0) {
+		throw new ForbiddenError(t("backend.alert.bindingPlaybooksRequiresRun"));
+	}
+	// Enforce the same condition in the write if a concurrent edit binds or enables the rule after our read.
+	const unbound = { playbookIds: { isEmpty: true } };
+	return change.enabled === true ? unbound : { OR: [{ enabled: false }, unbound] };
+}
+
+async function updateScopedAlertRule(
+	id: string,
+	session: TeamSession,
+	permitted: Prisma.AlertRuleWhereInput | undefined,
+	data: Prisma.AlertRuleUpdateManyMutationInput,
+) {
+	const where = { id, ...teamWhere(session) };
+	const [row] = await prisma.alertRule.updateManyAndReturn({ where: { ...where, ...permitted }, data });
+	if (row) return row;
+	if (permitted && await prisma.alertRule.findFirst({ where, select: { id: true } })) {
+		throw new ForbiddenError(t("backend.alert.bindingPlaybooksRequiresRun"));
+	}
+	throw new NotFoundError(t("backend.alert.ruleNotFound"));
+}
+
 export async function updateAlertRule(
 	id: string,
 	input: Partial<CreateAlertRuleInput> & { enabled?: boolean },
 	session?: TeamSession | null,
 ) {
 	assertChannelsAllowed(input.notifyChannels, session);
-	const select = { id: true, metric: true, notifyChannels: true, webhookUrl: true } as const;
-	let existing: { metric: string; notifyChannels: string[]; webhookUrl: string | null } | null = null;
+	const select = { metric: true, webhookUrl: true, enabled: true, playbookIds: true } as const;
+	let existing: Pick<AlertRule, keyof typeof select> | null = null;
+	let permitted: Prisma.AlertRuleWhereInput | undefined;
 	if (session) {
 		existing = await prisma.alertRule.findFirst({ where: { id, ...teamWhere(session) }, select });
 		if (!existing) throw new NotFoundError(t("backend.alert.ruleNotFound"));
+		permitted = permittedRuleState(existing, input, session);
 	} else if (input.metric !== undefined || input.notifyChannels !== undefined || input.webhookUrl !== undefined) {
 		existing = await prisma.alertRule.findUnique({ where: { id }, select });
 	}
@@ -167,13 +199,7 @@ export async function updateAlertRule(
 	if (input.escalationMinutes !== undefined) data.escalationMinutes = input.escalationMinutes;
 	if (input.onCallUserIds !== undefined) data.onCallUserIds = input.onCallUserIds;
 	if (input.enabled !== undefined) data.enabled = input.enabled;
-	if (session) {
-		const claimed = await prisma.alertRule.updateMany({ where: { id, ...teamWhere(session) }, data });
-		if (claimed.count === 0) throw new NotFoundError(t("backend.alert.ruleNotFound"));
-		const row = await prisma.alertRule.findFirst({ where: { id, ...teamWhere(session) } });
-		if (!row) throw new NotFoundError(t("backend.alert.ruleNotFound"));
-		return row;
-	}
+	if (session) return updateScopedAlertRule(id, session, permitted, data);
 	return prisma.alertRule.update({ where: { id }, data });
 }
 
@@ -187,21 +213,16 @@ export async function deleteAlertRule(id: string, session?: TeamSession | null) 
 }
 
 export async function toggleAlertRule(id: string, session?: TeamSession | null) {
+	const select = { enabled: true, playbookIds: true } as const;
 	const current = session
-		? await prisma.alertRule.findFirst({ where: { id, ...teamWhere(session) }, select: { enabled: true } })
-		: await prisma.alertRule.findUnique({ where: { id }, select: { enabled: true } });
+		? await prisma.alertRule.findFirst({ where: { id, ...teamWhere(session) }, select })
+		: await prisma.alertRule.findUnique({ where: { id }, select });
 	if (!current) throw new NotFoundError(t("backend.alert.ruleNotFound"));
+	const change = { enabled: !current.enabled };
 	if (session) {
-		const claimed = await prisma.alertRule.updateMany({
-			where: { id, ...teamWhere(session) },
-			data: { enabled: !current.enabled },
-		});
-		if (claimed.count === 0) throw new NotFoundError(t("backend.alert.ruleNotFound"));
-		const row = await prisma.alertRule.findFirst({ where: { id, ...teamWhere(session) } });
-		if (!row) throw new NotFoundError(t("backend.alert.ruleNotFound"));
-		return row;
+		return updateScopedAlertRule(id, session, permittedRuleState(current, change, session), change);
 	}
-	return prisma.alertRule.update({ where: { id }, data: { enabled: !current.enabled } });
+	return prisma.alertRule.update({ where: { id }, data: change });
 }
 
 export type AlertRuleTestDelivery = {
