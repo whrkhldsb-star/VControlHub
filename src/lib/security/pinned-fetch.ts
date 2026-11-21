@@ -18,12 +18,11 @@
  * Callers keep their own URL *policy* (scheme, host denylists, public-IP
  * assertions) and call this only after validation passed.
  */
-import { lookup } from "node:dns/promises";
+import { normalizedHostname, resolveOutboundAddresses } from "./outbound-dns";
 import { isIP } from "node:net";
 
 import { Agent, fetch as undiciFetch } from "undici";
 
-import { isUnsafePublicHttpHost } from "@/lib/storage/direct-access-url";
 import { isBlockedIpAddress } from "@/lib/security/ip-blocklist";
 
 export type PinnedFetchOptions = {
@@ -48,10 +47,8 @@ export type PinnedFetchOptions = {
 
 /** 169.254/16 and fe80::/10, which hold the cloud metadata services: never reachable through an opt-in. */
 export function isLinkLocalAddress(address: string): boolean {
-	const normalized = address.trim().toLowerCase().replace(/^\[|\]$/g, "");
-	if (/^169\.254\./.test(normalized)) return true;
-	if (/^::ffff:169\.254\./.test(normalized)) return true;
-	return /^fe[89ab][0-9a-f]:/.test(normalized) || normalized === "fd00:ec2::254";
+	const host = normalizedHostname(address);
+	return Boolean(isIP(host)) && isBlockedIpAddress(host, true);
 }
 
 /**
@@ -69,17 +66,12 @@ export async function fetchWithPinnedDns(
 	options: PinnedFetchOptions = {},
 ): Promise<Response> {
 	const url = new URL(rawUrl);
-	const hostname = url.hostname.replace(/^\[|\]$/g, "");
-
-	const addresses = isIP(hostname)
-		? [{ address: hostname, family: isIP(hostname) }]
-		: await lookup(hostname, { all: true, verbatim: true });
-	if (
-		addresses.length === 0 ||
-		addresses.some(({ address }) => options.allowPrivateAddress
-			? isLinkLocalAddress(address)
-			: isBlockedIpAddress(address) || isUnsafePublicHttpHost(address))
-	) {
+	const hostname = normalizedHostname(url.hostname);
+	const signal = init.signal ?? AbortSignal.timeout(300_000);
+	const dnsDeadline = AbortSignal.any([signal, AbortSignal.timeout(options.connectTimeoutMs ?? 15_000)]);
+	const addresses = await resolveOutboundAddresses(hostname, dnsDeadline);
+	signal.throwIfAborted();
+	if (!addresses.length || addresses.some(({ address }) => !isIP(address) || isBlockedIpAddress(address, options.allowPrivateAddress))) {
 		throw new Error("URL resolved to a non-public address");
 	}
 	const pinned = addresses[0]!;
@@ -114,6 +106,8 @@ export async function fetchWithPinnedDns(
 	try {
 		const upstream = await undiciFetch(url, {
 			...init,
+			signal,
+			redirect: init.redirect === "manual" ? "manual" : "error",
 			dispatcher,
 		} as unknown as Parameters<typeof undiciFetch>[1]);
 		if (!upstream.body) {

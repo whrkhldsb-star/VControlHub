@@ -4,7 +4,7 @@ import { z } from "zod";
 import { getApiSession } from "@/lib/auth/api-session";
 import { getCsrfCookieName } from "@/lib/auth/csrf";
 import { getPending2faCookieName, getSessionCookieName } from "@/lib/auth/session";
-import { auditUserAction } from "@/lib/audit/service";
+import { accountSecurityAuditTeam, auditUserAction } from "@/lib/audit/service";
 import { withApiRoute } from "@/lib/http/api-guard";
 import { GENERAL_WRITE_LIMIT } from "@/lib/http/rate-limit-presets";
 import { isRequestHttps } from "@/lib/http/request-https";
@@ -42,7 +42,7 @@ export async function POST(request: Request) {
           undefined,
           // A platform administrator's sign-out is a platform event, as their sign-in is (login route): filed under
           // the customer they had selected, it showed their address and times in that customer's audit log.
-          session.roles?.includes("admin") ? null : session.currentTeamId,
+          accountSecurityAuditTeam(session),
         );
       }
 

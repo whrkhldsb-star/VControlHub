@@ -5,14 +5,14 @@ import { AuthError, ForbiddenError, ValidationError } from "@/lib/errors";
 const { mockPrisma, tx } = vi.hoisted(() => ({
   mockPrisma: {
     $transaction: vi.fn(),
-    apiToken: { findMany: vi.fn(), update: vi.fn(), findUnique: vi.fn() },
+    apiToken: { count: vi.fn(), findMany: vi.fn(), update: vi.fn(), findUnique: vi.fn() },
     team: { findUnique: vi.fn() },
     user: { findUnique: vi.fn() },
   },
   tx: { $queryRaw: vi.fn(), user: { findUnique: vi.fn() }, apiToken: { create: vi.fn() } },
 }));
 vi.mock("@/lib/db", () => ({ prisma: mockPrisma }));
-const { createApiToken, hashApiToken, listApiTokens, verifyApiToken } = await import("./service");
+const { createApiToken, hashApiToken, listApiTokenPage, listApiTokens, verifyApiToken } = await import("./service");
 
 const ownerAtAuthentication = {
   id: "u1", username: "alice", roles: [], status: "ACTIVE", mustChangePassword: false,
@@ -145,8 +145,21 @@ describe("api token service", () => {
     await listApiTokens("u1");
     expect(mockPrisma.apiToken.findMany).toHaveBeenCalledWith(expect.objectContaining({
       where: { createdBy: "u1" },
-      orderBy: { createdAt: "desc" },
+      orderBy: [{ createdAt: "desc" }, { id: "desc" }],
       take: 200,
+    }));
+  });
+  it("includes older credentials in the manager and pages active tokens within the owner", async () => {
+    mockPrisma.apiToken.findMany.mockResolvedValueOnce([{ id: "revoked" }]).mockResolvedValueOnce([{ id: "active" }]).mockResolvedValueOnce([]);
+    expect((await listApiTokens("owner", 1)).map(row => row.id)).toEqual(["revoked", "active"]);
+    mockPrisma.$transaction.mockImplementationOnce((queries) => Promise.all(queries));
+    mockPrisma.apiToken.findMany.mockResolvedValueOnce([{ id: "older" }, { id: "next" }]);
+    mockPrisma.apiToken.count.mockResolvedValueOnce(201);
+    expect(await listApiTokenPage("owner", { status: "active", cursor: "cursor", pageSize: 1 })).toEqual({
+      total: 201, nextCursor: "older", tokens: [{ id: "older" }],
+    });
+    expect(mockPrisma.apiToken.findMany).toHaveBeenLastCalledWith(expect.objectContaining({
+      take: 2, cursor: { id: "cursor", createdBy: "owner" }, where: { createdBy: "owner", revokedAt: null, OR: [{ expiresAt: null }, { expiresAt: { gt: expect.any(Date) } }] },
     }));
   });
   it("rejects expired, revoked, or owner-disabled tokens", async () => {

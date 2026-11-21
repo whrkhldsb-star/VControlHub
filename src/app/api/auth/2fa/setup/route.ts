@@ -21,7 +21,9 @@ import { NextResponse } from "next/server";
 import { generateSecret } from "otplib";
 import QRCode from "qrcode";
 import { z } from "zod";
+import { checkSecurityChallenge } from "@/lib/auth/security-challenge-budget";
 
+import { assertSessionCredentialBinding, captureSessionCredentialBinding } from "@/lib/auth/session";
 import { verifyPassword } from "@/lib/auth/password";
 import { createTwoFactorEnrollmentToken } from "@/lib/auth/two-factor-enrollment";
 import { prisma } from "@/lib/db";
@@ -50,9 +52,9 @@ export async function POST(request: Request) {
     async ({ session, body }) => {
       const user = await prisma.user.findUnique({
         where: { id: session.userId },
-        select: { twoFactorEnabled: true, twoFactorSecret: true, passwordHash: true },
+        select: { twoFactorEnabled: true, twoFactorSecret: true, passwordHash: true, sessionEpoch: true },
       });
-      if (!user || !(await verifyPassword(body.currentPassword, user.passwordHash))) {
+      if (!user || !await checkSecurityChallenge(session.userId, () => verifyPassword(body.currentPassword, user.passwordHash), Boolean)) {
         return NextResponse.json(
           { error: t("api.auth.twoFactor.passwordIncorrect", locale) },
           { status: 403 },
@@ -69,6 +71,7 @@ export async function POST(request: Request) {
         );
       }
 
+      assertSessionCredentialBinding(session, user);
       const secret = generateSecret();
       const otpauthUrl = buildOtpauthUrl(secret, session.username || "user");
       // Generate QR offline so the TOTP secret never leaves the host as a third-party query string.
@@ -80,6 +83,7 @@ export async function POST(request: Request) {
       const enrollmentToken = createTwoFactorEnrollmentToken({
         userId: session.userId,
         secret,
+        binding: captureSessionCredentialBinding(user),
       });
 
       return NextResponse.json({ secret, otpauthUrl, qrDataUrl, enrollmentToken });

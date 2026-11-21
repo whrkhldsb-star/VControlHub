@@ -2,14 +2,16 @@ import { expect, it, vi } from "vitest";
 const s = vi.hoisted(() => ({
   row: { id: "target", username: "target", status: "ACTIVE", sessionEpoch: 1, teamMembership: null } as Record<string, unknown>,
   hash: vi.fn(),
+  writeAudit: vi.fn(),
 }));
 vi.mock("@/lib/auth/password", () => ({ hashPassword: s.hash }));
 vi.mock("@/lib/auth/password-policy", () => ({ validatePasswordPolicy: async () => null }));
 vi.mock("@/lib/auth/team-scope", () => ({ assertUserInActorScope: async () => {}, userDirectoryWhere: () => ({}) }));
-vi.mock("@/lib/audit/service", () => ({ auditUserAction: async () => {} }));
+vi.mock("@/lib/audit/service", () => ({ auditUserAction: async () => {}, writeAuditLog: s.writeAudit }));
 vi.mock("@/lib/user/admin-invariant", () => ({ assertAdminAccessMayBeRemoved: async () => {}, withAdminInvariantLock: async (run: (db: unknown) => Promise<unknown>) => run((await import("@/lib/db")).prisma) }));
 vi.mock("@/lib/http/api-guard", () => ({ withApiRoute: async (r: Request, _o: unknown, f: (ctx: unknown) => Promise<Response>) => f({ session: { userId: "admin", roles: ["admin"] }, body: await r.json() }) }));
-vi.mock("@/lib/db", () => ({ prisma: { user: {
+vi.mock("@/lib/db", () => ({ prisma: { $queryRaw: async () => [{ id: "live" }],
+  $transaction: async (run: (db: unknown) => unknown) => run((await import("@/lib/db")).prisma), user: {
   findUnique: async () => ({ ...s.row }),
   update: async ({ data }: { data: Record<string, unknown> }) => { Object.assign(s.row, data); return { ...s.row }; },
 } } }));
@@ -24,7 +26,9 @@ it("keeps an account disabled when reset hashing finishes after disable", async 
   await entered;
   expect((await PATCH(request("disable"))).status).toBe(200);
   expect(s.row.status).toBe("DISABLED");
+  s.row.teamMembership = { teamId: "new-owner" };
   release("new-test-hash");
   expect((await reset).status).toBe(200);
+  expect(s.writeAudit).toHaveBeenCalledWith(expect.objectContaining({ action: "user.password_reset", teamId: "new-owner" }), expect.anything());
   expect(s.row.status).toBe("DISABLED");
 });

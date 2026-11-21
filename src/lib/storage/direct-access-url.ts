@@ -1,5 +1,5 @@
 import { ValidationError } from "@/lib/errors";
-import { lookup } from "node:dns/promises";
+import { normalizedHostname, resolveOutboundAddresses } from "@/lib/security/outbound-dns";
 import { t } from "@/lib/i18n/service-translations";
 import { isBlockedIpAddress } from "@/lib/security/ip-blocklist";
 
@@ -7,7 +7,7 @@ const PRIVATE_DIRECT_ACCESS_HOST_MESSAGE = "Direct access base URL must use a pu
 const PUBLIC_HTTP_URL_MESSAGE = "URL must use a public HTTP(S) address and must not contain credentials, localhost, intranet, loopback, link-local, or metadata addresses";
 
 export function isUnsafePublicHttpHost(hostname: string) {
-  const normalized = hostname.toLowerCase().replace(/^\[|\]$/g, "").trim();
+  const normalized = normalizedHostname(hostname);
   if (!normalized) return true;
   if (
     normalized === "localhost" ||
@@ -89,7 +89,7 @@ export async function assertPublicBaseUrlResolvesPublic(value: string) {
   const hostname = new URL(normalized).hostname;
   let addresses: Array<{ address: string; family: number }>;
   try {
-    addresses = await lookup(hostname, { all: true, verbatim: true });
+    addresses = await resolveOutboundAddresses(hostname, AbortSignal.timeout(15_000));
   } catch {
     throw new ValidationError(t("backend.storage.directAccessDnsFailed"));
   }

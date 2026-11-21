@@ -360,6 +360,8 @@ describe("session auth helpers", () => {
       remember: true,
     });
 
+    vi.mocked(prisma.user.findUnique).mockRejectedValueOnce(new Error("database unavailable"));
+    await expect(verifyPending2faToken(pending)).rejects.toThrow("database unavailable");
     await expect(verifyPending2faToken(pending)).resolves.toMatchObject({
       userId: "u_1",
       username: "admin",

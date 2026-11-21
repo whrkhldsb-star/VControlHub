@@ -10,6 +10,7 @@ const { mocks } = vi.hoisted(() => ({
 	},
 }));
 
+vi.mock("@/lib/auth/session", async (original) => ({ ...await original<typeof import("@/lib/auth/session")>(), assertSessionCredentialBinding: vi.fn() }));
 vi.mock("@/lib/auth/api-session", () => ({
 	requireApiSession: mocks.requireApiSession,
 
@@ -42,7 +43,7 @@ describe("/api/auth/2fa/setup", () => {
 	beforeEach(() => {
 		vi.clearAllMocks();
 		mocks.requireApiSession.mockResolvedValue(session);
-		mocks.userFindUnique.mockResolvedValue({ twoFactorEnabled: false, passwordHash: "hash" });
+		mocks.userFindUnique.mockResolvedValue({ twoFactorEnabled: false, passwordHash: "hash", sessionEpoch: 3 });
 		mocks.verifyPassword.mockResolvedValue(true);
 		mocks.generateSecret.mockReturnValue("SECRETABC123");
 		mocks.createEnrollmentToken.mockReturnValue("ticket.signature");
@@ -66,6 +67,7 @@ describe("/api/auth/2fa/setup", () => {
 			expect(mocks.createEnrollmentToken).toHaveBeenCalledWith({
 				userId: "u1",
 				secret: "SECRETABC123",
+				binding: { fingerprint: expect.any(String), epoch: 3 },
 			});
 			expect(json.enrollmentToken).toBe("ticket.signature");
 		});
@@ -82,7 +84,7 @@ describe("/api/auth/2fa/setup", () => {
 		});
 
 		it("returns 400 when 2FA is already enabled", async () => {
-			mocks.userFindUnique.mockResolvedValueOnce({ twoFactorEnabled: true, twoFactorSecret: "enc:seed", passwordHash: "hash" });
+			mocks.userFindUnique.mockResolvedValueOnce({ twoFactorEnabled: true, twoFactorSecret: "enc:seed", passwordHash: "hash", sessionEpoch: 3 });
 			const res = await route.POST(setupRequest());
 			expect(res.status).toBe(400);
 			const json = await res.json();
@@ -93,7 +95,7 @@ describe("/api/auth/2fa/setup", () => {
 		it("lets an account flagged enabled without a secret enrol again", async () => {
 			// A standard config export leaves the secret out: the flag alone is no
 			// second factor (login skips it), and setup refused to replace it.
-			mocks.userFindUnique.mockResolvedValueOnce({ twoFactorEnabled: true, twoFactorSecret: null, passwordHash: "hash" });
+			mocks.userFindUnique.mockResolvedValueOnce({ twoFactorEnabled: true, twoFactorSecret: null, passwordHash: "hash", sessionEpoch: 3 });
 			const res = await route.POST(setupRequest());
 			expect(res.status).toBe(200);
 			expect((await res.json()).enrollmentToken).toBe("ticket.signature");

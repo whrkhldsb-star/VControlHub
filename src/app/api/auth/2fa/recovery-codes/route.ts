@@ -7,6 +7,7 @@
  * out for good once the last code was spent.
  */
 import { z } from "zod";
+import { checkSecurityChallenge } from "@/lib/auth/security-challenge-budget";
 import {
   isAcceptableTwoFactorCodeShape,
   verifyTwoFactorChallenge,
@@ -14,7 +15,7 @@ import {
 import { createTwoFactorRecoveryCodes } from "@/lib/auth/two-factor-recovery";
 import { updateTwoFactorCredentials } from "@/lib/auth/two-factor-settings";
 import { refreshedSessionResponse } from "@/lib/auth/refreshed-session-response";
-import { auditUserAction } from "@/lib/audit/service";
+import { accountSecurityAuditTeam, auditUserAction } from "@/lib/audit/service";
 import { prisma } from "@/lib/db";
 import { ValidationError } from "@/lib/errors";
 import { withApiRoute } from "@/lib/http/api-guard";
@@ -54,12 +55,12 @@ export async function POST(request: Request) {
       if (!user?.twoFactorEnabled || !user.twoFactorSecret) {
         throw new ValidationError(t("api.auth.twoFactor.notEnabled", locale));
       }
-      const challenge = await verifyTwoFactorChallenge({
+      const challenge = await checkSecurityChallenge(session.userId, () => verifyTwoFactorChallenge({
         userId: session.userId,
         code: body.code,
-        sealedSecret: user.twoFactorSecret,
+        sealedSecret: user.twoFactorSecret!,
         storedRecoveryCodes: user.twoFactorRecoveryCodes,
-      });
+      }), (proof) => proof.valid);
       if (!challenge.valid) {
         throw new ValidationError(t("api.auth.twoFactor.invalidCode", locale));
       }
@@ -73,7 +74,7 @@ export async function POST(request: Request) {
         "auth.2fa.recovery_codes_regenerated",
         { userId: session.userId, usedRecoveryCode: challenge.usedRecoveryCode },
         "WARNING",
-        session.currentTeamId,
+        accountSecurityAuditTeam(session),
       );
 
       return refreshedSessionResponse(session, request, { success: true, recoveryCodes: recovery.codes }, credentialBinding);

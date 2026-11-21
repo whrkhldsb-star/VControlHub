@@ -45,7 +45,7 @@ export function seesAllCustomers(session: TeamSession): boolean {
  * Returns a Prisma `where` fragment that filters by teamId.
  * Spread this into the outermost `where` on list queries.
  */
-export function teamWhere(session: TeamSession): { teamId?: string } {
+export function teamWhere(session: TeamSession): { teamId?: string | { in: never[] }; AND?: { teamId: { in: never[] } } } {
 	if (seesAllCustomers(session)) {
 		return {};
 	}
@@ -56,7 +56,10 @@ export function teamWhere(session: TeamSession): { teamId?: string } {
 		return { teamId: session.currentTeamId };
 	}
 
-	return { teamId: "__no_active_team__" };
+	// Some callers inspect teamId to decide whether the query is global.
+	// Others supply a resource's teamId after spreading this scope. Keep the
+	// empty set visible to the first group and enforced for the second.
+	return { teamId: { in: [] }, AND: { teamId: { in: [] } } };
 }
 
 /**
@@ -72,39 +75,41 @@ export function liveCustomerRowsWhere(): Record<string, unknown> {
 /**
  * Scope for security-root records (credentials, commands, file data): an
  * administrator viewing all customers sees every row, otherwise exactly the
- * selected customer. Without a customer nothing matches — the sentinel id
- * names the record kind in query logs — and a null-teamId (quarantined legacy)
- * row never matches.
+ * selected customer. Keep the empty-set condition nested so merging a
+ * caller's record id into the outer where cannot replace it.
  */
-function strictCustomerScope(kind: string) {
-	const sentinel = `__unassigned_${kind}_require_team_manage__`;
-	return (session: TeamSession): Record<string, unknown> => {
-		if (seesAllCustomers(session)) return {};
-		return session.currentTeamId ? { teamId: session.currentTeamId } : { id: sentinel };
-	};
+function strictCustomerScope(session: TeamSession): Record<string, unknown> {
+	if (seesAllCustomers(session)) return {};
+	return session.currentTeamId ? { teamId: session.currentTeamId } : { AND: { id: { in: [] } } };
 }
 
-/** Server records are security roots (SSH, SFTP, backups and file proxy).
- * A null teamId is quarantined legacy data, never an implicit shared VPS. */
+/** Operational records with a Team relation exclude archived owners even
+ * from an administrator's all-customer view. Null-owner legacy rows remain
+ * visible only in that view. */
+export function activeCustomerTeamWhere(session: TeamSession) {
+	if (seesAllCustomers(session)) return { team: { isNot: { deletedAt: { not: null } } } };
+	if (!session.currentTeamId) return { AND: { id: { in: [] } } };
+	return { teamId: session.currentTeamId, team: { deletedAt: null } };
+}
+
+/** Server records are security roots (SSH, SFTP, backups and file proxy). */
 export function serverTeamWhere(session: TeamSession, capability: ServerAccessCapability = "read"): Record<string, unknown> {
-	if (seesAllCustomers(session)) return {};
-	return session.currentTeamId
-		? isGlobalTeamManager(session)
-			? { teamId: session.currentTeamId }
-			// Per-server rows narrow a customer account to specific servers.
-			: { AND: [{ teamId: session.currentTeamId }, serverAccessWhere(session.userId, capability)] }
-		: { id: "__unassigned_servers_require_team_manage__" };
+	const scope = activeCustomerTeamWhere(session);
+	if (isGlobalTeamManager(session) || !session.currentTeamId) return scope;
+	const { teamId, ...active } = scope;
+	return { AND: [{ teamId }, { ...active, ...serverAccessWhere(session.userId, capability) }] };
 }
 
 /** SQL equivalent of serverTeamWhere for queries that alias the servers table as s. */
 export function rawServerScope(session: TeamSession, field: "canRead" | "canConnect" | "canManage") {
-	if (seesAllCustomers(session)) return Prisma.sql`TRUE`;
+	const live = Prisma.sql`NOT EXISTS (SELECT 1 FROM teams t WHERE t.id = s."teamId" AND t."deletedAt" IS NOT NULL)`;
+	if (seesAllCustomers(session)) return live;
 	if (!session.currentTeamId) return Prisma.sql`FALSE`;
-	if (isGlobalTeamManager(session)) return Prisma.sql`s."teamId" = ${session.currentTeamId}`;
+	if (isGlobalTeamManager(session)) return Prisma.sql`${live} AND s."teamId" = ${session.currentTeamId}`;
 	const allowedColumn = field === "canRead" ? Prisma.sql`a."canRead"`
 		: field === "canConnect" ? Prisma.sql`a."canConnect"` : Prisma.sql`a."canManage"`;
 	// Match serverTeamWhere: no override inherits account access; a row narrows it.
-	return Prisma.sql`s."teamId" = ${session.currentTeamId} AND (
+	return Prisma.sql`${live} AND s."teamId" = ${session.currentTeamId} AND (
 		NOT EXISTS (SELECT 1 FROM user_server_access a WHERE a."serverId" = s.id AND a."userId" = ${session.userId})
 		OR EXISTS (SELECT 1 FROM user_server_access a WHERE a."serverId" = s.id AND a."userId" = ${session.userId} AND ${allowedColumn} = true)
 	)`;
@@ -129,40 +134,40 @@ export function serverOriginData(session: Partial<Pick<TeamSession, "userId" | "
  * root like the servers they run against. A null teamId is quarantined legacy
  * data (only global managers may read/cancel/approve it), never a shared request
  * every tenant can see. Mirrors {@link serverTeamWhere}. */
-export const commandRequestTeamWhere = strictCustomerScope("command_requests");
+export const commandRequestTeamWhere = strictCustomerScope;
 
 /** A sync job binds two servers plus paths and can be executed on demand
  * (rsync, optionally with --delete). Reading one hydrates both servers together
  * with their SSH keys. A null teamId is quarantined legacy data, never a job
  * every tenant may read or run. Mirrors {@link serverTeamWhere}. */
-export const syncJobTeamWhere = strictCustomerScope("sync_jobs");
+export const syncJobTeamWhere = strictCustomerScope;
 
 /** A deployment run carries the rendered command text, its rollback snapshot and
  * the ids of the VPS it targets — and `createDeploymentRollbackRun` turns one back
  * into an executable command request. A null teamId is quarantined legacy data,
  * not a run every tenant may read or roll back. Mirrors {@link serverTeamWhere}. */
-export const deploymentRunTeamWhere = strictCustomerScope("deployments");
+export const deploymentRunTeamWhere = strictCustomerScope;
 
 /** A playbook contains executable server references. Null-team legacy
  * playbooks stay quarantined to platform administrators. */
-export const playbookTeamWhere = strictCustomerScope("playbooks");
+export const playbookTeamWhere = strictCustomerScope;
 
 /** Image uploads are private by default. A null teamId is legacy data owned by
  * its uploader, not a shared image library visible to every tenant manager. */
-export const imageTeamWhere = strictCustomerScope("images");
+export const imageTeamWhere = strictCustomerScope;
 
 /** A storage node is a file-data security root: it carries the SFTP/WebDAV
  * backing credentials and every byte the hub can read or write on it. A null
  * teamId is quarantined legacy data that only a platform administrator viewing
  * all customers may open, upload to or share. Mirrors {@link serverTeamWhere}
  * and the share-link service's node filter. */
-export const storageNodeTeamWhere = strictCustomerScope("storage_nodes");
+export const storageNodeTeamWhere = strictCustomerScope;
 
 /** A share link publishes a storage path on a node (and its access logs expose
  * downloader IPs/UAs). A null teamId is quarantined legacy data: no customer
  * may list, read access analytics for, or revoke an unassigned link. Mirrors
  * {@link serverTeamWhere}. */
-export const shareLinkTeamWhere = strictCustomerScope("share_links");
+export const shareLinkTeamWhere = strictCustomerScope;
 
 /**
  * Prisma `where` for listing users in the directory UI/API.
@@ -193,13 +198,14 @@ export function userDirectoryWhere(session: TeamSession): Record<string, unknown
 export async function assertUserInActorScope(
 	session: TeamSession,
 	userId: string,
+	db: Prisma.TransactionClient = prisma,
 ): Promise<void> {
 	if (isGlobalTeamManager(session)) return;
 	if (userId === session.userId) return;
 	if (!session.currentTeamId) {
 		throw new NotFoundError(t("backend.team.userNotFound"));
 	}
-	const membership = await prisma.teamMember.findUnique({
+	const membership = await db.teamMember.findUnique({
 		where: {
 			teamId_userId: { teamId: session.currentTeamId, userId },
 		},
@@ -232,11 +238,5 @@ export function teamCreateData(
 export function teamAccessFilter(
 	session: TeamSession,
 ): Record<string, unknown> | undefined {
-	if (seesAllCustomers(session)) {
-		return undefined;
-	}
-	if (session.currentTeamId) {
-		return { teamId: session.currentTeamId };
-	}
-	return { teamId: "__no_active_team__" };
+	return seesAllCustomers(session) ? undefined : teamWhere(session);
 }

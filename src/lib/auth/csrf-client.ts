@@ -43,10 +43,21 @@
 import { apiRequest, type ApiRequestInit } from "@/lib/http/api-client";
 export { getCsrfTokenFromCookie } from "@/lib/auth/csrf-token";
 
-/** Backward-compatible entry point; all behavior is owned by apiRequest. */
+/** Backward-compatible entry point for browser callers. */
 export async function csrfFetch<T = Record<string, any>>(
 	input: RequestInfo | URL,
 	init?: ApiRequestInit,
 ): Promise<T> {
+	if (typeof window !== "undefined" && typeof input === "string" && !init?.raw && !init?.params) {
+		// Only the existing dialog's complete read can establish its edit baseline.
+		if (/^\/api\/users\/permissions\?userId=[^&#]+$/.test(input) && (!init?.method || init.method === "GET")) {
+			const { readPermissionEditor } = await import("@/lib/user/permission-editor-client");
+			return await readPermissionEditor(input, init) as T;
+		}
+		if (input === "/api/users/permissions" && init?.method === "PATCH" && typeof init.body === "string") {
+			const { savePermissionEditor } = await import("@/lib/user/permission-editor-client");
+			return await savePermissionEditor(input, init) as T;
+		}
+	}
 	return apiRequest<T>(input, init);
 }

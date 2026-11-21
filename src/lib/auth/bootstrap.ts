@@ -1,6 +1,7 @@
 import { createLogger } from "@/lib/logging";
 import { config } from "@/lib/config/env";
 import { prisma } from "@/lib/db";
+import { loginSchema } from "./schema";
 import { verifyPassword } from "./password";
 
 const logger = createLogger("auth:bootstrap");
@@ -22,10 +23,8 @@ export function getInitialAdminPassword(): string {
 		logger.warn("using default development admin password; set ADMIN_INITIAL_PASSWORD for production");
 		return "changeme";
 	}
-	if (envPassword.length < 8 || envPassword.length > 128) {
-		// The sign-in form refuses passwords outside 8–128 characters, so an administrator seeded with such a
-		// value could never log in.
-		logger.warn("ADMIN_INITIAL_PASSWORD must be 8-128 characters; the administrator could not sign in with it");
+	if (!loginSchema.shape.password.safeParse(envPassword).success) {
+		throw new Error("ADMIN_INITIAL_PASSWORD must be 8-128 characters.");
 	}
 	return envPassword;
 }
@@ -33,7 +32,7 @@ export function getInitialAdminPassword(): string {
 
 export type AdminConsistencyResult =
 	| { ok: true; username: string; mode: "bootstrap_match" | "rotated" }
-	| { ok: false; reason: "no_admin" | "no_env_password" | "hash_mismatch"; message: string };
+	| { ok: false; reason: "no_admin" | "no_env_password" | "invalid_env_password" | "hash_mismatch"; message: string };
 
 /**
  * TR-051: bootstrap / ops check for the platform admin credential.
@@ -82,6 +81,9 @@ export async function verifyAdminPasswordConsistency(): Promise<AdminConsistency
 		};
 	}
 
+	if (!loginSchema.shape.password.safeParse(envPassword).success) {
+		return { ok: false, reason: "invalid_env_password", message: "ADMIN_INITIAL_PASSWORD must be 8-128 characters." };
+	}
 	const matches = await verifyPassword(envPassword, admin.passwordHash);
 	if (!matches) {
 		return {

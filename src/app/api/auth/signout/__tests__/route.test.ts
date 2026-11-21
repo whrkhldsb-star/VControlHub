@@ -16,7 +16,8 @@ vi.mock("@/lib/auth/api-session", () => ({
 	getApiSession: mocks.getApiSession,
 }));
 
-vi.mock("@/lib/audit/service", () => ({
+vi.mock("@/lib/audit/service", async (original) => ({
+	...await original<typeof import("@/lib/audit/service")>(),
 	auditUserAction: mocks.auditUserAction,
 }));
 
@@ -136,4 +137,17 @@ describe("POST /api/auth/signout", () => {
 		expect(mocks.auditUserAction).not.toHaveBeenCalled();
 		expect(clearedCookies(response).size).toBe(3);
 	});
+});
+
+it("admits only same-origin cancellation with a pending cookie and keeps full-session CSRF", async () => {
+	const { NextRequest } = await import("next/server");
+	const { proxy } = await import("@/proxy");
+	const post = (cookie: string, origin?: string) => proxy(new NextRequest("https://hub.test/api/auth/signout", {
+		method: "POST", headers: { cookie, ...(origin ? { origin } : {}) },
+	}));
+	const pending = "vch_pending_2fa=pending";
+	expect((await post(pending, "https://hub.test")).headers.get("x-middleware-next")).toBe("1");
+	expect((await post(pending, "https://other.test")).status).toBe(403);
+	expect((await post(pending)).status).toBe(403);
+	expect((await post(pending + "; vch_session=has-a-long.session-cookie", "https://hub.test")).status).toBe(403);
 });
