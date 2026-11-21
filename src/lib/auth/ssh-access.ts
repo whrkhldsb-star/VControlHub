@@ -3,6 +3,7 @@ import { sessionHasPermission } from "./authorization";
 
 export type SshAccessSession = {
   roles: RoleKey[];
+  mustChangePassword: boolean;
   /** Effective permissions (roles ∪ per-user direct grants) when available. */
   permissions?: Permission[];
 };
@@ -15,5 +16,5 @@ export type SshAccessSession = {
  * be denied a terminal session.
  */
 export function canUseSshTerminal(session: SshAccessSession) {
-  return sessionHasPermission(session, "server:ssh");
+  return session.mustChangePassword === false && sessionHasPermission(session, "server:ssh");
 }

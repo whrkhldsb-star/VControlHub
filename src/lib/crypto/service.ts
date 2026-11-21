@@ -6,6 +6,7 @@ const logger = createLogger("crypto");
 
 const ALGORITHM = "aes-256-gcm";
 const IV_LENGTH = 16;
+const AUTH_TAG_LENGTH = 16;
 /** Per-ciphertext random salt length (bytes). Embedded in the envelope. */
 const SALT_LENGTH = 16;
 /** Historical global salt used by pre-envelope ciphertext (3-segment format). */
@@ -77,7 +78,7 @@ export function encrypt(plaintext: string): string {
 	const salt = randomBytes(SALT_LENGTH);
 	const key = deriveKey(passphrase, salt);
 	const iv = randomBytes(IV_LENGTH);
-	const cipher = createCipheriv(ALGORITHM, key, iv);
+	const cipher = createCipheriv(ALGORITHM, key, iv, { authTagLength: AUTH_TAG_LENGTH });
 	const encrypted = Buffer.concat([cipher.update(plaintext, "utf8"), cipher.final()]);
 	const authTag = cipher.getAuthTag();
 	return `${salt.toString("base64")}:${iv.toString("base64")}:${authTag.toString("base64")}:${encrypted.toString("base64")}`;
@@ -113,11 +114,12 @@ export function decrypt(ciphertext: string): string {
 	}
 
 	if (!ivB64 || !tagB64 || !dataB64) throw new Error("Invalid encrypted format");
-	const key = deriveKey(passphrase, salt);
 	const iv = Buffer.from(ivB64, "base64");
 	const authTag = Buffer.from(tagB64, "base64");
+	if (authTag.length !== AUTH_TAG_LENGTH) throw new Error("Invalid authentication tag length");
+	const key = deriveKey(passphrase, salt);
 	const data = Buffer.from(dataB64, "base64");
-	const decipher = createDecipheriv(ALGORITHM, key, iv);
+	const decipher = createDecipheriv(ALGORITHM, key, iv, { authTagLength: AUTH_TAG_LENGTH });
 	decipher.setAuthTag(authTag);
 	return decipher.update(data) + decipher.final("utf8");
 }

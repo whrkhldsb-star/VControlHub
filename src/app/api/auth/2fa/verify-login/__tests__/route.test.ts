@@ -154,6 +154,18 @@ describe("POST /api/auth/2fa/verify-login", () => {
 		expect(setCookies[2]).toContain("Max-Age=0");
 	});
 
+	it("retains the pending cookie when its database check fails", async () => {
+		const remove = vi.fn();
+		cookiesMock.mockResolvedValueOnce({ get: () => ({ value: "pending" }), delete: remove });
+		verifyPending2faTokenMock.mockRejectedValueOnce(new Error("temporary database failure"));
+		const response = await POST(new Request("https://hub.test/api/auth/2fa/verify-login", {
+			method: "POST", body: JSON.stringify({ code: "123456" }),
+		}));
+		expect(response.status).toBe(500);
+		expect(remove).not.toHaveBeenCalled();
+		expect(response.headers.has("set-cookie")).toBe(false);
+	});
+
 	it("reloads live roles from DB instead of trusting the pending-2fa token snapshot", async () => {
 		verifyPending2faTokenMock.mockResolvedValueOnce({
 			...sessionPayload,

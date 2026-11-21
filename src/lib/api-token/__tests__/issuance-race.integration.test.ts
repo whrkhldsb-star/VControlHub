@@ -5,7 +5,7 @@ import { afterAll, beforeAll, beforeEach, describe, expect, it } from "vitest";
 import { createSessionToken, verifySessionToken } from "@/lib/auth/session";
 import { prisma } from "@/lib/db";
 import { AuthError, ForbiddenError } from "@/lib/errors";
-import { createApiToken, revokeApiToken } from "../service";
+import { createApiToken, listApiTokenPage, revokeApiToken } from "../service";
 
 describe.skipIf(process.env.RUN_DATABASE_INTEGRATION_TESTS !== "1")("API token issuance during revocation (PostgreSQL)", () => {
   const id = `token-race-${randomUUID()}`;
@@ -46,6 +46,7 @@ describe.skipIf(process.env.RUN_DATABASE_INTEGRATION_TESTS !== "1")("API token i
   });
   afterAll(async () => {
     if (ready) {
+      await prisma.auditLog.deleteMany({ where: { actorId: id } });
       await prisma.user.deleteMany({ where: { id: { in: [id, roleKeyAdmin, roleGrantAdmin] } } });
       await prisma.role.deleteMany({ where: { id: fixtureRoleId, users: { none: {} } } });
       await prisma.identityTemplate.delete({ where: { id } });
@@ -149,5 +150,48 @@ describe.skipIf(process.env.RUN_DATABASE_INTEGRATION_TESTS !== "1")("API token i
     expect(result).toMatchObject({ id: apiToken.id, teamId: id, revokedAt: firstRevocation });
     expect(result).not.toHaveProperty("tokenHash");
     expect((await prisma.apiToken.findUniqueOrThrow({ where: { id: apiToken.id } })).revokedAt).toEqual(firstRevocation);
+  });
+
+  it("records one owner-scoped audit event for concurrent revocation and a later retry", async () => {
+    const session = await verifySessionToken(await createSessionToken({
+      userId: id, username: id, currentTeamId: id, mustChangePassword: false, roles: [],
+    }));
+    const { apiToken } = await createApiToken({ session, name: "concurrent revoke", scopes: ["storage:read"] });
+    const revoke = () => revokeApiToken({ userId: id, id: apiToken.id });
+    const [first, concurrent] = await Promise.all([revoke(), revoke()]);
+    expect(first.revokedAt).toBeInstanceOf(Date);
+    expect(concurrent.revokedAt).toEqual(first.revokedAt);
+    expect((await revoke()).revokedAt).toEqual(first.revokedAt);
+    expect(await prisma.auditLog.count({ where: {
+      actorId: id, teamId: id, action: "api_token.revoke", detail: { path: ["tokenId"], equals: apiToken.id },
+    } })).toBe(1);
+  });
+
+  it("pages past expired and revoked tokens and counts only the requested owner's active tokens", async () => {
+    const owner = roleGrantAdmin;
+    const createdAt = new Date("2025-01-01T00:00:00Z");
+    const token = (index: number) => ({
+      id: owner + "-" + index, name: "fixture", tokenHash: owner + "-" + index, createdBy: owner,
+      teamId: id, scopes: ["read"], tokenPrefix: "fixture", tokenSuffix: "fixture", createdAt,
+    });
+    const active = { ...token(0), createdAt: new Date(0) };
+    await prisma.apiToken.createMany({ data: [
+      active,
+      ...Array.from({ length: 200 }, (_, index) => ({
+        ...token(index + 1), ...(index % 2 ? { revokedAt: createdAt } : { expiresAt: createdAt }),
+      })),
+    ] });
+    const first = await listApiTokenPage(owner, { pageSize: 200 });
+    expect(first).toMatchObject({ total: 201, totalTokens: 201, activeTokens: 1 });
+    expect(first.tokens).toHaveLength(200);
+    const last = await listApiTokenPage(owner, { pageSize: 200, cursor: first.nextCursor! });
+    expect(last).toMatchObject({ total: 201, nextCursor: null, tokens: [{ id: active.id }] });
+    expect(await listApiTokenPage(owner, { pageSize: 1, status: "active" }))
+      .toMatchObject({ total: 1, totalTokens: 201, activeTokens: 1, nextCursor: null, tokens: [{ id: active.id }] });
+    for (const status of ["expired", "revoked"] as const) {
+      const filtered = await listApiTokenPage(owner, { pageSize: 1, status });
+      expect(filtered).toMatchObject({ total: 100, totalTokens: 201, activeTokens: 1, nextCursor: filtered.tokens[0]!.id });
+      expect(filtered.tokens).toHaveLength(1);
+    }
   });
 });

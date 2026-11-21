@@ -8,12 +8,13 @@ export function createLimiter(max: number): <T>(task: () => Promise<T>) => Promi
   let active = 0;
   const waiting: Array<() => void> = [];
   const release = () => {
-    active -= 1;
-    waiting.shift()?.();
+    const next = waiting.shift();
+    if (next) next();
+    else active -= 1;
   };
   return async <T>(task: () => Promise<T>): Promise<T> => {
     if (active >= limit) await new Promise<void>((resolve) => waiting.push(resolve));
-    active += 1;
+    else active += 1;
     try {
       return await task();
     } finally {

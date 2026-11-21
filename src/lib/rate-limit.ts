@@ -129,12 +129,6 @@ export const LOGIN_SLOW_RATE_LIMIT: RateLimitConfig = {
 // instance deploys share lockout counters. All production callers use the
 // async variants below.
 
-type LockoutEntry = {
-	failCount: number;
-	lockedUntil: number | null; // timestamp, null = not locked
-	lastFailureAt: number;
-};
-
 /**
  * Two counters per account. The client counter (username + source address)
  * locks that address after a few misses, so a stranger who knows a username
@@ -161,54 +155,9 @@ function clientLockoutKey(username: string, clientIp: string | null | undefined)
 	return `${lockoutKey(username)}@${(clientIp?.trim() || "unknown").toLowerCase()}`;
 }
 
-function lockoutTtlMs(entry: LockoutEntry, now: number) {
-	const until = entry.lockedUntil ?? entry.lastFailureAt + ACCOUNT_FAILURE_RETENTION_MS;
-	return Math.max(1_000, until - now + 1_000);
-}
-
-function applyLoginFailure(
-	entry: LockoutEntry | null,
-	now: number,
-	maxFailures = ACCOUNT_LOCKOUT_MAX_FAILURES,
-	lockoutMs = ACCOUNT_LOCKOUT_DURATION_MS,
-): LockoutEntry {
-	let next = entry;
-	if (
-		!next ||
-		(next.lockedUntil && next.lockedUntil < now) ||
-		now - next.lastFailureAt >= Math.max(lockoutMs, ACCOUNT_FAILURE_RETENTION_MS)
-	) {
-		next = { failCount: 0, lockedUntil: null, lastFailureAt: now };
-	}
-	next = {
-		failCount: next.failCount + 1,
-		lockedUntil: next.lockedUntil,
-		lastFailureAt: now,
-	};
-	if (next.failCount >= maxFailures && !next.lockedUntil) {
-		next.lockedUntil = now + lockoutMs;
-	}
-	return next;
-}
-
-async function readLock(key: string): Promise<{ locked: boolean; lockedUntil: number | null }> {
-	const store = getRateLimitStore();
-	const entry = await store.getLockout(key);
-	if (!entry || !entry.lockedUntil) return { locked: false, lockedUntil: null };
-	if (entry.lockedUntil < Date.now()) {
-		// Delete through the per-key chain so a concurrent
-		// recordLoginFailureAsync that rewrote the entry between our get and
-		// delete cannot be wiped out by this stale expiry cleanup; re-check
-		// inside the chain and only delete what is still an expired lock.
-		await chainLockoutMutation(key, async () => {
-			const current = await store.getLockout(key);
-			if (current?.lockedUntil && current.lockedUntil < Date.now()) {
-				await store.deleteLockout(key);
-			}
-		});
-		return { locked: false, lockedUntil: null };
-	}
-	return { locked: true, lockedUntil: entry.lockedUntil };
+async function readLock(key: string) {
+	const lockedUntil = (await getRateLimitStore().getLockout(key))?.lockedUntil ?? null;
+	return { locked: lockedUntil !== null, lockedUntil };
 }
 
 /**
@@ -226,37 +175,6 @@ export async function isAccountLockedAsync(
 	if (account.locked) return { ...account, scope: "account" };
 	if (client.locked) return { ...client, scope: "client" };
 	return { locked: false, lockedUntil: null, scope: null };
-}
-
-/**
- * Per-key mutation chain: concurrent failed logins for the same username must
- * not interleave their read-modify-write (two parallel misses both reading
- * failCount=4 and both writing 5 lose an increment, letting an attacker
- * exceed the 5-attempt threshold). Serializing mutations per key inside the
- * process closes the single-instance race completely and narrows the
- * multi-instance (Redis) window to cross-instance concurrency only.
- */
-const lockoutMutations = new Map<string, Promise<unknown>>();
-
-/**
- * Queue `run` behind any in-flight mutation for the same key.
- *
- * The map entry is dropped as soon as its own operation settles, so the map
- * only ever holds in-flight keys and is self-bounding. Without that cleanup
- * every username that ever failed a login would leave a permanent entry — an
- * attacker spraying distinct usernames could grow it without bound.
- * The guard `get(key) === operation` keeps a queued successor's chain intact:
- * it only removes the entry when nothing newer has replaced it yet.
- */
-function chainLockoutMutation<T>(key: string, run: () => Promise<T>): Promise<T> {
-	const previous = lockoutMutations.get(key) ?? Promise.resolve();
-	const operation = previous.catch(() => undefined).then(run);
-	lockoutMutations.set(key, operation);
-	const drop = () => {
-		if (lockoutMutations.get(key) === operation) lockoutMutations.delete(key);
-	};
-	operation.then(drop, drop);
-	return operation;
 }
 
 /**
@@ -286,17 +204,6 @@ async function loginLockoutPolicy(): Promise<{ clientFailures: number; accountFa
 	}
 }
 
-async function recordFailure(key: string, maxFailures: number, lockoutMs: number) {
-	return chainLockoutMutation(key, async () => {
-		const now = Date.now();
-		const store = getRateLimitStore();
-		const previousEntry = await store.getLockout(key);
-		const entry = applyLoginFailure(previousEntry, now, maxFailures, lockoutMs);
-		await store.setLockout(key, entry, lockoutTtlMs(entry, now));
-		return entry;
-	});
-}
-
 /**
  * Credentials presented outside a sign-in, such as WebDAV's API tokens. Each request costs a token lookup,
  * and the request limit is kept per path so a mounted drive is not throttled while it crawls; a caller that
@@ -324,7 +231,9 @@ export async function isCredentialClientBlockedAsync(scope: string, clientIp: st
 /** Count a credential that does not exist (not one that exists but may not do what was asked). */
 export async function recordUnknownCredentialAsync(scope: string, clientIp: string): Promise<void> {
 	const key = credentialClientKey(scope, clientIp);
-	if (key) await recordFailure(key, UNKNOWN_CREDENTIAL_MAX_FAILURES, UNKNOWN_CREDENTIAL_LOCK_MS);
+	if (key) await getRateLimitStore().recordFailures(
+		[{ key, maxFailures: UNKNOWN_CREDENTIAL_MAX_FAILURES }], UNKNOWN_CREDENTIAL_LOCK_MS, ACCOUNT_FAILURE_RETENTION_MS,
+	);
 }
 
 /**
@@ -337,8 +246,12 @@ export async function recordLoginFailureAsync(
 	clientIp?: string | null,
 ): Promise<{ locked: boolean; lockedUntil: number | null; scope: LockoutScope | null; failCount: number; accountFailCount: number }> {
 	const policy = await loginLockoutPolicy();
-	const client = await recordFailure(clientLockoutKey(username, clientIp), policy.clientFailures, policy.lockoutMs);
-	const account = await recordFailure(lockoutKey(username), policy.accountFailures, policy.lockoutMs);
+	const states = await getRateLimitStore().recordFailures([
+		{ key: clientLockoutKey(username, clientIp), maxFailures: policy.clientFailures },
+		{ key: lockoutKey(username), maxFailures: policy.accountFailures },
+	], policy.lockoutMs, ACCOUNT_FAILURE_RETENTION_MS);
+	const client = states[0]!;
+	const account = states[1]!;
 	const scope: LockoutScope | null = account.lockedUntil ? "account" : client.lockedUntil ? "client" : null;
 	return {
 		locked: scope !== null,
@@ -353,9 +266,5 @@ export async function recordLoginFailureAsync(
  * Clear lockout on the shared store after a successful login.
  */
 export async function clearLoginFailureAsync(username: string, clientIp?: string | null): Promise<void> {
-	for (const key of [lockoutKey(username), clientLockoutKey(username, clientIp)]) {
-		await chainLockoutMutation(key, async () => {
-			await getRateLimitStore().deleteLockout(key);
-		});
-	}
+	await getRateLimitStore().deleteLockouts([lockoutKey(username), clientLockoutKey(username, clientIp)]);
 }

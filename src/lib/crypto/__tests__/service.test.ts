@@ -67,13 +67,15 @@ describe("crypto service", () => {
 
     it("throws when the auth tag is tampered with (AES-GCM integrity)", () => {
       const ct = encrypt("do-not-touch");
-      const [ivB64, tagB64, dataB64] = ct.split(":");
+      const [saltB64, ivB64, tagB64, dataB64] = ct.split(":");
       // Flip a single base64 character in the auth tag to break the MAC.
       const tamperedTag = tagB64!.startsWith("A")
         ? `B${tagB64!.slice(1)}`
         : `A${tagB64!.slice(1)}`;
-      const tampered = `${ivB64}:${tamperedTag}:${dataB64}`;
+      const tampered = `${saltB64}:${ivB64}:${tamperedTag}:${dataB64}`;
       expect(() => decrypt(tampered)).toThrow();
+      const shortTag = Buffer.from(tagB64!, "base64").subarray(0, 12).toString("base64");
+      expect(() => decrypt([saltB64, ivB64, shortTag, dataB64].join(":"))).toThrow(/tag length/);
     });
   });
 

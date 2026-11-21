@@ -15,6 +15,7 @@ const { createTwoFactorEnrollmentToken, openTwoFactorEnrollmentToken } = await i
 	"../two-factor-enrollment"
 );
 
+const binding = { fingerprint: "password-proof", epoch: 7 };
 const NOW = Date.UTC(2026, 7, 28, 12, 0, 0);
 
 describe("two-factor enrollment ticket", () => {
@@ -24,45 +25,45 @@ describe("two-factor enrollment ticket", () => {
 
 	it("round-trips the seed for the user it was minted for", () => {
 		const token = createTwoFactorEnrollmentToken({
-			userId: "u1",
+			binding, userId: "u1",
 			secret: "JBSWY3DPEHPK3PXP",
 			now: NOW,
 		});
 
-		expect(openTwoFactorEnrollmentToken(token, { userId: "u1", now: NOW + 1000 })).toBe(
+		expect(openTwoFactorEnrollmentToken(token, { binding, userId: "u1", now: NOW + 1000 })).toBe(
 			"JBSWY3DPEHPK3PXP",
 		);
 	});
 
 	it("refuses a ticket presented by a different user", () => {
 		const token = createTwoFactorEnrollmentToken({
-			userId: "u1",
+			binding, userId: "u1",
 			secret: "VICTIM_SEED",
 			now: NOW,
 		});
 
-		expect(openTwoFactorEnrollmentToken(token, { userId: "u2", now: NOW + 1000 })).toBeNull();
+		expect(openTwoFactorEnrollmentToken(token, { binding, userId: "u2", now: NOW + 1000 })).toBeNull();
 	});
 
 	it("refuses a ticket past its TTL", () => {
 		const token = createTwoFactorEnrollmentToken({
-			userId: "u1",
+			binding, userId: "u1",
 			secret: "JBSWY3DPEHPK3PXP",
 			now: NOW,
 		});
 
 		// Valid at 9m59s, dead at 10m01s.
 		expect(
-			openTwoFactorEnrollmentToken(token, { userId: "u1", now: NOW + 9 * 60_000 + 59_000 }),
+			openTwoFactorEnrollmentToken(token, { binding, userId: "u1", now: NOW + 9 * 60_000 + 59_000 }),
 		).toBe("JBSWY3DPEHPK3PXP");
 		expect(
-			openTwoFactorEnrollmentToken(token, { userId: "u1", now: NOW + 10 * 60_000 + 1000 }),
+			openTwoFactorEnrollmentToken(token, { binding, userId: "u1", now: NOW + 10 * 60_000 + 1000 }),
 		).toBeNull();
 	});
 
 	it("refuses a payload whose signature does not cover it", () => {
 		const token = createTwoFactorEnrollmentToken({
-			userId: "u1",
+			binding, userId: "u1",
 			secret: "REAL_SEED",
 			now: NOW,
 		});
@@ -73,7 +74,7 @@ describe("two-factor enrollment ticket", () => {
 		const forgedPayload = Buffer.from(
 			JSON.stringify({
 				aud: "2fa-enrollment",
-				userId: "u1",
+				binding, userId: "u1",
 				secret: "ATTACKER_CHOSEN_SEED",
 				nonce: "x",
 				iat: NOW,
@@ -84,7 +85,7 @@ describe("two-factor enrollment ticket", () => {
 
 		expect(
 			openTwoFactorEnrollmentToken(`${forgedPayload}.${signature}`, {
-				userId: "u1",
+				binding, userId: "u1",
 				now: NOW + 1000,
 			}),
 		).toBeNull();
@@ -92,13 +93,20 @@ describe("two-factor enrollment ticket", () => {
 
 	it("returns null instead of throwing on malformed input", () => {
 		for (const bad of ["", "no-dot", "a.b", "....", "%%%.%%%"]) {
-			expect(openTwoFactorEnrollmentToken(bad, { userId: "u1", now: NOW })).toBeNull();
+			expect(openTwoFactorEnrollmentToken(bad, { binding, userId: "u1", now: NOW })).toBeNull();
 		}
 	});
 
 	it("mints a distinct ticket each time for the same seed", () => {
-		const first = createTwoFactorEnrollmentToken({ userId: "u1", secret: "S", now: NOW });
-		const second = createTwoFactorEnrollmentToken({ userId: "u1", secret: "S", now: NOW });
+		const first = createTwoFactorEnrollmentToken({ binding, userId: "u1", secret: "S", now: NOW });
+		const second = createTwoFactorEnrollmentToken({ binding, userId: "u1", secret: "S", now: NOW });
 		expect(first).not.toBe(second);
 	});
+});
+
+it("retires an issued ticket on either password rotation or epoch advancement", () => {
+	const token = createTwoFactorEnrollmentToken({ userId: "u", binding, secret: "seed" });
+	for (const changed of [{ ...binding, fingerprint: "new-proof" }, { ...binding, epoch: 9 }]) {
+		expect(openTwoFactorEnrollmentToken(token, { userId: "u", binding: changed })).toBeNull();
+	}
 });

@@ -3,7 +3,7 @@ import { beforeEach, describe, expect, it, vi } from "vitest";
 const { mocks } = vi.hoisted(() => ({
   mocks: {
     requireApiPermission: vi.fn(),
-    listApiTokens: vi.fn(),
+    listApiTokenPage: vi.fn(),
     createApiToken: vi.fn(),
     revokeApiToken: vi.fn(),
     auditUserAction: vi.fn(),
@@ -22,7 +22,7 @@ vi.mock("@/lib/api-token/service", async (importOriginal) => {
   const actual = await importOriginal<typeof import("@/lib/api-token/service")>();
   return {
     ...actual,
-    listApiTokens: mocks.listApiTokens,
+    listApiTokenPage: mocks.listApiTokenPage,
     createApiToken: mocks.createApiToken,
     revokeApiToken: mocks.revokeApiToken,
   };
@@ -45,7 +45,7 @@ describe("/api/api-tokens", () => {
   beforeEach(() => {
     vi.clearAllMocks();
     mocks.requireApiPermission.mockResolvedValue({ session });
-    mocks.listApiTokens.mockResolvedValue([
+    mocks.listApiTokenPage.mockResolvedValue({ total: 1, nextCursor: null, tokens: [
       {
         id: "tok1",
         name: "cli",
@@ -57,7 +57,7 @@ describe("/api/api-tokens", () => {
         revokedAt: null,
         createdAt: new Date("2026-01-01T00:00:00Z"),
       },
-    ]);
+    ] });
     mocks.createApiToken.mockImplementation(async (input) => ({
       token: "whr_plain_once",
       apiToken: {
@@ -84,7 +84,7 @@ describe("/api/api-tokens", () => {
     const res = await route.GET(new Request("http://local/api/api-tokens"));
     expect(res.status).toBe(200);
     expect(mocks.requireApiPermission).toHaveBeenCalledWith("api-token:manage");
-    expect(mocks.listApiTokens).toHaveBeenCalledWith("u1");
+    expect(mocks.listApiTokenPage).toHaveBeenCalledWith("u1", { pageSize: 200, status: "all" });
     const body = await res.json();
     expect(body.tokens).toHaveLength(1);
     expect(JSON.stringify(body)).not.toContain("tokenHash");
@@ -214,11 +214,8 @@ describe("/api/api-tokens", () => {
       userId: "u1",
       id: "tok1",
     });
-    expect(mocks.auditUserAction).toHaveBeenCalledWith(
-      "u1",
-      "api_token.revoke",
-      expect.objectContaining({ tokenId: "tok1" }),
-    undefined, "token-owning-customer");
+    expect((await res.json()).token.teamId).toBe("token-owning-customer");
+    expect(mocks.auditUserAction).not.toHaveBeenCalled(); // The service commits the first audit with the revoke.
   });
 
   it("surfaces a 404 (not a 500) when revoking a nonexistent or non-owned token", async () => {

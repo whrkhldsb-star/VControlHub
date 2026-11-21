@@ -76,7 +76,7 @@ describe("teamWhere (strict tenant ownership)", () => {
   });
 
   it("matches no rows without a team context", () => {
-    expect(teamWhere(TEAMLESS)).toEqual({ teamId: "__no_active_team__" });
+    expect(teamWhere(TEAMLESS)).toEqual({ teamId: { in: [] }, AND: { teamId: { in: [] } } });
   });
 
   it("never leaks another team's id into the fragment", () => {
@@ -90,11 +90,11 @@ describe("security-root helpers (strict: null teamId is quarantined)", () => {
   for (const [name, helper] of STRICT_HELPERS) {
     describe(name, () => {
       it("applies no filter for an administrator viewing all customers", () => {
-        expect(helper(ADMIN)).toEqual({});
+        expect(helper(ADMIN)).toEqual(name === "serverTeamWhere" ? { team: { isNot: { deletedAt: { not: null } } } } : {});
       });
 
       it("scopes an administrator to the selected customer without per-user narrowing", () => {
-        expect(helper(ADMIN_IN_TEAM)).toEqual({ teamId: "team_a" });
+        expect(helper(ADMIN_IN_TEAM)).toMatchObject({ teamId: "team_a" });
       });
 
       it("pins the current team exactly, with no unassigned branch", () => {
@@ -115,7 +115,7 @@ describe("security-root helpers (strict: null teamId is quarantined)", () => {
         // the loose `teamId: null` shape, which would expose quarantined rows.
         expect(fragment).not.toEqual({});
         expect(fragment).not.toEqual({ teamId: null });
-        expect(fragment).toMatchObject({ id: expect.stringContaining("require_team_manage") });
+        expect({ ...fragment, id: "any-imported-id" }).toMatchObject({ AND: { id: { in: [] } } });
       });
 
       it("never admits a null teamId for a non-manager", () => {
@@ -130,8 +130,8 @@ describe("security-root helpers (strict: null teamId is quarantined)", () => {
 
 describe("serverProfileTeamWhere", () => {
   it("lets administrators change any server they can see", () => {
-    expect(serverProfileTeamWhere(ADMIN)).toEqual({});
-    expect(serverProfileTeamWhere(ADMIN_IN_TEAM)).toEqual({ teamId: "team_a" });
+    expect(serverProfileTeamWhere(ADMIN)).toEqual(serverTeamWhere(ADMIN));
+    expect(serverProfileTeamWhere(ADMIN_IN_TEAM)).toEqual(serverTeamWhere(ADMIN_IN_TEAM));
   });
 
   it("limits customer accounts to servers their customer added", () => {

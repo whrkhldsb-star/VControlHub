@@ -11,6 +11,9 @@
  * results are keyed by the caller, so tenant-scoped values never leak across
  * keys.
  */
+import { RateLimitError } from "@/lib/errors";
+import { t } from "@/lib/i18n/service-translations";
+
 type MemoEntry<T> = { value: T; expiresAt: number };
 
 export type SingleFlight<T> = {
@@ -53,8 +56,9 @@ export function createSingleFlight<T>(options: {
 
       const pending = inflight.get(key);
       if (pending) return pending;
+      if (inflight.size >= maxKeys) throw new RateLimitError(t("apiCopy.request.tooManyRequests"));
 
-      const promise = fn()
+      const promise = Promise.resolve().then(fn)
         .then((value) => {
           const ttl = ttlMs();
           if (ttl > 0) {
@@ -64,10 +68,9 @@ export function createSingleFlight<T>(options: {
           return value;
         })
         .finally(() => {
-          inflight.delete(key);
+          if (inflight.get(key) === promise) inflight.delete(key);
         });
       inflight.set(key, promise);
-      evictIfNeeded(inflight);
       return promise;
     },
     reset() {

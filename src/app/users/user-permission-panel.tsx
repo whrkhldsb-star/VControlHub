@@ -1,6 +1,6 @@
 "use client";
 
-import { useEffect, useMemo, useRef, useState } from "react";
+import { useEffect, useRef, useState } from "react";
 import { csrfFetch } from "@/lib/auth/csrf-client";
 import { formatBytes as formatBytesShared } from "@/lib/format/bytes";
 import { EmptyState } from "@/components/page-shell";
@@ -17,9 +17,13 @@ import { cn } from "@/lib/ui/cn";
 import { groupPermissionsByDomain, permissionLabelKey } from "@/lib/auth/permission-labels";
 import { identityTemplateName } from "@/lib/auth/identity-templates";
 
-type StorageNodeInfo = { id: string; name: string; driver: string; basePath: string };
-type ServerInfo = { id: string; name: string; operatingSystem: string; teamId: string | null };
+import { permissionChanges } from "@/lib/user/permission-editor-client";
+import {
+  readPermissionPage, usePermissionOptions, type PermissionOptionPage, type ServerInfo, type StorageNodeInfo, type IdentityTemplateInfo,
+} from "./permission-option-page";
+
 type ServerGrant = {
+  server: ServerInfo;
   serverId: string;
   canRead: boolean;
   canConnect: boolean;
@@ -38,12 +42,12 @@ type StorageGrant = {
   quotaBytes: string | null;
   maxFileBytes: string | null;
   usedBytes?: string;
-  storageNode?: StorageNodeInfo;
+  storageNode: StorageNodeInfo;
 };
-type IdentityTemplateInfo = { id: string; name: string; isBuiltin: boolean; permissions: string[] };
 type AccountType = "admin" | "customer";
 
-type PermissionsPayload = {
+type PermissionsPayload = PermissionOptionPage & {
+  version: string;
   user: {
     id: string;
     username: string;
@@ -53,12 +57,9 @@ type PermissionsPayload = {
     identityTemplateId: string | null;
     effectivePermissions: string[];
     storageAccess: StorageGrant[];
-    serverAccess?: ServerGrant[];
+    serverAccess: ServerGrant[];
   };
-  identityTemplates: IdentityTemplateInfo[];
   customers: Array<{ id: string; name: string }>;
-  storageNodes: StorageNodeInfo[];
-  servers?: ServerInfo[];
 };
 
 type Props = {
@@ -115,7 +116,12 @@ function normalizeStorageGrants(grants: StorageGrant[]) {
   return normalized;
 }
 
-export function UserPermissionPanel({ userId, username, onClose, onSaved }: Props) {
+export function UserPermissionPanel(props: Props) {
+  const [revision, setRevision] = useState(0);
+  return <PermissionEditor key={`${props.userId}:${revision}`} {...props} reload={() => setRevision(value => value + 1)} />;
+}
+
+function PermissionEditor({ userId, username, onClose, onSaved, reload }: Props & { reload: () => void }) {
   const { t } = useI18n();
   // Reach the translator from the load effect without putting `t` in its deps:
   // a locale switch must not refetch and overwrite unsaved admin edits.
@@ -124,8 +130,10 @@ export function UserPermissionPanel({ userId, username, onClose, onSaved }: Prop
   const [payload, setPayload] = useState<PermissionsPayload | null>(null);
   const [accountType, setAccountType] = useState<AccountType>("customer");
   const [teamId, setTeamId] = useState("");
-  const [identityTemplateId, setIdentityTemplateId] = useState("");
+  const [selectedTemplate, setSelectedTemplate] = useState<IdentityTemplateInfo | null>(null);
+  const identityTemplateId = selectedTemplate?.id ?? "identity:viewer";
   const [grants, setGrants] = useState<StorageGrant[]>([]);
+  const [newNodeId, setNewNodeId] = useState("");
   const [serverGrants, setServerGrants] = useState<ServerGrant[]>([]);
   // A refusal stays in the dialog, at its top; that it was saved is a toast, which is in view wherever the
   // long dialog has been scrolled to (the Save button is in its footer).
@@ -134,34 +142,41 @@ export function UserPermissionPanel({ userId, username, onClose, onSaved }: Prop
   const bodyTopRef = useRef<HTMLDivElement>(null);
   const [loading, setLoading] = useState(true);
   const [saving, setSaving] = useState(false);
-  // Bumped to read everything again: after an account is moved to another customer, the servers and storage
-  // nodes listed for narrowing are that customer's, not the ones first loaded.
-  const [reloadKey, setReloadKey] = useState(0);
 
   useEffect(() => {
-    let cancelled = false;
-    csrfFetch<PermissionsPayload>(`/api/users/permissions?userId=${encodeURIComponent(userId)}`)
-      .then((data) => {
-        if (cancelled) return;
-        setPayload(data);
-        setAccountType(data.user.accountType);
-        setTeamId(data.user.teamId ?? data.customers[0]?.id ?? "");
-        setIdentityTemplateId(data.user.identityTemplateId ?? "identity:viewer");
-        setGrants(data.user.storageAccess.map((grant) => ({ ...grant })));
-        setServerGrants((data.user.serverAccess ?? []).map((grant) => ({ ...grant })));
-      })
-      .catch((error) => !cancelled && setMessage({ type: "error", text: getErrorMessage(error, tRef.current("usersPerm.error.loadFailed")) }))
-      .finally(() => !cancelled && setLoading(false));
-    return () => { cancelled = true; };
-  }, [userId, reloadKey]);
+    const controller = new AbortController();
+    const load = async () => {
+      const data = await readPermissionPage<PermissionsPayload>(userId, { includeAssigned: "1" }, controller.signal);
+      const id = data.user.identityTemplateId ?? "identity:viewer";
+      const template = data.identityTemplates.find(item => item.id === id)
+        ?? (await readPermissionPage(userId, { resource: "identityTemplates", id, pageSize: "1" }, controller.signal)).identityTemplates.find(item => item.id === id);
+      if (controller.signal.aborted) return;
+      setPayload(data);
+      setAccountType(data.user.accountType);
+      setTeamId(data.user.teamId ?? data.customers[0]?.id ?? "");
+      // A template can disappear between the initial read and its ID lookup.
+      // Preserve the saved ID until the administrator chooses a replacement.
+      setSelectedTemplate(template ?? { id, name: id, isBuiltin: false, permissions: [] });
+      setGrants(data.user.storageAccess);
+      setServerGrants(data.user.serverAccess);
+    };
+    load().catch(error => {
+      if (!controller.signal.aborted) setMessage({ type: "error", text: getErrorMessage(error, tRef.current("usersPerm.error.loadFailed")) });
+    }).finally(() => { if (!controller.signal.aborted) setLoading(false); });
+    return () => controller.abort();
+  }, [userId]);
 
   // A refusal is shown at the top: bring it into view when the dialog has been scrolled down to the fields.
   useEffect(() => {
     if (message) bodyTopRef.current?.scrollIntoView?.({ block: "nearest" });
   }, [message]);
 
-  const storageNodeMap = useMemo(() => new Map(payload?.storageNodes.map((node) => [node.id, node]) ?? []), [payload]);
-  const selectedTemplate = payload?.identityTemplates.find((template) => template.id === identityTemplateId) ?? null;
+  const templates = usePermissionOptions(userId, "identityTemplates", t("usersPerm.account.template"), payload, selectedTemplate ? [selectedTemplate] : []);
+  const nodes = usePermissionOptions(userId, "storageNodes", t("usersPerm.grants.node"), payload);
+  const nodesById = new Map(nodes.options.map(node => [node.id, node]));
+  const newNode = nodesById.get(newNodeId) ?? nodes.options[0];
+  const servers = usePermissionOptions(userId, "servers", t("usersPerm.section.servers"), payload, serverGrants.map(grant => grant.server));
+  const serverGrantMap = new Map(serverGrants.map(grant => [grant.serverId, grant]));
   const accountChanged = Boolean(payload) && (
     accountType !== payload!.user.accountType
     || (accountType === "customer" && (teamId !== payload!.user.teamId || identityTemplateId !== payload!.user.identityTemplateId))
@@ -171,10 +186,10 @@ export function UserPermissionPanel({ userId, username, onClose, onSaved }: Prop
   const previewPermissions = accountType === "admin" ? null : groupPermissionsByDomain(selectedTemplate?.permissions ?? []);
 
   const addGrant = () => {
-    const firstNode = payload?.storageNodes[0];
-    if (!firstNode) return;
+    if (!newNode) return;
     setGrants((current) => [...current, {
-      storageNodeId: firstNode.id,
+      storageNodeId: newNode.id,
+      storageNode: newNode,
       pathPrefix: "",
       canRead: true,
       canWrite: false,
@@ -189,6 +204,7 @@ export function UserPermissionPanel({ userId, username, onClose, onSaved }: Prop
   };
 
   const save = async () => {
+    if (!payload) return;
     setSaving(true);
     setMessage(null);
     const normalizedGrants = normalizeStorageGrants(grants);
@@ -198,36 +214,27 @@ export function UserPermissionPanel({ userId, username, onClose, onSaved }: Prop
       return;
     }
     try {
-      await csrfFetch("/api/users/permissions", {
-        method: "PATCH",
-        headers: { "Content-Type": "application/json" },
-        body: JSON.stringify({
-          userId,
-          ...(accountChanged
-            ? { account: accountType === "admin" ? { type: "admin" } : { type: "customer", teamId, identityTemplateId } }
-            : {}),
-          ...(narrowingEditable ? {
-            storageAccess: normalizedGrants,
-            storageAccessScopeIds: (payload?.storageNodes ?? []).map((node) => node.id),
-            serverAccess: serverGrants,
-            serverAccessScopeIds: (payload?.servers ?? []).map((server) => server.id),
-          } : {}),
-        }),
+      const patch = permissionChanges(payload, {
+        userId,
+        account: accountChanged ? (accountType === "admin" ? { type: "admin" } : { type: "customer", teamId, identityTemplateId }) : undefined,
+        ...(narrowingEditable ? {
+          storageAccess: normalizedGrants,
+          storageAccessScopeIds: [...payload.user.storageAccess, ...grants].map(grant => grant.storageNodeId),
+          serverAccess: serverGrants,
+          serverAccessScopeIds: [...payload.user.serverAccess, ...serverGrants].map(grant => grant.serverId),
+        } : {}),
       });
-      // What is saved is now the baseline the next save compares with. Left as first loaded, changing the account back
-      // to its original value counted as "no change", sent nothing, and still said "saved".
-      setPayload((current) => current && {
-        ...current,
-        user: {
-          ...current.user,
-          accountType,
-          teamId: accountType === "customer" ? teamId : null,
-          identityTemplateId: accountType === "customer" ? identityTemplateId : null,
-        },
+      const { version } = await csrfFetch<{ version: string }>("/api/users/permissions", {
+        method: "PATCH", body: JSON.stringify(patch),
+      });
+      // Keep the snapshot that was actually committed, including normalized byte limits.
+      setPayload({
+        ...payload, version,
+        user: { ...payload.user, storageAccess: grants.map((grant, i) => ({ ...grant, ...normalizedGrants[i] })), serverAccess: serverGrants },
       });
       addToast("success", t("usersPerm.success.saved"));
       // Moved to another customer (or between administrator and customer): what can be narrowed is different now.
-      if (accountChanged) setReloadKey((key) => key + 1);
+      if (accountChanged) reload();
       onSaved();
     } catch (error) {
       setMessage({ type: "error", text: getErrorMessage(error, t("usersPerm.error.saveFailed")) });
@@ -257,7 +264,7 @@ export function UserPermissionPanel({ userId, username, onClose, onSaved }: Prop
         {message && <Notice tone="danger" compact className="mb-4">{message.text}</Notice>}
         {/* Not loading and nothing loaded: the reason is above, and there is nothing to wait for. */}
         {loading ? <InlineLoading label={t("usersPerm.loading")} /> : !payload ? null : (
-          <div className="space-y-6">
+          <fieldset disabled={saving} className="min-w-0 space-y-6">
             <section data-inset className="p-4">
               <h4 className="ui-title-group">{t("usersPerm.account.title")}</h4>
               <p className="mt-1 text-xs text-[var(--text-muted)]">{t("usersPerm.account.desc")}</p>
@@ -278,12 +285,13 @@ export function UserPermissionPanel({ userId, username, onClose, onSaved }: Prop
                   </label>
                   <label className="text-sm text-[var(--text-secondary)]">
                     <span className="ui-label mb-1 block">{t("usersPerm.account.template")}</span>
-                    <select value={identityTemplateId} onChange={(event) => setIdentityTemplateId(event.target.value)} className={cn(UI_INPUT, "text-sm")}>
-                      {payload.identityTemplates.map((template) => <option key={template.id} value={template.id}>{identityTemplateName(template, t)}</option>)}
+                    <select value={identityTemplateId} onChange={(event) => setSelectedTemplate(templates.options.find(item => item.id === event.target.value) ?? null)} className={cn(UI_INPUT, "text-sm")}>
+                      {templates.options.map((template) => <option key={template.id} value={template.id}>{identityTemplateName(template, t)}</option>)}
                     </select>
                   </label>
                 </div>
               )}
+              {accountType === "customer" && templates.controls}
               <div className="mt-4">
                 <h5 className="ui-label">{t("usersPerm.account.effective")}</h5>
                 {previewPermissions === null ? (
@@ -308,10 +316,11 @@ export function UserPermissionPanel({ userId, username, onClose, onSaved }: Prop
             {narrowingEditable && <section data-inset className="p-4">
               <h4 className="ui-title-group">{t("usersPerm.section.servers")}</h4>
               <p className="mt-1 text-xs text-[var(--text-muted)]">{t("usersPerm.servers.hint")}</p>
+              {servers.controls}
               <div className="mt-3 space-y-3">
-                {(payload.servers ?? []).length === 0 ? <EmptyState>{t("usersPerm.servers.empty")}</EmptyState> :
-                  (payload.servers ?? []).map((server) => {
-                    const grant = serverGrants.find((item) => item.serverId === server.id);
+                {servers.options.length === 0 && !servers.filtered ? <EmptyState>{t("usersPerm.servers.empty")}</EmptyState> :
+                  servers.options.map((server) => {
+                    const grant = serverGrantMap.get(server.id);
                     const capabilities = [
                       ["canRead", "read"], ["canConnect", "connect"], ["canManage", "manage"],
                       ["canFileRead", "fileRead"], ["canFileWrite", "fileWrite"], ["canFileDelete", "fileDelete"],
@@ -322,7 +331,7 @@ export function UserPermissionPanel({ userId, username, onClose, onSaved }: Prop
                         <ActionButton size="sm" variant="secondary" onClick={() => setServerGrants((current) => grant
                           ? current.filter((item) => item.serverId !== server.id)
                           : [...current, {
-                            serverId: server.id,
+                            server, serverId: server.id,
                             canRead: payload.user.effectivePermissions.includes("server:read"),
                             canConnect: payload.user.effectivePermissions.includes("server:ssh"),
                             canManage: payload.user.effectivePermissions.includes("server:write"),
@@ -343,22 +352,29 @@ export function UserPermissionPanel({ userId, username, onClose, onSaved }: Prop
             </section>}
 
             {narrowingEditable && !selectedTemplate?.permissions.includes("storage:manage-node") && <section data-inset className="p-4">
-              <div className="flex items-center justify-between gap-3">
-                <div>
-                  <h4 className="ui-title-group">{t("usersPerm.section.grants")}</h4>
-                  <p className="mt-1 text-xs text-[var(--text-muted)]">{t("usersPerm.grants.hint")}</p>
-                </div>
-                <ActionButton icon={<Plus size={16} aria-hidden />} size="sm" variant="success" onClick={addGrant}>{t("usersPerm.action.addGrant")}</ActionButton>
+              <h4 className="ui-title-group">{t("usersPerm.section.grants")}</h4>
+              <p className="mt-1 text-xs text-[var(--text-muted)]">{t("usersPerm.grants.hint")}</p>
+              {nodes.controls}
+              <div className="flex flex-wrap items-center gap-2">
+                <select className={cn(UI_INPUT, "max-w-xs text-sm")} value={newNode?.id ?? ""} disabled={!newNode}
+                  aria-label={t("usersPerm.grants.newNode")} onChange={event => setNewNodeId(event.target.value)}>
+                  {nodes.options.map(node => <option key={node.id} value={node.id}>{node.name} · {getStorageDriverLabel(t, node.driver)}</option>)}
+                </select>
+                <ActionButton icon={<Plus size={16} aria-hidden />} size="sm" variant="success" disabled={!newNode} onClick={addGrant}>{t("usersPerm.action.addGrant")}</ActionButton>
               </div>
               <div className="mt-4 space-y-3">
                 {grants.length === 0 ? <EmptyState>{t("usersPerm.grants.empty")}</EmptyState> : grants.map((grant, index) => {
-                  const node = storageNodeMap.get(grant.storageNodeId);
+                  const node = grant.storageNode;
+                  const choices = nodesById.has(node.id) ? nodes.options : [node, ...nodes.options];
                   return (
                     <div key={`${grant.storageNodeId}-${index}`} data-card className="p-4">
                       <div className="grid gap-3 lg:grid-cols-[1.2fr_1fr_1fr_1fr_auto]">
                         <label className="sr-only" htmlFor={`grantNode-${index}`}>{t("usersPerm.grants.node")}</label>
-                        <select id={`grantNode-${index}`} value={grant.storageNodeId} onChange={(e) => updateGrant(index, { storageNodeId: e.target.value })} className={cn(UI_INPUT, "text-sm")}>
-                          {payload.storageNodes.map((item) => <option key={item.id} value={item.id}>{item.name} · {getStorageDriverLabel(t, item.driver)}</option>)}
+                        <select id={`grantNode-${index}`} value={grant.storageNodeId} onChange={(e) => {
+                          const selected = nodesById.get(e.target.value);
+                          if (selected) updateGrant(index, { storageNodeId: selected.id, storageNode: selected });
+                        }} className={cn(UI_INPUT, "text-sm")}>
+                          {choices.map((item) => <option key={item.id} value={item.id}>{item.name} · {getStorageDriverLabel(t, item.driver)}</option>)}
                         </select>
                         <label className="sr-only" htmlFor={`grantPath-${index}`}>{t("usersPerm.grants.path")}</label>
                         <input id={`grantPath-${index}`} value={grant.pathPrefix} onChange={(e) => updateGrant(index, { pathPrefix: e.target.value })} placeholder={t("usersPerm.grants.pathPlaceholder")} className={cn(UI_INPUT, "text-sm")} />
@@ -381,7 +397,7 @@ export function UserPermissionPanel({ userId, username, onClose, onSaved }: Prop
               </div>
             </section>}
 
-          </div>
+          </fieldset>
         )}
     </Dialog>
   );

@@ -20,7 +20,7 @@
  */
 import { createHmac, randomBytes } from "node:crypto";
 
-import { getSessionSigningSecret } from "./session";
+import { getSessionSigningSecret, type SessionCredentialBinding } from "./session";
 import { decodeBase64Url, signHmacToken, verifyHmacTokenSignature } from "./hmac-token";
 
 const ENROLLMENT_AUDIENCE = "2fa-enrollment";
@@ -35,6 +35,7 @@ type EnrollmentPayload = {
   aud: typeof ENROLLMENT_AUDIENCE;
   userId: string;
   secret: string;
+  binding: SessionCredentialBinding;
   nonce: string;
   iat: number;
   exp: number;
@@ -55,6 +56,7 @@ function enrollmentKey() {
 export function createTwoFactorEnrollmentToken(input: {
   userId: string;
   secret: string;
+  binding: SessionCredentialBinding;
   now?: number;
 }): string {
   const now = input.now ?? Date.now();
@@ -62,6 +64,7 @@ export function createTwoFactorEnrollmentToken(input: {
     aud: ENROLLMENT_AUDIENCE,
     userId: input.userId,
     secret: input.secret,
+    binding: input.binding,
     nonce: randomBytes(16).toString("base64url"),
     iat: now,
     exp: now + ENROLLMENT_TTL_MS,
@@ -76,7 +79,7 @@ export function createTwoFactorEnrollmentToken(input: {
  */
 export function openTwoFactorEnrollmentToken(
   token: string,
-  input: { userId: string; now?: number },
+  input: { userId: string; binding: SessionCredentialBinding; now?: number },
 ): string | null {
   try {
     const [encoded, providedSignature] = token.split(".");
@@ -88,7 +91,8 @@ export function openTwoFactorEnrollmentToken(
     // A ticket minted for another account must not enroll this one, even with a
     // valid signature — otherwise one user could seed another user's 2FA.
     if (payload.userId !== input.userId) return null;
-    if (payload.exp <= (input.now ?? Date.now())) return null;
+    if (payload.binding?.fingerprint !== input.binding.fingerprint || payload.binding?.epoch !== input.binding.epoch) return null;
+    if (!Number.isFinite(payload.exp) || payload.exp <= (input.now ?? Date.now())) return null;
     if (typeof payload.secret !== "string" || payload.secret.length === 0) return null;
 
     return payload.secret;

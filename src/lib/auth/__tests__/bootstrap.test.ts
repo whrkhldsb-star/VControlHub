@@ -95,3 +95,12 @@ describe("verifyAdminPasswordConsistency (TR-051)", () => {
     }
   });
 });
+
+it.each([7, 129])("rejects a %i-character initial password before hashing or accepting bootstrap consistency", async (length) => {
+  const value = "a".repeat(length);
+  mockConfig.auth.adminInitialPassword = value;
+  mockPrisma.user.findUnique.mockResolvedValueOnce({ passwordHash: await hashPassword(value), mustChangePassword: true });
+  expect(getInitialAdminPassword).toThrow(/8-128/);
+  await expect(verifyAdminPasswordConsistency()).resolves.toMatchObject({ ok: false, reason: "invalid_env_password" });
+  mockConfig.auth.adminInitialPassword = "test-password";
+});

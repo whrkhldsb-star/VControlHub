@@ -8,7 +8,7 @@ import { changePasswordSchema, loginSchema, type ChangePasswordInput, type Login
 import { DEFAULT_ROLE_PERMISSIONS, getPermissionsFromRoles, type Permission, type RoleKey } from "./rbac";
 import { normalizeUserPreferencesForSession, type UserPreferences } from "@/lib/preferences/user-preferences";
 import { resolveSessionPermissions } from "./identity-templates";
-import { assertSessionCredentialBinding, captureSessionCredentialBinding, type SessionCredentialBinding, type SessionPayload } from "./session";
+import { assertSessionCredentialBinding, captureSessionCredentialBinding, verifiedSessionExpiresAt, type SessionCredentialBinding, type SessionPayload } from "./session";
 import { t } from "@/lib/i18n/service-translations";
 
 export type AuthenticatedUser = {
@@ -192,9 +192,9 @@ export async function changePassword(input: ChangePasswordInput, session: Sessio
 
   return {
     success: true,
-    credentialBinding: captureSessionCredentialBinding({
-      passwordHash: nextPasswordHash,
-      sessionEpoch: (user.sessionEpoch ?? 0) + 1,
-    }),
+    credentialBinding: {
+      ...captureSessionCredentialBinding({ passwordHash: nextPasswordHash, sessionEpoch: (user.sessionEpoch ?? 0) + 1 }),
+      expiresAt: verifiedSessionExpiresAt(session),
+    },
   };
 }

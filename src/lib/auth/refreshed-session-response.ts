@@ -9,13 +9,11 @@ import { NextResponse } from "next/server";
 
 import {
   createSessionToken,
-  getConfiguredSessionTtlSeconds,
   getSessionCookieName,
-  sessionTokenExpiresAt,
+  verifiedSessionExpiresAt,
   type SessionPayload,
   type SessionCredentialBinding,
 } from "@/lib/auth/session";
-import { readCookie } from "@/lib/http/request-cookie";
 import { isRequestHttps } from "@/lib/http/request-https";
 
 export async function refreshedSessionResponse(
@@ -24,25 +22,17 @@ export async function refreshedSessionResponse(
   body: Record<string, unknown>,
   credentialBinding: SessionCredentialBinding,
 ): Promise<NextResponse> {
-  // Same sign-in, same lifetime: re-minting with the default TTL cut a
-  // 30-day "remember me" session to 7 days on every 2FA change.
-  const expiresAt = sessionTokenExpiresAt(readCookie(request, getSessionCookieName()));
-  const refreshedToken = await createSessionToken({
-    userId: session.userId,
-    username: session.username,
-    roles: session.roles,
-    mustChangePassword: session.mustChangePassword,
-    currentTeamId: session.currentTeamId,
-  }, { credentialBinding, expiresAt });
+  const expiresAt = verifiedSessionExpiresAt(session);
+  const cookie = { httpOnly: true, sameSite: "lax" as const, secure: isRequestHttps(request), path: "/" };
+  const signedOut = () => {
+    const response = NextResponse.json({ ...body, requiresLogin: true });
+    response.cookies.set(getSessionCookieName(), "", { ...cookie, maxAge: 0 });
+    return response;
+  };
+  if (!expiresAt || expiresAt <= Date.now()) return signedOut();
+  const refreshedToken = await createSessionToken(session, { credentialBinding, expiresAt });
+  if (expiresAt <= Date.now()) return signedOut();
   const response = NextResponse.json(body);
-  response.cookies.set(getSessionCookieName(), refreshedToken, {
-    httpOnly: true,
-    sameSite: "lax",
-    secure: isRequestHttps(request),
-    path: "/",
-    maxAge: expiresAt
-      ? Math.max(1, Math.min(Math.ceil((expiresAt - Date.now()) / 1000), await getConfiguredSessionTtlSeconds(true)))
-      : await getConfiguredSessionTtlSeconds(false),
-  });
+  response.cookies.set(getSessionCookieName(), refreshedToken, { ...cookie, expires: new Date(expiresAt) });
   return response;
 }

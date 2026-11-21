@@ -1,4 +1,5 @@
-import { getSessionCookieName as getRuntimeSessionCookieName } from "@/lib/auth/session";
+import { isCrossSiteFormPost } from "@/lib/http/request-origin";
+import { getPending2faCookieName, getSessionCookieName as getRuntimeSessionCookieName } from "@/lib/auth/session";
 import { CSRF_COOKIE_NAME, CSRF_FAILURE_MESSAGE, CSRF_HEADER_NAME, csrfTokensMatch } from "@/lib/auth/csrf-request";
 import { BASE_SECURITY_HEADERS, STRICT_TRANSPORT_SECURITY } from "@/lib/http/security-headers";
 import { NextResponse } from "next/server";
@@ -316,6 +317,22 @@ export function proxy(request: NextRequest) {
   if (isPublicPath(pathname, request.method)) {
     const response = NextResponse.next({ request: { headers: forwardedHeaders } });
     return addSecurityHeaders(response, request, nonce);
+  }
+
+  // The password stage sets only the pending cookie. Cancellation has no
+  // double-submit token yet and requires positive browser origin evidence.
+  if (pathname === "/api/auth/signout" && request.method === "POST"
+    && !request.cookies.has(getSessionCookieName()) && request.cookies.get(getPending2faCookieName())?.value) {
+    const origin = request.headers.get("origin");
+    const expectedProtocol = requestUrlIsHttps(request) ? "https:" : "http:";
+    let sameOrigin = request.headers.get("sec-fetch-site") === "same-origin";
+    if (origin) {
+      try { sameOrigin = new URL(origin).protocol === expectedProtocol; } catch { sameOrigin = false; }
+    }
+    if (!sameOrigin || isCrossSiteFormPost(request)) {
+      return addSecurityHeaders(NextResponse.json({ error: CSRF_FAILURE_MESSAGE }, { status: 403 }), request, nonce);
+    }
+    return addSecurityHeaders(NextResponse.next({ request: { headers: forwardedHeaders } }), request, nonce);
   }
 
   // 2) Check session cookie for protected paths

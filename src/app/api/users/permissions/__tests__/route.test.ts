@@ -1,3 +1,4 @@
+import { permissionVersion } from "../route-patch";
 import { beforeEach, describe, expect, it, vi } from "vitest";
 
 const { mocks } = vi.hoisted(() => ({
@@ -27,7 +28,7 @@ vi.mock("@/lib/auth/require-api-permission", () => ({ requireApiPermission: mock
 vi.mock("@/lib/auth/api-session", () => ({ requireApiSession: mocks.requireApiSession, isSessionPayload: (value: unknown) => !(value instanceof Response) }));
 vi.mock("@/lib/audit/service", () => ({ writeAuditLog: mocks.auditUserAction }));
 vi.mock("@/lib/user/account-type", () => ({ withAccountPermissionChange: mocks.withAccountPermissionChange }));
-vi.mock("@/lib/auth/identity-template-service", () => ({ listIdentityTemplates: mocks.listIdentityTemplates }));
+vi.mock("@/lib/auth/identity-template-service", () => ({ identityTemplateOptions: mocks.listIdentityTemplates }));
 vi.mock("@/lib/storage/access-control", () => ({
   getStorageAccessUsage: mocks.getStorageAccessUsage,
   parseNullableBigIntInput: mocks.parseNullableBigIntInput,
@@ -39,8 +40,14 @@ const route = await import("../route");
 
 const admin = { userId: "admin1", username: "root", roles: ["admin"] as const, mustChangePassword: false, currentTeamId: null };
 
-const patch = (body: unknown) => route.PATCH(new Request("http://local/api/users/permissions", {
-  method: "PATCH", headers: { "content-type": "application/json" }, body: JSON.stringify(body),
+const initialAccount = {
+  id: "user1", username: "alice", displayName: "Alice", roles: [],
+  teamMembership: { teamId: "team-a", team: { name: "Acme", deletedAt: null }, identityTemplateId: "identity:operator",
+    identityTemplate: { permissions: ["server:read", "server:ssh"] } },
+  storageAccess: [], serverAccess: [],
+};
+const patch = (body: Record<string, unknown>) => route.PATCH(new Request("http://local/api/users/permissions", {
+  method: "PATCH", headers: { "content-type": "application/json" }, body: JSON.stringify({ version: permissionVersion(initialAccount), ...body }),
 }));
 
 describe("/api/users/permissions", () => {
@@ -49,28 +56,15 @@ describe("/api/users/permissions", () => {
     mocks.requireApiPermission.mockResolvedValue({ session: admin });
     mocks.requireApiSession.mockResolvedValue(admin);
     mocks.getStorageAccessUsage.mockResolvedValue(BigInt(0));
-    mocks.listIdentityTemplates.mockResolvedValue([
+    mocks.listIdentityTemplates.mockResolvedValue({ nextCursor: null, items: [
       { id: "identity:operator", name: "客户运维", isBuiltin: true, permissions: ["server:read", "server:ssh"] },
-    ]);
+    ] });
     mocks.withAccountPermissionChange.mockImplementation(async (_userId, _session, run) => run(mocks.prisma, mocks.setAccountType));
     mocks.prisma.team.findMany.mockResolvedValue([{ id: "team-a", name: "Acme" }]);
     mocks.prisma.storageNode.findMany.mockResolvedValue([{ id: "node-a" }]);
     mocks.prisma.server.findMany.mockResolvedValue([]);
     mocks.prisma.teamMember.findUnique.mockResolvedValue({ teamId: "team-a" });
-    mocks.prisma.user.findUnique.mockResolvedValue({
-      id: "user1",
-      username: "alice",
-      displayName: "Alice",
-      roles: [],
-      teamMembership: {
-        teamId: "team-a",
-        team: { name: "Acme", deletedAt: null },
-        identityTemplateId: "identity:operator",
-        identityTemplate: { permissions: ["server:read", "server:ssh"] },
-      },
-      storageAccess: [],
-      serverAccess: [],
-    });
+    mocks.prisma.user.findUnique.mockResolvedValue(initialAccount);
   });
 
   it("requires the platform-only user:manage permission", async () => {
@@ -90,7 +84,7 @@ describe("/api/users/permissions", () => {
     });
     expect(body.customers).toEqual([{ id: "team-a", name: "Acme" }]);
     // Narrowing choices come from the account's own customer only.
-    expect(mocks.prisma.server.findMany).toHaveBeenCalledWith(expect.objectContaining({ where: { teamId: "team-a" } }));
+    expect(mocks.prisma.server.findMany).toHaveBeenCalledWith(expect.objectContaining({ where: { teamId: "team-a", team: { deletedAt: null } } }));
   });
 
   it("GET reports a platform administrator without customer resources", async () => {
@@ -103,6 +97,66 @@ describe("/api/users/permissions", () => {
     expect(body.user.accountType).toBe("admin");
     expect(body.storageNodes).toEqual([]);
     expect(mocks.prisma.server.findMany).not.toHaveBeenCalled();
+  });
+
+  it("refuses a stale or missing read version before touching either grant family", async () => {
+    const first = await (await route.GET(new Request("http://local/api/users/permissions?userId=user1"))).json();
+    mocks.prisma.user.findUnique.mockResolvedValue({ ...initialAccount, serverAccess: [{ serverId: "new-deny", canRead: false }] });
+    for (const version of [first.version, undefined]) {
+      const response = await patch({ userId: "user1", version, serverAccess: [], serverAccessScopeIds: ["new-deny"] });
+      expect(response.status).toBe(409);
+    }
+    expect(mocks.prisma.userServerAccess.deleteMany).not.toHaveBeenCalled();
+  });
+
+  it("returns a stable next page and resolves an assigned resource by id within its customer", async () => {
+    mocks.prisma.server.findMany.mockResolvedValueOnce([{ id: "a" }, { id: "b" }]);
+    const first = await (await route.GET(new Request("http://local/api/users/permissions?userId=user1&pageSize=1&search=web"))).json();
+    expect(first.servers).toEqual([{ id: "a" }]);
+    expect(first.nextCursor.servers).toBe("a");
+    expect(mocks.prisma.server.findMany).toHaveBeenLastCalledWith(expect.objectContaining({ take: 2,
+      where: { teamId: "team-a", team: { deletedAt: null }, name: { contains: "web", mode: "insensitive" } } }));
+    mocks.prisma.user.findUnique.mockResolvedValue({ ...initialAccount, serverAccess: [{ serverId: "z", canRead: false }] });
+    mocks.prisma.server.findMany.mockResolvedValueOnce([{ id: "z" }]);
+    const assigned = await (await route.GET(new Request("http://local/api/users/permissions?userId=user1&pageSize=1&id=z"))).json();
+    expect(assigned.user.serverAccess).toEqual([{ serverId: "z", canRead: false }]);
+    expect(mocks.prisma.server.findMany).toHaveBeenLastCalledWith(expect.objectContaining({ where: expect.objectContaining({ teamId: "team-a", id: "z" }) }));
+  });
+
+  it("includes only the saved customer's assignments outside the option page on the editor's initial read", async () => {
+    const nodeGrant = (teamId: string) => ({
+      id: teamId, storageNodeId: teamId, storageNode: { id: teamId, name: teamId, teamId },
+      pathPrefix: "", quotaBytes: null, maxFileBytes: null, createdAt: new Date(), updatedAt: new Date(),
+    });
+    const serverGrant = (teamId: string) => ({ serverId: teamId, server: { id: teamId, name: teamId, teamId } });
+    mocks.prisma.user.findUnique.mockResolvedValue({ ...initialAccount,
+      serverAccess: ["team-a", "former-team"].map(serverGrant), storageAccess: ["team-a", "former-team"].map(nodeGrant) });
+    const url = "http://local/api/users/permissions?userId=user1&pageSize=1&includeAssigned=1";
+    const body = await (await route.GET(new Request(url))).json();
+    expect(body.servers).toEqual([]);
+    expect(body.storageNodes).toEqual([{ id: "node-a" }]);
+    expect(body.user.serverAccess).toEqual([serverGrant("team-a")]);
+    expect(body.user.storageAccess.map((row: { storageNodeId: string }) => row.storageNodeId)).toEqual(["team-a"]);
+    expect(mocks.getStorageAccessUsage).toHaveBeenCalledTimes(1);
+  });
+
+  it("browses a single picker without loading grants, usage, customers or the other option lists", async () => {
+    mocks.prisma.server.findMany.mockResolvedValueOnce([{ id: "s2" }]);
+    const url = "http://local/api/users/permissions?userId=user1&resource=servers&serverAfter=s1&search=ops&pageSize=1";
+    const body = await (await route.GET(new Request(url))).json();
+    expect(body.servers).toEqual([{ id: "s2" }]);
+    expect(body).not.toHaveProperty("user");
+    const { select } = mocks.prisma.user.findUnique.mock.calls[0]![0];
+    expect(select).not.toHaveProperty("serverAccess");
+    expect(select).not.toHaveProperty("storageAccess");
+    expect(mocks.prisma.server.findMany).toHaveBeenCalledWith(expect.objectContaining({
+      where: { teamId: "team-a", team: { deletedAt: null }, name: { contains: "ops", mode: "insensitive" } },
+      cursor: { id: "s1", teamId: "team-a" }, skip: 1, take: 2,
+    }));
+    expect(mocks.prisma.storageNode.findMany).not.toHaveBeenCalled();
+    expect(mocks.prisma.team.findMany).not.toHaveBeenCalled();
+    expect(mocks.listIdentityTemplates).not.toHaveBeenCalled();
+    expect(mocks.getStorageAccessUsage).not.toHaveBeenCalled();
   });
 
   it("PATCH changes the account type through the account service", async () => {
@@ -142,8 +196,8 @@ describe("/api/users/permissions", () => {
   });
 
   it("PATCH refuses resource narrowing for an account without a customer", async () => {
-    mocks.prisma.user.findUnique.mockResolvedValueOnce({ id: "user1", username: "alice", teamMembership: null });
-    const res = await patch({ userId: "user1", serverAccess: [], serverAccessScopeIds: [] });
+    mocks.prisma.user.findUnique.mockResolvedValueOnce({ ...initialAccount, teamMembership: null });
+    const res = await patch({ userId: "user1", version: permissionVersion({ ...initialAccount, teamMembership: null }), serverAccess: [], serverAccessScopeIds: [] });
     expect(res.status).toBe(400);
   });
 

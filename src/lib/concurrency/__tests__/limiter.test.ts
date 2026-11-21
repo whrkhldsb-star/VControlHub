@@ -23,6 +23,24 @@ describe("createLimiter", () => {
 		expect(started).toEqual([0, 1, 2, 3, 4, 5, 6, 7, 8, 9]);
 	});
 
+	it("hands a released slot to the queued task before a new arrival", async () => {
+		const limit = createLimiter(1);
+		const releaseFirst = Promise.withResolvers<void>();
+		const releaseSecond = Promise.withResolvers<void>();
+		const order: number[] = [];
+		const first = limit(() => releaseFirst.promise);
+		const second = limit(async () => { order.push(2); await releaseSecond.promise; });
+		releaseFirst.resolve();
+		// Runs after release(), before the queued continuation starts.
+		await Promise.resolve();
+		const third = limit(async () => { order.push(3); });
+		await first;
+		expect(order).toEqual([2]);
+		releaseSecond.resolve();
+		await Promise.all([second, third]);
+		expect(order).toEqual([2, 3]);
+	});
+
 	it("frees its place when a task fails, and passes the failure on", async () => {
 		const limit = createLimiter(1);
 		await expect(limit(async () => { throw new Error("boom"); })).rejects.toThrow("boom");
