@@ -12,8 +12,12 @@
  *   - setInterval 24h + fire-once-on-startup
  *   - globalThis state mirror for re-entrancy
  */
-import { wallClockInAppTimeZone } from "@/lib/datetime/time-zone";
-import { JobStatus } from "@prisma/client";
+import { appTimeZoneDateKey, shiftAppTimeZoneDay, startOfDayInAppTimeZone, zonedDateTimeToDate } from "@/lib/datetime/time-zone";
+import { CostDecimal } from "./service-internals";
+import { isCalendarDate } from "./calendar-date";
+import { z } from "zod";
+import { activeJobClaim } from "@/lib/job/claim-context";
+import { JobStatus, type Prisma } from "@prisma/client";
 
 import { config } from "@/lib/config/env";
 import { acquireAdvisoryLock } from "@/lib/concurrency/advisory-lock";
@@ -65,11 +69,18 @@ const costSnapshotWorker = createSingletonIntervalWorker({
   },
 });
 
-async function hasActiveSnapshotJob(): Promise<boolean> {
+async function hasActiveSnapshotJob(requestedAt: Date, targetDay: string): Promise<boolean> {
   const existing = await prisma.job.findFirst({
     where: {
       type: COST_SNAPSHOT_JOB_TYPE,
       status: { in: [JobStatus.PENDING, JobStatus.RUNNING] },
+      OR: [
+        { payload: { path: ["targetDay"], equals: targetDay } },
+        { AND: [
+          { payload: { path: ["requestedAt"], gte: startOfDayInAppTimeZone(requestedAt).toISOString() } },
+          { payload: { path: ["requestedAt"], lt: shiftAppTimeZoneDay(requestedAt, 1).toISOString() } },
+        ] },
+      ],
     },
     select: { id: true },
   });
@@ -79,11 +90,13 @@ async function hasActiveSnapshotJob(): Promise<boolean> {
 async function enqueueCostSnapshotJob(reason: string) {
   const release = await acquireAdvisoryLock("cost-snapshot-enqueue", "global");
   try {
-    if (await hasActiveSnapshotJob()) return null;
-    return enqueueJob({
+    const requestedAt = new Date();
+    const targetDay = appTimeZoneDateKey(requestedAt);
+    if (await hasActiveSnapshotJob(requestedAt, targetDay)) return null;
+    return await enqueueJob({
       type: COST_SNAPSHOT_JOB_TYPE,
       title: "Cost daily aggregation snapshot",
-      payload: { reason, requestedAt: new Date().toISOString() },
+      payload: { reason, requestedAt: requestedAt.toISOString(), targetDay },
       priority: -3, // Low — batch aggregation, not user-blocking
       maxAttempts: 2, // Daily cron — 1 retry is plenty
     });
@@ -92,14 +105,16 @@ async function enqueueCostSnapshotJob(reason: string) {
   }
 }
 
-/**
- * Build the snapshot payload for "today" on the application clock. Aggregates
- * every cost_entry whose effectiveDate (a calendar date stored as UTC
- * midnight) is that day, in CNY by default.
- */
-async function buildTodaySnapshot(today: Date) {
-  const wall = wallClockInAppTimeZone(today);
-  const dayStart = new Date(Date.UTC(wall.year, wall.month - 1, wall.day));
+function jobTargetDay(payload: Prisma.JsonValue, createdAt: Date): string {
+  if (payload && typeof payload === "object" && !Array.isArray(payload)) {
+    if (typeof payload.targetDay === "string" && isCalendarDate(payload.targetDay)) return payload.targetDay;
+    if (typeof payload.requestedAt === "string") return appTimeZoneDateKey(new Date(payload.requestedAt));
+  }
+  return appTimeZoneDateKey(createdAt);
+}
+
+async function buildDailySnapshot(targetDay: string) {
+  const dayStart = new Date(targetDay);
   const dayEnd = new Date(dayStart.getTime() + 24 * 60 * 60 * 1000);
 
   // DB-side aggregation — never silently drop rows beyond a take:N cap.
@@ -117,7 +132,7 @@ async function buildTodaySnapshot(today: Date) {
     COST_CATEGORY_VALUES.map((c) => [c, "0.00"]),
   ) as Record<CostCategory, string>;
 
-  let total = 0;
+  let total = new CostDecimal(0);
   let count = 0;
   for (const row of grouped) {
     const cat = (COST_CATEGORY_VALUES as readonly string[]).includes(
@@ -125,10 +140,9 @@ async function buildTodaySnapshot(today: Date) {
     )
       ? (row.category as CostCategory)
       : "other";
-    const amt = Number(row._sum.amount?.toString() ?? "0");
-    const next = Number.isFinite(amt) ? amt : 0;
-    byCategory[cat] = (Number(byCategory[cat]) + next).toFixed(2);
-    total += next;
+    const amount = new CostDecimal(row._sum.amount?.toString() ?? "0");
+    byCategory[cat] = new CostDecimal(byCategory[cat]).plus(amount).toFixed(2);
+    total = total.plus(amount);
     count += row._count._all;
   }
 
@@ -139,6 +153,13 @@ async function buildTodaySnapshot(today: Date) {
     entryCount: count,
   };
 }
+
+const snapshotProgress = z.object({
+  day: z.string(),
+  monthlySync: z.object({ month: z.string(), synced: z.number(), skipped: z.number() }),
+  snapshot: z.object({ id: z.string(), snapshotDate: z.string(), totalAmount: z.string(), entryCount: z.number() }).optional(),
+  budgetAlerts: z.object({ checked: z.number(), triggered: z.number(), notificationsSent: z.number() }).optional(),
+});
 
 export async function runCostSnapshotWorkerOnce(
   reason = "manual",
@@ -177,12 +198,30 @@ export async function runCostSnapshotWorkerOnce(
           progress: "Syncing VPS monthly fees and aggregating daily cost",
         }),
         run: async () => {
-          const monthlySync = await syncServerMonthlyCosts();
-          const today = new Date();
-          const payload = await buildTodaySnapshot(today);
-          const snapshot = await upsertDailySnapshot(payload);
-          const budgetAlerts = await checkBudgetAlerts(today);
-          return { monthlySync, snapshot, budgetAlerts };
+          const day = jobTargetDay(job.payload, job.createdAt);
+          const prior = snapshotProgress.safeParse(job.result);
+          const saved = prior.success && prior.data.day === day ? prior.data : undefined;
+          const monthlySync = saved?.monthlySync ?? await syncServerMonthlyCosts(day.slice(0, 7));
+          // Completed effects are idempotent after a crash. On an ordinary failure,
+          // checkpoint the successful sibling so a budget-only retry is independent.
+          const [snapshot, alerts] = await Promise.allSettled([
+            saved?.snapshot ?? buildDailySnapshot(day).then(upsertDailySnapshot),
+            saved?.budgetAlerts ?? checkBudgetAlerts(zonedDateTimeToDate(`${day}T12:00`)),
+          ]);
+          if (snapshot.status === "rejected" || alerts.status === "rejected") {
+            const progress = snapshotProgress.parse({
+              day, monthlySync,
+              snapshot: snapshot.status === "fulfilled" ? snapshot.value : undefined,
+              budgetAlerts: alerts.status === "fulfilled" ? alerts.value : undefined,
+            });
+            await prisma.job.updateMany({
+              where: activeJobClaim(job.id, COST_SNAPSHOT_WORKER_ID, job.attempts),
+              data: { result: progress },
+            });
+          }
+          if (snapshot.status === "rejected") throw snapshot.reason;
+          if (alerts.status === "rejected") throw alerts.reason;
+          return { monthlySync, snapshot: snapshot.value, budgetAlerts: alerts.value };
         },
       });
       await completeJob(job.id, COST_SNAPSHOT_WORKER_ID, {

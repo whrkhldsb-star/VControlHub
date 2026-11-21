@@ -24,7 +24,7 @@ describe("CostPageClient budgets", () => {
 	it("renders budget progress and supports manual alert check", async () => {
 		const user = userEvent.setup();
 		render(<CostPageClient initialMonth="2026-06" initialCurrency="CNY" initialSummary={null} initialEntries={[]} initialSnapshots={[]}
-			initialBudgets={[{ id: "budget-1", category: "vps", name: "Production VPS", limitAmount: "100.00", currency: "CNY", period: "monthly", alertThresholdPercent: 80, enabled: true, usageAmount: "85.00", usagePercent: 85, periodStart: "2026-06-01", periodEnd: "2026-06-30", otherCurrencyUsage: [], createdAt: "2026-01-01T00:00:00.000Z", updatedAt: "2026-01-01T00:00:00.000Z" }]}
+			initialBudgets={[{ id: "budget-1", category: "vps", name: "Production VPS", limitAmount: "100.00", currency: "CNY", period: "monthly", alertThresholdPercent: 80, enabled: true, usageAmount: "85.00", usagePercent: 85, usageStatus: "threshold" as const, periodStart: "2026-06-01", periodEnd: "2026-06-30", otherCurrencyUsage: [], createdAt: "2026-01-01T00:00:00.000Z", updatedAt: "2026-01-01T00:00:00.000Z" }]}
 			initialBillingAccounts={[]}
 			canRead canManage availableCurrencies={["CNY"]} />);
 		expect(screen.getByText("Production VPS")).toBeInTheDocument();
@@ -93,7 +93,7 @@ describe("CostPageClient budgets", () => {
 		csrfFetchMock.mockImplementation((_url: string, init?: RequestInit) =>
 			init?.method === "DELETE" ? Promise.reject(new Error("Budget is locked")) : Promise.resolve({ budgets: [] }));
 		render(<CostPageClient initialMonth="2026-06" initialCurrency="CNY" initialSummary={null} initialEntries={[]} initialSnapshots={[]}
-			initialBudgets={[{ id: "budget-1", category: "vps", name: "Production VPS", limitAmount: "100.00", currency: "CNY", period: "monthly", alertThresholdPercent: 80, enabled: true, usageAmount: "0.00", usagePercent: 0, otherCurrencyUsage: [] } as never]}
+			initialBudgets={[{ id: "budget-1", category: "vps", name: "Production VPS", limitAmount: "100.00", currency: "CNY", period: "monthly", alertThresholdPercent: 80, enabled: true, usageAmount: "0.00", usagePercent: 0, usageStatus: "within" as const, otherCurrencyUsage: [] } as never]}
 			initialBillingAccounts={[]} canRead canManage availableCurrencies={["CNY"]} />);
 		await user.click(screen.getByRole("button", { name: "costPage.budget.delete" }));
 		const dialog = screen.getByRole("dialog");
@@ -106,9 +106,9 @@ describe("CostPageClient budgets", () => {
 		// A new cost changed what the budget used, but the card kept the
 		// page-load figure; even the page's Refresh did not touch it.
 		const user = userEvent.setup();
-		const budget = { id: "budget-1", category: "vps", name: "Production VPS", limitAmount: "100.00", currency: "CNY", period: "monthly", alertThresholdPercent: 80, enabled: true, usageAmount: "0.00", usagePercent: 0, periodStart: "2026-06-01", periodEnd: "2026-06-30", otherCurrencyUsage: [], createdAt: "2026-01-01T00:00:00.000Z", updatedAt: "2026-01-01T00:00:00.000Z" };
+		const budget = { id: "budget-1", category: "vps", name: "Production VPS", limitAmount: "100.00", currency: "CNY", period: "monthly", alertThresholdPercent: 80, enabled: true, usageAmount: "0.00", usagePercent: 0, usageStatus: "within" as const, periodStart: "2026-06-01", periodEnd: "2026-06-30", otherCurrencyUsage: [], createdAt: "2026-01-01T00:00:00.000Z", updatedAt: "2026-01-01T00:00:00.000Z" };
 		csrfFetchMock.mockImplementation((url: string) => {
-			if (url === "/api/cost/budgets") return Promise.resolve({ budgets: [{ ...budget, usageAmount: "90.00", usagePercent: 90 }] });
+			if (url === "/api/cost/budgets") return Promise.resolve({ budgets: [{ ...budget, usageAmount: "90.00", usagePercent: 90, usageStatus: "threshold" }] });
 			return Promise.resolve({ summary: null, entries: [], snapshots: [] });
 		});
 		render(<CostPageClient initialMonth="2026-06" initialCurrency="CNY" initialSummary={null} initialEntries={[]} initialSnapshots={[]}
@@ -120,7 +120,7 @@ describe("CostPageClient budgets", () => {
 });
 
 describe("CostPageClient budget changes", () => {
-	const budget = { id: "budget-1", category: "vps" as const, name: "Production VPS", limitAmount: "100.00", currency: "CNY" as const, period: "monthly" as const, alertThresholdPercent: 80, enabled: true, usageAmount: "85.00", usagePercent: 85, periodStart: "2026-06-01", periodEnd: "2026-06-30", otherCurrencyUsage: [], createdAt: "2026-01-01T00:00:00.000Z", updatedAt: "2026-01-01T00:00:00.000Z" };
+	const budget = { id: "budget-1", category: "vps" as const, name: "Production VPS", limitAmount: "100.00", currency: "CNY" as const, period: "monthly" as const, alertThresholdPercent: 80, enabled: true, usageAmount: "85.00", usagePercent: 85, usageStatus: "threshold" as const, periodStart: "2026-06-01", periodEnd: "2026-06-30", otherCurrencyUsage: [], createdAt: "2026-01-01T00:00:00.000Z", updatedAt: "2026-01-01T00:00:00.000Z" };
 	const renderPage = (budgets = [budget]) => render(<CostPageClient initialMonth="2026-06" initialCurrency="CNY" initialSummary={null} initialEntries={[]} initialSnapshots={[]}
 		initialBudgets={budgets} initialBillingAccounts={[]} canRead canManage availableCurrencies={["CNY", "USD"]} />);
 

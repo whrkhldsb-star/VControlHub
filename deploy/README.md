@@ -337,3 +337,26 @@ mount | grep ' /media/alist '
 ```
 
 The unit intentionally runs `rclone mount` in the foreground (`Type=simple`, no `--daemon`) so systemd can track the real mount process. If migrating from an old daemonized unit, stop it first and clear any stale mount with `fusermount -uz /media/alist`.
+
+### 旧版 CSV 账单升级核对
+
+同一天、同一产品同时含有供应商 ID 和无 ID 条目的账单，请在成本页重新同步受影响的月份。导入会核对旧条目的币种、金额、类别和供应商，迁移可确认的旧序号，并保留条目 ID。部分导出或无法匹配的旧条目会使整批回滚，管理员可在运行记录中查看原因。
+
+升级时，数据库管理员可用下面的只读查询列出同日混用显式 ID 与旧序号的账户和月份，再按供应商原账单核对产品及行数。
+
+```sql
+WITH mixed_days AS (
+  SELECT split_part("sourceRef", ':', 1) AS account_id, "effectiveDate"
+  FROM cost_entries
+  WHERE "sourceType" = 'cloud_billing' AND split_part("sourceRef", ':', 2) = 'csv'
+  GROUP BY 1, 2
+  HAVING bool_or(split_part("sourceRef", ':', 3) = 'id')
+     AND bool_or(split_part("sourceRef", ':', 3) = 'natural' AND NOT ('csv-ordinal:v2' = ANY(tags)))
+)
+SELECT DISTINCT account_id, to_char("effectiveDate", 'YYYY-MM') AS month
+FROM mixed_days ORDER BY account_id, month;
+```
+
+如果旧版重排同步已经留下两条内容相同的费用，请先对照供应商完整月账单，确认重复条目、真实行数与总额。确认后，使用具有 `cost:manage` 权限的会话向 `POST /api/cost/billing-accounts/{id}/sync` 提交 `{"month":"YYYY-MM","confirmLegacyDuplicates":true}`。服务会在同一事务中合并匹配的旧条目并迁移调整引用。金额或币种无法匹配时仍会中止。完成后核对该月各币种总额。
+
+预算告警的投递回执保存在独立表 `cost_budget_alert_deliveries`。Linux 和 Windows 安装器在数据库迁移阶段建表，并从仍在收件箱中的旧告警补录回执。其他部署方式会在首次告警时检查并初始化。数据库区分迁移角色和运行角色时，请在同版本的源码目录用迁移角色执行 `npm exec --no -- tsx deploy/prepare-cost-ledger.ts`，并给运行角色授予该表的 SELECT、INSERT 权限。

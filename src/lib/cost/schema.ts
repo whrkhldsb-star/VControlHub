@@ -18,7 +18,7 @@ export const costAmountSchema = z.string().regex(/^\d+(\.\d{1,2})?$/u, "Amount m
 	{ message: "Amount must be between 0 and 9999999999.99" },
 );
 
-export const createCostEntrySchema = z.object({
+const costEntryFields = z.object({
 	category: costCategorySchema,
 	provider: z.string().trim().min(1, "Service provider is required").max(128),
 	amount: costAmountSchema,
@@ -27,7 +27,24 @@ export const createCostEntrySchema = z.object({
 	notes: z.string().trim().max(500).optional().nullable(),
 });
 
-export const updateCostEntrySchema = createCostEntrySchema.partial().strict().refine(
+// A credit keeps the same magnitude and cent precision as an ordinary charge.
+export const adjustmentAmountSchema = z.union([costAmountSchema, z.string().startsWith("-").transform(
+	(value, ctx) => {
+		const magnitude = costAmountSchema.safeParse(value.slice(1));
+		if (!magnitude.success) {
+			ctx.addIssue({ code: "custom", message: "Amount must be a number with at most 2 decimal places" });
+			return z.NEVER;
+		}
+		return value;
+	},
+)]);
+
+export const createCostEntrySchema = z.union([
+	costEntryFields.extend({ adjustmentForId: z.undefined().optional() }),
+	costEntryFields.extend({ adjustmentForId: z.string().min(1).max(128), amount: adjustmentAmountSchema }),
+]);
+
+export const updateCostEntrySchema = costEntryFields.extend({ amount: adjustmentAmountSchema }).partial().strict().refine(
 	(v) => Object.keys(v).length > 0,
 	{ message: "At least one field must be provided" },
 );

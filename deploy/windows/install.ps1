@@ -22,37 +22,37 @@ $nodeExe = $nodeCommand.Source
 if ($LASTEXITCODE -ne 0) { throw "Unsupported Node.js runtime" }
 Get-Command npm.cmd -ErrorAction Stop | Out-Null
 $envFile = Join-Path $appDir '.env.local'
-if (!(Test-Path -LiteralPath $envFile -PathType Leaf)) {
+$firstInstall = !(Test-Path -LiteralPath $envFile -PathType Leaf)
+if ($firstInstall) {
   $template = [IO.File]::ReadAllText((Join-Path $appDir 'deploy\env.production.example'))
   $template = $template.Replace('STORAGE_ROOT="/var/lib/${APP_SLUG:-vcontrolhub}/storage"', 'STORAGE_ROOT="./storage"')
   $template = $template.Replace('DOWNLOAD_ROOT="/var/lib/${APP_SLUG:-vcontrolhub}/downloads"', 'DOWNLOAD_ROOT="./downloads"')
   $template = $template.Replace('BACKUP_DIR="/var/backups/${APP_SLUG:-vcontrolhub}"', 'BACKUP_DIR="./backups"')
   $template = $template.Replace('ARIA2_RPC_DIR="/var/lib/${APP_SLUG:-vcontrolhub}/aria2"', 'ARIA2_RPC_DIR="./tmp/aria2"')
   [IO.File]::WriteAllText($envFile, $template, [Text.UTF8Encoding]::new($false))
-  throw "Created $envFile. Set DATABASE_URL, AUTH_SESSION_SECRET, SSH_WS_SECRET, ENCRYPTION_KEY and ADMIN_INITIAL_PASSWORD, then rerun this script."
 }
 
 $content = [IO.File]::ReadAllText($envFile)
-$directSecretMatch = [regex]::Match($content, '(?m)^STORAGE_DIRECT_ACCESS_SECRET\s*=\s*(.*)$')
-$directSecret = $directSecretMatch.Groups[1].Value.Trim().Trim('"').Trim("'")
-if (!$directSecret -or $directSecret -match 'REPLACE_WITH|CHANGE_ME') {
-  $directSecret = & $nodeExe -e 'console.log(require("node:crypto").randomBytes(48).toString("base64url"))'
-  $line = 'STORAGE_DIRECT_ACCESS_SECRET="' + $directSecret + '"'
-  if ($content -match '(?m)^STORAGE_DIRECT_ACCESS_SECRET=') {
-    $content = [regex]::Replace($content, '(?m)^STORAGE_DIRECT_ACCESS_SECRET=.*$', $line)
-  } else {
-    $content = $content.TrimEnd() + [Environment]::NewLine + $line + [Environment]::NewLine
+foreach ($name in @('STORAGE_DIRECT_ACCESS_SECRET', 'ARIA2_RPC_SECRET')) {
+  $pattern = '(?m)^[ \t]*' + $name + '[ \t]*=[^\r\n]*'
+  $matchesInFile = [regex]::Matches($content, $pattern)
+  $value = if ($matchesInFile.Count) { ($matchesInFile[$matchesInFile.Count - 1].Value -split '=', 2)[1].Trim().Trim('"').Trim("'") } else { '' }
+  if (!$value -or $value -match 'REPLACE_WITH|CHANGE_ME|CHANGE_THIS|(^|_)default_token$') {
+    $bytes = New-Object byte[] 48
+    $rng = [Security.Cryptography.RandomNumberGenerator]::Create()
+    try { $rng.GetBytes($bytes) } finally { $rng.Dispose() }
+    $line = $name + '="' + [Convert]::ToBase64String($bytes).Replace('+', '-').Replace('/', '_') + '"'
+    if ($matchesInFile.Count) { $content = [regex]::Replace($content, $pattern, $line) }
+    else { $content = $content.TrimEnd() + [Environment]::NewLine + $line + [Environment]::NewLine }
+    [IO.File]::WriteAllText($envFile, $content, [Text.UTF8Encoding]::new($false))
+    Write-Host "Generated $name."
   }
-  [IO.File]::WriteAllText($envFile, $content, [Text.UTF8Encoding]::new($false))
-  Write-Host 'Generated STORAGE_DIRECT_ACCESS_SECRET for signed cloud-storage links.'
+}
+if ($firstInstall) {
+  throw "Created $envFile. Set DATABASE_URL, AUTH_SESSION_SECRET, SSH_WS_SECRET, ENCRYPTION_KEY and ADMIN_INITIAL_PASSWORD, then rerun this script."
 }
 
-$required = @('DATABASE_URL', 'AUTH_SESSION_SECRET', 'SSH_WS_SECRET', 'STORAGE_DIRECT_ACCESS_SECRET', 'ENCRYPTION_KEY', 'ADMIN_INITIAL_PASSWORD')
-$validate = 'for (const key of ' + (ConvertTo-Json -Compress -InputObject $required) + ') { const v = process.env[key] || ""; if (!v || /REPLACE_WITH|CHANGE_ME|example\.com/i.test(v)) { console.error("Missing or placeholder: " + key); process.exitCode = 1 } }'
-& $nodeExe "--env-file=$envFile" -e $validate
-if ($LASTEXITCODE -ne 0) { throw 'Production environment validation failed' }
-$exportNames = 'const fs = require("fs"); const names = [...fs.readFileSync(process.argv[1], "utf8").matchAll(/^\s*([A-Za-z_][A-Za-z0-9_]*)\s*=/gm)].map(match => match[1]); console.log(JSON.stringify(Object.fromEntries(names.map(name => [name, process.env[name] ?? ""]))))'
-$envJson = & $nodeExe "--env-file=$envFile" -e $exportNames $envFile
+$envJson = & $nodeExe "--env-file=$envFile" (Join-Path $PSScriptRoot 'read-install-env.mjs') $envFile
 if ($LASTEXITCODE -ne 0) { throw 'Could not load production environment' }
 $envValues = $envJson | ConvertFrom-Json
 foreach ($property in $envValues.PSObject.Properties) {
@@ -62,67 +62,4 @@ foreach ($directory in @('storage', 'downloads', 'backups', 'tmp', 'uploads', 'l
   New-Item -ItemType Directory -Path (Join-Path $appDir $directory) -Force | Out-Null
 }
 
-$taskNames = @('VControlHub Web', 'VControlHub Worker', 'VControlHub SSH WS')
-$previouslyRunning = @()
-if (!$SkipTasks) {
-  foreach ($name in $taskNames) {
-    $task = Get-ScheduledTask -TaskName $name -ErrorAction SilentlyContinue
-    if ($task -and $task.State -eq 'Running') { $previouslyRunning += $name }
-    if ($task) { Stop-ScheduledTask -TaskName $name -ErrorAction SilentlyContinue }
-  }
-}
-
-try {
-  Remove-Item Env:NODE_ENV -ErrorAction SilentlyContinue
-  & npm.cmd ci
-  if ($LASTEXITCODE -ne 0) { throw 'npm ci failed' }
-  & npm.cmd run prisma:generate
-  if ($LASTEXITCODE -ne 0) { throw 'Prisma generation failed' }
-  & npm.cmd run prisma:deploy
-  if ($LASTEXITCODE -ne 0) { throw 'Database migration failed' }
-  if (!$SkipSeed) {
-    & $nodeExe "--env-file=$envFile" --import tsx prisma/seed.ts
-    if ($LASTEXITCODE -ne 0) { throw 'Database seed failed' }
-  }
-  & npm.cmd run build
-  if ($LASTEXITCODE -ne 0) { throw 'Next.js build failed' }
-  & npm.cmd run build:runtime
-  if ($LASTEXITCODE -ne 0) { throw 'Runtime build failed' }
-} catch {
-  foreach ($name in $previouslyRunning) { Start-ScheduledTask -TaskName $name -ErrorAction SilentlyContinue }
-  throw
-}
-
-if ($SkipTasks) { Write-Host 'Windows build and migration completed; startup tasks were skipped.'; exit 0 }
-
-$runner = Join-Path $PSScriptRoot 'run.ps1'
-$roles = @('web', 'worker', 'ssh-ws')
-$settings = New-ScheduledTaskSettingsSet -RestartCount 3 -RestartInterval (New-TimeSpan -Minutes 1) -ExecutionTimeLimit (New-TimeSpan -Seconds 0) -MultipleInstances IgnoreNew
-$taskPrincipal = New-ScheduledTaskPrincipal -UserId 'SYSTEM' -RunLevel Highest
-for ($i = 0; $i -lt $roles.Count; $i++) {
-  $arguments = '-NoProfile -NonInteractive -ExecutionPolicy Bypass -File "' + $runner + '" -Role ' + $roles[$i] + ' -NodeExe "' + $nodeExe + '"'
-  $action = New-ScheduledTaskAction -Execute 'powershell.exe' -Argument $arguments
-  $trigger = New-ScheduledTaskTrigger -AtStartup
-  Register-ScheduledTask -TaskName $taskNames[$i] -Action $action -Trigger $trigger -Settings $settings -Principal $taskPrincipal -Force | Out-Null
-  Start-ScheduledTask -TaskName $taskNames[$i]
-}
-
-# Check the address the web task listens on (PORT and NEXT_HOST from the env
-# file loaded above), not a fixed 3000: a custom port was reported as a failed
-# start, and whatever else answered on 3000 as a healthy one.
-$webPort = if ($env:PORT) { $env:PORT.Trim() } else { '3000' }
-$webHost = if ($env:NEXT_HOST) { $env:NEXT_HOST.Trim() } else { '' }
-if (!$webHost -or $webHost -eq '0.0.0.0' -or $webHost -eq '::') { $webHost = '127.0.0.1' }
-$sshWsPort = if ($env:SSH_WS_PORT) { $env:SSH_WS_PORT.Trim() } else { '3001' }
-$healthUrl = "http://${webHost}:${webPort}/login"
-$ready = $false
-for ($attempt = 0; $attempt -lt 30; $attempt++) {
-  Start-Sleep -Seconds 2
-  try {
-    $response = Invoke-WebRequest -UseBasicParsing -TimeoutSec 3 -Uri $healthUrl
-    if ($response.StatusCode -eq 200) { $ready = $true; break }
-  } catch { }
-}
-if (!$ready) { throw "Web process did not become healthy at $healthUrl; inspect logs/windows-web.log and Scheduled Tasks." }
-Write-Host "VControlHub Windows runtime is ready at $healthUrl"
-if ($Domain) { Write-Host "Configure Caddy or IIS HTTPS for $Domain and proxy /ssh to 127.0.0.1:${sshWsPort}; see docs/windows-development.md." }
+& (Join-Path $PSScriptRoot 'publish-release.ps1') -AppDir $appDir -NodeExe $nodeExe -SkipTasks:$SkipTasks -SkipSeed:$SkipSeed -Domain $Domain

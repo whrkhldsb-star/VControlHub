@@ -4,6 +4,7 @@ import type { CostCategory, CostCurrency, CostEntryRecord, CostSnapshotRecord } 
 import { COST_CATEGORY_VALUES } from "./types";
 
 export type TeamSession = { userId: string; roles: RoleKey[]; currentTeamId: string | null };
+export const CostDecimal = Prisma.Decimal.clone({ precision: 40 });
 export const DEFAULT_CURRENCY: CostCurrency = "CNY";
 export const DEFAULT_LIST_LIMIT = 100;
 
@@ -51,7 +52,7 @@ export function automaticTags(sourceType: string, category: CostCategory, provid
 export function toSnapshot(snap: { id: string; snapshotDate: Date; totalAmount: Prisma.Decimal; byCategory: Prisma.JsonValue; entryCount: number; createdAt: Date }): CostSnapshotRecord {
 	const by = (snap.byCategory ?? {}) as Record<string, unknown>;
 	const byCategory = Object.fromEntries(COST_CATEGORY_VALUES.map((c) => [c, typeof by[c] === "string" ? by[c] : "0.00"])) as Record<CostCategory, string>;
-	return { id: snap.id, snapshotDate: isoDateOnly(snap.snapshotDate), totalAmount: snap.totalAmount.toFixed(2), byCategory, entryCount: snap.entryCount, createdAt: snap.createdAt.toISOString() };
+	return { id: snap.id, snapshotDate: isoDateOnly(snap.snapshotDate), totalAmount: typeof by.exactTotalAmount === "string" ? by.exactTotalAmount : snap.totalAmount.toFixed(2), byCategory, entryCount: snap.entryCount, createdAt: snap.createdAt.toISOString() };
 }
 
 export function emptyByCategory(): Record<CostCategory, string> {
@@ -59,7 +60,5 @@ export function emptyByCategory(): Record<CostCategory, string> {
 }
 
 export function addDecimal(target: Record<CostCategory, string>, cat: CostCategory, amount: string) {
-	const cur = Number(target[cat] ?? "0");
-	const inc = Number(amount);
-	target[cat] = ((Number.isFinite(cur) ? cur : 0) + (Number.isFinite(inc) ? inc : 0)).toFixed(2);
+	target[cat] = new CostDecimal(target[cat]).plus(amount).toFixed(2);
 }

@@ -3,7 +3,8 @@
 import { useCallback, useMemo, useRef, useState } from "react";
 
 import { csrfFetch } from "@/lib/auth/csrf-client";
-import { costAmountSchema } from "@/lib/cost/schema";
+import { isSourceManagedCost } from "@/lib/cost/types";
+import { adjustmentAmountSchema, costAmountSchema } from "@/lib/cost/schema";
 import { toDateLocale } from "@/lib/i18n/locale-format";
 import type {
   CostCurrency,
@@ -54,6 +55,9 @@ export function useCostPageState(options: {
   const [snapshots, setSnapshots] = useState<DailySnapshot[]>(initialSnapshots);
   const [showForm, setShowForm] = useState(false);
   const [editingId, setEditingId] = useState<string | null>(null);
+  const [adjustmentForId, setAdjustmentForId] = useState<string | null>(null);
+  const editingEntry = entries.find(entry => entry.id === editingId);
+  const sourceDateLocked = isSourceManagedCost(editingEntry?.sourceType ?? null);
   const [form, setFormState] = useState(emptyForm());
   // Why the entry was not saved, and why it was not deleted: each is shown in the dialog that is open, where
   // a toast would be gone before the dialog is.
@@ -199,20 +203,22 @@ export function useCostPageState(options: {
   );
 
   const openCreate = () => {
+    setAdjustmentForId(null);
     setEditingId(null);
     setForm(emptyForm());
     setShowForm(true);
   };
 
-  const openEdit = (e: CostEntryRecord) => {
-    setEditingId(e.id);
+  const openEdit = (e: CostEntryRecord, adjustment = false) => {
+    setEditingId(adjustment ? null : e.id);
+    setAdjustmentForId(adjustment ? e.id : null);
     setForm({
       category: e.category,
       provider: e.provider,
-      amount: e.amount,
+      amount: adjustment ? "" : e.amount,
       currency: e.currency,
       effectiveDate: e.effectiveDate,
-      notes: e.notes ?? "",
+      notes: adjustment ? "" : e.notes ?? "",
     });
     setShowForm(true);
   };
@@ -224,7 +230,8 @@ export function useCostPageState(options: {
       setFormError(t("costPage.form.error.required"));
       return;
     }
-    const amountCheck = costAmountSchema.safeParse(form.amount.trim());
+    const signed = adjustmentForId || editingEntry?.tags.some(tag => tag.startsWith("adjustment-for:"));
+    const amountCheck = (signed ? adjustmentAmountSchema : costAmountSchema).safeParse(form.amount.trim());
     if (!amountCheck.success) {
       setFormError(firstSchemaSentence(amountCheck.error) ?? t("costPage.form.error.required"));
       return;
@@ -236,7 +243,8 @@ export function useCostPageState(options: {
         provider: form.provider.trim(),
         amount: form.amount.trim(),
         currency: form.currency,
-        effectiveDate: form.effectiveDate,
+        ...(sourceDateLocked ? {} : { effectiveDate: form.effectiveDate }),
+        ...(adjustmentForId ? { adjustmentForId } : {}),
         notes: form.notes.trim() || null,
       };
       const url = editingId ? `/api/cost/entries/${editingId}` : "/api/cost/entries";
@@ -297,6 +305,8 @@ export function useCostPageState(options: {
     entries,
     showForm,
     editingId,
+    sourceDateLocked,
+    adjustmentForId,
     form,
     formError,
     deleteError,

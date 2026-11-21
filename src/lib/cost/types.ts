@@ -9,6 +9,10 @@ export type CostCurrency = (typeof COST_CURRENCY_VALUES)[number];
 export const COST_BUDGET_PERIOD_VALUES = ["monthly", "quarterly", "yearly"] as const;
 export type CostBudgetPeriod = (typeof COST_BUDGET_PERIOD_VALUES)[number];
 
+export function isSourceManagedCost(sourceType: string | null): boolean {
+	return sourceType === "server_monthly" || sourceType === "cloud_billing";
+}
+
 export interface CostEntryRecord {
 	id: string;
 	category: CostCategory;
@@ -37,6 +41,7 @@ export interface CostBudgetRecord {
 	enabled: boolean;
 	usageAmount: string;
 	usagePercent: number;
+	usageStatus: "within" | "threshold" | "exhausted";
 	periodStart: string;
 	periodEnd: string;
 	/**

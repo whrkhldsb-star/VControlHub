@@ -1,6 +1,7 @@
 // @vitest-environment node
 import { execFileSync, spawn } from "node:child_process";
 import { mkdtemp, mkdir, readFile, rm, stat, writeFile } from "node:fs/promises";
+import { fileURLToPath } from "node:url";
 import { tmpdir } from "node:os";
 import path from "node:path";
 import { afterEach, describe, expect, it } from "vitest";
@@ -17,6 +18,18 @@ async function fixtureCommands(root: string) {
 	await mkdir(bin);
 	const commands = {
 		npm: `echo "npm $* $PWD" >> "$LOG"
+if [[ "$*" == 'run prisma:generate' && -n "$EXPECT_TOOL_ENV" ]]; then
+  test "$TOOL_ENV" = "$EXPECT_TOOL_ENV" || exit 23
+fi
+if [[ "$*" == 'run build' && -n "$OBSERVE_ENV" ]]; then
+  test ! -e .env.preview && test ! -e .env.custom || exit 24
+  test "$(stat -c %a .env.production.local)" = 600 || exit 25
+  NODE_ENV=production node -e 'require(process.env.NEXT_ENV_PACKAGE).loadEnvConfig(process.cwd()); process.stdout.write(process.env.NEXT_PUBLIC_APP_TIME_ZONE)' > "$OBSERVE_ENV" || exit 26
+fi
+if [[ "$*" == 'run build' && -n "$STATE_DIR" ]]; then
+  test ! -e "$STATE_DIR" || exit 27
+  echo late-write >> "$APP_DIR/$STATE_DIR/data"
+fi
 if [[ "$*" == 'run build:runtime' ]]; then
   mkdir -p .next dist node_modules scripts
   for f in .next/BUILD_ID dist/server.js dist/worker.js dist/ssh-ws-proxy.js; do echo candidate > "$f"; done
@@ -35,13 +48,13 @@ esac`,
 	for (const [name, content] of Object.entries(commands)) {
 		await writeFile(path.join(bin, name), "#!/bin/bash\n" + content + "\n", { mode: 0o755 });
 	}
-	return { PATH: bin + ":" + process.env.PATH, LOG: path.join(root, "calls"), DEPLOY_LOCK: path.join(root, "deploy.lock"),
+	return { NEXT_ENV_PACKAGE: fileURLToPath(import.meta.resolve("@next/env")), PATH: bin + ":" + process.env.PATH, LOG: path.join(root, "calls"), DEPLOY_LOCK: path.join(root, "deploy.lock"),
 		SKIP_PRE_BACKUP: "1", SKIP_DB_SETUP: "1", DOMAIN: "", CHECK_PUBLIC_URL: "", CADDY_FILE: path.join(root, "no-caddyfile"), FAIL: "" };
 }
 
-async function invoke(app: string, env: Record<string, string>) {
+async function invoke(app: string, env: Record<string, string>, driver = path.resolve("deploy/upgrade.sh")) {
 	return new Promise<{ code: number | null; text: string }>((resolve) => {
-		const child = spawn("bash", [path.join(process.cwd(), "deploy/upgrade.sh")], {
+		const child = spawn("bash", [driver], {
 			env: { ...process.env, APP_DIR: app, ...env },
 		});
 		let text = "";
@@ -139,6 +152,58 @@ describeLinux("deploy/upgrade.sh pulling a one-click install", () => {
 		expect(git(app, "rev-parse", "HEAD")).toBe(head);
 	});
 
+	it("builds only the pinned local commit using installed env and keeps repository authentication for the next fetch", async () => {
+		const { root, app, head } = await installedClone();
+		const origin = path.join(root, "origin");
+		const remote = "private-vch:test";
+		git(app, "remote", "set-url", "origin", remote);
+		git(app, "config", `url.${origin}.insteadOf`, remote);
+		git(app, "config", "core.sshCommand", "ssh -i /private/deploy-key");
+		await writeFile(path.join(origin, ".env.production.local"), "NEXT_PUBLIC_APP_TIME_ZONE=release-zone\n");
+		await writeFile(path.join(origin, ".env.preview"), "RELEASE_ONLY=1\n");
+		git(origin, "add", "-f", ".env.production.local", ".env.preview");
+		git(origin, "commit", "-qm", "release env");
+		git(app, "fetch", "origin", "main");
+		const pinned = git(app, "rev-parse", "FETCH_HEAD");
+		expect(pinned).not.toBe(head);
+		await writeFile(path.join(origin, "README.md"), "branch moved\n");
+		git(origin, "commit", "-qam", "advance branch");
+		await writeFile(path.join(app, ".env.production.local"), "NEXT_PUBLIC_APP_TIME_ZONE=Europe/Berlin\nTOOL_ENV=selected-production-local\n");
+		const env = await fixtureCommands(root);
+		const seen = path.join(root, "build-env");
+		const result = await invoke(app, { ...env, UPGRADE_COMMIT: pinned, OBSERVE_ENV: seen, SKIP_POST_CHECK: "1",
+			ENV_FILE: path.join(app, ".env.production.local"), EXPECT_TOOL_ENV: "selected-production-local" });
+		expect(result.code, result.text).toBe(0);
+		expect(await readFile(seen, "utf8")).toBe("Europe/Berlin");
+		expect(git(app, "rev-parse", "HEAD")).toBe(pinned);
+		expect(git(app, "config", "--get", "core.sshCommand")).toBe("ssh -i /private/deploy-key");
+		expect(git(app, "config", "--get", "remote.origin.url")).toBe(remote);
+		git(app, "fetch", "origin", "main");
+		expect(git(app, "rev-parse", "FETCH_HEAD")).toBe(git(origin, "rev-parse", "HEAD"));
+		await expect(stat(path.join(app, ".env.preview"))).rejects.toMatchObject({ code: "ENOENT" });
+	});
+
+	it("restores a single-file driver from a previous bootstrap using the already fetched tree", async () => {
+		const { root, app } = await installedClone();
+		const origin = path.join(root, "origin");
+		await mkdir(path.join(origin, "deploy/lib"), { recursive: true });
+		for (const file of ["upgrade.sh", "lib/listen-address.sh", "lib/release-paths.sh"]) {
+			await writeFile(path.join(origin, "deploy", file), await readFile(path.join("deploy", file)));
+		}
+		git(origin, "add", "deploy");
+		git(origin, "commit", "-qm", "staged driver");
+		git(app, "fetch", "origin", "main");
+		const pinned = git(app, "rev-parse", "FETCH_HEAD");
+		const standalone = path.join(root, "upgrade.sh");
+		await writeFile(standalone, execFileSync("git", ["-C", app, "show", "FETCH_HEAD:deploy/upgrade.sh"]));
+		await writeFile(path.join(origin, "README.md"), "new branch tip\n");
+		git(origin, "commit", "-qam", "advance after bootstrap");
+		const env = { ...await fixtureCommands(root), UPGRADE_REF: "main", SKIP_POST_CHECK: "1" };
+		const result = await invoke(app, env, standalone);
+		expect(result.code, result.text).toBe(0);
+		expect(git(app, "rev-parse", "HEAD")).toBe(pinned);
+	});
+
 	it("still refuses to update over a change someone made", async () => {
 		const { root, app } = await installedClone();
 		await writeFile(path.join(app, "README.md"), "edited on the server\n");
@@ -159,7 +224,8 @@ describeLinux("archive upgrade environment files", () => {
 		const custom = path.join(app, ".env.custom");
 		await writeFile(custom, "installed settings\n", { mode: 0o600 });
 		const original = await stat(custom);
-		await writeFile(path.join(app, ".env.local"), 'DOMAIN=""\n');
+		await writeFile(path.join(app, ".env.local"), 'DOMAIN=""\nNEXT_PUBLIC_APP_TIME_ZONE=Asia/Shanghai\n');
+		await writeFile(path.join(app, ".env.production.local"), "NEXT_PUBLIC_APP_TIME_ZONE=Europe/Berlin\n");
 		await writeFile(path.join(app, ".env.example"), "installed template\n");
 
 		const env = await fixtureCommands(root);
@@ -172,8 +238,16 @@ describeLinux("archive upgrade environment files", () => {
 			await writeFile(path.join(sourceDir, ".env.example"), "release template\n");
 		}
 
-		const result = await invoke(app, { ...env, SOURCE_DIR: sourceDir, SKIP_PULL: "1", SKIP_POST_CHECK: "1" });
+		const state = "tenant custom state";
+		await mkdir(path.join(app, state));
+		await writeFile(path.join(app, state, "data"), "initial\n");
+		const stateInode = (await stat(path.join(app, state))).ino;
+		const seen = path.join(root, "build-env");
+		const result = await invoke(app, { ...env, OBSERVE_ENV: seen, STATE_DIR: state, SOURCE_DIR: sourceDir, SKIP_PULL: "1", SKIP_POST_CHECK: "1" });
 		expect(result.code, result.text).toBe(0);
+		expect(await readFile(seen, "utf8")).toBe("Europe/Berlin");
+		expect(await readFile(path.join(app, state, "data"), "utf8")).toBe("initial\nlate-write\n");
+		expect((await stat(path.join(app, state))).ino).toBe(stateInode);
 		expect(await readFile(custom, "utf8")).toBe("installed settings\n");
 		expect(await stat(custom)).toMatchObject({ ino: original.ino, mode: original.mode });
 		expect(await readFile(path.join(app, ".env.example"), "utf8")).toBe(separate ? "release template\n" : "installed template\n");

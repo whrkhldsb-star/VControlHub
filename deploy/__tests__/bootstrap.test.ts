@@ -1,5 +1,5 @@
 // @vitest-environment node
-import { spawnSync } from "node:child_process";
+import { execFileSync, spawnSync } from "node:child_process";
 import { mkdir, mkdtemp, readFile, readdir, rm, writeFile } from "node:fs/promises";
 import { tmpdir } from "node:os";
 import path from "node:path";
@@ -17,31 +17,33 @@ describe.skipIf(process.platform === "win32")("deploy/bootstrap.sh", () => {
     const app = await mkdtemp(path.join(tmpdir(), "vch-bootstrap-"));
     const scratch = path.join(app, "temporary drivers");
     try {
-      await mkdir(path.join(app, ".git"));
+      const git = (...args: string[]) => execFileSync("git", ["-C", app, "-c", "user.name=test", "-c", "user.email=test@example.org", ...args], { encoding: "utf8" }).trim();
+      git("init", "-q", "-b", "main");
       await mkdir(path.join(app, "deploy"));
       await mkdir(path.join(scratch, "sibling"), { recursive: true });
       await writeFile(path.join(app, "deploy/upgrade.sh"), "exit 99\n", { mode: 0o755 });
 
+      git("add", "deploy");
+      git("commit", "-qm", "installed driver");
+      git("branch", "installed");
+      await writeFile(path.join(app, "deploy/upgrade.sh"), 'echo "$0"\ntest "$UPGRADE_COMMIT" = "$EXPECTED_SHA" && test "$UPGRADE_REF" = "$EXPECTED_SHA" || exit 97\nexit "$1"\n', { mode: 0o755 });
+      git("commit", "-qam", "target driver");
+      const sha = git("rev-parse", "HEAD");
+      git("checkout", "-q", "installed");
+      git("remote", "add", "origin", app);
       const harness = `
         id() { echo 0; }
-        git() {
-          case " $* " in
-            *" fetch "*) return 0 ;;
-            *" show FETCH_HEAD:deploy/upgrade.sh "*) printf '%s\\n' 'echo "$0"' 'exit "$1"' ;;
-            *) return 98 ;;
-          esac
-        }
         fetched_dir="$TMPDIR/sibling"
         trap 'echo "$fetched_dir" > "$APP_DIR/outer-cleanup"' EXIT
         source "$1" "$2"
       `;
       const result = spawnSync("bash", ["-c", harness, "bash", bootstrap, String(exitCode)], {
         encoding: "utf8",
-        env: { NODE_ENV: "test", PATH: process.env.PATH, APP_DIR: app, TMPDIR: scratch, VCONTROLHUB_ACTION: "update" },
+        env: { EXPECTED_SHA: sha, BRANCH: "main", NODE_ENV: "test", PATH: process.env.PATH, APP_DIR: app, TMPDIR: scratch, VCONTROLHUB_ACTION: "update" },
       });
 
       expect(result.status, result.stderr).toBe(exitCode);
-      expect(result.stderr).toBe("");
+      expect(result.stderr).not.toContain("unbound variable");
       expect(result.stdout).toContain(scratch + path.sep);
       expect(await readdir(scratch)).toEqual(["sibling"]);
       expect((await readFile(path.join(app, "outer-cleanup"), "utf8")).trim()).toBe(path.join(scratch, "sibling"));

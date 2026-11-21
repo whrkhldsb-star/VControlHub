@@ -142,6 +142,11 @@ type BillingCsvDefaults = {
   categoryMap?: Record<string, CostCategory>;
 };
 
+export function csvNaturalKeyPrefix(date: string, product: string): string {
+  const digest = createHash("sha256").update(JSON.stringify([date, product])).digest("hex").slice(0, 24);
+  return `csv:natural:${digest}:`;
+}
+
 export function parseBillingCsv(csv: string, defaults: BillingCsvDefaults): CloudBillingLineItem[] {
   return parseBillingCsvRows(csv, defaults).items;
 }
@@ -163,7 +168,6 @@ export function parseBillingCsvRows(
 ): { items: CloudBillingLineItem[]; rejected: RejectedBillingCsvRow[] } {
   const records = parseCsvRecords(csv);
   const rejected: RejectedBillingCsvRow[] = [];
-  if (records.length < 2) return { items: [], rejected };
   const header = (records[0] ?? []).map((h) => h.toLowerCase());
   const idx = (name: string) => header.indexOf(name);
   const dateI = idx("date");
@@ -177,7 +181,7 @@ export function parseBillingCsvRows(
   const categoryI = idx("category");
   const productI = idx("product");
   const notesI = idx("notes");
-  const externalIdI = Math.max(idx("external_id"), idx("id"));
+  const externalIdI = header.includes("external_id") ? idx("external_id") : idx("id");
   const duplicateCounts = new Map<string, number>();
   const items: CloudBillingLineItem[] = [];
   const exactAmounts: Prisma.Decimal[] = [];
@@ -242,15 +246,13 @@ export function parseBillingCsvRows(
     // A provider correction commonly changes amount/category/notes. Keep the
     // fallback identity stable across those edits while preserving repeated
     // charges for the same product and day through a deterministic ordinal.
-    const naturalKeyHash = createHash("sha256")
-      .update(JSON.stringify([date, product]))
-      .digest("hex")
-      .slice(0, 24);
-    const duplicateOrdinal = (duplicateCounts.get(naturalKeyHash) ?? 0) + 1;
-    duplicateCounts.set(naturalKeyHash, duplicateOrdinal);
-    const externalId = explicitExternalId
-      ? `csv:id:${explicitExternalId}`
-      : `csv:natural:${naturalKeyHash}:${duplicateOrdinal}`;
+    let externalId = `csv:id:${explicitExternalId}`;
+    if (!explicitExternalId) {
+      const prefix = csvNaturalKeyPrefix(date, product);
+      const ordinal = (duplicateCounts.get(prefix) ?? 0) + 1;
+      duplicateCounts.set(prefix, ordinal);
+      externalId = `${prefix}${ordinal}`;
+    }
     items.push({
       externalId,
       category,
@@ -295,6 +297,7 @@ function billingCsvFetchResult(
       ),
     ],
     rejectedRows: rejected.length,
+    rowIssues: rejected.slice(0, 20).map(({ row, reason }) => ({ row, reason })),
   };
 }
 

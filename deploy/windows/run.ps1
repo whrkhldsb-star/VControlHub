@@ -20,5 +20,5 @@ if (!(Test-Path -LiteralPath $entry -PathType Leaf)) { throw "Missing $entry" }
 $logDir = Join-Path $appDir 'logs'
 New-Item -ItemType Directory -Path $logDir -Force | Out-Null
 $logFile = Join-Path $logDir ("windows-$Role.log")
-& $NodeExe "--env-file=$envFile" $entry *>> $logFile
+& $NodeExe "--env-file=$envFile" --import ./deploy/check-aria2-secret.mjs $entry *>> $logFile
 exit $LASTEXITCODE

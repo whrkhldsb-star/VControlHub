@@ -1,0 +1,11 @@
+.githooks
+.github
+agent-files
+deploy
+docker
+docs
+e2e
+prisma
+public
+scripts
+src

@@ -64,9 +64,9 @@ describe("cost budget and billing routes (cost:manage)", () => {
 		expect(await res.json()).toEqual({ result: { checked: 2, triggered: 1, notificationsSent: 1 } });
 		expect(mocks.checkBudgetAlerts).toHaveBeenCalledWith(expect.any(Date), expect.objectContaining({ currentTeamId: "team_1" }));
 
-		const synced = await sync.POST(req("POST", "http://local/api/cost/billing-accounts/b_1/sync", { month: "2026-10" }), { params });
+		const synced = await sync.POST(req("POST", "http://local/api/cost/billing-accounts/b_1/sync", { month: "2026-10", confirmLegacyDuplicates: true }), { params });
 		expect(synced.status).toBe(200);
-		expect(mocks.syncCloudBillingAccount).toHaveBeenCalledWith("b_1", "2026-10", expect.objectContaining({ currentTeamId: "team_1" }));
+		expect(mocks.syncCloudBillingAccount).toHaveBeenCalledWith("b_1", "2026-10", expect.objectContaining({ currentTeamId: "team_1" }), true);
 		expect(mocks.auditUserAction).toHaveBeenCalledWith("u_cust", "cost.billing_account.sync", expect.objectContaining({ accountId: "b_1", month: "2026-10", imported: 3 }), undefined, "team_1");
 		expect((await sync.POST(req("POST", "http://local/api/cost/billing-accounts/b_1/sync", { month: "2026-13" }), { params })).status).toBe(400);
 	});

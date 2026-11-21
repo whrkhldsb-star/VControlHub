@@ -1,6 +1,6 @@
 // @vitest-environment node
 import { randomUUID } from "node:crypto";
-import { afterAll, beforeAll, describe, expect, it } from "vitest";
+import { afterAll, beforeAll, describe, expect, it, vi } from "vitest";
 
 import { prisma } from "@/lib/db";
 import { listRecentSnapshots, syncServerMonthlyCosts } from "../service-entries";
@@ -36,7 +36,8 @@ describe.skipIf(process.env.RUN_DATABASE_INTEGRATION_TESTS !== "1")("monthly ser
 	});
 
 	it("excludes a future charge from recent days and keeps it in its billing month", async () => {
-		const today = new Date().toISOString().slice(0, 10);
+		vi.setSystemTime(new Date("2026-11-20T17:00:00Z"));
+		const today = "2026-11-21";
 		const session = { userId: prefix, roles: ["operator" as const], currentTeamId: live };
 		await prisma.costEntry.createMany({ data: [today, "2099-12-31"].map(day => ({
 			effectiveDate: new Date(day), category: "storage", provider: prefix, amount: "1", teamId: live, sourceRef: prefix + "-trend",

@@ -240,7 +240,7 @@ describe("cost routes", () => {
 			const res = await accountSync.POST(req("POST", { month: "2026-08" }), idParams);
 
 			expect(res.status).toBe(200);
-			expect(mocks.billing.syncCloudBillingAccount).toHaveBeenCalledWith("acct_1", "2026-08", session);
+			expect(mocks.billing.syncCloudBillingAccount).toHaveBeenCalledWith("acct_1", "2026-08", session, undefined);
 			expect(mocks.auditUserAction).toHaveBeenCalledWith(
 				"u_1",
 				"cost.billing_account.sync",
@@ -258,7 +258,7 @@ describe("cost routes", () => {
 
 		it("defaults to the current month when none is given", async () => {
 			await accountSync.POST(req("POST", {}), idParams);
-			expect(mocks.billing.syncCloudBillingAccount).toHaveBeenCalledWith("acct_1", undefined, session);
+			expect(mocks.billing.syncCloudBillingAccount).toHaveBeenCalledWith("acct_1", undefined, session, undefined);
 		});
 	});
 
@@ -339,16 +339,16 @@ describe("cost routes", () => {
 describe("billing account config for readers", () => {
 	it("leaves out the CSV sample and the feed URL for a session that may only read costs", async () => {
 		// The feed URL often carries a signed token and the sample is whatever was pasted in: inputs of the manager.
-		const stored = { ...accountView, config: { region: "ap-southeast-1", sampleCsv: "date,amount\n2026-10-01,3.5", billingCsvUrl: "https://billing.example.com/export.csv?sig=secret" } };
+		const stored = { ...accountView, lastSyncStatus: "partial", lastSyncSkipped: 1, lastSyncIssues: [{ row: 2, reason: "date" }], lastSyncError: "supplier-private", config: { region: "ap-southeast-1", sampleCsv: "date,amount\n2026-10-01,3.5", billingCsvUrl: "https://billing.example.com/export.csv?sig=secret" } };
 		mocks.billing.listCloudBillingAccounts.mockResolvedValueOnce([stored]);
 		mocks.billing.getCloudBillingAccount.mockResolvedValueOnce(stored);
 		const reader = session as { permissions?: string[] };
 		reader.permissions = ["cost:read"];
 		try {
 			const list = await accounts.GET(req("GET"));
-			expect(await list.json()).toEqual({ accounts: [{ ...accountView, config: { region: "ap-southeast-1" } }] });
+			expect(await list.json()).toEqual({ accounts: [{ ...stored, lastSyncError: "CSV #2 (date)", config: { region: "ap-southeast-1" } }] });
 			const one = await accountItem.GET(req("GET"), idParams);
-			expect(await one.json()).toEqual({ account: { ...accountView, config: { region: "ap-southeast-1" } } });
+			expect(await one.json()).toEqual({ account: { ...stored, lastSyncError: "CSV #2 (date)", config: { region: "ap-southeast-1" } } });
 		} finally {
 			delete reader.permissions;
 		}

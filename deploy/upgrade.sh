@@ -7,12 +7,13 @@ set -euo pipefail
 SCRIPT_DIR="$(cd "$(dirname "${BASH_SOURCE[0]}")" && pwd)"
 APP_DIR="${APP_DIR:-$(cd "${SCRIPT_DIR}/.." && pwd)}"
 APP_NAME="${APP_NAME:-${APP_SLUG:-VControlHub}}"
-ENV_FILE="${ENV_FILE:-${APP_DIR}/.env.local}"
+ENV_FILE="$(realpath -ms -- "${ENV_FILE:-${APP_DIR}/.env.local}")"
 BACKUP_DIR="${BACKUP_DIR:-${APP_DIR}/backups}"
 SKIP_PRE_BACKUP="${SKIP_PRE_BACKUP:-0}"
 SKIP_POST_CHECK="${SKIP_POST_CHECK:-0}"
 SKIP_PULL="${SKIP_PULL:-0}"
 UPGRADE_REF="${UPGRADE_REF:-main}"
+readonly pinned_commit="${UPGRADE_COMMIT:-}"
 CHECK_PUBLIC_URL="${CHECK_PUBLIC_URL:-}"
 
 log() { printf '\033[1;32m[upgrade]\033[0m %s\n' "$*"; }
@@ -26,7 +27,12 @@ fail() { printf '\033[1;31m[upgrade]\033[0m %s\n' "$*" >&2; exit 1; }
 load_env_for_defaults() {
   [ -f "${ENV_FILE}" ] || return 0
   # shellcheck disable=SC1090
-  set -a; source "${ENV_FILE}"; set +a
+  # Let Next apply its production file precedence. A separate ENV_FILE is
+  # an explicit process environment, also used by the migration commands.
+  case "${ENV_FILE}" in
+    "${APP_DIR}/.env"|"${APP_DIR}/.env.local"|"${APP_DIR}/.env.production"|"${APP_DIR}/.env.production.local") source "${ENV_FILE}" ;;
+    *) set -a; source "${ENV_FILE}"; set +a ;;
+  esac
 
   # DOMAIN was not persisted by installers released before the lifecycle menu.
   # Recover it from the first configured public SSH WebSocket origin so those
@@ -77,38 +83,90 @@ run_pre_upgrade_backup() {
   APP_DIR="${APP_DIR}" ENV_FILE="${ENV_FILE}" BACKUP_DIR="${BACKUP_DIR}" "${backup_script}" "${output}"
 }
 
-is_shared_env_path() {
-  [[ $1 == .env* && $1 != .env.example ]]
+# Prisma, npm and the migration preflight do not use Next's environment
+# loader. Keep the selected installation environment for these commands.
+with_install_env() (
+  set -a
+  source "${ENV_FILE}"
+  set +a
+  "$@"
+)
+
+if [[ ! -f ${SCRIPT_DIR}/lib/release-paths.sh ]]; then
+  # Previously installed bootstraps extracted only upgrade.sh into a temporary
+  # directory. Recover its companion files from the same authenticated fetch.
+  [[ -d ${APP_DIR}/.git && ${SKIP_PULL} != 1 ]] || fail "Missing upgrade driver libraries"
+  driver_commit="$(git_app rev-parse --verify "${pinned_commit:-FETCH_HEAD}^{commit}")"
+  [[ "$(git_app rev-parse "${driver_commit}:deploy/upgrade.sh")" == "$(git_app hash-object --stdin < "${BASH_SOURCE[0]}")" ]] ||
+    fail "Fetched commit does not match the upgrade driver"
+  driver_bundle="$(mktemp -d)"
+  trap 'rm -rf -- "${driver_bundle}"' EXIT
+  git_app archive "${driver_commit}" deploy | tar -C "${driver_bundle}" -xf -
+  [[ -f ${driver_bundle}/deploy/lib/release-paths.sh ]] || fail "Missing libraries in the fetched release"
+  APP_DIR="${APP_DIR}" UPGRADE_COMMIT="${driver_commit}" bash "${driver_bundle}/deploy/upgrade.sh" "$@"
+  exit
+fi
+source "${SCRIPT_DIR}/lib/release-paths.sh"
+source "${SCRIPT_DIR}/lib/listen-address.sh"
+
+discover_archive_state() {
+  local path name
+  [[ ${SOURCE_DIR:-${APP_DIR}} -ef ${APP_DIR} ]] || return 0
+  for path in "${APP_DIR}"/* "${APP_DIR}"/.[!.]* "${APP_DIR}"/..?*; do
+    [[ -d ${path} || -L ${path} ]] || continue
+    name=${path##*/}
+    case "${name}" in .git|.next*|dist|node_modules*) continue ;; esac
+    if [[ -d ${APP_DIR}/.git ]]; then
+      [[ -z "$(git_app ls-files -- "${name}")" ]] || continue
+    elif grep -Fxq -- "${name}" "${SCRIPT_DIR}/lib/release-directories.txt"; then
+      continue
+    fi
+    shared+=("${name}")
+  done
 }
 
 prepare_source() {
-  local source_dir="${SOURCE_DIR:-${APP_DIR}}" remote sha dirty
+  local source_dir="${SOURCE_DIR:-${APP_DIR}}" sha dirty
   if [[ ${SKIP_PULL} != 1 && -d ${APP_DIR}/.git ]]; then
-    dirty="$(git_app status --porcelain -- . ':(exclude)docs/route-catalog.json')"
+    dirty="$(git_app status --porcelain -- . ':(exclude)docs/route-catalog.json' ':(top,exclude,glob).env*')$(git_app status --porcelain -- .env.example)"
     [[ -z ${dirty} ]] || fail "Working tree has local changes. Commit/stash them or run with SKIP_PULL=1."
-    git_app fetch origin "${UPGRADE_REF}"
-    sha="$(git_app rev-parse --verify 'FETCH_HEAD^{commit}')"
+    if [[ -n ${pinned_commit} ]]; then
+      [[ ${pinned_commit} =~ ^([a-f0-9]{40}|[a-f0-9]{64})$ ]] || fail "Invalid pinned upgrade commit"
+      sha="$(git_app rev-parse --verify "${pinned_commit}^{commit}")"
+      [[ ${sha} == "${pinned_commit}" ]] || fail "Pinned upgrade commit mismatch"
+    else
+      git_app fetch origin "${UPGRADE_REF}"
+      sha="$(git_app rev-parse --verify 'FETCH_HEAD^{commit}')"
+    fi
     git_app merge-base --is-ancestor HEAD "${sha}" || fail "Upgrade must fast-forward the installed commit"
-    remote="$(git_app remote get-url origin)"
-    git clone --quiet --no-checkout --no-local --branch "${UPGRADE_REF}" -- "${remote}" "${candidate}"
-    git -C "${candidate}" reset --hard "${sha}"
+    # Keep the authenticated fetch, including shallow history and repository-local
+    # transport settings. All checkout writes target the private candidate.
+    cp -a --no-preserve=ownership -- "${APP_DIR}/.git" "${candidate}/.git"
+    local repo=(git --git-dir="${candidate}/.git" --work-tree="${candidate}")
+    "${repo[@]}" reset --hard "${sha}"
+    [[ "$("${repo[@]}" rev-parse HEAD)" == "${sha}" ]] || fail "Candidate commit mismatch"
   else
-    # Archive installs may supply the unpacked release via SOURCE_DIR.
-    local excludes=(--exclude='./.next*' --exclude='./node_modules*' --exclude='./dist*' --no-wildcards)
-    local path name
-    for path in "${source_dir}"/.env*; do
-      name="${path##*/}"
-      if is_shared_env_path "${name}"; then excludes+=("--exclude=./${name}"); fi
-    done
+    discover_archive_state
+    local excludes=(--exclude='./.next*' --exclude='./node_modules*' --exclude='./dist*')
+    local name
+    tar_env_excludes "${source_dir}" excludes
     for name in "${shared[@]}"; do excludes+=("--exclude=./${name}"); done
     tar -C "${source_dir}" "${excludes[@]}" -cf - . | tar -C "${candidate}" -xf -
   fi
 }
 
+clear_candidate_env() {
+  local path
+  for path in "${candidate}"/.env*; do
+    if is_shared_env_path "${path##*/}"; then rm -rf -- "${path}"; fi
+  done
+}
+
 prepare_release() {
   prepare_source
+  clear_candidate_env
   local env_name
-  for env_name in .env .env.local .env.runtime .env.production; do
+  for env_name in .env .env.local .env.runtime .env.production .env.production.local; do
     if [[ -f ${APP_DIR}/${env_name} ]]; then
       install -m 600 "${APP_DIR}/${env_name}" "${candidate}/${env_name}"
     fi
@@ -116,10 +174,10 @@ prepare_release() {
   (
     cd "${candidate}"
     if [[ ${SKIP_BUILD:-0} != 1 ]]; then
-      npm ci --include=dev
-      npm run prisma:generate
+      with_install_env npm ci --include=dev
+      with_install_env npm run prisma:generate
       VCONTROLHUB_ALLOW_BUILD=1 NEXT_TELEMETRY_DISABLED=1 npm run build
-      npm run build:runtime
+      with_install_env npm run build:runtime
       rm -rf -- .next/cache
     else
       # Only an explicitly supplied prebuilt release can skip building.
@@ -130,7 +188,7 @@ prepare_release() {
     for file in .next/BUILD_ID dist/server.js dist/worker.js dist/ssh-ws-proxy.js; do
       [[ -s ${file} ]] || fail "Missing release artifact: ${file}"
     done
-    if [[ ${SKIP_DB_SETUP:-0} != 1 ]]; then node deploy/check-upgrade-migrations.mjs; fi
+    if [[ ${SKIP_DB_SETUP:-0} != 1 ]]; then with_install_env node deploy/check-upgrade-migrations.mjs; fi
   )
   # The application owns its runtime tree and the DynamicUser gateway reads its bundles.
   chown -R --reference="${APP_DIR}" "${candidate}"
@@ -164,16 +222,15 @@ plan_shared_paths() {
     [[ ! -v 'planned[$name]' ]] || continue
     planned["${name}"]=1
     path="${candidate}/${name}"
-    if [[ -L ${path} ]]; then
+    if is_shared_env_path "${name}"; then
+      : # temporary build copies are removed together immediately before cutover
+    elif [[ -L ${path} ]]; then
       fail "Release collides with persistent path: ${name}"
     elif [[ -d ${path} ]]; then
       [[ ! -f ${path}/.gitkeep ]] || rm -- "${path}/.gitkeep"
       rmdir -- "${path}" || fail "Nonempty release directory collides with persistent path: ${name}"
     elif [[ -e ${path} ]]; then
-      case "${name}" in
-        .env|.env.local|.env.runtime|.env.production) rm -- "${path}" ;;
-        *) fail "Release collides with persistent file: ${name}" ;;
-      esac
+      fail "Release collides with persistent file: ${name}"
     fi
     [[ "$(stat -c %d "${APP_DIR}/${name}")" == "${device}" ]] || fail "Mounted data needs a manual upgrade: ${name}"
     persistent+=("${name}")
@@ -294,9 +351,10 @@ main() {
   backup_state="$(systemctl show "${prefix}-backup.service" -p ActiveState --value)"
   [[ ${backup_state} == inactive || ${backup_state} == failed ]] || fail "Backup service is busy"
   if [[ ${SKIP_DB_SETUP:-0} != 1 ]]; then
-    (cd "${candidate}" && npm run prisma:deploy)
-    if [[ ${SKIP_SEED:-0} != 1 ]]; then (cd "${candidate}" && npm run db:seed); fi
+    (cd "${candidate}" && with_install_env npm run prisma:deploy && with_install_env npm exec --no -- tsx deploy/prepare-cost-ledger.ts)
+    if [[ ${SKIP_SEED:-0} != 1 ]]; then (cd "${candidate}" && with_install_env npm run db:seed); fi
   fi
+  clear_candidate_env
   for name in "${persistent[@]}"; do mv -T -- "${APP_DIR}/${name}" "${candidate}/${name}"; done
   mv -T -- "${APP_DIR}" "${old}"
   mv -T -- "${candidate}" "${APP_DIR}"
@@ -306,7 +364,7 @@ main() {
     for unit in "${active_units[@]}"; do
       [[ ${unit} != "${prefix}-aria2.service" ]] || systemctl start "${unit}"
     done
-    curl --retry 15 --retry-delay 2 --retry-connrefused --max-time 5 -fsS "http://${NEXT_HOST:-127.0.0.1}:${NEXT_PORT:-3000}/login" >/dev/null
+    curl --retry 15 --retry-delay 2 --retry-connrefused --max-time 5 -fsS "$(web_health_url "${APP_DIR}" "${ENV_FILE}")" >/dev/null
     if [[ ${SKIP_POST_CHECK} != 1 ]]; then
       APP_DIR="${APP_DIR}" ENV_FILE="${ENV_FILE}" SERVICE_PREFIX="${prefix}" CHECK_PUBLIC_URL="${CHECK_PUBLIC_URL}" "${APP_DIR}/deploy/check.sh"
     fi

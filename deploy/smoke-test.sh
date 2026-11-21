@@ -76,7 +76,10 @@ if [ -z "${TARGET}" ] && [ -n "${SMOKE_TARGET:-}" ]; then
     TARGET="${SMOKE_TARGET}"
 fi
 if [ -z "${TARGET}" ] && [ -n "${SSH_WS_ALLOWED_ORIGINS:-}" ]; then
-    TARGET="$(printf '%s' "${SSH_WS_ALLOWED_ORIGINS}" | tr ',' '\n' | grep -E '^https?://[^/]+\.[^/]+' | grep -Ev '^https?://(localhost|127\.|0\.0\.0\.0|\[?::1)' | head -1 | sed -E 's#^https?://([^/]+).*#\1#')"
+    TARGET="$(printf '%s' "${SSH_WS_ALLOWED_ORIGINS}" | tr ',' '\n' | awk '
+        /^https?:\/\/[^/]+\.[^/]+/ && !/^https?:\/\/(localhost|127\.|0\.0\.0\.0|\[?::1)/ && !found {
+            sub(/^https?:\/\//, ""); sub(/\/.*/, ""); print; found=1
+        }')"
 fi
 if [ -z "${TARGET}" ] && run_systemd_checks; then
     TARGET="$(ip -4 addr show scope global 2>/dev/null | grep -oP 'inet \K[0-9.]+' | head -1)" || true

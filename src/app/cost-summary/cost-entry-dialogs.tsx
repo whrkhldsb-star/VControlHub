@@ -11,7 +11,7 @@ import { ConfirmDialog } from "@/components/confirm-dialog";
 type T = (key: string, vars?: Record<string, string | number>) => string;
 type CostForm = { category: CostCategory; provider: string; amount: string; currency: CostCurrency; effectiveDate: string; notes: string };
 
-export function CostEntryFormModal({ open, editingId, form, availableCurrencies, saving, error, setForm, setShowForm, setEditingId, submitForm, t }: { open: boolean; editingId: string | null; error?: string | null; form: CostForm; availableCurrencies: CostCurrency[]; saving: boolean; setForm: Dispatch<SetStateAction<CostForm>>; setShowForm: Dispatch<SetStateAction<boolean>>; setEditingId: Dispatch<SetStateAction<string | null>>; submitForm: () => void; t: T }) {
+export function CostEntryFormModal({ open, editingId, sourceDateLocked, adjustmentTitle, form, availableCurrencies, saving, error, setForm, setShowForm, setEditingId, submitForm, t }: { open: boolean; editingId: string | null; sourceDateLocked: boolean; adjustmentTitle?: string; error?: string | null; form: CostForm; availableCurrencies: CostCurrency[]; saving: boolean; setForm: Dispatch<SetStateAction<CostForm>>; setShowForm: Dispatch<SetStateAction<boolean>>; setEditingId: Dispatch<SetStateAction<string | null>>; submitForm: () => void; t: T }) {
 	return (
 		<Dialog
 			size="md"
@@ -19,7 +19,7 @@ export function CostEntryFormModal({ open, editingId, form, availableCurrencies,
 			onClose={() => setShowForm(false)}
 			closeOnBackdrop={false}
 			busy={saving}
-			title={editingId ? t("costPage.form.editTitle") : t("costPage.form.title")}
+			title={adjustmentTitle ?? (editingId ? t("costPage.form.editTitle") : t("costPage.form.title"))}
 			footer={<>
 				<ActionButton variant="secondary"
 					onClick={() => {
@@ -88,6 +88,7 @@ export function CostEntryFormModal({ open, editingId, form, availableCurrencies,
 				<FormField label={t("costPage.form.effectiveDate")} htmlFor="cost-effective-date">
 					<input
 						id="cost-effective-date"
+						disabled={sourceDateLocked}
 						type="date"
 						className={inputClass}
 						value={form.effectiveDate}

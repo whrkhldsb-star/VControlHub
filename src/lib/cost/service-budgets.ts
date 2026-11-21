@@ -1,10 +1,11 @@
+import { claimBudgetDeliveries, ensureBudgetDeliveryTable } from "./budget-deliveries";
 import { wallClockInAppTimeZone } from "@/lib/datetime/time-zone";
 import { Prisma } from "@prisma/client";
 import { liveCustomerRowsWhere, teamCreateData, teamWhere } from "@/lib/auth/team-scope";
 import { prisma } from "@/lib/db";
 import { NotFoundError } from "@/lib/errors";
 import { t } from "@/lib/i18n/service-translations";
-import { createNotification } from "@/lib/notification/service";
+import { announceStoredNotifications, notificationContentData } from "@/lib/notification/service";
 import { createCostBudgetSchema, updateCostBudgetSchema } from "./schema";
 import type { CostBudgetPeriod, CostBudgetRecord, CostCategory, CostCurrency, CostCurrencyBucket } from "./types";
 import { DEFAULT_CURRENCY, isoDateOnly, type TeamSession } from "./service-internals";
@@ -51,10 +52,10 @@ async function loadBudgetUsage(rows: Array<BudgetRow & { teamId?: string | null 
 			const mine = grouped.filter((entry) => entry.category === row.category && (entry.teamId ?? null) === (row.teamId ?? null));
 			const own = mine.find((entry) => entry.currency === row.currency);
 			usage.set(row.id, {
-				amount: (Number(own?._sum.amount?.toString() ?? "0") || 0).toFixed(2),
+				amount: own?._sum.amount?.toFixed(2) ?? "0.00",
 				others: mine
 					.filter((entry) => entry.currency !== row.currency)
-					.map((entry) => ({ currency: entry.currency as CostCurrency, totalAmount: (Number(entry._sum.amount?.toString() ?? "0") || 0).toFixed(2), entryCount: entry._count._all }))
+					.map((entry) => ({ currency: entry.currency as CostCurrency, totalAmount: entry._sum.amount?.toFixed(2) ?? "0.00", entryCount: entry._count._all }))
 					.sort((a, b) => a.currency.localeCompare(b.currency)),
 			});
 		}
@@ -67,7 +68,11 @@ async function budgetToRecord(row: BudgetRow & { teamId?: string | null }, now =
 	const usage = preloaded ?? (await loadBudgetUsage([row], now)).get(row.id) ?? { amount: "0.00", others: [] };
 	const otherCurrencyUsage = usage.others;
 	const usageAmount = usage.amount; const limitAmount = row.limitAmount.toFixed(2);
-	return { id: row.id, category: row.category as CostCategory, name: row.name, limitAmount, currency: row.currency as CostCurrency, period: row.period as CostBudgetPeriod, alertThresholdPercent: row.alertThresholdPercent, enabled: row.enabled, usageAmount, usagePercent: Number(((Number(usageAmount) / Number(limitAmount)) * 100).toFixed(1)), periodStart: isoDateOnly(range.start), periodEnd: isoDateOnly(new Date(range.endExclusive.getTime() - 1)), otherCurrencyUsage, teamId: row.teamId ?? null, createdAt: row.createdAt.toISOString(), updatedAt: row.updatedAt.toISOString() };
+	const used = new Prisma.Decimal(usageAmount);
+	const percentNumerator = used.times(100);
+	const usageStatus = used.gte(limitAmount) ? "exhausted"
+		: percentNumerator.gte(new Prisma.Decimal(limitAmount).times(row.alertThresholdPercent)) ? "threshold" : "within";
+	return { id: row.id, category: row.category as CostCategory, name: row.name, limitAmount, currency: row.currency as CostCurrency, period: row.period as CostBudgetPeriod, alertThresholdPercent: row.alertThresholdPercent, enabled: row.enabled, usageAmount, usageStatus, usagePercent: percentNumerator.div(limitAmount).toDecimalPlaces(1).toNumber(), periodStart: isoDateOnly(range.start), periodEnd: isoDateOnly(new Date(range.endExclusive.getTime() - 1)), otherCurrencyUsage, teamId: row.teamId ?? null, createdAt: row.createdAt.toISOString(), updatedAt: row.updatedAt.toISOString() };
 }
 
 export async function createCostBudget(input: unknown, session?: TeamSession | null): Promise<CostBudgetRecord> {
@@ -98,24 +103,42 @@ export async function deleteCostBudget(id: string, session?: TeamSession | null)
 	await prisma.costBudget.delete({ where: { id } });
 }
 
-async function listCostBudgetAlertManagers(teamId: string | null | undefined) {
-	// The customer's cost managers plus platform administrators; a null-team
-	// (legacy) budget only reaches administrators.
-	return prisma.user.findMany({ where: { status: { not: "DISABLED" }, ...permissionHoldersWhere("cost:manage", teamId) }, select: { id: true }, take: 1000 });
-}
 export async function checkBudgetAlerts(now = new Date(), session?: TeamSession | null) {
-	const budgets = await listCostBudgets(now, session); let triggered = 0; let notificationsSent = 0; let duplicatesSkipped = 0;
+	const budgets = await listCostBudgets(now, session);
+	let triggered = 0, notificationsSent = 0, duplicatesSkipped = 0;
 	for (const budget of budgets) {
-		if (!budget.enabled || budget.usagePercent < budget.alertThresholdPercent) continue; triggered += 1;
+		if (!budget.enabled || budget.usageStatus === "within") continue;
+		if (!triggered) await ensureBudgetDeliveryTable();
+		triggered++;
 		const actionUrl = `/cost-summary?budget=${budget.id}&periodStart=${budget.periodStart}`;
-		// One alert per budget period and person: a manual check overlapping
-		// another (or the daily worker) both found none sent and both sent one.
 		const release = await acquireAdvisoryLock("cost-budget-alert", `${budget.id}:${budget.periodStart}`);
 		try {
-			for (const manager of await listCostBudgetAlertManagers(budget.teamId)) {
-				if (await prisma.notification.findFirst({ where: { userId: manager.id, type: "system", actionUrl } })) { duplicatesSkipped += 1; continue; }
-				await createNotification({ userId: manager.id, type: "system", notice: { code: "costBudgetAlert", params: { budget: budget.name, used: budget.usageAmount, currency: budget.currency, percent: budget.usagePercent, threshold: budget.alertThresholdPercent, limit: budget.limitAmount } }, actionUrl, teamId: budget.teamId ?? null }); notificationsSent += 1;
-			}
+			const content = notificationContentData({ notice: { code: "costBudgetAlert", params: {
+				budget: budget.name, used: budget.usageAmount, currency: budget.currency,
+				percent: budget.usagePercent, threshold: budget.alertThresholdPercent, limit: budget.limitAmount,
+			} } });
+			let after: string | undefined;
+			do {
+				const managers: { id: string }[] = await prisma.user.findMany({
+					where: { status: { not: "DISABLED" }, ...permissionHoldersWhere("cost:manage", budget.teamId),
+						...(after ? { id: { gt: after } } : {}) },
+					orderBy: { id: "asc" }, select: { id: true }, take: 1000,
+				});
+				if (!managers.length) break;
+				const stored = await prisma.$transaction(async (tx) => {
+					const users = await claimBudgetDeliveries(tx, budget.id, budget.periodStart, managers.map(row => row.id));
+					if (!users.length) return [];
+					// Adopt pre-upgrade deliveries while their inbox rows still exist.
+					const legacy = await tx.notification.findMany({ where: { type: "system", actionUrl, userId: { in: users } }, select: { userId: true } });
+					const sent = new Set(legacy.map(row => row.userId));
+					const data = users.filter(id => !sent.has(id)).map(userId => ({ userId, type: "system", ...content, actionUrl, teamId: budget.teamId ?? null }));
+					return data.length ? tx.notification.createManyAndReturn({ data }) : [];
+				});
+				await announceStoredNotifications(stored);
+				notificationsSent += stored.length;
+				duplicatesSkipped += managers.length - stored.length;
+				after = managers.length === 1000 ? managers[managers.length - 1]!.id : undefined;
+			} while (after);
 		} finally {
 			await release();
 		}

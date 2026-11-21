@@ -1,7 +1,7 @@
 import { apiCopy } from "@/lib/i18n/api-copy";
 /**
  * POST /api/cost/billing-accounts/[id]/sync
- * Body: { month?: "YYYY-MM" }
+ * Body: { month?: "YYYY-MM", confirmLegacyDuplicates?: boolean }
  * Permission: cost:manage
  */
 import { NextResponse } from "next/server";
@@ -28,13 +28,14 @@ export async function POST(request: Request, context: RouteContext) {
 			errorMessage: apiCopy("apiCopy.failed.to.sync.cloud.billing.account.abbc5a5c"),
 		},
 		async ({ session, body }) => {
-			const result = await syncCloudBillingAccount(id, body.month, session);
+			const result = await syncCloudBillingAccount(id, body.month, session, body.confirmLegacyDuplicates);
 			await auditUserAction(session.userId, "cost.billing_account.sync", {
 				accountId: id,
 				month: result.run.month,
 				imported: result.imported,
 				skipped: result.skipped,
 				status: result.run.status,
+				...(body.confirmLegacyDuplicates ? { confirmedLegacyDuplicates: true } : {}),
 			}, undefined, session.currentTeamId);
 			return NextResponse.json({ result });
 		},

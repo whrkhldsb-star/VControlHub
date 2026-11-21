@@ -72,6 +72,7 @@ function insertCostEntry(data: NewCostEntry) {
 
 function makePrismaMock() {
 	return {
+		$queryRaw: vi.fn().mockResolvedValue([{ id: "srv_1" }]),
 		costEntry: {
 			create: vi.fn(async ({ data }: { data: NewCostEntry }) => insertCostEntry(data)),
 			createMany: vi.fn(async ({ data }: { data: NewCostEntry; skipDuplicates: true }) => {
@@ -230,6 +231,11 @@ function makePrismaMock() {
 			),
 		},
 		server: {
+			findFirst: vi.fn(async ({ where }: { where: { AND: [unknown, { id: string; teamId: string | null }] } }) => {
+				const { id, teamId } = where.AND[1];
+				const row = store.servers.get(id);
+				return row?.enabled && row.costAutoSync && row.teamId === teamId ? row : null;
+			}),
 			findMany: vi.fn(async ({ where }: { where?: { enabled?: boolean; costAutoSync?: boolean; costMonthlyAmount?: { not: null } } }) => {
 				let rows = Array.from(store.servers.values());
 				if (where?.enabled !== undefined) rows = rows.filter((row) => row.enabled === where.enabled);
@@ -630,6 +636,19 @@ describe("syncServerMonthlyCosts", () => {
 		store.servers.set(original.id, { ...original, updatedAt: new Date() });
 		expect((await syncServerMonthlyCosts("2026-05")).skipped).toBe(1);
 		expect(syncedRows()).toHaveLength(0);
+	});
+
+	it("reads the new rate under the row lock when an old fleet scan resumes", async () => {
+		const original = server({ costMonthlyAmount: { toFixed: () => "10.00" } });
+		store.servers.set(original.id, { ...original, costMonthlyAmount: { toFixed: () => "20.00" } });
+		await syncServerMonthlyCosts();
+		prismaMock.server.findMany.mockResolvedValueOnce([original]);
+		await syncServerMonthlyCosts();
+		expect(String(syncedRows()[0]?.amount)).toBe("20");
+		store.servers.set(original.id, { ...original, costAutoSync: false });
+		prismaMock.server.findMany.mockResolvedValueOnce([original]);
+		expect((await syncServerMonthlyCosts()).synced).toBe(0);
+		expect(String(syncedRows()[0]?.amount)).toBe("20");
 	});
 
 	it("skips disabled or unconfigured servers", async () => {
