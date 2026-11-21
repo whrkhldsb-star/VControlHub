@@ -19,7 +19,6 @@ import {
 	mkdir,
 	readdir,
 	readFile,
-	rename,
 	rm,
 	writeFile,
 } from "node:fs/promises";
@@ -56,6 +55,25 @@ function sessionDir(sessionId: string): string {
 
 function chunkPath(sessionId: string, index: number): string {
 	return path.join(sessionDir(sessionId), `chunk-${index}`);
+}
+
+// A session from before immutable chunks uses chunk-N until that index is retransmitted.
+type ChunkRef = { version: string; sha256: string };
+function chunkVersions(metadata: Prisma.JsonValue | null): Record<string, ChunkRef> {
+	if (!metadata || typeof metadata !== "object" || Array.isArray(metadata) || !metadata.chunkVersions) return {};
+	const refs = metadata.chunkVersions;
+	if (typeof refs !== "object" || Array.isArray(refs)) throw new MediaUploadError("chunk_invalid", "Invalid chunk manifest");
+	for (const ref of Object.values(refs)) {
+		if (!ref || typeof ref !== "object" || Array.isArray(ref) || typeof ref.version !== "string" ||
+			!/^[-0-9a-f]{36}$/.test(ref.version) || typeof ref.sha256 !== "string" || !/^[0-9a-f]{64}$/.test(ref.sha256)) {
+			throw new MediaUploadError("chunk_invalid", "Invalid chunk reference");
+		}
+	}
+	return refs as Record<string, ChunkRef>;
+}
+
+function storedChunkPath(sessionId: string, index: number, ref?: ChunkRef) {
+	return chunkPath(sessionId, index) + (ref ? "." + ref.version : "");
 }
 
 function ttlExpiry(ttlMs: number): Date {
@@ -284,15 +302,15 @@ export async function appendMediaUploadChunk(params: {
 		);
 	}
 
-	// Stage the body before acquiring a database lock. Only the atomic rename
-	// and metadata update run under the session row lock, which is also taken
-	// by finalization/cancellation updates on every Web process.
 	await mkdir(sessionDir(sessionId), { recursive: true, mode: 0o700 });
 	await assertUploadDiskReserve(size);
-	const temporaryPath = `${chunkPath(sessionId, index)}.${crypto.randomUUID()}.tmp`;
+	const ref = { version: crypto.randomUUID(), sha256: crypto.createHash("sha256").update(buffer).digest("hex") };
+	const staged = storedChunkPath(sessionId, index, ref);
+	await writeFile(staged, buffer, { flag: "wx", mode: 0o600 });
+	let oldPath: string | undefined;
+	let commitPending = false;
 	try {
-		await writeFile(temporaryPath, buffer, { flag: "wx", mode: 0o600 });
-		return await prisma.$transaction(async (tx) => {
+		const result = await prisma.$transaction(async (tx) => {
 			await tx.$queryRaw`
 				SELECT id FROM media_upload_sessions
 				WHERE id = ${sessionId} AND "userId" = ${userId} AND "teamBound" AND "teamId" IS NOT DISTINCT FROM ${teamId}
@@ -301,6 +319,8 @@ export async function appendMediaUploadChunk(params: {
 			const snapshot = await tx.mediaUploadSession.findFirst({ where: { id: sessionId, userId, teamId, teamBound: true } });
 			if (!snapshot) throw new MediaUploadError("session_not_found", "Upload session not found");
 			assertSessionAcceptsChunks(snapshot);
+			const refs = chunkVersions(snapshot.recoveryMetadata);
+			if (snapshot.receivedChunks.includes(index)) oldPath = storedChunkPath(sessionId, index, refs[index]);
 			const nextReceived = Array.from(new Set([...snapshot.receivedChunks, index])).sort((a, b) => a - b);
 			const updated = await tx.mediaUploadSession.updateMany({
 				where: {
@@ -308,7 +328,7 @@ export async function appendMediaUploadChunk(params: {
 					status: { in: ["PENDING", "UPLOADING"] },
 					expiresAt: { gt: new Date() },
 				},
-				data: { receivedChunks: nextReceived, status: "UPLOADING" },
+				data: { receivedChunks: nextReceived, status: "UPLOADING", recoveryMetadata: { chunkVersions: { ...refs, [index]: ref } } },
 			});
 			if (updated.count !== 1) {
 				const current = await tx.mediaUploadSession.findFirst({ where: { id: sessionId, userId, teamId, teamBound: true } });
@@ -316,13 +336,16 @@ export async function appendMediaUploadChunk(params: {
 				assertSessionAcceptsChunks(current);
 				throw new MediaUploadError("chunk_append_conflict", "Upload session changed; please retry");
 			}
-			// A finalizer cannot claim FINALIZING between this validation and
-			// rename. Duplicate indices must take the same lock as new chunks.
-			await rename(temporaryPath, chunkPath(sessionId, index));
-			return toView(await tx.mediaUploadSession.findUniqueOrThrow({ where: { id: sessionId } }));
+			const view = toView(await tx.mediaUploadSession.findUniqueOrThrow({ where: { id: sessionId } }));
+			commitPending = true;
+			return view;
 		});
-	} finally {
-		await rm(temporaryPath, { force: true });
+		if (oldPath) await rm(oldPath, { force: true }).catch(error => logError("upload:old-chunk-cleanup", error));
+		return result;
+	} catch (error) {
+		// A lost COMMIT reply may still have published this reference. Session cleanup owns ambiguous versions.
+		if (!commitPending) await rm(staged, { force: true }).catch(() => undefined);
+		throw error;
 	}
 }
 
@@ -346,6 +369,7 @@ export async function assembleMediaUploadChunks(
 	if (row.expiresAt.getTime() < Date.now()) {
 		throw new MediaUploadError("session_expired", "Session has expired");
 	}
+	const refs = chunkVersions(row.recoveryMetadata);
 	const received = new Set(row.receivedChunks);
 	if (received.size !== row.totalChunks) {
 		const missing: number[] = [];
@@ -368,11 +392,13 @@ export async function assembleMediaUploadChunks(
 	const assembled = Buffer.allocUnsafe(totalSize);
 	let offset = 0;
 	for (let i = 0; i < row.totalChunks; i++) {
-		const buf = await readFile(chunkPath(sessionId, i));
+		const ref = refs[i];
+		const buf = await readFile(storedChunkPath(sessionId, i, ref));
 		const expected = Math.min(row.chunkSize, totalSize - offset);
 		if (!received.has(i) || buf.length !== expected) {
 			throw new MediaUploadError("chunk_size_unexpected", `Invalid stored chunk ${i}`);
 		}
+		if (ref && crypto.createHash("sha256").update(buf).digest("hex") !== ref.sha256) throw new MediaUploadError("chunk_invalid", "Chunk checksum mismatch");
 		buf.copy(assembled, offset);
 		offset += buf.length;
 	}
@@ -390,6 +416,7 @@ export async function assembleMediaUploadToFile(sessionId: string, userId: strin
 	if (!Number.isSafeInteger(totalSize) || totalSize < 0 || totalSize > (await readStorageUploadMaxBytes()) || !Number.isSafeInteger(row.chunkSize) || row.chunkSize < 1 || row.totalChunks !== Math.ceil(totalSize / row.chunkSize)) {
 		throw new MediaUploadError("total_size_too_large", "Invalid assembled upload size");
 	}
+	const refs = chunkVersions(row.recoveryMetadata);
 	const received = new Set(row.receivedChunks);
 	// The assembled copy is as large as the upload again.
 	await assertUploadDiskReserve(totalSize);
@@ -400,13 +427,17 @@ export async function assembleMediaUploadToFile(sessionId: string, userId: strin
 			if (!received.has(index)) throw new MediaUploadError("chunks_incomplete", "Upload has missing chunks");
 			const expected = Math.min(row!.chunkSize, totalSize - index * row!.chunkSize);
 			let bytes = 0;
-			for await (const chunk of createReadStream(chunkPath(sessionId, index), { highWaterMark: 64 * 1024 })) {
+			const ref = refs[index];
+			const digest = ref && crypto.createHash("sha256");
+			for await (const chunk of createReadStream(storedChunkPath(sessionId, index, ref), { highWaterMark: 64 * 1024 })) {
 				const buffer = chunk as Buffer;
 				bytes += buffer.length;
 				if (bytes > expected) throw new MediaUploadError("chunk_size_unexpected", `Invalid stored chunk ${index}`);
+				digest?.update(buffer);
 				hash.update(buffer);
 				yield buffer;
 			}
+			if (digest && digest.digest("hex") !== ref.sha256) throw new MediaUploadError("chunk_invalid", "Chunk checksum mismatch");
 			if (bytes !== expected) throw new MediaUploadError("chunk_size_unexpected", `Invalid stored chunk ${index}`);
 		}
 	}

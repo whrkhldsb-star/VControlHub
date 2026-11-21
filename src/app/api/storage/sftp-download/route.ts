@@ -5,7 +5,7 @@ import { guessContentType } from "@/lib/http/mime-types";
 
 import { Client } from "ssh2";
 import { NextResponse } from "next/server";
-import { connectSsh, readRemoteFile, type SshConnectionParams } from "@/lib/ssh/client";
+import { connectSsh, readRemoteFile } from "@/lib/ssh/client";
 import { withApiRoute } from "@/lib/http/api-guard";
 import { parseSearchParams } from "@/lib/http/parse-search-params";
 
@@ -101,16 +101,6 @@ export async function GET(request: Request) {
         );
       }
       await assertNotRecycled(node.id, normalizedRelativePath);
-      // Same place physically: no symlink hop below the node root.
-      try {
-        normalizedRemotePath = await assertRemotePathContained(connectionCredentials, node.basePath, normalizedRemotePath);
-      } catch (error) {
-        if (error instanceof ValidationError) {
-          return NextResponse.json(toClientStorageError(error.message), { status: 400 });
-        }
-        throw error;
-      }
-
       const fileName = path.basename(normalizedRemotePath);
       const contentType = guessContentType(fileName);
 
@@ -118,6 +108,7 @@ export async function GET(request: Request) {
 
       try {
         if (connectionCredentials.agentServerId && !connectionCredentials.privateKey && !connectionCredentials.password) {
+          normalizedRemotePath = await assertRemotePathContained(connectionCredentials, node.basePath, normalizedRemotePath);
           const buffer = await readRemoteFile({ ...connectionCredentials, remotePath: normalizedRemotePath });
           const range = parseStorageRange(request.headers.get("range"), buffer.length);
           if (range instanceof Response) return range;
@@ -131,20 +122,8 @@ export async function GET(request: Request) {
             download,
           });
         }
-        const config: SshConnectionParams = {
-          host: connectionCredentials.host,
-          port: connectionCredentials.port,
-          username: connectionCredentials.username,
-          privateKey: connectionCredentials.privateKey,
-          passphrase: connectionCredentials.passphrase,
-          password: connectionCredentials.password,
-          hostKeySha256: connectionCredentials.hostKeySha256,
-          agentServerId: connectionCredentials.agentServerId,
-          // Fail closed on an unpinned node like every other credential-sending path (A4-07).
-          enforceHostKeyPin: true,
-        };
-
-        client = await connectSsh(config);
+        client = await connectSsh({ ...connectionCredentials, enforceHostKeyPin: true });
+        normalizedRemotePath = await assertRemotePathContained(connectionCredentials, node.basePath, normalizedRemotePath, client);
         const streamResult = await getSftpStream(
           client,
           normalizedRemotePath,

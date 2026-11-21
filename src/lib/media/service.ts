@@ -1,51 +1,14 @@
-import type { Prisma } from "@prisma/client";
+import { Prisma } from "@prisma/client";
 import { prisma } from "@/lib/db";
-import { escapeLikeLiteral } from "@/lib/db/like-pattern";
+import { visibleMediaQuery, type MediaListFilters } from "./library-query";
 import { teamWhere, type TeamSession } from "@/lib/auth/team-scope";
-import { getReadableStorageScope, readableStorageScopeWhere } from "@/lib/storage/readable-scope";
+import { getReadableStorageScope, readableStoragePath } from "@/lib/storage/readable-scope";
 import { NotFoundError } from "@/lib/errors";
 import { classifyMediaKind } from "@/lib/storage/mime-constants";
 import { t } from "@/lib/i18n/service-translations";
 import { SSH_KEY_CREDENTIAL_SELECT } from "@/lib/ssh/ssh-key-crypto";
 import { assertNotRecycled } from "@/lib/storage/archive-access";
 import { normalizeStorageRelativePath } from "@/lib/storage/path-utils";
-
-/**
- * Media has no teamId column — scope through StorageNode.teamId, then to the
- * paths the account may read: an account narrowed by path grants could not
- * play or preview a file outside them, yet the library listed its name, path
- * and tags (and counted it).
- */
-async function mediaScopeWhere(session?: TeamSession | null): Promise<Prisma.MediaItemWhereInput> {
-  if (!session) return {};
-  const nodeScope = teamWhere(session);
-  const readable = await getReadableStorageScope(session);
-  const parts: Prisma.MediaItemWhereInput[] = [];
-  // teamWhere: platform admins may inspect all; members match only their team.
-  if (Object.keys(nodeScope).length > 0) parts.push({ storageNode: nodeScope });
-  if (readable) parts.push(readableStorageScopeWhere(readable));
-  // Under AND: the readable scope carries its own OR, as does the search.
-  return parts.length === 0 ? {} : { AND: parts };
-}
-
-/** Apply the same recycled folder boundaries to pages, counts, tags and navigation. */
-async function mediaLibraryScopeWhere(session?: TeamSession | null): Promise<Prisma.MediaItemWhereInput> {
-  const [scope, recycledFolders] = await Promise.all([
-    mediaScopeWhere(session),
-    prisma.fileEntry.findMany({
-      where: { isDeleted: true, entryType: "DIRECTORY", ...(session && { storageNode: teamWhere(session) }) },
-      select: { storageNodeId: true, relativePath: true },
-    }),
-  ]);
-  if (!recycledFolders.length) return scope;
-  return {
-    ...scope,
-    NOT: recycledFolders.map(({ storageNodeId, relativePath }) => ({
-      storageNodeId,
-      relativePath: { startsWith: escapeLikeLiteral(relativePath + "/") },
-    })),
-  };
-}
 
 export function classifyMedia(
   mimeType?: string | null,
@@ -116,13 +79,9 @@ const mediaItemSelect = {
     select: {
       id: true,
       name: true,
-      basePath: true,
       driver: true,
-      directAccessMode: true,
-      publicBaseUrl: true,
-      serverId: true,
       server: {
-        select: { id: true, name: true, host: true },
+        select: { name: true },
       },
     },
   },
@@ -172,60 +131,7 @@ const mediaStreamItemSelect = {
   },
 } as const;
 
-type MediaListFilters = {
-  mediaType?: "image" | "video" | "audio";
-  q?: string;
-  favorite?: boolean;
-  tag?: string;
-  session?: TeamSession | null;
-};
-
-/** One filter definition for the list, its total and the per-type counts. */
-async function mediaListWhere(input: MediaListFilters): Promise<Prisma.MediaItemWhereInput> {
-  const q = input.q?.trim();
-  const tag = input.tag?.trim();
-  return {
-    ...(await mediaLibraryScopeWhere(input.session)),
-    mediaType: input.mediaType,
-    favorite: input.favorite,
-    ...(tag ? { tags: { has: tag } } : {}),
-    ...(q
-      ? {
-          OR: [
-            { name: { contains: q, mode: "insensitive" as const } },
-            { relativePath: { contains: q, mode: "insensitive" as const } },
-            { tags: { has: q } },
-          ],
-        }
-      : {}),
-  };
-}
-
-export const MEDIA_PAGE_SIZE = 100;
-export const MEDIA_MAX_PAGE_SIZE = 200;
-
-/**
- * One page of the media library. The id tie-breaker keeps the order stable so
- * consecutive pages neither repeat nor skip items that share a timestamp.
- */
-export async function listMediaItems(
-  input: MediaListFilters & { page?: number; pageSize?: number } = {},
-) {
-  const pageSize = Math.min(Math.max(Math.trunc(input.pageSize ?? MEDIA_MAX_PAGE_SIZE), 1), MEDIA_MAX_PAGE_SIZE);
-  const page = Math.max(Math.trunc(input.page ?? 1), 1);
-  return prisma.mediaItem.findMany({
-    where: await mediaListWhere(input),
-    orderBy: [{ favorite: "desc" }, { updatedAt: "desc" }, { id: "desc" }],
-    skip: (page - 1) * pageSize,
-    take: pageSize,
-    select: mediaItemSelect,
-  });
-}
-
-/** Number of items matching the same filters as {@link listMediaItems}. */
-export async function countMediaItems(input: MediaListFilters = {}) {
-  return prisma.mediaItem.count({ where: await mediaListWhere(input) });
-}
+export { listMediaItems, listMediaPage, listMediaTags, countMediaItems, listMediaTypeCounts, getMediaNeighbors, MEDIA_PAGE_SIZE, MEDIA_MAX_PAGE_SIZE } from "./library-query";
 
 /** Filters of the media list a detail page was opened from. */
 export function mediaListFiltersFromHref(href: string): Omit<MediaListFilters, "session"> {
@@ -239,92 +145,12 @@ export function mediaListFiltersFromHref(href: string): Omit<MediaListFilters, "
   };
 }
 
-/**
- * The items directly before and after `item` in the media list with these
- * filters, in the list's own order (favourite, updatedAt, id — all
- * descending). Keyset queries, so navigation works from any page of any
- * size; it used to look only at the first 200 items of the same type.
- */
-export async function getMediaNeighbors(
-  item: { id: string; favorite: boolean; updatedAt: Date },
-  filters: MediaListFilters,
-) {
-  const base = await mediaListWhere(filters);
-  const sameFavorite = { favorite: item.favorite };
-  // "Earlier in the list" = greater sort key; "later" = smaller.
-  const earlier = [
-    ...(item.favorite ? [] : [{ favorite: true }]),
-    { ...sameFavorite, updatedAt: { gt: item.updatedAt } },
-    { ...sameFavorite, updatedAt: item.updatedAt, id: { gt: item.id } },
-  ];
-  const later = [
-    ...(item.favorite ? [{ favorite: false }] : []),
-    { ...sameFavorite, updatedAt: { lt: item.updatedAt } },
-    { ...sameFavorite, updatedAt: item.updatedAt, id: { lt: item.id } },
-  ];
-  const select = { id: true, name: true } as const;
-  const [previous, next] = await Promise.all([
-    prisma.mediaItem.findFirst({
-      where: { AND: [base, { OR: earlier }] },
-      orderBy: [{ favorite: "asc" }, { updatedAt: "asc" }, { id: "asc" }],
-      select,
-    }),
-    prisma.mediaItem.findFirst({
-      where: { AND: [base, { OR: later }] },
-      orderBy: [{ favorite: "desc" }, { updatedAt: "desc" }, { id: "desc" }],
-      select,
-    }),
-  ]);
-  return { previous, next };
-}
-
-export async function listMediaTypeCounts(
-  input: Omit<MediaListFilters, "mediaType"> = {},
-) {
-  const grouped = await prisma.mediaItem.groupBy({
-    by: ["mediaType"],
-    where: await mediaListWhere({ ...input, mediaType: undefined }),
-    _count: { _all: true },
-  });
-  const counts = { image: 0, video: 0, audio: 0 };
-  for (const row of grouped) {
-    if (
-      row.mediaType === "image" ||
-      row.mediaType === "video" ||
-      row.mediaType === "audio"
-    ) {
-      counts[row.mediaType] = row._count._all;
-    }
-  }
-  return counts;
-}
-
-export async function listMediaTags(session?: TeamSession | null) {
-  const items = await prisma.mediaItem.findMany({
-    select: { tags: true },
-    where: { tags: { isEmpty: false }, ...(await mediaLibraryScopeWhere(session)) },
-    take: 1000,
-  });
-  const counts = new Map<string, number>();
-  for (const item of items) {
-    for (const rawTag of item.tags) {
-      const tag = rawTag.trim();
-      if (!tag) continue;
-      counts.set(tag, (counts.get(tag) ?? 0) + 1);
-    }
-  }
-  return [...counts.entries()]
-    .map(([tag, count]) => ({ tag, count }))
-    .sort((a, b) => b.count - a.count || a.tag.localeCompare(b.tag))
-    .slice(0, 40);
-}
-
 /** With credentials: the node as its SFTP connection is resolved from (mediaStreamItemSelect). */
 export async function getMediaItem(
   id: string,
   session: TeamSession | null | undefined,
   options: { includeCredentials: true },
-): Promise<Prisma.MediaItemGetPayload<{ select: typeof mediaStreamItemSelect }> | null>;
+): Promise<Prisma.MediaItemGetPayload<{ select: typeof mediaStreamItemSelect }> & { fileRevision?: string } | null>;
 export async function getMediaItem(
   id: string,
   session?: TeamSession | null,
@@ -336,17 +162,18 @@ export async function getMediaItem(
   options?: { includeCredentials?: boolean },
 ) {
   const item = await prisma.mediaItem.findFirst({
-    where: { id, ...(await mediaScopeWhere(session)) },
+    where: { id, ...(session && { storageNode: teamWhere(session) }) },
     select: options?.includeCredentials
       ? mediaStreamItemSelect
       : mediaItemSelect,
   });
-  const resolved = item && await resolveAgainstFileEntry(item);
+  const resolved = item && await resolveAgainstFileEntry(item, options?.includeCredentials === true);
   if (!resolved?.storageNode) return null;
   const path = normalizeStorageRelativePath(resolved.relativePath);
   if (!path.ok) return null;
+  if (session && !readableStoragePath(await getReadableStorageScope(session), resolved.storageNode.id, path.path)) return null;
   try {
-    await assertNotRecycled(resolved.storageNode.id, path.path, "read");
+    await assertNotRecycled(resolved.storageNode.id, path.path, "read", resolved.storageNode.driver);
   } catch (error) {
     if (error instanceof NotFoundError) return null;
     throw error;
@@ -361,23 +188,26 @@ export async function getMediaItem(
  * now follows its file entry: none (deleted for good) drops the row, a
  * recycled one is hidden, and a new name or path is used and stored.
  */
-async function resolveAgainstFileEntry<T extends { id: string; fileEntryId: string | null; name: string; relativePath: string; storageNode: { id: string } | null }>(item: T): Promise<T | null> {
-  if (!item.fileEntryId) return item;
-  const entry = await prisma.fileEntry.findUnique({
-    where: { id: item.fileEntryId },
-    select: { name: true, relativePath: true, storageNodeId: true, isDeleted: true },
-  });
+async function resolveAgainstFileEntry<T extends { id: string; fileEntryId: string | null; name: string; relativePath: string; storageNode: { id: string } | null }>(item: T, includeRevision: boolean): Promise<(T & { fileRevision?: string }) | null> {
+  const select = { name: true, relativePath: true, storageNodeId: true, isDeleted: true, updatedAt: true, checksumSha256: true, storageVersion: true } as const;
+  if (!item.storageNode) return null;
+  const where = item.fileEntryId ? { id: item.fileEntryId } : {
+    storageNodeId_relativePath: { storageNodeId: item.storageNode.id, relativePath: item.relativePath },
+  };
+  const entry = await prisma.fileEntry.findUnique({ where, select });
   if (!entry) {
+    if (!item.fileEntryId) return item;
     await prisma.mediaItem.deleteMany({ where: { id: item.id } }).catch(() => undefined);
     return null;
   }
   if (entry.isDeleted || entry.storageNodeId !== item.storageNode?.id) return null;
-  if (entry.relativePath === item.relativePath && entry.name === item.name) return item;
+  const revision = includeRevision ? { fileRevision: [entry.updatedAt.toISOString(), entry.checksumSha256, entry.storageVersion].join(":") } : {};
+  if (entry.relativePath === item.relativePath && entry.name === item.name) return { ...item, ...revision };
   await prisma.mediaItem.updateMany({
     where: { id: item.id },
     data: { relativePath: entry.relativePath, name: entry.name },
   }).catch(() => undefined);
-  return { ...item, relativePath: entry.relativePath, name: entry.name };
+  return { ...item, relativePath: entry.relativePath, name: entry.name, ...revision };
 }
 
 /** Deterministic page ordering shared by the scan loops below. */
@@ -558,32 +388,17 @@ export async function updateMediaTags(input: {
   favorite?: boolean;
   session?: TeamSession | null;
 }) {
-  const teamScope = await mediaLibraryScopeWhere(input.session);
-  const existing = await prisma.mediaItem.findFirst({
-    where: { id: input.id, ...teamScope },
-    select: { id: true },
-  });
-  if (!existing) throw new NotFoundError(t("backend.media.mediaItemNotFound"));
-  const data: { tags?: string[]; favorite?: boolean } = {};
-  if (input.tags !== undefined) data.tags = input.tags;
-  if (input.favorite !== undefined) data.favorite = input.favorite;
-  if (Object.keys(data).length === 0) {
-    return prisma.mediaItem.findFirst({
-      where: { id: input.id, ...teamScope },
-      select: mediaItemSelect,
-    });
+  const changes = [
+    ...(input.tags !== undefined ? [Prisma.sql`tags = ${input.tags}::text[]`] : []),
+    ...(input.favorite !== undefined ? [Prisma.sql`favorite = ${input.favorite}`] : []),
+  ];
+  if (changes.length) {
+    const visible = await visibleMediaQuery({ session: input.session }, input.id);
+    const count = await prisma.$executeRaw(Prisma.sql`UPDATE media_items SET ${Prisma.join(changes)},
+      "updatedAt" = (clock_timestamp() AT TIME ZONE 'UTC') WHERE id IN (SELECT id FROM (${visible}) eligible)`);
+    if (!count) throw new NotFoundError(t("backend.media.mediaItemNotFound"));
   }
-  // Keep team scope on the write (updateMany) so a concurrent storageNode
-  // reassignment cannot TOCTOU-mutate another team's media metadata.
-  const updated = await prisma.mediaItem.updateMany({
-    where: { id: input.id, ...teamScope },
-    data,
-  });
-  if (updated.count === 0) {
-    throw new NotFoundError(t("backend.media.mediaItemNotFound"));
-  }
-  return prisma.mediaItem.findFirst({
-    where: { id: input.id, ...teamScope },
-    select: mediaItemSelect,
-  });
+  const item = await getMediaItem(input.id, input.session);
+  if (!item) throw new NotFoundError(t("backend.media.mediaItemNotFound"));
+  return item;
 }

@@ -1,6 +1,8 @@
 import { describe, expect, it, vi, beforeEach } from "vitest";
 const { mockPrisma } = vi.hoisted(() => ({
   mockPrisma: {
+    $queryRaw: vi.fn(),
+    $transaction: vi.fn(),
     fileEntry: { findMany: vi.fn(), findFirst: vi.fn(), findUnique: vi.fn() },
     storageNode: { findMany: vi.fn() },
     userStorageAccess: { findMany: vi.fn() },
@@ -27,6 +29,8 @@ const {
 describe("media service", () => {
   beforeEach(() => {
     vi.clearAllMocks();
+    mockPrisma.$transaction.mockImplementation(fn => fn(mockPrisma));
+    mockPrisma.$queryRaw.mockImplementation(query => query.sql.startsWith("SELECT count(*)") ? [{ total: 0 }] : []);
     // No media yet unless a test says so (the orphan sweep reads it).
     mockPrisma.fileEntry.findMany.mockResolvedValue([]);
     mockPrisma.mediaItem.findMany.mockResolvedValue([]);
@@ -171,103 +175,24 @@ describe("media service", () => {
     ]);
   });
 
-  it("builds a practical image search across name, path and tags", async () => {
-    mockPrisma.mediaItem.findMany.mockResolvedValue([]);
-
-    await listMediaItems({
-      mediaType: "image",
-      q: "summer",
-      favorite: true,
-      tag: "cover",
-    });
-
-    expect(mockPrisma.mediaItem.findMany).toHaveBeenCalledWith(
-      expect.objectContaining({
-        where: expect.objectContaining({
-          mediaType: "image",
-          favorite: true,
-          tags: { has: "cover" },
-          OR: [
-            { name: { contains: "summer", mode: "insensitive" } },
-            { relativePath: { contains: "summer", mode: "insensitive" } },
-            { tags: { has: "summer" } },
-          ],
-        }),
-      }),
-    );
+  it("uses the same bound search, path and tag filters for counts and page rows", async () => {
+    await listMediaItems({ mediaType: "image", q: "summer", favorite: true, tag: "cover" });
+    expect(mockPrisma.$queryRaw).toHaveBeenCalledTimes(2);
+    for (const [query] of mockPrisma.$queryRaw.mock.calls) {
+      expect(query.values).toEqual(expect.arrayContaining(["image", true, "cover", "summer"]));
+      expect(query.sql).toContain("strpos(lower(e.name)");
+      expect(query.sql).toContain('strpos(lower(e."relativePath")');
+      expect(query.sql).toContain("ANY(e.tags)");
+      expect(query.sql).not.toMatch(/host|basePath|publicBaseUrl|password|privateKey/);
+    }
   });
 
-  it("counts media types across the current non-type filters", async () => {
-    mockPrisma.mediaItem.groupBy.mockResolvedValue([
-      { mediaType: "image", _count: { _all: 3 } },
-      { mediaType: "audio", _count: { _all: 2 } },
-    ]);
-
-    const counts = await listMediaTypeCounts({
-      q: "summer",
-      favorite: true,
-      tag: "cover",
-    });
-
-    expect(counts).toEqual({ image: 3, video: 0, audio: 2 });
-    expect(mockPrisma.mediaItem.groupBy).toHaveBeenCalledWith(
-      expect.objectContaining({
-        by: ["mediaType"],
-        where: expect.objectContaining({
-          favorite: true,
-          tags: { has: "cover" },
-          OR: [
-            { name: { contains: "summer", mode: "insensitive" } },
-            { relativePath: { contains: "summer", mode: "insensitive" } },
-            { tags: { has: "summer" } },
-          ],
-        }),
-        _count: { _all: true },
-      }),
-    );
-  });
-
-  it("counts media types across the current non-type filters", async () => {
-    mockPrisma.mediaItem.groupBy.mockResolvedValue([
-      { mediaType: "image", _count: { _all: 3 } },
-      { mediaType: "audio", _count: { _all: 2 } },
-    ]);
-
-    const counts = await listMediaTypeCounts({
-      q: "summer",
-      favorite: true,
-      tag: "cover",
-    });
-
-    expect(counts).toEqual({ image: 3, video: 0, audio: 2 });
-    expect(mockPrisma.mediaItem.groupBy).toHaveBeenCalledWith(
-      expect.objectContaining({
-        by: ["mediaType"],
-        where: expect.objectContaining({
-          favorite: true,
-          tags: { has: "cover" },
-          OR: [
-            { name: { contains: "summer", mode: "insensitive" } },
-            { relativePath: { contains: "summer", mode: "insensitive" } },
-            { tags: { has: "summer" } },
-          ],
-        }),
-        _count: { _all: true },
-      }),
-    );
-  });
-
-  it("keeps media list queries free of SFTP secrets", async () => {
-    mockPrisma.mediaItem.findMany.mockResolvedValue([]);
-
-    await listMediaItems();
-
-    const select = mockPrisma.mediaItem.findMany.mock.calls[0]![0].select;
-    expect(select.storageNode.select.server.select).toEqual({
-      id: true,
-      name: true,
-      host: true,
-    });
+  it("counts all matching media types after applying search and favorite filters", async () => {
+    mockPrisma.$queryRaw.mockResolvedValueOnce([{ mediaType: "image", n: 3 }, { mediaType: "audio", n: 2 }]);
+    expect(await listMediaTypeCounts({ q: "summer", favorite: true, tag: "cover" })).toEqual({ image: 3, video: 0, audio: 2 });
+    const [query] = mockPrisma.$queryRaw.mock.calls[0]!;
+    expect(query.sql).toContain('GROUP BY "mediaType"');
+    expect(query.values).toEqual(expect.arrayContaining(["summer", true, "cover"]));
   });
 
   it("selects connection credentials only when includeCredentials is requested", async () => {
@@ -282,9 +207,7 @@ describe("media service", () => {
             select: expect.objectContaining({
               server: {
                 select: {
-                  id: true,
                   name: true,
-                  host: true,
                 },
               },
             }),
@@ -315,31 +238,14 @@ describe("media service", () => {
     );
   });
 
-  it("scopes media list by storageNode.teamId when session has currentTeamId", async () => {
-    mockPrisma.mediaItem.findMany.mockResolvedValueOnce([]);
-    await listMediaItems({
-      session: { userId: "u1", roles: ["operator"], currentTeamId: "team_a" },
-    });
-    expect(mockPrisma.mediaItem.findMany).toHaveBeenCalledWith(
-      expect.objectContaining({
-        where: expect.objectContaining({
-          AND: [{ storageNode: { teamId: "team_a" } }, { OR: [{ storageNodeId: "node_a" }] }],
-        }),
-      }),
-    );
-  });
-
-  it("narrows the list to the paths an account's grants let it read", async () => {
-    // Outside its grants it could not play a file, yet the library listed it.
+  it("restricts both page queries to the current team and readable prefixes", async () => {
     mockPrisma.userStorageAccess.findMany.mockResolvedValueOnce([{ id: "g1", storageNodeId: "node_a", pathPrefix: "projectA", canRead: true }]);
     await listMediaItems({ session: { userId: "u1", roles: ["operator"], currentTeamId: "team_a" }, q: "clip" });
-    const where = mockPrisma.mediaItem.findMany.mock.calls.at(-1)![0].where;
-    expect(where.AND).toEqual([
-      { storageNode: { teamId: "team_a" } },
-      { OR: [{ storageNodeId: "node_a", OR: [{ relativePath: "projectA" }, { relativePath: { startsWith: "projectA/" } }] }] },
-    ]);
-    // The search keeps its own OR beside the scope.
-    expect(where.OR).toEqual(expect.arrayContaining([{ name: { contains: "clip", mode: "insensitive" } }]));
+    for (const [query] of mockPrisma.$queryRaw.mock.calls) {
+      expect(query.sql).toContain('n."teamId" = ?');
+      expect(query.sql).toContain('starts_with("relativePath", ?)');
+      expect(query.values).toEqual(expect.arrayContaining(["team_a", "node_a", "projectA", "projectA/", "clip"]));
+    }
   });
 
   it("getMediaItem uses findFirst with team scope", async () => {
@@ -353,7 +259,7 @@ describe("media service", () => {
       expect.objectContaining({
         where: {
           id: "m1",
-          AND: [{ storageNode: { teamId: "team_a" } }, { OR: [{ storageNodeId: "node_a" }] }],
+          storageNode: { teamId: "team_a" },
         },
       }),
     );
@@ -366,7 +272,7 @@ describe("media service", () => {
       relativePath: fileEntryId ? "old/movie.mp4" : relativePath,
     });
     if (fileEntryId) {
-      mockPrisma.fileEntry.findUnique.mockResolvedValueOnce({ storageNodeId: "node_a", relativePath, name: "movie.mp4", isDeleted: false });
+      mockPrisma.fileEntry.findUnique.mockResolvedValueOnce({ storageNodeId: "node_a", relativePath, updatedAt: new Date(0), name: "movie.mp4", isDeleted: false });
       mockPrisma.mediaItem.updateMany.mockResolvedValueOnce({ count: 1 });
     }
     mockPrisma.fileEntry.findFirst.mockResolvedValueOnce({ id: "recycled-bin" });

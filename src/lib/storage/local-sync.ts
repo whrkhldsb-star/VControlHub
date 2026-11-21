@@ -1,3 +1,6 @@
+import { randomUUID } from "node:crypto";
+import { assertNotRecycled } from "./archive-access";
+import { lockStorageFileOverwrite } from "./file-overwrite-lock";
 import { isStorageStagingPath } from "./staging-paths";
 import { readdir, stat } from "node:fs/promises";
 import path from "node:path";
@@ -75,7 +78,7 @@ async function pruneStaleEntries(
   for (let offset = 0; offset < stale.length; offset += WRITE_BATCH_SIZE) {
     const result = await prisma.fileEntry.updateMany({
       where: { storageNodeId: nodeId, isDeleted: false, OR: stale.slice(offset, offset + WRITE_BATCH_SIZE).map((entry) => ({ id: entry.id, updatedAt: entry.updatedAt })) },
-      data: { isDeleted: true },
+      data: { isDeleted: true, deleteBatchId: randomUUID() },
     });
     deleted += result.count;
   }
@@ -105,9 +108,17 @@ export async function syncLocalDirectoryEntries(input: {
     return result;
   }
 
-  const directoryPath = normalizedDir.path
-    ? resolveStoragePathWithinBase(input.node.basePath, normalizedDir.path)
-    : { ok: true as const, path: path.resolve(expandStorageBasePath(input.node.basePath)) };
+  const release = await lockStorageFileOverwrite(input.node.id, normalizedDir.path);
+  try {
+    if (normalizedDir.path) await assertNotRecycled(input.node.id, normalizedDir.path, "read", "LOCAL");
+    return await inventory(input.node, normalizedDir.path, result);
+  } finally { await release(); }
+}
+
+async function inventory(node: Pick<LocalSyncNode, "id" | "basePath">, directory: string, result: LocalSyncResult) {
+  const directoryPath = directory
+    ? resolveStoragePathWithinBase(node.basePath, directory)
+    : { ok: true as const, path: path.resolve(expandStorageBasePath(node.basePath)) };
   if (!directoryPath.ok) {
     result.errors.push(directoryPath.reason);
     return result;
@@ -116,7 +127,7 @@ export async function syncLocalDirectoryEntries(input: {
   // Capture prune candidates before scanning disk: uploads created during the
   // scan must never be deleted by an older directory inventory.
   const indexed = new Map<string, DirectoryIndexEntry>();
-  for await (const page of readDirectoryIndex(input.node.id, normalizedDir.path)) {
+  for await (const page of readDirectoryIndex(node.id, directory)) {
     for (const entry of page) indexed.set(entry.relativePath, entry);
   }
 
@@ -133,8 +144,8 @@ export async function syncLocalDirectoryEntries(input: {
   const missing: Prisma.FileEntryCreateManyInput[] = [];
   for (const entry of entries) {
     // Symlinks and special files are intentionally not exposed by the file manager.
-    if ((!entry.isDirectory() && !entry.isFile()) || isStorageStagingPath(`${normalizedDir.path}/${entry.name}`)) continue;
-    const relativePath = joinStoragePath(normalizedDir.path, entry.name);
+    if ((!entry.isDirectory() && !entry.isFile()) || isStorageStagingPath(`${directory}/${entry.name}`)) continue;
+    const relativePath = joinStoragePath(directory, entry.name);
     if (
       !relativePath.ok ||
       path.posix.basename(relativePath.path) !== entry.name
@@ -147,7 +158,7 @@ export async function syncLocalDirectoryEntries(input: {
     }
 
     const absolutePath = resolveStoragePathWithinBase(
-      input.node.basePath,
+      node.basePath,
       relativePath.path,
     );
     if (!absolutePath.ok) {
@@ -174,7 +185,7 @@ export async function syncLocalDirectoryEntries(input: {
     result.synced += 1;
     try {
       const data = {
-        nodeId: input.node.id,
+        nodeId: node.id,
         name: entry.name,
         relativePath: relativePath.path,
         entryType: entry.isDirectory() ? "DIRECTORY" as const : "FILE" as const,
@@ -185,7 +196,7 @@ export async function syncLocalDirectoryEntries(input: {
         result.updated += await upsertLocalEntry(data, existing);
       } else {
         missing.push({
-          storageNodeId: input.node.id, relativePath: data.relativePath, name: data.name,
+          storageNodeId: node.id, relativePath: data.relativePath, name: data.name,
           entryType: data.entryType, size: data.size,
           mimeType: data.entryType === "DIRECTORY" ? "inode/directory" : guessMimeType(data.name),
           isDeleted: false,
@@ -212,7 +223,7 @@ export async function syncLocalDirectoryEntries(input: {
   // make an existing, still-present entry look deleted.
   if (result.errors.length === 0) {
     result.deleted = await pruneStaleEntries(
-      input.node.id,
+      node.id,
       indexed,
       diskRelativePaths,
     );

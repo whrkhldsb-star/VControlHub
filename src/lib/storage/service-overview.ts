@@ -1,3 +1,5 @@
+import { queryFolderCounts } from "@/lib/files/listing-query";
+import { getReadableStorageScope } from "./readable-scope";
 import type { SessionPayload } from "@/lib/auth/session";
 import { listFileEntries, listDeletedFileEntries } from "./service-entries";
 import { listStorageNodes } from "./service-nodes";
@@ -74,16 +76,20 @@ function buildDirectorySummaries(
 export type { DirectorySummary };
 
 export async function getStorageOverview(session: TeamSession, options: {includeEntries?: boolean} = {}) {
-  const [nodes, entries, deletedEntries] = await Promise.all([
+  const [nodes, entries, deletedEntries, readable] = await Promise.all([
     listStorageNodes(session),
     options.includeEntries === false ? Promise.resolve([]) : listFileEntries(undefined, {}, session),
     options.includeEntries === false ? Promise.resolve([]) : listDeletedFileEntries(undefined, {}, session),
+    getReadableStorageScope(session),
   ]);
   const remoteDirectories = buildDirectorySummaries(entries);
-  const indexStats = await getFileIndexStatistics(nodes.map((node) => node.id));
+  const [indexStats, folderCounts] = await Promise.all([
+    getFileIndexStatistics(nodes.map(node => node.id), readable),
+    readable ? queryFolderCounts(nodes.map(node => ({ storageNodeId: node.id, relativePath: "" })), readable) : null,
+  ]);
 
   return {
-    nodes,
+    nodes: folderCounts ? nodes.map(node => ({ ...node, fileCount: folderCounts.get(node.id + ":")?.fileCount ?? 0 })) : nodes,
     entries,
     deletedEntries,
     remoteDirectories,

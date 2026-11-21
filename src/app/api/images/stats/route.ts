@@ -5,8 +5,7 @@ import { apiCopy } from "@/lib/i18n/api-copy";
  */
 import { NextResponse } from "next/server";
 
-import { sessionHasPermission } from "@/lib/auth/authorization";
-import { imageTeamWhere } from "@/lib/auth/team-scope";
+import { imageStatisticsWhere } from "@/lib/image/statistics-scope";
 import { prisma } from "@/lib/db";
 import { withApiRoute } from "@/lib/http/api-guard";
 import { withCacheHeaders, CachePresets } from "@/lib/cache";
@@ -19,14 +18,7 @@ export async function GET(request: Request) {
     request,
     { permission: "image:read", errorMessage: apiCopy("apiCopy.failed.to.fetch.statistics.97cf5fdd") },
     async ({ session }) => {
-      // Same bar as list showAll: user:read is too broad for fleet-wide stats.
-      // media:manage may see others' images but only in the current team.
-      const canListAll =
-        sessionHasPermission(session, "team:manage") ||
-        sessionHasPermission(session, "media:manage");
-      const where: Record<string, unknown> = canListAll
-        ? { ...imageTeamWhere(session) }
-        : { userId: session.userId, ...imageTeamWhere(session) };
+      const where = imageStatisticsWhere(session);
 
       // Total count and size
       const [totalCount, totalSizeResult, albumBreakdown] = await Promise.all([

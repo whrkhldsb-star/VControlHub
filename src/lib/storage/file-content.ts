@@ -30,6 +30,7 @@ import { createWebDavClient } from "@/lib/storage/webdav-client";
 import { createAgentFileClient, createRemoteStorageClient } from "@/lib/storage/agent-file-client";
 import { publishLocalFile } from "@/lib/storage/publish-local-file";
 import { createLogger } from "@/lib/logging";
+import { readBackingObject } from "./fs-backend";
 import { SSH_KEY_CREDENTIAL_SELECT } from "@/lib/ssh/ssh-key-crypto";
 
 /** A node as storageFileNodeSelect loads it (the SFTP connection in full). */
@@ -86,7 +87,9 @@ function sftpReadFile(client: Client, remotePath: string): Promise<Buffer> {
 export async function readStorageFileBuffer(
   node: StorageFileNode,
   relativePath: string,
+  maxBytes?: number,
 ) {
+  if (maxBytes !== undefined) return readBackingObject({ storageNode: node, relativePath, maxBytes });
   if (node.driver === "WEBDAV" || node.driver === "AGENT") return createRemoteStorageClient(node).read(relativePath);
   if (node.driver === "LOCAL") {
     const resolved = resolveStoragePathWithinBase(node.basePath, relativePath);

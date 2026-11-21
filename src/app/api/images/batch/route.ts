@@ -1,3 +1,4 @@
+import { Prisma } from "@prisma/client";
 import { apiCopy } from "@/lib/i18n/api-copy";
 /**
  * Batch operations for image-bed: bulk delete, bulk move album, bulk toggle public.
@@ -163,39 +164,24 @@ export async function POST(request: Request) {
         }
 
         case "togglePublic": {
-          // Get current isPublic states and flip them
-          const images = await prisma.imageUpload.findMany({
-            where: whereClause,
-            select: { id: true, isPublic: true },
-            take: 100,
-          });
-          // Batch into two updateMany calls instead of N individual updates
-          const toPublic = images
-            .filter((img) => !img.isPublic)
-            .map((img) => img.id);
-          const toPrivate = images
-            .filter((img) => img.isPublic)
-            .map((img) => img.id);
-          if (toPublic.length > 0) {
-            await prisma.imageUpload.updateMany({
-              where: { AND: [whereClause, { id: { in: toPublic } }] },
-              data: { isPublic: true },
-            });
-          }
-          if (toPrivate.length > 0) {
-            await prisma.imageUpload.updateMany({
-              where: { AND: [whereClause, { id: { in: toPrivate } }] },
-              data: { isPublic: false },
-            });
-          }
+          const team = imageTeamWhere(session);
+          const scope = typeof team.teamId === "string" ? Prisma.sql`AND "teamId" = ${team.teamId}`
+            : team.id ? Prisma.sql`AND FALSE` : Prisma.empty;
+          const images = await prisma.$queryRaw<Array<{ isPublic: boolean }>>(Prisma.sql`
+            UPDATE image_uploads SET "isPublic" = NOT "isPublic"
+            WHERE id IN (${Prisma.join(ids)}) ${scope}
+              ${canManageImages ? Prisma.empty : Prisma.sql`AND "userId" = ${session.userId}`}
+            RETURNING "isPublic"
+          `);
+          const toPublic = images.filter(image => image.isPublic).length;
           await auditUserAction(
             session.userId,
             "image.batch.togglePublic",
             {
               requestedCount: ids.length,
               updated: images.length,
-              toPublicCount: toPublic.length,
-              toPrivateCount: toPrivate.length,
+              toPublicCount: toPublic,
+              toPrivateCount: images.length - toPublic,
             },
             undefined,
             session.currentTeamId,

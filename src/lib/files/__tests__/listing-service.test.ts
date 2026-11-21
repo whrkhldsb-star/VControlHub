@@ -1,8 +1,8 @@
 import { beforeEach, describe, expect, it, vi } from "vitest";
 import type { SessionPayload } from "@/lib/auth/session";
-const mocks = vi.hoisted(() => ({nodes:vi.fn(),entries:vi.fn(),stats:vi.fn(),query:vi.fn(),counts:vi.fn(),capabilities:vi.fn(),permission:vi.fn(),
+const mocks = vi.hoisted(() => ({recycled:vi.fn(),nodes:vi.fn(),entries:vi.fn(),stats:vi.fn(),query:vi.fn(),counts:vi.fn(),capabilities:vi.fn(),permission:vi.fn(),
   localNode:vi.fn(),localSync:vi.fn(),sftpNode:vi.fn(),sftpSync:vi.fn(),webdavNode:vi.fn(),webdavSync:vi.fn(),preferences:vi.fn()}));
-vi.mock("@/lib/db",() => ({prisma:{filePreference:{findMany:mocks.preferences}}}));
+vi.mock("@/lib/db",() => ({prisma:{fileEntry:{findFirst:mocks.recycled},filePreference:{findMany:mocks.preferences}}}));
 vi.mock("@/lib/storage/service-nodes",() => ({listStorageNodes:mocks.nodes}));
 vi.mock("@/lib/storage/service-entries",() => ({listFileEntries:mocks.entries}));
 vi.mock("@/lib/storage/service-statistics",() => ({getFileIndexStatistics:mocks.stats,getFileIndexStatisticsCached:mocks.stats}));
@@ -49,12 +49,26 @@ describe("shared files listing",() => {
     expect(listing.nodes[0]).toMatchObject({id:node.id,teamName:"Acme",fileCount:7});
   });
   it("keeps the indexed page visible after shallow SFTP sync fails",async () => {
-    mocks.sftpSync.mockResolvedValue({errors:["Remote unavailable"]});
+    const diagnostic = "Scanning /srv/private failed: connect sftp.internal:2222";
+    mocks.sftpSync.mockResolvedValue({errors:[diagnostic]});
+    mocks.entries.mockResolvedValue([{ ...file, directAccess: { ...file.directAccess, description: diagnostic } }]);
     const {listing} = await getFilesListing(session,listFilesQuerySchema.parse({nodeId:node.id}));
-    expect(listing.syncWarning).toBe("Remote unavailable");
+    expect(["同步失败", "Sync failed"]).toContain(listing.syncWarning);
+    expect(["网站中转", "Web relay"]).toContain(listing.files[0]?.directAccessDescription);
+    expect(JSON.stringify(listing)).not.toContain("sftp.internal");
     expect(listing.stats.totalEntries).toBe(1208);
-    expect(listing.files[0]).toMatchObject({id:file.id,storageNodeServerId:"server_1",directAccessFallbackHref:"/fallback",capabilities:{canRead:true,canWrite:false}});
+    expect(listing.files[0]).toMatchObject({id:file.id,storageNodeServerId:null,directAccessFallbackHref:"/fallback",capabilities:{canRead:true,canWrite:false}});
     expect(mocks.entries).toHaveBeenCalledWith(undefined,{ids:[file.id],take:100},session);
+    mocks.permission.mockReturnValue(true);
+    const manager = await getFilesListing(session,listFilesQuerySchema.parse({nodeId:node.id}));
+    expect(manager.listing.syncWarning).toBe(diagnostic);
+    expect(manager.listing.files[0]?.storageNodeServerId).toBe("server_1");
+  });
+  it("hides a directory under a recycled ancestor before listing or refreshing it", async () => {
+    mocks.recycled.mockResolvedValue({ id: "trash" });
+    await expect(getFilesListing(session, listFilesQuerySchema.parse({ nodeId: node.id, path: "trash/child" }))).rejects.toMatchObject({ status: 404 });
+    expect(mocks.sftpSync).not.toHaveBeenCalled();
+    expect(mocks.query).not.toHaveBeenCalled();
   });
   it("syncs for read-only browsing before querying the requested page",async () => {
     await getFilesListing(session,listFilesQuerySchema.parse({nodeId:node.id,path:"docs",page:12,pageSize:50}));

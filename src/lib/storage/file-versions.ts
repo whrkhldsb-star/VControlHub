@@ -1,3 +1,4 @@
+import { assertNotRecycled } from "./archive-access";
 import { escapeLikeLiteral } from "@/lib/db/like-pattern";
 import { config } from "@/lib/config/env";
 import { readPersistedRuntimeSettingNumber } from "@/lib/runtime-settings/service";
@@ -172,6 +173,7 @@ async function resolveAccessibleFileEntry(input: {
   if (!access.allowed) {
     throw new ForbiddenError(storageAccessDeniedCopy(access.reason));
   }
+  await assertNotRecycled(entry.storageNodeId, entry.relativePath, input.operation, entry.storageNode.driver);
   return entry;
 }
 
@@ -375,7 +377,7 @@ export async function snapshotFileVersionBeforeOverwrite(input: {
 
   let buffer: Buffer;
   try {
-    buffer = await readStorageFileBuffer(node, entry.relativePath);
+    buffer = await readStorageFileBuffer(node, entry.relativePath, maxBytes);
   } catch (err) {
     logError("file-version:read-source-failed", err);
     return null;

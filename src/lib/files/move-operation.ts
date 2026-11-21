@@ -1,3 +1,4 @@
+import { moveMeasurement } from "@/lib/storage/move-capacity";
 import { escapeLikeLiteral } from "@/lib/db/like-pattern";
 import type { SessionPayload } from "@/lib/auth/session";
 import { tryAcquireAdvisoryLock } from "@/lib/concurrency/advisory-lock";
@@ -130,26 +131,15 @@ export async function executeMoveFile(
 
     // What arrives counts against the destination's per-file limit and quota,
     // as an upload there would (bytes already under the same grant excepted).
-    const moved = entry.entryType === "DIRECTORY"
-      ? await prisma.fileEntry.aggregate({
-          where: {
-            storageNodeId: entry.storageNodeId,
-            isDeleted: false,
-            entryType: "FILE",
-            relativePath: { startsWith: escapeLikeLiteral(`${normalizedCurrentPath.path}/`) },
-          },
-          _sum: { size: true },
-          _max: { size: true },
-        })
-      : null;
-    const movedBytes = moved ? moved._sum.size ?? BigInt(0) : entry.size ?? BigInt(0);
+    const movedBytes = entry.size ?? BigInt(0);
     destinationAccess = await assertStorageAccess({
       session,
       storageNodeId: entry.storageNodeId,
       relativePath: newRelativePath,
       operation: "write",
       writeBytes: movedBytes,
-      largestFileBytes: moved ? moved._max.size ?? BigInt(0) : movedBytes,
+      largestFileBytes: movedBytes,
+      measureMove: moveMeasurement(entry.storageNode, entry),
       movedFrom: normalizedCurrentPath.path,
     });
 
@@ -215,6 +205,7 @@ export async function executeMoveFile(
       }
     }
 
+    await destinationAccess.verifyMove?.();
     // LOCAL/SFTP 节点：在磁盘/远端实际移动文件，成功后再更新 DB，避免 DB/磁盘路径不一致
     try {
       await moveBackingObject({

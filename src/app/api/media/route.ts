@@ -6,7 +6,7 @@ import { NextResponse } from "next/server";
 import { withApiRoute } from "@/lib/http/api-guard";
 import { GENERAL_READ_LIMIT, GENERAL_WRITE_LIMIT } from "@/lib/http/rate-limit-presets";
 import { parseSearchParams } from "@/lib/http/parse-search-params";
-import { countMediaItems, listMediaItems, MEDIA_MAX_PAGE_SIZE, scanMediaFromFileEntries } from "@/lib/media/service";
+import { listMediaPage, MEDIA_MAX_PAGE_SIZE, scanMediaFromFileEntries } from "@/lib/media/service";
 
 import { auditUserAction } from "@/lib/audit/service";
 import { tryAcquireAdvisoryLock } from "@/lib/concurrency/advisory-lock";
@@ -35,11 +35,7 @@ export async function GET(request: Request) {
       );
 
       const filters = { mediaType: type, q, favorite: favorite ? true : undefined, tag, session };
-      const [media, total] = await Promise.all([
-        listMediaItems({ ...filters, page, pageSize }),
-        countMediaItems(filters),
-      ]);
-      return NextResponse.json({ media, total, page, pageSize });
+      return NextResponse.json(await listMediaPage({ ...filters, page, pageSize }));
     },
   );
 }

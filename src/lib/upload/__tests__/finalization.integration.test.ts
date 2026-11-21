@@ -79,7 +79,7 @@ describe.skipIf(process.env.RUN_DATABASE_INTEGRATION_TESTS !== "1")("image final
 
   it("keeps chunks immutable when a database finalizer wins against an in-flight duplicate", async () => {
     const sessionId = await upload();
-    const chunkPath = `${uploadTmpDir()}/${sessionId}/chunk-0`;
+    const chunkPath = `${uploadTmpDir()}/${sessionId}/${(await readSessionTempDir(sessionId)).find(file => file.startsWith("chunk-0."))!}`;
     const original = await readFile(chunkPath);
     let locked!: () => void;
     let release!: () => void;
@@ -98,7 +98,7 @@ describe.skipIf(process.env.RUN_DATABASE_INTEGRATION_TESTS !== "1")("image final
       .finally(() => { settled = true; });
     try {
       await vi.waitFor(async () => {
-        expect((await readSessionTempDir(sessionId)).some((name) => name.endsWith(".tmp"))).toBe(true);
+        expect((await readSessionTempDir(sessionId)).filter(name => name.startsWith("chunk-0."))).toHaveLength(2);
       }, { timeout: 3_000 });
       expect(settled).toBe(false);
       expect(await readFile(chunkPath)).toEqual(original);
@@ -108,7 +108,7 @@ describe.skipIf(process.env.RUN_DATABASE_INTEGRATION_TESTS !== "1")("image final
     }
     expect((await retry).error).toMatchObject({ code: "session_not_active" });
     expect(await readFile(chunkPath)).toEqual(original);
-    expect(await readSessionTempDir(sessionId)).toEqual(["chunk-0"]);
+    expect(await readSessionTempDir(sessionId)).toEqual([expect.stringMatching(/^chunk-0\.[a-f0-9-]{36}$/)]);
   });
 
   it("retains every index under sixteen parallel chunk writes", async () => {
@@ -139,7 +139,7 @@ describe.skipIf(process.env.RUN_DATABASE_INTEGRATION_TESTS !== "1")("image final
     expect(await prisma.fileEntry.count({ where: { storageNodeId: id } })).toBe(0);
     const session = await prisma.mediaUploadSession.findUniqueOrThrow({ where: { id: sessionId } });
     expect(session).toMatchObject({ status: "FAILED", resultImageId: null, checksum: null, recoveryRequired: true });
-    expect(await readSessionTempDir(sessionId)).toContain("chunk-0");
+    expect(await readSessionTempDir(sessionId)).toEqual(expect.arrayContaining([expect.stringMatching(/^chunk-0\.[a-f0-9-]{36}$/)]));
     expect((await readdir(fixture.directory)).length).toBeGreaterThan(1);
     expect((await readdir(`${fixture.directory}/linked/gallery`)).length).toBeGreaterThan(0);
   });

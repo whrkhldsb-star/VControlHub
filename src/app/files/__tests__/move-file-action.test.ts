@@ -216,9 +216,8 @@ describe("moveFileAction", () => {
     expect(fileEntryMock.update).not.toHaveBeenCalled();
   });
 
-  it("sizes a moved folder by the files under it", async () => {
+  it("requests a physical inventory for a folder moving into a limited grant", async () => {
     mockEntryLookup({ ...baseEntry, name: "dir", relativePath: "team-a/dir", entryType: "DIRECTORY", size: null });
-    fileEntryMock.aggregate.mockResolvedValueOnce({ _sum: { size: BigInt(900) }, _max: { size: BigInt(500) } });
     vi.mocked(assertStorageAccess).mockResolvedValueOnce({ allowed: true }).mockResolvedValueOnce({ allowed: false, reason: "quota_exceeded" });
     const formData = new FormData();
     formData.set("fileEntryId", "file-1");
@@ -226,7 +225,7 @@ describe("moveFileAction", () => {
 
     await moveFileAction(null, formData);
 
-    expect(assertStorageAccess).toHaveBeenNthCalledWith(2, expect.objectContaining({ writeBytes: BigInt(900), largestFileBytes: BigInt(500) }));
+    expect(assertStorageAccess).toHaveBeenNthCalledWith(2, expect.objectContaining({ measureMove: expect.any(Function), movedFrom: "team-a/dir", relativePath: "team-b/dir" }));
     expect(moveBackingObjectMock).not.toHaveBeenCalled();
   });
 

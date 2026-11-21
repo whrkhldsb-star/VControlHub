@@ -1,3 +1,7 @@
+import { randomUUID } from "node:crypto";
+import { createLogger } from "@/lib/logging";
+import { lockStorageFileOverwrite } from "@/lib/storage/file-overwrite-lock";
+import { publishLocalFile } from "@/lib/storage/publish-local-file";
 import { apiCopy } from "@/lib/i18n/api-copy";
 import { getServerLocale, t } from "@/lib/i18n/translations";
 import { NextRequest, NextResponse } from "next/server";
@@ -205,67 +209,32 @@ export async function POST(request: NextRequest) {
             );
           }
 
+          const staged = path.join(path.dirname(outputPath.path), `.vch-extract-${randomUUID()}.tmp`);
+          let release: (() => Promise<void>) | undefined;
           try {
-          // Decompress with Node's zlib instead of the gunzip binary: same
-          // "keep original, write output beside it" semantics without a
-          // platform-specific executable (Windows/minimal images have no gzip).
-          // The counting limiter aborts the pipeline mid-stream when the
-          // decompressed size blows the cap; the partial file is removed below.
-          // Created exclusively, and removed on failure only if this request
-          // created it: two windows extracting the same file at once both
-          // passed the "not there yet" check, and the later one's cleanup
-          // deleted the output the other had already delivered.
-          await assertNotRecycled(node.id, outputRelativePath, "write");
-          let created = false;
-          const output = createWriteStream(outputPath.path, { flags: "wx" });
-          output.once("open", () => { created = true; });
-          try {
-            await pipeline(
-              createReadStream(fullPath),
-              createGunzip(),
-              // Never write more than was admitted (the file may have changed since).
-              new GunzipOutputLimiter(declaredSize, limitMessage),
-              output,
-            );
-          } catch (error) {
-            if (created) await fs.unlink(outputPath.path).catch(() => undefined);
-            if ((error as NodeJS.ErrnoException).code === "EEXIST") {
-              return NextResponse.json(
-                { error: apiCopy("apiCopy.target.file.already.exists.0c91e640", { v0: String(outputRelativePath) }) },
-                { status: 409 },
-              );
-            }
-            throw error;
-          }
-
-          let outputStat;
-          try {
-            outputStat = await fs.stat(outputPath.path);
-          } catch {
-            return NextResponse.json(
-              { error: apiCopy("apiCopy.extraction.command.completed.but.output.file.not.found.29140104") },
-              { status: 500 },
-            );
-          }
-
-          try {
-            await createFileEntry({
-              storageNodeId: node.id,
-              name: outputName,
-              entryType: "FILE",
-              mimeType: "application/octet-stream",
-              size: outputStat.size,
-              relativePath: outputRelativePath,
-            });
-          } catch (error) {
+            await pipeline(createReadStream(fullPath), createGunzip(), new GunzipOutputLimiter(declaredSize, limitMessage),
+              createWriteStream(staged, { flags: "wx", mode: 0o600 }), { signal: request.signal });
+            const parent = path.posix.dirname(outputRelativePath);
+            release = await lockStorageFileOverwrite(node.id, outputRelativePath, parent === "." ? "" : parent);
+            await assertNotRecycled(node.id, outputRelativePath, "write", "LOCAL");
+            const identity = await fs.stat(staged);
+            await publishLocalFile(staged, outputPath.path, outputRelativePath);
             try {
-              await fs.unlink(outputPath.path);
-            } catch {
-              // Best-effort cleanup: keep the original indexing error visible.
+              await createFileEntry({
+                storageNodeId: node.id, name: outputName, entryType: "FILE", mimeType: "application/octet-stream",
+                size: identity.size, relativePath: outputRelativePath,
+              });
+            } catch (error) {
+              const indexed = await prisma.fileEntry.findFirst({
+                where: { storageNodeId: node.id, relativePath: outputRelativePath }, select: { id: true },
+              });
+              const current = await fs.lstat(outputPath.path);
+              if (!indexed && current.dev === identity.dev && current.ino === identity.ino) await fs.unlink(outputPath.path);
+              throw error;
             }
-            throw error;
-          }
           } finally {
+            await fs.rm(staged, { force: true }).catch(() => undefined);
+            await release?.();
             await releaseStorageQuotaGuard(admission);
           }
         } else if (archiveKindOf(formatName)) {
@@ -286,7 +255,7 @@ export async function POST(request: NextRequest) {
             storageNodeId: node.id,
             relativePath: writeRelativePath,
             operation: "write",
-            writeBytes: plan.totalBytes,
+            writeBytes: plan.totalBytes, largestFileBytes: plan.largestFileBytes,
           });
           if (!admission.allowed) {
             return NextResponse.json(
@@ -296,15 +265,40 @@ export async function POST(request: NextRequest) {
           }
           try {
             const result = await extractArchive({
-              filePath: fullPath, kind, archiveName: formatName, parentDir, plan,
+              filePath: fullPath, kind, archiveName: formatName, parentDir, parentRelativePath: parentRelative, plan,
               beforePublish: (folderName) => assertNotRecycled(node.id, path.posix.join(parentRelative, folderName), "write"),
             }).catch(asValidation);
             // Index the new folder and everything under it, so listings and
             // search show the files without visiting each folder first.
-            await syncLocalDirectoryEntries({ node, relativePath: parentRelative || undefined });
-            for (const directory of result.createdDirectories) {
-              const inParent = path.relative(parentDir, directory).split(path.sep).join("/");
-              await syncLocalDirectoryEntries({ node, relativePath: path.posix.join(parentRelative, inParent) });
+            const folder = path.posix.join(parentRelative, result.folderName);
+            const directories = [parentRelative, ...result.createdDirectories.map(directory =>
+              path.posix.join(parentRelative, path.relative(parentDir, directory).split(path.sep).join("/")))];
+            try {
+              for (const directory of directories) {
+                const sync = await syncLocalDirectoryEntries({ node, relativePath: directory || undefined });
+                if (sync.errors.length) throw new Error(sync.errors.join("; "));
+              }
+              // A sync can legitimately skip an existing tombstone or lose an insert race. Check each
+              // published member before reporting success, including implicit directory entries.
+              for (let offset = 0; offset < result.members.length; offset += 500) {
+                const members = result.members.slice(offset, offset + 500);
+                const rows = await prisma.fileEntry.findMany({
+                  where: { storageNodeId: node.id, isDeleted: false, relativePath: { in: members.map(member => member.relativePath) } },
+                  select: { relativePath: true, entryType: true, size: true },
+                });
+                const indexed = new Map(rows.map(row => [row.relativePath, row]));
+                for (const member of members) {
+                  const row = indexed.get(member.relativePath);
+                  const matches = member.size === null ? row?.entryType === "DIRECTORY"
+                    : row?.entryType === "FILE" && row.size === BigInt(member.size);
+                  if (!matches) throw new Error("Archive index mismatch at " + member.relativePath);
+                }
+              }
+            } catch (error) {
+              createLogger("storage:extract").error("Published archive requires index reconciliation", { storageNodeId: node.id, folder, error });
+              return NextResponse.json({
+                error: t("storagePage.action.indexWriteFailed", locale), folder, indexStatus: "reconciliation_required",
+              }, { status: 500 });
             }
             return NextResponse.json({
               message: result.skipped

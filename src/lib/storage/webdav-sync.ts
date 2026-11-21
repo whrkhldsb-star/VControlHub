@@ -1,3 +1,5 @@
+import { assertNotRecycled } from "./archive-access";
+import { lockStorageFileOverwrite } from "./file-overwrite-lock";
 import type { SessionPayload } from "@/lib/auth/session";
 import { teamWhere } from "@/lib/auth/team-scope";
 import { prisma } from "@/lib/db";
@@ -35,6 +37,7 @@ export async function syncWebDavDirectoryEntries(input: { node: WebDavStorageNod
   const dir = normalizeStorageTargetDirectory(input.relativePath);
   if (!dir.ok) { result.errors.push(dir.reason); return result; }
   let phase: "list" | "index" = "list";
+  let release: (() => Promise<void>) | undefined;
   try {
     // Finish the remote read before opening a database transaction.
     const listingStartedAt = new Date();
@@ -43,6 +46,8 @@ export async function syncWebDavDirectoryEntries(input: { node: WebDavStorageNod
       .map(entry => [entry.relativePath, entry])).values()];
     const paths = new Set(entries.map((entry) => entry.relativePath));
     phase = "index";
+    release = await lockStorageFileOverwrite(input.node.id, dir.path);
+    if (dir.path) await assertNotRecycled(input.node.id, dir.path);
     const counts = await prisma.$transaction(async (tx) => {
       const counts = { synced: 0, created: 0, updated: 0, deleted: 0 };
       const indexed = new Map<string, IndexedEntry>();
@@ -69,7 +74,7 @@ export async function syncWebDavDirectoryEntries(input: { node: WebDavStorageNod
         }
         // Predicate guards against recycle-bin races; never write isDeleted=false here.
         // Another size is other content: a checksum recorded for the old bytes goes with it.
-        const updated = await tx.fileEntry.updateMany({ where: { id: existing.id, isDeleted: false }, data: invalidate ? { ...data, checksumSha256: null } : data });
+        const updated = await tx.fileEntry.updateMany({ where: { id: existing.id, isDeleted: false, updatedAt: { equals: existing.updatedAt, lt: listingStartedAt } }, data: invalidate ? { ...data, checksumSha256: null } : data });
         counts.updated += updated.count;
         counts.synced += updated.count;
       };
@@ -128,6 +133,6 @@ export async function syncWebDavDirectoryEntries(input: { node: WebDavStorageNod
     // Allowlisted context only: no exception, upstream body, URL, path or credentials.
     logger.warn(input.node.driver === "AGENT" ? "Agent directory sync failed" : "WebDAV directory sync failed", { storageNodeId: input.node.id, phase });
     result.errors.push(input.node.driver === "AGENT" ? t("backend.fileAgent.unavailable") : "WebDAV directory sync failed; showing the last indexed listing");
-  }
+  } finally { await release?.(); }
   return result;
 }

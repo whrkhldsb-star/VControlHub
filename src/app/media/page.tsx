@@ -3,7 +3,7 @@ import { sessionHasPermission } from "@/lib/auth/authorization";
 import { requirePagePermission } from "@/lib/auth/page-guard";
 import {
   countMediaItems,
-  listMediaItems,
+  listMediaPage,
   listMediaTags,
   listMediaTypeCounts,
   MEDIA_PAGE_SIZE,
@@ -81,14 +81,13 @@ export default async function Page({
   const q = params?.q?.trim() || undefined;
   const tag = params?.tag?.trim() || undefined;
   const requestedPage = /^\d+$/.test(params?.page ?? "") ? Number(params?.page) : 1;
-  const page = Number.isSafeInteger(requestedPage) && requestedPage > 0 ? requestedPage : 1;
+  const validPage = Number.isSafeInteger(requestedPage) && requestedPage > 0 ? requestedPage : 1;
   // The list is one page; the totals come from the database for the same
   // filters, so counts and what can be browsed always agree.
-  const [media, tagCloud, typeCounts, matchingCount, favCount] = await Promise.all([
-    listMediaItems({ mediaType, q, favorite, tag, session, page, pageSize: MEDIA_PAGE_SIZE }),
+  const [{ media, total: matchingCount, page }, tagCloud, typeCounts, favCount] = await Promise.all([
+    listMediaPage({ mediaType, q, favorite, tag, session, page: validPage, pageSize: MEDIA_PAGE_SIZE }),
     listMediaTags(session),
     listMediaTypeCounts({ q, favorite, tag , session}),
-    countMediaItems({ mediaType, q, favorite, tag, session }),
     countMediaItems({ mediaType, q, tag, favorite: true, session }),
   ]);
   const filters: MediaFilterState = { type: mediaType, q, favorite, tag };
@@ -333,7 +332,7 @@ export default async function Page({
             {items.map((m) => (
               <MediaItemCard
                 key={m.id}
-                item={m as unknown as import("./media-item-card").MediaItem}
+                item={m}
                 canManage={canManageMedia}
                 listHref={mediaHref({ ...filters, page })}
               />

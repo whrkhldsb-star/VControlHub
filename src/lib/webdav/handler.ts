@@ -7,11 +7,14 @@
  * Supported methods: OPTIONS, PROPFIND, GET, HEAD, PUT, DELETE, MKCOL, MOVE, COPY
  * Auth: Bearer API token or Basic (password = API token) with storage scopes.
  */
+import { openRepresentation, putConditionsPass } from "./representation";
+import { moveMeasurement } from "@/lib/storage/move-capacity";
 import { escapeLikeLiteral } from "@/lib/db/like-pattern";
 import { randomUUID } from "node:crypto";
 import { prisma } from "@/lib/db";
 import { lockStorageFileOverwrite } from "@/lib/storage/file-overwrite-lock";
 import { isWindowsStorageBasePath } from "@/lib/storage/path-utils";
+import { WebDavHttpError } from "@/lib/storage/webdav-client";
 import { WEBDAV_STAGE_PREFIX } from "@/lib/storage/staging-paths";
 import { writeFileIndex } from "@/lib/storage/file-write-index";
 import { validateStorageFileIndex } from "@/lib/storage/schema";
@@ -42,7 +45,6 @@ import { pipeline } from "node:stream/promises";
 import {
   copyStorageFile,
   deleteStorageFileBuffer,
-  streamStorageFile,
   writeStorageFileFromLocalPath,
 } from "@/lib/storage/file-content";
 import { readStorageUploadMaxBytes } from "@/lib/upload/limits";
@@ -72,7 +74,6 @@ import {
   parentRelativePath,
   requireAccess,
   toPropFindItem,
-  weakEtag,
   type WebDavContext,
 } from "./handler-internals";
 import { moveSharePaths } from "@/lib/share-link/follow-path";
@@ -102,26 +103,6 @@ export async function handleWebDavPropPatch(ctx: WebDavContext): Promise<Respons
 <D:multistatus xmlns:D="DAV:"><D:response><D:href>${href}</D:href><D:propstat><D:prop/><D:status>HTTP/1.1 200 OK</D:status></D:propstat></D:response></D:multistatus>`;
   return new Response(body, { status: 207, headers: { "Content-Type": "application/xml; charset=utf-8" } });
 }
-/**
- * Size of a stored object whose FileEntry has no `size` recorded.
- *
- * `streamStorageFile` is the only size source, and it opens a handle (a LOCAL
- * read stream, or an SSH client for SFTP) that the caller owns — probing without
- * closing leaked one per request.
- */
-async function probeStorageFileSize(
-  node: Parameters<typeof statBackingObject>[0]["storageNode"],
-  relativePath: string,
-): Promise<number> {
-  // Metadata only. Opening a read stream for its size, then closing the SSH
-  // connection at once, failed the stream's pending SFTP open; the stream
-  // reported that as an 'error' event nobody listened to, which is thrown
-  // and ends the process.
-  const stat = await statBackingObject({ storageNode: node, relativePath });
-  if (!stat) throw new ValidationError(t("backend.webdav.fileNotFound"));
-  return stat.size;
-}
-
 export async function handleWebDavPropFind(
   ctx: WebDavContext,
   depthHeader: string | null,
@@ -148,7 +129,16 @@ export async function handleWebDavPropFind(
   } else {
     const entry = await findEntry(ctx.storageNodeId, ctx.relativePath);
     if (!entry) throw new NotFoundError(t("backend.webdav.resourceNotFound"));
-    items.push(toPropFindItem(ctx.storageNodeId, entry));
+    const item = toPropFindItem(ctx.storageNodeId, entry);
+    if (entry.entryType === "FILE") {
+      const opened = await openRepresentation(node, ctx.relativePath);
+      try {
+        item.etag = opened.etag;
+        item.contentLength = opened.size;
+        item.lastModified = opened.lastModified;
+      } finally { await opened.close(); }
+    }
+    items.push(item);
     if (depth === 1 && entry.entryType === "DIRECTORY") {
       listParent = entry.relativePath;
     }
@@ -207,52 +197,49 @@ export async function handleWebDavGetHead(
     entry.mimeType ||
     guessContentType(entry.name) ||
     "application/octet-stream";
-  const fileSize =
-    entry.size == null
-      ? await probeStorageFileSize(node, ctx.relativePath)
-      : Number(entry.size);
-  const range = parseStorageRange(ctx.rangeHeader ?? null, fileSize);
-  if (range instanceof Response) return range;
-  const headers: Record<string, string> = {
-    "Content-Type": contentType,
-    "Content-Length": String(fileSize === 0 ? 0 : range.end - range.start + 1),
-    "Accept-Ranges": "bytes",
-    // The type comes from whoever uploaded the file. Opened in a browser that
-    // holds cached Basic credentials for this origin, an uploaded HTML or SVG
-    // would run with the application's cookies: never sniff, never script
-    // (same as every other file response, see buildStorageStreamHeaders).
-    "X-Content-Type-Options": "nosniff",
-    "Content-Security-Policy": "sandbox",
-  };
-  const etag = weakEtag(entry);
-  if (etag) headers.ETag = etag;
-  if (entry.updatedAt) headers["Last-Modified"] = entry.updatedAt.toUTCString();
-
-  if (method === "HEAD") {
-    if (range.status === 206) {
-      headers["Content-Range"] =
-        `bytes ${range.start}-${range.end}/${fileSize}`;
-    }
-    return new Response(null, { status: range.status, headers });
+  const read = () => serveFileRepresentation(node, ctx, method, contentType);
+  try {
+    return await read();
+  } catch (error) {
+    // A pinned upstream GET can lose its version between stat and opening the stream.
+    // No response headers have been sent. Recalculate the range once using the new revision.
+    if (!(error instanceof ConflictError || (error instanceof WebDavHttpError && (error.status === 412 || error.status === 416)))) throw error;
+    await assertNotRecycled(ctx.storageNodeId, ctx.relativePath, "read", node.driver);
+    return read();
   }
-  const streamed = await streamStorageFile(
-    node,
-    ctx.relativePath,
-    range.status === 206 ? range : undefined,
-  );
-  headers["Content-Length"] = String(fileSize === 0 ? 0 : range.end - range.start + 1);
-  if (range.status === 206)
-    headers["Content-Range"] = `bytes ${range.start}-${range.end}/${fileSize}`;
-  const response = new Response(nodeStreamToWeb(streamed.stream), {
-    status: range.status,
-    headers,
-  });
-  const closeAwareStream = streamed.stream as NodeJS.ReadableStream & {
-    once?: (event: string, listener: () => void) => void;
-  };
-  closeAwareStream.once?.("close", streamed.close);
-  closeAwareStream.once?.("error", streamed.close);
-  return response;
+}
+
+async function serveFileRepresentation(
+  node: Awaited<ReturnType<typeof loadNode>>, ctx: WebDavContext, method: "GET" | "HEAD", contentType: string,
+) {
+  const opened = await openRepresentation(node, ctx.relativePath);
+  let handedOff = false;
+  try {
+    const fileSize = opened.size;
+    const range = parseStorageRange(ctx.rangeHeader ?? null, fileSize);
+    if (range instanceof Response) return range;
+    const headers: Record<string, string> = {
+      "Content-Type": contentType,
+      "Content-Length": String(fileSize === 0 ? 0 : range.end - range.start + 1),
+      "Accept-Ranges": "bytes",
+      // The type comes from whoever uploaded the file. Opened in a browser that
+      // holds cached Basic credentials for this origin, an uploaded HTML or SVG
+      // would run with the application's cookies: never sniff, never script
+      // (same as every other file response, see buildStorageStreamHeaders).
+      "X-Content-Type-Options": "nosniff",
+      "Content-Security-Policy": "sandbox",
+    };
+    headers.ETag = opened.etag;
+    if (opened.lastModified) headers["Last-Modified"] = opened.lastModified.toUTCString();
+
+    if (range.status === 206) headers["Content-Range"] = `bytes ${range.start}-${range.end}/${fileSize}`;
+    if (method === "HEAD") return new Response(null, { status: range.status, headers });
+    const stream = await opened.stream(range.status === 206 ? { start: range.start, end: range.end } : undefined);
+    const response = new Response(nodeStreamToWeb(stream), { status: range.status, headers });
+    stream.once("close", () => { void opened.close().catch(error => webdavLogger.warn("WebDAV read cleanup failed", { error })); });
+    handedOff = true;
+    return response;
+  } finally { if (!handedOff) await opened.close(); }
 }
 
 export async function handleWebDavPut(
@@ -323,7 +310,16 @@ export async function handleWebDavPut(
     await assertNotRecycled(ctx.storageNodeId, ctx.relativePath, "write");
     const node = await loadNode(ctx.storageNodeId, ctx.session);
     const existing = await findEntry(ctx.storageNodeId, ctx.relativePath);
-    if (existing?.entryType === "DIRECTORY" || (await statBackingObject({ storageNode: node, relativePath: ctx.relativePath }))?.isDirectory) {
+    const physical = await statBackingObject({ storageNode: node, relativePath: ctx.relativePath });
+    const match = request.headers.get("if-match"), none = request.headers.get("if-none-match");
+    if (match !== null || none !== null) {
+      const needsTag = [match, none].some(header => header !== null && header.trim() !== "*");
+      const current = physical && !physical.isDirectory && needsTag ? await openRepresentation(node, ctx.relativePath) : null;
+      try {
+        if (!putConditionsPass(request.headers, Boolean(physical), current?.etag ?? null)) return new Response(null, { status: 412 });
+      } finally { await current?.close(); }
+    }
+    if (existing?.entryType === "DIRECTORY" || physical?.isDirectory) {
       throw new ConflictError(
         t("backend.webdav.cannotOverwriteACollectionWithAFile"),
       );
@@ -676,13 +672,9 @@ export async function handleWebDavMove(
   }
   const admittedEntry = await findEntry(ctx.storageNodeId, ctx.relativePath);
   if (!admittedEntry) throw new NotFoundError(t("backend.webdav.resourceNotFound"));
-  const moved = admittedEntry.entryType === "DIRECTORY" ? await prisma.fileEntry.aggregate({
-    where: { storageNodeId: ctx.storageNodeId, isDeleted: false, entryType: "FILE", relativePath: { startsWith: escapeLikePrefix(ctx.relativePath + "/") } },
-    _sum: { size: true }, _max: { size: true },
-  }) : null;
-  const movedBytes = moved ? moved._sum.size ?? BigInt(0) : BigInt(admittedEntry.size ?? 0);
+  const movedBytes = admittedEntry.size ?? BigInt(0);
   const destinationAccess = await requireAccess(ctx.session, ctx.storageNodeId, destPath, "write", movedBytes, {
-    largestFileBytes: moved ? moved._max.size ?? BigInt(0) : movedBytes, movedFrom: ctx.relativePath,
+    largestFileBytes: movedBytes, movedFrom: ctx.relativePath, measureMove: moveMeasurement(node, admittedEntry),
   });
   let releaseOverwrite: (() => Promise<void>) | undefined;
   try {
@@ -757,6 +749,7 @@ export async function handleWebDavMove(
     }
   }
 
+  await destinationAccess.verifyMove?.();
   if (stagedDestPath) {
     try {
       await renameBackingObject({ storageNode: node, oldRelativePath: destPath, newRelativePath: stagedDestPath });
@@ -895,35 +888,34 @@ export async function handleWebDavCopy(
   }
 
   const node = await loadNode(ctx.storageNodeId, ctx.session);
-  // COPY writes a second full copy of the bytes, so the destination grant has to
-  // be checked against that size. Without `writeBytes` neither `maxFileBytes` nor
-  // `quotaBytes` is evaluated at all (assertStorageAccess skips both), which let
-  // a read+write grant duplicate its way past its own capacity limit.
-  const sourceBytes =
-    entry.size == null
-      ? await probeStorageFileSize(node, ctx.relativePath)
-      : Number(entry.size);
-  validateStorageFileIndex({ storageNodeId: ctx.storageNodeId, relativePath: destPath,
-    mimeType: entry.mimeType, size: sourceBytes });
-  const copyAccess = await requireAccess(
-    ctx.session,
-    ctx.storageNodeId,
-    destPath,
-    "write",
-    sourceBytes,
-  );
+  await requireAccess(ctx.session, ctx.storageNodeId, destPath, "write");
+  await assertNotRecycled(ctx.storageNodeId, destPath, "write");
+  const parent = parentRelativePath(destPath);
+  const staged = [parent, WEBDAV_STAGE_PREFIX + randomUUID() + ".staged"].filter(Boolean).join("/");
+  let copyAccess: Awaited<ReturnType<typeof requireAccess>> | undefined;
   let releaseOverwrite: (() => Promise<void>) | undefined;
+  let stagedCopy = false;
   try {
+    const sourceLock = await lockStorageFileOverwrite(ctx.storageNodeId, destPath, ctx.relativePath);
+    let size: number;
+    try {
+      await assertNotRecycled(ctx.storageNodeId, ctx.relativePath);
+      await assertNotRecycled(ctx.storageNodeId, destPath, "write");
+      if (request.headers.get("overwrite")?.toUpperCase() === "F" &&
+          (await findEntry(ctx.storageNodeId, destPath) || await statBackingObject({ storageNode: node, relativePath: destPath }))) {
+        throw new BusinessError(t("backend.webdav.destinationExistsAndOverwriteIsF"), undefined, 412);
+      }
+      size = (await copyStorageFile(node, ctx.relativePath, staged, false)).size;
+      stagedCopy = true;
+    } finally { await sourceLock(); }
+    validateStorageFileIndex({ storageNodeId: ctx.storageNodeId, relativePath: destPath, mimeType: entry.mimeType, size });
+    copyAccess = await requireAccess(ctx.session, ctx.storageNodeId, destPath, "write", size);
     releaseOverwrite = await lockStorageFileOverwrite(ctx.storageNodeId, destPath);
     await assertNotRecycled(ctx.storageNodeId, destPath, "write");
-    return await performWebDavCopy({
-      ctx,
-      request,
-      entry,
-      node,
-      destPath,
-    });
+    return await performWebDavCopy({ ctx, request, entry, node, destPath, staged, size });
   } finally {
+    if (stagedCopy) await deleteBackingObject({ storageNode: node, relativePath: staged, isDirectory: false, tolerateMissing: true })
+      .catch(error => webdavLogger.warn("Could not clean up staged COPY", { error }));
     await releaseOverwrite?.();
     await releaseStorageQuotaGuard(copyAccess);
   }
@@ -935,8 +927,10 @@ async function performWebDavCopy(input: {
   entry: { id: string; entryType: string; mimeType: string | null };
   node: Awaited<ReturnType<typeof loadNode>>;
   destPath: string;
+  staged: string;
+  size: number;
 }): Promise<Response> {
-  const { ctx, request, entry, node, destPath } = input;
+  const { ctx, request, entry, node, destPath, staged, size: copiedSize } = input;
   const existingDest = await findEntry(ctx.storageNodeId, destPath);
   const overwrite =
     (request.headers.get("overwrite") ?? "T").toUpperCase() !== "F";
@@ -958,7 +952,6 @@ async function performWebDavCopy(input: {
 
   const destName = entryName(destPath);
   const destMime = entry.mimeType || undefined;
-  let copiedSize = 0;
   let stagedDestPath: string | null = null;
   let promoted = false;
   let droppedVersionOwners: string[] = [];
@@ -997,8 +990,7 @@ async function performWebDavCopy(input: {
       }
     }
 
-    const copied = await copyStorageFile(node, ctx.relativePath, destPath, overwrite);
-    copiedSize = copied.size;
+    await moveBackingObject({ storageNode: node, oldRelativePath: staged, newRelativePath: destPath });
     promoted = true;
 
     if (existingDest) {

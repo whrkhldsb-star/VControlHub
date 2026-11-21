@@ -1,4 +1,7 @@
 import * as crypto from "node:crypto";
+import { joinStoragePath } from "@/lib/storage/path-utils";
+import { assertNotRecycled } from "@/lib/storage/archive-access";
+import { lockStorageFileOverwrite } from "@/lib/storage/file-overwrite-lock";
 import { mkdir, rm, writeFile } from "node:fs/promises";
 import * as path from "node:path";
 
@@ -76,6 +79,7 @@ export async function POST(request: Request) {
 }
 
 async function handleUpload(request: Request, userId: string, session: SessionPayload | undefined, locale: Locale) {
+  let releasePath: (() => Promise<void>) | undefined;
   let storageAccess: Awaited<ReturnType<typeof assertStorageAccess>> | undefined;
   try {
     // formData() buffers the whole body before the per-file size checks below,
@@ -91,8 +95,7 @@ async function handleUpload(request: Request, userId: string, session: SessionPa
     const album = String(formData.get("album") ?? "").trim() || undefined;
     const storageNodeId =
       String(formData.get("storageNodeId") ?? "").trim() || undefined;
-    const relativePath =
-      String(formData.get("relativePath") ?? "").trim() || undefined;
+    const relativePath = storageNodeId ? String(formData.get("relativePath") ?? "") : undefined;
 
     if (!isUploadFile(file)) {
       throw new ValidationError(t("api.storage.missingUploadFile", locale));
@@ -194,15 +197,17 @@ async function handleUpload(request: Request, userId: string, session: SessionPa
     let linkedStorageNode: StorageFileNode | null = null;
 
     // If linked to a storage node, also copy there (cloud storage integration)
-    if (storageNodeId && relativePath) {
+    if (storageNodeId && relativePath !== undefined) {
       try {
         if (!session) {
           throw new ForbiddenError(t("api.image.storageCopyForbidden", locale));
         }
+        const target = joinStoragePath(relativePath, storageKey);
+        if (!target.ok) throw new ValidationError(target.reason);
         storageAccess = await assertStorageAccess({
           session,
           storageNodeId,
-          relativePath,
+          relativePath: target.path,
           operation: "write",
           writeBytes: buffer.byteLength,
         });
@@ -216,7 +221,9 @@ async function handleUpload(request: Request, userId: string, session: SessionPa
         if (!storageNode || (storageNode.driver !== "LOCAL" && storageNode.driver !== "SFTP")) {
           throw new ValidationError(t("backend.storage.uploadNotSupported", locale));
         }
-        linkedStorageRelativePath = `${relativePath.replace(/\/$/, "")}/${storageKey}`;
+        releasePath = await lockStorageFileOverwrite(storageNodeId, target.path);
+        await assertNotRecycled(storageNodeId, target.path, "write", storageNode.driver);
+        linkedStorageRelativePath = target.path;
         linkedStorageNode = storageNode;
         await writeStorageFileBuffer(storageNode, linkedStorageRelativePath, buffer);
       } catch (error) {
@@ -297,6 +304,6 @@ async function handleUpload(request: Request, userId: string, session: SessionPa
     throw new AppError({ code: "INTERNAL_ERROR", message: t("api.image.uploadFailed", locale), status: 500 });
   } finally {
     // Quota readers must see the committed FileEntry, or completed rollback.
-    if (storageAccess) await releaseStorageQuotaGuard(storageAccess);
+    try { await releasePath?.(); } finally { if (storageAccess) await releaseStorageQuotaGuard(storageAccess); }
   }
 }

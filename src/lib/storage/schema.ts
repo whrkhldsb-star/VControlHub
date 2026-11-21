@@ -203,6 +203,7 @@ export const sftpOpsBodySchema = z.object({
    * route; the difference is that a *missing* token means "overwrite blind",
    * so the editor must always send one.
    */
+  expectedContentVersion: z.string().regex(/^[a-f0-9]{64}$/).optional(),
   expectedLastModifiedMs: z.number().int().nonnegative().optional(),
 });
 

@@ -107,10 +107,10 @@ describe("detectAndPruneSftpStaleInventory", () => {
       }),
     );
 
-    // updateMany 只标 isDeleted=true, 不动其它字段
+    // 本轮回收记录带批次，可从回收站安全清空。
     expect(prismaFileEntryMock.updateMany).toHaveBeenCalledWith({
       where: { id: { in: ["fe_stale_root", "fe_stale_inner"] }, isDeleted: false, updatedAt: { lt: expect.any(Date) } },
-      data: { isDeleted: true },
+      data: { isDeleted: true, deleteBatchId: expect.stringMatching(/^[0-9a-f-]{36}$/) },
     });
   });
 
@@ -173,7 +173,7 @@ describe("detectAndPruneSftpStaleInventory", () => {
     expect(result.stale).toBe(1);
     expect(prismaFileEntryMock.updateMany).toHaveBeenCalledWith({
       where: { id: { in: ["fe_ghost"] }, isDeleted: false, updatedAt: { lt: expect.any(Date) } },
-      data: { isDeleted: true },
+      data: { isDeleted: true, deleteBatchId: expect.stringMatching(/^[0-9a-f-]{36}$/) },
     });
   });
 

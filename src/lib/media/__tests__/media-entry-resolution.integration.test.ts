@@ -30,6 +30,14 @@ describe.skipIf(process.env.RUN_DATABASE_INTEGRATION_TESTS !== "1")("media items
 		await prisma.$disconnect();
 	});
 
+	it("changes the thumbnail revision for a same-path replacement before a media scan", async () => {
+		const before = await getMediaItem(mediaId, null, { includeCredentials: true });
+		await prisma.fileEntry.update({ where: { id: entryId }, data: { checksumSha256: "a".repeat(64) } });
+		const after = await getMediaItem(mediaId, null, { includeCredentials: true });
+		expect(after?.updatedAt).toEqual(before?.updatedAt);
+		expect(after?.fileRevision).toBeTruthy();
+		expect(after?.fileRevision).not.toBe(before?.fileRevision);
+	});
 	it("uses and stores the file's new path after a rename", async () => {
 		await prisma.fileEntry.update({ where: { id: entryId }, data: { name: "b.jpg", relativePath: "archive/b.jpg" } });
 		await expect(getMediaItem(mediaId, null, { includeCredentials: true })).resolves.toMatchObject({ name: "b.jpg", relativePath: "archive/b.jpg" });

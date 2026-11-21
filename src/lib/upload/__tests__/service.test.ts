@@ -360,7 +360,7 @@ describe("appendMediaUploadChunk", () => {
 
 		// On disk we should have chunk-0 + chunk-3 (sorted alphabetically)
 		const files = await readSessionTempDir(id);
-		expect(files).toEqual(["chunk-0", "chunk-3"]);
+		expect(files).toEqual([expect.stringMatching(/^chunk-0\.[a-f0-9-]{36}$/), expect.stringMatching(/^chunk-3\.[a-f0-9-]{36}$/)]);
 	});
 
 	it("rejects mismatched buffer.size vs declared size", async () => {
@@ -461,8 +461,27 @@ describe("assembleMediaUploadChunks", () => {
 			userId: TEST_USER, filename: "a.png", mimeType: "image/png", totalSize: 10, chunkSize: 10,
 		});
 		await appendMediaUploadChunk({ sessionId: view.id, userId: TEST_USER, index: 0, size: 10, buffer: Buffer.alloc(10) });
-		await fs.writeFile(`${uploadTmpDir()}/${view.id}/chunk-0`, Buffer.alloc(5));
+		await fs.writeFile(`${uploadTmpDir()}/${view.id}/${(await readSessionTempDir(view.id)).find(file => file.startsWith("chunk-0."))!}`, Buffer.alloc(5));
 		await expect(assembleMediaUploadChunks(view.id, TEST_USER)).rejects.toMatchObject({ code: "chunk_size_unexpected" });
+	});
+
+	it("assembles only committed chunk bytes after a failed retry, including legacy chunks", async () => {
+		const view = await initMediaUploadSession({
+			userId: TEST_USER, filename: "a.png", mimeType: "image/png", totalSize: 6, chunkSize: 3,
+		});
+		const write = (index: number, bytes: string) => appendMediaUploadChunk({ sessionId: view.id, userId: TEST_USER, index, size: 3, buffer: Buffer.from(bytes) });
+		const dir = uploadTmpDir() + "/" + view.id;
+		await fs.mkdir(dir, { recursive: true });
+		await fs.writeFile(dir + "/chunk-0", "old");
+		store.sessions.get(view.id)!.receivedChunks = [0];
+		await write(1, "abc");
+		const { prisma } = await import("@/lib/db");
+		vi.mocked(prisma.mediaUploadSession.updateMany).mockRejectedValueOnce(new Error("database failed"));
+		await expect(write(1, "new")).rejects.toThrow("database failed");
+		expect(await assembleMediaUploadChunks(view.id, TEST_USER)).toEqual(Buffer.from("oldabc"));
+		store.sessions.get(view.id)!.status = "FINALIZING";
+		const assembled = await assembleMediaUploadToFile(view.id, TEST_USER);
+		expect(await fs.readFile(assembled.path)).toEqual(Buffer.from("oldabc"));
 	});
 
 	it("rejects overwrites after a finalizer claims the session", async () => {
@@ -472,7 +491,7 @@ describe("assembleMediaUploadChunks", () => {
 		await appendMediaUploadChunk({ sessionId: view.id, userId: TEST_USER, index: 0, size: 10, buffer: Buffer.alloc(10, 1) });
 		store.sessions.get(view.id)!.status = "FINALIZING";
 		await expect(appendMediaUploadChunk({ sessionId: view.id, userId: TEST_USER, index: 0, size: 10, buffer: Buffer.alloc(10, 2) })).rejects.toMatchObject({ code: "session_not_active" });
-		expect(await fs.readFile(`${uploadTmpDir()}/${view.id}/chunk-0`)).toEqual(Buffer.alloc(10, 1));
+		expect(await fs.readFile(`${uploadTmpDir()}/${view.id}/${(await readSessionTempDir(view.id)).find(file => file.startsWith("chunk-0."))!}`)).toEqual(Buffer.alloc(10, 1));
 	});
 
 	it("does not replace an existing chunk when finalization wins after the initial state read", async () => {
@@ -491,7 +510,7 @@ describe("assembleMediaUploadChunks", () => {
 
 		const retry = appendMediaUploadChunk({ sessionId: view.id, userId: TEST_USER, index: 0, size: 10, buffer: Buffer.alloc(10, 2) });
 		await expect(retry).rejects.toMatchObject({ code: "session_not_active" });
-		expect(await fs.readFile(`${uploadTmpDir()}/${view.id}/chunk-0`)).toEqual(Buffer.alloc(10, 1));
+		expect(await fs.readFile(`${uploadTmpDir()}/${view.id}/${(await readSessionTempDir(view.id)).find(file => file.startsWith("chunk-0."))!}`)).toEqual(Buffer.alloc(10, 1));
 	});
 
 	it("does not resurrect cancellation that races the chunk status update", async () => {
@@ -693,7 +712,7 @@ describe("sweepExpiredMediaUploadSessions", () => {
 		});
 		expect(await sweepExpiredMediaUploadSessions()).toBe(0);
 		expect(store.sessions.get(view.id)!.status).toBe("FINALIZING");
-		expect(await readSessionTempDir(view.id)).toEqual(["chunk-0"]);
+		expect(await readSessionTempDir(view.id)).toEqual([expect.stringMatching(/^chunk-0\.[a-f0-9-]{36}$/)]);
 	});
 
 	it("cancels PENDING/UPLOADING sessions past expiresAt", async () => {
@@ -753,13 +772,13 @@ describe("streamed upload assembly", () => {
 		try {
 			await expect(appendMediaUploadChunk({ sessionId: view.id, userId: TEST_USER, index: 1, size: 10, buffer: Buffer.alloc(10) })).rejects.toMatchObject({ code: "insufficient_storage" });
 			// Nothing of the refused chunk was written, and the session can go on once there is room.
-			expect(await readSessionTempDir(view.id)).toEqual(["chunk-0"]);
+			expect(await readSessionTempDir(view.id)).toEqual([expect.stringMatching(/^chunk-0\.[a-f0-9-]{36}$/)]);
 			freeBytes.value = null;
 			await appendMediaUploadChunk({ sessionId: view.id, userId: TEST_USER, index: 1, size: 10, buffer: Buffer.alloc(10) });
 			store.sessions.get(view.id)!.status = "FINALIZING";
 			freeBytes.value = 512 * 1024 * 1024 + 19;
 			await expect(assembleMediaUploadToFile(view.id, TEST_USER)).rejects.toMatchObject({ code: "insufficient_storage" });
-			expect(await readSessionTempDir(view.id)).toEqual(["chunk-0", "chunk-1"]);
+			expect(await readSessionTempDir(view.id)).toEqual([expect.stringMatching(/^chunk-0\.[a-f0-9-]{36}$/), expect.stringMatching(/^chunk-1\.[a-f0-9-]{36}$/)]);
 			freeBytes.value = 512 * 1024 * 1024 + 20;
 			await expect(assembleMediaUploadToFile(view.id, TEST_USER)).resolves.toMatchObject({ size: 20 });
 		} finally {
@@ -775,8 +794,8 @@ describe("streamed upload assembly", () => {
 		const view = await initMediaUploadSession({ userId: TEST_USER, filename: "a.png", mimeType: "image/png", totalSize: 10, chunkSize: 10 });
 		await appendMediaUploadChunk({ sessionId: view.id, userId: TEST_USER, index: 0, size: 10, buffer: Buffer.alloc(10) });
 		store.sessions.get(view.id)!.status = "FINALIZING";
-		await fs.writeFile(`${uploadTmpDir()}/${view.id}/chunk-0`, Buffer.alloc(11));
+		await fs.writeFile(`${uploadTmpDir()}/${view.id}/${(await readSessionTempDir(view.id)).find(file => file.startsWith("chunk-0."))!}`, Buffer.alloc(11));
 		await expect(assembleMediaUploadToFile(view.id, TEST_USER)).rejects.toMatchObject({ code: "chunk_size_unexpected" });
-		expect(await readSessionTempDir(view.id)).toEqual(["chunk-0"]);
+		expect(await readSessionTempDir(view.id)).toEqual([expect.stringMatching(/^chunk-0\.[a-f0-9-]{36}$/)]);
 	});
 });

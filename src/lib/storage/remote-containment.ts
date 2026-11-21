@@ -1,3 +1,4 @@
+import type { Client } from "ssh2";
 import path from "node:path";
 
 import { ValidationError } from "@/lib/errors";
@@ -38,6 +39,7 @@ export async function assertRemotePathContained(
   connection: SshConnectionParams & { windowsOpenSsh?: boolean },
   basePath: string,
   lexicalPath: string,
+  client?: Client,
 ): Promise<string> {
   const lexicalRoot = normalizeRemotePath(basePath);
   const relative = lexicalPath === lexicalRoot ? "" : path.posix.relative(lexicalRoot, lexicalPath);
@@ -45,9 +47,20 @@ export async function assertRemotePathContained(
   if (relative === ".." || relative.startsWith("../") || path.posix.isAbsolute(relative)) {
     throw new ValidationError(t("backend.storage.pathExceedsNodeRoot"));
   }
-  const realRoot = await resolveRemoteRealPath({ ...connection, remotePath: lexicalRoot });
+  // Existing read targets can be resolved on the pinned transfer connection.
+  const resolve = client
+    ? (remotePath: string) => new Promise<string>((done, reject) => client.sftp((err, sftp) => {
+        if (err) return reject(err);
+        sftp.realpath(remotePath, (error, value) => {
+          sftp.end();
+          if (error) reject(error);
+          else done(value);
+        });
+      }))
+    : (remotePath: string) => resolveRemoteRealPath({ ...connection, remotePath });
+  const realRoot = await resolve(lexicalRoot);
   const realTarget = relative
-    ? await resolveRemoteRealPath({ ...connection, remotePath: lexicalPath }).catch((error: unknown) => {
+    ? await resolve(lexicalPath).catch((error: unknown) => {
         // Where the link would lead cannot be known: refuse like a link out of the root.
         if (error instanceof RemoteDanglingLinkError) throw new ValidationError(t("backend.storage.remotePathLeavesNodeRoot"));
         throw error;

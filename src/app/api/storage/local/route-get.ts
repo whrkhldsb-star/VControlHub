@@ -1,3 +1,4 @@
+import { assertNotRecycled } from "@/lib/storage/archive-access";
 import { createReadStream } from "node:fs";
 import { access, stat } from "node:fs/promises";
 
@@ -63,6 +64,7 @@ export async function handleLocalStorageGet(
       { status: 403 },
     );
   }
+  await assertNotRecycled(storageNodeId, entry.relativePath, "read", "LOCAL");
   let absolutePath: string;
   try {
     ({ absolutePath } = await resolveManagedLocalEntryPath({

@@ -132,9 +132,11 @@ async function permanentDeleteFileEntryActionImpl(
       return { error: t("storagePage.action.missingFileEntryParam") } satisfies StorageActionState;
     }
 
-    const deleteBatchId = String(formData.get("deleteBatchId") ?? "");
-    if (!deleteBatchId) return { error: apiCopy("apiCopy.files.op.changed") };
-    const where = { id: fileEntryId, isDeleted: true, deleteBatchId, storageNode: teamWhere(session) };
+    const deleteBatchId = String(formData.get("deleteBatchId") ?? "") || null;
+    const deletedAt = new Date(String(formData.get("deletedAt") ?? ""));
+    if (!deleteBatchId && !Number.isFinite(deletedAt.getTime())) return { error: apiCopy("apiCopy.files.op.changed") };
+    const identity = { id: fileEntryId, isDeleted: true, deleteBatchId, ...(!deleteBatchId && { updatedAt: deletedAt }) };
+    const where = { ...identity, storageNode: teamWhere(session) };
     const target = await prisma.fileEntry.findFirst({ where, select: { storageNodeId: true } });
     if (!target) return { error: apiCopy("apiCopy.files.op.changed") };
     // Serialize against move/copy/delete/rename/restore on the same node:
@@ -191,13 +193,14 @@ async function permanentDeleteFileEntryActionImpl(
       const isDirectory = entry.entryType === "DIRECTORY";
       if (isDirectory) {
         const outside = await prisma.fileEntry.count({
-          where: outsideDeleteBatchWhere(entry.storageNodeId, entry.relativePath, deleteBatchId),
+          where: deleteBatchId ? outsideDeleteBatchWhere(entry.storageNodeId, entry.relativePath, deleteBatchId)
+            : { storageNodeId: entry.storageNodeId, relativePath: { startsWith: escapeLikeLiteral(entry.relativePath + "/") } },
         });
         if (outside > 0) {
           return { error: t("storagePage.action.liveEntriesUnderRecycledDirectory", { count: outside }) };
         }
       }
-      const children = isDirectory ? await prisma.fileEntry.findMany({
+      const children = isDirectory && deleteBatchId ? await prisma.fileEntry.findMany({
         where: {
           storageNodeId: entry.storageNodeId, isDeleted: true, deleteBatchId,
           relativePath: { startsWith: escapeLikeLiteral(`${entry.relativePath}/`) },
@@ -212,7 +215,7 @@ async function permanentDeleteFileEntryActionImpl(
         prisma.fileEntry.deleteMany({
           where: { id: { in: children.map(row => row.id) }, storageNodeId: entry.storageNodeId, isDeleted: true, deleteBatchId },
         }),
-        prisma.fileEntry.delete({ where: { id: fileEntryId, isDeleted: true, deleteBatchId } }),
+        prisma.fileEntry.delete({ where: identity }),
         prisma.shareLink.updateMany({ where: { id: { in: affectedShareIds }, revokedAt: null }, data: { revokedAt: new Date() } }),
       ]);
       await purgeFileEntryVersionDirectories(entry.storageNodeId, [entry.id, ...children.map(row => row.id)]);

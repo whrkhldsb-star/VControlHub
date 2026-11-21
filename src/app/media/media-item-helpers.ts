@@ -22,7 +22,7 @@ export interface MediaItem {
   storageNode?: {
     id: string;
     name: string;
-    basePath: string;
+    basePath?: string;
     driver: string;
     directAccessMode?: string | null;
     publicBaseUrl?: string | null;
@@ -40,7 +40,7 @@ export function storageLabel(m: MediaItem, t: MediaTFn) {
   const node = m.storageNode;
   if (!node) return t("mediaItemCard.unknownStorage");
   const serverName = node.server?.name ?? t("mediaItemCard.localServer");
-  return `${serverName} · ${node.basePath}`;
+  return `${serverName} · ${node.basePath ?? node.name}`;
 }
 
 export function createStorageEntry(item: MediaItem, t: MediaTFn) {

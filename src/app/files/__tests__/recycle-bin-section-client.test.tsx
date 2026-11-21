@@ -114,7 +114,7 @@ describe("RecycleBinSectionClient", () => {
 		expect(mocks.toast).toHaveBeenCalledWith("success", "已恢复 2 项");
 	});
 
-	it("still treats everything under a purged folder as covered, whatever its batch", async () => {
+	it("purges a selected independent child batch before its enclosing folder", async () => {
 		mocks.purge.mockResolvedValue({ success: "ok" });
 		const folder: DeletedEntryProp = { id: "dir", name: "reports", entryType: "DIRECTORY", relativePath: "reports", size: null, storageNodeId: "node-1", deleteBatchId: "batch-2" };
 		const child: DeletedEntryProp = { id: "child", name: "q3.txt", entryType: "FILE", relativePath: "reports/q3.txt", size: 3, storageNodeId: "node-1", deleteBatchId: "batch-1" };
@@ -124,7 +124,7 @@ describe("RecycleBinSectionClient", () => {
 		await act(async () => {
 			fireEvent.click(screen.getByRole("button", { name: "永久删除" }));
 		});
-		expect(mocks.purge.mock.calls.map((call) => call[1].get("fileEntryId"))).toEqual(["dir"]);
+		expect(mocks.purge.mock.calls.map((call) => call[1].get("fileEntryId"))).toEqual(["child", "dir"]);
 	});
 
 	it("still handles a covered entry itself when its folder failed", async () => {

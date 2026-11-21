@@ -71,9 +71,11 @@ vi.mock("@/lib/audit/service", () => ({
 	auditUserAction: mocks.auditUserAction,
 }));
 
+vi.mock("@/lib/storage/file-overwrite-lock", () => ({ lockStorageFileOverwrite: async () => async () => {} }));
 vi.mock("@/lib/db", () => {
 	const prisma = {
-	$executeRaw: vi.fn(async () => 1),
+		$executeRaw: vi.fn(async () => 1),
+		fileEntry: { findFirst: vi.fn() },
 		mediaUploadSession: { findFirst: vi.fn(), updateMany: mocks.sessionUpdateMany },
 		imageUpload: { create: mocks.imageCreate, delete: mocks.imageDelete },
 		storageNode: { findFirst: mocks.storageFindFirst },
@@ -215,6 +217,15 @@ describe("POST /api/images/upload/init", () => {
 		const noStorage = await initRoute.POST(new Request("http://local/api/images/upload/init", { method: "POST", body }));
 		expect(noStorage.status).toBe(403);
 		expect(mocks.initMediaUploadSession).not.toHaveBeenCalled();
+	});
+
+	it.each(["", undefined])("retains the selected root directory at initialization (%s)", async relativePath => {
+		const res = await initRoute.POST(new Request("http://local/api/images/upload/init", {
+			method: "POST",
+			body: JSON.stringify({ filename: "photo.png", mimeType: "image/png", totalSize: 1024, storageNodeId: "node", relativePath }),
+		}));
+		expect(res.status).toBe(201);
+		expect(mocks.initMediaUploadSession).toHaveBeenCalledWith(expect.objectContaining({ storageNodeId: "node", relativePath: "" }));
 	});
 
 	it("initialises a session and writes an audit entry", async () => {
@@ -410,13 +421,13 @@ describe("POST /api/images/upload/[id]/complete", () => {
 		new Request("http://local/api/images/upload/sess_1/complete", { method: "POST" }),
 		{ params: Promise.resolve({ id: "sess_1" }) },
 	);
-	async function setStoredFile(filename: string, linked = false) {
+	async function setStoredFile(filename: string, linked = false, directory: string | null = "gallery") {
 		const { prisma } = await import("@/lib/db");
 		vi.mocked(prisma.mediaUploadSession.findFirst).mockResolvedValueOnce({
 			filename, mimeType: "image/png", totalSize: BigInt(15),
 			status: "UPLOADING", expiresAt: new Date(Date.now() + 60_000), totalChunks: 1, receivedChunks: [0],
 			storageNodeId: linked ? "node_1" : null,
-			relativePath: linked ? "gallery" : null,
+			relativePath: linked ? directory : null,
 		} as never);
 	}
 	beforeEach(async () => {
@@ -547,8 +558,8 @@ describe("POST /api/images/upload/[id]/complete", () => {
 		expect(mocks.completeMediaUploadSession).not.toHaveBeenCalled();
 	});
 
-	it("keeps the quota lock until linked file indexing commits", async () => {
-		await setStoredFile("photo.png", true);
+	it.each(["", null])("keeps the quota lock until the selected root and its index commit (stored directory %j)", async directory => {
+		await setStoredFile("photo.png", true, directory);
 		const localRoot = path.join(os.tmpdir(), "vcontrolhub-chunk-upload-quota-test");
 		const access = { allowed: true, releaseQuotaGuard: vi.fn() };
 		mocks.assertStorageAccess.mockResolvedValueOnce(access);
@@ -569,6 +580,16 @@ describe("POST /api/images/upload/[id]/complete", () => {
 		}
 	});
 
+	it("rejects a recycled linked directory before publishing chunked images", async () => {
+		await setStoredFile("photo.png", true);
+		const { prisma } = await import("@/lib/db");
+		vi.mocked(prisma.fileEntry.findFirst).mockResolvedValueOnce({ id: "trash" } as never);
+		mocks.storageFindFirst.mockResolvedValueOnce({ id: "node_1", driver: "LOCAL", basePath: "/unused" });
+		const response = await complete();
+		expect(response.status).toBe(409);
+		expect(mocks.imageCreate).not.toHaveBeenCalled();
+		expect(mocks.indexLinkedStorageImage).not.toHaveBeenCalled();
+	});
 	it("returns 400 when assembly reports missing chunks", async () => {
 		const { MediaUploadError } = await import("@/lib/upload/service");
 		mocks.assembleMediaUploadChunks.mockRejectedValueOnce(

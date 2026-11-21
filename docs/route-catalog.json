@@ -1,5 +1,5 @@
 {
-  "generatedAt": "2026-11-21T07:49:00.924Z",
+  "generatedAt": "2026-11-21T14:51:14.227Z",
   "summary": {
     "sidebarMain": 26,
     "sidebarSystem": 12,
@@ -374,8 +374,7 @@
       "inSidebarSystem": false,
       "declaredPermissions": [
         "storage:manage-node",
-        "storage:read",
-        "storage:write"
+        "storage:read"
       ],
       "navigationPermissions": [
         "storage:read"
@@ -1981,9 +1980,7 @@
       ],
       "guardMode": "withApiRoute",
       "declaredPermissions": [
-        "image:read",
-        "media:manage",
-        "team:manage"
+        "image:read"
       ]
     },
     {
@@ -2776,6 +2773,7 @@
       ],
       "guardMode": "withApiRoute",
       "declaredPermissions": [
+        "storage:manage-node",
         "storage:read",
         "storage:write"
       ]

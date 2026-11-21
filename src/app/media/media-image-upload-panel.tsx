@@ -76,8 +76,7 @@ export function MediaImageUploadPanel() {
 	const [error, setError] = useState<string | null>(null);
 
 	const chunked = useChunkedMediaUpload({
-		...(storageNodeId ? { storageNodeId } : {}),
-		...(targetPath.trim() ? { relativePath: targetPath.trim() } : {}),
+		...(storageNodeId ? { storageNodeId, relativePath: targetPath.trim() } : {}),
 		onProgress: (next) => {
 			// Only the actively uploading chunked row should receive progress.
 			// Mapping onto every mode==='chunked' item rewrites completed rows
@@ -206,8 +205,10 @@ export function MediaImageUploadPanel() {
 
 			const formData = new FormData();
 			formData.append("file", file);
-			if (storageNodeId) formData.append("storageNodeId", storageNodeId);
-			if (targetPath.trim()) formData.append("relativePath", targetPath.trim());
+			if (storageNodeId) {
+				formData.append("storageNodeId", storageNodeId);
+				formData.append("relativePath", targetPath.trim());
+			}
 			try {
 				await csrfFetch("/api/images/upload", { method: "POST", body: formData });
 				success++;

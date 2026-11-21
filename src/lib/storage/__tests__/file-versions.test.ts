@@ -63,6 +63,8 @@ vi.mock("@/lib/db", () => ({
   isUniqueViolation: (error: unknown) => (error as { code?: string })?.code === "P2002",
   prisma: {
     fileEntry: {
+      findFirst: vi.fn(async ({ where }) => [...store.entries.values()].find(row =>
+        row.storageNodeId === where.storageNodeId && row.isDeleted && where.relativePath.in.includes(row.relativePath)) ?? null),
       findUnique: vi.fn(async ({ where }: any) => store.entries.get(where.id) ?? null),
       update: vi.fn(async ({ where, data }: any) => {
         const row = store.entries.get(where.id);
@@ -154,6 +156,14 @@ describe("file-versions service", () => {
 
   afterEach(async () => {
     await fs.rm(tmpDir, { recursive: true, force: true });
+  });
+
+  it("denies version history under a recycled parent despite an active leaf", async () => {
+    const entry = store.entries.get("fe_1");
+    entry.relativePath = "trash/child.txt";
+    store.entries.set("parent", { storageNodeId: entry.storageNodeId, relativePath: "trash", isDeleted: true });
+    const { listFileVersions } = await import("../file-versions");
+    await expect(listFileVersions({ fileEntryId: "fe_1", session: { userId: "u1" } as never })).rejects.toMatchObject({ status: 404 });
   });
 
   it("snapshots current body before overwrite and retains only latest N", async () => {
@@ -313,7 +323,9 @@ describe("file-versions service", () => {
     const snap = await mod.snapshotFileVersionBeforeOverwrite({
       fileEntryId: "fe_1",
       reason: "UPLOAD",
+      maxBytes: 8,
     });
+    expect(readBufferMock).toHaveBeenCalledWith(expect.anything(), expect.any(String), 8);
     expect(snap).toBeNull();
   });
 

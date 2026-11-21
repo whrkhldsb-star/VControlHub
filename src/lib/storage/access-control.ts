@@ -1,3 +1,5 @@
+import { ConflictError } from "@/lib/errors";
+import { apiCopy } from "@/lib/i18n/api-copy";
 import { escapeLikeLiteral } from "@/lib/db/like-pattern";
 import { Prisma } from "@prisma/client";
 
@@ -27,6 +29,7 @@ export type StorageAccessDecision = {
   allowed: boolean;
   reason?: string;
   matchedGrantId?: string;
+  verifyMove?: () => Promise<void>;
   /**
    * Present when a grant quota check was serialized via advisory lock.
    * Callers that pass writeBytes MUST release this after the FileEntry index
@@ -146,6 +149,7 @@ export async function assertStorageAccess(input: {
   writeBytes?: number | bigint | null;
   /** Directory sync cannot account for files before they are written. */
   unmeteredTreeWrite?: boolean;
+  measureMove?: () => Promise<{ bytes: bigint; largest: bigint; version: string }>;
   /** A directory arriving at once: the per-file limit applies to its largest file, the quota to writeBytes. */
   largestFileBytes?: number | bigint | null;
   /**
@@ -207,6 +211,27 @@ export async function assertStorageAccess(input: {
       && (pathMatchesGrant(targetPath, grant.pathPrefix) || pathMatchesGrant(grant.pathPrefix, targetPath)));
     if (limited) return { allowed: false, reason: "unmetered_tree_write" };
   }
+  let verifyMove: (() => Promise<void>) | undefined;
+  let capacityGrants = [operationGrant];
+  if (input.measureMove) {
+    const limited = grants.filter(grant => grant.maxFileBytes !== null || grant.quotaBytes !== null);
+    // One aggregate cannot admit a subtree against a second, nested destination prefix.
+    if (limited.some(grant => grant.pathPrefix !== targetPath && pathMatchesGrant(grant.pathPrefix, targetPath))) {
+      return { allowed: false, reason: "unmetered_tree_write" };
+    }
+    capacityGrants = limited.filter(grant => pathMatchesGrant(targetPath, grant.pathPrefix));
+    if (capacityGrants.length) {
+      const measure = input.measureMove;
+      const first = await measure();
+      input = { ...input, writeBytes: first.bytes, largestFileBytes: first.largest };
+      verifyMove = async () => {
+        const current = await measure();
+        if (current.version !== first.version || current.bytes !== first.bytes || current.largest !== first.largest) {
+          throw new ConflictError(apiCopy("apiCopy.files.op.changed"));
+        }
+      };
+    }
+  }
   const writeBytes = input.writeBytes === null || input.writeBytes === undefined
     ? null
     : typeof input.writeBytes === "bigint"
@@ -218,13 +243,13 @@ export async function assertStorageAccess(input: {
     const largestFileBytes = input.largestFileBytes === null || input.largestFileBytes === undefined
       ? writeBytes
       : BigInt(input.largestFileBytes);
-    if (operationGrant.maxFileBytes !== null && largestFileBytes > operationGrant.maxFileBytes) {
-      return { allowed: false, reason: STORAGE_ACCESS_DENIED_REASONS.fileTooLarge, matchedGrantId: operationGrant.id };
-    }
+    const tooSmall = capacityGrants.find(grant => grant.maxFileBytes !== null && largestFileBytes > grant.maxFileBytes);
+    if (tooSmall) return { allowed: false, reason: STORAGE_ACCESS_DENIED_REASONS.fileTooLarge, matchedGrantId: tooSmall.id };
 
     const movedFrom = input.movedFrom === null || input.movedFrom === undefined ? null : normalizeAccessPath(input.movedFrom);
-    const alreadyCounted = movedFrom !== null && pathMatchesGrant(movedFrom, operationGrant.pathPrefix);
-    if (operationGrant.quotaBytes !== null && !alreadyCounted) {
+    const quotas = capacityGrants.filter(grant => grant.quotaBytes !== null &&
+      (movedFrom === null || !pathMatchesGrant(movedFrom, grant.pathPrefix)));
+    if (quotas.length) {
       // Grants on overlapping paths (including different users) count the
       // same files. Serialize by node, never by grant id.
       // Lock is held until the caller releases after FileEntry create/update.
@@ -233,22 +258,15 @@ export async function assertStorageAccess(input: {
         input.storageNodeId,
       );
       try {
-        const usedBytes = await getGrantUsageBytes({
-          storageNodeId: input.storageNodeId,
-          pathPrefix: operationGrant.pathPrefix,
-        });
-        // Usage already counts the live file this write replaces, so a quota
-        // admits the size change, not the full new size: a same-size or
-        // smaller rewrite always fits. Read under the lock, so a concurrent
-        // writer of the same grant cannot change it in between.
+        // The grant already counts the live file being replaced. Every enclosing quota that
+        // gains the moved bytes must admit them under the same node lock.
         const replacedBytes = await getReplacedFileBytes(input.storageNodeId, targetPath);
-        if (usedBytes - replacedBytes + writeBytes > operationGrant.quotaBytes) {
-          await releaseQuotaGuard();
-          return {
-            allowed: false,
-            reason: STORAGE_ACCESS_DENIED_REASONS.quotaExceeded,
-            matchedGrantId: operationGrant.id,
-          };
+        for (const grant of quotas) {
+          const usedBytes = await getGrantUsageBytes({ storageNodeId: input.storageNodeId, pathPrefix: grant.pathPrefix });
+          if (usedBytes - replacedBytes + writeBytes > grant.quotaBytes!) {
+            await releaseQuotaGuard();
+            return { allowed: false, reason: STORAGE_ACCESS_DENIED_REASONS.quotaExceeded, matchedGrantId: grant.id };
+          }
         }
       } catch (error) {
         await releaseQuotaGuard();
@@ -257,12 +275,12 @@ export async function assertStorageAccess(input: {
       return {
         allowed: true,
         matchedGrantId: operationGrant.id,
-        releaseQuotaGuard,
+        releaseQuotaGuard, verifyMove,
       };
     }
   }
 
-  return { allowed: true, matchedGrantId: operationGrant.id };
+  return { allowed: true, matchedGrantId: operationGrant.id, verifyMove };
 }
 
 async function loadStorageGrants(userId: string, storageNodeId: string) {

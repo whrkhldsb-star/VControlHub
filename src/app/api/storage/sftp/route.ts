@@ -1,3 +1,5 @@
+import { assertNotRecycled } from "@/lib/storage/archive-access";
+import { prisma } from "@/lib/db";
 import { apiCopy } from "@/lib/i18n/api-copy";
 import { NextResponse } from "next/server";
 import type { SessionPayload } from "@/lib/auth/session";
@@ -49,6 +51,7 @@ async function handleGet(request: Request, session: SessionPayload) {
       { status: 403 },
     );
   }
+  await assertNotRecycled(node.id, normalizedRelativePath);
   // Same place physically: no symlink hop below the node root.
   try {
     normalizedRemotePath = await assertRemotePathContained(connectionCredentials, node.basePath, normalizedRemotePath);
@@ -68,12 +71,18 @@ async function handleGet(request: Request, session: SessionPayload) {
       remotePath: normalizedRemotePath,
       maxEntries: limit + 1,
     });
+    const childPath = (name: string) => [normalizedRelativePath, name].filter(Boolean).join("/");
+    const deleted = await prisma.fileEntry.findMany({
+      where: { storageNodeId: node.id, isDeleted: true, relativePath: { in: entries.map(entry => childPath(entry.name)) } },
+      select: { relativePath: true },
+    });
+    const hidden = new Set(deleted.map(entry => entry.relativePath));
     const truncated = entries.length > limit;
     return NextResponse.json({
       nodeId: node.id,
       nodeName: node.name,
       remotePath: remotePath.startsWith("/") ? remotePath : `/${remotePath}`,
-      entries: entries.slice(0, limit).filter(entry => !isStorageStagingPath(entry.name)),
+      entries: entries.slice(0, limit).filter(entry => !isStorageStagingPath(entry.name) && !hidden.has(childPath(entry.name))),
       truncated,
       limit,
     });
