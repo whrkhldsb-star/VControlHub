@@ -34,12 +34,13 @@ describe.skipIf(process.platform === "win32")("restore-files archive safety", ()
   });
 
   it("restores regular files", async () => {
-    await writeFile(path.join(source, "hello.txt"), "hello");
+    await mkdir(path.join(source, "storage"), { recursive: true });
+    await writeFile(path.join(source, "storage", "hello.txt"), "hello");
     const archive = path.join(tmp, "regular.tar.gz");
     await runFile("tar", ["-czf", archive, "-C", source, "."]);
 
     await runFile("bash", ["scripts/restore-files.sh", archive, target], { cwd: process.cwd(), env });
-    await expect(readFile(path.join(target, "hello.txt"), "utf8")).resolves.toBe("hello");
+    await expect(readFile(path.join(target, "storage", "hello.txt"), "utf8")).resolves.toBe("hello");
   });
 
   it("restores data and keeps the installation's own code from a FULL archive", async () => {
