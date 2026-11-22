@@ -171,7 +171,10 @@ try {
         $liveData = Join-Path $published $dir
         $entry = Get-Item -LiteralPath $dataDir -Force -ErrorAction SilentlyContinue
         if ($entry -and ($entry.Attributes -band [IO.FileAttributes]::ReparsePoint)) {
-          if ([string]$entry.Target -ne $liveData -or !(Test-Path -LiteralPath $liveData -PathType Container)) {
+          $rawTarget = if ($entry.Target -is [Array]) { [string]$entry.Target[0] } else { [string]$entry.Target }
+          $canonTarget = if ($rawTarget -and (Test-Path -LiteralPath $rawTarget)) { [string](& $nodeExe -e "process.stdout.write(require('fs').realpathSync.native(process.argv[1]))" $rawTarget) } else { $rawTarget }
+          $canonLive = if (Test-Path -LiteralPath $liveData) { [string](& $nodeExe -e "process.stdout.write(require('fs').realpathSync.native(process.argv[1]))" $liveData) } else { $liveData }
+          if (!($canonTarget) -or ($canonTarget.TrimEnd([char[]]@('\', '/')) -ne $canonLive.TrimEnd([char[]]@('\', '/'))) -or !(Test-Path -LiteralPath $liveData -PathType Container)) {
             throw "Unexpected persistent directory link: $dataDir"
           }
         } elseif ((Test-Path -LiteralPath $liveData) -or ($entry -and !($entry -is [IO.DirectoryInfo]))) {

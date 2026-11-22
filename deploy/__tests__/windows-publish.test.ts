@@ -1,5 +1,6 @@
 // @vitest-environment node
 import { execFileSync } from "node:child_process";
+import { realpathSync } from "node:fs";
 import { copyFile, lstat, mkdir, mkdtemp, readdir, readFile, rm, symlink, writeFile } from "node:fs/promises";
 import { tmpdir } from "node:os";
 import path from "node:path";
@@ -10,7 +11,7 @@ const roots: string[] = [];
 afterEach(async () => { for (const root of roots.splice(0)) await rm(root, { recursive: true, force: true }); });
 
 async function fixture() {
-  const app = await mkdtemp(path.join(tmpdir(), "vch-win-install-"));
+  const app = realpathSync.native(await mkdtemp(path.join(tmpdir(), "vch-win-install-")));
   roots.push(app);
   for (const dir of ["deploy", "deploy/windows", "deploy/lib", "node_modules", ".next", "dist", "bin"]) await mkdir(path.join(app, dir));
   for (const file of ["windows/install.ps1", "windows/publish-release.ps1", "windows/read-install-env.mjs", "lib/release-directories.txt", "check-aria2-secret.mjs", "check-node-version.mjs", "env.production.example"]) {
