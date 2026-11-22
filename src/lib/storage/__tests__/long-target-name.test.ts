@@ -64,6 +64,20 @@ describe("a staged upload reaching a LOCAL node", () => {
     }
   });
 
+  it.skipIf(process.platform === "win32")("preserves private permissions and ownership when overwriting", async () => {
+    const root = mkdtempSync(path.join(tmpdir(), "private-replacement-"));
+    try {
+      const source = path.join(root, "source");
+      const target = path.join(root, "private");
+      writeFileSync(target, "old", { mode: 0o600 });
+      const owner = statSync(target);
+      writeFileSync(source, "new");
+      await writeStorageFileFromLocalPath({ driver: "LOCAL", basePath: root } as never, "private", source);
+      const result = statSync(target);
+      expect([result.uid, result.gid, result.mode & 0o777]).toEqual([owner.uid, owner.gid, 0o600]);
+    } finally { rmSync(root, { recursive: true, force: true }); }
+  });
+
   it("is copied where it cannot be moved (staging on another filesystem), and the source is left to its owner", async () => {
     const root = mkdtempSync(path.join(tmpdir(), "staged-copy-"));
     try {

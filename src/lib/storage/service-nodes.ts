@@ -118,9 +118,10 @@ function serializeHealthFields(node: {
 }
 
 async function lockStorageServer(tx: Prisma.TransactionClient, serverId: string, teamId: string | null) {
-  const matches = await tx.$queryRaw<{ id: string }[]>`
-    SELECT id FROM servers WHERE id = ${serverId} AND "teamId" IS NOT DISTINCT FROM ${teamId} FOR SHARE`;
+  const matches = await tx.$queryRaw<{ id: string; operatingSystem: string }[]>`
+    SELECT id, "operatingSystem" FROM servers WHERE id = ${serverId} AND "teamId" IS NOT DISTINCT FROM ${teamId} FOR SHARE`;
   if (!matches.length) throw new ValidationError(t("backend.storage.serverOwnerMismatch"));
+  return matches[0]!;
 }
 
 async function assertServerInTeamScope(
@@ -446,7 +447,9 @@ export async function updateStorageNode(
   try {
     updated = await prisma.$transaction(async (tx) => {
       if (payload.isDefault) await lockForTransaction(tx, "storage-node-default", current.teamId ?? "platform");
-      if (nextServerId && nextDriver === "SFTP") await lockStorageServer(tx, nextServerId, current.teamId);
+      if (rootChanged) await lockForTransaction(tx, "storage-editable", current.id + ":");
+      const nextServer = nextServerId && nextDriver === "SFTP" ? await lockStorageServer(tx, nextServerId, current.teamId) : null;
+      const resetGateway = rootChanged && (current.server?.operatingSystem === "WINDOWS" || nextServer?.operatingSystem === "WINDOWS");
       const claimed = await tx.storageNode.updateMany({
         where: { ...(session ? teamWhere(session) : {}), id: payload.storageNodeId, teamId: current.teamId,
           basePath: current.basePath, driver: current.driver, host: current.host, port: current.port,
@@ -456,8 +459,8 @@ export async function updateStorageNode(
           name: payload.name ?? current.name,
           ...nextRoot,
           ...(payload.isDefault ? { isDefault: true } : {}),
-          directAccessMode: nextAccessMode,
-          publicBaseUrl: nextPublicBaseUrl,
+          directAccessMode: resetGateway ? "PROXY" : nextAccessMode,
+          publicBaseUrl: resetGateway ? null : nextPublicBaseUrl,
           directAccessExpiresSeconds:
             payload.directAccessExpiresSeconds ??
             current.directAccessExpiresSeconds,
@@ -465,6 +468,11 @@ export async function updateStorageNode(
       });
       if (claimed.count === 0) {
         throw new NotFoundError(t("backend.storage.nodeNotFound"));
+      }
+      if (rootChanged) {
+        // Tombstones from older releases have no binding. A later driver must never operate on their bytes.
+        await tx.fileEntry.updateMany({ where: { storageNodeId: current.id, isDeleted: true, deletedAgentRoot: null },
+          data: { deletedAgentRoot: "retired-root" } });
       }
       if (nextDriver === "AGENT" && !current.agentFileShare && payload.serverId) {
         const server = await tx.server.findFirst({

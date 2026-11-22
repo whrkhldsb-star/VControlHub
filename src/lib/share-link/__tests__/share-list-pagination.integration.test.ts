@@ -4,7 +4,7 @@ import { afterAll, beforeAll, describe, expect, it, vi } from "vitest";
 
 import { prisma } from "@/lib/db";
 
-import { hashShareToken, listShareLinkPage, resolveShareToken, revokeShareLink } from "../service";
+import { createShareLinkFromFileEntry, hashShareToken, listShareLinkPage, resolveShareToken, revokeShareLink } from "../service";
 
 /**
  * 205 shares in one customer: the oldest is still active. It used to fall off
@@ -97,6 +97,7 @@ describe.skipIf(process.env.RUN_DATABASE_INTEGRATION_TESTS !== "1")("share list 
         claim = resolveShareToken(token).then(() => true, () => false);
         // The initial read succeeded. Wait until the claim itself queues behind this transaction.
         await vi.waitFor(async () => {
+          await tx.$executeRaw`SELECT pg_stat_clear_snapshot()`;
           const blocked = await tx.$queryRaw<Array<{ waiting: boolean }>>`
             SELECT EXISTS (SELECT FROM pg_stat_activity WHERE ${locker!.pid}::int = ANY(pg_blocking_pids(pid))) AS waiting
           `;
@@ -109,6 +110,37 @@ describe.skipIf(process.env.RUN_DATABASE_INTEGRATION_TESTS !== "1")("share list 
     } finally {
       await claim;
       await prisma.shareLink.delete({ where: { id: share.id } });
+    }
+  });
+
+  it.each(["create", "claim"] as const)("binds a queued share %s to the locked path", async operation => {
+    const file = await prisma.fileEntry.create({ data: { name: "selected", relativePath: "selected", entryType: "FILE", storageNodeId: prefix } });
+    const token = randomUUID();
+    const share = await prisma.shareLink.create({ data: { storageNodeId: prefix, path: "selected", tokenHash: hashShareToken(token), createdBy: prefix, teamId: prefix } });
+    let queued: Promise<string> | undefined;
+    try {
+      await prisma.$transaction(async tx => {
+        const [locker] = await tx.$queryRaw<Array<{ pid: number }>>`SELECT pg_backend_pid() AS pid FROM file_entries WHERE id = ${file.id} FOR UPDATE`;
+        await tx.$queryRaw`SELECT id FROM share_links WHERE id = ${share.id} FOR UPDATE`;
+        queued = operation === "create"
+          ? createShareLinkFromFileEntry({ session: { ...session, roles: ["admin"], username: prefix, mustChangePassword: false }, fileEntryId: file.id })
+              .then(row => row.share.path, error => error.status === 404 ? "stale" : Promise.reject(error))
+          : resolveShareToken(token).then(row => row.path);
+        await vi.waitFor(async () => {
+          await tx.$executeRaw`SELECT pg_stat_clear_snapshot()`;
+          const [blocked] = await tx.$queryRaw<Array<{ waiting: boolean }>>`SELECT EXISTS (SELECT FROM pg_stat_activity
+            WHERE ${locker!.pid}::int = ANY(pg_blocking_pids(pid))) AS waiting`;
+          expect(blocked?.waiting).toBe(true);
+        }, { timeout: 6000, interval: 25 });
+        await tx.fileEntry.update({ where: { id: file.id }, data: { relativePath: "moved" } });
+        await tx.shareLink.update({ where: { id: share.id }, data: { path: "moved" } });
+      }, { timeout: 10000 });
+      expect(await queued).toBe(operation === "create" ? "stale" : "moved");
+      expect(await prisma.shareLink.count({ where: { storageNodeId: prefix, path: "selected" } })).toBe(0);
+    } finally {
+      await Promise.allSettled([queued]);
+      await prisma.shareLink.deleteMany({ where: { storageNodeId: prefix, path: { in: ["selected", "moved"] } } });
+      await prisma.fileEntry.delete({ where: { id: file.id } });
     }
   });
 

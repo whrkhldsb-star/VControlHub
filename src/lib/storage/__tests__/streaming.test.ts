@@ -5,6 +5,10 @@ import { describe, expect, it } from "vitest";
 import { buildStorageStreamHeaders, parseStorageRange, storageStreamResponse } from "../streaming";
 
 describe("storage streaming helpers", () => {
+	it("rejects a range with neither endpoint", () => {
+		expect(parseStorageRange("bytes=-", 12)).toMatchObject({ status: 416 });
+	});
+
 	it("keeps the sandbox on a type that only starts like a PDF", () => {
 		// Browsers go by the last type in a list: "application/pdf, text/html" renders as HTML.
 		const range = { start: 0, end: 9, status: 200 as const };

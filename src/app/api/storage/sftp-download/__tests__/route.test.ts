@@ -140,7 +140,9 @@ describe("/api/storage/sftp-download", () => {
 		sftpCreateReadStreamMock.mockImplementation(() => streamWithData());
 	});
 
-	it("rejects a known recycle-bin path before opening SSH", async () => {
+	it.each([false, true])("checks recycled ancestors before opening SSH (Windows OpenSSH: %s)", async windowsOpenSsh => {
+		const { resolveStorageSshCredentials } = await import("@/lib/storage/ssh-credentials");
+		vi.mocked(resolveStorageSshCredentials).mockReturnValueOnce({ ...resolveStorageSshCredentials(sftpNode as never), windowsOpenSsh });
 		prismaMock.fileEntry.findFirst.mockResolvedValueOnce({ id: "deleted-path" });
 		const response = await GET(
 			new Request("https://example.com/api/storage/sftp-download?nodeId=node_1&path=movies%2Fdemo.mp4"),
@@ -148,7 +150,9 @@ describe("/api/storage/sftp-download", () => {
 
 		expect(response.status).toBe(404);
 		expect(prismaMock.fileEntry.findFirst).toHaveBeenCalledWith({
-			where: { storageNodeId: "node_1", isDeleted: true, relativePath: { in: ["movies", "movies/demo.mp4"] } },
+			where: { storageNodeId: "node_1", isDeleted: true, relativePath: {
+				in: ["movies", "movies/demo.mp4"], ...(windowsOpenSsh && { mode: "insensitive" }),
+			} },
 			select: { id: true },
 		});
 		expect(connectMock).not.toHaveBeenCalled();

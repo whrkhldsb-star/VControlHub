@@ -1,14 +1,14 @@
 import { SFTP_TRANSFER_IDLE_TIMEOUT_MS } from "@/lib/ssh/sftp-timeout";
 import { openManagedArchive } from "@/lib/storage/archive-access";
-import { createReadStream } from "node:fs";
-import { stat } from "node:fs/promises";
+import { openManagedLocalFile, pinLocalArchiveDirectory } from "@/lib/storage/open-local-file";
+import { lockStorageFileOverwrite } from "@/lib/storage/file-overwrite-lock";
 import path from "node:path";
 import { Readable } from "node:stream";
 import { guessContentType } from "@/lib/http/mime-types";
 import { Client } from "ssh2";
 import { z } from "zod";
 
-import { connectSsh, readRemoteFile } from "@/lib/ssh/client";
+import { connectSsh, readRemoteFile, statRemoteEntry } from "@/lib/ssh/client";
 import {
 	archiveStreamResponse,
 	buildArchiveHeaders,
@@ -23,13 +23,16 @@ import { nodeStreamToWeb } from "@/lib/http/node-to-web-stream";
 import { parseSearchParams } from "@/lib/http/parse-search-params";
 import {
 	assertShareTargetNotDeleted,
+	assertShareStillAt,
+	recordShareDownload,
+	shareIgnoresCase,
 	authorizeShareDownload,
 	hashShareToken,
 	normalizeSharePath,
 	releaseShareQuotaClaim,
 	resolveShareToken,
 } from "@/lib/share-link/service";
-import { hasCaseInsensitiveLocalPaths, resolveStoragePathWithinBase } from "@/lib/storage/path-utils";
+import { resolveStoragePathWithinBase } from "@/lib/storage/path-utils";
 import { normalizeRemoteTargetPath } from "@/lib/storage/remote-path";
 import { assertRemotePathContained } from "@/lib/storage/remote-containment";
 import { resolveStorageSshCredentials } from "@/lib/storage/ssh-credentials";
@@ -162,10 +165,15 @@ async function openSftpFile(client: Client, remotePath: string) {
 	return new Promise<{ stream: import("stream").Readable; size: number }>((resolve, reject) => {
 		client.sftp((err, sftp) => {
 			if (err) return reject(err);
-			sftp.stat(remotePath, (statErr, stats) => {
-				if (statErr) return reject(statErr);
-				if (!stats.isFile()) return reject(new Error("Share target is Not a downloadable file"));
-				resolve({ stream: sftp.createReadStream(remotePath) as import("stream").Readable, size: stats.size });
+			sftp.open(remotePath, "r", (openError, handle) => {
+				if (openError) return reject(openError);
+				sftp.fstat(handle, (statErr, stats) => {
+					if (statErr || !stats.isFile()) {
+						sftp.close(handle, () => {});
+						return reject(statErr ?? new Error("Missing share target"));
+					}
+					resolve({ stream: sftp.createReadStream(remotePath, { handle }) as import("stream").Readable, size: stats.size });
+				});
 			});
 		});
 	});
@@ -272,15 +280,25 @@ async function serveShareIn(
 		return apiError({ code: err instanceof ForbiddenError ? "FORBIDDEN" : "NOT_FOUND", message, status: err instanceof ForbiddenError ? 403 : 404 });
 	}
 
-	// Quota was claimed in resolveShareToken (not for HEAD); refund if we never
-	// open a delivery stream.
-	const denyAfterClaim = async (response: Response) => {
-		if (!head) await releaseShareQuotaClaim(share.id);
+	let release: (() => Promise<void>) | undefined;
+	try {
+		release = await lockStorageFileOverwrite(share.storageNodeId, share.path);
+		await assertShareStillAt(share.id, share.storageNodeId, share.path);
+		const response = await openShareResponse(share, request, head, locale);
+		if (!head) {
+			if (response.ok) await recordShareDownload(share.id, clientIp ?? undefined, request.headers.get("user-agent") ?? undefined);
+			else await releaseShareQuotaClaim(share.id);
+		}
 		return response;
-	};
+	} catch {
+		if (!head) await releaseShareQuotaClaim(share.id);
+		return apiError({ code: "NOT_FOUND", message: t("apiShareToken.invalidToken", locale), status: 404 });
+	} finally { await release?.(); }
+}
 
+async function openShareResponse(share: Awaited<ReturnType<typeof resolveShareToken>>, request: Request, head: boolean, locale: Locale) {
 	const node = share.storageNode;
-	const ignoreCase = hasCaseInsensitiveLocalPaths(node.driver);
+	const ignoreCase = shareIgnoresCase(node);
 	let targetPath = share.path;
 	let query: { path?: string; archive: boolean; inline: boolean };
 	try {
@@ -302,22 +320,22 @@ async function serveShareIn(
 		// A malformed query ("?path=", "?path=a&path=b") escaped as a 500 after the download had been counted: a
 		// one-time link was used up by it. It is a 400, and the claim is given back.
 		if (!(err instanceof ValidationError)) throw err;
-		return denyAfterClaim(apiError({ code: "VALIDATION_FAILED", message: err.message, status: 400 }));
+		return apiError({ code: "VALIDATION_FAILED", message: err.message, status: 400 });
 	}
 	const { path: childPath, archive, inline } = query;
 	const wantsArchive = archive;
 	if (wantsArchive && share.entryType !== "DIRECTORY") {
-		return denyAfterClaim(apiError({ code: "VALIDATION_FAILED", message: t("apiShareToken.notPackagable", locale), status: 400 }));
+		return apiError({ code: "VALIDATION_FAILED", message: t("apiShareToken.notPackagable", locale), status: 400 });
 	}
 	if (share.entryType === "DIRECTORY") {
 		if (wantsArchive) {
 			targetPath = share.path;
 		} else {
-			if (!childPath) return denyAfterClaim(apiError({ code: "VALIDATION_FAILED", message: t("apiShareToken.directoryNeedsChild", locale), status: 400 }));
+			if (!childPath) return apiError({ code: "VALIDATION_FAILED", message: t("apiShareToken.directoryNeedsChild", locale), status: 400 });
 			try {
 				targetPath = normalizeSharePath(childPath);
 			} catch {
-				return denyAfterClaim(apiError({ code: "VALIDATION_FAILED", message: t("apiShareToken.invalidPath", locale), status: 400 }));
+				return apiError({ code: "VALIDATION_FAILED", message: t("apiShareToken.invalidPath", locale), status: 400 });
 			}
 			const rootParts = share.path.split("/");
 			const childParts = targetPath.split("/");
@@ -325,32 +343,36 @@ async function serveShareIn(
 				? part.toLowerCase() === childParts[index]?.toLowerCase()
 				: part === childParts[index]);
 			if (!inShare) {
-				return denyAfterClaim(apiError({ code: "FORBIDDEN", message: t("apiShareToken.outOfRange", locale), status: 403 }));
+				return apiError({ code: "FORBIDDEN", message: t("apiShareToken.outOfRange", locale), status: 403 });
 			}
 			// Keep the granted root's spelling even if a Windows directory enables per-folder case sensitivity.
 			targetPath = [...rootParts, ...childParts.slice(rootParts.length)].join("/");
 		}
 	} else if (share.entryType !== "FILE") {
-		return denyAfterClaim(apiError({ code: "VALIDATION_FAILED", message: t("apiShareToken.notDownloadable", locale), status: 400 }));
+		return apiError({ code: "VALIDATION_FAILED", message: t("apiShareToken.notDownloadable", locale), status: 400 });
 	}
 	try {
-		await assertShareTargetNotDeleted(share.storageNodeId, targetPath, node.driver);
+		await assertShareTargetNotDeleted(share.storageNodeId, targetPath, node.driver, ignoreCase);
 	} catch {
-		return denyAfterClaim(apiError({ code: "NOT_FOUND", message: t("apiShareToken.invalidToken", locale), status: 404 }));
+		return apiError({ code: "NOT_FOUND", message: t("apiShareToken.invalidToken", locale), status: 404 });
 	}
 
 	if (wantsArchive && node.driver === "SFTP" && !supportsRemoteTar(node)) {
-		return denyAfterClaim(apiError({ code: "VALIDATION_FAILED", message: t("backend.storage.archiveNeedsLinuxSsh", locale), status: 400 }));
+		return apiError({ code: "VALIDATION_FAILED", message: t("backend.storage.archiveNeedsLinuxSsh", locale), status: 400 });
 	}
 	const fileName = targetPath.split("/").pop() || share.name || targetPath;
-	if (head) {
-		const headers = wantsArchive ? buildArchiveHeaders(safeArchiveName(share.name || fileName)) : fileHeaders({ fileName, inline });
-		return new Response(null, { status: 200, headers });
-	}
+	const headResponse = (size?: number) => new Response(null, { headers: wantsArchive
+		? buildArchiveHeaders(safeArchiveName(share.name || fileName)) : fileHeaders({ fileName, size, inline }) });
 
 	if (node.driver === "WEBDAV" || node.driver === "AGENT") {
-		if (wantsArchive) return denyAfterClaim(apiError({ code: "VALIDATION_FAILED", message: t("apiShareToken.unsupportedDriver", locale), status: 400 }));
+		if (wantsArchive) return apiError({ code: "VALIDATION_FAILED", message: t("apiShareToken.unsupportedDriver", locale), status: 400 });
 		try {
+			if (head) {
+				const { createRemoteStorageClient } = await import("@/lib/storage/agent-file-client");
+				const entry = await createRemoteStorageClient({ ...node, expectedRoot: share.agentRootIdentity ?? undefined }).stat(targetPath, true);
+				if (!entry || entry.isDirectory) throw new Error("Missing share target");
+				return headResponse(entry.size);
+			}
 			const { streamStorageFile } = await import("@/lib/storage/file-content");
 			const opened = await streamStorageFile({ ...node, expectedRoot: share.agentRootIdentity ?? undefined }, targetPath);
 			const stream = opened.stream as Readable;
@@ -358,35 +380,48 @@ async function serveShareIn(
 			stream.once("error", opened.close);
 			return fileResponse(stream, { size: opened.size, fileName, inline });
 		} catch {
-			return denyAfterClaim(apiError({ code: "NOT_FOUND", message: t("apiShareToken.remoteNotFound", locale), status: 404 }));
+			return apiError({ code: "NOT_FOUND", message: t("apiShareToken.remoteNotFound", locale), status: 404 });
 		}
 	}
 
 	if (node.driver === "LOCAL") {
 		const resolved = resolveStoragePathWithinBase(node.basePath, targetPath);
 		if (!resolved.ok) {
-			return denyAfterClaim(apiError({ code: "VALIDATION_FAILED", message: t("apiShareToken.invalidPath", locale), status: 400 }));
+			return apiError({ code: "VALIDATION_FAILED", message: t("apiShareToken.invalidPath", locale), status: 400 });
 		}
 		const absolutePath = resolved.path;
 		try {
-			const fileStat = await stat(absolutePath);
 			if (wantsArchive) {
-				if (share.entryType !== "DIRECTORY" || !fileStat.isDirectory()) {
-					return denyAfterClaim(apiError({ code: "VALIDATION_FAILED", message: t("apiShareToken.notPackagable", locale), status: 400 }));
+				if (head) {
+					const pinned = await pinLocalArchiveDirectory(node.basePath, targetPath);
+					await pinned.close();
+					return headResponse();
 				}
 				const stream = await openManagedArchive({
 					storageNodeId: node.id,
 					caseInsensitive: ignoreCase,
 					relativePath: targetPath,
 					signal: request.signal,
-					open: (excluded) => streamLocalTarGz(absolutePath, path.basename(absolutePath), excluded),
+					open: async excluded => {
+						const pinned = await pinLocalArchiveDirectory(node.basePath, targetPath);
+						try {
+							return streamLocalTarGz(pinned.cwd ?? absolutePath, path.basename(absolutePath), excluded, pinned);
+						} catch (error) {
+							await pinned.close();
+							throw error;
+						}
+					},
 				});
 				return archiveStreamResponse(stream, safeArchiveName(share.name || path.basename(absolutePath)));
 			}
-			if (!fileStat.isFile()) return denyAfterClaim(apiError({ code: "VALIDATION_FAILED", message: t("apiShareToken.notDownloadable", locale), status: 400 }));
-			return fileResponse(createReadStream(absolutePath), { size: fileStat.size, fileName, inline: inline && !wantsArchive });
+			const handle = await openManagedLocalFile(node.basePath, targetPath);
+			try {
+				const { size } = await handle.stat();
+				if (head) { await handle.close(); return headResponse(size); }
+				return fileResponse(handle.createReadStream(), { size, fileName, inline });
+			} catch (error) { await handle.close(); throw error; }
 		} catch {
-			return denyAfterClaim(apiError({ code: "NOT_FOUND", message: t("apiShareToken.localNotFound", locale), status: 404 }));
+			return apiError({ code: "NOT_FOUND", message: t("apiShareToken.localNotFound", locale), status: 404 });
 		}
 	}
 
@@ -395,13 +430,13 @@ async function serveShareIn(
 		try {
 			remotePath = normalizeRemoteTargetPath(node.basePath, targetPath);
 		} catch {
-			return denyAfterClaim(apiError({ code: "VALIDATION_FAILED", message: t("apiShareToken.invalidPath", locale), status: 400 }));
+			return apiError({ code: "VALIDATION_FAILED", message: t("apiShareToken.invalidPath", locale), status: 400 });
 		}
 		let credentials: ReturnType<typeof resolveStorageSshCredentials>;
 		try {
 			credentials = resolveStorageSshCredentials(node);
 		} catch (err) {
-			return denyAfterClaim(apiError({ code: "VALIDATION_FAILED", message: getErrorMessage(err, t("apiShareToken.missingRemoteCredentials", locale)), status: 400 }));
+			return apiError({ code: "VALIDATION_FAILED", message: getErrorMessage(err, t("apiShareToken.missingRemoteCredentials", locale)), status: 400 });
 		}
 		let client: Client | null = null;
 		try {
@@ -410,22 +445,27 @@ async function serveShareIn(
 			);
 			if (agentOnly) {
 				if (wantsArchive) {
-					return denyAfterClaim(apiError({
+					return apiError({
 						code: "VALIDATION_FAILED",
 						message: t("apiShareToken.agentArchiveNeedsDirect", locale),
 						status: 400,
-					}));
+					});
 				}
 				try {
 					remotePath = await assertRemotePathContained(credentials, node.basePath, remotePath);
+					if (head) {
+						const entry = await statRemoteEntry({ ...credentials, remotePath });
+						if (entry.type !== "file") throw new Error("Missing share target");
+						return headResponse(entry.size);
+					}
 					const buffer = await readRemoteFile({ ...credentials, remotePath });
 					return fileResponse(Readable.from(buffer), { size: buffer.length, fileName, inline: inline && !wantsArchive });
 				} catch {
-					return denyAfterClaim(apiError({
+					return apiError({
 						code: "VALIDATION_FAILED",
 						message: t("apiShareToken.agentFileNeedsDirect", locale),
 						status: 400,
-					}));
+					});
 				}
 			}
 			client = await connectSsh({
@@ -444,13 +484,18 @@ async function serveShareIn(
 				timeout: 10000,
 			});
 			remotePath = await assertRemotePathContained(credentials, node.basePath, remotePath, client);
+			if (head) {
+				const entry = await statRemoteEntry({ ...credentials, remotePath });
+				if (entry.type !== (wantsArchive ? "directory" : "file")) throw new Error("Missing share target");
+				return headResponse(entry.size);
+			}
 			if (wantsArchive) {
 				const archiveClient = client;
 				const stream = await openManagedArchive({
 					storageNodeId: node.id,
 					relativePath: targetPath,
 					signal: request.signal,
-					open: (excluded) => streamRemoteTarGz(archiveClient, node, remotePath, excluded),
+					open: (excluded) => streamRemoteTarGz(archiveClient, node, remotePath, excluded, request.signal),
 				});
 				const response = archiveStreamResponse(stream, safeArchiveName(share.name || fileName));
 				closeSshClientOnStreamEnd(stream, client);
@@ -463,12 +508,12 @@ async function serveShareIn(
 			client = null;
 			return response;
 		} catch (error) {
-			if (error instanceof ValidationError) return denyAfterClaim(apiError({ code: "VALIDATION_FAILED", message: t("apiShareToken.invalidPath", locale), status: 400 }));
-			return denyAfterClaim(apiError({ code: "NOT_FOUND", message: t("apiShareToken.remoteNotFound", locale), status: 404 }));
+			if (error instanceof ValidationError) return apiError({ code: "VALIDATION_FAILED", message: t("apiShareToken.invalidPath", locale), status: 400 });
+			return apiError({ code: "NOT_FOUND", message: t("apiShareToken.remoteNotFound", locale), status: 404 });
 		} finally {
 			client?.end();
 		}
 	}
 
-	return denyAfterClaim(apiError({ code: "VALIDATION_FAILED", message: t("apiShareToken.unsupportedDriver", locale), status: 400 }));
+	return apiError({ code: "VALIDATION_FAILED", message: t("apiShareToken.unsupportedDriver", locale), status: 400 });
 }

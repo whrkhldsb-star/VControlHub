@@ -195,6 +195,7 @@ export function createWebDavClient(node: WebDavStorageNode, dependencies: { tran
     // DELETE/MOVE may report partial failure as 207: never claim success for it.
     await response.body?.cancel().catch(() => undefined);
     if (response.status === 207) throw new BusinessError(apiCopy("apiCopy.webdav.operation.returned.partial.multistatus.completion.not.con.c8ca2522"));
+    return response.status;
   }
   return {
     async list(path = "", requireResourceType = false): Promise<WebDavEntry[]> {
@@ -275,7 +276,14 @@ export function createWebDavClient(node: WebDavStorageNode, dependencies: { tran
     },
     async mkdir(path: string): Promise<void> { await mutate("MKCOL", path); },
     async copy(oldPath: string, newPath: string): Promise<void> { if (!segments(newPath).length) throw new ValidationError(apiCopy("apiCopy.cannot.replace.webdav.root.path.eaa87e14")); await mutate("COPY", oldPath, { Destination: target(newPath).href.replace(/\/$/, ""), Overwrite: "F", Depth: "0" }); },
-    async rename(oldPath: string, newPath: string, overwrite = false): Promise<void> { if (!segments(newPath).length) throw new ValidationError(apiCopy("apiCopy.cannot.replace.webdav.root.path.eaa87e14")); await mutate("MOVE", oldPath, { Destination: target(newPath).href.replace(/\/$/, ""), Overwrite: overwrite ? "T" : "F" }); },
+    async rename(oldPath: string, newPath: string, overwrite = false, destinationEtag?: string, sourceEtag?: string): Promise<number> {
+      if (!segments(newPath).length) throw new ValidationError(apiCopy("apiCopy.cannot.replace.webdav.root.path.eaa87e14"));
+      const destination = target(newPath).href.replace(/\/$/, "");
+      return mutate("MOVE", oldPath, { Destination: destination, Overwrite: overwrite ? "T" : "F",
+        ...(destinationEtag ? { If: `<${destination}> ([${destinationEtag}])` } : {}),
+        ...(sourceEtag ? { "If-Match": sourceEtag } : {}),
+      });
+    },
     // DAV DELETE is recursive. An exclusive depth-infinity lock makes the
     // emptiness check and conditional delete equivalent to rmdir on this tree.
     async deleteRecycledBatch(root: string, leavesFirst: { relativePath: string; entryType: string }[]) {
@@ -318,6 +326,6 @@ export function createWebDavClient(node: WebDavStorageNode, dependencies: { tran
         if (!removedRoot) await mutate("UNLOCK", root, { "Lock-Token": token }).catch(() => undefined);
       }
     },
-    async delete(path: string): Promise<void> { await mutate("DELETE", path); },
+    async delete(path: string, version?: string): Promise<void> { await mutate("DELETE", path, version ? { "If-Match": version } : {}); },
   };
 }

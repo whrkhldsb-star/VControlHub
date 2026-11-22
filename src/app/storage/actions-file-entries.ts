@@ -12,6 +12,7 @@ import { restoreFileEntry } from "@/lib/storage/service";
 import { deleteRecycledBackingObjects } from "@/lib/storage/recycled-backing";
 import { outsideDeleteBatchWhere } from "@/lib/files/recycle-bin";
 import { purgeFileEntryVersionDirectories } from "@/lib/storage/file-versions";
+import { lockStorageFileOverwrite } from "@/lib/storage/file-overwrite-lock";
 import { tryAcquireAdvisoryLock } from "@/lib/concurrency/advisory-lock";
 import { apiCopy } from "@/lib/i18n/api-copy";
 
@@ -49,9 +50,13 @@ async function restoreFileEntryActionImpl(
       return { error: t("storagePage.action.missingFileEntryParam") } satisfies StorageActionState;
     }
 
+    const deleteBatchId = String(formData.get("deleteBatchId") ?? "") || null;
+    const deletedAt = new Date(String(formData.get("deletedAt") ?? ""));
+    if (!deleteBatchId && !Number.isFinite(deletedAt.getTime())) return { error: apiCopy("apiCopy.files.op.changed") };
+    const seen = { deleteBatchId, ...(!deleteBatchId && { updatedAt: deletedAt }) };
     const entry = await prisma.fileEntry.findFirst({
       where: {
-        id: fileEntryId,
+        id: fileEntryId, isDeleted: true, ...seen,
         storageNode: {
           ...teamWhere(session),
         },
@@ -88,7 +93,7 @@ async function restoreFileEntryActionImpl(
       return { error: apiCopy("apiCopy.files.op.busy") } satisfies StorageActionState;
     }
     try {
-      await restoreFileEntry({ fileEntryId }, session);
+      await restoreFileEntry({ fileEntryId }, session, seen);
 
       // The service validates capacity and revives a directory batch atomically.
     } finally {
@@ -137,7 +142,7 @@ async function permanentDeleteFileEntryActionImpl(
     if (!deleteBatchId && !Number.isFinite(deletedAt.getTime())) return { error: apiCopy("apiCopy.files.op.changed") };
     const identity = { id: fileEntryId, isDeleted: true, deleteBatchId, ...(!deleteBatchId && { updatedAt: deletedAt }) };
     const where = { ...identity, storageNode: teamWhere(session) };
-    const target = await prisma.fileEntry.findFirst({ where, select: { storageNodeId: true } });
+    const target = await prisma.fileEntry.findFirst({ where, select: { storageNodeId: true, relativePath: true } });
     if (!target) return { error: apiCopy("apiCopy.files.op.changed") };
     // Serialize against move/copy/delete/rename/restore on the same node:
     // permanent delete removes backing bytes AND index rows; interleaving
@@ -146,7 +151,9 @@ async function permanentDeleteFileEntryActionImpl(
     if (!permRelease) {
       return { error: apiCopy("apiCopy.files.op.busy") } satisfies StorageActionState;
     }
+    let releasePath: (() => Promise<void>) | undefined;
     try {
+      releasePath = await lockStorageFileOverwrite(target.storageNodeId, target.relativePath);
       const entry = await prisma.fileEntry.findFirst({
         where: { ...where, storageNodeId: target.storageNodeId },
         select: {
@@ -230,7 +237,7 @@ async function permanentDeleteFileEntryActionImpl(
 
       return { success: t("storagePage.action.filePermanentlyDeleted", { name: entry.name }) } satisfies StorageActionState;
     } finally {
-      await permRelease();
+      try { await releasePath?.(); } finally { await permRelease(); }
     }
   } catch (error) {
     return {

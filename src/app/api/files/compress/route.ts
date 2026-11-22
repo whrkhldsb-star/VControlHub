@@ -10,7 +10,7 @@ import { NextRequest, NextResponse } from "next/server";
 
 import { teamWhere } from "@/lib/auth/team-scope";
 import { prisma } from "@/lib/db";
-import { NotFoundError } from "@/lib/errors";
+import { NotFoundError, ValidationError } from "@/lib/errors";
 import { withApiRoute } from "@/lib/http/api-guard";
 import { GENERAL_WRITE_LIMIT } from "@/lib/http/rate-limit-presets";
 import { compressFilesBodySchema } from "@/lib/files/schema";
@@ -64,12 +64,12 @@ export async function POST(request: NextRequest) {
       if (!outputResolved.ok) return NextResponse.json({ error: outputResolved.reason }, { status: 400 });
 
       const indexedOutput = () => prisma.fileEntry.findFirst({
-        where: { storageNodeId: node.id, relativePath: outputRelativePath },
+        where: { storageNodeId: node.id, relativePath: process.platform === "win32" ? { equals: outputRelativePath, mode: "insensitive" } : outputRelativePath },
         select: { id: true },
       });
       const conflict = () => NextResponse.json({ error: apiCopy("apiCopy.target.archive.already.exists.18a7a63f", { v0: String(outputRelativePath) }) }, { status: 409 });
       if (await indexedOutput() || await pathExists(outputResolved.path)) return conflict();
-      await assertNotRecycled(node.id, outputRelativePath, "write");
+      await assertNotRecycled(node.id, outputRelativePath, "write", node.driver);
 
       const inputs: string[] = [];
       const excluded: string[] = [];
@@ -92,9 +92,23 @@ export async function POST(request: NextRequest) {
         if (!await pathExists(resolved.path)) throw new NotFoundError(apiCopy("apiCopy.file.not.found.c7066170", { v0: String(relativePath) }));
         // Deleting only marks the index; the bytes are still on disk. An archive made from the folder would
         // bring deleted files back as new, visible, shareable ones.
-        const recycled = await recycledAround(node.id, relativePath);
+        await assertNotRecycled(node.id, relativePath, "read", node.driver);
+        const recycled = await recycledAround(node.id, relativePath, node.driver);
         if (recycled.onPath) throw new NotFoundError(apiCopy("apiCopy.file.not.found.c7066170", { v0: String(relativePath) }));
-        excluded.push(...recycled.below);
+        if (process.platform === "win32" && recycled.below.length) {
+          const physical = await fs.realpath(resolved.path);
+          for (const member of recycled.below) {
+            const suffix = member.split("/").slice(relativePath.split("/").length).join("/");
+            const actual = await fs.realpath(path.join(physical, suffix)).catch(error => {
+              if (error.code === "ENOENT") return null;
+              throw error;
+            });
+            if (!actual) continue;
+            const spelling = path.relative(physical, actual).split(path.sep).join("/");
+            if (spelling.toLowerCase() !== suffix.toLowerCase()) throw new ValidationError(apiCopy("apiCopy.files.op.invalid"));
+            excluded.push(path.posix.join(relativePath, spelling));
+          }
+        } else excluded.push(...recycled.below);
         inputs.push(relativePath);
       }
 
@@ -119,7 +133,7 @@ export async function POST(request: NextRequest) {
           const release = await lockStorageFileOverwrite(node.id, outputRelativePath);
           try {
             if (await indexedOutput()) return conflict();
-            await assertNotRecycled(node.id, outputRelativePath, "write");
+            await assertNotRecycled(node.id, outputRelativePath, "write", node.driver);
             await publishLocalFile(archive, outputResolved.path, outputRelativePath);
             // If indexing fails, preserve the published bytes for reconciliation.
             await createFileEntry({ storageNodeId: node.id, name: outputName, entryType: "FILE", mimeType: "application/gzip", size, relativePath: outputRelativePath });

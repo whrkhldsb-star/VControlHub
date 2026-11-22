@@ -11,9 +11,13 @@ const initialState: StorageActionState = {};
 
 export function RestoreButton({
   fileEntryId,
+  deleteBatchId,
+  deletedAt,
   onRefresh,
 }: {
  fileEntryId: string;
+ deleteBatchId?: string | null;
+ deletedAt?: string | Date | null;
  onRefresh?: () => void;
 }) {
  const router = useRouter();
@@ -28,6 +32,8 @@ export function RestoreButton({
   return (
     <form action={formAction} className="inline-flex items-center gap-3">
       <input type="hidden" name="fileEntryId" value={fileEntryId} />
+      <input type="hidden" name="deletedAt" value={deletedAt ? new Date(deletedAt).toISOString() : ""} />
+      <input type="hidden" name="deleteBatchId" value={deleteBatchId ?? ""} />
       <ActionButton variant="success"
         type="submit"
         disabled={isPending}

@@ -48,6 +48,7 @@ export async function POST(request: Request) {
       }
       try {
         const view = await initMediaUploadSession({
+          imageDestination: true,
           userId: session.userId,
           filename: body.filename,
           mimeType: body.mimeType,

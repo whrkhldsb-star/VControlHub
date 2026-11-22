@@ -64,6 +64,13 @@ export function resolveStorageSshPort(node: { port: number | null; server: { ope
   return node.port ?? (node.server?.operatingSystem === "WINDOWS" ? 22 : node.server?.port) ?? 22;
 }
 
+export function usesWindowsOpenSsh(node: Pick<StorageSshCredentialNode, "host" | "hostKeySha256" | "server">) {
+  const server = node.server;
+  return server?.operatingSystem === "WINDOWS" && Boolean(server.hostKeySha256) &&
+    (node.host ?? server.host).toLowerCase() === server.host.toLowerCase() &&
+    (node.hostKeySha256 ?? server.hostKeySha256) === server.hostKeySha256;
+}
+
 export function resolveStorageSshCredentials(node: StorageSshCredentialNode): ResolvedStorageSshCredentials {
   if (node.server && (node.teamId === undefined || node.teamId !== node.server.teamId)) {
     throw new ValidationError(t("backend.storage.serverOwnerMismatch"));
@@ -108,9 +115,7 @@ export function resolveStorageSshCredentials(node: StorageSshCredentialNode): Re
 
   // Windows profiles register the SSH key independently of their RDP port.
   // A node can override the endpoint even on the same hostname.
-  const windowsOpenSsh = node.server?.operatingSystem === "WINDOWS"
-    && host.toLowerCase() === node.server.host.toLowerCase()
-    && Boolean(hostKeySha256) && hostKeySha256 === node.server.hostKeySha256;
+  const windowsOpenSsh = usesWindowsOpenSsh(node);
   return {
     host, port, username, connectionType, privateKey, password, hostKeySha256,
     enforceHostKeyPin: true,

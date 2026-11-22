@@ -83,7 +83,7 @@ export function hasPaddedPathSegment(value: string): boolean {
   return value.split("/").some((segment) => segment !== segment.trim());
 }
 
-function validateSegments(rawValue: string, options: { allowEmpty: boolean }): StoragePathResult {
+function validateSegments(rawValue: string, options: { allowEmpty: boolean; windows?: boolean }): StoragePathResult {
   const normalizedInput = rawValue.replace(/\\/g, "/");
   if (hasPaddedPathSegment(normalizedInput)) {
     return { ok: false, reason: t("backend.storagePath.segmentWhitespace") };
@@ -124,7 +124,7 @@ function validateSegments(rawValue: string, options: { allowEmpty: boolean }): S
       return { ok: false, reason: t("backend.storagePath.illegalChars") };
     }
     // This process's own files (LOCAL nodes) live on Windows.
-    if (process.platform === "win32" && hasWindowsInvalidNameChars(segment)) {
+    if ((options.windows ?? process.platform === "win32") && hasWindowsInvalidNameChars(segment)) {
       return { ok: false, reason: t("backend.storagePath.windowsChars") };
     }
   }
@@ -146,8 +146,8 @@ export function normalizeStorageRelativePath(value: string | null | undefined): 
   return validateSegments(value ?? "", { allowEmpty: false });
 }
 
-export function normalizeStorageTargetDirectory(value: string | null | undefined): StoragePathResult {
-  return validateSegments(value ?? "", { allowEmpty: true });
+export function normalizeStorageTargetDirectory(value: string | null | undefined, windows?: boolean): StoragePathResult {
+  return validateSegments(value ?? "", { allowEmpty: true, windows });
 }
 
 export function normalizeStorageEntryName(value: string | null | undefined): StoragePathResult {

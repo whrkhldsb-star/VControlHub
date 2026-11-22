@@ -11,7 +11,7 @@ vi.mock("@/lib/db", () => ({
 vi.mock("@/lib/concurrency/advisory-lock", () => ({
   tryAcquireAdvisoryLock: mocks.lock,
 }));
-import { openManagedArchive } from "../archive-access";
+import { assertCanonicalWritePath, openManagedArchive } from "../archive-access";
 beforeEach(() => {
   vi.resetAllMocks();
   mocks.deleted.mockResolvedValue([]);
@@ -74,6 +74,17 @@ it("does not truncate the deletion list and expose unfiltered bytes", async () =
   const open = vi.fn();
   await expect(openManagedArchive({ ...base, open })).rejects.toThrow();
   expect(open).not.toHaveBeenCalled();
+});
+
+it("reserves each indexed Windows spelling before a write creates a second row", async () => {
+  const platform = vi.spyOn(process, "platform", "get").mockReturnValue("win32");
+  try {
+    mocks.deleted.mockResolvedValue([{ relativePath: "Docs" }, { relativePath: "docs/File" }]);
+    await expect(assertCanonicalWritePath("node", "docs/File", "LOCAL")).rejects.toMatchObject({ status: 409 });
+    expect(mocks.deleted.mock.lastCall?.[0].where.relativePath).toEqual({ in: ["docs", "docs/File"], mode: "insensitive" });
+    mocks.deleted.mockResolvedValue([{ relativePath: "docs" }, { relativePath: "docs/File" }]);
+    await expect(assertCanonicalWritePath("node", "docs/File", "LOCAL")).resolves.toBeUndefined();
+  } finally { platform.mockRestore(); }
 });
 
 it("passes an opening failure on", async () => {
