@@ -3,7 +3,7 @@ import { randomUUID } from "node:crypto";
 import { afterAll, beforeAll, describe, expect, it } from "vitest";
 
 import { prisma } from "@/lib/db";
-import { createSnippet, getSnippet, listSnippets, type SnippetViewer } from "../service";
+import { createSnippet, getSnippet, listSnippets, updateSnippet, deleteSnippet, type SnippetViewer } from "../service";
 
 /**
  * A snippet not marked "visible only to me" is shared within its creator's
@@ -57,6 +57,23 @@ describe.skipIf(process.env.RUN_DATABASE_INTEGRATION_TESTS !== "1")("shared snip
     await expect(getSnippet(snippets.admin!, viewer(ids.a, ids.teamA))).resolves.toMatchObject({ content: "admin" });
     await expect(getSnippet(snippets.b!, viewer(ids.admin, null, true))).resolves.toMatchObject({ content: "b" });
   });
+  it("returns the same not-found result for a hidden and a missing mutation target", async () => {
+    for (const target of [snippets.b!, prefix + "-absent"]) {
+      await expect(updateSnippet(target, { title: "edit" }, viewer(ids.a, ids.teamA))).rejects.toMatchObject({ status: 404 });
+      await expect(deleteSnippet(target, viewer(ids.a, ids.teamA))).rejects.toMatchObject({ status: 404 });
+    }
+  });
+
+  it("returns a bounded Unicode preview and the full character count", async () => {
+    const content = "界".repeat(300_000) + "🌱";
+    const snippet = await createSnippet({ title: prefix + "-large", content }, viewer(ids.b, ids.teamB));
+    try {
+      const [entry] = await listSnippets({ viewer: viewer(ids.b, ids.teamB), q: prefix + "-large" });
+      expect(entry).toMatchObject({ contentPreview: "界".repeat(240) + "…", contentLength: content.length });
+      expect(entry).not.toHaveProperty("content");
+    } finally { await deleteSnippet(snippet.id, viewer(ids.b, ids.teamB)); }
+  });
+
   it("keeps a shared snippet in its original scope after author transfer and promotion", async () => {
     const legacy = await prisma.snippet.create({ data: { title: `${prefix} legacy`, content: "legacy", createdBy: ids.a } });
     await prisma.teamMember.update({ where: { userId: ids.a }, data: { teamId: ids.teamB } });

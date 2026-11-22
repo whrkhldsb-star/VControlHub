@@ -37,6 +37,7 @@ vi.mock("@/lib/logging", () => ({
 const { createSyncJob, deleteSyncJob, getSyncJob, listSyncJobs, syncPathWithinRoot, updateSyncJob } = await import(
 	"../service-crud"
 );
+const { encodeSyncRun } = await import("../run-receipt");
 
 const operator = { userId: "u_1", roles: ["operator"] as never, currentTeamId: "team_1" };
 const teamless = { userId: "u_2", roles: ["operator"] as never, currentTeamId: null };
@@ -71,6 +72,31 @@ function storageNode(serverId: string, basePath = "/srv/storage") {
 }
 
 describe("sync job CRUD scoping", () => {
+	it("checks Windows capability on SSH-authorized creates and changes", async () => {
+		mocks.prisma.server.findMany.mockResolvedValue([{ id: "srv_a", operatingSystem: "WINDOWS" }, { id: "srv_b", operatingSystem: "LINUX" }]);
+		mocks.prisma.syncJob.findFirst.mockResolvedValue(jobRow);
+		await expect(createSyncJob({ ...baseInput, session: admin })).rejects.toThrow("linuxOnly");
+		await expect(updateSyncJob("job_1", { name: "updated" }, admin)).rejects.toThrow("linuxOnly");
+		expect(mocks.prisma.syncJob.create).not.toHaveBeenCalled();
+		expect(mocks.prisma.syncJob.updateMany).not.toHaveBeenCalled();
+	});
+
+	it("checks history against its original paths and redacts legacy diagnostics", async () => {
+		const scope = { ...baseInput, sourcePath: "/drive/new", targetPath: "/drive/new" };
+		const session = { ...storageManager, permissions: ["storage:read"] as never };
+		mocks.prisma.storageNode.findMany.mockResolvedValue(["srv_a", "srv_b"].map(serverId => ({
+			serverId, basePath: "/drive", accessGrants: [{ pathPrefix: "new", canRead: true }],
+		})));
+		mocks.prisma.syncJob.findFirst.mockResolvedValue({ ...jobRow, ...scope, lastSyncResult: "/drive/old", syncLogs: [
+			{ id: "hidden", errorMessage: encodeSyncRun({ scope: { ...scope, sourcePath: "/drive/old" }, error: "/drive/old" }) },
+			{ id: "legacy", errorMessage: "/drive/old" },
+			{ id: "visible", errorMessage: encodeSyncRun({ scope, error: "/drive/new" }) },
+		] });
+		expect(await getSyncJob("job_1", session)).toMatchObject({ lastSyncResult: null, syncLogs: [
+			{ id: "legacy", errorMessage: null }, { id: "visible", errorMessage: "/drive/new" },
+		] });
+	});
+
 	beforeEach(() => {
 		for (const stub of [
 			mocks.prisma.server.findMany,
@@ -104,7 +130,7 @@ describe("sync job CRUD scoping", () => {
 					{ userAccess: { none: { userId: "u_1" } } },
 					{ userAccess: { some: { userId: "u_1", canConnect: true } } },
 				] }] },
-				select: { id: true },
+				select: { id: true, operatingSystem: true },
 			});
 		});
 
@@ -136,7 +162,7 @@ describe("sync job CRUD scoping", () => {
 			await expect(createSyncJob({ ...baseInput, session: teamless })).rejects.toThrow();
 			expect(mocks.prisma.server.findMany).toHaveBeenCalledWith({
 				where: { id: { in: ["srv_a", "srv_b"] }, AND: { id: { in: [] } } },
-				select: { id: true },
+				select: { id: true, operatingSystem: true },
 			});
 		});
 
@@ -144,7 +170,7 @@ describe("sync job CRUD scoping", () => {
 			await createSyncJob({ ...baseInput, session: admin });
 			expect(mocks.prisma.server.findMany).toHaveBeenCalledWith({
 				where: { id: { in: ["srv_a", "srv_b"] }, teamId: "team_1", team: { deletedAt: null } },
-				select: { id: true },
+				select: { id: true, operatingSystem: true },
 			});
 		});
 

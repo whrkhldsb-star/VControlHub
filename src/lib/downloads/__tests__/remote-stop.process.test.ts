@@ -43,6 +43,7 @@ describe.skipIf(!supported)("direct download stop command (real bash/curl proces
     for (const id of taskIds.splice(0)) {
       spawnSync("pkill", ["-KILL", "-f", `\\.vch-${id}\\.part`]);
       rmSync(`/tmp/app-dl-${id}.pid`, { force: true });
+      rmSync(`/tmp/app-dl-${id}.start`, { recursive: true, force: true });
       for (const suffix of ["", ".publish", ".lock"]) rmSync(`/tmp/app-dl-${id}.pid.exit${suffix}`, { force: true });
       rmSync(`/tmp/app-dl-${id}.log`, { force: true });
       rmSync(`/tmp/app-dl-${id}.cancel`, { force: true });

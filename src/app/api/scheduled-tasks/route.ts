@@ -88,10 +88,12 @@ export async function GET(request: Request) {
     request,
     {
       permission: "command:read",
+      optionalTokenPermissions: ["server:read"],
       errorMessage: t("api.serverError", await requestLocale(request)),
     },
     async ({ session }) => {
       const locale = await requestLocale(request);
+      const canReadServers = sessionHasPermission(session, "server:read");
       const tasks = await listScheduledTasks(200, session);
       const serialized = tasks.map((task) => ({
         id: task.id,
@@ -111,7 +113,7 @@ export async function GET(request: Request) {
     source: task.source,
     templateId: task.templateId,
         status: task.status,
-        serverIds: task.serverIds,
+        serverIds: canReadServers ? task.serverIds : [],
         lastRunAt: task.lastRunAt?.toISOString() ?? null,
         nextRunAt: task.nextRunAt?.toISOString() ?? null,
         lastResult: localizeStoredText(task.lastResult, locale),

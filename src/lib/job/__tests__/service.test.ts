@@ -134,7 +134,7 @@ describe("durable job service", () => {
     await completeJob("job1", "worker-a", { artifact: "backup.tar.gz" });
 
     expect(mockPrisma.job.updateMany).toHaveBeenCalledWith(expect.objectContaining({
-      where: { id: "job1", status: "RUNNING", workerId: "worker-a", attempts: 0 },
+      where: { id: "job1", status: "RUNNING", workerId: "worker-a", attempts: 0, OR: expect.any(Array) },
       data: expect.objectContaining({ status: "COMPLETED", result: { artifact: "backup.tar.gz" }, leaseExpiresAt: null, progress: "100%" }),
     }));
   });
@@ -150,7 +150,7 @@ describe("durable job service", () => {
     await failJobTerminal(id, workerId, "error", { attempts });
     const claim = { id, status: "RUNNING", workerId, attempts };
     expect(mockPrisma.job.updateMany.mock.calls.map(([query]) => query.where)).toEqual([
-      { ...claim, leaseExpiresAt: { gt: now } }, claim, claim, claim,
+      { ...claim, leaseExpiresAt: { gt: now } }, ...Array(3).fill({ ...claim, OR: [{ leaseExpiresAt: { gt: expect.any(Date) } }, { leaseExpiresAt: null, attempts: 0 }] }),
     ]);
   });
 
@@ -229,7 +229,7 @@ describe("durable job service", () => {
     expect(result).toEqual({ count: 1 });
     expect(mockPrisma.job.updateMany).toHaveBeenCalledWith(
       expect.objectContaining({
-        where: { id: "job-term-1", status: "RUNNING", workerId: "worker-1", attempts: 0 },
+        where: { id: "job-term-1", status: "RUNNING", workerId: "worker-1", attempts: 0, OR: expect.any(Array) },
         data: expect.objectContaining({
           status: "FAILED",
           errorMessage: "playbook step failed",
@@ -365,7 +365,7 @@ describe("durable job service", () => {
     expect(mockPrisma.job.findMany).toHaveBeenCalledWith({
       where: { type: "alert.evaluate", status: "COMPLETED" },
       select: { id: true },
-      orderBy: [{ completedAt: "desc" }, { createdAt: "desc" }],
+      orderBy: [{ completedAt: "desc" }, { createdAt: "desc" }, { id: "desc" }],
       take: 2,
     });
     expect(mockPrisma.job.deleteMany).toHaveBeenCalledWith({
@@ -392,7 +392,7 @@ describe("durable job service", () => {
     expect(mockPrisma.job.findMany).toHaveBeenCalledWith({
       where: { type: "download.execute", status: { in: ["COMPLETED"] } },
       select: { id: true },
-      orderBy: [{ completedAt: "desc" }, { createdAt: "desc" }],
+      orderBy: [{ completedAt: "desc" }, { createdAt: "desc" }, { id: "desc" }],
       take: 1,
     });
     expect(mockPrisma.job.deleteMany).toHaveBeenCalledWith({

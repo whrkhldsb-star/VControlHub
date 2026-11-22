@@ -76,6 +76,19 @@ describe("scheduled task service", () => {
     expect(next.toISOString()).toBe("2026-01-01T19:00:00.000Z");
   });
 
+  it("returns readable targets while preserving a hidden target on an ordinary edit", async () => {
+    const task = { id: "task", name: "old", teamId: "team_a", command: "pwd", serverIds: ["visible", "hidden"],
+      approvalRequired: true, updatedAt: new Date(), scheduleType: "CRON", cronExpression: "0 2 * * *" };
+    mockPrisma.scheduledTask.findMany.mockResolvedValueOnce([task]);
+    mockPrisma.scheduledTask.findFirst.mockResolvedValue(task);
+    mockPrisma.scheduledTask.updateMany.mockResolvedValue({ count: 1 });
+    mockPrisma.server.findMany.mockImplementation(async ({ where }: { where: { id: { in: string[] } } }) =>
+      where.id.in.includes("visible") ? [{ id: "visible" }] : []);
+    expect(await service.listScheduledTasks(10, teamSession)).toMatchObject([{ serverIds: ["visible"] }]);
+    expect(await service.updateScheduledTask(task.id, { name: "renamed", serverIds: ["visible"] }, teamSession)).toMatchObject({ serverIds: ["visible"] });
+    expect(mockPrisma.scheduledTask.updateMany).toHaveBeenCalledWith(expect.objectContaining({ data: { name: "renamed" } }));
+  });
+
   it("stores scheduled task target server ids exactly once after trimming blanks", async () => {
     mockPrisma.scheduledTask.create.mockResolvedValue({ id: "task1" });
 
@@ -259,7 +272,7 @@ describe("scheduled task service", () => {
       teamId: null,
     });
     mockPrisma.scheduledTask.findUniqueOrThrow.mockResolvedValue({
-      id: "task1",
+      id: "task1", serverIds: ["srv1"],
       lastResult: "手动重试已派发命令请求 cmd1，等待最终结果",
     });
 
@@ -267,6 +280,7 @@ describe("scheduled task service", () => {
 
     expect(mockCreateCommandRequest).toHaveBeenCalledWith({
       title: "Scheduled task retry: Clean logs",
+      idempotencyKey: expect.stringMatching(/^scheduled-task:retry:u1:/),
       command: "df -h",
       reason: "maintenance",
       submissionMode: "user",
@@ -290,7 +304,7 @@ describe("scheduled task service", () => {
         dispatchedAt: expect.any(Date),
       },
     });
-    expect(result).toEqual({ id: "task1", lastResult: expect.stringContaining("cmd1") });
+    expect(result).toEqual({ id: "task1", serverIds: ["srv1"], lastResult: expect.stringContaining("cmd1") });
   });
 
   it("reconciles a completed command into the latest task result", async () => {
@@ -366,7 +380,7 @@ describe("scheduled task service", () => {
   it("toggles ACTIVE to PAUSED and clears nextRunAt under team scope", async () => {
     mockPrisma.scheduledTask.findFirst.mockResolvedValue({
       id: "task1",
-      status: "ACTIVE",
+      status: "ACTIVE", serverIds: [],
       cronExpression: "0 2 * * *",
     });
     mockPrisma.scheduledTask.updateMany.mockResolvedValue({ count: 1 });
@@ -398,7 +412,7 @@ describe("scheduled task service", () => {
 
   it("rejects serverIds outside team scope on update", async () => {
     mockPrisma.scheduledTask.findFirst.mockResolvedValue({ id: "task1", teamId: "team_a", approvalRequired: true, command: "df -h", serverIds: ["srv0"] });
-    mockPrisma.server.findMany.mockResolvedValueOnce([]); // none in scope
+    mockPrisma.server.findMany.mockResolvedValueOnce([{ id: "srv0" }]).mockResolvedValueOnce([]); // existing readable, replacement outside scope
     await expect(
       service.updateScheduledTask(
         "task1",
@@ -442,9 +456,9 @@ describe("scheduled task service", () => {
       mockPrisma.commandTemplate.findFirst.mockResolvedValueOnce(null);
       await expect(service.updateScheduledTask("task1", { templateId: "foreign" }, PLATFORM)).rejects.toMatchObject({ status: 404 });
       expect(mockPrisma.commandTemplate.findFirst.mock.calls[0]?.[0].where.AND).toContainEqual({ OR: [{ isBuiltin: true }, { teamId: "team_a" }] });
-      mockPrisma.server.findMany.mockResolvedValueOnce([]);
+      mockPrisma.server.findMany.mockResolvedValueOnce(unattended.serverIds.map(id => ({ id }))).mockResolvedValueOnce([]);
       await expect(service.updateScheduledTask("task1", { serverIds: ["foreign"] }, PLATFORM)).rejects.toThrow();
-      expect(mockPrisma.server.findMany.mock.calls[0]?.[0].where.teamId).toBe(unattended.teamId);
+      expect(mockPrisma.server.findMany.mock.lastCall?.[0].where.teamId).toBe(unattended.teamId);
       expect(mockPrisma.scheduledTask.updateMany).not.toHaveBeenCalled();
     });
 

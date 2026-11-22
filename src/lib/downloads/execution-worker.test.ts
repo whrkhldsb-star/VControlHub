@@ -4,7 +4,7 @@ import { rm } from "node:fs/promises";
 import { prisma } from "@/lib/db";
 import { notifyDownloadResult } from "@/lib/notification/service";
 import { relayTempDir } from "@/lib/runtime/platform-paths";
-import { getStorageWriteCapacity } from "@/lib/storage/access-control";
+import { downloadWriteCapacity } from "./write-capacity";
 
 const {
   enqueueJobMock,
@@ -41,7 +41,7 @@ const {
 const LIMITS = { maxFileBytes: null, remainingBytes: null };
 const executionMocks = vi.hoisted(() => ({ loadExecutionActor: vi.fn(), executionRefusal: vi.fn() }));
 vi.mock("@/lib/auth/execution-actor", () => executionMocks);
-vi.mock("@/lib/storage/access-control", () => ({ getStorageWriteCapacity: vi.fn(async () => ({ maxFileBytes: null, remainingBytes: null })) }));
+vi.mock("./write-capacity", () => ({ downloadWriteCapacity: vi.fn(async () => ({ maxFileBytes: null, remainingBytes: null })) }));
 vi.mock("@/lib/notification/service", () => ({ notifyDownloadResult: vi.fn(async () => undefined) }));
 vi.mock("node:fs/promises", async (importOriginal) => ({
   ...await importOriginal<typeof import("node:fs/promises")>(),
@@ -372,7 +372,7 @@ describe("download execution durable job worker", () => {
         1024,
         "u-2",
         expect.any(AbortSignal),
-        LIMITS,
+        LIMITS, false, expect.objectContaining({ id: "job-dl-1", attempts: expect.any(Number) }),
       );
       expect(executeDirectDownloadMock).not.toHaveBeenCalled();
       expect(completeJobMock).toHaveBeenCalledWith(
@@ -497,7 +497,7 @@ describe("download execution durable job worker", () => {
       const task = { ...makeTaskRow(), status: "PENDING", teamId: "team-1" };
       const limits = { maxFileBytes: null, remainingBytes: BigInt(1024) };
       claimNextJobMock.mockResolvedValueOnce(makeJob({ attempts: 3, maxAttempts: 3 }));
-      vi.mocked(getStorageWriteCapacity).mockResolvedValueOnce(limits);
+      vi.mocked(downloadWriteCapacity).mockResolvedValueOnce(limits);
       prismaDownloadTaskFindUniqueMock
         .mockResolvedValueOnce(task)
         .mockResolvedValueOnce({ ...task, relayMode: true, status: "RUNNING", updatedAt: new Date(), transferManifest });
@@ -511,7 +511,7 @@ describe("download execution durable job worker", () => {
       });
       expect(executeAria2RelayDownloadMock).toHaveBeenCalledWith(
         task.id, expect.anything(), [task.url], task.targetPath, task.fileName, task.maxSpeedKb,
-        task.createdBy, expect.any(AbortSignal), limits, true,
+        task.createdBy, expect.any(AbortSignal), limits, true, expect.objectContaining({ attempts: 3 }),
       );
       expect(failJobMock).toHaveBeenCalledWith("job-dl-1", expect.any(String), "transfer interrupted", { attempts: 3 });
       expect(prisma.$queryRaw).toHaveBeenCalledTimes(1);

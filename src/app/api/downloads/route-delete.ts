@@ -1,3 +1,4 @@
+import { directEndpointChanged, directLaunchReceipt } from "@/lib/downloads/direct-identity";
 import { relayContentStatus } from "@/lib/downloads/relay-status";
 import { Prisma } from "@prisma/client";
 import { resolveTaskDrive } from "@/lib/downloads/destination";
@@ -136,6 +137,7 @@ export async function DELETE(request: Request) {
       }
 
       let status = task.status;
+      let launch = task.transferManifest;
       if (status === "PENDING") {
         // A worker that has not claimed the task yet can no longer start it.
         const won = await prisma.downloadTask.updateMany({
@@ -145,7 +147,7 @@ export async function DELETE(request: Request) {
         if (won.count > 0) return finishCancel();
         // The worker claimed it meanwhile: it may already be starting the
         // remote process, so cancel it as a running task.
-        const current = await prisma.downloadTask.findUnique({ where: { id: taskId }, select: { status: true, relayMode: true } });
+        const current = await prisma.downloadTask.findUnique({ where: { id: taskId }, select: { status: true, relayMode: true, transferManifest: true } });
         if (current?.relayMode) return NextResponse.json({ error: t("apiDownloads.finishingTransfer", locale) }, { status: 409 });
         if (current?.status === "CANCELLED") return NextResponse.json({ success: true });
         if (current?.status !== "RUNNING") {
@@ -155,12 +157,14 @@ export async function DELETE(request: Request) {
           );
         }
         status = "RUNNING";
+        launch = current.transferManifest;
       }
 
       if (status === "RUNNING") {
         if (task.directStorageNodeId && !task.server.storageNode) {
           return NextResponse.json({ error: t("backend.downloads.taskStorageMissing", locale) }, { status: 409 });
         }
+        if (directEndpointChanged({ server: task.server, transferManifest: launch })) return NextResponse.json({ error: t("backend.downloads.storageEndpointMismatch", locale) }, { status: 409 });
         // Always ask the server, with or without a stored pid: the remote
         // process records its own identity and may be running even when the
         // controller never stored the pid. Only a confirmed stop (no download
@@ -171,6 +175,7 @@ export async function DELETE(request: Request) {
           const sshParams = await buildSshParamsFromServer(
             task.server,
             task.server.sshKey,
+            task.server.teamId,
           );
           stopped = parseDirectDownloadStopResult(await execRemoteCommand({
             ...sshParams,
@@ -184,7 +189,7 @@ export async function DELETE(request: Request) {
           const result = await reconcileDirectTask(task);
           return NextResponse.json({ status: result === "completed" ? "COMPLETED" : (await prisma.downloadTask.findUnique({ where: { id: taskId }, select: { status: true } }))?.status }, { status: 409 });
         }
-        if (!stopped) {
+        if (!stopped || (stopped === "NOT_RUNNING" && !directLaunchReceipt(launch))) {
           return NextResponse.json(
             { error: t("apiDownloads.remoteProcessCancelFailed", locale) },
             { status: 502 },

@@ -59,6 +59,7 @@ vi.mock("@/lib/downloads/remote-command", () => ({
     result.exitCode === 0 && /^(STOPPED|NOT_RUNNING)$/m.test(result.stdout) ? result.stdout.trim() : null,
   getDirectDownloadLogCommand: vi.fn(() => "LOG_CMD"),
   shellQuote: (s: string) => `'${s}'`,
+  directLaunchProbeCommand: () => "PROBE_START",
   toRemoteChildPath: (base: string, f: string) => `${base}/${f}`,
 }));
 vi.mock("@/lib/downloads/helpers", async (importOriginal) => ({
@@ -70,6 +71,7 @@ vi.mock("@/lib/downloads/helpers", async (importOriginal) => ({
 }));
 
 const { executeAria2RelayDownload, executeDirectDownload } = await import("../execution");
+const { directEndpointIdentity } = await import("../direct-identity");
 const { resolveDownloadRedirects } = await import("@/lib/downloads/redirect-chain");
 const { buildDirectDownloadCommand } = await import("@/lib/downloads/remote-command");
 
@@ -143,7 +145,7 @@ describe("executeAria2RelayDownload claim ordering", () => {
     expect(claimOrder).toBeLessThan(addUriOrder);
   });
 
-  it("reclaims the reserved gid after a crash and settles a reservation the daemon never received", async () => {
+  it("settles a missing legacy GID without blindly dispatching it again", async () => {
     vi.useFakeTimers();
     const gid = "0123456789abcdef";
     prismaMock.downloadTask.updateMany.mockResolvedValueOnce({ count: 0 });
@@ -159,9 +161,58 @@ describe("executeAria2RelayDownload claim ordering", () => {
       where: { id: "reserved", status: "RUNNING" }, data: expect.objectContaining({ status: "FAILED" }),
     }));
   });
+
+  it("registers an unacknowledged reservation with its original GID", async () => {
+    vi.useFakeTimers();
+    const gid = "0123456789abcdef";
+    prismaMock.downloadTask.updateMany.mockResolvedValueOnce({ count: 0 });
+    prismaMock.downloadTask.findUnique.mockResolvedValueOnce({ teamId: "team-1" })
+      .mockResolvedValue({ status: "RUNNING", aria2Gid: gid, transferManifest: { phase: "reserved" } });
+    aria2.tellStatus.mockRejectedValueOnce(new Error(`GID ${gid} is not found`));
+    const run = executeAria2RelayDownload("reserved", server, ["https://fixture.invalid/file"], "/target");
+    await vi.advanceTimersByTimeAsync(5000);
+    await run;
+    expect(aria2.addUri).toHaveBeenCalledExactlyOnceWith(expect.anything(), expect.objectContaining({ gid }));
+  });
+
+  it("leaves the transfer with its next owner if a polling RPC fails after lease loss", async () => {
+    vi.useFakeTimers();
+    const lease = new AbortController();
+    prismaMock.downloadTask.findUnique.mockResolvedValueOnce({ teamId: "team-1" }).mockResolvedValue({ status: "RUNNING" });
+    aria2.tellStatus.mockImplementationOnce(async () => { lease.abort(); throw new Error("status unavailable"); });
+    const run = executeAria2RelayDownload("lease", server, ["https://fixture.invalid/file"], "/target", null, null, undefined, lease.signal);
+    const settled = expect(run).rejects.toThrow();
+    await vi.advanceTimersByTimeAsync(5000);
+    await settled;
+    expect(prismaMock.downloadTask.updateMany).not.toHaveBeenCalledWith(expect.objectContaining({ data: expect.objectContaining({ status: "FAILED" }) }));
+    expect(aria2.removeDownload).not.toHaveBeenCalled();
+    expect(fsMock.rm).not.toHaveBeenCalled();
+  });
 });
 
 describe("executeDirectDownload claim ordering", () => {
+  it.each(["", "1234"])("recovers a reserved direct launch from the original start receipt %j", async receipt => {
+    const reserved = { directEndpoint: directEndpointIdentity(server), phase: "reserved", cleanupComplete: true };
+    prismaMock.downloadTask.updateMany.mockResolvedValueOnce({ count: 0 });
+    prismaMock.downloadTask.findUnique.mockResolvedValueOnce({ teamId: "team" }).mockResolvedValueOnce({ status: "RUNNING", transferManifest: reserved });
+    ssh.execRemoteCommand.mockResolvedValueOnce({ stdout: receipt, exitCode: 0 }).mockResolvedValue({ stdout: "4321", exitCode: 0 });
+    await executeDirectDownload("reserved", server, "https://fixture.invalid/file", "/data/target", "file", undefined,
+      { hostname: "fixture.invalid", address: "192.0.2.1", port: 443 });
+    expect(ssh.execRemoteCommand).toHaveBeenCalledTimes(receipt ? 1 : 2);
+    expect(prismaMock.downloadTask.updateMany).toHaveBeenLastCalledWith(expect.objectContaining({
+      data: expect.objectContaining({ pid: receipt ? 1234 : 4321, transferManifest: { ...reserved, phase: "dispatched" } }),
+    }));
+  });
+
+  it("keeps a reservation retryable when the original host cannot answer the start probe", async () => {
+    const reserved = { directEndpoint: directEndpointIdentity(server), phase: "reserved", cleanupComplete: true };
+    prismaMock.downloadTask.updateMany.mockResolvedValueOnce({ count: 0 });
+    prismaMock.downloadTask.findUnique.mockResolvedValueOnce({ teamId: "team" }).mockResolvedValueOnce({ status: "RUNNING", transferManifest: reserved });
+    ssh.execRemoteCommand.mockRejectedValueOnce(new Error("temporarily offline"));
+    await expect(executeDirectDownload("reserved", server, "https://fixture.invalid/file", "/data/target", "file", undefined,
+      { hostname: "fixture.invalid", address: "192.0.2.1", port: 443 })).rejects.toThrow("temporarily offline");
+    expect(prismaMock.downloadTask.updateMany).toHaveBeenCalledOnce();
+  });
   it("does not spawn a remote process when the task is not PENDING", async () => {
     prismaMock.downloadTask.updateMany.mockResolvedValueOnce({ count: 0 }); // claim miss
 

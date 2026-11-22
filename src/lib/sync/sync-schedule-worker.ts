@@ -123,6 +123,9 @@ async function dispatchOne(job: DueJob, reason: string): Promise<boolean> {
 
 const SCHEDULE_SCAN_PAGE = 500;
 
+const active = new Map<string, Promise<boolean>>();
+const queued = new Set<string>();
+
 export async function runSyncScheduleWorkerOnce(reason = "manual"): Promise<number> {
   const state = getState();
   if (state.running) {
@@ -130,7 +133,7 @@ export async function runSyncScheduleWorkerOnce(reason = "manual"): Promise<numb
     return 0;
   }
   state.running = true;
-  let started = 0;
+  const dueJobs: DueJob[] = [];
   try {
     const reclaimed = await reclaimStaleRunningSyncJobs();
     if (reclaimed.length > 0) {
@@ -140,7 +143,7 @@ export async function runSyncScheduleWorkerOnce(reason = "manual"): Promise<numb
     // Whether a job is due is decided here, not in SQL, so every scheduled
     // job is read: a fixed first page (oldest lastSyncAt, where PostgreSQL
     // sorts never-run jobs last) could hold back due jobs indefinitely.
-    const dueJobs: Array<{ id: string; schedule: string | null; lastSyncAt: Date | null; createdAt: Date; status: string; name: string }> = [];
+
     let cursor: string | undefined;
     do {
       const page = await prisma.syncJob.findMany({
@@ -164,20 +167,26 @@ export async function runSyncScheduleWorkerOnce(reason = "manual"): Promise<numb
         ...(cursor ? { cursor: { id: cursor }, skip: 1 } : {}),
       });
       const attempts = await lastFailedAttempts(page);
-      dueJobs.push(...page.filter((job) => dueAfterAttempt(job, attempts.get(job.id))));
+      dueJobs.push(...page.filter(job => !queued.has(job.id) && dueAfterAttempt(job, attempts.get(job.id))));
       cursor = page.length === SCHEDULE_SCAN_PAGE ? page[page.length - 1]!.id : undefined;
     } while (cursor);
     // Never-run jobs first, then the longest waiting.
     dueJobs.sort((a, b) => (a.lastSyncAt?.getTime() ?? -Infinity) - (b.lastSyncAt?.getTime() ?? -Infinity));
-    for (let i = 0; i < dueJobs.length; i += DISPATCH_CONCURRENCY) {
-      const batch = dueJobs.slice(i, i + DISPATCH_CONCURRENCY);
-      const outcomes = await Promise.all(batch.map((job) => dispatchOne(job, reason)));
-      started += outcomes.filter(Boolean).length;
-    }
-    return started;
+    for (const job of dueJobs) queued.add(job.id);
   } finally {
     state.running = false;
   }
+  const work: Promise<boolean>[] = [];
+  for (const job of dueJobs) {
+    while (active.size >= DISPATCH_CONCURRENCY) await Promise.race(active.values());
+    const transfer = dispatchOne(job, reason).catch(error => {
+      logger.error("sync dispatch failed", { jobId: job.id, error: String(error) });
+      return false;
+    }).finally(() => { active.delete(job.id); queued.delete(job.id); });
+    active.set(job.id, transfer);
+    work.push(transfer);
+  }
+  return (await Promise.all(work)).filter(Boolean).length;
 }
 
 export async function startSyncScheduleWorker() {

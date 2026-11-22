@@ -16,7 +16,7 @@ vi.mock("@/lib/db", () => ({
         state.createCalls.push({ data });
         return { id: "snippet-1", ...data };
       },
-      findUnique: () => Promise.resolve(state.snippet),
+      findFirst: () => Promise.resolve(state.snippet),
       update: ({ where, data }: { where: { id: string }; data: Record<string, unknown> }) => {
         state.updateCalls.push({ where, data });
         return { id: where.id, ...data };

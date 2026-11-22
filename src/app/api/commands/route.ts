@@ -3,7 +3,7 @@ import { NextResponse } from "next/server";
 import { z } from "zod";
 import { canReadCommandBody } from "@/lib/command/visibility";
 import { sessionHasPermission } from "@/lib/auth/authorization";
-import { cancelCommandRequest, createCommandRequest, listCommandRequests } from "@/lib/command/service";
+import { cancelCommandRequest, createCommandRequest, listCommandRequestPage } from "@/lib/command/service";
 import { createCommandSchema } from "@/lib/command/schema";
 import { ForbiddenError } from "@/lib/errors";
 import { withApiRoute } from "@/lib/http/api-guard";
@@ -33,9 +33,10 @@ export async function GET(request: Request) {
     // The approvals page shows a command's text to reviewers and to whoever submitted it; this list gave every
     // reader all of them. Someone else's text is left out here too.
     const canApprove = sessionHasPermission(ctx.session, "command:approve");
-    const requests = (await listCommandRequests(ctx.session)).map((item) =>
+    const page = await listCommandRequestPage(ctx.session, new URL(request.url).searchParams.get("cursor") || undefined);
+    const requests = page.requests.map((item) =>
       canReadCommandBody(ctx.session.userId, item.requesterId, canApprove) ? item : { ...item, command: "", commandHidden: true });
-    return NextResponse.json({ requests });
+    return NextResponse.json({ ...page, requests });
   });
 }
 

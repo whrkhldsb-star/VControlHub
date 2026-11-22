@@ -1,3 +1,4 @@
+import { directLaunchReceipt } from "./direct-identity";
 import { resolveTaskDrive } from "@/lib/downloads/destination";
 import { JobStatus, Prisma } from "@prisma/client";
 
@@ -197,7 +198,7 @@ async function loadTaskRow(taskId: string) {
 }
 
 function buildServerForExec(
-  server: NonNullable<StorageSshCredentialNode["server"]> & { sshKeyId: string | null },
+  server: NonNullable<StorageSshCredentialNode["server"]> & { sshKeyId: string | null; agentTokenHash?: string | null },
   node: Omit<StorageSshCredentialNode, "server"> & { id: string; basePath: string; driver: string },
   agentDrive: boolean,
 ): DownloadServer {
@@ -211,6 +212,7 @@ function buildServerForExec(
     username: credentials?.username ?? server.username,
     operatingSystem: server.operatingSystem,
     managementMode: server.managementMode,
+    agentTokenHash: server.agentTokenHash,
     connectionType: server.connectionType,
     sshKeyId: server.sshKeyId,
     password: credentials?.password ?? null,
@@ -438,7 +440,7 @@ async function handleClaimedJob(
             payload.userId ?? task.createdBy ?? undefined,
             signal,
             limits,
-            ...(stagedHttp ? [true] as const : []),
+            stagedHttp, { id: job.id, workerId: DOWNLOAD_EXECUTION_WORKER_ID, attempts: job.attempts },
           );
         } else {
           await executeDirectDownload(
@@ -468,6 +470,9 @@ async function handleClaimedJob(
         { attempts: job.attempts },
       );
       return true;
+    }
+    if (outcome.status === "RUNNING" && !outcome.relayMode && !outcome.pid && !directLaunchReceipt(outcome.transferManifest)?.dispatched) {
+      throw new Error("Remote download launch has not been acknowledged");
     }
     await completeJob(job.id, DOWNLOAD_EXECUTION_WORKER_ID, {
       taskId: payload.taskId,

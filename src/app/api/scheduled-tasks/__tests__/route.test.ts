@@ -3,6 +3,7 @@ import { beforeEach, describe, expect, it, vi } from "vitest";
 const { mocks } = vi.hoisted(() => ({
   mocks: {
     requireApiPermission: vi.fn(),
+    authenticateBearer: vi.fn(),
     createScheduledTask: vi.fn(),
     listScheduledTasks: vi.fn(),
     updateScheduledTask: vi.fn(),
@@ -15,6 +16,10 @@ const { mocks } = vi.hoisted(() => ({
 
 vi.mock("@/lib/auth/require-api-permission", () => ({
   requireApiPermission: mocks.requireApiPermission,
+}));
+vi.mock("@/lib/auth/bearer-token", async importOriginal => ({
+  ...await importOriginal<typeof import("@/lib/auth/bearer-token")>(),
+  authenticateBearerForPermissions: mocks.authenticateBearer,
 }));
 vi.mock("@/lib/scheduled-task/service", () => ({
   createScheduledTask: mocks.createScheduledTask,
@@ -34,7 +39,7 @@ vi.mock("next/headers", () => ({
 }));
 
 const route = await import("../route");
-const session = { userId: "u1", username: "alice", user: { id: "u1" }, currentTeamId: null };
+const session = { userId: "u1", username: "alice", user: { id: "u1" }, currentTeamId: null, roles: [] };
 
 describe("/api/scheduled-tasks audit coverage", () => {
   beforeEach(() => {
@@ -89,6 +94,18 @@ describe("/api/scheduled-tasks audit coverage", () => {
     });
   });
 
+  it("includes the owner's optional server read permission when listing targets with a read token", async () => {
+    const tokenSession = { ...session, roles: [], permissions: ["command:read", "server:read"] };
+    mocks.authenticateBearer.mockResolvedValueOnce({ session: tokenSession });
+    mocks.listScheduledTasks.mockResolvedValueOnce([{ id: "task1", cronExpression: "0 2 * * *", createdAt: new Date(), serverIds: ["visible"] }]);
+    const request = new Request("http://local/api/scheduled-tasks", { headers: { authorization: "Bearer fixture" } });
+    const response = await route.GET(request);
+    expect(response.status).toBe(200);
+    expect(await response.json()).toMatchObject({ tasks: [{ serverIds: ["visible"] }] });
+    expect(mocks.authenticateBearer).toHaveBeenCalledWith(request, ["command:read"], ["server:read"]);
+    expect(mocks.listScheduledTasks).toHaveBeenCalledWith(200, tokenSession);
+  });
+
   it("serializes cron descriptions for refreshed scheduled task lists", async () => {
     mocks.listScheduledTasks.mockResolvedValue([
       {
@@ -115,6 +132,7 @@ describe("/api/scheduled-tasks audit coverage", () => {
     expect(json.tasks[0]).toMatchObject({
       id: "task1",
       cronDescription: "每天 2:00 执行",
+      serverIds: [],
       lastResult: "执行失败：disk full",
     });
   });
