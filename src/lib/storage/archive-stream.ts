@@ -101,13 +101,16 @@ const EXCLUDE_OPTIONS = ["--no-wildcards", "--anchored", "--exclude-from=-"];
  * tar (which reads "C:\..." as a remote host) can never be picked here.
  */
 function buildLocalTarArgs(directoryPath: string, entryName: string, excluded: string[], pinned?: { fd?: number }): string[] {
+	// Windows System32 bsdtar does not support -s/--transform; keep the pinned
+	// directory handle open in streamLocalTarGz while addressing via -C parent.
+	const pinAsDot = Boolean(pinned && !IS_WINDOWS);
 	const args = ["-czf", "-"];
-	if (!pinned) args.push("-C", path.dirname(directoryPath));
-	else if (pinned.fd !== undefined) args.push("-C", BSD_TAR ? "/dev/fd/3" : "/proc/self/fd/3");
+	if (!pinAsDot) args.push("-C", path.dirname(directoryPath));
+	else if (pinned?.fd !== undefined) args.push("-C", BSD_TAR ? "/dev/fd/3" : "/proc/self/fd/3");
 	args.push(...localStagingExcludes);
-	const memberRoot = pinned ? "." : entryName;
+	const memberRoot = pinAsDot ? "." : entryName;
 	if (excluded.length && BSD_TAR) {
-		const physicalRoot = realpathSync.native(pinned?.fd === undefined ? directoryPath : "/dev/fd/" + pinned.fd);
+		const physicalRoot = realpathSync.native(pinAsDot && pinned?.fd !== undefined ? "/dev/fd/" + pinned.fd : directoryPath);
 		let excludeLength = 0;
 		for (const name of excluded) {
 			// bsdtar matches member spelling. A case-only rename on NTFS may differ from its tombstone.
@@ -126,7 +129,7 @@ function buildLocalTarArgs(directoryPath: string, entryName: string, excluded: s
 	} else if (excluded.length) {
 		args.push(...EXCLUDE_OPTIONS);
 	}
-	if (pinned) {
+	if (pinAsDot) {
 		const escaped = entryName.replace(BSD_TAR ? /[\\~|]/g : /[\\&|]/g, "\\$&");
 		if (BSD_TAR) args.push("-s", "|^\\.|" + escaped + "|");
 		else args.push("--transform=s|^\\.|" + escaped + "|");
@@ -146,14 +149,15 @@ export function localTarExclusion(excluded: string[], excludeFilePath: string): 
 }
 
 export function streamLocalTarGz(directoryPath: string, entryName: string, excluded: string[] = [], pinned?: { fd?: number; close: () => Promise<void> }) {
-	const pinnedExclusions = pinned ? excluded.map(name => "./" + name.split("/").slice(1).join("/")) : excluded;
+	const pinAsDot = Boolean(pinned && !IS_WINDOWS);
+	const pinnedExclusions = pinAsDot ? excluded.map(name => "./" + name.split("/").slice(1).join("/")) : excluded;
 	const input = archiveExclusionInput(pinnedExclusions);
 	// POSIX GNU tar reads the exclusion list from stdin; Windows bsdtar gets it
 	// as argv, so stdin stays closed there.
 	const useStdinExcludes = Boolean(input) && !BSD_TAR;
 	const args = buildLocalTarArgs(directoryPath, entryName, excluded, pinned);
 	const tar = spawn(resolveLocalTarBinary(), args, {
-		cwd: pinned && pinned.fd === undefined ? directoryPath : undefined,
+		cwd: pinAsDot && pinned?.fd === undefined ? directoryPath : undefined,
 		stdio: [useStdinExcludes ? "pipe" : "ignore", "pipe", "pipe", ...(pinned?.fd === undefined ? [] : [pinned.fd])],
 	});
 	let exited = false;
