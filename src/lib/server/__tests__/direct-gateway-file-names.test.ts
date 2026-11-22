@@ -142,4 +142,34 @@ describe.skipIf(!runnable)("direct gateway file names", () => {
 	])("serves %s itself", async (name, body) => {
 		expect(await download(name)).toEqual({ status: 200, body });
 	});
+
+	it("sends nosniff, referrer, sandbox CSP (except PDF), and forces attachment on active markup and ?download=1", async () => {
+		await writeFile(path.join(root, "page.html"), "<script>alert(1)</script>");
+		await writeFile(path.join(root, "vector.svg"), "<svg/>");
+		await writeFile(path.join(root, "doc.pdf"), "%PDF-1.4");
+
+		const html = await fetch(`http://127.0.0.1:${port}${signedPath("page.html")}`);
+		expect(html.status).toBe(200);
+		expect(html.headers.get("X-Content-Type-Options")).toBe("nosniff");
+		expect(html.headers.get("Referrer-Policy")).toBe("no-referrer");
+		expect(html.headers.get("Content-Security-Policy")).toBe("sandbox");
+		expect(html.headers.get("Content-Disposition")).toBe("attachment");
+
+		const svg = await fetch(`http://127.0.0.1:${port}${signedPath("vector.svg")}`);
+		expect(svg.status).toBe(200);
+		expect(svg.headers.get("Content-Security-Policy")).toBe("sandbox");
+		expect(svg.headers.get("Content-Disposition")).toBe("attachment");
+
+		const pdf = await fetch(`http://127.0.0.1:${port}${signedPath("doc.pdf")}`);
+		expect(pdf.status).toBe(200);
+		expect(pdf.headers.get("X-Content-Type-Options")).toBe("nosniff");
+		expect(pdf.headers.get("Referrer-Policy")).toBe("no-referrer");
+		expect(pdf.headers.get("Content-Security-Policy")).toBeNull();
+		expect(pdf.headers.get("Content-Disposition")).toBeNull();
+
+		const dl = await fetch(`http://127.0.0.1:${port}${signedPath("report.txt")}&download=1`);
+		expect(dl.status).toBe(200);
+		expect(dl.headers.get("Content-Security-Policy")).toBe("sandbox");
+		expect(dl.headers.get("Content-Disposition")).toBe("attachment");
+	});
 });

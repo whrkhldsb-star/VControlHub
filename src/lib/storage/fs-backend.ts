@@ -1,10 +1,10 @@
 import path from "node:path";
 import { apiCopy } from "@/lib/i18n/api-copy";
 import { createLogger } from "@/lib/logging";
-import { createReadStream } from "node:fs";
-import { lstat, mkdir, readFile, rename, rm, rmdir, unlink, writeFile } from "node:fs/promises";
+import { lstat, mkdir, rename, rm, rmdir, unlink, writeFile } from "node:fs/promises";
 
 import { renameLocalExclusive } from "@/lib/ssh/rename-exclusive";
+import { openManagedLocalFile } from "./open-local-file";
 import { publishLocalFile } from "./publish-local-file";
 import { BusinessError, ConflictError, ValidationError } from "@/lib/errors";
 import { expandStorageBasePath, resolveStoragePathWithinBase } from "./path-utils";
@@ -227,23 +227,29 @@ export async function readBackingObject(input: {
 }): Promise<Buffer> {
   if (input.storageNode.driver === "WEBDAV" || input.storageNode.driver === "AGENT") return createRemoteStorageClient(input.storageNode).read(input.relativePath, input.maxBytes);
   if (input.storageNode.driver === "LOCAL") {
-    const { absolutePath } = await resolveManagedLocalEntryPath({
-      basePath: input.storageNode.basePath,
-      relativePath: input.relativePath,
-    });
-    // Enforce the byte cap before buffering the whole file into memory.
-    // BusinessError (422) matches the SFTP path so callers can map both to 413.
-    if (input.maxBytes !== undefined) {
-      const chunks: Buffer[] = [];
-      let bytes = 0;
-      for await (const chunk of createReadStream(absolutePath)) {
-        bytes += chunk.length;
-        if (bytes > input.maxBytes) throw new BusinessError(t("backend.storage.remoteReadTooLarge"));
-        chunks.push(chunk as Buffer);
+    const handle = await openManagedLocalFile(
+      input.storageNode.basePath,
+      input.relativePath,
+    );
+    try {
+      // Enforce the byte cap before buffering the whole file into memory.
+      // BusinessError (422) matches the SFTP path so callers can map both to 413.
+      if (input.maxBytes !== undefined) {
+        const stats = await handle.stat();
+        if (stats.size > input.maxBytes) throw new BusinessError(t("backend.storage.remoteReadTooLarge"));
+        const chunks: Buffer[] = [];
+        let bytes = 0;
+        for await (const chunk of handle.createReadStream({ autoClose: false })) {
+          bytes += chunk.length;
+          if (bytes > input.maxBytes) throw new BusinessError(t("backend.storage.remoteReadTooLarge"));
+          chunks.push(chunk as Buffer);
+        }
+        return Buffer.concat(chunks, bytes);
       }
-      return Buffer.concat(chunks, bytes);
+      return await handle.readFile();
+    } finally {
+      await handle.close();
     }
-    return readFile(absolutePath);
   }
 
   if (input.storageNode.driver === "SFTP") {

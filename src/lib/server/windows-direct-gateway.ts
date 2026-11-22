@@ -140,9 +140,11 @@ try {
         }
         $response.Headers['Accept-Ranges'] = 'bytes'
         $extension = [IO.Path]::GetExtension($target).ToLowerInvariant()
-        $types = @{ '.txt'='text/plain; charset=utf-8'; '.html'='text/html; charset=utf-8'; '.pdf'='application/pdf'; '.png'='image/png'; '.jpg'='image/jpeg'; '.jpeg'='image/jpeg'; '.gif'='image/gif'; '.webp'='image/webp'; '.mp4'='video/mp4'; '.mp3'='audio/mpeg' }
+        $types = @{ '.txt'='text/plain; charset=utf-8'; '.html'='text/html; charset=utf-8'; '.htm'='text/html; charset=utf-8'; '.xhtml'='application/xhtml+xml'; '.svg'='image/svg+xml'; '.xml'='application/xml'; '.pdf'='application/pdf'; '.png'='image/png'; '.jpg'='image/jpeg'; '.jpeg'='image/jpeg'; '.gif'='image/gif'; '.webp'='image/webp'; '.mp4'='video/mp4'; '.mp3'='audio/mpeg' }
         $response.ContentType = if ($types.ContainsKey($extension)) { $types[$extension] } else { 'application/octet-stream' }
-        if ($request.QueryString['download'] -eq '1') { $response.Headers['Content-Disposition'] = 'attachment' }
+        if ($extension -ne '.pdf') { $response.Headers['Content-Security-Policy'] = 'sandbox' }
+        $activeMarkup = @('.html', '.htm', '.xhtml', '.svg', '.xml')
+        if ($request.QueryString['download'] -eq '1' -or ($activeMarkup -contains $extension)) { $response.Headers['Content-Disposition'] = 'attachment' }
         $response.ContentLength64 = $end - $start + 1
         if ($request.HttpMethod -ne 'HEAD') {
           $stream.Position = $start

@@ -2,7 +2,6 @@ import { streamRemoteDriveArchive } from "@/lib/storage/remote-archive";
 import { openManagedArchive } from "@/lib/storage/archive-access";
 import { apiCopy } from "@/lib/i18n/api-copy";
 import { getServerLocale, t } from "@/lib/i18n/translations";
-import { stat } from "node:fs/promises";
 import path from "node:path";
 
 import { NextResponse } from "next/server";
@@ -26,6 +25,7 @@ import {
   supportsRemoteTar,
 } from "@/lib/storage/archive-stream";
 import { hasCaseInsensitiveLocalPaths, normalizeStorageRelativePath, resolveStoragePathWithinBase } from "@/lib/storage/path-utils";
+import { pinLocalArchiveDirectory } from "@/lib/storage/open-local-file";
 import { normalizeRemoteTargetPath, toClientStorageError } from "@/lib/storage/remote-path";
 import { assertRemotePathContained } from "@/lib/storage/remote-containment";
 import { resolveStorageSshCredentials } from "@/lib/storage/ssh-credentials";
@@ -151,14 +151,24 @@ export async function GET(request: Request) {
       if (!resolved.ok) {
         throw new ValidationError(resolved.reason);
       }
-      const directoryStat = await stat(resolved.path).catch(() => null);
-      if (!directoryStat?.isDirectory()) {
-        throw new NotFoundError(apiCopy("apiCopy.local.directory.not.found.or.cannot.be.read.fddf033b"));
-      }
       const stream = await openManagedArchive({
         storageNodeId: entry.storageNode.id, relativePath: entry.relativePath, signal: request.signal,
         caseInsensitive: hasCaseInsensitiveLocalPaths(entry.storageNode.driver),
-        open: (excluded) => streamLocalTarGz(resolved.path, path.basename(resolved.path), excluded),
+        open: async (excluded) => {
+          let pinned: Awaited<ReturnType<typeof pinLocalArchiveDirectory>>;
+          try {
+            pinned = await pinLocalArchiveDirectory(entry.storageNode.basePath, entry.relativePath);
+          } catch (error) {
+            if (error instanceof ValidationError) throw error;
+            throw new NotFoundError(apiCopy("apiCopy.local.directory.not.found.or.cannot.be.read.fddf033b"));
+          }
+          try {
+            return streamLocalTarGz(pinned.cwd ?? resolved.path, path.basename(resolved.path), excluded, pinned);
+          } catch (error) {
+            await pinned.close();
+            throw error;
+          }
+        },
       });
       return archiveStreamResponse(stream, archiveName);
     }

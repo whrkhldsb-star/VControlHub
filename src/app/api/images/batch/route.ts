@@ -50,7 +50,7 @@ export async function POST(request: Request) {
           // Owners may bulk-delete their own images (whereClause already scopes
           // non-managers to userId). Managers keep cross-owner delete via canManageImages.
           // Matches single-image DELETE canDeleteImage (owner OR media/team/role manage).
-          const { deletedImages, linked, failedFileIds, okIds, result } = await prisma.$transaction(async tx => {
+          const { deletedImages, result } = await prisma.$transaction(async tx => {
             const locked = await tx.$queryRaw<{ id: string; teamId: string | null }[]>`SELECT i.id, i."teamId" FROM image_uploads i
               WHERE i.id IN (${Prisma.join(ids)}) AND ${rawActiveCustomerScope(session, Prisma.sql`i."teamId"`)}
                 ${canManageImages ? Prisma.empty : Prisma.sql`AND i."userId" = ${session.userId}`}
@@ -58,8 +58,12 @@ export async function POST(request: Request) {
             for (const teamId of [...new Set(locked.map(row => row.teamId))].sort()) {
               if (teamId) await lockLiveCustomer(tx, teamId);
             }
+            const lockedIds = locked.map(row => row.id);
+            if (lockedIds.length === 0) {
+              return { deletedImages: [], result: { count: 0 } };
+            }
             const images = await tx.imageUpload.findMany({
-              where: { AND: [whereClause, { id: { in: locked.map(row => row.id) } }] },
+              where: { AND: [whereClause, { id: { in: lockedIds } }] },
               select: {
                 id: true,
                 storageKey: true,
@@ -72,29 +76,30 @@ export async function POST(request: Request) {
               },
               take: 100,
             });
-            // Delete on-disk variants FIRST so a disk failure leaves DB rows for retry.
-            const fileResults = await Promise.allSettled(
-              images.map((img) =>
-                deleteImageVariants(img.storageKey, UPLOAD_DIR),
-              ),
-            );
-            const failedFileIds = images
-              .filter((_, index) => fileResults[index]?.status === "rejected")
-              .map((image) => image.id);
-            const okIds = images
-              .filter((_, index) => fileResults[index]?.status !== "rejected")
-              .map((image) => image.id);
-            // Only remove DB rows for successfully unlinked image-bed files.
+            const targetIds = images.map((image) => image.id);
             const result =
-              okIds.length > 0
+              targetIds.length > 0
                 ? await tx.imageUpload.deleteMany({
-                    where: { AND: [whereClause, { id: { in: okIds } }] },
+                    where: { AND: [whereClause, { id: { in: targetIds } }] },
                   })
                 : { count: 0 };
-            const deletedImages = images.filter(image => okIds.includes(image.id));
-            const linked = await removeOwnedLinkedCopies(deletedImages, session, tx);
-            return { deletedImages, linked, failedFileIds, okIds, result };
-          }, { timeout: 60_000 });
+            return { deletedImages: images, result };
+          });
+          // Run local variant unlinks and linked-storage cleanup only after the DB delete commits.
+          const [fileResults, linked] = await Promise.all([
+            Promise.allSettled(
+              deletedImages.map((img) =>
+                deleteImageVariants(img.storageKey, UPLOAD_DIR),
+              ),
+            ),
+            removeOwnedLinkedCopies(deletedImages, session),
+          ]);
+          const failedFileIds = deletedImages
+            .filter((_, index) => fileResults[index]?.status === "rejected")
+            .map((image) => image.id);
+          const okIds = deletedImages
+            .filter((_, index) => fileResults[index]?.status !== "rejected")
+            .map((image) => image.id);
           await auditUserAction(
             session.userId,
             "image.batch.delete",
@@ -132,7 +137,8 @@ export async function POST(request: Request) {
                 ...payload,
                 success: false,
                 partial: true,
-                ...(linked.failed.length > 0 ? { linkedCleanupFailures: linked.failed, cleanupPending: true } : {}),
+                cleanupPending: true,
+                ...(linked.failed.length > 0 ? { linkedCleanupFailures: linked.failed } : {}),
               },
               { status: 207 },
             );

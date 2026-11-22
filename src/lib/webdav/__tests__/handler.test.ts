@@ -51,6 +51,7 @@ const mocks = vi.hoisted(() => ({
   snapshotFileVersionBeforeOverwrite: vi.fn(),
   readRequestBodyBuffer: vi.fn(),
   readStorageUploadMaxBytes: vi.fn(async () => 100 * 1024 * 1024),
+  assertUploadDiskReserve: vi.fn(async () => undefined),
 }));
 
 vi.mock("../representation", async (original) => ({
@@ -100,7 +101,14 @@ vi.mock("@/lib/storage/file-content", async () => {
     deleteStorageFileBuffer: mocks.deleteStorageFileBuffer,
   };
 });
-vi.mock("@/lib/upload/limits", () => ({ readStorageUploadMaxBytes: mocks.readStorageUploadMaxBytes }));
+vi.mock("@/lib/upload/limits", async (importOriginal) => ({
+  ...(await importOriginal<typeof import("@/lib/upload/limits")>()),
+  readStorageUploadMaxBytes: mocks.readStorageUploadMaxBytes,
+}));
+vi.mock("@/lib/upload/service", async (importOriginal) => ({
+  ...(await importOriginal<typeof import("@/lib/upload/service")>()),
+  assertUploadDiskReserve: mocks.assertUploadDiskReserve,
+}));
 vi.mock("@/lib/storage/fs-backend", () => ({
   createManagedFolder: mocks.createManagedFolder,
   deleteBackingObject: mocks.deleteBackingObject,
@@ -496,8 +504,14 @@ describe("webdav handlers", () => {
       expect(accessCalls()[0]).toMatchObject({
         relativePath: "dir/a.bin",
         operation: "write",
+        writeBytes: 0,
+      });
+      expect(accessCalls()[1]).toMatchObject({
+        relativePath: "dir/a.bin",
+        operation: "write",
         writeBytes: 1234,
       });
+      expect(mocks.releaseStorageQuotaGuard).toHaveBeenCalledTimes(2);
       expect(mocks.releaseStorageQuotaGuard).toHaveBeenCalledWith(guard);
     });
 
@@ -516,7 +530,7 @@ describe("webdav handlers", () => {
       expect(mocks.releaseStorageQuotaGuard).toHaveBeenCalledWith(guard);
     });
 
-    it("answers 413 for an oversized body without consuming a grant", async () => {
+    it("answers 413 for an oversized body and releases pre-flight access without storing", async () => {
       // The limit is the storage upload setting (A4-16): one byte here, two in the body.
       mocks.readStorageUploadMaxBytes.mockResolvedValueOnce(1);
 
@@ -526,7 +540,65 @@ describe("webdav handlers", () => {
       );
 
       expect(response.status).toBe(413);
-      expect(mocks.assertStorageAccess).not.toHaveBeenCalled();
+      expect(mocks.releaseStorageQuotaGuard).toHaveBeenCalledTimes(1);
+      expect(mocks.writeStorageFileBuffer).not.toHaveBeenCalled();
+    });
+
+    it("fails fast before buffering when node is missing, write access is denied, or disk reserve is low", async () => {
+      const makeStream = () => {
+        const pull = vi.fn();
+        return {
+          pull,
+          stream: new ReadableStream<Uint8Array>(
+            {
+              pull(controller) {
+                pull();
+                controller.enqueue(new Uint8Array([1, 2, 3]));
+                controller.close();
+              },
+            },
+            { highWaterMark: 0 },
+          ),
+        };
+      };
+
+      // 1. Missing/foreign node
+      mocks.storageNodeFindFirst.mockResolvedValueOnce(null);
+      const missingBody = makeStream();
+      await expect(
+        handleWebDavPut(
+          context("a.bin"),
+          { headers: new Headers(), body: missingBody.stream } as unknown as Request,
+        ),
+      ).rejects.toMatchObject({ status: 404 });
+      expect(missingBody.pull).not.toHaveBeenCalled();
+      expect(mocks.assertUploadDiskReserve).not.toHaveBeenCalled();
+
+      // 2. Denied write grant
+      mocks.assertStorageAccess.mockResolvedValueOnce({ allowed: false, reason: "no_access" });
+      const deniedBody = makeStream();
+      await expect(
+        handleWebDavPut(
+          context("a.bin"),
+          { headers: new Headers(), body: deniedBody.stream } as unknown as Request,
+        ),
+      ).rejects.toMatchObject({ status: 422 });
+      expect(deniedBody.pull).not.toHaveBeenCalled();
+      expect(mocks.assertUploadDiskReserve).not.toHaveBeenCalled();
+
+      // 3. Low disk reserve -> 507 Insufficient Storage
+      const { MediaUploadError } = await import("@/lib/upload/service");
+      mocks.assertUploadDiskReserve.mockRejectedValueOnce(
+        new MediaUploadError("insufficient_storage", "Not enough free disk space"),
+      );
+      const lowDiskBody = makeStream();
+      const response = await handleWebDavPut(
+        context("a.bin"),
+        { headers: new Headers({ "content-length": "1024" }), body: lowDiskBody.stream } as unknown as Request,
+      );
+      expect(response.status).toBe(507);
+      expect(lowDiskBody.pull).not.toHaveBeenCalled();
+      expect(mocks.assertUploadDiskReserve).toHaveBeenCalledWith(1024);
     });
 
     it("refuses to replace a collection with a file", async () => {
@@ -1098,7 +1170,8 @@ describe("webdav handlers", () => {
         ),
       ).rejects.toMatchObject({ status: 400, message: "backend.webdav.incompleteRequestBody" });
 
-      expect(mocks.assertStorageAccess).not.toHaveBeenCalled();
+      expect(mocks.releaseStorageQuotaGuard).toHaveBeenCalledTimes(1);
+      expect(mocks.assertStorageAccess).toHaveBeenCalledTimes(1);
       expect(mocks.writeStorageFileBuffer).not.toHaveBeenCalled();
       expect(mocks.createFileEntry).not.toHaveBeenCalled();
       expect(mocks.fileEntryUpdate).not.toHaveBeenCalled();
@@ -1119,7 +1192,7 @@ describe("webdav handlers", () => {
       );
 
       expect(response.status).toBe(201);
-      expect(accessCalls()[0]).toMatchObject({ relativePath: "film.mkv", operation: "write", writeBytes: 2000 });
+      expect(accessCalls().at(-1)).toMatchObject({ relativePath: "film.mkv", operation: "write", writeBytes: 2000 });
     });
 
     it("takes a chunked upload, which declares no length, as it arrives", async () => {
@@ -1133,7 +1206,7 @@ describe("webdav handlers", () => {
       );
 
       expect(response.status).toBe(201);
-      expect(accessCalls()[0]).toMatchObject({ writeBytes: 321 });
+      expect(accessCalls().at(-1)).toMatchObject({ writeBytes: 321 });
     });
   });
 

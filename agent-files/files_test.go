@@ -11,6 +11,7 @@ import (
 	"net/http/httptest"
 	"os"
 	"path/filepath"
+	"sync"
 	"testing"
 	"time"
 )
@@ -581,4 +582,90 @@ func TestDeleteRestoresEntryReplacedAfterVersionCheck(t *testing.T) {
 			t.Fatalf("replacement lost: %q %v", data, err)
 		}
 	}
+}
+
+func TestStatAndListRejectIntraShareSymlinksAndSwapRace(t *testing.T) {
+	dir := t.TempDir()
+	for _, sub := range []string{"granted/sub", "private"} {
+		if err := os.MkdirAll(filepath.Join(dir, filepath.FromSlash(sub)), 0700); err != nil {
+			t.Fatal(err)
+		}
+	}
+	if err := os.WriteFile(filepath.Join(dir, "granted", "sub", "ok.txt"), []byte("ok"), 0600); err != nil {
+		t.Fatal(err)
+	}
+	if err := os.WriteFile(filepath.Join(dir, "private", "secret.txt"), []byte("top-secret"), 0600); err != nil {
+		t.Fatal(err)
+	}
+	if err := os.Symlink("../private", filepath.Join(dir, "granted", "link-dir")); err != nil {
+		t.Skipf("symlinks unavailable: %v", err)
+	}
+	if err := os.Symlink("../../private/secret.txt", filepath.Join(dir, "granted", "sub", "link-file")); err != nil {
+		t.Fatal(err)
+	}
+	root, err := os.OpenRoot(dir)
+	if err != nil {
+		t.Fatal(err)
+	}
+	defer root.Close()
+	s := share{root: root}
+
+	for _, target := range []string{"granted/link-dir", "granted/link-dir/secret.txt", "granted/sub/link-file"} {
+		if _, err := s.handle(operation{Op: "stat", Path: target}); err == nil {
+			t.Fatalf("stat accepted symlink path %q", target)
+		}
+	}
+	if _, err := s.handle(operation{Op: "list", Path: "granted/link-dir"}); err == nil {
+		t.Fatal("list accepted intra-share symlink directory")
+	}
+	listed, err := s.handle(operation{Op: "list", Path: "granted/sub"})
+	if err != nil || listed.Entries == nil || len(*listed.Entries) != 1 || (*listed.Entries)[0].Name != "ok.txt" {
+		t.Fatalf("unexpected listing for granted/sub: %+v, err=%v", listed.Entries, err)
+	}
+
+	// Concurrent swap between a real directory and an intra-share symlink must never leak private/secret.txt.
+	swapPath := filepath.Join(dir, "granted", "swap")
+	realDir := filepath.Join(dir, "granted", "real-swap")
+	if err := os.Mkdir(realDir, 0700); err != nil {
+		t.Fatal(err)
+	}
+	if err := os.WriteFile(filepath.Join(realDir, "safe.txt"), []byte("safe"), 0600); err != nil {
+		t.Fatal(err)
+	}
+	stop := make(chan struct{})
+	var wg sync.WaitGroup
+	wg.Add(1)
+	go func() {
+		defer wg.Done()
+		for {
+			select {
+			case <-stop:
+				return
+			default:
+				_ = os.Remove(swapPath)
+				_ = os.Symlink("../private", swapPath)
+				_ = os.Remove(swapPath)
+				_ = os.Rename(realDir, swapPath)
+				_ = os.Rename(swapPath, realDir)
+			}
+		}
+	}()
+	for i := 0; i < 200; i++ {
+		if res, err := s.handle(operation{Op: "list", Path: "granted/swap"}); err == nil && res.Entries != nil {
+			for _, item := range *res.Entries {
+				if item.Name == "secret.txt" {
+					close(stop)
+					wg.Wait()
+					t.Fatal("list leaked secret.txt across intra-share symlink swap")
+				}
+			}
+		}
+		if res, err := s.handle(operation{Op: "stat", Path: "granted/swap/secret.txt"}); err == nil && res.Entry != nil {
+			close(stop)
+			wg.Wait()
+			t.Fatal("stat leaked secret.txt across intra-share symlink swap")
+		}
+	}
+	close(stop)
+	wg.Wait()
 }

@@ -36,6 +36,8 @@ describe("file proxy script (run with python3)", () => {
     await mkdir(real, { recursive: true });
     await writeFile(path.join(real, "a%20b.txt"), "literal percent name");
     await writeFile(path.join(real, "keep.txt"), "keep body");
+    await writeFile(path.join(real, "page.html"), "<script>alert(1)</script>");
+    await writeFile(path.join(real, "doc.pdf"), "%PDF-1.4");
     // The bound storage root is a link to the disk (e.g. /data -> /mnt/disk).
     const serveDir = path.join(root, "files-link");
     await symlink(real, serveDir);
@@ -91,5 +93,22 @@ describe("file proxy script (run with python3)", () => {
     expect(head).toMatch(/^HTTP\/1\.0 200/);
     expect(head).toMatch(/Content-Length: 9/i);
     expect(head).not.toContain("keep body");
+  });
+
+  itPython("sandboxes non-PDF responses and forces attachment for active markup", async () => {
+    const port = await start();
+    const html = await rawRequest(port, "GET /page.html HTTP/1.0\r\nX-VControlHub-Proxy-Token: tok\r\n\r\n");
+    expect(html).toMatch(/^HTTP\/1\.0 200/);
+    expect(html).toMatch(/X-Content-Type-Options: nosniff/i);
+    expect(html).toMatch(/Referrer-Policy: no-referrer/i);
+    expect(html).toMatch(/Content-Security-Policy: sandbox/i);
+    expect(html).toMatch(/Content-Disposition: attachment/i);
+
+    const pdf = await rawRequest(port, "GET /doc.pdf HTTP/1.0\r\nX-VControlHub-Proxy-Token: tok\r\n\r\n");
+    expect(pdf).toMatch(/^HTTP\/1\.0 200/);
+    expect(pdf).toMatch(/X-Content-Type-Options: nosniff/i);
+    expect(pdf).toMatch(/Referrer-Policy: no-referrer/i);
+    expect(pdf).not.toMatch(/Content-Security-Policy: sandbox/i);
+    expect(pdf).not.toMatch(/Content-Disposition: attachment/i);
   });
 });

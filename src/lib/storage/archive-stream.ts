@@ -161,6 +161,12 @@ export function streamLocalTarGz(directoryPath: string, entryName: string, exclu
 		stdio: [useStdinExcludes ? "pipe" : "ignore", "pipe", "pipe", ...(pinned?.fd === undefined ? [] : [pinned.fd])],
 	});
 	let exited = false;
+	let pinnedClosed = false;
+	const releasePinned = () => {
+		if (!pinned || pinnedClosed) return Promise.resolve();
+		pinnedClosed = true;
+		return pinned.close().catch(error => logger.warn("Failed to release archive directory", { error }));
+	};
 	const out = new PassThrough({
 		destroy(error, done) {
 			if (!exited) killSpawnedProcess(tar, "stdout-destroy");
@@ -177,12 +183,14 @@ export function streamLocalTarGz(directoryPath: string, entryName: string, exclu
 		logger.warn("local archive tar stderr", { message: String(chunk).slice(0, 500) });
 	});
 	tar.on("error", (error) => {
+		exited = true;
+		void releasePinned();
 		logger.warn("local archive tar process error", { message: error.message });
 		destroyReadableWithError(out, error);
 	});
 	tar.on("close", async (code, signal) => {
 		exited = true;
-		if (pinned) await pinned.close().catch(error => logger.warn("Failed to release archive directory", { error }));
+		await releasePinned();
 		if (code === 0 && !signal) { out.end(); return; }
 		if (signal) { out.destroy(new Error(`tar killed by signal ${signal}`)); return; }
 		const error = new Error(`tar exited with code ${code}`);

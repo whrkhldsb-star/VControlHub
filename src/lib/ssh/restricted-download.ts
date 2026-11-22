@@ -53,7 +53,7 @@ try {
   if (!$length -or $length -ge 32768) { exit 1 }
   $final=$path.ToString()
   if ($final.StartsWith('\\\\?\\')) { $final=$final.Substring(4) }
-  if (!$final.StartsWith(${literal(root)}+[char]92,[StringComparison]::Ordinal)) { exit 1 }
+  if (!$final.StartsWith(${literal(root)}+[char]92,[StringComparison]::OrdinalIgnoreCase)) { exit 1 }
   $out=[Console]::OpenStandardOutput()
   $header=[Text.Encoding]::ASCII.GetBytes([string]$stream.Length+[char]10)
   $out.Write($header,0,$header.Length)

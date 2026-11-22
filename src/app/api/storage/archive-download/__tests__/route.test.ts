@@ -11,6 +11,7 @@ const {
   prismaMock,
   spawnMock,
   statMock,
+  pinLocalArchiveDirectoryMock,
   connectMock,
   execMock,
   endMock,
@@ -26,9 +27,14 @@ const {
   },
   spawnMock: vi.fn(),
   statMock: vi.fn(),
+  pinLocalArchiveDirectoryMock: vi.fn(),
   connectMock: vi.fn(),
   execMock: vi.fn(),
   endMock: vi.fn(),
+}));
+
+vi.mock("@/lib/storage/open-local-file", () => ({
+  pinLocalArchiveDirectory: pinLocalArchiveDirectoryMock,
 }));
 
 vi.mock("node:child_process", () => ({
@@ -125,6 +131,11 @@ describe("/api/storage/archive-download", () => {
     vi.clearAllMocks();
     assertStorageAccessMock.mockResolvedValue({ allowed: true });
     statMock.mockResolvedValue({ isDirectory: () => true });
+    pinLocalArchiveDirectoryMock.mockResolvedValue({
+      fd: 3,
+      cwd: undefined,
+      close: vi.fn(async () => undefined),
+    });
     const stdout = new PassThrough();
     const stderr = new PassThrough();
     spawnMock.mockReturnValue({ stdout, stderr, on: vi.fn(), kill: vi.fn(), killed: false, pid: 4242 });
@@ -144,8 +155,12 @@ describe("/api/storage/archive-download", () => {
     expect(assertStorageAccessMock).toHaveBeenCalledWith(
       expect.objectContaining({ storageNodeId: "node_1", relativePath: "photos", operation: "read" }),
     );
-    expect(statMock).toHaveBeenCalledWith(path.resolve("/srv/storage/photos"));
-    expect(spawnMock).toHaveBeenCalledWith(resolveLocalTarBinary(), ["-czf", "-", "-C", path.resolve("/srv/storage"), ...localStorageStagingPatterns.map(pattern => `--exclude=${pattern}`), "--", "photos"], expect.any(Object));
+    expect(pinLocalArchiveDirectoryMock).toHaveBeenCalledWith("/srv/storage", "photos");
+    expect(spawnMock).toHaveBeenCalledWith(
+      resolveLocalTarBinary(),
+      expect.arrayContaining(["-czf", "-", ...localStorageStagingPatterns.map(pattern => `--exclude=${pattern}`)]),
+      expect.objectContaining({ stdio: expect.arrayContaining([3]) }),
+    );
     expect(response.headers.get("content-disposition")).toContain("photos.tar.gz");
   });
 

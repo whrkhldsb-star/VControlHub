@@ -87,6 +87,7 @@ class AuthHandler(http.server.SimpleHTTPRequestHandler):
         return target, None
 
     def _serve(self, head):
+        self._served_target = None
         target, error = self._validate()
         if error:
             return self._send_plain(*error)
@@ -95,8 +96,12 @@ class AuthHandler(http.server.SimpleHTTPRequestHandler):
         # Relative to the resolved root (a linked SERVE_DIR gave "../" paths
         # that named another file) and quoted, since translate_path unquotes:
         # a file literally named "a%20b" was looked up as "a b".
-        self.path = "/" + urllib.parse.quote(os.path.relpath(target, os.path.realpath(SERVE_DIR)).replace(os.sep, "/"))
-        return super().do_HEAD() if head else super().do_GET()
+        self._served_target = target
+        try:
+            self.path = "/" + urllib.parse.quote(os.path.relpath(target, os.path.realpath(SERVE_DIR)).replace(os.sep, "/"))
+            return super().do_HEAD() if head else super().do_GET()
+        finally:
+            self._served_target = None
 
     def do_GET(self):
         return self._serve(False)
@@ -123,6 +128,17 @@ class AuthHandler(http.server.SimpleHTTPRequestHandler):
         self.send_header("Access-Control-Allow-Headers", "Authorization, X-VControlHub-Proxy-Token")
         self.send_header("Referrer-Policy", "no-referrer")
         self.send_header("X-Content-Type-Options", "nosniff")
+        served = getattr(self, "_served_target", None)
+        if served:
+            ext = os.path.splitext(served)[1].lower()
+            content_type = self.guess_type(served)
+            is_pdf = content_type.split(";", 1)[0].strip().lower() == "application/pdf"
+            if not is_pdf:
+                self.send_header("Content-Security-Policy", "sandbox")
+            if ext in (".html", ".htm", ".xhtml", ".svg", ".xml"):
+                self.send_header("Content-Disposition", "attachment")
+        else:
+            self.send_header("Content-Security-Policy", "sandbox")
         super().end_headers()
 
     def do_OPTIONS(self):

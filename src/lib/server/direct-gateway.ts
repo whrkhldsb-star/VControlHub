@@ -113,6 +113,11 @@ SECRET = os.environ.get("DIRECT_SECRET", "")
 class Handler(SimpleHTTPRequestHandler):
     server_version = "VControlHubDirect/1.0"
 
+    def end_headers(self):
+        self.send_header("X-Content-Type-Options", "nosniff")
+        self.send_header("Referrer-Policy", "no-referrer")
+        super().end_headers()
+
     def _reject(self, code, message):
         self.send_response(code)
         self.send_header("Content-Type", "text/plain; charset=utf-8")
@@ -219,11 +224,21 @@ class Handler(SimpleHTTPRequestHandler):
                 return self._range_not_satisfiable(size)
             status = 206
         length = end - start + 1 if size > 0 else 0
+        qs = parse_qs(urlsplit(self.path).query)
+        download = qs.get("download", [""])[0] == "1"
+        content_type = self.guess_type(target)
+        ext = os.path.splitext(target)[1].lower()
+        is_pdf = content_type.split(";", 1)[0].strip().lower() == "application/pdf"
+        is_active_markup = ext in (".html", ".htm", ".xhtml", ".svg", ".xml")
         self.send_response(status)
-        self.send_header("Content-Type", self.guess_type(target))
+        self.send_header("Content-Type", content_type)
         self.send_header("X-VCH-File-Access", "${DIRECT_GATEWAY_LINUX_FILE_PROTOCOL}")
         self.send_header("Accept-Ranges", "bytes")
         self.send_header("Content-Length", str(length))
+        if not is_pdf:
+            self.send_header("Content-Security-Policy", "sandbox")
+        if download or is_active_markup:
+            self.send_header("Content-Disposition", "attachment")
         if status == 206:
             self.send_header("Content-Range", "bytes " + str(start) + "-" + str(end) + "/" + str(size))
         self.send_header("Last-Modified", self.date_time_string(metadata.st_mtime))

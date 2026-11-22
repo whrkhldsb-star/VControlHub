@@ -17,6 +17,7 @@ import {
   writeBackingObject,
 } from "@/lib/storage/fs-backend";
 import { assertNotRecycled } from "@/lib/storage/archive-access";
+import { isWindowsStorageBasePath } from "@/lib/storage/path-utils";
 import { statRemoteEntry } from "@/lib/ssh/client";
 import { getSftpNodeConnection } from "@/lib/storage/sftp-node";
 import { resolveStorageRemotePath } from "@/lib/storage/remote-containment";
@@ -166,13 +167,18 @@ async function renameSftpIndex(storageNodeId: string, oldRelativePath: string, n
 }
 
 /** Whether the index holds anything, recycle bin included, at `relativePath` or below it. */
-async function sftpIndexHasPath(storageNodeId: string, relativePath: string): Promise<boolean> {
+async function sftpIndexHasPath(
+  storageNodeId: string,
+  relativePath: string,
+  caseInsensitive = false,
+): Promise<boolean> {
+  const mode = caseInsensitive ? { mode: "insensitive" as const } : {};
   const taken = await prisma.fileEntry.findFirst({
     where: {
       storageNodeId,
       OR: [
-        { relativePath },
-        { relativePath: { startsWith: escapeLikeLiteral(`${relativePath}/`) } },
+        { relativePath: caseInsensitive ? { equals: relativePath, ...mode } : relativePath },
+        { relativePath: { startsWith: escapeLikeLiteral(`${relativePath}/`), ...mode } },
       ],
     },
     select: { id: true },
@@ -195,6 +201,7 @@ async function handlePost(body: SftpOpsBody, session: SessionPayload) {
 
   // Resolve storage node (credentials resolved inside fs-backend for SFTP).
   const { node, credentials } = await getSftpNodeConnection(nodeId, session);
+  const windowsSftp = Boolean(credentials.windowsOpenSsh) || isWindowsStorageBasePath(node.basePath);
 
   // Path containment only — physical ops go through fs-backend which
   // re-derives absolute/remote paths from the storage node.
@@ -258,7 +265,7 @@ async function handlePost(body: SftpOpsBody, session: SessionPayload) {
           normalizedRelativePath,
           body.isDirectory,
         );
-        await assertNotRecycled(node.id, normalizedRelativePath, "write");
+        await assertNotRecycled(node.id, normalizedRelativePath, "write", node.driver, windowsSftp);
         if (isDirectory) {
           const recycled = await prisma.fileEntry.findFirst({
             where: outsideDeleteBatchWhere(node.id, normalizedRelativePath),
@@ -331,8 +338,8 @@ async function handlePost(body: SftpOpsBody, session: SessionPayload) {
           return NextResponse.json({ error: storageAccessDeniedCopy(renameAdmission.reason) }, { status: 403 });
         }
         releasePathLock = await lockStorageFileOverwrite(node.id, normalizedNewRelativePath, normalizedRelativePath);
-        await assertNotRecycled(node.id, normalizedRelativePath, "write");
-        await assertNotRecycled(node.id, normalizedNewRelativePath, "write");
+        await assertNotRecycled(node.id, normalizedRelativePath, "write", node.driver, windowsSftp);
+        await assertNotRecycled(node.id, normalizedNewRelativePath, "write", node.driver, windowsSftp);
         const { remotePath: source } = await resolveStorageRemotePath(node, normalizedRelativePath, { credentials });
         const stat = await statRemoteEntry({ ...credentials, remotePath: source });
         const isDirectory = stat.type === "directory";
@@ -352,7 +359,7 @@ async function handlePost(body: SftpOpsBody, session: SessionPayload) {
         // The destination must be free in the index, recycle bin included. Otherwise the rewrite below put this
         // entry's rows among the destination's, the physical rename then failed (the target exists), and the
         // rollback moved the destination's own rows back here as well.
-        if (await sftpIndexHasPath(node.id, normalizedNewRelativePath) ||
+        if (await sftpIndexHasPath(node.id, normalizedNewRelativePath, windowsSftp) ||
             await statBackingObject({ storageNode: node, relativePath: normalizedNewRelativePath })) {
           throw new ConflictError(apiCopy("apiCopy.target.file.already.exists.0c91e640", { v0: normalizedNewRelativePath }));
         }
@@ -393,7 +400,7 @@ async function handlePost(body: SftpOpsBody, session: SessionPayload) {
       }
 
       case "read": {
-        await assertNotRecycled(node.id, normalizedRelativePath);
+        await assertNotRecycled(node.id, normalizedRelativePath, "read", node.driver, windowsSftp);
         const indexedEntry = await prisma.fileEntry.findFirst({
           where: {
             storageNodeId: node.id,
@@ -512,7 +519,7 @@ async function handlePost(body: SftpOpsBody, session: SessionPayload) {
         // The editor returns the digest of the bytes it loaded. Keep strict mtime checks for older clients.
         const releaseFileLock = await lockStorageFileOverwrite(node.id, normalizedRelativePath);
         try {
-        await assertNotRecycled(node.id, normalizedRelativePath, "write");
+        await assertNotRecycled(node.id, normalizedRelativePath, "write", node.driver, windowsSftp);
         const previousStat = await statBackingObject({
           storageNode: node,
           relativePath: normalizedRelativePath,
@@ -536,7 +543,9 @@ async function handlePost(body: SftpOpsBody, session: SessionPayload) {
         const indexed = await prisma.fileEntry.findFirst({
           where: {
             storageNodeId: node.id,
-            relativePath: normalizedRelativePath,
+            relativePath: windowsSftp
+              ? { equals: normalizedRelativePath, mode: "insensitive" }
+              : normalizedRelativePath,
           },
           select: previousFileIndexFields,
         });
