@@ -3,8 +3,7 @@
 /**
  * `useAiSendActions` — orchestrates the two "user-facing" actions the
  * AI page exposes on the input area + new-conversation toolbar:
- *   - `handleSend`: build optimistic user message, auto-title first
- *     turn, drain attachment buffers, call the streaming SSE hook.
+ *   - `handleSend`: send the draft and append its user message once accepted.
  *   - `handleNewConv`: pick the default provider and POST a new
  *     conversation; if no providers exist, surface a toast + open the
  *     provider panel via the caller.
@@ -32,9 +31,7 @@ export function useAiSendActions({
   setImageUrls,
   fileAttachments,
   setFileAttachments,
-  messages,
   setMessages,
-  autoTitle,
   sendMessage,
   providers,
   refreshConversations,
@@ -50,9 +47,7 @@ export function useAiSendActions({
   setImageUrls: Dispatch<SetStateAction<string[]>>;
   fileAttachments: FileAttachment[];
   setFileAttachments: Dispatch<SetStateAction<FileAttachment[]>>;
-  messages: Message[];
   setMessages: Dispatch<SetStateAction<Message[]>>;
-  autoTitle: (convId: string, firstMsg: string) => Promise<void> | void;
   sendMessage: (args: SendArgs, onAccepted?: (messageId: string | null) => void) => Promise<void>;
   providers: Provider[];
   refreshConversations: () => Promise<void> | void;
@@ -98,11 +93,10 @@ export function useAiSendActions({
       imageBase64: userImageBase64,
       fileAttachments: userFiles,
     }, (messageId) => {
-      setInput("");
-      setImageUrls([]);
-      setFileAttachments([]);
+      setInput((draft) => draft === input ? "" : draft);
+      setImageUrls((draft) => draft === imageUrls ? [] : draft);
+      setFileAttachments((draft) => draft === fileAttachments ? [] : draft);
       setMessages((prev) => [...prev, { ...optimisticUser, id: messageId ?? optimisticUser.id }]);
-      if (messages.length === 0) void autoTitle(activeConvId, userMsg);
     });
   }, [
     activeConvId,
@@ -110,8 +104,6 @@ export function useAiSendActions({
     input,
     fileAttachments,
     imageUrls,
-    messages.length,
-    autoTitle,
     sendMessage,
     setInput,
     setImageUrls,

@@ -112,6 +112,19 @@ describe("generic AI automation proposals", () => {
       expect(createCommandRequest).not.toHaveBeenCalled();
     });
 
+    it.each([false, true])("scopes a fleet approver before resolving all targets and preserves a blank rollback (legacy=%s)", async (legacy) => {
+      const template = { id: "template_key", name: "Check", command: "uptime", variables: [], rollbackCommand: null };
+      commandTemplateFindFirst.mockResolvedValueOnce(template);
+      const card = await materializeAutomationProposal({ ...plan, executionMode: "daily", dailyTime: "12:00" }, actor);
+      commandTemplateFindFirst.mockResolvedValueOnce({ ...template, rollbackCommand: "new rollback {{later}}" });
+      const { createScheduledTask } = await import("@/lib/scheduled-task/service");
+      vi.mocked(createScheduledTask).mockResolvedValue({ id: "task" } as Awaited<ReturnType<typeof createScheduledTask>>);
+      await executeAutomationProposal(card, { userId: "admin", roles: ["admin"], currentTeamId: null }, "a", legacy ? null : card.teamId);
+      expect(serverFindMany).toHaveBeenLastCalledWith(expect.objectContaining({ where: expect.objectContaining({ teamId: card.teamId }) }));
+      expect(createScheduledTask).toHaveBeenCalledWith(expect.objectContaining({ rollbackCommand: undefined, serverIds: card.serverIds }),
+        expect.objectContaining({ currentTeamId: card.teamId }), "ai-automation:a");
+    });
+
     it("runs an unchanged plan", async () => {
       const { createCommandRequest } = await import("@/lib/command/service");
       vi.mocked(createCommandRequest).mockResolvedValue({ id: "request_1", requiresApproval: true } as Awaited<ReturnType<typeof createCommandRequest>>);

@@ -68,9 +68,9 @@ type Props = {
   messagesEndRef: RefObject<HTMLDivElement | null>;
   onDrop: (event: DragEvent<HTMLDivElement>) => void;
   onDragOver: (event: DragEvent<HTMLDivElement>) => void;
-  /** Re-send the latest user turn — shown on the last assistant bubble and
-   *  labeled "重试" when that bubble is an error. */
+  /** Re-send the latest accepted turn. An error bubble retries its own request. */
   onRegenerate?: () => void;
+  onRetry?: (messageId: string) => void;
   /** Why the conversation's history could not be loaded; shown instead of "nothing said yet". */
   loadError?: string | null;
   onRetryLoad?: () => void;
@@ -90,6 +90,7 @@ export function AiMessageList({
   onDrop,
   onDragOver,
   onRegenerate,
+  onRetry,
   loadError,
   onRetryLoad,
 }: Props) {
@@ -164,7 +165,7 @@ export function AiMessageList({
           (!msg.content.trim() || EMPTY_TOOL_CONTENT.has(msg.content.trim()));
         const isErrorBubble = isStreamErrorMessage(msg);
         const showRegenerate = Boolean(onRegenerate) && idx === lastIdx && msg.role === "assistant" && !streaming && !isErrorBubble;
-        const showRetry = Boolean(onRegenerate) && idx === lastIdx && isErrorBubble && !streaming;
+        const showRetry = Boolean(onRetry) && idx === lastIdx && isErrorBubble && !streaming;
         return (
           <div
           key={msg.id}
@@ -332,7 +333,7 @@ export function AiMessageList({
               {(showRegenerate || showRetry) && (
                 <button
                   type="button"
-                  onClick={onRegenerate}
+                  onClick={showRetry ? () => onRetry?.(msg.id) : onRegenerate}
                   className="flex items-center gap-1 text-xs text-[var(--text-muted)] transition hover:text-[var(--accent)]"
                 >
                   <svg className="h-3 w-3" fill="none" stroke="currentColor" width="24" height="24" viewBox="0 0 24 24" aria-hidden="true">

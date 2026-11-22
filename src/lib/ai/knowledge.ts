@@ -14,7 +14,7 @@ import { createHash } from "node:crypto";
 import { Prisma } from "@prisma/client";
 
 import type { SessionPayload } from "@/lib/auth/session";
-import { teamCreateData, teamWhere } from "@/lib/auth/team-scope";
+import { rawTeamScope, teamCreateData, teamWhere } from "@/lib/auth/team-scope";
 import { prisma } from "@/lib/db";
 import { escapeLikeLiteral } from "@/lib/db/like-pattern";
 import { BusinessError, NotFoundError, ValidationError } from "@/lib/errors";
@@ -87,10 +87,11 @@ export function chunkKnowledgeText(
       });
       return;
     }
+    const points = Array.from(body);
     let start = 0;
-    while (start < body.length) {
-      const end = Math.min(body.length, start + size);
-      const slice = body.slice(start, end).trim();
+    while (start < points.length) {
+      const end = Math.min(points.length, start + Math.max(1, size));
+      const slice = points.slice(start, end).join("").trim();
       if (slice) {
         chunks.push({
           chunkIndex: index++,
@@ -99,8 +100,8 @@ export function chunkKnowledgeText(
           searchText: slice.toLowerCase(),
         });
       }
-      if (end >= body.length) break;
-      start = Math.max(0, end - overlap);
+      if (end >= points.length) break;
+      start = Math.max(start + 1, end - Math.max(0, overlap));
     }
   };
 
@@ -170,7 +171,7 @@ export async function listKnowledgeBases(
   session?: Pick<SessionPayload, "userId" | "roles" | "currentTeamId">,
 ) {
   const PAGE = 100;
-  const where = { isActive: true, teamId: { not: null }, ...(session ? teamWhere(session) : {}) };
+  const where = { isActive: true, team: { deletedAt: null }, ...(session ? teamWhere(session) : {}) };
   const bases = [];
   let cursor: { id: string } | undefined;
   do {
@@ -198,13 +199,11 @@ export async function createKnowledgeBase(input: {
   const name = input.name.trim();
   if (!name) throw new ValidationError(t("backend.ai.knowledgeBaseNameIsRequired"));
   if (name.length > 120) throw new ValidationError(t("backend.ai.nameIsTooLong"));
-  return prisma.knowledgeBase.create({
-    data: {
-      name,
-      description: input.description?.trim() || null,
-      createdBy: input.session?.userId ?? null,
-      ...teamCreateData(input.session ?? { currentTeamId: null }),
-    },
+  const { teamId } = teamCreateData(input.session ?? { currentTeamId: null });
+  return prisma.$transaction(async (tx) => {
+    const live = await tx.$queryRaw<Array<{ id: string }>>`SELECT id FROM teams WHERE id = ${teamId} AND "deletedAt" IS NULL FOR SHARE`;
+    if (!live.length) throw new NotFoundError(t("backend.customer.notFound"));
+    return tx.knowledgeBase.create({ data: { name, description: input.description?.trim() || null, createdBy: input.session?.userId ?? null, teamId } });
   });
 }
 
@@ -220,7 +219,7 @@ export async function getKnowledgeBase(
   return prisma.knowledgeBase.findFirst({
     where: {
       id,
-      teamId: { not: null }, ...(session ? teamWhere(session) : {}),
+      team: { deletedAt: null }, ...(session ? teamWhere(session) : {}),
     },
     include: {
       documents: {
@@ -251,7 +250,7 @@ export async function deleteKnowledgeBase(
   const existing = await getKnowledgeBase(id, session);
   if (!existing) throw new NotFoundError(t("backend.ai.knowledgeBaseNotFound"));
   const deleted = await prisma.knowledgeBase.deleteMany({
-    where: { id, teamId: { not: null }, ...(session ? teamWhere(session) : {}) },
+    where: { id, team: { deletedAt: null }, ...(session ? teamWhere(session) : {}) },
   });
   if (deleted.count === 0) throw new NotFoundError(t("backend.ai.knowledgeBaseNotFound"));
   return { id };
@@ -278,6 +277,10 @@ export async function ingestKnowledgeDocument(input: {
 
   const chunks = chunkKnowledgeText(content);
   return prisma.$transaction(async (tx) => {
+    const live = await tx.$queryRaw<Array<{ id: string }>>`SELECT b.id FROM knowledge_bases b
+      JOIN teams owner ON owner.id = b."teamId" WHERE b.id = ${kb.id} AND b."teamId" = ${kb.teamId}
+        AND b."isActive" AND owner."deletedAt" IS NULL FOR SHARE OF b, owner`;
+    if (!live.length) throw new NotFoundError(t("backend.ai.knowledgeBaseNotFound"));
     const document = await tx.knowledgeDocument.create({
       data: {
         knowledgeBaseId: kb.id,
@@ -302,7 +305,7 @@ export async function recoverPendingKnowledgeDocuments() {
   let cursor: string | undefined;
   for (;;) {
     const documents: Array<{ id: string; knowledgeBaseId: string; content: string }> = await prisma.knowledgeDocument.findMany({
-      where: { status: "PENDING", knowledgeBase: { teamId: { not: null } }, ...(cursor && { id: { gt: cursor } }) },
+      where: { status: "PENDING", knowledgeBase: { team: { deletedAt: null } }, ...(cursor && { id: { gt: cursor } }) },
       select: { id: true, knowledgeBaseId: true, content: true }, orderBy: { id: "asc" }, take: 25,
     });
     for (const doc of documents) {
@@ -310,7 +313,7 @@ export async function recoverPendingKnowledgeDocuments() {
       await prisma.$transaction(async (tx) => {
         await tx.$queryRaw`SELECT id FROM knowledge_bases WHERE id = ${doc.knowledgeBaseId} FOR SHARE`;
         const claimed = await tx.knowledgeDocument.updateMany({
-          where: { id: doc.id, status: "PENDING", knowledgeBase: { teamId: { not: null } } },
+          where: { id: doc.id, status: "PENDING", knowledgeBase: { team: { deletedAt: null } } },
           data: { status: "READY", chunkCount: chunks.length, errorMessage: null },
         });
         if (!claimed.count) return;
@@ -327,16 +330,10 @@ export async function deleteKnowledgeDocument(
   documentId: string,
   session?: Pick<SessionPayload, "userId" | "roles" | "currentTeamId">,
 ) {
-  const doc = await prisma.knowledgeDocument.findUnique({
-    where: { id: documentId },
-    include: { knowledgeBase: true },
+  const deleted = await prisma.knowledgeDocument.deleteMany({
+    where: { id: documentId, knowledgeBase: { team: { deletedAt: null }, ...(session ? teamWhere(session) : {}) } },
   });
-  if (!doc) throw new NotFoundError(t("backend.ai.documentNotFound"));
-  if (session) {
-    const scoped = await getKnowledgeBase(doc.knowledgeBaseId, session);
-    if (!scoped) throw new NotFoundError(t("backend.ai.documentNotFound"));
-  }
-  await prisma.knowledgeDocument.delete({ where: { id: documentId } });
+  if (!deleted.count) throw new NotFoundError(t("backend.ai.documentNotFound"));
   return { id: documentId };
 }
 
@@ -364,6 +361,7 @@ async function rankKnowledgeCandidateIds(scope: Prisma.Sql, query: string, token
     FROM knowledge_chunks c
     JOIN knowledge_documents d ON d.id = c."documentId"
     JOIN knowledge_bases b ON b.id = c."knowledgeBaseId" AND b.id = d."knowledgeBaseId"
+    JOIN teams owner ON owner.id = b."teamId" AND owner."deletedAt" IS NULL
     WHERE b."isActive" AND ${scope}
       AND d.status = 'READY'
       AND (${anyTerm})
@@ -393,16 +391,15 @@ export async function searchKnowledge(input: {
   if (tokens.length === 0 && query.length < 2) return [];
 
   const team = input.session ? teamWhere(input.session) : {};
-  const filters: Prisma.Sql[] = [Prisma.sql`b."teamId" IS NOT NULL`];
-  if (team.teamId !== undefined) filters.push(Prisma.sql`b."teamId" = ${team.teamId}`);
+  const filters = [input.session ? rawTeamScope(input.session, Prisma.sql`b."teamId"`) : Prisma.sql`TRUE`];
   if (input.knowledgeBaseId) filters.push(Prisma.sql`b.id = ${input.knowledgeBaseId}`);
   const candidateIds = await rankKnowledgeCandidateIds(Prisma.join(filters, " AND "), query, tokens);
   if (candidateIds.length === 0) return [];
   const candidates = await prisma.knowledgeChunk.findMany({
     where: {
       id: { in: candidateIds },
-      knowledgeBase: { isActive: true, teamId: { not: null }, ...team, ...(input.knowledgeBaseId ? { id: input.knowledgeBaseId } : {}) },
-      document: { status: "READY", knowledgeBase: { isActive: true, teamId: { not: null }, ...team } },
+      knowledgeBase: { isActive: true, team: { deletedAt: null }, ...team, ...(input.knowledgeBaseId ? { id: input.knowledgeBaseId } : {}) },
+      document: { status: "READY", knowledgeBase: { isActive: true, team: { deletedAt: null }, ...team } },
     },
     include: {
       knowledgeBase: { select: { name: true } },

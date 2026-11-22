@@ -140,11 +140,6 @@ export function buildAiChatMessagePayload(input: {
     historyMessages.push({ role: msg.role as "user" | "assistant", content: msg.content });
   }
 
-  // The question being asked now is added below; the replayed history keeps within the budget.
-  const replayed = fitHistoryToBudget(historyMessages);
-  historyMessages.length = 0;
-  historyMessages.push(...replayed);
-
   const userText = (body.content ?? "").trim();
   const imageUrls = (body.imageUrls ?? []).filter(isChatImageUrl);
   const imageBase64 = body.imageBase64 ?? [];
@@ -183,5 +178,5 @@ export function buildAiChatMessagePayload(input: {
   // Base64 data is provider-only and must never be persisted in chat history.
   // Text attachments are: `persistedText` is what the model saw this turn, so
   // the next turn (rebuilt from the database) can still refer to the file.
-  return { allImageUrls: [...imageUrls], historyMessages, userText, persistedText: fullText, attachmentMetadata };
+  return { allImageUrls: [...imageUrls], historyMessages: fitHistoryToBudget(historyMessages), userText, persistedText: fullText, attachmentMetadata };
 }

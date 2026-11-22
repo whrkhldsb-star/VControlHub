@@ -12,14 +12,12 @@
  * formats the human-readable string for the kind of call being made.
  */
 
-import { lookup } from "node:dns/promises";
+import { resolveOutboundAddresses } from "@/lib/security/outbound-dns";
+import { MAX_PROVIDER_MODELS, providerModelIdSchema } from "./schema";
 import { BlockList, isIP } from "node:net";
 import { Agent, fetch as undiciFetch } from "undici";
 import { ValidationError } from "@/lib/errors";
-import {
-	assertPublicBaseUrlResolvesPublic,
-	isUnsafePublicHttpHost,
-} from "@/lib/storage/direct-access-url";
+import { isUnsafePublicHttpHost } from "@/lib/storage/direct-access-url";
 import { fetchWithPinnedDns, isLinkLocalAddress } from "@/lib/security/pinned-fetch";
 import { config } from "@/lib/config/env";
 import { t } from "@/lib/i18n/service-translations";
@@ -93,7 +91,10 @@ const AI_PROVIDER_CHAT_TIMEOUT_MS = 90_000;
 const AI_PROVIDER_CHAT_FIRST_BYTE_TIMEOUT_MS = 45_000;
 const AI_PROVIDER_MODELS_MAX_BYTES = 5 * 1024 * 1024;
 const AI_PROVIDER_ERROR_MAX_BYTES = 64 * 1024;
-const AI_PROVIDER_MODELS_MAX_ROWS = 10_000;
+function dnsDeadline(signal?: AbortSignal | null) {
+	const timeout = AbortSignal.timeout(15_000);
+	return signal ? AbortSignal.any([signal, timeout]) : timeout;
+}
 
 function trimTrailingSlash(value: string): string {
 	return value.replace(/\/+$/, "");
@@ -118,7 +119,7 @@ export function isListedPrivateProviderHost(rawUrl: string): boolean {
 }
 
 /** Re-validate a stored/derived provider URL at fetch time to prevent SSRF via stale DB rows. */
-async function assertProviderUrlSafe(rawUrl: string): Promise<void> {
+async function assertProviderUrlSafe(rawUrl: string, signal?: AbortSignal): Promise<void> {
 	let url: URL;
 	try {
 		url = new URL(rawUrl);
@@ -139,7 +140,13 @@ async function assertProviderUrlSafe(rawUrl: string): Promise<void> {
 	if (isUnsafePublicHttpHost(url.hostname)) {
 		throw new ValidationError(t("backend.ai.aiProviderUrlMustNotPointToA"));
 	}
-	await assertPublicBaseUrlResolvesPublic(url.origin);
+	const addresses = await resolveOutboundAddresses(url.hostname, dnsDeadline(signal)).catch(() => {
+		signal?.throwIfAborted();
+		throw new ValidationError(t("backend.storage.directAccessDnsFailed"));
+	});
+	if (!addresses.length || addresses.some(({ address }) => isUnsafePublicHttpHost(address))) {
+		throw new ValidationError(t("backend.ai.aiProviderUrlMustNotPointToA"));
+	}
 	checkProviderTransport(url);
 }
 
@@ -160,7 +167,7 @@ export function providerApiRoot(value: string | undefined, type?: string): strin
 		if (parsed.hostname.replace(/\.$/, "") === "api.openai.com") {
 			throw new ValidationError(t("backend.ai.invalidAiProviderUrl"));
 		}
-		if (baseUrl.toLowerCase() === official && parsed.origin === official) {
+		if (parsed.origin === official && parsed.pathname === "/" && !parsed.username && !parsed.password) {
 			return official + (type === "ANTHROPIC" ? "/v1" : "/v1beta/openai");
 		}
 	}
@@ -193,8 +200,7 @@ export function aiHttpErrorMessage(
 async function fetchPrivateHttpProvider(url: URL, init: RequestInit): Promise<Response> {
 	checkProviderTransport(url);
 	const hostname = url.hostname.replace(/^\[|\]$/g, "");
-	const family = isIP(hostname);
-	const addresses = family ? [{ address: hostname, family }] : await lookup(hostname, { all: true, verbatim: true });
+	const addresses = await resolveOutboundAddresses(hostname, dnsDeadline(init.signal));
 	if (!addresses.length || addresses.some(({ address }) => !localProviderAddress(address))) throw publicHttpError();
 	init.signal?.throwIfAborted();
 	const first = addresses[0]!;
@@ -257,64 +263,66 @@ export async function fetchProviderModels(
 		throw new ValidationError(t("backend.ai.apiKeyIsRequired"));
 	}
 	const baseUrl = providerApiRoot(input.baseUrl, input.type);
-	await assertProviderUrlSafe(baseUrl);
-	// Anthropic reads an API key from x-api-key (Bearer is for OAuth tokens
-	// there) and returns 20 models a page: with Bearer the key was refused as
-	// invalid, so an Anthropic provider could never fetch its models.
+	const signal = AbortSignal.timeout(AI_PROVIDER_MODELS_TIMEOUT_MS);
+	await assertProviderUrlSafe(baseUrl, signal);
 	const anthropic = input.type === "ANTHROPIC";
-	const response = await fetchProviderResponse(`${baseUrl}${MODELS_PATH}${anthropic ? "?limit=1000" : ""}`, {
-		method: "GET",
-		redirect: "error",
-		headers: anthropic
-			? { "x-api-key": input.apiKey.trim(), "anthropic-version": "2023-06-01" }
-			: input.apiKey.trim() ? { Authorization: `Bearer ${input.apiKey.trim()}` } : {},
-		signal: AbortSignal.timeout(AI_PROVIDER_MODELS_TIMEOUT_MS),
-	}, "models", AI_PROVIDER_MODELS_TIMEOUT_MS);
-	if (!response.ok) {
-		const errText = await readResponseTextLimited(
-			response,
-			AI_PROVIDER_ERROR_MAX_BYTES,
-		).catch(() => "");
-		throw new AiProviderHttpError(aiHttpErrorMessage(response.status, errText, "models"), response.status, errText, response.headers.get("retry-after"));
-	}
-	const rawBody = await readResponseTextLimited(
-		response,
-		AI_PROVIDER_MODELS_MAX_BYTES,
-	).catch(() => {
-		throw new Error("AI provider model response is invalid or too large");
-	});
-	const data = (() => {
-		try {
-			return JSON.parse(rawBody) as {
-				data?: unknown;
-				models?: unknown;
-			};
-		} catch {
-			return {};
+	const url = new URL(baseUrl + MODELS_PATH);
+	if (anthropic) url.searchParams.set("limit", "1000");
+	const cursors = new Set<string>();
+	const models = new Map<string, ProviderModelRow>();
+	let remainingBytes = AI_PROVIDER_MODELS_MAX_BYTES;
+	let remainingRows = MAX_PROVIDER_MODELS;
+	for (;;) {
+		signal.throwIfAborted();
+		const response = await fetchProviderResponse(url.href, {
+			method: "GET", redirect: "error", signal,
+			headers: anthropic
+				? { "x-api-key": input.apiKey.trim(), "anthropic-version": "2023-06-01" }
+				: input.apiKey.trim() ? { Authorization: `Bearer ${input.apiKey.trim()}` } : {},
+		}, "models", AI_PROVIDER_MODELS_TIMEOUT_MS);
+		if (!response.ok) {
+			const errText = await readResponseTextLimited(response, AI_PROVIDER_ERROR_MAX_BYTES).catch(() => "");
+			throw new AiProviderHttpError(aiHttpErrorMessage(response.status, errText, "models"), response.status, errText, response.headers.get("retry-after"));
 		}
-	})();
-	const candidates: unknown = Array.isArray(data?.data)
-		? data.data
-		: Array.isArray(data?.models)
-			? data.models
-			: [];
-	const rawModels = ((candidates as ProviderModelRow[]) ?? []).slice(
-		0,
-		AI_PROVIDER_MODELS_MAX_ROWS,
-	);
-	const models = rawModels.filter(
-		(m): m is ProviderModelRow =>
-			typeof m?.id === "string" && m.id.trim().length > 0,
-	);
-	if (models.length === 0) {
-		throw new Error("AI provider returned no usable models; please check the Base URL and provider compatibility");
+		const rawBody = await readResponseTextLimited(response, remainingBytes).catch(() => {
+			throw new Error("AI provider model response is invalid or too large");
+		});
+		remainingBytes -= Buffer.byteLength(rawBody);
+		let page: { data?: unknown; models?: unknown; has_more?: unknown; last_id?: unknown } | null;
+		try {
+			page = JSON.parse(rawBody);
+		} catch {
+			throw new Error("AI provider model response is invalid or too large");
+		}
+		const rows: unknown[] = Array.isArray(page?.data) ? page.data : Array.isArray(page?.models) ? page.models : [];
+		if (anthropic && rows.length > remainingRows) throw new Error("AI provider model response is too large");
+		for (const row of rows.slice(0, remainingRows)) {
+			if (!row || typeof row !== "object" || !("id" in row)) continue;
+			const id = providerModelIdSchema.safeParse(row.id);
+			if (!id.success || models.has(id.data)) continue;
+			const model: ProviderModelRow = { id: id.data };
+			if ("name" in row && typeof row.name === "string") model.name = row.name;
+			if ("owned_by" in row && typeof row.owned_by === "string") model.owned_by = row.owned_by;
+			if ("context_length" in row && typeof row.context_length === "number" && Number.isSafeInteger(row.context_length) && row.context_length > 0) {
+				model.context_length = row.context_length;
+			}
+			models.set(model.id, model);
+		}
+		remainingRows -= rows.length;
+		if (!anthropic || page?.has_more !== true) break;
+		if (remainingRows <= 0) throw new Error("AI provider model response is too large");
+		const cursor = providerModelIdSchema.safeParse(page.last_id);
+		if (!rows.length || !cursor.success || cursors.has(cursor.data)) throw new Error("Invalid AI provider model pagination");
+		cursors.add(cursor.data);
+		url.searchParams.set("after_id", cursor.data);
 	}
-	return models;
+	if (!models.size) throw new Error("AI provider returned no usable models; please check the Base URL and provider compatibility");
+	return [...models.values()];
 }
 
 export async function postProviderChat(input: ProviderChatRequest): Promise<Response> {
 	input.signal?.throwIfAborted();
-	await assertProviderUrlSafe(input.url);
+	await assertProviderUrlSafe(input.url, input.signal);
 	input.signal?.throwIfAborted();
 	const isStreaming = input.body?.stream === true;
 	const timeoutMs = isStreaming

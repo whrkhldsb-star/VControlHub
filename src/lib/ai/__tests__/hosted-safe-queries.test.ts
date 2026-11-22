@@ -73,7 +73,7 @@ describe("executeServerlessQuery", () => {
 		mocks.trafficFindFirst.mockResolvedValue(null);
 		mocks.searchKnowledge.mockResolvedValue([]);
 		mocks.listScheduledTasks.mockResolvedValue([]);
-		mocks.listTemplates.mockResolvedValue([]);
+		mocks.queryTemplates.mockResolvedValue([]);
 	});
 
 	it("returns null for an unknown actionType so the SSH path still runs", async () => {
@@ -115,27 +115,19 @@ describe("executeServerlessQuery", () => {
 	});
 
 	describe("list_backups", () => {
-		it("applies the loose team filter, which admits legacy null-team records", async () => {
-			// Backups use `teamWhere`, not the strict `serverTeamWhere`: a
-			// `teamId: null` backup row predates multi-tenancy and is treated as
-			// shared. Pinned explicitly so the difference from `list_servers`
-			// above is a recorded decision rather than an inconsistency.
+		it("limits customer backups to the active team", async () => {
 			await call("list_backups");
 			expect(mocks.backupFindMany).toHaveBeenCalledWith(
 				expect.objectContaining({
-					where: expect.objectContaining({ teamId: "team_1" }),
+					where: expect.objectContaining({ teamId: "team_1", team: { deletedAt: null } }),
 				}),
 			);
 		});
 
-		it("applies no backup filter at all for a null scope", async () => {
-			// Documented, not endorsed: `list_backups` reaches for `teamWhere` only
-			// when a scope exists, so a sessionless caller sees every team's backup
-			// notes. The only sessionless caller today is an internal one — a
-			// request path must always pass its session.
+		it("returns only platform backups without a scope", async () => {
 			await call("list_backups", {}, null);
 			const where = mocks.backupFindMany.mock.calls[0]![0].where as Record<string, unknown>;
-			expect(where).toEqual({});
+			expect(where).toEqual({ teamId: null });
 		});
 
 		it("uppercases the type and status filters the model supplies", async () => {
@@ -196,7 +188,7 @@ describe("executeServerlessQuery", () => {
 
 		it("coerces a string limit and falls back to 5 for a non-numeric one", async () => {
 			await call("search_knowledge", { query: "q", limit: "12" });
-			expect(mocks.searchKnowledge.mock.calls[0]![0].limit).toBe(12);
+			expect(mocks.searchKnowledge.mock.calls[0]![0].limit).toBe(8);
 			await call("search_knowledge", { query: "q", limit: "abc" });
 			expect(mocks.searchKnowledge.mock.calls[1]![0].limit).toBe(5);
 		});
@@ -302,12 +294,12 @@ describe("executeServerlessQuery", () => {
 		});
 
 		it("passes the scope to the template service and filters in the scoped database query before LIMIT", async () => {
-			mocks.listTemplates.mockResolvedValue([
+			mocks.queryTemplates.mockResolvedValue([
 				{ id: "c1", name: "restart nginx", description: null, command: "systemctl restart nginx", rollbackCommand: null, variables: [], tags: ["web"], isBuiltin: true },
 				{ id: "c2", name: "disk usage", description: null, command: "df -h", rollbackCommand: null, variables: [], tags: [], isBuiltin: true },
 			]);
 			await call("list_command_templates");
-			expect(mocks.listTemplates).toHaveBeenCalledWith(100, operator);
+			expect(mocks.queryTemplates.mock.calls[0]?.[0].join("")).toContain('owner."deletedAt" IS NULL');
 			mocks.queryTemplates.mockResolvedValue([{ id: "c1" }]);
 			const res = (await call("list_command_templates", { query: "NGINX" })) as { data: { count: number } };
 			expect(res.data.count).toBe(1);
@@ -322,62 +314,10 @@ describe("executeServerlessQuery", () => {
 		});
 	});
 
-	describe("manage_cron", () => {
-		it("resolves the task through the team-scoped getter before toggling", async () => {
-			mocks.getScheduledTask.mockResolvedValue({ id: "t1", status: "ACTIVE" });
-			mocks.toggleScheduledTask.mockResolvedValue({ id: "t1", status: "PAUSED" });
-			const res = await call("manage_cron", { action: "pause", taskId: "t1" });
-			expect(mocks.getScheduledTask).toHaveBeenCalledWith("t1", operator);
-			expect(mocks.toggleScheduledTask).toHaveBeenCalledWith("t1", operator, "PAUSED");
-			expect(res).toMatchObject({ success: true, data: { status: "PAUSED" } });
-		});
-
-		it("reports a not-found/foreign task as a failure instead of throwing", async () => {
-			// A cross-team id reaches `getScheduledTask`, which throws; surfacing
-			// that as `success: false` keeps the assistant from crashing the turn.
-			mocks.getScheduledTask.mockRejectedValue(new Error("Scheduled task not found"));
-			const res = await call("manage_cron", { action: "pause", taskId: "t_other_team" });
-			expect(res).toMatchObject({ success: false, error: "Scheduled task not found" });
+	it("requires an approval card to pause or resume a task", async () => {
+		for (const action of ["pause", "resume"]) {
+			expect(await call("manage_cron", { action, taskId: "t1" })).toMatchObject({ success: false });
 			expect(mocks.toggleScheduledTask).not.toHaveBeenCalled();
-		});
-
-		it("is idempotent when the task is already in the requested state", async () => {
-			mocks.getScheduledTask.mockResolvedValue({ id: "t1", status: "PAUSED" });
-			const res = await call("manage_cron", { action: "pause", taskId: "t1" });
-			expect(res).toMatchObject({ success: true });
-			expect(mocks.toggleScheduledTask).not.toHaveBeenCalled();
-		});
-
-		it("refuses to toggle a task in any other state", async () => {
-			// Only ACTIVE↔PAUSED is a legal transition; COMPLETED/FAILED tasks must
-			// not be flipped back into a schedule by a chat message.
-			mocks.getScheduledTask.mockResolvedValue({ id: "t1", status: "COMPLETED" });
-			const res = await call("manage_cron", { action: "pause", taskId: "t1" });
-			expect(res).toMatchObject({ success: false });
-			expect(mocks.toggleScheduledTask).not.toHaveBeenCalled();
-		});
-
-		it("requires a taskId", async () => {
-			const res = await call("manage_cron", { action: "resume" });
-			expect(res).toMatchObject({ success: false });
-			expect(mocks.getScheduledTask).not.toHaveBeenCalled();
-		});
-
-		it("rejects any action other than pause/resume", async () => {
-			// Notably `delete` and `create`: this tool is read-mostly, and a
-			// destructive verb must not fall through to a toggle.
-			for (const action of ["delete", "create", "run", ""]) {
-				const res = await call("manage_cron", { action, taskId: "t1" });
-				expect(res).toMatchObject({ success: false });
-			}
-			expect(mocks.toggleScheduledTask).not.toHaveBeenCalled();
-		});
-
-		it("resumes a paused task", async () => {
-			mocks.getScheduledTask.mockResolvedValue({ id: "t1", status: "PAUSED" });
-			mocks.toggleScheduledTask.mockResolvedValue({ id: "t1", status: "ACTIVE" });
-			const res = await call("manage_cron", { action: "RESUME", taskId: " t1 " });
-			expect(res).toMatchObject({ success: true, data: { status: "ACTIVE" } });
-		});
+		}
 	});
 });

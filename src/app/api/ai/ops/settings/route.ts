@@ -87,7 +87,8 @@ export async function PATCH(request: Request) {
 			// Only a provider that is being chosen now has to be the caller's own. The one already saved may be
 			// a colleague's, and the page sends it back unchanged: refusing it there meant that only the
 			// administrator who had picked the provider could change the mode.
-			const providerEntries = providerChanged
+			const reauthorize = body.reauthorizeProvider === true && Boolean(normalizedProviderId);
+			const providerEntries = providerChanged || reauthorize
 				? await prepareAiOpsProviderBinding(normalizedProviderId, session.userId)
 				: [];
 			await setManySettings([{ key: "ai.ops.mode", value: body.mode }, ...providerEntries], session.userId);
@@ -110,6 +111,7 @@ export async function PATCH(request: Request) {
 				{
 					keys: ["ai.ops.mode", "ai.ops.provider"],
 					mode: { from: previousMode, to: body.mode },
+					reauthorized: reauthorize,
 					providerId: providerChanged
 						? { from: previousProvider, to: body.providerId ?? null }
 						: null,

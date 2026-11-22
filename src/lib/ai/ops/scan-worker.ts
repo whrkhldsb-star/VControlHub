@@ -22,8 +22,9 @@ import { migrateLegacyProviderKeys } from "../service-crud";
 import { recoverPendingKnowledgeDocuments } from "../knowledge";
 import { planJobCleanup, pruneAiOpsLogs } from "./retention";
 import { prisma } from "@/lib/db";
+import { liveCustomerRowsWhere } from "@/lib/auth/team-scope";
 import { config } from "@/lib/config/env";
-import { acquireAdvisoryLock } from "@/lib/concurrency/advisory-lock";
+import { lockForTransaction } from "@/lib/concurrency/advisory-lock";
 import { APP_TIME_ZONE, zonedDateTimeToDate } from "@/lib/datetime/time-zone";
 import { LeaseLostError, runWithLeaseHeartbeat } from "@/lib/job/heartbeat-runner";
 import { computeLeaseMs } from "@/lib/job/lease";
@@ -51,8 +52,8 @@ import {
   type AiOpsRecommendedAction,
 } from "./types";
 import { loadBoundAiOpsProvider, providerConfigurationVersion, readAiOpsSettings } from "./provider-binding";
-import { createAiOpsLog, completeScan, findCompletedScanForJob, type CompleteScanInput } from "./service";
-import { executeScanAction, scanActionReceipts } from "./action-executor";
+import { acknowledgeableScan, SCAN_LEASE_LOST, createAiOpsLog, completeScan, findCompletedScanForJob, type CompleteScanInput } from "./service";
+import { executeScanAction, lockScanAttempt, scanActionReceipts } from "./action-executor";
 import { failedProviderHealth, parseProviderHealth, type AiOpsProviderHealth } from "./provider-health";
 import { getPlatformDefaults } from "@/lib/settings/platform-defaults";
 
@@ -61,7 +62,7 @@ const logger = createLogger("ai-ops-scan-worker");
 export const AI_OPS_SCAN_LEASE_MS = computeLeaseMs("ai-ops-scan");
 const AI_OPS_SCAN_WORKER_ID = `${config.app.hostname || "vcontrolhub"}:ai-ops-scan:${process.pid}`;
 
-type AiOpsScanWorkerState = SingletonIntervalWorkerState;
+type AiOpsScanWorkerState = SingletonIntervalWorkerState & { dailyDueAt?: number };
 
 function getWorkerState(): AiOpsScanWorkerState {
   // Same singleton-state pattern as the interval workers; this worker instead
@@ -69,8 +70,8 @@ function getWorkerState(): AiOpsScanWorkerState {
   return getSingletonIntervalWorkerState("__vcontrolhubAiOpsScanWorker");
 }
 
-async function hasActiveScanJob(): Promise<boolean> {
-  const row = await prisma.job.findFirst({
+async function hasActiveScanJob(tx: Prisma.TransactionClient): Promise<boolean> {
+  const row = await tx.job.findFirst({
     where: {
       type: AI_OPS_SCAN_JOB_TYPE,
       status: { in: ["PENDING", "RUNNING"] },
@@ -85,26 +86,30 @@ export async function requestAiOpsScan(reason: string, notes?: string | null, tr
   return enqueueScanJob(reason, notes, triggeredById, mode);
 }
 
-async function enqueueScanJob(reason: string, notes?: string | null, triggeredById?: string, mode?: AiOpsMode) {
-  const release = await acquireAdvisoryLock("ai-ops-scan-enqueue", "global");
-  try {
-    if (await hasActiveScanJob()) return null;
+async function enqueueScanJob(reason: string, notes?: string | null, triggeredById?: string, mode?: AiOpsMode, scheduledDay?: string) {
+  return prisma.$transaction(async (tx) => {
+    await lockForTransaction(tx, "ai-ops-scan-enqueue", "global");
+    if (scheduledDay) {
+      const key = "ai.ops.lastScheduledDay";
+      const previous = await tx.setting.findUnique({ where: { key }, select: { value: true } });
+      if (previous && previous.value >= scheduledDay) return null;
+      await tx.setting.upsert({ where: { key }, create: { key, value: scheduledDay }, update: { value: scheduledDay } });
+    } else if (await hasActiveScanJob(tx)) return null;
     return await enqueueJob({
       type: AI_OPS_SCAN_JOB_TYPE,
       title: "AI ops daily scan",
       createdBy: triggeredById,
       payload: {
         reason,
+        ...(scheduledDay && { scheduledDay }),
         ...(mode && { mode }),
         requestedAt: new Date().toISOString(),
         ...(notes ? { notes } : {}),
       },
       priority: -2, // Below user-triggered scans but above nightly snapshots
       maxAttempts: 2,
-    });
-  } finally {
-    await release();
-  }
+    }, tx);
+  });
 }
 
 const AI_OPS_ANALYSIS_MAX_TOKENS = 3000;
@@ -196,7 +201,7 @@ interface SystemHealthSignal {
  * Surface measured system-health signals as findings. These remain the
  * auditable fact source even when a provider is configured for analysis.
  */
-async function collectSystemHealthSignals(): Promise<SystemHealthSignal[]> {
+export async function collectSystemHealthSignals(): Promise<SystemHealthSignal[]> {
   const signals: SystemHealthSignal[] = [];
   // A check whose read failed is unknown, not clean. Each used to fall back
   // to 0, and a scan that could not read half its data was saved as "ok".
@@ -219,16 +224,16 @@ async function collectSystemHealthSignals(): Promise<SystemHealthSignal[]> {
     backupFailures,
     staleJobs,
   ] = await Promise.all([
-    counted("alert.rules", prisma.alertRule.count({ where: { enabled: true } })),
+    counted("alert.rules", prisma.alertRule.count({ where: { enabled: true, ...liveCustomerRowsWhere() } })),
     counted("command.execution", prisma.commandRequest.count({
       where: {
-        status: "FAILED",
+        status: "FAILED", ...liveCustomerRowsWhere(),
         createdAt: { gte: since24h },
       },
     })),
     counted("playbook.run", prisma.playbookRun.count({
       where: {
-        status: "failed",
+        status: "failed", playbook: liveCustomerRowsWhere(),
         createdAt: { gte: since24h },
       },
     })),
@@ -238,7 +243,7 @@ async function collectSystemHealthSignals(): Promise<SystemHealthSignal[]> {
     // Backup records that failed in the last 24h
     counted("backup.records", prisma.backupRecord.count({
       where: {
-        status: "FAILED",
+        status: "FAILED", ...liveCustomerRowsWhere(),
         createdAt: { gte: since24h },
       },
     })),
@@ -478,7 +483,7 @@ export async function latestSnapshotPerServer(since: Date) {
 
 export async function runAiOpsScanWorkerOnce(
   reason = "manual",
-  options?: { notes?: string | null },
+  options?: { notes?: string | null; claimOnly?: boolean },
 ): Promise<boolean> {
   const state = getWorkerState();
   if (state.running) {
@@ -492,7 +497,7 @@ export async function runAiOpsScanWorkerOnce(
   }
   state.running = true;
   try {
-    await enqueueScanJob(reason, options?.notes);
+    if (!options?.claimOnly) await enqueueScanJob(reason, options?.notes);
     const job = await claimNextJob({
       workerId: AI_OPS_SCAN_WORKER_ID,
       types: [AI_OPS_SCAN_JOB_TYPE],
@@ -523,13 +528,14 @@ export async function runAiOpsScanWorkerOnce(
     const lastAttempt = job.attempts >= job.maxAttempts;
     // If the worker dies as soon as its report commits, the expired-lease
     // reaper must still be able to claim the Job to acknowledge that report.
-    const reserveAcknowledgement = (db: Pick<Prisma.TransactionClient, "job">) => db.job.updateMany({
-      where: {
-        id: job.id, workerId: AI_OPS_SCAN_WORKER_ID, status: "RUNNING",
-        attempts: job.attempts, maxAttempts: job.maxAttempts,
-      },
-      data: { maxAttempts: { increment: 1 } },
-    });
+    const reserveAcknowledgement = async (db: Pick<Prisma.TransactionClient, "job">) => {
+      const saved = await db.job.updateMany({
+        where: { id: job.id, workerId: AI_OPS_SCAN_WORKER_ID, status: "RUNNING", attempts: job.attempts,
+          maxAttempts: job.maxAttempts, leaseExpiresAt: { gt: new Date() } },
+        data: { maxAttempts: { increment: 1 } },
+      });
+      if (!saved.count) throw new LeaseLostError(job.id);
+    };
 
     let aiOpsLogId: string | null = null;
     let reportSaved = false;
@@ -559,17 +565,20 @@ export async function runAiOpsScanWorkerOnce(
           );
           const mode = snapshot.ok && jobPayload.mode !== "recommendation" ? snapshot.settings.mode : "recommendation";
           const providerId = snapshot.ok && snapshot.settings.providerId || null;
-          const log = await createAiOpsLog({
-            jobId: job.id,
-            // The daily timer passes "scheduled"; it was filed as manual.
-            triggerType:
-              payloadReason === "interval" || payloadReason === "startup" || payloadReason === "scheduled"
-                ? "scheduled"
-                : "manual",
-            mode,
-            triggeredById: payloadReason === "manual" ? job.createdBy ?? null : null,
-            providerId,
-            notes: initialNotes,
+          const log = await prisma.$transaction(async (tx) => {
+            await lockScanAttempt(tx, job.id, AI_OPS_SCAN_WORKER_ID, job.attempts);
+            // The locked Job identifies the current attempt. Any earlier running log
+            // (including one without an attempt ID from an older worker) lost its lease.
+            await tx.aiOpsLog.updateMany({
+              where: { jobId: job.id, status: "running", completedAt: null },
+              data: { status: "skipped", completedAt: new Date(), errorMessage: SCAN_LEASE_LOST },
+            });
+            return createAiOpsLog({
+              jobId: job.id, attempt: job.attempts,
+              triggerType: ["interval", "startup", "scheduled"].includes(payloadReason) ? "scheduled" : "manual",
+              mode, triggeredById: payloadReason === "manual" ? job.createdBy ?? null : null,
+              providerId, notes: initialNotes,
+            }, tx);
           });
           aiOpsLogId = log.id;
           if (!snapshot.ok) throw snapshot.error;
@@ -634,7 +643,7 @@ export async function runAiOpsScanWorkerOnce(
               const current = signal.aborted || providerDegraded ? null : await readAiOpsSettings();
               const dispatchMode = current?.providerId === settings.providerId && current.binding === settings.binding ? current.mode : null;
               if (!signal.aborted && dispatchMode === "autonomous") {
-                actions.push(await executeScanAction(job.id, AI_OPS_SCAN_WORKER_ID, job.attempts, action, signal));
+                actions.push(await executeScanAction(job.id, AI_OPS_SCAN_WORKER_ID, job.attempts, action, signal, settings));
               } else {
                 const result = signal.aborted ? "Withheld because the scan lost its job lease"
                   : providerDegraded ? "Withheld because provider analysis is unavailable" : "Withheld because AI Ops is in recommendation mode";
@@ -653,19 +662,22 @@ export async function runAiOpsScanWorkerOnce(
             : `ai.ops.scan reason=${payloadReason}\n${report}${providerAnalysis ? `\nproviderAnalysis:\n${providerAnalysis}` : ""}`;
           const reportToSave: CompleteScanInput = {
             logId: log.id,
-            status: signal.aborted || providerDegraded ? "warning" : status,
+            status: signal.aborted ? "skipped" : providerDegraded ? "warning" : status,
             findings,
             actions,
             notes: completedNotes,
             providerHealth,
-            errorMessage: signal.aborted ? "The scan lost its job lease" : providerDegraded ? t("backend.ai.providerUnavailable") : null,
+            errorMessage: signal.aborted ? SCAN_LEASE_LOST : providerDegraded ? t("backend.ai.providerUnavailable") : null,
           };
-          const completed = lastAttempt
-            ? await prisma.$transaction(async (tx) => {
-                await reserveAcknowledgement(tx);
-                return completeScan(reportToSave, tx);
-              })
-            : await completeScan(reportToSave);
+          if (signal.aborted) {
+            await completeScan(reportToSave);
+            throw new LeaseLostError(job.id);
+          }
+          const completed = await prisma.$transaction(async (tx) => {
+            await lockScanAttempt(tx, job.id, AI_OPS_SCAN_WORKER_ID, job.attempts);
+            if (lastAttempt) await reserveAcknowledgement(tx);
+            return completeScan(reportToSave, tx);
+          });
           reportSaved = true;
           aiOpsLogId = null;
           return completed;
@@ -711,7 +723,13 @@ export async function runAiOpsScanWorkerOnce(
     } catch (error) {
       // The heartbeat runner reports lease loss after the callback saves its diagnostics.
       // Leave the durable job to its owner and keep this scan's findings intact.
-      if (error instanceof LeaseLostError) return true;
+      if (error instanceof LeaseLostError) {
+        if (aiOpsLogId) await prisma.aiOpsLog.updateMany({
+          where: { id: aiOpsLogId, status: "running", completedAt: null },
+          data: { status: "skipped", completedAt: new Date(), errorMessage: SCAN_LEASE_LOST },
+        });
+        return true;
+      }
       const message =
         error instanceof Error ? error.message : "AI ops scan failed";
       if (aiOpsLogId) {
@@ -731,7 +749,7 @@ export async function runAiOpsScanWorkerOnce(
         // A failed acknowledgement consumes no scan attempt. Even on the last
         // attempt the queue can claim this Job again to acknowledge the report.
         await prisma.job.updateMany({
-          where: { id: job.id, status: "RUNNING", workerId: AI_OPS_SCAN_WORKER_ID },
+          where: { id: job.id, status: "RUNNING", workerId: AI_OPS_SCAN_WORKER_ID, attempts: job.attempts },
           data: {
             status: "PENDING", availableAt: new Date(Date.now() + retryAfterMs),
             attempts: { decrement: 1 }, workerId: null, workerHeartbeatAt: null,
@@ -784,7 +802,7 @@ async function maybeRunStartupScan() {
   try {
     const recent = await prisma.aiOpsLog.findFirst({
       where: {
-        status: { in: ["ok", "warning"] },
+        ...acknowledgeableScan,
         completedAt: { gte: new Date(Date.now() - AI_OPS_STARTUP_SKIP_WITHIN_MS) },
       },
       select: { id: true, completedAt: true },
@@ -901,6 +919,7 @@ async function nextPendingScanDelayMs(): Promise<number | null> {
 function scheduleNextAiOpsScan() {
   const state = getWorkerState();
   if (!state.started) return;
+  state.dailyDueAt ??= Date.now() + millisecondsUntilNextLocalHour(AI_OPS_DEFAULT_SCHEDULE_HOUR);
   void nextPendingScanDelayMs()
     .catch(() => null)
     .then((retryMs) => armAiOpsScanTimer(retryMs));
@@ -917,24 +936,21 @@ function armAiOpsScanTimer(retryMs: number | null) {
   const state = getWorkerState();
   if (!state.started) return;
   if (state.timer) clearTimeout(state.timer);
-  const dailyMs = millisecondsUntilNextLocalHour(AI_OPS_DEFAULT_SCHEDULE_HOUR);
-  const dueMs = retryMs === null ? dailyMs : Math.min(dailyMs, retryMs);
-  const delayMs = Math.min(dueMs, AI_OPS_SCAN_QUEUE_POLL_MS);
+  const dailyDueAt = state.dailyDueAt!;
+  const retryDueAt = retryMs === null ? Infinity : Date.now() + retryMs;
+  const delayMs = Math.max(1_000, Math.min(dailyDueAt - Date.now(), retryMs ?? Infinity, AI_OPS_SCAN_QUEUE_POLL_MS));
   state.timer = setTimeout(() => {
     state.timer = null;
-    // Nothing is due yet: this wake only looks at the queue again.
-    if (delayMs < dueMs) {
-      scheduleNextAiOpsScan();
-      return;
-    }
-    void runAiOpsScanWorkerOnce("scheduled")
-      .catch((error) => {
-        logger.error("AI ops scan worker tick failed", {
-          reason: "scheduled",
-          error: error instanceof Error ? error.message : String(error),
-        });
-      })
-      .finally(scheduleNextAiOpsScan);
+    void (async () => {
+      const now = Date.now();
+      if (now >= dailyDueAt) {
+        const { year, month, day } = wallClockInAppTimeZone(new Date(dailyDueAt));
+        const scheduledDay = `${year}-${String(month).padStart(2, "0")}-${String(day).padStart(2, "0")}`;
+        await enqueueScanJob("scheduled", undefined, undefined, undefined, scheduledDay);
+        state.dailyDueAt = dailyDueAt + millisecondsUntilNextLocalHour(AI_OPS_DEFAULT_SCHEDULE_HOUR, new Date(dailyDueAt));
+      } else if (now < retryDueAt) return;
+      await runAiOpsScanWorkerOnce("scheduled", { claimOnly: true });
+    })().catch((error) => logger.error("AI ops scan worker tick failed", { error: String(error) })).finally(scheduleNextAiOpsScan);
   }, delayMs);
   state.timer.unref?.();
 }
@@ -942,6 +958,7 @@ function armAiOpsScanTimer(retryMs: number | null) {
 export function stopAiOpsScanWorkerForTests() {
   const state = getWorkerState();
   if (state.timer) clearTimeout(state.timer);
+  state.dailyDueAt = undefined;
   state.started = false;
   state.running = false;
   state.timer = null;

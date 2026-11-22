@@ -22,6 +22,14 @@ describe("knowledge chunking & scoring", () => {
     expect(chunks.every((c) => c.searchText === c.content.toLowerCase())).toBe(true);
   });
 
+  it("keeps supplementary characters intact at both ends of overlapping chunks", () => {
+    const input = "a".repeat(797) + "😀b😀" + "x".repeat(810);
+    const chunks = chunkKnowledgeText(input, { size: 800, overlap: 3 });
+    expect(chunks[0]!.content).toBe("a".repeat(797) + "😀b😀");
+    expect(chunks[1]!.content.startsWith("😀b😀")).toBe(true);
+    for (const { content } of chunks) expect(Buffer.from(content).toString("utf8")).toBe(content);
+  });
+
   it("scores relevant chunks higher", () => {
     const query = "PostgreSQL 备份恢复";
     const tokens = ["postgresql", "备份", "恢复", "post", "gres"];

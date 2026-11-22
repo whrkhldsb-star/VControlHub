@@ -4,6 +4,7 @@ import { prisma } from "@/lib/db";
 import { toJsonValue } from "@/lib/db/json";
 import { enqueueJob } from "@/lib/job/service";
 import { LeaseLostError } from "@/lib/job/heartbeat-runner";
+import { loadBoundAiOpsProvider, readAiOpsSettings } from "./provider-binding";
 import { pruneReviewedJobs } from "./retention";
 import { aiOpsExecutedActionSchema } from "./schema";
 import { AI_OPS_SAFE_AUTONOMOUS_ACTIONS, type AiOpsExecutedAction } from "./types";
@@ -40,16 +41,22 @@ export function scanActionReceipts(value: unknown): AiOpsExecutedAction[] {
 	return value === undefined ? [] : aiOpsExecutedActionSchema.array().parse(value);
 }
 
-export function executeScanAction(jobId: string, workerId: string, attempts: number, action: ActionInput, signal: AbortSignal) {
-	// Receipts live as long as the job, including while its event history is pruned.
+export async function lockScanAttempt(tx: Prisma.TransactionClient, jobId: string, workerId: string, attempts: number) {
+	const rows = await tx.$queryRaw<Array<{ id: string }>>`SELECT id FROM jobs WHERE id = ${jobId}
+		AND "workerId" = ${workerId} AND attempts = ${attempts} AND status = 'RUNNING'
+		AND "leaseExpiresAt" > clock_timestamp() FOR UPDATE`;
+	if (!rows.length) throw new LeaseLostError(jobId);
+}
+
+export function executeScanAction(
+	jobId: string, workerId: string, attempts: number, action: ActionInput, signal: AbortSignal,
+	expected: { providerId: string; binding: string },
+) {
 	return prisma.$transaction(async (tx) => {
 		const checkLease = async () => {
 			signal.throwIfAborted();
-			const rows = await tx.$queryRaw<Array<{ id: string }>>`SELECT id FROM jobs WHERE id = ${jobId}
-				AND "workerId" = ${workerId} AND attempts = ${attempts} AND status = 'RUNNING'
-				AND "leaseExpiresAt" > clock_timestamp() FOR UPDATE`;
+			await lockScanAttempt(tx, jobId, workerId, attempts);
 			signal.throwIfAborted();
-			if (!rows.length) throw new LeaseLostError(jobId);
 		};
 		await checkLease();
 		const job = await tx.job.findUniqueOrThrow({ where: { id: jobId }, select: { payload: true } });
@@ -57,9 +64,19 @@ export function executeScanAction(jobId: string, workerId: string, attempts: num
 		const prior = scanActionReceipts(payload.actionReceipts);
 		const saved = prior.find((entry) => entry.id === action.id);
 		if (saved) return saved;
+		// Settings upserts can insert a previously absent binding. A shared table lock also
+		// covers that case and serializes with both settings writers regardless of key order.
+		await tx.$executeRaw`LOCK TABLE settings IN SHARE MODE`;
+		if (expected.providerId) await tx.$queryRaw`SELECT id FROM ai_providers WHERE id = ${expected.providerId} FOR SHARE`;
+		const current = await readAiOpsSettings(tx);
+		if (current.mode !== "autonomous" || current.providerId !== expected.providerId || current.binding !== expected.binding ||
+			(current.providerId && !await loadBoundAiOpsProvider(current.providerId, tx))) {
+			return { ...action, executed: false, result: "Withheld because AI Ops settings or provider authorization changed" };
+		}
 		const result = await executeAiOpsAction(action, tx, checkLease);
 		const actionReceipts: AiOpsExecutedAction[] = [...prior, result];
 		await tx.job.update({ where: { id: jobId }, data: { payload: { ...payload, actionReceipts: toJsonValue(actionReceipts) } } });
+		await checkLease();
 		return result;
 	});
 }

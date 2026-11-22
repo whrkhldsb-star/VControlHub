@@ -113,10 +113,19 @@ describe("AI service list hydration limits", () => {
     ["GOOGLE", "https://generativelanguage.googleapis.com/"],
     ["OPENAI", "https://api.openai.com/v1"],
   ])("creates a %s provider with its own default endpoint", async (type, baseUrl) => {
-    await createProvider({ name: "Native", type, apiKey: "native-key", createdBy: "u1" });
+    const native = { name: "Native", type, apiKey: "native-key", createdBy: "u1" };
+    if (type !== "OPENAI") await expect(createProvider(native)).rejects.toThrow();
+    await createProvider({ ...native, defaultModel: "tested-model" });
     expect(prismaMock.aiProvider.create).toHaveBeenCalledWith(expect.objectContaining({
       data: expect.objectContaining({ type, baseUrl }),
     }));
+  });
+
+  it("rejects a key rotation if the endpoint shown to the editor has since changed", async () => {
+    const expectedEndpoint = { type: "OPENAI_COMPATIBLE", baseUrl: "https://original.example/v1" };
+    prismaMock.aiProvider.findFirst.mockResolvedValue({ ...expectedEndpoint, baseUrl: "https://updated.example/v1", apiKey: "old" });
+    await expect(updateProvider("p1", "u1", { apiKey: "replacement", expectedEndpoint })).rejects.toMatchObject({ code: "CONFLICT" });
+    expect(prismaMock.aiProvider.updateMany).not.toHaveBeenCalled();
   });
 
   it("requires a replacement key for an origin or type change and guards the endpoint on the write", async () => {
@@ -134,10 +143,11 @@ describe("AI service list hydration limits", () => {
       where: { id: "p1", createdBy: "u1", ...endpoint },
       data: { baseUrl: "https://api.openai.com/other-path" },
     });
-    await updateProvider("p1", "u1", { type: "ANTHROPIC", apiKey: "new-key" });
+    await expect(updateProvider("p1", "u1", { type: "ANTHROPIC", apiKey: "new-key" })).rejects.toMatchObject({ code: "VALIDATION_FAILED" });
+    await updateProvider("p1", "u1", { type: "ANTHROPIC", apiKey: "new-key", defaultModel: "native-model" });
     expect(prismaMock.aiProvider.updateMany).toHaveBeenLastCalledWith({
       where: { id: "p1", createdBy: "u1", ...endpoint },
-      data: { type: "ANTHROPIC", baseUrl: "https://api.anthropic.com/", apiKey: "encrypted:new-key" },
+      data: { type: "ANTHROPIC", baseUrl: "https://api.anthropic.com/", apiKey: "encrypted:new-key", defaultModel: "native-model" },
     });
   });
 

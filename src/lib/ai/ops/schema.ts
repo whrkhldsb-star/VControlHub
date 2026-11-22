@@ -90,5 +90,6 @@ export const approveRecommendationSchema = z.object({
 export const aiOpsModeSettingSchema = z.object({
 	mode: aiOpsModeSchema,
 	providerId: z.string().max(64).optional(),
+	reauthorizeProvider: z.boolean().optional(),
 });
 

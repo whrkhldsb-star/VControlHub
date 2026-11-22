@@ -215,9 +215,15 @@ export async function getAiOpsLog(id: string): Promise<AiOpsLogRecord | null> {
 	return record;
 }
 
+// Pre-upgrade workers wrote this diagnostic as a completed warning.
+export const SCAN_LEASE_LOST = "The scan lost its job lease";
+export const acknowledgeableScan = {
+	status: { in: ["ok", "warning"] }, OR: [{ errorMessage: null }, { errorMessage: { not: SCAN_LEASE_LOST } }],
+};
+
 export async function findCompletedScanForJob(jobId: string) {
 	const row = await prisma.aiOpsLog.findFirst({
-		where: { jobId, completedAt: { not: null }, status: { in: ["ok", "warning"] } },
+		where: { jobId, completedAt: { not: null }, ...acknowledgeableScan },
 		orderBy: { completedAt: "desc" },
 	});
 	return row ? toRecord(row) : null;
@@ -225,6 +231,7 @@ export async function findCompletedScanForJob(jobId: string) {
 
 export interface CreateAiOpsLogInput {
 	jobId?: string;
+	attempt?: number;
 	triggerType: AiOpsTriggerType;
 	mode: AiOpsMode;
 	triggeredById?: string | null;
@@ -234,9 +241,11 @@ export interface CreateAiOpsLogInput {
 
 export async function createAiOpsLog(
 	input: CreateAiOpsLogInput,
+	db: Pick<Prisma.TransactionClient, "aiOpsLog"> = prisma,
 ): Promise<AiOpsLogRecord> {
-	const row = await prisma.aiOpsLog.create({
+	const row = await db.aiOpsLog.create({
 		data: {
+			...(input.jobId && input.attempt !== undefined && { id: `${input.jobId}:attempt:${input.attempt}` }),
 			jobId: input.jobId,
 			triggerType: input.triggerType,
 			mode: input.mode,
@@ -276,7 +285,7 @@ export async function completeScan(
 		: null;
 
 	const row = await db.aiOpsLog.update({
-		where: { id: input.logId },
+		where: { id: input.logId, status: "running", completedAt: null },
 		data: {
 			status: input.status,
 			findings: toJsonValue(input.findings),
@@ -329,8 +338,10 @@ export async function approveRecommendation(input: {
 	if (!match.requiresApproval) {
 		return { ok: false, errorMessage: apiCopy("apiCopy.this.recommendation.does.not.require.approval.e92dc5bf") };
 	}
-	if (match.executedAt && !match.leaseId) {
-		return { ok: false, errorMessage: t("backend.ai.actionInterrupted") };
+	if (match.executedAt || match.leaseId || match.executed || match.result === "needs_manual_review") {
+		const message = match.result === "needs_manual_review" ? "backend.ai.actionInterrupted"
+			: match.result === "in_progress" ? "backend.ai.recommendationInProgress" : "backend.ai.recommendationAlreadyExecuted";
+		return { ok: false, errorMessage: t(message) };
 	}
 
 	// Atomic compare-and-swap: guard against two approvers acting on the

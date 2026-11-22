@@ -25,7 +25,7 @@ export async function withChatGeneration<T>(
   });
 }
 
-export function finishChatGeneration(conversationId: string, userMessageId: string) {
+export function finishChatGeneration(conversationId: string, userMessageId: string, firstQuestion?: string) {
   return prisma.$transaction(async (tx) => {
     await tx.$queryRaw`SELECT id FROM ai_conversations WHERE id = ${conversationId} FOR UPDATE`;
     const released = await tx.aiMessage.updateMany({
@@ -33,7 +33,15 @@ export function finishChatGeneration(conversationId: string, userMessageId: stri
       data: { toolCallId: null },
     });
     if (released.count) {
-      await tx.$executeRaw`UPDATE ai_conversations SET "updatedAt" = GREATEST(clock_timestamp(), "updatedAt" + interval '1 millisecond') WHERE id = ${conversationId}`;
+      const chars = Array.from((firstQuestion ?? "").trim().replace(/\n/g, " "));
+      const title = chars.length && firstQuestion !== "(attachment)" && firstQuestion !== "(附件)"
+        ? chars.slice(0, 30).join("") + (chars.length > 30 ? "..." : "") : null;
+      await tx.$executeRaw`UPDATE ai_conversations c SET
+        title = CASE WHEN ${title}::text IS NOT NULL AND c.title IN ('New conversation', '新对话') AND NOT EXISTS (
+          SELECT 1 FROM ai_messages m WHERE m."conversationId" = c.id AND m.role = 'user' AND m.id <> ${userMessageId}
+        ) THEN ${title} ELSE c.title END,
+        "updatedAt" = GREATEST(clock_timestamp(), c."updatedAt" + interval '1 millisecond')
+        WHERE c.id = ${conversationId}`;
     }
   });
 }
