@@ -21,7 +21,7 @@ import { JobStatus } from "@prisma/client";
 
 import { config } from "@/lib/config/env";
 import { prisma } from "@/lib/db";
-import { runWithLeaseHeartbeat } from "@/lib/job/heartbeat-runner";
+import { LeaseLostError, runWithLeaseHeartbeat } from "@/lib/job/heartbeat-runner";
 import { computeLeaseMs } from "@/lib/job/lease";
 import {
   claimNextJob,
@@ -35,11 +35,11 @@ import { createLogger } from "@/lib/logging";
 import { acquireAdvisoryLock } from "@/lib/concurrency/advisory-lock";
 import { createSingletonIntervalWorker } from "@/lib/workers/singleton-interval-worker";
 import { readLocalNetworkDeviceStats } from "@/lib/monitoring/local-network";
+import { withSamplingClaim, type SamplingClaim } from "@/lib/monitoring/sampling-claim";
 import {
   calculateTrafficRate,
   persistTrafficSample,
   selectPrimaryInterface,
-  type NetworkDeviceStats,
   type TrafficCounterSample,
 } from "@/lib/monitoring/traffic";
 
@@ -83,26 +83,7 @@ function getWorkerState() {
   return trafficSamplingWorker.getState();
 }
 
-function summarizeLocalInterface(iface: string, sample: NetworkDeviceStats) {
-  const key = `local:${iface}`;
-  const current: TrafficCounterSample = {
-    rxBytes: sample.rxBytes,
-    txBytes: sample.txBytes,
-    sampledAt: new Date().toISOString(),
-  };
-  const previous = previousLocalSamples.get(key) ?? null;
-  previousLocalSamples.set(key, current);
-  const rate = calculateTrafficRate(previous, current);
-  return {
-    iface,
-    rxBytes: sample.rxBytes,
-    txBytes: sample.txBytes,
-    rxRateBps: rate.rxBytesPerSecond,
-    txRateBps: rate.txBytesPerSecond,
-  };
-}
-
-async function sampleLocalPrimary(): Promise<{
+async function sampleLocalPrimary(claim: SamplingClaim): Promise<{
   sampled: boolean;
   iface: string | null;
 }> {
@@ -111,17 +92,15 @@ async function sampleLocalPrimary(): Promise<{
   const interfaces = await readLocalNetworkDeviceStats();
   const primary = selectPrimaryInterface(interfaces);
   if (!primary) return { sampled: false, iface: null };
-  const summary = summarizeLocalInterface(primary.iface, primary);
-  await persistTrafficSample({
-    source: "local",
-    serverId: null,
-    iface: summary.iface,
-    rxBytes: summary.rxBytes,
-    txBytes: summary.txBytes,
-    rxRateBps: summary.rxRateBps,
-    txRateBps: summary.txRateBps,
-  });
-  return { sampled: true, iface: summary.iface };
+  const sampledAt = new Date();
+  const current = { ...primary, sampledAt: sampledAt.toISOString() };
+  const rate = calculateTrafficRate(previousLocalSamples.get(primary.iface) ?? null, current);
+  const written = await persistTrafficSample({
+    ...primary, source: "local", serverId: null, sampledAt,
+    rxRateBps: rate.rxBytesPerSecond, txRateBps: rate.txBytesPerSecond,
+  }, claim);
+  if (written) previousLocalSamples.set(primary.iface, current);
+  return { sampled: true, iface: primary.iface };
 }
 
 /**
@@ -134,15 +113,15 @@ export function trafficSnapshotPruneCutoff(now: Date, retentionDays: number): Da
   return new Date(Math.min(now.getTime() - retentionDays * 24 * 60 * 60 * 1000, startOfMonthInAppTimeZone(now).getTime()));
 }
 
-async function pruneOldTrafficSnapshots() {
+async function pruneOldTrafficSnapshots(claim: SamplingClaim) {
   const retentionDays = await getRuntimeSettingNumberStrict("retention.trafficSnapshotsDays").catch((error) => {
     logger.warn("Skipping snapshot cleanup because the retention policy could not be read", { error: String(error) });
     return null;
   });
   if (retentionDays === null) return { count: 0 };
-  return prisma.trafficSnapshot.deleteMany({
+  return withSamplingClaim(claim, (tx) => tx.trafficSnapshot.deleteMany({
     where: { sampledAt: { lt: trafficSnapshotPruneCutoff(new Date(), retentionDays) } },
-  });
+  }));
 }
 
 async function hasActiveTrafficSampleJob() {
@@ -173,14 +152,18 @@ export async function enqueueTrafficSampleIfIdle(reason: string) {
   }
 }
 
-async function processSample(jobId: string) {
-  await heartbeatJob(jobId, TRAFFIC_SAMPLE_WORKER_ID, {
-    leaseMs: TRAFFIC_SAMPLE_LEASE_MS,
+async function processSample(claim: SamplingClaim) {
+  const { jobId, attempts, signal } = claim;
+  signal.throwIfAborted();
+  const renewed = await heartbeatJob(jobId, TRAFFIC_SAMPLE_WORKER_ID, {
+    attempts, leaseMs: TRAFFIC_SAMPLE_LEASE_MS,
     progress: "Sampling local and remote traffic counters",
   });
+  if (renewed.count !== 1) throw new LeaseLostError(jobId);
+  signal.throwIfAborted();
 
-  const local = await sampleLocalPrimary();
-  const pruned = await pruneOldTrafficSnapshots();
+  const local = await sampleLocalPrimary(claim);
+  const pruned = await pruneOldTrafficSnapshots(claim);
 
   // No remote counters here on purpose: remote NICs are persisted by the health
   // collector from its own metrics payload (see the module header). The three
@@ -220,12 +203,13 @@ export async function runTrafficSamplingWorkerOnce(reason = "manual") {
         leaseMs: TRAFFIC_SAMPLE_LEASE_MS,
         heartbeat: () =>
           heartbeatJob(job.id, TRAFFIC_SAMPLE_WORKER_ID, {
+            attempts: job.attempts,
             leaseMs: TRAFFIC_SAMPLE_LEASE_MS,
             progress: "Sampling traffic counters",
           }),
-        run: () => processSample(job.id),
+        run: (signal) => processSample({ jobId: job.id, workerId: TRAFFIC_SAMPLE_WORKER_ID, attempts: job.attempts, signal }),
       });
-      await completeJob(job.id, TRAFFIC_SAMPLE_WORKER_ID, result);
+      await completeJob(job.id, TRAFFIC_SAMPLE_WORKER_ID, result, job.attempts);
       try {
         await pruneCompletedJobsByType({
           type: TRAFFIC_SAMPLING_JOB_TYPE,
@@ -241,9 +225,10 @@ export async function runTrafficSamplingWorkerOnce(reason = "manual") {
       }
       return true;
     } catch (error) {
+      if (error instanceof LeaseLostError) return true;
       const message = error instanceof Error ? error.message : String(error);
       await failJob(job.id, TRAFFIC_SAMPLE_WORKER_ID, message.slice(0, 2000), {
-        retryAfterMs: 60_000,
+        attempts: job.attempts, retryAfterMs: 60_000,
       });
       logger.error("Traffic sample failed", {
         reason,

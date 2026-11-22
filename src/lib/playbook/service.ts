@@ -1,3 +1,4 @@
+import { canReceivePlaybookNotification } from "./notification-recipient";
 import { canAlertRuleTargetTeam } from "@/lib/alert/rule-scope";
 import { apiCopy } from "@/lib/i18n/api-copy";
 /**
@@ -10,14 +11,14 @@ import { apiCopy } from "@/lib/i18n/api-copy";
  */
 
 import { Prisma } from "@prisma/client";
-import { assertUserInActorScope, isGlobalTeamManager, playbookTeamWhere, serverTeamWhere, teamCreateData, type TeamSession } from "@/lib/auth/team-scope";
+import { activeCustomerTeamWhere, isGlobalTeamManager, playbookTeamWhere, rawTeamScope, serverTeamWhere, teamCreateData, type TeamSession } from "@/lib/auth/team-scope";
 
 import { prisma } from "@/lib/db";
 import { auditUserAction } from "@/lib/audit/service";
 import { acquireAdvisoryLock } from "@/lib/concurrency/advisory-lock";
 import { NotFoundError, ValidationError, BusinessError, ForbiddenError } from "@/lib/errors";
 import { sessionHasPermission } from "@/lib/auth/authorization";
-import { PLAYBOOK_COMMAND_PERMISSION, PLAYBOOK_RUN_PERMISSION } from "./permissions";
+import { PLAYBOOK_APPROVAL_PERMISSION, PLAYBOOK_COMMAND_PERMISSION, PLAYBOOK_RUN_PERMISSION } from "./permissions";
 
 import type {
   CreatePlaybookInput,
@@ -35,6 +36,7 @@ import {
   assertValidPlaybookTriggerConfig,
   computeNextPlaybookCronRun,
   isCronTriggerConfig,
+  isMetricTriggerConfig,
   normalizePlaybookCronExpression,
 } from "./trigger-utils";
 import { queuePlaybookRunWithClient } from "./run-queue";
@@ -51,6 +53,7 @@ import { toJsonValue } from "@/lib/db/json";
 async function assertPlaybookCommandServersInScope(
   steps: PlaybookStep[],
   session?: TeamSession | null,
+  db: Prisma.TransactionClient = prisma,
 ): Promise<void> {
   const serverIds = [
     ...new Set(
@@ -62,7 +65,7 @@ async function assertPlaybookCommandServersInScope(
   if (serverIds.length === 0) return;
 
   const scope = session ? serverTeamWhere(session, "connect") : {};
-  const servers = await prisma.server.findMany({
+  const servers = await db.server.findMany({
     where: { id: { in: serverIds }, ...scope },
     select: { id: true },
   });
@@ -78,32 +81,11 @@ async function assertPlaybookCommandServersInScope(
  * Without this, a team playbook author can store any userId and the worker will
  * create cross-tenant inbox rows (notification IDOR).
  */
-async function assertPlaybookNotificationRecipientsInScope(
-  steps: PlaybookStep[],
-  session?: TeamSession | null,
-): Promise<void> {
-  if (!session) return;
-  const recipientIds = [
-    ...new Set(
-      steps
-        .filter(
-          (step): step is Extract<PlaybookStep, { type: "send_notification" }> =>
-            step.type === "send_notification",
-        )
-        .map((step) => step.config.recipientUserId)
-        .filter((id): id is string => typeof id === "string" && id.trim().length > 0),
-    ),
-  ];
-  for (const recipientUserId of recipientIds) {
-    try {
-      await assertUserInActorScope(session, recipientUserId);
-    } catch (error) {
-      if (error instanceof NotFoundError) {
-        throw new ValidationError(
-          apiCopy("apiCopy.one.or.more.playbook.notification.recipients.were.not.found.or.a.69400842"),
-        );
-      }
-      throw error;
+async function assertPlaybookNotificationRecipientsInScope(steps: PlaybookStep[], teamId: string | null) {
+  const recipients = new Set(steps.flatMap((step) => step.type === "send_notification" ? [step.config.recipientUserId] : []));
+  for (const id of recipients) {
+    if (!await canReceivePlaybookNotification(id, teamId)) {
+      throw new ValidationError(apiCopy("apiCopy.one.or.more.playbook.notification.recipients.were.not.found.or.a.69400842"));
     }
   }
 }
@@ -131,14 +113,15 @@ function assertPlaybookCommandAuthoring(
 export async function assertPlaybookCommandStepsInScope(
   steps: PlaybookStep[],
   session?: TeamSession | null,
+  db: Prisma.TransactionClient = prisma,
 ): Promise<void> {
   assertPlaybookCommandAuthoring(steps, session);
-  await assertPlaybookCommandServersInScope(steps, session);
+  await assertPlaybookCommandServersInScope(steps, session, db);
 }
 
-async function assertPlaybookStepsInScope(steps: PlaybookStep[], session?: TeamSession | null): Promise<void> {
+async function assertPlaybookStepsInScope(steps: PlaybookStep[], teamId: string | null, session?: TeamSession | null): Promise<void> {
   await assertPlaybookCommandStepsInScope(steps, session);
-  await assertPlaybookNotificationRecipientsInScope(steps, session);
+  await assertPlaybookNotificationRecipientsInScope(steps, teamId);
 }
 
 type RawPlaybook = {
@@ -176,12 +159,23 @@ type RawPlaybookRun = {
   updatedAt: Date;
 };
 
-/** The owner can still act for scheduled and alert-triggered runs (see loadJobOwnerSession). */
-function ownerIsActive(creator: { status: string; mustChangePassword: boolean } | null | undefined): boolean {
-  return Boolean(creator) && creator!.status !== "DISABLED" && !creator!.mustChangePassword;
+const creatorSelect = {
+  status: true, mustChangePassword: true,
+  roles: { where: { role: { key: "admin" } }, select: { roleId: true } },
+  teamMembership: { select: { teamId: true, team: { select: { deletedAt: true } }, identityTemplate: { select: { permissions: true } } } },
+} satisfies Prisma.UserSelect;
+
+type Creator = Prisma.UserGetPayload<{ select: typeof creatorSelect }>;
+
+function ownerIsActive(creator: Creator | null | undefined, teamId: string | null) {
+  if (!creator || creator.status === "DISABLED" || creator.mustChangePassword) return false;
+  if (creator.roles.length) return true;
+  const membership = creator.teamMembership;
+  return Boolean(membership && membership.teamId === teamId && !membership.team.deletedAt
+    && membership.identityTemplate.permissions.includes(PLAYBOOK_RUN_PERMISSION));
 }
 
-function narrowPlaybook(row: RawPlaybook & { creator?: { status: string; mustChangePassword: boolean } | null }): PlaybookRecord {
+function narrowPlaybook(row: RawPlaybook & { creator?: Creator | null }) {
   return {
     id: row.id,
     name: row.name,
@@ -194,19 +188,27 @@ function narrowPlaybook(row: RawPlaybook & { creator?: { status: string; mustCha
     nextRunAt: row.nextRunAt,
     lastTriggeredAt: row.lastTriggeredAt,
     createdById: row.createdById,
-    // Rows loaded without the creator (run paths) are not judged here.
-    ownerActive: row.creator === undefined ? true : ownerIsActive(row.creator),
+    teamId: row.teamId,
+    ownerActive: ownerIsActive(row.creator, row.teamId),
     createdAt: row.createdAt,
     updatedAt: row.updatedAt,
   };
 }
 
+function mayReadCommandSteps(session?: TeamSession | null) {
+  return Boolean(session && (sessionHasPermission(session, PLAYBOOK_COMMAND_PERMISSION) || sessionHasPermission(session, PLAYBOOK_APPROVAL_PERMISSION)));
+}
+
 function projectPlaybook(playbook: PlaybookRecord, session?: TeamSession | null) {
-  if (session && sessionHasPermission(session, "playbook:manage")) return playbook;
+  const showWebhook = session && sessionHasPermission(session, "playbook:manage");
+  const showCommand = mayReadCommandSteps(session);
   return {
     ...playbook,
     steps: (Array.isArray(playbook.steps) ? playbook.steps : []).filter((step) => step?.type).map((step) => {
-      if (step.type !== "call_webhook") return step;
+      if (step.type === "run_command" && !showCommand) {
+        return { id: step.id, type: step.type, name: step.name, retry: step.retry, timeoutSec: step.timeoutSec, config: {} };
+      }
+      if (step.type !== "call_webhook" || showWebhook) return step;
       const config = projectWebhookConfig(step);
       return {
         id: step.id, name: /https?:\/\//i.test(step.name) ? `${config.method} ${config.host}` : step.name,
@@ -216,7 +218,7 @@ function projectPlaybook(playbook: PlaybookRecord, session?: TeamSession | null)
   };
 }
 
-function narrowPlaybookRun(row: RawPlaybookRun, triggerContext = row.triggerContext): PlaybookRunRecord {
+function narrowPlaybookRun(row: RawPlaybookRun, triggerContext = row.triggerContext, showCommands = false): PlaybookRunRecord {
   return {
     id: row.id,
     playbookId: row.playbookId,
@@ -224,7 +226,7 @@ function narrowPlaybookRun(row: RawPlaybookRun, triggerContext = row.triggerCont
     dryRun: row.dryRun,
     triggerContext,
     triggerKey: row.triggerKey,
-    ...redactRunHistory(row.executionState, row.stepResults, row.errorMessage),
+    ...redactRunHistory(row.executionState, row.stepResults, row.errorMessage, showCommands),
     startedAt: row.startedAt,
     completedAt: row.completedAt,
     createdById: row.createdById,
@@ -233,13 +235,13 @@ function narrowPlaybookRun(row: RawPlaybookRun, triggerContext = row.triggerCont
   };
 }
 
-export async function listPlaybooks(session?: TeamSession) {
-  const where = session ? { ...playbookTeamWhere(session) } : {};
+export async function listPlaybooks(session?: TeamSession, page?: { after?: string; take: number }) {
+  const where = session ? activeCustomerTeamWhere(session) : {};
   const rows = await prisma.playbook.findMany({
-    where,
-    orderBy: { createdAt: "desc" },
-    take: 500, // P2: playbook 总数有限
-    include: { creator: { select: { status: true, mustChangePassword: true } } },
+    where: { ...where, ...(page?.after ? { id: { lt: page.after } } : {}) },
+    orderBy: page ? { id: "desc" } : [{ createdAt: "desc" }, { id: "desc" }],
+    take: page?.take,
+    include: { creator: { select: creatorSelect } },
   });
   return rows.map((row) => projectPlaybook(narrowPlaybook(row), session));
 }
@@ -247,10 +249,10 @@ export async function listPlaybooks(session?: TeamSession) {
 async function getPlaybookDefinition(
   id: string,
   session?: TeamSession | null,
-): Promise<PlaybookRecord | null> {
+) {
   const row = session
-    ? await prisma.playbook.findFirst({ where: { id, ...playbookTeamWhere(session) } })
-    : await prisma.playbook.findUnique({ where: { id } });
+    ? await prisma.playbook.findFirst({ where: { id, ...activeCustomerTeamWhere(session) }, include: { creator: { select: creatorSelect } } })
+    : await prisma.playbook.findUnique({ where: { id }, include: { creator: { select: creatorSelect } } });
   return row ? narrowPlaybook(row) : null;
 }
 
@@ -263,12 +265,12 @@ export async function createPlaybook(
   input: CreatePlaybookInput,
   createdById: string,
   session?: TeamSession | null,
-): Promise<PlaybookRecord> {
+) {
   // The create schema supports cron and metric triggers, both automatic when enabled.
   if (input.enabled && session && !sessionHasPermission(session, PLAYBOOK_RUN_PERMISSION)) {
     throw new ForbiddenError(t("backend.playbook.triggerChangeRequiresRun"));
   }
-  await assertPlaybookStepsInScope(input.steps as PlaybookStep[], session);
+  await assertPlaybookStepsInScope(input.steps as PlaybookStep[], session?.currentTeamId ?? null, session);
   try {
     assertValidPlaybookTriggerConfig(input.triggerType, input.triggerConfig);
   } catch (error) {
@@ -294,6 +296,7 @@ export async function createPlaybook(
       createdById,
       ...teamData,
     },
+    include: { creator: { select: creatorSelect } },
   });
   const narrowed = narrowPlaybook(row);
   // Stamp the customer: an audit row left at `teamId: null` is treated as
@@ -312,7 +315,13 @@ export async function createPlaybook(
     undefined,
     row.teamId ?? null,
   );
-  return narrowed;
+  return projectPlaybook(narrowed, session);
+}
+
+function sameTriggerConfig(a: TriggerConfig, b: TriggerConfig) {
+  if (isCronTriggerConfig(a) && isCronTriggerConfig(b)) return a.expression.trim().split(/\s+/).join(" ") === b.expression.trim().split(/\s+/).join(" ");
+  return isMetricTriggerConfig(a) && isMetricTriggerConfig(b)
+    && a.metric === b.metric && a.operator === b.operator && a.threshold === b.threshold;
 }
 
 async function hasAutomaticTrigger(db: Prisma.TransactionClient, id: string, triggerType: string): Promise<boolean> {
@@ -322,8 +331,8 @@ async function hasAutomaticTrigger(db: Prisma.TransactionClient, id: string, tri
 }
 
 async function updatePlaybookWithoutRunPermission(where: Prisma.PlaybookWhereInput, data: Prisma.PlaybookUncheckedUpdateManyInput) {
-  // Alert bindings and configuration imports do not take the lifecycle lock. Read all the fields that allow
-  // a non-runner to edit and write the playbook on a single serializable snapshot.
+  // Legacy importers can write without the lifecycle lock. Recheck unattended triggers
+  // on the same serializable snapshot as the restricted edit.
   return prisma.$transaction(async (tx) => {
     const current = await tx.playbook.findFirst({ where, select: { id: true, enabled: true, triggerType: true } });
     if (!current) throw new NotFoundError(t("backend.playbook.notFound"));
@@ -338,17 +347,19 @@ export async function updatePlaybook(
   input: UpdatePlaybookInput,
   updatedById: string,
   session?: TeamSession | null,
-): Promise<PlaybookRecord> {
+) {
   const { id, ...rest } = input;
   const releaseLock = await acquireAdvisoryLock("playbook-lifecycle", id);
-  let narrowed: PlaybookRecord;
+  let narrowed: ReturnType<typeof narrowPlaybook>;
   try {
     const existing = await getPlaybookDefinition(id, session);
     if (!existing) throw new NotFoundError(t("backend.playbook.notFound"));
     const effectiveTriggerType = rest.triggerType ?? existing.triggerType;
     const effectiveTriggerConfig = (rest.triggerConfig ?? existing.triggerConfig) as TriggerConfig;
     const effectiveEnabled = rest.enabled ?? existing.enabled;
-    const triggerChanged = rest.triggerType !== undefined || rest.triggerConfig !== undefined;
+    const triggerProvided = rest.triggerType !== undefined || rest.triggerConfig !== undefined;
+    const triggerChanged = triggerProvided && (effectiveTriggerType !== existing.triggerType
+      || !sameTriggerConfig(effectiveTriggerConfig, existing.triggerConfig));
     const schedulingChanged = triggerChanged || rest.enabled !== undefined || rest.chainRetry !== undefined;
     const lacksRun = session && !sessionHasPermission(session, PLAYBOOK_RUN_PERMISSION);
     // Unattended runs use the owner's authority, including when the caller only edits the steps.
@@ -359,24 +370,22 @@ export async function updatePlaybook(
       if (rest.steps === undefined) await assertPlaybookCommandStepsInScope(existing.steps, session);
     }
     if (rest.steps !== undefined) {
-      await assertPlaybookStepsInScope(rest.steps as PlaybookStep[], session);
+      await assertPlaybookStepsInScope(rest.steps as PlaybookStep[], existing.teamId, session);
     }
     // Taking a playbook over makes its runs act as the claimer. It is meant for an orphaned one (R0-07); a live
     // owner's playbook only changes hands through a platform administrator.
+    if (rest.claimOwnership && session && !sessionHasPermission(session, PLAYBOOK_RUN_PERMISSION)) throw new ForbiddenError(t("backend.playbook.triggerChangeRequiresRun"));
     if (rest.claimOwnership && session && !isGlobalTeamManager(session) && existing.createdById !== session.userId) {
-      const owner = existing.createdById
-        ? await prisma.user.findUnique({ where: { id: existing.createdById }, select: { status: true } })
-        : null;
-      if (owner && owner.status !== "DISABLED") throw new ForbiddenError(t("backend.playbook.claimRequiresAdmin"));
+      if (existing.ownerActive) throw new ForbiddenError(t("backend.playbook.claimRequiresAdmin"));
     }
-    if (triggerChanged) {
+    if (triggerProvided) {
       try {
         assertValidPlaybookTriggerConfig(effectiveTriggerType, effectiveTriggerConfig);
       } catch (error) {
         throw new ValidationError(error instanceof Error ? error.message : String(error));
       }
     }
-    const normalizedTriggerConfig = triggerChanged && effectiveTriggerType === "cron" && isCronTriggerConfig(effectiveTriggerConfig)
+    const normalizedTriggerConfig = triggerProvided && effectiveTriggerType === "cron" && isCronTriggerConfig(effectiveTriggerConfig)
       ? { expression: normalizePlaybookCronExpression(effectiveTriggerConfig.expression) }
       : effectiveTriggerConfig;
     const data: Prisma.PlaybookUncheckedUpdateManyInput = {};
@@ -399,13 +408,13 @@ export async function updatePlaybook(
         : null;
     }
     if (triggerChanged) data.metricMatchState = Prisma.DbNull;
-    const where = { id, ...(session ? playbookTeamWhere(session) : {}) };
+    const where = { id, ...(session ? activeCustomerTeamWhere(session) : {}), teamId: existing.teamId, updatedAt: existing.updatedAt };
     const updated = lacksRun
       ? await updatePlaybookWithoutRunPermission(where, data)
       : await prisma.playbook.updateMany({ where, data });
     if (updated.count === 0) throw new NotFoundError(t("backend.playbook.notFound"));
     const row = await getPlaybookDefinition(id, session);
-    if (!row) throw new NotFoundError(t("backend.playbook.notFound"));
+    if (!row || row.teamId !== existing.teamId) throw new NotFoundError(t("backend.playbook.notFound"));
     narrowed = row;
   } finally {
     await releaseLock();
@@ -420,9 +429,23 @@ export async function updatePlaybook(
       stepCount: narrowed.steps.length,
     },
     undefined,
-    session?.currentTeamId ?? null,
+    narrowed.teamId,
   );
-  return narrowed;
+  return projectPlaybook(narrowed, session);
+}
+
+export async function reconcileTerminalPlaybookJobs(db: Prisma.TransactionClient, scope?: { playbookId?: string; jobId?: string }) {
+  return db.$executeRaw`UPDATE playbook_runs r
+    SET status = CASE WHEN j.status = 'CANCELLED' THEN 'cancelled'
+                      WHEN j.status = 'COMPLETED' AND COALESCE(j.result->>'status', '') <> 'failed' THEN 'completed'
+                      ELSE 'failed' END::"PlaybookRunStatus",
+        "errorMessage" = CASE WHEN j.status = 'FAILED' OR j.result->>'status' = 'failed'
+                              THEN ${t("backend.job.parentDurableJobAttemptsExhausted", "en")} ELSE NULL END,
+        "completedAt" = COALESCE(j."completedAt", now()), "updatedAt" = now()
+    FROM jobs j WHERE r."jobId" = j.id AND j.type = 'playbook.run'
+      AND r.status IN ('queued', 'running') AND j.status IN ('FAILED', 'CANCELLED', 'COMPLETED')
+      ${scope?.playbookId ? Prisma.sql`AND r."playbookId" = ${scope.playbookId}` : Prisma.empty}
+      ${scope?.jobId ? Prisma.sql`AND j.id = ${scope.jobId}` : Prisma.empty}`;
 }
 
 export async function deletePlaybook(
@@ -431,26 +454,24 @@ export async function deletePlaybook(
   session?: TeamSession | null,
 ): Promise<void> {
   const releaseLock = await acquireAdvisoryLock("playbook-lifecycle", id);
+  let auditTeamId: string | null;
   try {
-    const existing = await getPlaybookDefinition(id, session);
-    if (!existing) throw new NotFoundError(t("backend.playbook.notFound"));
-    // PlaybookRun statuses are lowercase: queued | running | completed | failed | cancelled
-    const activeRun = await prisma.playbookRun.findFirst({
-      where: { playbookId: id, status: { in: ["queued", "running"] } },
-      select: { id: true },
-    });
-    if (activeRun) {
-      throw new BusinessError(t("backend.playbook.cannotDeleteWhileRunning"));
-    }
-    await prisma.$transaction(async (tx) => {
-      const deleted = await tx.playbook.deleteMany({
-        where: { id, ...(session ? playbookTeamWhere(session) : {}) },
+    auditTeamId = await prisma.$transaction(async (tx) => {
+      const where = { id, ...(session ? activeCustomerTeamWhere(session) : {}) };
+      const existing = await tx.playbook.findFirst({ where, select: { teamId: true } });
+      if (!existing) throw new NotFoundError(t("backend.playbook.notFound"));
+      await reconcileTerminalPlaybookJobs(tx, { playbookId: id });
+      const activeRun = await tx.playbookRun.findFirst({
+        where: { playbookId: id, status: { in: ["queued", "running"] } }, select: { id: true },
       });
-      if (deleted.count === 0) throw new NotFoundError(t("backend.playbook.notFound"));
+      if (activeRun) throw new BusinessError(t("backend.playbook.cannotDeleteWhileRunning"));
+      const deleted = await tx.playbook.deleteMany({ where: { ...where, teamId: existing.teamId } });
+      if (!deleted.count) throw new NotFoundError(t("backend.playbook.notFound"));
       // Alert rules name their remediation playbooks by id, without a foreign
       // key: a deleted one stayed listed (and counted on the rule's card) and
       // every later fire tried to start it.
       await tx.$executeRaw`UPDATE "alert_rules" SET "playbookIds" = array_remove("playbookIds", ${id}) WHERE ${id} = ANY("playbookIds")`;
+      return existing.teamId;
     });
   } finally {
     await releaseLock();
@@ -460,13 +481,13 @@ export async function deletePlaybook(
     "playbook.delete",
     { playbookId: id },
     undefined,
-    session?.currentTeamId ?? null,
+    auditTeamId,
   );
 }
 
 async function projectRuns(rows: RawPlaybookRun[], session?: TeamSession): Promise<PlaybookRunRecord[]> {
   const contexts = session && await projectTriggerContexts(rows.map((row) => row.triggerContext), session);
-  return rows.map((row, index) => narrowPlaybookRun(row, contexts ? contexts[index] : row.triggerContext));
+  return rows.map((row, index) => narrowPlaybookRun(row, contexts ? contexts[index] : row.triggerContext, mayReadCommandSteps(session)));
 }
 
 export async function getPlaybookRun(id: string, session: TeamSession): Promise<PlaybookRunRecord | null> {
@@ -515,6 +536,8 @@ export async function listRecentPlaybookRunsForPlaybooks(
       SELECT id, ROW_NUMBER() OVER (PARTITION BY "playbookId" ORDER BY "createdAt" DESC, id DESC) AS position
       FROM playbook_runs
       WHERE "playbookId" = ANY(${playbookIds}::text[])
+        AND EXISTS (SELECT 1 FROM playbooks p WHERE p.id = playbook_runs."playbookId" AND p."teamId" IS NOT DISTINCT FROM playbook_runs."teamId")
+        ${session ? Prisma.sql`AND ${rawTeamScope(session, Prisma.sql`playbook_runs."teamId"`)}` : Prisma.empty}
     ) ranked
     WHERE position <= ${perPlaybook}`;
   const rows = await prisma.playbookRun.findMany({
@@ -606,5 +629,5 @@ export async function runPlaybook(input: {
       auditTeamId,
     );
   }
-  return narrowPlaybookRun(run);
+  return narrowPlaybookRun(run, run.triggerContext, mayReadCommandSteps(input.session));
 }

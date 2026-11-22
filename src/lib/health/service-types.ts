@@ -16,6 +16,8 @@ export type HealthStatus =
 	| "unknown";
 
 export type ServerHealth = {
+	/** Ownership when a background or rule-directed sample was selected. */
+	sampledTeamId?: string | null;
 	serverId: string;
 	serverName: string;
 	host: string;

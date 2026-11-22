@@ -36,6 +36,7 @@ export function redactWebhookResult(step: PlaybookStep | undefined, result: Play
   const description = describeWebhookStep(step, result);
   const receipt = {
     stepId: result.stepId,
+    ...(Number.isInteger(result.attempt) ? { attempt: result.attempt } : {}),
     status: result.status,
     startedAt: result.startedAt,
     completedAt: result.completedAt,
@@ -68,11 +69,11 @@ const historyReceipt = z.object({
 });
 
 /** Mutable playbook definitions cannot identify the step that produced an old receipt. */
-export function redactRunHistory(executionState: unknown, results: unknown, errorMessage: string | null) {
+export function redactRunHistory(executionState: unknown, results: unknown, errorMessage: string | null, showCommands = true) {
   const state = executionState as { schemaVersion?: number; stepsSnapshot?: PlaybookStep[] } | null;
   const steps = (state?.schemaVersion === 1 || state?.schemaVersion === 2) && Array.isArray(state.stepsSnapshot) ? state.stepsSnapshot : [];
   const byId = new Map(steps.filter((step) => step?.id).map((step) => [step.id, step]));
-  let rebuildParentError = !Array.isArray(results) || !steps.length || steps.some((step) => step?.type === "call_webhook");
+  let rebuildParentError = !Array.isArray(results) || !steps.length || steps.some((step) => step?.type === "call_webhook" || (!showCommands && step?.type === "run_command"));
   const stepResults: PlaybookStepResult[] = [];
   for (const item of Array.isArray(results) ? results : []) {
     const receipt = historyReceipt.safeParse(item);
@@ -82,7 +83,10 @@ export function redactRunHistory(executionState: unknown, results: unknown, erro
     }
     const result = receipt.data;
     const step = byId.get(result.stepId);
-    if (step?.type === "run_command" || step?.type === "send_notification" || step?.type === "call_webhook") {
+    if (step?.type === "run_command" && !showCommands) {
+      rebuildParentError = true;
+      stepResults.push({ stepId: result.stepId, status: result.status, startedAt: result.startedAt, completedAt: result.completedAt, summary: result.status });
+    } else if (step?.type === "run_command" || step?.type === "send_notification" || step?.type === "call_webhook") {
       stepResults.push(redactWebhookResult(step, result));
     } else {
       rebuildParentError = true;

@@ -1,7 +1,7 @@
 import { describe, expect, it, vi } from "vitest";
 
 vi.mock("@/lib/db", () => ({ prisma: {} }));
-vi.mock("@/lib/status/service", () => ({ getPublicStatusSummary: vi.fn() }));
+vi.mock("@/lib/public-status/platform", () => ({ getPublicStatusSummary: vi.fn() }));
 
 import { applyBoardQuery, effectiveSort, summarizeNodes, toPublicNode, type VisibleNodeRow } from "../projection";
 import { PUBLIC_METRIC_CATEGORIES, type PublicMetricCategory } from "../site-config";

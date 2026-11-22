@@ -155,7 +155,7 @@ export const PlaybookCard = memo(function PlaybookCard({
               {isToggling ? t("playbooksPage.action.toggling") : t(playbook.enabled ? "playbooksPage.action.disable" : "playbooksPage.action.enable")}
             </ActionButton>
           )}
-          {canManage && !playbook.ownerActive && (
+          {canManage && canRun && !playbook.ownerActive && (
             <ActionButton variant="secondary"
               onClick={() => onClaim(playbook)}
               disabled={isClaiming}>

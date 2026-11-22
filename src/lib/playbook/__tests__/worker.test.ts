@@ -21,10 +21,12 @@ const { mocks } = vi.hoisted(() => ({
 
 vi.mock("@/lib/db", () => ({
   prisma: {
+    $queryRaw: vi.fn(async () => ["run", "run-1", "run-c", "run-x"].map((id) => ({ id, version: 1 }))),
     alertRule: { findUnique: mocks.alertRuleFindUnique },
     server: { findFirst: mocks.serverFindFirst },
     playbook: { findUnique: mocks.playbookFindUnique },
     playbookRun: {
+      count: vi.fn(async () => 1),
       findUnique: mocks.playbookRunFindUnique,
       updateMany: mocks.playbookRunUpdateMany,
     },
@@ -52,7 +54,8 @@ vi.mock("@/lib/job/service", () => ({
   failJobTerminal: vi.fn(),
   heartbeatJob: mocks.heartbeatJob,
 }));
-vi.mock("@/lib/job/heartbeat-runner", () => ({
+vi.mock("@/lib/job/heartbeat-runner", async (original) => ({
+  ...await original<typeof import("@/lib/job/heartbeat-runner")>(),
   runWithLeaseHeartbeat: vi.fn(async ({ run }: { run: () => Promise<unknown> }) => run()),
 }));
 vi.mock("@/lib/api-token/authorization", () => ({
@@ -152,6 +155,25 @@ describe("processPlaybookRun dual-owner races", () => {
     await expect(processPlaybookRun("run-1", "job-1")).rejects.toBeInstanceOf(PlaybookAuthorizationError);
     expect(mocks.executePlaybookChain).not.toHaveBeenCalled();
     expect(mocks.releaseLock).toHaveBeenCalledOnce();
+  });
+
+  it("stops dispatching and releases the execution lock when its connection signals loss", async () => {
+    const lock = new AbortController();
+    const job = new AbortController();
+    const release = Object.assign(vi.fn(async () => {}), { signal: lock.signal });
+    mocks.acquireAdvisoryLock.mockResolvedValueOnce(release);
+    mocks.playbookRunFindUnique
+      .mockResolvedValueOnce({ id: "run", status: "queued", teamId: "team1", createdById: "u1", playbook })
+      .mockResolvedValueOnce({ status: "running", dryRun: false, teamId: "team1", stepResults: [] });
+    mocks.playbookRunUpdateMany.mockResolvedValue({ count: 1 });
+    mocks.executePlaybookChain.mockImplementationOnce(async ({ beforeDispatch }) => {
+      lock.abort(new Error("connection closed"));
+      await beforeDispatch();
+    });
+    await expect(processPlaybookRun("run", "job", job.signal, 2, 1)).rejects.toMatchObject({ name: "LeaseLostError" });
+    expect(job.signal.aborted).toBe(false);
+    expect(release).toHaveBeenCalledOnce();
+    expect(mocks.auditSystemAction).not.toHaveBeenCalled();
   });
 
   it.each([
@@ -307,7 +329,7 @@ describe("processPlaybookRun dual-owner races", () => {
     expect(mocks.playbookRunUpdateMany).toHaveBeenNthCalledWith(
       3,
       expect.objectContaining({
-        where: { id: "run-1", status: { in: ["queued", "running"] } },
+        where: { id: "run-1", version: 1, status: { in: ["queued", "running"] } },
         data: expect.objectContaining({ status: "completed" }),
       }),
     );

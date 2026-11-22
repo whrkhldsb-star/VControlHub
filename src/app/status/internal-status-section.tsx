@@ -2,7 +2,7 @@ import { getServerLocale, t } from "@/lib/i18n/translations";
 import { dayCoverageMinutes } from "@/lib/uptime/coverage";
 import { appTimeZoneDateKey, shiftAppTimeZoneDay } from "@/lib/datetime/time-zone";
 import { formatDateTime } from "@/lib/datetime/format";
-import { getPublicStatus } from "@/lib/status/service";
+import { getPublicStatus } from "@/lib/public-status/platform";
 import { createLogger } from "@/lib/logging";
 import { getAllUptimeDataInternal, type UptimeDay } from "@/lib/uptime/internal";
 import type { SessionPayload } from "@/lib/auth/session";

@@ -7,7 +7,7 @@ import {
   updatePlaybook,
 } from "@/lib/playbook/service";
 import { updatePlaybookSchema } from "@/lib/playbook/schema";
-import { PLAYBOOK_COMMAND_PERMISSION, PLAYBOOK_RUN_PERMISSION } from "@/lib/playbook/permissions";
+import { PLAYBOOK_APPROVAL_PERMISSION, PLAYBOOK_COMMAND_PERMISSION, PLAYBOOK_RUN_PERMISSION } from "@/lib/playbook/permissions";
 import { withApiRoute } from "@/lib/http/api-guard";
 import { apiError } from "@/lib/http/api-error";
 import { GENERAL_READ_LIMIT, GENERAL_WRITE_LIMIT } from "@/lib/http/rate-limit-presets";
@@ -20,7 +20,7 @@ type PlaybookRouteContext = { params: Promise<{ id?: string }> };
 export async function GET(request: Request, { params }: PlaybookRouteContext) {
   return withApiRoute(
     request,
-    { permission: "playbook:read", optionalTokenPermissions: ["playbook:manage"], rateLimit: GENERAL_READ_LIMIT, errorStatus: 500, errorMessage: apiCopy("apiCopy.server.error.dfe0c2e8") },
+    { permission: "playbook:read", optionalTokenPermissions: ["playbook:manage", PLAYBOOK_COMMAND_PERMISSION, PLAYBOOK_APPROVAL_PERMISSION], rateLimit: GENERAL_READ_LIMIT, errorStatus: 500, errorMessage: apiCopy("apiCopy.server.error.dfe0c2e8") },
     async ({ session }) => {
       const id = await requirePlaybookId(params);
       const playbook = await getPlaybook(id, session);
@@ -36,7 +36,7 @@ export async function PATCH(request: Request, { params }: PlaybookRouteContext) 
   return withApiRoute(
     request,
     {
-      permission: "playbook:manage", optionalTokenPermissions: [PLAYBOOK_RUN_PERMISSION, PLAYBOOK_COMMAND_PERMISSION],
+      permission: "playbook:manage", optionalTokenPermissions: [PLAYBOOK_RUN_PERMISSION, PLAYBOOK_COMMAND_PERMISSION, PLAYBOOK_APPROVAL_PERMISSION],
       rateLimit: GENERAL_WRITE_LIMIT, errorStatus: 400, errorMessage: apiCopy("apiCopy.failed.to.update.8eb4917b"), bodySchema: updatePlaybookSchema,
     },
     async ({ session, body }) => {

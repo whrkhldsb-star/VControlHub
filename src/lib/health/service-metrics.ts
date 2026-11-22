@@ -1,6 +1,9 @@
+import { sampleId, withSamplingClaim, type SamplingClaim } from "@/lib/monitoring/sampling-claim";
 import { Prisma } from "@prisma/client";
+import { rawServerScope, type TeamSession } from "@/lib/auth/team-scope";
 import { prisma } from "@/lib/db";
 import { createLogger } from "@/lib/logging";
+import { LeaseLostError } from "@/lib/job/heartbeat-runner";
 import { normalizeServerMetrics, pgNonnegativeInt } from "@/lib/public-status/normalize";
 import { writeLatestMetrics, type LatestMetricInput } from "@/lib/public-status/latest-writer";
 import type { HealthOverview, ServerHealth } from "./service-types";
@@ -8,9 +11,9 @@ import { HEALTH_SAMPLE_INTERVAL_MINUTES } from "./service-types";
 
 const logger = createLogger("health-metrics");
 
-async function teamIdByServerIds(serverIds: string[]): Promise<Map<string, string | null>> {
+async function teamIdByServerIds(serverIds: string[], db: Prisma.TransactionClient): Promise<Map<string, string | null>> {
   if (serverIds.length === 0) return new Map();
-  const rows = await prisma.server.findMany({
+  const rows = await db.server.findMany({
     where: { id: { in: serverIds } },
     select: { id: true, teamId: true },
   });
@@ -72,7 +75,7 @@ export function latestMetricInput(server: ServerHealth, checkedAt: Date, interva
  */
 export async function snapshotHealthOverview(
   overview: HealthOverview,
-  options: { intervalSeconds?: number; checkedAt?: Date } = {},
+  options: { intervalSeconds?: number; checkedAt?: Date; claim?: SamplingClaim } = {},
 ) {
   const intervalSeconds = Math.max(1, Math.round(options.intervalSeconds ?? HEALTH_SAMPLE_INTERVAL_MINUTES * 60));
   const checkedAt = options.checkedAt ?? new Date();
@@ -87,7 +90,7 @@ export async function snapshotHealthOverview(
       return [{ serverId: server.serverId, cpuUsage: null, memUsage: null, diskUsage: null, isOnline: true, ...extra }];
     }
     // SSH auth / collect failure still means "not online for metrics".
-    if (server.cpu === undefined || server.mem === undefined || server.diskMax === undefined) {
+    if (server.cpu === undefined && server.mem === undefined && server.diskMax === undefined) {
       if (server.status === "warning" || server.status === "unknown") {
         return [{ serverId: server.serverId, cpuUsage: 0, memUsage: 0, diskUsage: 0, isOnline: false, ...extra }];
       }
@@ -96,9 +99,9 @@ export async function snapshotHealthOverview(
     const load1 = server.loadAvg1m ?? server.metrics?.cpu.loadAvg[0];
     return [{
       serverId: server.serverId,
-      cpuUsage: server.cpu,
-      memUsage: server.mem,
-      diskUsage: server.diskMax,
+      cpuUsage: server.cpu ?? null,
+      memUsage: server.mem ?? null,
+      diskUsage: server.diskMax ?? null,
       isOnline: true,
       load1: typeof load1 === "number" && Number.isFinite(load1) ? load1 : null,
       processCount: pgNonnegativeInt(server.metrics?.system?.processes),
@@ -112,27 +115,31 @@ export async function snapshotHealthOverview(
     .filter((row): row is LatestMetricInput => row !== null);
   if (latest.length > 0) {
     // The status board's copy must not cost the durable history sample.
-    await writeLatestMetrics(latest).catch((error) =>
-      logger.warn("latest metric upsert failed", { error: error instanceof Error ? error.message : String(error) }),
-    );
+    await writeLatestMetrics(latest, options.claim).catch((error) => {
+      options.claim?.signal.throwIfAborted();
+      if (error instanceof LeaseLostError) throw error;
+      logger.warn("latest metric upsert failed", { error: error instanceof Error ? error.message : String(error) });
+    });
   }
   if (base.length === 0) return { count: 0 };
-  const teamMap = await teamIdByServerIds([...new Set(base.map((r) => r.serverId))]);
-  const data = base.map((row) => ({
-    ...row,
-    teamId: teamMap.get(row.serverId) ?? null,
-  }));
-  return prisma.metricSnapshot.createMany({ data });
+  return withSamplingClaim(options.claim, async (tx) => {
+    const teamMap = await teamIdByServerIds([...new Set(base.map((r) => r.serverId))], tx);
+    const data = base.map((row) => ({
+      ...row, teamId: teamMap.get(row.serverId) ?? null,
+      ...(options.claim ? { id: sampleId("health", options.claim.jobId, row.serverId) } : {}),
+    }));
+    return tx.metricSnapshot.createMany({ data, ...(options.claim ? { skipDuplicates: true } : {}) });
+  });
 }
 
-export async function pruneMetricSnapshots(olderThan: Date) {
-  return prisma.metricSnapshot.deleteMany({ where: { createdAt: { lt: olderThan } } });
+export async function pruneMetricSnapshots(olderThan: Date, claim?: SamplingClaim) {
+  return withSamplingClaim(claim, (tx) => tx.metricSnapshot.deleteMany({ where: { createdAt: { lt: olderThan } } }));
 }
 
 export type MetricHistoryPoint = {
-  cpuUsage: number;
-  memUsage: number;
-  diskUsage: number;
+  cpuUsage: number | null;
+  memUsage: number | null;
+  diskUsage: number | null;
   isOnline: boolean;
   createdAt: Date;
   intervalSeconds: number | null;
@@ -144,7 +151,7 @@ export type MetricHistoryPoint = {
  * `take` on the oldest rows: at a 1-minute cadence "24 hours" stopped 19
  * hours ago.
  */
-export async function getMetricHistory(serverId: string, hours: number = 24): Promise<MetricHistoryPoint[]> {
+export async function getMetricHistory(serverId: string, hours: number = 24, session?: TeamSession): Promise<MetricHistoryPoint[]> {
   const normalizedHours = Math.min(Math.max(Math.floor(hours), 1), 168);
   const since = new Date(Date.now() - normalizedHours * 3_600_000);
   const maxPoints = Math.min(2_100, normalizedHours * 12 + 12);
@@ -156,7 +163,9 @@ export async function getMetricHistory(serverId: string, hours: number = 24): Pr
         count(*) OVER () AS total
       FROM metric_snapshots
       -- Rows without values (a server with no metrics channel) have nothing to chart.
-      WHERE "serverId" = ${serverId} AND "createdAt" >= ${since} AND "cpuUsage" IS NOT NULL
+      WHERE "serverId" = ${serverId} AND "createdAt" >= ${since}
+        AND ("cpuUsage" IS NOT NULL OR "memUsage" IS NOT NULL OR "diskUsage" IS NOT NULL)
+        ${session ? Prisma.sql`AND EXISTS (SELECT 1 FROM servers s WHERE s.id = "serverId" AND ${rawServerScope(session, "canRead")})` : Prisma.empty}
     ) window_rows
     WHERE (rn - 1) % GREATEST(1, CEIL(total::numeric / ${maxPoints}))::bigint = 0
     ORDER BY "createdAt" ASC

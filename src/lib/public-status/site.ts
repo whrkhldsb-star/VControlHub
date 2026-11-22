@@ -2,6 +2,7 @@
  * Status board site settings (one row, id "default"). A missing row means
  * the board is closed — that is the state after the migration.
  */
+import type { Prisma } from "@prisma/client";
 import { prisma } from "@/lib/db";
 import {
 	ANNOUNCEMENT_MAX,
@@ -27,8 +28,8 @@ const SITE_SELECT = {
 	updatedAt: true,
 } as const;
 
-export async function loadPublicSite(): Promise<PublicSiteConfig> {
-	const row = await prisma.publicStatusSite.findUnique({ where: { id: "default" }, select: SITE_SELECT });
+export async function loadPublicSite(db: Prisma.TransactionClient = prisma): Promise<PublicSiteConfig> {
+	const row = await db.publicStatusSite.findUnique({ where: { id: "default" }, select: SITE_SELECT });
 	return siteConfigFromRow(row);
 }
 

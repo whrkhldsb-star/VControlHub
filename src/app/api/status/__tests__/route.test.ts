@@ -8,7 +8,7 @@ import { describe, expect, it, vi } from "vitest";
 const getPublicStatusMock = vi.fn();
 const getPublicStatusSummaryMock = vi.fn();
 const getApiSessionMock = vi.fn();
-vi.mock("@/lib/status/service", () => ({
+vi.mock("@/lib/public-status/platform", () => ({
   getPublicStatus: getPublicStatusMock,
   getPublicStatusSummary: getPublicStatusSummaryMock,
 }));

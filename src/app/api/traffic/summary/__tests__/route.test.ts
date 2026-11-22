@@ -122,7 +122,10 @@ describe("traffic summary route", () => {
         { accessGrants: { none: { userId: "u1" } } }, { accessGrants: { some: { userId: "u1", canRead: true } } },
       ] },
     }));
-    expect((await response.json()).storageNodes[1]).toMatchObject({ serverId: null, server: null, remoteServerId: null });
+    const { storageNodes } = await response.json();
+    expect(storageNodes[1]).toMatchObject({ host: null, port: null, serverId: null, server: null, remoteServerId: null });
+    expect(JSON.stringify(storageNodes[1])).not.toContain("127.0.0.1");
+    expect(storageNodes[2]).toMatchObject({ host: "10.0.0.8", port: 2022 });
   });
 
   it("quarantines servers and storage nodes without an active workspace", async () => {

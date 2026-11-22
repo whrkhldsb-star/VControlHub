@@ -1,3 +1,4 @@
+import Link from "next/link";
 import { requirePagePermission } from "@/lib/auth/page-guard";
 import { sessionHasPermission } from "@/lib/auth/authorization";
 import { listPlaybooks, listRecentPlaybookRunsForPlaybooks } from "@/lib/playbook/service";
@@ -9,7 +10,7 @@ import { PlaybookListClient } from "./playbook-list-client";
 
 export const dynamic = "force-dynamic";
 
-export default async function PlaybooksPage() {
+export default async function PlaybooksPage({ searchParams }: { searchParams?: Promise<{ after?: string }> } = {}) {
 	// Reading playbooks admits to the page (and decides whether the sidebar offers it); managing and running
 	// are controls inside it. With a bare session check, an account without it saw "no playbooks yet".
 	const session = await requirePagePermission("playbook:read", { redirectTo: "/playbooks" });
@@ -19,7 +20,9 @@ export default async function PlaybooksPage() {
 	const locale = await getServerLocale();
 
 	// listPlaybooks projects webhook configuration for this reader before steps enter RSC props.
-	const playbooks = await listPlaybooks(session);
+	const after = (await searchParams)?.after;
+	const rows = await listPlaybooks(session, { after, take: 101 });
+	const playbooks = rows.slice(0, 100);
 	// Team-scoped VPS options for run_command step target picker (create form).
 	const serverOptions = canManage && canReadServers
 		? (await listServerProfiles(session)).map((s) => ({
@@ -90,6 +93,12 @@ export default async function PlaybooksPage() {
 				canManage={canManage}
 				canRun={canRun}
 			/>
+			{(after || rows.length > 100) && (
+				<nav className="flex flex-wrap items-center gap-4">
+					{after && <Link href="/playbooks">{t("filePreferences.firstPage", locale)}</Link>}
+					{rows.length > 100 && <Link href={`/playbooks?after=${encodeURIComponent(playbooks.at(-1)!.id)}`}>{t("common.pagination.next", locale)}</Link>}
+				</nav>
+			)}
 		</PageShell>
 	);
 }

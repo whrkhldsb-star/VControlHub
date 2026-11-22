@@ -57,6 +57,7 @@ vi.mock("@/lib/logging", () => ({
   }),
 }));
 
+import { ensureDefaultAlertRules } from "@/lib/alert/service";
 import {
   runAlertEvaluationJobWorkerOnce,
   startAlertEvaluationWorker,
@@ -82,7 +83,7 @@ describe("alert evaluation worker", () => {
     jobMocks.enqueueJob.mockResolvedValue({ id: "enqueued-job" });
     jobMocks.claimNextJob.mockImplementation(async () => {
       const id = `job-${jobIds.next++}`;
-      return { id, type: "alert.evaluate", payload: {}, status: "RUNNING" };
+      return { id, attempts: 1, type: "alert.evaluate", payload: {}, status: "RUNNING" };
     });
     jobMocks.heartbeatJob.mockResolvedValue({ count: 1 });
     jobMocks.completeJob.mockResolvedValue({ count: 1 });
@@ -111,7 +112,7 @@ describe("alert evaluation worker", () => {
     expect(jobMocks.completeJob).toHaveBeenCalledWith(
       "job-1",
       expect.stringContaining(":alert:"),
-      { evaluated: true },
+      { evaluated: true }, 1,
     );
     expect(jobMocks.pruneCompletedJobsByType).toHaveBeenCalledWith(
       expect.objectContaining({
@@ -124,6 +125,15 @@ describe("alert evaluation worker", () => {
     await vi.runOnlyPendingTimersAsync();
     expect(jobMocks.enqueueJob).toHaveBeenCalledTimes(2);
     expect(evaluateAlertsMock).toHaveBeenCalledTimes(2);
+  });
+
+  it("stops before bootstrap and evaluation when the claim generation is no longer current", async () => {
+    jobMocks.heartbeatJob.mockResolvedValueOnce({ count: 0 });
+    await runAlertEvaluationJobWorkerOnce("lease-lost");
+    expect(ensureDefaultAlertRules).not.toHaveBeenCalled();
+    expect(evaluateAlertsMock).not.toHaveBeenCalled();
+    expect(jobMocks.completeJob).not.toHaveBeenCalled();
+    expect(jobMocks.failJob).not.toHaveBeenCalled();
   });
 
   it("marks durable evaluation jobs failed without throwing", async () => {
@@ -139,7 +149,7 @@ describe("alert evaluation worker", () => {
       "job-1",
       expect.stringContaining(":alert:"),
       "eval boom",
-      { retryAfterMs: 60_000 },
+      { retryAfterMs: 60_000, attempts: 1 },
     );
     expect(errorMock).toHaveBeenCalledWith(
       "Alert evaluation failed",
@@ -157,7 +167,7 @@ describe("alert evaluation worker", () => {
     expect(jobMocks.completeJob).toHaveBeenCalledWith(
       "job-1",
       expect.stringContaining(":alert:"),
-      { evaluated: true },
+      { evaluated: true }, 1,
     );
     expect(warnMock).toHaveBeenCalledWith(
       "Failed to prune completed alert evaluation jobs",

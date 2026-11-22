@@ -72,6 +72,7 @@ export async function getAllUptimeDataInternal(options: UptimeListOptions = {}) 
       const page = await prisma.serverUptimeSnapshot.findMany({
         where: {
           serverId: { in: serverIds },
+          server: { enabled: true, ...teamFilter },
           date: { gte: ninetyDaysAgo },
         },
         orderBy: { id: "asc" },

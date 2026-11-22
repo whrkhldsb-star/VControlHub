@@ -75,7 +75,7 @@ describe("snapshotHealthOverview", () => {
     expect(createMany).toHaveBeenCalledWith({
       data: [{ serverId: "w1", cpuUsage: null, memUsage: null, diskUsage: null, isOnline: true, intervalSeconds: 300, probeStatus: "ok", probeLatencyMs: 12, teamId: null }],
     });
-    expect(writeLatestMetrics).toHaveBeenCalledWith([expect.objectContaining({ serverId: "w1", online: true })]);
+    expect(writeLatestMetrics.mock.lastCall?.[0]).toEqual([expect.objectContaining({ serverId: "w1", online: true })]);
     const latest = writeLatestMetrics.mock.calls[0]![0][0];
     expect(latest.metrics).toBeUndefined();
     expect(latest.offlineReason).toBeUndefined();
@@ -128,7 +128,7 @@ describe("snapshotHealthOverview", () => {
       { serverId: "s3", serverName: "x", host: "h", enabled: true, status: "offline", probeStatus: "failed", lastCheck: "2026-10-13T00:00:00.000Z" },
       { serverId: "s4", serverName: "y", host: "h", enabled: false, status: "offline", lastCheck: "2026-10-13T00:00:00.000Z" },
     ]));
-    expect(writeLatestMetrics).toHaveBeenCalledWith([
+    expect(writeLatestMetrics.mock.lastCall?.[0]).toEqual([
       expect.objectContaining({ serverId: "s3", online: false, offlineReason: "unreachable", intervalSeconds: 300 }),
     ]);
     // The durable history sample is still written.

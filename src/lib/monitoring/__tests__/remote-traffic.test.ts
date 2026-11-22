@@ -65,6 +65,22 @@ describe("sampleRemoteServersTraffic", () => {
 		__resetRemoteTrafficCache();
 	});
 
+	it("loads each batch after the previous batch completes and skips revoked hosts", async () => {
+		const hosts = Array.from({ length: 6 }, (_, i) => serverInput(String(i)));
+		mocks.execRemoteCommand.mockResolvedValue({ stdout: procNetDev(10, 20), stderr: "", exitCode: 0 });
+		const batches: string[][] = [];
+		const result = await sampleRemoteServersTraffic(hosts, async (batch) => {
+			batches.push(batch.map((host) => host.id));
+			if (batches.length === 2) {
+				expect(mocks.execRemoteCommand).toHaveBeenCalledTimes(5);
+				return [];
+			}
+			return hosts.slice(0, 5);
+		});
+		expect(batches).toEqual([["0", "1", "2", "3", "4"], ["5"]]);
+		expect(result.map((host) => host.serverId)).toEqual(["0", "1", "2", "3", "4"]);
+	});
+
 	it("connects with each server's saved host-key pin", async () => {
 		mocks.execRemoteCommand.mockResolvedValue({ stdout: procNetDev(1000, 2000), stderr: "", exitCode: 0 });
 		await sampleRemoteServersTraffic([serverInput("srv7")]);

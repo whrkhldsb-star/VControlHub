@@ -33,7 +33,7 @@ describe("playbooks page", () => {
 		rows.findMany.mockResolvedValueOnce([]);
 		guard.requirePagePermission.mockResolvedValueOnce(session);
 		await PlaybooksPage();
-		expect(listPlaybooks).toHaveBeenCalledWith(session);
+		expect(listPlaybooks).toHaveBeenCalledWith(session, { take: 101, after: undefined });
 	});
 
 	it("passes only the safe webhook configuration across the RSC boundary for a reader", async () => {
@@ -45,7 +45,7 @@ describe("playbooks page", () => {
 			} }],
 		}]);
 		const page = await PlaybooksPage();
-		const props = page.props.children.props;
+		const props = page.props.children[0].props;
 		expect(props.playbooks[0].steps[0].config).toEqual({
 			host: "example.org", method: "POST", urlConfigured: true, hasHeaders: true, hasBody: true,
 		});

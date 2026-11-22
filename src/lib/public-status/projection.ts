@@ -16,7 +16,7 @@ import { Prisma } from "@prisma/client";
 
 import { startOfMonthInAppTimeZone } from "@/lib/datetime/time-zone";
 import { prisma } from "@/lib/db";
-import { getPublicStatusSummary } from "@/lib/status/service";
+import { getPublicStatusSummary } from "@/lib/public-status/platform";
 import { isTrafficQuotaMode } from "./billing";
 import { normalizeCountryCode } from "./region-flag";
 import { classifyPublicNode, type PublicNodeStatus } from "./status";
@@ -124,8 +124,8 @@ const ROW_FROM = Prisma.sql`
 	LEFT JOIN "teams" tm ON tm."id" = s."teamId"
 	LEFT JOIN "server_metric_latest" m ON m."serverId" = n."serverId"`;
 
-export async function loadVisibleNodeRows(limit = MAX_BOARD_NODES + 1): Promise<VisibleNodeRow[]> {
-	return prisma.$queryRaw<VisibleNodeRow[]>`
+export async function loadVisibleNodeRows(limit = MAX_BOARD_NODES + 1, db: Prisma.TransactionClient = prisma): Promise<VisibleNodeRow[]> {
+	return db.$queryRaw<VisibleNodeRow[]>`
 		SELECT ${ROW_COLUMNS} ${ROW_FROM}
 		WHERE ${VISIBLE_NODE_SQL}
 		ORDER BY n."sortOrder" ASC, n."displayName" ASC, n."publicId" ASC
@@ -148,8 +148,8 @@ export async function loadVisiblePublications(limit = MAX_BOARD_NODES): Promise<
 }
 
 /** The visible node with this public id, or null (unpublished, hidden, unknown). */
-export async function loadVisibleNodeRow(publicId: string): Promise<VisibleNodeRow | null> {
-	const rows = await prisma.$queryRaw<VisibleNodeRow[]>`
+export async function loadVisibleNodeRow(publicId: string, db: Prisma.TransactionClient = prisma): Promise<VisibleNodeRow | null> {
+	const rows = await db.$queryRaw<VisibleNodeRow[]>`
 		SELECT ${ROW_COLUMNS} ${ROW_FROM}
 		WHERE n."publicId" = ${publicId} AND ${VISIBLE_NODE_SQL}
 		LIMIT 1`;
@@ -447,7 +447,10 @@ export function invalidatePublicStatusCache() {
 }
 
 async function buildSnapshot(): Promise<BoardSnapshot> {
-	const [site, rows] = await Promise.all([loadPublicSite(), loadVisibleNodeRows()]);
+	const { site, rows } = await prisma.$transaction(async (tx) => ({
+		site: await loadPublicSite(tx),
+		rows: await loadVisibleNodeRows(undefined, tx),
+	}), { isolationLevel: "RepeatableRead" });
 	const now = new Date();
 	const truncated = rows.length > MAX_BOARD_NODES;
 	const allowed = new Set(site.metrics);

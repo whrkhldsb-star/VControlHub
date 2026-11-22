@@ -92,6 +92,7 @@ describe("Playbook automatic trigger dispatch", () => {
         updateMany: mocks.playbookUpdateMany,
         update: mocks.playbookUpdate,
       },
+      server: { findMany: mocks.serverFindMany },
       team: { count: mocks.teamCount },
     }));
     mocks.teamCount.mockResolvedValue(0);
@@ -99,6 +100,20 @@ describe("Playbook automatic trigger dispatch", () => {
     mocks.playbookUpdate.mockResolvedValue({});
     mocks.queuePlaybookRunWithClient.mockResolvedValue({ created: true, run: { id: "run-1" } });
     mocks.auditSystemAction.mockResolvedValue(undefined);
+  });
+
+  it.each(["playbook", "host"])("discards a metric sample when its %s moves between discovery and dispatch", async (moved) => {
+    mocks.playbookFindMany.mockResolvedValue([{ id: "pb-metric", teamId: "team-1" }]);
+    mocks.playbookFindUnique.mockResolvedValue({ ...metricPlaybook(), teamId: moved === "playbook" ? "team-2" : "team-1" });
+    mocks.serverFindMany.mockResolvedValueOnce([{ id: "s", teamId: "team-1" }]).mockResolvedValue([]);
+    const sample: ServerHealth = { serverId: "s", serverName: "server", host: "local", enabled: true, cpu: 96, status: "warning", lastCheck: now.toISOString() };
+    expect(await dispatchMetricPlaybooksForHealthOverview([sample], now)).toEqual({ evaluated: 1, dispatched: 0 });
+    expect(mocks.playbookUpdate).not.toHaveBeenCalled();
+    expect(mocks.queuePlaybookRunWithClient).not.toHaveBeenCalled();
+    expect(mocks.auditSystemAction).not.toHaveBeenCalled();
+    if (moved === "host") expect(mocks.serverFindMany).toHaveBeenLastCalledWith(expect.objectContaining({
+      where: expect.objectContaining({ teamId: "team-1", enabled: true, id: { in: ["s"] } }),
+    }));
   });
 
   it("initializes a legacy Cron playbook without replaying historical occurrences", async () => {

@@ -1,3 +1,4 @@
+import type { SamplingClaim } from "@/lib/monitoring/sampling-claim";
 /**
  * Optional capacity-forecast → alert-rule linkage.
  *
@@ -110,6 +111,7 @@ export type CapacityAlertRuleSlice = {
   durationSeconds: number;
   matchState: unknown;
   updatedAt: Date;
+  version?: string;
   lastMatchedAt: Date | null;
   lastTriggeredAt: Date | null;
   cooldownMinutes: number;
@@ -133,6 +135,7 @@ export async function evaluateCapacityLinkedAlerts(
   options?: {
     forecast?: CapacityForecastResult;
     session?: TeamSession;
+    claim?: SamplingClaim;
     nowMs?: number;
     /** Injected for tests — skip silence window helper */
     isSilent?: (windows: string[]) => boolean;
@@ -157,6 +160,7 @@ export async function evaluateCapacityLinkedAlerts(
   let skipped = 0;
 
   for (const rule of capacityRules) {
+    options?.claim?.signal.throwIfAborted();
     if (isSilent(rule.silenceWindows)) {
       skipped += 1;
       continue;
@@ -178,6 +182,7 @@ export async function evaluateCapacityLinkedAlerts(
     const allowed = new Set<string>();
     const candidates = targets.map((server) => server.serverId);
     for (let offset = 0; offset < candidates.length; offset += 500) {
+      options?.claim?.signal.throwIfAborted();
       const live = await prisma.server.findMany({
         where: {
           id: { in: candidates.slice(offset, offset + 500) }, enabled: true,
@@ -205,6 +210,8 @@ export async function evaluateCapacityLinkedAlerts(
     let latestFireAt: Date | null = null;
 
     for (const server of targets) {
+      options?.claim?.signal.throwIfAborted();
+      const evaluation = rule.version ? { version: rule.version, sampledAt: new Date(forecast.summary.generatedAt), claim: options?.claim } : undefined;
       if (isSilent(rule.silenceWindows)) break;
       const { value, reason } = daysValueFromServerForecast(server, key);
 
@@ -221,7 +228,7 @@ export async function evaluateCapacityLinkedAlerts(
       if (value === null) {
         // Recovered / not projected — resolve any open incident.
         const cleared = await resolveAlertIncident({
-          ruleId: rule.id,
+          ruleId: rule.id, evaluation,
           silenceWindows: rule.silenceWindows,
           ruleName: rule.name,
           serverId: server.serverId,
@@ -239,7 +246,7 @@ export async function evaluateCapacityLinkedAlerts(
 
       if (!matches) {
         const cleared = await resolveAlertIncident({
-          ruleId: rule.id,
+          ruleId: rule.id, evaluation,
           silenceWindows: rule.silenceWindows,
           ruleName: rule.name,
           serverId: server.serverId,
@@ -269,7 +276,7 @@ export async function evaluateCapacityLinkedAlerts(
       const message = t("backend.alert.capacity.riskMessage", { rule: rule.name, value: value.toFixed(1), key, operator: alertOperatorSign(rule.operator), threshold: rule.threshold });
 
       const fire = await openOrRefreshAlertIncident({
-        ruleId: rule.id,
+        ruleId: rule.id, evaluation,
         playbookIds: rule.playbookIds,
         silenceWindows: rule.silenceWindows,
         ruleName: rule.name,
@@ -303,7 +310,7 @@ export async function evaluateCapacityLinkedAlerts(
     }
 
     if (stateChanged || latestFireAt) {
-      await persistMatchState(rule, matchState, latestFireAt ? { lastTriggeredAt: latestFireAt } : {});
+      await persistMatchState(rule, matchState, latestFireAt ? { lastTriggeredAt: latestFireAt } : {}, options?.claim);
     }
   }
 

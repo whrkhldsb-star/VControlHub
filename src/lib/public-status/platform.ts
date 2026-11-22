@@ -1,0 +1,96 @@
+import { liveCustomerRowsWhere } from "@/lib/auth/team-scope";
+import { prisma } from "@/lib/db";
+import { summarizeSystemHealth, type SystemHealthCheck, type SystemHealthStatus } from "@/lib/system-health/service";
+import { getAppSlug } from "@/lib/branding";
+import { scheduleStorageNodeHealthProbe } from "@/lib/storage/health";
+
+type StorageHealthAggregate = {
+	total: number;
+	healthy: number;
+	unhealthy: number;
+	unknown: number;
+	checked: number;
+};
+
+function buildStorageStatus(input: StorageHealthAggregate): SystemHealthCheck {
+	if (input.total <= 0) {
+		return {
+			id: "storage",
+			label: "Cloud drive service",
+			status: "warning",
+			message: "Awaiting configuration",
+			messageCode: "awaiting",
+		};
+	}
+
+	const status: SystemHealthStatus = input.unhealthy > 0 ? "warning" : input.checked > 0 ? "healthy" : "warning";
+	const parts = [
+		`${input.total} storage nodes configured`,
+		`${input.healthy} recently probed healthy`,
+		`${input.unhealthy} unhealthy`,
+		`${input.unknown} pending probe`,
+	];
+
+	return {
+		id: "storage",
+		label: "Cloud drive service",
+		status,
+		message: `${parts.join(", ")}; SFTP/Direct Gateway host, port, or path will not be shown on the public status page.`,
+		messageCode: "summary",
+		params: { total: input.total, healthy: input.healthy, unhealthy: input.unhealthy, unknown: input.unknown },
+	};
+}
+
+export async function getPublicStatus(probe = true) {
+	const checks: SystemHealthCheck[] = [];
+	try {
+		await prisma.$queryRaw`SELECT 1`;
+		checks.push({ id: "database", label: "Database", status: "healthy", message: "Available", messageCode: "available" });
+	} catch {
+		// Database unreachable — report critical status but keep the rest of the checks running.
+		checks.push({ id: "database", label: "Database", status: "critical", message: "Unavailable", messageCode: "unavailable" });
+	}
+	const [serverCount, storageGroups] = await Promise.all([
+		prisma.server.count({ where: { enabled: true, ...liveCustomerRowsWhere() } }).catch(() => 0),
+		prisma.storageNode.groupBy({
+			by: ["healthStatus"],
+			where: liveCustomerRowsWhere(),
+			_count: { _all: true, lastHealthCheckAt: true },
+		}).catch(() => []),
+	]);
+	checks.push({
+		id: "servers",
+		label: "VPS management",
+		status: serverCount > 0 ? "healthy" : "warning",
+		message: serverCount > 0 ? `${serverCount} VPS instances enabled; no real-time SSH/network probing` : "Awaiting configuration",
+		messageCode: serverCount > 0 ? "enabled" : "awaiting",
+		params: { count: serverCount },
+	});
+	const storageAggregate: StorageHealthAggregate = { total: 0, healthy: 0, unhealthy: 0, unknown: 0, checked: 0 };
+	for (const group of storageGroups) {
+		storageAggregate.total += group._count._all;
+		if (group.healthStatus === "HEALTHY") storageAggregate.healthy += group._count.lastHealthCheckAt;
+		if (group.healthStatus === "UNHEALTHY") storageAggregate.unhealthy += group._count._all;
+	}
+	storageAggregate.checked = storageAggregate.healthy + storageAggregate.unhealthy;
+	storageAggregate.unknown = storageAggregate.total - storageAggregate.checked;
+	// TR-049: kick off a lazy background probe when any node is stale or
+	// never probed. The probe is fire-and-forget — the response is built
+	// from whatever's in the DB right now, and a subsequent poll (1-5 s
+	// later) sees the updated healthStatus. The schedule is intentionally
+	// unconditional: `probeAllStaleStorageNodes` short-circuits to a
+	// no-op when no candidates are due, so we pay nothing for the check.
+	if (probe) scheduleStorageNodeHealthProbe();
+	checks.push(buildStorageStatus(storageAggregate));
+	return { generatedAt: new Date().toISOString(), service: getAppSlug(), summary: summarizeSystemHealth(checks), // label/message stay English for API clients; messageCode + params let pages translate.
+		checks: checks.map(({ id, label, status, message, messageCode, params }) => ({ id, label, status, message, messageCode, params })) };
+}
+
+/**
+ * TR-053: 公开端点（未登录）只暴露 overall 状态，隐藏 storage / servers / database
+ * 详细检查内容，避免未授权访问者获取节点数、探测状态等内部信息。
+ */
+export async function getPublicStatusSummary() {
+	const { generatedAt, service, summary } = await getPublicStatus(false);
+	return { generatedAt, service, summary: { overall: summary.overall } };
+}

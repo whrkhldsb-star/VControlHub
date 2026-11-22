@@ -16,7 +16,7 @@ const readPublicBoardMock = vi.fn();
 vi.mock("@/lib/auth/server-session", () => ({
   getCurrentSession: getCurrentSessionMock,
 }));
-vi.mock("@/lib/status/service", () => ({
+vi.mock("@/lib/public-status/platform", () => ({
   getPublicStatus: getPublicStatusMock,
   getPublicStatusSummary: getPublicStatusSummaryMock,
 }));
