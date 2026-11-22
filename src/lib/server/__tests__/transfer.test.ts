@@ -11,7 +11,7 @@ const mocks = vi.hoisted(() => ({
   downloadTaskCount: vi.fn(),
   fileProxyCount: vi.fn(),
   transaction: vi.fn(),
-  lockRows: vi.fn(async () => []),
+  lockRows: vi.fn(async (sql: TemplateStringsArray) => sql.join("").includes("FROM cost_entries") ? [{ id: "month" }] : []),
   serverUpdate: vi.fn((args: unknown) => ({ op: "server.update", args })),
   storageNodeUpdateMany: vi.fn((args: unknown) => ({ op: "storageNode.updateMany", args })),
   costUpdateMany: vi.fn(),
@@ -88,10 +88,10 @@ describe("transferServerToCustomer", () => {
   it("moves the server with its storage and history and drops the old customer's grants", async () => {
     await expect(transferServerToCustomer("srv_1", "team_b", ADMIN, confirmed)).resolves.toEqual({ serverId: "srv_1", teamId: "team_b", teamName: "Beta" });
     expect(mocks.storageNodeUpdateMany).toHaveBeenCalledWith({ where: { id: { in: ["node_1", "agent_disk"] } }, data: { teamId: "team_b" } });
-    expect(mocks.costUpdateMany).toHaveBeenCalledWith({ where: { sourceType: "server_monthly", sourceRef: "srv_1", effectiveDate: expect.any(Date) }, data: { teamId: "team_b" } });
+    expect(mocks.costUpdateMany).toHaveBeenCalledWith({ where: { OR: [{ id: "month" }, { tags: { has: "adjustment-for:month" }, effectiveDate: { gte: expect.any(Date), lt: expect.any(Date) } }] }, data: { teamId: "team_b" } });
     expect(mocks.revoke).toHaveBeenCalledWith({ where: { serverId: "srv_1", storageNodeId: { in: ["agent_disk"] } } });
     expect(mocks.revoke).toHaveBeenCalledBefore(mocks.rebind);
-    expect(mocks.lockRows).toHaveBeenCalledTimes(2);
+    expect(mocks.lockRows).toHaveBeenCalledTimes(3);
     expect(mocks.lockRows.mock.invocationCallOrder[1]).toBeLessThan(mocks.revoke.mock.invocationCallOrder[0]!);
     expect(mocks.rebind).toHaveBeenCalledWith({ data: [{ serverId: "srv_1", storageNodeId: "agent_disk", teamId: "team_b" }] });
     // Backup ownership follows the transfer (A2-03): the old customer's creator can no longer run them.

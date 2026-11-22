@@ -62,7 +62,7 @@ describe("GET /api/images/list", () => {
     expect(response.status).toBe(200);
     expect(requireApiSessionMock).toHaveBeenCalled();
     expect(imageFindManyMock).toHaveBeenCalledWith(
-      expect.objectContaining({ where: { userId: "u1", teamId: "team_a" }, take: 10 }),
+      expect.objectContaining({ where: { userId: "u1", teamId: "team_a", team: { deletedAt: null } }, take: 10 }),
     );
   });
 
@@ -88,7 +88,7 @@ describe("GET /api/images/list", () => {
     expect(response.status).toBe(200);
     expect(requireApiSessionMock).not.toHaveBeenCalled();
     expect(imageFindManyMock).toHaveBeenCalledWith(
-      expect.objectContaining({ where: { userId: "api_user", teamId: "team_token" } }),
+      expect.objectContaining({ where: { userId: "api_user", teamId: "team_token", team: { deletedAt: null } } }),
     );
   });
 
@@ -119,7 +119,7 @@ describe("GET /api/images/list", () => {
     expect(sessionHasPermissionMock).toHaveBeenCalledWith(allCustomers, "team:manage");
     // "all customers" → teamWhere is empty (global)
     expect(imageFindManyMock).toHaveBeenCalledWith(
-      expect.objectContaining({ where: {} }),
+      expect.objectContaining({ where: { team: { isNot: { deletedAt: { not: null } } } } }),
     );
   });
 
@@ -136,7 +136,7 @@ describe("GET /api/images/list", () => {
     expect(response.status).toBe(200);
     expect(imageFindManyMock).toHaveBeenCalledWith(
       expect.objectContaining({
-        where: { teamId: "team_a" },
+        where: { teamId: "team_a", team: { deletedAt: null } },
       }),
     );
   });
@@ -152,7 +152,7 @@ describe("GET /api/images/list", () => {
     );
     expect(response.status).toBe(200);
     expect(imageFindManyMock).toHaveBeenCalledWith(
-      expect.objectContaining({ where: { userId: "u1", teamId: "team_a" } }),
+      expect.objectContaining({ where: { userId: "u1", teamId: "team_a", team: { deletedAt: null } } }),
     );
   });
 
@@ -201,7 +201,7 @@ describe("GET /api/images/list", () => {
       headers: { authorization: "Bearer valid-token" },
     }));
     expect(response.status).toBe(200);
-    expect(imageFindManyMock).toHaveBeenCalledWith(expect.objectContaining({ where: { userId: "u1", teamId: "team_a" } }));
+    expect(imageFindManyMock).toHaveBeenCalledWith(expect.objectContaining({ where: { userId: "u1", teamId: "team_a", team: { deletedAt: null } } }));
   });
 
   it("preserves an insufficient-scope rejection without cookie fallback", async () => {

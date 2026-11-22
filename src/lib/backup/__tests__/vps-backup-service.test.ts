@@ -52,7 +52,7 @@ const mocks = vi.hoisted(() => ({
 
 vi.mock("@/lib/concurrency/advisory-lock", () => {
   const held = new Set<string>();
-  return { tryAcquireAdvisoryLock: async (namespace: string, id: string) => {
+  return { acquireAdvisoryLock: vi.fn(async () => async () => {}), tryAcquireAdvisoryLock: async (namespace: string, id: string) => {
     const key = namespace + ":" + id;
     if (held.has(key)) return null;
     held.add(key);
@@ -128,6 +128,7 @@ function baseRecord() {
     status: "PENDING",
     server: {
       id: "srv_1",
+      teamId: "team_1", agentTokenHash: null,
       host: "10.0.0.1",
       port: 22,
       username: "root",
@@ -167,6 +168,7 @@ describe("runVpsBackupRecord false-success guards", () => {
     mocks.buildRemoteBackupCommand.mockReturnValue("tar czf /tmp/vch-backup_test.tar.gz /etc/nginx");
     mocks.buildRemoteCleanupCommand.mockReturnValue("rm -f /tmp/vch-backup_test.tar.gz");
     mocks.buildSshParamsFromServer.mockResolvedValue({
+      teamId: "team_1", agentTokenHash: null,
       host: "10.0.0.1",
       port: 22,
       username: "root",

@@ -721,7 +721,7 @@ signal?: AbortSignal,
     return;
    }
   } else {
-   const { stdout: logContent } = await execRemoteCommand({ ...sshParams, command: getDirectDownloadLogCommand(taskId), timeout: 8000 });
+   const { stdout: logContent } = await execRemoteCommand({ ...sshParams, signal, command: getDirectDownloadLogCommand(taskId), timeout: 8000 });
    // 127 is the launcher's own "no bash on this host" (remote-command.ts); the log is empty then.
    const errMsg = exitCode === 127 && !logContent.trim() ? t("backend.downloads.remoteBashMissing") : (logContent.trim() || t("backend.downloads.startFailed"));
    if (exitCode === 127 || exitCode === 65) spawnAttempted = false;

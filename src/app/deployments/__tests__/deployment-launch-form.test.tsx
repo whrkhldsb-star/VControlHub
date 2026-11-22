@@ -7,6 +7,9 @@ import { DeploymentLaunchForm } from "../deployment-launch-form";
 vi.mock("next/navigation", () => ({
 	useRouter: () => ({ push: vi.fn(), replace: vi.fn(), prefetch: vi.fn() }) }));
 
+const { loadTargets } = vi.hoisted(() => ({ loadTargets: vi.fn() }));
+vi.mock("@/app/servers/inventory-actions", () => ({ loadServerOperationTargets: loadTargets }));
+
 const servers = [
 	{ id: "srv_1", name: "香港 VPS", host: "hk.example.test", username: "root" },
 ];
@@ -17,8 +20,9 @@ const templates = [
 ];
 
 describe("DeploymentLaunchForm", () => {
-	it("renders variable inputs for the selected deployment template", () => {
-		render(<DeploymentLaunchForm templates={templates} servers={servers} />);
+	it("renders variable inputs for the selected deployment template", async () => {
+		loadTargets.mockResolvedValue({ rows: servers, total: 1, enabledCount: 1, page: 1, pageSize: 24 });
+		render(<DeploymentLaunchForm templates={templates} />);
 
 		expect(screen.getByText("该模板没有变量，可直接选择目标 VPS 提交。")).toBeInTheDocument();
 
@@ -30,13 +34,14 @@ describe("DeploymentLaunchForm", () => {
 		expect(screen.getByText(/deploy <app> --version <version>/)).toBeInTheDocument();
 		const serverList = screen.getByText("目标 VPS").closest("div")?.parentElement;
 		expect(serverList).toBeTruthy();
-		expect(within(serverList as HTMLElement).getByText(/香港 VPS/)).toBeInTheDocument();
+		expect(await within(serverList as HTMLElement).findByText(/香港 VPS/)).toBeInTheDocument();
 	});
 
-	it("shows an actionable empty state when there are no enabled VPS targets", () => {
-		render(<DeploymentLaunchForm templates={templates} servers={[]} />);
+	it("shows an actionable empty state when there are no enabled VPS targets", async () => {
+		loadTargets.mockResolvedValue({ rows: [], total: 0, enabledCount: 0, page: 1, pageSize: 24 });
+		render(<DeploymentLaunchForm templates={templates} />);
 
-		expect(screen.getByText("暂无可用 VPS，不能发起部署。")).toBeInTheDocument();
+		expect(await screen.findByText("暂无可用 VPS，不能发起部署。")).toBeInTheDocument();
 		expect(screen.getByRole("link", { name: "去添加 VPS" })).toHaveAttribute("href", "/servers");
 		expect(screen.queryByRole("button", { name: "提交部署审批" })).not.toBeInTheDocument();
 	});

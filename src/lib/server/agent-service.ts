@@ -435,6 +435,7 @@ export async function executeCommandWithAgent(input: {
       UPDATE servers SET "updatedAt" = now() AT TIME ZONE 'UTC'
       WHERE id = ${input.serverId} AND "managementMode" = 'AGENT'
         AND enabled AND "agentTokenHash" IS NOT NULL
+        AND NOT EXISTS (SELECT 1 FROM teams t WHERE t.id = servers."teamId" AND t."deletedAt" IS NOT NULL)
         ${input.expectedIdentity ? Prisma.sql`AND "agentTokenHash" = ${input.expectedIdentity.tokenHash} AND "teamId" IS NOT DISTINCT FROM ${input.expectedIdentity.teamId}` : Prisma.empty}
         ${input.expectedIdentity?.endpoint ? Prisma.sql`AND host = ${input.expectedIdentity.endpoint.host}
           AND port = ${input.expectedIdentity.endpoint.port} AND username = ${input.expectedIdentity.endpoint.username}
@@ -1299,11 +1300,12 @@ export async function installServerAgentUnderLock(serverId: string, teamId?: str
   const recovery = "/opt/vcontrolhub-agent/.install-" + stamp + "/restore.sh";
   const python = Buffer.from(buildAgentPython(hubUrl, token, recovery)).toString("base64");
   const unit = `[Unit]\nDescription=VControlHub Agent\nAfter=network-online.target\nWants=network-online.target\n\n[Service]\nType=simple\nExecStart=/usr/bin/python3 /opt/vcontrolhub-agent/agent.py\nRestart=on-failure\nRestartSec=5\nNoNewPrivileges=true\n\n[Install]\nWantedBy=multi-user.target\n`;
-  const ssh = await buildSshParamsFromServer(server, server.sshKey);
-  const run = async (script: string) => {
+  const ssh = await buildSshParamsFromServer(server, server.sshKey, server.teamId);
+  const run = async (script: string, tokenHash = server.agentTokenHash) => {
     // Once activation succeeds the previous agent identity is obsolete. The
     // cleanup still uses the original pinned SSH connection under the host lock.
     const result = await execRemoteCommand({ ...ssh,
+      expectedIdentity: ssh.expectedIdentity && { ...ssh.expectedIdentity, tokenHash },
       command: asRoot(withLinuxAgentInstallLock(script)), timeout: 60_000 });
     if (result.exitCode !== 0) throw new Error(result.stderr || result.stdout || "Agent installation failed");
   };
@@ -1368,7 +1370,7 @@ rm -rf "$candidate"`;
     }
   }
   // A dropped cleanup connection after activation cannot undo the new identity.
-  await run([paths, 'rm -rf "$candidate"'].join("\n")).catch(() => undefined);
+  await run([paths, 'rm -rf "$candidate"'].join("\n"), stamp).catch(() => undefined);
   return { installed: true };
 }
 
@@ -1429,7 +1431,8 @@ async function removeAgentInstallation(server: RemovalServer | null, verifiedSsh
     ? Boolean(server.sshKeyId && server.sshKey?.privateKey) : Boolean(server.password);
   if (!windows && (verifiedSsh || hasStoredSsh)) {
     try {
-      const ssh = verifiedSsh ?? await buildSshParamsFromServer(server, server.sshKey);
+      // Post-delete cleanup holds the original host reservation and authenticates the saved pin.
+      const ssh = verifiedSsh ?? await buildSshParamsFromServer(server, server.sshKey, allowAgent ? server.teamId : undefined);
       const result = await execRemoteCommand({ ...ssh, command: asRoot(guardedLinuxAgentRemoval(server.agentTokenHash, AGENT_SSH_CLEANUP_SCRIPT)), timeout: 30_000 });
       if (result.exitCode === 0) return { removed: true };
     } catch { /* The Agent may still be reachable on its outbound connection. */ }
@@ -1438,6 +1441,7 @@ async function removeAgentInstallation(server: RemovalServer | null, verifiedSsh
     const command = windows ? windowsAgentSelfRemoval(AGENT_WINDOWS_TASK_NAME, server.agentTokenHash) : linuxAgentSelfRemoval(server.agentTokenHash);
     const result = await executeCommandWithAgent({
       serverId: server.id, command, timeoutMs: 15_000,
+      expectedIdentity: { teamId: server.teamId, tokenHash: server.agentTokenHash, endpoint: server },
     }).catch(() => null);
     // The Agent acknowledged starting its cleanup helper, before that helper removes it.
     return result?.exitCode === 0 ? { removed: false, requested: true } : { removed: false };

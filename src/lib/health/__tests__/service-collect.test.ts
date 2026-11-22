@@ -20,7 +20,7 @@ const { prismaMock, collectServerMetricsMock, tcpProbeMock } = vi.hoisted(() => 
 			createMany: vi.fn(async () => ({ count: 1 })),
 			findFirst: vi.fn(),
 		},
-		$queryRaw: vi.fn(async (): Promise<Array<{ serverId: string; rx: string; tx: string; first_sample_at: Date }>> => []),
+		$queryRaw: vi.fn(async (): Promise<Array<{ id: string } | { serverId: string; rx: string; tx: string; first_sample_at: Date }>> => []),
 	},
 	collectServerMetricsMock: vi.fn(),
 	tcpProbeMock: vi.fn(),
@@ -299,6 +299,8 @@ describe("collectAllHealth — TR-050 TCP probe integration", () => {
 			network: [{ iface: "eth0", rxBytes: 1000, txBytes: 2000 }],
 		});
 
+		// The transaction confirms the reachable server still has the sampled endpoint.
+		prismaMock.$queryRaw.mockResolvedValueOnce([{ id: "s1" }]);
 		// Sampling-worker shape: opt in to durable persistence.
 		await collectAllHealth(undefined, { persistTraffic: true });
 

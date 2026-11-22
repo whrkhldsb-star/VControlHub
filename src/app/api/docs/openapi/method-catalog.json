@@ -124,7 +124,7 @@
   "/api/servers/[id]/sftp/upload": {"POST":[["server:ssh"]]},
   "/api/servers/[id]/transfer": {"POST":[["team:manage"]]},
   "/api/servers/[id]/uptime": {"GET":[["server:read"]]},
-  "/api/servers/[id]/vps-backup/records/[recordId]/download": {"GET":[["server:ssh"]]},
+  "/api/servers/[id]/vps-backup/records/[recordId]/download": {"GET":[["server:ssh"],["server:sftp:unrestricted"]]},
   "/api/servers/[id]/vps-backup/records/[recordId]/retry": {"POST":[["server:write"]]},
   "/api/servers/[id]/vps-backup/records/[recordId]": {"DELETE":[["server:write"]]},
   "/api/servers/[id]/vps-backup/records": {"GET":[["server:read"]],"POST":[["server:write"]]},

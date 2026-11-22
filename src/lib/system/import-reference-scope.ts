@@ -1,3 +1,4 @@
+import { alertConditionChanged } from "@/lib/alert/service";
 import { PLATFORM_ONLY_CHANNELS, verifiedRuleChannels } from "@/lib/alert/channel-grants";
 import { canAlertRuleTargetTeam } from "@/lib/alert/rule-scope";
 import { HUB_HOST_INSTANCE_KEY, isQuickServiceTargetConsistent } from "@/lib/quick-service/target-identity";
@@ -108,7 +109,7 @@ export async function planAlertRuleImport(
 ) {
   const valid = records.filter((rule) => hasImportableAlertReferences(rule, servers, playbooks, users));
   const existing = await loadImportReferences(valid.map((row) => row.id), (ids) => db.alertRule.findMany({
-    where: { id: { in: ids } }, select: { id: true, teamId: true, metric: true, webhookUrl: true },
+    where: { id: { in: ids } }, select: { id: true, teamId: true, metric: true, threshold: true, operator: true, webhookUrl: true },
   }));
   const current = byId(existing);
   const sameTeam = valid.filter((row) => !current.has(row.id) || current.get(row.id)!.teamId === (row.teamId ?? null));
@@ -122,7 +123,7 @@ export async function planAlertRuleImport(
     const verified = row.teamId && channels.some((c) => PLATFORM_ONLY_CHANNELS.includes(c))
       ? await verifiedRuleChannels({ ...row, teamId: row.teamId, webhookUrl: url ?? null, escalationMinutes: row.escalationMinutes ?? 30 }) : channels;
     result.push({ ...item, pendingApproval: verified.length !== channels.length, noApprovedChannel: channels.length > 0 && verified.length === 0, missingWebhook: item.row.notifyChannels?.includes("webhook") && !url,
-      metricChanged: old !== undefined && old.metric !== item.row.metric });
+      metricChanged: old !== undefined && alertConditionChanged(old, item.row) });
   }
   return result;
 }

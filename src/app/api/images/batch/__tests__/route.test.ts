@@ -7,6 +7,7 @@ import { describe, expect, it, vi } from "vitest";
 const {
   requireApiSessionMock,
   sessionHasPermissionMock,
+  lockedRowsMock,
   imageFindManyMock,
   imageDeleteManyMock,
   imageUpdateManyMock,
@@ -17,6 +18,7 @@ const {
   fileEntryDeleteManyMock,
   deleteBackingObjectMock, renameBackingObjectMock,
 } = vi.hoisted(() => ({
+  lockedRowsMock: vi.fn(),
   nodeFindManyMock: vi.fn(),
   mediaDeleteManyMock: vi.fn(),
   fileEntryDeleteManyMock: vi.fn().mockResolvedValue({ count: 1 }),
@@ -40,15 +42,6 @@ vi.mock("@/lib/auth/authorization", () => ({
   sessionHasPermission: sessionHasPermissionMock,
 }));
 vi.mock("@/lib/audit/service", () => ({ auditUserAction: vi.fn() }));
-vi.mock("@/lib/auth/team-scope", async (original) => ({
-  ...(await original<typeof import("@/lib/auth/team-scope")>()),
-  imageTeamWhere: (session: { currentTeamId?: string | null }) => ({
-    teamId: session.currentTeamId,
-  }),
-  teamWhere: (session: { currentTeamId?: string | null }) => ({
-    teamId: session.currentTeamId,
-  }),
-}));
 vi.mock("@/lib/storage/file-overwrite-lock", () => ({ lockStorageFileOverwrite: async () => async () => {} }));
 vi.mock("@/lib/storage/access-control", () => ({ assertStorageAccess: vi.fn().mockResolvedValue({ allowed: true }) }));
 vi.mock("@/lib/storage/file-content", () => ({ storageFileNodeSelect: { id: true, driver: true, basePath: true }, streamStorageFile: async () => ({ size: 3, stream: Readable.from(["img"]), close: () => {} }) }));
@@ -74,7 +67,8 @@ vi.mock("@/lib/db", () => ({
     storageNode: { findMany: nodeFindManyMock },
     mediaItem: { deleteMany: mediaDeleteManyMock },
     fileEntry: { findFirst: vi.fn().mockResolvedValue({ id: "uploaded" }), deleteMany: fileEntryDeleteManyMock },
-    $transaction: vi.fn(async (fn: (tx: unknown) => unknown) => fn({ $queryRaw: vi.fn(async () => []), imageUpload: { findMany: imageFindManyMock, deleteMany: imageDeleteManyMock }, fileEntry: { deleteMany: fileEntryDeleteManyMock }, mediaItem: { deleteMany: mediaDeleteManyMock } })),
+    $queryRaw: (sql: TemplateStringsArray) => sql.join("").includes("FROM image_uploads") ? lockedRowsMock() : [{ id: "team_1" }],
+    $transaction<T>(callback: (tx: unknown) => T) { return callback(this); },
   },
 }));
 vi.mock("@/lib/image-bed/constants", () => ({
@@ -93,14 +87,20 @@ vi.mock("@/lib/http/rate-limit-presets", async () => {
 import { POST } from "../route";
 
 const imageGeneration = { sizeBytes: 3, checksum: createHash("sha256").update("img").digest("hex"), createdAt: new Date(12345) };
-const ownerSession = { userId: "u_1", username: "alice" };
+const ownerSession = { userId: "u_1", username: "alice", currentTeamId: "team_1" };
 const managerSession = {
   userId: "u_manager",
   username: "manager",
   currentTeamId: "team_1",
 };
-const activeCustomers = { OR: [{ teamId: null }, { team: { deletedAt: null } }] };
+const activeCustomers = { teamId: "team_1", team: { deletedAt: null } };
 const viewerSession = { userId: "u_viewer", username: "viewer" };
+
+function givenImages(rows: Array<{ id: string; storageKey: string; storageNodeId?: string | null; relativePath?: string | null }>) {
+  const images = rows.map(row => ({ ...row, teamId: "team_1" }));
+  lockedRowsMock.mockResolvedValueOnce(images);
+  imageFindManyMock.mockResolvedValueOnce(images);
+}
 
 async function postBatch(body: unknown) {
   return POST(
@@ -128,7 +128,7 @@ describe("/api/images/batch", () => {
 
     expect(response.status).toBe(200);
     expect(imageUpdateManyMock).toHaveBeenCalledWith({
-      where: { id: { in: ["img_1", "img_2"] }, userId: "u_1" },
+      where: { id: { in: ["img_1", "img_2"] }, userId: "u_1", ...activeCustomers },
       data: { album: "personal" },
     });
   });
@@ -157,7 +157,7 @@ describe("/api/images/batch", () => {
     sessionHasPermissionMock.mockImplementation(
       (_session: unknown, permission: string) => permission === "image:write",
     );
-    imageFindManyMock.mockResolvedValueOnce([
+    givenImages([
       {
         id: "img_1",
         storageKey: "albums/mine.png",
@@ -175,10 +175,11 @@ describe("/api/images/batch", () => {
 
     expect(response.status).toBe(200);
     expect(imageFindManyMock).toHaveBeenCalledWith({
-      where: { id: { in: ["img_1", "img_other"] }, userId: "u_1", ...activeCustomers },
+      where: { AND: [{ id: { in: ["img_1", "img_other"] }, userId: "u_1", ...activeCustomers }, { id: { in: ["img_1"] } }] },
       select: {
         id: true,
         storageKey: true,
+        teamId: true,
         checksum: true,
         sizeBytes: true,
         createdAt: true,
@@ -211,7 +212,7 @@ describe("/api/images/batch", () => {
         permission === "media:manage" ||
         permission === "team:manage",
     );
-    imageFindManyMock.mockResolvedValueOnce([
+    givenImages([
       { id: "img_2", storageKey: "albums/remote.png" },
     ]);
     imageDeleteManyMock.mockResolvedValueOnce({ count: 1 });
@@ -221,14 +222,11 @@ describe("/api/images/batch", () => {
 
     expect(response.status).toBe(200);
     expect(imageFindManyMock).toHaveBeenCalledWith({
-      where: {
-        id: { in: ["img_2"] },
-        teamId: "team_1",
-        ...activeCustomers,
-      },
+      where: { AND: [{ id: { in: ["img_2"] }, ...activeCustomers }, { id: { in: ["img_2"] } }] },
       select: {
         id: true,
         storageKey: true,
+        teamId: true,
         checksum: true,
         sizeBytes: true,
         createdAt: true,
@@ -242,7 +240,6 @@ describe("/api/images/batch", () => {
         AND: [
           {
             id: { in: ["img_2"] },
-            teamId: "team_1",
             ...activeCustomers,
           },
           { id: { in: ["img_2"] } },
@@ -268,7 +265,7 @@ describe("/api/images/batch", () => {
     vi.clearAllMocks();
     requireApiSessionMock.mockResolvedValueOnce(managerSession);
     sessionHasPermissionMock.mockImplementation((_session, permission) => permission === "image:write" || permission === "media:manage");
-    imageFindManyMock.mockResolvedValueOnce([
+    givenImages([
       { ...imageGeneration, id: "uploaded", storageKey: "1111.png", storageNodeId: "node_1", relativePath: "photos/1111.png" },
       { id: "published", storageKey: "2222.png", storageNodeId: "node_1", relativePath: "photos/holiday.png" },
       { id: "elsewhere", storageKey: "3333.png", storageNodeId: "node_other_team", relativePath: "x/3333.png" },
@@ -276,7 +273,7 @@ describe("/api/images/batch", () => {
     ]);
     imageDeleteManyMock.mockResolvedValueOnce({ count: 4 });
     unlinkMock.mockResolvedValue(undefined);
-    const node = { id: "node_1", driver: "LOCAL", basePath: "/srv/files" };
+    const node = { id: "node_1", teamId: "team_1", driver: "LOCAL", basePath: "/srv/files" };
     nodeFindManyMock.mockResolvedValueOnce([node]);
 
     const response = await postBatch({ action: "delete", ids: ["uploaded", "published", "elsewhere", "plain"] });
@@ -295,10 +292,10 @@ describe("/api/images/batch", () => {
     vi.clearAllMocks();
     requireApiSessionMock.mockResolvedValueOnce(managerSession);
     sessionHasPermissionMock.mockImplementation((_session, permission) => permission === "image:write" || permission === "media:manage");
-    imageFindManyMock.mockResolvedValueOnce([{ ...imageGeneration, id: "uploaded", storageKey: "1111.png", storageNodeId: "node_1", relativePath: "photos/1111.png" }]);
+    givenImages([{ ...imageGeneration, id: "uploaded", storageKey: "1111.png", storageNodeId: "node_1", relativePath: "photos/1111.png" }]);
     imageDeleteManyMock.mockResolvedValueOnce({ count: 1 });
     unlinkMock.mockResolvedValue(undefined);
-    nodeFindManyMock.mockResolvedValueOnce([{ id: "node_1", driver: "SFTP", basePath: "/srv/files" }]);
+    nodeFindManyMock.mockResolvedValueOnce([{ id: "node_1", teamId: "team_1", driver: "SFTP", basePath: "/srv/files" }]);
     deleteBackingObjectMock.mockRejectedValueOnce(new Error("connection refused"));
 
     const response = await postBatch({ action: "delete", ids: ["uploaded"] });
@@ -315,7 +312,7 @@ describe("/api/images/batch", () => {
       (_session, permission) =>
         permission === "image:write" || permission === "media:manage",
     );
-    imageFindManyMock.mockResolvedValueOnce([
+    givenImages([
       { id: "img_2", storageKey: "albums/remote.png" },
     ]);
     imageDeleteManyMock.mockResolvedValueOnce({ count: 1 });

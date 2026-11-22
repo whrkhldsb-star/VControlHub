@@ -1,3 +1,5 @@
+import { sessionHasPermission } from "@/lib/auth/authorization";
+import { canReadCommandBody } from "@/lib/command/visibility";
 import { apiCopy } from "@/lib/i18n/api-copy";
 import { NextResponse } from "next/server";
 import { z } from "zod";
@@ -33,13 +35,29 @@ const createDeploymentSchema = z.object({
 export async function GET(request: Request) {
   return withApiRoute(
     request,
-    { permission: "deploy:read", errorMessage: apiCopy("apiCopy.failed.to.fetch.deployment.list.fa66fa85") },
+    { permission: "deploy:read", optionalTokenPermissions: ["command:read", "command:approve"], errorMessage: apiCopy("apiCopy.failed.to.fetch.deployment.list.fa66fa85") },
     async ({ session }) => {
       const [deployments, templates] = await Promise.all([
         listDeploymentRuns(session),
         listDeploymentTemplates(session),
       ]);
-      return NextResponse.json({ deployments, templates });
+      const canRead = sessionHasPermission(session, "command:read");
+      const canApprove = sessionHasPermission(session, "command:approve");
+      const visible = (owner: string | null) => canRead && canReadCommandBody(session.userId, owner, canApprove);
+      const projectTemplate = (template: (typeof templates)[number]) => visible(template.createdById) ? template
+        : { ...template, command: "", rollbackCommand: null };
+      return NextResponse.json({
+        templates: templates.map(projectTemplate),
+        deployments: deployments.map(run => ({
+          ...run,
+          ...(!visible(run.createdBy) && { renderedCommand: "", variables: {}, errorMessage: null }),
+          template: projectTemplate(run.template),
+          snapshot: run.snapshot && (visible(run.snapshot.createdBy) ? run.snapshot
+            : { ...run.snapshot, deployCommand: "", rollbackCommand: null, variables: {} }),
+          rollbackAttempts: run.rollbackAttempts.map(attempt => visible(attempt.createdBy) ? attempt
+            : { ...attempt, rollbackCommand: "", reason: null, errorMessage: null }),
+        })),
+      });
     },
   );
 }

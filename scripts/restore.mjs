@@ -45,6 +45,7 @@ import { pipeline } from "node:stream/promises";
 
 import {
   acquireRestoreLock,
+  checkRestoreSchema,
   checkedDatabaseDump,
   inspectArchive,
   applicationSchema,
@@ -270,19 +271,7 @@ async function restoreDatabase(backupFile, { psql, connArgs, childEnv, schema })
     await Promise.all([
       completed,
       pipeline(source, ...(gunzip ? [gunzip] : []), checkedDatabaseDump, async function* (chunks) {
-        let head = Buffer.alloc(0);
-        let checked = false;
-        for await (const chunk of chunks) {
-          if (!checked) {
-            head = Buffer.concat([head, chunk.subarray(0, 256)]).subarray(0, 256);
-            if (head.includes(10) || head.length >= 256) {
-              const marker = /^-- VControlHub application schema ([0-9a-f]+)\r?$/m.exec(head.toString());
-              if (marker && marker[1] !== Buffer.from(schema).toString("hex")) fail("Backup and target application schemas differ");
-              checked = true;
-            }
-          }
-          yield chunk;
-        }
+        yield* checkRestoreSchema(chunks, schema);
         yield "\nSET LOCAL vch.restore_complete = 'yes';\n";
       }, child.stdin),
     ]);

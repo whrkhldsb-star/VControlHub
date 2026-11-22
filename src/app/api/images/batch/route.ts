@@ -9,7 +9,7 @@ import { z } from "zod";
 
 import { auditUserAction } from "@/lib/audit/service";
 import { sessionHasPermission } from "@/lib/auth/authorization";
-import { imageTeamWhere, liveCustomerRowsWhere } from "@/lib/auth/team-scope";
+import { imageTeamWhere, lockLiveCustomer, rawActiveCustomerScope } from "@/lib/auth/team-scope";
 import { prisma } from "@/lib/db";
 import { withApiRoute } from "@/lib/http/api-guard";
 import { IMAGE_UPLOAD_LIMIT } from "@/lib/http/rate-limit-presets";
@@ -50,16 +50,20 @@ export async function POST(request: Request) {
           // Owners may bulk-delete their own images (whereClause already scopes
           // non-managers to userId). Managers keep cross-owner delete via canManageImages.
           // Matches single-image DELETE canDeleteImage (owner OR media/team/role manage).
-          const liveScope = { ...whereClause, ...liveCustomerRowsWhere() };
-          const { images, failedFileIds, okIds, result } = await prisma.$transaction(async tx => {
-            // Customer archival must wait until this authorized deletion has finished removing its files.
-            await tx.$queryRaw`SELECT id FROM teams WHERE id IN
-              (SELECT "teamId" FROM image_uploads WHERE id IN (${Prisma.join(ids)})) ORDER BY id FOR SHARE`;
+          const { deletedImages, linked, failedFileIds, okIds, result } = await prisma.$transaction(async tx => {
+            const locked = await tx.$queryRaw<{ id: string; teamId: string | null }[]>`SELECT i.id, i."teamId" FROM image_uploads i
+              WHERE i.id IN (${Prisma.join(ids)}) AND ${rawActiveCustomerScope(session, Prisma.sql`i."teamId"`)}
+                ${canManageImages ? Prisma.empty : Prisma.sql`AND i."userId" = ${session.userId}`}
+              ORDER BY i.id FOR UPDATE`;
+            for (const teamId of [...new Set(locked.map(row => row.teamId))].sort()) {
+              if (teamId) await lockLiveCustomer(tx, teamId);
+            }
             const images = await tx.imageUpload.findMany({
-              where: liveScope,
+              where: { AND: [whereClause, { id: { in: locked.map(row => row.id) } }] },
               select: {
                 id: true,
                 storageKey: true,
+                teamId: true,
                 createdAt: true,
                 checksum: true,
                 sizeBytes: true,
@@ -84,16 +88,13 @@ export async function POST(request: Request) {
             const result =
               okIds.length > 0
                 ? await tx.imageUpload.deleteMany({
-                    where: { AND: [liveScope, { id: { in: okIds } }] },
+                    where: { AND: [whereClause, { id: { in: okIds } }] },
                   })
                 : { count: 0 };
-            return { images, failedFileIds, okIds, result };
+            const deletedImages = images.filter(image => okIds.includes(image.id));
+            const linked = await removeOwnedLinkedCopies(deletedImages, session, tx);
+            return { deletedImages, linked, failedFileIds, okIds, result };
           }, { timeout: 60_000 });
-          // The copy an upload wrote into a storage folder goes with its image, as deleting one image does it:
-          // left behind, a selection of deleted images stayed in the folder, the file index and the media library
-          // as "<uuid>.png". A file published from storage is the user's own and stays.
-          const deletedImages = images.filter((img) => okIds.includes(img.id));
-          const linked = await removeOwnedLinkedCopies(deletedImages, session);
           await auditUserAction(
             session.userId,
             "image.batch.delete",
@@ -171,12 +172,10 @@ export async function POST(request: Request) {
         }
 
         case "togglePublic": {
-          const team = imageTeamWhere(session);
-          const scope = typeof team.teamId === "string" ? Prisma.sql`AND "teamId" = ${team.teamId}`
-            : team.id ? Prisma.sql`AND FALSE` : Prisma.empty;
+          const scope = rawActiveCustomerScope(session, Prisma.sql`image_uploads."teamId"`);
           const images = await prisma.$queryRaw<Array<{ isPublic: boolean }>>(Prisma.sql`
             UPDATE image_uploads SET "isPublic" = NOT "isPublic"
-            WHERE id IN (${Prisma.join(ids)}) ${scope}
+            WHERE id IN (${Prisma.join(ids)}) AND ${scope}
               ${canManageImages ? Prisma.empty : Prisma.sql`AND "userId" = ${session.userId}`}
             RETURNING "isPublic"
           `);

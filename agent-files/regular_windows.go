@@ -48,8 +48,8 @@ func directoryID(dir *os.File) (string, error) {
 	return fmt.Sprintf("%d:%d:%d", info.VolumeSerialNumber, info.FileIndexHigh, info.FileIndexLow), nil
 }
 
-// FileRenameInformation with ReplaceIfExists=false handles both files and directories.
-func renameAtExclusive(src *os.File, from string, dst *os.File, to string) error {
+// FileRenameInformation addresses the destination relative to its open directory.
+func renameAt(src *os.File, from string, dst *os.File, to string, overwrite bool) error {
 	name, err := windows.NewNTUnicodeString(from)
 	if err != nil {
 		return err
@@ -65,6 +65,43 @@ func renameAtExclusive(src *os.File, from string, dst *os.File, to string) error
 		return err
 	}
 	defer windows.CloseHandle(file)
+	return setFileName(file, dst, to, windows.FileRenameInformation, overwrite)
+}
+
+func publishOpenFile(parent *os.Root, original *os.File, from, to string) error {
+	dir, err := parent.Open(".")
+	if err != nil {
+		return err
+	}
+	defer dir.Close()
+	name, err := windows.NewNTUnicodeString(from)
+	if err != nil {
+		return err
+	}
+	oa := windows.OBJECT_ATTRIBUTES{RootDirectory: windows.Handle(dir.Fd()), ObjectName: name}
+	oa.Length = uint32(unsafe.Sizeof(oa))
+	var handle windows.Handle
+	var status windows.IO_STATUS_BLOCK
+	err = windows.NtCreateFile(&handle, windows.FILE_WRITE_ATTRIBUTES|windows.FILE_READ_ATTRIBUTES|windows.SYNCHRONIZE, &oa, &status, nil, 0,
+		windows.FILE_SHARE_READ|windows.FILE_SHARE_WRITE|windows.FILE_SHARE_DELETE,
+		windows.FILE_OPEN, windows.FILE_OPEN_REPARSE_POINT|windows.FILE_SYNCHRONOUS_IO_NONALERT, 0, 0)
+	if err != nil {
+		return err
+	}
+	file := os.NewFile(uintptr(handle), from)
+	defer file.Close()
+	want, err := original.Stat()
+	actual, lookup := file.Stat()
+	if err != nil || lookup != nil || !os.SameFile(want, actual) {
+		return changed
+	}
+	// NT FileLinkInformation (MS-FSCC), with ReplaceIfExists=false.
+	const fileLinkInformation = 11 // FILE_INFORMATION_CLASS in ntifs.h
+	return setFileName(handle, dir, to, fileLinkInformation, false)
+}
+
+func setFileName(file windows.Handle, dst *os.File, to string, class uint32, overwrite bool) error {
+	var status windows.IO_STATUS_BLOCK
 	name16, err := windows.UTF16FromString(to)
 	if err != nil || len(name16) > 256 {
 		return invalid
@@ -75,8 +112,11 @@ func renameAtExclusive(src *os.File, from string, dst *os.File, to string) error
 		Length    uint32
 		Name      [256]uint16
 	}{Directory: windows.Handle(dst.Fd()), Length: uint32((len(name16) - 1) * 2)}
+	if overwrite {
+		info.Replace = 1
+	}
 	copy(info.Name[:], name16)
-	err = windows.NtSetInformationFile(file, &status, (*byte)(unsafe.Pointer(&info)), uint32(unsafe.Sizeof(info)), windows.FileRenameInformation)
+	err = windows.NtSetInformationFile(file, &status, (*byte)(unsafe.Pointer(&info)), uint32(unsafe.Sizeof(info)), class)
 	if err == windows.STATUS_OBJECT_NAME_COLLISION {
 		return os.ErrExist
 	}

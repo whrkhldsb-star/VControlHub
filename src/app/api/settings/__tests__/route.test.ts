@@ -127,7 +127,7 @@ describe("/api/settings audit coverage", () => {
     mocks.getSetting.mockResolvedValue("local-ai");
     mocks.currentSettings.mockResolvedValue([{ key: "ai.ops.provider", value: "local-ai" }]);
     mocks.provider.mockResolvedValue({ id: "local-ai", createdBy: "u1", type: "OPENAI", baseUrl: "https://ai.test", defaultModel: "model" });
-    const res = await route.PATCH(new Request("http://local/api/settings", { method: "PATCH", body: JSON.stringify({ "ai.ops.provider": "local-ai" }) }));
+    const res = await route.PATCH(new Request("http://local/api/settings", { method: "PATCH", body: JSON.stringify({ "ai.ops.provider": "local-ai", reauthorizeProvider: true }) }));
     expect(res.status).toBe(200);
     expect(mocks.setManySettings).toHaveBeenCalledWith([
       { key: "ai.ops.provider", value: "local-ai" }, { key: "ai.ops.providerBinding", value: expect.stringContaining("local-ai") },

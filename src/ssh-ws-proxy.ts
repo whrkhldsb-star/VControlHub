@@ -9,6 +9,7 @@
 import "@/lib/bigint-patch";
 
 import { setupRdpWebSocket } from "@/lib/rdp/ws";
+import { mayScrapeGateway } from "./lib/monitoring/gateway-metrics";
 import { createServer } from "http";
 import { existsSync, readFileSync } from "node:fs";
 import { resolve } from "node:path";
@@ -354,6 +355,11 @@ const server = createServer((req, res) => {
 	}
 	// Local-only observability scrape endpoint for the main app.
 	if (req.method === "GET" && pathname === "/metrics") {
+		if (!mayScrapeGateway(req.headers.authorization, SSH_WS_SECRET)) {
+			res.writeHead(401, { "Cache-Control": "no-store" });
+			res.end();
+			return;
+		}
 		const active = sshWss?.clients.size ?? 0;
 		setWsActive("ssh", active);
 		res.writeHead(200, { "Content-Type": "application/json" });

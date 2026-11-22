@@ -70,8 +70,15 @@ export function useAlertRuleActions({
 	 */
 	const refresh = useCallback(async () => {
 		try {
-			const data = await csrfFetch("/api/alert-rules");
-			setRules(data?.rules ?? []);
+			const rules: AlertRule[] = [];
+			let after: string | null = null;
+			do {
+				const url: string = after ? "/api/alert-rules?after=" + encodeURIComponent(after) : "/api/alert-rules";
+				const page = await csrfFetch(url);
+				rules.push(...(page?.rules ?? []));
+				after = page?.nextCursor ?? null;
+			} while (after);
+			setRules(rules);
 		} catch (error) {
 			setActionError(getErrorMessage(error, t("alertRulesPage.error.refresh")));
 			throw error;
@@ -98,13 +105,13 @@ export function useAlertRuleActions({
 	/* eslint-enable react-hooks/set-state-in-effect */
 
 	const ackIncident = useCallback(
-		async (incidentId: string) => {
+		async (incidentId: string, openedAt: string) => {
 			if (!beginBusy(`ack:${incidentId}`)) return;
 			try {
 				await csrfFetch("/api/alert-incidents", {
 					method: "POST",
 					headers: { "Content-Type": "application/json" },
-					body: JSON.stringify({ incidentId }),
+					body: JSON.stringify({ incidentId, openedAt }),
 				});
 				addToast("success", t("alertRulesPage.incidents.acked"));
 				await loadIncidents();

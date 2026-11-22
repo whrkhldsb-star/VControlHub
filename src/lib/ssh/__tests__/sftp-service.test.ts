@@ -48,6 +48,7 @@ vi.mock("ssh2", () => {
 
     sftp(cb: (err: Error | null, sftp: unknown) => void) {
       cb(null, {
+        realpath: (name: string, cb: (e: null, path: string) => void) => cb(null, name),
         open: (_path: string, _flags: string, _mode: number, done: (err: null, handle: Buffer) => void) => done(null, Buffer.from("handle")),
         lstat: (_path: string, done: (err: Error) => void) => done(Object.assign(new Error("not found"), { code: 2 })),
         fstat: (_handle: unknown, done: (err: null, data: unknown) => void) => done(null, { mode: 0o600 }),

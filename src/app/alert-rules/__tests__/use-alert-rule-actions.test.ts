@@ -202,9 +202,9 @@ describe("useAlertRuleActions", () => {
 			const { result } = setup();
 			await settled(result);
 			mocks.csrfFetch.mockClear();
-			await result.current.ackIncident("inc_1");
+			await result.current.ackIncident("inc_1", "2026-01-01T00:00:00.000Z");
 			const post = mocks.csrfFetch.mock.calls.find((c) => c[1]?.method === "POST");
-			expect(JSON.parse(post![1].body as string)).toEqual({ incidentId: "inc_1" });
+			expect(JSON.parse(post![1].body as string)).toEqual({ incidentId: "inc_1", openedAt: "2026-01-01T00:00:00.000Z" });
 			expect(mocks.csrfFetch).toHaveBeenCalledWith("/api/alert-incidents");
 		});
 

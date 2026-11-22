@@ -1,3 +1,4 @@
+import type { CommandRequestStatus, DownloadTaskStatus, Prisma } from "@prisma/client";
 /**
  * TR-006: 跨来源统一长期保留策略。
  *
@@ -21,7 +22,7 @@
  *   - keepLatest 按 teamId 分组生效, 不是全平台前 N 条。全平台口径下
  *     一个高频租户就能把 keepLatest 名额占满, 于此其他租户早于
  *     olderThan 的历史会被全部删掉 —— 那是跨租户的数据互相挤占
- *   - 全部包 try/catch + logger.warn，任一来源失败不影响其他来源继续
+ *   - 同一租户的裁剪在同一快照内提交，失败时一起回滚
  *   - 默认 90 天 / 100 条，可由参数覆盖
  */
 import { downloadHistoryRemovable } from "@/lib/downloads/transfer-manifest";
@@ -80,217 +81,107 @@ function resolveKeepLatest(options: OperationTaskRetentionOptions): number {
   return Math.max(1, Math.floor(options.keepLatest ?? DEFAULT_OPERATION_TASK_RETENTION_KEEP_LATEST));
 }
 
-/**
- * Apply "keep the newest `keepLatest`, delete everything else older than
- * `olderThan`" **once per team scope** (plus the `teamId: null` legacy scope).
- *
- * The callbacks are per-source so each Prisma delegate keeps its own literal
- * status union and stays type-checked at the call site.
- */
-async function pruneTerminalHistoryPerTeam(input: {
-  signal?: AbortSignal;
-  source: string;
-  keepLatest: number;
-  olderThan: Date;
-  listTeamScopes: () => Promise<(string | null)[]>;
-  listRetainedIds: (teamId: string | null, take: number) => Promise<string[]>;
-  deleteOlderThan: (teamId: string | null, retainedIds: string[]) => Promise<number>;
-}): Promise<OperationTaskRetentionPerSourceResult> {
-  // Every customer, every run: scopes keep their newest records, so a fixed
-  // first slice came back unchanged each run and later customers were never
-  // pruned. Each scope costs two indexed queries.
-  const scopes = await input.listTeamScopes();
+const sources = ["command", "download", "deployment"] as const;
+type Source = typeof sources[number];
+const terminalStatuses = {
+  command: ["COMPLETED", "FAILED", "REJECTED", "CANCELLED"],
+  download: ["COMPLETED", "FAILED", "CANCELLED"],
+  deployment: ["COMPLETED", "FAILED", "CANCELLED", "REJECTED", "ROLLED_BACK"],
+} satisfies { command: CommandRequestStatus[]; download: DownloadTaskStatus[]; deployment: string[] };
 
-  let scanned = 0;
-  let deleted = 0;
-  for (const teamId of scopes) {
-    input.signal?.throwIfAborted();
-    const retainedIds = await input.listRetainedIds(teamId, input.keepLatest);
-    scanned += retainedIds.length;
-    input.signal?.throwIfAborted();
-    deleted += await input.deleteOlderThan(teamId, retainedIds);
+async function pruneTenantSource(tx: Prisma.TransactionClient, source: Source, teamId: string | null, take: number, olderThan: Date, signal?: AbortSignal) {
+  const orderBy = [{ createdAt: "desc" }, { id: "desc" }] satisfies Prisma.CommandRequestOrderByWithRelationInput[];
+  const page = { orderBy, select: { id: true }, take };
+  const cutoff = (ids: { id: string }[]) => ({
+    createdAt: { lt: olderThan }, ...(ids.length > 0 && { id: { notIn: ids.map(row => row.id) } }),
+  });
+  if (source === "command") {
+    const where = { teamId, status: { in: terminalStatuses.command } };
+    const ids = await tx.commandRequest.findMany({ where, ...page });
+    signal?.throwIfAborted();
+    const result = await tx.commandRequest.deleteMany({ where: {
+      ...where, ...cutoff(ids),
+      // A deployment or rollback learns its outcome from its command (on
+      // its next listing). Deleted first, the command took that outcome
+      // with it: the run stayed pending for good, then was settled as
+      // "never created" once its link was cleared.
+      deploymentRuns: { none: { status: { in: ["PENDING", "RUNNING"] } } },
+      deploymentRollbackRuns: { none: { status: { in: ["PENDING", "APPROVED", "RUNNING"] } } },
+      // Same for a scheduled task's run: its cascade delete left the task
+      // "awaiting final result" for good. Kept until reconciled.
+      scheduledTaskRuns: { none: { status: "DISPATCHED" } },
+    } });
+    return { scanned: ids.length, deleted: result.count };
   }
-  return { scanned, deleted };
-}
-
-const COMMAND_TERMINAL_STATUSES = ["COMPLETED", "FAILED", "REJECTED", "CANCELLED"] as const;
-
-async function pruneCommand(keepLatest: number, olderThan: Date, signal?: AbortSignal): Promise<OperationTaskRetentionPerSourceResult> {
-  return pruneTerminalHistoryPerTeam({
-    source: "command", signal,
-    keepLatest,
-    olderThan,
-    listTeamScopes: async () => {
-      const groups = await prisma.commandRequest.groupBy({
-        by: ["teamId"],
-        where: { status: { in: [...COMMAND_TERMINAL_STATUSES] } },
-      });
-      return groups.map((group) => group.teamId);
-    },
-    listRetainedIds: async (teamId, take) => {
-      const rows = await prisma.commandRequest.findMany({
-        where: { status: { in: [...COMMAND_TERMINAL_STATUSES] }, teamId },
-        orderBy: [{ createdAt: "desc" }],
-        select: { id: true },
-        take,
-      });
-      return rows.map((row) => row.id);
-    },
-    deleteOlderThan: async (teamId, retainedIds) => {
-      const result = await prisma.commandRequest.deleteMany({
-        where: {
-          status: { in: [...COMMAND_TERMINAL_STATUSES] },
-          teamId,
-          createdAt: { lt: olderThan },
-          ...(retainedIds.length > 0 ? { id: { notIn: retainedIds } } : {}),
-          // A deployment or rollback learns its outcome from its command (on
-          // its next listing). Deleted first, the command took that outcome
-          // with it: the run stayed pending for good, then was settled as
-          // "never created" once its link was cleared.
-          deploymentRuns: { none: { status: { in: ["PENDING", "RUNNING"] } } },
-          deploymentRollbackRuns: { none: { status: { in: ["PENDING", "APPROVED", "RUNNING"] } } },
-          // Same for a scheduled task's run: its cascade delete left the task
-          // "awaiting final result" for good. Kept until reconciled.
-          scheduledTaskRuns: { none: { status: "DISPATCHED" } },
-        },
-      });
-      return result.count;
-    },
-  });
-}
-
-const DOWNLOAD_TERMINAL_STATUSES = ["COMPLETED", "FAILED", "CANCELLED"] as const;
-
-async function pruneDownload(keepLatest: number, olderThan: Date, signal?: AbortSignal): Promise<OperationTaskRetentionPerSourceResult> {
-  return pruneTerminalHistoryPerTeam({
-    source: "download", signal,
-    keepLatest,
-    olderThan,
-    listTeamScopes: async () => {
-      const groups = await prisma.downloadTask.groupBy({
-        by: ["teamId"],
-        where: { status: { in: [...DOWNLOAD_TERMINAL_STATUSES] } },
-      });
-      return groups.map((group) => group.teamId);
-    },
-    listRetainedIds: async (teamId, take) => {
-      const rows = await prisma.downloadTask.findMany({
-        where: { status: { in: [...DOWNLOAD_TERMINAL_STATUSES] }, teamId },
-        orderBy: [{ createdAt: "desc" }],
-        select: { id: true },
-        take,
-      });
-      return rows.map((row) => row.id);
-    },
-    deleteOlderThan: async (teamId, retainedIds) => {
-      const result = await prisma.downloadTask.deleteMany({
-        where: {
-          ...downloadHistoryRemovable,
-          status: { in: [...DOWNLOAD_TERMINAL_STATUSES] },
-          teamId,
-          createdAt: { lt: olderThan },
-          ...(retainedIds.length > 0 ? { id: { notIn: retainedIds } } : {}),
-        },
-      });
-      return result.count;
-    },
-  });
-}
-
-async function pruneSync(_keepLatest: number, _olderThan: Date): Promise<OperationTaskRetentionPerSourceResult> {
-  // SyncJob rows are long-lived automation configs (source/target paths + schedule),
-  // not disposable task history. Never delete them from operation-task retention.
-  // SyncLog history can be pruned separately if needed; keepLatest is intentionally unused.
-  return { scanned: 0, deleted: 0, skipped: true };
-}
-
-async function pruneBackup(_keepLatest: number, _olderThan: Date): Promise<OperationTaskRetentionPerSourceResult> {
-  // BackupRecord prune must unlink artifacts (+ offsite) via pruneOldBackupRecordsNow.
-  // DB-only deleteMany here would orphan tarballs under backups/. Defer entirely.
-  return { scanned: 0, deleted: 0, skipped: true };
-}
-
-// DeploymentRun status is String. Live terminal set includes REJECTED (deployment service);
-// keep ROLLED_BACK for forward-compat even if writers do not emit it today.
-const DEPLOYMENT_TERMINAL_STATUSES = ["COMPLETED", "FAILED", "CANCELLED", "REJECTED", "ROLLED_BACK"] as const;
-/** Rollback states whose command may still run (see resolveRollbackRunStatus). */
-const ACTIVE_ROLLBACK_STATUSES = ["PENDING", "RUNNING"] as const;
-
-async function pruneDeployment(keepLatest: number, olderThan: Date, signal?: AbortSignal): Promise<OperationTaskRetentionPerSourceResult> {
-  return pruneTerminalHistoryPerTeam({
-    source: "deployment", signal,
-    keepLatest,
-    olderThan,
-    listTeamScopes: async () => {
-      const groups = await prisma.deploymentRun.groupBy({
-        by: ["teamId"],
-        where: { status: { in: [...DEPLOYMENT_TERMINAL_STATUSES] } },
-      });
-      return groups.map((group) => group.teamId);
-    },
-    listRetainedIds: async (teamId, take) => {
-      const rows = await prisma.deploymentRun.findMany({
-        where: { status: { in: [...DEPLOYMENT_TERMINAL_STATUSES] }, teamId },
-        orderBy: [{ createdAt: "desc" }],
-        select: { id: true },
-        take,
-      });
-      return rows.map((row) => row.id);
-    },
-    deleteOlderThan: async (teamId, retainedIds) => {
-      const result = await prisma.deploymentRun.deleteMany({
-        where: {
-          status: { in: [...DEPLOYMENT_TERMINAL_STATUSES] },
-          teamId,
-          createdAt: { lt: olderThan },
-          ...(retainedIds.length > 0 ? { id: { notIn: retainedIds } } : {}),
-          // A rollback cascades with its source run: keep the run while one
-          // is still pending or running (its command keeps going otherwise
-          // with no record left of it).
-          rollbackAttempts: { none: { status: { in: [...ACTIVE_ROLLBACK_STATUSES] } } },
-        },
-      });
-      return result.count;
-    },
-  });
-}
-
-async function safeRun(source: string, fn: () => Promise<OperationTaskRetentionPerSourceResult>): Promise<OperationTaskRetentionPerSourceResult> {
-  try {
-    return await fn();
-  } catch (error) {
-    const message = error instanceof Error ? error.message : String(error);
-    logger.warn(`pruneOperationTaskHistory: ${source} failed`, { error: message });
-    return { scanned: 0, deleted: 0, error: message };
+  if (source === "download") {
+    const where = { teamId, status: { in: terminalStatuses.download } };
+    const ids = await tx.downloadTask.findMany({ where, ...page });
+    signal?.throwIfAborted();
+    const result = await tx.downloadTask.deleteMany({ where: {
+      ...where, ...cutoff(ids),
+      ...downloadHistoryRemovable,
+    } });
+    return { scanned: ids.length, deleted: result.count };
+  }
+  {
+    const where = { teamId, status: { in: terminalStatuses.deployment } };
+    const ids = await tx.deploymentRun.findMany({ where, ...page });
+    signal?.throwIfAborted();
+    const result = await tx.deploymentRun.deleteMany({ where: {
+      ...where, ...cutoff(ids),
+      // A rollback cascades with its source run: keep the run while one
+      // is still pending or running (its command keeps going otherwise
+      // with no record left of it).
+      rollbackAttempts: { none: { status: { in: ["PENDING", "RUNNING"] } } },
+    } });
+    return { scanned: ids.length, deleted: result.count };
   }
 }
 
-/**
- * 跨来源执行保留策略。任一来源失败被 catch 隔离, 不影响其他来源。
- * Returns per-source 删除统计 + 总和。
- */
-export async function pruneOperationTaskHistory(
-  options: OperationTaskRetentionOptions = {},
-): Promise<OperationTaskRetentionResult> {
+export async function pruneOperationTaskHistory(options: OperationTaskRetentionOptions = {}): Promise<OperationTaskRetentionResult> {
   options.signal?.throwIfAborted();
   const startedAt = Date.now();
   const olderThan = resolveOlderThan(options);
   const keepLatest = resolveKeepLatest(options);
-  const perSource: Record<string, OperationTaskRetentionPerSourceResult> = {};
-
-  const [command, download, sync, backup, deployment] = await Promise.all([
-    safeRun("command", () => pruneCommand(keepLatest, olderThan, options.signal)),
-    safeRun("download", () => pruneDownload(keepLatest, olderThan, options.signal)),
-    safeRun("sync", () => pruneSync(keepLatest, olderThan)),
-    safeRun("backup", () => pruneBackup(keepLatest, olderThan)),
-    safeRun("deployment", () => pruneDeployment(keepLatest, olderThan, options.signal)),
-  ]);
-  options.signal?.throwIfAborted();
-  perSource.command = command;
-  perSource.download = download;
-  perSource.sync = sync;
-  perSource.backup = backup;
-  perSource.deployment = deployment;
+  const perSource: Record<string, OperationTaskRetentionPerSourceResult> = Object.fromEntries(
+    [...sources, "sync", "backup"].map(source => [source, { scanned: 0, deleted: 0,
+      ...((source === "sync" || source === "backup") && { skipped: true }) }]),
+  );
+  const tenants = new Set<string | null>();
+  const recordError = (source: Source, error: unknown) => {
+    const message = error instanceof Error ? error.message : String(error);
+    perSource[source]!.error = message;
+    logger.warn(`pruneOperationTaskHistory: ${source} failed`, { error: message });
+  };
+  for (const source of sources) {
+    try {
+      const groups = source === "command" ? await prisma.commandRequest.groupBy({ by: ["teamId"], where: { status: { in: terminalStatuses.command } } })
+        : source === "download" ? await prisma.downloadTask.groupBy({ by: ["teamId"], where: { status: { in: terminalStatuses.download } } })
+        : await prisma.deploymentRun.groupBy({ by: ["teamId"], where: { status: { in: terminalStatuses.deployment } } });
+      for (const { teamId } of groups) tenants.add(teamId);
+    } catch (error) { recordError(source, error); }
+  }
+  for (const teamId of tenants) {
+    options.signal?.throwIfAborted();
+    try {
+      const committed = await prisma.$transaction(async tx => {
+        const result = [];
+        for (const source of sources) {
+          options.signal?.throwIfAborted();
+          result.push({ source, ...await pruneTenantSource(tx, source, teamId, keepLatest, olderThan, options.signal) });
+        }
+        options.signal?.throwIfAborted();
+        return result;
+      }, { isolationLevel: "RepeatableRead" });
+      for (const { source, scanned, deleted } of committed) {
+        perSource[source]!.scanned += scanned;
+        perSource[source]!.deleted += deleted;
+      }
+    } catch (error) {
+      options.signal?.throwIfAborted();
+      for (const source of sources) recordError(source, error);
+    }
+  }
 
   const totalDeleted = Object.values(perSource).reduce((sum, r) => sum + r.deleted, 0);
   const failedSources = Object.entries(perSource)

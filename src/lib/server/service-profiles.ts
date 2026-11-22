@@ -23,7 +23,7 @@ import { revokeInheritedSftpShares, revokeNodeShares } from "@/lib/storage/node-
 import { checkStorageNodeHealth } from "@/lib/storage/service-nodes";
 import { normalizeServerInput } from "./config";
 import { defaultStoragePath } from "./default-storage-path";
-import { findServerProfileForSession, probeEndpointWhere, savedProfileBinding, SERVER_PROFILE_INCLUDE, type ServerProfileRecord } from "./service-profile-includes";
+import { findServerProfileForSession, probeEndpointWhere, serverCommandCounts, savedProfileBinding, SERVER_PROFILE_INCLUDE, type ServerProfileRecord } from "./service-profile-includes";
 import { createServerSchema, storagePathSchema, type CreateServerInput } from "./schema";
 import { parseServerSyncTargetAuth } from "@/lib/sync/target-auth";
 import { applyServerDirectGatewayState, applyServerDirectGatewayStateUnderLock } from "./service-direct-gateway";
@@ -34,13 +34,13 @@ import { lockForTransaction, acquireAdvisoryLock } from "@/lib/concurrency/advis
 import {
   assertNoDuplicateServerHost,
   enrichServer,
+  enrichServerForSession,
   getErrorMessage,
   isLocalHostLiteral,
   safeRevalidatePath,
   sessionForTeamWhere,
   verifyServerSshConnectivity,
   type ProfileSession,
-  type ServerProfileRow,
   type ServerWithRelations,
 } from "./service-internals";
 
@@ -179,7 +179,7 @@ async function provisionNewServer(ctx: {
   } else if (connectivityVerified) {
     try {
       await createRemoteDirectory({
-        ...(await buildSshParamsFromServer(server, server.sshKey ?? null)),
+        ...(await buildSshParamsFromServer(server, server.sshKey ?? null, server.teamId)),
         remotePath: configuredPath,
         recursive: true,
       });
@@ -230,7 +230,7 @@ async function provisionNewServer(ctx: {
   // can use the right service manager without a manual "Detect OS" click first.
   if (!isLocalHost && connectivityVerified) {
     try {
-      const dialectSsh = await buildSshParamsFromServer(server, server.sshKey ?? null);
+      const dialectSsh = await buildSshParamsFromServer(server, server.sshKey ?? null, server.teamId);
       const dialect = await detectOsDialect(dialectSsh);
       await prisma.server.update({
         where: probeEndpointWhere(server, true),
@@ -496,7 +496,7 @@ export async function createServerProfile(
   safeRevalidatePath("/files");
 
   return {
-    ...enrichServer(refreshed!),
+    ...await enrichServerForSession(refreshed!, session),
     onboardingWarnings,
     draftReason,
   };
@@ -731,7 +731,7 @@ async function saveServerProfile(serverId: string, current: ServerProfileRecord,
   if (!refreshed) throw new NotFoundError(t("backend.server.nodeNotFound"));
 
   return {
-    ...enrichServer(refreshed),
+    ...await enrichServerForSession(refreshed, session),
     onboardingWarnings,
   };
 }
@@ -740,6 +740,12 @@ export async function toggleServerEnabled(
   serverId: string,
   session?: TeamSession | null,
   approvedHostKeySha256?: string | null,
+) {
+  return withServerLifecycleLock(serverId, () => toggleServerEnabledUnderLock(serverId, session, approvedHostKeySha256));
+}
+
+async function toggleServerEnabledUnderLock(
+  serverId: string, session?: TeamSession | null, approvedHostKeySha256?: string | null,
 ) {
   const current = await findServerProfileForSession(serverId, session);
   const t = await serviceT();
@@ -755,7 +761,7 @@ export async function toggleServerEnabled(
     if (current.operatingSystem === "WINDOWS") {
       if (!current.rdpPassword) throw new ValidationError(t("backend.server.windowsPasswordRequiredToEnable"));
       const updated = await prisma.server.update({ where: { ...probeEndpointWhere(current, false), rdpPassword: current.rdpPassword }, data: { enabled: true }, include: SERVER_PROFILE_INCLUDE }).catch(changedEndpoint);
-      return { ...enrichServer(updated), onboardingWarnings: [] as string[] };
+      return { ...await enrichServerForSession(updated, session), onboardingWarnings: [] as string[] };
     }
     const hasSshCredential = current.connectionType === "SSH_KEY"
       ? Boolean(current.sshKeyId && current.sshKey?.privateKey)
@@ -787,7 +793,7 @@ export async function toggleServerEnabled(
       costCurrency: current.costCurrency as "CNY" | "USD" | "EUR" | "JPY" | "HKD",
       costProvider: current.costProvider,
     });
-    const ssh = await buildSshParamsFromServer(current, current.sshKey ?? null);
+    const ssh = await buildSshParamsFromServer(current, current.sshKey ?? null, current.teamId);
     let hostKeySha256: string | null;
     try {
       hostKeySha256 = await requireApprovedSshHostKey({
@@ -962,7 +968,8 @@ export async function listServerProfiles(
 ) {
   const where = { ...serverProfileListWhere(sessionOrTeamId), ...(options.enabledOnly ? { enabled: true } : {}) };
   const PAGE = 500;
-  const servers: ServerProfileRow[] = [];
+  const session = typeof sessionOrTeamId === "object" ? sessionOrTeamId : null;
+  const servers: ReturnType<typeof enrichServer>[] = [];
   let cursor: { id: string } | undefined;
   do {
     const page = await prisma.server.findMany({
@@ -972,11 +979,12 @@ export async function listServerProfiles(
       take: PAGE,
       ...(cursor ? { cursor, skip: 1 } : {}),
     });
-    servers.push(...page);
+    const counts = await serverCommandCounts(page, session);
+    servers.push(...page.map(server => enrichServer(server, counts.get(server.id))));
     cursor = page.length === PAGE ? { id: page[page.length - 1]!.id } : undefined;
   } while (cursor);
 
-  return servers.map((server: ServerProfileRow) => enrichServer(server));
+  return servers;
 }
 
 /** Count visible profiles without hydrating credential-bearing relations. */

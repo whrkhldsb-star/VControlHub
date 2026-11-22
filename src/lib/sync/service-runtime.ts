@@ -339,9 +339,9 @@ function legFileStem(jobId: string, leg: SyncLeg): string {
 
 type SyncEndpointServer = NonNullable<Awaited<ReturnType<typeof getSyncJobForExecution>>>["sourceServer"];
 
-async function resolveSyncDirectory(server: SyncEndpointServer, directory: string) {
+async function resolveSyncDirectory(server: SyncEndpointServer, directory: string, signal: AbortSignal) {
 	const ssh = await buildSshParamsFromServer(server, server.sshKey, server.teamId);
-	const response = await execRemoteCommand({ ...ssh, command: `realpath -m -- ${shellQuote(directory)}`, timeout: 15000 });
+	const response = await execRemoteCommand({ ...ssh, signal, command: `realpath -m -- ${shellQuote(directory)}`, timeout: 15000 });
 	assertSyncRemoteSucceeded(response, "resolve sync directory");
 	const physical = response.stdout.replace(/\r?\n$/, "");
 	if (!physical.startsWith("/") || /[\x00-\x1f\x7f]/.test(physical)) throw new Error("Invalid physical sync directory");
@@ -380,8 +380,8 @@ async function runOneWayRsync(input: {
 	createMissingSource: boolean;
 }): Promise<{ output: string; stats: OneWaySyncStats }> {
 	await input.checkOwnership();
-	const sourceSsh = input.sourceConnection ?? await buildSshParamsFromServer(input.sourceServer, input.sourceServer.sshKey);
-	const targetSsh = input.targetConnection ?? await buildSshParamsFromServer(input.targetServer, input.targetServer.sshKey);
+	const sourceSsh = { ...(input.sourceConnection ?? await buildSshParamsFromServer(input.sourceServer, input.sourceServer.sshKey, input.sourceServer.teamId)), signal: input.signal };
+	const targetSsh = { ...(input.targetConnection ?? await buildSshParamsFromServer(input.targetServer, input.targetServer.sshKey, input.targetServer.teamId)), signal: input.signal };
 	const targetHost = input.targetServer.host;
 	const targetPort = input.targetServer.port || 22;
 	const targetUser = input.targetServer.username || "root";
@@ -604,7 +604,7 @@ export async function executeSyncJob(
 			], session);
 			if (deleteOrphans && isProtectedDeleteTarget(current.targetPath)) throw new Error("Refusing mirror into a system directory");
 			const [sourcePath, targetPath] = paths ? paths.map(path => path.remotePath) : deleteOrphans
-				? await Promise.all([resolveSyncDirectory(current.sourceServer, current.sourcePath), resolveSyncDirectory(current.targetServer, current.targetPath)])
+				? await Promise.all([resolveSyncDirectory(current.sourceServer, current.sourcePath, controller.signal), resolveSyncDirectory(current.targetServer, current.targetPath, controller.signal)])
 				: [current.sourcePath, current.targetPath];
 			if (!sourcePath || !targetPath) throw new Error("Missing sync endpoint");
 			const sameHost = current.sourceServer.host.toLowerCase() === current.targetServer.host.toLowerCase()

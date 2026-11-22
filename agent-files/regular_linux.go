@@ -28,7 +28,10 @@ func directoryID(dir *os.File) (string, error) {
 	return fmt.Sprintf("%d:%d", raw.Dev, raw.Ino), nil
 }
 
-func renameAtExclusive(src *os.File, from string, dst *os.File, to string) error {
+func renameAt(src *os.File, from string, dst *os.File, to string, overwrite bool) error {
+	if overwrite {
+		return unix.Renameat(int(src.Fd()), from, int(dst.Fd()), to)
+	}
 	err := unix.Renameat2(int(src.Fd()), from, int(dst.Fd()), to, unix.RENAME_NOREPLACE)
 	if err == unix.ENOSYS || err == unix.EOPNOTSUPP || err == unix.EINVAL {
 		return invalid
@@ -100,4 +103,13 @@ func openPrivateDirectory(parent *os.Root, name string) (*os.File, error) {
 		return nil, denied
 	}
 	return f, nil
+}
+
+func publishOpenFile(parent *os.Root, file *os.File, _, to string) error {
+	dir, err := parent.Open(".")
+	if err != nil {
+		return err
+	}
+	defer dir.Close()
+	return unix.Linkat(unix.AT_FDCWD, fmt.Sprintf("/proc/self/fd/%d", file.Fd()), int(dir.Fd()), to, unix.AT_SYMLINK_FOLLOW)
 }

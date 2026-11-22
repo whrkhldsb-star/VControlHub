@@ -1,3 +1,4 @@
+import { countServerDownloadDependencies } from "@/lib/downloads/relay-cleanup";
 import type { Prisma } from "@prisma/client";
 import { prisma } from "@/lib/db";
 
@@ -86,7 +87,7 @@ export async function getServerDeletionImpact(serverId: string, db: Prisma.Trans
     db.serverAgentJob.count({ where: { serverId, OR: [
       { status: { in: ["PENDING", "CLAIMED"] } }, { status: "CANCELLED", completedAt: null },
     ] } }),
-    db.downloadTask.count({ where: { serverId, status: { in: ["PENDING", "RUNNING"] } } }),
+    countServerDownloadDependencies(serverId, db),
   ]);
 
   return {

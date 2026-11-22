@@ -16,7 +16,7 @@ type Props = {
 	incidentsLoading: boolean;
 	busyAction: string | null;
 	loadIncidents: () => Promise<void>;
-	ackIncident: (incidentId: string) => Promise<void>;
+	ackIncident: (incidentId: string, openedAt: string) => Promise<void>;
 };
 
 export function AlertIncidentsSection({
@@ -88,7 +88,7 @@ export function AlertIncidentsSection({
 								size="sm"
 								variant="secondary"
 								loading={busyAction === `ack:${incident.id}`}
-								onClick={() => void ackIncident(incident.id)}
+								onClick={() => void ackIncident(incident.id, incident.createdAt)}
 							>
 								{t("alertRulesPage.incidents.ack")}
 							</ActionButton>

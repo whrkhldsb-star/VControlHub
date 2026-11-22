@@ -22,6 +22,7 @@ const listQuerySchema = z.object({
 
 const ackSchema = z.object({
   incidentId: z.string().trim().min(1),
+  openedAt: z.iso.datetime(),
 });
 
 export async function GET(request: Request) {
@@ -90,13 +91,14 @@ export async function POST(request: Request) {
     async ({ session, body }) => {
       const result = await acknowledgeAlertIncident({
         incidentId: body.incidentId,
+        openedAt: body.openedAt,
         userId: session.userId,
         session,
       });
       await auditUserAction(session.userId, "alert_incident.acknowledge", {
         incidentId: result.id,
         status: result.status,
-      }, undefined, session.currentTeamId);
+      }, undefined, result.teamId);
       return NextResponse.json({ success: true, incident: result });
     },
   );

@@ -45,6 +45,7 @@ const req = (method: string, url: string, body?: unknown) =>
 	new Request(url, { method, headers: { "content-type": "application/json" }, body: body === undefined ? undefined : JSON.stringify(body) });
 const teamParams = Promise.resolve({ id: "team_2" });
 const memberParams = Promise.resolve({ id: "team_2", userId: "u_9" });
+const handover = { teamId: "team_2", previousTeamId: "team_1", credentialsRotated: true, fileAgentStopped: true };
 const serverParams = Promise.resolve({ id: "srv_1" });
 
 describe("customer management routes (team:manage)", () => {
@@ -63,7 +64,7 @@ describe("customer management routes (team:manage)", () => {
 		expect((await member.PATCH(req("PATCH", "http://local/api/teams/team_2/members/u_9", { identityTemplateId: "identity:viewer" }), { params: memberParams })).status).toBe(403);
 		expect((await member.DELETE(req("DELETE", "http://local/api/teams/team_2/members/u_9"), { params: memberParams })).status).toBe(403);
 		expect((await restore.POST(req("POST", "http://local/api/teams/team_2/restore"), { params: teamParams })).status).toBe(403);
-		expect((await transfer.POST(req("POST", "http://local/api/servers/srv_1/transfer", { teamId: "team_2" }), { params: serverParams })).status).toBe(403);
+		expect((await transfer.POST(req("POST", "http://local/api/servers/srv_1/transfer", handover), { params: serverParams })).status).toBe(403);
 		expect(mocks.setCustomerMembership).not.toHaveBeenCalled();
 		expect(mocks.transferServerToCustomer).not.toHaveBeenCalled();
 	});
@@ -95,13 +96,13 @@ describe("customer management routes (team:manage)", () => {
 		expect((await restore.POST(req("POST", "http://local/api/teams/team_2/restore"), { params: teamParams })).status).toBe(200);
 		expect(mocks.restoreTeam).toHaveBeenCalledWith("team_2", expect.objectContaining({ userId: "u_admin" }));
 
-		const moved = await transfer.POST(req("POST", "http://local/api/servers/srv_1/transfer", { teamId: "team_2" }), { params: serverParams });
+		const moved = await transfer.POST(req("POST", "http://local/api/servers/srv_1/transfer", handover), { params: serverParams });
 		expect(moved.status).toBe(200);
 		expect(await moved.json()).toMatchObject({ success: true, movedStorageNodes: 1 });
-		expect(mocks.transferServerToCustomer).toHaveBeenCalledWith("srv_1", "team_2", expect.objectContaining({ userId: "u_admin" }));
+		expect(mocks.transferServerToCustomer).toHaveBeenCalledWith("srv_1", "team_2", expect.objectContaining({ userId: "u_admin" }), handover);
 
 		mocks.transferServerToCustomer.mockRejectedValueOnce(new ConflictError("busy"));
-		expect((await transfer.POST(req("POST", "http://local/api/servers/srv_1/transfer", { teamId: "team_2" }), { params: serverParams })).status).toBe(409);
+		expect((await transfer.POST(req("POST", "http://local/api/servers/srv_1/transfer", handover), { params: serverParams })).status).toBe(409);
 		mocks.restoreTeam.mockRejectedValueOnce(new NotFoundError("gone"));
 		expect((await restore.POST(req("POST", "http://local/api/teams/team_2/restore"), { params: teamParams })).status).toBe(404);
 	});

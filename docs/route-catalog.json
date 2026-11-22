@@ -1,5 +1,5 @@
 {
-  "generatedAt": "2026-11-22T05:55:12.265Z",
+  "generatedAt": "2026-11-22T06:55:04.456Z",
   "summary": {
     "sidebarMain": 26,
     "sidebarSystem": 12,
@@ -332,6 +332,8 @@
       "inSidebarMain": true,
       "inSidebarSystem": false,
       "declaredPermissions": [
+        "command:approve",
+        "command:read",
         "deploy:export",
         "deploy:read",
         "deploy:run",
@@ -1640,6 +1642,8 @@
       ],
       "guardMode": "withApiRoute",
       "declaredPermissions": [
+        "command:approve",
+        "command:read",
         "deploy:read",
         "deploy:run"
       ]
@@ -1696,9 +1700,7 @@
         "GET"
       ],
       "guardMode": "withApiRoute",
-      "declaredPermissions": [
-        "storage:delete"
-      ]
+      "declaredPermissions": []
     },
     {
       "path": "/api/downloads/recent",
@@ -2266,6 +2268,7 @@
       ],
       "guardMode": "withApiRoute",
       "declaredPermissions": [
+        "storage:read",
         "task:read"
       ]
     },

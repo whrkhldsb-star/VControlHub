@@ -125,9 +125,9 @@ export async function DashboardContent({ sessionPath }: { sessionPath: "/" | "/d
 	]);
 
 	const enabledServers = servers.filter((server) => server.enabled);
-	const { requests, pendingApprovals } = commands;
+	const { requests } = commands;
 	const queue = {
-		pendingApprovals,
+		pendingApprovals: canApproveCommands ? commands.review?.count ?? 0 : commands.pendingApprovals,
 		downloads: downloads && {
 			running: downloads.RUNNING ?? 0,
 			pending: downloads.PENDING ?? 0,

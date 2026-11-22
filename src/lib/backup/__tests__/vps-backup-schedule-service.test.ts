@@ -2,6 +2,8 @@ import { beforeEach, describe, expect, it, vi } from "vitest";
 
 const prismaMock = vi.hoisted(() => ({
   $queryRaw: vi.fn(),
+  $executeRaw: vi.fn(),
+  server: { findFirst: vi.fn() },
   vpsBackupSchedule: {
     create: vi.fn(),
     findUnique: vi.fn(),
@@ -228,6 +230,7 @@ describe("dispatchDueVpsBackupSchedules overlap guard", () => {
 
   beforeEach(() => {
     vi.clearAllMocks();
+    prismaMock.server.findFirst.mockResolvedValue(dueSchedule.server);
     prismaMock.vpsBackupSchedule.findMany.mockResolvedValue([dueSchedule]);
     prismaMock.vpsBackupSchedule.updateMany.mockResolvedValue({ count: 1 }); // CAS claim wins
     prismaMock.vpsBackupSchedule.update.mockResolvedValue({ id: "schedule-1" });
@@ -269,6 +272,17 @@ describe("dispatchDueVpsBackupSchedules overlap guard", () => {
     expect(retry.data.lastResult).toBe("DISPATCH_FAILED: connection reset");
     expect(retry.data.nextRunAt.getTime()).toBeLessThanOrEqual(before + 5 * 60_000 + 1_000);
     expect(prismaMock.vpsBackupSchedule.update).not.toHaveBeenCalledWith(expect.objectContaining({ data: expect.objectContaining({ lastResult: expect.stringContaining("DISPATCH_FAILED") }) }));
+  });
+
+  it("leaves the occurrence untouched when the parent owner changes before dispatch", async () => {
+    prismaMock.server.findFirst.mockResolvedValueOnce(null);
+    expect(await dispatchDueVpsBackupSchedules()).toBe(0);
+    expect(prismaMock.$executeRaw).toHaveBeenCalledBefore(prismaMock.server.findFirst);
+    expect(prismaMock.server.findFirst).toHaveBeenCalledWith(expect.objectContaining({
+      where: expect.objectContaining({ id: dueSchedule.serverId, teamId: dueSchedule.server.teamId }),
+    }));
+    expect(prismaMock.vpsBackupSchedule.updateMany).not.toHaveBeenCalled();
+    expect(enqueueJobMock).not.toHaveBeenCalled();
   });
 
   it("dispatches normally when no prior run is in flight", async () => {

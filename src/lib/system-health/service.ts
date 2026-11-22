@@ -1,4 +1,5 @@
-import { access } from "node:fs/promises";
+import { deploymentServiceChecks } from "@/lib/health/deployment-services";
+import { access, readFile } from "node:fs/promises";
 import { join, relative } from "node:path";
 
 import { prisma } from "@/lib/db";
@@ -39,14 +40,11 @@ const RUNTIME_DIRS = ["storage", "uploads", "downloads", "backups", "logs", "tmp
  * assume. Fixed "vcontrolhub-" names made every install under another slug
  * report its three services as stopped (critical) while they were running.
  */
-function serviceChecks() {
-  const prefix = config.app.appSlug || "vcontrolhub";
-  return [
-    { id: "next-service", label: "Next.js service", unit: `${prefix}-next.service` },
-    { id: "worker-service", label: "Background worker service", unit: `${prefix}-worker.service` },
-    { id: "ssh-ws-service", label: "SSH WebSocket service", unit: `${prefix}-ssh-ws.service` },
-    { id: "caddy-service", label: "Caddy reverse proxy service", unit: "caddy.service" },
-  ];
+async function serviceChecks() {
+  const cgroup = process.platform === "linux" ? await readFile("/proc/self/cgroup", "utf8").catch(() => "") : "";
+  const apache = process.platform === "linux" && await access("/etc/apache2/sites-enabled/next-proxy.conf").then(() => true, () => false);
+  return deploymentServiceChecks({ platform: process.platform, appSlug: config.app.appSlug || "vcontrolhub",
+    servicePrefix: process.env.SERVICE_PREFIX, cgroup, proxy: apache ? "apache2" : process.env.SKIP_CADDY === "1" ? undefined : "caddy" });
 }
 const SECRET_PATTERNS = [/postgres:\/\/[^\s]+:[^\s]+@/gi, /(password|token|secret|private_key)=([^\s]+)/gi];
 
@@ -135,9 +133,9 @@ export async function collectSystemHealthChecks(options: { projectRoot?: string;
   // trusted and gets the full report.
   const canSeePlatformInternals = options.session ? isGlobalTeamManager(options.session) : true;
   if (canSeePlatformInternals) {
-    const serviceResults = await Promise.all(serviceChecks().map(async (service): Promise<SystemHealthCheck> => {
-    const state = await safeExecFile("systemctl", ["is-active", service.unit]);
-    if (state === "active") {
+    const serviceResults = await Promise.all((await serviceChecks()).map(async (service): Promise<SystemHealthCheck> => {
+    const state = await safeExecFile(service.file, service.args);
+    if (state === service.running) {
       return { id: service.id, label: service.label, status: "healthy" as const, message: `${service.unit} is running`, params: { unit: service.unit }, messageCode: "running" };
     }
     if (state) {

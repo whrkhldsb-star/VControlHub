@@ -5,7 +5,7 @@
  */
 import { Prisma } from "@prisma/client";
 
-import { liveCustomerRowsWhere } from "@/lib/auth/team-scope";
+import { liveCustomerRowsWhere, lockLiveCustomer } from "@/lib/auth/team-scope";
 import { NotFoundError } from "@/lib/errors";
 import { t } from "@/lib/i18n/service-translations";
 import { enqueueJob } from "@/lib/job/service";
@@ -32,6 +32,7 @@ export async function queuePlaybookRunWithClient(input: {
   triggerKey?: string | null;
   createdById?: string | null;
 }) {
+  if (input.playbook.teamId) await lockLiveCustomer(input.client, input.playbook.teamId);
   if (input.sourceAlert && input.playbook.teamId !== null) {
     // A platform rule may bind playbooks in several customers. Only the owner of the
     // triggering host may receive this sample. Resolve ownership again at enqueue.

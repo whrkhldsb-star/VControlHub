@@ -173,6 +173,7 @@ export async function POST(
         const sshParams = await buildSshParamsFromServer(server, server.sshKey, teamAccess.server.teamId);
         const { stdout, stderr, exitCode } = await execRemoteCommand({
           ...sshParams,
+          signal: request.signal,
           command,
           timeout: commandTimeout,
         });

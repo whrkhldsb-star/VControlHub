@@ -96,8 +96,15 @@ func (s share) copyStep(op operation) (result, error) {
 		return out, invalid
 	}
 	key := digest([]byte(s.namespace + "\x00" + op.Path + "\x00" + op.CopyID))
-	stage := path.Join(path.Dir(op.Path), ".vch-copy-"+key)
-	backup := path.Join(path.Dir(op.Path), ".vch-backup-"+key)
+	parent, err := s.openParent(op.Path)
+	if err != nil {
+		return out, err
+	}
+	defer parent.Close()
+	pinned := share{root: parent}
+	name := path.Base(op.Path)
+	stage := ".vch-copy-" + key
+	backup := ".vch-backup-" + key
 	if op.Step == "stage" || op.Step == "backup" {
 		if err := s.trackCopy(key, path.Dir(op.Path)); err != nil {
 			return out, err
@@ -113,14 +120,14 @@ func (s share) copyStep(op operation) (result, error) {
 			return out, err
 		}
 		defer src.Close()
-		dest, err := s.root.OpenFile(stage, os.O_EXCL|os.O_CREATE|os.O_WRONLY, 0600)
+		dest, err := parent.OpenFile(stage, os.O_EXCL|os.O_CREATE|os.O_WRONLY, 0600)
 		if err != nil {
 			return out, err
 		}
 		out.Offset, err = io.Copy(dest, src)
 		return out, errors.Join(err, dest.Close())
 	case "backup":
-		f, err := s.openRegular(op.Path, os.O_RDONLY)
+		f, err := pinned.openRegular(name, os.O_RDONLY)
 		if err != nil {
 			return out, err
 		}
@@ -128,32 +135,39 @@ func (s share) copyStep(op operation) (result, error) {
 		if err := op.beforeWrite(); err != nil {
 			return out, err
 		}
-		return out, s.renameExclusive(op.Path, backup)
+		return out, pinned.renamePinned(name, backup, false)
 	case "promote", "restore":
 		from := stage
 		if op.Step == "restore" {
 			from = backup
 		}
-		f, err := s.openRegular(from, os.O_RDONLY)
+		f, err := pinned.openRegular(from, os.O_RDONLY)
 		if err != nil {
 			return out, err
 		}
+		defer f.Close()
 		info, err := f.Stat()
-		f.Close()
 		if err != nil {
 			return out, err
 		}
 		if err := op.beforeWrite(); err != nil {
 			return out, err
 		}
-		if err := s.renameExclusive(from, op.Path); err != nil {
+		if err := publishOpenFile(parent, f, from, name); err != nil {
 			return out, err
 		}
-		published, err := s.root.Lstat(op.Path)
+		alias, err := parent.Lstat(from)
+		if err != nil || !os.SameFile(alias, info) {
+			return out, changed
+		}
+		if err := parent.Remove(from); err != nil {
+			return out, err
+		}
+		published, err := parent.Lstat(name)
 		if err != nil || !os.SameFile(info, published) {
 			return out, changed
 		}
-		entry, err := s.metadata(op.Path, published, nil)
+		entry, err := pinned.metadata(name, published, f)
 		out.Entry = &entry
 		return out, err
 	case "rollback":
@@ -163,7 +177,7 @@ func (s share) copyStep(op operation) (result, error) {
 		}
 		return out, err
 	case "has-backup":
-		info, err := s.root.Lstat(backup)
+		info, err := parent.Lstat(backup)
 		if errors.Is(err, fs.ErrNotExist) {
 			return out, nil
 		}
@@ -183,7 +197,7 @@ func (s share) copyStep(op operation) (result, error) {
 		if err := op.beforeWrite(); err != nil {
 			return out, err
 		}
-		err := s.root.Remove(from)
+		err := parent.Remove(from)
 		if errors.Is(err, fs.ErrNotExist) {
 			err = nil
 		}

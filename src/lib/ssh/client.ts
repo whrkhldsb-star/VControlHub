@@ -1,7 +1,7 @@
 import { NO_REPLACE_RENAME_PYTHON } from "./rename-exclusive";
 import { Client, type ConnectConfig } from "ssh2";
 import { getSshEnforceHostKeyPin } from "@/lib/settings/cached-flags";
-import { atomicSftpWrite, sftpDeadline, sftpRequest } from "./sftp-operations";
+import { uploadStageName, atomicSftpWrite, sftpDeadline, sftpRequest } from "./sftp-operations";
 import { SFTP_TRANSFER_IDLE_TIMEOUT_MS } from "./sftp-timeout";
 import { isInsideRoot } from "./sftp-root";
 import type { FileEntryWithStats, SFTPWrapper } from "ssh2";
@@ -892,37 +892,71 @@ export async function writeRemoteFile(input: SshConnectionParams & { remotePath:
   if (usesAgentOnly(input)) {
     if (Buffer.byteLength(input.content) > AGENT_FILE_MAX_BYTES) throw new BusinessError(t("backend.server.agentWriteLimit"));
     const encoded = Buffer.from(input.content).toString("base64");
-    const created = await execAgentOnly(input, pythonCommand(`import base64,json,os,sys,tempfile
+    // Agent jobs run in separate processes. Re-open the parent without following
+    // links on every chunk, and match both inode identities before writing.
+    const openParent = `import base64,json,os,stat,sys
+def parent_dir(dst):
+ fd=os.open('/',os.O_DIRECTORY)
+ for part in os.path.dirname(dst).strip('/').split('/'):
+  if not part: continue
+  child=os.open(part,os.O_DIRECTORY|os.O_NOFOLLOW,dir_fd=fd)
+  os.close(fd)
+  fd=child
+ return fd
+def identity(fd):
+ st=os.fstat(fd)
+ return [str(st.st_dev),str(st.st_ino)]
+`;
+    const created = await execAgentOnly(input, pythonCommand(openParent + `
 dst=os.path.realpath(sys.argv[1])
-if sys.argv[3] and os.path.commonpath([dst,sys.argv[3]])!=sys.argv[3]: raise PermissionError("Outside the authorized directory")
-fd,p=tempfile.mkstemp(dir=os.path.dirname(dst) or '.', prefix='.vch-upload-')
+root=sys.argv[3]
+if root and (dst!=os.path.normpath(sys.argv[1]) or os.path.commonpath([dst,root])!=root): raise PermissionError("Outside the authorized directory")
+parent=parent_dir(dst)
+name=sys.argv[4]
+os.mkdir(name,0o700,dir_fd=parent)
+stage=os.open(name,os.O_DIRECTORY|os.O_NOFOLLOW,dir_fd=parent)
+if os.fstat(stage).st_uid!=os.geteuid() or os.fstat(stage).st_mode & 0o077: raise PermissionError("Stage changed")
 try:
- with os.fdopen(fd,'wb') as f: f.write(base64.b64decode(sys.argv[2]))
+ fd=os.open('content',os.O_WRONLY|os.O_CREAT|os.O_EXCL|os.O_NOFOLLOW,0o600,dir_fd=stage)
+ with os.fdopen(fd,'wb') as f:
+  binding=[dst,name,identity(parent),identity(stage),identity(fd)]
+  f.write(base64.b64decode(sys.argv[2]))
 except:
- os.unlink(p)
+ if 'fd' in locals(): os.unlink('content',dir_fd=stage)
+ os.rmdir(name,dir_fd=parent)
  raise
-print(json.dumps([p,dst]))`, [input.remotePath, encoded.slice(0, AGENT_WRITE_CHUNK), input.root?.path ?? ""]));
-    const [temp, destination] = JSON.parse(created.stdout) as string[];
-    if (!temp?.startsWith("/") || !destination?.startsWith("/")) throw new BusinessError(t("backend.server.agentCommandFailed", { code: 1 }));
+print(json.dumps(binding))`, [input.remotePath, encoded.slice(0, AGENT_WRITE_CHUNK), input.root?.path ?? "", uploadStageName()]));
+    const binding = created.stdout.trim();
+    const reopen = openParent + `
+dst,name,parentId,stageId,fileId=json.loads(sys.argv[1])
+parent=parent_dir(dst)
+if identity(parent)!=parentId: raise PermissionError("Parent changed")
+stage=os.open(name,os.O_DIRECTORY|os.O_NOFOLLOW,dir_fd=parent)
+if identity(stage)!=stageId: raise PermissionError("Stage changed")
+fd=os.open('content',os.O_NOFOLLOW|os.O_WRONLY|os.O_APPEND|os.O_NONBLOCK,dir_fd=stage)
+if identity(fd)!=fileId or os.fstat(fd).st_nlink!=1: raise PermissionError("Stage changed")
+`;
     try {
       for (let offset = AGENT_WRITE_CHUNK; offset < encoded.length; offset += AGENT_WRITE_CHUNK) {
-        await execAgentOnly(input, pythonCommand("import base64,sys\nopen(sys.argv[1],'ab').write(base64.b64decode(sys.argv[2]))", [temp, encoded.slice(offset, offset + AGENT_WRITE_CHUNK)]));
+        await execAgentOnly(input, pythonCommand(reopen + "with os.fdopen(fd,'ab') as f: f.write(base64.b64decode(sys.argv[2]))", [binding, encoded.slice(offset, offset + AGENT_WRITE_CHUNK)]));
       }
-      await execAgentOnly(input, pythonCommand(`import os,stat,sys
-tmp,dst=sys.argv[1:]
-try: st=os.lstat(dst)
+      await execAgentOnly(input, pythonCommand(reopen + `
+target=os.path.basename(dst)
+try: st=os.stat(target,dir_fd=parent,follow_symlinks=False)
 except FileNotFoundError: st=None
 if st:
  if not stat.S_ISREG(st.st_mode): raise ValueError("Expected regular file")
- stage=os.stat(tmp)
- if (stage.st_uid,stage.st_gid)!=(st.st_uid,st.st_gid): os.chown(tmp,st.st_uid,st.st_gid)
- os.chmod(tmp,st.st_mode & 0o777)
+ fileStat=os.fstat(fd)
+ if (fileStat.st_uid,fileStat.st_gid)!=(st.st_uid,st.st_gid): os.fchown(fd,st.st_uid,st.st_gid)
+ os.fchmod(fd,st.st_mode & 0o777)
 else:
  mask=os.umask(0o077)
- os.chmod(tmp,0o666 & ~mask)
-os.replace(tmp,dst)`, [temp, destination]));
+ os.fchmod(fd,0o666 & ~mask)
+os.replace('content',target,src_dir_fd=stage,dst_dir_fd=parent)
+try: os.rmdir(name,dir_fd=parent)
+except OSError: pass`, [binding]));
     } catch (error) {
-      await execAgentOnly(input, pythonCommand("import os,sys\ntry:\n  os.remove(sys.argv[1])\nexcept FileNotFoundError:\n  pass", [temp])).catch(() => undefined);
+      await execAgentOnly(input, pythonCommand(reopen + "os.unlink('content',dir_fd=stage)\nos.rmdir(name,dir_fd=parent)", [binding])).catch(() => undefined);
       throw error;
     }
     return;
@@ -969,6 +1003,7 @@ async function assertCurrentCommandEndpoint(input: SshConnectionParams) {
   const current = await prisma.server.findUnique({
     where: {
       id: input.expectedIdentity.serverId, teamId: input.expectedIdentity.teamId, enabled: true,
+      team: { isNot: { deletedAt: { not: null } } },
       host: input.host, port: input.port, username: input.username, hostKeySha256: input.hostKeySha256,
       managementMode: input.agentServerId ? "AGENT" : "DIRECT",
       ...(input.agentServerId && { agentTokenHash: input.expectedIdentity.tokenHash }),
@@ -1019,7 +1054,7 @@ async function executeSshCommand(input: RemoteCommandInput, agentFallback: boole
      select: SSH_CONNECTION_SERVER_SELECT,
    });
    if (!current) throw new BusinessError(t("backend.command.connectionChanged"));
-   const login = await buildSshParamsFromServer(current, current.sshKey);
+   const login = await buildSshParamsFromServer(current, current.sshKey, current.teamId);
    if (login.password !== input.password || login.privateKey !== input.privateKey || login.passphrase !== input.passphrase) {
      throw new BusinessError(t("backend.command.connectionChanged"));
    }

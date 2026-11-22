@@ -3,9 +3,10 @@ import type { Prisma } from "@prisma/client";
 import { liveCustomerRowsWhere } from "@/lib/auth/team-scope";
 import { checkSamplingClaim, type SamplingClaim } from "@/lib/monitoring/sampling-claim";
 import { isNowInAlertSilenceWindow } from "@/lib/health/service-types";
+import { sampledEndpoint, sampledServerScope, type HealthEndpoint } from "@/lib/health/sample-binding";
 import { configurationDigest, verifiedRuleChannels } from "./channel-grants";
 
-export type AlertEvaluation = { version: string; sampledAt: Date; claim?: SamplingClaim };
+export type AlertEvaluation = { version: string; sampledAt: Date; claim?: SamplingClaim; [sampledEndpoint]?: HealthEndpoint };
 export type DeliveryTarget = {
   ruleId: string; serverId: string | null; metric: string; teamId?: string | null;
   webhookUrl?: string | null; onCallUserIds?: string[]; evaluation?: AlertEvaluation;
@@ -44,7 +45,10 @@ export async function currentDeliveryChannels(db: Prisma.TransactionClient, targ
     || isNowInAlertSilenceWindow(rule.silenceWindows)) return null;
   if (target.serverId) {
     if (rule.serverIds.length && !rule.serverIds.includes(target.serverId)) return null;
-    const host = await db.server.findFirst({
+    const endpoint = target.evaluation?.[sampledEndpoint];
+    if (endpoint && (!endpoint.enabled || (rule.teamId && rule.teamId !== endpoint.teamId))) return null;
+    const host = endpoint ? (await db.$queryRaw<{ id: string }[]>`SELECT s.id FROM servers s
+      WHERE TRUE ${sampledServerScope([{ serverId: target.serverId, [sampledEndpoint]: endpoint }])} FOR SHARE OF s`)[0] : await db.server.findFirst({
       where: { id: target.serverId, enabled: true, ...(rule.teamId ? { teamId: rule.teamId } : {}), ...liveCustomerRowsWhere() },
       select: { id: true },
     });

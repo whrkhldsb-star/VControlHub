@@ -296,6 +296,17 @@ describe("storage access control", () => {
     expect(largestAllowedWrite({ maxFileBytes: null, remainingBytes: null })).toBeNull();
   });
 
+  it("admits ordinary writes against the narrowest limit and every enclosing quota", async () => {
+    const outer = quotaGrant({ id: "outer", pathPrefix: "team-a", quotaBytes: BigInt(100), maxFileBytes: null });
+    const inner = quotaGrant({ id: "inner", pathPrefix: "team-a/shared", quotaBytes: null, maxFileBytes: BigInt(12) });
+    vi.mocked(prisma.userStorageAccess.findMany).mockResolvedValue([outer, inner]);
+    const input = { session: baseSession, storageNodeId: "node-1", relativePath: "team-a/shared/file", operation: "write" as const };
+    await expect(assertStorageAccess({ ...input, writeBytes: 13 })).resolves.toMatchObject({ allowed: false, reason: "file_too_large", matchedGrantId: "inner" });
+    vi.mocked(prisma.fileEntry.aggregate).mockResolvedValue({ _sum: { size: BigInt(95) } } as Awaited<ReturnType<typeof prisma.fileEntry.aggregate>>);
+    vi.mocked(prisma.userStorageAccess.findMany).mockResolvedValue([inner, outer]);
+    await expect(assertStorageAccess({ ...input, writeBytes: 6 })).resolves.toMatchObject({ allowed: false, reason: "quota_exceeded", matchedGrantId: "outer" });
+  });
+
   it("computes per-entry capabilities from explicit storage grants", async () => {
     vi.mocked(prisma.userStorageAccess.findMany).mockResolvedValueOnce([
       {

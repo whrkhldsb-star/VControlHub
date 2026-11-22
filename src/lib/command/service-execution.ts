@@ -200,7 +200,7 @@ export async function executeTarget(
     result = await executeCommandWithAgent({
       serverId: target.server.id,
       commandTargetId: target.id,
-      expectedIdentity: { tokenHash: target.server.agentTokenHash, teamId: target.server.teamId },
+      expectedIdentity: { tokenHash: target.server.agentTokenHash, teamId: target.server.teamId, endpoint: target.server },
       onUnavailable: (reason) => { fallbackReason = reason; },
       command: target.commandRequest.command,
       timeoutMs: runtime.executionTimeoutMs,

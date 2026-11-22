@@ -1,3 +1,4 @@
+import { sampledEndpoint } from "@/lib/health/sample-binding";
 import { apiCopy } from "@/lib/i18n/api-copy";
 import { NextResponse } from "next/server";
 import { z } from "zod";
@@ -68,7 +69,7 @@ async function handleHealthRequest(request: Request, session: SessionPayload) {
   if (historyFor) {
     const access = await assertServerTeamAccess(session, historyFor);
     if (!access.ok) return access.response;
-    const history = await getMetricHistory(historyFor, hours);
+    const history = await getMetricHistory(historyFor, hours, session);
     const serialized = history.map((h) => ({
       cpu: h.cpuUsage,
       mem: h.memUsage,
@@ -89,7 +90,7 @@ async function handleHealthRequest(request: Request, session: SessionPayload) {
     collectAllHealth(session),
   );
   const visible = await prisma.server.findMany({
-    where: { AND: [serverTeamWhere(session), { id: { in: overview.servers.map(server => server.serverId) } }] },
+    where: { AND: [serverTeamWhere(session), { OR: overview.servers.map(server => ({ ...server[sampledEndpoint], id: server.serverId })) }] },
     select: { id: true },
   });
   const ids = new Set(visible.map(server => server.id));

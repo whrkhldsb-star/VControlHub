@@ -10,7 +10,7 @@ import { createLogger } from "@/lib/logging";
 import { auditSystemAction } from "@/lib/audit/service";
 import { createSingletonIntervalWorker, type SingletonIntervalWorkerState } from "@/lib/workers/singleton-interval-worker";
 
-import { acquireAdvisoryLock, AdvisoryLockBusyError } from "@/lib/concurrency/advisory-lock";
+import { acquireMonitoredAdvisoryLock, AdvisoryLockBusyError } from "@/lib/concurrency/advisory-lock";
 import { loadJobOwnerSession } from "@/lib/api-token/authorization";
 import { sessionHasPermission } from "@/lib/auth/authorization";
 import { isGlobalTeamManager, liveCustomerRowsWhere } from "@/lib/auth/team-scope";
@@ -189,9 +189,9 @@ export async function processPlaybookRun(runId: string, jobId: string, signal?: 
   // Serialize concurrent runs of the same playbook (shared target servers / commands).
   // Lock is per-playbook, so a reclaimed job may wait here while the original
   // worker finishes the same runId — re-check terminal status after acquire.
-  const releaseLock = await acquireAdvisoryLock("playbook-execute", run.playbook.id);
-  const lockSignal = (releaseLock as typeof releaseLock & { signal?: AbortSignal }).signal;
-  if (lockSignal) signal = signal ? AbortSignal.any([signal, lockSignal]) : lockSignal;
+  const lock = await acquireMonitoredAdvisoryLock("playbook-execute", run.playbook.id);
+  const generationKey = "playbook.lock." + run.playbook.id;
+  signal = signal ? AbortSignal.any([signal, lock.signal]) : lock.signal;
   try {
     const latest = await prisma.playbookRun.findUnique({
       where: { id: runId },
@@ -221,8 +221,14 @@ export async function processPlaybookRun(runId: string, jobId: string, signal?: 
 
     signal?.throwIfAborted();
     // Fence every older execution of this definition, even if its job lease still renews.
-    const generations = await prisma.$queryRaw<{ id: string; version: number }[]>`UPDATE playbook_runs
+    await lock.assertHeld();
+    const generations = await prisma.$queryRaw<{ id: string; version: number }[]>`WITH holder AS (
+      INSERT INTO settings (key, value, "updatedAt") VALUES (${generationKey}, ${lock.generation}, now())
+      ON CONFLICT (key) DO UPDATE SET value = EXCLUDED.value, "updatedAt" = now()
+      WHERE settings.value::numeric < EXCLUDED.value::numeric RETURNING key
+    ) UPDATE playbook_runs
       SET version = version + 1 WHERE "playbookId" = ${run.playbook.id} AND status = 'running'
+      AND EXISTS (SELECT 1 FROM holder)
       AND EXISTS (SELECT 1 FROM jobs j WHERE j.id = ${jobId} AND j.status = 'RUNNING' AND j."workerId" = ${WORKER_ID}
         AND j."leaseExpiresAt" > clock_timestamp() ${attempts === undefined ? Prisma.empty : Prisma.sql`AND j.attempts = ${attempts}`})
       RETURNING id, version`;
@@ -242,13 +248,17 @@ export async function processPlaybookRun(runId: string, jobId: string, signal?: 
         signal?.throwIfAborted();
         if (attempts !== undefined && signal) await checkSamplingClaim(tx, { jobId, workerId: WORKER_ID, attempts, signal });
         const rows = await tx.$queryRaw<{ id: string }[]>`SELECT id FROM playbook_runs
-          WHERE id = ${runId} AND version = ${version} AND status = 'running' FOR SHARE`;
+          WHERE id = ${runId} AND version = ${version} AND status = 'running'
+          AND EXISTS (SELECT 1 FROM settings WHERE key = ${generationKey} AND value = ${lock.generation} FOR SHARE) FOR SHARE`;
         if (!rows.length) throw new LeaseLostError(jobId);
       },
       beforeDispatch: async () => {
         await checkLease();
         await assertRunOwner(requesterId, latest.teamId);
         await assertAlertRunScope(run.triggerContext, run.playbook.id, latest.teamId, sourceTeamId);
+        await lock.assertHeld();
+        const holder = await prisma.setting.findUnique({ where: { key: generationKey }, select: { value: true } });
+        if (holder?.value !== lock.generation) throw new LeaseLostError(jobId);
         signal?.throwIfAborted();
       },
       playbook: {
@@ -313,10 +323,10 @@ export async function processPlaybookRun(runId: string, jobId: string, signal?: 
     );
     return { status, summary: chain.summary };
   } catch (error) {
-    if (lockSignal?.aborted) throw new LeaseLostError(jobId);
+    if (lock.signal.aborted) throw new LeaseLostError(jobId);
     throw error;
   } finally {
-    await releaseLock();
+    await lock.release();
   }
 }
 

@@ -179,7 +179,7 @@ describe("/api/health", () => {
 
     expect(response.status).toBe(200);
     expect(assertServerTeamAccessMock).toHaveBeenCalledWith(expect.any(Object), "srv_1");
-    expect(getMetricHistoryMock).toHaveBeenCalledWith("srv_1", 6);
+    expect(getMetricHistoryMock).toHaveBeenCalledWith("srv_1", 6, expect.objectContaining({ userId: "user_1" }));
     await expect(response.json()).resolves.toMatchObject({
       history: [
         {

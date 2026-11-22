@@ -20,12 +20,14 @@
  */
 import { Prisma } from "@prisma/client";
 
+import { sampledEndpoint, sampledServerScope, type HealthEndpoint } from "@/lib/health/sample-binding";
 import { withSamplingClaim, type SamplingClaim } from "@/lib/monitoring/sampling-claim";
 import { startOfMonthInAppTimeZone } from "@/lib/datetime/time-zone";
 import { createLogger } from "@/lib/logging";
 import { counterOrNull, pgNonnegativeInt, type NormalizedMetrics } from "./normalize";
 
 export type LatestMetricInput = {
+	[sampledEndpoint]?: HealthEndpoint;
 	serverId: string;
 	/** When the reachability verdict below was made. */
 	checkedAt: Date;
@@ -137,7 +139,8 @@ async function writeChunk(chunk: LatestMetricInput[], claim?: SamplingClaim): Pr
 				"arch", "kernelVersion", "osName", "cpuModel", "virtualization",
 				"processCount", "tcpConnections", "udpConnections", "updatedAt"
 			)
-			JOIN "servers" s ON s."id" = v."serverId"
+			JOIN "servers" s ON s."id" = v."serverId" ${sampledServerScope(chunk)}
+			FOR SHARE OF s
 			ON CONFLICT ("serverId") DO UPDATE SET
 				"checkedAt" = CASE WHEN EXCLUDED."checkedAt" >= t."checkedAt" THEN EXCLUDED."checkedAt" ELSE t."checkedAt" END,
 				"online" = CASE WHEN EXCLUDED."checkedAt" >= t."checkedAt" THEN EXCLUDED."online" ELSE t."online" END,

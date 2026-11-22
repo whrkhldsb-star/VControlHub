@@ -1,3 +1,4 @@
+import { gatewayMetricsAuthorization, gatewayMetricsUrl } from "@/lib/monitoring/gateway-metrics";
 import { apiCopy } from "@/lib/i18n/api-copy";
 import { NextResponse } from "next/server";
 
@@ -29,8 +30,11 @@ type SshMetricsPayload = {
 async function mergeSshWsMetrics(snapshot: ReturnType<typeof getObservabilitySnapshot>) {
 	try {
 		const host = config.ssh.wsHost;
-		const port = String(config.ssh.wsPort);
-		const res = await fetch(`http://${host}:${port}/metrics`, {
+		const secret = config.ssh.wsSecret;
+		if (!secret) return snapshot;
+		const res = await fetch(gatewayMetricsUrl(host, config.ssh.wsPort), {
+			headers: { authorization: gatewayMetricsAuthorization(secret) },
+			redirect: "error",
 			signal: AbortSignal.timeout(1500),
 			cache: "no-store",
 		});

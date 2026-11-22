@@ -5,7 +5,7 @@ import { NextResponse } from "next/server";
 import { sessionHasPermission } from "@/lib/auth/authorization";
 import { getServerLocale, t } from "@/lib/i18n/translations";
 import type { SessionPayload } from "@/lib/auth/session";
-import { seesAllCustomers } from "@/lib/auth/team-scope";
+import { lockLiveCustomer, seesAllCustomers } from "@/lib/auth/team-scope";
 import { prisma } from "@/lib/db";
 import { withApiRoute } from "@/lib/http/api-guard";
 import { IMAGE_UPLOAD_LIMIT } from "@/lib/http/rate-limit-presets";
@@ -47,59 +47,63 @@ export async function DELETE(
     async ({ session }) => {
       const { id } = await params;
 
-      const image = await prisma.imageUpload.findUnique({
-        where: { id },
-        select: {
-          id: true,
-          userId: true,
-          teamId: true,
-          storageKey: true,
-          checksum: true,
-          sizeBytes: true,
-          createdAt: true,
-          storageNodeId: true,
-          relativePath: true,
-        },
-      });
+      const { cleanupFailures, teamId } = await prisma.$transaction(async tx => {
+        const image = await tx.imageUpload.findUnique({
+          where: { id },
+          select: {
+            id: true,
+            userId: true,
+            teamId: true,
+            storageKey: true,
+            checksum: true,
+            sizeBytes: true,
+            createdAt: true,
+            storageNodeId: true,
+            relativePath: true,
+          },
+        });
 
-      if (!image)
-        throw new NotFoundError(
-          t("api.imageNotFound", await getServerLocale()),
-        );
+        if (!image)
+          throw new NotFoundError(
+            t("api.imageNotFound", await getServerLocale()),
+          );
 
-      // Only owner or explicit destructive/admin permissions can delete.
-      // `user:read` is intentionally not enough because viewer accounts have it.
-      if (
-        !canDeleteImage({
-          ownerId: image.userId,
-          teamId: image.teamId,
-          session,
-        })
-      ) {
-        throw new ForbiddenError(apiCopy("apiCopy.no.permission.to.delete.7246baf4"));
-      }
+        // Only owner or explicit destructive/admin permissions can delete.
+        // `user:read` is intentionally not enough because viewer accounts have it.
+        if (
+          !canDeleteImage({
+            ownerId: image.userId,
+            teamId: image.teamId,
+            session,
+          })
+        ) {
+          throw new ForbiddenError(apiCopy("apiCopy.no.permission.to.delete.7246baf4"));
+        }
 
-      await prisma.imageUpload.delete({ where: { id } });
-      const [variants, linked] = await Promise.allSettled([
-        deleteImageVariants(image.storageKey, UPLOAD_DIR),
-        removeOwnedLinkedCopies([image], session),
-      ]);
-      const cleanupFailures: string[] = [];
-      if (variants.status === "rejected") {
-        logError("image-bed:delete-imageBed", variants.reason);
-        cleanupFailures.push("imageBed");
-      }
-      if (linked.status === "rejected" || linked.value.failed.length) {
-        if (linked.status === "rejected") logError("image-bed:delete-linkedStorage", linked.reason);
-        cleanupFailures.push("linkedStorage");
-      }
+        if (image.teamId) await lockLiveCustomer(tx, image.teamId);
+        const deleted = await tx.imageUpload.delete({ where: { id, teamId: image.teamId, userId: image.userId } });
+        const [variants, linked] = await Promise.allSettled([
+          deleteImageVariants(deleted.storageKey, UPLOAD_DIR),
+          removeOwnedLinkedCopies([deleted], session, tx),
+        ]);
+        const cleanupFailures: string[] = [];
+        if (variants.status === "rejected") {
+          logError("image-bed:delete-imageBed", variants.reason);
+          cleanupFailures.push("imageBed");
+        }
+        if (linked.status === "rejected" || linked.value.failed.length) {
+          if (linked.status === "rejected") logError("image-bed:delete-linkedStorage", linked.reason);
+          cleanupFailures.push("linkedStorage");
+        }
+        return { cleanupFailures, teamId: image.teamId };
+      }, { timeout: 60_000 });
 
       await auditUserAction(
         session.userId,
         "image.delete",
         { imageId: id, cleanupFailures },
         cleanupFailures.length > 0 ? "WARNING" : undefined,
-        session.currentTeamId,
+        teamId,
       );
       if (cleanupFailures.length > 0) {
         return NextResponse.json(

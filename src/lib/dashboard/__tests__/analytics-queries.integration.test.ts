@@ -4,6 +4,7 @@
  * (RUN_DATABASE_INTEGRATION_TESTS=1, loopback host, database name containing audit/test/_ci).
  */
 import { randomUUID } from "node:crypto";
+import { manualRunKey } from "@/lib/command/approval-identity";
 import { afterAll, beforeAll, describe, expect, it } from "vitest";
 
 import { appTimeZoneDateKey } from "@/lib/datetime/time-zone";
@@ -153,8 +154,10 @@ describe.skipIf(!RUN)("dashboard analytics, grouped in PostgreSQL", () => {
 	});
 
 	it("counts beyond the approval and target preview limits within the visible server scope", async () => {
+		const initiator = prefix + "_manual%";
 		await prisma.commandRequest.createMany({ data: Array.from({ length: 501 }, (_, i) => ({
 			teamId: team, requesterId: owner, initiatedByType: "USER" as const, title: "queued", command: "true", id: prefix + "-queue-" + i,
+			idempotencyKey: i === 0 ? manualRunKey(initiator) : null,
 		})) });
 		const request = await prisma.commandRequest.findFirstOrThrow({ where: { teamId: team }, orderBy: [{ createdAt: "desc" }, { id: "desc" }] });
 		await prisma.commandTarget.createMany({ data: Array.from({ length: 53 }, (_, i) => ({ commandRequestId: request.id, serverId: server(i === 52 ? "x" : "a") })) });
@@ -162,6 +165,8 @@ describe.skipIf(!RUN)("dashboard analytics, grouped in PostgreSQL", () => {
 		expect(result.pendingApprovals).toBe(501);
 		expect(result.requests).toHaveLength(5);
 		expect(result.requests[0]).toMatchObject({ id: request.id, targetCount: 52 });
+		const reviewer = await dashboardCommands({ ...session, userId: initiator, permissions: ["command:approve"] });
+		expect(reviewer.review.count).toBe(500);
 	});
 
 	it("reads one customer's servers apart from another's, and nothing for no servers", async () => {

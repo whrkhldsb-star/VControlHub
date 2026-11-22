@@ -17,6 +17,7 @@ import {
   updateScheduledTask,
 } from "@/lib/scheduled-task/service";
 import { createCommandSchema } from "@/lib/command/schema";
+import { projectScheduledTask } from "@/lib/scheduled-task/visibility";
 import { describeCron } from "@/lib/scheduled-task/describe-cron";
 import { localizeStoredText } from "@/lib/i18n/stored-sentences";
 
@@ -88,14 +89,14 @@ export async function GET(request: Request) {
     request,
     {
       permission: "command:read",
-      optionalTokenPermissions: ["server:read"],
+      optionalTokenPermissions: ["server:read", "command:approve"],
       errorMessage: t("api.serverError", await requestLocale(request)),
     },
     async ({ session }) => {
       const locale = await requestLocale(request);
       const canReadServers = sessionHasPermission(session, "server:read");
       const tasks = await listScheduledTasks(200, session);
-      const serialized = tasks.map((task) => ({
+      const serialized = tasks.map(task => projectScheduledTask(task, session)).map((task) => ({
         id: task.id,
         name: task.name,
         cronExpression: task.cronExpression,
@@ -131,6 +132,7 @@ export async function POST(request: Request) {
     request,
     {
       permission: "command:create",
+      optionalTokenPermissions: ["command:read", "command:approve"],
       rateLimit: GENERAL_WRITE_LIMIT,
       bodySchema: scheduledTaskPostSchema,
       errorStatus: 400,
@@ -172,7 +174,7 @@ export async function POST(request: Request) {
         session.userId,
         "scheduled_task.create",
         auditScheduledTaskDetail(task), undefined, session.currentTeamId);
-      return NextResponse.json({ task });
+      return NextResponse.json({ task: projectScheduledTask(task, session) });
     },
   );
 }
@@ -182,6 +184,7 @@ export async function PATCH(request: Request) {
     request,
     {
       permission: "command:create",
+      optionalTokenPermissions: ["command:read", "command:approve"],
       rateLimit: GENERAL_WRITE_LIMIT,
       bodySchema: scheduledTaskPatchSchema,
       errorStatus: 400,
@@ -195,7 +198,7 @@ export async function PATCH(request: Request) {
           session.userId,
           "scheduled_task.toggle",
           auditScheduledTaskDetail(result), undefined, session.currentTeamId);
-        return NextResponse.json({ task: result });
+        return NextResponse.json({ task: projectScheduledTask(result, session) });
       }
       if (data.retryId) {
         const result = await retryScheduledTask(data.retryId, session);
@@ -203,7 +206,7 @@ export async function PATCH(request: Request) {
           session.userId,
           "scheduled_task.retry",
           auditScheduledTaskDetail(result), undefined, session.currentTeamId);
-        return NextResponse.json({ task: result });
+        return NextResponse.json({ task: projectScheduledTask(result, session) });
       }
     if (!data.id)
         throw new ValidationError(t("api.missingTaskId", locale));
@@ -233,7 +236,7 @@ export async function PATCH(request: Request) {
         session.userId,
         "scheduled_task.update",
         auditScheduledTaskDetail(result), undefined, session.currentTeamId);
-      return NextResponse.json({ task: result });
+      return NextResponse.json({ task: projectScheduledTask(result, session) });
     },
   );
 }

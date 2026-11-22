@@ -26,7 +26,7 @@ function currentMonth(): string {
 	return appTimeZoneDateKey().slice(0, 7);
 }
 
-export default async function CostSummaryPage({ searchParams }: { searchParams?: Promise<{ budget?: string; periodStart?: string }> } = {}) {
+export default async function CostSummaryPage({ searchParams }: { searchParams?: Promise<{ budget?: string; periodStart?: string }> }) {
 	const session = await requireSession("/cost-summary");
 	const canRead = sessionHasPermission(session, "cost:read");
 	const canManage = sessionHasPermission(session, "cost:manage");

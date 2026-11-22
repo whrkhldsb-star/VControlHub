@@ -1,3 +1,4 @@
+import { sampledEndpoint, sampledServerScope } from "./sample-binding";
 import { sampleId, withSamplingClaim, type SamplingClaim } from "@/lib/monitoring/sampling-claim";
 import { Prisma } from "@prisma/client";
 import { rawServerScope, type TeamSession } from "@/lib/auth/team-scope";
@@ -111,7 +112,11 @@ export async function snapshotHealthOverview(
     }];
   });
   const latest = overview.servers
-    .map((server) => latestMetricInput(server, checkedAt, intervalSeconds))
+    .map((server) => {
+      const input = latestMetricInput(server, checkedAt, intervalSeconds);
+      if (input) input[sampledEndpoint] = server[sampledEndpoint];
+      return input;
+    })
     .filter((row): row is LatestMetricInput => row !== null);
   if (latest.length > 0) {
     // The status board's copy must not cost the durable history sample.
@@ -123,13 +128,18 @@ export async function snapshotHealthOverview(
   }
   if (base.length === 0) return { count: 0 };
   return withSamplingClaim(options.claim, async (tx) => {
-    const teamMap = await teamIdByServerIds([...new Set(base.map((r) => r.serverId))], tx);
-    const data = base.map((row) => ({
+    const ids = base.map(row => row.serverId);
+    const bound = overview.servers.some(server => server[sampledEndpoint]);
+    const teamMap = bound ? new Map((await tx.$queryRaw<{ id: string; teamId: string | null }[]>`
+      SELECT s.id, s."teamId" FROM servers s WHERE s.id = ANY(${ids}::text[])
+      ${sampledServerScope(overview.servers)} ORDER BY s.id FOR SHARE OF s`).map(row => [row.id, row.teamId]))
+      : await teamIdByServerIds(ids, tx);
+    const data = base.filter(row => !bound || teamMap.has(row.serverId)).map((row) => ({
       ...row, teamId: teamMap.get(row.serverId) ?? null,
       ...(options.claim ? { id: sampleId("health", options.claim.jobId, row.serverId) } : {}),
     }));
     return tx.metricSnapshot.createMany({ data, ...(options.claim ? { skipDuplicates: true } : {}) });
-  });
+  }, overview.servers.some(server => server[sampledEndpoint]));
 }
 
 export async function pruneMetricSnapshots(olderThan: Date, claim?: SamplingClaim) {

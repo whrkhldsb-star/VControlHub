@@ -1,3 +1,4 @@
+import { mockPrismaMethod } from "@/test/prisma-mock";
 import { generateKeyPairSync } from "node:crypto";
 import { parsePrivateKey } from "sshpk";
 vi.mock("@/lib/concurrency/advisory-lock", () => ({
@@ -134,7 +135,7 @@ vi.mock("@/lib/db", () => ({
     quickService: { count: vi.fn() },
     vpsBackupSchedule: { count: vi.fn() },
     vpsBackupRecord: { count: vi.fn() },
-    commandTarget: { count: vi.fn(async () => 0) },
+    commandTarget: { count: vi.fn(async () => 0), groupBy: vi.fn(async () => []) },
     serverFileProxy: { count: vi.fn(async () => 0) },
     serverAgentJob: { count: vi.fn(async () => 0) },
     downloadTask: { count: vi.fn(async () => 0) },
@@ -181,7 +182,7 @@ describe("server service", () => {
     vi.mocked(prisma.scheduledTask.count).mockResolvedValue(0);
     vi.mocked(prisma.alertRule.count).mockResolvedValue(0);
     vi.mocked(prisma.playbook.findMany).mockResolvedValue([]);
-    vi.mocked(prisma.$queryRaw).mockResolvedValue([] as any);
+    mockPrismaMethod(prisma.$queryRaw as never, async (sql: unknown) => String(sql).includes("FROM download_tasks") ? [{ count: 0 }] : []);
     vi.mocked(prisma.syncJob.count).mockResolvedValue(0);
     vi.mocked(prisma.quickService.count).mockResolvedValue(0);
     vi.mocked(prisma.vpsBackupSchedule.count).mockResolvedValue(0);

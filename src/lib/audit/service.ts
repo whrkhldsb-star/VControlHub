@@ -1,3 +1,4 @@
+import { projectPlaybookAuditEntry } from "@/lib/playbook/legacy-messages";
 import { AuditSeverity, ActorType, Prisma } from "@prisma/client";
 
 import type { SessionPayload } from "@/lib/auth/session";
@@ -187,7 +188,7 @@ export async function listAuditLogs(
 	]);
 
 	return {
-		logs: logs as unknown as AuditLogEntry[],
+		logs: logs.map(projectPlaybookAuditEntry) as unknown as AuditLogEntry[],
 		total,
 		page,
 		pageSize,
@@ -210,13 +211,14 @@ export async function prepareAuditExport(input: Omit<ListAuditLogsInput, "page" 
 			signal?.throwIfAborted();
 			const remaining = AUDIT_EXPORT_MAX_ROWS - count;
 			const take = Math.min(1_000, remaining + 1);
-			const page = await tx.auditLog.findMany({
+			const rows = await tx.auditLog.findMany({
 				where: cursor ? { AND: [where, { OR: [
 					{ createdAt: { lt: cursor.createdAt } }, { createdAt: cursor.createdAt, id: { lt: cursor.id } },
 				] }] } : where,
 				include: { actor: { select: { username: true, displayName: true } } },
 				orderBy: EXPORT_ORDER, take,
-			}) as unknown as AuditLogEntry[];
+			});
+			const page = rows.map(projectPlaybookAuditEntry) as unknown as AuditLogEntry[];
 			if (page.length > remaining) {
 				if (remaining > 0) pages.push(page.slice(0, remaining));
 				return { pages, truncated: true };

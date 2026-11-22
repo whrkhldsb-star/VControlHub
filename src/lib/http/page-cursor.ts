@@ -28,3 +28,11 @@ export async function readPageCursor<T>(
   }
   throw new ValidationError(apiCopy("apiCopy.validation.query.failed"), { field: "cursor" });
 }
+
+/** Seek a descending (createdAt, id) listing even if its previous last row was removed. */
+export function createdBeforeCursor(cursor: string) {
+  const match = /^(\d{1,16})\.(.{1,256})$/.exec(cursor);
+  const createdAt = new Date(Number(match?.[1]));
+  if (!match || containsNul(cursor) || !Number.isFinite(createdAt.getTime())) return { id: { in: [] } };
+  return { OR: [{ createdAt: { lt: createdAt } }, { createdAt, id: { lt: match[2] } }] };
+}

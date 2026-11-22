@@ -90,6 +90,8 @@ vi.mock("@/lib/notification/service", () => ({
 
 vi.mock("@/lib/db", () => ({
   prisma: {
+    $transaction<T>(callback: (tx: unknown) => T) { return callback(this); },
+    commandRequest: { count: vi.fn().mockResolvedValue(0), findFirst: vi.fn().mockResolvedValue(null), findMany: vi.fn().mockResolvedValue([]) },
     auditLog: {
       findMany: vi.fn().mockResolvedValue([
         {

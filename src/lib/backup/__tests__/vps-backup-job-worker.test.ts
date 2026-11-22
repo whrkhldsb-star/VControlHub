@@ -58,7 +58,7 @@ describe("runVpsBackupJobWorkerOnce", () => {
   });
 
   it("completes the job with the backup artefact metadata", async () => {
-    claimNextJobMock.mockResolvedValue({ id: "job_1", payload: { recordId: "rec_1" } });
+    claimNextJobMock.mockResolvedValue({ id: "job_1", teamId: "team_1", payload: { recordId: "rec_1", serverId: "srv_1" } });
     runVpsBackupRecordMock.mockResolvedValue({
       success: true,
       fileSize: 2048,
@@ -68,7 +68,7 @@ describe("runVpsBackupJobWorkerOnce", () => {
 
     await runVpsBackupJobWorkerOnce();
 
-    expect(runVpsBackupRecordMock).toHaveBeenCalledWith("rec_1", undefined);
+    expect(runVpsBackupRecordMock).toHaveBeenCalledWith("rec_1", { expectedTeamId: "team_1", expectedServerId: "srv_1", signal: expect.any(AbortSignal) });
     expect(completeJobMock).toHaveBeenCalledWith("job_1", expect.any(String), {
       fileSize: 2048,
       checksumSha256: "abc",

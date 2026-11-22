@@ -1,3 +1,5 @@
+import { manualRunKeyPrefix, manualRunPrefix } from "@/lib/command/approval-identity";
+import { escapeLikeLiteral } from "@/lib/db/like-pattern";
 import { Prisma } from "@prisma/client";
 import { sessionHasPermission } from "@/lib/auth/authorization";
 import { commandRequestTeamWhere, rawServerScope, rawTeamScope, seesAllCustomers, serverTeamWhere, teamWhere, type TeamSession } from "@/lib/auth/team-scope";
@@ -95,7 +97,15 @@ export async function failedTaskSummary(session: TeamSession, now: Date) {
 export async function dashboardCommands(session: TeamSession) {
 	const scope = commandRequestTeamWhere(session);
 	const pending = { ...scope, status: "PENDING_APPROVAL" as const };
-	const review = { ...pending, ...(!maySelfReviewCommands(session) && { requesterId: { not: session.userId } }) };
+	const review: Prisma.CommandRequestWhereInput = maySelfReviewCommands(session) ? pending : {
+		AND: [
+			pending,
+			{ requesterId: { not: session.userId } },
+			{ OR: [{ idempotencyKey: null }, { NOT: { idempotencyKey: { startsWith: escapeLikeLiteral(manualRunPrefix(session.userId)) } } }] },
+			// Older manual requests have no recorded initiator. Only team managers can review them.
+			{ OR: [{ scheduledTaskRuns: { none: { manual: true } } }, { idempotencyKey: { startsWith: manualRunKeyPrefix } }] },
+		],
+	};
 	const canReadServers = sessionHasPermission(session, "server:read");
 	const orderBy = [{ createdAt: "desc" }, { id: "desc" }] satisfies Prisma.CommandRequestOrderByWithRelationInput[];
 	return prisma.$transaction(async tx => {

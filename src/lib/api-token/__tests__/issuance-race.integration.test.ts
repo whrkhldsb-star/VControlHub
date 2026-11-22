@@ -223,13 +223,15 @@ describe.skipIf(process.env.RUN_DATABASE_INTEGRATION_TESTS !== "1")("API token i
     } });
     const legacy = await prisma.apiToken.create({ data: {
       name: "legacy without customer", createdBy: movingOwner, teamId: null, scopes: ["read"],
-      tokenHash: randomUUID(), tokenPrefix: "fixture", tokenSuffix: "fixture",
+      tokenHash: randomUUID(), tokenPrefix: "fixture", tokenSuffix: "fixture", revokedAt: new Date(0),
     } });
     await prisma.teamMember.update({ where: { userId: movingOwner }, data: { teamId: nextTeam } });
     await prisma.team.update({ where: { id }, data: { name: "renamed after transfer" } });
     const page = await listApiTokenPage(movingOwner, { status: "unbound", pageSize: 10 });
     expect(page.tokens).toContainEqual(expect.objectContaining({ id: old.id, team: null }));
-    expect(page.tokens).toContainEqual(expect.objectContaining({ id: legacy.id, team: null }));
+    const revoked = await listApiTokenPage(movingOwner, { status: "revoked", pageSize: 10 });
+    expect(revoked.tokens).toContainEqual(expect.objectContaining({ id: legacy.id, team: null }));
+    expect(await revokeApiToken({ userId: movingOwner, id: legacy.id })).toMatchObject({ revokedAt: new Date(0), team: null });
     expect(page.activeTokens).toBe(0);
     expect((await listApiTokenPage(movingOwner, { status: "active", pageSize: 10 })).tokens).toEqual([]);
     expect(await revokeApiToken({ userId: movingOwner, id: old.id })).toMatchObject({ revokedAt: expect.any(Date), team: null });

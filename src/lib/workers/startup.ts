@@ -205,6 +205,8 @@ export function stopWorkerLifecycle(): Promise<void> {
 
   stopLifecyclePromise = (async () => {
     stopAllWorkers();
+    const { drainCommandExecutionWorker } = await import("@/lib/command/execution-worker");
+    await drainCommandExecutionWorker();
     const { stopWorkerRuntimeHeartbeat } = await import("./runtime-heartbeat");
     await stopWorkerRuntimeHeartbeat();
     state.installed = false;

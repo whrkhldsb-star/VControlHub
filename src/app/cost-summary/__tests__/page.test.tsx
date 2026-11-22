@@ -47,7 +47,7 @@ async function billingAccountsFor(permissions: Permission[]) {
 		permissions,
 	});
 	vi.mocked(CostPageClient).mockClear();
-	renderToStaticMarkup(await CostSummaryPage());
+	renderToStaticMarkup(await CostSummaryPage({}));
 	return vi.mocked(CostPageClient).mock.lastCall?.[0].initialBillingAccounts;
 }
 

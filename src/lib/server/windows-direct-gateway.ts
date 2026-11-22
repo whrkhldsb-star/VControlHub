@@ -1,5 +1,7 @@
 import { DIRECT_GATEWAY_DEFAULT_PORT } from "./direct-gateway";
 
+export const WINDOWS_ROOT_PROTOCOL = "vch-windows-root-v1";
+
 const TASK_NAME = "VControlHub Direct Gateway";
 const FIREWALL_RULE = "VControlHub Direct Gateway 31888";
 export const WINDOWS_GATEWAY_SCRIPT_NAME = "gateway.ps1";
@@ -98,8 +100,10 @@ try {
       $target = Check-Path $relative
       if (!$target) { Send-Plain $context 400 'path outside root'; continue }
       $signedPath = '/' + (($relative -split '/') -join '/')
+      $targetPath = '/' + $target.Replace([char]92, [char]47)
+      $message = '${WINDOWS_ROOT_PROTOCOL}' + [char]0 + $targetPath + [char]0 + $signedPath + [char]0 + $expires
       $hmac = New-Object Security.Cryptography.HMACSHA256(,[Text.Encoding]::UTF8.GetBytes($Secret))
-      try { $expected = [BitConverter]::ToString($hmac.ComputeHash([Text.Encoding]::UTF8.GetBytes($signedPath + '.' + $expires))).Replace('-', '').ToLowerInvariant() }
+      try { $expected = [BitConverter]::ToString($hmac.ComputeHash([Text.Encoding]::UTF8.GetBytes($message))).Replace('-', '').ToLowerInvariant() }
       finally { $hmac.Dispose() }
       if (!(Same-Signature $expected $signature)) { Send-Plain $context 403 'bad signature'; continue }
       if (!(Test-Path -LiteralPath $target -PathType Leaf)) { Send-Plain $context 404 'not found'; continue }
@@ -111,7 +115,8 @@ try {
         if ($finalLength -eq 0 -or $finalLength -ge 4096) { Send-Plain $context 400 'invalid final path'; continue }
         $openedPath = $finalPath.ToString()
         if ($openedPath.StartsWith('\\?\', [StringComparison]::Ordinal)) { $openedPath = $openedPath.Substring(4) }
-        if (!$openedPath.StartsWith($Root + [char]92, [StringComparison]::OrdinalIgnoreCase)) { Send-Plain $context 400 'path outside root'; continue }
+        if (![string]::Equals($openedPath, $target, [StringComparison]::OrdinalIgnoreCase)) { Send-Plain $context 400 'path outside root'; continue }
+        $response.Headers['X-VCH-File-Access'] = '${WINDOWS_ROOT_PROTOCOL}'
         $size = $stream.Length
         [long]$start = 0
         [long]$end = $size - 1

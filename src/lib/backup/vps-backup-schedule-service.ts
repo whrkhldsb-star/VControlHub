@@ -1,3 +1,4 @@
+import { lockForTransaction } from "@/lib/concurrency/advisory-lock";
 import { apiCopy } from "@/lib/i18n/api-copy";
 /**
  * TR-043: VPS backup schedule service — CRUD + due dispatch.
@@ -226,6 +227,12 @@ export async function dispatchDueVpsBackupSchedules(): Promise<number> {
 			// and do the rest in separate writes: a crash in between disabled the
 			// schedule for good.)
 			const outcome = await prisma.$transaction(async (tx) => {
+				await lockForTransaction(tx, "server-delete", schedule.serverId);
+				const parent = await tx.server.findFirst({
+					where: { id: schedule.serverId, teamId: schedule.server.teamId, enabled: true, ...liveCustomerRowsWhere() },
+					select: { teamId: true },
+				});
+				if (!parent) return "claimed-elsewhere" as const;
 				const claimed = await tx.vpsBackupSchedule.updateMany({
 					where: occurrence,
 					data: { nextRunAt: computeNextRun(schedule.cronExpression) },
@@ -259,10 +266,10 @@ export async function dispatchDueVpsBackupSchedules(): Promise<number> {
 					payload: {
 						recordId,
 						serverId: schedule.serverId,
-						teamId: schedule.server?.teamId ?? null,
+						teamId: parent.teamId,
 						scheduleId: schedule.id,
 					},
-					teamId: schedule.server?.teamId ?? null,
+					teamId: parent.teamId,
 					createdBy: schedule.createdById,
 					maxAttempts: 1,
 				}, tx);

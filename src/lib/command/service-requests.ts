@@ -1,3 +1,4 @@
+import { createdBeforeCursor } from "@/lib/http/page-cursor";
 import { createHash } from "node:crypto";
 import type { CommandRequestStatus, Prisma } from "@prisma/client";
 import { isProtectedByApproval } from "@/lib/auth/rbac";
@@ -117,6 +118,7 @@ function mapCommandRequest(
   >[number] & {
     _count: { targets: number };
     requester: { id: string; username: string; displayName: string | null };
+    scheduledTaskRuns: { manual: boolean }[];
     approvals: Array<Record<string, unknown>>;
     targets: Array<Record<string, unknown>>;
     executionLogs: Array<Record<string, unknown>>;
@@ -138,6 +140,7 @@ function mapCommandRequest(
     };
   });
   const logs = request.executionLogs;
+  const runInitiatorId = manualRunInitiator(request.idempotencyKey);
   return {
     id: request.id,
     title: request.title,
@@ -146,7 +149,8 @@ function mapCommandRequest(
     status: request.status,
     initiatedByType: request.initiatedByType,
     requesterId: request.requesterId,
-    runInitiatorId: manualRunInitiator(request.idempotencyKey),
+    runInitiatorId,
+    unattributedManualRun: !runInitiatorId && Boolean(request.scheduledTaskRuns?.length),
     createdAt: request.createdAt?.toISOString?.() ?? request.createdAt,
     updatedAt: request.updatedAt?.toISOString?.() ?? request.updatedAt,
     requester: request.requester,
@@ -608,6 +612,7 @@ export async function reviewCommandRequest(
 
 const COMMAND_LIST_INCLUDE = {
   _count: { select: { targets: true } },
+  scheduledTaskRuns: { where: { manual: true }, select: { manual: true }, take: 1 },
   requester: { select: { id: true, username: true, displayName: true } },
   approvals: {
     orderBy: { createdAt: "desc" },
@@ -631,14 +636,7 @@ const OPEN_COMMAND_STATUSES: CommandRequestStatus[] = ["PENDING_APPROVAL", "APPR
 const COMMAND_HISTORY_LIMIT = 100;
 const OPEN_COMMAND_LIMIT = 500;
 
-function openRequestsAfter(cursor: string): Prisma.CommandRequestWhereInput {
-  const match = /^(\d+)\.(.+)$/.exec(cursor);
-  const createdAt = new Date(Number(match?.[1]));
-  if (!match || !Number.isFinite(createdAt.getTime())) return { id: { in: [] } };
-  return { OR: [{ createdAt: { lt: createdAt } }, { createdAt, id: { lt: match[2] } }] };
-}
-
-export async function listCommandRequestPage(session?: CommandSessionScope | null, cursor?: string) {
+export async function listCommandRequestPage(session?: CommandSessionScope | null, cursor?: string, pageSize = OPEN_COMMAND_LIMIT) {
   // Quarantine null-team requests from team-user lists (command text + targets
   // are a security root); global managers still see all via commandRequestTeamWhere.
   const where = session ? { ...commandRequestTeamWhere(session) } : {};
@@ -646,19 +644,21 @@ export async function listCommandRequestPage(session?: CommandSessionScope | nul
   // that needs approval, a playbook step per attempt) pushed older requests still waiting for approval out of the
   // page, the pending count and the batch tools, with no way left to approve them. Everything still open is
   // listed, with the newest history beside it.
+  const canReadServers = !session || sessionHasPermission(session, "server:read");
+  const take = Math.max(1, Math.min(pageSize, OPEN_COMMAND_LIMIT));
   const include = {
     ...COMMAND_LIST_INCLUDE,
-    targets: { ...COMMAND_LIST_INCLUDE.targets, ...(session ? { where: { server: serverTeamWhere(session) } } : {}) },
+    targets: { ...COMMAND_LIST_INCLUDE.targets, ...(session ? { where: { server: canReadServers ? serverTeamWhere(session) : { id: { in: [] } } } } : {}) },
   };
   const [open, recent, pendingCount] = await Promise.all([
     prisma.commandRequest.findMany({
-      where: { AND: [where, { status: { in: OPEN_COMMAND_STATUSES } }, ...(cursor ? [openRequestsAfter(cursor)] : [])] },
+      where: { AND: [where, { status: { in: OPEN_COMMAND_STATUSES } }, ...(cursor ? [createdBeforeCursor(cursor)] : [])] },
       orderBy: [{ createdAt: "desc" }, { id: "desc" }],
-      take: OPEN_COMMAND_LIMIT + 1,
+      take: take + 1,
       include,
     }),
     cursor ? [] : prisma.commandRequest.findMany({
-      where,
+      where: { ...where, status: { notIn: OPEN_COMMAND_STATUSES } },
       orderBy: [{ createdAt: "desc" }, { id: "desc" }],
       take: COMMAND_HISTORY_LIMIT,
       include,
@@ -666,13 +666,24 @@ export async function listCommandRequestPage(session?: CommandSessionScope | nul
     prisma.commandRequest.count({ where: { ...where, status: "PENDING_APPROVAL" } }),
   ]);
   const seen = new Set<string>();
-  const requests = [...open.slice(0, OPEN_COMMAND_LIMIT), ...recent]
+  const requests = [...open.slice(0, take), ...recent]
     .filter((request) => !seen.has(request.id) && seen.add(request.id))
     .sort((a, b) => b.createdAt.getTime() - a.createdAt.getTime());
 
-  const boundary = open.length > OPEN_COMMAND_LIMIT ? open[OPEN_COMMAND_LIMIT - 1] : null;
-  return { requests: (await withVisibleCommandLogs(requests, session)).map(mapCommandRequest),
-    nextCursor: boundary ? boundary.createdAt.getTime() + "." + boundary.id : null, pendingCount };
+  const boundary = open.length > take ? open[take - 1] : null;
+  const visibleRows = await withVisibleCommandLogs(requests, session);
+  return {
+    requests: visibleRows.map(row => {
+      if (!session) return mapCommandRequest(row);
+      const targets = canReadServers ? row.targets.filter(target => target.server.teamId === row.teamId) : [];
+      return mapCommandRequest({
+        ...row, targets, _count: { targets: targets.length },
+        executionLogs: canReadServers ? row.executionLogs : [],
+      });
+    }),
+    nextCursor: boundary ? boundary.createdAt.getTime() + "." + boundary.id : null,
+    pendingCount,
+  };
 }
 
 export async function listCommandRequests(session?: CommandSessionScope | null) {

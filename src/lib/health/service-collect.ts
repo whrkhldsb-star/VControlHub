@@ -1,3 +1,5 @@
+import { sampledEndpoint } from "./sample-binding";
+import { SSH_ENDPOINT_IDENTITY_SELECT, type SshEndpointIdentity } from "@/lib/ssh/server-connection-select";
 import { LeaseLostError } from "@/lib/job/heartbeat-runner";
 import type { SamplingClaim } from "@/lib/monitoring/sampling-claim";
 /**
@@ -99,7 +101,7 @@ export async function collectAllHealth(
   session?: Pick<SessionPayload, "userId" | "roles" | "currentTeamId">,
   options: { persistTraffic?: boolean; claim?: SamplingClaim; serverWhere?: Prisma.ServerWhereInput } = {},
 ): Promise<HealthOverview> {
-  const servers: Array<{
+  const servers: Array<SshEndpointIdentity & {
     id: string;
     teamId: string | null;
     name: string;
@@ -120,7 +122,7 @@ export async function collectAllHealth(
       where: options.serverWhere ? {
         AND: [options.serverWhere, liveCustomerRowsWhere(), ...(session ? [serverTeamWhere(session)] : [])],
       } : session ? serverTeamWhere(session) : liveCustomerRowsWhere(),
-      select: { id: true, teamId: true, name: true, host: true, port: true, enabled: true, managementMode: true, agentLastSeenAt: true, operatingSystem: true },
+      select: { id: true, teamId: true, name: true, ...SSH_ENDPOINT_IDENTITY_SELECT, enabled: true, agentLastSeenAt: true, operatingSystem: true },
       orderBy: { id: "asc" },
       take: SERVER_PAGE_SIZE,
       ...(cursorId ? { cursor: { id: cursorId }, skip: 1 } : {}),
@@ -130,9 +132,11 @@ export async function collectAllHealth(
     cursorId = page[page.length - 1]!.id;
   }
 
+  const endpoints = servers.map(({ teamId, enabled, host, port, username, hostKeySha256, managementMode, agentTokenHash }) =>
+    ({ teamId, enabled, host, port, username, hostKeySha256, managementMode, agentTokenHash }));
   // Health checks run in parallel up to a cap — SSH connections can take seconds each
   const limited = createLimiter(HEALTH_CHECK_CONCURRENCY);
-  const checks = servers.map((server) => limited(async () => {
+  const checks = servers.map((server, index) => limited(async () => {
     options.claim?.signal.throwIfAborted();
     if (!server.enabled) {
       return {
@@ -187,7 +191,8 @@ export async function collectAllHealth(
     }
 
     try {
-      const result = await collectServerMetrics(server.id, options.claim?.signal);
+      const endpoint = endpoints[index]!;
+      const result = await collectServerMetrics(server.id, options.claim?.signal, endpoint);
       options.claim?.signal.throwIfAborted();
       if ("error" in result) {
         // TCP succeeded but SSH failed — host is up, but the daemon
@@ -221,7 +226,7 @@ export async function collectAllHealth(
       // interval), and flooded the monthly rollup. Only the sampling worker
       // opts in via persistTraffic.
       if (options.persistTraffic) {
-        await persistServerTrafficFromMetrics(server.id, metrics, options.claim).catch((error) => {
+        await persistServerTrafficFromMetrics(server.id, metrics, options.claim, endpoint).catch((error) => {
           if (error instanceof LeaseLostError) throw error;
         });
         options.claim?.signal.throwIfAborted();
@@ -233,14 +238,14 @@ export async function collectAllHealth(
       const totalNetRx = metrics.network.reduce((s, n) => s + n.rxBytes, 0);
       const totalNetTx = metrics.network.reduce((s, n) => s + n.txBytes, 0);
       const sampledAtMs = Date.parse(metrics.timestamp);
-      const rates = metrics.network.length ? networkRatesKbps(server.id, totalNetRx, totalNetTx, Number.isFinite(sampledAtMs) ? sampledAtMs : Date.now()) : {};
+      const rates = metrics.network.length ? networkRatesKbps(JSON.stringify([server.id, endpoint]), totalNetRx, totalNetTx, Number.isFinite(sampledAtMs) ? sampledAtMs : Date.now()) : {};
       return {
         serverId: server.id,
         serverName: server.name,
         host: server.host,
         enabled: true,
         status: health,
-        cpu: metrics.cpu.usagePercent,
+        cpu: metrics.cpu.usagePercent ?? undefined,
         mem: metrics.memory.usagePercent,
         memUsedMb: metrics.memory.usedMb,
         memTotalMb: metrics.memory.totalMb,
@@ -287,7 +292,8 @@ export async function collectAllHealth(
   }
   const results: ServerHealth[] = settled.flatMap((result, index) => {
     if (result.status !== "fulfilled") return [];
-    return [options.claim || options.serverWhere ? { ...result.value, sampledTeamId: servers[index]!.teamId } : result.value];
+    return [{ ...result.value, [sampledEndpoint]: endpoints[index],
+      ...((options.claim || options.serverWhere) && { sampledTeamId: servers[index]!.teamId }) }];
   });
 
   options.claim?.signal.throwIfAborted();

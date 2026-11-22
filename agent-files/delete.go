@@ -38,7 +38,7 @@ func (s share) deletionDirectory(parent string) (*os.Root, error) {
 
 // Move the target exclusively before checking which object was captured.
 func (s share) removeChecked(op operation) error {
-	parent, err := s.root.OpenRoot(path.Dir(op.Path))
+	parent, err := s.openParent(op.Path)
 	if err != nil {
 		return err
 	}
@@ -94,7 +94,7 @@ func (s share) quarantineAndRemove(parent *os.Root, op operation, original os.Fi
 	if err := op.beforeWrite(); err != nil {
 		return err
 	}
-	if err := renameAtExclusive(src, name, dst, entry); err != nil {
+	if err := renameAt(src, name, dst, entry, false); err != nil {
 		return err
 	}
 	captured, err := private.Lstat(entry)
@@ -109,7 +109,7 @@ func (s share) quarantineAndRemove(parent *os.Root, op operation, original os.Fi
 	}
 	if err != nil {
 		// A concurrent creator keeps its name. The journal locates the displaced entry.
-		if restore := renameAtExclusive(dst, entry, src, name); restore != nil {
+		if restore := renameAt(dst, entry, src, name, false); restore != nil {
 			keepIntent = true
 			return errors.Join(err, restore)
 		}

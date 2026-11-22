@@ -1,17 +1,21 @@
 import { createHash, randomUUID } from "node:crypto";
 
-const retryPrefix = "scheduled-task:retry:";
+export const manualRunKeyPrefix = "scheduled-task:retry:";
+
+export function manualRunPrefix(initiatorId: string) {
+  return manualRunKeyPrefix + encodeURIComponent(initiatorId) + ":";
+}
 
 /** The request keeps its plan author as requester. Only the internal producer can mint this key. */
 export function manualRunKey(initiatorId: string) {
-  return retryPrefix + encodeURIComponent(initiatorId) + ":" + randomUUID();
+  return manualRunPrefix(initiatorId) + randomUUID();
 }
 
 export function manualRunInitiator(key: string | null) {
-  if (!key?.startsWith(retryPrefix)) return null;
+  if (!key?.startsWith(manualRunKeyPrefix)) return null;
   const end = key.lastIndexOf(":");
-  if (end < retryPrefix.length) return null;
-  try { return decodeURIComponent(key.slice(retryPrefix.length, end)) || null; }
+  if (end < manualRunKeyPrefix.length) return null;
+  try { return decodeURIComponent(key.slice(manualRunKeyPrefix.length, end)) || null; }
   catch { return null; }
 }
 

@@ -240,7 +240,7 @@ describe("resolvePlaybookId", () => {
 		mocks.playbookFindFirst.mockResolvedValue({ id: "pb_1", name: "deploy" });
 		await expect(resolvePlaybookId({ playbookId: "pb_1" }, operator)).resolves.toEqual({ id: "pb_1", name: "deploy" });
 		expect(mocks.playbookFindFirst).toHaveBeenCalledWith({
-			where: { id: "pb_1", teamId: "team_1" },
+			where: { id: "pb_1", teamId: "team_1", team: { deletedAt: null } },
 			select: { id: true, name: true, steps: true, enabled: true },
 		});
 	});
@@ -251,7 +251,7 @@ describe("resolvePlaybookId", () => {
 		mocks.playbookFindMany.mockReset();
 		mocks.playbookFindMany.mockResolvedValueOnce([{ id: "pb_1", name: "deploy web" }]);
 		await expect(resolvePlaybookId({ playbookName: "deploy web" }, operator)).resolves.toEqual({ id: "pb_1", name: "deploy web" });
-		expect(mocks.playbookFindMany.mock.calls[0]![0].where.AND[0]).toEqual({ teamId: "team_1" });
+		expect(mocks.playbookFindMany.mock.calls[0]![0].where.AND[0]).toEqual({ teamId: "team_1", team: { deletedAt: null } });
 
 		// Two playbooks with that exact name: ask, do not pick.
 		mocks.playbookFindMany.mockResolvedValueOnce([{ id: "a", name: "deploy" }, { id: "b", name: "deploy" }]);

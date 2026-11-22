@@ -38,6 +38,8 @@ import { t } from "@/lib/i18n/service-translations";
 import type { StoredSshKey } from "@/lib/ssh/ssh-key-crypto";
 
 export type RemoteServerInput = {
+	teamId: string | null;
+	agentTokenHash: string | null;
 	id: string;
 	name: string;
 	host: string;
@@ -142,7 +144,7 @@ export async function sampleRemoteServerTraffic(
 		return { ...base, error: t("backend.traffic.remote.noCredentials") };
 	}
 	try {
-		const sshParams = await buildSshParamsFromServer(server, server.sshKey);
+		const sshParams = await buildSshParamsFromServer(server, server.sshKey, server.teamId);
 		const { stdout, exitCode, stderr } = await execRemoteCommand({
 			...sshParams,
 			preferAgent: true,

@@ -20,7 +20,7 @@ import { prisma } from "@/lib/db";
 import { BusinessError, NotFoundError, ValidationError } from "@/lib/errors";
 import { t } from "@/lib/i18n/service-translations";
 import { appTimeZoneDateKey } from "@/lib/datetime/time-zone";
-import { startOfMonthUtc } from "@/lib/cost/service-internals";
+import { transferMonthlyCost } from "@/lib/cost/service-entries";
 import { resetAgentForModeChange } from "./agent-service";
 import { firstDirectGatewayKeyVersion, needsLegacyGatewayStop } from "./direct-gateway-key";
 import { countActiveFileProxies, getServerDeletionImpact, listServerStorageNodes } from "./service-deletion-impact";
@@ -120,10 +120,7 @@ export async function transferServerToCustomer(serverId: string, targetTeamId: s
       await tx.storageNode.updateMany({ where: { serverId, driver: "SFTP" }, data: { directAccessMode: "PROXY", publicBaseUrl: null } });
       await Promise.all([
         tx.storageNode.updateMany({ where: { id: { in: storageNodeIds } }, data: { teamId: target.id, ...(existingDefault ? { isDefault: false } : {}) } }),
-        tx.costEntry.updateMany({
-          where: { sourceType: "server_monthly", sourceRef: serverId, effectiveDate: startOfMonthUtc(appTimeZoneDateKey().slice(0, 7)) },
-          data: { teamId: target.id },
-        }),
+        transferMonthlyCost(tx, serverId, appTimeZoneDateKey().slice(0, 7), target.id),
         tx.metricSnapshot.updateMany({ where: { serverId }, data: { teamId: target.id } }),
         tx.userServerAccess.deleteMany({ where: { serverId } }),
         tx.userStorageAccess.deleteMany({ where: { storageNodeId: { in: storageNodeIds } } }),

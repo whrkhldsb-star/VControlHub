@@ -9,7 +9,7 @@ import { NextResponse } from "next/server";
 import { withApiRoute } from "@/lib/http/api-guard";
 import { t } from "@/lib/i18n/translations";
 import { getServerLocale } from "@/lib/i18n/server-locale";
-import { davPermissions } from "./webdav";
+import { davPermissions } from "@/lib/openapi/webdav";
 import methodCatalog from "./method-catalog.json";
 import routeCatalog from "../../../../../docs/route-catalog.json";
 
@@ -94,7 +94,7 @@ function generatedOperation(
     ...(path.startsWith("/webdav/") && method === "POST" ? {
       "x-http-method-override": Object.fromEntries(Object.entries(davPermissions).map(([verb, permissions]) => [verb, {
         security: verb === "OPTIONS" ? [] : [{ basicAuth: [] }, { apiTokenAuth: [] }], permissions,
-        ...(verb === "MOVE" ? { overwritePermissions: [["storage:delete"]] } : {}),
+        ...(verb === "MOVE" ? { overwritePermissions: davPermissions.DELETE } : {}),
       }])),
     } : {}),
     ...(parameters.length > 0 ? { parameters } : {}),
@@ -124,6 +124,7 @@ function buildCatalogPaths(
       const expression = groups.map((group) => group.length > 1 ? "(" + group.join(" ∨ ") + ")" : group[0]).join(" ∧ ");
       item[key] = {
         ...base, ...contract,
+        ...(path === "/servers/{id}/vps-backup/records/{recordId}/download" ? { "x-vcontrolhub-server-access": "fileRead" } : {}),
         "x-vcontrolhub-contract": contract ? "documented" : "catalog",
         "x-vcontrolhub-permissions": groups.flat(),
         "x-vcontrolhub-permission-groups": groups,

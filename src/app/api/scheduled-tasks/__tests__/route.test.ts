@@ -39,7 +39,7 @@ vi.mock("next/headers", () => ({
 }));
 
 const route = await import("../route");
-const session = { userId: "u1", username: "alice", user: { id: "u1" }, currentTeamId: null, roles: [] };
+const session = { userId: "u1", username: "alice", user: { id: "u1" }, currentTeamId: null, roles: [], permissions: ["command:read"] };
 
 describe("/api/scheduled-tasks audit coverage", () => {
   beforeEach(() => {
@@ -102,7 +102,7 @@ describe("/api/scheduled-tasks audit coverage", () => {
     const response = await route.GET(request);
     expect(response.status).toBe(200);
     expect(await response.json()).toMatchObject({ tasks: [{ serverIds: ["visible"] }] });
-    expect(mocks.authenticateBearer).toHaveBeenCalledWith(request, ["command:read"], ["server:read"]);
+    expect(mocks.authenticateBearer).toHaveBeenCalledWith(request, ["command:read"], ["server:read", "command:approve"]);
     expect(mocks.listScheduledTasks).toHaveBeenCalledWith(200, tokenSession);
   });
 
@@ -118,6 +118,7 @@ describe("/api/scheduled-tasks audit coverage", () => {
         status: "ACTIVE",
         lastRunAt: new Date("2026-01-01T00:00:00Z"),
         nextRunAt: new Date("2026-01-02T02:00:00Z"),
+        createdById: session.userId,
         lastResult: "执行失败：disk full",
         runCount: 2,
         createdAt: new Date("2026-01-01T00:00:00Z"),
@@ -141,8 +142,8 @@ describe("/api/scheduled-tasks audit coverage", () => {
   // moment; the list says it in the reader's language.
   it("says a stored last result in the reader's language", async () => {
     mocks.listScheduledTasks.mockResolvedValue([
-      { id: "task1", name: "Clean logs", cronExpression: "0 2 * * *", command: "true", reason: "", serverIds: ["srv1"], status: "ACTIVE", lastRunAt: null, nextRunAt: null, lastResult: "Completed command request cmd_9", runCount: 1, createdAt: new Date("2026-01-01T00:00:00Z"), creator: null },
-      { id: "task2", name: "Rotate", cronExpression: "0 3 * * *", command: "true", reason: "", serverIds: ["srv1"], status: "ACTIVE", lastRunAt: null, nextRunAt: null, lastResult: "已派发命令请求 cmd_8，等待最终结果", runCount: 1, createdAt: new Date("2026-01-01T00:00:00Z"), creator: null },
+      { id: "task1", createdById: session.userId, name: "Clean logs", cronExpression: "0 2 * * *", command: "true", reason: "", serverIds: ["srv1"], status: "ACTIVE", lastRunAt: null, nextRunAt: null, lastResult: "Completed command request cmd_9", runCount: 1, createdAt: new Date("2026-01-01T00:00:00Z"), creator: null },
+      { id: "task2", createdById: session.userId, name: "Rotate", cronExpression: "0 3 * * *", command: "true", reason: "", serverIds: ["srv1"], status: "ACTIVE", lastRunAt: null, nextRunAt: null, lastResult: "已派发命令请求 cmd_8，等待最终结果", runCount: 1, createdAt: new Date("2026-01-01T00:00:00Z"), creator: null },
     ]);
 
     const zh = await (await route.GET(new Request("http://local/api/scheduled-tasks", { headers: { cookie: "vps-locale=zh" } }))).json();

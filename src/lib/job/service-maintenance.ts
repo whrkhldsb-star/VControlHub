@@ -1,3 +1,4 @@
+import { reconcileTerminalPlaybookJobs } from "@/lib/playbook/service";
 import { JobStatus, Prisma } from "@prisma/client";
 import { getRuntimeSettingNumberStrict } from "@/lib/runtime-settings/service";
 
@@ -14,7 +15,6 @@ import {
 // Persist stable English machine/audit strings while sourcing them from i18n.
 const REQUEUED_ERROR = t("backend.job.executorHeartbeatExpiredRequeued", "en");
 const EXHAUSTED_ERROR = t("backend.job.executorHeartbeatExpiredAttemptsExhausted", "en");
-const PLAYBOOK_EXHAUSTED_ERROR = t("backend.job.parentDurableJobAttemptsExhausted", "en");
 
 export async function recoverStaleRunningJobs(options: {
   staleBefore: Date;
@@ -41,11 +41,17 @@ export async function recoverStaleRunningJobs(options: {
       workerId: null, workerHeartbeatAt: null, leaseExpiresAt: null, errorMessage: REQUEUED_ERROR },
     select: selection,
   });
-  const exhausted = await prisma.job.updateManyAndReturn({
-    where: { ...staleWhere, attempts: { gte: prisma.job.fields.maxAttempts } },
-    data: { status: JobStatus.FAILED, completedAt: now,
-      workerId: null, workerHeartbeatAt: null, leaseExpiresAt: null, errorMessage: EXHAUSTED_ERROR },
-    select: { ...selection, payload: true },
+  const exhausted = await prisma.$transaction(async tx => {
+    const jobs = await tx.job.updateManyAndReturn({
+      where: { ...staleWhere, attempts: { gte: tx.job.fields.maxAttempts } },
+      data: { status: JobStatus.FAILED, completedAt: now,
+        workerId: null, workerHeartbeatAt: null, leaseExpiresAt: null, errorMessage: EXHAUSTED_ERROR },
+      select: { ...selection, payload: true },
+    });
+    for (const job of jobs) {
+      if (job.type === "playbook.run") await reconcileTerminalPlaybookJobs(tx, { jobId: job.id });
+    }
+    return jobs;
   });
   const events = [
     ...recovered.map(job => ({ job, type: "recovered", level: "warn", message: "Background executor heartbeat expired; re-enqueued" })),
@@ -71,25 +77,6 @@ export async function recoverStaleRunningJobs(options: {
     } catch (error) {
       logError(`[DownloadReconcile] Expired job ${job.id} will be retried by the terminal sweep:`, error);
     }
-  }
-  const playbookRunIds = exhausted
-    .filter((job) => job.type === "playbook.run")
-    .map((job) => {
-      const payload = job.payload;
-      if (!payload || typeof payload !== "object" || Array.isArray(payload)) return null;
-      const runId = (payload as { runId?: unknown }).runId;
-      return typeof runId === "string" && runId.trim() ? runId.trim() : null;
-    })
-    .filter((id): id is string => Boolean(id));
-  if (playbookRunIds.length > 0) {
-    await prisma.playbookRun.updateMany({
-      where: { id: { in: playbookRunIds }, status: { in: ["queued", "running"] } },
-      data: {
-        status: "failed",
-        errorMessage: PLAYBOOK_EXHAUSTED_ERROR,
-        completedAt: now,
-      },
-    }).catch(() => undefined);
   }
   return {
     count: recovered.length + exhausted.length,

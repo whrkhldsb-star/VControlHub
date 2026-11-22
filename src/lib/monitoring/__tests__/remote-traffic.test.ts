@@ -43,7 +43,7 @@ function procNetDev(rxBytes: number, txBytes: number): string {
 
 function serverInput(id: string) {
 	return {
-		id,
+		id, teamId: "team", agentTokenHash: null,
 		name: `node-${id}`,
 		host: `10.0.0.${id.replace(/\D/g, "") || "1"}`,
 		port: 22,
@@ -86,7 +86,7 @@ describe("sampleRemoteServersTraffic", () => {
 		await sampleRemoteServersTraffic([serverInput("srv7")]);
 		expect(mocks.buildSshParamsFromServer).toHaveBeenCalledWith(
 			expect.objectContaining({ hostKeySha256: "SHA256:pin-srv7" }),
-			expect.anything(),
+			expect.anything(), "team",
 		);
 	});
 
@@ -97,7 +97,7 @@ describe("sampleRemoteServersTraffic", () => {
 		const agent = { ...serverInput("srv9"), managementMode: "AGENT", connectionType: "SSH_KEY", sshKeyId: null, sshKey: null };
 		const [result] = await sampleRemoteServersTraffic([agent]);
 		expect(result!.error).toBeNull();
-		expect(mocks.buildSshParamsFromServer).toHaveBeenCalledWith(expect.objectContaining({ managementMode: "AGENT", id: "srv9" }), null);
+		expect(mocks.buildSshParamsFromServer).toHaveBeenCalledWith(expect.objectContaining({ managementMode: "AGENT", id: "srv9" }), null, "team");
 	});
 
 	it("does not run the Linux sample on a Windows node", async () => {

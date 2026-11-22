@@ -593,7 +593,10 @@ describe("deployment service", () => {
     const templates = await listDeploymentTemplates(PLATFORM);
     expect(templates).toEqual([{ id: "tmpl1", name: "Nginx", command: "apt install {{pkg}}", rollbackCommand: "apt remove {{pkg}}", variables: ["pkg"], isBuiltin: true }]);
     expect(commandTemplateService.seedBuiltinTemplates).toHaveBeenCalled();
-    expect(mockPrisma.commandTemplate.findMany).toHaveBeenCalledWith({ orderBy: [{ isBuiltin: "desc" }, { name: "asc" }], take: 200 });
+    expect(mockPrisma.commandTemplate.findMany).toHaveBeenCalledWith({
+      where: { OR: [{ isBuiltin: true }, { team: { isNot: { deletedAt: { not: null } } } }] },
+      orderBy: [{ isBuiltin: "desc" }, { name: "asc" }], take: 200,
+    });
   });
 
   it("scopes list queries strictly to the caller's team", async () => {

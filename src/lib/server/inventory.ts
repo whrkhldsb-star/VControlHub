@@ -3,7 +3,7 @@ import { sessionHasPermission } from "@/lib/auth/authorization";
 import { getReadableStorageScope } from "@/lib/storage/readable-scope";
 import { prisma } from "@/lib/db";
 import { isGlobalTeamManager, rawServerScope, serverTeamWhere, type TeamSession } from "@/lib/auth/team-scope";
-import { SERVER_PROFILE_INCLUDE } from "./service-profile-includes";
+import { serverCommandCounts, SERVER_PROFILE_INCLUDE } from "./service-profile-includes";
 import { enrichServer } from "./service-internals";
 import { OPERATION_TARGET_SELECT, operationTargetAvailability } from "./availability";
 
@@ -65,12 +65,13 @@ export async function getServerInventory(session: TeamSession, input: Record<str
   }) : [];
   // Customer accounts may not edit servers the platform assigned to them.
   const customerAccount = !isGlobalTeamManager(session);
+  const counts = await serverCommandCounts(rows, session);
   const servers = rows.map((row) => {
     const node = row.storageNode;
     const storageNode = node && node.teamId === row.teamId && (!readable || readable.has(node.id))
       ? manageStorage ? node : { ...node, host: null, port: null, username: null, hostKeySha256: null, basePath: "", publicBaseUrl: null }
       : null;
-    const server = enrichServer({ ...row, storageNode, agentFileShares: row.agentFileShares?.filter(share => share.teamId === row.teamId && share.node.teamId === row.teamId && (!readable || readable.has(share.node.id))) });
+    const server = enrichServer({ ...row, storageNode, agentFileShares: row.agentFileShares?.filter(share => share.teamId === row.teamId && share.node.teamId === row.teamId && (!readable || readable.has(share.node.id))) }, counts.get(row.id));
     return {
       ...server,
       // The server also stores a copy of its file gateway's public endpoint.

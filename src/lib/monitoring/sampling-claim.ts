@@ -20,8 +20,8 @@ export async function checkSamplingClaim(tx: Prisma.TransactionClient, claim?: S
   claim.signal.throwIfAborted();
 }
 
-export function withSamplingClaim<T>(claim: SamplingClaim | undefined, write: (tx: Prisma.TransactionClient) => Promise<T>) {
-  if (!claim) return write(prisma);
+export function withSamplingClaim<T>(claim: SamplingClaim | undefined, write: (tx: Prisma.TransactionClient) => Promise<T>, requireTransaction = false) {
+  if (!claim && !requireTransaction) return write(prisma);
   return prisma.$transaction(async (tx) => {
     await checkSamplingClaim(tx, claim);
     const result = await write(tx);

@@ -11,7 +11,7 @@ import { Prisma } from "@prisma/client";
 import { getBackupPolicySummary } from "./policy-summary";
 import { failStaleBackupRecords } from "./stale-records";
 import { prisma } from "@/lib/db";
-import { teamWhere } from "@/lib/auth/team-scope";
+import { activeCustomerTeamWhere } from "@/lib/auth/team-scope";
 import type { SessionPayload } from "@/lib/auth/session";
 import { BusinessError, ConflictError, NotFoundError, ValidationError } from "@/lib/errors";
 import {
@@ -77,7 +77,7 @@ export async function hasBackupArtifactReference(tx: Prisma.TransactionClient, a
 
 export async function listBackupRecords(session?: Pick<SessionPayload, "userId" | "roles" | "currentTeamId">, take = 500) {
 	const rows = prisma.backupRecord.findMany({
-		where: session ? teamWhere(session) : {},
+		where: session ? activeCustomerTeamWhere(session) : {},
 		orderBy: { createdAt: "desc" },
 		take,
 		include: { creator: { select: { username: true, displayName: true } } },
@@ -88,7 +88,7 @@ export async function listBackupRecords(session?: Pick<SessionPayload, "userId" 
 
 export async function getBackupRecord(id: string, session?: Pick<SessionPayload, "userId" | "roles" | "currentTeamId">, client: Pick<typeof prisma, "backupRecord"> = prisma) {
 	return session
-		? client.backupRecord.findFirst({ where: { id, ...teamWhere(session) } })
+		? client.backupRecord.findFirst({ where: { id, ...activeCustomerTeamWhere(session) } })
 		: client.backupRecord.findUnique({ where: { id } });
 }
 

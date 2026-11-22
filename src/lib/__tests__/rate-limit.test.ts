@@ -61,13 +61,12 @@ describe("account lockout shared store", () => {
     expect(await rate.isAccountLockedAsync("BOB", "198.51.100.7")).toMatchObject({ locked: false });
   });
 
-  it("counts every spelling of one account name (padding, case, look-alike forms) in a single bucket", async () => {
-    const spellings = ["bob", " bob", "BOB ", "bob  ", "\u{FF42}ob"]; // last: full-width "b"
-    let last: Awaited<ReturnType<typeof rate.recordLoginFailureAsync>> | null = null;
-    for (const name of spellings) last = await rate.recordLoginFailureAsync(name, "203.0.113.5");
-    expect(last).toMatchObject({ locked: true, scope: "client", failCount: 5 });
-    expect(await rate.isAccountLockedAsync("bob", "203.0.113.5")).toMatchObject({ locked: true });
-    expect(await rate.isAccountLockedAsync("  Bob\t", "203.0.113.5")).toMatchObject({ locked: true });
+  it("matches login's trimmed, case-sensitive account identity", async () => {
+    for (const name of ["bob", " bob", "bob ", "  bob  ", "bob\t"]) await rate.recordLoginFailureAsync(name, "203.0.113.5");
+    expect(await rate.isAccountLockedAsync(" bob ", "203.0.113.5")).toMatchObject({ locked: true });
+    for (const distinct of ["BOB", "ｂob"]) {
+      expect(await rate.isAccountLockedAsync(distinct, "203.0.113.5")).toMatchObject({ locked: false });
+    }
   });
 
   it("never keys a counter on attacker-sized text", async () => {

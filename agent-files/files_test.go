@@ -397,7 +397,7 @@ func TestInterruptedUploadPublication(t *testing.T) {
 			if err := s.saveIntent(marker, publishIntent{Path: target, Digest: op.Digest, Job: "publish-job", StageID: id}); err != nil {
 				t.Fatal(err)
 			}
-			if err := s.renameExclusive(target, backup); err != nil {
+			if err := s.renamePinned(target, backup, false); err != nil {
 				t.Fatal(err)
 			}
 			if published {
@@ -464,7 +464,7 @@ func TestExpiredCopyAndPersistentJobReceipt(t *testing.T) {
 	if b, err := root.ReadFile("src"); err != nil || string(b) != "new source" {
 		t.Fatal("duplicate moved the new source", err)
 	}
-	if err := s.renameExclusive("src", "dst"); !errors.Is(err, fs.ErrExist) {
+	if err := s.renamePinned("src", "dst", false); !errors.Is(err, fs.ErrExist) {
 		t.Fatal("occupied native destination", err)
 	}
 	if b, err := root.ReadFile("dst"); err != nil || string(b) != "bytes" {

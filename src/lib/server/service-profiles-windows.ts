@@ -16,7 +16,7 @@ import { createServerSchema, type CreateServerInput, type CreateServerPayload } 
 import { findServerProfileForSession, savedProfileBinding, SERVER_PROFILE_INCLUDE, type ServerProfileRecord } from "./service-profile-includes";
 import {
   assertNoDuplicateServerHost,
-  enrichServer,
+  enrichServerForSession,
   safeRevalidatePath,
   sessionForTeamWhere,
   type ProfileSession,
@@ -94,7 +94,7 @@ export async function createWindowsServerProfile(
       : server;
     safeRevalidatePath("/storage");
     safeRevalidatePath("/files");
-    return { ...enrichServer(refreshed ?? server), onboardingWarnings, draftReason: null };
+    return { ...await enrichServerForSession(refreshed ?? server, session), onboardingWarnings, draftReason: null };
   } finally { await release(); }
 }
 
@@ -253,6 +253,6 @@ export async function updateWindowsServerProfile(
     if (!refreshed) throw new NotFoundError(t("backend.server.nodeNotFound"));
     safeRevalidatePath("/storage");
     safeRevalidatePath("/files");
-    return { ...enrichServer(refreshed), onboardingWarnings };
+    return { ...await enrichServerForSession(refreshed, session), onboardingWarnings };
   } finally { await release(); }
 }

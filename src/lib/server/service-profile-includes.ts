@@ -1,3 +1,4 @@
+import { sessionHasPermission } from "@/lib/auth/authorization";
 import { prisma } from "@/lib/db";
 import { serverProfileTeamWhere } from "@/lib/auth/team-scope";
 import type { SessionPayload } from "@/lib/auth/session";
@@ -91,4 +92,22 @@ export function findServerProfileForSession(
   return session
     ? prisma.server.findFirst({ where: { ...where, AND: serverProfileTeamWhere(session) }, include: SERVER_PROFILE_INCLUDE })
     : prisma.server.findUnique({ where, include: SERVER_PROFILE_INCLUDE });
+}
+
+/** Count the current customer's full history independently of the three-card preview. */
+export async function serverCommandCounts(servers: { id: string; teamId?: string | null }[], session?: Pick<SessionPayload, "roles"> | null) {
+  const counts = new Map<string, { total: number; pending: number }>();
+  if (!servers.length || (session && !sessionHasPermission(session, "command:read"))) return counts;
+  for (const server of servers) counts.set(server.id, { total: 0, pending: 0 });
+  const groups = await prisma.commandTarget.groupBy({
+    by: ["serverId", "status"], where: { OR: servers.map(server => ({
+      serverId: server.id, commandRequest: { teamId: server.teamId ?? null },
+    })) }, _count: { _all: true },
+  });
+  for (const group of groups) {
+    const count = counts.get(group.serverId)!;
+    count.total += group._count._all;
+    if (group.status === "PENDING_APPROVAL") count.pending += group._count._all;
+  }
+  return counts;
 }
