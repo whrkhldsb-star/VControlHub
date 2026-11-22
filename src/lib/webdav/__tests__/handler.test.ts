@@ -65,10 +65,14 @@ vi.mock("@/lib/db", () => ({
     // No recycle-bin rows at the destination unless a test says otherwise.
     fileEntry: {
       aggregate: vi.fn(async () => ({ _sum: { size: BigInt(0) }, _max: { size: BigInt(0) } })),
-      findFirst: (args: { where: { isDeleted?: boolean; relativePath: string | { in: string[] } } }) =>
-        args.where.isDeleted && typeof args.where.relativePath === "object"
+      findFirst: (args: { where: { isDeleted?: boolean; relativePath: string | { in: string[] } | { equals: string; mode?: string } } }) =>
+        args.where.isDeleted && typeof args.where.relativePath === "object" && "in" in args.where.relativePath
           ? mocks.recycledOnPath(args.where.relativePath.in)
-          : mocks.fileEntryFindFirst(args),
+          : mocks.fileEntryFindFirst(
+              typeof args.where.relativePath === "object" && "equals" in args.where.relativePath
+                ? { ...args, where: { ...args.where, relativePath: args.where.relativePath.equals } }
+                : args,
+            ),
       findMany: mocks.fileEntryFindMany,
       create: mocks.indexCreate,
       updateMany: mocks.fileEntryUpdateMany,
