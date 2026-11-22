@@ -58,12 +58,21 @@ describe("assertSftpPathAccess", () => {
 	});
 
 	it("allows operators inside the SSH user's home directory", async () => {
-		await expect(assertSftpPathAccess({ session, serverId: "s1", paths: ["/home/alice/files/a.txt"] })).resolves.toEqual({ path: "/home/alice", windows: false });
+		await expect(assertSftpPathAccess({ session, serverId: "s1", paths: ["/home/alice/files/a.txt"] })).resolves.toEqual({ path: "/home/alice", windows: false, canonical: ["/home/alice/files/a.txt"] });
 	});
 
 	it("rejects traversal and absolute paths outside the home directory", async () => {
 		await expect(assertSftpPathAccess({ session, serverId: "s1", paths: ["/home/alice/../../etc/passwd"] })).rejects.toThrow("outside the allowed home directory");
 		await expect(assertSftpPathAccess({ session, serverId: "s1", paths: ["/etc/passwd"] })).rejects.toThrow("outside the allowed home directory");
+	});
+
+	it("denies a restricted operator when the host cannot verify the account home", async () => {
+		const { resolveRemoteHomeDirectory } = await import("../client");
+		buildSshParamsMock.mockResolvedValueOnce({ username: "alice", host: "uncached-host", port: 22, hostKeySha256: "SHA256:pin", password: "fixture" });
+		vi.mocked(resolveRemoteHomeDirectory).mockRejectedValueOnce(new Error("unavailable"));
+		await expect(assertSftpPathAccess({ session, serverId: "uncached-endpoint", paths: ["/home/alice"] }))
+			.rejects.toMatchObject({ status: 403 });
+		expect(resolveRealPathMock).not.toHaveBeenCalled();
 	});
 
 	it("allows administrators with the unrestricted permission", async () => {

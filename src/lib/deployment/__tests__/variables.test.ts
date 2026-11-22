@@ -15,6 +15,10 @@ describe.skipIf(process.platform === "win32")("POSIX deployment and rollback arg
     expect(output("printf '%s' {{project_dir}}", { project_dir: "/srv/app releases" })).toBe("/srv/app releases");
   });
 
+  it("preserves inputs inside functions and after set changes the positional arguments", () => {
+    expect(output('f() { printf "%s" {{value}}; }; set -- changed; f local', { value: "original value" })).toBe("original value");
+  });
+
   it("delivers a multiline here-document as data even when a line equals its delimiter", () => {
     const content = "first\nDOCUMENT\nsecond";
     expect(output("cat <<'DOCUMENT'\n{{body}}\nDOCUMENT", { body: content })).toBe(content + "\n");

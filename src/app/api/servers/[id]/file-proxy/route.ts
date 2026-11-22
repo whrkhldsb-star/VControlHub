@@ -79,6 +79,7 @@ async function sshExec(
   return new Promise((resolve) => {
     let stdout = "";
     let stderr = "";
+    let outputBytes = 0;
     let settled = false;
     let commandStream: { destroy?: () => void } | null = null;
     let timeout: NodeJS.Timeout | null = null;
@@ -130,12 +131,18 @@ async function sshExec(
         }
 
         commandStream = stream as unknown as { destroy?: () => void };
-        stream.on("data", (data: Buffer) => {
-          stdout += data.toString();
-        });
-        stream.stderr.on("data", (data: Buffer) => {
-          stderr += data.toString();
-        });
+        const append = (data: Buffer, isError: boolean) => {
+          if (settled) return;
+          outputBytes += data.length;
+          if (outputBytes > 64 * 1024) {
+            finish({ stdout: "", stderr: "File proxy command output exceeded its limit", exitCode: -1 });
+            return;
+          }
+          if (isError) stderr += data.toString();
+          else stdout += data.toString();
+        };
+        stream.on("data", (data: Buffer) => append(data, false));
+        stream.stderr.on("data", (data: Buffer) => append(data, true));
         stream.on("close", (code: number) => {
           finish({ stdout, stderr, exitCode: code });
         });
@@ -269,7 +276,7 @@ export async function POST(request: Request, { params }: { params: Promise<{ id:
     const accessToken = randomUUID();
     const expiresAt = new Date(Date.now() + FILE_PROXY_TTL_MS);
     const script = buildFileProxyScript({
-      accessToken, expiresAtMs: expiresAt.getTime(), serveDir, port: server.fileProxyPort,
+      accessToken, expiresAtMs: expiresAt.getTime(), serveDir, port: 0,
       allowedOrigin: sanitizeFileProxyOrigin(request.headers.get("origin")),
     });
     const launch = await sshExec(server, startFileProxyCommand, script);

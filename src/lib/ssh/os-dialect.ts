@@ -13,6 +13,8 @@
  * 探测流程：SSH exec `cat /etc/os-release` → parse → 匹配预设 → 缓存到 Server.osDialect
  */
 
+import { ValidationError } from "@/lib/errors";
+import { t } from "@/lib/i18n/service-translations";
 import type { SshConnectionParams } from "./client";
 import { execRemoteCommand } from "./client";
 
@@ -296,16 +298,17 @@ export function serviceCommand(
   unit: string,
   sudoPattern = "sudo -n",
 ): string {
+  if (!/^[A-Za-z0-9._@][A-Za-z0-9._@:-]{0,127}$/.test(unit)) throw new ValidationError(t("apiServersReload.unitNamePatternError"));
   switch (manager) {
     case "systemd":
-      if (action === "status") return `systemctl status ${unit} --no-pager -l`;
+      if (action === "status") return `systemctl status --no-pager -l -- ${unit}`;
       // Restart only a unit that has no reload at all ("Job type reload is not applicable"). When reload fails
       // on one that has it, the usual cause is a config the unit's own check refused: the old process is still
       // serving, and a restart would stop it and fail to start the new one. The failure is reported instead.
       if (action === "reload") {
-        return `${sudoPattern} systemctl reload ${unit} || { rc=$?; if [ "$(systemctl show -p CanReload --value ${unit} 2>/dev/null)" = "no" ]; then ${sudoPattern} systemctl restart ${unit}; else (exit $rc); fi; }`;
+        return `${sudoPattern} systemctl reload -- ${unit} || { rc=$?; if [ "$(systemctl show -p CanReload --value -- ${unit} 2>/dev/null)" = "no" ]; then ${sudoPattern} systemctl restart -- ${unit}; else (exit $rc); fi; }`;
       }
-      return `${sudoPattern} systemctl ${action} ${unit}`;
+      return `${sudoPattern} systemctl ${action} -- ${unit}`;
 
     case "openrc":
       // OpenRC: rc-service <service> <action>; enable/disable uses rc-update

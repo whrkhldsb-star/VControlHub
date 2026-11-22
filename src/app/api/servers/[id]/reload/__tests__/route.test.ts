@@ -122,14 +122,14 @@ describe("POST /api/servers/[id]/reload", () => {
       success: true,
       exitCode: 0,
       // TR-041: dialect-aware command uses serviceCommand() — systemd reload with restart fallback
-      command: expect.stringContaining("systemctl reload nginx"),
+      command: expect.stringContaining("systemctl reload -- nginx"),
     });
     expect(execRemoteCommandMock).toHaveBeenCalledWith(
       expect.objectContaining({
         host: "203.0.113.10",
         port: 22,
         username: "root",
-        command: expect.stringContaining("systemctl reload nginx"),
+        command: expect.stringContaining("systemctl reload -- nginx"),
         timeout: 30_000,
       }),
     );
@@ -252,11 +252,11 @@ describe("POST /api/servers/[id]/reload", () => {
     await expect(response.json()).resolves.toMatchObject({
       success: true,
       exitCode: 0,
-      command: expect.stringContaining("cd /opt/myapp && docker compose up -d web"),
+      command: expect.stringContaining("cd /opt/myapp && docker compose up -d -- 'web'"),
     });
     expect(execRemoteCommandMock).toHaveBeenCalledWith(
       expect.objectContaining({
-        command: expect.stringContaining("cd /opt/myapp && docker compose up -d web"),
+        command: expect.stringContaining("cd /opt/myapp && docker compose up -d -- 'web'"),
         timeout: 120_000,
       }),
     );
@@ -265,24 +265,24 @@ describe("POST /api/servers/[id]/reload", () => {
     // A node's paths are relative to its root (/root/drive for the node of a server): "stack/compose.yaml" is
     // /root/drive/stack/compose.yaml, never /stack.
     mockServer();
-    getStorageFileNodeMock.mockResolvedValue({ id: "node_1", serverId: "srv_1", driver: "SFTP", basePath: "/root/drive" });
+    getStorageFileNodeMock.mockResolvedValue({ id: "node_1", serverId: "srv_1", teamId: null, driver: "SFTP", basePath: "/root/drive" });
     execRemoteCommandMock.mockResolvedValueOnce({ stdout: "", stderr: "", exitCode: 0 });
 
     const response = await POST(request({ kind: "compose", composeFile: { storageNodeId: "node_1", relativePath: "stack/compose.yaml" } }), params);
 
     expect(response.status).toBe(200);
-    expect(execRemoteCommandMock).toHaveBeenCalledWith(expect.objectContaining({ command: "cd /root/drive/stack && docker compose up -d" }));
+    expect(execRemoteCommandMock).toHaveBeenCalledWith(expect.objectContaining({ command: "cd /root/drive/stack && docker compose -f '/root/drive/stack/compose.yaml' up -d" }));
   });
 
   it("quotes a folder with spaces, and refuses a node that is not this server's", async () => {
     mockServer();
-    getStorageFileNodeMock.mockResolvedValueOnce({ id: "node_1", serverId: "srv_1", driver: "SFTP", basePath: "/root/my drive" });
+    getStorageFileNodeMock.mockResolvedValueOnce({ id: "node_1", serverId: "srv_1", teamId: null, driver: "SFTP", basePath: "/root/my drive" });
     execRemoteCommandMock.mockResolvedValueOnce({ stdout: "", stderr: "", exitCode: 0 });
     await POST(request({ kind: "compose", composeFile: { storageNodeId: "node_1", relativePath: "a b/compose.yaml" } }), params);
-    expect(execRemoteCommandMock).toHaveBeenLastCalledWith(expect.objectContaining({ command: "cd -- '/root/my drive/a b' && docker compose up -d" }));
+    expect(execRemoteCommandMock).toHaveBeenLastCalledWith(expect.objectContaining({ command: "cd -- '/root/my drive/a b' && docker compose -f '/root/my drive/a b/compose.yaml' up -d" }));
 
     execRemoteCommandMock.mockClear();
-    getStorageFileNodeMock.mockResolvedValueOnce({ id: "node_2", serverId: "another_server", driver: "SFTP", basePath: "/root/drive" });
+    getStorageFileNodeMock.mockResolvedValueOnce({ id: "node_2", serverId: "another_server", teamId: null, driver: "SFTP", basePath: "/root/drive" });
     const refused = await POST(request({ kind: "compose", composeFile: { storageNodeId: "node_2", relativePath: "x/compose.yaml" } }), params);
     expect(refused.status).toBe(404);
     expect(execRemoteCommandMock).not.toHaveBeenCalled();

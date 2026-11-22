@@ -151,7 +151,7 @@ describe("DeploymentsPage deploy-export panel", () => {
           expect.objectContaining({ OR: expect.any(Array) }),
         ],
       },
-      orderBy: { createdAt: "desc" },
+      orderBy: [{ createdAt: "desc" }, { id: "asc" }],
       take: 200,
       select: {
         id: true,

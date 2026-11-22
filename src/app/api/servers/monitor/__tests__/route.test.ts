@@ -4,7 +4,7 @@ const { requireApiPermissionMock, collectServerMetricsMock, serverFindUniqueMock
   () => ({
     requireApiPermissionMock: vi.fn(),
     collectServerMetricsMock: vi.fn(),
-    serverFindUniqueMock: vi.fn(async () => ({ id: "srv_1", teamId: null })),
+    serverFindUniqueMock: vi.fn<() => Promise<{ id: string; teamId: string | null; host?: string } | null>>(async () => ({ id: "srv_1", teamId: null })),
   }),
 );
 
@@ -72,7 +72,21 @@ describe("/api/servers/monitor", () => {
     expect(response.status).toBe(200);
     expect(requireApiPermissionMock).toHaveBeenCalledWith("server:read");
     // Not bound to the request signal (A12-01): one probe serves every caller for 30 s.
-    expect(collectServerMetricsMock).toHaveBeenCalledWith("srv_1");
+    expect(collectServerMetricsMock).toHaveBeenCalledWith("srv_1", undefined, expect.objectContaining({ id: "srv_1" }));
     await expect(response.json()).resolves.toMatchObject({ ok: true });
   });
+  it("rechecks the target after collection and isolates the cache when it moves", async () => {
+    const read = () => GET(new Request("https://example.com/api/servers/monitor?serverId=cache-test"));
+    const identity = { id: "cache-test", teamId: null, host: "one.test" };
+    requireApiPermissionMock.mockResolvedValue({ session: { userId: "operator", roles: ["admin"] } });
+    serverFindUniqueMock.mockResolvedValueOnce(identity).mockResolvedValueOnce(null);
+    collectServerMetricsMock.mockResolvedValueOnce({ cpu: 10 });
+    expect((await read()).status).toBe(404);
+    const changed = { ...identity, host: "two.test" };
+    serverFindUniqueMock.mockResolvedValue(changed);
+    collectServerMetricsMock.mockResolvedValueOnce({ cpu: 20 });
+    expect(await (await read()).json()).toEqual({ cpu: 20 });
+    expect(collectServerMetricsMock).toHaveBeenLastCalledWith(identity.id, undefined, changed);
+  });
+
 });

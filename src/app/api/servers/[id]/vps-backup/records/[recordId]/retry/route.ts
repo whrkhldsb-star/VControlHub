@@ -1,3 +1,4 @@
+import { withServerLifecycleLock } from "@/lib/server/lifecycle-lock";
 /**
  * POST /api/servers/[id]/vps-backup/records/[recordId]/retry — re-run a FAILED
  * VPS backup.
@@ -31,7 +32,7 @@ export async function POST(
 	return withApiRoute(
 		request,
 		{ permission: "server:write", rateLimit: GENERAL_WRITE_LIMIT },
-		async ({ session }) => {
+		async ({ session }) => withServerLifecycleLock(serverId, async () => {
 			const locale = await getServerLocale();
 
 			const teamAccess = await assertServerTeamAccess(session, serverId, "manage");
@@ -114,6 +115,6 @@ export async function POST(
 			);
 
 			return Response.json({ recordId: newRecordId, status: "PENDING" }, { status: 202 });
-		},
+		}),
 	);
 }

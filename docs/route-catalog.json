@@ -1,5 +1,5 @@
 {
-  "generatedAt": "2026-11-21T19:23:41.519Z",
+  "generatedAt": "2026-11-22T00:23:38.327Z",
   "summary": {
     "sidebarMain": 26,
     "sidebarSystem": 12,
@@ -2544,6 +2544,7 @@
       ],
       "guardMode": "withApiRoute",
       "declaredPermissions": [
+        "server:sftp:unrestricted",
         "server:ssh"
       ]
     },
@@ -2579,6 +2580,8 @@
       "guardMode": "withApiRoute",
       "declaredPermissions": [
         "server:read",
+        "server:sftp:unrestricted",
+        "server:ssh",
         "server:write"
       ]
     },

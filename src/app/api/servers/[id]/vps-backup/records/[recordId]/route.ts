@@ -1,3 +1,4 @@
+import { withServerLifecycleLock } from "@/lib/server/lifecycle-lock";
 import { apiCopy } from "@/lib/i18n/api-copy";
 /**
  * DELETE /api/servers/[id]/vps-backup/records/[recordId] — delete a VPS backup record + local file
@@ -9,10 +10,9 @@ import { auditUserAction } from "@/lib/audit/service";
 import { prisma } from "@/lib/db";
 import { withApiRoute } from "@/lib/http/api-guard";
 import { GENERAL_WRITE_LIMIT } from "@/lib/http/rate-limit-presets";
-import { NotFoundError, ConflictError, AppError } from "@/lib/errors";
+import { NotFoundError, AppError } from "@/lib/errors";
 import { deleteVpsBackupRecord } from "@/lib/backup/vps-backup-service";
 import { assertServerTeamAccess } from "@/lib/server/team-access";
-import { getErrorMessage } from "@/lib/http/error-message";
 import { getServerLocale, t } from "@/lib/i18n/translations";
 
 export const dynamic = "force-dynamic";
@@ -25,7 +25,7 @@ export async function DELETE(
 	return withApiRoute(
 		request,
 		{ permission: "server:write", rateLimit: GENERAL_WRITE_LIMIT },
-		async ({ session }) => {
+		async ({ session }) => withServerLifecycleLock(serverId, async () => {
 			const locale = await getServerLocale();
 			const teamAccess = await assertServerTeamAccess(session, serverId, "manage");
 			if (!teamAccess.ok) return teamAccess.response;
@@ -41,18 +41,11 @@ export async function DELETE(
 			try {
 				await deleteVpsBackupRecord(recordId);
 			} catch (err) {
-				const message = getErrorMessage(err, String(err));
-				// RUNNING delete is a conflict/business rule, not an internal
-				// failure; the service raises it as a plain Error.
-				if (/RUNNING/i.test(message)) {
-					throw new ConflictError(message);
-				}
-				// Typed error keeps the localized 500 copy instead of the
-				// guard's generic "Operation failed" fallback.
+				if (err instanceof AppError) throw err;
 				throw new AppError({ code: "INTERNAL_ERROR", message: t("vpsBackupApi.errorDeleteRecordFailed", locale), status: 500, cause: err });
 			}
 			await auditUserAction(session.userId, "vps-backup.record.delete", { serverId, recordId }, undefined, session.currentTeamId);
 			return Response.json({ success: true });
-		},
+		}),
 	);
 }

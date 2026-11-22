@@ -125,7 +125,10 @@ func (s share) copyStep(op operation) (result, error) {
 			return out, err
 		}
 		f.Close()
-		return out, s.root.Rename(op.Path, backup)
+		if err := op.beforeWrite(); err != nil {
+			return out, err
+		}
+		return out, s.renameExclusive(op.Path, backup)
 	case "promote", "restore":
 		from := stage
 		if op.Step == "restore" {
@@ -140,31 +143,25 @@ func (s share) copyStep(op operation) (result, error) {
 		if err != nil {
 			return out, err
 		}
-		entry := metadata(info)
-		entry.Name = path.Base(op.Path)
-		out.Entry = &entry
-		// Link atomically refuses a target created by another writer.
-		if err := s.root.Link(from, op.Path); err != nil {
+		if err := op.beforeWrite(); err != nil {
 			return out, err
 		}
-		return out, s.root.Remove(from)
-	case "rollback":
-		f, err := s.openRegular(op.Path, os.O_RDONLY)
-		if errors.Is(err, fs.ErrNotExist) {
-			return out, nil
-		}
-		if err != nil {
+		if err := s.renameExclusive(from, op.Path); err != nil {
 			return out, err
 		}
-		info, err := f.Stat()
-		f.Close()
-		if err != nil {
-			return out, err
-		}
-		if metadata(info).Version != op.Version {
+		published, err := s.root.Lstat(op.Path)
+		if err != nil || !os.SameFile(info, published) {
 			return out, changed
 		}
-		return out, s.root.Remove(op.Path)
+		entry, err := s.metadata(op.Path, published, nil)
+		out.Entry = &entry
+		return out, err
+	case "rollback":
+		err := s.removeChecked(op)
+		if errors.Is(err, fs.ErrNotExist) {
+			err = nil
+		}
+		return out, err
 	case "has-backup":
 		info, err := s.root.Lstat(backup)
 		if errors.Is(err, fs.ErrNotExist) {
@@ -182,6 +179,9 @@ func (s share) copyStep(op operation) (result, error) {
 		from := stage
 		if op.Step == "drop-backup" {
 			from = backup
+		}
+		if err := op.beforeWrite(); err != nil {
+			return out, err
 		}
 		err := s.root.Remove(from)
 		if errors.Is(err, fs.ErrNotExist) {

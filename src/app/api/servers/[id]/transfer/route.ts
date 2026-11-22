@@ -7,7 +7,7 @@ import { transferServerToCustomer } from "@/lib/server/transfer";
 
 export const dynamic = "force-dynamic";
 
-const transferServerSchema = z.object({ teamId: z.string().trim().min(1).max(64) });
+const transferServerSchema = z.object({ teamId: z.string().trim().min(1).max(64), previousTeamId: z.string().nullable(), credentialsRotated: z.literal(true), fileAgentStopped: z.boolean().optional() });
 
 /** Move a server, with its storage and history, to another customer. */
 export async function POST(request: Request, { params }: { params: Promise<{ id: string }> }) {
@@ -16,7 +16,7 @@ export async function POST(request: Request, { params }: { params: Promise<{ id:
 		{ permission: "team:manage", rateLimit: GENERAL_WRITE_LIMIT, bodySchema: transferServerSchema },
 		async ({ session, body }) => {
 			const { id } = await params;
-			return NextResponse.json({ success: true, ...(await transferServerToCustomer(id, body.teamId, session)) });
+			return NextResponse.json({ success: true, ...(await transferServerToCustomer(id, body.teamId, session, body)) });
 		},
 	);
 }

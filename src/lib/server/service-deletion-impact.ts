@@ -144,3 +144,12 @@ export function describeServerDeletionBlockers(
 ): string {
   return blockers.map(([name, count]) => t(BLOCKER_COPY[name], { count })).join(t("backend.server.deletionBlocker.separator"));
 }
+
+export function countActiveFileProxies(serverId: string, tx: Prisma.TransactionClient) {
+  return tx.serverFileProxy.count({ where: { serverId, OR: [
+      { status: { not: "stopped" } },
+      // Older stop operations retained credentials even when remote termination failed.
+      { pid: { not: null } },
+      { accessToken: { not: null }, OR: [{ expiresAt: null }, { expiresAt: { gt: new Date() } }] },
+    ] } });
+}

@@ -61,8 +61,9 @@ export async function GET(request: Request) {
 				}
 				// Suggest only (A6-14): the install runs in the worker process, so a
 				// reservation held here protected nothing and only shrank the pool.
-				const port = await allocatePort(preferred);
-				releasePortReservation(port);
+				const owner = Symbol("port suggestion");
+				const port = await allocatePort(preferred, owner);
+				releasePortReservation(port, owner);
 				return NextResponse.json({ port, available: true });
 			} catch (err) {
 				const msg = getErrorMessage(err, "Configuration check failed");

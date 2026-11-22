@@ -1,3 +1,4 @@
+import { withServerLifecycleLock } from "@/lib/server/lifecycle-lock";
 import { apiCopy } from "@/lib/i18n/api-copy";
 /**
  * DELETE /api/servers/[id]/sftp/delete?path=... — delete a file on remote server
@@ -29,13 +30,15 @@ export async function DELETE(
     },
     async ({ query, session }) => {
       const { id } = await params;
-      const teamAccess = await assertServerTeamAccess(session, id, "fileDelete");
-      if (!teamAccess.ok) return teamAccess.response;
-      const target = await loadEnabledServerForSftp(id, teamAccess.server.teamId, teamAccess.server, request.signal);
-      await assertSftpPathAccess({ session, serverId: id, paths: [query.path], target, signal: request.signal });
-      await deleteFile(id, query.path, target.ssh);
-      await auditUserAction(session.userId, "sftp.delete", { serverId: id, path: query.path }, undefined, session.currentTeamId);
-      return NextResponse.json({ success: true, path: query.path });
+      return withServerLifecycleLock(id, async () => {
+        const teamAccess = await assertServerTeamAccess(session, id, "fileDelete");
+        if (!teamAccess.ok) return teamAccess.response;
+        const target = await loadEnabledServerForSftp(id, teamAccess.server.teamId, teamAccess.server, request.signal);
+        await assertSftpPathAccess({ session, serverId: id, paths: [query.path], target, signal: request.signal });
+        await deleteFile(id, query.path, target.ssh);
+        await auditUserAction(session.userId, "sftp.delete", { serverId: id, path: query.path }, undefined, session.currentTeamId);
+        return NextResponse.json({ success: true, path: query.path });
+      });
     },
   );
 }

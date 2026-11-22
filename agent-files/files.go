@@ -1,6 +1,7 @@
 package main
 
 import (
+	"bytes"
 	"crypto/rand"
 	"crypto/sha256"
 	"encoding/hex"
@@ -129,9 +130,27 @@ func (s share) check(name string, allowMissing bool) error {
 	}
 	return nil
 }
-func metadata(info fs.FileInfo) entry {
-	return entry{Name: info.Name(), Directory: info.IsDir(), Size: info.Size(), Modified: info.ModTime().UnixMilli(), Version: fmt.Sprintf("%x-%x", info.Size(), info.ModTime().UnixNano())}
+func (s share) metadata(name string, info fs.FileInfo, f *os.File) (entry, error) {
+	id, err := changeIdentity(s.root, name, info, f)
+	if err != nil {
+		return entry{}, err
+	}
+	version := digest([]byte(fmt.Sprintf("v3:%s:%d:%d", id, info.Size(), info.ModTime().UnixNano())))
+	return entry{Name: info.Name(), Directory: info.IsDir(), Size: info.Size(), Modified: info.ModTime().UnixMilli(), Version: version}, nil
 }
+
+func (s share) matchesVersion(name string, st os.FileInfo, f *os.File, version string) bool {
+	e, err := s.metadata(name, st, f)
+	return err == nil && e.Version == version
+}
+
+func (op operation) beforeWrite() error {
+	if !op.deadline.IsZero() && !time.Now().Before(op.deadline) {
+		return changed
+	}
+	return nil
+}
+
 func digest(b []byte) string { sum := sha256.Sum256(b); return hex.EncodeToString(sum[:]) }
 func validDigest(s string) bool {
 	b, err := hex.DecodeString(s)
@@ -161,6 +180,11 @@ func (s share) handle(op operation) (result, error) {
 	if !read && (!s.writable || op.Path == ".") {
 		return out, denied
 	}
+	if !read {
+		if err := op.beforeWrite(); err != nil {
+			return out, err
+		}
+	}
 	if err := s.check(op.Path, true); err != nil && !(op.Op == "begin" && errors.Is(err, fs.ErrNotExist)) {
 		return out, err
 	}
@@ -170,7 +194,10 @@ func (s share) handle(op operation) (result, error) {
 		if err != nil {
 			return out, err
 		}
-		e := metadata(info)
+		e, err := s.metadata(op.Path, info, nil)
+		if err != nil {
+			return out, err
+		}
 		out.Entry = &e
 	case "list":
 		d, err := s.root.Open(op.Path)
@@ -204,7 +231,11 @@ func (s share) handle(op operation) (result, error) {
 			if bytes > 1800000 {
 				return out, invalid
 			}
-			items = append(items, metadata(info))
+			e, err := s.metadata(path.Join(op.Path, item.Name()), info, nil)
+			if err != nil {
+				return out, err
+			}
+			items = append(items, e)
 		}
 	case "checksum":
 		f, err := s.openRegular(op.Path, os.O_RDONLY)
@@ -213,7 +244,7 @@ func (s share) handle(op operation) (result, error) {
 		}
 		defer f.Close()
 		st, err := f.Stat()
-		if err != nil || metadata(st).Version != op.Version {
+		if err != nil || !s.matchesVersion(op.Path, st, f, op.Version) {
 			return out, changed
 		}
 		hash := sha256.New()
@@ -221,7 +252,7 @@ func (s share) handle(op operation) (result, error) {
 			return out, err
 		}
 		st, err = f.Stat()
-		if err != nil || metadata(st).Version != op.Version {
+		if err != nil || !s.matchesVersion(op.Path, st, f, op.Version) {
 			return out, changed
 		}
 		out.Digest = hex.EncodeToString(hash.Sum(nil))
@@ -238,7 +269,7 @@ func (s share) handle(op operation) (result, error) {
 		if err != nil {
 			return out, err
 		}
-		if metadata(st).Version != op.Version || op.Offset > st.Size()-int64(op.Length) {
+		if !s.matchesVersion(op.Path, st, f, op.Version) || op.Offset > st.Size()-int64(op.Length) {
 			return out, changed
 		}
 		b := make([]byte, op.Length)
@@ -246,25 +277,21 @@ func (s share) handle(op operation) (result, error) {
 			return out, err
 		}
 		st, err = f.Stat()
-		if err != nil || metadata(st).Version != op.Version {
+		if err != nil || !s.matchesVersion(op.Path, st, f, op.Version) {
 			return out, changed
 		}
 		out.Data = b
 		out.Digest = digest(b)
 	case "mkdir":
-		return out, s.root.Mkdir(op.Path, 0750)
-	case "delete", "rmdir":
-		info, err := s.root.Lstat(op.Path)
-		if err != nil {
+		if err := op.beforeWrite(); err != nil {
 			return out, err
 		}
-		if (op.Op == "rmdir" && !op.Directory) || info.IsDir() != op.Directory || metadata(info).Version != op.Version {
+		return out, s.root.Mkdir(op.Path, 0750)
+	case "delete", "rmdir":
+		if op.Op == "rmdir" && !op.Directory {
 			return out, changed
 		}
-		if op.Op == "delete" && op.Directory && op.Recursive {
-			return out, s.root.RemoveAll(op.Path)
-		}
-		return out, s.root.Remove(op.Path)
+		return out, s.removeChecked(op)
 	case "copy-step":
 		return s.copyStep(op)
 	case "rename", "rename-exclusive", "copy":
@@ -274,6 +301,9 @@ func (s share) handle(op operation) (result, error) {
 		if err := s.check(op.Destination, true); err != nil {
 			return out, err
 		}
+		if err := op.beforeWrite(); err != nil {
+			return out, err
+		}
 		if op.Op == "rename-exclusive" {
 			return out, s.renameExclusive(op.Path, op.Destination)
 		}
@@ -281,6 +311,9 @@ func (s share) handle(op operation) (result, error) {
 			if _, err := s.root.Lstat(op.Destination); !errors.Is(err, fs.ErrNotExist) {
 				return out, fs.ErrExist
 			}
+		}
+		if err := op.beforeWrite(); err != nil {
+			return out, err
 		}
 		if op.Op == "rename" {
 			if !op.Overwrite {
@@ -341,8 +374,22 @@ func (s share) handle(op operation) (result, error) {
 			if err := s.ensureStageDir(); err != nil {
 				return out, err
 			}
-			if err := s.root.MkdirAll(path.Dir(op.Path), 0750); err != nil {
+			if err := op.beforeWrite(); err != nil {
 				return out, err
+			}
+			parent := "."
+			for _, part := range strings.Split(path.Dir(op.Path), "/") {
+				parent = path.Join(parent, part)
+				if err := op.beforeWrite(); err != nil {
+					return out, err
+				}
+				if err := s.root.Mkdir(parent, 0750); err != nil && !errors.Is(err, fs.ErrExist) {
+					return out, err
+				}
+				info, err := s.root.Lstat(parent)
+				if err != nil || !info.IsDir() || !exactEntry(s.root, parent, info) {
+					return out, denied
+				}
 			}
 			if err := s.trackUpload(key, op.Path); err != nil {
 				return out, err
@@ -387,6 +434,9 @@ func (s share) handle(op operation) (result, error) {
 			if st.Size() != op.Offset {
 				return out, changed
 			}
+			if err := op.beforeWrite(); err != nil {
+				return out, err
+			}
 			if _, err = f.WriteAt(op.Data, op.Offset); err != nil {
 				return out, err
 			}
@@ -410,10 +460,16 @@ func (s share) handle(op operation) (result, error) {
 			s.root.Remove(tmp)
 			return out, changed
 		}
-		e := metadata(info)
-		e.Name = path.Base(op.Path)
+		if err := s.publishChecked(op, tmp); err != nil {
+			return out, err
+		}
+		info, err = s.root.Lstat(op.Path)
+		if err != nil {
+			return out, err
+		}
+		e, err := s.metadata(op.Path, info, nil)
 		out.Entry = &e
-		return out, s.publishChecked(op, tmp)
+		return out, err
 	default:
 		return out, invalid
 	}
@@ -485,15 +541,43 @@ func (s share) publishChecked(op operation, tmp string) error {
 	}
 	defer s.recoverUpload(marker, key)
 	if op.Version != "absent" {
-		st, err := s.root.Lstat(op.Path)
-		if err != nil || !st.Mode().IsRegular() || metadata(st).Version != op.Version {
+		before, err := s.openRegular(op.Path, os.O_RDONLY)
+		if err != nil {
 			return changed
+		}
+		defer before.Close()
+		st, err := before.Stat()
+		if err != nil || !s.matchesVersion(op.Path, st, before, op.Version) {
+			return changed
+		}
+		prior := sha256.New()
+		if _, err := io.Copy(prior, before); err != nil {
+			return err
+		}
+		st, err = before.Stat()
+		if err != nil || !s.matchesVersion(op.Path, st, before, op.Version) {
+			return changed
+		}
+		if err := op.beforeWrite(); err != nil {
+			return err
 		}
 		if err := s.renameExclusive(op.Path, backup); err != nil {
 			return err
 		}
-		st, err = s.root.Lstat(backup)
-		if err != nil || !st.Mode().IsRegular() || metadata(st).Version != op.Version {
+		after, err := s.openRegular(backup, os.O_RDONLY)
+		if err != nil {
+			return changed
+		}
+		defer after.Close()
+		captured, err := after.Stat()
+		if err != nil || !os.SameFile(captured, st) {
+			return changed
+		}
+		hash := sha256.New()
+		if _, err := io.Copy(hash, after); err != nil {
+			return err
+		}
+		if !bytes.Equal(hash.Sum(nil), prior.Sum(nil)) {
 			return changed
 		}
 	}

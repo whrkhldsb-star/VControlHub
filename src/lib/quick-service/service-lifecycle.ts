@@ -1,3 +1,5 @@
+import { ownedContainer } from "./container-ownership";
+import { collectOptionPages } from "@/lib/server/option-pages";
 /**
  * Public lifecycle API for quick services (install / uninstall / start /
  * stop / update / sync) plus the read-only listing helpers and the port
@@ -8,11 +10,10 @@
  * validation, audit writer, op lock) now live in `./service-internals`
  * and are imported here.
  */
-import { execFile } from "child_process";
-import { promisify } from "node:util";
+import { open } from "node:fs/promises";
 
 import { prisma } from "@/lib/db";
-import { BusinessError, NotFoundError, ValidationError } from "@/lib/errors";
+import { ConflictError, BusinessError, NotFoundError, ValidationError } from "@/lib/errors";
 import { isValidTcpPort } from "@/lib/runtime/listen-port";
 import { t } from "@/lib/i18n/service-translations";
 import {
@@ -37,14 +38,13 @@ import {
 	withServiceOperationLock,
 	writeQuickServiceAudit,
 } from "./service-internals";
-import { installService, recreateDockerContainer } from "./service-lifecycle-install";
+import { ContainerCommittedError, installService, recreateDockerContainer } from "./service-lifecycle-install";
 import { resolveQuickServiceExecutionTarget, type QuickServiceRequester } from "./execution-authorization";
 import { SERVICE_CATALOG } from "./catalog";
 import type { ServiceTemplate } from "./types";
 import { createLogger } from "@/lib/logging";
 
 const qsLogger = createLogger("quick-service-lifecycle");
-const runFile = promisify(execFile);
 
 
 export { installService };
@@ -78,15 +78,15 @@ const QUICK_SERVICE_LIST_SELECT = {
 } as const;
 
 export async function listQuickServices(instanceKey: string = HUB_HOST_INSTANCE_KEY, teamId?: string | null) {
-	return prisma.quickService.findMany({
+	return collectOptionPages(page => prisma.quickService.findMany({
 		where: {
 			instanceKey, serverId: instanceKey === HUB_HOST_INSTANCE_KEY ? null : instanceKey,
 			...(instanceKey !== HUB_HOST_INSTANCE_KEY && teamId !== undefined ? { server: { teamId } } : {}),
 		},
-		orderBy: [{ category: "asc" }, { name: "asc" }],
-		take: 200,
+		orderBy: [{ category: "asc" }, { name: "asc" }, { id: "asc" }],
+		...page,
 		select: QUICK_SERVICE_LIST_SELECT,
-	});
+	}));
 }
 
 export async function listQuickServiceHistory(limit = 20) {
@@ -127,7 +127,8 @@ export async function uninstallService(slug: string, options: UninstallServiceOp
 
 		const containerName = safeContainerName(svc.slug);
 		try {
-			await dockerExec(target, ["rm", "-f", containerName], 15_000);
+			const id = await ownedContainer(target, containerName, svc.id, { storedId: svc.containerId });
+			if (id) await dockerExec(target, ["rm", "-f", id], 15_000);
 		} catch (err) {
 			const msg = dockerErrorMessage(err);
 			await prisma.quickService.update({ where: serviceWhere(slug, instanceKey, target), data: { status: "error", error: `Uninstall failed: ${msg}` } });
@@ -139,6 +140,7 @@ export async function uninstallService(slug: string, options: UninstallServiceOp
 				detail: { error: msg.slice(0, 500) },
 				diff: { before, after: { status: "error", error: `Uninstall failed: ${msg}` } },
 			});
+			if (err instanceof ConflictError) throw err;
 			throw new BusinessError(
 				t("backend.quick-service.uninstallFailedWithMessage", {
 					message: msg,
@@ -213,18 +215,19 @@ export async function startService(slug: string, instanceKey: string = HUB_HOST_
 		});
 
 		const containerName = safeContainerName(svc.slug);
+		const id = await ownedContainer(target, containerName, svc.id, { storedId: svc.containerId });
 		let startError: unknown = null;
 		try {
-			await dockerExec(target, ["start", containerName], 30_000);
+			if (id) await dockerExec(target, ["start", id], 30_000);
 		} catch (error) {
 			startError = error;
 		}
-		if (!startError) {
+		if (id && !startError) {
 			// `docker start` returning only means the start was accepted: hold an
 			// existing container to the same acceptance as a new one, or one
 			// whose process exits at once was recorded as running.
 			try {
-				await assertContainerStarted(target, containerName);
+				await assertContainerStarted(target, id);
 			} catch (error) {
 				const msg = dockerErrorMessage(error);
 				await prisma.quickService.update({ where: serviceWhere(slug, instanceKey, target), data: { status: "error", error: msg } });
@@ -251,7 +254,7 @@ export async function startService(slug: string, instanceKey: string = HUB_HOST_
 			});
 			return;
 		}
-		if (!isDockerNoSuchContainerError(startError)) {
+		if (startError && !isDockerNoSuchContainerError(startError)) {
 			// The container exists (or its state is unknown) but would not start:
 			// re-creating it would not fix that and would replace a container the
 			// operator may need to inspect.
@@ -271,7 +274,8 @@ export async function startService(slug: string, instanceKey: string = HUB_HOST_
 			// The container is gone — re-create it from the stored template.
 			const tmpl = templateFromStoredService(svc);
 			try {
-				await recreateDockerContainer(svc.id, tmpl, svc.port, { target, auditAction: "start" });
+				await prisma.quickService.update({ where: serviceWhere(slug, instanceKey, target), data: { status: "installing", error: null } });
+				await recreateDockerContainer(svc.id, tmpl, svc.port, { target, previousId: svc.containerId, auditAction: "start" });
 				await writeQuickServiceAudit({
 					target,
 					action: "start",
@@ -281,6 +285,7 @@ export async function startService(slug: string, instanceKey: string = HUB_HOST_
 					diff: { before, after: { status: "running", mode: "recreated-container" } },
 				});
 			} catch (err) {
+				if (err instanceof ContainerCommittedError) throw err;
 				const msg = dockerErrorMessage(err);
 				await prisma.quickService.update({ where: serviceWhere(slug, instanceKey, target), data: { status: "error", error: msg } });
 				await writeQuickServiceAudit({
@@ -356,7 +361,7 @@ export async function updateService(slug: string, instanceKey: string = HUB_HOST
 		try {
 			await dockerExec(target, ["pull", svc.image], 300_000);
 			await prisma.quickService.update({ where: serviceWhere(slug, instanceKey, target), data: { status: "installing", error: null } });
-			await recreateDockerContainer(svc.id, tmpl, svc.port, { target, auditAction: "update" });
+			await recreateDockerContainer(svc.id, tmpl, svc.port, { target, previousId: svc.containerId, auditAction: "update" });
 			const health = await getContainerHealthFor(target, containerName);
 			const logTail = await getContainerLogTailFor(target, containerName);
 			await writeQuickServiceAudit({
@@ -372,6 +377,7 @@ export async function updateService(slug: string, instanceKey: string = HUB_HOST
 			});
 			return { status: "running", health, logTail };
 		} catch (err) {
+			if (err instanceof ContainerCommittedError) throw err;
 			const msg = dockerErrorMessage(err);
 			await prisma.quickService.update({ where: serviceWhere(slug, instanceKey, target), data: { status: "error", error: `Update failed: ${msg}` } });
 			await writeQuickServiceAudit({
@@ -382,6 +388,7 @@ export async function updateService(slug: string, instanceKey: string = HUB_HOST
 				detail: { image: svc.image, error: msg.slice(0, 500) },
 				diff: { before, after: { status: "error", image: oldImage, error: `Update failed: ${msg}` } },
 			});
+			if (err instanceof ConflictError) throw err;
 			throw new BusinessError(
 				t("backend.quick-service.updateFailedWithMessage", { message: msg }),
 			);
@@ -406,7 +413,8 @@ export async function stopService(slug: string, instanceKey: string = HUB_HOST_I
 
 		const containerName = safeContainerName(svc.slug);
 		try {
-			await dockerExec(target, ["stop", containerName], 30_000);
+			const id = await ownedContainer(target, containerName, svc.id, { storedId: svc.containerId });
+			if (id) await dockerExec(target, ["stop", id], 30_000);
 			await prisma.quickService.update({ where: serviceWhere(slug, instanceKey, target), data: { status: "stopped", error: null } });
 			await writeQuickServiceAudit({
 				target,
@@ -447,10 +455,24 @@ export async function syncServiceStatus(slug: string, instanceKey: string = HUB_
 	});
 
 	const containerName = safeContainerName(svc.slug);
+	async function missing() {
+		await prisma.quickService.update({ where: serviceWhere(slug, instanceKey, target), data: { status: "stopped", containerId: null } });
+		await writeQuickServiceAudit({
+			target,
+			action: "sync",
+			slug,
+			status: "succeeded",
+			detail: { status: "stopped", missingContainer: true },
+			diff: { before, after: { status: "stopped", containerExisted: false } },
+		});
+		return "stopped";
+	}
 	try {
 		// The container that exists now, with its id: an install whose final
 		// save failed left the row "installing" with the replaced container's id.
-		const [state = "", containerId = ""] = (await dockerExec(target, ["inspect", "--format={{.State.Status}}|{{.Id}}", containerName], 10_000)).trim().split("|");
+		const id = await ownedContainer(target, containerName, svc.id, { storedId: svc.containerId, reconcile: svc.status === "installing" });
+		if (!id) return missing();
+		const [state = "", containerId = ""] = (await dockerExec(target, ["inspect", "--format={{.State.Status}}|{{.Id}}", id], 10_000)).trim().split("|");
 		const status = state === "running" ? "running" : "stopped";
 		await prisma.quickService.update({
 			where: serviceWhere(slug, instanceKey, target),
@@ -482,16 +504,7 @@ export async function syncServiceStatus(slug: string, instanceKey: string = HUB_
 			});
 			throw new BusinessError(message.slice(0, 500));
 		}
-		await prisma.quickService.update({ where: serviceWhere(slug, instanceKey, target), data: { status: "stopped" } });
-		await writeQuickServiceAudit({
-			target,
-			action: "sync",
-			slug: svc.slug,
-			status: "succeeded",
-			detail: { status: "stopped", missingContainer: true },
-			diff: { before, after: { status: "stopped", containerExisted: false } },
-		});
-		return "stopped";
+		return missing();
 	}
 }
 
@@ -508,11 +521,12 @@ export async function checkPort(port: number): Promise<{ available: boolean; use
 				const pid = pidMatch[1]!;
 				if (!/^\d+$/.test(pid)) throw new ValidationError(t("backend.quick-service.invalidPid"));
 				try {
-					const { stdout } = await runFile("tr", ["\0", " ", `/proc/${pid}/cmdline`], {
-						timeout: 3000,
-						encoding: "utf8",
-					});
-					usedBy = String(stdout).trim().substring(0, 80) || `PID ${pid}`;
+					const file = await open(`/proc/${pid}/cmdline`, "r");
+					try {
+						const buffer = Buffer.alloc(512);
+						const { bytesRead } = await file.read(buffer);
+						usedBy = buffer.toString("utf8", 0, bytesRead).replaceAll("\0", " ").trim().slice(0, 80) || `PID ${pid}`;
+					} finally { await file.close(); }
 				} catch {
 					// /proc/<pid>/cmdline unreadable (process exited, permission) — use PID as label.
 					usedBy = `PID ${pid}`;

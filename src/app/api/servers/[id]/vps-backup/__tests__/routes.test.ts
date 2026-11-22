@@ -1,3 +1,4 @@
+import { ConflictError } from "@/lib/errors";
 import { beforeEach, describe, expect, it, vi } from "vitest";
 
 /**
@@ -39,6 +40,7 @@ const mocks = vi.hoisted(() => ({
 	guardCalls: [] as Record<string, unknown>[],
 }));
 
+vi.mock("@/lib/concurrency/advisory-lock", () => ({ acquireAdvisoryLock: async () => async () => undefined }));
 vi.mock("@/lib/db", () => ({ prisma: mocks.prisma }));
 vi.mock("@/lib/server/team-access", () => ({ assertServerTeamAccess: mocks.teamAccess }));
 vi.mock("@/lib/job/service", () => ({ enqueueJob: mocks.enqueueJob }));
@@ -87,7 +89,7 @@ vi.mock("@/lib/http/api-guard", () => ({
 const session = {
 	userId: "u_1",
 	username: "op",
-	roles: ["operator"],
+	roles: ["operator"], permissions: ["server:ssh", "server:sftp:unrestricted"],
 	mustChangePassword: false,
 	currentTeamId: "team_1",
 };
@@ -268,6 +270,14 @@ describe("VPS backup routes", () => {
 
 			expect(response.status).toBe(200);
 			expect(mocks.backup.listVpsBackupRecords).toHaveBeenCalledWith("srv_1");
+			await expect(response.json()).resolves.toMatchObject({ canDownload: true });
+		});
+
+		it("keeps the record list visible when the account lacks this server's file-read grant", async () => {
+			mocks.teamAccess.mockResolvedValueOnce({ ok: true }).mockResolvedValueOnce(denied());
+			mocks.backup.listVpsBackupRecords.mockResolvedValue([{ id: "rec_1" }]);
+			const response = await records.GET(json("https://a.test/r", "GET"), serverParams);
+			await expect(response.json()).resolves.toMatchObject({ records: [{ id: "rec_1" }], canDownload: false });
 		});
 	});
 
@@ -349,7 +359,7 @@ describe("VPS backup routes", () => {
 	describe("delete record", () => {
 		it("reports a RUNNING record as a conflict rather than a server error", async () => {
 			mocks.prisma.vpsBackupRecord.findFirst.mockResolvedValue({ id: "rec_1" });
-			mocks.backup.deleteVpsBackupRecord.mockRejectedValue(new Error("Cannot delete a RUNNING backup"));
+			mocks.backup.deleteVpsBackupRecord.mockRejectedValue(new ConflictError("制品正在使用"));
 
 			const response = await recordItem.DELETE(json("https://a.test/r", "DELETE"), recordParams);
 

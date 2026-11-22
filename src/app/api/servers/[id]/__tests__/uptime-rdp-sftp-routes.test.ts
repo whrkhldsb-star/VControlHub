@@ -3,6 +3,7 @@ import { beforeEach, describe, expect, it, vi } from "vitest";
 import { ForbiddenError } from "@/lib/errors";
 import { customerSession, routeSession } from "@/test/route-session-mock";
 
+vi.mock("@/lib/concurrency/advisory-lock", () => ({ acquireAdvisoryLock: async () => async () => undefined }));
 vi.mock("@/lib/auth/api-session", async () => {
 	const { NextResponse } = await import("next/server");
 	const unauthenticated = () => NextResponse.json({ error: "unauthenticated" }, { status: 401 });

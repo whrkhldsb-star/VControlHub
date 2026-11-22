@@ -36,7 +36,7 @@ describe("POST /api/servers/[id]/transfer", () => {
 
 	it("needs team:manage and a non-empty target", async () => {
 		routeSession.current = customerSession(["server:write"]);
-		expect((await post({ teamId: "team_2" })).status).toBe(403);
+		expect((await post({ teamId: "team_2", credentialsRotated: true, previousTeamId: "team_1" })).status).toBe(403);
 		routeSession.current = platformSession();
 		expect((await post({ teamId: "" })).status).toBe(400);
 		expect((await post({})).status).toBe(400);
@@ -44,13 +44,13 @@ describe("POST /api/servers/[id]/transfer", () => {
 	});
 
 	it("delegates to the transfer service with the caller's session and surfaces its refusals", async () => {
-		const res = await post({ teamId: " team_2 " });
+		const res = await post({ teamId: " team_2 ", credentialsRotated: true, previousTeamId: "team_1" });
 		expect(res.status).toBe(200);
 		expect(await res.json()).toEqual({ success: true, server: { id: "srv_1", teamId: "team_2" } });
-		expect(mocks.transferServerToCustomer).toHaveBeenCalledWith("srv_1", "team_2", expect.objectContaining({ userId: "u_admin" }));
+		expect(mocks.transferServerToCustomer).toHaveBeenCalledWith("srv_1", "team_2", expect.objectContaining({ userId: "u_admin" }), expect.objectContaining({ credentialsRotated: true }));
 		mocks.transferServerToCustomer.mockRejectedValueOnce(new BusinessError("still in use"));
-		expect((await post({ teamId: "team_2" })).status).toBe(422);
+		expect((await post({ teamId: "team_2", credentialsRotated: true, previousTeamId: "team_1" })).status).toBe(422);
 		mocks.transferServerToCustomer.mockRejectedValueOnce(new NotFoundError("no such team"));
-		expect((await post({ teamId: "team_x" })).status).toBe(404);
+		expect((await post({ teamId: "team_x", credentialsRotated: true, previousTeamId: "team_1" })).status).toBe(404);
 	});
 });

@@ -43,7 +43,7 @@ describe("Windows agent script generation", () => {
     expect(script).toContain("$exitCode -gt 255");
     // Declared capabilities match what the agents actually implement.
     expect(script).toContain("@('metrics', 'command')");
-    expect(script).not.toContain("file");
+    expect(script).not.toMatch(/capabilities = @\([^)]*'file'/);
   });
 
   it("reaches the hub from Server 2016 and stops both a rejected job and its polling loop", () => {

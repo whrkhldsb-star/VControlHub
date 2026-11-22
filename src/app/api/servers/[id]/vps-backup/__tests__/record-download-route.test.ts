@@ -5,6 +5,7 @@ import { beforeEach, describe, expect, it, vi } from "vitest";
 
 import { customerSession, routeSession } from "@/test/route-session-mock";
 
+vi.mock("@/lib/concurrency/advisory-lock", () => ({ acquireAdvisoryLock: async () => async () => undefined }));
 vi.mock("@/lib/auth/api-session", async () => {
 	const { NextResponse } = await import("next/server");
 	const unauthenticated = () => NextResponse.json({ error: "unauthenticated" }, { status: 401 });
@@ -37,7 +38,7 @@ const get = () => route.GET(new Request("http://local/x"), { params: Promise.res
 describe("GET /api/servers/[id]/vps-backup/records/[recordId]/download", () => {
 	beforeEach(() => {
 		vi.clearAllMocks();
-		routeSession.current = customerSession(["server:ssh"]);
+		routeSession.current = customerSession(["server:ssh", "server:sftp:unrestricted"]);
 		mocks.assertServerTeamAccess.mockResolvedValue({ ok: true });
 		mocks.recordFindFirst.mockResolvedValue({ id: "rec_1", localPath: "full.tar.gz", backupType: "FULL", status: "COMPLETED", offsiteKey: null });
 		mocks.resolveVpsBackupFilePath.mockImplementation((p: string) => path.join(dir, p));
@@ -48,6 +49,9 @@ describe("GET /api/servers/[id]/vps-backup/records/[recordId]/download", () => {
 		routeSession.current = customerSession(["server:read"]);
 		expect((await get()).status).toBe(403);
 		routeSession.current = customerSession(["server:ssh"]);
+		expect((await get()).status).toBe(403);
+		expect(mocks.recordFindFirst).not.toHaveBeenCalled();
+		routeSession.current = customerSession(["server:ssh", "server:sftp:unrestricted"]);
 		mocks.assertServerTeamAccess.mockResolvedValueOnce({ ok: false, response: new Response("no", { status: 404 }) });
 		expect((await get()).status).toBe(404);
 		expect(mocks.assertServerTeamAccess).toHaveBeenLastCalledWith(expect.anything(), "srv_1", "fileRead");

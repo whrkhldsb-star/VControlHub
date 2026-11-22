@@ -79,7 +79,7 @@ describe.skipIf(process.platform !== "win32")("Windows Agent scripts in Windows 
     const script = buildAgentPowerShell(HUB, TOKEN);
     const file = join(dir, `revoke-${status}.ps1`);
     writeFileSync(file, [
-      script.slice(0, script.indexOf("$pending = $null")),
+      script.slice(0, script.search(/^while \(\$true\) \{/m)),
       "$HEARTBEAT_SECONDS = 0",
       "$script:lastMetrics = [DateTime]::UtcNow",
       `function Invoke-AgentPost { $script:LastStatus = ${status}; throw 'denied' }`,
@@ -90,6 +90,23 @@ describe.skipIf(process.platform !== "win32")("Windows Agent scripts in Windows 
     const result = powershell(["-File", file]);
     expect(result.status, result.stderr).toBe(0);
   }, 30_000);
+
+  it("restores the terminal receipt in a fresh PowerShell process", () => {
+    const script = buildAgentPowerShell(HUB, TOKEN);
+    const main = script.search(/^while \(\$true\) \{/m);
+    expect(main).toBeGreaterThan(0);
+    const file = join(dir, "receipt.ps1");
+    const run = (lines: string[]) => {
+      writeFileSync(file, [script.slice(0, main), ...lines].join("\n"), "utf8");
+      const result = powershell(["-File", file]);
+      expect(result.status, result.stderr).toBe(0);
+      return result.stdout.trim();
+    };
+    run(["Save-Receipt @{ jobId = 'fixture'; stdout = 'done'; stderr = ''; exitCode = 0 }"]);
+    expect(JSON.parse(run(["$pending | ConvertTo-Json -Compress", "[IO.File]::Delete($receiptPath)"])))
+      .toMatchObject({ jobId: "fixture", stdout: "done", exitCode: 0 });
+    expect(run(["if ($pending) { exit 1 }"])).toBe("");
+  });
 
   it("leaves a replacement installation and its task alone during deferred removal", () => {
     const command = windowsAgentSelfRemoval("VControlHubAgent", "previous");
@@ -114,7 +131,7 @@ describe.skipIf(process.platform !== "win32")("Windows Agent scripts in Windows 
     const script = buildAgentPowerShell(HUB, TOKEN);
     // Everything before the poll loop: settings and functions, no network.
     const file = join(dir, "metrics.ps1");
-    writeFileSync(file, `${script.slice(0, script.indexOf("$pending = $null"))}\nGet-AgentMetrics\n`, "utf8");
+    writeFileSync(file, `${script.slice(0, script.search(/^while \(\$true\) \{/m))}\nGet-AgentMetrics\n`, "utf8");
     const result = powershell(["-File", file]);
     expect(result.status, result.stderr).toBe(0);
     const metrics = parseMonitorScriptOutput(result.stdout);
@@ -131,7 +148,7 @@ describe.skipIf(process.platform !== "win32")("Windows Agent scripts in Windows 
     const script = buildAgentPowerShell(HUB, TOKEN);
     const file = join(dir, "job.ps1");
     writeFileSync(file, [
-      script.slice(0, script.indexOf("$pending = $null")),
+      script.slice(0, script.search(/^while \(\$true\) \{/m)),
       "$watch = [Diagnostics.Stopwatch]::StartNew()",
       "$result = Invoke-AgentJob ([pscustomobject]@{ id = 'bg'; command = 'start /b ping -n 25 127.0.0.1 & echo started'; timeoutMs = 60000 })",
       "[pscustomobject]@{ seconds = $watch.Elapsed.TotalSeconds; exitCode = $result.exitCode } | ConvertTo-Json -Compress",

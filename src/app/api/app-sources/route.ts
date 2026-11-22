@@ -31,9 +31,10 @@ export async function GET(request: Request) {
     request,
     { permission: "user:manage", errorMessage: apiCopy("apiCopy.server.error.dfe0c2e8") },
     async () => {
-      const { includeApps = true } = parseSearchParams(
+      const { includeApps = true, cursor } = parseSearchParams(
         request,
         z.object({
+          cursor: z.string().max(128).optional(),
           includeApps: z
             .string()
             .optional()
@@ -42,10 +43,13 @@ export async function GET(request: Request) {
       );
 
       const sources = await prisma.appSource.findMany({
-        orderBy: [{ name: "asc" }],
-        take: 50,
+        orderBy: [{ name: "asc" }, { id: "asc" }],
+        ...(cursor && { cursor: { id: cursor }, skip: 1 }),
+        take: 51,
       });
 
+      const nextCursor = sources.length > 50 ? sources[49]!.id : null;
+      sources.splice(50);
       let remoteApps: NormalizedApp[] = [];
       if (includeApps) {
         remoteApps = await getRemoteApps();
@@ -99,7 +103,7 @@ export async function GET(request: Request) {
       }));
 
       return NextResponse.json({
-        sources,
+        sources, nextCursor,
         localCatalog,
         remoteCatalog,
       });

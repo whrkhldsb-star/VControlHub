@@ -62,6 +62,14 @@ describe("POST /api/agent/v1/poll", () => {
     expect(mocks.authenticateServerAgent).not.toHaveBeenCalled();
   });
 
+  it("normalizes heartbeat text before writing it alongside a command result", async () => {
+    const response = await POST(poll({ version: "1\0.5", capabilities: ["comm\0and"], error: "te\0xt", metricsRaw: "a\0b",
+      result: { jobId: "job-1", stdout: "ok", exitCode: 0 } }));
+    expect(response.status).toBe(200);
+    expect(mocks.updateServerAgentHeartbeat).toHaveBeenCalledWith(expect.objectContaining({ version: "1.5", capabilities: ["command"], error: "text", metricsRaw: "ab" }));
+    expect(mocks.completeServerAgentJob).toHaveBeenCalled();
+  });
+
   it("rejects an unknown token with 401 and touches no job state", async () => {
     mocks.authenticateServerAgent.mockResolvedValue(null);
 

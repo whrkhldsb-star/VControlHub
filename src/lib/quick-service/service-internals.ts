@@ -18,7 +18,7 @@ import type { Prisma } from "@prisma/client";
 import type { DockerTarget } from "./docker-cli";
 import { isQuickServiceTargetConsistent, quickServiceEndpointFingerprint } from "./target-identity";
 import { SSH_ENDPOINT_IDENTITY_SELECT } from "@/lib/ssh/server-connection-select";
-import { mkdirSync, realpathSync, rmSync } from "node:fs";
+import { realpathSync, rmSync } from "node:fs";
 import { promisify } from "node:util";
 
 import { writeAuditLog } from "@/lib/audit/service";
@@ -97,7 +97,7 @@ const PROTECTED_HOST_PREFIXES = [
 ];
 
 function isProtectedHostPath(hostPath: string) {
-	return PROTECTED_HOST_PREFIXES.some((prefix) => prefix.startsWith("/") && (hostPath === prefix || hostPath.startsWith(`${prefix}/`)));
+	return PROTECTED_HOST_PREFIXES.some((prefix) => prefix.startsWith("/") && (hostPath === prefix || hostPath.startsWith(`${prefix}/`) || prefix.startsWith(`${hostPath}/`)));
 }
 
 export function safeContainerName(slug: string): string {
@@ -144,7 +144,7 @@ function assertHostVolumeAllowed(hostPath: string, template: ServiceTemplate) {
 	if (isProtectedHostPath(hostPath)) {
 		throw new BusinessError(t("backend.quick-service.hostMountIsPlatformDirectory", { path: hostPath }));
 	}
-	if (HOST_VOLUME_ROOTS.some((root) => hostPath === root.slice(0, -1) || hostPath.startsWith(root))) return;
+	if (!hostPath.includes(":") && HOST_VOLUME_ROOTS.some((root) => hostPath.startsWith(root))) return;
 	throw new BusinessError(
 		t("backend.quick-service.hostMountOutsideAllowedRoots", { path: hostPath }),
 	);
@@ -241,9 +241,11 @@ export function parseCommandArgs(command?: string): string[] {
 	if (!command?.trim()) return [];
 	const args: string[] = [];
 	let current = "";
+	let started = false;
 	let quote: "'" | '"' | null = null;
 	let escaping = false;
 	for (const ch of command) {
+		if (!/\s/.test(ch)) started = true;
 		if (escaping) {
 			current += ch;
 			escaping = false;
@@ -263,7 +265,8 @@ export function parseCommandArgs(command?: string): string[] {
 			continue;
 		}
 		if (/\s/.test(ch)) {
-			if (current) {
+			if (started) {
+				started = false;
 				args.push(current);
 				current = "";
 			}
@@ -272,19 +275,14 @@ export function parseCommandArgs(command?: string): string[] {
 		current += ch;
 	}
 	if (escaping || quote) throw new ValidationError(t("backend.quick-service.startupCommandFormatIsInvalid"));
-	if (current) args.push(current);
+	if (started) args.push(current);
 	return args;
-}
-
-export function resolveEnvValue(value: string) {
-	return value === "127.0.0.1" || value === "localhost" ? "host.docker.internal" : value;
 }
 
 /** Re-exports of the host-path helpers used by the lifecycle module. */
 export const __internals = {
 	normalizeVolumeEndpoint,
 	splitContainerPathAndOptions,
-	mkdirSync,
 	TRUSTED_HOST_MOUNTS,
 	DOCKER_SOCKET,
 };
@@ -402,18 +400,21 @@ const PORT_MAX_ATTEMPTS = 50;
  * (or install aborts). Combined with the isPortAvailable OS probe this closes
  * the common concurrent-install TOCTOU on a single Node process.
  */
-const reservedPorts = new Set<number>();
+const probeOwner = Symbol("port probe");
+const reservedPorts = new Map<number, symbol>();
 
-export function releasePortReservation(port: number): void {
-	reservedPorts.delete(port);
+export function releasePortReservation(port: number, owner = probeOwner): void {
+	if (reservedPorts.get(port) === owner) reservedPorts.delete(port);
 }
 
-export function releasePortReservations(ports: Iterable<number>): void {
-	for (const port of ports) releasePortReservation(port);
+export function releasePortReservations(ports: Iterable<number>, owner = probeOwner): void {
+	for (const port of ports) releasePortReservation(port, owner);
 }
 
 export function templateReservedPorts(template: ServiceTemplate, hostPort: number): number[] {
-	return [hostPort, ...((template.extraPorts ?? []).map((ep) => ep.host))];
+	const ports = [hostPort, ...(template.extraPorts ?? []).map(ep => ep.host)];
+	if (new Set(ports).size !== ports.length) throw new ConflictError(t("backend.quick-service.portInUseOnTarget", { port: ports.find((p, i) => ports.indexOf(p) !== i)! }));
+	return ports;
 }
 
 /**
@@ -436,25 +437,26 @@ export async function isPortAvailable(port: number): Promise<boolean> {
 }
 
 /** Probe free + mark reserved until releasePortReservation. */
-export async function reservePort(port: number): Promise<boolean> {
+export async function reservePort(port: number, owner = probeOwner): Promise<boolean> {
 	assertTcpPort(port);
 	if (reservedPorts.has(port)) return false;
 	if (!(await isPortAvailable(port))) return false;
-	reservedPorts.add(port);
+	if (reservedPorts.has(port)) return false;
+	reservedPorts.set(port, owner);
 	return true;
 }
 
-export async function allocatePort(preferredPort?: number): Promise<number> {
+export async function allocatePort(preferredPort?: number, owner = probeOwner): Promise<number> {
 	if (preferredPort) {
 		assertTcpPort(preferredPort);
-		if (await reservePort(preferredPort)) return preferredPort;
+		if (await reservePort(preferredPort, owner)) return preferredPort;
 	}
 	const tried = new Set<number>();
 	for (let i = 0; i < PORT_MAX_ATTEMPTS; i++) {
 		const port = PORT_RANGE_MIN + Math.floor(Math.random() * (PORT_RANGE_MAX - PORT_RANGE_MIN + 1));
 		if (tried.has(port)) continue;
 		tried.add(port);
-		if (await reservePort(port)) return port;
+		if (await reservePort(port, owner)) return port;
 	}
 	throw new BusinessError(t("backend.quick-service.unableToAllocateAnAvailablePortPleaseSpecify"));
 }
@@ -515,21 +517,19 @@ export function parseListeningPorts(output: string): Set<number> {
  * Local hub only: probe and reserve host + template extra ports until docker binds.
  * Callers for remote targets must skip this and probe the VPS instead.
  */
-export async function assertTemplatePortsAvailable(template: ServiceTemplate, hostPort: number) {
-	if (!reservedPorts.has(hostPort) && !(await reservePort(hostPort))) {
-		throw new ConflictError(apiCopy("apiCopy.port.is.already.in.use.please.use.a.different.port.and.retry.fd0f30e2", { v0: String(hostPort) }));
-	}
-	const reservedExtras: number[] = [];
+export async function assertTemplatePortsAvailable(template: ServiceTemplate, hostPort: number, owner: symbol) {
+	const ports = templateReservedPorts(template, hostPort);
 	try {
-		for (const ep of template.extraPorts ?? []) {
-			if (reservedPorts.has(ep.host)) continue;
-			if (!(await reservePort(ep.host))) {
-				throw new ConflictError(apiCopy("apiCopy.extra.port.is.already.in.use.please.use.a.different.port.and.ret.73defe8c", { v0: String(ep.host) }));
+		for (const port of ports) {
+			if (reservedPorts.get(port) === owner) continue;
+			if (!(await reservePort(port, owner))) {
+				const key = port === hostPort ? "apiCopy.port.is.already.in.use.please.use.a.different.port.and.retry.fd0f30e2"
+					: "apiCopy.extra.port.is.already.in.use.please.use.a.different.port.and.ret.73defe8c";
+				throw new ConflictError(apiCopy(key, { v0: String(port) }));
 			}
-			reservedExtras.push(ep.host);
 		}
 	} catch (err) {
-		releasePortReservations([hostPort, ...reservedExtras]);
+		releasePortReservations(ports, owner);
 		throw err;
 	}
 }

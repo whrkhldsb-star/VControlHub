@@ -209,7 +209,9 @@ export function SourcesPanel({ sources, actions, onRequestDeleteSource }: Source
 							<StatusBadge tone={src.enabled ? "success" : "neutral"} size="sm">
 								{src.enabled ? t("quickServicesPage.sources.status.enabled") : t("quickServicesPage.sources.status.disabled")}
 							</StatusBadge>
-							{src.lastSyncStatus && (
+							{src.lastSyncStatus === "partial" ? (
+								<StatusBadge tone="warning" size="sm">{t("costPage.billing.status.partial")}</StatusBadge>
+							) : src.lastSyncStatus && (
 								<StatusBadge tone={src.lastSyncStatus === "success" ? "success" : "danger"} size="sm">
 									{src.lastSyncStatus ==="success" ? t("quickServicesPage.sources.status.syncSuccess") : t("quickServicesPage.sources.status.syncFailed")}
 								</StatusBadge>

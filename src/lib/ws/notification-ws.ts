@@ -18,6 +18,7 @@ import { createLogger } from "@/lib/logging";
 import { recordWsEvent, setWsActive } from "@/lib/monitoring/runtime-metrics";
 import { getVisibleNotificationForPush, readUnreadCount } from "@/lib/notification/inbox";
 import { getNotificationBus } from "./notification-bus";
+import { PreAuthLimiter, upgradeClientAddress } from "./pre-auth-limiter";
 
 const logger = createLogger("ws:notification");
 
@@ -257,6 +258,7 @@ export function setupWebSocketServer(
 	wss = instance;
 
 	// Handle HTTP upgrade requests
+	const pending = new PreAuthLimiter(48, 8);
 	const handleUpgrade = (request: IncomingMessage, socket: import("node:stream").Duplex, head: Buffer) => {
 		// Only handle /ws path
 		let url: URL;
@@ -300,6 +302,16 @@ export function setupWebSocketServer(
 			return;
 		}
 
+		const address = upgradeClientAddress(request);
+		const release = pending.acquire(address === "unknown" ? request.socket.remoteAddress ?? address : address);
+		if (!release) {
+			recordWsEvent("notification", "reject");
+			socket.end("HTTP/1.1 503 Service Unavailable\r\nConnection: close\r\n\r\n");
+			return;
+		}
+		const timeout = setTimeout(() => socket.destroy(), 5000);
+		const stopTimer = () => clearTimeout(timeout);
+		socket.once("close", stopTimer);
 		(async () => {
 			try {
 				const session = await verifySessionToken(token);
@@ -322,6 +334,12 @@ export function setupWebSocketServer(
 				// Upgrade failed (bad session, protocol error, etc.) — drop the socket.
 				recordWsEvent("notification", "reject");
 				socket.destroy();
+			} finally {
+				socket.off("close", stopTimer);
+				stopTimer();
+				// Verification cannot be cancelled when the socket closes. Keep its
+				// place until it settles so disconnected clients cannot queue more queries.
+				release();
 			}
 		})();
 	};

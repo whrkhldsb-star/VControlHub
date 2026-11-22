@@ -6,6 +6,7 @@ import { serviceT } from "@/lib/i18n/service-locale";
 import { loadServerForDirectGateway, removeDeletedServerGateway } from "./service-direct-gateway";
 import { removeDeletedServerAgent } from "./agent-service";
 import {
+  countActiveFileProxies,
   describeServerDeletionBlockers,
   getBlockingServerDeletionImpact,
   getServerDeletionImpact,
@@ -28,6 +29,9 @@ export async function deleteServerProfile(
       const current = await prisma.$transaction(async tx => {
         const server = await loadServerForDirectGateway(serverId, session, tx);
         if (!server || server.host !== initial.host) throw new NotFoundError(t("backend.server.nodeNotFound"));
+        if (await countActiveFileProxies(serverId, tx)) throw new BusinessError(t("backend.server.deleteBlockedByDependencies", {
+          dependencies: t("backend.server.transfer.blocker.fileProxies"),
+        }));
         const bindings = await listServerStorageNodes(serverId, tx);
         const remaining = getBlockingServerDeletionImpact(await getServerDeletionImpact(serverId, tx, bindings));
         if (remaining.length) throw new BusinessError(t("backend.server.deleteBlockedByDependencies", {
