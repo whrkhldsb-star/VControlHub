@@ -9,8 +9,8 @@
  */
 import { spawn } from "node:child_process";
 import fs from "node:fs/promises";
-import { createReadStream } from "node:fs";
-import { createInterface } from "node:readline";
+import { createReadStream, createWriteStream } from "node:fs";
+import tarStream from "tar-stream";
 import { Writable } from "node:stream";
 import { pipeline } from "node:stream/promises";
 import { createGunzip } from "node:zlib";
@@ -105,7 +105,7 @@ export async function findTar() {
  */
 export function fileVersionDir(env) {
   const configured = (env.FILE_VERSION_DIR ?? "").trim();
-  if (configured) return path.resolve(configured);
+  if (configured) return path.resolve(env.APP_DIR || process.cwd(), configured);
   return process.platform === "win32"
     ? path.join(env.PROGRAMDATA ?? path.join(os.homedir(), "AppData", "Local"), "VControlHub", "file-versions")
     : "/var/lib/vcontrolhub/file-versions";
@@ -228,8 +228,8 @@ export function pgConnection(env) {
  * concurrently. The in-app path additionally holds a PostgreSQL advisory lock
  * so app instances on other hosts are excluded too.
  *
- * The lock is per installation (APP_DIR), not per restore destination, and is
- * removed on exit. mkdir is atomic on every platform. The owner file lets a
+ * The lock lives in the target installation's real directory and is removed
+ * on exit. mkdir is atomic on every platform. The owner file lets a
  * lock left behind by a killed process on this host be reclaimed; a live owner
  * is never displaced. scripts/restore-files.sh implements the same protocol.
  */
@@ -331,62 +331,106 @@ export async function acquireRestoreLock(appDir) {
   throw new Error(`could not acquire restore lock ${lockDir}`);
 }
 
-/** Scan the entire index; bounded diagnostic output must not truncate validation. */
-async function scanArchiveLines(archive, flag, onLine) {
-  const tar = await findTar();
-  const child = spawn(tar, [flag, archive], { stdio: ["ignore", "pipe", "pipe"], timeout: 600_000 });
-  let stderr = "";
-  child.stderr.on("data", (chunk) => { stderr = (stderr + String(chunk)).slice(-16 * 1024); });
-  const completed = new Promise((resolve, reject) => {
-    child.on("error", reject);
-    child.on("close", (code) => code === 0 ? resolve() : reject(new Error(`tar exited with code ${code}: ${stderr.trim()}`)));
-  });
-  const lines = createInterface({ input: child.stdout, crlfDelay: Infinity });
-  try {
-    await Promise.all([completed, (async () => {
-      for await (const line of lines) if (line.trim()) onLine(line.trim());
-    })()]);
-  } finally {
-    lines.close();
-    if (child.exitCode === null && child.signalCode === null) child.kill();
-    await completed.catch(() => undefined);
+export const RESTORE_DATA_ROOTS = ["storage", "uploads", "downloads", "logs"];
+const codeRoots = ["public", "prisma", "package.json", "package-lock.json"];
+const manifests = [FILE_VERSIONS_MANIFEST, "external-data.json", INTEGRITY_MANIFEST];
+
+function memberName(raw) {
+  const name = raw.replace(/^(?:\.\/)+/, "").replace(/\/$/, "");
+  if (name === "." || name === "") return "";
+  if (name.includes("\\") || name.split("/").some((part) => !part || part === ".." || part === "." ||
+      (IS_WINDOWS && (/[<>:"|?*]|[. ]$/.test(part) || /^(?:CON|AUX|NUL|PRN|COM[1-9]|LPT[1-9])(?:\.|$)/i.test(part)))) || /^[A-Za-z]:/.test(name)) {
+    throw new Error("unsafe archive member");
   }
+  return name;
 }
 
-/** Verify every member is a plain file or directory (no links/specials). */
-async function assertArchiveMemberTypes(archive) {
-  await scanArchiveLines(archive, "-tvzf", (line) => {
-    // GNU and bsdtar listing lines both begin with the entry type character.
-    const typeChar = line[0];
-    if (typeChar !== "-" && typeChar !== "d") {
-      throw new Error("archive links and special files are not supported");
-    }
-  });
+async function walkArchive(archive, visit) {
+  const extract = tarStream.extract();
+  await Promise.all([
+    pipeline(createReadStream(archive), createGunzip(), extract),
+    (async () => {
+      try {
+        for await (const entry of extract) {
+          const { type, name } = entry.header;
+          if (type !== "file" && type !== "directory") throw new Error("archive links and special files are not supported");
+          const member = memberName(name);
+          if (!member && type !== "directory") throw new Error("unsafe archive member");
+          await visit(entry, member);
+          entry.resume();
+        }
+      } catch (error) { extract.destroy(error); throw error; }
+    })(),
+  ]);
 }
+
+const withinMember = (name, root) => name === root || name.startsWith(root + "/");
 
 export async function inspectArchive(archive) {
+  const members = new Map();
+  const metadata = new Map();
   let databaseMember = null;
-  await scanArchiveLines(archive, "-tzf", (member) => {
-    assertSafeMemberNames([member]);
-    if (member === "database.sql.gz" || member === "./database.sql.gz") databaseMember = member;
+  await walkArchive(archive, async (entry, name) => {
+    if (!name) return;
+    if (members.has(name)) throw new Error("duplicate archive member");
+    const { type, size } = entry.header;
+    members.set(name, type);
+    if (name === "database.sql.gz") {
+      if (type !== "file") throw new Error("invalid database member");
+      databaseMember = entry.header.name;
+    }
+    if (manifests.includes(name)) {
+      if (type !== "file" || size > 1024 * 1024) throw new Error("invalid archive manifest");
+      const parts = [];
+      for await (const chunk of entry) parts.push(chunk);
+      const manifest = JSON.parse(Buffer.concat(parts).toString("utf8"));
+      if (manifest?.version !== 1) throw new Error("invalid archive manifest version");
+      metadata.set(name, manifest);
+    }
   });
-  await assertArchiveMemberTypes(archive);
-  return { databaseMember };
-}
-
-function assertSafeMemberNames(members) {
-  for (const member of members) {
-    const normalized = member.replace(/\\/g, "/");
-    if (
-      normalized.startsWith("/") ||
-      normalized.startsWith("..") ||
-      normalized.includes("/../") ||
-      normalized.endsWith("/..") ||
-      /^[A-Za-z]:/.test(normalized)
-    ) {
-      throw new Error(`unsafe archive member: ${member}`);
+  function declaredRoot(entry, history) {
+    if (typeof entry?.member !== "string" || !entry.member || memberName(entry.member) !== entry.member ||
+        !members.has(entry.member) || (history && members.get(entry.member) !== "directory") ||
+        [...codeRoots, ...manifests, ...ENV_MEMBERS, "database.sql.gz"].some((r) => withinMember(entry.member, r)) ||
+        (!history && RESTORE_DATA_ROOTS.some((r) => withinMember(entry.member, r)))) throw new Error("invalid archive data root");
+    return entry.member;
+  }
+  const versions = metadata.get(FILE_VERSIONS_MANIFEST);
+  const history = versions ? declaredRoot(versions, true) : null;
+  const external = metadata.get("external-data.json");
+  if (external && !Array.isArray(external.paths)) throw new Error("invalid external data manifest");
+  const roots = (external?.paths ?? []).map((r) => declaredRoot(r, false));
+  const files = new Set();
+  for (const [name, type] of members) {
+    if (RESTORE_DATA_ROOTS.includes(name) && type !== "directory") throw new Error("invalid data directory");
+    if (ENV_MEMBERS.includes(name) && type !== "file") throw new Error("invalid environment member");
+    if (RESTORE_DATA_ROOTS.some((r) => withinMember(name, r)) || ENV_MEMBERS.includes(name) || (history && withinMember(name, history))) files.add(name);
+    else if (name !== "database.sql.gz" && !manifests.includes(name) && !codeRoots.some((r) => withinMember(name, r)) &&
+      !roots.some((r) => withinMember(name, r)) && !(type === "directory" && [...roots, history].some((r) => r?.startsWith(name + "/")))) {
+      throw new Error("archive contains an unrecognized installation member");
     }
   }
+  return { databaseMember, files, history, externalRoots: roots, sourceSchema: metadata.get(INTEGRITY_MANIFEST)?.databaseSchema };
+}
+
+/** Extract only exact planned members into private staging. */
+export async function extractRestoreFiles(archive, staging, plan) {
+  await walkArchive(archive, async (entry, name) => {
+    if (!plan.files.has(name)) return;
+    const history = plan.history && withinMember(name, plan.history);
+    const dest = history ? path.join(staging + "-file-versions", name.slice(plan.history.length)) : path.join(staging, name);
+    if (entry.header.type === "directory") await fs.mkdir(dest, { recursive: true, mode: 0o700 });
+    else {
+      await fs.mkdir(path.dirname(dest), { recursive: true, mode: 0o700 });
+      await pipeline(entry, createWriteStream(dest, { flags: "wx", mode: entry.header.mode & 0o777 }));
+    }
+  });
+}
+
+export function applicationSchema(env) {
+  const schema = (env.DATABASE_URL && new URL(env.DATABASE_URL).searchParams.get("schema")) || "public";
+  if (Buffer.byteLength(schema) > 63 || /[\0-\x1f\x7f]/.test(schema) || /^pg_|^information_schema$/i.test(schema)) throw new Error("Invalid application schema");
+  return schema;
 }
 
 /** Stream through the same EOF check before psql commits or a read-only drill succeeds. */

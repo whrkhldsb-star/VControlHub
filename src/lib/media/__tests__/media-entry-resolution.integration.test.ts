@@ -32,8 +32,12 @@ describe.skipIf(process.env.RUN_DATABASE_INTEGRATION_TESTS !== "1")("media items
 
 	it("changes the thumbnail revision for a same-path replacement before a media scan", async () => {
 		const before = await getMediaItem(mediaId, null, { includeCredentials: true });
-		await prisma.fileEntry.update({ where: { id: entryId }, data: { checksumSha256: "a".repeat(64) } });
+		await prisma.fileEntry.update({ where: { id: entryId }, data: {
+			checksumSha256: "a".repeat(64), mimeType: "image/png", size: BigInt(1234),
+		} });
 		const after = await getMediaItem(mediaId, null, { includeCredentials: true });
+		expect(after).toMatchObject({ mimeType: "image/png", size: BigInt(1234) });
+		await expect(getMediaItem(mediaId)).resolves.toMatchObject({ mimeType: "image/png", size: BigInt(1234) });
 		expect(after?.updatedAt).toEqual(before?.updatedAt);
 		expect(after?.fileRevision).toBeTruthy();
 		expect(after?.fileRevision).not.toBe(before?.fileRevision);

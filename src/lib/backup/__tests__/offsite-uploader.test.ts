@@ -14,8 +14,11 @@
  */
 import { afterEach, beforeEach, describe, expect, it, vi } from "vitest";
 
+vi.mock("@/lib/concurrency/advisory-lock", () => ({ tryAcquireAdvisoryLock: async () => async () => {} }));
 vi.mock("@/lib/db", () => ({
 	prisma: {
+		setting: { upsert: vi.fn() },
+		$transaction: (operations: Promise<unknown>[]) => Promise.all(operations),
 		backupRecord: {
 			findUnique: vi.fn(),
 			update: vi.fn(),
@@ -68,7 +71,8 @@ const { putObjectMock, putFileMock, headObjectMock, deleteObjectMock, listObject
 	return { putObjectMock, putFileMock, headObjectMock, deleteObjectMock, listObjectsMock, MockS3Client, S3ErrorClass };
 });
 
-vi.mock("@/lib/storage/offsite/s3-client", () => ({
+vi.mock("@/lib/storage/offsite/s3-client", async (original) => ({
+	...await original<typeof import("@/lib/storage/offsite/s3-client")>(),
 	S3Client: MockS3Client,
 	S3Error: S3ErrorClass,
 }));

@@ -1,3 +1,4 @@
+import { copyVersion, rollbackPublishedCopy } from "@/lib/storage/copy-rollback";
 import { randomBytes, randomUUID } from "node:crypto";
 import path from "node:path";
 import { createAgentFileClient } from "@/lib/storage/agent-file-client";
@@ -19,6 +20,7 @@ export function copyWorkspace(node: StorageFileNode, target: string) {
       hasBackup: async () => (await step("has-backup")).offset === 1, dropStage: () => step("drop-stage"), dropBackup: () => step("drop-backup"),
     };
   }
+  let publishedVersion: string | null = null;
   const dir = path.posix.dirname(target);
   const stage = path.posix.join(dir, `.vch-copy-${randomUUID()}`);
   const backup = path.posix.join(dir, `.vch-backup-${randomUUID()}`);
@@ -27,8 +29,11 @@ export function copyWorkspace(node: StorageFileNode, target: string) {
   return {
     reference: backup, localStage: stage,
     stage: (source: string) => copyStorageFile(node, source, stage),
-    backup: () => move(target, backup), promote: () => move(stage, target), restore: () => move(backup, target),
+    backup: () => move(target, backup), promote: async () => {
+      publishedVersion = await copyVersion(node, stage);
+      await move(stage, target);
+    }, restore: () => move(backup, target),
     hasBackup: () => statBackingObject({ storageNode: node, relativePath: backup }),
-    rollback: () => remove(target), dropStage: () => remove(stage), dropBackup: () => remove(backup),
+    rollback: () => rollbackPublishedCopy(node, target, publishedVersion), dropStage: () => remove(stage), dropBackup: () => remove(backup),
   };
 }

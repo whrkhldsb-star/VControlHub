@@ -1,6 +1,6 @@
 // @vitest-environment node
 import { randomUUID, createHash } from "node:crypto";
-import { mkdtemp, readFile, rm } from "node:fs/promises";
+import { mkdir, mkdtemp, readFile, rm, writeFile } from "node:fs/promises";
 import { tmpdir } from "node:os";
 import path from "node:path";
 import { afterAll, beforeAll, describe, expect, it, vi } from "vitest";
@@ -54,6 +54,21 @@ describe.skipIf(process.env.RUN_DATABASE_INTEGRATION_TESTS !== "1")("storage fin
     const checksum = createHash("sha256").update(content).digest("hex");
     expect(result.session.checksum).toBe(checksum);
     expect(await prisma.fileEntry.findFirst({ where: { storageNodeId: id, relativePath: "docs/streamed.bin" }, select: { size: true, checksumSha256: true } })).toEqual({ size: BigInt(content.length), checksumSha256: checksum });
+  });
+  it.each(["changed root", "new occupant"] as const)("preserves an unindexed file on finalization with a %s", async reason => {
+    const relative = "reserved-" + randomUUID();
+    const { view } = await upload(relative);
+    const targetRoot = reason === "changed root" ? path.join(directory, "new-root") : directory;
+    await mkdir(targetRoot, { recursive: true });
+    await writeFile(path.join(targetRoot, relative), "independent");
+    try {
+      if (reason === "changed root") await prisma.storageNode.update({ where: { id }, data: { basePath: targetRoot } });
+      await expect(completeStorageFileUpload({ sessionId: view.id, session: actor })).rejects.toMatchObject({ status: 409 });
+      expect(await readFile(path.join(targetRoot, relative), "utf8")).toBe("independent");
+      expect(await prisma.fileEntry.count({ where: { storageNodeId: id, relativePath: relative } })).toBe(0);
+    } finally {
+      await prisma.storageNode.update({ where: { id }, data: { basePath: directory } });
+    }
   });
   it("allows only one finalizer when the same session is completed four times concurrently", async () => {
     const { view, content } = await upload("docs/concurrent.bin");

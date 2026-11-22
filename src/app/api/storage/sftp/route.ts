@@ -51,7 +51,7 @@ async function handleGet(request: Request, session: SessionPayload) {
       { status: 403 },
     );
   }
-  await assertNotRecycled(node.id, normalizedRelativePath);
+  await assertNotRecycled(node.id, normalizedRelativePath, "read", node.driver, connectionCredentials.windowsOpenSsh);
   // Same place physically: no symlink hop below the node root.
   try {
     normalizedRemotePath = await assertRemotePathContained(connectionCredentials, node.basePath, normalizedRemotePath);
@@ -63,9 +63,7 @@ async function handleGet(request: Request, session: SessionPayload) {
   }
 
   try {
-    if (isStorageStagingPath(normalizedRelativePath)) {
-      return NextResponse.json({ entries: [], truncated: false, limit, nodeId: node.id, nodeName: node.name, remotePath });
-    }
+    const pathKey = (value: string) => connectionCredentials.windowsOpenSsh ? value.toLowerCase() : value;
     const entries = await listRemoteDirectory({
       ...connectionCredentials,
       remotePath: normalizedRemotePath,
@@ -73,16 +71,16 @@ async function handleGet(request: Request, session: SessionPayload) {
     });
     const childPath = (name: string) => [normalizedRelativePath, name].filter(Boolean).join("/");
     const deleted = await prisma.fileEntry.findMany({
-      where: { storageNodeId: node.id, isDeleted: true, relativePath: { in: entries.map(entry => childPath(entry.name)) } },
+      where: { storageNodeId: node.id, isDeleted: true, relativePath: { in: entries.map(entry => childPath(entry.name)), ...(connectionCredentials.windowsOpenSsh && { mode: "insensitive" as const }) } },
       select: { relativePath: true },
     });
-    const hidden = new Set(deleted.map(entry => entry.relativePath));
+    const hidden = new Set(deleted.map(entry => pathKey(entry.relativePath)));
     const truncated = entries.length > limit;
     return NextResponse.json({
       nodeId: node.id,
       nodeName: node.name,
       remotePath: remotePath.startsWith("/") ? remotePath : `/${remotePath}`,
-      entries: entries.slice(0, limit).filter(entry => !isStorageStagingPath(entry.name) && !hidden.has(childPath(entry.name))),
+      entries: entries.slice(0, limit).filter(entry => !isStorageStagingPath(pathKey(entry.name)) && !hidden.has(pathKey(childPath(entry.name)))),
       truncated,
       limit,
     });

@@ -1,4 +1,5 @@
-import { assertNotRecycled } from "@/lib/storage/archive-access";
+import { matchTargetMode } from "@/lib/storage/local-permissions";
+import { assertCanonicalWritePath, assertNotRecycled } from "@/lib/storage/archive-access";
 import { randomBytes } from "node:crypto";
 import { mkdir, rename, unlink, writeFile } from "node:fs/promises";
 import path from "node:path";
@@ -13,7 +14,7 @@ import { prisma } from "@/lib/db";
 import { assertStorageAccess, releaseStorageQuotaGuard } from "@/lib/storage/access-control";
 import { storageAccessDeniedCopy } from "@/lib/storage/access-denied";
 import { logError } from "@/lib/logging";
-import { statBackingObject } from "@/lib/storage/fs-backend";
+import { managedSftpWriteRoot, statBackingObject } from "@/lib/storage/fs-backend";
 import { lockStorageFileOverwrite } from "@/lib/storage/file-overwrite-lock";
 import { validateStorageFileIndex } from "@/lib/storage/schema";
 import { previousFileIndexFields, writeFileIndex } from "@/lib/storage/file-write-index";
@@ -246,7 +247,8 @@ async function handlePost(request: Request, session: SessionPayload, locale: Loc
     return NextResponse.json({ error: t("api.storage.targetIsDirectory", locale) }, { status: 409 });
   }
   if (existingEntryForVersion?.isDeleted) throw new ConflictError(serviceTranslate("backend.webdav.destinationHeldByRecycleBin", { path: `/${normalizedRelativePath}` }));
-  await assertNotRecycled(storageNodeId, normalizedRelativePath, "write");
+  await assertNotRecycled(storageNodeId, normalizedRelativePath, "write", storageNode.driver);
+  await assertCanonicalWritePath(storageNodeId, normalizedRelativePath, storageNode.driver);
   if (existingEntryForVersion) {
     await snapshotFileVersionBeforeOverwrite({
       fileEntryId: existingEntryForVersion.id,
@@ -285,7 +287,8 @@ async function handlePost(request: Request, session: SessionPayload, locale: Loc
       const parent = path.dirname(absolutePath);
       await mkdir(parent, { recursive: true });
       stagedLocalPath = path.join(parent, `.vch-upload-${randomBytes(6).toString("hex")}.tmp`);
-      await writeFile(stagedLocalPath, fileBuffer, { flag: "wx" });
+      await writeFile(stagedLocalPath, fileBuffer, { flag: "wx", mode: 0o600 });
+      await matchTargetMode(stagedLocalPath, absolutePath);
     }
 
     let rollback: Awaited<ReturnType<typeof writeFileIndex>>;
@@ -308,7 +311,10 @@ async function handlePost(request: Request, session: SessionPayload, locale: Loc
         stagedLocalPath = undefined;
       } else if (remotePath && sftpCredentials) {
         await createRemoteDirectory({ ...sftpCredentials, remotePath: path.posix.dirname(remotePath), recursive: true });
-        await writeRemoteFile({ ...sftpCredentials, remotePath, content: fileBuffer });
+        const checked = await assertRemotePathContained(sftpCredentials, storageNode.basePath, normalizeRemoteTargetPath(storageNode.basePath, normalizedRelativePath));
+        if (checked !== remotePath) throw new ConflictError(serviceTranslate("backend.storage.editableFileChangedOnDisk"));
+        await writeRemoteFile({ ...sftpCredentials, remotePath, content: fileBuffer,
+          root: managedSftpWriteRoot(remotePath, normalizedRelativePath, sftpCredentials.windowsOpenSsh) });
       } else {
         await writeStorageFileBuffer(storageNode, normalizedRelativePath, fileBuffer);
       }

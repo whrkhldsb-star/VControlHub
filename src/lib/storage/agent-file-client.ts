@@ -1,7 +1,7 @@
 import { createHash } from "node:crypto";
 import { open } from "node:fs/promises";
 import { z } from "zod";
-import { BusinessError } from "@/lib/errors";
+import { BusinessError, ConflictError } from "@/lib/errors";
 import { t } from "@/lib/i18n/service-translations";
 import { callFileAgent, getFileChannel, recordVerifiedFileRead } from "./agent-file-queue";
 import { createWebDavClient, type WebDavEntry } from "./webdav-client";
@@ -99,9 +99,12 @@ export function createAgentFileClient(nodeId: string, serverId?: string, expecte
     checksum: string,
     getBytes: (at: number, length: number) => Promise<Buffer>,
     beforePublish?: () => Promise<void>,
+    expectedVersion?: string | null,
+    onPublished?: (created: boolean) => void,
   ) {
     const previous = await stat(path);
     if (previous?.isDirectory) throw new BusinessError(t("backend.storage.targetIsDirectory"));
+    if (expectedVersion !== undefined && (previous?.etag ?? null) !== expectedVersion) throw new ConflictError(t("backend.storage.editableFileChangedOnDisk"));
     const common = { size, digest: checksum };
     const staging = await call("begin", path, common);
     const at = staging.offset;
@@ -122,6 +125,7 @@ export function createAgentFileClient(nodeId: string, serverId?: string, expecte
     }
     await beforePublish?.();
     const published = await call("publish", path, { ...common, version: previous?.etag ?? "absent" });
+    onPublished?.(!previous);
     return published.entry ? row.parse(published.entry).etag : null;
   }
   return {
@@ -152,7 +156,7 @@ export function createAgentFileClient(nodeId: string, serverId?: string, expecte
       await upload(path, b.length, digest(b), async (at, length) => b.subarray(at, at + length));
       return { byteSize: b.length };
     },
-    async writeLocal(path: string, source: string, checksum?: string, beforePublish?: () => Promise<void>) {
+    async writeLocal(path: string, source: string, checksum?: string, beforePublish?: () => Promise<void>, expectedVersion?: string | null, onPublished?: (created: boolean) => void) {
       const f = await open(source, "r");
       try {
         const { size } = await f.stat();
@@ -175,7 +179,7 @@ export function createAgentFileClient(nodeId: string, serverId?: string, expecte
             }
             return data;
           },
-          beforePublish,
+          beforePublish, expectedVersion, onPublished,
         );
       } finally {
         await f.close();

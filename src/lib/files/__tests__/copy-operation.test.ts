@@ -46,6 +46,7 @@ vi.mock("@/lib/auth/team-scope", () => ({
 }));
 vi.mock("@/lib/storage/access-control", () => ({
   assertStorageAccess: mocks.access,
+  lockStorageWriteAccess: mocks.access,
   releaseStorageQuotaGuard: mocks.releaseQuota,
   getStorageAccessCapabilities: mocks.capabilities,
   getStorageAccessCapabilityKey: (input: { storageNodeId: string; relativePath?: string | null }) =>
@@ -189,6 +190,22 @@ const copy = (policy: "rename" | "skip" | "overwrite" = "rename") =>
     targetDir: "destination",
     policy,
   });
+
+it("requires a complete SFTP directory before filtering members and writing the copy", async () => {
+  const remote = await import("@/lib/storage/remote-containment");
+  const ssh = await import("@/lib/ssh/client");
+  const resolve = vi.spyOn(remote, "resolveStorageRemotePath").mockResolvedValue({
+    remotePath: "/files/source", credentials: { host: "storage.test", port: 22, username: "storage", connectionType: "SSH_KEY" },
+  });
+  const list = vi.spyOn(ssh, "listRemoteDirectory").mockRejectedValue(new Error("incomplete listing"));
+  try {
+    mocks.first.mockResolvedValue({ id: "source", storageNodeId: "node", relativePath: "source", name: "source",
+      entryType: "DIRECTORY", storageNode: { id: "node", driver: "SFTP", basePath: "/files" } });
+    await expect(copy()).rejects.toThrow("incomplete listing");
+    expect(list).toHaveBeenCalledWith(expect.objectContaining({ remotePath: "/files/source", requireComplete: true }));
+    expect(mocks.upsert).not.toHaveBeenCalled();
+  } finally { list.mockRestore(); resolve.mockRestore(); }
+});
 
 describe("copyFileEntry with real local files", () => {
   it.skipIf(process.platform === "win32").each([Buffer.from("part\\name.txt"), Buffer.from([0xff])])("rejects a member that cannot round-trip through a storage path (%s)", async (name) => {

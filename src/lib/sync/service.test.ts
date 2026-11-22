@@ -427,6 +427,8 @@ describe("sync service command helpers", () => {
       keyPath: "/tmp/app-sync-rsync-job_1",
     });
     expect(build("/srv/source")).toContain(" -- '/srv/source/' 'deploy@example.com:.'");
+    expect(build("/")).toContain(" -- '/' 'deploy@example.com:.'");
+    expect(build("///")).toContain(" -- '/' 'deploy@example.com:.'");
     expect(build("--rsync-path=/bin/sh -c id")).toContain(" -- './--rsync-path=/bin/sh -c id/' ");
     expect(build("evil.example:/data")).toContain(" -- './evil.example:/data/' ");
     const credential = buildRsyncCommand({ auth: "credential", flags: ["-av"], sourcePath: "--rsync-path=/bin/sh -c id", targetPath: "/srv/target", targetUser: "deploy", targetHost: "example.com", targetPort: 22 });

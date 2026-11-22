@@ -3,7 +3,11 @@ import { randomUUID } from "node:crypto";
 import { mkdirSync, mkdtempSync, readFileSync, rmSync, writeFileSync } from "node:fs";
 import { tmpdir } from "node:os";
 import { join } from "node:path";
-import { afterAll, beforeAll, describe, expect, it } from "vitest";
+import { afterAll, beforeAll, describe, expect, it, vi } from "vitest";
+
+// The common test setup clears deployment variables, including DB_POOL_SIZE.
+vi.hoisted(() => { vi.stubEnv("DB_POOL_SIZE", "2"); });
+afterAll(() => vi.unstubAllEnvs());
 
 import type { SessionPayload } from "@/lib/auth/session";
 import { prisma } from "@/lib/db";
@@ -120,6 +124,25 @@ describe.skipIf(process.env.RUN_DATABASE_INTEGRATION_TESTS !== "1")("storage gra
     // usage 20; growing to 80 -> 80 <= 100
     await restoreFileVersion({ fileEntryId: entry.id, versionId: v80!.id, session });
     expect(readFileSync(join(root, "q/doc.txt"), "utf8")).toBe("x".repeat(80));
+  });
+
+  it("enforces inner grants for writes and takes all move locks with a two-connection pool", async () => {
+    const { executeMoveFile } = await import("@/lib/files/move-operation");
+    const { getStorageWriteCapacity } = await import("../access-control");
+    await grant("", {});
+    await prisma.userStorageAccess.create({ data: {
+      storageNodeId: prefix, userId: prefix, pathPrefix: "limited", canWrite: true, canRead: true,
+      quotaBytes: BigInt(6), maxFileBytes: BigInt(5),
+    } });
+    const row = await file("move.txt", 5);
+    expect(await write("limited/new", 6)).toBe("file_too_large");
+    expect(await getStorageWriteCapacity({ session, storageNodeId: prefix, relativePath: "limited/new" }))
+      .toEqual({ maxFileBytes: BigInt(5), remainingBytes: BigInt(6) });
+    const form = new FormData();
+    form.set("fileEntryId", row.id);
+    form.set("targetDir", "limited");
+    expect(await executeMoveFile(session, form)).toHaveProperty("success");
+    expect(await write("limited/another", 2)).toBe("quota_exceeded");
   });
 
   it("a full quota admits a same-size or smaller overwrite but nothing that grows usage", async () => {

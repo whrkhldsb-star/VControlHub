@@ -27,7 +27,7 @@ const snippetsGetQuerySchema = listSnippetsQuerySchema.extend({
  */
 function snippetActor(session: SessionPayload) {
   return {
-    userId: session.userId,
+    ...snippetViewer(session),
     canManageAll: sessionHasPermission(session, "role:manage"),
   };
 }
@@ -38,7 +38,7 @@ export async function GET(request: Request) {
     { permission: "snippet:manage", querySchema: snippetsGetQuerySchema },
     async ({ session, query }) => {
       if (query.id) {
-        const snippet = await getSnippet(query.id, { ...snippetViewer(session), ...snippetActor(session) });
+        const snippet = await getSnippet(query.id, snippetActor(session));
         return NextResponse.json({ snippet });
       }
       return NextResponse.json({

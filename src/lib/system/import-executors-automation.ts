@@ -58,7 +58,7 @@ export async function importCommandTemplates(
         })
       ).count,
     updateById: async (r) => {
-      await tx.commandTemplate.update({ where: { id: r.id, isBuiltin: false }, data: toData(r) });
+      await tx.commandTemplate.update({ where: { id: r.id, isBuiltin: false, teamId: r.teamId ?? null }, data: toData(r) });
     },
   });
 }
@@ -213,7 +213,7 @@ export async function importPlaybooks(
       // an overwritten cron kept its old nextRunAt (months away) and the
       // startup sweep only fills a missing one.
       await tx.playbook.update({
-        where: { id: r.id, updatedAt: before?.updatedAt },
+        where: { id: r.id, teamId: r.teamId ?? null, updatedAt: before?.updatedAt },
         data: {
           ...data,
           ...(triggerChanged || before?.enabled !== data.enabled ? { nextRunAt: nextPlaybookRunAt(data) } : {}),
@@ -266,17 +266,17 @@ export async function importAlertRules(
     loadGrantUserScopes(tx, records.flatMap((r) => r.onCallUserIds ?? [])),
   ]);
   const plan = await planAlertRuleImport(tx, records, options, servers, playbooks, users, exportMode);
-  const creates = plan.filter(({ action }) => action === "create").map(({ row, missingWebhook }) => ({ id: row.id, ...toData(row), enabled: row.enabled && !missingWebhook }));
+  const creates = plan.filter(({ action }) => action === "create").map(({ row, missingWebhook, noApprovedChannel }) => ({ id: row.id, ...toData(row), enabled: row.enabled && !missingWebhook && !noApprovedChannel }));
   if (creates.length > 0) {
     const result = await tx.alertRule.createMany({ data: creates, skipDuplicates: true });
     counts.created += result.count;
     counts.skipped += creates.length - result.count;
   }
-  for (const { row, action, missingWebhook, metricChanged } of plan) {
+  for (const { row, action, missingWebhook, noApprovedChannel, metricChanged } of plan) {
     if (action !== "update") continue;
     // A standard export leaves webhook addresses out: keep the address the rule has.
     const { webhookUrl, ...rest } = toData(row);
-    await tx.alertRule.update({ where: { id: row.id, teamId: row.teamId ?? null }, data: { ...rest, enabled: row.enabled && !missingWebhook,
+    await tx.alertRule.update({ where: { id: row.id, teamId: row.teamId ?? null }, data: { ...rest, enabled: row.enabled && !missingWebhook && !noApprovedChannel,
       ...(exportMode === "full" || webhookUrl ? { webhookUrl } : {}), ...(metricChanged ? { matchState: {}, lastMatchedAt: null } : {}),
     } });
     counts.updated += 1;

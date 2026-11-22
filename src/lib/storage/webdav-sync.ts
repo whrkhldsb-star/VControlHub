@@ -40,13 +40,13 @@ export async function syncWebDavDirectoryEntries(input: { node: WebDavStorageNod
   let release: (() => Promise<void>) | undefined;
   try {
     // Finish the remote read before opening a database transaction.
+    release = await lockStorageFileOverwrite(input.node.id, dir.path);
     const listingStartedAt = new Date();
     const listing = await createRemoteStorageClient(input.node).list(dir.path);
     const entries = [...new Map(listing.filter(entry => !isStorageStagingPath(entry.relativePath))
       .map(entry => [entry.relativePath, entry])).values()];
     const paths = new Set(entries.map((entry) => entry.relativePath));
     phase = "index";
-    release = await lockStorageFileOverwrite(input.node.id, dir.path);
     if (dir.path) await assertNotRecycled(input.node.id, dir.path);
     const counts = await prisma.$transaction(async (tx) => {
       const counts = { synced: 0, created: 0, updated: 0, deleted: 0 };

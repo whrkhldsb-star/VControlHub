@@ -43,13 +43,20 @@ export function relayMetadataGid(value: unknown): string | undefined {
   return z.string().regex(/^[a-f0-9]{16}$/i).parse(value.metadataGid);
 }
 
-export function relayPauseReceipt(value: unknown, pausedUntil: number) {
+export function relayState(value: unknown): { phase?: string; deadline?: number; metadataGid?: string } {
+  if (!value || typeof value !== "object") return {};
   const metadataGid = relayMetadataGid(value);
-  return { ...(metadataGid ? { metadataGid } : {}), pausedUntil };
+  return { ...(metadataGid ? { metadataGid } : {}),
+    ...("phase" in value && typeof value.phase === "string" ? { phase: value.phase } : {}),
+    ...("deadline" in value && typeof value.deadline === "number" ? { deadline: value.deadline } : {}) };
+}
+
+export function relayPauseReceipt(value: unknown, pausedUntil: number) {
+  return { ...relayState(value), pausedUntil };
 }
 
 export function parseTransferManifest(value: unknown): TransferManifest | null {
-  if (value == null || (typeof value === "object" && !("files" in value) && ("pausedUntil" in value || "cleanupComplete" in value || relayMetadataGid(value)))) return null;
+  if (value == null || (typeof value === "object" && !("files" in value) && ("phase" in value || "localClean" in value || "gidClean" in value || "pausedUntil" in value || "cleanupComplete" in value || relayMetadataGid(value)))) return null;
   return schema.parse(value);
 }
 export async function hashTransferFile(file: string, signal?: AbortSignal): Promise<string> {

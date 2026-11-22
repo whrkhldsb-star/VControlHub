@@ -5,6 +5,9 @@
  * 从 import-executors.ts 按域拆分而来。
  */
 
+import { encrypt, isEncrypted } from "@/lib/crypto/service";
+import { encryptServerPasswordIfPlain } from "@/lib/ssh/ssh-key-crypto";
+import { importKeyMaterial } from "./import-ssh-keys";
 import { ValidationError } from "@/lib/errors";
 import { t } from "@/lib/i18n/service-translations";
 import { expandStorageBasePath, localBasePathBelongsToTenant, normalizeStorageEntryName, normalizeStorageTargetDirectory, tenantStorageBasePath } from "@/lib/storage/path-utils";
@@ -23,6 +26,7 @@ export async function importSshKeys(
   t: ExportFile["tables"],
   options: ImportOptions,
   counts: Counts,
+  mode?: ExportFile["exportMode"],
 ): Promise<void> {
   const creator = await creatorResolver(tx, t.sshKeys.map((r) => r.createdById));
   await upsertByIdWithSecondaryUnique(t.sshKeys, options, counts, {
@@ -40,18 +44,16 @@ export async function importSshKeys(
     createManySkipDuplicates: async (rows) =>
       (
         await tx.sshKey.createMany({
-          data: rows.map((r) => ({
+          data: await Promise.all(rows.map(async (r) => ({
             id: r.id,
             name: r.name,
             fingerprint: r.fingerprint,
             createdById: creator(r.createdById),
-            publicKey: r.publicKey,
-            privateKey: r.privateKey,
-            passphrase: r.passphrase,
+            ...await importKeyMaterial(r, true),
             description: r.description,
             // Multi-tenant: preserve export teamId (null stays legacy-shared)
             teamId: r.teamId ?? null,
-          })),
+          }))),
           skipDuplicates: true,
         })
       ).count,
@@ -64,6 +66,7 @@ export async function importSshKeys(
       );
     },
     updateById: async (r) => {
+      const material = await importKeyMaterial(r, true);
       await tx.sshKey.update({
         where: {
           id: r.id, teamId: r.teamId ?? null,
@@ -74,11 +77,7 @@ export async function importSshKeys(
           fingerprint: r.fingerprint,
           createdById: creator(r.createdById),
           publicKey: r.publicKey,
-          // Full mode: restore private key + passphrase; Standard: keep existing
-          ...(r.privateKey ? { privateKey: r.privateKey } : {}),
-          ...(r.privateKey || (r.passphrase !== null && r.passphrase !== undefined)
-            ? { passphrase: r.passphrase ?? null }
-            : {}),
+          ...(r.privateKey || mode === "full" && r.privateKey !== undefined ? material : {}),
           description: r.description,
           teamId: r.teamId ?? null,
         },
@@ -93,6 +92,10 @@ export async function importSshKeys(
  * the column default on create and the current value on update — a Windows or
  * Agent node is no longer silently recreated as a Linux DIRECT one.
  */
+function storedRdpPassword(value: string | null | undefined) {
+  return value && !isEncrypted(value) ? encrypt(value) : value;
+}
+
 function serverProfileFields(r: ExportFile["tables"]["servers"][number]) {
   return {
     operatingSystem: r.operatingSystem,
@@ -100,7 +103,7 @@ function serverProfileFields(r: ExportFile["tables"]["servers"][number]) {
     origin: r.origin,
     hostKeySha256: r.hostKeySha256,
     rdpDomain: r.rdpDomain,
-    rdpPassword: r.rdpPassword,
+    rdpPassword: storedRdpPassword(r.rdpPassword),
     rdpIgnoreCertificate: r.rdpIgnoreCertificate,
     rdpCertificateSha256: r.rdpCertificateSha256,
     costAutoSync: r.costAutoSync,
@@ -128,8 +131,7 @@ export async function importServers(
     (ids) => tx.sshKey.findMany({ where: { id: { in: ids } }, select: { id: true, teamId: true } })));
   const importKey = (row: ExportFile["tables"]["servers"][number]) =>
     row.sshKeyId && canBindServerKey(row, keys.get(row.sshKeyId)) ? row.sshKeyId : null;
-  // Create carries the exported password verbatim (null in Standard mode);
-  // update only replaces it when the export actually carries one.
+  const storedPassword = (value: string | null | undefined) => value && !isEncrypted(value) ? encryptServerPasswordIfPlain(value) : value;
   const toCreateData = (r: ExportFile["tables"]["servers"][number]) => ({
     id: r.id,
     name: r.name,
@@ -139,7 +141,7 @@ export async function importServers(
     // Without its key the server is imported as one that still needs a key.
     sshKeyId: importKey(r),
     // Full mode: restore actual password; Standard: null
-    password: r.password,
+    password: storedPassword(r.password),
     description: r.description,
     tags: r.tags,
     enabled: r.enabled,
@@ -158,7 +160,7 @@ export async function importServers(
     port: r.port,
     username: r.username,
     // Full mode: restore password; Standard: keep existing
-    ...(exportMode === "full" || r.password ? { password: r.password } : {}),
+    ...(exportMode === "full" || r.password ? { password: storedPassword(r.password) } : {}),
     description: r.description,
     tags: r.tags,
     enabled: r.enabled,
@@ -204,7 +206,7 @@ export async function importServers(
       await tx.server.update({
         where: { id: r.id, teamId: r.teamId ?? null, updatedAt: current.updatedAt },
         data: { ...toUpdateData(r), sshKeyId: requestedKey ?? retainedKey, ...(loginChanged ? {
-          password: r.password ?? null, rdpPassword: r.rdpPassword ?? null,
+          password: storedPassword(r.password) ?? null, rdpPassword: storedRdpPassword(r.rdpPassword) ?? null,
         } : {}), ...(changed ? {
           ...resetAgentForModeChange(), onboardingStatus: "NEEDS_ATTENTION", onboardingLastError: null,
         } : {}) },
@@ -272,6 +274,7 @@ export async function importStorageNodes(
   t: ExportFile["tables"],
   options: ImportOptions,
   counts: Counts,
+  mode?: ExportFile["exportMode"],
 ): Promise<void> {
   const records = t.storageNodes;
   if (records.length === 0) return;
@@ -308,7 +311,7 @@ export async function importStorageNodes(
     teamId: r.teamId ?? null,
     hostKeySha256: r.hostKeySha256,
     // Standard exports carry no WebDAV credentials: keep what is here.
-    ...(r.webdavConfigEncrypted ? { webdavConfigEncrypted: r.webdavConfigEncrypted } : {}),
+    ...(r.webdavConfigEncrypted || mode === "full" && r.webdavConfigEncrypted !== undefined ? { webdavConfigEncrypted: r.webdavConfigEncrypted } : {}),
   });
   await upsertById(plan.map(({ row }) => row), options, counts, {
     listExistingIds: async () => new Set(existing.keys()),
@@ -334,7 +337,7 @@ export async function importStorageNodes(
       await tx.storageNode.update({ where: { id: r.id, teamId: r.teamId ?? null, updatedAt: current.updatedAt }, data: {
         ...toData(r), ...(!sameEndpoint && !r.webdavConfigEncrypted ? { webdavConfigEncrypted: null } : {}),
       } });
-      if (!sameEndpoint || r.driver === "AGENT" || r.webdavConfigEncrypted) await tx.shareLink.updateMany({ where: { storageNodeId: r.id, revokedAt: null }, data: { revokedAt: new Date() } });
+      if (!sameEndpoint || r.driver === "AGENT" || r.webdavConfigEncrypted || mode === "full" && r.webdavConfigEncrypted !== undefined && current.webdavConfigEncrypted !== r.webdavConfigEncrypted) await tx.shareLink.updateMany({ where: { storageNodeId: r.id, revokedAt: null }, data: { revokedAt: new Date() } });
       await tx.agentFileShare.deleteMany({ where: { storageNodeId: r.id } });
       if (r.driver === "AGENT") await restoreFileShare(r);
     },
@@ -361,6 +364,7 @@ export async function importUserStorageAccess(
     })).then(byId),
   ]);
   const plan = planStorageGrantImport(records, existing, options, users, nodes);
+  const previous = byId(existing);
   const creates: Prisma.UserStorageAccessCreateManyInput[] = [];
   for (const { row, action } of plan) {
     const data = {
@@ -376,7 +380,8 @@ export async function importUserStorageAccess(
     if (action === "create") {
       creates.push({ id: row.id, ...data });
     } else {
-      await tx.userStorageAccess.update({ where: { id: row.id }, data });
+      const old = previous.get(row.id)!;
+      await tx.userStorageAccess.update({ where: { id: row.id, userId: old.userId, storageNodeId: old.storageNodeId }, data });
       counts.updated += 1;
     }
   }

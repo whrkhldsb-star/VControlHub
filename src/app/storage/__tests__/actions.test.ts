@@ -135,6 +135,8 @@ vi.mock("@/lib/ssh/client", () => ({
 
 vi.mock("@/lib/ssh/rename-exclusive", () => ({ renameLocalExclusive: renameExclusiveMock }));
 
+vi.mock("@/lib/storage/local-identity", () => ({ localRootIdentity: async () => "local:root", localPathVersion: async () => "version" }));
+
 vi.mock("node:fs/promises", () => ({
   mkdir: mkdirMock,
   rmdir: rmdirMock,
@@ -495,12 +497,13 @@ describe("SFTP file entry actions", () => {
     prismaMock.fileEntry.findFirst.mockResolvedValueOnce(sftpEntry());
     restoreFileEntryMock.mockResolvedValueOnce({ id: "entry-1" });
 
-    const result = await restoreFileEntryAction(null, entryForm("entry-1"));
+    const result = await restoreFileEntryAction(null, entryForm("entry-1", { deleteBatchId: "batch" }));
 
     expect(result.success).toContain("old.txt");
     expect(restoreFileEntryMock).toHaveBeenCalledWith(
       { fileEntryId: "entry-1" },
       expect.objectContaining({ userId: "user-1" }),
+      { deleteBatchId: "batch" },
     );
     expect(prismaMock.fileEntry.update).not.toHaveBeenCalled();
   });
@@ -943,14 +946,14 @@ describe("the language of a server action's messages", () => {
     vi.mocked(tryAcquireAdvisoryLock).mockResolvedValueOnce(null);
     getServerLocaleMock.mockResolvedValue("zh");
 
-    expect(await restoreFileEntryAction(null, entryForm("entry-1"))).toEqual({ error: "该存储节点正在执行其他文件操作" });
+    expect(await restoreFileEntryAction(null, entryForm("entry-1", { deleteBatchId: "batch" }))).toEqual({ error: "该存储节点正在执行其他文件操作" });
   });
 
   it("tells an English user in English why access is refused, and that a name is not allowed", async () => {
     getServerLocaleMock.mockResolvedValue("en");
     vi.mocked(assertStorageAccess).mockResolvedValueOnce({ allowed: false, reason: "no_access" });
 
-    expect(await restoreFileEntryAction(null, entryForm("entry-1"))).toEqual({ error: "No access authorization for this storage node or path" });
+    expect(await restoreFileEntryAction(null, entryForm("entry-1", { deleteBatchId: "batch" }))).toEqual({ error: "No access authorization for this storage node or path" });
     expect(await renameFileEntryAction(null, entryForm("entry-1", { newName: "a/b" }))).toEqual({ error: "Name must not contain path separators" });
   });
 
@@ -960,8 +963,8 @@ describe("the language of a server action's messages", () => {
     getServerLocaleMock.mockResolvedValueOnce("en").mockResolvedValueOnce("zh");
 
     const [english, chinese] = await Promise.all([
-      restoreFileEntryAction(null, entryForm("entry-1")),
-      restoreFileEntryAction(null, entryForm("entry-1")),
+      restoreFileEntryAction(null, entryForm("entry-1", { deleteBatchId: "batch" })),
+      restoreFileEntryAction(null, entryForm("entry-1", { deleteBatchId: "batch" })),
     ]);
 
     expect(english).toEqual({ error: "Another operation is active on this storage node" });

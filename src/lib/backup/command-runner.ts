@@ -21,6 +21,7 @@ const BACKUP_DEFAULT_MAX_BUFFER_BYTES = 1024 * 1024;
 
 export type RunBackupCommandOptions = {
   cwd?: string;
+  signal?: AbortSignal;
   env?: NodeJS.ProcessEnv;
   timeout?: number;
   maxBuffer?: number;
@@ -49,6 +50,7 @@ function runDiscardingStdout(file: string, args: string[], options: RunBackupCom
   return new Promise((resolve, reject) => {
     const child = spawn(file, args, {
       stdio: ["ignore", "ignore", "pipe"],
+      signal: options.signal,
       timeout: options.timeout ?? config.backup.commandTimeoutMs,
       ...(options.cwd !== undefined ? { cwd: options.cwd } : {}),
       ...(options.env !== undefined ? { env: options.env } : {}),
@@ -69,6 +71,7 @@ export async function runBackupCommand(input: RunBackupCommandInput): Promise<Ru
   const { file, args, options = {} } = input;
   if (options.discardStdout) return runDiscardingStdout(file, args, options);
   return runFile(file, args, {
+    signal: options.signal,
     timeout: options.timeout ?? config.backup.commandTimeoutMs,
     maxBuffer: options.maxBuffer ?? BACKUP_DEFAULT_MAX_BUFFER_BYTES,
     ...(options.cwd !== undefined ? { cwd: options.cwd } : {}),

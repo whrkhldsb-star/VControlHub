@@ -586,15 +586,23 @@ export async function restoreFileVersion(input: {
 
     await writeStorageFileBuffer(node, entry.relativePath, buffer);
 
-    await prisma.fileEntry.update({
-      where: { id: entry.id, storageNodeId: entry.storageNodeId, relativePath: entry.relativePath, isDeleted: false, updatedAt: entry.updatedAt },
-      data: {
-        size: BigInt(buffer.byteLength),
-        mimeType: version.mimeType ?? entry.mimeType,
-        checksumSha256: blobChecksum,
-        updatedAt: new Date(),
-      },
-    });
+    try {
+      await prisma.fileEntry.update({
+        where: { id: entry.id, storageNodeId: entry.storageNodeId, relativePath: entry.relativePath, isDeleted: false, updatedAt: entry.updatedAt },
+        data: {
+          size: BigInt(buffer.byteLength),
+          mimeType: version.mimeType ?? entry.mimeType,
+          checksumSha256: blobChecksum,
+          updatedAt: new Date(),
+        },
+      });
+    } catch (error) {
+      // Both immutable version blobs remain available for operator reconciliation.
+      throw new ConflictError(t("apiCopy.files.op.changed"), {
+        reason: "restore-index-failed", restoredVersionId: version.id, restorePointId: restorePoint?.id,
+        cause: error instanceof Error ? error.name : "UnknownError",
+      });
+    }
   } finally {
     await releaseFileLock?.();
     await releaseStorageQuotaGuard(quota);

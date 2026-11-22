@@ -27,10 +27,10 @@ function tables(partial: Record<string, unknown>) {
 describe("AI provider credentials", () => {
   const current = { id: "provider", type: "OPENAI", createdBy: "operator", baseUrl: "https://ai.test/v1", apiKey: "stored-envelope" };
 
-  async function write(patch: Record<string, unknown>) {
+  async function write(patch: Record<string, unknown>, mode?: "full" | "standard") {
     const update = vi.fn().mockResolvedValue({});
     const tx = { aiProvider: { findMany: vi.fn().mockResolvedValue([current]), update } } as unknown as Tx;
-    await importAiProviders(tx, tables({ aiProviders: [{ ...current, enabled: true, apiKey: null, ...patch }] }), options, counts());
+    await importAiProviders(tx, tables({ aiProviders: [{ ...current, enabled: true, apiKey: null, ...patch }] }), options, counts(), mode);
     return update.mock.calls[0]![0];
   }
   it.each([{ createdBy: "another" }, { type: "CUSTOM" }, { baseUrl: "https://ai.test:8443/v1" },
@@ -39,6 +39,18 @@ describe("AI provider credentials", () => {
       where: { id: current.id, type: current.type, baseUrl: current.baseUrl, createdBy: current.createdBy },
       data: { apiKey: "", enabled: false },
     });
+  });
+  it("honors full key removal and the target instance's keyless Ollama policy", async () => {
+    vi.stubEnv("AI_PROVIDER_PRIVATE_HOSTS", "ollama.test");
+    try {
+      for (const apiKey of ["", null]) {
+        expect((await write({ apiKey }, "full")).data).toMatchObject({ apiKey: "", enabled: false });
+        expect((await write({ apiKey, baseUrl: "http://ollama.test:11434/v1", type: "OPENAI_COMPATIBLE" }, "full")).data).toMatchObject({ apiKey: "", enabled: true });
+      }
+      expect((await write({ apiKey: undefined }, "full")).data).not.toHaveProperty("apiKey");
+    } finally {
+      vi.unstubAllEnvs();
+    }
   });
   it("keeps the existing key on the same effective origin and accepts an explicit replacement", async () => {
     const same = await write({ baseUrl: "https://AI.TEST:443/v2" });

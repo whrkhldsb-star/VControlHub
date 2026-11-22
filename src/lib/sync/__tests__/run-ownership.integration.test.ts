@@ -2,11 +2,12 @@
 import { randomUUID } from "node:crypto";
 import { expect, it, vi } from "vitest";
 import { prisma } from "@/lib/db";
+import { buildSshParamsFromServer } from "@/lib/ssh/client";
 import { executeSyncJob, reclaimStaleRunningSyncJobs } from "../service-runtime";
 
 // Only the cleanup of the abandoned transfer would need remote hosts.
 vi.mock("@/lib/ssh/client", () => ({
-  buildSshParamsFromServer: vi.fn(async () => ({})),
+  buildSshParamsFromServer: vi.fn(async (server: { host: string }) => ({ host: server.host })),
   execRemoteCommand: vi.fn(async () => ({ exitCode: 0, stdout: "", stderr: "" })),
 }));
 
@@ -14,7 +15,7 @@ it.skipIf(process.env.RUN_DATABASE_INTEGRATION_TESTS !== "1")("a late owner cann
   const database = new URL(process.env.DATABASE_URL!);
   if (!["localhost", "127.0.0.1", "[::1]"].includes(database.hostname) || !/audit|test|_ci/.test(database.pathname)) throw new Error("isolated database required");
   const id = randomUUID();
-  await prisma.server.createMany({ data: ["a", "b"].map(x => ({ id: id+x, name: x, host: "127.0.0.1", username: "fixture", tags: [] })) });
+  await prisma.server.createMany({ data: ["a", "b"].map(x => ({ id: id+x, name: x, host: x + ".old.invalid", hostKeySha256: "fixture-pin", username: "fixture", tags: [] })) });
   const job = await prisma.syncJob.create({ data: { name: id, sourceServerId: id+"a", targetServerId: id+"b", sourcePath: "/fixture", targetPath: "/fixture" } });
   function start(message: string) {
     let claim!: () => void, release!: () => void;
@@ -27,8 +28,11 @@ it.skipIf(process.env.RUN_DATABASE_INTEGRATION_TESTS !== "1")("a late owner cann
   let second: ReturnType<typeof start> | undefined;
   try {
     await first.entered;
+    await prisma.server.update({ where: { id: id+"b" }, data: { host: "new.invalid" } });
     await prisma.syncJob.update({ where: { id: job.id }, data: { updatedAt: new Date(0) } });
     expect(await reclaimStaleRunningSyncJobs()).toContain(job.id);
+    expect(vi.mocked(buildSshParamsFromServer).mock.calls.map(([server]) => server.host)).toContain("b.old.invalid");
+    expect(vi.mocked(buildSshParamsFromServer).mock.calls.map(([server]) => server.host)).not.toContain("new.invalid");
     second = start("successor");
     await second.entered;
     const owner = (await prisma.syncJob.findUniqueOrThrow({ where: { id: job.id } })).activeRunId;
@@ -39,7 +43,7 @@ it.skipIf(process.env.RUN_DATABASE_INTEGRATION_TESTS !== "1")("a late owner cann
     expect(await prisma.syncLog.findUniqueOrThrow({ where: { id: owner! } })).toMatchObject({ status: "RUNNING" });
     second.release();
     await second.done;
-    expect(await prisma.syncJob.findUniqueOrThrow({ where: { id: job.id } })).toMatchObject({ status: "ERROR", activeRunId: null, lastSyncResult: "Failed: successor" });
+    expect(await prisma.syncJob.findUniqueOrThrow({ where: { id: job.id } })).toMatchObject({ status: "ERROR", activeRunId: null, lastSyncResult: "Failed" });
   } finally {
     first.release();
     second?.release();

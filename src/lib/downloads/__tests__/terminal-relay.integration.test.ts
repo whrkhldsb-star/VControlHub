@@ -20,7 +20,9 @@ vi.mock("@/lib/storage/remote-containment", () => ({ assertRemotePathContained: 
 
 import { prisma } from "@/lib/db";
 import { receiveAgentHttpDownload } from "../agent-relay";
-import { reconcileTerminalRelay } from "../relay-cleanup";
+import { countServerDownloadDependencies, reconcileTerminalRelay, sweepTerminalRelays } from "../relay-cleanup";
+import { lockDownloadPublication } from "../publication-lock";
+import { tryAcquireAdvisoryLock } from "@/lib/concurrency/advisory-lock";
 import { downloadHistoryRemovable } from "../transfer-manifest";
 
 describe.skipIf(process.env.RUN_DATABASE_INTEGRATION_TESTS !== "1")("terminal relay receipts", () => {
@@ -56,10 +58,22 @@ describe.skipIf(process.env.RUN_DATABASE_INTEGRATION_TESTS !== "1")("terminal re
       exitCode: 0, stdout: command.includes("f='/drive/test/published'") ? sha256 + "  -" : "ABSENT",
     }));
     io.forget.mockRejectedValueOnce(new Error("daemon offline")).mockResolvedValue(undefined);
+    io.remote.mockRejectedValueOnce(new Error("SSH offline")).mockRejectedValueOnce(new Error("SSH offline"));
     await expect(reconcileTerminalRelay(id)).rejects.toThrow("daemon offline");
-    expect((await stat(join(io.directory, id))).isDirectory()).toBe(true);
+    await expect(stat(join(io.directory, id))).rejects.toMatchObject({ code: "ENOENT" });
+    expect(await prisma.downloadTask.findUniqueOrThrow({ where: { id } })).toMatchObject({
+      transferManifest: { localClean: true, files: expect.any(Array) },
+    });
     expect(await purge()).toEqual({ count: 0 });
+    await mkdir(join(io.directory, id)); // A surviving daemon recreated its staging directory.
+    await expect(reconcileTerminalRelay(id)).rejects.toThrow("SSH offline");
+    await expect(stat(join(io.directory, id))).rejects.toMatchObject({ code: "ENOENT" });
+    expect(await prisma.downloadTask.findUniqueOrThrow({ where: { id } })).toMatchObject({
+      transferManifest: { gidClean: true, localClean: true, files: expect.any(Array) },
+    });
+    expect(await countServerDownloadDependencies(id, prisma)).toBe(1);
     expect(await reconcileTerminalRelay(id)).toBe(true);
+    expect(await countServerDownloadDependencies(id, prisma)).toBe(0);
     expect(await reconcileTerminalRelay(id)).toBe(true);
     expect(io.remote.mock.calls.every(([call]) => call.command.includes(".part") && call.command.includes("-delete"))).toBe(true);
     expect(await prisma.fileEntry.findMany({ where: { storageNodeId: id }, select: { relativePath: true, size: true } }))
@@ -67,6 +81,34 @@ describe.skipIf(process.env.RUN_DATABASE_INTEGRATION_TESTS !== "1")("terminal re
     await expect(stat(join(io.directory, id))).rejects.toMatchObject({ code: "ENOENT" });
     expect(io.forget.mock.calls.map(([gid]) => gid)).toEqual(["0000000000000001", "0000000000000001", metadataGid]);
     expect(await purge()).toEqual({ count: 1 });
+  });
+
+  it("expires an unattended relay at its stored deadline and preserves one with an active executor", async () => {
+    const data = { status: "RUNNING" as const, relayMode: true, serverId: id, targetPath: "/drive",
+      url: "magnet:?dn=fixture", transferManifest: { phase: "dispatched", deadline: Date.now() - 1 } };
+    const abandoned = await prisma.downloadTask.create({ data: { ...data, aria2Gid: "0000000000000003" } });
+    const active = await prisma.downloadTask.create({ data: { ...data, aria2Gid: "0000000000000004" } });
+    const job = await prisma.job.create({ data: { type: "download.execute", title: id, payload: { taskId: active.id } } });
+    try {
+      await sweepTerminalRelays();
+      expect(await prisma.downloadTask.findUniqueOrThrow({ where: { id: abandoned.id } })).toMatchObject({ status: "FAILED" });
+      expect(await prisma.downloadTask.findUniqueOrThrow({ where: { id: active.id } })).toMatchObject({ status: "RUNNING" });
+    } finally { await prisma.job.delete({ where: { id: job.id } }); }
+  });
+
+  it("holds both publication lock namespaces on one backend per node", async () => {
+    const nodes = [id + "-one", id + "-two"];
+    const release = await Promise.all(nodes.map(node => lockDownloadPublication(node, "dir/file")));
+    try {
+      for (const node of nodes) {
+        expect(await tryAcquireAdvisoryLock("storage-quota", node)).toBeNull();
+        expect(await tryAcquireAdvisoryLock("storage-editable", node + ":dir")).toBeNull();
+        expect(await tryAcquireAdvisoryLock("storage-editable", node + ":dir/file")).toBeNull();
+      }
+    } finally { await Promise.all(release.map(unlock => unlock())); }
+    const lock = await tryAcquireAdvisoryLock("storage-editable", nodes[0] + ":dir/file");
+    expect(lock).toBeTypeOf("function");
+    await lock?.();
   });
 
   it("repairs only matching files on the original Agent root after a failed publication", async () => {

@@ -189,7 +189,7 @@ export async function getMediaItem(
  * recycled one is hidden, and a new name or path is used and stored.
  */
 async function resolveAgainstFileEntry<T extends { id: string; fileEntryId: string | null; name: string; relativePath: string; storageNode: { id: string } | null }>(item: T, includeRevision: boolean): Promise<(T & { fileRevision?: string }) | null> {
-  const select = { name: true, relativePath: true, storageNodeId: true, isDeleted: true, updatedAt: true, checksumSha256: true, storageVersion: true } as const;
+  const select = { name: true, relativePath: true, size: true, mimeType: true, storageNodeId: true, isDeleted: true, updatedAt: true, checksumSha256: true, storageVersion: true } as const;
   if (!item.storageNode) return null;
   const where = item.fileEntryId ? { id: item.fileEntryId } : {
     storageNodeId_relativePath: { storageNodeId: item.storageNode.id, relativePath: item.relativePath },
@@ -201,13 +201,14 @@ async function resolveAgainstFileEntry<T extends { id: string; fileEntryId: stri
     return null;
   }
   if (entry.isDeleted || entry.storageNodeId !== item.storageNode?.id) return null;
+  const fields = { ...(entry.size != null && { size: entry.size }), ...(entry.mimeType != null && { mimeType: entry.mimeType }) };
   const revision = includeRevision ? { fileRevision: [entry.updatedAt.toISOString(), entry.checksumSha256, entry.storageVersion].join(":") } : {};
-  if (entry.relativePath === item.relativePath && entry.name === item.name) return { ...item, ...revision };
+  if (entry.relativePath === item.relativePath && entry.name === item.name) return { ...item, ...fields, ...revision };
   await prisma.mediaItem.updateMany({
     where: { id: item.id },
     data: { relativePath: entry.relativePath, name: entry.name },
   }).catch(() => undefined);
-  return { ...item, relativePath: entry.relativePath, name: entry.name, ...revision };
+  return { ...item, ...fields, relativePath: entry.relativePath, name: entry.name, ...revision };
 }
 
 /** Deterministic page ordering shared by the scan loops below. */

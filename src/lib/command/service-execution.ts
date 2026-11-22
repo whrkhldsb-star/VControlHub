@@ -1,3 +1,4 @@
+import { approvalReceiptId } from "./approval-identity";
 import { randomUUID } from "node:crypto";
 import type { Prisma } from "@prisma/client";
 
@@ -143,6 +144,7 @@ export async function executeTarget(
           status: true, requesterId: true, teamId: true,
           // A request someone approved runs on that decision, not on the requester's own execute permission.
           approvals: { where: { approved: true }, select: { id: true }, take: 1 },
+          executionLogs: { where: { id: { startsWith: "approval-" } }, select: { id: true }, take: 1 },
         },
       },
     },
@@ -178,6 +180,12 @@ export async function executeTarget(
   if (!authorization.ok) {
     return failTarget(commandRequestId, target, `Command dispatch denied: ${authorization.reason}`);
   }
+
+  // Removing an approver can cascade the approval row. The endpoint receipt still fences dispatch.
+  const hasEndpointReceipt = Boolean(live.commandRequest.executionLogs?.length);
+  if ((live.commandRequest.approvals.length || hasEndpointReceipt) && !await prisma.executionLog.findUnique({
+    where: { id: approvalReceiptId(target.id, target.server) }, select: { id: true },
+  })) return failTarget(commandRequestId, target, t("backend.command.connectionChanged"));
 
   const controller = new AbortController();
   const signal = lease ? AbortSignal.any([lease, controller.signal]) : controller.signal;

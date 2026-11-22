@@ -20,7 +20,7 @@ const { prismaMock, jobState, platform } = vi.hoisted(() => ({
   prismaMock: {
     $executeRaw: vi.fn(async () => 1),
     syncJob: { findFirst: vi.fn(async () => null), updateMany: vi.fn(), update: vi.fn(), findMany: vi.fn() },
-    syncLog: { create: vi.fn(), update: vi.fn(), updateMany: vi.fn() },
+    syncLog: { findUnique: vi.fn(async () => null), create: vi.fn(), update: vi.fn(), updateMany: vi.fn() },
   },
   jobState: { job: null as Record<string, unknown> | null },
   /** The platform setting sync.targetAuthDefault, and the decrypted stored credential of the target. */

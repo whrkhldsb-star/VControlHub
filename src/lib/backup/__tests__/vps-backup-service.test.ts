@@ -1,6 +1,6 @@
 import { describe, expect, it, vi, beforeEach } from "vitest";
 import { Readable } from "node:stream";
-import { mkdirSync, rmSync, writeFileSync } from "node:fs";
+import { mkdirSync, statSync, rmSync, writeFileSync } from "node:fs";
 import { dirname, join, resolve as resolvePath } from "node:path";
 import { tmpdir } from "node:os";
 
@@ -101,7 +101,8 @@ vi.mock("@/lib/ssh/sftp-service", () => ({
   downloadFile: mocks.downloadFile,
 }));
 
-vi.mock("../vps-backup-presets", () => ({
+vi.mock("../vps-backup-presets", async (importOriginal) => ({
+  ...await importOriginal<typeof import("../vps-backup-presets")>(),
   getPreset: mocks.getPreset,
   buildRemoteBackupCommand: mocks.buildRemoteBackupCommand,
   buildRemoteCleanupCommand: mocks.buildRemoteCleanupCommand,
@@ -285,6 +286,19 @@ describe("runVpsBackupRecord false-success guards", () => {
       (call) => call[0]?.data?.status === "COMPLETED",
     );
     expect(completedCalls).toHaveLength(0);
+  });
+
+  it("uses a single server directory and a private SQL artifact for a database preset", async () => {
+    const record = baseRecord();
+    record.server.id = record.serverId = "legacy/customer";
+    record.backupType = "postgres";
+    mocks.findUnique.mockResolvedValue(record);
+    mocks.execRemoteCommand.mockResolvedValue({ stdout: "", stderr: "", exitCode: 0 });
+    mocks.downloadFile.mockResolvedValue({ stream: Readable.from([Buffer.alloc(64)]), size: 64 });
+    const result = await runVpsBackupRecord(record.id);
+    expect(result.success).toBe(true);
+    expect(result.localPath).toMatch(/^storage\/vps-backups\/encoded-[a-f0-9]{64}\/postgres-rec_1\.sql\.gz$/);
+    if (process.platform !== "win32") expect(statSync(join(storageRoot, result.localPath!)).mode & 0o777).toBe(0o600);
   });
 
   it("completes when remote backup + SFTP download succeed", async () => {

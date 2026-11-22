@@ -1,3 +1,4 @@
+import { localRootIdentity, localPathVersion, removeLocalVersion } from "./local-identity";
 import { readdir } from "node:fs/promises";
 import { ConflictError } from "@/lib/errors";
 import { t } from "@/lib/i18n/service-translations";
@@ -14,8 +15,11 @@ export async function deleteRecycledBackingObjects(node: StorageNodeWithCredenti
   const batch = [...children, root].sort((a, b) => b.relativePath.length - a.relativePath.length);
   const paths = new Map(batch.map(member => [member.relativePath, member.entryType]));
   const agent = node.driver === "AGENT";
-  if ((agent && !node.id) || batch.some(member => (agent || member.deletedAgentRoot) && (!agent || !root.deletedAgentRoot ||
-      member.deletedAgentRoot !== root.deletedAgentRoot || !member.storageVersion))) {
+  const local = node.driver === "LOCAL";
+  const changed = () => new ConflictError(t("backend.storage.editableFileChangedOnDisk"));
+  const localRoot = local ? await localRootIdentity(node.basePath) : null;
+  if (!local && ((agent && !node.id) || batch.some(member => (agent || member.deletedAgentRoot) && (!agent || !root.deletedAgentRoot ||
+      member.deletedAgentRoot !== root.deletedAgentRoot || !member.storageVersion)))) {
     throw new ConflictError(t("backend.storage.recycledAgentChanged"));
   }
   if (node.driver === "WEBDAV") {
@@ -26,6 +30,10 @@ export async function deleteRecycledBackingObjects(node: StorageNodeWithCredenti
   for (const member of batch) {
     const { relativePath } = member;
     try {
+      if (local) {
+        const version = await localPathVersion(node.basePath, relativePath);
+        if (version !== null && (member.deletedAgentRoot !== localRoot || version !== member.storageVersion)) throw changed();
+      }
       if (client) {
         const entry = await client.stat(relativePath);
         if (!entry) continue;
@@ -54,6 +62,13 @@ export async function deleteRecycledBackingObjects(node: StorageNodeWithCredenti
     }
   }
   for (const member of batch) {
+    if (local) {
+      const version = await localPathVersion(node.basePath, member.relativePath);
+      if (version === null) continue;
+      if (member.deletedAgentRoot !== localRoot || version !== member.storageVersion) throw changed();
+      await removeLocalVersion(node.basePath, member.relativePath, version, member.entryType === "DIRECTORY");
+      continue;
+    }
     const isDirectory = member.entryType === "DIRECTORY";
     // Removing the batch's own children changes a directory's Agent etag.
     // The Agent re-stats it and applies that version to a nonrecursive rmdir.

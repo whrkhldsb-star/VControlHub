@@ -187,7 +187,7 @@ describe("runSyncScheduleWorkerOnce", () => {
     expect(mocks.executeSyncJob).not.toHaveBeenCalled();
   });
 
-  it("does not run a second tick while one is still in flight", async () => {
+  it("scans for stale jobs on the next tick while an earlier transfer is in flight", async () => {
     mocks.syncJobFindMany.mockResolvedValue(dueJobs(1));
     let release!: () => void;
     mocks.executeSyncJob.mockImplementation(
@@ -198,10 +198,22 @@ describe("runSyncScheduleWorkerOnce", () => {
     // Let the first tick reach executeSyncJob before starting the second.
     await new Promise((resolve) => setImmediate(resolve));
     expect(await runSyncScheduleWorkerOnce("second")).toBe(0);
+    expect(mocks.reclaimStaleRunningSyncJobs).toHaveBeenCalledTimes(2);
 
     release();
     expect(await first).toBe(1);
     expect(mocks.executeSyncJob).toHaveBeenCalledTimes(1);
+  });
+
+  it("admits a sixth job while the first is still transferring", async () => {
+    mocks.syncJobFindMany.mockResolvedValue(dueJobs(6));
+    let finish!: () => void;
+    const held = new Promise<void>(resolve => { finish = resolve; });
+    mocks.executeSyncJob.mockImplementation(async (id: string) => { if (id === "job-0") await held; });
+    const tick = runSyncScheduleWorkerOnce("test");
+    try { await vi.waitFor(() => expect(mocks.executeSyncJob).toHaveBeenCalledWith("job-5", expect.anything())); }
+    finally { finish(); }
+    expect(await tick).toBe(6);
   });
 
   it("releases each job's advisory lock via onClaimed and again on exit", async () => {

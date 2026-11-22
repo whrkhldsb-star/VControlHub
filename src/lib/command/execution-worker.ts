@@ -1,6 +1,7 @@
 import { config } from "@/lib/config/env";
 import { LeaseLostError, runWithLeaseHeartbeat } from "@/lib/job/heartbeat-runner";
 import { computeLeaseMs } from "@/lib/job/lease";
+import { recordJobEvent } from "@/lib/job/events";
 import { claimNextJob, completeJob, failJob, heartbeatJob } from "@/lib/job/service";
 import { createLogger } from "@/lib/logging";
 import { createSingletonIntervalWorker } from "@/lib/workers/singleton-interval-worker";
@@ -137,7 +138,19 @@ async function handleClaimedJob(
 const MAX_CONCURRENT_COMMAND_JOBS = 3;
 let activeCommandJobs = 0;
 
-export async function runCommandExecutionJobWorkerOnce() {
+const inFlight = new Set<Promise<boolean>>();
+const claimedJobs = new Map<string, number>();
+let stopping = false;
+
+export function runCommandExecutionJobWorkerOnce() {
+  if (stopping) return Promise.resolve(false);
+  const work = claimAndRunCommand();
+  inFlight.add(work);
+  void work.finally(() => inFlight.delete(work));
+  return work;
+}
+
+async function claimAndRunCommand() {
   const state = getWorkerState();
   // `running` guards the claim only (two ticks must not claim at the same moment); the job then runs beside the others.
   if (state.running) {
@@ -158,7 +171,9 @@ export async function runCommandExecutionJobWorkerOnce() {
     activeCommandJobs += 1;
     counted = true;
     state.running = false;
-    return await handleClaimedJob(job);
+    claimedJobs.set(job.id, job.attempts);
+    try { return await handleClaimedJob(job); }
+    finally { claimedJobs.delete(job.id); }
   } catch (error) {
     logger.error("Command execution worker tick failed", {
       error: error instanceof Error ? error.message : String(error),
@@ -166,12 +181,33 @@ export async function runCommandExecutionJobWorkerOnce() {
     return false;
   } finally {
     if (counted) activeCommandJobs -= 1;
-    state.running = false;
+    if (!counted) state.running = false;
   }
 }
 
 export async function startCommandExecutionWorker(options: { intervalMs?: number } = {}) {
+  stopping = false;
   return (await commandExecutionWorker.start(options)).state;
+}
+
+/** Leave time inside the standalone worker's ten-second deadline for the handoff and connection teardown. */
+export async function drainCommandExecutionWorker(timeoutMs = 8000) {
+  stopping = true;
+  commandExecutionWorker.stopForTests();
+  let timer: ReturnType<typeof setTimeout> | undefined;
+  try {
+    const drained = await Promise.race([
+      Promise.allSettled([...inFlight]).then(() => true),
+      new Promise<false>(resolve => { timer = setTimeout(() => resolve(false), timeoutMs); }),
+    ]);
+    if (!drained) {
+      await Promise.all([...claimedJobs].map(([jobId, attempts]) => recordJobEvent({
+        jobId, type: "progress", level: "warn", workerId: COMMAND_EXECUTION_WORKER_ID,
+        message: "Worker stopped before command result confirmation", payload: { attempts, handoff: true },
+      })));
+    }
+    return drained;
+  } finally { clearTimeout(timer); }
 }
 
 export function stopCommandExecutionWorkerForTests() {

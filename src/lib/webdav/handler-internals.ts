@@ -34,6 +34,7 @@ export type WebDavContext = {
   relativePath: string;
   requestUrl: URL;
   rangeHeader?: string | null;
+  ifRange?: string | null;
 };
 
 export type WebDavFileEntryItem = {
@@ -176,7 +177,7 @@ export function toPropFindItem(
     contentLength: entry.size == null ? null : Number(entry.size),
     contentType: entry.mimeType,
     lastModified: entry.updatedAt,
-    etag: weakEtag(entry),
+    etag: isCollection ? weakEtag(entry) : undefined,
   };
 }
 

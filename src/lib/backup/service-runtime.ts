@@ -18,7 +18,8 @@ import { rm, stat } from "node:fs/promises";
 import { createReadStream } from "node:fs";
 import { createHash } from "node:crypto";
 
-import { lockForTransaction } from "@/lib/concurrency/advisory-lock";
+import { LeaseLostError } from "@/lib/job/heartbeat-runner";
+import { lockForTransaction, tryAcquireAdvisoryLock } from "@/lib/concurrency/advisory-lock";
 import { prisma } from "@/lib/db";
 import { config } from "@/lib/config/env";
 import { BusinessError, ConflictError, ForbiddenError, NotFoundError, ValidationError } from "@/lib/errors";
@@ -34,6 +35,7 @@ import {
 import { buildBackupRestoreCommand, buildPortableBackupCommand } from "./service-commands";
 import { IS_WINDOWS } from "@/lib/runtime/platform-paths";
 import {
+	type BackupJobClaim,
 	backupArtifactKey,
 	canCreatePlatformBackup,
 	hasBackupArtifactReference,
@@ -87,13 +89,14 @@ export async function runBackupRecord(input: { type: "DATABASE" | "FILES" | "FUL
 	return runExistingBackupRecord({ id: record.id, projectRoot: input.projectRoot, requestedBy: input.createdBy ?? undefined });
 }
 
-export async function runExistingBackupRecord(input: { id: string; projectRoot?: string; requestedBy?: string | null; session?: Pick<import("@/lib/auth/session").SessionPayload, "userId" | "roles" | "currentTeamId"> }) {
+export async function runExistingBackupRecord(input: { id: string; claim?: BackupJobClaim; signal?: AbortSignal; projectRoot?: string; requestedBy?: string | null; session?: Pick<import("@/lib/auth/session").SessionPayload, "userId" | "roles" | "currentTeamId"> }) {
 	const projectRoot = input.projectRoot || config.app.appDir || process.cwd();
 	const record = await getBackupRecord(input.id, input.session);
 	if (!record) throw new NotFoundError(t("backend.backup.recordNotFound"));
 	if (!isBackupType(record.type)) throw new ValidationError(t("backend.backup.invalidType"));
 	// A deleted user's foreign keys are SET NULL. A queued create always needs
 	// its submitting user, including a retry submitted by a different admin.
+	input.signal?.throwIfAborted();
 	const ownerId = input.requestedBy === undefined ? record.createdBy : input.requestedBy;
 	const authorized = ownerId ? await canCreatePlatformBackup(ownerId) : input.requestedBy === undefined && !record.scheduleId;
 	if (!authorized) {
@@ -106,7 +109,7 @@ export async function runExistingBackupRecord(input: { id: string; projectRoot?:
 	}
 	// CAS claim: only one worker can move PENDING → RUNNING.
 	const claimed = await prisma.backupRecord.updateMany({
-		where: { id: record.id, status: "PENDING" },
+		where: { id: record.id, status: "PENDING", filePath: record.filePath, updatedAt: record.updatedAt },
 		data: { status: "RUNNING", errorMessage: null },
 	});
 	if (claimed.count === 0) {
@@ -126,7 +129,7 @@ export async function runExistingBackupRecord(input: { id: string; projectRoot?:
 		const args = record.type === "FILES" ? ["--files", outputPath] : record.type === "FULL" ? ["--full", outputPath] : [outputPath];
 		await runBackupCommand({
 			...buildBackupInvocation(args),
-			options: { cwd: projectRoot, env: { ...process.env, APP_DIR: projectRoot, ...(record.type === "FULL" ? { BACKUP_REQUIRE_COVERAGE: "1" } : {}) } },
+			options: { cwd: projectRoot, signal: input.signal, env: { ...process.env, APP_DIR: projectRoot, ...(record.type === "FULL" ? { BACKUP_REQUIRE_COVERAGE: "1" } : {}) } },
 		});
 		const fileInfo = await stat(outputPath);
 		// Align with VPS empty-archive guard: tiny/empty artifacts are false success.
@@ -137,20 +140,23 @@ export async function runExistingBackupRecord(input: { id: string; projectRoot?:
 			);
 		}
 		const checksumSha256 = await calculateFileSha256(outputPath);
+		input.signal?.throwIfAborted();
 		const updated = await updateBackupRecordStatus(record.id, {
 			status: "COMPLETED",
 			fileSize: fileInfo.size,
 			completedAt: new Date(),
 			errorMessage: null,
 			checksumSha256,
-		});
+		}, { filePath: record.filePath, claim: input.claim });
 		// Keep the durable backup job alive until optional offsite delivery reaches
 		// a terminal result. Local completion remains valid when offsite is disabled
 		// or fails, and a reclaimed completed job retries records without offsiteKey.
 		await logOffsiteUploadResult(record.id, projectRoot);
 		return updated;
 	} catch (error) {
-		return updateBackupRecordStatus(record.id, { status: "FAILED", errorMessage: backupCommandErrorMessage(error).slice(0, 2000) });
+		if (error instanceof LeaseLostError) throw error;
+		input.signal?.throwIfAborted();
+		return updateBackupRecordStatus(record.id, { status: "FAILED", errorMessage: backupCommandErrorMessage(error).slice(0, 2000) }, { filePath: record.filePath, claim: input.claim });
 	}
 }
 
@@ -427,11 +433,17 @@ export async function pruneOldBackupRecordsNow(input: {
 		const record = observed.get(candidate.id)!;
 		// Commit the claim before touching the filesystem. A worker crash, even
 		// after unlink but before DB commit, leaves a resumable, non-retryable row.
-		const claimed = await prisma.backupRecord.updateMany({
-			where: { id: record.id, status: record.status, updatedAt: record.updatedAt },
-			data: { status: "PRUNING" },
-		});
-		if (!claimed.count) continue;
+		const release = await tryAcquireAdvisoryLock("platform-backup-artifact", record.id);
+		if (!release) continue;
+		try {
+			const claimed = await prisma.backupRecord.updateMany({
+				where: { id: record.id, status: record.status, updatedAt: record.updatedAt },
+				data: { status: "PRUNING" },
+			});
+			if (!claimed.count) continue;
+		} finally {
+			await release();
+		}
 
 		try {
 			const artifactKey = backupArtifactKey(record.filePath);

@@ -478,12 +478,21 @@ describe("/api/storage/direct-access", () => {
     );
   });
 
-  it.each(["DIRECT", "AUTO"])("uses managed download in %s mode when the gateway lacks descriptor checks", async (directAccessMode) => {
+  it.each([
+    ["DIRECT", "LINUX"], ["AUTO", "LINUX"], ["DIRECT", "WINDOWS"], ["AUTO", "WINDOWS"],
+  ])("uses managed download in %s mode when the %s gateway cannot confirm the signed target", async (directAccessMode, operatingSystem) => {
     requireApiPermissionMock.mockResolvedValueOnce({
       session: { userId: "u_1", roles: ["admin"], currentTeamId: null },
     });
     assertStorageAccessMock.mockResolvedValueOnce({ allowed: true });
-    prismaMock.storageNode.findFirst.mockResolvedValueOnce(directNode({ directAccessMode, publicBaseUrl: "https://cdn.example.com" }));
+    const publicBaseUrl = "https://cdn.example.com";
+    prismaMock.storageNode.findFirst.mockResolvedValueOnce(directNode({
+      directAccessMode, publicBaseUrl,
+      ...(operatingSystem === "WINDOWS" && {
+        basePath: "/C:/Data", serverId: "srv_1",
+        server: { operatingSystem, hostKeySha256: "SHA256:server", directGatewayKeyVersion: 3, publicUrl: publicBaseUrl },
+      }),
+    }));
     vi.stubGlobal("fetch", vi.fn().mockResolvedValue(new Response(null, { status: 200 })));
 
     const result = await GET(new Request("https://app.example.com/api/storage/direct-access?nodeId=node_1&path=sample.txt"));
@@ -520,7 +529,8 @@ describe("/api/storage/direct-access", () => {
     expect(result.headers.get("location")).toBe("/api/storage/sftp-download?nodeId=node_1&path=sample.txt");
   });
 
-  it.each([3, 4])("uses a Windows-only key for its legacy signature format at generation %d", async keyVersion => {
+  it.each([3, 4])("requires a root-bound Windows file protocol at key generation %d", async keyVersion => {
+    vi.stubGlobal("fetch", vi.fn(async () => new Response(null, { headers: { "x-vch-file-access": "vch-windows-root-v1" } })));
     requireApiPermissionMock.mockResolvedValueOnce({
       session: { userId: "u_1", roles: ["admin"], currentTeamId: null },
     });
@@ -530,10 +540,15 @@ describe("/api/storage/direct-access", () => {
       basePath: "/C:/Data", serverId: "srv_1", server: { operatingSystem: "WINDOWS", directGatewayKeyVersion: keyVersion, hostKeySha256: "SHA256:server", publicUrl: "https://cdn.example.com" },
     }));
     const result = await GET(new Request("https://app.example.com/api/storage/direct-access?nodeId=node_1&path=sample.txt"));
+    expect(prismaMock.fileEntry.findFirst).toHaveBeenCalledWith({
+      where: { storageNodeId: "node_1", isDeleted: true, relativePath: { in: ["sample.txt"], mode: "insensitive" } },
+      select: { id: true },
+    });
     const url = new URL(result.headers.get("location") ?? "");
+    expect(fetch).toHaveBeenCalledWith(url, expect.objectContaining({ method: "HEAD" }));
     const { deriveDirectGatewayServerKey } = await import("@/lib/server/direct-gateway-key");
     expect(url.searchParams.get("signature")).toBe(crypto.createHmac("sha256", deriveDirectGatewayServerKey("test-secret", "srv_1", keyVersion, "WINDOWS"))
-      .update(`/sample.txt.${url.searchParams.get("expires")}`).digest("hex"));
+      .update(`vch-windows-root-v1\0/C:/Data/sample.txt\0/sample.txt\0${url.searchParams.get("expires")}`).digest("hex"));
   });
 
   it("falls back to managed SFTP when AUTO direct gateway health is unavailable", async () => {

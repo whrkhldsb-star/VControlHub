@@ -9,7 +9,7 @@ import { z } from "zod";
 
 import { auditUserAction } from "@/lib/audit/service";
 import { sessionHasPermission } from "@/lib/auth/authorization";
-import { imageTeamWhere } from "@/lib/auth/team-scope";
+import { imageTeamWhere, liveCustomerRowsWhere } from "@/lib/auth/team-scope";
 import { prisma } from "@/lib/db";
 import { withApiRoute } from "@/lib/http/api-guard";
 import { IMAGE_UPLOAD_LIMIT } from "@/lib/http/rate-limit-presets";
@@ -50,38 +50,45 @@ export async function POST(request: Request) {
           // Owners may bulk-delete their own images (whereClause already scopes
           // non-managers to userId). Managers keep cross-owner delete via canManageImages.
           // Matches single-image DELETE canDeleteImage (owner OR media/team/role manage).
-          const images = await prisma.imageUpload.findMany({
-            where: whereClause,
-            select: {
-              id: true,
-              storageKey: true,
-              createdAt: true,
-              checksum: true,
-              sizeBytes: true,
-              storageNodeId: true,
-              relativePath: true,
-            },
-            take: 100,
-          });
-          // Delete on-disk variants FIRST so a disk failure leaves DB rows for retry.
-          const fileResults = await Promise.allSettled(
-            images.map((img) =>
-              deleteImageVariants(img.storageKey, UPLOAD_DIR),
-            ),
-          );
-          const failedFileIds = images
-            .filter((_, index) => fileResults[index]?.status === "rejected")
-            .map((image) => image.id);
-          const okIds = images
-            .filter((_, index) => fileResults[index]?.status !== "rejected")
-            .map((image) => image.id);
-          // Only remove DB rows for successfully unlinked image-bed files.
-          const result =
-            okIds.length > 0
-              ? await prisma.imageUpload.deleteMany({
-                  where: { AND: [whereClause, { id: { in: okIds } }] },
-                })
-              : { count: 0 };
+          const liveScope = { ...whereClause, ...liveCustomerRowsWhere() };
+          const { images, failedFileIds, okIds, result } = await prisma.$transaction(async tx => {
+            // Customer archival must wait until this authorized deletion has finished removing its files.
+            await tx.$queryRaw`SELECT id FROM teams WHERE id IN
+              (SELECT "teamId" FROM image_uploads WHERE id IN (${Prisma.join(ids)})) ORDER BY id FOR SHARE`;
+            const images = await tx.imageUpload.findMany({
+              where: liveScope,
+              select: {
+                id: true,
+                storageKey: true,
+                createdAt: true,
+                checksum: true,
+                sizeBytes: true,
+                storageNodeId: true,
+                relativePath: true,
+              },
+              take: 100,
+            });
+            // Delete on-disk variants FIRST so a disk failure leaves DB rows for retry.
+            const fileResults = await Promise.allSettled(
+              images.map((img) =>
+                deleteImageVariants(img.storageKey, UPLOAD_DIR),
+              ),
+            );
+            const failedFileIds = images
+              .filter((_, index) => fileResults[index]?.status === "rejected")
+              .map((image) => image.id);
+            const okIds = images
+              .filter((_, index) => fileResults[index]?.status !== "rejected")
+              .map((image) => image.id);
+            // Only remove DB rows for successfully unlinked image-bed files.
+            const result =
+              okIds.length > 0
+                ? await tx.imageUpload.deleteMany({
+                    where: { AND: [liveScope, { id: { in: okIds } }] },
+                  })
+                : { count: 0 };
+            return { images, failedFileIds, okIds, result };
+          }, { timeout: 60_000 });
           // The copy an upload wrote into a storage folder goes with its image, as deleting one image does it:
           // left behind, a selection of deleted images stayed in the folder, the file index and the media library
           // as "<uuid>.png". A file published from storage is the user's own and stays.

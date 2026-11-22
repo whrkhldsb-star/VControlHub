@@ -7,6 +7,7 @@ const prismaMock = vi.hoisted(() => ({
 		upsert: vi.fn(),
 	},
 	$transaction: vi.fn(),
+	$executeRaw: vi.fn(),
 	auditLog: {
 		findMany: vi.fn(),
 	},
@@ -27,7 +28,8 @@ const { getAllSettingsMasked, getSettingUpdateMetadata, setManySettings, setSett
 describe("empty secrets", () => {
 	beforeEach(() => {
 		vi.clearAllMocks();
-		prismaMock.$transaction.mockImplementation(async (operations: Array<Promise<unknown>>) => Promise.all(operations));
+		prismaMock.setting.findMany.mockResolvedValue([]);
+		prismaMock.$transaction.mockImplementation(async (write) => write(prismaMock));
 	});
 
 	it("filters public settings before reading rows and gives a fresh SMTP form the TLS default", async () => {

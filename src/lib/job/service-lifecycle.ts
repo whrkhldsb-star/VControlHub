@@ -19,6 +19,11 @@ import {
  */
 const MAX_JOB_ERROR_MESSAGE = 2000;
 
+function finishableClaim(id: string, workerId: string, attempts: number | undefined, now: Date) {
+  const claim = activeJobClaim(id, workerId, attempts);
+  return { ...claim, OR: [{ leaseExpiresAt: { gt: now } }, { leaseExpiresAt: null, attempts: 0 }] };
+}
+
 export async function heartbeatJob(
   jobId: string,
   workerId: string,
@@ -42,7 +47,7 @@ export async function heartbeatJob(
 export async function completeJob(jobId: string, workerId: string, result?: JobResult, attempts?: number) {
   const now = new Date();
   const updated = await prisma.job.updateMany({
-    where: activeJobClaim(jobId, workerId, attempts),
+    where: finishableClaim(jobId, workerId, attempts, now),
     data: {
       status: JobStatus.COMPLETED,
       result: result ?? Prisma.JsonNull,
@@ -79,7 +84,7 @@ export async function failJob(
   const canRetry = job.attempts < job.maxAttempts;
   const message = errorMessage.slice(0, MAX_JOB_ERROR_MESSAGE);
   const updated = await prisma.job.updateMany({
-    where: activeJobClaim(jobId, workerId, options.attempts),
+    where: finishableClaim(jobId, workerId, options.attempts, now),
     data: {
       status: canRetry ? JobStatus.PENDING : JobStatus.FAILED,
       errorMessage: message,
@@ -111,7 +116,7 @@ export async function failJobTerminal(
 ) {
   const now = options.now ?? new Date();
   const updated = await prisma.job.updateMany({
-    where: activeJobClaim(jobId, workerId, options.attempts),
+    where: finishableClaim(jobId, workerId, options.attempts, now),
     data: {
       status: JobStatus.FAILED,
       errorMessage: errorMessage.slice(0, MAX_JOB_ERROR_MESSAGE),

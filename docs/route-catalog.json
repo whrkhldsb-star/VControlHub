@@ -1,5 +1,5 @@
 {
-  "generatedAt": "2026-11-21T19:23:41.519Z",
+  "generatedAt": "2026-11-22T02:03:23.983Z",
   "summary": {
     "sidebarMain": 26,
     "sidebarSystem": 12,
@@ -2385,7 +2385,8 @@
       "declaredPermissions": [
         "command:approve",
         "command:create",
-        "command:read"
+        "command:read",
+        "server:read"
       ]
     },
     {

@@ -35,8 +35,8 @@ vi.mock("@/lib/db", () => ({ prisma: { ...prismaMock, $transaction: (run: (tx: t
 const getSyncJobForExecution = vi.fn(async () => ({
   id: "job-1", sourceServerId: "source", targetServerId: "target",
   syncType: "one-way",
-  sourceServer: { sshKey: null, syncTargetAuth: "credential" },
-  targetServer: { sshKey: null, syncTargetAuth: "credential" },
+  sourceServer: { host: "source.example", port: 22, sshKey: null, syncTargetAuth: "credential" },
+  targetServer: { host: "target.example", port: 22, sshKey: null, syncTargetAuth: "credential" },
   sourcePath: "/data/a",
   targetPath: "/data/b",
   deleteOrphans: false,

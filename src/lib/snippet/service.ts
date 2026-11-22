@@ -1,3 +1,4 @@
+import { Prisma } from "@prisma/client";
 import { createHash, randomUUID } from "node:crypto";
 import { ForbiddenError, NotFoundError, ValidationError } from "@/lib/errors";
 import { prisma } from "@/lib/db";
@@ -46,7 +47,7 @@ function requireNonBlank(value: string, message: string) {
 
 function canMutateSnippet(
   ownerId: string | null,
-  actor?: { userId?: string | null; canManageAll?: boolean },
+  actor?: MutationActor,
 ) {
   if (actor?.canManageAll) return true;
   return Boolean(ownerId && actor?.userId && ownerId === actor.userId);
@@ -76,46 +77,55 @@ export async function listSnippets(input: { viewer: SnippetViewer; q?: string; l
   const q = input.q?.trim();
   // Shared snippets the viewer's customer may see, plus their own private ones.
   const privacyFilter = { OR: [sharedSnippetWhere(input.viewer), { createdBy: input.viewer.userId }] };
-  const rows = await prisma.snippet.findMany({
-    take: 500,
-    where: {
-      AND: [
-        input.language ? { language: input.language } : {},
-        q
-          ? {
-              OR: [
-                { title: { contains: q, mode: "insensitive" } },
-                { content: { contains: q, mode: "insensitive" } },
-                { tags: { has: q } },
-              ],
-            }
-          : {},
-        privacyFilter,
-      ],
-    },
-    orderBy: { updatedAt: "desc" },
-    select: {
-      id: true,
-      title: true,
-      content: true,
-      language: true,
-      description: true,
-      tags: true,
-      isPrivate: true,
-      createdBy: true,
-      createdAt: true,
-      updatedAt: true,
-    },
-  });
-  // List payload keeps a short preview only — full body is fetched on demand.
-  return rows.map(({ content, ...rest }) => ({
-    ...rest,
-    contentPreview:
-      content.length > SNIPPET_LIST_PREVIEW_CHARS
-        ? `${content.slice(0, SNIPPET_LIST_PREVIEW_CHARS)}…`
-        : content,
-    contentLength: content.length,
-  }));
+  return prisma.$transaction(async tx => {
+    const rows = await tx.snippet.findMany({
+      take: 500,
+      where: {
+        AND: [
+          input.language ? { language: input.language } : {},
+          q
+            ? {
+                OR: [
+                  { title: { contains: q, mode: "insensitive" } },
+                  { content: { contains: q, mode: "insensitive" } },
+                  { tags: { has: q } },
+                ],
+              }
+            : {},
+          privacyFilter,
+        ],
+      },
+      orderBy: { updatedAt: "desc" },
+      select: {
+        id: true,
+        title: true,
+        language: true,
+        description: true,
+        tags: true,
+        isPrivate: true,
+        createdBy: true,
+        createdAt: true,
+        updatedAt: true,
+      },
+    });
+    if (!rows.length) return [];
+    const previews = await tx.$queryRaw<{ id: string; preview: string; length: number }[]>`
+      SELECT id, left(content, ${SNIPPET_LIST_PREVIEW_CHARS}) AS preview,
+        char_length(content) + char_length(regexp_replace(content COLLATE "C", '[^\u{10000}-\u{10ffff}]+', '', 'g')) AS length
+      FROM snippets WHERE id IN (${Prisma.join(rows.map(row => row.id))})`;
+    const byId = new Map(previews.map(row => [row.id, row]));
+    return rows.map(row => {
+      const { preview, length } = byId.get(row.id)!;
+      return { ...row, contentPreview: length > SNIPPET_LIST_PREVIEW_CHARS ? preview.slice(0, SNIPPET_LIST_PREVIEW_CHARS) + "…" : preview, contentLength: length };
+    });
+  }, { isolationLevel: "RepeatableRead" });
+}
+
+type MutationActor = Partial<SnippetViewer> & { canManageAll?: boolean };
+
+function visibleSnippet(id: string, actor?: MutationActor) {
+  const viewer = { userId: actor?.userId ?? "", currentTeamId: actor?.currentTeamId ?? null, platformAdmin: actor?.platformAdmin ?? false };
+  return { id, ...(viewer.platformAdmin && actor?.canManageAll ? {} : { OR: [{ createdBy: viewer.userId }, sharedSnippetWhere(viewer)] }) };
 }
 
 export async function getSnippet(
@@ -123,10 +133,7 @@ export async function getSnippet(
   actor: SnippetViewer & { canManageAll?: boolean },
 ) {
   const visible = await prisma.snippet.findFirst({
-    where: {
-      id,
-      ...(actor.platformAdmin && actor.canManageAll ? {} : { OR: [{ createdBy: actor.userId }, sharedSnippetWhere(actor)] }),
-    },
+    where: visibleSnippet(id, actor),
   });
   if (!visible) throw new NotFoundError(t("backend.snippet.snippetNotFound"));
   return visible;
@@ -135,9 +142,9 @@ export async function getSnippet(
 export async function updateSnippet(
   id: string,
   input: { title?: string; content?: string; language?: string; description?: string; tags?: string[]; isPrivate?: boolean },
-  actor?: { userId?: string | null; canManageAll?: boolean },
+  actor?: MutationActor,
 ) {
-  const existing = await prisma.snippet.findUnique({ where: { id } });
+  const existing = await prisma.snippet.findFirst({ where: visibleSnippet(id, actor) });
   if (!existing) throw new NotFoundError(t("backend.snippet.snippetNotFound"));
   if (!canMutateSnippet(existing.createdBy, actor)) {
     throw new ForbiddenError(t("backend.snippet.noPermissionToModifyOthersSnippets"));
@@ -159,8 +166,8 @@ export async function updateSnippet(
   return prisma.snippet.update({ where: { id }, data });
 }
 
-export async function deleteSnippet(id: string, actor?: { userId?: string | null; canManageAll?: boolean }) {
-  const existing = await prisma.snippet.findUnique({ where: { id } });
+export async function deleteSnippet(id: string, actor?: MutationActor) {
+  const existing = await prisma.snippet.findFirst({ where: visibleSnippet(id, actor) });
   if (!existing) throw new NotFoundError(t("backend.snippet.snippetNotFound"));
   if (!canMutateSnippet(existing.createdBy, actor)) {
     throw new ForbiddenError(t("backend.snippet.noPermissionToDeleteOthersSnippets"));

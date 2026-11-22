@@ -64,4 +64,11 @@ describe("withdrawing a command request without the execute permission", () => {
     db.commandRequest.findUniqueOrThrow.mockResolvedValue({ id: "cmd1", status: "CANCELLING" });
     await expect(cancelCommandRequest({ commandRequestId: "cmd1", actorId: "u1", session })).resolves.toMatchObject({ status: "CANCELLING" });
   });
+
+  it("returns only the cancellation receipt on a repeated cancellation", async () => {
+    permissions.granted.add("command:execute");
+    db.commandRequest.findFirst.mockResolvedValue(request("CANCELLING"));
+    await expect(cancelCommandRequest({ commandRequestId: "cmd1", actorId: "u1", session }))
+      .resolves.toEqual({ id: "cmd1", status: "CANCELLING" });
+  });
 });
