@@ -2,6 +2,7 @@ import { createLogger } from "@/lib/logging";
 import { config } from "@/lib/config/env";
 import { prisma } from "@/lib/db";
 import { loginSchema } from "./schema";
+import { isInitialAdminPasswordState } from "./bootstrap-state";
 import { verifyPassword } from "./password";
 
 const logger = createLogger("auth:bootstrap");
@@ -67,7 +68,7 @@ export async function verifyAdminPasswordConsistency(): Promise<AdminConsistency
 	}
 
 	// Password already rotated via UI / ops — env is no longer the source of truth.
-	if (!admin.mustChangePassword) {
+	if (!isInitialAdminPasswordState(admin)) {
 		return { ok: true, username: ADMIN_BOOTSTRAP.username, mode: "rotated" };
 	}
 

@@ -27,6 +27,8 @@
 
 import { z } from "zod";
 
+import { containsNul } from "@/lib/text/strip-nul";
+import { t } from "@/lib/i18n/service-translations";
 import { ValidationError } from "@/lib/errors";
 import { requestParseParams } from "@/lib/http/zod-locale";
 import { apiCopy, currentCopyLocale } from "@/lib/i18n/api-copy";
@@ -48,7 +50,7 @@ import { isSchemaSentence, localizeSchemaMessage } from "@/lib/i18n/schema-copy"
 export function searchParamsToObject(
   searchParams: URLSearchParams,
 ): Record<string, string | string[]> {
-  const obj: Record<string, string | string[]> = {};
+  const obj: Record<string, string | string[]> = Object.create(null);
   for (const key of new Set(searchParams.keys())) {
     const all = searchParams.getAll(key);
     obj[key] = all.length > 1 ? all : all[0]!;
@@ -119,6 +121,7 @@ export function parseSearchParams<S extends z.ZodTypeAny>(
 ): z.output<S> {
   const url = request instanceof URL ? request : new URL(request.url);
   const raw = searchParamsToObject(url.searchParams);
+  if (containsNul(raw)) throw new ValidationError(t("backend.http.requestContainsNul"), { field: "query" });
   const parsed = schema.safeParse(raw, requestParseParams());
   if (!parsed.success) {
     // Same {summary, issues} convention as withApiRoute body/query validation.
@@ -131,6 +134,15 @@ export function parseSearchParams<S extends z.ZodTypeAny>(
     throw new ValidationError(summary, { field: "query", issues });
   }
   return parsed.data;
+}
+
+/** Prisma skip is a signed 32-bit offset. */
+export function paginationOffset(page: number, pageSize: number): number {
+  const skip = (page - 1) * pageSize;
+  if (!Number.isSafeInteger(skip) || skip < 0 || skip > 2_147_483_647) {
+    throw new ValidationError(apiCopy("apiCopy.validation.query.failed"), { field: "page" });
+  }
+  return skip;
 }
 
 /* ── Reusable query shapes ────────────────────────────────────────────── */

@@ -55,6 +55,13 @@ function parseExpiresAt(value?: string | null) {
   if (!hasTimezone) {
     throw new ValidationError(apiCopy("apiCopy.apiTokens.expiryTimezoneRequired"));
   }
+  const date = /^(\d{4})-(\d{2})-(\d{2})[Tt ]/.exec(trimmed);
+  const year = Number(date?.[1]), month = Number(date?.[2]), day = Number(date?.[3]);
+  const leap = year % 4 === 0 && (year % 100 !== 0 || year % 400 === 0);
+  const days = [31, leap ? 29 : 28, 31, 30, 31, 30, 31, 31, 30, 31, 30, 31];
+  if (!date || month < 1 || month > 12 || day < 1 || day > days[month - 1]!) {
+    throw new ValidationError(apiCopy("apiCopy.apiTokens.expiryInvalidFormat"));
+  }
   const expiresAt = new Date(trimmed);
   if (Number.isNaN(expiresAt.getTime())) throw new ValidationError(apiCopy("apiCopy.apiTokens.expiryInvalidFormat"));
   if (expiresAt.getTime() <= Date.now())
@@ -65,7 +72,7 @@ function parseExpiresAt(value?: string | null) {
 const tokenListQuery = z.object({
   pageSize: z.coerce.number().int().min(1).max(200).default(200),
   cursor: z.string().min(1).optional(),
-  status: z.enum(["all", "active", "expired", "revoked"]).default("all"),
+  status: z.enum(["all", "active", "unbound", "expired", "revoked"]).default("all"),
 });
 
 export async function GET(request: Request) {

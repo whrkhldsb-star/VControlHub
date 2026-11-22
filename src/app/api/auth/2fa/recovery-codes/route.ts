@@ -7,16 +7,11 @@
  * out for good once the last code was spent.
  */
 import { z } from "zod";
-import { checkSecurityChallenge } from "@/lib/auth/security-challenge-budget";
-import {
-  isAcceptableTwoFactorCodeShape,
-  verifyTwoFactorChallenge,
-} from "@/lib/auth/two-factor-challenge";
+import { isAcceptableTwoFactorCodeShape } from "@/lib/auth/two-factor-challenge-shape";
 import { createTwoFactorRecoveryCodes } from "@/lib/auth/two-factor-recovery";
-import { updateTwoFactorCredentials } from "@/lib/auth/two-factor-settings";
+import { changeTwoFactorWithProof } from "@/lib/auth/two-factor-settings";
 import { refreshedSessionResponse } from "@/lib/auth/refreshed-session-response";
 import { accountSecurityAuditTeam, auditUserAction } from "@/lib/audit/service";
-import { prisma } from "@/lib/db";
 import { ValidationError } from "@/lib/errors";
 import { withApiRoute } from "@/lib/http/api-guard";
 import { GENERAL_WRITE_LIMIT } from "@/lib/http/rate-limit-presets";
@@ -42,42 +37,19 @@ export async function POST(request: Request) {
         throw new ValidationError(t("api.auth.twoFactor.invalidCode", locale));
       }
 
-      const user = await prisma.user.findUnique({
-        where: { id: session.userId },
-        select: {
-          twoFactorEnabled: true,
-          twoFactorSecret: true,
-          twoFactorRecoveryCodes: true,
-          passwordHash: true,
-          sessionEpoch: true,
-        },
-      });
-      if (!user?.twoFactorEnabled || !user.twoFactorSecret) {
-        throw new ValidationError(t("api.auth.twoFactor.notEnabled", locale));
-      }
-      const challenge = await checkSecurityChallenge(session.userId, () => verifyTwoFactorChallenge({
-        userId: session.userId,
-        code: body.code,
-        sealedSecret: user.twoFactorSecret!,
-        storedRecoveryCodes: user.twoFactorRecoveryCodes,
-      }), (proof) => proof.valid);
-      if (!challenge.valid) {
-        throw new ValidationError(t("api.auth.twoFactor.invalidCode", locale));
-      }
-
-      const recovery = createTwoFactorRecoveryCodes();
-      const credentialBinding = await updateTwoFactorCredentials(session, user, {
-        twoFactorRecoveryCodes: recovery.hashes,
+      const { credentialBinding, usedRecoveryCode, value: recoveryCodes } = await changeTwoFactorWithProof(session, body.code, () => {
+        const recovery = createTwoFactorRecoveryCodes();
+        return { data: { twoFactorRecoveryCodes: recovery.hashes }, value: recovery.codes };
       });
       await auditUserAction(
         session.userId,
         "auth.2fa.recovery_codes_regenerated",
-        { userId: session.userId, usedRecoveryCode: challenge.usedRecoveryCode },
+        { userId: session.userId, usedRecoveryCode },
         "WARNING",
         accountSecurityAuditTeam(session),
       );
 
-      return refreshedSessionResponse(session, request, { success: true, recoveryCodes: recovery.codes }, credentialBinding);
+      return refreshedSessionResponse(session, request, { success: true, recoveryCodes }, credentialBinding);
     },
   );
 }

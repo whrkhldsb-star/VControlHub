@@ -1,7 +1,7 @@
 import { Client } from "pg";
 import { afterAll, describe, expect, it } from "vitest";
 
-import { AdvisoryLockBusyError, acquireAdvisoryLock, closeAdvisoryLockPoolForTests, getLockKeys, tryAcquireAdvisoryLock } from "../advisory-lock";
+import { AdvisoryLockBusyError, acquireMonitoredAdvisoryLock, acquireAdvisoryLock, closeAdvisoryLockPoolForTests, getLockKeys, tryAcquireAdvisoryLock } from "../advisory-lock";
 
 const hasDatabase =
   process.env.RUN_DATABASE_INTEGRATION_TESTS === "1" &&
@@ -81,17 +81,25 @@ if (hasDatabase) {
         const resource = `terminate-${Date.now()}-${Math.random()}`;
         // Two connections: one goes back to the pool idle, one holds a lock.
         const first = await acquireAdvisoryLock("backup-restore", `${resource}-idle`);
-        const held = await acquireAdvisoryLock("backup-restore", resource);
+        const held = await acquireMonitoredAdvisoryLock("backup-restore", resource);
+        await held.assertHeld();
         const idlePid = await holderPid(`${resource}-idle`);
         const heldPid = await holderPid(resource);
         expect(heldPid).not.toBe(idlePid);
         await first();
         await terminate([idlePid, heldPid]);
-        await held();
+        expect(held.signal.aborted).toBe(true);
+        await expect(held.assertHeld()).rejects.toThrow();
+        await held.release();
         // The lock ended with its session, and the pool takes new ones.
-        const again = await tryAcquireAdvisoryLock("backup-restore", resource);
-        expect(again).not.toBeNull();
-        await again!();
+        const again = await acquireMonitoredAdvisoryLock("backup-restore", resource);
+        try {
+          expect(BigInt(again.generation)).toBeGreaterThan(BigInt(held.generation));
+          await again.assertHeld();
+          await expect(held.assertHeld()).rejects.toThrow();
+        } finally {
+          await again.release();
+        }
       } finally {
         process.off("uncaughtException", onUncaught);
         await admin.end();

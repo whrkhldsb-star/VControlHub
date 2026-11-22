@@ -126,7 +126,7 @@ describe("/api/audit/export GET", () => {
 			severity: "WARNING",
 			search: "alice",
 			session,
-		});
+		}, expect.anything());
 	});
 
 	it("serialises nested detail values instead of [object Object]", async () => {

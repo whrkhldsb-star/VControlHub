@@ -156,6 +156,24 @@ describe("POST /api/login", () => {
     expect(okCalls.map((call) => call[4])).toEqual([null, "team_carol"]);
   });
 
+  it("keeps failure history if issuance rejects a stale credential binding", async () => {
+    const { clearLoginFailureAsync } = await import("@/lib/rate-limit");
+    createSessionTokenMock.mockRejectedValueOnce(new Error("stale binding"));
+    const res = await POST(makeLoginRequest({ username: "admin", password: "secret" }));
+    expect(res.headers.get("location")).toContain("error=system");
+    expect(clearLoginFailureAsync).not.toHaveBeenCalled();
+  });
+
+  it("reports the longer of the rejecting login windows in the response and audit", async () => {
+    const { checkRateLimitAsync } = await import("@/lib/rate-limit");
+    const { auditSystemAction } = await import("@/lib/audit/service");
+    vi.mocked(checkRateLimitAsync).mockResolvedValueOnce({ allowed: false, retryAfterMs: 1_000, remaining: 0 })
+      .mockResolvedValueOnce({ allowed: false, retryAfterMs: 8_020, remaining: 0 });
+    const res = await POST(makeLoginRequest({ username: "admin", password: "secret" }));
+    expect(res.headers.get("Retry-After")).toBe("9");
+    expect(auditSystemAction).toHaveBeenCalledWith("auth.login_rate_limited", expect.objectContaining({ retryAfter: 9 }), "WARNING");
+  });
+
   it("uses the normal session TTL when remember login is not checked", async () => {
     process.env.AUTH_SESSION_TTL_SECONDS = "1234";
 
@@ -165,6 +183,7 @@ describe("POST /api/login", () => {
     expect(response.headers.get("location")).toBe("/servers");
     expect(createSessionTokenMock).toHaveBeenCalledWith(expect.objectContaining({ userId: "u_1" }), { remember: false, credentialBinding });
     expect(response.headers.getSetCookie().join("\n")).toContain("Max-Age=1234");
+    expect(response.headers.getSetCookie().find(value => value.startsWith("test_pending_2fa="))).toContain("Max-Age=0");
   });
 
   it("extends session and csrf cookies when remember login is checked", async () => {

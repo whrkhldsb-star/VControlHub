@@ -1,7 +1,6 @@
-import { UserStatus } from "@prisma/client";
-
 import { ADMIN_BOOTSTRAP, getInitialAdminPassword } from "@/lib/auth/bootstrap";
-import { prisma } from "@/lib/db";
+import { isInitialAdminPasswordState } from "../src/lib/auth/bootstrap-state";
+import { prisma, isUniqueViolation } from "@/lib/db";
 import {
   ALL_PERMISSIONS,
   DEFAULT_ROLE_PERMISSIONS,
@@ -11,6 +10,7 @@ import {
 import { hashPassword } from "../src/lib/auth/password";
 import { tenantStorageBasePath } from "../src/lib/storage/path-utils";
 import { syncBuiltinIdentityTemplates } from "../src/lib/auth/identity-template-service";
+import { lockUserRow } from "../src/lib/user/row-lock";
 
 function seedLog(message: string) {
   if (process.env.SEED_DEBUG === "1") {
@@ -29,11 +29,11 @@ const PERMISSION_LABELS: Record<Permission, { name: string; description: string 
  "ai:ops:read": { name: "查看 AI 运维日志", description: "允许浏览 /ai-ops 页面与历史诊断记录" },
  "ai:ops:manage": { name: "管理 AI 运维", description: "允许切换 AI 运维 mode（recommendation/autonomous）、触发手动扫描与审批建议" },
  "ai:ops:autonomous": { name: "AI 自主执行", description: "允许开启 AI 自主执行模式（高风险，建议配合审批）" },
-	"deploy:export":{ name: "导出部署包", description: "允许生成不含敏感值的部署迁移模板包" },
-	"docker:manage": { name: "管理 Docker / 快捷服务", description: "允许管理 Docker 容器、镜像、编排与快捷服务部署" },
-	"image:read": { name: "查看图片外链", description: "允许查看图床中的图片与外链" },
-	"image:write": { name: "上传与管理图片外链", description: "允许上传、发布和删除图床图片（Docker 镜像归 docker:manage）" },
-	"media:manage": { name: "管理媒体库", description: "允许扫描、标记和浏览图片视频媒体资源" },
+  "deploy:export":{ name: "导出部署包", description: "允许生成不含敏感值的部署迁移模板包" },
+  "docker:manage": { name: "管理 Docker / 快捷服务", description: "允许管理 Docker 容器、镜像、编排与快捷服务部署" },
+  "image:read": { name: "查看图片外链", description: "允许查看图床中的图片与外链" },
+  "image:write": { name: "上传与管理图片外链", description: "允许上传、发布和删除图床图片（Docker 镜像归 docker:manage）" },
+  "media:manage": { name: "管理媒体库", description: "允许扫描、标记和浏览图片视频媒体资源" },
   "snippet:manage": { name: "管理代码片段", description: "允许创建、搜索和维护在线代码片段" },
   "ticket:create": { name: "创建工单", description: "允许提交新的站内请求工单" },
   "ticket:manage": { name: "管理工单", description: "允许查看全部工单并流转、指派站内请求工单" },
@@ -153,58 +153,47 @@ async function seedRoles() {
   seedLog("seedRoles:done");
 }
 
-async function seedAdmin() {
- seedLog("seedAdmin:start");
- const existingAdmin = await prisma.user.findUnique({
- where: { username: ADMIN_BOOTSTRAP.username },
- });
-
- const shouldRefreshInitialPassword = !existingAdmin || (
-   existingAdmin.status === UserStatus.PENDING_PASSWORD_RESET && existingAdmin.mustChangePassword === true
- );
- // Hash only when it is written (A10-10): every deploy paid a bcrypt round for nothing.
- const passwordHash = shouldRefreshInitialPassword ? await hashPassword(getInitialAdminPassword()) : "";
-
- const admin = await prisma.user.upsert({
- where: { username: ADMIN_BOOTSTRAP.username },
- update: {
- displayName: ADMIN_BOOTSTRAP.displayName,
- // Do NOT overwrite passwordHash for active users on re-seed. If the admin
- // account is still in first-login reset state, keep it aligned with the
- // current ADMIN_INITIAL_PASSWORD so fresh installs and redeploys are usable.
- ...(shouldRefreshInitialPassword
- ? {
- passwordHash,
- status: UserStatus.PENDING_PASSWORD_RESET,
- mustChangePassword: true,
- }
- : {}),
- },
- create: {
- username: ADMIN_BOOTSTRAP.username,
- displayName: ADMIN_BOOTSTRAP.displayName,
- passwordHash,
- status: UserStatus.PENDING_PASSWORD_RESET,
- mustChangePassword: true,
- },
- });
-
-  const adminRole = await prisma.role.findUniqueOrThrow({ where: { key: "admin" } });
-
-  await prisma.userRole.upsert({
-    where: {
-      userId_roleId: {
-        userId: admin.id,
-        roleId: adminRole.id,
-      },
-    },
-    update: {},
-    create: {
-      userId: admin.id,
-      roleId: adminRole.id,
+export async function seedBootstrapAdmin(defaultTeamId: string | null) {
+  const username = ADMIN_BOOTSTRAP.username;
+  const adminRole = { role: { key: "admin" } };
+  const existing = await prisma.user.findUnique({
+    where: { username },
+    select: {
+      id: true, status: true, displayName: true, passwordHash: true, mustChangePassword: true,
+      roles: { where: adminRole, select: { roleId: true } }, teamMembership: { select: { teamId: true } },
     },
   });
-  seedLog("seedAdmin:done");
+  if (existing) {
+    if (!existing.roles.length || existing.teamMembership) return;
+    const pending = isInitialAdminPasswordState(existing);
+    if (!pending && existing.displayName === ADMIN_BOOTSTRAP.displayName) return;
+    const passwordHash = pending ? await hashPassword(getInitialAdminPassword()) : undefined;
+    await prisma.$transaction(async tx => {
+      // Read role and membership in the statement after any in-flight demotion releases this row.
+      await lockUserRow(tx, existing.id);
+      await tx.user.updateMany({
+        where: {
+          id: existing.id, roles: { some: adminRole }, teamMembership: null,
+          ...(pending ? { passwordHash: existing.passwordHash, status: "PENDING_PASSWORD_RESET", mustChangePassword: true } : {}),
+        },
+        data: { displayName: ADMIN_BOOTSTRAP.displayName, ...(pending ? { passwordHash } : {}) },
+      });
+    }, { isolationLevel: "ReadCommitted" });
+    return;
+  }
+  const passwordHash = await hashPassword(getInitialAdminPassword());
+  // Nested creation binds the grant and preference to this insertion only.
+  await prisma.user.upsert({
+    where: { username }, update: {},
+    create: {
+      ...ADMIN_BOOTSTRAP, passwordHash, currentTeamId: defaultTeamId,
+      roles: { create: { role: { connect: { key: "admin" } } } },
+    },
+  }).catch((error: unknown) => {
+    if (!isUniqueViolation(error)) throw error;
+    // Another seed inserted this username during the nested upsert.
+    return prisma.user.findUniqueOrThrow({ where: { username } });
+  });
 }
 
 /**
@@ -212,27 +201,17 @@ async function seedAdmin() {
  * resources, so the administrator has a customer to create resources in.
  * Administrators need no membership; the seed only preselects it.
  */
-async function seedDefaultCustomer(): Promise<string | null> {
-  const admin = await prisma.user.findUniqueOrThrow({
-    where: { username: ADMIN_BOOTSTRAP.username },
-    select: { id: true },
-  });
-  const live = await prisma.team.findMany({ where: { deletedAt: null }, select: { id: true }, take: 2 });
-  // With several customers there is no single default to preselect.
-  if (live.length > 1) return null;
-  // No live customer on an instance that had some: the administrator
-  // deleted them. Respect that (a fresh install has no customer rows at
-  // all); creating "default" again also collided with the deleted row's
-  // slug and failed the seed, and with it every install and upgrade.
-  if (live.length === 0 && (await prisma.team.findFirst({ select: { id: true } }))) return null;
-  const teamId = live[0]?.id ?? (await prisma.team.create({
+async function seedDefaultCustomer() {
+  const live = await prisma.team.findMany({ where: { deletedAt: null }, select: { id: true, slug: true }, take: 2 });
+  if (live.length) return live.length === 1 ? live[0]! : null;
+  // An archived default is still the operator's decision, including on a subsequent deployment.
+  if (await prisma.team.findFirst({ select: { id: true } })) return null;
+  return prisma.team.create({
     data: { slug: "default", name: "平台自用", description: "平台自己的服务器与存储" },
-  })).id;
-  await prisma.user.updateMany({
-    where: { id: admin.id, currentTeamId: null },
-    data: { currentTeamId: teamId },
+  }).catch(async (error: unknown) => {
+    if (!isUniqueViolation(error)) throw error;
+    return prisma.team.findUnique({ where: { slug: "default", deletedAt: null }, select: { id: true, slug: true } });
   });
-  return teamId;
 }
 
 async function seedDefaultLocalStorageNode(teamId: string | null) {
@@ -364,20 +343,22 @@ async function seedDemoData(teamId: string | null) {
 }
 
 export async function seedDatabase() {
-	seedLog("seedDatabase:start");
-	if (process.env.NODE_ENV === "production") {
-		const demoFlags = ["SEED_DEMO_DATA", "DEMO_MODE", "ENABLE_DEMO_FALLBACK", "AUTH_DEMO_FALLBACK", "SERVER_DEMO_FALLBACK", "STORAGE_DEMO_FALLBACK", "COMMAND_DEMO_FALLBACK"];
-		for (const flag of demoFlags) {
-			if (process.env[flag]?.trim().toLowerCase() === "true") {
-				throw new Error(`${flag}=true is forbidden when NODE_ENV=production`);
-			}
-		}
-	}
-	await seedPermissions();
+  seedLog("seedDatabase:start");
+  if (process.env.NODE_ENV === "production") {
+    const demoFlags = ["SEED_DEMO_DATA", "DEMO_MODE", "ENABLE_DEMO_FALLBACK", "AUTH_DEMO_FALLBACK", "SERVER_DEMO_FALLBACK", "STORAGE_DEMO_FALLBACK", "COMMAND_DEMO_FALLBACK"];
+    for (const flag of demoFlags) {
+      if (process.env[flag]?.trim().toLowerCase() === "true") {
+        throw new Error(`${flag}=true is forbidden when NODE_ENV=production`);
+      }
+    }
+  }
+  await seedPermissions();
   await seedRoles();
-  await seedAdmin();
+  const customer = await seedDefaultCustomer();
+  const defaultTeamId = customer?.id ?? null;
+  // Also completes an interrupted first install that created the default customer before its admin.
+  await seedBootstrapAdmin(customer?.slug === "default" ? customer.id : null);
   await syncBuiltinIdentityTemplates();
-  const defaultTeamId = await seedDefaultCustomer();
   await seedDefaultLocalStorageNode(defaultTeamId);
   if (shouldSeedDemoData()) {
     seedLog("seedDemoData:start");

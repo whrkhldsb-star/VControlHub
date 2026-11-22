@@ -3,6 +3,7 @@ import { apiCopy, withApiCopyLocale } from "@/lib/i18n/api-copy";
  * 2FA Login Verification — exchange a pending-2fa token + TOTP code for a full session.
  * POST /api/auth/2fa/verify-login { code }
  */
+import { clearPendingLogin } from "@/lib/auth/login-cookies";
 import { NextResponse } from "next/server";
 import { z } from "zod";
 import { cookies } from "next/headers";
@@ -191,8 +192,6 @@ async function verifyLogin(request: Request) {
 				status: 400,
 			});
 		}
-		// Full success — the login (password + second factor) is complete.
-		await clearLoginFailureAsync(user.username, clientIp);
 
 		// ── 2FA verified — create full session from live DB state ──
 		const liveRoles = user.roles
@@ -240,13 +239,8 @@ async function verifyLogin(request: Request) {
 			maxAge: sessionMaxAge,
 			secure: cookieSecure,
 		});
-		response.cookies.set(getPending2faCookieName(), "", {
-			httpOnly: true,
-			sameSite: "lax",
-			path: "/",
-			maxAge: 0,
-			secure: cookieSecure,
-		});
+		clearPendingLogin(response, cookieSecure);
+		await clearLoginFailureAsync(user.username, clientIp);
 		return response;
 	} catch (error) {
 		// apiCatch with 500 fallback logs the error and returns INTERNAL_ERROR

@@ -7,6 +7,7 @@ import { prisma } from "@/lib/db";
 import { apiCatch } from "@/lib/http/api-error";
 import type { SessionPayload } from "../session";
 import { captureSessionCredentialBinding, createSessionToken, getSessionCookieName, verifySessionToken } from "../session";
+import { createTwoFactorRecoveryCodes } from "../two-factor-recovery";
 import { createTwoFactorEnrollmentToken } from "../two-factor-enrollment";
 import { POST as enable } from "@/app/api/auth/2fa/enable/route";
 import { POST as disable } from "@/app/api/auth/2fa/disable/route";
@@ -207,5 +208,14 @@ describe.skipIf(process.env.RUN_DATABASE_INTEGRATION_TESTS !== "1")("two-factor 
     expect(user.sessionEpoch).toBe(5);
     expect(user.twoFactorEnabled).toBe(enabled);
     expect(user.twoFactorRecoveryCodes).toBeNull();
+  });
+  it("retains the final recovery code when a revoked session attempts a settings change", async () => {
+    const { hashes, codes } = createTwoFactorRecoveryCodes(1);
+    await prisma.user.update({ where: { id }, data: { twoFactorEnabled: true, twoFactorSecret: "JBSWY3DPEHPK3PXP", twoFactorRecoveryCodes: hashes, sessionEpoch: { increment: 1 } } });
+    for (const change of [regenerate, disable]) {
+      const result = await change(new Request("http://localhost/api/auth/2fa", { method: "POST", body: JSON.stringify({ code: codes[0] }) }));
+      expect(result.status).toBe(401);
+      expect((await prisma.user.findUniqueOrThrow({ where: { id } })).twoFactorRecoveryCodes).toEqual(hashes);
+    }
   });
 });

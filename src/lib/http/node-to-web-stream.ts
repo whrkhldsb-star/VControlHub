@@ -29,9 +29,12 @@ export function nodeStreamToWeb(nodeStream: NodeJS.ReadableStream, idleTimeoutMs
 			};
 			const onData = (chunk: Buffer | string) => {
 				if (closed) return;
-				resetIdle();
 				controller.enqueue(typeof chunk === "string" ? new TextEncoder().encode(chunk) : chunk);
-				if ((controller.desiredSize ?? 0) <= 0) nodeStream.pause();
+				if ((controller.desiredSize ?? 0) <= 0) {
+					nodeStream.pause();
+					clearTimeout(timer);
+					timer = undefined;
+				} else resetIdle();
 			};
 			const onEnd = () => {
 				if (closed) return;
@@ -46,7 +49,11 @@ export function nodeStreamToWeb(nodeStream: NodeJS.ReadableStream, idleTimeoutMs
 					controller.error(error);
 				}
 			};
-			const onClose = () => { onEnd(); cleanup(); };
+			const onClose = () => {
+				if (nodeStream.readableEnded) onEnd();
+				else onError(new Error("Download stream closed before end"));
+				cleanup();
+			};
 			resetIdle();
 			nodeStream.on("data", onData);
 			nodeStream.once("end", onEnd);
@@ -54,7 +61,10 @@ export function nodeStreamToWeb(nodeStream: NodeJS.ReadableStream, idleTimeoutMs
 			nodeStream.once("close", onClose);
 		},
 		pull() {
-			if (!closed) nodeStream.resume();
+			if (!closed && nodeStream.isPaused()) {
+				resetIdle();
+				nodeStream.resume();
+			}
 		},
 		cancel() {
 			// Late SSH/file events can arrive before destroy emits close. Guard

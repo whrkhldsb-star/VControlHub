@@ -127,6 +127,14 @@ describe("POST /api/auth/signout", () => {
 		expect(mocks.auditUserAction).toHaveBeenCalledWith("u_admin", "auth.signout", expect.any(Object), undefined, null);
 	});
 
+	it("clears all cookies if the database cannot load the audit identity", async () => {
+		mocks.getApiSession.mockRejectedValueOnce(new Error("unavailable"));
+		const response = await route.POST(new Request("https://hub.example/api/auth/signout", { method: "POST" }));
+		expect(response.status).toBe(303);
+		expect([...clearedCookies(response).values()]).toHaveLength(3);
+		for (const header of clearedCookies(response).values()) expect(header).toContain("Max-Age=0");
+	});
+
 	it("still clears cookies when there is no resolvable session", async () => {
 		mocks.getApiSession.mockResolvedValue(null);
 

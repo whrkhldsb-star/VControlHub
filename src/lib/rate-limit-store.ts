@@ -34,6 +34,10 @@ export interface RateLimitStore {
     _windowMs: number,
     _keepNewest?: number,
   ): Promise<number[]>;
+  /** Reserve capacity before verifying. A crashed verifier's reservation expires. */
+  reserveChallenge(key: string, ticket: string, windowMs: number, limit: number): Promise<boolean>;
+  /** Release this ticket or charge a failure. Returns true when the failure locks the account. */
+  settleChallenge(key: string, ticket: string, failed: boolean, windowMs: number, limit: number): Promise<boolean>;
   /** Shared account-lockout state (multi-instance when Redis is configured). */
   getLockout(_key: string): Promise<AccountLockoutState | null>;
   setLockout(
@@ -83,6 +87,7 @@ class MemoryRateLimitStore implements RateLimitStore {
     { state: AccountLockoutState; expiresAt: number }
   >();
   private lastLockoutSweepAt = 0;
+  private challenges = new Map<string, Map<string, number>>();
 
   constructor() {
     // Periodic cleanup — unref'd so the timer never keeps a process (tests,
@@ -133,6 +138,37 @@ class MemoryRateLimitStore implements RateLimitStore {
     this.makeRoom(name, map, key, timestamp);
     map.set(key, { entries, windowMs });
     return entries;
+  }
+
+  private liveTickets(key: string, now: number) {
+    const tickets = this.challenges.get(key);
+    if (tickets) {
+      for (const [id, deadline] of tickets) if (deadline <= now) tickets.delete(id);
+      if (!tickets.size) this.challenges.delete(key);
+    }
+    return tickets;
+  }
+
+  async reserveChallenge(key: string, ticket: string, windowMs: number, limit: number) {
+    const now = Date.now();
+    if (this.readLockout(key, now)?.lockedUntil) return false;
+    const tickets = this.liveTickets(key, now) ?? new Map<string, number>();
+    if (tickets.size >= limit || (!tickets.size && this.challenges.size >= MEMORY_STORE_MAX_KEYS)) return false;
+    tickets.set(ticket, now + windowMs);
+    this.challenges.set(key, tickets);
+    return true;
+  }
+
+  async settleChallenge(key: string, ticket: string, failed: boolean, windowMs: number, limit: number) {
+    const now = Date.now();
+    const tickets = this.liveTickets(key, now);
+    if (!tickets?.delete(ticket)) return false;
+    if (failed) tickets.set("failed:" + ticket, now + windowMs);
+    if (!tickets.size) this.challenges.delete(key);
+    const failures = [...tickets.keys()].filter(id => id.startsWith("failed:")).length;
+    if (failures < limit) return false;
+    this.writeLockout(key, { failCount: failures, lastFailureAt: now, lockedUntil: now + windowMs }, now + windowMs, now);
+    return true;
   }
 
   private readLockout(key: string, now: number): AccountLockoutState | null {
@@ -192,6 +228,7 @@ class MemoryRateLimitStore implements RateLimitStore {
 
   private cleanup() {
     const now = Date.now();
+    for (const key of this.challenges.keys()) this.liveTickets(key, now);
     for (const [name, map] of this.timestamps) {
       for (const [key, state] of map) {
         const recent = state.entries.filter((t) => now - t < state.windowMs);
@@ -267,6 +304,30 @@ end
 const GET_LOCKOUT = READ_LOCKOUT + `
 local _, raw = readLockout(KEYS[1])
 return raw or false
+`;
+
+// Each account has at most limit tickets. A failure replaces only its own
+// reservation. A late settlement can never remove a newer verifier's ticket.
+const CHALLENGE_WINDOW = READ_LOCKOUT + `
+local window, limit, ticket = tonumber(ARGV[1]), tonumber(ARGV[2]), ARGV[3]
+redis.call('ZREMRANGEBYSCORE', KEYS[1], '-inf', now)
+if ARGV[4] == 'reserve' then
+  if readLockout(KEYS[2]) or redis.call('ZCARD', KEYS[1]) >= limit then return 0 end
+  redis.call('ZADD', KEYS[1], now + window, ticket)
+  redis.call('PEXPIRE', KEYS[1], window)
+  return 1
+end
+if redis.call('ZREM', KEYS[1], ticket) == 0 or ARGV[4] == 'release' then return 0 end
+redis.call('ZADD', KEYS[1], now + window, 'failed:' .. ticket)
+redis.call('PEXPIRE', KEYS[1], window)
+local failures = 0
+for _, id in ipairs(redis.call('ZRANGE', KEYS[1], 0, -1)) do
+  if string.sub(id, 1, 7) == 'failed:' then failures = failures + 1 end
+end
+if failures < limit then return 0 end
+local state = {failCount = failures, lastFailureAt = now, lockedUntil = now + window}
+redis.call('SET', KEYS[2], cjson.encode(state), 'PX', window)
+return 1
 `;
 
 const RECORD_FAILURES = READ_LOCKOUT + `
@@ -371,6 +432,22 @@ class RedisRateLimitStore implements RateLimitStore {
     return members
       .map((member) => Number(member.split(":", 1)[0]))
       .filter(Number.isFinite);
+  }
+
+  private async challengeTicket(key: string, ticket: string, windowMs: number, limit: number, operation: string) {
+    const client = await this.getClient();
+    return (await client.eval(CHALLENGE_WINDOW, {
+      keys: [`${this.prefix}challenge:${key}`, `${this.prefix}lockout:${key}`],
+      arguments: [String(windowMs), String(limit), ticket, operation],
+    })) === 1;
+  }
+
+  reserveChallenge(key: string, ticket: string, windowMs: number, limit: number) {
+    return this.challengeTicket(key, ticket, windowMs, limit, "reserve");
+  }
+
+  settleChallenge(key: string, ticket: string, failed: boolean, windowMs: number, limit: number) {
+    return this.challengeTicket(key, ticket, windowMs, limit, failed ? "fail" : "release");
   }
 
   async getLockout(key: string): Promise<AccountLockoutState | null> {

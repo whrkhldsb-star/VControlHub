@@ -75,7 +75,7 @@ const THROUGH_VARIABLES: Record<string, RegExp> = {
 	[join("src", "ssh-ws-proxy.ts")]: /["'](server\.ssh\.\w+)["']/g,
 	[join("src", "lib", "rdp", "ws.ts")]: /\baudit\(["'](server\.rdp\.\w+)["']/g,
 	[join("src", "lib", "playbook", "trigger-service.ts")]: /recordTriggerAudit\(["'](playbook\.trigger\.\w+)["']/g,
-	[join("src", "app", "api", "admin", "public-status", "nodes", "[serverId]", "route.ts")]: /["'](public_status\.node\.\w+)["']/g,
+	[join("src", "app", "api", "admin", "public-status", "mutations.ts")]: /["'](public_status\.node\.\w+)["']/g,
 };
 
 function writtenActions(): Map<string, string> {

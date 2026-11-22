@@ -29,9 +29,9 @@ describe.skipIf(process.env.RUN_DATABASE_INTEGRATION_TESTS !== "1")("audit expor
   it("distinguishes exactly 50,000 matches from one extra and never repeats a cursor row", async () => {
     const exact = await prepareAuditExport({ action });
     expect(exact.truncated).toBe(false);
-    // Insert a newer row after preparing the exact export. Each export keeps its own upper bound.
+    // A late commit sorts inside the already prepared export, between its original rows.
     const added = await prisma.auditLog.create({ data: {
-      id: action + "-new", action, actorType: "SYSTEM", detail: {}, createdAt: new Date(timestamp.getTime() + 1),
+      id: action + "025000-late", action, actorType: "SYSTEM", detail: {}, createdAt: timestamp,
     } });
     const overflow = await prepareAuditExport({ action });
     expect(overflow.truncated).toBe(true);

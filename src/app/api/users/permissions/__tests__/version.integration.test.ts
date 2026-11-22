@@ -84,4 +84,35 @@ describe.skipIf(process.env.RUN_DATABASE_INTEGRATION_TESTS !== "1")("versioned a
     ]);
     expect(responses.map(response => response.status).sort()).toEqual([200, 409]);
   });
+
+  it("continues a literal name search after the previous option has been deleted", async () => {
+    const names = ["srv_a-one", "srv_a-two", "srvXa-extra"];
+    await prisma.server.createMany({ data: names.map(name => ({
+      id: id + name, teamId: id, name, host: "example.invalid", username: "fixture",
+    })) });
+    try {
+      const params = new URLSearchParams({ userId: id, resource: "servers", search: "srv_a", pageSize: "1" });
+      const first = await (await GET(new Request(url + "?" + params))).json();
+      expect(first.servers).toMatchObject([{ name: names[0] }]);
+      params.set("serverAfter", first.nextCursor.servers);
+      await prisma.server.delete({ where: { id: id + names[0] } });
+      const next = await (await GET(new Request(url + "?" + params))).json();
+      expect(next.servers).toMatchObject([{ name: names[1] }]);
+      expect(next.nextCursor.servers).toBeNull();
+    } finally {
+      await prisma.server.deleteMany({ where: { id: { in: names.map(name => id + name) } } });
+    }
+  });
+
+  it("returns per-prefix usage for overlapping grants, retaining literal path boundaries", async () => {
+    const prefixes = ["ops_", "ops_/child", "empty"];
+    await prisma.userStorageAccess.createMany({ data: prefixes.map(pathPrefix => ({ userId: id, storageNodeId: id, pathPrefix })) });
+    const paths = ["ops_/a", "ops_/child/b", "opsX/large", "ops_/removed"];
+    await prisma.fileEntry.createMany({ data: paths.map((relativePath, index) => ({
+      storageNodeId: id, relativePath, name: "test", size: 2 ** index, entryType: "FILE", isDeleted: index === 3,
+    })) });
+    const result = await (await GET(new Request(url + "?userId=" + id + "&includeAssigned=1&pageSize=1"))).json();
+    const usage = new Map(result.user.storageAccess.map((grant: { pathPrefix: string; usedBytes: string }) => [grant.pathPrefix, grant.usedBytes]));
+    expect(prefixes.map(prefix => usage.get(prefix))).toEqual(["3", "2", "0"]);
+  });
 });

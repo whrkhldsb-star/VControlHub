@@ -11,6 +11,7 @@
  * account's 2FA either, so the account became permanently unreachable once its
  * recovery codes ran out. Routing all three through this helper closes that.
  */
+import type { Prisma } from "@prisma/client";
 import { verify as verifyTOTP } from "otplib";
 
 import { prisma } from "@/lib/db";
@@ -33,8 +34,7 @@ export type TwoFactorChallengeResult = {
 /**
  * Verify a second factor, consuming the recovery code if that is what was used.
  *
- * Consumption is a compare-and-set on the whole stored array, so two concurrent
- * requests presenting the same code cannot both succeed.
+ * PostgreSQL removes just the matched fingerprint from the current array.
  */
 export async function verifyTwoFactorChallenge(input: {
   userId: string;
@@ -43,7 +43,7 @@ export async function verifyTwoFactorChallenge(input: {
   sealedSecret: string;
   /** `user.twoFactorRecoveryCodes` as stored — an array of HMAC fingerprints. */
   storedRecoveryCodes: unknown;
-}): Promise<TwoFactorChallengeResult> {
+}, db: Prisma.TransactionClient = prisma): Promise<TwoFactorChallengeResult> {
   if (isTotpCodeShape(input.code)) {
     const totp = await verifyTOTP({
       token: input.code.trim(),
@@ -53,7 +53,7 @@ export async function verifyTwoFactorChallenge(input: {
       // Verify cryptographically first, then consume with one database CAS.
       // A concurrent attempt, another process, or an old credential snapshot
       // cannot spend the same step twice (nor authenticate after rotation).
-      const consumed = await prisma.user.updateMany({
+      const consumed = await db.user.updateMany({
         where: {
           id: input.userId,
           status: { not: "DISABLED" },
@@ -72,23 +72,11 @@ export async function verifyTwoFactorChallenge(input: {
     input.code,
     input.storedRecoveryCodes,
   );
-  if (!matchingHash || !Array.isArray(input.storedRecoveryCodes)) {
-    return { valid: false, usedRecoveryCode: false };
-  }
-
-  const remainingHashes = input.storedRecoveryCodes.filter(
-    (hash): hash is string => typeof hash === "string" && hash !== matchingHash,
-  );
-  const consumed = await prisma.user.updateMany({
-    where: {
-      id: input.userId,
-      twoFactorEnabled: true,
-      twoFactorSecret: input.sealedSecret,
-      status: { not: "DISABLED" },
-      twoFactorRecoveryCodes: { equals: input.storedRecoveryCodes },
-    },
-    data: { twoFactorRecoveryCodes: remainingHashes },
-  });
-  const valid = consumed.count === 1;
-  return { valid, usedRecoveryCode: valid };
+  if (!matchingHash) return { valid: false, usedRecoveryCode: false };
+  const consumed = await db.$executeRaw`
+    UPDATE "User" SET "twoFactorRecoveryCodes" = "twoFactorRecoveryCodes" - ${matchingHash}::text, "updatedAt" = NOW()
+    WHERE id = ${input.userId} AND status <> 'DISABLED' AND "twoFactorEnabled"
+      AND "twoFactorSecret" = ${input.sealedSecret} AND jsonb_typeof("twoFactorRecoveryCodes") = 'array'
+      AND "twoFactorRecoveryCodes" ? ${matchingHash}::text`;
+  return { valid: consumed === 1, usedRecoveryCode: consumed === 1 };
 }

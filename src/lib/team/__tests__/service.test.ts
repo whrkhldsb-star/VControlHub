@@ -2,9 +2,9 @@ import { beforeEach, describe, expect, it, vi } from "vitest";
 import type { SessionPayload } from "@/lib/auth/session";
 import { ForbiddenError, NotFoundError, ValidationError } from "@/lib/errors";
 
-const { prismaMock, auditUserActionMock } = vi.hoisted(() => ({
+const { prismaMock, auditUserActionMock, writeAuditLog } = vi.hoisted(() => ({
 	prismaMock: {
-		team: { findMany: vi.fn(), findUnique: vi.fn(), create: vi.fn(), update: vi.fn() },
+		team: { findMany: vi.fn(), findUnique: vi.fn(), create: vi.fn(), update: vi.fn(), updateManyAndReturn: vi.fn() },
 		teamMember: { findMany: vi.fn(), findUnique: vi.fn(), upsert: vi.fn(), updateMany: vi.fn(), delete: vi.fn(), deleteMany: vi.fn() },
 		user: { findUnique: vi.fn(), update: vi.fn(), updateMany: vi.fn() },
 		identityTemplate: { findUnique: vi.fn() },
@@ -15,14 +15,17 @@ const { prismaMock, auditUserActionMock } = vi.hoisted(() => ({
 		$queryRaw: vi.fn(),
 	},
 	auditUserActionMock: vi.fn(),
+	writeAuditLog: vi.fn(),
 }));
 
+vi.mock("@/lib/auth/session", async original => ({ ...await original<typeof import("@/lib/auth/session")>(), assertSessionCredentialBinding: vi.fn() }));
 vi.mock("@/lib/db", () => ({ prisma: prismaMock, isUniqueViolation: (e: unknown) => (e as { code?: string })?.code === "P2002" }));
-vi.mock("@/lib/audit/service", () => ({ auditUserAction: auditUserActionMock }));
+vi.mock("@/lib/audit/service", () => ({ auditUserAction: auditUserActionMock, writeAuditLog }));
 
 const {
 	createTeam,
 	deleteTeam,
+	listLiveCustomerOptions,
 	listTeamsForSession,
 	removeTeamMember,
 	restoreTeam,
@@ -39,8 +42,13 @@ const live = (id = "team_a") => ({ id, slug: id, name: id.toUpperCase(), deleted
 describe("customer service", () => {
 	beforeEach(() => {
 		vi.resetAllMocks();
-		prismaMock.$queryRaw.mockImplementation(async (_sql, id: string) => [live(id)]);
+		prismaMock.$queryRaw.mockImplementation(async (sql: TemplateStringsArray, id: string) => {
+			if (sql.join("").includes('JOIN "UserRole"')) return [{ status: "ACTIVE", mustChangePassword: false }];
+			if (sql.join("").includes("identity_templates")) return id === "missing" ? [] : [{ id }];
+			return [live(id)];
+		});
 		prismaMock.$transaction.mockImplementation(async (arg: unknown) => (typeof arg === "function" ? arg(prismaMock) : Promise.all(arg as unknown[])));
+		prismaMock.team.updateManyAndReturn.mockResolvedValue([live()]);
 		prismaMock.team.findUnique.mockImplementation(async ({ where }: { where: { id: string } }) => live(where.id));
 	});
 
@@ -57,6 +65,19 @@ describe("customer service", () => {
 		])("refuses %s for a customer account", async (_name, run) => {
 			await expect(run()).rejects.toBeInstanceOf(ForbiddenError);
 		});
+	});
+
+	it("continues live customer options by sort keys when the boundary customer is archived", async () => {
+		const createdAt = new Date("2026-01-01T00:00:00Z");
+		const first = Array.from({ length: 500 }, (_, index) => ({ ...live(String(index).padStart(3, "0")), createdAt }));
+		prismaMock.team.findMany.mockResolvedValueOnce(first).mockResolvedValueOnce([{ ...live("500"), createdAt }]);
+		const options = await listLiveCustomerOptions();
+		expect(prismaMock.team.findMany).toHaveBeenNthCalledWith(2, {
+			where: { deletedAt: null, OR: [{ createdAt: { gt: createdAt } }, { createdAt, id: { gt: "499" } }] },
+			select: { id: true, name: true, createdAt: true }, orderBy: [{ createdAt: "asc" }, { id: "asc" }], take: 500,
+		});
+		expect(options).toHaveLength(501);
+		expect(options.at(-1)).toEqual({ id: "500", name: "500" });
 	});
 
 	describe("listTeamsForSession", () => {
@@ -111,25 +132,28 @@ describe("customer service", () => {
 	describe("deleteTeam / restoreTeam", () => {
 		it("marks the customer deleted and returns administrators viewing it to all customers", async () => {
 			const result = await deleteTeam("team_a", { ...admin, currentTeamId: "team_a" });
-			expect(prismaMock.team.update).toHaveBeenCalledWith({ where: { id: "team_a" }, data: { deletedAt: expect.any(Date) } });
+			expect(prismaMock.team.updateManyAndReturn).toHaveBeenCalledWith(expect.objectContaining({ where: { id: "team_a", deletedAt: null }, data: { deletedAt: expect.any(Date) } }));
 			expect(prismaMock.user.updateMany).toHaveBeenCalledWith({
 				where: { currentTeamId: "team_a", teamMembership: { is: null } },
 				data: { currentTeamId: null },
 			});
 			expect(result.nextCurrentTeamId).toBeNull();
+			expect(writeAuditLog).toHaveBeenCalledWith(expect.objectContaining({ action: "team.delete", teamId: "team_a" }), prismaMock);
 		});
 
 		it("refuses to delete a customer that is already deleted", async () => {
-			prismaMock.team.findUnique.mockResolvedValueOnce({ ...live(), deletedAt: new Date() });
+			prismaMock.team.updateManyAndReturn.mockResolvedValueOnce([]);
 			await expect(deleteTeam("team_a", admin)).rejects.toBeInstanceOf(NotFoundError);
+			expect(writeAuditLog).not.toHaveBeenCalled();
 		});
 
 		it("restores only a deleted customer", async () => {
-			prismaMock.team.findUnique.mockResolvedValueOnce({ id: "team_a", slug: "a", deletedAt: new Date() });
+			prismaMock.team.updateManyAndReturn.mockResolvedValueOnce([live()]).mockResolvedValueOnce([]);
 			await restoreTeam("team_a", admin);
-			expect(prismaMock.team.update).toHaveBeenCalledWith({ where: { id: "team_a" }, data: { deletedAt: null } });
+			expect(prismaMock.team.updateManyAndReturn).toHaveBeenCalledWith(expect.objectContaining({ where: { id: "team_a", deletedAt: { not: null } }, data: { deletedAt: null } }));
 
 			await expect(restoreTeam("team_a", admin)).rejects.toBeInstanceOf(NotFoundError);
+			expect(writeAuditLog).toHaveBeenCalledTimes(1);
 		});
 	});
 
@@ -173,7 +197,7 @@ describe("customer service", () => {
 			});
 			await expect(setCustomerMembership({ teamId: "team_a", userId: "u_x" }, admin)).rejects.toBeInstanceOf(ValidationError);
 			expect(prismaMock.$queryRaw).toHaveBeenCalledWith(expect.anything(), "u_x");
-			expect(prismaMock.teamMember.findUnique).not.toHaveBeenCalled();
+			expect(prismaMock.teamMember.findUnique).toHaveBeenCalledWith({ where: { userId: "u_x" }, select: { teamId: true } });
 			expect(prismaMock.teamMember.upsert).not.toHaveBeenCalled();
 		});
 

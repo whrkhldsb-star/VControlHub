@@ -72,13 +72,13 @@ describe("pruneAuditLogs", () => {
 		expect(prismaMock.auditLog.deleteMany).toHaveBeenCalledTimes(3);
 	});
 
-	it("caps a sweep at forty bounded delete statements", async () => {
-		prismaMock.auditLog.findMany.mockResolvedValue(ids("batch", 100));
+	it.each([false, true])("caps deletes and reports the presence of a remaining row (%s)", async remaining => {
+		prismaMock.auditLog.findMany.mockImplementation(async args => ids("batch", remaining ? args!.take : 100));
 		prismaMock.auditLog.deleteMany.mockResolvedValue({ count: 100 });
 
 		const result = await pruneAuditLogs({ retentionDays: 90, batchSize: 100 });
 
-		expect(result).toEqual({ deleted: 4_000, retentionDays: 90, truncated: true });
+		expect(result).toEqual({ deleted: 4_000, retentionDays: 90, truncated: remaining });
 		expect(prismaMock.auditLog.findMany).toHaveBeenCalledTimes(40);
 		expect(prismaMock.auditLog.deleteMany).toHaveBeenCalledTimes(40);
 	});

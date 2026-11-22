@@ -186,6 +186,15 @@ describe("/api/api-tokens", () => {
     });
   });
 
+  it.each([["2031-02-30T00:00:00Z", 400], ["2031-02-29T00:00:00+0800", 400], ["2032-02-29T00:00:00+08:00", 201]])(
+    "validates the calendar date before applying its timezone (%s)", async (expiresAt, status) => {
+      const res = await route.POST(new Request("http://local/api/api-tokens", {
+        method: "POST", headers: { "content-type": "application/json" }, body: JSON.stringify({ name: "cli", expiresAt }),
+      }));
+      expect(res.status).toBe(status);
+    },
+  );
+
   it("rejects bare datetime-local expiresAt without timezone offset", async () => {
     const req = new Request("http://local/api/api-tokens", {
       method: "POST",

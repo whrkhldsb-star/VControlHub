@@ -1,7 +1,7 @@
 import { beforeEach, describe, expect, it, vi } from "vitest";
 
 const tx = vi.hoisted(() => ({
-  apiToken: { updateMany: vi.fn(), findUnique: vi.fn() }, auditLog: { create: vi.fn() },
+  apiToken: { updateMany: vi.fn(), findUnique: vi.fn(), findMany: vi.fn() }, auditLog: { create: vi.fn() },
 }));
 vi.mock("@/lib/db", () => ({ prisma: { $transaction: (run: (db: typeof tx) => unknown) => run(tx) } }));
 
@@ -11,6 +11,7 @@ import { NotFoundError, ValidationError } from "@/lib/errors";
 describe("api-token service", () => {
   beforeEach(() => {
     vi.resetAllMocks();
+    tx.apiToken.findMany.mockResolvedValue([]);
   });
 
   describe("normalizeScopes", () => {
@@ -49,7 +50,7 @@ describe("api-token service", () => {
   describe("revokeApiToken", () => {
     const safeSelect = {
       id: true, name: true, tokenPrefix: true, tokenSuffix: true, scopes: true, expiresAt: true,
-      lastUsedAt: true, revokedAt: true, createdAt: true, teamId: true, team: { select: { name: true, slug: true } },
+      lastUsedAt: true, revokedAt: true, createdAt: true, teamId: true,
     };
 
     it("audits only the first conditional update, under the token's customer", async () => {
@@ -57,7 +58,7 @@ describe("api-token service", () => {
       tx.apiToken.updateMany.mockResolvedValueOnce({ count: 1 }).mockResolvedValue({ count: 0 });
       tx.apiToken.findUnique.mockResolvedValue(token);
       for (let i = 0; i < 2; i++) {
-        await expect(revokeApiToken({ userId: "u1", id: "tok1" })).resolves.toEqual(token);
+        await expect(revokeApiToken({ userId: "u1", id: "tok1" })).resolves.toEqual({ ...token, team: null });
       }
       expect(tx.apiToken.updateMany).toHaveBeenCalledWith({
         where: { id: "tok1", createdBy: "u1", revokedAt: null }, data: { revokedAt: expect.any(Date) },

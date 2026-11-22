@@ -45,19 +45,19 @@ export async function pruneAuditLogs(options?: {
 		const rows = await prisma.auditLog.findMany({
 			where: { createdAt: { lt: olderThan } },
 			orderBy: [{ createdAt: "asc" }, { id: "asc" }],
-			take: batchSize,
+			take: batchSize + (batch === MAX_BATCHES_PER_SWEEP - 1 ? 1 : 0),
 			select: { id: true },
 		});
 		if (rows.length === 0) return { deleted, retentionDays, truncated: false };
 		const result = await prisma.auditLog.deleteMany({
-			where: { id: { in: rows.map((row) => row.id) } },
+			where: { id: { in: rows.slice(0, batchSize).map((row) => row.id) } },
 		});
 		deleted += result.count;
 		if (rows.length < batchSize) {
 			truncated = false;
 			return { deleted, retentionDays, truncated };
 		}
-		truncated = true;
+		truncated = rows.length > batchSize;
 	}
 	return { deleted, retentionDays, truncated };
 }

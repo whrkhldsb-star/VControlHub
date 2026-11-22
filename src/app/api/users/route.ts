@@ -1,7 +1,7 @@
 import { apiCopy } from "@/lib/i18n/api-copy";
 import type { Prisma } from "@prisma/client";
-import { lockUserRow } from "@/lib/user/row-lock";
-import { lockLiveCustomer } from "@/lib/team/service";
+import { assertCurrentUserManager, lockManagedAccount } from "@/lib/user/row-lock";
+import { resolveCustomerMembershipTarget } from "@/lib/team/service";
 import { NextResponse } from "next/server";
 
 import { hashPassword } from "@/lib/auth/password";
@@ -10,16 +10,15 @@ import { assertUserInActorScope, userDirectoryWhere } from "@/lib/auth/team-scop
 import { auditUserAction, writeAuditLog } from "@/lib/audit/service";
 import { isUniqueViolation, prisma } from "@/lib/db";
 import { withApiRoute } from "@/lib/http/api-guard";
-import { booleanFlagSchema, paginationQuerySchema, parseSearchParams } from "@/lib/http/parse-search-params";
+import { booleanFlagSchema, paginationOffset, paginationQuerySchema, parseSearchParams } from "@/lib/http/parse-search-params";
 import { GENERAL_WRITE_LIMIT } from "@/lib/http/rate-limit-presets";
 import { createUserSchema, updateUserSchema } from "@/lib/user/schema";
 import { DEFAULT_IDENTITY_TEMPLATE_ID } from "@/lib/auth/identity-templates";
 
-import { assertCurrentUserManager } from "@/lib/user/account-type";
 import { NotFoundError, ValidationError } from "@/lib/errors";
 import { t } from "@/lib/i18n/service-translations";
 import { z } from "zod";
-import { assertAdminAccessMayBeRemoved, withAdminInvariantLock } from "@/lib/user/admin-invariant";
+import { assertAdminAccessMayBeRemoved, withAccountTransaction, withAdminInvariantLock } from "@/lib/user/admin-invariant";
 export const dynamic = "force-dynamic";
 
 // Shared page/pageSize shape; this directory historically defaulted to 50 per
@@ -38,7 +37,7 @@ const usersListQuerySchema = paginationQuerySchema
 export async function GET(request: Request) {
   return withApiRoute(request, { permission: "user:read" }, async ({ session }) => {
     const { page, pageSize, unassigned } = parseSearchParams(request, usersListQuerySchema);
-    const skip = (page - 1) * pageSize;
+    const skip = paginationOffset(page, pageSize);
     // The member picker used to page through the whole directory (up to 5000
     // accounts) to find the unassigned ones (A1-04); filter server-side.
     const where = unassigned === true
@@ -63,7 +62,7 @@ export async function GET(request: Request) {
             },
           },
         },
-        orderBy: { createdAt: "desc" },
+        orderBy: [{ createdAt: "desc" }, { id: "desc" }],
         skip,
         take: pageSize,
       }),
@@ -102,15 +101,11 @@ export async function POST(request: Request) {
       const passwordHash = await hashPassword(body.password);
       // Check-then-create races with a concurrent creation of the same name: the
       // unique index decides, and that must read as 400, not 500 (A1-07).
-      const user = await prisma.$transaction(async (tx) => {
+      const user = await withAccountTransaction(async (tx) => {
+        if (account.type === "customer") await resolveCustomerMembershipTarget(account.teamId, identityTemplateId, tx);
         await assertCurrentUserManager(tx, session);
         if (await tx.user.findUnique({ where: { username: body.username }, select: { id: true } })) {
           throw new ValidationError(t("backend.user.usernameAlreadyExists"));
-        }
-        if (account.type === "customer") {
-          await lockLiveCustomer(tx, account.teamId);
-          const template = await tx.identityTemplate.findUnique({ where: { id: identityTemplateId! }, select: { id: true } });
-          if (!template) throw new NotFoundError(t("backend.customer.templateNotFound"));
         }
         const adminRole = account.type === "admin"
           ? await tx.role.findUnique({ where: { key: "admin" }, select: { id: true } })
@@ -180,25 +175,24 @@ export async function PATCH(request: Request) {
       }
 
       const update = async (tx: Prisma.TransactionClient) => {
-        await lockUserRow(tx, userId);
+        await lockManagedAccount(tx, session, userId);
         await assertUserInActorScope(session, userId, tx);
         const target = await tx.user.findUnique({
           where: { id: userId }, select: { username: true, teamMembership: { select: { teamId: true } } },
         });
         if (!target) throw new NotFoundError(t("backend.user.notFound"));
         const teamId = target.teamMembership?.teamId ?? null;
-        if (teamId) await lockLiveCustomer(tx, teamId);
         if (userAction === "disable") await assertAdminAccessMayBeRemoved(userId, tx);
         await tx.user.update({ where: { id: userId }, data });
         await writeAuditLog({
           actorType: "USER", actorId: session.userId, teamId,
-          action: userAction === "reset_password" ? "user.password_reset" : `user.${userAction}`,
+          action: userAction === "reset_password" ? "user.password_reset" : userAction === "disable" ? "user.disable" : "user.enable",
           severity: userAction === "reset_password" ? "WARNING" : "INFO",
           detail: { targetUsername: target.username },
         }, tx);
       };
       if (userAction === "disable") await withAdminInvariantLock(update);
-      else await prisma.$transaction(update);
+      else await withAccountTransaction(update);
 
       return NextResponse.json({ success: true });
     },

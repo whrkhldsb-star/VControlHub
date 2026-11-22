@@ -110,5 +110,6 @@ export async function loadJobOwnerSession(
 ): Promise<SessionPayload | null> {
 	if (teamId) return loadApiTokenOwnerSession(userId, teamId, db);
 	const account = await loadApiTokenOwnerSession(userId, undefined, db);
-	return account && account.roles.includes("admin") ? { ...account, currentTeamId: null } : account;
+	if (account?.roles.includes("admin")) return { ...account, currentTeamId: null };
+	return teamId === undefined ? account : null;
 }
