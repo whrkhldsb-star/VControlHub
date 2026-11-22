@@ -239,10 +239,15 @@ export async function readBackingObject(input: {
         if (stats.size > input.maxBytes) throw new BusinessError(t("backend.storage.remoteReadTooLarge"));
         const chunks: Buffer[] = [];
         let bytes = 0;
-        for await (const chunk of handle.createReadStream({ autoClose: false })) {
-          bytes += chunk.length;
-          if (bytes > input.maxBytes) throw new BusinessError(t("backend.storage.remoteReadTooLarge"));
-          chunks.push(chunk as Buffer);
+        const stream = handle.createReadStream({ autoClose: false });
+        try {
+          for await (const chunk of stream) {
+            bytes += chunk.length;
+            if (bytes > input.maxBytes) throw new BusinessError(t("backend.storage.remoteReadTooLarge"));
+            chunks.push(chunk as Buffer);
+          }
+        } finally {
+          if (!stream.destroyed) stream.destroy();
         }
         return Buffer.concat(chunks, bytes);
       }
