@@ -1,5 +1,5 @@
 {
-  "generatedAt": "2026-11-22T11:02:27.385Z",
+  "generatedAt": "2026-11-22T13:28:40.811Z",
   "summary": {
     "sidebarMain": 26,
     "sidebarSystem": 12,
@@ -2271,6 +2271,7 @@
       "declaredPermissions": [
         "command:approve",
         "command:read",
+        "deploy:read",
         "server:read",
         "server:ssh",
         "storage:manage-node",
@@ -3069,6 +3070,9 @@
       ],
       "guardMode": "withApiRoute",
       "declaredPermissions": [
+        "command:approve",
+        "command:read",
+        "server:read",
         "ticket:create",
         "ticket:manage",
         "ticket:read"
@@ -3083,6 +3087,9 @@
       ],
       "guardMode": "withApiRoute",
       "declaredPermissions": [
+        "command:approve",
+        "command:read",
+        "server:read",
         "ticket:manage",
         "ticket:read"
       ]
@@ -3097,6 +3104,9 @@
       ],
       "guardMode": "withApiRoute",
       "declaredPermissions": [
+        "command:approve",
+        "command:read",
+        "server:read",
         "ticket:create",
         "ticket:manage",
         "ticket:read"

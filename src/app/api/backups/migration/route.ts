@@ -47,7 +47,7 @@ export async function POST(request: Request) {
           backupId: body.backupId,
           packageId: result.packageId,
           type: result.manifest.backup.type,
-        }, undefined, session.currentTeamId);
+        }, undefined, null);
         return NextResponse.json({
           success: true,
           packageId: result.packageId,
@@ -87,7 +87,7 @@ export async function POST(request: Request) {
         backupId: imported.backupId,
         type: imported.type,
         fileSize: imported.fileSize,
-      }, undefined, session.currentTeamId);
+      }, undefined, null);
       return NextResponse.json({
         success: true,
         backupId: imported.backupId,

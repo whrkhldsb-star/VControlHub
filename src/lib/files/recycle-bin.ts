@@ -5,10 +5,10 @@ import { escapeLikeLiteral } from "@/lib/db/like-pattern";
 import { getReadableStorageScope, readableStorageScopeWhere } from "@/lib/storage/readable-scope";
 
 /** Direct deletes own no tombstones. A purge owns only the rows in its batch. */
-export function outsideDeleteBatchWhere(storageNodeId: string, relativePath: string, deleteBatchId?: string) {
+export function outsideDeleteBatchWhere(storageNodeId: string, relativePath: string, deleteBatchId?: string, caseInsensitive = false) {
   return {
     storageNodeId,
-    relativePath: { startsWith: escapeLikeLiteral(`${relativePath}/`) },
+    relativePath: { startsWith: escapeLikeLiteral(`${relativePath}/`), ...(caseInsensitive ? { mode: "insensitive" as const } : {}) },
     ...(deleteBatchId
       ? { OR: [{ isDeleted: false }, { deleteBatchId: null }, { deleteBatchId: { not: deleteBatchId } }] }
       : { isDeleted: true }),

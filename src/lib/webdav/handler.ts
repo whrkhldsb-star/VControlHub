@@ -14,7 +14,7 @@ import { escapeLikeLiteral } from "@/lib/db/like-pattern";
 import { randomUUID } from "node:crypto";
 import { prisma } from "@/lib/db";
 import { lockStorageFileOverwrite } from "@/lib/storage/file-overwrite-lock";
-import { isWindowsStorageBasePath } from "@/lib/storage/path-utils";
+import { hasCaseInsensitiveLocalPaths, isWindowsStorageBasePath } from "@/lib/storage/path-utils";
 import { createWebDavClient, WebDavHttpError } from "@/lib/storage/webdav-client";
 import { WEBDAV_STAGE_PREFIX } from "@/lib/storage/staging-paths";
 import { writeFileIndex } from "@/lib/storage/file-write-index";
@@ -623,12 +623,17 @@ function destinationRelativePath(
  * any WebDAV write there would silently destroy them, and the row still holds
  * the unique (storageNodeId, relativePath) slot.
  */
-async function recycledRowsAt(storageNodeId: string, relativePath: string) {
+function isCaseInsensitiveNode(node: { driver: string; basePath?: string | null; server?: { operatingSystem?: string | null } | null }) {
+  return hasCaseInsensitiveLocalPaths(node.driver)
+    || (node.driver === "SFTP" && (node.server?.operatingSystem === "WINDOWS" || Boolean(node.basePath && isWindowsStorageBasePath(node.basePath))));
+}
+
+async function recycledRowsAt(storageNodeId: string, relativePath: string, caseInsensitive = false) {
   return prisma.fileEntry.findMany({
     where: {
       storageNodeId,
       isDeleted: true,
-      OR: [{ relativePath }, { relativePath: { startsWith: escapeLikeLiteral(`${relativePath}/`) } }],
+      ...rowsAtOrBelow(relativePath, caseInsensitive),
     },
     select: { id: true, relativePath: true, entryType: true },
     take: 10_001,
@@ -652,17 +657,19 @@ async function assertRecycledBytesSafe(
 }
 
 /** Index rows at `relativePath` and below it. */
-function rowsAtOrBelow(relativePath: string) {
-  return { OR: [{ relativePath }, { relativePath: { startsWith: escapeLikeLiteral(`${relativePath}/`) } }] };
+function rowsAtOrBelow(relativePath: string, caseInsensitive = false) {
+  const exact = caseInsensitive ? { equals: relativePath, mode: "insensitive" as const } : relativePath;
+  const mode = caseInsensitive ? { mode: "insensitive" as const } : {};
+  return { OR: [{ relativePath: exact }, { relativePath: { startsWith: escapeLikeLiteral(`${relativePath}/`), ...mode } }] };
 }
 
 /**
  * Entries at or below `relativePath` that have version blobs, listed before
  * their rows are dropped: the blobs are removed once the drop has committed.
  */
-async function versionOwnersAt(storageNodeId: string, relativePath: string, except?: string): Promise<string[]> {
+async function versionOwnersAt(storageNodeId: string, relativePath: string, except?: string, caseInsensitive = false): Promise<string[]> {
   const rows = await prisma.fileVersion.findMany({
-    where: { fileEntry: { storageNodeId, ...rowsAtOrBelow(relativePath), ...(except ? { id: { not: except } } : {}) } },
+    where: { fileEntry: { storageNodeId, ...rowsAtOrBelow(relativePath, caseInsensitive), ...(except ? { id: { not: except } } : {}) } },
     select: { fileEntryId: true },
     distinct: ["fileEntryId"],
   });
@@ -683,9 +690,10 @@ async function dropRowsAt(
   storageNodeId: string,
   relativePath: string,
   except?: string,
+  caseInsensitive = false,
 ) {
   await tx.fileEntry.deleteMany({
-    where: { storageNodeId, ...rowsAtOrBelow(relativePath), ...(except ? { id: { not: except } } : {}) },
+    where: { storageNodeId, ...rowsAtOrBelow(relativePath, caseInsensitive), ...(except ? { id: { not: except } } : {}) },
   });
 }
 
@@ -698,12 +706,15 @@ async function revokeSharesAt(
   tx: Pick<typeof prisma, "shareLink">,
   storageNodeId: string,
   relativePath: string,
+  caseInsensitive = false,
 ) {
+  const exact = caseInsensitive ? { equals: relativePath, mode: "insensitive" as const } : relativePath;
+  const mode = caseInsensitive ? { mode: "insensitive" as const } : {};
   await tx.shareLink.updateMany({
     where: {
       storageNodeId,
       revokedAt: null,
-      OR: [{ path: relativePath }, { path: { startsWith: escapeLikeLiteral(`${relativePath}/`) } }],
+      OR: [{ path: exact }, { path: { startsWith: escapeLikeLiteral(`${relativePath}/`), ...mode } }],
     },
     data: { revokedAt: new Date() },
   });
@@ -737,7 +748,7 @@ export async function handleWebDavMove(
   if (source === destination || destination.startsWith(source + "/") || source.startsWith(destination + "/")) {
     throw new ValidationError(t("backend.webdav.invalidDestination"));
   }
-  const admittedEntry = await findEntry(ctx.storageNodeId, ctx.relativePath);
+  const admittedEntry = await findEntry(ctx.storageNodeId, ctx.relativePath, isCaseInsensitiveNode(node));
   if (!admittedEntry) throw new NotFoundError(t("backend.webdav.resourceNotFound"));
   const movedBytes = admittedEntry.size ?? BigInt(0);
   const destinationAccess = await requireAccess(ctx.session, ctx.storageNodeId, destPath, "write", movedBytes, {
@@ -750,13 +761,13 @@ export async function handleWebDavMove(
   await assertNotRecycled(ctx.storageNodeId, destPath, "write");
   // Quota guards precede overwrite locks on every upload. Re-read the source
   // under the lock so a replacement while waiting cannot use stale admission.
-  const entry = await findEntry(ctx.storageNodeId, ctx.relativePath);
+  const entry = await findEntry(ctx.storageNodeId, ctx.relativePath, isCaseInsensitiveNode(node));
   if (!entry) throw new NotFoundError(t("backend.webdav.resourceNotFound"));
   if (entry.id !== admittedEntry.id || entry.entryType !== admittedEntry.entryType ||
       entry.size !== admittedEntry.size || entry.updatedAt?.getTime() !== admittedEntry.updatedAt?.getTime()) {
     throw new ConflictError(apiCopy("apiCopy.files.op.changed"));
   }
-  const existingDest = await findEntry(ctx.storageNodeId, destPath);
+  const existingDest = await findEntry(ctx.storageNodeId, destPath, isCaseInsensitiveNode(node));
   const overwrite =
     (request.headers.get("overwrite") ?? "T").toUpperCase() !== "F";
   const unindexed = existingDest ? null : await statBackingObject({ storageNode: node, relativePath: destPath });
@@ -772,7 +783,7 @@ export async function handleWebDavMove(
 
   // Refuse before any byte moves if a recycled file still lives at (or under)
   // the destination; recycle-bin rows without bytes are dropped below.
-  await assertRecycledBytesSafe(node, await recycledRowsAt(ctx.storageNodeId, destPath));
+  await assertRecycledBytesSafe(node, await recycledRowsAt(ctx.storageNodeId, destPath, isCaseInsensitiveNode(node)));
   // A file moved onto a file replaces its content, as PUT and COPY do (and as
   // an editor's atomic save means it): the destination keeps its entry — its
   // versions, the replaced content now one of them, favourites and links —
@@ -856,7 +867,7 @@ export async function handleWebDavMove(
         });
       } else {
         // Links to a replaced resource must not serve what moves in.
-        await revokeSharesAt(tx, ctx.storageNodeId, destPath);
+        await revokeSharesAt(tx, ctx.storageNodeId, destPath, isCaseInsensitiveNode(node));
         await tx.fileEntry.update({
           where: { id: entry.id },
           data: { relativePath: destPath, name: entryName(destPath) },
@@ -868,6 +879,7 @@ export async function handleWebDavMove(
         oldPath: entry.relativePath,
         newPath: destPath,
         isDirectory: entry.entryType === "DIRECTORY",
+          caseInsensitive: isCaseInsensitiveNode(node),
       });
       if (entry.entryType !== "DIRECTORY") return;
       // Rewrite every descendant's path (and its basename) in ONE statement.
@@ -946,15 +958,14 @@ export async function handleWebDavCopy(
     throw new ValidationError(t("backend.storage.copySourceDestinationMustDiffer"));
   }
 
-  const entry = await findEntry(ctx.storageNodeId, ctx.relativePath);
+  const node = await loadNode(ctx.storageNodeId, ctx.session);
+  const entry = await findEntry(ctx.storageNodeId, ctx.relativePath, isCaseInsensitiveNode(node));
   if (!entry) throw new NotFoundError(t("backend.webdav.resourceNotFound"));
   if (entry.entryType === "DIRECTORY") {
     throw new BusinessError(
       t("backend.webdav.copyOfCollectionsIsNotSupportedCopyFiles"),
     );
   }
-
-  const node = await loadNode(ctx.storageNodeId, ctx.session);
   await requireAccess(ctx.session, ctx.storageNodeId, destPath, "write");
   await assertNotRecycled(ctx.storageNodeId, destPath, "write");
   const parent = parentRelativePath(destPath);
@@ -969,7 +980,7 @@ export async function handleWebDavCopy(
       await assertNotRecycled(ctx.storageNodeId, ctx.relativePath);
       await assertNotRecycled(ctx.storageNodeId, destPath, "write");
       if (request.headers.get("overwrite")?.toUpperCase() === "F" &&
-          (await findEntry(ctx.storageNodeId, destPath) || await statBackingObject({ storageNode: node, relativePath: destPath }))) {
+          (await findEntry(ctx.storageNodeId, destPath, isCaseInsensitiveNode(node)) || await statBackingObject({ storageNode: node, relativePath: destPath }))) {
         throw new BusinessError(t("backend.webdav.destinationExistsAndOverwriteIsF"), undefined, 412);
       }
       size = (await copyStorageFile(node, ctx.relativePath, staged, false)).size;
@@ -998,7 +1009,7 @@ async function performWebDavCopy(input: {
   size: number;
 }): Promise<Response> {
   const { ctx, request, entry, node, destPath, staged, size: copiedSize } = input;
-  const existingDest = await findEntry(ctx.storageNodeId, destPath);
+  const existingDest = await findEntry(ctx.storageNodeId, destPath, isCaseInsensitiveNode(node));
   const overwrite =
     (request.headers.get("overwrite") ?? "T").toUpperCase() !== "F";
   const unindexed = existingDest ? null : await statBackingObject({ storageNode: node, relativePath: destPath });
@@ -1014,7 +1025,7 @@ async function performWebDavCopy(input: {
 
   if (unindexed?.isDirectory) throw new ConflictError(t("backend.webdav.cannotOverwriteACollectionWithAFile"));
   // A recycled file at the destination keeps its bytes there; never copy over it.
-  const recycledAtDest = existingDest ? [] : await recycledRowsAt(ctx.storageNodeId, destPath);
+  const recycledAtDest = existingDest ? [] : await recycledRowsAt(ctx.storageNodeId, destPath, isCaseInsensitiveNode(node));
   await assertRecycledBytesSafe(node, recycledAtDest);
 
   const destName = entryName(destPath);
@@ -1078,9 +1089,9 @@ async function performWebDavCopy(input: {
     } else {
       // Recycle rows without bytes still hold the unique slot.
       if (recycledAtDest.length) {
-        droppedVersionOwners = await versionOwnersAt(ctx.storageNodeId, destPath);
-        await dropRowsAt(prisma, ctx.storageNodeId, destPath);
-        await revokeSharesAt(prisma, ctx.storageNodeId, destPath);
+        droppedVersionOwners = await versionOwnersAt(ctx.storageNodeId, destPath, undefined, isCaseInsensitiveNode(node));
+        await dropRowsAt(prisma, ctx.storageNodeId, destPath, undefined, isCaseInsensitiveNode(node));
+        await revokeSharesAt(prisma, ctx.storageNodeId, destPath, isCaseInsensitiveNode(node));
       }
       await createFileEntry({
         storageNodeId: ctx.storageNodeId,

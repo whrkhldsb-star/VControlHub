@@ -3,7 +3,7 @@ import { dashboardCommands, failedTaskSummary, openIncidentSummary } from "@/lib
 import { listActiveAnnouncements } from "@/lib/announcement/service";
 import { sessionHasPermission } from "@/lib/auth/authorization";
 import { requireSession } from "@/lib/auth/require-session";
-import { serverTeamWhere, teamWhere } from "@/lib/auth/team-scope";
+import { activeCustomerTeamWhere, serverTeamWhere, teamWhere } from "@/lib/auth/team-scope";
 import { canReadCommandBody } from "@/lib/command/visibility";
 import { formatDateTime, formatShortTime } from "@/lib/datetime/format";
 import { buildAttentionChecks } from "@/lib/dashboard/attention";
@@ -35,6 +35,7 @@ import { DashboardSetupChecklist } from "./dashboard-setup-checklist";
 export async function DashboardContent({ sessionPath }: { sessionPath: "/" | "/dashboard" }) {
 	const session = await requireSession(sessionPath);
 	const teamScope = teamWhere(session);
+	const activeTeamScope = activeCustomerTeamWhere(session);
 	const serverScope = serverTeamWhere(session);
 	// The dashboard is available to every signed-in account, but its widgets
 	// still carry the same data-class permissions as their target pages. Keep a
@@ -90,14 +91,14 @@ export async function DashboardContent({ sessionPath }: { sessionPath: "/" | "/d
 			: Promise.resolve(null),
 		getUnreadCount(session.userId),
 		canReadCommands
-			? prisma.scheduledTask.count({ where: { status: "ACTIVE", ...teamScope } })
+			? prisma.scheduledTask.count({ where: { status: "ACTIVE", ...activeTeamScope } })
 			: Promise.resolve(0),
 		getSetting("dashboard.layout.dragReorderEnabled"),
 		canManageNotifications
-			? prisma.alertRule.count({ where: { enabled: true, ...teamScope } }).catch(() => 0)
+			? prisma.alertRule.count({ where: { enabled: true, ...activeTeamScope } }).catch(() => 0)
 			: Promise.resolve(0),
 		canManageSettings ? getSetting("smtp.enabled") : Promise.resolve(null),
-		canReadBackups ? prisma.backupSchedule.count({ where: teamScope }).catch(() => 0) : Promise.resolve(0),
+		canReadBackups ? prisma.backupSchedule.count({ where: activeTeamScope }).catch(() => 0) : Promise.resolve(0),
 		canReadBackups ? prisma.vpsBackupSchedule
 			.count({
 				where: {

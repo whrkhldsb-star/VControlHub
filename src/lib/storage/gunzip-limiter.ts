@@ -1,5 +1,5 @@
 import { createReadStream } from "node:fs";
-import { Transform, Writable } from "node:stream";
+import { Readable, Transform, Writable } from "node:stream";
 import { pipeline } from "node:stream/promises";
 import { createGunzip } from "node:zlib";
 
@@ -54,8 +54,9 @@ export class GunzipOutputLimiter extends Transform {
  * trailer only names the last member's size: a file of several members,
  * such as logs joined with cat, was refused as too large however small.
  */
-export async function countGunzipOutput(filePath: string, maxBytes: number, limitMessage: string): Promise<number> {
+export async function countGunzipOutput(source: string | Readable, maxBytes: number, limitMessage: string): Promise<number> {
   const limiter = new GunzipOutputLimiter(maxBytes, limitMessage);
-  await pipeline(createReadStream(filePath), createGunzip(), limiter, new Writable({ write: (_chunk, _encoding, done) => done() }));
+  const input = typeof source === "string" ? createReadStream(source) : source;
+  await pipeline(input, createGunzip(), limiter, new Writable({ write: (_chunk, _encoding, done) => done() }));
   return limiter.bytes;
 }

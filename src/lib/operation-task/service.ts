@@ -1,3 +1,4 @@
+import { taskTargetRelativePath } from "@/lib/downloads/route-helpers";
 import { CommandRequestStatus, DownloadTaskStatus, JobStatus, Prisma, SyncJobStatus, type Job } from "@prisma/client";
 
 import { rawServerScope, serverTeamWhere, teamWhere } from "@/lib/auth/team-scope";
@@ -54,7 +55,6 @@ function commandTaskInclude(session: OperationTaskSessionScope) {
   } satisfies Prisma.CommandRequestInclude;
 }
 type CommandTaskRow = Prisma.CommandRequestGetPayload<{ include: ReturnType<typeof commandTaskInclude> }>;
-type DownloadTaskRow = Prisma.DownloadTaskGetPayload<{ include: { creator: { select: { username: true; displayName: true } } } }>;
 type SyncJobTaskRow = Prisma.SyncJobGetPayload<{ include: { creator: { select: { username: true; displayName: true } } } }>;
 type BackupTaskRow = Prisma.BackupRecordGetPayload<{ include: { creator: { select: { username: true; displayName: true } } } }>;
 type DeploymentTaskRow = Prisma.DeploymentRunGetPayload<{ include: { creator: { select: { username: true; displayName: true } }; template: { select: { name: true } }; commandRequest: { select: { status: true; workerId: true; workerHeartbeatAt: true; updatedAt: true } } } }>;
@@ -401,6 +401,9 @@ export async function listOperationTaskResult(options: OperationTaskListOptions,
   }
   const readStorage = sessionHasPermission(session, "storage:read") ? untypedWhere : null;
   const readCommands = !session || sessionHasPermission(session, "command:read") ? untypedWhere : null;
+  const readBackups = !session || sessionHasPermission(session, "backup:read") ? typedWhere : null;
+  const readDeployments = !session || sessionHasPermission(session, "deploy:read") ? untypedWhere : null;
+  const canViewStorageConnection = !session || sessionHasPermission(session, "storage:manage-node");
   const [jobs, commandRows, downloads, syncJobs, backups, deployments] = await Promise.all([
     fetchSource("createdBy", (statuses) => rawStatusWhere(statuses, Object.values(JobStatus), false), typedWhere, readJobs),
     fetchSource("requesterId", (statuses) => rawStatusWhere(statuses, Object.values(CommandRequestStatus), false), readCommands, (where) =>
@@ -423,9 +426,9 @@ export async function listOperationTaskResult(options: OperationTaskListOptions,
         include: { creator: { select: { username: true, displayName: true } },
           syncLogs: { orderBy: [{ startedAt: "desc" }, { id: "desc" }], take: 1, select: { errorMessage: true } } },
       }), async rows => filterSyncHistory(rows.filter(await visibleSyncPaths(rows, session)), session))),
-    fetchSource("createdBy", (statuses) => rawStatusWhere(statuses, KNOWN_RAW_STATUSES, true), typedWhere, (where) =>
+    fetchSource("createdBy", (statuses) => rawStatusWhere(statuses, KNOWN_RAW_STATUSES, true), readBackups, (where) =>
       prisma.backupRecord.findMany({ where, take: limit, orderBy: { createdAt: "desc" }, include: { creator: { select: { username: true, displayName: true } } } })),
-    fetchSource("createdBy", deploymentStatusWhere, untypedWhere, (where) =>
+    fetchSource("createdBy", deploymentStatusWhere, readDeployments, (where) =>
       prisma.deploymentRun.findMany({ where, take: limit, orderBy: { createdAt: "desc" }, include: { creator: { select: { username: true, displayName: true } }, template: { select: { name: true } }, commandRequest: { select: { status: true, workerId: true, workerHeartbeatAt: true, updatedAt: true } } } })),
   ]);
 
@@ -498,7 +501,7 @@ export async function listOperationTaskResult(options: OperationTaskListOptions,
       workerId: item.workerId,
       workerHeartbeatAt: item.workerHeartbeatAt ? toIso(item.workerHeartbeatAt) : null,
     })),
-    ...downloads.map((item: DownloadTaskRow) => ({
+    ...downloads.map((item) => ({
       id: `download:${item.id}`,
       source: "download" as const,
       sourceId: item.id,
@@ -508,7 +511,7 @@ export async function listOperationTaskResult(options: OperationTaskListOptions,
       updatedAt: toIso(item.updatedAt),
       actor: actorName(item.creator),
       progress: item.progress,
-      logPreview: compactLogPreview([item.progress, item.targetPath]),
+      logPreview: compactLogPreview([item.progress, canViewStorageConnection ? item.targetPath : `/${taskTargetRelativePath({ targetPath: item.targetPath, server: { storageNode: resolveTaskDrive(item).server.storageNode } }) ?? ""}`]),
       href: "/downloads",
     })),
     ...syncJobs.map((item: SyncJobTaskRow) => ({

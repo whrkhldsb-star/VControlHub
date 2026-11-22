@@ -47,6 +47,7 @@ export async function PATCH(request: Request) {
     request,
     {
       permission: "storage:write",
+      optionalTokenPermissions: ["storage:manage-node"],
       rateLimit: GENERAL_WRITE_LIMIT,
       errorMessage: t("apiDownloads.operationFailed", locale),
       bodySchema: patchDownloadSchema,

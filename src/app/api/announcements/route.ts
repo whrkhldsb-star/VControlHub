@@ -45,7 +45,7 @@ export async function POST(request: Request) {
         startsAt: body.startsAt ? new Date(body.startsAt) : undefined,
         expiresAt: body.expiresAt ? new Date(body.expiresAt) : null,
       });
-      await auditUserAction(session.userId, "announcement.create", { announcementId: created.id }, undefined, session.currentTeamId);
+      await auditUserAction(session.userId, "announcement.create", { announcementId: created.id }, undefined, null);
       return NextResponse.json({ announcement: created }, { status: 201 });
     },
   );
@@ -78,7 +78,7 @@ export async function PATCH(request: Request) {
           level: result.level,
         },
         undefined,
-        session.currentTeamId,
+        null,
       );
       return NextResponse.json({ announcement: result });
     },
@@ -95,7 +95,7 @@ export async function DELETE(request: Request) {
     },
     async ({ query, session }) => {
       await deleteAnnouncement(query.id);
-      await auditUserAction(session.userId, "announcement.delete", { announcementId: query.id }, undefined, session.currentTeamId);
+      await auditUserAction(session.userId, "announcement.delete", { announcementId: query.id }, undefined, null);
       return NextResponse.json({ success: true });
     },
   );

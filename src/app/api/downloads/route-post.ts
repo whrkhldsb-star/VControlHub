@@ -53,6 +53,7 @@ export async function POST(request: Request) {
     request,
     {
       permission: "storage:write",
+      optionalTokenPermissions: ["storage:manage-node"],
       rateLimit: GENERAL_WRITE_LIMIT,
       errorMessage: t("apiDownloads.createTaskFailed", locale),
       bodySchema: postDownloadSchema,

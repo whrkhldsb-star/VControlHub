@@ -1,3 +1,4 @@
+import { containsNul } from "@/lib/text/strip-nul";
 import { sessionHasPermission } from "@/lib/auth/authorization";
 import { canReadCommandBody } from "@/lib/command/visibility";
 import { apiCopy } from "@/lib/i18n/api-copy";
@@ -79,6 +80,11 @@ function redirectToDeployments(
 
 async function readRequestBody(request: Request) {
   const formData = await request.formData();
+  for (const [key, value] of formData.entries()) {
+    if (containsNul(key) || (typeof value === "string" && containsNul(value))) {
+      throw new ValidationError(t("backend.http.requestContainsNul"), { field: "body" });
+    }
+  }
   const variablesJson = formData.get("variablesJson");
   let variables: Record<string, string> = {};
   if (typeof variablesJson === "string" && variablesJson.trim()) {
@@ -93,6 +99,9 @@ async function readRequestBody(request: Request) {
     }
     if (!variables || typeof variables !== "object" || Array.isArray(variables)) {
       throw new ValidationError(t("backend.deployment.invalidVariablesJson"));
+    }
+    if (containsNul(variables)) {
+      throw new ValidationError(t("backend.http.requestContainsNul"), { field: "body" });
     }
   }
   for (const [key, value] of formData.entries()) {

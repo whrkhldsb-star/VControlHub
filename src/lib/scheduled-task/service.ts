@@ -278,6 +278,8 @@ export async function updateScheduledTask(
 			const serverIds = [...supplied, ...hidden];
 			if (hidden.length && !changesWhatRuns(existing, { ...input, serverIds })) {
 				input = { ...input, serverIds: undefined };
+			} else if (hidden.length) {
+				input = { ...input, serverIds };
 			}
 		}
 	}

@@ -45,7 +45,7 @@ function normalizeStatus(status: string) {
 export const dynamic = "force-dynamic";
 
 export async function GET(request: Request) {
-  return withApiRoute(request, { permission: "ticket:read", rateLimit: GENERAL_READ_LIMIT }, async ({ session }) => {
+  return withApiRoute(request, { permission: "ticket:read", optionalTokenPermissions: ["ticket:manage", "server:read", "command:read", "command:approve"], rateLimit: GENERAL_READ_LIMIT }, async ({ session }) => {
     const url = new URL(request.url);
     const view = url.searchParams.get("view");
     const workspaceQuery = parseTicketFilters((key) => url.searchParams.get(key));
@@ -96,7 +96,7 @@ export async function GET(request: Request) {
 }
 
 export async function POST(request: Request) {
-  return withApiRoute(request, { permission: "ticket:create", rateLimit: GENERAL_WRITE_LIMIT, bodySchema: ticketPostSchema }, async ({ session, body }) => {
+  return withApiRoute(request, { permission: "ticket:create", optionalTokenPermissions: ["ticket:manage", "server:read", "command:read"], rateLimit: GENERAL_WRITE_LIMIT, bodySchema: ticketPostSchema }, async ({ session, body }) => {
     const ticket = await createTicket({
       title: body.subject ?? body.title ?? "",
       description: body.description,
@@ -114,7 +114,7 @@ export async function POST(request: Request) {
 }
 
 export async function PATCH(request: Request) {
-  return withApiRoute(request, { permission: "ticket:manage", rateLimit: GENERAL_WRITE_LIMIT, bodySchema: ticketPatchSchema }, async ({ session, body }) => {
+  return withApiRoute(request, { permission: "ticket:manage", optionalTokenPermissions: ["server:read", "command:read"], rateLimit: GENERAL_WRITE_LIMIT, bodySchema: ticketPatchSchema }, async ({ session, body }) => {
     const ticket = await updateTicketStatus({
       id: body.id,
       status: normalizeStatus(body.status),

@@ -52,7 +52,7 @@ export async function PATCH(
 
       const provider = await updateProvider(id, session.userId, body);
       if (!provider) throw new NotFoundError(apiCopy("apiCopy.provider.not.found.90c36c40"));
-      await auditUserAction(session.userId, "ai.provider.update", { providerId: id }, undefined, session.currentTeamId);
+      await auditUserAction(session.userId, "ai.provider.update", { providerId: id }, undefined, session.roles?.includes("admin") ? null : session.currentTeamId);
       return NextResponse.json({ provider: serializeProvider(provider) });
     },
   );
@@ -73,7 +73,7 @@ export async function DELETE(
     async ({ session }) => {
       const { id } = await params;
       await deleteProvider(id, session.userId);
-      await auditUserAction(session.userId, "ai.provider.delete", { providerId: id }, undefined, session.currentTeamId);
+      await auditUserAction(session.userId, "ai.provider.delete", { providerId: id }, undefined, session.roles?.includes("admin") ? null : session.currentTeamId);
       return NextResponse.json({ ok: true });
     },
   );

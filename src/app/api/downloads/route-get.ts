@@ -22,7 +22,7 @@ export async function GET(request: Request) {
   const locale = await getServerLocale();
   return withApiRoute(
     request,
-    { permission: "storage:read", errorMessage: t("apiDownloads.fetchTasksFailed", locale) },
+    { permission: "storage:read", optionalTokenPermissions: ["storage:manage-node"], errorMessage: t("apiDownloads.fetchTasksFailed", locale) },
     async ({ session }) => {
       const { serverId, category, status, cursor } = parseSearchParams(
         request,

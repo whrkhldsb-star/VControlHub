@@ -1,3 +1,4 @@
+import { isWindowsStorageBasePath } from "@/lib/storage/path-utils";
 import { noRecycledAncestorSql } from "@/lib/storage/archive-access";
 import { escapeLikeLiteral } from "@/lib/db/like-pattern";
 import { createHash, randomBytes, scrypt, timingSafeEqual } from "node:crypto";
@@ -72,9 +73,12 @@ const SHARE_STORAGE_NODE_INCLUDE = {
   },
 } as const;
 
-export function shareIgnoresCase(node: { driver: string } & Partial<StorageSshCredentialNode>) {
-  return hasCaseInsensitiveLocalPaths(node.driver) || (node.driver === "SFTP" && Boolean(node.server) &&
-    usesWindowsOpenSsh({ host: node.host ?? null, hostKeySha256: node.hostKeySha256 ?? null, server: node.server ?? null }));
+export function shareIgnoresCase(node: { driver: string; basePath?: string | null } & Partial<StorageSshCredentialNode>) {
+  return hasCaseInsensitiveLocalPaths(node.driver) || (node.driver === "SFTP" && (
+    node.server?.operatingSystem === "WINDOWS"
+    || Boolean(node.basePath && isWindowsStorageBasePath(node.basePath))
+    || (Boolean(node.server) && usesWindowsOpenSsh({ host: node.host ?? null, hostKeySha256: node.hostKeySha256 ?? null, server: node.server ?? null }))
+  ));
 }
 
 export async function assertShareTargetNotDeleted(

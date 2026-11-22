@@ -160,7 +160,7 @@ describe("operation task service", () => {
     expect(mockPrisma.commandRequest.findMany).toHaveBeenCalledWith(expect.objectContaining({ where: { AND: [teamScope, { requesterId: "user-1" }] } }));
     expect(mockPrisma.downloadTask.findMany).toHaveBeenCalledWith(expect.objectContaining({ where: { AND: [teamScope, { createdBy: "user-1" }], server } }));
     expect(mockPrisma.syncJob.findMany).toHaveBeenCalledWith(expect.objectContaining({ where: { AND: [{ AND: [teamScope, { createdBy: "user-1" }] }, expect.objectContaining({ sourceServer: { is: server }, targetServer: { is: server } })] } }));
-    expect(mockPrisma.backupRecord.findMany).toHaveBeenCalledWith(expect.objectContaining({ where: { AND: [teamScope, { createdBy: "user-1" }] } }));
+    expect(mockPrisma.backupRecord.findMany).not.toHaveBeenCalled();
     expect(mockPrisma.deploymentRun.findMany).toHaveBeenCalledWith(expect.objectContaining({ where: { AND: [teamScope, { createdBy: "user-1" }] } }));
   });
 

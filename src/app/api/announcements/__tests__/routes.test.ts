@@ -215,7 +215,7 @@ describe("/api/announcements routes", () => {
 				"announcement.create",
 				{ announcementId: "ann_1" },
 				undefined,
-				"team_1",
+				null,
 			);
 		});
 
@@ -316,7 +316,7 @@ describe("/api/announcements routes", () => {
 				"announcement.update",
 				{ announcementId: "ann_1", pinned: false, published: false, level: "info" },
 				undefined,
-				"team_1",
+				null,
 			);
 		});
 
@@ -348,7 +348,7 @@ describe("/api/announcements routes", () => {
 				"announcement.delete",
 				{ announcementId: "ann_1" },
 				undefined,
-				"team_1",
+				null,
 			);
 		});
 

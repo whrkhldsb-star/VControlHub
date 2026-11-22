@@ -89,7 +89,7 @@ try {
       $signature = $request.QueryString['signature']
       [long]$expiry = 0
       $now = [DateTimeOffset]::UtcNow.ToUnixTimeSeconds()
-      if (![long]::TryParse($expires, [ref]$expiry) -or $expiry -lt $now -or $expiry -gt ($now + 86400) -or $signature -notmatch '^[a-f0-9]{64}$') {
+      if (![long]::TryParse($expires, [ref]$expiry) -or $expiry -lt $now -or $expiry -gt ($now + 90000) -or $signature -notmatch '^[a-f0-9]{64}$') {
         Send-Plain $context 403 'invalid or expired link'; continue
       }
       $decoded = [Uri]::UnescapeDataString($request.Url.AbsolutePath)

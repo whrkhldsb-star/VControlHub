@@ -34,7 +34,7 @@ export async function POST(request: Request, { params }: { params: Promise<{ id:
       }, tx);
       return { backup, jobId: job.id, deduped: false };
     });
-    await auditUserAction(session.userId, "backup.retry", { backupId: id, jobId: result.jobId, deduped: result.deduped }, undefined, session.currentTeamId);
+    await auditUserAction(session.userId, "backup.retry", { backupId: id, jobId: result.jobId, deduped: result.deduped }, undefined, null);
     return NextResponse.json({ ...result, taskId: `job:${result.jobId}` }, { status: 202 });
   });
 }

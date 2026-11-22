@@ -199,7 +199,7 @@ async function runApiRoute<TBody = unknown, TQuery = unknown>(
     let session = guard;
     if (!session && options.permissions && options.permissions.length > 0) {
       if (hasBearerAuthorization(request)) {
-        const authenticated = await authenticateBearerForPermissions(request, options.permissions);
+        const authenticated = await authenticateBearerForPermissions(request, options.permissions, ...(options.optionalTokenPermissions ? [options.optionalTokenPermissions] : []));
         if (!authenticated || authenticated instanceof Response) {
           const dur = performance.now() - startTime;
           const rejected = authenticated ?? apiError({ code: "AUTH_REQUIRED", message: t("api.auth.invalidToken"), status: 401 });

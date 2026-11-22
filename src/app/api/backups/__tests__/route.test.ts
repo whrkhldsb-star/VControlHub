@@ -98,7 +98,7 @@ describe("/api/backups", () => {
     expect(res.headers.get("location")).toBe("http://local/backups");
     expect(mocks.createBackupRecord).toHaveBeenCalledWith({ type: "DATABASE", createdBy: "u1", note: "pre upgrade", teamId: null }, tx);
     expect(mocks.enqueueJob).toHaveBeenCalledWith(expect.objectContaining({ type: "backup.create", payload: { backupId: "bak1", teamId: null } }), tx);
-    expect(mocks.auditUserAction).toHaveBeenCalledWith("u1", "backup.create", expect.objectContaining({ backupId: "bak1", jobId: "job1" }), undefined, undefined);
+    expect(mocks.auditUserAction).toHaveBeenCalledWith("u1", "backup.create", expect.objectContaining({ backupId: "bak1", jobId: "job1" }), undefined, null);
   });
 
   it("audits a synchronous backup made from a browser form before redirecting", async () => {
@@ -111,7 +111,7 @@ describe("/api/backups", () => {
     const res = await route.POST(req);
     expect(res.status).toBe(303);
     expect(mocks.runBackupRecord).toHaveBeenCalledTimes(1);
-    expect(mocks.auditUserAction).toHaveBeenCalledWith("u1", "backup.create", { backupId: "bak1" }, undefined, undefined);
+    expect(mocks.auditUserAction).toHaveBeenCalledWith("u1", "backup.create", { backupId: "bak1" }, undefined, null);
   });
 
   it("rejects browser form submissions containing NUL bytes with 400 ValidationError", async () => {

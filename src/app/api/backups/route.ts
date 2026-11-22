@@ -80,14 +80,14 @@ export async function POST(request: Request) {
     );
     const waitForCompletion = wait;
     if (waitForCompletion) {
-      const backup = await runBackupRecord({ type: parsed.data.type, createdBy: session.userId, note: parsed.data.note, teamId: session.currentTeamId ?? null });
+      const backup = await runBackupRecord({ type: parsed.data.type, createdBy: session.userId, note: parsed.data.note, teamId: null });
       // runBackupRecord returns FAILED records without throwing — surface as BusinessError.
       if (backup.status !== "COMPLETED") {
         throw new BusinessError(backup.errorMessage?.slice(0, 500) || `Backup finished with status ${backup.status}`);
       }
       // Before the redirect: a form submission (Accept: text/html) used to
       // return here first and left no audit entry for the backup it made.
-      await auditUserAction(session.userId, "backup.create", { backupId: backup.id }, undefined, session.currentTeamId);
+      await auditUserAction(session.userId, "backup.create", { backupId: backup.id }, undefined, null);
       if ((request.headers.get("accept") || "").includes("text/html")) {
         return NextResponse.redirect(new URL("/backups", request.url), { status: 303 });
       }
@@ -95,7 +95,7 @@ export async function POST(request: Request) {
     }
 
     const { backup, job } = await prisma.$transaction(async (tx) => {
-      const backup = await createBackupRecord({ type: parsed.data.type, createdBy: session.userId, note: parsed.data.note, teamId: session.currentTeamId ?? null }, tx);
+      const backup = await createBackupRecord({ type: parsed.data.type, createdBy: session.userId, note: parsed.data.note, teamId: null }, tx);
       const job = await enqueueJob({
         type: BACKUP_CREATE_JOB_TYPE,
         title: `Create ${backup.type} backup`,
@@ -110,7 +110,7 @@ export async function POST(request: Request) {
       backupId: backup.id,
       jobId: job.id,
       async: true,
-    }, undefined, session.currentTeamId);
+    }, undefined, null);
     if ((request.headers.get("accept") || "").includes("text/html")) {
       return NextResponse.redirect(new URL("/backups", request.url), { status: 303 });
     }

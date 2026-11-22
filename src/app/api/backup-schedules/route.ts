@@ -40,9 +40,9 @@ export async function POST(request: Request) {
       const schedule = await createBackupSchedule({
         ...body,
         createdById: session.userId,
-        teamId: session.currentTeamId ?? null,
+        teamId: null,
       });
-      await auditUserAction(session.userId ?? "", "backup-schedule.create", { scheduleId: schedule.id }, undefined, session.currentTeamId);
+      await auditUserAction(session.userId ?? "", "backup-schedule.create", { scheduleId: schedule.id }, undefined, null);
       return NextResponse.json({ schedule }, { status: 201 });
     },
   );
@@ -70,7 +70,7 @@ export async function PATCH(request: Request) {
             status: result.status,
           },
           undefined,
-          session.currentTeamId,
+          null,
         );
         return NextResponse.json({ schedule: result });
       }
@@ -85,7 +85,7 @@ export async function PATCH(request: Request) {
           fields: Object.keys(updates),
         },
         undefined,
-        session.currentTeamId,
+        null,
       );
       return NextResponse.json({ schedule: result });
     },

@@ -1,3 +1,4 @@
+import { containsNul } from "@/lib/text/strip-nul";
 import { apiCopy } from "@/lib/i18n/api-copy";
 import { NextResponse } from "next/server";
 import { z } from "zod";
@@ -155,6 +156,11 @@ function wantsHtml(request: Request) {
 
 async function parseBody(request: Request) {
   const form = await request.formData();
+  for (const [key, value] of form.entries()) {
+    if (containsNul(key) || (typeof value === "string" && containsNul(value))) {
+      throw new ValidationError(t("backend.http.requestContainsNul"), { field: "body" });
+    }
+  }
   return {
     name: String(form.get("name") ?? ""),
     metric: String(form.get("metric") ?? ""),
