@@ -184,7 +184,7 @@ export async function PATCH(request: Request) {
     request,
     {
       permission: "command:create",
-      optionalTokenPermissions: ["command:read", "command:approve"],
+      optionalTokenPermissions: ["command:read", "command:approve", "command:execute"],
       rateLimit: GENERAL_WRITE_LIMIT,
       bodySchema: scheduledTaskPatchSchema,
       errorStatus: 400,
@@ -246,6 +246,7 @@ export async function DELETE(request: Request) {
     request,
     {
       permission: "command:create",
+      optionalTokenPermissions: ["command:execute"],
       rateLimit: GENERAL_WRITE_LIMIT,
       errorStatus: 400,
       errorMessage: t("api.deleteFailed", await requestLocale(request)),

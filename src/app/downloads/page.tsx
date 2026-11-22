@@ -80,7 +80,7 @@ export default async function DownloadsPage() {
 			serverId: s.id, storageNodeId: s.storageNode.id,
 			name: s.multiple || s.storageNode.driver === "AGENT" ? `${s.name} · ${s.storageNode.name} (${s.storageNode.driver})` : s.name,
 			host: viewConnection ? s.host : "",
-			storagePath: viewConnection ? s.storageNode.basePath : "",
+			storagePath: viewConnection ? s.storageNode.basePath : "/",
 			storageDriver: s.storageNode?.driver ?? "LOCAL",
 			directAccessMode: s.storageNode?.directAccessMode ?? "PROXY",
 			directAccessAvailable: isDirect,

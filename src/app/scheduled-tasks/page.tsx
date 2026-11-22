@@ -55,7 +55,7 @@ export default async function ScheduledTasksPage() {
 	}));
 
 	const serverOptions = servers.map((s) => ({ id: s.id, name: s.name, enabled: s.enabled }));
-	const templateOptions = templates.filter(template => mayRead(template.createdById)).map((template) => ({
+	const templateOptions = templates.filter(template => template.isBuiltin || mayRead(template.createdById)).map((template) => ({
 		id: template.id,
 		name: template.name,
 		description: template.description,

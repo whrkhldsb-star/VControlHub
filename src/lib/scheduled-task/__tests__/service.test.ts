@@ -411,7 +411,7 @@ describe("scheduled task service", () => {
   });
 
   it("rejects serverIds outside team scope on update", async () => {
-    mockPrisma.scheduledTask.findFirst.mockResolvedValue({ id: "task1", teamId: "team_a", approvalRequired: true, command: "df -h", serverIds: ["srv0"] });
+    mockPrisma.scheduledTask.findFirst.mockResolvedValue({ id: "task1", teamId: "team_a", approvalRequired: true, command: "df -h", serverIds: ["srv0"], createdById: teamSession.userId });
     mockPrisma.server.findMany.mockResolvedValueOnce([{ id: "srv0" }]).mockResolvedValueOnce([]); // existing readable, replacement outside scope
     await expect(
       service.updateScheduledTask(
@@ -421,6 +421,43 @@ describe("scheduled task service", () => {
       ),
     ).rejects.toThrow(/outside your customer scope/);
     expect(mockPrisma.scheduledTask.update).not.toHaveBeenCalled();
+  });
+
+  it("blocks a non-owner without command:approve from taking over createdById via serverIds alone and wipes prior redacted fields when replacing command", async () => {
+    const otherTask = {
+      id: "task_r5_03_01",
+      teamId: "team_a",
+      approvalRequired: true,
+      command: "echo top-secret",
+      reason: "secret-reason",
+      plan: "secret-plan",
+      verificationCommand: "secret-verify",
+      rollbackCommand: "secret-rollback",
+      lastResult: "secret-output",
+      serverIds: ["srv1"],
+      createdById: "owner_a",
+      updatedAt: new Date("2026-11-19T01:00:00Z"),
+    };
+    const teammate: SessionScope = { userId: "user_b", roles: ["operator"] as RoleKey[], currentTeamId: "team_a", permissions: ["command:create", "command:read", "server:read"] };
+    mockPrisma.scheduledTask.findFirst.mockResolvedValue(otherTask);
+    mockPrisma.scheduledTask.updateMany.mockResolvedValue({ count: 1 });
+    mockPrisma.server.findMany.mockImplementation(async (args: { where: { id: { in: string[] } } }) => args.where.id.in.map((id) => ({ id })));
+
+    await expect(service.updateScheduledTask(otherTask.id, { serverIds: ["srv2"] }, teammate)).rejects.toMatchObject({ name: "ForbiddenError" });
+    expect(mockPrisma.scheduledTask.updateMany).not.toHaveBeenCalled();
+
+    await service.updateScheduledTask(otherTask.id, { serverIds: ["srv2"], command: "uptime" }, teammate);
+    expect(mockPrisma.scheduledTask.updateMany).toHaveBeenCalledWith(expect.objectContaining({
+      data: expect.objectContaining({
+        createdById: "user_b",
+        command: "uptime",
+        reason: null,
+        plan: null,
+        verificationCommand: null,
+        rollbackCommand: null,
+        lastResult: null,
+      }),
+    }));
   });
 
   describe("tasks that run without per-run approval", () => {

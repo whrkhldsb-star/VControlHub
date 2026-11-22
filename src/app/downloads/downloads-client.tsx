@@ -51,7 +51,7 @@ export function DownloadsClient({ servers, canManage, canManageNode }: { servers
 		);
 
 	const defaultServer = servers[0];
-	const defaultTargetPath = defaultServer?.storagePath ?? "/root/downloads";
+	const defaultTargetPath = defaultServer?.storagePath || "/";
 	const [form, setForm] = useState({
 		url: "", serverId: defaultServer?.id ?? "", targetPath: defaultTargetPath,
 		fileName: "", category: "", maxSpeedKb: "", batchMode: false, batchText: "",
@@ -191,7 +191,7 @@ export function DownloadsClient({ servers, canManage, canManageNode }: { servers
 
 	const handleServerChange = (serverId: string) => {
 		const srv = servers.find((s) => s.id === serverId);
-		setForm((p) => ({ ...p, serverId, targetPath: srv?.storagePath ?? "/root/downloads" }));
+		setForm((p) => ({ ...p, serverId, targetPath: srv?.storagePath || "/" }));
 	};
 
 	const handleSubmit = async () => {

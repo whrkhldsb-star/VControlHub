@@ -146,7 +146,7 @@ export function CreateDownloadForm({
 					>
 						{servers.map((s) => (
 							<option key={s.id} value={s.id}>
-								{s.name} ({s.host})
+								{s.host ? `${s.name} (${s.host})` : s.name}
 							</option>
 						))}
 					</select>
@@ -169,7 +169,7 @@ export function CreateDownloadForm({
 						id="downloadTargetPath"
 						value={form.targetPath}
 						onChange={(e) => onFormChange({ ...form, targetPath: e.target.value })}
-						placeholder="/root/downloads"
+						placeholder="/"
 						className={UI_INPUT}
 					/>
 				</div>

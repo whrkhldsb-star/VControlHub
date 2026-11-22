@@ -56,6 +56,7 @@ export function taskCompletedFileRelativePath(task: {
 
 export function taskDownloadAccess(task: {
   locale?: import("@/lib/i18n/service-translations").Locale;
+  viewConnection?: boolean;
   url: string;
   status: string;
   targetPath: string | null;
@@ -100,7 +101,9 @@ export function taskDownloadAccess(task: {
   const isDirect = strategy.mode === "direct-url";
   const host = storageNode.host ?? "unknown";
   const port = storageNode.port ?? 22;
-  const description = storageNode.driver === "AGENT" ? strategy.description : storageNode.driver !== "SFTP"
+  const statusLabel = isDirect ? t("apiDownloads.statusLabelDirect", locale) : t("apiDownloads.statusLabelRelay", locale);
+  const description = task.viewConnection === false ? statusLabel
+    : storageNode.driver === "AGENT" ? strategy.description : storageNode.driver !== "SFTP"
     ? t("downloadsPage.access.localDesc", locale)
     : isDirect
       ? t(storageNode.directAccessMode === "AUTO" ? "downloadsPage.access.directAutoDesc" : "downloadsPage.access.directModeDesc", locale, { host, port })
@@ -113,7 +116,7 @@ export function taskDownloadAccess(task: {
       ? `${strategy.fallbackHref}${strategy.fallbackHref.includes("?") ? "&" : "?"}download=1`
       : null,
     label: t("apiDownloads.label", locale),
-    statusLabel: isDirect ? t("apiDownloads.statusLabelDirect", locale) : t("apiDownloads.statusLabelRelay", locale),
+    statusLabel,
     description,
   };
 }
