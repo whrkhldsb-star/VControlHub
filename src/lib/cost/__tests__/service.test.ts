@@ -170,6 +170,35 @@ function makePrismaMock() {
 					return next;
 				},
 			),
+			updateMany: vi.fn(
+				async ({
+					where,
+					data,
+				}: {
+					where: { OR: Array<{ id?: string; tags?: { has: string }; effectiveDate?: { gte: Date; lt: Date } }> };
+					data: Partial<CostEntryRow>;
+				}) => {
+					let count = 0;
+					for (const [id, row] of store.entries.entries()) {
+						const matches = where.OR.some((clause) => {
+							if (clause.id) return row.id === clause.id;
+							if (clause.tags?.has) {
+								if (!row.tags.includes(clause.tags.has)) return false;
+								if (clause.effectiveDate) {
+									return row.effectiveDate >= clause.effectiveDate.gte && row.effectiveDate < clause.effectiveDate.lt;
+								}
+								return true;
+							}
+							return false;
+						});
+						if (matches) {
+							store.entries.set(id, { ...row, ...data });
+							count += 1;
+						}
+					}
+					return { count };
+				},
+			),
 			delete: vi.fn(async ({ where }: { where: { id: string } }) => {
 				const cur = store.entries.get(where.id);
 				if (!cur) throw new Error(`CostEntry not found: ${where.id}`);
@@ -659,6 +688,56 @@ describe("syncServerMonthlyCosts", () => {
 		const result = await syncServerMonthlyCosts("2026-06");
 		expect(result.synced).toBe(0);
 		expect(syncedRows()).toHaveLength(0);
+	});
+
+	it("transfers cross-month linked adjustments atomically with the parent monthly entry", async () => {
+		const { transferMonthlyCost } = await import("../service-entries");
+		const parent = insertCostEntry({
+			teamId: "team_a",
+			category: "vps",
+			provider: "Linode",
+			amount: "88.50",
+			currency: "CNY",
+			effectiveDate: new Date("2026-06-01T00:00:00Z"),
+			notes: null,
+			createdById: null,
+			sourceType: "server_monthly",
+			sourceRef: "srv_1",
+			tags: ["source:server_monthly", "category:vps", "provider:linode", "server:srv_1"],
+		});
+		const sameMonthAdj = insertCostEntry({
+			teamId: "team_a",
+			category: "vps",
+			provider: "Linode",
+			amount: "-10.00",
+			currency: "CNY",
+			effectiveDate: new Date("2026-06-15T00:00:00Z"),
+			notes: "same month credit",
+			createdById: "u1",
+			sourceType: "manual",
+			sourceRef: null,
+			tags: ["source:manual", `adjustment-for:${parent.id}`],
+		});
+		const crossMonthAdj = insertCostEntry({
+			teamId: "team_a",
+			category: "vps",
+			provider: "Linode",
+			amount: "-5.00",
+			currency: "CNY",
+			effectiveDate: new Date("2026-07-02T00:00:00Z"),
+			notes: "next month credit",
+			createdById: "u1",
+			sourceType: "manual",
+			sourceRef: null,
+			tags: ["source:manual", `adjustment-for:${parent.id}`],
+		});
+		prismaMock.$queryRaw.mockResolvedValueOnce([{ id: parent.id }]);
+
+		await transferMonthlyCost(prismaMock as never, "srv_1", "2026-06", "team_b");
+
+		expect(store.entries.get(parent.id)?.teamId).toBe("team_b");
+		expect(store.entries.get(sameMonthAdj.id)?.teamId).toBe("team_b");
+		expect(store.entries.get(crossMonthAdj.id)?.teamId).toBe("team_b");
 	});
 });
 

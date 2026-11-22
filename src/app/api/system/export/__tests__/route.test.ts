@@ -154,6 +154,13 @@ describe("GET /api/system/export", () => {
 		mocks.buildExportFile.mockResolvedValue({ ...exportFile, exportScope: "global", exportTeamId: null });
 		const res = await route.GET(get("?scope=global"));
 		expect(res.headers.get("Content-Disposition")).toContain("vch-config-global-");
+		expect(mocks.auditUserAction).toHaveBeenCalledWith(
+			"u_1",
+			"system.export",
+			expect.objectContaining({ exportScope: "global", exportTeamId: null }),
+			undefined,
+			null,
+		);
 	});
 
 	it("audits the export with the applied mode/scope and the record counts", async () => {

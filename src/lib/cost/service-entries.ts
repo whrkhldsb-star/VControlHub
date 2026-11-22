@@ -84,8 +84,7 @@ export async function transferMonthlyCost(tx: Prisma.TransactionClient, serverId
 		AND "sourceRef" = ${serverId} AND "effectiveDate" = ${start} FOR UPDATE`;
 	if (!sources.length) return;
 	const id = sources[0]!.id;
-	await tx.costEntry.updateMany({ where: { OR: [{ id }, { tags: { has: `adjustment-for:${id}` },
-		effectiveDate: { gte: start, lt: endOfMonthUtc(month) } }] }, data: { teamId } });
+	await tx.costEntry.updateMany({ where: { OR: [{ id }, { tags: { has: `adjustment-for:${id}` } }] }, data: { teamId } });
 }
 
 export async function getCostEntry(id: string, session?: TeamSession | null): Promise<CostEntryRecord | null> {

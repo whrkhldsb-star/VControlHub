@@ -16,11 +16,11 @@ import { withCacheHeaders, CachePresets } from "@/lib/cache";
 
 import { ForbiddenError, ValidationError } from "@/lib/errors";
 import { t } from "@/lib/i18n/service-translations";
+import { firstSchemaSentence } from "@/lib/i18n/schema-copy";
 import { idQuerySchema, parseSearchParams } from "@/lib/http/parse-search-params";
-import {
-  MAX_NON_FILE_FORM_BYTES,
-  requestContentLengthExceeds,
-} from "@/lib/http/request-body";
+import { rejectOversizedFormBody } from "@/lib/http/form-body-limit";
+import { MAX_NON_FILE_FORM_BYTES } from "@/lib/http/request-body";
+import { containsNul } from "@/lib/text/strip-nul";
 export const dynamic = "force-dynamic";
 
 const createTokenSchema = z.object({
@@ -35,6 +35,11 @@ const createTokenSchema = z.object({
 
 async function parseCreateBody(request: Request) {
   const form = await request.formData();
+  for (const [key, value] of form.entries()) {
+    if (containsNul(key) || (typeof value === "string" && containsNul(value))) {
+      throw new ValidationError(t("backend.http.requestContainsNul"), { field: "body" });
+    }
+  }
   const scopes = form
     .getAll("scopes")
     .map(String)
@@ -91,9 +96,12 @@ export async function GET(request: Request) {
 export async function POST(request: Request) {
   const contentType = request.headers.get("content-type") ?? "";
   const isFormSubmission = contentType.includes("application/x-www-form-urlencoded") || contentType.includes("multipart/form-data");
-  if (isFormSubmission && requestContentLengthExceeds(request, MAX_NON_FILE_FORM_BYTES)) {
-    return NextResponse.json({ error: t("backend.request.bodyTooLarge", await requestLocale(request)) }, { status: 413 });
-  }
+  const rejected = isFormSubmission
+    ? rejectOversizedFormBody(request, MAX_NON_FILE_FORM_BYTES, {
+        tooLargeMessage: t("backend.request.bodyTooLarge", await requestLocale(request)),
+      })
+    : null;
+  if (rejected) return rejected;
   const options = {
     permission: "api-token:manage" as const,
     rateLimit: GENERAL_WRITE_LIMIT,
@@ -105,7 +113,21 @@ export async function POST(request: Request) {
     request,
     options,
     async ({ session, body }) => {
-      const parsed = isFormSubmission ? createTokenSchema.parse(await parseCreateBody(request)) : body;
+      let parsed = body;
+      if (isFormSubmission) {
+        const rawForm = await parseCreateBody(request);
+        if (containsNul(rawForm)) {
+          throw new ValidationError(t("backend.http.requestContainsNul"), { field: "body" });
+        }
+        const formParsed = createTokenSchema.safeParse(rawForm);
+        if (!formParsed.success) {
+          throw new ValidationError(
+            firstSchemaSentence(formParsed.error) ?? apiCopy("apiCopy.failed.to.create.token.f8a44ba9"),
+            { field: "body" },
+          );
+        }
+        parsed = formParsed.data;
+      }
       const scopes = normalizeScopes(parsed.scopes);
       const unauthorizedScopes = scopes.filter(
         (scope) => !apiTokenScopeAllowedForSession(scope, session),

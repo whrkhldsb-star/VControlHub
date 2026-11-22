@@ -191,6 +191,52 @@ describe("Dashboard", () => {
     expect(prisma.auditLog.findMany).not.toHaveBeenCalled();
   });
 
+  it("scopes VPS backup schedule and priced server setup counts with serverTeamWhere", async () => {
+    const { serverTeamWhere } = await import("@/lib/auth/team-scope");
+
+    // Platform admin in all-customers mode: serverTeamWhere excludes soft-deleted teams.
+    const adminSession = {
+      userId: "admin_1",
+      username: "admin",
+      roles: ["admin" as const],
+      permissions: ["backup:read" as const, "cost:read" as const],
+      currentTeamId: null,
+      mustChangePassword: false,
+    };
+    vi.mocked(requireSession).mockResolvedValueOnce(adminSession);
+    await Dashboard();
+    expect(prisma.vpsBackupSchedule.count).toHaveBeenCalledWith({
+      where: {
+        server: serverTeamWhere(adminSession),
+      },
+    });
+    expect(prisma.server.count).toHaveBeenCalledWith({
+      where: {
+        ...serverTeamWhere(adminSession),
+        costMonthlyAmount: { gt: 0 },
+      },
+    });
+
+    // Customer member with cost:read: serverTeamWhere enforces per-server ACL.
+    vi.mocked(prisma.server.count).mockClear();
+    const customerSession = {
+      userId: "reader",
+      username: "reader",
+      roles: [] as never[],
+      permissions: ["cost:read" as const],
+      currentTeamId: "team_1",
+      mustChangePassword: false,
+    };
+    vi.mocked(requireSession).mockResolvedValueOnce(customerSession);
+    await Dashboard();
+    expect(prisma.server.count).toHaveBeenCalledWith({
+      where: {
+        ...serverTeamWhere(customerSession),
+        costMonthlyAmount: { gt: 0 },
+      },
+    });
+  });
+
   it("shows an unavailable download count when the path ACL cannot be read", async () => {
     vi.mocked(downloadSummary).mockRejectedValueOnce(new Error("ACL unavailable"));
     const { container } = render(<I18nProvider initialLocale="en">{await Dashboard()}</I18nProvider>);

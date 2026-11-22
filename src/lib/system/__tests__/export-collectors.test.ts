@@ -230,3 +230,42 @@ describe("alert rule webhooks", () => {
     expect((await exportAlertRules("full", "global", null))[0]).toMatchObject({ webhookUrl: "https://hooks.example/T0K3N" });
   });
 });
+
+describe("exportSettings internal runtime rows", () => {
+  it("excludes internal runtime locks, grants, intents, bindings and receipts from global exports", async () => {
+    model("setting").findMany.mockResolvedValueOnce([
+      { key: "platform.name", value: "VControlHub" },
+      { key: "backup.offsiteReceipt.rec1", value: "{}" },
+      { key: "playbook.lock.pb1", value: "3" },
+      { key: "alerts.platformChannels.rule1", value: "sha256:abc" },
+      { key: "alerts.intent.hash.inc1", value: "1" },
+      { key: "alerts.defaultRulesSeeded", value: "true" },
+      { key: "alerts.defaultRulesSeeded:team_a", value: "true" },
+      { key: "alerts.scan.cpu.hash", value: "{}" },
+      { key: "ai.ops.providerBinding", value: "binding" },
+      { key: "ai.ops.lastScheduledDay", value: "2026-11-22" },
+      { key: "agent.install.srv1", value: "12345.hmac" },
+      { key: "file-agent-write:srv1:job1", value: "{}" },
+    ]);
+
+    const exported = await exportSettings("full", "global");
+    expect(exported).toEqual([{ key: "platform.name", value: "VControlHub" }]);
+    expect(model("setting").findMany).toHaveBeenCalledWith(
+      expect.objectContaining({
+        where: {
+          NOT: expect.arrayContaining([
+            { key: { in: ["ai.ops.providerBinding", "ai.ops.lastScheduledDay"] } },
+            { key: { startsWith: "backup.offsiteReceipt." } },
+            { key: { startsWith: "playbook.lock." } },
+            { key: { startsWith: "alerts.platformChannels." } },
+            { key: { startsWith: "alerts.intent." } },
+            { key: { startsWith: "alerts.defaultRulesSeeded" } },
+            { key: { startsWith: "alerts.scan." } },
+            { key: { startsWith: "agent.install." } },
+            { key: { startsWith: "file-agent-write:" } },
+          ]),
+        },
+      }),
+    );
+  });
+});

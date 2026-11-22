@@ -776,7 +776,7 @@ validate_env() {
  [ -f "${ENV_FILE}" ] || fail "Missing ${ENV_FILE}. Create it from deploy/env.production.example first."
  # Re-source .env.local to pick up any values written by auto_generate_env_secrets.
  # shellcheck disable=SC1090
- set -a; load_install_settings "${ENV_FILE}"; set +a
+ load_install_settings "${ENV_FILE}"
  local required
  for required in DATABASE_URL AUTH_SESSION_SECRET ADMIN_INITIAL_PASSWORD SSH_WS_SECRET STORAGE_DIRECT_ACCESS_SECRET ENCRYPTION_KEY; do
  [ -n "${!required:-}" ] || fail "${required} is required in ${ENV_FILE}."
@@ -799,7 +799,7 @@ validate_env() {
 auto_generate_env_secrets() {
  [ -f "${ENV_FILE}" ] || return 0
  # shellcheck disable=SC1090
- set -a; load_install_settings "${ENV_FILE}"; set +a
+ load_install_settings "${ENV_FILE}"
 
  local changed=0
 
@@ -1108,6 +1108,13 @@ setup_postgres() {
   DATABASE_URL="${generated_url}"
 }
 
+with_install_env() (
+  set -a
+  load_install_settings "${ENV_FILE}"
+  set +a
+  "$@"
+)
+
 build_app() {
  log "Installing dependencies and building application"
  cd "${APP_DIR}"
@@ -1120,10 +1127,7 @@ build_app() {
    log "Installing build-essential and python3 for native modules"
    apt-get install -y build-essential python3
  fi
- set -a
- # shellcheck disable=SC1090
- load_install_settings "${ENV_FILE}"
-  set +a
+  load_install_settings "${ENV_FILE}"
   export NODE_OPTIONS="${NODE_OPTIONS:---max-old-space-size=4096}"
   export NEXT_TELEMETRY_DISABLED="${NEXT_TELEMETRY_DISABLED:-1}"
   # package.json "build" runs scripts/guard-live-next-build.mjs first. On a fresh
@@ -1158,18 +1162,19 @@ build_app() {
     trap 'rm -rf -- "${stage_dir}"' EXIT
     copy_build_inputs "${APP_DIR}" "${stage_dir}"
     cd "${stage_dir}"
+    unset DATABASE_URL PG_DB_PASSWORD AUTH_SESSION_SECRET ADMIN_INITIAL_PASSWORD SSH_WS_SECRET STORAGE_DIRECT_ACCESS_SECRET ARIA2_RPC_SECRET ENCRYPTION_KEY
     as_release_builder npm ci --include=dev
-    as_release_builder npm run prisma:generate
+    DATABASE_URL="postgresql://build:build@127.0.0.1:5432/build" as_release_builder npm run prisma:generate
     if [[ ${SKIP_DB_SETUP} != 1 ]]; then
-      as_release_builder node deploy/check-upgrade-migrations.mjs
-      as_release_builder npm run prisma:deploy
-      as_release_builder npm exec --no -- tsx deploy/prepare-cost-ledger.ts
+      with_install_env as_release_builder node deploy/check-upgrade-migrations.mjs
+      with_install_env as_release_builder npm run prisma:deploy
+      with_install_env as_release_builder npm exec --no -- tsx deploy/prepare-cost-ledger.ts
       if [[ ${SKIP_SEED} != 1 ]]; then
         log "Seeding database (admin user, roles, permissions)"
-        as_release_builder npm run db:seed
+        with_install_env as_release_builder npm run db:seed
       fi
     fi
-    as_release_builder npm run build
+    with_public_build_env "${APP_DIR}" "${ENV_FILE}" as_release_builder npm run build
     as_release_builder npm run build:runtime
     copy_build_artifacts "${stage_dir}" "${APP_DIR}"
   )
@@ -1528,7 +1533,7 @@ restart_services() {
   # Wait for Next.js to be ready (standalone server can take a few seconds)
  local retries=15
  while [ "${retries}" -gt 0 ]; do
- if curl -fsS "http://${NEXT_HOST}:${NEXT_PORT}/login" >/dev/null 2>&1; then
+ if curl -fsS "$(web_health_url "${APP_DIR}" "${RUNTIME_ENV_FILE}")" >/dev/null 2>&1; then
  log " ✓ Next.js is responding on port ${NEXT_PORT}"
  break
  fi

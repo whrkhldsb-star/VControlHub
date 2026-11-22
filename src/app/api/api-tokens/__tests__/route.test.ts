@@ -162,17 +162,19 @@ describe("/api/api-tokens", () => {
   });
 
   it("accepts browser form token creation but answers with the JSON body, never a redirect", async () => {
+    const body = new URLSearchParams([
+      ["name", "mobile cli"],
+      ["scopes", "read"],
+      ["scopes", "status:read"],
+    ]);
     const req = new Request("http://local/api/api-tokens", {
       method: "POST",
       headers: {
         "content-type": "application/x-www-form-urlencoded",
+        "content-length": String(body.toString().length),
         accept: "text/html",
       },
-      body: new URLSearchParams([
-        ["name", "mobile cli"],
-        ["scopes", "read"],
-        ["scopes", "status:read"],
-      ]),
+      body,
     });
     const res = await route.POST(req);
     // The HTML redirect branch is gone (A1-03): the token is only ever returned once, as JSON.
@@ -184,6 +186,41 @@ describe("/api/api-tokens", () => {
       scopes: ["read", "status:read"],
       expiresAt: null,
     });
+  });
+
+  it("enforces form body length and NUL/schema validation on browser form submissions", async () => {
+    const chunked = await route.POST(new Request("http://local/api/api-tokens", {
+      method: "POST",
+      headers: { "content-type": "application/x-www-form-urlencoded" },
+      body: new URLSearchParams([["name", "cli"]]),
+    }));
+    expect(chunked.status).toBe(411);
+
+    const oversized = await route.POST(new Request("http://local/api/api-tokens", {
+      method: "POST",
+      headers: { "content-type": "application/x-www-form-urlencoded", "content-length": "9999999" },
+      body: new URLSearchParams([["name", "cli"]]),
+    }));
+    expect(oversized.status).toBe(413);
+
+    const emptyNameBody = new URLSearchParams([["name", "   "]]);
+    const invalidForm = await route.POST(new Request("http://local/api/api-tokens", {
+      method: "POST",
+      headers: { "content-type": "application/x-www-form-urlencoded", "content-length": String(emptyNameBody.toString().length) },
+      body: emptyNameBody,
+    }));
+    expect(invalidForm.status).toBe(400);
+    expect(await invalidForm.json()).toMatchObject({ code: "VALIDATION_FAILED" });
+
+    const nulBody = "name=tok%00bad";
+    const nulForm = await route.POST(new Request("http://local/api/api-tokens", {
+      method: "POST",
+      headers: { "content-type": "application/x-www-form-urlencoded", "content-length": String(nulBody.length) },
+      body: nulBody,
+    }));
+    expect(nulForm.status).toBe(400);
+    expect(await nulForm.json()).toMatchObject({ code: "VALIDATION_FAILED" });
+    expect(mocks.createApiToken).not.toHaveBeenCalled();
   });
 
   it.each([["2031-02-30T00:00:00Z", 400], ["2031-02-29T00:00:00+0800", 400], ["2032-02-29T00:00:00+08:00", 201]])(

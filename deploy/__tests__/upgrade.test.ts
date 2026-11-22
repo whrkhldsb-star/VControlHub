@@ -25,12 +25,12 @@ async function fixtureCommands(root: string) {
 	await mkdir(bin);
 	const commands = {
 		npm: `echo "npm $* $PWD" >> "$LOG"
-if [[ "$*" == 'run prisma:generate' && -n "$EXPECT_TOOL_ENV" ]]; then
-  test "$TOOL_ENV" = "$EXPECT_TOOL_ENV" || exit 23
+if [[ ( "$*" == 'ci --include=dev' || "$*" == 'run prisma:generate' || "$*" == 'run build' || "$*" == 'run build:runtime' ) && -n "$EXPECT_TOOL_ENV" ]]; then
+  test -z "$TOOL_ENV" || exit 23
 fi
 if [[ "$*" == 'run build' && -n "$OBSERVE_ENV" ]]; then
-  test ! -e .env.preview && test ! -e .env.custom || exit 24
-  test "$(stat -c %a .env.production.local)" = 600 || exit 25
+  test ! -e .env && test ! -e .env.local && test ! -e .env.runtime && test ! -e .env.production && test ! -e .env.production.local && test ! -e .env.preview && test ! -e .env.custom || exit 24
+  test "$(stat -c %a "$APP_DIR/.env.production.local")" = 600 || exit 25
   NODE_ENV=production node -e 'require(process.env.NEXT_ENV_PACKAGE).loadEnvConfig(process.cwd()); process.stdout.write(process.env.NEXT_PUBLIC_APP_TIME_ZONE)' > "$OBSERVE_ENV" || exit 26
 fi
 if [[ "$*" == 'run build' && -n "$STATE_DIR" ]]; then
@@ -215,7 +215,7 @@ describeLinux("deploy/upgrade.sh pulling a one-click install", () => {
 		expect(pinned).not.toBe(head);
 		await writeFile(path.join(origin, "README.md"), "branch moved\n");
 		git(origin, "commit", "-qam", "advance branch");
-		await writeFile(path.join(app, ".env.production.local"), "NEXT_PUBLIC_APP_TIME_ZONE=Europe/Berlin\nTOOL_ENV=selected-production-local\n");
+		await writeFile(path.join(app, ".env.production.local"), "NEXT_PUBLIC_APP_TIME_ZONE=Europe/Berlin\nTOOL_ENV=selected-production-local\n", { mode: 0o600 });
 		const env = await fixtureCommands(root);
 		const seen = path.join(root, "build-env");
 		const result = await invoke(app, { ...env, UPGRADE_COMMIT: pinned, OBSERVE_ENV: seen, SKIP_POST_CHECK: "1",
@@ -272,7 +272,7 @@ describeLinux("archive upgrade environment files", () => {
 		await writeFile(custom, "installed settings\n", { mode: 0o600 });
 		const original = await stat(custom);
 		await writeFile(path.join(app, ".env.local"), 'DOMAIN=""\nNEXT_PUBLIC_APP_TIME_ZONE=Asia/Shanghai\n');
-		await writeFile(path.join(app, ".env.production.local"), "NEXT_PUBLIC_APP_TIME_ZONE=Europe/Berlin\n");
+		await writeFile(path.join(app, ".env.production.local"), "NEXT_PUBLIC_APP_TIME_ZONE=Europe/Berlin\n", { mode: 0o600 });
 		await writeFile(path.join(app, ".env.example"), "installed template\n");
 
 		const env = await fixtureCommands(root);

@@ -23,10 +23,7 @@ const { mockPrisma } = vi.hoisted(() => ({
 Object.assign(mockPrisma, { $transaction: vi.fn(async (fn: (tx: unknown) => unknown) => fn(mockPrisma)) });
 vi.mock("@/lib/db", () => ({ prisma: mockPrisma }));
 vi.mock("@/lib/itsm/outbox", () => ({ enqueueTicketEvent: vi.fn() }));
-vi.mock("@/lib/auth/authorization", () => ({
-  sessionHasPermission: (session: { roles?: string[] }, permission: string) =>
-    permission === "team:manage" && session.roles?.includes("admin"),
-}));
+vi.mock("@/lib/auth/authorization", async (importOriginal) => importOriginal<typeof import("@/lib/auth/authorization")>());
 const { createTicket, updateTicketStatus, addTicketComment, canViewTicket, listTickets, getTicketById } = await import("./service");
 
 const teamSession = { userId: "u1", roles: ["operator"] as never[], currentTeamId: "team-a" };
@@ -100,6 +97,36 @@ describe("ticket service", () => {
         data: expect.objectContaining({ relatedServerId: "srv1", teamId: "team-a" }),
       }),
     );
+  });
+
+  it("forbids linking a server or command on ticket creation when the caller lacks server:read or command:read", async () => {
+    const ticketOnlySession = {
+      userId: "u1",
+      roles: [] as never[],
+      permissions: ["ticket:create" as const],
+      currentTeamId: "team-a",
+    };
+    await expect(
+      createTicket({
+        title: "Need VPS",
+        description: "Please add node",
+        createdBy: "u1",
+        relatedServerId: "srv1",
+        session: ticketOnlySession,
+      }),
+    ).rejects.toMatchObject({ status: 403 });
+    expect(mockPrisma.server.findFirst).not.toHaveBeenCalled();
+
+    await expect(
+      createTicket({
+        title: "Need command",
+        description: "Please check command",
+        createdBy: "u1",
+        relatedCommandId: "cmd1",
+        session: ticketOnlySession,
+      }),
+    ).rejects.toMatchObject({ status: 403 });
+    expect(mockPrisma.commandRequest.findFirst).not.toHaveBeenCalled();
   });
 
   it("updates assignee without requiring a status change", async () => {

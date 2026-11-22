@@ -114,4 +114,18 @@ describe("/api/backups", () => {
     expect(mocks.auditUserAction).toHaveBeenCalledWith("u1", "backup.create", { backupId: "bak1" }, undefined, undefined);
   });
 
+  it("rejects browser form submissions containing NUL bytes with 400 ValidationError", async () => {
+    const body = "type=DATABASE&note=bad%00note";
+    const req = new Request("http://local/api/backups", {
+      method: "POST",
+      headers: { "content-type": "application/x-www-form-urlencoded", "content-length": String(body.length) },
+      body,
+    });
+    const res = await route.POST(req);
+    expect(res.status).toBe(400);
+    expect(await res.json()).toMatchObject({ code: "VALIDATION_FAILED" });
+    expect(mocks.createBackupRecord).not.toHaveBeenCalled();
+    expect(mocks.runBackupRecord).not.toHaveBeenCalled();
+  });
+
 });

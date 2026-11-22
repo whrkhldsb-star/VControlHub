@@ -15,7 +15,8 @@ import type { Prisma } from "@prisma/client";
 import { commandRequestTeamWhere, serverTeamWhere, teamWhere } from "@/lib/auth/team-scope";
 import { lockTicket } from "./transaction";
 import { prisma } from "@/lib/db";
-import { NotFoundError, ValidationError } from "@/lib/errors";
+import { ForbiddenError, NotFoundError, ValidationError } from "@/lib/errors";
+import { apiCopy } from "@/lib/i18n/api-copy";
 import { t } from "@/lib/i18n/service-translations";
 
 type TeamSession = { userId: string; roles: RoleKey[]; currentTeamId: string | null; permissions?: Permission[] };
@@ -98,6 +99,12 @@ function updateTicketLink(input: LinkInput, field: "relatedServerId" | "relatedC
     const ticket = await tx.ticket.findUnique({ where });
     if (!ticket) throw new NotFoundError(t("backend.ticket.ticketNotFound"));
     const serverLink = field === "relatedServerId";
+    if (input.session) {
+      const requiredPermission = serverLink ? "server:read" : "command:read";
+      if (!sessionHasPermission(input.session, requiredPermission)) {
+        throw new ForbiddenError(apiCopy("apiCopy.missing.permission.db2e4ec2", { v0: requiredPermission }));
+      }
+    }
     if (next) {
       const target = serverLink
         ? await tx.server.findFirst({ where: { id: next, ...(input.session ? serverTeamWhere(input.session) : {}) }, select: { id: true } })

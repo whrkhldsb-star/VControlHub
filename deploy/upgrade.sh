@@ -24,12 +24,9 @@ fail() { printf '\033[1;31m[upgrade]\033[0m %s\n' "$*" >&2; exit 1; }
 load_env_for_defaults() {
   [ -f "${ENV_FILE}" ] || return 0
   # shellcheck disable=SC1090
-  # Let Next apply its production file precedence. A separate ENV_FILE is
-  # an explicit process environment, also used by the migration commands.
-  case "${ENV_FILE}" in
-    "${APP_DIR}/.env"|"${APP_DIR}/.env.local"|"${APP_DIR}/.env.production"|"${APP_DIR}/.env.production.local") load_install_settings "${ENV_FILE}" ;;
-    *) set -a; load_install_settings "${ENV_FILE}"; set +a ;;
-  esac
+  # Keep configuration local to the upgrader; only migration/seed steps export
+  # installation secrets via with_install_env.
+  load_install_settings "${ENV_FILE}"
 
   # DOMAIN was not persisted by installers released before the lifecycle menu.
   # Recover it from the first configured public SSH WebSocket origin so those
@@ -162,12 +159,6 @@ clear_candidate_env() {
 prepare_release() {
   prepare_source
   clear_candidate_env
-  local env_name
-  for env_name in .env .env.local .env.runtime .env.production .env.production.local; do
-    if [[ -f ${APP_DIR}/${env_name} ]]; then
-      install -m 600 "${APP_DIR}/${env_name}" "${candidate}/${env_name}"
-    fi
-  done
   if [[ ${SKIP_BUILD:-0} == 1 && ( -z ${SOURCE_DIR:-} || ${SOURCE_DIR} -ef ${APP_DIR} ) ]]; then
     fail "SKIP_BUILD needs a separate prebuilt SOURCE_DIR"
   fi
@@ -183,10 +174,11 @@ prepare_release() {
   if [[ ${SKIP_BUILD:-0} != 1 ]]; then
     (
       cd "${stage_dir}"
-      with_install_env as_release_builder npm ci --include=dev
-      with_install_env as_release_builder npm run prisma:generate
-      VCONTROLHUB_ALLOW_BUILD=1 NEXT_TELEMETRY_DISABLED=1 as_release_builder npm run build
-      with_install_env as_release_builder npm run build:runtime
+      unset DATABASE_URL PG_DB_PASSWORD AUTH_SESSION_SECRET ADMIN_INITIAL_PASSWORD SSH_WS_SECRET STORAGE_DIRECT_ACCESS_SECRET ARIA2_RPC_SECRET ENCRYPTION_KEY
+      as_release_builder npm ci --include=dev
+      DATABASE_URL="postgresql://build:build@127.0.0.1:5432/build" as_release_builder npm run prisma:generate
+      VCONTROLHUB_ALLOW_BUILD=1 NEXT_TELEMETRY_DISABLED=1 with_public_build_env "${APP_DIR}" "${ENV_FILE}" as_release_builder npm run build
+      as_release_builder npm run build:runtime
       rm -rf -- .next/cache
       copy_build_artifacts "${stage_dir}" "${candidate}"
     )

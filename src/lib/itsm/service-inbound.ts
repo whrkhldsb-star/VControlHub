@@ -238,6 +238,13 @@ export async function handleInboundWebhook(input: {
         }
         action = appliedAction;
       } else if (ticketId) {
+        const target = await tx.ticket.findFirst({
+          where: { id: ticketId, teamId: row.teamId },
+          select: { id: true },
+        });
+        if (!target) {
+          throw new NotFoundError(t("backend.itsm.ticketNotFoundForThisConnectionTeam"));
+        }
         action = "acknowledged";
       } else {
         action = "ignored_no_ticket";

@@ -27,6 +27,7 @@ import { assertSessionCredentialBinding, captureSessionCredentialBinding } from 
 import { verifyPassword } from "@/lib/auth/password";
 import { createTwoFactorEnrollmentToken } from "@/lib/auth/two-factor-enrollment";
 import { prisma } from "@/lib/db";
+import { AuthError } from "@/lib/errors";
 import { withApiRoute } from "@/lib/http/api-guard";
 import { getServerLocale, t } from "@/lib/i18n/translations";
 
@@ -52,9 +53,13 @@ export async function POST(request: Request) {
     async ({ session, body }) => {
       const user = await prisma.user.findUnique({
         where: { id: session.userId },
-        select: { twoFactorEnabled: true, twoFactorSecret: true, passwordHash: true, sessionEpoch: true },
+        select: { twoFactorEnabled: true, twoFactorSecret: true, passwordHash: true, sessionEpoch: true, status: true },
       });
-      if (!user || !await checkSecurityChallenge(session.userId, () => verifyPassword(body.currentPassword, user.passwordHash), Boolean)) {
+      if (!user || user.status === "DISABLED") {
+        throw new AuthError(t("backend.auth.sessionCredentialsChanged", locale));
+      }
+      assertSessionCredentialBinding(session, user);
+      if (!await checkSecurityChallenge(session.userId, () => verifyPassword(body.currentPassword, user.passwordHash), Boolean)) {
         return NextResponse.json(
           { error: t("api.auth.twoFactor.passwordIncorrect", locale) },
           { status: 403 },
@@ -64,14 +69,13 @@ export async function POST(request: Request) {
       // Enabled means a secret too (as login and enable read it): an account
       // flagged without one — imported from a standard export — must be able
       // to enrol again rather than be told it already has 2FA.
-      if (user?.twoFactorEnabled && user.twoFactorSecret) {
+      if (user.twoFactorEnabled && user.twoFactorSecret) {
         return NextResponse.json(
           { error: t("api.auth.twoFactor.alreadyEnabled", locale) },
           { status: 400 },
         );
       }
 
-      assertSessionCredentialBinding(session, user);
       const secret = generateSecret();
       const otpauthUrl = buildOtpauthUrl(secret, session.username || "user");
       // Generate QR offline so the TOTP secret never leaves the host as a third-party query string.
