@@ -175,8 +175,16 @@ function txClient() {
 }
 
 /** The index rows at a path and below it, as the handlers select them. */
-function atOrBelow(relativePath: string) {
-  return { OR: [{ relativePath }, { relativePath: { startsWith: `${relativePath}/` } }] };
+function atOrBelow(relativePath: string, caseInsensitive = false) {
+  const exact = caseInsensitive ? { equals: relativePath, mode: "insensitive" as const } : relativePath;
+  const mode = caseInsensitive ? { mode: "insensitive" as const } : {};
+  return { OR: [{ relativePath: exact }, { relativePath: { startsWith: `${relativePath}/`, ...mode } }] };
+}
+
+function shareRevokeWhere(relativePath: string, caseInsensitive = false) {
+  const exact = caseInsensitive ? { equals: relativePath, mode: "insensitive" as const } : relativePath;
+  const mode = caseInsensitive ? { mode: "insensitive" as const } : {};
+  return { storageNodeId: "n1", revokedAt: null, OR: [{ path: exact }, { path: { startsWith: `${relativePath}/`, ...mode } }] };
 }
 
 function accessCalls() {
@@ -938,9 +946,9 @@ describe("webdav handlers", () => {
 
       expect(response.status).toBe(204);
       expect(mocks.snapshotFileVersionBeforeOverwrite).not.toHaveBeenCalled();
-      expect(mocks.fileEntryDeleteMany).toHaveBeenCalledWith({ where: { storageNodeId: "n1", ...atOrBelow("manuals") } });
+      expect(mocks.fileEntryDeleteMany).toHaveBeenCalledWith({ where: { storageNodeId: "n1", ...atOrBelow("manuals", process.platform === "win32") } });
       expect(mocks.shareLink.updateMany).toHaveBeenCalledWith({
-        where: { storageNodeId: "n1", revokedAt: null, OR: [{ path: "manuals" }, { path: { startsWith: "manuals/" } }] },
+        where: shareRevokeWhere("manuals", process.platform === "win32"),
         data: { revokedAt: expect.any(Date) },
       });
       // The moved folder keeps its own row.
@@ -992,9 +1000,9 @@ describe("webdav handlers", () => {
 
       expect(response.status).toBe(201);
       expect(mocks.executeRaw).not.toHaveBeenCalled();
-      expect(mocks.fileEntryDeleteMany).toHaveBeenCalledWith({ where: { storageNodeId: "n1", ...atOrBelow("b.bin") } });
+      expect(mocks.fileEntryDeleteMany).toHaveBeenCalledWith({ where: { storageNodeId: "n1", ...atOrBelow("b.bin", process.platform === "win32") } });
       expect(mocks.shareLink.updateMany).toHaveBeenCalledWith({
-        where: { storageNodeId: "n1", revokedAt: null, OR: [{ path: "b.bin" }, { path: { startsWith: "b.bin/" } }] },
+        where: shareRevokeWhere("b.bin", process.platform === "win32"),
         data: { revokedAt: expect.any(Date) },
       });
       expect(mocks.createFileEntry).toHaveBeenCalledWith(expect.objectContaining({ relativePath: "b.bin" }));
