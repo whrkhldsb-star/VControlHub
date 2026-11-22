@@ -18,7 +18,7 @@ const prismaMock = vi.hoisted(() => ({
 	trafficSnapshot: { findMany: vi.fn() },
 	playbook: { findFirst: vi.fn(), findMany: vi.fn() },
 	playbookRun: { findFirst: vi.fn() },
-	scheduledTask: { findUnique: vi.fn() },
+	scheduledTask: { findUnique: vi.fn(), findFirst: vi.fn(), updateMany: vi.fn() },
 	commandRequest: { findUnique: vi.fn() },
 	aiMessage: { create: vi.fn(), upsert: vi.fn(), updateMany: vi.fn() },
 }));
@@ -59,6 +59,8 @@ vi.mock("ssh2", () => ({ Client: vi.fn() }));
 describe("AI hosted action approvals", () => {
 	beforeEach(() => {
 		vi.clearAllMocks();
+		prismaMock.scheduledTask.findFirst.mockResolvedValue({ id: "task_1", teamId: "team_a", status: "ACTIVE", approvalRequired: true });
+		prismaMock.scheduledTask.updateMany.mockResolvedValue({ count: 1 });
 		prismaMock.aiMessage.updateMany.mockResolvedValue({ count: 1 });
 		prismaMock.$transaction.mockImplementation((write) => write(prismaMock));
 		prismaMock.$queryRaw.mockResolvedValue([{ hostingEnabled: true, automationMode: "ASSISTED" }]);
@@ -246,7 +248,7 @@ describe("AI hosted action approvals", () => {
 		]);
 
 		const result = await executeSafeAction(
-			{ actionType: "list_servers", serverId: null, params: {} },
+			{ actionType: "list_servers", serverId: null, teamId: "team_a", params: {} },
 			{ session: { userId: "operator_1", roles: ["operator"], currentTeamId: "team_a" }, requiredPermission: "server:read" },
 		);
 
@@ -278,7 +280,7 @@ describe("AI hosted action approvals", () => {
 			const tool = getToolByName(name)!;
 			expect(toolAvailableInMode(tool, mode)).toBe(true);
 			const result = await executeSafeAction({
-				actionType: tool.actionType, serverId: "win", params: { path: "/logs", query: "example" },
+				actionType: tool.actionType, serverId: "win", teamId: "team_a", params: { path: "/logs", query: "example" },
 			}, { session: { userId: "operator", roles: ["operator"], currentTeamId: "team_a" } });
 			expect(result).toMatchObject({ success: false, error: expect.stringContaining("Windows") });
 		}
@@ -357,7 +359,7 @@ describe("AI hosted action approvals", () => {
 		});
 
 		const result = await executeSafeAction(
-			{ actionType: "get_status", serverId: "srv_agent", params: {} },
+			{ actionType: "get_status", serverId: "srv_agent", teamId: "team_a", params: {} },
 			{ session: { userId: "operator_1", roles: ["operator"], currentTeamId: "team_a" } },
 		);
 
@@ -381,7 +383,7 @@ describe("AI hosted action approvals", () => {
 		agentServiceMock.executeCommandWithAgent.mockResolvedValueOnce(null);
 		const revalidate = vi.fn().mockResolvedValueOnce(undefined).mockRejectedValueOnce(new ForbiddenError());
 		await expect(executeSafeAction(
-			{ actionType: "get_status", serverId: "srv", params: {} },
+			{ actionType: "get_status", serverId: "srv", teamId: "team_a", params: {} },
 			{ session: { userId: "operator", roles: ["operator"], currentTeamId: "team_a" }, revalidate },
 		)).rejects.toMatchObject({ code: "FORBIDDEN" });
 		expect(revalidate).toHaveBeenCalledTimes(2);
@@ -397,7 +399,9 @@ describe("AI hosted action approvals", () => {
 			sshKeyId: "key-1", sshKey: { privateKey: "fixture", updatedAt: new Date() },
 		};
 		agentServiceMock.executeCommandWithAgent.mockResolvedValue(null);
-		const query = () => executeSafeAction({ actionType: "get_status", serverId: server.id, params: {} }, {
+		const signal = new AbortController().signal;
+		const query = () => executeSafeAction({ actionType: "get_status", teamId: "team_a", serverId: server.id, params: {} }, {
+			signal,
 			session: { userId: "operator_1", roles: ["operator"], currentTeamId: "team_a" }, locale: "en",
 		});
 
@@ -416,6 +420,15 @@ describe("AI hosted action approvals", () => {
 		sshClientMock.buildSshParamsFromServer.mockResolvedValueOnce({ host: server.host });
 		sshClientMock.execRemoteCommand.mockResolvedValueOnce({ stdout: "fixture", stderr: "", exitCode: 0 });
 		expect(await query()).toMatchObject({ success: true, data: { transport: "ssh" } });
+		expect(sshClientMock.buildSshParamsFromServer).toHaveBeenCalledWith(server, server.sshKey, "team_a");
+		expect(sshClientMock.execRemoteCommand).toHaveBeenCalledWith(expect.objectContaining({ signal }));
+
+		const direct = { ...server, managementMode: "DIRECT" };
+		prismaMock.server.findFirst.mockResolvedValueOnce(direct);
+		sshClientMock.execRemoteCommand.mockResolvedValueOnce({ stdout: "", stderr: "", exitCode: 0 });
+		expect(await query()).toMatchObject({ success: true });
+		expect(sshClientMock.buildSshParamsFromServer).toHaveBeenLastCalledWith(direct, server.sshKey, "team_a");
+		expect(sshClientMock.execRemoteCommand).toHaveBeenLastCalledWith(expect.objectContaining({ signal }));
 	});
 
 	it("refuses, when it is proposed, a change that could never become a command request", async () => {
@@ -685,7 +698,7 @@ describe("AI hosted action approvals", () => {
 		]);
 
 		const result = await executeSafeAction(
-			{ actionType: "list_backups", serverId: null, params: { type: "FULL" } },
+			{ actionType: "list_backups", serverId: null, teamId: "team_a", params: { type: "FULL" } },
 			{ session: { userId: "operator_1", roles: ["admin"], currentTeamId: "team_a" } },
 		);
 
@@ -728,7 +741,7 @@ describe("AI hosted action approvals", () => {
 		]);
 
 		const result = await executeSafeAction(
-			{ actionType: "list_scheduled_tasks", serverId: null, params: {} },
+			{ actionType: "list_scheduled_tasks", serverId: null, teamId: "team_a", params: {} },
 			{ session: { userId: "operator_1", roles: ["operator"], currentTeamId: "team_a" } },
 		);
 
@@ -763,18 +776,10 @@ describe("AI hosted action approvals", () => {
 			riskLevel: "medium",
 			autoApproved: false,
 			requesterId: "operator_1",
+			teamId: "team_a",
 			serverId: null,
 			params: JSON.stringify({ action: "pause", taskId: "task_1" }),
 		});
-		scheduledTaskServiceMock.getScheduledTask.mockResolvedValue({
-			id: "task_1",
-			status: "ACTIVE",
-		});
-		scheduledTaskServiceMock.toggleScheduledTask.mockResolvedValue({
-			id: "task_1",
-			status: "PAUSED",
-		});
-
 		await confirmHostedAction("action_cron", {
 			userId: "operator_1",
 			roles: ["operator"],
@@ -789,11 +794,10 @@ describe("AI hosted action approvals", () => {
 				executedAt: expect.any(Date),
 			}),
 		});
-		expect(scheduledTaskServiceMock.toggleScheduledTask).toHaveBeenCalledWith(
-			"task_1",
-			expect.objectContaining({ userId: "operator_1", currentTeamId: "team_a" }),
-			"PAUSED",
-		);
+		expect(prismaMock.scheduledTask.updateMany).toHaveBeenCalledWith({
+			where: expect.objectContaining({ id: "task_1", AND: expect.arrayContaining([{ teamId: "team_a" }]), status: "ACTIVE" }),
+			data: { status: "PAUSED", nextRunAt: null, claimedOccurrenceAt: null },
+		});
 		expect(prismaMock.aiHostedAction.update).toHaveBeenCalledWith({
 			where: { id: "action_cron" },
 			data: expect.objectContaining({
@@ -1030,7 +1034,7 @@ describe("AI hosted action approvals", () => {
 			{ actionId: "playbook", status: "COMPLETED", runId: "run" },
 			{ actionId: "immediate", status: "COMPLETED", data: { commandRequestId: "cmd2" } },
 			{ actionId: "timer", status: "COMPLETED", data: { scheduledTaskId: "ai-automation:timer" } },
-			{ actionId: "uncertain", status: "FAILED", error: expect.any(String) },
+			{ actionId: "uncertain", status: "APPROVED", error: expect.any(String) },
 			{ actionId: "legacy", status: "APPROVED", error: expect.any(String) },
 			{ actionId: "receipt", status: "APPROVED", commandRequestId: "old" },
 		]);

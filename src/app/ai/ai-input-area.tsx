@@ -20,7 +20,7 @@ import { type RefObject, useState } from "react";
 import type { ConvItem, ModelCapabilities } from "./ai-types";
 import { SLASH_COMMAND_IDS } from "./ai-types";
 import type { UseFileAttachmentsReturn } from "./hooks/use-file-attachments";
-import { buildAcceptString, formatAllowedTypes } from "./ai-file-helpers";
+import { attachmentCapabilities, buildAcceptString, formatAllowedTypes } from "./ai-file-helpers";
 import { useI18n } from "@/lib/i18n/use-locale";
 import { ActionButton } from "@/components/action-button";
 import { Notice } from "@/components/ui-primitives";
@@ -65,7 +65,8 @@ export function AiInputArea({
     handlePaste,
   } = fileAttachmentsState;
   const enableVision = activeConv?.enableVision ?? false;
-  const allowedTypes = formatAllowedTypes(currentModelCaps, t);
+  const attachments = attachmentCapabilities(currentModelCaps, activeConv?.provider?.type, enableVision);
+  const allowedTypes = formatAllowedTypes(attachments, t);
 
   const slashCommandLabel = (id: string) => {
     const key = `aiPage.slash.${id}`;
@@ -129,7 +130,7 @@ export function AiInputArea({
           ref={fileInputRef}
           type="file"
           multiple
-          accept={buildAcceptString(currentModelCaps)}
+          accept={buildAcceptString(attachments)}
           className="hidden"
           onChange={(e) => {
             if (e.target.files) handleFileSelect(e.target.files);

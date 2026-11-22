@@ -200,7 +200,7 @@ export function AiOpsPageClient({
 		}
 	}, [canManage, addToast, t, watchForScanResult]);
 
-	const saveSettings = useCallback(async () => {
+	const saveSettings = useCallback(async (reauthorize = false) => {
 		if (!canManage) return;
 		setSavingSettings(true);
 		try {
@@ -210,7 +210,8 @@ export function AiOpsPageClient({
 				// The provider goes along only when it was changed here: the saved one may be a colleague's.
 				body: JSON.stringify({
 					mode: settings.mode,
-					...(editingProvider !== (settings.providerId ?? "") ? { providerId: editingProvider } : {}),
+					...(reauthorize || editingProvider !== (settings.providerId ?? "") ? { providerId: editingProvider } : {}),
+					...(reauthorize && { reauthorizeProvider: true }),
 				}),
 			});
 			setSettings(body);
@@ -344,7 +345,7 @@ export function AiOpsPageClient({
 				savingSettings={savingSettings}
 				setSettings={setSettings}
 				setEditingProvider={setEditingProvider}
-				onSaveSettings={() => void saveSettings()}
+				onSaveSettings={(reauthorize) => void saveSettings(reauthorize)}
 				t={t}
 			/>
 		</div>

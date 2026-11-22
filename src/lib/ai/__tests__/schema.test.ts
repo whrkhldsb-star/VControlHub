@@ -49,6 +49,21 @@ describe("createProviderSchema", () => {
     expect(parsed.availableModels).toEqual(["gpt-4o", "gpt-4o-mini"]);
   });
 
+  it.each(["ANTHROPIC", "GOOGLE"])("requires an explicit default for %s", (type) => {
+    const native = { type, name: "native", apiKey: "fixture" };
+    expect(createProviderSchema.safeParse(native).success).toBe(false);
+    expect(createProviderSchema.parse({ ...native, defaultModel: "native-model" }).defaultModel).toBe("native-model");
+  });
+
+  it("applies the same per-ID and count limits to CSV and arrays", () => {
+    for (const field of [{ models: " a, a ,b " }, { availableModels: [" a ", "a", "b"] }])
+      expect(updateProviderSchema.parse(field)).toEqual({ availableModels: ["a", "b"] });
+    for (const ids of [["x".repeat(257)], Array.from({ length: 10001 }, (_, i) => String(i))]) {
+      expect(updateProviderSchema.safeParse({ models: ids.join(",") }).success).toBe(false);
+      expect(createProviderSchema.safeParse({ name: "p", apiKey: "k", availableModels: ids }).success).toBe(false);
+    }
+  });
+
   it("rejects empty apiKey / name", () => {
     expect(
       createProviderSchema.safeParse({ name: "", apiKey: "x" }).success,

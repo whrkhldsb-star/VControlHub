@@ -189,9 +189,10 @@ export function AiOpsSettingsSection({
 	savingSettings: boolean;
 	setSettings: Dispatch<SetStateAction<AiOpsSettings>>;
 	setEditingProvider: Dispatch<SetStateAction<string>>;
-	onSaveSettings: () => void;
+	onSaveSettings: (reauthorize?: boolean) => void;
 	t: T;
 }) {
+	const { locale } = useI18n();
 	return (
 		<section aria-label="ai-ops-settings" data-card className="p-5">
 			<h2 className="ui-title-section mb-4">{t("aiOpsPage.settings.title")}</h2>
@@ -231,8 +232,13 @@ export function AiOpsSettingsSection({
 				</label>
 			</div>
 			{canManage && (
-				<div className="mt-4 flex justify-end">
-					<ActionButton variant="primary" disabled={savingSettings} onClick={onSaveSettings}>
+				<div className="mt-4 flex justify-end gap-2">
+					{editingProvider === settings.providerId && providerOptions.some((provider) => provider.id === editingProvider) && (
+						<ActionButton disabled={savingSettings} onClick={() => onSaveSettings(true)}>
+							{locale === "zh" ? "重新授权此 AI 提供方" : "Reauthorize this AI provider"}
+						</ActionButton>
+					)}
+					<ActionButton variant="primary" disabled={savingSettings} onClick={() => onSaveSettings()}>
 						{savingSettings ? t("aiOpsPage.actions.saving") : t("aiOpsPage.settings.save")}
 					</ActionButton>
 				</div>
@@ -403,9 +409,9 @@ export function AiOpsDetailSection({
 										</div>
 										{recommendation && canManage && (
 											<div className="flex w-full min-w-0 max-w-full flex-col gap-1 sm:w-auto">
-												{recommendation.requiresApproval && !recommendation.approved ? (
+												{recommendation.requiresApproval && !recommendation.approved ? (!recommendation.executedAt && !recommendation.leaseId && !recommendation.executed && (
 													<ActionButton className="w-full sm:w-auto" size="sm" variant="primary" disabled={executing === action.id} onClick={() => onApproveAction(selectedLog.id, action.id)}>{t("aiOpsPage.actions.approve")}</ActionButton>
-												) : recommendation.requiresApproval && recommendation.approved ? (
+												)) : recommendation.requiresApproval && recommendation.approved ? (
 													<ActionButton className="w-full sm:w-auto" size="sm" variant="primary" disabled={executing === action.id} onClick={() => onExecuteAction(selectedLog.id, action.id, false)}>{t("aiOpsPage.actions.execute")}</ActionButton>
 												) : (
 													<ActionButton className="w-full sm:w-auto" size="sm" variant="secondary" disabled={executing === action.id} onClick={() => onExecuteAction(selectedLog.id, action.id, false)}>{t("aiOpsPage.actions.execute")}</ActionButton>

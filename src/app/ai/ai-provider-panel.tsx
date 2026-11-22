@@ -1,6 +1,6 @@
 "use client";
 
-import { isLocalOllamaEndpoint } from "@/lib/ai/provider-endpoint";
+import { isLocalOllamaEndpoint, providerEndpointChanged, requiresExplicitDefaultModel } from "@/lib/ai/provider-endpoint";
 import type { Provider, ModelInfo } from "./ai-types";
 import { PROVIDER_TYPES } from "./ai-types";
 import { csrfFetch } from "@/lib/auth/csrf-client";
@@ -10,7 +10,6 @@ import { useEffect, useMemo, useRef, useState } from "react";
 import { Dialog } from "@/components/ui/dialog";
 import { Badge, IconButton } from "@/components/ui-primitives";
 import { Pencil, Trash2 } from "@/components/icons";
-import { providerEndpointChanged } from "@/lib/ai/provider-endpoint";
 import { AiProviderFields } from "./ai-provider-fields";
 import { modelsForEditing, parseStoredModels } from "./provider-models";
 
@@ -53,7 +52,7 @@ export function AiProviderPanel({
   const { addToast } = useToast();
   const [fetchedModels, setFetchedModels] = useState<ModelInfo[]>([]);
   const [modelsLoading, setModelsLoading] = useState(false);
-  const [editingProviderId, setEditingProviderId] = useState<string | null>(null);
+  const [original, setOriginal] = useState<Provider | null>(null);
   const [editForm, setEditForm] = useState<ProviderFormState | null>(null);
   const [saving, setSaving] = useState(false);
   const mutationRef = useRef(false);
@@ -120,7 +119,7 @@ export function AiProviderPanel({
     probeRef.current?.abort();
     probeRef.current = null;
     setModelsLoading(false);
-    setEditingProviderId(provider.id);
+    setOriginal(provider);
     setEditForm({
       name: provider.name,
       type: provider.type,
@@ -133,29 +132,31 @@ export function AiProviderPanel({
   };
 
   const cancelEditing = () => {
-    setEditingProviderId(null);
+    setOriginal(null);
     setEditForm(null);
   };
 
   const saveEditing = async () => {
-    if (!editingProviderId || !editForm || mutationRef.current) return;
+    if (!original || !editForm || mutationRef.current) return;
     mutationRef.current = true;
     setSaving(true);
-    const availableModels = parseStoredModels(editForm.availableModels);
-    const patchBody: Record<string, string | boolean | string[]> = {
-      name: editForm.name.trim(),
-      type: editForm.type,
-      baseUrl: editForm.baseUrl.trim(),
-      ...(editForm.defaultModel.trim() && { defaultModel: editForm.defaultModel.trim() }),
-      availableModels,
-      isDefault: editForm.isDefault,
-    };
-    if (editForm.apiKey.trim()) patchBody.apiKey = editForm.apiKey.trim();
+    const patchBody: Record<string, string | boolean | string[]> = {};
+    if (editForm.name.trim() !== original.name) patchBody.name = editForm.name.trim();
+    if (editForm.type !== original.type) patchBody.type = editForm.type;
+    if (editForm.baseUrl.trim() !== (original.baseUrl ?? "")) patchBody.baseUrl = editForm.baseUrl.trim();
+    const model = editForm.defaultModel.trim();
+    if (model && (model !== original.defaultModel || requiresExplicitDefaultModel(editForm.type, original.type))) patchBody.defaultModel = model;
+    if (editForm.availableModels !== modelsForEditing(original.availableModels)) patchBody.availableModels = parseStoredModels(editForm.availableModels);
+    if (editForm.isDefault !== original.isDefault) patchBody.isDefault = editForm.isDefault;
+    const apiKey = editForm.apiKey.trim();
     try {
-      await csrfFetch(`/api/ai/providers/${editingProviderId}`, {
+      await csrfFetch(`/api/ai/providers/${original.id}`, {
         method: "PATCH",
         headers: { "Content-Type": "application/json" },
-        body: JSON.stringify(patchBody),
+        body: JSON.stringify({
+          ...patchBody,
+          ...(apiKey && { apiKey, expectedEndpoint: { type: original.type, baseUrl: original.baseUrl ?? "" } }),
+        }),
       });
       addToast("success", t("aiPage.providerUpdated"));
       cancelEditing();
@@ -169,8 +170,6 @@ export function AiProviderPanel({
   };
 
   if (!show) return null;
-
-  const original = providers.find((provider) => provider.id === editingProviderId);
 
   return (
     <Dialog
@@ -249,7 +248,7 @@ export function AiProviderPanel({
                 <h4 className="ui-title-group">{t("aiPage.editProviderTitle")}</h4>
                 <ActionButton type="button" variant="ghost" onClick={cancelEditing}>{t("aiPage.cancelEditing")}</ActionButton>
               </div>
-              <AiProviderFields form={editForm} editing keyRequired={!original || providerEndpointChanged(original, editForm)} onChange={(patch) => setEditForm((form) => form ? { ...form, ...patch } : form)} />
+              <AiProviderFields form={editForm} editing originalType={original?.type} keyRequired={!original || providerEndpointChanged(original, editForm)} onChange={(patch) => setEditForm((form) => form ? { ...form, ...patch } : form)} />
               <ActionButton type="submit" disabled={busy} className="w-full">{t("common.saveChanges")}</ActionButton>
             </form>
           ) : (

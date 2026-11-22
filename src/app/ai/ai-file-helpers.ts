@@ -67,13 +67,17 @@ export function categorizeFile(file: File): FileCategory {
   return "unsupported";
 }
 
+export function attachmentCapabilities(model: ModelCapabilities, providerType?: string | null, enableVision = false): ModelCapabilities {
+  return { vision: model.vision || enableVision, document: model.document && providerType === "ANTHROPIC", video: false, audio: false };
+}
+
 /** Format allowed types for the current model (for error messages) */
 export function formatAllowedTypes(caps: ModelCapabilities, t: (key: string, vars?: Record<string, string | number>) => string): string {
   const parts: string[] = [t("aiPage.allowedType.text")];
   if (caps.vision) parts.push(t("aiPage.allowedType.image"));
   if (caps.video) parts.push(t("aiPage.allowedType.video"));
   if (caps.audio) parts.push(t("aiPage.allowedType.audio"));
-  if (caps.document) parts.push(t("aiPage.allowedType.document"));
+  if (caps.document) parts.push("PDF");
   return parts.join(t("common.listSeparator"));
 }
 
@@ -83,7 +87,7 @@ export function buildAcceptString(caps: ModelCapabilities): string {
   if (caps.vision) parts.push("image/*");
   if (caps.video) parts.push("video/*");
   if (caps.audio) parts.push("audio/*");
-  if (caps.document) parts.push(".pdf,.docx,.xlsx,.pptx,.doc");
+  if (caps.document) parts.push(".pdf");
   return parts.join(",");
 }
 

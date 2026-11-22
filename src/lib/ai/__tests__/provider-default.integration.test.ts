@@ -56,6 +56,7 @@ describe.skipIf(process.env.RUN_DATABASE_INTEGRATION_TESTS !== "1")("AI provider
   });
 
   it("preserves valid settings on blank PATCH and closes keyless endpoint transitions", async () => {
+    expect(await updateProvider(defaultId, userId, {})).toMatchObject({ id: defaultId, name: "Main" });
     for (const patch of [{ name: "   " }, { apiKey: "   " }]) await expect(updateProvider(defaultId, userId, patch)).rejects.toThrow();
     expect(await getProviderById(defaultId, userId)).toMatchObject({ name: "Main", apiKey: "enc:sk-main" });
     vi.stubEnv("AI_PROVIDER_PRIVATE_HOSTS", "localhost");

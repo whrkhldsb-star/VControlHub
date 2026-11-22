@@ -3,7 +3,7 @@ import { randomUUID } from "node:crypto";
 import { afterAll, beforeAll, describe, expect, it } from "vitest";
 
 import { prisma } from "@/lib/db";
-import { latestSnapshotPerServer } from "../scan-worker";
+import { collectSystemHealthSignals, latestSnapshotPerServer } from "../scan-worker";
 
 /**
  * The scan judges servers in service. Samples outlive a disabled server and
@@ -35,6 +35,29 @@ describe.skipIf(process.env.RUN_DATABASE_INTEGRATION_TESTS !== "1")("AI ops scan
 		await prisma.server.deleteMany({ where: { id: { startsWith: prefix } } });
 		await prisma.team.deleteMany({ where: { id: { startsWith: prefix } } });
 		await prisma.$disconnect();
+	});
+
+	it("starts reporting backup and playbook failures only when their owner is active", async () => {
+		const failures = async () => {
+			const signals = await collectSystemHealthSignals();
+			return ["backup.failure", "playbook.failure"].map((id) => {
+				const body = signals.find((signal) => signal.id === id)?.body;
+				return body ? Number.parseInt(body, 10) : 0;
+			});
+		};
+		const before = await failures();
+		const book = await prisma.playbook.create({ data: { teamId: goneTeam, name: prefix, steps: [], triggerType: "cron", triggerConfig: {} } });
+		try {
+			await prisma.playbookRun.create({ data: { playbookId: book.id, status: "failed" } });
+			await prisma.backupRecord.create({ data: { id: prefix, teamId: goneTeam, type: "FULL", filePath: "fixture", status: "FAILED" } });
+			expect(await failures()).toEqual(before);
+			await prisma.team.update({ where: { id: goneTeam }, data: { deletedAt: null } });
+			expect(await failures()).toEqual(before.map((count) => count + 1));
+		} finally {
+			await prisma.team.update({ where: { id: goneTeam }, data: { deletedAt: new Date() } });
+			await prisma.playbook.delete({ where: { id: book.id } });
+			await prisma.backupRecord.deleteMany({ where: { id: prefix } });
+		}
 	});
 
 	it("leaves out disabled servers and deleted customers' servers", async () => {

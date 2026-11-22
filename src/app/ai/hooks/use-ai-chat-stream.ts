@@ -89,6 +89,9 @@ export function useAiChatStream({
     Record<string, boolean>
   >({});
   const generation = useRef(0);
+  const failedRequest = useRef<{
+    conversationId: string; errorMessageId: string; args: SendArgs; onAccepted?: (messageId: string | null) => void;
+  } | null>(null);
   const lastRequest = useRef<{ conversationId: string; messageId: string | null; args: SendArgs } | null>(null);
   const abortControllerRef = useRef<AbortController | null>(null);
   const approvalBusyRef = useRef<Set<string>>(new Set());
@@ -101,6 +104,7 @@ export function useAiChatStream({
 
   useEffect(() => {
     activeConvIdRef.current = activeConvId;
+    failedRequest.current = null;
     lastRequest.current = null;
     return invalidateGeneration;
   }, [activeConvId, invalidateGeneration]);
@@ -129,6 +133,7 @@ export function useAiChatStream({
 
   const clearConversationStream = useCallback(() => {
     resetStream();
+    failedRequest.current = null;
     lastRequest.current = null;
     setPendingApprovals([]);
   }, [resetStream]);
@@ -254,6 +259,7 @@ export function useAiChatStream({
       // so HTTP/SSE/network errors were invisible and the optimistic user
       // bubble could vanish after a silent server refresh.
       let terminalError: string | null = null;
+      let accepted = false;
       let completedSuccessfully = false;
       let aborted = false;
       // What arrived before a response that ended without "done" or "error".
@@ -277,6 +283,8 @@ export function useAiChatStream({
         }
         if (!current()) return;
         const messageId = response.headers?.get("X-AI-User-Message-Id") ?? null;
+        accepted = true;
+        failedRequest.current = null;
         lastRequest.current = { conversationId: convIdAtSend, messageId, args };
         onAccepted?.(messageId);
         const reader = response.body?.getReader();
@@ -326,6 +334,7 @@ export function useAiChatStream({
                   setMessages((prev) => [...prev, assistantMsg]);
                 }
               } else if (parsed.type === "error") {
+                incomplete = { content: finalContent, reasoning: finalReasoning };
                 terminalError =
                   typeof parsed.error === "string" && parsed.error
                     ? parsed.error
@@ -396,6 +405,7 @@ export function useAiChatStream({
               setMessages((prev) => [...prev, partial]);
             }
             const errorMsg = streamErrorMessage({ conversationId: convIdAtSend, text: terminalError, model: activeConv?.model || null });
+            failedRequest.current = { conversationId: convIdAtSend, errorMessageId: errorMsg.id, args, onAccepted: accepted ? undefined : onAccepted };
             setMessages((prev) => [...prev, errorMsg]);
             addToast("error", terminalError);
           } else if (completedSuccessfully || aborted) {
@@ -428,7 +438,13 @@ export function useAiChatStream({
     ],
   );
 
+  const retryFailedMessage = useCallback((id: string) => {
+    const failed = failedRequest.current;
+    if (failed?.conversationId === activeConvId && failed.errorMessageId === id) return sendMessage(failed.args, failed.onAccepted);
+  }, [activeConvId, sendMessage]);
+
   return {
+    retryFailedMessage,
     streaming,
     streamContent,
     streamReasoning,

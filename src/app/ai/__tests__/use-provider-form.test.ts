@@ -26,7 +26,7 @@ describe("useProviderForm", () => {
 
 		const [url, init] = fetchMock.mock.calls[0]!;
 		expect(url).toBe("/api/ai/providers");
-		expect(JSON.parse(init.body)).toMatchObject({ name: "OpenAI", baseUrl: "https://api.example.com/v1", models: "gpt-a,gpt-b", availableModels: ["gpt-a", "gpt-b"] });
+		expect(JSON.parse(init.body)).toMatchObject({ name: "OpenAI", baseUrl: "https://api.example.com/v1", availableModels: ["gpt-a", "gpt-b"] });
 		expect(refreshProviders).toHaveBeenCalledOnce();
 		expect(result.current.provForm.name).toBe("");
 		expect(addToast).not.toHaveBeenCalled();

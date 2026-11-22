@@ -9,17 +9,19 @@
 import { withHostedServerSnapshot } from "./hosted-snapshot";
 import { isUniqueViolation, prisma } from "@/lib/db";
 import { encrypt, decrypt, isEncrypted } from "@/lib/crypto/service";
-import { BusinessError, ForbiddenError, NotFoundError, ValidationError } from "@/lib/errors";
+import { BusinessError, ConflictError, ForbiddenError, NotFoundError, ValidationError } from "@/lib/errors";
 import { t } from "@/lib/i18n/service-translations";
+import { currentCopyLocale } from "@/lib/i18n/api-copy";
+import { localizeSchemaMessage } from "@/lib/i18n/schema-copy";
 import { seesAllCustomers, type TeamSession } from "@/lib/auth/team-scope";
 import { lockForTransaction } from "@/lib/concurrency/advisory-lock";
 import { getAiConversationListLimit, getAiProviderListLimit } from "@/lib/runtime-settings/service";
 import { normalizePublicHttpUrl } from "@/lib/storage/direct-access-url";
 import { isLinkLocalAddress } from "@/lib/security/pinned-fetch";
-import { aiProviderTypeSchema, type AiProviderType } from "./schema";
+import { aiProviderTypeSchema, providerModelIdSchema, providerModelListSchema, type AiProviderType } from "./schema";
 import { checkProviderTransport, allowsKeylessProvider, resolveDefaultProviderBaseUrl, isListedPrivateProviderHost, providerApiRoot } from "./provider-http";
 
-import { providerEndpointChanged } from "./provider-endpoint";
+import { providerEndpointChanged, requiresExplicitDefaultModel } from "./provider-endpoint";
 
 /* ── Helpers ─────────────────────────────────────────────────── */
 
@@ -34,12 +36,6 @@ export function safeDecryptApiKey(stored: string): string {
 	} catch {
 		throw new BusinessError(t("backend.ai.providerKeyUnreadable"));
 	}
-}
-
-function normalizeProviderModels(models?: string[]) {
-	return Array.from(
-		new Set((models ?? []).map((model) => model.trim()).filter(Boolean)),
-	);
 }
 
 export function normalizeProviderBaseUrl(value: string | undefined, type?: string) {
@@ -80,6 +76,7 @@ export interface UpdateProviderInput {
 	name?: string;
 	type?: string;
 	apiKey?: string;
+	expectedEndpoint?: { type: string; baseUrl: string };
 	baseUrl?: string;
 	defaultModel?: string;
 	availableModels?: string[];
@@ -145,12 +142,20 @@ function resolveProviderType(raw: string | undefined): AiProviderType {
 	return parsed.data;
 }
 
+function requireModelForProviderType(model: string | undefined, type: string, previousType?: string) {
+	if (requiresExplicitDefaultModel(type, previousType) && !model?.trim()) {
+		throw new ValidationError(localizeSchemaMessage("Missing model", currentCopyLocale() ?? "en"), { field: "defaultModel" });
+	}
+}
+
 export async function createProvider(input: CreateProviderInput) {
 	if (!input.name.trim()) throw new ValidationError(t("backend.ai.providerNameIsRequired"));
 
 	const providerType = resolveProviderType(input.type);
 	const normalizedBaseUrl = normalizeProviderBaseUrl(input.baseUrl, providerType);
-	const normalizedModels = normalizeProviderModels(input.availableModels);
+	const normalizedModels = providerModelListSchema.parse(input.availableModels?.filter((model) => model.trim()) ?? []);
+	requireModelForProviderType(input.defaultModel, providerType);
+	const defaultModel = providerModelIdSchema.parse(input.defaultModel?.trim() || "gpt-4o");
 	const key = input.apiKey.trim();
 	if (!key && !allowsKeylessProvider(normalizedBaseUrl, providerType)) throw new ValidationError(t("backend.ai.apiKeyIsRequired"));
 	const encryptedKey = key ? encrypt(key) : "";
@@ -175,7 +180,7 @@ export async function createProvider(input: CreateProviderInput) {
 				type: providerType,
 				apiKey: encryptedKey,
 				baseUrl: normalizedBaseUrl,
-				defaultModel: input.defaultModel?.trim() || "gpt-4o",
+				defaultModel,
 				availableModels: JSON.stringify(normalizedModels),
 				isDefault: input.isDefault ?? false,
 				enabled: input.enabled ?? true,
@@ -262,13 +267,15 @@ export async function updateProvider(id: string, userId: string, input: UpdatePr
 	}
 	// An empty model is not a choice: switching the provider type cleared it and
 	// every new conversation then failed with 400 (A7-06).
-	if (input.defaultModel !== undefined && input.defaultModel.trim()) data.defaultModel = input.defaultModel.trim();
+	if (input.defaultModel?.trim()) data.defaultModel = providerModelIdSchema.parse(input.defaultModel);
 	if (input.availableModels !== undefined) {
-		data.availableModels = JSON.stringify(normalizeProviderModels(input.availableModels));
+		data.availableModels = JSON.stringify(providerModelListSchema.parse(input.availableModels.filter((model) => model.trim())));
 	}
 	if (input.isDefault !== undefined) data.isDefault = input.isDefault;
 	if (input.enabled !== undefined) data.enabled = input.enabled;
 	if (input.settings !== undefined) data.settings = input.settings;
+
+	if (!Object.keys(data).length && input.baseUrl === undefined) return getProviderById(id, userId);
 
 	// One transaction: an update that fails (unknown id, a name the user
 	// already has) must not have cleared their default provider first.
@@ -289,7 +296,13 @@ export async function updateProvider(id: string, userId: string, input: UpdatePr
 				where: { id, createdBy: userId }, select: { type: true, baseUrl: true, apiKey: true },
 			});
 			if (!current) throw new NotFoundError(t("backend.ai.providerNotFound"));
+			// A key-only edit carries the endpoint shown when the form opened.
+			// A model discovery in another tab can safely refresh the list meanwhile.
+			if (input.expectedEndpoint && (input.expectedEndpoint.type !== current.type || input.expectedEndpoint.baseUrl !== current.baseUrl)) {
+				throw new ConflictError(t("backend.ai.providerKeyForNewEndpoint"));
+			}
 			const nextType = newType ?? current.type;
+			requireModelForProviderType(input.defaultModel, nextType, current.type);
 			const typeChanged = nextType !== current.type;
 			const nextBaseUrl = normalizeProviderBaseUrl(input.baseUrl ?? (typeChanged ? undefined : current.baseUrl), nextType);
 			if (!input.apiKey && (providerEndpointChanged(current, { type: nextType, baseUrl: nextBaseUrl }) || current.apiKey === "")) {

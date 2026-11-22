@@ -50,7 +50,6 @@ export function useProviderForm({
           ...provForm,
           defaultModel: provForm.defaultModel.trim() || undefined,
           ...(baseUrl ? { baseUrl } : {}),
-          models: models.join(","),
           availableModels: models,
         }),
       });

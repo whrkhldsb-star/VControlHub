@@ -252,7 +252,7 @@ async function processHostedTools(input: HostedStreamIdentity & {
       }
 
       const execution = await executeSafeAction(
-        { actionType: tool.actionType, serverId: action.serverId, params },
+        { actionType: tool.actionType, serverId: action.serverId, teamId: action.teamId, params },
         { session: dispatchSession, locale: input.locale, revalidate, signal: input.signal, knowledgeBudget: input.knowledgeBudget },
       );
       await withChatGeneration(input.conversationId, input.userMessageId, async (tx) => {
@@ -335,6 +335,7 @@ async function processHostedTools(input: HostedStreamIdentity & {
 function createStreamingResponse(input: HostedStreamIdentity & {
   signal?: AbortSignal;
   knowledgeBudget: KnowledgeBudget;
+  firstQuestion?: string;
   upstream: Response;
   providerType: string;
   startTime: number;
@@ -366,6 +367,7 @@ function createStreamingResponse(input: HostedStreamIdentity & {
   let cancelled = false;
   let consumerCancelled = false;
   let assistantPersisted = false;
+  let finishedAnswer = false;
   const abortController = new AbortController();
   const onRequestAbort = () => {
     cancelled = true;
@@ -504,6 +506,7 @@ function createStreamingResponse(input: HostedStreamIdentity & {
           rounds += 1;
           const lastRound = rounds >= MAX_TOOL_ROUNDS || remainingCalls === 0;
           let followUpPersisted = false;
+          let interruptedFollowUp = false;
           let nextCalls: typeof result.toolCalls = [];
           let nextResults: typeof toolResults = [];
           abortController.signal.throwIfAborted();
@@ -539,14 +542,16 @@ function createStreamingResponse(input: HostedStreamIdentity & {
                 totalTimeoutMs: STREAM_TOTAL_TIMEOUT_MS,
               });
               const calls = lastRound || followUpResult.readError ? [] : takeCalls(followUpResult.toolCalls);
-              if (followUpResult.content || followUpResult.reasoning || calls.length > 0) {
+              interruptedFollowUp = Boolean(followUpResult.readError);
+              if (interruptedFollowUp || followUpResult.content || followUpResult.reasoning || calls.length > 0) {
+                const content = interruptedFollowUp
+                  ? [followUpResult.content, t("apiAiChat.streamInterrupted", input.locale)].filter(Boolean).join("\n\n")
+                  : followUpResult.content || (calls.length > 0 ? "" : t("apiAiChat.emptyContent", input.locale));
                 const row = await withChatGeneration(input.conversationId, input.userMessageId, (tx) => tx.aiMessage.create({
                   data: {
                     conversationId: input.conversationId,
                     role: "assistant",
-                    content:
-                      followUpResult.content ||
-                      (calls.length > 0 ? "" : t("apiAiChat.emptyContent", input.locale)),
+                    content,
                     reasoningContent: followUpResult.reasoning || undefined,
                     toolCalls: JSON.stringify(calls),
                     model: input.model,
@@ -579,7 +584,10 @@ function createStreamingResponse(input: HostedStreamIdentity & {
                   followUpPersisted = true;
                 }
               }
-              if (followUpResult.readError) throw followUpResult.readError;
+              if (interruptedFollowUp) {
+                send({ type: "error", error: t("apiAiChat.streamInterrupted", input.locale) });
+                return;
+              }
               finalInputTokens =
                 (finalInputTokens ?? 0) + (followUpResult.inputTokens ?? 0);
               finalOutputTokens =
@@ -587,7 +595,7 @@ function createStreamingResponse(input: HostedStreamIdentity & {
             }
           } catch (error) {
             abortController.signal.throwIfAborted();
-            if (error instanceof HostedStreamAccessError) throw error;
+            if (interruptedFollowUp || error instanceof HostedStreamAccessError) throw error;
             logger.warn(
               "AI tool follow-up failed; keeping completed tool result",
               error,
@@ -614,6 +622,7 @@ function createStreamingResponse(input: HostedStreamIdentity & {
           pendingResults = nextResults;
         }
 
+        finishedAnswer = true;
         send({
           type: "done",
           inputTokens: finalInputTokens,
@@ -658,7 +667,7 @@ function createStreamingResponse(input: HostedStreamIdentity & {
         });
       } finally {
         input.signal?.removeEventListener("abort", onRequestAbort);
-        try { await finishChatGeneration(input.conversationId, input.userMessageId); } finally { close(); }
+        try { await finishChatGeneration(input.conversationId, input.userMessageId, finishedAnswer ? input.firstQuestion : undefined); } finally { close(); }
       }
     },
     cancel() {
@@ -730,7 +739,8 @@ export async function createAiChatResponse(input: HostedStreamIdentity & {
       input.body.conversationId,
       input.session,
     );
-  } catch {
+  } catch (error) {
+    if (!(error instanceof NotFoundError)) throw error;
     throw new NotFoundError(t("apiAiChat.conversationNotFound", input.locale));
   }
 
@@ -807,6 +817,7 @@ export async function createAiChatResponse(input: HostedStreamIdentity & {
     return createStreamingResponse({
       signal: input.signal,
       upstream: chat.response,
+      firstQuestion: conversation.messages.length === 0 ? payload.userText : undefined,
       knowledgeBudget,
       providerType: chat.providerType,
       startTime: chat.startTime,

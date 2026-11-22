@@ -163,8 +163,44 @@ describe("ai provider-http adapter", () => {
       globalThis.fetch = fetch;
       await fetchProviderModels({ type, baseUrl: resolveDefaultProviderBaseUrl(type), apiKey: "native-key" });
       expect(fetch).toHaveBeenCalledWith(url, expect.anything());
+      await fetchProviderModels({ type, baseUrl: resolveDefaultProviderBaseUrl(type) + ":443/", apiKey: "native-key" });
+      expect(fetch).toHaveBeenLastCalledWith(url, expect.anything());
       await expect(fetchProviderModels({ type, baseUrl: "https://api.openai.com/v1", apiKey: "native-key" })).rejects.toThrow();
-      expect(fetch).toHaveBeenCalledTimes(1);
+      expect(fetch).toHaveBeenCalledTimes(2);
+    });
+
+    it("reads Anthropic cursors on the same deadline, filtering invalid IDs and metadata", async () => {
+      const first = { data: [{ id: " one ", owned_by: { invalid: true }, context_length: "1024" }, { id: "x".repeat(257) }],
+        has_more: true, last_id: "page-1" };
+      const fetch = vi.fn().mockResolvedValueOnce(Response.json(first))
+        .mockResolvedValueOnce(Response.json({ data: [{ id: "one" }, { id: "two", context_length: 4096, name: "second" }] }));
+      vi.stubGlobal("fetch", fetch);
+      const input = { type: "ANTHROPIC", apiKey: "test", baseUrl: "https://models.example/v1" };
+      expect(await fetchProviderModels(input)).toEqual([{ id: "one" }, { id: "two", name: "second", context_length: 4096 }]);
+      expect(new URL(fetch.mock.calls[1]![0]).searchParams.get("after_id")).toBe("page-1");
+      expect(fetch.mock.calls[1]![1].signal).toBe(fetch.mock.calls[0]![1].signal);
+      fetch.mockImplementation(async () => Response.json(first));
+      await expect(fetchProviderModels(input)).rejects.toThrow(/pagination/i);
+      expect(fetch).toHaveBeenCalledTimes(4);
+    });
+
+    it.each(["https://public.example/v1", "http://private.example/v1"])("cancels an outstanding DNS lookup for %s", async (url) => {
+      vi.stubEnv("AI_PROVIDER_PRIVATE_HOSTS", "private.example");
+      const lookup = Promise.withResolvers<Array<{ address: string; family: number }>>();
+      lookupMock.mockReturnValueOnce(lookup.promise);
+      const fetch = vi.fn();
+      vi.stubGlobal("fetch", fetch);
+      const controller = new AbortController();
+      const result = postProviderChat({ url, body: {}, signal: controller.signal });
+      try {
+        await vi.waitFor(() => expect(lookupMock).toHaveBeenCalledWith(new URL(url).hostname, expect.anything()));
+        const reason = new Error("cancelled by caller");
+        controller.abort(reason);
+        await expect(result).rejects.toBe(reason);
+        expect(fetch).not.toHaveBeenCalled();
+      } finally {
+        lookup.resolve([]);
+      }
     });
 
     it("authenticates an Anthropic model list with x-api-key and asks for every page entry", async () => {
@@ -317,7 +353,7 @@ describe("ai provider-http adapter", () => {
 
       await expect(
         fetchProviderModels({ apiKey: "sk-x", baseUrl: "https://provider.example/v1" }),
-      ).rejects.toThrow(/public HTTP\(S\) address/);
+      ).rejects.toThrow(/private|metadata|内网/i);
       expect(fetchMock).not.toHaveBeenCalled();
     });
   });

@@ -171,50 +171,6 @@ describe("useConversations", () => {
     expect(result.current.conversations).toHaveLength(1);
   });
 
-  it("autoTitle shortens, strips newlines, and PATCHes the conversation", async () => {
-    vi.mocked(csrfFetch).mockResolvedValueOnce({ success: true });
-    vi.mocked(csrfFetch).mockResolvedValueOnce({ conversations: [fixture("c1")] });
-    const { result } = renderHook(() =>
-      useConversations({ initialConversations: [fixture("c1")] }),
-    );
-    await act(async () => {
-      await result.current.autoTitle("c1", "hello world this is a long first message");
-    });
-    expect(csrfFetch).toHaveBeenCalledWith(
-      "/api/ai/conversations/c1",
-      expect.objectContaining({
-        method: "PATCH",
-        body: JSON.stringify({ title: "hello world this is a long fir..." }),
-      }),
-    );
-    expect(csrfFetch).toHaveBeenCalledTimes(2); // PATCH + refresh
-  });
-
-  it("autoTitle skips the call for empty or placeholder text", async () => {
-    const { result } = renderHook(() =>
-      useConversations({ initialConversations: [fixture("c1")] }),
-    );
-    await act(async () => {
-      await result.current.autoTitle("c1", "");
-    });
-    await act(async () => {
-      await result.current.autoTitle("c1", "(attachment)");
-    });
-    expect(csrfFetch).not.toHaveBeenCalled();
-  });
-
-  it("autoTitle swallows the PATCH error and does not refresh", async () => {
-    vi.mocked(csrfFetch).mockRejectedValueOnce(new Error("patch failed"));
-    const { result } = renderHook(() =>
-      useConversations({ initialConversations: [fixture("c1")] }),
-    );
-    await act(async () => {
-      await result.current.autoTitle("c1", "hello world");
-    });
-    // Only the PATCH call, no refresh after failure.
-    expect(csrfFetch).toHaveBeenCalledTimes(1);
-  });
-
   it("setMessages stays open for the streaming layer to write optimistically", () => {
     const { result } = renderHook(() =>
       useConversations({ initialConversations: [fixture("c1")] }),

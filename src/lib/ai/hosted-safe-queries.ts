@@ -1,18 +1,14 @@
 /**
  * Serverless hosted-AI query handlers (no SSH / no bound serverId).
  *
- * Pure move out of hosted-service.ts `executeSafeAction`:
- *   search_knowledge / list_servers / list_backups / query_traffic /
- *   list_scheduled_tasks / manage_cron
- * Behaviour is byte-identical; hosted-service delegates here first and falls
- * through to the SSH execution path when this module returns null.
+ * Schedule mutations are handled by the approval transaction in hosted-service.
  */
 
 import { Prisma, type CommandTemplate } from "@prisma/client";
 import { escapeLikeLiteral } from "@/lib/db/like-pattern";
 import type { KnowledgeBudget } from "./knowledge";
 import type { SessionPayload } from "@/lib/auth/session";
-import { isGlobalTeamManager, seesAllCustomers, serverTeamWhere, teamWhere } from "@/lib/auth/team-scope";
+import { activeCustomerTeamWhere, isGlobalTeamManager, rawTeamScope, serverTeamWhere } from "@/lib/auth/team-scope";
 import { prisma } from "@/lib/db";
 import { t, type Locale } from "@/lib/i18n/service-translations";
 
@@ -64,7 +60,7 @@ export async function executeServerlessQuery(
       query,
       budget,
       knowledgeBaseId,
-      limit: Number.isFinite(limit) ? limit : 5,
+      limit: Number.isFinite(limit) ? Math.max(1, Math.min(8, Math.trunc(limit))) : 5,
       // Always pass a session when available so teamWhere applies; never force currentTeamId=null.
       session: scope ?? undefined,
     });
@@ -76,7 +72,7 @@ export async function executeServerlessQuery(
           document: h.documentTitle,
           chunkIndex: h.chunkIndex,
           score: h.score,
-          excerpt: h.content.slice(0, 1200),
+          excerpt: Array.from(h.content).slice(0, 1200).join(""),
         })),
         count: hits.length,
       },
@@ -104,7 +100,7 @@ export async function executeServerlessQuery(
         : undefined;
     const records = await prisma.backupRecord.findMany({
       where: {
-        ...(scope ? teamWhere(scope) : {}),
+        ...(scope ? activeCustomerTeamWhere(scope) : { teamId: null }),
         ...(typeFilter ? { type: typeFilter } : {}),
         ...(statusFilter ? { status: statusFilter } : {}),
       },
@@ -232,21 +228,17 @@ export async function executeServerlessQuery(
 
   if (action.actionType === "list_command_templates") {
     if (!scope) return scopeRequired(locale);
-    const { listTemplates, seedBuiltinTemplates } = await import("@/lib/command-template/service");
+    const { seedBuiltinTemplates } = await import("@/lib/command-template/service");
+    await seedBuiltinTemplates();
     const query = typeof action.params.query === "string" ? action.params.query.trim() : "";
-    let filtered: CommandTemplate[];
-    if (!query) {
-      filtered = await listTemplates(100, scope);
-    } else {
-      await seedBuiltinTemplates();
-      const pattern = `%${escapeLikeLiteral(query)}%`;
-      const tenant = seesAllCustomers(scope) ? Prisma.sql`TRUE` : Prisma.sql`("isBuiltin" OR "teamId" = ${scope.currentTeamId})`;
-      filtered = await prisma.$queryRaw<CommandTemplate[]>`
-        SELECT * FROM command_templates WHERE ${tenant}
-          AND (name ILIKE ${pattern} OR description ILIKE ${pattern}
-            OR EXISTS (SELECT 1 FROM unnest(tags) AS tag WHERE tag ILIKE ${pattern}))
-        ORDER BY "isBuiltin" DESC, name, id LIMIT 100`;
-    }
+    const pattern = `%${escapeLikeLiteral(query)}%`;
+    const tenant = rawTeamScope(scope, Prisma.sql`c."teamId"`);
+    const match = query ? Prisma.sql`AND (c.name ILIKE ${pattern} OR c.description ILIKE ${pattern}
+      OR EXISTS (SELECT 1 FROM unnest(c.tags) AS tag WHERE tag ILIKE ${pattern}))` : Prisma.empty;
+    const filtered = await prisma.$queryRaw<CommandTemplate[]>`
+      SELECT c.* FROM command_templates c LEFT JOIN teams owner ON owner.id = c."teamId"
+      WHERE (c."isBuiltin" OR (owner.id IS NOT NULL AND owner."deletedAt" IS NULL AND ${tenant})) ${match}
+      ORDER BY c."isBuiltin" DESC, c.name, c.id LIMIT 100`;
     return {
       success: true,
       data: {
@@ -266,66 +258,7 @@ export async function executeServerlessQuery(
   }
 
   if (action.actionType === "manage_cron") {
-    const cronAction =
-      typeof action.params.action === "string" ? action.params.action.trim().toLowerCase() : "";
-    const taskId = typeof action.params.taskId === "string" ? action.params.taskId.trim() : "";
-
-    if (cronAction === "pause" || cronAction === "resume") {
-      if (!taskId) {
-        return { success: false, data: null, error: t("backend.ai.cron.taskIdRequired", locale) };
-      }
-      // Pause/resume mutates schedule state — require task:read is already checked;
-      // still scope lookup by team and only flip ACTIVE↔PAUSED via toggleScheduledTask
-      // (which recomputes nextRunAt on resume).
-      const { getScheduledTask, toggleScheduledTask } = await import("@/lib/scheduled-task/service");
-      try {
-        if (!scope) return scopeRequired(locale);
-        const task = await getScheduledTask(taskId, scope);
-        if (cronAction === "pause") {
-          if (task.status === "PAUSED") {
-            return { success: true, data: { id: task.id, status: task.status, message: t("backend.ai.cron.alreadyPaused", locale) } };
-          }
-          if (task.status !== "ACTIVE") {
-            return {
-              success: false,
-              data: null,
-              error: t("backend.ai.cron.cannotPauseStatus", locale, {
-                status: task.status,
-              }),
-            };
-          }
-          const updated = await toggleScheduledTask(taskId, scope, "PAUSED");
-          return { success: true, data: { id: updated.id, status: updated.status } };
-        }
-        // resume
-        if (task.status === "ACTIVE") {
-          return { success: true, data: { id: task.id, status: task.status, message: t("backend.ai.cron.alreadyActive", locale) } };
-        }
-        if (task.status !== "PAUSED") {
-          return {
-            success: false,
-            data: null,
-            error: t("backend.ai.cron.cannotResumeStatus", locale, {
-              status: task.status,
-            }),
-          };
-        }
-        const updated = await toggleScheduledTask(taskId, scope, "ACTIVE");
-        return { success: true, data: { id: updated.id, status: updated.status } };
-      } catch (err) {
-        return {
-          success: false,
-          data: null,
-          error: err instanceof Error ? err.message : t( "backend.ai.cron.operationFailed", locale),
-        };
-      }
-    }
-
-    return {
-      success: false,
-      data: null,
-      error: t( "backend.ai.cron.unsupportedAction", locale),
-    };
+    return { success: false, data: null, error: t("backend.ai.actionIsNotPendingConfirmation", locale) };
   }
 
   return null;

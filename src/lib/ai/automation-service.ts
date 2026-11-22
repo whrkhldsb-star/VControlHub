@@ -3,7 +3,7 @@ import { isValidTcpPort } from "@/lib/runtime/listen-port";
 import { z } from "zod";
 
 import { sessionHasPermission } from "@/lib/auth/authorization";
-import { serverTeamWhere } from "@/lib/auth/team-scope";
+import { seesAllCustomers, serverTeamWhere } from "@/lib/auth/team-scope";
 import { createCommandRequest } from "@/lib/command/service";
 import { commandRequestTitle } from "@/lib/command/schema";
 import {
@@ -123,7 +123,7 @@ export async function materializeAutomationProposal(
   const template = templateId || templateName
     ? await prisma.commandTemplate.findFirst({
         where: {
-      ...commandTemplateScopeWhere(session),
+          AND: [commandTemplateScopeWhere(session), { OR: [{ isBuiltin: true }, { team: { deletedAt: null } }] }],
           ...(templateId
             ? { id: templateId }
             : { name: { equals: templateName!, mode: "insensitive" } }),
@@ -138,7 +138,7 @@ export async function materializeAutomationProposal(
     Object.entries(input.variables ?? {}).map(([key, value]) => [key, String(value)]),
   );
   const templateCommand = template?.command ?? input.command!;
-  const requiredVariables = extractTemplateVariables(templateCommand, template?.rollbackCommand);
+  const requiredVariables = extractTemplateVariables(templateCommand, confirmedTeamId === undefined ? template?.rollbackCommand : input.rollbackCommand);
   const missingVariables = requiredVariables.filter((name) => variables[name] === undefined);
   if (missingVariables.length) {
     throw new ValidationError(t("backend.ai.automationMissingVariables", {
@@ -147,8 +147,9 @@ export async function materializeAutomationProposal(
   }
   validateBuiltinVariables(template, variables, t);
   const command = renderCommand(templateCommand, variables);
-  const rollbackCommand = input.rollbackCommand
-    ?? (template?.rollbackCommand ? renderCommand(template.rollbackCommand, variables) : undefined);
+  // A missing rollback on the reviewed card stays missing if the template later gains one.
+  const rollbackCommand = input.rollbackCommand ?? (confirmedTeamId === undefined && template?.rollbackCommand
+    ? renderCommand(template.rollbackCommand, variables) : null);
   if (/\{\{\w+\}\}/.test(command) || (rollbackCommand && /\{\{\w+\}\}/.test(rollbackCommand))) {
     throw new ValidationError(t("backend.ai.automationUnresolvedVariables"));
   }
@@ -218,9 +219,13 @@ export async function executeAutomationProposal(
   hostedActionId: string,
   actionTeamId: string | null,
 ) {
-  const proposal = await materializeAutomationProposal(raw, actor, actionTeamId);
-  // Narrow even an all-customers administrator for the service's final target check.
-  const session = { ...actor, currentTeamId: proposal.teamId };
+  const teamId = actionTeamId ?? (typeof raw.teamId === "string" ? raw.teamId : null);
+  if (!teamId || (actor.currentTeamId !== teamId && !seesAllCustomers({ ...actor, currentTeamId: actor.currentTeamId ?? null }))) {
+    throw new BusinessError((await serviceT())("backend.ai.automationProposalChanged"));
+  }
+  // Legacy cards carry the team in their params. Verify every frozen target in that team.
+  const session = { ...actor, currentTeamId: teamId };
+  const proposal = await materializeAutomationProposal(raw, session, teamId);
   if (proposal.executionMode === "now") {
     const request = await createCommandRequest({
       title: commandRequestTitle("AI automation: ", proposal.name),

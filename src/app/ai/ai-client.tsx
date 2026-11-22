@@ -49,6 +49,7 @@ import { recoverChatDraft } from "./ai-retry";
 import { useConvRename } from "./hooks/use-conv-rename";
 import { useConvSettingsForm } from "./hooks/use-conv-settings-form";
 import { useFileAttachments } from "./hooks/use-file-attachments";
+import { attachmentCapabilities } from "./ai-file-helpers";
 import { useModelCapabilities } from "./hooks/use-model-capabilities";
 import { useProviderForm } from "./hooks/use-provider-form";
 import { getErrorMessage } from "@/lib/http/error-message";
@@ -81,7 +82,6 @@ export function AiClient({
     messagesError,
     retryMessages,
     refreshConversations,
-    autoTitle,
   } = useConversations({ initialConversations });
   const [input, setInput] = useState(initialDraft);
   const [imageUrls, setImageUrls] = useState<string[]>([]);
@@ -120,7 +120,7 @@ export function AiClient({
     currentModelCaps,
     modelName: activeConv?.model,
     enableVision: activeConv?.enableVision,
-    providerType: activeProvider?.type,
+    providerType: activeConv?.provider?.type,
     onReject: (msg) => addToast("error", msg),
     t,
   });
@@ -133,6 +133,7 @@ export function AiClient({
     pendingApprovals: streamedPendingApprovals,
     approvalBusyById,
     sendMessage,
+    retryFailedMessage,
     stopGeneration,
     lastRequest,
     clearConversationStream,
@@ -255,9 +256,7 @@ export function AiClient({
     setImageUrls,
     fileAttachments,
     setFileAttachments,
-    messages,
     setMessages,
-    autoTitle,
     sendMessage,
     providers,
     refreshConversations,
@@ -460,11 +459,12 @@ export function AiClient({
               pendingApprovals={pendingApprovals}
               approvalBusyById={approvalBusyById}
               onApproval={decideApproval}
-              currentModelCaps={currentModelCaps}
+              currentModelCaps={attachmentCapabilities(currentModelCaps, activeConv.provider?.type, activeConv.enableVision)}
               messagesEndRef={messagesEndRef}
               onDrop={handleDrop}
               onDragOver={handleDragOver}
               onRegenerate={handleRegenerate}
+              onRetry={retryFailedMessage}
               loadError={messagesError ? getErrorMessage(messagesError, t("aiPage.historyLoadFailed")) : null}
               onRetryLoad={retryMessages}
             />

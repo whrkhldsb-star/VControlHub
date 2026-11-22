@@ -1,4 +1,4 @@
-import { isLocalOllamaEndpoint } from "./provider-endpoint";
+import { isLocalOllamaEndpoint, requiresExplicitDefaultModel } from "./provider-endpoint";
 import { z } from "zod";
 import {
   aiOpsModeSchema,
@@ -7,6 +7,10 @@ import {
 } from "./ops/schema";
 
 export { approveRecommendationSchema } from "./ops/schema";
+
+export const knowledgeDocumentPageSchema = z.object({
+  offset: z.string().regex(/^\d+$/).transform(Number).pipe(z.number().int().nonnegative().max(2_147_483_647)).optional(),
+});
 
 export const aiOpsLogsQuerySchema = z.object({
   mode: aiOpsModeSchema.optional(),
@@ -53,22 +57,47 @@ export const aiProviderTypeSchema = z.enum([
 // gateway such as OpenRouter lists hundreds), so the limits here match that: at 256 entries / 8,192 characters the
 // provider could not be created, nor edited afterwards (rotating its key or changing its URL), without deleting it
 // and, with it, every conversation.
-const MAX_PROVIDER_MODELS = 10_000;
+// A full list of 10,000 model IDs fits even when every JSON character needs escaping.
+export const PROVIDER_REQUEST_MAX_BODY_BYTES = 16 * 1024 * 1024;
+export const MAX_PROVIDER_MODELS = 10_000;
 const MAX_PROVIDER_MODELS_TEXT = 400_000;
+export const providerModelIdSchema = z.string().trim().min(1).max(256);
+export const providerModelListSchema = z.array(providerModelIdSchema).max(MAX_PROVIDER_MODELS, "Too many models")
+  .transform((models) => [...new Set(models)]);
+/** Read valid IDs from pre-upgrade model lists without losing the rest of the list. */
+export function usableProviderModelIds(values: unknown[]) {
+  const ids = new Set<string>();
+  for (const value of values) {
+    const model = providerModelIdSchema.safeParse(value);
+    if (model.success) ids.add(model.data);
+    if (ids.size === MAX_PROVIDER_MODELS) break;
+  }
+  return [...ids];
+}
+
+const csvModels = z.string().trim().max(MAX_PROVIDER_MODELS_TEXT, "Model list is too long")
+  .transform((csv) => csv.split(",").map((id) => id.trim()).filter(Boolean)).pipe(providerModelListSchema);
+
+function mergeModelLists<T extends { models?: string[]; availableModels?: string[] }>({ models, availableModels, ...rest }: T) {
+  const ids = availableModels ?? models;
+  return { ...rest, ...(ids !== undefined && { availableModels: ids }) };
+}
 
 export const createProviderSchema = z.object({
   name: z.string().trim().min(1, "Provider name is required").max(128, "Provider name is too long"),
   type: aiProviderTypeSchema.optional(),
   apiKey: z.string().trim().default(""),
   baseUrl: z.string().trim().max(2048, "Base URL is too long").optional(),
-  models: z.string().trim().max(MAX_PROVIDER_MODELS_TEXT, "Model list is too long").optional(),
-  availableModels: z.array(z.string().trim().min(1).max(256)).max(MAX_PROVIDER_MODELS, "Too many models").optional(),
-  defaultModel: z.string().trim().min(1).max(128).optional(),
+  models: csvModels.optional(),
+  availableModels: providerModelListSchema.optional(),
+  defaultModel: providerModelIdSchema.optional(),
   isDefault: z.boolean().optional(),
   enabled: z.boolean().optional(),
 }).refine((value) => Boolean(value.apiKey) || isLocalOllamaEndpoint(value.baseUrl, value.type), {
   path: ["apiKey"], message: "API Key is required",
-});
+}).refine((value) => !requiresExplicitDefaultModel(value.type) || Boolean(value.defaultModel), {
+  path: ["defaultModel"], message: "Missing model",
+}).transform(mergeModelLists);
 
 // PATCH /api/ai/providers/[id] body. All fields optional; empty body is
 // allowed (the service layer will treat it as a no-op).
@@ -76,13 +105,14 @@ export const updateProviderSchema = z.object({
   name: z.string().trim().min(1).max(128).optional(),
   type: aiProviderTypeSchema.optional(),
   apiKey: z.string().trim().min(1).optional(),
+  expectedEndpoint: z.object({ type: aiProviderTypeSchema, baseUrl: z.string().max(2048) }).optional(),
   baseUrl: z.string().trim().max(2048).optional(),
-  models: z.string().trim().max(MAX_PROVIDER_MODELS_TEXT).optional(),
-  availableModels: z.array(z.string().trim().min(1).max(256)).max(MAX_PROVIDER_MODELS).optional(),
-  defaultModel: z.string().trim().min(1).max(128).optional(),
+  models: csvModels.optional(),
+  availableModels: providerModelListSchema.optional(),
+  defaultModel: providerModelIdSchema.optional(),
   isDefault: z.boolean().optional(),
   enabled: z.boolean().optional(),
-});
+}).transform(mergeModelLists);
 
 // === Conversation schemas ===
 
@@ -138,7 +168,7 @@ export const probeModelsSchema = z.object({
   type: aiProviderTypeSchema.optional(),
   apiKey: z.string().trim().default(""),
   baseUrl: z.string().trim().max(2048, "Base URL is too long").optional(),
-  defaultModel: z.string().trim().min(1).max(128).optional(),
+  defaultModel: providerModelIdSchema.optional(),
 }).refine((value) => Boolean(value.apiKey) || isLocalOllamaEndpoint(value.baseUrl, value.type), {
   path: ["apiKey"], message: "Missing API Key",
 });
@@ -168,7 +198,7 @@ export const chatRequestSchema = z
     conversationId: z.string().trim().min(1).optional(),
     message: z.string().min(1, "Message content is required").max(64_000, "Message is too long").optional(),
     content: z.string().max(64_000, "Message is too long").optional(),
-    model: z.string().trim().min(1).max(128).optional(),
+    model: providerModelIdSchema.optional(),
     providerId: z.string().trim().min(1).max(128).optional(),
     imageUrls: z.array(z.string().trim().max(2048).pipe(z.url({ protocol: /^https?$/ }))).max(8).optional(),
     imageBase64: z

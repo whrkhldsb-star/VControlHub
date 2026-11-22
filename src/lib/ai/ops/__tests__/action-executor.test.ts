@@ -15,7 +15,8 @@ vi.mock("@/lib/db", () => {
 	const client = {
 		job: { findMany: mocks.jobFindMany, deleteMany: mocks.jobDeleteMany, findUniqueOrThrow: mocks.receipt, update: mocks.saveReceipt },
 		aiOpsLog: { findMany: mocks.aiOpsLogFindMany, deleteMany: mocks.aiOpsLogDeleteMany },
-		$queryRaw: mocks.lease,
+		$queryRaw: mocks.lease, $executeRaw: vi.fn(),
+		setting: { findMany: vi.fn(async () => [{ key: "ai.ops.mode", value: "autonomous" }]) },
 	};
 	return { prisma: { ...client, $transaction: (run: (db: typeof client) => unknown) => run(client) } };
 });
@@ -76,16 +77,16 @@ describe("executeAiOpsAction", () => {
 
 	it("checks the exact lease after the receipt lookup and before dispatch", async () => {
 		mocks.lease.mockResolvedValueOnce([{ id: "job" }]).mockResolvedValueOnce([]);
-		await expect(executeScanAction("job", "owner", 3, input("alert.evaluate"), new AbortController().signal)).rejects.toBeInstanceOf(LeaseLostError);
+		await expect(executeScanAction("job", "owner", 3, input("alert.evaluate"), new AbortController().signal, { providerId: "", binding: "" })).rejects.toBeInstanceOf(LeaseLostError);
 		expect(mocks.lease.mock.calls[0]?.slice(1)).toEqual(["job", "owner", 3]);
 		expect(mocks.enqueueJob).not.toHaveBeenCalled();
 	});
 
 	it("returns the durable result after the worker loses its reply", async () => {
 		const action = input("alert.evaluate");
-		const result = await executeScanAction("job", "owner", 3, action, new AbortController().signal);
+		const result = await executeScanAction("job", "owner", 3, action, new AbortController().signal, { providerId: "", binding: "" });
 		mocks.receipt.mockResolvedValue({ payload: { actionReceipts: [result] } });
-		expect(await executeScanAction("job", "new-owner", 4, action, new AbortController().signal)).toEqual(result);
+		expect(await executeScanAction("job", "new-owner", 4, action, new AbortController().signal, { providerId: "", binding: "" })).toEqual(result);
 		expect(mocks.enqueueJob).toHaveBeenCalledOnce();
 		expect(mocks.receipt.mock.calls[0]).toEqual(mocks.receipt.mock.calls[1]);
 	});

@@ -16,6 +16,7 @@ import { interpolate } from "@/lib/i18n/core";
 
 import type { FileAttachment, ModelCapabilities } from "../ai-types";
 import {
+  attachmentCapabilities,
   categorizeFile,
   formatAllowedTypes,
   readFileAsDataURL,
@@ -88,6 +89,7 @@ export function useFileAttachments({
 
   const handleFileSelect = useCallback(
     async (files: FileList | File[]) => {
+      const caps = attachmentCapabilities(currentModelCaps, providerType, enableVision);
       const startedIn = generation.current;
       const attach = (attachment: FileAttachment) => {
         if (generation.current !== startedIn) return;
@@ -109,7 +111,7 @@ export function useFileAttachments({
 
           switch (category) {
             case "image": {
-              if (!currentModelCaps.vision && !enableVision) {
+              if (!caps.vision) {
                 showRejection(
                   tr("aiPage.unsupportedImageModel", { model: modelName ?? "-" })
                 );
@@ -154,7 +156,7 @@ export function useFileAttachments({
                 continue;
               }
               // PDFs reach the model only through Anthropic's document blocks.
-              if (providerType !== "ANTHROPIC" || !file.name.toLowerCase().endsWith(".pdf")) {
+              if (!caps.document || !(file.type === "application/pdf" || file.name.toLowerCase().endsWith(".pdf"))) {
                 showRejection(tr("aiPage.unsupportedDocumentProvider", { name: file.name }));
                 continue;
               }
@@ -164,7 +166,7 @@ export function useFileAttachments({
                 name: file.name,
                 content: "",
                 type: "document",
-                mimeType: file.type || "application/pdf",
+                mimeType: "application/pdf",
                 base64Data,
                 preview: undefined,
               });
@@ -186,7 +188,7 @@ export function useFileAttachments({
             }
             default: {
               showRejection(
-                tr("aiPage.unsupportedFileType", { name: file.name, types: formatAllowedTypes(currentModelCaps, tr) })
+                tr("aiPage.unsupportedFileType", { name: file.name, types: formatAllowedTypes(caps, tr) })
               );
             }
           }
