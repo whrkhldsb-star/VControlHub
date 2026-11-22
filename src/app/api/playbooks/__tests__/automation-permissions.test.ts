@@ -16,9 +16,11 @@ vi.mock("@/lib/api-token/authorization", async (original) => ({
   ...await original<typeof import("@/lib/api-token/authorization")>(),
   loadApiTokenOwnerSession: mocks.loadOwner,
 }));
-vi.mock("@/lib/concurrency/advisory-lock", () => ({ acquireAdvisoryLock: async () => async () => {} }));
+vi.mock("@/lib/concurrency/advisory-lock", () => ({ lockForTransaction: vi.fn(), acquireAdvisoryLock: async () => async () => {} }));
 vi.mock("@/lib/audit/service", () => ({ auditUserAction: mocks.audit }));
 vi.mock("@/lib/db", () => ({ prisma: {
+  $queryRaw: async () => [{ id: "rule1" }],
+  $transaction<T>(run: (tx: unknown) => T) { return run(this); },
   alertRule: { create: mocks.createRule, findFirst: mocks.findRule, updateManyAndReturn: mocks.updateRule },
   playbook: { findMany: mocks.findBoundPlaybooks, findFirst: mocks.findPlaybook, updateMany: mocks.updatePlaybook },
   userServerAccess: { findFirst: async () => null },
@@ -50,7 +52,7 @@ describe("automation write permissions through PATCH", () => {
     { body: { id: "rule1", threshold: 60 }, enabled: true },
     { body: { toggleId: "rule1" }, enabled: false },
   ])("requires the token's run grant to update or enable a bound rule ($body)", async ({ body, enabled }) => {
-    const rule = { id: "rule1", playbookIds: ["pb1"], serverIds: [], enabled, createdAt: new Date() };
+    const rule = { id: "rule1", playbookIds: ["pb1"], serverIds: [], teamId: "team1", notifyChannels: ["in_app"], updatedAt: new Date(), enabled, createdAt: new Date() };
     mocks.findRule.mockResolvedValue(rule);
     mocks.updateRule.mockResolvedValue([rule]);
     mocks.verifyToken.mockResolvedValueOnce({ userId: "u1", scopes: ["notification:manage"] });
@@ -67,7 +69,7 @@ describe("automation write permissions through PATCH", () => {
 
   it.each(["POST", "PATCH"])("passes only the token's granted command and run scopes through alert %s", async (method) => {
     const rule = { id: "rule1", name: "CPU", metric: "cpu_usage", operator: "gte", threshold: 60,
-      serverIds: [], playbookIds: ["pb1"], enabled: true, createdAt: new Date(),
+      serverIds: [], playbookIds: ["pb1"], teamId: "team1", notifyChannels: ["in_app"], updatedAt: new Date(), enabled: true, createdAt: new Date(),
     };
     mocks.findRule.mockResolvedValue(rule);
     mocks.createRule.mockResolvedValue(rule);

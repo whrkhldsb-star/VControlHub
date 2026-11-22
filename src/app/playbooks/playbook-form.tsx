@@ -56,6 +56,7 @@ export function PlaybookForm({
 	// A saved playbook's trigger, switch and retries decide when it runs as its owner: changing them takes
 	// playbook:run. The server refused it after the fact; the fields say so before.
 	const scheduleLocked = editing && !canRun;
+	const stepsRedacted = playbook?.steps.some((step) => step.type === "run_command" && typeof step.config.command !== "string");
 	const [name, setName] = useState(playbook?.name ?? "");
 	const [description, setDescription] = useState(playbook?.description ?? "");
 	const [triggerType, setTriggerType] = useState<TriggerType>(playbook?.triggerType ?? "cron");
@@ -114,7 +115,7 @@ export function PlaybookForm({
 					s.type === "run_command" &&
 					(!Array.isArray(s.config.serverIds) || (s.config.serverIds as string[]).length === 0),
 			);
-			if (missingTargets) {
+			if (!stepsRedacted && missingTargets) {
 				setError(t("playbooksPage.step.serversRequired"));
 				setSubmitting(false);
 				return;
@@ -308,34 +309,40 @@ export function PlaybookForm({
 				</div>
 			)}
 
-			<div className="space-y-2">
-				<div className="flex items-center justify-between">
-					<div className={fieldLabelClass}>{t("playbooksPage.createForm.stepsTitle")}</div>
-					<ActionButton icon={<Plus size={16} aria-hidden />} size="sm"
-						variant="outline"
-						onClick={addStep}>
-						{t("playbooksPage.createForm.addStep")}
-					</ActionButton>
+			{stepsRedacted ? (
+				<ol aria-label={t("playbooksPage.createForm.stepsTitle")}>
+					{steps.map((step) => <li key={step.id}>{step.name || t(`playbooksPage.stepType.${step.type}`)}</li>)}
+				</ol>
+			) : (
+				<div className="space-y-2">
+					<div className="flex items-center justify-between">
+						<div className={fieldLabelClass}>{t("playbooksPage.createForm.stepsTitle")}</div>
+						<ActionButton icon={<Plus size={16} aria-hidden />} size="sm"
+							variant="outline"
+							onClick={addStep}>
+							{t("playbooksPage.createForm.addStep")}
+						</ActionButton>
+					</div>
+					<DndContext sensors={sensors} collisionDetection={closestCenter} onDragEnd={handleStepDragEnd}>
+						<SortableContext items={steps.map((step) => step.id)} strategy={verticalListSortingStrategy}>
+							<div className="space-y-2" aria-label={t("playbooksPage.createForm.stepsSortableRegion")}>
+								{steps.map((step, idx) => (
+									<SortableStepCard
+										key={step.id}
+										step={step}
+										index={idx}
+										stepCount={steps.length}
+										servers={servers}
+										onRemove={removeStep}
+										onUpdate={updateStep}
+										onConfigChange={updateStepConfig}
+									/>
+								))}
+							</div>
+						</SortableContext>
+					</DndContext>
 				</div>
-				<DndContext sensors={sensors} collisionDetection={closestCenter} onDragEnd={handleStepDragEnd}>
-					<SortableContext items={steps.map((step) => step.id)} strategy={verticalListSortingStrategy}>
-						<div className="space-y-2" aria-label={t("playbooksPage.createForm.stepsSortableRegion")}>
-							{steps.map((step, idx) => (
-								<SortableStepCard
-									key={step.id}
-									step={step}
-									index={idx}
-									stepCount={steps.length}
-									servers={servers}
-									onRemove={removeStep}
-									onUpdate={updateStep}
-									onConfigChange={updateStepConfig}
-								/>
-							))}
-						</div>
-					</SortableContext>
-				</DndContext>
-			</div>
+			)}
 
 			<label className="flex items-center gap-2 text-sm text-[var(--text-secondary)]">
 				<input

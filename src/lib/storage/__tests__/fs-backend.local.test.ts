@@ -4,6 +4,8 @@ import path from "node:path";
 
 import { afterEach, describe, expect, it } from "vitest";
 
+import { localPathVersion, localRootIdentity } from "../local-identity";
+import { openManagedLocalFile } from "../open-local-file";
 import { createManagedFolder, deleteBackingObject } from "../fs-backend";
 
 describe("createManagedFolder LOCAL filesystem", () => {
@@ -86,13 +88,14 @@ it("keeps unindexed members and deletes only the verified batch from its leaves 
   const { deleteRecycledBackingObjects } = await import("../recycled-backing");
   const basePath = await mkdtemp(path.join(tmpdir(), "vch-recycle-"));
   const node = { driver: "LOCAL", basePath, host: null, port: null, username: null, hostKeySha256: null, server: null };
-  const folder = { relativePath: "folder", entryType: "DIRECTORY", storageVersion: null, deletedAgentRoot: null };
+  const folder = { relativePath: "folder", entryType: "DIRECTORY", storageVersion: null as string | null, deletedAgentRoot: await localRootIdentity(basePath) };
   const nested = { ...folder, relativePath: "folder/sub" };
   const leaf = { ...nested, relativePath: "folder/sub/recycled.txt", entryType: "FILE" };
   const outsider = path.join(basePath, "folder/sub/unindexed.txt");
   try {
     await mkdir(path.join(basePath, nested.relativePath), { recursive: true });
     await writeFile(path.join(basePath, leaf.relativePath), "batch");
+    for (const member of [folder, nested, leaf]) member.storageVersion = await localPathVersion(basePath, member.relativePath);
     await writeFile(outsider, "new");
     await expect(deleteRecycledBackingObjects(node, folder, [nested, leaf])).rejects.toMatchObject({ status: 409 });
     expect(await readFile(outsider, "utf8")).toBe("new");
@@ -103,4 +106,38 @@ it("keeps unindexed members and deletes only the verified batch from its leaves 
   } finally {
     await rm(basePath, { recursive: true, force: true });
   }
+});
+
+it("protects a replacement at the same relative path after a root or object change", async () => {
+  const { deleteRecycledBackingObjects } = await import("../recycled-backing");
+  const { rollbackPublishedCopy } = await import("../copy-rollback");
+  const root = await mkdtemp(path.join(tmpdir(), "recycle-binding-"));
+  const other = path.join(root, "other");
+  try {
+    await mkdir(other);
+    const name = "report";
+    await writeFile(path.join(root, name), "original");
+    const previous = { relativePath: name, entryType: "FILE", deletedAgentRoot: await localRootIdentity(root), storageVersion: await localPathVersion(root, name) };
+    const node = { driver: "LOCAL", basePath: other, host: null, port: null, username: null, hostKeySha256: null, server: null };
+    await writeFile(path.join(other, name), "new root");
+    await expect(deleteRecycledBackingObjects(node, previous, [])).rejects.toMatchObject({ status: 409 });
+    expect(await readFile(path.join(other, name), "utf8")).toBe("new root");
+    await rename(path.join(root, name), path.join(root, "saved"));
+    await writeFile(path.join(root, name), "new occupant");
+    await expect(rollbackPublishedCopy({ ...node, basePath: root }, name, previous.storageVersion)).rejects.toMatchObject({ status: 409 });
+    expect(await readFile(path.join(root, name), "utf8")).toBe("new occupant");
+  } finally { await rm(root, { recursive: true, force: true }); }
+});
+
+it("reads from the verified open descriptor when the public name is subsequently replaced", async () => {
+  const root = await mkdtemp(path.join(tmpdir(), "share-handle-"));
+  try {
+    await writeFile(path.join(root, "report"), "selected");
+    const handle = await openManagedLocalFile(root, "report");
+    try {
+      await rename(path.join(root, "report"), path.join(root, "moved"));
+      await writeFile(path.join(root, "report"), "later");
+      expect(await handle.readFile("utf8")).toBe("selected");
+    } finally { await handle.close(); }
+  } finally { await rm(root, { recursive: true, force: true }); }
 });

@@ -233,6 +233,19 @@ describe("AiInputArea", () => {
 		expect(clearRejection).toHaveBeenCalledTimes(1);
 	});
 
+	it.each(["OPENAI_COMPATIBLE", "ANTHROPIC"])("advertises only file types the %s adapter can send", (type) => {
+		const fileInputRef = createRef<HTMLInputElement>();
+		render(<AiInputArea input="" setInput={vi.fn()} streaming={false}
+			activeConv={{ ...baseConv, provider: { ...baseConv.provider!, type } }}
+			currentModelCaps={{ vision: true, document: true, video: true, audio: true }}
+			fileInputRef={fileInputRef} textareaRef={createRef<HTMLTextAreaElement>()} fileAttachmentsState={makeFileAttachmentState()}
+			handleSend={vi.fn()} handleStopGeneration={vi.fn()} />);
+		const accept = fileInputRef.current!.accept;
+		expect(accept).toContain("image/*");
+		expect(accept).not.toMatch(/docx|xlsx|pptx|video|audio/);
+		expect(accept.includes(".pdf")).toBe(type === "ANTHROPIC");
+	});
+
 	it("switches the placeholder when enableVision is true", () => {
 		const visionConv: ConvItem = { ...baseConv, enableVision: true };
 		const visionCaps: ModelCapabilities = { ...baseCaps, vision: true };

@@ -197,6 +197,26 @@ describe("useAiChatStream", () => {
 			expect(state.toasts).toEqual([{ kind: "error", message: "provider quota exceeded" }]);
 		});
 
+		it.each([true, false])("retries the rejected request with its own attachments (previous accepted turn=%s)", async (previous) => {
+			const { state, args } = setup();
+			const { result } = renderHook(() => useAiChatStream(args));
+			const first = { ...sendArgs, content: "first", imageUrls: ["https://example.test/a"] };
+			const second = { ...sendArgs, content: "second", fileAttachments: [{ name: "b.txt", content: "second attachment" }] };
+			if (previous) {
+				mocks.csrfFetch.mockResolvedValueOnce(sseResponse([{ type: "done" }])).mockResolvedValueOnce({ conversation: { messages: [] } });
+				await act(async () => { await result.current.sendMessage(first); });
+			}
+			const accepted = vi.fn();
+			mocks.csrfFetch.mockResolvedValueOnce(Response.json({ error: "quota" }, { status: 429 }));
+			await act(async () => { await result.current.sendMessage(second, accepted); });
+			expect(accepted).not.toHaveBeenCalled();
+			mocks.csrfFetch.mockResolvedValueOnce(sseResponse([{ type: "done" }])).mockResolvedValueOnce({ conversation: { messages: [] } });
+			await act(async () => { await result.current.retryFailedMessage(String(state.messages.at(-1)!.id)); });
+			expect(accepted).toHaveBeenCalledOnce();
+			const sent = mocks.csrfFetch.mock.calls.filter(([url]) => url === "/api/ai/chat").map(([, init]) => JSON.parse(init.body));
+			expect(sent.at(-1)).toEqual({ conversationId: "conv_a", ...second });
+		});
+
 		it("falls back to a generic message when the error body is unreadable", async () => {
 			mocks.csrfFetch.mockResolvedValue({
 				ok: false,
@@ -215,7 +235,7 @@ describe("useAiChatStream", () => {
 			const { state, args } = setup();
 			const { result } = renderHook(() => useAiChatStream(args));
 			await act(async () => { await result.current.sendMessage(sendArgs); });
-			expect(state.messages[0]!.content).toBe("upstream 502");
+			expect(state.messages.map((message) => message.content)).toEqual(["partial", "upstream 502"]);
 			expect(state.toasts).toEqual([{ kind: "error", message: "upstream 502" }]);
 		});
 

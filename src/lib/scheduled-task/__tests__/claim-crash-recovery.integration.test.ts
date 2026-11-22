@@ -130,7 +130,7 @@ describe.skipIf(process.env.RUN_DATABASE_INTEGRATION_TESTS !== "1")("scheduled-t
     // The next tick replays the occurrence: same idempotency key, same request, now linked.
     recordTaskDispatch.mockResolvedValue(undefined);
     await dispatchDueScheduledTasks("retry");
-    expect(createCommandRequest).toHaveBeenLastCalledWith(expect.objectContaining({ idempotencyKey: `scheduled-task:${task.id}:${occurrence.toISOString()}` }));
+    expect(createCommandRequest).toHaveBeenLastCalledWith(expect.objectContaining({ idempotencyKey: `scheduled-task:${task.id}:${occurrence.toISOString()}` }), undefined, undefined, expect.any(Function));
     expect(recordTaskDispatch).toHaveBeenLastCalledWith(task.id, "request-linked", false, expect.objectContaining({ occurrence }));
   });
 });

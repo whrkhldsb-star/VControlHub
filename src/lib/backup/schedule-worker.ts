@@ -95,7 +95,7 @@ async function dispatchDueScheduleRow(schedule: Parameters<typeof dispatchDueSch
   // dispatchDueSchedule claims the occurrence and creates the record and job
   // in one transaction; null means another worker claimed it first.
   const dispatched = await dispatchDueSchedule(schedule);
-  if (!dispatched && schedule.createdById) {
+  if (!dispatched && schedule.nextRunAt && schedule.createdById) {
     logger.info("Backup schedule already claimed by another worker, skipping duplicate dispatch", {
       scheduleId: schedule.id,
       name: schedule.name,
@@ -190,7 +190,7 @@ async function dispatchDueBackupSchedules(reason: string) {
   const dueSchedules = await prisma.backupSchedule.findMany({
     where: {
       status: "ACTIVE",
-      nextRunAt: { not: null, lte: new Date() },
+      OR: [{ nextRunAt: { lte: new Date() } }, { nextRunAt: null }],
       // A soft-deleted customer's schedules kept producing (and uploading)
       // backups every period (A9-02); VPS schedules already filtered this.
       AND: [liveCustomerRowsWhere()],

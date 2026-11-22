@@ -19,7 +19,7 @@ import {
   type PersistTrafficSampleInput,
 } from "@/lib/monitoring/traffic";
 import { readLocalNetworkDeviceStats } from "@/lib/monitoring/local-network";
-import { sampleRemoteServersTraffic, type RemoteServerInput } from "@/lib/monitoring/remote-traffic";
+import { sampleRemoteServersTraffic } from "@/lib/monitoring/remote-traffic";
 import { SSH_CONNECTION_SERVER_SELECT } from "@/lib/ssh/server-connection-select";
 import { t } from "@/lib/i18n/service-translations";
 
@@ -174,7 +174,7 @@ const remoteTrafficFlight = createSingleFlight<Awaited<ReturnType<typeof sampleR
 export async function GET(req: NextRequest) {
   return withApiRoute(
     req,
-    { permission: "server:read", rateLimit: GENERAL_READ_LIMIT, errorMessage: apiCopy("apiCopy.failed.to.fetch.traffic.summary.0ac2f2fb") },
+    { permission: "server:read", optionalTokenPermissions: ["storage:read", "storage:manage-node"], rateLimit: GENERAL_READ_LIMIT, errorMessage: apiCopy("apiCopy.failed.to.fetch.traffic.summary.0ac2f2fb") },
     async (ctx) => {
       const session = ctx.session;
       const q = parseSearchParams(req, trafficSummaryQuerySchema);
@@ -201,65 +201,50 @@ export async function GET(req: NextRequest) {
       // teamId is quarantined legacy data, never a shared VPS, so the strict
       // filter applies here even though storage nodes use the loose one.
       const serverFilter = serverTeamWhere(session);
+      const readServers = () => prisma.server.findMany({
+        where: { enabled: true, ...serverFilter },
+        select: { id: true, name: true, host: true, port: true },
+        orderBy: [{ name: "asc" }, { id: "asc" }], take: 201,
+      });
+      const initial = includeRemote ? await readServers() : [];
+      const sample = includeRemote ? await remoteTrafficFlight.run(
+        JSON.stringify(initial.slice(0, 200).map((server) => server.id).sort()),
+        () => sampleRemoteServersTraffic(initial.slice(0, 200), (batch) => prisma.server.findMany({
+          where: { enabled: true, id: { in: batch.map((server) => server.id) }, ...serverFilter },
+          select: { ...SSH_CONNECTION_SERVER_SELECT, name: true }, orderBy: [{ name: "asc" }, { id: "asc" }],
+        })),
+      ) : null;
+
       const storageNodes = sessionHasPermission(session, "storage:read")
         ? await prisma.storageNode.findMany({
-        where: {
-          ...storageNodeTeamWhere(session),
-          ...(isGlobalTeamManager(session) || sessionHasPermission(session, "storage:manage-node") ? {} : {
-            OR: [
-              { accessGrants: { none: { userId: session.userId } } },
-              { accessGrants: { some: { userId: session.userId, canRead: true } } },
-            ],
-          }),
-        },
-        select: {
-          id: true,
-          name: true,
-          driver: true,
-          serverId: true,
-          host: true,
-          port: true,
-          healthStatus: true,
-          server: {
-            select: { id: true, name: true, host: true, port: true },
+          where: {
+            ...storageNodeTeamWhere(session),
+            ...(isGlobalTeamManager(session) || sessionHasPermission(session, "storage:manage-node") ? {} : {
+              OR: [
+                { accessGrants: { none: { userId: session.userId } } },
+                { accessGrants: { some: { userId: session.userId, canRead: true } } },
+              ],
+            }),
           },
-        },
-        orderBy: [{ isDefault: "desc" }, { name: "asc" }],
-        take: 101,
-      }) : [];
+          select: {
+            id: true,
+            name: true,
+            driver: true,
+            serverId: true,
+            host: true,
+            port: true,
+            healthStatus: true,
+          },
+          orderBy: [{ isDefault: "desc" }, { name: "asc" }],
+          take: 101,
+        }) : [];
       // One row past the cap tells the page that nodes were left out (A2-09).
       const storageNodesTruncated = storageNodes.length > 100;
       if (storageNodesTruncated) storageNodes.length = 100;
 
-      // Only materialize SSH secrets when remote sampling is requested.
-      // List/metadata polls return id/name/host/port only and must not load credentials.
-      const servers = includeRemote
-        ? await prisma.server.findMany({
-            where: { enabled: true, ...serverFilter },
-            select: { ...SSH_CONNECTION_SERVER_SELECT, name: true },
-            orderBy: { name: "asc" },
-            take: 201,
-          })
-        : await prisma.server.findMany({
-            where: { enabled: true, ...serverFilter },
-            select: {
-              id: true,
-              name: true,
-              host: true,
-              port: true,
-            },
-            orderBy: { name: "asc" },
-            take: 201,
-          });
+      const servers = await readServers();
       const serversTruncated = servers.length > 200;
       if (serversTruncated) servers.length = 200;
-
-      const remoteServers = includeRemote
-        ? await remoteTrafficFlight.run(
-            servers.map((server) => server.id).sort().join(","),
-            () => sampleRemoteServersTraffic(servers as RemoteServerInput[]),
-          )
-        : null;
 
       const primarySummary =
         primary
@@ -272,7 +257,7 @@ export async function GET(req: NextRequest) {
         void persistLocalInterfaceSample(primarySummary.iface, primarySummary);
       }
 
-      const visibleServerIds = new Set(servers.map((server) => server.id));
+      const visibleServers = new Map(servers.map((server) => [server.id, server]));
       // The hub host's own interfaces belong to the platform, like /api/monitoring/stats: a customer sees its servers.
       const hubVisible = isGlobalTeamManager(session);
       return NextResponse.json({
@@ -286,7 +271,11 @@ export async function GET(req: NextRequest) {
           interfaces: hubVisible ? summarizedInterfaces : [],
         },
         storageNodes: storageNodes.map((node) => {
-          const visibleNode = { ...node, server: node.server && visibleServerIds.has(node.server.id) ? node.server : null };
+          const server = node.serverId ? visibleServers.get(node.serverId) ?? null : null;
+          // A bound SFTP node can also store a copy of its server endpoint.
+          const visibleNode = node.serverId && !server
+            ? { ...node, serverId: null, server: null, host: null, port: null }
+            : { ...node, server };
           const source = describeStorageTrafficSource(visibleNode);
           return {
             id: node.id,
@@ -294,13 +283,16 @@ export async function GET(req: NextRequest) {
             driver: node.driver,
             serverId: visibleNode.server?.id ?? null,
             server: visibleNode.server,
-            host: node.host,
-            port: node.port,
+            host: visibleNode.host,
+            port: visibleNode.port,
             healthStatus: node.healthStatus,
             ...source,
           };
         }),
-        remoteServers,
+        remoteServers: sample?.flatMap((reading) => {
+          const server = visibleServers.get(reading.serverId);
+          return server ? [{ ...reading, serverName: server.name, host: server.host }] : [];
+        }) ?? null,
         servers: servers.map((s) => ({
           id: s.id,
           name: s.name,

@@ -5,6 +5,7 @@
  * customer whose slug exists here is that customer.
  */
 
+import { BUILTIN_IDENTITY_TEMPLATES } from "@/lib/auth/identity-templates";
 import { ValidationError } from "@/lib/errors";
 import { t as translate } from "@/lib/i18n/service-translations";
 import { applyCustomerMembership } from "@/lib/team/service";
@@ -40,7 +41,11 @@ export async function importIdentityTemplates(tx: Tx, t: ExportFile["tables"], o
     listExistingIds: (ids) => idSet(tx.identityTemplate.findMany({ where: { id: { in: ids } }, select: { id: true } })),
     createManySkipDuplicates: async (rows) =>
       (await tx.identityTemplate.createMany({
-        data: rows.map((r) => ({ id: r.id, name: r.name, description: r.description, permissions: r.permissions, isBuiltin: r.isBuiltin })),
+        data: rows.map((r) => {
+          const builtin = BUILTIN_IDENTITY_TEMPLATES.find(({ id }) => id === r.id);
+          if (r.isBuiltin !== Boolean(builtin)) throw new ValidationError("IMPORT_TEMPLATE_KIND");
+          return { id: r.id, name: r.name, description: r.description, permissions: builtin?.permissions ?? r.permissions, isBuiltin: Boolean(builtin) };
+        }),
         skipDuplicates: true,
       })).count,
     updateById: async (r) => {

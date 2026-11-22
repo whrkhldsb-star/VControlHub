@@ -13,8 +13,8 @@ import { t } from "@/lib/i18n/service-translations";
  */
 
 import { createHash } from "node:crypto";
-import { createWriteStream, mkdirSync, statSync, unlinkSync } from "node:fs";
-import path, { dirname, join, relative as relativePath, resolve as resolvePath } from "node:path";
+import { createWriteStream, lstatSync, mkdirSync, openSync, statSync, unlinkSync } from "node:fs";
+import path, { relative as relativePath, resolve as resolvePath } from "node:path";
 import { Transform } from "node:stream";
 import { pipeline } from "node:stream/promises";
 
@@ -32,6 +32,7 @@ import {
   buildRemoteCleanupCommand,
   generateRemoteBackupPath,
   getPreset,
+  vpsBackupArtifactExtension,
 } from "./vps-backup-presets";
 import { downloadFile } from "@/lib/ssh/sftp-service";
 import { createLogger } from "@/lib/logging";
@@ -70,13 +71,19 @@ export function assertPortableVpsBackupPath(localPath: string): string {
   return value;
 }
 
+// Preserve ordinary legacy ids. The reserved prefix makes the encoding disjoint.
+function artifactSegment(id: string) {
+  if (/^[a-zA-Z0-9_-]{1,120}$/.test(id) && !/^(?:CON|PRN|AUX|NUL|COM[1-9]|LPT[1-9])$/i.test(id) && !id.startsWith("encoded-")) return id;
+  return "encoded-" + createHash("sha256").update(id).digest("hex");
+}
+
 /** Build a relative (portable) path for storing in DB */
 function buildPortableLocalPath(
   serverId: string,
   recordId: string,
   backupType: string,
 ): string {
-  return `storage/vps-backups/${serverId}/${backupType}-${recordId}.tar.gz`;
+  return `storage/vps-backups/${artifactSegment(serverId)}/${artifactSegment(backupType)}-${artifactSegment(recordId)}.${vpsBackupArtifactExtension(backupType)}`;
 }
 
 export type VpsOffsiteUploadResult =
@@ -160,7 +167,7 @@ async function uploadCompletedVpsBackup(recordId: string, options: { alert?: boo
       /\/+$/,
       "",
     );
-    const offsiteKey = `${prefix}/${record.serverId}/${record.backupType}-${record.id}.tar.gz`;
+    const offsiteKey = `${prefix}/${buildPortableLocalPath(record.serverId, record.id, record.backupType).slice("storage/vps-backups/".length)}`;
     // Backup artifacts are streamed to S3 and can legitimately take many
     // minutes. The default 30s request budget would abort mid-upload; match
     // the 30-minute allowance the control-plane offsite uploader uses.
@@ -417,13 +424,17 @@ export async function runVpsBackupRecord(
       record.id,
       record.backupType,
     );
-    localAbsolutePath = join(
-      config.storage.root || process.cwd(),
-      portablePath,
-    );
-
-    // Ensure local directory exists
-    mkdirSync(dirname(localAbsolutePath), { recursive: true });
+    localAbsolutePath = resolveVpsBackupFilePath(portablePath);
+    const root = resolvePath(config.storage.root || process.cwd());
+    mkdirSync(root, { recursive: true, mode: 0o700 });
+    let directory = root;
+    for (const part of portablePath.split("/").slice(0, -1)) {
+      directory = path.join(directory, part);
+      try { mkdirSync(directory, { mode: 0o700 }); } catch (error) {
+        if ((error as NodeJS.ErrnoException).code !== "EEXIST") throw error;
+      }
+      if (!lstatSync(directory).isDirectory()) throw new ValidationError(t("vpsBackupApi.errorPathEscapesRoot"));
+    }
 
     const { stream, size } = await downloadFile(server.id, remoteFilePath);
 
@@ -439,7 +450,8 @@ export async function runVpsBackupRecord(
     // The file exists from here on: a transfer cut off half-way must still
     // be cleaned up (only a finished one used to be), or the failed record
     // (localPath null) left a partial archive nothing could delete.
-    const fileStream = createWriteStream(localAbsolutePath);
+    const fd = openSync(localAbsolutePath, "wx", 0o600);
+    const fileStream = createWriteStream(localAbsolutePath, { fd });
     localWritten = true;
     await pipeline(stream, hashTransform, fileStream);
 
@@ -847,15 +859,25 @@ export async function pruneOldVpsBackupRecords(
   });
 
   let deleted = 0;
-  for (const record of oldRecords) {
+  for (const candidate of oldRecords) {
+    const release = await tryAcquireAdvisoryLock("vps-backup-artifact", candidate.id);
+    if (!release) continue;
     try {
+      const record = await prisma.vpsBackupRecord.findFirst({
+        where: { id: candidate.id, serverId, ...owner, status: "COMPLETED", completedAt: { lt: cutoff } },
+        select: { id: true, localPath: true, offsiteKey: true, offsiteDestination: true, offsiteVersionId: true, backupType: true },
+      });
+      if (!record || record.offsiteKey && !record.offsiteDestination) continue;
+      const latest = await prisma.vpsBackupRecord.findFirst({ where: { serverId, ...owner, status: "COMPLETED", backupType: record.backupType },
+        orderBy: [{ completedAt: "desc" }, { id: "desc" }], select: { id: true } });
+      if (latest?.id === record.id) continue;
       if (record.localPath) {
         try { unlinkSync(resolveVpsBackupFilePath(record.localPath)); }
         catch (error) { if ((error as NodeJS.ErrnoException).code !== "ENOENT") throw error; }
       }
       // Offsite retention owns expiry of the object and releases its key.
       await prisma.$transaction(async tx => {
-        const where = { id: record.id, serverId, status: "COMPLETED" as const, localPath: record.localPath };
+        const where = { id: record.id, serverId, status: "COMPLETED" as const, localPath: record.localPath, offsiteDestination: record.offsiteDestination, offsiteVersionId: record.offsiteVersionId };
         const removed = await tx.vpsBackupRecord.deleteMany({ where: { ...where, offsiteKey: null } });
         if (removed.count === 0) {
           await tx.vpsBackupRecord.updateMany({ where: { ...where, offsiteKey: { not: null } }, data: { localPath: null } });
@@ -864,6 +886,8 @@ export async function pruneOldVpsBackupRecords(
       deleted++;
     } catch {
       // Continue on individual failures
+    } finally {
+      await release();
     }
   }
 

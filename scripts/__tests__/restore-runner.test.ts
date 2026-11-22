@@ -31,9 +31,10 @@ describe("restore runner destination and preflight", () => {
     target = path.join(tmp, "explicit destination");
     archive = path.join(tmp, "full.tar.gz");
     await Promise.all([source, fallback, target].map((directory) => mkdir(directory)));
-    await writeFile(path.join(source, "hello.txt"), "restored fixture");
+    await mkdir(path.join(source, "storage"), { recursive: true });
+    await writeFile(path.join(source, "storage/hello.txt"), "restored fixture");
     await writeFile(path.join(source, "database.sql.gz"), gzipSync("SELECT 1;\n-- PostgreSQL database dump complete\n"));
-    await runFile(resolveLocalTarBinary(), ["-czf", archive, "-C", source, "hello.txt", "database.sql.gz"]);
+    await runFile(resolveLocalTarBinary(), ["-czf", archive, "-C", source, "storage/hello.txt", "database.sql.gz"]);
     const bin = await installFakeRestoreTools(tmp);
     await writeFile(path.join(tmp, "restore.env"), "DATABASE_URL=postgresql://tester:test-secret@127.0.0.1/audit_target\n");
     env = {
@@ -52,23 +53,25 @@ describe("restore runner destination and preflight", () => {
 
   it.skipIf(posixOnly)("restores files into the explicit positional destination without touching APP_DIR", async () => {
     await runFile(process.execPath, [runner, "files", archive, target], { env });
-    expect(await readFile(path.join(target, "hello.txt"), "utf8")).toBe("restored fixture");
-    expect(await readdir(target)).toEqual(["hello.txt"]);
+    expect(await readFile(path.join(target, "storage/hello.txt"), "utf8")).toBe("restored fixture");
+    expect(await readdir(target)).toEqual(["storage"]);
     expect(await readdir(fallback)).toEqual([]);
   });
 
   it.each(process.platform === "win32" ? ["node"] : ["node", "bash"])("%s full restore requires database confirmation before overwriting any files", async (kind) => {
-    await writeFile(path.join(target, "hello.txt"), "preserve current data");
+    await mkdir(path.join(target, "storage"), { recursive: true });
+    await writeFile(path.join(target, "storage/hello.txt"), "preserve current data");
     const file = kind === "node" ? process.execPath : "bash";
     const args = kind === "node" ? [runner, "full", archive, "all", target] : ["scripts/restore-full.sh", archive, "all", target];
     await expect(runFile(file, args, { env: { ...env, CONFIRM_RESTORE: "0" } })).rejects.toThrow();
-    expect(await readFile(path.join(target, "hello.txt"), "utf8")).toBe("preserve current data");
+    expect(await readFile(path.join(target, "storage/hello.txt"), "utf8")).toBe("preserve current data");
   });
 
   it("checks the database configuration before a confirmed full restore changes files", async () => {
-    await writeFile(path.join(target, "hello.txt"), "preserve current data");
+    await mkdir(path.join(target, "storage"), { recursive: true });
+    await writeFile(path.join(target, "storage/hello.txt"), "preserve current data");
     await expect(runFile(process.execPath, [runner, "full", archive, "all", target], { env: { ...env, ENV_FILE: path.join(tmp, "missing.env") } })).rejects.toThrow();
-    expect(await readFile(path.join(target, "hello.txt"), "utf8")).toBe("preserve current data");
+    expect(await readFile(path.join(target, "storage/hello.txt"), "utf8")).toBe("preserve current data");
   });
 
   it.skipIf(process.platform === "win32")("keeps the chosen database even when the archive restores an older .env.local", async () => {
@@ -131,13 +134,13 @@ describe("restore runner destination and preflight", () => {
   });
 
   it.each(process.platform === "win32" ? ["node"] : ["node", "bash"])("%s restore refuses to run while another live restore holds the installation lock", async (kind) => {
-    const lock = path.join(fallback, ".restore.lock");
+    const lock = path.join(target, ".restore.lock");
     await mkdir(lock);
     await writeFile(path.join(lock, "owner"), `pid=${process.pid}\nhost=${os.hostname()}\nstartedAt=now\n`);
     const file = kind === "node" ? process.execPath : "bash";
     const args = kind === "node" ? [runner, "files", archive, target] : ["scripts/restore-files.sh", archive, target];
     await expect(runFile(file, args, { env })).rejects.toMatchObject({ stderr: expect.stringContaining("another restore is already running") });
-    expect(await readdir(target)).toEqual([]);
+    expect(await readdir(target)).toEqual([".restore.lock"]);
     // A refused restore must not remove the live owner's lock.
     expect(await readdir(lock)).toEqual(["owner"]);
   });
@@ -169,28 +172,29 @@ describe("restore runner destination and preflight", () => {
     await writeFile(path.join(source, "history", "blob"), "new");
     await writeFile(path.join(source, "file-versions.json"), JSON.stringify({ version: 1, member: "history" }));
     await writeFile(path.join(source, ".env.runtime"), "ENCRYPTION_KEY=archive-key");
-    await writeFile(path.join(source, "added.txt"), "new");
-    await writeFile(path.join(target, "hello.txt"), "original");
+    await writeFile(path.join(source, "storage/added.txt"), "new");
+    await mkdir(path.join(target, "storage"), { recursive: true });
+    await writeFile(path.join(target, "storage/hello.txt"), "original");
     const versions = path.join(tmp, "custom-history");
     await mkdir(path.join(versions, "blob"), { recursive: true });
     await runFile(resolveLocalTarBinary(), ["-czf", archive, "-C", source, "."]);
     await expect(runFile(process.execPath, [runner, "full", archive, "files", target], {
       env: { ...env, FILE_VERSION_DIR: versions },
     })).rejects.toMatchObject({ stderr: expect.stringContaining("non-regular restore target") });
-    expect(await readdir(target)).toEqual(["hello.txt"]);
-    expect(await readFile(path.join(target, "hello.txt"), "utf8")).toBe("original");
+    expect(await readdir(target)).toEqual(["storage"]);
+    expect(await readFile(path.join(target, "storage/hello.txt"), "utf8")).toBe("original");
     expect(await readdir(path.join(versions, "blob"))).toEqual([]);
   });
 
   it.skipIf(posixOnly).each(["node", "bash"])("%s restore reclaims a lock left by a dead process and releases it afterwards", async (kind) => {
-    const lock = path.join(fallback, ".restore.lock");
+    const lock = path.join(target, ".restore.lock");
     await mkdir(lock);
     // PID 2^22+ is above the default pid_max, so it cannot be alive.
     await writeFile(path.join(lock, "owner"), `pid=${2 ** 22 + 7}\nhost=${os.hostname()}\nstartedAt=then\n`);
     const file = kind === "node" ? process.execPath : "bash";
     const args = kind === "node" ? [runner, "files", archive, target] : ["scripts/restore-files.sh", archive, target];
     await runFile(file, args, { env });
-    expect(await readFile(path.join(target, "hello.txt"), "utf8")).toBe("restored fixture");
+    expect(await readFile(path.join(target, "storage/hello.txt"), "utf8")).toBe("restored fixture");
     expect(await readdir(fallback)).toEqual([]);
   });
 
@@ -219,8 +223,8 @@ describe("restore runner destination and preflight", () => {
   it.skipIf(process.platform === "win32")("accepts the explicit non-systemd confirmation and still checks database clients", async () => {
     const result = await runFile(process.execPath, [runner, "files", archive, target], { env: { ...env, VCONTROLHUB_SERVICE_UNITS: "none", FAKE_SYSTEMCTL_STATE: "active" } });
     expect(result.stdout + result.stderr).toContain("VCONTROLHUB_SERVICE_UNITS=none");
-    expect(await readFile(path.join(target, "hello.txt"), "utf8")).toBe("restored fixture");
-    await rm(path.join(target, "hello.txt"));
+    expect(await readFile(path.join(target, "storage/hello.txt"), "utf8")).toBe("restored fixture");
+    await rm(path.join(target, "storage"), { recursive: true, force: true });
     await expect(runFile(process.execPath, [runner, "files", archive, target], { env: { ...env, VCONTROLHUB_SERVICE_UNITS: "none", FAKE_PSQL_OTHER_CLIENTS: "1" } })).rejects.toMatchObject({
       stderr: expect.stringContaining("OFFLINE RESTORE REQUIRED"),
     });
@@ -256,12 +260,12 @@ describe("restore runner destination and preflight", () => {
     // Released: deploy.sh empties the file while still holding flock, then unlocks.
     await writeFile(deployLock, "");
     await runFile(process.execPath, [runner, "files", archive, target], { env: { ...env, DEPLOY_LOCK: deployLock } });
-    expect(await readFile(path.join(target, "hello.txt"), "utf8")).toBe("restored fixture");
+    expect(await readFile(path.join(target, "storage/hello.txt"), "utf8")).toBe("restored fixture");
     // Stale: a pid above pid_max cannot be alive.
-    await rm(path.join(target, "hello.txt"));
+    await rm(path.join(target, "storage"), { recursive: true, force: true });
     await writeFile(deployLock, `${2 ** 22 + 9}\n`);
     await runFile(process.execPath, [runner, "files", archive, target], { env: { ...env, DEPLOY_LOCK: deployLock } });
-    expect(await readFile(path.join(target, "hello.txt"), "utf8")).toBe("restored fixture");
+    expect(await readFile(path.join(target, "storage/hello.txt"), "utf8")).toBe("restored fixture");
   });
 
   it.skipIf(posixOnly)("refuses a files restore while another client is connected to the database", async () => {
@@ -272,11 +276,12 @@ describe("restore runner destination and preflight", () => {
   });
 
   it.skipIf(posixOnly)("refuses a FULL restore before touching files when the database guard finds other clients", async () => {
-    await writeFile(path.join(target, "hello.txt"), "preserve current data");
+    await mkdir(path.join(target, "storage"), { recursive: true });
+    await writeFile(path.join(target, "storage/hello.txt"), "preserve current data");
     await expect(runFile(process.execPath, [runner, "full", archive, "all", target], { env: { ...env, FAKE_PSQL_OTHER_CLIENTS: "1" } })).rejects.toMatchObject({
       stderr: expect.stringContaining("OFFLINE RESTORE REQUIRED"),
     });
-    expect(await readFile(path.join(target, "hello.txt"), "utf8")).toBe("preserve current data");
+    expect(await readFile(path.join(target, "storage/hello.txt"), "utf8")).toBe("preserve current data");
   });
 
   it.skipIf(posixOnly)("appends every outcome to restore-history.jsonl next to the archive", async () => {

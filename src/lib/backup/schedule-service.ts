@@ -114,50 +114,47 @@ export async function getBackupSchedule(id: string, session?: Pick<SessionPayloa
 }
 
 export async function updateBackupSchedule(id: string, input: UpdateBackupScheduleInput, session?: Pick<SessionPayload, "userId" | "roles" | "currentTeamId">) {
-  const existing = await getBackupSchedule(id, session);
-  if (!existing) throw new NotFoundError(t("backend.backup.scheduleNotFound"));
+  return prisma.$transaction(async (tx) => {
+    await tx.$queryRaw`SELECT id FROM backup_schedules WHERE id = ${id} FOR UPDATE`;
+    const existing = await tx.backupSchedule.findFirst({ where: { id, ...(session ? teamWhere(session) : {}) } });
+    if (!existing) throw new NotFoundError(t("backend.backup.scheduleNotFound"));
 
-  const data: Record<string, unknown> = {};
-  if (input.name !== undefined) {
-    const name = input.name.trim();
-    if (!name) throw new ValidationError(t("backend.backup.scheduleNameRequired"));
-    if (name.length > 100) throw new ValidationError(t("backend.backup.scheduleNameTooLong"));
-    data.name = name;
-  }
-  if (input.cronExpression !== undefined) {
-    data.cronExpression = validateCronExpression(input.cronExpression);
-    data.nextRunAt = computeNextRun(data.cronExpression as string);
-  }
-  if (input.backupType !== undefined) {
-    data.backupType = validateBackupType(input.backupType);
-  }
-  if (input.note !== undefined) {
-    const note = input.note.trim();
-    if (note.length > 500) throw new ValidationError(t("backend.backup.noteTooLong"));
-    data.note = note || null;
-  }
-  if (input.retentionDays !== undefined) {
-    data.retentionDays = validateRetentionDays(input.retentionDays);
-  }
-  if (input.status !== undefined) {
-    if (!["ACTIVE", "PAUSED", "DISABLED"].includes(input.status)) {
-      throw new ValidationError(t("backend.backup.statusInvalid"));
+    const data: Record<string, unknown> = {};
+    if (input.name !== undefined) {
+      const name = input.name.trim();
+      if (!name) throw new ValidationError(t("backend.backup.scheduleNameRequired"));
+      if (name.length > 100) throw new ValidationError(t("backend.backup.scheduleNameTooLong"));
+      data.name = name;
     }
-    data.status = input.status;
-    // Pausing/disabling clears nextRunAt; (re)activating recomputes it.
-    if (input.status !== "ACTIVE") {
-      data.nextRunAt = null;
-    } else if (existing.status !== "ACTIVE" && !data.nextRunAt) {
-      data.nextRunAt = computeNextRun(existing.cronExpression);
+    const cronExpression = input.cronExpression === undefined ? existing.cronExpression : validateCronExpression(input.cronExpression);
+    if (input.cronExpression !== undefined) data.cronExpression = cronExpression;
+    if (input.backupType !== undefined) {
+      data.backupType = validateBackupType(input.backupType);
     }
-  }
-  // A schedule whose creator was deleted/disabled is skipped every minute; the
-  // caller takes it over so it runs with a live account again (A9-05).
-  if (input.claimOwnership && session?.userId) data.createdById = session.userId;
-  return prisma.backupSchedule.update({
-    where: { id, teamId: existing.teamId ?? null },
-    data,
-    include: { creator: { select: { username: true, displayName: true } } },
+    if (input.note !== undefined) {
+      const note = input.note.trim();
+      if (note.length > 500) throw new ValidationError(t("backend.backup.noteTooLong"));
+      data.note = note || null;
+    }
+    if (input.retentionDays !== undefined) {
+      data.retentionDays = validateRetentionDays(input.retentionDays);
+    }
+    if (input.status !== undefined) {
+      if (!["ACTIVE", "PAUSED", "DISABLED"].includes(input.status)) {
+        throw new ValidationError(t("backend.backup.statusInvalid"));
+      }
+      data.status = input.status;
+    }
+    // A schedule whose creator was deleted/disabled is skipped every minute; the
+    // caller takes it over so it runs with a live account again (A9-05).
+    if (input.claimOwnership && session?.userId) data.createdById = session.userId;
+    if ((input.status ?? existing.status) !== "ACTIVE") data.nextRunAt = null;
+    else if (input.cronExpression !== undefined || existing.status !== "ACTIVE" || !existing.nextRunAt) data.nextRunAt = computeNextRun(cronExpression);
+    return tx.backupSchedule.update({
+      where: { id, teamId: existing.teamId ?? null },
+      data,
+      include: { creator: { select: { username: true, displayName: true } } },
+    });
   });
 }
 
@@ -177,14 +174,14 @@ export async function toggleBackupSchedule(id: string, session?: Pick<SessionPay
 
 /* ── Run recording ────────────────────────────────────────── */
 
-export async function recordScheduleRun(id: string, result: string) {
+export async function recordScheduleRun(id: string, result: string, updatedAt: Date) {
   const schedule = await prisma.backupSchedule.findUnique({
     where: { id },
     select: { cronExpression: true, runCount: true },
   });
   if (!schedule) return;
-  return prisma.backupSchedule.update({
-    where: { id },
+  return prisma.backupSchedule.updateMany({
+    where: { id, updatedAt, status: "ACTIVE" },
     data: {
       lastRunAt: new Date(),
       lastResult: result.slice(0, 500),
@@ -223,13 +220,23 @@ export async function dispatchDueSchedule(schedule: {
   teamId?: string | null;
   retentionDays: number | null;
   nextRunAt: Date | null;
+  updatedAt: Date;
 }): Promise<DispatchedBackupSchedule | null> {
+  if (schedule.nextRunAt === null) {
+    // An edit made before schedule updates were serialized can leave an active
+    // row without an occurrence. Resume its cron without inventing a missed run.
+    await prisma.backupSchedule.updateMany({
+      where: { id: schedule.id, status: "ACTIVE", nextRunAt: null, cronExpression: schedule.cronExpression, updatedAt: schedule.updatedAt },
+      data: { nextRunAt: computeNextRun(schedule.cronExpression) },
+    });
+    return null;
+  }
   if (!schedule.createdById) {
-    await recordScheduleRun(schedule.id, t("backend.backup.scheduleSkippedNoCreator"));
+    await recordScheduleRun(schedule.id, t("backend.backup.scheduleSkippedNoCreator"), schedule.updatedAt);
     return null;
   }
   if (!isBackupType(schedule.backupType)) {
-    await recordScheduleRun(schedule.id, `Skipped: invalid backup type ${schedule.backupType}`);
+    await recordScheduleRun(schedule.id, `Skipped: invalid backup type ${schedule.backupType}`, schedule.updatedAt);
     return null;
   }
   const backupType = schedule.backupType;
@@ -242,7 +249,8 @@ export async function dispatchDueSchedule(schedule: {
   return prisma.$transaction(async (tx) => {
     const now = new Date();
     const claimed = await tx.backupSchedule.updateMany({
-      where: { id: schedule.id, status: "ACTIVE", createdById, nextRunAt: schedule.nextRunAt },
+      where: { id: schedule.id, status: "ACTIVE", createdById, updatedAt: schedule.updatedAt, nextRunAt: schedule.nextRunAt,
+        teamId: schedule.teamId ?? null, backupType, name: schedule.name, note: schedule.note, cronExpression: schedule.cronExpression },
       data: { nextRunAt: computeNextRun(schedule.cronExpression), lastRunAt: now, runCount: { increment: 1 } },
     });
     if (claimed.count === 0) return null;
@@ -257,7 +265,6 @@ export async function dispatchDueSchedule(schedule: {
       payload: {
         backupId: backup.id,
         scheduleId: schedule.id,
-        retentionDays: schedule.retentionDays,
         teamId: schedule.teamId ?? null,
       },
       createdBy: createdById,

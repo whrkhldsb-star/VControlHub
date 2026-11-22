@@ -1,3 +1,5 @@
+import { usableProviderModelIds } from "@/lib/ai/schema";
+
 /**
  * The provider's model list as the edit form shows it: comma separated.
  *
@@ -6,7 +8,7 @@
  * stored `["gpt-4o"` and `"gpt-4o-mini"]` as models, and the next edit wrapped them again.
  */
 export function modelsForEditing(stored: string): string {
-	return parseStoredModels(stored).join(",");
+	return usableProviderModelIds(parseStoredModels(stored)).join(",");
 }
 
 /** The ids in a stored list (a JSON array, or a comma list), repaired of the quotes and brackets earlier edits left. */
@@ -20,5 +22,5 @@ export function parseStoredModels(stored: string): string[] {
 	} catch {
 		items = text.split(",");
 	}
-	return [...new Set(items.map((item) => String(item).replace(/^[\s"'[\\]+|[\s"'\]\\]+$/g, "")).filter(Boolean))];
+	return [...new Set(items.filter((item): item is string => typeof item === "string").map((item) => item.replace(/^[\s"'[\\]+|[\s"'\]\\]+$/g, "")).filter(Boolean))];
 }

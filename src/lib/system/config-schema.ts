@@ -16,7 +16,8 @@
 import { z } from "zod";
 
 import { createPlaybookSchema } from "@/lib/playbook/schema";
-import { isAnnouncementWindowValid } from "@/lib/announcement/schema";
+import { createServerSchema } from "@/lib/server/schema";
+import { createAnnouncementSchema, isAnnouncementWindowValid } from "@/lib/announcement/schema";
 import { isSensitiveKey } from "@/lib/settings/schema";
 import { EXPORT_SCHEMA_VERSION } from "./config-format";
 
@@ -89,8 +90,8 @@ const sshKeyExportSchema = z.object({
   fingerprint: z.string(),
   publicKey: z.string(),
   // privateKey: null in standard mode, actual key in full mode
-  privateKey: z.string().nullable(),
-  passphrase: z.string().nullable(),
+  privateKey: z.string().nullable().optional(),
+  passphrase: z.string().nullable().optional(),
   description: z.string().nullable(),
   createdById: z.string().nullable(),
   createdAt: z.string(),
@@ -300,7 +301,7 @@ const aiProviderExportSchema = z.object({
   name: z.string(),
   type: z.string(),
   // apiKey: null in standard mode, actual key in full mode
-  apiKey: z.string().nullable(),
+  apiKey: z.string().nullable().optional(),
   baseUrl: z.string(),
   defaultModel: z.string(),
   availableModels: z.string(),
@@ -376,20 +377,76 @@ const snapshotSchema = z.object({
 // Snapshots preserve the stored JSON, including legacy rows. Validate their
 // executable configuration when accepting a snapshot for preview or import.
 export type ExportFile = z.infer<typeof snapshotSchema>;
+const timestamp = z.string().refine((s) => Number.isFinite(Date.parse(s)));
+const importedServer = serverExportSchema.extend({
+  host: z.string().trim(), username: z.string().trim(),
+  port: z.number().int().min(1).max(65535),
+  fileProxyPort: z.number().int().min(0).max(65535),
+  connectionType: z.enum(["SSH_KEY", "PASSWORD"]),
+}).superRefine((row, ctx) => {
+  const fields = row.operatingSystem === "WINDOWS" ? createServerSchema.options[1].shape : createServerSchema.options[0].shape;
+  for (const key of ["host", "username", "connectionType"] as const) {
+    if (!fields[key].safeParse(row[key]).success) ctx.addIssue({ code: "custom", path: [key] });
+  }
+});
+
+export const importAlertConditions = {
+  metric: z.enum(["cpu_usage", "mem_usage", "disk_usage", "server_offline", "network_in", "network_out", "load_avg",
+    "swap_usage", "capacity_cpu_days", "capacity_mem_days", "capacity_disk_days"]),
+  operator: z.enum(["gt", "gte", "lt", "lte", "eq"]),
+  threshold: z.number().min(0).max(100000),
+  durationSeconds: z.number().int().min(0).max(86400),
+  cooldownMinutes: z.number().int().min(1).max(10080),
+  escalationMinutes: z.number().int().min(1).max(10080).nullable().optional().default(null),
+};
+
 export const exportFileSchema = snapshotSchema.extend({
   tables: snapshotSchema.shape.tables.extend({
     playbooks: importPlaybooksSchema,
-    announcements: z.array(announcementSchema.refine((r) => r.startsAt === null ||
+    users: z.array(userExportSchema.extend({ status: z.enum(["ACTIVE", "DISABLED", "PENDING_PASSWORD_RESET"]) })),
+    servers: z.array(importedServer),
+    alertRules: z.array(alertRuleSchema.extend(importAlertConditions)),
+    aiProviders: z.array(aiProviderExportSchema.extend({ type: z.enum(["OPENAI", "OPENAI_COMPATIBLE", "ANTHROPIC", "GOOGLE", "CUSTOM"]) })),
+    storageNodes: z.array(storageNodeExportSchema.extend({ driver: z.enum(["LOCAL", "SFTP", "WEBDAV", "AGENT"]), directAccessMode: z.enum(["PROXY", "DIRECT", "AUTO"]) })),
+    snippets: z.array(snippetSchema.extend({ title: z.string().trim().min(1), content: z.string().refine((s) => Boolean(s.trim())), createdAt: timestamp })),
+    announcements: z.array(announcementSchema.extend({
+      title: createAnnouncementSchema.shape.title, body: createAnnouncementSchema.shape.content,
+      level: createAnnouncementSchema.shape.type.unwrap(), createdAt: timestamp, startsAt: timestamp.nullable(), expiresAt: timestamp.nullable(),
+    }).refine((r) => r.startsAt === null ||
       isAnnouncementWindowValid(Date.parse(r.startsAt), r.expiresAt === null ? null : Date.parse(r.expiresAt)), {
       message: "expiresAt must be after startsAt", path: ["expiresAt"],
     })),
   }),
+}).superRefine((file, ctx) => {
+  if (file.exportMode !== "standard") return;
+  const reject = (table: string, index: number, field: string) => ctx.addIssue({ code: "custom", path: ["tables", table, index, field] });
+  const sensitive = { users: ["passwordHash", "twoFactorSecret", "twoFactorRecoveryCodes"], servers: ["password", "rdpPassword"],
+    sshKeys: ["privateKey", "passphrase"], storageNodes: ["webdavConfigEncrypted"], aiProviders: ["apiKey"], alertRules: ["webhookUrl"] } as const;
+  for (const [table, fields] of Object.entries(sensitive)) {
+    file.tables[table as keyof typeof sensitive].forEach((row: Record<string, unknown>, i) => {
+      for (const field of fields) if (row[field] != null && row[field] !== "") reject(table, i, field);
+    });
+  }
+  file.tables.settings.forEach((r, i) => { if (isSensitiveSettingKey(r.key) && r.value) reject("settings", i, "value"); });
+  file.tables.quickServices.forEach((r, i) => {
+    if (r.envJson && r.envJson !== "{}") reject("quickServices", i, "envJson");
+    if (r.volumesJson && r.volumesJson !== "[]") reject("quickServices", i, "volumesJson");
+  });
+  file.tables.playbooks.forEach((r, i) => {
+    if (r.steps.some((s) => s.type === "call_webhook" && (!/^https:\/\/redacted\.invalid\/vch-webhook\/[a-f0-9]{64}$/.test(s.config.url)
+      || s.config.body || Object.values(s.config.headers ?? {}).some(Boolean)))) reject("playbooks", i, "steps");
+  });
 });
+
+/** Every public service caller accepts the same input contract as the HTTP route. */
+export function parseImportFile(file: ExportFile): ExportFile {
+  return exportFileSchema.parse(file);
+}
 
 // ── 导入预览结构 ──────────────────────────────────────────
 
 export type ImportIssue = {
-  table: "servers" | "storageNodes" | "sshKeys" | "aiProviders" | "alertRules";
+  table: "servers" | "storageNodes" | "sshKeys" | "aiProviders" | "alertRules" | "commandTemplates" | "playbooks" | "storageAccess" | "settings" | "announcements" | "users";
   id: string;
   reason: string;
   blocking?: boolean;

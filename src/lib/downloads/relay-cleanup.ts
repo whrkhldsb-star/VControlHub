@@ -1,4 +1,5 @@
 import path from "node:path/posix";
+import { Prisma } from "@prisma/client";
 import { rm } from "node:fs/promises";
 import { prisma } from "@/lib/db";
 import { forgetDownload } from "@/lib/aria2/service";
@@ -29,9 +30,37 @@ export async function reconcileTerminalRelay(id: string) {
     payload: { path: ["taskId"], equals: id } } });
   if (active) return false;
   const manifest = parseTransferManifest(task.transferManifest);
+  const previous = task.transferManifest && typeof task.transferManifest === "object" && !Array.isArray(task.transferManifest)
+    ? task.transferManifest : {};
+  let receipt = { ...previous };
+  let version = task.updatedAt;
+  const failures: unknown[] = [];
+  const finishPhase = async (phase: "localClean" | "gidClean" | "remoteRepaired", cleanup: () => Promise<void>) => {
+    try {
+      await cleanup();
+    } catch (error) {
+      failures.push(error);
+      return true; // The other phases can still release their own resources.
+    }
+    receipt = { ...receipt, [phase]: true };
+    const [saved] = await prisma.downloadTask.updateManyAndReturn({ where: { id, status: task.status, updatedAt: version },
+      data: { transferManifest: receipt }, select: { updatedAt: true } });
+    if (!saved) return false;
+    version = saved.updatedAt;
+    return true;
+  };
+  if (!receipt.gidClean && !await finishPhase("gidClean", async () => {
+    const visited = new Set<string>();
+    if (task.aria2Gid) await forgetDownload(task.aria2Gid, visited);
+    const metadata = relayMetadataGid(task.transferManifest);
+    if (metadata) await forgetDownload(metadata, visited);
+  })) return false;
+  // A daemon that outlived the first unlink could have recreated the directory before it stopped.
+  if ((!receipt.localClean || !previous.gidClean) && !await finishPhase("localClean",
+    () => rm(relayTempDir(id), { recursive: true, force: true }))) return false;
   // COMPLETED already committed every index. A partially published failure only
   // repairs files whose on-disk digest matches. Never republish on a revoked grant.
-  if (manifest && task.status !== "COMPLETED") {
+  if (manifest && task.status !== "COMPLETED" && !receipt.remoteRepaired && !await finishPhase("remoteRepaired", async () => {
     const node = task.server.storageNode;
     if (!node || !task.server.enabled || node.teamId !== task.teamId || task.server.teamId !== task.teamId) throw new Error("Relay binding changed");
     const agent = !!task.agentStorageNodeId;
@@ -81,17 +110,26 @@ export async function reconcileTerminalRelay(id: string) {
         });
       } finally { await unlock(); }
     }
-  }
-  const visited = new Set<string>();
-  if (task.aria2Gid) await forgetDownload(task.aria2Gid, visited);
-  const metadata = relayMetadataGid(task.transferManifest);
-  if (metadata) await forgetDownload(metadata, visited);
-  await rm(relayTempDir(id), { recursive: true, force: true });
+  })) return false;
+  if (failures.length) throw failures[0];
   const changed = await prisma.downloadTask.updateMany({
-    where: { id, status: task.status, updatedAt: task.updatedAt },
+    where: { id, status: task.status, updatedAt: version },
     data: { aria2Gid: null, transferManifest: { ...manifest, cleanupComplete: true } },
   });
   return changed.count > 0;
+}
+
+// Keep the cleanup sweep and destructive dependency checks on the same null-safe JSON predicate.
+const outstandingRelayCleanup = Prisma.sql`
+  (d."relayMode" OR d."agentStorageNodeId" IS NOT NULL OR d."aria2Gid" IS NOT NULL OR d."transferManifest" IS NOT NULL)
+  AND (d."transferManifest"->>'cleanupComplete') IS DISTINCT FROM 'true'`;
+
+/** Count the downloads whose work or cleanup receipt still requires this server, inside its deletion transaction. */
+export async function countServerDownloadDependencies(serverId: string, tx: Pick<Prisma.TransactionClient, "$queryRaw">) {
+  const [row] = await tx.$queryRaw<{ count: number }[]>`
+    SELECT count(*)::int AS count FROM download_tasks d WHERE d."serverId" = ${serverId}
+      AND (d.status IN ('PENDING', 'RUNNING') OR (${outstandingRelayCleanup}))`;
+  return row!.count;
 }
 
 let cleanupCursor = "";
@@ -103,11 +141,17 @@ export async function sweepTerminalRelays() {
       CASE WHEN jsonb_typeof("transferManifest"->'pausedUntil') = 'number'
         THEN ("transferManifest"->>'pausedUntil')::numeric <= ${now}
         ELSE "updatedAt" < ${new Date(now - RELAY_PAUSE_MS)} END`;
+  await prisma.$executeRaw`
+    UPDATE download_tasks d SET status = 'FAILED', "updatedAt" = NOW(), "errorMessage" = ${t("backend.downloads.reconcile.relayInterrupted")}
+    WHERE status = 'RUNNING' AND (d."relayMode" OR d."aria2Gid" IS NOT NULL)
+      AND (CASE WHEN jsonb_typeof(d."transferManifest"->'deadline') = 'number'
+        THEN (d."transferManifest"->>'deadline')::numeric <= ${now}
+        ELSE d."createdAt" <= ${new Date(now - 7200_000)} END)
+      AND NOT EXISTS (SELECT 1 FROM jobs j WHERE j.type = 'download.execute' AND j.payload->>'taskId' = d.id AND j.status IN ('PENDING','RUNNING'))`;
   const rows = await prisma.$queryRaw<{ id: string }[]>`
     SELECT d.id FROM download_tasks d
     WHERE d.status IN ('FAILED', 'CANCELLED', 'COMPLETED') AND d.id > ${cleanupCursor}
-      AND (d."relayMode" OR d."agentStorageNodeId" IS NOT NULL OR d."aria2Gid" IS NOT NULL OR d."transferManifest" IS NOT NULL)
-      AND (d."transferManifest"->>'cleanupComplete') IS DISTINCT FROM 'true'
+      AND ${outstandingRelayCleanup}
       AND NOT EXISTS (SELECT 1 FROM jobs j WHERE j.type = 'download.execute' AND j.payload->>'taskId' = d.id AND j.status IN ('PENDING','RUNNING'))
     ORDER BY d.id LIMIT 20`;
   cleanupCursor = rows.length === 20 ? rows.at(-1)!.id : "";

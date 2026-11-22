@@ -7,14 +7,14 @@
  * Both paths create PlaybookRun + Job in the same transaction.
  */
 import { createHash } from "node:crypto";
-
-
 import { auditSystemAction } from "@/lib/audit/service";
 import { tryAcquireAdvisoryLock } from "@/lib/concurrency/advisory-lock";
 import { APP_TIME_ZONE } from "@/lib/datetime/time-zone";
 import { prisma } from "@/lib/db";
 import type { ServerHealth } from "@/lib/health/service-types";
 import { createLogger } from "@/lib/logging";
+import { LeaseLostError } from "@/lib/job/heartbeat-runner";
+import { checkSamplingClaim, type SamplingClaim } from "@/lib/monitoring/sampling-claim";
 
 import { queuePlaybookRunWithClient } from "./run-queue";
 import type { MetricTriggerConfig, PlaybookStep } from "./types";
@@ -42,6 +42,7 @@ async function forEachPlaybook<T>(playbookId: string, step: string, run: () => P
   try {
     return await run();
   } catch (error) {
+    if (error instanceof LeaseLostError) throw error;
     logger.warn("Playbook trigger step failed; continuing with the others", {
       playbookId,
       step,
@@ -325,6 +326,7 @@ function metricTriggerKey(config: MetricTriggerConfig, transitions: Array<{
 export async function dispatchMetricPlaybooksForHealthOverview(
   servers: ServerHealth[],
   now: Date = new Date(),
+  claim?: SamplingClaim,
 ): Promise<{ dispatched: number; evaluated: number }> {
   const candidates = servers.filter((server) =>
     server.enabled
@@ -339,7 +341,7 @@ export async function dispatchMetricPlaybooksForHealthOverview(
   const teamByServerId = new Map(serverRows.map((server) => [server.id, server.teamId ?? null]));
   const readings: TriggerReading[] = candidates.flatMap((server) => {
     const teamId = teamByServerId.get(server.serverId);
-    if (teamId === undefined) return [];
+    if (teamId === undefined || (server.sampledTeamId !== undefined && server.sampledTeamId !== teamId)) return [];
     const sampledAt = Number.isFinite(Date.parse(server.lastCheck))
       ? new Date(server.lastCheck).toISOString()
       : now.toISOString();
@@ -358,6 +360,7 @@ export async function dispatchMetricPlaybooksForHealthOverview(
   let evaluated = 0;
   let cursor: { id: string } | undefined;
   do {
+    claim?.signal.throwIfAborted();
     const playbooks = await prisma.playbook.findMany({
       where: { enabled: true, triggerType: "metric" },
       select: { id: true, teamId: true },
@@ -366,10 +369,11 @@ export async function dispatchMetricPlaybooksForHealthOverview(
       ...(cursor ? { cursor, skip: 1 } : {}),
     });
     for (const playbook of playbooks) {
+      claim?.signal.throwIfAborted();
       const teamReadings = readings.filter((reading) => reading.teamId === (playbook.teamId ?? null));
       if (teamReadings.length === 0) continue;
       evaluated += 1;
-      if (await forEachPlaybook(playbook.id, "metric-dispatch", () => dispatchMetricPlaybook({ playbookId: playbook.id, readings: teamReadings, now }))) {
+      if (await forEachPlaybook(playbook.id, "metric-dispatch", () => dispatchMetricPlaybook({ playbookId: playbook.id, readings: teamReadings, now, claim }))) {
         dispatched += 1;
       }
     }
@@ -383,12 +387,14 @@ export async function dispatchMetricPlaybooksForHealthOverview(
 async function dispatchMetricPlaybook(input: {
   playbookId: string;
   readings: TriggerReading[];
+  claim?: SamplingClaim;
   now: Date;
 }): Promise<boolean> {
   const release = await tryAcquireAdvisoryLock("playbook-lifecycle", input.playbookId);
   if (!release) return false;
   try {
     const outcome = await prisma.$transaction(async (tx) => {
+      await checkSamplingClaim(tx, input.claim);
       const playbook = await tx.playbook.findUnique({ where: { id: input.playbookId } });
       if (
         !playbook
@@ -399,13 +405,22 @@ async function dispatchMetricPlaybook(input: {
         return { dispatched: false, audit: null as AuditDetail | null, teamId: null as string | null };
       }
 
+      const teamId = playbook.teamId ?? null;
+      const candidates = input.readings.filter((reading) => reading.teamId === teamId);
+      if (!candidates.length) return { dispatched: false, audit: null, teamId };
+      const hosts = await tx.server.findMany({
+        where: { id: { in: candidates.map((reading) => reading.serverId) }, teamId, enabled: true, team: { isNot: { deletedAt: { not: null } } } },
+        select: { id: true },
+      });
+      const live = new Set(hosts.map((host) => host.id));
       const config = playbook.triggerConfig;
       // `input.now` doubles as the prune clock: entries not refreshed within the
       // TTL (deleted servers) are dropped rather than persisted again below.
       const state = parseMetricMatchState(playbook.metricMatchState, input.now);
       const transitions: Array<{ serverId: string; value: number; sampleAt: string }> = [];
       let stateChanged = false;
-      for (const reading of input.readings) {
+      for (const reading of candidates) {
+        if (!live.has(reading.serverId)) continue;
         const value = metricValueForTrigger(config.metric, reading);
         if (value === undefined || !Number.isFinite(value)) continue;
         const previous = state[reading.serverId];
@@ -454,6 +469,7 @@ async function dispatchMetricPlaybook(input: {
           lastTriggeredAt: input.now,
         },
       });
+      await checkSamplingClaim(tx, input.claim);
       return {
         dispatched: queued.created,
         teamId: playbook.teamId ?? null,
@@ -467,7 +483,7 @@ async function dispatchMetricPlaybook(input: {
           readings: transitions,
         },
       };
-    });
+    }, { isolationLevel: "RepeatableRead" });
     if (outcome.dispatched && outcome.audit) {
       await recordTriggerAudit("playbook.trigger.metric", outcome.audit, outcome.teamId);
     }

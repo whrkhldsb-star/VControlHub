@@ -32,7 +32,7 @@ describe("AiMessageList and a failed reply", () => {
 
 	it("offers to try again after the reply the stream writes for a failed request", () => {
 		const failed = streamErrorMessage({ conversationId: "c1", text: "provider quota exceeded", model: "gpt-4o" });
-		render(<AiMessageList {...base} messages={[question, failed]} onRegenerate={vi.fn()} />);
+		render(<AiMessageList {...base} messages={[question, failed]} onRetry={vi.fn()} />);
 
 		expect(screen.getByText(/provider quota exceeded/)).toBeInTheDocument();
 		expect(screen.getByRole("button", { name: "重试" })).toBeInTheDocument();

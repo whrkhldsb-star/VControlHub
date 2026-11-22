@@ -1,6 +1,5 @@
 import { createReadStream } from "node:fs";
 import {
-  chmod,
   copyFile,
   mkdir,
   readFile,
@@ -14,6 +13,9 @@ import { pipeline } from "node:stream/promises";
 import { Readable } from "node:stream";
 import { randomUUID } from "node:crypto";
 
+import { sftpRequest } from "@/lib/ssh/sftp-operations";
+import { matchTargetMode } from "./local-permissions";
+import { localPathVersion, withMovedLocalVersion } from "./local-identity";
 import { Client } from "ssh2";
 
 import type { SessionPayload } from "@/lib/auth/session";
@@ -22,7 +24,7 @@ import { AGENT_FILE_MAX_BYTES, connectSsh, createRemoteDirectory, deleteRemoteFi
 import { prisma } from "@/lib/db";
 import { BusinessError, ConflictError, ValidationError } from "@/lib/errors";
 import { resolveStorageSshCredentials, type StorageSshCredentialNode } from "@/lib/storage/ssh-credentials";
-import { normalizeRemoteRelativePath } from "@/lib/storage/remote-path";
+import { normalizeRemoteRelativePath, normalizeRemoteTargetPath } from "@/lib/storage/remote-path";
 import { resolveStorageRemotePath } from "@/lib/storage/remote-containment";
 import { resolveStoragePathWithinBase } from "@/lib/storage/path-utils";
 import { t } from "@/lib/i18n/service-translations";
@@ -30,13 +32,14 @@ import { createWebDavClient } from "@/lib/storage/webdav-client";
 import { createAgentFileClient, createRemoteStorageClient } from "@/lib/storage/agent-file-client";
 import { publishLocalFile } from "@/lib/storage/publish-local-file";
 import { createLogger } from "@/lib/logging";
-import { readBackingObject } from "./fs-backend";
+import { managedSftpWriteRoot, readBackingObject, statBackingObject, writeBackingObject } from "./fs-backend";
 import { SSH_KEY_CREDENTIAL_SELECT } from "@/lib/ssh/ssh-key-crypto";
 
 /** A node as storageFileNodeSelect loads it (the SFTP connection in full). */
 export type StorageFileNode = StorageSshCredentialNode & {
   id: string;
   expectedRoot?: string;
+  agentFileShare?: { rootIdentity: string | null } | null;
   driver: "LOCAL" | "SFTP" | string;
   basePath: string;
   webdavConfigEncrypted?: string | null;
@@ -46,6 +49,7 @@ export type StorageFileNode = StorageSshCredentialNode & {
 
 export const storageFileNodeSelect = {
   id: true,
+  agentFileShare: { select: { rootIdentity: true } },
   driver: true,
   basePath: true,
   webdavConfigEncrypted: true,
@@ -230,22 +234,6 @@ function sftpMkdir(client: Client, remoteDir: string): Promise<void> {
   });
 }
 
-function sftpWriteFile(
-  client: Client,
-  remotePath: string,
-  buffer: Buffer,
-): Promise<void> {
-  return new Promise((resolve, reject) => {
-    client.sftp((err, sftp) => {
-      if (err) return reject(err);
-      sftp.writeFile(remotePath, buffer, (writeErr) => {
-        if (writeErr) return reject(writeErr);
-        resolve();
-      });
-    });
-  });
-}
-
 function sftpUnlink(client: Client, remotePath: string): Promise<void> {
   return new Promise((resolve, reject) => {
     client.sftp((err, sftp) => {
@@ -286,66 +274,27 @@ export async function writeStorageFileBuffer(
     // truncated file under the real name (A4-26).
     const temporaryPath = path.join(path.dirname(resolved.path), `.vch-write-${randomUUID()}.tmp`);
     try {
-      await writeFile(temporaryPath, buffer);
-      await matchDirectoryMode(temporaryPath, path.dirname(resolved.path));
+      await writeFile(temporaryPath, buffer, { flag: "wx", mode: 0o600 });
+      await matchTargetMode(temporaryPath, resolved.path);
       await rename(temporaryPath, resolved.path);
     } finally { await rm(temporaryPath, { force: true }).catch(() => undefined); }
     return resolved.path;
   }
 
   if (node.driver === "SFTP") {
-    const credentials = resolveStorageSshCredentials(node);
-    const normalizedRemotePath = (await resolveStorageRemotePath(node, relativePath, { credentials })).remotePath;
-    if (credentials.agentServerId && !credentials.privateKey && !credentials.password) {
-      await createRemoteDirectory({ ...credentials, remotePath: path.posix.dirname(normalizedRemotePath), recursive: true });
-      await writeRemoteFile({ ...credentials, remotePath: normalizedRemotePath, content: buffer });
-      return normalizedRemotePath;
-    }
-    let client: Client | null = null;
-    try {
-      client = await connectSsh({
-        host: credentials.host,
-        port: credentials.port,
-        username: credentials.username,
-        hostKeySha256: credentials.hostKeySha256,
-        enforceHostKeyPin: true,
-        agentServerId: credentials.agentServerId,
-        privateKey: credentials.privateKey,
-        passphrase: credentials.passphrase,
-        password: credentials.password,
-        readyTimeout: 15000,
-        timeout: 10000,
-      });
-      await sftpMkdir(client, path.posix.dirname(normalizedRemotePath));
-      await sftpWriteFile(client, normalizedRemotePath, buffer);
-      return normalizedRemotePath;
-    } finally {
-      client?.end();
-    }
+    await writeBackingObject({ storageNode: node, relativePath, content: buffer });
+    return normalizeRemoteTargetPath(node.basePath, relativePath);
   }
 
   throw new BusinessError(t("backend.storage.unsupportedNodeType"));
 }
 
-/**
- * Best-effort delete of a previously written storage object (LOCAL or SFTP).
- * Used for compensating cleanup when DB indexing fails after a successful write.
- */
-/**
- * Files a user puts on a node should be readable like their neighbours: take
- * the directory's permission bits without execute, 0644 when that fails.
- */
-async function matchDirectoryMode(filePath: string, directory: string): Promise<void> {
-  try {
-    const mode = (await statFile(directory)).mode & 0o666;
-    await chmod(filePath, mode || 0o644);
-  } catch {
-    await chmod(filePath, 0o644).catch(() => undefined);
-  }
+function sftpVersion(attrs: { size: number; mtime: number }) {
+  return [attrs.size, attrs.mtime * 1000].join(":");
 }
 
 /** SFTP v3 RENAME refuses an occupied name. Only POSIX rename can replace it atomically. */
-async function sftpAtomicRename(sftp: import("ssh2").SFTPWrapper, from: string, to: string): Promise<void> {
+async function sftpAtomicRename(sftp: import("ssh2").SFTPWrapper, from: string, to: string, expected?: string | null): Promise<void> {
   const renameExclusive = (source: string, target: string) => new Promise<void>((resolve, reject) =>
     sftp.rename(source, target, error => error ? reject(error) : resolve()));
   const target = await new Promise<import("ssh2").Stats | null>((resolve, reject) =>
@@ -354,8 +303,20 @@ async function sftpAtomicRename(sftp: import("ssh2").SFTPWrapper, from: string, 
       if ((error as { code?: number }).code === 2) return resolve(null);
       reject(error);
     }));
+  if (expected !== undefined && expected !== (target ? sftpVersion(target) : null)) throw new ConflictError(t("backend.storage.editableFileChangedOnDisk"));
   if (!target) return renameExclusive(from, to);
   if (!target.isFile()) throw new ConflictError(t("backend.storage.targetIsDirectory"));
+  const staged = await sftpRequest<import("ssh2").Stats>(done => sftp.lstat(from, done));
+  if (target.uid !== staged.uid || target.gid !== staged.gid) {
+    await sftpRequest<void>(done => sftp.chown(from, target.uid, target.gid, done));
+  }
+  if ((target.mode & 0o777) !== (staged.mode & 0o777) || staged.uid !== target.uid || staged.gid !== target.gid) {
+    await sftpRequest<void>(done => sftp.chmod(from, target.mode & 0o777, done));
+  }
+  const applied = await sftpRequest<import("ssh2").Stats>(done => sftp.lstat(from, done));
+  if (applied.uid !== target.uid || applied.gid !== target.gid || (applied.mode & 0o777) !== (target.mode & 0o777)) {
+    throw new ConflictError(t("backend.storage.editableFileChangedOnDisk"));
+  }
   try {
     await new Promise<void>((resolve, reject) =>
       sftp.ext_openssh_rename(from, to, error => error ? reject(error) : resolve()));
@@ -386,9 +347,10 @@ async function sftpAtomicRename(sftp: import("ssh2").SFTPWrapper, from: string, 
  * Stores a staged upload (`sourcePath`) as `relativePath` on the node. The source is its caller's to discard:
  * on a local node it is moved into place when it is on the same filesystem, so it may be gone afterwards.
  */
-export async function writeStorageFileFromLocalPath(node: StorageFileNode, relativePath: string, sourcePath: string, upload?: { checksum: string; beforePublish: () => Promise<void>; onVersion?: (version: string | null) => void }) {
+export async function writeStorageFileFromLocalPath(node: StorageFileNode, relativePath: string, sourcePath: string, upload?: { checksum?: string; beforePublish?: () => Promise<void>; expectedVersion?: string | null; onPublished?: (created: boolean) => void; onVersion?: (version: string | null) => void }) {
   if (node.driver === "AGENT") {
-    const version = await createAgentFileClient(node.id).writeLocal(relativePath, sourcePath, upload?.checksum, upload?.beforePublish);
+    const version = await createAgentFileClient(node.id, undefined, node.expectedRoot)
+      .writeLocal(relativePath, sourcePath, upload?.checksum, upload?.beforePublish, upload?.expectedVersion, upload?.onPublished);
     upload?.onVersion?.(version);
     return relativePath;
   }
@@ -405,9 +367,20 @@ export async function writeStorageFileFromLocalPath(node: StorageFileNode, relat
       await rename(sourcePath, temporaryPath).catch(() => copyFile(sourcePath, temporaryPath));
       // The assembled upload is 0600 in the temp dir; a move or copyFile keeps that, and a
       // web root served by another account then answered 403 (A4-01).
-      await matchDirectoryMode(temporaryPath, path.dirname(resolved.path));
+      const expected = upload?.expectedVersion === undefined && upload?.onPublished
+        ? await localPathVersion(node.basePath, relativePath) : upload?.expectedVersion;
+      await matchTargetMode(temporaryPath, resolved.path);
       if (upload?.onVersion) upload.onVersion(String((await statFile(temporaryPath)).mtimeMs));
-      await rename(temporaryPath, resolved.path);
+      if (expected === null) {
+        await publishLocalFile(temporaryPath, resolved.path, relativePath);
+        upload?.onPublished?.(true);
+      } else if (expected !== undefined) {
+        await withMovedLocalVersion(resolved.path, expected, async backup => {
+          await publishLocalFile(temporaryPath, resolved.path, relativePath);
+          await rm(backup);
+        });
+        upload?.onPublished?.(false);
+      } else await rename(temporaryPath, resolved.path);
       return resolved.path;
     } finally { await rm(temporaryPath, { force: true }).catch(() => undefined); }
   }
@@ -435,7 +408,10 @@ export async function writeStorageFileFromLocalPath(node: StorageFileNode, relat
       }
       const destination = await client.stat(relativePath, true);
       if (destination?.isDirectory) throw new ConflictError(t("backend.storage.targetIsDirectory"));
-      await client.rename(temporaryRelativePath, relativePath, Boolean(destination));
+      const expected = upload?.expectedVersion;
+      const status = expected === undefined ? await client.rename(temporaryRelativePath, relativePath, Boolean(destination))
+        : await client.rename(temporaryRelativePath, relativePath, expected !== null, expected ?? undefined);
+      upload?.onPublished?.(status === 201 || (status !== 204 && !destination));
       return relativePath;
     } catch (error) { await client.delete(temporaryRelativePath).catch(() => undefined); throw error; }
     finally { source?.destroy(); }
@@ -447,30 +423,47 @@ export async function writeStorageFileFromLocalPath(node: StorageFileNode, relat
     if (credentials.agentServerId && !credentials.privateKey && !credentials.password) {
       // The Agent protocol embeds base64 in a bounded command payload.
       if ((await statFile(sourcePath)).size > AGENT_FILE_MAX_BYTES) throw new BusinessError(t("backend.server.agentWriteLimit"));
-      try {
-        await createRemoteDirectory({ ...credentials, remotePath: path.posix.dirname(destination), recursive: true });
-        await writeRemoteFile({ ...credentials, remotePath: temporaryPath, content: await readFile(sourcePath) });
-        await renameRemoteFile({ ...credentials, oldPath: temporaryPath, newPath: destination });
-        return destination;
-      } catch (error) { await deleteRemoteFile({ ...credentials, remotePath: temporaryPath }).catch(() => undefined); throw error; }
+      const content = await readFile(sourcePath);
+      await createRemoteDirectory({ ...credentials, remotePath: path.posix.dirname(destination), recursive: true });
+      const previous = await statBackingObject({ storageNode: node, relativePath });
+      const version = previous ? [previous.size, previous.lastModifiedMs].join(":") : null;
+      if (previous?.isDirectory || (upload?.expectedVersion !== undefined && upload.expectedVersion !== version)) {
+        throw new ConflictError(t("backend.storage.editableFileChangedOnDisk"));
+      }
+      const root = managedSftpWriteRoot(destination, relativePath);
+      if (previous) {
+        // The Linux Agent's atomic writer preserves the destination's mode, uid and gid on its private stage.
+        await writeRemoteFile({ ...credentials, remotePath: destination, content, root });
+      } else {
+        try {
+          await writeRemoteFile({ ...credentials, remotePath: temporaryPath, content, root });
+          await renameRemoteFile({ ...credentials, oldPath: temporaryPath, newPath: destination, noReplace: true });
+        } finally {
+          await deleteRemoteFile({ ...credentials, remotePath: temporaryPath }).catch(() => undefined);
+        }
+      }
+      upload?.onPublished?.(!previous);
+      return destination;
     }
     const client = await connectSsh({ ...credentials, enforceHostKeyPin: true, readyTimeout: 15000, timeout: 10000 });
     try {
       await sftpMkdir(client, path.posix.dirname(destination));
-      await new Promise<void>((resolve, reject) => client.sftp((error, sftp) => {
-        if (error) return reject(error);
-        // 0644 like a plain upload or editor save; the server's umask still applies (A4-01).
-        pipeline(createReadStream(sourcePath, { highWaterMark: 64 * 1024 }), sftp.createWriteStream(temporaryPath, { flags: "wx", mode: 0o644 }))
-          .then(async () => {
-            if (upload?.onVersion) {
-              const attrs = await new Promise<import("ssh2").Stats>((resolveStat, rejectStat) =>
-                sftp.stat(temporaryPath, (err, stat) => err ? rejectStat(err) : resolveStat(stat)));
-              upload.onVersion(attrs.mtime ? String(attrs.mtime * 1000) : null);
-            }
-          })
-          .then(() => sftpAtomicRename(sftp, temporaryPath, destination))
-          .then(resolve, reject);
-      }));
+      const sftp = await sftpRequest<import("ssh2").SFTPWrapper>(done => client.sftp(done));
+      const previous = await sftpRequest<import("ssh2").Stats>(done => sftp.lstat(destination, done)).catch(error => {
+        if (error.code === 2) return null;
+        throw error;
+      });
+      await pipeline(createReadStream(sourcePath, { highWaterMark: 64 * 1024 }),
+        sftp.createWriteStream(temporaryPath, { flags: "wx", mode: previous ? 0o600 : 0o666 }));
+      if (upload?.onVersion) {
+        const attrs = await sftpRequest<import("ssh2").Stats>(done => sftp.stat(temporaryPath, done));
+        upload.onVersion(attrs.mtime ? String(attrs.mtime * 1000) : null);
+      }
+      const checked = await resolveStorageRemotePath(node, relativePath, { credentials });
+      if (checked.remotePath !== destination) throw new ConflictError(t("backend.storage.editableFileChangedOnDisk"));
+      const initial = previous ? sftpVersion(previous) : null;
+      await sftpAtomicRename(sftp, temporaryPath, destination, upload?.expectedVersion === undefined ? initial : upload.expectedVersion);
+      upload?.onPublished?.(!previous);
       return destination;
     } catch (error) { await sftpUnlink(client, temporaryPath).catch(() => undefined); throw error; }
     finally { client.end(); }
@@ -586,7 +579,7 @@ export async function copyStorageFile(
       const buffer = await readRemoteFile({ ...credentials, remotePath: sourceRemote });
       await createRemoteDirectory({ ...credentials, remotePath: path.posix.dirname(destRemote), recursive: true });
       try {
-        await writeRemoteFile({ ...credentials, remotePath: tempRemote, content: buffer });
+        await writeRemoteFile({ ...credentials, remotePath: tempRemote, content: buffer, root: managedSftpWriteRoot(destRemote, destinationRelativePath) });
         await renameRemoteFile({ ...credentials, oldPath: tempRemote, newPath: destRemote, noReplace: !overwrite });
       } catch (error) {
         await deleteRemoteFile({ ...credentials, remotePath: tempRemote }).catch(() => undefined);

@@ -1,3 +1,4 @@
+import { lockSettingBindings, relatedSettingKeys, validateSettingBindings, publicOffsiteEndpoint } from "./bindings";
 import { getAppName } from "@/lib/branding";
 import { ValidationError } from "@/lib/errors";
 import { t } from "@/lib/i18n/service-translations";
@@ -218,6 +219,7 @@ export async function getAllSettingsMasked(): Promise<Record<string, string>> {
 	for (const [key, value] of Object.entries(settings)) {
 		masked[key] = isSensitiveKey(key) && value !== "" ? MASKED_VALUE : value;
 	}
+	if (masked["offsite.endpoint"]) masked["offsite.endpoint"] = publicOffsiteEndpoint(masked["offsite.endpoint"]);
 	return masked;
 }
 
@@ -232,11 +234,12 @@ export function normalizeStoredSetting(key: string, value: string): string {
 	const schema = Object.hasOwn(SETTING_VALUE_SCHEMAS, key) ? SETTING_VALUE_SCHEMAS[key as SettingKey] : undefined;
 	if (!schema) return value;
 	const result = schema.safeParse(value);
-	if (!result.success) throw new ValidationError(t("backend.settings.invalidValue", { key }));
+	if (!result.success) throw new ValidationError(t("backend.settings.invalidValue", { key }), { field: key, reason: "backend.settings.invalidValue" });
 	return result.data;
 }
 
 export async function setSetting(key: string, value: string, actorId: string | null = null): Promise<void> {
+	if (relatedSettingKeys([key]).size) return setManySettings([{ key, value }], actorId);
 	const normalizedValue = normalizeStoredSetting(key, value);
 	const storedValue = toStoredValue(key, normalizedValue);
 	await prisma.setting.upsert({
@@ -248,7 +251,7 @@ export async function setSetting(key: string, value: string, actorId: string | n
 }
 
 /** Keep this process's sync caches in step with what was just written. */
-function rememberSaved(entries: Array<{ key: string; value: string }>) {
+export function rememberSaved(entries: Array<{ key: string; value: string }>) {
 	for (const { key, value } of entries) {
 		if (isRuntimeSettingKey(key)) rememberRuntimeSettingNumber(key, Number(value));
 	}
@@ -262,16 +265,18 @@ export async function setManySettings(
 	actorId: string | null = null,
 ): Promise<void> {
 	const normalized = entries.map(({ key, value }) => ({ key, value: normalizeStoredSetting(key, value) }));
-	await prisma.$transaction(
-		normalized.map(({ key, value }) => {
-			const storedValue = toStoredValue(key, value);
-			return prisma.setting.upsert({
-				where: { key },
-				update: { value: storedValue, updatedBy: actorId },
-				create: { key, value: storedValue, updatedBy: actorId },
-			});
-		})
-	);
+	const related = relatedSettingKeys(normalized.map((row) => row.key));
+	await prisma.$transaction(async (tx) => {
+		if (related.size) {
+			await lockSettingBindings(tx);
+			const rows = await tx.setting.findMany({ where: { key: { in: [...related] } }, select: { key: true, value: true } });
+			validateSettingBindings(new Map(rows.map((r) => [r.key, r.value])), new Map(normalized.map((r) => [r.key, r.value])), readStoredSecret);
+		}
+		for (const { key, value } of normalized) {
+			const stored = { value: toStoredValue(key, value), updatedBy: actorId };
+			await tx.setting.upsert({ where: { key }, create: { key, ...stored }, update: stored });
+		}
+	});
 	rememberSaved(normalized);
 }
 

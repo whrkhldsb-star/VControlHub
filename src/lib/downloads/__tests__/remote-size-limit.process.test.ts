@@ -38,6 +38,7 @@ describe.skipIf(!supported)("direct download size limit (real bash/curl processe
   });
   afterEach(() => {
     for (const id of taskIds.splice(0)) {
+      rmSync(`/tmp/app-dl-${id}.start`, { recursive: true, force: true });
       for (const suffix of [".pid", ".pid.total", ".pid.exit", ".pid.exit.publish", ".pid.exit.lock", ".log", ".cancel"]) {
         rmSync(`/tmp/app-dl-${id}${suffix}`, { force: true });
       }

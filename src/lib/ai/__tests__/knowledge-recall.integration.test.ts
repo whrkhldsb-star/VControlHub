@@ -95,6 +95,14 @@ describe.skipIf(process.env.RUN_DATABASE_INTEGRATION_TESTS !== "1")("knowledge s
     }
   });
 
+  it("limits each hosted knowledge call to eight of the twelve available excerpts", async () => {
+    const { executeServerlessQuery } = await import("../hosted-safe-queries");
+    const budget = { seen: new Set<string>(), limit: 12 };
+    const search = () => executeServerlessQuery({ actionType: "search_knowledge", params: { query: "nginx", limit: 12 } }, session, "en", budget);
+    for (const size of [8, 4, 0]) expect(((await search())!.data as { hits: unknown[] }).hits).toHaveLength(size);
+    expect(budget.seen.size).toBe(12);
+  });
+
   it("treats LIKE wildcards in the query literally", async () => {
     const hits = await searchKnowledge({ query: "ng_nx %%", session });
     expect(hits).toEqual([]);

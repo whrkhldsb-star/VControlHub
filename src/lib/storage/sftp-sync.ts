@@ -1,5 +1,6 @@
 import { randomUUID } from "node:crypto";
 import { assertNotRecycled } from "./archive-access";
+import { isStorageStagingPath } from "./staging-paths";
 import { lockStorageFileOverwrite } from "./file-overwrite-lock";
 import { Prisma } from "@prisma/client";
 
@@ -329,64 +330,63 @@ export async function syncSftpDirectoryEntries(input: {
   ): Promise<void> {
     const directory = computeDirectoryRelativePath(basePath, dirPath);
     if (directory === null) return;
-    let entries: SftpListEntry[];
-    const listingStartedAt = new Date();
-    try {
-      if (directory) await assertNotRecycled(node.id, directory);
-      entries = await withDirectoryTimeout(
-        listRemoteDirectory({
-          ...credentials,
-          remotePath: dirPath,
-          // What is missing from this list gets marked deleted, so an Agent listing cut at 10,000 must fail.
-          requireComplete: true,
-        }),
-        dirPath,
-        directoryTimeoutMs,
-        { stoppedVerb: "syncing" },
-      );
-    } catch (error) {
-      const msg = error instanceof Error ? error.message : "Unknown error";
-      result.errors.push(`Scanning ${dirPath} failed: ${msg}`);
-      return;
-    }
-
-    const remoteRelativePaths = new Set<string>();
-    const payloads: RemoteEntryPayload[] = [];
     const childDirectories: Array<{ path: string; depth: number }> = [];
-
-    for (const entry of entries) {
-      if (entry.type === "other") continue;
-      const relativePath = computeRelativePath(basePath, dirPath, entry.name);
-      if (!relativePath) {
-        result.errors.push(
-          `Skipped entry outside basePath: ${dirPath}/${entry.name}`,
-        );
-        continue;
-      }
-
-      remoteRelativePaths.add(relativePath);
-      result.synced += 1;
-      payloads.push({
-        relativePath,
-        name: entry.name,
-        entryType: entry.type === "directory" ? "DIRECTORY" : "FILE",
-        mimeType:
-          entry.type === "directory" ? "inode/directory" : guessMimeType(entry.name),
-        size: entry.type === "directory" ? null : BigInt(entry.size),
-        storageVersion: entry.type === "file" && entry.modifyTime ? String(entry.modifyTime) : null,
-      });
-
-      if (recursive && entry.type === "directory" && currentDepth < maxDepth) {
-        childDirectories.push({
-          path: `${dirPath.replace(/\/+$/, "")}/${entry.name}`,
-          depth: currentDepth + 1,
-        });
-      }
-    }
-
     const release = await lockStorageFileOverwrite(node.id, directory);
     try {
-      if (directory) await assertNotRecycled(node.id, directory);
+      let entries: SftpListEntry[];
+      const listingStartedAt = new Date();
+      try {
+        if (directory) await assertNotRecycled(node.id, directory, "read", node.driver, credentials.windowsOpenSsh);
+        entries = await withDirectoryTimeout(
+          listRemoteDirectory({
+            ...credentials,
+            remotePath: dirPath,
+            // What is missing from this list gets marked deleted, so an Agent listing cut at 10,000 must fail.
+            requireComplete: true,
+          }),
+          dirPath,
+          directoryTimeoutMs,
+          { stoppedVerb: "syncing" },
+        );
+      } catch (error) {
+        const msg = error instanceof Error ? error.message : "Unknown error";
+        result.errors.push(`Scanning ${dirPath} failed: ${msg}`);
+        return;
+      }
+
+      const remoteRelativePaths = new Set<string>();
+      const payloads: RemoteEntryPayload[] = [];
+
+      for (const entry of entries) {
+        if (entry.type === "other" || isStorageStagingPath(credentials.windowsOpenSsh ? entry.name.toLowerCase() : entry.name)) continue;
+        const relativePath = computeRelativePath(basePath, dirPath, entry.name);
+        if (!relativePath) {
+          result.errors.push(
+            `Skipped entry outside basePath: ${dirPath}/${entry.name}`,
+          );
+          continue;
+        }
+
+        remoteRelativePaths.add(relativePath);
+        result.synced += 1;
+        payloads.push({
+          relativePath,
+          name: entry.name,
+          entryType: entry.type === "directory" ? "DIRECTORY" : "FILE",
+          mimeType:
+            entry.type === "directory" ? "inode/directory" : guessMimeType(entry.name),
+          size: entry.type === "directory" ? null : BigInt(entry.size),
+          storageVersion: entry.type === "file" && entry.modifyTime ? String(entry.modifyTime) : null,
+        });
+
+        if (recursive && entry.type === "directory" && currentDepth < maxDepth) {
+          childDirectories.push({
+            path: `${dirPath.replace(/\/+$/, "")}/${entry.name}`,
+            depth: currentDepth + 1,
+          });
+        }
+      }
+
       const synced = await syncRemoteEntries(node.id, payloads, listingStartedAt);
       result.created += synced.created;
       result.updated += synced.updated;

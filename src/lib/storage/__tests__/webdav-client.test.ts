@@ -76,6 +76,17 @@ describe("WebDAV actual HTTP adapter", () => {
     expect(await dav.stat("folder/moved.txt")).toBeNull();
     expect(requests.some((r) => r.auth === `Basic ${Buffer.from("alice:secret-password").toString("base64")}`)).toBe(true);
   });
+  it("sends the creation or destination revision condition to the provider MOVE", async () => {
+    const transport = vi.fn<WebDavTransport>().mockResolvedValue(new Response(null, { status: 204 }));
+    const dav = createWebDavClient({ basePath: "/root", webdavConfigEncrypted: encryptWebDavConfig(config) }, { transport });
+    await dav.rename("stage", "dst", false);
+    expect(new Headers(transport.mock.calls[0]![1].headers).get("Overwrite")).toBe("F");
+    await dav.rename("stage", "dst", true, '"expected"');
+    const headers = new Headers(transport.mock.calls[1]![1].headers);
+    expect(headers.get("If")).toBe('<' + headers.get("Destination") + '> (["expected"])');
+    expect(headers.get("Overwrite")).toBe("T");
+  });
+
   it("requires a successful resource type before a destructive operation can infer file or absence", async () => {
     const testTransport = vi.fn<WebDavTransport>().mockImplementation(async () => new Response(
       '<multistatus><response><href>/dav/root/file</href><propstat><status>HTTP/1.1 404 Not Found</status>' +

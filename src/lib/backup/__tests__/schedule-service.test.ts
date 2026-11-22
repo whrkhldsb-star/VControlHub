@@ -36,7 +36,7 @@ vi.mock("@/lib/db", () => ({
     },
     // The dispatch transaction runs against the same mocks.
     $transaction: vi.fn(async (callback: (tx: unknown) => unknown) => callback({
-      backupSchedule: { update: backupScheduleUpdateMock, updateMany: backupScheduleUpdateManyMock },
+       $queryRaw: vi.fn(), backupSchedule: { findFirst: backupScheduleFindUniqueMock, update: backupScheduleUpdateMock, updateMany: backupScheduleUpdateManyMock },
     })),
   },
 }));
@@ -254,7 +254,7 @@ describe("backup schedule service", () => {
         note: null,
         retentionDays: null,
         createdById: "u1",
-        nextRunAt: observed,
+        nextRunAt: observed, updatedAt: observed,
       });
       expect(result).toEqual({
         scheduleId: "s1",
@@ -262,7 +262,8 @@ describe("backup schedule service", () => {
         jobId: "j1",
       });
       expect(backupScheduleUpdateManyMock).toHaveBeenCalledWith(expect.objectContaining({
-        where: { id: "s1", status: "ACTIVE", createdById: "u1", nextRunAt: observed },
+        where: { id: "s1", status: "ACTIVE", createdById: "u1", nextRunAt: observed, updatedAt: observed,
+          teamId: null, backupType: "DATABASE", name: "Nightly DB", note: null, cronExpression: "0 3 * * *" },
         data: expect.objectContaining({ nextRunAt: expect.any(Date) }),
       }));
       const tx = expect.objectContaining({ backupSchedule: expect.anything() });
@@ -292,7 +293,7 @@ describe("backup schedule service", () => {
         note: null,
         retentionDays: null,
         createdById: "u1",
-        nextRunAt: new Date(),
+        nextRunAt: new Date(), updatedAt: new Date(),
       });
       expect(result).toBeNull();
       expect(createBackupRecordMock).not.toHaveBeenCalled();
@@ -303,7 +304,7 @@ describe("backup schedule service", () => {
       canCreateMock.mockResolvedValueOnce(false);
       const result = await dispatchDueSchedule({
         id: "s1", name: "Nightly", backupType: "FULL", cronExpression: "0 3 * * *",
-        note: null, retentionDays: null, createdById: "revoked", nextRunAt: new Date(),
+        note: null, retentionDays: null, createdById: "revoked", nextRunAt: new Date(), updatedAt: new Date(),
       });
       expect(result).toBeNull();
       expect(backupScheduleUpdateMock).toHaveBeenCalledWith({ where: { id: "s1" }, data: { lastResult: expect.any(String) } });
@@ -319,7 +320,7 @@ describe("backup schedule service", () => {
         note: null,
         retentionDays: null,
         createdById: null,
-        nextRunAt: new Date(),
+        nextRunAt: new Date(), updatedAt: new Date(),
       });
       expect(result).toBeNull();
     });
@@ -332,7 +333,7 @@ describe("backup schedule service", () => {
         note: null,
         retentionDays: null,
         createdById: "u1",
-        nextRunAt: new Date(),
+        nextRunAt: new Date(), updatedAt: new Date(),
       });
       expect(result).toBeNull();
     });
@@ -350,7 +351,7 @@ describe("backup schedule service", () => {
           note: null,
           retentionDays: null,
           createdById: "u1",
-          nextRunAt: new Date(),
+          nextRunAt: new Date(), updatedAt: new Date(),
         }),
       ).rejects.toThrow(/job queue down/);
       // Nothing to compensate: the record was created inside the transaction.

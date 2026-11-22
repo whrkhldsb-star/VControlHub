@@ -107,6 +107,28 @@ describe("/api/storage/sftp", () => {
     }));
   });
 
+  it("checks the spelling of every directory ancestor on a verified Windows endpoint", async () => {
+    vi.clearAllMocks();
+    requireApiPermissionMock.mockResolvedValueOnce({
+      session: { userId: "reader", username: "reader", roles: ["admin"], currentTeamId: null },
+    });
+    mockSftpNode({
+      basePath: "/C:/Data",
+      server: {
+        teamId: null, id: "srv_1", operatingSystem: "WINDOWS", host: "203.0.113.10", port: 3389,
+        username: "reader", connectionType: "PASSWORD", password: "ENCRYPTED", hostKeySha256: "registered-pin",
+      },
+    });
+    prismaMock.fileEntry.findFirst.mockResolvedValueOnce({ id: "recycled-directory" });
+    const response = await GET(request("Docs/Reports"));
+    expect(response.status).toBe(404);
+    expect(prismaMock.fileEntry.findFirst).toHaveBeenCalledWith({
+      where: { storageNodeId: "node_1", isDeleted: true, relativePath: { in: ["Docs", "Docs/Reports"], mode: "insensitive" } },
+      select: { id: true },
+    });
+    expect(listRemoteDirectoryMock).not.toHaveBeenCalled();
+  });
+
   it("lists a remote directory through the canonical storage API", async () => {
     vi.clearAllMocks();
     requireApiPermissionMock.mockResolvedValueOnce({

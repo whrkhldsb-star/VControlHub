@@ -28,7 +28,7 @@ export function parseStorageRange(rangeHeader: string | null, fileSize: number):
 	}
 
 	const match = /^bytes=(\d*)-(\d*)$/.exec(rangeHeader.trim());
-	if (!match || fileSize <= 0) {
+	if (!match || (!match[1] && !match[2]) || fileSize <= 0) {
 		return new Response(null, { status: 416, headers: { "content-range": `bytes */${fileSize}` } });
 	}
 

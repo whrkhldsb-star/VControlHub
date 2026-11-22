@@ -13,26 +13,36 @@ import type { ExportFile, ImportOptions } from "@/lib/system/config-schema";
 
 const table = vi.hoisted(() => ({ counts: { create: 1, update: 2, skip: 3 }, serverKeysMissing: false, storageServersMissing: false }));
 
-function stub() {
-  return vi.fn(async () => table.counts);
+// Table planners and input validation have their own tests. This suite exercises
+// orchestration and credential probes on the rows each planner accepted.
+vi.mock("../config-schema", async (original) => ({ ...await original<typeof import("../config-schema")>(), parseImportFile: (file: ExportFile) => file }));
+
+function stub(key?: keyof ExportFile["tables"]) {
+  return vi.fn(async (...args: unknown[]) => {
+    const applied = args.at(-1);
+    if (key && applied instanceof Set) {
+      for (const row of (args[0] as ExportFile["tables"])[key]) applied.add("key" in row ? row.key : "id" in row ? row.id : undefined);
+    }
+    return { ...table.counts };
+  });
 }
 
 const stubs = {
   previewPermissions: stub(),
   previewRoles: stub(),
   previewRolePermissions: stub(),
-  previewUsers: stub(),
+  previewUsers: stub("users"),
   previewUserRoles: stub(),
-  previewSshKeys: stub(),
-  previewServers: stub(),
-  previewStorageNodes: stub(),
+  previewSshKeys: stub("sshKeys"),
+  previewServers: stub("servers"),
+  previewStorageNodes: stub("storageNodes"),
   previewUserStorageAccess: stub(),
   previewCommandTemplates: stub(),
   previewQuickServices: stub(),
   previewPlaybooks: stub(),
   previewAlertRules: stub(),
-  previewSettings: stub(),
-  previewAiProviders: stub(),
+  previewSettings: stub("settings"),
+  previewAiProviders: stub("aiProviders"),
   previewAnnouncements: stub(),
   previewSnippets: stub(),
   previewTeams: stub(),
@@ -176,6 +186,10 @@ describe("previewImport", () => {
       tables: { servers: [{ id: "s1", password: encryptServerPassword("pw"), rdpPassword: encrypt("rdp") }], sshKeys: [{ id: "k1", privateKey: encrypt("key") }] },
     }), OPTIONS);
     expect(ours.warnings).not.toContain(warning);
+    const mixed = await previewImport(file({ exportMode: "full", tables: { servers: [
+      { id: "first", password: encryptServerPassword("local") }, { id: "second", password: "enc:v1:" + encryptWithKey("foreign", "second") },
+    ] } }), OPTIONS);
+    expect(mixed.issues).toEqual([{ table: "servers", id: "second", reason: warning }]);
 
     for (const tables of [
       { servers: [{ id: "s1", password: `enc:v1:${encryptWithKey("another instance", "pw")}` }] },

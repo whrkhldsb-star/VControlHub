@@ -1,5 +1,5 @@
 import { beforeEach, describe, expect, it, vi } from "vitest";
-const { db } = vi.hoisted(() => ({ db: { storageNode: { create: vi.fn(), findUnique: vi.fn(), findFirst: vi.fn(), findMany: vi.fn(), updateMany: vi.fn() }, server: { findFirst: vi.fn() } } }));
+const { db } = vi.hoisted(() => ({ db: { $executeRaw: vi.fn(), fileEntry: { updateMany: vi.fn() }, storageNode: { create: vi.fn(), findUnique: vi.fn(), findFirst: vi.fn(), findMany: vi.fn(), updateMany: vi.fn() }, server: { findFirst: vi.fn() } } }));
 vi.mock("@/lib/db", () => ({ prisma: { ...db, $transaction: (fn: (tx: unknown) => unknown) => fn(db) }, isUniqueViolation: () => false }));
 vi.mock("@/lib/ssh/client", () => ({ listRemoteDirectory: vi.fn() }));
 vi.mock("@/lib/crypto/service", () => ({ encrypt: (v: string) => `encrypted:${v}`, decrypt: (v: string) => v.slice(10) }));

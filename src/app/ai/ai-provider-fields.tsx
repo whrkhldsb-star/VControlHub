@@ -1,16 +1,16 @@
 "use client";
 
-import { isLocalOllamaEndpoint } from "@/lib/ai/provider-endpoint";
+import { isLocalOllamaEndpoint, providerOrigin, requiresExplicitDefaultModel, resolveDefaultProviderBaseUrl } from "@/lib/ai/provider-endpoint";
 import { CheckboxField, Chip, CONTROL_CLASS, FormField, Input } from "@/components/ui-primitives";
 import { useI18n } from "@/lib/i18n/use-locale";
-import { providerOrigin, resolveDefaultProviderBaseUrl } from "@/lib/ai/provider-endpoint";
 import type { ProviderFormState } from "./ai-provider-panel";
 import { COMMON_BASE_URLS, PROVIDER_PRESETS, PROVIDER_TYPES } from "./ai-types";
 
-export function AiProviderFields({ form, onChange, editing = false, keyRequired = !editing, models = [] }: {
+export function AiProviderFields({ form, onChange, editing = false, originalType, keyRequired = !editing, models = [] }: {
   form: ProviderFormState;
   onChange: (patch: Partial<ProviderFormState>) => void;
   editing?: boolean;
+  originalType?: string;
   keyRequired?: boolean;
   models?: string[];
 }) {
@@ -96,7 +96,7 @@ export function AiProviderFields({ form, onChange, editing = false, keyRequired 
     <FormField label={t("aiPage.defaultModelLabel")} htmlFor={`${prefix}-default-model`} className="sm:col-span-2">
       {!editing && models.length > 0 ? <select id={`${prefix}-default-model`} data-input className={CONTROL_CLASS} value={form.defaultModel || models[0]} onChange={(e) => onChange({ defaultModel: e.target.value })}>
         {models.map((model) => <option key={model} value={model}>{model}</option>)}
-      </select> : <Input id={`${prefix}-default-model`} value={form.defaultModel} onChange={(e) => onChange({ defaultModel: e.target.value })} />}
+      </select> : <Input id={`${prefix}-default-model`} required={requiresExplicitDefaultModel(form.type, originalType)} value={form.defaultModel} onChange={(e) => onChange({ defaultModel: e.target.value })} />}
     </FormField>
     <CheckboxField label={t("common.setAsDefault")} checked={form.isDefault} onChange={(e) => onChange({ isDefault: e.target.checked })} className="sm:col-span-2" />
   </div>;

@@ -88,6 +88,8 @@ export interface InitMediaUploadInput {
 	storageNodeId?: string;
 	relativePath?: string;
 	ttlMs?: number;
+	/** Images may use an indexed directory as their publication destination. */
+	imageDestination?: boolean;
 	/** Optional session for storage ACL when targeting a node/path. */
 	session?: import("@/lib/auth/session").SessionPayload;
 }

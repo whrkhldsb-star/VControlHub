@@ -238,7 +238,12 @@ export function buildCommand(actionType: HostedActionType, params: Record<string
     case "list_files": {
       const path = normalizeReadablePath(params.path);
       if (!path) return null;
-      return `find ${shellQuote(path)} -mindepth 1 -maxdepth 1 -printf '%y\t%s\t%f\n' 2>/dev/null | head -200`;
+      const list = `import itertools, os, stat
+with os.scandir(".") as entries:
+    for entry in itertools.islice(entries, 200):
+        info = entry.stat(follow_symlinks=False)
+        print(stat.filemode(info.st_mode)[0].replace("-", "f"), info.st_size, entry.name, sep="\\t")`;
+      return `${openReadableTarget(path, "directory")} python3 -I -c ${shellQuote(list)}`;
     }
 
     case "search_files": {

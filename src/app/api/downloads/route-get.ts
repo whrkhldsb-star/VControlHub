@@ -50,7 +50,7 @@ export async function GET(request: Request) {
       if (category && category !== "__uncategorized") where.category = category;
       if (status) where.status = status;
 
-      const taskRows = await prisma.downloadTask.findMany({
+      const page = (after?: string) => prisma.downloadTask.findMany({
         where,
         include: {
           server: { select: { id: true, name: true, host: true, storageNode: { select: downloadDriveSelect }, agentFileShares: { select: { node: { select: downloadDriveSelect } } } } },
@@ -58,18 +58,19 @@ export async function GET(request: Request) {
         },
         orderBy: [{ createdAt: "desc" }, { id: "desc" }],
         take: DOWNLOAD_PAGE_SIZE + 1,
-        ...(cursor ? { cursor: { id: cursor }, skip: 1 } : {}),
+        ...(after ? { cursor: { id: after }, skip: 1 } : {}),
       });
-      const hasMore = taskRows.length > DOWNLOAD_PAGE_SIZE;
-      const tasks = taskRows.slice(0, DOWNLOAD_PAGE_SIZE).map(resolveTaskDrive);
-      const nextCursor = hasMore ? (tasks.at(-1)?.id ?? null) : null;
-
-      // Parallel ACL checks (still bounded by one page) — sequential awaits made
-      // list latency grow linearly with storage ACL DB hits.
-      const accessFlags = await Promise.all(
-        tasks.map((task) => canAccessDownloadTask({ session, task, operation: "read" })),
-      );
-      const visibleTasks = tasks.filter((_, i) => accessFlags[i]);
+      const visibleTasks = [];
+      let after = cursor;
+      do {
+        const rows = await page(after);
+        const tasks = rows.map(resolveTaskDrive);
+        const flags = await Promise.all(tasks.map(task => canAccessDownloadTask({ session, task, operation: "read" })));
+        visibleTasks.push(...tasks.filter((_, index) => flags[index]));
+        after = rows.length === DOWNLOAD_PAGE_SIZE + 1 ? rows.at(-1)?.id : undefined;
+      } while (after && visibleTasks.length <= DOWNLOAD_PAGE_SIZE);
+      const nextCursor = visibleTasks.length > DOWNLOAD_PAGE_SIZE ? visibleTasks[DOWNLOAD_PAGE_SIZE - 1]!.id : null;
+      visibleTasks.splice(DOWNLOAD_PAGE_SIZE);
 
       const activeGids = new Map<string, (typeof visibleTasks)[number]>();
       for (const t of visibleTasks) {

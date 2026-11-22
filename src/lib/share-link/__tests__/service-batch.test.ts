@@ -21,6 +21,7 @@ const entry = (id: string, name: string, storageNodeId: string, teamId: string |
   id,
   name,
   relativePath: `docs/${name}`,
+  updatedAt: new Date(0),
   entryType: "FILE",
   storageNodeId,
   storageNode: { teamId },
@@ -31,7 +32,8 @@ beforeEach(() => {
   assertStorageAccess.mockResolvedValue({ allowed: true });
   mockPrisma.shareLink.create.mockImplementation(({ data }: { data: Record<string, unknown> }) => Promise.resolve({ id: `share_${String(data.path)}`, ...data, createdAt: new Date(), updatedAt: new Date() }));
   mockPrisma.$transaction.mockImplementation(fn => fn(mockPrisma));
-  mockPrisma.$queryRaw.mockResolvedValue([{ id: "node_a", teamId: "team_a" }]);
+  mockPrisma.$queryRaw.mockImplementation(async (query) => query.sql?.includes("FROM file_entries")
+    ? [{ id: "f1" }, { id: "f2" }] : [{ id: "node_a", teamId: "team_a" }]);
 });
 
 // Several files selected in the drive: one link each, made by one request.

@@ -88,6 +88,13 @@ describe("redacted account imports", () => {
     ]);
   });
 
+  it("keeps an existing import-placeholder administrator pending on a second standard restore", async () => {
+    const db = { user: { findMany: vi.fn().mockResolvedValue([{ id: user.id, status: "PENDING_PASSWORD_RESET", mustChangePassword: true, passwordHash: "DISABLED_IMPORT_RESET" }]),
+      findFirst: vi.fn().mockResolvedValue(null), update: vi.fn() } };
+    await importUsers(db as unknown as Tx, tables({ users: [user] }), options, counts(), "standard");
+    expect(db.user.update.mock.calls[0]![0].data).toMatchObject({ status: "PENDING_PASSWORD_RESET", mustChangePassword: true });
+  });
+
   it.each([
     ["ACTIVE", false, "DISABLED", false, true],
     ["ACTIVE", false, "ACTIVE", true, true],
@@ -112,11 +119,21 @@ describe("customer resource alignment", () => {
     [["narrow"], ["target"], ["target"]],
   ])("aligns only 1:1 template names (source %j, target %j)", async (sourceIds, targetIds, expected) => {
     const rows = sourceIds.map((id) => ({ ...identity, id, permissions: [id === "broad" ? "server:manage" : "server:read"] }));
-    const db = { identityTemplate: { findMany: vi.fn().mockResolvedValueOnce(targetIds.map((id) => ({ id, name: identity.name }))).mockResolvedValueOnce([]) },
+    const db = { identityTemplate: { findMany: vi.fn().mockResolvedValueOnce(targetIds.map((id) => ({ ...identity, id }))).mockResolvedValueOnce([]) },
       user: { findMany: vi.fn().mockResolvedValue([]) } } as unknown as Tx;
     const result = await alignImportIds(db, tables({ identityTemplates: rows, teamMembers: rows.map((row) => ({ ...member, userId: row.id, identityTemplateId: row.id })) }));
     expect(result.identityTemplates.map((row) => row.id)).toEqual(expected);
     expect(result.teamMembers.map((row) => row.identityTemplateId)).toEqual(expected);
+  });
+
+  it("never binds a custom template to a builtin or to a differently privileged namesake", async () => {
+    for (const target of [{ ...identity, id: "identity:customer_admin", isBuiltin: true }, { ...identity, id: "broad", permissions: ["server:connect"] }]) {
+      const db = { identityTemplate: { findMany: vi.fn().mockResolvedValueOnce([target]).mockResolvedValueOnce([]) } } as unknown as Tx;
+      const aligned = await alignImportIds(db, tables({ identityTemplates: [identity] }));
+      expect(aligned.identityTemplates[0]?.id).toBe(identity.id);
+    }
+    const db = { identityTemplate: { findMany: vi.fn().mockResolvedValue([]) } } as unknown as Tx;
+    await expect(alignImportIds(db, tables({ identityTemplates: [{ ...identity, isBuiltin: true }] }))).rejects.toThrow("IMPORT_TEMPLATE_KIND");
   });
 
   const team = { id: "source-team", slug: "acme", name: "Acme", description: null };

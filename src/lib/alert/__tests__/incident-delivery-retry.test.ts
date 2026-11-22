@@ -43,6 +43,11 @@ function apply(row: Row, data: Record<string, unknown>) {
 vi.mock("@/lib/db", () => ({
 	isUniqueViolation: () => false,
 	prisma: {
+		$queryRaw: vi.fn(async (sql: TemplateStringsArray, ...args: unknown[]) => {
+			const row = [...store.values()].find((item) => args.includes(item.id));
+			if (row && sql[0]?.startsWith("UPDATE")) apply(row, { status: "ACKNOWLEDGED", nextNotifyAt: null });
+			return row ? [{ ...row }] : [];
+		}),
 		$transaction<T>(callback: (tx: unknown) => Promise<T>) { return callback(this); },
 		alertIncident: {
 			findUnique: vi.fn(async ({ where }: { where: { fingerprint?: string; id?: string } }) => {
@@ -83,6 +88,10 @@ vi.mock("@/lib/db", () => ({
 			}),
 		},
 	},
+}));
+vi.mock("@/lib/alert/delivery-intent", async (original) => ({
+	...await original<typeof import("@/lib/alert/delivery-intent")>(),
+	currentDeliveryChannels: async () => ["in_app", "webhook", "email", "telegram"],
 }));
 vi.mock("@/lib/notification/service", () => ({ createNotification: vi.fn(async () => ({})) }));
 vi.mock("@/lib/notification/email", () => ({ sendAlertEmail: sendEmail }));

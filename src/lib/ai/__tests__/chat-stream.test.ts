@@ -126,6 +126,20 @@ describe("consumeProviderChatStream", () => {
     expect(onEvent).toHaveBeenCalledTimes(2);
   });
 
+  it("finishes a native empty input only when its block closes", async () => {
+    const start = (index: number) => ({ type: "content_block_start", index, content_block: { type: "tool_use", id: "c" + index, name: "list_servers", input: {} } });
+    const finish = (index: number) => ({ type: "content_block_stop", index });
+    const parse = (events: object[]) => consumeProviderChatStream({ providerType: "ANTHROPIC", onEvent: vi.fn(),
+      body: streamChunks(events.map((event) => "data: " + JSON.stringify(event) + "\n\n")) });
+    const complete = await parse([start(0), finish(0), start(1), { type: "content_block_delta", index: 1,
+      delta: { type: "input_json_delta", partial_json: "{}" } }, finish(1), { type: "message_stop" }]);
+    expect(complete.readError).toBeFalsy();
+    expect(complete.toolCalls.map((call) => call.function.arguments)).toEqual(["{}", "{}"]);
+    const truncated = await parse([start(0)]);
+    expect(truncated.readError).toBeTruthy();
+    expect(truncated.toolCalls[0]?.function.arguments).toBe("");
+  });
+
   it("keeps parsed output when the upstream reader fails", async () => {
     const upstreamError = new Error("upstream disconnected");
     let pullCount = 0;

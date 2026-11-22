@@ -11,6 +11,10 @@ describe("provider model lists", () => {
 		expect(stored).toBe('["gpt-4o","gpt-4o-mini"]');
 	});
 
+	it("can edit valid IDs in a legacy list containing oversized and non-string values", () => {
+		expect(modelsForEditing(JSON.stringify(["valid", "x".repeat(257), {}, "another"]))).toBe("valid,another");
+	});
+
 	it("still reads a comma list, and repairs a list earlier edits had wrapped in quotes and brackets", () => {
 		expect(parseStoredModels("gpt-4o-mini, gpt-4o")).toEqual(["gpt-4o-mini", "gpt-4o"]);
 		expect(parseStoredModels('["gpt-4o","gpt-4o-mini"]'.replace(/^\[|\]$/g, ""))).toEqual(["gpt-4o", "gpt-4o-mini"]);

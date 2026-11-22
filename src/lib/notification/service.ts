@@ -1,3 +1,4 @@
+import type { Prisma } from "@prisma/client";
 import { isGlobalTeamManager, type TeamSession } from "@/lib/auth/team-scope";
 import { prisma } from "@/lib/db";
 import { pushNotification, pushUnreadCount } from "@/lib/ws/notification-ws";
@@ -9,7 +10,7 @@ import { t } from "@/lib/i18n/service-translations";
 import { renderNotificationFallback, type NotificationMessage } from "./message";
 import { permissionHoldersWhere } from "@/lib/auth/permission-holders";
 
-import { currentRecipient, inboxWhere, PLATFORM_ANNOUNCEMENT, pushPayload, readUnreadCount, type StoredNotification } from "./inbox";
+import { currentRecipient, getVisibleNotificationForPush, inboxWhere, PLATFORM_ANNOUNCEMENT, pushPayload, readUnreadCount, type StoredNotification } from "./inbox";
 export { getUnreadCount, listUserNotifications, readUnreadCount, STORED_NOTIFICATION_SELECT, type StoredNotification } from "./inbox";
 
 const logger = createLogger("notification:service");
@@ -72,7 +73,7 @@ export function notificationContentData(content: NotificationContent) {
 	};
 }
 
-export async function createNotification(input: CreateNotificationInput, deliveryId?: string) {
+export async function createNotification(input: CreateNotificationInput, deliveryId?: string, attempt?: { signal: AbortSignal; deadline: number; beforeInsert?: (tx: Prisma.TransactionClient) => Promise<void> }) {
 	const data = {
 		userId: input.userId,
 		type: input.type,
@@ -82,9 +83,18 @@ export async function createNotification(input: CreateNotificationInput, deliver
 	};
 	// A lost commit acknowledgement can be retried with the same run/step
 	// key. Only the transaction that inserted the inbox row announces it.
-	const record = deliveryId
-		? (await prisma.notification.createManyAndReturn({ data: { ...data, id: deliveryId }, skipDuplicates: true }))[0]
-		: await prisma.notification.create({ data });
+	const insert = async (db: Prisma.TransactionClient) => {
+		await attempt?.beforeInsert?.(db);
+		attempt?.signal.throwIfAborted();
+		const record = deliveryId
+			? (await db.notification.createManyAndReturn({ data: { ...data, id: deliveryId }, skipDuplicates: true }))[0]
+			: await db.notification.create({ data });
+		attempt?.signal.throwIfAborted();
+		if (attempt && Date.now() >= attempt.deadline) throw new Error("Notification deadline expired");
+		return record;
+	};
+	const remaining = attempt && Math.max(1, attempt.deadline - Date.now());
+	const record = remaining ? await prisma.$transaction(insert, { timeout: remaining, maxWait: remaining }) : await insert(prisma);
 	if (!record) return prisma.notification.findUniqueOrThrow({ where: { id: deliveryId } });
 	await announceStoredNotifications([record]);
 	return record;
@@ -118,7 +128,10 @@ export async function announceStoredNotifications(records: readonly StoredNotifi
 						? row.type === PLATFORM_ANNOUNCEMENT
 						: row.teamId === recipient.currentTeamId;
 					if (!visible && !isGlobalTeamManager(recipient)) continue;
-					pushNotification(userId, pushPayload(row));
+					if (row.actionUrl?.startsWith("/alert-rules?incident=") && (row.type === "server_alert" || row.type === "alert_resolved")) {
+						const payload = await getVisibleNotificationForPush(userId, row.id);
+						if (payload) pushNotification(userId, payload);
+					} else pushNotification(userId, pushPayload(row));
 				}
 				await pushCurrentUnreadCount(userId);
 			});

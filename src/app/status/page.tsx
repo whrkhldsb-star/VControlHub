@@ -8,7 +8,7 @@ import { getServerLocale, t } from "@/lib/i18n/translations";
 import { createLogger } from "@/lib/logging";
 import { parseBoardQuery } from "@/lib/public-status/query";
 import { readPublicBoard } from "@/lib/public-status/read";
-import { getPublicStatusSummary } from "@/lib/status/service";
+import { getPublicStatusSummary } from "@/lib/public-status/platform";
 import { InternalStatusSection, healthDotClass, healthLabel } from "./internal-status-section";
 import { PublicBoardClient } from "./public-board-client";
 

@@ -4,6 +4,7 @@ const { prismaMock, createNotificationMock, fetchWebhookSafelyMock, sendAlertEma
 	prismaMock: {
 		$transaction<T>(callback: (tx: unknown) => Promise<T>) { return callback(this); },
 		$executeRaw: vi.fn(),
+		$queryRaw: vi.fn(async () => [{ id: "rule1" }]),
 		setting: { upsert: vi.fn(), findUnique: vi.fn(), deleteMany: vi.fn() },
 		userServerAccess: { findFirst: vi.fn() },
 		server: { findMany: vi.fn() },
@@ -398,7 +399,7 @@ describe("editing what a rule watches", () => {
 
 		expect(prismaMock.alertRule.update).toHaveBeenCalledWith({
 			where: { id: "rule1" },
-			data: { notifyChannels: ["in_app", "webhook"], threshold: 95 },
+			data: { notifyChannels: ["in_app", "webhook"], threshold: 95, matchState: {}, lastMatchedAt: null },
 		});
 	});
 
@@ -429,8 +430,8 @@ describe("editing what a rule watches", () => {
 		});
 	});
 
-	it("keeps them for an edit that leaves the metric as it is", async () => {
-		prismaMock.alertRule.findUnique.mockResolvedValue({ id: "rule1", metric: "cpu_usage" });
+	it("keeps timers when the effective condition is unchanged", async () => {
+		prismaMock.alertRule.findUnique.mockResolvedValue({ id: "rule1", metric: "cpu_usage", threshold: 95 });
 
 		await updateAlertRule("rule1", { metric: "cpu_usage", threshold: 95 });
 
@@ -440,7 +441,7 @@ describe("editing what a rule watches", () => {
 
 describe("binding playbooks to a rule", () => {
 	// The rule starts the playbook with nobody approving it: the caller must be allowed to run playbooks by hand.
-	const rule = { notifyChannels: ["in_app"], name: "Disk full", metric: "disk_usage", operator: "gte" as const, threshold: 95, playbookIds: ["pb_1"], serverIds: [] };
+	const rule = { teamId: "team_1", updatedAt: new Date(), notifyChannels: ["in_app"], name: "Disk full", metric: "disk_usage", operator: "gte" as const, threshold: 95, playbookIds: ["pb_1"], serverIds: [] };
 	const notifier = { userId: "u_9", roles: ["operator" as const], currentTeamId: "team_1", permissions: ["notification:manage" as const] };
 
 	beforeEach(() => {
@@ -490,7 +491,7 @@ describe("binding playbooks to a rule", () => {
 		prismaMock.alertRule.updateManyAndReturn.mockResolvedValueOnce([]);
 		await expect(updateAlertRule("rule1", { threshold: 50 }, notifier)).rejects.toMatchObject({ name: "ConflictError", status: 409 });
 		expect(prismaMock.alertRule.updateManyAndReturn).toHaveBeenCalledWith({
-			where: { id: "rule1", teamId: "team_1", enabled: true, notifyChannels: { equals: ["in_app"] }, playbookIds: { equals: [] }, serverIds: { equals: [] } }, data: { threshold: 50 },
+			where: { id: "rule1", teamId: "team_1", updatedAt: rule.updatedAt }, data: { threshold: 50, matchState: {}, lastMatchedAt: null },
 		});
 	});
 

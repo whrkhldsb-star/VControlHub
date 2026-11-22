@@ -1,6 +1,7 @@
 vi.mock("@/lib/storage/archive-access", () => ({
   openManagedArchive: async ({open}: {open: (excluded: string[]) => unknown}) => open([]),
 }));
+vi.mock("@/lib/storage/file-overwrite-lock", () => ({ lockStorageFileOverwrite: async () => async () => {} }));
 import { Readable } from "node:stream";
 import { mkdir, mkdtemp, rm, writeFile } from "node:fs/promises";
 
@@ -13,6 +14,9 @@ import { getRateLimitStore } from "@/lib/rate-limit-store";
 vi.mock("@/lib/share-link/service", async (importOriginal) => ({
   hashShareToken: (await importOriginal<typeof import("@/lib/share-link/service")>()).hashShareToken,
   authorizeShareDownload: vi.fn(),
+  assertShareStillAt: vi.fn(async () => {}),
+  recordShareDownload: vi.fn(async () => {}),
+  shareIgnoresCase: (await importOriginal<typeof import("@/lib/share-link/service")>()).shareIgnoresCase,
   assertShareTargetNotDeleted: vi.fn(async () => undefined),
   normalizeSharePath: vi.fn((value: string) => value.replace(/^\/+/, "")),
   releaseShareQuotaClaim: vi.fn(async () => undefined),
@@ -123,6 +127,18 @@ describe("share token file route", () => {
     expect(response.headers.get("content-security-policy")).toContain("sandbox");
     expect(vi.mocked(resolveShareToken).mock.calls[0]?.[3]).toMatchObject({ claimDownload: false });
     expect(releaseShareQuotaClaim).not.toHaveBeenCalled();
+  });
+
+  it("answers HEAD for a missing local object without a download claim", async () => {
+    vi.mocked(resolveShareToken).mockResolvedValueOnce({
+      id: "gone", storageNodeId: "local", storageNode: { id: "local", driver: "LOCAL", basePath: tempRoot },
+      path: "missing", name: "missing", entryType: "FILE",
+    } as never);
+    const response = await route.HEAD(new Request("http://local/api/share/token", { method: "HEAD" }), {
+      params: Promise.resolve({ token: "share-token-12345" }),
+    });
+    expect(response.status).toBe(404);
+    expect(vi.mocked(resolveShareToken).mock.lastCall?.[3]).toMatchObject({ claimDownload: false });
   });
 
   it.each<[string, string]>([['hello.txt', 'inline'], ['attack.html', 'attachment'], ['attack.svg', 'attachment']])("restricts inline content for %s", async (name: string, disposition: string) => {

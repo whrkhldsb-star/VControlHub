@@ -5,7 +5,7 @@
  * containing audit/test/_ci).
  */
 import { randomUUID } from "node:crypto";
-import { afterAll, beforeAll, describe, expect, it } from "vitest";
+import { afterAll, beforeAll, describe, expect, it, vi } from "vitest";
 
 import { prisma } from "@/lib/db";
 
@@ -162,6 +162,22 @@ describe.skipIf(!RUN)("alert incidents left behind by a changed rule (PostgreSQL
 		const left = await prisma.alertIncident.findMany({ where: { ruleId: rule("paged"), serverId: server("off"), status: { not: "RESOLVED" } }, select: { id: true } });
 		expect(left).toEqual([]);
 		expect(await prisma.alertIncident.count({ where: { ruleId: rule("paged"), status: "OPEN" } })).toBe(499);
+	});
+
+	it("keeps an incident whose host was re-enabled after the orphan scan", async () => {
+		const host = server("reactivated");
+		await prisma.server.create({ data: { id: host, name: host, teamId: team, enabled: false, host: "localhost", username: "test", tags: [] } });
+		const ruleId = rule("reactivated");
+		await prisma.alertRule.create({ data: { id: ruleId, teamId: team, name: ruleId, metric: "cpu_usage", operator: "gt", threshold: 80, serverIds: [host] } });
+		await prisma.alertIncident.create({ data: incident(ruleId, host, "cpu_usage") });
+		const scanned = vi.spyOn(prisma.server, "findMany").mockImplementationOnce((async () => {
+			await prisma.server.update({ where: { id: host }, data: { enabled: true } });
+			return [];
+		}) as never);
+		try {
+			expect(await resolveOrphanedAlertIncidents({ ruleTeamWhere: { id: ruleId } })).toEqual({ resolved: 0 });
+			expect(await statusOf(ruleId, host, "cpu_usage")).toBe("OPEN");
+		} finally { scanned.mockRestore(); }
 	});
 
 	it("continues both bounded sweeps past a stable prefix on the next evaluation", async () => {

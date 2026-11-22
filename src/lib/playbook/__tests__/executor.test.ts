@@ -3,6 +3,7 @@ import { beforeEach, describe, expect, it, vi } from "vitest";
 const { mocks } = vi.hoisted(() => ({
 	mocks: {
 		createCommandRequest: vi.fn(),
+		cancelCommandRequest: vi.fn(),
 		playbookRunUpdateMany: vi.fn(),
 		commandRequestFindUnique: vi.fn(),
 		recordJobEvent: vi.fn(),
@@ -12,11 +13,13 @@ const { mocks } = vi.hoisted(() => ({
 	},
 }));
 
-vi.mock("@/lib/command/service", () => ({ createCommandRequest: mocks.createCommandRequest }));
+vi.mock("@/lib/command/service", () => ({ createCommandRequest: mocks.createCommandRequest, cancelCommandRequest: mocks.cancelCommandRequest }));
 vi.mock("@/lib/job/events", () => ({ recordJobEvent: mocks.recordJobEvent }));
 vi.mock("@/lib/notification/service", () => ({ createNotification: mocks.notificationCreate }));
 vi.mock("@/lib/db", () => ({
 	prisma: {
+		user: { findFirst: vi.fn(async () => ({ id: "admin" })) },
+		notification: { findUnique: vi.fn(async () => null) },
 		playbookRun: { updateMany: mocks.playbookRunUpdateMany },
 		commandRequest: { findUnique: mocks.commandRequestFindUnique },
 		commandTarget: { findMany: vi.fn(async () => [{ status: "FAILED", outcomeUnknown: false }]) },
@@ -147,6 +150,54 @@ describe("executePlaybookChain", () => {
 		expect(mocks.notificationCreate).not.toHaveBeenCalled();
 	});
 
+	it.each([false, true])("shares one chain retry across two steps, including reclaim=%s", async (reclaim) => {
+		const steps: PlaybookRecord["steps"] = ["one", "two"].map((id) => ({
+			id, name: id, type: "run_command", config: { command: "pwd", serverIds: ["s"] }, retry: 0, timeoutSec: 60,
+		}));
+		mocks.commandRequestFindUnique.mockImplementation(async ({ where }) => where.id ? { id: where.id, status: "COMPLETED" } : null);
+		mocks.createCommandRequest.mockImplementation(async ({ idempotencyKey }) => {
+			if (idempotencyKey.endsWith(":a0")) throw new Error("queue unavailable");
+			return { id: idempotencyKey };
+		});
+		const consumed = { stepId: "one", attempt: 1, status: "ok" as const, summary: "", startedAt: "", completedAt: "" };
+		const { results } = await executePlaybookChain({
+			playbook: { id: "p", chainRetry: 1, steps }, runId: "r", dryRun: false, resumeResults: reclaim ? [consumed] : [],
+		});
+		expect(results.map((r) => [r.stepId, r.status, r.attempt])).toEqual([["one", "ok", 1], ["two", "failed", 0]]);
+		expect(mocks.createCommandRequest.mock.calls.map(([payload]) => payload.idempotencyKey)).toEqual([
+			...(reclaim ? [] : ["playbook:r:step:one:a0", "playbook:r:step:one:a1"]), "playbook:r:step:two:a0",
+		]);
+	});
+
+	it("stops the chain when a slow notification recipient lookup crosses its deadline", async () => {
+		vi.useFakeTimers();
+		try {
+			mocks.teamMemberFindUnique.mockImplementationOnce(() => new Promise((resolve) => setTimeout(() => resolve({ userId: "u" }), 1200)));
+			const step = { id: "one", name: "notify", type: "send_notification" as const,
+				config: { recipientUserId: "u", subject: "test", body: "test" }, retry: 1, timeoutSec: 1 };
+			const task = executePlaybookChain({ playbook: buildPlaybook([step, { ...step, id: "two" }]), runId: "r", teamId: "team", dryRun: false });
+			await vi.advanceTimersByTimeAsync(1001);
+			expect((await task).results).toEqual([expect.objectContaining({ stepId: "one", status: "failed", error: expect.stringContaining("timed out") })]);
+			await vi.advanceTimersByTimeAsync(200);
+			expect(mocks.notificationCreate).not.toHaveBeenCalled();
+		} finally { vi.useRealTimers(); }
+	});
+
+	it("reuses the original command deadline and never cancels after the parent loses its lease", async () => {
+		const { LeaseLostError } = await import("@/lib/job/heartbeat-runner");
+		const expired = new Date(Date.now() - 1000).toISOString();
+		mocks.commandRequestFindUnique.mockResolvedValue({ id: "child", status: "PENDING_APPROVAL", createdAt: new Date(0) });
+		const task = executePlaybookChain({
+			playbook: buildPlaybook([{ id: "one", name: "cmd", type: "run_command", config: { command: "pwd", serverIds: ["s"] }, timeoutSec: 60, retry: 0 }]),
+			runId: "r", dryRun: false, checkLease: async () => { throw new LeaseLostError("job"); },
+			resumeResults: [{ stepId: "one", status: "running", attempt: 0, startedAt: expired, deadlineAt: expired, summary: "", completedAt: "" }],
+		});
+		await expect(task).rejects.toThrow(LeaseLostError);
+		expect(mocks.commandRequestFindUnique).toHaveBeenCalledWith(expect.objectContaining({ where: expect.objectContaining({ idempotencyKey: "playbook:r:step:one:a0" }) }));
+		expect(mocks.createCommandRequest).not.toHaveBeenCalled();
+		expect(mocks.cancelCommandRequest).not.toHaveBeenCalled();
+	});
+
 	it("allows six attempts per round and six rounds at the valid retry limits", async () => {
 		const playbook = buildPlaybook([{
 			id: "s1", name: "cmd", type: "run_command", config: { command: "pwd", serverIds: ["srv1"] }, retry: 5, timeoutSec: 60,
@@ -188,7 +239,7 @@ describe("executePlaybookChain", () => {
 			title: "hi",
 			message: "world",
 			teamId: null,
-		}, expect.stringMatching(/^playbook-/));
+		}, expect.stringMatching(/^playbook-/), expect.objectContaining({ signal: expect.any(AbortSignal) }));
 	});
 
 	it("checks team membership before send_notification when run has teamId", async () => {
@@ -211,10 +262,10 @@ describe("executePlaybookChain", () => {
 		});
 		expect(results[0]?.status).toBe("ok");
 		expect(mocks.teamMemberFindUnique).toHaveBeenCalledWith({
-			where: { teamId_userId: { teamId: "team1", userId: "u1" } },
+			where: { teamId_userId: { teamId: "team1", userId: "u1" }, team: { deletedAt: null }, user: { status: { not: "DISABLED" } } },
 			select: { userId: true },
 		});
-		expect(mocks.notificationCreate).toHaveBeenCalledWith(expect.objectContaining({ userId: "u1", teamId: "team1" }), expect.stringMatching(/^playbook-/));
+		expect(mocks.notificationCreate).toHaveBeenCalledWith(expect.objectContaining({ userId: "u1", teamId: "team1" }), expect.stringMatching(/^playbook-/), expect.objectContaining({ signal: expect.any(AbortSignal) }));
 	});
 
 	it("fails send_notification when recipient is outside run team scope", async () => {
@@ -479,13 +530,11 @@ describe("executePlaybookChain", () => {
 		expect(results[0]?.commandRequestId).toBe("request-2");
 	});
 
-	it("does not resume a FAILED commandRequestId from resumeResults (reclaim after fail)", async () => {
+	it("keeps a confirmed failure when the reclaimed command has exhausted its budget", async () => {
 		mocks.createCommandRequest.mockResolvedValueOnce({ id: "request-fresh" });
-		// resolveResumableCommandRequestId sees FAILED on old id → discard
+		// The resumed attempt already consumed its only dispatch.
 		mocks.commandRequestFindUnique
-			.mockResolvedValueOnce({ status: "FAILED" })
-			// waitForCommand for fresh request
-			.mockResolvedValueOnce({ status: "COMPLETED" });
+			.mockResolvedValueOnce({ id: "request-old", status: "FAILED" });
 
 		const playbook = buildPlaybook([
 			{
@@ -512,13 +561,8 @@ describe("executePlaybookChain", () => {
 				},
 			],
 		});
-		expect(results[0]?.status).toBe("ok");
-		expect(mocks.createCommandRequest).toHaveBeenCalledWith(
-			expect.objectContaining({
-				idempotencyKey: "playbook:run-1:step:s1:a0",
-			}),
-		);
-		expect(results[0]?.commandRequestId).toBe("request-fresh");
+		expect(results[0]).toMatchObject({ status: "failed", commandRequestId: "request-old" });
+		expect(mocks.createCommandRequest).not.toHaveBeenCalled();
 	});
 
 	it("does not re-call a dispatched webhook on reclaim even when the step allows retries", async () => {

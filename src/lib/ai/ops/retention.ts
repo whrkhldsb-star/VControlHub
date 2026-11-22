@@ -7,8 +7,8 @@ import { AI_OPS_LOG_RETENTION_KEEP, AI_OPS_SCAN_JOB_TYPE, type AiOpsRecommendedA
 function excessCompletedJobs(cutoff: Date, types = Prisma.empty) {
 	return Prisma.sql`SELECT id, "updatedAt" FROM (
 		SELECT id, type, "updatedAt", row_number() OVER (PARTITION BY type ORDER BY "updatedAt" DESC, id DESC) AS position
-		FROM jobs WHERE status = 'COMPLETED' AND "updatedAt" < ${cutoff} ${types}
-	) ranked WHERE position > CASE WHEN type IN ('health.sample', 'traffic.sample') THEN 50 ELSE 200 END`;
+		FROM jobs WHERE status = 'COMPLETED' ${types}
+	) ranked WHERE "updatedAt" < ${cutoff} AND position > CASE WHEN type IN ('health.sample', 'traffic.sample') THEN 50 ELSE 200 END`;
 }
 
 export async function planJobCleanup(cutoff: Date) {
@@ -29,6 +29,13 @@ export async function pruneReviewedJobs(tx: Prisma.TransactionClient, scope: Non
 
 /** Keep the newest logs, including any inserted between finding the boundary and deleting. */
 export async function pruneAiOpsLogs(currentLogId?: string) {
+	// A process can also die on its final attempt. The queue reaper may then
+	// terminate or prune the Job without ever handing it to a new scan worker.
+	await prisma.$executeRaw`UPDATE ai_ops_logs l SET status = 'skipped', "completedAt" = CURRENT_TIMESTAMP,
+		"updatedAt" = CURRENT_TIMESTAMP, "errorMessage" = 'The scan lost its job lease'
+		WHERE l.status = 'running' AND l."jobId" IS NOT NULL AND NOT EXISTS (
+			SELECT 1 FROM jobs j WHERE j.id = l."jobId" AND j.status IN ('PENDING', 'RUNNING')
+		)`;
 	const [boundary] = await prisma.aiOpsLog.findMany({
 		orderBy: [{ createdAt: "desc" }, { id: "desc" }],
 		skip: AI_OPS_LOG_RETENTION_KEEP - 1,

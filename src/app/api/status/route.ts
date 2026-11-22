@@ -1,6 +1,6 @@
 import { apiCopy } from "@/lib/i18n/api-copy";
 import { NextResponse } from "next/server";
-import { getPublicStatus, getPublicStatusSummary } from "@/lib/status/service";
+import { getPublicStatus, getPublicStatusSummary } from "@/lib/public-status/platform";
 import { getApiSession } from "@/lib/auth/api-session";
 import { isGlobalTeamManager } from "@/lib/auth/team-scope";
 import { withApiRoute } from "@/lib/http/api-guard";

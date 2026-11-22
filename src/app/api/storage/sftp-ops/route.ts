@@ -319,7 +319,6 @@ async function handlePost(body: SftpOpsBody, session: SessionPayload) {
           where: { storageNodeId: node.id, relativePath: normalizedRelativePath, isDeleted: false },
           select: { entryType: true, size: true },
         });
-        const isDirectory = indexed ? indexed.entryType === "DIRECTORY" : Boolean(body.isDirectory);
         const size = indexed?.entryType === "FILE" ? indexed.size : null;
         renameAdmission = await assertStorageAccess({
           session, storageNodeId: node.id, relativePath: normalizedNewRelativePath, operation: "write",
@@ -334,9 +333,13 @@ async function handlePost(body: SftpOpsBody, session: SessionPayload) {
         releasePathLock = await lockStorageFileOverwrite(node.id, normalizedNewRelativePath, normalizedRelativePath);
         await assertNotRecycled(node.id, normalizedRelativePath, "write");
         await assertNotRecycled(node.id, normalizedNewRelativePath, "write");
+        const { remotePath: source } = await resolveStorageRemotePath(node, normalizedRelativePath, { credentials });
+        const stat = await statRemoteEntry({ ...credentials, remotePath: source });
+        const isDirectory = stat.type === "directory";
+        if ((!isDirectory && stat.type !== "file") || (indexed && (indexed.entryType === "DIRECTORY") !== isDirectory)) {
+          throw new ConflictError(apiCopy("apiCopy.files.op.changed"));
+        }
         if (renameAdmission.matchedGrantId && size != null) {
-          const { remotePath: source } = await resolveStorageRemotePath(node, normalizedRelativePath, { credentials });
-          const stat = await statRemoteEntry({ ...credentials, remotePath: source });
           const live = await prisma.fileEntry.findFirst({
             where: { storageNodeId: node.id, relativePath: normalizedRelativePath, isDeleted: false, entryType: "FILE", size },
             select: { id: true },
@@ -349,7 +352,8 @@ async function handlePost(body: SftpOpsBody, session: SessionPayload) {
         // The destination must be free in the index, recycle bin included. Otherwise the rewrite below put this
         // entry's rows among the destination's, the physical rename then failed (the target exists), and the
         // rollback moved the destination's own rows back here as well.
-        if (await sftpIndexHasPath(node.id, normalizedNewRelativePath)) {
+        if (await sftpIndexHasPath(node.id, normalizedNewRelativePath) ||
+            await statBackingObject({ storageNode: node, relativePath: normalizedNewRelativePath })) {
           throw new ConflictError(apiCopy("apiCopy.target.file.already.exists.0c91e640", { v0: normalizedNewRelativePath }));
         }
 
@@ -370,6 +374,7 @@ async function handlePost(body: SftpOpsBody, session: SessionPayload) {
             storageNode: node,
             oldRelativePath: normalizedRelativePath,
             newRelativePath: normalizedNewRelativePath,
+            noReplace: true,
           });
         } catch (physicalError) {
           // Physical rename failed — roll back the index to the old path.
@@ -378,6 +383,9 @@ async function handlePost(body: SftpOpsBody, session: SessionPayload) {
             await renameSftpIndex(node.id, normalizedNewRelativePath, normalizedRelativePath, isDirectory);
           } catch (rollbackError) {
             logger.error("index rollback failed after physical rename error; index may be inconsistent", rollbackError, { nodeId, oldPath: normalizedRelativePath, newPath: normalizedNewRelativePath });
+          }
+          if (await statBackingObject({ storageNode: node, relativePath: normalizedNewRelativePath })) {
+            throw new ConflictError(apiCopy("apiCopy.target.file.already.exists.0c91e640", { v0: normalizedNewRelativePath }));
           }
           throw physicalError;
         }

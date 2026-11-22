@@ -68,6 +68,24 @@ describe.skipIf(process.env.RUN_DATABASE_INTEGRATION_TESTS !== "1")("knowledge b
 		expect(await searchKnowledge({ session, knowledgeBaseId, query: "handover" })).toMatchObject([{ documentId: doc.id }]);
 	});
 
+	it("excludes archived owners from global reads, indexing and both phases of recall", async () => {
+		const baseId = teamId + "-002";
+		const admin = { ...session, currentTeamId: null, roles: ["admin" as const] };
+		const upload = { knowledgeBaseId: baseId, title: "archived", content: "archived runbook", session: admin };
+		await ingestKnowledgeDocument({ ...upload, session: undefined });
+		expect(await searchKnowledge({ knowledgeBaseId: baseId, query: "archived", session: admin })).toHaveLength(1);
+		await prisma.team.update({ where: { id: teamId }, data: { deletedAt: new Date() } });
+		try {
+			expect((await listKnowledgeBases(admin)).some((base) => base.id === baseId)).toBe(false);
+			expect(await getKnowledgeBase(baseId, admin)).toBeNull();
+			expect(await searchKnowledge({ query: "archived", knowledgeBaseId: baseId, session: admin })).toEqual([]);
+			await expect(ingestKnowledgeDocument(upload)).rejects.toMatchObject({ code: "NOT_FOUND" });
+			await expect(createKnowledgeBase({ name: "archived", session })).rejects.toMatchObject({ code: "NOT_FOUND" });
+		} finally {
+			await prisma.team.update({ where: { id: teamId }, data: { deletedAt: null } });
+		}
+	});
+
 	it("lists every active base, the oldest included", async () => {
 		const bases = await listKnowledgeBases(session);
 		expect(bases).toHaveLength(101);

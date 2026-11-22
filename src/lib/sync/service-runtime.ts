@@ -1,3 +1,4 @@
+import { cleanupEndpoint, encodeSyncRun, readSyncRun, type SyncRunReceipt } from "./run-receipt";
 import { t } from "@/lib/i18n/service-translations";
 import { apiCopy } from "@/lib/i18n/api-copy";
 /**
@@ -61,8 +62,9 @@ import {
 	mergeSyncStats,
 	rsyncFlagsForJob,
 	type OneWaySyncStats,
+	isProtectedDeleteTarget,
 } from "./bidirectional";
-import { isProtectedDeleteTarget } from "./bidirectional";
+import { mirrorDirectoryIdentities } from "./mirror-directories";
 import { assertDisjointSyncEndpoints, assertSyncEndpointsWithinReach, getSyncJobForExecution } from "./service-crud";
 
 /* ── remote command result ─────────────────────────────────── */
@@ -285,14 +287,14 @@ async function assertSyncSourceUsable(input: {
 	deleteOrphans: boolean;
 	createMissingSource: boolean;
 	confined: boolean;
-}): Promise<void> {
+}) {
 	// Jobs saved before the same check existed at creation are stopped here too.
 	if (input.deleteOrphans && isProtectedDeleteTarget(input.targetPath)) {
 		throw new Error(`Refusing to delete everything in ${input.targetPath} that the source does not hold: it is a system directory.`);
 	}
 	const probe = await execRemoteCommand({
 		...input.sourceSsh,
-		command: buildSyncSourceProbeCommand(input.sourcePath),
+		command: buildSyncSourceProbeCommand(input.sourcePath, input.deleteOrphans),
 		timeout: 15000,
 	});
 	assertSyncRemoteSucceeded(probe, "source check");
@@ -315,13 +317,14 @@ async function assertSyncSourceUsable(input: {
 	}
 	const prepared = await execRemoteCommand({
 		...input.targetSsh,
-		command: buildSyncTargetPrepareCommand(input.targetPath, input.confined),
+		command: buildSyncTargetPrepareCommand(input.targetPath, input.confined, input.deleteOrphans),
 		timeout: 15000,
 	});
 	assertSyncRemoteSucceeded(prepared, "target mkdir");
 	if (state === "empty" && input.deleteOrphans && prepared.stdout.includes("VCH_SYNC_TARGET=nonempty")) {
 		throw new Error(`Source directory ${input.sourcePath} is empty; refusing to delete everything in ${input.targetPath}. Check that the source is mounted and populated.`);
 	}
+	return input.deleteOrphans ? mirrorDirectoryIdentities(input.sourcePath, probe.stdout, input.targetPath, prepared.stdout) : undefined;
 }
 
 /* ── one leg ──────────────────────────────────────────────── */
@@ -336,9 +339,21 @@ function legFileStem(jobId: string, leg: SyncLeg): string {
 
 type SyncEndpointServer = NonNullable<Awaited<ReturnType<typeof getSyncJobForExecution>>>["sourceServer"];
 
+async function resolveSyncDirectory(server: SyncEndpointServer, directory: string) {
+	const ssh = await buildSshParamsFromServer(server, server.sshKey, server.teamId);
+	const response = await execRemoteCommand({ ...ssh, command: `realpath -m -- ${shellQuote(directory)}`, timeout: 15000 });
+	assertSyncRemoteSucceeded(response, "resolve sync directory");
+	const physical = response.stdout.replace(/\r?\n$/, "");
+	if (!physical.startsWith("/") || /[\x00-\x1f\x7f]/.test(physical)) throw new Error("Invalid physical sync directory");
+	return physical;
+}
+
 /** Fence cleanup to the same remote accounts, even when a Server record is repointed after a crash. */
-function endpointIdentity(job: { sourceServer: SyncEndpointServer; targetServer: SyncEndpointServer }) {
-	const endpoints = [job.sourceServer, job.targetServer].map(s => [s.id, s.teamId, s.host, s.port, s.username, s.hostKeySha256]);
+function endpointIdentity(job: { sourceServer: SyncEndpointServer; targetServer: SyncEndpointServer }, legacy = false) {
+	const endpoints = [job.sourceServer, job.targetServer].map(s => [
+		s.id, s.teamId, s.host, s.port, s.username, s.hostKeySha256,
+		...(legacy ? [] : [s.managementMode, s.operatingSystem, s.managementMode === "AGENT" ? s.agentTokenHash : null]),
+	]);
 	return createHash("sha256").update(JSON.stringify(endpoints)).digest("hex");
 }
 
@@ -388,7 +403,7 @@ async function runOneWayRsync(input: {
 	let receiverLease: string | undefined;
 	try {
 		await writePinnedKnownHosts(sourceSsh, legJobId, targetHost, targetPort, hostKeySha256);
-		await assertSyncSourceUsable({
+		const directories = await assertSyncSourceUsable({
 			sourceSsh,
 			targetSsh,
 			sourcePath: input.sourcePath,
@@ -417,7 +432,7 @@ async function runOneWayRsync(input: {
 		if (!targetCredentials) {
 			const keyPath = getSyncTempKeyPath(legJobId, useTar ? "tar" : "rsync");
 			sourceFiles.push(keyPath);
-			const transport = { receiverLease, confined: input.confined, auth: "one-time-key" as const, targetUser, targetHost, targetPort, keyPath, hostKeySha256, jobId: legJobId };
+			const transport = { ...directories, receiverLease, confined: input.confined, auth: "one-time-key" as const, targetUser, targetHost, targetPort, keyPath, hostKeySha256, jobId: legJobId };
 			command = useTar
 				? buildTarSyncCommand({ ...transport, sourcePath: input.sourcePath })
 				: buildRsyncCommand({ ...transport, sourcePath: input.sourcePath, flags: input.flags });
@@ -427,7 +442,7 @@ async function runOneWayRsync(input: {
 				jobId: input.jobId,
 				leg: input.leg,
 				transport,
-				gateScript: buildSyncGateScript({ receiverLease, confined: input.confined, mode: useTar ? "tar" : "rsync", targetPath: input.targetPath, allowDelete: input.deleteOrphans, jobId: legJobId }),
+				gateScript: buildSyncGateScript({ receiverLease, targetIdentity: directories?.targetIdentity, confined: input.confined, mode: useTar ? "tar" : "rsync", targetPath: input.targetPath, allowDelete: input.deleteOrphans, jobId: legJobId }),
 				targetLabel: `${input.targetServer.name ? `${input.targetServer.name} ` : ""}(${targetUser}@${targetHost}:${targetPort})`,
 				targetUsesPassword: input.targetServer.connectionType === "PASSWORD",
 			});
@@ -435,7 +450,7 @@ async function runOneWayRsync(input: {
 			// The original way: the target's own key, or else its password for sshpass, in the source's /tmp for the run.
 			const keyPath = targetCredentials.privateKey ? getSyncTempKeyPath(legJobId, useTar ? "tar" : "rsync") : undefined;
 			const passwordEnvPath = !keyPath && targetCredentials.password ? getSyncTempKeyPath(legJobId, "env") : undefined;
-			const transport = { receiverLease, confined: input.confined, auth: "credential" as const, targetUser, targetHost, targetPort, keyPath, passwordEnvPath, hostKeySha256, jobId: legJobId };
+			const transport = { ...directories, receiverLease, confined: input.confined, auth: "credential" as const, targetUser, targetHost, targetPort, keyPath, passwordEnvPath, hostKeySha256, jobId: legJobId };
 			// Built before anything secret is written, so a refused value never leaves a file behind.
 			command = useTar
 				? buildTarSyncCommand({ ...transport, sourcePath: input.sourcePath, targetPath: input.targetPath, deleteOrphans: input.deleteOrphans })
@@ -512,6 +527,10 @@ export async function executeSyncJob(
 	const runId = randomUUID();
 	const endpointsAtClaim = endpointIdentity(job);
 	const leaseId = `${runId}~${endpointsAtClaim}`;
+	const receipt: SyncRunReceipt = {
+		scope: { sourceServerId: job.sourceServerId, sourcePath: job.sourcePath, targetServerId: job.targetServerId, targetPath: job.targetPath },
+		cleanup: [cleanupEndpoint(job.sourceServer), cleanupEndpoint(job.targetServer)],
+	};
 	const owner = { id: jobId, status: "RUNNING" as const, activeRunId: leaseId };
 	await prisma.$transaction(async (tx) => {
 		const destinations = isBidirectionalSyncType(job.syncType)
@@ -530,7 +549,7 @@ export async function executeSyncJob(
 			data: { status: "RUNNING", activeRunId: leaseId },
 		});
 		if (!claimed.count) throw new Error("Sync job is already running or paused");
-		await tx.syncLog.create({ data: { id: leaseId, syncJobId: jobId, status: "RUNNING" } });
+		await tx.syncLog.create({ data: { id: leaseId, syncJobId: jobId, status: "RUNNING", errorMessage: encodeSyncRun(receipt) } });
 	});
 
 	let cleanupPending = false;
@@ -540,11 +559,14 @@ export async function executeSyncJob(
 			const changed = await tx.syncJob.updateMany({
 				where: owner,
 				data: cleanupPending
-					? { status: "RUNNING", activeRunId: CLEANUP_PREFIX + leaseId, lastSyncResult, lastSyncAt }
-					: { status, activeRunId: null, lastSyncResult, lastSyncAt },
+					? { status: "RUNNING", activeRunId: CLEANUP_PREFIX + leaseId, lastSyncResult: "Cleanup pending", lastSyncAt }
+					: { status, activeRunId: null, lastSyncResult: status === "ERROR" ? "Failed" : lastSyncResult, lastSyncAt },
 			});
 			if (!changed.count) return false;
-			await tx.syncLog.update({ where: { id: leaseId }, data: log });
+			await tx.syncLog.update({ where: { id: leaseId }, data: { ...log, ...(cleanupPending && { status: "RUNNING", completedAt: null }), errorMessage: encodeSyncRun({
+				scope: receipt.scope, cleanup: cleanupPending ? receipt.cleanup : undefined,
+				result: lastSyncResult, error: typeof log.errorMessage === "string" ? log.errorMessage : undefined,
+			}) } });
 			return true;
 		});
 	const controller = new AbortController();
@@ -580,10 +602,17 @@ export async function executeSyncJob(
 				{ serverId: current.sourceServerId, server: current.sourceServer, path: current.sourcePath, ...access.source },
 				{ serverId: current.targetServerId, server: current.targetServer, path: current.targetPath, ...access.target },
 			], session);
-			const sourcePath = paths?.[0]?.remotePath ?? current.sourcePath;
-			const targetPath = paths?.[1]?.remotePath ?? current.targetPath;
-			if (paths) assertDisjointSyncEndpoints({ ...current, sourcePath, targetPath });
-			return { sourcePath, targetPath, sourceConnection: paths?.[0]?.credentials, targetConnection: paths?.[1]?.credentials, confined: !!paths };
+			if (deleteOrphans && isProtectedDeleteTarget(current.targetPath)) throw new Error("Refusing mirror into a system directory");
+			const [sourcePath, targetPath] = paths ? paths.map(path => path.remotePath) : deleteOrphans
+				? await Promise.all([resolveSyncDirectory(current.sourceServer, current.sourcePath), resolveSyncDirectory(current.targetServer, current.targetPath)])
+				: [current.sourcePath, current.targetPath];
+			if (!sourcePath || !targetPath) throw new Error("Missing sync endpoint");
+			const sameHost = current.sourceServer.host.toLowerCase() === current.targetServer.host.toLowerCase()
+				&& current.sourceServer.port === current.targetServer.port;
+			assertDisjointSyncEndpoints({ ...current, sourcePath, targetPath,
+				targetServerId: sameHost ? current.sourceServerId : current.targetServerId });
+			if (deleteOrphans && isProtectedDeleteTarget(targetPath)) throw new Error(t("backend.sync.deleteTargetIsSystemDirectory"));
+			return { sourcePath, targetPath, sourceConnection: paths?.[0]?.credentials, targetConnection: paths?.[1]?.credentials, confined: !!paths || deleteOrphans };
 		};
 		const forwardPaths = await authorize(job, actor, false);
 		const flags = rsyncFlagsForJob({
@@ -772,19 +801,23 @@ export async function reclaimStaleRunningSyncJobs(options?: {
 					lastSyncResult: "Failed: worker lost; temporary SSH credential cleanup pending" },
 			});
 			if (!claimed.count) return false;
-			if (!retry) await tx.syncLog.updateMany({
-				where: { syncJobId: job.id, status: "RUNNING", ...(job.activeRunId ? { id: leaseId } : {}) },
-				data: { status: "FAILED", errorMessage: apiCopy("apiCopy.reclaimed.stale.running.sync.after.process.loss.8aa169ca"), completedAt: now },
-			});
 			return true;
 		});
 		if (!moved) continue;
 		try {
-			await sweepOneTimeSyncAccess(job.id, leaseId);
-			const released = await prisma.syncJob.updateMany({
-				where: { id: job.id, status: "RUNNING", activeRunId: marker },
-				data: { status: "ERROR", activeRunId: null,
-					lastSyncResult: "Failed: interrupted sync; temporary SSH credential cleanup completed" },
+			const receipt = await sweepOneTimeSyncAccess(job.id, leaseId);
+			const released = await prisma.$transaction(async tx => {
+				const summary = "Failed: interrupted sync; temporary SSH credential cleanup completed";
+				const result = await tx.syncJob.updateMany({
+					where: { id: job.id, status: "RUNNING", activeRunId: marker },
+					data: { status: "ERROR", activeRunId: null, lastSyncResult: summary },
+				});
+				if (result.count) await tx.syncLog.updateMany({
+					where: { syncJobId: job.id, ...(job.activeRunId && leaseId !== job.id ? { id: leaseId } : { status: "RUNNING" }) },
+					data: { status: "FAILED", completedAt: now, errorMessage: receipt ? encodeSyncRun({ scope: receipt.scope, result: summary,
+						error: receipt.error ?? apiCopy("apiCopy.reclaimed.stale.running.sync.after.process.loss.8aa169ca") }) : null },
+				});
+				return result;
 			});
 			if (released.count) reclaimed.push(job.id);
 		} catch (error) {
@@ -802,18 +835,33 @@ export async function reclaimStaleRunningSyncJobs(options?: {
  * Remove them on both servers, best effort: a one-time key line also stops
  * working at its expiry time, and the next install on that host removes it too.
  */
-async function sweepOneTimeSyncAccess(jobId: string, leaseId: string): Promise<void> {
+async function sweepOneTimeSyncAccess(jobId: string, leaseId: string) {
 	const job = await getSyncJobForExecution(jobId);
 	if (!job) throw new Error("Sync job unavailable for credential cleanup");
 	// Plain run ids predate endpoint binding and still name their original temporary files.
 	const [runId, identity] = leaseId.split("~");
-	if (!runId || (identity && identity !== endpointIdentity(job))) throw new Error("Sync endpoint changed before credential cleanup");
-	const servers = [job.sourceServer, job.targetServer].filter((server, index, all) => all.findIndex((other) => other.id === server.id) === index);
+	if (!runId) throw new Error("Missing sync run identity");
+	const receipt = readSyncRun((await prisma.syncLog.findUnique({ where: { id: leaseId }, select: { errorMessage: true } }))?.errorMessage, true);
+	const changed = Boolean(identity && identity !== endpointIdentity(job, !receipt));
+	if (changed && !receipt?.cleanup) throw new Error("Original sync endpoint unavailable for cleanup");
+	const endpoints = changed && receipt?.cleanup ? receipt.cleanup : [job.sourceServer, job.targetServer];
+	const servers = endpoints.filter((server, index) => endpoints.findIndex(other => other.id === server.id) === index);
 	const files = (["fwd", "rev"] as const).flatMap((leg) => (["rsync", "tar", "env", "known_hosts"] as const).map((purpose) => getSyncTempKeyPath(legFileStem(runId, leg), purpose)));
 	const retire = (["fwd", "rev"] as const)
 		.map(leg => retireSyncReceiverLease(syncReceiverLeasePath(legFileStem(runId, leg)))).join("\n");
 	const results = await Promise.allSettled(servers.map(async server => {
-		const ssh = await buildSshParamsFromServer(server, server.sshKey);
+		const live = server.id === job.sourceServer.id ? job.sourceServer : job.targetServer;
+		const sameEndpoint = !changed || (server.teamId === live.teamId && server.host === live.host && server.port === live.port
+			&& server.username === live.username && server.hostKeySha256 === live.hostKeySha256 && server.managementMode === live.managementMode
+			&& server.operatingSystem === live.operatingSystem && (server.managementMode !== "AGENT" || server.agentTokenHash === live.agentTokenHash));
+		const sameAgent = server.managementMode === "AGENT" && !server.sshKey?.privateKey && !server.password && !!server.agentTokenHash
+			&& live.managementMode === "AGENT" && server.teamId === live.teamId && server.agentTokenHash === live.agentTokenHash;
+		if (!sameEndpoint && !sameAgent && !server.hostKeySha256) throw new Error("Missing original host key for cleanup");
+		// A moved profile can no longer authorize a command by server ID. Its sealed SSH snapshot authenticates
+		// the original host for this run's cleanup only. An unchanged agent token can still address that agent.
+		const ssh = sameEndpoint ? await buildSshParamsFromServer(live, live.sshKey, live.teamId)
+			: sameAgent ? await buildSshParamsFromServer(server, null, server.teamId)
+			: await buildSshParamsFromServer({ ...server, managementMode: "DIRECT" }, server.sshKey);
 		const result = await execRemoteCommand({
 			...ssh,
 			command: `${retire}\nrm -f -- ${files.map(shellQuote).join(" ")} || exit 1\n${buildOneTimeKeyRevokeCommand({ jobId: runId })}`,
@@ -822,4 +870,5 @@ async function sweepOneTimeSyncAccess(jobId: string, leaseId: string): Promise<v
 		assertSyncRemoteSucceeded(result, "removing temporary sync credentials");
 	}));
 	for (const result of results) if (result.status === "rejected") throw result.reason;
+	return receipt;
 }

@@ -18,6 +18,7 @@ type MutableChatStreamState = Omit<ChatStreamState, "toolCalls"> & {
   toolCalls: Array<AiToolCall | undefined>;
   /** Where the call a provider numbers `index` is kept, when that is not `index` itself (see applyOpenAiEvent). */
   openAiSlots: Map<number, number>;
+  emptyAnthropicInputs: Set<number>;
 };
 
 type JsonRecord = Record<string, unknown>;
@@ -103,6 +104,8 @@ function applyAnthropicEvent(
     if (block?.type === "tool_use") {
       const index = toolIndex(event.index, state.toolCalls.length);
       const initialInput = record(block.input);
+      if (initialInput && !Array.isArray(initialInput) && !Object.keys(initialInput).length) state.emptyAnthropicInputs.add(index);
+      else state.emptyAnthropicInputs.delete(index);
       state.toolCalls[index] = {
         id: stringValue(block.id),
         type: "function",
@@ -118,6 +121,11 @@ function applyAnthropicEvent(
     return;
   }
 
+  if (type === "content_block_stop") {
+    const index = toolIndex(event.index, Math.max(0, state.toolCalls.length - 1));
+    const call = state.toolCalls[index];
+    if (state.emptyAnthropicInputs.delete(index) && call && !call.function.arguments) call.function.arguments = "{}";
+  }
   if (type === "message_start") {
     const usage = record(record(event.message)?.usage);
     state.inputTokens = numberValue(usage?.input_tokens) ?? state.inputTokens;
@@ -230,6 +238,7 @@ export async function consumeProviderChatStream(input: {
     outputTokens: 0,
     toolCalls: [],
     openAiSlots: new Map(),
+    emptyAnthropicInputs: new Set(),
   };
   const reader = input.body.getReader();
   let timedOut = false;

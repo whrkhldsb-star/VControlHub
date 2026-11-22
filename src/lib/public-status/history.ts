@@ -15,6 +15,7 @@
  *   twice its recorded interval (legacy rows: the former fixed 5 minutes).
  *   Time not covered is unknown, not up and not down.
  */
+import type { Prisma } from "@prisma/client";
 import { sampleCoverageSql } from "@/lib/uptime/coverage";
 import { prisma } from "@/lib/db";
 import { LEGACY_SAMPLE_INTERVAL_SECONDS } from "./status";
@@ -93,8 +94,8 @@ function r1(value: number | null): number | null {
 	return value === null ? null : Math.round(value * 10) / 10;
 }
 
-export async function queryResourceBuckets(serverId: string, from: Date, to: Date, bucketSeconds: number) {
-	return prisma.$queryRaw<ResourceRow[]>`
+export async function queryResourceBuckets(serverId: string, from: Date, to: Date, bucketSeconds: number, db: Prisma.TransactionClient = prisma) {
+	return db.$queryRaw<ResourceRow[]>`
 		SELECT
 			date_bin(make_interval(secs => ${bucketSeconds}::float8), "createdAt", ${from}::timestamp) AS b,
 			avg("cpuUsage") FILTER (WHERE "isOnline") AS cpu,
@@ -121,10 +122,10 @@ export async function queryResourceBuckets(serverId: string, from: Date, to: Dat
 
 type NetworkRow = { b: Date; rx: number | null; tx: number | null };
 
-export async function queryNetworkBuckets(serverId: string, from: Date, to: Date, bucketSeconds: number) {
+export async function queryNetworkBuckets(serverId: string, from: Date, to: Date, bucketSeconds: number, db: Prisma.TransactionClient = prisma) {
 	// Look back one rate gap so the first in-window sample can have a baseline.
 	const lookback = new Date(from.getTime() - MAX_RATE_GAP_SECONDS * 1000);
-	return prisma.$queryRaw<NetworkRow[]>`
+	return db.$queryRaw<NetworkRow[]>`
 		SELECT b, avg(rx) AS rx, avg(tx) AS tx
 		FROM (
 			SELECT
@@ -163,8 +164,8 @@ type CoverageRow = {
  * Covered and online-covered seconds in [from, to): each sample covers the
  * time to the next sample (or to `to`), capped at twice its interval.
  */
-export async function queryCoverage(serverId: string, from: Date, to: Date): Promise<{ samples: number; covered: number; onlineCovered: number; interval: number | null }> {
-	const rows = await prisma.$queryRaw<CoverageRow[]>`
+export async function queryCoverage(serverId: string, from: Date, to: Date, db: Prisma.TransactionClient = prisma): Promise<{ samples: number; covered: number; onlineCovered: number; interval: number | null }> {
+	const rows = await db.$queryRaw<CoverageRow[]>`
 		SELECT
 			count(*) FILTER (WHERE in_window) AS samples,
 			sum(span) AS covered,

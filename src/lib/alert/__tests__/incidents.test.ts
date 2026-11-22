@@ -3,6 +3,7 @@ import { beforeEach, describe, expect, it, vi } from "vitest";
 const { prismaMock, createNotificationMock, sendEmailMock, sendTelegramMock, webhookMock } = vi.hoisted(() => ({
   prismaMock: {
     $transaction: vi.fn(),
+    $executeRaw: vi.fn(),
     $queryRaw: vi.fn(),
     setting: { findUnique: vi.fn(), upsert: vi.fn(), deleteMany: vi.fn() },
     alertIncident: {
@@ -31,6 +32,10 @@ const { prismaMock, createNotificationMock, sendEmailMock, sendTelegramMock, web
 }));
 
 vi.mock("@/lib/db", () => ({ prisma: prismaMock, isUniqueViolation: (e: unknown) => typeof e === "object" && e !== null && "code" in e && (e as { code?: string }).code === "P2002" }));
+vi.mock("@/lib/alert/delivery-intent", async (original) => ({
+  ...await original<typeof import("@/lib/alert/delivery-intent")>(),
+  currentDeliveryChannels: async () => ["in_app", "webhook", "email", "telegram"],
+}));
 vi.mock("@/lib/notification/service", () => ({ createNotification: createNotificationMock }));
 vi.mock("@/lib/notification/email", () => ({ sendAlertEmail: sendEmailMock }));
 vi.mock("@/lib/notification/telegram", () => ({ sendAlertTelegram: sendTelegramMock }));
@@ -48,6 +53,8 @@ import {
 describe("alert incidents", () => {
   beforeEach(() => {
     vi.clearAllMocks();
+    prismaMock.$executeRaw.mockResolvedValue(0);
+    prismaMock.alertIncident.updateMany.mockResolvedValue({ count: 1 });
     prismaMock.$transaction.mockImplementation((fn) => fn(prismaMock));
     prismaMock.user.findMany.mockResolvedValue([{ id: "admin1" }]);
     createNotificationMock.mockResolvedValue({});
@@ -293,33 +300,17 @@ describe("alert incidents", () => {
   });
 
   it("acknowledges open incidents", async () => {
-    prismaMock.alertIncident.findUnique.mockResolvedValue({
-      id: "inc1",
-      status: "OPEN",
-    });
-    prismaMock.alertIncident.updateMany.mockResolvedValue({ count: 1 });
-
-    const result = await acknowledgeAlertIncident({ incidentId: "inc1", userId: "u1" });
-    expect(result.status).toBe("ACKNOWLEDGED");
-    expect(prismaMock.alertIncident.updateMany).toHaveBeenCalledWith(
-      expect.objectContaining({
-        // Only while still OPEN: a concurrent resolve must win.
-        where: { id: "inc1", status: "OPEN" },
-        data: expect.objectContaining({
-          status: "ACKNOWLEDGED",
-          acknowledgedById: "u1",
-        }),
-      }),
-    );
+    const row = { id: "inc1", status: "OPEN", createdAt: new Date(), teamId: "customer" };
+    prismaMock.$queryRaw.mockResolvedValueOnce([row]).mockResolvedValueOnce([{ ...row, status: "ACKNOWLEDGED" }]);
+    const result = await acknowledgeAlertIncident({ incidentId: row.id, userId: "u1", openedAt: row.createdAt });
+    expect(result).toMatchObject({ status: "ACKNOWLEDGED", teamId: "customer" });
+    expect(prismaMock.$queryRaw.mock.calls[1]![0].join("?")).toContain("i.status = 'OPEN'");
   });
 
   it("refuses to acknowledge an incident resolved after it was read", async () => {
-    prismaMock.alertIncident.findUnique
-      .mockResolvedValueOnce({ id: "inc1", status: "OPEN" })
-      .mockResolvedValueOnce({ status: "RESOLVED" });
-    prismaMock.alertIncident.updateMany.mockResolvedValue({ count: 0 });
-
-    await expect(acknowledgeAlertIncident({ incidentId: "inc1", userId: "u1" })).rejects.toThrow();
+    const row = { id: "inc1", status: "OPEN", createdAt: new Date() };
+    prismaMock.$queryRaw.mockResolvedValueOnce([row]).mockResolvedValueOnce([]).mockResolvedValueOnce([{ ...row, status: "RESOLVED" }]);
+    await expect(acknowledgeAlertIncident({ incidentId: "inc1", userId: "u1" })).rejects.toMatchObject({ name: "ValidationError" });
   });
 
   it("lets only one of two concurrent resolutions notify", async () => {
@@ -584,29 +575,22 @@ describe("alert incidents", () => {
     // server that no longer exists / is disabled; the escalation scan then sees
     // nothing left to page.
     prismaMock.alertIncident.findMany
-      .mockResolvedValueOnce([{ id: "inc-orphan", serverId: "gone-srv" }])
+      .mockResolvedValueOnce([{ id: "inc-orphan", serverId: "gone", createdAt: new Date(), rule: { teamId: null } }])
       .mockResolvedValue([]);
     // Server row is gone (or disabled) → not returned by the enabled-only lookup.
-    prismaMock.server.findMany.mockResolvedValue([]);
-    prismaMock.alertIncident.updateMany.mockResolvedValue({ count: 1 });
-
+    prismaMock.server.findMany.mockResolvedValueOnce([]);
+    prismaMock.$executeRaw.mockResolvedValueOnce(1);
     const result = await escalateOverdueAlertIncidents();
-
     expect(result.orphansResolved).toBe(1);
     expect(result.escalated).toBe(0);
-    expect(prismaMock.alertIncident.updateMany).toHaveBeenCalledWith(
-      expect.objectContaining({
-        where: expect.objectContaining({ id: { in: ["inc-orphan"] } }),
-        data: expect.objectContaining({ status: "RESOLVED" }),
-      }),
-    );
+    expect(prismaMock.$executeRaw.mock.calls[0]![0].join("?")).toContain('i."createdAt" = v.opened');
     // A deleted/disabled host must never be escalated or re-paged.
     expect(createNotificationMock).not.toHaveBeenCalled();
   });
 
   it("keeps incidents whose target server still exists and is enabled", async () => {
     prismaMock.alertIncident.findMany
-      .mockResolvedValueOnce([{ id: "inc-live", serverId: "live-srv" }])
+      .mockResolvedValueOnce([{ id: "inc-live", serverId: "live-srv", metric: "cpu_usage", createdAt: new Date(), rule: { teamId: null, enabled: true, metric: "cpu_usage", serverIds: [] } }])
       .mockResolvedValue([]);
     prismaMock.server.findMany.mockResolvedValue([{ id: "live-srv" }]);
     prismaMock.alertIncident.updateMany.mockResolvedValue({ count: 0 });
@@ -614,6 +598,7 @@ describe("alert incidents", () => {
     const result = await escalateOverdueAlertIncidents();
 
     expect(result.orphansResolved).toBe(0);
+    expect(prismaMock.$executeRaw).not.toHaveBeenCalled();
     // The only updateMany permitted here is the (skipped) escalation claim, never
     // an orphan resolve — the live server keeps its incident open.
     for (const call of prismaMock.alertIncident.updateMany.mock.calls) {
@@ -669,15 +654,11 @@ describe("alert incidents", () => {
   });
 
   it("refuses to acknowledge an event owned by the transferred host's old customer", async () => {
-    prismaMock.alertIncident.findUnique.mockResolvedValue({ id: "event-a", serverId: "transferred", ruleId: "rule-a", status: "OPEN", rule: { id: "rule-a", teamId: "team-a" } });
-    prismaMock.server.findFirst.mockResolvedValue({ id: "transferred" });
-    prismaMock.alertRule.findFirst.mockResolvedValue(null);
+    prismaMock.$queryRaw.mockResolvedValueOnce([]);
     await expect(acknowledgeAlertIncident({
-      incidentId: "event-a", userId: "user-b",
-      session: { userId: "user-b", roles: ["operator"], currentTeamId: "team-b" },
+      incidentId: "moved", userId: "u", session: { userId: "u", roles: [], currentTeamId: "team-b" },
     })).rejects.toMatchObject({ status: 404 });
-    expect(prismaMock.alertRule.findFirst).toHaveBeenCalledWith({ where: { id: "rule-a", teamId: "team-b" }, select: { id: true } });
-    expect(prismaMock.alertIncident.updateMany).not.toHaveBeenCalled();
+    expect(prismaMock.$queryRaw.mock.calls[0]?.at(-1).text).toContain('s."teamId"');
   });
 
   it("preserves the platform administrator's all-customers incident history", async () => {

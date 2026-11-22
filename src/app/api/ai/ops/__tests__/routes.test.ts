@@ -540,6 +540,20 @@ describe("/api/ai/ops/* routes", () => {
 			expect(body.providerId).toBe("anthropic");
 		});
 
+		it("requires a fresh owner check to reauthorize the same provider configuration", async () => {
+			mocks.getSetting.mockImplementation(async (key: string) => key === "ai.ops.provider" ? "anthropic" : "");
+			const request = () => new Request("http://local/api/ai/ops/settings", { method: "PATCH",
+				body: JSON.stringify({ mode: "recommendation", providerId: "anthropic", reauthorizeProvider: true }) });
+			expect((await settingsRoute.PATCH(request())).status).toBe(200);
+			expect(mocks.setManySettings).toHaveBeenCalledWith(expect.arrayContaining([
+				{ key: "ai.ops.providerBinding", value: expect.stringContaining('"fingerprint"') },
+			]), "u-admin");
+			mocks.setManySettings.mockClear();
+			mocks.aiProviderFindFirst.mockResolvedValueOnce(null);
+			expect((await settingsRoute.PATCH(request())).status).toBe(400);
+			expect(mocks.setManySettings).not.toHaveBeenCalled();
+		});
+
 		it("leaves the stored provider untouched when providerId is omitted", async () => {
 			mocks.getSetting.mockImplementation(async (key: string) => {
 				if (key === "ai.ops.mode") return "recommendation";

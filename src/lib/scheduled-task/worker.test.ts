@@ -18,6 +18,7 @@ const {
   recordTaskDispatchMock,
   recordTaskRunMock,
   assertRequesterMayExecuteCommandMock,
+  ownerSessionMock, serverCountMock,
   infoMock,
   warnMock,
   errorMock,
@@ -38,6 +39,7 @@ const {
   recordTaskDispatchMock: vi.fn(),
   recordTaskRunMock: vi.fn(),
   assertRequesterMayExecuteCommandMock: vi.fn(),
+  ownerSessionMock: vi.fn(), serverCountMock: vi.fn(),
   infoMock: vi.fn(),
   warnMock: vi.fn(),
   errorMock: vi.fn(),
@@ -45,6 +47,7 @@ const {
 
 vi.mock("@/lib/db", () => ({
   prisma: {
+    server: { count: serverCountMock },
     scheduledTask: {
       findMany: scheduledTaskFindManyMock,
       updateMany: scheduledTaskUpdateManyMock,
@@ -67,6 +70,7 @@ vi.mock("@/lib/command/service", () => ({
 vi.mock("@/lib/auth/command-execution-authz", () => ({
   assertRequesterMayExecuteCommand: assertRequesterMayExecuteCommandMock,
 }));
+vi.mock("@/lib/api-token/authorization", () => ({ loadJobOwnerSession: ownerSessionMock }));
 
 vi.mock("./service", () => ({
   reconcileScheduledTaskRuns: reconcileScheduledTaskRunsMock,
@@ -120,6 +124,17 @@ function makeJob(overrides: Partial<Record<string, unknown>> = {}) {
 }
 
 describe("scheduled-task durable job worker", () => {
+  it("skips an occurrence when any of its targets lost the creator's connect grant", async () => {
+    const task = makeTask({ teamId: "team", serverIds: ["srv-1", "srv-2"] });
+    scheduledTaskFindManyMock.mockResolvedValueOnce([task]);
+    ownerSessionMock.mockResolvedValue({ userId: "user-1", roles: ["operator"], currentTeamId: "team" });
+    serverCountMock.mockResolvedValueOnce(1);
+    await dispatchDueScheduledTasks("test");
+    expect(serverCountMock).toHaveBeenCalledOnce();
+    expect(recordTaskRunMock).toHaveBeenCalledWith(task.id, expect.any(String), "skipped", expect.anything());
+    expect(createCommandRequestMock).not.toHaveBeenCalled();
+  });
+
   beforeEach(() => {
     vi.useFakeTimers();
     vi.clearAllMocks();
@@ -201,7 +216,7 @@ describe("scheduled-task durable job worker", () => {
       teamId: undefined,
       approvalRequired: true,
       idempotencyKey: "scheduled-task:task-1:2026-01-01T00:00:00.000Z",
-    });
+    }, undefined, undefined, expect.any(Function));
     expect(recordTaskDispatchMock).toHaveBeenCalledWith("task-1", "cmd-1", false, {
       occurrence: new Date("2026-01-01T00:00:00.000Z"),
       lease: expect.any(Date),
@@ -297,8 +312,8 @@ describe("scheduled-task durable job worker", () => {
 
     // The first only files a request for an approver; it runs on that approval. The second runs on the
     // creator's own authority, so the creator must still hold the permission to execute.
-    expect(assertRequesterMayExecuteCommandMock).toHaveBeenNthCalledWith(1, "user-1", undefined, undefined, { requireExecutePermission: false });
-    expect(assertRequesterMayExecuteCommandMock).toHaveBeenNthCalledWith(2, "user-1", undefined, undefined, { requireExecutePermission: true });
+    expect(assertRequesterMayExecuteCommandMock).toHaveBeenNthCalledWith(1, "user-1", undefined, "srv-1", { requireExecutePermission: false });
+    expect(assertRequesterMayExecuteCommandMock).toHaveBeenNthCalledWith(2, "user-1", undefined, "srv-1", { requireExecutePermission: true });
   });
 
   it("skips dispatch when the creator is no longer authorized, without claiming the row", async () => {

@@ -56,7 +56,7 @@ vi.mock("@/lib/job/service", () => ({
 }));
 
 vi.mock("@/lib/concurrency/advisory-lock", () => ({
-  acquireAdvisoryLock: vi.fn(async () => vi.fn(async () => undefined)),
+  lockForTransaction: vi.fn(async () => undefined),
 }));
 
 vi.mock("@/lib/health/service-alerts", () => ({
@@ -78,8 +78,9 @@ vi.mock("@/lib/ai/service-runtime", () => ({
 
 vi.mock("@/lib/db", () => ({
   prisma: {
-    setting: { findMany: vi.fn(async ({ where }) => Promise.all(where.key.in.map(async (key: string) => ({ key, value: await getSettingMock(key) })))) },
+    setting: { findUnique: vi.fn(async () => null), upsert: vi.fn(), findMany: vi.fn(async ({ where }) => Promise.all(where.key.in.map(async (key: string) => ({ key, value: await getSettingMock(key) })))) },
     $transaction: vi.fn(async (run) => run(prisma)),
+    $executeRaw: vi.fn(),
     job: {
       findFirst: jobMocks.findFirst,
       findMany: vi.fn(async () => []),
@@ -341,6 +342,28 @@ describe("runAiOpsScanWorkerOnce", () => {
     expect(update.findings.find((finding) => finding.id === "scan.incomplete")?.body).toContain("command.execution");
   });
 
+  it("filters each customer-owned failure and rule count to active customers plus platform records", async () => {
+    await runAiOpsScanWorkerOnce();
+    const live = { OR: [{ teamId: null }, { team: { deletedAt: null } }] };
+    for (const counter of [backupFailureCountMock, alertCountMock, commandFailureCountMock]) {
+      expect(counter).toHaveBeenCalledWith({ where: expect.objectContaining(live) });
+    }
+    expect(playbookFailureCountMock).toHaveBeenCalledWith({ where: expect.objectContaining({ playbook: live }) });
+  });
+
+  it("closes a replaced attempt and leaves acknowledgement to the lease owner when the final reservation loses", async () => {
+    jobMocks.claimNextJob.mockResolvedValueOnce({ id: "retry", payload: {}, attempts: 2, maxAttempts: 2 });
+    vi.mocked(prisma.job.updateMany).mockResolvedValueOnce({ count: 0 });
+    await runAiOpsScanWorkerOnce("scheduled", { claimOnly: true });
+    expect(prisma.aiOpsLog.updateMany).toHaveBeenCalledWith({
+      where: { jobId: "retry", status: "running", completedAt: null },
+      data: expect.objectContaining({ status: "skipped", completedAt: expect.any(Date) }),
+    });
+    expect(prisma.aiOpsLog.create).toHaveBeenCalledWith({ data: expect.objectContaining({ id: "retry:attempt:2" }) });
+    expect(jobMocks.completeJob).not.toHaveBeenCalled();
+    expect(jobMocks.failJob).not.toHaveBeenCalled();
+  });
+
   it("files the daily timer's scan as scheduled", async () => {
     jobMocks.claimNextJob.mockResolvedValueOnce({ id: "job_1", payload: { reason: "scheduled", requestedAt: new Date().toISOString() } });
     await runAiOpsScanWorkerOnce("scheduled");
@@ -377,7 +400,7 @@ describe("runAiOpsScanWorkerOnce", () => {
     await runAiOpsScanWorkerOnce();
     expect(jobMocks.failJob).not.toHaveBeenCalled();
     expect(prisma.job.updateMany).toHaveBeenCalledWith({
-      where: { id: "job_1", status: "RUNNING", workerId: expect.any(String) },
+      where: { id: "job_1", status: "RUNNING", workerId: expect.any(String), attempts: 2 },
       data: expect.objectContaining({ status: "PENDING", attempts: { decrement: 1 } }),
     });
     expect(prisma.$transaction).toHaveBeenCalled();
@@ -420,18 +443,15 @@ describe("runAiOpsScanWorkerOnce", () => {
   });
 
   it("holds the enqueue lock until the job insert commits", async () => {
-    const { acquireAdvisoryLock } = await import("@/lib/concurrency/advisory-lock");
-    const released = vi.fn(async () => undefined);
-    vi.mocked(acquireAdvisoryLock).mockResolvedValueOnce(released);
+    const { lockForTransaction } = await import("@/lib/concurrency/advisory-lock");
     const committed = Promise.withResolvers<{ id: string }>();
     jobMocks.enqueueJob.mockReturnValueOnce(committed.promise);
     const job = requestAiOpsScan("manual", "observe", "admin", "recommendation");
     await vi.waitFor(() => expect(jobMocks.enqueueJob).toHaveBeenCalledOnce());
-    expect(released).not.toHaveBeenCalled();
+    expect(lockForTransaction).toHaveBeenCalledWith(jobMocks.enqueueJob.mock.calls[0]![1], "ai-ops-scan-enqueue", "global");
     expect(jobMocks.enqueueJob.mock.calls[0]![0]).toMatchObject({ createdBy: "admin", payload: { mode: "recommendation" } });
     committed.resolve({ id: "queued" });
     expect(await job).toEqual({ id: "queued" });
-    expect(released).toHaveBeenCalledOnce();
   });
 
   it("withholds dispatch if the settings snapshot cannot be read", async () => {
@@ -735,6 +755,8 @@ describe("AI ops scan retry wake", () => {
       expect(jobMocks.claimNextJob).not.toHaveBeenCalled();
       await vi.advanceTimersByTimeAsync(60 * 60 * 1000 + 1_000);
       expect(jobMocks.claimNextJob).toHaveBeenCalled();
+      // Another worker already consumed the job. A stale wake only tries to claim.
+      expect(jobMocks.enqueueJob).not.toHaveBeenCalled();
     } finally {
       stopAiOpsScanWorkerForTests();
       vi.useRealTimers();
@@ -743,6 +765,28 @@ describe("AI ops scan retry wake", () => {
 });
 
 describe("AI ops scan requested from the page", () => {
+  it("catches a daily deadline crossed during a queue poll and deduplicates the local day across workers", async () => {
+    vi.useFakeTimers();
+    try {
+      vi.mocked(prisma.aiOpsLog.findFirst).mockResolvedValue({ id: "recent" } as never);
+      jobMocks.claimNextJob.mockResolvedValue(null);
+      for (const firstWorker of [true, false]) {
+        vi.setSystemTime(new Date("2026-06-16T17:59:40Z"));
+        vi.mocked(prisma.setting.findUnique).mockResolvedValueOnce(firstWorker ? null : { value: "2026-06-17" } as never);
+        await startAiOpsScanWorker();
+        await vi.advanceTimersByTimeAsync(0);
+        vi.setSystemTime(new Date("2026-06-16T18:00:05Z"));
+        await vi.advanceTimersByTimeAsync(15_000);
+        stopAiOpsScanWorkerForTests();
+      }
+      expect(jobMocks.enqueueJob).toHaveBeenCalledTimes(1);
+      expect(jobMocks.enqueueJob.mock.calls[0]?.[0].payload).toMatchObject({ reason: "scheduled", scheduledDay: "2026-06-17" });
+    } finally {
+      stopAiOpsScanWorkerForTests();
+      vi.useRealTimers();
+    }
+  });
+
   it("is picked up within the queue poll, not at the next daily slot", async () => {
     // "Scan now" queues a job from the web process (A7-04). The worker's timer was armed once for the daily
     // hour and looked at the queue only when it was armed, so the scan ran at 02:00 the next day.

@@ -6,7 +6,8 @@ import { afterEach, beforeEach, describe, expect, it, vi } from "vitest";
 
 // jsdom's FileReader doesn't fully implement blob/dataURL reading; mock the
 // helpers to return deterministic test fixtures.
-vi.mock("../ai-file-helpers", () => ({
+vi.mock("../ai-file-helpers", async (original) => ({
+  ...await original<typeof import("../ai-file-helpers")>(),
   categorizeFile: (file: File) => {
     if (file.type.startsWith("image/")) return "image" as const;
     if (file.type.startsWith("video/")) return "video" as const;

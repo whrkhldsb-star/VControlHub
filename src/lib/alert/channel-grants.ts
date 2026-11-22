@@ -10,7 +10,7 @@ function grantKey(id: string) {
 }
 
 /** Runtime match/notification timestamps change on every evaluation. Only configuration is approved. */
-function configurationDigest(rule: DeliveryRule) {
+export function configurationDigest(rule: DeliveryRule) {
 	return createHash("sha256").update(JSON.stringify([
 		rule.id, rule.teamId, rule.name, rule.metric, rule.operator, rule.threshold, rule.enabled,
 		rule.durationSeconds, rule.cooldownMinutes, rule.escalationMinutes, rule.silenceWindows,
@@ -29,9 +29,9 @@ export async function recordChannelGrant(tx: Prisma.TransactionClient, rule: Ale
 	await tx.setting.upsert({ where: { key }, create: { key, ...data }, update: data });
 }
 
-export async function verifiedRuleChannels(rule: DeliveryRule): Promise<string[]> {
+export async function verifiedRuleChannels(rule: DeliveryRule, db: Prisma.TransactionClient = prisma): Promise<string[]> {
 	if (!rule.teamId || !rule.notifyChannels.some((channel) => PLATFORM_ONLY_CHANNELS.includes(channel))) return rule.notifyChannels;
-	const grant = await prisma.setting.findUnique({ where: { key: grantKey(rule.id) } });
+	const grant = await db.setting.findUnique({ where: { key: grantKey(rule.id) } });
 	if (grant?.updatedBy && grant.value === configurationDigest(rule)) return rule.notifyChannels;
 	return rule.notifyChannels.filter((channel) => !PLATFORM_ONLY_CHANNELS.includes(channel));
 }

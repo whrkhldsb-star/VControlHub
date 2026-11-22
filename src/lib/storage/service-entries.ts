@@ -1,4 +1,4 @@
-import { lockStorageFileOverwrite } from "./file-overwrite-lock";
+import { localRootIdentity, localPathVersion } from "./local-identity";
 import { getReadableStorageScope, readableStorageScopeWhere, readableStorageScopeSql } from "./readable-scope";
 import { escapeLikeLiteral } from "@/lib/db/like-pattern";
 import { assertNotRecycled, noRecycledAncestorSql } from "@/lib/storage/archive-access";
@@ -8,7 +8,7 @@ import path from "node:path";
 import { Prisma } from "@prisma/client";
 
 import type { SessionPayload } from "@/lib/auth/session";
-import { assertStorageAccess, getStorageAccessCapabilities, getStorageAccessCapabilityKey, releaseStorageQuotaGuard, STORAGE_ACCESS_DENIED_REASONS } from "./access-control";
+import { getStorageAccessCapabilities, getStorageAccessCapabilityKey, lockStorageWriteAccess, releaseStorageQuotaGuard, STORAGE_ACCESS_DENIED_REASONS } from "./access-control";
 import { storageAccessDeniedCopy } from "./access-denied";
 import { seesAllCustomers, teamWhere } from "@/lib/auth/team-scope";
 import { prisma, isUniqueViolation } from "@/lib/db";
@@ -313,7 +313,7 @@ export type { DeletedFileEntryWithNode };
 async function assertDeletedEntryStillExists(entry: Pick<DeletedFileEntryWithNode, "storageNode" | "entryType" | "relativePath" | "deletedAgentRoot" | "storageVersion">) {
   const t = await serviceT();
   const agent = entry.storageNode.driver === "AGENT";
-  if ((agent || entry.deletedAgentRoot) && (!agent || !entry.deletedAgentRoot || !entry.storageVersion ||
+  if (entry.storageNode.driver !== "LOCAL" && (agent || entry.deletedAgentRoot) && (!agent || !entry.deletedAgentRoot || !entry.storageVersion ||
       entry.storageNode.agentFileShare?.rootIdentity !== entry.deletedAgentRoot)) {
     throw new ConflictError(t("backend.storage.recycledAgentChanged"));
   }
@@ -346,6 +346,10 @@ async function assertDeletedEntryStillExists(entry: Pick<DeletedFileEntryWithNod
       throw new BusinessError(t("backend.storage.originalFileMissing"));
     }
 
+    if (entry.deletedAgentRoot !== await localRootIdentity(entry.storageNode.basePath) ||
+        !entry.storageVersion || entry.storageVersion !== await localPathVersion(entry.storageNode.basePath, entry.relativePath)) {
+      throw new ConflictError(t("backend.storage.editableFileChangedOnDisk"));
+    }
     if (entry.entryType === "DIRECTORY" && !fileStat.isDirectory()) {
       throw new BusinessError(t("backend.storage.originalPathNotDirectory"));
     }
@@ -396,11 +400,12 @@ async function assertDeletedEntryStillExists(entry: Pick<DeletedFileEntryWithNod
 export async function restoreFileEntry(
   input: FileEntryMutationInput,
   session: TeamSession,
+  seen?: { deleteBatchId: string | null; updatedAt?: Date },
 ) {
   const payload = fileEntryMutationSchema.parse(input);
   const current = await prisma.fileEntry.findFirst({
     where: {
-      id: payload.fileEntryId,
+      id: payload.fileEntryId, ...seen,
       storageNode: teamWhere(session),
     },
     include: {
@@ -473,11 +478,9 @@ export async function restoreFileEntry(
   const files = [current, ...children].filter((row) => row.entryType === "FILE");
   const bytes = files.reduce((sum, row) => sum + (row.size ?? BigInt(0)), BigInt(0));
   const largest = files.reduce((max, row) => (row.size ?? BigInt(0)) > max ? row.size! : max, BigInt(0));
-  const capacity = await assertStorageAccess({ session: actor, storageNodeId: current.storageNodeId, relativePath: current.relativePath, operation: "delete", writeBytes: bytes, largestFileBytes: largest });
+  const capacity = await lockStorageWriteAccess({ session: actor, storageNodeId: current.storageNodeId, relativePath: current.relativePath, operation: "delete", writeBytes: bytes, largestFileBytes: largest, writeMembers: files });
   if (!capacity.allowed) throw new BusinessError(storageAccessDeniedCopy(capacity.reason));
-  let releasePath: (() => Promise<void>) | undefined;
   try {
-    releasePath = await lockStorageFileOverwrite(current.storageNodeId, current.relativePath);
     const slash = current.relativePath.lastIndexOf("/");
     if (slash >= 0) await assertNotRecycled(current.storageNodeId, current.relativePath.slice(0, slash), "write", current.storageNode.driver);
     const batch = [current, ...children];
@@ -488,7 +491,8 @@ export async function restoreFileEntry(
       storageNodeId: current.storageNodeId,
       storageNode: {
         teamId: current.storageNode.teamId ?? null,
-        ...(current.deletedAgentRoot ? { agentFileShare: { is: { rootIdentity: current.deletedAgentRoot } } } : {}),
+        ...(current.storageNode.driver === "LOCAL" && { driver: current.storageNode.driver, basePath: current.storageNode.basePath }),
+        ...(current.storageNode.driver === "AGENT" && current.deletedAgentRoot ? { agentFileShare: { is: { rootIdentity: current.deletedAgentRoot } } } : {}),
       },
       deleteBatchId: current.deleteBatchId,
       isDeleted: true,
@@ -509,7 +513,7 @@ export async function restoreFileEntry(
       data,
     });
   } finally {
-    try { await releasePath?.(); } finally { await releaseStorageQuotaGuard(capacity); }
+    await releaseStorageQuotaGuard(capacity);
   }
 }
 

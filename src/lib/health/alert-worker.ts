@@ -1,10 +1,11 @@
+import type { SamplingClaim } from "@/lib/monitoring/sampling-claim";
 import { JobStatus } from "@prisma/client";
 
 import { ensureDefaultAlertRules } from "@/lib/alert/service";
 import { config } from "@/lib/config/env";
 import { acquireAdvisoryLock } from "@/lib/concurrency/advisory-lock";
 import { prisma } from "@/lib/db";
-import { runWithLeaseHeartbeat } from "@/lib/job/heartbeat-runner";
+import { LeaseLostError, runWithLeaseHeartbeat } from "@/lib/job/heartbeat-runner";
 import { computeLeaseMs } from "@/lib/job/lease";
 import {
   claimNextJob,
@@ -94,25 +95,33 @@ async function pruneCompletedAlertEvaluationJobs() {
   }
 }
 
-async function processAlertEvaluation(jobId: string) {
-  await heartbeatJob(jobId, ALERT_EVALUATION_WORKER_ID, {
-    leaseMs: ALERT_EVALUATION_LEASE_MS,
+async function processAlertEvaluation(claim: SamplingClaim) {
+  const { jobId, attempts, signal } = claim;
+  signal.throwIfAborted();
+  const renewed = await heartbeatJob(jobId, ALERT_EVALUATION_WORKER_ID, {
+    attempts, leaseMs: ALERT_EVALUATION_LEASE_MS,
     progress: "Ensuring default alert rules",
   });
+  if (renewed.count !== 1) throw new LeaseLostError(jobId);
+  signal.throwIfAborted();
   // Fresh installs previously left evaluation as a pure no-op until someone
   // opened /alert-rules. Bootstrap starter rules at worker time as well.
   try {
-    await ensureDefaultAlertRules(null);
+    await ensureDefaultAlertRules(null, claim);
   } catch (error) {
+    if (error instanceof LeaseLostError) throw error;
+    signal.throwIfAborted();
     logger.warn("Failed to ensure default alert rules before evaluation", {
       error: error instanceof Error ? error.message : String(error),
     });
   }
-  await heartbeatJob(jobId, ALERT_EVALUATION_WORKER_ID, {
-    leaseMs: ALERT_EVALUATION_LEASE_MS,
+  const evaluationLease = await heartbeatJob(jobId, ALERT_EVALUATION_WORKER_ID, {
+    attempts, leaseMs: ALERT_EVALUATION_LEASE_MS,
     progress: "Evaluating alert rules",
   });
-  return evaluateAlerts();
+  if (evaluationLease.count !== 1) throw new LeaseLostError(jobId);
+  signal.throwIfAborted();
+  return evaluateAlerts({ claim });
 }
 
 export async function runAlertEvaluationJobWorkerOnce(reason = "manual") {
@@ -140,26 +149,28 @@ export async function runAlertEvaluationJobWorkerOnce(reason = "manual") {
         jobId: job.id,
         leaseMs: ALERT_EVALUATION_LEASE_MS,
         heartbeat: () => heartbeatJob(job.id, ALERT_EVALUATION_WORKER_ID, {
+          attempts: job.attempts,
           leaseMs: ALERT_EVALUATION_LEASE_MS,
           progress: "Evaluating alert rules",
         }),
-        run: () => processAlertEvaluation(job.id),
+        run: (signal) => processAlertEvaluation({ jobId: job.id, workerId: ALERT_EVALUATION_WORKER_ID, attempts: job.attempts, signal }),
       });
       await completeJob(
         job.id,
         ALERT_EVALUATION_WORKER_ID,
-        result ?? { evaluated: true },
+        result ?? { evaluated: true }, job.attempts,
       );
       await pruneCompletedAlertEvaluationJobs();
       return true;
     } catch (error) {
+      if (error instanceof LeaseLostError) return true;
       const message =
         error instanceof Error ? error.message : "Alert evaluation failed";
       await failJob(
         job.id,
         ALERT_EVALUATION_WORKER_ID,
         message.slice(0, 2000),
-        { retryAfterMs: 60_000 },
+        { attempts: job.attempts, retryAfterMs: 60_000 },
       );
       logger.error("Alert evaluation failed", {
         reason,

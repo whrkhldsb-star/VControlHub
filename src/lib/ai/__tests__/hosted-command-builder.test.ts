@@ -17,7 +17,7 @@ describe("hosted AI command builder", () => {
 
 	it("single-quotes file paths handed to tail and find", () => {
 		expect(buildCommand("read_file", { filePath: "/var/log/app log.txt", tail: 20 })).toContain("'/var/log/app log.txt' file tail -n 20");
-		expect(buildCommand("list_files", { path: "/srv" })).toContain("find '/srv' -mindepth 1 -maxdepth 1");
+		expect(buildCommand("list_files", { path: "/srv" })).toContain("'/srv' directory");
 		expect(buildCommand("read_file", { filePath: "/etc/../etc/passwd" })).toBeNull();
 		expect(buildCommand("read_file", { filePath: "/etc/passwd;id" })).toBeNull();
 	});
@@ -43,6 +43,24 @@ describe("hosted AI command builder", () => {
 			const result = spawnSync("sh", ["-c", searchLink!], { encoding: "utf8" });
 			expect(result.status).not.toBe(0);
 			expect(result.stdout).toBe("");
+		} finally {
+			rmSync(dir, { recursive: true, force: true });
+		}
+	});
+
+	it.skipIf(process.platform !== "linux")("lists a checked directory, reports missing directories and caps large results", () => {
+		const dir = mkdtempSync(join(tmpdir(), "hosted-list-"));
+		const list = (path: string) => spawnSync("sh", ["-c", buildCommand("list_files", { path })!], { encoding: "utf8" });
+		try {
+			expect(list(dir)).toMatchObject({ status: 0, stdout: "" });
+			expect(list(join(dir, "missing")).status).not.toBe(0);
+			mkdirSync(join(dir, ".ssh", "nested"), { recursive: true });
+			symlinkSync(join(dir, ".ssh"), join(dir, "alias"));
+			expect(list(join(dir, "alias", "nested")).status).not.toBe(0);
+			for (let i = 0; i < 205; i++) writeFileSync(join(dir, "entry-" + i), "");
+			const large = list(dir);
+			expect(large.status).toBe(0);
+			expect(large.stdout.trimEnd().split("\n")).toHaveLength(200);
 		} finally {
 			rmSync(dir, { recursive: true, force: true });
 		}

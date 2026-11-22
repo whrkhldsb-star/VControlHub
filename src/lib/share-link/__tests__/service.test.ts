@@ -32,7 +32,7 @@ describe("share link service", () => {
   vi.clearAllMocks();
   mockPrisma.fileEntry.findFirst.mockResolvedValue(null);
   mockPrisma.$executeRaw.mockResolvedValue(1);
-  mockPrisma.$transaction.mockImplementation(fn => fn(mockPrisma));
+  mockPrisma.$transaction.mockImplementation(fn => Array.isArray(fn) ? Promise.all(fn) : fn(mockPrisma));
   mockPrisma.$queryRaw.mockResolvedValue([{ id: "node1", teamId: "team-1" }]);
   // A share belongs to its storage node's customer (service-owner.test.ts).
   mockPrisma.storageNode.findUnique.mockResolvedValue({ teamId: "team-1" });
@@ -89,16 +89,17 @@ describe("share link service", () => {
     await expect(assertShareTargetNotDeleted("node1", "docs/report.pdf", "SFTP")).resolves.toBeUndefined();
   });
 
-  it("checks every ancestor of a Windows LOCAL path case-insensitively", async () => {
-    const platform = vi.spyOn(process, "platform", "get").mockReturnValue("win32");
+  it.each(["LOCAL", "SFTP"])("checks Windows ancestors and private names on %s case-insensitively", async (driver) => {
+    const remoteWindows = driver === "SFTP";
+    const platform = vi.spyOn(process, "platform", "get").mockReturnValue(remoteWindows ? "linux" : "win32");
     try {
       mockPrisma.fileEntry.findFirst.mockResolvedValueOnce({ id: "DeletedFolder" });
-      await expect(assertShareTargetNotDeleted("node1", "Docs/OLD/file.txt", "LOCAL")).rejects.toMatchObject({ status: 404 });
+      await expect(assertShareTargetNotDeleted("node1", "Docs/OLD/file.txt", driver, remoteWindows)).rejects.toMatchObject({ status: 404 });
       expect(mockPrisma.fileEntry.findFirst.mock.lastCall?.[0].where.relativePath).toEqual({
         in: ["Docs", "Docs/OLD", "Docs/OLD/file.txt"], mode: "insensitive",
       });
       mockPrisma.fileEntry.findFirst.mockClear();
-      await expect(assertShareTargetNotDeleted("node1", "Docs/.VCONTROLHUB-WEBDAV-test.STAGED/file.txt", "LOCAL")).rejects.toMatchObject({ status: 404 });
+      await expect(assertShareTargetNotDeleted("node1", "Docs/.VCONTROLHUB-WEBDAV-test.STAGED/file.txt", driver, remoteWindows)).rejects.toMatchObject({ status: 404 });
       expect(mockPrisma.fileEntry.findFirst).not.toHaveBeenCalled();
     } finally {
       platform.mockRestore();
@@ -205,14 +206,12 @@ describe("share link service", () => {
     mockPrisma.shareLink.findUnique.mockResolvedValue({ id: "share1", storageNode: { driver: "LOCAL" }, tokenHash: "x", expiresAt: null, revokedAt: null, maxDownloads: null, accessCount: 0, passwordHash: await hashSharePassword("s3cret") });
     mockPrisma.shareLink.update.mockResolvedValue({ id: "share1" });
     mockPrisma.shareAccessLog.create.mockResolvedValue({ id: "log1" });
+    mockPrisma.$queryRaw.mockResolvedValueOnce([{ path: "moved/file" }]);
     const result = await resolveShareToken("abc", "s3cret");
+    expect(result.path).toBe("moved/file");
     expect(result.id).toBe("share1");
-    expect(mockPrisma.$executeRaw.mock.lastCall![0].values).toEqual(["share1"]);
-    expect(mockPrisma.shareAccessLog.create).toHaveBeenCalledWith(
-      expect.objectContaining({
-        data: expect.objectContaining({ shareLinkId: "share1", action: "download" }),
-      }),
-    );
+    expect(mockPrisma.$queryRaw.mock.lastCall![0].values).toEqual(["share1"]);
+    expect(mockPrisma.shareAccessLog.create).not.toHaveBeenCalled();
   });
 
   it("checks a download without counting or logging it when asked not to claim (HEAD)", async () => {
@@ -344,7 +343,7 @@ describe("share link service", () => {
     mockPrisma.shareAccessLog.create.mockResolvedValue({ id: "log1" });
     const result = await resolveShareToken("abc");
     expect(result.id).toBe("share-quota");
-    const [query] = mockPrisma.$executeRaw.mock.lastCall!;
+    const [query] = mockPrisma.$queryRaw.mock.lastCall!;
     expect(query.values).toEqual(["share-quota"]);
     expect(query.sql).toContain('c."accessCount" < c."maxDownloads"');
   });
@@ -352,9 +351,9 @@ describe("share link service", () => {
   it.each([null, 2])("requires a still-live expiry when claiming a share with limit %s", async (maxDownloads) => {
     const expiresAt = new Date(Date.now() + 60_000);
     mockPrisma.shareLink.findUnique.mockResolvedValueOnce({ id: "race", storageNode: { driver: "LOCAL" }, path: "a", maxDownloads, accessCount: 0, expiresAt, revokedAt: null });
-    mockPrisma.$executeRaw.mockResolvedValueOnce(0);
+    mockPrisma.$queryRaw.mockResolvedValueOnce([]);
     await expect(resolveShareToken("abc")).rejects.toThrow();
-    const [query] = mockPrisma.$executeRaw.mock.lastCall!;
+    const [query] = mockPrisma.$queryRaw.mock.lastCall!;
     expect(query.sql).toContain('c."revokedAt" IS NULL');
     expect(query.sql).toContain('c."expiresAt" > (clock_timestamp()');
     expect(mockPrisma.shareAccessLog.create).not.toHaveBeenCalled();
@@ -362,7 +361,7 @@ describe("share link service", () => {
 
   it("rejects an unlimited download revoked between lookup and claim", async () => {
     mockPrisma.shareLink.findUnique.mockResolvedValueOnce({ id: "share", storageNode: { driver: "LOCAL" }, path: "docs/a", revokedAt: null, maxDownloads: null });
-    mockPrisma.$executeRaw.mockResolvedValueOnce(0);
+    mockPrisma.$queryRaw.mockResolvedValueOnce([]);
     await expect(resolveShareToken("abc")).rejects.toMatchObject({ status: 404 });
     expect(mockPrisma.shareAccessLog.create).not.toHaveBeenCalled();
   });

@@ -18,6 +18,7 @@ import { invalidatePublicStatusCache, loadVisibleNodeRows } from "./projection";
 import { queryCoverage, queryNetworkBuckets, queryResourceBuckets } from "./history";
 import { clearPublicHistoryCache, readPublicBoard, readPublicHistory, readPublicNode } from "./read";
 import { savePublicSite } from "./site";
+import * as siteService from "./site";
 import { DEFAULT_BOARD_QUERY } from "./query";
 import type { NormalizedMetrics } from "./normalize";
 
@@ -120,6 +121,31 @@ describe.skipIf(!RUN)("public status board (PostgreSQL)", () => {
 			expect(rows.some((row) => row.serverId === fresh.id)).toBe(false);
 		} finally {
 			await prisma.server.delete({ where: { id: fresh.id } });
+		}
+	});
+
+	it("cannot combine a revoked CPU policy with a value written after revocation", async () => {
+		const publicId = publicIdOf.get(ids.pub)!;
+		const site = await siteService.loadPublicSite();
+		const load = siteService.loadPublicSite;
+		const time = new Date();
+		const initial = { serverId: ids.pub, online: true, checkedAt: time, intervalSeconds: 300,
+			metrics: { source: "agent" as const, sampledAt: time, values: values(null, null) } };
+		await writeLatestMetrics([initial]);
+		const hook = vi.spyOn(siteService, "loadPublicSite").mockImplementationOnce(async (db) => {
+			const policy = await load(db);
+			await savePublicSite({ ...site, metrics: site.metrics.filter((metric) => metric !== "cpu") }, "integration-admin");
+			const next = new Date(time.getTime() + 1000);
+			await writeLatestMetrics([{ ...initial, checkedAt: next, metrics: { ...initial.metrics, sampledAt: next, values: { ...initial.metrics.values, cpuUsage: 98 } } }]);
+			return policy;
+		});
+		try {
+			expect((await readPublicNode(publicId))?.node.metrics.cpu?.usage).toBe(10);
+			expect((await readPublicNode(publicId))?.node.metrics.cpu).toBeUndefined();
+		} finally {
+			hook.mockRestore();
+			await savePublicSite(site, "integration-admin");
+			await prisma.serverMetricLatest.deleteMany({ where: { serverId: ids.pub } });
 		}
 	});
 
@@ -311,6 +337,18 @@ describe.skipIf(!RUN)("public status board (PostgreSQL)", () => {
 			const good = sample(21, BigInt(2), BigInt(2), { serverId: ids.unpub });
 			await expect(writeLatestMetrics([bad, good])).resolves.toBe(1);
 			expect(await prisma.serverMetricLatest.findUniqueOrThrow({ where: { serverId: ids.unpub } })).toMatchObject({ metricsAt: at(21) });
+			const job = await prisma.job.create({ data: {
+				type: "health.sample", title: "sampling", payload: {}, status: "RUNNING",
+				workerId: prefix, attempts: 1, leaseExpiresAt: new Date(Date.now() + 60_000),
+			} });
+			try {
+				const valid = sample(22, BigInt(3), BigInt(3), { serverId: ids.unpub });
+				const claim = { jobId: job.id, workerId: prefix, attempts: 1, signal: new AbortController().signal };
+				await expect(writeLatestMetrics([bad, valid], claim)).resolves.toBe(1);
+				expect(await prisma.serverMetricLatest.findUniqueOrThrow({ where: { serverId: ids.unpub } })).toMatchObject({ metricsAt: at(22) });
+			} finally {
+				await prisma.job.delete({ where: { id: job.id } });
+			}
 		});
 
 		beforeAll(async () => {

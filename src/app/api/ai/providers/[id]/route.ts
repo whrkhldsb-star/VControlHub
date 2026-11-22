@@ -7,7 +7,7 @@ import {
   updateProvider,
 } from "@/lib/ai/service";
 import {
-  type UpdateProviderInputWire,
+  PROVIDER_REQUEST_MAX_BODY_BYTES,
   updateProviderSchema,
 } from "@/lib/ai/schema";
 import { serializeProvider } from "@/lib/ai/service-serialize";
@@ -17,29 +17,6 @@ import { GENERAL_WRITE_LIMIT } from "@/lib/http/rate-limit-presets";
 import { NotFoundError } from "@/lib/errors";
 import { auditUserAction } from "@/lib/audit/service";
 export const dynamic = "force-dynamic";
-
-function parseAvailableModels(data: UpdateProviderInputWire) {
-  if (data.availableModels !== undefined) {
-    return {
-      availableModels: Array.from(
-        new Set(data.availableModels.map((model) => model.trim()).filter(Boolean)),
-      ),
-    };
-  }
-  if (data.models !== undefined) {
-    return {
-      availableModels: Array.from(
-        new Set(
-          data.models
-            .split(",")
-            .map((model) => model.trim())
-            .filter(Boolean),
-        ),
-      ),
-    };
-  }
-  return {};
-}
 
 export async function GET(
   request: Request,
@@ -68,15 +45,12 @@ export async function PATCH(
       errorStatus: 400,
       errorMessage: apiCopy("apiCopy.failed.to.update.8eb4917b"),
       bodySchema: updateProviderSchema,
+      maxBodyBytes: PROVIDER_REQUEST_MAX_BODY_BYTES,
     },
     async ({ session, body }) => {
       const { id } = await params;
 
-      const updateBody = {
-        ...body,
-        ...parseAvailableModels(body),
-      };
-      const provider = await updateProvider(id, session.userId, updateBody);
+      const provider = await updateProvider(id, session.userId, body);
       if (!provider) throw new NotFoundError(apiCopy("apiCopy.provider.not.found.90c36c40"));
       await auditUserAction(session.userId, "ai.provider.update", { providerId: id }, undefined, session.currentTeamId);
       return NextResponse.json({ provider: serializeProvider(provider) });

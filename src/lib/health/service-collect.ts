@@ -1,3 +1,5 @@
+import { LeaseLostError } from "@/lib/job/heartbeat-runner";
+import type { SamplingClaim } from "@/lib/monitoring/sampling-claim";
 /**
  * Health service — collection / aggregation (R28 god-file split).
  *
@@ -32,7 +34,7 @@ const HEALTH_CHECK_CONCURRENCY = 8;
  * absolute cumulative bytes / 1024 — which falsely looks like multi-Gbps load
  * and would fire any reasonable network_* alert rule after a few hours of uptime.
  */
-type NetSample = { atMs: number; rxBytes: number; txBytes: number; rates: { inKbps: number; outKbps: number } };
+type NetSample = { atMs: number; rxBytes: number; txBytes: number; rates: { inKbps?: number; outKbps?: number } };
 const lastNetSampleByServer = new Map<string, NetSample>();
 
 /**
@@ -48,18 +50,16 @@ function networkRatesKbps(
   totalRx: number,
   totalTx: number,
   sampledAtMs: number,
-): { inKbps: number; outKbps: number } {
+): { inKbps?: number; outKbps?: number } {
   const prev = lastNetSampleByServer.get(serverId);
   if (prev && sampledAtMs <= prev.atMs) return prev.rates;
-  let rates = { inKbps: 0, outKbps: 0 };
+  let rates: NetSample["rates"] = {};
   if (prev) {
     const elapsedSec = (sampledAtMs - prev.atMs) / 1000;
-    // Counter reset / reboot → treat as zero rate rather than negative flood.
-    const dRx = totalRx >= prev.rxBytes ? totalRx - prev.rxBytes : 0;
-    const dTx = totalTx >= prev.txBytes ? totalTx - prev.txBytes : 0;
+    // A counter that went backwards has no rate for this interval.
     rates = {
-      inKbps: Math.max(0, Math.round(dRx / 1024 / elapsedSec)),
-      outKbps: Math.max(0, Math.round(dTx / 1024 / elapsedSec)),
+      inKbps: totalRx >= prev.rxBytes ? Math.round((totalRx - prev.rxBytes) / 1024 / elapsedSec) : undefined,
+      outKbps: totalTx >= prev.txBytes ? Math.round((totalTx - prev.txBytes) / 1024 / elapsedSec) : undefined,
     };
   }
   lastNetSampleByServer.set(serverId, { atMs: sampledAtMs, rxBytes: totalRx, txBytes: totalTx, rates });
@@ -97,10 +97,11 @@ export async function sumTrafficSince(serverIds: string[], since: Date): Promise
 
 export async function collectAllHealth(
   session?: Pick<SessionPayload, "userId" | "roles" | "currentTeamId">,
-  options: { persistTraffic?: boolean; serverWhere?: Prisma.ServerWhereInput } = {},
+  options: { persistTraffic?: boolean; claim?: SamplingClaim; serverWhere?: Prisma.ServerWhereInput } = {},
 ): Promise<HealthOverview> {
   const servers: Array<{
     id: string;
+    teamId: string | null;
     name: string;
     host: string;
     port: number;
@@ -111,6 +112,7 @@ export async function collectAllHealth(
   }> = [];
   let cursorId: string | undefined;
   for (;;) {
+    options.claim?.signal.throwIfAborted();
     const page = await prisma.server.findMany({
       // The background sweep (no session) probes live customers' servers
       // only: a deleted customer's servers are kept for its history, not
@@ -118,7 +120,7 @@ export async function collectAllHealth(
       where: options.serverWhere ? {
         AND: [options.serverWhere, liveCustomerRowsWhere(), ...(session ? [serverTeamWhere(session)] : [])],
       } : session ? serverTeamWhere(session) : liveCustomerRowsWhere(),
-      select: { id: true, name: true, host: true, port: true, enabled: true, managementMode: true, agentLastSeenAt: true, operatingSystem: true },
+      select: { id: true, teamId: true, name: true, host: true, port: true, enabled: true, managementMode: true, agentLastSeenAt: true, operatingSystem: true },
       orderBy: { id: "asc" },
       take: SERVER_PAGE_SIZE,
       ...(cursorId ? { cursor: { id: cursorId }, skip: 1 } : {}),
@@ -131,6 +133,7 @@ export async function collectAllHealth(
   // Health checks run in parallel up to a cap — SSH connections can take seconds each
   const limited = createLimiter(HEALTH_CHECK_CONCURRENCY);
   const checks = servers.map((server) => limited(async () => {
+    options.claim?.signal.throwIfAborted();
     if (!server.enabled) {
       return {
         serverId: server.id,
@@ -184,7 +187,8 @@ export async function collectAllHealth(
     }
 
     try {
-      const result = await collectServerMetrics(server.id);
+      const result = await collectServerMetrics(server.id, options.claim?.signal);
+      options.claim?.signal.throwIfAborted();
       if ("error" in result) {
         // TCP succeeded but SSH failed — host is up, but the daemon
         // is hung / misconfigured / refusing our key. Mark warning
@@ -217,17 +221,19 @@ export async function collectAllHealth(
       // interval), and flooded the monthly rollup. Only the sampling worker
       // opts in via persistTraffic.
       if (options.persistTraffic) {
-        await persistServerTrafficFromMetrics(server.id, metrics).catch(() => false);
+        await persistServerTrafficFromMetrics(server.id, metrics, options.claim).catch((error) => {
+          if (error instanceof LeaseLostError) throw error;
+        });
+        options.claim?.signal.throwIfAborted();
       }
       const health = evaluateHealth(metrics);
-      const diskMax = Math.max(...metrics.disk.map((d) => d.usagePercent), 0);
       // Size labels from the same (fullest) partition as diskMax, never "/"
       // sizes beside another mount's percentage.
       const labelDisk = fullestDisk(metrics.disk);
       const totalNetRx = metrics.network.reduce((s, n) => s + n.rxBytes, 0);
       const totalNetTx = metrics.network.reduce((s, n) => s + n.txBytes, 0);
       const sampledAtMs = Date.parse(metrics.timestamp);
-      const rates = networkRatesKbps(server.id, totalNetRx, totalNetTx, Number.isFinite(sampledAtMs) ? sampledAtMs : Date.now());
+      const rates = metrics.network.length ? networkRatesKbps(server.id, totalNetRx, totalNetTx, Number.isFinite(sampledAtMs) ? sampledAtMs : Date.now()) : {};
       return {
         serverId: server.id,
         serverName: server.name,
@@ -238,14 +244,14 @@ export async function collectAllHealth(
         mem: metrics.memory.usagePercent,
         memUsedMb: metrics.memory.usedMb,
         memTotalMb: metrics.memory.totalMb,
-        diskMax,
+        diskMax: labelDisk?.usagePercent,
         diskUsedLabel: labelDisk?.usedGb,
         diskTotalLabel: labelDisk?.totalGb,
         loadAvg1m: metrics.cpu.loadAvg[0],
         networkInKbps: rates.inKbps,
         networkOutKbps: rates.outKbps,
-        networkRxBytes: totalNetRx,
-        networkTxBytes: totalNetTx,
+        networkRxBytes: metrics.network.length ? totalNetRx : undefined,
+        networkTxBytes: metrics.network.length ? totalNetTx : undefined,
         swapUsagePercent: metrics.swapUsagePercent,
         uptime: metrics.uptime,
         lastCheck: metrics.timestamp,
@@ -254,6 +260,8 @@ export async function collectAllHealth(
         metrics,
       };
     } catch (err) {
+      options.claim?.signal.throwIfAborted();
+      if (err instanceof LeaseLostError) throw err;
       // The TCP probe succeeded but collectServerMetrics threw before
       // returning — treat that as a host-up-but-collect-failed warning
       // (same shape as the "error" branch above).
@@ -273,10 +281,16 @@ export async function collectAllHealth(
       };
     }
   }));
-  const results = (await Promise.allSettled(checks))
-    .map((r) => (r.status === "fulfilled" ? r.value : null))
-    .filter(Boolean) as ServerHealth[];
+  const settled = await Promise.allSettled(checks);
+  for (const result of settled) {
+    if (result.status === "rejected" && result.reason instanceof LeaseLostError) throw result.reason;
+  }
+  const results: ServerHealth[] = settled.flatMap((result, index) => {
+    if (result.status !== "fulfilled") return [];
+    return [options.claim || options.serverWhere ? { ...result.value, sampledTeamId: servers[index]!.teamId } : result.value];
+  });
 
+  options.claim?.signal.throwIfAborted();
   // Best-effort monthly traffic from durable samples (if worker has been running).
   try {
     const monthStart = startOfMonthInAppTimeZone();

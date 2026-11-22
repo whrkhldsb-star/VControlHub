@@ -1,4 +1,4 @@
-import { prisma } from "@/lib/db";
+import { sampleId, withSamplingClaim, type SamplingClaim } from "@/lib/monitoring/sampling-claim";
 
 export type NetworkDeviceStats = {
 	iface: string;
@@ -22,6 +22,7 @@ export type PersistTrafficSampleInput = {
 	source: string;
 	serverId: string | null;
 	iface: string;
+	sampledAt?: Date;
 	rxBytes: number;
 	txBytes: number;
 	rxRateBps: number;
@@ -34,17 +35,27 @@ export type PersistTrafficSampleInput = {
  * and the 5-minute sampling worker (errors propagate to the job result).
  * Callers own that policy — this function only writes.
  */
-export async function persistTrafficSample(input: PersistTrafficSampleInput): Promise<void> {
-	await prisma.trafficSnapshot.create({
-		data: {
-			source: input.source,
-			serverId: input.serverId,
-			iface: input.iface,
-			rxBytes: BigInt(Math.max(0, Math.trunc(input.rxBytes))),
-			txBytes: BigInt(Math.max(0, Math.trunc(input.txBytes))),
-			rxRateBps: Math.max(0, input.rxRateBps),
-			txRateBps: Math.max(0, input.txRateBps),
-		},
+export async function persistTrafficSample(input: PersistTrafficSampleInput, claim?: SamplingClaim): Promise<boolean> {
+	const data = {
+		source: input.source,
+		serverId: input.serverId,
+		iface: input.iface,
+		...(input.sampledAt ? { sampledAt: input.sampledAt } : {}),
+		rxBytes: BigInt(Math.max(0, Math.trunc(input.rxBytes))),
+		txBytes: BigInt(Math.max(0, Math.trunc(input.txBytes))),
+		rxRateBps: Math.max(0, input.rxRateBps),
+		txRateBps: Math.max(0, input.txRateBps),
+	};
+	return withSamplingClaim(claim, async (tx) => {
+		if (!claim) {
+			await tx.trafficSnapshot.create({ data });
+			return true;
+		}
+		const result = await tx.trafficSnapshot.createMany({
+			data: { ...data, id: sampleId("traffic-local", claim.jobId, input.iface) },
+			skipDuplicates: true,
+		});
+		return result.count === 1;
 	});
 }
 

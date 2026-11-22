@@ -43,6 +43,16 @@ function build(input: {
 }
 
 describe("buildAiChatMessagePayload", () => {
+	it("evicts the last oversized old turn together with its tool call and receipt", () => {
+		const call = { id: "call", type: "function", function: { name: "list_servers", arguments: "{}" } };
+		const { historyMessages } = build({ body: { content: "current" }, conv: conv([
+			{ role: "user", content: "x".repeat(AI_HISTORY_CHAR_BUDGET) },
+			{ role: "assistant", content: "", toolCalls: JSON.stringify([call]) },
+			{ role: "tool", content: "y".repeat(AI_HISTORY_CHAR_BUDGET), toolCallId: "call" },
+		], "system") });
+		expect(historyMessages).toEqual([{ role: "system", content: "system" }, { role: "user", content: "current" }]);
+	});
+
 	it("puts the conversation's system prompt first", () => {
 		const { historyMessages } = build({ conv: conv([], "You are an ops assistant") });
 		expect(historyMessages[0]).toEqual({ role: "system", content: "You are an ops assistant" });

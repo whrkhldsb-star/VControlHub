@@ -23,6 +23,8 @@ import { createLogger } from "@/lib/logging";
 import { t } from "@/lib/i18n/service-translations";
 import { OPERATION_TARGET_SELECT, operationTargetAvailability } from "@/lib/server/availability";
 
+import { approvalEndpointSelect, approvalReceiptId, manualRunInitiator } from "./approval-identity";
+
 const commandLogger = createLogger("command-requests");
 
 /** Minimal session shape for multi-tenant command request scoping. */
@@ -144,6 +146,7 @@ function mapCommandRequest(
     status: request.status,
     initiatedByType: request.initiatedByType,
     requesterId: request.requesterId,
+    runInitiatorId: manualRunInitiator(request.idempotencyKey),
     createdAt: request.createdAt?.toISOString?.() ?? request.createdAt,
     updatedAt: request.updatedAt?.toISOString?.() ?? request.updatedAt,
     requester: request.requester,
@@ -277,7 +280,7 @@ export async function cancelCommandRequest(input: {
     }
   }
 
-  if (request.status === "CANCELLING") return request;
+  if (request.status === "CANCELLING") return { id: request.id, status: request.status };
   if (!["PENDING_APPROVAL", "APPROVED", "RUNNING"].includes(request.status)) {
     throw new BusinessError(t("backend.command.cannotCancelEnded"));
   }
@@ -345,7 +348,7 @@ export async function cancelCommandRequest(input: {
     },
   });
 
-  return prisma.commandRequest.findUniqueOrThrow({ where: { id: commandRequestId } });
+  return prisma.commandRequest.findUniqueOrThrow({ where: { id: commandRequestId }, select: { id: true, status: true } });
 }
 
 // Older public submissions had no provenance column. A collision with any
@@ -488,6 +491,7 @@ export async function reviewCommandRequest(
       // another team's (or unassigned legacy) request.
       ...(session ? commandRequestTeamWhere(session) : {}),
     },
+    include: { scheduledTaskRuns: { where: { manual: true }, select: { manual: true }, take: 1 } },
   });
 
   if (!request) {
@@ -501,7 +505,9 @@ export async function reviewCommandRequest(
   // Separation of duties: requester cannot approve/reject their own request
   // (even if they also hold command:approve). Admins with team:manage may
   // still self-review in single-operator deployments. The pages offer a review by the same rule (review-scope.ts).
-  if (request.requesterId === payload.approverId && !maySelfReviewCommands(session)) {
+  const initiator = manualRunInitiator(request.idempotencyKey);
+  const legacyManual = request.scheduledTaskRuns?.length && !initiator;
+  if ((request.requesterId === payload.approverId || initiator === payload.approverId || legacyManual) && !maySelfReviewCommands(session)) {
     throw new BusinessError(t("backend.command.cannotSelfReview"));
   }
 
@@ -532,6 +538,15 @@ export async function reviewCommandRequest(
         throw new ForbiddenError(t("backend.command.targetsOutOfScope"));
       }
       throw new BusinessError(t("backend.command.alreadyReviewed"));
+    }
+    if (payload.approved) {
+      const targets = await tx.commandTarget.findMany({
+        where: { commandRequestId: request.id }, select: { id: true, serverId: true, server: { select: approvalEndpointSelect } },
+      });
+      await tx.executionLog.createMany({ data: targets.map(target => ({
+        id: approvalReceiptId(target.id, target.server), commandRequestId: request.id, serverId: target.serverId,
+        summary: `Approved endpoint ${target.server.username}@${target.server.host}:${target.server.port}`,
+      })) });
     }
     await tx.commandApproval.create({
       data: {
@@ -602,8 +617,9 @@ const COMMAND_LIST_INCLUDE = {
     },
   },
   targets: {
-    take: 50,
-    include: {
+    orderBy: { id: "asc" },
+    select: {
+      id: true, status: true, executionChannel: true, fallbackReason: true, outcomeUnknown: true, finishedAt: true,
       server: { select: { id: true, name: true, host: true, port: true, teamId: true } },
     },
   },
@@ -615,7 +631,14 @@ const OPEN_COMMAND_STATUSES: CommandRequestStatus[] = ["PENDING_APPROVAL", "APPR
 const COMMAND_HISTORY_LIMIT = 100;
 const OPEN_COMMAND_LIMIT = 500;
 
-export async function listCommandRequests(session?: CommandSessionScope | null) {
+function openRequestsAfter(cursor: string): Prisma.CommandRequestWhereInput {
+  const match = /^(\d+)\.(.+)$/.exec(cursor);
+  const createdAt = new Date(Number(match?.[1]));
+  if (!match || !Number.isFinite(createdAt.getTime())) return { id: { in: [] } };
+  return { OR: [{ createdAt: { lt: createdAt } }, { createdAt, id: { lt: match[2] } }] };
+}
+
+export async function listCommandRequestPage(session?: CommandSessionScope | null, cursor?: string) {
   // Quarantine null-team requests from team-user lists (command text + targets
   // are a security root); global managers still see all via commandRequestTeamWhere.
   const where = session ? { ...commandRequestTeamWhere(session) } : {};
@@ -627,24 +650,39 @@ export async function listCommandRequests(session?: CommandSessionScope | null) 
     ...COMMAND_LIST_INCLUDE,
     targets: { ...COMMAND_LIST_INCLUDE.targets, ...(session ? { where: { server: serverTeamWhere(session) } } : {}) },
   };
-  const [open, recent] = await Promise.all([
+  const [open, recent, pendingCount] = await Promise.all([
     prisma.commandRequest.findMany({
-      where: { AND: [where, { status: { in: OPEN_COMMAND_STATUSES } }] },
-      orderBy: { createdAt: "desc" },
-      take: OPEN_COMMAND_LIMIT,
+      where: { AND: [where, { status: { in: OPEN_COMMAND_STATUSES } }, ...(cursor ? [openRequestsAfter(cursor)] : [])] },
+      orderBy: [{ createdAt: "desc" }, { id: "desc" }],
+      take: OPEN_COMMAND_LIMIT + 1,
       include,
     }),
-    prisma.commandRequest.findMany({
+    cursor ? [] : prisma.commandRequest.findMany({
       where,
-      orderBy: { createdAt: "desc" },
+      orderBy: [{ createdAt: "desc" }, { id: "desc" }],
       take: COMMAND_HISTORY_LIMIT,
       include,
     }),
+    prisma.commandRequest.count({ where: { ...where, status: "PENDING_APPROVAL" } }),
   ]);
   const seen = new Set<string>();
-  const requests = [...open, ...recent]
+  const requests = [...open.slice(0, OPEN_COMMAND_LIMIT), ...recent]
     .filter((request) => !seen.has(request.id) && seen.add(request.id))
     .sort((a, b) => b.createdAt.getTime() - a.createdAt.getTime());
 
-  return (await withVisibleCommandLogs(requests, session)).map(mapCommandRequest);
+  const boundary = open.length > OPEN_COMMAND_LIMIT ? open[OPEN_COMMAND_LIMIT - 1] : null;
+  return { requests: (await withVisibleCommandLogs(requests, session)).map(mapCommandRequest),
+    nextCursor: boundary ? boundary.createdAt.getTime() + "." + boundary.id : null, pendingCount };
+}
+
+export async function listCommandRequests(session?: CommandSessionScope | null) {
+  const first = await listCommandRequestPage(session);
+  const requests = first.requests;
+  let cursor = first.nextCursor;
+  while (cursor) {
+    const next = await listCommandRequestPage(session, cursor);
+    requests.push(...next.requests);
+    cursor = next.nextCursor;
+  }
+  return requests;
 }

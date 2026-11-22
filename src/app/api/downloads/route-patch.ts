@@ -1,6 +1,7 @@
+import { directEndpointChanged, directLaunchReceipt, lockDirectResultBinding } from "@/lib/downloads/direct-identity";
 import { Prisma } from "@prisma/client";
 import { enqueueDownloadExecutionJob, DOWNLOAD_EXECUTION_JOB_TYPE } from "@/lib/downloads/execution-worker";
-import { RELAY_PAUSE_MS, parseTransferManifest, relayMetadataGid, relayPauseDeadline, relayPauseReceipt } from "@/lib/downloads/transfer-manifest";
+import { RELAY_PAUSE_MS, parseTransferManifest, relayMetadataGid, relayPauseDeadline, relayState, relayPauseReceipt } from "@/lib/downloads/transfer-manifest";
 import { relayContentStatus } from "@/lib/downloads/relay-status";
 import { resolveTaskDrive } from "@/lib/downloads/destination";
 import { NextResponse } from "next/server";
@@ -19,6 +20,7 @@ import { directProgress, probeDirectDownloadRemote } from "@/lib/downloads/recon
 import { sessionHasPermission } from "@/lib/auth/authorization";
 import {
   deriveDownloadFileNameFromUrl,
+  isMagnetLink,
   mapAria2RelayStatus,
   buildProgressText,
   indexDownloadedFileEntry,
@@ -129,8 +131,10 @@ export async function PATCH(request: Request) {
       if (action === "pause" && task.aria2Gid) {
         if (parseTransferManifest(task.transferManifest)) return NextResponse.json({ error: t("apiDownloads.finishingTransfer", locale) }, { status: 409 });
         if (task.status === "PENDING") return currentOutcome();
+        let contentGid = task.aria2Gid;
         try {
-          await pauseDownload(task.aria2Gid);
+          if (task.url && isMagnetLink(task.url)) contentGid = (await relayContentStatus(task.aria2Gid)).gid;
+          await pauseDownload(contentGid);
         } catch (err) {
           logError("[DownloadAPI] Failed to pause aria2 download:", err);
           return NextResponse.json(
@@ -138,10 +142,20 @@ export async function PATCH(request: Request) {
             { status: 502 },
           );
         }
-        const changed = await prisma.downloadTask.updateMany({
-          where: relaySnapshot,
-          data: { status: "PENDING", transferManifest: relayPauseReceipt(task.transferManifest, Date.now() + RELAY_PAUSE_MS), progress: t("apiDownloads.paused", locale) },
+        const pausedUntil = Date.now() + RELAY_PAUSE_MS;
+        const pause = (previous: typeof task.transferManifest, previousGid: string) => prisma.downloadTask.updateMany({
+          where: { id: taskId, status: "RUNNING", aria2Gid: previousGid, transferManifest: { equals: previous ?? Prisma.DbNull } },
+          data: { status: "PENDING", aria2Gid: contentGid, transferManifest: {
+            ...relayPauseReceipt(previous, pausedUntil),
+            ...(contentGid !== task.aria2Gid ? { metadataGid: relayMetadataGid(previous) ?? task.aria2Gid! } : {}),
+          }, progress: t("apiDownloads.paused", locale) },
         });
+        let changed = await pause(task.transferManifest, task.aria2Gid);
+        if (!changed.count && contentGid !== task.aria2Gid) {
+          const live = await prisma.downloadTask.findUnique({ where: { id: taskId }, select: { status: true, aria2Gid: true, transferManifest: true } });
+          if (live?.status === "RUNNING" && live.aria2Gid === contentGid && relayMetadataGid(live.transferManifest) === task.aria2Gid
+            && !parseTransferManifest(live.transferManifest)) changed = await pause(live.transferManifest, contentGid);
+        }
         if (!changed.count) return currentOutcome(409);
         return NextResponse.json({ success: true });
       }
@@ -158,11 +172,11 @@ export async function PATCH(request: Request) {
             return NextResponse.json({ error: t("apiDownloads.unpauseFailed", locale) }, { status: 502 });
           }
         }
-        const metadataGid = relayMetadataGid(task.transferManifest);
+        const receipt = relayState(task.transferManifest);
         const resumed = await prisma.$transaction(async tx => {
           const changed = await tx.downloadTask.updateMany({
             where: relaySnapshot,
-            data: { status: "RUNNING", ...(task.status === "PENDING" ? { transferManifest: metadataGid ? { metadataGid } : Prisma.DbNull } : {}), progress: t("apiDownloads.resuming", locale) },
+            data: { status: "RUNNING", ...(task.status === "PENDING" ? { transferManifest: { ...receipt, deadline: Date.now() + 7200_000 } } : {}), progress: t("apiDownloads.resuming", locale) },
           });
           if (!changed.count) return false;
           const now = new Date();
@@ -238,12 +252,13 @@ export async function PATCH(request: Request) {
 
       // Non-aria2 refresh: inspect the real remote process/exit marker before reporting status.
       if (action === "refresh") {
-        if (task.directStorageNodeId && !task.server.storageNode) return currentOutcome();
+        if (directEndpointChanged(task) || (task.directStorageNodeId && !task.server.storageNode)) return currentOutcome();
         if (task.pid && task.status === "RUNNING") {
           try {
             const sshParams = await buildSshParamsFromServer(
               task.server,
               task.server.sshKey,
+              task.server.teamId,
             );
             const probe = await probeDirectDownloadRemote({
               taskId: task.id,
@@ -252,6 +267,7 @@ export async function PATCH(request: Request) {
               fileName: task.fileName ?? null,
               targetPath: task.targetPath,
               sshParams,
+              requiresReceipt: Boolean(directLaunchReceipt(task.transferManifest)),
             });
             if (probe.state === "COMPLETED") {
               const size = probe.size;
@@ -268,6 +284,7 @@ export async function PATCH(request: Request) {
               // The probe took a while: a task cancelled meanwhile keeps its
               // outcome (and gets no file index), like the aria2 branch above.
               const won = await prisma.$transaction(async (tx) => {
+                if (!await lockDirectResultBinding(tx, task.server, task.transferManifest)) return false;
                 const changed = await tx.downloadTask.updateMany({ where: whileActive, data });
                 if (!changed.count) return false;
                 await indexDownloadedFileEntry({
@@ -303,6 +320,13 @@ export async function PATCH(request: Request) {
                 where: { id: taskId, status: "RUNNING", updatedAt: task.updatedAt }, data: progress,
               });
               return stored.count ? NextResponse.json({ status: "RUNNING", ...progress }) : currentOutcome();
+            }
+            if (probe.state === "UNVERIFIED") {
+              const progress = t("fileUploadDropzone.status.unknown", locale);
+              const stored = await prisma.downloadTask.updateMany({
+                where: { id: taskId, status: "RUNNING", updatedAt: task.updatedAt }, data: { progress },
+              });
+              return stored.count ? NextResponse.json({ status: "RUNNING", progress }) : currentOutcome();
             }
             if (probe.state === "FAILED") {
               const data = {

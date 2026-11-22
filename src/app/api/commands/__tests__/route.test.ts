@@ -24,7 +24,7 @@ vi.mock("@/lib/auth/api-session", () => ({
 vi.mock("@/lib/auth/authorization", () => ({ sessionHasPermission: mocks.sessionHasPermission }));
 vi.mock("@/lib/command/service", () => ({
   createCommandRequest: mocks.createCommandRequest,
-  listCommandRequests: mocks.listCommandRequests,
+  listCommandRequestPage: async () => ({ requests: await mocks.listCommandRequests(), nextCursor: null, pendingCount: 0 }),
   recoverStaleRunningCommandRequests: mocks.recoverStaleRunningCommandRequests,
   cancelCommandRequest: mocks.cancelCommandRequest,
 }));
@@ -69,7 +69,7 @@ describe("/api/commands audit coverage", () => {
     const response = await route.GET(new Request("http://local/api/commands"));
 
     expect(response.status).toBe(200);
-    expect(await response.json()).toEqual({ requests: [{ id: "cmd1", title: "Restart nginx" }] });
+    expect(await response.json()).toEqual({ requests: [{ id: "cmd1", title: "Restart nginx" }], nextCursor: null, pendingCount: 0 });
     expect(mocks.requireApiPermission).toHaveBeenCalledWith("command:read");
     // The stale sweep belongs to the command worker (A6-11): a list request no longer runs it.
     expect(mocks.recoverStaleRunningCommandRequests).not.toHaveBeenCalled();

@@ -20,7 +20,7 @@
  */
 import { Prisma } from "@prisma/client";
 
-import { prisma } from "@/lib/db";
+import { withSamplingClaim, type SamplingClaim } from "@/lib/monitoring/sampling-claim";
 import { startOfMonthInAppTimeZone } from "@/lib/datetime/time-zone";
 import { createLogger } from "@/lib/logging";
 import { counterOrNull, pgNonnegativeInt, type NormalizedMetrics } from "./normalize";
@@ -76,9 +76,9 @@ function rowSql(input: LatestMetricInput) {
  * Upsert verdicts (and samples) for many servers. Rows for servers that no
  * longer exist are skipped by the foreign-key join instead of failing the batch.
  */
-export async function writeLatestMetrics(inputs: LatestMetricInput[]): Promise<number> {
+export async function writeLatestMetrics(inputs: LatestMetricInput[], claim?: SamplingClaim): Promise<number> {
 	let written = 0;
-	for (const wave of waves(inputs)) written += await writeWave(wave);
+	for (const wave of waves(inputs)) written += await writeWave(wave, claim);
 	return written;
 }
 
@@ -98,20 +98,21 @@ function waves(inputs: LatestMetricInput[]): LatestMetricInput[][] {
 	return result;
 }
 
-async function writeWave(inputs: LatestMetricInput[]): Promise<number> {
+async function writeWave(inputs: LatestMetricInput[], claim?: SamplingClaim): Promise<number> {
 	let written = 0;
 	for (let i = 0; i < inputs.length; i += CHUNK) {
 		const chunk = inputs.slice(i, i + CHUNK);
-		written += await writeChunk(chunk);
+		written += await writeChunk(chunk, claim);
 	}
 	return written;
 }
 
 const logger = createLogger("public-status:latest");
 
-async function writeChunk(chunk: LatestMetricInput[]): Promise<number> {
+async function writeChunk(chunk: LatestMetricInput[], claim?: SamplingClaim): Promise<number> {
 	try {
-		return await prisma.$executeRaw`
+		// Isolating a malformed chunk needs a fresh transaction after the failed statement.
+		return await withSamplingClaim(claim, (db) => db.$executeRaw`
 			INSERT INTO "server_metric_latest" AS t (
 				"serverId", "checkedAt", "online", "offlineReason",
 				"metricsAt", "metricsSource", "intervalSeconds",
@@ -210,7 +211,7 @@ async function writeChunk(chunk: LatestMetricInput[]): Promise<number> {
 				"udpConnections" = CASE WHEN EXCLUDED."metricsAt" IS NOT NULL AND (t."metricsAt" IS NULL OR EXCLUDED."metricsAt" > t."metricsAt") THEN EXCLUDED."udpConnections" ELSE t."udpConnections" END,
 				"metricsAt" = CASE WHEN EXCLUDED."metricsAt" IS NOT NULL AND (t."metricsAt" IS NULL OR EXCLUDED."metricsAt" > t."metricsAt") THEN EXCLUDED."metricsAt" ELSE t."metricsAt" END,
 				"updatedAt" = (now() AT TIME ZONE 'UTC')
-		`;
+		`);
 	} catch (error) {
 		// Only isolate malformed data. Infrastructure errors still reach the caller.
 		const meta = error instanceof Prisma.PrismaClientKnownRequestError ? error.meta : undefined;
@@ -222,6 +223,6 @@ async function writeChunk(chunk: LatestMetricInput[]): Promise<number> {
 			return 0;
 		}
 		const mid = Math.floor(chunk.length / 2);
-		return await writeChunk(chunk.slice(0, mid)) + await writeChunk(chunk.slice(mid));
+		return await writeChunk(chunk.slice(0, mid), claim) + await writeChunk(chunk.slice(mid), claim);
 	}
 }

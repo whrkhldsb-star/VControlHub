@@ -68,6 +68,15 @@ describe("POST /api/system/import", () => {
     expect(importMock.executeImport).toHaveBeenCalledOnce();
   });
 
+  it("only reports fixed failure codes and audits the rollback globally without batch values", async () => {
+    const raw = "database diagnostics with a confidential fixture value";
+    importMock.executeImport.mockResolvedValueOnce({ created: 0, updated: 0, skipped: 2, errors: ["IMPORT_FAILED.users", raw], rolledBack: true });
+    const response = await POST(importRequest({ dryRun: false, file: FILE }));
+    expect(response.status).toBe(400);
+    expect((await response.json()).result.errors).toEqual(["IMPORT_FAILED.users", "IMPORT_FAILED.transaction"]);
+    expect(auditMock).toHaveBeenCalledWith("u_1", "system.import", { created: 0, updated: 0, skipped: 2, errorCount: 2 }, undefined, null);
+  });
+
   it("accepts the project's own large exports instead of the generic 1 MiB body limit", async () => {
     await POST(importRequest({ dryRun: true, file: FILE }));
     const { CONFIG_IMPORT_MAX_BODY_BYTES } = await import("@/lib/system/config-schema");

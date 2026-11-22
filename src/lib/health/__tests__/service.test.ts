@@ -2,6 +2,7 @@ import { beforeEach, describe, expect, it, vi } from "vitest";
 
 const { prismaMock, collectServerMetricsMock, tcpProbeMock, createNotificationMock, fetchWebhookSafelyMock, sendAlertEmailMock, sendAlertTelegramMock, runPlaybookMock } = vi.hoisted(() => ({
 	prismaMock: {
+		$executeRaw: vi.fn(async () => 1),
 		$transaction<T>(callback: (tx: unknown) => Promise<T>) { return callback(this); },
 		setting: { findUnique: vi.fn() },
 		server: {
@@ -42,6 +43,10 @@ vi.mock("@/lib/server/monitor", () => ({ collectServerMetrics: collectServerMetr
 // Stub the network probe so alert tests don't open real sockets (TR-050
 // integration lives in service-collect.test.ts).
 vi.mock("@/lib/server/connectivity", () => ({ tcpProbe: tcpProbeMock }));
+vi.mock("@/lib/alert/delivery-intent", async (original) => ({
+	...await original<typeof import("@/lib/alert/delivery-intent")>(),
+	currentDeliveryChannels: async () => ["in_app", "webhook", "email", "telegram"],
+}));
 vi.mock("@/lib/notification/service", () => ({ createNotification: createNotificationMock }));
 vi.mock("@/lib/notification/email", () => ({ sendAlertEmail: sendAlertEmailMock }));
 vi.mock("@/lib/notification/telegram", () => ({ sendAlertTelegram: sendAlertTelegramMock }));
@@ -49,6 +54,7 @@ vi.mock("@/lib/security/webhook-url", () => ({ fetchWebhookSafely: fetchWebhookS
 vi.mock("@/lib/alert/remediation", () => ({ queueIncidentRemediation: runPlaybookMock }));
 vi.mock("@/lib/health/capacity-service", () => ({ getCapacityForecast: async () => ({ servers: [] }) }));
 
+import { configurationDigest } from "@/lib/alert/channel-grants";
 import { evaluateAlerts, isNowInAlertSilenceWindow } from "../service";
 
 function cpuMetrics(cpu: number) {
@@ -105,6 +111,7 @@ describe("evaluateAlerts", () => {
 
 	const rule = {
 		id: "sustained", name: "CPU", metric: "cpu_usage", threshold: 80, operator: "gte", enabled: true,
+		teamId: null, webhookUrl: null, escalationMinutes: 30, onCallUserIds: [],
 		durationSeconds: 0, matchState: {}, cooldownMinutes: 0, silenceWindows: [], serverIds: [], notifyChannels: ["in_app"], playbookIds: [],
 	};
 
@@ -130,6 +137,9 @@ describe("evaluateAlerts", () => {
 		vi.useFakeTimers({ toFake: ["Date"] });
 		const opened = new Date("2026-05-25T01:00:00Z");
 		vi.setSystemTime(new Date(opened.getTime() + 60_000));
+		prismaMock.setting.findUnique.mockImplementation(async ({ where }) => where.key.startsWith("alerts.intent.") ? { value: JSON.stringify({
+			version: configurationDigest({ ...rule, durationSeconds: 3600 }), openedAt: null,
+		}) } : null);
 		prismaMock.alertRule.findMany.mockResolvedValueOnce([{ ...rule, durationSeconds: 3600, matchState: { srv1: opened.toISOString() } }]);
 		prismaMock.alertIncident.findMany.mockResolvedValueOnce([{ fingerprint: "sustained::srv1::cpu_usage" }]);
 		prismaMock.alertIncident.findUnique.mockResolvedValueOnce({

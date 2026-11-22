@@ -124,6 +124,12 @@ describe("knowledge routes", () => {
 		mocks.deleteKnowledgeDocument.mockResolvedValue({ id: "doc_1" });
 	});
 
+	it.each(["1e25", "10000000000000000000000000", "2147483648", "-1", "2.5", "1x"])("rejects unsupported document offset %s before querying", async (offset) => {
+		const response = await item.GET(req("GET", undefined, "?offset=" + offset), { params: Promise.resolve({ id: "kb_1" }) });
+		expect(response.status).toBe(400);
+		expect(mocks.getKnowledgeBase).not.toHaveBeenCalled();
+	});
+
 	describe("guard contract", () => {
 		it("lists under ai:chat", async () => {
 			await collection.GET(req("GET"));

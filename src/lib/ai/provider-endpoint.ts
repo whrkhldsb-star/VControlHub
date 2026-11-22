@@ -6,6 +6,11 @@ export function resolveDefaultProviderBaseUrl(type?: string): string {
 	return "https://api.openai.com/v1";
 }
 
+/** A newly selected native provider cannot inherit the OpenAI model default. */
+export function requiresExplicitDefaultModel(type?: string, previousType?: string): boolean {
+	return type !== previousType && (type === "ANTHROPIC" || type === "GOOGLE");
+}
+
 export function providerOrigin(baseUrl: string | undefined, type?: string): string | null {
 	try {
 		return new URL(baseUrl?.trim() || resolveDefaultProviderBaseUrl(type)).origin;

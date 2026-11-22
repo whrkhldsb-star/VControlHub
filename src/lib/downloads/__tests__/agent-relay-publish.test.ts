@@ -7,9 +7,9 @@ const mocks = vi.hoisted(() => ({ snapshot: vi.fn(), lookup: vi.fn(), unlock: vi
 vi.mock("@/lib/storage/agent-file-queue", () => ({ callFileAgent: vi.fn(), getFileChannel: async () => ({}) }));
 vi.mock("@/lib/auth/execution-actor", () => ({ loadExecutionActor: async () => ({ userId: "actor" }), executionRefusal: async () => null }));
 vi.mock("@/lib/storage/archive-access", () => ({ assertNotRecycled: async () => {} }));
-vi.mock("@/lib/storage/file-overwrite-lock", () => ({ lockStorageFileOverwrite: async () => mocks.unlock }));
+vi.mock("../publication-lock", () => ({ lockDownloadPublication: async () => mocks.unlock }));
 vi.mock("@/lib/storage/file-versions", () => ({ snapshotFileVersionBeforeOverwrite: mocks.snapshot }));
-vi.mock("@/lib/storage/access-control", () => ({ assertStorageAccess: async () => ({ allowed: true }), releaseStorageQuotaGuard: async () => {} }));
+vi.mock("../write-capacity", () => ({ downloadWriteCapacity: async () => ({ remainingBytes: null, maxFileBytes: null }) }));
 vi.mock("@/lib/db", () => ({ prisma: { fileEntry: { findUnique: mocks.lookup }, downloadTask: {
   count: async () => 1, findFirstOrThrow: async () => ({ createdBy: "actor", teamId: "team", agentRootIdentity: "root" }),
 } } }));

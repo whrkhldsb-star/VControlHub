@@ -86,7 +86,25 @@ describe("AiProviderPanel", () => {
     expect(key).toBeRequired();
   });
 
-  it("omits an empty default model after changing provider type", async () => {
+  it("rotates a key without resubmitting a model list refreshed while editing", async () => {
+    vi.mocked(csrfFetch).mockResolvedValueOnce({});
+    const provider = { ...providerFixture, availableModels: JSON.stringify(["old-model", "x".repeat(257)]) };
+    const props = {
+      show: true, providers: [provider], provForm: DEFAULT_PROV_FORM,
+      onClose: vi.fn(), onCreateProvider: vi.fn(), onDeleteProvider: vi.fn(),
+      onRefreshProviders: vi.fn(), setProvForm: vi.fn(),
+    };
+    const { rerender } = render(<AiProviderPanel {...props} />);
+    await userEvent.click(screen.getByRole("button", { name: "编辑 OpenAI" }));
+    rerender(<AiProviderPanel {...props} providers={[{ ...provider, availableModels: '["new-model"]' }]} />);
+    await userEvent.type(screen.getByLabelText("API Key"), "replacement");
+    await userEvent.click(screen.getByRole("button", { name: "保存修改" }));
+    expect(JSON.parse(String(vi.mocked(csrfFetch).mock.calls.at(-1)?.[1]?.body))).toEqual({
+      apiKey: "replacement", expectedEndpoint: { type: provider.type, baseUrl: provider.baseUrl },
+    });
+  });
+
+  it("requires the operator to choose a default when switching to a native provider", async () => {
     vi.mocked(csrfFetch).mockResolvedValueOnce({});
     render(<AiProviderPanel show providers={[providerFixture]} provForm={DEFAULT_PROV_FORM}
       onClose={vi.fn()} onCreateProvider={vi.fn()} onDeleteProvider={vi.fn()}
@@ -95,9 +113,11 @@ describe("AiProviderPanel", () => {
     await userEvent.selectOptions(screen.getByLabelText("类型"), "ANTHROPIC");
     await userEvent.type(screen.getByLabelText("API Key"), "new-key");
     await userEvent.click(screen.getByRole("button", { name: "保存修改" }));
+    expect(csrfFetch).not.toHaveBeenCalled();
+    await userEvent.type(screen.getByLabelText("默认模型"), "native-model");
+    await userEvent.click(screen.getByRole("button", { name: "保存修改" }));
     const patch = JSON.parse(String(vi.mocked(csrfFetch).mock.calls.at(-1)?.[1]?.body));
-    expect(patch).toMatchObject({ type: "ANTHROPIC", apiKey: "new-key" });
-    expect(patch).not.toHaveProperty("defaultModel");
+    expect(patch).toMatchObject({ type: "ANTHROPIC", apiKey: "new-key", defaultModel: "native-model" });
   });
 
   it("locks editing and dismissal until a save finishes and prevents repeated PATCH requests", async () => {
@@ -237,12 +257,7 @@ describe("AiProviderPanel", () => {
       expect(csrfFetch).toHaveBeenCalledWith("/api/ai/providers/provider-1", expect.objectContaining({
         method: "PATCH",
         body: JSON.stringify({
-          name: "OpenAI",
-          type: "OPENAI_COMPATIBLE",
-          baseUrl: "https://api.openai.com/v1",
           defaultModel: "gpt-4o",
-          availableModels: ["gpt-4o-mini", "gpt-4o"],
-          isDefault: true,
         }),
       }));
     });

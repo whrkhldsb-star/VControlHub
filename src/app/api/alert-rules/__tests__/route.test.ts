@@ -62,10 +62,10 @@ describe("/api/alert-rules", () => {
     mocks.updateAlertRule.mockResolvedValue(row());
     mocks.toggleAlertRule.mockResolvedValue(row({ enabled: false }));
     mocks.testAlertRule.mockResolvedValue({
-      rule: { id: "rule1", name: "CPU", webhookUrl: "https://hooks.example.com/secret" },
+      rule: { id: "rule1", teamId: "customer", name: "CPU", webhookUrl: "https://hooks.example.com/secret" },
       deliveries: [{ channel: "webhook", status: "sent", message: "Webhook test request sent" }],
     });
-    mocks.deleteAlertRule.mockResolvedValue({ id: "rule1" });
+    mocks.deleteAlertRule.mockResolvedValue({ id: "rule1", teamId: "customer" });
     mocks.evaluateAlerts.mockResolvedValue(undefined);
     mocks.getPlatformDefaults.mockResolvedValue({ locale: "zh", theme: "dark" });
   });
@@ -368,13 +368,13 @@ describe("/api/alert-rules", () => {
         channels: ["webhook"],
         statuses: ["sent"],
       }),
-      undefined, null);
+      undefined, "customer");
     expect(JSON.stringify(mocks.auditUserAction.mock.calls)).not.toContain("secret");
     expect(mocks.auditUserAction).toHaveBeenCalledWith(
       "u1",
       "alert_rule.delete",
       expect.objectContaining({ ruleId: "rule1" }),
-      undefined, null);
+      undefined, "customer");
     expect(mocks.auditUserAction).toHaveBeenCalledWith(
       "u1",
       "alert_rule.evaluate",

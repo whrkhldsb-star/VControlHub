@@ -434,6 +434,28 @@ describe("createAiChatResponse", () => {
   });
   });
 
+  it("persists an interrupted follow-up with a marker and ends the SSE response with an error", async () => {
+    repeatedTools(1);
+    const tools = mocks.sendChatRequest.getMockImplementation()!;
+    mocks.sendChatRequest.mockImplementationOnce(tools).mockResolvedValueOnce({
+      response: new Response('data: {"choices":[{"delta":{"content":"Partial analysis"}}]}\n\n'),
+      providerType: "OPENAI", startTime: Date.now(),
+    });
+    const response = await createAiChatResponse({ body: { conversationId: conversation.id, content: "question" }, session, reloadSession, locale: "en" });
+    const body = await response.text();
+    expect(body).toContain('"type":"error"');
+    expect(body).not.toContain('"type":"done"');
+    expect(mocks.prisma.aiMessage.create).toHaveBeenCalledWith({ data: expect.objectContaining({
+      content: expect.stringMatching(/^Partial analysis\n\n.+/),
+    }) });
+  });
+
+  it("preserves a database error while looking up the conversation", async () => {
+    const failure = new Error("pool unavailable");
+    mocks.getConversationById.mockRejectedValueOnce(failure);
+    await expect(createAiChatResponse({ body: { conversationId: conversation.id, content: "question" }, session, reloadSession, locale: "en" })).rejects.toBe(failure);
+  });
+
   it("returns a readable tool summary when the model follow-up fails", async () => {
     mocks.getConversationById.mockResolvedValueOnce({
       ...conversation,

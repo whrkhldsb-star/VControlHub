@@ -21,7 +21,10 @@ import { beforeEach, describe, expect, it, vi } from "vitest";
  */
 const mocks = vi.hoisted(() => ({ create: vi.fn() }));
 
-vi.mock("@/lib/db", () => ({ prisma: { trafficSnapshot: { create: mocks.create } } }));
+vi.mock("@/lib/db", () => ({ prisma: {
+	$transaction: (fn: (tx: unknown) => unknown) => fn({ trafficSnapshot: { createMany: mocks.create, findFirst: vi.fn() } }),
+} }));
+vi.mock("@/lib/concurrency/advisory-lock", () => ({ lockForTransaction: vi.fn() }));
 
 import { persistServerTrafficFromMetrics } from "../server-traffic-snapshot";
 
@@ -53,7 +56,7 @@ describe("persistServerTrafficFromMetrics", () => {
 	beforeEach(() => {
 		vi.clearAllMocks();
 		mocks.create.mockReset();
-		mocks.create.mockResolvedValue({ id: "snap" });
+		mocks.create.mockResolvedValue({ count: 1 });
 	});
 
 	it("returns false without writing when the host reports no interfaces", async () => {

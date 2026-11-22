@@ -20,7 +20,6 @@ export type UseConversationsResult = {
   /** Load the active conversation's history again. */
   retryMessages: () => void;
   refreshConversations: () => Promise<void>;
-  autoTitle: (convId: string, firstMsg: string) => Promise<void>;
 };
 
 /**
@@ -92,27 +91,6 @@ export function useConversations({
     if (data.conversations) setConversations(data.conversations);
   }, []);
 
-  const autoTitle = useCallback(
-    async (convId: string, firstMsg: string) => {
-      const title = firstMsg.slice(0, 30).replace(/\n/g, " ").trim();
-      // Skip attachment-only placeholders in both en/zh locales.
-      if (!title || title === "(attachment)" || title === "(附件)") return;
-      try {
-        await csrfFetch(`/api/ai/conversations/${convId}`, {
-          method: "PATCH",
-          headers: { "Content-Type": "application/json" },
-          body: JSON.stringify({
-            title: title + (firstMsg.length > 30 ? "..." : ""),
-          }),
-        });
-        await refreshConversations();
-      } catch {
-        // ignore — auto-title is best-effort
-      }
-    },
-    [refreshConversations],
-  );
-
   return {
     conversations,
     activeConvId,
@@ -123,6 +101,5 @@ export function useConversations({
     messagesError,
     retryMessages,
     refreshConversations,
-    autoTitle,
   };
 }

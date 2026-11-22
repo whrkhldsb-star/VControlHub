@@ -1,7 +1,8 @@
+import { manualRunKey } from "@/lib/command/approval-identity";
 import { apiCopy } from "@/lib/i18n/api-copy";
 import { CronExpressionParser } from "cron-parser";
 import { prisma } from "@/lib/db";
-import type { CommandRequestStatus, ScheduledTask } from "@prisma/client";
+import type { CommandRequestStatus, Prisma, ScheduledTask } from "@prisma/client";
 import { createCommandRequest } from "@/lib/command/service";
 import { commandTemplateScopeWhere } from "@/lib/command-template/service";
 import { createCommandSchema, commandRequestTitle } from "@/lib/command/schema";
@@ -173,25 +174,41 @@ export async function createScheduledTask(
 	});
 }
 
+async function visibleScheduledTargets<T extends { serverIds: string[] }>(tasks: T[], session: SessionScope) {
+	const ids = [...new Set(tasks.flatMap(task => task.serverIds))];
+	if (!ids.length) return tasks;
+	const readable = sessionHasPermission(session, "server:read") ? await prisma.server.findMany({
+		where: { id: { in: ids }, AND: serverTeamWhere(session) }, select: { id: true },
+	}) : [];
+	const visible = new Set(readable.map(server => server.id));
+	return tasks.map(task => ({ ...task, serverIds: task.serverIds.filter(id => visible.has(id)) }));
+}
+
 export async function listScheduledTasks(
 	limit = 200,
 	session: SessionScope,
 ) {
-	return prisma.scheduledTask.findMany({
+	const tasks = await prisma.scheduledTask.findMany({
 		where: activeCustomerTeamWhere(session),
 		orderBy: { createdAt: "desc" },
 		take: limit,
 		include: { creator: { select: { username: true, displayName: true } } },
 	});
+	return visibleScheduledTargets(tasks, session);
 }
 
-export async function getScheduledTask(
+async function requireScheduledTask(
 	id: string,
 	session: SessionScope,
 ) {
 	const task = await getScheduledTaskForSession(id, session);
 	if (!task) throw new NotFoundError(t("backend.scheduled-task.scheduledTaskNotFound"));
 	return task;
+}
+
+export async function getScheduledTask(id: string, session: SessionScope) {
+	const task = await requireScheduledTask(id, session);
+	return (await visibleScheduledTargets([task], session))[0]!;
 }
 
 async function assertScheduledTaskEditAllowed(
@@ -236,7 +253,17 @@ export async function updateScheduledTask(
 	input: UpdateScheduledTaskInput,
 	session: SessionScope,
 ) {
-	const existing = await getScheduledTask(id, session);
+	const existing = await requireScheduledTask(id, session);
+	if (input.serverIds) {
+		const supplied = normalizeServerIds(input.serverIds);
+		const omitted = existing.serverIds.filter(id => !supplied.includes(id));
+		if (omitted.length) {
+			const [readable] = await visibleScheduledTargets([{ serverIds: omitted }], session);
+			const hidden = omitted.filter(id => !readable!.serverIds.includes(id));
+			const serverIds = [...supplied, ...hidden];
+			input = { ...input, serverIds: hidden.length && !changesWhatRuns(existing, { serverIds }) ? undefined : serverIds };
+		}
+	}
 	await assertScheduledTaskEditAllowed(existing, input, session);
 	const data: Record<string, unknown> = {};
 	// Every run files its request as the task's creator. Whoever rewrites the command must reach the servers it
@@ -294,7 +321,7 @@ export async function updateScheduledTask(
 		data,
 	});
 	if (updated.count === 0) {
-		const latest = await getScheduledTask(id, session);
+		const latest = await requireScheduledTask(id, session);
 		await assertScheduledTaskEditAllowed(latest, input, session);
 		throw new ConflictError(t("backend.scheduled-task.taskChangedRetry"));
 	}
@@ -346,7 +373,7 @@ export async function deleteScheduledTask(
 		where: { id, ...activeCustomerTeamWhere(session), approvalRequired: existing.approvalRequired, updatedAt: existing.updatedAt },
 	});
 	if (deleted.count === 0) {
-		const latest = await getScheduledTask(id, session);
+		const latest = await requireScheduledTask(id, session);
 		if (!latest.approvalRequired && !sessionHasPermission(session, "command:execute")) {
 			throw new ForbiddenError(t("backend.scheduled-task.manageUnattendedRequiresExecutor"));
 		}
@@ -390,7 +417,7 @@ export async function toggleScheduledTask(
 	if (!current.approvalRequired && !sessionHasPermission(session, "command:execute")) {
 		throw new ForbiddenError(t("backend.scheduled-task.manageUnattendedRequiresExecutor"));
 	}
-	if (desiredStatus && current.status === desiredStatus) return current;
+	if (desiredStatus && current.status === desiredStatus) return (await visibleScheduledTargets([current], session))[0]!;
 	if (desiredStatus && current.status !== "ACTIVE" && current.status !== "PAUSED") {
 		throw new BusinessError(t(desiredStatus === "PAUSED" ? "backend.ai.cron.cannotPauseStatus" : "backend.ai.cron.cannotResumeStatus", { status: current.status }));
 	}
@@ -403,8 +430,8 @@ export async function toggleScheduledTask(
 		data: statusTransitionData({ ...current, status: newStatus }),
 	});
 	if (updated.count === 0) {
-		const latest = await getScheduledTask(id, session);
-		if (latest.status === newStatus) return latest;
+		const latest = await requireScheduledTask(id, session);
+		if (latest.status === newStatus) return (await visibleScheduledTargets([latest], session))[0]!;
 		throw new ConflictError(t("backend.scheduled-task.taskChangedRetry"));
 	}
 	return getScheduledTask(id, session);
@@ -441,6 +468,7 @@ export async function retryScheduledTask(
 		reason: task.reason ?? `Manually retry scheduled task ${task.name}`,
 		submissionMode: "user",
 		requesterId: task.createdById,
+		idempotencyKey: manualRunKey(session.userId),
 		serverIds: task.serverIds,
 		teamId: task.teamId ?? null,
 		approvalRequired: task.approvalRequired,
@@ -454,7 +482,7 @@ export async function retryScheduledTask(
 		await tx.scheduledTaskRun.create({ data: { scheduledTaskId: id, commandRequestId, dispatchedAt, manual: true } });
 		dispatchedTask = await tx.scheduledTask.findUniqueOrThrow({ where: { id } });
 	});
-	return dispatchedTask;
+	return (await visibleScheduledTargets([dispatchedTask], session))[0]!;
 }
 
 /**
@@ -466,42 +494,45 @@ export interface ScheduledTaskClaim {
 	lease: Date;
 }
 
-export async function recordTaskDispatch(id: string, commandRequestId: string, manual = false, claim?: ScheduledTaskClaim) {
-	return prisma.$transaction(async (tx) => {
-		const task = await tx.scheduledTask.findUnique({
-			where: { id },
-			select: { cronExpression: true, scheduleType: true },
-		});
-		if (!task) return null;
-		const dispatchedAt = new Date();
-		const recorded = await tx.scheduledTaskRun.createMany({
-			data: { scheduledTaskId: id, commandRequestId, manual, dispatchedAt },
-			skipDuplicates: true,
-		});
-		if (recorded.count) {
-			await tx.scheduledTask.update({
-				where: { id },
-				data: {
-					lastRunAt: dispatchedAt,
-					lastResult: t(manual ? "backend.scheduled-task.manualRetryDispatched" : "backend.scheduled-task.dispatched", { id: commandRequestId }),
-					runCount: { increment: 1 },
-				},
-			});
-		}
-		// A predecessor may have linked the request after losing the lease. Only
-		// the current holder advances the occurrence, even if it was already linked.
-		if (!manual && claim) {
-			await tx.scheduledTask.updateMany({
-				where: { id, status: "ACTIVE", nextRunAt: claim.lease, claimedOccurrenceAt: claim.occurrence },
-				data: {
-					claimedOccurrenceAt: null,
-					nextRunAt: task.scheduleType === "ONCE" ? null : computeNextRun(task.cronExpression),
-					...(task.scheduleType === "ONCE" ? { status: "DISABLED" as const } : {}),
-				},
-			});
-		}
-		return tx.scheduledTaskRun.findUniqueOrThrow({ where: { commandRequestId } });
+export async function recordTaskDispatch(id: string, commandRequestId: string, manual = false, claim?: ScheduledTaskClaim, tx?: Prisma.TransactionClient) {
+	if (!tx) return prisma.$transaction(db => recordDispatch(db, id, commandRequestId, manual, claim));
+	return recordDispatch(tx, id, commandRequestId, manual, claim);
+}
+
+async function recordDispatch(tx: Prisma.TransactionClient, id: string, commandRequestId: string, manual: boolean, claim?: ScheduledTaskClaim) {
+	const task = await tx.scheduledTask.findUnique({
+		where: { id },
+		select: { cronExpression: true, scheduleType: true },
 	});
+	if (!task) return null;
+	const dispatchedAt = new Date();
+	const recorded = await tx.scheduledTaskRun.createMany({
+		data: { scheduledTaskId: id, commandRequestId, manual, dispatchedAt },
+		skipDuplicates: true,
+	});
+	if (recorded.count) {
+		await tx.scheduledTask.update({
+			where: { id },
+			data: {
+				lastRunAt: dispatchedAt,
+				lastResult: t(manual ? "backend.scheduled-task.manualRetryDispatched" : "backend.scheduled-task.dispatched", { id: commandRequestId }),
+				runCount: { increment: 1 },
+			},
+		});
+	}
+	// A predecessor may have linked the request after losing the lease. Only
+	// the current holder advances the occurrence, even if it was already linked.
+	if (!manual && claim) {
+		await tx.scheduledTask.updateMany({
+			where: { id, status: "ACTIVE", nextRunAt: claim.lease, claimedOccurrenceAt: claim.occurrence },
+			data: {
+				claimedOccurrenceAt: null,
+				nextRunAt: task.scheduleType === "ONCE" ? null : computeNextRun(task.cronExpression),
+				...(task.scheduleType === "ONCE" ? { status: "DISABLED" as const } : {}),
+			},
+		});
+	}
+	return tx.scheduledTaskRun.findUniqueOrThrow({ where: { commandRequestId } });
 }
 
 const TERMINAL_COMMAND_STATUSES = new Set(["COMPLETED", "FAILED", "REJECTED", "CANCELLED"]);

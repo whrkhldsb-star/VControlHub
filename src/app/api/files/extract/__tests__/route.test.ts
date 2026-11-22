@@ -167,8 +167,9 @@ describe("POST /api/files/extract", () => {
     expect(assertStorageAccessMock).toHaveBeenCalledWith({
       session: { userId: "u_1", username: "admin", roles: ["admin"] },
       storageNodeId: "node_1",
-      relativePath: ".",
+      relativePath: "backup",
       operation: "write",
+      writeMembers: [{ relativePath: "backup", size: null }, { relativePath: "backup/hello.txt", size: 5 }],
       writeBytes: 5,
       largestFileBytes: 5,
     });

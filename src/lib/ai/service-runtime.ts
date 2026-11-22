@@ -14,6 +14,7 @@ import { prisma } from "@/lib/db";
 import { ConflictError, NotFoundError, ValidationError } from "@/lib/errors";
 import { allowsKeylessProvider, resolveDefaultProviderBaseUrl, fetchProviderModels, postProviderChat, providerApiRoot, trimProviderBaseUrl } from "./provider-http";
 
+import { usableProviderModelIds } from "./schema";
 import { ACTIVE_GENERATION, GENERATION_EXPIRY_MS } from "./chat-generation";
 import { safeDecryptApiKey } from "./service-crud";
 import { t } from "@/lib/i18n/service-translations";
@@ -131,7 +132,7 @@ export async function fetchModelsFromProvider(providerId: string, userId: string
 		try {
 			const parsed: unknown = JSON.parse(provider.availableModels || "[]");
 			if (Array.isArray(parsed)) {
-				saved = parsed.filter((id): id is string => typeof id === "string");
+				saved = usableProviderModelIds(parsed);
 			}
 		} catch {
 			saved = [];

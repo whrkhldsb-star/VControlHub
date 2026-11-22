@@ -364,7 +364,7 @@ export const HOSTED_TOOLS: HostedTool[] = [
       properties: {
         query: { type: "string", description: "Natural language search query" },
         knowledgeBaseId: { type: "string", description: "Optional knowledge base id to scope search" },
-        limit: { type: "number", description: "Max excerpts, default 5, max 8" },
+        limit: { type: "integer", minimum: 1, maximum: 8, description: "Max excerpts, default 5, max 8" },
       },
       required: ["query"],
     },

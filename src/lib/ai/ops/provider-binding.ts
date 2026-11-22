@@ -1,5 +1,5 @@
 import { createHash, createHmac } from "node:crypto";
-import type { AiProvider } from "@prisma/client";
+import type { AiProvider, Prisma } from "@prisma/client";
 
 import { getSessionSigningSecret } from "@/lib/auth/session";
 import { safeDecryptApiKey } from "../service-crud";
@@ -38,8 +38,8 @@ export async function prepareAiOpsProviderBinding(providerId: string, ownerId: s
 	return [{ key: "ai.ops.provider", value: providerId }, { key: AI_OPS_BINDING_KEY, value: binding }];
 }
 
-export async function readAiOpsSettings() {
-	const rows = await prisma.setting.findMany({
+export async function readAiOpsSettings(db: Pick<Prisma.TransactionClient, "setting"> = prisma) {
+	const rows = await db.setting.findMany({
 		where: { key: { in: ["ai.ops.mode", "ai.ops.provider", AI_OPS_BINDING_KEY] } },
 		select: { key: true, value: true },
 	});
@@ -58,10 +58,10 @@ export function providerConfigurationVersion(provider: Endpoint & Pick<AiProvide
 }
 
 /** Return the exact credential and endpoint snapshot approved to receive fleet data. */
-export async function loadBoundAiOpsProvider(providerId: string) {
+export async function loadBoundAiOpsProvider(providerId: string, db: Prisma.TransactionClient = prisma) {
 	const [current, provider] = await Promise.all([
-		readAiOpsSettings(),
-		prisma.aiProvider.findFirst({
+		readAiOpsSettings(db),
+		db.aiProvider.findFirst({
 			where: { id: providerId, enabled: true, creator: activePlatformAdmin },
 			select: { ...endpointFields, apiKey: true, updatedAt: true },
 		}),

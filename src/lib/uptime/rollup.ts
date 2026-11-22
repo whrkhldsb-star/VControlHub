@@ -1,3 +1,4 @@
+import { withSamplingClaim, type SamplingClaim } from "@/lib/monitoring/sampling-claim";
 /**
  * Daily server uptime rollup (status-page heatmap source).
  *
@@ -44,6 +45,7 @@ function count(value: bigint | number): number {
  */
 export async function rollupServerUptimeForDay(
   day: Date = new Date(),
+  claim?: SamplingClaim,
 ): Promise<{ upserted: number }> {
   const dayStart = startOfDayInAppTimeZone(day);
   const dayEnd = shiftAppTimeZoneDay(dayStart, 1);
@@ -64,6 +66,7 @@ export async function rollupServerUptimeForDay(
   let sampleTotal = 0;
 
   for (const row of rows) {
+    claim?.signal.throwIfAborted();
     const online = count(row.online);
     const offline = count(row.offline);
     const checkCount = online + offline;
@@ -89,7 +92,7 @@ export async function rollupServerUptimeForDay(
     });
     if (stored && stored.checkCount > checkCount) continue;
 
-    await prisma.serverUptimeSnapshot.upsert({
+    await withSamplingClaim(claim, (tx) => tx.serverUptimeSnapshot.upsert({
       where: {
         serverId_date: {
           serverId: row.serverId,
@@ -110,7 +113,7 @@ export async function rollupServerUptimeForDay(
         offlineMinutes,
         checkCount,
       },
-    });
+    }));
     upserted += 1;
   }
 
@@ -125,11 +128,11 @@ export async function rollupServerUptimeForDay(
 }
 
 /** Roll up today + yesterday (covers late-night boundary samples). */
-export async function rollupRecentServerUptime(): Promise<{
+export async function rollupRecentServerUptime(claim?: SamplingClaim): Promise<{
   upserted: number;
 }> {
   const now = new Date();
-  const today = await rollupServerUptimeForDay(now);
-  const y = await rollupServerUptimeForDay(shiftAppTimeZoneDay(now, -1));
+  const today = await rollupServerUptimeForDay(now, claim);
+  const y = await rollupServerUptimeForDay(shiftAppTimeZoneDay(now, -1), claim);
   return { upserted: today.upserted + y.upserted };
 }

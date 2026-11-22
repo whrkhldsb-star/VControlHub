@@ -11,6 +11,8 @@
  * then sees an existing row (updated only with overwrite, as for any other).
  */
 
+import { createHash } from "node:crypto";
+import { BUILTIN_IDENTITY_TEMPLATES, normalizeIdentityPermissions } from "@/lib/auth/identity-templates";
 import { ValidationError } from "@/lib/errors";
 import { t } from "@/lib/i18n/service-translations";
 import { importPlaybooksSchema, type ExportFile } from "@/lib/system/config-schema";
@@ -66,7 +68,7 @@ function repeatedKeys(names: string[]): Set<string> {
 }
 
 /** Check both ends before rewriting any references, including membership-only packages. */
-async function assertAccountAlignment(db: Db, tables: Tables, userMap: IdMap, roleMap: IdMap) {
+async function assertAccountAlignment(db: Db, tables: Tables, userMap: IdMap, roleMap: IdMap, teamMap: IdMap, presentUsers: Set<string>) {
 	const alignedUser = (id: string) => userMap.get(id) ?? id;
 	const members = new Set(tables.teamMembers.map((row) => alignedUser(row.userId)));
 	const adminRoleIds = new Set(tables.roles.filter((row) => row.key === "admin").map((row) => row.id));
@@ -74,20 +76,27 @@ async function assertAccountAlignment(db: Db, tables: Tables, userMap: IdMap, ro
 	const localAdmin = tables.userRoles.length ? await db.role.findUnique({ where: { key: "admin" }, select: { id: true } }) : null;
 	const admins = new Set(tables.userRoles.filter((row) => adminRoleIds.has(row.roleId)
 		|| (roleMap.get(row.roleId) ?? row.roleId) === localAdmin?.id).map((row) => alignedUser(row.userId)));
-	const matched = new Set(userMap.values());
+	const matched = new Set([...userMap.values(), ...presentUsers]);
+	const sourceTeams = new Map<string, string>();
+	for (const row of tables.teamMembers) {
+		const id = alignedUser(row.userId);
+		const team = teamMap.get(row.teamId) ?? row.teamId;
+		if (sourceTeams.has(id) && sourceTeams.get(id) !== team) throw new ValidationError(t("backend.system.importAccountTypeConflict", { id }));
+		sourceTeams.set(id, team);
+	}
 	const ids = new Set([...members, ...admins, ...matched]);
 	const target = await loadGrantUserScopes(db, ids);
 	for (const id of ids) {
 		const local = target.get(id);
 		if ((members.has(id) && (admins.has(id) || local?.isAdmin))
 			|| (admins.has(id) && local?.teamId != null)
-			|| (matched.has(id) && local?.isAdmin && !admins.has(id))) {
+			|| (matched.has(id) && local && (local.isAdmin !== admins.has(id) || local.teamId !== (sourceTeams.get(id) ?? null)))) {
 			throw new ValidationError(t("backend.system.importAccountTypeConflict", { id }));
 		}
 	}
 }
 
-export async function alignImportIds(db: Db, tables: Tables): Promise<Tables> {
+export async function alignImportIds(db: Db, tables: Tables, overwrite = true): Promise<Tables> {
 	const [permissions, roles, users, teams, sshKeys, templates] = await Promise.all([
 		inChunks(unique(tables.permissions.map((r) => r.key)), async (keys) =>
 			(await db.permission.findMany({ where: { key: { in: keys } }, select: { id: true, key: true } }))),
@@ -101,26 +110,44 @@ export async function alignImportIds(db: Db, tables: Tables): Promise<Tables> {
 			(await db.sshKey.findMany({ where: { fingerprint: { in: keys } }, select: { id: true, fingerprint: true } })).map((r) => ({ id: r.id, key: r.fingerprint }))),
 		// Template names are not unique in either instance.
 		inChunks(unique(tables.identityTemplates.map((r) => r.name)), async (keys) =>
-			(await db.identityTemplate.findMany({ where: { name: { in: keys } }, select: { id: true, name: true } })).map((r) => ({ id: r.id, key: r.name }))),
+			(await db.identityTemplate.findMany({ where: { name: { in: keys } }, select: { id: true, name: true, permissions: true, isBuiltin: true } }))),
 	]);
 	// Id lookups catch "the source id already exists here" for each table.
 	const presentIds = async (ids: string[], query: (chunk: string[]) => Promise<Array<{ id: string }>>) =>
 		new Set((await inChunks(unique(ids), query)).map((row) => row.id));
-	const [permissionIds, roleIds, userIds, teamIds, sshKeyIds, templateIds] = await Promise.all([
+	const [permissionIds, roleIds, userIds, teamIds, sshKeyIds, storedTemplates] = await Promise.all([
 		presentIds(tables.permissions.map((r) => r.id), (ids) => db.permission.findMany({ where: { id: { in: ids } }, select: { id: true } })),
 		presentIds(tables.roles.map((r) => r.id), (ids) => db.role.findMany({ where: { id: { in: ids } }, select: { id: true } })),
 		presentIds(tables.users.map((r) => r.id), (ids) => db.user.findMany({ where: { id: { in: ids } }, select: { id: true } })),
 		presentIds(tables.teams.map((r) => r.id), (ids) => db.team.findMany({ where: { id: { in: ids } }, select: { id: true } })),
 		presentIds(tables.sshKeys.map((r) => r.id), (ids) => db.sshKey.findMany({ where: { id: { in: ids } }, select: { id: true } })),
-		presentIds(tables.identityTemplates.map((r) => r.id), (ids) => db.identityTemplate.findMany({ where: { id: { in: ids } }, select: { id: true } })),
+		inChunks(unique(tables.identityTemplates.map((r) => r.id)), (ids) => db.identityTemplate.findMany({ where: { id: { in: ids } }, select: { id: true, isBuiltin: true, permissions: true } })),
 	]);
 	const permissionMap = mapByKey(tables.permissions, (r) => r.key, permissions, permissionIds);
 	const roleMap = mapByKey(tables.roles, (r) => r.key, roles, roleIds);
 	const userMap = mapByKey(tables.users, (r) => r.username, users, userIds);
-	await assertAccountAlignment(db, tables, userMap, roleMap);
 	const teamMap = mapByKey(tables.teams, (r) => r.slug, teams, teamIds);
 	const sshKeyMap = mapByKey(tables.sshKeys, (r) => r.fingerprint, sshKeys, sshKeyIds);
-	const templateMap = mapByKey(tables.identityTemplates, (r) => r.name, templates, templateIds);
+	await assertAccountAlignment(db, tables, userMap, roleMap, teamMap, userIds);
+	const builtinIds = new Set<string>(BUILTIN_IDENTITY_TEMPLATES.map((row) => row.id));
+	const byTemplateId = new Map(storedTemplates.map((r) => [r.id, r]));
+	for (const row of tables.identityTemplates) {
+		const stored = byTemplateId.get(row.id);
+		if (row.isBuiltin !== builtinIds.has(row.id) || (stored && stored.isBuiltin !== row.isBuiltin)) throw new ValidationError("IMPORT_TEMPLATE_KIND");
+		if (!overwrite && !row.isBuiltin && stored && JSON.stringify(normalizeIdentityPermissions(stored.permissions)) !== JSON.stringify(normalizeIdentityPermissions(row.permissions))) {
+			throw new ValidationError("IMPORT_TEMPLATE_PERMISSIONS");
+		}
+	}
+	const templateKey = (row: { name: string; permissions: string[] }) => JSON.stringify([row.name, normalizeIdentityPermissions(row.permissions)]);
+	const ambiguousNames = new Set([...repeatedKeys(tables.identityTemplates.map((r) => r.name)), ...repeatedKeys(templates.map((r) => r.name))]);
+	const templateMap = mapByKey(tables.identityTemplates.filter((r) => !r.isBuiltin && !ambiguousNames.has(r.name)), templateKey,
+		templates.filter((r) => !r.isBuiltin && !builtinIds.has(r.id)).map((r) => ({ id: r.id, key: templateKey(r) })), new Set(byTemplateId.keys()));
+	const snippetPrefix = (teamId: string) => "sn-team-" + createHash("sha256").update(teamId).digest("hex") + "-";
+	const prefixes = new Map([...teamMap].map(([source, target]) => [snippetPrefix(source), snippetPrefix(target)]));
+	function snippetId(id: string) {
+		const prefix = /^sn-team-[a-f0-9]{64}-/.exec(id)?.[0];
+		return prefix && prefixes.has(prefix) ? prefixes.get(prefix) + id.slice(prefix.length) : id;
+	}
 
 	const id = (map: IdMap) => (value: string) => map.get(value) ?? value;
 	const maybe = (map: IdMap) => <T extends string | null | undefined>(value: T): T => (value ? (map.get(value) ?? value) : value) as T;
@@ -151,7 +178,7 @@ export async function alignImportIds(db: Db, tables: Tables): Promise<Tables> {
 		alertRules: tables.alertRules.map((r) => ({ ...r, teamId: teamOrNull(r.teamId), onCallUserIds: (r.onCallUserIds ?? []).map(user) })),
 		aiProviders: tables.aiProviders.map((r) => ({ ...r, createdBy: user(r.createdBy) })),
 		announcements: tables.announcements.map((r) => ({ ...r, createdBy: userOrNull(r.createdBy) })),
-		snippets: tables.snippets.map((r) => ({ ...r, createdBy: userOrNull(r.createdBy) })),
+		snippets: tables.snippets.map((r) => ({ ...r, id: snippetId(r.id), createdBy: userOrNull(r.createdBy) })),
 	};
 }
 
