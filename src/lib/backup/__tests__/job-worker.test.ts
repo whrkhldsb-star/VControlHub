@@ -2,6 +2,7 @@ import { beforeEach, describe, expect, it, vi } from "vitest";
 
 const { mocks } = vi.hoisted(() => ({
   mocks: {
+    liveSchedule: vi.fn(),
     claimNextJob: vi.fn(),
     completeJob: vi.fn(),
     failJob: vi.fn(),
@@ -19,6 +20,8 @@ const { mocks } = vi.hoisted(() => ({
     retryPendingVpsOffsiteUploads: vi.fn(),
   },
 }));
+
+vi.mock("@/lib/db", () => ({ prisma: { backupSchedule: { findFirst: mocks.liveSchedule, aggregate: async () => ({ _max: { retentionDays: null } }) } } }));
 
 vi.mock("@/lib/job/service", () => ({
   claimNextJob: mocks.claimNextJob,
@@ -68,7 +71,7 @@ vi.mock("@/lib/backup/vps-backup-service", () => ({
   retryPendingVpsOffsiteUploads: mocks.retryPendingVpsOffsiteUploads,
 }));
 
-vi.mock("@/lib/storage/offsite/retention", () => ({
+vi.mock("../offsite-retention", () => ({
   pruneOffsiteObjects: vi.fn().mockResolvedValue(null),
 }));
 
@@ -122,7 +125,7 @@ describe("backup job worker create path", () => {
 
     expect(mocks.enqueueJob).toHaveBeenCalledWith(expect.objectContaining({
       type: BACKUP_RETENTION_JOB_TYPE,
-      payload: expect.objectContaining({ olderThanDays: 7, scheduleId: "sched_platform", platformScope: true }),
+      payload: expect.objectContaining({ scheduleId: "sched_platform", platformScope: true }),
     }));
     expect(mocks.enqueueJob.mock.calls[0]![0].payload).not.toHaveProperty("teamId");
   });
@@ -272,6 +275,24 @@ describe("backup job worker create path", () => {
     );
     expect(mocks.failJob).not.toHaveBeenCalled();
     expect(mocks.failJobTerminal).not.toHaveBeenCalled();
+  });
+
+  it.each([90, null])("uses the live schedule retention of %s days for a queued 7-day policy", async (days) => {
+    mocks.claimNextJob.mockResolvedValueOnce({ id: "cleanup", createdBy: "owner", type: BACKUP_RETENTION_JOB_TYPE,
+      payload: { scheduleId: "schedule", olderThanDays: 7, platformScope: true } });
+    mocks.liveSchedule.mockResolvedValueOnce({ retentionDays: days });
+    await runBackupJobWorkerOnce();
+    if (days) expect(mocks.pruneOldBackupRecordsNow).toHaveBeenCalledWith(expect.objectContaining({ olderThanDays: days, scheduleId: "schedule" }));
+    else expect(mocks.pruneOldBackupRecordsNow).not.toHaveBeenCalled();
+  });
+
+  it("exits before starting a backup when the initial heartbeat loses the claim", async () => {
+    mocks.claimNextJob.mockResolvedValueOnce({ id: "expired", attempts: 2, type: BACKUP_CREATE_JOB_TYPE, payload: { backupId: "record" } });
+    mocks.getBackupRecord.mockResolvedValueOnce({ id: "record", type: "FILES" });
+    mocks.heartbeatJob.mockResolvedValueOnce({ count: 0 });
+    await runBackupJobWorkerOnce();
+    expect(mocks.runExistingBackupRecord).not.toHaveBeenCalled();
+    expect(mocks.completeJob).not.toHaveBeenCalled();
   });
 
   it("stops scheduled retention if the user has lost platform access since enqueue", async () => {

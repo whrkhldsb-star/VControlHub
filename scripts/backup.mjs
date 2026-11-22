@@ -26,6 +26,8 @@ import { pipeline } from "node:stream/promises";
 import { createInterface } from "node:readline";
 
 import {
+  applicationSchema,
+  RESTORE_DATA_ROOTS,
   findBinary,
   findTar,
   makeLogger,
@@ -80,14 +82,16 @@ function resolveOutputPath(arg, mode) {
   return path.isAbsolute(arg) ? arg : path.join(APP_DIR, arg);
 }
 
-async function dumpDatabase(outputPath, env) {
+async function dumpDatabase(outputPath, env, embedded = false) {
   const pgDump = await findBinary("pg_dump");
   if (!pgDump) fail("pg_dump not found. Install PostgreSQL client tools or set PG_INSTALL_DIR.");
   const { connArgs, childEnv } = pgConnection(env);
 
   log(`Starting database backup: ${outputPath}`);
   await publishBackup(outputPath, async (temporary) => {
-    const child = spawn(pgDump, [...connArgs, "--no-owner", "--no-privileges", "--clean", "--if-exists"], {
+    const schema = applicationSchema(env);
+    const schemaArgs = schema === "public" ? [] : ["--schema", '"' + schema.replaceAll('"', '""') + '"'];
+    const child = spawn(pgDump, [...connArgs, ...schemaArgs, "--no-owner", "--no-privileges", "--clean", "--if-exists"], {
       stdio: ["ignore", "pipe", "pipe"],
       env: childEnv,
     });
@@ -102,7 +106,10 @@ async function dumpDatabase(outputPath, env) {
     try {
       await Promise.all([
         exited,
-        pipeline(child.stdout, createGzip(), createWriteStream(temporary, { flags: "wx", mode: 0o600 })),
+        pipeline(child.stdout, async function* (chunks) {
+          if (!embedded) yield "-- VControlHub application schema " + Buffer.from(applicationSchema(env)).toString("hex") + "\n";
+          yield* chunks;
+        }, createGzip(), createWriteStream(temporary, { flags: "wx", mode: 0o600 })),
       ]);
     } catch (error) {
       child.kill();
@@ -151,7 +158,7 @@ async function pruneOldBackups(currentOutput) {
   }
 }
 
-const FILES_MODE_PATHS = ["storage", "uploads", "downloads", "logs"];
+const FILES_MODE_PATHS = RESTORE_DATA_ROOTS;
 const FULL_MODE_PATHS = [...FILES_MODE_PATHS, "public", "prisma", "package.json", "package-lock.json"];
 
 /**
@@ -186,7 +193,7 @@ async function assertScheduledCoverage(env, roots) {
   const psql = await findBinary("psql");
   if (!psql) throw new Error("Cannot verify local storage coverage without psql");
   const { connArgs, childEnv } = pgConnection(env);
-  const schema = (env.DATABASE_URL && new URL(env.DATABASE_URL).searchParams.get("schema")) || "public";
+  const schema = applicationSchema(env);
   const table = '"' + schema.replaceAll('"', '""') + '"."StorageNode"';
   const query = `SELECT COALESCE(json_agg(DISTINCT "basePath"), '[]') FROM ${table} WHERE driver = 'LOCAL'`;
   const { stdout } = await runBinary(psql, [...connArgs, "-XAt", "-v", "ON_ERROR_STOP=1", "-c", query], { env: childEnv });
@@ -283,7 +290,7 @@ async function archivePaths(outputPath, members, extraDir, env, { full = false, 
     if (full) {
       // Publication is conditional on the post-pack verification below.
       await fs.writeFile(path.join(extraDir, INTEGRITY_MANIFEST), JSON.stringify({
-        version: 1, databaseFileReferences: "verified", tarWarningsAllowed: false,
+        version: 1, databaseSchema: applicationSchema(env), databaseFileReferences: "verified", tarWarningsAllowed: false,
       }));
       args.push("-C", extraDir, INTEGRITY_MANIFEST);
     }
@@ -356,7 +363,7 @@ async function main() {
   const staging = await fs.mkdtemp(path.join(os.tmpdir(), "vch-backup-full-"));
   try {
     const full = mode === "full";
-    if (full) await dumpDatabase(path.join(staging, "database.sql.gz"), env);
+    if (full) await dumpDatabase(path.join(staging, "database.sql.gz"), env, true);
     await publishBackup(output, (temporary) => archivePaths(temporary,
       full ? FULL_MODE_PATHS : FILES_MODE_PATHS, staging, env, { full, restoreSnapshot }));
     await pruneOldBackups(output);

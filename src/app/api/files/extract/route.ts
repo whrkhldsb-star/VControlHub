@@ -27,7 +27,7 @@ import { ArchiveExtractError, archiveKindOf, extractArchive, planExtraction } fr
 import { archiveErrorCopy } from "@/lib/storage/archive-error-copy";
 import { syncLocalDirectoryEntries } from "@/lib/storage/local-sync";
 
-import { NotFoundError, ValidationError, isAppError } from "@/lib/errors";
+import { ForbiddenError, NotFoundError, ValidationError, isAppError } from "@/lib/errors";
 import { getErrorMessage } from "@/lib/http/error-message";
 
 export const dynamic = "force-dynamic";
@@ -248,25 +248,21 @@ export async function POST(request: NextRequest) {
             if (error instanceof ArchiveExtractError) throw new ValidationError(archiveErrorCopy(error));
             throw error;
           };
-          const plan = await planExtraction(fullPath, kind).catch(asValidation);
-          // Admitted like an upload of the expanded size: grant limits and quota apply.
-          const admission = await assertStorageAccess({
-            session,
-            storageNodeId: node.id,
-            relativePath: writeRelativePath,
-            operation: "write",
-            writeBytes: plan.totalBytes, largestFileBytes: plan.largestFileBytes,
-          });
-          if (!admission.allowed) {
-            return NextResponse.json(
-              { error: storageAccessDeniedCopy(admission.reason) },
-              { status: 403 },
-            );
-          }
+          const plan = await planExtraction(fullPath, kind, request.signal).catch(asValidation);
+          let admission: Awaited<ReturnType<typeof assertStorageAccess>> | undefined;
           try {
             const result = await extractArchive({
-              filePath: fullPath, kind, archiveName: formatName, parentDir, parentRelativePath: parentRelative, plan,
-              beforePublish: (folderName) => assertNotRecycled(node.id, path.posix.join(parentRelative, folderName), "write"),
+              filePath: fullPath, kind, archiveName: formatName, parentDir, parentRelativePath: parentRelative, plan, signal: request.signal,
+              beforePublish: async (folderName, members) => {
+                const folder = path.posix.join(parentRelative, folderName);
+                await assertNotRecycled(node.id, folder, "write", node.driver);
+                await releaseStorageQuotaGuard(admission);
+                admission = await assertStorageAccess({
+                  session, storageNodeId: node.id, relativePath: folder, operation: "write",
+                  writeBytes: plan.totalBytes, largestFileBytes: plan.largestFileBytes, writeMembers: members,
+                });
+                if (!admission.allowed) throw new ForbiddenError(storageAccessDeniedCopy(admission.reason));
+              },
             }).catch(asValidation);
             // Index the new folder and everything under it, so listings and
             // search show the files without visiting each folder first.

@@ -4,6 +4,7 @@ import { afterAll, beforeAll, describe, expect, it } from "vitest";
 
 import { config } from "@/lib/config/env";
 import { prisma } from "@/lib/db";
+import { updateBackupRecordStatus } from "../service-crud";
 import { abandonStaleRunningBackupRecords } from "../service";
 import { BACKUP_CREATE_JOB_TYPE } from "../service-types";
 
@@ -34,6 +35,14 @@ describe.skipIf(process.env.RUN_DATABASE_INTEGRATION_TESTS !== "1")("stale RUNNI
 			data: { id: `${prefix}-job`, type: BACKUP_CREATE_JOB_TYPE, title: "backup", payload: { backupId: `${prefix}-busy` }, status: "RUNNING", leaseExpiresAt: new Date(Date.now() + 5 * 60_000) },
 		});
 	});
+	it("fences a terminal write from an older claim on the same worker", async () => {
+		const id = prefix + "-busy";
+		const claim = { id: prefix + "-job", workerId: "worker", attempts: 1 };
+		await prisma.job.update({ where: { id: claim.id }, data: { workerId: claim.workerId, attempts: 2 } });
+		await expect(updateBackupRecordStatus(id, { status: "FAILED" }, { filePath: "backups/" + id + ".tar.gz", claim })).rejects.toThrow(/lease lost/i);
+		expect((await prisma.backupRecord.findUniqueOrThrow({ where: { id } })).status).toBe("RUNNING");
+	});
+
 	afterAll(async () => {
 		await prisma.job.deleteMany({ where: { id: `${prefix}-job` } });
 		await prisma.backupRecord.deleteMany({ where: { id: { startsWith: prefix } } });

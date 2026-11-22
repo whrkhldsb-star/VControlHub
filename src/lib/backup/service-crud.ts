@@ -20,8 +20,11 @@ import {
 	buildBackupFilePath,
 	isBackupType,
 } from "./service-types";
+import { LeaseLostError } from "@/lib/job/heartbeat-runner";
 import { t } from "@/lib/i18n/service-translations";
 import { config } from "@/lib/config/env";
+
+export type BackupJobClaim = { id: string; workerId: string; attempts: number };
 
 type BackupStatus = "PENDING" | "RUNNING" | "COMPLETED" | "FAILED";
 
@@ -92,6 +95,7 @@ export async function getBackupRecord(id: string, session?: Pick<SessionPayload,
 export async function updateBackupRecordStatus(
 	id: string,
 	input: { status: BackupStatus; fileSize?: number; completedAt?: Date; errorMessage?: string | null; checksumSha256?: string },
+	attempt?: { filePath: string; claim?: BackupJobClaim },
 ) {
 	const data: {
 		status: BackupStatus;
@@ -104,7 +108,18 @@ export async function updateBackupRecordStatus(
 	if (input.completedAt) data.completedAt = input.completedAt;
 	if (input.errorMessage !== undefined) data.errorMessage = input.errorMessage;
 	if (input.checksumSha256 !== undefined) data.checksumSha256 = input.checksumSha256;
-	return prisma.backupRecord.update({ where: { id }, data });
+	const where = { id, ...(attempt ? { status: "RUNNING", filePath: attempt.filePath } : {}) };
+	const claim = attempt?.claim;
+	if (!claim) return prisma.backupRecord.update({ where, data });
+	return prisma.$transaction(async (tx) => {
+		// A suspended worker can miss a heartbeat before its AbortSignal fires.
+		// Fence its result against the queue claim inside the same commit.
+		const active = await tx.$queryRaw<{ id: string }[]>`SELECT id FROM jobs WHERE id = ${claim.id}
+			AND "workerId" = ${claim.workerId} AND attempts = ${claim.attempts} AND status = 'RUNNING'
+			AND "leaseExpiresAt" > (clock_timestamp() AT TIME ZONE 'UTC') FOR SHARE`;
+		if (!active.length) throw new LeaseLostError(claim.id);
+		return tx.backupRecord.update({ where, data });
+	});
 }
 
 export async function voidBackupRecord(input: { id: string; reason: string; session?: Pick<SessionPayload, "userId" | "roles" | "currentTeamId"> }) {
@@ -148,7 +163,7 @@ export async function prepareBackupRecordRetry(input: { id: string; session?: Pi
 	// CAS: only re-queue while still FAILED.
 	const claimed = await client.backupRecord.updateMany({
 		where: { id: record.id, status: "FAILED", updatedAt: record.updatedAt },
-		data: { status: "PENDING", errorMessage: null },
+		data: { status: "PENDING", errorMessage: null, filePath: buildBackupFilePath(record.type) },
 	});
 	if (claimed.count === 0) {
 		throw new ConflictError(t("backend.backup.backupStatusChangedConcurrentlyCannotRetry"));

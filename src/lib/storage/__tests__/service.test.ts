@@ -1,3 +1,4 @@
+import { localRootIdentity, localPathVersion } from "../local-identity";
 import { ConflictError } from "@/lib/errors";
 import {
   mkdir,
@@ -14,6 +15,7 @@ import { describe, expect, it, vi } from "vitest";
 const { mockPrisma, listRemoteDirectoryMock, assertStorageAccessMock } =
   vi.hoisted(() => ({
     mockPrisma: {
+      $executeRaw: vi.fn(),
       shareLink: { updateMany: vi.fn() },
       $queryRaw: vi.fn(async () => [{ id: "bound-server" }]),
       storageNode: {
@@ -30,6 +32,7 @@ const { mockPrisma, listRemoteDirectoryMock, assertStorageAccessMock } =
         findFirst: vi.fn(),
       },
       fileEntry: {
+        updateMany: vi.fn(),
         count: vi.fn(),
         create: vi.fn(),
         findMany: vi.fn(),
@@ -61,6 +64,7 @@ vi.mock("@/lib/ssh/client", () => ({
 }));
 vi.mock("@/lib/storage/access-control", () => ({
   assertStorageAccess: assertStorageAccessMock,
+  lockStorageWriteAccess: assertStorageAccessMock,
   releaseStorageQuotaGuard: vi.fn(async () => undefined),
 }));
 vi.mock("@/lib/concurrency/advisory-lock", () => ({
@@ -1296,6 +1300,7 @@ describe("storage service", () => {
 
     vi.mocked(prisma.fileEntry.findFirst).mockResolvedValueOnce({
       id: "file_restore_local",
+      deletedAgentRoot: await localRootIdentity(tempRoot), storageVersion: await localPathVersion(tempRoot, relativePath),
       name: "notes.txt",
       entryType: "FILE",
       mimeType: "text/plain",
@@ -1336,7 +1341,7 @@ describe("storage service", () => {
       expect(prisma.fileEntry.update).toHaveBeenCalledWith({
         where: expect.objectContaining({
           id: "file_restore_local",
-          storageNode: { teamId: "team-1" },
+          storageNode: { teamId: "team-1", driver: "LOCAL", basePath: tempRoot },
         }),
         data: { isDeleted: false, deleteBatchId: null, deletedAgentRoot: null },
       });

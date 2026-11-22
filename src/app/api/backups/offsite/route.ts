@@ -14,6 +14,7 @@ import { auditUserAction } from "@/lib/audit/service";
 import { withApiRoute } from "@/lib/http/api-guard";
 import { GENERAL_WRITE_LIMIT } from "@/lib/http/rate-limit-presets";
 import { loadOffsiteConfig, saveOffsiteConfig } from "@/lib/storage/offsite/service";
+import { publicOffsiteEndpoint } from "@/lib/settings/bindings";
 import { MASKED_VALUE } from "@/lib/settings/schema";
 import { offsiteConfigUpdateApiSchema } from "@/lib/storage/offsite/schema";
 
@@ -21,11 +22,12 @@ export const dynamic = "force-dynamic";
 
 /**
  * GET/POST 响应脱敏 accessKeyId + secretAccessKey（与 settings isSensitiveKey 一致）。
- * endpoint / region / bucket 等非密钥字段仍原样返回（鉴权后才暴露）。
+ * 旧端点也经过清理，避免将 URL 中的凭据返回给客户端。
  */
-function maskConfig<T extends { accessKeyId?: string; secretAccessKey?: string }>(config: T): T {
+function maskConfig<T extends { endpoint: string; accessKeyId?: string; secretAccessKey?: string }>(config: T): T {
 	return {
 		...config,
+		endpoint: config.endpoint ? publicOffsiteEndpoint(config.endpoint) : "",
 		accessKeyId: config.accessKeyId ? MASKED_VALUE : "",
 		secretAccessKey: config.secretAccessKey ? MASKED_VALUE : "",
 	};
@@ -56,7 +58,7 @@ export async function POST(request: Request) {
 				enabled: next.enabled,
 				provider: next.provider,
 				bucket: next.bucket,
-				endpoint: next.endpoint,
+				endpoint: publicOffsiteEndpoint(next.endpoint),
 				region: next.region,
 				pathPrefix: next.pathPrefix,
 				dailyWindowHour: next.dailyWindowHour,
@@ -64,7 +66,7 @@ export async function POST(request: Request) {
 				// never log secretAccessKey / accessKeyId values
 				hasAccessKeyId: Boolean(next.accessKeyId),
 				hasSecretAccessKey: Boolean(next.secretAccessKey),
-			}, undefined, session.currentTeamId);
+			}, undefined, null);
 			return NextResponse.json({ config: maskConfig(next) });
 		},
 	);

@@ -37,3 +37,22 @@ it("refuses the final overwrite when an upstream collection appeared during stag
     await rm(directory, { recursive: true, force: true });
   }
 });
+
+it.each([null, '"original"'])("keeps the original publication condition %s after staging", async expectedVersion => {
+  const directory = await mkdtemp(path.join(tmpdir(), "webdav-version-"));
+  try {
+    const source = path.join(directory, "upload");
+    await writeFile(source, "new");
+    dav.writeStream.mockImplementation(async (_path, body) => { await new Response(body).arrayBuffer(); });
+    dav.stat.mockResolvedValue({ isDirectory: false, etag: '"later"' });
+    const conflict = Object.assign(new Error("precondition failed"), { status: 412 });
+    dav.rename.mockRejectedValueOnce(conflict);
+    const node = { id: "dav", driver: "WEBDAV", basePath: "root", host: null, port: null, username: null, hostKeySha256: null, server: null };
+    const onPublished = vi.fn();
+    await expect(writeStorageFileFromLocalPath(node, "target", source, { expectedVersion, onPublished })).rejects.toBe(conflict);
+    const stage = dav.writeStream.mock.lastCall![0];
+    expect(dav.rename).toHaveBeenLastCalledWith(stage, "target", expectedVersion !== null, expectedVersion ?? undefined);
+    expect(dav.delete).toHaveBeenLastCalledWith(stage);
+    expect(onPublished).not.toHaveBeenCalled();
+  } finally { await rm(directory, { recursive: true, force: true }); }
+});

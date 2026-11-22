@@ -2,6 +2,7 @@
 import { randomUUID } from "node:crypto";
 import { afterAll, beforeAll, describe, expect, it } from "vitest";
 import { prisma } from "@/lib/db";
+import { dispatchDueSchedule, updateBackupSchedule } from "../schedule-service";
 import { updateVpsBackupSchedule } from "../vps-backup-schedule-service";
 
 describe.skipIf(process.env.RUN_DATABASE_INTEGRATION_TESTS !== "1")("concurrent VPS schedule edits", () => {
@@ -17,6 +18,21 @@ describe.skipIf(process.env.RUN_DATABASE_INTEGRATION_TESTS !== "1")("concurrent 
     await prisma.server.deleteMany({ where: { id } });
     await prisma.$disconnect();
   });
+  it("keeps a platform schedule runnable after concurrent pause and activation", async () => {
+    await prisma.backupSchedule.create({ data: { id, name: id, status: "ACTIVE", backupType: "FILES", cronExpression: "0 2 * * *", nextRunAt: new Date(Date.now() + 86_400_000) } });
+    try {
+      await Promise.all([updateBackupSchedule(id, { status: "PAUSED" }), updateBackupSchedule(id, { status: "ACTIVE" })]);
+      const row = await prisma.backupSchedule.findUniqueOrThrow({ where: { id } });
+      expect(row.nextRunAt !== null).toBe(row.status === "ACTIVE");
+      expect((await updateBackupSchedule(id, { status: "ACTIVE" })).nextRunAt).toBeInstanceOf(Date);
+      const stranded = await prisma.backupSchedule.update({ where: { id }, data: { nextRunAt: null } });
+      expect(await dispatchDueSchedule(stranded)).toBeNull();
+      expect(await prisma.backupSchedule.findUniqueOrThrow({ where: { id } })).toMatchObject({ nextRunAt: expect.any(Date), runCount: 0 });
+    } finally {
+      await prisma.backupSchedule.delete({ where: { id } });
+    }
+  });
+
   it("merges a rename with resume, and validates the final type and paths under contention", async () => {
     await Promise.all([updateVpsBackupSchedule(id, id, { name: "New" }), updateVpsBackupSchedule(id, id, { status: "ACTIVE" })]);
     expect(await prisma.vpsBackupSchedule.findUniqueOrThrow({ where: { id } })).toMatchObject({ name: "New", status: "ACTIVE", nextRunAt: expect.any(Date) });

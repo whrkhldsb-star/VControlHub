@@ -14,6 +14,7 @@ vi.mock("@/lib/ssh/ssh-key-crypto", async () => (await import("@/test/ssh-key-cr
 }));
 
 import { prisma } from "@/lib/db";
+import { getLockKeys } from "@/lib/concurrency/advisory-lock";
 import { syncSftpDirectoryEntries } from "../sftp-sync";
 
 /**
@@ -83,6 +84,9 @@ describe.skipIf(process.env.RUN_DATABASE_INTEGRATION_TESTS !== "1")("SFTP sync p
 	it("preserves the checksum and size published after the SFTP inventory started", async () => {
 		const entry = await prisma.fileEntry.create({ data: file("race/new.txt") });
 		listRemoteDirectoryMock.mockImplementationOnce(async () => {
+			const { k1, k2 } = getLockKeys("storage-editable", node.id + ":race");
+			const locks = await prisma.$queryRaw<{ available: boolean }[]>`SELECT pg_try_advisory_xact_lock(${k1}::int, ${k2}::int) AS available`;
+			expect(locks).toEqual([{ available: false }]);
 			await prisma.fileEntry.update({ where: { id: entry.id }, data: { size: BigInt(90), checksumSha256: "a".repeat(64) } });
 			return [{ name: "new.txt", type: "file", size: 1, modifyTime: 1 }];
 		});

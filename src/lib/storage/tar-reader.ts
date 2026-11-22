@@ -137,7 +137,7 @@ export async function walkTar(
 	filePath: string,
 	gzip: boolean,
 	visit: (member: TarMember, content: AsyncIterable<Buffer>) => Promise<void>,
-	limits: { maxExpandedBytes?: number; signal?: AbortSignal } = {},
+	limits: { maxExpandedBytes?: number; maxHeaders?: number; signal?: AbortSignal } = {},
 ): Promise<void> {
 	limits.signal?.throwIfAborted();
 	const file = createReadStream(filePath, { signal: limits.signal });
@@ -146,12 +146,14 @@ export async function walkTar(
 	if (gzip) file.on("error", (error) => source.destroy(error));
 	const reader = new ByteReader(source);
 	let expanded = 0;
+	let headers = 0;
 	let longName: string | null = null;
 	let pax: Record<string, string> = {};
 	try {
 		for (;;) {
 			const header = await reader.read(BLOCK);
 			if (!header || header.every((byte) => byte === 0)) break;
+			if (++headers > (limits.maxHeaders ?? Infinity)) throw new TarFormatError("Too many archive headers");
 			if (!validChecksum(header)) throw new TarFormatError("Not a tar archive (bad header checksum)");
 			const typeflag = String.fromCharCode(header[156]!);
 			const size = pax.size ? Number(pax.size) : readNumber(header.subarray(124, 136));

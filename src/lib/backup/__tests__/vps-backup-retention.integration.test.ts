@@ -2,6 +2,7 @@
 import { randomUUID } from "node:crypto";
 import { afterAll, beforeAll, describe, expect, it } from "vitest";
 
+import { tryAcquireAdvisoryLock } from "@/lib/concurrency/advisory-lock";
 import { prisma } from "@/lib/db";
 import { pruneOldVpsBackupRecords } from "../vps-backup-service";
 import { pruneAfterBackup } from "../vps-backup-job-worker";
@@ -37,6 +38,14 @@ describe.skipIf(process.env.RUN_DATABASE_INTEGRATION_TESTS !== "1")("VPS backup 
 	});
 
 	it("keeps the newest completed backup of each type however old", async () => {
+		const release = await tryAcquireAdvisoryLock("vps-backup-artifact", prefix + "-full-old");
+		expect(release).toBeTruthy();
+		try {
+			await expect(pruneOldVpsBackupRecords(prefix, 7)).resolves.toBe(0);
+			expect(await prisma.vpsBackupRecord.findUnique({ where: { id: prefix + "-full-old" } })).toBeTruthy();
+		} finally {
+			await release?.();
+		}
 		await expect(pruneOldVpsBackupRecords(prefix, 7)).resolves.toBe(1);
 		const left = (await prisma.vpsBackupRecord.findMany({ where: { serverId: prefix }, select: { id: true } })).map((row) => row.id).sort();
 		expect(left).toEqual([`${prefix}-failed`, `${prefix}-files`, `${prefix}-full-new`].sort());

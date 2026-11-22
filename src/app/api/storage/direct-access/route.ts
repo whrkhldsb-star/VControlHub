@@ -97,11 +97,14 @@ function normalizeDirectGatewaySignedPath(input: {
     .replace(/\/+/g, "/");
 }
 
+const WINDOWS_ROOT_PROTOCOL = "vch-windows-root-v1";
+
 function buildSignedDirectUrl(input: {
   publicBaseUrl: string;
   relativePath: string;
   expiresSeconds: number;
   linuxTargetPath: string | null;
+  targetPath: string;
   /** The server whose gateway serves the node, and which key that gateway holds. */
   gateway: { serverId: string | null; keyVersion: number };
 }) {
@@ -123,7 +126,7 @@ function buildSignedDirectUrl(input: {
   const signingKey = directGatewaySigningKey(secret, { ...input.gateway, operatingSystem: input.linuxTargetPath === null ? "WINDOWS" : "LINUX" });
 
   const message = input.linuxTargetPath === null
-    ? `${normalizeDirectGatewaySignedPath(input)}.${expires}`
+    ? `${WINDOWS_ROOT_PROTOCOL}\0${input.targetPath}\0${normalizeDirectGatewaySignedPath(input)}\0${expires}`
     : `${DIRECT_GATEWAY_LINUX_FILE_PROTOCOL}\0${input.linuxTargetPath}\0${expires}`;
   const signature = crypto
     .createHmac("sha256", signingKey)
@@ -139,14 +142,14 @@ async function probeDirectGateway(url: URL, linuxFile: boolean) {
   const timer = setTimeout(() => controller.abort(), DIRECT_GATEWAY_HEALTH_TIMEOUT_MS);
   try {
     const response = await fetchWithPinnedDns(url, {
-      method: linuxFile ? "HEAD" : "GET",
+      method: "HEAD",
       redirect: "manual",
       signal: controller.signal,
     });
     // The probe uses only headers. Cancel any response body to release the dispatcher.
     try {
       return response.status === 200 && (
-        !linuxFile || response.headers.get("x-vch-file-access") === DIRECT_GATEWAY_LINUX_FILE_PROTOCOL
+        response.headers.get("x-vch-file-access") === (linuxFile ? DIRECT_GATEWAY_LINUX_FILE_PROTOCOL : WINDOWS_ROOT_PROTOCOL)
       );
     } finally {
       await response.body?.cancel().catch(() => undefined);
@@ -208,9 +211,10 @@ async function resolveDirectAccessPayload(input: {
   if (!access.allowed) {
     throw new ForbiddenError(storageAccessDeniedCopy(access.reason));
   }
-  await assertNotRecycled(nodeId, normalizedRelativePath, "read", node.driver);
+  const boundServer = node.driver === "SFTP" && node.server && isServerStorageEndpoint(node.server, node) ? node.server : null;
+  await assertNotRecycled(nodeId, normalizedRelativePath, "read", node.driver, boundServer?.operatingSystem === "WINDOWS");
 
-  if (node.driver !== "SFTP" || (node.server && !isServerStorageEndpoint(node.server, node))) {
+  if (node.driver !== "SFTP" || (node.server && !boundServer)) {
     return { mode: "managed-download", fallbackUrl: fallback };
   }
 
@@ -245,15 +249,12 @@ async function resolveDirectAccessPayload(input: {
             relativePath: normalizedRelativePath,
             expiresSeconds: node.directAccessExpiresSeconds ?? 300,
             linuxTargetPath: linuxFile ? targetPath : null,
+            targetPath,
             gateway,
           });
-          // Linux HEAD goes through the same descriptor checks as GET. Both direct
-          // modes use the proxy if this gateway cannot serve the exact signed file.
-          if (linuxFile || node.directAccessMode === "AUTO") {
-            const probeUrl = linuxFile ? new URL(url) : new URL("/__vch_health", publicBaseUrl);
-            if (!await probeDirectGateway(probeUrl, linuxFile)) {
-              return { mode: "managed-download", fallbackUrl: fallback };
-            }
+          // Both gateways must verify the signed target against their installed root.
+          if (!await probeDirectGateway(new URL(url), linuxFile)) {
+            return { mode: "managed-download", fallbackUrl: fallback };
           }
           return {
             mode: "direct-url",

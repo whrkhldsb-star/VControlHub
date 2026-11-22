@@ -14,7 +14,9 @@ vi.mock("@/lib/storage/remote-containment", () => ({ assertRemotePathContained: 
 vi.mock("@/lib/storage/ssh-credentials", () => ({
   resolveStorageSshCredentials: () => ({ host: "198.51.100.7", port: 22, username: "win", password: "secret", connectionType: "PASSWORD" }),
 }));
+vi.mock("@/lib/storage/file-overwrite-lock", () => ({ lockStorageFileOverwrite: async () => async () => {} }));
 vi.mock("@/lib/share-link/service", () => ({
+  assertShareStillAt: vi.fn(), recordShareDownload: vi.fn(), shareIgnoresCase: () => true,
   authorizeShareDownload: vi.fn(),
   assertShareTargetNotDeleted: vi.fn(async () => undefined),
   hashShareToken: vi.fn((token: string) => `hash:${token}`),

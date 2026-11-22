@@ -113,7 +113,7 @@ export function RecycleBinSectionClient({ deletedEntries, canDelete, onRefresh, 
       const formData = new FormData();
       formData.set("fileEntryId", entry.id);
       if (entry.deletedAt) formData.set("deletedAt", new Date(entry.deletedAt).toISOString());
-      if (action === "delete") formData.set("deleteBatchId", entry.deleteBatchId ?? "");
+      formData.set("deleteBatchId", entry.deleteBatchId ?? "");
       try {
         const result = action === "restore"
           ? await restoreFileEntryAction(null, formData)
@@ -143,7 +143,7 @@ export function RecycleBinSectionClient({ deletedEntries, canDelete, onRefresh, 
 
   const actions = (entry: DeletedEntryProp) => canDelete ? (
     <div className="flex flex-wrap items-start gap-2">
-      <RestoreButton fileEntryId={entry.id} onRefresh={() => handleEntryCompleted(entry.id)} />
+      <RestoreButton deletedAt={entry.deletedAt} deleteBatchId={entry.deleteBatchId} fileEntryId={entry.id} onRefresh={() => handleEntryCompleted(entry.id)} />
       <PermanentDeleteButton deletedAt={entry.deletedAt} deleteBatchId={entry.deleteBatchId} fileEntryId={entry.id} entryName={entry.name} onRefresh={() => handleEntryCompleted(entry.id)} />
     </div>
   ) : <span className="text-xs text-[var(--text-muted)]">{t("recycleBinSection.noPermission")}</span>;

@@ -8,8 +8,9 @@
  *   node scripts/restore.mjs files <files.tar.gz> <appDir>
  *   node scripts/restore.mjs full <full.tar.gz> <all|database|files> <appDir>
  *
- * Env: APP_DIR, ENV_FILE (default APP_DIR/.env.local), CONFIRM_RESTORE=1 (every
- *      component is destructive), PG_INSTALL_DIR, TAR_BIN,
+ * Env: APP_DIR, ENV_FILE (relative to the target installation, default .env.local),
+ *      CONFIRM_RESTORE=1 (every component is destructive), PG_INSTALL_DIR, TAR_BIN,
+ *      RESTORE_DATABASE_KEY_SHA256 (files only, when installing the key for a separately restored database),
  *      VCONTROLHUB_SERVICE_UNITS (systemd units that must be stopped; default
  *      "vcontrolhub-next vcontrolhub-worker vcontrolhub-ssh-ws"; "none" when
  *      the platform is not run by systemd on this host — the operator then
@@ -32,6 +33,7 @@
  * has already touched, and nothing fences the file phase.
  * Restore runbook: docs/audit-verification-2026-10-12.zh-CN.md (R04).
  */
+import { createHash } from "node:crypto";
 import { spawn, spawnSync } from "node:child_process";
 import { createReadStream } from "node:fs";
 import fs from "node:fs/promises";
@@ -45,9 +47,9 @@ import {
   acquireRestoreLock,
   checkedDatabaseDump,
   inspectArchive,
-  FILE_VERSIONS_MANIFEST,
+  applicationSchema,
+  extractRestoreFiles,
   ENV_MEMBERS,
-  INTEGRITY_MANIFEST,
   fileVersionDir,
   findBinary,
   findTar,
@@ -66,9 +68,13 @@ function fail(message) { throw new Error(message); }
 const SCRIPT_DIR = path.dirname(fileURLToPath(import.meta.url));
 const APP_DIR = process.env.APP_DIR?.trim() || path.resolve(SCRIPT_DIR, "..");
 
+function targetEnvPath(appDir) {
+  return path.resolve(appDir, process.env.ENV_FILE?.trim() || ".env.local");
+}
+
 /** Unlike backup, a missing env file is fatal: restore needs the DB target. */
 async function loadEnvFile(appDir) {
-  const file = process.env.ENV_FILE?.trim() || path.join(appDir, ".env.local");
+  const file = targetEnvPath(appDir);
   const envFile = await readEnvFile(file);
   if (!envFile) fail(`Missing env file: ${file}`);
   return envFile;
@@ -103,9 +109,6 @@ async function assertNoDeploymentRunning() {
   if (alive) fail(`a deployment is running (deploy.sh pid ${pid} holds ${DEPLOY_LOCK}); wait for it to finish before restoring`);
 }
 
-// Units follow APP_SLUG, as the installer names them (A10-08).
-const SERVICE_UNIT_PREFIX = process.env.APP_SLUG || "vcontrolhub";
-const DEFAULT_SERVICE_UNITS = ["next", "worker", "ssh-ws"].map((unit) => `${SERVICE_UNIT_PREFIX}-${unit}`).join(" ");
 const NON_SYSTEMD_HINT = "If the platform does not run under systemd on this host, stop every instance yourself and re-run with VCONTROLHUB_SERVICE_UNITS=none.";
 // Only these mean "not running". Running and transitional states, "unknown",
 // errors and missing output all mean the stop cannot be confirmed.
@@ -118,13 +121,15 @@ const KNOWN_LOAD_STATES = new Set(["loaded", "masked"]);
  * systemd does not know ("not-found") refuses too — with other unit names the
  * default list would otherwise pass while the real units keep running.
  */
-async function assertPlatformServicesStopped() {
+async function assertPlatformServicesStopped(appDir) {
   const configured = process.env.VCONTROLHUB_SERVICE_UNITS;
   if (configured?.trim().toLowerCase() === "none") {
     log("VCONTROLHUB_SERVICE_UNITS=none: no service-manager check; the operator confirmed every platform instance is stopped.");
     return;
   }
-  const units = (configured ?? DEFAULT_SERVICE_UNITS).split(/[\s,]+/).filter(Boolean);
+  const env = configured === undefined ? await readEnvFile(targetEnvPath(appDir)) : null;
+  const slug = env?.APP_SLUG || process.env.APP_SLUG || "vcontrolhub";
+  const units = configured === undefined ? ["next", "worker", "ssh-ws"].map((unit) => `${slug}-${unit}`) : configured.split(/[\s,]+/).filter(Boolean);
   if (units.length === 0) fail(`VCONTROLHUB_SERVICE_UNITS is empty. List the platform's systemd units. ${NON_SYSTEMD_HINT}`);
   const systemctl = process.platform === "win32" ? null : await findBinary("systemctl");
   if (!systemctl) fail(`OFFLINE RESTORE REQUIRED: cannot confirm that ${units.join(", ")} are stopped (systemctl not available). ${NON_SYSTEMD_HINT}`);
@@ -170,45 +175,52 @@ END $vch_offline$;
  * a table with a foreign key to an existing one); the others kept today's rows
  * and refused the upgrade's own CREATE afterwards. Inside the import
  * transaction, so a dump that fails still leaves everything as it was. Only
- * this role's objects in the public schema: the application's own.
+ * objects owned by this role in the configured application schema.
  */
-const RESET_SCHEMA_SQL = `DO $vch_reset$ DECLARE r record; BEGIN
-  FOR r IN SELECT tablename FROM pg_tables WHERE schemaname = 'public' AND tableowner = current_user LOOP
-    EXECUTE format('DROP TABLE IF EXISTS public.%I CASCADE', r.tablename);
+function resetSchemaSql(schema) {
+  const encoded = Buffer.from(schema).toString("hex");
+  return `DO $vch_reset$ DECLARE r record; s text := convert_from(decode('${encoded}','hex'),'UTF8'); BEGIN
+  FOR r IN SELECT tablename FROM pg_tables WHERE schemaname = s AND tableowner = current_user LOOP
+    EXECUTE format('DROP TABLE IF EXISTS %I.%I CASCADE', s, r.tablename);
   END LOOP;
   -- DROP TABLE removed the triggers, but an older dump cannot name their functions.
   FOR r IN SELECT p.proname FROM pg_proc p JOIN pg_namespace n ON n.oid = p.pronamespace
-    WHERE n.nspname = 'public' AND p.pronargs = 0 AND p.prorettype = 'pg_catalog.trigger'::regtype
+    WHERE n.nspname = s AND p.pronargs = 0 AND p.prorettype = 'pg_catalog.trigger'::regtype
       AND p.proowner = current_user::regrole AND p.proname IN (
         'vch_reset_connection_evidence', 'vch_reset_storage_evidence', 'vch_record_command_success',
         'vch_cancel_disabled_agent_jobs', 'vch_revoke_file_shares', 'vch_remove_detached_file_share')
       AND NOT EXISTS (SELECT 1 FROM pg_depend d WHERE d.classid = 'pg_proc'::regclass
         AND d.objid = p.oid AND d.deptype = 'e') LOOP
-    EXECUTE format('DROP FUNCTION public.%I() RESTRICT', r.proname);
+    EXECUTE format('DROP FUNCTION %I.%I() RESTRICT', s, r.proname);
   END LOOP;
   FOR r IN SELECT t.typname FROM pg_type t JOIN pg_namespace n ON n.oid = t.typnamespace
-    WHERE n.nspname = 'public' AND t.typtype = 'e' AND t.typowner = (SELECT oid FROM pg_roles WHERE rolname = current_user) LOOP
-    EXECUTE format('DROP TYPE IF EXISTS public.%I CASCADE', r.typname);
+    WHERE n.nspname = s AND t.typtype = 'e' AND t.typowner = (SELECT oid FROM pg_roles WHERE rolname = current_user) LOOP
+    EXECUTE format('DROP TYPE IF EXISTS %I.%I CASCADE', s, r.typname);
   END LOOP;
 END $vch_reset$;
 `;
+}
 
 // A separate psql command runs after stdin, inside the same transaction.
 // Even an unexpected EOF must pass this guard before psql can commit.
-const VERIFY_RESTORE_SQL = `DO $vch_verify$ BEGIN
+function verifyRestoreSql(schema) {
+  const encoded = Buffer.from(schema).toString("hex");
+  return `DO $vch_verify$ BEGIN
+  PERFORM set_config('search_path', format('%I, pg_catalog', convert_from(decode('${encoded}', 'hex'), 'UTF8')), true);
   IF current_setting('vch.restore_complete', true) IS DISTINCT FROM 'yes'
-     OR NOT EXISTS (SELECT 1 FROM public."User")
-     OR NOT EXISTS (SELECT 1 FROM public."Role")
-     OR to_regclass('public."StorageNode"') IS NULL
-     OR to_regclass('public.servers') IS NULL THEN
+     OR NOT EXISTS (SELECT 1 FROM "User")
+     OR NOT EXISTS (SELECT 1 FROM "Role")
+     OR to_regclass('"StorageNode"') IS NULL
+     OR to_regclass('servers') IS NULL THEN
     RAISE EXCEPTION 'Incomplete VControlHub database backup';
   END IF;
-  IF to_regclass('public._prisma_migrations') IS NOT NULL THEN
-    IF NOT EXISTS (SELECT 1 FROM public._prisma_migrations WHERE finished_at IS NOT NULL AND rolled_back_at IS NULL) THEN
+  IF to_regclass('_prisma_migrations') IS NOT NULL THEN
+    IF NOT EXISTS (SELECT 1 FROM _prisma_migrations WHERE finished_at IS NOT NULL AND rolled_back_at IS NULL) THEN
       RAISE EXCEPTION 'Backup has no completed application migrations';
     END IF;
   END IF;
 END $vch_verify$;`;
+}
 
 /** Same check as a standalone query, for the file phase. */
 async function assertNoOtherDatabaseClients({ psql, connArgs, childEnv }) {
@@ -221,22 +233,22 @@ async function assertNoOtherDatabaseClients({ psql, connArgs, childEnv }) {
 async function prepareDatabaseRestore(appDir) {
   assertRestoreConfirmed();
   const envFile = await loadEnvFile(appDir);
-  const env = { ...process.env, ...envFile };
+  const env = { ...process.env, ...envFile, APP_DIR: appDir };
   const psql = await findBinary("psql");
   if (!psql) fail("psql not found. Install PostgreSQL client tools or set PG_INSTALL_DIR.");
   const { connArgs, childEnv } = pgConnection(env);
-  return { psql, connArgs, childEnv };
+  return { psql, connArgs, childEnv, appDir, schema: applicationSchema(env) };
 }
 
-async function restoreDatabase(backupFile, { psql, connArgs, childEnv }) {
+async function restoreDatabase(backupFile, { psql, connArgs, childEnv, schema }) {
   log(`Restoring ${backupFile} into configured database`);
   // --single-transaction (with `-f -`, which psql requires for it to apply to
   // stdin) makes the dump all-or-nothing. ON_ERROR_STOP alone stops at the
   // first error but leaves every DROP/CREATE/COPY before it committed, i.e. a
   // half-restored database.
-  const child = spawn(psql, ["-X", "-v", "ON_ERROR_STOP=1", "--single-transaction", "-f", "-", "-c", VERIFY_RESTORE_SQL, ...connArgs], { stdio: ["pipe", "ignore", "pipe"], env: childEnv });
+  const child = spawn(psql, ["-X", "-v", "ON_ERROR_STOP=1", "--single-transaction", "-f", "-", "-c", verifyRestoreSql(schema), ...connArgs], { stdio: ["pipe", "ignore", "pipe"], env: childEnv });
   child.stdin.write(OFFLINE_GUARD_SQL);
-  child.stdin.write(RESET_SCHEMA_SQL);
+  child.stdin.write(resetSchemaSql(schema));
   const source = createReadStream(backupFile);
   const gunzip = backupFile.endsWith(".gz") ? createGunzip() : null;
   const completed = new Promise((resolve, reject) => {
@@ -258,7 +270,19 @@ async function restoreDatabase(backupFile, { psql, connArgs, childEnv }) {
     await Promise.all([
       completed,
       pipeline(source, ...(gunzip ? [gunzip] : []), checkedDatabaseDump, async function* (chunks) {
-        yield* chunks;
+        let head = Buffer.alloc(0);
+        let checked = false;
+        for await (const chunk of chunks) {
+          if (!checked) {
+            head = Buffer.concat([head, chunk.subarray(0, 256)]).subarray(0, 256);
+            if (head.includes(10) || head.length >= 256) {
+              const marker = /^-- VControlHub application schema ([0-9a-f]+)\r?$/m.exec(head.toString());
+              if (marker && marker[1] !== Buffer.from(schema).toString("hex")) fail("Backup and target application schemas differ");
+              checked = true;
+            }
+          }
+          yield chunk;
+        }
         yield "\nSET LOCAL vch.restore_complete = 'yes';\n";
       }, child.stdin),
     ]);
@@ -269,81 +293,6 @@ async function restoreDatabase(backupFile, { psql, connArgs, childEnv }) {
     await completed.catch(() => undefined);
   }
   log("Restore completed");
-}
-
-async function containsNoSymlinks(root) {
-  async function walk(dir) {
-    for (const entry of await fs.readdir(dir, { withFileTypes: true })) {
-      const full = path.join(dir, entry.name);
-      if (entry.isSymbolicLink()) fail(`archive contains a symbolic link: ${full}`);
-      if (entry.isDirectory()) await walk(full);
-    }
-  }
-  await walk(root);
-}
-
-/**
- * A FULL archive also carries the code of the version that made it, as a
- * record of that version. Laid over this installation it mixed an older
- * service worker, schema and package manifest into newer code, and left the
- * git checkout modified so the next deploy's fast-forward refused to run.
- */
-const CODE_MEMBERS = ["public", "prisma", "package.json", "package-lock.json"];
-
-async function removeStagedMember(staging, member) {
-  const target = path.resolve(staging, member);
-  if (!target.startsWith(`${staging}${path.sep}`)) return;
-  await fs.rm(target, { recursive: true, force: true });
-  // Drop the parents the member leaves empty (an external path's root dirs).
-  for (let dir = path.dirname(target); dir.startsWith(`${staging}${path.sep}`); dir = path.dirname(dir)) {
-    try { await fs.rmdir(dir); } catch { break; }
-  }
-}
-
-/**
- * Keep only data in the staging directory. The installation's own code stays,
- * and data from outside the application directory (BACKUP_EXTRA_PATHS_JSON,
- * listed in external-data.json) is not copied in under the application
- * directory: as documented, the administrator restores it to a location they
- * choose. It used to land at <appDir>/<path without its root>, where nothing
- * reads it and where it can fill the application's disk.
- */
-async function dropNonDataMembers(staging) {
-  await fs.rm(path.join(staging, INTEGRITY_MANIFEST), { force: true });
-  for (const name of await fs.readdir(staging)) {
-    if (name.toLowerCase().startsWith(".restore.lock")) fail("archive contains a restore lock");
-  }
-  // File history bodies kept outside the app directory go back to the
-  // history directory, not under appDir; set them aside until then.
-  const versionsManifest = path.join(staging, FILE_VERSIONS_MANIFEST);
-  if (await pathExists(versionsManifest)) {
-    let entry;
-    try { entry = JSON.parse(await fs.readFile(versionsManifest, "utf8")); } catch { fail(`${FILE_VERSIONS_MANIFEST} in the archive is not valid JSON`); }
-    const source = typeof entry?.member === "string" ? path.resolve(staging, entry.member) : null;
-    if (source && source.startsWith(`${staging}${path.sep}`) && (await pathExists(source))) {
-      await fs.rename(source, `${staging}-file-versions`);
-      await removeStagedMember(staging, entry.member);
-    }
-    await fs.rm(versionsManifest, { force: true });
-  }
-  const manifestFile = path.join(staging, "external-data.json");
-  if (await pathExists(manifestFile)) {
-    let manifest;
-    try { manifest = JSON.parse(await fs.readFile(manifestFile, "utf8")); } catch { fail("external-data.json in the archive is not valid JSON"); }
-    for (const entry of Array.isArray(manifest?.paths) ? manifest.paths : []) {
-      if (typeof entry?.member !== "string" || !entry.member) continue;
-      await removeStagedMember(staging, entry.member);
-      log(`Not restored here: ${entry.source ?? "external data"} (archive member ${entry.member}); extract it from the archive to the location you choose`);
-    }
-    await fs.rm(manifestFile, { force: true });
-  }
-  const kept = [];
-  for (const name of CODE_MEMBERS) {
-    if (!(await pathExists(path.join(staging, name)))) continue;
-    await fs.rm(path.join(staging, name), { recursive: true, force: true });
-    kept.push(name);
-  }
-  if (kept.length > 0) log(`Kept this installation's own ${kept.join(", ")}; the archive's copies are the code of the version that made it`);
 }
 
 // Match whole dotenv assignments so a key-looking line inside a different
@@ -362,7 +311,7 @@ function setRecoveryKey(content, quotedKey) {
 // The archive's deployment settings belong to its source host. Render only
 // the data-encryption key into the target's own environment text. Defer this
 // preparation until the archive has been validated, before any database write.
-async function prepareRecoveryEnvironment(staging, appDir) {
+async function prepareRecoveryEnvironment(staging, appDir, installKey) {
   let key;
   const sourceMembers = new Set();
   for (const name of ENV_MEMBERS) {
@@ -375,6 +324,15 @@ async function prepareRecoveryEnvironment(staging, appDir) {
   // Unknown dotenv variants could otherwise override connection settings.
   for (const name of await fs.readdir(staging)) {
     if (/^\.env(?:$|\.)/i.test(name)) await fs.rm(path.join(staging, name), { recursive: true, force: true });
+  }
+  // For a split restore, the operator supplies the known fingerprint of the
+  // key for the restored database. Keep the current environment by default.
+  if (!installKey) {
+    const expected = process.env.RESTORE_DATABASE_KEY_SHA256;
+    if (expected === undefined) return;
+    if (!key || !/^[a-f0-9]{64}$/i.test(expected) || createHash("sha256").update(key).digest("hex") !== expected.toLowerCase()) {
+      fail("Archived encryption key does not match RESTORE_DATABASE_KEY_SHA256");
+    }
   }
   if (!key) return;
   // Keep the literal safe for dotenv, systemd and shell-based installations.
@@ -401,7 +359,7 @@ async function prepareRecoveryEnvironment(staging, appDir) {
  * Extract and vet the archive's files in a private staging directory. Nothing
  * in appDir changes until {@link applyStagedFiles}.
  */
-async function stageFiles(archive, appDir, parent, inspected = false) {
+async function stageFiles(archive, appDir, parent, plan, installKey = false) {
   if (!archive) fail("archive path is required");
   try { await fs.access(archive); } catch { fail(`archive not found: ${archive}`); }
   if (!appDir) fail("application directory is required");
@@ -412,15 +370,12 @@ async function stageFiles(archive, appDir, parent, inspected = false) {
     fail(`application directory not found: ${appDir}`);
   }
 
-  if (!inspected) await inspectArchive(archive);
-
-  const tar = await findTar();
   const staging = path.join(parent, "files");
-  await fs.mkdir(staging);
-  await runBinary(tar, ["-xzf", archive, "-C", staging, "--no-same-owner", "--exclude=database.sql.gz"]);
-  await containsNoSymlinks(staging);
-  await dropNonDataMembers(staging);
-  await prepareRecoveryEnvironment(staging, appDir);
+  await fs.mkdir(staging, { mode: 0o700 });
+  const inspected = plan ?? await inspectArchive(archive);
+  for (const root of inspected.externalRoots) log(`External data retained in the archive: ${root}`);
+  await extractRestoreFiles(archive, staging, inspected);
+  await prepareRecoveryEnvironment(staging, appDir, installKey);
   return staging;
 }
 
@@ -436,7 +391,9 @@ async function giveToInstallationOwner(appDir, paths) {
   const owner = await fs.stat(appDir);
   if (owner.uid === 0) return;
   try {
-    await runBinary("chown", ["-R", "-h", "--from=0", `${owner.uid}:${owner.gid}`, ...paths]);
+    for (const target of paths) {
+      if ((await fs.lstat(target)).uid === 0) await fs.lchown(target, owner.uid, owner.gid);
+    }
     log(`Owner of the restored files set to ${owner.uid}:${owner.gid}`);
   } catch (error) {
     log(`Could not set the owner of the restored files (${error instanceof Error ? error.message : error}); run scripts/fix-ownership.sh`);
@@ -449,28 +406,26 @@ async function giveToInstallationOwner(appDir, paths) {
  */
 async function applyStagedFiles(staging, appDir) {
   const versions = `${staging}-file-versions`;
-  const topLevel = (await fs.readdir(staging)).map((name) => path.join(appDir, name));
   const overlays = [{ source: staging, destination: appDir }];
   let historyTarget;
   if (await pathExists(versions)) {
-    const envFile = (await readEnvFile(process.env.ENV_FILE?.trim() || path.join(appDir, ".env.local"))) ?? {};
-    historyTarget = fileVersionDir({ ...envFile, ...process.env });
+    const envFile = (await readEnvFile(targetEnvPath(appDir))) ?? {};
+    historyTarget = fileVersionDir({ ...process.env, ...envFile, APP_DIR: appDir });
     overlays.push({ source: versions, destination: historyTarget });
   }
-  await applyFileOverlays(overlays);
-  await giveToInstallationOwner(appDir, topLevel);
+  const changed = await applyFileOverlays(overlays);
+  await giveToInstallationOwner(appDir, changed);
   if (historyTarget) {
-    await giveToInstallationOwner(appDir, [historyTarget]);
     log(`File history restored to ${historyTarget}`);
   }
   log(`Files restored to ${appDir}`);
 }
 
-async function restoreFiles(archive, appDir, databaseTarget, inspected = false) {
+async function restoreFiles(archive, appDir, databaseTarget, plan) {
   const parent = await fs.mkdtemp(path.join(os.tmpdir(), "vch-restore-files-"));
   try {
-    const staged = await stageFiles(archive, appDir, parent, inspected);
-    await assertPlatformServicesStopped();
+    const staged = await stageFiles(archive, appDir, parent, plan);
+    await assertPlatformServicesStopped(appDir);
     await assertNoOtherDatabaseClients(databaseTarget);
     await applyStagedFiles(staged, appDir);
   } finally {
@@ -503,24 +458,24 @@ async function pathExists(target) {
  * restored. A directory without migrations is not an installation (a restore
  * into a scratch directory): say what to run instead.
  */
-async function upgradeRestoredDatabase({ childEnv }) {
-  const prismaCli = path.join(APP_DIR, "node_modules", "prisma", "build", "index.js");
-  const migrations = path.join(APP_DIR, "prisma", "migrations");
+async function upgradeRestoredDatabase({ childEnv, appDir }) {
+  const prismaCli = path.join(appDir, "node_modules", "prisma", "build", "index.js");
+  const migrations = path.join(appDir, "prisma", "migrations");
   const manual = `run "npx prisma migrate deploy" and "node dist/seed.js" in the installation directory before starting the platform`;
   if (!(await pathExists(prismaCli)) || !(await pathExists(migrations)) || !childEnv.DATABASE_URL) {
-    log(`No Prisma migrations or DATABASE_URL for ${APP_DIR}; the schema was not upgraded: ${manual}.`);
+    log(`No Prisma migrations or DATABASE_URL for ${appDir}; the schema was not upgraded: ${manual}.`);
     return;
   }
   try {
     log("Applying this installation's database migrations to the restored database");
-    await runBinary(process.execPath, [prismaCli, "migrate", "deploy"], { cwd: APP_DIR, env: childEnv });
-    const seed = path.join(APP_DIR, "dist", "seed.js");
+    await runBinary(process.execPath, [prismaCli, "migrate", "deploy"], { cwd: appDir, env: childEnv });
+    const seed = path.join(appDir, "dist", "seed.js");
     if (await pathExists(seed)) {
       log("Syncing roles and permissions");
       // The environment deploy.sh seeds with (.env.runtime when present), on
       // the database just restored.
-      const runtimeEnv = (await readEnvFile(path.join(APP_DIR, ".env.runtime"))) ?? {};
-      await runBinary(process.execPath, [seed], { cwd: APP_DIR, env: { ...childEnv, ...runtimeEnv, DATABASE_URL: childEnv.DATABASE_URL } });
+      const runtimeEnv = (await readEnvFile(path.join(appDir, ".env.runtime"))) ?? {};
+      await runBinary(process.execPath, [seed], { cwd: appDir, env: { ...childEnv, ...runtimeEnv, DATABASE_URL: childEnv.DATABASE_URL } });
     } else {
       log(`No ${seed}: run the role and permission sync before starting the platform.`);
     }
@@ -539,17 +494,18 @@ async function main() {
   // Take the restore lock before looking for a deployment: deploy.sh takes
   // its lock first and then checks for ours, so with the same order on both
   // sides one of the two always sees the other.
-  const releaseLock = await acquireRestoreLock(APP_DIR);
+  const targetDir = await fs.realpath((component === "full" ? appDirArg : componentArg) || APP_DIR);
+  const releaseLock = await acquireRestoreLock(targetDir);
   try {
     await assertNoDeploymentRunning();
-    await assertPlatformServicesStopped();
+    await assertPlatformServicesStopped(targetDir);
   } catch (error) {
     await releaseLock();
     throw error;
   }
   const startedAt = new Date().toISOString();
   try {
-    await runRestore(component, archive, componentArg, appDirArg);
+    await runRestore(component, archive, componentArg, targetDir);
     await appendRestoreHistory(archive, { component, which: componentArg ?? null, status: "COMPLETED", startedAt });
   } catch (error) {
     await appendRestoreHistory(archive, { component, which: componentArg ?? null, status: "FAILED", startedAt, error: redactConnectionString(error instanceof Error ? error.message : String(error)).slice(0, 2000) });
@@ -566,18 +522,17 @@ async function appendRestoreHistory(archive, entry) {
   await fs.appendFile(path.join(path.dirname(path.resolve(archive)), "restore-history.jsonl"), `${line}\n`).catch(() => undefined);
 }
 
-async function runRestore(component, archive, componentArg, appDirArg) {
+async function runRestore(component, archive, componentArg, targetDir) {
   if (component === "database") {
     if (!archive) fail("backup file path is required");
     try { await fs.access(archive); } catch { fail(`Backup file not found: ${archive}`); }
-    const databaseTarget = await prepareDatabaseRestore(APP_DIR);
+    const databaseTarget = await prepareDatabaseRestore(targetDir);
     await restoreDatabase(archive, databaseTarget);
     await upgradeRestoredDatabase(databaseTarget);
     return;
   }
 
   if (component === "files") {
-    const targetDir = componentArg || APP_DIR;
     await restoreFiles(archive, targetDir, await prepareDatabaseRestore(targetDir));
     return;
   }
@@ -588,30 +543,31 @@ async function runRestore(component, archive, componentArg, appDirArg) {
   if (!archive) fail("archive path is required");
   try { await fs.access(archive); } catch { fail(`archive not found: ${archive}`); }
 
-  const { databaseMember } = await inspectArchive(archive);
+  const plan = await inspectArchive(archive);
+  const { databaseMember } = plan;
   if (which !== "files" && !databaseMember) {
     fail("legacy FULL archive does not contain database.sql.gz; choose files-only restore");
   }
 
-  const targetDir = appDirArg || APP_DIR;
   // Pin the target connection throughout database import and migration.
   const databaseTarget = await prepareDatabaseRestore(targetDir);
   if (which === "database" || which === "all") {
     const staging = await fs.mkdtemp(path.join(os.tmpdir(), "vch-restore-full-"));
     try {
+      if (plan.sourceSchema !== undefined && plan.sourceSchema !== databaseTarget.schema) fail("Backup and target application schemas differ");
       const databaseDump = await extractDatabaseMember(archive, staging, databaseMember);
       // Everything that can fail without touching the live system runs first:
       // extract + vet the files, then the all-or-nothing database transaction.
       // Only after the database committed are the staged files copied in, so a
       // failing dump leaves both database and files exactly as they were.
-      const stagedFiles = which === "all" ? await stageFiles(archive, targetDir, staging, true) : null;
+      const stagedFiles = which === "all" ? await stageFiles(archive, targetDir, staging, plan, true) : null;
       await restoreDatabase(databaseDump, databaseTarget);
       if (stagedFiles) {
         try {
           // The database transaction proved nothing else was connected when it
           // started; prove it again before the file phase, which no table lock
           // protects.
-          await assertPlatformServicesStopped();
+          await assertPlatformServicesStopped(targetDir);
           await assertNoOtherDatabaseClients(databaseTarget);
           await applyStagedFiles(stagedFiles, targetDir);
         } catch (error) {
@@ -623,7 +579,7 @@ async function runRestore(component, archive, componentArg, appDirArg) {
       await fs.rm(staging, { recursive: true, force: true }).catch(() => undefined);
     }
   } else {
-    await restoreFiles(archive, targetDir, databaseTarget, true);
+    await restoreFiles(archive, targetDir, databaseTarget, plan);
   }
 }
 

@@ -4,6 +4,7 @@ const { mocks } = vi.hoisted(() => ({
   mocks: {
     requireApiPermission: vi.fn(),
     provider: vi.fn(),
+    currentSettings: vi.fn(),
     getAllSettingsMasked: vi.fn(),
     setManySettings: vi.fn(),
     isValidSettingKey: vi.fn(),
@@ -13,7 +14,7 @@ const { mocks } = vi.hoisted(() => ({
   },
 }));
 
-vi.mock("@/lib/db", async (importOriginal) => ({ ...(await importOriginal<typeof import("@/lib/db")>()), prisma: { aiProvider: { findFirst: mocks.provider } } }));
+vi.mock("@/lib/db", async (importOriginal) => ({ ...(await importOriginal<typeof import("@/lib/db")>()), prisma: { aiProvider: { findFirst: mocks.provider }, setting: { findMany: mocks.currentSettings } } }));
 vi.mock("@/lib/auth/require-api-permission", () => ({ requireApiPermission: mocks.requireApiPermission }));
 vi.mock("@/lib/settings/service", () => ({
   getAllSettingsMasked: mocks.getAllSettingsMasked,
@@ -118,6 +119,19 @@ describe("/api/settings audit coverage", () => {
       creator: { status: "ACTIVE", mustChangePassword: false, roles: { some: { role: { key: "admin" } } } },
     }) }));
     expect(mocks.setManySettings).not.toHaveBeenCalled();
+  });
+
+  it("reauthorizes an explicitly resubmitted provider whose imported selection has no local approval", async () => {
+    mocks.requireApiPermission.mockResolvedValue({ session: { userId: "u1", roles: ["admin"] } });
+    mocks.isValidSettingKey.mockReturnValue(true);
+    mocks.getSetting.mockResolvedValue("local-ai");
+    mocks.currentSettings.mockResolvedValue([{ key: "ai.ops.provider", value: "local-ai" }]);
+    mocks.provider.mockResolvedValue({ id: "local-ai", createdBy: "u1", type: "OPENAI", baseUrl: "https://ai.test", defaultModel: "model" });
+    const res = await route.PATCH(new Request("http://local/api/settings", { method: "PATCH", body: JSON.stringify({ "ai.ops.provider": "local-ai" }) }));
+    expect(res.status).toBe(200);
+    expect(mocks.setManySettings).toHaveBeenCalledWith([
+      { key: "ai.ops.provider", value: "local-ai" }, { key: "ai.ops.providerBinding", value: expect.stringContaining("local-ai") },
+    ], "u1");
   });
 
   it("keeps a secret sent back as the *** sentinel and clears one sent empty", async () => {
@@ -399,7 +413,9 @@ describe("/api/settings audit coverage", () => {
       headers: { "content-type": "application/json" },
       body: JSON.stringify(body),
     }));
-    mocks.getSetting.mockResolvedValue("true");
+    const { validateSettingBindings } = await import("@/lib/settings/bindings");
+    mocks.setManySettings.mockImplementation(async (entries: { key: string; value: string }[]) =>
+      validateSettingBindings(new Map([["telegram.enabled", "true"]]), new Map(entries.map((row) => [row.key, row.value])), String));
     const off = await patch({ "telegram.enabled": "false", "telegram.chatId": "" });
     expect(off.status).toBe(200);
     expect(mocks.setManySettings).toHaveBeenLastCalledWith([

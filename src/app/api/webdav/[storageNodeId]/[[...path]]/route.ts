@@ -112,6 +112,7 @@ async function dispatch(
       relativePath,
       requestUrl: new URL(request.url),
       rangeHeader: request.headers.get("range"),
+      ifRange: request.headers.get("if-range"),
     };
     switch (method) {
       case "PROPFIND":
@@ -123,7 +124,7 @@ async function dispatch(
       case "PUT":
         return await handleWebDavPut(ctx, request);
       case "DELETE":
-        return await handleWebDavDelete(ctx);
+        return await handleWebDavDelete(ctx, request.headers);
       case "MKCOL":
         return await handleWebDavMkcol(ctx);
       case "MOVE":

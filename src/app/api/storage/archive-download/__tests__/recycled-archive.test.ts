@@ -13,6 +13,7 @@ const mocks = vi.hoisted(() => ({
   accessLog: vi.fn(),
 }));
 vi.mock("@/lib/concurrency/advisory-lock", () => ({
+  acquireAdvisoryLock: async () => async () => {},
   tryAcquireAdvisoryLock: async () => async () => {},
 }));
 vi.mock("@/lib/db", () => {
@@ -95,7 +96,11 @@ it.each(["authenticated", "public"])(
                 e.isDeleted === where.isDeleted),
           ) ?? null,
       );
-      mocks.lockRoots.mockResolvedValue([entries[0]!.storageNode]);
+      mocks.lockRoots.mockImplementation(async sql => {
+        if (sql.sql?.includes("UPDATE share_links")) return [{ path: "docs" }];
+        if (sql.sql?.includes("file_entries")) return [{ id: "dir" }];
+        return [entries[0]!.storageNode];
+      });
       mocks.many.mockResolvedValue([entries[1]]);
       mocks.shareCreate.mockImplementation(async ({ data }) => ({
         ...data,

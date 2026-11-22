@@ -1,4 +1,5 @@
-import { assertNotRecycled } from "@/lib/storage/archive-access";
+import { captureUploadTarget } from "./upload-target";
+import { assertCanonicalWritePath, assertNotRecycled } from "@/lib/storage/archive-access";
 import { apiCopy } from "@/lib/i18n/api-copy";
 /**
  * Storage-file resumable upload finalize.
@@ -6,7 +7,7 @@ import { apiCopy } from "@/lib/i18n/api-copy";
  * Reuses MediaUploadSession + chunk pipeline, then writes the assembled
  * file to LOCAL/SFTP/WebDAV storage and upserts the FileEntry index.
  */
-import { lstat } from "node:fs/promises";
+import { lstat, rm } from "node:fs/promises";
 import path from "node:path";
 
 import { prisma } from "@/lib/db";
@@ -106,6 +107,7 @@ export async function completeStorageFileUpload(params: {
       receivedChunks: true,
       expiresAt: true,
       createdAt: true,
+      recoveryMetadata: true,
     },
   });
   if (!existing) {
@@ -152,7 +154,7 @@ export async function completeStorageFileUpload(params: {
   let releaseFinalization: (() => void) | undefined;
   let releaseOverwrite: (() => Promise<void>) | undefined;
   try {
-  const storageNode = await getStorageFileNode(existing.storageNodeId, session);
+  let storageNode = await getStorageFileNode(existing.storageNodeId, session);
   if (!storageNode || !["LOCAL", "SFTP", "WEBDAV", "AGENT"].includes(storageNode.driver)) {
     throw new ValidationError(t("backend.storage.uploadNotSupported"));
   }
@@ -186,6 +188,16 @@ export async function completeStorageFileUpload(params: {
 
   // Same ordering as editor/version restore: quota first, content lock second.
   releaseOverwrite = await lockStorageFileOverwrite(existing.storageNodeId, normalizedRelativePath);
+  // The root edit holds the exclusive ancestor lock. Re-read the node after acquisition.
+  storageNode = await getStorageFileNode(existing.storageNodeId, session);
+  if (!storageNode) throw new ConflictError(t("backend.storage.editableFileChangedOnDisk"));
+  const journal = existing.recoveryMetadata;
+  const binding = journal && typeof journal === "object" && !Array.isArray(journal) && journal.storageTarget;
+  const current = await captureUploadTarget(storageNode, normalizedRelativePath);
+  if (!binding || typeof binding !== "object" || Array.isArray(binding) ||
+      binding.root !== current.root || binding.version !== current.version) {
+    throw new ConflictError(t("backend.storage.editableFileChangedOnDisk"));
+  }
   // Snapshot existing body before overwrite when index already exists.
   const existingEntry = await prisma.fileEntry.findFirst({
     where: {
@@ -194,7 +206,8 @@ export async function completeStorageFileUpload(params: {
     },
     select: { id: true, entryType: true, isDeleted: true, updatedAt: true },
   });
-  await assertNotRecycled(existing.storageNodeId, normalizedRelativePath, "write");
+  await assertNotRecycled(existing.storageNodeId, normalizedRelativePath, "write", storageNode.driver);
+  await assertCanonicalWritePath(existing.storageNodeId, normalizedRelativePath, storageNode.driver);
   // The upload would replace a folder, and for WebDAV (MOVE with Overwrite) that deletes everything in it.
   // Refused before anything is written, so the session stays a plain failure the user can fix and retry.
   await assertUploadTargetIsNotFolder(storageNode, normalizedRelativePath, existingEntry?.entryType === "DIRECTORY");
@@ -217,16 +230,18 @@ export async function completeStorageFileUpload(params: {
   const beforePublish = () => activeLease.beforeWrite({ kind: "storage", storageNodeId: storageNode.id, relativePath: normalizedRelativePath, checksum: assembled.checksum, size: assembled.size });
   if (storageNode.driver !== "AGENT") await beforePublish();
   try {
-    await writeStorageFileFromLocalPath(storageNode, normalizedRelativePath, assembled.path, {
+    await writeStorageFileFromLocalPath({ ...storageNode, expectedRoot: storageNode.agentFileShare?.rootIdentity ?? undefined }, normalizedRelativePath, assembled.path, {
+      expectedVersion: current.version,
       checksum: assembled.checksum, beforePublish, onVersion: version => { storageVersion = version; },
     });
   } catch (error) {
     if (storageNode.driver === "AGENT" && await activeLease.resumeBeforePublication()) {
       lease.stop();
       lease = undefined;
+      await rm(assembled.path, { force: true });
     }
     // A local filesystem answers with an errno before it changes anything; only a remote write can succeed unseen.
-    if (storageNode.driver === "LOCAL" && isRefusedLocalWrite(error)) activeLease.writeRefused();
+    if (storageNode.driver === "LOCAL" && (isRefusedLocalWrite(error) || (error instanceof ConflictError && !(error.details && typeof error.details === "object" && "recoveryRequired" in error.details)))) activeLease.writeRefused();
     throw error;
   }
 

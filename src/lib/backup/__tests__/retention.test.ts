@@ -23,6 +23,11 @@ const {
 }));
 
 vi.mock("@/lib/db", () => ({ prisma: mockPrisma }));
+vi.mock("@/lib/concurrency/advisory-lock", () => ({
+  tryAcquireAdvisoryLock: vi.fn(async () => vi.fn(async () => undefined)),
+  acquireAdvisoryLock: vi.fn(async () => vi.fn(async () => undefined)),
+  lockForTransaction: vi.fn(async () => undefined),
+}));
 vi.mock("node:fs/promises", () => ({
   default: { rm: rmMock, stat: statMock },
   rm: rmMock,

@@ -79,10 +79,11 @@ describe("runOffsiteDryRun", () => {
 
 	it("returns ok=true on a clean PUT/HEAD/DELETE cycle", async () => {
 		mocks.loadOffsiteConfig.mockResolvedValue(ENABLED_CONFIG);
+		let present = true;
 		const { fetchImpl, calls } = makeFetchMock(({ method }) => {
-			if (method === "PUT") return new Response("", { status: 200, headers: { etag: '"e"' } });
-			if (method === "HEAD") return new Response("", { status: 200, headers: { etag: '"e"' } });
-			if (method === "DELETE") return new Response(null, { status: 204 });
+			if (method === "PUT") return new Response("", { status: 200, headers: { etag: '"e"', "x-amz-version-id": "probe+v/1" } });
+			if (method === "HEAD") return new Response(null, { status: present ? 200 : 404, headers: { etag: '"e"' } });
+			if (method === "DELETE") { present = false; return new Response(null, { status: 204 }); }
 			return new Response("", { status: 200 });
 		});
 		// Inject fetchImpl into the S3Client constructed inside runOffsiteDryRun
@@ -100,8 +101,8 @@ describe("runOffsiteDryRun", () => {
 				expect(result.probeKey).toMatch(/^vcontrolhub-backups\/_probe\/[a-f0-9]+\.probe$/);
 				expect(result.latencyMs).toBeGreaterThanOrEqual(0);
 			}
-			// Verify the 3-step dance: PUT → HEAD → DELETE
-			expect(calls.map((c) => c.method)).toEqual(["PUT", "HEAD", "DELETE"]);
+			expect(calls.map(c => c.method)).toEqual(["PUT", "HEAD", "DELETE", "HEAD"]);
+			for (const call of calls.slice(1)) expect(new URL(call.url).searchParams.get("versionId")).toBe("probe+v/1");
 		} finally {
 			globalThis.fetch = originalFetch;
 		}
