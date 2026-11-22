@@ -10,7 +10,7 @@ import { PlaybookListClient } from "./playbook-list-client";
 
 export const dynamic = "force-dynamic";
 
-export default async function PlaybooksPage({ searchParams }: { searchParams?: Promise<{ after?: string }> } = {}) {
+export default async function PlaybooksPage({ searchParams }: { searchParams?: Promise<{ after?: string }> }) {
 	// Reading playbooks admits to the page (and decides whether the sidebar offers it); managing and running
 	// are controls inside it. With a bare session check, an account without it saw "no playbooks yet".
 	const session = await requirePagePermission("playbook:read", { redirectTo: "/playbooks" });

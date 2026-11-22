@@ -25,14 +25,14 @@ describe("playbooks page", () => {
 		// A bare session check let every account in: one that may only read servers (the viewer role) found the
 		// entry in the sidebar and a page saying there are no playbooks yet.
 		guard.requirePagePermission.mockRejectedValueOnce(Object.assign(new Error("缺少权限: playbook:read"), { name: "ForbiddenError" }));
-		await expect(PlaybooksPage()).rejects.toThrow("缺少权限: playbook:read");
+		await expect(PlaybooksPage({})).rejects.toThrow("缺少权限: playbook:read");
 		expect(guard.requirePagePermission).toHaveBeenCalledWith("playbook:read", { redirectTo: "/playbooks" });
 		expect(listPlaybooks).not.toHaveBeenCalled();
 
 		const session = { userId: "u1", currentTeamId: "team1", roles: ["viewer"] };
 		rows.findMany.mockResolvedValueOnce([]);
 		guard.requirePagePermission.mockResolvedValueOnce(session);
-		await PlaybooksPage();
+		await PlaybooksPage({});
 		expect(listPlaybooks).toHaveBeenCalledWith(session, { take: 101, after: undefined });
 	});
 
@@ -44,7 +44,7 @@ describe("playbooks page", () => {
 				url: "https://example.org/hook-secret?key=query-secret", method: "POST", headers: { auth: "header-secret" }, body: "body-secret",
 			} }],
 		}]);
-		const page = await PlaybooksPage();
+		const page = await PlaybooksPage({});
 		const props = page.props.children[0].props;
 		expect(props.playbooks[0].steps[0].config).toEqual({
 			host: "example.org", method: "POST", urlConfigured: true, hasHeaders: true, hasBody: true,
