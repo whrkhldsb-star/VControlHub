@@ -1,5 +1,4 @@
 vi.mock("@/lib/concurrency/advisory-lock", () => ({tryAcquireAdvisoryLock: async () => async () => {}}));
-import path from "node:path";
 import { PassThrough } from "node:stream";
 import { beforeEach, describe, expect, it, vi } from "vitest";
 

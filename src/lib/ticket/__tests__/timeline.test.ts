@@ -130,7 +130,7 @@ describe("ticket timeline", () => {
     });
     const sessionWithoutResourceReads = {
       userId: "u_mgr",
-      roles: [] as const,
+      roles: [],
       currentTeamId: "team_1",
       permissions: ["ticket:read" as const, "ticket:manage" as const],
     };
