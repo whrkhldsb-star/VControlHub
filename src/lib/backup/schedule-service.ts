@@ -11,7 +11,7 @@
  * so cron semantics stay identical across both schedule kinds.
  */
 import { prisma } from "@/lib/db";
-import { teamWhere } from "@/lib/auth/team-scope";
+import { isGlobalTeamManager, teamWhere } from "@/lib/auth/team-scope";
 import type { SessionPayload } from "@/lib/auth/session";
 import { NotFoundError, ValidationError } from "@/lib/errors";
 import { computeNextRun } from "@/lib/scheduled-task/service";
@@ -100,9 +100,18 @@ export async function createBackupSchedule(input: CreateBackupScheduleInput) {
   });
 }
 
+function scheduleScope(session?: Pick<SessionPayload, "userId" | "roles" | "currentTeamId">) {
+  // Backup schedules are platform resources (R6-01-03): they are created with
+  // a null teamId, so a platform admin manages every schedule regardless of
+  // the selected customer, while customer accounts keep their team scope over
+  // legacy team-bound schedules (TR-030 quarantine for null-team rows).
+  if (!session || isGlobalTeamManager(session)) return {};
+  return teamWhere(session);
+}
+
 export async function listBackupSchedules(limit = 200, session?: Pick<SessionPayload, "userId" | "roles" | "currentTeamId">) {
   return prisma.backupSchedule.findMany({
-    where: session ? teamWhere(session) : {},
+    where: scheduleScope(session),
     orderBy: { createdAt: "desc" },
     take: limit,
     include: { creator: { select: { username: true, displayName: true, status: true, mustChangePassword: true } } },
@@ -110,13 +119,14 @@ export async function listBackupSchedules(limit = 200, session?: Pick<SessionPay
 }
 
 export async function getBackupSchedule(id: string, session?: Pick<SessionPayload, "userId" | "roles" | "currentTeamId">) {
-  return session ? prisma.backupSchedule.findFirst({ where: { id, ...teamWhere(session) } }) : prisma.backupSchedule.findUnique({ where: { id } });
+  if (!session) return prisma.backupSchedule.findUnique({ where: { id } });
+  return prisma.backupSchedule.findFirst({ where: { id, ...scheduleScope(session) } });
 }
 
 export async function updateBackupSchedule(id: string, input: UpdateBackupScheduleInput, session?: Pick<SessionPayload, "userId" | "roles" | "currentTeamId">) {
   return prisma.$transaction(async (tx) => {
     await tx.$queryRaw`SELECT id FROM backup_schedules WHERE id = ${id} FOR UPDATE`;
-    const existing = await tx.backupSchedule.findFirst({ where: { id, ...(session ? teamWhere(session) : {}) } });
+    const existing = await tx.backupSchedule.findFirst({ where: { id, ...scheduleScope(session) } });
     if (!existing) throw new NotFoundError(t("backend.backup.scheduleNotFound"));
 
     const data: Record<string, unknown> = {};
