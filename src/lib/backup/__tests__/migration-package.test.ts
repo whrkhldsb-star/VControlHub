@@ -96,6 +96,15 @@ describe("migration packages", () => {
     expect(exported.packageId).toMatch(/^mig-/);
     expect(exported.manifest.backup.checksumSha256).toBe(checksum);
 
+    if (process.platform !== "win32") expect((await fs.stat(path.join(storage, exported.tarballRelativePath!))).mode & 0o777).toBe(0o600);
+    const digest = await import("@/lib/crypto/sha256-file");
+    const read = vi.spyOn(digest, "sha256File").mockRejectedValueOnce(new Error("digest read failed"));
+    try {
+      await expect(mod.validateMigrationPackage(exported.tarballRelativePath!, tmp)).rejects.toThrow("digest read failed");
+      expect((await fs.readdir(path.join(storage, "migration-packages"))).filter((name) => name.startsWith("import-"))).toEqual([]);
+    } finally {
+      read.mockRestore();
+    }
     const validated = await mod.validateMigrationPackage(exported.packageRelativeDir, tmp);
     expect(validated.ok).toBe(true);
     expect(validated.checksumMatches).toBe(true);
@@ -199,8 +208,9 @@ describe("migration packages", () => {
     const relative = "backups/files-test.tar.gz";
     const absolute = path.join(storage, relative);
     await fs.mkdir(path.dirname(absolute), { recursive: true });
-    await fs.writeFile(path.join(tmp, "file.txt"), "fixture");
-    const payload = execFileSync("tar", ["-czf", "-", "-C", tmp, "file.txt"]);
+    await fs.mkdir(path.join(tmp, "uploads"));
+    await fs.writeFile(path.join(tmp, "uploads", "file.txt"), "fixture");
+    const payload = execFileSync("tar", ["-czf", "-", "-C", tmp, "uploads"]);
     await fs.writeFile(absolute, payload);
     const checksum = createHash("sha256").update(payload).digest("hex");
 

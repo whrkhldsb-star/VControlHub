@@ -1,3 +1,4 @@
+import { PLATFORM_ONLY_CHANNELS, verifiedRuleChannels } from "@/lib/alert/channel-grants";
 import { canAlertRuleTargetTeam } from "@/lib/alert/rule-scope";
 import { HUB_HOST_INSTANCE_KEY, isQuickServiceTargetConsistent } from "@/lib/quick-service/target-identity";
 import type { ExportFile, ImportOptions } from "./config-schema";
@@ -111,12 +112,19 @@ export async function planAlertRuleImport(
   }));
   const current = byId(existing);
   const sameTeam = valid.filter((row) => !current.has(row.id) || current.get(row.id)!.teamId === (row.teamId ?? null));
-  return planUniqueImport(sameTeam, existing.map(({ id }) => ({ id, key: id })), (row) => row.id, options.overwriteExisting).map((item) => {
+  const plan = planUniqueImport(sameTeam, existing.map(({ id }) => ({ id, key: id })), (row) => row.id, options.overwriteExisting);
+  const result = [];
+  for (const item of plan) {
     const old = current.get(item.row.id);
     const url = item.row.webhookUrl || (mode !== "full" ? old?.webhookUrl : null);
-    return { ...item, missingWebhook: item.row.notifyChannels?.includes("webhook") && !url,
-      metricChanged: old !== undefined && old.metric !== item.row.metric };
-  });
+    const row = item.row;
+    const channels = row.notifyChannels ?? [];
+    const verified = row.teamId && channels.some((c) => PLATFORM_ONLY_CHANNELS.includes(c))
+      ? await verifiedRuleChannels({ ...row, teamId: row.teamId, webhookUrl: url ?? null, escalationMinutes: row.escalationMinutes ?? 30 }) : channels;
+    result.push({ ...item, pendingApproval: verified.length !== channels.length, noApprovedChannel: channels.length > 0 && verified.length === 0, missingWebhook: item.row.notifyChannels?.includes("webhook") && !url,
+      metricChanged: old !== undefined && old.metric !== item.row.metric });
+  }
+  return result;
 }
 
 export function byId<T extends { id: string }>(rows: T[]): Map<string, T> {

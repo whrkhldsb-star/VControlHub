@@ -7,6 +7,8 @@ import { syncBuiltinIdentityTemplates } from "@/lib/auth/identity-template-servi
 import { closeAdvisoryLockPoolForTests } from "@/lib/concurrency/advisory-lock";
 import { exportFileSchema, type ExportFile } from "../config-schema";
 import { buildExportFile } from "../export-service";
+import { sshFixture } from "./ssh-fixture";
+import { encrypt } from "@/lib/crypto/service";
 import { createImportAdmin } from "./import-admin-fixture";
 import { executeImport } from "../import-executors";
 
@@ -21,6 +23,8 @@ describe.skipIf(process.env.RUN_DATABASE_INTEGRATION_TESTS !== "1")("config expo
 	const p = `rt-${randomUUID().slice(0, 8)}`;
 	const admin = { userId: `${p}-admin`, username: `${p}-admin`, roles: ["admin" as const], mustChangePassword: false, currentTeamId: null };
 	let file: ExportFile;
+	const ssh = sshFixture();
+	const rdpPassword = encrypt("rdp-fixture");
 
 	const cleanup = async () => {
 		await prisma.commandTemplate.deleteMany({ where: { id: { startsWith: p } } });
@@ -49,9 +53,9 @@ describe.skipIf(process.env.RUN_DATABASE_INTEGRATION_TESTS !== "1")("config expo
 		await prisma.user.create({ data: { id: `${p}-user`, username: `${p}-user`, passwordHash: "hash", roles: { create: { roleId: `${p}-role-src` } },
 			twoFactorEnabled: true, twoFactorSecret: "enc:totp", twoFactorRecoveryCodes: ["hash-1", "hash-2"],
 			teamMembership: { create: { teamId: `${p}-team-src`, identityTemplateId: "identity:customer_admin" } } } });
-		await prisma.sshKey.create({ data: { id: `${p}-key-src`, name: "deploy", fingerprint: `SHA256:${p}`, publicKey: "ssh-ed25519 AAAA", privateKey: "enc:key", teamId: `${p}-team-src` } });
-		await prisma.server.create({ data: { id: `${p}-win`, name: `${p}-win`, host: `${p}-win.test`, port: 3389, username: "Administrator", teamId: `${p}-team-src`,
-			operatingSystem: "WINDOWS", managementMode: "AGENT", connectionType: "PASSWORD", origin: "CUSTOMER", rdpDomain: "CORP", rdpPassword: "enc:rdp",
+		await prisma.sshKey.create({ data: { id: `${p}-key-src`, name: "deploy", ...ssh, teamId: `${p}-team-src` } });
+		await prisma.server.create({ data: { id: `${p}-win`, name: `${p}-win`, host: "203.0.113.8", port: 3389, username: "Administrator", teamId: `${p}-team-src`,
+			operatingSystem: "WINDOWS", managementMode: "AGENT", connectionType: "PASSWORD", origin: "CUSTOMER", rdpDomain: "CORP", rdpPassword,
 			rdpCertificateSha256: "a".repeat(64), hostKeySha256: "SHA256:win", costAutoSync: true, costMonthlyAmount: "12.50", trafficQuotaBytes: BigInt(1024) } });
 		await prisma.server.create({ data: { id: `${p}-linux`, name: `${p}-linux`, host: `${p}-linux.test`, username: "root", teamId: `${p}-team-src`,
 			connectionType: "SSH_KEY", sshKeyId: `${p}-key-src`, hostKeySha256: "SHA256:linux" } });
@@ -81,7 +85,7 @@ describe.skipIf(process.env.RUN_DATABASE_INTEGRATION_TESTS !== "1")("config expo
 		await createImportAdmin(admin.userId);
 		await prisma.role.create({ data: { id: `${p}-role-dst`, key: `${p}-ops`, name: "Ops" } });
 		await prisma.team.create({ data: { id: `${p}-team-dst`, slug: `${p}-acme`, name: "Acme" } });
-		await prisma.sshKey.create({ data: { id: `${p}-key-dst`, name: "deploy", fingerprint: `SHA256:${p}`, publicKey: "ssh-ed25519 AAAA", teamId: `${p}-team-dst` } });
+		await prisma.sshKey.create({ data: { id: `${p}-key-dst`, name: "deploy", fingerprint: ssh.fingerprint, publicKey: ssh.publicKey, teamId: `${p}-team-dst` } });
 	}, 60_000);
 	afterAll(async () => {
 		await cleanup();
@@ -92,7 +96,7 @@ describe.skipIf(process.env.RUN_DATABASE_INTEGRATION_TESTS !== "1")("config expo
 	it("exports the customer, its member and the servers' profiles", () => {
 		expect(file.tables.teams.map((team) => team.slug)).toEqual([`${p}-acme`]);
 		expect(file.tables.teamMembers).toEqual([expect.objectContaining({ userId: `${p}-user`, identityTemplateId: "identity:customer_admin" })]);
-		expect(file.tables.servers.find((server) => server.id === `${p}-win`)).toMatchObject({ operatingSystem: "WINDOWS", managementMode: "AGENT", rdpPassword: "enc:rdp" });
+		expect(file.tables.servers.find((server) => server.id === `${p}-win`)).toMatchObject({ operatingSystem: "WINDOWS", managementMode: "AGENT", rdpPassword });
 	});
 
 	it("imports into an instance whose objects carry other ids, keeping every link", async () => {
@@ -106,7 +110,7 @@ describe.skipIf(process.env.RUN_DATABASE_INTEGRATION_TESTS !== "1")("config expo
 
 		const windows = await prisma.server.findUniqueOrThrow({ where: { id: `${p}-win` } });
 		expect(windows).toMatchObject({ teamId: `${p}-team-dst`, operatingSystem: "WINDOWS", managementMode: "AGENT", origin: "CUSTOMER", rdpDomain: "CORP",
-			rdpPassword: "enc:rdp", rdpCertificateSha256: "a".repeat(64), hostKeySha256: "SHA256:win", costAutoSync: true, trafficQuotaBytes: BigInt(1024) });
+			rdpPassword, rdpCertificateSha256: "a".repeat(64), hostKeySha256: "SHA256:win", costAutoSync: true, trafficQuotaBytes: BigInt(1024) });
 		expect(windows.costMonthlyAmount?.toFixed(2)).toBe("12.50");
 		const linux = await prisma.server.findUniqueOrThrow({ where: { id: `${p}-linux` } });
 		expect(linux).toMatchObject({ teamId: `${p}-team-dst`, sshKeyId: `${p}-key-dst`, hostKeySha256: "SHA256:linux" });
@@ -150,10 +154,10 @@ describe.skipIf(process.env.RUN_DATABASE_INTEGRATION_TESTS !== "1")("config expo
 	});
 
 	it("refuses, with a clear error, a package whose resources name customers that exist nowhere", async () => {
-		const orphan: ExportFile = { ...file, tables: { ...file.tables, teams: [], servers: file.tables.servers.map((server) => ({ ...server, id: `${server.id}-x`, teamId: `${p}-team-gone` })) } };
+		const orphan: ExportFile = { ...file, tables: { ...file.tables, teams: [], users: [], teamMembers: [], userRoles: [], servers: file.tables.servers.map((server) => ({ ...server, id: `${server.id}-x`, teamId: `${p}-team-gone` })) } };
 		const result = await executeImport(orphan, { dryRun: false, overwriteExisting: false, importUsers: true, importSettings: false });
 		expect(result.rolledBack).toBe(true);
-		expect(result.errors.join(" ")).toContain(`${p}-team-gone`);
+		expect(result.errors.join(" ")).toContain("IMPORT_FAILED.teams");
 		expect(await prisma.server.count({ where: { id: { endsWith: "-x", startsWith: p } } })).toBe(0);
 	});
 });

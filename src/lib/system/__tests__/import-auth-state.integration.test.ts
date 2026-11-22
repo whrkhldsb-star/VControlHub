@@ -19,7 +19,7 @@ describe.skipIf(process.env.RUN_DATABASE_INTEGRATION_TESTS !== "1")("imported au
   afterAll(async () => { await prisma.user.deleteMany({ where: { id: { in: [id, `${id}-admin`] } } }); await prisma.$disconnect(); });
   const file = (enabled: boolean, secret: string | null, mode = "full") => exportFileSchema.parse({ schemaVersion: 1, exportedAt: new Date().toISOString(), sourceDomain: "audit.invalid", exportMode: mode, tables: {
     ...Object.fromEntries(["permissions", "roles", "rolePermissions", "userRoles", "sshKeys", "servers", "storageNodes", "userStorageAccess", "commandTemplates", "quickServices", "playbooks", "alertRules", "settings", "aiProviders", "announcements", "snippets"].map((key) => [key, []])),
-    users: [{ id, username: id, displayName: null, passwordHash: "unchanged-hash", status: "ACTIVE", mustChangePassword: false, twoFactorEnabled: enabled, twoFactorSecret: secret, twoFactorRecoveryCodes: null, preferences: null, createdAt: new Date().toISOString() }],
+    users: [{ id, username: id, displayName: null, passwordHash: mode === "standard" ? null : "unchanged-hash", status: "ACTIVE", mustChangePassword: false, twoFactorEnabled: enabled, twoFactorSecret: secret, twoFactorRecoveryCodes: null, preferences: null, createdAt: new Date().toISOString() }],
   } });
   it("revokes an old session when the imported second factor changes", async () => {
     const cookie = await createSessionToken({ userId: id, username: id, roles: [], mustChangePassword: false, currentTeamId: null });

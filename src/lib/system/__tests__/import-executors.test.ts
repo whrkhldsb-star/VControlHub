@@ -44,7 +44,7 @@ const executors = {
   importQuickServices: recorder("quickServices"),
   importPlaybooks: recorder("playbooks"),
   importAlertRules: recorder("alertRules"),
-  importSettings: recorder("settings"),
+  importSettings: vi.fn(async (...args: Parameters<ReturnType<typeof recorder>>) => { await recorder("settings")(...args); return []; }),
   importAiProviders: recorder("aiProviders"),
   importAnnouncements: recorder("announcements"),
   importSnippets: recorder("snippets"),
@@ -95,7 +95,8 @@ vi.mock("../import-executors-helpers", () => ({}));
 
 const { executeImport } = await import("../import-executors");
 
-const FILE = { tables: { aiProviders: [] } } as unknown as ExportFile;
+const FILE = { schemaVersion: 1, exportedAt: new Date().toISOString(), sourceDomain: "fixture", tables: Object.fromEntries(
+  Object.keys(executors).map((name) => [name[6]!.toLowerCase() + name.slice(7), []])) } as unknown as ExportFile;
 const OPTIONS = {
   dryRun: false,
   overwriteExisting: true,
@@ -165,7 +166,7 @@ describe("executeImport", () => {
   it("rolls back the import if the final administrator check fails", async () => {
     mocks.assertAdmin.mockRejectedValueOnce(new Error("last active admin"));
     const result = await executeImport(FILE, OPTIONS);
-    expect(result).toMatchObject({ created: 0, updated: 0, rolledBack: true, errors: ["Transaction failed: last active admin"] });
+    expect(result).toMatchObject({ created: 0, updated: 0, rolledBack: true, errors: ["IMPORT_FAILED.users"] });
     expect(mocks.assertAdmin).toHaveBeenCalledWith(mocks.lock.mock.calls[0]?.[0]);
     expect(ORDER.at(-1)).toBe("snippets");
   });
@@ -178,17 +179,17 @@ describe("executeImport", () => {
     expect(result.created).toBe(0);
     expect(result.updated).toBe(0);
     expect(result.rolledBack).toBe(true);
-    expect(result.errors).toEqual(["Transaction failed: P2028 transaction closed"]);
+    expect(result.errors).toEqual(["IMPORT_FAILED.transaction"]);
     // This fixture has no input rows.
     expect(result.skipped).toBe(0);
   });
 
-  it("surfaces a non-Error rejection as text rather than [object Object]", async () => {
+  it("redacts non-Error rejections", async () => {
     mocks.transaction.mockRejectedValue("db gone");
 
     const result = await executeImport(FILE, OPTIONS);
 
-    expect(result.errors[0]).toBe("Transaction failed: db gone");
+    expect(result.errors[0]).toBe("IMPORT_FAILED.transaction");
   });
 
   it("does not resolve successfully with a half-applied count when one table throws", async () => {
@@ -203,7 +204,7 @@ describe("executeImport", () => {
 
     expect(result.rolledBack).toBe(true);
     expect(result.created).toBe(0);
-    expect(result.errors[0]).toContain("bad row");
+    expect(result.errors[0]).toBe("IMPORT_FAILED.users");
     // Later tables must not have run.
     expect(ORDER).not.toContain("snippets");
   });

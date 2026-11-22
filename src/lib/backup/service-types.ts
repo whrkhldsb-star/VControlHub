@@ -12,12 +12,20 @@ import { join, normalize, sep } from "node:path";
 import { config } from "@/lib/config/env";
 import { ValidationError } from "@/lib/errors";
 import { t } from "@/lib/i18n/service-translations";
+import { normalizeEndpoint } from "@/lib/storage/offsite/s3-client";
 
 export type BackupType = "DATABASE" | "FILES" | "FULL";
 
 /** The durable job that runs a backup record; its payload carries `backupId`. */
 export const BACKUP_CREATE_JOB_TYPE = "backup.create";
 export const VPS_BACKUP_CREATE_JOB_TYPE = "vps-backup.create";
+
+export const PLATFORM_RECEIPT_PREFIX = "backup.offsiteReceipt.";
+
+/** S3 object identity follows the endpoint and bucket, independently of the signing region. */
+export function platformOffsiteDestination(config: { endpoint: string; bucket: string }) {
+	return JSON.stringify([normalizeEndpoint(config.endpoint), config.bucket]);
+}
 
 export type BackupRecordForSummary = {
 	id: string;

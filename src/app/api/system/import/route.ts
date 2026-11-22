@@ -9,6 +9,7 @@
 import { NextResponse } from "next/server";
 
 import { withApiRoute } from "@/lib/http/api-guard";
+import { ValidationError } from "@/lib/errors";
 import { auditUserAction } from "@/lib/audit/service";
 import { GENERAL_WRITE_LIMIT } from "@/lib/http/rate-limit-presets";
 import { CONFIG_IMPORT_MAX_BODY_BYTES, exportFileSchema, importOptionsSchema } from "@/lib/system/config-schema";
@@ -20,6 +21,9 @@ export const dynamic = "force-dynamic";
 const importBodySchema = importOptionsSchema.extend({
   file: exportFileSchema,
 });
+
+const failureCodes = new Set(["validation", "transaction", ...Object.keys(exportFileSchema.shape.tables.shape)]
+  .map((stage) => "IMPORT_FAILED." + stage));
 
 export async function POST(request: Request) {
   return withApiRoute(
@@ -39,23 +43,23 @@ export async function POST(request: Request) {
 
       if (options.dryRun) {
         // 预览模式：不写入
-        const preview = await previewImport(file, options);
+        const preview = await previewImport(file, options).catch(() => { throw new ValidationError("IMPORT_PREVIEW_FAILED"); });
         await auditUserAction(session.userId, "system.import.preview", {
           totalRecords: preview.totalRecords,
           schemaVersion: file.schemaVersion,
-        }, undefined, session.currentTeamId);
+        }, undefined, null);
         return NextResponse.json({ preview });
       }
 
       // 实际导入
-      const result = await executeImport(file, options);
+      const outcome = await executeImport(file, options).catch(() => { throw new ValidationError("IMPORT_FAILED"); });
+      const result = { ...outcome, errors: outcome.errors.map((code) => failureCodes.has(code) ? code : "IMPORT_FAILED.transaction") };
       await auditUserAction(session.userId, "system.import", {
         created: result.created,
         updated: result.updated,
         skipped: result.skipped,
-        errors: result.errors,
-        sourceDomain: file.sourceDomain,
-      }, undefined, session.currentTeamId);
+        errorCount: result.errors.length,
+      }, undefined, null);
 
       if (result.rolledBack) {
         return NextResponse.json(

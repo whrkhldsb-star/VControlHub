@@ -1,5 +1,9 @@
+import { ValidationError } from "@/lib/errors";
+import { loadBoundAiOpsProvider } from "@/lib/ai/ops/provider-binding";
+import { importKeyMaterial } from "./import-ssh-keys";
+import { announcementDates, planSettings } from "./import-executors-config";
 import { planUniqueImport } from "./import-unique-rows";
-import { planAiProviders, planSnippets, writableSetting } from "./import-config-plan";
+import { planAiProviders, planSnippets } from "./import-config-plan";
 import { playbookStepReferences, scopedPlaybooks, writableCommandTemplates } from "./import-executors-automation";
 import { prisma } from "@/lib/db";
 import { importPlaybooksSchema, type ExportFile, type ImportOptions, type ImportIssue } from "@/lib/system/config-schema";
@@ -33,45 +37,6 @@ async function chunkedExistingIds<T extends { id: string }>(
   return out;
 }
 
-async function previewById<T extends { id: string }>(
-  records: T[],
-  options: ImportOptions,
-  findMany: (chunk: string[]) => Promise<{ id: string }[]>,
-): Promise<PreviewCounts> {
-  if (records.length === 0) return { ...ZERO };
-  const existingIds = await chunkedExistingIds(records.map((r) => r.id), findMany);
-  return countsFromPlan(records.length, planUniqueImport(records, [...existingIds].map((id) => ({ id, key: id })), (r) => r.id, options.overwriteExisting));
-}
-
-async function chunkedExistingKeys<T extends Record<K, string>, K extends string>(
-  keys: string[],
-  keyName: K,
-  findMany: (chunk: string[]) => Promise<T[]>,
-  chunkSize = 500,
-): Promise<Set<string>> {
-  const out = new Set<string>();
-  for (let i = 0; i < keys.length; i += chunkSize) {
-    const rows = await findMany(keys.slice(i, i + chunkSize));
-    for (const row of rows) out.add(row[keyName]);
-  }
-  return out;
-}
-
-async function previewByKey<T extends Record<K, string>, K extends string>(
-  records: T[],
-  keyName: K,
-  options: ImportOptions,
-  findMany: (chunk: string[]) => Promise<Record<K, string>[]>,
-): Promise<PreviewCounts> {
-  if (records.length === 0) return { ...ZERO };
-  const existingKeys = await chunkedExistingKeys(records.map((r) => r[keyName]), keyName, findMany);
-  const keys = new Set(records.map((r) => r[keyName]));
-  const existing = [...keys].filter((key) => existingKeys.has(key)).length;
-  const create = keys.size - existing;
-  const update = options.overwriteExisting ? existing : 0;
-  return { create, update, skip: records.length - create - update };
-}
-
 /**
  * Mirror of the executors' secondary-unique handling.
  *
@@ -88,6 +53,7 @@ async function previewByIdAndSecondaryKey<T extends { id: string }>(
   keyOf: (record: T) => string | null,
   findByKeys: (chunk: string[]) => Promise<{ id: string; key: string | null }[]>,
   allowUpdate?: (row: T) => boolean,
+  applied?: Set<string>,
 ): Promise<PreviewCounts> {
   if (records.length === 0) return { ...ZERO };
   const existingIds = await chunkedExistingIds(records.map((r) => r.id), findIds);
@@ -105,7 +71,9 @@ async function previewByIdAndSecondaryKey<T extends { id: string }>(
   for (const [key, id] of ownerByKey) existing.set(id, JSON.stringify(key));
   const plan = planUniqueImport(records, [...existing].map(([id, key]) => ({ id, key })),
     (r) => JSON.stringify(keyOf(r) ?? [r.id]), options.overwriteExisting);
-  return countsFromPlan(records.length, allowUpdate ? plan.filter(({ row, action }) => action !== "update" || allowUpdate(row)) : plan);
+  const accepted = allowUpdate ? plan.filter(({ row, action }) => action !== "update" || allowUpdate(row)) : plan;
+  for (const { row } of accepted) applied?.add(row.id);
+  return countsFromPlan(records.length, accepted);
 }
 
 function projectCatalog(ids: string[], t: ExportFile["tables"], model: "role" | "permission", overwrite: boolean) {
@@ -183,7 +151,7 @@ export async function previewRolePermissions(
 
 export async function previewUsers(
   t: ExportFile["tables"],
-  options: ImportOptions,
+  options: ImportOptions, applied?: Set<string>,
 ): Promise<PreviewCounts> {
   return previewByIdAndSecondaryKey(
     t.users,
@@ -193,7 +161,7 @@ export async function previewUsers(
     (keys) => prisma.user.findMany({
       where: { username: { in: keys } },
       select: { id: true, username: true },
-    }).then((rows) => rows.map((row) => ({ id: row.id, key: row.username }))),
+    }).then((rows) => rows.map((row) => ({ id: row.id, key: row.username }))), undefined, applied,
   );
 }
 
@@ -229,11 +197,11 @@ function sameOwner(table: ImportIssue["table"], row: { id: string; teamId?: stri
   return false;
 }
 
-export async function previewSshKeys(t: ExportFile["tables"], options: ImportOptions, issues: ImportIssue[] = []): Promise<PreviewCounts> {
+export async function previewSshKeys(t: ExportFile["tables"], options: ImportOptions, issues: ImportIssue[] = [], applied = new Set<string>()): Promise<PreviewCounts> {
   const existing = byId(await loadImportReferences(t.sshKeys.map((r) => r.id), (ids) => prisma.sshKey.findMany({
     where: { id: { in: ids } }, select: { id: true, teamId: true, publicKey: true, fingerprint: true },
   })));
-  return previewByIdAndSecondaryKey(t.sshKeys, options, async () => [...existing.values()], (r) => r.fingerprint,
+  const counts = await previewByIdAndSecondaryKey(t.sshKeys, options, async () => [...existing.values()], (r) => r.fingerprint,
     (keys) => prisma.sshKey.findMany({ where: { fingerprint: { in: keys } }, select: { id: true, fingerprint: true } })
       .then((rows) => rows.map((r) => ({ id: r.id, key: r.fingerprint }))),
     (row) => {
@@ -244,33 +212,44 @@ export async function previewSshKeys(t: ExportFile["tables"], options: ImportOpt
         return false;
       }
       return true;
-    });
+    }, applied);
+  for (const row of t.sshKeys) {
+    if (!applied.has(row.id)) continue;
+    try { await importKeyMaterial(row, false); } catch {
+      issues.push({ table: "sshKeys", id: row.id, reason: "backend.server.sshPublicKeyMismatch", blocking: true });
+    }
+  }
+  return counts;
 }
 
-export async function previewServers(t: ExportFile["tables"], options: ImportOptions, issues: ImportIssue[] = []): Promise<PreviewCounts> {
+export async function previewServers(t: ExportFile["tables"], options: ImportOptions, issues: ImportIssue[] = [], applied?: Set<string>): Promise<PreviewCounts> {
   const existing = byId(await loadImportReferences(t.servers.map((r) => r.id), (ids) => prisma.server.findMany({
     where: { id: { in: ids } }, select: { id: true, teamId: true },
   })));
   const plan = planUniqueImport(t.servers, [...existing.keys()].map((id) => ({ id, key: id })), (row) => row.id, options.overwriteExisting);
-  return countsFromPlan(t.servers.length, plan.filter(({ row, action }) => action === "create" || sameOwner("servers", row, existing.get(row.id)!, issues)));
+  const accepted = plan.filter(({ row, action }) => action === "create" || sameOwner("servers", row, existing.get(row.id)!, issues));
+  for (const { row } of accepted) applied?.add(row.id);
+  return countsFromPlan(t.servers.length, accepted);
 }
 
-async function projectedStoragePlan(t: ExportFile["tables"], options: ImportOptions) {
-  return planStorageNodes(prisma, t.storageNodes, options.overwriteExisting, await projectStorageServers(t, options));
+async function projectedStoragePlan(t: ExportFile["tables"], options: ImportOptions, issues: ImportIssue[] = []) {
+  return planStorageNodes(prisma, t.storageNodes, options.overwriteExisting, await projectStorageServers(t, options), issues);
 }
 
-export async function previewStorageNodes(t: ExportFile["tables"], options: ImportOptions, issues: ImportIssue[] = []): Promise<PreviewCounts> {
-  const { existing, plan } = await projectedStoragePlan(t, options);
-  return countsFromPlan(t.storageNodes.length, plan.filter(({ row, action }) => action === "create" || sameOwner("storageNodes", row, existing.get(row.id)!, issues)));
+export async function previewStorageNodes(t: ExportFile["tables"], options: ImportOptions, issues: ImportIssue[] = [], applied?: Set<string>): Promise<PreviewCounts> {
+  const { existing, plan } = await projectedStoragePlan(t, options, issues);
+  const accepted = plan.filter(({ row, action }) => action === "create" || sameOwner("storageNodes", row, existing.get(row.id)!, issues));
+  for (const { row } of accepted) applied?.add(row.id);
+  return countsFromPlan(t.storageNodes.length, accepted);
 }
 
 export async function previewUserStorageAccess(
   t: ExportFile["tables"],
-  options: ImportOptions,
+  options: ImportOptions, issues: ImportIssue[] = [],
 ): Promise<PreviewCounts> {
   const records = t.userStorageAccess;
   if (records.length === 0) return { ...ZERO };
-  const { plan } = await projectedStoragePlan(t, options);
+  const { plan } = await projectedStoragePlan(t, options, []);
   const [existing, nodes] = await Promise.all([
     loadStorageGrants(prisma, records),
     projectOwnedRows(records.map((row) => row.storageNodeId), plan.map(({ row }) => row), false, (ids) => prisma.storageNode.findMany({
@@ -281,19 +260,23 @@ export async function previewUserStorageAccess(
     ...records.map((row) => row.userId), ...existing.map((row) => row.userId),
   ], t, options);
   const retained = existing.filter((row) => !movedUsers.has(row.userId));
-  return countsFromPlan(records.length, planStorageGrantImport(records, retained, options, users, nodes));
+  return countsFromPlan(records.length, planStorageGrantImport(records, retained, options, users, nodes, issues));
 }
 
 export async function previewCommandTemplates(
   t: ExportFile["tables"],
-  options: ImportOptions,
+  options: ImportOptions, issues: ImportIssue[] = [],
 ): Promise<PreviewCounts> {
   const records = await writableCommandTemplates(prisma, t.commandTemplates);
-  const counts = await previewById(records, options, (ids) => prisma.commandTemplate.findMany({
-    where: { id: { in: ids } },
-    select: { id: true },
-  }));
-  return { ...counts, skip: counts.skip + t.commandTemplates.length - records.length };
+  return previewAutomationOwners("commandTemplates", records, t.commandTemplates.length, options, issues,
+    (ids) => prisma.commandTemplate.findMany({ where: { id: { in: ids } }, select: { id: true, teamId: true } }));
+}
+
+async function previewAutomationOwners(table: "commandTemplates" | "playbooks", rows: Array<{ id: string; teamId?: string | null }>,
+  total: number, options: ImportOptions, issues: ImportIssue[], find: (ids: string[]) => Promise<Array<{ id: string; teamId: string | null }>>) {
+  const existing = byId(await loadImportReferences(rows.map((r) => r.id), find));
+  const plan = planUniqueImport(rows, [...existing.keys()].map((id) => ({ id, key: id })), (r) => r.id, options.overwriteExisting);
+  return countsFromPlan(total, plan.filter(({ row, action }) => action === "create" || sameOwner(table, row, existing.get(row.id)!, issues)));
 }
 
 export async function previewQuickServices(
@@ -314,10 +297,10 @@ async function projectedPlaybooks(t: ExportFile["tables"], options: ImportOption
   return scopedPlaybooks(parsed, servers, users);
 }
 
-export async function previewPlaybooks(t: ExportFile["tables"], options: ImportOptions): Promise<PreviewCounts> {
+export async function previewPlaybooks(t: ExportFile["tables"], options: ImportOptions, issues: ImportIssue[] = []): Promise<PreviewCounts> {
   const records = await projectedPlaybooks(t, options);
-  const counts = await previewById(records, options, (ids) => prisma.playbook.findMany({ where: { id: { in: ids } }, select: { id: true } }));
-  return { ...counts, skip: counts.skip + t.playbooks.length - records.length };
+  return previewAutomationOwners("playbooks", records, t.playbooks.length, options, issues,
+    (ids) => prisma.playbook.findMany({ where: { id: { in: ids } }, select: { id: true, teamId: true } }));
 }
 
 export async function previewAlertRules(
@@ -334,20 +317,35 @@ export async function previewAlertRules(
     projectGrantUserScopes(records.flatMap((row) => row.onCallUserIds ?? []), t, options),
   ]);
   const plan = await planAlertRuleImport(prisma, records, options, servers, playbooks, users, mode);
+  for (const { row, pendingApproval } of plan) if (pendingApproval) issues.push({ table: "alertRules", id: row.id, reason: "common.status.pendingApproval" });
   for (const { row, missingWebhook } of plan) if (missingWebhook) issues.push({ table: "alertRules", id: row.id, reason: "backend.alert.webhookUrlRequired" });
   return countsFromPlan(records.length, plan);
 }
 
-export async function previewSettings(t: ExportFile["tables"], options: ImportOptions, mode?: ExportFile["exportMode"]): Promise<PreviewCounts> {
-  const records = t.settings.filter((r) => writableSetting(r, mode));
-  const counts = await previewByKey(records, "key", options, (keys) => prisma.setting.findMany({
-    where: { key: { in: keys } }, select: { key: true },
-  }));
-  return { ...counts, skip: counts.skip + t.settings.length - records.length };
+export async function previewSettings(t: ExportFile["tables"], options: ImportOptions, mode?: ExportFile["exportMode"], issues: ImportIssue[] = [], applied?: Set<string>): Promise<PreviewCounts> {
+  try {
+    const { writes, current } = await planSettings(prisma, t.settings, options, mode, applied);
+    const provider = writes.get("ai.ops.provider");
+    if (provider) {
+      const bound = await loadBoundAiOpsProvider(provider);
+      const incoming = options.overwriteExisting ? t.aiProviders.find((row) => row.id === provider) : undefined;
+      if (!bound || incoming && (!incoming.enabled || incoming.type !== bound.type || incoming.baseUrl !== bound.baseUrl || incoming.defaultModel !== bound.defaultModel)) {
+        issues.push({ table: "settings", id: "ai.ops.provider", reason: "common.status.pendingApproval" });
+      }
+    }
+    let update = 0;
+    for (const key of writes.keys()) if (current.has(key)) update++;
+    return { create: writes.size - update, update, skip: t.settings.length - writes.size };
+  } catch (error) {
+    const details = error instanceof ValidationError ? error.details as { field?: string; reason?: string } | undefined : undefined;
+    issues.push({ table: "settings", id: details?.field ?? "settings", reason: details?.reason ?? "systemConfig.import.result.error", blocking: true });
+    return { ...ZERO, skip: t.settings.length };
+  }
 }
 
-export async function previewAiProviders(t: ExportFile["tables"], options: ImportOptions, issues: ImportIssue[] = []): Promise<PreviewCounts> {
+export async function previewAiProviders(t: ExportFile["tables"], options: ImportOptions, issues: ImportIssue[] = [], applied?: Set<string>): Promise<PreviewCounts> {
   const { plan, defaults, peers } = await planAiProviders(prisma, t.aiProviders, options, (ids) => projectUserIds(ids, t, options));
+  for (const { row } of plan) applied?.add(row.id);
   for (const peer of peers) {
     const winner = defaults.get(peer.createdBy);
     if (peer.isDefault && winner && winner !== peer.id) issues.push({ table: "aiProviders", id: peer.id, replacementId: winner, reason: "common.default" });
@@ -357,14 +355,20 @@ export async function previewAiProviders(t: ExportFile["tables"], options: Impor
 
 export async function previewAnnouncements(
   t: ExportFile["tables"],
-  options: ImportOptions,
+  options: ImportOptions, issues: ImportIssue[] = [],
 ): Promise<PreviewCounts> {
   const records = t.announcements;
   if (records.length === 0) return { ...ZERO };
-  return previewById(records, options, (ids) => prisma.announcement.findMany({
-    where: { id: { in: ids } },
-    select: { id: true },
-  }));
+  const previous = byId(await loadImportReferences(records.map((r) => r.id), (ids) => prisma.announcement.findMany({
+    where: { id: { in: ids } }, select: { id: true, startsAt: true },
+  })));
+  const plan = planUniqueImport(records, [...previous.keys()].map((id) => ({ id, key: id })), (r) => r.id, options.overwriteExisting);
+  for (const { row } of plan) {
+    try { announcementDates(row, previous.get(row.id)?.startsAt); } catch {
+      issues.push({ table: "announcements", id: row.id, reason: "backend.announcement.expiresAtMustBeAfterStartsAt", blocking: true });
+    }
+  }
+  return countsFromPlan(records.length, plan);
 }
 
 export async function previewSnippets(

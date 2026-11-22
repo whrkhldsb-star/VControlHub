@@ -69,6 +69,34 @@ describe("config-schema", () => {
     });
   });
 
+  describe("incoming snapshot fields", () => {
+    const schema = exportFileSchema.shape.tables;
+    const alert = { id: "rule", name: "Rule", metric: "cpu_usage", operator: "gt", threshold: 90, durationSeconds: 0,
+      cooldownMinutes: 5, serverIds: [], notifyChannels: ["in_app"], webhookUrl: null, silenceWindows: [], enabled: true, createdAt: "2026-01-01" };
+    it.each([{ metric: "unrecognized" }, { operator: "other" }, { threshold: -1 }, { cooldownMinutes: 0 }])("refuses unexecutable alert conditions %j", (fields) => {
+      expect(schema.shape.alertRules.safeParse([alert]).success).toBe(true);
+      expect(schema.shape.alertRules.safeParse([{ ...alert, ...fields }]).success).toBe(false);
+    });
+
+    it("rejects explicit standard secrets, unknown account statuses, invalid content and unusable SSH ports", () => {
+      const empty = Object.fromEntries(Object.keys(schema.shape).map((key) => [key, []]));
+      const user = { id: "user", username: "operator", displayName: null, status: "ACTIVE", passwordHash: "old-hash", mustChangePassword: false,
+        twoFactorEnabled: false, twoFactorSecret: null, preferences: null, createdAt: "2026-01-01" };
+      const legacy = { schemaVersion: 1, exportedAt: "2026-01-01", sourceDomain: "test", tables: { ...empty, users: [user] } };
+      expect(exportFileSchema.safeParse(legacy).success).toBe(true);
+      expect(exportFileSchema.safeParse({ ...legacy, exportMode: "standard" }).success).toBe(false);
+      expect(schema.shape.users.safeParse([{ ...user, status: "unknown" }]).success).toBe(false);
+      const server = { id: "server", name: "host", host: "example.test", port: 22, connectionType: "SSH_KEY", username: "root", sshKeyId: null,
+        description: null, tags: [], enabled: true, publicUrl: null, fileProxyPort: 0, osDialect: null, osInfo: null, createdAt: "2026-01-01" };
+      expect(schema.shape.servers.safeParse([server]).success).toBe(true);
+      for (const port of [0, 65536, 2.5]) expect(schema.shape.servers.safeParse([{ ...server, port }]).success).toBe(false);
+      const content = { id: "content", title: "Notice", body: "body", level: "info", pinned: false, published: true, startsAt: null,
+        expiresAt: null, createdBy: null, createdAt: "2026-01-01" };
+      expect(schema.shape.announcements.safeParse([content]).success).toBe(true);
+      for (const fields of [{ title: " " }, { body: "" }, { level: "unknown" }]) expect(schema.shape.announcements.safeParse([{ ...content, ...fields }]).success).toBe(false);
+    });
+  });
+
   describe("importOptionsSchema", () => {
     it("should accept default options", () => {
       const opts = {

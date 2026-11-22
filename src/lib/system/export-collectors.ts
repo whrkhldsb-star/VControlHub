@@ -6,6 +6,7 @@
  * collector reads one Prisma table and strips secrets according to mode/scope.
  */
 
+import { PLATFORM_RECEIPT_PREFIX } from "@/lib/backup/service-types";
 import type { Prisma } from "@prisma/client";
 
 import { prisma } from "@/lib/db";
@@ -586,6 +587,7 @@ export async function exportAlertRules(
 export async function exportSettings(mode: ExportMode, scope: ExportScope, db: ExportDb = prisma) {
   if (scope === "team") return [];
   const rows = await readSettingPages(async (page) => db.setting.findMany({
+    where: { NOT: { key: { startsWith: PLATFORM_RECEIPT_PREFIX } } },
     orderBy: { key: "asc" },
     ...page,
   }));
