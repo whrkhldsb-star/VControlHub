@@ -40,10 +40,10 @@ const RUNTIME_DIRS = ["storage", "uploads", "downloads", "backups", "logs", "tmp
  * assume. Fixed "vcontrolhub-" names made every install under another slug
  * report its three services as stopped (critical) while they were running.
  */
-async function serviceChecks() {
-  const cgroup = process.platform === "linux" ? await readFile("/proc/self/cgroup", "utf8").catch(() => "") : "";
-  const apache = process.platform === "linux" && await access("/etc/apache2/sites-enabled/next-proxy.conf").then(() => true, () => false);
-  return deploymentServiceChecks({ platform: process.platform, appSlug: config.app.appSlug || "vcontrolhub",
+async function serviceChecks(platform: NodeJS.Platform = process.platform) {
+  const cgroup = platform === "linux" ? await readFile("/proc/self/cgroup", "utf8").catch(() => "") : "";
+  const apache = platform === "linux" && await access("/etc/apache2/sites-enabled/next-proxy.conf").then(() => true, () => false);
+  return deploymentServiceChecks({ platform, appSlug: config.app.appSlug || "vcontrolhub",
     servicePrefix: process.env.SERVICE_PREFIX, cgroup, proxy: apache ? "apache2" : process.env.SKIP_CADDY === "1" ? undefined : "caddy" });
 }
 const SECRET_PATTERNS = [/postgres:\/\/[^\s]+:[^\s]+@/gi, /(password|token|secret|private_key)=([^\s]+)/gi];
@@ -78,7 +78,7 @@ async function checkPathExists(projectRoot: string, dir: string): Promise<System
   }
 }
 
-export async function collectSystemHealthChecks(options: { projectRoot?: string; session?: TeamSession } = {}): Promise<SystemHealthReport> {
+export async function collectSystemHealthChecks(options: { projectRoot?: string; session?: TeamSession; platform?: NodeJS.Platform } = {}): Promise<SystemHealthReport> {
   const projectRoot = options.projectRoot ?? process.cwd();
   const checks: SystemHealthCheck[] = [];
 
@@ -133,7 +133,7 @@ export async function collectSystemHealthChecks(options: { projectRoot?: string;
   // trusted and gets the full report.
   const canSeePlatformInternals = options.session ? isGlobalTeamManager(options.session) : true;
   if (canSeePlatformInternals) {
-    const serviceResults = await Promise.all((await serviceChecks()).map(async (service): Promise<SystemHealthCheck> => {
+    const serviceResults = await Promise.all((await serviceChecks(options.platform)).map(async (service): Promise<SystemHealthCheck> => {
     const state = await safeExecFile(service.file, service.args);
     if (state === service.running) {
       return { id: service.id, label: service.label, status: "healthy" as const, message: `${service.unit} is running`, params: { unit: service.unit }, messageCode: "running" };
