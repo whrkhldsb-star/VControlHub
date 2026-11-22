@@ -29,6 +29,13 @@ describe("Windows direct gateway command", () => {
     expect(source).toContain("ReparsePoint");
     expect(source).toContain("GetFinalPathNameByHandle");
     expect(source).toContain("Content-Range");
+    expect(source).toContain("Content-Security-Policy");
+    expect(source).toContain("sandbox");
+    expect(source).toContain("X-Content-Type-Options");
+    expect(source).toContain("Referrer-Policy");
+    expect(source).toContain("'.svg'");
+    expect(source).toContain("'.xhtml'");
+    expect(source).toContain("'.xml'");
     expect(install).toContain("Register-ScheduledTask");
     expect(prepare).toContain("icacls.exe");
     expect(install).toContain("New-NetFirewallRule");

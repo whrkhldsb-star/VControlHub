@@ -1072,4 +1072,112 @@ describe("/api/storage/sftp-ops", () => {
       expect(releaseQuotaGuardMock).toHaveBeenCalledWith(decision);
     });
   });
+
+  describe("Windows OpenSSH SFTP case-insensitive recycle and index guards", () => {
+    function mockWindowsSftpNode() {
+      const node = {
+        teamId: null,
+        id: "node_win",
+        name: "win-remote",
+        driver: "SFTP",
+        basePath: "/C:/Data",
+        host: null,
+        port: null,
+        username: null,
+        serverId: "srv_win",
+        server: {
+          teamId: null,
+          id: "srv_win",
+          host: "203.0.113.20",
+          port: 22,
+          username: "ops",
+          connectionType: "SSH_KEY",
+          password: null,
+          managementMode: "DIRECT",
+          operatingSystem: "WINDOWS",
+          hostKeySha256: "SHA256:win",
+          sshKey: { teamId: null, privateKey: "PRIVATE KEY" },
+        },
+      };
+      prismaMock.storageNode.findFirst.mockResolvedValueOnce(node);
+      prismaMock.storageNode.findUnique.mockResolvedValueOnce(node);
+    }
+
+    it("passes case-insensitive recycle checks on read and write for Windows OpenSSH SFTP", async () => {
+      vi.clearAllMocks();
+      requireApiSessionMock.mockResolvedValueOnce(session);
+      sessionHasPermissionMock.mockReturnValue(true);
+      assertStorageAccessMock.mockResolvedValueOnce({ allowed: true });
+      mockWindowsSftpNode();
+      prismaMock.fileEntry.findFirst.mockResolvedValueOnce({ id: "recycled_1" });
+
+      const readRes = await POST(request({ nodeId: "node_win", action: "read", path: "secret/payroll.txt" }));
+      expect(readRes.status).toBe(404);
+      expect(prismaMock.fileEntry.findFirst).toHaveBeenCalledWith(
+        expect.objectContaining({
+          where: expect.objectContaining({
+            storageNodeId: "node_win",
+            isDeleted: true,
+            relativePath: { in: ["secret", "secret/payroll.txt"], mode: "insensitive" },
+          }),
+        }),
+      );
+      expect(readRemoteFileMock).not.toHaveBeenCalled();
+
+      vi.clearAllMocks();
+      requireApiSessionMock.mockResolvedValueOnce(session);
+      sessionHasPermissionMock.mockReturnValue(true);
+      assertStorageAccessMock.mockResolvedValueOnce({ allowed: true });
+      mockWindowsSftpNode();
+      statRemoteEntryMock.mockRejectedValueOnce(Object.assign(new Error("missing"), { code: 2 }));
+      // First findFirst = assertNotRecycled (null), second findFirst = write indexed lookup (recycled row)
+      prismaMock.fileEntry.findFirst
+        .mockResolvedValueOnce(null)
+        .mockResolvedValueOnce({ id: "recycled_2", isDeleted: true, entryType: "FILE" });
+
+      const writeRes = await POST(request({ nodeId: "node_win", action: "write", path: "secret/payroll.txt", content: "x" }));
+      expect(writeRes.status).toBe(409);
+      expect(prismaMock.fileEntry.findFirst).toHaveBeenNthCalledWith(
+        2,
+        expect.objectContaining({
+          where: {
+            storageNodeId: "node_win",
+            relativePath: { equals: "secret/payroll.txt", mode: "insensitive" },
+          },
+        }),
+      );
+      expect(writeRemoteFileMock).not.toHaveBeenCalled();
+    });
+
+    it("checks rename destination occupancy case-insensitively on Windows OpenSSH SFTP", async () => {
+      vi.clearAllMocks();
+      requireApiSessionMock.mockResolvedValueOnce(session);
+      sessionHasPermissionMock.mockReturnValue(true);
+      assertStorageAccessMock.mockResolvedValue({ allowed: true });
+      mockWindowsSftpNode();
+      statRemoteEntryMock.mockResolvedValueOnce({ type: "file", size: 2, modifyTime: 1000 });
+      // 1: source indexed lookup, 2: assertNotRecycled source, 3: assertNotRecycled dest, 4: sftpIndexHasPath dest
+      prismaMock.fileEntry.findFirst
+        .mockResolvedValueOnce({ entryType: "FILE", size: BigInt(2) })
+        .mockResolvedValueOnce(null)
+        .mockResolvedValueOnce(null)
+        .mockResolvedValueOnce({ id: "existing_case_variant" });
+
+      const res = await POST(request({ nodeId: "node_win", action: "rename", path: "a.txt", newPath: "Report.txt" }));
+      expect(res.status).toBe(409);
+      expect(prismaMock.fileEntry.findFirst).toHaveBeenNthCalledWith(
+        4,
+        expect.objectContaining({
+          where: {
+            storageNodeId: "node_win",
+            OR: [
+              { relativePath: { equals: "Report.txt", mode: "insensitive" } },
+              { relativePath: { startsWith: "Report.txt/", mode: "insensitive" } },
+            ],
+          },
+        }),
+      );
+      expect(renameRemoteFileMock).not.toHaveBeenCalled();
+    });
+  });
 });

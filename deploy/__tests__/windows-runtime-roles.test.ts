@@ -24,6 +24,13 @@ it.skipIf(process.platform !== "win32" && !process.env.TEST_PWSH)("launches a si
       const value = output.toString(output[0] === 0xff ? "utf16le" : "utf8").trim();
       expect(value).toBe(role === "worker" ? "false" : "true");
     }
+    await writeFile(path.join(root, "dist/server.js"), "console.error('stderr-warning-line'); console.log('stdout-ready-line');");
+    execFileSync(process.env.TEST_PWSH || "powershell.exe", ["-NoProfile", "-NonInteractive", "-ExecutionPolicy", "Bypass",
+      "-File", script, "-Role", "web", "-NodeExe", process.execPath]);
+    const stderrLog = await readFile(path.join(root, "logs", "windows-web.log"));
+    const stderrText = stderrLog.toString(stderrLog[0] === 0xff ? "utf16le" : "utf8");
+    expect(stderrText).toContain("stderr-warning-line");
+    expect(stderrText).toContain("stdout-ready-line");
     await writeFile(path.join(root, ".env.local"), "ARIA2_RPC_SECRET=REPLACE_WITH_RANDOM_ARIA2_RPC_SECRET\n");
     await writeFile(path.join(root, "dist/server.js"), 'require("node:fs").writeFileSync("started", "yes")');
     const refused = spawnSync(process.env.TEST_PWSH || "powershell.exe", ["-NoProfile", "-NonInteractive", "-ExecutionPolicy", "Bypass",

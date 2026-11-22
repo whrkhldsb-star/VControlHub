@@ -1,4 +1,5 @@
 import { manualRunKey } from "@/lib/command/approval-identity";
+import { canReadCommandBody } from "@/lib/command/visibility";
 import { apiCopy } from "@/lib/i18n/api-copy";
 import { CronExpressionParser } from "cron-parser";
 import { prisma } from "@/lib/db";
@@ -174,10 +175,14 @@ export async function createScheduledTask(
 	});
 }
 
-async function visibleScheduledTargets<T extends { serverIds: string[] }>(tasks: T[], session: SessionScope) {
+async function visibleScheduledTargets<T extends { serverIds: string[] }>(
+	tasks: T[],
+	session: SessionScope,
+	ignoreReadPermission = false,
+) {
 	const ids = [...new Set(tasks.flatMap(task => task.serverIds))];
 	if (!ids.length) return tasks;
-	const readable = sessionHasPermission(session, "server:read") ? await prisma.server.findMany({
+	const readable = (ignoreReadPermission || sessionHasPermission(session, "server:read")) ? await prisma.server.findMany({
 		where: { id: { in: ids }, AND: serverTeamWhere(session) }, select: { id: true },
 	}) : [];
 	const visible = new Set(readable.map(server => server.id));
@@ -216,6 +221,16 @@ async function assertScheduledTaskEditAllowed(
 	input: UpdateScheduledTaskInput,
 	session: SessionScope,
 ) {
+	// R5-03-01: A non-owner without command:approve must not take over createdById by changing
+	// serverIds/approvalRequired alone while leaving the original owner's redacted command body intact.
+	const isOwnerOrApprover = canReadCommandBody(
+		session.userId,
+		existing.createdById,
+		sessionHasPermission(session, "command:approve"),
+	);
+	if (changesWhatRuns(existing, input) && !isOwnerOrApprover && input.command === undefined) {
+		throw new ForbiddenError(t("backend.scheduled-task.editUnattendedRequiresApprover"));
+	}
 	// An unattended task (approvalRequired=false) runs, as its creator and with nobody approving each run, what an
 	// approver signed off on. Changing the command or its targets is that same decision, so it takes the same
 	// permission: creating one and switching approval off already do. Without this a member who may only create
@@ -258,10 +273,12 @@ export async function updateScheduledTask(
 		const supplied = normalizeServerIds(input.serverIds);
 		const omitted = existing.serverIds.filter(id => !supplied.includes(id));
 		if (omitted.length) {
-			const [readable] = await visibleScheduledTargets([{ serverIds: omitted }], session);
+			const [readable] = await visibleScheduledTargets([{ serverIds: omitted }], session, true);
 			const hidden = omitted.filter(id => !readable!.serverIds.includes(id));
 			const serverIds = [...supplied, ...hidden];
-			input = { ...input, serverIds: hidden.length && !changesWhatRuns(existing, { serverIds }) ? undefined : serverIds };
+			if (hidden.length && !changesWhatRuns(existing, { ...input, serverIds })) {
+				input = { ...input, serverIds: undefined };
+			}
 		}
 	}
 	await assertScheduledTaskEditAllowed(existing, input, session);
@@ -270,6 +287,15 @@ export async function updateScheduledTask(
 	// runs on and becomes that creator: approvers then see who wrote it, and the self-review rule applies to them.
 	if (changesWhatRuns(existing, input) && session.userId !== existing.createdById) {
 		data.createdById = session.userId;
+		// R5-03-01: When a non-approver takes over createdById by supplying a replacement command,
+		// clear any prior owner's redacted metadata/output that was not explicitly replaced.
+		if (!canReadCommandBody(session.userId, existing.createdById, sessionHasPermission(session, "command:approve"))) {
+			if (existing.reason != null && input.reason === undefined) data.reason = null;
+			if (existing.plan != null && input.plan === undefined) data.plan = null;
+			if (existing.verificationCommand != null && input.verificationCommand === undefined) data.verificationCommand = null;
+			if (existing.rollbackCommand != null && input.rollbackCommand === undefined) data.rollbackCommand = null;
+			if (existing.lastResult != null) data.lastResult = null;
+		}
 	}
 	if (input.name !== undefined) data.name = input.name;
 	if (changesScheduleDefinition(existing, input)) {

@@ -282,7 +282,7 @@ export async function PATCH(request: Request) {
 		await auditUserAction(session.userId, "settings.update", {
 			keys: entries.map((entry) => entry.key),
 			count: entries.length,
-		}, undefined, session.currentTeamId);
+		}, undefined, null);
 		return NextResponse.json({ success: true });
 	});
 }

@@ -1,5 +1,5 @@
 {
-  "generatedAt": "2026-11-22T06:55:04.456Z",
+  "generatedAt": "2026-11-22T11:02:27.385Z",
   "summary": {
     "sidebarMain": 26,
     "sidebarSystem": 12,
@@ -1453,7 +1453,8 @@
         "command:approve",
         "command:create",
         "command:execute",
-        "command:read"
+        "command:read",
+        "server:read"
       ]
     },
     {
@@ -2268,6 +2269,11 @@
       ],
       "guardMode": "withApiRoute",
       "declaredPermissions": [
+        "command:approve",
+        "command:read",
+        "server:read",
+        "server:ssh",
+        "storage:manage-node",
         "storage:read",
         "task:read"
       ]
@@ -2390,6 +2396,7 @@
       "declaredPermissions": [
         "command:approve",
         "command:create",
+        "command:execute",
         "command:read",
         "server:read"
       ]
@@ -2887,6 +2894,8 @@
       ],
       "guardMode": "withApiRoute",
       "declaredPermissions": [
+        "server:ssh",
+        "storage:manage-node",
         "storage:read"
       ]
     },
@@ -2899,6 +2908,9 @@
       ],
       "guardMode": "withApiRoute",
       "declaredPermissions": [
+        "server:ssh",
+        "storage:delete",
+        "storage:manage-node",
         "storage:write"
       ]
     },
@@ -2910,6 +2922,9 @@
       ],
       "guardMode": "withApiRoute",
       "declaredPermissions": [
+        "server:ssh",
+        "storage:delete",
+        "storage:manage-node",
         "storage:write"
       ]
     },
@@ -2922,6 +2937,9 @@
       ],
       "guardMode": "withApiRoute",
       "declaredPermissions": [
+        "server:ssh",
+        "storage:delete",
+        "storage:manage-node",
         "storage:read",
         "storage:write"
       ]

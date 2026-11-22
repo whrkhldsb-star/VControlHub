@@ -17,7 +17,7 @@ const { prismaMock } = vi.hoisted(() => ({
 Object.assign(prismaMock, { $transaction: (fn: (tx: unknown) => unknown) => fn(prismaMock) });
 vi.mock("@/lib/db", () => ({ prisma: prismaMock }));
 
-import { getTicketTimeline, linkTicketCommand, listTicketsForCommand } from "../timeline";
+import { getTicketTimeline, linkTicketCommand, linkTicketServer, listTicketsForCommand } from "../timeline";
 
 describe("ticket timeline", () => {
   beforeEach(() => {
@@ -118,6 +118,41 @@ describe("ticket timeline", () => {
       data: { relatedCommandId: "cmd9" },
     });
     expect(prismaMock.ticketEscalation.createMany).toHaveBeenCalled();
+  });
+
+  it("forbids server and command link mutations when session lacks server:read or command:read", async () => {
+    prismaMock.ticket.findUnique.mockResolvedValue({
+      id: "tk1",
+      teamId: "team_1",
+      relatedServerId: null,
+      relatedCommandId: null,
+      status: "OPEN",
+    });
+    const sessionWithoutResourceReads = {
+      userId: "u_mgr",
+      roles: [],
+      currentTeamId: "team_1",
+      permissions: ["ticket:read" as const, "ticket:manage" as const],
+    };
+
+    await expect(
+      linkTicketServer({
+        ticketId: "tk1",
+        serverId: "srv1",
+        actorId: "u_mgr",
+        session: sessionWithoutResourceReads,
+      }),
+    ).rejects.toMatchObject({ status: 403 });
+
+    await expect(
+      linkTicketCommand({
+        ticketId: "tk1",
+        commandRequestId: "cmd1",
+        actorId: "u_mgr",
+        session: sessionWithoutResourceReads,
+      }),
+    ).rejects.toMatchObject({ status: 403 });
+    expect(prismaMock.ticket.update).not.toHaveBeenCalled();
   });
 });
 

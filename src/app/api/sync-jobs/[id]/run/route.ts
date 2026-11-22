@@ -32,6 +32,7 @@ export async function POST(
     request,
     {
       permission: "storage:write",
+      optionalTokenPermissions: ["server:ssh", "storage:delete", "storage:manage-node"],
       rateLimit: GENERAL_WRITE_LIMIT,
       errorMessage: t("api.syncJobRunFailed", locale),
     },

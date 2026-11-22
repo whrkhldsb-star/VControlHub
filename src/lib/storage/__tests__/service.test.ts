@@ -933,7 +933,14 @@ describe("storage service", () => {
       mockPrisma.fileEntry.findFirst.mockResolvedValueOnce(null).mockResolvedValueOnce({ id: "deleted-docs" });
       await expect(saveLocalEditableFileDraft({ ...input, content: "new" })).rejects.toMatchObject({ status: 409 });
       expect(mockPrisma.fileEntry.findFirst).toHaveBeenLastCalledWith(expect.objectContaining({
-        where: { storageNodeId: "node_1", isDeleted: true, relativePath: { in: ["docs", relativePath] } },
+        where: {
+          storageNodeId: "node_1",
+          isDeleted: true,
+          relativePath: {
+            in: ["docs", relativePath],
+            ...(process.platform === "win32" || process.platform === "darwin" ? { mode: "insensitive" } : {}),
+          },
+        },
       }));
       expect(await readFileToDisk(absolutePath, "utf8")).toBe("original");
       expect(mockPrisma.fileEntry.update).not.toHaveBeenCalled();

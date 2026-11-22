@@ -1,4 +1,5 @@
-import { ValidationError, NotFoundError } from "@/lib/errors";
+import { ForbiddenError, ValidationError, NotFoundError } from "@/lib/errors";
+import { apiCopy } from "@/lib/i18n/api-copy";
 import { projectTicket, projectTicketLinks } from "./visible-links";
 import { prisma } from "@/lib/db";
 import { sessionHasPermission } from "@/lib/auth/authorization";
@@ -6,12 +7,12 @@ import { lockTicket, withTicketTransaction } from "./transaction";
 import { enqueueTicketEvent } from "@/lib/itsm/outbox";
 import type { Prisma } from "@prisma/client";
 import { serverTeamWhere, teamCreateData, teamWhere } from "@/lib/auth/team-scope";
-import type { RoleKey } from "@/lib/auth/rbac";
+import type { Permission, RoleKey } from "@/lib/auth/rbac";
 import { t } from "@/lib/i18n/service-translations";
 
 const STATUSES = new Set(["OPEN", "IN_PROGRESS", "RESOLVED", "CLOSED"]);
 
-type TeamSession = { userId: string; roles: RoleKey[]; currentTeamId: string | null };
+type TeamSession = { userId: string; roles: RoleKey[]; currentTeamId: string | null; permissions?: Permission[] };
 
 /**
  * Valid status transitions. Mirrors the TRANSITIONS map in
@@ -48,11 +49,14 @@ async function assertRelatedResourcesInTeamScope(
     relatedServerId?: string | null;
     relatedCommandId?: string | null;
   },
-  session?: Pick<TeamSession, "userId" | "roles" | "currentTeamId"> | null,
+  session?: Pick<TeamSession, "userId" | "roles" | "currentTeamId" | "permissions"> | null,
 ) {
   if (!session) return;
   const scope = teamWhere(session);
   if (input.relatedServerId) {
+    if (!sessionHasPermission(session, "server:read")) {
+      throw new ForbiddenError(apiCopy("apiCopy.missing.permission.db2e4ec2", { v0: "server:read" }));
+    }
     const server = await tx.server.findFirst({
       where: { id: input.relatedServerId, ...serverTeamWhere(session) },
       select: { id: true },
@@ -60,6 +64,9 @@ async function assertRelatedResourcesInTeamScope(
     if (!server) throw new ValidationError(t("backend.ticket.relatedServerNotFound"));
   }
   if (input.relatedCommandId) {
+    if (!sessionHasPermission(session, "command:read")) {
+      throw new ForbiddenError(apiCopy("apiCopy.missing.permission.db2e4ec2", { v0: "command:read" }));
+    }
     const cmd = await tx.commandRequest.findFirst({
       where: { id: input.relatedCommandId, ...scope },
       select: { id: true },

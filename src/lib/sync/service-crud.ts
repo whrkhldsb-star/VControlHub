@@ -225,9 +225,10 @@ export async function visibleSyncPaths(jobs: SyncPaths[], session?: SyncSessionS
 		select: { serverId: true, basePath: true, accessGrants: { where: { userId }, select: { pathPrefix: true, canRead: true, canWrite: true } } },
 	});
 	const byServer = new Map(nodes.map(node => [node.serverId, node]));
+	const canReadStorage = permissions.includes("storage:read") || permissions.includes("storage:write") || permissions.includes("storage:delete");
 	const allowed = (serverId: string, path: string, writing: boolean) => {
 		const node = byServer.get(serverId);
-		if (!node || !permissions.includes(writing ? "storage:write" : "storage:read")) return false;
+		if (!node || !(writing ? permissions.includes("storage:write") : canReadStorage)) return false;
 		const root = expandStorageBasePath(node.basePath);
 		if (!syncPathWithinRoot(path, root)) return false;
 		if (permissions.includes("storage:manage-node") || node.accessGrants.length === 0) return true;
@@ -259,7 +260,7 @@ export async function filterSyncHistory<T extends HistoryRow>(jobs: T[], session
 }
 
 export async function listSyncJobs(
-	session?: Pick<SessionPayload, "userId" | "roles" | "currentTeamId">,
+	session?: SyncSessionScope,
 ) {
 	const page = (cursor?: string) => prisma.syncJob.findMany({
 		where: syncVisibility(session),
@@ -333,7 +334,7 @@ export async function getSyncJobForExecution(id: string) {
 
 export async function deleteSyncJob(
 	id: string,
-	session?: Pick<SessionPayload, "userId" | "roles" | "currentTeamId">,
+	session?: SyncSessionScope,
 ) {
 	return prisma.$transaction(async tx => {
 		const where = { id, ...syncVisibility(session, true) };
@@ -351,7 +352,7 @@ export async function updateSyncJob(
 	data: Partial<
 		Pick<SyncJobInput, "name" | "sourcePath" | "targetPath" | "syncType" | "deleteOrphans" | "compress">
 	> & { schedule?: string | null },
-	session?: Pick<SessionPayload, "userId" | "roles" | "currentTeamId">,
+	session?: SyncSessionScope,
 ) {
 	for (let attempt = 0; attempt < 3; attempt++) {
 		const existing = await getSyncJob(id, session, true);

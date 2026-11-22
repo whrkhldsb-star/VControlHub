@@ -3,7 +3,7 @@ import { dashboardCommands, failedTaskSummary, openIncidentSummary } from "@/lib
 import { listActiveAnnouncements } from "@/lib/announcement/service";
 import { sessionHasPermission } from "@/lib/auth/authorization";
 import { requireSession } from "@/lib/auth/require-session";
-import { teamWhere } from "@/lib/auth/team-scope";
+import { serverTeamWhere, teamWhere } from "@/lib/auth/team-scope";
 import { canReadCommandBody } from "@/lib/command/visibility";
 import { formatDateTime, formatShortTime } from "@/lib/datetime/format";
 import { buildAttentionChecks } from "@/lib/dashboard/attention";
@@ -35,6 +35,7 @@ import { DashboardSetupChecklist } from "./dashboard-setup-checklist";
 export async function DashboardContent({ sessionPath }: { sessionPath: "/" | "/dashboard" }) {
 	const session = await requireSession(sessionPath);
 	const teamScope = teamWhere(session);
+	const serverScope = serverTeamWhere(session);
 	// The dashboard is available to every signed-in account, but its widgets
 	// still carry the same data-class permissions as their target pages. Keep a
 	// custom role without one of those permissions from receiving the underlying
@@ -100,14 +101,14 @@ export async function DashboardContent({ sessionPath }: { sessionPath: "/" | "/d
 		canReadBackups ? prisma.vpsBackupSchedule
 			.count({
 				where: {
-					server: teamScope,
+					server: serverScope,
 				},
 			})
 			.catch(() => 0) : Promise.resolve(0),
 		canReadCosts ? prisma.server
 			.count({
 				where: {
-					...teamScope,
+					...serverScope,
 					costMonthlyAmount: { gt: 0 },
 				},
 			})

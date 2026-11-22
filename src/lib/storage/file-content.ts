@@ -26,6 +26,7 @@ import { BusinessError, ConflictError, ValidationError } from "@/lib/errors";
 import { resolveStorageSshCredentials, type StorageSshCredentialNode } from "@/lib/storage/ssh-credentials";
 import { normalizeRemoteRelativePath, normalizeRemoteTargetPath } from "@/lib/storage/remote-path";
 import { resolveStorageRemotePath } from "@/lib/storage/remote-containment";
+import { openManagedLocalFile } from "@/lib/storage/open-local-file";
 import { resolveStoragePathWithinBase } from "@/lib/storage/path-utils";
 import { t } from "@/lib/i18n/service-translations";
 import { createWebDavClient } from "@/lib/storage/webdav-client";
@@ -97,9 +98,12 @@ export async function readStorageFileBuffer(
   if (maxBytes !== undefined) return readBackingObject({ storageNode: node, relativePath, maxBytes });
   if (node.driver === "WEBDAV" || node.driver === "AGENT") return createRemoteStorageClient(node).read(relativePath);
   if (node.driver === "LOCAL") {
-    const resolved = resolveStoragePathWithinBase(node.basePath, relativePath);
-    if (!resolved.ok) throw new ValidationError(resolved.reason);
-    return readFile(resolved.path);
+    const handle = await openManagedLocalFile(node.basePath, relativePath);
+    try {
+      return await handle.readFile();
+    } finally {
+      await handle.close();
+    }
   }
 
   if (node.driver === "SFTP") {
@@ -145,11 +149,23 @@ export async function streamStorageFile(
     return { stream, size: entry.size, close: () => stream.destroy() };
   }
   if (node.driver === "LOCAL") {
-    const resolved = resolveStoragePathWithinBase(node.basePath, relativePath);
-    if (!resolved.ok) throw new ValidationError(resolved.reason);
-    const stats = await statFile(resolved.path);
-    const stream = createReadStream(resolved.path, range);
-    return { stream, size: stats.size, close: () => stream.destroy() };
+    const handle = await openManagedLocalFile(node.basePath, relativePath);
+    let handedOff = false;
+    try {
+      const stats = await handle.stat();
+      const stream = handle.createReadStream(range);
+      handedOff = true;
+      return {
+        stream,
+        size: stats.size,
+        close: () => {
+          stream.destroy();
+          void handle.close().catch(() => undefined);
+        },
+      };
+    } finally {
+      if (!handedOff) await handle.close();
+    }
   }
   if (node.driver === "SFTP") {
     const credentials = resolveStorageSshCredentials(node);

@@ -13,13 +13,17 @@ const {
   imageUpdateManyMock,
   imageUpdateMock,
   unlinkMock,
-  nodeFindManyMock,
+  nodeFindFirstMock,
+  lockStorageFileOverwriteMock,
+  transactionMock,
   mediaDeleteManyMock,
   fileEntryDeleteManyMock,
   deleteBackingObjectMock, renameBackingObjectMock,
 } = vi.hoisted(() => ({
   lockedRowsMock: vi.fn(),
-  nodeFindManyMock: vi.fn(),
+  nodeFindFirstMock: vi.fn(),
+  lockStorageFileOverwriteMock: vi.fn(async () => async () => {}),
+  transactionMock: vi.fn(function<T>(this: unknown, callback: (tx: unknown) => T) { return callback(this); }),
   mediaDeleteManyMock: vi.fn(),
   fileEntryDeleteManyMock: vi.fn().mockResolvedValue({ count: 1 }),
   deleteBackingObjectMock: vi.fn(),
@@ -42,7 +46,7 @@ vi.mock("@/lib/auth/authorization", () => ({
   sessionHasPermission: sessionHasPermissionMock,
 }));
 vi.mock("@/lib/audit/service", () => ({ auditUserAction: vi.fn() }));
-vi.mock("@/lib/storage/file-overwrite-lock", () => ({ lockStorageFileOverwrite: async () => async () => {} }));
+vi.mock("@/lib/storage/file-overwrite-lock", () => ({ lockStorageFileOverwrite: lockStorageFileOverwriteMock }));
 vi.mock("@/lib/storage/access-control", () => ({ assertStorageAccess: vi.fn().mockResolvedValue({ allowed: true }) }));
 vi.mock("@/lib/storage/file-content", () => ({ storageFileNodeSelect: { id: true, driver: true, basePath: true }, streamStorageFile: async () => ({ size: 3, stream: Readable.from(["img"]), close: () => {} }) }));
 vi.mock("@/lib/storage/fs-backend", () => ({
@@ -64,11 +68,11 @@ vi.mock("@/lib/db", () => ({
       updateMany: imageUpdateManyMock,
       update: imageUpdateMock,
     },
-    storageNode: { findMany: nodeFindManyMock },
+    storageNode: { findFirst: nodeFindFirstMock },
     mediaItem: { deleteMany: mediaDeleteManyMock },
     fileEntry: { findFirst: vi.fn().mockResolvedValue({ id: "uploaded" }), deleteMany: fileEntryDeleteManyMock },
     $queryRaw: (sql: TemplateStringsArray) => sql.join("").includes("FROM image_uploads") ? lockedRowsMock() : [{ id: "team_1" }],
-    $transaction<T>(callback: (tx: unknown) => T) { return callback(this); },
+    $transaction: transactionMock,
   },
 }));
 vi.mock("@/lib/image-bed/constants", () => ({
@@ -274,14 +278,20 @@ describe("/api/images/batch", () => {
     imageDeleteManyMock.mockResolvedValueOnce({ count: 4 });
     unlinkMock.mockResolvedValue(undefined);
     const node = { id: "node_1", teamId: "team_1", driver: "LOCAL", basePath: "/srv/files" };
-    nodeFindManyMock.mockResolvedValueOnce([node]);
+    nodeFindFirstMock.mockImplementation(async ({ where }: { where: { id: string } }) => (where.id === "node_1" ? node : null));
 
     const response = await postBatch({ action: "delete", ids: ["uploaded", "published", "elsewhere", "plain"] });
 
     expect(response.status).toBe(200);
     await expect(response.json()).resolves.toEqual({ deleted: 4, filesDeleted: 4, failedFileIds: [] });
-    // Only nodes the caller's team can reach are looked at.
-    expect(nodeFindManyMock).toHaveBeenCalledWith(expect.objectContaining({ where: { id: { in: ["node_1", "node_other_team"] }, teamId: "team_1" } }));
+    // Only nodes the caller's team can reach are looked at, and locks are acquired in canonical order before reading StorageNode.
+    expect(lockStorageFileOverwriteMock.mock.calls).toEqual([
+      ["node_1", "photos/1111.png"],
+      ["node_other_team", "x/3333.png"],
+    ]);
+    expect(lockStorageFileOverwriteMock.mock.invocationCallOrder[0]).toBeLessThan(nodeFindFirstMock.mock.invocationCallOrder[0]!);
+    expect(nodeFindFirstMock).toHaveBeenCalledWith(expect.objectContaining({ where: { id: "node_1", teamId: "team_1" } }));
+    expect(nodeFindFirstMock).toHaveBeenCalledWith(expect.objectContaining({ where: { id: "node_other_team", teamId: "team_1" } }));
     expect(deleteBackingObjectMock).toHaveBeenCalledTimes(1);
     expect(deleteBackingObjectMock).toHaveBeenCalledWith({ storageNode: node, relativePath: expect.stringMatching(/^photos\/\.vch-backup-/), isDirectory: false, tolerateMissing: true });
     expect(fileEntryDeleteManyMock).toHaveBeenCalledWith({ where: expect.objectContaining({ storageNodeId: "node_1", relativePath: "photos/1111.png", id: "uploaded", isDeleted: false, updatedAt: imageGeneration.createdAt }) });
@@ -295,7 +305,7 @@ describe("/api/images/batch", () => {
     givenImages([{ ...imageGeneration, id: "uploaded", storageKey: "1111.png", storageNodeId: "node_1", relativePath: "photos/1111.png" }]);
     imageDeleteManyMock.mockResolvedValueOnce({ count: 1 });
     unlinkMock.mockResolvedValue(undefined);
-    nodeFindManyMock.mockResolvedValueOnce([{ id: "node_1", teamId: "team_1", driver: "SFTP", basePath: "/srv/files" }]);
+    nodeFindFirstMock.mockResolvedValueOnce({ id: "node_1", teamId: "team_1", driver: "SFTP", basePath: "/srv/files" });
     deleteBackingObjectMock.mockRejectedValueOnce(new Error("connection refused"));
 
     const response = await postBatch({ action: "delete", ids: ["uploaded"] });
@@ -305,7 +315,7 @@ describe("/api/images/batch", () => {
     await expect(response.json()).resolves.toEqual({ deleted: 1, filesDeleted: 1, failedFileIds: [], linkedCleanupFailures: ["uploaded"], cleanupPending: true });
   });
 
-  it("returns 207 and keeps DB row when image files fail to unlink", async () => {
+  it("returns 207 and keeps DB deletion committed when image files fail to unlink after commit", async () => {
     vi.clearAllMocks();
     requireApiSessionMock.mockResolvedValueOnce(managerSession);
     sessionHasPermissionMock.mockImplementation(
@@ -323,13 +333,32 @@ describe("/api/images/batch", () => {
     const response = await postBatch({ action: "delete", ids: ["img_2"] });
 
     expect(response.status).toBe(207);
-    expect(imageDeleteManyMock).not.toHaveBeenCalled();
+    expect(imageDeleteManyMock).toHaveBeenCalledTimes(1);
+    expect(imageDeleteManyMock.mock.invocationCallOrder[0]).toBeLessThan(unlinkMock.mock.invocationCallOrder[0]!);
     await expect(response.json()).resolves.toEqual({
-      deleted: 0,
+      deleted: 1,
       filesDeleted: 0,
       failedFileIds: ["img_2"],
       success: false,
       partial: true,
+      cleanupPending: true,
     });
+  });
+
+  it("does not unlink local or linked storage files when the DB transaction fails", async () => {
+    vi.clearAllMocks();
+    requireApiSessionMock.mockResolvedValueOnce(managerSession);
+    sessionHasPermissionMock.mockImplementation(
+      (_session, permission) =>
+        permission === "image:write" || permission === "media:manage",
+    );
+    transactionMock.mockRejectedValueOnce(new Error("tx failed"));
+
+    const response = await postBatch({ action: "delete", ids: ["img_2"] });
+
+    expect(response.status).toBe(500);
+    expect(unlinkMock).not.toHaveBeenCalled();
+    expect(lockStorageFileOverwriteMock).not.toHaveBeenCalled();
+    expect(deleteBackingObjectMock).not.toHaveBeenCalled();
   });
 });

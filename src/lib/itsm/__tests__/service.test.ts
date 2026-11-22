@@ -695,6 +695,43 @@ describe("ITSM service", () => {
 				systemUserId: "sys",
 			}),
 		).rejects.toThrow(/不存在|未找到|not found|customer/i);
+
+		const ackForeignBody = JSON.stringify({
+			eventType: "ticket.ping",
+			externalId: "ack-foreign-1",
+			ticketId: "tk_foreign",
+		});
+		const ackForeignSig = createHmac("sha256", "sec").update(ackForeignBody).digest("hex");
+		await expect(
+			handleInboundWebhook({
+				connectionId: conn.id,
+				rawBody: ackForeignBody,
+				signatureHeader: `sha256=${ackForeignSig}`,
+				json: JSON.parse(ackForeignBody) as Record<string, unknown>,
+				systemUserId: "sys",
+			}),
+		).rejects.toThrow(/不存在|未找到|not found|customer/i);
+
+		ticketStore.set("tk_own", {
+			id: "tk_own",
+			title: "Own",
+			status: "OPEN",
+			teamId: "team_ops",
+		});
+		const ackOwnBody = JSON.stringify({
+			eventType: "ticket.ping",
+			externalId: "ack-own-1",
+			ticketId: "tk_own",
+		});
+		const ackOwnSig = createHmac("sha256", "sec").update(ackOwnBody).digest("hex");
+		const ackOwn = await handleInboundWebhook({
+			connectionId: conn.id,
+			rawBody: ackOwnBody,
+			signatureHeader: `sha256=${ackOwnSig}`,
+			json: JSON.parse(ackOwnBody) as Record<string, unknown>,
+			systemUserId: "sys",
+		});
+		expect(ackOwn).toMatchObject({ action: "acknowledged", ticketId: "tk_own" });
 	});
 
 	async function combinedUpdateRequest(externalId?: string) {

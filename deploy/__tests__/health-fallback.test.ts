@@ -37,4 +37,19 @@ describe.skipIf(process.platform !== "linux")("installed health endpoints", () =
     });
     expect(output).toBe(expected);
   });
+
+  it("formats IPv6 readiness URLs via web_health_url in install.sh restart_services", async () => {
+    const app = await mkdtemp(path.join(tmpdir(), "vch-install-health-"));
+    roots.push(app);
+    const runtimeEnv = path.join(app, ".env.runtime");
+    await writeFile(runtimeEnv, "NEXT_HOST=::1\nNEXT_PORT=3000\n");
+    const installScript = await readFile("deploy/install.sh", "utf8");
+    expect(installScript).toContain('curl -fsS "$(web_health_url "${APP_DIR}" "${RUNTIME_ENV_FILE}")"');
+    const url = execFileSync(
+      "bash",
+      ["-c", 'source deploy/lib/listen-address.sh; NEXT_HOST="::" NEXT_PORT="3456" web_health_url "$1" "$2"', "--", app, runtimeEnv],
+      { encoding: "utf8" },
+    );
+    expect(url).toBe("http://[::1]:3456/login");
+  });
 });

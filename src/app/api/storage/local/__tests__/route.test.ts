@@ -1,4 +1,5 @@
 import path from "node:path";
+import { Readable } from "node:stream";
 
 import { beforeEach, describe, expect, it, vi } from "vitest";
 
@@ -44,8 +45,14 @@ const {
   statRemoteEntryMock: vi.fn(),
   deleteRemoteFileMock: vi.fn(),
 }));
-const { matchTargetMode } = vi.hoisted(() => ({ matchTargetMode: vi.fn(async () => undefined) }));
+const { matchTargetMode, openManagedLocalFileMock } = vi.hoisted(() => ({
+  matchTargetMode: vi.fn(async () => undefined),
+  openManagedLocalFileMock: vi.fn(),
+}));
 vi.mock("@/lib/storage/local-permissions", () => ({ matchTargetMode }));
+vi.mock("@/lib/storage/open-local-file", () => ({
+  openManagedLocalFile: openManagedLocalFileMock,
+}));
 
 vi.mock("node:fs", async (importOriginal) => {
   const actual = await importOriginal<typeof import("node:fs")>();
@@ -153,6 +160,11 @@ describe("/api/storage/local", () => {
     requireApiPermissionMock.mockResolvedValue({ session });
     statRemoteEntryMock.mockRejectedValue(Object.assign(new Error("No such file"), { code: 2 }));
     statMock.mockResolvedValue({ isFile: () => true, isDirectory: () => false, size: 11 });
+    openManagedLocalFileMock.mockImplementation(async () => ({
+      stat: statMock,
+      createReadStream: () => Readable.from([Buffer.from("hello world")]),
+      close: vi.fn(async () => undefined),
+    }));
   });
 
   it("returns 400 when path is missing", async () => {

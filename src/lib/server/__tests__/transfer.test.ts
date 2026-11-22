@@ -88,7 +88,7 @@ describe("transferServerToCustomer", () => {
   it("moves the server with its storage and history and drops the old customer's grants", async () => {
     await expect(transferServerToCustomer("srv_1", "team_b", ADMIN, confirmed)).resolves.toEqual({ serverId: "srv_1", teamId: "team_b", teamName: "Beta" });
     expect(mocks.storageNodeUpdateMany).toHaveBeenCalledWith({ where: { id: { in: ["node_1", "agent_disk"] } }, data: { teamId: "team_b" } });
-    expect(mocks.costUpdateMany).toHaveBeenCalledWith({ where: { OR: [{ id: "month" }, { tags: { has: "adjustment-for:month" }, effectiveDate: { gte: expect.any(Date), lt: expect.any(Date) } }] }, data: { teamId: "team_b" } });
+    expect(mocks.costUpdateMany).toHaveBeenCalledWith({ where: { OR: [{ id: "month" }, { tags: { has: "adjustment-for:month" } }] }, data: { teamId: "team_b" } });
     expect(mocks.revoke).toHaveBeenCalledWith({ where: { serverId: "srv_1", storageNodeId: { in: ["agent_disk"] } } });
     expect(mocks.revoke).toHaveBeenCalledBefore(mocks.rebind);
     expect(mocks.lockRows).toHaveBeenCalledTimes(3);

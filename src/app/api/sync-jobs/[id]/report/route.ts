@@ -22,6 +22,7 @@ export async function GET(
     request,
     {
       permission: "storage:read",
+      optionalTokenPermissions: ["server:ssh", "storage:manage-node"],
       rateLimit: GENERAL_READ_LIMIT,
       errorMessage: apiCopy("apiCopy.failed.to.load.sync.report.3d26044d"),
     },

@@ -10,7 +10,8 @@ import { buildProgressText } from "@/lib/downloads/helpers";
 import { withApiRoute } from "@/lib/http/api-guard";
 import { getServerLocale, t } from "@/lib/i18n/translations";
 import { isGlobalTeamManager, serverTeamWhere, teamWhere } from "@/lib/auth/team-scope";
-import { canAccessDownloadTask, taskDownloadAccess } from "@/lib/downloads/route-helpers";
+import { sessionHasPermission } from "@/lib/auth/authorization";
+import { canAccessDownloadTask, taskDownloadAccess, taskTargetRelativePath } from "@/lib/downloads/route-helpers";
 import { parseTransferManifest, relayPauseDeadline, relayPauseReceipt } from "@/lib/downloads/transfer-manifest";
 
 const DOWNLOAD_PAGE_SIZE = 100;
@@ -164,21 +165,38 @@ export async function GET(request: Request) {
         }
       }
 
+      const viewConnection = sessionHasPermission(session, "storage:manage-node");
       const safe = visibleTasks.map((task) => {
         const merged = { ...task, ...(storedTaskById.get(task.id) ?? {}), ...(aria2FieldByTaskId.get(task.id) ?? {}) };
+        const downloadAccess = taskDownloadAccess({ ...merged, locale, viewConnection });
+        const relativeTargetPath = taskTargetRelativePath(merged);
+        const { transferManifest: _transferManifest, ...rest } = merged as typeof merged & { transferManifest?: unknown };
+        const server = rest.server ? (() => {
+          const { agentFileShares: _shares, ...srv } = rest.server as typeof rest.server & { agentFileShares?: unknown };
+          if (viewConnection) return srv;
+          return {
+            ...srv,
+            host: "",
+            storageNode: srv.storageNode
+              ? { ...srv.storageNode, basePath: "", host: null, port: null, publicBaseUrl: null }
+              : null,
+          };
+        })() : rest.server;
         return {
-          ...merged,
-          pid: merged.pid ?? null,
-          aria2Gid: merged.aria2Gid ?? null,
-          category: merged.category ?? null,
-          maxSpeedKb: merged.maxSpeedKb ?? null,
-          totalBytes: merged.totalBytes ?? null,
-          completedBytes: merged.completedBytes ?? null,
-          downloadSpeed: merged.downloadSpeed ?? null,
-          fileSize: merged.fileSize ?? null,
-          isBatch: merged.isBatch ?? false,
-          batchUrls: merged.batchUrls ?? null,
-          downloadAccess: taskDownloadAccess({ ...merged, locale }),
+          ...rest,
+          server,
+          targetPath: viewConnection ? rest.targetPath : `/${relativeTargetPath ?? ""}`,
+          pid: rest.pid ?? null,
+          aria2Gid: rest.aria2Gid ?? null,
+          category: rest.category ?? null,
+          maxSpeedKb: rest.maxSpeedKb ?? null,
+          totalBytes: rest.totalBytes ?? null,
+          completedBytes: rest.completedBytes ?? null,
+          downloadSpeed: rest.downloadSpeed ?? null,
+          fileSize: rest.fileSize ?? null,
+          isBatch: rest.isBatch ?? false,
+          batchUrls: rest.batchUrls ?? null,
+          downloadAccess,
         };
       });
 

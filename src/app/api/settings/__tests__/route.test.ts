@@ -104,6 +104,21 @@ describe("/api/settings audit coverage", () => {
     }, undefined, null);
     expect(JSON.stringify(mocks.auditUserAction.mock.calls)).not.toContain("super-secret-session-value-that-must-not-leak");
     expect(JSON.stringify(mocks.auditUserAction.mock.calls)).not.toContain("控制台");
+
+    mocks.auditUserAction.mockClear();
+    mocks.requireApiPermission.mockResolvedValueOnce({
+      session: { userId: "u_scoped_audit", username: "alice", user: { id: "u_scoped_audit" }, currentTeamId: "team_customer_a" },
+    });
+    const scopedRes = await route.PATCH(new Request("http://local/api/settings", {
+      method: "PATCH",
+      headers: { "content-type": "application/json", "x-forwarded-for": "192.0.2.99" },
+      body: JSON.stringify({ "platform.name": "GlobalName" }),
+    }));
+    expect(scopedRes.status).toBe(200);
+    expect(mocks.auditUserAction).toHaveBeenCalledWith("u_scoped_audit", "settings.update", {
+      keys: ["platform.name"],
+      count: 1,
+    }, undefined, null);
   });
 
   it("requires an owned, enabled provider and an active administrator for a general AI Ops settings write", async () => {

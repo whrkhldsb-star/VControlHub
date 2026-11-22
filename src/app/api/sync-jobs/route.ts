@@ -37,6 +37,7 @@ export async function GET(request: Request) {
     request,
     {
       permission: "storage:read",
+      optionalTokenPermissions: ["server:ssh", "storage:manage-node"],
       rateLimit: GENERAL_READ_LIMIT,
       errorMessage: apiCopy("apiCopy.failed.to.list.sync.jobs.293dd5ca"),
     },
@@ -73,6 +74,7 @@ export async function POST(request: Request) {
     request,
     {
       permission: "storage:write",
+      optionalTokenPermissions: ["server:ssh", "storage:delete", "storage:manage-node"],
       rateLimit: GENERAL_WRITE_LIMIT,
       bodySchema: createSchema,
       errorMessage: apiCopy("apiCopy.failed.to.create.sync.job.87fb8a7f"),

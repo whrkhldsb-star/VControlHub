@@ -15,6 +15,6 @@ it("only hydrates readable same-team drives and keeps remote connection details 
   mocks.readable.mockResolvedValue(new Set(["readable", "moved"]));
   render(await DownloadsPage());
   const targets = screen.getByTestId("targets").textContent;
-  expect(JSON.parse(targets!)).toMatchObject([{ serverId: "srv", storageNodeId: "readable", storagePath: "", host: "" }]);
+  expect(JSON.parse(targets!)).toMatchObject([{ serverId: "srv", storageNodeId: "readable", storagePath: "/", host: "" }]);
   expect(targets).not.toMatch(/denied|moved|private-root|private-host|hidden-host|2022/);
 });

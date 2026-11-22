@@ -47,7 +47,7 @@ export async function DELETE(
     async ({ session }) => {
       const { id } = await params;
 
-      const { cleanupFailures, teamId } = await prisma.$transaction(async tx => {
+      const deleted = await prisma.$transaction(async tx => {
         const image = await tx.imageUpload.findUnique({
           where: { id },
           select: {
@@ -81,22 +81,23 @@ export async function DELETE(
         }
 
         if (image.teamId) await lockLiveCustomer(tx, image.teamId);
-        const deleted = await tx.imageUpload.delete({ where: { id, teamId: image.teamId, userId: image.userId } });
-        const [variants, linked] = await Promise.allSettled([
-          deleteImageVariants(deleted.storageKey, UPLOAD_DIR),
-          removeOwnedLinkedCopies([deleted], session, tx),
-        ]);
-        const cleanupFailures: string[] = [];
-        if (variants.status === "rejected") {
-          logError("image-bed:delete-imageBed", variants.reason);
-          cleanupFailures.push("imageBed");
-        }
-        if (linked.status === "rejected" || linked.value.failed.length) {
-          if (linked.status === "rejected") logError("image-bed:delete-linkedStorage", linked.reason);
-          cleanupFailures.push("linkedStorage");
-        }
-        return { cleanupFailures, teamId: image.teamId };
-      }, { timeout: 60_000 });
+        return tx.imageUpload.delete({ where: { id, teamId: image.teamId, userId: image.userId } });
+      });
+
+      const [variants, linked] = await Promise.allSettled([
+        deleteImageVariants(deleted.storageKey, UPLOAD_DIR),
+        removeOwnedLinkedCopies([deleted], session),
+      ]);
+      const cleanupFailures: string[] = [];
+      if (variants.status === "rejected") {
+        logError("image-bed:delete-imageBed", variants.reason);
+        cleanupFailures.push("imageBed");
+      }
+      if (linked.status === "rejected" || linked.value.failed.length) {
+        if (linked.status === "rejected") logError("image-bed:delete-linkedStorage", linked.reason);
+        cleanupFailures.push("linkedStorage");
+      }
+      const teamId = deleted.teamId;
 
       await auditUserAction(
         session.userId,

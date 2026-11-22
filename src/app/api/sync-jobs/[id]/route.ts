@@ -33,6 +33,7 @@ export async function PATCH(
     request,
     {
       permission: "storage:write",
+      optionalTokenPermissions: ["server:ssh", "storage:delete", "storage:manage-node"],
       rateLimit: GENERAL_WRITE_LIMIT,
       bodySchema: patchSchema,
       errorMessage: apiCopy("apiCopy.failed.to.update.sync.job.bf8ef139"),
@@ -74,6 +75,7 @@ export async function DELETE(
     request,
     {
       permission: "storage:write",
+      optionalTokenPermissions: ["server:ssh", "storage:delete", "storage:manage-node"],
       rateLimit: GENERAL_WRITE_LIMIT,
       errorMessage: apiCopy("apiCopy.failed.to.delete.sync.job.5c1dd345"),
     },

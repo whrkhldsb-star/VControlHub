@@ -1,6 +1,4 @@
 import { assertNotRecycled } from "@/lib/storage/archive-access";
-import { createReadStream } from "node:fs";
-import { access, stat } from "node:fs/promises";
 
 import { NextResponse } from "next/server";
 
@@ -15,7 +13,7 @@ import { t } from "@/lib/i18n/translations";
 import { logError } from "@/lib/logging";
 import { assertStorageAccess } from "@/lib/storage/access-control";
 import { storageAccessDeniedCopy } from "@/lib/storage/access-denied";
-import { resolveManagedLocalEntryPath } from "@/lib/storage/fs-backend";
+import { openManagedLocalFile } from "@/lib/storage/open-local-file";
 import { normalizeStorageRelativePath } from "@/lib/storage/path-utils";
 import { contentDownloadQuerySchema } from "@/lib/storage/schema";
 import { parseStorageRange, storageStreamResponse } from "@/lib/storage/streaming";
@@ -65,21 +63,38 @@ export async function handleLocalStorageGet(
     );
   }
   await assertNotRecycled(storageNodeId, entry.relativePath, "read", "LOCAL");
-  let absolutePath: string;
+  let handle: Awaited<ReturnType<typeof openManagedLocalFile>>;
   try {
-    ({ absolutePath } = await resolveManagedLocalEntryPath({
-      basePath: entry.storageNode.basePath,
-      relativePath: normalizedDownloadPath.path,
-    }));
-  } catch (error) {
-    return NextResponse.json(
-      { error: getErrorMessage(error, t("api.storage.invalidPath", locale)) },
-      { status: 400 },
+    handle = await openManagedLocalFile(
+      entry.storageNode.basePath,
+      normalizedDownloadPath.path,
     );
+  } catch (error) {
+    if (error instanceof ValidationError) {
+      return NextResponse.json(
+        { error: getErrorMessage(error, t("api.storage.invalidPath", locale)) },
+        { status: 400 },
+      );
+    }
+    const code = (error as NodeJS.ErrnoException | null)?.code;
+    if (code === "ELOOP") {
+      return NextResponse.json(
+        { error: t("api.storage.invalidPath", locale) },
+        { status: 400 },
+      );
+    }
+    if (code === "EISDIR") {
+      return NextResponse.json(
+        { error: t("api.storage.notDownloadableFile", locale) },
+        { status: 400 },
+      );
+    }
+    logError("[/api/storage/local] download error:", error);
+    return NextResponse.json({ error: t("api.storage.fileUnavailable", locale) }, { status: 404 });
   }
+  let handedOff = false;
   try {
-    await access(absolutePath);
-    const fileStat = await stat(absolutePath);
+    const fileStat = await handle.stat();
     if (!fileStat.isFile()) {
       return NextResponse.json(
         { error: t("api.storage.notDownloadableFile", locale) },
@@ -89,8 +104,10 @@ export async function handleLocalStorageGet(
     const range = parseStorageRange(request.headers.get("range"), fileStat.size);
     if (range instanceof Response) return range;
     const streamOptions = range.status === 206 ? { start: range.start, end: range.end } : undefined;
+    const stream = handle.createReadStream(streamOptions);
+    handedOff = true;
     return storageStreamResponse({
-      stream: createReadStream(absolutePath, streamOptions),
+      stream,
       range,
       fileName: entry.name,
       fileSize: fileStat.size,
@@ -100,5 +117,7 @@ export async function handleLocalStorageGet(
   } catch (downloadError) {
     logError("[/api/storage/local] download error:", downloadError);
     return NextResponse.json({ error: t("api.storage.fileUnavailable", locale) }, { status: 404 });
+  } finally {
+    if (!handedOff) await handle.close().catch(() => undefined);
   }
 }

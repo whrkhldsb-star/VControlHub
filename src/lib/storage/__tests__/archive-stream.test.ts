@@ -225,6 +225,21 @@ describe("streamLocalTarGz", () => {
 		child.emit("close", 0, null);
 		expect(onError).not.toHaveBeenCalled();
 	});
+
+	it("releases the pinned directory guard on spawn error and never calls close twice", async () => {
+		armSpawn();
+		const close = vi.fn(async () => undefined);
+		const stream = streamLocalTarGz("/srv/data/reports", "reports", [], { fd: 3, close });
+		const child = mocks.lastChild!;
+		const failure = new Promise<Error>((resolve) => stream.once("error", resolve));
+		child.emit("error", Object.assign(new Error("spawn tar ENOENT"), { code: "ENOENT" }));
+		await failure;
+		expect(close).toHaveBeenCalledTimes(1);
+		// If close ever fires after error, releasePinned must stay idempotent.
+		child.emit("close", null, null);
+		await new Promise<void>((resolve) => setImmediate(resolve));
+		expect(close).toHaveBeenCalledTimes(1);
+	});
 });
 
 describe("closeSshClientOnStreamEnd", () => {

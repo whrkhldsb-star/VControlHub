@@ -59,7 +59,7 @@ export async function GET(request: Request) {
             recordCounts: summary,
           },
           undefined,
-          session.currentTeamId,
+          file.exportTeamId ?? null,
         );
 
         const timestamp = new Date().toISOString().slice(0, 19).replace(/[:T]/g, "-");

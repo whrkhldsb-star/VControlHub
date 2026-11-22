@@ -7,7 +7,7 @@ import { prisma } from "@/lib/db";
 import { ConflictError, NotFoundError, ValidationError } from "@/lib/errors";
 import { t } from "@/lib/i18n/service-translations";
 import { apiCopy } from "@/lib/i18n/api-copy";
-import { hasCaseInsensitiveLocalPaths } from "./path-utils";
+import { hasCaseInsensitiveLocalPaths, isWindowsStorageBasePath } from "./path-utils";
 
 /** A relative path in the form the file index stores: no leading, trailing or doubled slashes, no "." segments. */
 export function normalizeIndexedPath(relativePath: string): string {
@@ -74,12 +74,63 @@ export async function assertCanonicalWritePath(nodeId: string, relativePath: str
   }
 }
 
+async function resolveCaseInsensitiveRecycle(
+  storageNodeId: string,
+  driver?: string,
+  windowsOpenSsh?: boolean,
+): Promise<boolean> {
+  if (windowsOpenSsh !== undefined) {
+    if (windowsOpenSsh) return true;
+    if (driver !== undefined) return hasCaseInsensitiveLocalPaths(driver);
+  } else if (driver !== undefined && driver !== "SFTP") {
+    return hasCaseInsensitiveLocalPaths(driver);
+  }
+  const storageNodeModel = prisma.storageNode as
+    | {
+        findUnique?: typeof prisma.storageNode.findUnique;
+        findFirst?: typeof prisma.storageNode.findFirst;
+      }
+    | undefined;
+  const node = storageNodeModel?.findUnique
+    ? await storageNodeModel.findUnique({
+        where: { id: storageNodeId },
+        select: {
+          driver: true,
+          basePath: true,
+          server: { select: { operatingSystem: true } },
+        },
+      })
+    : storageNodeModel?.findFirst
+      ? await storageNodeModel.findFirst({
+          where: { id: storageNodeId },
+          select: {
+            driver: true,
+            basePath: true,
+            server: { select: { operatingSystem: true } },
+          },
+        })
+      : undefined;
+  if (node === undefined) {
+    return Boolean(windowsOpenSsh) || hasCaseInsensitiveLocalPaths(driver);
+  }
+  if (!node) {
+    return true;
+  }
+  const effectiveDriver = driver ?? node.driver;
+  const sftpWindows =
+    effectiveDriver === "SFTP" &&
+    (windowsOpenSsh ??
+      (node.server?.operatingSystem === "WINDOWS" ||
+        (typeof node.basePath === "string" && isWindowsStorageBasePath(node.basePath))));
+  return hasCaseInsensitiveLocalPaths(effectiveDriver) || sftpWindows;
+}
+
 /** A recycled ancestor hides a read target and reserves a write destination. */
 export async function assertNotRecycled(
   storageNodeId: string, relativePath: string, operation: "read" | "write" = "read", driver?: string,
-  windowsOpenSsh = false,
+  windowsOpenSsh?: boolean,
 ): Promise<void> {
-  const caseInsensitive = windowsOpenSsh || hasCaseInsensitiveLocalPaths(driver);
+  const caseInsensitive = await resolveCaseInsensitiveRecycle(storageNodeId, driver, windowsOpenSsh);
   const normalized = normalizeIndexedPath(relativePath);
   if (isStorageStagingPath(caseInsensitive ? normalized.toLowerCase() : normalized)) {
     throw new NotFoundError(apiCopy("apiCopy.files.op.missing"));

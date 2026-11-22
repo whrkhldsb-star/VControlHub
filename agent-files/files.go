@@ -36,7 +36,7 @@ func (s share) openParent(name string) (*os.Root, error) {
 			current.Close()
 			return nil, err
 		}
-		if !expected.IsDir() || !exactEntry(current, part, expected) {
+		if !expected.IsDir() || expected.Mode()&os.ModeSymlink != 0 || !exactEntry(current, part, expected) {
 			current.Close()
 			return nil, changed
 		}
@@ -53,6 +53,37 @@ func (s share) openParent(name string) (*os.Root, error) {
 		current = next
 	}
 	return current, nil
+}
+
+// Pin the directory itself through openParent + OpenRoot so stat/list never follow
+// an intra-share symlink or swapped directory component after check().
+func (s share) openDirectoryPinned(name string) (*os.Root, error) {
+	if name == "." {
+		return s.root.OpenRoot(".")
+	}
+	parent, err := s.openParent(name)
+	if err != nil {
+		return nil, err
+	}
+	defer parent.Close()
+	base := path.Base(name)
+	expected, err := parent.Lstat(base)
+	if err != nil {
+		return nil, err
+	}
+	if !expected.IsDir() || expected.Mode()&os.ModeSymlink != 0 || !exactEntry(parent, base, expected) {
+		return nil, denied
+	}
+	dirRoot, err := parent.OpenRoot(base)
+	if err != nil {
+		return nil, err
+	}
+	actual, err := dirRoot.Stat(".")
+	if err != nil || !os.SameFile(expected, actual) {
+		dirRoot.Close()
+		return nil, changed
+	}
+	return dirRoot, nil
 }
 
 // Pin both containing directories under os.Root before the native operation.
@@ -247,17 +278,44 @@ func (s share) handle(op operation) (result, error) {
 	}
 	switch op.Op {
 	case "stat":
-		info, err := s.root.Lstat(op.Path)
+		if op.Path == "." {
+			info, err := s.root.Lstat(".")
+			if err != nil {
+				return out, err
+			}
+			e, err := s.metadata(".", info, nil)
+			if err != nil {
+				return out, err
+			}
+			out.Entry = &e
+			break
+		}
+		parent, err := s.openParent(op.Path)
 		if err != nil {
 			return out, err
 		}
-		e, err := s.metadata(op.Path, info, nil)
+		defer parent.Close()
+		base := path.Base(op.Path)
+		info, err := parent.Lstat(base)
+		if err != nil {
+			return out, err
+		}
+		if info.Mode()&os.ModeSymlink != 0 || info.Mode()&os.ModeIrregular != 0 ||
+			(!info.IsDir() && !info.Mode().IsRegular()) || !exactEntry(parent, base, info) {
+			return out, denied
+		}
+		e, err := (share{root: parent}).metadata(base, info, nil)
 		if err != nil {
 			return out, err
 		}
 		out.Entry = &e
 	case "list":
-		d, err := s.root.Open(op.Path)
+		dirRoot, err := s.openDirectoryPinned(op.Path)
+		if err != nil {
+			return out, err
+		}
+		defer dirRoot.Close()
+		d, err := dirRoot.Open(".")
 		if err != nil {
 			return out, err
 		}
@@ -281,14 +339,15 @@ func (s share) handle(op operation) (result, error) {
 			if err != nil {
 				return out, err
 			}
-			if !info.IsDir() && !info.Mode().IsRegular() {
+			if info.Mode()&os.ModeSymlink != 0 || info.Mode()&os.ModeIrregular != 0 ||
+				(!info.IsDir() && !info.Mode().IsRegular()) || !exactEntry(dirRoot, item.Name(), info) {
 				continue
 			}
 			bytes += len(item.Name())*6 + 200
 			if bytes > 1800000 {
 				return out, invalid
 			}
-			e, err := s.metadata(path.Join(op.Path, item.Name()), info, nil)
+			e, err := (share{root: dirRoot}).metadata(item.Name(), info, nil)
 			if err != nil {
 				return out, err
 			}

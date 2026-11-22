@@ -59,10 +59,29 @@ copy_build_inputs() {
   done < "${SCRIPT_DIR}/lib/release-directories.txt"
   for file in "${source}"/* "${source}"/.[!.]*; do
     [[ -f ${file} && ! -L ${file} ]] || continue
+    if is_shared_env_path "${file##*/}"; then continue; fi
     cp --preserve=mode -- "${file}" "${stage}/"
   done
   prepare_build_directory "${stage}"
 }
+
+with_public_build_env() (
+  local root=$1 primary=${2:-} env_file var
+  for env_file in "${root}/.env" "${root}/.env.production" "${root}/.env.local" "${root}/.env.production.local"; do
+    [[ -f ${env_file} ]] && load_install_settings "${env_file}"
+  done
+  if [[ -n ${primary} && -f ${primary} ]]; then
+    case "${primary}" in
+      "${root}/.env"|"${root}/.env.production"|"${root}/.env.local"|"${root}/.env.production.local") ;;
+      *) load_install_settings "${primary}" ;;
+    esac
+  fi
+  for var in ${!NEXT_PUBLIC_*}; do
+    export "${var}"
+  done
+  shift 2
+  "$@"
+)
 
 copy_build_artifacts() {
   local stage=$1 target=$2 name

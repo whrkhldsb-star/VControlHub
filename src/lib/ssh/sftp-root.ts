@@ -5,7 +5,8 @@ export function isInsideRoot(candidate: string, root: string, windows: boolean) 
 		// Windows OpenSSH accepts /C:/... and can return C:/... from realpath.
 		const portable = windows ? value.replace(/\\/g, "/") : value;
 		const absolute = windows && /^[a-z]:\//i.test(portable) ? `/${portable}` : portable;
-		return path.normalize(absolute).replace(/\/+$/, "") || "/";
+		const normalized = path.normalize(absolute).replace(/\/+$/, "") || "/";
+		return windows ? normalized.toLowerCase() : normalized;
 	};
 	const normalizedRoot = normalize(root);
 	const normalizedCandidate = normalize(candidate);

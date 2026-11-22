@@ -51,4 +51,33 @@ describe.skipIf(process.platform === "win32")("deploy/bootstrap.sh", () => {
       await rm(app, { recursive: true, force: true });
     }
   });
+
+  it.skipIf(process.getuid?.() !== 0)("rejects a nonexistent APP_DIR under a sticky world-writable parent", async () => {
+    const root = await mkdtemp(path.join(tmpdir(), "vch-bootstrap-sticky-"));
+    try {
+      const stickyParent = path.join(root, "shared");
+      await mkdir(stickyParent, { mode: 0o1777 });
+      execFileSync("chmod", ["1777", stickyParent]);
+      const script = await readFile(bootstrap, "utf8");
+      const fnStart = script.indexOf("require_maintenance_path()");
+      const fnEnd = script.indexOf("\n}\n", fnStart) + 3;
+      const fnBody = script.slice(fnStart, fnEnd);
+      const checkPath = (target: string) =>
+        spawnSync("bash", ["-c", `set -euo pipefail\nfail() { echo "$*" >&2; exit 1; }\n${fnBody}\nrequire_maintenance_path "$1"`, "--", target], {
+          encoding: "utf8",
+        });
+
+      const missingUnderSticky = checkPath(path.join(stickyParent, "new-app"));
+      expect(missingUnderSticky.status).toBe(1);
+      expect(missingUnderSticky.stderr).toContain("root-controlled path");
+
+      const existingProtected = path.join(stickyParent, "existing-app");
+      await mkdir(existingProtected, { mode: 0o755 });
+      execFileSync("chmod", ["0755", existingProtected]);
+      const ok = checkPath(existingProtected);
+      expect(ok.status, ok.stderr).toBe(0);
+    } finally {
+      await rm(root, { recursive: true, force: true });
+    }
+  });
 });

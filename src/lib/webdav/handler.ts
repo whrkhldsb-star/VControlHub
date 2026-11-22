@@ -48,6 +48,7 @@ import {
   writeStorageFileFromLocalPath,
 } from "@/lib/storage/file-content";
 import { readStorageUploadMaxBytes } from "@/lib/upload/limits";
+import { assertUploadDiskReserve, MediaUploadError } from "@/lib/upload/service";
 import { uploadTmpDir } from "@/lib/runtime/work-dirs";
 import { WEBDAV_PUT_STAGING_PREFIX } from "@/lib/upload/staging";
 import {
@@ -270,15 +271,40 @@ export async function handleWebDavPut(
     relativePath: ctx.relativePath,
     mimeType: request.headers.get("content-type") || guessContentType(entryName(ctx.relativePath)),
   };
+  const DISK_RESERVE_CHECK_INTERVAL_BYTES = 16 * 1024 * 1024;
   try {
     if (declared !== null && declared > maxBytes) throw new RequestBodyTooLargeError(maxBytes);
     validateStorageFileIndex({ ...metadata, size: declared ?? 0 });
+    // Fail fast on missing/foreign-tenant nodes, denied write grants/quotas, and low hub disk space
+    // before opening a staging file in uploadTmpDir().
+    await loadNode(ctx.storageNodeId, ctx.session);
+    const preflightAccess = await requireAccess(
+      ctx.session,
+      ctx.storageNodeId,
+      ctx.relativePath,
+      "write",
+      declared ?? 0,
+    );
+    await releaseStorageQuotaGuard(preflightAccess);
+    await assertUploadDiskReserve(declared ?? 0);
     await mkdir(uploadTmpDir(), { recursive: true, mode: 0o700 });
+    let nextReserveCheck = DISK_RESERVE_CHECK_INTERVAL_BYTES;
     const guard = new Transform({
       transform(chunk: Buffer, _encoding, callback) {
         size += chunk.length;
-        if (size > maxBytes) callback(new RequestBodyTooLargeError(maxBytes));
-        else callback(null, chunk);
+        if (size > maxBytes) {
+          callback(new RequestBodyTooLargeError(maxBytes));
+          return;
+        }
+        if (declared === null && size >= nextReserveCheck) {
+          nextReserveCheck += DISK_RESERVE_CHECK_INTERVAL_BYTES;
+          void assertUploadDiskReserve(0).then(
+            () => callback(null, chunk),
+            (error) => callback(error instanceof Error ? error : new Error(String(error))),
+          );
+          return;
+        }
+        callback(null, chunk);
       },
     });
     const source = request.body
@@ -296,6 +322,12 @@ export async function handleWebDavPut(
   } catch (error) {
     await rm(temporaryPath, { force: true }).catch(() => undefined);
     if (error instanceof RequestBodyTooLargeError) return tooLarge();
+    if (error instanceof MediaUploadError && error.code === "insufficient_storage") {
+      return new Response(error.message, {
+        status: 507,
+        headers: { "Content-Type": "text/plain; charset=utf-8" },
+      });
+    }
     throw error;
   }
 

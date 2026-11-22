@@ -95,6 +95,25 @@ vi.mock("@/lib/storage/ssh-credentials", () => ({
   resolveStorageSshCredentials: resolveStorageSshCredentialsMock,
 }));
 
+vi.mock("@/lib/storage/open-local-file", async () => {
+  const { resolveStoragePathWithinBase } = await import("@/lib/storage/path-utils");
+  const { ValidationError } = await import("@/lib/errors");
+  return {
+    openManagedLocalFile: vi.fn(async (basePath: string, relativePath: string) => {
+      const target = resolveStoragePathWithinBase(basePath, relativePath);
+      if (!target.ok) throw new ValidationError(target.reason);
+      return {
+        readFile: () => readFileMock(target.path),
+        stat: async () => ({ size: 0, isFile: () => true }),
+        createReadStream: () => {
+          throw new Error("unexpected stream");
+        },
+        close: vi.fn(async () => undefined),
+      };
+    }),
+  };
+});
+
 vi.mock("node:fs/promises", () => fsMock);
 
 import {

@@ -162,7 +162,9 @@ export async function assertStorageAccess(input: {
   movedFrom?: string | null;
 }): Promise<StorageAccessDecision> {
   const requiredPermission = input.operation === "delete" ? "storage:delete" : input.operation === "read" ? "storage:read" : "storage:write";
-  if (!sessionHasPermission(input.session, requiredPermission)) {
+  const hasPermission = sessionHasPermission(input.session, requiredPermission)
+    || (input.operation === "read" && (sessionHasPermission(input.session, "storage:write") || sessionHasPermission(input.session, "storage:delete")));
+  if (!hasPermission) {
     return { allowed: false, reason: STORAGE_ACCESS_DENIED_REASONS.missingPermission };
   }
 

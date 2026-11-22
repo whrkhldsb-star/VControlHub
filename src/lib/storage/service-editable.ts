@@ -1,5 +1,5 @@
 import { matchTargetMode } from "@/lib/storage/local-permissions";
-import { access, readFile, rename, rm, stat, writeFile } from "node:fs/promises";
+import { rename, rm, stat, writeFile } from "node:fs/promises";
 import { randomUUID } from "node:crypto";
 import path from "node:path";
 
@@ -27,6 +27,7 @@ import { snapshotFileVersionBeforeOverwrite } from "./file-versions";
 import { validateStorageFileIndex } from "./schema";
 import { lockStorageFileOverwrite } from "./file-overwrite-lock";
 import { assertNotRecycled } from "./archive-access";
+import { openManagedLocalFile } from "./open-local-file";
 import { normalizeStorageRelativePath } from "./path-utils";
 
 async function resolveLocalEditableFileEntry(input: {
@@ -75,7 +76,7 @@ async function resolveLocalEditableFileEntry(input: {
   // A write holds the grant's quota lock from here; the caller releases it,
   // but only once this returns — a check failing below must release it here.
   try {
-    await assertNotRecycled(entry.storageNode.id, relativePath, input.operation);
+    await assertNotRecycled(entry.storageNode.id, relativePath, input.operation, entry.storageNode.driver);
     if (
       !isEditableTextFile({
         entryType: entry.entryType,
@@ -90,18 +91,21 @@ async function resolveLocalEditableFileEntry(input: {
       entry.storageNode.basePath,
       relativePath,
     );
-    await access(absolutePath);
-    const fileStat = await stat(absolutePath);
-
-    if (!fileStat.isFile()) {
-      throw new BusinessError(t("backend.storage.editableTargetNotFile"));
+    const handle = await openManagedLocalFile(entry.storageNode.basePath, relativePath);
+    let keepOpen = false;
+    try {
+      const fileStat = await handle.stat();
+      if (!fileStat.isFile()) {
+        throw new BusinessError(t("backend.storage.editableTargetNotFile"));
+      }
+      if (fileStat.size > MAX_EDITABLE_FILE_SIZE_BYTES) {
+        throw new ValidationError(t("backend.storage.editableFileTooLarge"));
+      }
+      keepOpen = input.operation === "read";
+      return { entry, relativePath, absolutePath, fileStat, handle: keepOpen ? handle : null, storageAccess };
+    } finally {
+      if (!keepOpen) await handle.close();
     }
-
-    if (fileStat.size > MAX_EDITABLE_FILE_SIZE_BYTES) {
-      throw new ValidationError(t("backend.storage.editableFileTooLarge"));
-    }
-
-    return { entry, relativePath, absolutePath, fileStat, storageAccess };
   } catch (error) {
     await releaseStorageQuotaGuard(storageAccess);
     throw error;
@@ -112,24 +116,28 @@ export async function getLocalEditableFileDraft(input: {
   fileEntryId: string;
   session: SessionPayload;
 }) {
-  const { entry, fileStat, absolutePath } = await resolveLocalEditableFileEntry(
+  const { entry, fileStat, handle } = await resolveLocalEditableFileEntry(
     {
       fileEntryId: input.fileEntryId,
       session: input.session,
       operation: "read",
     },
   );
-  const content = await readFile(absolutePath, "utf8");
+  try {
+    const content = await handle!.readFile({ encoding: "utf8" });
 
-  return {
-    fileEntryId: entry.id,
-    name: entry.name,
-    relativePath: entry.relativePath,
-    content,
-    byteSize: fileStat.size,
-    lastModifiedMs: fileStat.mtimeMs,
-    updatedAt: entry.updatedAt?.toISOString?.() ?? entry.updatedAt,
-  };
+    return {
+      fileEntryId: entry.id,
+      name: entry.name,
+      relativePath: entry.relativePath,
+      content,
+      byteSize: fileStat.size,
+      lastModifiedMs: fileStat.mtimeMs,
+      updatedAt: entry.updatedAt?.toISOString?.() ?? entry.updatedAt,
+    };
+  } finally {
+    await handle?.close();
+  }
 }
 
 export async function saveLocalEditableFileDraft(input: {
@@ -168,8 +176,9 @@ export async function saveLocalEditableFileDraft(input: {
       if (!current || current.isDeleted) {
         throw new NotFoundError(t("backend.storage.editableEntryNotFound"));
       }
-      await assertNotRecycled(entry.storageNode.id, relativePath, "write");
-      const currentStat = await stat(absolutePath);
+      await assertNotRecycled(entry.storageNode.id, relativePath, "write", entry.storageNode.driver);
+      const currentHandle = await openManagedLocalFile(entry.storageNode.basePath, relativePath);
+      const currentStat = await currentHandle.stat().finally(() => currentHandle.close());
       const currentUpdatedAt = current.updatedAt.toISOString();
       if (
         input.expectedUpdatedAt &&

@@ -197,11 +197,12 @@ export async function PATCH(request: Request) {
       }
 
       // Refresh: re-fetch aria2 status and return
+      const viewConnection = sessionHasPermission(session, "storage:manage-node");
       if (action === "refresh" && task.aria2Gid && !active) {
         return NextResponse.json({
           status: task.status,
           progress: task.progress,
-          downloadAccess: taskDownloadAccess({ ...task, locale, status: task.status, fileName: task.fileName ?? null, relayMode: task.relayMode ?? null }),
+          downloadAccess: taskDownloadAccess({ ...task, locale, viewConnection, status: task.status, fileName: task.fileName ?? null, relayMode: task.relayMode ?? null }),
         });
       }
 
@@ -232,6 +233,7 @@ export async function PATCH(request: Request) {
           const downloadAccess = taskDownloadAccess({
             ...task,
             locale,
+            viewConnection,
             status,
             fileName: task.fileName ?? null,
             relayMode: task.relayMode ?? null,
@@ -300,6 +302,7 @@ export async function PATCH(request: Request) {
               const downloadAccess = taskDownloadAccess({
                 ...task,
                 locale,
+                viewConnection,
                 status: data.status,
                 fileName: resolvedFileName,
                 relayMode: task.relayMode ?? null,

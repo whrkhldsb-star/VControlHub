@@ -7,10 +7,11 @@ const { mocks } = vi.hoisted(() => ({
 		generateSecret: vi.fn(),
 		createEnrollmentToken: vi.fn(),
 		verifyPassword: vi.fn(),
+		assertSessionCredentialBinding: vi.fn(),
 	},
 }));
 
-vi.mock("@/lib/auth/session", async (original) => ({ ...await original<typeof import("@/lib/auth/session")>(), assertSessionCredentialBinding: vi.fn() }));
+vi.mock("@/lib/auth/session", async (original) => ({ ...await original<typeof import("@/lib/auth/session")>(), assertSessionCredentialBinding: mocks.assertSessionCredentialBinding }));
 vi.mock("@/lib/auth/api-session", () => ({
 	requireApiSession: mocks.requireApiSession,
 
@@ -108,6 +109,21 @@ describe("/api/auth/2fa/setup", () => {
 			const res = await route.POST(setupRequest());
 			expect(res.status).toBe(401);
 			expect(mocks.generateSecret).not.toHaveBeenCalled();
+		});
+
+		it("checks session credential binding and disabled status before verifying password or charging challenge budget", async () => {
+			const { AuthError } = await import("@/lib/errors");
+			mocks.assertSessionCredentialBinding.mockImplementationOnce(() => {
+				throw new AuthError("Session expired");
+			});
+			const stale = await route.POST(setupRequest({ currentPassword: "wrong-password" }));
+			expect(stale.status).toBe(401);
+			expect(mocks.verifyPassword).not.toHaveBeenCalled();
+
+			mocks.userFindUnique.mockResolvedValueOnce({ twoFactorEnabled: false, passwordHash: "hash", sessionEpoch: 3, status: "DISABLED" });
+			const disabled = await route.POST(setupRequest({ currentPassword: "correct horse" }));
+			expect(disabled.status).toBe(401);
+			expect(mocks.verifyPassword).not.toHaveBeenCalled();
 		});
 	});
 

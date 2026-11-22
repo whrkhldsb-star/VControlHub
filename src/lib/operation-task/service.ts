@@ -2,7 +2,7 @@ import { CommandRequestStatus, DownloadTaskStatus, JobStatus, Prisma, SyncJobSta
 
 import { rawServerScope, serverTeamWhere, teamWhere } from "@/lib/auth/team-scope";
 import { sessionHasPermission } from "@/lib/auth/authorization";
-import { RECENT_COMMAND_LOG_LIMIT, withVisibleCommandLogs } from "@/lib/command/visibility";
+import { canReadCommandBody, RECENT_COMMAND_LOG_LIMIT, withVisibleCommandLogs } from "@/lib/command/visibility";
 import { canAccessDownloadTask } from "@/lib/downloads/route-helpers";
 import { downloadDriveSelect, resolveTaskDrive } from "@/lib/downloads/destination";
 import { filterSyncHistory, syncVisibility, visibleSyncPaths } from "@/lib/sync/service-crud";
@@ -400,9 +400,10 @@ export async function listOperationTaskResult(options: OperationTaskListOptions,
     return [...visible.values()];
   }
   const readStorage = sessionHasPermission(session, "storage:read") ? untypedWhere : null;
+  const readCommands = !session || sessionHasPermission(session, "command:read") ? untypedWhere : null;
   const [jobs, commandRows, downloads, syncJobs, backups, deployments] = await Promise.all([
     fetchSource("createdBy", (statuses) => rawStatusWhere(statuses, Object.values(JobStatus), false), typedWhere, readJobs),
-    fetchSource("requesterId", (statuses) => rawStatusWhere(statuses, Object.values(CommandRequestStatus), false), untypedWhere, (where) =>
+    fetchSource("requesterId", (statuses) => rawStatusWhere(statuses, Object.values(CommandRequestStatus), false), readCommands, (where) =>
       prisma.commandRequest.findMany({ where, take: limit, orderBy: { createdAt: "desc" }, include: commandTaskInclude(session) })),
     fetchSource("createdBy", statuses => rawStatusWhere(statuses, Object.values(DownloadTaskStatus), false), readStorage, where =>
       pageVisible(cursor => prisma.downloadTask.findMany({
@@ -430,13 +431,23 @@ export async function listOperationTaskResult(options: OperationTaskListOptions,
 
   // An all-customer administrator can see a transferred server, but its output
   // belongs outside the original customer's command view after the transfer.
-  const scopedCommands = commandRows.map(item => ({
-    ...item,
-    targets: (item.targets ?? []).filter(target => target.server.teamId === item.teamId),
-  }));
+  const canReadServers = !session || sessionHasPermission(session, "server:read");
+  const canApproveCommands = !session || sessionHasPermission(session, "command:approve");
+  const canReadBody = (requesterId: string | null | undefined) =>
+    !session || canReadCommandBody(session.userId, requesterId === undefined ? session.userId : requesterId, canApproveCommands);
+  const scopedCommands = commandRows.map(item => {
+    const allowDetails = canReadServers && canReadBody(item.requesterId);
+    return {
+      ...item,
+      targets: allowDetails ? (item.targets ?? []).filter(target => target.server.teamId === item.teamId) : [],
+      executionLogs: allowDetails ? (item.executionLogs ?? []) : [],
+    };
+  });
   const [commands, targetOutputTails] = await Promise.all([
-    withVisibleCommandLogs(scopedCommands, session),
-    fetchTargetOutputTails(scopedCommands.flatMap(item => item.targets.map(target => target.id)), session),
+    canReadServers ? withVisibleCommandLogs(scopedCommands, session) : Promise.resolve(scopedCommands),
+    canReadServers
+      ? fetchTargetOutputTails(scopedCommands.flatMap(item => item.targets.map(target => target.id)), session)
+      : Promise.resolve(new Map<string, OutputTail>()),
   ]);
 
   const tasks: OperationTask[] = [

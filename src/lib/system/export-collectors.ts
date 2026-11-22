@@ -584,18 +584,44 @@ export async function exportAlertRules(
   }));
 }
 
+const INTERNAL_SETTING_KEYS = ["ai.ops.providerBinding", "ai.ops.lastScheduledDay"] as const;
+const INTERNAL_SETTING_PREFIXES = [
+  PLATFORM_RECEIPT_PREFIX,
+  "playbook.lock.",
+  "alerts.platformChannels.",
+  "alerts.intent.",
+  "alerts.defaultRulesSeeded",
+  "alerts.scan.",
+  "agent.install.",
+  "file-agent-write:",
+] as const;
+
+function isInternalSettingKey(key: string): boolean {
+  return (
+    (INTERNAL_SETTING_KEYS as readonly string[]).includes(key) ||
+    INTERNAL_SETTING_PREFIXES.some((prefix) => key.startsWith(prefix))
+  );
+}
+
 export async function exportSettings(mode: ExportMode, scope: ExportScope, db: ExportDb = prisma) {
   if (scope === "team") return [];
   const rows = await readSettingPages(async (page) => db.setting.findMany({
-    where: { NOT: { key: { startsWith: PLATFORM_RECEIPT_PREFIX } } },
+    where: {
+      NOT: [
+        { key: { in: [...INTERNAL_SETTING_KEYS] } },
+        ...INTERNAL_SETTING_PREFIXES.map((prefix) => ({ key: { startsWith: prefix } })),
+      ],
+    },
     orderBy: { key: "asc" },
     ...page,
   }));
-  return rows.map((r) => ({
-    key: r.key,
-    value:
-      mode === "full" ? r.value : isSensitiveSettingKey(r.key) ? "" : r.value,
-  }));
+  return rows
+    .filter((r) => !isInternalSettingKey(r.key))
+    .map((r) => ({
+      key: r.key,
+      value:
+        mode === "full" ? r.value : isSensitiveSettingKey(r.key) ? "" : r.value,
+    }));
 }
 
 export async function exportAiProviders(mode: ExportMode, scope: ExportScope, db: ExportDb = prisma) {

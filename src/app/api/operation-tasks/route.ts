@@ -84,7 +84,11 @@ export const dynamic = "force-dynamic";
 export async function GET(request: Request) {
   return withApiRoute(
     request,
-    { permission: "task:read", optionalTokenPermissions: ["storage:read"], errorMessage: apiCopy("apiCopy.failed.to.fetch.task.list.b6825ee7") },
+    {
+      permission: "task:read",
+      optionalTokenPermissions: ["storage:read", "server:ssh", "storage:manage-node", "command:read", "command:approve", "server:read"],
+      errorMessage: apiCopy("apiCopy.failed.to.fetch.task.list.b6825ee7"),
+    },
     async ({ session }) => {
       const q = parseSearchParams(request, operationTasksQuerySchema);
       const result = await listOperationTaskResult({

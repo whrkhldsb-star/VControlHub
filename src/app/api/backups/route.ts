@@ -21,6 +21,7 @@ import { rejectOversizedFormBody } from "@/lib/http/form-body-limit";
 import { MAX_NON_FILE_FORM_BYTES } from "@/lib/http/request-body";
 import { t } from "@/lib/i18n/service-translations";
 import { firstSchemaSentence } from "@/lib/i18n/schema-copy";
+import { containsNul } from "@/lib/text/strip-nul";
 export const dynamic = "force-dynamic";
 
 export async function GET(request: Request) {
@@ -32,6 +33,11 @@ export async function GET(request: Request) {
 
 async function readRequestBody(request: Request) {
   const formData = await request.formData();
+  for (const [key, value] of formData.entries()) {
+    if (containsNul(key) || (typeof value === "string" && containsNul(value))) {
+      throw new ValidationError(t("backend.http.requestContainsNul"), { field: "body" });
+    }
+  }
   return {
     type: formData.get("type"),
     note: formData.get("note") || undefined,
@@ -57,7 +63,11 @@ export async function POST(request: Request) {
     ...(isFormSubmission ? {} : { bodySchema: createBackupSchema }),
   };
   return withApiRoute(request, options, async ({ session, body }) => {
-    const parsed = isFormSubmission ? createBackupSchema.safeParse(await readRequestBody(request)) : { success: true as const, data: body };
+    const rawForm = isFormSubmission ? await readRequestBody(request) : null;
+    if (rawForm && containsNul(rawForm)) {
+      throw new ValidationError(t("backend.http.requestContainsNul"), { field: "body" });
+    }
+    const parsed = isFormSubmission ? createBackupSchema.safeParse(rawForm) : { success: true as const, data: body };
     if (!parsed.success) throw new ValidationError(firstSchemaSentence(parsed.error) ?? "Invalid backup parameters");
     const { wait } = parseSearchParams(
       request,

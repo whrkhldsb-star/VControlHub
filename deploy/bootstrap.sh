@@ -122,15 +122,17 @@ ensure_git() {
 # before invoking git or loading any installer code from an existing checkout.
 require_maintenance_path() {
   [[ ${EUID} == 0 ]] || return 0
-  local path mode owner leaf
+  local path mode owner protected_child=0
   path="$(realpath -ms -- "$1")"
-  leaf="${path}"
   while [[ ${path} != / ]]; do
     if [[ -e ${path} || -L ${path} ]]; then
       [[ ! -L ${path} ]] || fail "Maintenance path is a symlink: ${path}"
       read -r owner mode < <(stat -c '%u %a' -- "${path}")
-      [[ ${owner} == 0 ]] && { (( (8#${mode} & 0022) == 0 )) || { [[ ${leaf} != "${path}" && -d ${path} ]] && (( (8#${mode} & 01000) != 0 )); }; } ||
+      [[ ${owner} == 0 ]] && { (( (8#${mode} & 0022) == 0 )) || { [[ -d ${path} ]] && (( protected_child && (8#${mode} & 01000) != 0 )); }; } ||
         fail "Maintenance requires a root-controlled path: ${path}"
+      protected_child=1
+    else
+      protected_child=0
     fi
     path="${path%/*}"; path="${path:-/}"
   done
