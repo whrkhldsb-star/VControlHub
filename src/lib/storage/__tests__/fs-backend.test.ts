@@ -524,6 +524,7 @@ describe("writeBackingObject", () => {
       username: "root",
       privateKey: "PRIVATE KEY",
       remotePath: "/data/root/new-folder/hello.txt",
+      root: { path: "/data/root", windows: false },
       content: Buffer.from("hello", "utf8"),
     });
     expect(writeFileMock).not.toHaveBeenCalled();

@@ -110,7 +110,12 @@ function request(body: unknown) {
   });
 }
 
-function mockSftpNode() {
+function mockSftpNode(agentOnly = false) {
+  statRemoteEntryMock.mockImplementation(async ({ remotePath }) => {
+    if (remotePath === "/data/files/allowed/a.txt") return { type: "file", size: 2, modifyTime: 1000 };
+    if (remotePath === "/data/files/allowed" || remotePath === "/data/files/a") return { type: "directory", size: 0, modifyTime: 1000 };
+    throw Object.assign(new Error("missing"), { code: 2 });
+  });
   const node = {
     teamId: null,
     id: "node_1",
@@ -129,7 +134,9 @@ function mockSftpNode() {
       username: "root",
       connectionType: "SSH_KEY",
       password: null,
-      sshKey: { teamId: null, privateKey: "PRIVATE KEY" },
+      managementMode: agentOnly ? "AGENT" : "DIRECT",
+      operatingSystem: "LINUX",
+      sshKey: agentOnly ? null : { teamId: null, privateKey: "PRIVATE KEY" },
     },
   };
   prismaMock.storageNode.findFirst.mockResolvedValueOnce(node);
@@ -601,7 +608,7 @@ describe("/api/storage/sftp-ops", () => {
     expect(prismaMock.shareLink.update).toHaveBeenCalledWith({ where: { id: "s_file" }, data: { path: "renamed/nested/b.txt" } });
   });
 
-  it("renames a SFTP directory and rewrites indexed descendant paths", async () => {
+  it.each([true, false])("renames a SFTP directory and rewrites indexed descendants with a root index: %s", async (indexed) => {
     vi.clearAllMocks();
     requireApiSessionMock.mockResolvedValueOnce({
       userId: "u_1",
@@ -609,8 +616,8 @@ describe("/api/storage/sftp-ops", () => {
       roles: ["admin"],
       currentTeamId: null,
     });
-    mockSftpNode();
-    prismaMock.fileEntry.findFirst.mockResolvedValueOnce({ entryType: "DIRECTORY" });
+    mockSftpNode(!indexed);
+    prismaMock.fileEntry.findFirst.mockResolvedValueOnce(indexed ? { entryType: "DIRECTORY" } : null);
     prismaMock.fileEntry.findMany.mockResolvedValueOnce([
       { id: "child-1", relativePath: "allowed/a.txt" },
       { id: "child-2", relativePath: "allowed/nested/b.txt" },
@@ -622,7 +629,7 @@ describe("/api/storage/sftp-ops", () => {
         nodeId: "node_1",
         path: "allowed",
         newPath: "renamed",
-        isDirectory: true,
+        ...(indexed ? { isDirectory: true } : {}),
       }),
     );
 
@@ -631,6 +638,7 @@ describe("/api/storage/sftp-ops", () => {
       expect.objectContaining({
         oldPath: "/data/files/allowed",
         newPath: "/data/files/renamed",
+        ...(!indexed && { agentServerId: "srv_1", noReplace: true }),
       }),
     );
     expect(prismaMock.fileEntry.findMany).toHaveBeenCalledWith({

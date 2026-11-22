@@ -1,4 +1,4 @@
-import { mkdtemp, readdir, rm } from "node:fs/promises";
+import { mkdtemp, readdir, rm, utimes, writeFile } from "node:fs/promises";
 import { tmpdir } from "node:os";
 import path from "node:path";
 
@@ -19,6 +19,7 @@ import {
   getAria2RuntimeConfig,
   getPublicAria2Error,
   isAria2ManagedExternally,
+  reapAria2LaunchConfigs,
 } from "../service";
 
 afterEach(() => {
@@ -29,6 +30,27 @@ afterEach(() => {
 });
 
 describe("aria2 runtime config", () => {
+  it.each(["::1", "[::1]"])("forms a valid IPv6 RPC authority for %s", host => {
+    const config = getAria2RuntimeConfig({ ARIA2_RPC_HOST: host, ARIA2_RPC_SECRET: "test-rpc" });
+    expect(new URL(`http://${config.rpcHost}:${config.rpcPort}/jsonrpc`).hostname).toBe("[::1]");
+  });
+
+  it("reclaims a dead launcher's temporary config and leaves live launches in place", async () => {
+    const dir = await mkdtemp(path.join(tmpdir(), "aria2-launch-"));
+    const live = `.aria2.launch.${process.pid}.123.conf`;
+    const dead = ".aria2.launch.2147483647.456.conf";
+    const reused = `.aria2.launch.${process.pid}.456.conf`;
+    try {
+      for (const name of [live, dead, reused, "aria2.conf"]) await writeFile(path.join(dir, name), "test fixture", { mode: 0o600 });
+      await utimes(path.join(dir, reused), new Date(0), new Date(0));
+      if (process.platform === "linux") {
+        await writeFile(path.join(dir, `.aria2.launch.${process.pid}.00000000-0000-0000-0000-000000000000_0.789.conf`), "older launcher", { mode: 0o600 });
+      }
+      await reapAria2LaunchConfigs(dir);
+      expect((await readdir(dir)).sort()).toEqual([live, "aria2.conf"].sort());
+    } finally { await rm(dir, { recursive: true, force: true }); }
+  });
+
   it("defaults to portable app-scoped paths and loopback RPC", () => {
     const config = getAria2RuntimeConfig({ APP_DIR: "/opt/whrkhldsb", ARIA2_RPC_SECRET: "custom-token" });
 

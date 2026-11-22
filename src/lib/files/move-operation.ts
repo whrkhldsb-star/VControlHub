@@ -1,7 +1,7 @@
 import { moveMeasurement } from "@/lib/storage/move-capacity";
 import { escapeLikeLiteral } from "@/lib/db/like-pattern";
 import type { SessionPayload } from "@/lib/auth/session";
-import { tryAcquireAdvisoryLock } from "@/lib/concurrency/advisory-lock";
+import { lockStorageMove } from "@/lib/storage/mutation-lock";
 import { apiCopy } from "@/lib/i18n/api-copy";
 import { teamWhere } from "@/lib/auth/team-scope";
 import { prisma } from "@/lib/db";
@@ -9,7 +9,6 @@ import { assertStorageAccess, getStorageAccessCapabilities, getStorageAccessCapa
 import { guessContentType } from "@/lib/http/mime-types";
 import { storageAccessDeniedCopy } from "@/lib/storage/access-denied";
 import { BusinessError, ForbiddenError } from "@/lib/errors";
-import { lockStorageFileOverwrite } from "@/lib/storage/file-overwrite-lock";
 import { assertNotRecycled } from "@/lib/storage/archive-access";
 import { moveBackingObject, statBackingObject } from "@/lib/storage/fs-backend";
 import { serviceT } from "@/lib/i18n/service-locale";
@@ -39,7 +38,6 @@ export async function executeMoveFile(
 ): Promise<MoveFileActionState> {
   const tr = await serviceT(locale);
   let release: (() => Promise<void>) | null = null;
-  let releaseDestination: (() => Promise<void>) | undefined;
   // Held from the destination quota check until the move is recorded.
   let destinationAccess: StorageAccessDecision | null = null;
   try {
@@ -95,11 +93,6 @@ export async function executeMoveFile(
     if (!entry)
       return { error: tr("filesPage.move.errorFileNotFound") } satisfies MoveFileActionState;
 
-    release = await tryAcquireAdvisoryLock("storage-file-operation", entry.storageNodeId);
-    if (!release) throw new Error(apiCopy("apiCopy.files.op.busy"));
-    const current = await prisma.fileEntry.findFirst({ where: { id: fileEntryId, isDeleted: false }, select: { relativePath: true } });
-    if (!current || current.relativePath !== entry.relativePath) throw new Error(apiCopy("apiCopy.files.op.changed"));
-
     const joinedPath = joinStoragePath(normalizedTargetDir, entry.name);
     if (!joinedPath.ok) {
       return { error: joinedPath.reason } satisfies MoveFileActionState;
@@ -114,6 +107,11 @@ export async function executeMoveFile(
         error: normalizedCurrentPath.reason,
       } satisfies MoveFileActionState;
     }
+
+    const moveLock = await lockStorageMove(entry.storageNodeId, normalizedCurrentPath.path, newRelativePath);
+    release = moveLock.release;
+    const current = await prisma.fileEntry.findFirst({ where: { id: fileEntryId, isDeleted: false }, select: { relativePath: true } });
+    if (!current || current.relativePath !== entry.relativePath) throw new Error(apiCopy("apiCopy.files.op.changed"));
 
     // Require write on BOTH source and destination. Destination-only ACL would
     // let a grant on /public pull files out of a restricted source prefix.
@@ -139,6 +137,7 @@ export async function executeMoveFile(
       operation: "write",
       writeBytes: movedBytes,
       largestFileBytes: movedBytes,
+      quotaLock: moveLock,
       measureMove: moveMeasurement(entry.storageNode, entry),
       movedFrom: normalizedCurrentPath.path,
     });
@@ -161,7 +160,6 @@ export async function executeMoveFile(
     // 直接覆盖目标位置的字节，而软删行的物理文件仍在磁盘上。若只查 isDeleted:false，
     // move 会覆盖并永久销毁回收站里同名文件的字节，之后 DB 更新还会撞唯一约束
     // （@@unique 覆盖软删行）触发补偿把本文件移回——净结果是回收站文件被静默清空。
-    releaseDestination = await lockStorageFileOverwrite(entry.storageNodeId, newRelativePath, normalizedCurrentPath.path);
     await assertNotRecycled(entry.storageNodeId, normalizedCurrentPath.path, "write");
     const occupant = await prisma.fileEntry.findFirst({
       where: {
@@ -243,13 +241,6 @@ export async function executeMoveFile(
           data: { relativePath: newRelativePath, name: newName, ...(extensionChanged ? { mimeType: guessContentType(newName) } : {}) },
         });
 
-        await moveSharePaths(tx, {
-          storageNodeId: entry.storageNodeId,
-          oldPath: entry.relativePath,
-          newPath: newRelativePath,
-          isDirectory: entry.entryType === "DIRECTORY",
-        });
-
         if (entry.entryType === "DIRECTORY") {
           const oldPrefix = entry.relativePath + "/";
           const newPrefix = newRelativePath + "/";
@@ -267,6 +258,12 @@ export async function executeMoveFile(
               AND "relativePath" LIKE ${`${escapeLikeLiteral(oldPrefix)}%`} ESCAPE '\\'
           `;
         }
+        await moveSharePaths(tx, {
+          storageNodeId: entry.storageNodeId,
+          oldPath: entry.relativePath,
+          newPath: newRelativePath,
+          isDirectory: entry.entryType === "DIRECTORY",
+        });
       }, { timeout: 60_000 });
     } catch (databaseError) {
       // The backing move already succeeded. Compensate it if the atomic DB
@@ -297,7 +294,6 @@ export async function executeMoveFile(
       error: getErrorMessage(error, tr("filesPage.move.errorMoveFailed")),
     } satisfies MoveFileActionState;
   } finally {
-    await releaseDestination?.();
     await releaseStorageQuotaGuard(destinationAccess);
     await release?.();
   }

@@ -169,8 +169,10 @@ const savePrismaMock = vi.hoisted(() => ({
 		findUnique: vi.fn(),
 		upsert: vi.fn(),
 	},
-	$transaction: vi.fn(async (ops: unknown[]) => {
-		// setManySettings builds an array of upsert promises; resolve them.
+	$executeRaw: vi.fn(),
+	$queryRaw: vi.fn(),
+	$transaction: vi.fn(async (ops: unknown) => {
+		if (typeof ops === "function") return (ops as (tx: typeof savePrismaMock) => Promise<unknown>)(savePrismaMock);
 		await Promise.all(ops as Promise<unknown>[]);
 		return ops;
 	}),

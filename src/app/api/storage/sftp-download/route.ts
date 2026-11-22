@@ -100,7 +100,7 @@ export async function GET(request: Request) {
           { status: 403 },
         );
       }
-      await assertNotRecycled(node.id, normalizedRelativePath);
+      await assertNotRecycled(node.id, normalizedRelativePath, "read", node.driver, connectionCredentials.windowsOpenSsh);
       const fileName = path.basename(normalizedRemotePath);
       const contentType = guessContentType(fileName);
 

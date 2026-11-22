@@ -83,7 +83,21 @@ describe.skipIf(process.env.RUN_DATABASE_INTEGRATION_TESTS !== "1")("scheduled-t
     expect(createCommandRequest).not.toHaveBeenCalled();
     createCommandRequest.mockImplementationOnce(createRequest);
     await dispatchDueScheduledTasks("fresh");
-    expect(createCommandRequest).toHaveBeenCalledExactlyOnceWith(expect.objectContaining({ command: "pwd", approvalRequired: false }));
+    expect(createCommandRequest).toHaveBeenCalledExactlyOnceWith(expect.objectContaining({ command: "pwd", approvalRequired: false }), undefined, undefined, expect.any(Function));
+  });
+
+  it("recovers the original request after a claimed occurrence was edited", async () => {
+    const occurrence = new Date(Date.now() - 3600_000);
+    const task = await prisma.scheduledTask.create({ data: {
+      name: prefix, scheduleType: "ONCE", runAt: occurrence, nextRunAt: new Date(Date.now() - 60_000),
+      claimedOccurrenceAt: occurrence, cronExpression: "", command: "pwd", serverIds: ["edited"], createdById: prefix,
+    } });
+    const row = await createRequest();
+    await prisma.commandRequest.update({ where: { id: row.id }, data: { idempotencyKey: `scheduled-task:${task.id}:${occurrence.toISOString()}` } });
+    createCommandRequest.mockClear();
+    await dispatchDueScheduledTasks("recover-before-authorization");
+    expect(createCommandRequest).not.toHaveBeenCalled();
+    expect(await prisma.scheduledTaskRun.findUnique({ where: { commandRequestId: row.id } })).toMatchObject({ scheduledTaskId: task.id });
   });
 
   it("lets a successor advance an occurrence already recorded by the previous worker", async () => {

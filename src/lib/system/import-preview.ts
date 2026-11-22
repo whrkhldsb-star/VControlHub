@@ -15,8 +15,7 @@
 
 import { decrypt, isEncrypted } from "@/lib/crypto/service";
 import { prisma } from "@/lib/db";
-import { decryptServerPassword, decryptSshPrivateKey } from "@/lib/ssh/ssh-key-crypto";
-import type { ExportFile, ImportIssue, ImportOptions, ImportPreview } from "@/lib/system/config-schema";
+import { parseImportFile, type ExportFile, type ImportIssue, type ImportOptions, type ImportPreview } from "@/lib/system/config-schema";
 
 import { alignImportIds, findMissingTeamIds } from "./import-id-alignment";
 
@@ -93,44 +92,32 @@ const W = {
   storageServersMissing: "systemConfig.import.preview.warning.storageServersMissing",
 } as const;
 
-/**
- * A full export carries credentials as the source stored them, encrypted with
- * its ENCRYPTION_KEY. Imported where the key differs they cannot be decrypted,
- * and the servers, keys, providers and WebDAV nodes using them fail only when
- * first used.
- * One credential of each kind is tried with this instance's key.
- */
-function credentialsNeedSourceKey(t: ExportFile["tables"]): boolean {
-  const probes: Array<() => unknown> = [];
-  const password = t.servers.find((row) => row.password)?.password;
-  if (password) probes.push(() => decryptServerPassword(password));
-  const rdpPassword = t.servers.find((row) => row.rdpPassword)?.rdpPassword;
-  if (rdpPassword && isEncrypted(rdpPassword)) probes.push(() => decrypt(rdpPassword));
-  const privateKey = t.sshKeys.find((row) => row.privateKey)?.privateKey;
-  if (privateKey) probes.push(() => decryptSshPrivateKey(privateKey));
-  const apiKey = t.aiProviders.find((row) => row.apiKey)?.apiKey;
-  if (apiKey && isEncrypted(apiKey)) probes.push(() => decrypt(apiKey));
-  const webdavConfig = t.storageNodes.find((row) => row.webdavConfigEncrypted)?.webdavConfigEncrypted;
-  if (webdavConfig) probes.push(() => decrypt(webdavConfig));
-  for (const user of t.users) {
-    if (user.twoFactorSecret && isEncrypted(user.twoFactorSecret)) probes.push(() => decrypt(user.twoFactorSecret!));
-    if (Array.isArray(user.twoFactorRecoveryCodes)) {
-      for (const hash of user.twoFactorRecoveryCodes) {
-        if (typeof hash === "string" && hash.startsWith("v2:")) probes.push(() => decrypt(hash.slice(3)));
+type CredentialTable = "servers" | "sshKeys" | "aiProviders" | "storageNodes" | "users" | "settings";
+function credentialIssues(t: ExportFile["tables"], applied: Record<CredentialTable, Set<string>>) {
+  const issues: ImportIssue[] = [];
+  const tested = new Map<string, boolean>();
+  function check(table: CredentialTable, id: string, values: Array<string | null | undefined>) {
+    if (!applied[table].has(id)) return;
+    for (const value of values) {
+      if (!value) continue;
+      if (!tested.has(value)) {
+        try { decrypt(value); tested.set(value, true); } catch { tested.set(value, false); }
+      }
+      if (!tested.get(value)) {
+        issues.push({ table, id, reason: W.credentialsNeedSourceKey });
+        break;
       }
     }
   }
-  for (const setting of t.settings) {
-    if (isEncrypted(setting.value)) probes.push(() => decrypt(setting.value));
-  }
-  return probes.some((probe) => {
-    try {
-      probe();
-      return false;
-    } catch {
-      return true;
-    }
-  });
+  const envelope = (value?: string | null) => value && isEncrypted(value) ? value : null;
+  for (const r of t.servers) check("servers", r.id, [envelope(r.password?.replace(/^enc:v1:/, "")), envelope(r.rdpPassword)]);
+  for (const r of t.sshKeys) check("sshKeys", r.id, [envelope(r.privateKey), envelope(r.passphrase)]);
+  for (const r of t.aiProviders) check("aiProviders", r.id, [envelope(r.apiKey)]);
+  for (const r of t.storageNodes) check("storageNodes", r.id, [r.webdavConfigEncrypted]);
+  for (const r of t.users) check("users", r.id, [envelope(r.twoFactorSecret), ...(Array.isArray(r.twoFactorRecoveryCodes)
+    ? r.twoFactorRecoveryCodes.flatMap((hash) => typeof hash === "string" && hash.startsWith("v2:") ? [hash.slice(3)] : []) : [])]);
+  for (const r of t.settings) check("settings", r.key, [envelope(r.value)]);
+  return issues;
 }
 
 // ── 预览模式 ──────────────────────────────────────────────
@@ -144,10 +131,12 @@ export async function previewImport(
   options: ImportOptions,
 ): Promise<ImportPreview> {
   // Counted as the import will see it: ids aligned with this instance first.
-  const t = await alignImportIds(prisma, file.tables);
+  const t = await alignImportIds(prisma, parseImportFile(file).tables, options.overwriteExisting);
   const summary: ImportPreview["summary"] = {};
   const warnings: string[] = [];
   const issues: ImportIssue[] = [];
+  const applied = { servers: new Set<string>(), users: new Set<string>(), sshKeys: new Set<string>(), aiProviders: new Set<string>(),
+    storageNodes: new Set<string>(), settings: new Set<string>() };
   let totalRecords = 0;
 
   // The import refuses a package whose resources name customers it cannot find.
@@ -190,7 +179,7 @@ export async function previewImport(
   // ── Users ──
   {
     if (options.importUsers) {
-      const r = await previewUsers(t, options);
+      const r = await previewUsers(t, options, applied.users);
       summary[T.users] = r;
       totalRecords += r.create + r.update;
     } else {
@@ -215,14 +204,14 @@ export async function previewImport(
 
   // ── SshKeys ──
   {
-    const r = await previewSshKeys(t, options, issues);
+    const r = await previewSshKeys(t, options, issues, applied.sshKeys);
     summary[T.sshKeys] = r;
     totalRecords += r.create + r.update;
   }
 
   // ── Servers ──
   {
-    const r = await previewServers(t, options, issues);
+    const r = await previewServers(t, options, issues, applied.servers);
     summary[T.servers] = r;
     totalRecords += r.create + r.update;
   }
@@ -236,21 +225,21 @@ export async function previewImport(
 
   // ── StorageNodes ──
   {
-    const r = await previewStorageNodes(t, options, issues);
+    const r = await previewStorageNodes(t, options, issues, applied.storageNodes);
     summary[T.storageNodes] = r;
     totalRecords += r.create + r.update;
   }
 
   // ── UserStorageAccess ──
   {
-    const r = await previewUserStorageAccess(t, options);
+    const r = await previewUserStorageAccess(t, options, issues);
     summary[T.storageAccess] = r;
     totalRecords += r.create + r.update;
   }
 
   // ── CommandTemplates ──
   {
-    const r = await previewCommandTemplates(t, options);
+    const r = await previewCommandTemplates(t, options, issues);
     summary[T.commandTemplates] = r;
     totalRecords += r.create + r.update;
   }
@@ -264,7 +253,7 @@ export async function previewImport(
 
   // ── Playbooks ──
   {
-    const r = await previewPlaybooks(t, options);
+    const r = await previewPlaybooks(t, options, issues);
     summary[T.playbooks] = r;
     totalRecords += r.create + r.update;
   }
@@ -279,7 +268,7 @@ export async function previewImport(
   // ── Settings ──
   {
     if (options.importSettings) {
-      const r = await previewSettings(t, options, file.exportMode);
+      const r = await previewSettings(t, options, file.exportMode, issues, applied.settings);
       summary[T.settings] = r;
       totalRecords += r.create + r.update;
     } else {
@@ -290,14 +279,14 @@ export async function previewImport(
 
   // ── AiProviders ──
   {
-    const r = await previewAiProviders(t, options, issues);
+    const r = await previewAiProviders(t, options, issues, applied.aiProviders);
     summary[T.aiProviders] = r;
     totalRecords += r.create + r.update;
   }
 
   // ── Announcements ──
   {
-    const r = await previewAnnouncements(t, options);
+    const r = await previewAnnouncements(t, options, issues);
     summary[T.announcements] = r;
     totalRecords += r.create + r.update;
   }
@@ -311,7 +300,7 @@ export async function previewImport(
 
   // 安全警告 — only show for standard mode (full mode includes secrets)
   const isFullMode = file.exportMode === "full";
-  if (!isFullMode) {
+  if (file.exportMode === "standard") {
     if (t.users.length > 0) {
       warnings.push(W.passwordsStripped);
     }
@@ -328,12 +317,25 @@ export async function previewImport(
       warnings.push(W.settingsCleared);
     }
   } else {
-    warnings.push(W.fullModeSensitive);
+    if (isFullMode) warnings.push(W.fullModeSensitive);
     if (options.importUsers && t.users.some((user) => Array.isArray(user.twoFactorRecoveryCodes) && user.twoFactorRecoveryCodes.some((hash) => typeof hash === "string" && !hash.startsWith("v2:")))) {
       warnings.push(W.legacyRecoveryCodes);
     }
-    if (credentialsNeedSourceKey(t)) warnings.push(W.credentialsNeedSourceKey);
+    const failed = credentialIssues(t, applied);
+    const reported = new Set(issues.filter((issue) => issue.reason === W.credentialsNeedSourceKey).map((issue) => JSON.stringify([issue.table, issue.id])));
+    for (const issue of failed) {
+      const key = JSON.stringify([issue.table, issue.id]);
+      if (!reported.has(key)) { issues.push(issue); reported.add(key); }
+    }
+    if (issues.some((issue) => issue.reason === W.credentialsNeedSourceKey)) warnings.push(W.credentialsNeedSourceKey);
   }
 
+  if (issues.some((issue) => issue.blocking) || warnings.includes(W.missingCustomers)) {
+    for (const counts of Object.values(summary)) {
+      counts.skip += counts.create + counts.update;
+      counts.create = counts.update = 0;
+    }
+    totalRecords = 0;
+  }
   return { summary, warnings, totalRecords, ...(issues.length ? { issues } : {}) };
 }

@@ -144,6 +144,8 @@ export async function importRolePermissions(
   counts.skipped += validRecords.length - result.count;
 }
 
+const RESET_HASH = "DISABLED_IMPORT_RESET";
+
 // 4. Users (可选，条件性密码处理)
 export async function importUsers(
   tx: Tx,
@@ -156,10 +158,10 @@ export async function importUsers(
     counts.skipped += t.users.length;
     return;
   }
-  const previous = new Map<string, { status: string; mustChangePassword: boolean }>();
+  const previous = new Map<string, { status: string; mustChangePassword: boolean; passwordHash: string }>();
   await upsertByIdWithSecondaryUnique(t.users, options, counts, {
     listExistingIds: async (ids) => {
-      const users = await tx.user.findMany({ where: { id: { in: ids } }, select: { id: true, status: true, mustChangePassword: true } });
+      const users = await tx.user.findMany({ where: { id: { in: ids } }, select: { id: true, status: true, mustChangePassword: true, passwordHash: true } });
       for (const user of users) previous.set(user.id, user);
       return new Set(previous.keys());
     },
@@ -178,9 +180,9 @@ export async function importUsers(
             username: r.username,
             displayName: r.displayName,
             // Full mode: restore actual hash; Standard: force password reset
-            passwordHash: r.passwordHash ?? "DISABLED_IMPORT_RESET",
-            status: (r.passwordHash || r.status === "DISABLED" ? r.status : "PENDING_PASSWORD_RESET") as never,
-            mustChangePassword: r.passwordHash ? r.mustChangePassword : true,
+            passwordHash: r.passwordHash || RESET_HASH,
+            status: ((r.passwordHash && r.passwordHash !== RESET_HASH) || r.status === "DISABLED" ? r.status : "PENDING_PASSWORD_RESET") as never,
+            mustChangePassword: r.passwordHash && r.passwordHash !== RESET_HASH ? r.mustChangePassword : true,
             // A standard export leaves the secret out. "Enabled" without a
             // secret is no second factor at all: login skips it, yet the
             // account page shows it on and setup refused to enrol again.
@@ -201,6 +203,7 @@ export async function importUsers(
       ),
     updateById: async (r) => {
       const current = previous.get(r.id)!;
+      const needsReset = (r.passwordHash || current.passwordHash) === RESET_HASH;
       const restricted = (r.status === "DISABLED" && current.status !== "DISABLED") || (r.mustChangePassword && !current.mustChangePassword);
       await tx.user.update({
         where: { id: r.id },
@@ -209,8 +212,8 @@ export async function importUsers(
           displayName: r.displayName,
           // In full mode, restore password hash; otherwise keep existing
           ...(r.passwordHash ? { passwordHash: r.passwordHash } : {}),
-          status: r.status as never,
-          mustChangePassword: r.mustChangePassword,
+          status: (needsReset && r.status !== "DISABLED" ? "PENDING_PASSWORD_RESET" : r.status) as never,
+          mustChangePassword: needsReset || r.mustChangePassword,
           // Full mode's null means explicitly cleared, not redacted. Old
           // packages without a mode retain their historical null semantics.
           ...(exportMode === "full" || r.twoFactorSecret !== null ? {
@@ -231,7 +234,6 @@ export async function importUsers(
             : {}),
         },
       });
-      previous.set(r.id, r);
     },
   });
 }
@@ -306,7 +308,7 @@ export async function assertImportHasActiveAdmin(tx: Tx) {
     SELECT u.id FROM "User" u
     JOIN "UserRole" ur ON ur."userId" = u.id
     JOIN "Role" r ON r.id = ur."roleId"
-    WHERE u.status = 'ACTIVE' AND r.key = 'admin'
+    WHERE u.status = 'ACTIVE' AND r.key = 'admin' AND u."passwordHash" <> ${RESET_HASH}
       AND NOT EXISTS (SELECT 1 FROM team_members m WHERE m."userId" = u.id)
     LIMIT 1 FOR SHARE OF u, ur, r`;
   if (!admins.length) throw new ConflictError(translate("backend.user.cannotRemoveLastAdmin"));

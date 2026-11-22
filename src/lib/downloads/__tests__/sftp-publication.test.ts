@@ -2,12 +2,11 @@
 import { mkdtemp, rm, writeFile } from "node:fs/promises";
 import { tmpdir } from "node:os";
 import { join } from "node:path";
-import { PassThrough } from "node:stream";
 import { afterEach, beforeEach, describe, expect, it, vi } from "vitest";
 import { executeAria2RelayDownload } from "../execution";
 
 const mocks = vi.hoisted(() => ({
-  readNode: vi.fn(), run: vi.fn(), open: vi.fn(), index: vi.fn(), receive: vi.fn(),
+  owner: vi.fn(), capacity: vi.fn(), refusal: vi.fn(async () => null as string | null), rename: vi.fn(), readNode: vi.fn(), run: vi.fn(), open: vi.fn(), index: vi.fn(), receive: vi.fn(),
 }));
 vi.mock("../agent-relay", () => ({ receiveAgentHttpDownload: mocks.receive }));
 vi.mock("@/lib/db", () => ({
@@ -15,7 +14,7 @@ vi.mock("@/lib/db", () => ({
     storageNode: { findFirst: mocks.readNode },
     downloadTask: { findFirstOrThrow: vi.fn(async () => ({ createdBy: "user", teamId: "team" })) },
     $transaction: (body: (tx: unknown) => Promise<void>) => body({
-      $queryRaw: vi.fn(async () => [{ id: "node" }]), storageNode: { findFirst: mocks.readNode },
+      $queryRaw: vi.fn(async () => [{ id: "node" }]), server: { findFirst: vi.fn(async () => ({ id: "server" })) }, downloadTask: { count: vi.fn(async () => 1) }, storageNode: { findFirst: mocks.readNode },
     }),
   },
 }));
@@ -23,11 +22,12 @@ vi.mock("@/lib/downloads/helpers", async importOriginal => ({
   ...await importOriginal<typeof import("../helpers")>(), indexDownloadedFileEntry: mocks.index,
 }));
 vi.mock("@/lib/auth/execution-actor", () => ({
-  loadExecutionActor: vi.fn(async () => ({ userId: "user" })), executionRefusal: vi.fn(async () => null),
+  loadExecutionActor: vi.fn(async () => ({ userId: "user" })), executionRefusal: mocks.refusal,
 }));
-vi.mock("@/lib/storage/access-control", () => ({
-  assertStorageAccess: vi.fn(async () => ({ allowed: true })), releaseStorageQuotaGuard: vi.fn(),
-}));
+vi.mock("@/lib/api-token/authorization", () => ({ loadJobOwnerSession: mocks.owner }));
+vi.mock("../write-capacity", () => ({ downloadWriteCapacity: mocks.capacity }));
+vi.mock("../publication-lock", () => ({ lockDownloadPublication: vi.fn(async () => () => {}) }));
+vi.mock("../pinned-publication", () => ({ publishPinnedFile: mocks.open }));
 vi.mock("@/lib/storage/archive-access", () => ({ assertNotRecycled: vi.fn() }));
 vi.mock("@/lib/storage/file-overwrite-lock", () => ({ lockStorageFileOverwrite: vi.fn(async () => () => {}) }));
 vi.mock("@/lib/ssh/client", () => ({
@@ -55,18 +55,11 @@ describe("SFTP relay publication", () => {
     await writeFile(file, "a");
     mocks.receive.mockImplementation(({ publishSftp }) =>
       publishSftp(file, { name: "file.bin", size: 1, sha256: "a".repeat(64) }));
+    mocks.owner.mockResolvedValue({ userId: "user", roles: ["operator"], currentTeamId: "team", permissions: ["storage:write"] });
+    mocks.capacity.mockResolvedValue({ remainingBytes: null, maxFileBytes: null });
     mocks.readNode.mockResolvedValue(currentNode);
     mocks.run.mockResolvedValue({ exitCode: 0, stdout: "" });
-    mocks.open.mockResolvedValue({
-      end: vi.fn(),
-      sftp: (cb: (error: null, client: unknown) => void) => cb(null, {
-        createWriteStream: () => {
-          const stream = new PassThrough();
-          stream.resume();
-          return stream;
-        },
-      }),
-    });
+    mocks.open.mockImplementation(async (_ssh, _remote, _prefix, _digest, _local, commit) => commit(mocks.rename));
   });
   afterEach(async () => { await rm(temp, { recursive: true, force: true }); });
   const publish = () => executeAria2RelayDownload("task", server, ["https://example.test/file"], "/drive",
@@ -83,12 +76,19 @@ describe("SFTP relay publication", () => {
       mocks.readNode.mockResolvedValueOnce(currentNode).mockResolvedValueOnce({ ...currentNode, ...changed });
       await expect(publish()).rejects.toThrow();
       expect(mocks.open).toHaveBeenCalledOnce();
-      expect(mocks.run.mock.calls.some(([arg]) => arg.command.includes("mv -fT"))).toBe(false);
+      expect(mocks.rename).not.toHaveBeenCalled();
       expect(mocks.index).not.toHaveBeenCalled();
     });
+  it("rechecks the creator and write grant after staging", async () => {
+    mocks.capacity.mockResolvedValueOnce({ denied: true, remainingBytes: BigInt(0), maxFileBytes: BigInt(0) });
+    await expect(publish()).rejects.toThrow();
+    expect(mocks.open).toHaveBeenCalledOnce();
+    expect(mocks.rename).not.toHaveBeenCalled();
+    expect(mocks.index).not.toHaveBeenCalled();
+  });
   it("renames and indexes a staged file under the verified binding", async () => {
     await publish();
-    expect(mocks.run.mock.calls.some(([arg]) => arg.command.includes("mv -fT"))).toBe(true);
+    expect(mocks.rename).toHaveBeenCalledOnce();
     expect(mocks.index).toHaveBeenCalledOnce();
   });
 });

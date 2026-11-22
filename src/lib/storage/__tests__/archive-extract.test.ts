@@ -195,6 +195,26 @@ describe("extraction", () => {
 		await expect(walkTar(archive, true, async member => { seen.push(member.name); }, { maxExpandedBytes: 1024 })).rejects.toThrow(/expanded byte limit/);
 		expect(seen).toEqual(["one"]);
 		await expect(listArchive(archive, "tar.gz", AbortSignal.abort())).rejects.toThrow();
+		await expect(planExtraction(archive, "tar.gz", AbortSignal.abort())).rejects.toThrow();
+		const plan = await planExtraction(archive, "tar.gz");
+		await expect(extractArchive({ filePath: archive, archiveName: "bounded.tgz", kind: "tar.gz", parentDir: dir, plan, signal: AbortSignal.abort() })).rejects.toThrow();
+		expect(await readdir(dir)).toEqual(["bounded.tgz"]);
+	});
+
+	it("reselects and admits a new name when the first candidate becomes occupied", async () => {
+		const filePath = await write("reports.zip", zipFixture([{ name: "doc.txt", data: "hello" }]));
+		const plan = await planExtraction(filePath, "zip");
+		const admitted: string[] = [];
+		const result = await extractArchive({ filePath, kind: "zip", archiveName: "reports.zip", parentDir: dir, plan,
+			beforePublish: async (name, members) => {
+				admitted.push(name);
+				expect(members).toContainEqual({ relativePath: name + "/doc.txt", size: 5 });
+				if (admitted.length === 1) await mkdir(path.join(dir, name));
+			},
+		});
+		expect(admitted).toEqual(["reports", "reports (2)"]);
+		expect(result.folderName).toBe("reports (2)");
+		expect(await readdir(path.join(dir, "reports"))).toEqual([]);
 	});
 
 	it("refuses traversal before writing anything", async () => {

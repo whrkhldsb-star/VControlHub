@@ -29,6 +29,8 @@ import { Prisma } from "@prisma/client";
 import { prisma } from "@/lib/db";
 import { logError } from "@/lib/logging";
 import { uploadTmpDir } from "@/lib/runtime/work-dirs";
+import { getStorageFileNode } from "@/lib/storage/file-content";
+import { captureUploadTarget, type UploadTarget } from "@/lib/storage/upload-target";
 import { assertStorageAccess } from "@/lib/storage/access-control";
 import { storageAccessDeniedCopy } from "@/lib/storage/access-denied";
 
@@ -185,6 +187,7 @@ export async function initMediaUploadSession(
 	const totalChunks = Math.max(1, Math.ceil(input.totalSize / chunkSize));
 	const expiresAt = ttlExpiry(input.ttlMs ?? DEFAULT_SESSION_TTL_MS);
 
+	let storageTarget: UploadTarget | undefined;
 	if (input.storageNodeId) {
 		if (!input.session) {
 			throw new MediaUploadError(
@@ -209,6 +212,11 @@ export async function initMediaUploadSession(
 		if (access.releaseQuotaGuard) {
 			await access.releaseQuotaGuard().catch(() => undefined);
 		}
+		if (input.relativePath && !input.imageDestination) {
+			const node = await getStorageFileNode(input.storageNodeId, input.session);
+			if (!node) throw new MediaUploadError("storage_access_denied", storageAccessDeniedCopy("no_access"));
+			storageTarget = await captureUploadTarget(node, input.relativePath, true);
+		}
 	}
 
 	const row = await prisma.mediaUploadSession.create({
@@ -216,6 +224,7 @@ export async function initMediaUploadSession(
 			userId: input.userId,
 			teamId: input.session?.currentTeamId ?? null,
 			teamBound: true,
+			...(storageTarget && { recoveryMetadata: { storageTarget } }),
 			filename: input.filename,
 			mimeType: input.mimeType,
 			totalSize: BigInt(input.totalSize),
@@ -328,7 +337,10 @@ export async function appendMediaUploadChunk(params: {
 					status: { in: ["PENDING", "UPLOADING"] },
 					expiresAt: { gt: new Date() },
 				},
-				data: { receivedChunks: nextReceived, status: "UPLOADING", recoveryMetadata: { chunkVersions: { ...refs, [index]: ref } } },
+				data: { receivedChunks: nextReceived, status: "UPLOADING", recoveryMetadata: {
+					...(snapshot.recoveryMetadata && typeof snapshot.recoveryMetadata === "object" && !Array.isArray(snapshot.recoveryMetadata) ? snapshot.recoveryMetadata : {}),
+					chunkVersions: { ...refs, [index]: ref },
+				} },
 			});
 			if (updated.count !== 1) {
 				const current = await tx.mediaUploadSession.findFirst({ where: { id: sessionId, userId, teamId, teamBound: true } });

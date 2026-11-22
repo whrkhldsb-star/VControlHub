@@ -24,18 +24,21 @@ export function indexedAncestors(relativePath: string) {
  * (`onPath`), and the binned entries below it (`below`). Soft delete only changes the index; the bytes stay on
  * disk, so every operation that reads the disk for the user has to ask.
  */
-export async function recycledAround(storageNodeId: string, rawRelativePath: string): Promise<{ onPath: boolean; below: string[] }> {
+export async function recycledAround(storageNodeId: string, rawRelativePath: string, driver?: string): Promise<{ onPath: boolean; below: string[] }> {
   // The index stores normalized paths, while the disk and tar accept "photos/" or "dir//a.zip": compared raw,
   // those spellings matched no bin entry and brought deleted files back through compress, extract and preview.
   const relativePath = normalizeIndexedPath(rawRelativePath);
   const ancestors = indexedAncestors(relativePath);
+  const insensitive = hasCaseInsensitiveLocalPaths(driver);
+  const mode = insensitive ? { mode: "insensitive" as const } : {};
+  const key = (path: string) => insensitive ? path.toLowerCase() : path;
   const deleted = await prisma.fileEntry.findMany({
     where: {
       storageNodeId,
       isDeleted: true,
       OR: [
-        { relativePath: { in: ancestors } },
-        { relativePath: { startsWith: escapeLikeLiteral(`${relativePath}/`) } },
+        { relativePath: { in: ancestors, ...mode } },
+        { relativePath: { startsWith: escapeLikeLiteral(`${relativePath}/`), ...mode } },
       ],
     },
     select: { relativePath: true },
@@ -43,8 +46,8 @@ export async function recycledAround(storageNodeId: string, rawRelativePath: str
   });
   if (deleted.length > 10000) throw new ValidationError(apiCopy("apiCopy.files.op.entries"));
   return {
-    onPath: deleted.some((entry) => ancestors.includes(entry.relativePath)),
-    below: deleted.filter((entry) => entry.relativePath.startsWith(`${relativePath}/`)).map((entry) => entry.relativePath),
+    onPath: deleted.some((entry) => ancestors.some(ancestor => key(ancestor) === key(entry.relativePath))),
+    below: deleted.filter((entry) => key(entry.relativePath).startsWith(key(relativePath) + "/")).map((entry) => entry.relativePath),
   };
 }
 
@@ -58,11 +61,25 @@ export const noRecycledAncestorSql = Prisma.sql`NOT EXISTS (
       )` : Prisma.empty})
 )`;
 
+/** Never create another index row for an existing Windows filename or ambiguous parent. */
+export async function assertCanonicalWritePath(nodeId: string, relativePath: string, driver: string) {
+  if (!hasCaseInsensitiveLocalPaths(driver)) return;
+  const ancestors = indexedAncestors(relativePath);
+  const rows = await prisma.fileEntry.findMany({
+    where: { storageNodeId: nodeId, relativePath: { in: ancestors, mode: "insensitive" } },
+    select: { relativePath: true },
+  });
+  if (rows.some(row => !ancestors.includes(row.relativePath))) {
+    throw new ConflictError(apiCopy("apiCopy.files.op.changed"));
+  }
+}
+
 /** A recycled ancestor hides a read target and reserves a write destination. */
 export async function assertNotRecycled(
   storageNodeId: string, relativePath: string, operation: "read" | "write" = "read", driver?: string,
+  windowsOpenSsh = false,
 ): Promise<void> {
-  const caseInsensitive = hasCaseInsensitiveLocalPaths(driver);
+  const caseInsensitive = windowsOpenSsh || hasCaseInsensitiveLocalPaths(driver);
   const normalized = normalizeIndexedPath(relativePath);
   if (isStorageStagingPath(caseInsensitive ? normalized.toLowerCase() : normalized)) {
     throw new NotFoundError(apiCopy("apiCopy.files.op.missing"));

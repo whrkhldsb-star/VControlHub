@@ -304,7 +304,7 @@ describe("/api/snippets routes", () => {
 			expect(mocks.updateSnippet).toHaveBeenCalledWith(
 				"sn_1",
 				{ title: "new title", isPrivate: true },
-				{ userId: "u_1", canManageAll: false },
+				{ userId: "u_1", currentTeamId: "team_1", platformAdmin: false, canManageAll: false },
 			);
 		});
 
@@ -315,7 +315,7 @@ describe("/api/snippets routes", () => {
 			expect(mocks.updateSnippet).toHaveBeenCalledWith(
 				"sn_1",
 				{ title: "new" },
-				{ userId: "u_1", canManageAll: true },
+				{ userId: "u_1", currentTeamId: "team_1", platformAdmin: true, canManageAll: true },
 			);
 		});
 
@@ -361,7 +361,7 @@ describe("/api/snippets routes", () => {
 			const res = await route.DELETE(req("DELETE", undefined, "https://a.test/api/snippets?id=sn_1"));
 			expect(res.status).toBe(200);
 			await expect(res.json()).resolves.toEqual({ success: true });
-			expect(mocks.deleteSnippet).toHaveBeenCalledWith("sn_1", { userId: "u_1", canManageAll: false });
+			expect(mocks.deleteSnippet).toHaveBeenCalledWith("sn_1", { userId: "u_1", currentTeamId: "team_1", platformAdmin: false, canManageAll: false });
 			expect(mocks.auditUserAction).toHaveBeenCalledWith(
 				"u_1",
 				"snippet.delete",

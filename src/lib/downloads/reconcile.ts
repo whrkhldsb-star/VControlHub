@@ -1,3 +1,4 @@
+import { directEndpointChanged, directLaunchReceipt, lockDirectResultBinding } from "./direct-identity";
 import { relayContentStatus } from "@/lib/downloads/relay-status";
 /**
  * Background reconciliation for RUNNING DownloadTasks.
@@ -21,7 +22,7 @@ import type { Prisma } from "@prisma/client";
 import { prisma } from "@/lib/db";
 import { logError } from "@/lib/logging";
 import { execRemoteCommand, buildSshParamsFromServer } from "@/lib/ssh/client";
-import { directPublishReceiptMatches, safeTaskFileStem, shellQuote } from "@/lib/downloads/remote-command";
+import { safeTaskFileStem, shellQuote } from "@/lib/downloads/remote-command";
 import { ensureAria2Daemon, removeDownload } from "@/lib/aria2/service";
 import { t } from "@/lib/i18n/service-translations";
 import { rm } from "node:fs/promises";
@@ -43,7 +44,8 @@ type ProbeResult =
   | { state: "COMPLETED"; size: string | null; resolvedFileName: string | null }
   | { state: "FAILED" }
   | { state: "RUNNING"; completedBytes: string | null; totalBytes: string | null }
-  | { state: "UNKNOWN" };
+  | { state: "UNKNOWN" }
+  | { state: "UNVERIFIED" };
 
 type SshParams = Awaited<ReturnType<typeof buildSshParamsFromServer>>;
 
@@ -60,6 +62,7 @@ export async function probeDirectDownloadRemote(input: {
   fileName: string | null;
   targetPath: string;
   sshParams: SshParams;
+  requiresReceipt?: boolean;
 }): Promise<ProbeResult> {
   const stem = safeTaskFileStem(input.taskId);
   const pidFile = `/tmp/app-dl-${stem}.pid`;
@@ -70,8 +73,12 @@ export async function probeDirectDownloadRemote(input: {
   const probeCommand = [
     `id=${shellQuote(stem)}`,
     'pat="\\\\.vch-$id\\\\.part"',
-    `if ${directPublishReceiptMatches(exitFile, output)} && size=$(stat -c %s -- ${output}); then`,
-    `  printf '%s\\n' COMPLETED "$size" ${output}`,
+    `if [ -e ${shellQuote(exitFile + ".publish")} ] || [ -L ${shellQuote(exitFile + ".publish")} ]; then`,
+    // Measure the same open regular file whose device/inode matches the durable publication receipt.
+    `  if [ ! -L ${output} ] && [ -f ${output} ] && exec 3<${output} && [ ${output} -ef /proc/self/fd/3 ] &&`,
+    `    [ "$(stat -Lc '%d:%i' /proc/self/fd/3)" = "$(cat -- ${shellQuote(exitFile + ".publish")})" ] && size=$(stat -Lc %s /proc/self/fd/3); then`,
+    `    printf '%s\\n' COMPLETED "$size" ${output}; else echo UNVERIFIED; fi`,
+    ...(input.requiresReceipt ? [`elif [ "$(cat -- ${shellQuote(exitFile)} 2>/dev/null)" = 0 ]; then echo UNVERIFIED`] : []),
     `elif [ -f ${shellQuote(exitFile)} ]; then`,
     "  status=$(cat " + shellQuote(exitFile) + " 2>/dev/null || echo 1)",
     `  if [ "$status" = 0 ] && [ -f ${output} ] && [ ! -L ${output} ] && size=$(stat -c %s -- ${output}); then`,
@@ -103,6 +110,7 @@ export async function probeDirectDownloadRemote(input: {
       deriveDownloadFileNameFromUrl(input.url);
     return { state: "COMPLETED", size, resolvedFileName };
   }
+  if (remoteState === "UNVERIFIED") return { state: "UNVERIFIED" };
   if (remoteState === "FAILED") return { state: "FAILED" };
   if (remoteState === "RUNNING") return {
     state: "RUNNING", completedBytes: /^\d+$/.test(sizeLine ?? "") ? sizeLine! : null,
@@ -156,7 +164,7 @@ export function directProgress(probe: Extract<ProbeResult, { state: "RUNNING" }>
 }
 
 export async function reconcileDirectTask(
-  task: { id: string; url: string; fileName: string | null; targetPath: string; pid: number | null; updatedAt: Date; completedBytes: string | null; server: ReconcileServer },
+  task: { id: string; url: string; fileName: string | null; targetPath: string; pid: number | null; updatedAt: Date; completedBytes: string | null; transferManifest?: unknown; server: ReconcileServer },
   retryChangedSnapshot = true,
 ): Promise<"completed" | "failed" | "running" | "skipped"> {
   async function failSnapshot(reason: string): Promise<"completed" | "failed" | "running" | "skipped"> {
@@ -169,7 +177,8 @@ export async function reconcileDirectTask(
     if (!fresh || (fresh.directStorageNodeId && fresh.server.storageNode?.id !== fresh.directStorageNodeId)) return "skipped";
     return reconcileDirectTask(fresh, false);
   }
-  const sshParams = await buildSshParamsFromServer(task.server, task.server.sshKey);
+  if (directEndpointChanged(task)) return "skipped";
+  const sshParams = await buildSshParamsFromServer(task.server, task.server.sshKey, task.server.teamId);
   let probe: ProbeResult;
   try {
     probe = await probeDirectDownloadRemote({
@@ -178,6 +187,7 @@ export async function reconcileDirectTask(
       url: task.url,
       fileName: task.fileName,
       targetPath: task.targetPath,
+      requiresReceipt: Boolean(directLaunchReceipt(task.transferManifest)),
       sshParams,
     });
   } catch (err) {
@@ -200,6 +210,11 @@ export async function reconcileDirectTask(
   if (probe.state === "FAILED") {
     return failSnapshot(t("backend.downloads.reconcile.remoteProcessFailed"));
   }
+  if (probe.state === "UNVERIFIED") {
+    await prisma.downloadTask.updateMany({ where: { id: task.id, status: "RUNNING", updatedAt: task.updatedAt },
+      data: { progress: t("backend.operationTask.worker.unknown") } });
+    return "skipped";
+  }
   if (probe.state === "UNKNOWN") {
     if (Date.now() - task.updatedAt.getTime() > UNREACHABLE_FAIL_MS) {
       return failSnapshot(t("backend.downloads.reconcile.indeterminate"));
@@ -209,6 +224,7 @@ export async function reconcileDirectTask(
   // COMPLETED: finish the task the way a user refresh would have.
   const size = probe.size;
   return prisma.$transaction(async (tx) => {
+  if (!await lockDirectResultBinding(tx, task.server, task.transferManifest)) return "skipped";
   const claimed = await tx.downloadTask.updateMany({
     where: { id: task.id, status: "RUNNING" },
     data: {
@@ -268,7 +284,7 @@ async function reconcileRelayTask(
     // reporting a completion that never landed on the target.
     return (await failRelayTask(task, t("backend.downloads.reconcile.relayInterrupted"))) ? "failed" : "skipped";
   }
-  // Still actively downloading in aria2 — leave it; killing wastes real progress.
+  // The terminal sweep checks the persisted launch deadline independently of polling activity.
   return "running";
 }
 
@@ -360,6 +376,7 @@ export async function reconcileStaleRunningDownloadTasks(input?: {
         continue;
       }
       if (task.directStorageNodeId && task.server.storageNode?.id !== task.directStorageNodeId) {
+        if (directLaunchReceipt(task.transferManifest)) continue;
         if (await failStaleTask(task, t("backend.downloads.taskStorageMissing"))) { failed++; ids.push(task.id); }
         continue;
       }
@@ -370,7 +387,7 @@ export async function reconcileStaleRunningDownloadTasks(input?: {
         outcome = await reconcileDirectTask({
           id: task.id, url: task.url, fileName: task.fileName,
           targetPath: task.targetPath, pid: task.pid, updatedAt: task.updatedAt, completedBytes: task.completedBytes,
-          server: task.server,
+          server: task.server, transferManifest: task.transferManifest,
         });
       } else {
         // A relay without a durable gid cannot be assumed never to have started.

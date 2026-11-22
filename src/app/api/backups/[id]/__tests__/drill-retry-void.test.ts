@@ -30,7 +30,7 @@ const mocks = vi.hoisted(() => ({
 }));
 vi.mock("@/lib/backup/service", () => ({ getBackupRecord: mocks.getBackupRecord, prepareBackupRecordRetry: mocks.prepareBackupRecordRetry, voidBackupRecord: mocks.voidBackupRecord }));
 vi.mock("@/lib/job/service", () => ({ enqueueJob: mocks.enqueueJob }));
-vi.mock("@/lib/db", () => ({ prisma: { job: { findFirst: mocks.jobFindFirst }, $transaction(work: (tx: unknown) => unknown) { return work(this); } } }));
+vi.mock("@/lib/db", () => ({ prisma: { $executeRaw: vi.fn(), job: { findFirst: mocks.jobFindFirst }, $transaction(work: (tx: unknown) => unknown) { return work(this); } } }));
 vi.mock("@/lib/audit/service", () => ({ auditUserAction: mocks.auditUserAction }));
 
 const drill = await import("../drill/route");
@@ -62,7 +62,7 @@ describe("backup drill, retry and void routes", () => {
 	it("queues a non-destructive drill once per backup", async () => {
 		const first = await drill.POST(post("drill"), { params });
 		expect(first.status).toBe(202);
-		expect(mocks.enqueueJob).toHaveBeenCalledWith(expect.objectContaining({ type: "backup.drill", payload: expect.objectContaining({ backupId: "bk_1" }), maxAttempts: 1 }));
+		expect(mocks.enqueueJob).toHaveBeenCalledWith(expect.objectContaining({ type: "backup.drill", payload: expect.objectContaining({ backupId: "bk_1" }), maxAttempts: 1 }), expect.anything());
 		expect(mocks.auditUserAction).toHaveBeenCalledWith("u_admin", "backup.drill", expect.objectContaining({ destructive: false }), undefined, null);
 
 		mocks.jobFindFirst.mockResolvedValue({ id: "job_running" });

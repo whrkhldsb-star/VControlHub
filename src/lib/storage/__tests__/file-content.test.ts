@@ -21,6 +21,7 @@ vi.mock("@/lib/server/agent-service", () => ({ executeCommandWithAgent: agentCom
 // No symlinks on the mocked host: physical path == lexical path.
 vi.mock("@/lib/ssh/client", async (importOriginal) => ({
 	...(await importOriginal<typeof import("@/lib/ssh/client")>()),
+	writeRemoteFile: vi.fn(),
 	resolveRemoteRealPath: vi.fn(async ({ remotePath }: { remotePath: string }) => remotePath),
 }));
 vi.mock("ssh2", async () => {
@@ -45,7 +46,7 @@ vi.mock("ssh2", async () => {
 	} };
 });
 
-import { closeSshPool } from "@/lib/ssh/client";
+import { closeSshPool, writeRemoteFile } from "@/lib/ssh/client";
 import { createManagedFolder, statBackingObject } from "../fs-backend";
 import {
 	buildStorageFileDownloadUrl,
@@ -119,7 +120,10 @@ describe("storage file content helpers", () => {
 
 		expect(connectMock).toHaveBeenCalledWith(expect.objectContaining({ host: "127.0.0.1", username: "root", password: "secret", hostVerifier: expect.any(Function) }));
 		expect(sftpReadFileMock).toHaveBeenCalledWith("/srv/media/gallery/source.png", expect.any(Function));
-		expect(sftpWriteFileMock).toHaveBeenCalledWith("/srv/media/gallery/upload.png", Buffer.from("upload"), expect.any(Function));
+		expect(writeRemoteFile).toHaveBeenCalledWith(expect.objectContaining({
+			remotePath: "/srv/media/gallery/upload.png", root: { path: "/srv/media", windows: false }, content: Buffer.from("upload"),
+		}));
+		expect(sftpWriteFileMock).not.toHaveBeenCalled();
 	});
 
 	it("treats only an SFTP missing-file status as an empty path", async () => {
@@ -162,13 +166,13 @@ describe("storage file content helpers", () => {
 	});
 
 	it("rejects generic SFTP Failure errors unless a follow-up stat confirms the directory", async () => {
-		sftpMkdirMock.mockImplementationOnce((_remotePath: string, callback: (error?: Error | null) => void) => callback(new Error("Failure")));
+		sftpMkdirMock.mockImplementationOnce((_remotePath: string, callback: (error?: Error | null) => void) => callback(Object.assign(new Error("Failure"), { code: 4 })));
 		sftpStatMock.mockImplementation((remotePath: string, callback: (error?: Error | null, stats?: { isDirectory(): boolean }) => void) => {
 			if (remotePath === "/srv") return callback(null, { isDirectory: () => true });
 			callback(new Error("still missing"));
 		});
 
-		await expect(writeStorageFileBuffer(sftpNode(), "gallery/upload.png", Buffer.from("upload"))).rejects.toThrow("Failure");
+		await expect(createManagedFolder({storageNode: sftpNode(), relativePath: "gallery", allowExisting: true})).rejects.toThrow("Failure");
 		expect(sftpWriteFileMock).not.toHaveBeenCalled();
 	});
 

@@ -13,6 +13,7 @@ import { NextResponse } from "next/server";
 import { z } from "zod";
 
 import { teamWhere } from "@/lib/auth/team-scope";
+import { acquireAdvisoryLock } from "@/lib/concurrency/advisory-lock";
 import { prisma } from "@/lib/db";
 import { withApiRoute } from "@/lib/http/api-guard";
 import { IMAGE_UPLOAD_LIMIT } from "@/lib/http/rate-limit-presets";
@@ -143,78 +144,81 @@ export async function POST(request: Request) {
       const storageKey = `${crypto.randomUUID()}${detectedExt}`;
       const checksum = crypto.createHash("sha256").update(buffer).digest("hex");
 
-      // Check for duplicate within the caller's tenant only (never leak other teams' rows), and only among images
-      // the caller may see: their own, or public ones — another member's private image is not theirs to reuse.
-      const existing = await prisma.imageUpload.findFirst({
-        where: {
-          checksum,
-          ...(session.currentTeamId
-            ? { teamId: session.currentTeamId, OR: [{ userId: session.userId }, { isPublic: true }] }
-            : { userId: session.userId }),
-        },
-      });
-      if (existing) {
-        return NextResponse.json({
-          image: existing,
-          publicUrl: `/api/images/${existing.id}/file`,
-          message: apiCopy("apiCopy.file.already.exists.checksum.matched.skipping.upload.e8e53f41"),
-        });
-      }
-
-      // Save to image-bed directory before creating the index row. If the DB
-      // write fails, compensate by deleting the just-written served file so the
-      // API cannot return upload failure while leaving an orphan public object.
-      await mkdir(UPLOAD_DIR, { recursive: true });
-      const imagePath = path.join(UPLOAD_DIR, storageKey);
-      await writeFile(imagePath, buffer);
-      // The thumbnail the grid asks for with ?thumb=1, as the upload routes write it. Without one, every tile of a
-      // published image loaded its original (up to 20 MB). Best-effort: the image is published either way.
-      const thumbPath = path.join(UPLOAD_DIR, `${path.basename(storageKey, detectedExt)}_thumb.webp`);
-      let thumbWritten = false;
+      const release = await acquireAdvisoryLock("image-publish", JSON.stringify([session.currentTeamId, session.userId, checksum]));
       try {
-        await writeFile(thumbPath, await generateThumbnail(buffer));
-        thumbWritten = true;
-      } catch (thumbError) {
-        logError("image-bed:publish-from-storage-thumbnail", thumbError);
-        await rm(thumbPath, { force: true }).catch(() => undefined);
-      }
-
-      // Create DB record
-      let image;
-      try {
-        image = await prisma.imageUpload.create({
-          data: {
-            filename: originalName,
-            storageKey,
-            mimeType: detectedMime,
-            sizeBytes: buffer.byteLength,
-            width: metadata.width,
-            height: metadata.height,
+        // Check for duplicate within the caller's tenant only (never leak other teams' rows), and only among images
+        // the caller may see: their own, or public ones — another member's private image is not theirs to reuse.
+        const existing = await prisma.imageUpload.findFirst({
+          where: {
             checksum,
-            album: album?.trim() || undefined,
-            isPublic: false,
-            storageNodeId,
-            relativePath,
-            userId: session.userId,
-            teamId: session.currentTeamId ?? null,
+            ...(session.currentTeamId
+              ? { teamId: session.currentTeamId, OR: [{ userId: session.userId }, { isPublic: true }] }
+              : { userId: session.userId }),
           },
         });
-      } catch (error) {
-        await Promise.all([imagePath, ...(thumbWritten ? [thumbPath] : [])].map((written) =>
-          rm(written, { force: true }).catch((cleanupError) => {
-            logError("image-bed:publish-from-storage-cleanup", cleanupError);
-          }),
-        ));
-        throw error;
-      }
+        if (existing) {
+          return NextResponse.json({
+            image: existing,
+            publicUrl: `/api/images/${existing.id}/file`,
+            message: apiCopy("apiCopy.file.already.exists.checksum.matched.skipping.upload.e8e53f41"),
+          });
+        }
 
-      return NextResponse.json(
-        {
-          image,
-          publicUrl: `/api/images/${image.id}/file`,
-        },
-        { status: 201 },
-      );
+        // Save to image-bed directory before creating the index row. If the DB
+        // write fails, compensate by deleting the just-written served file so the
+        // API cannot return upload failure while leaving an orphan public object.
+        await mkdir(UPLOAD_DIR, { recursive: true });
+        const imagePath = path.join(UPLOAD_DIR, storageKey);
+        await writeFile(imagePath, buffer);
+        // The thumbnail the grid asks for with ?thumb=1, as the upload routes write it. Without one, every tile of a
+        // published image loaded its original (up to 20 MB). Best-effort: the image is published either way.
+        const thumbPath = path.join(UPLOAD_DIR, `${path.basename(storageKey, detectedExt)}_thumb.webp`);
+        let thumbWritten = false;
+        try {
+          await writeFile(thumbPath, await generateThumbnail(buffer));
+          thumbWritten = true;
+        } catch (thumbError) {
+          logError("image-bed:publish-from-storage-thumbnail", thumbError);
+          await rm(thumbPath, { force: true }).catch(() => undefined);
+        }
+
+        // Create DB record
+        let image;
+        try {
+          image = await prisma.imageUpload.create({
+            data: {
+              filename: originalName,
+              storageKey,
+              mimeType: detectedMime,
+              sizeBytes: buffer.byteLength,
+              width: metadata.width,
+              height: metadata.height,
+              checksum,
+              album: album?.trim() || undefined,
+              isPublic: false,
+              storageNodeId,
+              relativePath,
+              userId: session.userId,
+              teamId: session.currentTeamId ?? null,
+            },
+          });
+        } catch (error) {
+          await Promise.all([imagePath, ...(thumbWritten ? [thumbPath] : [])].map((written) =>
+            rm(written, { force: true }).catch((cleanupError) => {
+              logError("image-bed:publish-from-storage-cleanup", cleanupError);
+            }),
+          ));
+          throw error;
+        }
+
+        return NextResponse.json(
+          {
+            image,
+            publicUrl: `/api/images/${image.id}/file`,
+          },
+          { status: 201 },
+        );
+      } finally { await release(); }
     },
   );
 }

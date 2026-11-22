@@ -17,11 +17,11 @@ vi.mock("@/lib/db", async original => {
   } }) };
 });
 vi.mock("@/lib/notification/service", () => ({
-  notifyCommandResult: vi.fn(async () => {}), notifyCommandRequest: vi.fn(async () => {}),
+  notifyCommandPending: vi.fn(async () => {}), notifyCommandResult: vi.fn(async () => {}), notifyCommandRequest: vi.fn(async () => {}),
 }));
 import { prisma } from "@/lib/db";
 import { enqueueApprovedCommandExecution, markCommandExecutionFailed } from "../service-execution";
-import { cancelCommandRequest } from "../service-requests";
+import { cancelCommandRequest, listCommandRequestPage, reviewCommandRequest } from "../service-requests";
 import { retryScheduledTask, updateScheduledTask } from "@/lib/scheduled-task/service";
 import { createTemplate, updateTemplate } from "@/lib/command-template/service";
 
@@ -95,6 +95,46 @@ describe.skipIf(process.env.RUN_DATABASE_INTEGRATION_TESTS !== "1")("command and
     await retryScheduledTask(task.id, session);
     expect(await count()).toBe(1);
     expect(await prisma.scheduledTaskRun.count({ where: { scheduledTaskId: task.id, manual: true } })).toBe(1);
+  });
+
+  it("enforces both identities of a manual run and preserves the administrator exception", async () => {
+    const initiator = id + "-initiator";
+    await prisma.user.create({ data: { id: initiator, username: initiator, passwordHash: "unused" } });
+    try {
+      const task = await prisma.scheduledTask.create({ data: { name: id, command: "pwd", cronExpression: "0 2 * * *",
+        serverIds: [id], teamId: id, createdById: id, approvalRequired: true, status: "PAUSED" } });
+      const member = { currentTeamId: id, roles: ["operator" as const], userId: initiator };
+      await retryScheduledTask(task.id, member);
+      const run = await prisma.scheduledTaskRun.findFirstOrThrow({ where: { scheduledTaskId: task.id } });
+      const review = (userId: string) => reviewCommandRequest({ commandRequestId: run.commandRequestId, approverId: userId, approved: true },
+        { ...member, userId });
+      await expect(review(id)).rejects.toMatchObject({ name: "BusinessError" });
+      await expect(review(initiator)).rejects.toMatchObject({ name: "BusinessError" });
+      expect(await prisma.commandApproval.count({ where: { commandRequestId: run.commandRequestId } })).toBe(0);
+      await reviewCommandRequest({ commandRequestId: run.commandRequestId, approved: true, approverId: id }, session);
+      expect(await prisma.executionLog.count({ where: { commandRequestId: run.commandRequestId, id: { startsWith: "approval-" } } })).toBe(1);
+      expect(await prisma.job.findFirstOrThrow({ where: { payload: { path: ["commandRequestId"], equals: run.commandRequestId } } }))
+        .toMatchObject({ payload: { planAuthorId: id, runInitiatorId: initiator } });
+    } finally { await prisma.user.delete({ where: { id: initiator } }); }
+  });
+
+  it("paginates tied pending requests and includes every target without transferring stored output", async () => {
+    const prefix = id + "-queue-";
+    const ids = Array.from({ length: 503 }, (_, i) => prefix + String(i).padStart(3, "0"));
+    await prisma.commandRequest.createMany({ data: ids.map(key => ({
+      id: key, teamId: id, title: key, command: "pwd", requesterId: id, initiatedByType: "USER", createdAt: new Date("2035-01-01"),
+    })) });
+    await prisma.commandTarget.createMany({ data: Array.from({ length: 51 }, () => ({
+      commandRequestId: ids.at(-1)!, serverId: id, stdout: "private output", stderr: "private error",
+    })) });
+    const first = await listCommandRequestPage(session);
+    expect(first.pendingCount).toBeGreaterThanOrEqual(503);
+    expect(first.nextCursor).toBe(new Date("2035-01-01").getTime() + "." + ids[3]);
+    expect(first.requests[0]?.targets).toHaveLength(51);
+    expect(JSON.stringify(first.requests[0])).not.toContain("private output");
+    await prisma.commandRequest.delete({ where: { id: ids[3] } });
+    const next = await listCommandRequestPage(session, first.nextCursor!);
+    expect(next.requests.filter(row => row.id.startsWith(prefix)).map(row => row.id)).toEqual(ids.slice(0, 3).reverse());
   });
 
   it("accepts an equivalent cron-only edit and preserves the claimed occurrence and its version", async () => {

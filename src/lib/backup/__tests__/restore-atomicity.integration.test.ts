@@ -1,6 +1,7 @@
+import { createHash } from "node:crypto";
 import { spawn, spawnSync } from "node:child_process";
-import { mkdirSync, mkdtempSync, readFileSync, rmSync, symlinkSync, writeFileSync } from "node:fs";
-import { tmpdir } from "node:os";
+import { chownSync, statSync, mkdirSync, mkdtempSync, readFileSync, rmSync, symlinkSync, writeFileSync } from "node:fs";
+import { hostname, tmpdir } from "node:os";
 import { join, resolve } from "node:path";
 import { gzipSync } from "node:zlib";
 import { Client } from "pg";
@@ -109,20 +110,117 @@ describe.skipIf(!enabled)("restore.mjs atomicity against PostgreSQL", () => {
 
   it("does not replace application files when a FULL restore's database step fails", () => {
     const appDir = join(work, "app-full");
-    mkdirSync(join(appDir, "data"), { recursive: true });
-    writeFileSync(join(appDir, "data", "state.txt"), "live");
+    mkdirSync(join(appDir, "storage"), { recursive: true });
+    writeFileSync(join(appDir, "storage", "state.txt"), "live");
     const staged = join(work, "full-src");
-    mkdirSync(join(staged, "data"), { recursive: true });
-    writeFileSync(join(staged, "data", "state.txt"), "from-backup");
+    mkdirSync(join(staged, "storage"), { recursive: true });
+    writeFileSync(join(staged, "storage", "state.txt"), "from-backup");
     writeFileSync(join(staged, "database.sql.gz"), readFileSync(failingDump));
     const archive = join(work, "full.tar.gz");
-    const tar = spawnSync("tar", ["-czf", archive, "-C", staged, "data", "database.sql.gz"]);
+    const tar = spawnSync("tar", ["-czf", archive, "-C", staged, "storage", "database.sql.gz"]);
     expect(tar.status).toBe(0);
 
     const result = runRestore(["full", archive, "all", appDir], appDir);
     expect(result.status).not.toBe(0);
-    expect(readFileSync(join(appDir, "data", "state.txt"), "utf8")).toBe("live");
+    expect(result.stderr).toContain("division by zero");
+    expect(readFileSync(join(appDir, "storage", "state.txt"), "utf8")).toBe("live");
     expect(psql(url, "SELECT v FROM probe WHERE id = 1")).toBe("live-data");
+  });
+
+  it.each(["files", "full"])("restores nested database filenames and preserves the target key during %s file recovery", (kind) => {
+    const source = join(work, "source-" + kind);
+    const target = join(work, "target-" + kind);
+    const archive = join(work, kind + "-members.tar.gz");
+    mkdirSync(join(source, "storage", "customer"), { recursive: true });
+    mkdirSync(target);
+    writeFileSync(join(target, "target-restore.env"), "DATABASE_URL=" + url + "\n");
+    writeFileSync(join(source, "storage", "customer", "database.sql.gz"), "customer data");
+    writeFileSync(join(source, ".env.local"), "ENCRYPTION_KEY=archive-key\n");
+    writeFileSync(join(target, ".env.local"), "ENCRYPTION_KEY=live-key\n");
+    const members = ["storage", ".env.local"];
+    if (kind === "full") {
+      writeFileSync(join(source, "database.sql.gz"), readFileSync(failingDump));
+      members.push("database.sql.gz");
+    }
+    expect(spawnSync("tar", ["-czf", archive, "-C", source, ...members]).status).toBe(0);
+    const args = [kind, archive, ...(kind === "full" ? ["files"] : []), target];
+    const restore = (fingerprint?: string) => spawnSync(process.execPath, [RESTORE_SCRIPT, ...args], {
+      encoding: "utf8", env: { ...restoreEnv(work, "target-restore.env"), RESTORE_DATABASE_KEY_SHA256: fingerprint },
+    });
+    const result = restore();
+    expect(result.status, result.stderr).toBe(0);
+    expect(readFileSync(join(target, "storage", "customer", "database.sql.gz"), "utf8")).toBe("customer data");
+    expect(readFileSync(join(target, ".env.local"), "utf8")).toContain("live-key");
+    expect(restore("0".repeat(64)).status).not.toBe(0);
+    expect(readFileSync(join(target, ".env.local"), "utf8")).toContain("live-key");
+    expect(restore(createHash("sha256").update("archive-key").digest("hex")).status).toBe(0);
+    expect(readFileSync(join(target, ".env.local"), "utf8")).toContain("archive-key");
+  });
+
+  it.skipIf(process.getuid?.() !== 0)("changes ownership only for restored paths", () => {
+    const source = join(work, "owner-source");
+    const target = join(work, "owner-target");
+    const archive = join(work, "owner-files.tar.gz");
+    for (const dir of [source, target]) mkdirSync(join(dir, "uploads"), { recursive: true });
+    writeFileSync(join(target, "uploads", "existing"), "preserve");
+    writeFileSync(join(source, "uploads", "restored"), "restore");
+    chownSync(target, 65534, 65534);
+    expect(spawnSync("tar", ["-czf", archive, "-C", source, "uploads"]).status).toBe(0);
+    const result = runRestore(["files", archive, target], work);
+    expect(result.status, result.stderr).toBe(0);
+    expect(statSync(join(target, "uploads", "restored")).uid).toBe(65534);
+    expect(statSync(join(target, "uploads", "existing")).uid).toBe(0);
+  });
+
+  it("locks the explicit destination even when invoked from a different installation", () => {
+    const target = join(work, "locked-target");
+    mkdirSync(join(target, ".restore.lock"), { recursive: true });
+    writeFileSync(join(target, ".restore.lock", "owner"), "pid=" + process.pid + "\nhost=" + hostname() + "\n");
+    expect(runRestore(["files", failingDump, target], work).stderr).toMatch(/lock/i);
+    expect(readFileSync(join(target, ".restore.lock", "owner"), "utf8")).toContain("pid=" + process.pid);
+  });
+
+  it("restores history from a whole data root to the target installation's configured history directory", () => {
+    const source = join(work, "version-source");
+    const target = join(work, "version-target");
+    const archive = join(work, "versions.tar.gz");
+    mkdirSync(join(source, "uploads"), { recursive: true });
+    mkdirSync(target);
+    writeFileSync(join(source, "uploads", "body"), "historical content");
+    writeFileSync(join(source, "file-versions.json"), JSON.stringify({ version: 1, member: "uploads", source: join(source, "uploads") }));
+    writeFileSync(join(target, "history.env"), "DATABASE_URL=" + url + "\nFILE_VERSION_DIR=local-history\n");
+    expect(spawnSync("tar", ["-czf", archive, "-C", source, "uploads", "file-versions.json"]).status).toBe(0);
+    const result = spawnSync(process.execPath, [RESTORE_SCRIPT, "files", archive, target], { encoding: "utf8", env: restoreEnv(work, "history.env") });
+    expect(result.status, result.stderr).toBe(0);
+    expect(readFileSync(join(target, "local-history", "body"), "utf8")).toBe("historical content");
+  });
+
+  it("backs up and restores a quoted non-public application schema without resetting public", () => {
+    const scratch = database + "_custom";
+    psql(adminUrl("postgres"), "CREATE DATABASE " + scratch);
+    try {
+      const conn = adminUrl(scratch);
+      const install = join(work, "custom-install");
+      mkdirSync(install);
+      const schema = "Application Data";
+      const withSchema = new URL(conn);
+      withSchema.searchParams.set("schema", schema);
+      const envFile = join(install, ".env.local");
+      writeFileSync(envFile, "DATABASE_URL=" + withSchema.toString() + "\n");
+      const env = { ...restoreEnv(install, envFile), DATABASE_URL: withSchema.toString() };
+      psql(conn, 'CREATE SCHEMA "Application Data"; SET search_path = "Application Data"; CREATE TABLE "User"(id int); INSERT INTO "User" VALUES (1); CREATE TABLE "Role"(id int); INSERT INTO "Role" VALUES (1); CREATE TABLE "StorageNode"(id int); CREATE TABLE servers(id int); CREATE TABLE public.outside_app(id int)');
+      const archive = join(work, "custom.sql.gz");
+      const backup = spawnSync(process.execPath, [join(REPO_ROOT, "scripts/backup.mjs"), archive], { encoding: "utf8", env });
+      expect(backup.status, backup.stderr).toBe(0);
+      psql(conn, 'DELETE FROM "Application Data"."User"; CREATE TABLE "Application Data".extra(id int); INSERT INTO public.outside_app VALUES (7)');
+      const restored = spawnSync(process.execPath, [RESTORE_SCRIPT, "database", archive], { encoding: "utf8", env });
+      expect(restored.status, restored.stderr).toBe(0);
+      expect(psql(conn, 'SELECT id FROM "Application Data"."User"')).toBe("1");
+      expect(psql(conn, "SELECT id FROM public.outside_app")).toBe("7");
+      expect(psql(conn, "SELECT count(*) FROM pg_tables WHERE schemaname = 'Application Data' AND tablename = 'extra'")).toBe("0");
+    } finally {
+      psql(adminUrl("postgres"), "DROP DATABASE " + scratch + " WITH (FORCE)");
+    }
   });
 
   it("restores the application's real migrated schema inside one transaction", () => {

@@ -1,6 +1,7 @@
 import { beforeEach, describe, expect, it, vi } from "vitest";
 import type { StorageAccessDecision } from "@/lib/storage/access-control";
 import { relayTempDir } from "@/lib/runtime/platform-paths";
+import { directEndpointIdentity } from "@/lib/downloads/direct-identity";
 
 const {
   lookupMock,
@@ -35,8 +36,9 @@ const {
   lookupMock: vi.fn(),
   requireSessionMock: vi.fn(),
   sessionHasPermissionMock: vi.fn((_session?: unknown, _permission?: string) => true),
-  assertStorageAccessMock: vi.fn<() => Promise<StorageAccessDecision>>(() => Promise.resolve({ allowed: true })),
+  assertStorageAccessMock: vi.fn<(input: { relativePath?: string | null }) => Promise<StorageAccessDecision>>(() => Promise.resolve({ allowed: true })),
   prismaMock: {
+    userStorageAccess: { findMany: vi.fn() },
     $transaction: vi.fn(),
     server: { findUnique: vi.fn() },
     downloadTask: {
@@ -52,6 +54,7 @@ const {
     },
     job: { findFirst: vi.fn(), fields: { maxAttempts: "maxAttempts" } },
     fileEntry: {
+      aggregate: vi.fn(),
       findFirst: vi.fn(),
       createMany: vi.fn(),
       updateMany: vi.fn(),
@@ -94,7 +97,6 @@ vi.mock("@/lib/http/rate-limit-presets", async (importOriginal) => ({
   ...await importOriginal<typeof import("@/lib/http/rate-limit-presets")>(),
   withRateLimit: vi.fn(async () => ({ allowed: true, retryAfterMs: 0 })),
 }));
-const { getStorageWriteCapacityMock } = vi.hoisted(() => ({ getStorageWriteCapacityMock: vi.fn() }));
 vi.mock("@/lib/storage/access-control", async (importOriginal) => {
   const actual = await importOriginal<typeof import("@/lib/storage/access-control")>();
   return {
@@ -102,7 +104,6 @@ vi.mock("@/lib/storage/access-control", async (importOriginal) => {
     largestAllowedWrite: actual.largestAllowedWrite,
     assertStorageAccess: assertStorageAccessMock,
     releaseStorageQuotaGuard: vi.fn(async () => undefined),
-    getStorageWriteCapacity: getStorageWriteCapacityMock,
   };
 });
 vi.mock("@/lib/db", () => ({ prisma: prismaMock }));
@@ -329,7 +330,8 @@ function serverFixture() {
 
 describe("/api/downloads", () => {
   beforeEach(() => {
-    getStorageWriteCapacityMock.mockResolvedValue({ maxFileBytes: null, remainingBytes: null });
+    prismaMock.userStorageAccess.findMany.mockResolvedValue([]);
+    prismaMock.fileEntry.aggregate.mockResolvedValue({ _sum: { size: BigInt(0) } });
     session.roles = ["admin"];
     // vi.clearAllMocks() only resets call history, not implementations —
     // but to keep behaviour tight we explicitly reset the two mocks that
@@ -491,7 +493,10 @@ describe("/api/downloads", () => {
   });
 
   it("admits a known replacement at full quota while retaining the independent file limit", async () => {
-    getStorageWriteCapacityMock.mockResolvedValue({ maxFileBytes: BigInt(16), remainingBytes: BigInt(0) });
+    session.roles = ["operator"];
+    sessionHasPermissionMock.mockImplementation((_s, permission) => permission === "storage:write");
+    prismaMock.userStorageAccess.findMany.mockResolvedValue([{ pathPrefix: "", canWrite: true, quotaBytes: BigInt(50), maxFileBytes: BigInt(16) }]);
+    prismaMock.fileEntry.aggregate.mockResolvedValue({ _sum: { size: BigInt(50) } });
     prismaMock.fileEntry.findFirst.mockResolvedValueOnce({ size: BigInt(20) });
     const { downloadWriteCapacity } = await import("@/lib/downloads/write-capacity");
     const { largestAllowedWrite } = await import("@/lib/storage/access-control");
@@ -505,7 +510,10 @@ describe("/api/downloads", () => {
   });
 
   it("refuses a remote download into a folder whose quota is used up, before creating a task", async () => {
-    getStorageWriteCapacityMock.mockResolvedValueOnce({ maxFileBytes: BigInt(1_000), remainingBytes: BigInt(0) });
+    session.roles = ["operator"];
+    sessionHasPermissionMock.mockImplementation((_s, permission) => permission === "storage:write");
+    prismaMock.userStorageAccess.findMany.mockResolvedValue([{ pathPrefix: "downloads", canWrite: true, quotaBytes: BigInt(50), maxFileBytes: BigInt(1000) }]);
+    prismaMock.fileEntry.aggregate.mockResolvedValue({ _sum: { size: BigInt(50) } });
 
     const response = await POST(request({
       url: "https://example.com/releases/app.iso",
@@ -516,7 +524,7 @@ describe("/api/downloads", () => {
 
     expect(response.status).toBe(403);
     expect(prismaMock.downloadTask.create).not.toHaveBeenCalled();
-    expect(getStorageWriteCapacityMock).toHaveBeenCalledWith(expect.objectContaining({ relativePath: "downloads/app.iso" }));
+    expect(prismaMock.fileEntry.aggregate).toHaveBeenCalledWith(expect.objectContaining({ where: expect.objectContaining({ storageNodeId: "store_1", OR: expect.arrayContaining([{ relativePath: "downloads" }]) }) }));
   });
 
   it("records the pid and leaves the file index untouched until the direct download completes", async () => {
@@ -707,6 +715,21 @@ describe("/api/downloads", () => {
     }));
   });
 
+  it("scans beyond hidden tasks and returns a cursor from the visible page", async () => {
+    session.roles = ["viewer"];
+    const server = serverFixture();
+    const row = (id: string, targetPath: string) => ({ id, createdBy: "u_1", status: "FAILED", url: "https://example.test/file", server, targetPath });
+    const visible = Array.from({ length: 99 }, (_, i) => row("readable-" + i, "/srv/cloud/public"));
+    prismaMock.downloadTask.findMany.mockResolvedValueOnce([...visible, row("private-1", "/srv/cloud/private"), row("private-2", "/srv/cloud/private")])
+      .mockResolvedValueOnce([row("boundary", "/srv/cloud/public"), row("next", "/srv/cloud/public")]);
+    assertStorageAccessMock.mockImplementation(async ({ relativePath }) => relativePath === "public" ? { allowed: true } : { allowed: false, reason: "no_access" });
+    const response = await GET(new Request("https://example.com/api/downloads"));
+    const body = await response.json();
+    expect(body.tasks).toHaveLength(100);
+    expect(body.nextCursor).toBe("boundary");
+    expect(JSON.stringify(body)).not.toContain("private-");
+  });
+
   it("stamps teamId from session on create", async () => {
     sessionHasPermissionMock.mockReturnValue(true);
     prismaMock.downloadTask.create.mockResolvedValueOnce({ id: "task_team" });
@@ -735,7 +758,7 @@ describe("/api/downloads", () => {
       const response = await POST(request({ url: "https://example.com/file.iso", serverId: "srv_1", targetPath: "downloads" }));
       expect(response.status).toBe(200);
       expect(prismaMock.downloadTask.create).toHaveBeenCalledWith(expect.objectContaining({ data: expect.objectContaining({ teamId: "team_7" }) }));
-      expect(enqueueDownloadExecutionJobMock).toHaveBeenCalledWith(expect.objectContaining({ teamId: "team_7" }));
+      expect(enqueueDownloadExecutionJobMock).toHaveBeenCalledWith(expect.objectContaining({ teamId: "team_7" }), prismaMock);
 
       // A server that belongs to no customer still needs one chosen.
       prismaMock.downloadTask.create.mockClear();
@@ -1216,6 +1239,24 @@ describe("/api/downloads", () => {
     });
   });
 
+  it("pauses the content GID even when the worker commits the same handoff during the RPC", async () => {
+    const meta = "1234567890abcdef", content = "1111111111111111";
+    prismaMock.downloadTask.findFirst.mockResolvedValueOnce({ id: "torrent", createdBy: "u_1", url: "magnet:?dn=fixture", server: serverFixture(),
+      targetPath: "/srv/cloud/downloads", status: "RUNNING", aria2Gid: meta, transferManifest: { phase: "dispatched" } });
+    tellStatusMock.mockResolvedValueOnce({ status: "complete", followedBy: [content] }).mockResolvedValueOnce({ status: "active" });
+    prismaMock.downloadTask.updateMany.mockResolvedValueOnce({ count: 0 });
+    prismaMock.downloadTask.findUnique.mockResolvedValueOnce({ status: "RUNNING", aria2Gid: content, transferManifest: { metadataGid: meta } });
+    const response = await PATCH(new Request("https://example.com/api/downloads", {
+      method: "PATCH", body: JSON.stringify({ taskId: "torrent", action: "pause" }),
+    }));
+    expect(response.status).toBe(200);
+    expect(pauseDownloadMock).toHaveBeenCalledWith(content);
+    expect(prismaMock.downloadTask.updateMany).toHaveBeenLastCalledWith({
+      where: { id: "torrent", status: "RUNNING", aria2Gid: content, transferManifest: { equals: { metadataGid: meta } } },
+      data: expect.objectContaining({ status: "PENDING", aria2Gid: content, transferManifest: { metadataGid: meta, pausedUntil: expect.any(Number) } }),
+    });
+  });
+
   it("preserves a legacy paused task's original deadline when refresh advances updatedAt", async () => {
     const updatedAt = new Date(Date.now() - 8 * 3600_000);
     prismaMock.downloadTask.findFirst.mockResolvedValueOnce({
@@ -1248,7 +1289,7 @@ describe("/api/downloads", () => {
     if (!live) expect(enqueueDownloadExecutionJobMock).toHaveBeenCalledWith(expect.objectContaining({ taskId: "paused", mode: "aria2_relay" }), prismaMock);
     expect(prismaMock.downloadTask.updateMany).toHaveBeenCalledWith({
       where: expect.objectContaining({ id: "paused", status: "PENDING", aria2Gid: "gid" }),
-      data: expect.objectContaining({ status: "RUNNING", transferManifest: { metadataGid } }),
+      data: expect.objectContaining({ status: "RUNNING", transferManifest: { metadataGid, deadline: expect.any(Number) } }),
     });
   });
 
@@ -1458,6 +1499,20 @@ describe("/api/downloads", () => {
     expect(execRemoteCommandMock.mock.calls[0]![0].command).toContain("/tmp/app-dl-task_nopid.cancel");
   });
 
+  it("keeps cancellation pending without sending a probe to a rebound host", async () => {
+    const server = { ...serverFixture(), hostKeySha256: "original-pin", managementMode: "DIRECT", operatingSystem: "LINUX" };
+    prismaMock.downloadTask.findFirst.mockResolvedValueOnce({
+      id: "task_moved", createdBy: "u_1", targetPath: "/srv/cloud/downloads", url: "https://example.com/file.iso",
+      status: "RUNNING", pid: 12345, aria2Gid: null, relayMode: false, directStorageNodeId: server.storageNode.id,
+      transferManifest: { directEndpoint: directEndpointIdentity(server), phase: "dispatched", cleanupComplete: true },
+      server: { ...server, host: "replacement.example", hostKeySha256: "new-pin" },
+    });
+    const response = await DELETE(new Request("https://example.com/api/downloads?taskId=task_moved", { method: "DELETE" }));
+    expect(response.status).toBe(409);
+    expect(execRemoteCommandMock).not.toHaveBeenCalled();
+    expect(prismaMock.downloadTask.updateMany).not.toHaveBeenCalled();
+  });
+
   it("keeps a direct task RUNNING when the server cannot confirm the download stopped", async () => {
     // Other unconfirmed outputs (empty, NO_PGREP, null exit) are covered by
     // parseDirectDownloadStopResult in remote-stop.process.test.ts.
@@ -1521,11 +1576,7 @@ describe("/api/downloads", () => {
     }));
   });
 
-  // New-A (2026-06-15): when the durable-job enqueue fails the route must
-  // return 5xx and roll back the downloadTask row to FAILED, instead of
-  // leaving it PENDING forever. The fire-and-forget path used to swallow
-  // this exact error and reply success: true.
-  it("rolls a single download task back to FAILED when enqueueDownloadExecutionJob rejects", async () => {
+  it("rolls back the transaction when enqueueDownloadExecutionJob rejects", async () => {
     prismaMock.downloadTask.create.mockResolvedValueOnce({ id: "task_dispatch_fail" });
     enqueueDownloadExecutionJobMock.mockRejectedValueOnce(
       new Error("jobs table unreachable"),
@@ -1542,20 +1593,13 @@ describe("/api/downloads", () => {
     const payload = await response.json();
     expect(payload).toMatchObject({
       code: "DOWNLOAD_DISPATCH_FAILED",
-      taskIds: ["task_dispatch_fail"],
+      taskIds: [],
     });
     expect(payload.error).toMatch(/jobs table unreachable/);
-    expect(prismaMock.downloadTask.update).toHaveBeenCalledWith(expect.objectContaining({
-      where: { id: "task_dispatch_fail" },
-      data: expect.objectContaining({
-        status: "FAILED",
-        progress: "任务派发失败",
-        errorMessage: "jobs table unreachable",
-      }),
-    }));
+    expect(prismaMock.downloadTask.update).not.toHaveBeenCalled();
     expect(auditUserActionMock).toHaveBeenCalledWith("u_1", "download.dispatch_failed", expect.objectContaining({
-      taskId: "task_dispatch_fail",
-      taskIds: ["task_dispatch_fail"],
+      taskId: null,
+      taskIds: [],
       errorMessage: "jobs table unreachable",
     }), undefined, "team_1");
   });
@@ -1584,18 +1628,10 @@ describe("/api/downloads", () => {
     expect(response.status).toBe(500);
     const payload = await response.json();
     expect(payload.code).toBe("DOWNLOAD_DISPATCH_FAILED");
-    // Only the task whose enqueue failed is marked FAILED; earlier tasks that
-    // already enqueued successfully stay PENDING for the worker.
-    expect(payload.taskIds).toEqual(["task_batch_b"]);
+    expect(payload.taskIds).toEqual([]);
     expect(payload.succeededTaskIds).toEqual(["task_batch_a"]);
     expect(prismaMock.downloadTask.create).toHaveBeenCalledTimes(2);
-    expect(prismaMock.downloadTask.update).toHaveBeenCalledWith(expect.objectContaining({
-      where: { id: "task_batch_b" },
-      data: expect.objectContaining({ status: "FAILED", errorMessage: "jobs table blip" }),
-    }));
-    expect(prismaMock.downloadTask.update).not.toHaveBeenCalledWith(expect.objectContaining({
-      where: { id: "task_batch_a" },
-    }));
+    expect(prismaMock.downloadTask.update).not.toHaveBeenCalled();
     // We must NOT have created a third task row.
     expect(prismaMock.downloadTask.create).not.toHaveBeenCalledWith(
       expect.objectContaining({ url: "https://example.com/three.iso" }),

@@ -13,6 +13,7 @@ const { mockPrisma, spawnMock, pendingExecutions } = vi.hoisted(() => ({
   mockPrisma: {
     job: { findMany: vi.fn(async (): Promise<Array<{ payload: unknown }>> => []) },
     commandRequest: {
+      count: vi.fn(async () => 0),
       updateMany: vi.fn(),
       create: vi.fn(),
       findMany: vi.fn(),
@@ -35,6 +36,7 @@ const { mockPrisma, spawnMock, pendingExecutions } = vi.hoisted(() => ({
       create: vi.fn(),
     },
     executionLog: {
+      createMany: vi.fn(), findUnique: vi.fn(async () => ({ id: "receipt" })),
       create: vi.fn(),
     },
     auditLog: {

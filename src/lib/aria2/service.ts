@@ -1,6 +1,8 @@
-import { writeFile, readFile, mkdir, unlink, chmod } from "fs/promises";
+import { writeFile, readFile, mkdir, unlink, chmod, readdir, lstat } from "fs/promises";
 import { access, constants } from "fs/promises";
 import path from "path";
+import { isIPv6 } from "node:net";
+import { randomUUID } from "node:crypto";
 import { findExecutable, IS_WINDOWS } from "@/lib/runtime/platform-paths";
 import { isValidTcpPort } from "@/lib/runtime/listen-port";
 import {
@@ -26,7 +28,8 @@ export type Aria2RuntimeConfig = {
 };
 
 export function getAria2RuntimeConfig(env: Partial<NodeJS.ProcessEnv> = process.env): Aria2RuntimeConfig {
-	const rpcHost = env.ARIA2_RPC_HOST?.trim() || "127.0.0.1";
+	const host = env.ARIA2_RPC_HOST?.trim() || "127.0.0.1";
+	const rpcHost = isIPv6(host) ? `[${host}]` : host;
 	const rpcPortText = env.ARIA2_RPC_PORT?.trim() || String(DEFAULT_RPC_PORT);
 	const rpcPort = Number(rpcPortText);
 
@@ -169,7 +172,45 @@ export function isAria2ManagedExternally(env: Partial<NodeJS.ProcessEnv> = proce
 export const ARIA2_MANAGED_DAEMON_UNREACHABLE =
 	"aria2 RPC is unreachable and ARIA2_MANAGED_EXTERNALLY forbids spawning a daemon; start the aria2 service";
 
+// Linux can distinguish PID reuse even across a container or host restart.
+async function launcherIdentity(pid: number) {
+	if (process.platform !== "linux") return null;
+	try {
+		const [boot, info] = await Promise.all([readFile("/proc/sys/kernel/random/boot_id", "utf8"), readFile(`/proc/${pid}/stat`, "utf8")]);
+		const startTicks = info.slice(info.lastIndexOf(")") + 2).split(" ")[19]; // field 22, after the parenthesized command name
+		return startTicks && /^\d+$/.test(startTicks) ? boot.trim() + "_" + startTicks : null;
+	} catch { return null; }
+}
+
+export async function reapAria2LaunchConfigs(directory: string) {
+	const entries = await readdir(directory, { withFileTypes: true }).catch((error: NodeJS.ErrnoException) => {
+		if (error.code === "ENOENT") return [];
+		throw error;
+	});
+	for (const entry of entries) {
+		const match = /^\.aria2\.launch\.([1-9]\d*)\.(?:([0-9a-f-]{36}_\d+)\.)?(?:\d+|[0-9a-f-]{36})\.conf$/.exec(entry.name);
+		if (!match || !entry.isFile()) continue;
+		const pid = Number(match[1]);
+		const file = path.join(directory, entry.name);
+		try {
+			process.kill(pid, 0);
+			if (match[2]) {
+				const current = await launcherIdentity(pid);
+				if (!current || current === match[2]) continue;
+			} else {
+				if (pid !== process.pid) continue;
+				const info = await lstat(file);
+				if (!info.isFile() || info.mtimeMs >= performance.timeOrigin - 1000) continue;
+			}
+		} catch (error) {
+			if ((error as NodeJS.ErrnoException).code !== "ESRCH") continue;
+		}
+		await unlink(file).catch((error: NodeJS.ErrnoException) => { if (error.code !== "ENOENT") throw error; });
+	}
+}
+
 export async function ensureAria2Daemon(): Promise<void> {
+	if (!isAria2ManagedExternally()) await reapAria2LaunchConfigs(getAria2RuntimeConfig().rpcDir);
 	// Always re-probe RPC health. A sticky daemonStarted flag would skip restart
 	// after aria2c dies/OOM, leaving downloads permanently broken until process restart.
 	try {
@@ -187,7 +228,7 @@ export async function ensureAria2Daemon(): Promise<void> {
 	const config = getAria2RuntimeConfig();
 
 	// Prepare session dir and conf
-	await mkdir(config.rpcDir, { recursive: true });
+	await mkdir(config.rpcDir, { recursive: true, mode: 0o700 });
 
 	// Create empty session file if not exists
 	try { await readFile(config.rpcSession); } catch {
@@ -227,9 +268,10 @@ export async function ensureAria2Daemon(): Promise<void> {
 		throw Object.assign(new Error("spawn aria2c ENOENT"), { code: "ENOENT" });
 	}
 
-	const launchConf = path.join(config.rpcDir, `.aria2.launch.${process.pid}.${Date.now()}.conf`);
+	const owner = await launcherIdentity(process.pid);
+	const launchConf = path.join(config.rpcDir, `.aria2.launch.${process.pid}.${owner ? owner + "." : ""}${randomUUID()}.conf`);
 	try {
-		await writeFile(launchConf, buildAria2LaunchConfig(config), { mode: 0o600 });
+		await writeFile(launchConf, buildAria2LaunchConfig(config), { mode: 0o600, flag: "wx" });
 		await chmod(launchConf, 0o600).catch(() => undefined);
 		// Launch aria2c daemon. Keep the RPC secret out of the persisted config and argv.
 		const proc = await spawnAria2Detached(buildAria2SpawnArgs(launchConf), aria2Bin);

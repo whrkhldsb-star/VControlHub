@@ -8,13 +8,14 @@
  * Auth: Bearer API token or Basic (password = API token) with storage scopes.
  */
 import { openRepresentation, putConditionsPass } from "./representation";
+import { copyVersion, rollbackPublishedCopy } from "@/lib/storage/copy-rollback";
 import { moveMeasurement } from "@/lib/storage/move-capacity";
 import { escapeLikeLiteral } from "@/lib/db/like-pattern";
 import { randomUUID } from "node:crypto";
 import { prisma } from "@/lib/db";
 import { lockStorageFileOverwrite } from "@/lib/storage/file-overwrite-lock";
 import { isWindowsStorageBasePath } from "@/lib/storage/path-utils";
-import { WebDavHttpError } from "@/lib/storage/webdav-client";
+import { createWebDavClient, WebDavHttpError } from "@/lib/storage/webdav-client";
 import { WEBDAV_STAGE_PREFIX } from "@/lib/storage/staging-paths";
 import { writeFileIndex } from "@/lib/storage/file-write-index";
 import { validateStorageFileIndex } from "@/lib/storage/schema";
@@ -27,7 +28,7 @@ import {
   ValidationError,
 } from "@/lib/errors";
 import { apiCopy } from "@/lib/i18n/api-copy";
-import { assertNotRecycled } from "@/lib/storage/archive-access";
+import { assertCanonicalWritePath, assertNotRecycled } from "@/lib/storage/archive-access";
 import { releaseStorageQuotaGuard } from "@/lib/storage/access-control";
 
 const webdavLogger = createLogger("webdav:handler");
@@ -44,7 +45,6 @@ import { Readable, Transform } from "node:stream";
 import { pipeline } from "node:stream/promises";
 import {
   copyStorageFile,
-  deleteStorageFileBuffer,
   writeStorageFileFromLocalPath,
 } from "@/lib/storage/file-content";
 import { readStorageUploadMaxBytes } from "@/lib/upload/limits";
@@ -216,7 +216,10 @@ async function serveFileRepresentation(
   let handedOff = false;
   try {
     const fileSize = opened.size;
-    const range = parseStorageRange(ctx.rangeHeader ?? null, fileSize);
+    const validator = ctx.ifRange?.trim();
+    const rangeMatches = ctx.ifRange == null || validator === opened.etag ||
+      (opened.lastModified !== undefined && validator === opened.lastModified.toUTCString());
+    const range = parseStorageRange(rangeMatches ? ctx.rangeHeader ?? null : null, fileSize);
     if (range instanceof Response) return range;
     const headers: Record<string, string> = {
       "Content-Type": contentType,
@@ -307,16 +310,21 @@ export async function handleWebDavPut(
       size,
     );
     releaseOverwrite = await lockStorageFileOverwrite(ctx.storageNodeId, ctx.relativePath);
-    await assertNotRecycled(ctx.storageNodeId, ctx.relativePath, "write");
     const node = await loadNode(ctx.storageNodeId, ctx.session);
+    await assertNotRecycled(ctx.storageNodeId, ctx.relativePath, "write", node.driver);
+    await assertCanonicalWritePath(ctx.storageNodeId, ctx.relativePath, node.driver);
     const existing = await findEntry(ctx.storageNodeId, ctx.relativePath);
     const physical = await statBackingObject({ storageNode: node, relativePath: ctx.relativePath });
     const match = request.headers.get("if-match"), none = request.headers.get("if-none-match");
-    if (match !== null || none !== null) {
-      const needsTag = [match, none].some(header => header !== null && header.trim() !== "*");
-      const current = physical && !physical.isDirectory && needsTag ? await openRepresentation(node, ctx.relativePath) : null;
+    const conditional = match !== null || none !== null;
+    let expectedVersion: string | null | undefined;
+    if (conditional) {
+      const current = physical && !physical.isDirectory ? await openRepresentation(node, ctx.relativePath) : null;
       try {
         if (!putConditionsPass(request.headers, Boolean(physical), current?.etag ?? null)) return new Response(null, { status: 412 });
+        if (physical && node.driver === "WEBDAV" && !current?.backingVersion) return new Response(null, { status: 412 });
+        expectedVersion = physical ? current?.backingVersion : null;
+        if (physical && node.driver === "SFTP") expectedVersion = [physical.size, physical.lastModifiedMs].join(":");
       } finally { await current?.close(); }
     }
     if (existing?.entryType === "DIRECTORY" || physical?.isDirectory) {
@@ -347,16 +355,20 @@ export async function handleWebDavPut(
     }
 
     const rollbackIndex = await writeFileIndex(payload, existing);
+    let created = !physical;
     try {
-      await writeStorageFileFromLocalPath(node, ctx.relativePath, temporaryPath);
+      await writeStorageFileFromLocalPath(node, ctx.relativePath, temporaryPath, {
+        expectedVersion, onPublished: value => { created = value; },
+      });
     } catch (error) {
       await rollbackIndex().catch(rollbackError =>
         webdavLogger.error("WebDAV PUT index rollback failed", { error, rollbackError, relativePath: ctx.relativePath }));
+      if (conditional && (error instanceof ConflictError || (error instanceof WebDavHttpError && error.status === 412))) return new Response(null, { status: 412 });
       throw error;
     }
 
     return new Response(null, {
-      status: existing ? 204 : 201,
+      status: created ? 201 : 204,
       headers: {
         Location: buildWebDavHref(ctx.storageNodeId, ctx.relativePath, false),
       },
@@ -408,7 +420,7 @@ export async function handleWebDavMkcol(ctx: WebDavContext): Promise<Response> {
 }
 
 export async function handleWebDavDelete(
-  ctx: WebDavContext,
+  ctx: WebDavContext, headers = new Headers(),
 ): Promise<Response> {
   if (!ctx.relativePath) {
     throw new ValidationError(t("backend.webdav.cannotDeleteCollectionRoot"));
@@ -421,18 +433,30 @@ export async function handleWebDavDelete(
   );
   const release = await lockStorageFileOverwrite(ctx.storageNodeId, ctx.relativePath);
   try {
-    return await deleteLockedWebDavEntry(ctx);
+    return await deleteLockedWebDavEntry(ctx, headers);
   } finally {
     await release();
   }
 }
 
-async function deleteLockedWebDavEntry(ctx: WebDavContext): Promise<Response> {
+async function deleteLockedWebDavEntry(ctx: WebDavContext, headers: Headers): Promise<Response> {
   await assertNotRecycled(ctx.storageNodeId, ctx.relativePath, "write");
   const entry = await findEntry(ctx.storageNodeId, ctx.relativePath);
+  const conditional = headers.has("if-match") || headers.has("if-none-match");
+  const node = await loadNode(ctx.storageNodeId, ctx.session);
+  let expected: string | undefined;
+  if (conditional) {
+    const physical = await statBackingObject({ storageNode: node, relativePath: ctx.relativePath });
+    const opened = physical && !physical.isDirectory ? await openRepresentation(node, ctx.relativePath) : null;
+    try {
+      if (!putConditionsPass(headers, Boolean(physical), opened?.etag ?? null)) return new Response(null, { status: 412 });
+      if (!physical) throw new NotFoundError(t("backend.webdav.resourceNotFound"));
+      expected = opened?.backingVersion ?? opened?.etag;
+      if (opened && node.driver === "WEBDAV" && !opened.backingVersion) return new Response(null, { status: 412 });
+    } finally { await opened?.close(); }
+  }
   if (!entry) throw new NotFoundError(t("backend.webdav.resourceNotFound"));
 
-  const node = await loadNode(ctx.storageNodeId, ctx.session);
   const destParent = parentRelativePath(entry.relativePath);
   const stagedPath = `${destParent ? `${destParent}/` : ""}${WEBDAV_STAGE_PREFIX}delete-${randomUUID()}.staged`;
 
@@ -440,11 +464,15 @@ async function deleteLockedWebDavEntry(ctx: WebDavContext): Promise<Response> {
 
   // Stage the whole tree away from the live path first so a later index failure
   // can restore the original bytes instead of leaving unindexed orphans.
-  await renameBackingObject({
-    storageNode: node,
-    oldRelativePath: entry.relativePath,
-    newRelativePath: stagedPath,
-  });
+  if (node.driver === "WEBDAV" && expected) {
+    try { await createWebDavClient(node).rename(entry.relativePath, stagedPath, false, undefined, expected); }
+    catch (error) {
+      if (error instanceof WebDavHttpError && error.status === 412) return new Response(null, { status: 412 });
+      throw error;
+    }
+  } else {
+    await renameBackingObject({ storageNode: node, oldRelativePath: entry.relativePath, newRelativePath: stagedPath });
+  }
 
   // WebDAV DELETE is permanent, as clients present it ("permanently delete"),
   // and its bytes are removed below. Its rows used to go to the recycle bin
@@ -453,6 +481,13 @@ async function deleteLockedWebDavEntry(ctx: WebDavContext): Promise<Response> {
   // file manager's permanent delete, the subtree's rows (recycle-bin ones
   // included) and their version history go with it.
   try {
+    // Verify the object actually staged. A rename preserves the local inode and SFTP snapshot bytes.
+    if (expected && node.driver !== "WEBDAV") {
+      const staged = await openRepresentation(node, stagedPath);
+      try {
+        if ((staged.backingVersion ?? staged.etag) !== expected) throw new BusinessError(apiCopy("apiCopy.files.op.changed"), undefined, 412);
+      } finally { await staged.close(); }
+    }
     await prisma.$transaction(async (tx) => {
       const where = { storageNodeId: ctx.storageNodeId, relativePath: entry.relativePath, isDeleted: false,
         id: entry.id, updatedAt: entry.updatedAt };
@@ -954,6 +989,7 @@ async function performWebDavCopy(input: {
   const destMime = entry.mimeType || undefined;
   let stagedDestPath: string | null = null;
   let promoted = false;
+  let publishedVersion: string | null = null;
   let droppedVersionOwners: string[] = [];
 
   try {
@@ -990,6 +1026,7 @@ async function performWebDavCopy(input: {
       }
     }
 
+    publishedVersion = await copyVersion(node, staged);
     await moveBackingObject({ storageNode: node, oldRelativePath: staged, newRelativePath: destPath });
     promoted = true;
 
@@ -1023,15 +1060,12 @@ async function performWebDavCopy(input: {
       });
     }
   } catch (error) {
-    if (promoted) {
-      await deleteStorageFileBuffer(node, destPath).catch(() => undefined);
-    }
-    if (stagedDestPath) {
-      await renameBackingObject({
-        storageNode: node,
-        oldRelativePath: stagedDestPath,
-        newRelativePath: destPath,
-      }).catch(() => undefined);
+    try {
+      if (promoted) await rollbackPublishedCopy(node, destPath, publishedVersion);
+      if (stagedDestPath) await moveBackingObject({ storageNode: node, oldRelativePath: stagedDestPath, newRelativePath: destPath });
+    } catch (rollbackError) {
+      webdavLogger.error("WebDAV COPY requires reconciliation", { destPath, stagedDestPath, error, rollbackError });
+      throw new ConflictError(apiCopy("apiCopy.files.op.recovery", { v0: stagedDestPath ?? staged, v1: destPath, v2: apiCopy("apiCopy.files.op.changed") }));
     }
     throw error;
   }

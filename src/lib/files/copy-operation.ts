@@ -1,9 +1,8 @@
 import { escapeLikeLiteral } from "@/lib/db/like-pattern";
 import { apiCopy } from "@/lib/i18n/api-copy";
-import { lockStorageFileOverwrite } from "@/lib/storage/file-overwrite-lock";
 import { assertNotRecycled } from "@/lib/storage/archive-access";
 import { copyWorkspace } from "./copy-workspace";
-import { readdir, link, unlink, lstat, rmdir } from "node:fs/promises";
+import { readdir, lstat, rmdir } from "node:fs/promises";
 import path from "node:path";
 import { prisma } from "@/lib/db";
 import { teamWhere } from "@/lib/auth/team-scope";
@@ -12,6 +11,7 @@ import {
   assertStorageAccess,
   getStorageAccessCapabilities,
   getStorageAccessCapabilityKey,
+  lockStorageWriteAccess,
   releaseStorageQuotaGuard,
 } from "@/lib/storage/access-control";
 import { storageAccessDeniedCopy } from "@/lib/storage/access-denied";
@@ -131,7 +131,8 @@ async function listChildren(
     const entries = await listRemoteDirectory({
       ...credentials,
       remotePath,
-      maxEntries: 10001,
+      maxEntries: 10000,
+      requireComplete: true,
     });
     return entries.map((entry) => {
       if (!["file", "directory"].includes(entry.type))
@@ -460,7 +461,7 @@ export async function copyFileEntry(input: {
           throw new Error(
             apiCopy("apiCopy.files.op.sourceMissing", { v0: item.path }),
           );
-        const access = await assertStorageAccess({
+        const access = await lockStorageWriteAccess({
           session: input.session,
           storageNodeId: node.id,
           relativePath: destination,
@@ -474,9 +475,7 @@ export async function copyFileEntry(input: {
         let backedUp = false;
         let promoted = false;
         let remotePromotionAttempted = false;
-        let releaseOverwrite: (() => Promise<void>) | undefined;
         try {
-          releaseOverwrite = await lockStorageFileOverwrite(node.id, destination);
           occupant = await prisma.fileEntry.findUnique({ where: { storageNodeId_relativePath: { storageNodeId: node.id, relativePath: destination } }, select: { id: true, relativePath: true, entryType: true, isDeleted: true } }) ?? undefined;
           physical = await physicalExists(destination);
           if (occupant?.isDeleted) throw new Error(apiCopy("apiCopy.files.op.trashPath", { v0: destination }));
@@ -506,22 +505,8 @@ export async function copyFileEntry(input: {
             await workspace.backup();
             backedUp = true;
           }
-          if (node.driver === "LOCAL") {
-            const stagedPath = await resolveManagedLocalEntryPath({
-              basePath: node.basePath,
-              relativePath: workspace.localStage,
-            });
-            const targetPath = await resolveManagedLocalEntryPath({
-              basePath: node.basePath,
-              relativePath: destination,
-            });
-            await link(stagedPath.absolutePath, targetPath.absolutePath);
-            promoted = true;
-            await unlink(stagedPath.absolutePath);
-          } else {
-            remotePromotionAttempted = true;
-            await workspace.promote();
-          }
+          remotePromotionAttempted = node.driver !== "LOCAL";
+          await workspace.promote();
           promoted = true;
           const sourceIndex = await prisma.fileEntry.findUnique({
             where: {
@@ -593,7 +578,6 @@ export async function copyFileEntry(input: {
           }
           throw error;
         } finally {
-          await releaseOverwrite?.();
           await releaseStorageQuotaGuard(access);
           await workspace.dropStage().catch(() => undefined);
         }

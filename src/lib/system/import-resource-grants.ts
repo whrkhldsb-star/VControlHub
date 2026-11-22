@@ -1,4 +1,5 @@
-import type { ExportFile, ImportOptions } from "./config-schema";
+import { ValidationError } from "@/lib/errors";
+import type { ExportFile, ImportOptions, ImportIssue } from "./config-schema";
 import type { Tx } from "./import-executors-helpers";
 import { canImportResourceGrant, loadImportReferences, type GrantUser, type TeamOwner } from "./import-reference-scope";
 import { planUniqueImport } from "./import-unique-rows";
@@ -18,7 +19,8 @@ export function loadServerGrants(db: Pick<Tx, "userServerAccess">, records: Serv
 }
 
 export async function loadStorageGrants(db: Pick<Tx, "userStorageAccess">, records: StorageGrant[]) {
-  const select = { id: true, userId: true, storageNodeId: true, pathPrefix: true } as const;
+  const select = { id: true, userId: true, storageNodeId: true, pathPrefix: true, storageNode: { select: { teamId: true } },
+    user: { select: { teamMembership: { select: { teamId: true } } } } } as const;
   const [byId, byPath] = await Promise.all([
     loadImportReferences(records.map((row) => row.id), (ids) => db.userStorageAccess.findMany({ where: { id: { in: ids } }, select })),
     loadImportReferences(records, (rows) => db.userStorageAccess.findMany({ where: {
@@ -54,11 +56,25 @@ export function planServerGrantImport(
 
 export function planStorageGrantImport(
   records: StorageGrant[],
-  existing: Array<Pick<StorageGrant, "id" | "userId" | "storageNodeId" | "pathPrefix">>,
+  existing: Awaited<ReturnType<typeof loadStorageGrants>>,
   options: ImportOptions,
   users: ReadonlyMap<string, GrantUser>,
   nodes: ReadonlyMap<string, TeamOwner>,
+  issues?: ImportIssue[],
 ) {
-  const valid = records.filter((row) => canImportResourceGrant(users.get(row.userId), nodes.get(row.storageNodeId)));
+  const byId = new Map(existing.map((r) => [r.id, r]));
+  const valid = records.filter((row) => {
+    const node = nodes.get(row.storageNodeId);
+    const user = users.get(row.userId);
+    if (!canImportResourceGrant(user, node)) return false;
+    const old = byId.get(row.id);
+    if (options.overwriteExisting && old && ((old.userId !== row.userId && (old.user.teamMembership?.teamId ?? null) !== user?.teamId)
+      || (old.storageNodeId !== row.storageNodeId && old.storageNode.teamId !== node?.teamId))) {
+      if (!issues) throw new ValidationError("IMPORT_GRANT_OWNER");
+      issues.push({ table: "storageAccess", id: row.id, blocking: true, reason: "nav.customerLabel" });
+      return false;
+    }
+    return true;
+  });
   return planUniqueImport(valid, existing.map((row) => ({ id: row.id, key: storageGrantKey(row) })), storageGrantKey, options.overwriteExisting, true);
 }

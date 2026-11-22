@@ -4,6 +4,8 @@ import { prisma } from "@/lib/db";
 import { createCommandRequest } from "@/lib/command/service";
 import { commandRequestTitle } from "@/lib/command/schema";
 import { assertRequesterMayExecuteCommand } from "@/lib/auth/command-execution-authz";
+import { loadJobOwnerSession } from "@/lib/api-token/authorization";
+import { serverTeamWhere } from "@/lib/auth/team-scope";
 import { config } from "@/lib/config/env";
 import { AppError } from "@/lib/errors";
 import { LeaseLostError, runWithLeaseHeartbeat } from "@/lib/job/heartbeat-runner";
@@ -106,6 +108,19 @@ async function dispatchDueTask(task: {
   teamId: string | null;
 }, signal?: AbortSignal): Promise<boolean> {
   const expected = { updatedAt: task.updatedAt, approvalRequired: task.approvalRequired, nextRunAt: task.nextRunAt, claimedOccurrenceAt: task.claimedOccurrenceAt ?? null };
+  const occurrence = task.claimedOccurrenceAt ?? task.nextRunAt;
+  const idempotencyKey = `scheduled-task:${task.id}:${occurrence?.toISOString() ?? "manual"}`;
+  // Recover the immutable receipt before considering the edited plan or its current author.
+  if (task.claimedOccurrenceAt && task.nextRunAt) {
+    const receipt = await prisma.commandRequest.findFirst({
+      where: { idempotencyKey, teamId: task.teamId }, select: { id: true },
+    });
+    if (receipt) {
+      await recordTaskDispatch(task.id, receipt.id, false, { occurrence, lease: task.nextRunAt })
+        .catch(error => { throw new DispatchLinkError(receipt.id, error); });
+      return true;
+    }
+  }
   if (task.serverIds.length === 0 || !task.createdById) {
     await recordTaskRun(task.id, t("backend.scheduled-task.skippedMissingTargetOrCreator"), "skipped", expected);
     return false;
@@ -121,19 +136,24 @@ async function dispatchDueTask(task: {
   // durable, so recordTaskRun advancing nextRunAt avoids a tight retry loop.
   // A task that needs approval only files a request here; it runs after someone approves it, and that
   // dispatch checks the creator again. Only an unattended task executes on the creator's own authority.
-  const authz = await assertRequesterMayExecuteCommand(task.createdById, task.teamId, undefined, {
+  const authz = await assertRequesterMayExecuteCommand(task.createdById, task.teamId, task.serverIds.length === 1 ? task.serverIds[0] : undefined, {
     requireExecutePermission: !task.approvalRequired,
   });
-  if (!authz.ok) {
+  const session = authz.ok && task.serverIds.length > 1 ? await loadJobOwnerSession(task.createdById, task.teamId) : null;
+  const reachable = task.serverIds.length === 1 || (session && await prisma.server.count({
+    where: { AND: [serverTeamWhere(session, "connect"), { teamId: task.teamId, enabled: true, id: { in: task.serverIds } }] },
+  }) === new Set(task.serverIds).size);
+  if (!authz.ok || !reachable) {
+    const reason = authz.ok ? "command target is disabled or no longer accessible to the requester" : authz.reason;
     await recordTaskRun(
       task.id,
-      t("backend.scheduled-task.skippedRequesterNotAuthorized", { reason: authz.reason }),
+      t("backend.scheduled-task.skippedRequesterNotAuthorized", { reason }),
       "skipped", expected,
     );
     logger.warn("Scheduled task skipped: requester no longer authorized", {
       taskId: task.id,
       taskName: task.name,
-      reason: authz.reason,
+      reason,
     });
     return false;
   }
@@ -151,7 +171,6 @@ async function dispatchDueTask(task: {
   // already created (if any) instead of running it twice, and the run gets
   // recorded. (A 24 h sentinel used to replace nextRunAt here, which skipped
   // the task for a day and lost the original occurrence.)
-  const occurrence = task.claimedOccurrenceAt ?? task.nextRunAt;
   const claimLease = new Date(Date.now() + SCHEDULED_TASK_CLAIM_LEASE_MS);
   signal?.throwIfAborted();
   const claim = await prisma.scheduledTask.updateMany({
@@ -177,6 +196,8 @@ async function dispatchDueTask(task: {
     // System worker has no session: stamp teamId from the parent task so
     // listCommandRequests(teamWhere) does not treat the request as shared null-team.
     signal?.throwIfAborted();
+    let linked = false;
+    const claim = { occurrence, lease: claimLease };
     const result = await createCommandRequest({
       title: commandRequestTitle("Scheduled task: ", task.name),
       command: task.command,
@@ -186,11 +207,15 @@ async function dispatchDueTask(task: {
       serverIds: task.serverIds,
       teamId: task.teamId,
       approvalRequired: task.approvalRequired,
-      idempotencyKey: `scheduled-task:${task.id}:${occurrence?.toISOString() ?? "manual"}`,
+      idempotencyKey,
+    }, undefined, undefined, async (tx, requestId) => {
+      await recordTaskDispatch(task.id, requestId, false, claim, tx);
+      linked = true;
     });
 
     try {
-      await recordTaskDispatch(task.id, result.id, false, { occurrence, lease: claimLease });
+      // An existing idempotent submission from an older worker may still need its link.
+      if (!linked) await recordTaskDispatch(task.id, result.id, false, claim);
     } catch (error) {
       // The request exists; only its link failed. Not an execution failure
       // (that disabled a ONCE task and lost the request's result): the claim
@@ -213,7 +238,7 @@ async function dispatchDueTask(task: {
       // schedule the user wants, and restoring the old occurrence undid it.
       await prisma.scheduledTask.updateMany({
         where: { id: task.id, nextRunAt: claimLease, claimedOccurrenceAt: occurrence },
-        data: { nextRunAt: occurrence, claimedOccurrenceAt: null },
+        data: { nextRunAt: occurrence, claimedOccurrenceAt: error instanceof DispatchLinkError ? occurrence : null },
       });
     } catch (rollbackError) {
       logger.error(

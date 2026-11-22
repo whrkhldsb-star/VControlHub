@@ -123,7 +123,11 @@ function parseRetentionPayload(
  */
 async function pruneScheduledBackups(payload: BackupRetentionPayload) {
   const base = { keepLatestPerType: payload.keepLatestPerType, projectRoot: payload.projectRoot, teamId: payload.teamId, platformScope: payload.platformScope };
-  const own = await pruneOldBackupRecordsNow({ ...base, olderThanDays: payload.olderThanDays, scheduleId: payload.scheduleId });
+  const schedule = await prisma.backupSchedule.findFirst({
+    where: { id: payload.scheduleId, teamId: payload.teamId ?? null, status: "ACTIVE" }, select: { retentionDays: true },
+  });
+  if (!schedule?.retentionDays) return null;
+  const own = await pruneOldBackupRecordsNow({ ...base, olderThanDays: schedule.retentionDays, scheduleId: payload.scheduleId });
   // Manual backups follow the longest retention among the owner's active schedules: the customer's, or for the
   // platform's own backups the platform's (schedules made in the all-customers view have no customer).
   if (!payload.teamId && !payload.platformScope) return own;
@@ -220,20 +224,23 @@ async function handleJob(job: Awaited<ReturnType<typeof claimNextJob>>) {
         );
         return true;
       }
-      await heartbeatJob(job.id, WORKER_ID, {
-        leaseMs: LEASE_MS,
+      const lease = await heartbeatJob(job.id, WORKER_ID, {
+        attempts: job.attempts, leaseMs: LEASE_MS,
         progress: `Running ${record?.type ?? "UNKNOWN"} backup`,
       });
+      if (!lease.count) return true;
       const backup = await runWithLeaseHeartbeat({
         jobId: job.id,
         leaseMs: LEASE_MS,
         heartbeat: () =>
           heartbeatJob(job.id, WORKER_ID, {
             leaseMs: LEASE_MS,
-            progress: `Running ${record?.type ?? "UNKNOWN"} backup`,
+            attempts: job.attempts, progress: `Running ${record?.type ?? "UNKNOWN"} backup`,
           }),
-        run: () =>
+        run: (signal) =>
           runExistingBackupRecord({
+            signal,
+            claim: { id: job.id, workerId: WORKER_ID, attempts: job.attempts },
             id: payload.backupId,
             requestedBy: job.createdBy ?? null,
             projectRoot: payload.projectRoot,
@@ -260,8 +267,8 @@ async function handleJob(job: Awaited<ReturnType<typeof claimNextJob>>) {
         filePath: backup.filePath,
         fileSize: backup.fileSize ?? null,
       });
-      // B1: schedule retention when create payload carries retentionDays
-      if (payload.retentionDays && payload.retentionDays > 0) {
+      // A schedule resolves its policy when cleanup runs. Legacy manual jobs carry days.
+      if (payload.scheduleId || (payload.retentionDays && payload.retentionDays > 0)) {
         const teamId = payload.teamId ?? job.teamId ?? backup.teamId ?? null;
         // A schedule made in the all-customers view has no customer, but its retention still has to run (the
         // schedule bounds it): the backups piled up until the disk filled.
@@ -270,9 +277,9 @@ async function handleJob(job: Awaited<ReturnType<typeof claimNextJob>>) {
             const { enqueueJob } = await import("@/lib/job/service");
             await enqueueJob({
               type: BACKUP_RETENTION_JOB_TYPE,
-              title: `Backup retention (${payload.retentionDays}d)`,
+              title: "Clean up old backups (automatic retention policy)",
               payload: {
-                olderThanDays: payload.retentionDays,
+                ...(!payload.scheduleId ? { olderThanDays: payload.retentionDays } : {}),
                 ...(teamId ? { teamId } : { platformScope: true }),
                 projectRoot: payload.projectRoot,
                 // The schedule the payload came from: its retention used to
@@ -349,7 +356,7 @@ async function handleJob(job: Awaited<ReturnType<typeof claimNextJob>>) {
           // Offsite retentionDays is platform-wide; run best-effort prune alongside local retention.
           let offsiteResult: Awaited<
             ReturnType<
-              typeof import("@/lib/storage/offsite/retention").pruneOffsiteObjects
+              typeof import("./offsite-retention").pruneOffsiteObjects
             >
           > | null = null;
           try {
@@ -357,7 +364,7 @@ async function handleJob(job: Awaited<ReturnType<typeof claimNextJob>>) {
             if (Date.now() - lastOffsitePruneAt >= OFFSITE_PRUNE_INTERVAL_MS) {
               lastOffsitePruneAt = Date.now();
               const { pruneOffsiteObjects } =
-                await import("@/lib/storage/offsite/retention");
+                await import("./offsite-retention");
               offsiteResult = await pruneOffsiteObjects();
             }
           } catch (offsiteErr) {

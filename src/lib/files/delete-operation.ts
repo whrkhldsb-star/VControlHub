@@ -1,5 +1,6 @@
 import { escapeLikeLiteral } from "@/lib/db/like-pattern";
 import { auditUserAction } from "@/lib/audit/service";
+import { localPathVersion, localRootIdentity } from "@/lib/storage/local-identity";
 import { createAgentFileClient } from "@/lib/storage/agent-file-client";
 import { lockStorageFileOverwrite } from "@/lib/storage/file-overwrite-lock";
 import crypto from "node:crypto";
@@ -174,9 +175,14 @@ export async function executeDeleteFile(
       relativePath: entry.relativePath,
       isDirectory: entry.entryType === "DIRECTORY",
     });
-    const deletedAgentRoot = entry.storageNode.agentFileShare?.rootIdentity ?? null;
+    const local = entry.storageNode.driver === "LOCAL";
+    const deletedAgentRoot = local ? await localRootIdentity(entry.storageNode.basePath) : entry.storageNode.agentFileShare?.rootIdentity ?? null;
     const versions = new Map<string, string>();
-    if (entry.storageNode.driver === "AGENT") {
+    if (local) {
+      for (const member of [entry, ...descendants]) {
+        versions.set(member.id, await localPathVersion(entry.storageNode.basePath, member.relativePath) ?? "absent");
+      }
+    } else if (entry.storageNode.driver === "AGENT") {
       if (!deletedAgentRoot?.startsWith("v2:")) throw new Error(apiCopy("apiCopy.files.op.changed"));
       const agent = createAgentFileClient(entry.storageNodeId, undefined, deletedAgentRoot);
       for (const member of [entry, ...descendants]) {

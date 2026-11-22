@@ -22,6 +22,21 @@ function cancelFileFor(safeTaskId: string) {
   return `/tmp/app-dl-${safeTaskId}.cancel`;
 }
 
+function openLaunchDirectory(taskId: string, create: boolean) {
+  const directory = shellQuote("/tmp/app-dl-" + safeTaskFileStem(taskId) + ".start");
+  return [
+    `launch_dir=${directory}`,
+    create ? 'mkdir -m 700 -- "$launch_dir" 2>/dev/null || [ -d "$launch_dir" ] || exit 65'
+      : '[ -e "$launch_dir" ] || { [ ! -L "$launch_dir" ] && exit 0; exit 1; }',
+    'exec 9<"$launch_dir" && [ ! -L "$launch_dir" ] && [ -d /proc/self/fd/9 ] && [ "$launch_dir" -ef /proc/self/fd/9 ] || exit 65',
+    '[ "$(stat -Lc %u:%a /proc/self/fd/9)" = "$(id -u):700" ] || exit 65',
+  ].join("\n");
+}
+
+export function directLaunchProbeCommand(taskId: string) {
+  return openLaunchDirectory(taskId, false) + '\nif [ -s /proc/self/fd/9/started ]; then cat -- /proc/self/fd/9/started; fi';
+}
+
 // The receipt identifies the staging inode before rename. A controller can
 // recognize it after a crash between rename and writing the successful exit.
 export function directPublishReceiptMatches(exitFile: string, output: string) {
@@ -80,6 +95,8 @@ export function buildDirectDownloadCommand({
     `limit_rate=${maxSpeedKb && Number.isInteger(maxSpeedKb) && maxSpeedKb > 0 ? `${maxSpeedKb}k` : ""}`,
     // The detached process persists its own identity, even if the controller
     // dies before it can store the SSH response in PostgreSQL.
+    'echo $$ >/proc/self/fd/9/starting && mv -fT -- /proc/self/fd/9/starting /proc/self/fd/9/started || exit 1',
+    'exec 9>&-',
     'echo $$ >"$pid_file"',
     // A cancel that ran before this process existed left a tombstone: never
     // start the transfer (see buildDirectDownloadStopCommand).
@@ -122,10 +139,15 @@ export function buildDirectDownloadCommand({
     // and a generic failure. Exit 127 names the cause (A5-14).
     "command -v bash >/dev/null 2>&1 || exit 127",
     "command -v flock >/dev/null 2>&1 || exit 65",
+    openLaunchDirectory(taskId, true),
+    "flock -x 9 || exit 65",
+    "if [ -s /proc/self/fd/9/started ]; then cat -- /proc/self/fd/9/started; exit; fi",
     enterDownloadTargetDirectory(basePath, targetPath, physicalTargetDir),
     `nohup bash -lc ${shellQuote(script)} >/dev/null 2>&1 &`,
-    `echo $! > ${shellQuote(pidFile)}`,
-    `cat ${shellQuote(pidFile)}`,
+    // The child releases its inherited lock only after persisting its PID. Read that receipt before acknowledging dispatch.
+    "exec 9>&-",
+    openLaunchDirectory(taskId, false),
+    "flock -w 10 -x 9 && cat -- /proc/self/fd/9/started",
   ].join("\n");
 }
 

@@ -1,10 +1,15 @@
 // @vitest-environment node
-import { randomUUID } from "node:crypto";
+import { createHash, randomUUID } from "node:crypto";
 import { afterAll, beforeAll, describe, expect, it, vi } from "vitest";
 
+import { getSetting, setManySettings } from "@/lib/settings/service";
+import { getSshEnforceHostKeyPin, primeCachedFlags } from "@/lib/settings/cached-flags";
+import { getSnippet } from "@/lib/snippet/service";
+import { decryptServerPassword } from "@/lib/ssh/ssh-key-crypto";
 import { prisma } from "@/lib/db";
 import { lockForTransaction } from "@/lib/concurrency/advisory-lock";
 import { EXPORT_SCHEMA_VERSION, exportFileSchema, type ExportFile } from "../config-schema";
+import { sshFixture } from "./ssh-fixture";
 import { createImportAdmin } from "./import-admin-fixture";
 import { executeImport } from "../import-executors";
 import { previewImport } from "../import-preview";
@@ -102,6 +107,115 @@ describe.skipIf(process.env.RUN_DATABASE_INTEGRATION_TESTS !== "1")("tenant-scop
     await prisma.identityTemplate.deleteMany({ where: { id: { startsWith: prefix } } });
     await prisma.team.deleteMany({ where: { id: { in: [a, b] } } });
     await prisma.$disconnect();
+  });
+
+  function account(sourceId: string, username: string) {
+    return { id: sourceId, username, displayName: null, passwordHash: null, status: "ACTIVE", mustChangePassword: false,
+      twoFactorEnabled: false, twoFactorSecret: null, preferences: null, createdAt: stamp };
+  }
+
+  it("checks both customer and administrator identity before writing credentials or private content", async () => {
+    const foreign = account(id("source-user"), userB);
+    const snippet = { id: id("private"), title: "Private", content: "Private notes", description: null, language: "text",
+      tags: [], isPrivate: true, createdBy: foreign.id, createdAt: stamp };
+    const file = bundle({ users: [foreign], snippets: [snippet], teamMembers: [
+      { teamId: a, userId: foreign.id, joinedAt: stamp, identityTemplateId: template },
+    ] });
+    await expect(previewImport(file, { ...options, overwriteExisting: false })).rejects.toThrow();
+    expect(await executeImport(file, { ...options, overwriteExisting: false })).toMatchObject({ rolledBack: true, created: 0 });
+    expect(await prisma.snippet.findUnique({ where: { id: snippet.id } })).toBeNull();
+    const admin = await prisma.user.findUniqueOrThrow({ where: { id: id("admin") } });
+    const stale = bundle({ users: [{ ...account(admin.id, admin.username), passwordHash: "snapshot-password-hash" }] });
+    expect(await executeImport({ ...stale, exportMode: "full" }, options)).toMatchObject({ rolledBack: true });
+    expect((await prisma.user.findUniqueOrThrow({ where: { id: admin.id } })).passwordHash).toBe(admin.passwordHash);
+  });
+
+  it("keeps shared snippets readable by a colleague after repeat slug-aligned imports", async () => {
+    const source = id("source-team");
+    const prefixOf = (owner: string) => "sn-team-" + createHash("sha256").update(owner).digest("hex") + "-";
+    const snippet = { id: prefixOf(source) + prefix, title: "Shared notes", content: "Team note", language: "text",
+      description: null, tags: [], isPrivate: false, createdBy: id("source-author"), createdAt: stamp };
+    const file = bundle({ teams: [{ id: source, slug: a, name: a, description: null }],
+      users: [account(snippet.createdBy, userA)], teamMembers: [{ userId: snippet.createdBy, teamId: source, identityTemplateId: template, joinedAt: stamp }],
+      snippets: [snippet] });
+    const target = prefixOf(a) + prefix;
+    try {
+      await comparePreviewAndImport(file, { overwriteExisting: false });
+      await comparePreviewAndImport(file, { overwriteExisting: false });
+      expect(await getSnippet(target, { userId: moved, platformAdmin: false, currentTeamId: a })).toMatchObject({
+        content: snippet.content, createdBy: userA, createdAt: new Date(stamp),
+      });
+      await expect(getSnippet(target, { userId: userB, platformAdmin: false, currentTeamId: b })).rejects.toThrow();
+    } finally {
+      await prisma.snippet.deleteMany({ where: { id: { in: [target, snippet.id] } } });
+    }
+  });
+
+  it("encrypts legacy credentials, verifies SSH identity, and honors explicit full key removal", async () => {
+    const material = sshFixture();
+    const row = { ...material, teamId: a, id: id("material"), name: "SSH", passphrase: null, description: null, createdById: userA, createdAt: stamp };
+    const server = { ...serverRow(id("legacy-password"), a, null), connectionType: "PASSWORD", password: "sample-login" };
+    await comparePreviewAndImport(bundle({ sshKeys: [row], servers: [server] }));
+    const saved = await prisma.sshKey.findUniqueOrThrow({ where: { id: row.id } });
+    expect(saved.privateKey).toBeTruthy();
+    expect(saved.privateKey).not.toContain("PRIVATE KEY");
+    const stored = await prisma.server.findUniqueOrThrow({ where: { id: server.id } });
+    expect(stored.password).not.toBe(server.password);
+    expect(decryptServerPassword(stored.password!)).toBe(server.password);
+    const invalid = bundle({ sshKeys: [{ ...row, fingerprint: sshFixture().fingerprint }] });
+    expect(await previewImport(invalid, options)).toMatchObject({ totalRecords: 0, issues: [{ table: "sshKeys", blocking: true }] });
+    expect((await executeImport(invalid, options)).rolledBack).toBe(true);
+    const stripped = bundle({ sshKeys: [{ ...row, publicKey: saved.publicKey, privateKey: null }] });
+    await comparePreviewAndImport({ ...stripped, exportMode: "standard" });
+    expect((await prisma.sshKey.findUniqueOrThrow({ where: { id: row.id } })).privateKey).toBe(saved.privateKey);
+    await comparePreviewAndImport({ ...stripped, exportMode: "full" });
+    expect((await prisma.sshKey.findUniqueOrThrow({ where: { id: row.id } })).privateKey).toBeNull();
+  });
+
+  it("serializes setting edits with imports and refreshes security flags only after commit", async () => {
+    const keys = ["telegram.enabled", "telegram.chatId", "smtp.host", "smtp.pass", "security.sshEnforceHostKeyPin"];
+    const old = await prisma.setting.findMany({ where: { key: { in: keys } } });
+    try {
+      await prisma.setting.deleteMany({ where: { key: { in: keys } } });
+      await setManySettings([{ key: "smtp.host", value: "mail.test" }, { key: "smtp.pass", value: "mail-password" },
+        { key: "security.sshEnforceHostKeyPin", value: "false" }, { key: "telegram.chatId", value: "100" }]);
+      await primeCachedFlags();
+      expect(getSshEnforceHostKeyPin()).toBe(false);
+      const strict = { key: "security.sshEnforceHostKeyPin", value: "true" };
+      const blocked = bundle({ settings: [{ key: "smtp.host", value: "new-mail.test" }, strict] });
+      const settingsOptions = { ...options, importSettings: true };
+      expect(await previewImport(blocked, settingsOptions)).toMatchObject({ totalRecords: 0, issues: [{ table: "settings", id: "smtp.pass", reason: "backend.settings.importCredentialRequired", blocking: true }] });
+      expect((await executeImport(blocked, settingsOptions)).rolledBack).toBe(true);
+      expect(getSshEnforceHostKeyPin()).toBe(false);
+      expect((await executeImport(bundle({ settings: [strict] }), settingsOptions)).errors).toEqual([]);
+      expect(getSshEnforceHostKeyPin()).toBe(true);
+      const [enable, clear] = await Promise.allSettled([
+        executeImport(bundle({ settings: [{ key: "telegram.enabled", value: "true" }] }), settingsOptions),
+        setManySettings([{ key: "telegram.chatId", value: "" }]),
+      ]);
+      expect(enable.status).toBe("fulfilled");
+      const enabled = await getSetting("telegram.enabled") === "true";
+      expect(enabled).toBe(clear.status === "rejected");
+      expect(!enabled || Boolean(await getSetting("telegram.chatId"))).toBe(true);
+    } finally {
+      await prisma.setting.deleteMany({ where: { key: { in: keys } } });
+      if (old.length) await prisma.setting.createMany({ data: old });
+      await primeCachedFlags();
+    }
+  });
+
+  it("blocks the whole package when a merged announcement window cannot be saved", async () => {
+    const row = { id: id("window"), title: "Notice", body: "Maintenance", level: "info", pinned: false, published: true,
+      startsAt: null, expiresAt: stamp, createdBy: null, createdAt: stamp };
+    await prisma.announcement.create({ data: { id: row.id, title: row.title, body: row.body, startsAt: new Date("2026-03-01Z") } });
+    try {
+      const file = bundle({ announcements: [row], snippets: [{ id: id("window-note"), title: "Note", content: "text", language: "text",
+        tags: [], description: null, createdBy: userA, isPrivate: false, createdAt: stamp }] });
+      expect(await previewImport(file, options)).toMatchObject({ totalRecords: 0, issues: [{ table: "announcements", id: row.id, blocking: true }] });
+      expect(await executeImport(file, options)).toMatchObject({ created: 0, updated: 0, rolledBack: true });
+    } finally {
+      await prisma.announcement.delete({ where: { id: row.id } });
+    }
   });
 
   it("skips mismatched and missing Quick Service targets with matching preview counts", async () => {
@@ -236,7 +350,7 @@ describe.skipIf(process.env.RUN_DATABASE_INTEGRATION_TESTS !== "1")("tenant-scop
     healthStatus: "UNKNOWN" as const, createdAt: stamp,
   });
   const sshRow = (key: string, author: string) => ({
-    id: key, name: key, fingerprint: key, publicKey: "fixture", privateKey: null, passphrase: null,
+    id: key, name: key, ...sshFixture(), privateKey: null, passphrase: null,
     description: null, teamId: a, createdById: author, createdAt: stamp,
   });
 
@@ -248,7 +362,7 @@ describe.skipIf(process.env.RUN_DATABASE_INTEGRATION_TESTS !== "1")("tenant-scop
     const key = sshRow(id("mapped-ssh"), source);
     const prior = sshRow(id("existing-ssh"), source);
     await prisma.sshKey.create({ data: { id: prior.id, name: prior.name, publicKey: prior.publicKey, fingerprint: prior.fingerprint, teamId: a, createdById: userB } });
-    const preview = await comparePreviewAndImport(bundle({ users: [userRow(source, userA)], sshKeys: [key, prior], playbooks: [
+    const preview = await comparePreviewAndImport(bundle({ users: [userRow(source, userA)], teamMembers: [{ userId: source, identityTemplateId: template, teamId: a, joinedAt: stamp }], sshKeys: [key, prior], playbooks: [
       pb, { ...pb, id: id("foreign-r"), steps: [notify(userB)] },
       { ...pb, id: id("foreign-s"), steps: [{ id: "run", name: "Check", type: "run_command", config: { serverIds: [serverB], command: "true" } }] },
     ] }), { importUsers: false });
@@ -258,13 +372,17 @@ describe.skipIf(process.env.RUN_DATABASE_INTEGRATION_TESTS !== "1")("tenant-scop
   });
 
   it("resets metric state on metric changes and disables undeliverable imported rules", async () => {
-    const row = { id: id("metric-change"), name: "CPU", teamId: a, metric: "memory_usage", operator: "gt", threshold: 80,
+    const row = { id: id("metric-change"), name: "CPU", teamId: a, metric: "mem_usage", operator: "gt", threshold: 80,
       durationSeconds: 120, cooldownMinutes: 5, serverIds: [], notifyChannels: ["webhook"], webhookUrl: null,
       playbookIds: [], onCallUserIds: [], escalationMinutes: null, silenceWindows: [], enabled: true, createdAt: stamp };
     await prisma.alertRule.create({ data: { id: row.id, teamId: a, name: row.name, metric: "cpu_usage", operator: "gt",
       threshold: 80, lastMatchedAt: new Date(), matchState: { fixture: stamp }, webhookUrl: "https://example.test/delivery" } });
     const fresh = id("missing-hook");
-    const preview = await comparePreviewAndImport({ ...bundle({ alertRules: [row, { ...row, id: fresh }] }), exportMode: "standard" });
+    const restricted = id("awaiting-channels");
+    const preview = await comparePreviewAndImport({ ...bundle({ alertRules: [row, { ...row, id: fresh },
+      { ...row, id: restricted, notifyChannels: ["email", "telegram"] }] }), exportMode: "standard" });
+    expect(preview.issues).toContainEqual({ table: "alertRules", id: restricted, reason: "common.status.pendingApproval" });
+    expect(await prisma.alertRule.findUniqueOrThrow({ where: { id: restricted } })).toMatchObject({ enabled: false, notifyChannels: ["email", "telegram"] });
     expect(preview.issues).toContainEqual(expect.objectContaining({ table: "alertRules", id: fresh }));
     expect(await prisma.alertRule.findUniqueOrThrow({ where: { id: row.id } })).toMatchObject({ matchState: {}, lastMatchedAt: null, enabled: true, webhookUrl: "https://example.test/delivery" });
     expect(await prisma.alertRule.findUniqueOrThrow({ where: { id: fresh } })).toMatchObject({ enabled: false, webhookUrl: null });
@@ -274,8 +392,8 @@ describe.skipIf(process.env.RUN_DATABASE_INTEGRATION_TESTS !== "1")("tenant-scop
     const builtin = { id: id("builtin"), name: id("catalog-name"), command: "true", isBuiltin: true, createdById: null,
       teamId: null, description: null, rollbackCommand: null, variables: [], tags: [], createdAt: stamp };
     await prisma.commandTemplate.create({ data: { id: builtin.id, name: builtin.name, command: builtin.command, isBuiltin: true } });
-    const identity = { id: id("identity"), name: id("identity"), isBuiltin: true, permissions: [], description: null };
-    await prisma.identityTemplate.create({ data: identity });
+    const identity = { id: "identity:viewer", name: "Viewer", isBuiltin: true, permissions: [], description: null };
+    await prisma.identityTemplate.upsert({ where: { id: identity.id }, create: identity, update: {} });
     const preview = await comparePreviewAndImport(bundle({
       commandTemplates: [{ ...builtin, id: id("source-builtin") }, { ...builtin, teamId: a, id: id("tenant-builtin") },
         { ...builtin, isBuiltin: false, command: "changed" }, { ...builtin, teamId: a, id: id("custom"), isBuiltin: false }],
@@ -347,6 +465,31 @@ describe.skipIf(process.env.RUN_DATABASE_INTEGRATION_TESTS !== "1")("tenant-scop
     }));
     expect(preview.summary[tableKey("userRoles")]).toEqual({ create: 1, update: 0, skip: 3 });
     expect(preview.summary[tableKey("roles")]).toEqual({ create: 1, update: 0, skip: 1 });
+  });
+
+  it("rejects cross-customer automation and grant collisions and protects a sole default node", async () => {
+    const command = { id: id("owner-command"), name: id("owner-command"), description: null, command: "true",
+      rollbackCommand: null, variables: [], tags: [], isBuiltin: false, createdById: null, teamId: a, createdAt: stamp };
+    const playbook = { id: pbA, name: pbA, description: null, triggerType: "cron", triggerConfig: { expression: "0 0 * * *" }, chainRetry: 0,
+      steps: [{ id: "note", type: "send_notification", name: "Note", config: { recipientUserId: userB, subject: "note", body: "note" } }],
+      enabled: true, createdById: null, teamId: b, createdAt: stamp };
+    await prisma.commandTemplate.create({ data: { id: command.id, name: command.name, command: "true", teamId: b } });
+    const grant = { id: id("owner-grant"), userId: userA, storageNodeId: nodeA, pathPrefix: "", canRead: true,
+      canWrite: false, canDelete: false, quotaBytes: null, maxFileBytes: null, createdAt: stamp };
+    await prisma.userStorageAccess.create({ data: { id: grant.id, userId: userB, storageNodeId: nodeB, pathPrefix: "/owner" } });
+    await prisma.storageNode.update({ where: { id: nodeA }, data: { isDefault: true } });
+    try {
+      const files = [bundle({ commandTemplates: [command] }), bundle({ playbooks: [playbook] }), bundle({ userStorageAccess: [grant] }),
+        bundle({ storageNodes: [{ ...storageRow(nodeA, a, null), isDefault: false }] })];
+      for (const file of files) {
+        expect(await previewImport(file, options)).toMatchObject({ totalRecords: 0, issues: [expect.objectContaining({ blocking: true })] });
+        expect(await executeImport(file, options)).toMatchObject({ created: 0, updated: 0, rolledBack: true });
+      }
+      expect(await prisma.storageNode.findUniqueOrThrow({ where: { id: nodeA } })).toMatchObject({ isDefault: true, teamId: a });
+      expect(await prisma.userStorageAccess.findUniqueOrThrow({ where: { id: grant.id } })).toMatchObject({ userId: userB, storageNodeId: nodeB });
+    } finally {
+      await prisma.storageNode.update({ where: { id: nodeA }, data: { isDefault: false } });
+    }
   });
 
   it("previews each atomic overwrite guard and rolls back independent writes", async () => {

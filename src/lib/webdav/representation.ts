@@ -9,7 +9,8 @@ import { t } from "@/lib/i18n/service-translations";
 import { uploadTmpDir } from "@/lib/runtime/work-dirs";
 import { assertUploadDiskReserve } from "@/lib/upload/service";
 import { WEBDAV_PUT_STAGING_PREFIX } from "@/lib/upload/staging";
-import { resolveManagedLocalEntryPath } from "@/lib/storage/fs-backend";
+import { localObjectVersion } from "@/lib/storage/local-identity";
+import { openManagedLocalFile } from "@/lib/storage/open-local-file";
 import { streamStorageFile, type StorageFileNode } from "@/lib/storage/file-content";
 import { createRemoteStorageClient } from "@/lib/storage/agent-file-client";
 
@@ -17,14 +18,15 @@ type Range = { start: number; end: number };
 type Representation = {
   size: number;
   etag: string;
+  backingVersion?: string;
   lastModified?: Date;
   stream: (range?: Range) => Promise<Readable>;
   close: () => Promise<void>;
 };
 const tag = (version: string) => '"' + createHash("sha256").update(version).digest("hex") + '"';
 
-async function openLocal(file: string, digest?: string): Promise<Representation> {
-  const handle = await open(file, "r").catch(error => {
+async function openLocal(file: string, digest?: string, basePath?: string): Promise<Representation> {
+  const handle = await (basePath === undefined ? open(file, "r") : openManagedLocalFile(basePath, file)).catch(error => {
     if (error.code === "ENOENT") throw new NotFoundError(t("backend.webdav.fileNotFound"));
     throw error;
   });
@@ -49,6 +51,7 @@ async function openLocal(file: string, digest?: string): Promise<Representation>
     }
     return {
       size,
+      backingVersion: digest ? undefined : localObjectVersion(stat),
       lastModified: digest ? undefined : stat.mtime,
       etag: digest ?? tag([stat.dev, stat.ino, stat.size, stat.ctimeNs, stat.mtimeNs].join(":")),
       stream: async range => Readable.from(readRange(range), { objectMode: false }),
@@ -60,8 +63,7 @@ async function openLocal(file: string, digest?: string): Promise<Representation>
 /** Range metadata, validator and stream refer to one opened file or pinned remote revision. */
 export async function openRepresentation(node: StorageFileNode, relativePath: string): Promise<Representation> {
   if (node.driver === "LOCAL") {
-    const { absolutePath } = await resolveManagedLocalEntryPath({ basePath: node.basePath, relativePath });
-    return openLocal(absolutePath);
+    return openLocal(relativePath, undefined, node.basePath);
   }
   if (node.driver === "WEBDAV" || node.driver === "AGENT") {
     const client = createRemoteStorageClient(node);
@@ -69,7 +71,7 @@ export async function openRepresentation(node: StorageFileNode, relativePath: st
     if (!entry || entry.isDirectory) throw new NotFoundError(t("backend.webdav.fileNotFound"));
     if (entry.etag) {
       const version = entry.etag;
-      return { size: entry.size, etag: tag(version), lastModified: entry.lastModifiedMs ? new Date(entry.lastModifiedMs) : undefined,
+      return { size: entry.size, etag: tag(version), backingVersion: version, lastModified: entry.lastModifiedMs ? new Date(entry.lastModifiedMs) : undefined,
         stream: async range => Readable.fromWeb(await client.stream(relativePath, range, entry.size, version) as import("node:stream/web").ReadableStream),
         close: async () => {},
       };

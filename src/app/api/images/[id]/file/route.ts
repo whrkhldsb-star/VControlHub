@@ -142,7 +142,7 @@ export async function GET(
     const ifModifiedSince = request.headers.get("if-modified-since");
     const etagMatches = ifNoneMatch !== null && ifNoneMatch.split(",").map((value) => value.trim().replace(/^W\//, "")).includes(etag);
     const notModifiedSince = !ifNoneMatch && createdAt !== null && ifModifiedSince !== null && Number.isFinite(Date.parse(ifModifiedSince)) && createdAt.getTime() <= Date.parse(ifModifiedSince) + 1000;
-    if (etagMatches || notModifiedSince) {
+    if (ifNoneMatch?.trim() === "*" || etagMatches || notModifiedSince) {
       return new NextResponse(null, { status: 304, headers: cacheHeaders });
     }
 

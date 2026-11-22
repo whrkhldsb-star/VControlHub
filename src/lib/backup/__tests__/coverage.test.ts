@@ -77,7 +77,8 @@ describe("the directory list the page mirrors", () => {
 		const { readFile } = await import("node:fs/promises");
 		const { ARCHIVED_APP_DIRECTORIES } = await import("../coverage");
 		const script = await readFile(path.resolve("scripts/backup.mjs"), "utf8");
-		const declared = /const FILES_MODE_PATHS = (\[[^\]]*\]);/.exec(script)?.[1];
-		expect(declared && JSON.parse(declared)).toEqual([...ARCHIVED_APP_DIRECTORIES]);
+		const { RESTORE_DATA_ROOTS } = await import("../../../../scripts/lib/backup-common.mjs");
+		expect(RESTORE_DATA_ROOTS).toEqual([...ARCHIVED_APP_DIRECTORIES]);
+		expect(script).toContain("const FILES_MODE_PATHS = RESTORE_DATA_ROOTS");
 	});
 });

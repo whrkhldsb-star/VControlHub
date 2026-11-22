@@ -208,80 +208,45 @@ export async function POST(request: Request) {
         return NextResponse.json({ error: t("backend.fileAgent.unavailable", locale) }, { status: 409 });
       }
       const createdTaskIds: string[] = [];
-      // New-A (2026-06-15): we used to dispatch `download.execute` jobs via
-      // `void enqueueDownloadExecutionJob(...).catch(logError)` (fire-and-
-      // forget). A short Prisma/Jobs-table blip would leave a downloadTask
-      // row in `PENDING` forever with no durable job to pick it up. Now the
-      // route waits for the enqueue synchronously and rolls back any tasks
-      // that have already been created in this batch if the dispatch path
-      // fails — the user gets a real 5xx with a business-level errorMessage
-      // instead of a misleading `success: true` and a stuck row.
-      const failedTaskIds: string[] = [];
-      let dispatchError: { taskId: string; message: string } | null = null;
+      // Each URL commits its task and executor together. Earlier batch items keep their own jobs.
+      let dispatchError: string | null = null;
 
       for (const taskUrl of taskUrls) {
-        // For an HTTP batch a single user-supplied fileName cannot apply to
-        // every link, so only honour it for single-task requests.
         const taskFileName = isHttpBatch ? null : safeFileName;
-
-        const task = await prisma.downloadTask.create({
-          data: {
-            url: storedUrls.get(taskUrl) ?? taskUrl,
-            serverId,
-            ...(storageNode.driver === "AGENT" ? { agentStorageNodeId: storageNode.id, agentRootIdentity } : { directStorageNodeId: storageNode.id }),
-            targetPath: resolvedTargetPath,
-            fileName: taskFileName,
-            status: "PENDING",
-            progress: relayMode ? t("apiDownloads.progressRelay", locale) : t("apiDownloads.progressDirect", locale),
-            relayMode,
-            createdBy: session.userId,
-            category: category || null,
-            maxSpeedKb: maxSpeedKb || null,
-            isBatch: isBatch ?? false,
-            batchUrls:
-              isBatch && batchUrls?.length
-                ? JSON.stringify(batchUrls)
-                : JSON.stringify([]),
-            teamId: downloadTeamId,
-          },
-        });
-        createdTaskIds.push(task.id);
-
+        let task;
         try {
-          // TR-001 (T12): aria2 relay / direct dispatch is durable — the
-          // worker poll loop (download-execution-worker) will pick this job
-          // up, re-fetch the task/server from prisma, and call
-          // executeAria2RelayDownload / executeDirectDownload. We now `await`
-          // the enqueue so a transient jobs-table / Prisma blip surfaces as
-          // a 5xx to the caller instead of a silently-PENDING task row.
-          await enqueueDownloadExecutionJob({
-            mode: relayMode ? "aria2_relay" : "direct",
-            taskId: task.id,
-            userId: session.userId,
-            teamId: downloadTeamId,
-            // TR-001 T13b: propagate the target storage node so the
-            // per-node concurrency cap inside `claimNextJob` can count
-            // in-flight jobs targeting the same node. The route already
-            // validated that `server.storageNode` is non-null above
-            // (line 229), so the bang is safe.
-            storageNodeId: storageNode.id,
-            sourceResolution: sourceResolutions.get(taskUrl),
+          task = await prisma.$transaction(async tx => {
+            const row = await tx.downloadTask.create({
+              data: {
+                url: storedUrls.get(taskUrl) ?? taskUrl,
+                serverId,
+                ...(storageNode.driver === "AGENT" ? { agentStorageNodeId: storageNode.id, agentRootIdentity } : { directStorageNodeId: storageNode.id }),
+                targetPath: resolvedTargetPath,
+                fileName: taskFileName,
+                status: "PENDING",
+                progress: relayMode ? t("apiDownloads.progressRelay", locale) : t("apiDownloads.progressDirect", locale),
+                relayMode,
+                createdBy: session.userId,
+                category: category || null,
+                maxSpeedKb: maxSpeedKb || null,
+                isBatch: isBatch ?? false,
+                batchUrls:
+                  isBatch && batchUrls?.length
+                    ? JSON.stringify(batchUrls)
+                    : JSON.stringify([]),
+                teamId: downloadTeamId,
+              },
+            });
+            await enqueueDownloadExecutionJob({
+              mode: relayMode ? "aria2_relay" : "direct", taskId: row.id, userId: session.userId,
+              teamId: downloadTeamId, storageNodeId: storageNode.id, sourceResolution: sourceResolutions.get(taskUrl),
+            }, tx);
+            return row;
           });
-        } catch (dispatchFailure) {
-          const message =
-            dispatchFailure instanceof Error
-              ? dispatchFailure.message
-              : t("apiDownloads.enqueueFailed", locale);
-          failedTaskIds.push(task.id);
-          logError(
-            `[DownloadAPI] Failed to enqueue ${relayMode ? "aria2 relay" : "direct download"} job for task ${task.id}:`,
-            dispatchFailure,
-          );
-          dispatchError = { taskId: task.id, message };
-          // Stop the batch at the first dispatch failure so we don't keep
-          // creating more downloadTask rows that would also need rolling
-          // back; the catch-block below rolls back both this row and any
-          // previously created ones in the same request.
+          createdTaskIds.push(task.id);
+        } catch (error) {
+          dispatchError = getErrorMessage(error, t("apiDownloads.enqueueFailed", locale));
+          logError("[DownloadAPI] Download transaction failed", error);
           break;
         }
 
@@ -297,36 +262,20 @@ export async function POST(request: Request) {
       }
 
       if (dispatchError) {
-        // Only mark tasks whose enqueue actually failed. Earlier batch items
-        // that already enqueued successfully must stay PENDING so workers can
-        // run them — rolling them back to FAILED leaves orphan running jobs.
-        const onlyFailedIds = Array.from(new Set(failedTaskIds));
-        const succeededIds = createdTaskIds.filter((id) => !onlyFailedIds.includes(id));
-        await Promise.allSettled(
-          onlyFailedIds.map((id) =>
-            prisma.downloadTask.update({
-              where: { id },
-              data: {
-                status: "FAILED",
-                progress: t("apiDownloads.dispatchFailed", locale),
-                errorMessage: dispatchError!.message,
-              },
-            }),
-          ),
-        );
+        const succeededIds = createdTaskIds;
         await auditUserAction(session.userId, "download.dispatch_failed", {
-          taskId: dispatchError.taskId,
-          taskIds: onlyFailedIds,
+          taskId: null,
+          taskIds: [],
           succeededTaskIds: succeededIds,
-          errorMessage: dispatchError.message,
+          errorMessage: dispatchError,
           relayMode: relayMode ?? false,
           isBatch: isBatch ?? false,
         }, undefined, downloadTeamId);
         return NextResponse.json(
           {
-            error: t("apiDownloads.createFailedWithMessage", locale, { message: dispatchError.message }),
+            error: t("apiDownloads.createFailedWithMessage", locale, { message: dispatchError }),
             code: "DOWNLOAD_DISPATCH_FAILED",
-            taskIds: onlyFailedIds,
+            taskIds: [],
             succeededTaskIds: succeededIds,
             remainingUrls: taskUrls.slice(succeededIds.length),
           },

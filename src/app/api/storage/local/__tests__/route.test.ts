@@ -27,6 +27,7 @@ const {
     fileEntry: {
       create: vi.fn(),
       findFirst: vi.fn(),
+      findMany: vi.fn(async () => []),
       update: vi.fn(),
       updateMany: vi.fn(),
       deleteMany: vi.fn(),
@@ -43,6 +44,8 @@ const {
   statRemoteEntryMock: vi.fn(),
   deleteRemoteFileMock: vi.fn(),
 }));
+const { matchTargetMode } = vi.hoisted(() => ({ matchTargetMode: vi.fn(async () => undefined) }));
+vi.mock("@/lib/storage/local-permissions", () => ({ matchTargetMode }));
 
 vi.mock("node:fs", async (importOriginal) => {
   const actual = await importOriginal<typeof import("node:fs")>();
@@ -641,6 +644,7 @@ describe("/api/storage/local", () => {
 
     expect(response.status).toBe(200);
     const staged = writeFileMock.mock.calls[0]![0] as string;
+    expect(matchTargetMode).toHaveBeenCalledWith(staged, path.resolve("/tmp/storage/docs/notes.txt"));
     expect(renameMock).toHaveBeenCalledWith(staged, path.resolve("/tmp/storage/docs/notes.txt"));
   });
 

@@ -291,7 +291,7 @@ export class S3Client {
 		});
 		await this.assertOk(res, "PUT", key);
 		const etag = res.headers.get("etag") ?? "";
-		return { etag: etag.replace(/"/g, "") };
+		return { etag: etag.replace(/"/g, ""), versionId: res.headers.get("x-amz-version-id") ?? undefined };
 	}
 
 	/** PUT a local file without hydrating the complete artifact into memory. */
@@ -342,8 +342,8 @@ export class S3Client {
 	}
 
 	/** HEAD an object; returns metadata or null if not found. */
-	async headObject(key: string): Promise<{ size: number; etag: string; contentType: string; lastModified: string } | null> {
-		const url = this.buildUrl(key, new URLSearchParams());
+	async headObject(key: string, versionId?: string): Promise<{ size: number; etag: string; contentType: string; lastModified: string } | null> {
+		const url = this.buildUrl(key, new URLSearchParams(versionId ? { versionId } : {}));
 		const headers: Record<string, string> = {};
 		const signed = this.sign("HEAD", url, headers, Buffer.alloc(0));
 		const res = await this.fetchImpl(url.toString(), {
@@ -430,6 +430,8 @@ export class S3Client {
 		});
 		if (res.status === 404) return "absent";
 		await this.assertOk(res, "DELETE", key);
+		const deletedVersion = res.headers.get("x-amz-version-id");
+		if (versionId && deletedVersion && deletedVersion !== versionId) throw new S3Error("Unexpected deleted S3 object version", res.status, "DELETE");
 		return !versionId && res.headers.get("x-amz-delete-marker") === "true" ? "hidden" : "deleted";
 	}
 

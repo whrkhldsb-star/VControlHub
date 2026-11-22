@@ -9,10 +9,11 @@ import { BusinessError } from "@/lib/errors";
 import { t } from "@/lib/i18n/service-translations";
 import { notifyDownloadResult } from "@/lib/notification/service";
 import { relayTempDir } from "@/lib/runtime/platform-paths";
-import { assertStorageAccess, largestAllowedWrite, releaseStorageQuotaGuard, type StorageWriteCapacity } from "@/lib/storage/access-control";
+import { largestAllowedWrite, type StorageWriteCapacity } from "@/lib/storage/access-control";
 import { createAgentFileClient } from "@/lib/storage/agent-file-client";
 import { assertNotRecycled } from "@/lib/storage/archive-access";
-import { lockStorageFileOverwrite } from "@/lib/storage/file-overwrite-lock";
+import { lockDownloadPublication } from "./publication-lock";
+import { downloadWriteCapacity } from "./write-capacity";
 import { snapshotFileVersionBeforeOverwrite } from "@/lib/storage/file-versions";
 import { downloadNotificationSource, deriveDownloadFileNameFromUrl, getPublicDownloadError, indexDownloadedFileEntry, normalizeDownloadFileName } from "./helpers";
 import { pinnedDownloadAgent, resolveDownloadRedirects } from "./redirect-chain";
@@ -31,37 +32,39 @@ export async function publishAgentDownloadFile(input: Destination & { localPath:
   const verify = async () => {
     signal?.throwIfAborted();
     if (!await prisma.downloadTask.count({ where })) throw new Error("Inactive download");
-    const refusal = await executionRefusal({ createdBy: task.createdBy, teamId: task.teamId,
+    const live = await loadExecutionActor(task.createdBy, task.teamId);
+    const refusal = await executionRefusal({ actor: live, createdBy: task.createdBy, teamId: task.teamId,
       permission: "storage:write", serverIds: [input.serverId], writesTo: { storageNodeId: nodeId, relativePath } });
     if (refusal) throw new BusinessError(refusal);
+    if (!live) throw new BusinessError(t("backend.execution.ownerInactive"));
+    const capacity = await downloadWriteCapacity({ session: live, storageNodeId: nodeId, relativePath: path.posix.dirname(relativePath) }, path.posix.basename(relativePath));
+    if (capacity.denied) throw new BusinessError(t("backend.execution.storageRevoked"));
+    const limit = largestAllowedWrite(capacity);
+    if (limit !== null && BigInt(file.size) > limit) throw new BusinessError(t("backend.downloads.storageLimitExceeded"));
     await assertNotRecycled(nodeId, relativePath);
   };
   if (!actor) throw new BusinessError(t("backend.execution.ownerInactive"));
-  const access = await assertStorageAccess({ session: actor, storageNodeId: nodeId, relativePath, operation: "write", writeBytes: file.size });
-  if (!access.allowed) throw new BusinessError(t("backend.execution.storageRevoked"));
+  const unlock = await lockDownloadPublication(nodeId, relativePath);
   try {
-    const unlock = await lockStorageFileOverwrite(nodeId, relativePath);
-    try {
-      await verify();
-      const client = createAgentFileClient(nodeId, input.serverId, task.agentRootIdentity);
-      const existing = await client.stat(relativePath);
-      if (existing?.isDirectory) throw new BusinessError(t("backend.storage.targetIsDirectory"));
-      const occupant = await prisma.fileEntry.findUnique({ where: { storageNodeId_relativePath: { storageNodeId: nodeId, relativePath } } });
-      if (occupant?.entryType === "DIRECTORY") throw new BusinessError(t("backend.storage.targetIsDirectory"));
-      if (!existing || !await client.matches(relativePath, file.size, file.sha256, existing)) {
-        if (occupant) await snapshotFileVersionBeforeOverwrite({ fileEntryId: occupant.id, userId: actor.userId, reason: "UPLOAD" });
-        await client.writeLocal(relativePath, input.localPath, file.sha256, verify);
-      }
-      await prisma.$transaction(async tx => {
-        const binding = await tx.$queryRaw<{ id: string }[]>`
-          SELECT id FROM agent_file_shares WHERE "storageNodeId" = ${nodeId}
-            AND "serverId" = ${input.serverId} AND "rootIdentity" = ${task.agentRootIdentity} FOR SHARE`;
-        if (!binding.length) throw new BusinessError(t("backend.fileAgent.unavailable"));
-        await indexDownloadedFileEntry({ storageNode: { id: nodeId, basePath: "/" },
-        targetPath: path.posix.dirname("/" + relativePath), fileName: path.posix.basename(relativePath), size: file.size }, tx);
-      });
-    } finally { await unlock(); }
-  } finally { await releaseStorageQuotaGuard(access); }
+    await verify();
+    const client = createAgentFileClient(nodeId, input.serverId, task.agentRootIdentity);
+    const existing = await client.stat(relativePath);
+    if (existing?.isDirectory) throw new BusinessError(t("backend.storage.targetIsDirectory"));
+    const occupant = await prisma.fileEntry.findUnique({ where: { storageNodeId_relativePath: { storageNodeId: nodeId, relativePath } } });
+    if (occupant?.entryType === "DIRECTORY") throw new BusinessError(t("backend.storage.targetIsDirectory"));
+    if (!existing || !await client.matches(relativePath, file.size, file.sha256, existing)) {
+      if (occupant) await snapshotFileVersionBeforeOverwrite({ fileEntryId: occupant.id, userId: actor.userId, reason: "UPLOAD" });
+      await client.writeLocal(relativePath, input.localPath, file.sha256, verify);
+    }
+    await prisma.$transaction(async tx => {
+      const binding = await tx.$queryRaw<{ id: string }[]>`
+        SELECT id FROM agent_file_shares WHERE "storageNodeId" = ${nodeId}
+          AND "serverId" = ${input.serverId} AND "rootIdentity" = ${task.agentRootIdentity} FOR SHARE`;
+      if (!binding.length) throw new BusinessError(t("backend.fileAgent.unavailable"));
+      await indexDownloadedFileEntry({ storageNode: { id: nodeId, basePath: "/" },
+      targetPath: path.posix.dirname("/" + relativePath), fileName: path.posix.basename(relativePath), size: file.size }, tx);
+    });
+  } finally { await unlock(); }
 }
 
 type HttpDownload = Destination & {
