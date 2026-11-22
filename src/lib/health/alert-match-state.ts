@@ -1,4 +1,4 @@
-import { prisma } from "@/lib/db";
+import { withSamplingClaim, type SamplingClaim } from "@/lib/monitoring/sampling-claim";
 import { createLogger } from "@/lib/logging";
 
 const logger = createLogger("health:alert-match-state");
@@ -55,17 +55,18 @@ export async function persistMatchState(
   rule: { id: string; updatedAt: Date },
   state: AlertMatchState,
   extra: { lastTriggeredAt?: Date } = {},
+  claim?: SamplingClaim,
 ) {
   const cleaned: AlertMatchState = { ...state };
   delete cleaned[LEGACY_MATCH_KEY];
-  const updated = await prisma.alertRule.updateMany({
+  const updated = await withSamplingClaim(claim, (tx) => tx.alertRule.updateMany({
     where: { id: rule.id, updatedAt: rule.updatedAt },
     data: {
       matchState: cleaned,
       lastMatchedAt: deriveLegacyLastMatchedAt(cleaned),
       ...extra,
     },
-  });
+  }));
   if (updated.count === 0) {
     logger.warn(
       "alert rule match-state persistence lost a concurrent write; keeping in-memory state for this pass",

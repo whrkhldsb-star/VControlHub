@@ -7,6 +7,7 @@
  * Preview uses exactly the same projection as anonymous reads; it only
  * bypasses the "board closed" switch.
  */
+import type { Prisma } from "@prisma/client";
 import { dayCoverageMinutes } from "@/lib/uptime/coverage";
 import { prisma } from "@/lib/db";
 import { appTimeZoneDateKey, shiftAppTimeZoneDay, startOfDayInAppTimeZone } from "@/lib/datetime/time-zone";
@@ -54,7 +55,7 @@ export async function readPublicBoard(query: PublicBoardQuery, options: PublicRe
 	const [site, visible] = await Promise.all([loadPublicSite(), loadVisiblePublications()]);
 	if (!site.enabled && !options.preview) return null;
 	let board = await getBoardSnapshot();
-	if (board.site.updatedAt !== site.updatedAt || snapshotMissesVisible(board, visible)) {
+	if (JSON.stringify(board.site) !== JSON.stringify(site) || snapshotMissesVisible(board, visible)) {
 		invalidatePublicStatusCache();
 		board = await getBoardSnapshot();
 	}
@@ -63,9 +64,9 @@ export async function readPublicBoard(query: PublicBoardQuery, options: PublicRe
 }
 
 /** The last 90 application-time-zone days, one entry each, oldest first. */
-async function uptimeDays(serverId: string, now: Date): Promise<PublicUptimeDay[]> {
+async function uptimeDays(serverId: string, now: Date, db: Prisma.TransactionClient): Promise<PublicUptimeDay[]> {
 	const since = startOfDayInAppTimeZone(shiftAppTimeZoneDay(now, -89));
-	const rows = await prisma.serverUptimeSnapshot.findMany({
+	const rows = await db.serverUptimeSnapshot.findMany({
 		where: { serverId, date: { gte: since } },
 		orderBy: { date: "asc" },
 		select: { date: true, uptimePercent: true, checkCount: true, onlineMinutes: true, offlineMinutes: true },
@@ -91,9 +92,13 @@ async function uptimeDays(serverId: string, now: Date): Promise<PublicUptimeDay[
 
 export async function readPublicNode(publicId: string, options: PublicReadOptions = {}): Promise<PublicNodeDetailResponse | null> {
 	if (!PUBLIC_ID_PATTERN.test(publicId)) return null;
-	const site = await loadPublicSite();
+	return prisma.$transaction((tx) => readPublicNodeSnapshot(publicId, options, tx), { isolationLevel: "RepeatableRead" });
+}
+
+async function readPublicNodeSnapshot(publicId: string, options: PublicReadOptions, db: Prisma.TransactionClient): Promise<PublicNodeDetailResponse | null> {
+	const site = await loadPublicSite(db);
 	if (!site.enabled && !options.preview) return null;
-	const row = await loadVisibleNodeRow(publicId);
+	const row = await loadVisibleNodeRow(publicId, db);
 	if (!row) return null;
 	const now = new Date();
 	const allowed = new Set(site.metrics);
@@ -101,16 +106,13 @@ export async function readPublicNode(publicId: string, options: PublicReadOption
 	let availability: PublicNodeDetailResponse["availability"] = null;
 	let days: PublicUptimeDay[] | null = null;
 	if (allowed.has("availability")) {
-		const [day, week, history] = await Promise.all([
-			queryCoverage(row.serverId, new Date(now.getTime() - RANGE_SECONDS["24h"] * 1000), now),
-			queryCoverage(row.serverId, new Date(now.getTime() - RANGE_SECONDS["7d"] * 1000), now),
-			uptimeDays(row.serverId, now),
-		]);
+		const day = await queryCoverage(row.serverId, new Date(now.getTime() - RANGE_SECONDS["24h"] * 1000), now, db);
+		const week = await queryCoverage(row.serverId, new Date(now.getTime() - RANGE_SECONDS["7d"] * 1000), now, db);
 		availability = {
 			last24h: availabilityFromCoverage(day, RANGE_SECONDS["24h"]),
 			last7d: availabilityFromCoverage(week, RANGE_SECONDS["7d"]),
 		};
-		days = history;
+		days = await uptimeDays(row.serverId, now, db);
 	}
 	return { site: publicSiteInfo(site), node, availability, uptimeDays: days, generatedAt: now.toISOString() };
 }
@@ -126,12 +128,16 @@ export function clearPublicHistoryCache() {
 
 export async function readPublicHistory(publicId: string, range: PublicHistoryRange, options: PublicReadOptions = {}): Promise<PublicHistoryResponse | null> {
 	if (!PUBLIC_ID_PATTERN.test(publicId)) return null;
-	const site = await loadPublicSite();
+	return prisma.$transaction((tx) => readPublicHistorySnapshot(publicId, range, options, tx), { isolationLevel: "RepeatableRead" });
+}
+
+async function readPublicHistorySnapshot(publicId: string, range: PublicHistoryRange, options: PublicReadOptions, db: Prisma.TransactionClient): Promise<PublicHistoryResponse | null> {
+	const site = await loadPublicSite(db);
 	if (!site.enabled && !options.preview) return null;
-	const row = await loadVisibleNodeRow(publicId);
+	const row = await loadVisibleNodeRow(publicId, db);
 	if (!row) return null;
 	const allowed = new Set(site.metrics);
-	const key = `${row.serverId}:${range}:${[...allowed].sort().join(",")}`;
+	const key = `${row.publicId}:${row.publicationVersion}:${row.serverId}:${range}:${[...allowed].sort().join(",")}`;
 	const cached = historyCache.get(key);
 	if (cached && Date.now() - cached.at < HISTORY_TTL_MS) {
 		return { ...cached.value, generatedAt: new Date().toISOString() };
@@ -141,11 +147,9 @@ export async function readPublicHistory(publicId: string, range: PublicHistoryRa
 	const from = new Date(to.getTime() - RANGE_SECONDS[range] * 1000);
 	const bucketSeconds = bucketSecondsFor(range);
 	const wantsResources = allowed.has("cpu") || allowed.has("memory") || allowed.has("disk") || allowed.has("load") || allowed.has("connections");
-	const [resourceRows, networkRows, coverage] = await Promise.all([
-		wantsResources || allowed.has("latency") ? queryResourceBuckets(row.serverId, from, to, bucketSeconds) : Promise.resolve([]),
-		allowed.has("network") ? queryNetworkBuckets(row.serverId, from, to, bucketSeconds) : Promise.resolve([]),
-		queryCoverage(row.serverId, from, to),
-	]);
+	const resourceRows = wantsResources || allowed.has("latency") ? await queryResourceBuckets(row.serverId, from, to, bucketSeconds, db) : [];
+	const networkRows = allowed.has("network") ? await queryNetworkBuckets(row.serverId, from, to, bucketSeconds, db) : [];
+	const coverage = await queryCoverage(row.serverId, from, to, db);
 	const interval = coverage.interval ?? LEGACY_SAMPLE_INTERVAL_SECONDS;
 	const shaped = shapeResourcePoints(resourceRows, bucketSeconds, interval);
 	const resources = wantsResources

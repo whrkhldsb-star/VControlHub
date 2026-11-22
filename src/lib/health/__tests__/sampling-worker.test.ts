@@ -49,6 +49,7 @@ import {
 describe("fleet health background sampling", () => {
   beforeEach(() => {
     vi.clearAllMocks();
+    mocks.heartbeatJob.mockResolvedValue({ count: 1 });
     mocks.settingFindUnique.mockResolvedValue(null);
     stopHealthSamplingWorkerForTests();
     mocks.jobFindFirst.mockResolvedValue(null);
@@ -87,7 +88,7 @@ describe("fleet health background sampling", () => {
     mocks.settingFindUnique.mockRejectedValue(new Error("DB unavailable"));
     expect(await runHealthSamplingWorkerOnce("test")).toBe(true);
     expect(mocks.pruneMetricSnapshots).not.toHaveBeenCalled();
-    expect(mocks.completeJob).toHaveBeenCalledWith("job1", expect.any(String), expect.objectContaining({ pruned: 0 }));
+    expect(mocks.completeJob).toHaveBeenCalledWith("job1", expect.any(String), expect.objectContaining({ pruned: 0 }), 1);
   });
 
   it("does not enqueue a duplicate pending/running sample", async () => {
@@ -101,9 +102,9 @@ describe("fleet health background sampling", () => {
     // Each sample row records the cadence it was taken at (default 5 minutes).
     expect(mocks.snapshotHealthOverview).toHaveBeenCalledWith(
       expect.objectContaining({ total: 2 }),
-      { intervalSeconds: 300 },
+      { intervalSeconds: 300, claim: expect.objectContaining({ jobId: "job1", attempts: 1 }) },
     );
-    expect(mocks.pruneMetricSnapshots).toHaveBeenCalledWith(expect.any(Date));
+    expect(mocks.pruneMetricSnapshots).toHaveBeenCalledWith(expect.any(Date), expect.objectContaining({ jobId: "job1" }));
     expect(mocks.rollupRecentServerUptime).toHaveBeenCalledTimes(1);
     expect(mocks.pruneCompletedJobsByType).toHaveBeenCalledWith(
       expect.objectContaining({
@@ -120,7 +121,7 @@ describe("fleet health background sampling", () => {
         offline: 1,
         pruned: 4,
         uptimeUpserted: 3,
-      }),
+      }), 1,
     );
   });
 

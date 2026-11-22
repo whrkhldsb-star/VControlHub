@@ -4,7 +4,7 @@ const { getPublicStatusMock, getUptimeMock } = vi.hoisted(() => ({
 	getPublicStatusMock: vi.fn(async () => ({ generatedAt: "2026-10-28T00:00:00.000Z", summary: { overall: "healthy" }, checks: [] })),
 	getUptimeMock: vi.fn(async () => ({ servers: [] })),
 }));
-vi.mock("@/lib/status/service", () => ({ getPublicStatus: getPublicStatusMock }));
+vi.mock("@/lib/public-status/platform", () => ({ getPublicStatus: getPublicStatusMock }));
 vi.mock("@/lib/uptime/internal", () => ({ getAllUptimeDataInternal: getUptimeMock }));
 vi.mock("@/lib/i18n/translations", () => ({ getServerLocale: async () => "zh", t: (key: string) => key }));
 

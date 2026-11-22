@@ -13,7 +13,8 @@
  */
 import { prisma } from "@/lib/db";
 import { liveCustomerRowsWhere, type TeamSession } from "@/lib/auth/team-scope";
-import { verifiedRuleChannels } from "@/lib/alert/channel-grants";
+import type { SamplingClaim } from "@/lib/monitoring/sampling-claim";
+import { configurationDigest, verifiedRuleChannels } from "@/lib/alert/channel-grants";
 import {
   buildAlertFingerprint,
   escalateOverdueAlertIncidents,
@@ -49,15 +50,16 @@ function alertMetricLabel(metric: string): string {
  *    fragment) so a team operator only evaluates their own rules and never
  *    opens/escalates/notifies — or runs playbooks against — other tenants' hosts.
  */
-export async function evaluateAlerts(options?: { ruleWhere?: Record<string, unknown>; session?: TeamSession }) {
+export async function evaluateAlerts(options?: { ruleWhere?: Record<string, unknown>; session?: TeamSession; claim?: SamplingClaim }) {
   // Fleet-wide passes cover platform rules and live customers' rules: a
   // deleted customer's rules would keep notifying its channels (and starting
   // its playbooks) and its open incidents kept escalating after removal.
   const ruleScope = options?.ruleWhere ? { AND: [liveCustomerRowsWhere(), options.ruleWhere] } : liveCustomerRowsWhere();
-  const escalateOptions = { ruleTeamWhere: options?.ruleWhere };
+  const escalateOptions = { ruleTeamWhere: options?.ruleWhere, claim: options?.claim };
   const rules = [];
   let ruleCursorId: string | undefined;
   for (;;) {
+    options?.claim?.signal.throwIfAborted();
     const page = await prisma.alertRule.findMany({
       where: { enabled: true, ...ruleScope },
       select: {
@@ -86,7 +88,7 @@ export async function evaluateAlerts(options?: { ruleWhere?: Record<string, unkn
       take: 200,
       ...(ruleCursorId ? { cursor: { id: ruleCursorId }, skip: 1 } : {}),
     });
-    for (const rule of page) rules.push({ ...rule, notifyChannels: await verifiedRuleChannels(rule) });
+    for (const rule of page) rules.push({ ...rule, version: configurationDigest(rule), notifyChannels: await verifiedRuleChannels(rule) });
     if (page.length < 200) break;
     ruleCursorId = page[page.length - 1]!.id;
   }
@@ -99,7 +101,7 @@ export async function evaluateAlerts(options?: { ruleWhere?: Record<string, unkn
   const capacityRules = rules.filter((r) => isCapacityAlertMetric(r.metric));
   const liveRules = rules.filter((r) => !isCapacityAlertMetric(r.metric));
   if (capacityRules.length > 0) {
-    await evaluateCapacityLinkedAlerts(capacityRules, { session: options?.session });
+    await evaluateCapacityLinkedAlerts(capacityRules, { session: options?.session, claim: options?.claim });
   }
 
   if (!liveRules.length) {
@@ -111,7 +113,7 @@ export async function evaluateAlerts(options?: { ruleWhere?: Record<string, unkn
     ...(rule.serverIds.length ? { id: { in: rule.serverIds } } : {}),
   }));
   const health = await collectAllHealth(options?.session, {
-    serverWhere: { enabled: true, ...(targets.some((scope) => !Object.keys(scope).length) ? {} : { OR: targets }) },
+    claim: options?.claim, serverWhere: { enabled: true, ...(targets.some((scope) => !Object.keys(scope).length) ? {} : { OR: targets }) },
   });
   // Incidents still open for these rules. Recovery used to be read from the
   // rule's per-server match stamp alone: a stamp lost to a concurrent
@@ -131,6 +133,7 @@ export async function evaluateAlerts(options?: { ruleWhere?: Record<string, unkn
     const rows: Array<{ id: string }> = [];
     let serverCursor: { id: string } | undefined;
     do {
+      options?.claim?.signal.throwIfAborted();
       const page = await prisma.server.findMany({
         where: { teamId },
         select: { id: true },
@@ -147,6 +150,7 @@ export async function evaluateAlerts(options?: { ruleWhere?: Record<string, unkn
   }
 
   for (const rule of liveRules) {
+    options?.claim?.signal.throwIfAborted();
     if (isNowInAlertSilenceWindow(rule.silenceWindows)) continue;
 
     let targetServers =
@@ -155,7 +159,7 @@ export async function evaluateAlerts(options?: { ruleWhere?: Record<string, unkn
         : health.servers.filter((s) => s.enabled);
     if (rule.teamId != null) {
       const allowed = await serverIdsForTeam(rule.teamId);
-      targetServers = targetServers.filter((s) => allowed.has(s.serverId));
+      targetServers = targetServers.filter((s) => allowed.has(s.serverId) && (s.sampledTeamId === undefined || s.sampledTeamId === rule.teamId));
     }
 
     // Working copy of per-server match state for this rule evaluation pass.
@@ -171,6 +175,8 @@ export async function evaluateAlerts(options?: { ruleWhere?: Record<string, unkn
     let latestFireAt: Date | null = null;
 
     for (const server of targetServers) {
+      options?.claim?.signal.throwIfAborted();
+      const evaluation = { version: rule.version, sampledAt: new Date(server.lastCheck), claim: options?.claim };
       if (isNowInAlertSilenceWindow(rule.silenceWindows)) break;
       let value: number | undefined;
       switch (rule.metric) {
@@ -211,7 +217,7 @@ export async function evaluateAlerts(options?: { ruleWhere?: Record<string, unkn
           break;
       }
 
-      if (value === undefined) continue;
+      if (value === undefined || !Number.isFinite(value)) continue;
 
       let triggered = false;
       switch (rule.operator) {
@@ -249,7 +255,7 @@ export async function evaluateAlerts(options?: { ruleWhere?: Record<string, unkn
               ? t("backend.alert.resolvedMessage.offline", { rule: rule.name, server: server.serverName })
               : t("backend.alert.resolvedMessage.metric", { rule: rule.name, metric: alertMetricLabel(rule.metric), operator: alertOperatorSign(rule.operator), threshold: rule.threshold });
           await resolveAlertIncident({
-            ruleId: rule.id,
+            ruleId: rule.id, evaluation,
             silenceWindows: rule.silenceWindows,
             ruleName: rule.name,
             serverId: server.serverId,
@@ -298,7 +304,7 @@ export async function evaluateAlerts(options?: { ruleWhere?: Record<string, unkn
       const message = t("backend.alert.message.metric", { rule: rule.name, metric: alertMetricLabel(rule.metric), operator: alertOperatorSign(rule.operator), threshold: rule.threshold, value });
 
       const fire = await openOrRefreshAlertIncident({
-        ruleId: rule.id,
+        ruleId: rule.id, evaluation,
         playbookIds: rule.playbookIds,
         silenceWindows: rule.silenceWindows,
         ruleName: rule.name,
@@ -357,7 +363,7 @@ export async function evaluateAlerts(options?: { ruleWhere?: Record<string, unkn
         matchState,
         ruleFiredThisPass && latestFireAt
           ? { lastTriggeredAt: latestFireAt }
-          : {},
+          : {}, options?.claim,
       );
     }
   }

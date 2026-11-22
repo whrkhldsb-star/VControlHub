@@ -1,3 +1,4 @@
+import type { Prisma } from "@prisma/client";
 /** Durable Playbook chain executor.
  *
  * The parent `playbook.run` job owns the chain lease. Command steps create a
@@ -6,6 +7,7 @@
  * dispatching the command twice.
  */
 
+import { canReceivePlaybookNotification } from "./notification-recipient";
 import { createHash } from "node:crypto";
 import { prisma } from "@/lib/db";
 import { ForbiddenError } from "@/lib/errors";
@@ -93,11 +95,12 @@ function failedResult(step: Pick<PlaybookStep, "id">, error: unknown, startedAt:
   };
 }
 
-async function persistProgress(runId: string, results: PlaybookStepResult[]): Promise<void> {
-  const persisted = await prisma.playbookRun.updateMany({
-    where: { id: runId, status: "running" },
+async function persistProgress(runId: string, results: PlaybookStepResult[], version?: number, db: Prisma.TransactionClient = prisma): Promise<void> {
+  const persisted = await db.playbookRun.updateMany({
+    where: { id: runId, status: "running", version },
     data: { stepResults: toJsonValue(results) },
   });
+  if (persisted.count !== 1 && version !== undefined) throw new LeaseLostError(runId);
   if (persisted.count !== 1) throw new NonRetryableStepError("Playbook run is no longer running");
 }
 
@@ -107,14 +110,31 @@ function substituteVariables(command: string, variables: Record<string, string>)
   );
 }
 
+type CommandWait = {
+  signal?: AbortSignal;
+  checkLease?: () => Promise<void>;
+  onProgress?: (progress: string) => Promise<unknown>;
+};
+
+function waitForPoll(ms: number, signal?: AbortSignal) {
+  signal?.throwIfAborted();
+  return new Promise<void>((resolve, reject) => {
+    const abort = () => { clearTimeout(timer); reject(signal!.reason); };
+    const timer = setTimeout(() => { signal?.removeEventListener("abort", abort); resolve(); }, ms);
+    signal?.addEventListener("abort", abort, { once: true });
+  });
+}
+
 /** Poll until the request is terminal or the deadline passes (null). */
 async function pollUntilTerminal(
   commandRequestId: string,
   deadline: number,
-  onProgress?: (progress: string) => Promise<unknown>,
+  control: CommandWait,
 ): Promise<string | null> {
   let lastHeartbeat = 0;
-  while (Date.now() <= deadline) {
+  while (Date.now() < deadline) {
+    control.signal?.throwIfAborted();
+    await control.checkLease?.();
     const request = await prisma.commandRequest.findUnique({
       where: { id: commandRequestId },
       select: { status: true },
@@ -123,11 +143,11 @@ async function pollUntilTerminal(
     if (COMMAND_TERMINAL.has(request.status)) return request.status;
     const now = Date.now();
     // C4: keep durable playbook job lease alive during long SSH waits.
-    if (onProgress && now - lastHeartbeat >= 15_000) {
+    if (control.onProgress && now - lastHeartbeat >= 15_000) {
       lastHeartbeat = now;
-      await onProgress(`waiting command ${commandRequestId} (${request.status})`);
+      await control.onProgress(`waiting command ${commandRequestId} (${request.status})`);
     }
-    await new Promise((resolve) => setTimeout(resolve, COMMAND_POLL_MS));
+    await waitForPoll(Math.max(1, Math.min(COMMAND_POLL_MS, deadline - Date.now())), control.signal);
   }
   return null;
 }
@@ -212,14 +232,18 @@ async function terminalOutcome(commandRequestId: string, status: string): Promis
 async function waitForCommand(
   commandRequestId: string,
   timeoutSec: number,
-  onProgress?: (progress: string) => Promise<unknown>,
+  deadline: number,
+  control: CommandWait,
 ): Promise<string> {
-  const status = await pollUntilTerminal(commandRequestId, Date.now() + Math.max(1, timeoutSec) * 1_000, onProgress);
+  const status = await pollUntilTerminal(commandRequestId, deadline, control);
   if (status) return terminalOutcome(commandRequestId, status);
   // Timeout: cancel the still-running request (kills the remote SSH subprocess)
   // BEFORE the step retries. Otherwise a step-level retry would create a second
   // CommandRequest and run the same (possibly destructive) command concurrently
   // with the first, which is still executing on the target.
+  control.signal?.throwIfAborted();
+  await control.checkLease?.();
+  control.signal?.throwIfAborted();
   try {
     await cancelCommandRequest({
       commandRequestId,
@@ -233,7 +257,7 @@ async function waitForCommand(
   // Cancelling a RUNNING request only moves it to CANCELLING; the target keeps
   // running until its executor acknowledges. Wait for a terminal state before
   // the step may retry, and refuse to retry at all if it never arrives.
-  const settled = await pollUntilTerminal(commandRequestId, Date.now() + CANCEL_ACK_GRACE_MS, onProgress);
+  const settled = await pollUntilTerminal(commandRequestId, Date.now() + CANCEL_ACK_GRACE_MS, control);
   if (!settled) {
     throw new CommandOutcomeUnknownError(
       `command request ${commandRequestId} timed out after ${timeoutSec}s and its cancellation was not confirmed within ${CANCEL_ACK_GRACE_MS / 1000}s; outcome unknown, not retrying while it may still be running`,
@@ -248,27 +272,6 @@ async function waitForCommand(
   throw new Error(`command request ${commandRequestId} timed out after ${timeoutSec}s (${settled})`);
 }
 
-async function resolveResumableCommandRequestId(
-  candidateId: string | undefined,
-): Promise<string | undefined> {
-  if (!candidateId) return undefined;
-  const request = await prisma.commandRequest.findUnique({
-    where: { id: candidateId },
-    select: { status: true },
-  });
-  if (!request) return undefined;
-  // Resume only non-terminal (or completed) requests. A FAILED/REJECTED/CANCELLED
-  // id must not be reused: createCommandRequest would also idempotency-replay it.
-  if (request.status === "COMPLETED") return candidateId;
-  if (COMMAND_TERMINAL.has(request.status)) {
-    // Dropping it would let the reclaimed run create a fresh attempt while the
-    // previous one may still be running on the target.
-    await assertFailedCommandCanRetry(candidateId, request.status);
-    return undefined;
-  }
-  return candidateId;
-}
-
 async function dispatchStep(input: {
   step: PlaybookStep;
   playbookId: string;
@@ -279,6 +282,10 @@ async function dispatchStep(input: {
   existing?: PlaybookStepResult;
   /** 0-based attempt within step.retry+1; each attempt gets a distinct command + idempotency key. */
   attempt: number;
+  attemptStartedAt: string;
+  version?: number;
+  checkLease?: () => Promise<void>;
+  checkWrite?: (tx: Prisma.TransactionClient) => Promise<void>;
   onProgress?: (progress: string) => Promise<unknown>;
   signal?: AbortSignal;
   beforeDispatch?: () => Promise<void>;
@@ -287,102 +294,125 @@ async function dispatchStep(input: {
   const { step } = input;
   switch (step.type) {
     case "run_command": {
-      // Attempt 0 may resume a prior commandRequestId (durable reclaim mid-wait).
-      // Later attempts must not inherit a failed request id from `existing` or results.
-      const liveId = input.results.find((result) => result.stepId === step.id)?.commandRequestId;
-      const resumeCandidate =
-        input.attempt === 0
-          ? (liveId ?? input.existing?.commandRequestId)
-          : liveId;
-      let commandRequestId = await resolveResumableCommandRequestId(resumeCandidate);
-      if (commandRequestId) {
-        const request = await prisma.commandRequest.findUnique({
-          where: { id: commandRequestId },
-          select: { status: true },
-        });
-        if (request?.status === "COMPLETED") {
-          return `command request ${commandRequestId} completed`;
-        }
-      }
+      const live = input.results.find((result) => result.stepId === step.id);
+      const idempotencyKey = `playbook:${input.runId}:step:${step.id}:a${input.attempt}`;
+      // A crash may leave the persisted deadline with no request ID. Look up
+      // that exact attempt before deciding whether its deadline has expired.
+      const lookup = live?.commandRequestId ? { id: live.commandRequestId } : live?.deadlineAt ? { idempotencyKey } : null;
+      const prior = lookup && await prisma.commandRequest.findUnique({
+        where: { ...lookup, requesterId: input.requesterId, teamId: input.teamId },
+        select: { id: true, status: true, createdAt: true },
+      });
+      let commandRequestId = prior?.id;
+      if (commandRequestId && prior && COMMAND_TERMINAL.has(prior.status)) return terminalOutcome(commandRequestId, prior.status);
+      const startedAt = prior?.createdAt?.getTime() ?? Date.parse(live?.startedAt ?? input.attemptStartedAt);
+      const deadline = live?.deadlineAt ? Date.parse(live.deadlineAt) : startedAt + step.timeoutSec * 1000;
+      if (!Number.isFinite(deadline)) throw new NonRetryableStepError("Invalid command attempt deadline");
       if (!commandRequestId) {
-        await input.beforeDispatch?.();
-        input.signal?.throwIfAborted();
-        const request = await createCommandRequest({
-          title: commandRequestTitle(`Playbook ${input.playbookId}: `, step.name || step.id),
-          command: substituteVariables(step.config.command, step.config.variables ?? {}),
-          reason: `Playbook run ${input.runId}, step ${step.id}, attempt ${input.attempt + 1}`,
-          submissionMode: "user",
-          requesterId: input.requesterId,
-          teamId: input.teamId ?? null,
-          // Distinct key per attempt so a FAILED first try is not idempotency-replayed
-          // as a "success path" that immediately fails waitForCommand again.
-          idempotencyKey: `playbook:${input.runId}:step:${step.id}:a${input.attempt}`,
-          serverIds: step.config.serverIds,
-        });
-        commandRequestId = request.id;
         const running: PlaybookStepResult = {
-          stepId: step.id,
-          status: "running",
-          startedAt: input.existing?.startedAt ?? nowIso(),
-          completedAt: "",
-          summary: `command request ${commandRequestId} dispatched (attempt ${input.attempt + 1})`,
-          commandRequestId,
+          stepId: step.id, status: "running", startedAt: nowIso(), completedAt: "", summary: "",
+          attempt: input.attempt, deadlineAt: new Date(deadline).toISOString(),
         };
         const index = input.results.findIndex((result) => result.stepId === step.id);
         if (index >= 0) input.results[index] = running;
         else input.results.push(running);
-        await persistProgress(input.runId, input.results);
+        await persistProgress(input.runId, input.results, input.version);
+        await input.beforeDispatch?.();
+        input.signal?.throwIfAborted();
+        if (Date.now() >= deadline) throw new Error("Command attempt deadline expired");
+        const payload = {
+          title: commandRequestTitle(`Playbook ${input.playbookId}: `, step.name || step.id),
+          command: substituteVariables(step.config.command, step.config.variables ?? {}),
+          reason: `Playbook run ${input.runId}, step ${step.id}, attempt ${input.attempt + 1}`,
+          submissionMode: "user" as const,
+          requesterId: input.requesterId,
+          teamId: input.teamId ?? null,
+          // Distinct key per attempt so a FAILED first try is not idempotency-replayed
+          // as a "success path" that immediately fails waitForCommand again.
+          idempotencyKey,
+          serverIds: step.config.serverIds,
+        };
+        const request = input.version === undefined ? await createCommandRequest(payload) : await createCommandRequest(
+          payload, undefined, undefined, async (tx, id) => {
+            await input.checkWrite?.(tx);
+            input.signal?.throwIfAborted();
+            if (Date.now() >= deadline) throw new Error("Command attempt deadline expired");
+            running.commandRequestId = id;
+            await persistProgress(input.runId, input.results, input.version, tx);
+          },
+        );
+        commandRequestId = request.id;
+        running.commandRequestId = commandRequestId;
+        running.summary = `command request ${commandRequestId} dispatched (attempt ${input.attempt + 1})`;
+        await persistProgress(input.runId, input.results, input.version);
       }
-      return waitForCommand(commandRequestId, step.timeoutSec, input.onProgress);
+      return waitForCommand(commandRequestId, step.timeoutSec, deadline, input);
     }
     case "send_notification": {
-      // At-most-once guard: if a prior attempt already dispatched this step but
-      // the worker crashed/lost its lease before recording success, do NOT
-      // blindly re-send on reclaim — fail the step instead. Re-sending would
-      // spam a duplicate notification. Only attempt 0 can inherit a prior
-      // marker (later attempts within this worker are deliberately fresh).
-      // The marker is honoured whatever status it carries: "running" means the
-      // outcome is unknown, "failed" means the notification definitely went out
-      // and only the recording of it did not.
-      const priorNotify = input.results.find((r) => r.stepId === step.id);
-      if (input.attempt === 0 && priorNotify?.sideEffectDispatched) {
-        throw new SideEffectAlreadyDispatchedError(
-          `notification step ${step.id} was already dispatched in a prior attempt; not re-sending (at-most-once)`,
-        );
-      }
-      // Defense-in-depth: write-time service asserts actor scope; when the run
-      // carries a teamId, also require the recipient to be a team member so a
-      // legacy/stale playbook step cannot spam out-of-team inboxes.
-      if (input.teamId) {
-        const membership = await prisma.teamMember.findUnique({
-          where: {
-            teamId_userId: {
-              teamId: input.teamId,
-              userId: step.config.recipientUserId,
-            },
-          },
-          select: { userId: true },
-        });
-        if (!membership) {
-          throw new Error(
-            `notification recipient outside customer scope: ${step.config.recipientUserId}`,
-          );
+      const deliveryId = "playbook-" + createHash("sha256").update(JSON.stringify([input.runId, step.id])).digest("hex");
+      const prior = input.results.find((r) => r.stepId === step.id);
+      const startedAt = prior?.startedAt ?? input.attemptStartedAt;
+      const deadline = prior?.deadlineAt ? Date.parse(prior.deadlineAt) : Date.parse(startedAt) + step.timeoutSec * 1000;
+      const timeout = new NonRetryableStepError(`Notification step timed out after ${step.timeoutSec}s`);
+      const controller = new AbortController();
+      const signal = input.signal ? AbortSignal.any([input.signal, controller.signal]) : controller.signal;
+      const assertRecipient = async (db?: Prisma.TransactionClient) => {
+        if (!await canReceivePlaybookNotification(step.config.recipientUserId, input.teamId, db)) {
+          throw new NonRetryableStepError(`notification recipient outside customer scope: ${step.config.recipientUserId}`);
         }
+      };
+      let timer: ReturnType<typeof setTimeout> | undefined;
+      let markerWrite: Promise<PlaybookStepResult> | undefined;
+      try {
+        if (!Number.isFinite(deadline) || Date.now() >= deadline) throw timeout;
+        if (!prior?.deadlineAt) {
+          const receipt: PlaybookStepResult = {
+            stepId: step.id, status: "running", startedAt, completedAt: "", summary: "",
+            ...prior, attempt: input.attempt, deadlineAt: new Date(deadline).toISOString(),
+          };
+          const index = input.results.findIndex((r) => r.stepId === step.id);
+          if (index < 0) input.results.push(receipt);
+          else input.results[index] = receipt;
+          await persistProgress(input.runId, input.results, input.version);
+          if (Date.now() >= deadline) throw timeout;
+        }
+        const expired = new Promise<never>((_, reject) => {
+          timer = setTimeout(() => { controller.abort(timeout); reject(timeout); }, deadline - Date.now());
+        });
+        const deliver = async () => {
+          await assertRecipient();
+          signal.throwIfAborted();
+          if (prior?.sideEffectDispatched) {
+            const stored = await prisma.notification.findUnique({ where: { id: deliveryId }, select: { id: true } });
+            if (!stored) throw new SideEffectAlreadyDispatchedError(`notification step ${step.id} was already dispatched; outcome unknown`);
+          } else {
+            markerWrite = markSideEffectDispatched({ ...input, signal, deadlineAt: new Date(deadline).toISOString() }, step.id);
+            await markerWrite;
+            await createNotification({
+              userId: step.config.recipientUserId, type: "playbook", title: step.config.subject,
+              message: step.config.body, teamId: input.teamId,
+            }, deliveryId, {
+              signal, deadline,
+              beforeInsert: async (tx) => { await input.checkWrite?.(tx); await assertRecipient(tx); },
+            });
+          }
+          if (Date.now() >= deadline) throw timeout;
+          return `notification sent to ${step.config.recipientUserId}`;
+        };
+        return await Promise.race([deliver(), expired]);
+      } catch (error) {
+        input.signal?.throwIfAborted();
+        if (error === timeout || Date.now() >= deadline) {
+          const stored = await prisma.notification.findUnique({ where: { id: deliveryId }, select: { id: true } }).catch(() => null);
+          if (stored) throw new NonRetryableStepError(`${timeout.message}; notification was stored`);
+          throw timeout;
+        }
+        throw error;
+      } finally {
+        clearTimeout(timer);
+        // A pending progress write must settle before the final failed receipt.
+        if (controller.signal.aborted) await markerWrite?.catch(() => undefined);
       }
-      // Dispatch-before-persist: mark the step as dispatched BEFORE the side
-      // effect so a crash after create() is recognized on reclaim.
-      await markSideEffectDispatched(input, step.id);
-      // Through the notification service, which also tells the recipient's
-      // open pages: a bare insert showed no toast and left the badge unchanged
-      // until the page was reloaded.
-      await createNotification({
-        userId: step.config.recipientUserId,
-        type: "playbook",
-        title: step.config.subject,
-        message: step.config.body,
-        teamId: input.teamId,
-      }, "playbook-" + createHash("sha256").update(JSON.stringify([input.runId, step.id])).digest("hex"));
-      return `notification sent to ${step.config.recipientUserId}`;
     }
     case "call_webhook": {
       // At-most-once guard (see send_notification): a webhook may be a
@@ -438,7 +468,7 @@ async function dispatchStep(input: {
  * silently double-sending a webhook/notification.
  */
 async function markSideEffectDispatched(
-  input: { runId: string; results: PlaybookStepResult[]; existing?: PlaybookStepResult; signal?: AbortSignal; beforeDispatch?: () => Promise<void> },
+  input: { runId: string; attempt: number; version?: number; deadlineAt?: string; results: PlaybookStepResult[]; existing?: PlaybookStepResult; signal?: AbortSignal; beforeDispatch?: () => Promise<void> },
   stepId: string,
 ): Promise<PlaybookStepResult> {
   const marker: PlaybookStepResult = {
@@ -447,13 +477,13 @@ async function markSideEffectDispatched(
     startedAt: input.existing?.startedAt ?? nowIso(),
     completedAt: "",
     summary: `side effect dispatched`,
-    sideEffectDispatched: true,
+    sideEffectDispatched: true, attempt: input.attempt, ...(input.deadlineAt ? { deadlineAt: input.deadlineAt } : {}),
   };
   const index = input.results.findIndex((result) => result.stepId === stepId);
   if (index >= 0) input.results[index] = marker;
   else input.results.push(marker);
   input.signal?.throwIfAborted();
-  await persistProgress(input.runId, input.results);
+  await persistProgress(input.runId, input.results, input.version);
   await input.beforeDispatch?.();
   input.signal?.throwIfAborted();
   return marker;
@@ -487,6 +517,9 @@ export async function executePlaybookChain(input: {
   requesterId?: string;
   teamId?: string | null;
   resumeResults?: PlaybookStepResult[];
+  version?: number;
+  checkLease?: () => Promise<void>;
+  checkWrite?: (tx: Prisma.TransactionClient) => Promise<void>;
   onProgress?: (progress: string) => Promise<unknown>;
   eventJobId?: string;
   signal?: AbortSignal;
@@ -518,12 +551,17 @@ export async function executePlaybookChain(input: {
     return rejectPlan(`Playbook chainRetry must be an integer from 0 to ${MAX_PLAYBOOK_RETRIES}`);
   }
   const totalSteps = steps.length;
+  let remaining = chainRetry;
+  for (const prior of results) {
+    const step = steps.find((item) => item.id === prior.stepId);
+    if (step) remaining -= Math.floor((prior.attempt ?? 0) / (1 + step.retry));
+  }
 
   for (let index = 0; index < totalSteps; index += 1) {
     const step = steps[index]!;
     const existingIndex = results.findIndex((result) => result.stepId === step.id);
     const existing = existingIndex >= 0 ? results[existingIndex] : undefined;
-    if (existing?.outcomeUnknown) break;
+    if (existing?.outcomeUnknown || existing?.status === "failed") break;
     if (existing && ["ok", "dry_run"].includes(existing.status)) continue;
 
     const startedAt = existing?.startedAt || nowIso();
@@ -538,21 +576,15 @@ export async function executePlaybookChain(input: {
       };
     } else {
       try {
-        let attemptIndex = 0;
-        // The chain's failure retries ("retry the whole chain N times") resume
-        // from the failed step, as completed steps are never run again: each
-        // round gives that step its own retries once more. They only became
-        // the job's attempt limit, which an ordinary step failure never
-        // reaches, so the setting did nothing.
-        const rounds = 1 + chainRetry;
+        let attemptIndex = existing?.attempt ?? 0;
         const summary = await executeWithRetries(
-          (1 + (step.retry ?? 0)) * rounds,
+          (1 + step.retry) * (1 + Math.max(0, remaining)) - (attemptIndex % (1 + step.retry)),
           async () => {
+            const attemptStartedAt = nowIso();
             input.signal?.throwIfAborted();
             await input.beforeDispatch?.();
             input.signal?.throwIfAborted();
             const attempt = attemptIndex;
-            attemptIndex += 1;
             return dispatchStep({
               step,
               playbookId: input.playbook.id,
@@ -561,7 +593,7 @@ export async function executePlaybookChain(input: {
               teamId: input.teamId ?? null,
               results,
               existing,
-              attempt,
+              attempt, attemptStartedAt, version: input.version, checkLease: input.checkLease, checkWrite: input.checkWrite,
               onProgress: input.onProgress,
               signal: input.signal,
               beforeDispatch: input.beforeDispatch,
@@ -580,7 +612,7 @@ export async function executePlaybookChain(input: {
               // stopped without completing. That includes one created under
               // its idempotency key whose id never reached `results` (the
               // create or the progress write threw).
-              const failedAttempt = attemptIndex - 1;
+              const failedAttempt = attemptIndex;
               const ids = new Set<string>();
               if (live?.commandRequestId) ids.add(live.commandRequestId);
               try {
@@ -596,24 +628,28 @@ export async function executePlaybookChain(input: {
               }
               await assertCommandRetryable([...ids], error);
             }
-            // Drop the failed attempt's running row so the next attempt can
-            // create a fresh commandRequestId (not resume the FAILED one).
+            input.signal?.throwIfAborted();
+            if ((attemptIndex + 1) % (1 + step.retry) === 0) remaining -= 1;
+            attemptIndex += 1;
+            const next: PlaybookStepResult = {
+              stepId: step.id, status: "running", attempt: attemptIndex, startedAt: nowIso(), completedAt: "", summary: "",
+            };
             const liveIndex = results.findIndex((item) => item.stepId === step.id);
-            if (liveIndex >= 0) {
-              results.splice(liveIndex, 1);
-              await persistProgress(input.runId, results);
-            }
+            if (liveIndex >= 0) results[liveIndex] = next;
+            else results.push(next);
+            await persistProgress(input.runId, results, input.version);
           },
         );
         result = {
           stepId: step.id,
-          status: "ok",
+          status: "ok", attempt: attemptIndex,
           startedAt,
           completedAt: nowIso(),
           summary: truncate(summary),
           ...(existing?.commandRequestId ? { commandRequestId: existing.commandRequestId } : {}),
         };
         const live = results.find((item) => item.stepId === step.id);
+        if (live?.attempt !== undefined) result.attempt = live.attempt;
         if (live?.commandRequestId) result.commandRequestId = live.commandRequestId;
         if (live?.httpStatus !== undefined) result.httpStatus = live.httpStatus;
       } catch (error) {
@@ -621,6 +657,7 @@ export async function executePlaybookChain(input: {
         input.signal?.throwIfAborted();
         result = failedResult(step, error, startedAt);
         const live = results.find((item) => item.stepId === step.id);
+        if (live?.attempt !== undefined) result.attempt = live.attempt;
         if (live?.commandRequestId) result.commandRequestId = live.commandRequestId;
         if (live?.httpStatus !== undefined) result.httpStatus = live.httpStatus;
         // Carry the marker onto the failed row. Without this the "we already
@@ -641,7 +678,7 @@ export async function executePlaybookChain(input: {
       else results.push(result);
     }
     input.signal?.throwIfAborted();
-    await persistProgress(input.runId, results);
+    await persistProgress(input.runId, results, input.version);
     const progressLabel = step.type === "call_webhook" ? describeWebhookStep(step, result) : step.name || step.id;
     await input.onProgress?.(`step ${index + 1}/${totalSteps}: ${progressLabel} ${result.status}`);
     await recordJobEvent({

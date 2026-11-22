@@ -1,8 +1,9 @@
+import type { SamplingClaim } from "@/lib/monitoring/sampling-claim";
 import { JobStatus } from "@prisma/client";
 
 import { config } from "@/lib/config/env";
 import { prisma } from "@/lib/db";
-import { runWithLeaseHeartbeat } from "@/lib/job/heartbeat-runner";
+import { LeaseLostError, runWithLeaseHeartbeat } from "@/lib/job/heartbeat-runner";
 import {
   claimNextJob,
   completeJob,
@@ -93,23 +94,30 @@ export async function enqueueHealthSampleIfIdle(
   }
 }
 
-async function processSample(jobId: string) {
-  await heartbeatJob(jobId, WORKER_ID, {
-    leaseMs: LEASE_MS,
+async function processSample(claim: SamplingClaim) {
+  const { jobId, attempts, signal } = claim;
+  signal.throwIfAborted();
+  const renewed = await heartbeatJob(jobId, WORKER_ID, {
+    attempts, leaseMs: LEASE_MS,
     progress: "Collecting fleet metrics",
   });
+  if (renewed.count !== 1) throw new LeaseLostError(jobId);
+  signal.throwIfAborted();
   // This is the one caller on the intended 5-min cadence, so it is the only
   // path that persists durable per-server TrafficSnapshot rows (dashboard
   // polls and alert evals call collectAllHealth without persistTraffic).
-  const overview = await collectAllHealth(undefined, { persistTraffic: true });
-  const sampled = await snapshotHealthOverview(overview, { intervalSeconds: Math.round(activeIntervalMs / 1000) });
+  const overview = await collectAllHealth(undefined, { persistTraffic: true, claim });
+  signal.throwIfAborted();
+  const sampled = await snapshotHealthOverview(overview, { intervalSeconds: Math.round(activeIntervalMs / 1000), claim });
   // Metric-trigger Playbooks consume exactly the fresh health reading that
   // was just persisted. Their own edge state prevents a sustained breach from
   // re-running remediation on every sampling interval.
   let playbookTriggers = { dispatched: 0, evaluated: 0 };
   try {
-    playbookTriggers = await dispatchMetricPlaybooksForHealthOverview(overview.servers);
+    playbookTriggers = await dispatchMetricPlaybooksForHealthOverview(overview.servers, new Date(), claim);
   } catch (error) {
+    signal.throwIfAborted();
+    if (error instanceof LeaseLostError) throw error;
     // A failed automation dispatch must not discard otherwise healthy metric
     // sampling; the next fresh sample retries the threshold evaluation.
     logger.warn("metric Playbook trigger evaluation failed", {
@@ -120,9 +128,10 @@ async function processSample(jobId: string) {
     logger.warn("Skipping snapshot cleanup because the retention policy could not be read", { error: String(error) });
     return null;
   });
-  const pruned = retentionDays === null ? { count: 0 } : await pruneMetricSnapshots(new Date(Date.now() - retentionDays * DAY_MS));
+  const pruned = retentionDays === null ? { count: 0 } : await pruneMetricSnapshots(new Date(Date.now() - retentionDays * DAY_MS), claim);
   // Feed /status 90-day heatmap from metric samples (table was previously never written).
-  const uptime = await rollupRecentServerUptime();
+  signal.throwIfAborted();
+  const uptime = await rollupRecentServerUptime(claim);
   return {
     sampled: sampled.count,
     online: overview.online,
@@ -155,12 +164,13 @@ export async function runHealthSamplingWorkerOnce(
         jobId: job.id,
         leaseMs: LEASE_MS,
         heartbeat: () => heartbeatJob(job.id, WORKER_ID, {
+          attempts: job.attempts,
           leaseMs: LEASE_MS,
           progress: "Collecting fleet metrics",
         }),
-        run: () => processSample(job.id),
+        run: (signal) => processSample({ jobId: job.id, workerId: WORKER_ID, attempts: job.attempts, signal }),
       });
-      await completeJob(job.id, WORKER_ID, result);
+      await completeJob(job.id, WORKER_ID, result, job.attempts);
       try {
         await pruneCompletedJobsByType({
           type: HEALTH_SAMPLING_JOB_TYPE,
@@ -175,9 +185,10 @@ export async function runHealthSamplingWorkerOnce(
         });
       }
     } catch (error) {
+      if (error instanceof LeaseLostError) return true;
       const message = error instanceof Error ? error.message : String(error);
       await failJob(job.id, WORKER_ID, message.slice(0, 2000), {
-        retryAfterMs: 60_000,
+        attempts: job.attempts, retryAfterMs: 60_000,
       });
       logger.error("fleet health sample failed", {
         jobId: job.id,

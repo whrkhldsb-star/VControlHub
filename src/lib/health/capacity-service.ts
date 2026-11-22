@@ -9,7 +9,7 @@
 import { Prisma } from "@prisma/client";
 import { prisma } from "@/lib/db";
 import { getRuntimeSettingNumbers } from "@/lib/runtime-settings/service";
-import { liveCustomerRowsWhere, serverTeamWhere } from "@/lib/auth/team-scope";
+import { liveCustomerRowsWhere, rawServerScope, serverTeamWhere } from "@/lib/auth/team-scope";
 import type { SessionPayload } from "@/lib/auth/session";
 import {
   buildServerForecast,
@@ -110,7 +110,7 @@ export async function getCapacityForecast(
   const bucketSeconds = Math.max(60, Math.ceil((windowHours * 3600) / MAX_POINTS_PER_SERVER));
   for (let i = 0; i < serverIds.length; i += SNAPSHOT_SERVER_CHUNK) {
     const chunk = serverIds.slice(i, i + SNAPSHOT_SERVER_CHUNK);
-    const rows = await prisma.$queryRaw<Array<{ serverId: string; t: number; cpu: number; mem: number; disk: number }>>(Prisma.sql`
+    const rows = await prisma.$queryRaw<Array<{ serverId: string; t: number; cpu: number | null; mem: number | null; disk: number | null }>>(Prisma.sql`
       SELECT "serverId",
              (avg(extract(epoch from "createdAt")) * 1000)::float8 AS t,
              avg("cpuUsage")::float8 AS cpu,
@@ -118,10 +118,11 @@ export async function getCapacityForecast(
              avg("diskUsage")::float8 AS disk
       FROM metric_snapshots
       WHERE "serverId" IN (${Prisma.join(chunk)})
-        AND "createdAt" >= ${since}
+        AND "createdAt" BETWEEN ${since} AND ${new Date(nowMs)}
+        ${options.session ? Prisma.sql`AND EXISTS (SELECT 1 FROM servers s WHERE s.id = "serverId" AND ${rawServerScope(options.session, "canRead")})` : Prisma.empty}
         AND "isOnline" = true
         -- Online without values (no metrics channel) is not a 0% reading.
-        AND "cpuUsage" IS NOT NULL
+        AND ("cpuUsage" IS NOT NULL OR "memUsage" IS NOT NULL OR "diskUsage" IS NOT NULL)
       GROUP BY "serverId", floor(extract(epoch from "createdAt") / ${bucketSeconds})
       ORDER BY "serverId", t
     `);
@@ -129,9 +130,9 @@ export async function getCapacityForecast(
       const bucket = byServer.get(row.serverId);
       if (!bucket) continue;
       const t = Number(row.t);
-      bucket.cpu.push({ t, value: Number(row.cpu) });
-      bucket.mem.push({ t, value: Number(row.mem) });
-      bucket.disk.push({ t, value: Number(row.disk) });
+      if (row.cpu !== null) bucket.cpu.push({ t, value: Number(row.cpu) });
+      if (row.mem !== null) bucket.mem.push({ t, value: Number(row.mem) });
+      if (row.disk !== null) bucket.disk.push({ t, value: Number(row.disk) });
     }
   }
 

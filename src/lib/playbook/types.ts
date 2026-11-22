@@ -68,6 +68,9 @@ export type PlaybookStepResult = {
   // Persisted before a command is awaited, allowing a reclaimed parent job
   // to resume polling without dispatching the remote command a second time.
   commandRequestId?: string;
+  /** Zero-based attempt, persisted before each retry, including on successful receipts. */
+  attempt?: number;
+  deadlineAt?: string;
   // Numeric receipt used to reconstruct webhook summaries without copying free-form errors.
   httpStatus?: number;
   outcomeUnknown?: boolean;

@@ -2,6 +2,7 @@ import { beforeEach, describe, expect, it, vi } from "vitest";
 
 const { prismaMock, pushUnreadCountMock, pushNotificationMock } = vi.hoisted(() => ({
   prismaMock: {
+    $transaction<T>(callback: (tx: unknown) => T) { return callback(this); },
     notification: {
       create: vi.fn(),
       findMany: vi.fn(),
@@ -71,8 +72,8 @@ describe("notification service state synchronization", () => {
     prismaMock.notification.deleteMany.mockResolvedValue({ count: 1 });
     await listUserNotifications(customer);
     await getUnreadCount(customer);
-    expect(prismaMock.notification.findMany).toHaveBeenCalledWith(expect.objectContaining({ where: customerWhere }));
-    expect(prismaMock.notification.count).toHaveBeenCalledWith({ where: { ...customerWhere, isRead: false } });
+    expect(prismaMock.$queryRaw.mock.calls[0]![1].values).toEqual(expect.arrayContaining(["u_1", "team_a", "announcement"]));
+    expect(prismaMock.$queryRaw.mock.calls[1]![1].text).toContain("user_server_access");
     await markAsRead("one", customer);
     await markAllAsRead(customer);
     await deleteNotification("two", customer);
@@ -84,9 +85,7 @@ describe("notification service state synchronization", () => {
   it("scopes id-only page and socket reads to live membership, including after a transfer", async () => {
     prismaMock.user.findUnique.mockResolvedValue({ roles: [], teamMembership: { teamId: "team_b", team: { deletedAt: null } } });
     await listUserNotifications("u_1");
-    expect(prismaMock.notification.findMany).toHaveBeenCalledWith(expect.objectContaining({
-      where: { userId: "u_1", OR: [{ teamId: "team_b" }, announcement] },
-    }));
+    expect(prismaMock.$queryRaw.mock.calls[0]![1].values).toContain("team_b");
     await readUnreadCount("u_1");
     const [query, inbox] = prismaMock.$queryRaw.mock.calls.at(-1)!;
     expect(query.join("?")).toContain('AND n."isRead" = false');
@@ -97,9 +96,7 @@ describe("notification service state synchronization", () => {
 
   it("limits unassigned customers to announcements and lets admins read their whole inbox", async () => {
     await listUserNotifications({ ...customer, currentTeamId: null });
-    expect(prismaMock.notification.findMany).toHaveBeenLastCalledWith(expect.objectContaining({
-      where: { userId: "u_1", OR: [announcement] },
-    }));
+    expect(prismaMock.$queryRaw.mock.calls[0]![1].values).toContain(null);
     await listUserNotifications({ ...customer, roles: ["admin"] });
     expect(prismaMock.notification.findMany).toHaveBeenLastCalledWith(expect.objectContaining({ where: { userId: "u_1" } }));
   });

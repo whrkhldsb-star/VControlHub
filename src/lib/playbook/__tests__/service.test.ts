@@ -105,7 +105,7 @@ describe("playbook service", () => {
     mocks.transaction.mockImplementation(async (callback: (tx: unknown) => unknown) => callback({
       playbook: { deleteMany: mocks.playbookDeleteMany, findFirst: mocks.playbookFindFirst, updateMany: mocks.playbookUpdateMany },
       alertRule: { findFirst: mocks.alertRuleFindFirst },
-      playbookRun: { create: mocks.runCreate, update: mocks.runUpdate },
+      playbookRun: { findFirst: mocks.runFindFirst, create: mocks.runCreate, update: mocks.runUpdate },
       server: { findFirst: mocks.serverFindFirst },
       job: { create: mocks.jobCreate },
       jobEvent: { create: mocks.jobEventCreate },
@@ -130,7 +130,7 @@ describe("playbook service", () => {
     const session = { userId: "u1", roles: ["operator"] as import("@/lib/auth/rbac").RoleKey[], currentTeamId: "team1" };
     expect((await getPlaybook("pb1", session))?.id).toBe("pb1");
     expect(mocks.playbookFindFirst).toHaveBeenCalledWith({
-      where: expect.objectContaining({ id: "pb1" }),
+      include: expect.any(Object), where: expect.objectContaining({ id: "pb1" }),
     });
     expect(await getPlaybook("other-team-pb", session)).toBeNull();
   });
@@ -147,7 +147,7 @@ describe("playbook service", () => {
       steps: baseRow.steps as never, chainRetry: 2, enabled: true,
     }, "u1", session);
     expect(mocks.playbookCreate).toHaveBeenCalledWith({
-      data: expect.objectContaining({
+      include: expect.any(Object), data: expect.objectContaining({
         teamId: "team1",
         createdById: "u1",
         nextRunAt: expect.any(Date),
@@ -235,7 +235,7 @@ describe("playbook service", () => {
       }));
       await expect(updatePlaybook({ id: "pb1", steps }, "u9", manageOnly)).rejects.toMatchObject({ name: "ForbiddenError", status: 403 });
       expect(mocks.transaction).toHaveBeenCalledWith(expect.any(Function), { isolationLevel: "Serializable" });
-      expect(findCurrent).toHaveBeenCalledWith(expect.objectContaining({ where: { id: "pb1", teamId: "team1" } }));
+      expect(findCurrent).toHaveBeenCalledWith(expect.objectContaining({ where: expect.objectContaining({ id: "pb1", teamId: "team1" }) }));
       if (concurrentChange === "new alert binding") expect(findBinding).toHaveBeenCalledWith({ where: { playbookIds: { has: "pb1" } }, select: { id: true } });
       expect(write).not.toHaveBeenCalled();
       expect(mocks.playbookUpdateMany).not.toHaveBeenCalled();
@@ -256,7 +256,7 @@ describe("playbook service", () => {
     mocks.playbookFindFirst.mockResolvedValue(baseRow);
     mocks.playbookFindUnique.mockResolvedValue(baseRow);
     const member = { userId: "u9", roles: ["operator"] as import("@/lib/auth/rbac").RoleKey[], currentTeamId: "team1" };
-    mocks.userFindUnique.mockResolvedValueOnce({ status: "ACTIVE" });
+    mocks.playbookFindFirst.mockResolvedValueOnce({ ...baseRow, creator: { status: "ACTIVE", roles: [{ roleId: "admin" }] } });
     await expect(updatePlaybook({ id: "pb1", claimOwnership: true }, "u9", member)).rejects.toMatchObject({ name: "ForbiddenError" });
     expect(mocks.playbookUpdateMany).not.toHaveBeenCalled();
     mocks.userFindUnique.mockResolvedValueOnce({ status: "DISABLED" });
@@ -357,12 +357,13 @@ describe("playbook service", () => {
     ).rejects.toThrow(/notification recipients were not found or are outside your customer scope/i);
     expect(mocks.playbookCreate).not.toHaveBeenCalled();
     expect(mocks.teamMemberFindUnique).toHaveBeenCalledWith({
-      where: { teamId_userId: { teamId: "team1", userId: "u-other-team" } },
+      where: { teamId_userId: { teamId: "team1", userId: "u-other-team" }, team: { deletedAt: null }, user: { status: { not: "DISABLED" } } },
       select: { userId: true },
     });
   });
 
-  it("allows create when send_notification recipient is self without teamMember lookup", async () => {
+  it("allows a notification addressed to the author in the current customer", async () => {
+    mocks.teamMemberFindUnique.mockResolvedValueOnce({ userId: "u1" });
     mocks.playbookCreate.mockResolvedValue({
       ...baseRow,
       steps: [
@@ -399,7 +400,7 @@ describe("playbook service", () => {
       session,
     );
     expect(mocks.playbookCreate).toHaveBeenCalled();
-    expect(mocks.teamMemberFindUnique).not.toHaveBeenCalled();
+    expect(mocks.teamMemberFindUnique).toHaveBeenCalled();
   });
 
   it("rejects update when new steps target out-of-scope servers", async () => {
@@ -642,7 +643,7 @@ describe("playbook service", () => {
     const tenant = { userId: "u1", roles: ["operator"] as import("@/lib/auth/rbac").RoleKey[], currentTeamId: "team1" };
     expect(await getPlaybook("legacy-pb", tenant)).toBeNull();
     expect(mocks.playbookFindFirst).toHaveBeenCalledWith({
-      where: { id: "legacy-pb", teamId: "team1" },
+      include: expect.any(Object), where: { id: "legacy-pb", teamId: "team1", team: { deletedAt: null } },
     });
 
     // A teamless session matches an empty set even when legacy rows have no owner.
@@ -664,7 +665,7 @@ describe("playbook service", () => {
     mocks.playbookFindFirst.mockResolvedValueOnce({ ...baseRow, teamId: null });
     const admin = { userId: "admin", roles: ["admin"] as import("@/lib/auth/rbac").RoleKey[], currentTeamId: null };
     expect((await getPlaybook("pb1", admin))?.id).toBe("pb1");
-    expect(mocks.playbookFindFirst).toHaveBeenCalledWith({ where: { id: "pb1" } });
+    expect(mocks.playbookFindFirst).toHaveBeenCalledWith(expect.objectContaining({ where: { id: "pb1", team: { isNot: { deletedAt: { not: null } } } } }));
   });
 
   it("blocks delete when a run is queued or running", async () => {

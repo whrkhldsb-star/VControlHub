@@ -169,35 +169,28 @@ export async function sampleRemoteServerTraffic(
 }
 
 export async function sampleRemoteServersTraffic(
-	servers: RemoteServerInput[],
+	...args: [RemoteServerInput[]] | [{ id: string }[], (batch: { id: string }[]) => Promise<RemoteServerInput[]>]
 ): Promise<RemoteServerTraffic[]> {
+	const [servers] = args;
 	if (servers.length === 0) return [];
 	// Evict before sampling: this run refreshes every key it still owns, so
 	// whatever is stale now belongs to a server or interface that is gone.
 	evictStaleTrafficSamples(previousRemoteSamples, Date.now());
-	const settled: PromiseSettledResult<RemoteServerTraffic>[] = new Array(servers.length);
+	const results: RemoteServerTraffic[] = [];
 	for (let i = 0; i < servers.length; i += REMOTE_SAMPLE_CONCURRENCY) {
-		const chunk = servers.slice(i, i + REMOTE_SAMPLE_CONCURRENCY);
-		const chunkResults = await Promise.allSettled(
-			chunk.map((server) => sampleRemoteServerTraffic(server)),
-		);
-		for (let j = 0; j < chunkResults.length; j++) {
-			settled[i + j] = chunkResults[j]!;
+		const end = i + REMOTE_SAMPLE_CONCURRENCY;
+		const chunk = args.length === 2 ? await args[1](args[0].slice(i, end)) : args[0].slice(i, end);
+		const settled = await Promise.allSettled(chunk.map(sampleRemoteServerTraffic));
+		for (const [index, result] of settled.entries()) {
+			const server = chunk[index]!;
+			results.push(result.status === "fulfilled" ? result.value : {
+				serverId: server.id, serverName: server.name, host: server.host,
+				primaryInterface: null, interfaces: [], sampledAt: new Date().toISOString(),
+				error: result.reason instanceof Error ? result.reason.message : t("backend.traffic.remote.samplingFailed"),
+			});
 		}
 	}
-	return settled.map((result, index) => {
-		if (result.status === "fulfilled") return result.value;
-		const server = servers[index]!;
-		return {
-			serverId: server.id,
-			serverName: server.name,
-			host: server.host,
-			primaryInterface: null,
-			interfaces: [],
-			sampledAt: new Date().toISOString(),
-			error: result.reason instanceof Error ? result.reason.message : t("backend.traffic.remote.samplingFailed"),
-		};
-	});
+	return results;
 }
 
 /** Test-only reset of the per-process previous-sample cache. */

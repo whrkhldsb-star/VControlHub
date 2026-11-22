@@ -58,7 +58,7 @@ describe("/api/playbooks", () => {
 		const json = await res.json();
 		expect(res.status).toBe(200);
 		expect(mocks.requireApiPermission).toHaveBeenCalledWith("playbook:read");
-		expect(json).toEqual({ playbooks: [{ id: "pb1", name: "Cleanup" }] });
+		expect(json).toEqual({ nextCursor: null, playbooks: [{ id: "pb1", name: "Cleanup" }] });
 	});
 
 	it("POST requires playbook:manage and creates a playbook", async () => {

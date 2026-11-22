@@ -39,10 +39,12 @@ vi.mock("node:fs", async (importOriginal) => {
 
 vi.mock("@/lib/db", () => ({
   prisma: {
+    $queryRaw: async () => [{ id: "job1" }],
+    $transaction<T>(cb: (tx: unknown) => T) { return cb(this); },
     setting: { findUnique: mocks.settingFindUnique },
     job: { findFirst: mocks.jobFindFirst },
     trafficSnapshot: {
-      create: mocks.trafficSnapshotCreate,
+      createMany: mocks.trafficSnapshotCreate,
       deleteMany: mocks.trafficSnapshotDeleteMany,
     },
     server: { findMany: mocks.serverFindMany },
@@ -81,6 +83,7 @@ Inter-|   Receive                                                |  Transmit
 describe("traffic sampling worker", () => {
   beforeEach(() => {
     vi.clearAllMocks();
+    mocks.heartbeatJob.mockResolvedValue({ count: 1 });
     mocks.settingFindUnique.mockResolvedValue(null);
     stopTrafficSamplingWorkerForTests();
     mocks.jobFindFirst.mockResolvedValue(null);
@@ -127,7 +130,7 @@ describe("traffic sampling worker", () => {
         error: null,
       },
     ]);
-    mocks.trafficSnapshotCreate.mockResolvedValue({ id: "snap" });
+    mocks.trafficSnapshotCreate.mockResolvedValue({ count: 1 });
     mocks.trafficSnapshotDeleteMany.mockResolvedValue({ count: 2 });
     mocks.pruneCompletedJobsByType.mockResolvedValue({ count: 0 });
   });
@@ -162,7 +165,7 @@ describe("traffic sampling worker", () => {
     mocks.settingFindUnique.mockRejectedValue(new Error("DB unavailable"));
     expect(await runTrafficSamplingWorkerOnce("test")).toBe(true);
     expect(mocks.trafficSnapshotDeleteMany).not.toHaveBeenCalled();
-    expect(mocks.completeJob).toHaveBeenCalledWith("job1", expect.any(String), expect.objectContaining({ prunedSnapshots: 0 }));
+    expect(mocks.completeJob).toHaveBeenCalledWith("job1", expect.any(String), expect.objectContaining({ prunedSnapshots: 0 }), 1);
   });
 
   it("does not enqueue a duplicate pending/running sample", async () => {
@@ -176,6 +179,7 @@ describe("traffic sampling worker", () => {
 
     expect(mocks.trafficSnapshotCreate).toHaveBeenCalledWith(
       expect.objectContaining({
+        skipDuplicates: true,
         data: expect.objectContaining({
           source: "local",
           serverId: null,
@@ -198,7 +202,7 @@ describe("traffic sampling worker", () => {
       expect.objectContaining({
         localSampled: true,
         prunedSnapshots: 2,
-      }),
+      }), 1,
     );
     // Remote counters belong to the health collector; this job must not report
     // hardcoded remote zeros that read as "all remote samples failed".
@@ -206,6 +210,24 @@ describe("traffic sampling worker", () => {
     expect(completedResult).not.toHaveProperty("remoteAttempted");
     expect(completedResult).not.toHaveProperty("remoteSampled");
     expect(completedResult).not.toHaveProperty("remoteFailed");
+  });
+
+  it("keeps the last committed counters as the rate baseline after a duplicate job sample", async () => {
+    vi.useFakeTimers({ toFake: ["Date"] });
+    try {
+      vi.setSystemTime(new Date("2026-10-20T09:00:00Z"));
+      await runTrafficSamplingWorkerOnce("test");
+      vi.setSystemTime(new Date("2026-10-20T09:00:10Z"));
+      mocks.trafficSnapshotCreate.mockResolvedValueOnce({ count: 0 });
+      mocks.readFileSync.mockReturnValue(PROC_NET_DEV.replace("2000000", "2010000"));
+      await runTrafficSamplingWorkerOnce("test");
+      vi.setSystemTime(new Date("2026-10-20T09:00:20Z"));
+      mocks.readFileSync.mockReturnValue(PROC_NET_DEV.replace("2000000", "2040000"));
+      await runTrafficSamplingWorkerOnce("test");
+      expect(mocks.trafficSnapshotCreate).toHaveBeenLastCalledWith(expect.objectContaining({
+        data: expect.objectContaining({ rxRateBps: 2000, sampledAt: new Date("2026-10-20T09:00:20Z") }),
+      }));
+    } finally { vi.useRealTimers(); }
   });
 
   it("samples a Windows hub's interface too, where there is no /proc", async () => {
@@ -224,7 +246,7 @@ describe("traffic sampling worker", () => {
     expect(mocks.trafficSnapshotCreate).toHaveBeenCalledWith(
       expect.objectContaining({ data: expect.objectContaining({ source: "local", serverId: null, iface: "Ethernet" }) }),
     );
-    expect(mocks.completeJob).toHaveBeenCalledWith("job1", expect.any(String), expect.objectContaining({ localSampled: true }));
+    expect(mocks.completeJob).toHaveBeenCalledWith("job1", expect.any(String), expect.objectContaining({ localSampled: true }), 1);
   });
 
   it("fails the durable job when local sampling hard-fails", async () => {

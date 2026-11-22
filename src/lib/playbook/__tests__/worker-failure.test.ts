@@ -31,9 +31,11 @@ const { mocks } = vi.hoisted(() => ({
 
 vi.mock("@/lib/db", () => ({
   prisma: {
+    $queryRaw: vi.fn(async () => ["run", "run-1", "run-c", "run-x"].map((id) => ({ id, version: 1 }))),
     $transaction<T>(callback: (tx: unknown) => Promise<T>) { return callback(this); },
     job: { updateMany: mocks.jobUpdateMany },
     playbookRun: {
+      count: vi.fn(async () => 1),
       findUnique: mocks.playbookRunFindUnique,
       updateMany: mocks.playbookRunUpdateMany,
     },

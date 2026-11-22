@@ -17,7 +17,8 @@ const { prismaMock, collectServerMetricsMock, tcpProbeMock } = vi.hoisted(() => 
 		},
 		trafficSnapshot: {
 			findMany: vi.fn(),
-			create: vi.fn(),
+			createMany: vi.fn(async () => ({ count: 1 })),
+			findFirst: vi.fn(),
 		},
 		$queryRaw: vi.fn(async (): Promise<Array<{ serverId: string; rx: string; tx: string; first_sample_at: Date }>> => []),
 	},
@@ -25,7 +26,8 @@ const { prismaMock, collectServerMetricsMock, tcpProbeMock } = vi.hoisted(() => 
 	tcpProbeMock: vi.fn(),
 }));
 
-vi.mock("@/lib/db", () => ({ prisma: prismaMock }));
+vi.mock("@/lib/db", () => ({ prisma: { ...prismaMock, $transaction: (fn: (tx: unknown) => unknown) => fn(prismaMock) } }));
+vi.mock("@/lib/concurrency/advisory-lock", () => ({ lockForTransaction: vi.fn() }));
 vi.mock("@/lib/server/monitor", () => ({
 	collectServerMetrics: collectServerMetricsMock,
 }));
@@ -217,6 +219,14 @@ describe("collectAllHealth — TR-050 TCP probe integration", () => {
 		expect(result.servers[0]?.diskTotalLabel).toBe("400G");
 	});
 
+	it("keeps a missing disk and an unmeasured network rate separate from the measured memory", async () => {
+		prismaMock.server.findMany.mockResolvedValueOnce([{ id: "partial", name: "Partial", host: "localhost", port: 1, enabled: true }]);
+		tcpProbeMock.mockResolvedValueOnce({ ok: true, latencyMs: 1 });
+		collectServerMetricsMock.mockResolvedValueOnce({ ...goodMetrics(), disk: [], network: [{ iface: "eth0", rxBytes: 1000, txBytes: 2000 }] });
+		const { servers: [row] } = await collectAllHealth();
+		expect(row).toMatchObject({ mem: 25, cpu: 30, diskMax: undefined, networkInKbps: undefined, networkOutKbps: undefined });
+	});
+
 	it("returns critical when TCP + SSH succeed and metrics exceed thresholds", async () => {
 		prismaMock.server.findMany.mockResolvedValueOnce([
 			{ id: "s1", name: "Hot", host: "10.0.0.1", port: 22, enabled: true },
@@ -273,7 +283,7 @@ describe("collectAllHealth — TR-050 TCP probe integration", () => {
 		// Dashboard poll / alert-eval shape: no persist opt-in.
 		await collectAllHealth();
 
-		expect(prismaMock.trafficSnapshot.create).not.toHaveBeenCalled();
+		expect(prismaMock.trafficSnapshot.createMany).not.toHaveBeenCalled();
 	});
 
 	it("persists exactly one durable traffic snapshot per reachable server when persistTraffic is set", async () => {
@@ -294,8 +304,8 @@ describe("collectAllHealth — TR-050 TCP probe integration", () => {
 
 		// Only the reachable server with metrics gets a row; the unreachable one
 		// never reaches the persist call.
-		expect(prismaMock.trafficSnapshot.create).toHaveBeenCalledTimes(1);
-		expect(prismaMock.trafficSnapshot.create).toHaveBeenCalledWith(
+		expect(prismaMock.trafficSnapshot.createMany).toHaveBeenCalledTimes(1);
+		expect(prismaMock.trafficSnapshot.createMany).toHaveBeenCalledWith(
 			expect.objectContaining({
 				data: expect.objectContaining({ source: "server", serverId: "s1", iface: "eth0" }),
 			}),
@@ -350,5 +360,8 @@ describe("collectAllHealth — TR-050 TCP probe integration", () => {
 		const again = await read(report(60 * 1024 * 100, "2026-10-19T10:01:00.000Z"));
 		const next = await read(report(2 * 60 * 1024 * 100, "2026-10-19T10:02:00.000Z"));
 		expect([first.networkInKbps, again.networkInKbps, next.networkInKbps]).toEqual([100, 100, 100]);
+		const reset = await read(report(0, "2026-10-19T10:03:00.000Z"));
+		expect(reset.networkInKbps).toBeUndefined();
+		expect(reset.networkOutKbps).toBe(0);
 	});
 });

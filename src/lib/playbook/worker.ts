@@ -1,4 +1,5 @@
 import { JobStatus, Prisma } from "@prisma/client";
+import { checkSamplingClaim } from "@/lib/monitoring/sampling-claim";
 
 import { config } from "@/lib/config/env";
 import { prisma } from "@/lib/db";
@@ -17,6 +18,8 @@ import { ForbiddenError } from "@/lib/errors";
 import { t } from "@/lib/i18n/service-translations";
 import { assertRequesterMayExecuteCommand } from "@/lib/auth/command-execution-authz";
 import { canAlertRuleTargetTeam } from "@/lib/alert/rule-scope";
+import { projectPlaybookJobMessage, redactLegacyPlaybookMessages } from "./legacy-messages";
+import { reconcileTerminalPlaybookJobs } from "./service";
 import { executePlaybookChain } from "./executor";
 import { redactWebhookResult } from "./webhook-result";
 import type { PlaybookStep, PlaybookStepResult } from "./types";
@@ -128,7 +131,7 @@ async function assertAlertRunScope(context: Prisma.JsonValue, playbookId: string
   if (!host) throw new PlaybookAuthorizationError(t("backend.alert.oneOrMoreServeridsAreOutsideTheCurrent"));
 }
 
-export async function processPlaybookRun(runId: string, jobId: string, signal?: AbortSignal, maxAttempts = 1): Promise<{ status: "completed" | "failed"; summary: string }> {
+export async function processPlaybookRun(runId: string, jobId: string, signal?: AbortSignal, maxAttempts = 1, attempts?: number): Promise<{ status: "completed" | "failed"; summary: string }> {
   const run = await prisma.playbookRun.findUnique({
     where: { id: runId },
     include: { playbook: true },
@@ -187,6 +190,8 @@ export async function processPlaybookRun(runId: string, jobId: string, signal?: 
   // Lock is per-playbook, so a reclaimed job may wait here while the original
   // worker finishes the same runId — re-check terminal status after acquire.
   const releaseLock = await acquireAdvisoryLock("playbook-execute", run.playbook.id);
+  const lockSignal = (releaseLock as typeof releaseLock & { signal?: AbortSignal }).signal;
+  if (lockSignal) signal = signal ? AbortSignal.any([signal, lockSignal]) : lockSignal;
   try {
     const latest = await prisma.playbookRun.findUnique({
       where: { id: runId },
@@ -215,12 +220,33 @@ export async function processPlaybookRun(runId: string, jobId: string, signal?: 
     }
 
     signal?.throwIfAborted();
+    // Fence every older execution of this definition, even if its job lease still renews.
+    const generations = await prisma.$queryRaw<{ id: string; version: number }[]>`UPDATE playbook_runs
+      SET version = version + 1 WHERE "playbookId" = ${run.playbook.id} AND status = 'running'
+      AND EXISTS (SELECT 1 FROM jobs j WHERE j.id = ${jobId} AND j.status = 'RUNNING' AND j."workerId" = ${WORKER_ID}
+        AND j."leaseExpiresAt" > clock_timestamp() ${attempts === undefined ? Prisma.empty : Prisma.sql`AND j.attempts = ${attempts}`})
+      RETURNING id, version`;
+    const version = generations.find((r) => r.id === runId)?.version;
+    if (version === undefined) throw new LeaseLostError(jobId);
+    const checkLease = async (progress?: string) => {
+      signal?.throwIfAborted();
+      const current = await prisma.playbookRun.count({ where: { id: runId, version, status: "running" } }).catch(() => 0);
+      if (!current) throw new LeaseLostError(jobId);
+      const lease = await heartbeatJob(jobId, WORKER_ID, { attempts, leaseMs: LEASE_MS, progress }).catch(() => null);
+      if (lease?.count !== 1) throw new LeaseLostError(jobId);
+      signal?.throwIfAborted();
+    };
     const chain = await executePlaybookChain({
-      signal,
-      beforeDispatch: async () => {
+      signal, version, checkLease,
+      checkWrite: async (tx) => {
         signal?.throwIfAborted();
-        const lease = await heartbeatJob(jobId, WORKER_ID, { leaseMs: LEASE_MS });
-        if (lease.count !== 1) throw new LeaseLostError(jobId);
+        if (attempts !== undefined && signal) await checkSamplingClaim(tx, { jobId, workerId: WORKER_ID, attempts, signal });
+        const rows = await tx.$queryRaw<{ id: string }[]>`SELECT id FROM playbook_runs
+          WHERE id = ${runId} AND version = ${version} AND status = 'running' FOR SHARE`;
+        if (!rows.length) throw new LeaseLostError(jobId);
+      },
+      beforeDispatch: async () => {
+        await checkLease();
         await assertRunOwner(requesterId, latest.teamId);
         await assertAlertRunScope(run.triggerContext, run.playbook.id, latest.teamId, sourceTeamId);
         signal?.throwIfAborted();
@@ -237,7 +263,7 @@ export async function processPlaybookRun(runId: string, jobId: string, signal?: 
       // Prefer post-lock stepResults so resume sees progress written by a prior owner.
       resumeResults: (latest.stepResults ?? run.stepResults ?? []) as unknown as PlaybookStepResult[],
       eventJobId: jobId,
-      onProgress: (progress) => heartbeatJob(jobId, WORKER_ID, { leaseMs: LEASE_MS, progress }),
+      onProgress: (progress) => checkLease(projectPlaybookJobMessage(PLAYBOOK_RUN_JOB_TYPE, "heartbeat", progress)),
     });
     const stepResults = chain.results.map((result) => redactWebhookResult(
       Array.isArray(steps) ? steps.find((step) => step?.id === result.stepId) : undefined, result,
@@ -247,8 +273,9 @@ export async function processPlaybookRun(runId: string, jobId: string, signal?: 
     const status = failed ? "failed" : "completed";
     // CAS finalize: never overwrite cancelled (or an already-terminal row)
     // written while the chain was in flight.
+    await checkLease();
     const finalized = await prisma.playbookRun.updateMany({
-      where: { id: runId, status: { in: ["queued", "running"] } },
+      where: { id: runId, version, status: { in: ["queued", "running"] } },
       data: {
         status,
         stepResults: toJsonValue(stepResults),
@@ -285,6 +312,9 @@ export async function processPlaybookRun(runId: string, jobId: string, signal?: 
       latest.teamId,
     );
     return { status, summary: chain.summary };
+  } catch (error) {
+    if (lockSignal?.aborted) throw new LeaseLostError(jobId);
+    throw error;
   } finally {
     await releaseLock();
   }
@@ -296,8 +326,8 @@ async function handleJob(job: NonNullable<Awaited<ReturnType<typeof claimNextJob
     const result = await runWithLeaseHeartbeat({
       jobId: job.id,
       leaseMs: LEASE_MS,
-      heartbeat: () => heartbeatJob(job.id, WORKER_ID, { leaseMs: LEASE_MS }),
-      run: (signal) => processPlaybookRun(runId, job.id, signal, job.maxAttempts),
+      heartbeat: () => heartbeatJob(job.id, WORKER_ID, { attempts: job.attempts, leaseMs: LEASE_MS }),
+      run: (signal) => processPlaybookRun(runId, job.id, signal, job.maxAttempts, job.attempts),
     });
     // Logical step failure already wrote PlaybookRun status=failed. Do NOT use
     // failJob() (requeues while attempts < maxAttempts). Terminal-fail the job
@@ -307,11 +337,11 @@ async function handleJob(job: NonNullable<Awaited<ReturnType<typeof claimNextJob
         job.id,
         WORKER_ID,
         result.summary || `Playbook run ${result.status}`,
-        { result },
+        { result, attempts: job.attempts },
       );
       return true;
     }
-    await completeJob(job.id, WORKER_ID, result);
+    await completeJob(job.id, WORKER_ID, result, job.attempts);
     return true;
   } catch (error) {
     if (error instanceof LeaseLostError) return true; // The new lease owner resolves it.
@@ -354,12 +384,12 @@ async function handleJob(job: NonNullable<Awaited<ReturnType<typeof claimNextJob
       });
     }
     if (isTerminal) {
-      await failJobTerminal(job.id, WORKER_ID, message.slice(0, 2000));
+      await failJobTerminal(job.id, WORKER_ID, message.slice(0, 2000), { attempts: job.attempts });
       logger.warn("playbook run terminally failed authorization", { jobId: job.id, error: message });
       return true;
     }
     // Infrastructure / unexpected throw: allow durable job retry via failJob.
-    await failJob(job.id, WORKER_ID, message.slice(0, 2000), { retryAfterMs: 5_000 });
+    await failJob(job.id, WORKER_ID, message.slice(0, 2000), { retryAfterMs: 5_000, attempts: job.attempts });
     logger.error("playbook run job failed", { jobId: job.id, error: message });
     return true;
   }
@@ -394,6 +424,8 @@ export async function runPlaybookRunWorkerOnce(): Promise<boolean> {
 }
 
 export async function startPlaybookRunWorker(options: { intervalMs?: number } = {}): Promise<State> {
+  await redactLegacyPlaybookMessages();
+  await reconcileTerminalPlaybookJobs(prisma);
   return (await playbookRunWorker.start(options)).state;
 }
 

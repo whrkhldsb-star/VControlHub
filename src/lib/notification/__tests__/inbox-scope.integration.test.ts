@@ -61,4 +61,24 @@ describe.skipIf(process.env.RUN_DATABASE_INTEGRATION_TESTS !== "1")("transferred
 		const { pushNotification } = await import("@/lib/ws/notification-ws");
 		expect(pushNotification).toHaveBeenCalledOnce();
 	});
+	it("revokes an existing incident notification from the inbox, unread count and socket", async () => {
+		const id = userId + "-incident";
+		await prisma.server.create({ data: { id, teamId: teamB, name: id, username: "test", host: "localhost", tags: [] } });
+		await prisma.alertRule.create({ data: { id, teamId: teamB, name: id, metric: "cpu_usage", operator: "gt", threshold: 80 } });
+		try {
+			await prisma.alertIncident.create({ data: { id, ruleId: id, serverId: id, serverName: id, fingerprint: id, metric: "cpu_usage", operator: "gt", threshold: 80, value: 95, title: "CPU", message: "High" } });
+			await prisma.notification.create({ data: { id, userId, teamId: teamB, type: "server_alert", actionUrl: `/alert-rules?incident=${id}`, title: "CPU", message: "High" } });
+			const count = await getUnreadCount(session);
+			expect(await getVisibleNotificationForPush(userId, id)).toMatchObject({ id });
+			await prisma.userServerAccess.create({ data: { userId, serverId: id, canRead: false } });
+			expect(await getVisibleNotificationForPush(userId, id)).toBeNull();
+			expect((await listUserNotifications(session)).some((row) => row.id === id)).toBe(false);
+			expect(await getUnreadCount(session)).toBe(count - 1);
+			expect((await readUnreadCount(userId)).count).toBe(count - 1);
+		} finally {
+			await prisma.alertRule.delete({ where: { id } });
+			await prisma.server.delete({ where: { id } });
+		}
+	});
+
 });

@@ -3,6 +3,7 @@ import { NextResponse } from "next/server";
 import { z } from "zod";
 
 import {
+  formatAlertRuleCursor,
   listAlertRules,
   createAlertRule,
   updateAlertRule,
@@ -205,8 +206,10 @@ export async function GET(request: Request) {
       // Fresh installs previously left alert evaluation as a pure no-op.
       // Bootstrap a small starter pack the first time the page/API is loaded.
       await ensureDefaultAlertRules(session);
-      const rules = await listAlertRules(session);
-      return NextResponse.json({ rules: rules.map(toAlertRuleDto) });
+      const { after } = parseSearchParams(request, z.object({ after: z.string().min(1).max(200).optional() }));
+      const rows = await listAlertRules(session, { after, take: 201 });
+      const rules = rows.slice(0, 200);
+      return NextResponse.json({ rules: rules.map(toAlertRuleDto), nextCursor: rows.length > 200 ? formatAlertRuleCursor(rules.at(-1)!) : null });
     },
   );
 }
@@ -244,7 +247,7 @@ export async function POST(request: Request) {
       await auditUserAction(
         session.userId,
         "alert_rule.create",
-        auditRuleDetail(rule), undefined, session.currentTeamId);
+        auditRuleDetail(rule), undefined, rule.teamId);
       if (wantsHtml(request)) {
         return NextResponse.redirect(new URL("/alert-rules", request.url), {
           status: 303,
@@ -272,7 +275,7 @@ export async function PATCH(request: Request) {
         await auditUserAction(session.userId, "alert_rule.toggle", {
           ruleId: body.toggleId,
           enabled: Boolean(result.enabled),
-        }, undefined, session.currentTeamId);
+        }, undefined, result.teamId);
         return NextResponse.json({ rule: toAlertRuleDto(result) });
       }
       if ("testId" in body) {
@@ -282,8 +285,9 @@ export async function PATCH(request: Request) {
           name: result.rule.name,
           channels: result.deliveries.map((delivery) => delivery.channel),
           statuses: result.deliveries.map((delivery) => delivery.status),
-        }, undefined, session.currentTeamId);
-        return NextResponse.json(result);
+        }, undefined, result.rule.teamId);
+        const { teamId: _teamId, ...rule } = result.rule;
+        return NextResponse.json({ ...result, rule });
       }
       if ("ensureDefaults" in body) {
         const result = await ensureDefaultAlertRules(session);
@@ -299,7 +303,7 @@ export async function PATCH(request: Request) {
       await auditUserAction(
         session.userId,
         "alert_rule.update",
-        auditRuleDetail(result), undefined, session.currentTeamId);
+        auditRuleDetail(result), undefined, result.teamId);
       return NextResponse.json({ rule: toAlertRuleDto(result) });
     },
   );
@@ -317,8 +321,8 @@ export async function DELETE(request: Request) {
       const { id: alertRuleId } = parseSearchParams(request, idQuerySchema);
       if (!alertRuleId)
         throw new ValidationError(apiCopy("apiCopy.missing.rule.id.be309df5"));
-      await deleteAlertRule(alertRuleId, session);
-      await auditUserAction(session.userId, "alert_rule.delete", { ruleId: alertRuleId }, undefined, session.currentTeamId);
+      const deleted = await deleteAlertRule(alertRuleId, session);
+      await auditUserAction(session.userId, "alert_rule.delete", { ruleId: alertRuleId }, undefined, deleted.teamId);
       return NextResponse.json({ success: true });
     },
   );
