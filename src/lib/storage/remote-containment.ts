@@ -35,12 +35,12 @@ import {
  * refuses archives with links), so the remaining window needs a concurrent
  * change by someone who already controls the remote account.
  */
-export async function assertRemotePathContained(
+export async function resolveRemoteContainment(
   connection: SshConnectionParams & { windowsOpenSsh?: boolean },
   basePath: string,
   lexicalPath: string,
   client?: Client,
-): Promise<string> {
+) {
   const lexicalRoot = normalizeRemotePath(basePath);
   const relative = lexicalPath === lexicalRoot ? "" : path.posix.relative(lexicalRoot, lexicalPath);
   // Segment-wise: a name that merely begins with two dots (`..cache`) is fine.
@@ -72,7 +72,16 @@ export async function assertRemotePathContained(
   if (physicalPath(realTarget, windows) !== expected) {
     throw new ValidationError(t("backend.storage.remotePathLeavesNodeRoot"));
   }
-  return realTarget;
+  return { target: realTarget, root: realRoot };
+}
+
+export async function assertRemotePathContained(
+  connection: SshConnectionParams & { windowsOpenSsh?: boolean },
+  basePath: string,
+  lexicalPath: string,
+  client?: Client,
+): Promise<string> {
+  return (await resolveRemoteContainment(connection, basePath, lexicalPath, client)).target;
 }
 
 /** Windows OpenSSH reports C:/... or C:\\...; compare as /C:/... */

@@ -2,6 +2,7 @@ import { JobStatus, Prisma } from "@prisma/client";
 import { getRuntimeSettingNumberStrict } from "@/lib/runtime-settings/service";
 
 import { prisma } from "@/lib/db";
+import { logError } from "@/lib/logging";
 import { t } from "@/lib/i18n/service-translations";
 import {
   futureFrom,
@@ -56,6 +57,21 @@ export async function recoverStaleRunningJobs(options: {
       payload: { type: job.type, title: job.title, attempts: job.attempts, maxAttempts: job.maxAttempts },
     })) }).catch(() => undefined);
   }
+  for (const job of exhausted) {
+    if (job.type !== "download.execute" || !job.payload || typeof job.payload !== "object" || Array.isArray(job.payload)) continue;
+    const taskId = job.payload.taskId;
+    if (typeof taskId !== "string") continue;
+    try {
+      const task = await prisma.downloadTask.findFirst({ where: { id: taskId, status: "RUNNING",
+        OR: [{ relayMode: true }, { aria2Gid: { not: null } }, { agentStorageNodeId: { not: null } }] } });
+      if (task) {
+        const { failRelayTask } = await import("@/lib/downloads/reconcile");
+        await failRelayTask(task, EXHAUSTED_ERROR);
+      }
+    } catch (error) {
+      logError(`[DownloadReconcile] Expired job ${job.id} will be retried by the terminal sweep:`, error);
+    }
+  }
   const playbookRunIds = exhausted
     .filter((job) => job.type === "playbook.run")
     .map((job) => {
@@ -82,30 +98,36 @@ export async function recoverStaleRunningJobs(options: {
   };
 }
 
+/** Take the retention decision and delete candidates in one snapshot of a single source and tenant. */
+export function pruneHistoryScope(
+  retained: (tx: Prisma.TransactionClient) => Promise<{ id: string }[]>,
+  remove: (tx: Prisma.TransactionClient, retainedIds: string[]) => Promise<{ count: number }>,
+) {
+  return prisma.$transaction(async tx => {
+    const ids = (await retained(tx)).map(row => row.id);
+    const { count } = await remove(tx, ids);
+    return { scanned: ids.length, deleted: count };
+  }, { isolationLevel: Prisma.TransactionIsolationLevel.RepeatableRead });
+}
+
+async function pruneJobsInScope(type: string, status: Prisma.JobWhereInput["status"], keepLatest: number, olderThan?: Date) {
+  const result = await pruneHistoryScope(
+    tx => tx.job.findMany({
+      where: { type, status }, select: { id: true }, take: keepLatest,
+      orderBy: [{ completedAt: "desc" }, { createdAt: "desc" }, { id: "desc" }],
+    }),
+    (tx, retainedIds) => tx.job.deleteMany({ where: { type, status,
+      ...(retainedIds.length ? { id: { notIn: retainedIds } } : {}),
+      ...(olderThan ? { completedAt: { lt: olderThan } } : {}),
+    } }),
+  );
+  return { count: result.deleted };
+}
+
 export async function pruneCompletedJobsByType(options: PruneCompletedJobsByTypeOptions) {
   const type = options.type.trim();
   if (!type) return { count: 0 };
-  const keepLatest = Math.max(1, Math.floor(options.keepLatest ?? 25));
-  return prisma.$transaction(
-    async (tx) => {
-      const retained = await tx.job.findMany({
-        where: { type, status: JobStatus.COMPLETED },
-        select: { id: true },
-        orderBy: [{ completedAt: "desc" }, { createdAt: "desc" }],
-        take: keepLatest,
-      });
-      const retainedIds = retained.map((job) => job.id);
-      return tx.job.deleteMany({
-        where: {
-          type,
-          status: JobStatus.COMPLETED,
-          ...(retainedIds.length > 0 ? { id: { notIn: retainedIds } } : {}),
-          ...(options.olderThan ? { completedAt: { lt: options.olderThan } } : {}),
-        },
-      });
-    },
-    { isolationLevel: Prisma.TransactionIsolationLevel.RepeatableRead },
-  );
+  return pruneJobsInScope(type, JobStatus.COMPLETED, Math.max(1, Math.floor(options.keepLatest ?? 25)), options.olderThan);
 }
 
 /**
@@ -129,26 +151,7 @@ export async function pruneTerminalJobsByType(options: PruneTerminalJobsByTypeOp
   );
   if (!type || statuses.length === 0) return { count: 0 };
   const keepLatest = Math.max(1, Math.floor(options.keepLatest ?? 25));
-  return prisma.$transaction(
-    async (tx) => {
-      const retained = await tx.job.findMany({
-        where: { type, status: { in: statuses } },
-        select: { id: true },
-        orderBy: [{ completedAt: "desc" }, { createdAt: "desc" }],
-        take: keepLatest,
-      });
-      const retainedIds = retained.map((job) => job.id);
-      return tx.job.deleteMany({
-        where: {
-          type,
-          status: { in: statuses },
-          ...(retainedIds.length > 0 ? { id: { notIn: retainedIds } } : {}),
-          ...(options.olderThan ? { completedAt: { lt: options.olderThan } } : {}),
-        },
-      });
-    },
-    { isolationLevel: Prisma.TransactionIsolationLevel.RepeatableRead },
-  );
+  return pruneJobsInScope(type, { in: statuses }, keepLatest, options.olderThan);
 }
 
 /** Default retention for terminal job rows, aligned with pruneJobEvents' 30d window. */

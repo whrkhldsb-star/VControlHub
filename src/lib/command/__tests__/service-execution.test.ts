@@ -1,3 +1,4 @@
+import { approvalReceiptId } from "../approval-identity";
 import { CommandCancellationUnconfirmedError } from "../cancellation-error";
 import { afterEach, beforeEach, describe, expect, it, vi } from "vitest";
 
@@ -15,7 +16,7 @@ const mocks = vi.hoisted(() => ({
       findUniqueOrThrow: vi.fn(),
       updateMany: vi.fn(),
     },
-    executionLog: { create: vi.fn() },
+    executionLog: { findUnique: vi.fn(async (_args: { where: { id: string } }): Promise<{ id: string } | null> => ({ id: "receipt" })), create: vi.fn() },
     // Fire-and-forget in cancelActiveCommandChild: must stay thenable.
     serverAgentJob: { updateMany: vi.fn(() => Promise.resolve({ count: 0 })) },
   },
@@ -196,6 +197,18 @@ describe("executeTarget", () => {
     expect(mocks.prisma.executionLog.create).toHaveBeenCalledWith({
       data: expect.objectContaining({ commandRequestId: "req-1", serverId: "srv-1" }),
     });
+  });
+
+  it("refuses a target whose approved endpoint changed before the worker loaded it", async () => {
+    const target = buildTarget();
+    const receipt = approvalReceiptId(target.id, target.server);
+    mocks.prisma.executionLog.findUnique.mockImplementationOnce(async ({ where }) => where.id === receipt ? { id: receipt } : null);
+    mocks.prisma.commandTarget.findUnique.mockResolvedValueOnce({ status: "RUNNING",
+      commandRequest: { status: "RUNNING", requesterId: "user", teamId: "team-1", approvals: [{ id: "approval" }] } });
+    mocks.prisma.commandTarget.updateMany.mockResolvedValue({ count: 1 });
+    expect(await executeTarget("req-1", buildTarget({ server: { host: "replacement.invalid" } }))).toBe(false);
+    expect(mocks.executeCommandOverSsh).not.toHaveBeenCalled();
+    expect(mocks.executeCommandWithAgent).not.toHaveBeenCalled();
   });
 
   it("asks for the requester's execute permission only when no reviewer approved the request", async () => {

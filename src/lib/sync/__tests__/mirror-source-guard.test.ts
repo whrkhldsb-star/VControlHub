@@ -1,10 +1,12 @@
 import { spawnSync } from "node:child_process";
-import { existsSync, mkdirSync, mkdtempSync, readdirSync, readFileSync, rmSync, writeFileSync } from "node:fs";
+import { existsSync, mkdirSync, mkdtempSync, readdirSync, readFileSync, renameSync, rmSync, symlinkSync, writeFileSync } from "node:fs";
 import { tmpdir, userInfo } from "node:os";
 import { join } from "node:path";
 import { afterEach, beforeEach, describe, expect, it, vi } from "vitest";
 
 import { installFakeSsh } from "./helpers/fake-sshd";
+import { PROTECTED_DELETE_TARGETS } from "../bidirectional";
+import { mirrorDirectoryIdentities } from "../mirror-directories";
 
 /**
  * executeSyncJob end to end against real directories: the SSH layer is
@@ -15,7 +17,8 @@ import { installFakeSsh } from "./helpers/fake-sshd";
  */
 const posix = process.platform !== "win32";
 
-const state = vi.hoisted(() => ({ bin: "", home: "", job: null as Record<string, unknown> | null, runNothing: false, ran: [] as string[] }));
+const state = vi.hoisted(() => ({ bin: "", home: "", job: null as Record<string, unknown> | null, runNothing: false,
+  afterPreflight: undefined as (() => void) | undefined, ran: [] as string[] }));
 
 // Execution-time authorisation has its own tests (execution-actor).
 vi.mock("@/lib/auth/execution-actor", () => ({ executionRefusal: vi.fn(async () => null), loadExecutionActor: vi.fn() }));
@@ -55,7 +58,10 @@ vi.mock("@/lib/ssh/client", () => ({
       }
     }
     if (!state.home) throw new Error("refusing to run a sync command without a test HOME");
-    if (command.startsWith("which rsync")) return { stdout: "MISSING\n", stderr: "", exitCode: 1 };
+    if (command.startsWith("which rsync")) {
+      state.afterPreflight?.();
+      return { stdout: "MISSING\n", stderr: "", exitCode: 1 };
+    }
     const result = spawnSync("/bin/sh", ["-c", command], {
       encoding: "utf8",
       env: { ...process.env, HOME: state.home, PATH: `${state.bin}:${process.env.PATH}` },
@@ -101,6 +107,7 @@ describe.skipIf(!posix)("executeSyncJob — mirror source guard on real director
 
   afterEach(() => {
     rmSync(root, { recursive: true, force: true });
+    state.afterPreflight = undefined;
     state.home = "";
   });
 
@@ -156,6 +163,44 @@ describe.skipIf(!posix)("executeSyncJob — mirror source guard on real director
     const result = await executeSyncJob("job-1");
     expect(result.ok, result.errorMessage).toBe(true);
     expect(readdirSync(target)).toEqual(["fresh.txt"]);
+  });
+
+  it("checks the physical directory of a mirror target alias", async () => {
+    mkdirSync(source);
+    writeFileSync(join(source, "fresh.txt"), "new data");
+    const alias = join(root, "alias");
+    symlinkSync(target, alias);
+    useJob("MIRROR");
+    state.job!.targetPath = alias;
+    PROTECTED_DELETE_TARGETS.add(target);
+    try {
+      expect((await executeSyncJob("job-1")).ok).toBe(false);
+      expect(readdirSync(target)).toEqual(["valuable.txt"]);
+    } finally { PROTECTED_DELETE_TARGETS.delete(target); }
+  });
+
+  it("keeps the original and replacement directories when the receiver's inode changes after preflight", async () => {
+    mkdirSync(source);
+    writeFileSync(join(source, "fresh.txt"), "new data");
+    useJob("MIRROR");
+    const original = join(root, "original");
+    state.afterPreflight = () => {
+      renameSync(target, original);
+      mkdirSync(target);
+      writeFileSync(join(target, "replacement.txt"), "other data");
+    };
+    expect((await executeSyncJob("job-1")).ok).toBe(false);
+    expect(readdirSync(original)).toEqual(["valuable.txt"]);
+    expect(readdirSync(target)).toEqual(["replacement.txt"]);
+  });
+
+  it("recognizes overlapping bind mounts through their backing filesystem and directory", () => {
+    const boot = "e74db55d-a67c-4a57-9086-03efa61dac62";
+    const receipt = (mount: string, inode: string) => `ready\nVCH_SYNC_DIRECTORY\n${boot}\n0:62 ${mount}\n62:${inode}\n42:2\n`;
+    expect(() => mirrorDirectoryIdentities("/source", receipt("/archive /source", "3"),
+      "/target/data", receipt("/archive/branch /target", "8"))).toThrow();
+    expect(mirrorDirectoryIdentities("/source", receipt("/archive /source", "3"),
+      "/target/data", receipt("/archive2 /target", "8"))).toEqual({ sourceIdentity: "62:3", targetIdentity: "62:8" });
   });
 
   it("still lets a non-deleting one-way copy into an empty target proceed from an empty source", async () => {

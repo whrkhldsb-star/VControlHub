@@ -14,6 +14,8 @@ export function maySelfReviewCommands(session: PermissionSession | null | undefi
  * Whether this account may approve or reject a request filed by `requesterId`: what reviewCommandRequest accepts.
  * The pages offer a review, and count a request as waiting for this account, only where it holds.
  */
-export function mayReviewCommandRequest(session: PermissionSession & { userId: string }, requesterId: string): boolean {
-	return sessionHasPermission(session, "command:approve") && (requesterId !== session.userId || maySelfReviewCommands(session));
+export function mayReviewCommandRequest(session: PermissionSession & { userId: string }, requesterId: string, runInitiatorId?: string | null): boolean {
+	return sessionHasPermission(session, "command:approve") && (
+		(session.userId !== requesterId && session.userId !== runInitiatorId) || maySelfReviewCommands(session)
+	);
 }

@@ -1,3 +1,4 @@
+import { readSyncRun } from "./run-receipt";
 import { apiCopy } from "@/lib/i18n/api-copy";
 /**
  * Sync service — DB CRUD (R28 god-file split).
@@ -66,8 +67,9 @@ async function assertSyncServersInScope(
 	const scope = session ? serverTeamWhere(session, "connect") : {};
 	const servers = await prisma.server.findMany({
 		where: { id: { in: unique }, ...scope },
-		select: { id: true },
+		select: { id: true, operatingSystem: true },
 	});
+	if (servers.some(server => server.operatingSystem === "WINDOWS")) throw new ValidationError(t("backend.server.linuxOnly"));
 	if (servers.length !== unique.length) {
 		throw new ValidationError(
 			apiCopy("apiCopy.one.or.more.source.target.servers.were.not.found.or.are.outside..cf44bdaa"),
@@ -237,6 +239,25 @@ export async function visibleSyncPaths(jobs: SyncPaths[], session?: SyncSessionS
 	return (job: SyncPaths) => allowed(job.sourceServerId, job.sourcePath, false) && allowed(job.targetServerId, job.targetPath, write);
 }
 
+type HistoryRow = SyncPaths & { lastSyncResult: string | null; syncLogs: { errorMessage: string | null }[] };
+
+export async function filterSyncHistory<T extends HistoryRow>(jobs: T[], session?: SyncSessionScope) {
+	const histories = jobs.map(job => (job.syncLogs ?? []).map(log => readSyncRun(log.errorMessage)));
+	const scopes = histories.flatMap(receipts => receipts.flatMap(receipt => receipt ? [receipt.scope] : []));
+	const allowed = await visibleSyncPaths(scopes, session);
+	return jobs.map((job, i) => {
+		const receipts = histories[i]!;
+		const readable = receipts.map(receipt => receipt && receipt.scope.sourceServerId === job.sourceServerId
+			&& receipt.scope.targetServerId === job.targetServerId && allowed(receipt.scope));
+		return {
+			...job,
+			lastSyncResult: readable[0] ? receipts[0]?.result ?? null : null,
+			syncLogs: (job.syncLogs ?? []).flatMap((log, j) =>
+				receipts[j] && !readable[j] ? [] : [{ ...log, errorMessage: receipts[j]?.error ?? null }]),
+		};
+	});
+}
+
 export async function listSyncJobs(
 	session?: Pick<SessionPayload, "userId" | "roles" | "currentTeamId">,
 ) {
@@ -247,6 +268,7 @@ export async function listSyncJobs(
 			targetServer: serverSummary,
 			creator: { select: { id: true, username: true, displayName: true } },
 			_count: { select: { syncLogs: true } },
+			syncLogs: { orderBy: [{ startedAt: "desc" }, { id: "desc" }], take: 1, select: { errorMessage: true } },
 		},
 		orderBy: [{ createdAt: "desc" }, { id: "desc" }],
 		...(cursor ? { cursor: { id: cursor }, skip: 1 } : {}),
@@ -259,7 +281,8 @@ export async function listSyncJobs(
 		visible.push(...jobs.filter(await visibleSyncPaths(jobs, session)));
 		cursor = jobs.length === 200 ? jobs.at(-1)?.id : undefined;
 	} while (cursor && visible.length < 200);
-	return visible.slice(0, 200);
+	const filtered = await filterSyncHistory(visible.slice(0, 200), session);
+	return filtered.map(({ syncLogs: _logs, ...job }) => job);
 }
 
 /** Endpoint fields the HTTP layer may show; deliberately no credential relation. */
@@ -286,10 +309,10 @@ export async function getSyncJob(
 		include: {
 			sourceServer: SYNC_ENDPOINT_SELECT,
 			targetServer: SYNC_ENDPOINT_SELECT,
-			syncLogs: { orderBy: { startedAt: "desc" }, take: 20 },
+			syncLogs: { orderBy: [{ startedAt: "desc" }, { id: "desc" }], take: 20 },
 		},
 	});
-	return job && (await visibleSyncPaths([job], session, write))(job) ? job : null;
+	return job && (await visibleSyncPaths([job], session, write))(job) ? (await filterSyncHistory([job], session))[0]! : null;
 }
 
 /**
@@ -335,7 +358,7 @@ export async function updateSyncJob(
 		if (!existing) throw new NotFoundError(t("backend.sync.syncJobNotFound"));
 		// Being in the job's team is not enough to edit it: the editor must reach both servers itself, the same check
 		// createSyncJob makes. Otherwise a member barred from a server could repoint a teammate's job at it.
-		if (session) await assertSyncServersInScope([existing.sourceServerId, existing.targetServerId], session);
+		await assertSyncServersInScope([existing.sourceServerId, existing.targetServerId], session);
 		// createSyncJob refuses an endpoint that syncs a path onto itself; a PATCH of
 		// sourcePath/targetPath must not be able to reach that state either. On one
 		// server with the same path and deleteOrphans, the tar fallback pipes
@@ -366,6 +389,8 @@ export async function updateSyncJob(
 		if (data.name !== undefined) patch.name = data.name;
 		if (data.sourcePath !== undefined) patch.sourcePath = data.sourcePath;
 		if (data.targetPath !== undefined) patch.targetPath = data.targetPath;
+		if ((data.sourcePath !== undefined && data.sourcePath !== existing.sourcePath)
+			|| (data.targetPath !== undefined && data.targetPath !== existing.targetPath)) patch.lastSyncResult = null;
 		if (data.compress !== undefined) patch.compress = data.compress;
 		if (data.schedule !== undefined) patch.schedule = data.schedule; // null clears
 		if (data.syncType !== undefined || data.deleteOrphans !== undefined) {
@@ -391,7 +416,7 @@ export async function updateSyncJob(
 				where: visible, include: { sourceServer: serverSummary, targetServer: serverSummary },
 			});
 			if (!row || !(await visibleSyncPaths([row], session, true, tx))(row)) throw new NotFoundError(t("backend.sync.syncJobNotFound"));
-			return row;
+			return { ...row, lastSyncResult: null };
 		});
 		if (result) return result;
 	}

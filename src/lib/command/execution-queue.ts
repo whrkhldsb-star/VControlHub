@@ -2,6 +2,7 @@ import type { Prisma } from "@prisma/client";
 
 import { prisma } from "@/lib/db";
 import { enqueueJob } from "@/lib/job/service";
+import { manualRunInitiator } from "./approval-identity";
 
 export const COMMAND_EXECUTION_JOB_TYPE = "command.execution";
 
@@ -39,14 +40,16 @@ export async function enqueueCommandExecutionJob(input: {
 	if (!commandRequestId) throw new Error("Command execution task missing commandRequestId");
 	const request = await client.commandRequest.findUnique({
 		where: { id: commandRequestId },
-		select: { teamId: true, requesterId: true },
+		select: { teamId: true, requesterId: true, idempotencyKey: true },
 	});
+	const runInitiatorId = manualRunInitiator(request?.idempotencyKey ?? null);
 	return enqueueJob({
 		type: COMMAND_EXECUTION_JOB_TYPE,
 		title: `Execute command ${commandRequestId}`,
 		payload: {
 			commandRequestId,
 			summary: input.summary,
+			...(runInitiatorId && request ? { runInitiatorId, planAuthorId: request.requesterId } : {}),
 			requestedAt: new Date().toISOString(),
 		},
 		priority: 0,

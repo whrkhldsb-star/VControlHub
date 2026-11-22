@@ -29,7 +29,7 @@ export function syncEndpointAccess(syncType: string, deleteOrphans: boolean, rev
 }
 
 /** Directories a run that deletes what the source lacks must never be pointed at (the directory itself, not below it). */
-const PROTECTED_DELETE_TARGETS = new Set([
+export const PROTECTED_DELETE_TARGETS = new Set([
   "/", "/bin", "/boot", "/dev", "/etc", "/home", "/lib", "/lib32", "/lib64", "/opt", "/proc", "/root", "/run", "/sbin", "/srv", "/sys", "/usr", "/var",
 ]);
 

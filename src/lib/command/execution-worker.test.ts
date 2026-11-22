@@ -62,6 +62,7 @@ vi.mock("@/lib/logging", () => ({
 
 import {
   COMMAND_EXECUTION_JOB_TYPE,
+  drainCommandExecutionWorker,
   enqueueCommandExecutionJob,
   parseCommandExecutionJobPayload,
   runCommandExecutionJobWorkerOnce,
@@ -129,7 +130,7 @@ describe("command execution durable job worker", () => {
       );
     expect(findUniqueCommandRequestMock).toHaveBeenCalledWith({
       where: { id: "req-42" },
-      select: { teamId: true, requesterId: true },
+      select: { teamId: true, requesterId: true, idempotencyKey: true },
     });
     });
 
@@ -289,6 +290,22 @@ describe("command execution durable job worker", () => {
   });
 
   describe("startCommandExecutionWorker lifecycle", () => {
+    it("stops claiming and waits for a command's final database write before closing", async () => {
+      let finish!: () => void;
+      completeJobMock.mockImplementationOnce(() => new Promise<void>(resolve => { finish = resolve; }));
+      claimNextJobMock.mockResolvedValueOnce(makeJob());
+      const job = runCommandExecutionJobWorkerOnce();
+      await vi.waitFor(() => expect(completeJobMock).toHaveBeenCalled());
+      let closed = false;
+      const drain = drainCommandExecutionWorker().then(drained => { closed = drained; });
+      await expect(runCommandExecutionJobWorkerOnce()).resolves.toBe(false);
+      expect(claimNextJobMock).toHaveBeenCalledOnce();
+      expect(closed).toBe(false);
+      finish();
+      await Promise.all([job, drain]);
+      expect(closed).toBe(true);
+    });
+
     it("starts once (idempotent) and logs the workerId", async () => {
       const state = await startCommandExecutionWorker();
       const state2 = await startCommandExecutionWorker();
