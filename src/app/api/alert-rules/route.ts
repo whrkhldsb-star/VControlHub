@@ -3,6 +3,7 @@ import { NextResponse } from "next/server";
 import { z } from "zod";
 
 import {
+  formatAlertRuleCursor,
   listAlertRules,
   createAlertRule,
   updateAlertRule,
@@ -208,7 +209,7 @@ export async function GET(request: Request) {
       const { after } = parseSearchParams(request, z.object({ after: z.string().min(1).max(200).optional() }));
       const rows = await listAlertRules(session, { after, take: 201 });
       const rules = rows.slice(0, 200);
-      return NextResponse.json({ rules: rules.map(toAlertRuleDto), nextCursor: rows.length > 200 ? rules.at(-1)!.id : null });
+      return NextResponse.json({ rules: rules.map(toAlertRuleDto), nextCursor: rows.length > 200 ? formatAlertRuleCursor(rules.at(-1)!) : null });
     },
   );
 }

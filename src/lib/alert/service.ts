@@ -100,10 +100,30 @@ export type CreateAlertRuleInput = {
 
 /* ── CRUD ─────────────────────────────────────────────────── */
 
+export function formatAlertRuleCursor(rule: { createdAt: Date | string; id: string }): string {
+	const ms = rule.createdAt instanceof Date ? rule.createdAt.getTime() : new Date(rule.createdAt).getTime();
+	return `${ms}.${rule.id}`;
+}
+
+function parseAlertRuleCursor(after?: string): Prisma.AlertRuleWhereInput | null {
+	if (!after) return null;
+	const dot = after.indexOf(".");
+	if (dot > 0) {
+		const ms = Number(after.slice(0, dot));
+		const id = after.slice(dot + 1);
+		if (Number.isFinite(ms) && id) {
+			const createdAt = new Date(ms);
+			return { OR: [{ createdAt: { lt: createdAt } }, { createdAt, id: { lt: id } }] };
+		}
+	}
+	return { id: { lt: after } };
+}
+
 export async function listAlertRules(session?: TeamSession | null, page?: { after?: string; take: number }) {
+	const cursorWhere = parseAlertRuleCursor(page?.after);
 	return prisma.alertRule.findMany({
-		where: { ...(session ? teamWhere(session) : {}), ...(page?.after ? { id: { lt: page.after } } : {}) },
-		orderBy: page ? { id: "desc" } : [{ createdAt: "desc" }, { id: "desc" }],
+		where: { ...(session ? teamWhere(session) : {}), ...(cursorWhere ?? {}) },
+		orderBy: [{ createdAt: "desc" }, { id: "desc" }],
 		take: page?.take,
 	});
 }

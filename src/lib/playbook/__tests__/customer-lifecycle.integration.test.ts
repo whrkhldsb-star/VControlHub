@@ -103,9 +103,9 @@ describe.skipIf(process.env.RUN_DATABASE_INTEGRATION_TESTS !== "1")("playbook cu
       const bookPage = await (await getPlaybooks(new Request(books))).json();
       expect(rulePage.rules).toHaveLength(200);
       expect(bookPage.playbooks).toHaveLength(500);
-      expect(rulePage.nextCursor).toBe(rows[1]!.id);
+      expect(rulePage.nextCursor).toMatch(new RegExp("^\\d+\\." + rows[1]!.id + "$"));
       expect(bookPage.nextCursor).toBe(rows[1]!.id);
-      await prisma.alertRule.delete({ where: { id: rulePage.nextCursor } });
+      await prisma.alertRule.delete({ where: { id: rows[1]!.id } });
       await prisma.playbook.delete({ where: { id: bookPage.nextCursor } });
       expect(await (await getRules(new Request(rules + "?after=" + rulePage.nextCursor))).json()).toMatchObject({ rules: [{ id: rows[0]!.id }], nextCursor: null });
       expect(await (await getPlaybooks(new Request(books + "?after=" + bookPage.nextCursor))).json()).toMatchObject({ playbooks: [{ id: rows[0]!.id }], nextCursor: null });
