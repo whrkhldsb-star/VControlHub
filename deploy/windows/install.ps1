@@ -1,8 +1,59 @@
 param(
   [switch]$SkipTasks,
   [switch]$SkipSeed,
+  [string]$PreviousRelease = '',
   [string]$Domain = ''
 )
+
+# Resolve rights by SID, independent of host language and PowerShell version.
+function Assert-MaintenanceItem($Item, [switch]$Ancestor) {
+  $trusted = @('S-1-5-18', 'S-1-5-32-544', 'S-1-5-80-956008885-3418522649-1831038044-1853292631-2271478464')
+  $sid = [Security.Principal.SecurityIdentifier]
+  if ($item.Attributes -band [IO.FileAttributes]::ReparsePoint) { throw "Maintenance path is a reparse point: $($item.FullName)" }
+  $acl = if ($PSVersionTable.PSEdition -eq 'Core') {
+    [IO.FileSystemAclExtensions]::GetAccessControl($item)
+  } else { $item.GetAccessControl() }
+  if ($acl.GetOwner($sid).Value -notin $trusted) { throw "Maintenance path requires a privileged owner: $($item.FullName)" }
+  $rights = [Security.AccessControl.FileSystemRights]'Delete,DeleteSubdirectoriesAndFiles,ChangePermissions,TakeOwnership,WriteAttributes,WriteExtendedAttributes'
+  if (!$ancestor) { $rights = $rights -bor [Security.AccessControl.FileSystemRights]::Write }
+  foreach ($rule in $acl.GetAccessRules($true, $true, $sid)) {
+    if ($rule.PropagationFlags -band [Security.AccessControl.PropagationFlags]::InheritOnly) {
+      # CREATOR OWNER is substituted with the child's owner on inheritance.
+      # The tree inspection checks the owner and effective rights of each child.
+      if ($ancestor -or $rule.IdentityReference.Value -eq 'S-1-3-0') { continue }
+    }
+    if ($rule.AccessControlType -eq 'Allow' -and $rule.IdentityReference.Value -notin $trusted -and ($rule.FileSystemRights -band $rights)) {
+      throw "Maintenance path grants write access outside SYSTEM or administrators: $($item.FullName)"
+    }
+  }
+}
+
+function Assert-MaintenancePath([string]$Path, [switch]$Tree) {
+  if ([Environment]::OSVersion.Platform -ne [PlatformID]::Win32NT) { return }
+  $root = Get-Item -LiteralPath $Path -Force
+  Assert-MaintenanceItem $root
+  $parent = if ($root -is [IO.FileInfo]) { $root.Directory } else { $root.Parent }
+  while ($parent) {
+    Assert-MaintenanceItem $parent -Ancestor
+    $parent = $parent.Parent
+  }
+  if ($Tree) {
+    # Inspect each child before descending. A published dependency tree can
+    # contain many files, so check its common ancestors only once.
+    $pending = New-Object 'System.Collections.Generic.Stack[System.IO.DirectoryInfo]'
+    $pending.Push($root)
+    while ($pending.Count) {
+      $dir = $pending.Pop()
+      foreach ($child in $dir.EnumerateFileSystemInfos()) {
+        Assert-MaintenanceItem $child
+        if ($child -is [IO.DirectoryInfo]) { $pending.Push($child) }
+      }
+    }
+  }
+}
+
+# Dot-sourcing exposes the same policy to packaging checks without installing.
+if ($MyInvocation.InvocationName -eq '.') { return }
 
 $ErrorActionPreference = 'Stop'
 $appDir = (Resolve-Path (Join-Path $PSScriptRoot '..\..')).Path
@@ -16,8 +67,14 @@ if (!$SkipTasks) {
   }
 }
 
+if (!$SkipTasks) {
+  Assert-MaintenancePath $appDir
+  Assert-MaintenancePath $PSScriptRoot -Tree
+  if (Test-Path -LiteralPath (Join-Path $appDir '.env.local')) { Assert-MaintenancePath (Join-Path $appDir '.env.local') }
+}
 $nodeCommand = Get-Command node.exe -ErrorAction Stop
 $nodeExe = $nodeCommand.Source
+if (!$SkipTasks) { Assert-MaintenancePath $nodeExe; Assert-MaintenancePath (Join-Path $appDir 'deploy') -Tree }
 & $nodeExe (Join-Path $appDir 'deploy\check-node-version.mjs')
 if ($LASTEXITCODE -ne 0) { throw "Unsupported Node.js runtime" }
 Get-Command npm.cmd -ErrorAction Stop | Out-Null
@@ -52,14 +109,9 @@ if ($firstInstall) {
   throw "Created $envFile. Set DATABASE_URL, AUTH_SESSION_SECRET, SSH_WS_SECRET, ENCRYPTION_KEY and ADMIN_INITIAL_PASSWORD, then rerun this script."
 }
 
-$envJson = & $nodeExe "--env-file=$envFile" (Join-Path $PSScriptRoot 'read-install-env.mjs') $envFile
-if ($LASTEXITCODE -ne 0) { throw 'Could not load production environment' }
-$envValues = $envJson | ConvertFrom-Json
-foreach ($property in $envValues.PSObject.Properties) {
-  [Environment]::SetEnvironmentVariable($property.Name, [string]$property.Value, 'Process')
-}
 foreach ($directory in @('storage', 'downloads', 'backups', 'tmp', 'uploads', 'logs')) {
-  New-Item -ItemType Directory -Path (Join-Path $appDir $directory) -Force | Out-Null
+  $dataDir = Join-Path $appDir $directory
+  if (!(Test-Path -LiteralPath $dataDir -PathType Container)) { New-Item -ItemType Directory -Path $dataDir | Out-Null }
 }
 
-& (Join-Path $PSScriptRoot 'publish-release.ps1') -AppDir $appDir -NodeExe $nodeExe -SkipTasks:$SkipTasks -SkipSeed:$SkipSeed -Domain $Domain
+& (Join-Path $PSScriptRoot 'publish-release.ps1') -AppDir $appDir -NodeExe $nodeExe -SkipTasks:$SkipTasks -SkipSeed:$SkipSeed -Domain $Domain -PreviousRelease $PreviousRelease

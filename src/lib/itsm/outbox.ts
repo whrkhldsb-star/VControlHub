@@ -1,6 +1,7 @@
 import { randomUUID } from "node:crypto";
 import type { Prisma, Ticket } from "@prisma/client";
 import { lockForTransaction } from "@/lib/concurrency/advisory-lock";
+import { ConflictError } from "@/lib/errors";
 import { prisma } from "@/lib/db";
 import { enqueueJob } from "@/lib/job/service";
 import type { ItsmOutboundTicketPayload } from "./types";
@@ -61,16 +62,27 @@ async function appendSnapshot(tx: Prisma.TransactionClient, snapshot: TicketSnap
     const scope = { connectionId: connection.id, ticketId: snapshot.ticketId, teamId: snapshot.teamId, ownerBound: true, direction: "outbound" };
     const existing = await tx.itsmEvent.findUnique({ where: { connectionId_externalId: { connectionId: connection.id, externalId } } });
     // Old receipts are immutable across customers and directions.
-    if (existing && (!existing.ownerBound || existing.teamId !== snapshot.teamId || existing.direction !== "outbound" || existing.ticketId !== snapshot.ticketId)) continue;
+    if (existing && (existing.direction !== "outbound" || existing.ticketId !== snapshot.ticketId ||
+      (existing.ownerBound && existing.teamId !== snapshot.teamId))) continue;
     if (existing?.status === "ok" || existing?.status === "ignored") continue;
     const [previous] = await tx.$queryRaw<{ id: string; status: string; sequence: number }[]>`
-      SELECT id, status, (payload->>'sequence')::float8 AS sequence FROM itsm_events
-      WHERE "connectionId" = ${connection.id} AND "ticketId" = ${snapshot.ticketId}
-        AND "teamId" IS NOT DISTINCT FROM ${snapshot.teamId} AND "ownerBound" AND direction = 'outbound'
-        AND payload ? 'sequence' ORDER BY sequence DESC LIMIT 1
+      SELECT e.id, e.status, (e.payload->>'sequence')::float8 AS sequence FROM itsm_events e
+      WHERE e."connectionId" = ${connection.id} AND e."ticketId" = ${snapshot.ticketId} AND e.direction = 'outbound'
+        AND ((e."ownerBound" AND e."teamId" IS NOT DISTINCT FROM ${snapshot.teamId}) OR
+          (NOT e."ownerBound" AND EXISTS (SELECT 1 FROM jobs j WHERE j.id = e."externalId"
+            AND j.type = 'itsm.outbound' AND j."teamId" IS NOT DISTINCT FROM ${snapshot.teamId}
+            AND (j.payload->'reviewEventIds') ? e.id)))
+        AND e.payload ? 'sequence' ORDER BY sequence DESC LIMIT 1
     `;
     const predecessor = previous && previous.status !== "ok" && previous.status !== "ignored" ? previous.id : null;
-    const payload = { snapshot, sequence: Math.max(Date.now(), (previous?.sequence ?? 0) + 1), predecessor };
+    const sequence = Math.max(Date.now(), (previous?.sequence ?? 0) + 1);
+    if (existing && !existing.ownerBound) {
+      await tx.itsmEvent.update({ where: { id: existing.id }, data: {
+        payload: { ...(existing.payload as Prisma.JsonObject), sequence, predecessor },
+      } });
+      continue;
+    }
+    const payload = { snapshot, sequence, predecessor };
     const event = existing
       ? await tx.itsmEvent.update({ where: { id: existing.id }, data: { payload } })
       : await tx.itsmEvent.create({ data: { ...scope, externalId, eventType: snapshot.eventType, status: "pending", payload } });
@@ -82,7 +94,7 @@ async function appendSnapshot(tx: Prisma.TransactionClient, snapshot: TicketSnap
 async function adoptQueuedSnapshots(tx: Prisma.TransactionClient, ticketId: string) {
   const legacy = await tx.$queryRaw<{ id: string; payload: Prisma.JsonValue; createdAt: Date }[]>`
     SELECT id, payload, "createdAt" FROM jobs WHERE type = 'itsm.outbound' AND status IN ('PENDING', 'RUNNING')
-      AND payload->>'ticketId' = ${ticketId} AND NOT (payload ? 'adopted')
+      AND payload->>'ticketId' = ${ticketId} AND NOT (payload ? 'adopted') AND NOT (payload ? 'reviewEventIds')
     ORDER BY "createdAt", id
   `;
   for (const job of legacy) {
@@ -110,14 +122,52 @@ async function adoptQueuedSnapshots(tx: Prisma.TransactionClient, ticketId: stri
       data: { status: "ignored", payload: { superseded: true, terminalAtMs: Date.now() }, errorMessage: null },
     });
     await appendSnapshot(tx, snapshot, job.id, superseded);
-    await tx.job.update({ where: { id: job.id }, data: { payload: { ...snapshot, adopted: true } } });
+    const unresolved = await tx.itsmEvent.findMany({ where: { externalId: job.id, direction: "outbound",
+      ownerBound: false, status: { notIn: ["ok", "ignored"] } }, select: { id: true } });
+    const adoption = unresolved.length ? { reviewEventIds: unresolved.map(event => event.id) } : { adopted: true };
+    await tx.job.update({ where: { id: job.id }, data: { payload: { ...snapshot, ...adoption } } });
   }
 }
 
-export function adoptLegacyTicketJobs(ticketId: string) {
+/** Platform review binds a legacy failed destination to the verified ticket owner. */
+export async function reconcileLegacyDestination(tx: Prisma.TransactionClient, event: {
+  id: string; connectionId: string | null; externalId: string | null; ticketId: string | null; payload: Prisma.JsonValue;
+}, received: boolean, reviewer: string) {
+  if (!event.externalId || !event.ticketId || !event.connectionId) throw new ConflictError();
+  await lockOutboundStream(tx, event.ticketId);
+  const job = await tx.job.findFirst({ where: { id: event.externalId, type: ITSM_OUTBOUND_JOB_TYPE } });
+  const data = job?.payload as Prisma.JsonObject | undefined;
+  if (!job || !Array.isArray(data?.reviewEventIds) || !data.reviewEventIds.includes(event.id)) throw new ConflictError();
+  const snapshot = readTicketSnapshot(job.payload);
+  if (event.ticketId !== snapshot.ticketId ||
+      !await tx.ticket.count({ where: { id: snapshot.ticketId, teamId: snapshot.teamId } }) ||
+      !await tx.itsmConnection.count({ where: { id: event.connectionId, teamId: snapshot.teamId, enabled: true, direction: { in: ["outbound", "bidirectional"] } } })) throw new ConflictError();
+  const position = (event.payload ?? {}) as Prisma.JsonObject;
+  if (typeof position.predecessor === "string") {
+    const prior = await tx.itsmEvent.findUnique({ where: { id: position.predecessor }, select: { status: true } });
+    if (prior && !["ok", "ignored"].includes(prior.status)) throw new ConflictError();
+  }
+  const bound = await tx.itsmEvent.update({ where: { id: event.id, ownerBound: false }, data: {
+    ownerBound: true, teamId: snapshot.teamId, status: received ? "ok" : "pending", errorMessage: null,
+    payload: { ...position, snapshot, reconciledBy: reviewer, ...(received ? { terminalAtMs: Date.now() } : {}) },
+  } });
+  if (!received) await scheduleDelivery(tx, bound);
+  const remaining = data.reviewEventIds.filter(id => id !== event.id);
+  await tx.job.update({ where: { id: job.id }, data: {
+    payload: { ...snapshot, ...(remaining.length ? { reviewEventIds: remaining } : { adopted: true }) },
+    ...(!remaining.length && job.status === "FAILED" ? { status: "PENDING", attempts: 0, availableAt: new Date(), completedAt: null, errorMessage: null } : {}),
+  } });
+  return bound;
+}
+
+export function adoptLegacyTicketJobs(ticketId: string, jobId?: string) {
   return prisma.$transaction(async (tx) => {
     await lockOutboundStream(tx, ticketId);
     await adoptQueuedSnapshots(tx, ticketId);
+    if (!jobId) return [];
+    const current = await tx.job.findUniqueOrThrow({ where: { id: jobId }, select: { payload: true } });
+    const review = (current.payload as Prisma.JsonObject).reviewEventIds;
+    return Array.isArray(review) ? review : [];
   });
 }
 

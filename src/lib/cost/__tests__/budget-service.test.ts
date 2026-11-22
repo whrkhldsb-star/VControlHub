@@ -2,11 +2,11 @@ import { beforeEach, describe, expect, it, vi } from "vitest";
 
 const { prismaMock, announceMock, claimDeliveries } = vi.hoisted(() => ({
 	prismaMock: {
-		costBudget: { create: vi.fn(), findMany: vi.fn(), findUnique: vi.fn(), update: vi.fn(), delete: vi.fn() },
+		costBudget: { create: vi.fn(), findMany: vi.fn(), findUnique: vi.fn(), findFirst: vi.fn(), update: vi.fn(), delete: vi.fn() },
 		costEntry: { aggregate: vi.fn(), groupBy: vi.fn() },
 		user: { findMany: vi.fn() },
 		notification: { findMany: vi.fn(), createManyAndReturn: vi.fn() },
-		$transaction: vi.fn(),
+		$transaction: vi.fn(), $queryRaw: vi.fn(),
 	},
 	announceMock: vi.fn(),
 	claimDeliveries: vi.fn(),
@@ -40,6 +40,7 @@ describe("cost budget service", () => {
 		prismaMock.costBudget.update.mockResolvedValue({ ...budgetRow, name: "更新预算" });
 		prismaMock.costBudget.delete.mockResolvedValue(budgetRow);
 		prismaMock.costBudget.findMany.mockResolvedValue([budgetRow]);
+		prismaMock.costBudget.findFirst.mockImplementation(async ({ where }) => (await prismaMock.costBudget.findMany()).find((row: { id: string }) => row.id === where.id));
 		// One groupBy per period serves every budget's own-currency usage and
 		// other-currency spend (A8); default: 85 CNY on the shared vps budget.
 		prismaMock.costEntry.groupBy.mockResolvedValue([{ category: "vps", currency: "CNY", teamId: null, _sum: { amount: decimal("85.00") }, _count: { _all: 2 } }]);
@@ -85,6 +86,13 @@ describe("cost budget service", () => {
 		prismaMock.costBudget.findMany.mockResolvedValueOnce([]);
 		await checkBudgetAlerts(new Date("2026-06-15T10:00:00.000Z"));
 		expect(prismaMock.costBudget.findMany).toHaveBeenCalledWith(expect.objectContaining({ where: { OR: [{ teamId: null }, { team: { deletedAt: null } }] } }));
+	});
+
+	it("rechecks a changed budget before claiming any period receipt", async () => {
+		prismaMock.costBudget.findFirst.mockResolvedValueOnce({ ...budgetRow, limitAmount: decimal("1000") });
+		const result = await checkBudgetAlerts(new Date("2026-06-15"));
+		expect(result).toMatchObject({ triggered: 0, notificationsSent: 0, budgets: [{ usageStatus: "within" }] });
+		expect(prismaMock.notification.createManyAndReturn).not.toHaveBeenCalled();
 	});
 
 	it("notifies cost managers once per budget period", async () => {

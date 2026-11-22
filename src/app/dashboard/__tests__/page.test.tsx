@@ -76,15 +76,14 @@ vi.mock("@/lib/storage/service", () => ({
   }),
 }));
 
-vi.mock("@/lib/command/service", () => ({
-  listCommandRequests: vi.fn().mockResolvedValue([]),
-}));
+
 
 vi.mock("@/lib/notification/service", () => ({
   getUnreadCount: vi.fn().mockResolvedValue(0),
 }));
 
 vi.mock("@/lib/dashboard/attention-queries", () => ({
+  dashboardCommands: vi.fn().mockResolvedValue({ requests: [], pendingApprovals: 0, review: { count: 0, latest: null } }),
   openIncidentSummary: vi.fn().mockResolvedValue({ count: 2, latest: { title: "CPU", serverName: "hk-prod-1", metric: "cpu_usage" } }),
   failedTaskSummary: vi.fn().mockResolvedValue({ count: 0, latest: undefined }),
 }));
@@ -136,9 +135,8 @@ import Dashboard from "../page";
 import { requireSession } from "@/lib/auth/require-session";
 import { listServerProfiles } from "@/lib/server/service";
 import { getStorageOverview } from "@/lib/storage/service";
-import { listCommandRequests } from "@/lib/command/service";
 import { prisma } from "@/lib/db";
-import { openIncidentSummary, failedTaskSummary } from "@/lib/dashboard/attention-queries";
+import { dashboardCommands, openIncidentSummary, failedTaskSummary } from "@/lib/dashboard/attention-queries";
 import { downloadSummary } from "@/lib/dashboard/download-summary";
 
 const csrfFetchMock = vi.mocked(csrfFetch);
@@ -165,7 +163,7 @@ describe("Dashboard", () => {
       currentTeamId: "team_1", mustChangePassword: false,
     });
     await Dashboard();
-    for (const query of [listServerProfiles, getStorageOverview, listCommandRequests,
+    for (const query of [listServerProfiles, getStorageOverview, dashboardCommands,
       prisma.auditLog.findMany, downloadSummary, prisma.scheduledTask.count,
       prisma.alertRule.count, prisma.backupSchedule.count, prisma.vpsBackupSchedule.count, prisma.server.count,
       openIncidentSummary, failedTaskSummary]) {
@@ -189,7 +187,7 @@ describe("Dashboard", () => {
     });
     await Dashboard();
     expect(prisma.scheduledTask.count).toHaveBeenCalledWith({ where: { status: "ACTIVE", teamId: "team_1" } });
-    expect(listCommandRequests).toHaveBeenCalled();
+    expect(dashboardCommands).toHaveBeenCalled();
     expect(prisma.auditLog.findMany).not.toHaveBeenCalled();
   });
 
@@ -206,11 +204,11 @@ describe("Dashboard", () => {
       userId: "reader", username: "reader", roles: [], currentTeamId: "team_1", mustChangePassword: false,
       permissions: canApprove ? ["command:read", "command:approve"] : ["command:read"],
     });
-    vi.mocked(listCommandRequests).mockResolvedValueOnce(["reader", "colleague"].map((requesterId) => ({
+    vi.mocked(dashboardCommands).mockResolvedValueOnce({ pendingApprovals: 0, review: { count: 0, latest: null }, requests: ["reader", "colleague"].map((requesterId) => ({
       id: requesterId, title: `Request by ${requesterId}`, command: `command-body-${requesterId}`,
       requesterId, requester: { id: requesterId, username: requesterId, displayName: null },
       status: "COMPLETED", isAssistantInitiated: false, targets: [],
-    })) as never);
+    })) } as never);
 
     const tree = await Dashboard();
     const props = JSON.stringify(tree);
@@ -247,9 +245,9 @@ describe("Dashboard", () => {
       requesterId, requester: { id: requesterId, username: requesterId, displayName: null },
     });
     // The reviewer's own request goes to another reviewer: the server refuses their decision on it.
-    vi.mocked(listCommandRequests).mockResolvedValueOnce([request("cmd_own", "u_2", "Own restart"), request("cmd_other", "u_3", "Rotate logs")] as never);
+    vi.mocked(dashboardCommands).mockResolvedValueOnce({ pendingApprovals: 2, review: { count: 1, latest: "Rotate logs" }, requests: [request("cmd_own", "u_2", "Own restart"), request("cmd_other", "u_3", "Rotate logs")] } as never);
     vi.mocked(failedTaskSummary).mockResolvedValueOnce({
-      count: 1, latest: { count: 1, source: "backup", taskType: "DATABASE", title: "DATABASE backup", updatedAt: new Date() },
+      count: 1, latest: { id: "backup-1", count: 1, source: "backup", taskType: "DATABASE", title: "DATABASE backup", updatedAt: new Date() },
     });
 
     render(<I18nProvider initialLocale="zh">{await Dashboard()}</I18nProvider>);

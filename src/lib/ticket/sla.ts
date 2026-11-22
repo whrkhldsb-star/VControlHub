@@ -1,4 +1,6 @@
 /** FEAT-P1-1: ticket SLA calculation, filtering and escalation. */
+import { enqueueTicketEvent } from "@/lib/itsm/outbox";
+import { projectTicketLinks } from "./visible-links";
 import { prisma } from "@/lib/db";
 import { sessionHasPermission } from "@/lib/auth/authorization";
 import { liveCustomerRowsWhere, teamWhere } from "@/lib/auth/team-scope";
@@ -129,6 +131,7 @@ export async function escalateBreachedTickets(input: { teamId?: string | null } 
         if (!claimed) return false;
 
         if (priorityChanges) {
+          await enqueueTicketEvent(tx, claimed, "ticket.updated");
           await tx.ticketEscalation.create({
             data: {
               ticketId: ticket.id,
@@ -237,7 +240,7 @@ export async function listTicketsAdvanced(input: {
     take: 200,
   });
 
-  return tickets;
+  return projectTicketLinks(tickets, input.session);
 }
 
 /** Per board column: open work in full (up to the first), finished work as recent history. */

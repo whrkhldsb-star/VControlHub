@@ -1,6 +1,7 @@
 // @vitest-environment node
-import { execFileSync, spawn } from "node:child_process";
-import { mkdtemp, mkdir, readFile, rm, stat, writeFile } from "node:fs/promises";
+import { randomUUID } from "node:crypto";
+import { execFileSync, spawn, spawnSync } from "node:child_process";
+import { chmod, mkdtemp, mkdir, readFile, rm, stat, writeFile } from "node:fs/promises";
 import { fileURLToPath } from "node:url";
 import { tmpdir } from "node:os";
 import path from "node:path";
@@ -13,6 +14,12 @@ const describeLinux = process.platform === "linux" ? describe : describe.skip;
 
 // All process, build and HTTP operations below are fixtures. Git and the
 // filesystem are real so a rollback must actually restore the old release.
+async function programFiles(dir: string) {
+	await mkdir(path.join(dir, "scripts"), { recursive: true });
+	await writeFile(path.join(dir, "scripts/check.mjs"), "");
+	await writeFile(path.join(dir, "package.json"), "{}");
+}
+
 async function fixtureCommands(root: string) {
 	const bin = path.join(root, "bin");
 	await mkdir(bin);
@@ -44,12 +51,14 @@ case "$1:$4" in
 esac`,
 		curl: "exit 0",
 		chown: "exit 0",
+		id: 'if [[ "$*" == "-u vch-release-build" ]]; then echo 12345; else exec /usr/bin/id "$@"; fi',
+		runuser: 'shift 3; exec "$@"',
 	};
 	for (const [name, content] of Object.entries(commands)) {
 		await writeFile(path.join(bin, name), "#!/bin/bash\n" + content + "\n", { mode: 0o755 });
 	}
 	return { NEXT_ENV_PACKAGE: fileURLToPath(import.meta.resolve("@next/env")), PATH: bin + ":" + process.env.PATH, LOG: path.join(root, "calls"), DEPLOY_LOCK: path.join(root, "deploy.lock"),
-		SKIP_PRE_BACKUP: "1", SKIP_DB_SETUP: "1", DOMAIN: "", CHECK_PUBLIC_URL: "", CADDY_FILE: path.join(root, "no-caddyfile"), FAIL: "" };
+		SYSTEMD_UNIT_DIR: path.join(root, "units"), SKIP_PRE_BACKUP: "1", SKIP_DB_SETUP: "1", DOMAIN: "", CHECK_PUBLIC_URL: "", CADDY_FILE: path.join(root, "no-caddyfile"), FAIL: "" };
 }
 
 async function invoke(app: string, env: Record<string, string>, driver = path.resolve("deploy/upgrade.sh")) {
@@ -70,6 +79,7 @@ async function runUpgrade(envFile: string, extraEnv: Record<string, string> = {}
 	const app = path.join(root, "app");
 	await mkdir(path.join(app, "deploy"), { recursive: true });
 	await mkdir(path.join(app, "dist"));
+	await programFiles(app);
 	await mkdir(path.join(app, "storage"));
 	await writeFile(path.join(app, "storage", "customer-file"), "retained");
 	await writeFile(path.join(app, "dist/server.js"), "old");
@@ -82,6 +92,37 @@ async function runUpgrade(envFile: string, extraEnv: Record<string, string> = {}
 }
 
 describeLinux("deploy/upgrade.sh domain recovery", () => {
+	it.skipIf(process.getuid?.() !== 0)("refuses a group-writable settings file before importing privileged process settings", async () => {
+		const root = await mkdtemp(path.join(tmpdir(), "vch-upgrade-settings-"));
+		roots.push(root);
+		const settings = path.join(root, ".env.local");
+		await writeFile(settings, "PORT=4891\n");
+		await chmod(settings, 0o660);
+		const proc = spawnSync("bash", ["-c", 'source deploy/lib/listen-address.sh; load_install_settings "$1"', "--", settings], { encoding: "utf8" });
+		expect(proc.status).toBe(1);
+		expect(proc.stderr).toContain("root-controlled path");
+	});
+	it("adds the startup preflight to existing unit definitions without replacing local overrides", async () => {
+		const root = await mkdtemp(path.join(tmpdir(), "vch-upgrade-dropin-"));
+		roots.push(root);
+		const app = path.join(root, "app");
+		await programFiles(app);
+		await mkdir(path.join(app, "deploy"));
+		await writeFile(path.join(app, "deploy/check-aria2-secret.mjs"), await readFile("deploy/check-aria2-secret.mjs"));
+		await writeFile(path.join(app, ".env.local"), "DOMAIN=\n");
+		const env = await fixtureCommands(root);
+		const local = path.join(env.SYSTEMD_UNIT_DIR, "vcontrolhub-next.service.d");
+		await mkdir(local, { recursive: true });
+		await writeFile(path.join(local, "90-local.conf"), "[Service]\nMemoryMax=2G\n");
+		const result = await invoke(app, { ...env, SKIP_PULL: "1", SKIP_POST_CHECK: "1" });
+		expect(result.code, result.text).toBe(0);
+		for (const role of ["next", "worker"]) {
+			const dropin = await readFile(path.join(env.SYSTEMD_UNIT_DIR, "vcontrolhub-" + role + ".service.d/25-vcontrolhub-aria2-check.conf"), "utf8");
+			expect(dropin).toContain("deploy/check-aria2-secret.mjs");
+		}
+		expect(await readFile(path.join(local, "90-local.conf"), "utf8")).toContain("MemoryMax=2G");
+	});
+
 	it("recovers the public domain from the first configured origin when DOMAIN was never persisted", async () => {
 		const result = await runUpgrade('SSH_WS_ALLOWED_ORIGINS="https://console.example.com,http://127.0.0.1:3000"\n');
 		expect(result.code).toBe(0);
@@ -107,10 +148,15 @@ describeLinux("deploy/upgrade.sh domain recovery", () => {
 		expect(result.text).not.toContain("Recovered installed domain");
 	});
 
-	it("runs git with the checkout declared safe, so a root upgrade of the service user's checkout works", async () => {
-		const script = await readFile(path.join(process.cwd(), "deploy/upgrade.sh"), "utf8");
-		expect(script).toMatch(/git_app\(\) \{ git -c "safe\.directory=\$\{APP_DIR\}" -C "\$\{APP_DIR\}" "\$@"; \}/);
-		expect(script).not.toContain('git -C "${APP_DIR}"');
+	it.skipIf(process.getuid?.() !== 0)("refuses a writable maintenance directory before starting setup", async () => {
+		const root = await mkdtemp(path.join(tmpdir(), "vch-upgrade-ownership-"));
+		roots.push(root);
+		const app = path.join(root, "app");
+		await mkdir(path.join(app, "deploy"), { recursive: true });
+		await chmod(path.join(app, "deploy"), 0o777);
+		const result = await invoke(app, await fixtureCommands(root));
+		expect(result.code).not.toBe(0);
+		expect(result.text).toContain("protected administrator-owned checkout");
 	});
 
 describeLinux("deploy/upgrade.sh pulling a one-click install", () => {
@@ -122,6 +168,7 @@ describeLinux("deploy/upgrade.sh pulling a one-click install", () => {
 		roots.push(root);
 		const origin = path.join(root, "origin");
 		await mkdir(path.join(origin, "docs"), { recursive: true });
+		await programFiles(origin);
 		git(origin, "init", "-q");
 		await writeFile(path.join(origin, "docs/route-catalog.json"), '{"generatedAt":"2026-10-21T00:00:00Z"}\n');
 		await writeFile(path.join(origin, "README.md"), "v1\n");
@@ -187,7 +234,7 @@ describeLinux("deploy/upgrade.sh pulling a one-click install", () => {
 		const { root, app } = await installedClone();
 		const origin = path.join(root, "origin");
 		await mkdir(path.join(origin, "deploy/lib"), { recursive: true });
-		for (const file of ["upgrade.sh", "lib/listen-address.sh", "lib/release-paths.sh"]) {
+		for (const file of ["upgrade.sh", "lib/listen-address.sh", "lib/release-paths.sh", "lib/release-directories.txt"]) {
 			await writeFile(path.join(origin, "deploy", file), await readFile(path.join("deploy", file)));
 		}
 		git(origin, "add", "deploy");
@@ -238,6 +285,7 @@ describeLinux("archive upgrade environment files", () => {
 			await writeFile(path.join(sourceDir, ".env.example"), "release template\n");
 		}
 
+		await programFiles(sourceDir);
 		const state = "tenant custom state";
 		await mkdir(path.join(app, state));
 		await writeFile(path.join(app, state, "data"), "initial\n");
@@ -271,12 +319,16 @@ describeLinux("staged release recovery", () => {
 });
 
 describe("ALTER TABLE migration classification", () => {
+	it("allows unique indexes only on tables definitely created by the same migration", () => {
+		expect(isAutomaticMigration('CREATE TABLE "New" (id int); CREATE UNIQUE INDEX u ON "New"(id)')).toBe(true);
+		expect(isAutomaticMigration('CREATE TABLE "New" (id int); CREATE UNIQUE INDEX u ON new(id)')).toBe(false);
+		expect(isAutomaticMigration("CREATE TABLE IF NOT EXISTS t (id int); CREATE UNIQUE INDEX u ON t(id)")).toBe(false);
+	});
 	it("accepts multiple explicit additions with nested or quoted commas", () => {
 		expect(isAutomaticMigration(`
 			ALTER TABLE IF EXISTS ONLY public."t,1"
 				ADD COLUMN IF NOT EXISTS "a,b" numeric(12, 2),
-				ADD COLUMN label text DEFAULT 'x,y',
-				ADD CONSTRAINT label_fk FOREIGN KEY (label) REFERENCES labels(name) NOT VALID;
+				ADD COLUMN label text DEFAULT 'x,y';
 		`)).toBe(true);
 	});
 
@@ -284,12 +336,12 @@ describe("ALTER TABLE migration classification", () => {
 		"ADD COLUMN a text NOT NULL DEFAULT 'value'",
 		"ADD COLUMN a integer DEFAULT 0 NOT /* required */ NULL",
 		'ADD COLUMN "NOT NULL" text',
-		'ADD CONSTRAINT "fk" FOREIGN KEY (a, b) REFERENCES public.t2(x, y) ON DELETE SET DEFAULT NOT VALID',
 	])("accepts %s", actions => {
 		expect(isAutomaticMigration(`ALTER TABLE t ${actions};`)).toBe(true);
 	});
 
 	it.each([
+		'ADD CONSTRAINT "fk" FOREIGN KEY (a, b) REFERENCES public.t2(x, y) ON DELETE SET DEFAULT NOT VALID',
 		"ADD COLUMN a int, DISABLE TRIGGER ALL",
 		"ENABLE ROW LEVEL SECURITY, ADD COLUMN a int",
 		"ADD COLUMN a numeric(10, 2), OWNER TO new_owner, ADD COLUMN b int",
@@ -318,7 +370,7 @@ describeLinux("automatic migration preflight", () => {
 		const root = await mkdtemp(path.join(tmpdir(), "vch-upgrade-ledger-"));
 		roots.push(root);
 		const bin = path.join(root, "psql");
-		await writeFile(bin, '#!/bin/sh\nprintf "%s\\n" "$LEDGER"\n', { mode: 0o755 });
+		await writeFile(bin, '#!/bin/sh\ncase "$*" in *pg_namespace*) echo ledger;; *) echo "$LEDGER";; esac\n', { mode: 0o755 });
 		const sql = "DROP TABLE legacy;";
 		const { createHash } = await import("node:crypto");
 		const ledger = [{ name: "001", done: true, checksum: createHash("sha256").update(sql).digest("hex") }];
@@ -333,7 +385,7 @@ describeLinux("automatic migration preflight", () => {
 			expect(run).not.toThrow();
 		}
 		for (const pending of [
-			"DROP TABLE t", "ALTER TABLE t ADD x int, DROP /* comment */ COLUMN y", "UPDATE t SET x = NULL",
+			"CREATE UNIQUE INDEX u ON t(id)", "DROP TABLE t", "ALTER TABLE t ADD x int, DROP /* comment */ COLUMN y", "UPDATE t SET x = NULL",
 			"TRUNCATE t", "DELETE FROM t", "DO $$ BEGIN EXECUTE q; END $$",
 			"ALTER TABLE t ADD COLUMN required integer NOT NULL", "ALTER TABLE t ADD CONSTRAINT uq UNIQUE (id)",
 		]) {
@@ -341,4 +393,36 @@ describeLinux("automatic migration preflight", () => {
 			expect(run).toThrow(/Manual migration review.*002/);
 		}
 	});
+});
+
+it.skipIf(process.env.RUN_DATABASE_INTEGRATION_TESTS !== "1")("requires an empty database or a reviewed migration ledger, including on a new host", async () => {
+	const db = new URL(process.env.DATABASE_URL!);
+	if (!["localhost", "127.0.0.1", "[::1]"].includes(db.hostname) || !/test|audit|_ci/.test(db.pathname)) throw new Error("Requires a loopback test database");
+	db.searchParams.delete("schema");
+	const name = "r408_test_" + randomUUID().replaceAll("-", "");
+	const sql = (database: URL, query: string) => execFileSync("psql", [database.href, "-Xq", "-v", "ON_ERROR_STOP=1", "-c", query], { stdio: "pipe" });
+	const root = await mkdtemp(path.join(tmpdir(), "vch-target-schema-"));
+	roots.push(root);
+	const scratch = new URL(db);
+	scratch.pathname = "/" + name;
+	const target = new URL(scratch);
+	target.searchParams.set("schema", "billing");
+	const check = () => spawnSync(process.execPath, [path.resolve("deploy/check-upgrade-migrations.mjs")], {
+		cwd: root, env: { ...process.env, DATABASE_URL: target.href }, encoding: "utf8",
+	});
+	sql(db, "CREATE DATABASE " + name);
+	try {
+		sql(scratch, "CREATE SCHEMA billing");
+		const migration = path.join(root, "prisma/migrations/001_existing");
+		await mkdir(migration, { recursive: true });
+		await writeFile(path.join(migration, "migration.sql"), "CREATE UNIQUE INDEX u ON entries(id);");
+		expect(check().status).toBe(0);
+		// An empty selected schema in a populated database is not a fresh installation.
+		sql(scratch, "CREATE TABLE public.entries(id int)");
+		expect(check().stderr).toContain("not empty");
+		sql(scratch, "CREATE TABLE billing._prisma_migrations(migration_name text, checksum text, finished_at timestamp, rolled_back_at timestamp)");
+		const pending = check();
+		expect(pending.status).not.toBe(0);
+		expect(pending.stderr).toContain("001_existing");
+	} finally { sql(db, "DROP DATABASE " + name); }
 });

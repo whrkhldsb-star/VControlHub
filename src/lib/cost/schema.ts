@@ -65,11 +65,12 @@ export const updateCostBudgetSchema = createCostBudgetSchema.partial().strict().
 );
 
 export const costMonthSchema = z.string().regex(/^\d{4}-\d{2}$/u, "month must be in YYYY-MM format").refine(
-	(s) => { const parts = s.split("-"); const year = Number(parts[0]); const month = Number(parts[1]); return Number.isFinite(year) && Number.isFinite(month) && month >= 1 && month <= 12; },
+	(month) => isCalendarDate(month + "-01"),
 	{ message: "month is not a valid month" },
 );
 
 export const costQuerySchema = z.object({
+	page: z.coerce.number().int().positive().optional(),
 	month: costMonthSchema.optional(),
 	category: costCategorySchema.optional(),
 	limit: z.coerce.number().int().min(1).max(500).optional(),

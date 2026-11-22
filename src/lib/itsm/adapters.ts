@@ -391,17 +391,17 @@ function objectField(raw: Record<string, unknown>, key: string): Record<string, 
 
 /** Keep short sender IDs compatible with existing receipts. Reserve the digest
  * prefix so that a literal sender ID cannot alias a digest of a longer one. */
-function eventIdentity(...values: unknown[]): string | null {
+function eventIdentity(...values: unknown[]): { externalId: string | null; legacyId?: string; truncated?: boolean } {
 	for (const value of values) {
 		if (value == null) continue;
-		if (typeof value === "number" && Number.isSafeInteger(value)) return String(value);
+		if (typeof value === "number" && Number.isSafeInteger(value)) return { externalId: String(value) };
 		if (typeof value !== "string") throw new ValidationError(t("apiCopy.validation.invalidValue"), { field: "externalId" });
 		const id = value.trim();
 		if (!id) continue;
-		if (id.length <= 256 && !id.startsWith("sha256:")) return id;
-		return "sha256:" + createHash("sha256").update(id).digest("hex");
+		if (id.length <= 256 && !id.startsWith("sha256:")) return { externalId: id };
+		return { externalId: "sha256:" + createHash("sha256").update(id).digest("hex"), legacyId: id.slice(0, 256), truncated: id.length > 256 };
 	}
-	return null;
+	return { externalId: null };
 }
 
 /**
@@ -412,6 +412,8 @@ function eventIdentity(...values: unknown[]): string | null {
 export function normalizeInboundTicket(raw: Record<string, unknown>, provider?: string): {
 	eventType: string;
 	externalId: string | null;
+	legacyId?: string;
+	truncated?: boolean;
 	title: string | null;
 	description: string | null;
 	status: string | null;
@@ -435,7 +437,7 @@ export function normalizeInboundTicket(raw: Record<string, unknown>, provider?: 
 	const status = [ticket.status, raw.status].find((value) => value != null && !(typeof value === "string" && !value.trim()));
 	return {
 		eventType: firstText(64, raw.eventType, raw.type) ?? "ticket.update",
-		externalId: eventIdentity(raw.externalId, raw.eventId, raw.id),
+		...eventIdentity(raw.externalId, raw.eventId, raw.id),
 		title: firstText(256, ticket.title, raw.title) ?? (text ? text.slice(0, 120) : null),
 		description: firstText(10_000, ticket.description, raw.description) ?? text,
 		status: firstText(32, status),

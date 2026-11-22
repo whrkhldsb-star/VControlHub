@@ -1,4 +1,5 @@
 import { apiCopy } from "@/lib/i18n/api-copy";
+import { projectTicket } from "@/lib/ticket/visible-links";
 import { NextResponse } from "next/server";
 import { z } from "zod";
 
@@ -69,7 +70,7 @@ export async function PATCH(request: Request, { params }: { params: Promise<{ id
       if (body.priority) updates.priority = normalizeTicketPriority(body.priority);
       const ticket = await updateTicketStatus(updates);
       await auditUserAction(session.userId, "ticket.update", { ticketId: id }, undefined, session.currentTeamId);
-      return NextResponse.json({ ticket });
+      return NextResponse.json({ ticket: await projectTicket(ticket, session) });
     },
   );
 }

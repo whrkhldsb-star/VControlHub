@@ -213,7 +213,16 @@ async function readTicketTimeline(tx: Prisma.TransactionClient, ticketId: string
     });
   }
 
+  const commandHistoryId = (reason: string | null) => /^(?:Linked|Unlinked) command (?:request )?(.+)$/.exec(reason ?? "")?.[1];
+  const commandIds = ticket.escalations.flatMap(row => commandHistoryId(row.reason) ?? []);
+  const canReadCommand = !session || sessionHasPermission(session, "command:read");
+  const visibleCommands = canReadCommand && commandIds.length ? await tx.commandRequest.findMany({
+    where: { id: { in: commandIds }, ...(session ? commandRequestTeamWhere(session) : {}) }, select: { id: true },
+  }) : [];
+  const visibleCommandIds = new Set(visibleCommands.map(command => command.id));
   for (const esc of ticket.escalations) {
+    const historicalCommand = commandHistoryId(esc.reason);
+    if (historicalCommand && !visibleCommandIds.has(historicalCommand)) continue;
     const historicalServer = serverHistoryId(esc.reason);
     if (historicalServer && !serversById.has(historicalServer)) continue;
     const isLink =
@@ -276,7 +285,6 @@ async function readTicketTimeline(tx: Prisma.TransactionClient, ticketId: string
     createdAt: string;
   } | null = null;
 
-  const canReadCommand = !session || sessionHasPermission(session, "command:read");
   if (ticket.relatedCommandId && canReadCommand) {
     const cmd = session
       ? await tx.commandRequest.findFirst({

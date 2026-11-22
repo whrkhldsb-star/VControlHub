@@ -62,12 +62,14 @@ export function CostBudgetPanel({
   initialBudgets,
   canManage,
   currencies,
+  selectedBudget,
   refreshToken = 0,
 }: {
   initialBudgets: CostBudgetRecord[];
   canManage: boolean;
   currencies: CostCurrency[];
   /** Changes when the page reloads its cost data; budgets reload with it. */
+  selectedBudget?: string;
   refreshToken?: number;
 }) {
   const { t } = useI18n();
@@ -99,10 +101,14 @@ export function CostBudgetPanel({
   const dirty = editing !== null && Object.keys(changedBudgetFields(editing, form)).length > 0;
   const { requestDiscard, discardDialog } = useUnsavedChangesGuard({ dirty, onDiscard: closeEdit });
 
+  const period = initialBudgets.find(row => row.id === selectedBudget)?.periodStart;
+  useEffect(() => {
+    if (selectedBudget) document.getElementById("budget-" + selectedBudget)?.focus();
+  }, [selectedBudget]);
   const reload = useCallback(async () => {
-    const data = (await csrfFetch("/api/cost/budgets")) as { budgets?: CostBudgetRecord[] };
+    const data = (await csrfFetch(period ? `/api/cost/budgets?periodStart=${period}` : "/api/cost/budgets")) as { budgets?: CostBudgetRecord[] };
     if (Array.isArray(data.budgets)) setBudgets(data.budgets);
-  }, []);
+  }, [period]);
 
   // A cost added, edited or synced elsewhere on the page changes what the
   // budgets have used; they kept showing the usage from page load.
@@ -364,7 +370,7 @@ export function CostBudgetPanel({
           </div>
         ) : (
           budgets.map((budget) => (
-            <article key={budget.id} data-inset className="p-4">
+            <article key={budget.id} id={`budget-${budget.id}`} tabIndex={-1} data-inset className="p-4">
               <div className="flex flex-wrap items-start justify-between gap-3">
                 <div className="min-w-0">
                   <h3 className="ui-title-group">{budget.name}</h3>

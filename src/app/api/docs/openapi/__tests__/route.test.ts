@@ -106,8 +106,14 @@ describe("GET /api/docs/openapi", () => {
     expect(body.paths["/status"].get.security).toEqual([]);
     expect(body.paths["/share/{token}"].get.security).toEqual([]);
     expect(body.paths["/webdav/{storageNodeId}/{path}"].get.security).toEqual([
-      { basicAuth: [] },
+      { basicAuth: [] }, { apiTokenAuth: [] },
     ]);
+    const dav = body.paths["/webdav/{storageNodeId}/{path}"];
+    expect(dav.options.security).toEqual([]);
+    expect(dav.put["x-vcontrolhub-permissions"]).toEqual(["storage:write"]);
+    expect(dav.delete["x-vcontrolhub-permissions"]).toEqual(["storage:delete"]);
+    expect(dav.post["x-http-method-override"].MOVE.overwritePermissions).toEqual([["storage:delete"]]);
+    expect(dav.post["x-http-method-override"].COPY.permissions).toEqual([["storage:read"], ["storage:write"]]);
     expect(body.paths["/itsm/inbound/{connectionId}"].post.security).toEqual([
       { webhookSignature: [] },
     ]);

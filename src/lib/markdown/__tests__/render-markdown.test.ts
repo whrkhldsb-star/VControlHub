@@ -16,6 +16,18 @@ describe("markdownToPlainText", () => {
 });
 
 describe("markdownExcerpt", () => {
+	it("keeps separator-like prose, incomplete table delimiters and text inside fences", () => {
+		const table = "| A | B |\n| --- | keep |";
+		expect(renderMarkdown(table)).toContain("keep");
+		expect(markdownExcerpt(table)).toContain("keep");
+		expect(markdownExcerpt("---suffix stays")).toBe("---suffix stays");
+		expect(markdownExcerpt("| header |\n| --- |\n| --- |")).toBe("header ---");
+		expect(markdownExcerpt("| --- |")).toBe("---");
+		expect(markdownExcerpt("-_*")).toBe("-_*");
+		const block = ["````", "``` followed by text", "```` not a closer", "---", "````"].join("\n");
+		expect(renderMarkdown(block)).toContain("```` not a closer");
+		expect(markdownToPlainText(block)).toBe("``` followed by text\n```` not a closer\n---");
+	});
 	it("joins the text into one paragraph so a line clamp never cuts at a blank line", () => {
 		expect(markdownExcerpt("Body with **markdown**.\n\n- one\n- two")).toBe("Body with markdown. one two");
 	});

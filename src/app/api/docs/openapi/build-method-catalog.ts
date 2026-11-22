@@ -1,3 +1,4 @@
+import { davPermissions } from "./webdav";
 /** Build-time only. Rebuild with npx tsx src/app/api/docs/openapi/build-method-catalog.ts */
 import { readFileSync, writeFileSync } from "node:fs";
 import { dirname, resolve } from "node:path";
@@ -108,11 +109,12 @@ function collectMethod(file: string, method: string): Requirements {
   return groups.filter((group, index) => group.length && !groups.slice(0, index).some((other) => JSON.stringify(other) === JSON.stringify(group)));
 }
 
+
 export function buildMethodCatalog(): MethodCatalog {
   const result: MethodCatalog = {};
   for (const route of catalog.apiRoutes) {
     for (const method of route.methods) {
-      const groups = collectMethod(resolve(route.file), method);
+      const groups = route.path.startsWith("/api/webdav/") ? davPermissions[method] ?? [] : collectMethod(resolve(route.file), method);
       if (groups.length) (result[route.path] ??= {})[method] = groups;
     }
   }

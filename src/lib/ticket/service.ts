@@ -1,4 +1,5 @@
 import { ValidationError, NotFoundError } from "@/lib/errors";
+import { projectTicket, projectTicketLinks } from "./visible-links";
 import { prisma } from "@/lib/db";
 import { sessionHasPermission } from "@/lib/auth/authorization";
 import { lockTicket, withTicketTransaction } from "./transaction";
@@ -203,7 +204,8 @@ export async function listTickets(input?: TicketListInput) {
     }),
   ]);
   const byId = new Map([...active, ...recent].map((ticket) => [ticket.id, ticket]));
-  return [...byId.values()].sort((a, b) => b.updatedAt.getTime() - a.updatedAt.getTime());
+  const rows = [...byId.values()].sort((a, b) => b.updatedAt.getTime() - a.updatedAt.getTime());
+  return typeof input === "object" && input.session ? projectTicketLinks(rows, input.session) : rows;
 }
 
 /** Status and high-priority counts over every ticket the list covers, not just the loaded rows. */
@@ -226,7 +228,7 @@ export async function countTickets(input?: TicketListInput) {
 export async function getTicketById(id: string, session?: TeamSession | null) {
   const teamFilter = ticketTeamFilter(session);
   if (session) {
-    return prisma.ticket.findFirst({
+    const row = await prisma.ticket.findFirst({
       where: { id, ...teamFilter },
       include: {
         creator: { select: { id: true, username: true, displayName: true } },
@@ -237,6 +239,7 @@ export async function getTicketById(id: string, session?: TeamSession | null) {
         },
       },
     });
+    return row ? projectTicket(row, session) : null;
   }
   return prisma.ticket.findUnique({
     where: { id },

@@ -85,8 +85,9 @@ cd /opt/VControlHub
 把压缩包传到新服务器后：
 
 ```bash
-tar -xzf my-console-v0.1.0.tar.gz
-cd my-console-bundle   # 默认包则是 vcontrolhub-v0.1.0
+sudo install -d -m 755 /opt/vcontrolhub-source
+sudo tar --no-same-owner -xzf my-console-v0.1.0.tar.gz -C /opt/vcontrolhub-source
+cd /opt/vcontrolhub-source/my-console-bundle   # 默认包则是 vcontrolhub-v0.1.0
 sudo APP_NAME="我的控制台" APP_SLUG=my-console SITE_NAME="我的控制台" \
   SERVICE_PREFIX=my-console DOMAIN=your.example.com APP_DIR=/opt/my-console ./install.sh
 # 首次运行会创建 /opt/my-console/.env.local，自动生成密钥并继续安装完成。
@@ -104,8 +105,8 @@ sudo APP_NAME="我的控制台" APP_SLUG=my-console SITE_NAME="我的控制台" 
 ```bash
 # 在旧服务器或本地机器执行；按实际新服务器地址替换 root@new-server。
 # 排除项都以 / 开头，只匹配安装目录顶层的运行数据；不带 / 会连同 src/lib/storage、src/lib/downloads 等同名源码目录一起排除。
-rsync -a --delete \
-  --exclude /.git --exclude /node_modules --exclude /.next --exclude /.env.local --exclude /.env.runtime \
+rsync -a --delete --chown=root:root --chmod=go-w \
+  --exclude /.git --exclude /node_modules --exclude /.next --include=/.env.example --exclude='/.env*' \
   --exclude /storage --exclude /tmp --exclude /uploads --exclude /downloads --exclude /backups --exclude /logs \
   /opt/VControlHub/ root@new-server:/root/vcontrolhub-src/
 
@@ -338,9 +339,15 @@ mount | grep ' /media/alist '
 
 The unit intentionally runs `rclone mount` in the foreground (`Type=simple`, no `--daemon`) so systemd can track the real mount process. If migrating from an old daemonized unit, stop it first and clear any stale mount with `fusermount -uz /media/alist`.
 
+### 维护目录和旧版 Windows 任务
+
+Linux 安装和升级请从管理员控制的源码和安装目录运行。服务账户只需写入数据目录。若旧安装的程序或配置仍由服务账户持有，请停服、保存并核对环境文件和数据，用可信发布包恢复程序及维护脚本，并将程序、配置和父目录交由 root 管理。构建在单独的低权限账户下执行。
+
+Windows 的 SYSTEM 任务从受保护的 `.vch-releases/current` 启动。发布器在停服期间切换完整程序和配置，保留原地的数据目录，并在首次发布时将检出目录的旧数据路径联接到运行目录。请使用 SYSTEM 或 Administrators 所有、普通账户只读的安装目录、源码及 Node.js 工具链。首次从直接引用检出目录的旧任务升级时，用 `-PreviousRelease` 指定原版本的完整受保护副本，包括原来的运行脚本、辅助脚本、依赖、静态资源、构建产物和环境配置。该副本的数据路径须指向原安装的持久目录。后续升级失败时，发布器恢复上个版本的全部程序文件和任务定义。每个版本使用发布时复制的环境配置。修改数据库或监听端口后，请用更新的 `.env.local` 重新发布，安装器会在迁移前报告与当前进程冲突的键名。
+
 ### 旧版 CSV 账单升级核对
 
-同一天、同一产品同时含有供应商 ID 和无 ID 条目的账单，请在成本页重新同步受影响的月份。导入会核对旧条目的币种、金额、类别和供应商，迁移可确认的旧序号，并保留条目 ID。部分导出或无法匹配的旧条目会使整批回滚，管理员可在运行记录中查看原因。
+同一天、同一产品同时含有供应商 ID 和无 ID 条目的账单，请在成本页重新同步受影响的月份。导入会核对旧条目的币种、金额、类别和供应商，迁移可确认的旧序号，并保留条目 ID。部分导出或无法匹配的旧条目会使整批回滚，管理员可在运行记录中查看原因。同月同币种包含分以下精度的费用时，请提供完整月账单，以便核对分币分摊。
 
 升级时，数据库管理员可用下面的只读查询列出同日混用显式 ID 与旧序号的账户和月份，再按供应商原账单核对产品及行数。
 

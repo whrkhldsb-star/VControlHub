@@ -4,13 +4,15 @@ import { auditUserAction } from "@/lib/audit/service";
 import { withApiRoute } from "@/lib/http/api-guard";
 import { GENERAL_READ_LIMIT, GENERAL_WRITE_LIMIT } from "@/lib/http/rate-limit-presets";
 import { createCostBudget, listCostBudgets } from "@/lib/cost/service";
-import { createCostBudgetSchema } from "@/lib/cost/schema";
+import { z } from "zod";
+import { zonedDateTimeToDate } from "@/lib/datetime/time-zone";
+import { costDateSchema, createCostBudgetSchema } from "@/lib/cost/schema";
 
 export const dynamic = "force-dynamic";
 
 export async function GET(request: Request) {
-	return withApiRoute(request, { permission: "cost:read", rateLimit: GENERAL_READ_LIMIT, errorMessage: apiCopy("apiCopy.failed.to.load.cost.budgets.3f3e8639") }, async ({ session }) => {
-		return NextResponse.json({ budgets: await listCostBudgets(new Date(), session) });
+	return withApiRoute(request, { permission: "cost:read", querySchema: z.object({ periodStart: costDateSchema.optional() }), rateLimit: GENERAL_READ_LIMIT, errorMessage: apiCopy("apiCopy.failed.to.load.cost.budgets.3f3e8639") }, async ({ session, query }) => {
+		return NextResponse.json({ budgets: await listCostBudgets(query?.periodStart ? zonedDateTimeToDate(query.periodStart + "T12:00") : new Date(), session) });
 	});
 }
 

@@ -52,6 +52,14 @@ describe.skipIf(process.env.RUN_DATABASE_INTEGRATION_TESTS !== "1")("monthly ser
 		expect(billed.map((row) => row.sourceRef)).toEqual([`${live}-srv`]);
 	});
 
+	it("returns the enabled server with a missing monthly amount in the skipped details", async () => {
+		const serverId = prefix + "-missing";
+		await prisma.server.create({ data: { id: serverId, name: serverId, host: "missing.test", username: "fixture", teamId: live, costAutoSync: true } });
+		const result = await syncServerMonthlyCosts("2030-04", { userId: prefix, roles: ["operator"], currentTeamId: live });
+		expect(result.skipped).toBeGreaterThanOrEqual(1);
+		expect(result.skippedDetails).toContainEqual({ serverId, serverName: serverId, reason: "missing_amount" });
+	});
+
 	it("keeps the server version across backfills and preserves closed-month rows after repricing", async () => {
 		const originalDate = new Date("2001-01-15T12:00:00Z");
 		const serverId = `${prefix}-historical`;

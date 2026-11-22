@@ -6,6 +6,7 @@
  */
 import type { Prisma } from "@prisma/client";
 
+import { escapeLikeLiteral } from "@/lib/db/like-pattern";
 import { prisma } from "@/lib/db";
 import { ticketListWhere, type TicketListInput } from "./service";
 
@@ -40,7 +41,7 @@ export function ticketQueryClauses(query: TicketQuery, now: Date): Prisma.Ticket
   if (query.assigneeId) clauses.push({ assigneeId: query.assigneeId });
   const search = query.search?.trim();
   if (search) {
-    clauses.push({ OR: [{ title: { contains: search, mode: "insensitive" } }, { description: { contains: search, mode: "insensitive" } }] });
+    clauses.push({ OR: [{ title: { contains: escapeLikeLiteral(search), mode: "insensitive" } }, { description: { contains: escapeLikeLiteral(search), mode: "insensitive" } }] });
   }
   const warnUntil = new Date(now.getTime() + SLA_WARNING_MS);
   if (query.slaStatus === "none") clauses.push({ OR: [{ slaDueAt: null }, { status: { in: ["RESOLVED", "CLOSED"] } }] });
@@ -71,18 +72,20 @@ export async function listTicketPage(input: TicketListInput & {
   const now = input.now ?? new Date();
   const pageSize = Math.min(MAX_PAGE_SIZE, Math.max(1, Math.floor(input.pageSize ?? TICKET_PAGE_SIZE)));
   const where = scopedWhere(input, input.query ?? {}, now);
-  const total = await prisma.ticket.count({ where });
-  const pages = Math.max(1, Math.ceil(total / pageSize));
-  // A page past the end (the list shrank since the link was made) shows the last one.
-  const page = Math.min(pages, Math.max(1, Math.floor(input.page ?? 1)));
-  const tickets = await prisma.ticket.findMany({
-    where,
-    include: TICKET_ROW_INCLUDE,
-    orderBy: ORDER,
-    skip: (page - 1) * pageSize,
-    take: pageSize,
-  });
-  return { tickets, total, page, pageSize };
+  return prisma.$transaction(async tx => {
+    const total = await tx.ticket.count({ where });
+    const pages = Math.max(1, Math.ceil(total / pageSize));
+    // A page past the end (the list shrank since the link was made) shows the last one.
+    const page = Math.min(pages, Math.max(1, Math.floor(input.page ?? 1)));
+    const tickets = await tx.ticket.findMany({
+      where,
+      include: TICKET_ROW_INCLUDE,
+      orderBy: ORDER,
+      skip: (page - 1) * pageSize,
+      take: pageSize,
+    });
+    return { tickets, total, page, pageSize };
+  }, { isolationLevel: "RepeatableRead" });
 }
 
 /** The board: each status column filtered on its own, with its full total. */
@@ -94,15 +97,17 @@ export async function listTicketBoard(input: TicketListInput & {
   const now = input.now ?? new Date();
   const take = Math.min(TICKET_BOARD_COLUMN_LIMIT, Math.max(1, Math.floor(input.perColumn ?? TICKET_BOARD_COLUMN_LIMIT)));
   const query = input.query ?? {};
-  const columns = await Promise.all(TICKET_STATUSES.map(async (status) => {
-    // A status filter leaves the other columns empty instead of mislabelled.
-    if (query.status && query.status !== status) return [status, { tickets: [], total: 0 }] as const;
-    const where = scopedWhere(input, { ...query, status: undefined }, now, [{ status }]);
-    const [total, tickets] = await Promise.all([
-      prisma.ticket.count({ where }),
-      prisma.ticket.findMany({ where, include: TICKET_ROW_INCLUDE, orderBy: ORDER, take }),
-    ]);
-    return [status, { tickets, total }] as const;
-  }));
-  return Object.fromEntries(columns) as Record<TicketStatus, { tickets: Awaited<ReturnType<typeof listTicketPage>>["tickets"]; total: number }>;
+  return prisma.$transaction(async tx => {
+    const columns = await Promise.all(TICKET_STATUSES.map(async (status) => {
+      // A status filter leaves the other columns empty instead of mislabelled.
+      if (query.status && query.status !== status) return [status, { tickets: [], total: 0 }] as const;
+      const where = scopedWhere(input, { ...query, status: undefined }, now, [{ status }]);
+      const [total, tickets] = await Promise.all([
+        tx.ticket.count({ where }),
+        tx.ticket.findMany({ where, include: TICKET_ROW_INCLUDE, orderBy: ORDER, take }),
+      ]);
+      return [status, { tickets, total }] as const;
+    }));
+    return Object.fromEntries(columns) as Record<TicketStatus, { tickets: Awaited<ReturnType<typeof listTicketPage>>["tickets"]; total: number }>;
+  }, { isolationLevel: "RepeatableRead" });
 }

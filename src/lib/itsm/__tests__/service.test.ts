@@ -11,7 +11,7 @@ let forcedEventCreateError: (Error & { code: string }) | null = null;
 /** Fail the next createTicket (a transient business failure). */
 let failNextTicketCreate = false;
 /** Fail the next event update that writes a final ok/ignored status. */
-let failNextFinalEventUpdate = false;
+let failNextConnectionAcknowledgment = false;
 
 function reset() {
 	connectionStore.clear();
@@ -20,7 +20,7 @@ function reset() {
 	seq = 0;
 	forcedEventCreateError = null;
 	failNextTicketCreate = false;
-	failNextFinalEventUpdate = false;
+	failNextConnectionAcknowledgment = false;
 }
 
 const deletedTeams = vi.hoisted(() => new Set<string>());
@@ -53,6 +53,10 @@ vi.mock("@/lib/db", async () => {
 			findUnique: vi.fn(async ({ where }: { where: { id: string } }) => connectionStore.get(where.id) ?? null),
 			findFirst: vi.fn(async ({ where }: { where: { id: string } }) => connectionStore.get(where.id) ?? null),
 			update: vi.fn(async ({ where, data }: { where: { id: string }; data: Record<string, unknown> }) => {
+				if (failNextConnectionAcknowledgment && data.lastInboundAt && data.lastError === null) {
+					failNextConnectionAcknowledgment = false;
+					throw new Error("event store unavailable");
+				}
 				const prev = connectionStore.get(where.id);
 				if (!prev) throw new Error("missing");
 				const next = { ...prev, ...data, updatedAt: new Date("2026-07-02T00:00:00Z") };
@@ -85,6 +89,11 @@ vi.mock("@/lib/db", async () => {
 		// Deleted customers: none unless a test marks one.
 		team: { count: vi.fn(async ({ where }: { where: { id: { in?: string[] } | string } }) => (typeof where.id === "string" && deletedTeams.has(where.id) ? 1 : 0)) },
 		itsmEvent: {
+			updateMany: vi.fn(async ({ where, data }) => {
+				const current = eventStore.get(where.id);
+				if (current && where.status.in.includes(current.status)) eventStore.set(where.id, { ...current, ...data });
+				return { count: Number(Boolean(current)) };
+			}),
 			create: vi.fn(async ({ data }: { data: Record<string, unknown> }) => {
 				if (forcedEventCreateError) {
 					const error = forcedEventCreateError;
@@ -129,15 +138,12 @@ vi.mock("@/lib/db", async () => {
 			update: vi.fn(async ({ where, data }: { where: { id: string }; data: Record<string, unknown> }) => {
 				const prev = eventStore.get(where.id);
 				if (!prev) throw new Error("missing event");
-				if (failNextFinalEventUpdate && (data.status === "ok" || data.status === "ignored")) {
-					failNextFinalEventUpdate = false;
-					throw new Error("event store unavailable");
-				}
 				const next = { ...prev, ...data };
 				eventStore.set(where.id, next);
 				return next;
 			}),
-			findFirst: vi.fn(async ({ where }: { where: { connectionId?: string | null; externalId?: string } }) => {
+			findFirst: vi.fn(async ({ where }: { where: { id?: string; connectionId?: string | null; externalId?: string } }) => {
+				if (where.id) return eventStore.get(where.id) ?? null;
 				return (
 					Array.from(eventStore.values()).find(
 						(r) =>
@@ -580,7 +586,7 @@ describe("ITSM service", () => {
 			json: JSON.parse(rawBody) as Record<string, unknown>,
 			systemUserId: "sys",
 		};
-		failNextFinalEventUpdate = true;
+		failNextConnectionAcknowledgment = true;
 		await expect(handleInboundWebhook(request)).rejects.toThrow("event store unavailable");
 		const retry = await handleInboundWebhook(request);
 		expect(retry).toMatchObject({ action: "create", event: expect.objectContaining({ status: "ok" }) });
@@ -709,7 +715,7 @@ describe("ITSM service", () => {
 	it("applies a comment and status change together and deduplicates them on retry", async () => {
 		const request = await combinedUpdateRequest("combined-1");
 		const { ticketId } = request.json;
-		failNextFinalEventUpdate = true;
+		failNextConnectionAcknowledgment = true;
 		await expect(handleInboundWebhook(request)).rejects.toThrow("event store unavailable");
 		expect(await handleInboundWebhook(request)).toMatchObject({
 			ticketId, action: "comment_status_update",
@@ -729,7 +735,7 @@ describe("ITSM service", () => {
 		});
 		expect(tx?.itsmEvent.update).toHaveBeenCalledExactlyOnceWith({
 			where: { id: expect.any(String) },
-			data: { ticketId, payload: { applied: true, action: "comment_status_update", sourceConnectionId: request.connectionId } },
+			data: expect.objectContaining({ ticketId, status: "ok", payload: expect.objectContaining({ applied: true, action: "comment_status_update", sourceConnectionId: request.connectionId }) }),
 		});
 		expect(ticketStore.get(ticketId)?.status).toBe("IN_PROGRESS");
 	});
@@ -741,7 +747,7 @@ describe("ITSM service", () => {
 		expect(first.event).toMatchObject({ externalId: null, ticketId, payload: { applied: true, action: "comment_status_update" } });
 		const tx = vi.mocked(addTicketComment).mock.calls[0]![0].db;
 		expect(tx?.itsmEvent.update).toHaveBeenCalledWith({
-			where: { id: first.event.id }, data: { ticketId, payload: { applied: true, action: "comment_status_update", sourceConnectionId: request.connectionId } },
+			where: { id: first.event.id }, data: expect.objectContaining({ ticketId, status: "ok", payload: expect.objectContaining({ applied: true, action: "comment_status_update", sourceConnectionId: request.connectionId }) }),
 		});
 		// A second unkeyed delivery is a new comment with the already-current status.
 		const second = await handleInboundWebhook(request);

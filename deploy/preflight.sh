@@ -92,11 +92,12 @@ fi
 
 set -a
 # shellcheck disable=SC1090
-source "${ENV_FILE}"
+source "$(dirname "${BASH_SOURCE[0]}")/lib/listen-address.sh"
+load_install_settings "${ENV_FILE}"
 set +a
 
 for required in DATABASE_URL AUTH_SESSION_SECRET ADMIN_INITIAL_PASSWORD SSH_WS_SECRET STORAGE_DIRECT_ACCESS_SECRET ENCRYPTION_KEY; do
-	validate_env_value "${required}"
+  validate_env_value "${required}"
 done
 
 [ "${#AUTH_SESSION_SECRET}" -ge 32 ] || fail "AUTH_SESSION_SECRET is shorter than 32 characters"

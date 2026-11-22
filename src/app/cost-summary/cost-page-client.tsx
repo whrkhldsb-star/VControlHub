@@ -34,6 +34,8 @@ type Props = {
 	initialCurrency: CostCurrency;
 	initialSummary: CostSummary | null;
 	initialEntries: CostEntryRecord[];
+	initialTotal?: number;
+	selectedBudget?: string;
 	initialSnapshots: DailySnapshot[];
 	initialBudgets: CostBudgetRecord[];
 	initialBillingAccounts: CloudBillingAccountRecord[];
@@ -46,7 +48,7 @@ export function CostPageClient({
 	initialMonth,
 	initialCurrency,
 	initialSummary,
-	initialEntries,
+	initialEntries, initialTotal, selectedBudget,
 	initialSnapshots,
 	initialBudgets,
 	initialBillingAccounts,
@@ -60,7 +62,7 @@ export function CostPageClient({
 		initialMonth,
 		initialCurrency,
 		initialSummary,
-		initialEntries,
+		initialEntries, initialTotal,
 		initialSnapshots,
 		canManage,
 		t,
@@ -102,6 +104,9 @@ export function CostPageClient({
 		onConfirmDelete,
 		requestDelete,
 	} = state;
+	const min = Math.min(0, ...trend.map(point => point.total));
+	const max = Math.max(0, ...trend.map(point => point.total));
+	const points = trend.map((point, i) => ({ ...point, x: i * 60 + 20, y: 75 - 70 * (point.total - min) / (max - min || 1) }));
 
 	return (
 		<div className="flex flex-col gap-6">
@@ -183,15 +188,13 @@ export function CostPageClient({
 								fill="none"
 								stroke="rgb(34, 211, 238)"
 								strokeWidth="2"
-								points={trend
-									.map((p, i) => `${i * 60 + 20},${80 - (p.total / Math.max(...trend.map((x) => x.total), 1)) * 70 - 5}`)
-									.join(" ")}
+								points={points.map(p => `${p.x},${p.y}`).join(" ")}
 							/>
-							{trend.map((p, i) => (
+							{points.map((p) => (
 								<circle
 									key={p.date}
-									cx={i * 60 + 20}
-									cy={80 - (p.total / Math.max(...trend.map((x) => x.total), 1)) * 70 - 5}
+									cx={p.x}
+									cy={p.y}
 									r="2.5"
 									fill="rgb(34, 211, 238)"
 								>
@@ -205,7 +208,7 @@ export function CostPageClient({
 
 			<ListPanel
 				title={t("costPage.list.title")}
-				count={entries.length}
+				count={state.total}
 				actions={
 					<div className="flex flex-wrap gap-2">
 						<ActionButton variant="secondary" onClick={() => void refreshAll()}>{t("costPage.actions.refresh")}</ActionButton>
@@ -271,7 +274,11 @@ export function CostPageClient({
 				) : null}
 			</ListPanel>
 
-			<CostBudgetPanel initialBudgets={initialBudgets} canManage={canManage} currencies={availableCurrencies} refreshToken={state.refreshCount} />
+			{state.total > 200 && <div className="flex justify-end gap-2">
+				<ActionButton disabled={state.entryPage <= 1} onClick={() => void state.fetchEntries(month, state.entryPage - 1)}>{t("common.pagination.previous")}</ActionButton>
+				<ActionButton disabled={state.entryPage * 200 >= state.total} onClick={() => void state.fetchEntries(month, state.entryPage + 1)}>{t("common.pagination.next")}</ActionButton>
+			</div>}
+			<CostBudgetPanel selectedBudget={selectedBudget} initialBudgets={initialBudgets} canManage={canManage} currencies={availableCurrencies} refreshToken={state.refreshCount} />
 			<CostCloudBillingPanel
 				initialAccounts={initialBillingAccounts}
 				canManage={canManage}

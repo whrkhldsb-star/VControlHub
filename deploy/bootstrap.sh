@@ -118,18 +118,45 @@ ensure_git() {
   fi
 }
 
+# The bootstrap can be downloaded as a standalone script. Establish ownership
+# before invoking git or loading any installer code from an existing checkout.
+require_maintenance_path() {
+  [[ ${EUID} == 0 ]] || return 0
+  local path mode owner leaf
+  path="$(realpath -ms -- "$1")"
+  leaf="${path}"
+  while [[ ${path} != / ]]; do
+    if [[ -e ${path} || -L ${path} ]]; then
+      [[ ! -L ${path} ]] || fail "Maintenance path is a symlink: ${path}"
+      read -r owner mode < <(stat -c '%u %a' -- "${path}")
+      [[ ${owner} == 0 ]] && { (( (8#${mode} & 0022) == 0 )) || { [[ ${leaf} != "${path}" && -d ${path} ]] && (( (8#${mode} & 01000) != 0 )); }; } ||
+        fail "Maintenance requires a root-controlled path: ${path}"
+    fi
+    path="${path%/*}"; path="${path:-/}"
+  done
+}
+
+verify_installed_drivers() {
+  [[ ${EUID} == 0 ]] || return 0
+  require_maintenance_path "${APP_DIR}"
+  local dir unsafe
+  for dir in .git deploy scripts; do
+    [[ -e ${APP_DIR}/${dir} || -L ${APP_DIR}/${dir} ]] || continue
+    unsafe="$(find "${APP_DIR}/${dir}" \( -type l -o ! -uid 0 -o -perm /022 \) -print -quit)" || fail "Cannot inspect installed drivers"
+    [[ -z ${unsafe} ]] || fail "Restore administrator ownership of the installed drivers before maintenance: ${unsafe}"
+  done
+}
+
 checkout_repo() {
+  verify_installed_drivers
   mkdir -p "$(dirname "${APP_DIR}")"
   if [ -d "${APP_DIR}/.git" ]; then
     log "Updating existing repository in ${APP_DIR}"
-    # The installer hands the checkout to the service user; run from root,
-    # plain git stopped here with "dubious ownership" before reinstalling
-    # (upgrade.sh and install.sh already pass the same exception).
     # The build regenerates the route catalog in place; it must not stop the pull.
-    git -c "safe.directory=${APP_DIR}" -C "${APP_DIR}" checkout -q -- docs/route-catalog.json 2>/dev/null || true
-    git -c "safe.directory=${APP_DIR}" -C "${APP_DIR}" fetch origin "${BRANCH}" --prune
-    git -c "safe.directory=${APP_DIR}" -C "${APP_DIR}" checkout "${BRANCH}"
-    git -c "safe.directory=${APP_DIR}" -C "${APP_DIR}" pull --ff-only origin "${BRANCH}"
+    git -C "${APP_DIR}" checkout -q -- docs/route-catalog.json 2>/dev/null || true
+    git -C "${APP_DIR}" fetch origin "${BRANCH}" --prune
+    git -C "${APP_DIR}" checkout "${BRANCH}"
+    git -C "${APP_DIR}" pull --ff-only origin "${BRANCH}"
   elif [ -e "${APP_DIR}" ] && [ "$(find "${APP_DIR}" -mindepth 1 -maxdepth 1 2>/dev/null | head -1)" ]; then
     fail "APP_DIR=${APP_DIR} exists and is not an empty git checkout. Set APP_DIR to an empty/new directory or run deploy/install.sh from an existing source tree."
   else
@@ -140,6 +167,7 @@ checkout_repo() {
 
 require_installed_script() {
   local relative_path="$1"
+  verify_installed_drivers
   [ -x "${APP_DIR}/${relative_path}" ] || fail "VControlHub is not installed at ${APP_DIR}; missing ${relative_path}. Choose install first."
 }
 
@@ -167,7 +195,7 @@ run_update() (
   # the requested revision's upgrade driver without changing that checkout.
   driver="${APP_DIR}/deploy/upgrade.sh"
   if [[ -d ${APP_DIR}/.git && ${SKIP_PULL:-0} != 1 ]]; then
-    local repo=(git -c "safe.directory=${APP_DIR}" -C "${APP_DIR}")
+    local repo=(git -C "${APP_DIR}")
     "${repo[@]}" fetch origin "${BRANCH}"
     UPGRADE_COMMIT="$("${repo[@]}" rev-parse --verify 'FETCH_HEAD^{commit}')"
     export UPGRADE_COMMIT

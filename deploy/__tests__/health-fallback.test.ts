@@ -27,7 +27,12 @@ describe.skipIf(process.platform !== "linux")("installed health endpoints", () =
     roots.push(app);
     const script = await readFile("deploy/smoke-test.sh", "utf8");
     await writeFile(path.join(app, ".env.local"), 'SSH_WS_ALLOWED_ORIGINS="http://127.0.0.1:3000,http://localhost:3000,http://[::1]:3000"\n');
-    const output = execFileSync("bash", ["-c", 'ip() { echo "    inet 192.0.2.42/24"; }\n' + script.slice(0, script.indexOf("PASS=0")) + '\nprintf "%s" "$TARGET"'], {
+    const preamble = script.slice(0, script.indexOf("PASS=0"));
+    const probeScript = path.join(app, "probe.sh");
+    await mkdir(path.join(app, "lib"));
+    await writeFile(path.join(app, "lib/listen-address.sh"), await readFile("deploy/lib/listen-address.sh"));
+    await writeFile(probeScript, 'ip() { echo "    inet 192.0.2.42/24"; }\n' + preamble + '\nprintf "%s" "$TARGET"');
+    const output = execFileSync("bash", [probeScript], {
       encoding: "utf8", env: { ...process.env, APP_DIR: app, SMOKE_SCOPE: scope },
     });
     expect(output).toBe(expected);

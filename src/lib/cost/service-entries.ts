@@ -3,7 +3,7 @@ import { liveCustomerRowsWhere, serverTeamWhere, teamCreateData, teamWhere } fro
 import { currentCopyLocale } from "@/lib/i18n/api-copy";
 import { costMessage } from "./messages";
 import { prisma } from "@/lib/db";
-import { NotFoundError, ValidationError } from "@/lib/errors";
+import { ConflictError, NotFoundError, ValidationError } from "@/lib/errors";
 import { t } from "@/lib/i18n/service-translations";
 import { costAmountSchema, createCostEntrySchema, updateCostEntrySchema } from "./schema";
 import type { CostCategory, CostCurrency, CostCurrencyBucket, CostEntryRecord, CostSummary, DailySnapshot } from "./types";
@@ -23,6 +23,7 @@ export async function createCostEntry(input: unknown, createdById?: string | nul
 	if (!parsed.adjustmentForId) return toRecord(await prisma.costEntry.create({ data }));
 	const sourceId = parsed.adjustmentForId;
 	return prisma.$transaction(async (tx) => {
+		await tx.$queryRaw`SELECT id FROM cost_entries WHERE id = ${sourceId} FOR UPDATE`;
 		const source = await tx.costEntry.findFirst({
 			where: { id: sourceId, ...(session ? teamWhere(session) : {}), sourceType: { in: ["server_monthly", "cloud_billing"] } },
 			select: { teamId: true },
@@ -31,49 +32,60 @@ export async function createCostEntry(input: unknown, createdById?: string | nul
 		return toRecord(await tx.costEntry.create({ data: {
 			...data, teamId: source.teamId, tags: [...automaticTags("manual", parsed.category, parsed.provider), `adjustment-for:${sourceId}`],
 		} }));
-	}, { isolationLevel: Prisma.TransactionIsolationLevel.Serializable });
+	});
 }
 
 export async function updateCostEntry(id: string, input: unknown, session?: TeamSession | null): Promise<CostEntryRecord> {
 	const parsed = updateCostEntrySchema.parse(input);
 	const teamFilter = session ? teamWhere(session) : {};
-	const current = session ? await prisma.costEntry.findFirst({ where: { id, ...teamFilter } }) : await prisma.costEntry.findUnique({ where: { id } });
-	if (!current) throw new NotFoundError(t("backend.cost.costEntryNotFound"));
-	const data: Prisma.CostEntryUpdateInput = {};
-	if (parsed.category !== undefined) data.category = parsed.category;
-	if (parsed.provider !== undefined) data.provider = parsed.provider;
-	if (parsed.amount !== undefined) {
-		if (!current.tags.some(tag => tag.startsWith("adjustment-for:"))) costAmountSchema.parse(parsed.amount);
-		data.amount = new Prisma.Decimal(parsed.amount);
-	}
-	if (parsed.currency !== undefined) data.currency = parsed.currency;
-	if (parsed.effectiveDate !== undefined && parsed.effectiveDate !== isoDateOnly(current.effectiveDate)) {
-		if (isSourceManagedCost(current.sourceType)) throw new ValidationError(costMessage("sourceDate", currentCopyLocale()));
-		data.effectiveDate = new Date(`${parsed.effectiveDate}T00:00:00Z`);
-	}
-	if (parsed.notes !== undefined) data.notes = parsed.notes;
-	if (parsed.category !== undefined || parsed.provider !== undefined) {
-		const labels = automaticTags(current.sourceType ?? "manual", (parsed.category ?? current.category) as CostCategory,
-			parsed.provider ?? current.provider, current.sourceType === "server_monthly" ? current.sourceRef : null);
-		data.tags = [...new Set([...labels, ...current.tags.filter(tag => !/^(source|category|provider):/.test(tag))])];
-	}
-	if (session) {
-		const claimed = await prisma.costEntry.updateMany({ where: { id, ...teamFilter }, data });
-		if (claimed.count === 0) throw new NotFoundError(t("backend.cost.costEntryNotFound"));
-		const entry = await prisma.costEntry.findFirst({ where: { id, ...teamFilter } });
-		if (!entry) throw new NotFoundError(t("backend.cost.costEntryNotFound"));
-		return toRecord(entry);
-	}
-	return toRecord(await prisma.costEntry.update({ where: { id }, data }));
+	return prisma.$transaction(async (tx) => {
+		await tx.$queryRaw`SELECT id FROM cost_entries WHERE id = ${id} FOR UPDATE`;
+		const current = await tx.costEntry.findFirst({ where: { id, ...teamFilter } });
+		if (!current) throw new NotFoundError(t("backend.cost.costEntryNotFound"));
+		const data: Prisma.CostEntryUpdateInput = {};
+		if (parsed.category !== undefined) data.category = parsed.category;
+		if (parsed.provider !== undefined) data.provider = parsed.provider;
+		if (parsed.amount !== undefined) {
+			if (!current.tags.some(tag => tag.startsWith("adjustment-for:"))) costAmountSchema.parse(parsed.amount);
+			data.amount = new Prisma.Decimal(parsed.amount);
+		}
+		if (parsed.currency !== undefined) data.currency = parsed.currency;
+		if (parsed.effectiveDate !== undefined && parsed.effectiveDate !== isoDateOnly(current.effectiveDate)) {
+			if (isSourceManagedCost(current.sourceType)) throw new ValidationError(costMessage("sourceDate", currentCopyLocale()));
+			data.effectiveDate = new Date(`${parsed.effectiveDate}T00:00:00Z`);
+		}
+		if (parsed.notes !== undefined) data.notes = parsed.notes;
+		if (parsed.category !== undefined || parsed.provider !== undefined) {
+			const labels = automaticTags(current.sourceType ?? "manual", (parsed.category ?? current.category) as CostCategory,
+				parsed.provider ?? current.provider, current.sourceType === "server_monthly" ? current.sourceRef : null);
+			data.tags = [...new Set([...labels, ...current.tags.filter(tag => !/^(source|category|provider):/.test(tag))])];
+		}
+		return toRecord(await tx.costEntry.update({ where: { id, ...teamFilter }, data }));
+	});
 }
 
 export async function deleteCostEntry(id: string, session?: TeamSession | null): Promise<void> {
-	if (session) {
-		const claimed = await prisma.costEntry.deleteMany({ where: { id, ...teamWhere(session) } });
-		if (claimed.count === 0) throw new NotFoundError(t("backend.cost.costEntryNotFound"));
-		return;
-	}
-	await prisma.costEntry.delete({ where: { id } });
+	await prisma.$transaction(async (tx) => {
+		await tx.$queryRaw`SELECT id FROM cost_entries WHERE id = ${id} FOR UPDATE`;
+		const where = { id, ...(session ? teamWhere(session) : {}) };
+		const source = await tx.costEntry.findFirst({ where, select: { id: true } });
+		if (!source) throw new NotFoundError(t("backend.cost.costEntryNotFound"));
+		if (await tx.costEntry.count({ where: { tags: { has: `adjustment-for:${id}` } } })) {
+			throw new ConflictError(costMessage("linkedAdjustments", currentCopyLocale()));
+		}
+		await tx.costEntry.delete({ where });
+	});
+}
+
+/** Called inside a server ownership transfer (after locking the server). */
+export async function transferMonthlyCost(tx: Prisma.TransactionClient, serverId: string, month: string, teamId: string) {
+	const start = startOfMonthUtc(month);
+	const sources = await tx.$queryRaw<{ id: string }[]>`SELECT id FROM cost_entries WHERE "sourceType" = 'server_monthly'
+		AND "sourceRef" = ${serverId} AND "effectiveDate" = ${start} FOR UPDATE`;
+	if (!sources.length) return;
+	const id = sources[0]!.id;
+	await tx.costEntry.updateMany({ where: { OR: [{ id }, { tags: { has: `adjustment-for:${id}` },
+		effectiveDate: { gte: start, lt: endOfMonthUtc(month) } }] }, data: { teamId } });
 }
 
 export async function getCostEntry(id: string, session?: TeamSession | null): Promise<CostEntryRecord | null> {
@@ -82,11 +94,28 @@ export async function getCostEntry(id: string, session?: TeamSession | null): Pr
 }
 
 export interface ListCostEntriesOptions { month?: string; category?: CostCategory; limit?: number; session?: TeamSession | null; }
-export async function listCostEntries(options: ListCostEntriesOptions = {}): Promise<CostEntryRecord[]> {
+function entriesWhere(options: ListCostEntriesOptions) {
 	const where: Prisma.CostEntryWhereInput = { ...(options.session ? teamWhere(options.session) : {}) };
 	if (options.category) where.category = options.category;
 	if (options.month) where.effectiveDate = { gte: startOfMonthUtc(options.month), lt: endOfMonthUtc(options.month) };
-	return (await prisma.costEntry.findMany({ where, orderBy: { effectiveDate: "desc" }, take: options.limit ?? DEFAULT_LIST_LIMIT })).map(toRecord);
+	return where;
+}
+
+const entryOrder = [{ effectiveDate: "desc" }, { id: "desc" }] satisfies Prisma.CostEntryOrderByWithRelationInput[];
+
+export async function listCostEntries(options: ListCostEntriesOptions = {}): Promise<CostEntryRecord[]> {
+	return (await prisma.costEntry.findMany({ where: entriesWhere(options), orderBy: entryOrder, take: options.limit ?? DEFAULT_LIST_LIMIT })).map(toRecord);
+}
+
+export async function listCostEntryPage(options: ListCostEntriesOptions & { page?: number }) {
+	const pageSize = options.limit ?? DEFAULT_LIST_LIMIT;
+	const where = entriesWhere(options);
+	return prisma.$transaction(async tx => {
+		const total = await tx.costEntry.count({ where });
+		const page = Math.max(1, Math.min(options.page ?? 1, Math.ceil(total / pageSize)));
+		const rows = await tx.costEntry.findMany({ where, orderBy: entryOrder, take: pageSize, skip: (page - 1) * pageSize });
+		return { entries: rows.map(toRecord), total, page, pageSize };
+	}, { isolationLevel: "RepeatableRead" });
 }
 
 export async function summarizeMonth(month: string, currency: CostCurrency = DEFAULT_CURRENCY, session?: TeamSession | null): Promise<CostSummary> {
@@ -191,7 +220,7 @@ export async function syncServerMonthlyCosts(month = appTimeZoneDateKey().slice(
 	const skippedDetails: ServerMonthlyCostSyncSkip[] = [];
 	do {
 		const scope = session ? serverTeamWhere(session) : liveCustomerRowsWhere();
-		const eligible = { ...scope, enabled: true, costAutoSync: true, costMonthlyAmount: { not: null } };
+		const eligible = { ...scope, enabled: true, costAutoSync: true };
 		const servers = await prisma.server.findMany({ where: eligible, select: { id: true, name: true, teamId: true },
 			orderBy: { id: "asc" }, take: 1000, ...(cursor ? { cursor, skip: 1 } : {}) });
 		for (const candidate of servers) {

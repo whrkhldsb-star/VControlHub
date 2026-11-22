@@ -523,7 +523,7 @@ describeOrSkip("deploy/install.sh", () => {
     expect(script).toContain('"make:build-essential"');
     expect(script).not.toContain('"openssh-client:ssh"');
     expect(script).not.toContain('"build-essential:make"');
-    expect(script.match(/^\s*npm ci\s*$/gm)).toHaveLength(1);
+    expect(script.match(/^\s*as_release_builder npm ci --include=dev\s*$/gm)).toHaveLength(1);
     expect(script).not.toContain("npm ci --omit=dev");
     expect(script).not.toContain("npm prune --omit=dev");
     expect(script).toContain("Keep the exact dependency tree used to generate Prisma Client");
@@ -587,7 +587,7 @@ describeOrSkip("deploy/install.sh", () => {
     expect(script).toContain("quick_service_read_write_paths");
     expect(script).toContain("Skipping Docker Engine installation (SKIP_DOCKER=1)");
     expect(script).toContain("Skipping Docker Engine installation for DESTDIR isolated install");
-    expect(script).toMatch(/validate_source_target\s+need_root\s+init_instance_state\s+install_packages\s+install_docker\s+prepare_app_user\s+add_app_user_to_docker_group\s+prepare_quick_service_storage/);
+    expect(script).toMatch(/init_instance_state\s+install_packages\s+install_docker\s+prepare_app_user\s+add_app_user_to_docker_group\s+prepare_quick_service_storage/);
   });
 
   it("derives PostgreSQL default identifiers safely from dashed app slugs", async () => {
@@ -1086,13 +1086,13 @@ describeOrSkip("deploy/install.sh", () => {
       "utf8",
     );
     expect(script).toContain(
-      'elif [ -z "${DOMAIN}" ]; then\n\t\tlog " ○ Caddy: skipped (DOMAIN is empty); Apache IP/direct reverse proxy will be used"',
+      'elif [ -z "${DOMAIN}" ]; then\n    log " ○ Caddy: skipped (DOMAIN is empty); Apache IP/direct reverse proxy will be used"',
     );
     expect(script).toContain(
       'if [ "${SKIP_CADDY}" != "1" ] && [ -n "${DOMAIN}" ]; then',
     );
     expect(script).toContain(
-      'if [ "${SKIP_CADDY}" = "1" ] || [ -z "${DOMAIN}" ]; then\n\t\tsystemctl restart apache2',
+      'if [ "${SKIP_CADDY}" = "1" ] || [ -z "${DOMAIN}" ]; then\n    systemctl restart apache2',
     );
   });
 
@@ -1165,7 +1165,7 @@ describeOrSkip("deploy/install.sh", () => {
     );
     expect(script).toContain('if [ -z "${ENV_FILE}" ]; then');
     expect(script).toContain('ENV_FILE="${SMOKE_APP_DIR}/.env.local"');
-    expect(script).toContain('source "${ENV_FILE}"');
+    expect(script).toContain('load_install_settings "${ENV_FILE}"');
     expect(script).toContain('NEXT_PORT="${NEXT_PORT:-3000}"');
     expect(script).toContain('SSH_WS_PORT="${SSH_WS_PORT:-3001}"');
     expect(script).toContain("127.0.0.1:${NEXT_PORT}");
@@ -1378,11 +1378,8 @@ describeOrSkip("compressed archive deployment entrypoints", () => {
     expect(bootstrap).toContain("SSH WebSocket service port");
     expect(bootstrap).toContain("Install directory");
     expect(bootstrap).toContain("git clone");
-    // A reinstall runs git, as root, in the checkout the installer gave to the
-    // service user: without the exception git stops with "dubious ownership".
-    const appGitCalls = bootstrap.split("\n").filter((line) => /\bgit\b.*-C "\$\{APP_DIR\}"/.test(line));
-    expect(appGitCalls.length).toBeGreaterThan(0);
-    for (const line of appGitCalls) expect(line).toContain('-c "safe.directory=${APP_DIR}"');
+    expect(bootstrap).toMatch(/checkout_repo\(\) \{\s+verify_installed_drivers/);
+    expect(bootstrap).not.toContain("safe.directory=");
     expect(bootstrap).toContain("deploy/install.sh");
 
     const deployInstaller = await readFile(path.join(repoRoot, "deploy/install.sh"), "utf8");

@@ -1,3 +1,4 @@
+import { isCalendarDate } from "./calendar-date";
 import { Prisma } from "@prisma/client";
 import type { RoleKey } from "@/lib/auth/rbac";
 import type { CostCategory, CostCurrency, CostEntryRecord, CostSnapshotRecord } from "./types";
@@ -16,7 +17,7 @@ function monthBoundsUtc(month: string): { start: Date; endExclusive: Date } {
 	const parts = month.split("-");
 	const y = Number(parts[0]);
 	const m = Number(parts[1]);
-	if (!Number.isFinite(y) || !Number.isFinite(m) || m < 1 || m > 12) throw new Error(`Invalid month: ${month}`);
+	if (!isCalendarDate(month + "-01")) throw new Error(`Invalid month: ${month}`);
 	return { start: new Date(Date.UTC(y, m - 1, 1)), endExclusive: new Date(Date.UTC(y, m, 1)) };
 }
 

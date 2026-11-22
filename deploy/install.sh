@@ -102,6 +102,7 @@ QUICK_SERVICE_PATHS_LIB="${SCRIPT_DIR}/lib/quick-service-paths.sh"
 # shellcheck disable=SC1090
 source "${QUICK_SERVICE_PATHS_LIB}"
 source "${SCRIPT_DIR}/lib/release-paths.sh"
+source "${SCRIPT_DIR}/lib/listen-address.sh"
 
 shell_escape_sed_replacement() {
  # Escape &, \, /, #, and | for use in sed replacement strings.
@@ -133,17 +134,9 @@ set_env_var() {
  fi
 }
 
-# The value NAME has in the env file (last assignment, quotes removed), or
-# nothing when it is unset or still template syntax ("${...}").
+# Read saved paths using the same data parser used before source synchronization.
 env_file_value() {
- local name="$1" line value
- [ -f "${ENV_FILE}" ] || return 0
- line="$(grep "^${name}=" "${ENV_FILE}" 2>/dev/null | tail -n 1)" || return 0
- value="${line#*=}"
- value="${value%\"}"; value="${value#\"}"
- value="${value%\'}"; value="${value#\'}"
- case "${value}" in *'${'*) return 0 ;; esac
- printf '%s' "${value}"
+  listen_setting "${ENV_FILE}" "$1"
 }
 
 remove_env_var() {
@@ -181,7 +174,7 @@ EOF
 show_credentials() {
  [ -f "${ENV_FILE}" ] || fail "Credentials file not found: ${ENV_FILE}. Run the installer first, or set APP_DIR/ENV_FILE to the installed app."
  # shellcheck disable=SC1090
- set -a; source "${ENV_FILE}"; set +a
+ set -a; load_install_settings "${ENV_FILE}"; set +a
 
  printf 'App directory: %s\n' "${APP_DIR}"
  printf 'Environment file: %s\n' "${ENV_FILE}"
@@ -277,25 +270,25 @@ build_systemd_path() {
 # ARIA2_RPC_DIR or FILE_VERSION_DIR was created and saved by this installer, and the services could not write there.
 # Each entry carries "-": systemd refuses to start a unit whose ReadWritePaths names a path that does not exist.
 custom_data_read_write_paths() {
-	local data_path listed=""
-	for data_path in "$@"; do
-		case "${data_path}" in
-			/*) ;;
-			*) continue ;;
-		esac
-		data_path="${data_path%/}"
-		case "${data_path}" in
-			""|*[[:space:]]*) continue ;;
-		esac
-		case "${data_path}/" in
-			"/var/lib/${APP_SLUG}/"*|"/var/backups/${APP_SLUG}/"*|"${APP_DIR}/storage/"*|"${APP_DIR}/backups/"*|"${APP_DIR}/uploads/"*|"${APP_DIR}/downloads/"*|/tmp/*) continue ;;
-		esac
-		case " ${listed} " in
-			*" -${data_path} "*) continue ;;
-		esac
-		listed="${listed:+${listed} }-${data_path}"
-	done
-	printf '%s' "${listed}"
+  local data_path listed=""
+  for data_path in "$@"; do
+    case "${data_path}" in
+      /*) ;;
+      *) continue ;;
+    esac
+    data_path="${data_path%/}"
+    case "${data_path}" in
+      ""|*[[:space:]]*) continue ;;
+    esac
+    case "${data_path}/" in
+      "/var/lib/${APP_SLUG}/"*|"/var/backups/${APP_SLUG}/"*|"${APP_DIR}/storage/"*|"${APP_DIR}/backups/"*|"${APP_DIR}/uploads/"*|"${APP_DIR}/downloads/"*|/tmp/*) continue ;;
+    esac
+    case " ${listed} " in
+      *" -${data_path} "*) continue ;;
+    esac
+    listed="${listed:+${listed} }-${data_path}"
+  done
+  printf '%s' "${listed}"
 }
 
 is_placeholder_value() {
@@ -311,31 +304,31 @@ is_placeholder_value() {
 }
 
 install_docker() {
-	[ "${SKIP_PACKAGES}" = "1" ] && { warn "Skipping Docker Engine installation (SKIP_PACKAGES=1); Quick Services will show Docker as unavailable until installed manually."; return; }
-	[ "${SKIP_DOCKER}" = "1" ] && { warn "Skipping Docker Engine installation (SKIP_DOCKER=1); Quick Services will show Docker as unavailable until installed manually."; return; }
-	[ -n "${DESTDIR}" ] && { warn "Skipping Docker Engine installation for DESTDIR isolated install"; return; }
+  [ "${SKIP_PACKAGES}" = "1" ] && { warn "Skipping Docker Engine installation (SKIP_PACKAGES=1); Quick Services will show Docker as unavailable until installed manually."; return; }
+  [ "${SKIP_DOCKER}" = "1" ] && { warn "Skipping Docker Engine installation (SKIP_DOCKER=1); Quick Services will show Docker as unavailable until installed manually."; return; }
+  [ -n "${DESTDIR}" ] && { warn "Skipping Docker Engine installation for DESTDIR isolated install"; return; }
 
-	log "Checking Docker Engine for Quick Services..."
-	if have_cmd docker; then
-		log "  ✓ Docker CLI already installed: $(docker --version 2>/dev/null || echo 'present')"
-	else
-		log "  ✗ Docker missing — installing docker.io"
-		apt-get update
-		apt-get install -y docker.io
-	fi
+  log "Checking Docker Engine for Quick Services..."
+  if have_cmd docker; then
+    log "  ✓ Docker CLI already installed: $(docker --version 2>/dev/null || echo 'present')"
+  else
+    log "  ✗ Docker missing — installing docker.io"
+    apt-get update
+    apt-get install -y docker.io
+  fi
 
-	if command -v systemctl >/dev/null 2>&1; then
-		log "Enabling Docker service for Quick Services"
-		systemctl enable --now docker || warn "Docker service could not be started automatically; Quick Services readiness banner will show the Docker error until it is started."
-	fi
+  if command -v systemctl >/dev/null 2>&1; then
+    log "Enabling Docker service for Quick Services"
+    systemctl enable --now docker || warn "Docker service could not be started automatically; Quick Services readiness banner will show the Docker error until it is started."
+  fi
 
-	if have_cmd docker; then
-		if docker info >/dev/null 2>&1; then
-			log "  ✓ Docker daemon is running; Quick Services can create containers"
-		else
-			warn "Docker CLI is installed but daemon is not ready yet. Run: systemctl status docker"
-		fi
-	fi
+  if have_cmd docker; then
+    if docker info >/dev/null 2>&1; then
+      log "  ✓ Docker daemon is running; Quick Services can create containers"
+    else
+      warn "Docker CLI is installed but daemon is not ready yet. Run: systemctl status docker"
+    fi
+  fi
 }
 
 init_instance_state() {
@@ -390,163 +383,163 @@ create_data_dir() {
 }
 
 prepare_quick_service_storage() {
-	[ -n "${DESTDIR}" ] && return 0
-	[ "${SKIP_DOCKER}" = "1" ] && return 0
-	log "Preparing Quick Services Docker data directories"
-	local path
-	while IFS= read -r path; do
-		[ -n "${path}" ] || continue
-		# A directory that already exists is left alone. It may hold data that is not ours to re-own (the whole
-		# of /srv, terabytes of media for Jellyfin or Immich): a recursive chown on every install and upgrade took
-		# long, changed the owner of what other services and containers rely on, and broke images that run as a
-		# fixed uid. Only a directory made now is given to the application user.
-		create_data_dir "${path}"
-	done <<EOF
+  [ -n "${DESTDIR}" ] && return 0
+  [ "${SKIP_DOCKER}" = "1" ] && return 0
+  log "Preparing Quick Services Docker data directories"
+  local path
+  while IFS= read -r path; do
+    [ -n "${path}" ] || continue
+    # A directory that already exists is left alone. It may hold data that is not ours to re-own (the whole
+    # of /srv, terabytes of media for Jellyfin or Immich): a recursive chown on every install and upgrade took
+    # long, changed the owner of what other services and containers rely on, and broke images that run as a
+    # fixed uid. Only a directory made now is given to the application user.
+    create_data_dir "${path}"
+  done <<EOF
 $(quick_service_host_paths)
 EOF
 }
 
 add_app_user_to_docker_group() {
-	[ -n "${DESTDIR}" ] && return 0
-	[ "${SKIP_DOCKER}" = "1" ] && return 0
-	[ "${APP_USER}" = "root" ] && return 0
-	if getent group docker >/dev/null 2>&1; then
-		usermod -aG docker "${APP_USER}" || warn "Could not add ${APP_USER} to docker group; Quick Services may not access Docker until permissions are fixed."
-	else
-		warn "docker group not found; Quick Services may not access Docker until Docker is installed correctly."
-	fi
+  [ -n "${DESTDIR}" ] && return 0
+  [ "${SKIP_DOCKER}" = "1" ] && return 0
+  [ "${APP_USER}" = "root" ] && return 0
+  if getent group docker >/dev/null 2>&1; then
+    usermod -aG docker "${APP_USER}" || warn "Could not add ${APP_USER} to docker group; Quick Services may not access Docker until permissions are fixed."
+  else
+    warn "docker group not found; Quick Services may not access Docker until Docker is installed correctly."
+  fi
 }
 
 install_packages() {
-	[ "${SKIP_PACKAGES}" = "1" ] && { warn "Skipping OS package installation"; return; }
+  [ "${SKIP_PACKAGES}" = "1" ] && { warn "Skipping OS package installation"; return; }
 
-	# Supported package manager: apt only (Debian 12 / Ubuntu LTS).
-	# Other distros can still host the app if deps are preinstalled and
-	# SKIP_PACKAGES=1 is used, but auto-install of Node/Postgres/Caddy is apt-only.
-	if ! have_cmd apt-get; then
-		fail "Package auto-install currently supports Debian/Ubuntu (apt-get) only. On other systems, install Node.js ${NODE_VERSION_MAJOR}+, PostgreSQL, git, curl, build tools, and Caddy/Apache yourself, then re-run with SKIP_PACKAGES=1."
-	fi
-	if ! have_cmd systemctl; then
-		fail "systemd is required (systemctl not found). This installer targets Debian/Ubuntu systemd hosts."
-	fi
+  # Supported package manager: apt only (Debian 12 / Ubuntu LTS).
+  # Other distros can still host the app if deps are preinstalled and
+  # SKIP_PACKAGES=1 is used, but auto-install of Node/Postgres/Caddy is apt-only.
+  if ! have_cmd apt-get; then
+    fail "Package auto-install currently supports Debian/Ubuntu (apt-get) only. On other systems, install Node.js ${NODE_VERSION_MAJOR}+, PostgreSQL, git, curl, build tools, and Caddy/Apache yourself, then re-run with SKIP_PACKAGES=1."
+  fi
+  if ! have_cmd systemctl; then
+    fail "systemd is required (systemctl not found). This installer targets Debian/Ubuntu systemd hosts."
+  fi
 
-	# ── Phase 1: Check what's already installed ──────────────────────
-	local missing_pkgs=()
-	log "Checking system dependencies..."
+  # ── Phase 1: Check what's already installed ──────────────────────
+  local missing_pkgs=()
+  log "Checking system dependencies..."
 
-	# Core tools that come from apt. iproute2 provides `ss` and interface
-	# inspection utilities used by the installer and traffic dashboard checks.
-	for pkg_cmd in "update-ca-certificates:ca-certificates" "curl:curl" "gpg:gnupg" "git:git" "ssh:openssh-client" "sshpass:sshpass" "rsync:rsync" "ss:iproute2" "ip:iproute2" "aria2c:aria2" "make:build-essential" "gcc:build-essential" "python3:python3" "openssl:openssl" "sudo:sudo"; do
-		local cmd="${pkg_cmd%%:*}"
-		local pkg="${pkg_cmd##*:}"
-		if have_cmd "${cmd}"; then
-			log "  ✓ ${cmd} already installed"
-		else
-			missing_pkgs+=("${pkg}")
-			log "  ✗ ${cmd} missing — will install ${pkg}"
-		fi
-	done
+  # Core tools that come from apt. iproute2 provides `ss` and interface
+  # inspection utilities used by the installer and traffic dashboard checks.
+  for pkg_cmd in "update-ca-certificates:ca-certificates" "curl:curl" "gpg:gnupg" "git:git" "ssh:openssh-client" "sshpass:sshpass" "rsync:rsync" "ss:iproute2" "ip:iproute2" "aria2c:aria2" "make:build-essential" "gcc:build-essential" "python3:python3" "openssl:openssl" "sudo:sudo"; do
+    local cmd="${pkg_cmd%%:*}"
+    local pkg="${pkg_cmd##*:}"
+    if have_cmd "${cmd}"; then
+      log "  ✓ ${cmd} already installed"
+    else
+      missing_pkgs+=("${pkg}")
+      log "  ✗ ${cmd} missing — will install ${pkg}"
+    fi
+  done
 
-	# Install missing apt packages in one batch
-	if [ "${#missing_pkgs[@]}" -gt 0 ]; then
-		log "Installing ${#missing_pkgs[@]} missing packages: ${missing_pkgs[*]}"
-		apt-get update
-		apt-get install -y "${missing_pkgs[@]}"
-	else
-		log "All core apt packages satisfied"
-	fi
+  # Install missing apt packages in one batch
+  if [ "${#missing_pkgs[@]}" -gt 0 ]; then
+    log "Installing ${#missing_pkgs[@]} missing packages: ${missing_pkgs[*]}"
+    apt-get update
+    apt-get install -y "${missing_pkgs[@]}"
+  else
+    log "All core apt packages satisfied"
+  fi
 
-	# ── Phase 2: Node.js ─────────────────────────────────────────────
-	local node_major=0 node_minor=0 node_patch=0 node_version="" node_path="" node_candidate="" node_real=""
-	# Root automation environments often prepend a private Node shim under /root
-	# to PATH. Search system locations too, because systemd's ProtectHome=true
-	# prevents APP_USER from executing that shim even when /usr/bin/node is valid.
-	for node_candidate in "$(command -v node 2>/dev/null || true)" /usr/bin/node /usr/local/bin/node /bin/node /opt/node/bin/node; do
-		[ -n "${node_candidate}" ] && [ -x "${node_candidate}" ] || continue
-		node_real="$(readlink -f "${node_candidate}" 2>/dev/null || printf '%s' "${node_candidate}")"
-		if [ "${APP_USER}" != "root" ]; then
-			case "${node_candidate}:${node_real}" in
-				/root/*:*|*:/root/*) continue ;;
-			esac
-		fi
-		node_version="$("${node_candidate}" -p 'process.versions.node' 2>/dev/null || echo 0.0.0)"
-		node_major="${node_version%%.*}"
-		node_minor="${node_version#*.}"; node_minor="${node_minor%%.*}"
-		node_patch="${node_version##*.}"
-		# The installer can run standalone before the project (and its preflight) has been downloaded.
-		if [ "${node_major}" -ge "${NODE_VERSION_MAJOR}" ] && {
-			{ [ "${node_major}" -eq 22 ] && { [ "${node_minor}" -gt 22 ] || { [ "${node_minor}" -eq 22 ] && [ "${node_patch}" -ge 2 ]; }; }; } ||
-			{ [ "${node_major}" -eq 24 ] && [ "${node_minor}" -ge 15 ]; } || [ "${node_major}" -ge 26 ];
-		}; then
-			node_path="${node_candidate}"
-			break
-		fi
-	done
-	if [ -n "${node_path}" ]; then
-		log "  ✓ Node.js ${node_major} already installed at ${node_path} (≥ ${NODE_VERSION_MAJOR})"
-	else
-		log "  ✗ Node.js missing, too old, or not service-accessible (found v${node_major:-0}) — installing"
-		curl -fsSL "https://deb.nodesource.com/setup_${NODE_VERSION_MAJOR}.x" | bash -
-		apt-get install -y nodejs
-		hash -r
-		if [ -x /usr/bin/node ]; then
-			log "  ✓ Node.js $(/usr/bin/node -v) installed at /usr/bin/node"
-		else
-			log "  ✓ Node.js $(node -v) installed"
-		fi
-	fi
+  # ── Phase 2: Node.js ─────────────────────────────────────────────
+  local node_major=0 node_minor=0 node_patch=0 node_version="" node_path="" node_candidate="" node_real=""
+  # Root automation environments often prepend a private Node shim under /root
+  # to PATH. Search system locations too, because systemd's ProtectHome=true
+  # prevents APP_USER from executing that shim even when /usr/bin/node is valid.
+  for node_candidate in "$(command -v node 2>/dev/null || true)" /usr/bin/node /usr/local/bin/node /bin/node /opt/node/bin/node; do
+    [ -n "${node_candidate}" ] && [ -x "${node_candidate}" ] || continue
+    node_real="$(readlink -f "${node_candidate}" 2>/dev/null || printf '%s' "${node_candidate}")"
+    if [ "${APP_USER}" != "root" ]; then
+      case "${node_candidate}:${node_real}" in
+        /root/*:*|*:/root/*) continue ;;
+      esac
+    fi
+    node_version="$("${node_candidate}" -p 'process.versions.node' 2>/dev/null || echo 0.0.0)"
+    node_major="${node_version%%.*}"
+    node_minor="${node_version#*.}"; node_minor="${node_minor%%.*}"
+    node_patch="${node_version##*.}"
+    # The installer can run standalone before the project (and its preflight) has been downloaded.
+    if [ "${node_major}" -ge "${NODE_VERSION_MAJOR}" ] && {
+      { [ "${node_major}" -eq 22 ] && { [ "${node_minor}" -gt 22 ] || { [ "${node_minor}" -eq 22 ] && [ "${node_patch}" -ge 2 ]; }; }; } ||
+      { [ "${node_major}" -eq 24 ] && [ "${node_minor}" -ge 15 ]; } || [ "${node_major}" -ge 26 ];
+    }; then
+      node_path="${node_candidate}"
+      break
+    fi
+  done
+  if [ -n "${node_path}" ]; then
+    log "  ✓ Node.js ${node_major} already installed at ${node_path} (≥ ${NODE_VERSION_MAJOR})"
+  else
+    log "  ✗ Node.js missing, too old, or not service-accessible (found v${node_major:-0}) — installing"
+    curl -fsSL "https://deb.nodesource.com/setup_${NODE_VERSION_MAJOR}.x" | bash -
+    apt-get install -y nodejs
+    hash -r
+    if [ -x /usr/bin/node ]; then
+      log "  ✓ Node.js $(/usr/bin/node -v) installed at /usr/bin/node"
+    else
+      log "  ✓ Node.js $(node -v) installed"
+    fi
+  fi
 
-	# ── Phase 3: Caddy ───────────────────────────────────────────────
-	if [ "${SKIP_CADDY}" = "1" ]; then
-		log " ○ Caddy: skipped (SKIP_CADDY=1); Apache reverse proxy will be used"
-	elif [ -z "${DOMAIN}" ]; then
-		log " ○ Caddy: skipped (DOMAIN is empty); Apache IP/direct reverse proxy will be used"
-	elif have_cmd caddy; then
-		log " ✓ Caddy already installed: $(caddy version 2>/dev/null || echo 'present')"
-	else
-		# Caddy needs ports 80/443. Another server on port 80 may be serving other
-		# sites: stopping and disabling it silently was a surprise (A10-05). Fail
-		# with the owner's name unless TAKE_OVER_PORT_80=1 says to take it over.
-		if ss -tlnp 2>/dev/null | grep -q ':80\b'; then
-			local port80_owner
-			port80_owner="$(ss -tlnp 2>/dev/null | grep ':80\b' | head -1 | grep -oP 'users=\(\("\K[^"]+' || true)"
-			if [ -n "${port80_owner}" ]; then
-				if [ "${TAKE_OVER_PORT_80:-0}" = "1" ]; then
-					log "Stopping ${port80_owner} on port 80 to make room for Caddy (TAKE_OVER_PORT_80=1)"
-					systemctl stop "${port80_owner}" 2>/dev/null || true
-					systemctl disable "${port80_owner}" 2>/dev/null || true
-				else
-					fail "Port 80 is used by ${port80_owner}. Stop it yourself, run with TAKE_OVER_PORT_80=1 to let the installer stop and disable it, or install without DOMAIN to use the IP reverse proxy."
-				fi
-			fi
-		fi
-		log " ✗ Caddy missing — installing"
-		apt-get update
-		# Debian 12+ and Ubuntu 23.04+ ship caddy; older releases (Ubuntu 22.04,
-		# Debian 11) need the upstream repository. --batch keeps re-runs from
-		# stopping at gpg's overwrite prompt.
-		if ! apt-cache policy caddy 2>/dev/null | grep -q 'Candidate: [0-9]'; then
-			log "   caddy is not in the distribution repositories — adding the upstream repository"
-			curl -fsSL 'https://dl.cloudsmith.io/public/caddy/stable/gpg.key' | gpg --batch --yes --dearmor -o /usr/share/keyrings/caddy-stable-archive-keyring.gpg
-			curl -fsSL 'https://dl.cloudsmith.io/public/caddy/stable/debian.deb.txt' > /etc/apt/sources.list.d/caddy-stable.list
-			apt-get update
-		fi
-		apt-get install -y caddy
-		log " ✓ Caddy installed: $(caddy version 2>/dev/null || echo 'done')"
-	fi
+  # ── Phase 3: Caddy ───────────────────────────────────────────────
+  if [ "${SKIP_CADDY}" = "1" ]; then
+    log " ○ Caddy: skipped (SKIP_CADDY=1); Apache reverse proxy will be used"
+  elif [ -z "${DOMAIN}" ]; then
+    log " ○ Caddy: skipped (DOMAIN is empty); Apache IP/direct reverse proxy will be used"
+  elif have_cmd caddy; then
+    log " ✓ Caddy already installed: $(caddy version 2>/dev/null || echo 'present')"
+  else
+    # Caddy needs ports 80/443. Another server on port 80 may be serving other
+    # sites: stopping and disabling it silently was a surprise (A10-05). Fail
+    # with the owner's name unless TAKE_OVER_PORT_80=1 says to take it over.
+    if ss -tlnp 2>/dev/null | grep -q ':80\b'; then
+      local port80_owner
+      port80_owner="$(ss -tlnp 2>/dev/null | grep ':80\b' | head -1 | grep -oP 'users=\(\("\K[^"]+' || true)"
+      if [ -n "${port80_owner}" ]; then
+        if [ "${TAKE_OVER_PORT_80:-0}" = "1" ]; then
+          log "Stopping ${port80_owner} on port 80 to make room for Caddy (TAKE_OVER_PORT_80=1)"
+          systemctl stop "${port80_owner}" 2>/dev/null || true
+          systemctl disable "${port80_owner}" 2>/dev/null || true
+        else
+          fail "Port 80 is used by ${port80_owner}. Stop it yourself, run with TAKE_OVER_PORT_80=1 to let the installer stop and disable it, or install without DOMAIN to use the IP reverse proxy."
+        fi
+      fi
+    fi
+    log " ✗ Caddy missing — installing"
+    apt-get update
+    # Debian 12+ and Ubuntu 23.04+ ship caddy; older releases (Ubuntu 22.04,
+    # Debian 11) need the upstream repository. --batch keeps re-runs from
+    # stopping at gpg's overwrite prompt.
+    if ! apt-cache policy caddy 2>/dev/null | grep -q 'Candidate: [0-9]'; then
+      log "   caddy is not in the distribution repositories — adding the upstream repository"
+      curl -fsSL 'https://dl.cloudsmith.io/public/caddy/stable/gpg.key' | gpg --batch --yes --dearmor -o /usr/share/keyrings/caddy-stable-archive-keyring.gpg
+      curl -fsSL 'https://dl.cloudsmith.io/public/caddy/stable/debian.deb.txt' > /etc/apt/sources.list.d/caddy-stable.list
+      apt-get update
+    fi
+    apt-get install -y caddy
+    log " ✓ Caddy installed: $(caddy version 2>/dev/null || echo 'done')"
+  fi
 
-	# ── Phase 4: PostgreSQL ───────────────────────────────────────────
-	if [ "${SKIP_DB_SETUP}" = "1" ]; then
-		log "  ○ PostgreSQL: skipped (SKIP_DB_SETUP=1)"
-	elif have_cmd psql; then
-		local pg_ver
-		pg_ver="$(psql --version 2>/dev/null | head -1 | grep -oP '\d+\.\d+' || echo 'present')"
-		log "  ✓ PostgreSQL already installed: ${pg_ver}"
-	else
-		log "  ✗ PostgreSQL missing — installing"
-		apt-get install -y postgresql postgresql-contrib
-		log "  ✓ PostgreSQL installed: $(psql --version 2>/dev/null | head -1)"
-	fi
+  # ── Phase 4: PostgreSQL ───────────────────────────────────────────
+  if [ "${SKIP_DB_SETUP}" = "1" ]; then
+    log "  ○ PostgreSQL: skipped (SKIP_DB_SETUP=1)"
+  elif have_cmd psql; then
+    local pg_ver
+    pg_ver="$(psql --version 2>/dev/null | head -1 | grep -oP '\d+\.\d+' || echo 'present')"
+    log "  ✓ PostgreSQL already installed: ${pg_ver}"
+  else
+    log "  ✗ PostgreSQL missing — installing"
+    apt-get install -y postgresql postgresql-contrib
+    log "  ✓ PostgreSQL installed: $(psql --version 2>/dev/null | head -1)"
+  fi
 }
 
 prepare_app_user() {
@@ -588,7 +581,7 @@ validate_source_target() {
   [ -n "${occupied}" ] || return 0
 
   if [ -n "${REPO_URL}" ]; then
-    local -a git_app=(git -c "safe.directory=${app_real}" -C "${app_real}")
+    local -a git_app=(git -C "${app_real}")
     repo_root="$("${git_app[@]}" rev-parse --show-toplevel 2>/dev/null)" &&
       [ "${repo_root}" = "${app_real}" ] &&
       origin="$("${git_app[@]}" remote get-url origin 2>/dev/null)" &&
@@ -611,45 +604,77 @@ sync_source() {
     warn "SOURCE_DIR and APP_DIR are the same (${APP_DIR}); skipping source sync"
   elif [ -n "${REPO_URL}" ]; then
     if [ -e "${APP_DIR}/.git" ]; then
-      # The checkout belongs to ${APP_USER} after the first install while this
-      # script runs as root; without the exception git refuses it as "dubious".
-      # The build rewrites the route catalog in place; left modified it stops the pull (bootstrap.sh and
-      # upgrade.sh restore it the same way).
-      git -c "safe.directory=${APP_DIR}" -C "${APP_DIR}" checkout -q -- docs/route-catalog.json 2>/dev/null || true
-      git -c "safe.directory=${APP_DIR}" -C "${APP_DIR}" pull --ff-only origin
+      # A previous build may have regenerated the route catalog in place.
+      git -C "${APP_DIR}" checkout -q -- docs/route-catalog.json 2>/dev/null || true
+      git -C "${APP_DIR}" pull --ff-only origin
     else
       git clone -- "${REPO_URL}" "${APP_DIR}"
       cloned=1
     fi
   else
- if have_cmd rsync; then
-		# Every pattern starts with "/": it names runtime data at the top of the install. Without it rsync matches the
-		# name at any depth, and "downloads", "backups" and "logs" left out src/lib/downloads, the downloads and
-		# backups pages with their routes and the AI operations log route (the tar branch below was always anchored).
-		rsync -a --delete --include="/${release_env_template}" --exclude="/${local_env_glob}" \
---exclude /.git --exclude '/node_modules*' --exclude '/.next*' --exclude '/dist*' --exclude /backups --exclude /storage --exclude /tmp --exclude /uploads --exclude /downloads --exclude /logs \
---exclude /.cache --exclude /.npm --exclude /coverage --exclude /.playwright-output --exclude /.dast-output --exclude /tsconfig.tsbuildinfo \
- "${SOURCE_DIR}/" "${APP_DIR}/"
+    local setting value top configured_file path
+    local -a protected=("${ENV_FILE:-${APP_DIR}/.env.local}" "${RUNTIME_ENV_FILE:-${APP_DIR}/.env.runtime}") rsync_protect=() tar_protect=()
+    for setting in STORAGE_ROOT DOWNLOAD_ROOT BACKUP_DIR ARIA2_RPC_DIR FILE_VERSION_DIR MEDIA_UPLOAD_TMP_DIR MEDIA_THUMB_CACHE_DIR IMAGE_UPLOAD_DIR VCH_STORAGE_ROOT; do
+      for configured_file in "" "${ENV_FILE:-${APP_DIR}/.env.local}" "${RUNTIME_ENV_FILE:-${APP_DIR}/.env.runtime}" \
+          "${APP_DIR}/.env.production.local" "${APP_DIR}/.env.production" "${APP_DIR}/.env"; do
+        value="${!setting:-}"
+        if [[ -n ${configured_file} ]]; then
+          [[ -f ${configured_file} ]] || continue
+          value="$(listen_setting "${configured_file}" "${setting}")"
+        fi
+        [[ -n ${value} ]] || continue
+        if [[ ${setting} == VCH_STORAGE_ROOT ]]; then value="${value%/}/storage/vps-backups"; fi
+        protected+=("${value}")
+      done
+    done
+    for value in "${protected[@]}"; do
+      case "${value}" in
+        *'$'*|*'`'*|*'\'*|'~'*) fail "Cannot resolve persistent path before copying release files" ;;
+      esac
+      [[ ${value} == /* ]] || value="${app_real}/${value}"
+      # Preserve both the configured path and a possible symlink destination.
+      for path in "$(realpath -ms -- "${value}")" "$(realpath -m -- "${value}")"; do
+        [[ ${path} != / && ${path} != "${app_real}" && ${app_real} != "${path}/"* ]] ||
+          fail "Persistent path overlaps the release root"
+        [[ ${path} == "${app_real}/"* ]] || continue
+        top="${path#"${app_real}/"}"; top="${top%%/*}"
+        if is_shared_env_path "${top}"; then continue; fi
+        case "${top}" in storage|tmp|uploads|downloads|backups|logs) continue ;; esac
+        [[ ${top} != *[\*\?\[\]\\]* && ! -e ${source_real}/${top} && ! -L ${source_real}/${top} ]] ||
+          fail "Persistent path overlaps release source: ${top}"
+        [[ ! -L ${app_real}/${top} ]] || fail "Symlinked persistent path requires review: ${top}"
+        rsync_protect+=("--exclude=/${top}")
+        tar_protect+=("--exclude=./${top}")
+      done
+    done
+    if have_cmd rsync; then
+      # Anchored filters retain runtime data while installing nested source
+      # directories such as src/lib/downloads that have the same name.
+      rsync -a --delete "${rsync_protect[@]}" --include="/${release_env_template}" --exclude="/${local_env_glob}" \
+        --exclude /.git --exclude '/node_modules*' --exclude '/.next*' --exclude '/dist*' --exclude /backups --exclude /storage --exclude /tmp --exclude /uploads --exclude /downloads --exclude /logs \
+        --exclude /.cache --exclude /.npm --exclude /coverage --exclude /.playwright-output --exclude /.dast-output --exclude /tsconfig.tsbuildinfo \
+        "${SOURCE_DIR}/" "${APP_DIR}/"
     else
       warn "rsync not found; falling back to tar-based source sync"
       local env_excludes=()
       tar_env_excludes "${SOURCE_DIR}" env_excludes
       (cd "${SOURCE_DIR}" && tar \
         --exclude ./.git --exclude './node_modules*' --exclude './.next*' --exclude './dist*' --exclude ./backups --exclude ./storage --exclude ./tmp --exclude ./uploads --exclude ./downloads --exclude ./logs \
-        --exclude ./.cache --exclude ./.npm --exclude ./coverage --exclude ./.playwright-output --exclude ./.dast-output --exclude ./tsconfig.tsbuildinfo "${env_excludes[@]}" \
+        --exclude ./.cache --exclude ./.npm --exclude ./coverage --exclude ./.playwright-output --exclude ./.dast-output --exclude ./tsconfig.tsbuildinfo "${env_excludes[@]}" "${tar_protect[@]}" \
         -cf - .) | (cd "${APP_DIR}" && tar -xf -)
     fi
   fi
   local data_dir
   for data_dir in storage tmp uploads downloads backups logs; do
+    [[ ! -L ${app_real}/${data_dir} ]] || fail "Unexpected data directory symlink: ${data_dir}"
     if [[ ${cloned} == 1 && -d ${app_real}/${data_dir} ]]; then
       # git clone populated tracked placeholders in a previously empty destination.
       record_created_data_dir "${app_real}/${data_dir}" tree
     else
       create_data_dir "${app_real}/${data_dir}"
     fi
+    if [[ -z ${DESTDIR:-} ]]; then chown "${APP_USER}:${APP_USER}" "${app_real}/${data_dir}"; fi
   done
-  chown -R "${APP_USER}:${APP_USER}" "${APP_DIR}"
 }
 
 write_env_if_missing() {
@@ -751,7 +776,7 @@ validate_env() {
  [ -f "${ENV_FILE}" ] || fail "Missing ${ENV_FILE}. Create it from deploy/env.production.example first."
  # Re-source .env.local to pick up any values written by auto_generate_env_secrets.
  # shellcheck disable=SC1090
- set -a; source "${ENV_FILE}"; set +a
+ set -a; load_install_settings "${ENV_FILE}"; set +a
  local required
  for required in DATABASE_URL AUTH_SESSION_SECRET ADMIN_INITIAL_PASSWORD SSH_WS_SECRET STORAGE_DIRECT_ACCESS_SECRET ENCRYPTION_KEY; do
  [ -n "${!required:-}" ] || fail "${required} is required in ${ENV_FILE}."
@@ -774,7 +799,7 @@ validate_env() {
 auto_generate_env_secrets() {
  [ -f "${ENV_FILE}" ] || return 0
  # shellcheck disable=SC1090
- set -a; source "${ENV_FILE}"; set +a
+ set -a; load_install_settings "${ENV_FILE}"; set +a
 
  local changed=0
 
@@ -815,7 +840,7 @@ auto_generate_env_secrets() {
  fi
  fi
 
-	# The SSH_WS_ALLOWED_ORIGINS auto-set logic lives in generate_or_validate_env()
+  # The SSH_WS_ALLOWED_ORIGINS auto-set logic lives in generate_or_validate_env()
 # (lines 419-444) — it covers both domain and IP-only modes with localhost fallbacks.
 # This block below is removed to avoid double-execution with wrong :NEXT_PORT suffix.
 #
@@ -925,23 +950,23 @@ auto_generate_env_secrets() {
 }
 
 validate_install_scope() {
-	[[ "${APP_SLUG}" =~ ^[a-z0-9][a-z0-9-]*$ ]] || fail "Unsafe APP_SLUG=${APP_SLUG}"
-	if [ -n "${DESTDIR}" ]; then
-		case "${DESTDIR}" in
-			/tmp/*|/var/tmp/*) ;;
-			*) fail "Refusing to install with DESTDIR=${DESTDIR}. DESTDIR is only for isolated installer tests under /tmp or /var/tmp." ;;
-		esac
-		[ "${SKIP_RESTART}" = "1" ] || fail "Refusing to install with DESTDIR=${DESTDIR} unless SKIP_RESTART=1. DESTDIR is for isolated installer tests only."
-		[ "${INSTALL_SYSTEMD_UNITS:-0}" = "1" ] || fail "Refusing to write systemd units with DESTDIR=${DESTDIR} unless INSTALL_SYSTEMD_UNITS=1. Use isolated unit-render tests only; never export DESTDIR into a live deployment shell."
-	fi
-	if [ "${SKIP_SYSTEMD}" = "1" ] && [ -z "${DESTDIR}" ]; then
-		fail "SKIP_SYSTEMD=1 is only allowed together with DESTDIR for isolated installer tests. Use SKIP_RESTART=1 for live dry-runs."
-	fi
-	if [ -z "${DESTDIR}" ]; then
-		case "${APP_DIR}" in
-			/tmp/*|/var/tmp/*) fail "Refusing to install live systemd units from temporary APP_DIR=${APP_DIR}. Use DESTDIR for isolated installer tests." ;;
-		esac
-	fi
+  [[ "${APP_SLUG}" =~ ^[a-z0-9][a-z0-9-]*$ ]] || fail "Unsafe APP_SLUG=${APP_SLUG}"
+  if [ -n "${DESTDIR}" ]; then
+    case "${DESTDIR}" in
+      /tmp/*|/var/tmp/*) ;;
+      *) fail "Refusing to install with DESTDIR=${DESTDIR}. DESTDIR is only for isolated installer tests under /tmp or /var/tmp." ;;
+    esac
+    [ "${SKIP_RESTART}" = "1" ] || fail "Refusing to install with DESTDIR=${DESTDIR} unless SKIP_RESTART=1. DESTDIR is for isolated installer tests only."
+    [ "${INSTALL_SYSTEMD_UNITS:-0}" = "1" ] || fail "Refusing to write systemd units with DESTDIR=${DESTDIR} unless INSTALL_SYSTEMD_UNITS=1. Use isolated unit-render tests only; never export DESTDIR into a live deployment shell."
+  fi
+  if [ "${SKIP_SYSTEMD}" = "1" ] && [ -z "${DESTDIR}" ]; then
+    fail "SKIP_SYSTEMD=1 is only allowed together with DESTDIR for isolated installer tests. Use SKIP_RESTART=1 for live dry-runs."
+  fi
+  if [ -z "${DESTDIR}" ]; then
+    case "${APP_DIR}" in
+      /tmp/*|/var/tmp/*) fail "Refusing to install live systemd units from temporary APP_DIR=${APP_DIR}. Use DESTDIR for isolated installer tests." ;;
+    esac
+  fi
 }
 
 create_runtime_dirs() {
@@ -1097,73 +1122,83 @@ build_app() {
  fi
  set -a
  # shellcheck disable=SC1090
- source "${ENV_FILE}"
-	set +a
-	export NODE_OPTIONS="${NODE_OPTIONS:---max-old-space-size=4096}"
-	export NEXT_TELEMETRY_DISABLED="${NEXT_TELEMETRY_DISABLED:-1}"
-	# package.json "build" runs scripts/guard-live-next-build.mjs first. On a fresh
-	# host the service unit does not exist yet; without an authorize flag the
-	# guard treats systemctl non-zero as "refuse uncoordinated build" and the
-	# whole one-click installer dies mid-way. For upgrades the same guard refuses
-	# while the unit is still active, so stop it first (restart_services brings
-	# it back later). DESTDIR dry-runs never touch host units.
-	export VCONTROLHUB_DEPLOY_BUILD=1
-	export VCONTROLHUB_ALLOW_BUILD=1
-	if [ "${SKIP_BUILD}" = "1" ]; then
-		log "Skipping npm install and build (SKIP_BUILD=1)"
-		return
-	fi
-	if [ -z "${DESTDIR}" ] && [ "${SKIP_SYSTEMD}" != "1" ] && have_cmd systemctl; then
-		local next_unit="${SERVICE_PREFIX}-next.service"
-		local worker_unit="${SERVICE_PREFIX}-worker.service"
-		if systemctl list-unit-files "${next_unit}" >/dev/null 2>&1 \
-			&& systemctl is-active --quiet "${next_unit}" 2>/dev/null; then
-			log "Stopping ${next_unit} before production build (avoids overwriting a live .next)"
-			systemctl stop "${next_unit}" || warn "Could not stop ${next_unit}; build may still be refused by guard-live-next-build"
-		fi
-		if systemctl list-unit-files "${worker_unit}" >/dev/null 2>&1 \
-			&& systemctl is-active --quiet "${worker_unit}" 2>/dev/null; then
-			log "Stopping ${worker_unit} before production build"
-			systemctl stop "${worker_unit}" || warn "Could not stop ${worker_unit}"
-		fi
-	fi
-	npm ci
-	npm run prisma:generate
-	if [ "${SKIP_DB_SETUP}" != "1" ]; then
-	npm run prisma:deploy
-	npm exec --no -- tsx deploy/prepare-cost-ledger.ts
-	fi
-	if [ "${SKIP_DB_SETUP}" != "1" ] && [ "${SKIP_SEED}" != "1" ]; then
-	log "Seeding database (admin user, roles, permissions)"
-	npm run db:seed
-	fi
-	npm run build
-	npm run build:runtime
-	# The build cache is useful only between builds. Removing it after a successful
-	# production deploy keeps small VPS disks from filling up while preserving all
-	# runtime files (.next/server, .next/static, dist, node_modules).
-	rm -rf .next/cache
-	# Keep the exact dependency tree used to generate Prisma Client and build
-	# Next.js. A second production-only install removes Prisma's generated client;
-	# pruning can also leave the runtime on versions different from the build.
-	# Deployment packaging may trim this tree only after producing a standalone
-	# artifact that contains all generated and runtime dependencies.
+ load_install_settings "${ENV_FILE}"
+  set +a
+  export NODE_OPTIONS="${NODE_OPTIONS:---max-old-space-size=4096}"
+  export NEXT_TELEMETRY_DISABLED="${NEXT_TELEMETRY_DISABLED:-1}"
+  # package.json "build" runs scripts/guard-live-next-build.mjs first. On a fresh
+  # host the service unit does not exist yet; without an authorize flag the
+  # guard treats systemctl non-zero as "refuse uncoordinated build" and the
+  # whole one-click installer dies mid-way. For upgrades the same guard refuses
+  # while the unit is still active, so stop it first (restart_services brings
+  # it back later). DESTDIR dry-runs never touch host units.
+  export VCONTROLHUB_DEPLOY_BUILD=1
+  export VCONTROLHUB_ALLOW_BUILD=1
+  if [ "${SKIP_BUILD}" = "1" ]; then
+    log "Skipping npm install and build (SKIP_BUILD=1)"
+    return
+  fi
+  if [ -z "${DESTDIR}" ] && [ "${SKIP_SYSTEMD}" != "1" ] && have_cmd systemctl; then
+    local next_unit="${SERVICE_PREFIX}-next.service"
+    local worker_unit="${SERVICE_PREFIX}-worker.service"
+    if systemctl list-unit-files "${next_unit}" >/dev/null 2>&1 \
+      && systemctl is-active --quiet "${next_unit}" 2>/dev/null; then
+      log "Stopping ${next_unit} before production build (avoids overwriting a live .next)"
+      systemctl stop "${next_unit}" || warn "Could not stop ${next_unit}; build may still be refused by guard-live-next-build"
+    fi
+    if systemctl list-unit-files "${worker_unit}" >/dev/null 2>&1 \
+      && systemctl is-active --quiet "${worker_unit}" 2>/dev/null; then
+      log "Stopping ${worker_unit} before production build"
+      systemctl stop "${worker_unit}" || warn "Could not stop ${worker_unit}"
+    fi
+  fi
+  local stage_dir
+  stage_dir="$(mktemp -d /var/tmp/vch-build.XXXXXXXX)"
+  (
+    trap 'rm -rf -- "${stage_dir}"' EXIT
+    copy_build_inputs "${APP_DIR}" "${stage_dir}"
+    cd "${stage_dir}"
+    as_release_builder npm ci --include=dev
+    as_release_builder npm run prisma:generate
+    if [[ ${SKIP_DB_SETUP} != 1 ]]; then
+      as_release_builder node deploy/check-upgrade-migrations.mjs
+      as_release_builder npm run prisma:deploy
+      as_release_builder npm exec --no -- tsx deploy/prepare-cost-ledger.ts
+      if [[ ${SKIP_SEED} != 1 ]]; then
+        log "Seeding database (admin user, roles, permissions)"
+        as_release_builder npm run db:seed
+      fi
+    fi
+    as_release_builder npm run build
+    as_release_builder npm run build:runtime
+    copy_build_artifacts "${stage_dir}" "${APP_DIR}"
+  )
+  # The build cache is useful only between builds. Removing it after a successful
+  # production deploy keeps small VPS disks from filling up while preserving all
+  # runtime files (.next/server, .next/static, dist, node_modules).
+  rm -rf .next/cache
+  install -d -m 750 -o "${APP_USER}" -g "${APP_USER}" .next/cache
+  # Keep the exact dependency tree used to generate Prisma Client and build
+  # Next.js. A second production-only install removes Prisma's generated client;
+  # pruning can also leave the runtime on versions different from the build.
+  # Deployment packaging may trim this tree only after producing a standalone
+  # artifact that contains all generated and runtime dependencies.
  # Verify compiled runtime entrypoints are available before systemd restart.
  if [ ! -f dist/server.js ] || [ ! -f dist/worker.js ] || [ ! -f dist/ssh-ws-proxy.js ]; then
    fail "Runtime bundle missing after build. Expected dist/server.js, dist/worker.js and dist/ssh-ws-proxy.js."
  fi
- chown -R "${APP_USER}:${APP_USER}" "${APP_DIR}"
-	# The SSH gateway runs as a separate DynamicUser. Keep credentials private,
-	# but make bundled runtime code traversable even when invoked with umask 077.
-	chmod o+x "${APP_DIR}"
-	chmod -R o+rX "${APP_DIR}/dist" "${APP_DIR}/node_modules" "${APP_DIR}/scripts"
-	chmod o+r "${APP_DIR}/package.json"
+
+  # The SSH gateway runs as a separate DynamicUser. Keep credentials private,
+  # but make bundled runtime code traversable even when invoked with umask 077.
+  chmod o+x "${APP_DIR}"
+  chmod -R o+rX "${APP_DIR}/dist" "${APP_DIR}/node_modules" "${APP_DIR}/scripts"
+  chmod o+r "${APP_DIR}/package.json"
 }
 
 create_runtime_env_file() {
-	[ -f "${ENV_FILE}" ] || fail "Missing ${ENV_FILE}; cannot create ${RUNTIME_ENV_FILE}."
-	log "Writing runtime environment file ${RUNTIME_ENV_FILE}"
-	python3 - "${ENV_FILE}" "${RUNTIME_ENV_FILE}" <<'PY'
+  [ -f "${ENV_FILE}" ] || fail "Missing ${ENV_FILE}; cannot create ${RUNTIME_ENV_FILE}."
+  log "Writing runtime environment file ${RUNTIME_ENV_FILE}"
+  python3 - "${ENV_FILE}" "${RUNTIME_ENV_FILE}" <<'PY'
 from pathlib import Path
 import sys
 source = Path(sys.argv[1])
@@ -1207,155 +1242,159 @@ for key, value in existing.items():
         lines.append(f"{key}={value}")
 dest.write_text("\n".join(lines).rstrip() + "\n")
 PY
-	chmod 600 "${RUNTIME_ENV_FILE}"
-	chown "${APP_USER}:${APP_USER}" "${RUNTIME_ENV_FILE}" 2>/dev/null || true
+  chmod 600 "${RUNTIME_ENV_FILE}"
+  if [[ -z ${DESTDIR} ]]; then
+    # The backup service reads the installed files to archive them.
+    chown root:"${APP_USER}" "${ENV_FILE}" "${RUNTIME_ENV_FILE}"
+    chmod 640 "${ENV_FILE}" "${RUNTIME_ENV_FILE}"
+  fi
 }
 
 install_systemd() {
-	if [ "${SKIP_SYSTEMD}" = "1" ]; then
-		warn "Skipping systemd unit installation"
-		return
-	fi
-	log "Installing systemd units"
-	if [ -n "${DESTDIR}" ]; then
-		case "${DESTDIR}" in
-			/tmp/*|/var/tmp/*) ;;
-			*) fail "Refusing to install systemd units with DESTDIR=${DESTDIR}. DESTDIR is only for isolated installer tests under /tmp or /var/tmp." ;;
-		esac
-		[ "${SKIP_RESTART}" = "1" ] || fail "Refusing to install with DESTDIR=${DESTDIR} unless SKIP_RESTART=1. DESTDIR is for isolated installer tests only."
-		[ "${INSTALL_SYSTEMD_UNITS:-0}" = "1" ] || fail "Refusing to write systemd units with DESTDIR=${DESTDIR} unless INSTALL_SYSTEMD_UNITS=1. Use isolated unit-render tests only; never export DESTDIR into a live deployment shell."
-	else
-		case "${APP_DIR}" in
-			/tmp/*|/var/tmp/*) fail "Refusing to install live systemd units from temporary APP_DIR=${APP_DIR}. Use DESTDIR for isolated installer tests." ;;
-		esac
-	fi
-	local node_bin npm_bin npx_bin systemd_path
-	local quick_service_read_write_paths=""
-	node_bin="$(resolve_node_tool node)"
-	npm_bin="$(resolve_node_tool npm)"
-	npx_bin="$(resolve_node_tool npx)"
-	systemd_path="$(build_systemd_path "${node_bin}" "${npm_bin}" "${npx_bin}")"
-	if [ "${SKIP_DOCKER}" != "1" ]; then
-		# Optional ("-"): the installer makes some fifty directories under /opt for services that may never be
-		# installed; one removed by hand must not keep the application from starting.
-		quick_service_read_write_paths=" $(quick_service_host_paths | sed 's|^|-|' | tr '\n' ' ' | sed 's/[[:space:]]*$//')"
-	fi
-	local custom_data_paths aria2_data_paths
-	# The last two are the application's to place (beside the file history by default); named in the
-	# environment file, they must be writable for the web process and the worker, which share them.
-	custom_data_paths="$(custom_data_read_write_paths "${STORAGE_ROOT:-}" "${BACKUP_DIR:-}" "${ARIA2_RPC_DIR:-}" "${FILE_VERSION_DIR:-}" "$(env_file_value MEDIA_UPLOAD_TMP_DIR)" "$(env_file_value MEDIA_THUMB_CACHE_DIR)")"
-	[ -z "${custom_data_paths}" ] || quick_service_read_write_paths="${quick_service_read_write_paths} ${custom_data_paths}"
-	aria2_data_paths="$(custom_data_read_write_paths "${ARIA2_RPC_DIR:-}")"
-	[ -z "${aria2_data_paths}" ] || aria2_data_paths=" ${aria2_data_paths}"
-	local escaped_site_name escaped_read_write_paths escaped_aria2_data_paths
-	# A site name may hold "&" or "|" ("R&D"): raw in a sed replacement, the first printed the placeholder back and
-	# the second stopped the installer after the build.
-	escaped_site_name="$(shell_escape_sed_replacement "${SITE_NAME}")"
-	escaped_read_write_paths="$(shell_escape_sed_replacement "${quick_service_read_write_paths}")"
-	escaped_aria2_data_paths="$(shell_escape_sed_replacement "${aria2_data_paths}")"
-	local svc
-	for svc in next worker ssh-ws aria2; do
-		local src="${APP_DIR}/deploy/systemd/${APP_SLUG}-${svc}.service.example"
-		# Custom APP_SLUG installs have no slug-named templates in the repo;
-		# fall back to the canonical shipped templates.
-		[ -f "${src}" ] || src="${APP_DIR}/deploy/systemd/vcontrolhub-${svc}.service.example"
-		if [ "${svc}" = "aria2" ] && [ ! -f "${src}" ]; then
-			warn "aria2 systemd template not found; the application will spawn aria2 itself (unconfined)"
-			continue
-		fi
-		[ -f "${src}" ] || fail "Systemd template not found: ${src}"
-		if [ -n "${DESTDIR}" ]; then
-			case "${src}" in
-				/tmp/*|/var/tmp/*) ;;
-				*) fail "Refusing to use production systemd template source ${src} while DESTDIR=${DESTDIR}. Test templates must live inside the isolated temp app dir." ;;
-			esac
-		fi
-		if awk '
-			/^\[/ { section=$0 }
-			section == "[Unit]" && /^[[:space:]]*(WorkingDirectory|EnvironmentFile|User|Group)=/ { bad=1 }
-			END { exit bad ? 0 : 1 }
-		' "${src}"; then
-			fail "Invalid systemd template ${src}: service-only keys must be under [Service], not [Unit]. Refusing to install a broken unit."
-		fi
-		if ! grep -Eq '^\[Service\]' "${src}" || ! grep -Eq '^ExecStart=' "${src}"; then
-			fail "Invalid systemd template ${src}: missing [Service] or ExecStart."
-		fi
-		local dst="${DESTDIR}/etc/systemd/system/${SERVICE_PREFIX}-${svc}.service"
-		mkdir -p "$(dirname "${dst}")"
-		# Remove immutable flag if present (from hardening or previous deployment)
-		chattr -i "${dst}" 2>/dev/null || true
+  if [ "${SKIP_SYSTEMD}" = "1" ]; then
+    warn "Skipping systemd unit installation"
+    return
+  fi
+  log "Installing systemd units"
+  if [ -n "${DESTDIR}" ]; then
+    case "${DESTDIR}" in
+      /tmp/*|/var/tmp/*) ;;
+      *) fail "Refusing to install systemd units with DESTDIR=${DESTDIR}. DESTDIR is only for isolated installer tests under /tmp or /var/tmp." ;;
+    esac
+    [ "${SKIP_RESTART}" = "1" ] || fail "Refusing to install with DESTDIR=${DESTDIR} unless SKIP_RESTART=1. DESTDIR is for isolated installer tests only."
+    [ "${INSTALL_SYSTEMD_UNITS:-0}" = "1" ] || fail "Refusing to write systemd units with DESTDIR=${DESTDIR} unless INSTALL_SYSTEMD_UNITS=1. Use isolated unit-render tests only; never export DESTDIR into a live deployment shell."
+  else
+    case "${APP_DIR}" in
+      /tmp/*|/var/tmp/*) fail "Refusing to install live systemd units from temporary APP_DIR=${APP_DIR}. Use DESTDIR for isolated installer tests." ;;
+    esac
+  fi
+  local node_bin npm_bin npx_bin systemd_path
+  local quick_service_read_write_paths=""
+  node_bin="$(resolve_node_tool node)"
+  npm_bin="$(resolve_node_tool npm)"
+  npx_bin="$(resolve_node_tool npx)"
+  systemd_path="$(build_systemd_path "${node_bin}" "${npm_bin}" "${npx_bin}")"
+  if [ "${SKIP_DOCKER}" != "1" ]; then
+    # Optional ("-"): the installer makes some fifty directories under /opt for services that may never be
+    # installed; one removed by hand must not keep the application from starting.
+    quick_service_read_write_paths=" $(quick_service_host_paths | sed 's|^|-|' | tr '\n' ' ' | sed 's/[[:space:]]*$//')"
+  fi
+  local custom_data_paths aria2_data_paths
+  # The last two are the application's to place (beside the file history by default); named in the
+  # environment file, they must be writable for the web process and the worker, which share them.
+  custom_data_paths="$(custom_data_read_write_paths "${STORAGE_ROOT:-}" "${BACKUP_DIR:-}" "${ARIA2_RPC_DIR:-}" "${FILE_VERSION_DIR:-}" "$(env_file_value MEDIA_UPLOAD_TMP_DIR)" "$(env_file_value MEDIA_THUMB_CACHE_DIR)")"
+  [ -z "${custom_data_paths}" ] || quick_service_read_write_paths="${quick_service_read_write_paths} ${custom_data_paths}"
+  aria2_data_paths="$(custom_data_read_write_paths "${ARIA2_RPC_DIR:-}")"
+  [ -z "${aria2_data_paths}" ] || aria2_data_paths=" ${aria2_data_paths}"
+  local escaped_site_name escaped_read_write_paths escaped_aria2_data_paths
+  # A site name may hold "&" or "|" ("R&D"): raw in a sed replacement, the first printed the placeholder back and
+  # the second stopped the installer after the build.
+  escaped_site_name="$(shell_escape_sed_replacement "${SITE_NAME}")"
+  escaped_read_write_paths="$(shell_escape_sed_replacement "${quick_service_read_write_paths}")"
+  escaped_aria2_data_paths="$(shell_escape_sed_replacement "${aria2_data_paths}")"
+  local svc
+  for svc in next worker ssh-ws aria2; do
+    local src="${APP_DIR}/deploy/systemd/${APP_SLUG}-${svc}.service.example"
+    # Custom APP_SLUG installs have no slug-named templates in the repo;
+    # fall back to the canonical shipped templates.
+    [ -f "${src}" ] || src="${APP_DIR}/deploy/systemd/vcontrolhub-${svc}.service.example"
+    if [ "${svc}" = "aria2" ] && [ ! -f "${src}" ]; then
+      warn "aria2 systemd template not found; the application will spawn aria2 itself (unconfined)"
+      continue
+    fi
+    [ -f "${src}" ] || fail "Systemd template not found: ${src}"
+    if [ -n "${DESTDIR}" ]; then
+      case "${src}" in
+        /tmp/*|/var/tmp/*) ;;
+        *) fail "Refusing to use production systemd template source ${src} while DESTDIR=${DESTDIR}. Test templates must live inside the isolated temp app dir." ;;
+      esac
+    fi
+    if awk '
+      /^\[/ { section=$0 }
+      section == "[Unit]" && /^[[:space:]]*(WorkingDirectory|EnvironmentFile|User|Group)=/ { bad=1 }
+      END { exit bad ? 0 : 1 }
+    ' "${src}"; then
+      fail "Invalid systemd template ${src}: service-only keys must be under [Service], not [Unit]. Refusing to install a broken unit."
+    fi
+    if ! grep -Eq '^\[Service\]' "${src}" || ! grep -Eq '^ExecStart=' "${src}"; then
+      fail "Invalid systemd template ${src}: missing [Service] or ExecStart."
+    fi
+    local dst="${DESTDIR}/etc/systemd/system/${SERVICE_PREFIX}-${svc}.service"
+    mkdir -p "$(dirname "${dst}")"
+    # Remove immutable flag if present (from hardening or previous deployment)
+    chattr -i "${dst}" 2>/dev/null || true
 sed \
-			-e "s|{{SITE_NAME}}|${escaped_site_name}|g" \
-			-e "s|{{APP_DIR}}|${APP_DIR}|g" \
-			-e "s|{{ENV_FILE}}|${ENV_FILE}|g" \
-			-e "s|{{RUNTIME_ENV_FILE}}|${RUNTIME_ENV_FILE}|g" \
-			-e "s|{{SYSTEMD_PATH}}|${systemd_path}|g" \
-			-e "s|{{NODE_BIN}}|${node_bin}|g" \
-			-e "s|{{NPM_BIN}}|${npm_bin}|g" \
-			-e "s|{{NPX_BIN}}|${npx_bin}|g" \
-			-e "s|{{NEXT_PORT}}|${NEXT_PORT}|g" \
-			-e "s|{{SSH_WS_PORT}}|${SSH_WS_PORT}|g" \
-			-e "s|{{APP_USER}}|${APP_USER}|g" \
-			-e "s|{{APP_SLUG}}|${APP_SLUG}|g" \
-			-e "s|{{QUICK_SERVICE_READ_WRITE_PATHS}}|${escaped_read_write_paths}|g" \
-			-e "s|{{ARIA2_DATA_READ_WRITE_PATHS}}|${escaped_aria2_data_paths}|g" \
-			-e "s|{{SERVICE_PREFIX}}|${SERVICE_PREFIX}|g" \
-			-e "s|{{BACKUP_DIR}}|${BACKUP_DIR:-/var/backups/${APP_SLUG}}|g" \
-			"${src}" > "${dst}"
-		chmod 0644 "${dst}"
-		systemd-analyze verify "${dst}" >/dev/null 2>&1 || warn "systemd-analyze verify reported warnings for ${dst}"
-	done
-	# Nightly recovery backup (A10-02): the service and timer templates shipped
-	# for a year without anything rendering them.
-	local backup_kind
-	for backup_kind in service timer; do
-		local backup_src="${APP_DIR}/deploy/systemd/${APP_SLUG}-backup.${backup_kind}.example"
-		[ -f "${backup_src}" ] || backup_src="${APP_DIR}/deploy/systemd/vcontrolhub-backup.${backup_kind}.example"
-		[ -f "${backup_src}" ] || { warn "backup ${backup_kind} template not found; nightly backups stay unscheduled"; continue; }
-		local backup_dst="${DESTDIR}/etc/systemd/system/${SERVICE_PREFIX}-backup.${backup_kind}"
-		chattr -i "${backup_dst}" 2>/dev/null || true
-		sed \
-			-e "s|{{SITE_NAME}}|${escaped_site_name}|g" \
-			-e "s|{{APP_DIR}}|${APP_DIR}|g" \
-			-e "s|{{ENV_FILE}}|${ENV_FILE}|g" \
-			-e "s|{{RUNTIME_ENV_FILE}}|${RUNTIME_ENV_FILE}|g" \
-			-e "s|{{NODE_BIN}}|${node_bin}|g" \
-			-e "s|{{APP_USER}}|${APP_USER}|g" \
-			-e "s|{{APP_SLUG}}|${APP_SLUG}|g" \
-			-e "s|{{SERVICE_PREFIX}}|${SERVICE_PREFIX}|g" \
-			-e "s|{{BACKUP_DIR}}|${BACKUP_DIR:-/var/backups/${APP_SLUG}}|g" \
-			"${backup_src}" > "${backup_dst}"
-		chmod 0644 "${backup_dst}"
-	done
-	if [ -z "${DESTDIR}" ]; then
-		mkdir -p "${BACKUP_DIR:-/var/backups/${APP_SLUG}}"
-		chown "${APP_USER}:${APP_USER}" "${BACKUP_DIR:-/var/backups/${APP_SLUG}}"
-		chmod 750 "${BACKUP_DIR:-/var/backups/${APP_SLUG}}"
-	fi
-	# Older deployments used a drop-in to disable the in-process worker. The
-	# setting now lives in the canonical next unit, so remove only that exact
-	# legacy file and leave operator-owned drop-ins untouched.
-	if [ -z "${DESTDIR}" ]; then
-		local legacy_worker_dropin="/etc/systemd/system/${SERVICE_PREFIX}-next.service.d/10-workers.conf"
-		if [ -f "${legacy_worker_dropin}" ] \
-			&& grep -Fxq '[Service]' "${legacy_worker_dropin}" \
-			&& grep -Fxq 'Environment=VCONTROLHUB_WORKERS_DISABLED=true' "${legacy_worker_dropin}" \
-			&& [ "$(grep -Evc '^[[:space:]]*(#|$|\[Service\]|Environment=VCONTROLHUB_WORKERS_DISABLED=true)[[:space:]]*$' "${legacy_worker_dropin}")" -eq 0 ]; then
-			unlink "${legacy_worker_dropin}"
-			rmdir "$(dirname "${legacy_worker_dropin}")" 2>/dev/null || true
-			log "Removed obsolete worker drop-in ${legacy_worker_dropin}"
-		fi
-	fi
-	if [ -n "${DESTDIR}" ]; then
-		log "Rendered systemd units under ${DESTDIR}; skipping host systemctl daemon-reload/enable"
-	else
-		systemctl daemon-reload
-		local enable_units=("${SERVICE_PREFIX}-next.service" "${SERVICE_PREFIX}-worker.service" "${SERVICE_PREFIX}-ssh-ws.service")
-		[ ! -f "/etc/systemd/system/${SERVICE_PREFIX}-aria2.service" ] || enable_units+=("${SERVICE_PREFIX}-aria2.service")
-		systemctl enable "${enable_units[@]}"
-		# The nightly backup timer rendered above (A10-02).
-		[ ! -f "/etc/systemd/system/${SERVICE_PREFIX}-backup.timer" ] || systemctl enable --now "${SERVICE_PREFIX}-backup.timer" || warn "could not enable ${SERVICE_PREFIX}-backup.timer"
-	fi
+      -e "s|{{SITE_NAME}}|${escaped_site_name}|g" \
+      -e "s|{{APP_DIR}}|${APP_DIR}|g" \
+      -e "s|{{ENV_FILE}}|${ENV_FILE}|g" \
+      -e "s|{{RUNTIME_ENV_FILE}}|${RUNTIME_ENV_FILE}|g" \
+      -e "s|{{SYSTEMD_PATH}}|${systemd_path}|g" \
+      -e "s|{{NODE_BIN}}|${node_bin}|g" \
+      -e "s|{{NPM_BIN}}|${npm_bin}|g" \
+      -e "s|{{NPX_BIN}}|${npx_bin}|g" \
+      -e "s|{{NEXT_PORT}}|${NEXT_PORT}|g" \
+      -e "s|{{SSH_WS_PORT}}|${SSH_WS_PORT}|g" \
+      -e "s|{{APP_USER}}|${APP_USER}|g" \
+      -e "s|{{APP_SLUG}}|${APP_SLUG}|g" \
+      -e "s|{{QUICK_SERVICE_READ_WRITE_PATHS}}|${escaped_read_write_paths}|g" \
+      -e "s|{{ARIA2_DATA_READ_WRITE_PATHS}}|${escaped_aria2_data_paths}|g" \
+      -e "s|{{SERVICE_PREFIX}}|${SERVICE_PREFIX}|g" \
+      -e "s|{{BACKUP_DIR}}|${BACKUP_DIR:-/var/backups/${APP_SLUG}}|g" \
+      "${src}" > "${dst}"
+    chmod 0644 "${dst}"
+    systemd-analyze verify "${dst}" >/dev/null 2>&1 || warn "systemd-analyze verify reported warnings for ${dst}"
+  done
+  # Nightly recovery backup (A10-02): the service and timer templates shipped
+  # for a year without anything rendering them.
+  local backup_kind
+  for backup_kind in service timer; do
+    local backup_src="${APP_DIR}/deploy/systemd/${APP_SLUG}-backup.${backup_kind}.example"
+    [ -f "${backup_src}" ] || backup_src="${APP_DIR}/deploy/systemd/vcontrolhub-backup.${backup_kind}.example"
+    [ -f "${backup_src}" ] || { warn "backup ${backup_kind} template not found; nightly backups stay unscheduled"; continue; }
+    local backup_dst="${DESTDIR}/etc/systemd/system/${SERVICE_PREFIX}-backup.${backup_kind}"
+    chattr -i "${backup_dst}" 2>/dev/null || true
+    sed \
+      -e "s|{{SITE_NAME}}|${escaped_site_name}|g" \
+      -e "s|{{APP_DIR}}|${APP_DIR}|g" \
+      -e "s|{{ENV_FILE}}|${ENV_FILE}|g" \
+      -e "s|{{RUNTIME_ENV_FILE}}|${RUNTIME_ENV_FILE}|g" \
+      -e "s|{{NODE_BIN}}|${node_bin}|g" \
+      -e "s|{{APP_USER}}|${APP_USER}|g" \
+      -e "s|{{APP_SLUG}}|${APP_SLUG}|g" \
+      -e "s|{{SERVICE_PREFIX}}|${SERVICE_PREFIX}|g" \
+      -e "s|{{BACKUP_DIR}}|${BACKUP_DIR:-/var/backups/${APP_SLUG}}|g" \
+      "${backup_src}" > "${backup_dst}"
+    chmod 0644 "${backup_dst}"
+  done
+  if [ -z "${DESTDIR}" ]; then
+    mkdir -p "${BACKUP_DIR:-/var/backups/${APP_SLUG}}"
+    chown "${APP_USER}:${APP_USER}" "${BACKUP_DIR:-/var/backups/${APP_SLUG}}"
+    chmod 750 "${BACKUP_DIR:-/var/backups/${APP_SLUG}}"
+  fi
+  # Older deployments used a drop-in to disable the in-process worker. The
+  # setting now lives in the canonical next unit, so remove only that exact
+  # legacy file and leave operator-owned drop-ins untouched.
+  if [ -z "${DESTDIR}" ]; then
+    local legacy_worker_dropin="/etc/systemd/system/${SERVICE_PREFIX}-next.service.d/10-workers.conf"
+    if [ -f "${legacy_worker_dropin}" ] \
+      && grep -Fxq '[Service]' "${legacy_worker_dropin}" \
+      && grep -Fxq 'Environment=VCONTROLHUB_WORKERS_DISABLED=true' "${legacy_worker_dropin}" \
+      && [ "$(grep -Evc '^[[:space:]]*(#|$|\[Service\]|Environment=VCONTROLHUB_WORKERS_DISABLED=true)[[:space:]]*$' "${legacy_worker_dropin}")" -eq 0 ]; then
+      unlink "${legacy_worker_dropin}"
+      rmdir "$(dirname "${legacy_worker_dropin}")" 2>/dev/null || true
+      log "Removed obsolete worker drop-in ${legacy_worker_dropin}"
+    fi
+  fi
+  if [ -n "${DESTDIR}" ]; then
+    log "Rendered systemd units under ${DESTDIR}; skipping host systemctl daemon-reload/enable"
+  else
+    systemctl daemon-reload
+    local enable_units=("${SERVICE_PREFIX}-next.service" "${SERVICE_PREFIX}-worker.service" "${SERVICE_PREFIX}-ssh-ws.service")
+    [ ! -f "/etc/systemd/system/${SERVICE_PREFIX}-aria2.service" ] || enable_units+=("${SERVICE_PREFIX}-aria2.service")
+    systemctl enable "${enable_units[@]}"
+    # The nightly backup timer rendered above (A10-02).
+    [ ! -f "/etc/systemd/system/${SERVICE_PREFIX}-backup.timer" ] || systemctl enable --now "${SERVICE_PREFIX}-backup.timer" || warn "could not enable ${SERVICE_PREFIX}-backup.timer"
+  fi
 }
 install_caddy() {
  [ "${SKIP_CADDY}" = "1" ] && { warn "Skipping Caddy setup"; return; }
@@ -1379,8 +1418,8 @@ install_caddy() {
  escaped_next="$(shell_escape_sed_replacement "${NEXT_HOST}:${NEXT_PORT}")"
  escaped_ssh_ws="$(shell_escape_sed_replacement "${SSH_WS_HOST}:${SSH_WS_PORT}")"
 sed -i \
-	-e "s|your-domain.example|${escaped_domain}|g" \
-	-e "s|{{APP_SLUG}}|${APP_SLUG}|g" \
+  -e "s|your-domain.example|${escaped_domain}|g" \
+  -e "s|{{APP_SLUG}}|${APP_SLUG}|g" \
   -e "s|127.0.0.1:3000|${escaped_next}|g" \
   -e "s|127.0.0.1:3001|${escaped_ssh_ws}|g" \
   "${DESTDIR}/etc/caddy/Caddyfile"
@@ -1445,7 +1484,7 @@ install_apache() {
  escaped_ssh_ws_host_port="$(shell_escape_sed_replacement "${SSH_WS_HOST}:${SSH_WS_PORT}")"
 
 sed \
-	-e "s|{{APP_SLUG}}|${APP_SLUG}|g" \
+  -e "s|{{APP_SLUG}}|${APP_SLUG}|g" \
   -e "s|{{SERVER_NAME}}|${escaped_server_name}|g" \
   -e "s|{{NEXT_HOST}}:{{NEXT_PORT}}|${escaped_next_host_port}|g" \
   -e "s|{{SSH_WS_HOST}}:{{SSH_WS_PORT}}|${escaped_ssh_ws_host_port}|g" \
@@ -1472,21 +1511,21 @@ restart_services() {
  if [ -f "/etc/systemd/system/${SERVICE_PREFIX}-aria2.service" ]; then
   systemctl restart "${SERVICE_PREFIX}-aria2.service" || warn "${SERVICE_PREFIX}-aria2.service did not start; magnet/BT relay downloads stay unavailable until it runs (journalctl -u ${SERVICE_PREFIX}-aria2.service)"
  fi
-	# Restart Caddy with the newly rendered config. `systemctl reload caddy` fails
-	# when Caddy is installed/enabled but not currently running (common after a
-	# reboot or first install), so try reload only for an active service and fall
-	# back to restart otherwise.
-	if [ "${SKIP_CADDY}" != "1" ] && [ -n "${DOMAIN}" ]; then
-		if systemctl is-active --quiet caddy; then
-			systemctl reload caddy || systemctl restart caddy
-		else
-			systemctl restart caddy
-		fi
-	fi
-	if [ "${SKIP_CADDY}" = "1" ] || [ -z "${DOMAIN}" ]; then
-		systemctl restart apache2 || warn "Apache reverse proxy did not restart cleanly; check: systemctl status apache2"
-	fi
-	# Wait for Next.js to be ready (standalone server can take a few seconds)
+  # Restart Caddy with the newly rendered config. `systemctl reload caddy` fails
+  # when Caddy is installed/enabled but not currently running (common after a
+  # reboot or first install), so try reload only for an active service and fall
+  # back to restart otherwise.
+  if [ "${SKIP_CADDY}" != "1" ] && [ -n "${DOMAIN}" ]; then
+    if systemctl is-active --quiet caddy; then
+      systemctl reload caddy || systemctl restart caddy
+    else
+      systemctl restart caddy
+    fi
+  fi
+  if [ "${SKIP_CADDY}" = "1" ] || [ -z "${DOMAIN}" ]; then
+    systemctl restart apache2 || warn "Apache reverse proxy did not restart cleanly; check: systemctl status apache2"
+  fi
+  # Wait for Next.js to be ready (standalone server can take a few seconds)
  local retries=15
  while [ "${retries}" -gt 0 ]; do
  if curl -fsS "http://${NEXT_HOST}:${NEXT_PORT}/login" >/dev/null 2>&1; then
@@ -1524,8 +1563,16 @@ main() {
  esac
 
  validate_install_scope
- validate_source_target
  need_root
+ if [[ -z ${DESTDIR} ]]; then
+   require_maintenance_path "${APP_DIR}"
+   require_maintenance_path "${ENV_FILE}"
+   require_maintenance_path "${RUNTIME_ENV_FILE}"
+   require_maintenance_path "${SCRIPT_DIR}/install.sh"
+   require_release_source "${SOURCE_DIR}"
+   require_release_source "${APP_DIR}"
+ fi
+ validate_source_target
  init_instance_state
  install_packages
  install_docker
@@ -1541,10 +1588,10 @@ main() {
  if [ -x "${APP_DIR}/deploy/preflight.sh" ]; then
  APP_DIR="${APP_DIR}" ENV_FILE="${ENV_FILE}" NEXT_HOST="${NEXT_HOST}" NEXT_PORT="${NEXT_PORT}" SSH_WS_PORT="${SSH_WS_PORT}" "${APP_DIR}/deploy/preflight.sh"
  fi
-	create_runtime_dirs
-	build_app
-	create_runtime_env_file
-	install_systemd
+  create_runtime_dirs
+  build_app
+  create_runtime_env_file
+  install_systemd
  install_caddy
  install_apache
  restart_services

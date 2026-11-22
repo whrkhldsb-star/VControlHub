@@ -14,17 +14,19 @@ const run = promisify(execFile);
  * standard ones, moving a custom install's data directories without a word.
  */
 describe.skipIf(process.platform === "win32")("installer keeps saved data directories", () => {
-	it("reads the saved value, ignoring template syntax", async () => {
+	it("reads saved paths and expands the supported install template", async () => {
 		const script = await readFile(path.join(process.cwd(), "deploy/install.sh"), "utf8");
 		const helper = script.slice(script.indexOf("env_file_value() {"), script.indexOf("\n}\n", script.indexOf("env_file_value() {")) + 3);
 		const dir = await mkdtemp(path.join(os.tmpdir(), "vch-install-env-"));
 		try {
 			const envFile = path.join(dir, ".env.local");
 			await writeFile(envFile, 'STORAGE_ROOT="/srv/owned-store"\nBACKUP_DIR=\'/srv/owned-backups\'\nARIA2_RPC_DIR="/var/lib/${APP_SLUG:-vcontrolhub}/aria2"\n');
-			const read = async (name: string) => (await run("bash", ["-c", `${helper}\nENV_FILE=${JSON.stringify(envFile)}\nenv_file_value ${name}`])).stdout;
+			const read = async (name: string) => (await run("bash", ["-c",
+				'source deploy/lib/listen-address.sh\n' + helper + '\nenv_file_value "$1"', "--", name],
+				{ env: { ...process.env, ENV_FILE: envFile, APP_SLUG: "fixture" } })).stdout;
 			expect(await read("STORAGE_ROOT")).toBe("/srv/owned-store");
 			expect(await read("BACKUP_DIR")).toBe("/srv/owned-backups");
-			expect(await read("ARIA2_RPC_DIR")).toBe("");
+			expect(await read("ARIA2_RPC_DIR")).toBe("/var/lib/fixture/aria2");
 			expect(await read("MISSING")).toBe("");
 		} finally {
 			await rm(dir, { recursive: true, force: true });
