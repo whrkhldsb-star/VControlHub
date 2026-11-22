@@ -9,6 +9,7 @@
 import "@/lib/bigint-patch";
 
 import { setupRdpWebSocket } from "@/lib/rdp/ws";
+import { mayScrapeGateway } from "./lib/monitoring/gateway-metrics";
 import { createServer } from "http";
 import { existsSync, readFileSync } from "node:fs";
 import { resolve } from "node:path";
@@ -27,6 +28,8 @@ import { PreAuthLimiter, upgradeClientAddress } from "@/lib/ws/pre-auth-limiter"
 import { type RoleKey } from "./lib/auth/rbac";
 import { canUseSshTerminal } from "./lib/auth/ssh-access";
 import { serverTeamWhere } from "./lib/auth/team-scope";
+import { closeTerminalRegistry, registerTerminalSession } from "./lib/server/terminal-handover";
+import { resolveStorageSshPort } from "./lib/storage/ssh-credentials";
 import { getSessionCookieName, verifySessionToken } from "./lib/auth/session";
 import { AuthError } from "./lib/errors";
 import { createLogger } from "./lib/logging";
@@ -159,16 +162,28 @@ export async function resolveServerConnection(
 	// Without a binding there is no SSH endpoint to open a shell on.
 	const sftpNode = await prisma.storageNode.findUnique({
 	 where: { serverId: srv.id },
-	 select: { port: true, username: true, hostKeySha256: true },
+	 select: { host: true, port: true, username: true, hostKeySha256: true },
 	});
 	if (!sftpNode || !srv.password || !sftpNode.username) return null;
+	const pin = sftpNode.hostKeySha256 ?? srv.hostKeySha256;
+	if (!pin || (srv.hostKeySha256 && srv.hostKeySha256 !== pin) ||
+	  (sftpNode.host != null && sftpNode.host.toLowerCase() !== srv.host.toLowerCase())) return null;
+	// The second lookup verifies the parent and the binding as one snapshot before decrypting.
+	// Legacy OpenSSH profiles store their only verified pin on the bound drive.
+	const bound = await prisma.server.findFirst({
+	 where: { id: srv.id, enabled: true, host: srv.host, teamId: srv.teamId, password: srv.password,
+	  hostKeySha256: srv.hostKeySha256, storageNode: { is: { serverId: srv.id, driver: "SFTP", teamId: srv.teamId,
+	    host: sftpNode.host ?? null, port: sftpNode.port, username: sftpNode.username, hostKeySha256: sftpNode.hostKeySha256 } } },
+	 select: { id: true },
+	});
+	if (!bound) return null;
 	return {
 	 teamId: srv.teamId,
 	 host: srv.host,
-	 port: sftpNode.port ?? 22,
+	 port: resolveStorageSshPort({ port: sftpNode.port, server: srv }),
 	 username: sftpNode.username,
 	 connectionType: "PASSWORD",
-	 hostKeySha256: sftpNode.hostKeySha256 ?? srv.hostKeySha256,
+	 hostKeySha256: pin,
 	 privateKey: undefined,
 	 passphrase: undefined,
 	 password: decryptServerPassword(srv.password ?? ""),
@@ -340,6 +355,11 @@ const server = createServer((req, res) => {
 	}
 	// Local-only observability scrape endpoint for the main app.
 	if (req.method === "GET" && pathname === "/metrics") {
+		if (!mayScrapeGateway(req.headers.authorization, SSH_WS_SECRET)) {
+			res.writeHead(401, { "Cache-Control": "no-store" });
+			res.end();
+			return;
+		}
 		const active = sshWss?.clients.size ?? 0;
 		setWsActive("ssh", active);
 		res.writeHead(200, { "Content-Type": "application/json" });
@@ -532,6 +552,7 @@ type ShellEndReason = "exit" | "idle" | "lost";
 type ShellNotice = { key: string; vars?: Record<string, string | number> };
 
 type ShellSession = {
+	releaseRegistration?: () => void;
 	id: string;
 	userId: string;
 	serverId: string;
@@ -625,7 +646,7 @@ function endShellSession(session: ShellSession, notice?: ShellNotice, reason: Sh
 	if (notice && session.attachment) session.attachment.notifyClosed(t(notice.key, session.attachment.locale, notice.vars), reason);
 	session.attachment = null;
 	try { session.stream?.close(); } catch { /* already closed */ }
-	try { session.sshClient.end(); } catch { /* already closed */ }
+	try { session.sshClient.end(); } finally { session.releaseRegistration?.(); }
 }
 
 /** The browser went away: keep the shell for a reconnect when allowed, else end it. */
@@ -1232,6 +1253,19 @@ wss.on("connection", async (ws, req) => {
 		if (resumed) detachShellSession(shell);
 		return;
 	}
+	if (!resumed) {
+		try {
+			shell.releaseRegistration = await registerTerminalSession(serverId, () => {
+				shell.sshClient.destroy();
+				endShellSession(shell, { key: "backend.sshTerminal.authFailed" });
+				if (ws.readyState === WebSocket.OPEN) closeSocket(ws, 1008);
+			});
+		} catch {
+			stopTerminal(say("backend.sshTerminal.authFailed"), 1008, true);
+			return;
+		}
+		if (shell.ended) { shell.releaseRegistration(); return; }
+	}
 	const authorized = await ensureAuthorized(true);
 	if (stopped || shell.generation !== generation || ws.readyState !== WebSocket.OPEN) return;
 	if (shell.ended) {
@@ -1305,7 +1339,7 @@ function shutdown() {
 	// timer mirrors server.ts so a stuck handle can never hang the exit.
 	const forceExit = setTimeout(() => process.exit(0), 15_000);
 	forceExit.unref?.();
-	void prisma.$disconnect().finally(() => process.exit(0));
+	void Promise.allSettled([closeTerminalRegistry(), prisma.$disconnect()]).finally(() => process.exit(0));
 }
 
 process.on("SIGTERM", shutdown);

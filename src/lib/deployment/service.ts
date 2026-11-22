@@ -219,6 +219,7 @@ async function createDeploymentRunFromTemplateUnlocked(
         data: {
           commandRequestId: command.id,
           status: command.status === "PENDING_APPROVAL" ? "PENDING" : "RUNNING",
+          completedAt: null,
           errorMessage: null,
         },
       });
@@ -351,7 +352,7 @@ async function linkOrFailDeploymentRun(run: RecoveryRun, failureMessage: string)
         commandRequestId: command.id,
         status: resolved.status,
         errorMessage: resolved.errorMessage,
-        ...(TERMINAL_DEPLOYMENT_STATUSES.has(resolved.status) ? { completedAt: new Date() } : {}),
+        completedAt: TERMINAL_DEPLOYMENT_STATUSES.has(resolved.status) ? new Date() : null,
       },
     });
     return;
@@ -452,11 +453,33 @@ async function persistResolvedDeploymentRunStatus<
     data: {
       status: resolved.status,
       errorMessage: resolved.errorMessage,
-      completedAt: run.completedAt ?? new Date(),
+      completedAt: run.status === resolved.status ? run.completedAt ?? new Date() : new Date(),
     },
     include: DEPLOYMENT_RUN_INCLUDE,
   });
   return { ...updated, ...resolveDeploymentRunStatus(updated) };
+}
+
+/** Previous releases could reattach a live command while keeping the failed attempt's timestamp. */
+async function clearRecoveredCompletionTimes(runs: Array<DeploymentRunWithCommand & { rollbackAttempts?: RollbackRunWithCommand[] }>) {
+  const activeCommands = ["PENDING_APPROVAL", "APPROVED", "RUNNING", "CANCELLING"] as const;
+  const staleIds = (rows: DeploymentRunWithCommand[]) => rows.filter(row =>
+    row.completedAt && !TERMINAL_DEPLOYMENT_STATUSES.has(row.status)
+    && activeCommands.some(status => status === row.commandRequest?.status),
+  ).map(row => row.id);
+  const deployments = staleIds(runs);
+  const rollbacks = staleIds(runs.flatMap(run => run.rollbackAttempts ?? []));
+  if (!deployments.length && !rollbacks.length) return false;
+  // A command can finish between the history read and this repair.
+  const stillActive = { completedAt: { not: null }, status: { notIn: [...TERMINAL_DEPLOYMENT_STATUSES] },
+    commandRequest: { is: { status: { in: [...activeCommands] } } } };
+  if (deployments.length) await prisma.deploymentRun.updateMany({
+    where: { id: { in: deployments }, ...stillActive }, data: { completedAt: null },
+  });
+  if (rollbacks.length) await prisma.deploymentRollbackRun.updateMany({
+    where: { id: { in: rollbacks }, ...stillActive }, data: { completedAt: null },
+  });
+  return true;
 }
 
 export async function listDeploymentRuns(session: SessionScope,
@@ -471,7 +494,8 @@ export async function listDeploymentRuns(session: SessionScope,
   let runs = await page();
   // Runs whose command was created but never linked (or never created) are
   // settled here instead of showing "pending" forever.
-  if (await healUnlinkedDeploymentRuns(runs)) runs = await page();
+  const repairedCompletion = await clearRecoveredCompletionTimes(runs);
+  if (await healUnlinkedDeploymentRuns(runs) || repairedCompletion) runs = await page();
   await refreshDeploymentRollbackStatuses(runs.flatMap((run) => run.rollbackAttempts ?? []));
   return Promise.all(
     runs.map((run) =>
@@ -525,7 +549,7 @@ async function refreshDeploymentRollbackStatuses(runs: RollbackRunWithCommand[])
       data: {
         status: resolved.status,
         errorMessage: resolved.errorMessage,
-        completedAt: run.completedAt ?? new Date(),
+        completedAt: run.status === resolved.status ? run.completedAt ?? new Date() : new Date(),
       },
     });
   }));
@@ -563,7 +587,7 @@ async function recoverUnlinkedRollback(rollback: { id: string; createdBy: string
         commandRequestId: command.id,
         status: resolved.status,
         errorMessage: resolved.errorMessage,
-        ...(TERMINAL_DEPLOYMENT_STATUSES.has(resolved.status) ? { completedAt: new Date() } : {}),
+        completedAt: TERMINAL_DEPLOYMENT_STATUSES.has(resolved.status) ? new Date() : null,
       },
       select: { id: true, status: true },
     });

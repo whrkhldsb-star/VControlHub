@@ -20,6 +20,7 @@ export const SSH_CONNECTION_SERVER_SELECT = {
   port: true,
   username: true,
   operatingSystem: true,
+  agentTokenHash: true,
   connectionType: true,
   managementMode: true,
   sshKeyId: true,

@@ -11,7 +11,7 @@ import { apiCopy } from "@/lib/i18n/api-copy";
  */
 
 import { Prisma } from "@prisma/client";
-import { activeCustomerTeamWhere, isGlobalTeamManager, playbookTeamWhere, rawTeamScope, serverTeamWhere, teamCreateData, type TeamSession } from "@/lib/auth/team-scope";
+import { activeCustomerTeamWhere, isGlobalTeamManager, liveCustomerRowsWhere, lockLiveCustomer, playbookTeamWhere, rawActiveCustomerScope, serverTeamWhere, teamCreateData, type TeamSession } from "@/lib/auth/team-scope";
 
 import { prisma } from "@/lib/db";
 import { auditUserAction } from "@/lib/audit/service";
@@ -64,7 +64,7 @@ async function assertPlaybookCommandServersInScope(
   ];
   if (serverIds.length === 0) return;
 
-  const scope = session ? serverTeamWhere(session, "connect") : {};
+  const scope = session ? serverTeamWhere(session, "connect") : liveCustomerRowsWhere();
   const servers = await db.server.findMany({
     where: { id: { in: serverIds }, ...scope },
     select: { id: true },
@@ -236,7 +236,7 @@ function narrowPlaybookRun(row: RawPlaybookRun, triggerContext = row.triggerCont
 }
 
 export async function listPlaybooks(session?: TeamSession, page?: { after?: string; take: number }) {
-  const where = session ? activeCustomerTeamWhere(session) : {};
+  const where = session ? activeCustomerTeamWhere(session) : liveCustomerRowsWhere();
   const rows = await prisma.playbook.findMany({
     where: { ...where, ...(page?.after ? { id: { lt: page.after } } : {}) },
     orderBy: page ? { id: "desc" } : [{ createdAt: "desc" }, { id: "desc" }],
@@ -250,9 +250,8 @@ async function getPlaybookDefinition(
   id: string,
   session?: TeamSession | null,
 ) {
-  const row = session
-    ? await prisma.playbook.findFirst({ where: { id, ...activeCustomerTeamWhere(session) }, include: { creator: { select: creatorSelect } } })
-    : await prisma.playbook.findUnique({ where: { id }, include: { creator: { select: creatorSelect } } });
+  const where = session ? activeCustomerTeamWhere(session) : liveCustomerRowsWhere();
+  const row = await prisma.playbook.findFirst({ where: { id, ...where }, include: { creator: { select: creatorSelect } } });
   return row ? narrowPlaybook(row) : null;
 }
 
@@ -283,20 +282,23 @@ export async function createPlaybook(
     ? computeNextPlaybookCronRun(triggerConfig.expression)
     : null;
   const teamData = session ? teamCreateData(session) : {};
-  const row = await prisma.playbook.create({
-    data: {
-      name: input.name,
-      description: input.description ?? null,
-      triggerType: input.triggerType,
-      triggerConfig: toJsonValue(triggerConfig),
-      steps: toJsonValue(input.steps),
-      chainRetry: input.chainRetry,
-      enabled: input.enabled,
-      nextRunAt,
-      createdById,
-      ...teamData,
-    },
-    include: { creator: { select: creatorSelect } },
+  const row = await prisma.$transaction(async tx => {
+    if (teamData.teamId) await lockLiveCustomer(tx, teamData.teamId);
+    return tx.playbook.create({
+      data: {
+        name: input.name,
+        description: input.description ?? null,
+        triggerType: input.triggerType,
+        triggerConfig: toJsonValue(triggerConfig),
+        steps: toJsonValue(input.steps),
+        chainRetry: input.chainRetry,
+        enabled: input.enabled,
+        nextRunAt,
+        createdById,
+        ...teamData,
+      },
+      include: { creator: { select: creatorSelect } },
+    });
   });
   const narrowed = narrowPlaybook(row);
   // Stamp the customer: an audit row left at `teamId: null` is treated as
@@ -330,17 +332,15 @@ async function hasAutomaticTrigger(db: Prisma.TransactionClient, id: string, tri
   return Boolean(await db.alertRule.findFirst({ where: { playbookIds: { has: id } }, select: { id: true } }));
 }
 
-async function updatePlaybookWithoutRunPermission(where: Prisma.PlaybookWhereInput, data: Prisma.PlaybookUncheckedUpdateManyInput) {
+async function updatePlaybookWithoutRunPermission(tx: Prisma.TransactionClient, where: Prisma.PlaybookWhereInput, data: Prisma.PlaybookUncheckedUpdateManyInput) {
   // Legacy importers can write without the lifecycle lock. Recheck unattended triggers
   // on the same serializable snapshot as the restricted edit.
-  return prisma.$transaction(async (tx) => {
-    const current = await tx.playbook.findFirst({ where, select: { id: true, enabled: true, triggerType: true } });
-    if (!current) throw new NotFoundError(t("backend.playbook.notFound"));
-    if (current.enabled && await hasAutomaticTrigger(tx, current.id, current.triggerType)) {
-      throw new ForbiddenError(t("backend.playbook.triggerChangeRequiresRun"));
-    }
-    return tx.playbook.updateMany({ where, data });
-  }, { isolationLevel: "Serializable" });
+  const current = await tx.playbook.findFirst({ where, select: { id: true, enabled: true, triggerType: true } });
+  if (!current) throw new NotFoundError(t("backend.playbook.notFound"));
+  if (current.enabled && await hasAutomaticTrigger(tx, current.id, current.triggerType)) {
+    throw new ForbiddenError(t("backend.playbook.triggerChangeRequiresRun"));
+  }
+  return tx.playbook.updateMany({ where, data });
 }
 
 export async function updatePlaybook(
@@ -408,10 +408,11 @@ export async function updatePlaybook(
         : null;
     }
     if (triggerChanged) data.metricMatchState = Prisma.DbNull;
-    const where = { id, ...(session ? activeCustomerTeamWhere(session) : {}), teamId: existing.teamId, updatedAt: existing.updatedAt };
-    const updated = lacksRun
-      ? await updatePlaybookWithoutRunPermission(where, data)
-      : await prisma.playbook.updateMany({ where, data });
+    const where = { id, ...(session ? activeCustomerTeamWhere(session) : liveCustomerRowsWhere()), teamId: existing.teamId, updatedAt: existing.updatedAt };
+    const updated = await prisma.$transaction(async tx => {
+      if (existing.teamId) await lockLiveCustomer(tx, existing.teamId);
+      return lacksRun ? updatePlaybookWithoutRunPermission(tx, where, data) : tx.playbook.updateMany({ where, data });
+    }, { isolationLevel: "Serializable" });
     if (updated.count === 0) throw new NotFoundError(t("backend.playbook.notFound"));
     const row = await getPlaybookDefinition(id, session);
     if (!row || row.teamId !== existing.teamId) throw new NotFoundError(t("backend.playbook.notFound"));
@@ -457,9 +458,10 @@ export async function deletePlaybook(
   let auditTeamId: string | null;
   try {
     auditTeamId = await prisma.$transaction(async (tx) => {
-      const where = { id, ...(session ? activeCustomerTeamWhere(session) : {}) };
+      const where = { id, ...(session ? activeCustomerTeamWhere(session) : liveCustomerRowsWhere()) };
       const existing = await tx.playbook.findFirst({ where, select: { teamId: true } });
       if (!existing) throw new NotFoundError(t("backend.playbook.notFound"));
+      if (existing.teamId) await lockLiveCustomer(tx, existing.teamId);
       await reconcileTerminalPlaybookJobs(tx, { playbookId: id });
       const activeRun = await tx.playbookRun.findFirst({
         where: { playbookId: id, status: { in: ["queued", "running"] } }, select: { id: true },
@@ -508,7 +510,7 @@ export async function listPlaybookRuns(
     if (!playbook) throw new NotFoundError(t("backend.playbook.notFound"));
   }
   const rows = await prisma.playbookRun.findMany({
-    where: { playbookId, ...(session ? playbookTeamWhere(session) : {}) },
+    where: { playbookId, ...(session ? playbookTeamWhere(session) : liveCustomerRowsWhere()), playbook: session ? playbookTeamWhere(session) : liveCustomerRowsWhere() },
     orderBy: { createdAt: "desc" },
     take: 50,
   });
@@ -537,13 +539,13 @@ export async function listRecentPlaybookRunsForPlaybooks(
       FROM playbook_runs
       WHERE "playbookId" = ANY(${playbookIds}::text[])
         AND EXISTS (SELECT 1 FROM playbooks p WHERE p.id = playbook_runs."playbookId" AND p."teamId" IS NOT DISTINCT FROM playbook_runs."teamId")
-        ${session ? Prisma.sql`AND ${rawTeamScope(session, Prisma.sql`playbook_runs."teamId"`)}` : Prisma.empty}
+        ${session ? Prisma.sql`AND ${rawActiveCustomerScope(session, Prisma.sql`playbook_runs."teamId"`)}` : Prisma.sql`AND NOT EXISTS (SELECT 1 FROM teams t WHERE t.id = playbook_runs."teamId" AND t."deletedAt" IS NOT NULL)`}
     ) ranked
     WHERE position <= ${perPlaybook}`;
   const rows = await prisma.playbookRun.findMany({
     where: {
       id: { in: ranked.map((row) => row.id) },
-      ...(session ? playbookTeamWhere(session) : {}),
+      ...(session ? playbookTeamWhere(session) : liveCustomerRowsWhere()),
     },
     orderBy: [{ createdAt: "desc" }, { id: "desc" }],
   });
@@ -572,7 +574,7 @@ export async function runPlaybook(input: {
   // caller's current one (a platform administrator can queue across customers).
   let auditTeamId: string | null = null;
   try {
-    const scope = input.session ? playbookTeamWhere(input.session) : {};
+    const scope = input.session ? playbookTeamWhere(input.session) : liveCustomerRowsWhere();
     const playbook = await prisma.playbook.findFirst({
       where: { id: input.playbookId, ...scope },
     });

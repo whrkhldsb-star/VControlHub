@@ -64,7 +64,7 @@ describe("Windows rejects Linux-only operations before side effects", () => {
   it("rejects compose CLI even when an earlier engine listing succeeded", async () => {
     mocks.dockerRequest.mockResolvedValue({ result: { ok: true, status: 200, data: [{
       Id: "container", Names: ["/site-web-1"], State: "running", Status: "Up", Image: "nginx",
-      Labels: { "com.docker.compose.project": "site", "com.docker.compose.service": "web" },
+      Labels: { "com.docker.compose.project": "site", "com.docker.compose.service": "web", "com.docker.compose.project.config_files": "/srv/site/compose.yml" },
     }] }, scope: { scope: "remote-vps", serverId: "win" } });
     await expect(runComposeProjectAction({ project: "site", action: "up", serverId: "win" }))
       .rejects.toThrow(/Linux/);

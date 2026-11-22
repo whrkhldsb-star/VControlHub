@@ -279,7 +279,8 @@ export function scanCallSites(files: string[]): CallSite[] {
   // `permission: "perm:key"` (no leading word boundary — `:` and `"` are
   // both non-word, so `\b` would never match between them).
   const permArgRe = /permission:\s*"([a-z][a-z0-9_-]*(?::[a-z0-9_-]+)+)"/g;
-  const permissionsArgRe = /permissions:\s*\[([\s\S]*?)\]/g;
+  // Bearer authentication intersects optional scopes with the token before projecting its session.
+  const permissionsArgRe = /\b(?:permissions|optionalTokenPermissions):\s*\[([\s\S]*?)\]/g;
   const permissionLiteralRe = /"([a-z][a-z0-9_-]*(?::[a-z0-9_-]+)+)"/g;
 
   for (const file of files) {

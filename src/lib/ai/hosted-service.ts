@@ -1,3 +1,4 @@
+import { createdBeforeCursor } from "@/lib/http/page-cursor";
 /**
  * AI 托管服务 — 处理 AI 发起的 VPS 操作
  *
@@ -304,7 +305,7 @@ export async function executeSafeAction(
       result = await executeCommandWithAgent({
         serverId: server.id, command, timeoutMs: 60_000,
         signal: context?.signal,
-        expectedIdentity: { tokenHash: server.agentTokenHash, teamId: action.teamId },
+        expectedIdentity: { tokenHash: server.agentTokenHash, teamId: action.teamId, endpoint: server },
       });
     }
     if (!result) {
@@ -894,14 +895,31 @@ export async function rejectHostedAction(actionId: string, actor: HostedActionSe
 
 // ── 获取待审批操作 ────────────────────────────────────────
 
-export async function getPendingActions(session: HostedActionSession) {
+function pendingActionScope(session: HostedActionSession) {
+  return { status: "PENDING_APPROVAL" as const, requesterId: session.userId,
+    conversation: { teamId: session.currentTeamId ?? null }, ...teamWhere(sessionForTeamScope(session)!) };
+}
+
+export async function getPendingActions(session: HostedActionSession, page?: { after?: string; take: number }) {
+  const scope = pendingActionScope(session);
   const actions = await prisma.aiHostedAction.findMany({
-    where: { status: "PENDING_APPROVAL", requesterId: session.userId, conversation: { teamId: session.currentTeamId ?? null }, ...teamWhere(sessionForTeamScope(session)!) },
+    where: page?.after ? { AND: [scope, createdBeforeCursor(page.after)] } : scope,
     include: { message: true },
-    orderBy: { createdAt: "desc" },
-    take: 200,
+    orderBy: [{ createdAt: "desc" }, { id: "desc" }],
+    take: page?.take ?? 200,
   });
   return actions.map(withHostedServerSnapshot);
+}
+
+export async function getPendingActionPage(session: HostedActionSession, after?: string) {
+  const take = 20;
+  const [rows, total] = await Promise.all([
+    getPendingActions(session, { after, take: take + 1 }),
+    prisma.aiHostedAction.count({ where: pendingActionScope(session) }),
+  ]);
+  const last = rows[take - 1];
+  return { actions: rows.slice(0, take), total,
+    nextCursor: rows.length > take && last ? last.createdAt.getTime() + "." + last.id : null };
 }
 
 /** Hold the saved definition stable from target comparison until its worker snapshot commits. */

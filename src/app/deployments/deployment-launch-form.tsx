@@ -10,6 +10,7 @@ import { getErrorMessage } from "@/lib/http/error-message";
 import { ActionButton, ButtonLink } from "@/components/action-button";
 import { Notice } from "@/components/ui-primitives";
 import { Disclosure } from "@/components/ui/disclosure";
+import { ServerTargetPicker, type ServerTarget } from "@/app/servers/server-target-picker";
 import { randomId } from "@/lib/ui/random-id";
 
 type DeploymentTemplateOption = {
@@ -18,15 +19,6 @@ type DeploymentTemplateOption = {
 	description?: string | null;
 	command: string;
 	variables?: string[];
-};
-
-type DeploymentServerOption = {
-	id: string;
-	name: string;
-	host: string;
-	username: string;
-	available?: boolean;
-	unavailableReason?: string;
 };
 
 function uniqueVariables(template?: DeploymentTemplateOption) {
@@ -41,10 +33,12 @@ function previewCommand(template: DeploymentTemplateOption | undefined, variable
 	return variables.reduce((command, name) => command.replaceAll(`{{${name}}}`, `<${name}>`), template.command);
 }
 
-export function DeploymentLaunchForm({ templates, servers }: { templates: DeploymentTemplateOption[]; servers: DeploymentServerOption[] }) {
+export function DeploymentLaunchForm({ templates }: { templates: DeploymentTemplateOption[] }) {
 	const { t } = useI18n();
 	const router = useRouter();
 	const { addToast } = useToast();
+	const [enabledCount, setEnabledCount] = useState<number | null>(null);
+	const [selected, setSelected] = useState<ServerTarget[]>([]);
 	const [templateId, setTemplateId] = useState(templates[0]?.id ?? "");
 	const [pending, setPending] = useState(false);
 	const [error, setError] = useState<string | null>(null);
@@ -60,14 +54,12 @@ export function DeploymentLaunchForm({ templates, servers }: { templates: Deploy
 		);
 	}
 
-	if (servers.length === 0) {
-		return (
-			<Notice tone="warning" title={t("deploymentsPage.launch.noVpsTitle")} className="mt-4">
-				<p className="text-xs">{t("deploymentsPage.launch.noVpsDesc")}</p>
-				<ButtonLink href="/servers" size="sm" variant="warning" className="mt-3">{t("deploymentsPage.launch.addVps")}</ButtonLink>
-			</Notice>
-		);
-	}
+	if (enabledCount === 0) return (
+		<Notice tone="warning" title={t("deploymentsPage.launch.noVpsTitle")} className="mt-4">
+			<p>{t("deploymentsPage.launch.noVpsDesc")}</p>
+			<ButtonLink href="/servers" size="sm" variant="warning">{t("deploymentsPage.launch.addVps")}</ButtonLink>
+		</Notice>
+	);
 
 	async function handleSubmit(e: React.FormEvent<HTMLFormElement>) {
 		e.preventDefault();
@@ -81,7 +73,7 @@ export function DeploymentLaunchForm({ templates, servers }: { templates: Deploy
 				const val = String(fd.get(`variables.${name}`) ||"").trim();
 				vars[name] = val;
 			}
-			const serverIds = fd.getAll("serverIds").map(String).filter(Boolean);
+			const serverIds = selected.map(row => row.id);
 			if (serverIds.length === 0) {
 				setError(t("deploymentsPage.launch.noServerSelected"));
 				setPending(false);
@@ -103,6 +95,7 @@ export function DeploymentLaunchForm({ templates, servers }: { templates: Deploy
 			lastRequest.current = null;
 			addToast("success", t("deploymentsPage.launch.toast.success"));
 			form.reset();
+			setSelected([]);
 			setTemplateId(templates[0]?.id ?? "");
 			router.refresh();
 		} catch (err) {
@@ -160,19 +153,12 @@ export function DeploymentLaunchForm({ templates, servers }: { templates: Deploy
 					<h3 className="ui-title-group shrink-0">{t("deploymentsPage.launch.targetVpsTitle")}</h3>
 					<span className="text-xs text-[var(--text-muted)]">{t("deploymentsPage.launch.targetVpsHint")}</span>
 				</div>
-				<div className="grid gap-2 md:grid-cols-2">
-					{servers.map((server) => (
-						<label key={server.id} data-tile="" className={`flex items-start gap-2 px-3 py-2 text-xs text-[var(--text-secondary)] ${server.available === false ? "cursor-not-allowed opacity-60" : "cursor-pointer"}`}>
-							<input type="checkbox" name="serverIds" value={server.id} disabled={server.available === false} className="mt-0.5" />
-							<span>{server.name} · {server.username}@{server.host}{server.unavailableReason ? <span className="mt-1 block text-[var(--danger)]">{server.unavailableReason}</span> : null}</span>
-						</label>
-					))}
-				</div>
+				<ServerTargetPicker kind="deployment" selected={selected} onChange={setSelected} onEnabledCount={setEnabledCount} />
 			</div>
 
-			<Disclosure variant="inset" title={t("deploymentsPage.launch.previewCommand")}>
+			{selectedTemplate?.command && <Disclosure variant="inset" title={t("deploymentsPage.launch.previewCommand")}>
 				<code className="ui-mono block max-h-40 overflow-auto whitespace-pre-wrap rounded-md bg-[var(--surface-elevated)] p-3 text-xs text-[var(--text-secondary)]">{previewCommand(selectedTemplate, variables, t)}</code>
-			</Disclosure>
+			</Disclosure>}
 
 			{error && <Notice tone="danger" compact>{error}</Notice>}
 			<ActionButton type="submit" variant="primary" disabled={pending} className="w-fit">{pending ? t("deploymentsPage.launch.submitting") : t("deploymentsPage.launch.submit")}</ActionButton>

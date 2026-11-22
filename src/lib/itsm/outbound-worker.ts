@@ -49,7 +49,8 @@ export async function runItsmOutboundWorkerOnce(): Promise<boolean> {
           if (payload && typeof payload === "object" && !Array.isArray(payload) && typeof payload.eventId === "string") {
             return deliverQueuedEvent(payload.eventId);
           }
-          await adoptLegacyTicketJobs(readTicketSnapshot(payload).ticketId);
+          const review = await adoptLegacyTicketJobs(readTicketSnapshot(payload).ticketId, job.id);
+          if (review.length) throw new Error(`Platform ownership review required for ITSM receipts: ${review.join(", ")}`);
           return { sent: 0, failed: 0 };
         },
       });

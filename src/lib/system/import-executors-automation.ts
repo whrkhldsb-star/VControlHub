@@ -1,3 +1,5 @@
+import { lockAlertPlaybookBindings } from "@/lib/alert/service";
+import { canReceivePlaybookNotification } from "@/lib/playbook/notification-recipient";
 /**
  * TR-042: 系统配置导入服务 — 自动化域导入模块。
  *
@@ -141,12 +143,15 @@ export function playbookStepReferences(records: ImportedPlaybooks) {
   };
 }
 
-export function scopedPlaybooks(records: ImportedPlaybooks, servers: ReadonlyMap<string, { teamId: string | null }>, users: ReadonlyMap<string, { teamId: string | null }>) {
+export function scopedPlaybooks(records: ImportedPlaybooks, servers: ReadonlyMap<string, { teamId: string | null }>, users: ReadonlyMap<string, { teamId: string | null; isAdmin: boolean }>) {
   return records.filter((row) => {
     const inScope = (owner: { teamId: string | null } | undefined) => !!owner && (!row.teamId || owner.teamId === row.teamId);
     return row.steps.every((step) => {
       if (step.type === "run_command") return step.config.serverIds.every((id) => inScope(servers.get(id)));
-      if (step.type === "send_notification") return inScope(users.get(step.config.recipientUserId));
+      if (step.type === "send_notification") {
+        const user = users.get(step.config.recipientUserId);
+        return row.teamId ? inScope(user) : user?.isAdmin === true;
+      }
       return true;
     });
   });
@@ -166,7 +171,15 @@ export async function importPlaybooks(
     loadImportReferences(serverIds, (ids) => tx.server.findMany({ where: { id: { in: ids } }, select: { id: true, teamId: true } })).then(byId),
     loadGrantUserScopes(tx, recipientIds),
   ]);
-  const records = scopedPlaybooks(parsed, servers, users);
+  const records: ImportedPlaybooks = [];
+  for (const row of scopedPlaybooks(parsed, servers, users)) {
+    const recipients = new Set(playbookStepReferences([row]).recipientIds);
+    let allowed = true;
+    for (const id of recipients) {
+      if (!await canReceivePlaybookNotification(id, row.teamId ?? null, tx)) { allowed = false; break; }
+    }
+    if (allowed) records.push(row);
+  }
   counts.skipped += parsed.length - records.length;
   const creator = await creatorResolver(tx, records.map((r) => r.createdById));
   const toData = (r: (typeof records)[number], previous?: Prisma.JsonValue) => {
@@ -256,6 +269,11 @@ export async function importAlertRules(
     teamId: r.teamId ?? null,
   });
   const records = t.alertRules;
+  if (!records.length) return;
+  const existing = options.overwriteExisting ? await tx.alertRule.findMany({
+    where: { id: { in: records.map(row => row.id) } }, select: { playbookIds: true },
+  }) : [];
+  await lockAlertPlaybookBindings(tx, [...records, ...existing].flatMap(row => row.playbookIds ?? []));
   const [servers, playbooks, users] = await Promise.all([
     loadImportReferences(records.flatMap((r) => r.serverIds), (ids) => tx.server.findMany({
       where: { id: { in: ids } }, select: { id: true, teamId: true },

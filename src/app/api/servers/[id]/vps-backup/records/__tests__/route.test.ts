@@ -6,6 +6,7 @@ const mocks = vi.hoisted(() => ({
 	enqueueJob: vi.fn(),
 }));
 
+vi.mock("@/lib/concurrency/advisory-lock", () => ({ acquireAdvisoryLock: async () => async () => undefined }));
 vi.mock("@/lib/auth/api-session", () => ({
 	requireApiSession: vi.fn(async () => ({ userId: "u1", username: "admin", roles: ["admin"], currentTeamId: "team_1" })),
 	isSessionPayload: (value: unknown) => Boolean(value && typeof value === "object" && "userId" in value),

@@ -15,7 +15,7 @@ vi.mock("@/lib/auth/require-session", () => ({
     userId: "u1",
     username: "admin",
     roles: ["viewer"],
-    permissions: ["deploy:read", "deploy:run", "deploy:export", "server:read"],
+    permissions: ["deploy:read", "deploy:run", "deploy:export", "server:read", "command:read"],
     currentTeamId: "team-a",
     mustChangePassword: false,
   }),
@@ -24,7 +24,7 @@ vi.mock("@/lib/auth/require-session", () => ({
 vi.mock("@/lib/auth/authorization", () => ({
   sessionHasPermission: vi.fn((_session, permission: string) => {
     if (permission === "team:manage") return false;
-    return ["deploy:read", "deploy:run", "deploy:export", "server:read"].includes(permission);
+    return ["deploy:read", "deploy:run", "deploy:export", "server:read", "command:read"].includes(permission);
   }),
 }));
 
@@ -52,24 +52,15 @@ vi.mock("@/lib/deployment/service", () => ({
   ]),
 }));
 
-vi.mock("@/lib/db", () => ({
-  prisma: {
-    server: {
-      findMany: vi.fn().mockResolvedValue([
-        { id: "srv1", name: "生产 VPS", host: "203.0.113.10", username: "root" },
-      ]),
-    },
-  },
-}));
+const { loadTargets } = vi.hoisted(() => ({ loadTargets: vi.fn() }));
+vi.mock("@/app/servers/inventory-actions", () => ({ loadServerOperationTargets: loadTargets }));
 
 import { csrfFetch } from "@/lib/auth/csrf-client";
 import { listDeploymentRuns } from "@/lib/deployment/service";
-import { prisma } from "@/lib/db";
 import DeploymentsPage from "../page";
 
 const csrfFetchMock = vi.mocked(csrfFetch);
 const listDeploymentRunsMock = vi.mocked(listDeploymentRuns);
-const serverFindManyMock = vi.mocked(prisma.server.findMany);
 
 const wrap = (ui: React.ReactNode) =>
   render(
@@ -93,6 +84,7 @@ const sampleExport = {
 
 describe("DeploymentsPage deploy-export panel", () => {
   beforeEach(() => {
+    loadTargets.mockReset().mockResolvedValue({ rows: [], total: 0, enabledCount: 0, page: 1, pageSize: 24 });
     csrfFetchMock.mockReset();
     csrfFetchMock.mockResolvedValue(sampleExport);
     listDeploymentRunsMock.mockReset();
@@ -138,40 +130,9 @@ describe("DeploymentsPage deploy-export panel", () => {
     );
   });
 
-  it("bounds enabled target server hydration for the deployment form to team scope", async () => {
+  it("loads deployment targets through the paginated server action", async () => {
     wrap(await DeploymentsPage({ searchParams: Promise.resolve({}) }));
-
-    // Strict `serverTeamWhere`, not the loose filter: a null-team server is
-    // quarantined legacy data and must not be offered as a deployment target.
-    expect(serverFindManyMock).toHaveBeenCalledWith(expect.objectContaining({
-      where: {
-        enabled: true,
-        AND: [
-          { teamId: "team-a" },
-          expect.objectContaining({ OR: expect.any(Array) }),
-        ],
-      },
-      orderBy: { createdAt: "desc" },
-      take: 200,
-      select: {
-        id: true,
-        name: true,
-        host: true,
-        username: true,
-        operatingSystem: true,
-        onboardingStatus: true,
-        managementMode: true,
-        agentLastSeenAt: true,
-        connectionType: true,
-        password: true,
-        sshKeyId: true,
-        metricSnapshots: {
-          select: { isOnline: true, createdAt: true },
-          orderBy: { createdAt: "desc" },
-          take: 1,
-        },
-      },
-    }));
+    await waitFor(() => expect(loadTargets).toHaveBeenCalledWith("deployment", { query: "", page: 1 }));
   });
 
   it("collapses repeated guidance and links a pending deployment to its approval record", async () => {
@@ -198,6 +159,8 @@ describe("DeploymentsPage deploy-export panel", () => {
     for (const link of screen.getAllByRole("link", { name: "查看审批与执行记录" })) {
       expect(link).toHaveAttribute("href", "/requests#command-req-1");
     }
+    expect(screen.queryByText("cd /srv/app && docker compose up -d")).toBeNull();
+    expect(screen.queryByRole("button", { name: "按此记录重发" })).toBeNull();
     // Every status pill on the page comes from the shared badge, not a hand-rolled span.
     expect(screen.getAllByText("等待审批").every((pill) => pill.hasAttribute("data-status-badge"))).toBe(true);
   });
@@ -211,6 +174,7 @@ describe("DeploymentsPage deploy-export panel", () => {
       id: "run-1",
       templateId: "tmpl1",
       template: { name },
+      createdBy: "u1",
       serverIds: ["srv1"],
       createdAt: new Date("2026-08-09T01:00:00.000Z"),
       status: "FAILED",

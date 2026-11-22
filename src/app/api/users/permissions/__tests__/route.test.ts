@@ -1,3 +1,4 @@
+import { encodePageCursor } from "@/lib/http/page-cursor";
 import { permissionVersion } from "../route-patch";
 import { beforeEach, describe, expect, it, vi } from "vitest";
 
@@ -9,7 +10,6 @@ const { mocks } = vi.hoisted(() => ({
     withAccountPermissionChange: vi.fn(),
     setAccountType: vi.fn(),
     listIdentityTemplates: vi.fn(),
-    getStorageAccessUsage: vi.fn(),
     parseNullableBigIntInput: vi.fn((v) => v ?? null),
     prisma: {
       user: { findUnique: vi.fn() },
@@ -19,7 +19,7 @@ const { mocks } = vi.hoisted(() => ({
       server: { findMany: vi.fn() },
       userServerAccess: { deleteMany: vi.fn(), createMany: vi.fn() },
       userStorageAccess: { deleteMany: vi.fn(), createMany: vi.fn() },
-      $transaction: vi.fn(),
+      $transaction: vi.fn(), $queryRaw: vi.fn(),
     },
   },
 }));
@@ -30,7 +30,6 @@ vi.mock("@/lib/audit/service", () => ({ writeAuditLog: mocks.auditUserAction }))
 vi.mock("@/lib/user/account-type", () => ({ withAccountPermissionChange: mocks.withAccountPermissionChange }));
 vi.mock("@/lib/auth/identity-template-service", () => ({ identityTemplateOptions: mocks.listIdentityTemplates }));
 vi.mock("@/lib/storage/access-control", () => ({
-  getStorageAccessUsage: mocks.getStorageAccessUsage,
   parseNullableBigIntInput: mocks.parseNullableBigIntInput,
   releaseStorageQuotaGuard: vi.fn(async () => undefined),
 }));
@@ -55,7 +54,7 @@ describe("/api/users/permissions", () => {
     vi.clearAllMocks();
     mocks.requireApiPermission.mockResolvedValue({ session: admin });
     mocks.requireApiSession.mockResolvedValue(admin);
-    mocks.getStorageAccessUsage.mockResolvedValue(BigInt(0));
+    mocks.prisma.$queryRaw.mockResolvedValue([{ id: "team-a", bytes: "123" }]);
     mocks.listIdentityTemplates.mockResolvedValue({ nextCursor: null, items: [
       { id: "identity:operator", name: "客户运维", isBuiltin: true, permissions: ["server:read", "server:ssh"] },
     ] });
@@ -110,10 +109,10 @@ describe("/api/users/permissions", () => {
   });
 
   it("returns a stable next page and resolves an assigned resource by id within its customer", async () => {
-    mocks.prisma.server.findMany.mockResolvedValueOnce([{ id: "a" }, { id: "b" }]);
+    mocks.prisma.server.findMany.mockResolvedValueOnce([{ id: "a", name: "web" }, { id: "b", name: "web" }]);
     const first = await (await route.GET(new Request("http://local/api/users/permissions?userId=user1&pageSize=1&search=web"))).json();
-    expect(first.servers).toEqual([{ id: "a" }]);
-    expect(first.nextCursor.servers).toBe("a");
+    expect(first.servers).toEqual([{ id: "a", name: "web" }]);
+    expect(first.nextCursor.servers).toBe(encodePageCursor({ id: "a", name: "web" }));
     expect(mocks.prisma.server.findMany).toHaveBeenLastCalledWith(expect.objectContaining({ take: 2,
       where: { teamId: "team-a", team: { deletedAt: null }, name: { contains: "web", mode: "insensitive" } } }));
     mocks.prisma.user.findUnique.mockResolvedValue({ ...initialAccount, serverAccess: [{ serverId: "z", canRead: false }] });
@@ -137,12 +136,13 @@ describe("/api/users/permissions", () => {
     expect(body.storageNodes).toEqual([{ id: "node-a" }]);
     expect(body.user.serverAccess).toEqual([serverGrant("team-a")]);
     expect(body.user.storageAccess.map((row: { storageNodeId: string }) => row.storageNodeId)).toEqual(["team-a"]);
-    expect(mocks.getStorageAccessUsage).toHaveBeenCalledTimes(1);
+    expect(mocks.prisma.$queryRaw).toHaveBeenCalledTimes(1);
+    expect(body.user.storageAccess[0].usedBytes).toBe("123");
   });
 
   it("browses a single picker without loading grants, usage, customers or the other option lists", async () => {
     mocks.prisma.server.findMany.mockResolvedValueOnce([{ id: "s2" }]);
-    const url = "http://local/api/users/permissions?userId=user1&resource=servers&serverAfter=s1&search=ops&pageSize=1";
+    const url = "http://local/api/users/permissions?userId=user1&resource=servers&serverAfter=" + encodePageCursor({ name: "one", id: "s1" }) + "&search=ops&pageSize=1";
     const body = await (await route.GET(new Request(url))).json();
     expect(body.servers).toEqual([{ id: "s2" }]);
     expect(body).not.toHaveProperty("user");
@@ -150,19 +150,18 @@ describe("/api/users/permissions", () => {
     expect(select).not.toHaveProperty("serverAccess");
     expect(select).not.toHaveProperty("storageAccess");
     expect(mocks.prisma.server.findMany).toHaveBeenCalledWith(expect.objectContaining({
-      where: { teamId: "team-a", team: { deletedAt: null }, name: { contains: "ops", mode: "insensitive" } },
-      cursor: { id: "s1", teamId: "team-a" }, skip: 1, take: 2,
+      where: { teamId: "team-a", team: { deletedAt: null }, name: { contains: "ops", mode: "insensitive" }, OR: [{ name: { gt: "one" } }, { name: "one", id: { gt: "s1" } }] }, take: 2,
     }));
     expect(mocks.prisma.storageNode.findMany).not.toHaveBeenCalled();
     expect(mocks.prisma.team.findMany).not.toHaveBeenCalled();
     expect(mocks.listIdentityTemplates).not.toHaveBeenCalled();
-    expect(mocks.getStorageAccessUsage).not.toHaveBeenCalled();
+    expect(mocks.prisma.$queryRaw).not.toHaveBeenCalled();
   });
 
   it("PATCH changes the account type through the account service", async () => {
     const res = await patch({ userId: "user1", account: { type: "customer", teamId: "team-b", identityTemplateId: "identity:files" } });
     expect(res.status).toBe(200);
-    expect(mocks.withAccountPermissionChange).toHaveBeenCalledWith("user1", admin, expect.any(Function));
+    expect(mocks.withAccountPermissionChange).toHaveBeenCalledWith("user1", admin, expect.any(Function), undefined, "team-b");
     expect(mocks.setAccountType).toHaveBeenCalledWith({ type: "customer", teamId: "team-b", identityTemplateId: "identity:files" });
   });
 

@@ -26,7 +26,7 @@ describe.skipIf(!process.env.TEST_REDIS_URL)("security-setting failure budget ac
   afterAll(async () => {
     try {
       const client = [...clients].find(opened => opened.isOpen);
-      await client?.del(["rl:ts:" + key, "rl:lockout:" + key]);
+      await client?.del(["rl:challenge:" + key, "rl:lockout:" + key]);
     } finally {
       for (const client of clients) if (client.isOpen) client.destroy();
       vi.unstubAllEnvs();
@@ -41,9 +41,17 @@ describe.skipIf(!process.env.TEST_REDIS_URL)("security-setting failure budget ac
     const first = await import("../security-challenge-budget");
     vi.resetModules();
     const second = await import("../security-challenge-budget");
-    const verify = vi.fn(async () => false);
-    await Promise.allSettled([first, second, first, second, first].map(instance =>
+    const finish = Promise.withResolvers<boolean>();
+    const verify = vi.fn(() => finish.promise);
+    const running = Promise.allSettled([first, second, first, second, first].map(instance =>
       instance.checkSecurityChallenge(account, verify, Boolean)));
+    try {
+      await vi.waitFor(() => expect(verify).toHaveBeenCalledTimes(5));
+      await expect(second.checkSecurityChallenge(account, verify, Boolean)).rejects.toMatchObject({ status: 429 });
+    } finally {
+      finish.resolve(false);
+      await running;
+    }
     expect(clients.size).toBe(2);
     expect(verify).toHaveBeenCalledTimes(5);
     verify.mockClear().mockResolvedValue(true);

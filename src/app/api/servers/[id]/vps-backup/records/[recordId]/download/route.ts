@@ -1,3 +1,6 @@
+import { sessionHasPermission } from "@/lib/auth/authorization";
+import { ForbiddenError } from "@/lib/errors";
+import { withServerLifecycleLock } from "@/lib/server/lifecycle-lock";
 import { offsiteDestination } from "@/lib/storage/offsite/destination";
 import { apiCopy } from "@/lib/i18n/api-copy";
 /**
@@ -73,12 +76,11 @@ export async function GET(
 	const { id: serverId, recordId } = await params;
 	return withApiRoute(
 		request,
-		// server:ssh, the permission that already lets the user read this VPS's files. backup:read
-		// is platform-only (Hub database backups), so it would lock every customer out (A9-08).
-		{ permission: "server:ssh", rateLimit: GENERAL_WRITE_LIMIT },
-		async ({ session }) => {
+		{ permission: "server:ssh", optionalTokenPermissions: ["server:sftp:unrestricted"], rateLimit: GENERAL_WRITE_LIMIT },
+		async ({ session }) => withServerLifecycleLock(serverId, async () => {
 			const locale = await getServerLocale();
 
+			if (!sessionHasPermission(session, "server:sftp:unrestricted")) throw new ForbiddenError();
 			const teamAccess = await assertServerTeamAccess(session, serverId, "fileRead");
 			if (!teamAccess.ok) return teamAccess.response;
 
@@ -104,9 +106,10 @@ export async function GET(
 
 			// Primary: stream the local copy.
 			try {
-				const { createReadStream, statSync } = await import("node:fs");
-				const stat = statSync(absPath);
-				const stream = createReadStream(absPath);
+				const { open } = await import("node:fs/promises");
+				const file = await open(absPath, "r");
+				const stat = await file.stat().catch(async error => { await file.close(); throw error; });
+				const stream = file.createReadStream();
 
 				// nodeStreamToWeb wires cancel() → stream.destroy() so client aborts
 				// free the fd instead of reading to EOF (cast-as-WebStream does not).
@@ -130,6 +133,6 @@ export async function GET(
 				logger.error("Failed to stream VPS backup file (no offsite fallback)", { error: err, recordId });
 				throw new NotFoundError(t("vpsBackupApi.errorFileNotFound", locale));
 			}
-		},
+		}),
 	);
 }

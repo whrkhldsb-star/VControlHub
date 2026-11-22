@@ -190,6 +190,24 @@ describe.skipIf(process.env.RUN_DATABASE_INTEGRATION_TESTS !== "1")("ITSM outbou
 		}
 	});
 
+	it("retains a failed unbound destination until a platform reviewer restores its delivery", async () => {
+		const ticket = await prisma.ticket.create({ data: { ...snapshot(prefix + "-review"), createdBy: prefix } });
+		const payload = { ...snapshot(ticket.id), ticketId: ticket.id, eventType: "ticket.updated" };
+		const job = await prisma.job.create({ data: { teamId: prefix, type: "itsm.outbound", title: "legacy", payload } });
+		const receipt = await prisma.itsmEvent.create({ data: { ticketId: ticket.id, externalId: job.id, connectionId: prefix + "-zz-out",
+			teamId: null, ownerBound: false, direction: "outbound", eventType: payload.eventType, status: "error" } });
+		expect(await adoptLegacyTicketJobs(ticket.id, job.id)).toEqual([receipt.id]);
+		expect(await queued(receipt.id)).toBe(0);
+		await append(ticket.id, "ticket.comment", "OPEN", "later");
+		const later = await prisma.itsmEvent.findFirstOrThrow({ where: { ticketId: ticket.id, eventType: "ticket.comment" } });
+		expect(await queued(later.id)).toBe(0);
+		await expect(reconcileDelivery(session, receipt.id, false)).rejects.toMatchObject({ status: 404 });
+		await reconcileDelivery({ ...session, roles: ["admin"], currentTeamId: null }, receipt.id, false);
+		expect(await queued(receipt.id)).toBe(1);
+		expect(await deliverQueuedEvent(receipt.id)).toEqual({ sent: 1, failed: 0 });
+		expect(await queued(later.id)).toBe(1);
+	});
+
 	it("rolls back create, status history and comments on a job insert failure", async () => {
 		const ticket = await prisma.ticket.create({ data: { ...snapshot(prefix + "-atomic"), createdBy: prefix } });
 		await prisma.$executeRawUnsafe(`CREATE FUNCTION ${trigger}() RETURNS trigger LANGUAGE plpgsql AS $$

@@ -11,8 +11,11 @@ const playbook = vi.hoisted(() => ({
   findMany: vi.fn().mockResolvedValue([]),
   createMany: vi.fn().mockResolvedValue({ count: 1 }),
 }));
-const user = vi.hoisted(() => ({ findMany: vi.fn().mockResolvedValue([{ id: "operator", username: "operator", roles: [], teamMembership: null }]) }));
-vi.mock("@/lib/db", () => ({ prisma: { playbook, user } }));
+const user = vi.hoisted(() => ({
+  findMany: vi.fn().mockResolvedValue([{ id: "operator", username: "operator", roles: [{ role: { id: "platform", key: "admin" } }], teamMembership: null }]),
+  findFirst: vi.fn().mockResolvedValue({ id: "operator" }),
+}));
+vi.mock("@/lib/db", () => ({ prisma: { playbook, user, role: { findMany: vi.fn().mockResolvedValue([{ id: "platform", key: "admin" }]) } } }));
 
 const tx = { playbook, user } as unknown as Tx;
 const options = { dryRun: false, overwriteExisting: true, importUsers: true, importSettings: true };

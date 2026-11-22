@@ -36,9 +36,11 @@ vi.mock("ssh2", async () => {
       state.stream = Object.assign(new Emitter(), { write: vi.fn(), close: vi.fn(), setWindow: vi.fn(), pause: vi.fn(), resume: vi.fn(), writableLength: 0, stderr: new Emitter() });
       callback(null, state.stream);
     }
+    destroy() {}
     end() {}
   } };
 });
+vi.mock("@/lib/server/terminal-handover", () => ({ registerTerminalSession: async () => () => undefined }));
 vi.mock("@/lib/db", () => ({ prisma: { server: { findFirst: state.server, findUnique: async () => ({ teamId: "new-owner" }) }, $disconnect: vi.fn() } }));
 vi.mock("@/lib/audit/service", () => ({ auditUserAction: state.audit }));
 vi.mock("@/lib/auth/session", () => ({ getSessionCookieName: () => "audit_session", verifySessionToken: state.verify }));

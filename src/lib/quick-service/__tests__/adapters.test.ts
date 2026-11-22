@@ -103,6 +103,19 @@ describe("Quick Services app-source fetch URL boundaries", () => {
 		expect(snapshot.apps.length).toBeLessThan(5000);
 	});
 
+	it("keeps the previous catalog when just one JSON entry is malformed", async () => {
+		globalThis.fetch = vi.fn(async () => Response.json([{ name: "demo", image: "demo:v1" }, { name: "incomplete" }]));
+		const snapshot = await fetchSourceApps("feed", "json", "https://catalog.example/apps.json");
+		expect(snapshot).toMatchObject({ complete: false, rejected: 1, apps: [{ slug: "feed-demo" }] });
+	});
+
+	it("distinguishes malformed LinuxServer releases from intentionally excluded images", async () => {
+		const images = [LSIO_IMAGES[0], LSIO_IMAGES[1], {}, null];
+		globalThis.fetch = vi.fn(async () => Response.json({ data: { repositories: { linuxserver: images } } }));
+		const snapshot = await fetchSourceApps("lsio", "linuxserver", "https://catalog.example/lsio.json");
+		expect(snapshot).toMatchObject({ complete: false, rejected: 2, apps: [{ slug: "lsio-heimdall" }] });
+	});
+
 	it("refuses a 200 response that is not a catalogue instead of reading it as empty", async () => {
 		// Read as an empty catalogue, the sync deleted every app of the source
 		// and recorded success.

@@ -1,3 +1,4 @@
+import { withServerLifecycleLock } from "@/lib/server/lifecycle-lock";
 import { apiCopy } from "@/lib/i18n/api-copy";
 /**
  * GET  /api/servers/[id]/vps-backup/schedules — list VPS backup schedules
@@ -40,7 +41,7 @@ export async function GET(
 	return withApiRoute(
 		request,
 		{ permission: "server:read", rateLimit: GENERAL_READ_LIMIT },
-		async ({ session }) => {
+		async ({ session }) => withServerLifecycleLock(serverId, async () => {
 			const teamAccess = await assertServerTeamAccess(session, serverId, "read");
 			if (!teamAccess.ok) return teamAccess.response;
 
@@ -54,7 +55,7 @@ export async function GET(
 
 			const schedules = await listVpsBackupSchedules(serverId);
 			return Response.json({ schedules });
-		},
+		}),
 	);
 }
 
@@ -70,7 +71,7 @@ export async function POST(
 			rateLimit: GENERAL_WRITE_LIMIT,
 			bodySchema: createSchema,
 		},
-		async ({ session, body }) => {
+		async ({ session, body }) => withServerLifecycleLock(serverId, async () => {
 			const teamAccess = await assertServerTeamAccess(session, serverId, "manage");
 			if (!teamAccess.ok) return teamAccess.response;
 
@@ -109,6 +110,6 @@ export async function POST(
 				undefined, session.currentTeamId);
 
 			return Response.json({ schedule }, { status: 201 });
-		},
+		}),
 	);
 }

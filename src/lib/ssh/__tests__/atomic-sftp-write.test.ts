@@ -11,6 +11,7 @@ describe("atomic SFTP replacement", () => {
     const files = new Map([[target, "original"]]);
     const metadata = { mode: 0o640, uid: 10, gid: 20, isFile: () => true, isSymbolicLink: () => false };
     const sftp = {
+      realpath: (name: string, cb: (e: null, path: string) => void) => cb(null, name),
       lstat: (_: string, cb: (e: null, value: typeof metadata) => void) => cb(null, metadata),
       open: vi.fn((path: string, flags: string, mode: number, cb: (e: null, h: Buffer) => void) => {
         expect(flags).toBe("wx");
@@ -25,7 +26,7 @@ describe("atomic SFTP replacement", () => {
         stream.on("data", data => files.set(path, files.get(path)! + data.toString()));
         return stream;
       },
-      chmod: vi.fn((_path: string, _mode: number, cb: () => void) => cb()),
+      fchmod: vi.fn((_handle: Buffer, _mode: number, cb: () => void) => cb()),
       ext_openssh_rename: vi.fn((from: string, to: string, cb: () => void) => {
         files.set(to, files.get(from)!);
         files.delete(from);
@@ -45,7 +46,7 @@ describe("atomic SFTP replacement", () => {
       await closed;
     });
     expect([...files]).toEqual([[target, "complete"]]);
-    expect(sftp.chmod).toHaveBeenCalledWith(expect.stringMatching(/^\/home\/test\/\.vch-upload-/), 0o640, expect.any(Function));
+    expect(sftp.fchmod).toHaveBeenCalledWith(Buffer.from("handle"), 0o640, expect.any(Function));
   });
 
   it("removes only the stage after a premature close", async () => {

@@ -1,5 +1,7 @@
+import { canReadCommandBody } from "@/lib/command/visibility";
 import { requirePagePermission } from "@/lib/auth/page-guard";
 import { sessionHasPermission } from "@/lib/auth/authorization";
+import { projectScheduledTask } from "@/lib/scheduled-task/visibility";
 import { listScheduledTasks } from "@/lib/scheduled-task/service";
 import { listServerProfiles } from "@/lib/server/service";
 import { listTemplates } from "@/lib/command-template/service";
@@ -27,7 +29,8 @@ export default async function ScheduledTasksPage() {
 		listTemplates(200, session).then((rows) => rows.map((row) => localizeBuiltinTemplate(row, (key) => t(key, locale)))),
 	]);
 
-	const serialized = tasks.map((t) => ({
+	const mayRead = (owner: string | null) => canReadCommandBody(session.userId, owner, canApprove);
+	const serialized = tasks.map(task => projectScheduledTask(task, session)).map((t) => ({
 		id: t.id,
 		name: t.name,
 		cronExpression: t.cronExpression,
@@ -42,7 +45,7 @@ export default async function ScheduledTasksPage() {
 		source: t.source,
 		templateId: t.templateId,
 		status: t.status,
-		serverIds: t.serverIds,
+		serverIds: canReadServers ? t.serverIds : [],
 		lastRunAt: t.lastRunAt?.toISOString() ?? null,
 		nextRunAt: t.nextRunAt?.toISOString() ?? null,
 		lastResult: localizeStoredText(t.lastResult, locale),
@@ -52,7 +55,7 @@ export default async function ScheduledTasksPage() {
 	}));
 
 	const serverOptions = servers.map((s) => ({ id: s.id, name: s.name, enabled: s.enabled }));
-	const templateOptions = templates.map((template) => ({
+	const templateOptions = templates.filter(template => mayRead(template.createdById)).map((template) => ({
 		id: template.id,
 		name: template.name,
 		description: template.description,

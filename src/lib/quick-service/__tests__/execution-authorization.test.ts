@@ -11,12 +11,17 @@ vi.mock("@/lib/db", () => ({ prisma: { server: { findFirst: state.server } } }))
 import { assertQuickServiceExecutionAuthorized } from "../execution-authorization";
 import { t } from "@/lib/i18n/service-translations";
 
+import { quickServiceEndpointFingerprint } from "../target-identity";
+const endpoint = { host: "node.test", port: 22, username: "root", managementMode: "DIRECT", hostKeySha256: "pin", agentTokenHash: null } as const;
 const actor = { userId: "requester", username: "requester", roles: ["operator"], permissions: ["docker:manage"], currentTeamId: "team" };
-beforeEach(() => { state.load.mockReset(); state.server.mockReset(); state.load.mockResolvedValue(actor); state.server.mockResolvedValue({ host: "node.test", teamId: "team" }); });
+beforeEach(() => { state.load.mockReset(); state.server.mockReset(); state.load.mockResolvedValue(actor); state.server.mockResolvedValue({ ...endpoint, teamId: "team" }); });
 it("checks live account, workspace permission and node access before execution", async () => {
-  await expect(assertQuickServiceExecutionAuthorized({ createdBy: "requester", teamId: "team" }, { action: "install", instanceKey: "node", serverId: "node" })).resolves.toEqual({ kind: "remote", serverId: "node", expectedTeamId: "team", endpoint: { host: "node.test" } });
+  await expect(assertQuickServiceExecutionAuthorized({ createdBy: "requester", teamId: "team" }, { action: "install", instanceKey: "node", serverId: "node", endpointFingerprint: quickServiceEndpointFingerprint(endpoint) })).resolves.toEqual({ kind: "remote", serverId: "node", expectedTeamId: "team", endpoint });
   expect(state.load).toHaveBeenNthCalledWith(2, "requester", "team");
   expect(state.server).toHaveBeenCalledWith(expect.objectContaining({ where: { AND: [expect.objectContaining({ enabled: true }), expect.any(Object)] } }));
+});
+it("requires a fresh submission for a remote legacy job without an endpoint", async () => {
+  await expect(assertQuickServiceExecutionAuthorized({ createdBy: actor.userId, teamId: "team" }, { action: "update", instanceKey: "node", serverId: "node" })).rejects.toThrow(t("backend.command.connectionChanged"));
 });
 it.each(["disabled", "removed", "demoted", "node-disabled"])("rejects a queued Docker operation after %s", async (reason) => {
   if (reason === "disabled") state.load.mockResolvedValueOnce(null);

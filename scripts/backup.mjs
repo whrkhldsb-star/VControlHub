@@ -27,6 +27,7 @@ import { createInterface } from "node:readline";
 
 import {
   applicationSchema,
+  pgDumpSchemaArgs,
   RESTORE_DATA_ROOTS,
   findBinary,
   findTar,
@@ -90,7 +91,7 @@ async function dumpDatabase(outputPath, env, embedded = false) {
   log(`Starting database backup: ${outputPath}`);
   await publishBackup(outputPath, async (temporary) => {
     const schema = applicationSchema(env);
-    const schemaArgs = schema === "public" ? [] : ["--schema", '"' + schema.replaceAll('"', '""') + '"'];
+    const schemaArgs = pgDumpSchemaArgs(schema);
     const child = spawn(pgDump, [...connArgs, ...schemaArgs, "--no-owner", "--no-privileges", "--clean", "--if-exists"], {
       stdio: ["ignore", "pipe", "pipe"],
       env: childEnv,

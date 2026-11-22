@@ -16,7 +16,7 @@ import { createServerSchema, type CreateServerInput, type CreateServerPayload } 
 import { findServerProfileForSession, savedProfileBinding, SERVER_PROFILE_INCLUDE, type ServerProfileRecord } from "./service-profile-includes";
 import {
   assertNoDuplicateServerHost,
-  enrichServer,
+  enrichServerForSession,
   safeRevalidatePath,
   sessionForTeamWhere,
   type ProfileSession,
@@ -94,7 +94,7 @@ export async function createWindowsServerProfile(
       : server;
     safeRevalidatePath("/storage");
     safeRevalidatePath("/files");
-    return { ...enrichServer(refreshed ?? server), onboardingWarnings, draftReason: null };
+    return { ...await enrichServerForSession(refreshed ?? server, session), onboardingWarnings, draftReason: null };
   } finally { await release(); }
 }
 
@@ -200,13 +200,14 @@ export async function updateWindowsServerProfile(
       if (!cleanup.removed) onboardingWarnings.push(t(cleanup.requested ? "backend.server.agentCleanupRequested" : "backend.server.agentCleanupPending"));
     }
     const updated = await prisma.$transaction(async (tx) => {
-    const saved = await tx.server.update({ where: { id: serverId, teamId: current.teamId, managementMode: current.managementMode, host: current.host, port: current.port, username: current.username }, data: {
+    const saved = await tx.server.update({ where: { id: serverId, teamId: current.teamId, host: current.host, port: current.port, username: current.username, managementMode: current.managementMode, hostKeySha256: current.hostKeySha256, directGatewayKeyVersion: current.directGatewayKeyVersion, enabled: current.enabled, password: current.password, rdpPassword: current.rdpPassword }, data: {
       ...(reconfigureAgent ? { ...resetAgentForModeChange(), onboardingStatus: "NEEDS_ATTENTION", onboardingLastError: null } : {}),
       name: payload.name, host: payload.host, port: payload.port, username: payload.username,
       description: payload.description, tags: payload.tags,
       managementMode: nextManagementMode,
-      ...(nextSftp ? { password: encryptServerPasswordIfPlain(nextSftp.password), hostKeySha256: nextSftpHostKey } : {}),
-      rdpPassword: rdpInput.rdpPassword === undefined ? current.rdpPassword : encrypt(payload.password),
+      ...(nextSftp && { hostKeySha256: nextSftpHostKey }),
+      ...(nextSftp && input.windowsSftpPassword && { password: encryptServerPasswordIfPlain(nextSftp.password) }),
+      ...(rdpInput.rdpPassword !== undefined && { rdpPassword: encrypt(payload.password) }),
       rdpDomain: payload.domain || null, rdpIgnoreCertificate: payload.ignoreCertificate,
       rdpCertificateSha256: payload.certificateSha256 || null,
       // Cost fields are shared with the Linux edit form; empty amount/provider clears.
@@ -219,7 +220,7 @@ export async function updateWindowsServerProfile(
           : current.costMonthlyAmount,
       costCurrency: input.costCurrency ?? current.costCurrency,
       costProvider: input.costProvider !== undefined ? input.costProvider || null : current.costProvider,
-      enabled: input.enabled ?? current.enabled,
+      ...(input.enabled !== undefined && { enabled: input.enabled }),
     } });
     if (nextSftp) {
       if (existingSftp) {
@@ -252,6 +253,6 @@ export async function updateWindowsServerProfile(
     if (!refreshed) throw new NotFoundError(t("backend.server.nodeNotFound"));
     safeRevalidatePath("/storage");
     safeRevalidatePath("/files");
-    return { ...enrichServer(refreshed), onboardingWarnings };
+    return { ...await enrichServerForSession(refreshed, session), onboardingWarnings };
   } finally { await release(); }
 }

@@ -21,6 +21,16 @@ describe("CostPageClient budgets", () => {
 		csrfFetchMock.mockResolvedValue(new Response(JSON.stringify({ checked: 1, triggered: 0 }), { status: 200 }));
 	});
 
+	it("draws positive charges and negative adjustments inside the trend viewport", () => {
+		const initialSnapshots = ["10.00", "-10.00"].map((totalAmount, i) => ({ totalAmount,
+			snapshotDate: "2026-06-0" + (i + 1), byCategory: { storage: totalAmount, vps: "0.00", bandwidth: "0.00", other: "0.00" }, entryCount: 1 }));
+		const { container } = render(<CostPageClient initialMonth="2026-06" initialCurrency="CNY" initialSummary={null}
+			initialEntries={[]} initialSnapshots={initialSnapshots} initialBudgets={[]} initialBillingAccounts={[]} canRead canManage availableCurrencies={["CNY"]} />);
+		const points = Array.from(container.querySelectorAll("svg circle[cy]")).filter(point => point.querySelector("title"));
+		expect(points).toHaveLength(2);
+		expect(points.map(point => Number(point.getAttribute("cy"))).sort((a,b) => a-b)).toEqual([5, 75]);
+	});
+
 	it("renders budget progress and supports manual alert check", async () => {
 		const user = userEvent.setup();
 		render(<CostPageClient initialMonth="2026-06" initialCurrency="CNY" initialSummary={null} initialEntries={[]} initialSnapshots={[]}

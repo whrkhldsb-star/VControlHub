@@ -1,3 +1,4 @@
+import { sampledEndpoint, sampledServerScope, type HealthEndpoint } from "@/lib/health/sample-binding";
 import { lockForTransaction } from "@/lib/concurrency/advisory-lock";
 import { prisma } from "@/lib/db";
 import { checkSamplingClaim, sampleId, type SamplingClaim } from "@/lib/monitoring/sampling-claim";
@@ -6,12 +7,12 @@ import { calculateTrafficRate, evictStaleTrafficSamples, selectPrimaryInterface,
 
 const previousSamples = new Map<string, TrafficCounterSample>();
 
-export async function persistServerTrafficFromMetrics(serverId: string, metrics: ServerMetrics, claim?: SamplingClaim) {
+export async function persistServerTrafficFromMetrics(serverId: string, metrics: ServerMetrics, claim?: SamplingClaim, endpoint?: HealthEndpoint) {
   // The first listed interface is often docker0/veth; prefer a physical one
   // (the status board derives rates from these rows).
   const primary = selectPrimaryInterface(metrics.network);
   if (!primary) return false;
-  const key = `${serverId}:${primary.iface}`;
+  const key = JSON.stringify([serverId, primary.iface, endpoint]);
   const current = { rxBytes: primary.rxBytes, txBytes: primary.txBytes, sampledAt: metrics.timestamp };
   // Evict before the lookup so this sample's own stale baseline is dropped too:
   // a rate computed against it would be a long-run average, not a current rate.
@@ -24,7 +25,12 @@ export async function persistServerTrafficFromMetrics(serverId: string, metrics:
     await checkSamplingClaim(tx, claim);
     // Both the report timestamp and (when present) the sampling job identify
     // duplicates. Serialize this interface across workers before checking either.
-    await lockForTransaction(tx, "traffic-sample", key);
+    await lockForTransaction(tx, "traffic-sample", `${serverId}:${primary.iface}`);
+    if (endpoint) {
+      const current = await tx.$queryRaw<{ id: string }[]>`SELECT s.id FROM servers s
+        WHERE TRUE ${sampledServerScope([{ serverId, [sampledEndpoint]: endpoint }])} FOR SHARE OF s`;
+      if (!current.length) return false;
+    }
     const sameReport = await tx.trafficSnapshot.findFirst({
       where: { source: "server", serverId, iface: primary.iface, sampledAt },
       select: { id: true },

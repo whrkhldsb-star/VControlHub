@@ -45,7 +45,7 @@ export const STORAGE_SERVICE_TEMPLATES: ServiceTemplate[] = [
 		volumesJson: [
 			{ host: "/opt/filebrowser/db", container: "/database" },
 			{ host: "/opt/filebrowser/config", container: "/config" },
-			{ host: "/srv", container: "/srv" },
+			{ host: "/srv/filebrowser/files", container: "/srv" },
 		],
 	},
 	{

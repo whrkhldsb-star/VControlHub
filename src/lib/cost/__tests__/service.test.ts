@@ -74,6 +74,8 @@ function makePrismaMock() {
 	return {
 		$queryRaw: vi.fn().mockResolvedValue([{ id: "srv_1" }]),
 		costEntry: {
+			findFirst: vi.fn(async ({ where }: { where: { id: string } }) => store.entries.get(where.id) ?? null),
+			count: vi.fn(async ({ where }: { where: { tags: { has: string } } }) => [...store.entries.values()].filter(row => row.tags.includes(where.tags.has)).length),
 			create: vi.fn(async ({ data }: { data: NewCostEntry }) => insertCostEntry(data)),
 			createMany: vi.fn(async ({ data }: { data: NewCostEntry; skipDuplicates: true }) => {
 				const duplicate = [...store.entries.values()].some(row => row.sourceType === data.sourceType

@@ -6,7 +6,7 @@ import { beforeEach, describe, expect, it, vi } from "vitest";
 const { mocks } = vi.hoisted(() => ({
 	mocks: {
 		requireApiPermission: vi.fn(),
-		listCostEntries: vi.fn(),
+		listCostEntryPage: vi.fn(),
 		createCostEntry: vi.fn(),
 		auditUserAction: vi.fn(),
 	},
@@ -20,7 +20,7 @@ vi.mock("@/lib/cost/service", async (importOriginal) => {
 	const actual = await importOriginal<typeof import("@/lib/cost/service")>();
 	return {
 		...actual,
-		listCostEntries: mocks.listCostEntries,
+		listCostEntryPage: mocks.listCostEntryPage,
 		createCostEntry: mocks.createCostEntry,
 	};
 });
@@ -48,7 +48,7 @@ describe("/api/cost/entries", () => {
 	beforeEach(() => {
 		vi.clearAllMocks();
 		mocks.requireApiPermission.mockResolvedValue({ session });
-		mocks.listCostEntries.mockResolvedValue([SAMPLE_ENTRY]);
+		mocks.listCostEntryPage.mockResolvedValue({ entries: [SAMPLE_ENTRY], total: 1, page: 1, pageSize: 100 });
 		mocks.createCostEntry.mockResolvedValue(SAMPLE_ENTRY);
 	});
 
@@ -65,7 +65,7 @@ describe("/api/cost/entries", () => {
 			new Request("http://local/api/cost/entries?month=2026-06&category=storage"),
 		);
 		expect(res.status).toBe(200);
-		expect(mocks.listCostEntries).toHaveBeenCalledWith(expect.objectContaining({
+		expect(mocks.listCostEntryPage).toHaveBeenCalledWith(expect.objectContaining({
 			month: "2026-06",
 			category: "storage",
 			limit: undefined,
@@ -77,7 +77,7 @@ describe("/api/cost/entries", () => {
 			new Request("http://local/api/cost/entries?category=oops"),
 		);
 		expect(res.status).toBe(400);
-		expect(mocks.listCostEntries).not.toHaveBeenCalled();
+		expect(mocks.listCostEntryPage).not.toHaveBeenCalled();
 	});
 
 	it("POST requires cost:manage and creates a cost entry", async () => {

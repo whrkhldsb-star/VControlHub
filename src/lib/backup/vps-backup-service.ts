@@ -1,3 +1,4 @@
+import { withServerLifecycleLock } from "@/lib/server/lifecycle-lock";
 import { apiCopy } from "@/lib/i18n/api-copy";
 import { t } from "@/lib/i18n/service-translations";
 /**
@@ -277,17 +278,30 @@ export interface VpsBackupResult {
  * It reads the VpsBackupRecord from DB, fetches the Server connection
  * info, and orchestrates the full backup flow.
  */
-export async function runVpsBackupRecord(
-  recordId: string,
-  options?: { paths?: string[] },
-): Promise<VpsBackupResult> {
+type BackupExecutionOptions = { paths?: string[]; expectedTeamId?: string | null; expectedServerId?: string; signal?: AbortSignal };
+
+export async function runVpsBackupRecord(recordId: string, options: BackupExecutionOptions = {}): Promise<VpsBackupResult> {
+  const parent = await prisma.vpsBackupRecord.findUnique({ where: { id: recordId }, select: { serverId: true } });
+  if (!parent || (options.expectedServerId && options.expectedServerId !== parent.serverId)) {
+    return { success: false, fileSize: null, checksumSha256: null, localPath: null, remotePath: null,
+      errorMessage: apiCopy("apiCopy.vpsbackuprecord.not.found.54bb3bdf", { v0: recordId }) };
+  }
+  return withServerLifecycleLock(parent.serverId, () => runLockedBackup(recordId, parent.serverId, options));
+}
+
+async function runLockedBackup(recordId: string, serverId: string, options: BackupExecutionOptions): Promise<VpsBackupResult> {
+  options.signal?.throwIfAborted();
   const record = await prisma.vpsBackupRecord.findUnique({
-    where: { id: recordId },
+    where: {
+      id: recordId, serverId,
+      ...(options.expectedTeamId !== undefined && { server: { teamId: options.expectedTeamId } }),
+    },
     include: {
       server: {
         select: {
           id: true,
           teamId: true,
+          agentTokenHash: true,
           team: { select: { deletedAt: true } },
           operatingSystem: true,
           host: true,
@@ -393,7 +407,7 @@ export async function runVpsBackupRecord(
 
   try {
     // Step 1: SSH exec — create backup on remote VPS
-    sshParams = await buildSshParamsFromServer(server, server.sshKey);
+    sshParams = await buildSshParamsFromServer(server, server.sshKey, server.teamId);
     const backupCommand = buildRemoteBackupCommand(
       record.backupType,
       remoteFilePath,
@@ -403,6 +417,7 @@ export async function runVpsBackupRecord(
     const execResult = await execRemoteCommand({
       ...sshParams,
       command: backupCommand,
+      signal: options.signal,
       timeout: config.backup.vpsCommandTimeoutMs, // VPS_BACKUP_COMMAND_TIMEOUT_MINUTES, 60 by default (was 10)
     });
 
@@ -436,7 +451,7 @@ export async function runVpsBackupRecord(
       if (!lstatSync(directory).isDirectory()) throw new ValidationError(t("vpsBackupApi.errorPathEscapesRoot"));
     }
 
-    const { stream, size } = await downloadFile(server.id, remoteFilePath);
+    const { stream, size } = await downloadFile(server.id, remoteFilePath, options.signal, sshParams);
 
     // Write stream to local file + compute sha256. Do not swallow pipeline errors —
     // a failed download must not mark the record COMPLETED (false success).

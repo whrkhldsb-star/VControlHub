@@ -1,3 +1,4 @@
+import type { SshConnectionParams } from "@/lib/ssh/client";
 import { decryptServerPassword, decryptStoredSshKey, SSH_KEY_CREDENTIAL_SELECT, type StoredSshKey } from "@/lib/ssh/ssh-key-crypto";
 import { ValidationError } from "@/lib/errors";
 import { t } from "@/lib/i18n/service-translations";
@@ -6,6 +7,7 @@ import { t } from "@/lib/i18n/service-translations";
 export const STORAGE_SSH_SERVER_SELECT = {
   id: true,
   teamId: true,
+  agentTokenHash: true,
   host: true,
   port: true,
   username: true,
@@ -32,6 +34,7 @@ export type StorageSshCredentialNode = {
   server: {
     id: string;
     teamId?: string | null;
+    agentTokenHash?: string | null;
     managementMode: string;
     operatingSystem: string;
     host: string;
@@ -58,6 +61,7 @@ export type ResolvedStorageSshCredentials = {
   password?: string;
   hostKeySha256?: string | null;
   agentServerId?: string;
+  expectedIdentity?: SshConnectionParams["expectedIdentity"];
 };
 
 export function resolveStorageSshPort(node: { port: number | null; server: { operatingSystem: string; port: number } | null }) {
@@ -121,6 +125,10 @@ export function resolveStorageSshCredentials(node: StorageSshCredentialNode): Re
     enforceHostKeyPin: true,
     ...(key?.passphrase ? { passphrase: key.passphrase } : {}),
     ...(agentServerId ? { agentServerId } : {}),
+    ...(sameLinuxEndpoint && node.server && node.teamId !== undefined && username === node.server.username && {
+      expectedIdentity: { serverId: node.server.id, teamId: node.teamId, tokenHash: node.server.agentTokenHash ?? null,
+        endpoint: { host: node.server.host, port, username, hostKeySha256: node.server.hostKeySha256 } },
+    }),
     ...(windowsOpenSsh ? { windowsOpenSsh } : {}),
   };
 }

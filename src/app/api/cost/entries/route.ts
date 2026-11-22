@@ -22,7 +22,7 @@ import { withApiRoute } from "@/lib/http/api-guard";
 import { GENERAL_READ_LIMIT, GENERAL_WRITE_LIMIT } from "@/lib/http/rate-limit-presets";
 import {
 	createCostEntry,
-	listCostEntries,
+	listCostEntryPage,
 } from "@/lib/cost/service";
 import {
 	costQuerySchema,
@@ -42,13 +42,14 @@ export async function GET(request: Request) {
 			errorMessage: apiCopy("apiCopy.failed.to.load.cost.entry.313305bd"),
 		},
 		async ({ session, query }) => {
-			const entries = await listCostEntries({
+			const result = await listCostEntryPage({
+				page: query.page,
 				month: query.month,
 				category: query.category,
 				limit: query.limit,
 				session,
 			});
-			return NextResponse.json({ entries });
+			return NextResponse.json(result);
 		},
 	);
 }

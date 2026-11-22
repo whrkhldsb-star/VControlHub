@@ -48,7 +48,7 @@ function monthBounds(month: string): { start: string; end: string } {
   const [ys, ms] = month.split("-");
   const y = Number(ys);
   const m = Number(ms);
-  if (!Number.isFinite(y) || !Number.isFinite(m) || m < 1 || m > 12) {
+  if (!isCalendarDate(month + "-01")) {
     throw new ValidationError(apiCopy("apiCopy.invalid.billing.month.677bfd1d", { v0: String(month) }));
   }
   const start = `${ys}-${ms}-01`;
@@ -182,6 +182,8 @@ export function parseBillingCsvRows(
   const productI = idx("product");
   const notesI = idx("notes");
   const externalIdI = header.includes("external_id") ? idx("external_id") : idx("id");
+  const legacyIdI = Math.max(idx("external_id"), idx("id"));
+  const legacyCounts = new Map<string, number>();
   const duplicateCounts = new Map<string, number>();
   const items: CloudBillingLineItem[] = [];
   const exactAmounts: Prisma.Decimal[] = [];
@@ -253,8 +255,15 @@ export function parseBillingCsvRows(
       duplicateCounts.set(prefix, ordinal);
       externalId = `${prefix}${ordinal}`;
     }
+    const prefix = csvNaturalKeyPrefix(date, product);
+    const legacyOrdinal = (legacyCounts.get(prefix) ?? 0) + 1;
+    legacyCounts.set(prefix, legacyOrdinal);
+    const oldId = cols[legacyIdI]?.trim();
+    const legacyExternalId = oldId ? `csv:id:${oldId}` : `${prefix}${legacyOrdinal}`;
     items.push({
       externalId,
+      ...(legacyIdI !== externalIdI && (oldId || explicitExternalId) && legacyExternalId !== externalId ? { legacyExternalId } : {}),
+      ...(exactAmount.decimalPlaces() > 2 ? { fractionalCent: true } : {}),
       category,
       providerLabel: `${defaults.providerLabel} · ${product}`,
       amount,

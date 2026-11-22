@@ -1,8 +1,10 @@
+import { ConflictError } from "@/lib/errors";
 import { beforeEach, describe, expect, it, vi } from "vitest";
 
 import { ValidationError } from "@/lib/errors";
 import { customerSession, routeSession } from "@/test/route-session-mock";
 
+vi.mock("@/lib/concurrency/advisory-lock", () => ({ acquireAdvisoryLock: async () => async () => undefined }));
 vi.mock("@/lib/auth/api-session", async () => {
 	const { NextResponse } = await import("next/server");
 	const unauthenticated = () => NextResponse.json({ error: "unauthenticated" }, { status: 401 });
@@ -70,7 +72,7 @@ describe("VPS backup record and schedule routes", () => {
 		expect((await record.DELETE(req("DELETE", "http://local/x"), { params: recordParams })).status).toBe(200);
 		expect(mocks.recordFindFirst).toHaveBeenCalledWith(expect.objectContaining({ where: { id: "rec_1", serverId: "srv_1" } }));
 		expect(mocks.auditUserAction).toHaveBeenCalledWith("u_cust", "vps-backup.record.delete", { serverId: "srv_1", recordId: "rec_1" }, undefined, "team_1");
-		mocks.deleteVpsBackupRecord.mockRejectedValueOnce(new Error("Record is RUNNING"));
+		mocks.deleteVpsBackupRecord.mockRejectedValueOnce(new ConflictError("制品正在使用"));
 		expect((await record.DELETE(req("DELETE", "http://local/x"), { params: recordParams })).status).toBe(409);
 		mocks.recordFindFirst.mockResolvedValue(null);
 		expect((await record.DELETE(req("DELETE", "http://local/x"), { params: recordParams })).status).toBe(404);

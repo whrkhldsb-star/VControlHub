@@ -1,3 +1,5 @@
+import { drainTerminalSessions } from "./terminal-handover";
+import { pendingFileWrites, fileWriteFence } from "@/lib/storage/agent-file-queue";
 /**
  * Moving a server to another customer (platform administrators only).
  *
@@ -18,23 +20,20 @@ import { prisma } from "@/lib/db";
 import { BusinessError, NotFoundError, ValidationError } from "@/lib/errors";
 import { t } from "@/lib/i18n/service-translations";
 import { appTimeZoneDateKey } from "@/lib/datetime/time-zone";
-import { startOfMonthUtc } from "@/lib/cost/service-internals";
+import { transferMonthlyCost } from "@/lib/cost/service-entries";
 import { resetAgentForModeChange } from "./agent-service";
 import { firstDirectGatewayKeyVersion, needsLegacyGatewayStop } from "./direct-gateway-key";
-import { getServerDeletionImpact, listServerStorageNodes } from "./service-deletion-impact";
+import { countActiveFileProxies, getServerDeletionImpact, listServerStorageNodes } from "./service-deletion-impact";
 
 /** Old-customer work that would cross customers if the server moved. */
 async function getServerTransferBlockers(serverId: string, bindings: Awaited<ReturnType<typeof listServerStorageNodes>>, tx: Prisma.TransactionClient) {
   const storageNodeIds = bindings.map(node => node.id);
-  const [impact, imageUploads, fileProxies] = await Promise.all([
+  const [impact, imageUploads, fileProxies, fileWrites, durableWrites] = await Promise.all([
     getServerDeletionImpact(serverId, tx, bindings),
     storageNodeIds.length ? tx.imageUpload.count({ where: { storageNodeId: { in: storageNodeIds } } }) : 0,
-    tx.serverFileProxy.count({ where: { serverId, OR: [
-      { status: { not: "stopped" } },
-      // Older stop operations retained credentials even when remote termination failed.
-      { pid: { not: null } },
-      { accessToken: { not: null }, OR: [{ expiresAt: null }, { expiresAt: { gt: new Date() } }] },
-    ] } }),
+    countActiveFileProxies(serverId, tx),
+    pendingFileWrites(tx, { serverId }),
+    tx.setting.count({ where: { key: { startsWith: fileWriteFence(serverId) } } }),
   ]);
   const { unfinishedCommands, unfinishedDownloads } = impact;
   const blockers = {
@@ -45,14 +44,14 @@ async function getServerTransferBlockers(serverId: string, bindings: Awaited<Ret
     playbooks: impact.playbooks,
     syncJobs: impact.syncJobs,
     unfinishedCommands,
-    unfinishedAgentJobs: impact.unfinishedAgentJobs,
+    unfinishedAgentJobs: (impact.unfinishedAgentJobs ?? 0) + Math.max(fileWrites, durableWrites),
     fileProxies,
     unfinishedDownloads,
   };
   return Object.entries(blockers).filter(([, count]) => count > 0) as Array<[keyof typeof blockers, number]>;
 }
 
-export async function transferServerToCustomer(serverId: string, targetTeamId: string, session: SessionPayload) {
+export async function transferServerToCustomer(serverId: string, targetTeamId: string, session: SessionPayload, confirmation?: { previousTeamId: string | null; credentialsRotated: true; fileAgentStopped?: boolean }) {
   assertPlatformAdmin(session);
   const releaseLock = await acquireAdvisoryLock("server-delete", serverId);
   try {
@@ -60,10 +59,17 @@ export async function transferServerToCustomer(serverId: string, targetTeamId: s
       await tx.$queryRaw`SELECT id FROM servers WHERE id = ${serverId} FOR UPDATE`;
       const server = await tx.server.findUnique({
         where: { id: serverId },
-        select: { id: true, name: true, teamId: true, sshKeyId: true, operatingSystem: true, directGatewayKeyVersion: true,
+        select: { id: true, name: true, teamId: true, sshKeyId: true, password: true, rdpPassword: true, managementMode: true, _count: { select: { quickServices: true } }, operatingSystem: true, directGatewayKeyVersion: true,
           directGatewayDesiredEnabled: true, fileProxyPort: true, publicUrl: true },
       });
       if (!server) throw new NotFoundError(t("backend.server.nodeNotFound"));
+      // The API always requires a signed-in administrator's explicit handover confirmation.
+      // Credentialless Agent-only registrations have no stored login or installed-service credentials.
+      const agentOnly = server.managementMode === "AGENT" && !server.password && !server.rdpPassword &&
+        !server.sshKeyId && server.operatingSystem === "LINUX" && server._count.quickServices === 0;
+      if (confirmation ? (confirmation.credentialsRotated !== true || confirmation.previousTeamId !== server.teamId) : !agentOnly) {
+        throw new ValidationError(t("backend.command.connectionChanged"));
+      }
       if (server.teamId === targetTeamId) throw new ValidationError(t("backend.server.transfer.sameCustomer"));
       const target = await tx.team.findUnique({ where: { id: targetTeamId }, select: { id: true, name: true, deletedAt: true } });
       if (!target || target.deletedAt) throw new NotFoundError(t("backend.customer.notFound"));
@@ -80,6 +86,13 @@ export async function transferServerToCustomer(serverId: string, targetTeamId: s
         bindings.some(node => node.driver === "SFTP" && node.directAccessMode !== "PROXY" && node.publicBaseUrl)) {
         throw new BusinessError(t("backend.server.transfer.disableGateway"));
       }
+      // An administrator can resolve an orphaned receipt only after verifying that the old
+      // file executor has been stopped and disabled on the host. The parent row lock
+      // excludes a new delivery, and this transaction revokes the pairing before release.
+      if (confirmation?.fileAgentStopped) {
+        await tx.agentFileCall.deleteMany({ where: { share: { serverId }, claimed: true } });
+        await tx.setting.deleteMany({ where: { key: { startsWith: fileWriteFence(serverId) } } });
+      }
       const blockers = await getServerTransferBlockers(serverId, bindings, tx);
       if (blockers.length > 0) {
         throw new BusinessError(t("backend.server.transfer.blocked", {
@@ -87,6 +100,7 @@ export async function transferServerToCustomer(serverId: string, targetTeamId: s
         }));
       }
 
+      await drainTerminalSessions(serverId, tx);
       const existingDefault = await tx.storageNode.findFirst({ where: { teamId: target.id, isDefault: true }, select: { id: true } });
       // Node deletion takes the node lock before cascading to its file binding.
       // Server credential rotation can touch that binding through a trigger.
@@ -106,10 +120,7 @@ export async function transferServerToCustomer(serverId: string, targetTeamId: s
       await tx.storageNode.updateMany({ where: { serverId, driver: "SFTP" }, data: { directAccessMode: "PROXY", publicBaseUrl: null } });
       await Promise.all([
         tx.storageNode.updateMany({ where: { id: { in: storageNodeIds } }, data: { teamId: target.id, ...(existingDefault ? { isDefault: false } : {}) } }),
-        tx.costEntry.updateMany({
-          where: { sourceType: "server_monthly", sourceRef: serverId, effectiveDate: startOfMonthUtc(appTimeZoneDateKey().slice(0, 7)) },
-          data: { teamId: target.id },
-        }),
+        transferMonthlyCost(tx, serverId, appTimeZoneDateKey().slice(0, 7), target.id),
         tx.metricSnapshot.updateMany({ where: { serverId }, data: { teamId: target.id } }),
         tx.userServerAccess.deleteMany({ where: { serverId } }),
         tx.userStorageAccess.deleteMany({ where: { storageNodeId: { in: storageNodeIds } } }),
@@ -136,7 +147,7 @@ export async function transferServerToCustomer(serverId: string, targetTeamId: s
     await auditUserAction(
       session.userId,
       "server.transfer",
-      { serverId, name: server.name, fromTeamId: server.teamId, toTeamId: target.id },
+      { serverId, name: server.name, fromTeamId: server.teamId, toTeamId: target.id, credentialsRotated: confirmation?.credentialsRotated ?? false, fileAgentStopped: confirmation?.fileAgentStopped ?? false },
       undefined,
       target.id,
     );

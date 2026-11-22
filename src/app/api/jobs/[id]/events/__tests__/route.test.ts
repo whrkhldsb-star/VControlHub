@@ -33,7 +33,7 @@ describe("GET /api/jobs/[id]/events ownership scope", () => {
           { createdBy: "user-1" },
         ],
       },
-      select: { id: true },
+      select: { id: true, type: true },
     });
     expect(mocks.listJobEvents).toHaveBeenCalledWith({ jobId: "job-1", limit: undefined, beforeId: undefined });
   });
@@ -42,7 +42,7 @@ describe("GET /api/jobs/[id]/events ownership scope", () => {
     mocks.requireApiPermission.mockResolvedValueOnce({ session: { userId: "admin-1", roles: ["admin"], currentTeamId: null } });
     const response = await route.GET(new Request("http://local/api/jobs/job-1/events"), { params: Promise.resolve({ id: "job-1" }) });
     expect(response.status).toBe(200);
-    expect(mocks.jobFindFirst).toHaveBeenCalledWith({ where: { id: "job-1" }, select: { id: true } });
+    expect(mocks.jobFindFirst).toHaveBeenCalledWith({ where: { id: "job-1" }, select: { id: true, type: true } });
   });
 
   it("passes a valid limit through and rejects a non-numeric one with 400", async () => {

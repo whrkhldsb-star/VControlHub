@@ -57,4 +57,14 @@ func TestUploadAcrossChildMount(t *testing.T) {
 	if b, err := root.ReadFile(op.Path); err != nil || string(b) != string(data) {
 		t.Fatalf("published on child filesystem: %q %v", b, err)
 	}
+	stat, err := s.handle(operation{Op: "stat", Path: op.Path})
+	if err != nil {
+		t.Fatal(err)
+	}
+	if _, err := s.handle(operation{Op: "delete", Path: op.Path, Version: stat.Entry.Version}); err != nil {
+		t.Fatal("delete on child filesystem", err)
+	}
+	if _, err := root.Stat(op.Path); !os.IsNotExist(err) {
+		t.Fatalf("deleted child remains: %v", err)
+	}
 }

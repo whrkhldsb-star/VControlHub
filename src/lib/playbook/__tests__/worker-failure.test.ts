@@ -13,7 +13,7 @@ const { mocks } = vi.hoisted(() => ({
   mocks: {
     playbookRunFindUnique: vi.fn(),
     playbookRunUpdateMany: vi.fn(),
-    acquireAdvisoryLock: vi.fn(),
+    acquireMonitoredAdvisoryLock: vi.fn(),
     releaseLock: vi.fn(),
     executePlaybookChain: vi.fn(),
     auditSystemAction: vi.fn(),
@@ -31,6 +31,7 @@ const { mocks } = vi.hoisted(() => ({
 
 vi.mock("@/lib/db", () => ({
   prisma: {
+    setting: { findUnique: vi.fn(async () => ({ value: "101" })) },
     $queryRaw: vi.fn(async () => ["run", "run-1", "run-c", "run-x"].map((id) => ({ id, version: 1 }))),
     $transaction<T>(callback: (tx: unknown) => Promise<T>) { return callback(this); },
     job: { updateMany: mocks.jobUpdateMany },
@@ -47,7 +48,7 @@ vi.mock("@/lib/auth/authorization", () => ({
 }));
 vi.mock("@/lib/concurrency/advisory-lock", async (original) => ({
   ...await original<typeof import("@/lib/concurrency/advisory-lock")>(),
-  acquireAdvisoryLock: mocks.acquireAdvisoryLock,
+  acquireMonitoredAdvisoryLock: mocks.acquireMonitoredAdvisoryLock,
 }));
 vi.mock("../executor", () => ({
   executePlaybookChain: mocks.executePlaybookChain,
@@ -152,7 +153,7 @@ describe("playbook run job failure branch", () => {
     vi.clearAllMocks();
     stopPlaybookRunWorkerForTests();
     mocks.releaseLock.mockResolvedValue(undefined);
-    mocks.acquireAdvisoryLock.mockResolvedValue(mocks.releaseLock);
+    mocks.acquireMonitoredAdvisoryLock.mockResolvedValue({ release: mocks.releaseLock, signal: new AbortController().signal, generation: "101", assertHeld: vi.fn() });
     mocks.auditSystemAction.mockResolvedValue(undefined);
     mocks.heartbeatJob.mockResolvedValue({ count: 1 });
     mocks.loadApiTokenOwnerSession.mockResolvedValue({ userId: "u1", roles: ["operator"] });
@@ -195,7 +196,7 @@ describe("playbook run job failure branch", () => {
     const { AdvisoryLockBusyError } = await import("@/lib/concurrency/advisory-lock");
     claimedJob({ attempts: 1, maxAttempts: 1 });
     runThatThrows(new Error("execution must wait"));
-    mocks.acquireAdvisoryLock.mockRejectedValueOnce(new AdvisoryLockBusyError("playbook-execute", "held", null));
+    mocks.acquireMonitoredAdvisoryLock.mockRejectedValueOnce(new AdvisoryLockBusyError("playbook-execute", "held", null));
     mocks.jobUpdateMany.mockResolvedValueOnce({ count });
     await runPlaybookRunWorkerOnce();
     expect(mocks.jobUpdateMany).toHaveBeenCalledWith({

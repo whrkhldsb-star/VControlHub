@@ -39,7 +39,8 @@ const { mockPrisma } = vi.hoisted(() => ({
       upsert: vi.fn(),
     },
     $disconnect: vi.fn(),
-    $transaction: vi.fn(async (operations: any[]) => Promise.all(operations)),
+    $queryRaw: vi.fn(async () => [{ id: "user_admin" }]),
+    $transaction: vi.fn(async (operations: any): Promise<unknown> => typeof operations === "function" ? operations(mockPrisma) : Promise.all(operations)),
   },
 }));
 
@@ -162,10 +163,10 @@ describe("prisma seed", () => {
     expect(mockPrisma.user.upsert).toHaveBeenCalled();
     // One customer for the platform's own resources, preselected for the admin.
     expect(mockPrisma.team.create).toHaveBeenCalledWith({ data: expect.objectContaining({ slug: "default" }) });
-    expect(mockPrisma.user.updateMany).toHaveBeenCalledWith({
-      where: { id: "user_admin", currentTeamId: null },
-      data: { currentTeamId: "team_default" },
-    });
+    expect(mockPrisma.user.upsert).toHaveBeenCalledWith(expect.objectContaining({
+      create: expect.objectContaining({ currentTeamId: "team_default", roles: { create: { role: { connect: { key: "admin" } } } } }),
+      update: {},
+    }));
     // Built-in identity templates are kept in sync with the code definitions.
     expect(mockPrisma.identityTemplate.upsert).toHaveBeenCalledWith(expect.objectContaining({
       where: { id: "identity:viewer" },
@@ -245,7 +246,7 @@ describe("prisma seed", () => {
   it("refreshes the initial admin password while the account still requires first-login rotation", async () => {
     mockPrisma.user.findUnique.mockResolvedValue({
       id: "user_admin",
-      username: "admin",
+      username: "admin", roles: [{ roleId: "admin" }], teamMembership: null, passwordHash: "old-hash",
       status: "PENDING_PASSWORD_RESET",
       mustChangePassword: true,
     });
@@ -253,11 +254,10 @@ describe("prisma seed", () => {
 
     await seedDatabase();
 
-    expect(mockPrisma.user.upsert).toHaveBeenCalledWith(expect.objectContaining({
-      update: expect.objectContaining({
+    expect(mockPrisma.user.updateMany).toHaveBeenCalledWith(expect.objectContaining({
+      where: expect.objectContaining({ passwordHash: "old-hash", status: "PENDING_PASSWORD_RESET", mustChangePassword: true }),
+      data: expect.objectContaining({
         passwordHash: "hashed-bootstrap-password",
-        status: "PENDING_PASSWORD_RESET",
-        mustChangePassword: true,
       }),
     }));
   });
@@ -265,7 +265,7 @@ describe("prisma seed", () => {
   it("does not overwrite an active admin password on reseed", async () => {
     mockPrisma.user.findUnique.mockResolvedValue({
       id: "user_admin",
-      username: "admin",
+      username: "admin", roles: [{ roleId: "admin" }], teamMembership: null, passwordHash: "old-hash",
       status: "ACTIVE",
       mustChangePassword: false,
     });
@@ -273,8 +273,8 @@ describe("prisma seed", () => {
 
     await seedDatabase();
 
-    expect(mockPrisma.user.upsert).toHaveBeenCalledWith(expect.objectContaining({
-      update: expect.not.objectContaining({ passwordHash: expect.any(String) }),
+    expect(mockPrisma.user.updateMany).toHaveBeenCalledWith(expect.objectContaining({
+      data: expect.not.objectContaining({ passwordHash: expect.any(String) }),
     }));
   });
 });

@@ -427,6 +427,36 @@ export async function extractRestoreFiles(archive, staging, plan) {
   });
 }
 
+export function pgDumpSchemaArgs(schema) {
+  return schema === "public" ? [] : ["--schema", '"' + schema.replaceAll('"', '""') + '"'];
+}
+
+export async function* checkRestoreSchema(chunks, schema) {
+  let head = Buffer.alloc(0);
+  let checked = false;
+  const verify = () => {
+    const marker = /^-- VControlHub application schema ([0-9a-f]+)\r?$/m.exec(head.toString());
+    if (marker && marker[1] !== Buffer.from(schema).toString("hex")) throw new Error("Backup and target application schemas differ");
+  };
+  for await (const chunk of chunks) {
+    if (!checked) {
+      const prefix = chunk.subarray(0, 256 - head.length);
+      head = Buffer.concat([head, prefix]);
+      if (head.length < 256) continue;
+      verify();
+      checked = true;
+      yield head;
+      if (prefix.length < chunk.length) yield chunk.subarray(prefix.length);
+      continue;
+    }
+    yield chunk;
+  }
+  if (!checked && head.length) {
+    verify();
+    yield head;
+  }
+}
+
 export function applicationSchema(env) {
   const schema = (env.DATABASE_URL && new URL(env.DATABASE_URL).searchParams.get("schema")) || "public";
   if (Buffer.byteLength(schema) > 63 || /[\0-\x1f\x7f]/.test(schema) || /^pg_|^information_schema$/i.test(schema)) throw new Error("Invalid application schema");

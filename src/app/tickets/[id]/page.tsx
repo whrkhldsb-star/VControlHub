@@ -6,11 +6,12 @@ import { TicketDetailClient, type Ticket, type TicketUser } from "./ticket-detai
 import { notFound } from "next/navigation";
 import { getServerLocale, t } from "@/lib/i18n/translations";
 import { prisma } from "@/lib/db";
+import { escapeLikeLiteral } from "@/lib/db/like-pattern";
 import { userDirectoryWhere } from "@/lib/auth/team-scope";
 
 export const dynamic = "force-dynamic";
 
-export default async function TicketDetailPage({ params }: { params: Promise<{ id: string }> }) {
+export default async function TicketDetailPage({ params, searchParams }: { params: Promise<{ id: string }>; searchParams?: Promise<{ q?: string; usersPage?: string }> }) {
   const { id } = await params;
   // Back to this ticket after signing in again, not to the list.
   const session = await requirePagePermission("ticket:read", { redirectTo: `/tickets/${encodeURIComponent(id)}` });
@@ -24,14 +25,18 @@ export default async function TicketDetailPage({ params }: { params: Promise<{ i
   // One ticket load + the (independent) assignee list, fetched concurrently.
   // The participant check is derived from the loaded row instead of a second
   // canViewTicket query that re-read the same ticket.
+  const query = await searchParams;
+  const search = typeof query?.q === "string" ? query.q.slice(0, 128) : "";
+  const term = { contains: escapeLikeLiteral(search), mode: "insensitive" as const };
+  const page = Math.max(1, Math.min(1_000_000, Number.parseInt(query?.usersPage ?? "", 10) || 1));
   const [ticket, users] = await Promise.all([
     getTicketById(id, session),
     canManage
       ? prisma.user.findMany({
-          where: userDirectoryWhere(session),
+          where: { AND: [userDirectoryWhere(session), search ? { OR: [{ username: term }, { displayName: term }] } : {}] },
           select: { id: true, username: true, displayName: true },
-          orderBy: { username: "asc" },
-          take: 200,
+          orderBy: [{ username: "asc" }, { id: "asc" }],
+          take: 201, skip: (page - 1) * 200,
         })
       : Promise.resolve([] as TicketUser[]),
   ]);
@@ -57,7 +62,7 @@ export default async function TicketDetailPage({ params }: { params: Promise<{ i
   return (
     <PageShell>
       <PageHeader eyebrow={t("ticketsDetail.eyebrow", locale)} title={t("ticketsDetail.title", locale)} description={t("ticketsDetail.desc", locale)} className="mb-6" />
-      <TicketDetailClient initial={serialized} canManage={canManage} users={users} />
+      <TicketDetailClient initial={serialized} canManage={canManage} users={users.slice(0, 200)} userSearch={search} userPage={page} moreUsers={users.length > 200} />
     </PageShell>
   );
 }

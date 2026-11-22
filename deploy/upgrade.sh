@@ -17,10 +17,7 @@ readonly pinned_commit="${UPGRADE_COMMIT:-}"
 CHECK_PUBLIC_URL="${CHECK_PUBLIC_URL:-}"
 
 log() { printf '\033[1;32m[upgrade]\033[0m %s\n' "$*"; }
-# install.sh hands the checkout to the service user, while upgrades are run with
-# sudo as the installer documents; git then refuses the repository as having
-# "dubious ownership". Declare the checkout safe for this invocation only.
-git_app() { git -c "safe.directory=${APP_DIR}" -C "${APP_DIR}" "$@"; }
+git_app() { git -C "${APP_DIR}" "$@"; }
 warn() { printf '\033[1;33m[upgrade]\033[0m %s\n' "$*" >&2; }
 fail() { printf '\033[1;31m[upgrade]\033[0m %s\n' "$*" >&2; exit 1; }
 
@@ -30,8 +27,8 @@ load_env_for_defaults() {
   # Let Next apply its production file precedence. A separate ENV_FILE is
   # an explicit process environment, also used by the migration commands.
   case "${ENV_FILE}" in
-    "${APP_DIR}/.env"|"${APP_DIR}/.env.local"|"${APP_DIR}/.env.production"|"${APP_DIR}/.env.production.local") source "${ENV_FILE}" ;;
-    *) set -a; source "${ENV_FILE}"; set +a ;;
+    "${APP_DIR}/.env"|"${APP_DIR}/.env.local"|"${APP_DIR}/.env.production"|"${APP_DIR}/.env.production.local") load_install_settings "${ENV_FILE}" ;;
+    *) set -a; load_install_settings "${ENV_FILE}"; set +a ;;
   esac
 
   # DOMAIN was not persisted by installers released before the lifecycle menu.
@@ -87,7 +84,7 @@ run_pre_upgrade_backup() {
 # loader. Keep the selected installation environment for these commands.
 with_install_env() (
   set -a
-  source "${ENV_FILE}"
+  load_install_settings "${ENV_FILE}"
   set +a
   "$@"
 )
@@ -171,31 +168,48 @@ prepare_release() {
       install -m 600 "${APP_DIR}/${env_name}" "${candidate}/${env_name}"
     fi
   done
-  (
-    cd "${candidate}"
-    if [[ ${SKIP_BUILD:-0} != 1 ]]; then
-      with_install_env npm ci --include=dev
-      with_install_env npm run prisma:generate
-      VCONTROLHUB_ALLOW_BUILD=1 NEXT_TELEMETRY_DISABLED=1 npm run build
-      with_install_env npm run build:runtime
-      rm -rf -- .next/cache
-    else
-      # Only an explicitly supplied prebuilt release can skip building.
-      [[ -n ${SOURCE_DIR:-} && ! ${SOURCE_DIR} -ef ${APP_DIR} ]] || fail "SKIP_BUILD needs a separate prebuilt SOURCE_DIR"
-      cp -a -- "${SOURCE_DIR}/.next" "${SOURCE_DIR}/dist" "${SOURCE_DIR}/node_modules" .
+  if [[ ${SKIP_BUILD:-0} == 1 && ( -z ${SOURCE_DIR:-} || ${SOURCE_DIR} -ef ${APP_DIR} ) ]]; then
+    fail "SKIP_BUILD needs a separate prebuilt SOURCE_DIR"
+  fi
+  if [[ ${SKIP_BUILD:-0} != 1 || ${SKIP_DB_SETUP:-0} != 1 ]]; then
+    # Keep the private build tree until migration/seed finish. The published
+    # candidate and its environment files stay under administrator ownership.
+    stage_dir="$(mktemp -d /var/tmp/vch-build.XXXXXXXX)"
+    if [[ ${SKIP_BUILD:-0} == 1 ]]; then
+      cp -a -- "${SOURCE_DIR}/node_modules" "${stage_dir}/"
     fi
-    local file
-    for file in .next/BUILD_ID dist/server.js dist/worker.js dist/ssh-ws-proxy.js; do
-      [[ -s ${file} ]] || fail "Missing release artifact: ${file}"
-    done
-    if [[ ${SKIP_DB_SETUP:-0} != 1 ]]; then with_install_env node deploy/check-upgrade-migrations.mjs; fi
-  )
-  # The application owns its runtime tree and the DynamicUser gateway reads its bundles.
-  chown -R --reference="${APP_DIR}" "${candidate}"
+    copy_build_inputs "${candidate}" "${stage_dir}"
+  fi
+  if [[ ${SKIP_BUILD:-0} != 1 ]]; then
+    (
+      cd "${stage_dir}"
+      with_install_env as_release_builder npm ci --include=dev
+      with_install_env as_release_builder npm run prisma:generate
+      VCONTROLHUB_ALLOW_BUILD=1 NEXT_TELEMETRY_DISABLED=1 as_release_builder npm run build
+      with_install_env as_release_builder npm run build:runtime
+      rm -rf -- .next/cache
+      copy_build_artifacts "${stage_dir}" "${candidate}"
+    )
+  else
+    cp -a -- "${SOURCE_DIR}/.next" "${SOURCE_DIR}/dist" "${SOURCE_DIR}/node_modules" "${candidate}/"
+  fi
+  local file
+  for file in .next/BUILD_ID dist/server.js dist/worker.js dist/ssh-ws-proxy.js; do
+    [[ -s ${candidate}/${file} ]] || fail "Missing release artifact: ${file}"
+  done
+  if [[ ${SKIP_DB_SETUP:-0} != 1 ]]; then
+    (cd "${stage_dir}" && with_install_env as_release_builder node deploy/check-upgrade-migrations.mjs)
+  fi
+  if [[ ${EUID} == 0 ]]; then chown -hR root:root "${candidate}"; fi
+  chmod -R go-w "${candidate}"
   chmod --reference="${APP_DIR}" "${candidate}"
   chmod o+x "${candidate}"
   chmod -R o+rX "${candidate}/dist" "${candidate}/node_modules" "${candidate}/scripts"
   chmod o+r "${candidate}/package.json"
+  mkdir -p -- "${candidate}/.next/cache"
+  if [[ ${EUID} == 0 && -d ${APP_DIR}/storage && ! -L ${APP_DIR}/storage ]]; then
+    chown --reference="${APP_DIR}/storage" "${candidate}/.next/cache"
+  fi
 }
 
 plan_shared_paths() {
@@ -273,6 +287,7 @@ finish() {
   local status=$?
   trap - EXIT
   trap '' INT TERM HUP
+  if [[ -n ${stage_dir:-} ]]; then rm -rf -- "${stage_dir}"; fi
   if (( cutover )); then
     warn "Upgrade failed. Restoring previous code and service state. Database migrations are retained."
     if (( started_new )) && ! systemctl stop "${managed_units[@]}"; then
@@ -291,6 +306,13 @@ finish() {
 
 main() {
   [[ $# == 0 ]] || fail "Usage: deploy/upgrade.sh"
+  if [[ -z ${DESTDIR:-} ]]; then
+    require_maintenance_path "${APP_DIR}"
+    require_maintenance_path "${ENV_FILE}"
+    require_maintenance_path "${RUNTIME_ENV_FILE:-${APP_DIR}/.env.runtime}"
+    require_release_source "${APP_DIR}"
+    [[ -z ${SOURCE_DIR:-} ]] || require_release_source "${SOURCE_DIR}"
+  fi
   load_env_for_defaults
   backup_script="${APP_DIR}/deploy/backup.sh"
   # The installer's isolated packaging fixture renders host configuration only.
@@ -306,7 +328,7 @@ main() {
   local install_db_url="${DATABASE_URL:-}"
   if [[ -f ${RUNTIME_ENV_FILE:-${APP_DIR}/.env.runtime} ]]; then
     # Compare without printing credentials. The service and Prisma must target the same database.
-    ( set -a; source "${RUNTIME_ENV_FILE:-${APP_DIR}/.env.runtime}"; [[ ${DATABASE_URL:-} == "${install_db_url}" ]] ) ||
+    ( set -a; unset DATABASE_URL; load_install_settings "${RUNTIME_ENV_FILE:-${APP_DIR}/.env.runtime}"; [[ ${DATABASE_URL:-} == "${install_db_url}" ]] ) ||
       fail "Runtime and installation DATABASE_URL differ; reconcile the configuration before upgrading"
   fi
   prefix="${SERVICE_PREFIX:-${APP_SLUG:-${APP_NAME,,}}}"
@@ -316,7 +338,7 @@ main() {
   exec 9>>"${lock}"
   flock -n 9 || fail "Another deployment is running"
   printf '%s\n' "$$" > "${lock}"
-  work="" cutover=0 started_new=0
+  work="" stage_dir="" cutover=0 started_new=0
   core_units=("${prefix}-next.service" "${prefix}-worker.service" "${prefix}-ssh-ws.service")
   managed_units=() active_units=() persistent=()
   shared=(storage uploads downloads backups logs tmp dist.releases .ssh .config .local .npm .cache)
@@ -331,7 +353,7 @@ main() {
   [[ "${device}" == "$(stat -c %d "${work}")" ]] || fail "Release and installation must be on the same filesystem"
   [[ ! -L ${APP_DIR}/dist.releases ]] || fail "Release archive must be a local directory"
   local setting configured relative top
-  for setting in STORAGE_ROOT DOWNLOAD_ROOT BACKUP_DIR ARIA2_RPC_DIR FILE_VERSION_DIR MEDIA_UPLOAD_TMP_DIR MEDIA_THUMB_CACHE_DIR ENV_FILE RUNTIME_ENV_FILE; do
+  for setting in STORAGE_ROOT DOWNLOAD_ROOT BACKUP_DIR ARIA2_RPC_DIR FILE_VERSION_DIR MEDIA_UPLOAD_TMP_DIR MEDIA_THUMB_CACHE_DIR IMAGE_UPLOAD_DIR VCH_STORAGE_ROOT ENV_FILE RUNTIME_ENV_FILE; do
     configured="${!setting:-}"
     [[ ${configured} == "${APP_DIR}/"* ]] || continue
     relative="${configured#"${APP_DIR}/"}"
@@ -351,10 +373,24 @@ main() {
   backup_state="$(systemctl show "${prefix}-backup.service" -p ActiveState --value)"
   [[ ${backup_state} == inactive || ${backup_state} == failed ]] || fail "Backup service is busy"
   if [[ ${SKIP_DB_SETUP:-0} != 1 ]]; then
-    (cd "${candidate}" && with_install_env npm run prisma:deploy && with_install_env npm exec --no -- tsx deploy/prepare-cost-ledger.ts)
-    if [[ ${SKIP_SEED:-0} != 1 ]]; then (cd "${candidate}" && with_install_env npm run db:seed); fi
+    (cd "${stage_dir}" && with_install_env as_release_builder npm run prisma:deploy && with_install_env as_release_builder npm exec --no -- tsx deploy/prepare-cost-ledger.ts)
+    if [[ ${SKIP_SEED:-0} != 1 ]]; then (cd "${stage_dir}" && with_install_env as_release_builder npm run db:seed); fi
   fi
   clear_candidate_env
+  # A pre-upgrade unit keeps its local overrides. The drop-in also tolerates
+  # rolling back to a release that predates the preflight module.
+  if [[ -f ${candidate}/deploy/check-aria2-secret.mjs ]]; then
+    local unit_dir="${SYSTEMD_UNIT_DIR:-/etc/systemd/system}" role dropin
+    for role in next worker; do
+      dropin="${unit_dir}/${prefix}-${role}.service.d"
+      install -d -m 755 -- "${dropin}"
+      cat > "${dropin}/25-vcontrolhub-aria2-check.conf" <<'UNIT'
+[Service]
+ExecStartPre=/usr/bin/env node --input-type=module -e "import fs from 'node:fs'; if (fs.existsSync('deploy/check-aria2-secret.mjs')) await import('./deploy/check-aria2-secret.mjs')"
+UNIT
+    done
+    systemctl daemon-reload
+  fi
   for name in "${persistent[@]}"; do mv -T -- "${APP_DIR}/${name}" "${candidate}/${name}"; done
   mv -T -- "${APP_DIR}" "${old}"
   mv -T -- "${candidate}" "${APP_DIR}"

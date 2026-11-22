@@ -2,8 +2,8 @@
 import { randomUUID } from "node:crypto";
 import { beforeAll, afterAll, describe, expect, it, vi } from "vitest";
 import { prisma } from "@/lib/db";
-import { addTicketComment, updateTicketStatus } from "../service";
-import { getTicketTimeline, linkTicketServer } from "../timeline";
+import { addTicketComment, getTicketById, listTickets, updateTicketStatus } from "../service";
+import { getTicketTimeline, linkTicketCommand, linkTicketServer } from "../timeline";
 import { escalateBreachedTickets } from "../sla";
 
 describe.skipIf(process.env.RUN_DATABASE_INTEGRATION_TESTS !== "1")("ticket row ownership at commit (PostgreSQL)", () => {
@@ -49,6 +49,19 @@ describe.skipIf(process.env.RUN_DATABASE_INTEGRATION_TESTS !== "1")("ticket row 
     expect(await prisma.ticketComment.count({ where: { ticketId: ticket.id } })).toBe(0);
     await expect(getTicketTimeline(ticket.id, viewer)).rejects.toMatchObject({ status: 404 });
     await expect(getTicketTimeline(ticket.id, { ...viewer, permissions: ["ticket:manage"] })).resolves.toMatchObject({ ticketId: ticket.id });
+  });
+
+  it("projects hidden command and server IDs out of ticket reads and historical links", async () => {
+    const ticket = await create("-hidden-links");
+    const cmd = await prisma.commandRequest.create({ data: { teamId: id, requesterId: id, initiatedByType: "USER", title: "linked", command: "true" } });
+    await linkTicketCommand({ ticketId: ticket.id, commandRequestId: cmd.id });
+    await linkTicketServer({ ticketId: ticket.id, serverId: server("a") });
+    const hidden = { relatedCommandId: null, relatedServerId: null };
+    expect(await getTicketById(ticket.id, viewer)).toMatchObject(hidden);
+    expect((await listTickets({ userId: viewer.userId, session: viewer })).find(row => row.id === ticket.id)).toMatchObject(hidden);
+    await linkTicketCommand({ ticketId: ticket.id, commandRequestId: null });
+    expect(JSON.stringify(await getTicketTimeline(ticket.id, viewer))).not.toContain(cmd.id);
+    expect(JSON.stringify(await getTicketTimeline(ticket.id, { ...viewer, permissions: ["ticket:read", "command:read"] }))).toContain(cmd.id);
   });
 
   it("filters current and historical server references by both account permission and object ACL", async () => {

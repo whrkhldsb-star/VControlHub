@@ -17,7 +17,7 @@ import { CSRF_FAILURE_MESSAGE, requestPassesCsrfCheck } from "@/lib/auth/csrf-re
 import type { SessionPayload } from "@/lib/auth/session";
 import { GENERAL_WRITE_LIMIT, withRateLimit, rateLimitResponse } from "@/lib/http/rate-limit-presets";
 import { uploadFile, sanitizeRemotePath, sanitizeFileName } from "@/lib/ssh/sftp-service";
-import { acquireAdvisoryLock } from "@/lib/concurrency/advisory-lock";
+import { withServerLifecycleLock } from "@/lib/server/lifecycle-lock";
 import { loadEnabledServerForSftp } from "@/lib/ssh/server-target";
 import { assertSftpPathAccess } from "@/lib/ssh/sftp-access-control";
 import { assertServerTeamAccess } from "@/lib/server/team-access";
@@ -128,16 +128,12 @@ async function handleUpload(
     const fullPath = `${safeDir.replace(/\/$/, "")}/${safeName}`;
     // A transfer takes this lock too. Keep the authorized endpoint through
     // both realpath checks and the final byte of the upload.
-    const release = await acquireAdvisoryLock("server-delete", id);
-    let bytesWritten: number;
-    try {
+    const bytesWritten = await withServerLifecycleLock(id, async () => {
       const target = await loadEnabledServerForSftp(id, teamAccess.server.teamId, teamAccess.server, request.signal);
       const root = await assertSftpPathAccess({ session, serverId: id, paths: [fullPath], target, signal: request.signal });
       const stream = Readable.fromWeb(file.stream() as import("node:stream/web").ReadableStream);
-      bytesWritten = await uploadFile(id, fullPath, stream, { ...target.ssh, signal: request.signal }, root);
-    } finally {
-      await release();
-    }
+      return uploadFile(id, fullPath, stream, { ...target.ssh, signal: request.signal }, root);
+    });
     await auditUserAction(
       session.userId,
       "sftp.upload",

@@ -26,12 +26,14 @@ export function renderDeploymentCommand(template: string, variables: Record<stri
   if (shell !== "posix") return renderCmdOrMixed(template, variables, shell);
   const values: string[] = [];
   const params = new Map<string, string>();
+  let prefix = "VCH_DEPLOY_VALUE_";
+  while (template.includes(prefix)) prefix += "_";
   function parameter(name: string) {
     if (!Object.hasOwn(variables, name)) throw new ValidationError(t("backend.deployment.invalidVariablesJson"));
     if (!params.has(name)) {
       validateValue(name, variables[name]!, shell);
       values.push(variables[name]!);
-      params.set(name, "${" + values.length + "}");
+      params.set(name, "${" + prefix + values.length + "}");
     }
     return params.get(name)!;
   }
@@ -52,7 +54,8 @@ export function renderDeploymentCommand(template: string, variables: Record<stri
       else if (!quote && (token === '"' || token === "'")) quote = token;
     }
   }
-  const command = ["sh", "-c", shellQuote(body), "deploy", ...values.map(shellQuote)].join(" ");
+  const bindings = values.map((_, i) => `readonly ${prefix}${i + 1}="\${${i + 1}}"`);
+  const command = ["sh", "-c", shellQuote([...bindings, body].join("\n")), "deploy", ...values.map(shellQuote)].join(" ");
   if (command.length > 10_000) throw new ValidationError(t("backend.deployment.invalidVariablesJson"));
   return command;
 }

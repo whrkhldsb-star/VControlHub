@@ -5,6 +5,7 @@ export {
 	deleteCostEntry,
 	getCostEntry,
 	listCostEntries,
+	listCostEntryPage,
 	summarizeMonth,
 	listRecentSnapshots,
 	syncServerMonthlyCosts,

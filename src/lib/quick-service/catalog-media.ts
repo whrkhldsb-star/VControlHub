@@ -74,7 +74,7 @@ export const MEDIA_SERVICE_TEMPLATES: ServiceTemplate[] = [
 		image: "ghcr.io/immich-app/immich-server:release",
 		defaultPort: 2283,
 		path: "/",
-		envJson: { DB_HOSTNAME: "127.0.0.1" },
+		envJson: { DB_HOSTNAME: "host.docker.internal" },
 		volumesJson: [
 			{ host: "/opt/immich/upload", container: "/usr/src/app/upload" },
 		],

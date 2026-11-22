@@ -1,4 +1,5 @@
 import { describe, expect, it, vi, beforeEach } from "vitest";
+import { mayScrapeGateway } from "@/lib/monitoring/gateway-metrics";
 
 const { requireApiPermissionMock, getObservabilitySnapshotMock } = vi.hoisted(() => ({
 	requireApiPermissionMock: vi.fn(async () => ({
@@ -19,6 +20,11 @@ const { requireApiPermissionMock, getObservabilitySnapshotMock } = vi.hoisted(()
 		},
 	})),
 }));
+
+vi.mock("@/lib/config/env", async (original) => {
+	const env = await original<typeof import("@/lib/config/env")>();
+	return { ...env, config: { ...env.config, ssh: { ...env.config.ssh, wsHost: "::", wsSecret: "test-scrape-secret" } } };
+});
 
 vi.mock("@/lib/auth/require-api-permission", () => ({
 	requireApiPermission: requireApiPermissionMock,
@@ -65,5 +71,8 @@ describe("GET /api/monitoring/observability", () => {
 		expect(requireApiPermissionMock).toHaveBeenCalledWith("audit:read");
 		expect(body.metrics.websocket.ssh.active).toBe(3);
 		expect(body.metrics.websocket.notification.active).toBe(1);
+		const [url, init] = vi.mocked(fetch).mock.calls[0]!;
+		expect(new URL(String(url)).hostname).toBe("[::1]");
+		expect(mayScrapeGateway(new Headers(init?.headers).get("authorization") ?? undefined, "test-scrape-secret")).toBe(true);
 	});
 });

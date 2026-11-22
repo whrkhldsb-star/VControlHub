@@ -17,6 +17,18 @@ const readOperations = ["stat", "list", "read", "checksum"];
 export const FILE_AGENT_CLAIM_LEASE_MS = 15_000;
 export const FILE_AGENT_RECEIPT_GRACE_MS = 60 * 60_000;
 
+export function fileWriteFence(serverId: string, jobId = "") {
+  return `file-agent-write:${serverId}:${jobId}`;
+}
+
+// A delivery can outlive the caller and its polling lease. Only a terminal receipt clears the fence.
+export function pendingFileWrites(tx: Tx, binding: { serverId: string } | { id: string }) {
+  return tx.agentFileCall.count({ where: {
+    share: binding, claimed: true, result: { equals: Prisma.DbNull },
+    NOT: { OR: readOperations.map(op => ({ payload: { path: ["op"], equals: op } })) },
+  } });
+}
+
 export async function pairFileShare(nodeId: string, session: SessionPayload) {
   return prisma.$transaction(async (tx) => {
     // Rotation updates the server first, then its shares. Keep that order and
@@ -39,6 +51,7 @@ export async function pairFileShare(nodeId: string, session: SessionPayload) {
       },
     });
     if (!share?.server.agentTokenHash || share.server.teamId !== share.node.teamId) throw unavailable();
+    if (await pendingFileWrites(tx, { id: binding.id }) || await tx.setting.count({ where: { key: { startsWith: fileWriteFence(binding.serverId) } } })) throw unavailable();
     const token = `vcf_${share.id}_${randomBytes(32).toString("hex")}`;
     // Node deletion and reconfiguration claim the node before its file binding.
     await tx.storageNode.update({
@@ -74,21 +87,21 @@ export async function pairFileShare(nodeId: string, session: SessionPayload) {
 // Each stage needs the preceding locked row. Pairing, transfer and node deletion
 // can therefore take the same server, node and binding locks without a cycle.
 async function liveChannel(tx: Tx, by: { nodeId?: string; hash?: string; serverId?: string }) {
-  const rows = await tx.$queryRaw<Array<Channel & { seenAt: Date | null; rootIdentity: string | null }>>`
+  const rows = await tx.$queryRaw<Array<Channel & { serverId: string; seenAt: Date | null; rootIdentity: string | null }>>`
     WITH locked_server AS MATERIALIZED (
       SELECT s.id AS "serverId", s."teamId", s."agentTokenHash", sh.id AS "shareId", sh."storageNodeId", sh."tokenHash"
       FROM servers s JOIN agent_file_shares sh ON sh."serverId" = s.id
       WHERE ${by.nodeId ? Prisma.sql`sh."storageNodeId" = ${by.nodeId}` : Prisma.sql`sh."tokenHash" = ${by.hash}`}
         ${by.serverId ? Prisma.sql`AND s.id = ${by.serverId}` : Prisma.empty}
         AND s.enabled AND s."managementMode" = 'AGENT'
-      FOR SHARE OF s
+      ${by.hash ? Prisma.sql`FOR NO KEY UPDATE OF s` : Prisma.sql`FOR SHARE OF s`}
     ), locked_node AS MATERIALIZED (
       SELECT s.* FROM locked_server s JOIN "StorageNode" n ON n.id = s."storageNodeId"
       WHERE n.driver = 'AGENT' AND n."teamId" IS NOT DISTINCT FROM s."teamId"
         AND NOT EXISTS (SELECT 1 FROM teams WHERE id = n."teamId" AND "deletedAt" IS NOT NULL)
       FOR SHARE OF n
     )
-    SELECT sh.id, sh."tokenHash", sh.writable, sh."seenAt", sh."rootIdentity"
+    SELECT sh.id, sh."serverId", sh."tokenHash", sh.writable, sh."seenAt", sh."rootIdentity"
     FROM locked_node n JOIN agent_file_shares sh ON sh.id = n."shareId"
     WHERE sh."serverId" = n."serverId" AND sh."storageNodeId" = n."storageNodeId"
       AND sh."tokenHash" = n."tokenHash" AND sh."agentHash" = n."agentTokenHash"
@@ -152,17 +165,22 @@ export async function callFileAgent(nodeId: string, channel: Channel, payload: P
   }
 }
 
-export function sweepExpiredFileAgentCalls(now = new Date()) {
-  return prisma.agentFileCall.deleteMany({
-    where: {
-      expiresAt: { lte: now },
-      OR: [
-        { claimed: false }, { result: { not: Prisma.DbNull } },
-        ...readOperations.map(op => ({ payload: { path: ["op"], equals: op } })),
-        { expiresAt: { lte: new Date(now.getTime() - FILE_AGENT_RECEIPT_GRACE_MS) } },
-      ],
-    },
-  });
+export async function sweepExpiredFileAgentCalls(now = new Date()) {
+  const grace = new Date(now.getTime() - FILE_AGENT_RECEIPT_GRACE_MS);
+  const rows = await prisma.$queryRaw<Array<{ count: number }>>`
+    WITH swept AS (
+      DELETE FROM agent_file_calls c USING agent_file_shares s
+      WHERE c."shareId" = s.id AND c."expiresAt" <= ${now}
+        AND (NOT c.claimed OR c.result IS NOT NULL OR c.payload->>'op' IN ('stat','list','read','checksum') OR c."expiresAt" <= ${grace})
+      RETURNING c.id, s."serverId", c.claimed, c.result, c.payload, c."tokenHash"
+    ), fenced AS (
+      INSERT INTO settings (key, value, "updatedAt")
+      SELECT 'file-agent-write:' || "serverId" || ':' || id, "tokenHash", now()
+      FROM swept WHERE claimed AND result IS NULL AND COALESCE(payload->>'op','') NOT IN ('stat','list','read','checksum')
+      ON CONFLICT DO NOTHING
+    )
+    SELECT count(*)::int AS count FROM swept`;
+  return rows[0]!;
 }
 
 export async function recordVerifiedFileRead(channel: Channel) {
@@ -184,22 +202,27 @@ export async function pollFileAgent(hash: string, rootIdentity: string, writable
     const now = new Date();
     const observed: { lastReadAt?: Date; lastWriteAt?: Date } = {};
     if (receipt) {
+      // Serialize with the atomic sweep before acknowledging its durable fence.
+      await tx.$queryRaw`SELECT id FROM agent_file_calls WHERE id = ${receipt.id} AND "shareId" = ${share.id} FOR UPDATE`;
+      await tx.setting.deleteMany({ where: { key: fileWriteFence(share.serverId, receipt.id), value: hash } });
       const where = {
         id: receipt.id,
         shareId: share.id,
         tokenHash: hash,
         claimed: true,
-        expiresAt: { gt: new Date(now.getTime() - FILE_AGENT_RECEIPT_GRACE_MS) },
         result: { equals: Prisma.DbNull },
       };
       const call = await tx.agentFileCall.findFirst({ where, select: { payload: true, expiresAt: true } });
       if (call) {
         const { op, step } = call.payload as Payload;
-        if (call.expiresAt > now || !readOperations.includes(String(op))) {
+        if (call.expiresAt > now || (!readOperations.includes(String(op)) && call.expiresAt.getTime() + FILE_AGENT_RECEIPT_GRACE_MS > now.getTime())) {
           const completed = await tx.agentFileCall.updateMany({ where, data: { payload: {}, result: receipt.result } });
           if (completed.count && !receipt.result.error && (op === "publish" || op === "copy" || (op === "copy-step" && step === "promote"))) {
             observed.lastWriteAt = now;
           }
+        } else if (!readOperations.includes(String(op))) {
+          // Receipt is past retention. Prevent the sweep from backfilling a fence for completed work.
+          await tx.agentFileCall.updateMany({ where, data: { claimed: false, payload: {} } });
         }
       }
     }
@@ -220,6 +243,7 @@ export async function pollFileAgent(hash: string, rootIdentity: string, writable
     const leasedDelivery = deliveryVersion === 2;
     const eligible = {
       shareId: share.id, tokenHash: hash, expiresAt: { gt: now }, result: { equals: Prisma.DbNull },
+      ...(writable ? {} : { AND: [{ OR: readOperations.map(op => ({ payload: { path: ["op"], equals: op } })) }] }),
       OR: [
         { claimed: false },
         ...(leasedDelivery ? [{ payload: { path: ["claimLeaseUntilMs"], lte: now.getTime() } }] : []),
@@ -234,11 +258,29 @@ export async function pollFileAgent(hash: string, rootIdentity: string, writable
     delete operation.claimLeaseUntilMs;
     // liveChannel serializes polls for this share. The conditional update
     // also handles a caller cancelling its unclaimed row in the meantime.
+    const remainingMs = next.expiresAt.getTime() - Date.now();
+    if (remainingMs <= 0) return { job: null };
     const claimed = await tx.agentFileCall.updateMany({
       where: { ...eligible, id: next.id },
       data: { claimed: true, ...(leasedDelivery ? { payload: { ...operation, claimLeaseUntilMs: now.getTime() + FILE_AGENT_CLAIM_LEASE_MS } } : {}) },
     });
-    const remainingMs = next.expiresAt.getTime() - Date.now();
-    return { job: claimed.count && remainingMs > 0 ? { id: next.id, remainingMs, operation } : null };
+    if (!claimed.count) return { job: null };
+    if (!readOperations.includes(String(operation.op))) {
+      // Call rows are unlogged and can cascade away. Keep the fence in a logged table.
+      await tx.$queryRaw`
+        WITH touched AS (UPDATE servers SET "updatedAt" = now() AT TIME ZONE 'UTC' WHERE id = ${share.serverId} RETURNING id)
+        INSERT INTO "settings" (key, value, "updatedAt") SELECT ${fileWriteFence(share.serverId, next.id)}, ${hash}, now() FROM touched
+        ON CONFLICT (key) DO NOTHING`;
+    }
+    const deliveryMs = next.expiresAt.getTime() - Date.now();
+    if (deliveryMs <= 0) {
+      if (!("claimLeaseUntilMs" in (next.payload as Payload))) {
+        // No previous executor. This transaction withheld the first delivery.
+        await tx.agentFileCall.deleteMany({ where: { id: next.id } });
+        await tx.$queryRaw`DELETE FROM "settings" WHERE key = ${fileWriteFence(share.serverId, next.id)}`;
+      }
+      return { job: null };
+    }
+    return { job: { id: next.id, remainingMs: deliveryMs, operation } };
   });
 }

@@ -42,9 +42,9 @@ export async function GET(request: Request) {
 				where: {
 					...serverTeamWhere(session),
 					OR: [
-						{ name: { contains: q, mode: "insensitive" } },
-						{ host: { contains: q, mode: "insensitive" } },
-						{ description: { contains: q, mode: "insensitive" } },
+						{ name: { contains: escapeLikeLiteral(q), mode: "insensitive" } },
+						{ host: { contains: escapeLikeLiteral(q), mode: "insensitive" } },
+						{ description: { contains: escapeLikeLiteral(q), mode: "insensitive" } },
 						{ tags: { has: q } },
 					],
 				},
@@ -73,8 +73,8 @@ export async function GET(request: Request) {
 						playbookTeamWhere(session),
 						{
 							OR: [
-								{ name: { contains: q, mode: "insensitive" } },
-								{ description: { contains: q, mode: "insensitive" } },
+								{ name: { contains: escapeLikeLiteral(q), mode: "insensitive" } },
+								{ description: { contains: escapeLikeLiteral(q), mode: "insensitive" } },
 							],
 						},
 					],

@@ -25,6 +25,7 @@ export function useCostPageState(options: {
   initialCurrency: CostCurrency;
   initialSummary: CostSummary | null;
   initialEntries: CostEntryRecord[];
+  initialTotal?: number;
   initialSnapshots: DailySnapshot[];
   canManage: boolean;
   t: TFn;
@@ -52,6 +53,8 @@ export function useCostPageState(options: {
   const filters = useRef({ month: initialMonth, currency: initialCurrency });
   const [summary, setSummary] = useState<CostSummary | null>(initialSummary);
   const [entries, setEntries] = useState<CostEntryRecord[]>(initialEntries);
+  const [entryPage, setEntryPage] = useState(1);
+  const [total, setTotal] = useState(options.initialTotal ?? initialEntries.length);
   const [snapshots, setSnapshots] = useState<DailySnapshot[]>(initialSnapshots);
   const [showForm, setShowForm] = useState(false);
   const [editingId, setEditingId] = useState<string | null>(null);
@@ -103,15 +106,18 @@ export function useCostPageState(options: {
     [addToast, t],
   );
 
-  const fetchEntries = useCallback(async (forMonth?: string) => {
+  const fetchEntries = useCallback(async (forMonth?: string, page = 1) => {
     const seq = ++entriesReqSeq.current;
     try {
       const m = forMonth ?? month;
       const qs = new URLSearchParams({ limit: "200" });
+      if (page > 1) qs.set("page", String(page));
       if (m) qs.set("month", m);
-      const data = await csrfFetch<{ entries: CostEntryRecord[] }>(`/api/cost/entries?${qs.toString()}`);
+      const data = await csrfFetch<{ entries: CostEntryRecord[]; page: number; total: number }>(`/api/cost/entries?${qs.toString()}`);
       if (seq !== entriesReqSeq.current) return;
       setEntries(data.entries);
+      setEntryPage(data.page);
+      setTotal(data.total);
     } catch (err) {
       if (seq !== entriesReqSeq.current) return;
       addToast("error", describeFailure(t("costPage.error.load"), err));
@@ -303,6 +309,7 @@ export function useCostPageState(options: {
     currency,
     summary,
     entries,
+    entryPage, total, fetchEntries,
     showForm,
     editingId,
     sourceDateLocked,

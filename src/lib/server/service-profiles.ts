@@ -23,23 +23,24 @@ import { revokeInheritedSftpShares, revokeNodeShares } from "@/lib/storage/node-
 import { checkStorageNodeHealth } from "@/lib/storage/service-nodes";
 import { normalizeServerInput } from "./config";
 import { defaultStoragePath } from "./default-storage-path";
-import { findServerProfileForSession, probeEndpointWhere, savedProfileBinding, SERVER_PROFILE_INCLUDE, type ServerProfileRecord } from "./service-profile-includes";
+import { findServerProfileForSession, probeEndpointWhere, serverCommandCounts, savedProfileBinding, SERVER_PROFILE_INCLUDE, type ServerProfileRecord } from "./service-profile-includes";
 import { createServerSchema, storagePathSchema, type CreateServerInput } from "./schema";
 import { parseServerSyncTargetAuth } from "@/lib/sync/target-auth";
 import { applyServerDirectGatewayState, applyServerDirectGatewayStateUnderLock } from "./service-direct-gateway";
 import { installServerAgent, installServerAgentUnderLock, removeAgentFromHost, resetAgentForModeChange, withServerLifecycleLock } from "./agent-service";
 import { createWindowsServerProfile, updateWindowsServerProfile } from "./service-profiles-windows";
-import { acquireAdvisoryLock } from "@/lib/concurrency/advisory-lock";
+import { needsLegacyGatewayStop, firstDirectGatewayKeyVersion } from "./direct-gateway-key";
+import { lockForTransaction, acquireAdvisoryLock } from "@/lib/concurrency/advisory-lock";
 import {
   assertNoDuplicateServerHost,
   enrichServer,
+  enrichServerForSession,
   getErrorMessage,
   isLocalHostLiteral,
   safeRevalidatePath,
   sessionForTeamWhere,
   verifyServerSshConnectivity,
   type ProfileSession,
-  type ServerProfileRow,
   type ServerWithRelations,
 } from "./service-internals";
 
@@ -178,7 +179,7 @@ async function provisionNewServer(ctx: {
   } else if (connectivityVerified) {
     try {
       await createRemoteDirectory({
-        ...(await buildSshParamsFromServer(server, server.sshKey ?? null)),
+        ...(await buildSshParamsFromServer(server, server.sshKey ?? null, server.teamId)),
         remotePath: configuredPath,
         recursive: true,
       });
@@ -229,7 +230,7 @@ async function provisionNewServer(ctx: {
   // can use the right service manager without a manual "Detect OS" click first.
   if (!isLocalHost && connectivityVerified) {
     try {
-      const dialectSsh = await buildSshParamsFromServer(server, server.sshKey ?? null);
+      const dialectSsh = await buildSshParamsFromServer(server, server.sshKey ?? null, server.teamId);
       const dialect = await detectOsDialect(dialectSsh);
       await prisma.server.update({
         where: probeEndpointWhere(server, true),
@@ -389,11 +390,6 @@ export async function createServerProfile(
     onboardingWarnings.push(t("backend.server.onboarding.sshDraft", { reason: draftReason }));
   }
 
-  // Precompute paths outside the transaction (read-only counts may race slightly
-  // for isDefault; server+storage create must be atomic to avoid orphan Server rows).
-  const defaultCount = await prisma.storageNode.count({
-    where: { isDefault: true },
-  });
   const provisionalName = normalized.name;
   configuredPath =
     normalized.storagePath ||
@@ -435,6 +431,8 @@ export async function createServerProfile(
     });
 
     // Auto-create associated storage node in the same transaction
+    await lockForTransaction(tx, "storage-node-default", teamData.teamId ?? "platform");
+    const defaultCount = await tx.storageNode.count({ where: { teamId: teamData.teamId ?? null, isDefault: true } });
     const storageNodeName = `${created.name} storage`;
     const createdStorageNode = await tx.storageNode.create({
       data: {
@@ -498,7 +496,7 @@ export async function createServerProfile(
   safeRevalidatePath("/files");
 
   return {
-    ...enrichServer(refreshed!),
+    ...await enrichServerForSession(refreshed!, session),
     onboardingWarnings,
     draftReason,
   };
@@ -510,24 +508,22 @@ export async function updateServerProfile(
   session?: TeamSession | null,
 ) {
   const t = await serviceT();
-  const current = await findServerProfileForSession(serverId, session);
-  if (!current) throw new NotFoundError(t("backend.server.nodeNotFound"));
-  const modeChanged = input.managementMode !== undefined && input.managementMode !== current.managementMode;
-  // A forwarded SSH port can select another machine even with the same host.
-  const hostChanged = input.host !== undefined && input.host.trim().toLowerCase() !== current.host.toLowerCase();
-  const portChanged = current.operatingSystem !== "WINDOWS" && input.port !== undefined && Number(input.port) !== current.port;
-  const reconfigureAgent = modeChanged || (current.managementMode === "AGENT" && (hostChanged || portChanged));
-  if (reconfigureAgent) {
-    return withServerLifecycleLock(serverId, async () => {
-      const fresh = await findServerProfileForSession(serverId, session);
-      if (!fresh) throw new NotFoundError(t("backend.server.nodeNotFound"));
-      if (fresh.managementMode !== current.managementMode || fresh.host !== current.host || fresh.port !== current.port) {
-        throw new ValidationError(t("backend.server.modeChanged"));
+  return withServerLifecycleLock(serverId, async () => {
+    const current = await findServerProfileForSession(serverId, session);
+    if (!current) throw new NotFoundError(t("backend.server.nodeNotFound"));
+    const modeChanged = input.managementMode !== undefined && input.managementMode !== current.managementMode;
+    const hostChanged = input.host !== undefined && input.host.trim().toLowerCase() !== current.host.toLowerCase();
+    const portChanged = current.operatingSystem !== "WINDOWS" && input.port !== undefined && Number(input.port) !== current.port;
+    const reconfigureAgent = modeChanged || (current.managementMode === "AGENT" && (hostChanged || portChanged));
+    try {
+      return await saveServerProfile(serverId, current, input, session, t, reconfigureAgent);
+    } catch (error) {
+      if (error instanceof Prisma.PrismaClientKnownRequestError && error.code === "P2025") {
+        throw new ConflictError(t("backend.command.connectionChanged"));
       }
-      return saveServerProfile(serverId, fresh, input, session, t, true);
-    });
-  }
-  return saveServerProfile(serverId, current, input, session, t, false);
+      throw error;
+    }
+  });
 }
 
 async function saveServerProfile(serverId: string, current: ServerProfileRecord, input: UpdateServerInput, session: TeamSession | null | undefined, t: TFn, reconfigureAgent: boolean) {
@@ -616,6 +612,10 @@ async function saveServerProfile(serverId: string, current: ServerProfileRecord,
   // (A key is safe to keep: the server only ever sees a signature.)
   const endpointChanged =
     normalized.host !== current.host || normalized.port !== current.port || normalized.username !== current.username;
+  if (endpointChanged && (needsLegacyGatewayStop(current) || current.fileProxyPort > 0 || current.publicUrl ||
+    current.directGatewayDesiredEnabled || (priorNode?.publicBaseUrl && priorNode.directAccessMode !== "PROXY"))) {
+    throw new BusinessError(t("backend.server.transfer.disableGateway"));
+  }
   if (normalized.connectionType === "PASSWORD" && endpointChanged && !input.password) {
     throw new ValidationError(t("backend.server.endpointChangeNeedsPassword"));
   }
@@ -666,7 +666,7 @@ async function saveServerProfile(serverId: string, current: ServerProfileRecord,
   }
 
   const update = {
-    where: { id: serverId, teamId: current.teamId ?? null, managementMode: current.managementMode, host: current.host, port: current.port, username: current.username },
+    where: { ...probeEndpointWhere(current, current.enabled), directGatewayKeyVersion: current.directGatewayKeyVersion, directGatewayDesiredEnabled: current.directGatewayDesiredEnabled },
     data: {
       ...(reconfigureAgent ? resetAgentForModeChange() : {}),
       name: normalized.name,
@@ -678,10 +678,10 @@ async function saveServerProfile(serverId: string, current: ServerProfileRecord,
       hostKeySha256,
       sshKeyId:
         removeSshCredential ? null : normalized.connectionType === "SSH_KEY" ? normalized.sshKeyId! : null,
-      password:
-        !removeSshCredential && normalized.connectionType === "PASSWORD" && normalized.password
-          ? encryptServerPasswordIfPlain(normalized.password)
-          : null,
+      ...(removeSshCredential || normalized.connectionType !== "PASSWORD" ? { password: null }
+        : input.password ? { password: encryptServerPasswordIfPlain(input.password) } : {}),
+      ...(endpointChanged && { publicUrl: null, directGatewayDesiredDomain: null,
+        directGatewayKeyVersion: Math.max(firstDirectGatewayKeyVersion(current.operatingSystem), current.directGatewayKeyVersion) + 1 }),
       description: normalized.description,
       tags: normalized.tags,
       costAutoSync: normalized.costAutoSync,
@@ -690,13 +690,15 @@ async function saveServerProfile(serverId: string, current: ServerProfileRecord,
       costProvider: normalized.costProvider,
       // Only an explicit choice changes it: a caller that does not send it keeps the server's own.
       ...(input.syncTargetAuth ? { syncTargetAuth: parseServerSyncTargetAuth(input.syncTargetAuth) } : {}),
-      enabled:
-        typeof input.enabled === "boolean" ? input.enabled : current.enabled,
+      ...(input.enabled !== undefined && { enabled: input.enabled }),
     },
   } satisfies Prisma.ServerUpdateArgs;
   updated = endpointChanged || moveRoot ? await prisma.$transaction(async (tx) => {
     const saved = await tx.server.update(update);
-    if (endpointChanged) await revokeInheritedSftpShares(tx, current, normalized);
+    if (endpointChanged) {
+      await revokeInheritedSftpShares(tx, current, normalized);
+      await tx.storageNode.updateMany({ where: { serverId, driver: "SFTP", teamId: current.teamId }, data: { directAccessMode: "PROXY", publicBaseUrl: null } });
+    }
     if (moveRoot && priorNode) {
       await tx.storageNode.update({
         where: { id: priorNode.id, serverId, teamId: current.teamId, driver: priorNode.driver, basePath: priorNode.basePath, host: priorNode.host, port: priorNode.port, username: priorNode.username },
@@ -729,7 +731,7 @@ async function saveServerProfile(serverId: string, current: ServerProfileRecord,
   if (!refreshed) throw new NotFoundError(t("backend.server.nodeNotFound"));
 
   return {
-    ...enrichServer(refreshed),
+    ...await enrichServerForSession(refreshed, session),
     onboardingWarnings,
   };
 }
@@ -738,6 +740,12 @@ export async function toggleServerEnabled(
   serverId: string,
   session?: TeamSession | null,
   approvedHostKeySha256?: string | null,
+) {
+  return withServerLifecycleLock(serverId, () => toggleServerEnabledUnderLock(serverId, session, approvedHostKeySha256));
+}
+
+async function toggleServerEnabledUnderLock(
+  serverId: string, session?: TeamSession | null, approvedHostKeySha256?: string | null,
 ) {
   const current = await findServerProfileForSession(serverId, session);
   const t = await serviceT();
@@ -753,7 +761,7 @@ export async function toggleServerEnabled(
     if (current.operatingSystem === "WINDOWS") {
       if (!current.rdpPassword) throw new ValidationError(t("backend.server.windowsPasswordRequiredToEnable"));
       const updated = await prisma.server.update({ where: { ...probeEndpointWhere(current, false), rdpPassword: current.rdpPassword }, data: { enabled: true }, include: SERVER_PROFILE_INCLUDE }).catch(changedEndpoint);
-      return { ...enrichServer(updated), onboardingWarnings: [] as string[] };
+      return { ...await enrichServerForSession(updated, session), onboardingWarnings: [] as string[] };
     }
     const hasSshCredential = current.connectionType === "SSH_KEY"
       ? Boolean(current.sshKeyId && current.sshKey?.privateKey)
@@ -785,7 +793,7 @@ export async function toggleServerEnabled(
       costCurrency: current.costCurrency as "CNY" | "USD" | "EUR" | "JPY" | "HKD",
       costProvider: current.costProvider,
     });
-    const ssh = await buildSshParamsFromServer(current, current.sshKey ?? null);
+    const ssh = await buildSshParamsFromServer(current, current.sshKey ?? null, current.teamId);
     let hostKeySha256: string | null;
     try {
       hostKeySha256 = await requireApprovedSshHostKey({
@@ -960,7 +968,8 @@ export async function listServerProfiles(
 ) {
   const where = { ...serverProfileListWhere(sessionOrTeamId), ...(options.enabledOnly ? { enabled: true } : {}) };
   const PAGE = 500;
-  const servers: ServerProfileRow[] = [];
+  const session = typeof sessionOrTeamId === "object" ? sessionOrTeamId : null;
+  const servers: ReturnType<typeof enrichServer>[] = [];
   let cursor: { id: string } | undefined;
   do {
     const page = await prisma.server.findMany({
@@ -970,11 +979,12 @@ export async function listServerProfiles(
       take: PAGE,
       ...(cursor ? { cursor, skip: 1 } : {}),
     });
-    servers.push(...page);
+    const counts = await serverCommandCounts(page, session);
+    servers.push(...page.map(server => enrichServer(server, counts.get(server.id))));
     cursor = page.length === PAGE ? { id: page[page.length - 1]!.id } : undefined;
   } while (cursor);
 
-  return servers.map((server: ServerProfileRow) => enrichServer(server));
+  return servers;
 }
 
 /** Count visible profiles without hydrating credential-bearing relations. */

@@ -4,7 +4,7 @@ const count = vi.hoisted(() => vi.fn(async (_model: string, _args?: unknown) => 
 vi.mock("@/lib/db", () => ({
 	prisma: new Proxy({}, {
 		get: (_target, model) => model === "$queryRaw"
-			? (async () => [])
+			? (async (sql: TemplateStringsArray) => sql.join("").includes("FROM download_tasks") ? [{ count: await count("downloadTask") }] : [])
 			: model === "storageNode"
 			? { findMany: vi.fn(async () => []) }
 			: model === "playbook"

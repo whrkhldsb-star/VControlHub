@@ -13,6 +13,7 @@ import { beforeEach, describe, expect, it, vi } from "vitest";
 
 const { mockPrisma, infoMock, warnMock } = vi.hoisted(() => ({
   mockPrisma: {
+    $transaction: vi.fn(),
     commandRequest: { findMany: vi.fn(), deleteMany: vi.fn(), groupBy: vi.fn() },
     downloadTask: { findMany: vi.fn(), deleteMany: vi.fn(), groupBy: vi.fn() },
     syncJob: { findMany: vi.fn(), deleteMany: vi.fn(), groupBy: vi.fn() },
@@ -56,6 +57,7 @@ function setupEmptyMocks() {
 }
 
 beforeEach(() => {
+  mockPrisma.$transaction.mockImplementation(fn => fn(mockPrisma));
   vi.clearAllMocks();
   setupEmptyMocks();
 });
@@ -100,7 +102,7 @@ describe("pruneOperationTaskHistory — TR-006 跨来源保留策略", () => {
     expect(mockPrisma.commandRequest.findMany).toHaveBeenCalledWith(
       expect.objectContaining({
         where: { status: { in: ["COMPLETED", "FAILED", "REJECTED", "CANCELLED"] }, teamId: null },
-        orderBy: [{ createdAt: "desc" }],
+        orderBy: [{ createdAt: "desc" }, { id: "desc" }],
         take: 3,
       }),
     );
@@ -160,18 +162,17 @@ describe("pruneOperationTaskHistory — TR-006 跨来源保留策略", () => {
     expect(call.where.id).toBeUndefined();
   });
 
-  it("单来源 throw → 不影响其他来源, perSource.command.error 被记录, warnMock 触发", async () => {
+  it("rolls back all sources for a tenant when its command query fails", async () => {
     mockPrisma.commandRequest.findMany.mockRejectedValue(new Error("DB down"));
     mockPrisma.downloadTask.findMany.mockResolvedValue([{ id: "d1" }]);
-    mockPrisma.downloadTask.deleteMany.mockResolvedValue({ count: 5 });
     mockPrisma.downloadTask.deleteMany.mockResolvedValue({ count: 5 });
 
     const result = await pruneOperationTaskHistory({ now: new Date("2026-06-15T00:00:00Z") });
 
     expect(result.perSource.command?.error).toBe("DB down");
     expect(result.perSource.command?.deleted).toBe(0);
-    expect(result.perSource.download?.deleted).toBe(5);
-    expect(result.totalDeleted).toBe(5);
+    expect(result.perSource.download?.deleted).toBe(0);
+    expect(result.totalDeleted).toBe(0);
     expect(warnMock).toHaveBeenCalledWith("pruneOperationTaskHistory: command failed", { error: "DB down" });
   });
 
@@ -247,6 +248,9 @@ describe("pruneOperationTaskHistory — TR-006 跨来源保留策略", () => {
 
     await pruneOperationTaskHistory({ now: new Date("2026-06-15T00:00:00Z") });
 
-    expect(mockPrisma.commandRequest.findMany).toHaveBeenCalledTimes(201);
+    // The separate null scope discovered in the other sources shares the same retention contract.
+    expect(mockPrisma.commandRequest.findMany).toHaveBeenCalledTimes(202);
+    expect(mockPrisma.$transaction).toHaveBeenCalledTimes(202);
+    expect(mockPrisma.$transaction).toHaveBeenCalledWith(expect.any(Function), { isolationLevel: "RepeatableRead" });
   });
 });

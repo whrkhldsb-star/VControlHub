@@ -10,6 +10,7 @@ vi.mock("@/lib/db", () => ({
 import {
 	apiTokenScopeAllowedForSession,
 	loadApiTokenOwnerSession,
+	loadJobOwnerSession,
 	tokenAllowsPermission,
 } from "./authorization";
 
@@ -75,6 +76,15 @@ describe("API token authorization", () => {
 		await expect(loadApiTokenOwnerSession("user-1", "team-1")).resolves.toMatchObject({ currentTeamId: "team-1" });
 		// The owner moved to another customer: the old credential stops working.
 		await expect(loadApiTokenOwnerSession("user-1", "team-2")).resolves.toBeNull();
+	});
+
+	it("keeps a global job global or refuses it before work begins", async () => {
+		findUniqueMock.mockResolvedValue(customerOwner(liveMembership));
+		await expect(loadJobOwnerSession("user-1", null)).resolves.toBeNull();
+		await expect(loadJobOwnerSession("user-1", "team-1")).resolves.toMatchObject({ currentTeamId: "team-1" });
+		findUniqueMock.mockResolvedValue({ ...customerOwner(null), roles: [{ role: { key: "admin" } }] });
+		teamFindUniqueMock.mockResolvedValue({ deletedAt: null });
+		await expect(loadJobOwnerSession("user-1", null)).resolves.toMatchObject({ currentTeamId: null });
 	});
 
 	it("binds an administrator token to its customer while that customer is live", async () => {

@@ -7,7 +7,7 @@ const { mocks } = vi.hoisted(() => ({
     serverFindFirst: vi.fn(),
     playbookFindUnique: vi.fn(),
     playbookRunUpdateMany: vi.fn(),
-    acquireAdvisoryLock: vi.fn(),
+    acquireMonitoredAdvisoryLock: vi.fn(),
     executePlaybookChain: vi.fn(),
     auditSystemAction: vi.fn(),
     heartbeatJob: vi.fn(),
@@ -21,6 +21,7 @@ const { mocks } = vi.hoisted(() => ({
 
 vi.mock("@/lib/db", () => ({
   prisma: {
+    setting: { findUnique: vi.fn(async () => ({ value: "101" })) },
     $queryRaw: vi.fn(async () => ["run", "run-1", "run-c", "run-x"].map((id) => ({ id, version: 1 }))),
     alertRule: { findUnique: mocks.alertRuleFindUnique },
     server: { findFirst: mocks.serverFindFirst },
@@ -39,7 +40,7 @@ vi.mock("@/lib/auth/authorization", () => ({
   sessionHasPermission: mocks.sessionHasPermission,
 }));
 vi.mock("@/lib/concurrency/advisory-lock", () => ({
-  acquireAdvisoryLock: mocks.acquireAdvisoryLock,
+  acquireMonitoredAdvisoryLock: mocks.acquireMonitoredAdvisoryLock,
 }));
 vi.mock("../executor", () => ({
   executePlaybookChain: mocks.executePlaybookChain,
@@ -99,7 +100,7 @@ describe("processPlaybookRun dual-owner races", () => {
   beforeEach(() => {
     vi.clearAllMocks();
     mocks.releaseLock.mockResolvedValue(undefined);
-    mocks.acquireAdvisoryLock.mockResolvedValue(mocks.releaseLock);
+    mocks.acquireMonitoredAdvisoryLock.mockResolvedValue({ release: mocks.releaseLock, signal: new AbortController().signal, generation: "101", assertHeld: vi.fn() });
     mocks.auditSystemAction.mockResolvedValue(undefined);
     mocks.heartbeatJob.mockResolvedValue({ count: 1 });
     // Default: requester is a valid, fully-permitted team member.
@@ -136,7 +137,7 @@ describe("processPlaybookRun dual-owner races", () => {
 
     expect(result).toEqual({ status: "completed", summary: "completed" });
     expect(mocks.executePlaybookChain).not.toHaveBeenCalled();
-    expect(mocks.acquireAdvisoryLock).toHaveBeenCalledWith("playbook-execute", "pb1");
+    expect(mocks.acquireMonitoredAdvisoryLock).toHaveBeenCalledWith("playbook-execute", "pb1");
     expect(mocks.releaseLock).toHaveBeenCalledTimes(1);
     expect(mocks.auditSystemAction).not.toHaveBeenCalled();
   });
@@ -160,8 +161,8 @@ describe("processPlaybookRun dual-owner races", () => {
   it("stops dispatching and releases the execution lock when its connection signals loss", async () => {
     const lock = new AbortController();
     const job = new AbortController();
-    const release = Object.assign(vi.fn(async () => {}), { signal: lock.signal });
-    mocks.acquireAdvisoryLock.mockResolvedValueOnce(release);
+    const release = vi.fn(async () => {});
+    mocks.acquireMonitoredAdvisoryLock.mockResolvedValueOnce({ release, signal: lock.signal, generation: "101", assertHeld: vi.fn() });
     mocks.playbookRunFindUnique
       .mockResolvedValueOnce({ id: "run", status: "queued", teamId: "team1", createdById: "u1", playbook })
       .mockResolvedValueOnce({ status: "running", dryRun: false, teamId: "team1", stepResults: [] });
@@ -358,7 +359,7 @@ describe("processPlaybookRun dual-owner races", () => {
     const result = await processPlaybookRun("run-1", "job-1");
 
     expect(result).toEqual({ status: "failed", summary: "cancelled" });
-    expect(mocks.acquireAdvisoryLock).not.toHaveBeenCalled();
+    expect(mocks.acquireMonitoredAdvisoryLock).not.toHaveBeenCalled();
     expect(mocks.executePlaybookChain).not.toHaveBeenCalled();
   });
 
@@ -433,7 +434,7 @@ describe("processPlaybookRun command-step live authorization", () => {
   beforeEach(() => {
     vi.clearAllMocks();
     mocks.releaseLock.mockResolvedValue(undefined);
-    mocks.acquireAdvisoryLock.mockResolvedValue(mocks.releaseLock);
+    mocks.acquireMonitoredAdvisoryLock.mockResolvedValue({ release: mocks.releaseLock, signal: new AbortController().signal, generation: "101", assertHeld: vi.fn() });
     mocks.auditSystemAction.mockResolvedValue(undefined);
     mocks.heartbeatJob.mockResolvedValue({ count: 1 });
     mocks.loadApiTokenOwnerSession.mockResolvedValue({ userId: "u1", roles: ["operator"] });
@@ -449,7 +450,7 @@ describe("processPlaybookRun command-step live authorization", () => {
       name: "PlaybookAuthorizationError",
     });
     // Must not dispatch the command chain nor take the per-playbook lock.
-    expect(mocks.acquireAdvisoryLock).not.toHaveBeenCalled();
+    expect(mocks.acquireMonitoredAdvisoryLock).not.toHaveBeenCalled();
     expect(mocks.executePlaybookChain).not.toHaveBeenCalled();
   });
 

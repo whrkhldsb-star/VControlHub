@@ -94,8 +94,15 @@ export function useQuickServiceCatalog(t: TFn, canManageHubHost = true) {
     // account would only collect a refusal here.
     if (!canManageHubHost) return;
     try {
-      const data = await csrfFetch("/api/app-sources?includeApps=false");
-      setSources(data.sources ?? []);
+      const all: AppSource[] = [];
+      let cursor: string | null = null;
+      do {
+        const url: string = "/api/app-sources?includeApps=false" + (cursor ? "&cursor=" + encodeURIComponent(cursor) : "");
+        const data = await csrfFetch<{ sources: AppSource[]; nextCursor?: string }>(url);
+        all.push(...(data.sources ?? []));
+        cursor = data.nextCursor ?? null;
+      } while (cursor);
+      setSources(all);
       setSourcesError(null);
     } catch (err) {
       setSourcesError(getErrorMessage(err, t("qsPage.sourcesLoadFailed")));

@@ -9,7 +9,7 @@
  * Pattern: same shape as `src/lib/operation-task/retention-worker.ts`
  *   - durable job type `cost.snapshot`
  *   - claimNextJob / heartbeatJob / completeJob / failJob
- *   - setInterval 24h + fire-once-on-startup
+ *   - minute polling, durable daily targets and outage catch-up
  *   - globalThis state mirror for re-entrancy
  */
 import { appTimeZoneDateKey, shiftAppTimeZoneDay, startOfDayInAppTimeZone, zonedDateTimeToDate } from "@/lib/datetime/time-zone";
@@ -17,10 +17,10 @@ import { CostDecimal } from "./service-internals";
 import { isCalendarDate } from "./calendar-date";
 import { z } from "zod";
 import { activeJobClaim } from "@/lib/job/claim-context";
-import { JobStatus, type Prisma } from "@prisma/client";
+import { type Prisma } from "@prisma/client";
 
 import { config } from "@/lib/config/env";
-import { acquireAdvisoryLock } from "@/lib/concurrency/advisory-lock";
+import { lockForTransaction } from "@/lib/concurrency/advisory-lock";
 import { prisma } from "@/lib/db";
 import { runWithLeaseHeartbeat } from "@/lib/job/heartbeat-runner";
 import { computeLeaseMs } from "@/lib/job/lease";
@@ -46,7 +46,7 @@ const SNAPSHOT_CURRENCY = "CNY" as const;
 const logger = createLogger("cost-snapshot-worker");
 
 export const COST_SNAPSHOT_JOB_TYPE = "cost.snapshot";
-const COST_SNAPSHOT_INTERVAL_MS = 24 * 60 * 60 * 1000; // 24h
+const COST_SNAPSHOT_INTERVAL_MS = 60_000;
 const COST_SNAPSHOT_LEASE_MS = computeLeaseMs("cost-snapshot");
 const COST_SNAPSHOT_WORKER_ID = `${config.app.hostname || "vcontrolhub"}:cost-snapshot:${process.pid}`;
 
@@ -54,7 +54,7 @@ const costSnapshotWorker = createSingletonIntervalWorker({
   globalKey: "__vcontrolhubCostSnapshotWorker",
   resolveIntervalMs: () => COST_SNAPSHOT_INTERVAL_MS,
   tick: (_state, reason) => {
-    void runCostSnapshotWorkerOnce(reason).catch((error) => {
+    void runCostSnapshotWorkerOnce(reason, true).catch((error) => {
       logger.error("Cost snapshot worker tick failed", {
         reason,
         error: error instanceof Error ? error.message : String(error),
@@ -69,40 +69,51 @@ const costSnapshotWorker = createSingletonIntervalWorker({
   },
 });
 
-async function hasActiveSnapshotJob(requestedAt: Date, targetDay: string): Promise<boolean> {
-  const existing = await prisma.job.findFirst({
-    where: {
-      type: COST_SNAPSHOT_JOB_TYPE,
-      status: { in: [JobStatus.PENDING, JobStatus.RUNNING] },
-      OR: [
-        { payload: { path: ["targetDay"], equals: targetDay } },
-        { AND: [
-          { payload: { path: ["requestedAt"], gte: startOfDayInAppTimeZone(requestedAt).toISOString() } },
-          { payload: { path: ["requestedAt"], lt: shiftAppTimeZoneDay(requestedAt, 1).toISOString() } },
-        ] },
-      ],
-    },
-    select: { id: true },
-  });
-  return Boolean(existing);
-}
-
 async function enqueueCostSnapshotJob(reason: string) {
-  const release = await acquireAdvisoryLock("cost-snapshot-enqueue", "global");
-  try {
-    const requestedAt = new Date();
-    const targetDay = appTimeZoneDateKey(requestedAt);
-    if (await hasActiveSnapshotJob(requestedAt, targetDay)) return null;
-    return await enqueueJob({
-      type: COST_SNAPSHOT_JOB_TYPE,
-      title: "Cost daily aggregation snapshot",
-      payload: { reason, requestedAt: requestedAt.toISOString(), targetDay },
-      priority: -3, // Low — batch aggregation, not user-blocking
-      maxAttempts: 2, // Daily cron — 1 retry is plenty
+  await prisma.$transaction(async tx => {
+    await lockForTransaction(tx, "cost-snapshot-enqueue", "global");
+    const now = new Date();
+    const today = appTimeZoneDateKey(now);
+    const completed = await tx.job.findFirst({
+      where: { type: COST_SNAPSHOT_JOB_TYPE, status: "COMPLETED" },
+      orderBy: [{ completedAt: "desc" }, { id: "desc" }], select: { payload: true, createdAt: true },
     });
-  } finally {
-    await release();
-  }
+    let lastDay = completed && jobTargetDay(completed.payload, completed.createdAt);
+    if (lastDay === today) return;
+    if (!lastDay) {
+      // Detached snapshot history survives job retention. A manual snapshot for
+      // today is not evidence that monthly fees or budget alerts ran today.
+      const snapshot = await tx.costSnapshot.findFirst({
+        where: { snapshotDate: { lt: new Date(today) } }, orderBy: { snapshotDate: "desc" }, select: { snapshotDate: true },
+      });
+      lastDay = snapshot?.snapshotDate.toISOString().slice(0, 10) ?? null;
+    }
+    let day = now;
+    if (lastDay && lastDay < today) {
+      day = shiftAppTimeZoneDay(zonedDateTimeToDate(lastDay + "T12:00"), 1);
+    } else if (!lastDay) {
+      // An installation can fail its first job before writing a snapshot.
+      const first = await tx.job.findFirst({ where: { type: COST_SNAPSHOT_JOB_TYPE }, orderBy: { createdAt: "asc" },
+        select: { payload: true, createdAt: true } });
+      if (first) day = zonedDateTimeToDate(jobTargetDay(first.payload, first.createdAt) + "T12:00");
+    }
+    for (; appTimeZoneDateKey(day) <= today; day = shiftAppTimeZoneDay(day, 1)) {
+      const targetDay = appTimeZoneDateKey(day);
+      const start = startOfDayInAppTimeZone(day), end = shiftAppTimeZoneDay(day, 1);
+      const existing = await tx.$queryRaw<{ id: string }[]>`SELECT id FROM jobs WHERE type = ${COST_SNAPSHOT_JOB_TYPE}
+        AND (payload->>'targetDay' = ${targetDay}
+          OR (payload->>'targetDay' IS NULL AND payload->>'requestedAt' >= ${start.toISOString()} AND payload->>'requestedAt' < ${end.toISOString()})
+          OR (payload->>'targetDay' IS NULL AND payload->>'requestedAt' IS NULL AND "createdAt" >= ${start} AND "createdAt" < ${end}))
+        LIMIT 1`;
+      if (existing.length) continue;
+      await enqueueJob({
+        type: COST_SNAPSHOT_JOB_TYPE,
+        title: "Cost daily aggregation snapshot",
+        payload: { reason, requestedAt: day.toISOString(), targetDay },
+        priority: -3, maxAttempts: 2,
+      }, tx);
+    }
+  }, { timeout: 120_000 });
 }
 
 function jobTargetDay(payload: Prisma.JsonValue, createdAt: Date): string {
@@ -163,6 +174,7 @@ const snapshotProgress = z.object({
 
 export async function runCostSnapshotWorkerOnce(
   reason = "manual",
+  drain = false,
 ): Promise<boolean> {
   const state = costSnapshotWorker.getState();
   if (state.running) {
@@ -178,93 +190,102 @@ export async function runCostSnapshotWorkerOnce(
   state.running = true;
   try {
     await enqueueCostSnapshotJob(reason);
-    const job = await claimNextJob({
-      workerId: COST_SNAPSHOT_WORKER_ID,
-      types: [COST_SNAPSHOT_JOB_TYPE],
-      leaseMs: COST_SNAPSHOT_LEASE_MS,
-    });
-    if (!job) return false;
-
-    try {
-      await heartbeatJob(job.id, COST_SNAPSHOT_WORKER_ID, {
-        leaseMs: COST_SNAPSHOT_LEASE_MS,
-        progress: "Syncing VPS monthly fees and aggregating daily cost",
-      });
-      const { monthlySync, snapshot, budgetAlerts } = await runWithLeaseHeartbeat({
-        jobId: job.id,
-        leaseMs: COST_SNAPSHOT_LEASE_MS,
-        heartbeat: () => heartbeatJob(job.id, COST_SNAPSHOT_WORKER_ID, {
-          leaseMs: COST_SNAPSHOT_LEASE_MS,
-          progress: "Syncing VPS monthly fees and aggregating daily cost",
-        }),
-        run: async () => {
-          const day = jobTargetDay(job.payload, job.createdAt);
-          const prior = snapshotProgress.safeParse(job.result);
-          const saved = prior.success && prior.data.day === day ? prior.data : undefined;
-          const monthlySync = saved?.monthlySync ?? await syncServerMonthlyCosts(day.slice(0, 7));
-          // Completed effects are idempotent after a crash. On an ordinary failure,
-          // checkpoint the successful sibling so a budget-only retry is independent.
-          const [snapshot, alerts] = await Promise.allSettled([
-            saved?.snapshot ?? buildDailySnapshot(day).then(upsertDailySnapshot),
-            saved?.budgetAlerts ?? checkBudgetAlerts(zonedDateTimeToDate(`${day}T12:00`)),
-          ]);
-          if (snapshot.status === "rejected" || alerts.status === "rejected") {
-            const progress = snapshotProgress.parse({
-              day, monthlySync,
-              snapshot: snapshot.status === "fulfilled" ? snapshot.value : undefined,
-              budgetAlerts: alerts.status === "fulfilled" ? alerts.value : undefined,
-            });
-            await prisma.job.updateMany({
-              where: activeJobClaim(job.id, COST_SNAPSHOT_WORKER_ID, job.attempts),
-              data: { result: progress },
-            });
-          }
-          if (snapshot.status === "rejected") throw snapshot.reason;
-          if (alerts.status === "rejected") throw alerts.reason;
-          return { monthlySync, snapshot: snapshot.value, budgetAlerts: alerts.value };
-        },
-      });
-      await completeJob(job.id, COST_SNAPSHOT_WORKER_ID, {
-        snapshotId: snapshot.id,
-        snapshotDate: snapshot.snapshotDate,
-        totalAmount: snapshot.totalAmount,
-        entryCount: snapshot.entryCount,
-        monthlySync: {
-          month: monthlySync.month,
-          synced: monthlySync.synced,
-          skipped: monthlySync.skipped,
-        },
-        budgetAlerts: {
-          checked: budgetAlerts.checked,
-          triggered: budgetAlerts.triggered,
-          notificationsSent: budgetAlerts.notificationsSent,
-        },
-        reason,
-      });
-      logger.info("Cost daily snapshot written", {
-        snapshotId: snapshot.id,
-        snapshotDate: snapshot.snapshotDate,
-        totalAmount: snapshot.totalAmount,
-        entryCount: snapshot.entryCount,
-      });
-      return true;
-    } catch (error) {
-      const message =
-        error instanceof Error
-          ? error.message
-          : "Cost daily snapshot aggregation failed";
-      await failJob(job.id, COST_SNAPSHOT_WORKER_ID, message.slice(0, 2000), {
-        retryAfterMs: 60 * 60 * 1000, // 1h retry
-      });
-      logger.error("Cost snapshot failed", {
-        reason,
-        jobId: job.id,
-        error: message,
-      });
-      return true;
-    }
+    let processed = false;
+    do {
+      if (!await processNextSnapshotJob(reason)) break;
+      processed = true;
+    } while (drain);
+    return processed;
   } finally {
     state.running = false;
+  }
+}
+
+async function processNextSnapshotJob(reason: string) {
+  const job = await claimNextJob({
+    workerId: COST_SNAPSHOT_WORKER_ID,
+    types: [COST_SNAPSHOT_JOB_TYPE],
+    leaseMs: COST_SNAPSHOT_LEASE_MS,
+  });
+  if (!job) return false;
+
+  try {
+    await heartbeatJob(job.id, COST_SNAPSHOT_WORKER_ID, {
+      leaseMs: COST_SNAPSHOT_LEASE_MS,
+      progress: "Syncing VPS monthly fees and aggregating daily cost",
+    });
+    const { monthlySync, snapshot, budgetAlerts } = await runWithLeaseHeartbeat({
+      jobId: job.id,
+      leaseMs: COST_SNAPSHOT_LEASE_MS,
+      heartbeat: () => heartbeatJob(job.id, COST_SNAPSHOT_WORKER_ID, {
+        leaseMs: COST_SNAPSHOT_LEASE_MS,
+        progress: "Syncing VPS monthly fees and aggregating daily cost",
+      }),
+      run: async () => {
+        const day = jobTargetDay(job.payload, job.createdAt);
+        const prior = snapshotProgress.safeParse(job.result);
+        const saved = prior.success && prior.data.day === day ? prior.data : undefined;
+        const monthlySync = saved?.monthlySync ?? await syncServerMonthlyCosts(day.slice(0, 7));
+        // Completed effects are idempotent after a crash. On an ordinary failure,
+        // checkpoint the successful sibling so a budget-only retry is independent.
+        const [snapshot, alerts] = await Promise.allSettled([
+          saved?.snapshot ?? buildDailySnapshot(day).then(upsertDailySnapshot),
+          saved?.budgetAlerts ?? checkBudgetAlerts(zonedDateTimeToDate(`${day}T12:00`)),
+        ]);
+        if (snapshot.status === "rejected" || alerts.status === "rejected") {
+          const progress = snapshotProgress.parse({
+            day, monthlySync,
+            snapshot: snapshot.status === "fulfilled" ? snapshot.value : undefined,
+            budgetAlerts: alerts.status === "fulfilled" ? alerts.value : undefined,
+          });
+          await prisma.job.updateMany({
+            where: activeJobClaim(job.id, COST_SNAPSHOT_WORKER_ID, job.attempts),
+            data: { result: progress },
+          });
+        }
+        if (snapshot.status === "rejected") throw snapshot.reason;
+        if (alerts.status === "rejected") throw alerts.reason;
+        return { monthlySync, snapshot: snapshot.value, budgetAlerts: alerts.value };
+      },
+    });
+    await completeJob(job.id, COST_SNAPSHOT_WORKER_ID, {
+      snapshotId: snapshot.id,
+      snapshotDate: snapshot.snapshotDate,
+      totalAmount: snapshot.totalAmount,
+      entryCount: snapshot.entryCount,
+      monthlySync: {
+        month: monthlySync.month,
+        synced: monthlySync.synced,
+        skipped: monthlySync.skipped,
+      },
+      budgetAlerts: {
+        checked: budgetAlerts.checked,
+        triggered: budgetAlerts.triggered,
+        notificationsSent: budgetAlerts.notificationsSent,
+      },
+      reason,
+    });
+    logger.info("Cost daily snapshot written", {
+      snapshotId: snapshot.id,
+      snapshotDate: snapshot.snapshotDate,
+      totalAmount: snapshot.totalAmount,
+      entryCount: snapshot.entryCount,
+    });
+    return true;
+  } catch (error) {
+    const message =
+      error instanceof Error
+        ? error.message
+        : "Cost daily snapshot aggregation failed";
+    await failJob(job.id, COST_SNAPSHOT_WORKER_ID, message.slice(0, 2000), {
+      retryAfterMs: 60 * 60 * 1000, // 1h retry
+    });
+    logger.error("Cost snapshot failed", {
+      reason,
+      jobId: job.id,
+      error: message,
+    });
+    return true;
   }
 }
 

@@ -254,7 +254,6 @@ describe("durable job service", () => {
           payload: { runId: "run-1" },
         },
       ]);
-    mockPrisma.playbookRun.updateMany.mockResolvedValueOnce({ count: 1 });
 
     const recovered = await recoverStaleRunningJobs({
       staleBefore: new Date("2026-06-08T08:55:00Z"),
@@ -284,11 +283,9 @@ describe("durable job service", () => {
         }),
       }),
     );
-    expect(mockPrisma.playbookRun.updateMany).toHaveBeenCalledWith(
-      expect.objectContaining({
-        where: { id: { in: ["run-1"] }, status: { in: ["queued", "running"] } },
-        data: expect.objectContaining({ status: "failed" }),
-      }),
+    expect(mockPrisma.$executeRaw).toHaveBeenCalledWith(
+      expect.arrayContaining([expect.stringContaining("UPDATE playbook_runs")]),
+      expect.any(String), expect.anything(), expect.objectContaining({ values: ["ex-1"] }),
     );
   });
 

@@ -13,6 +13,7 @@ it.skipIf(process.platform !== "win32" && !process.env.TEST_PWSH)("launches a si
     await mkdir(path.join(root, "dist"));
     await copyFile(path.resolve("deploy/windows/run.ps1"), script);
     await copyFile(path.resolve("deploy/check-aria2-secret.mjs"), path.join(root, "deploy/check-aria2-secret.mjs"));
+    await copyFile(path.resolve("deploy/windows/read-install-env.mjs"), path.join(root, "deploy/windows/read-install-env.mjs"));
     await writeFile(path.join(root, ".env.local"), "VCONTROLHUB_WORKERS_DISABLED=false\n");
     for (const [role, entry] of [["web", "server"], ["worker", "worker"], ["ssh-ws", "ssh-ws-proxy"]]) {
       await writeFile(path.join(root, "dist", entry + ".js"), "console.log(process.env.VCONTROLHUB_WORKERS_DISABLED)");

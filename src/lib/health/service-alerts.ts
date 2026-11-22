@@ -26,6 +26,7 @@ import { t } from "@/lib/i18n/service-translations";
 
 import { LEGACY_MATCH_KEY, parseAlertMatchState, matchStartedAtForServer, persistMatchState } from "./alert-match-state";
 import { collectAllHealth } from "./service-collect";
+import { sampledEndpoint } from "./sample-binding";
 import { isNowInAlertSilenceWindow } from "./service-types";
 import {
   evaluateCapacityLinkedAlerts,
@@ -176,7 +177,7 @@ export async function evaluateAlerts(options?: { ruleWhere?: Record<string, unkn
 
     for (const server of targetServers) {
       options?.claim?.signal.throwIfAborted();
-      const evaluation = { version: rule.version, sampledAt: new Date(server.lastCheck), claim: options?.claim };
+      const evaluation = { version: rule.version, sampledAt: new Date(server.lastCheck), claim: options?.claim, [sampledEndpoint]: server[sampledEndpoint] };
       if (isNowInAlertSilenceWindow(rule.silenceWindows)) break;
       let value: number | undefined;
       switch (rule.metric) {

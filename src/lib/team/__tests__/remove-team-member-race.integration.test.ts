@@ -2,10 +2,11 @@
 import { randomUUID } from "node:crypto";
 import { afterAll, beforeAll, describe, expect, it } from "vitest";
 
-import type { SessionPayload } from "@/lib/auth/session";
+import { createSessionToken, verifySessionToken, type SessionPayload } from "@/lib/auth/session";
 import { prisma } from "@/lib/db";
 import { NotFoundError } from "@/lib/errors";
-import { removeTeamMember } from "../service";
+import { deleteIdentityTemplate } from "@/lib/auth/identity-template-service";
+import { removeTeamMember, updateTeamMemberTemplate } from "../service";
 
 describe.skipIf(process.env.RUN_DATABASE_INTEGRATION_TESTS !== "1")("removeTeamMember versus a concurrent transfer (PostgreSQL)", () => {
   const prefix = `r2-member-${randomUUID().slice(0, 8)}`;
@@ -16,7 +17,7 @@ describe.skipIf(process.env.RUN_DATABASE_INTEGRATION_TESTS !== "1")("removeTeamM
   const userId = id("user");
   const serverId = id("server");
   const storageNodeId = id("storage");
-  const admin: SessionPayload = {
+  let admin: SessionPayload = {
     userId: id("admin"), username: "admin", roles: ["admin"], mustChangePassword: false, currentTeamId: null,
   };
 
@@ -25,6 +26,9 @@ describe.skipIf(process.env.RUN_DATABASE_INTEGRATION_TESTS !== "1")("removeTeamM
     if (!["127.0.0.1", "localhost", "[::1]"].includes(db.hostname) || !/audit|test|_ci/.test(db.pathname)) {
       throw new Error("requires an isolated loopback audit/test database");
     }
+    const role = await prisma.role.upsert({ where: { key: "admin" }, update: {}, create: { key: "admin", name: "Admin" } });
+    await prisma.user.create({ data: { id: admin.userId, username: admin.userId, status: "ACTIVE", mustChangePassword: false, passwordHash: "fixture", roles: { create: { roleId: role.id } } } });
+    admin = await verifySessionToken(await createSessionToken(admin));
     await prisma.team.createMany({ data: [source, destination].map((id) => ({ id, slug: id, name: id })) });
     await prisma.identityTemplate.create({ data: { id: template, name: template, permissions: [] } });
     await prisma.user.create({ data: { id: userId, username: userId, passwordHash: "test", currentTeamId: source } });
@@ -34,8 +38,8 @@ describe.skipIf(process.env.RUN_DATABASE_INTEGRATION_TESTS !== "1")("removeTeamM
   });
 
   afterAll(async () => {
-    await prisma.auditLog.deleteMany({ where: { teamId: source, action: "team.member.remove" } });
-    await prisma.user.deleteMany({ where: { id: userId } });
+    await prisma.auditLog.deleteMany({ where: { actorId: admin.userId } });
+    await prisma.user.deleteMany({ where: { id: { in: [userId, admin.userId] } } });
     await prisma.server.deleteMany({ where: { id: serverId } });
     await prisma.storageNode.deleteMany({ where: { id: storageNodeId } });
     await prisma.identityTemplate.deleteMany({ where: { id: template } });
@@ -50,6 +54,25 @@ describe.skipIf(process.env.RUN_DATABASE_INTEGRATION_TESTS !== "1")("removeTeamM
       expect(await prisma.teamMember.count({ where: { userId, teamId: source } })).toBe(1);
     } finally {
       await prisma.team.update({ where: { id: source }, data: { deletedAt: null } });
+    }
+  });
+
+  it("returns a domain conflict or not-found when a selected template is concurrently deleted", async () => {
+    const unused = id("replaceable");
+    await prisma.identityTemplate.create({ data: { id: unused, name: unused, permissions: [] } });
+    try {
+      const [assign, remove] = await Promise.allSettled([
+        updateTeamMemberTemplate(source, userId, unused, admin), deleteIdentityTemplate(unused),
+      ]);
+      if (assign.status === "fulfilled") {
+        expect(remove).toMatchObject({ status: "rejected", reason: { status: 409 } });
+      } else {
+        expect(assign.reason).toMatchObject({ status: 404 });
+        expect(remove.status).toBe("fulfilled");
+      }
+    } finally {
+      await prisma.teamMember.update({ where: { userId }, data: { identityTemplateId: template } });
+      await prisma.identityTemplate.deleteMany({ where: { id: unused } });
     }
   });
 

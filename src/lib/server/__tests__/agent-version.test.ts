@@ -21,8 +21,8 @@ const fingerprint = (script: string) => createHash("sha256").update(script.repla
  * fails, raise that version (agent-version.ts) and record the new fingerprint here.
  */
 const RECORDED = {
-	linux: { version: "1.5.4", fingerprint: "4b87c8adcb030ede" },
-	windows: { version: "1.5.4", fingerprint: "2bf1d3302df26637" },
+	linux: { version: "1.5.6", fingerprint: "91bc1efdc36f850c" },
+	windows: { version: "1.5.5", fingerprint: "e6dc795a22737f75" },
 };
 
 describe("Agent versions", () => {

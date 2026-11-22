@@ -258,7 +258,11 @@ func TestPublishAndDeletePreserveNonemptyDirectory(t *testing.T) {
 	if _, err := s.handle(op); err != nil {
 		t.Fatal(err)
 	}
-	op.Op, op.Version, op.jobID, op.deadline = "publish", metadata(dir).Version, "job", time.Now().Add(time.Minute)
+	current, err := s.metadata("folder", dir, nil)
+	if err != nil {
+		t.Fatal(err)
+	}
+	op.Op, op.Version, op.jobID, op.deadline = "publish", current.Version, "job", time.Now().Add(time.Minute)
 	if _, err := s.handle(op); !errors.Is(err, changed) {
 		t.Fatalf("publish accepted directory: %v", err)
 	}
@@ -277,7 +281,11 @@ func TestPublishAndDeletePreserveNonemptyDirectory(t *testing.T) {
 	if err != nil {
 		t.Fatal(err)
 	}
-	if _, err := s.handle(operation{Op: "rmdir", Path: "folder", Directory: true, Version: metadata(dir).Version}); err != nil {
+	current, err = s.metadata("folder", dir, nil)
+	if err != nil {
+		t.Fatal(err)
+	}
+	if _, err := s.handle(operation{Op: "rmdir", Path: "folder", Directory: true, Version: current.Version}); err != nil {
 		t.Fatal(err)
 	}
 }
@@ -389,7 +397,7 @@ func TestInterruptedUploadPublication(t *testing.T) {
 			if err := s.saveIntent(marker, publishIntent{Path: target, Digest: op.Digest, Job: "publish-job", StageID: id}); err != nil {
 				t.Fatal(err)
 			}
-			if err := s.renameExclusive(target, backup); err != nil {
+			if err := s.renamePinned(target, backup, false); err != nil {
 				t.Fatal(err)
 			}
 			if published {
@@ -456,10 +464,121 @@ func TestExpiredCopyAndPersistentJobReceipt(t *testing.T) {
 	if b, err := root.ReadFile("src"); err != nil || string(b) != "new source" {
 		t.Fatal("duplicate moved the new source", err)
 	}
-	if err := s.renameExclusive("src", "dst"); !errors.Is(err, fs.ErrExist) {
+	if err := s.renamePinned("src", "dst", false); !errors.Is(err, fs.ErrExist) {
 		t.Fatal("occupied native destination", err)
 	}
 	if b, err := root.ReadFile("dst"); err != nil || string(b) != "bytes" {
 		t.Fatal("no-replace changed destination", err)
+	}
+}
+
+func TestVersionDistinguishesEqualSizedReplacementWithPreservedTime(t *testing.T) {
+	root, err := os.OpenRoot(t.TempDir())
+	if err != nil {
+		t.Fatal(err)
+	}
+	defer root.Close()
+	s := share{root: root, writable: true, namespace: "version"}
+	timestamp := time.Unix(1600000000, 0)
+	for _, item := range []struct{ name, text string }{{"file", "one"}, {"updated", "two"}} {
+		if err = root.WriteFile(item.name, []byte(item.text), 0600); err != nil {
+			t.Fatal(err)
+		}
+		if err = root.Chtimes(item.name, timestamp, timestamp); err != nil {
+			t.Fatal(err)
+		}
+	}
+	stat, err := s.handle(operation{Op: "stat", Path: "file"})
+	if err != nil {
+		t.Fatal(err)
+	}
+	if err = root.Rename("updated", "file"); err != nil {
+		t.Fatal(err)
+	}
+	if _, err = s.handle(operation{Op: "delete", Path: "file", Version: stat.Entry.Version}); !errors.Is(err, changed) {
+		t.Fatalf("stale version: %v", err)
+	}
+	data, err := root.ReadFile("file")
+	if err != nil || string(data) != "two" {
+		t.Fatalf("updated file: %q %v", data, err)
+	}
+}
+
+func TestExpiredDirectoryOperationsAndExclusiveExecutor(t *testing.T) {
+	root, err := os.OpenRoot(t.TempDir())
+	if err != nil {
+		t.Fatal(err)
+	}
+	defer root.Close()
+	s := share{root: root, writable: true, namespace: "deadline"}
+	if err = root.WriteFile("source", []byte("current"), 0600); err != nil {
+		t.Fatal(err)
+	}
+	for _, op := range []operation{{Op: "mkdir", Path: "target"}, {Op: "delete", Path: "source"}, {Op: "rename-exclusive", Path: "source", Destination: "target"}, {Op: "copy-step", Step: "promote", Path: "target"}} {
+		op.deadline = time.Now().Add(-time.Second)
+		if _, err = s.handle(op); !errors.Is(err, changed) {
+			t.Fatalf("%s: %v", op.Op, err)
+		}
+	}
+	if _, err = root.Stat("target"); !errors.Is(err, os.ErrNotExist) {
+		t.Fatal("expired operation created a name")
+	}
+	if _, err = root.Stat("source"); err != nil {
+		t.Fatal(err)
+	}
+	first, err := root.OpenFile("lock", os.O_CREATE|os.O_RDWR, 0600)
+	if err != nil {
+		t.Fatal(err)
+	}
+	defer first.Close()
+	other, err := root.OpenFile("lock", os.O_RDWR, 0600)
+	if err != nil {
+		t.Fatal(err)
+	}
+	defer other.Close()
+	if err = lockExecutor(first); err != nil {
+		t.Fatal(err)
+	}
+	if lockExecutor(other) == nil {
+		t.Fatal("second write executor acquired an active lock")
+	}
+	first.Close()
+	if err = lockExecutor(other); err != nil {
+		t.Fatal(err)
+	}
+}
+
+func TestDeleteRestoresEntryReplacedAfterVersionCheck(t *testing.T) {
+	root, err := os.OpenRoot(t.TempDir())
+	if err != nil {
+		t.Fatal(err)
+	}
+	defer root.Close()
+	s := share{root: root, writable: true, namespace: "delete"}
+	if err := root.WriteFile("target", []byte("old"), 0600); err != nil {
+		t.Fatal(err)
+	}
+	original, err := root.Open("target")
+	if err != nil {
+		t.Fatal(err)
+	}
+	defer original.Close()
+	checked, err := original.Stat()
+	if err != nil {
+		t.Fatal(err)
+	}
+	if err := root.Rename("target", "moved"); err != nil {
+		t.Fatal(err)
+	}
+	if err := root.WriteFile("target", []byte("new"), 0600); err != nil {
+		t.Fatal(err)
+	}
+	for _, op := range []operation{{Op: "delete", Path: "target"}, {Op: "copy-step", Step: "rollback", Path: "target"}} {
+		if err := s.quarantineAndRemove(root, op, checked); !errors.Is(err, changed) {
+			t.Fatalf("replacement after check: %v", err)
+		}
+		if data, err := root.ReadFile("target"); err != nil || string(data) != "new" {
+			t.Fatalf("replacement lost: %q %v", data, err)
+		}
 	}
 }

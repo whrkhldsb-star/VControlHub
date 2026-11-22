@@ -77,7 +77,7 @@ export async function runVpsBackupJobWorkerOnce(): Promise<void> {
     const renewed = await heartbeatJob(job.id, WORKER_ID, { leaseMs: LEASE_MS });
     if (renewed.count !== 1) throw new LeaseLostError(job.id);
 
-    const payload = job.payload as { recordId?: string; paths?: string[] };
+    const payload = job.payload as { recordId?: string; serverId?: string; paths?: string[] };
     if (!payload?.recordId) {
       // A payload without a recordId is malformed for good: retrying it just
       // burns maxAttempts and delays the FAILED state the caller is waiting on.
@@ -100,10 +100,10 @@ export async function runVpsBackupJobWorkerOnce(): Promise<void> {
           leaseMs: LEASE_MS,
           progress: "Running VPS backup",
         }),
-      run: () =>
+      run: (signal) =>
         runVpsBackupRecord(
           payload.recordId!,
-          paths?.length ? { paths } : undefined,
+          { paths, expectedTeamId: job.teamId, expectedServerId: payload.serverId, signal },
         ),
     });
 

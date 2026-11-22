@@ -92,6 +92,30 @@ describe("notification WebSocket lifecycle", () => {
 		await closed;
 	});
 
+	it("bounds pending verifications from one peer until the database replies", async () => {
+		const { port } = await listen();
+		const session = Promise.withResolvers<{ userId: string }>();
+		verifySessionTokenMock.mockReturnValue(session.promise);
+		const dial = () => {
+			const ws = new WebSocket(`ws://127.0.0.1:${port}/ws`, { headers: { cookie: "test_session=valid" } });
+			ws.on("error", () => {});
+			return ws;
+		};
+		const clients = Array.from({ length: 8 }, dial);
+		try {
+			await vi.waitFor(() => expect(verifySessionTokenMock).toHaveBeenCalledTimes(8));
+			const denied = dial();
+			await new Promise<void>(resolve => denied.once("close", () => resolve()));
+			expect(verifySessionTokenMock).toHaveBeenCalledTimes(8);
+		} finally {
+			session.resolve({ userId: "user-1" });
+			for (const client of clients) client.terminate();
+		}
+		await vi.waitFor(() => expect(getWsServer()!.clients.size).toBe(0));
+		const next = dial();
+		try { await once(next, "open"); } finally { next.terminate(); }
+	});
+
 	it("admits only the final available socket when two authorizations finish together", async () => {
 		const { port } = await listen();
 		const sessions = Promise.withResolvers<{ userId: string }>();

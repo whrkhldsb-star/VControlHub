@@ -1,16 +1,16 @@
+import { Prisma } from "@prisma/client";
 import { createHash, randomUUID } from "node:crypto";
 import path from "node:path";
 
 import type { SessionPayload } from "@/lib/auth/session";
 import { teamWhere } from "@/lib/auth/team-scope";
-import { prisma } from "@/lib/db";
 import { logError } from "@/lib/logging";
 import { assertStorageAccess } from "@/lib/storage/access-control";
 import { lockStorageFileOverwrite } from "@/lib/storage/file-overwrite-lock";
 import { storageFileNodeSelect, streamStorageFile, type StorageFileNode } from "@/lib/storage/file-content";
 import { deleteBackingObject, moveBackingObject, renameBackingObject, statBackingObject } from "@/lib/storage/fs-backend";
 
-type LinkedImage = { id: string; createdAt: Date; sizeBytes: number; checksum: string | null; storageKey: string; storageNodeId: string | null; relativePath: string | null };
+type LinkedImage = { id: string; teamId: string | null; createdAt: Date; sizeBytes: number; checksum: string | null; storageKey: string; storageNodeId: string | null; relativePath: string | null };
 
 /**
  * True when the image's storage path is the copy an upload wrote there itself: that copy is named by the storage
@@ -51,6 +51,7 @@ async function removeLockedCopy(
   storageNode: StorageFileNode,
   image: LinkedImage & { storageNodeId: string; relativePath: string },
   session: SessionPayload,
+  tx: Prisma.TransactionClient,
 ) {
   const target = { storageNodeId: image.storageNodeId, relativePath: image.relativePath };
   const access = await assertStorageAccess({ ...target, session, operation: "delete" });
@@ -61,7 +62,7 @@ async function removeLockedCopy(
     ...target, id: image.id, updatedAt: image.createdAt, isDeleted: false,
     entryType: "FILE" as const, size: BigInt(image.sizeBytes), checksumSha256: image.checksum,
   };
-  if (!await prisma.fileEntry.findFirst({ where: identity, select: { id: true } })) return false;
+  if (!await tx.fileEntry.findFirst({ where: identity, select: { id: true } })) return false;
 
   const original = await statBackingObject({ storageNode, relativePath: image.relativePath });
   if (original && (original.isDirectory || original.size !== image.sizeBytes)) return false;
@@ -81,12 +82,9 @@ async function removeLockedCopy(
       discardStage = true;
       return false;
     }
-    const claimed = await prisma.$transaction(async tx => {
-      const deleted = await tx.fileEntry.deleteMany({ where: identity });
-      if (!deleted.count) return false;
-      await tx.mediaItem.deleteMany({ where: { ...target, fileEntryId: image.id } });
-      return true;
-    });
+    const deleted = await tx.fileEntry.deleteMany({ where: identity });
+    const claimed = deleted.count > 0;
+    if (claimed) await tx.mediaItem.deleteMany({ where: { ...target, fileEntryId: image.id } });
     discardStage = claimed;
     return claimed;
   } finally {
@@ -110,6 +108,7 @@ async function removeLockedCopy(
 export async function removeOwnedLinkedCopies(
   images: LinkedImage[],
   session: SessionPayload,
+  tx: Prisma.TransactionClient,
 ): Promise<{ removed: string[]; failed: string[] }> {
   const owned = images.filter(isOwnedLinkedCopy);
   const removed: string[] = [];
@@ -118,7 +117,9 @@ export async function removeOwnedLinkedCopies(
 
   let nodes: Map<string, Awaited<ReturnType<typeof loadNodes>>[number]>;
   try {
-    nodes = new Map((await loadNodes([...new Set(owned.map((image) => image.storageNodeId))], session)).map((node) => [node.id, node]));
+    const ids = [...new Set(owned.map(image => image.storageNodeId))];
+    await tx.$queryRaw`SELECT id FROM "StorageNode" WHERE id IN (${Prisma.join(ids)}) ORDER BY id FOR SHARE`;
+    nodes = new Map((await loadNodes(ids, session, tx)).map((node) => [node.id, node]));
   } catch (error) {
     logError("image-bed:linked-copy-nodes", error);
     return { removed, failed: owned.map((image) => image.id) };
@@ -126,11 +127,11 @@ export async function removeOwnedLinkedCopies(
 
   for (const image of owned) {
     const storageNode = nodes.get(image.storageNodeId);
-    if (!storageNode || (storageNode.driver !== "LOCAL" && storageNode.driver !== "SFTP")) continue;
+    if (!storageNode || storageNode.teamId !== image.teamId || (storageNode.driver !== "LOCAL" && storageNode.driver !== "SFTP")) continue;
     let unlock: (() => Promise<void>) | undefined;
     try {
       unlock = await lockStorageFileOverwrite(image.storageNodeId, image.relativePath);
-      if (await removeLockedCopy(storageNode, image, session)) removed.push(image.id);
+      if (await removeLockedCopy(storageNode, image, session, tx)) removed.push(image.id);
     } catch (error) {
       logError("image-bed:linked-copy-delete", error);
       failed.push(image.id);
@@ -141,6 +142,6 @@ export async function removeOwnedLinkedCopies(
   return { removed, failed };
 }
 
-function loadNodes(ids: string[], session: SessionPayload) {
-  return prisma.storageNode.findMany({ where: { id: { in: ids }, ...teamWhere(session) }, select: storageFileNodeSelect });
+function loadNodes(ids: string[], session: SessionPayload, tx: Prisma.TransactionClient) {
+  return tx.storageNode.findMany({ where: { id: { in: ids }, ...teamWhere(session) }, select: storageFileNodeSelect });
 }

@@ -379,7 +379,7 @@ async function applyGatewayState(input: GatewayOptions, server: GatewayServer | 
         ? buildInstallWindowsDirectGatewayCommand({ publicListen: bindAddress !== "127.0.0.1" })
         : buildUninstallWindowsDirectGatewayCommand();
     } else {
-      ssh = await buildSshParamsFromServer(server, server.sshKey);
+      ssh = await buildSshParamsFromServer(server, server.sshKey, deleted ? undefined : server.teamId);
       command = input.enabled
         ? buildInstallDirectGatewayCommand({
           rootPath: basePath,

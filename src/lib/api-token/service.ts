@@ -1,4 +1,6 @@
 import { createHash, randomBytes } from "node:crypto";
+import { z } from "zod";
+import { encodePageCursor, readPageCursor } from "@/lib/http/page-cursor";
 import type { Prisma } from "@prisma/client";
 import { resolveSessionPermissions } from "@/lib/auth/identity-templates";
 import { getPermissionsFromRoles, type RoleKey } from "@/lib/auth/rbac";
@@ -58,7 +60,6 @@ const API_TOKEN_SAFE_SELECT = {
   revokedAt: true,
   createdAt: true,
   teamId: true,
-  team: { select: { name: true, slug: true } },
 } as const;
 
 export async function createApiToken(input: {
@@ -129,42 +130,65 @@ export async function createApiToken(input: {
         createdBy: userId,
         teamId,
       },
-      select: API_TOKEN_SAFE_SELECT,
+      select: { ...API_TOKEN_SAFE_SELECT, team: { select: { name: true, slug: true } } },
     });
     return { token, apiToken };
   });
 }
 
-export type TokenStatus = "all" | "active" | "expired" | "revoked";
+export type TokenStatus = "all" | "active" | "unbound" | "expired" | "revoked";
 type TokenPageOptions = { pageSize: number; cursor?: string; status?: TokenStatus };
+const tokenKey = z.object({ createdAt: z.iso.datetime().transform(value => new Date(value)), id: z.string().min(1) });
 
-function tokenStatusWhere(status: TokenStatus, now: Date): Prisma.ApiTokenWhereInput {
-  if (status === "active") return { revokedAt: null, OR: [{ expiresAt: null }, { expiresAt: { gt: now } }] };
+/** Same live-customer membership or platform role that permits using a bound credential. */
+function bindingWhere(userId: string): Prisma.ApiTokenWhereInput {
+  return {
+    creator: { status: { not: "DISABLED" }, mustChangePassword: false },
+    team: { is: { deletedAt: null } },
+    OR: [{ creator: { roles: { some: { role: { key: "admin" } } } } }, { team: { members: { some: { userId } } } }],
+  };
+}
+
+function tokenStatusWhere(status: TokenStatus, now: Date, bound: Prisma.ApiTokenWhereInput): Prisma.ApiTokenWhereInput {
+  if (status === "active" || status === "unbound") return {
+    revokedAt: null, OR: [{ expiresAt: null }, { expiresAt: { gt: now } }],
+    AND: [status === "active" ? bound : { NOT: bound }],
+  };
   if (status === "expired") return { revokedAt: null, expiresAt: { lte: now } };
   return status === "revoked" ? { revokedAt: { not: null } } : {};
 }
 
-function tokenRows(userId: string, take: number, cursor?: string, status?: Prisma.ApiTokenWhereInput) {
-  return prisma.apiToken.findMany({
-    where: { createdBy: userId, ...status }, orderBy: [{ createdAt: "desc" }, { id: "desc" }], take,
-    ...(cursor ? { cursor: { id: cursor, createdBy: userId }, skip: 1 } : {}),
-    select: API_TOKEN_SAFE_SELECT,
-  });
+async function withVisibleTeams<T extends { id: string }>(tx: Prisma.TransactionClient, userId: string, rows: T[]) {
+  const visible = rows.length ? await tx.apiToken.findMany({
+    where: { createdBy: userId, id: { in: rows.map(row => row.id) }, ...bindingWhere(userId) },
+    select: { id: true, team: { select: { name: true, slug: true } } },
+  }) : [];
+  const teams = new Map(visible.map(row => [row.id, row.team]));
+  return rows.map(row => ({ ...row, team: teams.get(row.id) ?? null }));
 }
 
 export async function listApiTokenPage(userId: string, { pageSize, cursor, status = "all" }: TokenPageOptions) {
   const now = new Date();
   const owner = { createdBy: userId };
-  const where = tokenStatusWhere(status, now);
-  const [rows, totalTokens, activeTokens, filteredCount] = await prisma.$transaction([
-    tokenRows(userId, pageSize + 1, cursor, where),
-    prisma.apiToken.count({ where: owner }),
-    prisma.apiToken.count({ where: { ...owner, ...tokenStatusWhere("active", now) } }),
-    ...(status === "expired" || status === "revoked" ? [prisma.apiToken.count({ where: { ...owner, ...where } })] : []),
-  ], { isolationLevel: "RepeatableRead" });
-  const tokens = rows.slice(0, pageSize);
-  const total = filteredCount ?? (status === "active" ? activeTokens : totalTokens);
-  return { tokens, total, totalTokens, activeTokens, nextCursor: rows.length > pageSize ? tokens.at(-1)!.id : null };
+  const bound = bindingWhere(userId);
+  const filtered = tokenStatusWhere(status, now, bound);
+  return prisma.$transaction(async tx => {
+    const key = await readPageCursor(cursor, tokenKey, id => tx.apiToken.findFirst({
+      where: { ...owner, id }, select: { id: true, createdAt: true },
+    }));
+    const boundary = key ? { OR: [{ createdAt: { lt: key.createdAt } }, { createdAt: key.createdAt, id: { lt: key.id } }] } : {};
+    const rows = await tx.apiToken.findMany({
+      where: { ...owner, AND: [filtered, boundary] }, orderBy: [{ createdAt: "desc" }, { id: "desc" }],
+      take: pageSize + 1, select: API_TOKEN_SAFE_SELECT,
+    });
+    const tokens = await withVisibleTeams(tx, userId, rows.slice(0, pageSize));
+    const totalTokens = await tx.apiToken.count({ where: owner });
+    const activeTokens = await tx.apiToken.count({ where: { ...owner, ...tokenStatusWhere("active", now, bound) } });
+    const total = status === "all" ? totalTokens : status === "active" ? activeTokens : await tx.apiToken.count({ where: { ...owner, ...filtered } });
+    const last = tokens.at(-1);
+    const nextCursor = rows.length > pageSize && last ? encodePageCursor({ createdAt: last.createdAt, id: last.id }) : null;
+    return { tokens, total, totalTokens, activeTokens, nextCursor };
+  }, { isolationLevel: "RepeatableRead" });
 }
 
 export async function revokeApiToken(input: { userId: string; id: string }) {
@@ -179,7 +203,8 @@ export async function revokeApiToken(input: { userId: string; id: string }) {
         detail: { tokenId: token.id, tokenPrefix: token.tokenPrefix, tokenSuffix: token.tokenSuffix },
       }, tx);
     }
-    return token;
+    const [visible] = await withVisibleTeams(tx, input.userId, [token]);
+    return visible!;
   });
 }
 

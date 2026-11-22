@@ -2,8 +2,8 @@
 import { afterAll, beforeAll, describe, expect, it, vi } from "vitest";
 import { randomUUID } from "node:crypto";
 import { prisma } from "@/lib/db";
-import type { SessionPayload } from "@/lib/auth/session";
-import { setCustomerMembership } from "@/lib/team/service";
+import { createSessionToken, verifySessionToken, type SessionPayload } from "@/lib/auth/session";
+import { deleteTeam, restoreTeam, setCustomerMembership, updateTeamMemberTemplate, removeTeamMember } from "@/lib/team/service";
 
 const state = vi.hoisted(() => ({ hash: vi.fn(), session: null as SessionPayload | null }));
 vi.mock("@/lib/auth/password", () => ({ hashPassword: state.hash }));
@@ -13,7 +13,7 @@ vi.mock("@/lib/http/api-guard", () => ({
     handler({ session: state.session, body: await request.json() }),
 }));
 
-const { PATCH } = await import("../route");
+const { PATCH, POST } = await import("../route");
 
 describe.skipIf(process.env.RUN_DATABASE_INTEGRATION_TESTS !== "1")("user status changes during a password reset (PostgreSQL)", () => {
   const id = `reset-disable-${randomUUID()}`;
@@ -21,6 +21,7 @@ describe.skipIf(process.env.RUN_DATABASE_INTEGRATION_TESTS !== "1")("user status
   const source = id + "-source";
   const destination = id + "-destination";
   let ready = false;
+  let roleId: string;
 
   beforeAll(async () => {
     const database = new URL(process.env.DATABASE_URL!);
@@ -33,9 +34,12 @@ describe.skipIf(process.env.RUN_DATABASE_INTEGRATION_TESTS !== "1")("user status
       await tx.user.createMany({ data: [id, adminId].map(key => ({
         id: key, username: key, passwordHash: "old-hash", status: "ACTIVE", mustChangePassword: false,
       })) });
+      const role = await tx.role.upsert({ where: { key: "admin" }, update: {}, create: { key: "admin", name: "Admin" } });
+      roleId = role.id;
+      await tx.userRole.create({ data: { userId: adminId, roleId } });
       await tx.teamMember.create({ data: { teamId: source, userId: id, identityTemplateId: id } });
     });
-    state.session = { userId: adminId, username: adminId, roles: ["admin"], currentTeamId: source, mustChangePassword: false };
+    state.session = await verifySessionToken(await createSessionToken({ userId: adminId, username: adminId, roles: ["admin"], currentTeamId: source, mustChangePassword: false }));
     ready = true;
   });
 
@@ -73,4 +77,70 @@ describe.skipIf(process.env.RUN_DATABASE_INTEGRATION_TESTS !== "1")("user status
       select: { action: true, teamId: true }, orderBy: { action: "asc" },
     })).toEqual([{ action: "user.disable", teamId: source }, { action: "user.password_reset", teamId: destination }]);
   });
+  it.each(["role", "status", "epoch"])("refuses a reset and membership changes after revocation of %s", async reason => {
+    const hashing = Promise.withResolvers<void>();
+    const release = Promise.withResolvers<string>();
+    state.hash.mockImplementation(() => { hashing.resolve(); return release.promise; });
+    const target = await prisma.user.findUniqueOrThrow({ where: { id } });
+    const reset = PATCH(new Request("http://local/api/users", {
+      method: "PATCH", body: JSON.stringify({ userId: id, action: "reset_password", newPassword: "test-only" }),
+    }));
+    const refused = expect(reset).rejects.toMatchObject({ status: reason === "role" ? 403 : 401 });
+    await hashing.promise;
+    try {
+      if (reason === "role") await prisma.userRole.deleteMany({ where: { userId: adminId } });
+      else await prisma.user.update({ where: { id: adminId }, data: reason === "epoch" ? { sessionEpoch: { increment: 1 } } : { status: "DISABLED" } });
+      release.resolve("stale-write");
+      await refused;
+      for (const operation of [
+        () => setCustomerMembership({ userId: id, teamId: source, identityTemplateId: id }, state.session!),
+        () => updateTeamMemberTemplate(destination, id, id, state.session!), () => removeTeamMember(destination, id, state.session!),
+      ]) await expect(operation()).rejects.toMatchObject({ status: reason === "role" ? 403 : 401 });
+      expect((await prisma.user.findUniqueOrThrow({ where: { id } })).passwordHash).toBe(target.passwordHash);
+    } finally {
+      release.resolve("stale-write");
+      await prisma.userRole.upsert({ where: { userId_roleId: { userId: adminId, roleId } }, create: { userId: adminId, roleId }, update: {} });
+      await prisma.user.update({ where: { id: adminId }, data: { status: "ACTIVE" } });
+      state.session = await verifySessionToken(await createSessionToken(state.session!));
+    }
+  });
+
+  it("archives and restores a customer once per transition under contention", async () => {
+    for (const change of [deleteTeam, restoreTeam]) {
+      const results = await Promise.allSettled([change(source, state.session!), change(source, state.session!)]);
+      expect(results.filter(result => result.status === "fulfilled")).toHaveLength(1);
+      expect(results.find(result => result.status === "rejected")).toMatchObject({ reason: { status: 404 } });
+    }
+    expect(await prisma.auditLog.count({ where: { teamId: source, actorId: adminId, action: { in: ["team.delete", "team.restore"] } } })).toBe(2);
+  });
+
+  it("waits for the customer before locking the selected administrator during creation", async () => {
+    state.hash.mockResolvedValue("fixture-hash");
+    const held = Promise.withResolvers<number>();
+    const commit = Promise.withResolvers<void>();
+    const archive = prisma.$transaction(async tx => {
+      await tx.team.update({ where: { id: source }, data: { deletedAt: new Date() } });
+      const [backend] = await tx.$queryRaw<Array<{ pid: number }>>`SELECT pg_backend_pid() AS pid`;
+      held.resolve(backend!.pid);
+      await commit.promise;
+      await tx.$queryRaw`SELECT id FROM "User" WHERE id = ${adminId} FOR UPDATE NOWAIT`;
+    }, { timeout: 15_000 });
+    const pid = await held.promise;
+    const create = POST(new Request("http://local/api/users", { method: "POST", body: JSON.stringify({
+      username: id + "-provision", password: "test", account: { type: "customer", teamId: source, identityTemplateId: id },
+    }) }));
+    const refused = expect(create).rejects.toMatchObject({ status: 404 });
+    try {
+      await vi.waitFor(async () => {
+        const [row] = await prisma.$queryRaw<Array<{ blocked: boolean }>>`
+          SELECT EXISTS(SELECT 1 FROM pg_stat_activity WHERE ${pid}::int = ANY(pg_blocking_pids(pid)) AND query LIKE '%FROM teams%FOR SHARE%') AS blocked`;
+        expect(row?.blocked).toBe(true);
+      });
+    } finally {
+      commit.resolve();
+      await archive;
+      await refused;
+    }
+  });
+
 });

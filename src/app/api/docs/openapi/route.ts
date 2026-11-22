@@ -9,6 +9,7 @@ import { NextResponse } from "next/server";
 import { withApiRoute } from "@/lib/http/api-guard";
 import { t } from "@/lib/i18n/translations";
 import { getServerLocale } from "@/lib/i18n/server-locale";
+import { davPermissions } from "@/lib/openapi/webdav";
 import methodCatalog from "./method-catalog.json";
 import routeCatalog from "../../../../../docs/route-catalog.json";
 
@@ -19,6 +20,7 @@ type CatalogRoute = {
   methods: string[];
   guardMode: string;
 };
+
 
 type OpenApiOperation = Record<string, unknown>;
 type OpenApiPathItem = Record<string, OpenApiOperation>;
@@ -60,7 +62,7 @@ function generatedOperation(
   const security = path.startsWith("/agent/v1/")
     ? [{ agentTokenAuth: [] }]
     : path.startsWith("/webdav/")
-    ? [{ basicAuth: [] }]
+    ? method === "OPTIONS" ? [] : [{ basicAuth: [] }, { apiTokenAuth: [] }]
     : path.startsWith("/itsm/inbound/")
       ? [{ webhookSignature: [] }]
       : route.guardMode === "public" || route.guardMode === "login"
@@ -69,7 +71,7 @@ function generatedOperation(
   const authDescription = path.startsWith("/agent/v1/")
     ? tr("openapiSpec.generated.agentAuth")
     : path.startsWith("/webdav/")
-    ? tr("openapiSpec.generated.basicAuth")
+    ? ""
     : path.startsWith("/itsm/inbound/")
       ? tr("openapiSpec.generated.webhookSignature")
       : security.length === 0
@@ -81,11 +83,20 @@ function generatedOperation(
     required: true,
     schema: { type: "string" },
   }));
+  if (path.startsWith("/webdav/") && method === "POST") parameters.push({
+    name: "X-HTTP-Method-Override", in: "header", required: true, schema: { type: "string" },
+  });
   return {
     tags: [generatedTag(path)],
     summary: `${method} ${path}`,
     description: authDescription,
     security,
+    ...(path.startsWith("/webdav/") && method === "POST" ? {
+      "x-http-method-override": Object.fromEntries(Object.entries(davPermissions).map(([verb, permissions]) => [verb, {
+        security: verb === "OPTIONS" ? [] : [{ basicAuth: [] }, { apiTokenAuth: [] }], permissions,
+        ...(verb === "MOVE" ? { overwritePermissions: davPermissions.DELETE } : {}),
+      }])),
+    } : {}),
     ...(parameters.length > 0 ? { parameters } : {}),
     responses: {
       "2XX": { description: tr("openapiSpec.generated.success") },
@@ -113,6 +124,7 @@ function buildCatalogPaths(
       const expression = groups.map((group) => group.length > 1 ? "(" + group.join(" ∨ ") + ")" : group[0]).join(" ∧ ");
       item[key] = {
         ...base, ...contract,
+        ...(path === "/servers/{id}/vps-backup/records/{recordId}/download" ? { "x-vcontrolhub-server-access": "fileRead" } : {}),
         "x-vcontrolhub-contract": contract ? "documented" : "catalog",
         "x-vcontrolhub-permissions": groups.flat(),
         "x-vcontrolhub-permission-groups": groups,

@@ -103,30 +103,37 @@ func (s share) recoverUpload(marker, key string) {
 		digest([]byte(s.namespace+"\x00"+rec.Job)) != key || s.check(path.Dir(rec.Path), false) != nil {
 		return
 	}
+	parent, err := s.openParent(rec.Path)
+	if err != nil {
+		return
+	}
+	defer parent.Close()
+	pinned := share{root: parent}
+	name := path.Base(rec.Path)
 	upload := digest([]byte(s.namespace + "\x00" + rec.Path + "\x00" + rec.Digest))
-	tmp := path.Join(path.Dir(rec.Path), ".vch-upload-"+upload)
-	backup := path.Join(path.Dir(rec.Path), ".vch-publish-"+key)
-	public, err := s.root.Lstat(rec.Path)
+	tmp := ".vch-upload-" + upload
+	backup := ".vch-publish-" + key
+	public, err := parent.Lstat(name)
 	missing := errors.Is(err, fs.ErrNotExist)
 	if err != nil && !missing {
 		return
 	}
 	if !missing && public.Mode().IsRegular() {
-		f, err := s.root.OpenFile(rec.Path, os.O_RDONLY|safeOpenFlags, 0)
+		f, err := parent.OpenFile(name, os.O_RDONLY|safeOpenFlags, 0)
 		if err != nil {
 			return
 		}
 		id, err := directoryID(f)
 		f.Close()
 		if err == nil && id == rec.StageID {
-			stage, err := s.root.Lstat(tmp)
+			stage, err := parent.Lstat(tmp)
 			if err == nil && os.SameFile(stage, public) {
-				err = s.root.Remove(tmp)
+				err = parent.Remove(tmp)
 			}
 			if err != nil && !errors.Is(err, fs.ErrNotExist) {
 				return
 			}
-			if err := s.root.Remove(backup); err != nil && !errors.Is(err, fs.ErrNotExist) {
+			if err := parent.Remove(backup); err != nil && !errors.Is(err, fs.ErrNotExist) {
 				return
 			}
 			s.root.Remove(path.Join(s.stageDir(), "upload-"+upload))
@@ -134,8 +141,8 @@ func (s share) recoverUpload(marker, key string) {
 			return
 		}
 	}
-	if _, err := s.root.Lstat(backup); err == nil {
-		if !missing || s.renameExclusive(backup, rec.Path) != nil {
+	if _, err := parent.Lstat(backup); err == nil {
+		if !missing || pinned.renamePinned(backup, name, false) != nil {
 			return
 		}
 	} else if !errors.Is(err, fs.ErrNotExist) {

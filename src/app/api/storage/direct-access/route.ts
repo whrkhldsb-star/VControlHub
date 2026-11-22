@@ -1,3 +1,4 @@
+import { WINDOWS_ROOT_PROTOCOL } from "@/lib/server/windows-direct-gateway";
 import { apiCopy } from "@/lib/i18n/api-copy";
 import crypto from "node:crypto";
 import posixPath from "node:path/posix";
@@ -97,7 +98,6 @@ function normalizeDirectGatewaySignedPath(input: {
     .replace(/\/+/g, "/");
 }
 
-const WINDOWS_ROOT_PROTOCOL = "vch-windows-root-v1";
 
 function buildSignedDirectUrl(input: {
   publicBaseUrl: string;

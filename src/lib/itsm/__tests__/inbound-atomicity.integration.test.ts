@@ -1,7 +1,8 @@
 // @vitest-environment node
 import { createHmac, randomUUID } from "node:crypto";
-import { afterAll, afterEach, beforeAll, describe, expect, it } from "vitest";
+import { afterAll, afterEach, beforeAll, describe, expect, it, vi } from "vitest";
 
+import * as locks from "@/lib/concurrency/advisory-lock";
 import { prisma } from "@/lib/db";
 
 import { handleInboundWebhook } from "../service-inbound";
@@ -43,7 +44,7 @@ describe.skipIf(process.env.RUN_DATABASE_INTEGRATION_TESTS !== "1")("ITSM inboun
     await prisma.$executeRawUnsafe(`
       CREATE FUNCTION ${trigger}() RETURNS trigger LANGUAGE plpgsql AS $$
       BEGIN
-        IF NEW."connectionId" = '${connectionId}' AND NEW.status = 'pending' AND NEW.payload->>'applied' = 'true' THEN
+        IF NEW."connectionId" = '${connectionId}' AND NEW.status = 'ok' AND NEW.payload->>'applied' = 'true' THEN
           RAISE EXCEPTION 'injected: applied marker write failed';
         END IF;
         RETURN NEW;
@@ -82,7 +83,7 @@ describe.skipIf(process.env.RUN_DATABASE_INTEGRATION_TESTS !== "1")("ITSM inboun
   });
 
   it("ticket creation: a failed marker leaves no ticket; the retry creates exactly one", async () => {
-    const event = { type: "ticket.create", id: `${prefix}-create`, title: `${prefix} disk full` };
+    const event = { type: "ticket.create", id: `${prefix}-create`, title: `${prefix} disk full`, commentBody: "first observation" };
     await failMarker();
     await expect(deliver(event)).rejects.toThrow(/injected/);
     expect(await prisma.ticket.count({ where: { teamId: prefix, title: event.title } })).toBe(0);
@@ -92,6 +93,37 @@ describe.skipIf(process.env.RUN_DATABASE_INTEGRATION_TESTS !== "1")("ITSM inboun
     expect(await prisma.ticket.count({ where: { teamId: prefix, title: event.title } })).toBe(1);
     await expect(deliver(event)).resolves.toMatchObject({ action: "create" });
     expect(await prisma.ticket.count({ where: { teamId: prefix, title: event.title } })).toBe(1);
+  });
+
+  it("keeps the first comment and deduplicates retries using the locked receipt even without the session lock", async () => {
+    const id = prefix + "-pending";
+    await prisma.itsmEvent.create({ data: {
+      connectionId, teamId: prefix, direction: "inbound", ownerBound: true, eventType: "ticket.create", externalId: id, status: "pending",
+    } });
+    const lock = vi.spyOn(locks, "acquireAdvisoryLock").mockResolvedValue(async () => undefined);
+    try {
+      const event = { externalId: id, title: id, commentBody: "initial observation" };
+      const [a, b] = await Promise.all([deliver(event), deliver(event)]);
+      expect(a.ticketId).toBe(b.ticketId);
+      expect(await prisma.ticket.count({ where: { teamId: prefix, title: id } })).toBe(1);
+      expect(await prisma.ticketComment.findMany({ where: { ticketId: a.ticketId! }, select: { body: true } }))
+        .toEqual([{ body: "[ITSM inbound] initial observation" }]);
+    } finally { lock.mockRestore(); }
+  });
+
+  it("adopts an unambiguous old literal receipt and quarantines truncated IDs", async () => {
+    const receipt = (externalId: string) => prisma.itsmEvent.create({ data: {
+      connectionId, teamId: prefix, direction: "inbound", ownerBound: true, eventType: "ticket.create",
+      externalId, status: "ok", payload: { applied: true, action: "create" },
+    } });
+    const literal = await receipt("sha256:reference");
+    const replay = await deliver({ externalId: "sha256:reference", title: "literal replay" });
+    expect(replay.event.id).toBe(literal.id);
+    expect(replay.event.externalId).not.toBe(literal.externalId);
+    const old = "x".repeat(256);
+    await receipt(old);
+    await expect(deliver({ externalId: old + "y", title: "truncated replay" })).rejects.toMatchObject({ status: 409 });
+    expect(await prisma.ticket.count({ where: { teamId: prefix, title: { in: ["literal replay", "truncated replay"] } } })).toBe(0);
   });
 
   it("comment: a failed marker leaves no comment; the retry adds exactly one", async () => {

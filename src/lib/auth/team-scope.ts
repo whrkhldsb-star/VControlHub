@@ -98,6 +98,15 @@ export function activeCustomerTeamWhere(session: TeamSession) {
 	return { teamId: session.currentTeamId, team: { deletedAt: null } };
 }
 
+/** Hold a live customer through its member/grant mutation. Archival's
+ * UPDATE waits on this shared row lock (or wins before we acquire it). */
+export async function lockLiveCustomer(tx: Prisma.TransactionClient, teamId: string) {
+	const [team] = await tx.$queryRaw<{ id: string; name: string; slug: string; deletedAt: null }[]>`
+		SELECT id, name, slug, "deletedAt" FROM teams WHERE id = ${teamId} AND "deletedAt" IS NULL FOR SHARE`;
+	if (!team) throw new NotFoundError(t("backend.customer.notFound"));
+	return team;
+}
+
 /** Server records are security roots (SSH, SFTP, backups and file proxy). */
 export function serverTeamWhere(session: TeamSession, capability: ServerAccessCapability = "read"): Record<string, unknown> {
 	const scope = activeCustomerTeamWhere(session);
@@ -156,11 +165,21 @@ export const deploymentRunTeamWhere = strictCustomerScope;
 
 /** A playbook contains executable server references. Null-team legacy
  * playbooks stay quarantined to platform administrators. */
-export const playbookTeamWhere = strictCustomerScope;
+export const playbookTeamWhere = activeCustomerTeamWhere;
 
 /** Image uploads are private by default. A null teamId is legacy data owned by
  * its uploader, not a shared image library visible to every tenant manager. */
-export const imageTeamWhere = strictCustomerScope;
+export function imageTeamWhere(session: TeamSession): Prisma.ImageUploadWhereInput {
+	const scope = activeCustomerTeamWhere(session);
+	// The batch SQL caller also checks the top-level id for an empty scope.
+	return !session.currentTeamId && !seesAllCustomers(session) ? { ...scope, id: { in: [] } } : scope;
+}
+
+/** SQL predicate for tenant-owned operational rows, including archived-owner exclusion. */
+export function rawActiveCustomerScope(session: TeamSession, teamColumn: Prisma.Sql) {
+	return Prisma.sql`(${rawTeamScope(session, teamColumn)}) AND NOT EXISTS
+		(SELECT 1 FROM teams owner WHERE owner.id = ${teamColumn} AND owner."deletedAt" IS NOT NULL)`;
+}
 
 /** A storage node is a file-data security root: it carries the SFTP/WebDAV
  * backing credentials and every byte the hub can read or write on it. A null

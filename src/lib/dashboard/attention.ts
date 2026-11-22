@@ -29,7 +29,7 @@ export type AttentionInput = {
 	/** Failed tasks of any age; null when the account cannot read the task centre. */
 	failedTasks: Summary | ReadonlyArray<{ title: string; updatedAt: string | Date }> | null;
 	/** Commands waiting for approval, newest first; null when the account cannot approve. */
-	pendingApprovals: ReadonlyArray<{ title: string }> | null;
+	pendingApprovals: Summary | ReadonlyArray<{ title: string }> | null;
 	now: Date;
 };
 
@@ -63,8 +63,7 @@ export function buildAttentionChecks(input: AttentionInput): AttentionCheck[] {
 	if (input.pendingApprovals) {
 		checks.push({
 			kind: "approvals",
-			count: input.pendingApprovals.length,
-			latest: input.pendingApprovals[0]?.title ?? null,
+			...("count" in input.pendingApprovals ? input.pendingApprovals : { count: input.pendingApprovals.length, latest: input.pendingApprovals[0]?.title ?? null }),
 			href: "/requests",
 			tone: "warning",
 		});

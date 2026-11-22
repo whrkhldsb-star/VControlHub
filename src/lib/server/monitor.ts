@@ -1,3 +1,4 @@
+import type { SshEndpointIdentity } from "@/lib/ssh/server-connection-select";
 import { execRemoteCommand, buildSshParamsFromServer } from "@/lib/ssh/client";
 import { prisma } from "@/lib/db";
 import { getServerLocale } from "@/lib/i18n/server-locale-cookie";
@@ -8,7 +9,7 @@ import { HOST_FACTS_SCRIPT, parseHostFacts, type HostFacts } from "./host-facts"
 /* ── Types ────────────────────────────────────────────────── */
 
 export type ServerMetrics = {
-	cpu: { usagePercent: number; cores: number; loadAvg: [number, number, number] };
+	cpu: { usagePercent: number | null; cores: number; loadAvg: [number, number, number] };
 	memory: { totalMb: number; usedMb: number; availableMb: number; usagePercent: number };
 	/** Swap usage percent when SwapTotal > 0; undefined when host has no swap. */
 	swapUsagePercent?: number;
@@ -33,7 +34,7 @@ const BASE_MONITOR_SCRIPT = [
 	`cpu1=$(awk '/^cpu /{idle=$5+$6; total=0; for(i=2;i<=NF;i++) total+=$i; print idle,total; exit}' /proc/stat 2>/dev/null)`,
 	`sleep 0.5 2>/dev/null || sleep 1`,
 	`cpu2=$(awk '/^cpu /{idle=$5+$6; total=0; for(i=2;i<=NF;i++) total+=$i; print idle,total; exit}' /proc/stat 2>/dev/null)`,
-	`echo "\${cpu1:-0 0} \${cpu2:-0 0}" | awk '{di=$3-$1; dt=$4-$2; if(dt>0) print di,dt; else print $3,$4}'`,
+	`echo "$cpu1 $cpu2" | awk '{di=$3-$1; dt=$4-$2; if(NF==4 && dt>0 && di>=0 && di<=dt) print di,dt; else print "unavailable"}'`,
 
 	`echo "===MEM==="`,
 	`awk '/MemTotal:/{t=$2} /MemAvailable:/{a=$2} END{if(t>0){printf "%d %d %d\\n", t/1024, (t-a)/1024, a/1024}else{print "0 0 0"}}' /proc/meminfo 2>/dev/null || echo "0 0 0"`,
@@ -80,11 +81,12 @@ function parseCpuSection(lines: string[]): ServerMetrics["cpu"] {
 		parseFloatOr(loadParts[1]!, 0),
 		parseFloatOr(loadParts[2]!, 0),
 	];
-	const cpuParts = (lines[2] || "0 0").trim().split(/\s+/);
-	const idleTicks = parseFloatOr(cpuParts[0]!, 0);
-	const totalTicks = parseFloatOr(cpuParts[1]!, 0);
-	const usagePercent = totalTicks > 0 ? Math.round((1 - idleTicks / totalTicks) * 1000) / 10 : parseFloatOr(lines[2] || "0", 0);
-	return { usagePercent: Math.min(100, Math.max(0, usagePercent)), cores, loadAvg };
+	const values = lines[2]?.trim().split(/\s+/).map(Number) ?? [];
+	const [idle, total] = values;
+	const usage = values.length === 2 && values.every(Number.isFinite) && total! > 0 && idle! >= 0 && idle! <= total!
+		? Math.round((1 - idle! / total!) * 1000) / 10
+		: values.length === 1 && lines[2]?.trim() ? idle : undefined;
+	return { usagePercent: usage !== undefined && Number.isFinite(usage) && usage >= 0 && usage <= 100 ? usage : null, cores, loadAvg };
 }
 
 function parseMemSection(line: string): ServerMetrics["memory"] {
@@ -206,13 +208,13 @@ export function isUsableMonitorOutput(stdout: string, metrics: ServerMetrics): b
 }
 
 
-export async function collectServerMetrics(serverId: string, signal?: AbortSignal): Promise<ServerMetrics | MonitorError> {
+export async function collectServerMetrics(serverId: string, signal?: AbortSignal, endpoint?: SshEndpointIdentity & { teamId: string | null }): Promise<ServerMetrics | MonitorError> {
 	signal?.throwIfAborted();
 	const locale = await getServerLocale();
 	const tr = (key: string, vars?: Record<string, string | number>) => t(key, locale, vars);
 	try {
 		const server = await prisma.server.findUnique({
-			where: { id: serverId },
+			where: { ...endpoint, id: serverId },
 			include: { sshKey: { select: SSH_KEY_CREDENTIAL_SELECT } },
 		});
 
@@ -245,7 +247,7 @@ export async function collectServerMetrics(serverId: string, signal?: AbortSigna
 			};
 		}
 
-		const sshParams = await buildSshParamsFromServer(server, server.sshKey);
+		const sshParams = await buildSshParamsFromServer(server, server.sshKey, server.teamId);
 		const { stdout, exitCode } = await execRemoteCommand({ ...sshParams, command: MONITOR_SCRIPT, timeout: 15_000, ...(signal ? { signal } : {}) });
 
 		if (exitCode !== 0 && !stdout) {

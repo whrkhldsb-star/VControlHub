@@ -150,6 +150,17 @@ func run(ctx context.Context, configFile string) error {
 	rootIdentity := "v2:" + digest([]byte(cfg.Token+"\x00"+hostname+"\x00"+rootPath+"\x00"+identity))
 	var pending *receipt
 	if cfg.Writable {
+		if err := s.ensureStageDir(); err != nil {
+			return err
+		}
+		lock, err := s.openRegular(path.Join(s.stageDir(), "executor.lock"), os.O_RDWR|os.O_CREATE)
+		if err != nil {
+			return err
+		}
+		defer lock.Close()
+		if err = lockExecutor(lock); err != nil {
+			return fmt.Errorf("file Agent writer lock: %w", err)
+		}
 		pending = s.pendingReceipt()
 	}
 	var lastCleanup time.Time

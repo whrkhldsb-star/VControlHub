@@ -61,6 +61,11 @@ vi.mock("@/lib/ssh/client", () => ({ createVerifiedSshConfig: (v: unknown) => v 
 vi.mock("@/lib/rdp/ws", () => ({ setupRdpWebSocket: () => () => undefined }));
 vi.mock("@/lib/runtime-settings/service", () => ({ getSshTerminalRuntimeConfig: async () => ({ wsHeartbeatIntervalMs: 30_000, sshIdleTimeoutMs: 0 }) }));
 
+vi.mock("@/lib/server/terminal-handover", () => ({
+  registerTerminalSession: vi.fn(async () => () => {}),
+  closeTerminalRegistry: vi.fn(async () => {}),
+}));
+
 const initialProcessListeners = new Map<string, ReturnType<typeof process.listeners>>();
 beforeEach(() => {
   for (const event of ["SIGINT", "SIGTERM", "uncaughtException", "unhandledRejection"]) initialProcessListeners.set(event, process.listeners(event));

@@ -104,9 +104,9 @@ export async function seedBuiltinTemplates() {
 /* ── CRUD ─────────────────────────────────────────────────── */
 
 export function commandTemplateScopeWhere(session: TeamSession) {
-	if (seesAllCustomers(session)) return {};
+	if (seesAllCustomers(session)) return { OR: [{ isBuiltin: true }, { team: { isNot: { deletedAt: { not: null } } } }] };
 	return session.currentTeamId
-		? { OR: [{ isBuiltin: true }, { teamId: session.currentTeamId }] }
+		? { OR: [{ isBuiltin: true }, { teamId: session.currentTeamId, team: { deletedAt: null } }] }
 		: { isBuiltin: true };
 }
 

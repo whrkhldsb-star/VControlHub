@@ -7,7 +7,7 @@ import { beforeEach, describe, expect, it, vi } from "vitest";
  * rename refused, new container exiting or unhealthy, bookkeeping failure
  * after a successful start).
  */
-type Container = { id: string; image: string; state: "running" | "exited"; health: string; restarts: number };
+type Container = { id: string; image: string; state: "running" | "exited"; health: string; restarts: number; instance?: string; install?: string; managed?: boolean };
 
 const { docker, prismaMock, faults } = vi.hoisted(() => ({
 	docker: new Map<string, Container>(),
@@ -31,12 +31,14 @@ function dockerError(stderr: string) {
 
 function dockerSync(args: string[]): string {
 	const [verb, ...rest] = args;
-	const name = rest.at(-1)!;
+	const resolve = (ref: string) => [...docker].find(([, c]) => c.id === ref)?.[0] ?? ref;
+	const name = resolve(rest.at(-1)!);
 	switch (verb) {
 		case "inspect": {
 			if (faults.inspectError) throw dockerError(faults.inspectError);
 			const container = docker.get(name);
 			if (!container) throw dockerError(`Error: No such object: ${name}`);
+			if (rest.includes("--type=container")) return [container.id, String(container.managed !== false), container.instance ?? "", container.install ?? ""].join("|");
 			if (String(rest[0]).includes("{{.State.Status}}|")) return `${container.state}|${container.health}|${container.restarts}\n`;
 			return `${container.id}\n`;
 		}
@@ -45,7 +47,8 @@ function dockerSync(args: string[]): string {
 			return "";
 		case "rename": {
 			if (faults.renameError) throw dockerError(faults.renameError);
-			const [from, to] = rest;
+			const from = resolve(rest[0]!);
+			const to = rest[1]!;
 			const container = docker.get(from!);
 			if (!container) throw dockerError(`Error response from daemon: No such container: ${from}`);
 			docker.delete(from!);
@@ -84,8 +87,8 @@ vi.mock("child_process", () => {
 				cb(dockerError(`Error response from daemon: Conflict. The container name "/${name}" is already in use`));
 				return {};
 			}
-			docker.set(name, { id: "newcontainer1234", image: "new", ...faults.newContainer });
-			cb(null, { stdout: "newcontainer1234\n", stderr: "" });
+			docker.set(name, { id: "b".repeat(64), image: "new", instance: args.find(a => a.startsWith("com.vcontrolhub.quick-service.instance="))?.split("=")[1], install: args.find(a => a.startsWith("com.vcontrolhub.quick-service.install="))?.split("=")[1], ...faults.newContainer });
+			cb(null, { stdout: "b".repeat(64) + "\n", stderr: "" });
 			return {};
 		}
 		// Every other verb goes through the async path now (A6-01); same fake daemon.
@@ -103,6 +106,7 @@ import { resetQuickServiceProcessStateForTests, startService, updateService } fr
 import { containerHealthGate } from "../docker-cli";
 
 const serviceRow = {
+	containerId: "a".repeat(64),
 	id: "svc-1",
 	slug: "demo",
 	name: "Demo",
@@ -124,7 +128,7 @@ const serviceRow = {
 
 function oldContainerIsBackAndRunning() {
 	expect([...docker.keys()]).toEqual(["qs-demo"]);
-	expect(docker.get("qs-demo")).toMatchObject({ id: "oldcontainer0001", state: "running" });
+	expect(docker.get("qs-demo")).toMatchObject({ id: "a".repeat(64), state: "running" });
 }
 
 beforeEach(() => {
@@ -134,7 +138,7 @@ beforeEach(() => {
 	containerHealthGate.pollMs = 0;
 	containerHealthGate.timeoutMs = 0;
 	docker.clear();
-	docker.set("qs-demo", { id: "oldcontainer0001", image: "old", state: "running", health: "", restarts: 0 });
+	docker.set("qs-demo", { id: "a".repeat(64), image: "old", state: "running", health: "", restarts: 0 });
 	faults.inspectError = "";
 	faults.renameError = "";
 	faults.startError = "";
@@ -145,10 +149,38 @@ beforeEach(() => {
 });
 
 describe("quick-service update keeps the previous container on failure", () => {
+	it("preserves a same-name container without our instance identity", async () => {
+		docker.get("qs-demo")!.managed = false;
+		await expect(updateService("demo")).rejects.toMatchObject({ status: 409 });
+		oldContainerIsBackAndRunning();
+	});
+	it("refuses a container with copied instance labels and a different recorded id", async () => {
+		const foreign = docker.get("qs-demo")!;
+		foreign.instance = serviceRow.id;
+		foreign.id = "f".repeat(64);
+		await expect(updateService("demo")).rejects.toMatchObject({ status: 409 });
+		expect(docker.get("qs-demo")).toBe(foreign);
+		expect(foreign.state).toBe("running");
+	});
+
+	it.each(["start", "update"] as const)("keeps the accepted container eligible for reconciliation after %s", async action => {
+		if (action === "start") docker.clear();
+		prismaMock.quickService.update.mockImplementation(async ({ data }) => {
+			if (data.status === "running") throw new Error("database connection lost");
+			return data;
+		});
+		const operation = action === "start" ? startService : updateService;
+		await expect(operation("demo")).rejects.toMatchObject({ containerId: "b".repeat(64) });
+		expect(docker.get("qs-demo")).toMatchObject({ state: "running", id: "b".repeat(64) });
+		expect(prismaMock.quickService.update).toHaveBeenLastCalledWith(expect.objectContaining({
+			data: { status: "installing", containerId: "b".repeat(64) },
+		}));
+	});
+
 	it("replaces the container when the new one is up", async () => {
 		await expect(updateService("demo")).resolves.toMatchObject({ status: "running" });
 		expect([...docker.keys()]).toEqual(["qs-demo"]);
-		expect(docker.get("qs-demo")).toMatchObject({ id: "newcontainer1234", state: "running" });
+		expect(docker.get("qs-demo")).toMatchObject({ id: "b".repeat(64), state: "running" });
 	});
 
 	it("rolls back when the new container exits right after start", async () => {
@@ -194,7 +226,7 @@ describe("quick-service start only re-creates a container that is really gone", 
 		docker.get("qs-demo")!.state = "exited";
 		faults.startError = "Error response from daemon: driver failed programming external connectivity: port is already allocated";
 		await expect(startService("demo")).rejects.toThrow(/port is already allocated/);
-		expect(docker.get("qs-demo")).toMatchObject({ id: "oldcontainer0001", state: "exited" });
+		expect(docker.get("qs-demo")).toMatchObject({ id: "a".repeat(64), state: "exited" });
 		expect([...docker.keys()]).toEqual(["qs-demo"]);
 	});
 
@@ -210,6 +242,6 @@ describe("quick-service start only re-creates a container that is really gone", 
 	it("re-creates the container when Docker says it does not exist", async () => {
 		docker.clear();
 		await expect(startService("demo")).resolves.toBeUndefined();
-		expect(docker.get("qs-demo")).toMatchObject({ id: "newcontainer1234", state: "running" });
+		expect(docker.get("qs-demo")).toMatchObject({ id: "b".repeat(64), state: "running" });
 	});
 });

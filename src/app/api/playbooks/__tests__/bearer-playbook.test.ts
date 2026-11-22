@@ -14,6 +14,8 @@ vi.mock("@/lib/db", () => ({ prisma: {
   playbook: { findFirst: mocks.findPlaybook, findMany: mocks.listPlaybooks, create: mocks.createPlaybook },
   server: { findMany: mocks.servers },
   $transaction: async (apply: (tx: unknown) => unknown) => apply({
+    $queryRaw: async () => [{ id: "team1" }],
+    playbook: { create: mocks.createPlaybook },
     playbookRun: { create: mocks.runCreate, update: mocks.runUpdate },
     job: { create: mocks.jobCreate }, jobEvent: { create: vi.fn() },
   }),

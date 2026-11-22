@@ -8,7 +8,7 @@
  */
 import { requireSession } from "@/lib/auth/require-session";
 import { sessionHasPermission } from "@/lib/auth/authorization";
-import { listCostEntries, listRecentSnapshots, summarizeMonth, listCostBudgets } from "@/lib/cost/service";
+import { listCostEntryPage, listRecentSnapshots, summarizeMonth, listCostBudgets } from "@/lib/cost/service";
 import { listCloudBillingAccounts } from "@/lib/cost/cloud-billing/service";
 import { redactCloudBillingAccountForReader } from "@/lib/cost/cloud-billing/redact";
 import { COST_CURRENCY_VALUES, type CostCurrency } from "@/lib/cost/types";
@@ -16,7 +16,8 @@ import { getServerLocale, t } from "@/lib/i18n/translations";
 import { PageHeader, PageShell } from "@/components/page-shell";
 
 import { CostPageClient } from "./cost-page-client";
-import { appTimeZoneDateKey } from "@/lib/datetime/time-zone";
+import { costDateSchema } from "@/lib/cost/schema";
+import { appTimeZoneDateKey, zonedDateTimeToDate } from "@/lib/datetime/time-zone";
 
 export const dynamic = "force-dynamic";
 
@@ -25,14 +26,20 @@ function currentMonth(): string {
 	return appTimeZoneDateKey().slice(0, 7);
 }
 
-export default async function CostSummaryPage() {
+export default async function CostSummaryPage({ searchParams }: { searchParams?: Promise<{ budget?: string; periodStart?: string }> }) {
 	const session = await requireSession("/cost-summary");
 	const canRead = sessionHasPermission(session, "cost:read");
 	const canManage = sessionHasPermission(session, "cost:manage");
 	const locale = await getServerLocale();
 
-	const month = currentMonth();
-	const defaultCurrency: CostCurrency = "CNY";
+	const params = await searchParams;
+	const period = costDateSchema.safeParse(params?.periodStart);
+	const linkedDate = canRead && typeof params?.budget === "string" && period.success && period.data.endsWith("-01")
+		&& period.data <= appTimeZoneDateKey() ? zonedDateTimeToDate(period.data + "T12:00") : null;
+	const historical = linkedDate ? await listCostBudgets(linkedDate, session) : [];
+	const selected = historical.find(row => row.id === params?.budget && row.periodStart === params?.periodStart);
+	const month = selected?.periodStart.slice(0, 7) ?? currentMonth();
+	const defaultCurrency: CostCurrency = selected?.currency ?? "CNY";
 
 	// Always pass session into team-scoped cost services so SSR matches API
 	// teamWhere (cost:read alone must not hydrate fleet-wide entries/budgets).
@@ -40,9 +47,9 @@ export default async function CostSummaryPage() {
 	// the slowest query, not the sum of all five.
 	const [summary, entries, snapshots, budgets, billingAccounts] = await Promise.all([
 		canRead ? summarizeMonth(month, defaultCurrency, session) : null,
-		canRead ? listCostEntries({ limit: 200, month, session }) : [],
+		canRead ? listCostEntryPage({ limit: 200, month, session }) : { entries: [], total: 0 },
 		canRead ? listRecentSnapshots(31, session, defaultCurrency, month) : [],
-		canRead ? listCostBudgets(new Date(), session) : [],
+		selected ? historical : canRead ? listCostBudgets(new Date(), session) : [],
 		canRead ? listCloudBillingAccounts(session) : [],
 	]);
 
@@ -54,10 +61,13 @@ export default async function CostSummaryPage() {
 				description={t("costPage.desc", locale)}
 			/>
 			<CostPageClient
+				key={selected ? selected.id + selected.periodStart : month}
 				initialMonth={month}
 				initialCurrency={defaultCurrency}
 				initialSummary={summary}
-				initialEntries={entries}
+				initialEntries={entries.entries}
+				initialTotal={entries.total}
+				selectedBudget={selected?.id}
 				initialSnapshots={snapshots}
 				initialBudgets={budgets}
 				initialBillingAccounts={billingAccounts.map((account) => redactCloudBillingAccountForReader(account, session))}

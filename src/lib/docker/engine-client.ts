@@ -287,7 +287,14 @@ export async function requestRemoteDockerEngine(
 	const curlCmd = decode === "docker-logs"
 		// Logs are binary frames, which SSH output (decoded as UTF-8) would
 		// mangle: fetch them to a file and return them base64-encoded.
-		? `f=$(mktemp) || exit 1; code=$(curl --unix-socket /var/run/docker.sock -s -o "$f" -w '%{http_code}'${methodFlag} 'http://localhost${apiPath}'); rc=$?; base64 < "$f" | tr -d '\\n'; rm -f -- "$f"; printf '\\n%s' "$code"; exit $rc`
+		? [
+			'f=$(mktemp) || exit 1', `trap 'rm -f -- "$f"' EXIT`, "trap 'exit 1' HUP INT TERM",
+			// Keep private read/write descriptors. Even SIGKILL during the fetch leaves no named file.
+			'exec 3<"$f" 4>"$f" || exit 1', 'rm -f -- "$f" || exit 1',
+			'trap - EXIT',
+			`code=$(ulimit -f 8192 || exit 1; curl --max-filesize 4194304 --unix-socket /var/run/docker.sock -sS -o /dev/fd/4 -w '%{http_code}'${methodFlag} 'http://localhost${apiPath}') || { rc=$?; printf '\\n%s' "$code"; exit "$rc"; }`,
+			'[ "$(wc -c < /dev/fd/3)" -le 4194304 ] || exit 1', 'base64 <&3 || exit 1', 'printf "\\n%s" "$code"',
+		].join("; ")
 		: `curl --unix-socket /var/run/docker.sock -s -w '\\n%{http_code}'${methodFlag}${bodyFlag} 'http://localhost${apiPath}'`;
 
 	logger.debug("Remote Docker request", { serverId, serverName: server.name, apiPath, method });

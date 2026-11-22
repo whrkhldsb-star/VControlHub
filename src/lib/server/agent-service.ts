@@ -1,7 +1,7 @@
+import { withServerLifecycleLock } from "./lifecycle-lock";
 import { guardedLinuxAgentRemoval, linuxAgentSelfRemoval, windowsAgentSelfRemoval, withLinuxAgentInstallLock, withWindowsAgentInstallLock } from "./agent-lifecycle-scripts";
 import { createHash, createHmac, randomBytes, timingSafeEqual } from "node:crypto";
 
-import { acquireAdvisoryLock } from "@/lib/concurrency/advisory-lock";
 import { Prisma } from "@prisma/client";
 import { config } from "@/lib/config/env";
 import { prisma } from "@/lib/db";
@@ -123,11 +123,7 @@ async function authenticatePendingInstallation(id: string, token: string) {
   });
 }
 
-/** Installation, mode switches and deletion all change the service on the same host. */
-export async function withServerLifecycleLock<T>(serverId: string, work: () => Promise<T>) {
-  const release = await acquireAdvisoryLock("server-delete", serverId);
-  try { return await work(); } finally { await release(); }
-}
+export { withServerLifecycleLock } from "./lifecycle-lock";
 
 export function resetAgentForModeChange() {
   const cancelled = { status: "CANCELLED" as const, exitCode: 130, leaseExpiresAt: null };
@@ -424,7 +420,7 @@ export async function claimNextServerAgentJob(serverId: string, authenticatedHas
 export async function executeCommandWithAgent(input: {
   serverId: string;
   commandTargetId?: string;
-  expectedIdentity?: { tokenHash: string | null; teamId: string | null };
+  expectedIdentity?: Pick<NonNullable<import("@/lib/ssh/client").SshConnectionParams["expectedIdentity"]>, "tokenHash" | "teamId" | "endpoint">;
   onUnavailable?: (reason: "AGENT_OFFLINE" | "AGENT_UNCLAIMED") => void;
   command: string;
   timeoutMs: number;
@@ -439,7 +435,11 @@ export async function executeCommandWithAgent(input: {
       UPDATE servers SET "updatedAt" = now() AT TIME ZONE 'UTC'
       WHERE id = ${input.serverId} AND "managementMode" = 'AGENT'
         AND enabled AND "agentTokenHash" IS NOT NULL
+        AND NOT EXISTS (SELECT 1 FROM teams t WHERE t.id = servers."teamId" AND t."deletedAt" IS NOT NULL)
         ${input.expectedIdentity ? Prisma.sql`AND "agentTokenHash" = ${input.expectedIdentity.tokenHash} AND "teamId" IS NOT DISTINCT FROM ${input.expectedIdentity.teamId}` : Prisma.empty}
+        ${input.expectedIdentity?.endpoint ? Prisma.sql`AND host = ${input.expectedIdentity.endpoint.host}
+          AND port = ${input.expectedIdentity.endpoint.port} AND username = ${input.expectedIdentity.endpoint.username}
+          AND "hostKeySha256" IS NOT DISTINCT FROM ${input.expectedIdentity.endpoint.hostKeySha256}` : Prisma.empty}
         AND "agentLastSeenAt" > (now() AT TIME ZONE 'UTC') - ${AGENT_FRESH_MS} * interval '1 millisecond'
       RETURNING id`;
     if (!live.length || input.signal?.aborted) return null;
@@ -536,7 +536,7 @@ async function withAgentCancellationDeadline<T>(query: PromiseLike<T>): Promise<
 export function buildAgentPython(hubUrl: string, token: string, recoveryScript?: string) {
   const endpoint = new URL("/api/agent/v1/poll", hubUrl).toString();
   return `#!/usr/bin/env python3
-import base64, http.client, json, os, pwd, signal, subprocess, sys, threading, time, urllib.parse
+import base64, hashlib, tempfile, http.client, json, os, pwd, signal, subprocess, sys, threading, time, urllib.parse
 ENDPOINT=${JSON.stringify(endpoint)}
 TOKEN=${JSON.stringify(token)}
 MONITOR=${JSON.stringify(MONITOR_SCRIPT)}
@@ -570,7 +570,29 @@ def job_environment():
     if not env.get("SHELL"): env["SHELL"]=SHELL
     return env, (env["HOME"] if os.path.isdir(env.get("HOME") or "") else "/")
 JOB_ENV, JOB_DIR = job_environment()
-pending=None
+receipt_dir=os.path.dirname(SCRIPT)
+receipt_path=os.path.join(receipt_dir,"receipt-"+hashlib.sha256(TOKEN.encode()).hexdigest()+".json")
+def save_receipt(value):
+    if value is None:
+        try: os.unlink(receipt_path)
+        except FileNotFoundError: pass
+    else:
+        fd,name=tempfile.mkstemp(dir=receipt_dir,prefix=".receipt-")
+        try:
+            with os.fdopen(fd,"w") as f:
+                json.dump(value,f)
+                f.flush()
+                os.fsync(f.fileno())
+            os.replace(name,receipt_path)
+        finally:
+            if os.path.exists(name): os.unlink(name)
+    directory=os.open(receipt_dir,os.O_DIRECTORY)
+    try: os.fsync(directory)
+    finally: os.close(directory)
+try:
+    with open(receipt_path) as f: pending=json.load(f)
+except FileNotFoundError: pending=None
+receipt_saved=True
 authenticated=False
 last_metrics=None
 metrics_error=None
@@ -801,7 +823,9 @@ def shutdown():
     if pending is not None:
         try:
             conn=None
+            if not receipt_saved: save_receipt(pending)
             post({"version":VERSION,"capabilities":CAPABILITIES,"result":pending,"stopping":True}, timeout=10)
+            save_receipt(None)
         except BaseException: pass
     sys.exit(0)
 try: signal.signal(signal.SIGTERM, on_stop)
@@ -810,7 +834,11 @@ while True:
     try:
         try:
             payload={"version":VERSION,"capabilities":CAPABILITIES}
-            if pending is not None: payload["result"]=pending
+            if pending is not None:
+                if not receipt_saved:
+                    save_receipt(pending)
+                    receipt_saved=True
+                payload["result"]=pending
             if metrics_due():
                 last_metrics=time.monotonic()
                 raw=collect_metrics()
@@ -827,13 +855,18 @@ while True:
                 ` : ""}authenticated=True
             except HubStatus as exc:
                 if exc.status == 400 and pending is not None:
-                    # Resending a result the hub refuses would block every later
-                    # job: report the job as failed instead, once.
-                    pending=None if pending["stderr"] == REJECTED else {"jobId":pending["jobId"],"stdout":"","stderr":REJECTED,"exitCode":1}
+                    # Send a bounded failure receipt if the hub rejects the original payload.
+                    receipt_saved=False
+                    pending={"jobId":pending["jobId"],"stdout":"","stderr":REJECTED,"exitCode":1}
                 raise
+            if pending is not None: save_receipt(None)
             pending=None
             job=message.get("job")
-            if job: pending=run(job)
+            if job:
+                pending=run(job)
+                receipt_saved=False
+                save_receipt(pending)
+                receipt_saved=True
             elif message.get("update"): apply_update(message["update"])
             else: time.sleep(max(1,min(int(message.get("pollAfterMs",5000))/1000,30)))
             if stopping: shutdown()
@@ -1102,14 +1135,25 @@ public static class AgentOutput {
     "  return [ordered]@{ jobId = [string]$Job.id; stdout = (Limit-Text $stdout $OUTPUT_LIMIT); stderr = (Limit-Text $stderr $ERROR_LIMIT); exitCode = $exitCode }",
     "}",
     "",
-    "$pending = $null",
+    "$hash = [Security.Cryptography.SHA256]::Create()",
+    "try { $pair = [BitConverter]::ToString($hash.ComputeHash([Text.Encoding]::UTF8.GetBytes($TOKEN))).Replace('-', '') } finally { $hash.Dispose() }",
+    "$receiptPath = Join-Path $PSScriptRoot ('receipt-' + $pair + '.json')",
+    "function Save-Receipt($value) {",
+    "  $temp = $receiptPath + '.tmp'",
+    "  $bytes = [Text.Encoding]::UTF8.GetBytes(($value | ConvertTo-Json -Depth 4 -Compress))",
+    "  $file = [IO.File]::Open($temp, 'Create', 'Write', 'None')",
+    "  try { $file.Write($bytes,0,$bytes.Length); $file.Flush($true) } finally { $file.Dispose() }",
+    "  if ([IO.File]::Exists($receiptPath)) { [IO.File]::Replace($temp,$receiptPath,[NullString]::Value) } else { [IO.File]::Move($temp,$receiptPath) }",
+    "}",
+    "$pending = if ([IO.File]::Exists($receiptPath)) { [IO.File]::ReadAllText($receiptPath) | ConvertFrom-Json }",
+    "$receiptSaved = $true",
     "$lastMetrics = [DateTime]::MinValue",
     "$metricsError = $null",
     "while ($true) {",
     "  $sleepMilliseconds = 5000",
     "  try {",
     `    $payload = [ordered]@{ version = $VERSION; capabilities = @(${[...AGENT_CAPABILITIES].map((c) => `'${c}'`).join(", ")}) }`,
-    "    if ($null -ne $pending) { $payload['result'] = $pending }",
+    "    if ($null -ne $pending) { if (!$receiptSaved) { Save-Receipt $pending; $receiptSaved = $true }; $payload['result'] = $pending }",
     "    $now = [DateTime]::UtcNow",
     "    if (($now - $lastMetrics).TotalSeconds -ge 60) {",
     "      $lastMetrics = $now",
@@ -1126,15 +1170,19 @@ public static class AgentOutput {
     "      $message = Invoke-AgentPost ($payload | ConvertTo-Json -Depth 6 -Compress)",
     "    } catch {",
     "      if ($script:LastStatus -eq 400 -and $null -ne $pending) {",
-    "        # Resending a result the hub refuses would block every later job: report the job as failed instead, once.",
-    "        if ($pending.stderr -eq $REJECTED) { $pending = $null }",
-    "        else { $pending = [ordered]@{ jobId = $pending.jobId; stdout = ''; stderr = $REJECTED; exitCode = 1 } }",
+    "        # Send a bounded failure receipt if the hub rejects the original payload.",
+    "        $receiptSaved = $false",
+    "        $pending = [ordered]@{ jobId = $pending.jobId; stdout = ''; stderr = $REJECTED; exitCode = 1 }",
     "      }",
     "      throw",
     "    }",
+    "    if ($null -ne $pending) { [IO.File]::Delete($receiptPath) }",
     "    $pending = $null",
     "    if ($message -and $message.job) {",
     "      $pending = Invoke-AgentJob $message.job",
+    "      $receiptSaved = $false",
+    "      Save-Receipt $pending",
+    "      $receiptSaved = $true",
     "      $sleepMilliseconds = 1000",
     "    } elseif ($message -and $message.pollAfterMs) {",
     "      try { $sleepMilliseconds = [Math]::Max(1000, [Math]::Min([int]$message.pollAfterMs, 30000)) } catch { }",
@@ -1252,11 +1300,12 @@ export async function installServerAgentUnderLock(serverId: string, teamId?: str
   const recovery = "/opt/vcontrolhub-agent/.install-" + stamp + "/restore.sh";
   const python = Buffer.from(buildAgentPython(hubUrl, token, recovery)).toString("base64");
   const unit = `[Unit]\nDescription=VControlHub Agent\nAfter=network-online.target\nWants=network-online.target\n\n[Service]\nType=simple\nExecStart=/usr/bin/python3 /opt/vcontrolhub-agent/agent.py\nRestart=on-failure\nRestartSec=5\nNoNewPrivileges=true\n\n[Install]\nWantedBy=multi-user.target\n`;
-  const ssh = await buildSshParamsFromServer(server, server.sshKey);
-  const run = async (script: string) => {
+  const ssh = await buildSshParamsFromServer(server, server.sshKey, server.teamId);
+  const run = async (script: string, tokenHash = server.agentTokenHash) => {
     // Once activation succeeds the previous agent identity is obsolete. The
     // cleanup still uses the original pinned SSH connection under the host lock.
     const result = await execRemoteCommand({ ...ssh,
+      expectedIdentity: ssh.expectedIdentity && { ...ssh.expectedIdentity, tokenHash },
       command: asRoot(withLinuxAgentInstallLock(script)), timeout: 60_000 });
     if (result.exitCode !== 0) throw new Error(result.stderr || result.stdout || "Agent installation failed");
   };
@@ -1321,7 +1370,7 @@ rm -rf "$candidate"`;
     }
   }
   // A dropped cleanup connection after activation cannot undo the new identity.
-  await run([paths, 'rm -rf "$candidate"'].join("\n")).catch(() => undefined);
+  await run([paths, 'rm -rf "$candidate"'].join("\n"), stamp).catch(() => undefined);
   return { installed: true };
 }
 
@@ -1382,7 +1431,8 @@ async function removeAgentInstallation(server: RemovalServer | null, verifiedSsh
     ? Boolean(server.sshKeyId && server.sshKey?.privateKey) : Boolean(server.password);
   if (!windows && (verifiedSsh || hasStoredSsh)) {
     try {
-      const ssh = verifiedSsh ?? await buildSshParamsFromServer(server, server.sshKey);
+      // Post-delete cleanup holds the original host reservation and authenticates the saved pin.
+      const ssh = verifiedSsh ?? await buildSshParamsFromServer(server, server.sshKey, allowAgent ? server.teamId : undefined);
       const result = await execRemoteCommand({ ...ssh, command: asRoot(guardedLinuxAgentRemoval(server.agentTokenHash, AGENT_SSH_CLEANUP_SCRIPT)), timeout: 30_000 });
       if (result.exitCode === 0) return { removed: true };
     } catch { /* The Agent may still be reachable on its outbound connection. */ }
@@ -1391,6 +1441,7 @@ async function removeAgentInstallation(server: RemovalServer | null, verifiedSsh
     const command = windows ? windowsAgentSelfRemoval(AGENT_WINDOWS_TASK_NAME, server.agentTokenHash) : linuxAgentSelfRemoval(server.agentTokenHash);
     const result = await executeCommandWithAgent({
       serverId: server.id, command, timeoutMs: 15_000,
+      expectedIdentity: { teamId: server.teamId, tokenHash: server.agentTokenHash, endpoint: server },
     }).catch(() => null);
     // The Agent acknowledged starting its cleanup helper, before that helper removes it.
     return result?.exitCode === 0 ? { removed: false, requested: true } : { removed: false };

@@ -1,3 +1,4 @@
+import { downloadRestrictedFile } from "./restricted-download";
 /**
  * SFTP service — file transfer operations over SSH.
  *
@@ -375,9 +376,14 @@ export async function downloadFile(
   remotePath: string,
   signal?: AbortSignal,
   authorizedConnection?: SshConnectionParams,
+  root?: { path: string; windows: boolean; canonical: string[] } | void,
 ): Promise<{ stream: Readable; size: number }> {
   const path = sanitizeRemotePath(remotePath);
   const conn = authorizedConnection ?? await resolveServerConnection(serverId);
+  if (root) {
+    if (!root.canonical[0]) throw new ForbiddenError();
+    return downloadRestrictedFile(conn, root, root.canonical[0], signal);
+  }
   if (isAgentOnly(conn)) {
     const content = await readRemoteFile({ ...conn, remotePath: path, signal });
     return { stream: Readable.from(content), size: content.length };

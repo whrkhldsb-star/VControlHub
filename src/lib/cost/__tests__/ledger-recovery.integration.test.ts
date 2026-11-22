@@ -6,9 +6,18 @@ import { ensureBudgetDeliveryTable } from "../budget-deliveries";
 import { checkBudgetAlerts } from "../service-budgets";
 import { prisma } from "@/lib/db";
 import * as adapters from "../cloud-billing/adapters";
-import { syncCloudBillingAccount } from "../cloud-billing/service";
-import { createCostEntry, listRecentSnapshots, updateCostEntry } from "../service-entries";
+import { syncCloudBillingAccount, updateCloudBillingAccount } from "../cloud-billing/service";
+import { createCostEntry, deleteCostEntry, listCostEntryPage, listRecentSnapshots, transferMonthlyCost, updateCostEntry } from "../service-entries";
 import { upsertDailySnapshot } from "../service-snapshots";
+
+const afterBudgetRead = vi.hoisted(() => vi.fn());
+vi.mock("@/lib/db", async load => {
+	const db = await load<typeof import("@/lib/db")>();
+	if (process.env.RUN_DATABASE_INTEGRATION_TESTS !== "1") return db;
+	return { ...db, prisma: db.prisma.$extends({ query: { costBudget: {
+		async findMany({ args, query }) { const rows = await query(args); await afterBudgetRead(); return rows; },
+	} } }) };
+});
 
 describe.skipIf(process.env.RUN_DATABASE_INTEGRATION_TESTS !== "1")("cost ledger recovery (PostgreSQL)", () => {
 	const teamId = `billing-test-${randomUUID()}`;
@@ -68,6 +77,127 @@ describe.skipIf(process.env.RUN_DATABASE_INTEGRATION_TESTS !== "1")("cost ledger
 		expect((await prisma.costEntry.findUniqueOrThrow({ where: lookup(3) })).amount.toString()).toBe("999");
 	});
 
+
+	const replaceCsv = (id: string, csv: string) => prisma.cloudBillingAccount.update({ where: { id }, data: { config: { sampleCsv: csv } } });
+	const ledger = (id: string) => prisma.costEntry.findMany({
+		where: { teamId, sourceRef: { startsWith: id + ":" } }, orderBy: { amount: "asc" },
+		select: { id: true, sourceRef: true, amount: true },
+	});
+
+	it.each([true, false])("preserves both charges on a partial natural-key replay (legacy=%s)", async legacy => {
+		const data = ["2026-07-01,10,vm," + (legacy ? "first" : ""), "2026-07-01,20,vm,"];
+		const billing = await account([header, ...data].join("\n"));
+		await syncCloudBillingAccount(billing.id, month, session);
+		const [first, second] = await ledger(billing.id);
+		if (legacy) await prisma.costEntry.update({ where: { id: second!.id },
+			data: { tags: [], sourceRef: billing.id + ":" + adapters.csvNaturalKeyPrefix("2026-07-01", "vm") + "2" } });
+		await replaceCsv(billing.id, [header, data[1]].join("\n"));
+		for (let i = 0; i < 2; i++) {
+			await syncCloudBillingAccount(billing.id, month, session);
+			expect((await ledger(billing.id)).map(row => [row.id, row.amount.toFixed(2)]))
+				.toEqual([[first!.id, "10.00"], [second!.id, "20.00"]]);
+		}
+		if (!legacy) {
+			await replaceCsv(billing.id, header + "\n2026-07-01,25,vm,");
+			await expect(syncCloudBillingAccount(billing.id, month, session, true)).rejects.toMatchObject({ status: 409 });
+		}
+	});
+
+	it("moves the legacy dual-column ID in place and refuses already booked aliases", async () => {
+		const billing = await account(header + "\n2026-07-01,10,vm,B");
+		await syncCloudBillingAccount(billing.id, month, session);
+		const [previous] = await ledger(billing.id);
+		await replaceCsv(billing.id, header + ",id\n2026-07-01,10,vm,A,B");
+		await syncCloudBillingAccount(billing.id, month, session);
+		expect(await ledger(billing.id)).toMatchObject([{ id: previous!.id, sourceRef: billing.id + ":csv:id:A" }]);
+		await prisma.costEntry.create({ data: {
+			teamId, sourceType: "cloud_billing", sourceRef: previous!.sourceRef, provider: "CSV · vm", category: "other", amount: 10, effectiveDate,
+		} });
+		await expect(syncCloudBillingAccount(billing.id, month, session, true)).rejects.toMatchObject({ status: 409 });
+		expect(await ledger(billing.id)).toHaveLength(2);
+	});
+
+	it("keeps sub-cent allocations intact until a complete currency bucket is supplied", async () => {
+		const a = "2026-07-01,0.005,vm,A", b = "2026-07-01,0.005,vm,B";
+		const full = [header, a, b].join("\n");
+		const billing = await account(full);
+		await syncCloudBillingAccount(billing.id, month, session);
+		const stored = await ledger(billing.id);
+		await replaceCsv(billing.id, [header, b].join("\n"));
+		await expect(syncCloudBillingAccount(billing.id, month, session)).rejects.toMatchObject({ status: 409 });
+		expect(await ledger(billing.id)).toEqual(stored);
+		await replaceCsv(billing.id, [header + ",currency", a + ",USD"].join("\n"));
+		await expect(syncCloudBillingAccount(billing.id, month, session)).rejects.toMatchObject({ status: 409 });
+		expect(await ledger(billing.id)).toEqual(stored);
+		await replaceCsv(billing.id, full);
+		await syncCloudBillingAccount(billing.id, month, session);
+		expect((await ledger(billing.id)).map(row => row.amount.toFixed(2))).toEqual(["0.00", "0.01"]);
+		await expect(updateCloudBillingAccount(billing.id, { config: {} }, session)).rejects.toThrow();
+		expect((await prisma.cloudBillingAccount.findUniqueOrThrow({ where: { id: billing.id } })).config).toEqual({ sampleCsv: full });
+	});
+
+	it("serializes tag reconstruction, protects a referenced charge and transfers its current-month adjustment", async () => {
+		const serverId = teamId + "-server";
+		const source = await prisma.costEntry.create({ data: {
+			teamId, sourceType: "server_monthly", sourceRef: serverId, category: "vps", provider: "vps", amount: 100, effectiveDate,
+		} });
+		const adjustment = await createCostEntry({ category: "vps", provider: "vps", amount: "-20", effectiveDate: "2026-07-02", adjustmentForId: source.id }, null, session);
+		await expect(deleteCostEntry(source.id, session)).rejects.toMatchObject({ status: 409 });
+		await Promise.all([updateCostEntry(adjustment.id, { category: "storage" }, session), updateCostEntry(adjustment.id, { provider: "Disk" }, session)]);
+		expect((await prisma.costEntry.findUniqueOrThrow({ where: { id: adjustment.id } })).tags).toEqual(expect.arrayContaining(["category:storage", "provider:disk", "adjustment-for:" + source.id]));
+		const dest = teamId + "-dest";
+		await prisma.team.create({ data: { id: dest, name: dest, slug: dest } });
+		try {
+			await prisma.$transaction(tx => transferMonthlyCost(tx, serverId, month, dest));
+			expect(await prisma.costEntry.count({ where: { id: { in: [source.id, adjustment.id] }, teamId: dest } })).toBe(2);
+		} finally {
+			await prisma.costEntry.deleteMany({ where: { teamId: dest } });
+			await prisma.team.delete({ where: { id: dest } });
+		}
+	});
+
+	it("reads the limit and spend from the same committed budget state", async () => {
+		const budget = await prisma.costBudget.create({ data: { teamId, name: "Snapshot", category: "bandwidth", limitAmount: 100 } });
+		const charge = { teamId, provider: "test", category: "bandwidth", effectiveDate };
+		await prisma.costEntry.create({ data: { ...charge, amount: 50 } });
+		afterBudgetRead.mockImplementationOnce(() => prisma.$transaction([
+			prisma.costBudget.update({ where: { id: budget.id }, data: { limitAmount: 1000 } }),
+			prisma.costEntry.create({ data: { ...charge, amount: 90 } }),
+		]));
+		const check = () => checkBudgetAlerts(effectiveDate, session);
+		const during = await check();
+		expect(during.budgets.find(row => row.id === budget.id)).toMatchObject({ usagePercent: 50, usageStatus: "within" });
+		expect(during.triggered).toBe(0);
+		const after = await check();
+		expect(after.budgets.find(row => row.id === budget.id)).toMatchObject({ usagePercent: 14, usageStatus: "within" });
+	});
+
+	it("excludes an archived customer from manual all-customer budget checks", async () => {
+		const archived = teamId + "-archived";
+		await prisma.team.create({ data: { id: archived, name: archived, slug: archived, deletedAt: new Date() } });
+		try {
+			const budget = await prisma.costBudget.create({ data: { teamId: archived, name: "Archived", category: "vps", limitAmount: 1 } });
+			await prisma.costEntry.create({ data: { teamId: archived, provider: "fixture", category: "vps", amount: 100, effectiveDate } });
+			const result = await checkBudgetAlerts(effectiveDate, { userId: teamId, roles: ["admin"], currentTeamId: null });
+			expect(result.budgets.find(row => row.id === budget.id)).toBeUndefined();
+		} finally {
+			await prisma.costEntry.deleteMany({ where: { teamId: archived } });
+			await prisma.costBudget.deleteMany({ where: { teamId: archived } });
+			await prisma.team.delete({ where: { id: archived } });
+		}
+	});
+
+	it("paginates every detail on tied dates and reports the whole month's count", async () => {
+		const data = Array.from({ length: 201 }, (_, i) => ({
+			id: teamId + "-page-" + String(i).padStart(3, "0"), teamId, provider: "fixture", category: "other", amount: 1, effectiveDate: new Date("2025-05-01"),
+		}));
+		await prisma.costEntry.createMany({ data });
+		const args = { session, month: "2025-05", limit: 200 };
+		const first = await listCostEntryPage(args), second = await listCostEntryPage({ ...args, page: 2 });
+		expect(first.total).toBe(201);
+		expect(second).toMatchObject({ total: 201, page: 2, entries: [{ id: data[0]!.id }] });
+		expect(new Set([...first.entries, ...second.entries].map(row => row.id)).size).toBe(201);
+	});
 	it("recovers abandoned runs and rolls back earlier rows on a database failure mid-batch", async () => {
 		const billing = await account([header, ...rows].join("\n"));
 		const interrupted = await prisma.cloudBillingSyncRun.create({ data: { accountId: billing.id, month, status: "running" } });

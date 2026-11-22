@@ -1,8 +1,9 @@
+import Link from "next/link";
 import type { ReactNode } from "react";
 import { requirePagePermission } from "@/lib/auth/page-guard";
 import { sessionHasPermission } from "@/lib/auth/authorization";
-import { getPendingActions } from "@/lib/ai/hosted-service";
-import { listCommandRequests } from "@/lib/command/service";
+import { getPendingActionPage } from "@/lib/ai/hosted-service";
+import { listCommandRequestPage } from "@/lib/command/service";
 import { mayReviewCommandRequest } from "@/lib/command/review-scope";
 import { ReviewCommandForm } from "./review-command-form";
 import { CancelCommandButton } from "./cancel-command-button";
@@ -23,13 +24,13 @@ export const dynamic = "force-dynamic";
 
 const ACTIVE_REQUEST_STATUSES = new Set(["PENDING_APPROVAL", "APPROVED", "RUNNING", "CANCELLING"]);
 
-export default async function RequestsPage() {
+export default async function RequestsPage({ searchParams }: { searchParams?: Promise<{ after?: string | string[]; aiAfter?: string | string[] }> }) {
 	const session = await requirePagePermission("command:read", { redirectTo: "/requests" });
 	const canApprove = sessionHasPermission(session, "command:approve");
 	// A reviewer's own request goes to another reviewer unless the account manages the team: the server refuses the
 	// decision otherwise, and the form, the batch checkbox and the dashboard's count all followed "may approve" alone.
-	const awaitsThisReviewer = (request: { status: string; requester: { id: string } }) =>
-		request.status === "PENDING_APPROVAL" && mayReviewCommandRequest(session, request.requester.id);
+	const awaitsThisReviewer = (request: { status: string; runInitiatorId: string | null; unattributedManualRun: boolean; requester: { id: string } }) =>
+		request.status === "PENDING_APPROVAL" && mayReviewCommandRequest(session, request.requester.id, request.runInitiatorId, request.unattributedManualRun);
 	// Who a cancel request is accepted from (PATCH /api/commands, cancelCommandRequest): a member who may execute
 	// commands, for a request of their own, and for anyone's when they may also approve. The button followed
 	// "may approve" alone: an operator could not stop the command they had just started, and a reviewer without
@@ -44,9 +45,18 @@ export default async function RequestsPage() {
 		return canCancelOthers || (canExecute && own) || (canSubmit && own && request.status === "PENDING_APPROVAL");
 	};
 	const locale = await getServerLocale();
-	const [requests, aiActions] = await Promise.all([
-		listCommandRequests(session),
-		sessionHasPermission(session, "ai:chat") ? getPendingActions(session) : Promise.resolve([]),
+	const params = await searchParams;
+	const cursor = typeof params?.after === "string" ? params.after : undefined;
+	const aiCursor = typeof params?.aiAfter === "string" ? params.aiAfter : undefined;
+	const pageUrl = (after?: string | null, aiAfter?: string | null) => {
+		const query = new URLSearchParams();
+		if (after) query.set("after", after);
+		if (aiAfter) query.set("aiAfter", aiAfter);
+		return query.size ? "/requests?" + query.toString() : "/requests";
+	};
+	const [{ requests, nextCursor, pendingCount }, { actions: aiActions, total: aiCount, nextCursor: nextAiCursor }] = await Promise.all([
+		listCommandRequestPage(session, cursor, 20),
+		sessionHasPermission(session, "ai:chat") ? getPendingActionPage(session, aiCursor) : { actions: [], total: 0, nextCursor: null },
 	]);
 
 	// Sort: actionable statuses first (PENDING_APPROVAL → APPROVED/RUNNING → terminal),
@@ -154,7 +164,7 @@ export default async function RequestsPage() {
 
 								{awaitsThisReviewer(request) ? (
 									<ReviewCommandForm commandRequestId={request.id} />
-								) : canApprove && request.status === "PENDING_APPROVAL" ? (
+								) : canApprove && !request.unattributedManualRun && request.status === "PENDING_APPROVAL" ? (
 									<p className="mt-4 text-xs text-[var(--text-muted)]">{t("requestsPage.review.ownRequest", locale)}</p>
 								) : null}
 								{mayCancel(request) && (
@@ -164,7 +174,7 @@ export default async function RequestsPage() {
 		);
 	};
 
-	const pendingCommands = requests.filter((r) => r.status === "PENDING_APPROVAL").length;
+	const pendingCommands = pendingCount;
 	const assistantCommands = requests.filter((r) => r.isAssistantInitiated).length;
 	const userCommands = requests.filter((r) => !r.isAssistantInitiated).length;
 	const completed = requests.filter((r) => r.status === "COMPLETED").length;
@@ -182,7 +192,7 @@ export default async function RequestsPage() {
 			</Notice>
 
 			<StatGrid cols={5}>
-				<StatCard label={t("requestsPage.stat.aiPending", locale)} value={String(aiActions.length)} accent={aiActions.length > 0} accentColor="cyan" />
+				<StatCard label={t("requestsPage.stat.aiPending", locale)} value={String(aiCount)} accent={aiCount > 0} accentColor="cyan" />
 				<StatCard label={t("requestsPage.stat.cmdPending", locale)} value={String(pendingCommands)} accent={pendingCommands > 0} accentColor="amber" />
 				<StatCard label={t("requestsPage.stat.assistant", locale)} value={String(assistantCommands)} accent={assistantCommands > 0} accentColor="cyan" />
 				<StatCard label={t("requestsPage.stat.user", locale)} value={String(userCommands)} />
@@ -195,7 +205,7 @@ export default async function RequestsPage() {
 					<ListPanel
 						title={t("requestsPage.ai.title", locale)}
 						description={t("requestsPage.ai.desc", locale)}
-						count={aiActions.length}
+						count={aiCount}
 						actions={<StatusBadge tone="accent">{t("requestsPage.ai.scopeBadge", locale)}</StatusBadge>}
 						empty={aiActions.length === 0 ? <EmptyState text={t("requestsPage.ai.empty", locale)} /> : undefined}
 						bodyClassName={aiActions.length === 0 ? undefined : "!divide-y-0 space-y-0 bg-transparent p-3"}
@@ -205,6 +215,10 @@ export default async function RequestsPage() {
 								<AiHostedApprovalCard action={action} />
 							</div>
 						))}
+						{(aiCursor || nextAiCursor) && <nav className="flex gap-3 p-3" aria-label={t("requestsPage.ai.title", locale)}>
+							{aiCursor && <Link href={pageUrl(cursor)}>{t("filePreferences.firstPage", locale)}</Link>}
+							{nextAiCursor && <Link href={pageUrl(cursor, nextAiCursor)}>{t("common.pagination.next", locale)}</Link>}
+						</nav>}
 					</ListPanel>
 				</section>
 
@@ -221,9 +235,13 @@ export default async function RequestsPage() {
 						<BatchReviewToolbar
 							pendingIds={activeRequests.filter(awaitsThisReviewer).map((r) => r.id)}
 						>
-							<PaginatedList pageSize={20}>{activeRequests.map(renderRequest)}</PaginatedList>
+							{activeRequests.map(renderRequest)}
 						</BatchReviewToolbar>
 						) : sortedRequests.length > 0 ? <EmptyState text={t("requestsPage.cmd.noActive", locale)} /> : null}
+						{(cursor || nextCursor) && <nav className="flex gap-3 p-3" aria-label={t("common.pagination.label", locale)}>
+							{cursor && <Link href={pageUrl(null, aiCursor)}>{t("filePreferences.firstPage", locale)}</Link>}
+							{nextCursor && <Link href={pageUrl(nextCursor, aiCursor)}>{t("common.pagination.next", locale)}</Link>}
+						</nav>}
 						{handledRequests.length > 0 ? (
 							<Disclosure variant="inset" title={t("requestsPage.cmd.history", locale)} count={handledRequests.length}>
 								<PaginatedList pageSize={20}>{handledRequests.map(renderRequest)}</PaginatedList>

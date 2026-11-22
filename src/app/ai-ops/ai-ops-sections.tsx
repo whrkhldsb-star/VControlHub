@@ -192,7 +192,6 @@ export function AiOpsSettingsSection({
 	onSaveSettings: (reauthorize?: boolean) => void;
 	t: T;
 }) {
-	const { locale } = useI18n();
 	return (
 		<section aria-label="ai-ops-settings" data-card className="p-5">
 			<h2 className="ui-title-section mb-4">{t("aiOpsPage.settings.title")}</h2>
@@ -235,7 +234,7 @@ export function AiOpsSettingsSection({
 				<div className="mt-4 flex justify-end gap-2">
 					{editingProvider === settings.providerId && providerOptions.some((provider) => provider.id === editingProvider) && (
 						<ActionButton disabled={savingSettings} onClick={() => onSaveSettings(true)}>
-							{locale === "zh" ? "重新授权此 AI 提供方" : "Reauthorize this AI provider"}
+							{t("aiOpsPage.settings.reauthorize")}
 						</ActionButton>
 					)}
 					<ActionButton variant="primary" disabled={savingSettings} onClick={() => onSaveSettings()}>

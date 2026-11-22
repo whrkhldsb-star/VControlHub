@@ -12,6 +12,7 @@ const { prismaMocks, txMocks, loggerMocks, announceMock } = vi.hoisted(() => ({
 	loggerMocks: { debug: vi.fn(), info: vi.fn(), warn: vi.fn(), error: vi.fn() },
 }));
 
+vi.mock("@/lib/itsm/outbox", () => ({ enqueueTicketEvent: vi.fn() }));
 vi.mock("@/lib/db", () => ({
 	prisma: {
 		ticket: { findMany: prismaMocks.findMany },
@@ -24,6 +25,7 @@ vi.mock("@/lib/notification/service", async (importOriginal) => ({
 	announceStoredNotifications: announceMock,
 }));
 
+import { enqueueTicketEvent } from "@/lib/itsm/outbox";
 import { computeSlaDueAt, escalateBreachedTickets, isSlaBreached, getSlaStatus, SLA_DURATIONS_MS } from "../sla";
 
 describe("ticket SLA service", () => {
@@ -167,6 +169,7 @@ describe("ticket SLA service", () => {
 			const data = txMocks.updateMany.mock.calls[0]![0]!.data as Record<string, unknown>;
 			expect(data.priority).toBeUndefined();
 			expect(txMocks.createEscalation).not.toHaveBeenCalled();
+			expect(enqueueTicketEvent).not.toHaveBeenCalled();
 			expect(txMocks.createNotifications).not.toHaveBeenCalled();
 		});
 
@@ -203,6 +206,7 @@ describe("ticket SLA service", () => {
 
 				await expect(escalateBreachedTickets()).resolves.toBe(1);
 
+				expect(enqueueTicketEvent).toHaveBeenCalledWith(tx, expect.objectContaining({ title: "Disk" }), "ticket.updated");
 				expect(txMocks.createNotifications).toHaveBeenCalledWith(
 					expect.objectContaining({
 						data: [
@@ -232,6 +236,7 @@ describe("ticket SLA service", () => {
 				txMocks.updateMany.mockResolvedValueOnce([]);
 				await expect(escalateBreachedTickets()).resolves.toBe(0);
 				expect(txMocks.createEscalation).not.toHaveBeenCalled();
+			expect(enqueueTicketEvent).not.toHaveBeenCalled();
 				expect(txMocks.createNotifications).not.toHaveBeenCalled();
 			});
 

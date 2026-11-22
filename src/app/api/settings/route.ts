@@ -1,4 +1,4 @@
-import { AI_OPS_BINDING_KEY, loadBoundAiOpsProvider, prepareAiOpsProviderBinding } from "@/lib/ai/ops/provider-binding";
+import { AI_OPS_BINDING_KEY, prepareAiOpsProviderBinding } from "@/lib/ai/ops/provider-binding";
 import { assertAiOpsPlatformReader } from "@/lib/ai/ops/authorization";
 import { sessionHasPermission } from "@/lib/auth/authorization";
 import { OFFSITE_SETTING_KEYS, parseConfigFromMap } from "@/lib/storage/offsite/schema";
@@ -32,7 +32,7 @@ const patchEntrySchema = z.object({
 	value: z.string(),
 });
 
-const patchBodySchema = z.record(z.string(), z.string());
+const patchBodySchema = z.object({ reauthorizeProvider: z.boolean().optional() }).catchall(z.string());
 
 function normalizeIntegerSetting(
 	key: string,
@@ -180,13 +180,13 @@ export async function GET(request: Request) {
 export async function PATCH(request: Request) {
 	return withApiRoute(request, { permission: "user:manage", rateLimit: GENERAL_WRITE_LIMIT, errorStatus: 400, errorMessage: apiCopy("apiCopy.failed.to.save.2c079972"), bodySchema: patchBodySchema }, async ({ session, body }) => {
 		// 1. Validate the body is a string→string record
-		const parsed = { data: body };
+		const { reauthorizeProvider, ...settings } = body;
 
 		// 2. Filter entries: reject keys not in whitelist, skip sentinel values, normalize supported value types.
 		const entries: Array<{ key: string; value: string }> = [];
 		const rejectedKeys: string[] = [];
 		const validationErrors: string[] = [];
-		for (const [key, value] of Object.entries(parsed.data)) {
+		for (const [key, value] of Object.entries(settings)) {
 			if (key === AI_OPS_BINDING_KEY || !isValidSettingKey(key)) {
 				rejectedKeys.push(key);
 				continue;
@@ -210,7 +210,7 @@ export async function PATCH(request: Request) {
 				}
 				if (key === "ai.ops.provider") {
 					if (!/^[A-Za-z0-9._:-]{0,64}$/u.test(value)) rejectedKeys.push(key);
-					else if (await getSetting(key) !== value || (value && !await loadBoundAiOpsProvider(value))) entries.push(...await prepareAiOpsProviderBinding(value, session.userId));
+					else if (await getSetting(key) !== value || (value && reauthorizeProvider === true)) entries.push(...await prepareAiOpsProviderBinding(value, session.userId));
 					continue;
 				}
 				if (value !== "recommendation" && value !== "autonomous") {

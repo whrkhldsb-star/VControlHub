@@ -195,6 +195,7 @@ export function VpsBackupSection({
 	const { t, locale } = useI18n();
 	const [schedules, setSchedules] = useState<BackupSchedule[]>([]);
 	const [records, setRecords] = useState<BackupRecord[]>([]);
+	const [canDownload, setCanDownload] = useState(false);
 	const [loading, setLoading] = useState(true);
 	const [error, setError] = useState<string | null>(null);
 	const [triggering, setTriggering] = useState<string | null>(null);
@@ -220,11 +221,12 @@ export function VpsBackupSection({
 		try {
 			const [schedData, recData] = await Promise.all([
 				csrfFetch<{ schedules?: BackupSchedule[] }>(`/api/servers/${serverId}/vps-backup/schedules`, { signal: controller.signal }),
-				csrfFetch<{ records?: BackupRecord[] }>(`/api/servers/${serverId}/vps-backup/records`, { signal: controller.signal }),
+				csrfFetch<{ records?: BackupRecord[]; canDownload: boolean }>(`/api/servers/${serverId}/vps-backup/records`, { signal: controller.signal }),
 			]);
 			if (controller.signal.aborted) return;
 			setSchedules(schedData.schedules ?? []);
 			setRecords(recData.records ?? []);
+			setCanDownload(recData.canDownload === true);
 		} catch (err) {
 			if (controller.signal.aborted) return;
 			setError(getErrorMessage(err, t("vpsBackup.error.unknown")));
@@ -648,7 +650,7 @@ export function VpsBackupSection({
 									) : null}
 								</div>
 								<div className="ml-2 flex shrink-0 items-center gap-1.5">
-									{r.status === "COMPLETED" && r.localPath ? (
+									{canDownload && r.status === "COMPLETED" && (r.localPath || r.offsiteKey) ? (
 										<a
 											href={`/api/servers/${serverId}/vps-backup/records/${r.id}/download`}
 											aria-label={t("vpsBackup.downloadRecord")}

@@ -368,7 +368,10 @@ describe("AI hosted action approvals", () => {
 			data: { stdout: "agent status output", exitCode: 0, transport: "agent" },
 		});
 		expect(agentServiceMock.executeCommandWithAgent).toHaveBeenCalledWith(expect.objectContaining({
-			serverId: "srv_agent", expectedIdentity: { tokenHash: "agent-identity", teamId: "team_a" },
+			serverId: "srv_agent", expectedIdentity: {
+				tokenHash: "agent-identity", teamId: "team_a",
+				endpoint: expect.objectContaining({ host: "203.0.113.10", port: 22, username: "root", hostKeySha256: "SHA256:test" }),
+			},
 		}));
 		expect(sshClientMock.execRemoteCommand).not.toHaveBeenCalled();
 	});

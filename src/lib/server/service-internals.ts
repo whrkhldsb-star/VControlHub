@@ -12,6 +12,7 @@ import {
   execRemoteCommand,
 } from "@/lib/ssh/client";
 import { config } from "@/lib/config/env";
+import { serverCommandCounts } from "./service-profile-includes";
 import { needsLegacyGatewayStop } from "./direct-gateway-key";
 import { getResolvedDirectGatewayProtocol } from "./direct-gateway";
 import { t } from "@/lib/i18n/service-translations";
@@ -284,7 +285,8 @@ export async function verifyServerSshConnectivity(
       {
         ...(serverLike as ServerWithRelations),
         operatingSystem: serverLike.operatingSystem ?? "LINUX",
-        managementMode: serverLike.managementMode ?? "DIRECT",
+        // This probe verifies the proposed SSH login before creating, editing or enabling a profile.
+        managementMode: "DIRECT",
         hostKeySha256: (serverLike as ServerWithRelations).hostKeySha256 ?? null,
       },
       serverLike.sshKey,
@@ -317,7 +319,12 @@ export async function verifyServerSshConnectivity(
   }
 }
 
-export function enrichServer(server: ServerWithRelations) {
+export async function enrichServerForSession(server: ServerWithRelations, session?: ProfileSession | null) {
+  const counts = await serverCommandCounts([server], session?.roles ? { ...session, roles: session.roles } : null);
+  return enrichServer(server, counts.get(server.id));
+}
+
+export function enrichServer(server: ServerWithRelations, commandCounts: { total: number; pending: number } | undefined) {
   const lastSuccess = (at: Date | string | null | undefined, channel: string | null | undefined) =>
     at && channel && (!server.capabilitySince || new Date(at) >= new Date(server.capabilitySince))
       ? { at: serializeDate(at), channel } : null;
@@ -351,7 +358,7 @@ export function enrichServer(server: ServerWithRelations) {
     fileDrives: shares.map(({ node }) => ({ id: node.id, name: node.name })),
     capabilities: {
       metrics: lastSuccess(server.metricLatest?.metricsAt, server.metricLatest?.metricsSource?.toUpperCase()),
-      command: lastSuccess(server.lastCommandSuccessAt, server.lastCommandChannel),
+      command: commandCounts ? lastSuccess(server.lastCommandSuccessAt, server.lastCommandChannel) : null,
       storage: fileProbe && (!storageProbe || fileProbe > new Date(storageProbe)) ? lastSuccess(fileProbe, "AGENT")
         : lastSuccess(storageProbe, server.storageNode?.lastHealthyTransport),
       fileRead: lastSuccess(latest(shares.map((share) => share.lastReadAt)), "AGENT"),
@@ -400,13 +407,11 @@ export function enrichServer(server: ServerWithRelations) {
         publicUrl: server.publicUrl ?? null,
       }),
     },
-    targetCount: server.commandTargets?.length ?? 0,
-    pendingCommandCount: (server.commandTargets ?? []).filter(
-      (target) => target.status === "PENDING_APPROVAL",
-    ).length,
+    targetCount: commandCounts?.total ?? 0,
+    pendingCommandCount: commandCounts?.pending ?? 0,
     // Commands issued while the server belonged to another customer stay with
     // that customer's history; the card must not carry their titles across (A2-03).
-    latestCommands: (server.commandTargets ?? []).filter((target) => (target.commandRequest.teamId ?? null) === (server.teamId ?? null)).map((target) => ({
+    latestCommands: (commandCounts ? server.commandTargets ?? [] : []).filter((target) => (target.commandRequest.teamId ?? null) === (server.teamId ?? null)).map((target) => ({
       id: target.commandRequest.id,
       title: target.commandRequest.title,
       initiatedByType: target.commandRequest.initiatedByType,

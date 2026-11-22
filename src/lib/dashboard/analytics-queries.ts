@@ -35,6 +35,8 @@ export async function hourlyServerUsage(since: Date, serverIds: string[] | null)
 		WHERE "createdAt" >= ${since}
 		  AND "isOnline" = true
 		  AND "cpuUsage" IS NOT NULL AND "memUsage" IS NOT NULL AND "diskUsage" IS NOT NULL
+		  AND EXISTS (SELECT 1 FROM servers s LEFT JOIN teams t ON t.id = s."teamId"
+		              WHERE s.id = metric_snapshots."serverId" AND t."deletedAt" IS NULL)
 		  ${servers}
 		GROUP BY 1
 		ORDER BY 1

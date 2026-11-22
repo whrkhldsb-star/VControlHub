@@ -275,6 +275,7 @@ export function setupRdpWebSocket(server: HttpServer) {
   // guacd's, or the browser leaving (with its WebSocket close code: 1006 is
   // a connection lost without a goodbye).
   let endedBy: string | undefined;
+  let releaseRegistration: (() => void) | undefined;
   let tunnelEnding = false;
   const audit = (event: string, detail: Record<string, string> = {}) => {
    if (userId && serverId) void auditUserAction(userId, event, { serverId, ...detail }, undefined, teamId).catch(() => {});
@@ -307,7 +308,8 @@ export function setupRdpWebSocket(server: HttpServer) {
   // by other connection"). Tell guacd the user is leaving, then close.
   const endTunnel = () => {
    const socket = tunnel;
-   if (!socket || socket.destroyed || tunnelEnding) return;
+   if (!socket || socket.destroyed) { releaseRegistration?.(); return; }
+   if (tunnelEnding) return;
    tunnelEnding = true;
    if (socket.connecting || !socket.writable) { socket.destroy(); return; }
    socket.end(instruction("disconnect"));
@@ -443,7 +445,10 @@ export function setupRdpWebSocket(server: HttpServer) {
     if (session.mustChangePassword || !sessionHasPermission(session, "server:ssh")) throw new Error("Denied");
     // The per-user cap is checked once the ticket names the server: a
     // reconnect to the same server replaces its old session instead.
-    const target = await consumeRdpTicket(token, session, sessionCookie, req.headers.origin ?? "");
+    const target = await consumeRdpTicket(token, session, sessionCookie, req.headers.origin ?? "",
+     () => close("RDP session authorization expired", 1008));
+    releaseRegistration = target.releaseRegistration;
+    if (stopped || ws.readyState !== WebSocket.OPEN) { releaseRegistration?.(); return; }
     await checkGuacd();
     const { idleTimeoutMs: idleMs, maxSessionMs: maxMs } = await getRdpSessionRuntimeConfig();
     idleTimeoutMs = idleMs; maxSessionMs = maxMs;
@@ -493,7 +498,7 @@ export function setupRdpWebSocket(server: HttpServer) {
     tunnel = createConnection({ host: "127.0.0.1", port: guacdPort() });
     tunnel.once("connect", () => { if (!tunnelEnding) tunnel?.write(instruction("select", "rdp")); });
     tunnel.on("error", () => close("RDP gateway connection failed"));
-    tunnel.on("close", () => { endedBy ??= "guacd closed the connection"; if (ws.readyState === WebSocket.OPEN) closeSocket(ws, 1000); });
+    tunnel.on("close", () => { releaseRegistration?.(); endedBy ??= "guacd closed the connection"; if (ws.readyState === WebSocket.OPEN) closeSocket(ws, 1000); });
     const output = new GuacParser(row => {
      if (stopped) return;
      if (row[0] === "error") {

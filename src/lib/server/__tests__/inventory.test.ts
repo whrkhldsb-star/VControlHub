@@ -3,10 +3,9 @@ import { beforeEach, describe, expect, it, vi } from "vitest";
 import { Prisma } from "@prisma/client";
 import { serverTeamWhere } from "@/lib/auth/team-scope";
 
-const mocks = vi.hoisted(() => ({ raw: vi.fn(), findMany: vi.fn(), transaction: vi.fn() }));
-vi.mock("@/lib/db", () => ({ prisma: { $transaction: mocks.transaction, server: { findMany: mocks.findMany } } }));
+const mocks = vi.hoisted(() => ({ raw: vi.fn(), findMany: vi.fn(), commandGroups: vi.fn().mockResolvedValue([]), transaction: vi.fn() }));
+vi.mock("@/lib/db", () => ({ prisma: { $transaction: mocks.transaction, server: { findMany: mocks.findMany }, commandTarget: { groupBy: mocks.commandGroups } } }));
 vi.mock("@/lib/storage/readable-scope", () => ({ getReadableStorageScope: vi.fn(async () => ({ nodesWithoutGrants: ["visible"], grantRules: [] })) }));
-vi.mock("../service-profile-includes", () => ({ SERVER_PROFILE_INCLUDE: {} }));
 import { getServerInventory, normalizeInventoryQuery } from "../inventory";
 
 const session = { userId: "user-a", roles: ["viewer"] as ["viewer"], currentTeamId: "team-a" };
@@ -50,6 +49,23 @@ describe("inventory operating-system filtering before pagination", () => {
       expect.objectContaining({ id: "p", profileLocked: true, canTransfer: false, teamName: null }),
       expect.objectContaining({ id: "c", profileLocked: false, canTransfer: false, teamName: null }),
     ]);
+  });
+
+  it("counts the full command history for a reader and hides all command fields for other viewers", async () => {
+    const row = { id: "s", teamId: "team-a", lastCommandSuccessAt: new Date(), lastCommandChannel: "SSH",
+      commandTargets: [{ status: "COMPLETED", commandRequest: { id: "command", title: "maintenance", teamId: "team-a" } }] };
+    mocks.findMany.mockResolvedValue([row]);
+    for (const allowed of [true, false]) {
+      mocks.raw.mockResolvedValueOnce([{ total: 1, matching: 1, enabled: 1, storage: 0 }]).mockResolvedValueOnce([{ id: "s" }]);
+      if (allowed) mocks.commandGroups.mockResolvedValueOnce([
+        { serverId: "s", status: "COMPLETED", _count: { _all: 9 } }, { serverId: "s", status: "PENDING_APPROVAL", _count: { _all: 4 } },
+      ]);
+      const { servers: [profile] } = await getServerInventory({ ...session, permissions: allowed ? ["command:read"] : ["server:read"] });
+      expect(profile).toMatchObject({ targetCount: allowed ? 13 : 0, pendingCommandCount: allowed ? 4 : 0 });
+      expect(profile!.latestCommands).toHaveLength(allowed ? 1 : 0);
+      expect(Boolean(profile!.capabilities.command)).toBe(allowed);
+    }
+    expect(mocks.commandGroups).toHaveBeenCalledTimes(1);
   });
   it("removes denied bindings and redacts remote connection fields on readable drives", async () => {
     mocks.raw.mockResolvedValueOnce([{ total: 2, matching: 2, enabled: 2, storage: 1 }]).mockResolvedValueOnce([{ id: "p" }, { id: "q" }]);

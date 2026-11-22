@@ -5,7 +5,7 @@ import { sessionHasPermission } from "@/lib/auth/authorization";
 import { RECENT_COMMAND_LOG_LIMIT, withVisibleCommandLogs } from "@/lib/command/visibility";
 import { canAccessDownloadTask } from "@/lib/downloads/route-helpers";
 import { downloadDriveSelect, resolveTaskDrive } from "@/lib/downloads/destination";
-import { syncVisibility, visibleSyncPaths } from "@/lib/sync/service-crud";
+import { filterSyncHistory, syncVisibility, visibleSyncPaths } from "@/lib/sync/service-crud";
 import { actorName } from "@/lib/ticket/timeline";
 import { prisma } from "@/lib/db";
 import { getOperationTaskListLimit } from "@/lib/runtime-settings/service";
@@ -419,8 +419,9 @@ export async function listOperationTaskResult(options: OperationTaskListOptions,
     fetchSource("createdBy", syncStatusWhere, readStorage, where =>
       pageVisible(cursor => prisma.syncJob.findMany({
         where: { AND: [where, syncVisibility(session)] }, ...paging(cursor),
-        include: { creator: { select: { username: true, displayName: true } } },
-      }), async rows => rows.filter(await visibleSyncPaths(rows, session)))),
+        include: { creator: { select: { username: true, displayName: true } },
+          syncLogs: { orderBy: [{ startedAt: "desc" }, { id: "desc" }], take: 1, select: { errorMessage: true } } },
+      }), async rows => filterSyncHistory(rows.filter(await visibleSyncPaths(rows, session)), session))),
     fetchSource("createdBy", (statuses) => rawStatusWhere(statuses, KNOWN_RAW_STATUSES, true), typedWhere, (where) =>
       prisma.backupRecord.findMany({ where, take: limit, orderBy: { createdAt: "desc" }, include: { creator: { select: { username: true, displayName: true } } } })),
     fetchSource("createdBy", deploymentStatusWhere, untypedWhere, (where) =>

@@ -25,7 +25,7 @@ describe("AI hosted command builder", () => {
 	});
 
 	it("builds targeted systemd status checks with sanitized service names", () => {
-		expect(buildCommand("check_service_status", { serviceName: "nginx" })).toBe("systemctl status nginx --no-pager -l");
+		expect(buildCommand("check_service_status", { serviceName: "nginx" })).toBe("systemctl status --no-pager -l -- nginx");
 		expect(buildCommand("check_service_status", { serviceName: "nginx;reboot" })).toBeNull();
 	});
 

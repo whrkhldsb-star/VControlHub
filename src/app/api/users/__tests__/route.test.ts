@@ -56,12 +56,14 @@ vi.mock("@/lib/auth/password", () => ({
 vi.mock("@/lib/audit/service", () => ({
   auditUserAction: mocks.auditUserAction, writeAuditLog: mocks.writeAuditLog,
 }));
-vi.mock("@/lib/user/account-type", () => ({ assertCurrentUserManager: mocks.assertCurrentUserManager }));
+vi.mock("@/lib/user/row-lock", () => ({ assertCurrentUserManager: mocks.assertCurrentUserManager, lockManagedAccount: vi.fn() }));
 vi.mock("@/lib/user/admin-invariant", () => ({
   assertAdminAccessMayBeRemoved: mocks.assertAdminAccessMayBeRemoved,
   withAdminInvariantLock: mocks.withAdminInvariantLock,
+  withAccountTransaction: (run: (db: typeof mocks.prisma) => unknown) => mocks.prisma.$transaction(run),
 }));
-vi.mock("@/lib/auth/team-scope", () => ({
+vi.mock("@/lib/auth/team-scope", async original => ({
+  ...await original<typeof import("@/lib/auth/team-scope")>(),
   assertUserInActorScope: mocks.assertUserInActorScope,
   userDirectoryWhere: mocks.userDirectoryWhere,
   isGlobalTeamManager: mocks.isGlobalTeamManager,
@@ -141,6 +143,7 @@ describe("/api/users", () => {
     expect(mocks.userDirectoryWhere).toHaveBeenCalledWith(session);
     expect(mocks.prisma.user.findMany).toHaveBeenCalledWith(expect.objectContaining({
       where: { OR: [{ id: "admin1" }, { teamMembership: { is: { teamId: "team-a" } } }] },
+      orderBy: [{ createdAt: "desc" }, { id: "desc" }],
       skip: 0,
       take: 50,
     }));
@@ -153,6 +156,13 @@ describe("/api/users", () => {
     });
     expect(body.users[0]).not.toHaveProperty("roles");
     expect(body.users[1]).toMatchObject({ accountType: "admin", customer: null });
+  });
+
+  it("rejects an unrepresentable directory offset before querying users", async () => {
+    const res = await route.GET(new Request("http://local/api/users?page=4294967297&pageSize=1"));
+    expect(res.status).toBe(400);
+    expect(mocks.prisma.user.findMany).not.toHaveBeenCalled();
+    expect(mocks.prisma.user.count).not.toHaveBeenCalled();
   });
 
   it("creates a customer account with its membership in one write", async () => {
@@ -204,7 +214,7 @@ describe("/api/users", () => {
     const deleted = await route.POST(post({ username: "bob", password: "Secret123", account: { type: "customer", teamId: "team-gone" } }));
     expect(deleted.status).toBe(404);
 
-    mocks.prisma.identityTemplate.findUnique.mockResolvedValueOnce(null);
+    mocks.prisma.$queryRaw.mockResolvedValueOnce([{ id: "team-a" }]).mockResolvedValueOnce([]);
     const unknown = await route.POST(post({ username: "bob", password: "Secret123", account: { type: "customer", teamId: "team-a", identityTemplateId: "missing" } }));
     expect(unknown.status).toBe(404);
     expect(mocks.prisma.user.create).not.toHaveBeenCalled();

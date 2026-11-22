@@ -36,7 +36,7 @@ export const BLOG_SERVICE_TEMPLATES: ServiceTemplate[] = [
 		defaultPort: 8084,
 		internalPort: 80,
 		path: "/",
-		envJson: { WORDPRESS_DB_HOST: "127.0.0.1", WORDPRESS_DB_USER: "root", WORDPRESS_DB_PASSWORD: "", WORDPRESS_DB_NAME: "wordpress" },
+		envJson: { WORDPRESS_DB_HOST: "host.docker.internal", WORDPRESS_DB_USER: "root", WORDPRESS_DB_PASSWORD: "", WORDPRESS_DB_NAME: "wordpress" },
 		volumesJson: [{ host: "/opt/wordpress/data", container: "/var/www/html" }],
 	},
 	{

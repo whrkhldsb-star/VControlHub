@@ -111,6 +111,18 @@ describe("lib/http/api-error", () => {
 			expect(body.error).toBe("Operation failed");
 		});
 
+		it("redacts an internal exception on a route with a client-error fallback", () => {
+			const warn = vi.spyOn(console, "warn").mockImplementation(() => undefined);
+			try {
+				apiCatch(new Error("upstream token=synthetic-test-value"), 400);
+				expect(warn).toHaveBeenCalledOnce();
+				expect(String(warn.mock.calls[0]?.[0])).toContain("[REDACTED]");
+				expect(String(warn.mock.calls[0]?.[0])).not.toContain("synthetic-test-value");
+			} finally {
+				warn.mockRestore();
+			}
+		});
+
 		it("plain Error → INTERNAL_ERROR for 5xx fallback and does not leak message", async () => {
 			const res = apiCatch(new Error("oops secret db detail"), 500);
 			expect(res.status).toBe(500);

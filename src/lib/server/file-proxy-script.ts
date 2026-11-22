@@ -153,7 +153,9 @@ with http.server.ThreadingHTTPServer(("0.0.0.0", port), AuthHandler) as httpd:
     actual_port = httpd.server_address[1]
     print(f"PROXY_READY:{actual_port}", flush=True)
     try:
-        httpd.serve_forever()
+        httpd.timeout = 0.5
+        while time.time() * 1000 < EXPIRES_AT_MS:
+            httpd.handle_request()
     except KeyboardInterrupt:
         pass
 `.trim();

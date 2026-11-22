@@ -1,3 +1,4 @@
+import { projectTicket } from "@/lib/ticket/visible-links";
 import { NextResponse } from "next/server";
 import { z } from "zod";
 import { sessionHasPermission } from "@/lib/auth/authorization";
@@ -108,7 +109,7 @@ export async function POST(request: Request) {
       session,
     });
     await auditUserAction(session.userId, "ticket.create", { ticketId: ticket.id, title: ticket.title }, undefined, session.currentTeamId);
-    return NextResponse.json({ ticket }, { status: 201 });
+    return NextResponse.json({ ticket: await projectTicket(ticket, session) }, { status: 201 });
   });
 }
 
@@ -122,6 +123,6 @@ export async function PATCH(request: Request) {
       session,
     });
     await auditUserAction(session.userId, "ticket.update", { ticketId: body.id, status: body.status }, undefined, session.currentTeamId);
-    return NextResponse.json({ ticket });
+    return NextResponse.json({ ticket: await projectTicket(ticket, session) });
   });
 }

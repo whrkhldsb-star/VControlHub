@@ -8,6 +8,8 @@ import type { Permission } from "@/lib/auth/rbac";
 import { CostPageClient } from "../cost-page-client";
 import CostSummaryPage from "../page";
 
+const { budgetRows } = vi.hoisted(() => ({ budgetRows: vi.fn((): { id: string; periodStart: string; currency: string }[] => []) }));
+
 const account = {
 	id: "billing-1",
 	lastSyncError: "legacy internal supplier detail", lastSyncStatus: "error",
@@ -21,9 +23,9 @@ const account = {
 vi.mock("@/lib/auth/require-session", () => ({ requireSession: vi.fn() }));
 vi.mock("@/lib/cost/service", () => ({
 	summarizeMonth: async () => null,
-	listCostEntries: async () => [],
+	listCostEntryPage: async () => ({ entries: [], total: 0 }),
 	listRecentSnapshots: async () => [],
-	listCostBudgets: async () => [],
+	listCostBudgets: budgetRows,
 }));
 vi.mock("@/lib/cost/cloud-billing/service", () => ({
 	listCloudBillingAccounts: async () => [structuredClone(account)],
@@ -45,7 +47,7 @@ async function billingAccountsFor(permissions: Permission[]) {
 		permissions,
 	});
 	vi.mocked(CostPageClient).mockClear();
-	renderToStaticMarkup(await CostSummaryPage());
+	renderToStaticMarkup(await CostSummaryPage({}));
 	return vi.mocked(CostPageClient).mock.lastCall?.[0].initialBillingAccounts;
 }
 
@@ -55,4 +57,14 @@ it("omits the sample CSV and billing feed URL from the cost reader's initial cli
 
 it("passes the full billing config to a cost manager", async () => {
 	expect(await billingAccountsFor(["cost:read", "cost:manage"])).toStrictEqual([account]);
+});
+
+it("opens the validated budget period and falls back for an inaccessible budget", async () => {
+	await billingAccountsFor(["cost:read"]);
+	const periodStart = "2024-07-01";
+	budgetRows.mockReturnValueOnce([{ id: "ours", periodStart, currency: "USD" }]);
+	renderToStaticMarkup(await CostSummaryPage({ searchParams: Promise.resolve({ budget: "ours", periodStart }) }));
+	expect(vi.mocked(CostPageClient).mock.lastCall?.[0]).toMatchObject({ selectedBudget: "ours", initialMonth: "2024-07", initialCurrency: "USD" });
+	renderToStaticMarkup(await CostSummaryPage({ searchParams: Promise.resolve({ budget: "foreign", periodStart }) }));
+	expect(vi.mocked(CostPageClient).mock.lastCall?.[0].selectedBudget).toBeUndefined();
 });

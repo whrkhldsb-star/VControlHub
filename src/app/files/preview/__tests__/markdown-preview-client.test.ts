@@ -23,7 +23,7 @@ describe("markdown preview sanitization", () => {
 	});
 
 	it("removes dangerous link URLs and inline styles while keeping safe formatting", () => {
-		const html = sanitizeHtml(renderMarkdown("[bad](javascript:alert(1)) [ok](https://example.com)\n\n| A | B |\n| :-: | --: |\n| x | y |"));
+		const html = sanitizeHtml(renderMarkdown("[bad](javascript:alert(1)) [ok](https://example.com)\n\n| A | B |\n| :---: | ---: |\n| x | y |"));
 
 		// Not a link: the text stays, inert.
 		expect(html).not.toContain('href="javascript');

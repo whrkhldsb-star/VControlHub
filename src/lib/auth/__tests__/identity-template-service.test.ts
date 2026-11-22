@@ -60,13 +60,19 @@ it.each([["P2003", 409], ["P2025", 404]])("maps a concurrent template delete err
 });
 
 it("lists every legacy picker option and supports bounded template searches and exact ids", async () => {
-	const rows = Array.from({ length: 201 }, (_, i) => ({ id: String(i) }));
+	const rows = Array.from({ length: 201 }, (_, i) => ({ id: String(i), name: "ops", isBuiltin: false }));
 	prismaMock.identityTemplate.findMany.mockResolvedValueOnce(rows).mockResolvedValueOnce(rows.slice(200));
 	expect(await service.listIdentityTemplates()).toHaveLength(201);
-	expect(prismaMock.identityTemplate.findMany).toHaveBeenLastCalledWith(expect.objectContaining({ cursor: { id: "199" }, skip: 1 }));
+	expect(prismaMock.identityTemplate.findMany).toHaveBeenLastCalledWith(expect.objectContaining({ where: { OR: [{ isBuiltin: false, OR: [{ name: { gt: "ops" } }, { name: "ops", id: { gt: "199" } }] }] } }));
 	prismaMock.identityTemplate.findMany.mockResolvedValue(rows.slice(0, 2));
-	expect((await service.identityTemplateOptions({ pageSize: 1, search: "ops" })).nextCursor).toBe("0");
+	expect((await service.identityTemplateOptions({ pageSize: 1, search: "ops" })).nextCursor).toMatch(/^v1\./);
 	expect(prismaMock.identityTemplate.findMany).toHaveBeenLastCalledWith(expect.objectContaining({ where: { name: { contains: "ops", mode: "insensitive" } } }));
 	await service.identityTemplateOptions({ pageSize: 1, id: "assigned" });
 	expect(prismaMock.identityTemplate.findMany).toHaveBeenLastCalledWith(expect.objectContaining({ where: { id: "assigned" } }));
+});
+
+it("maps removal during a template update to not found", async () => {
+	prismaMock.identityTemplate.findUnique.mockResolvedValueOnce({ id: "tpl", isBuiltin: false });
+	prismaMock.identityTemplate.update.mockRejectedValueOnce(new Prisma.PrismaClientKnownRequestError("removed", { code: "P2025", clientVersion: "test" }));
+	await expect(service.updateIdentityTemplate("tpl", { name: "test", permissions: ["server:read"] })).rejects.toMatchObject({ status: 404 });
 });

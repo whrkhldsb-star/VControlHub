@@ -67,6 +67,12 @@ describe("the language a request is answered in", () => {
 	it.each([
 		[{ "accept-language": "zh-CN,zh;q=0.9" }, "zh"],
 		[{ "accept-language": "zh" }, "zh"],
+		[{ "accept-language": "zh,en;q=0.8" }, "zh"],
+		[{ "accept-language": "fr, en;q=0.3, zh-TW;q=0.9" }, "zh"],
+		[{ "accept-language": "zh;q=0, en-US;q=0.1" }, "en"],
+		[{ "accept-language": "*;q=0.9, en;q=0" }, "zh"],
+		[{ "accept-language": "zh;q=0.1, *;q=0.8" }, "en"],
+		[{ "accept-language": "zh-TW;q=0.6, en;q=0.6" }, "zh"],
 		[{ "accept-language": "en-US" }, "en"],
 		[{}, "en"],
 		// A token client that also replays cookies is still a script.

@@ -1,11 +1,9 @@
 import { PageShell } from "@/components/page-shell";
-import { failedTaskSummary, openIncidentSummary } from "@/lib/dashboard/attention-queries";
+import { dashboardCommands, failedTaskSummary, openIncidentSummary } from "@/lib/dashboard/attention-queries";
 import { listActiveAnnouncements } from "@/lib/announcement/service";
 import { sessionHasPermission } from "@/lib/auth/authorization";
 import { requireSession } from "@/lib/auth/require-session";
 import { teamWhere } from "@/lib/auth/team-scope";
-import { mayReviewCommandRequest } from "@/lib/command/review-scope";
-import { listCommandRequests } from "@/lib/command/service";
 import { canReadCommandBody } from "@/lib/command/visibility";
 import { formatDateTime, formatShortTime } from "@/lib/datetime/format";
 import { buildAttentionChecks } from "@/lib/dashboard/attention";
@@ -57,7 +55,7 @@ export async function DashboardContent({ sessionPath }: { sessionPath: "/" | "/d
 	const [
 		servers,
 		storage,
-		requests,
+		commands,
 		recentAuditLogs,
 		downloads,
 		unreadNotifications,
@@ -76,7 +74,7 @@ export async function DashboardContent({ sessionPath }: { sessionPath: "/" | "/d
 		canReadStorage
 			? getStorageOverview(session, { includeEntries: false })
 			: Promise.resolve({ stats: { totalNodes: 0, totalEntries: 0 } }),
-		canReadCommands ? listCommandRequests(session) : Promise.resolve([]),
+		canReadCommands ? dashboardCommands(session) : { requests: [], pendingApprovals: 0, review: null },
 		canReadAudit ? prisma.auditLog.findMany({
 			where: teamScope,
 			take: 5,
@@ -127,9 +125,9 @@ export async function DashboardContent({ sessionPath }: { sessionPath: "/" | "/d
 	]);
 
 	const enabledServers = servers.filter((server) => server.enabled);
-	const pendingApprovals = requests.filter((request) => request.status === "PENDING_APPROVAL").length;
+	const { requests } = commands;
 	const queue = {
-		pendingApprovals,
+		pendingApprovals: canApproveCommands ? commands.review?.count ?? 0 : commands.pendingApprovals,
 		downloads: downloads && {
 			running: downloads.RUNNING ?? 0,
 			pending: downloads.PENDING ?? 0,
@@ -145,14 +143,14 @@ export async function DashboardContent({ sessionPath }: { sessionPath: "/" | "/d
 		createdAt: log.createdAt.toISOString(),
 		formattedCreatedAt: formatDateTime(log.createdAt, locale),
 	}));
-	const recentRequests = requests.slice(0, 5).map((request) => ({
+	const recentRequests = requests.map((request) => ({
 		id: request.id,
 		title: request.title,
 		command: canReadCommandBody(session.userId, request.requesterId, canApproveCommands) ? request.command : null,
 		status: request.status,
 		isAssistantInitiated: request.isAssistantInitiated,
 		requester: request.requester,
-		targetCount: request.targets.length,
+		targetCount: request.targetCount,
 	}));
 	// Each row links to the page that completes it; an account without that
 	// permission would only reach "no permission", so it never sees the row.
@@ -178,7 +176,7 @@ export async function DashboardContent({ sessionPath }: { sessionPath: "/" | "/d
 		},
 		// Waiting for this account: its own requests go to another reviewer (unless it manages the team).
 		pendingApprovals: canApproveCommands
-			? requests.filter((request) => request.status === "PENDING_APPROVAL" && mayReviewCommandRequest(session, request.requester.id))
+			? commands.review
 			: null,
 		now: checkedAt,
 	});

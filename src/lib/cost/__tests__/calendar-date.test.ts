@@ -1,12 +1,18 @@
 import { describe, expect, it } from "vitest";
 import { isCalendarDate } from "../calendar-date";
-import { createCostEntrySchema } from "../schema";
+import { costMonthSchema, createCostEntrySchema } from "../schema";
 import { isValidDate } from "@/app/cost-summary/cost-page-shared";
 
 describe("calendar dates", () => {
 	it("accepts real days and refuses ones Date would roll into the next month", () => {
 		expect(["2026-02-28", "2028-02-29", "2026-12-31", "2026-01-01"].every(isCalendarDate)).toBe(true);
 		expect(["2026-02-31", "2026-02-29", "2026-04-31", "2026-13-01", "2026-00-10", "2026-1-01", "26-01-01"].some(isCalendarDate)).toBe(false);
+	});
+
+	it("accepts the same business years for month filters and entry dates", () => {
+		for (const year of ["0000", "0099", "0100", "1999"]) {
+			expect(costMonthSchema.safeParse(year + "-01").success).toBe(isCalendarDate(year + "-01-01"));
+		}
 	});
 
 	it("is what manual entries and the cost form validate with", () => {

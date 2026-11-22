@@ -1,3 +1,4 @@
+import { spawnSync } from "node:child_process";
 import { EventEmitter } from "node:events";
 import { beforeEach, describe, expect, it, vi } from "vitest";
 
@@ -60,6 +61,18 @@ describe("container logs", () => {
 		const result = await requestRemoteDockerEngine("srv", "/containers/web/logs?stdout=true&stderr=true&tail=100", { unavailableData: {}, loggerScope: "t", decode: "docker-logs" });
 		expect(result).toMatchObject({ ok: true, status: 200, data: clean });
 		expect(vi.mocked(execRemoteCommand).mock.calls[0]![0].command).toContain("base64");
+	});
+
+	it.skipIf(process.platform === "win32")("preserves the HTTP status when curl cannot reach the remote log socket", async () => {
+		vi.mocked(execRemoteCommand).mockImplementationOnce(async ({ command }) => {
+			const result = spawnSync("sh", ["-c", 'curl() { printf 000; return 7; }\n' + command], { encoding: "utf8" });
+			expect(result.status).toBe(7);
+			return { stdout: result.stdout, stderr: result.stderr, exitCode: 7 };
+		});
+		const result = await requestRemoteDockerEngine("srv", "/containers/web/logs", {
+			unavailableData: "", loggerScope: "t", decode: "docker-logs",
+		});
+		expect(result).toMatchObject({ ok: true, dockerAvailable: false });
 	});
 });
 

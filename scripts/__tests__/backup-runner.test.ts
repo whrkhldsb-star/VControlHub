@@ -322,3 +322,19 @@ it("hands pg_dump and psql only parameters libpq knows, dropping the pool settin
   expect(connection.searchParams.get("sslmode")).toBe("require");
   expect(result.childEnv.PGPASSWORD).toBe("secret");
 });
+
+it("keeps a split schema marker intact and passes a literal pg_dump pattern through native Windows argv", async () => {
+  const { checkRestoreSchema, pgDumpSchemaArgs } = await import("../lib/backup-common.mjs");
+  const schema = 'Mixed "Tenant" *';
+  const first = Buffer.from("-- VControlHub application schema " + Buffer.from(schema).toString("hex") + "\r\n");
+  const dump = Buffer.concat([first, Buffer.alloc(300, 32)]);
+  for (const offset of [...Array.from({ length: first.length }, (_, i) => i + 1), 255, 256, 257]) {
+    const chunks = [dump.subarray(0, offset), dump.subarray(offset)];
+    expect(Buffer.concat(await Array.fromAsync(checkRestoreSchema(chunks, schema)))).toEqual(dump);
+    await expect(Array.fromAsync(checkRestoreSchema(chunks, "public"))).rejects.toThrow("schemas differ");
+  }
+  await expect(Array.fromAsync(checkRestoreSchema([first.subarray(0, -2)], "public"))).rejects.toThrow("schemas differ");
+  const args = pgDumpSchemaArgs(schema);
+  const { stdout } = await runFile(process.execPath, ["-e", "process.stdout.write(JSON.stringify(process.argv.slice(1)))", "--", ...args]);
+  expect(JSON.parse(stdout)).toEqual(["--schema", '"Mixed ""Tenant"" *"']);
+});

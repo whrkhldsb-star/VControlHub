@@ -66,6 +66,15 @@ export const cloudBillingConfigSchema = cloudBillingConfigObjectSchema.transform
 	},
 );
 
+function validateCsvSource(val: { provider: string; config: CloudBillingConfigParsed }, ctx: z.RefinementCtx) {
+	if (val.provider !== "generic_csv" || val.config.sampleCsv?.trim() || val.config.billingCsvUrl?.trim()) return;
+	for (const field of ["sampleCsv", "billingCsvUrl"]) {
+		ctx.addIssue({ code: "custom", path: ["config", field], message: "At least one field must be provided" });
+	}
+}
+
+export const billingSourceSchema = z.object({ provider: cloudBillingProviderSchema, config: cloudBillingConfigSchema }).superRefine(validateCsvSource);
+
 export const createCloudBillingAccountSchema = z
 	.object({
 		name: z.string().trim().min(1).max(128),
@@ -82,16 +91,7 @@ export const createCloudBillingAccountSchema = z
 		...rest,
 		config: rest.config ?? ({} as CloudBillingConfigParsed),
 	}))
-	.superRefine((val, ctx) => {
-		if (val.provider !== "generic_csv") return;
-		const hasSample = Boolean(val.config?.sampleCsv?.trim());
-		const hasUrl = Boolean(val.config?.billingCsvUrl?.trim());
-		if (!hasSample && !hasUrl) {
-			for (const field of ["sampleCsv", "billingCsvUrl"]) {
-				ctx.addIssue({ code: "custom", path: ["config", field], message: "At least one field must be provided" });
-			}
-		}
-	});
+	.superRefine(validateCsvSource);
 
 export const updateCloudBillingAccountSchema = z
 	.object({

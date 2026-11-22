@@ -51,6 +51,9 @@ interface TicketDetailClientProps {
   initial: Ticket;
   canManage: boolean;
   users?: TicketUser[];
+  userSearch?: string;
+  userPage?: number;
+  moreUsers?: boolean;
 }
 
 const STATUS_TONE: Record<string, StatusTone> = {
@@ -84,7 +87,7 @@ function splitItsmInbound(body: string): { fromItsm: boolean; body: string } {
   return body.startsWith(ITSM_INBOUND_PREFIX) ? { fromItsm: true, body: body.slice(ITSM_INBOUND_PREFIX.length) } : { fromItsm: false, body };
 }
 
-export function TicketDetailClient({ initial, canManage, users = [] }: TicketDetailClientProps) {
+export function TicketDetailClient({ initial, canManage, users = [], userSearch = "", userPage = 1, moreUsers = false }: TicketDetailClientProps) {
   const { t, locale } = useI18n();
   const [ticket, setTicket] = useState(initial);
   const [comment, setComment] = useState("");
@@ -317,6 +320,10 @@ export function TicketDetailClient({ initial, canManage, users = [] }: TicketDet
 
         {canManage && (
           <div className="mt-4 max-w-sm">
+            <form className="flex gap-2" action={`/tickets/${encodeURIComponent(ticket.id)}`}>
+              <input name="q" type="search" key={userSearch} defaultValue={userSearch} aria-label={t("filesBrowserSpa.searchLabel")} className={UI_INPUT} />
+              <ActionButton type="submit">{t("filesBrowserSpa.searchLabel")}</ActionButton>
+            </form>
             <FormField label={t("ticketsDetail.assignTo")} htmlFor="ticket-assignee">
             <select
               id="ticket-assignee"
@@ -327,11 +334,16 @@ export function TicketDetailClient({ initial, canManage, users = [] }: TicketDet
               className={UI_INPUT}
             >
               <option value="">{t("ticketsDetail.unassigned")}</option>
+              {ticket.assignee && !users.some(user => user.id === ticket.assignee?.id) && <option value={ticket.assignee.id}>{ticket.assignee.displayName || ticket.assignee.username}</option>}
               {users.map((u) => (
                 <option key={u.id} value={u.id}>{u.displayName || u.username}</option>
               ))}
             </select>
             </FormField>
+            <div className="flex gap-3">
+              {userPage > 1 && <Link href={`?q=${encodeURIComponent(userSearch)}&usersPage=${userPage - 1}`}>{t("common.pagination.previous")}</Link>}
+              {moreUsers && <Link href={`?q=${encodeURIComponent(userSearch)}&usersPage=${userPage + 1}`}>{t("common.pagination.next")}</Link>}
+            </div>
           </div>
         )}
       </div>

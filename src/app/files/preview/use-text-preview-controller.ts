@@ -521,7 +521,7 @@ export function useTextPreviewController(options: {
 
   // systemd needs its unit; a Compose file without a service name updates
   // the whole project. Requiring a unit for both hid the Compose button.
-  const reloadReady = reloadKind === "compose" || (reloadKind === "systemd" && Boolean(reloadUnit));
+  const reloadReady = (reloadKind === "compose" && Boolean(nodeId && relativePath)) || (reloadKind === "systemd" && Boolean(reloadUnit));
   const canReloadAfterSave = Boolean(driver === "SFTP" && serverId && reloadReady && editMode);
 
   const handleSaveAndReload = useCallback(async () => {
@@ -537,7 +537,7 @@ export function useTextPreviewController(options: {
           ? {
               kind: "compose" as const,
               // The server resolves the file against the node's root (see the reload route).
-              ...(nodeId && relativePath ? { composeFile: { storageNodeId: nodeId, relativePath } } : { projectDir: "/" }),
+              composeFile: { storageNodeId: nodeId, relativePath },
               ...(reloadUnit ? { service: reloadUnit } : {}),
             }
           : { kind: "systemd" as const, unit: reloadUnit };

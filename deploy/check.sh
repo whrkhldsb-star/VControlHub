@@ -57,7 +57,7 @@ log "APP_DIR=${APP_DIR}"
 
 set -a
 # shellcheck disable=SC1090
-source "${ENV_FILE}"
+load_install_settings "${ENV_FILE}"
 set +a
 
 # The runtime env file leaves the ports out (systemd sets them per unit), so a
@@ -68,7 +68,7 @@ health_url="$(web_health_url "${APP_DIR}" "${ENV_FILE}")"
 SSH_WS_PORT="${SSH_WS_PORT:-3001}"
 
 for required in DATABASE_URL AUTH_SESSION_SECRET ADMIN_INITIAL_PASSWORD SSH_WS_SECRET ENCRYPTION_KEY STORAGE_DIRECT_ACCESS_SECRET; do
-	[ -n "${!required:-}" ] || fail "${required} is missing"
+  [ -n "${!required:-}" ] || fail "${required} is missing"
 done
 [ "${#AUTH_SESSION_SECRET}" -ge 32 ] || fail "AUTH_SESSION_SECRET is shorter than 32 characters"
 reject_unsafe_production_flags

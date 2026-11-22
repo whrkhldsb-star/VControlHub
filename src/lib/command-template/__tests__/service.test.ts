@@ -28,7 +28,7 @@ vi.mock("@/lib/db", () => ({ prisma: mockPrisma }));
 
 const service = await import("../service");
 
-// A platform administrator in "all customers" mode: unscoped, like the old sessionless calls.
+const liveTemplates = { OR: [{ isBuiltin: true }, { team: { isNot: { deletedAt: { not: null } } } }] };
 const PLATFORM = { userId: "platform", roles: ["admin" as const], currentTeamId: null };
 
 describe("command template service", () => {
@@ -48,7 +48,7 @@ describe("command template service", () => {
         roles: ["operator"],
         currentTeamId: "team_1",
       }),
-    ).toEqual({ OR: [{ isBuiltin: true }, { teamId: "team_1" }] });
+    ).toEqual({ OR: [{ isBuiltin: true }, { teamId: "team_1", team: { deletedAt: null } }] });
     expect(
       service.commandTemplateScopeWhere({
         userId: "u1",
@@ -81,7 +81,7 @@ describe("command template service", () => {
     );
 
     expect(mockPrisma.commandTemplate.findFirst).toHaveBeenCalledWith({
-      where: { id: "user_1", OR: [{ isBuiltin: true }, { teamId: "team_1" }] },
+      where: { id: "user_1", OR: [{ isBuiltin: true }, { teamId: "team_1", team: { deletedAt: null } }] },
       select: expect.any(Object),
     });
   });
@@ -92,6 +92,7 @@ describe("command template service", () => {
     await service.listTemplates(200, PLATFORM);
 
     expect(mockPrisma.commandTemplate.findMany).toHaveBeenCalledWith({
+      where: liveTemplates,
       orderBy: [{ isBuiltin: "desc" }, { name: "asc" }],
       take: 200,
       include: { creator: { select: { username: true, displayName: true } } },
@@ -190,13 +191,13 @@ describe("command template service", () => {
       PLATFORM,
     );
     expect(mockPrisma.commandTemplate.updateMany).toHaveBeenCalledWith({
-      where: { id: "user_1" },
+      where: { id: "user_1", ...liveTemplates },
       data: { name: "Renamed" },
     });
 
     await service.deleteTemplate("user_1", { userId: "u1" }, PLATFORM);
     expect(mockPrisma.commandTemplate.deleteMany).toHaveBeenCalledWith({
-      where: { id: "user_1" },
+      where: { id: "user_1", ...liveTemplates },
     });
   });
 

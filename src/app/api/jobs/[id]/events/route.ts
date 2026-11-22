@@ -1,3 +1,4 @@
+import { projectPlaybookJobMessage } from "@/lib/playbook/legacy-messages";
 import { apiCopy } from "@/lib/i18n/api-copy";
 import { NextResponse } from "next/server";
 import { z } from "zod";
@@ -47,7 +48,7 @@ export async function GET(
       const where = sessionHasPermission(session, "team:manage")
         ? { id, ...teamScope }
         : { AND: [{ id }, teamScope, { createdBy: session.userId }] };
-      const job = await prisma.job.findFirst({ where, select: { id: true } });
+      const job = await prisma.job.findFirst({ where, select: { id: true, type: true } });
       if (!job) {
         throw new NotFoundError(apiCopy("apiCopy.task.not.found.b19fa293"));
       }
@@ -60,7 +61,7 @@ export async function GET(
           jobId: event.jobId,
           type: event.type,
           level: event.level,
-          message: event.message,
+          message: projectPlaybookJobMessage(job.type, event.type, event.message),
           workerId: event.workerId,
           payload: event.payload,
           createdAt: event.createdAt instanceof Date ? event.createdAt.toISOString() : event.createdAt,

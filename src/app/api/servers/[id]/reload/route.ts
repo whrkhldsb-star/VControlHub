@@ -35,6 +35,7 @@ import { assertServerTeamAccess } from "@/lib/server/team-access";
 import { getErrorMessage } from "@/lib/http/error-message";
 import { getStorageFileNode } from "@/lib/storage/file-content";
 import { normalizeRemoteTargetPath } from "@/lib/storage/remote-path";
+import { isServerStorageEndpoint } from "@/lib/server/storage-endpoint";
 import { shellQuote } from "@/lib/shell-quote";
 import { SSH_CONNECTION_SERVER_SELECT } from "@/lib/ssh/server-connection-select";
 
@@ -45,7 +46,7 @@ const logger = createLogger("api:servers:reload");
  * 单元名字允许的字符集：字母、数字、`.`、`-`、`_`、`@`。
  * 显式拒绝 shell 元字符与路径分隔符（避免注入）。
  */
-const UNIT_NAME_PATTERN = /^[A-Za-z0-9._@-]{1,128}$/;
+const UNIT_NAME_PATTERN = /^[A-Za-z0-9._@][A-Za-z0-9._@-]{0,127}$/;
 
 /**
  * compose kind 需要的 projectDir 同样收严：只允许常见 Linux 路径字符，
@@ -78,7 +79,7 @@ const buildReloadBodySchema = (locale: Locale) => z.discriminatedUnion("kind", [
 
 type ReloadBody = z.infer<ReturnType<typeof buildReloadBodySchema>>;
 
-function buildCommand(body: ReloadBody, dialect: OsDialect, composeProjectDir = ""): string {
+function buildCommand(body: ReloadBody, dialect: OsDialect, composeProjectDir = "", composeFile?: string): string {
   if (body.kind === "systemd") {
     // TR-041: 使用方言感知的 serviceCommand 替代硬编码 systemctl
     // systemd kind 始终用 reload → fallback restart 语义
@@ -90,38 +91,12 @@ function buildCommand(body: ReloadBody, dialect: OsDialect, composeProjectDir = 
   }
   // A resolved directory may hold spaces or other characters a shell reads: quoted unless it is plainly safe.
   const cd = `cd ${/^[A-Za-z0-9._/-]+$/.test(composeProjectDir) ? composeProjectDir : `-- ${shellQuote(composeProjectDir)}`}`;
-  const up = body.service
-    ? `docker compose up -d ${body.service.replace(/'/g, "'\\''")}`
-    : "docker compose up -d";
-  return `${cd} && ${up}`;
+  const file = composeFile ? ` -f ${shellQuote(composeFile)}` : "";
+  return `${cd} && docker compose${file} up -d${body.service ? ` -- ${shellQuote(body.service)}` : ""}`;
 }
 
 function timeoutFor(body: ReloadBody): number {
   return body.kind === "compose" ? 120_000 : 30_000;
-}
-
-type ServerRow = {
-  id: string;
-  host: string;
-  port: number;
-  username: string;
-  operatingSystem: string;
-  connectionType: string;
-  managementMode: string;
-  sshKeyId: string | null;
-  password: string | null;
-  hostKeySha256: string | null;
-  sshKey: { privateKey: string; passphrase: string | null } | null;
-  osDialect: string | null;
-};
-
-async function loadServer(id: string, teamId: string | null): Promise<ServerRow | null> {
-  const server = await prisma.server.findUnique({
-    where: { id, teamId, enabled: true },
-    // The whole connection (see SSH_CONNECTION_SERVER_SELECT).
-    select: { ...SSH_CONNECTION_SERVER_SELECT, osDialect: true },
-  });
-  return (server as ServerRow | null) ?? null;
 }
 
 export async function POST(
@@ -143,7 +118,10 @@ export async function POST(
       const teamAccess = await assertServerTeamAccess(session, id, "manage");
       if (!teamAccess.ok) return teamAccess.response;
 
-      const server = await loadServer(id, teamAccess.server.teamId);
+      const server = await prisma.server.findUnique({
+        where: { ...teamAccess.server, enabled: true },
+        select: { ...SSH_CONNECTION_SERVER_SELECT, osDialect: true },
+      });
       if (!server) {
         return Response.json({ error: t("apiServersReload.serverNotFound", locale) }, { status: 404 });
       }
@@ -153,19 +131,22 @@ export async function POST(
       }
 
       let composeProjectDir = "";
+      let composeFile: string | undefined;
       if (body.kind === "compose") {
         if (body.composeFile) {
           const node = await getStorageFileNode(body.composeFile.storageNodeId, session);
-          if (!node || node.serverId !== id || node.driver !== "SFTP") {
+          if (!node || node.serverId !== id || node.driver !== "SFTP" || !isServerStorageEndpoint(server, node) ||
+              (node.username ?? server.username) !== server.username || (node.host && node.hostKeySha256 && node.hostKeySha256 !== server.hostKeySha256)) {
             return Response.json({ error: t("apiServersReload.serverNotFound", locale) }, { status: 404 });
           }
           try {
             const file = normalizeRemoteTargetPath(node.basePath, body.composeFile.relativePath);
+            composeFile = file;
             composeProjectDir = path.posix.dirname(file);
           } catch {
             return Response.json({ error: t("apiServersReload.projectDirPatternError", locale) }, { status: 400 });
           }
-          if (/[\u0000-\u001f\u007f]/.test(composeProjectDir)) {
+          if (/[\u0000-\u001f\u007f]/.test(composeFile)) {
             return Response.json({ error: t("apiServersReload.projectDirPatternError", locale) }, { status: 400 });
           }
         } else if (body.projectDir) {
@@ -176,7 +157,7 @@ export async function POST(
       }
 
       const dialect = deserializeDialect(server.osDialect);
-      const command = buildCommand(body, dialect, composeProjectDir);
+      const command = buildCommand(body, dialect, composeProjectDir, composeFile);
       const commandTimeout = timeoutFor(body);
 
       // audit 前置记录 (input 摘要，不含密码 / 完整密钥)
@@ -189,9 +170,10 @@ export async function POST(
       };
 
       try {
-        const sshParams = await buildSshParamsFromServer(server, server.sshKey);
+        const sshParams = await buildSshParamsFromServer(server, server.sshKey, teamAccess.server.teamId);
         const { stdout, stderr, exitCode } = await execRemoteCommand({
           ...sshParams,
+          signal: request.signal,
           command,
           timeout: commandTimeout,
         });

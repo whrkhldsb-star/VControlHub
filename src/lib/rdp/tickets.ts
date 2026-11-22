@@ -1,3 +1,5 @@
+import { withServerLifecycleLock } from "@/lib/server/lifecycle-lock";
+import { registerTerminalSession } from "@/lib/server/terminal-handover";
 import { rdpCertificateOptions } from "./certificate";
 import { createHash, randomBytes } from "node:crypto";
 import { createConnection } from "node:net";
@@ -63,13 +65,17 @@ export async function mintRdpTicket(serverId: string, session: TeamSession, cook
  return token;
 }
 /** Atomic delete is the single-use claim, including across proxy processes. */
-export async function consumeRdpTicket(token: string, session: TeamSession, cookie: string, origin: string) {
+export async function consumeRdpTicket(token: string, session: TeamSession, cookie: string, origin: string, onRevoke?: () => void): Promise<Awaited<ReturnType<typeof getRdpServer>> & { releaseRegistration?: () => void }> {
  if (!/^[A-Za-z0-9_-]{43}$/.test(token) || !rdpOriginAllowed(origin)) throw new ForbiddenError();
  const ticket = await prisma.rdpTicket.findUnique({ where: { hash: hashRdpValue(token) } });
  if (!ticket || ticket.userId !== session.userId || ticket.teamId !== (session.currentTeamId ?? null) || ticket.sessionHash !== hashRdpValue(cookie) || ticket.origin !== origin || ticket.expiresAt.getTime() <= Date.now()) throw new ForbiddenError();
- const server = await getRdpServer(ticket.serverId, session);
- if (ticket.endpointHash !== rdpEndpointHash(server)) throw new ForbiddenError();
- const claimed = await prisma.rdpTicket.deleteMany({ where: { hash: ticket.hash, expiresAt: { gt: new Date() } } });
- if (claimed.count !== 1) throw new ForbiddenError();
- return server;
+ const claim = async () => {
+  const server = await getRdpServer(ticket.serverId, session);
+  if (ticket.endpointHash !== rdpEndpointHash(server)) throw new ForbiddenError();
+  const claimed = await prisma.rdpTicket.deleteMany({ where: { hash: ticket.hash, expiresAt: { gt: new Date() } } });
+  if (claimed.count !== 1) throw new ForbiddenError();
+  if (!onRevoke) return server;
+  return { ...server, releaseRegistration: await registerTerminalSession(ticket.serverId, onRevoke) };
+ };
+ return onRevoke ? withServerLifecycleLock(ticket.serverId, claim) : claim();
 }

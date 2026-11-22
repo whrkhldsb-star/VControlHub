@@ -84,6 +84,8 @@ export interface CloudBillingSyncRunRecord {
 export interface CloudBillingLineItem {
 	/** Stable id for upsert (provider-specific charge id or hash) */
 	externalId: string;
+	legacyExternalId?: string;
+	fractionalCent?: boolean;
 	category: CostCategory;
 	/** Display provider label (e.g. "AWS · EC2") */
 	providerLabel: string;

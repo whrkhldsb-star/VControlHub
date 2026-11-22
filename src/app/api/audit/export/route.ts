@@ -57,7 +57,7 @@ export async function GET(request: Request) {
       request.signal.throwIfAborted();
       const { batches, truncated } = await prepareAuditExport({
         action: params.action, severity: params.severity, search: params.search, session,
-      });
+      }, request.signal);
       const json = params.format === "json";
       const encoder = new TextEncoder();
       const prefix = json ? "[" : `\ufeff${csvHeader()}`;
@@ -74,8 +74,6 @@ export async function GET(request: Request) {
           onAbort = () => {
             finish();
             controller.error(request.signal.reason);
-            // A query already sent may finish. Its page is discarded and
-            // returning the iterator prevents another query.
             void batches.return(undefined).catch(() => undefined);
           };
           if (request.signal.aborted) return onAbort();

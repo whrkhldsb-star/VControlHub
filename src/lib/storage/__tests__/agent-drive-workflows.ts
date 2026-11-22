@@ -11,7 +11,9 @@ import { POST as createDownload } from "@/app/api/downloads/route-post";
 import type { SessionPayload } from "@/lib/auth/session";
 import { prisma } from "@/lib/db";
 import { receiveAgentHttpDownload } from "@/lib/downloads/agent-relay";
+import { reconcileTerminalRelay } from "@/lib/downloads/relay-cleanup";
 import { copyFileEntry } from "@/lib/files/copy-operation";
+import { completeJob } from "@/lib/job/service";
 import { getServerDeletionImpact } from "@/lib/server/service-deletion-impact";
 import { deleteServerProfile } from "@/lib/server/service-profile-deletion";
 import { transferServerToCustomer } from "@/lib/server/transfer";
@@ -65,6 +67,13 @@ export async function checkDriveWorkflows(input: {
   expect(queued.status).toBe(200);
   const { taskId } = await queued.json();
   expect(await prisma.downloadTask.findUniqueOrThrow({ where: { id: taskId } })).toMatchObject({ agentStorageNodeId: nodeId, relayMode: true });
+  // Run only this fixture's queued job. Other integration tests share the worker queue.
+  const [job] = await prisma.job.updateManyAndReturn({
+    where: { type: "download.execute", status: "PENDING", teamId: actor.currentTeamId, payload: { path: ["taskId"], equals: taskId } },
+    data: { status: "RUNNING", workerId: serverId, attempts: { increment: 1 }, leaseExpiresAt: new Date(Date.now() + 240_000) },
+    select: { id: true, attempts: true },
+  });
+  expect(job).toBeDefined();
   const upstream = vi.mocked(undici.request).mockImplementation(async (address, options) => {
     expect(String(address)).toBe(url);
     return { statusCode: 200, headers: {}, body: Readable.from(options?.method === "HEAD" ? [] : [Buffer.from("offline payload")]) } as unknown as undici.Dispatcher.ResponseData;
@@ -75,6 +84,11 @@ export async function checkDriveWorkflows(input: {
   expect(await prisma.downloadTask.findUniqueOrThrow({ where: { id: taskId } })).toMatchObject({ status: "COMPLETED", completedBytes: "15" });
   expect(await readFile(path.join(root, folder, "from-url.txt"), "utf8")).toBe("offline payload");
   expect((await prisma.fileEntry.findUniqueOrThrow({ where: entryWhere(folder + "/from-url.txt") })).size).toBe(BigInt(15));
+  expect(await reconcileTerminalRelay(taskId)).toBe(false);
+  expect(await completeJob(job!.id, serverId, undefined, job!.attempts)).toEqual({ count: 1 });
+  expect((await getServerDeletionImpact(serverId)).unfinishedDownloads).toBe(1);
+  expect(await reconcileTerminalRelay(taskId)).toBe(true);
+  expect((await getServerDeletionImpact(serverId)).unfinishedDownloads).toBe(0);
 }
 
 export async function checkDriveOwnership(actor: SessionPayload, serverId: string, nodeId: string) {

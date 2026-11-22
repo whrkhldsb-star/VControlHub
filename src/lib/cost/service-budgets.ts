@@ -36,13 +36,13 @@ type BudgetUsage = { amount: string; others: CostCurrencyBucket[] };
  * Usage of every budget in one grouped query per distinct period (A8-07): the
  * list and the daily check used to run two aggregates per budget.
  */
-async function loadBudgetUsage(rows: Array<BudgetRow & { teamId?: string | null }>, now: Date): Promise<Map<string, BudgetUsage>> {
+async function loadBudgetUsage(rows: Array<BudgetRow & { teamId?: string | null }>, now: Date, db: Prisma.TransactionClient = prisma): Promise<Map<string, BudgetUsage>> {
 	const usage = new Map<string, BudgetUsage>();
 	const byPeriod = new Map<string, Array<BudgetRow & { teamId?: string | null }>>();
 	for (const row of rows) byPeriod.set(row.period, [...(byPeriod.get(row.period) ?? []), row]);
 	for (const [period, group] of byPeriod) {
 		const range = getBudgetPeriodRange(period as CostBudgetPeriod, now);
-		const grouped = await prisma.costEntry.groupBy({
+		const grouped = await db.costEntry.groupBy({
 			by: ["category", "currency", "teamId"],
 			where: { category: { in: [...new Set(group.map((row) => row.category))] }, effectiveDate: { gte: range.start, lt: range.endExclusive } },
 			_sum: { amount: true },
@@ -81,12 +81,17 @@ export async function createCostBudget(input: unknown, session?: TeamSession | n
 	return budgetToRecord(row);
 }
 export async function listCostBudgets(now = new Date(), session?: TeamSession | null): Promise<CostBudgetRecord[]> {
-	// Without a session (the daily alert check): live customers' budgets only,
-	// so a deleted customer's do not keep alerting.
-	const rows = await prisma.costBudget.findMany({ where: session ? teamWhere(session) : liveCustomerRowsWhere(), orderBy: { createdAt: "desc" } });
-	const usage = await loadBudgetUsage(rows, now);
-	return Promise.all(rows.map((row) => budgetToRecord(row, now, usage.get(row.id))));
+	return prisma.$transaction(async tx => {
+		const rows = await tx.costBudget.findMany({ where: budgetScope(session), orderBy: { createdAt: "desc" } });
+		const usage = await loadBudgetUsage(rows, now, tx);
+		return Promise.all(rows.map((row) => budgetToRecord(row, now, usage.get(row.id))));
+	}, { isolationLevel: "RepeatableRead" });
 }
+
+function budgetScope(session?: TeamSession | null): Prisma.CostBudgetWhereInput {
+	return session ? { AND: [teamWhere(session), liveCustomerRowsWhere()] } : liveCustomerRowsWhere();
+}
+
 export async function updateCostBudget(id: string, input: unknown, session?: TeamSession | null): Promise<CostBudgetRecord> {
 	const parsed = updateCostBudgetSchema.parse(input); const data: Prisma.CostBudgetUpdateInput = { ...parsed };
 	if (parsed.limitAmount !== undefined) data.limitAmount = new Prisma.Decimal(parsed.limitAmount);
@@ -106,39 +111,60 @@ export async function deleteCostBudget(id: string, session?: TeamSession | null)
 export async function checkBudgetAlerts(now = new Date(), session?: TeamSession | null) {
 	const budgets = await listCostBudgets(now, session);
 	let triggered = 0, notificationsSent = 0, duplicatesSkipped = 0;
-	for (const budget of budgets) {
-		if (!budget.enabled || budget.usageStatus === "within") continue;
+	for (const [index, candidate] of budgets.entries()) {
+		if (!candidate.enabled || candidate.usageStatus === "within") continue;
 		if (!triggered) await ensureBudgetDeliveryTable();
-		triggered++;
-		const actionUrl = `/cost-summary?budget=${budget.id}&periodStart=${budget.periodStart}`;
-		const release = await acquireAdvisoryLock("cost-budget-alert", `${budget.id}:${budget.periodStart}`);
+		const release = await acquireAdvisoryLock("cost-budget-alert", `${candidate.id}:${candidate.periodStart}`);
 		try {
-			const content = notificationContentData({ notice: { code: "costBudgetAlert", params: {
-				budget: budget.name, used: budget.usageAmount, currency: budget.currency,
-				percent: budget.usagePercent, threshold: budget.alertThresholdPercent, limit: budget.limitAmount,
-			} } });
-			let after: string | undefined;
-			do {
-				const managers: { id: string }[] = await prisma.user.findMany({
-					where: { status: { not: "DISABLED" }, ...permissionHoldersWhere("cost:manage", budget.teamId),
-						...(after ? { id: { gt: after } } : {}) },
-					orderBy: { id: "asc" }, select: { id: true }, take: 1000,
-				});
-				if (!managers.length) break;
-				const stored = await prisma.$transaction(async (tx) => {
+			const delivery = await prisma.$transaction(async tx => {
+				// Serialize customer archival and budget edits with the receipt. The
+				// locked budget stays current through the usage read and every page.
+				if (candidate.teamId) await tx.$queryRaw`SELECT id FROM teams WHERE id = ${candidate.teamId} FOR SHARE`;
+				await tx.$queryRaw`SELECT id FROM cost_budgets WHERE id = ${candidate.id} FOR SHARE`;
+				const row = await tx.costBudget.findFirst({ where: { ...budgetScope(session), id: candidate.id } });
+				if (!row) return null;
+				const usage = await loadBudgetUsage([row], now, tx);
+				const budget = await budgetToRecord(row, now, usage.get(row.id));
+				budgets[index] = budget;
+				if (!budget.enabled || budget.usageStatus === "within") return null;
+				const actionUrl = `/cost-summary?budget=${budget.id}&periodStart=${budget.periodStart}`;
+				const content = notificationContentData({ notice: { code: "costBudgetAlert", params: {
+					budget: budget.name, used: budget.usageAmount, currency: budget.currency,
+					percent: budget.usagePercent, threshold: budget.alertThresholdPercent, limit: budget.limitAmount,
+				} } });
+				const pages = [];
+				let recipients = 0;
+				let after: string | undefined;
+				do {
+					const managers: { id: string }[] = await tx.user.findMany({
+						where: { status: { not: "DISABLED" }, ...permissionHoldersWhere("cost:manage", budget.teamId),
+							...(after ? { id: { gt: after } } : {}) },
+						orderBy: { id: "asc" }, select: { id: true }, take: 1000,
+					});
+					if (!managers.length) break;
+					recipients += managers.length;
 					const users = await claimBudgetDeliveries(tx, budget.id, budget.periodStart, managers.map(row => row.id));
-					if (!users.length) return [];
-					// Adopt pre-upgrade deliveries while their inbox rows still exist.
-					const legacy = await tx.notification.findMany({ where: { type: "system", actionUrl, userId: { in: users } }, select: { userId: true } });
-					const sent = new Set(legacy.map(row => row.userId));
-					const data = users.filter(id => !sent.has(id)).map(userId => ({ userId, type: "system", ...content, actionUrl, teamId: budget.teamId ?? null }));
-					return data.length ? tx.notification.createManyAndReturn({ data }) : [];
-				});
-				await announceStoredNotifications(stored);
-				notificationsSent += stored.length;
-				duplicatesSkipped += managers.length - stored.length;
-				after = managers.length === 1000 ? managers[managers.length - 1]!.id : undefined;
-			} while (after);
+					if (users.length) {
+						// Adopt pre-upgrade deliveries while their inbox rows still exist.
+						const legacy = await tx.notification.findMany({ where: { type: "system", actionUrl, userId: { in: users } }, select: { userId: true } });
+						const sent = new Set(legacy.map(row => row.userId));
+						const data = users.filter(id => !sent.has(id)).map(userId => ({ userId, type: "system", ...content, actionUrl, teamId: budget.teamId ?? null }));
+						if (data.length) pages.push(await tx.notification.createManyAndReturn({ data }));
+					}
+					after = managers.length === 1000 ? managers[managers.length - 1]!.id : undefined;
+				} while (after);
+				return { pages, recipients };
+			}, { timeout: 120_000 });
+			if (delivery) {
+				triggered++;
+				let sent = 0;
+				for (const page of delivery.pages) {
+					await announceStoredNotifications(page);
+					sent += page.length;
+				}
+				notificationsSent += sent;
+				duplicatesSkipped += delivery.recipients - sent;
+			}
 		} finally {
 			await release();
 		}

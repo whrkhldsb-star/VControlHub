@@ -52,7 +52,8 @@ if [ -f "${ENV_FILE}" ]; then
     # Load install-time port/origin overrides so smoke tests match customized installs.
     set -a
     # shellcheck disable=SC1090
-    source "${ENV_FILE}"
+    source "$(dirname "${BASH_SOURCE[0]}")/lib/listen-address.sh"
+    load_install_settings "${ENV_FILE}"
     set +a
 fi
 # The runtime env file leaves the ports out (systemd sets them per unit), so a

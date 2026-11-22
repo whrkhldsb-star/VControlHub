@@ -7,7 +7,7 @@ const { cookiesMock, verifyPending2faTokenMock, createSessionTokenMock, getConfi
 	getConfiguredSessionTtlSecondsMock: vi.fn(),
 	generateCsrfTokenMock: vi.fn(),
 	verifyTotpMock: vi.fn(),
-	prismaMock: { user: { findUnique: vi.fn(), updateMany: vi.fn() } },
+	prismaMock: { $executeRaw: vi.fn(), user: { findUnique: vi.fn(), updateMany: vi.fn() } },
 	auditUserActionMock: vi.fn(),
 	auditSystemActionMock: vi.fn(),
 	checkRateLimitMock: vi.fn(),
@@ -88,12 +88,20 @@ describe("POST /api/auth/2fa/verify-login", () => {
 		});
 		verifyTotpMock.mockReturnValue({ valid: true, timeStep: 12345678 });
 		prismaMock.user.updateMany.mockResolvedValue({ count: 1 });
+		prismaMock.$executeRaw.mockResolvedValue(1);
 		createSessionTokenMock.mockResolvedValue("session-token");
 		getConfiguredSessionTtlSecondsMock.mockResolvedValue(7 * 24 * 60 * 60);
 		generateCsrfTokenMock.mockReturnValue("csrf-token");
 		isAccountLockedMock.mockResolvedValue({ locked: false });
 		recordLoginFailureMock.mockResolvedValue({ locked: false, failCount: 1 });
 		clearLoginFailureMock.mockResolvedValue(undefined);
+	});
+
+	it("preserves prior failures when the verified password binding cannot be exchanged", async () => {
+		createSessionTokenMock.mockRejectedValueOnce(new Error("binding changed"));
+		const res = await POST(new Request("https://hub.example/api/auth/2fa/verify-login", { method: "POST", body: JSON.stringify({ code: "123456" }) }));
+		expect(res.ok).toBe(false);
+		expect(clearLoginFailureMock).not.toHaveBeenCalled();
 	});
 
 	it("answers a wrong code in the language of the sign-in page", async () => {
@@ -261,10 +269,7 @@ describe("POST /api/auth/2fa/verify-login", () => {
 		}));
 
 		expect(response.status).toBe(200);
-		expect(prismaMock.user.updateMany).toHaveBeenCalledWith({
-			where: { id: "u_1", twoFactorEnabled: true, twoFactorSecret: "secret", status: { not: "DISABLED" }, twoFactorRecoveryCodes: { equals: ["recovery-hash"] } },
-			data: { twoFactorRecoveryCodes: [] },
-		});
+		expect(prismaMock.$executeRaw).toHaveBeenCalledWith(expect.anything(), "recovery-hash", "u_1", "secret", "recovery-hash");
 		expect(auditUserActionMock).toHaveBeenCalledWith(
 			"u_1",
 			"auth.login_2fa_recovery_ok",

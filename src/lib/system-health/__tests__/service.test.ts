@@ -147,7 +147,7 @@ describe("system health service", () => {
       cb(null, "", "");
     });
 
-    const result = await collectSystemHealthChecks({ projectRoot: process.cwd() });
+    const result = await collectSystemHealthChecks({ projectRoot: process.cwd(), platform: "linux" });
 
     expect(mockExecFile).toHaveBeenCalledWith("systemctl", ["is-active", "vcontrolhub-next.service"], expect.any(Object), expect.any(Function));
     expect(mockExecFile).toHaveBeenCalledWith("systemctl", ["is-active", "vcontrolhub-worker.service"], expect.any(Object), expect.any(Function));
@@ -182,7 +182,7 @@ describe("system health service", () => {
         cb(null, "", "");
       });
 
-      const result = await collectSystemHealthChecks({ projectRoot: process.cwd() });
+      const result = await collectSystemHealthChecks({ projectRoot: process.cwd(), platform: "linux" });
 
       for (const id of ["next-service", "worker-service", "ssh-ws-service", "caddy-service"]) {
         expect(result.checks.find((check) => check.id === id)).toMatchObject({ status: "healthy" });

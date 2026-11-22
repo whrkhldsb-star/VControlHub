@@ -1,10 +1,9 @@
+import { canReadCommandBody } from "@/lib/command/visibility";
 import { firstSearchParams } from "@/lib/http/first-search-param";
 import Link from "next/link";
 import { sessionHasPermission } from "@/lib/auth/authorization";
 import { requirePagePermission } from "@/lib/auth/page-guard";
-import { serverTeamWhere } from "@/lib/auth/team-scope";
 import { listDeploymentRuns, listDeploymentTemplates } from "@/lib/deployment/service";
-import { prisma } from "@/lib/db";
 import { PageShell, EmptyState, PageHeader, ListPanel, ListRow, SurfacePanel } from "@/components/page-shell";
 import { StatusBadge, type StatusTone } from "@/components/status-badge";
 import { Notice } from "@/components/ui-primitives";
@@ -15,7 +14,6 @@ import { RollbackDeployButton } from "./rollback-deploy-button";
 import { getServerLocale, t } from "@/lib/i18n/translations";
 import { formatDateTime } from "@/lib/datetime/format";
 import { getDomainStatusLabel } from "@/lib/i18n/domain-labels";
-import { OPERATION_TARGET_SELECT, operationTargetAvailability } from "@/lib/server/availability";
 import { Disclosure } from "@/components/ui/disclosure";
 
 import { ButtonLink } from "@/components/action-button";
@@ -60,28 +58,20 @@ export default async function DeploymentsPage({ searchParams }: { searchParams?:
 	// it, so a crafted link cannot paste a paragraph of fake system copy.
 	const formError = params?.error?.slice(0, 300);
 	const formSuccess = params?.success === "1" || params?.success === "true";
-	const [runs, templates, servers] = await Promise.all([
+	const canReadBodies = (owner: string | null) => sessionHasPermission(session, "command:read") &&
+		canReadCommandBody(session.userId, owner, sessionHasPermission(session, "command:approve"));
+	const [runs, templates] = await Promise.all([
 		listDeploymentRuns(session, {
 			skip: (page - 1) * RUNS_PAGE_SIZE,
 			take: RUNS_PAGE_SIZE + 1,
 		}),
 		listDeploymentTemplates(session).then((rows) => rows.map((row) => localizeBuiltinTemplate(row, (key) => t(key, locale)))),
-		// Strict server scope: this picker carries host/username/credential refs.
-		canRun && canReadServers ? prisma.server.findMany({
-			where: { enabled: true, ...serverTeamWhere(session, "connect") },
-			orderBy: { createdAt: "desc" },
-			take: 200,
-			select: {
-				id: true,
-				name: true,
-				host: true,
-				username: true,
-				...OPERATION_TARGET_SELECT,
-			},
-		}) : Promise.resolve([]),
+
 	]);
 	const hasNextPage = runs.length > RUNS_PAGE_SIZE;
-	const visibleRuns = runs.slice(0, RUNS_PAGE_SIZE);
+	const visibleRuns = runs.slice(0, RUNS_PAGE_SIZE).map(run => ({
+		...run, showBody: canReadBodies(run.createdBy),
+	}));
 	const latestRun = page === 1 ? visibleRuns[0] : undefined;
 	return (
 		<PageShell>
@@ -123,24 +113,13 @@ export default async function DeploymentsPage({ searchParams }: { searchParams?:
 			{formSuccess && !formError && latestRun && (
 				<Notice tone="success" className="mb-6">{tr("deploymentsPage.page.submitSuccess")}</Notice>
 			)}
-			{canRun && (
+			{canRun && canReadServers && (
 				<div className="mb-5">
 					<SurfacePanel title={tr("deploymentsPage.page.launchSection.title")} description={tr("deploymentsPage.page.launchSection.desc")}>
-						<DeploymentLaunchForm templates={templates} servers={servers.map((server) => {
-							const availability = operationTargetAvailability(server);
-							return {
-								id: server.id,
-								name: server.name,
-								host: server.host,
-								username: server.username,
-								available: availability.available,
-								unavailableReason: availability.reason === "setup-incomplete"
-									? tr("deploymentsPage.launch.nodeSetupIncomplete")
-									: availability.reason === "recently-offline"
-										? tr("deploymentsPage.launch.nodeRecentlyOffline")
-										: undefined,
-							};
-						})} />
+						<DeploymentLaunchForm templates={templates.map(row => ({
+							id: row.id, name: row.name, description: row.description,
+							command: canReadBodies(row.createdById) ? row.command : "", variables: row.variables,
+						}))} />
 					</SurfacePanel>
 				</div>
 			)}
@@ -159,16 +138,16 @@ export default async function DeploymentsPage({ searchParams }: { searchParams?:
 						</div>
 						<StatusBadge tone={deploymentStatusTone(latestRun.status)} size="md">{getDomainStatusLabel(tr, latestRun.status)}</StatusBadge>
 					</div>
-					<code data-inset="" className="mt-4 block max-h-24 overflow-auto p-3 font-mono text-xs text-[var(--text-secondary)]">{latestRun.snapshot?.rollbackCommand || tr("deploymentsPage.page.latestDeploy.noRollback")}</code>
+					{latestRun.showBody && <code data-inset="" className="mt-4 block max-h-24 overflow-auto p-3 font-mono text-xs text-[var(--text-secondary)]">{latestRun.snapshot?.rollbackCommand || tr("deploymentsPage.page.latestDeploy.noRollback")}</code>}
 					<div className="mt-4 flex flex-wrap items-center gap-3">
 						<RollbackDeployButton runId={latestRun.id} templateName={latestRun.template.name} disabled={!latestRun.snapshot?.rollbackCommand} />
-						<ResendDeployButton
+						{latestRun.showBody && <ResendDeployButton
 							templateId={latestRun.templateId}
 							variables={latestRun.variables as Record<string, string> | null}
 							serverIds={latestRun.serverIds}
 							reason={tr("deploymentsPage.resend.reasonLatest", { name: latestRun.template.name })}
 							label={tr("deploymentsPage.launch.title")}
-						/>
+						/>}
 						<span className="text-xs text-[var(--text-muted)]">{tr("deploymentsPage.page.latestDeploy.help")}</span>
 						<span className="text-xs text-[var(--text-secondary)]">{deploymentNextStep(latestRun.status, tr)}</span>
 						{latestRun.commandRequestId ? (
@@ -194,24 +173,24 @@ export default async function DeploymentsPage({ searchParams }: { searchParams?:
 								<StatusBadge tone={deploymentStatusTone(r.status)}>{getDomainStatusLabel(tr, r.status)}</StatusBadge>
 							</div>
 							<p className="mt-2 text-xs text-[var(--text-secondary)]">{deploymentNextStep(r.status, tr)}</p>
-							<code className="ui-mono mt-3 block overflow-auto rounded-md bg-[var(--surface-elevated)] p-3 text-xs text-[var(--text-secondary)]">{r.renderedCommand}</code>
-							{r.snapshot?.rollbackCommand && <code className="ui-mono mt-2 block overflow-auto rounded-md bg-[var(--surface-elevated)] p-3 text-xs text-[var(--text-secondary)]">{tr("deploymentsPage.page.runsSection.rollback")}{r.snapshot.rollbackCommand}</code>}
+							{r.showBody && <code className="ui-mono mt-3 block overflow-auto rounded-md bg-[var(--surface-elevated)] p-3 text-xs text-[var(--text-secondary)]">{r.renderedCommand}</code>}
+							{r.showBody && r.snapshot?.rollbackCommand && <code className="ui-mono mt-2 block overflow-auto rounded-md bg-[var(--surface-elevated)] p-3 text-xs text-[var(--text-secondary)]">{tr("deploymentsPage.page.runsSection.rollback")}{r.snapshot.rollbackCommand}</code>}
 							{r.rollbackAttempts?.length > 0 && (
 								<div className="mt-2 text-xs text-[var(--text-muted)]">
 									{tr("deploymentsPage.page.runsSection.rollbackMeta", { status: getDomainStatusLabel(tr, r.rollbackAttempts[0]!.status), request: r.rollbackAttempts[0]!.commandRequestId || tr("deploymentsPage.page.runsSection.requestPending"), date: formatDateTime(r.rollbackAttempts[0]!.createdAt, locale) })}
 								</div>
 							)}
-							{r.errorMessage && <p className="mt-2 text-xs text-[var(--danger)]">{r.errorMessage}</p>}
+							{r.showBody && r.errorMessage && <p className="mt-2 text-xs text-[var(--danger)]">{r.errorMessage}</p>}
 							{canRun && (
 								<div className="mt-3 flex flex-wrap gap-2">
 									<RollbackDeployButton runId={r.id} templateName={r.template.name} disabled={!r.snapshot?.rollbackCommand} />
-									<ResendDeployButton
+									{r.showBody && <ResendDeployButton
 										templateId={r.templateId}
 										variables={r.variables as Record<string, string> | null}
 										serverIds={r.serverIds}
 										reason={tr("deploymentsPage.resend.reasonFromRecord", { name: r.template.name })}
 										label={tr("deploymentsPage.resend.triggerBtn")}
-									/>
+									/>}
 								</div>
 							)}
 							{r.commandRequestId ? (

@@ -41,7 +41,7 @@ vi.mock("../cancel-command-button", () => ({
   ) }));
 
 vi.mock("@/lib/command/service", () => ({
-  listCommandRequests: vi.fn().mockResolvedValue([
+  listCommandRequestPage: vi.fn().mockResolvedValue({ pendingCount: 2, nextCursor: null, requests: [
     {
       id: "cmd_1",
       title: "Restart nginx",
@@ -83,10 +83,10 @@ vi.mock("@/lib/command/service", () => ({
       latestApproval: null,
       executionLogs: [],
       latestLog: null },
-  ]) }));
+  ] }) }));
 
 vi.mock("@/lib/ai/hosted-service", () => ({
-  getPendingActions: vi.fn().mockResolvedValue([
+  getPendingActionPage: vi.fn().mockResolvedValue({ total: 1, nextCursor: null, actions: [
     {
       id: "ai_action_1",
       actionName: "重启服务",
@@ -96,16 +96,16 @@ vi.mock("@/lib/ai/hosted-service", () => ({
       params: { serviceName: "nginx" },
       createdAt: new Date("2026-05-27T07:00:00Z"),
       server: { id: "srv_1", name: "hk-prod-1", host: "203.0.113.10" } },
-  ]) }));
+  ] }) }));
 
 import RequestsPage from "../page";
-import { listCommandRequests } from "@/lib/command/service";
+import { listCommandRequestPage } from "@/lib/command/service";
 import { sessionHasPermission } from "@/lib/auth/authorization";
 import { requirePagePermission } from "@/lib/auth/page-guard";
 
 describe("RequestsPage", () => {
   it("renders separate assistant authorization and user command approval flows", async () => {
-    render(await RequestsPage());
+    render(await RequestsPage({}));
 
     expect(screen.getByText("AI 助手授权与用户命令审批")).toBeInTheDocument();
     // Page hero + section title both expose this label; assert at least one heading.
@@ -139,27 +139,27 @@ describe("RequestsPage", () => {
 
     // An operator (may execute, may not approve) can stop their own command, and only theirs.
     as("u_2", ["command:read", "command:create", "command:execute"]);
-    const operator = render(await RequestsPage());
+    const operator = render(await RequestsPage({}));
     expect(cancelButtons()).toEqual(["取消按钮：cmd_2"]);
     expect(screen.queryAllByTestId("review-command-form")).toHaveLength(0);
     operator.unmount();
 
     // A reviewer without the execute permission: the server refuses their cancel request, so no button.
     as("u_9", ["command:read", "command:approve"]);
-    const reviewer = render(await RequestsPage());
+    const reviewer = render(await RequestsPage({}));
     expect(cancelButtons()).toEqual([]);
     expect(screen.getAllByTestId("review-command-form")).toHaveLength(2);
     reviewer.unmount();
 
     // Execute and approve: anyone's request.
     as("u_9", ["command:read", "command:approve", "command:execute"]);
-    const manager = render(await RequestsPage());
+    const manager = render(await RequestsPage({}));
     expect(cancelButtons()).toHaveLength(2);
     manager.unmount();
 
     // May only submit: withdraws their own request while it waits (both are pending here), nobody else's.
     as("u_2", ["command:read", "command:create"]);
-    render(await RequestsPage());
+    render(await RequestsPage({}));
     expect(cancelButtons()).toEqual(["取消按钮：cmd_2"]);
     vi.mocked(sessionHasPermission).mockReturnValue(true);
   });
@@ -168,34 +168,40 @@ describe("RequestsPage", () => {
     // The text was for reviewers only, the submitter's own included.
     vi.mocked(requirePagePermission).mockResolvedValueOnce({ userId: "u_2", username: "u_2", roles: ["operator"], mustChangePassword: false } as never);
     vi.mocked(sessionHasPermission).mockImplementation(((_session: unknown, permission: string) => ["command:read", "command:create"].includes(permission)) as never);
-    const { container } = render(await RequestsPage());
+    const { container } = render(await RequestsPage({}));
     expect(container.querySelector("#command-cmd_2")).toHaveTextContent("deploy --prod");
     expect(container.querySelector("#command-cmd_1")).not.toHaveTextContent("systemctl restart nginx");
     vi.mocked(sessionHasPermission).mockReturnValue(true);
   });
 
   it("offers a review only where the server accepts the reviewer's decision", async () => {
+    const page = await listCommandRequestPage();
+    const other = page.requests[1]!;
+    vi.mocked(listCommandRequestPage).mockResolvedValueOnce({ ...page, requests: [...page.requests,
+      { ...other, id: "manual", runInitiatorId: "u_1" }, { ...other, id: "legacy", unattributedManualRun: true },
+    ] });
     // cmd_1 was filed by u_1. A reviewer does not decide on their own request unless they manage the team.
     vi.mocked(requirePagePermission).mockResolvedValueOnce({ userId: "u_1", username: "u_1", roles: ["operator"], mustChangePassword: false } as never);
     vi.mocked(sessionHasPermission).mockImplementation(((_session: unknown, permission: string) => ["command:read", "command:approve"].includes(permission)) as never);
-    const { container } = render(await RequestsPage());
+    const { container } = render(await RequestsPage({}));
     expect(screen.getAllByTestId("review-command-form").map((node) => node.textContent)).toEqual(["审批表单：cmd_2"]);
     expect(container.querySelector("#command-cmd_1")).toHaveTextContent("这是你提交的命令，由另一位审批人处理。");
     expect(container.querySelector("#command-cmd_2")).not.toHaveTextContent("另一位审批人");
     // The batch tools take only what this reviewer may decide on.
     expect(container.querySelector('#command-cmd_1 input[type="checkbox"]')).toBeNull();
     expect(container.querySelector('#command-cmd_2 input[type="checkbox"]')).not.toBeNull();
+    expect(container.querySelector('#command-manual input[type="checkbox"]')).toBeNull();
+    expect(container.querySelector('#command-legacy input[type="checkbox"]')).toBeNull();
     vi.mocked(sessionHasPermission).mockReturnValue(true);
   });
 
   it("keeps finished requests out of the queue, in a folded history", async () => {
-    const [pending] = await (listCommandRequests as unknown as () => Promise<Array<Record<string, unknown>>>)();
-    vi.mocked(listCommandRequests).mockResolvedValueOnce([
-      pending,
-      { ...pending, id: "cmd_done", title: "Rotate logs", status: "COMPLETED" },
-    ] as never);
+    const { requests: [pending] } = await listCommandRequestPage();
+    vi.mocked(listCommandRequestPage).mockResolvedValueOnce({ pendingCount: 1, nextCursor: null, requests: [
+      pending!, { ...pending!, id: "cmd_done", title: "Rotate logs", status: "COMPLETED" },
+    ] });
 
-    const { container } = render(await RequestsPage());
+    const { container } = render(await RequestsPage({}));
 
     const history = container.querySelector("details");
     expect(history).not.toBeNull();

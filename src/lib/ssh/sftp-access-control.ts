@@ -25,7 +25,8 @@ export async function assertSftpPathAccess(input: {
 }) {
 	if (sessionHasPermission(input.session, "server:sftp:unrestricted")) return;
 
-	const { server, ssh: params, rootPath: homeRoot } = input.target ?? await loadEnabledServerForSftp(input.serverId);
+	const { server, ssh: params, rootPath: homeRoot, homeVerified } = input.target ?? await loadEnabledServerForSftp(input.serverId);
+	if (homeVerified === false) throw new ForbiddenError(t("backend.sftp.homeVerifyFailed", { homeRoot: params.username }));
 	const windows = server.operatingSystem === "WINDOWS";
 	const safePaths = input.paths.map((rawPath) => sanitizeRemotePath(windows ? rawPath.replace(/\\/g, "/") : rawPath));
 	for (const safePath of safePaths) {
@@ -49,11 +50,13 @@ export async function assertSftpPathAccess(input: {
 	// Compare both canonical paths so a legitimate symlinked home/root works,
 	// while a link inside it pointing outside the root remains disallowed.
 	const realRoot = await canonicalPath(homeRoot);
+	const canonical: string[] = [];
 	for (const safePath of safePaths) {
 		const realPath = await canonicalPath(safePath);
+		canonical.push(realPath);
 		if (!isInsideRoot(realPath, realRoot, windows)) {
 			throw new ForbiddenError(t("backend.sftp.outsideHome", { homeRoot }));
 		}
 	}
-	return { path: realRoot, windows };
+	return { path: realRoot, windows, canonical };
 }

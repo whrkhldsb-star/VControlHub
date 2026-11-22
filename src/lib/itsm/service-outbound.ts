@@ -6,7 +6,7 @@ import { acquireAdvisoryLock } from "@/lib/concurrency/advisory-lock";
 import { ConflictError, NotFoundError, ValidationError } from "@/lib/errors";
 import { t } from "@/lib/i18n/service-translations";
 import { createLogger } from "@/lib/logging";
-import { lockOutboundStream, readTicketSnapshot, scheduleDelivery } from "./outbox";
+import { lockOutboundStream, readTicketSnapshot, reconcileLegacyDestination, scheduleDelivery } from "./outbox";
 import type { ItsmEvent, Prisma } from "@prisma/client";
 
 import { assertOutboundReady, deliverOutbound } from "./adapters";
@@ -178,8 +178,13 @@ export function reconcileDelivery(session: SessionPayload, id: string, received:
       teamId: session.currentTeamId,
       ...(!session.currentTeamId ? { connection: { createdById: session.userId, teamId: null } } : {}),
     };
-    const event = await tx.itsmEvent.findFirst({ where: { id, ...owner, ownerBound: true, direction: "outbound" } });
+    const event = await tx.itsmEvent.findFirst({ where: { id, ...owner, ...(seesAllCustomers(session) ? {} : { ownerBound: true }), direction: "outbound" } });
     if (!event) throw new NotFoundError();
+    if (!event.ownerBound) {
+      const bound = await reconcileLegacyDestination(tx, event, received, session.userId);
+      if (received) await advanceStream(tx, bound);
+      return { id: bound.id, status: bound.status };
+    }
     const payload = event.payload as Prisma.JsonObject;
     const canReconcile = event.status === "unknown" || (event.status === "error" && !received);
     if (!canReconcile || !event.ticketId || !payload.snapshot) throw new ConflictError();

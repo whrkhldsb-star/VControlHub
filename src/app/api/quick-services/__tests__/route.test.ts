@@ -310,7 +310,7 @@ describe("/api/quick-services routes", () => {
     expect(response.status).toBe(200);
     expect(mocks.serverFindMany).toHaveBeenCalledWith({
       where: {
-        enabled: true,
+        enabled: true, operatingSystem: "LINUX",
         AND: [
           { teamId: "team_a" },
           { team: { deletedAt: null }, OR: [
@@ -319,7 +319,7 @@ describe("/api/quick-services routes", () => {
           ] },
         ],
       },
-      orderBy: { name: "asc" },
+      orderBy: [{ name: "asc" }, { id: "asc" }],
       take: 200,
       select: { id: true, name: true, host: true },
     });
@@ -525,7 +525,7 @@ describe("/api/quick-services routes", () => {
     expect(await body(checkResponse)).toEqual({ port: 5244, available: true });
     expect(allocateResponse.status).toBe(200);
     expect(await body(allocateResponse)).toEqual({ port: 5244, available: true });
-    expect(mocks.allocatePort).toHaveBeenCalledWith(5244);
+    expect(mocks.allocatePort).toHaveBeenCalledWith(5244, expect.any(Symbol));
   });
 
   it("checks the selected remote VPS instead of the hub host", async () => {

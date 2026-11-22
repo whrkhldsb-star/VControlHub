@@ -564,21 +564,24 @@ export async function runComposeProjectAction(input: {
   // A failed or interrupted project-wide restart does not identify which
   // containers already restarted. Use the same label-scoped Engine snapshot
   // for this action whether the Compose plugin is present or absent.
-  if (action === "restart") {
+  const verifiedFiles = configFiles?.split(",").map(file => file.trim());
+  const hasConfig = verifiedFiles?.every(file => file.startsWith("/") && !file.includes("..") && !/[\r\n\0]/.test(file))
+    && projectContainers.every(container => container.Labels?.[COMPOSE_CONFIG_FILES_LABEL] === configFiles);
+  if (action === "restart" || (!hasConfig && (action === "stop" || action === "start"))) {
     const containers = await engineActionOnProjectContainers(project, action, target, listed);
     return {
       project, action, mode: "engine-fallback", scope, containers,
-      message: `Restarted ${containers.length} container(s) for project "${project}" via Engine API`,
+      message: `${action}: ${containers.length} container(s) for project "${project}" via Engine API`,
     };
   }
 
   // For the other lifecycle mutations, try compose CLI first.
-  const cli = await tryComposeCli(project, action, target, {
+  const cli = hasConfig && await tryComposeCli(project, action, target, {
     removeVolumes: input.removeVolumes === true,
     workingDir,
     configFiles,
   });
-  if (cli.ok) {
+  if (cli && cli.ok) {
     const after = await listAllContainers(target);
     const containers = summarizeContainers(
       after.containers.filter((c) => c.Labels?.[COMPOSE_PROJECT_LABEL] === project),
@@ -595,8 +598,8 @@ export async function runComposeProjectAction(input: {
     };
   }
 
-  // Fallback mapping
-  if (action === "up" || action === "start") {
+  // The Engine can start existing containers, but cannot apply the project's configuration.
+  if (action === "start") {
     const containers = await engineActionOnProjectContainers(project, "start", target);
     return {
       project,
@@ -618,8 +621,8 @@ export async function runComposeProjectAction(input: {
       message: `Compose CLI unavailable; stopped ${containers.length} container(s) for project "${project}" via Engine API`,
     };
   }
-  if (action === "down") {
-    // stop then remove containers; never delete volumes unless explicitly requested (and only via CLI path).
+  if (action === "down" && !input.removeVolumes) {
+    // Volume removal requires Compose's project configuration.
     await engineActionOnProjectContainers(project, "stop", target);
     const containers = await engineActionOnProjectContainers(project, "remove", target);
     return {
@@ -632,9 +635,7 @@ export async function runComposeProjectAction(input: {
     };
   }
 
-  throw new BusinessError(
-      t("backend.docker.composeUnsupportedAction",{action}),
-    );
+  throw new BusinessError(t("backend.docker.composeUnsupportedAction", { action }));
   } finally {
     if (releaseLock) await releaseLock();
   }

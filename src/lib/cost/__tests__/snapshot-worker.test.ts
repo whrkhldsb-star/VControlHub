@@ -8,7 +8,7 @@
  *   - buildTodaySnapshot 抛错 → failJob + logger.error
  *   - 重入保护 (state.running)
  */
-import { acquireAdvisoryLock } from "@/lib/concurrency/advisory-lock";
+import { lockForTransaction } from "@/lib/concurrency/advisory-lock";
 import { checkBudgetAlerts, syncServerMonthlyCosts } from "../service";
 import { beforeEach, describe, expect, it, vi } from "vitest";
 
@@ -17,6 +17,8 @@ const {
   warnMock,
   errorMock,
   jobMocks,
+  existingJobs,
+  lastSnapshot,
   groupByMock,
   findManyMock,
   upsertDailySnapshotMock,
@@ -35,6 +37,8 @@ const {
     completeJob: vi.fn(),
     failJob: vi.fn(),
   },
+  existingJobs: vi.fn(),
+  lastSnapshot: vi.fn(),
   groupByMock: vi.fn(),
   findManyMock: vi.fn(),
   upsertDailySnapshotMock: vi.fn(),
@@ -50,10 +54,14 @@ vi.mock("@/lib/logging", () => ({
 
 vi.mock("@/lib/db", () => ({
   prisma: {
+    $transaction: async (work: (tx: unknown) => Promise<void>) => work({
+      costSnapshot: { findFirst: lastSnapshot }, job: { findFirst: jobMocks.findFirst }, $queryRaw: existingJobs,
+    }),
     job: {
       findFirst: jobMocks.findFirst,
       updateMany: jobMocks.updateMany,
     },
+    costSnapshot: { findFirst: lastSnapshot },
     costEntry: {
       groupBy: groupByMock,
       findMany: findManyMock,
@@ -73,7 +81,7 @@ vi.mock("@/lib/job/service", () => ({
 }));
 
 vi.mock("@/lib/concurrency/advisory-lock", () => ({
-  acquireAdvisoryLock: vi.fn(async () => vi.fn(async () => undefined)),
+  lockForTransaction: vi.fn(async () => undefined),
 }));
 
 vi.mock("@/lib/job/lease", () => ({
@@ -132,6 +140,8 @@ describe("cost-snapshot-worker", () => {
   beforeEach(() => {
     vi.clearAllMocks();
     jobIds.next = 1;
+    existingJobs.mockResolvedValue([]);
+    lastSnapshot.mockResolvedValue(null);
     jobMocks.findFirst.mockResolvedValue(null);
     jobMocks.enqueueJob.mockImplementation(async (req) => ({
       id: `j-${jobIds.next++}`,
@@ -154,9 +164,11 @@ describe("cost-snapshot-worker", () => {
   });
 
   it("startCostSnapshotWorker is idempotent", async () => {
+    jobMocks.claimNextJob.mockResolvedValue(null);
     const a = await worker.startCostSnapshotWorker();
     const b = await worker.startCostSnapshotWorker();
     expect(a).toBe(b);
+    await vi.waitFor(() => expect(a.running).toBe(false));
     // Don't leave the interval timer running in the test process.
     worker.stopCostSnapshotWorkerForTests();
   });
@@ -165,7 +177,7 @@ describe("cost-snapshot-worker", () => {
     const result = await worker.runCostSnapshotWorkerOnce("interval");
     expect(result).toBe(true);
     expect(jobMocks.enqueueJob).toHaveBeenCalledWith(
-      expect.objectContaining({ type: "cost.snapshot" }),
+      expect.objectContaining({ type: "cost.snapshot" }), expect.any(Object),
     );
     expect(jobMocks.claimNextJob).toHaveBeenCalledWith(
       expect.objectContaining({ types: ["cost.snapshot"] }),
@@ -187,17 +199,32 @@ describe("cost-snapshot-worker", () => {
     expect(errorMock).not.toHaveBeenCalled();
   });
 
-  it("keeps the enqueue lock until the insert is visible", async () => {
-    let resolve!: () => void;
-    const release = vi.fn(async () => undefined);
-    vi.mocked(acquireAdvisoryLock).mockResolvedValueOnce(release);
-    jobMocks.enqueueJob.mockReturnValueOnce(new Promise<void>(done => { resolve = done; }));
-    const tick = worker.runCostSnapshotWorkerOnce();
-    await vi.waitFor(() => expect(jobMocks.enqueueJob).toHaveBeenCalled());
-    expect(release).not.toHaveBeenCalled();
-    resolve();
-    await tick;
-    expect(release).toHaveBeenCalledTimes(1);
+  it("queues every missing business day and drains all due claims in the same poll", async () => {
+    vi.setSystemTime(new Date("2026-07-06T17:00:00Z"));
+    lastSnapshot.mockResolvedValue({ snapshotDate: new Date("2026-07-04") });
+    existingJobs.mockResolvedValueOnce([{ id: "retry" }]);
+    jobMocks.claimNextJob.mockResolvedValue(null)
+      .mockResolvedValueOnce({ id: "retry", payload: { targetDay: "2026-07-05" } })
+      .mockResolvedValueOnce({ id: "next", payload: { targetDay: "2026-07-06" } });
+    await worker.runCostSnapshotWorkerOnce("interval", true);
+    expect(jobMocks.enqueueJob.mock.calls.map(([job]) => job.payload.targetDay)).toEqual(["2026-07-06", "2026-07-07"]);
+    expect(jobMocks.completeJob.mock.calls.map(([id]) => id)).toEqual(["retry", "next"]);
+  });
+
+  it("takes the daily lock on the same transaction that inserts the job", async () => {
+    await worker.runCostSnapshotWorkerOnce();
+    const tx = vi.mocked(lockForTransaction).mock.calls[0]![0];
+    expect(tx).toBeDefined();
+    expect(jobMocks.enqueueJob.mock.calls[0]![1]).toBe(tx);
+  });
+
+  it("recovers from the last completed job even when a newer manual snapshot exists", async () => {
+    vi.setSystemTime(new Date("2026-07-06T17:00:00Z"));
+    jobMocks.findFirst.mockResolvedValueOnce({ payload: { targetDay: "2026-07-04" }, createdAt: new Date("2026-07-04") });
+    lastSnapshot.mockResolvedValue({ snapshotDate: new Date("2026-07-07") });
+    jobMocks.claimNextJob.mockResolvedValue(null);
+    await worker.runCostSnapshotWorkerOnce("interval", true);
+    expect(jobMocks.enqueueJob.mock.calls.map(([job]) => job.payload.targetDay)).toEqual(["2026-07-05", "2026-07-06", "2026-07-07"]);
   });
 
   it.each([
@@ -214,7 +241,7 @@ describe("cost-snapshot-worker", () => {
   });
 
   it("skips enqueue when a PENDING/RUNNING job already exists", async () => {
-    jobMocks.findFirst.mockResolvedValueOnce({ id: "j-existing" });
+    existingJobs.mockResolvedValueOnce([{ id: "j-existing" }]);
     // claimNextJob still finds it
     jobMocks.claimNextJob.mockResolvedValueOnce({ id: "j-existing" });
     const result = await worker.runCostSnapshotWorkerOnce("interval");

@@ -4,13 +4,14 @@
  * (RUN_DATABASE_INTEGRATION_TESTS=1, loopback host, database name containing audit/test/_ci).
  */
 import { randomUUID } from "node:crypto";
+import { manualRunKey } from "@/lib/command/approval-identity";
 import { afterAll, beforeAll, describe, expect, it } from "vitest";
 
 import { appTimeZoneDateKey } from "@/lib/datetime/time-zone";
 import { prisma } from "@/lib/db";
 
 import { dailyAuditActivity, hourlyServerUsage } from "../analytics-queries";
-import { failedTaskSummary, openIncidentSummary } from "../attention-queries";
+import { dashboardCommands, failedTaskSummary, openIncidentSummary } from "../attention-queries";
 import { downloadSummary } from "../download-summary";
 
 const RUN = process.env.RUN_DATABASE_INTEGRATION_TESTS === "1";
@@ -141,6 +142,31 @@ describe.skipIf(!RUN)("dashboard analytics, grouped in PostgreSQL", () => {
 		expect(await downloadSummary(account, since)).toEqual({
 			totals: { COMPLETED: 1 }, days: [{ date: appTimeZoneDateKey(hourA), completed: 1, failed: 0, pending: 0, running: 0 }],
 		});
+
+		// The attention summary applies the same server and path decisions to both title and count.
+		const now = new Date("2034-04-05T12:00:00Z");
+		const failed = { url: "https://example.test/signed?key=sample", teamId: team, createdBy: owner, serverId: server("a"), status: "FAILED" as const, updatedAt: now };
+		const allowed = await prisma.downloadTask.create({ data: { ...failed, targetPath: "/data/shared" } });
+		await prisma.downloadTask.create({ data: { ...failed, targetPath: "/data/private", updatedAt: new Date(+now + 1000) } });
+		expect(await failedTaskSummary(session, new Date(+now + 1000))).toMatchObject({ count: 0 });
+		expect(await failedTaskSummary({ ...session, permissions: ["storage:read"] }, new Date(+now + 1000)))
+			.toMatchObject({ count: 1, latest: { id: allowed.id, title: allowed.id } });
+	});
+
+	it("counts beyond the approval and target preview limits within the visible server scope", async () => {
+		const initiator = prefix + "_manual%";
+		await prisma.commandRequest.createMany({ data: Array.from({ length: 501 }, (_, i) => ({
+			teamId: team, requesterId: owner, initiatedByType: "USER" as const, title: "queued", command: "true", id: prefix + "-queue-" + i,
+			idempotencyKey: i === 0 ? manualRunKey(initiator) : null,
+		})) });
+		const request = await prisma.commandRequest.findFirstOrThrow({ where: { teamId: team }, orderBy: [{ createdAt: "desc" }, { id: "desc" }] });
+		await prisma.commandTarget.createMany({ data: Array.from({ length: 53 }, (_, i) => ({ commandRequestId: request.id, serverId: server(i === 52 ? "x" : "a") })) });
+		const result = await dashboardCommands({ ...session, permissions: ["server:read"] });
+		expect(result.pendingApprovals).toBe(501);
+		expect(result.requests).toHaveLength(5);
+		expect(result.requests[0]).toMatchObject({ id: request.id, targetCount: 52 });
+		const reviewer = await dashboardCommands({ ...session, userId: initiator, permissions: ["command:approve"] });
+		expect(reviewer.review.count).toBe(500);
 	});
 
 	it("reads one customer's servers apart from another's, and nothing for no servers", async () => {
@@ -154,6 +180,15 @@ describe.skipIf(!RUN)("dashboard analytics, grouped in PostgreSQL", () => {
 		const row = all.find((entry) => entry.time === hourB.toISOString());
 		expect(row).toBeDefined();
 		expect(all.map((entry) => entry.time)).toEqual([...all.map((entry) => entry.time)].sort());
+	});
+
+	it("excludes archived owners from the global metric average", async () => {
+		await prisma.team.update({ where: { id: otherTeam }, data: { deletedAt: new Date() } });
+		try {
+			expect(await hourlyServerUsage(since, [server("x")])).toEqual([]);
+			const all = await hourlyServerUsage(since, null);
+			expect(all.find(row => row.time === hourA.toISOString())?.cpu).toBe(40);
+		} finally { await prisma.team.update({ where: { id: otherTeam }, data: { deletedAt: null } }); }
 	});
 
 	it("counts audit rows per application-time day and action, for one customer or all", async () => {

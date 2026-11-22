@@ -68,6 +68,7 @@ export const storageFileNodeSelect = {
       username: true,
       connectionType: true,
       managementMode: true,
+      agentTokenHash: true,
       operatingSystem: true,
       password: true,
       hostKeySha256: true,

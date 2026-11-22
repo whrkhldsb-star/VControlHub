@@ -103,19 +103,20 @@ function req(method: string, body?: unknown, url = "https://a.test/api/alert-inc
 }
 
 describe("/api/alert-incidents", () => {
+	const openedAt = "2026-08-31T10:00:00.000Z";
 	beforeEach(() => {
 		vi.clearAllMocks();
 		mocks.guardCalls.length = 0;
 		mocks.listAlertIncidents.mockReset();
 		mocks.acknowledgeAlertIncident.mockReset();
 		mocks.listAlertIncidents.mockResolvedValue([incidentRow()]);
-		mocks.acknowledgeAlertIncident.mockResolvedValue({ id: "inc_1", status: "ACKNOWLEDGED" });
+		mocks.acknowledgeAlertIncident.mockResolvedValue({ id: "inc_1", status: "ACKNOWLEDGED", teamId: "team_1" });
 	});
 
 	describe("guard options", () => {
 		it("gates both methods on notification:manage", async () => {
 			await route.GET(req("GET"));
-			await route.POST(req("POST", { incidentId: "inc_1" }));
+			await route.POST(req("POST", { incidentId: "inc_1", openedAt }));
 			expect(mocks.guardCalls.map((o) => o.permission)).toEqual([
 				"notification:manage",
 				"notification:manage",
@@ -124,7 +125,7 @@ describe("/api/alert-incidents", () => {
 
 		it("rate-limits both methods", async () => {
 			await route.GET(req("GET"));
-			await route.POST(req("POST", { incidentId: "inc_1" }));
+			await route.POST(req("POST", { incidentId: "inc_1", openedAt }));
 			expect(mocks.guardCalls.every((o) => Boolean(o.rateLimit))).toBe(true);
 		});
 	});
@@ -255,14 +256,14 @@ describe("/api/alert-incidents", () => {
 
 	describe("POST — acknowledge", () => {
 		it("acks by body id, passes the session, and audits the resulting status", async () => {
-			const res = await route.POST(req("POST", { incidentId: "inc_1" }));
+			const res = await route.POST(req("POST", { incidentId: "inc_1", openedAt }));
 			expect(res.status).toBe(200);
 			await expect(res.json()).resolves.toEqual({
 				success: true,
-				incident: { id: "inc_1", status: "ACKNOWLEDGED" },
+				incident: { id: "inc_1", status: "ACKNOWLEDGED", teamId: "team_1" },
 			});
 			expect(mocks.acknowledgeAlertIncident).toHaveBeenCalledWith({
-				incidentId: "inc_1",
+				incidentId: "inc_1", openedAt,
 				userId: "u_1",
 				session,
 			});
@@ -291,20 +292,20 @@ describe("/api/alert-incidents", () => {
 			// The service answers NotFoundError rather than Forbidden so the ack
 			// endpoint cannot be used to enumerate other tenants' incident ids.
 			mocks.acknowledgeAlertIncident.mockRejectedValue(new NotFoundError("alert incident not found"));
-			const res = await route.POST(req("POST", { incidentId: "inc_other_team" }));
+			const res = await route.POST(req("POST", { incidentId: "inc_other_team", openedAt }));
 			expect(res.status).toBe(404);
 			expect(mocks.auditUserAction).not.toHaveBeenCalled();
 		});
 
 		it("records the acked id the service returned, not the one that was requested", async () => {
-			mocks.acknowledgeAlertIncident.mockResolvedValue({ id: "inc_canonical", status: "RESOLVED" });
-			await route.POST(req("POST", { incidentId: "inc_1" }));
+			mocks.acknowledgeAlertIncident.mockResolvedValue({ id: "inc_canonical", status: "RESOLVED", teamId: null });
+			await route.POST(req("POST", { incidentId: "inc_1", openedAt }));
 			expect(mocks.auditUserAction).toHaveBeenCalledWith(
 				"u_1",
 				"alert_incident.acknowledge",
 				{ incidentId: "inc_canonical", status: "RESOLVED" },
 				undefined,
-				"team_1",
+				null,
 			);
 		});
 	});

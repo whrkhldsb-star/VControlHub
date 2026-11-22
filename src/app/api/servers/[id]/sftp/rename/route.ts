@@ -1,3 +1,4 @@
+import { withServerLifecycleLock } from "@/lib/server/lifecycle-lock";
 import { apiCopy } from "@/lib/i18n/api-copy";
 /**
  * POST /api/servers/[id]/sftp/rename — rename a file/directory on remote server
@@ -29,13 +30,15 @@ export async function POST(
     },
     async ({ body, session }) => {
       const { id } = await params;
-      const teamAccess = await assertServerTeamAccess(session, id, "fileWrite");
-      if (!teamAccess.ok) return teamAccess.response;
-      const target = await loadEnabledServerForSftp(id, teamAccess.server.teamId, teamAccess.server, request.signal);
-      await assertSftpPathAccess({ session, serverId: id, paths: [body.oldPath, body.newPath], target, signal: request.signal });
-      await renameEntry(id, body.oldPath, body.newPath, target.ssh);
-      await auditUserAction(session.userId, "sftp.rename", { serverId: id, oldPath: body.oldPath, newPath: body.newPath }, undefined, session.currentTeamId);
-      return NextResponse.json({ success: true, oldPath: body.oldPath, newPath: body.newPath });
+      return withServerLifecycleLock(id, async () => {
+        const teamAccess = await assertServerTeamAccess(session, id, "fileWrite");
+        if (!teamAccess.ok) return teamAccess.response;
+        const target = await loadEnabledServerForSftp(id, teamAccess.server.teamId, teamAccess.server, request.signal);
+        await assertSftpPathAccess({ session, serverId: id, paths: [body.oldPath, body.newPath], target, signal: request.signal });
+        await renameEntry(id, body.oldPath, body.newPath, target.ssh);
+        await auditUserAction(session.userId, "sftp.rename", { serverId: id, oldPath: body.oldPath, newPath: body.newPath }, undefined, session.currentTeamId);
+        return NextResponse.json({ success: true, oldPath: body.oldPath, newPath: body.newPath });
+      });
     },
   );
 }

@@ -88,6 +88,35 @@ describe.skipIf(!hasPython)("Linux Agent (agent.py) against a fake hub", () => {
     }
   }, 30_000);
 
+  it("resends the same saved result from a new process after a failed poll", async () => {
+    const dir = mkdtempSync(join(tmpdir(), "vch-agent-receipt-"));
+    const script = join(dir, "agent.py");
+    const replies = [
+      { status: 200, body: { job: { id: "durable", command: "printf restored", timeoutMs: 5000 } } },
+      { status: 503, body: {} },
+      { status: 200, body: { job: null, pollAfterMs: 1000 } },
+      { status: 401, body: {} },
+    ];
+    const hub = await startHub(replies);
+    writeFileSync(script, buildAgentPython(hub.url, TOKEN));
+    let agent = spawn("python3", [script], { stdio: "ignore" });
+    try {
+      await expect.poll(() => hub.polls.length, { timeout: 10000 }).toBeGreaterThanOrEqual(2);
+      const stopped = new Promise<void>(resolve => agent.once("exit", () => resolve()));
+      agent.kill("SIGKILL");
+      await stopped;
+      agent = spawn("python3", [script], { stdio: "ignore" });
+      await expect.poll(() => agent.exitCode, { timeout: 10000 }).toBe(0);
+      expect(hub.polls[1]?.body.result).toEqual({ jobId: "durable", stdout: "restored", stderr: "", exitCode: 0 });
+      expect(hub.polls[2]?.body.result).toEqual(hub.polls[1]?.body.result);
+      expect(hub.polls[3]?.body.result).toBeUndefined();
+    } finally {
+      agent.kill("SIGKILL");
+      await hub.close();
+      rmSync(dir, { recursive: true, force: true });
+    }
+  }, 30000);
+
   it.each([401, 403])("kills the running job and exits on a %i heartbeat", async status => {
     const dir = mkdtempSync(join(tmpdir(), "vch-agent-"));
     const script = join(dir, "agent.py");

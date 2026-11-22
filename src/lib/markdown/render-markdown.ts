@@ -10,6 +10,13 @@ export const MAX_RENDERED_MARKDOWN_CHARS = 512_000;
 /** What a fenced block's language may be: it becomes part of a class name. */
 const FENCE_LANGUAGE = /^[A-Za-z0-9_+#.-]{1,32}$/;
 
+const OPEN_FENCE = /^[ \t]{0,3}(`{3,})(.*)$/;
+const RULE = /^[ \t]{0,3}(?:(?:-[ \t]*){3,}|(?:\*[ \t]*){3,}|(?:_[ \t]*){3,})$/;
+function closesFence(line: string, length: number) {
+  const match = /^[ \t]{0,3}(`{3,})[ \t]*$/.exec(line);
+  return Boolean(match && match[1]!.length >= length);
+}
+
 export function renderMarkdown(md: string): string {
   if (md.length > MAX_RENDERED_MARKDOWN_CHARS) return `<pre>${escapeHtml(md)}</pre>`;
   // Normalize line endings
@@ -23,13 +30,13 @@ export function renderMarkdown(md: string): string {
     const line = lines[i]!;
 
     // ---- Fenced code block ----
-    const fenceMatch = line.match(/^(`{3,})(.*)$/);
+    const fenceMatch = line.match(OPEN_FENCE);
     if (fenceMatch) {
       const fence = fenceMatch[1]!;
       const lang = fenceMatch[2]!.trim();
       const codeLines: string[] = [];
       i++;
-      while (i < lines.length && !lines[i]!.startsWith(fence)) {
+      while (i < lines.length && !closesFence(lines[i]!, fence.length)) {
         codeLines.push(lines[i]!);
         i++;
       }
@@ -58,7 +65,7 @@ export function renderMarkdown(md: string): string {
     }
 
     // ---- Horizontal rule ----
-    if (/^(\s*[-*_]){3,}\s*$/.test(line)) {
+    if (RULE.test(line)) {
       out.push("<hr />");
       i++;
       continue;
@@ -113,15 +120,15 @@ export function renderMarkdown(md: string): string {
       i < lines.length &&
       lines[i]!.trim() !== "" &&
       !/^#{1,6}\s/.test(lines[i]!) &&
-      !/^(\s*[-*_]){3,}\s*$/.test(lines[i]!) &&
+      !RULE.test(lines[i]!) &&
       !/^>\s?/.test(lines[i]!) &&
       !/^[\s]*[-*+]\s+/.test(lines[i]!) &&
       !/^[\s]*\d+\.\s+/.test(lines[i]!) &&
-      !/^`{3,}/.test(lines[i]!) &&
+      !OPEN_FENCE.test(lines[i]!) &&
       // Only a row that really starts a table (a separator follows) ends the
       // paragraph. Any "| … |" line stopped it, and a lone one that was not a
       // table either was consumed by nothing: the loop spun on it forever.
-      !(isTableRow(lines[i]!) && isTableSeparator(lines[i + 1] ?? ""))
+      !startsTable(lines, i)
     ) {
       paraLines.push(lines[i]!);
       i++;
@@ -207,7 +214,14 @@ function isTableRow(line: string): boolean {
 
 /** Check if a line is a table separator row (|---|---|) */
 function isTableSeparator(line: string): boolean {
-  return /^\|[\s\-:]+\|/.test(line.trim());
+  return isTableRow(line) && parseTableRow(line.trim()).every(cell => /^:?-{3,}:?$/.test(cell));
+}
+
+function startsTable(lines: string[], start: number): boolean {
+  const header = lines[start] ?? "";
+  const delimiter = lines[start + 1] ?? "";
+  return isTableRow(header) && isTableSeparator(delimiter)
+    && parseTableRow(header).length === parseTableRow(delimiter).length;
 }
 
 /** Try to parse a table starting at line index `start`. Returns HTML + next line index, or null. */
@@ -215,13 +229,9 @@ function tryParseTable(
   lines: string[],
   start: number,
 ): { html: string; nextLine: number } | null {
-  if (start >= lines.length || !isTableRow(lines[start]!)) return null;
+  if (!startsTable(lines, start)) return null;
 
   const headerLine = lines[start]!.trim();
-  // Must have a separator row next
-  if (start + 1 >= lines.length || !isTableSeparator(lines[start + 1]!))
-    return null;
-
   const headers = parseTableRow(headerLine);
   const aligns = parseTableAligns(lines[start + 1]!.trim());
 
@@ -288,18 +298,30 @@ function parseTableAligns(line: string): string[] {
 export function markdownToPlainText(md: string): string {
   const out: string[] = [];
   let prose: string[] = [];
-  let inFence = false;
+  let fence = 0;
   const flushProse = () => {
     if (prose.length) out.push(proseToPlainText(prose.join("\n")));
     prose = [];
   };
-  for (const line of md.replace(/\r\n?/g, "\n").split("\n")) {
-    if (/^[ \t]{0,3}```/.test(line)) {
-      flushProse();
-      inFence = !inFence;
+  const lines = md.replace(/\r\n?/g, "\n").split("\n");
+  for (let i = 0; i < lines.length; i++) {
+    const line = lines[i]!;
+    if (fence) {
+      if (closesFence(line, fence)) fence = 0;
+      else out.push(line);
       continue;
     }
-    if (inFence) out.push(line);
+    const open = OPEN_FENCE.exec(line);
+    if (open) {
+      flushProse();
+      fence = open[1]!.length;
+    } else if (startsTable(lines, i)) {
+      flushProse();
+      prose.push(line);
+      i++;
+      while (isTableRow(lines[i + 1] ?? "")) prose.push(lines[++i]!);
+      flushProse();
+    } else if (RULE.test(line)) flushProse();
     else prose.push(line);
   }
   flushProse();
@@ -314,7 +336,6 @@ function proseToPlainText(text: string): string {
     .replace(/^[ \t]{0,3}#{1,6}[ \t]+/gm, "")
     .replace(/^[ \t]{0,3}>[ \t]?/gm, "")
     .replace(/^[ \t]*(?:[-*+]|\d+[.)])[ \t]+/gm, "")
-    .replace(/^[ \t]*\|?[ \t]*:?-{3,}.*$/gm, "")
     .replace(/(\*\*\*|\*\*|\*|__|_)(\S(?:.*?\S)?)\1/g, "$2")
     .replace(/\|/g, " ")
     .replace(/\u0000(\d+)\u0000/g, (_, index: string) => spans[Number(index)] ?? "");

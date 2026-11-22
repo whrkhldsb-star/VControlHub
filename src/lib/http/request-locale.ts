@@ -42,5 +42,21 @@ export async function requestLocale(request: Request): Promise<Locale> {
 	if (chosen) return chosen;
 	// Never throws; cached per process for 15 s, as the root layout reads it.
 	if (sentByBrowserOfThisApp(request, cookie)) return (await getPlatformDefaults()).locale;
-	return /^zh(?:-|$)/i.test(header(request, "accept-language")) ? "zh" : "en";
+	const preferences: Array<{ language: Locale | "*"; quality: number }> = [];
+	for (const item of header(request, "accept-language").split(",")) {
+		const match = /^(?:(zh|en)(?:-[a-z0-9]{1,8})*|\*)(?:\s*;\s*q=(0(?:\.\d{0,3})?|1(?:\.0{0,3})?))?$/i.exec(item.trim());
+		if (!match) continue;
+		const language = match[1] ? match[1].toLowerCase() as Locale : "*";
+		preferences.push({ language, quality: Number(match[2] ?? 1) });
+	}
+	// A wildcard only supplies a preference for languages the client did not list.
+	// Stable sorting preserves the header order among equally weighted choices.
+	const listed = new Set(preferences.map(item => item.language));
+	for (const { language, quality } of preferences.sort((a, b) => b.quality - a.quality)) {
+		if (quality === 0) break;
+		if (language !== "*") return language;
+		const available = (["en", "zh"] as const).find(locale => !listed.has(locale));
+		if (available) return available;
+	}
+	return "en";
 }

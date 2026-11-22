@@ -103,12 +103,13 @@ describe("playbook service", () => {
     mocks.acquireAdvisoryLock.mockResolvedValue(mocks.releaseAdvisoryLock);
     mocks.releaseAdvisoryLock.mockResolvedValue(undefined);
     mocks.transaction.mockImplementation(async (callback: (tx: unknown) => unknown) => callback({
-      playbook: { deleteMany: mocks.playbookDeleteMany, findFirst: mocks.playbookFindFirst, updateMany: mocks.playbookUpdateMany },
+      playbook: { create: mocks.playbookCreate, deleteMany: mocks.playbookDeleteMany, findFirst: mocks.playbookFindFirst, updateMany: mocks.playbookUpdateMany },
       alertRule: { findFirst: mocks.alertRuleFindFirst },
       playbookRun: { findFirst: mocks.runFindFirst, create: mocks.runCreate, update: mocks.runUpdate },
       server: { findFirst: mocks.serverFindFirst },
       job: { create: mocks.jobCreate },
       jobEvent: { create: mocks.jobEventCreate },
+      $queryRaw: vi.fn(async () => [{ id: "team1" }]),
       $executeRaw: mocks.executeRaw,
     }));
   });
@@ -120,7 +121,7 @@ describe("playbook service", () => {
   });
 
   it("gets a single playbook or null", async () => {
-    mocks.playbookFindUnique.mockResolvedValueOnce(baseRow).mockResolvedValueOnce(null);
+    mocks.playbookFindFirst.mockResolvedValueOnce(baseRow).mockResolvedValueOnce(null);
     expect((await getPlaybook("pb1"))?.id).toBe("pb1");
     expect(await getPlaybook("missing")).toBeNull();
   });
@@ -138,7 +139,7 @@ describe("playbook service", () => {
   it("creates, updates and deletes with audit and stamps teamId on create", async () => {
     mocks.playbookCreate.mockResolvedValue(baseRow);
     mocks.playbookFindFirst.mockResolvedValue(baseRow);
-    mocks.playbookFindUnique.mockResolvedValue({ ...baseRow, name: "Renamed" });
+    mocks.playbookFindFirst.mockResolvedValue({ ...baseRow, name: "Renamed" });
     mocks.playbookUpdateMany.mockResolvedValue({ count: 1 });
     mocks.playbookDeleteMany.mockResolvedValue({ count: 1 });
     const session = { userId: "u1", roles: ["operator"] as import("@/lib/auth/rbac").RoleKey[], currentTeamId: "team1" };
@@ -231,6 +232,7 @@ describe("playbook service", () => {
       const findBinding = vi.fn().mockResolvedValue({ id: "rule1" });
       const write = vi.fn();
       mocks.transaction.mockImplementationOnce(async (apply) => apply({
+        $queryRaw: async () => [{ id: "team1" }],
         playbook: { findFirst: findCurrent, updateMany: write }, alertRule: { findFirst: findBinding },
       }));
       await expect(updatePlaybook({ id: "pb1", steps }, "u9", manageOnly)).rejects.toMatchObject({ name: "ForbiddenError", status: 403 });
@@ -254,7 +256,7 @@ describe("playbook service", () => {
 
   it("lets a non-administrator take over a playbook only once its owner is deactivated", async () => {
     mocks.playbookFindFirst.mockResolvedValue(baseRow);
-    mocks.playbookFindUnique.mockResolvedValue(baseRow);
+    mocks.playbookFindFirst.mockResolvedValue(baseRow);
     const member = { userId: "u9", roles: ["operator"] as import("@/lib/auth/rbac").RoleKey[], currentTeamId: "team1" };
     mocks.playbookFindFirst.mockResolvedValueOnce({ ...baseRow, creator: { status: "ACTIVE", roles: [{ roleId: "admin" }] } });
     await expect(updatePlaybook({ id: "pb1", claimOwnership: true }, "u9", member)).rejects.toMatchObject({ name: "ForbiddenError" });

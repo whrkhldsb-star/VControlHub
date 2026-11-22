@@ -21,13 +21,15 @@ import { decryptJsonCredentials, encryptJsonCredentials } from "@/lib/crypto/jso
 import { currentCopyLocale } from "@/lib/i18n/api-copy";
 import { costMessage } from "../messages";
 import { prisma } from "@/lib/db";
+import { escapeLikeLiteral } from "@/lib/db/like-pattern";
 import { ConflictError, NotFoundError, ValidationError } from "@/lib/errors";
 import { createLogger } from "@/lib/logging";
 
 import type { CostCurrency } from "../types";
-import { tagValue } from "../service-internals";
+import { endOfMonthUtc, startOfMonthUtc, tagValue } from "../service-internals";
 import { csvNaturalKeyPrefix, fetchCloudBillingItems } from "./adapters";
 import {
+	billingSourceSchema,
 	createCloudBillingAccountSchema,
 	updateCloudBillingAccountSchema,
 } from "./schema";
@@ -224,6 +226,9 @@ export async function updateCloudBillingAccount(
 	});
 	if (!existing) throw new NotFoundError(t("backend.cost.cloudBillingAccountNotFound"));
 
+	if (existing.provider === "generic_csv" && (parsed.config !== undefined || (parsed.enabled ?? existing.enabled))) {
+		billingSourceSchema.parse({ provider: existing.provider, config: parsed.config ?? existing.config });
+	}
 	const data: Prisma.CloudBillingAccountUpdateInput = {};
 	if (parsed.name !== undefined) data.name = parsed.name;
 	if (parsed.currency !== undefined) data.currency = parsed.currency;
@@ -290,66 +295,121 @@ export async function syncCloudBillingAccount(
 	}
 }
 
-async function migrateMixedCsvGroups(tx: Prisma.TransactionClient, accountId: string, teamId: string | null,
-	items: CloudBillingLineItem[], incomplete: boolean, confirmDuplicates: boolean) {
-	const groups = new Map<string, { explicit: string[]; natural: CloudBillingLineItem[] }>();
-	for (const item of items) {
-		if (!item.productCode || !item.externalId.startsWith("csv:")) continue;
-		const prefix = `${accountId}:${csvNaturalKeyPrefix(item.effectiveDate, item.productCode)}`;
-		const group = groups.get(prefix) ?? { explicit: [], natural: [] };
-		if (item.externalId.startsWith("csv:id:")) group.explicit.push(sourceRefFor(accountId, item.externalId));
-		else group.natural.push(item);
-		groups.set(prefix, group);
+type ImportLine = { item: CloudBillingLineItem; sourceRef: string };
+const FRACTIONAL_TAG = "csv-fractional-cent";
+
+async function reconcileCsv(tx: Prisma.TransactionClient, accountId: string, teamId: string | null, month: string,
+	lines: ImportLine[], incomplete: boolean, confirmDuplicates: boolean) {
+	if (!lines.some(({ item }) => item.externalId.startsWith("csv:"))) return;
+	const existing = await tx.costEntry.findMany({ where: { sourceType: SOURCE_TYPE, teamId,
+		effectiveDate: { gte: startOfMonthUtc(month), lt: endOfMonthUtc(month) }, sourceRef: { startsWith: escapeLikeLiteral(accountId + ":") } } });
+	const key = (date: string, ref: string) => date + "|" + ref;
+	const byKey = new Map(existing.map(row => [key(row.effectiveDate.toISOString().slice(0, 10), row.sourceRef!), row]));
+	const wanted = new Set(lines.map(({ item, sourceRef }) => key(item.effectiveDate, sourceRef)));
+	const review = () => new ConflictError(costMessage("reviewCsv", currentCopyLocale()));
+	const matches = (row: typeof existing[number], item: CloudBillingLineItem) =>
+		row.currency === item.currency && row.provider === item.providerLabel.slice(0, 128)
+		&& row.amount.equals(item.amount) && row.category === item.category && (!item.notes || row.notes === item.notes);
+	const consumed = new Set<string>();
+	const moves = new Map<string, string>();
+	const aliases = new Set<string>();
+	for (const { item, sourceRef } of lines) {
+		if (!item.legacyExternalId) continue;
+		const oldKey = key(item.effectiveDate, sourceRefFor(accountId, item.legacyExternalId));
+		const prior = byKey.get(oldKey);
+		if (!prior) continue;
+		if (aliases.has(oldKey) || wanted.has(oldKey)) throw review();
+		aliases.add(oldKey);
+		if (byKey.has(key(item.effectiveDate, sourceRef)) || !matches(prior, item)) throw review();
+		moves.set(prior.id, sourceRef);
+		consumed.add(prior.id);
 	}
-	for (const [prefix, { explicit, natural }] of groups) {
-		if (!explicit.length || !natural.length) continue;
-		const where = { sourceType: SOURCE_TYPE, teamId, effectiveDate: new Date(natural[0]!.effectiveDate), sourceRef: { startsWith: prefix } };
-		const existing = await tx.costEntry.findMany({ where, orderBy: { sourceRef: "asc" } });
-		const ordinals = existing.map(row => Number(row.sourceRef?.slice(prefix.length)));
-		if (!existing.some((row, i) => !row.tags.includes(NATURAL_ORDINAL_TAG) && ordinals[i]! > natural.length)) continue;
 
-		const review = () => new ConflictError(costMessage("reviewCsv", currentCopyLocale()));
-		if (incomplete || ordinals.some(n => !Number.isSafeInteger(n) || n < 1 || n > natural.length + explicit.length)) throw review();
-		const knownIds = await tx.costEntry.count({ where: { ...where, sourceRef: { in: explicit } } });
-		if (knownIds !== explicit.length) throw review();
-
-		// Match amounts and dimensions before changing identities. Old and new
-		// ordinals can overlap, so first vacate all displaced keys in this transaction.
-		const matches = (row: typeof existing[number], item: CloudBillingLineItem) =>
-			row.currency === item.currency && row.provider === item.providerLabel.slice(0, 128)
-			&& row.amount.equals(item.amount) && row.category === item.category && (!item.notes || row.notes === item.notes);
-		const available = new Set(existing);
-		const assigned = new Map<CloudBillingLineItem, typeof existing[number]>();
-		for (const item of natural) {
-			const ref = sourceRefFor(accountId, item.externalId);
-			const row = existing.find(r => r.sourceRef === ref && matches(r, item));
-			if (row) { assigned.set(item, row); available.delete(row); }
+	const naturalGroups = new Map<string, ImportLine[]>();
+	for (const line of lines) {
+		if (!line.item.externalId.startsWith("csv:natural:")) continue;
+		const prefix = accountId + ":" + csvNaturalKeyPrefix(line.item.effectiveDate, line.item.productCode!);
+		const group = naturalGroups.get(prefix) ?? [];
+		group.push(line);
+		naturalGroups.set(prefix, group);
+	}
+	const existingGroups = new Map<string, typeof existing>();
+	for (const row of existing) {
+		if (!row.sourceRef || consumed.has(row.id)) continue;
+		const prefix = row.sourceRef.slice(0, row.sourceRef.lastIndexOf(":") + 1);
+		if (!naturalGroups.has(prefix)) continue;
+		const rows = existingGroups.get(prefix) ?? [];
+		rows.push(row);
+		existingGroups.set(prefix, rows);
+	}
+	const aliasTargets = new Set(moves.values());
+	const removed = new Set<string>();
+	for (const [prefix, group] of naturalGroups) {
+		const rows = existingGroups.get(prefix) ?? [];
+		if (!rows.length) continue;
+		const remaining = new Set(rows);
+		const removedBefore = removed.size;
+		const partial = rows.length > group.length;
+		const assigned: { line: ImportLine; row: typeof rows[number] }[] = [];
+		for (const line of group) {
+			if (aliasTargets.has(line.sourceRef)) continue;
+			const candidates = [...remaining].filter(row => matches(row, line.item));
+			const sameKey = candidates.find(row => row.sourceRef === line.sourceRef);
+			const unchanged = !partial && sameKey?.tags.includes(NATURAL_ORDINAL_TAG);
+			const row = candidates.length === 1 ? candidates[0] : unchanged ? sameKey
+				: confirmDuplicates && sameKey && !incomplete ? sameKey : undefined;
+			if (candidates.length && !row) throw review();
+			if (row) {
+				assigned.push({ line, row });
+				remaining.delete(row);
+			}
 		}
-		for (const item of natural) {
-			if (assigned.has(item)) continue;
-			const row = [...available].find(r => matches(r, item));
-			if (row) { assigned.set(item, row); available.delete(row); }
-		}
-		for (const row of available) {
-			const duplicate = [...assigned].find(([item]) => matches(row, item));
-			// Earlier imports supported partial CSVs. Even identical amounts may be
-			// separate charges missing from this export. Deletion requires the
-			// manager to attest that the complete original bill was checked.
-			if (!duplicate || !confirmDuplicates || row.tags.includes(NATURAL_ORDINAL_TAG)) throw review();
-			const priorTag = `adjustment-for:${row.id}`;
-			const nextTag = `adjustment-for:${duplicate[1].id}`;
-			await tx.$executeRaw`UPDATE cost_entries SET tags = array_replace(tags, ${priorTag}, ${nextTag})
-				WHERE "teamId" IS NOT DISTINCT FROM ${teamId} AND ${priorTag} = ANY(tags)`;
+		// A single stable natural line can be corrected. For repeated charges
+		// an ordinal from a partial export cannot identify a changed line.
+		if (remaining.size && rows.length === 1 && group.length === 1 && rows[0]!.sourceRef === group[0]!.sourceRef
+			&& rows[0]!.tags.includes(NATURAL_ORDINAL_TAG)) remaining.clear();
+		if (partial && assigned.length !== group.length) throw review();
+		for (const row of remaining) {
+			const duplicates = assigned.filter(({ line }) => matches(row, line.item));
+			const duplicate = duplicates[0];
+			if (!duplicate && partial) continue;
+			if (!confirmDuplicates || incomplete || duplicates.length !== 1 || !duplicate || row.tags.includes(NATURAL_ORDINAL_TAG)) {
+				throw review();
+			}
+			const sameProduct = lines.filter(({ item }) => item.effectiveDate === duplicate.line.item.effectiveDate
+				&& item.productCode === duplicate.line.item.productCode && item.externalId.startsWith("csv:id:"));
+			if (Number(row.sourceRef!.slice(prefix.length)) > group.length + sameProduct.length) throw review();
+			if (!sameProduct.length || sameProduct.some(({ item, sourceRef }) => !byKey.has(key(item.effectiveDate, sourceRef)))) throw review();
+			const explicitRefs = new Set(sameProduct.map(line => line.sourceRef));
+			if (existing.some(other => +other.effectiveDate === +row.effectiveDate && other.provider === row.provider &&
+				other.sourceRef?.startsWith(accountId + ":csv:id:") && !explicitRefs.has(other.sourceRef))) throw review();
+			await tx.$queryRaw`SELECT id FROM cost_entries WHERE id = ${row.id} FOR UPDATE`;
+			await tx.$executeRaw`UPDATE cost_entries SET tags = array_replace(tags, ${"adjustment-for:" + row.id}, ${"adjustment-for:" + duplicate.row.id})
+				WHERE ${"adjustment-for:" + row.id} = ANY(tags)`;
 			await tx.costEntry.delete({ where: { id: row.id } });
+			removed.add(row.id);
 		}
-		const moves = [...assigned].filter(([item, row]) => row.sourceRef !== sourceRefFor(accountId, item.externalId));
-		for (const [, row] of moves) {
-			await tx.costEntry.update({ where: { id: row.id }, data: { sourceRef: `${accountId}:migration:${row.id}` } });
-		}
-		for (const [item, row] of moves) {
-			await tx.costEntry.update({ where: { id: row.id }, data: { sourceRef: sourceRefFor(accountId, item.externalId) } });
+		for (const { line, row } of assigned) {
+			if (partial && removed.size === removedBefore) line.sourceRef = row.sourceRef!;
+			else if (line.sourceRef !== row.sourceRef) moves.set(row.id, line.sourceRef);
 		}
 	}
+	// Decimal(12,2) retains only the allocation. Recomputing a fractional
+	// currency bucket requires every stored line in that month's bucket.
+	const touched = new Set(lines.map(({ item }) => item.currency as string));
+	const fractions = new Set(lines.filter(({ item }) => item.fractionalCent).map(({ item }) => item.currency as string));
+	const resolved = new Set(lines.map(({ item, sourceRef }) => key(item.effectiveDate, sourceRef)));
+	const storedKey = (row: typeof existing[number]) => key(row.effectiveDate.toISOString().slice(0, 10), moves.get(row.id) ?? row.sourceRef!);
+	// A correction can move a charge between currencies. Recompute both buckets.
+	for (const row of existing) if (resolved.has(storedKey(row))) touched.add(row.currency);
+	for (const row of existing) if (touched.has(row.currency) && row.tags.includes(FRACTIONAL_TAG)) fractions.add(row.currency);
+	if (resolved.size !== lines.length || (incomplete && moves.size)) throw review();
+	if (fractions.size && (incomplete || existing.some(row => fractions.has(row.currency) && !removed.has(row.id)
+		&& !resolved.has(storedKey(row))))) {
+		throw new ConflictError(costMessage("fractionalCsv", currentCopyLocale()));
+	}
+	for (const [id] of moves) await tx.costEntry.update({ where: { id }, data: { sourceRef: `${accountId}:migration:${id}` } });
+	for (const [id, sourceRef] of moves) await tx.costEntry.update({ where: { id }, data: { sourceRef } });
 }
 
 async function runCloudBillingSync(
@@ -448,11 +508,12 @@ async function runCloudBillingSync(
 		}
 
 		const result = await prisma.$transaction(async (tx) => {
-			await migrateMixedCsvGroups(tx, accountId, account.teamId, Array.from(entries.values(), entry => entry.item), skipped > 0, confirmLegacyDuplicates);
+			await reconcileCsv(tx, accountId, account.teamId, month, [...entries.values()], skipped > 0, confirmLegacyDuplicates);
 			for (const { item, sourceRef } of entries.values()) {
 				const effectiveDate = new Date(`${item.effectiveDate}T00:00:00Z`);
 				const tags = [
 					`source:${SOURCE_TYPE}`,
+					...(item.fractionalCent ? [FRACTIONAL_TAG] : []),
 					...(item.externalId.startsWith("csv:natural:") ? [NATURAL_ORDINAL_TAG] : []),
 					`category:${item.category}`,
 					`provider:${tagValue(item.providerLabel)}`,

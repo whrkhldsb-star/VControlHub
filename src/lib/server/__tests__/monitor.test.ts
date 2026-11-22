@@ -38,6 +38,12 @@ describe("parseMonitorScriptOutput network section", () => {
 });
 
 describe("parseMonitorScriptOutput", () => {
+	it("preserves missing CPU usage separately from a measured idle host", () => {
+		const sample = (value: string) => parseMonitorScriptOutput(["===CPU===", "2", "0 0 0", value].join("\n")).cpu.usagePercent;
+		for (const invalid of ["", "unavailable", "NaN", "0 0", "-1 10", "11 10", "101"]) expect(sample(invalid)).toBeNull();
+		expect(sample("10 10")).toBe(0);
+		expect(sample("0")).toBe(0);
+	});
 	it("parses compact agentless SSH monitor output", () => {
 		const output = [
 			"===CPU===",

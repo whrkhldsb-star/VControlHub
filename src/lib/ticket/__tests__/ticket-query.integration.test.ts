@@ -1,9 +1,19 @@
 // @vitest-environment node
 import { randomUUID } from "node:crypto";
-import { afterAll, beforeAll, describe, expect, it } from "vitest";
+import { afterAll, beforeAll, describe, expect, it, vi } from "vitest";
 
 import { prisma } from "@/lib/db";
 import { listTicketBoard, listTicketPage } from "../query";
+
+const { afterCount, beforeRows } = vi.hoisted(() => ({ afterCount: vi.fn(), beforeRows: vi.fn() }));
+vi.mock("@/lib/db", async load => {
+	const db = await load<typeof import("@/lib/db")>();
+	if (process.env.RUN_DATABASE_INTEGRATION_TESTS !== "1") return db;
+	return { ...db, prisma: db.prisma.$extends({ query: { ticket: {
+		async count({ args, query }) { const total = await query(args); await afterCount(); return total; },
+		async findMany({ args, query }) { await beforeRows(); return query(args); },
+	} } }) };
+});
 
 /**
  * The workspace filters and pages in the database: a finished ticket older
@@ -44,6 +54,39 @@ describe.skipIf(process.env.RUN_DATABASE_INTEGRATION_TESTS !== "1")("ticket work
 		expect(resolved.tickets.at(-1)!.id).toBe(`${prefix}-needle`);
 		// A page past the end (the list shrank) shows the last one.
 		expect((await listTicketPage({ ...scope, query: { status: "RESOLVED" }, page: 99 })).page).toBe(7);
+	});
+
+	it("matches LIKE metacharacters as literal ticket text", async () => {
+		for (const title of ["vm_1", "vmA1", "vm%1"]) {
+			await prisma.ticket.create({ data: { title, description: title, createdBy: prefix, teamId: prefix, status: "CLOSED" } });
+		}
+		for (const search of ["vm_1", "vm%1"]) {
+			const page = await listTicketPage({ ...scope, query: { search } });
+			expect(page.tickets.map(row => row.title)).toEqual([search]);
+		}
+	});
+
+	it.each(["page", "board"])("keeps the %s on one snapshot when a ticket moves after the first count", async view => {
+		const id = prefix + "-" + view;
+		await prisma.ticket.create({ data: { id, title: view, description: view, category: id, createdBy: prefix, teamId: prefix } });
+		let resume!: () => void;
+		const committed = new Promise<void>(resolve => { resume = resolve; });
+		afterCount.mockImplementationOnce(async () => {
+			try { await prisma.ticket.update({ where: { id }, data: { status: "IN_PROGRESS" } }); }
+			finally { resume(); }
+		});
+		beforeRows.mockImplementation(() => committed);
+		try {
+			if (view === "page") {
+				const page = await listTicketPage({ ...scope, query: { category: id, status: "OPEN" } });
+				expect(page).toMatchObject({ total: 1, tickets: [{ id, status: "OPEN" }] });
+			} else {
+				const board = await listTicketBoard({ ...scope, query: { category: id } });
+				expect(board.OPEN).toMatchObject({ total: 1, tickets: [{ id }] });
+				expect(board.IN_PROGRESS).toMatchObject({ total: 0, tickets: [] });
+			}
+			expect(await prisma.ticket.findUniqueOrThrow({ where: { id } })).toMatchObject({ status: "IN_PROGRESS" });
+		} finally { beforeRows.mockReset(); afterCount.mockReset(); }
 	});
 
 	it("gives every board column its full total", async () => {

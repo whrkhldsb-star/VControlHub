@@ -124,7 +124,7 @@
   "/api/servers/[id]/sftp/upload": {"POST":[["server:ssh"]]},
   "/api/servers/[id]/transfer": {"POST":[["team:manage"]]},
   "/api/servers/[id]/uptime": {"GET":[["server:read"]]},
-  "/api/servers/[id]/vps-backup/records/[recordId]/download": {"GET":[["server:ssh"]]},
+  "/api/servers/[id]/vps-backup/records/[recordId]/download": {"GET":[["server:ssh"],["server:sftp:unrestricted"]]},
   "/api/servers/[id]/vps-backup/records/[recordId]/retry": {"POST":[["server:write"]]},
   "/api/servers/[id]/vps-backup/records/[recordId]": {"DELETE":[["server:write"]]},
   "/api/servers/[id]/vps-backup/records": {"GET":[["server:read"]],"POST":[["server:write"]]},
@@ -169,5 +169,6 @@
   "/api/traffic/history": {"GET":[["server:read"]]},
   "/api/traffic/summary": {"GET":[["server:read"]]},
   "/api/users/permissions": {"GET":[["user:manage"]],"PATCH":[["user:manage"]]},
-  "/api/users": {"GET":[["user:read"]],"PATCH":[["user:manage"]],"POST":[["user:manage"]]}
+  "/api/users": {"GET":[["user:read"]],"PATCH":[["user:manage"]],"POST":[["user:manage"]]},
+  "/api/webdav/[storageNodeId]/[[...path]]": {"DELETE":[["storage:delete"]],"GET":[["storage:read"]],"HEAD":[["storage:read"]],"PUT":[["storage:write"]]}
 }

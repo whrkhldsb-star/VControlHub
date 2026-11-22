@@ -28,19 +28,23 @@ describe("/api/deployments", () => {
   beforeEach(() => {
     vi.clearAllMocks();
     mocks.requireApiPermission.mockResolvedValue({
-      session: { userId: "u1", roles: ["operator"], currentTeamId: null, user: { id: "u1" } },
+      session: { userId: "u1", roles: ["operator"], permissions: ["deploy:read"], currentTeamId: null, user: { id: "u1" } },
     });
-    mocks.listDeploymentRuns.mockResolvedValue([{ id: "dep1" }]);
-    mocks.listDeploymentTemplates.mockResolvedValue([{ id: "tmpl1" }]);
+    const template = { id: "tmpl1", createdById: "another-user", command: "template command", rollbackCommand: "undo" };
+    mocks.listDeploymentRuns.mockResolvedValue([{ id: "dep1", createdBy: "another-user", renderedCommand: "deploy",
+      variables: { argument: "private" }, template, snapshot: { createdBy: "another-user", deployCommand: "deploy", rollbackCommand: "undo", variables: { argument: "private" } },
+      rollbackAttempts: [{ createdBy: "another-user", rollbackCommand: "undo" }] }]);
+    mocks.listDeploymentTemplates.mockResolvedValue([template]);
     mocks.createDeploymentRunFromTemplate.mockResolvedValue({ id: "dep1" });
   });
 
-  it("returns deployments and templates for deploy page bootstrap", async () => {
+  it("returns deployment metadata and redacts other authors’ commands and snapshot arguments", async () => {
     const res = await route.GET(new Request("http://local/api/deployments"));
     expect(res.status).toBe(200);
-    await expect(res.json()).resolves.toEqual({
-      deployments: [{ id: "dep1" }],
-      templates: [{ id: "tmpl1" }],
+    await expect(res.json()).resolves.toMatchObject({
+      deployments: [{ id: "dep1", renderedCommand: "", variables: {}, template: { command: "", rollbackCommand: null },
+        snapshot: { deployCommand: "", rollbackCommand: null, variables: {} }, rollbackAttempts: [{ rollbackCommand: "" }] }],
+      templates: [{ id: "tmpl1", command: "", rollbackCommand: null }],
     });
     expect(mocks.listDeploymentRuns).toHaveBeenCalledWith(
       expect.objectContaining({ userId: "u1" }),

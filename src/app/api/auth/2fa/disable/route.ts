@@ -7,17 +7,12 @@
  * the only self-service way off 2FA once the authenticator device is gone.
  */
 import { z } from "zod";
-import { checkSecurityChallenge } from "@/lib/auth/security-challenge-budget";
 import { Prisma } from "@prisma/client";
 
-import {
-  isAcceptableTwoFactorCodeShape,
-  verifyTwoFactorChallenge,
-} from "@/lib/auth/two-factor-challenge";
-import { updateTwoFactorCredentials } from "@/lib/auth/two-factor-settings";
+import { isAcceptableTwoFactorCodeShape } from "@/lib/auth/two-factor-challenge-shape";
+import { changeTwoFactorWithProof } from "@/lib/auth/two-factor-settings";
 import { refreshedSessionResponse } from "@/lib/auth/refreshed-session-response";
 import { accountSecurityAuditTeam, auditUserAction } from "@/lib/audit/service";
-import { prisma } from "@/lib/db";
 import { withApiRoute } from "@/lib/http/api-guard";
 import { GENERAL_WRITE_LIMIT } from "@/lib/http/rate-limit-presets";
 import { getServerLocale, t } from "@/lib/i18n/translations";
@@ -42,43 +37,14 @@ export async function POST(request: Request) {
         throw new ValidationError(t("api.auth.twoFactor.invalidCode", locale));
       }
 
-      const user = await prisma.user.findUnique({
-        where: { id: session.userId },
-        select: {
-          twoFactorEnabled: true,
-          twoFactorSecret: true,
-          twoFactorRecoveryCodes: true,
-          passwordHash: true,
-          sessionEpoch: true,
-        },
-      });
-
-      if (!user?.twoFactorEnabled || !user.twoFactorSecret) {
-        throw new ValidationError(t("api.auth.twoFactor.notEnabled", locale));
-      }
-
-      const challenge = await checkSecurityChallenge(session.userId, () => verifyTwoFactorChallenge({
-        userId: session.userId,
-        code,
-        sealedSecret: user.twoFactorSecret!,
-        storedRecoveryCodes: user.twoFactorRecoveryCodes,
-      }), (proof) => proof.valid);
-      if (!challenge.valid) {
-        throw new ValidationError(t("api.auth.twoFactor.invalidCode", locale));
-      }
-
-      const credentialBinding = await updateTwoFactorCredentials(session, user, {
-        twoFactorEnabled: false, twoFactorSecret: null, twoFactorRecoveryCodes: Prisma.DbNull,
-      });
-
-      // A security posture downgrade: retire every session of the account
-      // (including possibly stolen cookies), then re-mint this browser's so
-      // the operator is not bounced to the login screen by their own action.
-
+      const { credentialBinding, usedRecoveryCode } = await changeTwoFactorWithProof(session, code, () => ({
+        data: { twoFactorEnabled: false, twoFactorSecret: null, twoFactorRecoveryCodes: Prisma.DbNull },
+        value: null,
+      }));
       await auditUserAction(
         session.userId,
         "auth.2fa.disable",
-        { userId: session.userId, usedRecoveryCode: challenge.usedRecoveryCode },
+        { userId: session.userId, usedRecoveryCode },
         "INFO",
         accountSecurityAuditTeam(session),
       );

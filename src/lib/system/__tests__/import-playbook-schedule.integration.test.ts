@@ -21,19 +21,27 @@ describe.skipIf(process.env.RUN_DATABASE_INTEGRATION_TESTS !== "1")("playbook im
 		if (!["localhost", "127.0.0.1", "[::1]"].includes(database.hostname) || !/audit|test|_ci/.test(database.pathname)) {
 			throw new Error("requires an isolated loopback audit/test database");
 		}
-		await prisma.user.create({ data: { id, username: id, passwordHash: "fixture" } });
+		await prisma.user.create({ data: {
+			id, username: id, passwordHash: "fixture",
+			teamMembership: { create: {
+				team: { create: { id, slug: id, name: id } },
+				identityTemplate: { create: { id, name: id, permissions: [] } },
+			} },
+		} });
 		await prisma.playbook.create({
-			data: { id, name: id, triggerType: "cron", triggerConfig: { expression: "0 0 1 1 *" }, steps, enabled: true, nextRunAt: yearly, metricMatchState: { matched: true } },
+			data: { id, name: id, teamId: id, triggerType: "cron", triggerConfig: { expression: "0 0 1 1 *" }, steps, enabled: true, nextRunAt: yearly, metricMatchState: { matched: true } },
 		});
 	});
 	afterAll(async () => {
 		await prisma.playbook.deleteMany({ where: { id } });
 		await prisma.user.deleteMany({ where: { id } });
+		await prisma.team.deleteMany({ where: { id } });
+		await prisma.identityTemplate.deleteMany({ where: { id } });
 		await prisma.$disconnect();
 	});
 
 	const row = (expression: string, enabled = true) => ({
-		id, name: id, description: null, triggerType: "cron", triggerConfig: { expression }, steps, chainRetry: 0, enabled, createdById: null, teamId: null, createdAt: new Date().toISOString(),
+		id, name: id, description: null, triggerType: "cron", triggerConfig: { expression }, steps, chainRetry: 0, enabled, createdById: null, teamId: id, createdAt: new Date().toISOString(),
 	});
 
 	it("schedules an overwritten cron by its new expression", async () => {

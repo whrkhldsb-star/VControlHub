@@ -5,6 +5,7 @@
  * type) so the classification thresholds can be re-evaluated by the
  * collectors / alert evaluators.
  */
+import { sampledEndpoint, type HealthEndpoint } from "./sample-binding";
 import type { ServerMetrics } from "@/lib/server/monitor";
 import { wallClockInAppTimeZone } from "@/lib/datetime/time-zone";
 
@@ -16,6 +17,7 @@ export type HealthStatus =
 	| "unknown";
 
 export type ServerHealth = {
+	[sampledEndpoint]?: HealthEndpoint;
 	/** Ownership when a background or rule-directed sample was selected. */
 	sampledTeamId?: string | null;
 	serverId: string;
@@ -96,11 +98,11 @@ export function evaluateHealth(metrics: ServerMetrics): HealthStatus {
 	const mem = metrics.memory.usagePercent;
 	const diskMax = Math.max(...metrics.disk.map((d) => d.usagePercent), 0);
 
-	if (cpu >= CRIT_CPU || mem >= CRIT_MEM || diskMax >= CRIT_DISK)
+	if ((cpu !== null && cpu >= CRIT_CPU) || mem >= CRIT_MEM || diskMax >= CRIT_DISK)
 		return "critical";
-	if (cpu >= WARN_CPU || mem >= WARN_MEM || diskMax >= WARN_DISK)
+	if ((cpu !== null && cpu >= WARN_CPU) || mem >= WARN_MEM || diskMax >= WARN_DISK)
 		return "warning";
-	return "healthy";
+	return cpu === null ? "unknown" : "healthy";
 }
 
 /* ── Silence window helper ────────────────────────────────── */

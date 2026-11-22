@@ -1,3 +1,4 @@
+import { prisma } from "@/lib/db";
 import { apiCopy } from "@/lib/i18n/api-copy";
 import { NextResponse } from "next/server";
 import { z } from "zod";
@@ -32,14 +33,21 @@ export async function GET(request: Request) {
       if (!teamAccess.ok) return teamAccess.response;
 
       const now = Date.now();
-      const cached = monitorCache.get(serverId);
-      if (cached && now - cached.at < MONITOR_CACHE_MS) return NextResponse.json(await cached.value);
-      // Not tied to this request's abort signal: a shared probe must outlive the first caller.
-      const value = collectServerMetrics(serverId);
-      monitorCache.set(serverId, { at: now, value });
-      value.catch(() => monitorCache.delete(serverId));
-      if (monitorCache.size > 500) monitorCache.delete(monitorCache.keys().next().value!);
-      return NextResponse.json(await value);
+      const endpoint = teamAccess.server;
+      const key = JSON.stringify([serverId, endpoint.teamId, endpoint.host, endpoint.port, endpoint.username,
+        endpoint.hostKeySha256, endpoint.managementMode, endpoint.agentTokenHash]);
+      const cached = monitorCache.get(key);
+      let value = cached?.value;
+      if (!cached || !value || now - cached.at >= MONITOR_CACHE_MS) {
+        value = collectServerMetrics(serverId, undefined, endpoint);
+        monitorCache.set(key, { at: now, value });
+        value.catch(() => { if (monitorCache.get(key)?.value === value) monitorCache.delete(key); });
+        if (monitorCache.size > 500) monitorCache.delete(monitorCache.keys().next().value!);
+      }
+      const metrics = await value;
+      const current = await prisma.server.findUnique({ where: { ...endpoint, enabled: true }, select: { id: true } });
+      if (!current) return NextResponse.json({ error: apiCopy("apiCopy.server.not.found.d7783f94") }, { status: 404 });
+      return NextResponse.json(metrics);
     },
   );
 }

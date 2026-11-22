@@ -1,4 +1,5 @@
 import { expect, it, vi } from "vitest";
+import { getRateLimitStore } from "@/lib/rate-limit-store";
 import { checkSecurityChallenge } from "../security-challenge-budget";
 
 it("charges only failed proofs to one account across prompts and client addresses", async () => {
@@ -30,5 +31,14 @@ it("accumulates overlapping failures, expires the block, and leaves infrastructu
     await expect(checkSecurityChallenge(key, verify, Boolean)).resolves.toBe(true);
   } finally {
     vi.useRealTimers();
+  }
+});
+
+it("returns a committed change if releasing its expiring reservation fails", async () => {
+  const release = vi.spyOn(getRateLimitStore(), "settleChallenge").mockRejectedValueOnce(new Error("store unavailable"));
+  try {
+    await expect(checkSecurityChallenge("committed-change", async () => "saved", Boolean)).resolves.toBe("saved");
+  } finally {
+    release.mockRestore();
   }
 });

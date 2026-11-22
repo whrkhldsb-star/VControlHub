@@ -10,17 +10,18 @@
  *
  * The IPv4 policy is the union of the three former copies: 0/8, 10/8,
  * 100.64/10 (CGNAT), 127/8, 169.254/16 (link-local incl. cloud metadata),
- * 172.16/12, 192.0/16 (IETF reserved + TEST-NET-1), 192.88/16 (6to4 relay),
+ * 172.16/12, 192.0.0/24 (except global anycast), TEST-NET-1, 192.88.99/24 (6to4 relay),
  * 192.168/16, 198.18/15 (benchmark), 224/4 (multicast), 240/4 (reserved).
  */
 
 import { isIPv6 } from "node:net";
 
-function blockedIpv4(a: number, b: number, allowPrivate: boolean) {
+function blockedIpv4(a: number, b: number, c: number, d: number, allowPrivate: boolean) {
 	// Private providers may use loopback, RFC 1918 and shared address space.
 	if (a === 10 || a === 127 || (a === 100 && b >= 64 && b <= 127)
 		|| (a === 172 && b >= 16 && b <= 31) || (a === 192 && b === 168)) return !allowPrivate;
-	return a === 0 || (a === 169 && b === 254) || (a === 192 && (b === 0 || b === 88))
+	return a === 0 || (a === 169 && b === 254) || (a === 192 && b === 0 && (c === 2 || (c === 0 && d !== 9 && d !== 10)))
+		|| (a === 192 && b === 88 && c === 99)
 		|| (a === 198 && (b === 18 || b === 19)) || a >= 224;
 }
 
@@ -61,7 +62,7 @@ export function isBlockedIpAddress(address: string, allowPrivate = false): boole
 	if (!normalized.includes(":")) {
 		const octets = parseDottedQuad(normalized);
 		if (!octets) return false; // Hostnames are checked after DNS resolution.
-		return blockedIpv4(octets[0]!, octets[1]!, allowPrivate);
+		return blockedIpv4(octets[0]!, octets[1]!, octets[2]!, octets[3]!, allowPrivate);
 	}
 	const parts = expandIpv6Address(normalized);
 	if (!parts) return true;
@@ -69,7 +70,8 @@ export function isBlockedIpAddress(address: string, allowPrivate = false): boole
 	if (parts.slice(0, 5).every((word) => word === 0) && (parts[5] === 0 || parts[5] === 0xffff)) {
 		if (parts[5] === 0 && parts[6] === 0 && parts[7] === 1) return !allowPrivate;
 		const highWord = parts[6]!;
-		return blockedIpv4(highWord >> 8, highWord & 255, allowPrivate);
+		const lowWord = parts[7]!;
+		return blockedIpv4(highWord >> 8, highWord & 255, lowWord >> 8, lowWord & 255, allowPrivate);
 	}
 	if (allowPrivate && (first & 0xfe00) === 0xfc00) {
 		// EC2 also exposes its metadata service on a unique-local address.

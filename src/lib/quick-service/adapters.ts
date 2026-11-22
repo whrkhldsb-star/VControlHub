@@ -218,7 +218,7 @@ function lsioTcpPorts(img: LSIOImage): Array<{ host: number; container: number }
 	});
 }
 
-type SourceSnapshot = { apps: NormalizedApp[]; complete: boolean };
+type SourceSnapshot = { apps: NormalizedApp[]; complete: boolean; rejected?: number };
 
 async function fetchLinuxServer(url: string, sourceName: string): Promise<SourceSnapshot> {
 	const data = (await fetchCatalogJson(url)) as LSIOResponse;
@@ -233,8 +233,12 @@ async function fetchLinuxServer(url: string, sourceName: string): Promise<Source
 	// Also de-duplicate by image name (e.g. "linuxserver/jellyfin" vs our "jellyfin")
 	const localImages = new Set(SERVICE_CATALOG.map((t) => t.image.toLowerCase()));
 
-	const apps = images
-		.slice(0, APP_SOURCE_MAX_APPS)
+	const page = images.slice(0, APP_SOURCE_MAX_APPS);
+	// Only recognizable releases can be intentionally excluded by the policy filters below.
+	const releases = page.filter(img => img && typeof img.name === "string" && img.name.trim()
+		&& typeof img.stable === "boolean" && (img.deprecated == null || typeof img.deprecated === "boolean"));
+	const rejected = page.length - releases.length;
+	const apps = releases
 		.filter((img) => img.stable && !img.deprecated)
 		// Quick services need a declared TCP web port. Images without one are
 		// CLI/base images (or UDP services) and cannot provide a useful
@@ -293,7 +297,7 @@ async function fetchLinuxServer(url: string, sourceName: string): Promise<Source
 			};
 		})
 		.filter((app) => !/altus|chromium|firefox|chrome|desktop/i.test(app.slug));
-	return { apps, complete: images.length <= APP_SOURCE_MAX_APPS };
+	return { apps, complete: images.length <= APP_SOURCE_MAX_APPS && rejected === 0, ...(rejected > 0 && { rejected }) };
 }
 
 /* ── Custom JSON Adapter (generic) ───────────────────────────── */
@@ -315,7 +319,7 @@ async function fetchGenericJSON(url: string, sourceName: string): Promise<Source
 	for (const item of items) {
 		if (!item || typeof item !== "object") continue;
 		const row = item as Record<string, unknown>;
-		if (typeof row.name !== "string" || typeof row.image !== "string") continue;
+		if (typeof row.name !== "string" || typeof row.image !== "string" || !row.name.trim() || !row.image.trim()) continue;
 		const slug = `${prefix}-${sourceSlug(typeof row.slug === "string" ? row.slug : row.name)}`;
 		// Shapes are checked here, not trusted (A6-03): a volume entry must be
 		// {host, container} strings with the host under the service's own data
@@ -355,7 +359,8 @@ async function fetchGenericJSON(url: string, sourceName: string): Promise<Source
 			rawJson: JSON.stringify(row).substring(0, 4000),
 		});
 	}
-	return { apps, complete: items.length === candidateItems.length };
+	const rejected = items.length - apps.length;
+	return { apps, complete: apps.length === candidateItems.length, ...(rejected > 0 && { rejected }) };
 }
 
 /* ── Adapter registry ─────────────────────────────────────────── */

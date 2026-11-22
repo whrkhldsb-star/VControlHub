@@ -175,19 +175,24 @@ describe("dialectFromOsRelease", () => {
 describe("serviceCommand", () => {
   it("generates systemd restart with sudo", () => {
     const cmd = serviceCommand("systemd", "restart", "nginx", "sudo -n");
-    expect(cmd).toBe("sudo -n systemctl restart nginx");
+    expect(cmd).toBe("sudo -n systemctl restart -- nginx");
   });
 
   it("generates systemd status without sudo", () => {
     const cmd = serviceCommand("systemd", "status", "nginx", "sudo -n");
-    expect(cmd).toBe("systemctl status nginx --no-pager -l");
+    expect(cmd).toBe("systemctl status --no-pager -l -- nginx");
+  });
+
+  it("preserves instance names accepted by hosted commands and rejects option names", () => {
+    expect(serviceCommand("systemd", "status", "worker@node:1")).toBe("systemctl status --no-pager -l -- worker@node:1");
+    expect(() => serviceCommand("systemd", "status", "-example")).toThrow();
   });
 
   it("generates systemd reload that restarts only a unit that cannot reload", () => {
     const cmd = serviceCommand("systemd", "reload", "nginx", "sudo -n");
-    expect(cmd).toContain("sudo -n systemctl reload nginx ||");
-    expect(cmd).toContain("systemctl show -p CanReload --value nginx");
-    expect(cmd).toContain("sudo -n systemctl restart nginx");
+    expect(cmd).toContain("sudo -n systemctl reload -- nginx ||");
+    expect(cmd).toContain("systemctl show -p CanReload --value -- nginx");
+    expect(cmd).toContain("sudo -n systemctl restart -- nginx");
   });
 
   describe.skipIf(process.platform === "win32")("the reload command, run against a stand-in systemctl", () => {
@@ -217,7 +222,7 @@ describe("serviceCommand", () => {
     };
 
     it("does nothing more when the reload worked", () => {
-      expect(run(0, "yes")).toEqual({ status: 0, calls: ["reload ssh"] });
+      expect(run(0, "yes")).toEqual({ status: 0, calls: ["reload -- ssh"] });
     });
 
     it("keeps the old process running and reports the failure when a unit that can reload refuses the config", () => {
@@ -229,7 +234,7 @@ describe("serviceCommand", () => {
     it("restarts a unit that has no reload", () => {
       const { status, calls } = run(1, "no");
       expect(status).toBe(0);
-      expect(calls).toContain("restart ssh");
+      expect(calls).toContain("restart -- ssh");
     });
   });
 
