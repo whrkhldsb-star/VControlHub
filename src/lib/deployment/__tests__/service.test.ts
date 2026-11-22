@@ -9,7 +9,7 @@ const { mockPrisma, mockTeamWhere, mockDeploymentRunTeamWhere, mockTeamCreateDat
     commandTemplate: { findUnique: vi.fn(), findFirst: vi.fn(), findMany: vi.fn(), count: vi.fn(), create: vi.fn(), createMany: vi.fn() },
     deploymentRun: { create: vi.fn(), update: vi.fn(), updateMany: vi.fn(), findMany: vi.fn(), findUnique: vi.fn(), findFirst: vi.fn() },
     deploymentSnapshot: { create: vi.fn() },
-    deploymentRollbackRun: { findFirst: vi.fn(), findMany: vi.fn(), create: vi.fn(), update: vi.fn() },
+    deploymentRollbackRun: { findFirst: vi.fn(), findMany: vi.fn(), create: vi.fn(), update: vi.fn(), updateMany: vi.fn() },
     commandRequest: { findUnique: vi.fn(), count: vi.fn() },
     server: { findMany: vi.fn() },
     $transaction: vi.fn(),
@@ -621,6 +621,24 @@ describe("deployment service", () => {
     expect(mockPrisma.deploymentRun.findMany).toHaveBeenCalledWith(
       expect.objectContaining({ skip: 20, take: 21 }),
     );
+  });
+
+  it("repairs old completion times for linked active deployments and rollbacks on the first history read", async () => {
+    const stale = new Date("2026-05-25T00:00:00Z");
+    const row = { id: "dep", commandRequestId: "cmd", status: "RUNNING", commandRequest: { status: "RUNNING" } };
+    const rollback = { ...row, id: "rb", commandRequestId: "undo" };
+    mockPrisma.deploymentRun.findMany
+      .mockResolvedValueOnce([{ ...row, completedAt: stale, rollbackAttempts: [{ ...rollback, completedAt: stale }] }])
+      .mockResolvedValueOnce([{ ...row, completedAt: null, rollbackAttempts: [{ ...rollback, completedAt: null }] }]);
+
+    const [run] = await listDeploymentRuns(PLATFORM);
+    for (const [model, id] of [[mockPrisma.deploymentRun, "dep"], [mockPrisma.deploymentRollbackRun, "rb"]] as const) {
+      expect(model.updateMany).toHaveBeenCalledWith({
+        where: expect.objectContaining({ id: { in: [id] }, commandRequest: { is: { status: { in: expect.arrayContaining(["RUNNING"]) } } } }),
+        data: { completedAt: null },
+      });
+    }
+    expect(run).toMatchObject({ status: "RUNNING", completedAt: null, rollbackAttempts: [{ status: "RUNNING", completedAt: null }] });
   });
 
   it("marks deployment run as rejected when its approval request is rejected", async () => {

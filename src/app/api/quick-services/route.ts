@@ -1,3 +1,4 @@
+import { collectOptionPages } from "@/lib/server/option-pages";
 import { quickServiceCapability, quickServiceEndpointFingerprint, quickServiceRemoteTarget } from "@/lib/quick-service/target-identity";
 import { cachedProbe, dockerStatusCache, usedPortsCache } from "@/lib/quick-service/route-probe-cache";
 import { t } from "@/lib/i18n/service-translations";
@@ -41,12 +42,12 @@ export const dynamic = "force-dynamic";
  * serverTeamWhere(); unassigned legacy hosts are manager-only.
  */
 function listInstallTargets(session: Parameters<typeof serverTeamWhere>[0]) {
-	return prisma.server.findMany({
-		where: { enabled: true, ...serverTeamWhere(session, "manage") },
-		orderBy: { name: "asc" },
-		take: 200,
+	return collectOptionPages(page => prisma.server.findMany({
+		where: { enabled: true, operatingSystem: "LINUX", ...serverTeamWhere(session, "manage") },
+		orderBy: [{ name: "asc" }, { id: "asc" }],
+		...page,
 		select: { id: true, name: true, host: true },
-	});
+	}));
 }
 
 /**
@@ -218,8 +219,7 @@ export async function POST(request: Request) {
 
 		// If not found locally, try remote apps
 		if (!template) {
-			const remoteApps = await getRemoteApps();
-			const remoteApp = remoteApps.find((a) => a.slug === slug);
+			const [remoteApp] = await getRemoteApps(slug);
 			if (remoteApp) {
 				template = normalizedAppToTemplate(remoteApp);
 			}

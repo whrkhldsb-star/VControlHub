@@ -1,3 +1,4 @@
+import { collectOptionPages } from "@/lib/server/option-pages";
 import { firstSearchParams } from "@/lib/http/first-search-param";
 import Link from "next/link";
 import { sessionHasPermission } from "@/lib/auth/authorization";
@@ -67,10 +68,10 @@ export default async function DeploymentsPage({ searchParams }: { searchParams?:
 		}),
 		listDeploymentTemplates(session).then((rows) => rows.map((row) => localizeBuiltinTemplate(row, (key) => t(key, locale)))),
 		// Strict server scope: this picker carries host/username/credential refs.
-		canRun && canReadServers ? prisma.server.findMany({
+		canRun && canReadServers ? collectOptionPages(options => prisma.server.findMany({
 			where: { enabled: true, ...serverTeamWhere(session, "connect") },
-			orderBy: { createdAt: "desc" },
-			take: 200,
+			orderBy: [{ createdAt: "desc" }, { id: "asc" }],
+			...options,
 			select: {
 				id: true,
 				name: true,
@@ -78,7 +79,7 @@ export default async function DeploymentsPage({ searchParams }: { searchParams?:
 				username: true,
 				...OPERATION_TARGET_SELECT,
 			},
-		}) : Promise.resolve([]),
+		})) : Promise.resolve([]),
 	]);
 	const hasNextPage = runs.length > RUNS_PAGE_SIZE;
 	const visibleRuns = runs.slice(0, RUNS_PAGE_SIZE);

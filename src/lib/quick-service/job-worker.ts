@@ -1,3 +1,4 @@
+import { withServerLifecycleLock } from "@/lib/server/lifecycle-lock";
 import { t } from "@/lib/i18n/service-translations";
 import { apiCopy } from "@/lib/i18n/api-copy";
 import { JobStatus, Prisma } from "@prisma/client";
@@ -282,6 +283,11 @@ async function scrubQuickServiceJobPayloadSecrets(jobId: string) {
 
 async function executeQuickServiceJob(job: { id: string; payload: Prisma.JsonValue; createdBy?: string | null; teamId?: string | null }) {
 	const payload = parseQuickServiceJobPayload(job.payload);
+	const execute = () => executeAuthorizedQuickServiceJob(job, payload);
+	return payload.serverId ? withServerLifecycleLock(payload.serverId, execute) : execute();
+}
+
+async function executeAuthorizedQuickServiceJob(job: { id: string; createdBy?: string | null; teamId?: string | null }, payload: QuickServiceJobPayload) {
 	const target = await assertQuickServiceExecutionAuthorized(job, payload);
 	await updateQuickServiceJobProgress(job.id, `Preparing to execute QuickService ${payload.action}: ${payload.slug}`);
 
@@ -390,25 +396,30 @@ let lastStuckInstallSweep = 0;
  * the old container's id. The status sync records what really runs.
  */
 export async function reconcileStuckQuickServiceInstalls(now = new Date()): Promise<number> {
-	const stuck = await prisma.quickService.findMany({
-		where: { status: "installing", updatedAt: { lt: new Date(now.getTime() - STUCK_INSTALL_MS) } },
-		select: { slug: true, instanceKey: true },
-		orderBy: { updatedAt: "asc" },
-		take: 20,
-	});
 	let reconciled = 0;
-	for (const row of stuck) {
-		if (await findActiveQuickServiceJob(row.slug, row.instanceKey)) continue;
-		try {
-			await syncServiceStatus(row.slug, row.instanceKey);
-			reconciled += 1;
-		} catch (error) {
-			logger.warn("Stuck quick-service install could not be re-read", {
-				slug: row.slug,
-				instanceKey: row.instanceKey,
-				error: error instanceof Error ? error.message : String(error),
-			});
+	let after = "";
+	while (true) {
+		const stuck = await prisma.quickService.findMany({
+			where: { ...(after && { id: { gt: after } }), status: "installing", updatedAt: { lt: new Date(now.getTime() - STUCK_INSTALL_MS) } },
+			select: { id: true, slug: true, instanceKey: true },
+			orderBy: { id: "asc" },
+			take: 20,
+		});
+		for (const row of stuck) {
+			try {
+				if (await findActiveQuickServiceJob(row.slug, row.instanceKey)) continue;
+				await syncServiceStatus(row.slug, row.instanceKey);
+				reconciled += 1;
+			} catch (error) {
+				logger.warn("Stuck quick-service install could not be re-read", {
+					slug: row.slug,
+					instanceKey: row.instanceKey,
+					error: error instanceof Error ? error.message : String(error),
+				});
+			}
 		}
+		if (stuck.length < 20) break;
+		after = stuck[stuck.length - 1]!.id;
 	}
 	return reconciled;
 }

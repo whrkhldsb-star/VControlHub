@@ -14,18 +14,20 @@ import {
 
 export const dynamic = "force-dynamic";
 
+const dbText = (limit: number) => z.string().max(limit).transform(value => value.replaceAll("\0", ""));
+
 const bodySchema = z.object({
-  version: z.string().max(64).optional(),
-  capabilities: z.array(z.string().max(64)).max(20).optional(),
-  metricsRaw: z.string().max(64_000).optional(),
-  error: z.string().max(1000).nullable().optional(),
-  heartbeatJobId: z.string().min(1).max(128).optional(),
+  version: dbText(64).optional(),
+  capabilities: z.array(dbText(64)).max(20).optional(),
+  metricsRaw: dbText(64_000).optional(),
+  error: dbText(1000).nullable().optional(),
+  heartbeatJobId: z.string().min(1).max(128).regex(/^[^\0]+$/).optional(),
   /** The Agent is shutting down: it hands in a result and takes no new job. */
   stopping: z.boolean().optional(),
   /** A self-update version the Agent failed to install and is not retrying yet. */
-  updateFailed: z.string().max(64).optional(),
+  updateFailed: dbText(64).optional(),
   result: z.object({
-    jobId: z.string().min(1).max(128),
+    jobId: z.string().min(1).max(128).regex(/^[^\0]+$/),
     stdout: z.string().max(8 * 1_048_576).optional(),
     stderr: z.string().max(1_048_576).optional(),
     exitCode: z.number().int().min(-1).max(255),

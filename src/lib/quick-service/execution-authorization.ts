@@ -17,6 +17,7 @@ export type QuickServiceRequester = {
 /** Queue payloads cannot preserve a permission that the operator has lost. */
 export async function assertQuickServiceExecutionAuthorized(job: QuickServiceRequester, identity: { instanceKey?: string; serverId?: string | null; action: keyof typeof quickServiceCapability; endpointFingerprint?: string }) {
   const target = await assertTargetAuthorized(job, targetFromService(identity), identity.action);
+  if (target.kind === "remote" && !identity.endpointFingerprint) throw new ForbiddenError(t("backend.command.connectionChanged"));
   if (identity.endpointFingerprint && (target.kind !== "remote" || !target.endpoint || quickServiceEndpointFingerprint(target.endpoint) !== identity.endpointFingerprint)) {
     throw new ForbiddenError(t("backend.command.connectionChanged"));
   }

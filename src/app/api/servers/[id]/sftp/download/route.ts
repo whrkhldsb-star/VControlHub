@@ -1,3 +1,4 @@
+import { withServerLifecycleLock, holdServerLockForDownload } from "@/lib/server/lifecycle-lock";
 import { apiCopy } from "@/lib/i18n/api-copy";
 /**
  * GET /api/servers/[id]/sftp/download?path=... — download a file from remote server
@@ -32,33 +33,36 @@ export async function GET(
     },
     async ({ query, session }) => {
       const { id } = await params;
-      const teamAccess = await assertServerTeamAccess(session, id, "fileRead");
-      if (!teamAccess.ok) return teamAccess.response;
-      const target = await loadEnabledServerForSftp(id, teamAccess.server.teamId, teamAccess.server, request.signal);
-      await assertSftpPathAccess({ session, serverId: id, paths: [query.path], target, signal: request.signal });
-      const { stream, size } = await downloadFile(id, query.path, request.signal, target.ssh);
-      await auditUserAction(
-        session.userId,
-        "sftp.download",
-        { serverId: id, path: query.path, size },
-        undefined,
-        session.currentTeamId,
-      );
+      return withServerLifecycleLock(id, async () => {
+        const teamAccess = await assertServerTeamAccess(session, id, "fileRead");
+        if (!teamAccess.ok) return teamAccess.response;
+        const target = await loadEnabledServerForSftp(id, teamAccess.server.teamId, teamAccess.server, request.signal);
+        const root = await assertSftpPathAccess({ session, serverId: id, paths: [query.path], target, signal: request.signal });
+        const { stream, size } = await downloadFile(id, query.path, request.signal, target.ssh, root);
+        holdServerLockForDownload(stream);
+        await auditUserAction(
+          session.userId,
+          "sftp.download",
+          { serverId: id, path: query.path, size },
+          undefined,
+          session.currentTeamId,
+        );
 
-      // Preserve non-ASCII (e.g. Chinese) filenames via RFC 5987 instead of
-      // replacing every non-ASCII char with "_" (which produced "____.pdf").
-      const filename = query.path.split("/").pop() || "download";
+        // Preserve non-ASCII (e.g. Chinese) filenames via RFC 5987 instead of
+        // replacing every non-ASCII char with "_" (which produced "____.pdf").
+        const filename = query.path.split("/").pop() || "download";
 
-      const headers = new Headers({
-        "Content-Type": "application/octet-stream",
-        "Content-Disposition": buildContentDisposition("attachment", filename),
-        "Content-Length": String(size),
-        "Cache-Control": "no-store",
+        const headers = new Headers({
+          "Content-Type": "application/octet-stream",
+          "Content-Disposition": buildContentDisposition("attachment", filename),
+          "Content-Length": String(size),
+          "Cache-Control": "no-store",
+        });
+
+        // nodeStreamToWeb wires cancel() → stream.destroy() so a client abort
+        // frees the SFTP session instead of leaking it until keepalive timeout.
+        return new Response(nodeStreamToWeb(stream), { status: 200, headers });
       });
-
-      // nodeStreamToWeb wires cancel() → stream.destroy() so a client abort
-      // frees the SFTP session instead of leaking it until keepalive timeout.
-      return new Response(nodeStreamToWeb(stream), { status: 200, headers });
     },
   );
 }

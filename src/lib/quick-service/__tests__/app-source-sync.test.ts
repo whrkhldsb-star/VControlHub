@@ -68,10 +68,27 @@ describe("app source catalog bounds", () => {
 			expect.objectContaining({ slug: "jellyfin", sourceName: "LinuxServer" }),
 		]);
 		expect(prismaMock.appSourceApp.findMany).toHaveBeenCalledWith(expect.objectContaining({
-			where: { source: { enabled: true } },
+			where: { source: { enabled: true }, slug: { notIn: expect.arrayContaining(["it-tools"]) } },
 			// Read in pages of 500 by a stable cursor (A6-11); the first page is this call.
 			orderBy: [{ category: "asc" }, { name: "asc" }, { id: "asc" }],
 			take: 500,
+		}));
+	});
+
+	it("looks up an installation by exact slug outside the display cap", async () => {
+		await getRemoteApps("feed-last");
+		expect(prismaMock.appSourceApp.findMany).toHaveBeenCalledExactlyOnceWith(expect.objectContaining({
+			where: { source: { enabled: true }, slug: "feed-last" }, take: 1,
+		}));
+	});
+
+	it("records failure without replacing an identically named built-in item", async () => {
+		prismaMock.appSource.findUnique.mockResolvedValueOnce({ id: "feed", name: "feed", enabled: true });
+		fetchSourceAppsMock.mockResolvedValueOnce({ apps: [{ slug: "it-tools" }], complete: true });
+		expect(await syncSource("feed")).toEqual({ synced: 0, errors: 1 });
+		expect(prismaMock.appSourceApp.create).not.toHaveBeenCalled();
+		expect(prismaMock.appSource.update).toHaveBeenCalledWith(expect.objectContaining({
+			data: expect.objectContaining({ lastSyncStatus: "error", lastSyncError: expect.stringContaining("1 of 1") }),
 		}));
 	});
 
@@ -142,6 +159,17 @@ describe("app source catalog bounds", () => {
 		]);
 	});
 
+	it("syncs the next page after the first fifty sources", async () => {
+		const sources = Array.from({ length: 51 }, (_, i) => ({ id: `source-${String(i).padStart(2, "0")}`, name: `Source ${i}`, enabled: true }));
+		prismaMock.appSource.findMany.mockResolvedValueOnce(sources.slice(0, 50)).mockResolvedValueOnce(sources.slice(50));
+		prismaMock.appSource.findUnique.mockImplementation(({ where }) => sources.find(s => s.id === where.id));
+		fetchSourceAppsMock.mockResolvedValue({ apps: [], complete: true });
+		const result = await syncAllSources();
+		expect(result).toHaveLength(51);
+		expect(result.at(-1)).toMatchObject({ name: "Source 50", errors: 0 });
+		expect(prismaMock.appSource.findMany.mock.calls[1]?.[0].where).toMatchObject({ enabled: true, id: { gt: "source-49" } });
+	});
+
 	it("limits enabled app-source sync enumeration and processes sources deterministically", async () => {
 		prismaMock.appSource.findMany.mockResolvedValueOnce([]);
 
@@ -149,7 +177,7 @@ describe("app source catalog bounds", () => {
 
 		expect(prismaMock.appSource.findMany).toHaveBeenCalledWith({
 			where: { enabled: true },
-			orderBy: { createdAt: "asc" },
+			orderBy: { id: "asc" },
 			take: 50,
 		});
 		expect(fetchSourceAppsMock).not.toHaveBeenCalled();

@@ -1,3 +1,4 @@
+import type { SshEndpointIdentity } from "@/lib/ssh/server-connection-select";
 import { execRemoteCommand, buildSshParamsFromServer } from "@/lib/ssh/client";
 import { prisma } from "@/lib/db";
 import { getServerLocale } from "@/lib/i18n/server-locale-cookie";
@@ -206,13 +207,13 @@ export function isUsableMonitorOutput(stdout: string, metrics: ServerMetrics): b
 }
 
 
-export async function collectServerMetrics(serverId: string, signal?: AbortSignal): Promise<ServerMetrics | MonitorError> {
+export async function collectServerMetrics(serverId: string, signal?: AbortSignal, endpoint?: SshEndpointIdentity & { teamId: string | null }): Promise<ServerMetrics | MonitorError> {
 	signal?.throwIfAborted();
 	const locale = await getServerLocale();
 	const tr = (key: string, vars?: Record<string, string | number>) => t(key, locale, vars);
 	try {
 		const server = await prisma.server.findUnique({
-			where: { id: serverId },
+			where: { ...endpoint, id: serverId },
 			include: { sshKey: { select: SSH_KEY_CREDENTIAL_SELECT } },
 		});
 
@@ -245,7 +246,7 @@ export async function collectServerMetrics(serverId: string, signal?: AbortSigna
 			};
 		}
 
-		const sshParams = await buildSshParamsFromServer(server, server.sshKey);
+		const sshParams = await buildSshParamsFromServer(server, server.sshKey, server.teamId);
 		const { stdout, exitCode } = await execRemoteCommand({ ...sshParams, command: MONITOR_SCRIPT, timeout: 15_000, ...(signal ? { signal } : {}) });
 
 		if (exitCode !== 0 && !stdout) {

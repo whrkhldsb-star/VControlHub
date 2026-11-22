@@ -1,3 +1,6 @@
+import { randomUUID } from "node:crypto";
+import { INSTANCE_LABEL, INSTALL_LABEL, ownedContainer } from "./container-ownership";
+import { verifyDockerMounts } from "./mount-check";
 import { apiCopy } from "@/lib/i18n/api-copy";
 /**
  * Install/start-container helpers for quick services.
@@ -7,7 +10,7 @@ import { apiCopy } from "@/lib/i18n/api-copy";
  * isolated and testable.
  */
 import { prisma } from "@/lib/db";
-import { BusinessError } from "@/lib/errors";
+import { ConflictError, BusinessError } from "@/lib/errors";
 import { createNotification } from "@/lib/notification/service";
 import { t } from "@/lib/i18n/service-translations";
 import { buildInstallNotice, formatInstallNoticeMessage, type QuickServiceCredential } from "./install-notice";
@@ -18,7 +21,6 @@ import {
 	assertContainerStarted,
 	getDockerEnvironmentStatusFor,
 	instanceKeyForTarget,
-	isDockerNoSuchContainerError,
 	isRemotePortAvailable,
 	type DockerTarget,
 } from "./docker-cli";
@@ -28,7 +30,6 @@ import {
 	readQuickServiceSnapshot,
 	parseCommandArgs,
 	releasePortReservations,
-	resolveEnvValue,
 	safeContainerName,
 	templateReservedPorts,
 	validateTemplate,
@@ -41,10 +42,10 @@ import {
 import type { ServiceTemplate } from "./types";
 import { hubHostDockerSocketMount } from "@/lib/runtime/platform-paths";
 
-const { normalizeVolumeEndpoint, splitContainerPathAndOptions, mkdirSync, DOCKER_SOCKET, TRUSTED_HOST_MOUNTS } = __internals;
+const { normalizeVolumeEndpoint, splitContainerPathAndOptions, DOCKER_SOCKET, TRUSTED_HOST_MOUNTS } = __internals;
 
 /** The container started and passed acceptance, but its final database write failed. */
-class ContainerCommittedError extends Error {
+export class ContainerCommittedError extends Error {
 	constructor(readonly containerId: string, readonly cause: unknown) {
 		super("Quick service container is running but its final state could not be saved");
 		this.name = "ContainerCommittedError";
@@ -125,66 +126,32 @@ async function installServiceUnlocked(opts: InstallOptions) {
 	// - local: allocate/reserve on hub OS (held until docker bind)
 	// - remote: probe VPS via SSH; never use hub-local free-port heuristics
 	const portScope = target.kind === "local" ? "hub-host" : target.serverId;
+	const owner = Symbol("quick-service install");
 	let reservedPorts: number[] = [];
 	const hostPort = await withPortAllocationLock(portScope, async () => {
 		if (target.kind === "remote") {
+			const extras = templateReservedPorts(template, customPort ?? template.defaultPort).slice(1);
+			for (const port of extras) {
+				if (!await isRemotePortAvailable(target, port)) throw new BusinessError(t("backend.quick-service.extraPortInUseOnTarget", { port }));
+			}
 			if (customPort) {
-				const free = await isRemotePortAvailable(target, customPort);
-				if (!free) {
-					throw new BusinessError(
-						t("backend.quick-service.portInUseOnTarget", { port: customPort }),
-					);
-				}
+				if (!await isRemotePortAvailable(target, customPort)) throw new BusinessError(t("backend.quick-service.portInUseOnTarget", { port: customPort }));
 				return customPort;
 			}
-			const candidates: number[] = [template.defaultPort];
-			for (let i = 0; i < 40; i++) {
-				candidates.push(10000 + Math.floor(Math.random() * (65535 - 10000 + 1)));
-			}
-			for (const candidate of candidates) {
-				if (await isRemotePortAvailable(target, candidate)) {
-					for (const ep of template.extraPorts ?? []) {
-						const free = await isRemotePortAvailable(target, ep.host);
-						if (!free) {
-							throw new BusinessError(
-								t("backend.quick-service.extraPortInUseOnTarget", {
-									port: ep.host,
-								}),
-							);
-						}
-					}
-					return candidate;
-				}
+			for (let i = 0; i <= 40; i++) {
+				const candidate = i === 0 ? template.defaultPort : 10000 + Math.floor(Math.random() * 55536);
+				if (!extras.includes(candidate) && await isRemotePortAvailable(target, candidate)) return candidate;
 			}
 			throw new BusinessError(
 				t("backend.quick-service.noAvailablePortOnTarget"),
 			);
 		}
-		const port = customPort ?? (await allocatePort(template.defaultPort));
-		await assertTemplatePortsAvailable(template, port);
+		const port = customPort ?? (await allocatePort(template.defaultPort, owner));
+		try { await assertTemplatePortsAvailable(template, port, owner); }
+		catch (error) { releasePortReservations([port], owner); throw error; }
 		reservedPorts = templateReservedPorts(template, port);
 		return port;
 	});
-
-	// Every exit before the container is created gives the ports back: a
-	// failed mkdir or upsert left them reserved in this process, so later
-	// installs avoided free ports and their check reported them taken.
-	if (target.kind === "local") {
-		try {
-			for (const vol of template.volumesJson) {
-				const host = normalizeVolumeEndpoint(vol.host, "Host mount");
-				// The docker socket "host path" is a device/pipe, not a directory: on
-				// POSIX it is the unix socket literal, on Windows Docker Desktop the
-				// named pipe. mkdir would create a bogus directory either way.
-				if (host !== DOCKER_SOCKET && !TRUSTED_HOST_MOUNTS.has(host)) {
-					mkdirSync(host, { recursive: true });
-				}
-			}
-		} catch (error) {
-			if (reservedPorts.length > 0) releasePortReservations(reservedPorts);
-			throw error;
-		}
-	}
 
 	const envStr = JSON.stringify(template.envJson);
 	const volStr = JSON.stringify(template.volumesJson);
@@ -210,7 +177,7 @@ async function installServiceUnlocked(opts: InstallOptions) {
 				},
 			});
 	} catch (err) {
-		if (reservedPorts.length > 0) releasePortReservations(reservedPorts);
+		if (reservedPorts.length > 0) releasePortReservations(reservedPorts, owner);
 		// The conditional write failed. Record the pre-install snapshot so
 		// operators can see what state was supposed to be transitioned to.
 		const msg = err instanceof Error ? err.message.slice(0, 500) : String(err);
@@ -229,11 +196,8 @@ async function installServiceUnlocked(opts: InstallOptions) {
 	}
 
 	try {
-		// Drop hub-local reservations immediately before docker -p so the daemon can bind.
-		if (reservedPorts.length > 0) releasePortReservations(reservedPorts);
-		return await recreateDockerContainer(svc.id, template, hostPort, { userId, credentials: installNoticeCredentials, notes: installNoticeNotes, target });
+		return await recreateDockerContainer(svc.id, template, hostPort, { userId, credentials: installNoticeCredentials, notes: installNoticeNotes, target, previousId: before?.containerId });
 	} catch (err) {
-		if (reservedPorts.length > 0) releasePortReservations(reservedPorts);
 		if (err instanceof ContainerCommittedError) {
 			// Running and accepted; only its final bookkeeping failed. The row
 			// already holds the new configuration: keep it, do not roll back.
@@ -268,9 +232,12 @@ async function installServiceUnlocked(opts: InstallOptions) {
 			},
 		});
 		await notifyQuickServiceInstallFailure(userId, template, msg);
+		if (err instanceof ConflictError) throw err;
 		throw new BusinessError(
 			t("backend.quick-service.installFailedWithMessage", { message: msg }),
 		);
+	} finally {
+		releasePortReservations(reservedPorts, owner);
 	}
 }
 
@@ -282,12 +249,14 @@ export async function recreateDockerContainer(
 	serviceId: string,
 	tmpl: ServiceTemplate,
 	hostPort: number,
-	notice?: { userId?: string; credentials?: QuickServiceCredential[]; notes?: string[]; target?: DockerTarget; auditAction?: "install" | "start" | "update" },
+	notice?: { previousId?: string | null; userId?: string; credentials?: QuickServiceCredential[]; notes?: string[]; target?: DockerTarget; auditAction?: "install" | "start" | "update" },
 ) {
 	validateTemplate(tmpl);
 	const target: DockerTarget = notice?.target ?? { kind: "local" };
 	const containerName = safeContainerName(tmpl.slug);
 	const internalPort = tmpl.internalPort ?? tmpl.defaultPort;
+	const installId = randomUUID();
+	const mounts: string[] = [];
 	const args = [
 		"run",
 		"-d",
@@ -295,6 +264,8 @@ export async function recreateDockerContainer(
 		containerName,
 		"--label",
 		"com.vcontrolhub.quick-service=true",
+		"--label", `${INSTANCE_LABEL}=${serviceId}`,
+		"--label", `${INSTALL_LABEL}=${installId}`,
 		"--restart",
 		"unless-stopped",
 		"--add-host=host.docker.internal:host-gateway",
@@ -315,35 +286,20 @@ export async function recreateDockerContainer(
 			args.push("-v", `${hubHostDockerSocketMount()}:${splitContainerPathAndOptions(vol.container)}`);
 			continue;
 		}
+		if (!TRUSTED_HOST_MOUNTS.has(host)) mounts.push(host);
 		args.push("-v", `${host}:${splitContainerPathAndOptions(vol.container)}`);
 	}
 	for (const [key, value] of Object.entries(tmpl.envJson)) {
-		if (value !== "") args.push("-e", `${key}=${resolveEnvValue(String(value))}`);
+		args.push("-e", `${key}=${value}`);
 	}
 	args.push(tmpl.image, ...parseCommandArgs(tmpl.command));
 
-	// Side-by-side recreate: rename existing container so a failed run/post-install can restore it.
-	const backupName = `${containerName}__prev`;
-	let hadExisting: boolean;
-	try {
-		const existingId = (await dockerExec(target, ["inspect", "--format={{.Id}}", containerName], 10_000)).trim();
-		hadExisting = existingId.length > 0;
-	} catch (error) {
-		// Only Docker's own "no such container" means there is nothing to keep.
-		// Anything else (daemon or SSH failure) leaves the state unknown: stop
-		// here rather than let `docker run` collide with a container that exists
-		// and have the failure cleanup remove it.
-		if (!isDockerNoSuchContainerError(error)) throw error;
-		hadExisting = false;
-	}
-	if (hadExisting) {
+	await verifyDockerMounts(target, mounts);
+	const backupName = `${containerName}__prev_${installId}`;
+	const previous = await ownedContainer(target, containerName, serviceId, { storedId: notice?.previousId });
+	if (previous) {
 		try {
-			await dockerExec(target, ["rm", "-f", backupName], 15_000);
-		} catch {
-			// no prior backup
-		}
-		try {
-			await dockerExec(target, ["rename", containerName, backupName], 15_000);
+			await dockerExec(target, ["rename", previous, backupName], 15_000);
 		} catch (error) {
 			// Without the renamed copy there is nothing to roll back to. The
 			// current container is untouched; stop instead of deleting it.
@@ -354,11 +310,11 @@ export async function recreateDockerContainer(
 				// Renaming does not release published ports. Stop the preserved
 				// container before starting its replacement, then restart it only
 				// if the new container fails and rollback is required.
-				await dockerExec(target, ["stop", backupName], 30_000);
+				await dockerExec(target, ["stop", previous], 30_000);
 			} catch (error) {
 				try {
-					await dockerExec(target, ["rename", backupName, containerName], 15_000);
-					await dockerExec(target, ["start", containerName], 30_000);
+					await dockerExec(target, ["rename", previous, containerName], 15_000);
+					await dockerExec(target, ["start", previous], 30_000);
 				} catch {
 					// Surface the original stop failure; recovery is best effort.
 				}
@@ -367,29 +323,31 @@ export async function recreateDockerContainer(
 		}
 	}
 
-	let containerId: string;
+	let containerId = "";
 	let health: string;
 	try {
 		const { stdout } = await dockerRun(target, args, 300_000);
-		containerId = stdout.trim().slice(0, 64);
-		await applyPostInstallSetup(target, tmpl, containerName);
+		containerId = stdout.trim();
+		if (!/^[a-f0-9]{64}$/.test(containerId)) throw new BusinessError(t("backend.quickService.targetMismatch"));
+		await applyPostInstallSetup(target, tmpl, containerId);
 		// `docker run -d` succeeds once the container exists. Accept the new
 		// container only if it is actually up (and healthy when it has a
 		// healthcheck); otherwise fall through to the rollback below while the
 		// previous container still exists.
-		health = await assertContainerStarted(target, containerName);
+		health = await assertContainerStarted(target, containerId);
 	} catch (err) {
 		const cleanupNotes: string[] = [];
 		try {
-			await dockerExec(target, ["rm", "-f", containerName], 15_000);
+			const partial = await ownedContainer(target, containerName, serviceId, { installId });
+			if (partial) await dockerExec(target, ["rm", "-f", partial], 15_000);
 		} catch (cleanupErr) {
 			cleanupNotes.push(t("backend.quick-service.cleanupLeftoverFailed", { message: dockerErrorMessage(cleanupErr) }));
 		}
-		if (hadExisting) {
+		if (previous) {
 			try {
-				await dockerExec(target, ["rename", backupName, containerName], 15_000);
+				await dockerExec(target, ["rename", previous, containerName], 15_000);
 				try {
-					await dockerExec(target, ["start", containerName], 30_000);
+					await dockerExec(target, ["start", previous], 30_000);
 				} catch (startErr) {
 					cleanupNotes.push(t("backend.quick-service.previousRestoredNotStarted", { message: dockerErrorMessage(startErr) }));
 				}
@@ -401,9 +359,9 @@ export async function recreateDockerContainer(
 		throw new BusinessError(t("backend.quick-service.failureWithCleanupNotes", { message: dockerErrorMessage(err), notes: cleanupNotes.join("; ") }));
 	}
 
-	if (hadExisting) {
+	if (previous) {
 		try {
-			await dockerExec(target, ["rm", "-f", backupName], 15_000);
+			await dockerExec(target, ["rm", "-f", previous], 15_000);
 		} catch {
 			// ignore leftover backup
 		}
@@ -426,6 +384,9 @@ export async function recreateDockerContainer(
 				return prisma.quickService.update({ where, data: { status: "running", containerId, error: null } });
 			});
 	} catch (error) {
+		// The pre-recreate status already makes this row eligible for recovery
+		// if the database remains offline through this last write.
+		await prisma.quickService.update({ where, data: { status: "installing", containerId } }).catch(() => undefined);
 		throw new ContainerCommittedError(containerId, error);
 	}
 	await writeQuickServiceAudit({

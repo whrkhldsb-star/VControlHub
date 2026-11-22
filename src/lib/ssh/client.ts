@@ -35,7 +35,7 @@ export type SshConnectionParams = {
   /** Agent transport fallback used when no SSH credential is stored. */
   agentServerId?: string;
   /** Server identity captured when loading a tenant-authorized operation. */
-  expectedIdentity?: { serverId: string; teamId: string | null; tokenHash: string | null };
+  expectedIdentity?: { serverId: string; teamId: string | null; tokenHash: string | null; endpoint?: { host: string; port: number; username: string; hostKeySha256: string | null } };
 };
 
 export type SftpListEntry = {
@@ -998,14 +998,11 @@ export async function execRemoteCommand(input: RemoteCommandInput): Promise<{ st
  // job row: take the transfer lock for this command (including SSH fallback)
  // so its last ownership check remains valid until the remote command ends.
  if (!input.expectedIdentity) return executeSshCommand(input, tryAgent);
- const { acquireAdvisoryLock } = await import("@/lib/concurrency/advisory-lock");
- const release = await acquireAdvisoryLock("server-delete", input.expectedIdentity.serverId);
- try {
+ const { withServerLifecycleLock } = await import("@/lib/server/lifecycle-lock");
+ return withServerLifecycleLock(input.expectedIdentity.serverId, () => {
    input.signal?.throwIfAborted();
-   return await executeSshCommand(input, tryAgent);
- } finally {
-   await release();
- }
+   return executeSshCommand(input, tryAgent);
+ });
 }
 
 async function executeSshCommand(input: RemoteCommandInput, agentFallback: boolean) {
@@ -1074,7 +1071,7 @@ export async function buildSshParamsFromServer(server: {
   if (expectedTeamId !== undefined && server.teamId !== expectedTeamId) throw new BusinessError(t("backend.command.connectionChanged"));
   const base = {
     enforceHostKeyPin: true,
-    ...(expectedTeamId !== undefined && { expectedIdentity: { serverId: server.id, teamId: expectedTeamId, tokenHash: server.agentTokenHash ?? null } }),
+    ...(expectedTeamId !== undefined && { expectedIdentity: { serverId: server.id, teamId: expectedTeamId, tokenHash: server.agentTokenHash ?? null, endpoint: { host: server.host, port: server.port, username: server.username, hostKeySha256: server.hostKeySha256 } } }),
     host: server.host,
     port: server.port,
     username: server.username,

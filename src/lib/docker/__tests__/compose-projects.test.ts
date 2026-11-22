@@ -113,7 +113,7 @@ const hubScope = {
 
 describe("compose project helpers", () => {
   beforeEach(() => {
-    vi.clearAllMocks();
+    vi.resetAllMocks();
     buildSshMock.mockResolvedValue({ host: "1.2.3.4", port: 22, username: "root" });
   });
 
@@ -208,7 +208,7 @@ describe("compose project helpers", () => {
         result: {
           ok: true,
           status: 200,
-          data: [container({ id: "abc123", project: "site", state: "exited" })],
+          data: [container({ id: "abc123", project: "site", configFiles: "/srv/site/compose.yaml", state: "exited" })],
         },
         scope: hubScope,
       })
@@ -217,7 +217,7 @@ describe("compose project helpers", () => {
         result: {
           ok: true,
           status: 200,
-          data: [container({ id: "abc123", project: "site", state: "exited" })],
+          data: [container({ id: "abc123", project: "site", configFiles: "/srv/site/compose.yaml", state: "exited" })],
         },
         scope: hubScope,
       })
@@ -231,7 +231,7 @@ describe("compose project helpers", () => {
         result: {
           ok: true,
           status: 200,
-          data: [container({ id: "abc123", project: "site", state: "running" })],
+          data: [container({ id: "abc123", project: "site", configFiles: "/srv/site/compose.yaml", state: "running" })],
         },
         scope: hubScope,
       });
@@ -252,7 +252,7 @@ describe("compose project helpers", () => {
   it("falls back to the Engine API when there is no docker CLI at all", async () => {
     // Only Engine access, no docker binary: the ENOENT was thrown past the
     // fallback that a missing Compose plugin already reached.
-    const listed = (state: string) => ({ result: { ok: true, status: 200, data: [container({ id: "abc123", project: "site", state })] }, scope: hubScope });
+    const listed = (state: string) => ({ result: { ok: true, status: 200, data: [container({ id: "abc123", project: "site", configFiles: "/srv/site/compose.yaml", state })] }, scope: hubScope });
     dockerRequestMock
       .mockResolvedValueOnce(listed("exited"))
       .mockResolvedValueOnce(listed("exited"))
@@ -270,7 +270,7 @@ describe("compose project helpers", () => {
       result: {
         ok: true,
         status: 200,
-        data: [container({ id: "abc123", project: "site", state: "running" })],
+        data: [container({ id: "abc123", project: "site", configFiles: "/srv/site/compose.yaml", state: "running" })],
       },
       scope: hubScope,
     };
@@ -278,7 +278,7 @@ describe("compose project helpers", () => {
       result: {
         ok: true,
         status: 200,
-        data: [container({ id: "abc123", project: "site", state: "exited" })],
+        data: [container({ id: "abc123", project: "site", configFiles: "/srv/site/compose.yaml", state: "exited" })],
       },
       scope: hubScope,
     };
@@ -326,8 +326,8 @@ describe("compose project helpers", () => {
           ok: true,
           status: 200,
           data: [
-            container({ id: "abc123", project: "site", state: "exited" }),
-            container({ id: "def456", project: "site", state: "exited" }),
+            container({ id: "abc123", project: "site", configFiles: "/srv/site/compose.yaml", state: "exited" }),
+            container({ id: "def456", project: "site", configFiles: "/srv/site/compose.yaml", state: "exited" }),
           ],
         },
         scope: hubScope,
@@ -338,8 +338,8 @@ describe("compose project helpers", () => {
           ok: true,
           status: 200,
           data: [
-            container({ id: "abc123", project: "site", state: "exited" }),
-            container({ id: "def456", project: "site", state: "exited" }),
+            container({ id: "abc123", project: "site", configFiles: "/srv/site/compose.yaml", state: "exited" }),
+            container({ id: "def456", project: "site", configFiles: "/srv/site/compose.yaml", state: "exited" }),
           ],
         },
         scope: hubScope,
@@ -350,8 +350,8 @@ describe("compose project helpers", () => {
           ok: true,
           status: 200,
           data: [
-            container({ id: "abc123", project: "site", state: "running" }),
-            container({ id: "def456", project: "site", state: "running" }),
+            container({ id: "abc123", project: "site", configFiles: "/srv/site/compose.yaml", state: "running" }),
+            container({ id: "def456", project: "site", configFiles: "/srv/site/compose.yaml", state: "running" }),
           ],
         },
         scope: hubScope,
@@ -395,7 +395,7 @@ describe("compose project helpers", () => {
         result: {
           ok: true,
           status: 200,
-          data: [container({ id: "abc123", project: "site", state: "exited" })],
+          data: [container({ id: "abc123", project: "site", configFiles: "/srv/site/compose.yaml", state: "exited" })],
         },
         scope: hubScope,
       })
@@ -404,7 +404,7 @@ describe("compose project helpers", () => {
         result: {
           ok: true,
           status: 200,
-          data: [container({ id: "abc123", project: "site", state: "exited" })],
+          data: [container({ id: "abc123", project: "site", configFiles: "/srv/site/compose.yaml", state: "exited" })],
         },
         scope: hubScope,
       })
@@ -418,7 +418,7 @@ describe("compose project helpers", () => {
         result: {
           ok: true,
           status: 200,
-          data: [container({ id: "abc123", project: "site", state: "running" })],
+          data: [container({ id: "abc123", project: "site", configFiles: "/srv/site/compose.yaml", state: "running" })],
         },
         scope: hubScope,
       });
@@ -444,7 +444,7 @@ describe("compose project helpers", () => {
   });
 
   it("submits each restart once when one container's result is unknown", async () => {
-    const rows = ["first", "second"].map(id => container({ id, project: "site", state: "running" }));
+    const rows = ["first", "second"].map(id => container({ id, project: "site", configFiles: "/srv/site/compose.yaml", state: "running" }));
     const list = { result: { ok: true, status: 200, data: rows }, scope: hubScope };
     dockerRequestMock.mockResolvedValueOnce(list)
       .mockResolvedValueOnce({ result: { ok: true, status: 204, data: null }, scope: hubScope })
@@ -461,7 +461,7 @@ describe("compose project helpers", () => {
       result: {
         ok: true,
         status: 200,
-        data: [container({ id: "abc123", project: "site", state: "exited" })],
+        data: [container({ id: "abc123", project: "site", configFiles: "/srv/site/compose.yaml", state: "exited" })],
       },
       scope: hubScope,
     });
@@ -479,6 +479,22 @@ describe("compose project helpers", () => {
     );
     // Must not attempt Engine start/stop after a real compose failure
     expect(dockerRequestMock).toHaveBeenCalledTimes(1);
+  });
+
+  it("refuses up when labels do not identify a configuration", async () => {
+    dockerRequestMock.mockResolvedValueOnce({ result: { ok: true, status: 200, data: [container({ id: "site1", project: "site" })] }, scope: hubScope });
+    await expect(runComposeProjectAction({ project: "site", action: "up" })).rejects.toThrow();
+    expect(runFileImpl).not.toHaveBeenCalled();
+  });
+
+  it.each(["up", "down"] as const)("refuses %s requiring configuration when the labeled file is unavailable", async action => {
+    const data = [container({ id: "site1", project: "site", configFiles: "/srv/site/compose.yaml" })];
+    dockerRequestMock.mockResolvedValueOnce({ result: { ok: true, status: 200, data }, scope: hubScope });
+    runFileImpl.mockRejectedValue(Object.assign(new Error("no configuration file provided"), { code: 1 }));
+
+    await expect(runComposeProjectAction({ project: "site", action, removeVolumes: action === "down" })).rejects.toThrow();
+    expect(dockerRequestMock).toHaveBeenCalledTimes(1);
+    expect(runFileImpl).toHaveBeenCalledTimes(1);
   });
 
   it("does not report engine-fallback success when Docker socket is unavailable", async () => {

@@ -105,7 +105,7 @@ describe("deployment export service", () => {
 
 describe.skipIf(process.platform === "win32")("the generated deploy.sh, run", () => {
 	// npm and npx stand-ins record what each command was started with.
-	function run(envFile: string | null) {
+	function run(envFile: string | null, active = false) {
 		const dir = mkdtempSync(path.join(tmpdir(), "vch-export-deploy-"));
 		try {
 			const bin = path.join(dir, "bin");
@@ -113,7 +113,8 @@ describe.skipIf(process.platform === "win32")("the generated deploy.sh, run", ()
 			const log = path.join(dir, "calls.log");
 			mkdirSync(bin);
 			mkdirSync(appDir);
-			for (const tool of ["npm", "npx"]) {
+			writeFileSync(path.join(bin, "systemctl"), "#!/bin/sh\necho " + (active ? "active" : "inactive"), { mode: 0o755 });
+			for (const tool of ["npm", "npx", "node"]) {
 				writeFileSync(path.join(bin, tool), [
 					"#!/bin/sh",
 					`printf '%s\t%s\t%s\t%s\t%s\t%s\n' "${tool} $*" "\${DATABASE_URL-}" "\${SINGLE-}" "\${VCONTROLHUB_DEPLOY_BUILD-}" "\${NEXT_SYSTEMD_SERVICE-}" "$PWD" >> "${log}"`,
@@ -125,7 +126,7 @@ describe.skipIf(process.platform === "win32")("the generated deploy.sh, run", ()
 			const script = path.join(dir, "deploy.sh");
 			writeFileSync(script, buildPortableDeploymentPackage({ appName: "my-console" }).files["deploy.sh"]);
 			const result = spawnSync("bash", [script], {
-				env: { NODE_ENV: "test", PATH: `${bin}:${process.env.PATH ?? "/usr/bin:/bin"}`, APP_DIR: appDir, HOME: dir },
+				env: { NODE_ENV: "test", PATH: `${bin}:${process.env.PATH ?? "/usr/bin:/bin"}`, APP_DIR: appDir, DEPLOY_LOCK: path.join(dir, "deploy.lock"), HOME: dir },
 				encoding: "utf8",
 			});
 			let calls: string[][] = [];
@@ -137,7 +138,7 @@ describe.skipIf(process.platform === "win32")("the generated deploy.sh, run", ()
 	}
 
 	const databaseUrl = "postgresql://app:pa$$w0rd#1@127.0.0.1:5432/app?schema=public";
-	const envFile = ["# production settings", ...["AUTH_SESSION_SECRET", "ENCRYPTION_KEY", "ADMIN_INITIAL_PASSWORD", "SSH_WS_SECRET", "STORAGE_DIRECT_ACCESS_SECRET"].map(key => key + "=" + "x".repeat(32)), 'APP_NAME="my-console"', `DATABASE_URL="${databaseUrl}"`, "SINGLE='quoted value'", "BARE=plain", ""].join("\n");
+	const envFile = ["# production settings", ...["AUTH_SESSION_SECRET", "ENCRYPTION_KEY", "ADMIN_INITIAL_PASSWORD", "SSH_WS_SECRET", "STORAGE_DIRECT_ACCESS_SECRET"].map(key => key + "=" + "x".repeat(32)), 'APP_NAME="my-console"', 'APP_BASE_URL=https://example.com', `DATABASE_URL="${databaseUrl}"`, "SINGLE='quoted value'", "BARE=plain", ""].join("\n");
 
 	it("stops with a pointer to the env template when the env file is not there yet", () => {
 		const result = run(null);
@@ -162,13 +163,19 @@ describe.skipIf(process.platform === "win32")("the generated deploy.sh, run", ()
 			const result = run(content);
 			expect(result.stderr).toBe("");
 			expect(result.status).toBe(0);
-			expect(result.calls.map((call) => call[0])).toEqual(["npm ci", "npx prisma generate", "npx prisma migrate deploy", "npm run build", "npm run build:runtime"]);
+			expect(result.calls.map((call) => call[0])).toEqual(["npm ci", "npx prisma generate", "npx prisma migrate deploy", "npm run build", "npm run build:runtime", "node dist/seed.js"]);
 			for (const call of result.calls) {
 				expect(call[1]).toBe(databaseUrl);
 				expect(call[2]).toBe("quoted value");
 				expect(call[5]).toBe(result.appDir);
 			}
 		}
+	});
+
+	it("blocks dependency and database changes while a unit is active", () => {
+		const result = run(envFile, true);
+		expect(result.status).toBe(1);
+		expect(result.calls).toEqual([]);
 	});
 
 	it("authorizes the production build for this package's own service", () => {

@@ -62,7 +62,7 @@ export async function POST(
       if (!teamAccess.ok) return teamAccess.response;
 
       const server = await prisma.server.findUnique({
-        where: { id, teamId: teamAccess.server.teamId, enabled: true },
+        where: { ...teamAccess.server, enabled: true },
         select: SSH_CONNECTION_SERVER_SELECT,
       });
       if (!server) {
@@ -75,7 +75,7 @@ export async function POST(
       }
 
       try {
-        const sshParams = await buildSshParamsFromServer(server, server.sshKey);
+        const sshParams = await buildSshParamsFromServer(server, server.sshKey, teamAccess.server.teamId);
         // Single SSH probe path (detectOsDialect already handles os-release + uname fallback).
         const dialect = await detectOsDialect(sshParams);
         const osInfo = dialect.distroName;
@@ -84,7 +84,7 @@ export async function POST(
           dialect.distroName.startsWith("Unknown");
 
         const saved = await prisma.server.updateMany({
-          where: probeEndpointWhere(server, true),
+          where: { ...teamAccess.server, ...probeEndpointWhere(server, true) },
           data: {
             osDialect: serializeDialect(dialect),
             osInfo,

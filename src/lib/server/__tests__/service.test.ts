@@ -1,6 +1,7 @@
 import { generateKeyPairSync } from "node:crypto";
 import { parsePrivateKey } from "sshpk";
 vi.mock("@/lib/concurrency/advisory-lock", () => ({
+  lockForTransaction: vi.fn(async () => undefined),
   acquireAdvisoryLock: vi.fn(async () => async () => undefined),
 }));
 import { afterEach, beforeEach, describe, expect, it, vi } from "vitest";
@@ -134,6 +135,7 @@ vi.mock("@/lib/db", () => ({
     vpsBackupSchedule: { count: vi.fn() },
     vpsBackupRecord: { count: vi.fn() },
     commandTarget: { count: vi.fn(async () => 0) },
+    serverFileProxy: { count: vi.fn(async () => 0) },
     serverAgentJob: { count: vi.fn(async () => 0) },
     downloadTask: { count: vi.fn(async () => 0) },
     // createServerProfile wraps server+storage in $transaction;
@@ -272,7 +274,8 @@ describe("server service", () => {
     vi.mocked(prisma.server.findFirst).mockResolvedValueOnce(null);
     vi.mocked(prisma.server.update).mockImplementationOnce(({data})=>Promise.resolve({...current,...data}) as unknown as ReturnType<typeof prisma.server.update>);
     const result = await updateServerProfile("win", { operatingSystem:"WINDOWS", name:"Renamed node", username:"admin" });
-    expect(prisma.server.update).toHaveBeenCalledWith(expect.objectContaining({data:expect.objectContaining({rdpPassword:"ciphertext",rdpDomain:"OLD",name:"Renamed node"})}));
+    expect(prisma.server.update).toHaveBeenCalledWith(expect.objectContaining({ where: expect.objectContaining({ rdpPassword: "ciphertext" }), data: expect.objectContaining({ rdpDomain: "OLD", name: "Renamed node" }) }));
+    expect(vi.mocked(prisma.server.update).mock.lastCall?.[0].data).not.toHaveProperty("rdpPassword");
     expect(result).not.toHaveProperty("rdpPassword");
     expect(execRemoteCommandMock).not.toHaveBeenCalled();
   });
@@ -2761,7 +2764,7 @@ describe("server service", () => {
 
     expect(prisma.server.update).toHaveBeenCalledWith(
       expect.objectContaining({
-        where: { id: "srv_path", teamId: "team-1", host: current.host, port: current.port, username: current.username, managementMode: current.managementMode },
+        where: expect.objectContaining({ id: "srv_path", teamId: "team-1", host: current.host, port: current.port, username: current.username, managementMode: current.managementMode, enabled: true, password: current.password }),
       }),
     );
     expect(prisma.storageNode.update).toHaveBeenCalledWith({

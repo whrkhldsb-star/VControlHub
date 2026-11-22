@@ -8,10 +8,10 @@ function jsonResponse(body: unknown, ok = true) {
   return { ok, json: async () => body };
 }
 
-function mockInitialLoad(fetchMock: ReturnType<typeof vi.fn>, schedules: unknown[] = [], records: unknown[] = []) {
+function mockInitialLoad(fetchMock: ReturnType<typeof vi.fn>, schedules: unknown[] = [], records: unknown[] = [], canDownload = true) {
   fetchMock
     .mockResolvedValueOnce(jsonResponse({ schedules }))
-    .mockResolvedValueOnce(jsonResponse({ records }));
+    .mockResolvedValueOnce(jsonResponse({ records, canDownload }));
 }
 
 describe("VpsBackupSection", () => {
@@ -147,6 +147,15 @@ describe("VpsBackupSection", () => {
     await screen.findByText("Completed");
     expect(screen.getByRole("link", { name: "Download backup record" })).toHaveAttribute("href", "/api/servers/srv-1/vps-backup/records/rec-1/download");
     expect(screen.getByRole("button", { name: "Delete backup record" })).toBeInTheDocument();
+  });
+
+  it("shows a completed record without a download link for a restricted account", async () => {
+    const fetchMock = vi.fn();
+    mockInitialLoad(fetchMock, [], [{ id: "rec-1", backupType: "nginx-config", status: "COMPLETED", localPath: "/tmp/a.tar", createdAt: "2026-01-01T00:00:00Z" }], false);
+    vi.stubGlobal("fetch", fetchMock);
+    render(<VpsBackupSection serverId="srv-1" canManage={false} />, { locale: "en" });
+    await screen.findByText("Completed");
+    expect(screen.queryByRole("link", { name: "Download backup record" })).not.toBeInTheDocument();
   });
 
   it("keeps manual backup triggers out of the read-only view", async () => {

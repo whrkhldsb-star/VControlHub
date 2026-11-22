@@ -17,15 +17,7 @@ export function windowsSftpPathToNative(path: string) {
   return `${path.slice(1, 3)}\\${path.slice(4).replaceAll("/", "\\")}`.replace(/\\+$/, "");
 }
 
-export function buildWindowsDirectGatewaySource(input: { rootPath: string; secret: string; publicListen: boolean }) {
-  if (!input.secret) throw new Error("Direct gateway secret is required");
-  const root = windowsSftpPathToNative(input.rootPath);
-  return String.raw`$ErrorActionPreference = 'Stop'
-$Root = [IO.Path]::GetFullPath(${powershellLiteral(root)}).TrimEnd([char]92)
-$Secret = ${powershellLiteral(input.secret)}
-$Port = ${DIRECT_GATEWAY_DEFAULT_PORT}
-$Prefix = 'http://${input.publicListen ? "+" : "localhost"}:' + $Port + '/'
-Add-Type -TypeDefinition @'
+export const WINDOWS_FINAL_PATH_TYPE = String.raw`Add-Type -TypeDefinition @'
 using System;
 using System.Text;
 using System.Runtime.InteropServices;
@@ -34,7 +26,17 @@ public static class VchFinalPath {
   [DllImport("kernel32.dll", CharSet = CharSet.Unicode, SetLastError = true)]
   public static extern uint GetFinalPathNameByHandle(SafeFileHandle handle, StringBuilder path, uint length, uint flags);
 }
-'@
+'@`;
+
+export function buildWindowsDirectGatewaySource(input: { rootPath: string; secret: string; publicListen: boolean }) {
+  if (!input.secret) throw new Error("Direct gateway secret is required");
+  const root = windowsSftpPathToNative(input.rootPath);
+  return String.raw`$ErrorActionPreference = 'Stop'
+$Root = [IO.Path]::GetFullPath(${powershellLiteral(root)}).TrimEnd([char]92)
+$Secret = ${powershellLiteral(input.secret)}
+$Port = ${DIRECT_GATEWAY_DEFAULT_PORT}
+$Prefix = 'http://${input.publicListen ? "+" : "localhost"}:' + $Port + '/'
+${WINDOWS_FINAL_PATH_TYPE}
 
 function Send-Plain($context, [int]$status, [string]$message) {
   $bytes = [Text.Encoding]::UTF8.GetBytes($message)
@@ -115,11 +117,19 @@ try {
         [long]$end = $size - 1
         $range = $request.Headers['Range']
         if ($range) {
-          if ($range -match '^bytes=(\d+)-(\d*)$') {
-          $start = [long]$Matches[1]
-          if ($Matches[2]) { $end = [long]$Matches[2] }
-          } else { Send-Plain $context 416 'invalid range'; continue }
-          if ($start -ge $size -or $end -lt $start -or $end -ge $size) { Send-Plain $context 416 'invalid range'; continue }
+          if ($size -eq 0 -or $range -notmatch '^bytes=(\d*)-(\d*)$' -or (!$Matches[1] -and !$Matches[2])) {
+            Send-Plain $context 416 'invalid range'; continue
+          }
+          $first = $Matches[1]; $last = $Matches[2]
+          # A bound greater than Int64.MaxValue necessarily exceeds the file size.
+          [long]$bound = 0
+          if ($last -and ![long]::TryParse($last, [ref]$bound)) { $bound = [long]::MaxValue }
+          if (!$first) { $start = $size - [Math]::Min($bound, $size) }
+          else {
+            if (![long]::TryParse($first, [ref]$start)) { Send-Plain $context 416 'invalid range'; continue }
+            if ($last) { $end = [Math]::Min($end, $bound) }
+          }
+          if ($start -ge $size -or $end -lt $start) { Send-Plain $context 416 'invalid range'; continue }
           $response.StatusCode = 206
           $response.Headers['Content-Range'] = "bytes $start-$end/$size"
         }

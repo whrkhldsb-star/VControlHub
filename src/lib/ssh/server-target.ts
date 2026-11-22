@@ -94,15 +94,14 @@ async function buildServerSshTarget(server: SshServerRow, expectedTeamId?: strin
 
 /**
  * The real home of the SSH account, asked of the host once per ten minutes
- * (A3-10). The old `/home/<user>` guess remains the fallback when the host
- * cannot answer, so a transient failure degrades to the previous behaviour.
+ * (A3-10). A restricted account must have a verified authorization root.
  */
 const HOME_CACHE_MS = 10 * 60_000;
 const HOME_CACHE_MAX = 500;
 const homeCache = new Map<string, { home: string; at: number }>();
 
-async function resolveLinuxHomeRoot(serverId: string, ssh: SshServerTarget["ssh"], fallback: string): Promise<string> {
-  const key = JSON.stringify([serverId, ssh.expectedIdentity?.teamId, ssh.host, ssh.port, ssh.username, ssh.hostKeySha256, Boolean(ssh.agentServerId && !ssh.privateKey && !ssh.password)]);
+async function resolveLinuxHomeRoot(serverId: string, ssh: SshServerTarget["ssh"]): Promise<string | null> {
+  const key = JSON.stringify([serverId, ssh.expectedIdentity?.teamId, ssh.expectedIdentity?.tokenHash, ssh.host, ssh.port, ssh.username, ssh.hostKeySha256, Boolean(ssh.agentServerId && !ssh.privateKey && !ssh.password)]);
   const cached = homeCache.get(key);
   if (cached && Date.now() - cached.at < HOME_CACHE_MS) return cached.home;
   try {
@@ -112,13 +111,13 @@ async function resolveLinuxHomeRoot(serverId: string, ssh: SshServerTarget["ssh"
     return home;
   } catch (error) {
     ssh.signal?.throwIfAborted();
-    logger.warn("sftp home directory lookup failed; using the conventional path", error, { serverId });
-    return fallback;
+    logger.warn("sftp home directory lookup failed", error, { serverId });
+    return null;
   }
 }
 
 /** Windows file access uses OpenSSH credentials, never the RDP endpoint. */
-export async function loadEnabledServerForSftp(serverId: string, expectedTeamId?: string | null, expectedEndpoint?: SshEndpointIdentity, signal?: AbortSignal): Promise<SshServerTarget & { rootPath: string }> {
+export async function loadEnabledServerForSftp(serverId: string, expectedTeamId?: string | null, expectedEndpoint?: SshEndpointIdentity, signal?: AbortSignal): Promise<SshServerTarget & { rootPath: string; homeVerified?: boolean }> {
   signal?.throwIfAborted();
   const { server } = await loadEnabledServerRef(serverId, expectedTeamId, expectedEndpoint);
   if (server.operatingSystem !== "WINDOWS") {
@@ -128,10 +127,11 @@ export async function loadEnabledServerForSftp(serverId: string, expectedTeamId?
       throw new BusinessError(t("backend.ssh.hostKeyNotPinned"));
     }
     const ssh = { ...target.ssh, signal };
+    const home = await resolveLinuxHomeRoot(server.id, ssh);
     return {
       ...target,
       ssh,
-      rootPath: await resolveLinuxHomeRoot(server.id, ssh, server.username === "root" ? "/root" : `/home/${server.username}`),
+      rootPath: home ?? "/", homeVerified: home !== null,
     };
   }
 

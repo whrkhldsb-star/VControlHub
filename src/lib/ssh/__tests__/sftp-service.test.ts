@@ -1,4 +1,5 @@
 import { Readable, PassThrough } from "node:stream";
+import { text } from "node:stream/consumers";
 import { beforeEach, describe, expect, it, vi } from "vitest";
 
 const {
@@ -9,6 +10,7 @@ const {
   clientEndMock,
   connectMock,
   findUniqueMock,
+  execRemoteCommandMock,
 } = vi.hoisted(() => ({
   createWriteStreamMock: vi.fn(),
   createReadStreamMock: vi.fn(),
@@ -17,6 +19,7 @@ const {
   clientEndMock: vi.fn(),
   connectMock: vi.fn(),
   findUniqueMock: vi.fn(),
+  execRemoteCommandMock: vi.fn(),
 }));
 
 vi.mock("ssh2", () => {
@@ -62,6 +65,8 @@ vi.mock("ssh2", () => {
 });
 
 vi.mock("@/lib/ssh/client", () => ({
+  AGENT_FILE_MAX_BYTES: 6_000_000,
+  execRemoteCommand: execRemoteCommandMock,
   createVerifiedSshConfig: (input: Record<string, unknown>) => input,
   // Mirrors production credential selection without touching crypto: the
   // crypto module is separately mocked to identity below.
@@ -302,6 +307,33 @@ describe("uploadFile session lifecycle", () => {
     await expect(uploadPromise).rejects.toMatchObject({ message, status });
     expect(sftpEndMock).toHaveBeenCalled();
     expect(clientEndMock).toHaveBeenCalled();
+  });
+});
+
+describe("restricted downloads", () => {
+  const conn = { host: "fixture.test", port: 22, username: "alice", agentServerId: "srv1" };
+  const root = { path: "/home/alice", windows: false, canonical: ["/home/alice/document.txt"] };
+  const download = () => downloadFile("srv1", "/home/alice/shortcut", undefined, conn, root);
+
+  it("reads the authorized canonical file and checks the size reported by its open handle", async () => {
+    execRemoteCommandMock.mockResolvedValueOnce({ stdout: "5\naGVsbG8=\n", exitCode: 0 });
+    const { stream, size } = await download();
+    expect(size).toBe(5);
+    expect(await text(stream)).toBe("hello");
+    const { command } = execRemoteCommandMock.mock.lastCall![0];
+    expect(command).toContain("'-I'");
+    expect(command).toContain(root.canonical[0]);
+    expect(command).not.toContain("/home/alice/shortcut");
+  });
+
+  it("rejects a denied open and an incomplete read without opening another connection", async () => {
+    vi.clearAllMocks();
+    execRemoteCommandMock.mockResolvedValueOnce({ stdout: "", exitCode: 1 });
+    await expect(download()).rejects.toMatchObject({ status: 403 });
+    execRemoteCommandMock.mockResolvedValueOnce({ stdout: "5\naGk=\n", exitCode: 0 });
+    await expect(download()).rejects.toThrow();
+    expect(connectMock).not.toHaveBeenCalled();
+    expect(createReadStreamMock).not.toHaveBeenCalled();
   });
 });
 

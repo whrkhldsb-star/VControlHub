@@ -1,5 +1,5 @@
 {
-  "generatedAt": "2026-11-22T02:03:23.983Z",
+  "generatedAt": "2026-11-22T05:55:12.265Z",
   "summary": {
     "sidebarMain": 26,
     "sidebarSystem": 12,
@@ -1696,7 +1696,9 @@
         "GET"
       ],
       "guardMode": "withApiRoute",
-      "declaredPermissions": []
+      "declaredPermissions": [
+        "storage:delete"
+      ]
     },
     {
       "path": "/api/downloads/recent",
@@ -2545,6 +2547,7 @@
       ],
       "guardMode": "withApiRoute",
       "declaredPermissions": [
+        "server:sftp:unrestricted",
         "server:ssh"
       ]
     },
@@ -2580,6 +2583,8 @@
       "guardMode": "withApiRoute",
       "declaredPermissions": [
         "server:read",
+        "server:sftp:unrestricted",
+        "server:ssh",
         "server:write"
       ]
     },

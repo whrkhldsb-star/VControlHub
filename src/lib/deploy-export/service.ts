@@ -48,6 +48,7 @@ export function buildPortableDeploymentPackage(options: { domain?: string; appNa
 	const domain = sanitizeDomain(options.domain);
 	const appName = sanitizeAppName(options.appName);
 	const envTemplate = [
+		`APP_BASE_URL="https://${domain}"`,
 		`APP_NAME="${appName}"`,
 		`APP_SLUG="${appName}"`,
 		`SITE_NAME="${appName}"`,
@@ -115,6 +116,9 @@ export function buildPortableDeploymentPackage(options: { domain?: string; appNa
 		'SERVICE_PREFIX="${SERVICE_PREFIX:-$APP_SLUG}"',
 		'APP_DIR="${APP_DIR:-/opt/$APP_SLUG}"',
 		'ENV_FILE="${ENV_FILE:-$APP_DIR/.env.production}"',
+		'DEPLOY_LOCK="${DEPLOY_LOCK:-/run/lock/vcontrolhub-deploy.lock}"',
+		'exec 9>>"$DEPLOY_LOCK"',
+		'flock -n 9 || { echo "Another deployment holds $DEPLOY_LOCK" >&2; exit 75; }',
 		'mkdir -p "$APP_DIR"/{storage,uploads,downloads,logs,backups,tmp}',
 		// The units run the build in $APP_DIR; building wherever the script
 		// was started left them without dist/.
@@ -148,6 +152,11 @@ export function buildPortableDeploymentPackage(options: { domain?: string; appNa
 		// is stopped: a build under a running server replaces the .next it serves.
 		'export NEXT_SYSTEMD_SERVICE="$SERVICE_PREFIX-next.service"',
 		"export VCONTROLHUB_DEPLOY_BUILD=1",
+		`[ "${"${"}NEXT_PUBLIC_APP_URL:-$APP_BASE_URL}" = "https://${domain}" ] && [ "$APP_BASE_URL" = "https://${domain}" ] || { echo "Public URL must match Caddy" >&2; exit 1; }`,
+		'for unit in "$SERVICE_PREFIX"-{next,worker,ssh-ws}.service; do',
+		'  state=$(systemctl show "$unit" -p ActiveState --value) || exit 1',
+		'  case "$state" in inactive|failed) ;; *) echo "Stop $unit before deploying" >&2; exit 1 ;; esac',
+		'done',
 		"npm ci",
 		"npx prisma generate",
 		"npx prisma migrate deploy",
@@ -155,6 +164,7 @@ export function buildPortableDeploymentPackage(options: { domain?: string; appNa
 		// The units start dist/server.js, dist/worker.js and dist/ssh-ws-proxy.js,
 		// which only the runtime build produces (dist is not in Git).
 		"npm run build:runtime",
+		"NODE_ENV=production node dist/seed.js",
 		"",
 	].join("\n");
 	const files = {

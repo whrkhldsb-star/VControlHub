@@ -1,3 +1,4 @@
+import { SERVICE_CATALOG } from "./catalog";
 /**
  * App Source Sync Service
  *
@@ -18,7 +19,8 @@ import { t } from "@/lib/i18n/service-translations";
 
 const logger = createLogger("app-source:sync");
 
-const MAX_ENABLED_APP_SOURCES = 50;
+const builtinSlugs = new Set(SERVICE_CATALOG.map(app => app.slug));
+const SOURCE_PAGE_SIZE = 50;
 // The adapters keep up to 5000 apps per source (APP_SOURCE_MAX_APPS); this
 // module used to stop at 500, so the community tab silently lost the rest and
 // the stale-row cleanup compared against the wrong cap (A6-11).
@@ -53,10 +55,10 @@ async function syncLockedSource(sourceId: string) {
 	if (!source.enabled) throw new BusinessError(t("backend.quick-service.sourceIsDisabled"));
 
 	try {
-		const { apps, complete } = await fetchSourceApps(source.name, source.type, source.url);
+		const { apps, complete, rejected = 0 } = await fetchSourceApps(source.name, source.type, source.url);
 
 		let synced = 0;
-		let errors = 0;
+		let errors = rejected;
 
 		// Bounded concurrency: chunked Promise.all over SYNC_UPSERT_CONCURRENCY.
 		// Per-row try/catch isolates failures so one bad slug never aborts the rest.
@@ -65,6 +67,7 @@ async function syncLockedSource(sourceId: string) {
 				const chunk = apps.slice(i, i + SYNC_UPSERT_CONCURRENCY);
 				const chunkOutcomes = await Promise.all(
 					chunk.map(async (app) => {
+						if (builtinSlugs.has(app.slug)) return "err" as const;
 						try {
 							// Shared column payload (TR: update/create used to duplicate
 							// these 14 fields verbatim); only slug/sourceId are create-only.
@@ -124,7 +127,7 @@ async function syncLockedSource(sourceId: string) {
 		let lastExistingId: string | undefined;
 		// The adapters cap remote results. Never delete rows when the source may
 		// have been truncated, otherwise a large healthy catalog can be damaged.
-		if (complete) {
+		if (complete && errors === 0) {
 			const staleIds: string[] = [];
 			while (true) {
 				const existing = await prisma.appSourceApp.findMany({
@@ -150,7 +153,7 @@ async function syncLockedSource(sourceId: string) {
 				removed += result.count;
 			}
 		} else {
-			logger.warn(`Skipped stale app cleanup for ${source.name}: remote catalog reached the ${MAX_REMOTE_APPS} item cap`);
+			logger.warn(`Skipped stale app cleanup for ${source.name}: incomplete catalog or failed entries`);
 		}
 
 		// Update source metadata
@@ -158,8 +161,8 @@ async function syncLockedSource(sourceId: string) {
 			where: { id: source.id },
 			data: {
 				lastSyncAt: new Date(),
-				lastSyncStatus: "success",
-				lastSyncError: null,
+				lastSyncStatus: errors === 0 ? "success" : synced ? "partial" : "error",
+				lastSyncError: errors ? `${errors} of ${apps.length + rejected} catalog entries failed` : null,
 				syncCount: { increment: 1 },
 			},
 		});
@@ -186,31 +189,29 @@ async function syncLockedSource(sourceId: string) {
 const SYNC_ALL_CONCURRENCY = 4;
 
 export async function syncAllSources(): Promise<Array<{ name: string; synced: number; errors: number }>> {
-	const sources = await prisma.appSource.findMany({
-		where: { enabled: true },
-		orderBy: { createdAt: "asc" },
-		take: MAX_ENABLED_APP_SOURCES,
-	});
 	const results: Array<{ name: string; synced: number; errors: number }> = [];
-
-	// TR-040: each `syncSource` call is independent (own transaction, own
-	// source metadata row), so fan them out in bounded chunks. Concurrency
-	// 4 is well below the default Prisma pool (10) even when each sync
-	// internally batches 8 upserts at a time.
-	for (let i = 0; i < sources.length; i += SYNC_ALL_CONCURRENCY) {
-		const chunk = sources.slice(i, i + SYNC_ALL_CONCURRENCY);
-		const chunkResults = await Promise.all(
-			chunk.map(async (source) => {
-				try {
-					const result = await syncSource(source.id);
-					return { name: source.name, ...result };
-				} catch (err) {
-					logger.error(`Sync failed for ${source.name}: ${err}`);
-					return { name: source.name, synced: 0, errors: 1 };
-				}
-			}),
-		);
-		results.push(...chunkResults);
+	let after = "";
+	while (true) {
+		const sources = await prisma.appSource.findMany({
+			where: { enabled: true, ...(after && { id: { gt: after } }) }, orderBy: { id: "asc" }, take: SOURCE_PAGE_SIZE,
+		});
+		for (let i = 0; i < sources.length; i += SYNC_ALL_CONCURRENCY) {
+			const chunk = sources.slice(i, i + SYNC_ALL_CONCURRENCY);
+			const chunkResults = await Promise.all(
+				chunk.map(async (source) => {
+					try {
+						const result = await syncSource(source.id);
+						return { name: source.name, ...result };
+					} catch (err) {
+						logger.error(`Sync failed for ${source.name}: ${err}`);
+						return { name: source.name, synced: 0, errors: 1 };
+					}
+				}),
+			);
+			results.push(...chunkResults);
+		}
+		if (sources.length < SOURCE_PAGE_SIZE) break;
+		after = sources[sources.length - 1]!.id;
 	}
 
 	return results;
@@ -239,14 +240,14 @@ function storedPopularity(rawJson: string | null | undefined): Pick<NormalizedAp
 	return { stars: count(row.stars), monthlyPulls: count(row.monthly_pulls ?? row.monthlyPulls) };
 }
 
-export async function getRemoteApps(): Promise<NormalizedApp[]> {
+export async function getRemoteApps(slug?: string): Promise<NormalizedApp[]> {
 	const apps: RemoteAppRow[] = [];
 	let cursor: string | undefined;
 	while (apps.length < MAX_REMOTE_APPS) {
 		const page = await prisma.appSourceApp.findMany({
-			where: { source: { enabled: true } },
+			where: { source: { enabled: true }, slug: slug ?? { notIn: [...builtinSlugs] } },
 			orderBy: [{ category: "asc" }, { name: "asc" }, { id: "asc" }],
-			take: Math.min(500, MAX_REMOTE_APPS - apps.length),
+			take: slug ? 1 : Math.min(500, MAX_REMOTE_APPS - apps.length),
 			...(cursor ? { cursor: { id: cursor }, skip: 1 } : {}),
 			include: { source: { select: { name: true } } },
 		});

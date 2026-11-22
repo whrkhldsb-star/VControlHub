@@ -78,6 +78,17 @@ vi.mock("node:net", () => {
 	return { default: { createServer }, createServer };
 });
 
+const { ownership, mounts, openProc } = vi.hoisted(() => ({ ownership: vi.fn(), mounts: vi.fn(), openProc: vi.fn() }));
+vi.mock("../mount-check", () => ({ verifyDockerMounts: mounts }));
+vi.mock("../container-ownership", async (original) => ({
+	...await original<typeof import("../container-ownership")>(),
+	ownedContainer: ownership,
+}));
+vi.mock("node:fs/promises", async (original) => ({
+	...await original<typeof import("node:fs/promises")>(), open: openProc,
+}));
+const oldId = "a".repeat(64);
+const newId = "b".repeat(64);
 const hubIdentity = { instanceKey: "hub-host", serverId: null };
 
 import { checkPort, listQuickServices, installService, listQuickServiceHistory, resetQuickServiceProcessStateForTests, startService, stopService, syncServiceStatus, uninstallService, updateService } from "../service";
@@ -135,7 +146,7 @@ function routeExecFile(overrides: Record<string, (cb: (error: Error | null, resu
 				}
 				return {};
 			}
-			cb(null, { stdout: "abcdef1234567890\n", stderr: "" });
+			cb(null, { stdout: newId + "\n", stderr: "" });
 			return {};
 		},
 	);
@@ -146,6 +157,11 @@ describe("quick service docker lifecycle", () => {
 		vi.clearAllMocks();
 		// clearAllMocks keeps queued mockImplementationOnce answers: one a test
 		// did not consume used to leak into the next test's first docker call.
+		ownership.mockReset().mockImplementation(async (_target, _name, _serviceId, check) => check.installId ? newId : oldId);
+		mounts.mockReset().mockResolvedValue(undefined);
+		prismaMock.quickService.findMany.mockReset();
+		prismaMock.quickService.update.mockReset().mockResolvedValue({});
+		prismaMock.quickService.create.mockReset();
 		execFileSyncMock.mockReset();
 		execFileMock.mockReset();
 		resetQuickServiceProcessStateForTests();
@@ -230,20 +246,20 @@ describe("quick service docker lifecycle", () => {
 		const svc = await installService({ template, userId: "user-1", customPort: 12345 });
 
 		expect(svc).toMatchObject({ port: 12345, status: "running", containerId: "accepted" });
-		expect(mkdirSyncMock).toHaveBeenCalledWith("/opt/demo/data", { recursive: true });
+		expect(mounts).toHaveBeenCalledWith({ kind: "local" }, ["/opt/demo/data"]);
 		expect(execFileMock).toHaveBeenCalledWith(
 			"docker",
-			expect.arrayContaining(["run", "-d", "--name", "qs-demo", "-p", "12345:12345", "-v", "/opt/demo/data:/data", "-e", "DEMO_HOST=host.docker.internal", "example/demo:latest"]),
+			expect.arrayContaining(["run", "-d", "--name", "qs-demo", "-p", "12345:12345", "-v", "/opt/demo/data:/data", "-e", "DEMO_HOST=127.0.0.1", "example/demo:latest"]),
 			expect.objectContaining({ timeout: 300_000 }),
 			expect.any(Function),
 		);
 		const dockerArgs = dockerRunArgs();
 		expect(dockerArgs).toEqual(expect.arrayContaining(["--label", "com.vcontrolhub.quick-service=true"]));
-		expect(dockerArgs).not.toContain("EMPTY=");
+		expect(dockerArgs).toContain("EMPTY=");
 		expect(dockerArgs.join(" ")).not.toContain("'qs-demo'");
 		expect(prismaMock.quickService.update).toHaveBeenCalledWith({
 			where: { ...hubIdentity, id: "svc-1", slug: "demo" },
-			data: { status: "running", containerId: "abcdef1234567890", error: null },
+			data: { status: "running", containerId: newId, error: null },
 		});
 	});
 
@@ -265,9 +281,7 @@ describe("quick service docker lifecycle", () => {
 			extraPortsJson: JSON.stringify([{ host: 19090, container: 9090 }]),
 			command: "serve --safe",
 		});
-		execFileSyncMock.mockImplementationOnce(() => {
-			throw Object.assign(new Error("Command failed: docker start qs-demo"), { stderr: "Error response from daemon: No such container: qs-demo" });
-		});
+		ownership.mockResolvedValueOnce(null).mockResolvedValueOnce(null);
 		prismaMock.quickService.update.mockResolvedValue({});
 
 		await startService("demo");
@@ -329,6 +343,7 @@ describe("quick service docker lifecycle", () => {
 	});
 
 	it("rolls back a failed fresh install container attempt and records the error state", async () => {
+		ownership.mockResolvedValueOnce(null);
 		prismaMock.quickService.findUnique.mockResolvedValueOnce(null);
 		prismaMock.quickService.create.mockResolvedValueOnce({ ...hubIdentity, id: "svc-failed-install", slug: "demo", port: 12345 });
 		prismaMock.quickService.delete.mockResolvedValueOnce({});
@@ -339,7 +354,7 @@ describe("quick service docker lifecycle", () => {
 
 		await expect(installService({ template, userId: "user-1", customPort: 12345 })).rejects.toThrow("安装失败：image pull denied");
 
-		expect(execFileSyncMock).toHaveBeenCalledWith("docker", ["rm", "-f", "qs-demo"], expect.objectContaining({ timeout: 15_000, encoding: "utf8" }));
+		expect(execFileSyncMock).toHaveBeenCalledWith("docker", ["rm", "-f", newId], expect.objectContaining({ timeout: 15_000, encoding: "utf8" }));
 		expect(prismaMock.quickService.delete).toHaveBeenCalledWith({ where: { ...hubIdentity, id: "svc-failed-install", slug: "demo" } });
 		expect(writeAuditLogMock).toHaveBeenCalledWith(expect.objectContaining({
 			action: "quick_service.install.failed",
@@ -352,6 +367,7 @@ describe("quick service docker lifecycle", () => {
 	});
 
 	it("keeps failed install cleanup best-effort when removing the partial container also fails", async () => {
+		ownership.mockResolvedValueOnce(null);
 		prismaMock.quickService.findUnique.mockResolvedValueOnce(null);
 		prismaMock.quickService.create.mockResolvedValueOnce({ ...hubIdentity, id: "svc-cleanup-failed", slug: "demo", port: 12345 });
 		prismaMock.quickService.delete.mockResolvedValueOnce({});
@@ -455,7 +471,7 @@ describe("quick service docker lifecycle", () => {
 
 		await uninstallService("demo", { deleteVolumes: true });
 
-		expect(execFileSyncMock).toHaveBeenCalledWith("docker", ["rm", "-f", "qs-demo"], expect.objectContaining({ timeout: 15_000, encoding: "utf8" }));
+		expect(execFileSyncMock).toHaveBeenCalledWith("docker", ["rm", "-f", oldId], expect.objectContaining({ timeout: 15_000, encoding: "utf8" }));
 		expect(rmSyncMock).toHaveBeenCalledWith("/opt/demo/data", { recursive: true, force: true });
 		expect(rmSyncMock).toHaveBeenCalledWith("/srv/demo/cache", { recursive: true, force: true });
 		expect(rmSyncMock).not.toHaveBeenCalledWith("/etc/localtime", expect.anything());
@@ -494,9 +510,7 @@ describe("quick service docker lifecycle", () => {
 			extraPortsJson: JSON.stringify([]),
 			command: null,
 		});
-		execFileSyncMock.mockImplementationOnce(() => {
-			throw Object.assign(new Error("Command failed: docker start qs-demo"), { stderr: "Error response from daemon: No such container: qs-demo" });
-		});
+		ownership.mockResolvedValueOnce(null).mockResolvedValueOnce(null);
 		execFileMock.mockImplementationOnce((_file: string, _args: string[], _opts: unknown, cb: (error: Error | null, result?: { stdout: string; stderr: string }) => void) => {
 			cb(new Error("docker daemon unavailable"));
 			return {};
@@ -568,7 +582,7 @@ describe("quick service docker lifecycle", () => {
 		// docker run stage; the daemon preflight still resolves.
 		routeExecFile({
 			run: (cb) => {
-				releaseInstall = () => cb(null, { stdout: "abcdef1234567890\n", stderr: "" });
+				releaseInstall = () => cb(null, { stdout: newId + "\n", stderr: "" });
 				// deliberately do not call cb yet
 			},
 		});
@@ -624,13 +638,13 @@ describe("quick service docker lifecycle", () => {
 		await expect(updateService("demo")).resolves.toEqual({ status: "running", health: "healthy", logTail: "old line\nservice ready" });
 
 		expect(execFileSyncMock).toHaveBeenCalledWith("docker", ["pull", "example/demo:latest"], expect.objectContaining({ timeout: 300_000, encoding: "utf8" }));
-		expect(execFileSyncMock).toHaveBeenCalledWith("docker", ["stop", "qs-demo__prev"], expect.objectContaining({ timeout: 30_000, encoding: "utf8" }));
+		expect(execFileSyncMock).toHaveBeenCalledWith("docker", ["stop", oldId], expect.objectContaining({ timeout: 30_000, encoding: "utf8" }));
 		expect(prismaMock.quickService.update).toHaveBeenCalledWith({ where: { instanceKey_slug: { instanceKey: "hub-host", slug: "demo" } }, data: { status: "installing", error: null } });
 		const dockerArgs = dockerRunArgs();
 		expect(dockerArgs).toEqual(expect.arrayContaining(["run", "-d", "--name", "qs-demo", "-p", "18080:8080", "example/demo:latest"]));
 		expect(prismaMock.quickService.update).toHaveBeenCalledWith({
 			where: { ...hubIdentity, id: "svc-update", slug: "demo" },
-			data: { status: "running", containerId: "abcdef1234567890", error: null },
+			data: { status: "running", containerId: newId, error: null },
 		});
 		expect(writeAuditLogMock).toHaveBeenCalledWith(expect.objectContaining({ action: "quick_service.update.started" }));
 		expect(writeAuditLogMock).toHaveBeenCalledWith(expect.objectContaining({
@@ -682,7 +696,7 @@ describe("quick service docker lifecycle", () => {
 		prismaMock.quickService.findUnique.mockResolvedValue({ ...hubIdentity, id: "svc-installing", slug: "demo", status: "installing", port: 12345, containerId: null, image: "example/demo:latest" });
 
 		await expect(uninstallService("demo")).rejects.toThrow("is installing");
-		expect(execFileSyncMock).not.toHaveBeenCalledWith("docker", expect.arrayContaining(["rm", "-f", "qs-demo"]), expect.anything());
+		expect(execFileSyncMock).not.toHaveBeenCalledWith("docker", expect.arrayContaining(["rm", "-f", oldId]), expect.anything());
 		expect(prismaMock.quickService.delete).not.toHaveBeenCalled();
 	});
 
@@ -708,14 +722,13 @@ describe("quick service docker lifecycle", () => {
 	});
 
 	it("checks listening ports with argv-based ss execution instead of shell grep", async () => {
+		openProc.mockResolvedValueOnce({
+			read: async (buffer: Buffer) => ({ bytesRead: buffer.write("node\0server.js\0") }), close: async () => undefined,
+		});
 		execFileMock.mockImplementation(
 			(file: string, _args: string[], _opts: unknown, cb: (error: Error | null, result?: { stdout: string; stderr: string }) => void) => {
 				if (file === "ss") {
 					cb(null, { stdout: "LISTEN 0 128 0.0.0.0:12345 0.0.0.0:* users:((\"node\",pid=4242,fd=18))\n", stderr: "" });
-					return {};
-				}
-				if (file === "tr") {
-					cb(null, { stdout: "node server.js ", stderr: "" });
 					return {};
 				}
 				cb(null, { stdout: "", stderr: "" });
@@ -746,7 +759,8 @@ describe("quick service docker lifecycle", () => {
 
 	it("gives the reserved port back when an install fails before the container is created", async () => {
 		prismaMock.quickService.findUnique.mockResolvedValue(null);
-		mkdirSyncMock.mockImplementationOnce(() => {
+		prismaMock.quickService.create.mockResolvedValueOnce({ ...hubIdentity, id: "fixture", slug: "demo" });
+		mounts.mockImplementationOnce(() => {
 			throw Object.assign(new Error("EACCES: permission denied, mkdir '/opt/demo/data'"), { code: "EACCES" });
 		});
 		await expect(installService({ template, userId: "user-1", customPort: 12345 })).rejects.toThrow(/EACCES/);
@@ -790,21 +804,12 @@ describe("quick service docker lifecycle", () => {
 
 	it("treats missing quick-service containers as stopped during status sync instead of surfacing docker inspect noise", async () => {
 		prismaMock.quickService.findUnique.mockResolvedValueOnce({ ...hubIdentity, id: "svc-sync", slug: "demo" });
-		execFileSyncMock.mockImplementationOnce(() => {
-			throw Object.assign(new Error("Command failed: docker inspect --format={{.State.Status}} qs-demo\nError: No such object: qs-demo\n"), {
-				stderr: "Error: No such object: qs-demo\n",
-				stdout: "",
-			});
-		});
+		ownership.mockResolvedValueOnce(null);
 		prismaMock.quickService.update.mockResolvedValueOnce({});
 
 		await expect(syncServiceStatus("demo")).resolves.toBe("stopped");
-		expect(execFileSyncMock).toHaveBeenCalledWith(
-			"docker",
-			["inspect", "--format={{.State.Status}}|{{.Id}}", "qs-demo"],
-			expect.objectContaining({ timeout: 10_000, encoding: "utf8" }),
-		);
-		expect(prismaMock.quickService.update).toHaveBeenCalledWith({ where: { instanceKey_slug: { instanceKey: "hub-host", slug: "demo" } }, data: { status: "stopped" } });
+		expect(ownership).toHaveBeenCalledWith({ kind: "local" }, "qs-demo", "svc-sync", { storedId: undefined, reconcile: false });
+		expect(prismaMock.quickService.update).toHaveBeenCalledWith({ where: { instanceKey_slug: { instanceKey: "hub-host", slug: "demo" } }, data: { status: "stopped", containerId: null } });
 		expect(writeAuditLogMock).toHaveBeenCalledWith(expect.objectContaining({ action: "quick_service.sync.started" }));
 		expect(writeAuditLogMock).toHaveBeenCalledWith(expect.objectContaining({
 			action: "quick_service.sync.succeeded",
@@ -847,7 +852,7 @@ describe("quick service docker lifecycle", () => {
 				action: "quick_service.install.succeeded",
 				detail: expect.objectContaining({
 					diff: expect.objectContaining({
-						after: expect.objectContaining({ status: "running", port: 12345, containerId: "abcdef1234567890" }),
+						after: expect.objectContaining({ status: "running", port: 12345, containerId: newId }),
 					}),
 				}),
 			}));
@@ -954,7 +959,7 @@ describe("quick service docker lifecycle", () => {
 		// update: a successful image pull should diff the new image in after.
 		vi.clearAllMocks();
 		execFileSyncMock.mockReturnValue("");
-		routeExecFile({ run: (cb) => cb(null, { stdout: "newcontainer12\n", stderr: "" }) });
+		routeExecFile({ run: (cb) => cb(null, { stdout: newId + "\n", stderr: "" }) });
 		writeAuditLogMock.mockResolvedValue(undefined);
 		prismaMock.quickService.findUnique.mockResolvedValueOnce({ ...hubIdentity, id: "svc-upd", slug: "demo", name: "Demo", category: "other", icon: "pkg", description: "Demo", image: "example/demo:new", port: 18080, path: "/demo/", envJson: "{}", volumesJson: "[]", internalPort: null, extraPortsJson: "[]", command: null, status: "running" });
 		prismaMock.quickService.update.mockResolvedValue({});
@@ -999,6 +1004,8 @@ describe("lifecycle validates the stored Docker target", () => {
 	it("stops update before remote recreation if the server moves after the pull", async () => {
 		vi.clearAllMocks();
 		const endpoint = { host: "server-a.test", port: 22, username: "operator", hostKeySha256: "pin", managementMode: "DIRECT", agentTokenHash: null };
+		const actual = await vi.importActual<typeof import("../container-ownership")>("../container-ownership");
+		ownership.mockImplementation(actual.ownedContainer);
 		let owner = "team-a";
 		loadOwnerMock.mockResolvedValue({ userId: "operator", roles: [], permissions: ["docker:manage"], currentTeamId: owner });
 		prismaMock.server.findFirst.mockResolvedValue({ teamId: owner, ...endpoint });

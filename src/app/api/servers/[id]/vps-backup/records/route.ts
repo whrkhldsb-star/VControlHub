@@ -1,3 +1,4 @@
+import { withServerLifecycleLock } from "@/lib/server/lifecycle-lock";
 import { apiCopy } from "@/lib/i18n/api-copy";
 /**
  * GET  /api/servers/[id]/vps-backup/records — list VPS backup records
@@ -9,6 +10,7 @@ import { apiCopy } from "@/lib/i18n/api-copy";
 import { z } from "zod";
 
 import { auditUserAction } from "@/lib/audit/service";
+import { sessionHasPermission } from "@/lib/auth/authorization";
 import { prisma } from "@/lib/db";
 import { withApiRoute } from "@/lib/http/api-guard";
 import { GENERAL_WRITE_LIMIT, GENERAL_READ_LIMIT } from "@/lib/http/rate-limit-presets";
@@ -40,25 +42,21 @@ export async function GET(
 	const { id: serverId } = await params;
 	return withApiRoute(
 		request,
-		{ permission: "server:read", rateLimit: GENERAL_READ_LIMIT },
-		async ({ session }) => {
+		{ permission: "server:read", optionalTokenPermissions: ["server:ssh", "server:sftp:unrestricted"], rateLimit: GENERAL_READ_LIMIT },
+		async ({ session }) => withServerLifecycleLock(serverId, async () => {
 			const teamAccess = await assertServerTeamAccess(session, serverId, "read");
 			if (!teamAccess.ok) return teamAccess.response;
 
-			const server = await prisma.server.findUnique({
-				where: { id: serverId },
-				select: { id: true },
-			});
-			if (!server) {
-				throw new NotFoundError(apiCopy("apiCopy.server.not.found.d7783f94"));
-			}
-
+			const canDownload = sessionHasPermission(session, "server:ssh")
+				&& sessionHasPermission(session, "server:sftp:unrestricted")
+				&& (await assertServerTeamAccess(session, serverId, "fileRead")).ok;
 			const records = await listVpsBackupRecords(serverId);
 			// Why a run failed is often a sentence the worker stored; it is said in the reader's language.
 			return Response.json({
+				canDownload,
 				records: (records as Array<{ errorMessage?: string | null }>).map((record) => ({ ...record, errorMessage: localizeStoredText(record.errorMessage) })),
 			});
-		},
+		}),
 	);
 }
 
@@ -70,7 +68,7 @@ export async function POST(
 	return withApiRoute(
 		request,
 		{ permission: "server:write", rateLimit: GENERAL_WRITE_LIMIT, bodySchema: triggerSchema },
-		async ({ session, body }) => {
+		async ({ session, body }) => withServerLifecycleLock(serverId, async () => {
 			const locale = await getServerLocale();
 
 			const teamAccess = await assertServerTeamAccess(session, serverId, "manage");
@@ -145,6 +143,6 @@ export async function POST(
 				undefined, session.currentTeamId);
 
 			return Response.json({ recordId, status: "PENDING" }, { status: 202 });
-		},
+		}),
 	);
 }

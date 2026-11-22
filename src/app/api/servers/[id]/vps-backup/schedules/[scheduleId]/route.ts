@@ -1,3 +1,4 @@
+import { withServerLifecycleLock } from "@/lib/server/lifecycle-lock";
 import { apiCopy } from "@/lib/i18n/api-copy";
 /**
  * PATCH  /api/servers/[id]/vps-backup/schedules/[scheduleId] — update schedule
@@ -42,7 +43,7 @@ export async function PATCH(
 	return withApiRoute(
 		request,
 		{ permission: "server:write", rateLimit: GENERAL_WRITE_LIMIT, bodySchema: updateSchema },
-		async ({ session, body }) => {
+		async ({ session, body }) => withServerLifecycleLock(serverId, async () => {
 			const teamAccess = await assertServerTeamAccess(session, serverId, "manage");
 			if (!teamAccess.ok) return teamAccess.response;
 
@@ -59,7 +60,7 @@ export async function PATCH(
 			}
 			await auditUserAction(session.userId, "vps-backup.schedule.update", { serverId, scheduleId }, undefined, session.currentTeamId);
 			return Response.json({ schedule: updated });
-		},
+		}),
 	);
 }
 
@@ -71,7 +72,7 @@ export async function DELETE(
 	return withApiRoute(
 		request,
 		{ permission: "server:write", rateLimit: GENERAL_WRITE_LIMIT },
-		async ({ session }) => {
+		async ({ session }) => withServerLifecycleLock(serverId, async () => {
 			const teamAccess = await assertServerTeamAccess(session, serverId, "manage");
 			if (!teamAccess.ok) return teamAccess.response;
 
@@ -92,6 +93,6 @@ export async function DELETE(
 			}
 			await auditUserAction(session.userId, "vps-backup.schedule.delete", { serverId, scheduleId }, undefined, session.currentTeamId);
 			return Response.json({ success: true });
-		},
+		}),
 	);
 }
