@@ -19,16 +19,18 @@ export async function moveSharePaths(db: ShareLinkClient, input: {
   oldPath: string;
   newPath: string;
   isDirectory: boolean;
+  caseInsensitive?: boolean;
 }): Promise<number> {
   const oldPrefix = `${input.oldPath}/`;
   const newPrefix = `${input.newPath}/`;
+  const mode = input.caseInsensitive ? { mode: "insensitive" as const } : {};
   const shares = await db.shareLink.findMany({
     where: {
       storageNodeId: input.storageNodeId,
       revokedAt: null,
       OR: [
-        { path: input.oldPath },
-        ...(input.isDirectory ? [{ path: { startsWith: escapeLikeLiteral(oldPrefix) } }] : []),
+        { path: input.caseInsensitive ? { equals: input.oldPath, mode: "insensitive" as const } : input.oldPath },
+        ...(input.isDirectory ? [{ path: { startsWith: escapeLikeLiteral(oldPrefix), ...mode } }] : []),
       ],
     },
     select: { id: true, path: true },
@@ -38,10 +40,12 @@ export async function moveSharePaths(db: ShareLinkClient, input: {
     const t = await serviceT();
     throw new BusinessError(t("backend.storageHardening.files.tooManyShares"));
   }
+  const matchesExact = (p: string) =>
+    input.caseInsensitive ? p.toLowerCase() === input.oldPath.toLowerCase() : p === input.oldPath;
   for (const share of shares) {
     await db.shareLink.update({
       where: { id: share.id },
-      data: { path: share.path === input.oldPath ? input.newPath : newPrefix + share.path.slice(oldPrefix.length) },
+      data: { path: matchesExact(share.path) ? input.newPath : newPrefix + share.path.slice(oldPrefix.length) },
     });
   }
   return shares.length;

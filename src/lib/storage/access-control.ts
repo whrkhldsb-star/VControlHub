@@ -1,3 +1,4 @@
+import { hasCaseInsensitiveLocalPaths, isWindowsStorageBasePath } from "./path-utils";
 import { lockStorageWrite } from "./mutation-lock";
 import { ConflictError } from "@/lib/errors";
 import { apiCopy } from "@/lib/i18n/api-copy";
@@ -65,7 +66,7 @@ function normalizeAccessPath(value: string | null | undefined): string | null {
   return result.path;
 }
 
-function pathMatchesGrant(targetPath: string, pathPrefix: string) {
+function pathMatchesGrant(targetPath: string, pathPrefix: string, caseInsensitive = false) {
   const normalizedTarget = normalizeAccessPath(targetPath);
   const normalizedPrefix = normalizeAccessPath(pathPrefix);
 
@@ -77,7 +78,9 @@ function pathMatchesGrant(targetPath: string, pathPrefix: string) {
     return true;
   }
 
-  return normalizedTarget === normalizedPrefix || normalizedTarget.startsWith(`${normalizedPrefix}/`);
+  const target = caseInsensitive ? normalizedTarget.toLowerCase() : normalizedTarget;
+  const prefix = caseInsensitive ? normalizedPrefix.toLowerCase() : normalizedPrefix;
+  return target === prefix || target.startsWith(`${prefix}/`);
 }
 
 function grantAllowsOperation(
@@ -102,9 +105,11 @@ export function parseNullableBigIntInput(value: unknown): bigint | null {
   return null;
 }
 
-async function getGrantUsageBytes(input: { storageNodeId: string; pathPrefix: string }) {
+async function getGrantUsageBytes(input: { storageNodeId: string; pathPrefix: string; caseInsensitive?: boolean }) {
   const normalizedPrefix = normalizeAccessPath(input.pathPrefix);
   if (normalizedPrefix === null) return BigInt(0);
+  const exact = input.caseInsensitive ? { equals: normalizedPrefix, mode: "insensitive" as const } : normalizedPrefix;
+  const mode = input.caseInsensitive ? { mode: "insensitive" as const } : {};
   const usage = await prisma.fileEntry.aggregate({
     where: {
       storageNodeId: input.storageNodeId,
@@ -113,8 +118,8 @@ async function getGrantUsageBytes(input: { storageNodeId: string; pathPrefix: st
       ...(normalizedPrefix
         ? {
             OR: [
-              { relativePath: normalizedPrefix },
-              { relativePath: { startsWith: escapeLikeLiteral(`${normalizedPrefix}/`) } },
+              { relativePath: exact },
+              { relativePath: { startsWith: escapeLikeLiteral(`${normalizedPrefix}/`), ...mode } },
             ],
           }
         : {}),
@@ -126,10 +131,15 @@ async function getGrantUsageBytes(input: { storageNodeId: string; pathPrefix: st
 }
 
 /** Size of the live file at the write target (0 for a new file or a directory target). */
-async function getReplacedFileBytes(storageNodeId: string, targetPath: string) {
+async function getReplacedFileBytes(storageNodeId: string, targetPath: string, caseInsensitive = false) {
   if (!targetPath) return BigInt(0);
   const existing = await prisma.fileEntry.findFirst({
-    where: { storageNodeId, relativePath: targetPath, isDeleted: false, entryType: "FILE" },
+    where: {
+      storageNodeId,
+      relativePath: caseInsensitive ? { equals: targetPath, mode: "insensitive" as const } : targetPath,
+      isDeleted: false,
+      entryType: "FILE",
+    },
     select: { size: true },
   });
   return existing?.size ?? BigInt(0);
@@ -175,7 +185,7 @@ export async function assertStorageAccess(input: {
   const nodeScope = storageNodeTeamWhere(input.session);
   const node = await prisma.storageNode.findFirst({
     where: { id: input.storageNodeId, ...nodeScope },
-    select: { id: true },
+    select: { id: true, driver: true, basePath: true, server: { select: { operatingSystem: true } } },
   });
   if (!node) {
     return { allowed: false, reason: STORAGE_ACCESS_DENIED_REASONS.noAccess };
@@ -203,7 +213,9 @@ export async function assertStorageAccess(input: {
     return { allowed: true };
   }
 
-  const matchingGrants = grants.filter((grant: StorageAccessGrantRow) => pathMatchesGrant(targetPath, grant.pathPrefix));
+  const caseInsensitive = hasCaseInsensitiveLocalPaths(node.driver)
+    || (node.driver === "SFTP" && (node.server?.operatingSystem === "WINDOWS" || Boolean(node.basePath && isWindowsStorageBasePath(node.basePath))));
+  const matchingGrants = grants.filter((grant: StorageAccessGrantRow) => pathMatchesGrant(targetPath, grant.pathPrefix, caseInsensitive));
   const operationGrant = matchingGrants.find((grant: StorageAccessGrantRow) => grantAllowsOperation(grant, input.operation));
 
   if (!operationGrant) {
@@ -213,21 +225,21 @@ export async function assertStorageAccess(input: {
   if (input.unmeteredTreeWrite && input.operation === "write") {
     // Include narrower grants below the target: rsync can populate their files too.
     const limited = grants.some(grant => (grant.maxFileBytes !== null || grant.quotaBytes !== null)
-      && (pathMatchesGrant(targetPath, grant.pathPrefix) || pathMatchesGrant(grant.pathPrefix, targetPath)));
+      && (pathMatchesGrant(targetPath, grant.pathPrefix, caseInsensitive) || pathMatchesGrant(grant.pathPrefix, targetPath, caseInsensitive)));
     if (limited) return { allowed: false, reason: "unmetered_tree_write" };
   }
   let verifyMove: (() => Promise<void>) | undefined;
   const members = input.writeMembers;
   let capacityGrants = members
-    ? grants.filter(grant => members.some(member => pathMatchesGrant(member.relativePath, grant.pathPrefix)))
+    ? grants.filter(grant => members.some(member => pathMatchesGrant(member.relativePath, grant.pathPrefix, caseInsensitive)))
     : matchingGrants;
   if (input.measureMove) {
     const limited = grants.filter(grant => grant.maxFileBytes !== null || grant.quotaBytes !== null);
     // One aggregate cannot admit a subtree against a second, nested destination prefix.
-    if (limited.some(grant => grant.pathPrefix !== targetPath && pathMatchesGrant(grant.pathPrefix, targetPath))) {
+    if (limited.some(grant => { const gp = normalizeAccessPath(grant.pathPrefix); return gp !== null && (caseInsensitive ? gp.toLowerCase() !== targetPath.toLowerCase() : gp !== targetPath) && pathMatchesGrant(gp, targetPath, caseInsensitive); })) {
       return { allowed: false, reason: "unmetered_tree_write" };
     }
-    capacityGrants = limited.filter(grant => pathMatchesGrant(targetPath, grant.pathPrefix));
+    capacityGrants = limited.filter(grant => pathMatchesGrant(targetPath, grant.pathPrefix, caseInsensitive));
     if (capacityGrants.length) {
       const measure = input.measureMove;
       const first = await measure();
@@ -257,7 +269,7 @@ export async function assertStorageAccess(input: {
         bytes = BigInt(0);
         largest = BigInt(0);
         for (const member of members) {
-          if (member.size == null || !pathMatchesGrant(member.relativePath, grant.pathPrefix)) continue;
+          if (member.size == null || !pathMatchesGrant(member.relativePath, grant.pathPrefix, caseInsensitive)) continue;
           const size = BigInt(member.size);
           bytes += size;
           if (size > largest) largest = size;
@@ -270,7 +282,7 @@ export async function assertStorageAccess(input: {
 
     const movedFrom = input.movedFrom === null || input.movedFrom === undefined ? null : normalizeAccessPath(input.movedFrom);
     const quotas = capacityGrants.filter(grant => grant.quotaBytes !== null &&
-      (movedFrom === null || !pathMatchesGrant(movedFrom, grant.pathPrefix)));
+      (movedFrom === null || !pathMatchesGrant(movedFrom, grant.pathPrefix, caseInsensitive)));
     if (quotas.length) {
       // Grants on overlapping paths (including different users) count the
       // same files. Serialize by node, never by grant id.
@@ -282,9 +294,9 @@ export async function assertStorageAccess(input: {
       try {
         // The grant already counts the live file being replaced. Every enclosing quota that
         // gains the moved bytes must admit them under the same node lock.
-        const replacedBytes = members ? BigInt(0) : await getReplacedFileBytes(input.storageNodeId, targetPath);
+        const replacedBytes = members ? BigInt(0) : await getReplacedFileBytes(input.storageNodeId, targetPath, caseInsensitive);
         for (const grant of quotas) {
-          const usedBytes = await getGrantUsageBytes({ storageNodeId: input.storageNodeId, pathPrefix: grant.pathPrefix });
+          const usedBytes = await getGrantUsageBytes({ storageNodeId: input.storageNodeId, pathPrefix: grant.pathPrefix, caseInsensitive });
           if (usedBytes - replacedBytes + charges.get(grant.id)!.bytes > grant.quotaBytes!) {
             await releaseQuotaGuard();
             return { allowed: false, reason: STORAGE_ACCESS_DENIED_REASONS.quotaExceeded, matchedGrantId: grant.id };

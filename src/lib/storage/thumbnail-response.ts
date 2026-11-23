@@ -1,3 +1,4 @@
+import { openManagedLocalFile } from "./open-local-file";
 /**
  * Thumbnails for image files on a storage node, shared by the media library
  * (`/api/media/[id]/thumbnail`) and the file browser
@@ -9,7 +10,6 @@ import { apiCopy } from "@/lib/i18n/api-copy";
 import { t } from "@/lib/i18n/service-translations";
 import { createHash, randomBytes } from "node:crypto";
 import { mkdir, readFile, rename, rm, stat, writeFile } from "node:fs/promises";
-import { createReadStream } from "node:fs";
 import path from "node:path";
 
 import { Client } from "ssh2";
@@ -19,7 +19,6 @@ import { connectSsh } from "@/lib/ssh/client";
 import { createLimiter } from "@/lib/concurrency/limiter";
 import { createLogger } from "@/lib/logging";
 import { thumbnailCacheRoot } from "@/lib/media/thumbnail-cache";
-import { resolveManagedLocalPath } from "@/lib/storage/managed-path";
 import {
   normalizeRemoteTargetPath,
   toClientStorageError,
@@ -213,28 +212,6 @@ function runSingleFlight<T>(
   return promise;
 }
 
-function readLocalIntoBuffer(
-  absolutePath: string,
-  maxBytes: number,
-): Promise<Buffer> {
-  return new Promise((resolve, reject) => {
-    const chunks: Buffer[] = [];
-    let total = 0;
-    const stream = createReadStream(absolutePath);
-    stream.on("data", (chunk: string | Buffer) => {
-      const buf = typeof chunk === "string" ? Buffer.from(chunk) : chunk;
-      total += buf.length;
-      if (total > maxBytes) {
-        stream.destroy(new Error("THUMBNAIL_SOURCE_TOO_LARGE"));
-        return;
-      }
-      chunks.push(buf);
-    });
-    stream.on("end", () => resolve(Buffer.concat(chunks)));
-    stream.on("error", (err) => reject(err));
-  });
-}
-
 function readRemoteIntoBuffer(
   client: Client,
   remotePath: string,
@@ -338,14 +315,31 @@ export async function respondWithStorageThumbnail(input: {
     let sftpConnected = false;
     try {
       if (node.driver === "LOCAL") {
-        const absolutePath = resolveManagedLocalPath(
+        const handle = await openManagedLocalFile(
           node.basePath,
           input.relativePath,
-        ).absolutePath;
-        sourceBuffer = await readLocalIntoBuffer(
-          absolutePath,
-          MAX_SOURCE_BYTES,
         );
+        try {
+          const stats = await handle.stat();
+          if (!stats.isFile()) throw new Error("Target is not a readable file");
+          if (stats.size > MAX_SOURCE_BYTES) throw new Error("THUMBNAIL_SOURCE_TOO_LARGE");
+          const chunks: Buffer[] = [];
+          let total = 0;
+          const stream = handle.createReadStream({ autoClose: false });
+          try {
+            for await (const chunk of stream) {
+              const buf = Buffer.isBuffer(chunk) ? chunk : Buffer.from(chunk);
+              total += buf.length;
+              if (total > MAX_SOURCE_BYTES) throw new Error("THUMBNAIL_SOURCE_TOO_LARGE");
+              chunks.push(buf);
+            }
+          } finally {
+            if (!stream.destroyed) stream.destroy();
+          }
+          sourceBuffer = Buffer.concat(chunks, total);
+        } finally {
+          await handle.close();
+        }
       } else if (node.driver === "SFTP") {
         if (isBreakerOpen(node.id)) {
           return unavailable("offline");

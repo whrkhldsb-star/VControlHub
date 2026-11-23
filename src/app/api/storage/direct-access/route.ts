@@ -1,3 +1,4 @@
+import { isWindowsStorageBasePath } from "@/lib/storage/path-utils";
 import { WINDOWS_ROOT_PROTOCOL } from "@/lib/server/windows-direct-gateway";
 import { apiCopy } from "@/lib/i18n/api-copy";
 import crypto from "node:crypto";
@@ -212,7 +213,7 @@ async function resolveDirectAccessPayload(input: {
     throw new ForbiddenError(storageAccessDeniedCopy(access.reason));
   }
   const boundServer = node.driver === "SFTP" && node.server && isServerStorageEndpoint(node.server, node) ? node.server : null;
-  await assertNotRecycled(nodeId, normalizedRelativePath, "read", node.driver, boundServer?.operatingSystem === "WINDOWS");
+  await assertNotRecycled(nodeId, normalizedRelativePath, "read", node.driver, boundServer?.operatingSystem === "WINDOWS" || (node.driver === "SFTP" && isWindowsStorageBasePath(node.basePath)));
 
   if (node.driver !== "SFTP" || (node.server && !boundServer)) {
     return { mode: "managed-download", fallbackUrl: fallback };

@@ -17,6 +17,6 @@ describe("backup drill route", () => {
     const response = await route.POST(new Request("http://local/api/backups/b1/drill", { method: "POST" }), { params: Promise.resolve({ id: "b1" }) });
     expect(response.status).toBe(202);
     expect(mocks.getBackupRecord).toHaveBeenCalledWith("b1", session, expect.anything());
-    expect(mocks.enqueueJob).toHaveBeenCalledWith(expect.objectContaining({ type: "backup.drill", createdBy: "u1", teamId: "team-1", payload: expect.objectContaining({ backupId: "b1", teamId: "team-1" }) }), expect.anything());
+    expect(mocks.enqueueJob).toHaveBeenCalledWith(expect.objectContaining({ type: "backup.drill", createdBy: "u1", teamId: null, payload: expect.objectContaining({ backupId: "b1", teamId: null }) }), expect.anything());
   });
 });

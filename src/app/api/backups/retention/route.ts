@@ -35,15 +35,15 @@ export async function POST(request: Request) {
       title: "Clean up old backups (automatic retention policy)",
       // In the all-customers view the cleanup is the platform's own backups (those no customer owns); it used to
       // be refused for lack of a customer while the job still reported success with nothing deleted.
-      payload: { ...body, teamId: session.currentTeamId ?? null, ...(session.currentTeamId ? {} : { platformScope: true }) },
+      payload: { ...body, teamId: null, platformScope: true },
       createdBy: session.userId,
-      teamId: session.currentTeamId ?? null,
+      teamId: null,
       maxAttempts: 1,
     });
     await auditUserAction(session.userId, "backup.retention.enqueue", {
       jobId: job.id,
       payload: body,
-    }, undefined, session.currentTeamId);
+    }, undefined, null);
     return NextResponse.json({ jobId: job.id, taskId: `job:${job.id}` }, { status: 202 });
   });
 }

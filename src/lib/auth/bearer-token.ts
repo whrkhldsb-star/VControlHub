@@ -71,19 +71,26 @@ export async function authenticateBearerForPermissions(
 	// proxy's "tokens are GET-only" rule only checks that a session cookie looks plausible, which a script can fake.
 	// Without this, a leaked default read-only token could post and cancel as its owner.
 	const readOnlyRequest = SAFE_TOKEN_METHODS.has(request.method.toUpperCase());
-	const grantedPermissions = [...new Set([...requiredPermissions, ...optionalPermissions])].filter(
+	const grantedRequired = [...new Set(requiredPermissions)].filter(
 		(permission) =>
 			!PLATFORM_ONLY_PERMISSIONS.has(permission) &&
 			(readOnlyRequest || !permission.endsWith(":read")) &&
 			tokenAllowsPermission(verified.scopes, permission) &&
 			sessionHasPermission(ownerSession, permission),
 	);
-	if (!requiredPermissions.some(permission => grantedPermissions.includes(permission))) {
+	if (grantedRequired.length === 0) {
 		return Response.json(
 			{ error: t("api.auth.invalidToken") },
 			{ status: 403 },
 		);
 	}
+	const grantedOptional = [...new Set(optionalPermissions)].filter(
+		(permission) =>
+			!PLATFORM_ONLY_PERMISSIONS.has(permission) &&
+			tokenAllowsPermission(verified.scopes, permission) &&
+			sessionHasPermission(ownerSession, permission),
+	);
+	const grantedPermissions = [...new Set([...grantedRequired, ...grantedOptional])];
 	const session: SessionPayload = { ...ownerSession, roles: [], permissions: grantedPermissions };
 	verifiedBearerIds.set(session, verified.tokenId);
 	return {

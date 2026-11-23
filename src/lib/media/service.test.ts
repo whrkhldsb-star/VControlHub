@@ -1,3 +1,4 @@
+import { noRecycledAncestorSql } from "@/lib/storage/archive-access";
 import { describe, expect, it, vi, beforeEach } from "vitest";
 const { mockPrisma } = vi.hoisted(() => ({
   mockPrisma: {
@@ -183,7 +184,7 @@ describe("media service", () => {
       expect(query.sql).toContain("strpos(lower(e.name)");
       expect(query.sql).toContain('strpos(lower(e."relativePath")');
       expect(query.sql).toContain("ANY(e.tags)");
-      expect(query.sql).not.toMatch(/host|basePath|publicBaseUrl|password|privateKey/);
+      expect(query.sql.replace(noRecycledAncestorSql.sql, "")).not.toMatch(/host|basePath|publicBaseUrl|password|privateKey/);
     }
   });
 

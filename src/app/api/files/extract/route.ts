@@ -1,3 +1,5 @@
+import { Readable } from "node:stream";
+import { openManagedLocalFile } from "@/lib/storage/open-local-file";
 import { randomUUID } from "node:crypto";
 import { createLogger } from "@/lib/logging";
 import { lockStorageFileOverwrite } from "@/lib/storage/file-overwrite-lock";
@@ -6,7 +8,7 @@ import { apiCopy } from "@/lib/i18n/api-copy";
 import { getServerLocale, t } from "@/lib/i18n/translations";
 import { NextRequest, NextResponse } from "next/server";
 import { z } from "zod";
-import { createReadStream, createWriteStream } from "node:fs";
+import { createWriteStream } from "node:fs";
 import path from "node:path";
 import fs from "node:fs/promises";
 import { pipeline } from "node:stream/promises";
@@ -29,6 +31,19 @@ import { syncLocalDirectoryEntries } from "@/lib/storage/local-sync";
 
 import { ForbiddenError, NotFoundError, ValidationError, isAppError } from "@/lib/errors";
 import { getErrorMessage } from "@/lib/http/error-message";
+
+function streamFileHandle(handle: Awaited<ReturnType<typeof openManagedLocalFile>>): Readable {
+  return Readable.from((async function* () {
+    const chunk = Buffer.allocUnsafe(64 * 1024);
+    let offset = 0;
+    while (true) {
+      const { bytesRead } = await handle.read(chunk, 0, chunk.length, offset);
+      if (bytesRead === 0) break;
+      offset += bytesRead;
+      yield Buffer.from(chunk.subarray(0, bytesRead));
+    }
+  })());
+}
 
 export const dynamic = "force-dynamic";
 
@@ -194,7 +209,14 @@ export async function POST(request: NextRequest) {
           // only the last member's size, so a multi-member file was refused);
           // the limiter below then writes exactly that much.
           const limitMessage = t("backend.storageHardening.extract.gzOutputTooLarge", locale);
-          const declaredSize = await countGunzipOutput(fullPath, MAX_GUNZIP_OUTPUT_BYTES, limitMessage);
+          const gzHandle = await openManagedLocalFile(node.basePath, relativePath);
+          let declaredSize: number;
+          try {
+            declaredSize = await countGunzipOutput(streamFileHandle(gzHandle), MAX_GUNZIP_OUTPUT_BYTES, limitMessage);
+          } catch (error) {
+            await gzHandle.close().catch(() => undefined);
+            throw error;
+          }
           const admission = await assertStorageAccess({
             session,
             storageNodeId: node.id,
@@ -203,6 +225,7 @@ export async function POST(request: NextRequest) {
             writeBytes: declaredSize,
           });
           if (!admission.allowed) {
+            await gzHandle.close().catch(() => undefined);
             return NextResponse.json(
               { error: storageAccessDeniedCopy(admission.reason) },
               { status: 403 },
@@ -212,7 +235,7 @@ export async function POST(request: NextRequest) {
           const staged = path.join(path.dirname(outputPath.path), `.vch-extract-${randomUUID()}.tmp`);
           let release: (() => Promise<void>) | undefined;
           try {
-            await pipeline(createReadStream(fullPath), createGunzip(), new GunzipOutputLimiter(declaredSize, limitMessage),
+            await pipeline(streamFileHandle(gzHandle), createGunzip(), new GunzipOutputLimiter(declaredSize, limitMessage),
               createWriteStream(staged, { flags: "wx", mode: 0o600 }), { signal: request.signal });
             const parent = path.posix.dirname(outputRelativePath);
             release = await lockStorageFileOverwrite(node.id, outputRelativePath, parent === "." ? "" : parent);
@@ -233,6 +256,7 @@ export async function POST(request: NextRequest) {
               throw error;
             }
           } finally {
+            await gzHandle.close().catch(() => undefined);
             await fs.rm(staged, { force: true }).catch(() => undefined);
             await release?.();
             await releaseStorageQuotaGuard(admission);
@@ -248,11 +272,13 @@ export async function POST(request: NextRequest) {
             if (error instanceof ArchiveExtractError) throw new ValidationError(archiveErrorCopy(error));
             throw error;
           };
-          const plan = await planExtraction(fullPath, kind, request.signal).catch(asValidation);
+          const archiveHandle = await openManagedLocalFile(node.basePath, relativePath);
+          const pinnedArchivePath = process.platform === "linux" ? `/proc/self/fd/${archiveHandle.fd}` : fullPath;
           let admission: Awaited<ReturnType<typeof assertStorageAccess>> | undefined;
           try {
+            const plan = await planExtraction(pinnedArchivePath, kind, request.signal).catch(asValidation);
             const result = await extractArchive({
-              filePath: fullPath, kind, archiveName: formatName, parentDir, parentRelativePath: parentRelative, plan, signal: request.signal,
+              filePath: pinnedArchivePath, kind, archiveName: formatName, parentDir, parentRelativePath: parentRelative, plan, signal: request.signal,
               beforePublish: async (folderName, members) => {
                 const folder = path.posix.join(parentRelative, folderName);
                 await assertNotRecycled(node.id, folder, "write", node.driver);
@@ -306,6 +332,7 @@ export async function POST(request: NextRequest) {
               skipped: result.skipped,
             });
           } finally {
+            await archiveHandle.close().catch(() => undefined);
             await releaseStorageQuotaGuard(admission);
           }
         } else {

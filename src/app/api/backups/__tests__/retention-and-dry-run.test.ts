@@ -117,9 +117,9 @@ describe("backup retention + offsite dry-run routes", () => {
 			expect(mocks.enqueueJob).toHaveBeenCalledWith({
 				type: "backup.retention",
 				title: expect.any(String),
-				payload: { olderThanDays: 45, keepLatestPerType: 3, teamId: "team_1" },
+				payload: { olderThanDays: 45, keepLatestPerType: 3, teamId: null, platformScope: true },
 				createdBy: "u_1",
-				teamId: "team_1",
+				teamId: null,
 				maxAttempts: 1,
 			});
 		});
@@ -151,7 +151,7 @@ describe("backup retention + offsite dry-run routes", () => {
 				"backup.retention.enqueue",
 				{ jobId: "job_1", payload: { olderThanDays: 7 } },
 				undefined,
-				"team_1",
+				null,
 			);
 		});
 

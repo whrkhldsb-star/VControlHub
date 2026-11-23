@@ -186,7 +186,7 @@ describe("Dashboard", () => {
       currentTeamId: "team_1", mustChangePassword: false,
     });
     await Dashboard();
-    expect(prisma.scheduledTask.count).toHaveBeenCalledWith({ where: { status: "ACTIVE", teamId: "team_1" } });
+    expect(prisma.scheduledTask.count).toHaveBeenCalledWith({ where: { status: "ACTIVE", teamId: "team_1", team: { deletedAt: null } } });
     expect(dashboardCommands).toHaveBeenCalled();
     expect(prisma.auditLog.findMany).not.toHaveBeenCalled();
   });

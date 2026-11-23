@@ -28,7 +28,7 @@ export async function POST(request: Request) {
         ...body,
         createdBy: session.userId,
       });
-      await auditUserAction(session.userId, "ai.provider.create", { providerId: provider.id }, undefined, session.currentTeamId);
+      await auditUserAction(session.userId, "ai.provider.create", { providerId: provider.id }, undefined, session.roles?.includes("admin") ? null : session.currentTeamId);
       return NextResponse.json(
         { provider: serializeProvider(provider) },
         { status: 201 },

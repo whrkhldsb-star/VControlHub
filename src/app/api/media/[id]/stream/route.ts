@@ -1,7 +1,6 @@
+import { openManagedLocalFile } from "@/lib/storage/open-local-file";
 import { apiCopy } from "@/lib/i18n/api-copy";
 import { getServerLocale } from "@/lib/i18n/translations";
-import { createReadStream } from "node:fs";
-import { stat } from "node:fs/promises";
 import { Readable } from "node:stream";
 import { NextResponse } from "next/server";
 import { Client } from "ssh2";
@@ -13,7 +12,6 @@ import { createLogger } from "@/lib/logging";
 import { getMediaItem } from "@/lib/media/service";
 import { assertStorageAccess } from "@/lib/storage/access-control";
 import { storageAccessDeniedCopy } from "@/lib/storage/access-denied";
-import { resolveManagedLocalPath } from "@/lib/storage/managed-path";
 import { normalizeStorageRelativePath } from "@/lib/storage/path-utils";
 import {
   normalizeRemoteTargetPath,
@@ -145,28 +143,38 @@ export async function GET(
       }
 
       if (node.driver === "LOCAL") {
-        let localPath: string;
+        let handle: Awaited<ReturnType<typeof openManagedLocalFile>> | undefined;
+        let streamed = false;
         try {
-          ({ absolutePath: localPath } = resolveManagedLocalPath(
+          handle = await openManagedLocalFile(
             node.basePath,
             normalizedRelative.path,
-          ));
-          const fileStat = await stat(localPath);
-          if (!fileStat.isFile())
+          );
+          const fileStat = await handle.stat();
+          if (!fileStat.isFile()) {
+            await handle.close();
+            handle = undefined;
             return apiError({
               code: "VALIDATION_FAILED",
               message: apiCopy("apiCopy.target.is.not.a.playable.file.a829624f"),
               status: 400,
             });
+          }
           const range = parseStorageRange(
             request.headers.get("range"),
             fileStat.size,
           );
-          if (range instanceof Response) return range;
-          const stream = createReadStream(localPath, {
+          if (range instanceof Response) {
+            await handle.close();
+            handle = undefined;
+            return range;
+          }
+          const stream = handle.createReadStream({
             start: range.start,
             end: range.end,
+            autoClose: true,
           });
+          streamed = true;
           return storageStreamResponse({
             stream,
             range,
@@ -176,6 +184,7 @@ export async function GET(
             download,
           });
         } catch (error) {
+          if (handle && !streamed) await handle.close().catch(() => undefined);
           logger.error("read local media stream failed", error, { id });
           return apiError({
             code: "NOT_FOUND",

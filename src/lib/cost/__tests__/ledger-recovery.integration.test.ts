@@ -267,12 +267,19 @@ describe.skipIf(process.env.RUN_DATABASE_INTEGRATION_TESTS !== "1")("cost ledger
 		// A previous-version process can still deliver during a rolling upgrade.
 		await prisma.notification.create({ data: { ...previous, userId: ids[1]! } });
 		const push = vi.spyOn(notifications, "announceStoredNotifications").mockResolvedValue(undefined);
+		// This database can also have platform administrators created by other suites.
+		const fixtureUsers = new Set(ids);
+		const where = { teamId, actionUrl, userId: { in: ids } };
+		const inbox = () => prisma.notification.findMany({ where, select: { userId: true }, orderBy: { userId: "asc" } });
 		try {
 			const concurrent = await Promise.all([checkBudgetAlerts(effectiveDate, session), checkBudgetAlerts(effectiveDate, session)]);
-			expect(concurrent.reduce((sum, r) => sum + r.notificationsSent, 0)).toBe(999);
-			expect(await prisma.notification.count({ where: { teamId, actionUrl } })).toBe(1000);
-			await prisma.notification.deleteMany({ where: { teamId, actionUrl } });
-			expect(await checkBudgetAlerts(effectiveDate, session)).toMatchObject({ notificationsSent: 0, duplicatesSkipped: 1001 });
+			const announced = push.mock.calls.flatMap(([page]) => page);
+			expect(concurrent.reduce((sum, result) => sum + result.notificationsSent, 0)).toBe(announced.length);
+			expect(announced.map(row => row.userId).filter(id => fixtureUsers.has(id)).sort()).toEqual(ids.slice(2));
+			expect((await inbox()).map(row => row.userId)).toEqual(ids.slice(1));
+			await prisma.notification.deleteMany({ where });
+			expect((await checkBudgetAlerts(effectiveDate, session)).duplicatesSkipped).toBeGreaterThanOrEqual(ids.length);
+			expect(await inbox()).toEqual([]);
 		} finally { push.mockRestore(); }
 	}, 30_000);
 

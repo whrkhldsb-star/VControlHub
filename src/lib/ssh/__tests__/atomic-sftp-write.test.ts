@@ -27,6 +27,7 @@ describe("atomic SFTP replacement", () => {
         return stream;
       },
       fchmod: vi.fn((_handle: Buffer, _mode: number, cb: () => void) => cb()),
+      close: vi.fn((_handle: Buffer, cb: () => void) => cb()),
       ext_openssh_rename: vi.fn((from: string, to: string, cb: () => void) => {
         files.set(to, files.get(from)!);
         files.delete(from);
@@ -47,6 +48,7 @@ describe("atomic SFTP replacement", () => {
     });
     expect([...files]).toEqual([[target, "complete"]]);
     expect(sftp.fchmod).toHaveBeenCalledWith(Buffer.from("handle"), 0o640, expect.any(Function));
+    expect(sftp.close).toHaveBeenCalledWith(Buffer.from("handle"), expect.any(Function));
   });
 
   it("removes only the stage after a premature close", async () => {

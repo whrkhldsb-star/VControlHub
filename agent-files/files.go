@@ -500,20 +500,40 @@ func (s share) handle(op operation) (result, error) {
 			if err := op.beforeWrite(); err != nil {
 				return out, err
 			}
-			parent := "."
+			cur, err := s.root.OpenRoot(".")
+			if err != nil {
+				return out, err
+			}
 			for _, part := range strings.Split(path.Dir(op.Path), "/") {
-				parent = path.Join(parent, part)
+				if part == "." {
+					continue
+				}
 				if err := op.beforeWrite(); err != nil {
+					cur.Close()
 					return out, err
 				}
-				if err := s.root.Mkdir(parent, 0750); err != nil && !errors.Is(err, fs.ErrExist) {
+				if err := cur.Mkdir(part, 0750); err != nil && !errors.Is(err, fs.ErrExist) {
+					cur.Close()
 					return out, err
 				}
-				info, err := s.root.Lstat(parent)
-				if err != nil || !info.IsDir() || !exactEntry(s.root, parent, info) {
+				info, err := cur.Lstat(part)
+				if err != nil || !info.IsDir() || info.Mode()&os.ModeSymlink != 0 || !exactEntry(cur, part, info) {
+					cur.Close()
 					return out, denied
 				}
+				next, err := cur.OpenRoot(part)
+				cur.Close()
+				if err != nil {
+					return out, err
+				}
+				actual, err := next.Stat(".")
+				if err != nil || !os.SameFile(info, actual) {
+					next.Close()
+					return out, changed
+				}
+				cur = next
 			}
+			cur.Close()
 			if err := s.trackUpload(key, op.Path); err != nil {
 				return out, err
 			}

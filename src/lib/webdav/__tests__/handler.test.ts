@@ -65,10 +65,14 @@ vi.mock("@/lib/db", () => ({
     // No recycle-bin rows at the destination unless a test says otherwise.
     fileEntry: {
       aggregate: vi.fn(async () => ({ _sum: { size: BigInt(0) }, _max: { size: BigInt(0) } })),
-      findFirst: (args: { where: { isDeleted?: boolean; relativePath: string | { in: string[] } } }) =>
-        args.where.isDeleted && typeof args.where.relativePath === "object"
+      findFirst: (args: { where: { isDeleted?: boolean; relativePath: string | { in: string[] } | { equals: string; mode?: string } } }) =>
+        args.where.isDeleted && typeof args.where.relativePath === "object" && "in" in args.where.relativePath
           ? mocks.recycledOnPath(args.where.relativePath.in)
-          : mocks.fileEntryFindFirst(args),
+          : mocks.fileEntryFindFirst(
+              typeof args.where.relativePath === "object" && "equals" in args.where.relativePath
+                ? { ...args, where: { ...args.where, relativePath: args.where.relativePath.equals } }
+                : args,
+            ),
       findMany: mocks.fileEntryFindMany,
       create: mocks.indexCreate,
       updateMany: mocks.fileEntryUpdateMany,
@@ -171,8 +175,16 @@ function txClient() {
 }
 
 /** The index rows at a path and below it, as the handlers select them. */
-function atOrBelow(relativePath: string) {
-  return { OR: [{ relativePath }, { relativePath: { startsWith: `${relativePath}/` } }] };
+function atOrBelow(relativePath: string, caseInsensitive = false) {
+  const exact = caseInsensitive ? { equals: relativePath, mode: "insensitive" as const } : relativePath;
+  const mode = caseInsensitive ? { mode: "insensitive" as const } : {};
+  return { OR: [{ relativePath: exact }, { relativePath: { startsWith: `${relativePath}/`, ...mode } }] };
+}
+
+function shareRevokeWhere(relativePath: string, caseInsensitive = false) {
+  const exact = caseInsensitive ? { equals: relativePath, mode: "insensitive" as const } : relativePath;
+  const mode = caseInsensitive ? { mode: "insensitive" as const } : {};
+  return { storageNodeId: "n1", revokedAt: null, OR: [{ path: exact }, { path: { startsWith: `${relativePath}/`, ...mode } }] };
 }
 
 function accessCalls() {
@@ -790,7 +802,7 @@ describe("webdav handlers", () => {
       // File moves rewrite no descendants; whatever held the destination path
       // (stale recycle-bin rows) is dropped, not kept as a tombstone.
       expect(mocks.executeRaw).not.toHaveBeenCalled();
-      expect(mocks.fileEntryDeleteMany).toHaveBeenCalledWith({ where: { storageNodeId: "n1", ...atOrBelow("moved/b.txt") } });
+      expect(mocks.fileEntryDeleteMany).toHaveBeenCalledWith({ where: { storageNodeId: "n1", ...atOrBelow("moved/b.txt", process.platform === "win32") } });
     });
 
     it("moves the live shares of a moved file with it", async () => {
@@ -900,7 +912,7 @@ describe("webdav handlers", () => {
         mocks.renameBackingObject.mock.invocationCallOrder[0]!,
       );
       expect(mocks.fileEntryDeleteMany).toHaveBeenCalledWith({
-        where: { storageNodeId: "n1", ...atOrBelow("report.docx"), id: { not: "doc1" } },
+        where: { storageNodeId: "n1", ...atOrBelow("report.docx", process.platform === "win32"), id: { not: "doc1" } },
       });
       expect(mocks.fileEntryDelete).toHaveBeenCalledWith({ where: { id: "tmp1" } });
       expect(mocks.fileEntryUpdate).toHaveBeenCalledWith({
@@ -913,7 +925,11 @@ describe("webdav handlers", () => {
       expect(mocks.purgeFileEntryVersionDirectories).toHaveBeenCalledWith("n1", ["tmp1"]);
     });
 
-    it("drops a replaced folder's rows and revokes its links before the moved folder takes its place", async () => {
+    it.each([
+      { driver: "LOCAL", basePath: "/srv/docs", ignoresCase: process.platform === "win32" },
+      { driver: "SFTP", basePath: "/C:/files", ignoresCase: true },
+    ])("drops replaced folder rows and revokes their links on $driver", async ({ driver, basePath, ignoresCase }) => {
+      mocks.storageNodeFindFirst.mockResolvedValue({ id: "n1", name: "docs", driver, basePath });
       mocks.fileEntryFindFirst.mockImplementation(async (args: { where: { relativePath: string } }) =>
         args.where.relativePath === "docs"
           ? { id: "d1", entryType: "DIRECTORY", relativePath: "docs" }
@@ -934,9 +950,15 @@ describe("webdav handlers", () => {
 
       expect(response.status).toBe(204);
       expect(mocks.snapshotFileVersionBeforeOverwrite).not.toHaveBeenCalled();
-      expect(mocks.fileEntryDeleteMany).toHaveBeenCalledWith({ where: { storageNodeId: "n1", ...atOrBelow("manuals") } });
+      const replacedRows = { storageNodeId: "n1", ...atOrBelow("manuals", ignoresCase) };
+      expect(mocks.fileVersionFindMany).toHaveBeenCalledWith({
+        where: { fileEntry: replacedRows },
+        select: { fileEntryId: true },
+        distinct: ["fileEntryId"],
+      });
+      expect(mocks.fileEntryDeleteMany).toHaveBeenCalledWith({ where: replacedRows });
       expect(mocks.shareLink.updateMany).toHaveBeenCalledWith({
-        where: { storageNodeId: "n1", revokedAt: null, OR: [{ path: "manuals" }, { path: { startsWith: "manuals/" } }] },
+        where: shareRevokeWhere("manuals", ignoresCase),
         data: { revokedAt: expect.any(Date) },
       });
       // The moved folder keeps its own row.
@@ -988,9 +1010,9 @@ describe("webdav handlers", () => {
 
       expect(response.status).toBe(201);
       expect(mocks.executeRaw).not.toHaveBeenCalled();
-      expect(mocks.fileEntryDeleteMany).toHaveBeenCalledWith({ where: { storageNodeId: "n1", ...atOrBelow("b.bin") } });
+      expect(mocks.fileEntryDeleteMany).toHaveBeenCalledWith({ where: { storageNodeId: "n1", ...atOrBelow("b.bin", process.platform === "win32") } });
       expect(mocks.shareLink.updateMany).toHaveBeenCalledWith({
-        where: { storageNodeId: "n1", revokedAt: null, OR: [{ path: "b.bin" }, { path: { startsWith: "b.bin/" } }] },
+        where: shareRevokeWhere("b.bin", process.platform === "win32"),
         data: { revokedAt: expect.any(Date) },
       });
       expect(mocks.createFileEntry).toHaveBeenCalledWith(expect.objectContaining({ relativePath: "b.bin" }));

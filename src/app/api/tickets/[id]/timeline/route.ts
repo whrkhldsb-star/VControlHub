@@ -56,6 +56,7 @@ export async function GET(
     request,
     {
       permission: "ticket:read",
+      optionalTokenPermissions: ["ticket:manage", "server:read", "command:read", "command:approve"],
       rateLimit: GENERAL_READ_LIMIT,
       errorMessage: apiCopy("apiCopy.failed.to.load.ticket.timeline.bb19306b"),
     },
@@ -76,6 +77,7 @@ export async function POST(
     request,
     {
       permission: "ticket:manage",
+      optionalTokenPermissions: ["server:read", "command:read"],
       rateLimit: GENERAL_WRITE_LIMIT,
       bodySchema: postSchema,
       errorMessage: apiCopy("apiCopy.failed.to.update.ticket.links.8dac3e02"),

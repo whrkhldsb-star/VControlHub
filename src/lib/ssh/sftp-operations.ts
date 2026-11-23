@@ -69,7 +69,12 @@ export async function atomicSftpWrite<T>(
     if (!samePath(await realpath(directory), directory) || !samePath(await realpath(tmp), tmp)) throw new ForbiddenError();
   }
   const handle = await request<Buffer>(done => sftp.open(tmp, "wx", metadata ? 0o600 : createMode, done));
-  let streamOwnsHandle = false;
+  let handleClosed = false;
+  const closeHandle = async () => {
+    if (handleClosed) return;
+    handleClosed = true;
+    await request<void>(done => sftp.close(handle, done));
+  };
   try {
     await checkStagePath();
     const stage = await request<Stats>(done => sftp.fstat(handle, done));
@@ -78,9 +83,8 @@ export async function atomicSftpWrite<T>(
     if ((stage.mode & 0o777) !== 0o600)
       await request<void>(done => sftp.fchmod(handle, 0o600, done));
     // ssh2's autoClose destroys the stream inside _final, before Node emits
-    // finish. Close the remote handle after every write has been acknowledged.
+    // finish. Close the remote handle explicitly after every write and fchmod/fchown has been acknowledged.
     const stream = sftp.createWriteStream(tmp, { handle, autoClose: false });
-    streamOwnsHandle = true;
     let finished = false;
     const metadataReady = Promise.withResolvers<void>();
     stream.once("finish", () => {
@@ -105,6 +109,7 @@ export async function atomicSftpWrite<T>(
     }
     if (!finished) throw new Error(t("backend.sftp.operationFailed"));
     await metadataReady.promise;
+    await closeHandle();
     await checkStagePath();
     // SFTP v3 RENAME and OpenSSH POSIX_RENAME accept two pathnames. The
     // server cannot bind them to our open file or a directory handle. A
@@ -115,7 +120,10 @@ export async function atomicSftpWrite<T>(
       : sftp.rename(tmp, destination, done));
     return result;
   } catch (error) {
-    if (!streamOwnsHandle) await sftpDeadline(() => sftpRequest<void>(done => sftp.close(handle, done))).catch(() => undefined);
+    if (!handleClosed) {
+      handleClosed = true;
+      await sftpDeadline(() => sftpRequest<void>(done => sftp.close(handle, done))).catch(() => undefined);
+    }
     await checkStagePath().then(() => sftpDeadline(() => sftpRequest<void>(done => sftp.unlink(tmp, done)))).catch(() => undefined);
     throw error;
   }

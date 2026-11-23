@@ -55,10 +55,17 @@ export async function recycledAround(storageNodeId: string, rawRelativePath: str
 export const noRecycledAncestorSql = Prisma.sql`NOT EXISTS (
   SELECT 1 FROM file_entries bin WHERE bin."storageNodeId" = e."storageNodeId"
     AND bin."isDeleted" AND (starts_with(e."relativePath", bin."relativePath" || '/')
-      ${process.platform === "win32" ? Prisma.sql`OR (
-        EXISTS (SELECT 1 FROM "StorageNode" n WHERE n.id = e."storageNodeId" AND n.driver = 'LOCAL')
+      OR (
+        EXISTS (
+          SELECT 1 FROM "StorageNode" n
+          LEFT JOIN servers s ON s.id = n."serverId"
+          WHERE n.id = e."storageNodeId" AND (
+            ${process.platform === "win32" ? Prisma.sql`n.driver = 'LOCAL' OR` : Prisma.empty}
+            (n.driver = 'SFTP' AND (s."operatingSystem" = 'WINDOWS' OR n."basePath" ~ '^/?[A-Za-z]:(/|\\|$)'))
+          )
+        )
         AND (lower(e."relativePath") = lower(bin."relativePath") OR starts_with(lower(e."relativePath"), lower(bin."relativePath") || '/'))
-      )` : Prisma.empty})
+      ))
 )`;
 
 /** Never create another index row for an existing Windows filename or ambiguous parent. */

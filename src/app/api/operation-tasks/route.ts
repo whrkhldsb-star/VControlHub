@@ -86,7 +86,7 @@ export async function GET(request: Request) {
     request,
     {
       permission: "task:read",
-      optionalTokenPermissions: ["storage:read", "server:ssh", "storage:manage-node", "command:read", "command:approve", "server:read"],
+      optionalTokenPermissions: ["storage:read", "server:ssh", "storage:manage-node", "command:read", "command:approve", "server:read", "deploy:read"],
       errorMessage: apiCopy("apiCopy.failed.to.fetch.task.list.b6825ee7"),
     },
     async ({ session }) => {

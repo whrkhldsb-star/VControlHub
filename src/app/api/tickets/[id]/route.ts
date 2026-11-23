@@ -40,7 +40,7 @@ const CommentBodySchema = z
   .strict();
 
 export async function GET(_request: Request, { params }: { params: Promise<{ id: string }> }) {
-  return withApiRoute(_request, { permission: "ticket:read" }, async ({ session }) => {
+  return withApiRoute(_request, { permission: "ticket:read", optionalTokenPermissions: ["ticket:manage", "server:read", "command:read", "command:approve"] }, async ({ session }) => {
     const { id } = await params;
     // Team-scoped load first (ticket:manage is not cross-tenant).
     const ticket = await getTicketById(id, session);
@@ -58,7 +58,7 @@ export async function GET(_request: Request, { params }: { params: Promise<{ id:
 export async function PATCH(request: Request, { params }: { params: Promise<{ id: string }> }) {
   return withApiRoute(
     request,
-    { permission: "ticket:manage", rateLimit: GENERAL_WRITE_LIMIT, bodySchema: PatchBodySchema },
+    { permission: "ticket:manage", optionalTokenPermissions: ["server:read", "command:read"], rateLimit: GENERAL_WRITE_LIMIT, bodySchema: PatchBodySchema },
     async ({ body, session }) => {
       const { id } = await params;
       const updates: { id: string; status?: string; assigneeId?: string | null; priority?: string; session?: typeof session } = {
@@ -78,7 +78,7 @@ export async function PATCH(request: Request, { params }: { params: Promise<{ id
 export async function POST(request: Request, { params }: { params: Promise<{ id: string }> }) {
   return withApiRoute(
     request,
-    { permissions: ["ticket:create", "ticket:manage", "ticket:read"], rateLimit: GENERAL_WRITE_LIMIT, bodySchema: CommentBodySchema },
+    { permissions: ["ticket:create", "ticket:manage", "ticket:read"], optionalTokenPermissions: ["ticket:manage", "server:read", "command:read"], rateLimit: GENERAL_WRITE_LIMIT, bodySchema: CommentBodySchema },
     async ({ session, body }) => {
       const { id } = await params;
       if (

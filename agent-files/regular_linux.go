@@ -61,32 +61,50 @@ func mountID(dir *os.File) (uint64, error) {
 }
 
 func (s share) deletionMountRoot(parent string) (*os.Root, error) {
-	dir, err := s.root.Open(parent)
+	best, err := s.openDirectoryPinned(parent)
 	if err != nil {
+		return nil, err
+	}
+	dir, err := best.Open(".")
+	if err != nil {
+		best.Close()
 		return nil, err
 	}
 	id, err := mountID(dir)
 	dir.Close()
 	if err != nil {
+		best.Close()
 		return nil, err
 	}
 	for parent != "." {
 		next := path.Dir(parent)
-		f, err := s.root.Open(next)
+		candidate, err := s.openDirectoryPinned(next)
 		if err != nil {
+			best.Close()
+			return nil, err
+		}
+		f, err := candidate.Open(".")
+		if err != nil {
+			candidate.Close()
+			best.Close()
 			return nil, err
 		}
 		ancestor, err := mountID(f)
 		f.Close()
 		if err != nil {
+			candidate.Close()
+			best.Close()
 			return nil, err
 		}
 		if id != ancestor {
+			candidate.Close()
 			break
 		}
+		best.Close()
+		best = candidate
 		parent = next
 	}
-	return s.root.OpenRoot(parent)
+	return best, nil
 }
 
 func openPrivateDirectory(parent *os.Root, name string) (*os.File, error) {

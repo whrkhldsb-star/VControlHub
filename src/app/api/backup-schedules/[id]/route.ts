@@ -24,7 +24,7 @@ export async function DELETE(
     async ({ session }) => {
       if (!id) return NextResponse.json({ error: apiCopy("apiCopy.missing.schedule.id.19c58202") }, { status: 400 });
       const result = await deleteBackupSchedule(id, session);
-      await auditUserAction(session.userId, "backup-schedule.delete", { scheduleId: id }, undefined, session.currentTeamId);
+      await auditUserAction(session.userId, "backup-schedule.delete", { scheduleId: id }, undefined, null);
       return NextResponse.json(result);
     },
   );

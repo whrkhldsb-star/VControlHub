@@ -52,18 +52,20 @@ const logger = createLogger("api:storage:sftp-ops");
 /** Hard cap for directory-descendant rewrites. Hitting the cap must fail closed. */
 const DIRECTORY_CHILD_REWRITE_LIMIT = 10_000;
 
-async function softDeleteSftpIndex(storageNodeId: string, relativePath: string, isDirectory = false) {
+async function softDeleteSftpIndex(storageNodeId: string, relativePath: string, isDirectory = false, caseInsensitive = false) {
   const normalizedPrefix = relativePath.endsWith("/")
     ? relativePath
     : `${relativePath}/`;
+  const exactPath = caseInsensitive ? { equals: relativePath, mode: "insensitive" as const } : relativePath;
+  const prefixMode = caseInsensitive ? { mode: "insensitive" as const } : {};
   if (isDirectory) {
     // Fail closed for huge trees — same limit as rename rewrites.
     const childCount = await prisma.fileEntry.count({
       where: {
         storageNodeId,
         OR: [
-          { relativePath },
-          { relativePath: { startsWith: escapeLikeLiteral(normalizedPrefix) } },
+          { relativePath: exactPath },
+          { relativePath: { startsWith: escapeLikeLiteral(normalizedPrefix), ...prefixMode } },
         ],
       },
     });
@@ -78,11 +80,11 @@ async function softDeleteSftpIndex(storageNodeId: string, relativePath: string, 
       ? {
           storageNodeId, isDeleted: false,
           OR: [
-            { relativePath },
-            { relativePath: { startsWith: escapeLikeLiteral(normalizedPrefix) } },
+            { relativePath: exactPath },
+            { relativePath: { startsWith: escapeLikeLiteral(normalizedPrefix), ...prefixMode } },
           ],
         }
-      : { storageNodeId, relativePath, isDeleted: false },
+      : { storageNodeId, relativePath: exactPath, isDeleted: false },
     data: { isDeleted: true, deleteBatchId: randomUUID() },
   });
 }
@@ -98,11 +100,12 @@ async function resolveIndexedIsDirectory(
   storageNodeId: string,
   relativePath: string,
   clientIsDirectory: boolean | undefined,
+  caseInsensitive = false,
 ): Promise<boolean> {
   const indexed = await prisma.fileEntry.findFirst({
     where: {
       storageNodeId,
-      relativePath,
+      relativePath: caseInsensitive ? { equals: relativePath, mode: "insensitive" as const } : relativePath,
       isDeleted: false,
     },
     select: { entryType: true },
@@ -113,13 +116,15 @@ async function resolveIndexedIsDirectory(
   return clientIsDirectory ?? false;
 }
 
-async function renameSftpIndex(storageNodeId: string, oldRelativePath: string, newRelativePath: string, isDirectory = false) {
+async function renameSftpIndex(storageNodeId: string, oldRelativePath: string, newRelativePath: string, isDirectory = false, caseInsensitive = false) {
   const oldPrefix = oldRelativePath.endsWith("/")
     ? oldRelativePath
     : `${oldRelativePath}/`;
   const newPrefix = newRelativePath.endsWith("/")
     ? newRelativePath
     : `${newRelativePath}/`;
+  const exactOld = caseInsensitive ? { equals: oldRelativePath, mode: "insensitive" as const } : oldRelativePath;
+  const prefixMode = caseInsensitive ? { mode: "insensitive" as const } : {};
   let children: Array<{ id: string; relativePath: string }> = [];
   if (isDirectory) {
     // Every descendant moves, recycle-bin rows included: the physical rename moves their bytes too. Left at the old
@@ -130,7 +135,7 @@ async function renameSftpIndex(storageNodeId: string, oldRelativePath: string, n
     children = await prisma.fileEntry.findMany({
       where: {
         storageNodeId,
-        relativePath: { startsWith: escapeLikeLiteral(oldPrefix) },
+        relativePath: { startsWith: escapeLikeLiteral(oldPrefix), ...prefixMode },
       },
       select: { id: true, relativePath: true },
       take: DIRECTORY_CHILD_REWRITE_LIMIT + 1,
@@ -155,14 +160,14 @@ async function renameSftpIndex(storageNodeId: string, oldRelativePath: string, n
       });
     }
     await tx.fileEntry.updateMany({
-      where: { storageNodeId, relativePath: oldRelativePath },
+      where: { storageNodeId, relativePath: exactOld },
       data: {
         relativePath: newRelativePath,
         name: path.posix.basename(newRelativePath),
       },
     });
     // Shares follow the renamed entry (and back, when this rolls a rename back).
-    await moveSharePaths(tx, { storageNodeId, oldPath: oldRelativePath, newPath: newRelativePath, isDirectory });
+    await moveSharePaths(tx, { storageNodeId, oldPath: oldRelativePath, newPath: newRelativePath, isDirectory, caseInsensitive });
   }, { timeout: 60_000 });
 }
 
@@ -264,11 +269,12 @@ async function handlePost(body: SftpOpsBody, session: SessionPayload) {
           node.id,
           normalizedRelativePath,
           body.isDirectory,
+          windowsSftp,
         );
         await assertNotRecycled(node.id, normalizedRelativePath, "write", node.driver, windowsSftp);
         if (isDirectory) {
           const recycled = await prisma.fileEntry.findFirst({
-            where: outsideDeleteBatchWhere(node.id, normalizedRelativePath),
+            where: outsideDeleteBatchWhere(node.id, normalizedRelativePath, undefined, windowsSftp),
             select: { relativePath: true },
           });
           if (recycled) {
@@ -281,7 +287,7 @@ async function handlePost(body: SftpOpsBody, session: SessionPayload) {
         // remains on disk and can be cleaned up manually or by a future
         // reconciliation pass. This avoids the previous "file gone but index
         // still shows" inconsistency.
-        await softDeleteSftpIndex(node.id, normalizedRelativePath, isDirectory);
+        await softDeleteSftpIndex(node.id, normalizedRelativePath, isDirectory, windowsSftp);
         let physicalDeleted = true;
         let physicalErrorMessage: string | null = null;
         try {
@@ -323,7 +329,11 @@ async function handlePost(body: SftpOpsBody, session: SessionPayload) {
         const normalizedNewRelativePath = normalizeRemoteRelativePath(body.newPath);
         normalizeRemoteTargetPath(node.basePath, normalizedNewRelativePath);
         const indexed = await prisma.fileEntry.findFirst({
-          where: { storageNodeId: node.id, relativePath: normalizedRelativePath, isDeleted: false },
+          where: {
+            storageNodeId: node.id,
+            relativePath: windowsSftp ? { equals: normalizedRelativePath, mode: "insensitive" as const } : normalizedRelativePath,
+            isDeleted: false,
+          },
           select: { entryType: true, size: true },
         });
         const size = indexed?.entryType === "FILE" ? indexed.size : null;
@@ -369,7 +379,7 @@ async function handlePost(body: SftpOpsBody, session: SessionPayload) {
         // caller; if it succeeds but a later error occurs, the index already
         // reflects the correct state.
         try {
-          await renameSftpIndex(node.id, normalizedRelativePath, normalizedNewRelativePath, isDirectory);
+          await renameSftpIndex(node.id, normalizedRelativePath, normalizedNewRelativePath, isDirectory, windowsSftp);
         } catch (indexError) {
           if (indexError instanceof ValidationError) {
             return NextResponse.json({ error: indexError.message }, { status: 400 });
@@ -387,7 +397,7 @@ async function handlePost(body: SftpOpsBody, session: SessionPayload) {
           // Physical rename failed — roll back the index to the old path.
           logger.warn("physical rename failed after index update; rolling back index", physicalError, { nodeId, oldPath: normalizedRelativePath, newPath: normalizedNewRelativePath });
           try {
-            await renameSftpIndex(node.id, normalizedNewRelativePath, normalizedRelativePath, isDirectory);
+            await renameSftpIndex(node.id, normalizedNewRelativePath, normalizedRelativePath, isDirectory, windowsSftp);
           } catch (rollbackError) {
             logger.error("index rollback failed after physical rename error; index may be inconsistent", rollbackError, { nodeId, oldPath: normalizedRelativePath, newPath: normalizedNewRelativePath });
           }
@@ -547,7 +557,7 @@ async function handlePost(body: SftpOpsBody, session: SessionPayload) {
               ? { equals: normalizedRelativePath, mode: "insensitive" }
               : normalizedRelativePath,
           },
-          select: previousFileIndexFields,
+          select: { ...previousFileIndexFields, relativePath: true },
         });
         if (previousStat?.isDirectory || indexed?.entryType === "DIRECTORY") {
           throw new ConflictError(t("backend.webdav.cannotOverwriteACollectionWithAFile"));
@@ -570,7 +580,7 @@ async function handlePost(body: SftpOpsBody, session: SessionPayload) {
         }
         let rollback: Awaited<ReturnType<typeof writeFileIndex>>;
         try {
-          rollback = await writeFileIndex(index, indexed);
+          rollback = await writeFileIndex(indexed?.relativePath ? { ...index, relativePath: indexed.relativePath } : index, indexed);
         } catch (error) {
           if (isUniqueViolation(error) || (error as NodeJS.ErrnoException)?.code === "P2025") {
             throw new ConflictError(t("backend.storage.editableFileUpdatedByOther"));

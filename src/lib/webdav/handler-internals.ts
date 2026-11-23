@@ -147,10 +147,14 @@ export function entryName(relativePath: string): string {
   return index < 0 ? relativePath : relativePath.slice(index + 1);
 }
 
-export async function findEntry(storageNodeId: string, relativePath: string) {
+export async function findEntry(storageNodeId: string, relativePath: string, caseInsensitive = false) {
   if (!relativePath) return null;
   return prisma.fileEntry.findFirst({
-    where: { storageNodeId, relativePath, isDeleted: false },
+    where: {
+      storageNodeId,
+      relativePath: caseInsensitive ? { equals: relativePath, mode: "insensitive" as const } : relativePath,
+      isDeleted: false,
+    },
   });
 }
 

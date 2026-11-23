@@ -28,7 +28,7 @@ export async function POST(request: Request, { params }: { params: Promise<{ id:
       const { id } = await params;
       try {
         const offlineRestore = await prepareOfflineRestore({ id, component: body.component, session });
-        await auditUserAction(session.userId, "backup.restore_plan", { backupId: id, component: offlineRestore.component }, undefined, session.currentTeamId);
+        await auditUserAction(session.userId, "backup.restore_plan", { backupId: id, component: offlineRestore.component }, undefined, null);
         return NextResponse.json({ offlineRestore });
       } catch (error) {
         return apiCatch(error);
