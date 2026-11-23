@@ -320,20 +320,28 @@ export async function copyFileEntry(input: {
         .join("/");
       const normalized = normalizeStorageRelativePath(root);
       if (!normalized.ok) throw new Error(normalized.reason);
-      const indexed = await prisma.fileEntry.findUnique({
-        where: {
-          storageNodeId_relativePath: {
-            storageNodeId: node.id,
-            relativePath: root,
-          },
-        },
-      });
+      const indexed = caseInsensitive
+        ? await prisma.fileEntry.findFirst({
+            where: {
+              storageNodeId: node.id,
+              relativePath: { equals: root, mode: "insensitive" as const },
+            },
+            orderBy: [{ isDeleted: "desc" }],
+          })
+        : await prisma.fileEntry.findUnique({
+            where: {
+              storageNodeId_relativePath: {
+                storageNodeId: node.id,
+                relativePath: root,
+              },
+            },
+          });
       const physical = await physicalExists(root);
       if (!indexed && !physical) break;
       if (input.policy === "skip")
         return { path: root, skipped: true, copied: 0 };
       if (input.policy === "overwrite") {
-        if (root === source.path)
+        if (keyOf(root) === keyOf(source.path))
           throw new Error(apiCopy("apiCopy.files.op.same"));
         if (indexed?.isDeleted)
           throw new Error(apiCopy("apiCopy.files.op.trash"));
@@ -341,7 +349,7 @@ export async function copyFileEntry(input: {
       }
       if (index === 999) throw new Error(apiCopy("apiCopy.files.op.names"));
     }
-    if (source.path.startsWith(`${root}/`))
+    if (keyOf(source.path).startsWith(`${keyOf(root)}/`))
       throw new Error(apiCopy("apiCopy.files.op.ancestor"));
     const destinations = items.map((item) => root + item.path.slice(source.path.length));
     // ONE batched pre-flight for the chosen root, every source read, and
@@ -357,7 +365,7 @@ export async function copyFileEntry(input: {
     ]);
     // The operation lock keeps the chosen root and its ancestors stable
     // during the copy. The occupant query below also covers its children.
-    await assertNotRecycled(node.id, root, "write");
+    await assertNotRecycled(node.id, root, "write", node.driver, caseInsensitive);
     // Prefetch every indexed occupant in one paged query instead of one
     // findUnique per destination.
     const occupantRows: Array<{
@@ -370,19 +378,26 @@ export async function copyFileEntry(input: {
       const page = await prisma.fileEntry.findMany({
         where: {
           storageNodeId: node.id,
-          relativePath: { in: destinations.slice(offset, offset + 500) },
+          relativePath: {
+            in: destinations.slice(offset, offset + 500),
+            ...(caseInsensitive ? { mode: "insensitive" as const } : {}),
+          },
         },
         select: { id: true, relativePath: true, entryType: true, isDeleted: true },
       });
       occupantRows.push(...page);
     }
-    const occupantsByPath = new Map(
-      occupantRows.map((row) => [row.relativePath, row]),
-    );
+    const occupantsByPath = new Map<string, (typeof occupantRows)[number]>();
+    for (const row of occupantRows) {
+      const key = keyOf(row.relativePath);
+      const prev = occupantsByPath.get(key);
+      // Preserve recycle-bin tombstones on legacy case-variant collisions.
+      if (!prev || (!prev.isDeleted && row.isDeleted)) occupantsByPath.set(key, row);
+    }
     for (const item of items) {
       input.signal?.throwIfAborted();
       const destination = root + item.path.slice(source.path.length);
-      let occupant = occupantsByPath.get(destination);
+      let occupant = occupantsByPath.get(keyOf(destination));
       if (occupant?.isDeleted)
         throw new Error(
           apiCopy("apiCopy.files.op.trashPath", { v0: destination }),
@@ -410,17 +425,18 @@ export async function copyFileEntry(input: {
             throw new Error(
               apiCopy("apiCopy.files.op.exists", { v0: destination }),
             );
+          const indexedDirPath = occupant?.relativePath ?? destination;
           await prisma.fileEntry.upsert({
             where: {
               storageNodeId_relativePath: {
                 storageNodeId: node.id,
-                relativePath: destination,
+                relativePath: indexedDirPath,
               },
             },
             create: {
               storageNodeId: node.id,
-              relativePath: destination,
-              name: path.posix.basename(destination),
+              relativePath: indexedDirPath,
+              name: path.posix.basename(indexedDirPath),
               entryType: "DIRECTORY",
               mimeType: "inode/directory",
             },
@@ -434,10 +450,15 @@ export async function copyFileEntry(input: {
           }
           if (created) {
             try {
-              const indexed = await prisma.fileEntry.findUnique({
-                where: { storageNodeId_relativePath: { storageNodeId: node.id, relativePath: destination } },
-                select: { id: true },
-              });
+              const indexed = caseInsensitive
+                ? await prisma.fileEntry.findFirst({
+                    where: { storageNodeId: node.id, relativePath: { equals: destination, mode: "insensitive" as const } },
+                    select: { id: true },
+                  })
+                : await prisma.fileEntry.findUnique({
+                    where: { storageNodeId_relativePath: { storageNodeId: node.id, relativePath: destination } },
+                    select: { id: true },
+                  });
               if (indexed) throw new Error(apiCopy("apiCopy.files.op.changed"));
               const resolved = await resolveManagedLocalEntryPath({ basePath: node.basePath, relativePath: destination });
               const current = await lstat(resolved.absolutePath);
@@ -479,7 +500,16 @@ export async function copyFileEntry(input: {
         let promoted = false;
         let remotePromotionAttempted = false;
         try {
-          occupant = await prisma.fileEntry.findUnique({ where: { storageNodeId_relativePath: { storageNodeId: node.id, relativePath: destination } }, select: { id: true, relativePath: true, entryType: true, isDeleted: true } }) ?? undefined;
+          occupant = (caseInsensitive
+            ? await prisma.fileEntry.findFirst({
+                where: { storageNodeId: node.id, relativePath: { equals: destination, mode: "insensitive" as const } },
+                select: { id: true, relativePath: true, entryType: true, isDeleted: true },
+                orderBy: [{ isDeleted: "desc" }],
+              })
+            : await prisma.fileEntry.findUnique({
+                where: { storageNodeId_relativePath: { storageNodeId: node.id, relativePath: destination } },
+                select: { id: true, relativePath: true, entryType: true, isDeleted: true },
+              })) ?? undefined;
           physical = await physicalExists(destination);
           if (occupant?.isDeleted) throw new Error(apiCopy("apiCopy.files.op.trashPath", { v0: destination }));
           if (occupant?.entryType === "DIRECTORY") throw new Error(apiCopy("apiCopy.files.op.type", { v0: destination }));
@@ -520,17 +550,18 @@ export async function copyFileEntry(input: {
             },
             select: { mimeType: true },
           });
+          const indexedDestPath = occupant?.relativePath ?? destination;
           await prisma.fileEntry.upsert({
             where: {
               storageNodeId_relativePath: {
                 storageNodeId: node.id,
-                relativePath: destination,
+                relativePath: indexedDestPath,
               },
             },
             create: {
               storageNodeId: node.id,
-              relativePath: destination,
-              name: path.posix.basename(destination),
+              relativePath: indexedDestPath,
+              name: path.posix.basename(indexedDestPath),
               entryType: "FILE",
               size: BigInt(result.size),
               mimeType: sourceIndex?.mimeType,

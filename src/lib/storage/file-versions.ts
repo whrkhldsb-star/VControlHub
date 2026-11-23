@@ -38,7 +38,7 @@ import {
   writeStorageFileBuffer,
   type StorageFileNode,
 } from "@/lib/storage/file-content";
-import { expandStorageBasePath } from "@/lib/storage/path-utils";
+import { expandStorageBasePath, isCaseInsensitiveStorageNode } from "@/lib/storage/path-utils";
 import { defaultDataRoot } from "@/lib/runtime/platform-paths";
 import { t } from "@/lib/i18n/service-translations";
 import { SSH_KEY_CREDENTIAL_SELECT } from "@/lib/ssh/ssh-key-crypto";
@@ -267,12 +267,19 @@ export async function purgeDirectoryFileVersionBlobs(input: {
   /** Directory relativePath (no trailing slash). */
   prefix: string;
   concurrency?: number;
+  caseInsensitive?: boolean;
 }): Promise<number> {
+  const caseInsensitive = input.caseInsensitive ?? isCaseInsensitiveStorageNode(
+    await prisma.storageNode.findUnique({
+      where: { id: input.storageNodeId },
+      select: { driver: true, basePath: true, server: { select: { operatingSystem: true } } },
+    }),
+  );
   const rows = await prisma.fileVersion.findMany({
     where: {
       fileEntry: {
         storageNodeId: input.storageNodeId,
-        relativePath: { startsWith: escapeLikeLiteral(`${input.prefix}/`) },
+        relativePath: { startsWith: escapeLikeLiteral(`${input.prefix}/`), ...(caseInsensitive ? { mode: "insensitive" as const } : {}) },
       },
     },
     select: { blobRelativePath: true },

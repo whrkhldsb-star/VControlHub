@@ -9,7 +9,7 @@ import {
   revokeApiToken,
 } from "@/lib/api-token/service";
 import { apiTokenScopeAllowedForSession } from "@/lib/api-token/authorization";
-import { auditUserAction } from "@/lib/audit/service";
+import { accountSecurityAuditTeam, auditUserAction } from "@/lib/audit/service";
 import { requestLocale, withApiRoute } from "@/lib/http/api-guard";
 import { GENERAL_WRITE_LIMIT } from "@/lib/http/rate-limit-presets";
 import { withCacheHeaders, CachePresets } from "@/lib/cache";
@@ -152,7 +152,7 @@ export async function POST(request: Request) {
         expiresAt: result.apiToken.expiresAt
           ? result.apiToken.expiresAt.toISOString()
           : null,
-      }, undefined, session.currentTeamId);
+      }, undefined, accountSecurityAuditTeam(session));
 
       // The plaintext token exists only in this response: a form post that
       // redirected to the page could never show it (A1-03), so every caller

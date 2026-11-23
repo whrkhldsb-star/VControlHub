@@ -28,6 +28,8 @@ vi.mock("@/lib/api-token/service", async (importOriginal) => {
   };
 });
 vi.mock("@/lib/audit/service", () => ({
+  accountSecurityAuditTeam: (s: { roles?: readonly string[]; currentTeamId?: string | null }) =>
+    s.roles?.includes("admin") ? null : s.currentTeamId,
   auditUserAction: mocks.auditUserAction,
 }));
 
@@ -155,7 +157,7 @@ describe("/api/api-tokens", () => {
         tokenId: "tok1",
         scopes: ["read", "health:read"],
       }),
-    undefined, "team_1");
+    undefined, null);
     expect(JSON.stringify(mocks.auditUserAction.mock.calls)).not.toContain(
       "whr_plain_once",
     );

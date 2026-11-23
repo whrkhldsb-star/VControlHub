@@ -29,9 +29,23 @@ const mocks = vi.hoisted(() => ({
 vi.mock("@/lib/db", () => ({
   prisma: {
     fileEntry: {
-      findFirst: (query: { where: { isDeleted?: boolean; relativePath?: { in: string[] } } }) => {
+      findFirst: (query: { where: { isDeleted?: boolean; relativePath?: { in?: string[]; equals?: string; mode?: string } } }) => {
         if (query.where.isDeleted) {
-          return query.where.relativePath?.in.map((name) => index.get(name)).find((entry) => entry?.isDeleted) ?? null;
+          const insensitive = query.where.relativePath?.mode === "insensitive";
+          const wanted = query.where.relativePath?.in ?? [];
+          if (insensitive) {
+            const set = new Set(wanted.map((name) => name.toLowerCase()));
+            return [...index.values()].find((entry) => entry.isDeleted && set.has(entry.relativePath.toLowerCase())) ?? null;
+          }
+          return wanted.map((name) => index.get(name)).find((entry) => entry?.isDeleted) ?? null;
+        }
+        if (query.where.relativePath && typeof query.where.relativePath === "object" && "equals" in query.where.relativePath) {
+          const target = query.where.relativePath.equals ?? "";
+          const insensitive = query.where.relativePath.mode === "insensitive";
+          const matches = [...index.values()].filter((entry) =>
+            insensitive ? entry.relativePath.toLowerCase() === target.toLowerCase() : entry.relativePath === target,
+          );
+          return matches.find((entry) => entry.isDeleted) ?? matches[0] ?? null;
         }
         return mocks.first(query);
       },
@@ -92,14 +106,15 @@ beforeEach(async () => {
     async ({ where }) =>
       index.get(where.storageNodeId_relativePath.relativePath) ?? null,
   );
-  mocks.many.mockImplementation(async ({ where }: { where?: { relativePath?: { in?: string[] } } }) => {
+  mocks.many.mockImplementation(async ({ where }: { where?: { relativePath?: { in?: string[]; mode?: string } } }) => {
     // The copy loop now prefetches indexed occupants in one paged findMany
     // instead of one findUnique per destination — serve it from the index map.
     const wanted = where?.relativePath?.in;
     if (!wanted) return [];
-    return wanted
-      .map((relativePath) => index.get(relativePath))
-      .filter((entry): entry is Entry => Boolean(entry))
+    const insensitive = where?.relativePath?.mode === "insensitive";
+    const wantedSet = new Set(insensitive ? wanted.map((p) => p.toLowerCase()) : wanted);
+    return [...index.values()]
+      .filter((entry) => wantedSet.has(insensitive ? entry.relativePath.toLowerCase() : entry.relativePath))
       .map((entry) => ({
         id: entry.id,
         relativePath: entry.relativePath,
