@@ -20,7 +20,7 @@ import { validateStorageFileIndex } from "@/lib/storage/schema";
 import { previousFileIndexFields, writeFileIndex } from "@/lib/storage/file-write-index";
 import { snapshotFileVersionBeforeOverwrite } from "@/lib/storage/file-versions";
 import { resolveManagedLocalPath } from "@/lib/storage/managed-path";
-import { normalizeStorageRelativePath } from "@/lib/storage/path-utils";
+import { isCaseInsensitiveStorageNode, normalizeStorageRelativePath } from "@/lib/storage/path-utils";
 import {
   createRemoteDirectory,
   writeRemoteFile,
@@ -234,10 +234,13 @@ async function handlePost(request: Request, session: SessionPayload, locale: Loc
   const index = validateStorageFileIndex({
     storageNodeId, relativePath: normalizedRelativePath, mimeType: file.type, size: byteSize,
   });
+  const caseInsensitive = isCaseInsensitiveStorageNode(storageNode);
   const existingEntryForVersion = await prisma.fileEntry.findFirst({
     where: {
       storageNodeId,
-      relativePath: normalizedRelativePath,
+      relativePath: caseInsensitive
+        ? { equals: normalizedRelativePath, mode: "insensitive" as const }
+        : normalizedRelativePath,
     },
     select: previousFileIndexFields,
   });
@@ -247,8 +250,8 @@ async function handlePost(request: Request, session: SessionPayload, locale: Loc
     return NextResponse.json({ error: t("api.storage.targetIsDirectory", locale) }, { status: 409 });
   }
   if (existingEntryForVersion?.isDeleted) throw new ConflictError(serviceTranslate("backend.webdav.destinationHeldByRecycleBin", { path: `/${normalizedRelativePath}` }));
-  await assertNotRecycled(storageNodeId, normalizedRelativePath, "write", storageNode.driver);
-  await assertCanonicalWritePath(storageNodeId, normalizedRelativePath, storageNode.driver);
+  await assertNotRecycled(storageNodeId, normalizedRelativePath, "write", storageNode.driver, caseInsensitive);
+  await assertCanonicalWritePath(storageNodeId, normalizedRelativePath, storageNode.driver, caseInsensitive);
   if (existingEntryForVersion) {
     await snapshotFileVersionBeforeOverwrite({
       fileEntryId: existingEntryForVersion.id,

@@ -33,7 +33,7 @@ const { createBackupAction } = await import("../actions");
 describe("createBackupAction", () => {
   beforeEach(() => {
     vi.clearAllMocks();
-    mocks.requireSession.mockResolvedValue({ userId: "u1", permissions: ["backup:create"] });
+    mocks.requireSession.mockResolvedValue({ userId: "u1", currentTeamId: "team_a", roles: ["admin"], permissions: ["backup:create"] });
     mocks.sessionHasPermission.mockReturnValue(true);
     mocks.createBackupRecord.mockResolvedValue({ id: "bak1", status: "PENDING" });
     mocks.enqueueJob.mockResolvedValue({ id: "job1" });

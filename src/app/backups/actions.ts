@@ -42,7 +42,7 @@ async function createBackupActionImpl(_prev: BackupActionState, formData: FormDa
   const backup = await createBackupRecord({
     type: parsed.data.type,
     createdBy: session.userId,
-    teamId: session.currentTeamId ?? null,
+    teamId: null,
     note: parsed.data.note,
   });
   let job;
@@ -50,9 +50,9 @@ async function createBackupActionImpl(_prev: BackupActionState, formData: FormDa
     job = await enqueueJob({
       type: BACKUP_CREATE_JOB_TYPE,
       title: tr("backupsPage.action.jobTitle", { type: tr(`backupsPage.action.typeLabel.${parsed.data.type}`) }),
-      payload: { backupId: backup.id, teamId: session.currentTeamId ?? backup.teamId ?? null },
+      payload: { backupId: backup.id, teamId: null },
       createdBy: session.userId,
-      teamId: session.currentTeamId ?? null,
+      teamId: null,
       maxAttempts: 1,
     });
   } catch (enqueueErr) {
@@ -73,7 +73,7 @@ async function createBackupActionImpl(_prev: BackupActionState, formData: FormDa
     jobId: job.id,
     async: true,
     via: "server-action",
-  }, undefined, session.currentTeamId);
+  }, undefined, null);
   revalidatePath("/backups");
   return { success: true };
 }
