@@ -802,7 +802,7 @@ describe("webdav handlers", () => {
       // File moves rewrite no descendants; whatever held the destination path
       // (stale recycle-bin rows) is dropped, not kept as a tombstone.
       expect(mocks.executeRaw).not.toHaveBeenCalled();
-      expect(mocks.fileEntryDeleteMany).toHaveBeenCalledWith({ where: { storageNodeId: "n1", ...atOrBelow("moved/b.txt") } });
+      expect(mocks.fileEntryDeleteMany).toHaveBeenCalledWith({ where: { storageNodeId: "n1", ...atOrBelow("moved/b.txt", process.platform === "win32") } });
     });
 
     it("moves the live shares of a moved file with it", async () => {
@@ -912,7 +912,7 @@ describe("webdav handlers", () => {
         mocks.renameBackingObject.mock.invocationCallOrder[0]!,
       );
       expect(mocks.fileEntryDeleteMany).toHaveBeenCalledWith({
-        where: { storageNodeId: "n1", ...atOrBelow("report.docx"), id: { not: "doc1" } },
+        where: { storageNodeId: "n1", ...atOrBelow("report.docx", process.platform === "win32"), id: { not: "doc1" } },
       });
       expect(mocks.fileEntryDelete).toHaveBeenCalledWith({ where: { id: "tmp1" } });
       expect(mocks.fileEntryUpdate).toHaveBeenCalledWith({
@@ -925,7 +925,11 @@ describe("webdav handlers", () => {
       expect(mocks.purgeFileEntryVersionDirectories).toHaveBeenCalledWith("n1", ["tmp1"]);
     });
 
-    it("drops a replaced folder's rows and revokes its links before the moved folder takes its place", async () => {
+    it.each([
+      { driver: "LOCAL", basePath: "/srv/docs", ignoresCase: process.platform === "win32" },
+      { driver: "SFTP", basePath: "/C:/files", ignoresCase: true },
+    ])("drops replaced folder rows and revokes their links on $driver", async ({ driver, basePath, ignoresCase }) => {
+      mocks.storageNodeFindFirst.mockResolvedValue({ id: "n1", name: "docs", driver, basePath });
       mocks.fileEntryFindFirst.mockImplementation(async (args: { where: { relativePath: string } }) =>
         args.where.relativePath === "docs"
           ? { id: "d1", entryType: "DIRECTORY", relativePath: "docs" }
@@ -946,9 +950,15 @@ describe("webdav handlers", () => {
 
       expect(response.status).toBe(204);
       expect(mocks.snapshotFileVersionBeforeOverwrite).not.toHaveBeenCalled();
-      expect(mocks.fileEntryDeleteMany).toHaveBeenCalledWith({ where: { storageNodeId: "n1", ...atOrBelow("manuals", process.platform === "win32") } });
+      const replacedRows = { storageNodeId: "n1", ...atOrBelow("manuals", ignoresCase) };
+      expect(mocks.fileVersionFindMany).toHaveBeenCalledWith({
+        where: { fileEntry: replacedRows },
+        select: { fileEntryId: true },
+        distinct: ["fileEntryId"],
+      });
+      expect(mocks.fileEntryDeleteMany).toHaveBeenCalledWith({ where: replacedRows });
       expect(mocks.shareLink.updateMany).toHaveBeenCalledWith({
-        where: shareRevokeWhere("manuals", process.platform === "win32"),
+        where: shareRevokeWhere("manuals", ignoresCase),
         data: { revokedAt: expect.any(Date) },
       });
       // The moved folder keeps its own row.

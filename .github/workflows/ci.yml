@@ -34,9 +34,9 @@ jobs:
     # Pin the OS as well as pg_dump: ubuntu-latest can move to a release
     # whose repositories no longer carry the PostgreSQL 16 client.
     runs-on: ubuntu-24.04
-    # Green runs take 18.5-19.5 minutes (integration tests, gates, unit tests,
-    # build); at 20 a slower runner cancelled a passing run mid-build.
-    timeout-minutes: 30
+    # The full PostgreSQL and coverage suites can leave a slower runner
+    # compiling at the 30-minute mark. Keep time for the build and runtime checks.
+    timeout-minutes: 45
     env:
       DATABASE_URL: postgresql://postgres:postgres@127.0.0.1:5432/vcontrolhub_ci
       RUN_DATABASE_INTEGRATION_TESTS: "1"

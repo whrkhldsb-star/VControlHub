@@ -740,6 +740,7 @@ export async function handleWebDavMove(
   if (!destPath)
     throw new ValidationError(t("backend.webdav.invalidDestination"));
   const node = await loadNode(ctx.storageNodeId, ctx.session);
+  const caseInsensitive = isCaseInsensitiveNode(node);
   const windows = node.driver === "LOCAL" ? process.platform === "win32" :
     node.server?.operatingSystem === "WINDOWS" || (node.driver === "SFTP" && isWindowsStorageBasePath(node.basePath));
   const sourcePath = normalizeWebDavRelativePath(ctx.relativePath, { alreadyDecoded: true });
@@ -748,7 +749,7 @@ export async function handleWebDavMove(
   if (source === destination || destination.startsWith(source + "/") || source.startsWith(destination + "/")) {
     throw new ValidationError(t("backend.webdav.invalidDestination"));
   }
-  const admittedEntry = await findEntry(ctx.storageNodeId, ctx.relativePath, isCaseInsensitiveNode(node));
+  const admittedEntry = await findEntry(ctx.storageNodeId, ctx.relativePath, caseInsensitive);
   if (!admittedEntry) throw new NotFoundError(t("backend.webdav.resourceNotFound"));
   const movedBytes = admittedEntry.size ?? BigInt(0);
   const destinationAccess = await requireAccess(ctx.session, ctx.storageNodeId, destPath, "write", movedBytes, {
@@ -761,13 +762,13 @@ export async function handleWebDavMove(
   await assertNotRecycled(ctx.storageNodeId, destPath, "write");
   // Quota guards precede overwrite locks on every upload. Re-read the source
   // under the lock so a replacement while waiting cannot use stale admission.
-  const entry = await findEntry(ctx.storageNodeId, ctx.relativePath, isCaseInsensitiveNode(node));
+  const entry = await findEntry(ctx.storageNodeId, ctx.relativePath, caseInsensitive);
   if (!entry) throw new NotFoundError(t("backend.webdav.resourceNotFound"));
   if (entry.id !== admittedEntry.id || entry.entryType !== admittedEntry.entryType ||
       entry.size !== admittedEntry.size || entry.updatedAt?.getTime() !== admittedEntry.updatedAt?.getTime()) {
     throw new ConflictError(apiCopy("apiCopy.files.op.changed"));
   }
-  const existingDest = await findEntry(ctx.storageNodeId, destPath, isCaseInsensitiveNode(node));
+  const existingDest = await findEntry(ctx.storageNodeId, destPath, caseInsensitive);
   const overwrite =
     (request.headers.get("overwrite") ?? "T").toUpperCase() !== "F";
   const unindexed = existingDest ? null : await statBackingObject({ storageNode: node, relativePath: destPath });
@@ -783,7 +784,7 @@ export async function handleWebDavMove(
 
   // Refuse before any byte moves if a recycled file still lives at (or under)
   // the destination; recycle-bin rows without bytes are dropped below.
-  await assertRecycledBytesSafe(node, await recycledRowsAt(ctx.storageNodeId, destPath, isCaseInsensitiveNode(node)));
+  await assertRecycledBytesSafe(node, await recycledRowsAt(ctx.storageNodeId, destPath, caseInsensitive));
   // A file moved onto a file replaces its content, as PUT and COPY do (and as
   // an editor's atomic save means it): the destination keeps its entry — its
   // versions, the replaced content now one of them, favourites and links —
@@ -804,7 +805,7 @@ export async function handleWebDavMove(
   }
   // Listed before anything changes; the blobs go once the rows have.
   const droppedVersionOwners = [
-    ...(await versionOwnersAt(ctx.storageNodeId, destPath, replacedFile?.id)),
+    ...(await versionOwnersAt(ctx.storageNodeId, destPath, replacedFile?.id, caseInsensitive)),
     ...(replacedFile ? [entry.id] : []),
   ];
   const destParent = parentRelativePath(destPath);
@@ -857,7 +858,7 @@ export async function handleWebDavMove(
     await prisma.$transaction(async (tx) => {
       // Whatever held the destination goes first: it holds the unique
       // (storageNodeId, relativePath) slot the moved entry takes.
-      await dropRowsAt(tx, ctx.storageNodeId, destPath, replacedFile?.id);
+      await dropRowsAt(tx, ctx.storageNodeId, destPath, replacedFile?.id, caseInsensitive);
       if (replacedFile) {
         await tx.fileEntry.delete({ where: { id: entry.id } });
         await tx.fileEntry.update({
@@ -867,7 +868,7 @@ export async function handleWebDavMove(
         });
       } else {
         // Links to a replaced resource must not serve what moves in.
-        await revokeSharesAt(tx, ctx.storageNodeId, destPath, isCaseInsensitiveNode(node));
+        await revokeSharesAt(tx, ctx.storageNodeId, destPath, caseInsensitive);
         await tx.fileEntry.update({
           where: { id: entry.id },
           data: { relativePath: destPath, name: entryName(destPath) },
@@ -879,7 +880,7 @@ export async function handleWebDavMove(
         oldPath: entry.relativePath,
         newPath: destPath,
         isDirectory: entry.entryType === "DIRECTORY",
-          caseInsensitive: isCaseInsensitiveNode(node),
+        caseInsensitive,
       });
       if (entry.entryType !== "DIRECTORY") return;
       // Rewrite every descendant's path (and its basename) in ONE statement.
