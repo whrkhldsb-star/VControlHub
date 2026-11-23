@@ -25,6 +25,7 @@ if [ -z "${ENV_FILE}" ]; then
   fi
 fi
 source "$(dirname "${BASH_SOURCE[0]}")/lib/listen-address.sh"
+source "$(dirname "${BASH_SOURCE[0]}")/lib/release-paths.sh"
 SSH_WS_HOST="${SSH_WS_HOST:-127.0.0.1}"
 CHECK_PUBLIC_URL="${CHECK_PUBLIC_URL:-}"
 RUN_NPM_CHECKS="${RUN_NPM_CHECKS:-0}"
@@ -55,10 +56,9 @@ log "APP_DIR=${APP_DIR}"
 [ -d "${APP_DIR}" ] || fail "APP_DIR does not exist"
 [ -f "${ENV_FILE}" ] || fail "Missing environment file: ${ENV_FILE}"
 
-set -a
-# shellcheck disable=SC1090
+# Keep runtime secrets unexported in this shell so optional npm checks/build
+# never inherit DATABASE_URL or signing keys; subshells export only what they need.
 load_install_settings "${ENV_FILE}"
-set +a
 
 # The runtime env file leaves the ports out (systemd sets them per unit), so a
 # custom port was checked as 3000. Take them from the install's .env.local
@@ -97,7 +97,7 @@ if [ "${SKIP_LIVE_CHECKS}" != "1" ]; then
     [ "$code" = "200" ] || fail "Local /login returned HTTP ${code:-000}"
     log "Local /login HTTP 200"
 
-    node "${APP_DIR}/scripts/check-ssh-gateway.mjs" || fail "SSH gateway functional check failed"
+    ( set -a; load_install_settings "${ENV_FILE}"; set +a; node "${APP_DIR}/scripts/check-ssh-gateway.mjs" ) || fail "SSH gateway functional check failed"
 
     if [ -n "${CHECK_PUBLIC_URL}" ]; then
       code="$(curl -k -sS -o /dev/null -w '%{http_code}' --max-time 15 "${CHECK_PUBLIC_URL%/}/login" || true)"
@@ -116,7 +116,7 @@ if [ "${RUN_NPM_CHECKS}" = "1" ]; then
   npm run typecheck
   npm run lint
   npm test
-  npm run build
+  with_public_build_env "${APP_DIR}" "${ENV_FILE}" npm run build
 fi
 
 log "Check completed"

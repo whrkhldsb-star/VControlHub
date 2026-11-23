@@ -1,3 +1,4 @@
+import { isCaseInsensitiveStorageNode } from "./path-utils";
 import { captureUploadTarget } from "./upload-target";
 import { assertCanonicalWritePath, assertNotRecycled } from "@/lib/storage/archive-access";
 import { apiCopy } from "@/lib/i18n/api-copy";
@@ -199,15 +200,16 @@ export async function completeStorageFileUpload(params: {
     throw new ConflictError(t("backend.storage.editableFileChangedOnDisk"));
   }
   // Snapshot existing body before overwrite when index already exists.
+  const caseInsensitive = isCaseInsensitiveStorageNode(storageNode);
   const existingEntry = await prisma.fileEntry.findFirst({
     where: {
       storageNodeId: existing.storageNodeId,
-      relativePath: normalizedRelativePath,
+      relativePath: caseInsensitive ? { equals: normalizedRelativePath, mode: "insensitive" } : normalizedRelativePath,
     },
     select: { id: true, entryType: true, isDeleted: true, updatedAt: true },
   });
   await assertNotRecycled(existing.storageNodeId, normalizedRelativePath, "write", storageNode.driver);
-  await assertCanonicalWritePath(existing.storageNodeId, normalizedRelativePath, storageNode.driver);
+  await assertCanonicalWritePath(existing.storageNodeId, normalizedRelativePath, storageNode.driver, caseInsensitive);
   // The upload would replace a folder, and for WebDAV (MOVE with Overwrite) that deletes everything in it.
   // Refused before anything is written, so the session stays a plain failure the user can fix and retry.
   await assertUploadTargetIsNotFolder(storageNode, normalizedRelativePath, existingEntry?.entryType === "DIRECTORY");

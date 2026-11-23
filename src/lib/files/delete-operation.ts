@@ -1,3 +1,4 @@
+import { isCaseInsensitiveStorageNode } from "@/lib/storage/path-utils";
 import { escapeLikeLiteral } from "@/lib/db/like-pattern";
 import { auditUserAction } from "@/lib/audit/service";
 import { localPathVersion, localRootIdentity } from "@/lib/storage/local-identity";
@@ -27,29 +28,35 @@ export async function findAffectedShareIds(input: {
   storageNodeId: string;
   relativePath: string;
   isDirectory: boolean;
+  caseInsensitive?: boolean;
 }): Promise<string[]> {
+  const mode = input.caseInsensitive ? { mode: "insensitive" as const } : {};
   const shares = await prisma.shareLink.findMany({
     where: {
       storageNodeId: input.storageNodeId,
       revokedAt: null,
       OR: [
-        { path: input.relativePath },
+        { path: input.caseInsensitive ? { equals: input.relativePath, mode: "insensitive" as const } : input.relativePath },
         ...(input.isDirectory
-          ? [{ path: { startsWith: escapeLikeLiteral(`${input.relativePath}/`) } }]
+          ? [{ path: { startsWith: escapeLikeLiteral(`${input.relativePath}/`), ...mode } }]
           : []),
         { entryType: "DIRECTORY" },
       ],
     },
     select: { id: true, path: true, entryType: true },
   });
+  const norm = (value: string) => (input.caseInsensitive ? value.toLowerCase() : value);
+  const target = norm(input.relativePath);
   return shares
-    .filter(
-      (share) =>
-        share.path === input.relativePath ||
-        (input.isDirectory && share.path.startsWith(`${input.relativePath}/`)) ||
+    .filter((share) => {
+      const sharePath = norm(share.path);
+      return (
+        sharePath === target ||
+        (input.isDirectory && sharePath.startsWith(`${target}/`)) ||
         (share.entryType === "DIRECTORY" &&
-          input.relativePath.startsWith(`${share.path.replace(/\/+$/, "")}/`)),
-    )
+          target.startsWith(`${sharePath.replace(/\/+$/, "")}/`))
+      );
+    })
     .map((share) => share.id);
 }
 
@@ -102,6 +109,7 @@ export async function executeDeleteFile(
                 connectionType: true,
                 password: true,
                 hostKeySha256: true,
+                operatingSystem: true,
                 sshKey: { select: SSH_KEY_CREDENTIAL_SELECT },
               },
             },
@@ -135,9 +143,10 @@ export async function executeDeleteFile(
       return { error: storageAccessDeniedCopy(deleteAccess.reason, locale) } satisfies StorageDeleteActionState;
     }
 
+    const caseInsensitive = isCaseInsensitiveStorageNode(entry.storageNode);
     const descendants = entry.entryType === "DIRECTORY"
       ? await prisma.fileEntry.findMany({
-          where: { storageNodeId: entry.storageNodeId, relativePath: { startsWith: escapeLikeLiteral(`${entry.relativePath}/`) }, isDeleted: false },
+          where: { storageNodeId: entry.storageNodeId, relativePath: { startsWith: escapeLikeLiteral(`${entry.relativePath}/`), ...(caseInsensitive ? { mode: "insensitive" as const } : {}) }, isDeleted: false },
           select: { id: true, entryType: true, updatedAt: true, relativePath: true },
           take: 10001,
         })
@@ -174,6 +183,7 @@ export async function executeDeleteFile(
       storageNodeId: entry.storageNodeId,
       relativePath: entry.relativePath,
       isDirectory: entry.entryType === "DIRECTORY",
+      caseInsensitive,
     });
     const local = entry.storageNode.driver === "LOCAL";
     const deletedAgentRoot = local ? await localRootIdentity(entry.storageNode.basePath) : entry.storageNode.agentFileShare?.rootIdentity ?? null;

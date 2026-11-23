@@ -1,3 +1,5 @@
+import { isCaseInsensitiveStorageNode } from "@/lib/storage/path-utils";
+import { Prisma } from "@prisma/client";
 import { moveMeasurement } from "@/lib/storage/move-capacity";
 import { escapeLikeLiteral } from "@/lib/db/like-pattern";
 import type { SessionPayload } from "@/lib/auth/session";
@@ -160,11 +162,12 @@ export async function executeMoveFile(
     // 直接覆盖目标位置的字节，而软删行的物理文件仍在磁盘上。若只查 isDeleted:false，
     // move 会覆盖并永久销毁回收站里同名文件的字节，之后 DB 更新还会撞唯一约束
     // （@@unique 覆盖软删行）触发补偿把本文件移回——净结果是回收站文件被静默清空。
+    const caseInsensitive = isCaseInsensitiveStorageNode(entry.storageNode);
     await assertNotRecycled(entry.storageNodeId, normalizedCurrentPath.path, "write");
     const occupant = await prisma.fileEntry.findFirst({
       where: {
         storageNodeId: entry.storageNodeId,
-        relativePath: newRelativePath,
+        relativePath: caseInsensitive ? { equals: newRelativePath, mode: "insensitive" } : newRelativePath,
         id: { not: fileEntryId },
       },
       select: { id: true, isDeleted: true },
@@ -183,7 +186,7 @@ export async function executeMoveFile(
       return { error: tr("filesPage.move.errorTargetExists", { path: `/${newRelativePath}` }) };
     }
     const descendants = entry.entryType === "DIRECTORY" ? await prisma.fileEntry.findMany({
-      where: { storageNodeId: entry.storageNodeId, relativePath: { startsWith: escapeLikeLiteral(`${entry.relativePath}/`) } },
+      where: { storageNodeId: entry.storageNodeId, relativePath: { startsWith: escapeLikeLiteral(`${entry.relativePath}/`), ...(caseInsensitive ? { mode: "insensitive" as const } : {}) } },
       select: { id: true, relativePath: true }, take: 10001,
     }) : [];
     if (descendants.length > 10000) {
@@ -255,7 +258,9 @@ export async function executeMoveFile(
             SET "relativePath" = ${newPrefix} || substring("relativePath" from length(${oldPrefix}::text) + 1),
                 "updatedAt" = (now() AT TIME ZONE 'UTC')
             WHERE "storageNodeId" = ${entry.storageNodeId}
-              AND "relativePath" LIKE ${`${escapeLikeLiteral(oldPrefix)}%`} ESCAPE '\\'
+              AND ${caseInsensitive
+                ? Prisma.sql`lower("relativePath") LIKE ${`${escapeLikeLiteral(oldPrefix.toLowerCase())}%`} ESCAPE '\\'`
+                : Prisma.sql`"relativePath" LIKE ${`${escapeLikeLiteral(oldPrefix)}%`} ESCAPE '\\'`}
           `;
         }
         await moveSharePaths(tx, {
@@ -263,6 +268,7 @@ export async function executeMoveFile(
           oldPath: entry.relativePath,
           newPath: newRelativePath,
           isDirectory: entry.entryType === "DIRECTORY",
+          caseInsensitive,
         });
       }, { timeout: 60_000 });
     } catch (databaseError) {

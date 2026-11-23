@@ -37,6 +37,7 @@ export async function POST(request: Request) {
       // storage:write below. With storage:write alone, roles without the
       // image bed (operator, storage_manager) added images this way.
       permission: "image:write",
+      optionalTokenPermissions: ["storage:write"],
       rateLimit: IMAGE_UPLOAD_LIMIT,
       bodySchema: initMediaUploadSchema,
       errorStatus: 500,

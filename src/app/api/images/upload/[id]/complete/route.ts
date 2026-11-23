@@ -75,6 +75,7 @@ export async function POST(
       // session opened by the storage uploader (storage:write only) could
       // otherwise be finished here as an image.
       permission: "image:write",
+      optionalTokenPermissions: ["storage:write"],
       rateLimit: IMAGE_UPLOAD_LIMIT,
       errorStatus: 500,
       errorMessage: apiCopy("apiCopy.failed.to.complete.upload.session.dae9f71c"),

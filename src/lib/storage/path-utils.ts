@@ -62,6 +62,20 @@ export function hasCaseInsensitiveLocalPaths(driver: string | undefined): boolea
   return driver === "LOCAL" && process.platform === "win32";
 }
 
+/** True when a storage node stores paths on a case-insensitive Windows filesystem (LOCAL on win32 or Windows SFTP). */
+export function isCaseInsensitiveStorageNode(node: {
+  driver?: string | null;
+  basePath?: string | null;
+  server?: { operatingSystem?: string | null } | null;
+} | null | undefined): boolean {
+  if (!node) return false;
+  return hasCaseInsensitiveLocalPaths(node.driver ?? undefined)
+    || (node.driver === "SFTP" && (
+      node.server?.operatingSystem === "WINDOWS"
+      || Boolean(node.basePath && isWindowsStorageBasePath(node.basePath))
+    ));
+}
+
 /** True when a name or relative path holds a character Windows does not allow in names. */
 export function hasWindowsInvalidNameChars(relativePath: string): boolean {
   return WINDOWS_INVALID_SEGMENT_CHARS.test(relativePath);

@@ -27,7 +27,7 @@ export async function GET(request: Request) {
   const guard = operation === "write" ? { permission: "storage:write" as const } : { permission: "storage:read" as const };
   return withApiRoute(
     request,
-    { ...guard, errorMessage: apiCopy("apiCopy.failed.to.read.storage.node.c8b339ff") },
+    { ...guard, optionalTokenPermissions: ["storage:manage-node"], errorMessage: apiCopy("apiCopy.failed.to.read.storage.node.c8b339ff") },
     async ({ session }) => {
       const driverFilter = parseSearchParams(request, driverFilterSchema);
 

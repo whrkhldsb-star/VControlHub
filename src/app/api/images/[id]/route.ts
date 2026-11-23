@@ -41,6 +41,7 @@ export async function DELETE(
     request,
     {
       permission: "image:write",
+      optionalTokenPermissions: ["media:manage"],
       rateLimit: IMAGE_UPLOAD_LIMIT,
       errorMessage: apiCopy("apiCopy.delete.failed.8727e2ba"),
     },

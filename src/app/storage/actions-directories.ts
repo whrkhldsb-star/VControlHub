@@ -1,4 +1,6 @@
 "use server";
+import { isCaseInsensitiveStorageNode } from "@/lib/storage/path-utils";
+import { Prisma } from "@prisma/client";
 
 import { assertNotRecycled } from "@/lib/storage/archive-access";
 import { escapeLikeLiteral } from "@/lib/db/like-pattern";
@@ -318,10 +320,11 @@ async function renameFileEntryActionImpl(
     // Filtering to isDeleted:false would let rename destroy a recycled file's
     // bytes and then hit the @@unique constraint (which spans soft-deleted
     // rows) on the DB update, silently emptying the recycle-bin entry.
+    const caseInsensitive = isCaseInsensitiveStorageNode(entry.storageNode);
     const occupant = await prisma.fileEntry.findFirst({
       where: {
         storageNodeId: entry.storageNodeId,
-        relativePath: newRelativePath,
+        relativePath: caseInsensitive ? { equals: newRelativePath, mode: "insensitive" } : newRelativePath,
         id: { not: fileEntryId },
       },
       select: { id: true, isDeleted: true },
@@ -349,7 +352,7 @@ async function renameFileEntryActionImpl(
       directoryChildren = await prisma.fileEntry.findMany({
         where: {
           storageNodeId: entry.storageNodeId,
-          relativePath: { startsWith: escapeLikeLiteral(oldPrefix) },
+          relativePath: { startsWith: escapeLikeLiteral(oldPrefix), ...(caseInsensitive ? { mode: "insensitive" as const } : {}) },
         },
         select: { id: true, relativePath: true },
         take: DIRECTORY_CHILD_REWRITE_LIMIT + 1,
@@ -401,7 +404,9 @@ async function renameFileEntryActionImpl(
             SET "relativePath" = ${newPrefix} || substring("relativePath" from length(${oldPrefix}::text) + 1),
                 "updatedAt" = (now() AT TIME ZONE 'UTC')
             WHERE "storageNodeId" = ${entry.storageNodeId}
-              AND "relativePath" LIKE ${`${escapeLikeLiteral(oldPrefix)}%`} ESCAPE '\\'
+              AND ${caseInsensitive
+                ? Prisma.sql`lower("relativePath") LIKE ${`${escapeLikeLiteral(oldPrefix.toLowerCase())}%`} ESCAPE '\\'`
+                : Prisma.sql`"relativePath" LIKE ${`${escapeLikeLiteral(oldPrefix)}%`} ESCAPE '\\'`}
           `;
         }
 
@@ -418,6 +423,7 @@ async function renameFileEntryActionImpl(
           oldPath: entry.relativePath,
           newPath: newRelativePath,
           isDirectory: entry.entryType === "DIRECTORY",
+          caseInsensitive,
         });
       }, { timeout: 60_000 });
     } catch (databaseError) {

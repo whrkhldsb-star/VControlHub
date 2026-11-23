@@ -3,7 +3,7 @@ import { dashboardCommands, failedTaskSummary, openIncidentSummary } from "@/lib
 import { listActiveAnnouncements } from "@/lib/announcement/service";
 import { sessionHasPermission } from "@/lib/auth/authorization";
 import { requireSession } from "@/lib/auth/require-session";
-import { activeCustomerTeamWhere, serverTeamWhere, teamWhere } from "@/lib/auth/team-scope";
+import { activeCustomerTeamWhere, isGlobalTeamManager, serverTeamWhere, teamWhere } from "@/lib/auth/team-scope";
 import { canReadCommandBody } from "@/lib/command/visibility";
 import { formatDateTime, formatShortTime } from "@/lib/datetime/format";
 import { buildAttentionChecks } from "@/lib/dashboard/attention";
@@ -98,7 +98,7 @@ export async function DashboardContent({ sessionPath }: { sessionPath: "/" | "/d
 			? prisma.alertRule.count({ where: { enabled: true, ...activeTeamScope } }).catch(() => 0)
 			: Promise.resolve(0),
 		canManageSettings ? getSetting("smtp.enabled") : Promise.resolve(null),
-		canReadBackups ? prisma.backupSchedule.count({ where: activeTeamScope }).catch(() => 0) : Promise.resolve(0),
+		canReadBackups ? prisma.backupSchedule.count({ where: isGlobalTeamManager(session) ? {} : activeTeamScope }).catch(() => 0) : Promise.resolve(0),
 		canReadBackups ? prisma.vpsBackupSchedule
 			.count({
 				where: {

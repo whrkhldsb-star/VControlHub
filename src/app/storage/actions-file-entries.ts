@@ -1,4 +1,5 @@
 "use server";
+import { isCaseInsensitiveStorageNode } from "@/lib/storage/path-utils";
 
 import { escapeLikeLiteral } from "@/lib/db/like-pattern";
 import { auditUserAction } from "@/lib/audit/service";
@@ -198,10 +199,11 @@ async function permanentDeleteFileEntryActionImpl(
       }
 
       const isDirectory = entry.entryType === "DIRECTORY";
+      const caseInsensitive = isCaseInsensitiveStorageNode(entry.storageNode);
       if (isDirectory) {
         const outside = await prisma.fileEntry.count({
-          where: deleteBatchId ? outsideDeleteBatchWhere(entry.storageNodeId, entry.relativePath, deleteBatchId)
-            : { storageNodeId: entry.storageNodeId, relativePath: { startsWith: escapeLikeLiteral(entry.relativePath + "/") } },
+          where: deleteBatchId ? outsideDeleteBatchWhere(entry.storageNodeId, entry.relativePath, deleteBatchId, caseInsensitive)
+            : { storageNodeId: entry.storageNodeId, relativePath: { startsWith: escapeLikeLiteral(entry.relativePath + "/"), ...(caseInsensitive ? { mode: "insensitive" as const } : {}) } },
         });
         if (outside > 0) {
           return { error: t("storagePage.action.liveEntriesUnderRecycledDirectory", { count: outside }) };
@@ -210,7 +212,7 @@ async function permanentDeleteFileEntryActionImpl(
       const children = isDirectory && deleteBatchId ? await prisma.fileEntry.findMany({
         where: {
           storageNodeId: entry.storageNodeId, isDeleted: true, deleteBatchId,
-          relativePath: { startsWith: escapeLikeLiteral(`${entry.relativePath}/`) },
+          relativePath: { startsWith: escapeLikeLiteral(`${entry.relativePath}/`), ...(caseInsensitive ? { mode: "insensitive" as const } : {}) },
         },
         select: { id: true, relativePath: true, entryType: true, deletedAgentRoot: true, storageVersion: true },
       }) : [];

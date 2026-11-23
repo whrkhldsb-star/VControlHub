@@ -1,3 +1,4 @@
+import { Prisma } from "@prisma/client";
 /**
  * WebDAV storage adapter over VControlHub FileEntry + LOCAL/SFTP backends.
  *
@@ -903,7 +904,9 @@ export async function handleWebDavMove(
             ),
             "updatedAt" = (now() AT TIME ZONE 'UTC')
         WHERE "storageNodeId" = ${ctx.storageNodeId}
-          AND "relativePath" LIKE ${`${escapeLikePrefix(`${oldPrefix}/`)}%`} ESCAPE '\\'
+          AND ${caseInsensitive
+            ? Prisma.sql`lower("relativePath") LIKE ${`${escapeLikePrefix(`${oldPrefix.toLowerCase()}/`)}%`} ESCAPE '\\'`
+            : Prisma.sql`"relativePath" LIKE ${`${escapeLikePrefix(`${oldPrefix}/`)}%`} ESCAPE '\\'`}
       `;
       // Recycle-bin descendants included: their bytes moved with the directory.
     });

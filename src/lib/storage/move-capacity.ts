@@ -1,3 +1,4 @@
+import { isCaseInsensitiveStorageNode } from "./path-utils";
 import { createHash } from "node:crypto";
 import { lstat, readdir } from "node:fs/promises";
 import path from "node:path";
@@ -21,12 +22,14 @@ export function moveMeasurement(node: StorageNodeWithCredentials & { id: string 
     }
     // These remote drivers expose no atomic subtree inventory or revision fence.
     if (node.driver !== "LOCAL") throw incomplete();
+    const caseInsensitive = isCaseInsensitiveStorageNode(node);
     const rows = await prisma.fileEntry.findMany({
-      where: { storageNodeId: node.id, relativePath: { startsWith: escapeLikeLiteral(entry.relativePath + "/") } },
+      where: { storageNodeId: node.id, relativePath: { startsWith: escapeLikeLiteral(entry.relativePath + "/"), ...(caseInsensitive ? { mode: "insensitive" as const } : {}) } },
       select: { relativePath: true, size: true, isDeleted: true, entryType: true }, take: limit + 1,
     });
     if (rows.length > limit) throw incomplete();
-    const indexed = new Map(rows.map(row => [row.relativePath, row]));
+    const keyOf = (p: string) => (caseInsensitive ? p.toLowerCase() : p);
+    const indexed = new Map(rows.map(row => [keyOf(row.relativePath), row]));
     const root = await resolveManagedLocalEntryPath({ basePath: node.basePath, relativePath: entry.relativePath });
     const digest = createHash("sha256");
     let bytes = BigInt(0), largest = BigInt(0);
@@ -38,9 +41,9 @@ export function moveMeasurement(node: StorageNodeWithCredentials & { id: string 
       const children = (await readdir(dir.absolute, { withFileTypes: true })).sort((a, b) => a.name.localeCompare(b.name));
       for (const child of children) {
         const relative = dir.relative + "/" + child.name;
-        const row = indexed.get(relative);
+        const row = indexed.get(keyOf(relative));
         if (!row || row.isDeleted) throw incomplete();
-        indexed.delete(relative);
+        indexed.delete(keyOf(relative));
         const absolute = path.join(dir.absolute, child.name);
         const stat = await lstat(absolute, { bigint: true });
         digest.update(JSON.stringify([relative, String(stat.dev), String(stat.ino), String(stat.ctimeNs), String(stat.size)]));

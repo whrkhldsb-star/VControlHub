@@ -30,6 +30,7 @@ export async function POST(request: Request) {
     request,
     {
       permission: "image:write",
+      optionalTokenPermissions: ["media:manage"],
       rateLimit: IMAGE_UPLOAD_LIMIT,
       errorMessage: apiCopy("apiCopy.batch.operation.failed.07434a82"),
       bodySchema: batchSchema,
