@@ -106,7 +106,7 @@ export async function POST(request: Request) {
               serverId: serverId ?? "hub-host",
               removeVolumes: body.removeVolumes === true,
               error: error instanceof Error ? error.message.slice(0, 500) : String(error).slice(0, 500),
-            }, undefined, session.currentTeamId);
+            }, undefined, expectedTeamId ?? null);
           } catch {
             // The original failure is what the caller must see.
           }
@@ -120,7 +120,7 @@ export async function POST(request: Request) {
           mode: result.mode,
           serverId: serverId ?? "hub-host",
           removeVolumes: body.removeVolumes === true,
-        }, undefined, session.currentTeamId);
+        }, undefined, expectedTeamId ?? null);
       }
 
       return NextResponse.json({

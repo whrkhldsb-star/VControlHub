@@ -14,6 +14,7 @@ import { readDirectoryIndex, type DirectoryIndexEntry } from "./directory-index"
 import { guessMimeType } from "@/lib/image-bed/constants";
 import {
   expandStorageBasePath,
+  hasCaseInsensitiveLocalPaths,
   joinStoragePath,
   normalizeStorageTargetDirectory,
   resolveStoragePathWithinBase,
@@ -70,10 +71,12 @@ async function upsertLocalEntry(input: {
 
 async function pruneStaleEntries(
   nodeId: string,
-  indexed: Map<string, DirectoryIndexEntry>,
+  indexedEntries: DirectoryIndexEntry[],
   diskRelativePaths: Set<string>,
+  caseInsensitive = false,
 ) {
-  const stale = [...indexed.values()].filter((entry) => !entry.isDeleted && !diskRelativePaths.has(entry.relativePath));
+  const keyOf = (p: string) => (caseInsensitive ? p.toLowerCase() : p);
+  const stale = indexedEntries.filter((entry) => !entry.isDeleted && !diskRelativePaths.has(keyOf(entry.relativePath)));
   let deleted = 0;
   for (let offset = 0; offset < stale.length; offset += WRITE_BATCH_SIZE) {
     const result = await prisma.fileEntry.updateMany({
@@ -126,9 +129,18 @@ async function inventory(node: Pick<LocalSyncNode, "id" | "basePath">, directory
 
   // Capture prune candidates before scanning disk: uploads created during the
   // scan must never be deleted by an older directory inventory.
+  const caseInsensitive = hasCaseInsensitiveLocalPaths("LOCAL");
+  const keyOf = (p: string) => (caseInsensitive ? p.toLowerCase() : p);
   const indexed = new Map<string, DirectoryIndexEntry>();
-  for await (const page of readDirectoryIndex(node.id, directory)) {
-    for (const entry of page) indexed.set(entry.relativePath, entry);
+  const indexedEntries: DirectoryIndexEntry[] = [];
+  for await (const page of readDirectoryIndex(node.id, directory, prisma, caseInsensitive)) {
+    for (const entry of page) {
+      indexedEntries.push(entry);
+      const key = keyOf(entry.relativePath);
+      const prev = indexed.get(key);
+      // Preserve recycle-bin tombstones on legacy case-variant collisions so sync never resurrects deleted files.
+      if (!prev || (!prev.isDeleted && entry.isDeleted)) indexed.set(key, entry);
+    }
   }
 
   let entries;
@@ -144,7 +156,7 @@ async function inventory(node: Pick<LocalSyncNode, "id" | "basePath">, directory
   const missing: Prisma.FileEntryCreateManyInput[] = [];
   for (const entry of entries) {
     // Symlinks and special files are intentionally not exposed by the file manager.
-    if ((!entry.isDirectory() && !entry.isFile()) || isStorageStagingPath(`${directory}/${entry.name}`)) continue;
+    if ((!entry.isDirectory() && !entry.isFile()) || isStorageStagingPath(keyOf(`${directory}/${entry.name}`))) continue;
     const relativePath = joinStoragePath(directory, entry.name);
     if (
       !relativePath.ok ||
@@ -181,7 +193,7 @@ async function inventory(node: Pick<LocalSyncNode, "id" | "basePath">, directory
       }
     }
 
-    diskRelativePaths.add(relativePath.path);
+    diskRelativePaths.add(keyOf(relativePath.path));
     result.synced += 1;
     try {
       const data = {
@@ -191,7 +203,7 @@ async function inventory(node: Pick<LocalSyncNode, "id" | "basePath">, directory
         entryType: entry.isDirectory() ? "DIRECTORY" as const : "FILE" as const,
         size, storageVersion,
       };
-      const existing = indexed.get(relativePath.path);
+      const existing = indexed.get(keyOf(relativePath.path));
       if (existing) {
         result.updated += await upsertLocalEntry(data, existing);
       } else {
@@ -224,8 +236,9 @@ async function inventory(node: Pick<LocalSyncNode, "id" | "basePath">, directory
   if (result.errors.length === 0) {
     result.deleted = await pruneStaleEntries(
       node.id,
-      indexed,
+      indexedEntries,
       diskRelativePaths,
+      caseInsensitive,
     );
   }
   return result;

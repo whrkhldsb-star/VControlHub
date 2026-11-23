@@ -266,7 +266,7 @@ async function pruneStaleEntries(
   const prefix = relativeDir ? `${relativeDir}/` : "";
   const normalizedPrefix = keyOf(prefix);
   const staleIds: string[] = [];
-  for await (const page of readDirectoryIndex(nodeId, relativeDir)) {
+  for await (const page of readDirectoryIndex(nodeId, relativeDir, prisma, caseInsensitive)) {
     for (const entry of page) {
       if (entry.isDeleted || !(entry.updatedAt < listingStartedAt)) continue;
       if (!keyOf(entry.relativePath).startsWith(normalizedPrefix)) continue;

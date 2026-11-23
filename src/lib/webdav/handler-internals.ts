@@ -23,6 +23,7 @@ import {
   storageFileNodeSelect,
 } from "@/lib/storage/file-content";
 import {
+  isCaseInsensitiveStorageNode,
   normalizeStorageRelativePath,
 } from "@/lib/storage/path-utils";
 import { createFileEntry } from "@/lib/storage/service-entries";
@@ -221,23 +222,39 @@ export async function listDirectChildren(
   storageNodeId: string,
   parentPath: string,
   limit: number = MAX_PROPFIND_CHILDREN,
+  caseInsensitive = false,
 ): Promise<{ rows: DirectChildRow[]; truncated: boolean }> {
   const prefix = parentPath ? `${parentPath}/` : "";
+  const matchPrefix = caseInsensitive ? prefix.toLowerCase() : prefix;
   // length(text) supplies an integer substring offset and counts Unicode like
   // PostgreSQL, avoiding both its regex overload and JavaScript UTF-16 offsets.
-  const rows = await prisma.$queryRaw<DirectChildRow[]>`
-    SELECT id, name, "relativePath", "entryType"::text AS "entryType",
-           size, "mimeType", "updatedAt"
-    FROM file_entries
-    WHERE "storageNodeId" = ${storageNodeId}
-      AND "isDeleted" = false
-      AND "relativePath" LIKE ${`${escapeLikePrefix(prefix)}%`} ESCAPE '\\'
-      AND length("relativePath") > length(${prefix}::text)
-      AND position('/' in substring("relativePath" from (length(${prefix}::text) + 1))) = 0
-      AND "relativePath" !~ ${storageStagingPathRegex}
-    ORDER BY "entryType" ASC, name ASC, id ASC
-    LIMIT ${limit + 1}
-  `;
+  const rows = caseInsensitive
+    ? await prisma.$queryRaw<DirectChildRow[]>`
+      SELECT id, name, "relativePath", "entryType"::text AS "entryType",
+             size, "mimeType", "updatedAt"
+      FROM file_entries
+      WHERE "storageNodeId" = ${storageNodeId}
+        AND "isDeleted" = false
+        AND lower("relativePath") LIKE ${`${escapeLikePrefix(matchPrefix)}%`} ESCAPE '\\'
+        AND length(lower("relativePath")) > length(${matchPrefix}::text)
+        AND position('/' in substring(lower("relativePath") from (length(${matchPrefix}::text) + 1))) = 0
+        AND lower("relativePath") !~ ${storageStagingPathRegex}
+      ORDER BY "entryType" ASC, name ASC, id ASC
+      LIMIT ${limit + 1}
+    `
+    : await prisma.$queryRaw<DirectChildRow[]>`
+      SELECT id, name, "relativePath", "entryType"::text AS "entryType",
+             size, "mimeType", "updatedAt"
+      FROM file_entries
+      WHERE "storageNodeId" = ${storageNodeId}
+        AND "isDeleted" = false
+        AND "relativePath" LIKE ${`${escapeLikePrefix(prefix)}%`} ESCAPE '\\'
+        AND length("relativePath") > length(${prefix}::text)
+        AND position('/' in substring("relativePath" from (length(${prefix}::text) + 1))) = 0
+        AND "relativePath" !~ ${storageStagingPathRegex}
+      ORDER BY "entryType" ASC, name ASC, id ASC
+      LIMIT ${limit + 1}
+    `;
   if (rows.length > limit) return { rows: rows.slice(0, limit), truncated: true };
   return { rows, truncated: false };
 }
@@ -249,12 +266,13 @@ export async function ensureDirectoryIndexAndBacking(input: {
   relativePath: string;
 }) {
   if (!input.relativePath) return;
+  const caseInsensitive = isCaseInsensitiveStorageNode(input.node);
   const segments = input.relativePath.split("/").filter(Boolean);
   let built = "";
   for (const segment of segments) {
     built = built ? `${built}/${segment}` : segment;
-    await assertNotRecycled(input.storageNodeId, built, "write");
-    const existing = await findEntry(input.storageNodeId, built);
+    await assertNotRecycled(input.storageNodeId, built, "write", input.node.driver, caseInsensitive);
+    const existing = await findEntry(input.storageNodeId, built, caseInsensitive);
     if (existing) {
       if (existing.entryType !== "DIRECTORY") {
         throw new ConflictError(
@@ -280,7 +298,11 @@ export async function ensureDirectoryIndexAndBacking(input: {
       if (directory.removeIfEmpty) {
         // Another request may already have indexed this directory.
         const indexed = await prisma.fileEntry.findFirst({
-          where: { storageNodeId: input.storageNodeId, relativePath: built }, select: { id: true },
+          where: {
+            storageNodeId: input.storageNodeId,
+            relativePath: caseInsensitive ? { equals: built, mode: "insensitive" as const } : built,
+          },
+          select: { id: true },
         }).catch(() => true);
         if (!indexed) await directory.removeIfEmpty().catch(() => undefined);
       }

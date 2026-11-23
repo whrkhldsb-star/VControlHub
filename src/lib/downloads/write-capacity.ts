@@ -4,7 +4,7 @@ import { prisma } from "@/lib/db";
 import { isGlobalTeamManager } from "@/lib/auth/team-scope";
 import { sessionHasPermission } from "@/lib/auth/authorization";
 import type { getStorageWriteCapacity, StorageWriteCapacity } from "@/lib/storage/access-control";
-import { normalizeStorageTargetDirectory } from "@/lib/storage/path-utils";
+import { isCaseInsensitiveStorageNode, normalizeStorageTargetDirectory } from "@/lib/storage/path-utils";
 
 function minimum(a: bigint | null, b: bigint | null) {
   return a === null ? b : b === null || a < b ? a : b;
@@ -23,24 +23,43 @@ export async function downloadWriteCapacity(input: Parameters<typeof getStorageW
     select: { canWrite: true, pathPrefix: true, maxFileBytes: true, quotaBytes: true },
   });
   if (!grants.length) return unlimited;
+  const storageNodeModel = (db as { storageNode?: { findUnique?: typeof prisma.storageNode.findUnique } }).storageNode;
+  const node = storageNodeModel?.findUnique
+    ? await storageNodeModel.findUnique({
+      where: { id: input.storageNodeId },
+      select: { driver: true, basePath: true, server: { select: { operatingSystem: true } } },
+    })
+    : null;
+  const caseInsensitive = isCaseInsensitiveStorageNode(node);
+  const pathKey = (value: string) => (caseInsensitive ? value.toLowerCase() : value);
+  const targetKey = pathKey(path.path);
   const matching = grants.filter(grant => {
     const prefix = normalizeStorageTargetDirectory(grant.pathPrefix);
-    return grant.canWrite && prefix.ok && (!prefix.path || path.path === prefix.path || path.path.startsWith(prefix.path + "/"));
+    const prefixKey = prefix.ok ? pathKey(prefix.path) : "";
+    return grant.canWrite && prefix.ok && (!prefixKey || targetKey === prefixKey || targetKey.startsWith(prefixKey + "/"));
   });
   if (!matching.length) return { denied: true, maxFileBytes: BigInt(0), remainingBytes: BigInt(0) };
   let maxFileBytes: bigint | null = null;
   let remainingBytes: bigint | null = null;
+  const mode = caseInsensitive ? { mode: "insensitive" as const } : {};
   const replaced = fileName && matching.some(grant => grant.quotaBytes !== null) ? await db.fileEntry.findFirst({
-    where: { storageNodeId: input.storageNodeId, relativePath: path.path, entryType: "FILE", isDeleted: false }, select: { size: true },
+    where: {
+      storageNodeId: input.storageNodeId,
+      relativePath: caseInsensitive ? { equals: path.path, mode: "insensitive" as const } : path.path,
+      entryType: "FILE",
+      isDeleted: false,
+    },
+    select: { size: true },
   }) : null;
   for (const grant of matching) {
     maxFileBytes = minimum(maxFileBytes, grant.maxFileBytes);
     if (grant.quotaBytes === null) continue;
     const prefix = normalizeStorageTargetDirectory(grant.pathPrefix);
     if (!prefix.ok) continue;
+    const exactPrefix = caseInsensitive ? { equals: prefix.path, mode: "insensitive" as const } : prefix.path;
     const usage = await db.fileEntry.aggregate({
       where: { storageNodeId: input.storageNodeId, entryType: "FILE", isDeleted: false,
-        ...(prefix.path && { OR: [{ relativePath: prefix.path }, { relativePath: { startsWith: escapeLikeLiteral(prefix.path + "/") } }] }) },
+        ...(prefix.path && { OR: [{ relativePath: exactPrefix }, { relativePath: { startsWith: escapeLikeLiteral(prefix.path + "/"), ...mode } }] }) },
       _sum: { size: true },
     });
     const available = grant.quotaBytes - (usage._sum.size ?? BigInt(0)) + (replaced?.size ?? BigInt(0));

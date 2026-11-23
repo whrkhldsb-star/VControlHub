@@ -13,7 +13,7 @@ import { withApiRoute } from "@/lib/http/api-guard";
 import { GENERAL_WRITE_LIMIT } from "@/lib/http/rate-limit-presets";
 import { parseSearchParams } from "@/lib/http/parse-search-params";
 import { t } from "@/lib/i18n/service-translations";
-import { normalizeStorageTargetDirectory } from "@/lib/storage/path-utils";
+import { isCaseInsensitiveStorageNode, normalizeStorageTargetDirectory } from "@/lib/storage/path-utils";
 import { withAccountPermissionChange } from "@/lib/user/account-type";
 import { afterOption, optionFilter, readOptionPage } from "@/lib/user/permission-options";
 import { permissionAccountIdentity, permissionVersion, prepareResourceNarrowing, readPermissionAccount } from "./route-patch";
@@ -92,32 +92,40 @@ async function serializeStorageAccessGrants(
     canDelete: boolean;
     quotaBytes: bigint | null;
     maxFileBytes: bigint | null;
-    storageNode: { id: string; name: string; driver: string; basePath: string };
+    storageNode: { id: string; name: string; driver: string; basePath: string; server?: { operatingSystem?: string | null } | null };
     createdAt: Date;
     updatedAt: Date;
   }>,
 ) {
   const prefixes = grants.flatMap(grant => {
     const normalized = normalizeStorageTargetDirectory(grant.pathPrefix);
-    return normalized.ok ? [{ id: grant.id, node: grant.storageNodeId, prefix: normalized.path }] : [];
+    const insensitive = isCaseInsensitiveStorageNode(grant.storageNode);
+    return normalized.ok ? [{ id: grant.id, node: grant.storageNodeId, prefix: insensitive ? normalized.path.toLowerCase() : normalized.path, insensitive }] : [];
   });
   // A single query for the returned grants. starts_with treats every path character literally.
   const usage = prefixes.length ? await prisma.$queryRaw<Array<{ id: string; bytes: string }>>`
     SELECT g.id, COALESCE(sum(f.size), 0)::text AS bytes
-    FROM jsonb_to_recordset(${JSON.stringify(prefixes)}::jsonb) AS g(id text, node text, prefix text)
+    FROM jsonb_to_recordset(${JSON.stringify(prefixes)}::jsonb) AS g(id text, node text, prefix text, insensitive boolean)
     JOIN file_entries f ON f."storageNodeId" = g.node AND NOT f."isDeleted" AND f."entryType" = 'FILE'
-      AND (g.prefix = '' OR f."relativePath" = g.prefix OR starts_with(f."relativePath", g.prefix || '/'))
+      AND (
+        g.prefix = ''
+        OR (NOT g.insensitive AND (f."relativePath" = g.prefix OR starts_with(f."relativePath", g.prefix || '/')))
+        OR (g.insensitive AND (lower(f."relativePath") = g.prefix OR starts_with(lower(f."relativePath"), g.prefix || '/')))
+      )
     GROUP BY g.id` : [];
   const byGrant = new Map(usage.map(row => [row.id, row.bytes]));
-  return grants.map(grant => ({
-    id: grant.id, storageNodeId: grant.storageNodeId, storageNode: grant.storageNode, pathPrefix: grant.pathPrefix,
-    canRead: grant.canRead, canWrite: grant.canWrite, canDelete: grant.canDelete,
-    quotaBytes: serializeBigInt(grant.quotaBytes),
-    maxFileBytes: serializeBigInt(grant.maxFileBytes),
-    usedBytes: byGrant.get(grant.id) ?? "0",
-    createdAt: grant.createdAt.toISOString(),
-    updatedAt: grant.updatedAt.toISOString(),
-  }));
+  return grants.map(grant => {
+    const { server: _server, ...storageNode } = grant.storageNode;
+    return {
+      id: grant.id, storageNodeId: grant.storageNodeId, storageNode, pathPrefix: grant.pathPrefix,
+      canRead: grant.canRead, canWrite: grant.canWrite, canDelete: grant.canDelete,
+      quotaBytes: serializeBigInt(grant.quotaBytes),
+      maxFileBytes: serializeBigInt(grant.maxFileBytes),
+      usedBytes: byGrant.get(grant.id) ?? "0",
+      createdAt: grant.createdAt.toISOString(),
+      updatedAt: grant.updatedAt.toISOString(),
+    };
+  });
 }
 
 export async function GET(request: Request) {
