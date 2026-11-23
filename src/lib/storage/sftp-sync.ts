@@ -1,3 +1,4 @@
+import { isCaseInsensitiveStorageNode } from "@/lib/storage/path-utils";
 import { randomUUID } from "node:crypto";
 import { assertNotRecycled } from "./archive-access";
 import { isStorageStagingPath } from "./staging-paths";
@@ -124,7 +125,8 @@ function describeError(error: unknown) {
  * one indexed lookup per batch, `createMany` for new paths, and no write at all
  * for entries that have not changed.
  */
-async function syncRemoteEntries(nodeId: string, allPayloads: RemoteEntryPayload[], listingStartedAt: Date) {
+async function syncRemoteEntries(nodeId: string, allPayloads: RemoteEntryPayload[], listingStartedAt: Date, caseInsensitive = false) {
+  const keyOf = (p: string) => (caseInsensitive ? p.toLowerCase() : p);
   const counts = { created: 0, updated: 0, skipped: 0, errors: [] as string[] };
 
   // A path the unique index cannot hold (2704 bytes per entry) failed the whole createMany batch it was in, every
@@ -141,7 +143,7 @@ async function syncRemoteEntries(nodeId: string, allPayloads: RemoteEntryPayload
 
     let indexed: Awaited<ReturnType<typeof loadIndexedEntries>>;
     try {
-      indexed = await loadIndexedEntries(nodeId, paths);
+      indexed = await loadIndexedEntries(nodeId, paths, caseInsensitive);
     } catch (error) {
       counts.errors.push(`Indexing ${paths.length} remote entries failed: ${describeError(error)}`);
       continue;
@@ -149,7 +151,7 @@ async function syncRemoteEntries(nodeId: string, allPayloads: RemoteEntryPayload
 
     const missing: RemoteEntryPayload[] = [];
     for (const payload of batch) {
-      const existing = indexed.get(payload.relativePath);
+      const existing = indexed.get(keyOf(payload.relativePath));
       if (!existing) {
         missing.push(payload);
         continue;
@@ -190,9 +192,9 @@ async function syncRemoteEntries(nodeId: string, allPayloads: RemoteEntryPayload
       counts.created += created.count;
       if (created.count === missing.length) continue;
       // Re-read conflicting inserts. Only a row older than this inventory can be reconciled.
-      const raced = await loadIndexedEntries(nodeId, missing.map((payload) => payload.relativePath));
+      const raced = await loadIndexedEntries(nodeId, missing.map((payload) => payload.relativePath), caseInsensitive);
       for (const payload of missing) {
-        const existing = raced.get(payload.relativePath);
+        const existing = raced.get(keyOf(payload.relativePath));
         if (!existing || existing.isDeleted || isPayloadUnchanged(existing, payload)) continue;
         const updated = await prisma.fileEntry.updateMany({
           where: { id: existing.id, isDeleted: false, updatedAt: { equals: existing.updatedAt, lt: listingStartedAt } },
@@ -209,9 +211,9 @@ async function syncRemoteEntries(nodeId: string, allPayloads: RemoteEntryPayload
 }
 
 /** One query for the current index state of `paths` (tombstones included). */
-async function loadIndexedEntries(nodeId: string, paths: string[]) {
+async function loadIndexedEntries(nodeId: string, paths: string[], caseInsensitive = false) {
   const rows = await prisma.fileEntry.findMany({
-    where: { storageNodeId: nodeId, relativePath: { in: paths } },
+    where: { storageNodeId: nodeId, relativePath: { in: paths, ...(caseInsensitive ? { mode: "insensitive" as const } : {}) } },
     select: {
       id: true,
       relativePath: true,
@@ -222,9 +224,16 @@ async function loadIndexedEntries(nodeId: string, paths: string[]) {
       mimeType: true,
       size: true, storageVersion: true, checksumSha256: true,
     },
-    take: paths.length,
+    ...(caseInsensitive ? {} : { take: paths.length }),
   });
-  return new Map(rows.map((row) => [row.relativePath, row]));
+  const map = new Map<string, (typeof rows)[number]>();
+  for (const row of rows) {
+    const key = caseInsensitive ? row.relativePath.toLowerCase() : row.relativePath;
+    const prev = map.get(key);
+    // Preserve recycle-bin tombstones on legacy case-variant collisions so sync never resurrects deleted files.
+    if (!prev || (!prev.isDeleted && row.isDeleted)) map.set(key, row);
+  }
+  return map;
 }
 
 /**
@@ -247,19 +256,23 @@ async function pruneStaleEntries(
   dirPath: string,
   remoteRelativePaths: Set<string>,
   listingStartedAt: Date,
+  caseInsensitive = false,
 ) {
   const relativeDir = computeDirectoryRelativePath(basePath, dirPath);
   if (relativeDir === null) return 0;
 
+  const keyOf = (p: string) => (caseInsensitive ? p.toLowerCase() : p);
+  const normalizedRemote = caseInsensitive ? new Set([...remoteRelativePaths].map(keyOf)) : remoteRelativePaths;
   const prefix = relativeDir ? `${relativeDir}/` : "";
+  const normalizedPrefix = keyOf(prefix);
   const staleIds: string[] = [];
   for await (const page of readDirectoryIndex(nodeId, relativeDir)) {
     for (const entry of page) {
       if (entry.isDeleted || !(entry.updatedAt < listingStartedAt)) continue;
-      if (!entry.relativePath.startsWith(prefix)) continue;
+      if (!keyOf(entry.relativePath).startsWith(normalizedPrefix)) continue;
       const remainder = entry.relativePath.slice(prefix.length);
       const isDirectChild = remainder.length > 0 && !remainder.includes("/");
-      if (isDirectChild && !remoteRelativePaths.has(entry.relativePath))
+      if (isDirectChild && !normalizedRemote.has(keyOf(entry.relativePath)))
         staleIds.push(entry.id);
     }
   }
@@ -387,7 +400,8 @@ export async function syncSftpDirectoryEntries(input: {
         }
       }
 
-      const synced = await syncRemoteEntries(node.id, payloads, listingStartedAt);
+      const caseInsensitive = Boolean(credentials.windowsOpenSsh) || isCaseInsensitiveStorageNode(node);
+      const synced = await syncRemoteEntries(node.id, payloads, listingStartedAt, caseInsensitive);
       result.created += synced.created;
       result.updated += synced.updated;
       result.errors.push(...synced.errors);
@@ -398,6 +412,7 @@ export async function syncSftpDirectoryEntries(input: {
         dirPath,
         remoteRelativePaths,
         listingStartedAt,
+        caseInsensitive,
       );
 
     } catch (error) {

@@ -1,3 +1,4 @@
+import { isCaseInsensitiveStorageNode } from "@/lib/storage/path-utils";
 /**
  * TR-005 T34a: SFTP 远端索引定期校验 (stale inventory).
  *
@@ -157,6 +158,8 @@ export async function detectAndPruneSftpStaleInventory(input: {
       ? Math.max(1, input.directoryTimeoutMs)
       : await getSftpSyncDirectoryTimeoutMs();
 
+  const caseInsensitive = Boolean(credentials.windowsOpenSsh) || isCaseInsensitiveStorageNode(node);
+  const keyOf = (p: string) => (caseInsensitive ? p.toLowerCase() : p);
   const expectedRelativePaths = new Set<string>();
   const visitedDirs = new Set<string>();
   // Relative paths of directories whose listing completed successfully.
@@ -190,7 +193,7 @@ export async function detectAndPruneSftpStaleInventory(input: {
     }
 
     const dirRelative = computeDirectoryRelativePath(basePath, dirPath) ?? "";
-    listedDirRelatives.add(dirRelative);
+    listedDirRelatives.add(keyOf(dirRelative));
 
     for (const entry of entries) {
       if (entry.type === "other") continue;
@@ -201,7 +204,7 @@ export async function detectAndPruneSftpStaleInventory(input: {
         );
         continue;
       }
-      expectedRelativePaths.add(relative);
+      expectedRelativePaths.add(keyOf(relative));
       result.scanned += 1;
       if (entry.type === "directory" && currentDepth < maxDepth) {
         const subDir = `${dirPath.replace(/\/+$/, "")}/${entry.name}`;
@@ -230,7 +233,7 @@ export async function detectAndPruneSftpStaleInventory(input: {
           // into place) is not something the listing could have seen.
           updatedAt: { lt: listingStartedAt },
           ...(baseRelative
-            ? { relativePath: { startsWith: escapeLikeLiteral(`${baseRelative}/`) } }
+            ? { relativePath: { startsWith: escapeLikeLiteral(`${baseRelative}/`), ...(caseInsensitive ? { mode: "insensitive" as const } : {}) } }
             : {}),
         },
         select: { id: true, relativePath: true },
@@ -239,13 +242,13 @@ export async function detectAndPruneSftpStaleInventory(input: {
         ...(cursorId ? { cursor: { id: cursorId }, skip: 1 } : {}),
       });
       for (const dbEntry of dbEntries) {
-        if (expectedRelativePaths.has(dbEntry.relativePath)) continue;
+        if (expectedRelativePaths.has(keyOf(dbEntry.relativePath))) continue;
 
         const segments = dbEntry.relativePath.split("/");
         const parentRelative =
           segments.length > 1 ? segments.slice(0, -1).join("/") : "";
         // Parent must have been listed successfully (not merely observed as a name).
-        if (!listedDirRelatives.has(parentRelative)) continue;
+        if (!listedDirRelatives.has(keyOf(parentRelative))) continue;
 
         // Direct child of a listed dir and missing from that listing → stale.
         staleIds.push(dbEntry.id);
