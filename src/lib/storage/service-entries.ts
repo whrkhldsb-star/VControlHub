@@ -1,3 +1,4 @@
+import { isCaseInsensitiveStorageNode } from "./path-utils";
 import { localRootIdentity, localPathVersion } from "./local-identity";
 import { getReadableStorageScope, readableStorageScopeWhere, readableStorageScopeSql } from "./readable-scope";
 import { escapeLikeLiteral } from "@/lib/db/like-pattern";
@@ -452,12 +453,13 @@ export async function restoreFileEntry(
   }
 
   const actor: SessionPayload = { ...session, username: "", mustChangePassword: false };
+  const caseInsensitive = isCaseInsensitiveStorageNode(current.storageNode);
   const children = current.entryType === "DIRECTORY" && current.deleteBatchId ? await prisma.fileEntry.findMany({
     where: {
       storageNodeId: current.storageNodeId,
       deleteBatchId: current.deleteBatchId,
       isDeleted: true,
-      relativePath: { startsWith: escapeLikeLiteral(`${current.relativePath}/`) },
+      relativePath: { startsWith: escapeLikeLiteral(`${current.relativePath}/`), ...(caseInsensitive ? { mode: "insensitive" as const } : {}) },
     },
     select: { id: true, relativePath: true, entryType: true, size: true, deletedAgentRoot: true, storageVersion: true, updatedAt: true },
   }) : [];
