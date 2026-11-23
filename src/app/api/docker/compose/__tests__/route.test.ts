@@ -235,7 +235,7 @@ describe("/api/docker/compose", () => {
 				"docker.compose.down",
 				{ project: "app", mode: "compose-cli", serverId: "hub-host", removeVolumes: true },
 				undefined,
-				"team_1",
+				null,
 			);
 		});
 
@@ -267,7 +267,7 @@ describe("/api/docker/compose", () => {
 
 			expect(res.status).toBe(422);
 			// The failure itself is audited (A6-07); no success row is written.
-			expect(mocks.auditUserAction).toHaveBeenCalledWith("u_1", "docker.compose.up.failed", expect.objectContaining({ project: "app" }), undefined, expect.anything());
+			expect(mocks.auditUserAction).toHaveBeenCalledWith("u_1", "docker.compose.up.failed", expect.objectContaining({ project: "app" }), undefined, null);
 			expect(mocks.auditUserAction).not.toHaveBeenCalledWith("u_1", "docker.compose.up", expect.anything(), undefined, expect.anything());
 		});
 	});

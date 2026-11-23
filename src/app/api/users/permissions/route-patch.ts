@@ -22,7 +22,7 @@ export function readPermissionAccount(db: Prisma.TransactionClient, userId: stri
     select: {
       ...permissionAccountIdentity,
       storageAccess: {
-        include: { storageNode: { select: { id: true, name: true, driver: true, basePath: true, teamId: true } } },
+        include: { storageNode: { select: { id: true, name: true, driver: true, basePath: true, teamId: true, server: { select: { operatingSystem: true } } } } },
         orderBy: [{ storageNodeId: "asc" }, { pathPrefix: "asc" }],
       },
       serverAccess: {

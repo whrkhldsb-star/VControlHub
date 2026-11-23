@@ -240,7 +240,7 @@ export async function POST(req: NextRequest) {
             dockerAvailable: false,
           },
           action === "remove" ? "WARNING" : "INFO",
-          session.currentTeamId,
+          expectedTeamId ?? null,
         );
         return NextResponse.json(
           {
@@ -263,7 +263,7 @@ export async function POST(req: NextRequest) {
           ok: result.ok,
         },
         action === "remove" ? "WARNING" : "INFO",
-        session.currentTeamId,
+        expectedTeamId ?? null,
       );
       // 304 is what Docker answers to starting a running or stopping a stopped container: the wanted state already
       // holds. A 304 cannot carry a body (NextResponse.json threw a TypeError, shown as a 500 "Docker operation

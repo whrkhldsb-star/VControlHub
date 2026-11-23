@@ -716,7 +716,9 @@ export async function listShareDirectoryFiles(share: DirectoryShareForList) {
   return prisma.$queryRaw<Array<{ id: string; name: string; relativePath: string; size: bigint | null; mimeType: string | null; updatedAt: Date }>>(Prisma.sql`
     SELECT e.id, e.name, e."relativePath", e.size, e."mimeType", e."updatedAt" FROM file_entries e
     WHERE e."storageNodeId" = ${share.storageNodeId} AND e."entryType" = 'FILE' AND NOT e."isDeleted"
-      AND (e."relativePath" = ${prefix} OR starts_with(e."relativePath", ${prefix + "/"}))
+      AND ${insensitive
+        ? Prisma.sql`(lower(e."relativePath") = ${prefix.toLowerCase()} OR starts_with(lower(e."relativePath"), ${prefix.toLowerCase() + "/"}))`
+        : Prisma.sql`(e."relativePath" = ${prefix} OR starts_with(e."relativePath", ${prefix + "/"}))`}
       AND ${noRecycledAncestorSql}
       AND ${insensitive ? Prisma.sql`lower(e."relativePath")` : Prisma.sql`e."relativePath"`} !~ ${storageStagingPathRegex}
       ${insensitive ? Prisma.sql`AND NOT EXISTS (SELECT 1 FROM file_entries bin WHERE bin."storageNodeId" = e."storageNodeId" AND bin."isDeleted"

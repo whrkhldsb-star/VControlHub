@@ -22,7 +22,7 @@ import { STORAGE_SSH_SERVER_SELECT, resolveStorageSshCredentials } from "@/lib/s
 import { assertStorageAccess } from "@/lib/storage/access-control";
 import { storageAccessDeniedCopy } from "@/lib/storage/access-denied";
 import { storageNodeTeamWhere } from "@/lib/auth/team-scope";
-import { expandStorageBasePath, normalizeStorageTargetDirectory } from "@/lib/storage/path-utils";
+import { expandStorageBasePath, isCaseInsensitiveStorageNode, normalizeStorageTargetDirectory } from "@/lib/storage/path-utils";
 import { syncEndpointAccess, effectiveDeleteOrphans, isProtectedDeleteTarget, syncEndpointsOverlap } from "./bidirectional";
 import { t } from "@/lib/i18n/service-translations";
 
@@ -101,11 +101,11 @@ type SyncReachEndpoint = {
 	server?: { host: string; port: number; username: string; hostKeySha256: string | null };
 };
 
-async function assertSyncTreeAvailable(storageNodeId: string, relativePath: string, write: boolean) {
-	await assertNotRecycled(storageNodeId, relativePath, write ? "write" : "read");
+async function assertSyncTreeAvailable(storageNodeId: string, relativePath: string, write: boolean, caseInsensitive = false) {
+	await assertNotRecycled(storageNodeId, relativePath, write ? "write" : "read", "SFTP", caseInsensitive);
 	const deleted = await prisma.fileEntry.findFirst({
 		where: { storageNodeId, isDeleted: true,
-			...(relativePath ? { relativePath: { startsWith: escapeLikeLiteral(`${relativePath}/`) } } : {}) },
+			...(relativePath ? { relativePath: { startsWith: escapeLikeLiteral(`${relativePath}/`), ...(caseInsensitive ? { mode: "insensitive" as const } : {}) } } : {}) },
 		select: { id: true },
 	});
 	if (deleted) throw new ForbiddenError(t("backend.webdav.destinationHeldByRecycleBin", { path: `/${relativePath}` }));
@@ -145,7 +145,12 @@ export async function assertSyncEndpointsWithinReach(
 		}
 		// A shell-capable caller can name a parent of an indexed root, which includes its whole recycle bin.
 		if (inside || syncPathWithinRoot(root, endpoint.path)) {
-			await assertSyncTreeAvailable(node.id, relativePath, operations.some(operation => operation !== "read"));
+			await assertSyncTreeAvailable(
+				node.id,
+				relativePath,
+				operations.some(operation => operation !== "read"),
+				isCaseInsensitiveStorageNode({ driver: "SFTP", basePath: node.basePath, server: node.server }),
+			);
 		}
 		if (confined) {
 			const credentials = resolveStorageSshCredentials(node);

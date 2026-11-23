@@ -677,16 +677,17 @@ describe("webdav handlers", () => {
       expect(mocks.fileEntryDeleteMany).toHaveBeenNthCalledWith(1, {
         where: expect.objectContaining({ storageNodeId: "n1", id: "d1", isDeleted: false, relativePath: "docs" }),
       });
+      const ci = process.platform === "win32";
       expect(mocks.fileEntryDeleteMany).toHaveBeenNthCalledWith(2, {
-        where: { storageNodeId: "n1", relativePath: { startsWith: "docs/" } },
+        where: { storageNodeId: "n1", relativePath: { startsWith: "docs/", ...(ci ? { mode: "insensitive" } : {}) } },
       });
       // A link to the folder, or into it, must not serve what is put there later.
       expect(mocks.shareLink.updateMany).toHaveBeenCalledWith({
-        where: { storageNodeId: "n1", revokedAt: null, OR: [{ path: "docs" }, { path: { startsWith: "docs/" } }] },
+        where: shareRevokeWhere("docs", ci),
         data: { revokedAt: expect.any(Date) },
       });
       expect(mocks.fileVersionFindMany).toHaveBeenCalledWith(expect.objectContaining({
-        where: { fileEntry: { storageNodeId: "n1", ...atOrBelow("docs") } },
+        where: { fileEntry: { storageNodeId: "n1", ...atOrBelow("docs", ci) } },
       }));
       expect(mocks.purgeFileEntryVersionDirectories).toHaveBeenCalledWith("n1", ["f9"]);
       expect(mocks.purgeFileEntryVersionDirectories.mock.invocationCallOrder[0]!).toBeGreaterThan(

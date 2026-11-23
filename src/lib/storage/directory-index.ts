@@ -19,16 +19,19 @@ export async function* readDirectoryIndex(
   nodeId: string,
   relativeDirectory: string,
   client: Pick<Prisma.TransactionClient, "$queryRaw"> = prisma,
+  caseInsensitive = false,
 ) {
   const prefix = relativeDirectory ? `${relativeDirectory}/` : "";
+  const matchPrefix = caseInsensitive && prefix ? prefix.toLowerCase() : prefix;
+  const pathExpr = caseInsensitive && prefix ? Prisma.sql`lower("relativePath")` : Prisma.sql`"relativePath"`;
   let cursor: string | undefined;
   for (;;) {
     const rows: DirectoryIndexEntry[] = await client.$queryRaw(Prisma.sql`
       SELECT id, "relativePath", "isDeleted", name, "entryType", "mimeType", size, "updatedAt", "storageVersion", "checksumSha256"
       FROM file_entries WHERE "storageNodeId" = ${nodeId}
-        AND starts_with("relativePath", ${prefix})
-        AND substring("relativePath" from length(${prefix}::text) + 1) <> ''
-        AND position('/' in substring("relativePath" from length(${prefix}::text) + 1)) = 0
+        AND starts_with(${pathExpr}, ${matchPrefix})
+        AND substring(${pathExpr} from length(${matchPrefix}::text) + 1) <> ''
+        AND position('/' in substring(${pathExpr} from length(${matchPrefix}::text) + 1)) = 0
         ${cursor ? Prisma.sql`AND id > ${cursor}` : Prisma.empty}
       ORDER BY id ASC LIMIT 2000
     `);

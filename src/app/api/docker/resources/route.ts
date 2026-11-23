@@ -101,7 +101,7 @@ export async function POST(req: NextRequest) {
           `docker.${isNetwork ? "network" : "volume"}.${action}`,
           { name, driver, serverId: serverId || "hub-host", status: 503, ok: false, dockerAvailable: false },
           action === "delete" ? "WARNING" : "INFO",
-          session.currentTeamId,
+          expectedTeamId ?? null,
         );
         return NextResponse.json(
           {
@@ -119,7 +119,7 @@ export async function POST(req: NextRequest) {
         `docker.${isNetwork ? "network" : "volume"}.${action}`,
         { name, driver, serverId: serverId || "hub-host", status: result.status, ok: result.ok },
         action === "delete" ? "WARNING" : "INFO",
-        session.currentTeamId,
+        expectedTeamId ?? null,
       );
       // A non-ok result with a sub-400 status is an upstream anomaly, not a
       // success — coalescing it to 200 (the old behaviour) hid failed

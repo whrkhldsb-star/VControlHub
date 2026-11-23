@@ -115,8 +115,9 @@ export async function handleWebDavPropFind(
   }
 
   await requireAccess(ctx.session, ctx.storageNodeId, ctx.relativePath, "read");
-  await assertNotRecycled(ctx.storageNodeId, ctx.relativePath, "read");
   const node = await loadNode(ctx.storageNodeId, ctx.session);
+  const caseInsensitive = isCaseInsensitiveNode(node);
+  await assertNotRecycled(ctx.storageNodeId, ctx.relativePath, "read", node.driver, caseInsensitive);
   const items: PropFindItem[] = [];
   let listParent: string | null = null;
 
@@ -129,7 +130,7 @@ export async function handleWebDavPropFind(
     });
     if (depth === 1) listParent = "";
   } else {
-    const entry = await findEntry(ctx.storageNodeId, ctx.relativePath);
+    const entry = await findEntry(ctx.storageNodeId, ctx.relativePath, caseInsensitive);
     if (!entry) throw new NotFoundError(t("backend.webdav.resourceNotFound"));
     const item = toPropFindItem(ctx.storageNodeId, entry);
     if (entry.entryType === "FILE") {
@@ -147,7 +148,7 @@ export async function handleWebDavPropFind(
   }
 
   if (listParent !== null) {
-    const children = await listDirectChildren(ctx.storageNodeId, listParent);
+    const children = await listDirectChildren(ctx.storageNodeId, listParent, MAX_PROPFIND_CHILDREN, caseInsensitive);
     if (children.truncated) {
       // A silently short multistatus is worse than an error: sync clients read a
       // missing entry as a remote deletion.
@@ -178,14 +179,17 @@ export async function handleWebDavGetHead(
   method: "GET" | "HEAD",
 ): Promise<Response> {
   await requireAccess(ctx.session, ctx.storageNodeId, ctx.relativePath, "read");
-  await assertNotRecycled(ctx.storageNodeId, ctx.relativePath, "read");
   if (!ctx.relativePath) {
+    await assertNotRecycled(ctx.storageNodeId, ctx.relativePath, "read");
     return new Response("WebDAV collection root", {
       status: 200,
       headers: { "Content-Type": "text/plain; charset=utf-8" },
     });
   }
-  const entry = await findEntry(ctx.storageNodeId, ctx.relativePath);
+  const node = await loadNode(ctx.storageNodeId, ctx.session);
+  const caseInsensitive = isCaseInsensitiveNode(node);
+  await assertNotRecycled(ctx.storageNodeId, ctx.relativePath, "read", node.driver, caseInsensitive);
+  const entry = await findEntry(ctx.storageNodeId, ctx.relativePath, caseInsensitive);
   if (!entry) throw new NotFoundError(t("backend.webdav.resourceNotFound"));
   if (entry.entryType === "DIRECTORY") {
     return new Response("Collection", {
@@ -194,7 +198,6 @@ export async function handleWebDavGetHead(
     });
   }
 
-  const node = await loadNode(ctx.storageNodeId, ctx.session);
   const contentType =
     entry.mimeType ||
     guessContentType(entry.name) ||
@@ -344,9 +347,10 @@ export async function handleWebDavPut(
     );
     releaseOverwrite = await lockStorageFileOverwrite(ctx.storageNodeId, ctx.relativePath);
     const node = await loadNode(ctx.storageNodeId, ctx.session);
-    await assertNotRecycled(ctx.storageNodeId, ctx.relativePath, "write", node.driver);
-    await assertCanonicalWritePath(ctx.storageNodeId, ctx.relativePath, node.driver);
-    const existing = await findEntry(ctx.storageNodeId, ctx.relativePath);
+    const caseInsensitive = isCaseInsensitiveNode(node);
+    await assertNotRecycled(ctx.storageNodeId, ctx.relativePath, "write", node.driver, caseInsensitive);
+    await assertCanonicalWritePath(ctx.storageNodeId, ctx.relativePath, node.driver, caseInsensitive);
+    const existing = await findEntry(ctx.storageNodeId, ctx.relativePath, caseInsensitive);
     const physical = await statBackingObject({ storageNode: node, relativePath: ctx.relativePath });
     const match = request.headers.get("if-match"), none = request.headers.get("if-none-match");
     const conditional = match !== null || none !== null;
@@ -423,8 +427,10 @@ export async function handleWebDavMkcol(ctx: WebDavContext): Promise<Response> {
     ctx.relativePath,
     "write",
   );
-  await assertNotRecycled(ctx.storageNodeId, ctx.relativePath, "write");
-  const existing = await findEntry(ctx.storageNodeId, ctx.relativePath);
+  const node = await loadNode(ctx.storageNodeId, ctx.session);
+  const caseInsensitive = isCaseInsensitiveNode(node);
+  await assertNotRecycled(ctx.storageNodeId, ctx.relativePath, "write", node.driver, caseInsensitive);
+  const existing = await findEntry(ctx.storageNodeId, ctx.relativePath, caseInsensitive);
   if (existing) {
     // RFC 4918 §9.3.1: MKCOL on a mapped URL is 405. A 409 means "an
     // intermediate collection is missing", and clients act on the difference:
@@ -436,7 +442,6 @@ export async function handleWebDavMkcol(ctx: WebDavContext): Promise<Response> {
     });
   }
 
-  const node = await loadNode(ctx.storageNodeId, ctx.session);
   await ensureDirectoryIndexAndBacking({
     session: ctx.session,
     node,
@@ -473,10 +478,11 @@ export async function handleWebDavDelete(
 }
 
 async function deleteLockedWebDavEntry(ctx: WebDavContext, headers: Headers): Promise<Response> {
-  await assertNotRecycled(ctx.storageNodeId, ctx.relativePath, "write");
-  const entry = await findEntry(ctx.storageNodeId, ctx.relativePath);
-  const conditional = headers.has("if-match") || headers.has("if-none-match");
   const node = await loadNode(ctx.storageNodeId, ctx.session);
+  const caseInsensitive = isCaseInsensitiveNode(node);
+  await assertNotRecycled(ctx.storageNodeId, ctx.relativePath, "write", node.driver, caseInsensitive);
+  const entry = await findEntry(ctx.storageNodeId, ctx.relativePath, caseInsensitive);
+  const conditional = headers.has("if-match") || headers.has("if-none-match");
   let expected: string | undefined;
   if (conditional) {
     const physical = await statBackingObject({ storageNode: node, relativePath: ctx.relativePath });
@@ -493,7 +499,7 @@ async function deleteLockedWebDavEntry(ctx: WebDavContext, headers: Headers): Pr
   const destParent = parentRelativePath(entry.relativePath);
   const stagedPath = `${destParent ? `${destParent}/` : ""}${WEBDAV_STAGE_PREFIX}delete-${randomUUID()}.staged`;
 
-  const withVersions = await versionOwnersAt(ctx.storageNodeId, entry.relativePath);
+  const withVersions = await versionOwnersAt(ctx.storageNodeId, entry.relativePath, undefined, caseInsensitive);
 
   // Stage the whole tree away from the live path first so a later index failure
   // can restore the original bytes instead of leaving unindexed orphans.
@@ -527,10 +533,14 @@ async function deleteLockedWebDavEntry(ctx: WebDavContext, headers: Headers): Pr
       const { count } = await tx.fileEntry.deleteMany({ where });
       if (count !== 1) throw new ConflictError(apiCopy("apiCopy.files.op.changed"));
       if (entry.entryType === "DIRECTORY") {
-        await tx.fileEntry.deleteMany({ where: { storageNodeId: ctx.storageNodeId,
-          relativePath: { startsWith: escapeLikeLiteral(`${entry.relativePath}/`) } } });
+        await tx.fileEntry.deleteMany({
+          where: {
+            storageNodeId: ctx.storageNodeId,
+            relativePath: { startsWith: escapeLikeLiteral(`${entry.relativePath}/`), ...(caseInsensitive ? { mode: "insensitive" as const } : {}) },
+          },
+        });
       }
-      await revokeSharesAt(tx, ctx.storageNodeId, entry.relativePath);
+      await revokeSharesAt(tx, ctx.storageNodeId, entry.relativePath, caseInsensitive);
     });
   } catch (databaseError) {
     try {

@@ -268,6 +268,13 @@ describe("listDirectChildren", () => {
     expect(result.truncated).toBe(false);
     expect(result.rows).toHaveLength(3);
   });
+
+  it("matches differently-cased prefixes in SQL when caseInsensitive is true", async () => {
+    await listDirectChildren("n1", "Docs/2026", MAX_PROPFIND_CHILDREN, true);
+
+    expect(sql()).toContain('lower("relativePath") LIKE');
+    expect(boundValues()).toEqual(["n1", "docs/2026/%", "docs/2026/", "docs/2026/", expect.stringContaining(".vcontrolhub-webdav-"), MAX_PROPFIND_CHILDREN + 1]);
+  });
 });
 
 describe("ensureDirectoryIndexAndBacking", () => {
