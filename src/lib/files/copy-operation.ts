@@ -1,3 +1,4 @@
+import { isCaseInsensitiveStorageNode } from "@/lib/storage/path-utils";
 import { escapeLikeLiteral } from "@/lib/db/like-pattern";
 import { apiCopy } from "@/lib/i18n/api-copy";
 import { assertNotRecycled } from "@/lib/storage/archive-access";
@@ -244,18 +245,20 @@ export async function copyFileEntry(input: {
     const items: CopyItem[] = [
       { path: source.path, directory: entry.entryType === "DIRECTORY" },
     ];
+    const caseInsensitive = isCaseInsensitiveStorageNode(node);
     const deleted = await prisma.fileEntry.findMany({
       where: {
         storageNodeId: node.id,
         isDeleted: true,
-        relativePath: { startsWith: escapeLikeLiteral(`${source.path}/`) },
+        relativePath: { startsWith: escapeLikeLiteral(`${source.path}/`), ...(caseInsensitive ? { mode: "insensitive" as const } : {}) },
       },
       select: { relativePath: true },
       take: 10001,
     });
     if (deleted.length > 10000)
       throw new Error(apiCopy("apiCopy.files.op.entries"));
-    const deletedPaths = new Set(deleted.map((item) => item.relativePath));
+    const keyOf = (p: string) => (caseInsensitive ? p.toLowerCase() : p);
+    const deletedPaths = new Set(deleted.map((item) => keyOf(item.relativePath)));
     const seen = new Set([source.path]);
     for (let index = 0; index < items.length; index++) {
       input.signal?.throwIfAborted();
@@ -276,7 +279,7 @@ export async function copyFileEntry(input: {
           throw new Error(apiCopy("apiCopy.files.op.invalid"));
         // Deleted directories are excluded before traversal, so descendants
         // never enter the queue and only exact membership is needed here.
-        if (deletedPaths.has(child.path)) continue;
+        if (deletedPaths.has(keyOf(child.path))) continue;
         if (seen.has(child.path))
           throw new Error(apiCopy("apiCopy.files.op.repeated"));
         seen.add(child.path);

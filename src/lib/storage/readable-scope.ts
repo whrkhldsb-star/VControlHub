@@ -3,11 +3,11 @@ import { sessionHasPermission } from "@/lib/auth/authorization";
 import { isGlobalTeamManager, storageNodeTeamWhere, type TeamSession } from "@/lib/auth/team-scope";
 import { prisma } from "@/lib/db";
 import { escapeLikeLiteral } from "@/lib/db/like-pattern";
-import { normalizeStorageTargetDirectory } from "@/lib/storage/path-utils";
+import { isCaseInsensitiveStorageNode, normalizeStorageTargetDirectory } from "@/lib/storage/path-utils";
 
 export type ReadableStorageScope = {
   nodesWithoutGrants: string[];
-  grantRules: Array<{ storageNodeId: string; pathPrefix: string }>;
+  grantRules: Array<{ storageNodeId: string; pathPrefix: string; caseInsensitive?: boolean }>;
 };
 
 /**
@@ -27,9 +27,10 @@ export async function getReadableStorageScope(
   const nodeScope = storageNodeTeamWhere(session);
   const nodes = await prisma.storageNode.findMany({
     where: nodeScope,
-    select: { id: true },
+    select: { id: true, driver: true, basePath: true, server: { select: { operatingSystem: true } } },
   });
   const nodeIds = nodes.map((node) => node.id);
+  const caseInsensitiveNodes = new Set(nodes.filter((node) => isCaseInsensitiveStorageNode(node)).map((node) => node.id));
   if (nodeIds.length === 0) {
     return { nodesWithoutGrants: [], grantRules: [] };
   }
@@ -58,7 +59,7 @@ export async function getReadableStorageScope(
   const grantRules = readable.flatMap((grant) => {
     const prefix = normalizeStorageTargetDirectory(grant.pathPrefix);
     // An invalid grant must not turn into the empty (whole-node) prefix.
-    return prefix.ok ? [{ storageNodeId: grant.storageNodeId, pathPrefix: prefix.path }] : [];
+    return prefix.ok ? [{ storageNodeId: grant.storageNodeId, pathPrefix: prefix.path, ...(caseInsensitiveNodes.has(grant.storageNodeId) ? { caseInsensitive: true } : {}) }] : [];
   });
 
   return { nodesWithoutGrants, grantRules };
@@ -76,7 +77,9 @@ export function readableStorageScopeSql(scope?: ReadableStorageScope | null): Pr
   const predicates = [
     ...scope.nodesWithoutGrants.map((nodeId) => Prisma.sql`"storageNodeId" = ${nodeId}`),
     ...scope.grantRules.map((rule) => rule.pathPrefix
-      ? Prisma.sql`("storageNodeId" = ${rule.storageNodeId} AND ("relativePath" = ${rule.pathPrefix} OR starts_with("relativePath", ${rule.pathPrefix + "/"})))`
+      ? rule.caseInsensitive
+        ? Prisma.sql`("storageNodeId" = ${rule.storageNodeId} AND (lower("relativePath") = ${rule.pathPrefix.toLowerCase()} OR starts_with(lower("relativePath"), ${rule.pathPrefix.toLowerCase() + "/"})))`
+        : Prisma.sql`("storageNodeId" = ${rule.storageNodeId} AND ("relativePath" = ${rule.pathPrefix} OR starts_with("relativePath", ${rule.pathPrefix + "/"})))`
       : Prisma.sql`"storageNodeId" = ${rule.storageNodeId}`),
   ];
   return predicates.length ? Prisma.sql`(${Prisma.join(predicates, " OR ")})` : Prisma.sql`FALSE`;
@@ -85,10 +88,13 @@ export function readableStorageScopeSql(scope?: ReadableStorageScope | null): Pr
 /** Ancestors may be traversed to reach a grant, but may not be synchronized. */
 export function readableStoragePath(scope: ReadableStorageScope | null, nodeId: string, path: string, allowAncestor = false): boolean {
   if (!scope || scope.nodesWithoutGrants.includes(nodeId)) return true;
-  return scope.grantRules.some((rule) => rule.storageNodeId === nodeId && (
-    !rule.pathPrefix || path === rule.pathPrefix || path.startsWith(rule.pathPrefix + "/")
-    || (allowAncestor && (!path || rule.pathPrefix.startsWith(path + "/")))
-  ));
+  return scope.grantRules.some((rule) => {
+    if (rule.storageNodeId !== nodeId) return false;
+    if (!rule.pathPrefix) return true;
+    const p = rule.caseInsensitive ? path.toLowerCase() : path;
+    const prefix = rule.caseInsensitive ? rule.pathPrefix.toLowerCase() : rule.pathPrefix;
+    return p === prefix || p.startsWith(prefix + "/") || (allowAncestor && (!p || prefix.startsWith(p + "/")));
+  });
 }
 
 export function readableStorageScopeWhere(scope: ReadableStorageScope) {
@@ -103,8 +109,8 @@ export function readableStorageScopeWhere(scope: ReadableStorageScope) {
         ? {
             storageNodeId: rule.storageNodeId,
             OR: [
-              { relativePath: rule.pathPrefix },
-              { relativePath: { startsWith: escapeLikeLiteral(`${rule.pathPrefix}/`) } },
+              { relativePath: rule.caseInsensitive ? { equals: rule.pathPrefix, mode: "insensitive" as const } : rule.pathPrefix },
+              { relativePath: { startsWith: escapeLikeLiteral(`${rule.pathPrefix}/`), ...(rule.caseInsensitive ? { mode: "insensitive" as const } : {}) } },
             ],
           }
         : { storageNodeId: rule.storageNodeId },

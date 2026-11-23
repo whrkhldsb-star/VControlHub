@@ -11,7 +11,7 @@ import { Prisma } from "@prisma/client";
 import { getBackupPolicySummary } from "./policy-summary";
 import { failStaleBackupRecords } from "./stale-records";
 import { prisma } from "@/lib/db";
-import { activeCustomerTeamWhere } from "@/lib/auth/team-scope";
+import { activeCustomerTeamWhere, isGlobalTeamManager } from "@/lib/auth/team-scope";
 import type { SessionPayload } from "@/lib/auth/session";
 import { BusinessError, ConflictError, NotFoundError, ValidationError } from "@/lib/errors";
 import {
@@ -75,9 +75,20 @@ export async function hasBackupArtifactReference(tx: Prisma.TransactionClient, a
 	return row!.used;
 }
 
+function backupRecordScope(session?: Pick<SessionPayload, "userId" | "roles" | "currentTeamId">) {
+	if (!session) return {};
+	const teamScope = activeCustomerTeamWhere(session);
+	// Platform backups are stored with teamId: null (R6-01-03); keep them visible
+	// to platform admins even while a specific customer is selected.
+	if (isGlobalTeamManager(session) && session.currentTeamId) {
+		return { OR: [{ teamId: null }, teamScope] };
+	}
+	return teamScope;
+}
+
 export async function listBackupRecords(session?: Pick<SessionPayload, "userId" | "roles" | "currentTeamId">, take = 500) {
 	const rows = prisma.backupRecord.findMany({
-		where: session ? activeCustomerTeamWhere(session) : {},
+		where: backupRecordScope(session),
 		orderBy: { createdAt: "desc" },
 		take,
 		include: { creator: { select: { username: true, displayName: true } } },
@@ -88,7 +99,7 @@ export async function listBackupRecords(session?: Pick<SessionPayload, "userId" 
 
 export async function getBackupRecord(id: string, session?: Pick<SessionPayload, "userId" | "roles" | "currentTeamId">, client: Pick<typeof prisma, "backupRecord"> = prisma) {
 	return session
-		? client.backupRecord.findFirst({ where: { id, ...activeCustomerTeamWhere(session) } })
+		? client.backupRecord.findFirst({ where: { id, ...backupRecordScope(session) } })
 		: client.backupRecord.findUnique({ where: { id } });
 }
 

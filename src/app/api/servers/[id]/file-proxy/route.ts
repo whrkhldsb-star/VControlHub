@@ -241,7 +241,7 @@ function runningResponse(server: ProxyServer, proxy: ServerFileProxy) {
 export async function GET(request: Request, { params }: { params: Promise<{ id: string }> }) {
   const locale = await getServerLocale();
   return withApiRoute(request, {
-    permission: "server:ssh", rateLimit: GENERAL_READ_LIMIT, errorMessage: t("apiServersFileProxy.getErrorMessage", locale),
+    permission: "server:ssh", optionalTokenPermissions: ["storage:manage-node"], rateLimit: GENERAL_READ_LIMIT, errorMessage: t("apiServersFileProxy.getErrorMessage", locale),
   }, async ({ session }) => withProxyServer(session, (await params).id, locale, "GET", async (server, proxy) => {
     if (proxy && proxyMayBeActive(proxy)) {
       const expired = !proxy.expiresAt || proxy.expiresAt.getTime() <= Date.now();
@@ -259,7 +259,7 @@ export async function GET(request: Request, { params }: { params: Promise<{ id: 
 export async function POST(request: Request, { params }: { params: Promise<{ id: string }> }) {
   const locale = await getServerLocale();
   return withApiRoute(request, {
-    permission: "server:ssh", rateLimit: UPLOAD_LIMIT, errorMessage: t("apiServersFileProxy.startErrorMessage", locale),
+    permission: "server:ssh", optionalTokenPermissions: ["storage:manage-node"], rateLimit: UPLOAD_LIMIT, errorMessage: t("apiServersFileProxy.startErrorMessage", locale),
   }, async ({ session }) => withProxyServer(session, (await params).id, locale, "POST", async (server, existing) => {
     if (!server.publicUrl) {
       return NextResponse.json({ error: t("apiServersFileProxy.missingPublicUrl", locale) }, { status: 400 });
@@ -326,7 +326,7 @@ exit 1`);
 export async function DELETE(request: Request, { params }: { params: Promise<{ id: string }> }) {
   const locale = await getServerLocale();
   return withApiRoute(request, {
-    permission: "server:ssh", rateLimit: UPLOAD_LIMIT, errorMessage: t("apiServersFileProxy.stopErrorMessage", locale),
+    permission: "server:ssh", optionalTokenPermissions: ["storage:manage-node"], rateLimit: UPLOAD_LIMIT, errorMessage: t("apiServersFileProxy.stopErrorMessage", locale),
   }, async ({ session }) => withProxyServer(session, (await params).id, locale, "DELETE", async (server, proxy) => {
     if (proxy && proxyMayBeActive(proxy)) {
       await checkProxyProcess(server, proxy.pid, true, locale);

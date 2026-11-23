@@ -148,7 +148,7 @@ export async function POST(request: Request) {
         throw error;
       }
 
-      await auditUserAction(session.userId, "app-source.create", { sourceId: source.id }, undefined, session.currentTeamId);
+      await auditUserAction(session.userId, "app-source.create", { sourceId: source.id }, undefined, null);
       return NextResponse.json({ source }, { status: 201 });
     },
   );
@@ -185,7 +185,7 @@ export async function PATCH(request: Request) {
           await auditUserAction(session.userId, "app-source.sync", {
             sourceId: body.sourceId,
             mode: "single",
-          }, undefined, session.currentTeamId);
+          }, undefined, null);
           return NextResponse.json({ result });
         }
         // Two overlapping syncs upserted the same rows against each other (A6-11).
@@ -196,7 +196,7 @@ export async function PATCH(request: Request) {
           await auditUserAction(session.userId, "app-source.sync", {
             mode: "all",
             resultCount: Array.isArray(results) ? results.length : null,
-          }, undefined, session.currentTeamId);
+          }, undefined, null);
           return NextResponse.json({ results });
         } finally {
           await release();
@@ -215,7 +215,7 @@ export async function PATCH(request: Request) {
       await auditUserAction(session.userId, "app-source.toggle", {
         sourceId: body.sourceId,
         enabled: body.enabled,
-      }, undefined, session.currentTeamId);
+      }, undefined, null);
       return NextResponse.json({ ok: true });
     },
   );
@@ -250,7 +250,7 @@ export async function DELETE(request: Request) {
       if (deleted.count === 0) {
         throw new NotFoundError(serviceT("backend.app-source.sourceNotFound"));
       }
-      await auditUserAction(session.userId, "app-source.delete", { sourceId }, undefined, session.currentTeamId);
+      await auditUserAction(session.userId, "app-source.delete", { sourceId }, undefined, null);
       return NextResponse.json({ ok: true });
     },
   );

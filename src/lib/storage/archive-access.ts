@@ -69,8 +69,8 @@ export const noRecycledAncestorSql = Prisma.sql`NOT EXISTS (
 )`;
 
 /** Never create another index row for an existing Windows filename or ambiguous parent. */
-export async function assertCanonicalWritePath(nodeId: string, relativePath: string, driver: string) {
-  if (!hasCaseInsensitiveLocalPaths(driver)) return;
+export async function assertCanonicalWritePath(nodeId: string, relativePath: string, driver: string, caseInsensitive?: boolean) {
+  if (!(caseInsensitive ?? hasCaseInsensitiveLocalPaths(driver))) return;
   const ancestors = indexedAncestors(relativePath);
   const rows = await prisma.fileEntry.findMany({
     where: { storageNodeId: nodeId, relativePath: { in: ancestors, mode: "insensitive" } },

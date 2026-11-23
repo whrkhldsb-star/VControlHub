@@ -20,6 +20,7 @@ vi.mock("@/lib/auth/team-scope", () => ({
 }));
 vi.mock("@/lib/auth/authorization", () => ({ sessionHasPermission: mocks.hasPermission }));
 vi.mock("@/lib/storage/path-utils", () => ({
+  isCaseInsensitiveStorageNode: () => false,
   normalizeStorageTargetDirectory: (value: string) => ({ ok: true, path: value }),
 }));
 import { getRecycleBinPage, recycleBinQuerySchema } from "../recycle-bin";
