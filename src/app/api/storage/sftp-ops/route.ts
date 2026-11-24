@@ -44,6 +44,7 @@ import {
 import { ConflictError, ForbiddenError, ValidationError, isAppError } from "@/lib/errors";
 import { t } from "@/lib/i18n/service-translations";
 import { getErrorMessage } from "@/lib/http/error-message";
+import { findAffectedShareIds } from "@/lib/files/delete-operation";
 import { moveSharePaths } from "@/lib/share-link/follow-path";
 import { snapshotFileVersionBeforeOverwrite } from "@/lib/storage/file-versions";
 import { lockStorageFileOverwrite } from "@/lib/storage/file-overwrite-lock";
@@ -287,7 +288,19 @@ async function handlePost(body: SftpOpsBody, session: SessionPayload) {
         // remains on disk and can be cleaned up manually or by a future
         // reconciliation pass. This avoids the previous "file gone but index
         // still shows" inconsistency.
+        const affectedShareIds = await findAffectedShareIds({
+          storageNodeId: node.id,
+          relativePath: normalizedRelativePath,
+          isDirectory,
+          caseInsensitive: windowsSftp,
+        });
         await softDeleteSftpIndex(node.id, normalizedRelativePath, isDirectory, windowsSftp);
+        if (affectedShareIds.length > 0) {
+          await prisma.shareLink.updateMany({
+            where: { id: { in: affectedShareIds }, revokedAt: null },
+            data: { revokedAt: new Date() },
+          });
+        }
         let physicalDeleted = true;
         let physicalErrorMessage: string | null = null;
         try {
@@ -347,6 +360,7 @@ async function handlePost(body: SftpOpsBody, session: SessionPayload) {
         if (!renameAdmission.allowed) {
           return NextResponse.json({ error: storageAccessDeniedCopy(renameAdmission.reason) }, { status: 403 });
         }
+        releaseDeleteTreeLock = await acquireAdvisoryLock("storage-file-operation", node.id);
         releasePathLock = await lockStorageFileOverwrite(node.id, normalizedNewRelativePath, normalizedRelativePath);
         await assertNotRecycled(node.id, normalizedRelativePath, "write", node.driver, windowsSftp);
         await assertNotRecycled(node.id, normalizedNewRelativePath, "write", node.driver, windowsSftp);

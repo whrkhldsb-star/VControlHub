@@ -17,6 +17,15 @@ import { PLATFORM_ONLY_PERMISSIONS } from "./identity-templates";
 import type { Permission } from "./rbac";
 import type { SessionPayload } from "./session";
 import { t } from "@/lib/i18n/service-translations";
+import { rateLimitResponse } from "@/lib/http/rate-limit-presets";
+import {
+	getClientIp,
+	isCredentialClientBlockedAsync,
+	recordUnknownCredentialAsync,
+} from "@/lib/rate-limit";
+
+/** Unknown-credential counter shared by every token-authenticated API route (WebDAV keeps its own). */
+const UNKNOWN_TOKEN_SCOPE = "api-token";
 
 export type BearerTokenResult = {
 	userId: string;
@@ -49,10 +58,16 @@ export async function authenticateBearerForPermissions(
 	| null
 > {
 	if (!hasBearerAuthorization(request)) return null;
+	// Each lookup costs a database query, and read routes are reachable with any Bearer header and no cookie.
+	// A client that keeps presenting tokens that do not exist is refused for a while, across every path.
+	const clientIp = getClientIp(request);
+	const refused = await isCredentialClientBlockedAsync(UNKNOWN_TOKEN_SCOPE, clientIp);
+	if (refused.blocked) return rateLimitResponse(Math.max(1000, refused.retryAfterMs));
 	const authHeader = request.headers.get("authorization") ?? "";
 	const token = authHeader.match(/^Bearer\s+(.+)$/i)?.[1]?.trim() ?? "";
 	const verified = token ? await verifyApiToken(token) : null;
 	if (!verified) {
+		await recordUnknownCredentialAsync(UNKNOWN_TOKEN_SCOPE, clientIp);
 		return Response.json(
 			{ error: t("api.auth.invalidToken") },
 			{ status: 401 },

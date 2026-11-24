@@ -217,7 +217,7 @@ async function permanentDeleteFileEntryActionImpl(
         select: { id: true, relativePath: true, entryType: true, deletedAgentRoot: true, storageVersion: true },
       }) : [];
       const affectedShareIds = await findAffectedShareIds({
-        storageNodeId: entry.storageNodeId, relativePath: entry.relativePath, isDirectory,
+        storageNodeId: entry.storageNodeId, relativePath: entry.relativePath, isDirectory, caseInsensitive,
       });
       await deleteRecycledBackingObjects(entry.storageNode, entry, children);
       await prisma.$transaction([

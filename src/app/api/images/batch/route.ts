@@ -20,7 +20,7 @@ import { isOwnedLinkedCopy, removeOwnedLinkedCopies } from "@/lib/image-bed/link
 const batchSchema = z.object({
   action: z.enum(["delete", "moveAlbum", "togglePublic"]),
   ids: z.array(z.string()).min(1).max(100),
-  album: z.string().optional(),
+  album: z.string().trim().max(128).optional(),
 });
 
 export const dynamic = "force-dynamic";

@@ -266,6 +266,19 @@ describe("playbook service", () => {
     expect(mocks.playbookUpdateMany).toHaveBeenCalledWith(expect.objectContaining({ data: expect.objectContaining({ createdById: "u9" }) }));
   });
 
+  it("makes the editor the run-as owner when steps or the trigger change, but not on cosmetic edits", async () => {
+    const runner = { userId: "u9", roles: ["operator"] as import("@/lib/auth/rbac").RoleKey[], currentTeamId: "team1" };
+    mocks.playbookFindFirst.mockResolvedValue(baseRow);
+    // Same steps resubmitted with a different key order: nothing about what runs changed.
+    const reordered = baseRow.steps.map(({ config, ...step }) => ({ config: { serverIds: config.serverIds, command: config.command }, ...step }));
+    await updatePlaybook({ id: "pb1", name: "Renamed", steps: reordered as never }, "u9", runner);
+    expect(mocks.playbookUpdateMany).toHaveBeenLastCalledWith(expect.objectContaining({ data: expect.not.objectContaining({ createdById: expect.anything() }) }));
+    await updatePlaybook({ id: "pb1", steps: [{ ...baseRow.steps[0], config: { command: "uptime", serverIds: ["srv1"] } }] as never }, "u9", runner);
+    expect(mocks.playbookUpdateMany).toHaveBeenLastCalledWith(expect.objectContaining({ data: expect.objectContaining({ createdById: "u9" }) }));
+    await updatePlaybook({ id: "pb1", triggerType: "cron", triggerConfig: { expression: "*/5 * * * *" } }, "u9", runner);
+    expect(mocks.playbookUpdateMany).toHaveBeenLastCalledWith(expect.objectContaining({ data: expect.objectContaining({ createdById: "u9" }) }));
+  });
+
   it("rejects create when run_command targets servers outside team scope", async () => {
     mocks.serverFindMany.mockResolvedValueOnce([{ id: "srv1" }]); // missing srv-other
     const session = { userId: "u1", roles: ["operator"] as import("@/lib/auth/rbac").RoleKey[], currentTeamId: "team1" };

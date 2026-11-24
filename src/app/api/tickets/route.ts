@@ -13,15 +13,15 @@ import { withApiRoute } from "@/lib/http/api-guard";
 import { GENERAL_READ_LIMIT, GENERAL_WRITE_LIMIT } from "@/lib/http/rate-limit-presets";
 
 const ticketCreateSchema = z.object({
-  subject: z.string().min(1).optional(),
-  title: z.string().min(1).optional(),
-  description: z.string().min(1),
+  subject: z.string().min(1).max(256).optional(),
+  title: z.string().min(1).max(256).optional(),
+  description: z.string().min(1).max(20_000),
   priority: ticketPriorityInputSchema.optional(),
-  category: z.string().optional(),
+  category: z.string().max(64).optional(),
   // serverId is accepted as an alias of relatedServerId (OpenAPI / older clients).
-  serverId: z.string().optional(),
-  relatedServerId: z.string().optional(),
-  relatedCommandId: z.string().optional(),
+  serverId: z.string().max(128).optional(),
+  relatedServerId: z.string().max(128).optional(),
+  relatedCommandId: z.string().max(128).optional(),
 }).refine((data) => Boolean(data.subject || data.title), {
   message: "Ticket title is required",
   path: ["subject"],

@@ -260,15 +260,20 @@ export async function detectAndPruneSftpStaleInventory(input: {
     result.stale = staleIds.length;
 
     if (staleIds.length > 0 && !dryRun) {
-      const updateResult = await prisma.fileEntry.updateMany({
-        // Re-checked at write time: a row rewritten while we compared is live.
-        where: { id: { in: staleIds }, isDeleted: false, updatedAt: { lt: listingStartedAt } },
-        data: { isDeleted: true, deleteBatchId: randomUUID() },
-      });
+      let prunedCount = 0;
+      const deleteBatchId = randomUUID();
+      for (let i = 0; i < staleIds.length; i += 5_000) {
+        const updateResult = await prisma.fileEntry.updateMany({
+          // Re-checked at write time: a row rewritten while we compared is live.
+          where: { id: { in: staleIds.slice(i, i + 5_000) }, isDeleted: false, updatedAt: { lt: listingStartedAt } },
+          data: { isDeleted: true, deleteBatchId },
+        });
+        prunedCount += updateResult.count;
+      }
       logger.info("Pruned stale SFTP inventory", {
         nodeId: node.id,
         nodeName: node.name,
-        stale: updateResult.count,
+        stale: prunedCount,
         scanned: result.scanned,
         dryRun,
       });

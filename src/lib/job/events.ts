@@ -188,10 +188,15 @@ export async function pruneJobEvents(
   });
   let scopes = crowded;
   if (options.olderThan && crowded.length > 0) {
-    const stale = new Set((await prisma.jobEvent.groupBy({
-      by: ["jobId"],
-      where: { createdAt: { lt: options.olderThan }, jobId: { in: crowded.map((group) => group.jobId) } },
-    })).map((group) => group.jobId));
+    const stale = new Set<string>();
+    const ids = crowded.map((group) => group.jobId);
+    for (let i = 0; i < ids.length; i += 1_000) {
+      const rows = await prisma.jobEvent.groupBy({
+        by: ["jobId"],
+        where: { createdAt: { lt: options.olderThan }, jobId: { in: ids.slice(i, i + 1_000) } },
+      });
+      for (const group of rows) stale.add(group.jobId);
+    }
     scopes = crowded.filter((group) => stale.has(group.jobId));
   }
   if (scopes.length > MAX_PRUNE_JOB_SCOPES) {

@@ -775,8 +775,9 @@ async function toggleServerEnabledUnderLock(
       const updated = await prisma.server.update({
         where: { ...probeEndpointWhere(current, false), agentTokenHash: current.agentTokenHash },
         data: { enabled: true, onboardingStatus: "READY", onboardingLastError: null },
+        include: SERVER_PROFILE_INCLUDE,
       }).catch(changedEndpoint);
-      return { ...updated, onboardingWarnings: [] as string[] };
+      return { ...await enrichServerForSession(updated, session), onboardingWarnings: [] as string[] };
     }
     const normalized = normalizeServerInput({
       name: current.name,
@@ -925,7 +926,7 @@ async function toggleServerEnabledUnderLock(
       }
     }
 
-    await prisma.server.update({
+    const refreshed = await prisma.server.update({
       where: probeEndpointWhere(updated, true),
       data: {
         onboardingStatus: onboardingWarnings.length > 0 ? "NEEDS_ATTENTION" : "READY",
@@ -933,15 +934,18 @@ async function toggleServerEnabledUnderLock(
           ? onboardingWarnings.join(" ").slice(0, 2000)
           : null,
       },
+      include: SERVER_PROFILE_INCLUDE,
     }).catch(changedEndpoint);
 
-    return { ...updated, onboardingWarnings };
+    const finalServer = { ...updated, ...(refreshed ?? {}) };
+    return { ...await enrichServerForSession(finalServer, session), onboardingWarnings };
   }
   const updated = await prisma.server.update({
     where: { id: serverId, teamId: current.teamId ?? null },
     data: { enabled: false },
+    include: SERVER_PROFILE_INCLUDE,
   });
-  return { ...updated, onboardingWarnings: [] as string[] };
+  return { ...await enrichServerForSession(updated, session), onboardingWarnings: [] as string[] };
 }
 
 function serverProfileListWhere(sessionOrTeamId?: TeamSession | string | null) {

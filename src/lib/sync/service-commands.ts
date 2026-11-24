@@ -71,6 +71,7 @@ type TarSyncCommandInput = { sourcePath: string } & (
 
 const SSH_USERNAME_PATTERN = /^[A-Za-z0-9._-]+$/;
 const HOSTNAME_PATTERN = /^[A-Za-z0-9._:-]+$/;
+const IPV6_BRACKETED_PATTERN = /^\[[0-9A-Fa-f:.]+\]$/;
 const RSYNC_HOST_PATTERN = /^[A-Za-z0-9.:[\]@_-]+$/;
 
 /* ── Sanitisation helpers ─────────────────────────────────── */
@@ -82,7 +83,7 @@ function assertSafeSshUsername(username: string): void {
 }
 
 function assertSafeHost(host: string): void {
-	if (!HOSTNAME_PATTERN.test(host) || host.startsWith("-")) {
+	if ((!HOSTNAME_PATTERN.test(host) && !IPV6_BRACKETED_PATTERN.test(host)) || host.startsWith("-")) {
 		throw new ValidationError(t("backend.sync.unsafeSshHost"));
 	}
 }

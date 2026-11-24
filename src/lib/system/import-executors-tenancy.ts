@@ -5,7 +5,7 @@
  * customer whose slug exists here is that customer.
  */
 
-import { BUILTIN_IDENTITY_TEMPLATES } from "@/lib/auth/identity-templates";
+import { BUILTIN_IDENTITY_TEMPLATES, normalizeIdentityPermissions } from "@/lib/auth/identity-templates";
 import { ValidationError } from "@/lib/errors";
 import { t as translate } from "@/lib/i18n/service-translations";
 import { applyCustomerMembership } from "@/lib/team/service";
@@ -44,12 +44,16 @@ export async function importIdentityTemplates(tx: Tx, t: ExportFile["tables"], o
         data: rows.map((r) => {
           const builtin = BUILTIN_IDENTITY_TEMPLATES.find(({ id }) => id === r.id);
           if (r.isBuiltin !== Boolean(builtin)) throw new ValidationError("IMPORT_TEMPLATE_KIND");
-          return { id: r.id, name: r.name, description: r.description, permissions: builtin?.permissions ?? r.permissions, isBuiltin: Boolean(builtin) };
+          const permissions = builtin ? builtin.permissions : normalizeIdentityPermissions(r.permissions);
+          if (!builtin && permissions.length === 0) throw new ValidationError("IMPORT_TEMPLATE_EMPTY_PERMISSIONS");
+          return { id: r.id, name: r.name, description: r.description, permissions, isBuiltin: Boolean(builtin) };
         }),
         skipDuplicates: true,
       })).count,
     updateById: async (r) => {
-      return (await tx.identityTemplate.updateMany({ where: { id: r.id, isBuiltin: false }, data: { name: r.name, description: r.description, permissions: r.permissions } })).count;
+      const permissions = normalizeIdentityPermissions(r.permissions);
+      if (permissions.length === 0) throw new ValidationError("IMPORT_TEMPLATE_EMPTY_PERMISSIONS");
+      return (await tx.identityTemplate.updateMany({ where: { id: r.id, isBuiltin: false }, data: { name: r.name, description: r.description, permissions } })).count;
     },
   });
 }
@@ -71,6 +75,7 @@ export async function importTeamMembers(tx: Tx, t: ExportFile["tables"], options
     if (users.get(userId)?.isAdmin) throw new ValidationError(translate("backend.system.importAccountTypeConflict", { id: userId }));
     if (action === "create") {
       await tx.teamMember.create({ data: { teamId, userId, identityTemplateId, joinedAt: parseDate(row.joinedAt, "teamMembers.joinedAt") } });
+      await tx.user.update({ where: { id: userId }, data: { currentTeamId: teamId } });
       counts.created += 1;
       continue;
     }

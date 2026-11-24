@@ -6,6 +6,7 @@ import { prisma } from "@/lib/db";
 import type { CommandRequestStatus, Prisma, ScheduledTask } from "@prisma/client";
 import { createCommandRequest } from "@/lib/command/service";
 import { commandTemplateScopeWhere } from "@/lib/command-template/service";
+import { canReadTemplateBody } from "@/lib/command-template/visibility";
 import { createCommandSchema, commandRequestTitle } from "@/lib/command/schema";
 import { BusinessError, ConflictError, ForbiddenError, NotFoundError, ValidationError } from "@/lib/errors";
 import { notifyTaskConsecutiveFailed } from "@/lib/notification/service";
@@ -119,9 +120,12 @@ async function assertTemplateInScope(id: string | null | undefined, teamId: stri
 	if (!id) return;
 	const template = await prisma.commandTemplate.findFirst({
 		where: { id, AND: [commandTemplateScopeWhere(session), { OR: [{ isBuiltin: true }, { teamId }] }] },
-		select: { id: true },
+		select: { id: true, isBuiltin: true, createdById: true },
 	});
 	if (!template) throw new NotFoundError(t("backend.command-template.commandTemplateNotFound"));
+	if (template.createdById !== undefined && !canReadTemplateBody(template, session)) {
+		throw new ForbiddenError(apiCopy("apiCopy.insufficient.permissions.37e6815b"));
+	}
 }
 
 /**

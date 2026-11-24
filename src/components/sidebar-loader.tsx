@@ -25,7 +25,7 @@ export async function SidebarLoader() {
 
 	// Fetch running quick services for sidebar
 	let quickServices: Array<{ slug: string; name: string; icon: string; path: string }> = [];
-	if (session && isGlobalTeamManager(session) && sessionHasPermission(session, "docker:manage")) try {
+	if (session && !session.mustChangePassword && isGlobalTeamManager(session) && sessionHasPermission(session, "docker:manage")) try {
 		const headerStore = await headers();
 		const browserHost = headerStore.get("x-forwarded-host") ?? headerStore.get("host");
 		const protocol = headerStore.get("x-forwarded-proto") ?? "http";

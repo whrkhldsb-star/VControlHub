@@ -2,6 +2,14 @@ import { checkSamplingClaim, type SamplingClaim } from "@/lib/monitoring/samplin
 import { intentPrefix } from "./delivery-intent";
 import { createHash } from "node:crypto";
 import { lockForTransaction } from "@/lib/concurrency/advisory-lock";
+
+function hashPlaybookLockKey(resourceId: string): number {
+	let h = 0;
+	for (let i = 0; i < resourceId.length; i++) {
+		h = (Math.imul(31, h) + resourceId.charCodeAt(i)) | 0;
+	}
+	return h;
+}
 import { PLATFORM_ONLY_CHANNELS, recordChannelGrant } from "./channel-grants";
 import type { AlertRule, Prisma } from "@prisma/client";
 import { apiCopy } from "@/lib/i18n/api-copy";
@@ -133,6 +141,12 @@ const MAX_ALERT_RULES_PER_SCOPE = 200;
 export async function createAlertRule(input: CreateAlertRuleInput, session?: TeamSession | null) {
 	const serverIds = input.serverIds ?? [];
 	const playbookIds = [...new Set(input.playbookIds ?? [])];
+	if (serverIds.length > 500 || playbookIds.length > 32) {
+		throw new ValidationError(apiCopy("apiCopy.request.body.too.large.c49c1143"));
+	}
+	if (playbookIds.length > 0 && session && !sessionHasPermission(session, PLAYBOOK_RUN_PERMISSION)) {
+		throw new ForbiddenError(t("backend.alert.bindingPlaybooksRequiresRun"));
+	}
 	assertChannelsAllowed(input.notifyChannels, session);
 	await assertServerIdsInTeam(serverIds, session);
 	await assertOnCallUserIdsInTeam(input.onCallUserIds ?? [], session);
@@ -180,7 +194,17 @@ function ruleData(input: CreateAlertRuleInput, teamId: string | null): Prisma.Al
 }
 
 export async function lockAlertPlaybookBindings(tx: Prisma.TransactionClient, ids: string[]) {
-	for (const id of [...new Set(ids)].sort()) await lockForTransaction(tx, "playbook-lifecycle", id);
+	const sorted = [...new Set(ids)].sort((a, b) => {
+		const diff = hashPlaybookLockKey(a) - hashPlaybookLockKey(b);
+		return diff !== 0 ? diff : a.localeCompare(b);
+	});
+	const seenLockKeys = new Set<number>();
+	for (const id of sorted) {
+		const k2 = hashPlaybookLockKey(id);
+		if (seenLockKeys.has(k2)) continue;
+		seenLockKeys.add(k2);
+		await lockForTransaction(tx, "playbook-lifecycle", id);
+	}
 }
 
 type RuleTargets = Pick<AlertRule, "teamId" | "updatedAt" | "enabled" | "playbookIds" | "serverIds" | "notifyChannels">;
@@ -202,6 +226,17 @@ async function updateScopedAlertRule(
 	input: Partial<CreateAlertRuleInput>,
 	data: Prisma.AlertRuleUpdateManyMutationInput,
 ) {
+	if ((input.serverIds && input.serverIds.length > 500) || (input.playbookIds && input.playbookIds.length > 32)) {
+		throw new ValidationError(apiCopy("apiCopy.request.body.too.large.c49c1143"));
+	}
+	const disablingOnly = input.enabled === false && Object.keys(input).length === 1;
+	if (!disablingOnly && session) {
+		const effectivePlaybooks = input.playbookIds ?? current.playbookIds;
+		const requiresRun = input.playbookIds !== undefined || (input.enabled ?? current.enabled);
+		if (effectivePlaybooks.length > 0 && requiresRun && !sessionHasPermission(session, PLAYBOOK_RUN_PERMISSION)) {
+			throw new ForbiddenError(t("backend.alert.bindingPlaybooksRequiresRun"));
+		}
+	}
 	const where = { id, ...(session ? teamWhere(session) : {}) };
 	const touchesPlatform = [...current.notifyChannels, ...(input.notifyChannels ?? [])]
 		.some((channel) => PLATFORM_ONLY_CHANNELS.includes(channel));

@@ -15,6 +15,7 @@ import { createLogger } from "@/lib/logging";
 import { checkRateLimitAsync, getClientIp, rateLimitIpKey } from "@/lib/rate-limit";
 import { getErrorMessage } from "@/lib/http/error-message";
 import { readRequestBodyBuffer, RequestBodyTooLargeError } from "@/lib/http/request-body";
+import { stripNulDeep } from "@/lib/text/strip-nul";
 
 export const dynamic = "force-dynamic";
 
@@ -81,7 +82,7 @@ export async function POST(request: Request, context: RouteContext) {
 		// A ticket event is an object: `null`, an array or a number crashed the
 		// field mapping with a TypeError (500) instead of being refused.
 		if (!parsed || typeof parsed !== "object" || Array.isArray(parsed)) throw new Error("not an object");
-		json = parsed as Record<string, unknown>;
+		json = stripNulDeep(parsed as Record<string, unknown>);
 	} catch {
 		return NextResponse.json({ error: apiCopy("apiCopy.invalid.json.body.7ea5df57") }, { status: 400 });
 	}

@@ -59,8 +59,10 @@ run() {
 
 echo "==> Target APP_DIR=$APP_DIR APP_USER=$APP_USER dry_run=$DRY_RUN"
 
-# Source / build inputs the service and next build must read.
-OWN_PATHS=(
+# Source / release inputs stay root-owned so deploy/install.sh and upgrade.sh
+# preserve their protected-checkout invariant; only mutable runtime trees belong
+# to APP_USER (using -h / -P so symlinks are never dereferenced as root).
+SOURCE_PATHS=(
   "$APP_DIR/src"
   "$APP_DIR/public"
   "$APP_DIR/scripts"
@@ -68,7 +70,6 @@ OWN_PATHS=(
   "$APP_DIR/e2e"
   "$APP_DIR/deploy"
   "$APP_DIR/docs"
-  "$APP_DIR/storage"
   "$APP_DIR/package.json"
   "$APP_DIR/package-lock.json"
   "$APP_DIR/tsconfig.json"
@@ -86,54 +87,70 @@ OWN_PATHS=(
   "$APP_DIR/CLAUDE.md"
 )
 
-echo "==> [1/4] chown app tree to ${APP_USER}:${APP_USER}"
-for path in "${OWN_PATHS[@]}"; do
+RUNTIME_PATHS=(
+  "$APP_DIR/storage"
+  "$APP_DIR/uploads"
+  "$APP_DIR/downloads"
+  "$APP_DIR/backups"
+  "$APP_DIR/logs"
+  "$APP_DIR/tmp"
+  "$APP_DIR/.next/cache"
+)
+
+echo "==> [1/4] enforce root:root on source paths and ${APP_USER}:${APP_USER} on mutable runtime dirs"
+for path in "${SOURCE_PATHS[@]}"; do
   if [ -e "$path" ]; then
-    run chown -R "$APP_USER:$APP_USER" "$path"
+    run chown -hR "root:root" "$path"
   fi
 done
-
-# .next is rebuildable; still normalize if present so service can read it.
-if [ -d "$APP_DIR/.next" ]; then
-  run chown -R "$APP_USER:$APP_USER" "$APP_DIR/.next"
-fi
+for path in "${RUNTIME_PATHS[@]}"; do
+  if [ -e "$path" ] && [ ! -L "$path" ]; then
+    run find -P "$path" -type l -prune -o -exec chown -h "$APP_USER:$APP_USER" {} +
+    # Keep top-level runtime directory owned by APP_USER (without dereferencing child symlinks).
+    run chown -R "$APP_USER:$APP_USER" "$path" 2>/dev/null || true
+  fi
+done
 
 echo "==> [2/4] normalize modes (dirs 755, source files 644; keep secrets private)"
 # Directories need traverse for build tools / git hooks.
 if [ -d "$APP_DIR/src" ]; then
-  run find "$APP_DIR/src" -type d -exec chmod 755 {} +
-  run find "$APP_DIR/src" -type f -exec chmod 644 {} +
+  run find -P "$APP_DIR/src" -type d -exec chmod 755 {} +
+  run find -P "$APP_DIR/src" -type f -exec chmod 644 {} +
 fi
 for d in public scripts prisma e2e deploy docs; do
   if [ -d "$APP_DIR/$d" ]; then
-    run find "$APP_DIR/$d" -type d -exec chmod 755 {} +
+    run find -P "$APP_DIR/$d" -type d -exec chmod 755 {} +
     # Preserve executable bit on scripts (*.sh and already +x files).
-    run find "$APP_DIR/$d" -type f \( -name '*.sh' -o -perm -111 \) -exec chmod 755 {} +
-    run find "$APP_DIR/$d" -type f ! -name '*.sh' ! -perm -111 -exec chmod 644 {} +
+    run find -P "$APP_DIR/$d" -type f \( -name '*.sh' -o -perm -111 \) -exec chmod 755 {} +
+    run find -P "$APP_DIR/$d" -type f ! -name '*.sh' ! -perm -111 -exec chmod 644 {} +
   fi
 done
 if [ -d "$APP_DIR/storage" ]; then
   # Customer uploads and VPS backups are for the app user and its group only (A10-07).
-  run find "$APP_DIR/storage" -type d -exec chmod 750 {} +
-  run find "$APP_DIR/storage" -type f -exec chmod 640 {} +
+  run find -P "$APP_DIR/storage" -type d -exec chmod 750 {} +
+  run find -P "$APP_DIR/storage" -type f -exec chmod 640 {} +
 fi
 for f in deploy.sh install.sh; do
   if [ -f "$APP_DIR/$f" ]; then
     run chmod 755 "$APP_DIR/$f"
   fi
 done
-# Env / secrets: never world-readable
+# Env / secrets: root-owned, group-readable by APP_USER (0640) per deploy/install.sh;
+# private key files stay mode 600.
 for secret in .env .env.local .env.runtime .env.production; do
-  if [ -f "$APP_DIR/$secret" ]; then
-    run chown "$APP_USER:$APP_USER" "$APP_DIR/$secret"
-    run chmod 600 "$APP_DIR/$secret"
+  if [ -f "$APP_DIR/$secret" ] && [ ! -L "$APP_DIR/$secret" ]; then
+    run chown -h "root:$APP_USER" "$APP_DIR/$secret"
+    run chmod 640 "$APP_DIR/$secret"
   fi
 done
+if [ -f "$APP_DIR/.ssh_key" ] && [ ! -L "$APP_DIR/.ssh_key" ]; then
+  run chmod 600 "$APP_DIR/.ssh_key"
+fi
 
-echo "==> [3/4] report residual root-owned / mode-600 under src+storage"
-root_left=$(find "$APP_DIR/src" "$APP_DIR/storage" -user root 2>/dev/null | wc -l | tr -d ' ')
-mode600=$(find "$APP_DIR/src" -type f -perm 600 2>/dev/null | wc -l | tr -d ' ')
-echo "  root-owned under src+storage: $root_left"
+echo "==> [3/4] report residual root-owned under storage / mode-600 under src"
+root_left=$(find -P "$APP_DIR/storage" -user root 2>/dev/null | wc -l | tr -d ' ')
+mode600=$(find -P "$APP_DIR/src" -type f -perm 600 2>/dev/null | wc -l | tr -d ' ')
+echo "  root-owned under storage: $root_left"
 echo "  mode-600 under src: $mode600"
 
 echo "==> [4/4] deploy lock status"

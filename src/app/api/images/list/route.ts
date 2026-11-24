@@ -9,13 +9,14 @@ import { withCacheHeaders, CachePresets } from "@/lib/cache";
 import { prisma } from "@/lib/db";
 import { withApiRoute } from "@/lib/http/api-guard";
 import { parseSearchParams } from "@/lib/http/parse-search-params";
+import { GENERAL_READ_LIMIT } from "@/lib/http/rate-limit-presets";
 
 export const dynamic = "force-dynamic";
 
 export async function GET(request: Request) {
   return withApiRoute(
     request,
-    { permission: "image:read", optionalTokenPermissions: ["media:manage"], errorMessage: apiCopy("apiCopy.failed.to.fetch.image.list.c85269a9") },
+    { permission: "image:read", optionalTokenPermissions: ["media:manage"], rateLimit: GENERAL_READ_LIMIT, errorMessage: apiCopy("apiCopy.failed.to.fetch.image.list.c85269a9") },
     async ({ session }) => {
       // showAll must not use broad user:read (many roles have it).
       // Only global team managers or media managers may list everyone's images.

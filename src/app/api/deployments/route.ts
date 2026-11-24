@@ -48,7 +48,7 @@ export async function GET(request: Request) {
       const canRead = sessionHasPermission(session, "command:read");
       const canApprove = sessionHasPermission(session, "command:approve");
       const visible = (owner: string | null) => canRead && canReadCommandBody(session.userId, owner, canApprove);
-      const projectTemplate = (template: (typeof templates)[number]) => visible(template.createdById) ? template
+      const projectTemplate = (template: (typeof templates)[number]) => (template.isBuiltin || visible(template.createdById)) ? template
         : { ...template, command: "", rollbackCommand: null };
       return NextResponse.json({
         templates: templates.map(projectTemplate),
@@ -58,7 +58,7 @@ export async function GET(request: Request) {
           template: projectTemplate(run.template),
           snapshot: run.snapshot && (visible(run.snapshot.createdBy) ? run.snapshot
             : { ...run.snapshot, deployCommand: "", rollbackCommand: null, variables: {} }),
-          rollbackAttempts: run.rollbackAttempts.map(attempt => visible(attempt.createdBy) ? attempt
+          rollbackAttempts: run.rollbackAttempts.map(attempt => (visible(run.snapshot?.createdBy ?? run.createdBy) && visible(attempt.createdBy)) ? attempt
             : { ...attempt, rollbackCommand: "", reason: null, errorMessage: null }),
         })),
       });

@@ -191,7 +191,7 @@ export async function listApiTokenPage(userId: string, { pageSize, cursor, statu
   }, { isolationLevel: "RepeatableRead" });
 }
 
-export async function revokeApiToken(input: { userId: string; id: string }) {
+export async function revokeApiToken(input: { userId: string; id: string; auditTeamId?: string | null }) {
   const owned = { id: input.id, createdBy: input.userId };
   return prisma.$transaction(async (tx) => {
     const changed = await tx.apiToken.updateMany({ where: { ...owned, revokedAt: null }, data: { revokedAt: new Date() } });
@@ -199,7 +199,8 @@ export async function revokeApiToken(input: { userId: string; id: string }) {
     if (!token) throw new NotFoundError(t("backend.api-token.tokenNotFound"));
     if (changed.count) {
       await writeAuditLog({
-        actorType: "USER", actorId: input.userId, action: "api_token.revoke", teamId: token.teamId,
+        actorType: "USER", actorId: input.userId, action: "api_token.revoke",
+        teamId: input.auditTeamId !== undefined ? input.auditTeamId : token.teamId,
         detail: { tokenId: token.id, tokenPrefix: token.tokenPrefix, tokenSuffix: token.tokenSuffix },
       }, tx);
     }

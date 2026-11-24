@@ -216,7 +216,25 @@ export function safeRevalidatePath(path: string) {
 }
 
 export function isLocalHostLiteral(host: string) {
-  return /^(127\.0\.0\.1|localhost|::1|0\.0\.0\.0)$/i.test(host.trim());
+  const trimmed = host.trim().replace(/^\[|\]$/g, "").replace(/\.$/, "").toLowerCase();
+  if (!trimmed) return false;
+  if (
+    trimmed === "127.0.0.1"
+    || trimmed === "0.0.0.0"
+    || trimmed === "localhost"
+    || trimmed.endsWith(".localhost")
+    || trimmed === "::1"
+    || trimmed === "::"
+    || trimmed === "0:0:0:0:0:0:0:1"
+    || trimmed === "0:0:0:0:0:0:0:0"
+  ) {
+    return true;
+  }
+  if (/^169\.254\.\d{1,3}\.\d{1,3}$/.test(trimmed)) return true;
+  if (trimmed === "::ffff:127.0.0.1" || trimmed === "::ffff:0.0.0.0" || /^::ffff:169\.254\./.test(trimmed) || trimmed === "fd00:ec2::254" || /^fe[89ab][0-9a-f]:/.test(trimmed)) {
+    return true;
+  }
+  return false;
 }
 
 export function formatServerEndpoint(
@@ -396,7 +414,10 @@ export function enrichServer(server: ServerWithRelations, commandCounts: { total
       needsStopConfirmation: Boolean(needsLegacyGatewayStop(server)
         || server.directGatewayDesiredEnabled || server.fileProxyPort || server.publicUrl
         || (server.storageNode?.driver === "SFTP" && server.storageNode.directAccessMode !== "PROXY" && server.storageNode.publicBaseUrl)),
-      publicUrl: server.publicUrl ?? null,
+      publicUrl: (() => {
+        const proto = getResolvedDirectGatewayProtocol({ publicUrl: server.publicUrl ?? null });
+        return proto === "http" || proto === "https" ? (server.publicUrl ?? null) : null;
+      })(),
       port: server.fileProxyPort ?? 0,
       // TR-002 R3: bind + protocol come from the runtime env (single source
       // of truth shared with the on-node systemd unit) and the publicUrl

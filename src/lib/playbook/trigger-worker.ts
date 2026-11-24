@@ -96,6 +96,7 @@ export async function runPlaybookTriggerTickJobWorkerOnce(reason = "manual"): Pr
     if (!job) return false;
     try {
       await heartbeatJob(job.id, WORKER_ID, {
+        attempts: job.attempts,
         leaseMs: LEASE_MS,
         progress: "Dispatching due Playbook Cron triggers",
       });
@@ -103,6 +104,7 @@ export async function runPlaybookTriggerTickJobWorkerOnce(reason = "manual"): Pr
         jobId: job.id,
         leaseMs: LEASE_MS,
         heartbeat: () => heartbeatJob(job.id, WORKER_ID, {
+          attempts: job.attempts,
           leaseMs: LEASE_MS,
           progress: "Dispatching due Playbook Cron triggers",
         }),
@@ -113,7 +115,7 @@ export async function runPlaybookTriggerTickJobWorkerOnce(reason = "manual"): Pr
           return { initialized, ...due };
         },
       });
-      await completeJob(job.id, WORKER_ID, result);
+      await completeJob(job.id, WORKER_ID, result, ...(job.attempts !== undefined ? [job.attempts] : []));
       try {
         await pruneCompletedJobsByType({
           type: PLAYBOOK_TRIGGER_TICK_JOB_TYPE,
@@ -126,8 +128,12 @@ export async function runPlaybookTriggerTickJobWorkerOnce(reason = "manual"): Pr
       }
       return true;
     } catch (error) {
+      if (error && typeof error === "object" && (error as { name?: string }).name === "LeaseLostError") {
+        logger.warn("Playbook trigger tick lost lease; skipping failJob", { reason, jobId: job.id });
+        return true;
+      }
       const message = error instanceof Error ? error.message : String(error);
-      await failJob(job.id, WORKER_ID, message.slice(0, 2000), { retryAfterMs: INTERVAL_MS });
+      await failJob(job.id, WORKER_ID, message.slice(0, 2000), { attempts: job.attempts, retryAfterMs: INTERVAL_MS });
       logger.error("Playbook trigger tick job failed", { reason, jobId: job.id, error: message });
       return true;
     }

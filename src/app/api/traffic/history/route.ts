@@ -4,6 +4,7 @@ import { z } from "zod";
 
 import { isGlobalTeamManager, serverTeamWhere } from "@/lib/auth/team-scope";
 import { withApiRoute } from "@/lib/http/api-guard";
+import { GENERAL_READ_LIMIT } from "@/lib/http/rate-limit-presets";
 import { parseSearchParams } from "@/lib/http/parse-search-params";
 import { prisma } from "@/lib/db";
 
@@ -29,7 +30,7 @@ export const dynamic = "force-dynamic";
 export async function GET(request: Request) {
   return withApiRoute(
     request,
-    { permission: "server:read", errorMessage: apiCopy("apiCopy.failed.to.fetch.traffic.history.5d4f512b") },
+    { permission: "server:read", rateLimit: GENERAL_READ_LIMIT, errorMessage: apiCopy("apiCopy.failed.to.fetch.traffic.history.5d4f512b") },
     async ({ session }) => {
       const { iface, source, hours } = parseSearchParams(request, trafficHistoryQuerySchema);
       const since = new Date(Date.now() - hours * 3600_000);

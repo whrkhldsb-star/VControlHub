@@ -32,6 +32,7 @@ import { uploadTmpDir } from "@/lib/runtime/work-dirs";
 import { getStorageFileNode } from "@/lib/storage/file-content";
 import { captureUploadTarget, type UploadTarget } from "@/lib/storage/upload-target";
 import { assertStorageAccess } from "@/lib/storage/access-control";
+import { activeCustomerTeamWhere } from "@/lib/auth/team-scope";
 import { storageAccessDeniedCopy } from "@/lib/storage/access-denied";
 
 import {
@@ -188,12 +189,23 @@ export async function initMediaUploadSession(
 	const expiresAt = ttlExpiry(input.ttlMs ?? DEFAULT_SESSION_TTL_MS);
 
 	let storageTarget: UploadTarget | undefined;
+	let effectiveTeamId = input.session?.currentTeamId ?? null;
 	if (input.storageNodeId) {
 		if (!input.session) {
 			throw new MediaUploadError(
 				"storage_acl_required",
 				"storageNodeId requires an authenticated session for ACL checks",
 			);
+		}
+		if (prisma.storageNode?.findFirst) {
+			const linkedNode = await prisma.storageNode.findFirst({
+				where: { id: input.storageNodeId, ...activeCustomerTeamWhere(input.session) },
+				select: { id: true, teamId: true },
+			});
+			if (!linkedNode) {
+				throw new MediaUploadError("storage_access_denied", storageAccessDeniedCopy("no_access"));
+			}
+			effectiveTeamId = linkedNode.teamId ?? effectiveTeamId;
 		}
 		const access = await assertStorageAccess({
 			session: input.session,
@@ -222,7 +234,7 @@ export async function initMediaUploadSession(
 	const row = await prisma.mediaUploadSession.create({
 		data: {
 			userId: input.userId,
-			teamId: input.session?.currentTeamId ?? null,
+			teamId: effectiveTeamId,
 			teamBound: true,
 			...(storageTarget && { recoveryMetadata: { storageTarget } }),
 			filename: input.filename,

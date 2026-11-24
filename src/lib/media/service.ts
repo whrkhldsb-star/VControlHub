@@ -1,8 +1,9 @@
 import { Prisma } from "@prisma/client";
 import { prisma } from "@/lib/db";
 import { visibleMediaQuery, type MediaListFilters } from "./library-query";
-import { teamWhere, type TeamSession } from "@/lib/auth/team-scope";
+import { activeCustomerTeamWhere, seesAllCustomers, teamWhere, type TeamSession } from "@/lib/auth/team-scope";
 import { getReadableStorageScope, readableStoragePath } from "@/lib/storage/readable-scope";
+import { isStorageStagingPath } from "@/lib/storage/staging-paths";
 import { NotFoundError } from "@/lib/errors";
 import { classifyMediaKind } from "@/lib/storage/mime-constants";
 import { t } from "@/lib/i18n/service-translations";
@@ -161,8 +162,9 @@ export async function getMediaItem(
   session?: TeamSession | null,
   options?: { includeCredentials?: boolean },
 ) {
+  const nodeScope = session ? (seesAllCustomers(session) ? activeCustomerTeamWhere(session) : teamWhere(session)) : undefined;
   const item = await prisma.mediaItem.findFirst({
-    where: { id, ...(session && { storageNode: teamWhere(session) }) },
+    where: { id, ...(nodeScope && { storageNode: nodeScope }) },
     select: options?.includeCredentials
       ? mediaStreamItemSelect
       : mediaItemSelect,
@@ -218,7 +220,8 @@ export async function scanMediaFromFileEntries(
   userId?: string,
   session?: TeamSession | null,
 ) {
-  const nodeScope = session ? teamWhere(session) : {};
+  const nodeScope = session ? activeCustomerTeamWhere(session) : {};
+  const readable = session ? await getReadableStorageScope(session) : null;
   const scopedNode =
     Object.keys(nodeScope).length > 0 ? { storageNode: nodeScope } : {};
   // Cursor-paginate with a deterministic orderBy until exhausted. A bare
@@ -278,12 +281,14 @@ export async function scanMediaFromFileEntries(
     if (page.length < 1000) break;
     scanCursor = { id: page[page.length - 1]!.id };
   }
-  const entries = pages.flat();
+  const entries = pages
+    .flat()
+    .filter((entry) => !isStorageStagingPath(entry.relativePath) && readableStoragePath(readable, entry.storageNodeId, entry.relativePath));
 
   // Same cursor discipline for the stale-row cleanup: without ordering the
   // cleanup only ever saw the first arbitrary 1000 stale rows.
   const staleFileEntryIds: string[] = [];
-  {
+  if (readable === null) {
     let cursor: { id: string } | undefined;
     for (;;) {
       const page = await prisma.fileEntry.findMany({
@@ -306,7 +311,7 @@ export async function scanMediaFromFileEntries(
   // find that media: it lingered, and the file reappearing added a duplicate.
   // Media whose FileEntry no longer exists, or no longer is media, is stale
   // too; media without a FileEntry source is left alone.
-  {
+  if (readable === null) {
     let cursor: { id: string } | undefined;
     for (;;) {
       const page = await prisma.mediaItem.findMany({

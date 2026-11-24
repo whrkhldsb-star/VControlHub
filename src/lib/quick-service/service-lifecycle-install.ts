@@ -128,72 +128,119 @@ async function installServiceUnlocked(opts: InstallOptions) {
 	const portScope = target.kind === "local" ? "hub-host" : target.serverId;
 	const owner = Symbol("quick-service install");
 	let reservedPorts: number[] = [];
-	const hostPort = await withPortAllocationLock(portScope, async () => {
-		if (target.kind === "remote") {
-			const extras = templateReservedPorts(template, customPort ?? template.defaultPort).slice(1);
-			for (const port of extras) {
-				if (!await isRemotePortAvailable(target, port)) throw new BusinessError(t("backend.quick-service.extraPortInUseOnTarget", { port }));
-			}
-			if (customPort) {
-				if (!await isRemotePortAvailable(target, customPort)) throw new BusinessError(t("backend.quick-service.portInUseOnTarget", { port: customPort }));
-				return customPort;
-			}
-			for (let i = 0; i <= 40; i++) {
-				const candidate = i === 0 ? template.defaultPort : 10000 + Math.floor(Math.random() * 55536);
-				if (!extras.includes(candidate) && await isRemotePortAvailable(target, candidate)) return candidate;
-			}
-			throw new BusinessError(
-				t("backend.quick-service.noAvailablePortOnTarget"),
-			);
-		}
-		const port = customPort ?? (await allocatePort(template.defaultPort, owner));
-		try { await assertTemplatePortsAvailable(template, port, owner); }
-		catch (error) { releasePortReservations([port], owner); throw error; }
-		reservedPorts = templateReservedPorts(template, port);
-		return port;
-	});
-
 	const envStr = JSON.stringify(template.envJson);
 	const volStr = JSON.stringify(template.volumesJson);
 	const extraPortsStr = JSON.stringify(template.extraPorts ?? []);
 
-	let svc;
-	try {
-		const configuration = {
-			status: "installing", image: template.image, port: hostPort, path: template.path,
-			internalPort: template.internalPort ?? template.defaultPort,
-			extraPortsJson: extraPortsStr, command: template.command ?? null, envJson: envStr,
-			volumesJson: volStr, error: null,
-		};
-		// A concurrent insert after an empty snapshot must conflict. Updating it
-		// would make our fresh-install rollback delete someone else's row.
-		svc = before
-			? await prisma.quickService.update({ where: { id: before.id, ...identity, ...ownerScope }, data: configuration })
-			: await prisma.quickService.create({
-				data: {
-					instanceKey, slug: template.slug, ...(server && { server: { connect: server } }),
-					...configuration, name: template.name, category: template.category,
-					icon: template.icon, description: template.description, createdBy: userId ?? null,
-				},
+	const { hostPort, svc } = await withPortAllocationLock(portScope, async () => {
+		const existingRows = (await prisma.quickService?.findMany?.({
+			where: { instanceKey, ...(before ? { id: { not: before.id } } : {}) },
+			select: { port: true, extraPortsJson: true },
+		})) ?? [];
+		const persistedPorts = new Set<number>();
+		for (const row of existingRows) {
+			if (typeof row.port === "number" && row.port > 0) persistedPorts.add(row.port);
+			if (typeof row.extraPortsJson === "string" && row.extraPortsJson) {
+				try {
+					const parsed = JSON.parse(row.extraPortsJson);
+					if (Array.isArray(parsed)) {
+						for (const item of parsed) {
+							const hp = Number((item as { host?: unknown })?.host);
+							if (Number.isInteger(hp) && hp > 0) persistedPorts.add(hp);
+						}
+					}
+				} catch { /* ignore malformed historical JSON */ }
+			}
+		}
+
+		let chosenPort: number;
+		if (target.kind === "remote") {
+			const extras = templateReservedPorts(template, customPort ?? template.defaultPort).slice(1);
+			for (const port of extras) {
+				if (persistedPorts.has(port) || !await isRemotePortAvailable(target, port)) {
+					throw new BusinessError(t("backend.quick-service.extraPortInUseOnTarget", { port }));
+				}
+			}
+			if (customPort) {
+				if (persistedPorts.has(customPort) || !await isRemotePortAvailable(target, customPort)) {
+					throw new BusinessError(t("backend.quick-service.portInUseOnTarget", { port: customPort }));
+				}
+				chosenPort = customPort;
+			} else {
+				let found: number | undefined;
+				for (let i = 0; i <= 40; i++) {
+					const candidate = i === 0 ? template.defaultPort : 10000 + Math.floor(Math.random() * 55536);
+					if (!extras.includes(candidate) && !persistedPorts.has(candidate) && await isRemotePortAvailable(target, candidate)) {
+						found = candidate;
+						break;
+					}
+				}
+				if (found === undefined) {
+					throw new BusinessError(t("backend.quick-service.noAvailablePortOnTarget"));
+				}
+				chosenPort = found;
+			}
+		} else {
+			if (customPort && persistedPorts.has(customPort)) {
+				throw new BusinessError(t("backend.quick-service.portInUseOnTarget", { port: customPort }));
+			}
+			let port = customPort ?? (await allocatePort(persistedPorts.has(template.defaultPort) ? undefined : template.defaultPort, owner));
+			while (!customPort && persistedPorts.has(port)) {
+				releasePortReservations([port], owner);
+				port = await allocatePort(undefined, owner);
+			}
+			try {
+				const allPorts = templateReservedPorts(template, port);
+				for (const ep of allPorts.slice(1)) {
+					if (persistedPorts.has(ep)) throw new BusinessError(t("backend.quick-service.extraPortInUseOnTarget", { port: ep }));
+				}
+				await assertTemplatePortsAvailable(template, port, owner);
+			} catch (error) {
+				releasePortReservations([port], owner);
+				throw error;
+			}
+			reservedPorts = templateReservedPorts(template, port);
+			chosenPort = port;
+		}
+
+		try {
+			const configuration = {
+				status: "installing", image: template.image, port: chosenPort, path: template.path,
+				internalPort: template.internalPort ?? template.defaultPort,
+				extraPortsJson: extraPortsStr, command: template.command ?? null, envJson: envStr,
+				volumesJson: volStr, error: null,
+			};
+			// A concurrent insert after an empty snapshot must conflict. Updating it
+			// would make our fresh-install rollback delete someone else's row.
+			const saved = before
+				? await prisma.quickService.update({ where: { id: before.id, ...identity, ...ownerScope }, data: configuration })
+				: await prisma.quickService.create({
+					data: {
+						instanceKey, slug: template.slug, ...(server && { server: { connect: server } }),
+						...configuration, name: template.name, category: template.category,
+						icon: template.icon, description: template.description, createdBy: userId ?? null,
+					},
+				});
+			return { hostPort: chosenPort, svc: saved };
+		} catch (err) {
+			if (reservedPorts.length > 0) releasePortReservations(reservedPorts, owner);
+			// The conditional write failed. Record the pre-install snapshot so
+			// operators can see what state was supposed to be transitioned to.
+			const msg = err instanceof Error ? err.message.slice(0, 500) : String(err);
+			await writeQuickServiceAudit({
+				target,
+				userId,
+				action: "install",
+				slug: template.slug,
+				status: "failed",
+				detail: { image: template.image, port: chosenPort, error: msg, phase: "upsert" },
+				diff: { before, after: { status: "error", port: chosenPort, error: msg } },
 			});
-	} catch (err) {
-		if (reservedPorts.length > 0) releasePortReservations(reservedPorts, owner);
-		// The conditional write failed. Record the pre-install snapshot so
-		// operators can see what state was supposed to be transitioned to.
-		const msg = err instanceof Error ? err.message.slice(0, 500) : String(err);
-		await writeQuickServiceAudit({
-			target,
-			userId,
-			action: "install",
-			slug: template.slug,
-			status: "failed",
-			detail: { image: template.image, port: hostPort, error: msg, phase: "upsert" },
-			diff: { before, after: { status: "error", port: hostPort, error: msg } },
-		});
-		throw new BusinessError(
-			t("backend.quick-service.installFailedWithMessage", { message: msg }),
-		);
-	}
+			throw new BusinessError(
+				t("backend.quick-service.installFailedWithMessage", { message: msg }),
+			);
+		}
+	});
 
 	try {
 		return await recreateDockerContainer(svc.id, template, hostPort, { userId, credentials: installNoticeCredentials, notes: installNoticeNotes, target, previousId: before?.containerId });

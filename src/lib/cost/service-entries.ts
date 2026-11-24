@@ -1,4 +1,6 @@
 import { Prisma } from "@prisma/client";
+import { sessionHasPermission } from "@/lib/auth/authorization";
+import type { SessionPayload } from "@/lib/auth/session";
 import { liveCustomerRowsWhere, serverTeamWhere, teamCreateData, teamWhere } from "@/lib/auth/team-scope";
 import { currentCopyLocale } from "@/lib/i18n/api-copy";
 import { costMessage } from "./messages";
@@ -87,9 +89,38 @@ export async function transferMonthlyCost(tx: Prisma.TransactionClient, serverId
 	await tx.costEntry.updateMany({ where: { OR: [{ id }, { tags: { has: `adjustment-for:${id}` } }] }, data: { teamId } });
 }
 
+async function projectCostEntriesForViewer(records: CostEntryRecord[], session?: TeamSession | null): Promise<CostEntryRecord[]> {
+	if (!session || records.length === 0) return records;
+	const serverRefs = [...new Set(records.flatMap((r) => (r.sourceType === "server_monthly" && r.sourceRef ? [r.sourceRef] : [])))];
+	if (serverRefs.length === 0) return records;
+	const canReadServers = sessionHasPermission(session as SessionPayload, "server:read");
+	let readableIds: Set<string> | null = null;
+	if (canReadServers && prisma.server?.findMany) {
+		const visible = await prisma.server.findMany({
+			where: { id: { in: serverRefs }, ...serverTeamWhere(session, "read") },
+			select: { id: true },
+		});
+		readableIds = new Set(visible.map((s) => s.id));
+	}
+	return records.map((r) => {
+		if (r.sourceType !== "server_monthly" || !r.sourceRef) return r;
+		const allowed = canReadServers && (readableIds === null || readableIds.has(r.sourceRef));
+		if (allowed) return r;
+		return {
+			...r,
+			provider: "VPS",
+			sourceRef: null,
+			notes: null,
+			tags: r.tags.filter((tag) => !tag.startsWith("server:") && !tag.startsWith("provider:")),
+		};
+	});
+}
+
 export async function getCostEntry(id: string, session?: TeamSession | null): Promise<CostEntryRecord | null> {
 	const entry = session ? await prisma.costEntry.findFirst({ where: { id, ...teamWhere(session) } }) : await prisma.costEntry.findUnique({ where: { id } });
-	return entry ? toRecord(entry) : null;
+	if (!entry) return null;
+	const [projected] = await projectCostEntriesForViewer([toRecord(entry)], session);
+	return projected ?? null;
 }
 
 export interface ListCostEntriesOptions { month?: string; category?: CostCategory; limit?: number; session?: TeamSession | null; }
@@ -103,18 +134,20 @@ function entriesWhere(options: ListCostEntriesOptions) {
 const entryOrder = [{ effectiveDate: "desc" }, { id: "desc" }] satisfies Prisma.CostEntryOrderByWithRelationInput[];
 
 export async function listCostEntries(options: ListCostEntriesOptions = {}): Promise<CostEntryRecord[]> {
-	return (await prisma.costEntry.findMany({ where: entriesWhere(options), orderBy: entryOrder, take: options.limit ?? DEFAULT_LIST_LIMIT })).map(toRecord);
+	const rows = (await prisma.costEntry.findMany({ where: entriesWhere(options), orderBy: entryOrder, take: options.limit ?? DEFAULT_LIST_LIMIT })).map(toRecord);
+	return projectCostEntriesForViewer(rows, options.session);
 }
 
 export async function listCostEntryPage(options: ListCostEntriesOptions & { page?: number }) {
 	const pageSize = options.limit ?? DEFAULT_LIST_LIMIT;
 	const where = entriesWhere(options);
-	return prisma.$transaction(async tx => {
+	const pageResult = await prisma.$transaction(async tx => {
 		const total = await tx.costEntry.count({ where });
 		const page = Math.max(1, Math.min(options.page ?? 1, Math.ceil(total / pageSize)));
 		const rows = await tx.costEntry.findMany({ where, orderBy: entryOrder, take: pageSize, skip: (page - 1) * pageSize });
 		return { entries: rows.map(toRecord), total, page, pageSize };
 	}, { isolationLevel: "RepeatableRead" });
+	return { ...pageResult, entries: await projectCostEntriesForViewer(pageResult.entries, options.session) };
 }
 
 export async function summarizeMonth(month: string, currency: CostCurrency = DEFAULT_CURRENCY, session?: TeamSession | null): Promise<CostSummary> {

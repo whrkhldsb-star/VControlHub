@@ -55,17 +55,22 @@ export async function assertServerTeamAccess(
     };
   }
 
-  const server = await prisma.server.findUnique({
+  const row = await prisma.server.findUnique({
     where: { id: serverId },
-    select: { id: true, teamId: true, ...SSH_ENDPOINT_IDENTITY_SELECT },
+    select: { id: true, teamId: true, ...SSH_ENDPOINT_IDENTITY_SELECT, team: { select: { deletedAt: true } } },
   });
 
-  if (!server) {
+  // Servers owned by an archived (soft-deleted) customer are hidden from every
+  // operational surface, including the platform administrator's all-customer
+  // view, matching `serverTeamWhere` / `activeCustomerTeamWhere`.
+  if (!row || row.team?.deletedAt != null) {
     return {
       ok: false,
       response: NextResponse.json({ error: apiCopy("apiCopy.server.not.found.d7783f94") }, { status: 404 }),
     };
   }
+
+  const { team: _team, ...server } = row;
 
   // Administrators viewing all customers reach every server; with a customer
   // selected they see that customer, like every list does.

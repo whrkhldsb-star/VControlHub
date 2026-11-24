@@ -42,7 +42,7 @@ export const DEFAULT_PAGE_REQUIRED_PERMISSION: Record<DefaultPageOption, Permiss
   "/servers": "server:read",
   "/files": "storage:read",
   "/docker": "docker:manage",
-  "/monitoring": "health:read",
+  "/monitoring": "team:manage",
   "/downloads": "storage:read",
   "/ai": "ai:chat",
 };

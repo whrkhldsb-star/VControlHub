@@ -1,5 +1,5 @@
 import { Prisma } from "@prisma/client";
-import { teamWhere } from "@/lib/auth/team-scope";
+import { isGlobalTeamManager, teamWhere } from "@/lib/auth/team-scope";
 import type { SessionPayload } from "@/lib/auth/session";
 import { prisma } from "@/lib/db";
 import { DEFAULT_KEEP_LATEST_PER_TYPE, DEFAULT_RETENTION_DAYS, FAILURE_CATEGORIES, summarizeBackupPolicy } from "./service-policy";
@@ -12,8 +12,7 @@ type Aggregate = {
 
 /** The manual cleanup always has one owner, including the platform (null). */
 export async function getBackupPolicySummary(session?: Pick<SessionPayload, "userId" | "roles" | "currentTeamId">) {
-	const visible = session ? teamWhere(session) : {};
-	const teamId = visible.teamId ?? null;
+	const teamId = !session || isGlobalTeamManager(session) ? null : (teamWhere(session).teamId ?? null);
 	const cutoff = new Date(Date.now() - DEFAULT_RETENTION_DAYS * 86_400_000);
 	return prisma.$transaction(async (tx) => {
 		const groups = await tx.$queryRaw<Aggregate[]>`
@@ -68,6 +67,7 @@ export async function getBackupPolicySummary(session?: Pick<SessionPayload, "use
 				summary.largestCompleted = { type: group.type, sizeBytes: group.largest, filePath: group.path };
 			}
 		}
+		const visible = !session || isGlobalTeamManager(session) ? {} : teamWhere(session);
 		const inventoryTotalRecords = visible.teamId ? summary.totalRecords : await tx.backupRecord.count({ where: visible });
 		return { ...summary, teamId, eligibleRecords, eligibleSizeBytes, inventoryTotalRecords };
 	}, { isolationLevel: Prisma.TransactionIsolationLevel.RepeatableRead });

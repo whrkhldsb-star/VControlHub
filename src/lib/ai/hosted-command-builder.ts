@@ -108,18 +108,35 @@ function normalizeReadablePath(value: unknown): string | null {
   return path && !isSensitiveRemotePath(path) ? path : null;
 }
 
-const SEARCH_EXCLUDED_DIRS = [".ssh", ".gnupg", ".aws", ".kube", ".docker", ".azure", "gcloud", "sudoers.d", "proc", "sys", "dev"];
+/**
+ * Directory base names a recursive search never descends into (and never starts in). Besides the
+ * per-user credential stores this covers the system secret stores behind SENSITIVE_SYSTEM_PATHS
+ * (D6-01): `/run/secrets`, `/etc/wireguard`, `/etc/kubernetes`, `/etc/rancher/k3s`, kubelet/rancher state.
+ */
+const SEARCH_EXCLUDED_DIRS = [
+  ".ssh", ".gnupg", ".aws", ".kube", ".docker", ".azure", "gcloud", "sudoers.d", "proc", "sys", "dev",
+  "secrets", "wireguard", "kubernetes", "k3s", "rancher", "kubelet",
+];
+/** File names a recursive search skips because they hold cluster credentials or container env secrets. */
+const SEARCH_EXCLUDED_FILES = ["admin.conf", "k3s.yaml", "config.v2.json", "kubeconfig", "*.kubeconfig"];
+/**
+ * Trees a recursive search may not start in at all (D6-01): runtime secret mounts, container
+ * state (plaintext container env), and cluster/VPN configuration. Listing them stays allowed.
+ */
+const SEARCH_PROTECTED_ROOTS = /^\/(?:run|var\/run|var\/lib\/(?:docker|containerd|kubelet|rancher)|etc\/(?:kubernetes|rancher|wireguard))(?:\/|$)/;
 
 // Use the same policy in the target's filesystem namespace. Check both the resolved path
 // and the opened descriptor, then give that descriptor to tail or use it as grep's cwd.
 // A renamed directory or replaced symlink cannot redirect a later open of the input path.
+// Kinds: "file" (tail), "directory" (listing), "tree" (recursive search; also refuses protected roots).
 const OPEN_READABLE_TARGET = `import os, re, stat, sys
 def check(path):
     if (not path.startswith("/") or path.endswith(" (deleted)") or "\\n" in path or "\\r" in path or
         re.match(r"${PSEUDO_FILESYSTEM_ROOTS.source}", path) or
         re.match(r"${SENSITIVE_SYSTEM_PATHS.source}", path) or
         re.fullmatch(r"${SENSITIVE_FILE_NAMES.source}", os.path.basename(path), re.IGNORECASE) or
-        (sys.argv[2] == "directory" and any(part in ${JSON.stringify(SEARCH_EXCLUDED_DIRS)} for part in path.split("/"))) or
+        (sys.argv[2] != "file" and any(part in ${JSON.stringify(SEARCH_EXCLUDED_DIRS)} for part in path.split("/"))) or
+        (sys.argv[2] == "tree" and re.match(r"${SEARCH_PROTECTED_ROOTS.source}", path)) or
         any("/" + part + "/" in path + "/" for part in ${JSON.stringify([...SENSITIVE_PATH_SEGMENTS])})):
         sys.exit("Protected path")
 
@@ -128,7 +145,7 @@ check(path)
 fd = os.open(path, os.O_RDONLY | os.O_NONBLOCK | os.O_NOCTTY | os.O_NOFOLLOW)
 check(os.readlink("/proc/self/fd/" + str(fd)))
 mode = os.fstat(fd).st_mode
-if sys.argv[2] == "directory" and stat.S_ISDIR(mode):
+if sys.argv[2] in ("directory", "tree") and stat.S_ISDIR(mode):
     os.fchdir(fd)
 elif sys.argv[2] == "file" and stat.S_ISREG(mode):
     os.dup2(fd, 0)
@@ -136,14 +153,19 @@ else:
     sys.exit("Unexpected file type")
 os.execvp(sys.argv[3], sys.argv[3:])`;
 
-function openReadableTarget(path: string, kind: "file" | "directory") {
+function openReadableTarget(path: string, kind: "file" | "directory" | "tree") {
   return `python3 -I -c ${shellQuote(OPEN_READABLE_TARGET)} ${shellQuote(path)} ${kind}`;
+}
+
+/** Same refusal as the "tree" check above, applied before a command is built at all. */
+function isProtectedSearchRoot(path: string): boolean {
+  return SEARCH_PROTECTED_ROOTS.test(path) || path.split("/").some((segment) => SEARCH_EXCLUDED_DIRS.includes(segment));
 }
 
 /** grep flags that keep a recursive search out of credential files and directories. */
 const SEARCH_EXCLUDE_FLAGS = [
   ...SEARCH_EXCLUDED_DIRS.map((dir) => `--exclude-dir=${shellQuote(dir)}`),
-  ...["shadow", "gshadow", "shadow-", "gshadow-", "sudoers", "master.passwd", "ssh_host_*_key", "*_history", ...SENSITIVE_FILE_GLOBS].map(
+  ...["shadow", "gshadow", "shadow-", "gshadow-", "sudoers", "master.passwd", "ssh_host_*_key", "*_history", ...SEARCH_EXCLUDED_FILES, ...SENSITIVE_FILE_GLOBS].map(
     (name) => `--exclude=${shellQuote(name.replace(/[a-z]/g, (c) => `[${c}${c.toUpperCase()}]`))}`,
   ),
 ].join(" ");
@@ -252,6 +274,8 @@ with os.scandir(".") as entries:
       const query = normalizeLiteralQuery(params.query);
       const pattern = normalizeFilePattern(params.filePattern);
       if (!path || !query || !pattern) return null;
+      // Never start a recursive walk inside a secret store or container/cluster state tree (D6-01).
+      if (isProtectedSearchRoot(path)) return null;
       // A recursive grep reads every file below the directory; the credential
       // files the read tools refuse by name are skipped here too (A7-01).
       // GNU grep uses the last matching include/exclude flag. Start in a checked
@@ -260,7 +284,7 @@ with os.scandir(".") as entries:
       // permits none of the sed replacement metacharacters (backslash, ampersand, delimiter).
       const displayPrefix = path === "/" ? "" : path;
       const search = `grep -rFInI "$@" . 2>/dev/null | head -200 | sed ${shellQuote(`s|^\\./|${displayPrefix}/|`)}`;
-      return `${openReadableTarget(path, "directory")} sh -c ${shellQuote(search)} sh --include=${shellQuote(pattern)} ${SEARCH_EXCLUDE_FLAGS} -- ${shellQuote(query)}`;
+      return `${openReadableTarget(path, "tree")} sh -c ${shellQuote(search)} sh --include=${shellQuote(pattern)} ${SEARCH_EXCLUDE_FLAGS} -- ${shellQuote(query)}`;
     }
 
     case "read_file": {

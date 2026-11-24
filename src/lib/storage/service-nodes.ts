@@ -4,14 +4,15 @@ import { access, stat } from "node:fs/promises";
 
 import type { SessionPayload } from "@/lib/auth/session";
 import { sessionHasPermission } from "@/lib/auth/authorization";
-import { isGlobalTeamManager, serverTeamWhere, teamCreateData, teamWhere } from "@/lib/auth/team-scope";
+import { isGlobalTeamManager, serverProfileTeamWhere, serverTeamWhere, teamCreateData, teamWhere } from "@/lib/auth/team-scope";
 import type { Prisma } from "@prisma/client";
 import { isUniqueViolation, prisma } from "@/lib/db";
 import { lockForTransaction } from "@/lib/concurrency/advisory-lock";
-import { BusinessError, NotFoundError, ValidationError } from "@/lib/errors";
+import { BusinessError, ForbiddenError, NotFoundError, ValidationError } from "@/lib/errors";
 import { serviceT } from "@/lib/i18n/service-locale";
 import { listRemoteDirectory } from "@/lib/ssh/client";
-import { normalizePublicBaseUrl } from "@/lib/storage/direct-access-url";
+import { isUnsafePublicHttpHost, normalizePublicBaseUrl } from "@/lib/storage/direct-access-url";
+import { resolveOutboundAddresses } from "@/lib/security/outbound-dns";
 import { normalizeRemotePath } from "@/lib/storage/remote-path";
 import { purgeStorageNodeVersionBlobs } from "@/lib/storage/file-versions";
 import { resolveStorageSshCredentials, resolveStorageSshPort } from "@/lib/storage/ssh-credentials";
@@ -136,6 +137,48 @@ async function assertServerInTeamScope(
   if (!server) {
     const t = await serviceT();
     throw new NotFoundError(t("backend.storage.nodeNotFound"));
+  }
+}
+
+function isCustomerSession(session?: TeamSession | null): session is TeamSession {
+  return Boolean(session && !isGlobalTeamManager(session));
+}
+
+/**
+ * A storage node bound to a server inherits that server's SSH credentials or
+ * Agent channel. Customer accounts may bind, re-root or unbind such a node only
+ * for servers whose profile they could edit themselves (customer-origin and
+ * `manage` access) — the same rule as editing Server.storagePath/host/user.
+ */
+async function assertServersManageableForStorage(
+  serverIds: Array<string | null | undefined>,
+  session: TeamSession | null | undefined,
+  db: Pick<Prisma.TransactionClient, "server"> = prisma,
+) {
+  if (!isCustomerSession(session)) return;
+  const ids = [...new Set(serverIds.filter((id): id is string => Boolean(id)))];
+  for (const id of ids) {
+    const server = await db.server.findFirst({
+      where: { id, ...serverProfileTeamWhere(session) },
+      select: { id: true },
+    });
+    if (!server) throw new ForbiddenError(t("backend.customer.platformOnly"));
+  }
+}
+
+/** Customer-supplied SFTP endpoints must be public: no hub loopback or intranet probing. */
+async function assertCustomerSftpHostAllowed(host: string | null | undefined, session: TeamSession | null | undefined) {
+  if (!host || !isCustomerSession(session)) return;
+  const message = t("backend.r14.storageSftpHostNotPublic");
+  if (isUnsafePublicHttpHost(host)) throw new ValidationError(message);
+  let addresses: Array<{ address: string }>;
+  try {
+    addresses = await resolveOutboundAddresses(host, AbortSignal.timeout(15_000));
+  } catch {
+    throw new ValidationError(message);
+  }
+  if (addresses.length === 0 || addresses.some((entry) => isUnsafePublicHttpHost(entry.address))) {
+    throw new ValidationError(message);
   }
 }
 
@@ -278,6 +321,8 @@ export async function createStorageNode(
   }
 
   await assertServerInTeamScope(payload.serverId, session);
+  await assertServersManageableForStorage([payload.serverId], session);
+  if (payload.driver === "SFTP") await assertCustomerSftpHostAllowed(payload.host, session);
   if (payload.serverId && payload.driver !== "AGENT") {
     const existingServerNode = await prisma.storageNode.findUnique({
       where: { serverId: payload.serverId },
@@ -440,6 +485,17 @@ export async function updateStorageNode(
   };
   const rootChanged = !sameStorageRoot(current, nextRoot) ||
     (nextDriver === "AGENT" && !current.agentFileShare && Boolean(payload.serverId));
+  if (rootChanged) {
+    // Re-rooting, rebinding or unbinding a server-backed node: both the old and
+    // the new server must be editable by a customer caller.
+    await assertServersManageableForStorage([
+      current.serverId, current.agentFileShare?.serverId, nextRoot.serverId,
+      nextDriver === "AGENT" ? payload.serverId : null,
+    ], session);
+  }
+  if (nextRoot.driver === "SFTP" && nextRoot.host && (driverChanged || nextRoot.host !== current.host)) {
+    await assertCustomerSftpHostAllowed(nextRoot.host, session);
+  }
 
   // Promote, then retire the previous default, in one transaction under the
   // customer's default lock (see createStorageNode).
@@ -522,10 +578,12 @@ export async function deleteStorageNode(
     await tx.$queryRaw`SELECT id FROM "StorageNode" WHERE id = ${storageNodeId} FOR UPDATE`;
     const node = await tx.storageNode.findFirst({
       where: { id: storageNodeId, ...(session ? teamWhere(session) : {}) },
-      select: { id: true, isDefault: true },
+      select: { id: true, isDefault: true, serverId: true, agentFileShare: { select: { serverId: true } } },
     });
     if (!node) throw new NotFoundError(t("backend.storage.nodeNotFound"));
     if (node.isDefault) throw new BusinessError(t("backend.storage.defaultCannotDelete"));
+    // Unbinding a platform-provisioned server node is a platform decision.
+    await assertServersManageableForStorage([node.serverId, node.agentFileShare?.serverId], session, tx);
     const activeCount = await tx.fileEntry.count({ where: { storageNodeId, isDeleted: false } });
     if (activeCount > 0) throw new BusinessError(t("backend.storage.nodeHasEntries"));
 

@@ -9,9 +9,11 @@
  *   - `validateOffsiteConfigForUse`: 用于 dry-run / 上传前校验必填项
  */
 import { z } from "zod";
+import { isIP } from "node:net";
 
 import { getAllSettings, setManySettings } from "@/lib/settings/service";
 import { MASKED_VALUE } from "@/lib/settings/schema";
+import { normalizeEndpoint } from "./s3-client";
 
 /* ── Schemas ─────────────────────────────────────────────── */
 
@@ -62,9 +64,21 @@ export const offsiteConfigUpdateApiSchema = z
 export function validateOffsiteConfigForUse(config: OffsiteConfig): string[] {
 	const issues: string[] = [];
 	if (!config.enabled) return issues; // not an issue, caller can short-circuit
-	if (!config.endpoint.trim()) issues.push("Endpoint not configured");
+	if (!config.endpoint.trim()) {
+		issues.push("Endpoint not configured");
+	} else {
+		try {
+			normalizeEndpoint(config.endpoint);
+		} catch {
+			issues.push("Endpoint is invalid or points to a blocked address");
+		}
+	}
 	if (!config.region.trim()) issues.push("Region not configured");
-	if (!config.bucket.trim()) issues.push("Bucket not configured");
+	if (!config.bucket.trim()) {
+		issues.push("Bucket not configured");
+	} else if (!/^(?!.*\.\.)[a-z0-9][a-z0-9.-]{1,61}[a-z0-9]$/i.test(config.bucket.trim()) || isIP(config.bucket.trim()) !== 0) {
+		issues.push("Bucket name is invalid");
+	}
 	if (!config.accessKeyId.trim()) issues.push("AccessKeyId not configured");
 	if (!config.secretAccessKey.trim()) issues.push("SecretAccessKey not configured");
 	// Reject root/empty prefix when offsite is enabled — pathPrefix="/" lists the whole bucket.

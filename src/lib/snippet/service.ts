@@ -2,6 +2,7 @@ import { Prisma } from "@prisma/client";
 import { createHash, randomUUID } from "node:crypto";
 import { ForbiddenError, NotFoundError, ValidationError } from "@/lib/errors";
 import { prisma } from "@/lib/db";
+import { escapeLikeLiteral } from "@/lib/db/like-pattern";
 import { isGlobalTeamManager, type TeamSession } from "@/lib/auth/team-scope";
 import { t } from "@/lib/i18n/service-translations";
 
@@ -19,20 +20,57 @@ function teamSnippetPrefix(teamId: string) {
   return `sn-team-${createHash("sha256").update(teamId).digest("hex")}-`;
 }
 
+const TEAM_PREFIX = "sn-team-";
 const PLATFORM_PREFIX = "sn-platform-";
+/** Upper bound on archived customers excluded by prefix in the all-customers view. */
+const MAX_ARCHIVED_TEAM_EXCLUSIONS = 5_000;
 
-function sharedSnippetWhere(viewer: SnippetViewer) {
-  if (viewer.platformAdmin) return { isPrivate: false };
+/** A platform admin in "all customers" mode (same rule as `seesAllCustomers`). */
+function viewerSeesAllCustomers(viewer: SnippetViewer) {
+  return viewer.platformAdmin && !viewer.currentTeamId;
+}
+
+/**
+ * Which snippets the viewer may see (D6-02):
+ * - all-customers platform admin: every shared snippet plus their own, minus archived customers' snippets;
+ * - otherwise: platform-shared snippets, shared snippets of the current live customer, and their own
+ *   snippets only when they belong to that live customer, to the platform (platform admins only) or are
+ *   unscoped legacy rows. A transferred or demoted author no longer reaches their old scope's snippets.
+ */
+async function snippetScopeWhere(viewer: SnippetViewer): Promise<Prisma.SnippetWhereInput> {
+  if (viewerSeesAllCustomers(viewer)) {
+    const archived = await prisma.team.findMany({
+      where: { deletedAt: { not: null } },
+      select: { id: true },
+      take: MAX_ARCHIVED_TEAM_EXCLUSIONS,
+    });
+    return {
+      OR: [{ isPrivate: false }, { createdBy: viewer.userId }],
+      ...(archived.length ? { NOT: archived.map((team) => ({ id: { startsWith: teamSnippetPrefix(team.id) } })) } : {}),
+    };
+  }
+  const liveTeam = viewer.currentTeamId
+    ? await prisma.team.findFirst({ where: { id: viewer.currentTeamId, deletedAt: null }, select: { id: true } })
+    : null;
+  const teamId = liveTeam?.id ?? null;
+  const teamPrefix = teamId ? teamSnippetPrefix(teamId) : null;
   const admin = { roles: { some: { role: { key: "admin" } } } };
-  const teamId = viewer.currentTeamId;
   return {
-    isPrivate: false,
     OR: [
-      { id: { startsWith: PLATFORM_PREFIX }, creator: { is: admin } },
-      ...(teamId ? [{
-        id: { startsWith: teamSnippetPrefix(teamId) },
+      { isPrivate: false, id: { startsWith: PLATFORM_PREFIX }, creator: { is: admin } },
+      ...(teamId && teamPrefix ? [{
+        isPrivate: false,
+        id: { startsWith: teamPrefix },
         creator: { is: { OR: [admin, { teamMembership: { is: { teamId } } }] } },
       }] : []),
+      {
+        createdBy: viewer.userId,
+        OR: [
+          ...(teamPrefix ? [{ id: { startsWith: teamPrefix } }] : []),
+          ...(viewer.platformAdmin ? [{ id: { startsWith: PLATFORM_PREFIX } }] : []),
+          { NOT: [{ id: { startsWith: TEAM_PREFIX } }, { id: { startsWith: PLATFORM_PREFIX } }] },
+        ],
+      },
     ],
   };
 }
@@ -75,8 +113,10 @@ const SNIPPET_LIST_PREVIEW_CHARS = 240;
 
 export async function listSnippets(input: { viewer: SnippetViewer; q?: string; language?: string }) {
   const q = input.q?.trim();
-  // Shared snippets the viewer's customer may see, plus their own private ones.
-  const privacyFilter = { OR: [sharedSnippetWhere(input.viewer), { createdBy: input.viewer.userId }] };
+  // Literal search (D6-04): `%`, `_` and a trailing `\` are text, not LIKE syntax.
+  const needle = q ? escapeLikeLiteral(q) : "";
+  // Shared snippets the viewer's customer may see, plus their own ones in scope.
+  const privacyFilter = await snippetScopeWhere(input.viewer);
   return prisma.$transaction(async tx => {
     const rows = await tx.snippet.findMany({
       take: 500,
@@ -86,8 +126,9 @@ export async function listSnippets(input: { viewer: SnippetViewer; q?: string; l
           q
             ? {
                 OR: [
-                  { title: { contains: q, mode: "insensitive" } },
-                  { content: { contains: q, mode: "insensitive" } },
+                  { title: { contains: needle, mode: "insensitive" } },
+                  { description: { contains: needle, mode: "insensitive" } },
+                  { content: { contains: needle, mode: "insensitive" } },
                   { tags: { has: q } },
                 ],
               }
@@ -123,9 +164,11 @@ export async function listSnippets(input: { viewer: SnippetViewer; q?: string; l
 
 type MutationActor = Partial<SnippetViewer> & { canManageAll?: boolean };
 
-function visibleSnippet(id: string, actor?: MutationActor) {
+async function visibleSnippet(id: string, actor?: MutationActor): Promise<Prisma.SnippetWhereInput> {
   const viewer = { userId: actor?.userId ?? "", currentTeamId: actor?.currentTeamId ?? null, platformAdmin: actor?.platformAdmin ?? false };
-  return { id, ...(viewer.platformAdmin && actor?.canManageAll ? {} : { OR: [{ createdBy: viewer.userId }, sharedSnippetWhere(viewer)] }) };
+  // The management override reaches every snippet only from the all-customers view.
+  if (viewerSeesAllCustomers(viewer) && actor?.canManageAll) return { id };
+  return { id, AND: [await snippetScopeWhere(viewer)] };
 }
 
 export async function getSnippet(
@@ -133,7 +176,7 @@ export async function getSnippet(
   actor: SnippetViewer & { canManageAll?: boolean },
 ) {
   const visible = await prisma.snippet.findFirst({
-    where: visibleSnippet(id, actor),
+    where: await visibleSnippet(id, actor),
   });
   if (!visible) throw new NotFoundError(t("backend.snippet.snippetNotFound"));
   return visible;
@@ -144,7 +187,7 @@ export async function updateSnippet(
   input: { title?: string; content?: string; language?: string; description?: string; tags?: string[]; isPrivate?: boolean },
   actor?: MutationActor,
 ) {
-  const existing = await prisma.snippet.findFirst({ where: visibleSnippet(id, actor) });
+  const existing = await prisma.snippet.findFirst({ where: await visibleSnippet(id, actor) });
   if (!existing) throw new NotFoundError(t("backend.snippet.snippetNotFound"));
   if (!canMutateSnippet(existing.createdBy, actor)) {
     throw new ForbiddenError(t("backend.snippet.noPermissionToModifyOthersSnippets"));
@@ -167,7 +210,7 @@ export async function updateSnippet(
 }
 
 export async function deleteSnippet(id: string, actor?: MutationActor) {
-  const existing = await prisma.snippet.findFirst({ where: visibleSnippet(id, actor) });
+  const existing = await prisma.snippet.findFirst({ where: await visibleSnippet(id, actor) });
   if (!existing) throw new NotFoundError(t("backend.snippet.snippetNotFound"));
   if (!canMutateSnippet(existing.createdBy, actor)) {
     throw new ForbiddenError(t("backend.snippet.noPermissionToDeleteOthersSnippets"));

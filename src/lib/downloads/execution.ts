@@ -126,13 +126,13 @@ export async function executeAria2RelayDownload(
 ) {
  if (stagedHttp && server.storageNode && !server.agentStorageNodeId) {
   return receiveAgentHttpDownload({ taskId, serverId: server.id, nodeId: server.storageNode.id, url: urls[0]!,
-   targetPath, fileName, maxSpeedKb, signal, limits,
+   targetPath, fileName, maxSpeedKb, signal, limits, claim,
    publishSftp: (local, file, active) => publishSftpDownloadFile(taskId, server, targetPath, local, file, active),
   });
  }
  if (server.agentStorageNodeId && urls.length === 1 && !isMagnetLink(urls[0]!)) {
   return receiveAgentHttpDownload({ taskId, serverId: server.id, nodeId: server.agentStorageNodeId, url: urls[0]!,
-   targetPath, fileName, maxSpeedKb, signal, limits });
+   targetPath, fileName, maxSpeedKb, signal, limits, claim });
  }
  const update = (args: Prisma.DownloadTaskUpdateManyArgs) => updateClaimedDownload(claim, signal, args);
  const tempDir = relayTempDir(taskId);
@@ -231,7 +231,7 @@ export async function executeAria2RelayDownload(
    // and never wipe the shared tempDir a live sibling worker may be writing to.
    if (current?.status === "RUNNING") preparedManifest = parseTransferManifest(current.transferManifest);
    if (preparedManifest) {
-    await publishRelayFiles(taskId, server, tempDir, targetPath, preparedManifest, signal);
+    await publishRelayFiles(taskId, server, tempDir, targetPath, preparedManifest, signal, claim);
     if (userId) notifyDownloadResult(userId, downloadNotificationSource(urls[0]!), "completed", undefined, teamId).catch((error) => notifyLogger.warn("notifyDownloadResult failed", { error: String(error) }));
     await cleanupTemp(tempDir);
     return;
@@ -425,7 +425,7 @@ export async function executeAria2RelayDownload(
   });
   if (!journaled.count) return;
   preparedManifest = manifest;
-  await publishRelayFiles(taskId, server, tempDir, targetPath, manifest, signal);
+  await publishRelayFiles(taskId, server, tempDir, targetPath, manifest, signal, claim);
   if (userId) notifyDownloadResult(userId, downloadNotificationSource(urls[0]!), "completed", undefined, teamId).catch((err) => { notifyLogger.warn("notifyDownloadResult failed", { error: err instanceof Error ? err.message : String(err) }); });
 
   await cleanupTemp(tempDir);
@@ -584,7 +584,7 @@ async function publishSftpDownloadFile(taskId: string, server: DownloadServer, t
 }
 
 async function publishRelayFiles(taskId: string, server: DownloadServer, tempDir: string,
- targetPath: string, manifest: TransferManifest, signal?: AbortSignal) {
+ targetPath: string, manifest: TransferManifest, signal?: AbortSignal, claim?: DownloadClaim) {
  if (server.agentStorageNodeId && (!server.agentRootIdentity || manifest.agentRootIdentity !== server.agentRootIdentity)) {
   throw new BusinessError(t("backend.fileAgent.unavailable"));
  }
@@ -601,7 +601,7 @@ async function publishRelayFiles(taskId: string, server: DownloadServer, tempDir
  }
  signal?.throwIfAborted();
  const totalSize = manifest.files.reduce((sum, file) => sum + BigInt(file.size), BigInt(0)).toString();
- const completed = await prisma.downloadTask.updateMany({ where: { id: taskId, status: "RUNNING" },
+ const completed = await updateClaimedDownload(claim, signal, { where: { id: taskId, status: "RUNNING" },
   data: { status: "COMPLETED", fileName: manifest.files.length === 1 && !manifest.files[0]!.name.includes("/") ? manifest.files[0]!.name : null,
    progress: t("backend.downloads.progress.completedAndTransferred"), fileSize: totalSize, totalBytes: totalSize, completedBytes: totalSize } });
  if (!completed.count) throw new Error("Relay task changed before finalization");

@@ -58,9 +58,9 @@ const alertRuleFields = {
   operator: z.enum(operators),
   threshold: z.coerce.number().finite().min(0).max(100000),
   durationSeconds: z.coerce.number().int().min(0).max(86_400).optional(),
-  serverIds: z.array(z.string().trim().min(1)),
-  notifyChannels: z.array(z.enum(channels)),
-  playbookIds: z.array(z.string().trim().min(1)),
+  serverIds: z.array(z.string().trim().min(1).max(128)).max(500).transform((v) => [...new Set(v)]),
+  notifyChannels: z.array(z.enum(channels)).max(8).transform((v) => [...new Set(v)]),
+  playbookIds: z.array(z.string().trim().min(1).max(128)).max(32).transform((v) => [...new Set(v)]),
   webhookUrl: z.preprocess(
     (value) => {
       if (typeof value !== "string" || !value.trim()) return undefined;

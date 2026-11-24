@@ -7,11 +7,13 @@ import { loadExecutionActor, executionRefusal } from "@/lib/auth/execution-actor
 import { prisma } from "@/lib/db";
 import { BusinessError } from "@/lib/errors";
 import { t } from "@/lib/i18n/service-translations";
+import { LeaseLostError } from "@/lib/job/heartbeat-runner";
 import { notifyDownloadResult } from "@/lib/notification/service";
 import { relayTempDir } from "@/lib/runtime/platform-paths";
 import { largestAllowedWrite, type StorageWriteCapacity } from "@/lib/storage/access-control";
 import { createAgentFileClient } from "@/lib/storage/agent-file-client";
 import { assertNotRecycled } from "@/lib/storage/archive-access";
+import { updateClaimedDownload, type DownloadClaim } from "./claim";
 import { lockDownloadPublication } from "./publication-lock";
 import { downloadWriteCapacity } from "./write-capacity";
 import { snapshotFileVersionBeforeOverwrite } from "@/lib/storage/file-versions";
@@ -70,6 +72,7 @@ export async function publishAgentDownloadFile(input: Destination & { localPath:
 type HttpDownload = Destination & {
   publishSftp?: (localPath: string, file: TransferManifest["files"][number], signal: AbortSignal) => Promise<void>;
   url: string; fileName?: string | null; limits?: StorageWriteCapacity; maxSpeedKb?: number | null;
+  claim?: DownloadClaim;
 };
 /** Stream from the validated address for HTTP and HTTPS. Undici request follows no redirects. */
 async function fetchToDisk(input: HttpDownload, name: string, localPath: string, active: AbortSignal) {
@@ -101,7 +104,7 @@ async function fetchToDisk(input: HttpDownload, name: string, localPath: string,
         await dest.writeFile(bytes);
         hash.update(bytes);
         if (Date.now() - lastReport >= 1500) {
-          const stored = await prisma.downloadTask.updateMany({ where: { id: input.taskId, agentStorageNodeId: input.publishSftp ? null : input.nodeId, status: "RUNNING" }, data: { completedBytes: String(size) } });
+          const stored = await updateClaimedDownload(input.claim, active, { where: { id: input.taskId, agentStorageNodeId: input.publishSftp ? null : input.nodeId, status: "RUNNING" }, data: { completedBytes: String(size) } });
           if (!stored.count) throw new Error("Inactive download");
           lastReport = Date.now();
           const remaining = await statfs(path.dirname(localPath));
@@ -120,7 +123,7 @@ async function fetchToDisk(input: HttpDownload, name: string, localPath: string,
 export async function receiveAgentHttpDownload(input: HttpDownload) {
   const { taskId, signal } = input;
   const where = { id: taskId, agentStorageNodeId: input.publishSftp ? null : input.nodeId, serverId: input.serverId, status: "RUNNING" as const };
-  const claimed = await prisma.downloadTask.updateMany({ where: { ...where, status: { in: ["RUNNING", "PENDING"] } },
+  const claimed = await updateClaimedDownload(input.claim, signal, { where: { ...where, status: { in: ["RUNNING", "PENDING"] } },
     data: { status: "RUNNING", progress: t("backend.downloads.progress.downloading") } });
   if (!claimed.count) return;
   const task = await prisma.downloadTask.findUniqueOrThrow({ where: { id: taskId }, select: { createdBy: true, teamId: true, transferManifest: true, agentRootIdentity: true } });
@@ -128,6 +131,7 @@ export async function receiveAgentHttpDownload(input: HttpDownload) {
   let dir: string | undefined;
   let journaled = task.transferManifest !== null;
   let completed = false;
+  let leaseLost = false;
   try {
     const previous = parseTransferManifest(task.transferManifest);
     if (!input.publishSftp && (!task.agentRootIdentity || (previous && previous.agentRootIdentity !== task.agentRootIdentity))) {
@@ -158,24 +162,35 @@ export async function receiveAgentHttpDownload(input: HttpDownload) {
       await link(localPath, path.join(root, file.sha256)).catch(error => {
         if ((error as NodeJS.ErrnoException).code !== "EEXIST") throw error;
       });
-      await prisma.downloadTask.update({ where, data: { transferManifest: { version: 1, files: [file], ...(task.agentRootIdentity ? { agentRootIdentity: task.agentRootIdentity } : {}) }, progress: t("backend.downloads.progress.transferring") } });
+      const journalUpdate = await updateClaimedDownload(input.claim, active, { where, data: { transferManifest: { version: 1, files: [file], ...(task.agentRootIdentity ? { agentRootIdentity: task.agentRootIdentity } : {}) }, progress: t("backend.downloads.progress.transferring") } });
+      if (!journalUpdate.count) throw new Error("Inactive download");
       journaled = true;
     }
     if (input.publishSftp) await input.publishSftp(localPath, file, active);
     else await publishAgentDownloadFile({ ...input, localPath, signal: active, file });
     const total = String(file.size);
-    const done = await prisma.downloadTask.updateMany({ where, data: { status: "COMPLETED", fileName: file.name,
+    const done = await updateClaimedDownload(input.claim, active, { where, data: { status: "COMPLETED", fileName: file.name,
       completedBytes: total, totalBytes: total, fileSize: total, progress: t("backend.downloads.progress.completedAndTransferred") } });
     completed = done.count > 0;
     if (completed && task.createdBy) await notifyDownloadResult(task.createdBy, downloadNotificationSource(input.url), "completed", undefined, task.teamId).catch(() => {});
   } catch (error) {
+    if (error instanceof LeaseLostError) {
+      leaseLost = true;
+      throw error;
+    }
     if (signal?.aborted || journaled) throw error;
     const message = error instanceof BusinessError ? error.message : getPublicDownloadError(error);
-    const failed = await prisma.downloadTask.updateMany({ where, data: { status: "FAILED", errorMessage: message } });
+    let failed: { count: number };
+    try {
+      failed = await updateClaimedDownload(input.claim, signal, { where, data: { status: "FAILED", errorMessage: message } });
+    } catch (updateErr) {
+      if (updateErr instanceof LeaseLostError) leaseLost = true;
+      throw updateErr;
+    }
     if (failed.count && task.createdBy) await notifyDownloadResult(task.createdBy, downloadNotificationSource(input.url), "failed", message, task.teamId).catch(() => {});
   } finally {
     if (dir) await rm(dir, { recursive: true, force: true });
-    if (!signal?.aborted && (completed || (!journaled && !await prisma.downloadTask.count({ where }))))
+    if (!signal?.aborted && !leaseLost && (completed || (!journaled && !await prisma.downloadTask.count({ where }))))
       await rm(root, { recursive: true, force: true });
   }
 }

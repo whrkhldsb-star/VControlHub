@@ -59,7 +59,7 @@ export async function authenticateUser(input: LoginInput): Promise<Authenticated
  const user = await prisma.user.findUnique({
  where: { username: payload.username },
  include: {
- teamMembership: { select: { team: { select: { deletedAt: true } }, identityTemplate: { select: { permissions: true } } } },
+ teamMembership: { select: { teamId: true, team: { select: { deletedAt: true } }, identityTemplate: { select: { permissions: true } } } },
  roles: {
  include: {
  role: true,
@@ -125,7 +125,7 @@ export async function authenticateUser(input: LoginInput): Promise<Authenticated
    roles: roleKeys,
    permissions,
  }),
- currentTeamId: user.currentTeamId,
+ currentTeamId: roleKeys.includes("admin") ? user.currentTeamId : (membership?.teamId ?? null),
  credentialBinding: captureSessionCredentialBinding(user),
  };
 }

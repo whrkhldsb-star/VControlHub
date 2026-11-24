@@ -26,6 +26,8 @@ import hmac
 import http.server
 import os
 import posixpath
+import re
+import stat
 import sys
 import time
 import urllib.parse
@@ -33,7 +35,11 @@ import urllib.parse
 TOKEN = ${pythonStringLiteral(input.accessToken)}
 EXPIRES_AT_MS = ${input.expiresAtMs}
 SERVE_DIR = ${pythonStringLiteral(input.serveDir)}
+CANONICAL_ROOT = os.path.realpath(SERVE_DIR)
 ALLOWED_ORIGIN = ${pythonStringLiteral(input.allowedOrigin)}
+DIRECTORY_FLAGS = getattr(os, "O_RDONLY", 0) | getattr(os, "O_DIRECTORY", 0) | getattr(os, "O_NOFOLLOW", 0)
+FILE_FLAGS = getattr(os, "O_RDONLY", 0) | getattr(os, "O_NOFOLLOW", 0) | getattr(os, "O_NONBLOCK", 0)
+ROOT_FD = None
 
 class AuthHandler(http.server.SimpleHTTPRequestHandler):
     server_version = "VControlHubFileProxy/2.0"
@@ -44,6 +50,9 @@ class AuthHandler(http.server.SimpleHTTPRequestHandler):
         self.end_headers()
         if self.command != "HEAD":
             self.wfile.write(message.encode("utf-8"))
+
+    def list_directory(self, path):
+        return self._send_plain(404, "not found")
 
     def _origin_allowed(self):
         origin = self.headers.get("Origin", "")
@@ -77,31 +86,100 @@ class AuthHandler(http.server.SimpleHTTPRequestHandler):
         if not self._origin_allowed():
             return None, (403, "Forbidden: origin not allowed")
         parsed = urllib.parse.urlparse(self.path)
-        normalized = posixpath.normpath("/" + urllib.parse.unquote(parsed.path).lstrip("/"))
-        if normalized.startswith("/../") or normalized == "/..":
+        raw_rel = urllib.parse.unquote(parsed.path).lstrip("/")
+        if not raw_rel or "\\x00" in raw_rel:
+            return None, (404, "not found")
+        parts = [p for p in raw_rel.split("/") if p]
+        if not parts or any(p in (".", "..") for p in parts):
             return None, (400, "invalid path")
-        root_real = os.path.realpath(SERVE_DIR)
-        target = os.path.realpath(os.path.join(root_real, normalized.lstrip("/")))
-        if target != root_real and not target.startswith(root_real + os.sep):
-            return None, (400, "path outside serve root")
-        return target, None
+        return "/".join(parts), None
+
+    def _open_pinned(self, relative):
+        parts = relative.split("/")
+        if ROOT_FD is not None and hasattr(os, "O_NOFOLLOW"):
+            parent = os.dup(ROOT_FD)
+            try:
+                for part in parts[:-1]:
+                    child = os.open(part, DIRECTORY_FLAGS, dir_fd=parent)
+                    os.close(parent)
+                    parent = child
+                return os.open(parts[-1], FILE_FLAGS, dir_fd=parent)
+            finally:
+                os.close(parent)
+        target = os.path.realpath(os.path.join(CANONICAL_ROOT, *parts))
+        if not target.startswith(CANONICAL_ROOT + os.sep) or os.path.islink(os.path.join(CANONICAL_ROOT, *parts)):
+            raise OSError("outside root")
+        return os.open(target, os.O_RDONLY)
+
+    def _range_not_satisfiable(self, size):
+        self.send_response(416)
+        self.send_header("Content-Range", "bytes */" + str(size))
+        self.send_header("Content-Length", "0")
+        self.end_headers()
 
     def _serve(self, head):
         self._served_target = None
-        target, error = self._validate()
+        relative, error = self._validate()
         if error:
             return self._send_plain(*error)
-        if not os.path.isfile(target):
-            return self._send_plain(404, "not found")
-        # Relative to the resolved root (a linked SERVE_DIR gave "../" paths
-        # that named another file) and quoted, since translate_path unquotes:
-        # a file literally named "a%20b" was looked up as "a b".
-        self._served_target = target
         try:
-            self.path = "/" + urllib.parse.quote(os.path.relpath(target, os.path.realpath(SERVE_DIR)).replace(os.sep, "/"))
-            return super().do_HEAD() if head else super().do_GET()
+            fd = self._open_pinned(relative)
+        except OSError:
+            return self._send_plain(404, "not found")
+        try:
+            metadata = os.fstat(fd)
+            if not stat.S_ISREG(metadata.st_mode):
+                return self._send_plain(404, "not found")
+            if os.path.isdir("/proc/self/fd"):
+                try:
+                    actual = os.readlink(f"/proc/self/fd/{fd}")
+                except OSError:
+                    return self._send_plain(404, "not found")
+                if actual != os.path.join(CANONICAL_ROOT, *relative.split("/")):
+                    return self._send_plain(404, "not found")
+            size = metadata.st_size
+            start, end, status = 0, size - 1, 200
+            range_header = self.headers.get("Range")
+            if range_header:
+                match = re.match(r"^bytes=(\\d*)-(\\d*)$", range_header.strip())
+                if not match or (match.group(1) == "" and match.group(2) == ""):
+                    return self._range_not_satisfiable(size)
+                if match.group(1) == "":
+                    suffix = int(match.group(2))
+                    if suffix == 0 or size == 0:
+                        return self._range_not_satisfiable(size)
+                    start = max(0, size - suffix)
+                else:
+                    start = int(match.group(1))
+                    if match.group(2) != "":
+                        end = min(int(match.group(2)), size - 1)
+                if size == 0 or start > end or start >= size:
+                    return self._range_not_satisfiable(size)
+                status = 206
+            length = end - start + 1 if size > 0 else 0
+            self._served_target = relative
+            content_type = self.guess_type(relative)
+            self.send_response(status)
+            self.send_header("Content-Type", content_type)
+            self.send_header("Accept-Ranges", "bytes")
+            self.send_header("Content-Length", str(length))
+            if status == 206:
+                self.send_header("Content-Range", f"bytes {start}-{end}/{size}")
+            self.send_header("Last-Modified", self.date_time_string(metadata.st_mtime))
+            self.end_headers()
+            if head or length == 0:
+                return
+            os.lseek(fd, start, os.SEEK_SET)
+            remaining = length
+            while remaining > 0:
+                chunk = os.read(fd, min(65536, remaining))
+                if not chunk:
+                    break
+                self.wfile.write(chunk)
+                remaining -= len(chunk)
         finally:
             self._served_target = None
+            os.close(fd)
 
     def do_GET(self):
         return self._serve(False)
@@ -109,15 +187,6 @@ class AuthHandler(http.server.SimpleHTTPRequestHandler):
     def do_HEAD(self):
         # Headers only: answering HEAD through do_GET also sent the body.
         return self._serve(True)
-
-    def translate_path(self, path):
-        parsed = urllib.parse.urlparse(path)
-        normalized = posixpath.normpath("/" + urllib.parse.unquote(parsed.path).lstrip("/"))
-        root_real = os.path.realpath(SERVE_DIR)
-        target = os.path.realpath(os.path.join(root_real, normalized.lstrip("/")))
-        if target != root_real and not target.startswith(root_real + os.sep):
-            return root_real
-        return target
 
     def end_headers(self):
         origin = self.headers.get("Origin", "")
@@ -164,7 +233,9 @@ if len(sys.argv) == 2:
         time.sleep(0.1)
 
 port = ${input.port || 0}
-os.chdir(SERVE_DIR)
+os.chdir(CANONICAL_ROOT)
+if hasattr(os, "O_DIRECTORY") and hasattr(os, "O_NOFOLLOW"):
+    ROOT_FD = os.open(CANONICAL_ROOT, DIRECTORY_FLAGS)
 with http.server.ThreadingHTTPServer(("0.0.0.0", port), AuthHandler) as httpd:
     actual_port = httpd.server_address[1]
     print(f"PROXY_READY:{actual_port}", flush=True)

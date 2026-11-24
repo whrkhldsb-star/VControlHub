@@ -1,5 +1,5 @@
 {
-  "generatedAt": "2026-11-24T05:56:09.598Z",
+  "generatedAt": "2026-11-24T13:56:49.073Z",
   "summary": {
     "sidebarMain": 26,
     "sidebarSystem": 12,
@@ -471,7 +471,6 @@
         "image:read",
         "image:write",
         "media:manage",
-        "storage:delete",
         "team:manage"
       ],
       "navigationPermissions": [
@@ -928,7 +927,16 @@
       ],
       "guardMode": "withApiRoute",
       "declaredPermissions": [
-        "ai:chat"
+        "ai:action:approve",
+        "ai:chat",
+        "command:approve",
+        "command:create",
+        "command:execute",
+        "command:read",
+        "health:read",
+        "playbook:run",
+        "server:read",
+        "server:ssh"
       ]
     },
     {
@@ -964,7 +972,16 @@
       ],
       "guardMode": "withApiRoute",
       "declaredPermissions": [
-        "ai:chat"
+        "ai:action:approve",
+        "ai:chat",
+        "command:approve",
+        "command:create",
+        "command:execute",
+        "command:read",
+        "health:read",
+        "playbook:run",
+        "server:read",
+        "server:ssh"
       ]
     },
     {
@@ -1424,8 +1441,10 @@
       ],
       "guardMode": "withApiRoute",
       "declaredPermissions": [
+        "command:approve",
         "command:create",
         "command:read",
+        "deploy:manage",
         "role:manage"
       ]
     },
@@ -1632,6 +1651,8 @@
       ],
       "guardMode": "withApiRoute",
       "declaredPermissions": [
+        "command:approve",
+        "command:read",
         "deploy:run"
       ]
     },
@@ -1712,6 +1733,7 @@
       ],
       "guardMode": "withApiRoute",
       "declaredPermissions": [
+        "storage:manage-node",
         "storage:read"
       ]
     },
@@ -1976,7 +1998,9 @@
       ],
       "guardMode": "withApiRoute",
       "declaredPermissions": [
-        "image:write"
+        "image:write",
+        "storage:manage-node",
+        "storage:read"
       ]
     },
     {
@@ -2460,7 +2484,11 @@
       ],
       "guardMode": "withApiRoute",
       "declaredPermissions": [
-        "server:ssh"
+        "docker:manage",
+        "server:sftp:unrestricted",
+        "server:ssh",
+        "storage:manage-node",
+        "storage:write"
       ]
     },
     {
@@ -2939,6 +2967,7 @@
       ],
       "guardMode": "withApiRoute",
       "declaredPermissions": [
+        "server:read",
         "server:ssh",
         "storage:delete",
         "storage:manage-node",

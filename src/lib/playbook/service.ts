@@ -320,6 +320,18 @@ export async function createPlaybook(
   return projectPlaybook(narrowed, session);
 }
 
+/** Key-order independent JSON (jsonb reorders object keys), for comparing stored and submitted steps. */
+function stableJson(value: unknown): string {
+  if (Array.isArray(value)) return `[${value.map(stableJson).join(",")}]`;
+  if (value && typeof value === "object") {
+    const entries = Object.entries(value as Record<string, unknown>)
+      .filter(([, v]) => v !== undefined)
+      .sort(([a], [b]) => (a < b ? -1 : a > b ? 1 : 0));
+    return `{${entries.map(([k, v]) => `${JSON.stringify(k)}:${stableJson(v)}`).join(",")}}`;
+  }
+  return JSON.stringify(value) ?? "null";
+}
+
 function sameTriggerConfig(a: TriggerConfig, b: TriggerConfig) {
   if (isCronTriggerConfig(a) && isCronTriggerConfig(b)) return a.expression.trim().split(/\s+/).join(" ") === b.expression.trim().split(/\s+/).join(" ");
   return isMetricTriggerConfig(a) && isMetricTriggerConfig(b)
@@ -392,6 +404,13 @@ export async function updatePlaybook(
     if (rest.name !== undefined) data.name = rest.name;
     // A playbook whose creator is gone runs as nobody; an administrator takes it over (R0-07).
     if (rest.claimOwnership) data.createdById = updatedById;
+    // Unattended runs act as createdById. Whoever rewrites what runs (steps) or when it fires (trigger) becomes
+    // that account, as updateScheduledTask does: runs then re-verify the editor's own live permissions, and an
+    // editor without playbook:run leaves the playbook ownerless until a runner claims it (R14 D5-01).
+    const stepsChanged = rest.steps !== undefined && stableJson(rest.steps) !== stableJson(existing.steps);
+    if ((stepsChanged || triggerChanged) && updatedById && updatedById !== existing.createdById) {
+      data.createdById = updatedById;
+    }
     if (rest.description !== undefined) data.description = rest.description;
     if (rest.triggerType !== undefined) data.triggerType = rest.triggerType;
     if (rest.triggerConfig !== undefined) {

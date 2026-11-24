@@ -7,7 +7,7 @@ import { tryAcquireAdvisoryLock } from "@/lib/concurrency/advisory-lock";
 import { config } from "@/lib/config/env";
 import { prisma } from "@/lib/db";
 import { computeLeaseMs } from "@/lib/job/lease";
-import { runWithLeaseHeartbeat } from "@/lib/job/heartbeat-runner";
+import { LeaseLostError, runWithLeaseHeartbeat } from "@/lib/job/heartbeat-runner";
 import { enqueueJob, claimNextJob, completeJob, failJob, heartbeatJob } from "@/lib/job/service";
 import { createLogger } from "@/lib/logging";
 import { ConflictError } from "@/lib/errors";
@@ -226,8 +226,9 @@ export async function enqueueQuickServiceJob(input: {
 	}
 }
 
-async function updateQuickServiceJobProgress(jobId: string, progress: string) {
+async function updateQuickServiceJobProgress(jobId: string, progress: string, attempts?: number) {
 	await heartbeatJob(jobId, QUICK_SERVICE_WORKER_ID, {
+		attempts,
 		leaseMs: QUICK_SERVICE_WORKER_LEASE_MS,
 		progress,
 	});
@@ -241,8 +242,8 @@ function quickServiceLogPreview(lines: Array<string | null | undefined>) {
 /** Redact install secrets from the durable Job.payload after terminal outcome. */
 async function scrubQuickServiceJobPayloadSecrets(jobId: string) {
 	try {
-		const job = await prisma.job.findUnique({ where: { id: jobId }, select: { payload: true } });
-		if (!job || !isRecord(job.payload)) return;
+		const job = await prisma.job.findUnique({ where: { id: jobId }, select: { payload: true, status: true } });
+		if (!job || !isRecord(job.payload) || job.status === JobStatus.RUNNING) return;
 		const payload = { ...job.payload } as Record<string, unknown>;
 		let changed = false;
 		if ("installNoticeCredentials" in payload) {
@@ -281,19 +282,19 @@ async function scrubQuickServiceJobPayloadSecrets(jobId: string) {
 	}
 }
 
-async function executeQuickServiceJob(job: { id: string; payload: Prisma.JsonValue; createdBy?: string | null; teamId?: string | null }) {
+async function executeQuickServiceJob(job: { id: string; attempts?: number; payload: Prisma.JsonValue; createdBy?: string | null; teamId?: string | null }) {
 	const payload = parseQuickServiceJobPayload(job.payload);
 	const execute = () => executeAuthorizedQuickServiceJob(job, payload);
 	return payload.serverId ? withServerLifecycleLock(payload.serverId, execute) : execute();
 }
 
-async function executeAuthorizedQuickServiceJob(job: { id: string; createdBy?: string | null; teamId?: string | null }, payload: QuickServiceJobPayload) {
+async function executeAuthorizedQuickServiceJob(job: { id: string; attempts?: number; createdBy?: string | null; teamId?: string | null }, payload: QuickServiceJobPayload) {
 	const target = await assertQuickServiceExecutionAuthorized(job, payload);
-	await updateQuickServiceJobProgress(job.id, `Preparing to execute QuickService ${payload.action}: ${payload.slug}`);
+	await updateQuickServiceJobProgress(job.id, `Preparing to execute QuickService ${payload.action}: ${payload.slug}`, job.attempts);
 
 	if (payload.action === "install") {
 		const instanceKey = payload.instanceKey ?? HUB_HOST_INSTANCE_KEY;
-		await updateQuickServiceJobProgress(job.id, `Installing ${payload.slug} on ${instanceKey}: pulling image and creating container`);
+		await updateQuickServiceJobProgress(job.id, `Installing ${payload.slug} on ${instanceKey}: pulling image and creating container`, job.attempts);
 		const service = await installService({
 			template: payload.template,
 			// Who asked for it: the service's creator and the one told when
@@ -315,50 +316,50 @@ async function executeAuthorizedQuickServiceJob(job: { id: string; createdBy?: s
 				`Host port: ${service.port ?? payload.customPort ?? payload.template.defaultPort}`,
 				service.containerId ? `Container: ${service.containerId}` : null,
 			]),
-		});
+		}, job.attempts);
 		await scrubQuickServiceJobPayloadSecrets(job.id);
 		return;
 	}
 
 	const requester = { ...job, expectedEndpoint: target.kind === "remote" ? target.endpoint : undefined };
 	if (payload.action === "start") {
-		await updateQuickServiceJobProgress(job.id, `Starting ${payload.slug}: starting or recreating container`);
+		await updateQuickServiceJobProgress(job.id, `Starting ${payload.slug}: starting or recreating container`, job.attempts);
 		await startService(payload.slug, payload.instanceKey ?? HUB_HOST_INSTANCE_KEY, requester);
 		await completeJob(job.id, QUICK_SERVICE_WORKER_ID, {
 			action: payload.action,
 			slug: payload.slug,
 			status: "running",
 			logPreview: quickServiceLogPreview([`Start complete: ${payload.slug}`, "Status: running"]),
-		});
+		}, job.attempts);
 		return;
 	}
 
 	if (payload.action === "stop") {
-		await updateQuickServiceJobProgress(job.id, `Stopping ${payload.slug}: stopping Docker container`);
+		await updateQuickServiceJobProgress(job.id, `Stopping ${payload.slug}: stopping Docker container`, job.attempts);
 		await stopService(payload.slug, payload.instanceKey ?? HUB_HOST_INSTANCE_KEY, requester);
 		await completeJob(job.id, QUICK_SERVICE_WORKER_ID, {
 			action: payload.action,
 			slug: payload.slug,
 			status: "stopped",
 			logPreview: quickServiceLogPreview([`Stop complete: ${payload.slug}`, "Status: stopped"]),
-		});
+		}, job.attempts);
 		return;
 	}
 
 	if (payload.action === "sync") {
-		await updateQuickServiceJobProgress(job.id, `Refreshing ${payload.slug}: reading Docker container status`);
+		await updateQuickServiceJobProgress(job.id, `Refreshing ${payload.slug}: reading Docker container status`, job.attempts);
 		const status = await syncServiceStatus(payload.slug, payload.instanceKey ?? HUB_HOST_INSTANCE_KEY, requester);
 		await completeJob(job.id, QUICK_SERVICE_WORKER_ID, {
 			action: payload.action,
 			slug: payload.slug,
 			status,
 			logPreview: quickServiceLogPreview([`Status refresh complete: ${payload.slug}`, `Status: ${status}`]),
-		});
+		}, job.attempts);
 		return;
 	}
 
 	if (payload.action === "update") {
-		await updateQuickServiceJobProgress(job.id, `Updating ${payload.slug}: pulling image and recreating container`);
+		await updateQuickServiceJobProgress(job.id, `Updating ${payload.slug}: pulling image and recreating container`, job.attempts);
 		const result = await updateService(payload.slug, payload.instanceKey ?? HUB_HOST_INSTANCE_KEY, requester);
 		await completeJob(job.id, QUICK_SERVICE_WORKER_ID, {
 			action: payload.action,
@@ -369,19 +370,19 @@ async function executeAuthorizedQuickServiceJob(job: { id: string; createdBy?: s
 				result.health ? `Health status: ${result.health}` : null,
 				result.logTail,
 			]),
-		});
+		}, job.attempts);
 		return;
 	}
 
 	const options: UninstallServiceOptions = { deleteVolumes: payload.deleteVolumes === true };
-	await updateQuickServiceJobProgress(job.id, options.deleteVolumes ? `Uninstalling ${payload.slug}: removing container and cleaning data directory` : `Uninstalling ${payload.slug}: removing container and keeping data directory`);
+	await updateQuickServiceJobProgress(job.id, options.deleteVolumes ? `Uninstalling ${payload.slug}: removing container and cleaning data directory` : `Uninstalling ${payload.slug}: removing container and keeping data directory`, job.attempts);
 	await uninstallService(payload.slug, { ...options, instanceKey: payload.instanceKey ?? HUB_HOST_INSTANCE_KEY, requester });
 	await completeJob(job.id, QUICK_SERVICE_WORKER_ID, {
 		action: payload.action,
 		slug: payload.slug,
 		deleteVolumes: options.deleteVolumes === true,
 		logPreview: quickServiceLogPreview([`Uninstall complete: ${payload.slug}`, options.deleteVolumes ? "Cleaned safely deletable data directories" : "Kept data directory"]),
-	});
+	}, job.attempts);
 }
 
 /** An install not finished after this long, with no job running for it, is stuck. */
@@ -457,15 +458,19 @@ export async function runQuickServiceJobWorkerOnce(state = getWorkerState(), rea
 			await runWithLeaseHeartbeat({
 				jobId: job.id,
 				leaseMs: QUICK_SERVICE_WORKER_LEASE_MS,
-				heartbeat: () => heartbeatJob(job.id, QUICK_SERVICE_WORKER_ID, { leaseMs: QUICK_SERVICE_WORKER_LEASE_MS }),
+				heartbeat: () => heartbeatJob(job.id, QUICK_SERVICE_WORKER_ID, { attempts: job.attempts, leaseMs: QUICK_SERVICE_WORKER_LEASE_MS }),
 				run: () => executeQuickServiceJob(job),
 			});
 		} catch (error) {
+			if (error instanceof LeaseLostError) {
+				logger.warn("QuickService job lost lease; leaving row for replacement worker", { reason, jobId: job.id });
+				return true;
+			}
 			const message = error instanceof Error ? error.message : String(error);
 			logger.error("QuickService job failed", { reason, jobId: job.id, error: message });
-			await failJob(job.id, QUICK_SERVICE_WORKER_ID, message.slice(0, 2000), { retryAfterMs: 60_000 });
-			// Terminal (maxAttempts=1) or pending retry: still redact secrets so backups/API cannot read them.
-			await scrubQuickServiceJobPayloadSecrets(job.id);
+			const failed = await failJob(job.id, QUICK_SERVICE_WORKER_ID, message.slice(0, 2000), { attempts: job.attempts, retryAfterMs: 60_000 });
+			// Terminal (maxAttempts=1) or pending retry: still redact secrets if we still owned the row.
+			if (!failed || failed.count > 0) await scrubQuickServiceJobPayloadSecrets(job.id);
 		}
 		return true;
 	} catch (error) {

@@ -51,17 +51,23 @@ type CopyItem = { path: string; directory: boolean };
  */
 class LocalExistenceIndex {
   private readonly dirs = new Map<string, Promise<Set<string>>>();
+  private readonly caseInsensitive: boolean;
 
-  constructor(private readonly node: StorageFileNode) {}
+  constructor(private readonly node: StorageFileNode) {
+    this.caseInsensitive = isCaseInsensitiveStorageNode(node);
+  }
 
   exists(relativePath: string): Promise<boolean> {
     const dir = path.posix.dirname(relativePath);
-    let names = this.dirs.get(dir);
+    const dirKey = this.caseInsensitive ? dir.toLowerCase() : dir;
+    let names = this.dirs.get(dirKey);
     if (!names) {
       names = this.loadDir(dir);
-      this.dirs.set(dir, names);
+      this.dirs.set(dirKey, names);
     }
-    return names.then((set) => set.has(path.posix.basename(relativePath)));
+    const base = path.posix.basename(relativePath);
+    const lookup = this.caseInsensitive ? base.toLowerCase() : base;
+    return names.then((set) => set.has(lookup));
   }
 
   private async loadDir(relativeDir: string): Promise<Set<string>> {
@@ -75,7 +81,8 @@ class LocalExistenceIndex {
           relativePath: relativeDir,
         });
     try {
-      return new Set(await readdir(resolved.absolutePath));
+      const entries = await readdir(resolved.absolutePath);
+      return new Set(this.caseInsensitive ? entries.map((e) => e.toLowerCase()) : entries);
     } catch (error) {
       if ((error as NodeJS.ErrnoException).code === "ENOENT") {
         return new Set();

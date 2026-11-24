@@ -46,6 +46,7 @@ export type StorageFileNode = StorageSshCredentialNode & {
   webdavConfigEncrypted?: string | null;
   password?: string | null;
   serverId?: string | null;
+  teamId?: string | null;
 };
 
 export const storageFileNodeSelect = {

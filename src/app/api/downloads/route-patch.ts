@@ -91,15 +91,24 @@ export async function PATCH(request: Request) {
         throw new ForbiddenError(t("apiDownloads.noControlPermission", locale));
       }
 
+      const active = task.status === "PENDING" || task.status === "RUNNING";
+      const whileActive = { id: taskId, status: { in: ["PENDING", "RUNNING"] as Array<"PENDING" | "RUNNING"> } };
+
       // Per-task speed limit
       if (maxSpeedKb !== undefined && task.aria2Gid) {
+        if (!active) {
+          return NextResponse.json({ error: t("apiDownloads.taskNotActive", locale) }, { status: 409 });
+        }
         try {
           await ensureAria2Daemon();
-          await changeOption(task.aria2Gid, {
+          const targetGid = task.url && isMagnetLink(task.url)
+            ? (await relayContentStatus(task.aria2Gid)).gid
+            : task.aria2Gid;
+          await changeOption(targetGid, {
             "max-download-limit": `${maxSpeedKb}K`,
           });
-          await prisma.downloadTask.update({
-            where: { id: taskId },
+          await prisma.downloadTask.updateMany({
+            where: whileActive,
             data: { maxSpeedKb },
           });
           return NextResponse.json({ success: true });
@@ -114,8 +123,6 @@ export async function PATCH(request: Request) {
       // a refresh used to turn a COMPLETED relay task back into RUNNING, and a
       // cancelled one into FAILED. Each write is also conditional, so a task
       // that finishes between the read above and the write keeps its outcome.
-      const active = task.status === "PENDING" || task.status === "RUNNING";
-      const whileActive = { id: taskId, status: { in: ["PENDING", "RUNNING"] as Array<"PENDING" | "RUNNING"> } };
       if ((action === "pause" || action === "resume") && task.aria2Gid && !active) {
         return NextResponse.json({ error: t("apiDownloads.taskNotActive", locale) }, { status: 409 });
       }

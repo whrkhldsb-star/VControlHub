@@ -17,9 +17,26 @@
 import { createHmac, createHash, randomBytes } from "node:crypto";
 import { createReadStream } from "node:fs";
 import { stat } from "node:fs/promises";
+import { isIP } from "node:net";
 import { Readable } from "node:stream";
 import { readResponseTextLimited } from "@/lib/http/response-body";
 import { sha256File, verifyRecordedChecksum } from "@/lib/crypto/sha256-file";
+import { fetchWithPinnedDns } from "@/lib/security/pinned-fetch";
+import { isBlockedIpAddress } from "@/lib/security/ip-blocklist";
+
+function normalizedHostname(hostname: string): string {
+	return hostname.trim().toLowerCase().replace(/^\[|\]$/g, "").replace(/\.$/, "");
+}
+
+function isBlockedS3EndpointHost(hostname: string): boolean {
+	const h = normalizedHostname(hostname);
+	if (!h || h === "localhost" || h.endsWith(".localhost")) return true;
+	if (/^127\./.test(h) || h === "::1" || /^::ffff:127\./.test(h)) return true;
+	return isIP(h) !== 0 && isBlockedIpAddress(h, true);
+}
+
+const NATIVE_GLOBAL_FETCH = globalThis.fetch;
+const VALID_S3_BUCKET_PATTERN = /^(?!.*\.\.)[a-z0-9][a-z0-9.-]{1,61}[a-z0-9]$/i;
 
 /* ── Public types ────────────────────────────────────────── */
 
@@ -76,9 +93,10 @@ export function normalizeEndpoint(endpoint: string): string {
 	if (
 		(parsed.protocol !== "https:" && parsed.protocol !== "http:") ||
 		parsed.username ||
-		parsed.password
+		parsed.password ||
+		isBlockedS3EndpointHost(parsed.hostname)
 	) {
-		throw new S3Error("endpoint must be an HTTP(S) URL without credentials", 0, "InvalidEndpoint");
+		throw new S3Error("endpoint must be a safe HTTP(S) URL without credentials or loopback/metadata addresses", 0, "InvalidEndpoint");
 	}
 	parsed.hash = "";
 	parsed.search = "";
@@ -263,12 +281,24 @@ export class S3Client {
 		if (!config.accessKeyId) throw new S3Error("accessKeyId is required", 0, "InvalidAccessKeyId");
 		if (!config.secretAccessKey) throw new S3Error("secretAccessKey is required", 0, "InvalidSecretAccessKey");
 		if (!config.bucket) throw new S3Error("bucket is required", 0, "InvalidBucket");
+		if (!VALID_S3_BUCKET_PATTERN.test(config.bucket) || isIP(config.bucket) !== 0) {
+			throw new S3Error("bucket name is invalid", 0, "InvalidBucket");
+		}
 		if (!config.region) throw new S3Error("region is required", 0, "InvalidRegion");
 		this.cfg = {
 			...config,
 			endpoint: normalizeEndpoint(config.endpoint),
 		};
-		this.fetchImpl = config.fetchImpl ?? globalThis.fetch.bind(globalThis);
+		this.fetchImpl = config.fetchImpl ?? (async (input, init) => {
+			const targetUrl = typeof input === "string" || input instanceof URL ? String(input) : input.url;
+			if (isBlockedS3EndpointHost(new URL(targetUrl).hostname)) {
+				throw new Error("S3 endpoint points to a blocked loopback or metadata address");
+			}
+			if (globalThis.fetch !== NATIVE_GLOBAL_FETCH) {
+				return globalThis.fetch(input, init);
+			}
+			return fetchWithPinnedDns(targetUrl, init ?? {}, { allowPrivateAddress: true });
+		});
 		this.timeoutMs = config.timeoutMs ?? 30_000;
 	}
 

@@ -1114,7 +1114,7 @@ export async function listAlertIncidents(options?: {
     take: options?.take ?? 100,
     include: {
       rule: { select: { id: true, name: true, escalationMinutes: true, onCallUserIds: true, teamId: true } },
-      acknowledgedBy: { select: { id: true, username: true, displayName: true } },
+      acknowledgedBy: { select: { id: true, username: true, displayName: true, teamMembership: { select: { teamId: true } } } },
     },
   });
   const session = options?.session;

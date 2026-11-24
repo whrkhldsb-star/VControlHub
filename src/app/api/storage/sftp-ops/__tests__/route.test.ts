@@ -38,6 +38,7 @@ const {
     shareLink: {
       findMany: vi.fn(async (): Promise<Array<{ id: string; path: string }>> => []),
       update: vi.fn(async () => ({})),
+      updateMany: vi.fn(async () => ({ count: 0 })),
     },
     $transaction: vi.fn(),
   },

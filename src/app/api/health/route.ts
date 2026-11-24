@@ -4,6 +4,7 @@ import { NextResponse } from "next/server";
 import { z } from "zod";
 
 import { withApiRoute } from "@/lib/http/api-guard";
+import { GENERAL_READ_LIMIT } from "@/lib/http/rate-limit-presets";
 import { parseSearchParams } from "@/lib/http/parse-search-params";
 import { serverTeamWhere } from "@/lib/auth/team-scope";
 import { prisma } from "@/lib/db";
@@ -48,7 +49,7 @@ function parseHistoryHours(value: string | null) {
 export async function GET(request: Request) {
   return withApiRoute(
     request,
-    { permission: "health:read", errorMessage: apiCopy("apiCopy.failed.to.fetch.health.data.aa2a84de") },
+    { permission: "health:read", rateLimit: GENERAL_READ_LIMIT, errorMessage: apiCopy("apiCopy.failed.to.fetch.health.data.aa2a84de") },
     async ({ session }) => handleHealthRequest(request, session),
   );
 }

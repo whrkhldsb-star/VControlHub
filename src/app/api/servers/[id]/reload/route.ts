@@ -24,15 +24,21 @@ import path from "node:path";
 import { z } from "zod";
 
 import { auditUserAction } from "@/lib/audit/service";
+import { sessionHasPermission } from "@/lib/auth/authorization";
+import { isGlobalTeamManager } from "@/lib/auth/team-scope";
 import { prisma } from "@/lib/db";
+import { ForbiddenError } from "@/lib/errors";
 import { withApiRoute } from "@/lib/http/api-guard";
 import { GENERAL_WRITE_LIMIT } from "@/lib/http/rate-limit-presets";
 import { createLogger } from "@/lib/logging";
 import { buildSshParamsFromServer, execRemoteCommand } from "@/lib/ssh/client";
 import { deserializeDialect, serviceCommand, type OsDialect } from "@/lib/ssh/os-dialect";
 import { getServerLocale, t, type Locale } from "@/lib/i18n/translations";
+import { apiCopy } from "@/lib/i18n/api-copy";
 import { assertServerTeamAccess } from "@/lib/server/team-access";
 import { getErrorMessage } from "@/lib/http/error-message";
+import { assertStorageAccess } from "@/lib/storage/access-control";
+import { storageAccessDeniedCopy } from "@/lib/storage/access-denied";
 import { getStorageFileNode } from "@/lib/storage/file-content";
 import { normalizeRemoteTargetPath } from "@/lib/storage/remote-path";
 import { isServerStorageEndpoint } from "@/lib/server/storage-endpoint";
@@ -110,6 +116,8 @@ export async function POST(
     {
       // Reload/compose requires SSH on the target host — gate on server:ssh (not write-only).
       permission: "server:ssh",
+      // compose runs `docker compose up -d` (root-equivalent on most hosts) and reads a stored file / raw folder.
+      optionalTokenPermissions: ["docker:manage", "storage:write", "server:sftp:unrestricted"],
       rateLimit: GENERAL_WRITE_LIMIT,
       bodySchema: buildReloadBodySchema(locale),
       errorMessage: t("apiServersReload.errorMessage", locale),
@@ -117,6 +125,10 @@ export async function POST(
     async ({ session, body }) => {
       const teamAccess = await assertServerTeamAccess(session, id, "manage");
       if (!teamAccess.ok) return teamAccess.response;
+      // Starting a compose project is a Docker operation, not a service reload (R14 D2-02).
+      if (body.kind === "compose" && !sessionHasPermission(session, "docker:manage")) {
+        throw new ForbiddenError(apiCopy("apiCopy.missing.permission.db2e4ec2", { v0: "docker:manage" }));
+      }
 
       const server = await prisma.server.findUnique({
         where: { ...teamAccess.server, enabled: true },
@@ -149,7 +161,26 @@ export async function POST(
           if (/[\u0000-\u001f\u007f]/.test(composeFile)) {
             return Response.json({ error: t("apiServersReload.projectDirPatternError", locale) }, { status: 400 });
           }
+          // The node is team-visible; per-user storage path grants must also let narrowed callers write the project.
+          if (!isGlobalTeamManager(session) && !sessionHasPermission(session, "storage:manage-node")) {
+            const access = await assertStorageAccess({
+              session,
+              storageNodeId: node.id,
+              relativePath: body.composeFile.relativePath,
+              operation: "write",
+            });
+            if (!access.allowed) {
+              return Response.json({ error: storageAccessDeniedCopy(access.reason) }, { status: 403 });
+            }
+          }
         } else if (body.projectDir) {
+          // A raw remote folder bypasses storage grants and the SFTP home jail: unrestricted SFTP only.
+          if (!sessionHasPermission(session, "server:sftp:unrestricted")) {
+            throw new ForbiddenError(apiCopy("apiCopy.missing.permission.db2e4ec2", { v0: "server:sftp:unrestricted" }));
+          }
+          if (body.projectDir.split("/").some((segment) => segment === "..")) {
+            return Response.json({ error: t("apiServersReload.projectDirPatternError", locale) }, { status: 400 });
+          }
           composeProjectDir = body.projectDir;
         } else {
           return Response.json({ error: t("apiServersReload.projectDirPatternError", locale) }, { status: 400 });

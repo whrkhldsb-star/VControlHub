@@ -92,7 +92,10 @@ export async function getServerOperationTargets(session: TeamSession, kind: "com
   const query = normalizeInventoryQuery(input);
   const pageSize = 24;
   const capability = kind === "command" ? "connect" : "manage";
-  const scope = rawServerScope(session, capability === "connect" ? "canConnect" : "canManage");
+  const baseScope = rawServerScope(session, capability === "connect" ? "canConnect" : "canManage");
+  const scope = kind === "batch" && !isGlobalTeamManager(session)
+    ? Prisma.sql`(${baseScope} AND s.origin = 'CUSTOMER')`
+    : baseScope;
   const pattern = `%${query.query.replace(/[\\%_]/g, "\\$&")}%`;
   const search = query.query ? Prisma.sql`(s.name ILIKE ${pattern} OR s.host ILIKE ${pattern}
     OR EXISTS (SELECT 1 FROM unnest(s.tags) AS tag WHERE tag ILIKE ${pattern}))` : Prisma.sql`TRUE`;

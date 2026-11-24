@@ -7,6 +7,7 @@ import { TemplateListClient } from "./template-list-client";
 import { PageShell } from "@/components/page-shell";
 import { getServerLocale, t } from "@/lib/i18n/translations";
 import { localizeBuiltinTemplate } from "@/lib/command-template/builtin-labels";
+import { redactTemplateBody } from "@/lib/command-template/visibility";
 
 export const dynamic = "force-dynamic";
 
@@ -22,7 +23,7 @@ export default async function CommandTemplatesPage() {
 		canDeploy && canReadServers ? listServerProfiles(session) : Promise.resolve([]),
 	]);
 
-	const serialized = templates.map((t) => ({
+	const serialized = templates.map((row) => redactTemplateBody(row, session)).map((t) => ({
 		id: t.id, name: t.name, description: t.description,
 		command: t.command, rollbackCommand: t.rollbackCommand, variables: t.variables, tags: t.tags,
 		isBuiltin: t.isBuiltin,

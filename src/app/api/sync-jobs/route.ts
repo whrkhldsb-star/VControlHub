@@ -7,6 +7,7 @@ import { NextResponse } from "next/server";
 import { z } from "zod";
 
 import { auditUserAction } from "@/lib/audit/service";
+import { sessionHasPermission } from "@/lib/auth/authorization";
 import { withApiRoute } from "@/lib/http/api-guard";
 import { GENERAL_READ_LIMIT, GENERAL_WRITE_LIMIT } from "@/lib/http/rate-limit-presets";
 import { createSyncJob, listSyncJobs } from "@/lib/sync/service-crud";
@@ -37,12 +38,13 @@ export async function GET(request: Request) {
     request,
     {
       permission: "storage:read",
-      optionalTokenPermissions: ["server:ssh", "storage:manage-node"],
+      optionalTokenPermissions: ["server:read", "server:ssh", "storage:manage-node"],
       rateLimit: GENERAL_READ_LIMIT,
       errorMessage: apiCopy("apiCopy.failed.to.list.sync.jobs.293dd5ca"),
     },
     async ({ session }) => {
       const jobs = await listSyncJobs(session);
+      const canSeeHost = sessionHasPermission(session, "server:read") || sessionHasPermission(session, "storage:manage-node");
       return NextResponse.json({
         jobs: jobs.map((j) => ({
           id: j.id,
@@ -58,8 +60,8 @@ export async function GET(request: Request) {
           compress: j.compress,
           lastSyncAt: j.lastSyncAt?.toISOString() ?? null,
           lastSyncResult: j.lastSyncResult,
-          sourceServer: j.sourceServer,
-          targetServer: j.targetServer,
+          sourceServer: j.sourceServer ? { ...j.sourceServer, host: canSeeHost ? j.sourceServer.host : null } : null,
+          targetServer: j.targetServer ? { ...j.targetServer, host: canSeeHost ? j.targetServer.host : null } : null,
           logCount: j._count.syncLogs,
           teamId: j.teamId,
           createdAt: j.createdAt.toISOString(),

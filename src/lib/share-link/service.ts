@@ -25,6 +25,9 @@ import { syncLocalDirectoryEntries } from "@/lib/storage/local-sync";
 import { syncSftpDirectoryEntries } from "@/lib/storage/sftp-sync";
 import type { SessionPayload } from "@/lib/auth/session";
 import { sessionHasPermission } from "@/lib/auth/authorization";
+import { loadJobOwnerSession } from "@/lib/api-token/authorization";
+import { getReadableStorageScope } from "@/lib/storage/readable-scope";
+import type { TeamSession } from "@/lib/auth/team-scope";
 const logger = createLogger("share-link");
 
 export function hashShareToken(token: string) {
@@ -402,6 +405,20 @@ async function loadActiveShare(token: string) {
     throw new NotFoundError(t("backend.shareLink.notFoundOrRevoked"));
   }
   await assertShareTargetNotDeleted(share.storageNodeId, share.path, share.storageNode.driver, shareIgnoresCase(share.storageNode));
+  // Re-verify that the share creator remains an active member with read access to
+  // the shared path so revoked UserStorageAccess grants or removed team members
+  // immediately stop serving files through pre-existing links.
+  if (share.createdBy && typeof (prisma as { user?: { findUnique?: unknown } }).user?.findUnique === "function") {
+    const ownerSession = await loadJobOwnerSession(share.createdBy, share.teamId);
+    if (!ownerSession) throw new NotFoundError(t("backend.shareLink.notFoundOrRevoked"));
+    const access = await assertStorageAccess({
+      session: ownerSession,
+      storageNodeId: share.storageNodeId,
+      relativePath: share.path,
+      operation: "read",
+    });
+    if (!access.allowed) throw new NotFoundError(t("backend.shareLink.notFoundOrRevoked"));
+  }
   return share;
 }
 
@@ -492,7 +509,31 @@ function shareLinkFilterWhere(options: ShareLinkListOptions, now: Date) {
 export async function listShareLinkPage(session: ShareListSession, options: ShareLinkListOptions = {}) {
   const pageSize = Math.min(Math.max(Math.trunc(options.pageSize ?? SHARE_LINK_PAGE_SIZE), 1), SHARE_LINK_MAX_PAGE_SIZE);
   const page = Math.max(Math.trunc(options.page ?? 1), 1);
-  const where = { AND: [shareLinkTeamWhere(session), ...shareLinkFilterWhere(options, new Date())] };
+  const clauses: Record<string, unknown>[] = [shareLinkTeamWhere(session), ...shareLinkFilterWhere(options, new Date())];
+  if (
+    !sessionHasPermission(session, "share:manage")
+    && typeof (prisma as { userStorageAccess?: { findMany?: unknown } }).userStorageAccess?.findMany === "function"
+  ) {
+    const readable = await getReadableStorageScope(session as TeamSession);
+    if (readable) {
+      const orRules: Record<string, unknown>[] = [
+        ...(readable.nodesWithoutGrants.length > 0 ? [{ storageNodeId: { in: readable.nodesWithoutGrants } }] : []),
+        ...readable.grantRules.map((rule) => {
+          if (!rule.pathPrefix) return { storageNodeId: rule.storageNodeId };
+          const mode = rule.caseInsensitive ? { mode: "insensitive" as const } : {};
+          return {
+            storageNodeId: rule.storageNodeId,
+            OR: [
+              { path: rule.caseInsensitive ? { equals: rule.pathPrefix, mode: "insensitive" as const } : rule.pathPrefix },
+              { path: { startsWith: `${escapeLikeLiteral(rule.pathPrefix)}/`, ...mode } },
+            ],
+          };
+        }),
+      ];
+      clauses.push(orRules.length > 0 ? { OR: orRules } : { id: "__none__" });
+    }
+  }
+  const where = { AND: clauses };
   const [total, shares] = await prisma.$transaction([
     prisma.shareLink.count({ where }),
     prisma.shareLink.findMany({

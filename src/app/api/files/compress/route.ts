@@ -20,6 +20,7 @@ import { createFileEntry } from "@/lib/storage/service";
 import { assertNotRecycled, normalizeIndexedPath, recycledAround } from "@/lib/storage/archive-access";
 import { localTarExclusion } from "@/lib/storage/archive-stream";
 import { expandStorageBasePath, resolveStoragePathWithinBase } from "@/lib/storage/path-utils";
+import { UPLOAD_DISK_RESERVE_BYTES, freeBytesOn } from "@/lib/upload/limits";
 
 const execFileAsync = promisify(execFile);
 
@@ -113,6 +114,10 @@ export async function POST(request: NextRequest) {
       }
 
       await fs.mkdir(path.dirname(outputResolved.path), { recursive: true });
+      const freeBytes = await freeBytesOn(path.dirname(outputResolved.path));
+      if (freeBytes !== null && freeBytes < UPLOAD_DISK_RESERVE_BYTES) {
+        return NextResponse.json({ error: storageAccessDeniedCopy("quota_exceeded") }, { status: 507 });
+      }
       const stage = await fs.mkdtemp(path.join(path.dirname(outputResolved.path), ".vch-compress-"));
       const archive = path.join(stage, "archive");
       const base = path.resolve(expandStorageBasePath(node.basePath));

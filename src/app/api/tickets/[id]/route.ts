@@ -35,7 +35,7 @@ const PatchBodySchema = z
 
 const CommentBodySchema = z
   .object({
-    body: z.string().trim().min(1, "Reply content is required"),
+    body: z.string().trim().min(1, "Reply content is required").max(10_000),
   })
   .strict();
 

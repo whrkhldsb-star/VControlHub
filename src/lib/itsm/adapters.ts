@@ -12,6 +12,7 @@ import { createHmac, timingSafeEqual, createHash } from "node:crypto";
 import { ValidationError } from "@/lib/errors";
 import { fetchWebhookSafely, validateWebhookUrlSyntax } from "@/lib/security/webhook-url";
 import { readResponseTextLimited } from "@/lib/http/response-body";
+import { stripNul } from "@/lib/text/strip-nul";
 
 import { t } from "@/lib/i18n/service-translations";
 import type {
@@ -51,7 +52,11 @@ export function buildOutboundBody(
 	config: ItsmConnectionConfig,
 ): { contentType: string; body: string } {
 	// A robot with a request size limit gets the long fields shortened; the text carries the excerpt anyway.
-	const fieldMax = provider === "dingtalk" || provider === "feishu" ? CHAT_FIELD_MAX_CHARS : Number.POSITIVE_INFINITY;
+	const fieldMax = provider === "dingtalk" || provider === "feishu"
+		? CHAT_FIELD_MAX_CHARS
+		: provider === "slack"
+			? 3_000
+			: 20_000;
 	const field = (value: string) => (Number.isFinite(fieldMax) ? clip(value, fieldMax) : value);
 	const base = {
 		source: "vcontrolhub",
@@ -171,10 +176,10 @@ export async function deliverOutbound(input: {
 				body: packed.body,
 				signal: AbortSignal.timeout(15_000),
 			});
-			const responseBody = await readResponseTextLimited(
+			const responseBody = stripNul(await readResponseTextLimited(
 				res,
 				ITSM_RESPONSE_MAX_BYTES,
-			).catch(() => "");
+			).catch(() => ""));
 			if (!res.ok) {
 				return {
 					ok: false,
@@ -232,10 +237,10 @@ export async function deliverOutbound(input: {
 		if (!result.ok) {
 			return { ok: false, error: result.error, outcomeUnknown: result.dispatched !== false };
 		}
-		const responseBody = await readResponseTextLimited(
+		const responseBody = stripNul(await readResponseTextLimited(
 			result.response,
 			ITSM_RESPONSE_MAX_BYTES,
-		).catch(() => "");
+		).catch(() => ""));
 		if (!result.response.ok) {
 			return {
 				ok: false,
