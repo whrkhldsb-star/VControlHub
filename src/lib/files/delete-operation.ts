@@ -171,7 +171,7 @@ export async function executeDeleteFile(
           storageNodeId: entry.storageNodeId,
           relativePath: child.relativePath,
         });
-        if (key && capabilities.get(key)?.canDelete === false) {
+        if (!key || capabilities.get(key)?.canDelete !== true) {
           // Distinguish "no permission on a child" from "entry not found" —
           // the old not-found copy told the user the directory had vanished.
           throw new ForbiddenError(t("backend.storageHardening.files.childDeleteDenied"));

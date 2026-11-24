@@ -390,6 +390,7 @@ describe("/api/servers/[id]/sftp/upload", () => {
       session: operator,
       serverId: "srv1",
       paths: ["/root/sub/a.txt"],
+      mutation: true,
       signal: expect.anything(),
       target: { rootPath: "/home/deploy", ssh: { host: "vps" } },
     });

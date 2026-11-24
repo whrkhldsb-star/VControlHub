@@ -130,7 +130,7 @@ async function handleUpload(
     // both realpath checks and the final byte of the upload.
     const bytesWritten = await withServerLifecycleLock(id, async () => {
       const target = await loadEnabledServerForSftp(id, teamAccess.server.teamId, teamAccess.server, request.signal);
-      const root = await assertSftpPathAccess({ session, serverId: id, paths: [fullPath], target, signal: request.signal });
+      const root = await assertSftpPathAccess({ session, serverId: id, paths: [fullPath], mutation: true, target, signal: request.signal });
       const stream = Readable.fromWeb(file.stream() as import("node:stream/web").ReadableStream);
       return uploadFile(id, fullPath, stream, { ...target.ssh, signal: request.signal }, root);
     });

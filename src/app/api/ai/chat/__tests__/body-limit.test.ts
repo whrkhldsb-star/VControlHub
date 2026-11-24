@@ -8,7 +8,7 @@ vi.mock("@/lib/http/api-guard", () => ({
 		return Response.json({ ok: true });
 	}),
 }));
-vi.mock("@/lib/rate-limit", () => ({ checkRateLimitAsync: async () => ({ allowed: true, retryAfterMs: 0, remaining: 5 }), getClientIp: () => "198.51.100.7" }));
+vi.mock("@/lib/rate-limit", () => ({ checkRateLimitAsync: async () => ({ allowed: true, retryAfterMs: 0, remaining: 5 }), getClientIp: () => "198.51.100.7", rateLimitIpKey: (ip: string) => ip }));
 vi.mock("@/lib/i18n/translations", () => ({ getServerLocale: async () => "en", t: (key: string) => key }));
 vi.mock("@/lib/ai/chat-orchestrator", () => ({ createAiChatResponse: vi.fn() }));
 

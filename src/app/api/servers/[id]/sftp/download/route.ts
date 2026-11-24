@@ -1,4 +1,4 @@
-import { withServerLifecycleLock, holdServerLockForDownload } from "@/lib/server/lifecycle-lock";
+import { withServerLifecycleSharedLock, holdServerLockForDownload } from "@/lib/server/lifecycle-lock";
 import { apiCopy } from "@/lib/i18n/api-copy";
 /**
  * GET /api/servers/[id]/sftp/download?path=... — download a file from remote server
@@ -33,7 +33,7 @@ export async function GET(
     },
     async ({ query, session }) => {
       const { id } = await params;
-      return withServerLifecycleLock(id, async () => {
+      return withServerLifecycleSharedLock(id, async () => {
         const teamAccess = await assertServerTeamAccess(session, id, "fileRead");
         if (!teamAccess.ok) return teamAccess.response;
         const target = await loadEnabledServerForSftp(id, teamAccess.server.teamId, teamAccess.server, request.signal);

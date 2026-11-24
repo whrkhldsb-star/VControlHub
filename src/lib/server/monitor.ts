@@ -107,38 +107,45 @@ function parseSwapUsagePercent(line: string): number | undefined {
 	return Math.min(100, Math.max(0, Math.round((usedMb / totalMb) * 1000) / 10));
 }
 
+const MAX_PARSED_DISK_ROWS = 256;
+const MAX_PARSED_NET_ROWS = 64;
+
 function parseDiskSection(lines: string[]): ServerMetrics["disk"] {
-	return lines
-		.filter((l) => l.trim())
-		.map((line) => {
-			const parts = line.trim().split(/\s+/);
-			if (parts.length < 4) return null;
-			return {
-				mount: parts[parts.length - 1]!,
-				totalGb: parts[0]!,
-				usedGb: parts[1]!,
-				usagePercent: parseFloatOr(parts[2]!.replace("%", ""), 0),
-			};
-		})
-		.filter(Boolean) as ServerMetrics["disk"];
+	const result: ServerMetrics["disk"] = [];
+	for (const line of lines) {
+		if (result.length >= MAX_PARSED_DISK_ROWS) break;
+		const trimmed = line.trim();
+		if (!trimmed) continue;
+		const parts = trimmed.split(/\s+/);
+		if (parts.length < 4) continue;
+		result.push({
+			mount: parts[parts.length - 1]!.slice(0, 256),
+			totalGb: parts[0]!.slice(0, 32),
+			usedGb: parts[1]!.slice(0, 32),
+			usagePercent: parseFloatOr(parts[2]!.replace("%", ""), 0),
+		});
+	}
+	return result;
 }
 
 function parseNetSection(lines: string[]): ServerMetrics["network"] {
-	return lines
-		.filter((l) => l.trim())
-		.map((line) => {
-			const parts = line.trim().split(/\s+/);
-			if (parts.length < 3) return null;
-			// The two counters are the last fields; the adapter name is whatever comes before them. Windows
-			// names have spaces ("Ethernet 2", "以太网 2", "vEthernet (WSL)"): reading the name as the first word
-			// took part of it for the received bytes and merged adapters that share a first word.
-			return {
-				iface: parts.slice(0, -2).join(" "),
-				rxBytes: parseFloatOr(parts[parts.length - 2]!, 0),
-				txBytes: parseFloatOr(parts[parts.length - 1]!, 0),
-			};
-		})
-		.filter(Boolean) as ServerMetrics["network"];
+	const result: ServerMetrics["network"] = [];
+	for (const line of lines) {
+		if (result.length >= MAX_PARSED_NET_ROWS) break;
+		const trimmed = line.trim();
+		if (!trimmed) continue;
+		const parts = trimmed.split(/\s+/);
+		if (parts.length < 3) continue;
+		// The two counters are the last fields; the adapter name is whatever comes before them. Windows
+		// names have spaces ("Ethernet 2", "以太网 2", "vEthernet (WSL)"): reading the name as the first word
+		// took part of it for the received bytes and merged adapters that share a first word.
+		result.push({
+			iface: parts.slice(0, -2).join(" ").slice(0, 64),
+			rxBytes: parseFloatOr(parts[parts.length - 2]!, 0),
+			txBytes: parseFloatOr(parts[parts.length - 1]!, 0),
+		});
+	}
+	return result;
 }
 
 /**

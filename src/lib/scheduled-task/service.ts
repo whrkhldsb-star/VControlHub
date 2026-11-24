@@ -56,7 +56,7 @@ function resolveSchedule(input: Pick<CreateScheduledTaskInput, "scheduleType" | 
 		if (Number.isNaN(runAt.getTime()) || runAt.getTime() <= Date.now()) {
 			throw new ValidationError(t("backend.scheduled-task.futureOnce"));
 		}
-		return { scheduleType, cronExpression: input.cronExpression ?? ONCE_CRON_PLACEHOLDER, runAt, nextRunAt: runAt } as const;
+		return { scheduleType, cronExpression: ONCE_CRON_PLACEHOLDER, runAt, nextRunAt: runAt } as const;
 	}
 	if (!input.cronExpression?.trim()) throw new ValidationError(t("backend.scheduled-task.invalidCronExpression"));
 	// The documented format has five fields. cron-parser also takes six (seconds) and macros such as "@daily"; the

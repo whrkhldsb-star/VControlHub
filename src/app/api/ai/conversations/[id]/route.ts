@@ -10,7 +10,7 @@ import {
 } from "@/lib/ai/service";
 import { updateConversationSchema } from "@/lib/ai/schema";
 import { withApiRoute } from "@/lib/http/api-guard";
-import { GENERAL_WRITE_LIMIT } from "@/lib/http/rate-limit-presets";
+import { GENERAL_READ_LIMIT, GENERAL_WRITE_LIMIT } from "@/lib/http/rate-limit-presets";
 import { z } from "zod";
 import { parseSearchParams } from "@/lib/http/parse-search-params";
 import { NotFoundError } from "@/lib/errors";
@@ -24,7 +24,7 @@ export async function GET(
 ) {
   return withApiRoute(
     request,
-    { permission: "ai:chat", errorMessage: apiCopy("apiCopy.not.found.e3ebaa16"), errorStatus: 404 },
+    { permission: "ai:chat", rateLimit: GENERAL_READ_LIMIT, errorMessage: apiCopy("apiCopy.not.found.e3ebaa16"), errorStatus: 404 },
     async ({ session }) => {
       const { id } = await params;
       const { before, beforeId } = parseSearchParams(request, z.object({

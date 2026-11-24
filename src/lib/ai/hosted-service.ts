@@ -904,7 +904,7 @@ export async function getPendingActions(session: HostedActionSession, page?: { a
   const scope = pendingActionScope(session);
   const actions = await prisma.aiHostedAction.findMany({
     where: page?.after ? { AND: [scope, createdBeforeCursor(page.after)] } : scope,
-    include: { message: true },
+    include: { message: { select: { id: true, conversationId: true, role: true, createdAt: true } } },
     orderBy: [{ createdAt: "desc" }, { id: "desc" }],
     take: page?.take ?? 200,
   });

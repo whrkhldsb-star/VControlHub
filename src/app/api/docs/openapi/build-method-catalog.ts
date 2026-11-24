@@ -99,7 +99,7 @@ function collectMethod(file: string, method: string): Requirements {
       if (name === "withApiRoute") groups.push(guardOptions(node.arguments[1], bindings));
       const handler = name === "withApiRoute" ? node.arguments[2] : name === "withApiCopyLocale" ? node.arguments[1] : undefined;
       if (handler && (ts.isArrowFunction(handler) || ts.isFunctionExpression(handler))) visitBody(handler.body, bindings);
-      if (name === "withServerLifecycleLock") {
+      if (name === "withServerLifecycleLock" || name === "withServerLifecycleSharedLock") {
         const work = node.arguments[1];
         if (work && ts.isArrowFunction(work)) visitBody(work.body, bindings);
       }

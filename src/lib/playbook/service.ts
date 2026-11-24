@@ -442,7 +442,7 @@ export async function reconcileTerminalPlaybookJobs(db: Prisma.TransactionClient
                       ELSE 'failed' END::"PlaybookRunStatus",
         "errorMessage" = CASE WHEN j.status = 'FAILED' OR j.result->>'status' = 'failed'
                               THEN ${t("backend.job.parentDurableJobAttemptsExhausted", "en")} ELSE NULL END,
-        "completedAt" = COALESCE(j."completedAt", now()), "updatedAt" = now()
+        "completedAt" = COALESCE(j."completedAt", (now() AT TIME ZONE 'UTC')), "updatedAt" = (now() AT TIME ZONE 'UTC')
     FROM jobs j WHERE r."jobId" = j.id AND j.type = 'playbook.run'
       AND r.status IN ('queued', 'running') AND j.status IN ('FAILED', 'CANCELLED', 'COMPLETED')
       ${scope?.playbookId ? Prisma.sql`AND r."playbookId" = ${scope.playbookId}` : Prisma.empty}

@@ -147,12 +147,12 @@ describe("/api/snippets routes", () => {
 			]);
 		});
 
-		it("rate-limits the three write methods but not the read", async () => {
+		it("rate-limits both reads and writes", async () => {
 			await route.GET(req("GET"));
 			await route.POST(req("POST", { title: "t", content: "c" }));
 			await route.PATCH(req("PATCH", { id: "sn_1", title: "t" }));
 			await route.DELETE(req("DELETE", undefined, "https://a.test/api/snippets?id=sn_1"));
-			expect(mocks.guardCalls.map((o) => Boolean(o.rateLimit))).toEqual([false, true, true, true]);
+			expect(mocks.guardCalls.map((o) => Boolean(o.rateLimit))).toEqual([true, true, true, true]);
 		});
 	});
 

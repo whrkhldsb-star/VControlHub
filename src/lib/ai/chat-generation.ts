@@ -40,7 +40,7 @@ export function finishChatGeneration(conversationId: string, userMessageId: stri
         title = CASE WHEN ${title}::text IS NOT NULL AND c.title IN ('New conversation', '新对话') AND NOT EXISTS (
           SELECT 1 FROM ai_messages m WHERE m."conversationId" = c.id AND m.role = 'user' AND m.id <> ${userMessageId}
         ) THEN ${title} ELSE c.title END,
-        "updatedAt" = GREATEST(clock_timestamp(), c."updatedAt" + interval '1 millisecond')
+        "updatedAt" = GREATEST((clock_timestamp() AT TIME ZONE 'UTC'), c."updatedAt" + interval '1 millisecond')
         WHERE c.id = ${conversationId}`;
     }
   });

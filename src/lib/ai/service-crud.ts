@@ -460,7 +460,7 @@ export async function clearConversationMessages(id: string, session: TeamSession
 	const owner = conversationOwnerWhere(session);
 	await prisma.$transaction(async (tx) => {
 		const advanced = await tx.$executeRaw`UPDATE ai_conversations
-			SET "updatedAt" = GREATEST(clock_timestamp(), "updatedAt" + interval '1 millisecond')
+			SET "updatedAt" = GREATEST((clock_timestamp() AT TIME ZONE 'UTC'), "updatedAt" + interval '1 millisecond')
 			WHERE id = ${id} AND "createdBy" = ${owner.createdBy} AND "teamId" IS NOT DISTINCT FROM ${owner.teamId}`;
 		if (!advanced) throw new NotFoundError(t("backend.ai.conversationNotFound"));
 		await tx.aiMessage.deleteMany({ where: { conversationId: id } });

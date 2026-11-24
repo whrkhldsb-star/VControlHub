@@ -252,6 +252,7 @@ async function searchSftpNode(
 	target: { id: string; name: string; basePath: string; teamId: string | null },
 	query: string,
 	searchPath: string,
+	deletedAmong: (relativePaths: string[]) => Promise<Set<string>> = async () => new Set(),
 ): Promise<NodeSearchOutcome> {
 	const { id: nodeId, name: nodeName, basePath } = target;
 	const none: NodeSearchOutcome = { results: [], truncated: false };
@@ -358,13 +359,21 @@ async function searchSftpNode(
 
 		if (matchedFiles.length === 0) return { results: [], truncated };
 
+		// Drop recycle-bin matches before fetching snippets over SSH so deleted
+		// files are neither read again nor surfaced in the batch command.
+		const deletedSet = await deletedAmong(matchedFiles.map((filePath) => filePath.slice(rootPrefix.length)));
+		const liveMatchedFiles = deletedSet.size > 0
+			? matchedFiles.filter((filePath) => !deletedSet.has(filePath.slice(rootPrefix.length)))
+			: matchedFiles;
+		if (liveMatchedFiles.length === 0) return { results: [], truncated };
+
 		// For each matched file, fetch matching lines with context in ONE
 		// remote command — one grep per file meant one sequential SSH exec per
 		// result (up to 20 round-trips per search on the node).
 		// Every listed file gets its snippets: only the first 20 used to, and
 		// the other matches were dropped without a word.
 		const results: ContentSearchResult[] = [];
-		const batch = matchedFiles;
+		const batch = liveMatchedFiles;
 
 		if (batch.length > 0) {
 			// -H prefixes every match line with its filename so a single grep
@@ -465,6 +474,15 @@ export async function searchFileContents(params: {
 					continue;
 				}
 			}
+			const deletedAmongForNode = async (relativePaths: string[]) => {
+				if (relativePaths.length === 0) return new Set<string>();
+				const rows = await prisma.fileEntry.findMany({
+					where: { storageNodeId: node.id, isDeleted: true, relativePath: { in: [...new Set(relativePaths.flatMap(indexedAncestors))], ...(insensitiveNodes.has(node.id) && { mode: "insensitive" }) } },
+					select: { relativePath: true },
+				});
+				const hidden = new Set(rows.map(row => pathKey(node.id, row.relativePath)));
+				return new Set(relativePaths.filter(path => indexedAncestors(path).some(parent => hidden.has(pathKey(node.id, parent)))));
+			};
 			if (node.driver === "LOCAL") {
 				const local = await searchLocalNode(
 					node.id,
@@ -472,15 +490,7 @@ export async function searchFileContents(params: {
 					node.basePath,
 					query,
 					relativePath,
-					async (relativePaths) => {
-						if (relativePaths.length === 0) return new Set();
-						const rows = await prisma.fileEntry.findMany({
-							where: { storageNodeId: node.id, isDeleted: true, relativePath: { in: [...new Set(relativePaths.flatMap(indexedAncestors))], ...(insensitiveNodes.has(node.id) && { mode: "insensitive" }) } },
-							select: { relativePath: true },
-						});
-						const hidden = new Set(rows.map(row => pathKey(node.id, row.relativePath)));
-						return new Set(relativePaths.filter(path => indexedAncestors(path).some(parent => hidden.has(pathKey(node.id, parent)))));
-					},
+					deletedAmongForNode,
 				);
 				allResults.push(...local.results);
 				nodeTruncated ||= local.truncated;
@@ -489,6 +499,7 @@ export async function searchFileContents(params: {
 					node,
 					query,
 					relativePath,
+					deletedAmongForNode,
 				);
 				allResults.push(...sftp.results);
 				nodeTruncated ||= sftp.truncated;

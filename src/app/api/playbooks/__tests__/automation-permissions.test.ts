@@ -21,7 +21,7 @@ vi.mock("@/lib/audit/service", () => ({ auditUserAction: mocks.audit }));
 vi.mock("@/lib/db", () => ({ prisma: {
   $queryRaw: async () => [{ id: "rule1" }],
   $transaction<T>(run: (tx: unknown) => T) { return run(this); },
-  alertRule: { create: mocks.createRule, findFirst: mocks.findRule, updateManyAndReturn: mocks.updateRule },
+  alertRule: { count: async () => 0, create: mocks.createRule, findFirst: mocks.findRule, updateManyAndReturn: mocks.updateRule },
   playbook: { findMany: mocks.findBoundPlaybooks, findFirst: mocks.findPlaybook, updateMany: mocks.updatePlaybook },
   userServerAccess: { findFirst: async () => null },
   server: { findMany: async () => [{ id: "srv1" }] },

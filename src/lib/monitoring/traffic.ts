@@ -66,21 +66,25 @@ const VIRTUAL_INTERFACE_PREFIXES = [
 	"ifb", "dummy", "wg", "tailscale", "zt", "lxc", "lxdbr", "vboxnet", "vmnet", "cni", "flannel", "cali", "kube-",
 ];
 
+const MAX_PARSED_TRAFFIC_INTERFACES = 64;
+
 export function parseNetworkDeviceStats(content: string, options: { includeLoopback?: boolean } = {}): NetworkDeviceStats[] {
-	return content
-		.split("\n")
-		.slice(2)
-		.map((line) => line.trim())
-		.filter(Boolean)
-		.map((line) => {
-			const [rawIface, ...values] = line.split(/\s+/);
-			const iface = rawIface!.replace(/:$/, "");
-			const rxBytes = Number(values[0] ?? 0);
-			const txBytes = Number(values[8] ?? 0);
-			return { iface, rxBytes, txBytes };
-		})
-		.filter((item) => options.includeLoopback || item.iface !== "lo")
-		.filter((item) => Number.isFinite(item.rxBytes) && Number.isFinite(item.txBytes));
+	const result: NetworkDeviceStats[] = [];
+	const lines = content.split("\n");
+	for (let i = 2; i < lines.length && result.length < MAX_PARSED_TRAFFIC_INTERFACES; i += 1) {
+		const line = lines[i]!.trim();
+		if (!line) continue;
+		const [rawIface, ...values] = line.split(/\s+/);
+		if (!rawIface || values.length < 9) continue;
+		const iface = rawIface.replace(/:$/, "").slice(0, 64);
+		if (!iface || (!options.includeLoopback && iface === "lo")) continue;
+		const rxBytes = Number(values[0]);
+		const txBytes = Number(values[8]);
+		if (Number.isFinite(rxBytes) && Number.isFinite(txBytes)) {
+			result.push({ iface, rxBytes, txBytes });
+		}
+	}
+	return result;
 }
 
 export function selectPrimaryInterface(interfaces: NetworkDeviceStats[]): NetworkDeviceStats | null {

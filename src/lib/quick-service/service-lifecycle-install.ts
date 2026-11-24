@@ -231,7 +231,7 @@ async function installServiceUnlocked(opts: InstallOptions) {
 				after: rollback,
 			},
 		});
-		await notifyQuickServiceInstallFailure(userId, template, msg);
+		await notifyQuickServiceInstallFailure(userId, template, msg, target);
 		if (err instanceof ConflictError) throw err;
 		throw new BusinessError(
 			t("backend.quick-service.installFailedWithMessage", { message: msg }),
@@ -424,6 +424,7 @@ async function notifyQuickServiceInstallSuccess(userId: string | undefined, tmpl
 		const notice = buildInstallNotice(tmpl, hostPort, credentials, notes, remoteHost ? { host: remoteHost, protocol: "http:" } : undefined);
 		await createNotification({
 			userId,
+			teamId: target.kind === "remote" ? target.expectedTeamId : null,
 			type: "system",
 			notice: { code: "quickServiceInstalled", params: { name: tmpl.name } },
 			message: formatInstallNoticeMessage(tmpl.name, notice),
@@ -439,11 +440,12 @@ async function notifyQuickServiceInstallSuccess(userId: string | undefined, tmpl
 	}
 }
 
-async function notifyQuickServiceInstallFailure(userId: string | undefined, tmpl: ServiceTemplate, message: string) {
+async function notifyQuickServiceInstallFailure(userId: string | undefined, tmpl: ServiceTemplate, message: string, target?: DockerTarget) {
 	if (!userId) return;
 	try {
 		await createNotification({
 			userId,
+			teamId: target?.kind === "remote" ? target.expectedTeamId : null,
 			type: "system",
 			notice: { code: "quickServiceInstallFailed", params: { name: tmpl.name, error: message } },
 			actionUrl: "/quick-services",

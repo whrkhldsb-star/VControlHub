@@ -12,7 +12,7 @@ import {
   listDeploymentTemplates,
 } from "@/lib/deployment/service";
 import { requestLocale, withApiRoute } from "@/lib/http/api-guard";
-import { GENERAL_WRITE_LIMIT } from "@/lib/http/rate-limit-presets";
+import { GENERAL_READ_LIMIT, GENERAL_WRITE_LIMIT } from "@/lib/http/rate-limit-presets";
 
 import { AppError, isAppError, ValidationError } from "@/lib/errors";
 import { getErrorMessage } from "@/lib/http/error-message";
@@ -28,7 +28,10 @@ const createDeploymentSchema = z.object({
   serverIds: z
     .array(z.string().trim().min(1, "Target VPS is required"))
     .min(1, "At least 1 target VPS must be selected"),
-  variables: z.record(z.string(), z.string()).default({}),
+  variables: z
+    .record(z.string().max(64), z.string().max(2048))
+    .refine((obj) => Object.keys(obj).length <= 50)
+    .default({}),
   reason: z.string().trim().max(500, "Reason must be at most 500 characters").optional(),
   idempotencyKey: deploymentKey.optional(),
 });
@@ -36,7 +39,7 @@ const createDeploymentSchema = z.object({
 export async function GET(request: Request) {
   return withApiRoute(
     request,
-    { permission: "deploy:read", optionalTokenPermissions: ["command:read", "command:approve"], errorMessage: apiCopy("apiCopy.failed.to.fetch.deployment.list.fa66fa85") },
+    { permission: "deploy:read", rateLimit: GENERAL_READ_LIMIT, optionalTokenPermissions: ["command:read", "command:approve"], errorMessage: apiCopy("apiCopy.failed.to.fetch.deployment.list.fa66fa85") },
     async ({ session }) => {
       const [deployments, templates] = await Promise.all([
         listDeploymentRuns(session),

@@ -223,14 +223,14 @@ export async function processPlaybookRun(runId: string, jobId: string, signal?: 
     // Fence every older execution of this definition, even if its job lease still renews.
     await lock.assertHeld();
     const generations = await prisma.$queryRaw<{ id: string; version: number }[]>`WITH holder AS (
-      INSERT INTO settings (key, value, "updatedAt") VALUES (${generationKey}, ${lock.generation}, now())
-      ON CONFLICT (key) DO UPDATE SET value = EXCLUDED.value, "updatedAt" = now()
+      INSERT INTO settings (key, value, "updatedAt") VALUES (${generationKey}, ${lock.generation}, (now() AT TIME ZONE 'UTC'))
+      ON CONFLICT (key) DO UPDATE SET value = EXCLUDED.value, "updatedAt" = (now() AT TIME ZONE 'UTC')
       WHERE settings.value::numeric < EXCLUDED.value::numeric RETURNING key
     ) UPDATE playbook_runs
       SET version = version + 1 WHERE "playbookId" = ${run.playbook.id} AND status = 'running'
       AND EXISTS (SELECT 1 FROM holder)
       AND EXISTS (SELECT 1 FROM jobs j WHERE j.id = ${jobId} AND j.status = 'RUNNING' AND j."workerId" = ${WORKER_ID}
-        AND j."leaseExpiresAt" > clock_timestamp() ${attempts === undefined ? Prisma.empty : Prisma.sql`AND j.attempts = ${attempts}`})
+        AND j."leaseExpiresAt" > (clock_timestamp() AT TIME ZONE 'UTC') ${attempts === undefined ? Prisma.empty : Prisma.sql`AND j.attempts = ${attempts}`})
       RETURNING id, version`;
     const version = generations.find((r) => r.id === runId)?.version;
     if (version === undefined) throw new LeaseLostError(jobId);

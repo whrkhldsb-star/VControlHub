@@ -7,11 +7,12 @@ import { NextResponse } from "next/server";
 
 import { getPendingActions } from "@/lib/ai/hosted-service";
 import { withApiRoute } from "@/lib/http/api-guard";
+import { GENERAL_READ_LIMIT } from "@/lib/http/rate-limit-presets";
 
 export const dynamic = "force-dynamic";
 
 export async function GET(request: Request) {
-  return withApiRoute(request, { permission: "ai:chat" }, async ({ session }) => {
+  return withApiRoute(request, { permission: "ai:chat", rateLimit: GENERAL_READ_LIMIT }, async ({ session }) => {
     const actions = await getPendingActions(session);
     return NextResponse.json({ actions });
   });

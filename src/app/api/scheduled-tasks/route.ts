@@ -3,7 +3,7 @@ import { z } from "zod";
 
 import { auditUserAction } from "@/lib/audit/service";
 import { requestLocale, withApiRoute } from "@/lib/http/api-guard";
-import { GENERAL_WRITE_LIMIT } from "@/lib/http/rate-limit-presets";
+import { GENERAL_READ_LIMIT, GENERAL_WRITE_LIMIT } from "@/lib/http/rate-limit-presets";
 import { idQuerySchema, parseSearchParams } from "@/lib/http/parse-search-params";
 import { ValidationError } from "@/lib/errors";
 import { sessionHasPermission } from "@/lib/auth/authorization";
@@ -28,11 +28,11 @@ const scheduledTaskPostSchema = z.object({
   name: z.string().min(1).max(100),
   scheduleType: z.enum(["CRON", "ONCE"]).optional(),
   runAt: z.coerce.date().optional(),
-  cron: z.string().min(1).optional(),
+  cron: z.string().min(1).max(120).optional(),
   command: createCommandSchema.shape.command,
   serverId: z.string().min(1).optional(),
   description: z.string().max(500).optional(),
-  cronExpression: z.string().min(1).optional(),
+  cronExpression: z.string().min(1).max(120).optional(),
   reason: z.string().max(500).optional(),
   serverIds: z.array(z.string()).optional(),
   plan: z.string().max(10000).optional(),
@@ -47,8 +47,8 @@ const scheduledTaskPatchSchema = z.object({
   toggleId: z.string().optional(),
   retryId: z.string().optional(),
   name: z.string().min(1).max(100).optional(),
-  cron: z.string().optional(),
-  cronExpression: z.string().optional(),
+  cron: z.string().max(120).optional(),
+  cronExpression: z.string().max(120).optional(),
   command: createCommandSchema.shape.command.optional(),
   serverId: z.string().optional(),
   serverIds: z.array(z.string()).optional(),
@@ -90,6 +90,7 @@ export async function GET(request: Request) {
     {
       permission: "command:read",
       optionalTokenPermissions: ["server:read", "command:approve"],
+      rateLimit: GENERAL_READ_LIMIT,
       errorMessage: t("api.serverError", await requestLocale(request)),
     },
     async ({ session }) => {

@@ -98,7 +98,8 @@ async function publishBackup(outputPath, write) {
   activeTempPaths.add(temporary);
   try {
     await write(temporary);
-    await fs.chmod(temporary, 0o600);
+    // Temp files are created mode 0600 under process.umask(0o077) (and wx on pg_dump);
+    // avoid path-based chmod() which could follow a symlink swap in app-owned BACKUP_DIR.
     // Linking publishes a complete file atomically and refuses existing names.
     await fs.link(temporary, outputPath);
   } finally {

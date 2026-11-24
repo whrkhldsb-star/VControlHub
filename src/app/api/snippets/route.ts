@@ -3,7 +3,7 @@ import { NextResponse } from "next/server";
 import { withApiRoute } from "@/lib/http/api-guard";
 import { sessionHasPermission } from "@/lib/auth/authorization";
 import type { SessionPayload } from "@/lib/auth/session";
-import { GENERAL_WRITE_LIMIT } from "@/lib/http/rate-limit-presets";
+import { GENERAL_READ_LIMIT, GENERAL_WRITE_LIMIT } from "@/lib/http/rate-limit-presets";
 import { createSnippet, deleteSnippet, getSnippet, listSnippets, snippetViewer, updateSnippet } from "@/lib/snippet/service";
 import {
   createSnippetSchema,
@@ -35,7 +35,7 @@ function snippetActor(session: SessionPayload) {
 export async function GET(request: Request) {
   return withApiRoute(
     request,
-    { permission: "snippet:manage", querySchema: snippetsGetQuerySchema },
+    { permission: "snippet:manage", rateLimit: GENERAL_READ_LIMIT, querySchema: snippetsGetQuerySchema },
     async ({ session, query }) => {
       if (query.id) {
         const snippet = await getSnippet(query.id, snippetActor(session));

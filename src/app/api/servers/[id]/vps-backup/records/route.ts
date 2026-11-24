@@ -43,7 +43,7 @@ export async function GET(
 	return withApiRoute(
 		request,
 		{ permission: "server:read", optionalTokenPermissions: ["server:ssh", "server:sftp:unrestricted"], rateLimit: GENERAL_READ_LIMIT },
-		async ({ session }) => withServerLifecycleLock(serverId, async () => {
+		async ({ session }) => {
 			const teamAccess = await assertServerTeamAccess(session, serverId, "read");
 			if (!teamAccess.ok) return teamAccess.response;
 
@@ -56,7 +56,7 @@ export async function GET(
 				canDownload,
 				records: (records as Array<{ errorMessage?: string | null }>).map((record) => ({ ...record, errorMessage: localizeStoredText(record.errorMessage) })),
 			});
-		}),
+		},
 	);
 }
 

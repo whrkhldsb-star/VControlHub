@@ -10,7 +10,7 @@ import { getShareDownloadTicketCookieName, verifyShareDownloadTicket } from "@/l
 import { hashShareToken } from "@/lib/share-link/service";
 import { SharePasswordGate } from "./share-password-gate";
 import { getErrorMessage } from "@/lib/http/error-message";
-import { checkRateLimitAsync, getClientIp } from "@/lib/rate-limit";
+import { checkRateLimitAsync, getClientIp, rateLimitIpKey } from "@/lib/rate-limit";
 import { Notice } from "@/components/ui-primitives";
 import { appTimeZoneDateKey } from "@/lib/datetime/time-zone";
 
@@ -54,7 +54,7 @@ export default async function SharePage({
 
   // Throttle before any DB / storage work so anonymous floods cannot amplify
   // into repeated backend I/O.
-  const rateLimitId = `share-page:${ip ?? "unknown"}`;
+  const rateLimitId = `share-page:${rateLimitIpKey(ip)}`;
   const rate = await checkRateLimitAsync(rateLimitId, SHARE_PAGE_RENDER_LIMIT);
   if (!rate.allowed) {
     errorMessage = t("sharePage.tooManyRequests", locale);

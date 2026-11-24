@@ -16,7 +16,7 @@ export async function PATCH(request: Request, { params }: Params) {
     async ({ session, body }) => {
       const { id } = await params;
       const template = await updateIdentityTemplate(id, body);
-      await auditUserAction(session.userId, "identity_template.update", { templateId: id, name: template.name });
+      await auditUserAction(session.userId, "identity_template.update", { templateId: id, name: template.name, permissions: template.permissions }, "WARNING");
       return NextResponse.json({ template });
     },
   );

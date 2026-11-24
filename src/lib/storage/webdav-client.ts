@@ -146,7 +146,15 @@ export function createWebDavClient(node: WebDavStorageNode, dependencies: { tran
   }
   async function propfind(path: string, depth: "0" | "1", requireResourceType = false): Promise<WebDavEntry[]> {
     const response = await request("PROPFIND", path, { Depth: depth, "Content-Type": "application/xml; charset=utf-8" }, '<?xml version="1.0"?><d:propfind xmlns:d="DAV:"><d:prop><d:resourcetype/><d:getcontentlength/><d:getlastmodified/><d:getetag/></d:prop></d:propfind>');
-    const xml = (await limited(response, XML_LIMIT)).toString("utf8");
+    // Depth 0 stats a single entry; cap it at 256 KiB instead of buffering 32 MiB.
+    const byteLimit = depth === "0" ? Math.min(XML_LIMIT, 256 * 1024) : XML_LIMIT;
+    const xml = (await limited(response, byteLimit)).toString("utf8");
+    // Pre-count response elements before building a full DOM tree so a hostile
+    // WebDAV endpoint cannot materialize hundreds of thousands of objects in V8.
+    const responseTagMatches = xml.match(/<(?:[a-z0-9_-]+:)?response(?=[\s>/])/gi);
+    if (responseTagMatches && responseTagMatches.length > MAX_PROPFIND_ROWS) {
+      throw new BusinessError(t("backend.webdav.directoryTooLarge", { max: MAX_PROPFIND_ROWS }));
+    }
     if (/<!DOCTYPE|<!ENTITY/i.test(xml) || XMLValidator.validate(xml) !== true) throw new BusinessError(apiCopy("apiCopy.invalid.webdav.xml.response.d22c80c4"));
     const parsed = object(new XMLParser({ removeNSPrefix: true, parseTagValue: false, processEntities: true }).parse(xml));
     if (!parsed.multistatus) throw new BusinessError(apiCopy("apiCopy.invalid.webdav.multistatus.response.d057cca7"));

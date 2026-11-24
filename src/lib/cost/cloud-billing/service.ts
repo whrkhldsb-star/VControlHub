@@ -284,10 +284,16 @@ export async function syncCloudBillingAccount(
 	session?: SessionScope,
 	confirmLegacyDuplicates = false,
 ): Promise<CloudBillingSyncResult> {
+	// Verify account existence and caller team scope before pinning an advisory-lock connection.
+	const precheck = await prisma.cloudBillingAccount.findFirst({
+		where: { id: accountId, ...(session ? teamWhere(session) : {}) },
+		select: { id: true },
+	});
+	if (!precheck) throw new NotFoundError(t("backend.cost.cloudBillingAccountNotFound"));
 	// Serialize per account+month. Two concurrent imports upsert the same
 	// (sourceType, sourceRef, effectiveDate) keys and then both write
 	// lastSync* on the account, so the surviving counters describe neither run.
-	const releaseLock = await acquireAdvisoryLock("cloud-billing-sync", `${accountId}:${month}`);
+	const releaseLock = await acquireAdvisoryLock("cloud-billing-sync", `${accountId}:${month}`, { timeoutMs: 5_000 });
 	try {
 		return await runCloudBillingSync(accountId, month, session, confirmLegacyDuplicates);
 	} finally {

@@ -41,7 +41,7 @@ export async function GET(
 	return withApiRoute(
 		request,
 		{ permission: "server:read", rateLimit: GENERAL_READ_LIMIT },
-		async ({ session }) => withServerLifecycleLock(serverId, async () => {
+		async ({ session }) => {
 			const teamAccess = await assertServerTeamAccess(session, serverId, "read");
 			if (!teamAccess.ok) return teamAccess.response;
 
@@ -55,7 +55,7 @@ export async function GET(
 
 			const schedules = await listVpsBackupSchedules(serverId);
 			return Response.json({ schedules });
-		}),
+		},
 	);
 }
 

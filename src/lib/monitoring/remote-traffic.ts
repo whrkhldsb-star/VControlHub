@@ -81,6 +81,7 @@ export type RemoteServerTraffic = {
 };
 
 const previousRemoteSamples = new Map<string, TrafficCounterSample>();
+const MAX_REMOTE_TRAFFIC_SAMPLES = 4_096;
 
 const SAMPLE_TIMEOUT_MS = 10_000;
 
@@ -106,6 +107,10 @@ function summarizeRemoteInterface(
 		sampledAt: new Date().toISOString(),
 	};
 	const previous = previousRemoteSamples.get(key) ?? null;
+	if (!previousRemoteSamples.has(key) && previousRemoteSamples.size >= MAX_REMOTE_TRAFFIC_SAMPLES) {
+		const oldest = previousRemoteSamples.keys().next().value;
+		if (oldest !== undefined) previousRemoteSamples.delete(oldest);
+	}
 	previousRemoteSamples.set(key, current);
 	const rate = calculateTrafficRate(previous, current);
 	return {

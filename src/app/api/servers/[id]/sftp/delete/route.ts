@@ -34,7 +34,7 @@ export async function DELETE(
         const teamAccess = await assertServerTeamAccess(session, id, "fileDelete");
         if (!teamAccess.ok) return teamAccess.response;
         const target = await loadEnabledServerForSftp(id, teamAccess.server.teamId, teamAccess.server, request.signal);
-        await assertSftpPathAccess({ session, serverId: id, paths: [query.path], target, signal: request.signal });
+        await assertSftpPathAccess({ session, serverId: id, paths: [query.path], mutation: true, target, signal: request.signal });
         await deleteFile(id, query.path, target.ssh);
         await auditUserAction(session.userId, "sftp.delete", { serverId: id, path: query.path }, undefined, session.currentTeamId);
         return NextResponse.json({ success: true, path: query.path });

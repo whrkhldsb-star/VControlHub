@@ -617,6 +617,10 @@ export async function createDeploymentRollbackRun(
     template: true,
   });
   if (!sourceRun) throw new NotFoundError(t("backend.deployment.deploymentRunNotFound"));
+  const nonRollbackableStatuses = new Set(["PENDING", "APPROVED", "REJECTED", "CANCELLED", "RUNNING"]);
+  if (sourceRun.status && nonRollbackableStatuses.has(sourceRun.status)) {
+    throw new ValidationError(t("backend.deployment.rollbackRequiresExecutedRun"));
+  }
   const snapshot = sourceRun.snapshot;
   if (!snapshot) throw new NotFoundError(t("backend.deployment.thisDeploymentHasNoSnapshotAvailableForRollback"));
   if (!snapshot.rollbackCommand?.trim()) throw new ValidationError(t("backend.deployment.thisDeploymentSnapshotHasNoRollbackCommand"));
