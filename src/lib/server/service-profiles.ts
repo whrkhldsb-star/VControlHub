@@ -15,7 +15,7 @@ import {
   detectOsDialect,
   serializeDialect,
 } from "@/lib/ssh/os-dialect";
-import { assertSshKeyTeam, encryptServerPasswordIfPlain, SSH_KEY_CREDENTIAL_SELECT } from "@/lib/ssh/ssh-key-crypto";
+import { assertSshKeyTeam, encryptServerPassword, SSH_KEY_CREDENTIAL_SELECT } from "@/lib/ssh/ssh-key-crypto";
 import type { TFn } from "@/lib/i18n/core";
 import { resolveStorageSshCredentials } from "@/lib/storage/ssh-credentials";
 import { localBasePathBelongsToTenant } from "@/lib/storage/path-utils";
@@ -131,7 +131,7 @@ function buildPendingServer(
       normalized.connectionType === "SSH_KEY" ? normalized.sshKeyId! : null,
     password:
       normalized.connectionType === "PASSWORD" && normalized.password
-        ? encryptServerPasswordIfPlain(normalized.password)
+        ? encryptServerPassword(normalized.password)
         : null,
     sshKey: normalized.connectionType === "SSH_KEY" ? sshKey : null,
     costAutoSync: normalized.costAutoSync,
@@ -411,7 +411,7 @@ export async function createServerProfile(
           normalized.connectionType === "SSH_KEY" ? normalized.sshKeyId! : null,
         password:
           normalized.connectionType === "PASSWORD" && normalized.password
-            ? encryptServerPasswordIfPlain(normalized.password)
+            ? encryptServerPassword(normalized.password)
             : null,
         costAutoSync: normalized.costAutoSync,
         costMonthlyAmount: normalized.costMonthlyAmount ? new Prisma.Decimal(normalized.costMonthlyAmount) : null,
@@ -640,7 +640,7 @@ async function saveServerProfile(serverId: string, current: ServerProfileRecord,
       normalized.connectionType === "SSH_KEY" ? normalized.sshKeyId! : null,
     password:
       normalized.connectionType === "PASSWORD" && input.password
-        ? encryptServerPasswordIfPlain(input.password)
+        ? encryptServerPassword(input.password)
         : current.password,
     sshKey: normalized.connectionType === "SSH_KEY" ? updateSshKey : null,
   };
@@ -679,7 +679,7 @@ async function saveServerProfile(serverId: string, current: ServerProfileRecord,
       sshKeyId:
         removeSshCredential ? null : normalized.connectionType === "SSH_KEY" ? normalized.sshKeyId! : null,
       ...(removeSshCredential || normalized.connectionType !== "PASSWORD" ? { password: null }
-        : input.password ? { password: encryptServerPasswordIfPlain(input.password) } : {}),
+        : input.password ? { password: encryptServerPassword(input.password) } : {}),
       ...(endpointChanged && { publicUrl: null, directGatewayDesiredDomain: null,
         directGatewayKeyVersion: Math.max(firstDirectGatewayKeyVersion(current.operatingSystem), current.directGatewayKeyVersion) + 1 }),
       description: normalized.description,

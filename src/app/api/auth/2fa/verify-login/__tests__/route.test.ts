@@ -52,7 +52,13 @@ vi.mock("@/lib/rate-limit", () => ({
 	LOGIN_RATE_LIMIT: { windowMs: 1, max: 5 },
 	checkRateLimitAsync: checkRateLimitMock,
 	getClientIp: getClientIpMock,
+	rateLimitIpKey: (ip: string | null | undefined) => (ip?.trim() || "unknown").toLowerCase(),
 	isAccountLockedAsync: isAccountLockedMock,
+	reserveLoginAttemptAsync: vi.fn(async () => ({
+		reserved: true,
+		reservation: { ticket: "t1", clientKey: "k1", accountKey: "k2", clientFailures: 5, accountFailures: 25, lockoutMs: 900_000 },
+	})),
+	settleLoginAttemptAsync: vi.fn(async () => undefined),
 	recordLoginFailureAsync: recordLoginFailureMock,
 	clearLoginFailureAsync: clearLoginFailureMock,
 }));

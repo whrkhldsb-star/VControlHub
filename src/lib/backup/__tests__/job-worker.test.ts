@@ -147,12 +147,12 @@ describe("backup job worker create path", () => {
 
     const ran = await runBackupJobWorkerOnce();
     expect(ran).toBe(true);
-    expect(mocks.failJob).toHaveBeenCalledWith(
+    expect(mocks.failJobTerminal).toHaveBeenCalledWith(
       "job_fail",
       expect.any(String),
       expect.stringContaining("tar failed"),
-      expect.objectContaining({ retryAfterMs: 60_000 }),
     );
+    expect(mocks.failJob).not.toHaveBeenCalled();
     expect(mocks.completeJob).not.toHaveBeenCalled();
   });
 

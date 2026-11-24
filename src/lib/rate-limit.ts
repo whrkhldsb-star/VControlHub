@@ -12,6 +12,7 @@
 import { config } from "@/lib/config/env";
 import { PEER_ADDRESS_HEADER, peerAddressIsStamped } from "@/lib/http/peer-address";
 import { getRateLimitStore } from "@/lib/rate-limit-store";
+import { expandIpv6Address } from "@/lib/security/ip-blocklist";
 
 type RateLimitConfig = {
 	/** Max requests allowed within the window */
@@ -148,8 +149,32 @@ function lockoutKey(username: string) {
 	return username.trim().slice(0, 64);
 }
 
+/**
+ * Normalize a client IP into a rate-limit / lockout bucket key.
+ *
+ * Routed IPv6 hosts typically control an entire /64 subnet and can rotate host
+ * bits on every request, so global IPv6 addresses collapse to their canonical
+ * /64 prefix for throttling while IPv4-mapped IPv6 addresses unwrap to IPv4.
+ * Full raw addresses from `getClientIp` remain untouched for audit logging.
+ */
+export function rateLimitIpKey(clientIp: string | null | undefined): string {
+	const raw = (clientIp?.trim() || "unknown").toLowerCase();
+	if (raw === "unknown" || !raw.includes(":")) return raw;
+	const parts = expandIpv6Address(raw);
+	if (!parts) return raw;
+	// IPv4-mapped IPv6 (::ffff:a.b.c.d) → canonical IPv4 dotted quad.
+	if (parts.slice(0, 5).every((word) => word === 0) && parts[5] === 0xffff) {
+		const high = parts[6]!;
+		const low = parts[7]!;
+		return `${high >> 8}.${high & 255}.${low >> 8}.${low & 255}`;
+	}
+	// Preserve loopback (::1) distinctly rather than collapsing to 0:0:0:0::/64.
+	if (parts.slice(0, 7).every((word) => word === 0) && parts[7] === 1) return "::1";
+	return `${parts.slice(0, 4).map((word) => word.toString(16)).join(":")}::/64`;
+}
+
 function clientLockoutKey(username: string, clientIp: string | null | undefined) {
-	return `${lockoutKey(username)}@${(clientIp?.trim() || "unknown").toLowerCase()}`;
+	return `${lockoutKey(username)}@${rateLimitIpKey(clientIp)}`;
 }
 
 async function readLock(key: string) {
@@ -212,7 +237,7 @@ const UNKNOWN_CREDENTIAL_MAX_FAILURES = 60;
 const UNKNOWN_CREDENTIAL_LOCK_MS = 5 * 60 * 1000;
 
 function credentialClientKey(scope: string, clientIp: string): string | null {
-	const address = clientIp.trim().toLowerCase();
+	const address = rateLimitIpKey(clientIp);
 	// ":" keeps these apart from login counters: a username cannot contain one.
 	return address && address !== "unknown" ? `credential:${scope}@${address}` : null;
 }
@@ -259,9 +284,124 @@ export async function recordLoginFailureAsync(
 	};
 }
 
+function attemptLockoutKey(key: string) {
+	// Separate from `recordFailures` lockout keys so settling a reserved
+	// challenge never double-increments `recordLoginFailureAsync`'s failCount.
+	return `attempt:${key}`;
+}
+
+export type LoginAttemptReservation = {
+	ticket: string;
+	clientKey: string;
+	accountKey: string;
+	clientFailures: number;
+	accountFailures: number;
+	lockoutMs: number;
+};
+
+/**
+ * Atomically reserve a verification slot against both the per-client and
+ * account-wide login lockout budgets before running slow credential checks.
+ * Prevents concurrent bursts from slipping past check-then-record lockouts.
+ */
+export async function reserveLoginAttemptAsync(
+	username: string,
+	clientIp?: string | null,
+): Promise<
+	| { reserved: true; reservation: LoginAttemptReservation }
+	| { reserved: false; locked: true; lockedUntil: number; scope: LockoutScope }
+> {
+	const policy = await loginLockoutPolicy();
+	const store = getRateLimitStore();
+	const ticket = globalThis.crypto.randomUUID();
+	const rawClientKey = clientLockoutKey(username, clientIp);
+	const rawAccountKey = lockoutKey(username);
+	const clientKey = attemptLockoutKey(rawClientKey);
+	const accountKey = attemptLockoutKey(rawAccountKey);
+
+	const accountReserved = await store.reserveChallenge(accountKey, ticket, policy.lockoutMs, policy.accountFailures);
+	if (!accountReserved) {
+		const lock = (await readLock(rawAccountKey)).lockedUntil ?? (await readLock(accountKey)).lockedUntil;
+		return {
+			reserved: false,
+			locked: true,
+			lockedUntil: lock ?? Date.now() + policy.lockoutMs,
+			scope: "account",
+		};
+	}
+
+	let clientReserved = false;
+	try {
+		clientReserved = await store.reserveChallenge(clientKey, ticket, policy.lockoutMs, policy.clientFailures);
+	} catch (error) {
+		try {
+			await store.settleChallenge(accountKey, ticket, false, policy.lockoutMs, policy.accountFailures);
+		} catch {
+			// Reservation expires automatically.
+		}
+		throw error;
+	}
+	if (!clientReserved) {
+		try {
+			await store.settleChallenge(accountKey, ticket, false, policy.lockoutMs, policy.accountFailures);
+		} catch {
+			// Reservation expires automatically.
+		}
+		const lock = (await readLock(rawClientKey)).lockedUntil ?? (await readLock(clientKey)).lockedUntil;
+		return {
+			reserved: false,
+			locked: true,
+			lockedUntil: lock ?? Date.now() + policy.lockoutMs,
+			scope: "client",
+		};
+	}
+
+	return {
+		reserved: true,
+		reservation: {
+			ticket,
+			clientKey,
+			accountKey,
+			clientFailures: policy.clientFailures,
+			accountFailures: policy.accountFailures,
+			lockoutMs: policy.lockoutMs,
+		},
+	};
+}
+
+/**
+ * Settle a previously reserved login/2FA attempt: release the slot on success
+ * or unexpected error (`failed = false`), or convert it into a counted failure
+ * (`failed = true`).
+ */
+export async function settleLoginAttemptAsync(
+	reservation: LoginAttemptReservation,
+	failed: boolean,
+): Promise<void> {
+	const store = getRateLimitStore();
+	const settle = async (key: string, limit: number) => {
+		try {
+			await store.settleChallenge(key, reservation.ticket, failed, reservation.lockoutMs, limit);
+		} catch {
+			// Best-effort cleanup; reservation expires on its own.
+		}
+	};
+	await Promise.all([
+		settle(reservation.clientKey, reservation.clientFailures),
+		settle(reservation.accountKey, reservation.accountFailures),
+	]);
+}
+
 /**
  * Clear lockout on the shared store after a successful login.
  */
 export async function clearLoginFailureAsync(username: string, clientIp?: string | null): Promise<void> {
-	await getRateLimitStore().deleteLockouts([lockoutKey(username), clientLockoutKey(username, clientIp)]);
+	const accountKey = lockoutKey(username);
+	const clientKey = clientLockoutKey(username, clientIp);
+	await getRateLimitStore().deleteLockouts([
+		accountKey,
+		clientKey,
+		attemptLockoutKey(accountKey),
+		attemptLockoutKey(clientKey),
+	]);
 }

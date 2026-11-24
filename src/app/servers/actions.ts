@@ -439,9 +439,12 @@ async function batchToggleServerActionImpl(
 
   try {
     const enabled = formData.get("enabled") === "true";
-    const serverIds = formData.getAll("serverIds").map(String).filter(Boolean);
+    const serverIds = Array.from(new Set(formData.getAll("serverIds").map(String).filter(Boolean)));
 
     if (serverIds.length === 0) {
+      return { error: tr("serversPage.action.batchEmpty") } as ServerActionState;
+    }
+    if (serverIds.length > 200) {
       return { error: tr("serversPage.action.batchEmpty") } as ServerActionState;
     }
     if (enabled) {
@@ -450,29 +453,64 @@ async function batchToggleServerActionImpl(
 
     const { prisma } = await import("@/lib/db");
     const { serverProfileTeamWhere } = await import("@/lib/auth/team-scope");
-    // Strict scope: a batch disable must not reach quarantined null-team servers.
-    const result = await prisma.server.updateMany({
-      where: { id: { in: serverIds }, ...serverProfileTeamWhere(session) },
-      data: { enabled },
+    const { withServerLifecycleLock } = await import("@/lib/server/lifecycle-lock");
+    const scopeWhere = serverProfileTeamWhere(session);
+    // Strict scope: only lock and disable servers belonging to the caller's scope,
+    // never quarantined null-team servers or other tenants' nodes.
+    const scopedRows = await prisma.server.findMany({
+      where: { id: { in: serverIds }, ...scopeWhere },
+      select: { id: true },
     });
-    await auditUserAction(
-      session.userId,
-      "server.batch_toggle",
-      {
-        enabled,
-        requestedCount: serverIds.length,
-        updatedCount: result.count,
-        serverIds,
-      },
-      undefined,
-      session.currentTeamId,
-    );
-
-    revalidatePath("/");
-    revalidatePath("/servers");
+    const updatedIds: string[] = [];
+    try {
+      for (const row of scopedRows) {
+        await withServerLifecycleLock(row.id, async () => {
+          const updated = await prisma.server.updateMany({
+            where: { id: row.id, ...scopeWhere },
+            data: { enabled },
+          });
+          if (updated.count > 0) updatedIds.push(row.id);
+        });
+      }
+    } finally {
+      // Always record an audit entry and refresh UI if any server was disabled,
+      // even when a later row fails to acquire its lifecycle lock.
+      if (updatedIds.length > 0) {
+        await auditUserAction(
+          session.userId,
+          "server.batch_toggle",
+          {
+            enabled,
+            requestedCount: serverIds.length,
+            updatedCount: updatedIds.length,
+            serverIds: updatedIds,
+          },
+          undefined,
+          session.currentTeamId,
+        );
+        revalidatePath("/");
+        revalidatePath("/servers");
+      }
+    }
+    if (updatedIds.length === 0) {
+      await auditUserAction(
+        session.userId,
+        "server.batch_toggle",
+        {
+          enabled,
+          requestedCount: serverIds.length,
+          updatedCount: 0,
+          serverIds: [],
+        },
+        undefined,
+        session.currentTeamId,
+      );
+      revalidatePath("/");
+      revalidatePath("/servers");
+    }
 
     return {
-      success: tr("serversPage.action.batchDisabled", { count: result.count }),
+      success: tr("serversPage.action.batchDisabled", { count: updatedIds.length }),
     } as ServerActionState;
   } catch (error) {
     return {

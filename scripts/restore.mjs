@@ -135,17 +135,33 @@ async function assertPlatformServicesStopped(appDir) {
   const systemctl = process.platform === "win32" ? null : await findBinary("systemctl");
   if (!systemctl) fail(`OFFLINE RESTORE REQUIRED: cannot confirm that ${units.join(", ")} are stopped (systemctl not available). ${NON_SYSTEMD_HINT}`);
   const unconfirmed = [];
-  for (const unit of units) {
+  const readUnitState = (unit) => {
     const result = spawnSync(systemctl, ["show", "-p", "LoadState", "-p", "ActiveState", "--", unit], { encoding: "utf8" });
+    const ok = !result.error && result.status === 0;
     const properties = Object.fromEntries(
-      (result.error || result.status !== 0 ? "" : result.stdout || "")
+      (ok ? result.stdout || "" : "")
         .split(/\r?\n/)
         .map((line) => line.split("="))
         .filter((pair) => pair.length === 2),
     );
-    const { LoadState: load, ActiveState: active } = properties;
+    return { ok, load: properties.LoadState, active: properties.ActiveState };
+  };
+  for (const unit of units) {
+    const { load, active } = readUnitState(unit);
     if (!KNOWN_LOAD_STATES.has(load)) unconfirmed.push(`${unit} (${load || "state unknown"})`);
     else if (!STOPPED_ACTIVE_STATES.has(active)) unconfirmed.push(`${unit} (${active || "state unknown"})`);
+  }
+  // When using the default unit set, also refuse if the nightly backup timer or
+  // service is installed and still active (or if systemctl itself fails).
+  if (configured === undefined) {
+    for (const unit of [`${slug}-backup.timer`, `${slug}-backup.service`]) {
+      const { ok, load, active } = readUnitState(unit);
+      if (!ok) {
+        unconfirmed.push(`${unit} (state unknown)`);
+      } else if (load === "loaded" && !STOPPED_ACTIVE_STATES.has(active)) {
+        unconfirmed.push(`${unit} (${active || "state unknown"})`);
+      }
+    }
   }
   if (unconfirmed.length > 0) {
     fail(`OFFLINE RESTORE REQUIRED: ${unconfirmed.join(", ")} not confirmed stopped. ${OFFLINE_HINT} ${NON_SYSTEMD_HINT}`);

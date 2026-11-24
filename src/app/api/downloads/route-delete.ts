@@ -111,7 +111,7 @@ export async function DELETE(request: Request) {
         const [cancelled] = await prisma.downloadTask.updateManyAndReturn({
           where: { id: taskId, transferManifest: { equals: task.transferManifest ?? Prisma.DbNull }, status: { in: ["PENDING", "RUNNING"] } },
           data: cancelledData,
-          select: { aria2Gid: true, pid: true },
+          select: { aria2Gid: true },
         });
         if (!cancelled) return NextResponse.json({ error: t("apiDownloads.taskNoLongerActive", locale) }, { status: 409 });
         if (cancelled.aria2Gid) {
@@ -128,9 +128,6 @@ export async function DELETE(request: Request) {
           } catch (err) {
             logError("[DownloadAPI] Failed to remove aria2 download after cancelling the task:", err);
           }
-        }
-        if (task.relayMode && cancelled.pid) {
-          try { process.kill(cancelled.pid, "SIGTERM"); } catch (err) { logError("[DownloadAPI] Failed to kill process:", err); }
         }
         await cleanupTemp(relayTempDir(taskId));
         return finishCancel();

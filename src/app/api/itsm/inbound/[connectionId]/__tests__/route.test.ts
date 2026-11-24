@@ -137,8 +137,20 @@ describe("POST /api/itsm/inbound/[connectionId]", () => {
     );
     // Resolved by the service after verification (A8-08), not before.
     expect(mocks.userFindFirst).not.toHaveBeenCalled();
-    const call = mocks.handleInboundWebhook.mock.calls[0]![0] as { resolveSystemUserId: () => Promise<string | null> };
-    await expect(call.resolveSystemUserId()).resolves.toBe("u_admin");
+    const call = mocks.handleInboundWebhook.mock.calls[0]![0] as { resolveSystemUserId: (teamId: string | null) => Promise<string | null> };
+    await expect(call.resolveSystemUserId(null)).resolves.toBe("u_admin");
+  });
+
+  it("attributes customer-scoped inbound webhooks to a member of that customer team, never the platform admin", async () => {
+    mocks.userFindFirst.mockResolvedValueOnce({ id: "u_customer_1" });
+    await POST(inbound(JSON.stringify({ title: "disk full" })), CONTEXT);
+
+    const call = mocks.handleInboundWebhook.mock.calls[0]![0] as { resolveSystemUserId: (teamId: string | null) => Promise<string | null> };
+    await expect(call.resolveSystemUserId("team_cust_a")).resolves.toBe("u_customer_1");
+    expect(mocks.roleFindFirst).not.toHaveBeenCalled();
+    expect(mocks.userFindFirst).toHaveBeenCalledWith(expect.objectContaining({
+      where: { status: "ACTIVE", teamMembership: { is: { teamId: "team_cust_a" } } },
+    }));
   });
 
   it("maps a rejected signature to its typed status instead of 200", async () => {
@@ -156,7 +168,7 @@ describe("POST /api/itsm/inbound/[connectionId]", () => {
 
     await POST(inbound(JSON.stringify({ title: "x" })), CONTEXT);
 
-    const call = mocks.handleInboundWebhook.mock.calls[0]![0] as { resolveSystemUserId: () => Promise<string | null> };
-    await expect(call.resolveSystemUserId()).resolves.toBeNull();
+    const call = mocks.handleInboundWebhook.mock.calls[0]![0] as { resolveSystemUserId: (teamId: string | null) => Promise<string | null> };
+    await expect(call.resolveSystemUserId(null)).resolves.toBeNull();
   });
 });

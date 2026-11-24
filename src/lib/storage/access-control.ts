@@ -213,8 +213,7 @@ export async function assertStorageAccess(input: {
     return { allowed: true };
   }
 
-  const caseInsensitive = hasCaseInsensitiveLocalPaths(node.driver)
-    || (node.driver === "SFTP" && (node.server?.operatingSystem === "WINDOWS" || Boolean(node.basePath && isWindowsStorageBasePath(node.basePath))));
+  const caseInsensitive = isCaseInsensitiveStorageNode(node);
   const matchingGrants = grants.filter((grant: StorageAccessGrantRow) => pathMatchesGrant(targetPath, grant.pathPrefix, caseInsensitive));
   const operationGrant = matchingGrants.find((grant: StorageAccessGrantRow) => grantAllowsOperation(grant, input.operation));
 
@@ -347,6 +346,12 @@ async function loadStorageGrants(userId: string, storageNodeId: string) {
   return grants;
 }
 
+function isCaseInsensitiveStorageNode(node: { driver: string; basePath: string | null; server: { operatingSystem: string } | null } | null): boolean {
+  if (!node) return false;
+  return hasCaseInsensitiveLocalPaths(node.driver)
+    || (node.driver === "SFTP" && (node.server?.operatingSystem === "WINDOWS" || Boolean(node.basePath && isWindowsStorageBasePath(node.basePath))));
+}
+
 /** Limits on a write; null means none. */
 export type StorageWriteCapacity = { maxFileBytes: bigint | null; remainingBytes: bigint | null };
 
@@ -367,8 +372,13 @@ export async function getStorageWriteCapacity(input: {
   if (isGlobalTeamManager(input.session) || sessionHasPermission(input.session, "storage:manage-node")) return unlimited;
   const grants = await loadStorageGrants(input.session.userId, input.storageNodeId);
   if (grants.length === 0) return unlimited;
+  const node = await prisma.storageNode.findFirst({
+    where: { id: input.storageNodeId, ...storageNodeTeamWhere(input.session) },
+    select: { driver: true, basePath: true, server: { select: { operatingSystem: true } } },
+  });
+  const caseInsensitive = isCaseInsensitiveStorageNode(node);
   const targetPath = normalizeAccessPath(input.relativePath);
-  const matching = targetPath === null ? [] : grants.filter(grant => pathMatchesGrant(targetPath, grant.pathPrefix));
+  const matching = targetPath === null ? [] : grants.filter(grant => pathMatchesGrant(targetPath, grant.pathPrefix, caseInsensitive));
   if (!matching.some(grant => grantAllowsOperation(grant, "write"))) return { maxFileBytes: BigInt(0), remainingBytes: BigInt(0) };
   const capacity: StorageWriteCapacity = { ...unlimited };
   for (const grant of matching) {
@@ -376,7 +386,7 @@ export async function getStorageWriteCapacity(input: {
       capacity.maxFileBytes = grant.maxFileBytes;
     }
     if (grant.quotaBytes === null) continue;
-    const used = await getGrantUsageBytes({ storageNodeId: input.storageNodeId, pathPrefix: grant.pathPrefix });
+    const used = await getGrantUsageBytes({ storageNodeId: input.storageNodeId, pathPrefix: grant.pathPrefix, caseInsensitive });
     const remaining = grant.quotaBytes - used;
     if (capacity.remainingBytes === null || remaining < capacity.remainingBytes) {
       capacity.remainingBytes = remaining > BigInt(0) ? remaining : BigInt(0);

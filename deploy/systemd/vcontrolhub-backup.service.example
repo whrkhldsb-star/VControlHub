@@ -29,4 +29,4 @@ ProtectControlGroups=true
 CapabilityBoundingSet=
 ReadWritePaths={{BACKUP_DIR}}
 MemoryMax=512M
-TimeoutStartSec=30min
+TimeoutStartSec=4h
