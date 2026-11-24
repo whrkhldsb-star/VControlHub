@@ -1,5 +1,5 @@
 {
-  "generatedAt": "2026-11-22T13:28:40.811Z",
+  "generatedAt": "2026-11-24T05:56:09.598Z",
   "summary": {
     "sidebarMain": 26,
     "sidebarSystem": 12,
@@ -1065,6 +1065,7 @@
       ],
       "guardMode": "withApiRoute",
       "declaredPermissions": [
+        "ai:ops:autonomous",
         "ai:ops:manage",
         "ai:ops:read"
       ]
