@@ -17,6 +17,8 @@ const PROTECTED_HOME_RELATIVE_EXACT = new Set([
 	".bashrc",
 	".bash_profile",
 	".bash_login",
+	".bash_logout",
+	".pam_environment",
 	".profile",
 	".zshrc",
 	".zprofile",
@@ -26,12 +28,14 @@ const PROTECTED_HOME_RELATIVE_EXACT = new Set([
 	".kshrc",
 	".gnupg",
 	".config/systemd",
+	".config/autostart",
 ]);
 
 const PROTECTED_HOME_RELATIVE_PREFIXES = [
 	".ssh/",
 	".gnupg/",
 	".config/systemd/",
+	".config/autostart/",
 ];
 
 function isProtectedLoginControlPath(candidate: string, root: string, windows: boolean): boolean {

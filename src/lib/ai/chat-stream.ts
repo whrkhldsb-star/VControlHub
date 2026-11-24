@@ -25,7 +25,7 @@ type JsonRecord = Record<string, unknown>;
 
 const MAX_EVENT_CHARS = 1024 * 1024;
 const MAX_STREAM_BYTES = 16 * 1024 * 1024;
-const MAX_STREAM_TEXT_CHARS = 250_000;
+const MAX_STREAM_TEXT_CHARS = 200_000;
 const MAX_TOOL_INDEX = 1023;
 
 function appendBounded(current: string, chunk: string): { next: string; emitted: string } {

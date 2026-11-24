@@ -23,6 +23,7 @@ import {
 } from "@/lib/alert/incidents";
 import { alertOperatorSign } from "@/lib/alert/operator";
 import { t } from "@/lib/i18n/service-translations";
+import { LeaseLostError } from "@/lib/job/heartbeat-runner";
 import { createLogger } from "@/lib/logging";
 
 const alertEvalLogger = createLogger("health:alerts");
@@ -372,7 +373,11 @@ export async function evaluateAlerts(options?: { ruleWhere?: Record<string, unkn
       );
     }
     } catch (error) {
-      if (options?.claim?.signal.aborted || (error instanceof Error && (error.name === "AbortError" || error.name === "SamplingClaimLostError"))) {
+      if (
+        options?.claim?.signal.aborted
+        || error instanceof LeaseLostError
+        || (error instanceof Error && error.name === "AbortError")
+      ) {
         throw error;
       }
       alertEvalLogger.error("alert rule evaluation failed; continuing with remaining rules", error, {

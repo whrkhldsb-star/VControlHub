@@ -387,6 +387,17 @@ export async function lockForTransactionShared(tx: RawExecutor, namespace: strin
   await tx.$executeRaw`SELECT pg_advisory_xact_lock_shared(${k1}::int, ${k2}::int)`;
 }
 
+type RawQueryExecutor = RawExecutor & {
+  $queryRaw: <T = unknown>(query: TemplateStringsArray, ...values: unknown[]) => PromiseLike<T>;
+};
+
+/** Non-blocking shared transaction-scoped advisory lock. Returns false if an exclusive holder is active. */
+export async function tryLockForTransactionShared(tx: RawQueryExecutor, namespace: string, resourceId: string): Promise<boolean> {
+  const { k1, k2 } = getLockKeys(namespace, resourceId);
+  const rows = await tx.$queryRaw<Array<{ acquired: boolean }>>`SELECT pg_try_advisory_xact_lock_shared(${k1}::int, ${k2}::int) AS acquired`;
+  return rows[0]?.acquired === true;
+}
+
 export async function closeAdvisoryLockPoolForTests() {
   const globalState = globalThis as AdvisoryLockGlobal;
   const pool = globalState.__vcontrolhubAdvisoryLockPool;

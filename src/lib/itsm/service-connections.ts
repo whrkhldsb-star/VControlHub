@@ -119,14 +119,18 @@ export async function updateItsmConnection(
     if (parsed.teamId !== existing.teamId) throw new ValidationError(t("backend.itsm.newConnectionForCustomer"));
   }
   if (parsed.config !== undefined) {
-    // Repointing a connection's webhook URL without re-entering credentials would
-    // forward the stored Bearer accessToken / webhookSecret to an attacker's host.
+    // Repointing a connection's webhook URL without explicitly re-entering stored
+    // credentials would forward the existing Bearer accessToken / webhookSecret to
+    // a new host (even if credentials: {} is passed or webhookUrl was cleared first).
     const prevConfig = parseConfig(existing.config);
     const prevUrl = typeof prevConfig.webhookUrl === "string" ? prevConfig.webhookUrl.trim() : "";
     const nextUrl = typeof parsed.config.webhookUrl === "string" ? parsed.config.webhookUrl.trim() : "";
-    if (nextUrl && prevUrl && nextUrl !== prevUrl && parsed.credentials === undefined) {
+    if (nextUrl && nextUrl !== prevUrl) {
       const existingCreds = decryptCredentials(existing.credentialsEnc);
-      if (existingCreds.accessToken || existingCreds.webhookSecret) {
+      const nextCreds = parsed.credentials;
+      const missingAccessToken = Boolean(existingCreds.accessToken) && !nextCreds?.accessToken;
+      const missingWebhookSecret = Boolean(existingCreds.webhookSecret) && !nextCreds?.webhookSecret;
+      if (missingAccessToken || missingWebhookSecret) {
         throw new ValidationError(t("backend.itsm.webhookCredentialsRequiredOnUrlChange"));
       }
     }

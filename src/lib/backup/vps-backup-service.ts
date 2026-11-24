@@ -1,4 +1,4 @@
-import { withServerLifecycleSharedLock } from "@/lib/server/lifecycle-lock";
+import { withServerLifecycleLock } from "@/lib/server/lifecycle-lock";
 import { apiCopy } from "@/lib/i18n/api-copy";
 import { t } from "@/lib/i18n/service-translations";
 /**
@@ -286,7 +286,7 @@ export async function runVpsBackupRecord(recordId: string, options: BackupExecut
     return { success: false, fileSize: null, checksumSha256: null, localPath: null, remotePath: null,
       errorMessage: apiCopy("apiCopy.vpsbackuprecord.not.found.54bb3bdf", { v0: recordId }) };
   }
-  return withServerLifecycleSharedLock(parent.serverId, () => runLockedBackup(recordId, parent.serverId, options));
+  return withServerLifecycleLock(parent.serverId, () => runLockedBackup(recordId, parent.serverId, options));
 }
 
 async function runLockedBackup(recordId: string, serverId: string, options: BackupExecutionOptions): Promise<VpsBackupResult> {

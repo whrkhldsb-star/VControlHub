@@ -11,8 +11,9 @@ async function runWithServerLifecycleLock<T>(
   work: () => Promise<T>,
 ): Promise<T> {
   const current = operations.getStore();
-  if (current?.held && current.serverId === serverId && (mode === "shared" || current.mode === "exclusive")) {
-    return work();
+  if (current?.held && current.serverId === serverId) {
+    if (mode === "shared" || current.mode === "exclusive") return work();
+    throw new Error(`Cannot upgrade shared server lifecycle lock to exclusive for server ${serverId}`);
   }
   const release = mode === "shared"
     ? await acquireAdvisoryLock("server-delete", serverId, { shared: true })

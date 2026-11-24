@@ -29,7 +29,7 @@ const createDeploymentSchema = z.object({
     .array(z.string().trim().min(1, "Target VPS is required"))
     .min(1, "At least 1 target VPS must be selected"),
   variables: z
-    .record(z.string().max(64), z.string().max(2048))
+    .record(z.string().max(64), z.string().max(16_384))
     .refine((obj) => Object.keys(obj).length <= 50)
     .default({}),
   reason: z.string().trim().max(500, "Reason must be at most 500 characters").optional(),

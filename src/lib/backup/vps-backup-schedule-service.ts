@@ -1,4 +1,4 @@
-import { lockForTransactionShared } from "@/lib/concurrency/advisory-lock";
+import { tryLockForTransactionShared } from "@/lib/concurrency/advisory-lock";
 import { apiCopy } from "@/lib/i18n/api-copy";
 /**
  * TR-043: VPS backup schedule service — CRUD + due dispatch.
@@ -227,29 +227,35 @@ export async function dispatchDueVpsBackupSchedules(): Promise<number> {
 			// and do the rest in separate writes: a crash in between disabled the
 			// schedule for good.)
 			const outcome = await prisma.$transaction(async (tx) => {
-				await lockForTransactionShared(tx, "server-delete", schedule.serverId);
+				const locked = await tryLockForTransactionShared(tx, "server-delete", schedule.serverId);
 				const parent = await tx.server.findFirst({
 					where: { id: schedule.serverId, teamId: schedule.server.teamId, enabled: true, ...liveCustomerRowsWhere() },
 					select: { teamId: true },
 				});
 				if (!parent) return "claimed-elsewhere" as const;
+				// Overlap guard: if the previous cycle for this server is still
+				// PENDING/RUNNING (slow backup + short cron), skip this occurrence
+				// even when the active backup holds the exclusive server-delete lock.
+				const inFlight = await tx.vpsBackupRecord.count({
+					where: { serverId: schedule.serverId, status: { in: ["PENDING", "RUNNING"] } },
+				});
+				if (inFlight > 0) {
+					const claimedOverlap = await tx.vpsBackupSchedule.updateMany({
+						where: occurrence,
+						data: { nextRunAt: computeNextRun(schedule.cronExpression) },
+					});
+					if (claimedOverlap.count === 0) return "claimed-elsewhere" as const;
+					await tx.vpsBackupSchedule.update({ where: { id: schedule.id }, data: { lastResult: "SKIPPED_OVERLAP" } });
+					return { skipped: inFlight };
+				}
+				// Another lifecycle mutation (delete/transfer/install) holds the exclusive lock;
+				// defer this tick without mutating the schedule so the next tick retries cleanly.
+				if (!locked) return "claimed-elsewhere" as const;
 				const claimed = await tx.vpsBackupSchedule.updateMany({
 					where: occurrence,
 					data: { nextRunAt: computeNextRun(schedule.cronExpression) },
 				});
 				if (claimed.count === 0) return "claimed-elsewhere" as const;
-				// Overlap guard: if the previous cycle for this server is still
-				// PENDING/RUNNING (slow backup + short cron), skip this occurrence
-				// instead of stacking concurrent SSH backup sessions against the
-				// same host. The stale-record reaper (job maintenance) fails any
-				// RUNNING row whose worker actually died, so this cannot wedge.
-				const inFlight = await tx.vpsBackupRecord.count({
-					where: { serverId: schedule.serverId, status: { in: ["PENDING", "RUNNING"] } },
-				});
-				if (inFlight > 0) {
-					await tx.vpsBackupSchedule.update({ where: { id: schedule.id }, data: { lastResult: "SKIPPED_OVERLAP" } });
-					return { skipped: inFlight };
-				}
 				// The record carries what this run backs up: a retry is a new record
 				// without the schedule, and with no paths of its own a failed custom
 				// backup could only ever fail again ("requires at least one path").

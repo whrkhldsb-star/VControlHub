@@ -11,6 +11,11 @@ vi.mock("@/lib/ssh/client", () => ({
 	resolveRemoteRealPath: vi.fn(async ({ remotePath }: { remotePath: string }) => remotePath),
 }));
 
+vi.mock("@/lib/concurrency/advisory-lock", () => ({
+	acquireAdvisoryLock: vi.fn(async () => async () => {}),
+}));
+
+import { withServerLifecycleLock, withServerLifecycleSharedLock } from "@/lib/server/lifecycle-lock";
 import { assertSftpPathAccess } from "@/lib/ssh/sftp-access-control";
 
 describe("R13 deep remediation regressions", () => {
@@ -66,8 +71,8 @@ describe("R13 deep remediation regressions", () => {
 			providerType: "OPENAI",
 			onEvent: () => {},
 		});
-		expect(state.content.length).toBe(250_000);
-		expect(state.reasoning.length).toBe(250_000);
+		expect(state.content.length).toBe(200_000);
+		expect(state.reasoning.length).toBe(200_000);
 	});
 
 	it("blocks sensitive secret paths in AI hosted read-only file commands", () => {
@@ -144,5 +149,13 @@ describe("R13 deep remediation regressions", () => {
 		const src = pythonGatewaySource();
 		expect(src).toContain("CANONICAL_ROOT = os.path.realpath(ROOT)");
 		expect(src).toContain('re.fullmatch(r"[0-9a-fA-F]{64}", signature)');
+	});
+
+	it("fails fast instead of self-deadlocking when upgrading a held shared lifecycle lock to exclusive", async () => {
+		await expect(
+			withServerLifecycleSharedLock("srv-1", async () =>
+				withServerLifecycleLock("srv-1", async () => "unreachable"),
+			),
+		).rejects.toThrow(/Cannot upgrade shared server lifecycle lock to exclusive/);
 	});
 });
