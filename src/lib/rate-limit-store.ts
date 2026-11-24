@@ -154,7 +154,18 @@ class MemoryRateLimitStore implements RateLimitStore {
     const now = Date.now();
     if (this.readLockout(bounded, now)?.lockedUntil) return false;
     const tickets = this.liveTickets(bounded, now) ?? new Map<string, number>();
-    if (tickets.size >= limit || (!tickets.size && this.challenges.size >= MEMORY_STORE_MAX_KEYS)) return false;
+    if (tickets.size >= limit) return false;
+    if (!tickets.size && this.challenges.size >= MEMORY_STORE_MAX_KEYS) {
+      // Evict expired challenge buckets first, then oldest entry, so a username
+      // spray cannot fill the in-memory table and lock out every real account.
+      for (const existing of this.challenges.keys()) {
+        this.liveTickets(existing, now);
+      }
+      if (this.challenges.size >= MEMORY_STORE_MAX_KEYS) {
+        const oldest = this.challenges.keys().next().value;
+        if (oldest !== undefined) this.challenges.delete(oldest);
+      }
+    }
     tickets.set(ticket, now + windowMs);
     this.challenges.set(bounded, tickets);
     return true;

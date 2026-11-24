@@ -462,30 +462,52 @@ async function batchToggleServerActionImpl(
       select: { id: true },
     });
     const updatedIds: string[] = [];
-    for (const row of scopedRows) {
-      await withServerLifecycleLock(row.id, async () => {
-        const updated = await prisma.server.updateMany({
-          where: { id: row.id, ...scopeWhere },
-          data: { enabled },
+    try {
+      for (const row of scopedRows) {
+        await withServerLifecycleLock(row.id, async () => {
+          const updated = await prisma.server.updateMany({
+            where: { id: row.id, ...scopeWhere },
+            data: { enabled },
+          });
+          if (updated.count > 0) updatedIds.push(row.id);
         });
-        if (updated.count > 0) updatedIds.push(row.id);
-      });
+      }
+    } finally {
+      // Always record an audit entry and refresh UI if any server was disabled,
+      // even when a later row fails to acquire its lifecycle lock.
+      if (updatedIds.length > 0) {
+        await auditUserAction(
+          session.userId,
+          "server.batch_toggle",
+          {
+            enabled,
+            requestedCount: serverIds.length,
+            updatedCount: updatedIds.length,
+            serverIds: updatedIds,
+          },
+          undefined,
+          session.currentTeamId,
+        );
+        revalidatePath("/");
+        revalidatePath("/servers");
+      }
     }
-    await auditUserAction(
-      session.userId,
-      "server.batch_toggle",
-      {
-        enabled,
-        requestedCount: serverIds.length,
-        updatedCount: updatedIds.length,
-        serverIds: updatedIds,
-      },
-      undefined,
-      session.currentTeamId,
-    );
-
-    revalidatePath("/");
-    revalidatePath("/servers");
+    if (updatedIds.length === 0) {
+      await auditUserAction(
+        session.userId,
+        "server.batch_toggle",
+        {
+          enabled,
+          requestedCount: serverIds.length,
+          updatedCount: 0,
+          serverIds: [],
+        },
+        undefined,
+        session.currentTeamId,
+      );
+      revalidatePath("/");
+      revalidatePath("/servers");
+    }
 
     return {
       success: tr("serversPage.action.batchDisabled", { count: updatedIds.length }),

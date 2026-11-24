@@ -137,24 +137,28 @@ async function assertPlatformServicesStopped(appDir) {
   const unconfirmed = [];
   const readUnitState = (unit) => {
     const result = spawnSync(systemctl, ["show", "-p", "LoadState", "-p", "ActiveState", "--", unit], { encoding: "utf8" });
-    return Object.fromEntries(
-      (result.error || result.status !== 0 ? "" : result.stdout || "")
+    const ok = !result.error && result.status === 0;
+    const properties = Object.fromEntries(
+      (ok ? result.stdout || "" : "")
         .split(/\r?\n/)
         .map((line) => line.split("="))
         .filter((pair) => pair.length === 2),
     );
+    return { ok, load: properties.LoadState, active: properties.ActiveState };
   };
   for (const unit of units) {
-    const { LoadState: load, ActiveState: active } = readUnitState(unit);
+    const { load, active } = readUnitState(unit);
     if (!KNOWN_LOAD_STATES.has(load)) unconfirmed.push(`${unit} (${load || "state unknown"})`);
     else if (!STOPPED_ACTIVE_STATES.has(active)) unconfirmed.push(`${unit} (${active || "state unknown"})`);
   }
   // When using the default unit set, also refuse if the nightly backup timer or
-  // service is installed and still active (so it cannot fire mid-restore).
+  // service is installed and still active (or if systemctl itself fails).
   if (configured === undefined) {
     for (const unit of [`${slug}-backup.timer`, `${slug}-backup.service`]) {
-      const { LoadState: load, ActiveState: active } = readUnitState(unit);
-      if (load === "loaded" && !STOPPED_ACTIVE_STATES.has(active)) {
+      const { ok, load, active } = readUnitState(unit);
+      if (!ok) {
+        unconfirmed.push(`${unit} (state unknown)`);
+      } else if (load === "loaded" && !STOPPED_ACTIVE_STATES.has(active)) {
         unconfirmed.push(`${unit} (${active || "state unknown"})`);
       }
     }

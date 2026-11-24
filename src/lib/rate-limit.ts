@@ -9,8 +9,6 @@
  * callers use the shared store.
  */
 
-import { randomUUID } from "node:crypto";
-
 import { config } from "@/lib/config/env";
 import { PEER_ADDRESS_HEADER, peerAddressIsStamped } from "@/lib/http/peer-address";
 import { getRateLimitStore } from "@/lib/rate-limit-store";
@@ -286,6 +284,12 @@ export async function recordLoginFailureAsync(
 	};
 }
 
+function attemptLockoutKey(key: string) {
+	// Separate from `recordFailures` lockout keys so settling a reserved
+	// challenge never double-increments `recordLoginFailureAsync`'s failCount.
+	return `attempt:${key}`;
+}
+
 export type LoginAttemptReservation = {
 	ticket: string;
 	clientKey: string;
@@ -309,33 +313,45 @@ export async function reserveLoginAttemptAsync(
 > {
 	const policy = await loginLockoutPolicy();
 	const store = getRateLimitStore();
-	const ticket = randomUUID();
-	const clientKey = clientLockoutKey(username, clientIp);
-	const accountKey = lockoutKey(username);
+	const ticket = globalThis.crypto.randomUUID();
+	const rawClientKey = clientLockoutKey(username, clientIp);
+	const rawAccountKey = lockoutKey(username);
+	const clientKey = attemptLockoutKey(rawClientKey);
+	const accountKey = attemptLockoutKey(rawAccountKey);
 
 	const accountReserved = await store.reserveChallenge(accountKey, ticket, policy.lockoutMs, policy.accountFailures);
 	if (!accountReserved) {
-		const lock = await readLock(accountKey);
+		const lock = (await readLock(rawAccountKey)).lockedUntil ?? (await readLock(accountKey)).lockedUntil;
 		return {
 			reserved: false,
 			locked: true,
-			lockedUntil: lock.lockedUntil ?? Date.now() + policy.lockoutMs,
+			lockedUntil: lock ?? Date.now() + policy.lockoutMs,
 			scope: "account",
 		};
 	}
 
-	const clientReserved = await store.reserveChallenge(clientKey, ticket, policy.lockoutMs, policy.clientFailures);
+	let clientReserved = false;
+	try {
+		clientReserved = await store.reserveChallenge(clientKey, ticket, policy.lockoutMs, policy.clientFailures);
+	} catch (error) {
+		try {
+			await store.settleChallenge(accountKey, ticket, false, policy.lockoutMs, policy.accountFailures);
+		} catch {
+			// Reservation expires automatically.
+		}
+		throw error;
+	}
 	if (!clientReserved) {
 		try {
 			await store.settleChallenge(accountKey, ticket, false, policy.lockoutMs, policy.accountFailures);
 		} catch {
 			// Reservation expires automatically.
 		}
-		const lock = await readLock(clientKey);
+		const lock = (await readLock(rawClientKey)).lockedUntil ?? (await readLock(clientKey)).lockedUntil;
 		return {
 			reserved: false,
 			locked: true,
-			lockedUntil: lock.lockedUntil ?? Date.now() + policy.lockoutMs,
+			lockedUntil: lock ?? Date.now() + policy.lockoutMs,
 			scope: "client",
 		};
 	}
@@ -380,5 +396,12 @@ export async function settleLoginAttemptAsync(
  * Clear lockout on the shared store after a successful login.
  */
 export async function clearLoginFailureAsync(username: string, clientIp?: string | null): Promise<void> {
-	await getRateLimitStore().deleteLockouts([lockoutKey(username), clientLockoutKey(username, clientIp)]);
+	const accountKey = lockoutKey(username);
+	const clientKey = clientLockoutKey(username, clientIp);
+	await getRateLimitStore().deleteLockouts([
+		accountKey,
+		clientKey,
+		attemptLockoutKey(accountKey),
+		attemptLockoutKey(clientKey),
+	]);
 }

@@ -35,7 +35,7 @@ import {
   pgConnection,
   readEnvFile,
   redactConnectionString,
-  restoreLockPath,
+  hasLiveRestoreLock,
   runBinary,
   timestamp,
   fileVersionDir,
@@ -160,6 +160,26 @@ async function dumpDatabase(outputPath, env, embedded = false) {
   log(`Backup completed: ${outputPath} (${size} bytes)`);
 }
 
+async function sweepStalePartials(dirs) {
+  const staleCutoff = Date.now() - PARTIAL_SWEEP_MAX_AGE_MS;
+  for (const dir of new Set(dirs.filter(Boolean))) {
+    try {
+      for (const entry of await fs.readdir(dir)) {
+        if (!/\.partial-[0-9a-f-]{8,}$/i.test(entry)) continue;
+        const full = path.join(dir, entry);
+        if (activeTempPaths.has(full)) continue;
+        const info = await fs.lstat(full).catch(() => null);
+        if (info?.isFile() && info.mtimeMs < staleCutoff) {
+          await fs.rm(full, { force: true });
+          log(`Swept stale interrupted backup partial: ${full}`);
+        }
+      }
+    } catch {
+      // Best-effort sweep.
+    }
+  }
+}
+
 async function pruneOldBackups(currentOutput) {
   const prefix = `${APP_NAME}_`;
   const escaped = prefix.replace(/[.*+?^${}()|[\]\\]/g, "\\$&");
@@ -196,25 +216,7 @@ async function pruneOldBackups(currentOutput) {
     }
     if (total > MAX_BYTES) log("Latest backup exceeds BACKUP_MAX_BYTES; preserved it for recovery. Increase backup capacity.");
   }
-  // Sweep orphaned *.partial-<uuid> leftovers from SIGKILL / power loss / crashed workers.
-  const partialDirs = new Set([BACKUP_DIR, path.dirname(currentOutput)]);
-  const staleCutoff = Date.now() - PARTIAL_SWEEP_MAX_AGE_MS;
-  for (const dir of partialDirs) {
-    try {
-      for (const entry of await fs.readdir(dir)) {
-        if (!/\.partial-[0-9a-f-]{8,}$/i.test(entry)) continue;
-        const full = path.join(dir, entry);
-        if (activeTempPaths.has(full)) continue;
-        const info = await fs.lstat(full).catch(() => null);
-        if (info?.isFile() && info.mtimeMs < staleCutoff) {
-          await fs.rm(full, { force: true });
-          log(`Swept stale interrupted backup partial: ${full}`);
-        }
-      }
-    } catch {
-      // Best-effort sweep.
-    }
-  }
+  await sweepStalePartials([BACKUP_DIR, path.dirname(currentOutput)]);
 }
 
 const FILES_MODE_PATHS = RESTORE_DATA_ROOTS;
@@ -389,13 +391,16 @@ async function main() {
     else if (arg) positional = arg;
   }
 
-  // Do not race an offline restore (e.g. nightly timer firing mid-restore).
-  if (!restoreSnapshot) {
-    const lockStat = await fs.lstat(restoreLockPath(APP_DIR)).catch(() => null);
-    if (lockStat) fail("An installation restore is in progress (.restore.lock exists); refusing to run backup");
+  // Do not race a live offline restore (e.g. nightly timer firing mid-restore),
+  // while ignoring a stale lock left behind by a dead local PID.
+  if (!restoreSnapshot && await hasLiveRestoreLock(APP_DIR)) {
+    fail("An installation restore is in progress (.restore.lock exists); refusing to run backup");
   }
 
   await fs.mkdir(BACKUP_DIR, { recursive: true });
+  // Reclaim stale interrupted *.partial-* files up front so a previous outage
+  // cannot keep the backup volume full before a new archive even starts.
+  await sweepStalePartials([BACKUP_DIR]);
   const envFile = await loadEnvFile();
   // ENV_FILE historically selects the database. Runtime overrides still
   // select archive directories and the recovery/scheduled-backup options.

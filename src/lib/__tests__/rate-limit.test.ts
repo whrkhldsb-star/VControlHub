@@ -126,6 +126,21 @@ describe("account lockout shared store", () => {
     if (next.reserved) await rate.settleLoginAttemptAsync(next.reservation, false);
   });
 
+  it("does not double-increment failCount when settling failed reservations alongside recordLoginFailureAsync", async () => {
+    for (let i = 1; i <= 5; i += 1) {
+      const attempt = await rate.reserveLoginAttemptAsync("carol", "203.0.113.42");
+      expect(attempt.reserved).toBe(true);
+      if (attempt.reserved) await rate.settleLoginAttemptAsync(attempt.reservation, true);
+      const recorded = await rate.recordLoginFailureAsync("carol", "203.0.113.42");
+      expect(recorded.failCount).toBe(i);
+      expect(recorded.locked).toBe(i === 5);
+    }
+    await rate.clearLoginFailureAsync("carol", "203.0.113.42");
+    const fresh = await rate.reserveLoginAttemptAsync("carol", "203.0.113.42");
+    expect(fresh.reserved).toBe(true);
+    if (fresh.reserved) await rate.settleLoginAttemptAsync(fresh.reservation, false);
+  });
+
   it("keeps concurrent counts in memory and starts fresh after the failure retention period", async () => {
     const attempts = await Promise.all(Array.from({ length: 4 }, () => rate.recordLoginFailureAsync("bob")));
     expect(attempts.map(result => result.failCount).sort()).toEqual([1, 2, 3, 4]);

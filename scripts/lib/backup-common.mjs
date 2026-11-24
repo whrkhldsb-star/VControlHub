@@ -238,6 +238,19 @@ export function restoreLockPath(appDir) {
   return path.join(appDir, ".restore.lock");
 }
 
+/**
+ * Return true if an active (non-stale) offline restore lock exists for `appDir`.
+ * A lock left behind by a crashed local PID does not block backups permanently.
+ */
+export async function hasLiveRestoreLock(appDir) {
+  const lockDir = restoreLockPath(appDir);
+  const stat = await fs.lstat(lockDir).catch(() => null);
+  if (!stat) return false;
+  const owner = await lockOwner(lockDir);
+  if (staleOwner(owner)) return false;
+  return true;
+}
+
 function readLockOwner(content) {
   const owner = {};
   for (const line of content.split(/\r?\n/)) {
