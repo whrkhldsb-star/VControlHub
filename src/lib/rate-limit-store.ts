@@ -150,24 +150,26 @@ class MemoryRateLimitStore implements RateLimitStore {
   }
 
   async reserveChallenge(key: string, ticket: string, windowMs: number, limit: number) {
+    const bounded = boundedKey(key);
     const now = Date.now();
-    if (this.readLockout(key, now)?.lockedUntil) return false;
-    const tickets = this.liveTickets(key, now) ?? new Map<string, number>();
+    if (this.readLockout(bounded, now)?.lockedUntil) return false;
+    const tickets = this.liveTickets(bounded, now) ?? new Map<string, number>();
     if (tickets.size >= limit || (!tickets.size && this.challenges.size >= MEMORY_STORE_MAX_KEYS)) return false;
     tickets.set(ticket, now + windowMs);
-    this.challenges.set(key, tickets);
+    this.challenges.set(bounded, tickets);
     return true;
   }
 
   async settleChallenge(key: string, ticket: string, failed: boolean, windowMs: number, limit: number) {
+    const bounded = boundedKey(key);
     const now = Date.now();
-    const tickets = this.liveTickets(key, now);
+    const tickets = this.liveTickets(bounded, now);
     if (!tickets?.delete(ticket)) return false;
     if (failed) tickets.set("failed:" + ticket, now + windowMs);
-    if (!tickets.size) this.challenges.delete(key);
+    if (!tickets.size) this.challenges.delete(bounded);
     const failures = [...tickets.keys()].filter(id => id.startsWith("failed:")).length;
     if (failures < limit) return false;
-    this.writeLockout(key, { failCount: failures, lastFailureAt: now, lockedUntil: now + windowMs }, now + windowMs, now);
+    this.writeLockout(bounded, { failCount: failures, lastFailureAt: now, lockedUntil: now + windowMs }, now + windowMs, now);
     return true;
   }
 
@@ -223,7 +225,11 @@ class MemoryRateLimitStore implements RateLimitStore {
   }
 
   async deleteLockouts(keys: string[]): Promise<void> {
-    for (const key of keys) this.lockouts.delete(boundedKey(key));
+    for (const key of keys) {
+      const bounded = boundedKey(key);
+      this.lockouts.delete(bounded);
+      this.challenges.delete(bounded);
+    }
   }
 
   private cleanup() {
@@ -478,7 +484,7 @@ class RedisRateLimitStore implements RateLimitStore {
 
   async deleteLockouts(keys: string[]): Promise<void> {
     const client = await this.getClient();
-    await client.del(keys.map(key => `${this.prefix}lockout:${key}`));
+    await client.del(keys.flatMap(key => [`${this.prefix}lockout:${key}`, `${this.prefix}challenge:${key}`]));
   }
 }
 

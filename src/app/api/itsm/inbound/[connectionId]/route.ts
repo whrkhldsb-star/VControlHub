@@ -12,7 +12,7 @@ import { GENERAL_WRITE_LIMIT } from "@/lib/http/rate-limit-presets";
 import { handleInboundWebhook } from "@/lib/itsm/service";
 import { apiCatch } from "@/lib/http/api-error";
 import { createLogger } from "@/lib/logging";
-import { checkRateLimitAsync, getClientIp } from "@/lib/rate-limit";
+import { checkRateLimitAsync, getClientIp, rateLimitIpKey } from "@/lib/rate-limit";
 import { getErrorMessage } from "@/lib/http/error-message";
 import { readRequestBodyBuffer, RequestBodyTooLargeError } from "@/lib/http/request-body";
 
@@ -49,7 +49,7 @@ export async function POST(request: Request, context: RouteContext) {
 	const clientIp = getClientIp(request);
 	const [connectionLimit, ipLimit] = await Promise.all([
 		checkRateLimitAsync(`itsm-inbound:conn:${connectionId}`, GENERAL_WRITE_LIMIT),
-		checkRateLimitAsync(`itsm-inbound:ip:${clientIp}`, GENERAL_WRITE_LIMIT),
+		checkRateLimitAsync(`itsm-inbound:ip:${rateLimitIpKey(clientIp)}`, GENERAL_WRITE_LIMIT),
 	]);
 	if (!connectionLimit.allowed || !ipLimit.allowed) {
 		const retryAfterMs = Math.max(connectionLimit.retryAfterMs, ipLimit.retryAfterMs);
@@ -86,14 +86,25 @@ export async function POST(request: Request, context: RouteContext) {
 		return NextResponse.json({ error: apiCopy("apiCopy.invalid.json.body.7ea5df57") }, { status: 400 });
 	}
 
-	// System-authored inbound tickets are created as the earliest administrator,
-	// else an active user of the connection owner; resolved by the service only after the call verified (A8-08).
+	// System-authored inbound tickets are attributed within the connection's own
+	// tenant boundary: a customer connection uses an active member of that team
+	// (never the platform administrator, whose identity must not leak into tenant
+	// ticket views); platform-level connections (teamId === null) use the earliest
+	// active administrator. Resolved only after signature verification (A8-08).
 	const resolveSystemUserId = async (teamId: string | null) => {
+		if (teamId) {
+			const teamUser = await prisma.user.findFirst({
+				where: { status: "ACTIVE", teamMembership: { is: { teamId } } },
+				select: { id: true },
+				orderBy: [{ createdAt: "asc" }, { id: "asc" }],
+			});
+			return teamUser?.id ?? null;
+		}
 		const adminRole = await prisma.role.findFirst({ where: { key: "admin" }, select: { id: true } });
 		const systemUser =
 			(adminRole
 				? await prisma.user.findFirst({ where: { status: "ACTIVE", roles: { some: { roleId: adminRole.id } } }, select: { id: true }, orderBy: [{ createdAt: "asc" }, { id: "asc" }] })
-				: null) ?? (await prisma.user.findFirst({ where: { status: "ACTIVE", ...(teamId ? { teamMembership: { is: { teamId } } } : {}) }, select: { id: true }, orderBy: [{ createdAt: "asc" }, { id: "asc" }] }));
+				: null) ?? (await prisma.user.findFirst({ where: { status: "ACTIVE" }, select: { id: true }, orderBy: [{ createdAt: "asc" }, { id: "asc" }] }));
 		return systemUser?.id ?? null;
 	};
 

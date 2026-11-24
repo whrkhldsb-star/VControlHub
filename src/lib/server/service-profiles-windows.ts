@@ -10,7 +10,7 @@ import { rdpCertificatePinSupported } from "@/lib/rdp/certificate";
 import { rdpProfileSchema } from "@/lib/rdp/protocol";
 import { listRemoteDirectory } from "@/lib/ssh/client";
 import { requireApprovedSshHostKey } from "@/lib/ssh/host-key";
-import { decryptServerPassword, encryptServerPasswordIfPlain } from "@/lib/ssh/ssh-key-crypto";
+import { decryptServerPassword, encryptServerPassword } from "@/lib/ssh/ssh-key-crypto";
 import { removeAgentFromHost, resetAgentForModeChange } from "./agent-service";
 import { createServerSchema, type CreateServerInput, type CreateServerPayload } from "./schema";
 import { findServerProfileForSession, savedProfileBinding, SERVER_PROFILE_INCLUDE, type ServerProfileRecord } from "./service-profile-includes";
@@ -60,7 +60,7 @@ export async function createWindowsServerProfile(
       // AGENT mode on Windows is connected manually afterwards via the
       // PowerShell install command shown on the node card.
       managementMode: payload.managementMode,
-      password: payload.windowsSftpEnabled ? encryptServerPasswordIfPlain(payload.windowsSftpPassword!) : null,
+      password: payload.windowsSftpEnabled ? encryptServerPassword(payload.windowsSftpPassword!) : null,
       sshKeyId: null, hostKeySha256: sftpHostKey, rdpPassword: encrypt(payload.rdpPassword),
       rdpDomain: payload.rdpDomain || null, rdpIgnoreCertificate: payload.rdpIgnoreCertificate,
       rdpCertificateSha256: payload.rdpCertificateSha256 || null,
@@ -206,7 +206,7 @@ export async function updateWindowsServerProfile(
       description: payload.description, tags: payload.tags,
       managementMode: nextManagementMode,
       ...(nextSftp && { hostKeySha256: nextSftpHostKey }),
-      ...(nextSftp && input.windowsSftpPassword && { password: encryptServerPasswordIfPlain(nextSftp.password) }),
+      ...(nextSftp && input.windowsSftpPassword && { password: encryptServerPassword(nextSftp.password) }),
       ...(rdpInput.rdpPassword !== undefined && { rdpPassword: encrypt(payload.password) }),
       rdpDomain: payload.domain || null, rdpIgnoreCertificate: payload.ignoreCertificate,
       rdpCertificateSha256: payload.certificateSha256 || null,

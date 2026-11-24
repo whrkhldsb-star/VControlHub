@@ -98,6 +98,34 @@ describe("account lockout shared store", () => {
     expect(await store.getLockout("bob@203.0.113.5")).toBeNull();
   });
 
+  it("collapses routed IPv6 addresses to /64 prefixes so one host cannot rotate buckets", async () => {
+    expect(rate.rateLimitIpKey("2001:db8:abcd:1234::1")).toBe("2001:db8:abcd:1234::/64");
+    expect(rate.rateLimitIpKey("2001:db8:abcd:1234:feed:beef:1:2")).toBe("2001:db8:abcd:1234::/64");
+    expect(rate.rateLimitIpKey("::ffff:203.0.113.9")).toBe("203.0.113.9");
+    expect(rate.rateLimitIpKey("::1")).toBe("::1");
+    for (let i = 1; i <= 5; i += 1) {
+      await rate.recordLoginFailureAsync("bob", `2001:db8:abcd:1234::${i}`);
+    }
+    expect(await rate.isAccountLockedAsync("bob", "2001:db8:abcd:1234::9999")).toMatchObject({ locked: true, scope: "client" });
+  });
+
+  it("bounds concurrent login attempts atomically against the account-wide cap", async () => {
+    const attempts = await Promise.all(
+      Array.from({ length: 40 }, (_, i) => rate.reserveLoginAttemptAsync("alice", `198.51.100.${i + 1}`)),
+    );
+    const reserved = attempts.filter((entry) => entry.reserved);
+    const rejected = attempts.filter((entry) => !entry.reserved);
+    expect(reserved).toHaveLength(25);
+    expect(rejected).toHaveLength(15);
+    for (const entry of reserved) {
+      if (entry.reserved) await rate.settleLoginAttemptAsync(entry.reservation, false);
+    }
+    // Releasing on success frees the budget again.
+    const next = await rate.reserveLoginAttemptAsync("alice", "198.51.100.200");
+    expect(next.reserved).toBe(true);
+    if (next.reserved) await rate.settleLoginAttemptAsync(next.reservation, false);
+  });
+
   it("keeps concurrent counts in memory and starts fresh after the failure retention period", async () => {
     const attempts = await Promise.all(Array.from({ length: 4 }, () => rate.recordLoginFailureAsync("bob")));
     expect(attempts.map(result => result.failCount).sort()).toEqual([1, 2, 3, 4]);

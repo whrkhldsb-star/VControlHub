@@ -335,7 +335,7 @@ func (s share) handle(op operation) (result, error) {
 			if !validPath(item.Name()) || item.Type()&os.ModeSymlink != 0 {
 				continue
 			}
-			info, err := item.Info()
+			info, err := dirRoot.Lstat(item.Name())
 			if err != nil {
 				return out, err
 			}

@@ -6,7 +6,18 @@ import { authenticateUser } from "@/lib/auth/service";
 import { createSessionToken, getSessionCookieName, createPending2faToken, getPending2faCookieName, getConfiguredSessionTtlSeconds } from "@/lib/auth/session";
 import { auditUserAction, auditSystemAction } from "@/lib/audit/service";
 import { createLogger } from "@/lib/logging";
-import { checkRateLimitAsync, getClientIp, LOGIN_RATE_LIMIT, LOGIN_SLOW_RATE_LIMIT, isAccountLockedAsync, recordLoginFailureAsync, clearLoginFailureAsync } from "@/lib/rate-limit";
+import {
+	checkRateLimitAsync,
+	getClientIp,
+	rateLimitIpKey,
+	LOGIN_RATE_LIMIT,
+	LOGIN_SLOW_RATE_LIMIT,
+	isAccountLockedAsync,
+	reserveLoginAttemptAsync,
+	settleLoginAttemptAsync,
+	recordLoginFailureAsync,
+	clearLoginFailureAsync,
+} from "@/lib/rate-limit";
 import { generateCsrfToken, getCsrfCookieName } from "@/lib/auth/csrf";
 import { isRequestHttps } from "@/lib/http/request-https";
 import { isCrossSiteFormPost } from "@/lib/http/request-origin";
@@ -61,10 +72,11 @@ export async function POST(request: Request) {
 
 		// Rate limiting — check both fast and slow windows
 		const clientIp = getClientIp(request);
+		const clientIpBucket = rateLimitIpKey(clientIp);
 		// Keep the fast and slow windows in separate buckets. Sharing the raw IP
 		// makes one login consume two entries and causes premature lockouts.
-		const fastCheck = await checkRateLimitAsync(`login:fast:${clientIp}`, LOGIN_RATE_LIMIT);
-		const slowCheck = await checkRateLimitAsync(`login:slow:${clientIp}`, LOGIN_SLOW_RATE_LIMIT);
+		const fastCheck = await checkRateLimitAsync(`login:fast:${clientIpBucket}`, LOGIN_RATE_LIMIT);
+		const slowCheck = await checkRateLimitAsync(`login:slow:${clientIpBucket}`, LOGIN_SLOW_RATE_LIMIT);
 
 		if (!fastCheck.allowed || !slowCheck.allowed) {
 			const retryAfter = Math.ceil(Math.max(
@@ -138,15 +150,37 @@ export async function POST(request: Request) {
 			if (verdict.unverified) await auditSystemAction("auth.login_captcha_unverified", { username, ip: clientIp }, "WARNING");
 		}
 
-		// Check account lockout before attempting authentication
+		// Check account lockout and atomically reserve an attempt slot before
+		// running bcrypt so concurrent bursts cannot outrun the account-wide cap.
 		const lockCheck = await isAccountLockedAsync(username, clientIp);
 		if (lockCheck.locked) {
 			const remainingMin = Math.ceil((lockCheck.lockedUntil! - Date.now()) / 60000);
 			const params = new URLSearchParams({ error: "locked", minutes: String(remainingMin) });
 			return redirectWithRelativeLocation(`/login?${params.toString()}`);
 		}
+		const attempt = await reserveLoginAttemptAsync(username, clientIp);
+		if (!attempt.reserved) {
+			const remainingMin = Math.max(1, Math.ceil((attempt.lockedUntil - Date.now()) / 60000));
+			const params = new URLSearchParams({ error: "locked", minutes: String(remainingMin) });
+			return redirectWithRelativeLocation(`/login?${params.toString()}`);
+		}
 
-		const user = await authenticateUser({ username: parsed.data.username, password });
+		let user: Awaited<ReturnType<typeof authenticateUser>>;
+		let attemptSettled = false;
+		try {
+			user = await authenticateUser({ username: parsed.data.username, password });
+			if (!user) {
+				attemptSettled = true;
+				await settleLoginAttemptAsync(attempt.reservation, true);
+			} else {
+				attemptSettled = true;
+				await settleLoginAttemptAsync(attempt.reservation, false);
+			}
+		} finally {
+			if (!attemptSettled) {
+				await settleLoginAttemptAsync(attempt.reservation, false);
+			}
+		}
 		if (!user) {
 			// Account lockout: record failure and check
 			const lockResult = await recordLoginFailureAsync(username, clientIp);

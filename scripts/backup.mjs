@@ -16,7 +16,7 @@
  */
 import { spawn } from "node:child_process";
 import { randomUUID } from "node:crypto";
-import { createWriteStream } from "node:fs";
+import { createWriteStream, rmSync } from "node:fs";
 import fs from "node:fs/promises";
 import os from "node:os";
 import path from "node:path";
@@ -35,6 +35,7 @@ import {
   pgConnection,
   readEnvFile,
   redactConnectionString,
+  restoreLockPath,
   runBinary,
   timestamp,
   fileVersionDir,
@@ -55,15 +56,53 @@ const RETENTION_DAYS = Number(process.env.BACKUP_RETENTION_DAYS ?? 30);
 const MAX_BYTES = Number(process.env.BACKUP_MAX_BYTES ?? 0);
 process.umask(0o077);
 
+const PARTIAL_SWEEP_MAX_AGE_MS = 24 * 60 * 60 * 1000;
+const activeChildren = new Set();
+const activeTempPaths = new Set();
+
+function trackChild(child) {
+  activeChildren.add(child);
+  const untrack = () => activeChildren.delete(child);
+  child.once("exit", untrack);
+  child.once("close", untrack);
+  child.once("error", untrack);
+  return child;
+}
+
+function cleanupOnSignal(signal) {
+  for (const child of activeChildren) {
+    try {
+      child.kill("SIGTERM");
+    } catch {
+      // Best-effort child shutdown.
+    }
+  }
+  for (const tempPath of activeTempPaths) {
+    try {
+      rmSync(tempPath, { recursive: true, force: true });
+    } catch {
+      // Best-effort temp cleanup.
+    }
+  }
+  const code = signal === "SIGINT" ? 130 : signal === "SIGHUP" ? 129 : 143;
+  process.exit(code);
+}
+
+for (const signal of ["SIGTERM", "SIGINT", "SIGHUP"]) {
+  process.on(signal, () => cleanupOnSignal(signal));
+}
+
 async function publishBackup(outputPath, write) {
   await fs.mkdir(path.dirname(outputPath), { recursive: true });
   const temporary = `${outputPath}.partial-${randomUUID()}`;
+  activeTempPaths.add(temporary);
   try {
     await write(temporary);
     await fs.chmod(temporary, 0o600);
     // Linking publishes a complete file atomically and refuses existing names.
     await fs.link(temporary, outputPath);
   } finally {
+    activeTempPaths.delete(temporary);
     await fs.rm(temporary, { force: true });
   }
 }
@@ -92,10 +131,10 @@ async function dumpDatabase(outputPath, env, embedded = false) {
   await publishBackup(outputPath, async (temporary) => {
     const schema = applicationSchema(env);
     const schemaArgs = pgDumpSchemaArgs(schema);
-    const child = spawn(pgDump, [...connArgs, ...schemaArgs, "--no-owner", "--no-privileges", "--clean", "--if-exists"], {
+    const child = trackChild(spawn(pgDump, [...connArgs, ...schemaArgs, "--no-owner", "--no-privileges", "--clean", "--if-exists"], {
       stdio: ["ignore", "pipe", "pipe"],
       env: childEnv,
-    });
+    }));
     let stderr = "";
     child.stderr.on("data", (chunk) => {
       stderr = (stderr + String(chunk)).slice(-16 * 1024);
@@ -156,6 +195,25 @@ async function pruneOldBackups(currentOutput) {
       log(`Removed old managed backup to enforce BACKUP_MAX_BYTES: ${item.full}`);
     }
     if (total > MAX_BYTES) log("Latest backup exceeds BACKUP_MAX_BYTES; preserved it for recovery. Increase backup capacity.");
+  }
+  // Sweep orphaned *.partial-<uuid> leftovers from SIGKILL / power loss / crashed workers.
+  const partialDirs = new Set([BACKUP_DIR, path.dirname(currentOutput)]);
+  const staleCutoff = Date.now() - PARTIAL_SWEEP_MAX_AGE_MS;
+  for (const dir of partialDirs) {
+    try {
+      for (const entry of await fs.readdir(dir)) {
+        if (!/\.partial-[0-9a-f-]{8,}$/i.test(entry)) continue;
+        const full = path.join(dir, entry);
+        if (activeTempPaths.has(full)) continue;
+        const info = await fs.lstat(full).catch(() => null);
+        if (info?.isFile() && info.mtimeMs < staleCutoff) {
+          await fs.rm(full, { force: true });
+          log(`Swept stale interrupted backup partial: ${full}`);
+        }
+      }
+    } catch {
+      // Best-effort sweep.
+    }
   }
 }
 
@@ -299,7 +357,7 @@ async function archivePaths(outputPath, members, extraDir, env, { full = false, 
   // A normal files archive can tolerate hot log writes. A full backup and
   // a pre-restore snapshot must be complete before being published.
   const strict = full || restoreSnapshot || process.platform === "win32";
-  const created = await runBinary(tar, args, { okExitCodes: strict ? [] : [1] });
+  const created = await runBinary(tar, args, { okExitCodes: strict ? [] : [1], onSpawn: trackChild });
   // Some tar implementations warn about a disappearing member but still exit
   // zero. The file need not have a database row (for example an env file).
   if ((full || restoreSnapshot) && created.stderr.trim()) {
@@ -329,6 +387,12 @@ async function main() {
     else if (arg === "--restore-snapshot") restoreSnapshot = true;
     else if (arg === "--database") mode = "database";
     else if (arg) positional = arg;
+  }
+
+  // Do not race an offline restore (e.g. nightly timer firing mid-restore).
+  if (!restoreSnapshot) {
+    const lockStat = await fs.lstat(restoreLockPath(APP_DIR)).catch(() => null);
+    if (lockStat) fail("An installation restore is in progress (.restore.lock exists); refusing to run backup");
   }
 
   await fs.mkdir(BACKUP_DIR, { recursive: true });
@@ -362,6 +426,7 @@ async function main() {
   // full: stage the db dump beside the file set without archiving backups/ itself.
   log(`Starting ${mode} backup: ${output}`);
   const staging = await fs.mkdtemp(path.join(os.tmpdir(), "vch-backup-full-"));
+  activeTempPaths.add(staging);
   try {
     const full = mode === "full";
     if (full) await dumpDatabase(path.join(staging, "database.sql.gz"), env, true);
@@ -369,6 +434,7 @@ async function main() {
       full ? FULL_MODE_PATHS : FILES_MODE_PATHS, staging, env, { full, restoreSnapshot }));
     await pruneOldBackups(output);
   } finally {
+    activeTempPaths.delete(staging);
     await fs.rm(staging, { recursive: true, force: true }).catch(() => undefined);
   }
 }

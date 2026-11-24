@@ -12,5 +12,6 @@ async function loadServerOperationTargetsImpl(kind: "command" | "batch" | "deplo
   if (kind !== "command" && kind !== "batch" && kind !== "deployment") throw new Error("Invalid operation kind");
   await requirePermission("server:read");
   const session = await requirePermission(kind === "deployment" ? "deploy:run" : kind === "command" ? "command:create" : "server:write");
-  return getServerOperationTargets(session, kind === "deployment" ? "command" : kind, input);
+  const safeInput = input && typeof input === "object" && !Array.isArray(input) ? input : {};
+  return getServerOperationTargets(session, kind === "deployment" ? "command" : kind, safeInput);
 }

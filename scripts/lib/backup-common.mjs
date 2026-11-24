@@ -137,9 +137,10 @@ export function redactConnectionString(text) {
  * the `code`), for tools whose exit status distinguishes a warning from a failure.
  */
 export function runBinary(binary, args, options = {}) {
-  const { okExitCodes = [], ...spawnOptions } = options;
+  const { okExitCodes = [], onSpawn, ...spawnOptions } = options;
   return new Promise((resolve, reject) => {
     const child = spawn(binary, args, { stdio: ["ignore", "pipe", "pipe"], ...spawnOptions });
+    onSpawn?.(child);
     let stdout = "";
     let stderr = "";
     child.stdout?.on?.("data", (chunk) => {

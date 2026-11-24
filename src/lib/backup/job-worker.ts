@@ -248,11 +248,13 @@ async function handleJob(job: Awaited<ReturnType<typeof claimNextJob>>) {
           }),
       });
       // runExistingBackupRecord returns FAILED records without throwing — do not completeJob.
+      // Fail terminally: a FAILED BackupRecord can never be re-claimed from PENDING,
+      // so retrying would only overwrite the real failure message with ConflictError.
       if (backup.status !== "COMPLETED") {
         const message = (
           backup.errorMessage || `Backup finished with status ${backup.status}`
         ).slice(0, 2000);
-        await failJob(job.id, WORKER_ID, message, { retryAfterMs: 60_000 });
+        await failJobTerminal(job.id, WORKER_ID, message);
         logger.error("backup create job finished without COMPLETED status", {
           jobId: job.id,
           backupId: backup.id,
@@ -361,11 +363,13 @@ async function handleJob(job: Awaited<ReturnType<typeof claimNextJob>>) {
           > | null = null;
           try {
             // Platform-wide, so once a day is plenty (A9-09): it used to run after every schedule's retention task.
-            if (Date.now() - lastOffsitePruneAt >= OFFSITE_PRUNE_INTERVAL_MS) {
-              lastOffsitePruneAt = Date.now();
+            // Dedicated daily offsiteOnly ticks bypass the in-process throttle so clock jitter does not skip every other day,
+            // and the latch advances only after pruneOffsiteObjects() succeeds.
+            if (payload.offsiteOnly || Date.now() - lastOffsitePruneAt >= OFFSITE_PRUNE_INTERVAL_MS) {
               const { pruneOffsiteObjects } =
                 await import("./offsite-retention");
               offsiteResult = await pruneOffsiteObjects();
+              lastOffsitePruneAt = Date.now();
             }
           } catch (offsiteErr) {
             logger.warn("offsite retention prune failed (non-fatal)", {

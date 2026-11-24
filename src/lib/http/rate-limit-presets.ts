@@ -13,7 +13,7 @@
  */
 
 import { apiCopy } from "@/lib/i18n/api-copy";
-import { checkRateLimitAsync, getClientIp } from "@/lib/rate-limit";
+import { checkRateLimitAsync, getClientIp, rateLimitIpKey } from "@/lib/rate-limit";
 
 export type RateLimitConfig = {
 	maxRequests: number;
@@ -94,7 +94,7 @@ export async function withRateLimit(
 	request: Request,
 	config: RateLimitConfig,
 ): Promise<{ allowed: boolean; retryAfterMs: number; remaining: number }> {
-	const ip = getClientIp(request);
+	const ip = rateLimitIpKey(getClientIp(request));
 	let bucket = config.bucketKey?.trim();
 	if (!bucket) {
 		try {

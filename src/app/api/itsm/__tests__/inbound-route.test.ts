@@ -55,14 +55,25 @@ describe("POST /api/itsm/inbound/[connectionId]", () => {
 		expect(mocks.userFindFirst).toHaveBeenCalledWith(expect.objectContaining({ where: { status: "ACTIVE" } }));
 	});
 
-	it("skips the retired admin and limits a fallback author to active members of the connection owner", async () => {
-		mocks.userFindFirst.mockResolvedValueOnce(null).mockResolvedValueOnce({ id: "active-member" });
+	it("limits a customer connection's inbound author strictly to active members of that customer team", async () => {
+		mocks.userFindFirst.mockResolvedValueOnce({ id: "active-member" });
 		await post("{}");
 		const { resolveSystemUserId } = mocks.handleInboundWebhook.mock.calls[0]![0];
 		expect(await resolveSystemUserId("team-a")).toBe("active-member");
+		expect(mocks.roleFindFirst).not.toHaveBeenCalled();
+		expect(mocks.userFindFirst.mock.calls.map(([args]) => args.where)).toEqual([
+			{ status: "ACTIVE", teamMembership: { is: { teamId: "team-a" } } },
+		]);
+	});
+
+	it("skips a retired admin on platform-level connections and falls back to an active user", async () => {
+		mocks.userFindFirst.mockResolvedValueOnce(null).mockResolvedValueOnce({ id: "active-fallback" });
+		await post("{}");
+		const { resolveSystemUserId } = mocks.handleInboundWebhook.mock.calls[0]![0];
+		expect(await resolveSystemUserId(null)).toBe("active-fallback");
 		expect(mocks.userFindFirst.mock.calls.map(([args]) => args.where)).toEqual([
 			{ status: "ACTIVE", roles: { some: { roleId: "role_admin" } } },
-			{ status: "ACTIVE", teamMembership: { is: { teamId: "team-a" } } },
+			{ status: "ACTIVE" },
 		]);
 	});
 });

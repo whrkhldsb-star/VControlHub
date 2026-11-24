@@ -14,7 +14,17 @@ import { generateCsrfToken, getCsrfCookieName } from "@/lib/auth/csrf";
 import { isAcceptableTwoFactorCodeShape, verifyTwoFactorChallenge } from "@/lib/auth/two-factor-challenge";
 import { DEFAULT_ROLE_PERMISSIONS, type RoleKey } from "@/lib/auth/rbac";
 import { auditUserAction, auditSystemAction } from "@/lib/audit/service";
-import { checkRateLimitAsync, getClientIp, LOGIN_RATE_LIMIT, isAccountLockedAsync, recordLoginFailureAsync, clearLoginFailureAsync } from "@/lib/rate-limit";
+import {
+	checkRateLimitAsync,
+	getClientIp,
+	rateLimitIpKey,
+	LOGIN_RATE_LIMIT,
+	isAccountLockedAsync,
+	reserveLoginAttemptAsync,
+	settleLoginAttemptAsync,
+	recordLoginFailureAsync,
+	clearLoginFailureAsync,
+} from "@/lib/rate-limit";
 import { apiCatch, apiError } from "@/lib/http/api-error";
 import { requestLocale } from "@/lib/http/api-guard";
 import { isRequestHttps } from "@/lib/http/request-https";
@@ -48,7 +58,7 @@ async function verifyLogin(request: Request) {
 		// shared one with the AI chat, so five chat messages from the same
 		// address locked every second-factor check behind it out (429).
 		const clientIp = getClientIp(request);
-		const rateCheck = await checkRateLimitAsync(`login:2fa:${clientIp}`, LOGIN_RATE_LIMIT);
+		const rateCheck = await checkRateLimitAsync(`login:2fa:${rateLimitIpKey(clientIp)}`, LOGIN_RATE_LIMIT);
 		if (!rateCheck.allowed) {
 			return apiError({
 				code: "RATE_LIMITED",
@@ -159,16 +169,36 @@ async function verifyLogin(request: Request) {
 				status: 429,
 			});
 		}
+		const attempt = await reserveLoginAttemptAsync(user.username, clientIp);
+		if (!attempt.reserved) {
+			cookieStore.delete(getPending2faCookieName());
+			return apiError({
+				code: "ACCOUNT_LOCKED",
+				message: apiCopy("apiCopy.too.many.verification.attempts.please.try.again.later.a8754aa7"),
+				status: 429,
+			});
+		}
 
 		// An authenticator code first (sealed seed; legacy plaintext still
 		// accepted), then a one-use recovery code, consumed atomically. Shared with
 		// the 2FA disable / regenerate routes so the two factors stay interchangeable.
-		const { valid, usedRecoveryCode } = await verifyTwoFactorChallenge({
-			userId: sessionPayload.userId,
-			code,
-			sealedSecret: user.twoFactorSecret,
-			storedRecoveryCodes: user.twoFactorRecoveryCodes,
-		});
+		let challengeResult: Awaited<ReturnType<typeof verifyTwoFactorChallenge>>;
+		let attemptSettled = false;
+		try {
+			challengeResult = await verifyTwoFactorChallenge({
+				userId: sessionPayload.userId,
+				code,
+				sealedSecret: user.twoFactorSecret,
+				storedRecoveryCodes: user.twoFactorRecoveryCodes,
+			});
+			attemptSettled = true;
+			await settleLoginAttemptAsync(attempt.reservation, !challengeResult.valid);
+		} finally {
+			if (!attemptSettled) {
+				await settleLoginAttemptAsync(attempt.reservation, false);
+			}
+		}
+		const { valid, usedRecoveryCode } = challengeResult;
 		if (!valid) {
 			// A platform administrator's failed code is a platform event too (see /api/login), not the selected customer's.
 			const failedAuditTeamId = (user.roles ?? []).some((entry) => entry.role.key === "admin") ? null : user.currentTeamId;

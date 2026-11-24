@@ -71,9 +71,12 @@ async function getStorageFormOptionsImpl() {
 export async function pairFileAgentAction(nodeId: string) {
   return withServerActionLocale(async () => {
     const session = await requirePermission("storage:manage-node");
+    if (typeof nodeId !== "string" || !nodeId.trim()) {
+      throw new Error("Invalid storage node id");
+    }
     const { pairFileShare } = await import("@/lib/storage/agent-file-queue");
-    const token = await pairFileShare(nodeId, session);
-    await auditUserAction(session.userId, "storage.agent.pair", { storageNodeId: nodeId }, undefined, session.currentTeamId);
+    const token = await pairFileShare(nodeId.trim(), session);
+    await auditUserAction(session.userId, "storage.agent.pair", { storageNodeId: nodeId.trim() }, undefined, session.currentTeamId);
     return token;
   });
 }
@@ -86,8 +89,11 @@ async function checkStorageNodeHealthActionImpl(storageNodeId: string) {
   const session = await requirePermission("storage:manage-node");
 
   const t = await serverT();
+  if (typeof storageNodeId !== "string" || !storageNodeId.trim()) {
+    return { error: t("storagePage.action.healthCheckFailed") };
+  }
   try {
-    const result = await checkStorageNodeHealth(storageNodeId, session);
+    const result = await checkStorageNodeHealth(storageNodeId.trim(), session);
     revalidatePath("/storage");
     revalidatePath("/files");
     const statusLabel = result.healthStatus === "HEALTHY"
