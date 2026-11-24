@@ -117,7 +117,7 @@ export async function probePublicDirectGatewayHealth(
       lastStatus = response.status;
       if (response.status === 200) {
         const body = (await response.text()).trim();
-        if (body === "ok" || body === "") {
+        if (body === "ok") {
           return { ok: true, status: 200 };
         }
         lastError = `unexpected body ${JSON.stringify(body.slice(0, 80))}`;

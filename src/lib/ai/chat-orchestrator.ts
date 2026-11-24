@@ -442,16 +442,23 @@ function createStreamingResponse(input: HostedStreamIdentity & {
           return accepted;
         }
         result.toolCalls = takeCalls(result.toolCalls);
+        const MAX_PERSISTED_ASSISTANT_CHARS = 200_000;
+        const clampedContent = result.content.length > MAX_PERSISTED_ASSISTANT_CHARS
+          ? result.content.slice(0, MAX_PERSISTED_ASSISTANT_CHARS)
+          : result.content;
+        const clampedReasoning = result.reasoning && result.reasoning.length > MAX_PERSISTED_ASSISTANT_CHARS
+          ? result.reasoning.slice(0, MAX_PERSISTED_ASSISTANT_CHARS)
+          : result.reasoning;
         const assistant = await withChatGeneration(input.conversationId, input.userMessageId, (tx) => tx.aiMessage.create({
           data: {
             conversationId: input.conversationId,
             role: "assistant",
             content:
-              result.content ||
+              clampedContent ||
               (result.toolCalls.length > 0
                 ? ""
                 : t("apiAiChat.emptyContent", input.locale)),
-            reasoningContent: result.reasoning || undefined,
+            reasoningContent: clampedReasoning || undefined,
             toolCalls: JSON.stringify(result.readError ? [] : result.toolCalls),
             model: input.model,
             inputTokens: result.inputTokens,
@@ -544,15 +551,21 @@ function createStreamingResponse(input: HostedStreamIdentity & {
               const calls = lastRound || followUpResult.readError ? [] : takeCalls(followUpResult.toolCalls);
               interruptedFollowUp = Boolean(followUpResult.readError);
               if (interruptedFollowUp || followUpResult.content || followUpResult.reasoning || calls.length > 0) {
-                const content = interruptedFollowUp
+                const rawContent = interruptedFollowUp
                   ? [followUpResult.content, t("apiAiChat.streamInterrupted", input.locale)].filter(Boolean).join("\n\n")
                   : followUpResult.content || (calls.length > 0 ? "" : t("apiAiChat.emptyContent", input.locale));
+                const content = rawContent.length > MAX_PERSISTED_ASSISTANT_CHARS
+                  ? rawContent.slice(0, MAX_PERSISTED_ASSISTANT_CHARS)
+                  : rawContent;
+                const reasoningContent = followUpResult.reasoning && followUpResult.reasoning.length > MAX_PERSISTED_ASSISTANT_CHARS
+                  ? followUpResult.reasoning.slice(0, MAX_PERSISTED_ASSISTANT_CHARS)
+                  : followUpResult.reasoning || undefined;
                 const row = await withChatGeneration(input.conversationId, input.userMessageId, (tx) => tx.aiMessage.create({
                   data: {
                     conversationId: input.conversationId,
                     role: "assistant",
                     content,
-                    reasoningContent: followUpResult.reasoning || undefined,
+                    reasoningContent,
                     toolCalls: JSON.stringify(calls),
                     model: input.model,
                     inputTokens: followUpResult.inputTokens,

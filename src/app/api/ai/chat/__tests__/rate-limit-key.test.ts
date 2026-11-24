@@ -2,7 +2,7 @@
 import { describe, expect, it, vi } from "vitest";
 
 const mocks = vi.hoisted(() => ({ check: vi.fn() }));
-vi.mock("@/lib/rate-limit", () => ({ checkRateLimitAsync: mocks.check, getClientIp: () => "198.51.100.7" }));
+vi.mock("@/lib/rate-limit", () => ({ checkRateLimitAsync: mocks.check, getClientIp: () => "198.51.100.7", rateLimitIpKey: (ip: string) => ip }));
 vi.mock("@/lib/i18n/translations", () => ({ getServerLocale: async () => "en", t: (key: string) => key }));
 vi.mock("@/lib/ai/chat-orchestrator", () => ({ createAiChatResponse: vi.fn() }));
 

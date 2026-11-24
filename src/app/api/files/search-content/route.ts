@@ -10,6 +10,7 @@ import { apiCopy } from "@/lib/i18n/api-copy";
 import { NextRequest, NextResponse } from "next/server";
 
 import { withApiRoute } from "@/lib/http/api-guard";
+import { GENERAL_READ_LIMIT } from "@/lib/http/rate-limit-presets";
 import { parseSearchParams } from "@/lib/http/parse-search-params";
 import { searchFileContents } from "@/lib/files/content-search";
 import { searchFileContentQuerySchema } from "@/lib/files/schema";
@@ -19,7 +20,7 @@ export const dynamic = "force-dynamic";
 export async function GET(req: NextRequest) {
 	return withApiRoute(
 		req,
-		{ permission: "storage:read", errorMessage: apiCopy("apiCopy.content.search.failed.c08d0718") },
+		{ permission: "storage:read", rateLimit: GENERAL_READ_LIMIT, errorMessage: apiCopy("apiCopy.content.search.failed.c08d0718") },
 		async ({ session }) => {
 			const { q, nodeId, path: searchPath } = parseSearchParams(
 				req,

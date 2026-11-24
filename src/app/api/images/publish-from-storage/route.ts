@@ -157,8 +157,13 @@ export async function POST(request: Request) {
           },
         });
         if (existing) {
+          // Do not expose another member's private storageNodeId/relativePath/album
+          // metadata when deduplicating against a teammate's public image.
+          const imagePayload = existing.userId === session.userId
+            ? existing
+            : { id: existing.id, publicUrl: `/api/images/${existing.id}/file` };
           return NextResponse.json({
-            image: existing,
+            image: imagePayload,
             publicUrl: `/api/images/${existing.id}/file`,
             message: apiCopy("apiCopy.file.already.exists.checksum.matched.skipping.upload.e8e53f41"),
           });

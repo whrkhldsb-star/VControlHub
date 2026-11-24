@@ -801,9 +801,11 @@ export async function acknowledgeAlertIncident(input: {
   session?: Pick<SessionPayload, "userId" | "roles" | "currentTeamId">;
 }) {
   const session = input.session;
+  // Platform-owned alert rules (teamId IS NULL) must not be silenced by a tenant ack,
+  // which clears nextNotifyAt and would suppress platform on-call paging / escalation.
   const scope = !session || seesAllCustomers(session) ? Prisma.sql`TRUE` : Prisma.sql`
     ((r."teamId" = ${session.currentTeamId} AND i."serverId" IS NULL)
-      OR ((r."teamId" IS NULL OR r."teamId" = ${session.currentTeamId}) AND EXISTS
+      OR (r."teamId" = ${session.currentTeamId} AND EXISTS
         (SELECT 1 FROM servers s WHERE s.id = i."serverId" AND ${rawServerScope(session, "canRead")})))`;
   type Row = { id: string; status: AlertIncidentStatus; createdAt: Date; teamId: string | null };
   const read = () => prisma.$queryRaw<Row[]>`SELECT i.id, i.status, i."createdAt", r."teamId" FROM alert_incidents i
@@ -818,7 +820,7 @@ export async function acknowledgeAlertIncident(input: {
   checkRound(incident);
   if (incident.status === "ACKNOWLEDGED") return incident;
   const [updated] = await prisma.$queryRaw<Row[]>`UPDATE alert_incidents i SET status = 'ACKNOWLEDGED',
-    "acknowledgedAt" = now(), "updatedAt" = now(), "acknowledgedById" = ${input.userId}, "nextNotifyAt" = NULL
+    "acknowledgedAt" = (now() AT TIME ZONE 'UTC'), "updatedAt" = (now() AT TIME ZONE 'UTC'), "acknowledgedById" = ${input.userId}, "nextNotifyAt" = NULL
     FROM alert_rules r WHERE r.id = i."ruleId" AND i.id = ${incident.id} AND i.status = 'OPEN'
       AND i."createdAt" = ${openedAt} AND ${scope}
     RETURNING i.id, i.status, i."createdAt", r."teamId"`;
@@ -931,7 +933,7 @@ export async function resolveOrphanedAlertIncidents(options?: {
     if (orphans.length) {
       const reviewed = orphans.map((row) => Prisma.sql`(${row.id}, ${row.createdAt}::timestamp, ${row.rule.teamId}::text)`);
       resolved += await withSamplingClaim(options?.claim, (tx) => tx.$executeRaw`
-        UPDATE alert_incidents i SET status = 'RESOLVED', "resolvedAt" = now(), "updatedAt" = now(),
+        UPDATE alert_incidents i SET status = 'RESOLVED', "resolvedAt" = (now() AT TIME ZONE 'UTC'), "updatedAt" = (now() AT TIME ZONE 'UTC'),
           "pendingNotifyChannels" = ARRAY[]::text[], "nextNotifyAt" = NULL
         FROM alert_rules r, (VALUES ${Prisma.join(reviewed)}) v(id, opened, owner)
         WHERE i.id = v.id AND i."createdAt" = v.opened AND i.status IN ('OPEN', 'ACKNOWLEDGED')

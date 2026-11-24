@@ -19,6 +19,8 @@ import { apiCopy } from "@/lib/i18n/api-copy";
 import { NextResponse } from "next/server";
 
 import { withApiRoute } from "@/lib/http/api-guard";
+import { ForbiddenError } from "@/lib/errors";
+import { sessionHasPermission } from "@/lib/auth/authorization";
 import { GENERAL_READ_LIMIT, GENERAL_WRITE_LIMIT } from "@/lib/http/rate-limit-presets";
 import { AI_OPS_DEFAULT_SCHEDULE_HOUR } from "@/lib/ai/ops/types";
 import { aiOpsModeSettingSchema } from "@/lib/ai/ops/schema";
@@ -67,6 +69,9 @@ export async function PATCH(request: Request) {
 			// even when a custom role has been granted the manage permission.
 			assertAiOpsPlatformReader(session);
 			const { mode: previousMode, providerId: previousProvider } = await readAiOpsSettings();
+			if (body.mode === "autonomous" && previousMode !== "autonomous" && !sessionHasPermission(session, "ai:ops:autonomous")) {
+				throw new ForbiddenError();
+			}
 
 			// Provider is optional; if omitted, leave the stored value untouched.
 			const providerChanged =

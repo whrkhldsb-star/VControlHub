@@ -331,11 +331,17 @@ export async function scanMediaFromFileEntries(
       cursor = { id: page[page.length - 1]!.id };
     }
   }
-  const cleanup = staleFileEntryIds.length
-    ? await prisma.mediaItem.deleteMany({
-        where: { fileEntryId: { in: staleFileEntryIds } },
-      })
-    : { count: 0 };
+  const uniqueStaleIds = Array.from(new Set(staleFileEntryIds));
+  const DELETE_BATCH_SIZE = 5_000;
+  let cleanedCount = 0;
+  for (let i = 0; i < uniqueStaleIds.length; i += DELETE_BATCH_SIZE) {
+    const chunk = uniqueStaleIds.slice(i, i + DELETE_BATCH_SIZE);
+    const batch = await prisma.mediaItem.deleteMany({
+      where: { fileEntryId: { in: chunk } },
+    });
+    cleanedCount += batch.count;
+  }
+  const cleanup = { count: cleanedCount };
 
   let upserted = 0;
   // N+1 acceptable: Prisma has no batch upsert; each entry needs a per-row

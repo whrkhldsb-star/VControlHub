@@ -15,7 +15,7 @@ export async function checkSamplingClaim(tx: Prisma.TransactionClient, claim?: S
   claim.signal.throwIfAborted();
   const rows = await tx.$queryRaw<{ id: string }[]>`SELECT id FROM jobs WHERE id = ${claim.jobId}
     AND status = 'RUNNING' AND "workerId" = ${claim.workerId} AND attempts = ${claim.attempts}
-    AND "leaseExpiresAt" > clock_timestamp() FOR SHARE`;
+    AND "leaseExpiresAt" > (clock_timestamp() AT TIME ZONE 'UTC') FOR SHARE`;
   if (!rows.length) throw new LeaseLostError(claim.jobId);
   claim.signal.throwIfAborted();
 }

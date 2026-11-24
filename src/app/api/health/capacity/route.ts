@@ -14,6 +14,7 @@ import { NextResponse } from "next/server";
 import { z } from "zod";
 
 import { withApiRoute } from "@/lib/http/api-guard";
+import { GENERAL_READ_LIMIT } from "@/lib/http/rate-limit-presets";
 import { getCapacityForecast } from "@/lib/health/capacity-service";
 import { assertServerTeamAccess } from "@/lib/server/team-access";
 
@@ -44,6 +45,7 @@ export async function GET(request: Request) {
     request,
     {
       permission: "health:read",
+      rateLimit: GENERAL_READ_LIMIT,
       querySchema,
       errorMessage: apiCopy("apiCopy.failed.to.compute.capacity.forecast.d4f66cf3"),
     },

@@ -128,6 +128,8 @@ export async function listAlertRules(session?: TeamSession | null, page?: { afte
 	});
 }
 
+const MAX_ALERT_RULES_PER_SCOPE = 200;
+
 export async function createAlertRule(input: CreateAlertRuleInput, session?: TeamSession | null) {
 	const serverIds = input.serverIds ?? [];
 	const playbookIds = [...new Set(input.playbookIds ?? [])];
@@ -137,15 +139,23 @@ export async function createAlertRule(input: CreateAlertRuleInput, session?: Tea
 	const teamId = session ? teamCreateData(session).teamId : null;
 	const data = ruleData(input, teamId ?? null);
 	const grant = teamId && session && input.notifyChannels?.some((channel) => PLATFORM_ONLY_CHANNELS.includes(channel));
+	const assertRuleLimit = async (db: Pick<Prisma.TransactionClient, "alertRule">) => {
+		const existingCount = await db.alertRule.count({ where: { teamId: teamId ?? null } });
+		if (existingCount >= MAX_ALERT_RULES_PER_SCOPE) {
+			throw new ValidationError(t("backend.alert.ruleLimitReached", { max: MAX_ALERT_RULES_PER_SCOPE }));
+		}
+	};
 	if (playbookIds.length || grant) {
 		return prisma.$transaction(async (tx) => {
 			await lockAlertPlaybookBindings(tx, playbookIds);
 			await assertPlaybookIdsInTeam(tx, playbookIds, session, teamId ?? null);
+			await assertRuleLimit(tx);
 			const rule = await tx.alertRule.create({ data });
 			if (grant) await recordChannelGrant(tx, rule, session.userId);
 			return rule;
 		});
 	}
+	await assertRuleLimit(prisma);
 	return prisma.alertRule.create({ data });
 }
 

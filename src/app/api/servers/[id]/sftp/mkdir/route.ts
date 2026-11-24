@@ -34,7 +34,7 @@ export async function POST(
         const teamAccess = await assertServerTeamAccess(session, id, "fileWrite");
         if (!teamAccess.ok) return teamAccess.response;
         const target = await loadEnabledServerForSftp(id, teamAccess.server.teamId, teamAccess.server, request.signal);
-        await assertSftpPathAccess({ session, serverId: id, paths: [body.path], target, signal: request.signal });
+        await assertSftpPathAccess({ session, serverId: id, paths: [body.path], mutation: true, target, signal: request.signal });
         await makeDirectory(id, body.path, target.ssh);
         await auditUserAction(session.userId, "sftp.mkdir", { serverId: id, path: body.path }, undefined, session.currentTeamId);
         return NextResponse.json({ success: true, path: body.path });

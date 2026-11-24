@@ -23,6 +23,10 @@ import {
 } from "@/lib/alert/incidents";
 import { alertOperatorSign } from "@/lib/alert/operator";
 import { t } from "@/lib/i18n/service-translations";
+import { LeaseLostError } from "@/lib/job/heartbeat-runner";
+import { createLogger } from "@/lib/logging";
+
+const alertEvalLogger = createLogger("health:alerts");
 
 import { LEGACY_MATCH_KEY, parseAlertMatchState, matchStartedAtForServer, persistMatchState } from "./alert-match-state";
 import { collectAllHealth } from "./service-collect";
@@ -154,6 +158,7 @@ export async function evaluateAlerts(options?: { ruleWhere?: Record<string, unkn
     options?.claim?.signal.throwIfAborted();
     if (isNowInAlertSilenceWindow(rule.silenceWindows)) continue;
 
+    try {
     let targetServers =
       rule.serverIds.length > 0
         ? health.servers.filter((s) => rule.serverIds.includes(s.serverId))
@@ -366,6 +371,19 @@ export async function evaluateAlerts(options?: { ruleWhere?: Record<string, unkn
           ? { lastTriggeredAt: latestFireAt }
           : {}, options?.claim,
       );
+    }
+    } catch (error) {
+      if (
+        options?.claim?.signal.aborted
+        || error instanceof LeaseLostError
+        || (error instanceof Error && error.name === "AbortError")
+      ) {
+        throw error;
+      }
+      alertEvalLogger.error("alert rule evaluation failed; continuing with remaining rules", error, {
+        ruleId: rule.id,
+        teamId: rule.teamId,
+      });
     }
   }
 

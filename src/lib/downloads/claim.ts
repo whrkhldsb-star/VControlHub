@@ -11,7 +11,7 @@ export function updateClaimedDownload(claim: DownloadClaim | undefined, signal: 
   return prisma.$transaction(async tx => {
     const owned = await tx.$queryRaw<{ id: string }[]>`
       SELECT id FROM jobs WHERE id = ${claim.id} AND "workerId" = ${claim.workerId}
-        AND attempts = ${claim.attempts} AND status = 'RUNNING' AND "leaseExpiresAt" > clock_timestamp() FOR UPDATE`;
+        AND attempts = ${claim.attempts} AND status = 'RUNNING' AND "leaseExpiresAt" > (clock_timestamp() AT TIME ZONE 'UTC') FOR UPDATE`;
     if (!owned.length) throw new LeaseLostError(claim.id);
     signal?.throwIfAborted();
     return tx.downloadTask.updateMany(args);

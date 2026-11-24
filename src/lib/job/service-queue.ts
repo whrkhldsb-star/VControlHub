@@ -110,7 +110,7 @@ export async function claimNextJob(options: ClaimJobOptions) {
             OR (j.status = 'RUNNING' AND j."leaseExpiresAt" < ${now})
           )
           ${typeClause} ${userBudget} ${nodeBudget}
-        ORDER BY (j.priority::numeric + floor(greatest(extract(epoch FROM (${now}::timestamptz - j."availableAt")), 0) / ${agingSeconds})) DESC,
+        ORDER BY (j.priority::numeric + floor(greatest(extract(epoch FROM (${now}::timestamp - j."availableAt")), 0) / ${agingSeconds})) DESC,
           (SELECT count(*) FROM jobs r WHERE ${active}
             AND ((j."teamId" IS NOT NULL AND r."teamId" = j."teamId")
               OR (j."teamId" IS NULL AND r."teamId" IS NULL AND r."createdBy" IS NOT DISTINCT FROM j."createdBy"))) ASC,

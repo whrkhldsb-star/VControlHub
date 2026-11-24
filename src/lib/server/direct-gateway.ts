@@ -107,6 +107,7 @@ from http.server import ThreadingHTTPServer, SimpleHTTPRequestHandler
 from urllib.parse import unquote, urlsplit, parse_qs
 
 ROOT = os.path.normpath(os.environ.get("DIRECT_ROOT", "/root"))
+CANONICAL_ROOT = os.path.realpath(ROOT)
 DIRECTORY_FLAGS = os.O_RDONLY | os.O_DIRECTORY | os.O_NOFOLLOW
 SECRET = os.environ.get("DIRECT_SECRET", "")
 
@@ -151,8 +152,10 @@ class Handler(SimpleHTTPRequestHandler):
         # Older gateways signed only the URL pathname and cannot accept this ticket.
         target = os.path.join(ROOT, relative)
         message = f"${DIRECT_GATEWAY_LINUX_FILE_PROTOCOL}\0{target}\0{expires}".encode("utf-8")
+        if not re.fullmatch(r"[0-9a-fA-F]{64}", signature):
+            return None, (403, "bad signature")
         expected = hmac.new(SECRET.encode("utf-8"), message, hashlib.sha256).hexdigest()
-        if not hmac.compare_digest(expected, signature):
+        if not hmac.compare_digest(expected, signature.lower()):
             return None, (403, "bad signature")
         return relative, None
 
@@ -191,7 +194,7 @@ class Handler(SimpleHTTPRequestHandler):
                 actual = os.readlink(f"/proc/self/fd/{fd}")
             except OSError:
                 return self._reject(404, "not found")
-            if not stat.S_ISREG(metadata.st_mode) or actual != os.path.join(ROOT, target):
+            if not stat.S_ISREG(metadata.st_mode) or actual != os.path.join(CANONICAL_ROOT, target):
                 return self._reject(404, "not found")
             return self._send_file(target, fd, metadata, head)
         finally:
@@ -523,12 +526,15 @@ cat > /opt/vcontrolhub-direct/server.py <<'VCH_DIRECT_PY'
 ${source}
 VCH_DIRECT_PY
 chmod 0755 /opt/vcontrolhub-direct/server.py
+(umask 077
+install -m 0600 /dev/null /etc/vcontrolhub-direct.env
 cat > /etc/vcontrolhub-direct.env <<VCH_DIRECT_ENV
 DIRECT_ROOT=${shellQuote(rootPath)}
 DIRECT_SECRET=${shellQuote(input.secret)}
 DIRECT_PORT=${port}
 DIRECT_BIND=${shellQuote(bind)}
 VCH_DIRECT_ENV
+)
 chmod 0600 /etc/vcontrolhub-direct.env
 cat > /etc/systemd/system/${DIRECT_GATEWAY_SERVICE_NAME} <<'VCH_DIRECT_UNIT'
 [Unit]

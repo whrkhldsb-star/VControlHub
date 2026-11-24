@@ -136,7 +136,7 @@ function getLockPool() {
 function createLockPool() {
   const pool = new Pool({
     connectionString: connectionStringForPg(),
-    max: Math.max(2, Math.min(config.db.poolSize, 4)),
+    max: Math.max(4, Math.min(config.db.poolSize, 12)),
     idleTimeoutMillis: config.db.poolIdleTimeoutMs,
     // The pg default is to wait forever for a pool slot. Each advisory lock
     // pins a dedicated client for its whole critical section, so >max
@@ -248,13 +248,14 @@ function buildRelease(
 /** Cap blocking wait so a hung holder cannot pin the tiny advisory-lock pool forever. */
 const ADVISORY_LOCK_ACQUIRE_TIMEOUT_MS = 30_000;
 
-type LockOptions = { timeoutMs?: number; additionalResourceId?: string; sharedResourceIds?: readonly string[] };
+type LockOptions = { timeoutMs?: number; shared?: boolean; additionalResourceId?: string; sharedResourceIds?: readonly string[] };
 
 async function acquireClientLocks(namespace: string, resourceId: string, options: LockOptions) {
   const { k1, k2 } = getLockKeys(namespace, resourceId);
-  const exclusiveKeys = new Set([k2]);
+  const exclusiveKeys = new Set<number>(options.shared ? [] : [k2]);
   if (options.additionalResourceId !== undefined) exclusiveKeys.add(getLockKeys(namespace, options.additionalResourceId).k2);
   const sharedKeys = new Set((options.sharedResourceIds ?? []).map(id => getLockKeys(namespace, id).k2));
+  if (options.shared) sharedKeys.add(k2);
   // A move can mention one path as both a target and an ancestor. Acquire the
   // stronger lock once, and take every key in the same order across clients.
   for (const key of exclusiveKeys) sharedKeys.delete(key);
@@ -378,6 +379,23 @@ type RawExecutor = {
 export async function lockForTransaction(tx: RawExecutor, namespace: string, resourceId: string) {
   const { k1, k2 } = getLockKeys(namespace, resourceId);
   await tx.$executeRaw`SELECT pg_advisory_xact_lock(${k1}::int, ${k2}::int)`;
+}
+
+/** Shared transaction-scoped advisory lock — blocks exclusive writers (e.g. delete/transfer) without serializing concurrent readers/workers. */
+export async function lockForTransactionShared(tx: RawExecutor, namespace: string, resourceId: string) {
+  const { k1, k2 } = getLockKeys(namespace, resourceId);
+  await tx.$executeRaw`SELECT pg_advisory_xact_lock_shared(${k1}::int, ${k2}::int)`;
+}
+
+type RawQueryExecutor = RawExecutor & {
+  $queryRaw: <T = unknown>(query: TemplateStringsArray, ...values: unknown[]) => PromiseLike<T>;
+};
+
+/** Non-blocking shared transaction-scoped advisory lock. Returns false if an exclusive holder is active. */
+export async function tryLockForTransactionShared(tx: RawQueryExecutor, namespace: string, resourceId: string): Promise<boolean> {
+  const { k1, k2 } = getLockKeys(namespace, resourceId);
+  const rows = await tx.$queryRaw<Array<{ acquired: boolean }>>`SELECT pg_try_advisory_xact_lock_shared(${k1}::int, ${k2}::int) AS acquired`;
+  return rows[0]?.acquired === true;
 }
 
 export async function closeAdvisoryLockPoolForTests() {

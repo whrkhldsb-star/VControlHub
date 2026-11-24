@@ -25,7 +25,15 @@ type JsonRecord = Record<string, unknown>;
 
 const MAX_EVENT_CHARS = 1024 * 1024;
 const MAX_STREAM_BYTES = 16 * 1024 * 1024;
+const MAX_STREAM_TEXT_CHARS = 200_000;
 const MAX_TOOL_INDEX = 1023;
+
+function appendBounded(current: string, chunk: string): { next: string; emitted: string } {
+  const remaining = MAX_STREAM_TEXT_CHARS - current.length;
+  if (remaining <= 0) return { next: current, emitted: "" };
+  const slice = chunk.length > remaining ? chunk.slice(0, remaining) : chunk;
+  return { next: current + slice, emitted: slice };
+}
 
 function record(value: unknown): JsonRecord | undefined {
   return value !== null && typeof value === "object"
@@ -67,14 +75,16 @@ function applyAnthropicEvent(
     const text =
       stringValue(delta?.text) || stringValue(record(delta?.delta)?.text);
     if (text) {
-      state.content += text;
-      emit({ type: "content", content: text });
+      const bounded = appendBounded(state.content, text);
+      state.content = bounded.next;
+      if (bounded.emitted) emit({ type: "content", content: bounded.emitted });
     }
 
     const thinking = stringValue(delta?.thinking);
     if (thinking) {
-      state.reasoning += thinking;
-      emit({ type: "reasoning", content: thinking });
+      const bounded = appendBounded(state.reasoning, thinking);
+      state.reasoning = bounded.next;
+      if (bounded.emitted) emit({ type: "reasoning", content: bounded.emitted });
     }
 
     const partialJson = stringValue(delta?.partial_json);
@@ -93,8 +103,9 @@ function applyAnthropicEvent(
   if (type === "thinking_delta") {
     const thinking = stringValue(delta?.thinking);
     if (thinking) {
-      state.reasoning += thinking;
-      emit({ type: "reasoning", content: thinking });
+      const bounded = appendBounded(state.reasoning, thinking);
+      state.reasoning = bounded.next;
+      if (bounded.emitted) emit({ type: "reasoning", content: bounded.emitted });
     }
     return;
   }
@@ -147,12 +158,14 @@ function applyOpenAiEvent(
   const content = stringValue(delta?.content);
 
   if (reasoning) {
-    state.reasoning += reasoning;
-    emit({ type: "reasoning", content: reasoning });
+    const bounded = appendBounded(state.reasoning, reasoning);
+    state.reasoning = bounded.next;
+    if (bounded.emitted) emit({ type: "reasoning", content: bounded.emitted });
   }
   if (content) {
-    state.content += content;
-    emit({ type: "content", content });
+    const bounded = appendBounded(state.content, content);
+    state.content = bounded.next;
+    if (bounded.emitted) emit({ type: "content", content: bounded.emitted });
   }
 
   // OpenAI starts a call with its id and index, then sends fragments under that index. Compatible providers

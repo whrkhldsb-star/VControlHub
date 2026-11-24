@@ -17,6 +17,7 @@ import { AuthError } from "@/lib/errors";
 import { createLogger } from "@/lib/logging";
 import { recordWsEvent, setWsActive } from "@/lib/monitoring/runtime-metrics";
 import { getVisibleNotificationForPush, readUnreadCount } from "@/lib/notification/inbox";
+import { rateLimitIpKey } from "@/lib/rate-limit";
 import { getNotificationBus } from "./notification-bus";
 import { PreAuthLimiter, upgradeClientAddress } from "./pre-auth-limiter";
 
@@ -303,7 +304,8 @@ export function setupWebSocketServer(
 		}
 
 		const address = upgradeClientAddress(request);
-		const release = pending.acquire(address === "unknown" ? request.socket.remoteAddress ?? address : address);
+		const rawAddr = address === "unknown" ? request.socket.remoteAddress ?? address : address;
+		const release = pending.acquire(rateLimitIpKey(rawAddr));
 		if (!release) {
 			recordWsEvent("notification", "reject");
 			socket.end("HTTP/1.1 503 Service Unavailable\r\nConnection: close\r\n\r\n");

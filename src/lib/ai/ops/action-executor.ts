@@ -44,7 +44,7 @@ export function scanActionReceipts(value: unknown): AiOpsExecutedAction[] {
 export async function lockScanAttempt(tx: Prisma.TransactionClient, jobId: string, workerId: string, attempts: number) {
 	const rows = await tx.$queryRaw<Array<{ id: string }>>`SELECT id FROM jobs WHERE id = ${jobId}
 		AND "workerId" = ${workerId} AND attempts = ${attempts} AND status = 'RUNNING'
-		AND "leaseExpiresAt" > clock_timestamp() FOR UPDATE`;
+		AND "leaseExpiresAt" > (clock_timestamp() AT TIME ZONE 'UTC') FOR UPDATE`;
 	if (!rows.length) throw new LeaseLostError(jobId);
 }
 

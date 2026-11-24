@@ -236,7 +236,7 @@ export async function prepareAuditExport(input: Omit<ListAuditLogsInput, "page" 
 }
 
 /** Actions the audit overview counts as high-risk. */
-export const HIGH_RISK_AUDIT_ACTIONS = [COMMAND_EXECUTION, "storage.file_delete", "server.delete", "user.permission_update", "docker.container.restart", "docker.container.remove", "docker.container.stop", "api_token.create"] as const;
+export const HIGH_RISK_AUDIT_ACTIONS = [COMMAND_EXECUTION, "storage.file_delete", "server.delete", "user.permission_update", "identity_template.update", "team.member.set", "docker.container.restart", "docker.container.remove", "docker.container.stop", "api_token.create"] as const;
 
 export async function getAuditStats(
 	session?: SessionScope | null,

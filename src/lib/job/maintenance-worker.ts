@@ -400,14 +400,17 @@ async function tick(reason: string) {
     });
 
     // COMPLETED history for the high-frequency types listed above: keep the
-    // newest 25 rows per type, mirroring what their sibling workers do
-    // in-band (see alert-worker.ts / sampling-worker.ts).
+    // newest 25 rows per type plus a 24h age floor so one busy customer cannot
+    // evict another customer's recent task history or file-operation requestId
+    // idempotency rows before they finish inspecting/retrying them.
     await runStep("prune-high-frequency-completed-jobs", async () => {
+      const olderThan = new Date(Date.now() - 24 * 60 * 60 * 1000);
       let deleted = 0;
       for (const type of MAINTENANCE_PRUNE_COMPLETED_TYPES) {
         const pruned = await pruneCompletedJobsByType({
           type,
           keepLatest: MAINTENANCE_PRUNE_COMPLETED_KEEP_LATEST,
+          olderThan,
         });
         deleted += pruned.count;
       }

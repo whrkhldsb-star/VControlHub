@@ -74,10 +74,11 @@ function normalizeAbsolutePath(value: unknown): string | null {
 const PSEUDO_FILESYSTEM_ROOTS = /^\/(?:proc\/(?:\d+|self|thread-self)(?:\/|$)|sys(?:\/|$)|dev(?:\/|$))/;
 
 /** Directories whose contents are credentials, wherever they sit. */
-const SENSITIVE_PATH_SEGMENTS = new Set([".ssh", ".gnupg", ".aws", ".kube", ".docker", ".config/gcloud", ".azure"]);
+const SENSITIVE_PATH_SEGMENTS = new Set([".ssh", ".gnupg", ".aws", ".kube", ".docker", ".config/gcloud", ".azure", "run/secrets"]);
 /** Files that hold secrets or shell history. */
 const SENSITIVE_FILE_GLOBS = [
-  ".netrc", ".pgpass", ".my.cnf", ".git-credentials", ".npmrc", ".pypirc", ".env", ".env.*",
+  ".netrc", ".pgpass", ".my.cnf", ".git-credentials", ".npmrc", ".pypirc", ".env", ".env.*", "*.env",
+  ".htpasswd", ".vault-token", "*.tfstate", "*.tfstate.*", "*.tfvars",
   ".bash_history", ".zsh_history", ".mysql_history", ".psql_history", ".python_history",
   ...["id_rsa", "id_dsa", "id_ecdsa", "id_ed25519"].flatMap((name) => [name, `${name}.*`]),
   "*.pem", "*.key", "*.p12", "*.pfx", "*.jks", "*.keystore", "*.kdbx",
@@ -86,7 +87,7 @@ const SENSITIVE_FILE_NAMES = new RegExp(
   `^(?:${SENSITIVE_FILE_GLOBS.map((glob) => glob.replaceAll(".", "\\.").replaceAll("*", ".*")).join("|")})$`, "i",
 );
 /** System files that hold password hashes or private keys, and device/process nodes that are not files to read. */
-const SENSITIVE_SYSTEM_PATHS = /^\/(?:etc\/(?:shadow|gshadow|shadow-|gshadow-|sudoers(?:\.d(?:\/.*)?)?|ssh\/ssh_host_[^/]*_key|master\.passwd)|dev(?:\/.*)?|proc\/\d+\/(?:mem|environ|maps))$/;
+const SENSITIVE_SYSTEM_PATHS = /^\/(?:etc\/(?:shadow|gshadow|shadow-|gshadow-|sudoers(?:\.d(?:\/.*)?)?|ssh\/ssh_host_[^/]*_key|master\.passwd|kubernetes\/admin\.conf|rancher\/k3s\/k3s\.yaml|wireguard\/[^/]+\.conf)|var\/lib\/docker\/containers\/[^/]+\/config\.v2\.json|run\/secrets(?:\/.*)?|dev(?:\/.*)?|proc\/(?:kcore|\d+\/(?:mem|environ|maps)))$/;
 
 /**
  * The read tools run without anyone approving them and their output goes to the AI provider and into the

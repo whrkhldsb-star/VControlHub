@@ -5,7 +5,7 @@ import { CHAT_REQUEST_MAX_BODY_BYTES, chatRequestSchema } from "@/lib/ai/schema"
 import { ValidationError } from "@/lib/errors";
 import { enforceApiGuard, withApiRoute } from "@/lib/http/api-guard";
 import { getServerLocale, t } from "@/lib/i18n/translations";
-import { checkRateLimitAsync, getClientIp } from "@/lib/rate-limit";
+import { checkRateLimitAsync, getClientIp, rateLimitIpKey } from "@/lib/rate-limit";
 
 export const dynamic = "force-dynamic";
 
@@ -16,7 +16,7 @@ const AI_CHAT_IP_LIMIT = { maxRequests: 120, windowMs: 60_000 };
 export async function POST(request: Request) {
   const locale = await getServerLocale();
   // Its own bucket: the bare IP was also the 2FA check's key.
-  const rateLimit = await checkRateLimitAsync(`ai-chat:${getClientIp(request)}`, AI_CHAT_IP_LIMIT);
+  const rateLimit = await checkRateLimitAsync(`ai-chat:${rateLimitIpKey(getClientIp(request))}`, AI_CHAT_IP_LIMIT);
   if (!rateLimit.allowed) {
     const message = t("apiAiChat.rateLimited", locale);
     return NextResponse.json(

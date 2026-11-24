@@ -2,11 +2,34 @@ import { AUDIT_EXPORT_MAX_ROWS, prepareAuditExport, type AuditLogEntry } from "@
 import { formatAuditDetail } from "@/lib/audit/detail-format";
 import { withApiRoute } from "@/lib/http/api-guard";
 import { csvCell } from "@/lib/http/csv";
-import { GENERAL_READ_LIMIT } from "@/lib/http/rate-limit-presets";
+import { GENERAL_READ_LIMIT, rateLimitResponse } from "@/lib/http/rate-limit-presets";
 import { z } from "zod";
 import { t } from "@/lib/i18n/service-translations";
 
 export const dynamic = "force-dynamic";
+
+const MAX_CONCURRENT_EXPORTS_GLOBAL = 4;
+const MAX_CONCURRENT_EXPORTS_PER_USER = 2;
+let activeExportsGlobal = 0;
+const activeExportsByUser = new Map<string, number>();
+
+function acquireAuditExportSlot(userId: string): (() => void) | null {
+  const userCount = activeExportsByUser.get(userId) ?? 0;
+  if (activeExportsGlobal >= MAX_CONCURRENT_EXPORTS_GLOBAL || userCount >= MAX_CONCURRENT_EXPORTS_PER_USER) {
+    return null;
+  }
+  activeExportsGlobal += 1;
+  activeExportsByUser.set(userId, userCount + 1);
+  let released = false;
+  return () => {
+    if (released) return;
+    released = true;
+    activeExportsGlobal = Math.max(0, activeExportsGlobal - 1);
+    const next = (activeExportsByUser.get(userId) ?? 1) - 1;
+    if (next <= 0) activeExportsByUser.delete(userId);
+    else activeExportsByUser.set(userId, next);
+  };
+}
 
 const exportQuerySchema = z.object({
   format: z.enum(["csv", "json"]).default("csv"),
@@ -55,9 +78,19 @@ export async function GET(request: Request) {
     },
     async ({ session, query: params }) => {
       request.signal.throwIfAborted();
-      const { batches, truncated } = await prepareAuditExport({
-        action: params.action, severity: params.severity, search: params.search, session,
-      }, request.signal);
+      const slot = acquireAuditExportSlot(session.userId);
+      if (!slot) return rateLimitResponse(5_000);
+      const releaseSlot = slot;
+      let batches: Awaited<ReturnType<typeof prepareAuditExport>>["batches"];
+      let truncated: boolean;
+      try {
+        ({ batches, truncated } = await prepareAuditExport({
+          action: params.action, severity: params.severity, search: params.search, session,
+        }, request.signal));
+      } catch (error) {
+        releaseSlot();
+        throw error;
+      }
       const json = params.format === "json";
       const encoder = new TextEncoder();
       const prefix = json ? "[" : `\ufeff${csvHeader()}`;
@@ -68,6 +101,7 @@ export async function GET(request: Request) {
       function finish() {
         stopped = true;
         request.signal.removeEventListener("abort", onAbort);
+        releaseSlot();
       }
       const stream = new ReadableStream<Uint8Array>({
         start(controller) {

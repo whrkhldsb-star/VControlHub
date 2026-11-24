@@ -1,6 +1,7 @@
 import { apiCopy } from "@/lib/i18n/api-copy";
 import { NextResponse } from "next/server";
 import { withApiRoute } from "@/lib/http/api-guard";
+import { GENERAL_READ_LIMIT } from "@/lib/http/rate-limit-presets";
 import { parseSearchParams } from "@/lib/http/parse-search-params";
 import { fetchModelsFromProvider } from "@/lib/ai/service";
 import { aiModelsQuerySchema } from "@/lib/ai/schema";
@@ -13,7 +14,7 @@ export const dynamic = "force-dynamic";
 export async function GET(request: Request) {
   return withApiRoute(
     request,
-    { permission: "ai:chat", errorStatus: 400, errorMessage: apiCopy("apiCopy.failed.to.fetch.model.list.d5934edd") },
+    { permission: "ai:chat", rateLimit: GENERAL_READ_LIMIT, errorStatus: 400, errorMessage: apiCopy("apiCopy.failed.to.fetch.model.list.d5934edd") },
     async ({ session }) => {
       const { providerId } = parseSearchParams(request, aiModelsQuerySchema);
 

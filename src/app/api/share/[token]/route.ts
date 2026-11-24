@@ -39,7 +39,7 @@ import { resolveStorageSshCredentials } from "@/lib/storage/ssh-credentials";
 
 import { apiError } from "@/lib/http/api-error";
 import { ForbiddenError, ValidationError } from "@/lib/errors";
-import { checkRateLimitAsync, getClientIp } from "@/lib/rate-limit";
+import { checkRateLimitAsync, getClientIp, rateLimitIpKey } from "@/lib/rate-limit";
 import { rateLimitResponse, withRateLimit, type RateLimitConfig } from "@/lib/http/rate-limit-presets";
 import { withApiCopyLocale } from "@/lib/i18n/api-copy";
 import { getServerLocale, t, type Locale } from "@/lib/i18n/translations";
@@ -82,11 +82,12 @@ function readCookie(request: Request, name: string): string | undefined {
  * wrong guesses from anyone locked that share for everybody for 15 minutes.
  */
 async function checkSharePasswordRateLimit(clientIp: string, tokenHash: string) {
+	const ipBucket = rateLimitIpKey(clientIp);
 	// The per-client budget is checked first and in its own namespace: its keys grow only with the number of
 	// clients, so requests for made-up tokens cannot evict it, and they spend it like any other guess.
-	const client = await checkRateLimitAsync(`share-password-client:${clientIp}`, SHARE_PASSWORD_CLIENT_LIMIT);
+	const client = await checkRateLimitAsync(`share-password-client:${ipBucket}`, SHARE_PASSWORD_CLIENT_LIMIT);
 	if (!client.allowed) return client;
-	return checkRateLimitAsync(`share-password:${tokenHash}:${clientIp}`, SHARE_PASSWORD_LIMIT);
+	return checkRateLimitAsync(`share-password:${tokenHash}:${ipBucket}`, SHARE_PASSWORD_LIMIT);
 }
 
 const passwordAuthorizationSchema = z.object({

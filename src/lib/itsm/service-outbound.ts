@@ -91,8 +91,8 @@ async function predecessorComplete(db: Prisma.TransactionClient, payload: Prisma
   return !prior || prior.status === "ok" || prior.status === "ignored";
 }
 
-async function withDeliveryLock<T>(id: string, work: () => Promise<T>) {
-  const release = await acquireAdvisoryLock("itsm-delivery", id);
+async function withDeliveryLock<T>(id: string, work: () => Promise<T>, timeoutMs?: number) {
+  const release = await acquireAdvisoryLock("itsm-delivery", id, timeoutMs ? { timeoutMs } : undefined);
   try {
     return await work();
   } finally {
@@ -172,13 +172,17 @@ async function deliverReservedEvent(id: string): Promise<{ sent: number; failed:
 
 /** An operator checked the stable event ID with the receiver. Serialize that
  * decision with sends, then resume the same stream in the receipt transaction. */
-export function reconcileDelivery(session: SessionPayload, id: string, received: boolean) {
+export async function reconcileDelivery(session: SessionPayload, id: string, received: boolean) {
+  const owner = seesAllCustomers(session) ? {} : {
+    teamId: session.currentTeamId,
+    ...(!session.currentTeamId ? { connection: { createdById: session.userId, teamId: null } } : {}),
+  };
+  const where = { id, ...owner, ...(seesAllCustomers(session) ? {} : { ownerBound: true }), direction: "outbound" as const };
+  // Verify event existence and caller ownership before consuming an advisory-lock connection.
+  const precheck = await prisma.itsmEvent.findFirst({ where, select: { id: true } });
+  if (!precheck) throw new NotFoundError();
   return withDeliveryLock(id, () => prisma.$transaction(async (tx) => {
-    const owner = seesAllCustomers(session) ? {} : {
-      teamId: session.currentTeamId,
-      ...(!session.currentTeamId ? { connection: { createdById: session.userId, teamId: null } } : {}),
-    };
-    const event = await tx.itsmEvent.findFirst({ where: { id, ...owner, ...(seesAllCustomers(session) ? {} : { ownerBound: true }), direction: "outbound" } });
+    const event = await tx.itsmEvent.findFirst({ where });
     if (!event) throw new NotFoundError();
     if (!event.ownerBound) {
       const bound = await reconcileLegacyDestination(tx, event, received, session.userId);
@@ -197,5 +201,5 @@ export function reconcileDelivery(session: SessionPayload, id: string, received:
     if (received) await advanceStream(tx, updated);
     else await scheduleDelivery(tx, updated);
     return { id, status: updated.status };
-  }));
+  }), 5_000);
 }

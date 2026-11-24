@@ -5,18 +5,18 @@ import { idQuerySchema } from "@/lib/http/parse-search-params";
 /* ── GET /api/snippets ────────────────────────────────────────────────── */
 
 export const listSnippetsQuerySchema = z.object({
-  q: z.string().trim().min(1).optional(),
-  language: z.string().trim().min(1).optional(),
+  q: z.string().trim().min(1).max(120).optional(),
+  language: z.string().trim().min(1).max(40).optional(),
 });
 
 /* ── POST /api/snippets ───────────────────────────────────────────────── */
 
 export const createSnippetSchema = z.object({
   title: z.string().trim().min(1, "Title is required").max(120, "Title must be at most 120 characters"),
-  content: z.string().min(1, "Content is required"),
+  content: z.string().min(1, "Content is required").max(200_000),
   language: z.string().trim().min(1).max(40).optional(),
   description: z.string().max(500, "Description must be at most 500 characters").optional(),
-  tags: z.array(z.string()).max(20, "At most 20 tags are allowed").optional(),
+  tags: z.array(z.string().max(40)).max(20, "At most 20 tags are allowed").optional(),
   isPrivate: z.boolean().optional(),
 });
 
@@ -26,10 +26,10 @@ export const updateSnippetSchema = z
   .object({
     id: z.string().trim().min(1, "Snippet ID is required"),
     title: z.string().trim().min(1).max(120).optional(),
-    content: z.string().min(1).optional(),
+    content: z.string().min(1).max(200_000).optional(),
     language: z.string().trim().min(1).max(40).optional(),
     description: z.string().max(500).optional(),
-    tags: z.array(z.string()).max(20).optional(),
+    tags: z.array(z.string().max(40)).max(20).optional(),
     isPrivate: z.boolean().optional(),
   })
   .refine(

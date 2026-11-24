@@ -1,8 +1,6 @@
 import { cookies } from "next/headers";
 import { NextResponse } from "next/server";
 
-import { AuthError } from "@/lib/errors";
-import { apiCopy } from "@/lib/i18n/api-copy";
 import { isRequestHttps } from "@/lib/http/request-https";
 import { getSessionCookieName, reissueSessionForTeam } from "./session";
 
@@ -14,7 +12,9 @@ export async function teamSessionResponse(
 ): Promise<NextResponse> {
   const cookieName = getSessionCookieName();
   const current = (await cookies()).get(cookieName)?.value;
-  if (!current) throw new AuthError(apiCopy("apiCopy.invalid.session.token.format.ab35c21d"));
+  // Bearer-token callers (e.g. admin automation) have no browser session cookie
+  // to rotate; return the committed JSON payload instead of failing with 401.
+  if (!current) return NextResponse.json(body);
   const rotated = await reissueSessionForTeam(current, teamId);
   const response = NextResponse.json(body);
   response.cookies.set(cookieName, rotated.token, {

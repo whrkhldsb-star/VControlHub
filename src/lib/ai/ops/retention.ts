@@ -31,8 +31,8 @@ export async function pruneReviewedJobs(tx: Prisma.TransactionClient, scope: Non
 export async function pruneAiOpsLogs(currentLogId?: string) {
 	// A process can also die on its final attempt. The queue reaper may then
 	// terminate or prune the Job without ever handing it to a new scan worker.
-	await prisma.$executeRaw`UPDATE ai_ops_logs l SET status = 'skipped', "completedAt" = CURRENT_TIMESTAMP,
-		"updatedAt" = CURRENT_TIMESTAMP, "errorMessage" = 'The scan lost its job lease'
+	await prisma.$executeRaw`UPDATE ai_ops_logs l SET status = 'skipped', "completedAt" = (CURRENT_TIMESTAMP AT TIME ZONE 'UTC'),
+		"updatedAt" = (CURRENT_TIMESTAMP AT TIME ZONE 'UTC'), "errorMessage" = 'The scan lost its job lease'
 		WHERE l.status = 'running' AND l."jobId" IS NOT NULL AND NOT EXISTS (
 			SELECT 1 FROM jobs j WHERE j.id = l."jobId" AND j.status IN ('PENDING', 'RUNNING')
 		)`;

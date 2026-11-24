@@ -230,6 +230,7 @@ describe("dispatchDueVpsBackupSchedules overlap guard", () => {
 
   beforeEach(() => {
     vi.clearAllMocks();
+    prismaMock.$queryRaw.mockResolvedValue([{ acquired: true }]);
     prismaMock.server.findFirst.mockResolvedValue(dueSchedule.server);
     prismaMock.vpsBackupSchedule.findMany.mockResolvedValue([dueSchedule]);
     prismaMock.vpsBackupSchedule.updateMany.mockResolvedValue({ count: 1 }); // CAS claim wins
@@ -246,6 +247,22 @@ describe("dispatchDueVpsBackupSchedules overlap guard", () => {
     expect(dispatched).toBe(0);
     expect(createVpsBackupRecordMock).not.toHaveBeenCalled();
     expect(enqueueJobMock).not.toHaveBeenCalled();
+    expect(prismaMock.vpsBackupSchedule.update).toHaveBeenCalledWith(
+      expect.objectContaining({
+        where: { id: "schedule-1" },
+        data: expect.objectContaining({ lastResult: "SKIPPED_OVERLAP" }),
+      }),
+    );
+  });
+
+  it("skips dispatch and marks SKIPPED_OVERLAP when a prior run holds the exclusive server-delete lock", async () => {
+    prismaMock.$queryRaw.mockResolvedValue([{ acquired: false }]);
+    prismaMock.vpsBackupRecord.count.mockResolvedValue(1);
+
+    const dispatched = await dispatchDueVpsBackupSchedules();
+
+    expect(dispatched).toBe(0);
+    expect(createVpsBackupRecordMock).not.toHaveBeenCalled();
     expect(prismaMock.vpsBackupSchedule.update).toHaveBeenCalledWith(
       expect.objectContaining({
         where: { id: "schedule-1" },
@@ -277,7 +294,7 @@ describe("dispatchDueVpsBackupSchedules overlap guard", () => {
   it("leaves the occurrence untouched when the parent owner changes before dispatch", async () => {
     prismaMock.server.findFirst.mockResolvedValueOnce(null);
     expect(await dispatchDueVpsBackupSchedules()).toBe(0);
-    expect(prismaMock.$executeRaw).toHaveBeenCalledBefore(prismaMock.server.findFirst);
+    expect(prismaMock.$queryRaw).toHaveBeenCalledBefore(prismaMock.server.findFirst);
     expect(prismaMock.server.findFirst).toHaveBeenCalledWith(expect.objectContaining({
       where: expect.objectContaining({ id: dueSchedule.serverId, teamId: dueSchedule.server.teamId }),
     }));

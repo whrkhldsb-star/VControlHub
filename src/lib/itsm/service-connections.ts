@@ -118,7 +118,24 @@ export async function updateItsmConnection(
   if (parsed.teamId !== undefined && (!session || sessionHasPermission(session, "team:manage"))) {
     if (parsed.teamId !== existing.teamId) throw new ValidationError(t("backend.itsm.newConnectionForCustomer"));
   }
-  if (parsed.config !== undefined) data.config = parsed.config as Prisma.InputJsonValue;
+  if (parsed.config !== undefined) {
+    // Repointing a connection's webhook URL without explicitly re-entering stored
+    // credentials would forward the existing Bearer accessToken / webhookSecret to
+    // a new host (even if credentials: {} is passed or webhookUrl was cleared first).
+    const prevConfig = parseConfig(existing.config);
+    const prevUrl = typeof prevConfig.webhookUrl === "string" ? prevConfig.webhookUrl.trim() : "";
+    const nextUrl = typeof parsed.config.webhookUrl === "string" ? parsed.config.webhookUrl.trim() : "";
+    if (nextUrl && nextUrl !== prevUrl) {
+      const existingCreds = decryptCredentials(existing.credentialsEnc);
+      const nextCreds = parsed.credentials;
+      const missingAccessToken = Boolean(existingCreds.accessToken) && !nextCreds?.accessToken;
+      const missingWebhookSecret = Boolean(existingCreds.webhookSecret) && !nextCreds?.webhookSecret;
+      if (missingAccessToken || missingWebhookSecret) {
+        throw new ValidationError(t("backend.itsm.webhookCredentialsRequiredOnUrlChange"));
+      }
+    }
+    data.config = parsed.config as Prisma.InputJsonValue;
+  }
   const enabled = parsed.enabled ?? existing.enabled;
   if (enabled || parsed.credentials !== undefined) {
     const credentials = { ...decryptCredentials(existing.credentialsEnc), ...parsed.credentials };

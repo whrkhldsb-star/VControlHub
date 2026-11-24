@@ -32,6 +32,7 @@ function getPrismaAdapter() {
 		// explicitly, preserving existing URL overrides and the connection cap.
 		global.__appPrismaAdapter__ = new PrismaPg({
 			connectionString: url.toString(),
+			options: "-c timezone=UTC",
 			max: Math.min(
 				poolOption("pool_max", config.db.poolSize),
 				poolOption("connection_limit", config.db.connectionLimit),

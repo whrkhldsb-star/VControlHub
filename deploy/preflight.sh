@@ -45,10 +45,17 @@ validate_env_value() {
 }
 
 ensure_runtime_dirs() {
-  local d
+  local d keep
   for d in storage tmp uploads downloads backups logs; do
+    [ ! -L "${APP_DIR}/${d}" ] || fail "Refusing symlink runtime directory: ${APP_DIR}/${d}"
     mkdir -p "${APP_DIR}/${d}"
-    [ -f "${APP_DIR}/${d}/.gitkeep" ] || : > "${APP_DIR}/${d}/.gitkeep"
+    keep="${APP_DIR}/${d}/.gitkeep"
+    # Refuse symlinks and use noclobber (O_EXCL) so a root preflight run can
+    # never follow or truncate a symlink planted inside an app-owned directory.
+    [ ! -L "${keep}" ] || fail "Refusing symlink inside runtime directory: ${keep}"
+    if [ ! -e "${keep}" ]; then
+      ( set -C; : > "${keep}" ) 2>/dev/null || true
+    fi
   done
 }
 
