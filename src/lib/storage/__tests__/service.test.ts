@@ -1297,6 +1297,34 @@ describe("storage service", () => {
       .rejects.toMatchObject({ name: "ValidationError" });
   });
 
+  it("refuses customer re-rooting of a node bound to a platform-assigned server", async () => {
+    vi.clearAllMocks();
+    vi.mocked(prisma.storageNode.findFirst).mockResolvedValueOnce({
+      id: "node_platform", name: "Platform node", driver: "SFTP", basePath: "/srv/customers/team-1",
+      isDefault: true, host: null, port: null, username: null, serverId: "srv_platform", teamId: "team-1",
+      webdavConfigEncrypted: null, directAccessMode: "PROXY", publicBaseUrl: null, directAccessExpiresSeconds: 300,
+      server: null, agentFileShare: null,
+    } as any);
+    vi.mocked(prisma.server.findFirst).mockResolvedValueOnce(null);
+
+    await expect(updateStorageNode({ storageNodeId: "node_platform", basePath: "/" }, teamStorageSession))
+      .rejects.toMatchObject({ name: "ForbiddenError" });
+    expect(prisma.server.findFirst).toHaveBeenCalledWith(expect.objectContaining({
+      where: expect.objectContaining({ id: "srv_platform" }),
+    }));
+    expect(prisma.storageNode.updateMany).not.toHaveBeenCalled();
+  });
+
+  it("refuses customer SFTP nodes pointing at loopback or intranet hosts", async () => {
+    vi.clearAllMocks();
+    for (const host of ["127.0.0.1", "10.0.0.5", "169.254.169.254", "localhost"]) {
+      await expect(createStorageNode({
+        name: "Probe", driver: "SFTP", basePath: "/data", host,
+      }, teamStorageSession)).rejects.toMatchObject({ name: "ValidationError" });
+    }
+    expect(prisma.storageNode.create).not.toHaveBeenCalled();
+  });
+
   it("restores a local deleted entry only when the real file still exists", async () => {
     vi.clearAllMocks();
     const tempRoot = await mkdtemp(path.join(tmpdir(), "storage-restore-"));

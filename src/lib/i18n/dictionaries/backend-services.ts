@@ -904,6 +904,7 @@ export const zh: Record<string, string> = {
 	"backend.customer.templateNeedsPermissions": "身份模板至少需要一项权限",
 	"backend.server.billing.expiryInvalid": "到期日期无效，请使用 YYYY-MM-DD 格式。",
 	"backend.server.billing.quotaInvalid": "流量配额必须是大于 0 的数字（单位 GiB，最多 3 位小数）。",
+	"backend.r14.storageSftpHostNotPublic": "仅平台管理员可将存储节点的 SFTP 地址指向本地或内网主机。",
 };
 
 
@@ -1825,4 +1826,5 @@ export const en: Record<string, string> = {
 	"backend.customer.templateNeedsPermissions": "An identity template needs at least one permission",
 	"backend.server.billing.expiryInvalid": "The expiry date is not valid; use YYYY-MM-DD.",
 	"backend.server.billing.quotaInvalid": "The traffic quota must be a number greater than 0 (GiB, up to 3 decimals).",
+	"backend.r14.storageSftpHostNotPublic": "Only platform administrators can point an SFTP storage node at a local or private network address.",
 };

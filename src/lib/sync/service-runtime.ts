@@ -19,6 +19,7 @@ import { createHash, randomBytes, randomUUID } from "node:crypto";
 import { sessionHasPermission } from "@/lib/auth/authorization";
 import { PERMISSIONS } from "@/lib/auth/rbac";
 import { loadExecutionActor, executionRefusal } from "@/lib/auth/execution-actor";
+import { seesAllCustomers } from "@/lib/auth/team-scope";
 import type { ResolvedStorageSshCredentials } from "@/lib/storage/ssh-credentials";
 import type { SessionPayload } from "@/lib/auth/session";
 import type { Prisma } from "@prisma/client";
@@ -170,7 +171,8 @@ async function writePinnedKnownHosts(sourceSsh: SshConnectionParams, jobId: stri
 	const pin = expectedFingerprint?.trim();
 	if (!pin) return;
 	const knownHostsPath = getSyncTempKeyPath(jobId, "known_hosts");
-	const keyscanResult = await execRemoteCommand({ ...sourceSsh, command: `ssh-keyscan -p ${targetPort} -T 5 ${shellQuote(targetHost)} 2>/dev/null`, timeout: 20000 });
+	const scanHost = targetHost.startsWith("[") && targetHost.endsWith("]") ? targetHost.slice(1, -1) : targetHost;
+	const keyscanResult = await execRemoteCommand({ ...sourceSsh, command: `ssh-keyscan -p ${targetPort} -T 5 -- ${shellQuote(scanHost)} 2>/dev/null`, timeout: 20000 });
 	if (!keyscanResult.stdout.trim()) throw new Error(`Failed to verify target SSH host key: ssh-keyscan returned empty for ${targetHost}:${targetPort}`);
 	const lines = keyscanResult.stdout.split(/\r?\n/).map((line) => line.trim()).filter(Boolean);
 	let matchedLine = "";
@@ -524,6 +526,12 @@ export async function executeSyncJob(
 	const job = await getSyncJobForExecution(jobId);
 	if (!job) throw new Error("Sync job not found");
 
+	// A platform administrator viewing all customers runs a customer's job inside that customer:
+	// both servers must still belong to it (a server moved to another customer is refused).
+	const manualActor = options?.actor && job.teamId && seesAllCustomers(options.actor)
+		? { ...options.actor, currentTeamId: job.teamId }
+		: options?.actor;
+
 	const runId = randomUUID();
 	const endpointsAtClaim = endpointIdentity(job);
 	const leaseId = `${runId}~${endpointsAtClaim}`;
@@ -587,7 +595,7 @@ export async function executeSyncJob(
 		if (options?.onClaimed) await options.onClaimed();
 		// Authorised when created is not authorised now: the runner (or the
 		// creator, for a scheduled run) must still reach both enabled servers.
-		const actor = options?.actor ?? await loadExecutionActor(job.createdBy, job.teamId);
+		const actor = manualActor ?? await loadExecutionActor(job.createdBy, job.teamId);
 		const bidirectional = isBidirectionalSyncType(job.syncType);
 		const deleteOrphans = effectiveDeleteOrphans(job.syncType, job.deleteOrphans);
 		const authorize = async (current: typeof job, session: SessionPayload | null, reverse: boolean) => {

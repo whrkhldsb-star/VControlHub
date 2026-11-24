@@ -3,6 +3,7 @@ import { apiCopy } from "@/lib/i18n/api-copy";
 import { z } from "zod";
 
 import { NextResponse } from "next/server";
+import { prisma } from "@/lib/db";
 import { withApiRoute } from "@/lib/http/api-guard";
 import { parseSearchParams } from "@/lib/http/parse-search-params";
 import { checkPort, allocatePort, getUsedPorts } from "@/lib/quick-service/service";
@@ -45,12 +46,33 @@ export async function GET(request: Request) {
 			if (!hubAccess.ok) return hubAccess.response;
 		}
 
+		const instanceKey = serverId ?? "hub-host";
+		const persistedRows = (await prisma.quickService?.findMany?.({
+			where: { instanceKey },
+			select: { slug: true, port: true, extraPortsJson: true },
+		})) ?? [];
+		const persistedPortOwner = new Map<number, string>();
+		for (const row of persistedRows) {
+			if (typeof row.port === "number" && row.port > 0) persistedPortOwner.set(row.port, row.slug);
+			if (typeof row.extraPortsJson === "string" && row.extraPortsJson) {
+				try {
+					const parsed = JSON.parse(row.extraPortsJson);
+					if (Array.isArray(parsed)) {
+						for (const item of parsed) {
+							const hp = Number((item as { host?: unknown })?.host);
+							if (Number.isInteger(hp) && hp > 0) persistedPortOwner.set(hp, row.slug);
+						}
+					}
+				} catch { /* ignore malformed historical JSON */ }
+			}
+		}
+
 		// action=allocate: suggest a free port
 		if (action === "allocate") {
 			try {
 				if (remote) {
 					const start = preferred ?? 10_000;
-					const usedPorts = new Set(await getRemoteUsedPorts(remote));
+					const usedPorts = new Set([...(await getRemoteUsedPorts(remote)), ...persistedPortOwner.keys()]);
 					for (let offset = 0; offset < 2_000; offset += 1) {
 						const candidate = ((start - 1 + offset) % 65_535) + 1;
 						if (!usedPorts.has(candidate)) {
@@ -62,9 +84,13 @@ export async function GET(request: Request) {
 				// Suggest only (A6-14): the install runs in the worker process, so a
 				// reservation held here protected nothing and only shrank the pool.
 				const owner = Symbol("port suggestion");
-				const port = await allocatePort(preferred, owner);
-				releasePortReservation(port, owner);
-				return NextResponse.json({ port, available: true });
+				let allocated = await allocatePort(preferred && !persistedPortOwner.has(preferred) ? preferred : undefined, owner);
+				while (persistedPortOwner.has(allocated)) {
+					releasePortReservation(allocated, owner);
+					allocated = await allocatePort(undefined, owner);
+				}
+				releasePortReservation(allocated, owner);
+				return NextResponse.json({ port: allocated, available: true });
 			} catch (err) {
 				const msg = getErrorMessage(err, "Configuration check failed");
 				throw new AppError({ code: "INTERNAL_ERROR", message: msg, status: 500 });
@@ -73,12 +99,16 @@ export async function GET(request: Request) {
 
 		// action=used-ports: list all currently used ports
 		if (action === "used-ports") {
-			return NextResponse.json({ usedPorts: remote ? await getRemoteUsedPorts(remote) : await getUsedPorts() });
+			const liveUsed = remote ? await getRemoteUsedPorts(remote) : await getUsedPorts();
+			return NextResponse.json({ usedPorts: [...new Set([...liveUsed, ...persistedPortOwner.keys()])].sort((a, b) => a - b) });
 		}
 
 		// Default: check a specific port
 		if (port === undefined) {
 			throw new ValidationError(apiCopy("apiCopy.please.provide.the.port.parameter.b3868220"));
+		}
+		if (persistedPortOwner.has(port)) {
+			return NextResponse.json({ port, available: false, usedBy: persistedPortOwner.get(port) ?? null });
 		}
 
 		const result = remote

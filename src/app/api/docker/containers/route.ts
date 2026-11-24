@@ -16,7 +16,7 @@ import { auditUserAction } from "@/lib/audit/service";
 import { dockerRequest } from "@/lib/docker/engine-client";
 import { parseDockerStats } from "@/lib/docker/stats";
 import { withApiRoute } from "@/lib/http/api-guard";
-import { COMMAND_LIMIT } from "@/lib/http/rate-limit-presets";
+import { COMMAND_LIMIT, GENERAL_READ_LIMIT } from "@/lib/http/rate-limit-presets";
 import { parseSearchParams } from "@/lib/http/parse-search-params";
 import type { SshEndpointIdentity } from "@/lib/ssh/server-connection-select";
 import { assertServerTeamAccess } from "@/lib/server/team-access";
@@ -48,7 +48,7 @@ function isValidTail(value: string): boolean {
 export async function GET(req: NextRequest) {
   return withApiRoute(
     req,
-    { permission: "docker:manage", errorMessage: apiCopy("apiCopy.docker.api.requestfailed.ddbf5845") },
+    { permission: "docker:manage", rateLimit: GENERAL_READ_LIMIT, errorMessage: apiCopy("apiCopy.docker.api.requestfailed.ddbf5845") },
     async ({ session }) => {
       const { id, logs, stats, tail: tailRaw, serverId } = parseSearchParams(
         req,

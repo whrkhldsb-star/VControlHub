@@ -8,6 +8,7 @@ import { deriveDownloadFileNameFromUrl } from "@/lib/downloads/helpers";
 import { canAccessDownloadTask } from "@/lib/downloads/route-helpers";
 import { getDownloadTargetRelativePath } from "@/lib/downloads/target-path";
 import { withApiRoute } from "@/lib/http/api-guard";
+import { GENERAL_READ_LIMIT } from "@/lib/http/rate-limit-presets";
 
 export const dynamic = "force-dynamic";
 
@@ -17,7 +18,7 @@ const RECENT_DOWNLOADS_SCAN = 50;
 export async function GET(request: Request) {
   return withApiRoute(
     request,
-    { permission: "storage:read", errorMessage: apiCopy("apiCopy.failed.to.fetch.recent.downloads.a2df5c2c") },
+    { permission: "storage:read", optionalTokenPermissions: ["storage:manage-node"], rateLimit: GENERAL_READ_LIMIT, errorMessage: apiCopy("apiCopy.failed.to.fetch.recent.downloads.a2df5c2c") },
     async ({ session }) => {
       const page = (cursor?: string) => prisma.downloadTask.findMany({
         where: {

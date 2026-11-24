@@ -98,8 +98,16 @@ export async function handleWebDavOptions(): Promise<Response> {
   });
 }
 
-/** PROPPATCH: dead properties are not stored; report the request as accepted so clients proceed. */
+/** PROPPATCH: dead properties are not stored; verify write access and target existence before reporting 207. */
 export async function handleWebDavPropPatch(ctx: WebDavContext): Promise<Response> {
+  await requireAccess(ctx.session, ctx.storageNodeId, ctx.relativePath, "write");
+  const node = await loadNode(ctx.storageNodeId, ctx.session);
+  const caseInsensitive = isCaseInsensitiveNode(node);
+  await assertNotRecycled(ctx.storageNodeId, ctx.relativePath, "write", node.driver, caseInsensitive);
+  if (ctx.relativePath) {
+    const entry = await findEntry(ctx.storageNodeId, ctx.relativePath, caseInsensitive);
+    if (!entry) return new Response("Not Found", { status: 404 });
+  }
   const href = buildWebDavHref(ctx.storageNodeId, ctx.relativePath, false).replace(/&/g, "&amp;").replace(/</g, "&lt;");
   const body = `<?xml version="1.0" encoding="utf-8"?>
 <D:multistatus xmlns:D="DAV:"><D:response><D:href>${href}</D:href><D:propstat><D:prop/><D:status>HTTP/1.1 200 OK</D:status></D:propstat></D:response></D:multistatus>`;
@@ -968,12 +976,14 @@ export async function handleWebDavCopy(
   if (!destPath)
     throw new ValidationError(t("backend.webdav.invalidDestination"));
 
-  if (destPath === normalizeWebDavRelativePath(ctx.relativePath, { alreadyDecoded: true })) {
+  const node = await loadNode(ctx.storageNodeId, ctx.session);
+  const caseInsensitive = isCaseInsensitiveNode(node);
+  const normalizedSource = normalizeWebDavRelativePath(ctx.relativePath, { alreadyDecoded: true });
+  if (caseInsensitive ? destPath.toLowerCase() === normalizedSource.toLowerCase() : destPath === normalizedSource) {
     throw new ValidationError(t("backend.storage.copySourceDestinationMustDiffer"));
   }
 
-  const node = await loadNode(ctx.storageNodeId, ctx.session);
-  const entry = await findEntry(ctx.storageNodeId, ctx.relativePath, isCaseInsensitiveNode(node));
+  const entry = await findEntry(ctx.storageNodeId, ctx.relativePath, caseInsensitive);
   if (!entry) throw new NotFoundError(t("backend.webdav.resourceNotFound"));
   if (entry.entryType === "DIRECTORY") {
     throw new BusinessError(

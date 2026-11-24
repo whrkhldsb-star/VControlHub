@@ -190,8 +190,8 @@ export async function GET(request: Request) {
         username: user.username,
         displayName: user.displayName,
         accountType: isAdmin ? "admin" : "customer",
-        teamId: membership?.teamId ?? null,
-        identityTemplateId: membership?.identityTemplateId ?? null,
+        teamId,
+        identityTemplateId: teamId ? (membership?.identityTemplateId ?? null) : null,
         effectivePermissions,
         storageAccess: await serializeStorageAccessGrants(user.storageAccess.filter((grant) => query.includeAssigned
           ? teamId !== null && grant.storageNode.teamId === teamId : visibleNodeIds.has(grant.storageNodeId))),
@@ -224,7 +224,9 @@ export async function PATCH(request: Request) {
         if (!body.version || body.version !== permissionVersion(target)) {
           throw new ConflictError(t("backend.concurrency.lockBusy"));
         }
-        const previousTeamId = target.teamMembership?.teamId ?? null;
+        const previousTeamId = target.teamMembership && !target.teamMembership.team.deletedAt
+          ? target.teamMembership.teamId
+          : null;
         const teamId = body.account ? (body.account.type === "customer" ? body.account.teamId : null) : previousTeamId;
         let applyGrants;
         if (body.storageAccess !== undefined || body.serverAccess !== undefined) {

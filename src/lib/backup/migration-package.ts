@@ -39,7 +39,7 @@ import { execFile } from "node:child_process";
 import { promisify } from "node:util";
 
 import type { SessionPayload } from "@/lib/auth/session";
-import { teamWhere } from "@/lib/auth/team-scope";
+import { isGlobalTeamManager, teamWhere } from "@/lib/auth/team-scope";
 import { config } from "@/lib/config/env";
 import { prisma } from "@/lib/db";
 import { BusinessError, ForbiddenError, NotFoundError, ValidationError } from "@/lib/errors";
@@ -405,7 +405,7 @@ export async function exportMigrationPackage(input: {
   note?: string;
 }): Promise<MigrationExportResult> {
   const root = input.projectRoot || projectRoot();
-  const record = input.session
+  const record = input.session && !isGlobalTeamManager(input.session)
     ? await prisma.backupRecord.findFirst({
         where: { id: input.backupId, ...teamWhere(input.session) },
       })
@@ -589,7 +589,7 @@ export async function importMigrationPackage(input: {
           note: noteParts.join(" | ").slice(0, 1000),
           completedAt: new Date(),
           createdBy: input.session?.userId ?? null,
-          teamId: input.session?.currentTeamId ?? null,
+          teamId: null,
         },
       });
     } catch (error) {

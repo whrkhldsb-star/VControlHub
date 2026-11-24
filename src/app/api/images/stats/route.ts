@@ -8,6 +8,7 @@ import { NextResponse } from "next/server";
 import { imageStatisticsWhere } from "@/lib/image/statistics-scope";
 import { prisma } from "@/lib/db";
 import { withApiRoute } from "@/lib/http/api-guard";
+import { GENERAL_READ_LIMIT } from "@/lib/http/rate-limit-presets";
 import { withCacheHeaders, CachePresets } from "@/lib/cache";
 import { appTimeZoneDateKey, shiftAppTimeZoneDay } from "@/lib/datetime/time-zone";
 
@@ -16,7 +17,7 @@ export const dynamic = "force-dynamic";
 export async function GET(request: Request) {
   return withApiRoute(
     request,
-    { permission: "image:read", errorMessage: apiCopy("apiCopy.failed.to.fetch.statistics.97cf5fdd") },
+    { permission: "image:read", rateLimit: GENERAL_READ_LIMIT, errorMessage: apiCopy("apiCopy.failed.to.fetch.statistics.97cf5fdd") },
     async ({ session }) => {
       const where = imageStatisticsWhere(session);
 

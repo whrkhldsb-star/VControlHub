@@ -5,7 +5,7 @@ import { z } from "zod";
 import { auditUserAction } from "@/lib/audit/service";
 import { dockerRequest } from "@/lib/docker/engine-client";
 import { withApiRoute } from "@/lib/http/api-guard";
-import { COMMAND_LIMIT } from "@/lib/http/rate-limit-presets";
+import { COMMAND_LIMIT, GENERAL_READ_LIMIT } from "@/lib/http/rate-limit-presets";
 import { parseSearchParams } from "@/lib/http/parse-search-params";
 import type { SshEndpointIdentity } from "@/lib/ssh/server-connection-select";
 import { assertServerTeamAccess } from "@/lib/server/team-access";
@@ -29,7 +29,7 @@ const postBodySchema = z.object({
 
 
 export async function GET(req: NextRequest) {
-  return withApiRoute(req, { permission: "docker:manage", errorMessage: apiCopy("apiCopy.failed.to.fetch.docker.resources.60665bd6") }, async ({ session }) => {
+  return withApiRoute(req, { permission: "docker:manage", rateLimit: GENERAL_READ_LIMIT, errorMessage: apiCopy("apiCopy.failed.to.fetch.docker.resources.60665bd6") }, async ({ session }) => {
     const { type, name, serverId } = parseSearchParams(req, getQuerySchema);
     let expectedTeamId: string | null | undefined;
     let expectedEndpoint: SshEndpointIdentity | undefined;

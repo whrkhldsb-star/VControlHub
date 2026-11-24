@@ -6,6 +6,7 @@ import { requirePermission } from "@/lib/auth/authorization";
 import { auditUserAction } from "@/lib/audit/service";
 import { reviewCommandRequest } from "@/lib/command/service";
 import { getServerLocale, t } from "@/lib/i18n/translations";
+import { apiCopy } from "@/lib/i18n/api-copy";
 import { getErrorMessage } from "@/lib/http/error-message";
 import { withServerActionLocale } from "@/lib/i18n/server-locale";
 
@@ -114,6 +115,9 @@ async function batchReviewCommandActionImpl(
 
   if (ids.length === 0) {
     return { error: tr("requestsPage.batch.errorNoSelection") } satisfies BatchReviewActionState;
+  }
+  if (ids.length > 100) {
+    return { error: apiCopy("apiCopy.request.body.too.large.c49c1143") } satisfies BatchReviewActionState;
   }
 
   const results: Record<string, "ok" | string> = {};

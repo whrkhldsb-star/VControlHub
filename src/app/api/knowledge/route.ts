@@ -76,6 +76,7 @@ export async function POST(request: Request) {
     {
       // create_base/ingest require ai:manage; search stays ai:chat.
       permission: "ai:chat",
+      optionalTokenPermissions: ["ai:manage"],
       rateLimit: GENERAL_WRITE_LIMIT,
       bodySchema: postSchema,
       errorMessage: apiCopy("apiCopy.knowledge.action.failed.b714a38d"),

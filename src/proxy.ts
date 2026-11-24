@@ -2,6 +2,8 @@ import { isCrossSiteFormPost } from "@/lib/http/request-origin";
 import { getPending2faCookieName, getSessionCookieName as getRuntimeSessionCookieName } from "@/lib/auth/session";
 import { CSRF_COOKIE_NAME, CSRF_FAILURE_MESSAGE, CSRF_HEADER_NAME, csrfTokensMatch } from "@/lib/auth/csrf-request";
 import { BASE_SECURITY_HEADERS, STRICT_TRANSPORT_SECURITY } from "@/lib/http/security-headers";
+import { isRequestHttps } from "@/lib/http/request-https";
+import { canRouteValidateBearerToken } from "@/lib/auth/bearer-route-policy";
 import { NextResponse } from "next/server";
 import type { NextRequest } from "next/server";
 
@@ -97,8 +99,9 @@ function addSecurityHeaders(
   // outside this proxy's matcher add the same list themselves.
   for (const [name, value] of BASE_SECURITY_HEADERS) headers.set(name, value);
 
-  // HSTS — only add when the request is already HTTPS
-  if (requestUrlIsHttps(request)) {
+  // HSTS — only add when the request is already HTTPS (same left-most
+  // X-Forwarded-Proto rule as the route handlers)
+  if (isRequestHttps(request)) {
     headers.set("Strict-Transport-Security", STRICT_TRANSPORT_SECURITY);
   }
 
@@ -163,32 +166,6 @@ function buildContentSecurityPolicy(nonce: string, host: string | null) {
     "base-uri 'self'",
     "form-action 'self'",
   ].join("; ");
-}
-
-const BEARER_TOKEN_API_BYPASS: Array<{ method: string; pattern: RegExp }> = [
-  { method: "GET", pattern: /^\/api\/health$/ },
-  { method: "GET", pattern: /^\/api\/images\/list$/ },
-  { method: "POST", pattern: /^\/api\/images\/upload$/ },
-];
-
-function canRouteValidateBearerToken(pathname: string, method: string): boolean {
-  const normalizedMethod = method.toUpperCase();
-  if (pathname.startsWith("/api/") && SAFE_METHODS.has(normalizedMethod)) {
-    return true;
-  }
-  if (pathname.startsWith("/api/webdav/")) {
-    return true;
-  }
-  return BEARER_TOKEN_API_BYPASS.some((entry) => entry.method === normalizedMethod && entry.pattern.test(pathname));
-}
-
-function requestUrlIsHttps(request: NextRequest): boolean {
-  // Check if the original request was HTTPS via the X-Forwarded-Proto header
-  // (set by reverse proxies like Caddy/Apache) or the URL protocol
-  const proto = request.headers.get("x-forwarded-proto");
-  if (proto === "https") return true;
-  // Also check the request URL directly
-  return request.nextUrl.protocol === "https:";
 }
 
 function formRequestNeedsDeclaredLength(request: NextRequest): boolean {
@@ -324,7 +301,7 @@ export function proxy(request: NextRequest) {
   if (pathname === "/api/auth/signout" && request.method === "POST"
     && !request.cookies.has(getSessionCookieName()) && request.cookies.get(getPending2faCookieName())?.value) {
     const origin = request.headers.get("origin");
-    const expectedProtocol = requestUrlIsHttps(request) ? "https:" : "http:";
+    const expectedProtocol = isRequestHttps(request) ? "https:" : "http:";
     let sameOrigin = request.headers.get("sec-fetch-site") === "same-origin";
     if (origin) {
       try { sameOrigin = new URL(origin).protocol === expectedProtocol; } catch { sameOrigin = false; }
@@ -395,7 +372,13 @@ export function proxy(request: NextRequest) {
     }
   }
 
-  // 4) Authenticated — pass through with security headers
+  // 4) Authenticated — pass through with security headers.
+  // If a request reached a cookie-only route with an extra Bearer header (e.g. a
+  // forged session cookie + CSRF pair paired with a scoped write token), strip
+  // Authorization so the route guard authenticates the session cookie itself.
+  if (hasBearerToken && !routeCanValidateBearerToken) {
+    forwardedHeaders.delete("authorization");
+  }
   if (SAFE_METHODS.has(request.method.toUpperCase()) && !pathname.startsWith("/api/")) {
     forwardedHeaders.set("x-vcontrolhub-protected-page", "1");
   }

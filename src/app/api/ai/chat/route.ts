@@ -32,6 +32,7 @@ export async function POST(request: Request) {
     request,
     {
       permission: "ai:chat",
+      optionalTokenPermissions: ["ai:action:approve", "server:read", "server:ssh", "command:read", "command:create", "command:approve", "command:execute", "playbook:run", "health:read"],
       errorMessage: t("apiAiChat.errorMessage", locale),
       bodySchema: chatRequestSchema,
       // Images and PDFs travel in the request as base64 (up to 8,000,000 characters each by the schema). The default
@@ -55,7 +56,11 @@ export async function POST(request: Request) {
         body: { ...body, conversationId: body.conversationId, content },
         session,
         reloadSession: async () => {
-          const live = await enforceApiGuard({ request, permission: "ai:chat" });
+          const live = await enforceApiGuard({
+            request,
+            permission: "ai:chat",
+            optionalTokenPermissions: ["ai:action:approve", "server:read", "server:ssh", "command:read", "command:create", "command:approve", "command:execute", "playbook:run", "health:read"],
+          });
           return live instanceof Response ? null : live;
         },
         locale,

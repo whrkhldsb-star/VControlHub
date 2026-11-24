@@ -3,13 +3,16 @@ import { NextResponse } from "next/server";
 import { listTemplates, createTemplate, updateTemplate, deleteTemplate } from "@/lib/command-template/service";
 import { auditUserAction } from "@/lib/audit/service";
 import { sessionHasPermission } from "@/lib/auth/authorization";
+import type { SessionPayload } from "@/lib/auth/session";
+import { isGlobalTeamManager, teamCreateData } from "@/lib/auth/team-scope";
 import { requestLocale, withApiRoute } from "@/lib/http/api-guard";
-import { GENERAL_WRITE_LIMIT } from "@/lib/http/rate-limit-presets";
+import { GENERAL_READ_LIMIT, GENERAL_WRITE_LIMIT } from "@/lib/http/rate-limit-presets";
 import { idQuerySchema, parseSearchParams } from "@/lib/http/parse-search-params";
 import { createCommandTemplateSchema, updateCommandTemplateSchema } from "@/lib/command/schema";
 
 import { ValidationError } from "@/lib/errors";
 import { localizeBuiltinTemplate } from "@/lib/command-template/builtin-labels";
+import { redactTemplateBody } from "@/lib/command-template/visibility";
 import { t as translate } from "@/lib/i18n/translations";
 export const dynamic = "force-dynamic";
 
@@ -23,20 +26,23 @@ function auditTemplateDetail(template: { id: string; name?: string | null; isBui
 	};
 }
 
-function templateActor(session: { userId?: string | null; roles?: string[] } | null) {
-	const roles = Array.isArray(session?.roles) ? session.roles : [];
+function templateActor(session: SessionPayload) {
 	return {
-		userId: session?.userId ?? null,
-		// role:manage is admin-only in DEFAULT_ROLE_PERMISSIONS — allows cross-user template cleanup.
-		canManageAll: sessionHasPermission({ roles: roles as never }, "role:manage"),
+		userId: session.userId,
+		// Cross-user template cleanup: a platform administrator (role:manage), or whoever governs deployments and
+		// approves commands inside the active customer (customer_admin). updateTemplate/deleteTemplate stay scoped
+		// by commandTemplateScopeWhere, so this never reaches another customer's rows (R14 D5-05).
+		canManageAll: sessionHasPermission(session, "role:manage")
+			|| (sessionHasPermission(session, "deploy:manage") && sessionHasPermission(session, "command:approve")),
 	};
 }
 
 export async function GET(request: Request) {
-	return withApiRoute(request, { permission: "command:read", errorStatus: 500, errorMessage: apiCopy("apiCopy.server.error.dfe0c2e8") }, async ({ session }) => {
+	return withApiRoute(request, { permission: "command:read", rateLimit: GENERAL_READ_LIMIT, optionalTokenPermissions: ["command:approve"], errorStatus: 500, errorMessage: apiCopy("apiCopy.server.error.dfe0c2e8") }, async ({ session }) => {
 		const locale = await requestLocale(request);
 		const templates = (await listTemplates(200, session)).map((row) => localizeBuiltinTemplate(row, (key) => translate(key, locale)));
-		const serialized = templates.map((t) => ({
+		// Another author's command bodies stay hidden from non-approvers, as on /deployments (R14 D5-02).
+		const serialized = templates.map((row) => redactTemplateBody(row, session)).map((t) => ({
 			id: t.id, name: t.name, description: t.description,
 			command: t.command, rollbackCommand: t.rollbackCommand, variables: t.variables, tags: t.tags,
 			isBuiltin: t.isBuiltin,
@@ -49,9 +55,12 @@ export async function GET(request: Request) {
 
 export async function POST(request: Request) {
 	return withApiRoute(request, { permission: "command:create", rateLimit: GENERAL_WRITE_LIMIT, errorStatus: 400, errorMessage: apiCopy("apiCopy.creation.failed.f81581a7"), bodySchema: createCommandTemplateSchema }, async ({ session, body }) => {
+		const teamId = isGlobalTeamManager(session)
+			? (session.currentTeamId ?? null)
+			: (teamCreateData(session).teamId ?? null);
 		const template = await createTemplate({
 			name: body.name, description: body.description, command: body.command, rollbackCommand: body.rollbackCommand,
-			variables: body.variables, tags: body.tags, createdById: session.userId || undefined, teamId: session.currentTeamId ?? null,
+			variables: body.variables, tags: body.tags, createdById: session.userId || undefined, teamId: teamId ?? null,
 		});
 		await auditUserAction(session.userId, "command_template.create", auditTemplateDetail(template), undefined, session.currentTeamId);
 		return NextResponse.json({ template });

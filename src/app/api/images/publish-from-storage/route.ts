@@ -12,7 +12,7 @@ import * as path from "node:path";
 import { NextResponse } from "next/server";
 import { z } from "zod";
 
-import { teamWhere } from "@/lib/auth/team-scope";
+import { activeCustomerTeamWhere } from "@/lib/auth/team-scope";
 import { acquireAdvisoryLock } from "@/lib/concurrency/advisory-lock";
 import { prisma } from "@/lib/db";
 import { withApiRoute } from "@/lib/http/api-guard";
@@ -37,7 +37,7 @@ const publishSchema = z.object({
   storageNodeId: z.string().min(1),
   relativePath: z.string().min(1),
   filename: z.string().optional(),
-  album: z.string().optional(),
+  album: z.string().trim().max(128).optional(),
 });
 
 
@@ -62,6 +62,7 @@ export async function POST(request: Request) {
       // to the source path (checked below, with storage:read). Gated by
       // storage:read alone, a read-only role added images to the image bed.
       permission: "image:write",
+      optionalTokenPermissions: ["storage:read", "storage:manage-node"],
       rateLimit: IMAGE_UPLOAD_LIMIT,
       errorMessage: apiCopy("apiCopy.failed.to.publish.from.storage.b1d93bfc"),
       bodySchema: publishSchema,
@@ -71,7 +72,7 @@ export async function POST(request: Request) {
 
       // Verify the storage node exists, is in team scope, and is a supported driver.
       const storageNode = await prisma.storageNode.findFirst({
-        where: { id: storageNodeId, ...teamWhere(session) },
+        where: { id: storageNodeId, ...activeCustomerTeamWhere(session) },
         select: storageFileNodeSelect,
       });
       if (!storageNode) {
@@ -144,15 +145,16 @@ export async function POST(request: Request) {
       const storageKey = `${crypto.randomUUID()}${detectedExt}`;
       const checksum = crypto.createHash("sha256").update(buffer).digest("hex");
 
-      const release = await acquireAdvisoryLock("image-publish", JSON.stringify([session.currentTeamId, session.userId, checksum]));
+      const effectiveTeamId = storageNode.teamId ?? session.currentTeamId ?? null;
+      const release = await acquireAdvisoryLock("image-publish", JSON.stringify([effectiveTeamId, session.userId, checksum]));
       try {
         // Check for duplicate within the caller's tenant only (never leak other teams' rows), and only among images
         // the caller may see: their own, or public ones — another member's private image is not theirs to reuse.
         const existing = await prisma.imageUpload.findFirst({
           where: {
             checksum,
-            ...(session.currentTeamId
-              ? { teamId: session.currentTeamId, OR: [{ userId: session.userId }, { isPublic: true }] }
+            ...(effectiveTeamId
+              ? { teamId: effectiveTeamId, OR: [{ userId: session.userId }, { isPublic: true }] }
               : { userId: session.userId }),
           },
         });
@@ -204,7 +206,7 @@ export async function POST(request: Request) {
               storageNodeId,
               relativePath,
               userId: session.userId,
-              teamId: session.currentTeamId ?? null,
+              teamId: effectiveTeamId,
             },
           });
         } catch (error) {

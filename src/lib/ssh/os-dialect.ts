@@ -299,6 +299,8 @@ export function serviceCommand(
   sudoPattern = "sudo -n",
 ): string {
   if (!/^[A-Za-z0-9._@][A-Za-z0-9._@:-]{0,127}$/.test(unit)) throw new ValidationError(t("apiServersReload.unitNamePatternError"));
+  // The prefix is interpolated unquoted: only allowlisted values may reach the shell (R14 D2-02).
+  sudoPattern = normalizeSudoPattern(sudoPattern);
   switch (manager) {
     case "systemd":
       if (action === "status") return `systemctl status --no-pager -l -- ${unit}`;
@@ -329,16 +331,61 @@ export function serviceCommand(
 /**
  * 从 Server 记录上的 JSON 字段反序列化 OsDialect。
  * 如果字段为空或解析失败，返回 DEFAULT_DIALECT。
+ *
+ * The stored JSON may come from a config import, so every field that reaches a
+ * shell (`sudoPattern`) or selects a command family (`packageManager`,
+ * `serviceManager`) is allowlisted here instead of trusted (R14 D2-02).
  */
 export function deserializeDialect(json: string | null | undefined): OsDialect {
   if (!json) return DEFAULT_DIALECT;
   try {
-    const parsed = JSON.parse(json) as Partial<OsDialect>;
-    if (!parsed.packageManager || !parsed.serviceManager) return DEFAULT_DIALECT;
-    return { ...DEFAULT_DIALECT, ...parsed };
+    const parsed = JSON.parse(json) as unknown;
+    if (!parsed || typeof parsed !== "object" || Array.isArray(parsed)) return DEFAULT_DIALECT;
+    const raw = parsed as Record<string, unknown>;
+    if (!isPackageManager(raw.packageManager) || !isServiceManager(raw.serviceManager)) return DEFAULT_DIALECT;
+    const rawPaths = raw.configPaths && typeof raw.configPaths === "object" && !Array.isArray(raw.configPaths)
+      ? raw.configPaths as Record<string, unknown>
+      : {};
+    return {
+      packageManager: raw.packageManager,
+      serviceManager: raw.serviceManager,
+      distroName: stringOr(raw.distroName, DEFAULT_DIALECT.distroName),
+      distroFamily: stringOr(raw.distroFamily, DEFAULT_DIALECT.distroFamily),
+      defaultShell: stringOr(raw.defaultShell, DEFAULT_DIALECT.defaultShell),
+      sudoPattern: normalizeSudoPattern(raw.sudoPattern),
+      configPaths: {
+        nginx: stringOr(rawPaths.nginx, DEFAULT_DIALECT.configPaths.nginx),
+        sshd: stringOr(rawPaths.sshd, DEFAULT_DIALECT.configPaths.sshd),
+        fail2ban: stringOr(rawPaths.fail2ban, DEFAULT_DIALECT.configPaths.fail2ban),
+        docker: stringOr(rawPaths.docker, DEFAULT_DIALECT.configPaths.docker),
+      },
+      detectedAt: typeof raw.detectedAt === "string" ? raw.detectedAt : null,
+    };
   } catch {
     return DEFAULT_DIALECT;
   }
+}
+
+const PACKAGE_MANAGERS: ReadonlySet<string> = new Set<PackageManager>(["apt", "dnf", "yum", "apk", "pacman", "zypper"]);
+const SERVICE_MANAGERS: ReadonlySet<string> = new Set<ServiceManager>(["systemd", "openrc", "sysvinit"]);
+/** Every preset emits "sudo -n"; "" (already root, no sudo) is the only other prefix a shell may receive. */
+const SUDO_PATTERNS: ReadonlySet<string> = new Set(["", "sudo -n"]);
+
+function isPackageManager(value: unknown): value is PackageManager {
+  return typeof value === "string" && PACKAGE_MANAGERS.has(value);
+}
+
+function isServiceManager(value: unknown): value is ServiceManager {
+  return typeof value === "string" && SERVICE_MANAGERS.has(value);
+}
+
+function stringOr(value: unknown, fallback: string): string {
+  return typeof value === "string" ? value : fallback;
+}
+
+/** Any prefix outside the allowlist falls back to the non-interactive default rather than reaching a shell. */
+export function normalizeSudoPattern(value: unknown): string {
+  return typeof value === "string" && SUDO_PATTERNS.has(value) ? value : DEFAULT_DIALECT.sudoPattern;
 }
 
 /**

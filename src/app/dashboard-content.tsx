@@ -81,7 +81,14 @@ export async function DashboardContent({ sessionPath }: { sessionPath: "/" | "/d
 			where: teamScope,
 			take: 5,
 			orderBy: { createdAt: "desc" },
-			include: { actor: { select: { username: true, displayName: true } } },
+			select: {
+				id: true,
+				action: true,
+				severity: true,
+				actorType: true,
+				createdAt: true,
+				actor: { select: { username: true, displayName: true } },
+			},
 		}) : Promise.resolve([]),
 		canReadStorage
 			? downloadSummary(session).then((result) => result.totals).catch((error) => {

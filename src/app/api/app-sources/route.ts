@@ -7,7 +7,7 @@ import { z } from "zod";
 
 import { isUniqueViolation, prisma } from "@/lib/db";
 import { withApiRoute } from "@/lib/http/api-guard";
-import { GENERAL_WRITE_LIMIT } from "@/lib/http/rate-limit-presets";
+import { GENERAL_READ_LIMIT, GENERAL_WRITE_LIMIT } from "@/lib/http/rate-limit-presets";
 import { parseSearchParams } from "@/lib/http/parse-search-params";
 import { type NormalizedApp } from "@/lib/quick-service/adapters";
 import { SERVICE_CATALOG } from "@/lib/quick-service/catalog";
@@ -29,7 +29,7 @@ export const dynamic = "force-dynamic";
 export async function GET(request: Request) {
   return withApiRoute(
     request,
-    { permission: "user:manage", errorMessage: apiCopy("apiCopy.server.error.dfe0c2e8") },
+    { permission: "user:manage", rateLimit: GENERAL_READ_LIMIT, errorMessage: apiCopy("apiCopy.server.error.dfe0c2e8") },
     async () => {
       const { includeApps = true, cursor } = parseSearchParams(
         request,

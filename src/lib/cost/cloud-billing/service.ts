@@ -24,6 +24,7 @@ import { prisma } from "@/lib/db";
 import { escapeLikeLiteral } from "@/lib/db/like-pattern";
 import { ConflictError, NotFoundError, ValidationError } from "@/lib/errors";
 import { createLogger } from "@/lib/logging";
+import { stripNul } from "@/lib/text/strip-nul";
 
 import type { CostCurrency } from "../types";
 import { endOfMonthUtc, startOfMonthUtc, tagValue } from "../service-internals";
@@ -567,7 +568,7 @@ async function runCloudBillingSync(
 		}, { timeout: 120_000 });
 		return { ...result, warnings };
 	} catch (err) {
-		const message = err instanceof Error ? err.message : String(err);
+		const message = stripNul(err instanceof Error ? err.message : String(err));
 		await prisma.$transaction((tx) => finish(tx, "error", 0, skipped, message));
 		logger.warn("cloud billing sync failed", { accountId, month, error: message });
 		if (err instanceof ConflictError) throw err;

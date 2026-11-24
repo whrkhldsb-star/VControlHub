@@ -17,6 +17,7 @@ import { getRuntimeSettingNumberCached } from "@/lib/runtime-settings/cached";
 import path from "node:path";
 
 import { createLogger } from "@/lib/logging";
+import { sessionHasPermission } from "@/lib/auth/authorization";
 import type { RoleKey } from "@/lib/auth/rbac";
 import { teamWhere } from "@/lib/auth/team-scope";
 import { prisma } from "@/lib/db";
@@ -548,7 +549,10 @@ export async function searchFileContents(params: {
 	visibleResults.sort((a, b) => b.snippets.length - a.snippets.length);
 
 	const truncated = nodeTruncated || visibleResults.length > MAX_RESULTS;
-	const results = visibleResults.slice(0, MAX_RESULTS);
+	const canSeeBasePath = !session || sessionHasPermission(session as SessionPayload, "storage:manage-node");
+	const results = visibleResults.slice(0, MAX_RESULTS).map((item) =>
+		canSeeBasePath ? item : { ...item, filePath: item.relativePath },
+	);
 
 	return {
 		results,

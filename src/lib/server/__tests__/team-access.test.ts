@@ -96,4 +96,34 @@ describe("assertServerTeamAccess", () => {
     }, "server_1", "manage");
     expect(result.ok).toBe(false);
   });
+
+  it("hides servers of an archived customer even from the all-customer admin view", async () => {
+    serverFindUniqueMock.mockResolvedValue({ id: "server_1", teamId: "team_1", team: { deletedAt: new Date() } });
+    sessionHasPermissionMock.mockReturnValue(true);
+    const result = await assertServerTeamAccess({
+      userId: "admin_1",
+      username: "admin",
+      roles: ["admin"],
+      mustChangePassword: false,
+      currentTeamId: null,
+    }, "server_1", "manage");
+    expect(result.ok).toBe(false);
+    if (!result.ok) expect(result.response.status).toBe(404);
+    expect(serverFindUniqueMock).toHaveBeenCalledWith(expect.objectContaining({
+      select: expect.objectContaining({ team: { select: { deletedAt: true } } }),
+    }));
+  });
+
+  it("strips the team relation from the returned server", async () => {
+    serverFindUniqueMock.mockResolvedValue({ id: "server_1", teamId: "team_1", team: { deletedAt: null } });
+    sessionHasPermissionMock.mockReturnValue(true);
+    const result = await assertServerTeamAccess({
+      userId: "admin_1",
+      username: "admin",
+      roles: ["admin"],
+      mustChangePassword: false,
+      currentTeamId: null,
+    }, "server_1");
+    expect(result).toEqual({ ok: true, server: { id: "server_1", teamId: "team_1" } });
+  });
 });

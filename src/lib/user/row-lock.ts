@@ -37,7 +37,10 @@ export async function assertCurrentUserManager(tx: Prisma.TransactionClient, ses
 export async function lockManagedAccount(tx: Prisma.TransactionClient, session: SessionPayload, userId: string, destination?: string) {
   const member = await tx.teamMember.findUnique({ where: { userId }, select: { teamId: true } });
   const teams = new Set([member?.teamId, destination].filter((id): id is string => !!id));
-  for (const team of [...teams].sort()) await lockLiveCustomer(tx, team);
+  for (const team of [...teams].sort()) {
+    if (team === destination) await lockLiveCustomer(tx, team);
+    else await tx.$queryRaw`SELECT id FROM teams WHERE id = ${team} FOR SHARE`;
+  }
   for (const id of [...new Set([session.userId, userId])].sort()) {
     if (id === session.userId) await assertCurrentUserManager(tx, session);
     else await lockUserRow(tx, id);

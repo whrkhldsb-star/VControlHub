@@ -38,7 +38,7 @@ const PROTECTED_HOME_RELATIVE_PREFIXES = [
 	".config/autostart/",
 ];
 
-function isProtectedLoginControlPath(candidate: string, root: string, windows: boolean): boolean {
+export function isProtectedLoginControlPath(candidate: string, root: string, windows = false): boolean {
 	const norm = (value: string) => {
 		const trimmed = value.replace(/\/+$/, "") || "/";
 		return windows ? trimmed.toLowerCase() : trimmed;
@@ -48,9 +48,16 @@ function isProtectedLoginControlPath(candidate: string, root: string, windows: b
 	if (c === r) return true;
 	const prefix = r === "/" ? "/" : `${r}/`;
 	if (!c.startsWith(prefix)) return false;
-	const rel = c.slice(prefix.length).replace(/^\/+/, "");
-	const lowerRel = rel.toLowerCase();
+	const rawRel = c.slice(prefix.length).replace(/^\/+/, "");
+	const segments = rawRel.split("/").filter(Boolean);
+	if (windows && segments.some((seg) => seg.includes("~"))) return true;
+	const normalizedSegments = windows
+		? segments.map((seg) => seg.replace(/[. ]+$/g, ""))
+		: segments;
+	const lowerRel = normalizedSegments.join("/").toLowerCase();
+	if (!lowerRel) return true;
 	if (PROTECTED_HOME_RELATIVE_EXACT.has(lowerRel)) return true;
+	if ([...PROTECTED_HOME_RELATIVE_EXACT].some((p) => p.startsWith(`${lowerRel}/`))) return true;
 	return PROTECTED_HOME_RELATIVE_PREFIXES.some((p) => lowerRel.startsWith(p));
 }
 

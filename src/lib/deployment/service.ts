@@ -7,9 +7,10 @@ import { acquireAdvisoryLock } from "@/lib/concurrency/advisory-lock";
 import { createCommandRequest } from "@/lib/command/service";
 import { commandRequestTitle } from "@/lib/command/schema";
 import { commandTemplateScopeWhere, seedBuiltinTemplates } from "@/lib/command-template/service";
+import { canReadTemplateBody } from "@/lib/command-template/visibility";
 import type { SessionPayload } from "@/lib/auth/session";
 import { deploymentRunTeamWhere, serverTeamWhere, teamCreateData } from "@/lib/auth/team-scope";
-import { ConflictError, NotFoundError, ValidationError } from "@/lib/errors";
+import { ConflictError, ForbiddenError, NotFoundError, ValidationError } from "@/lib/errors";
 
 // TR-039: pure DTO types live in ./dto so client code can reach them
 // without pulling the whole server-only service module. We import them
@@ -18,7 +19,7 @@ import { ConflictError, NotFoundError, ValidationError } from "@/lib/errors";
 import { t } from "@/lib/i18n/service-translations";
 import { OPERATION_TARGET_SELECT, operationTargetAvailability } from "@/lib/server/availability";
 
-export type SessionScope = Pick<SessionPayload, "userId" | "roles" | "currentTeamId">;
+export type SessionScope = Pick<SessionPayload, "userId" | "roles" | "currentTeamId"> & Partial<Pick<SessionPayload, "permissions">>;
 
 /**
  * Scope for `DeploymentRun` queries. Strict, not the loose `teamWhere`: a run
@@ -180,6 +181,9 @@ async function createDeploymentRunFromTemplateUnlocked(
   const shell = await deploymentShellForServers(normalized.serverIds, session);
   const template = await prisma.commandTemplate.findFirst({ where: { id: normalized.templateId, ...commandTemplateScopeWhere(session) } });
   if (!template) throw new NotFoundError(t("backend.deployment.deploymentTemplateNotFound"));
+  if (template.createdById !== undefined && !canReadTemplateBody(template, session)) {
+    throw new ForbiddenError(apiCopy("apiCopy.insufficient.permissions.37e6815b"));
+  }
   assertTemplateVariables(
     template.command,
     template.variables,

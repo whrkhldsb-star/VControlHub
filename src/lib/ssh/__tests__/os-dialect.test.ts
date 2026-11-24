@@ -317,4 +317,17 @@ describe("serializeDialect / deserializeDialect", () => {
     expect(restored.serviceManager).toBe("openrc");
     expect(restored.distroFamily).toBe("alpine");
   });
+
+  it("deserializeDialect refuses an imported sudo prefix that is not allowlisted", () => {
+    const json = JSON.stringify({ packageManager: "apt", serviceManager: "systemd", sudoPattern: "id >/tmp/pwned; sudo -n" });
+    const restored = deserializeDialect(json);
+    expect(restored.sudoPattern).toBe("sudo -n");
+    expect(serviceCommand("systemd", "restart", "nginx", "touch /tmp/x;")).toBe("sudo -n systemctl restart -- nginx");
+    expect(deserializeDialect(JSON.stringify({ packageManager: "apt", serviceManager: "systemd", sudoPattern: "" })).sudoPattern).toBe("");
+  });
+
+  it("deserializeDialect falls back to the default for unknown package/service managers", () => {
+    expect(deserializeDialect(JSON.stringify({ packageManager: "rm -rf", serviceManager: "systemd" }))).toBe(DEFAULT_DIALECT);
+    expect(deserializeDialect(JSON.stringify({ packageManager: "apt", serviceManager: "x; id" }))).toBe(DEFAULT_DIALECT);
+  });
 });

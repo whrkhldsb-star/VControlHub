@@ -29,6 +29,7 @@ export async function PATCH(
     request,
     {
       permission: "ai:chat",
+      optionalTokenPermissions: ["ai:action:approve", "server:read", "server:ssh", "command:read", "command:create", "command:approve", "command:execute", "playbook:run", "health:read"],
       rateLimit: GENERAL_WRITE_LIMIT,
       errorStatus: 400,
       errorMessage: apiCopy("apiCopy.operation.failed.4e1af7c7"),

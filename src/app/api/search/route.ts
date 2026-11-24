@@ -7,6 +7,7 @@ import { isGlobalTeamManager, playbookTeamWhere, serverTeamWhere } from "@/lib/a
 import { escapeLikeLiteral } from "@/lib/db/like-pattern";
 import { prisma } from "@/lib/db";
 import { withApiRoute } from "@/lib/http/api-guard";
+import { GENERAL_READ_LIMIT } from "@/lib/http/rate-limit-presets";
 import { SERVICE_CATALOG } from "@/lib/quick-service/catalog";
 import { getRemoteApps } from "@/lib/quick-service/app-source-sync";
 
@@ -32,7 +33,7 @@ function includesQuery(values: Array<string | null | undefined>, query: string) 
 }
 
 export async function GET(request: Request) {
-	return withApiRoute(request, { requireAuth: true, querySchema: searchQuerySchema }, async ({ session, query }) => {
+	return withApiRoute(request, { requireAuth: true, rateLimit: GENERAL_READ_LIMIT, querySchema: searchQuerySchema }, async ({ session, query }) => {
 		const results: SearchResult[] = [];
 		const q = query.q;
 		const take = query.limit;
@@ -125,7 +126,7 @@ export async function GET(request: Request) {
 				take,
 				select: { slug: true, name: true, description: true },
 			});
-			const remoteApps = await getRemoteApps();
+			const remoteApps = await getRemoteApps(undefined, { searchQuery: q, limit: take });
 			const matches = [
 				...SERVICE_CATALOG.filter(item => includesQuery([item.name, item.slug, item.description, "catalog"], q)),
 				...installed,

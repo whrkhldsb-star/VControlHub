@@ -23,7 +23,7 @@ import { assertStorageAccess } from "@/lib/storage/access-control";
 import { storageAccessDeniedCopy } from "@/lib/storage/access-denied";
 import { storageNodeTeamWhere } from "@/lib/auth/team-scope";
 import { expandStorageBasePath, isCaseInsensitiveStorageNode, normalizeStorageTargetDirectory } from "@/lib/storage/path-utils";
-import { syncEndpointAccess, effectiveDeleteOrphans, isProtectedDeleteTarget, syncEndpointsOverlap } from "./bidirectional";
+import { syncEndpointAccess, effectiveDeleteOrphans, isBidirectionalSyncType, isProtectedDeleteTarget, syncEndpointsOverlap } from "./bidirectional";
 import { t } from "@/lib/i18n/service-translations";
 
 /** The caller's scope and, when known, its effective permissions (an identity template or API token may grant fewer than its roles). */
@@ -111,14 +111,22 @@ async function assertSyncTreeAvailable(storageNodeId: string, relativePath: stri
 	if (deleted) throw new ForbiddenError(t("backend.webdav.destinationHeldByRecycleBin", { path: `/${relativePath}` }));
 }
 
-/** Return the canonical paths used by a storage-confined transfer, in endpoint order. */
+/**
+ * Return the canonical paths used by a storage-confined transfer, in endpoint order.
+ *
+ * `authorizeOnly` checks just the caller's rights (storage root confinement and the
+ * per-operation path grants) without probing the remote paths or the recycle bin —
+ * for managing an existing job (edit metadata, delete, pre-claim of a manual run).
+ */
 export async function assertSyncEndpointsWithinReach(
 	endpoints: SyncReachEndpoint[],
 	session: SyncSessionScope | null | undefined,
+	options: { authorizeOnly?: boolean } = {},
 ): Promise<Awaited<ReturnType<typeof resolveStorageRemotePath>>[] | undefined> {
 	if (!session) return;
 	const permissions = session.permissions ?? getPermissionsFromRoles(session.roles);
 	const confined = !permissions.includes("server:ssh");
+	if (options.authorizeOnly && !confined) return;
 	const nodes = await prisma.storageNode.findMany({
 		where: { driver: "SFTP", serverId: { in: Array.from(new Set(endpoints.map((endpoint) => endpoint.serverId))) }, ...storageNodeTeamWhere(session) },
 		select: { id: true, serverId: true, basePath: true, teamId: true, host: true, port: true, username: true, hostKeySha256: true,
@@ -143,6 +151,7 @@ export async function assertSyncEndpointsWithinReach(
 				if (!access.allowed) throw new ForbiddenError(storageAccessDeniedCopy(access.reason));
 			}
 		}
+		if (options.authorizeOnly) continue;
 		// A shell-capable caller can name a parent of an indexed root, which includes its whole recycle bin.
 		if (inside || syncPathWithinRoot(root, endpoint.path)) {
 			await assertSyncTreeAvailable(
@@ -165,7 +174,7 @@ export async function assertSyncEndpointsWithinReach(
 			paths.push(await resolveStorageRemotePath({ ...node, basePath: root }, relativePath, { allowRoot: true, credentials }));
 		}
 	}
-	return confined ? paths : undefined;
+	return confined && !options.authorizeOnly ? paths : undefined;
 }
 
 /** A job that deletes what the source lacks may not target a system directory. */
@@ -190,26 +199,43 @@ export async function createSyncJob(input: SyncJobInput) {
 		],
 		input.session,
 	);
-	const teamData = input.session ? teamCreateData(input.session) : {};
+	const teamData: { teamId?: string } = input.session ? teamCreateData(input.session) : {};
 	const deleteOrphans = effectiveDeleteOrphans(input.syncType ?? "MIRROR", input.deleteOrphans ?? false);
-	return prisma.syncJob.create({
-		data: {
-			name: input.name,
-			sourceServerId: input.sourceServerId,
-			sourcePath: input.sourcePath,
-			targetServerId: input.targetServerId,
-			targetPath: input.targetPath,
-			syncType: input.syncType ?? "MIRROR",
-			schedule: input.schedule ?? null,
-			deleteOrphans,
-			compress: input.compress ?? false,
-			createdBy: input.createdBy ?? input.session?.userId ?? null,
-			...teamData,
-		},
-		include: {
-			sourceServer: serverSummary,
-			targetServer: serverSummary,
-		},
+	return prisma.$transaction(async tx => {
+		// The scope check above is a plain read, followed by slow remote probes. Hold both servers
+		// in the job's customer until the row exists, so a concurrent transfer to another customer
+		// either finishes first (and is refused here) or sees this job and is refused itself.
+		if (input.session && typeof tx.$queryRaw === "function") {
+			const teamId = teamData.teamId ?? null;
+			for (const serverId of Array.from(new Set([input.sourceServerId, input.targetServerId])).sort()) {
+				const locked = await tx.$queryRaw<{ id: string }[]>`
+					SELECT id FROM servers WHERE id = ${serverId} AND "teamId" IS NOT DISTINCT FROM ${teamId} FOR SHARE`;
+				if (!locked.length) {
+					throw new ValidationError(
+						apiCopy("apiCopy.one.or.more.source.target.servers.were.not.found.or.are.outside..cf44bdaa"),
+					);
+				}
+			}
+		}
+		return tx.syncJob.create({
+			data: {
+				name: input.name,
+				sourceServerId: input.sourceServerId,
+				sourcePath: input.sourcePath,
+				targetServerId: input.targetServerId,
+				targetPath: input.targetPath,
+				syncType: input.syncType ?? "MIRROR",
+				schedule: input.schedule ?? null,
+				deleteOrphans,
+				compress: input.compress ?? false,
+				createdBy: input.createdBy ?? input.session?.userId ?? null,
+				...teamData,
+			},
+			include: {
+				sourceServer: serverSummary,
+				targetServer: serverSummary,
+			},
+		});
 	});
 }
 
@@ -219,7 +245,10 @@ export function syncVisibility(session?: SyncSessionScope, write = false) {
 	return { ...syncJobTeamWhere(session), sourceServer: { is: server }, targetServer: { is: server } };
 }
 
-type SyncPaths = Pick<SyncJobInput, "sourceServerId" | "targetServerId" | "sourcePath" | "targetPath">;
+type SyncPaths = Pick<SyncJobInput, "sourceServerId" | "targetServerId" | "sourcePath" | "targetPath">
+	& { syncType?: string | null; deleteOrphans?: boolean | null };
+
+type SyncPathNeed = "read" | "write" | "delete";
 
 export async function visibleSyncPaths(jobs: SyncPaths[], session?: SyncSessionScope, write = false, db: Prisma.TransactionClient = prisma) {
 	const permissions = session?.permissions ?? getPermissionsFromRoles(session?.roles ?? []);
@@ -227,22 +256,33 @@ export async function visibleSyncPaths(jobs: SyncPaths[], session?: SyncSessionS
 	const userId = session.userId;
 	const nodes = await db.storageNode.findMany({
 		where: { serverId: { in: [...new Set(jobs.flatMap(job => [job.sourceServerId, job.targetServerId]))] }, ...storageNodeTeamWhere(session) },
-		select: { serverId: true, basePath: true, accessGrants: { where: { userId }, select: { pathPrefix: true, canRead: true, canWrite: true } } },
+		select: { serverId: true, basePath: true, accessGrants: { where: { userId }, select: { pathPrefix: true, canRead: true, canWrite: true, canDelete: true } } },
 	});
 	const byServer = new Map(nodes.map(node => [node.serverId, node]));
 	const canReadStorage = permissions.includes("storage:read") || permissions.includes("storage:write") || permissions.includes("storage:delete");
-	const allowed = (serverId: string, path: string, writing: boolean) => {
+	const allowed = (serverId: string, path: string, need: SyncPathNeed) => {
 		const node = byServer.get(serverId);
-		if (!node || !(writing ? permissions.includes("storage:write") : canReadStorage)) return false;
+		const hasPermission = need === "read" ? canReadStorage : permissions.includes(need === "write" ? "storage:write" : "storage:delete");
+		if (!node || !hasPermission) return false;
 		const root = expandStorageBasePath(node.basePath);
 		if (!syncPathWithinRoot(path, root)) return false;
 		if (permissions.includes("storage:manage-node") || node.accessGrants.length === 0) return true;
 		return node.accessGrants.some(grant => {
 			const prefix = normalizeStorageTargetDirectory(grant.pathPrefix);
-			return prefix.ok && (writing ? grant.canWrite : grant.canRead) && syncPathWithinRoot(path, posixPath.join(root, prefix.path));
+			const granted = need === "read" ? grant.canRead : need === "write" ? grant.canWrite : grant.canDelete;
+			return prefix.ok && granted && syncPathWithinRoot(path, posixPath.join(root, prefix.path));
 		});
 	};
-	return (job: SyncPaths) => allowed(job.sourceServerId, job.sourcePath, false) && allowed(job.targetServerId, job.targetPath, write);
+	// Managing a job (edit, delete, run) needs what running it needs: a two-way job writes its source too,
+	// and a job that removes what the source lacks deletes on its target.
+	return (job: SyncPaths) => {
+		const writesSource = write && isBidirectionalSyncType(job.syncType);
+		const deletesTarget = write && job.syncType != null && effectiveDeleteOrphans(job.syncType, Boolean(job.deleteOrphans));
+		return allowed(job.sourceServerId, job.sourcePath, "read")
+			&& (!writesSource || allowed(job.sourceServerId, job.sourcePath, "write"))
+			&& allowed(job.targetServerId, job.targetPath, write ? "write" : "read")
+			&& (!deletesTarget || allowed(job.targetServerId, job.targetPath, "delete"));
+	};
 }
 
 type HistoryRow = SyncPaths & { lastSyncResult: string | null; syncLogs: { errorMessage: string | null }[] };
@@ -337,6 +377,26 @@ export async function getSyncJobForExecution(id: string) {
 	});
 }
 
+/**
+ * The caller may manage (edit, delete, run) an existing job only with the rights running it
+ * requires: write on a two-way source, delete on an orphan-removing target, and quota-free
+ * tree writes — the same gate createSyncJob applies, without re-probing the remote paths.
+ */
+export async function assertExistingSyncJobReach(
+	job: SyncPaths & { syncType: string; deleteOrphans: boolean },
+	session: SyncSessionScope | null | undefined,
+) {
+	const access = syncEndpointAccess(job.syncType, job.deleteOrphans);
+	await assertSyncEndpointsWithinReach(
+		[
+			{ serverId: job.sourceServerId, path: job.sourcePath, ...access.source },
+			{ serverId: job.targetServerId, path: job.targetPath, ...access.target },
+		],
+		session,
+		{ authorizeOnly: true },
+	);
+}
+
 export async function deleteSyncJob(
 	id: string,
 	session?: SyncSessionScope,
@@ -345,6 +405,9 @@ export async function deleteSyncJob(
 		const where = { id, ...syncVisibility(session, true) };
 		const job = await tx.syncJob.findFirst({ where });
 		if (!job || !(await visibleSyncPaths([job], session, true, tx))(job)) throw new NotFoundError(t("backend.sync.syncJobNotFound"));
+		// Removing a job takes the rights running it takes (a teammate's mirror is not deletable by
+		// someone who may not delete on its target, or write past its quota).
+		await assertExistingSyncJobReach(job, session);
 		if (job.status === "RUNNING") throw new ValidationError(t("backend.sync.cannotDeleteRunningSyncJob"));
 		const deleted = await tx.syncJob.deleteMany({ where: { ...where, updatedAt: job.updatedAt, status: { not: "RUNNING" } } });
 		if (!deleted.count) throw new ValidationError(t("backend.sync.cannotDeleteRunningSyncJob"));
@@ -381,6 +444,9 @@ export async function updateSyncJob(
 			Boolean(data.deleteOrphans ?? existing.deleteOrphans),
 			data.targetPath ?? existing.targetPath,
 		);
+		// Any edit — even a rename or a schedule change, which also hands the scheduled run to the editor —
+		// needs the rights the job as it stands takes to run.
+		await assertExistingSyncJobReach(existing, session);
 		if (data.sourcePath !== undefined || data.targetPath !== undefined || data.syncType !== undefined || data.deleteOrphans !== undefined) {
 			const access = syncEndpointAccess(data.syncType ?? existing.syncType, data.deleteOrphans ?? existing.deleteOrphans);
 			await assertSyncEndpointsWithinReach(

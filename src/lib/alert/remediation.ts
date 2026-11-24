@@ -5,13 +5,30 @@ import { queuePlaybookRunWithClient } from "@/lib/playbook/run-queue";
 import type { PlaybookStep } from "@/lib/playbook/types";
 import type { AlertFireInput } from "./incidents";
 
+function hashPlaybookLockKey(resourceId: string): number {
+  let h = 0;
+  for (let i = 0; i < resourceId.length; i++) {
+    h = (Math.imul(31, h) + resourceId.charCodeAt(i)) | 0;
+  }
+  return h;
+}
+
 /** The incident opening, the immutable runs and their durable jobs share one commit. */
 export async function queueIncidentRemediation(tx: Prisma.TransactionClient, input: AlertFireInput, incidentId: string, openedAt: Date) {
   if (!input.playbookIds?.length || !input.serverId) return;
   // Serialize with manual runs, ownership changes and deletion, which checks
   // for active runs under this same lock. Bindings may overlap across rules.
-  const requested = [...new Set(input.playbookIds)].sort();
-  for (const id of requested) await lockForTransaction(tx, "playbook-lifecycle", id);
+  const requested = [...new Set(input.playbookIds)].sort((a, b) => {
+    const diff = hashPlaybookLockKey(a) - hashPlaybookLockKey(b);
+    return diff !== 0 ? diff : a.localeCompare(b);
+  });
+  const seenLockKeys = new Set<number>();
+  for (const id of requested) {
+    const k2 = hashPlaybookLockKey(id);
+    if (seenLockKeys.has(k2)) continue;
+    seenLockKeys.add(k2);
+    await lockForTransaction(tx, "playbook-lifecycle", id);
+  }
   const rule = await tx.alertRule.findFirst({
     where: { id: input.ruleId, teamId: input.teamId ?? null, enabled: true, ...liveCustomerRowsWhere() },
     select: { playbookIds: true },

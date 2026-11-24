@@ -119,6 +119,49 @@ describe("hosted AI command builder", () => {
 		}
 	});
 
+	it("keeps recursive search out of system secret stores and container/cluster state (D6-01)", () => {
+		for (const path of [
+			"/run", "/run/secrets", "/var/run", "/var/run/docker", "/var/lib/docker", "/var/lib/docker/containers",
+			"/etc/kubernetes", "/etc/rancher", "/etc/rancher/k3s", "/etc/wireguard", "/var/lib/rancher", "/var/lib/kubelet",
+			"/srv/app/secrets",
+		]) {
+			expect(buildCommand("search_files", { path, query: "x", filePattern: "*" }), path).toBeNull();
+		}
+		const command = buildCommand("search_files", { path: "/etc", query: "PrivateKey", filePattern: "*" });
+		expect(command).not.toBeNull();
+		for (const dir of ["secrets", "wireguard", "kubernetes", "k3s", "rancher", "kubelet"]) {
+			expect(command).toContain(`--exclude-dir='${dir}'`);
+		}
+		for (const name of ["[aA][dD][mM][iI][nN].[cC][oO][nN][fF]", "[kK]3[sS].[yY][aA][mM][lL]", "[cC][oO][nN][fF][iI][gG].[vV]2.[jJ][sS][oO][nN]"]) {
+			expect(command).toContain(`--exclude='${name}'`);
+		}
+		expect(command).toContain("' tree sh -c ");
+		// Listing a parent directory stays allowed; only the recursive read is refused.
+		expect(buildCommand("list_files", { path: "/run" })).not.toBeNull();
+		expect(buildCommand("search_files", { path: "/var/log", query: "error", filePattern: "*.log" })).not.toBeNull();
+	});
+
+	it.skipIf(process.platform !== "linux")("skips nested secret stores during a recursive search", () => {
+		const dir = mkdtempSync(join(tmpdir(), "hosted-search-secrets-"));
+		try {
+			for (const nested of ["secrets", "wireguard", "kubernetes", join("rancher", "k3s")]) {
+				mkdirSync(join(dir, nested), { recursive: true });
+				writeFileSync(join(dir, nested, "value.txt"), "matching fixture\n");
+			}
+			mkdirSync(join(dir, "containers", "abc"), { recursive: true });
+			writeFileSync(join(dir, "containers", "abc", "config.v2.json"), "matching fixture\n");
+			writeFileSync(join(dir, "admin.conf"), "matching fixture\n");
+			writeFileSync(join(dir, "k3s.yaml"), "matching fixture\n");
+			writeFileSync(join(dir, "ok.log"), "matching fixture\n");
+			const command = buildCommand("search_files", { path: dir, query: "matching" });
+			const result = spawnSync("sh", ["-c", command!], { encoding: "utf8" });
+			expect(result.status).toBe(0);
+			expect(result.stdout.trim()).toBe(`${dir}/ok.log:1:matching fixture`);
+		} finally {
+			rmSync(dir, { recursive: true, force: true });
+		}
+	});
+
 	it("keeps the unattended read tools out of credential files, key stores and device nodes", () => {
 		// Their output goes to the AI provider and into the conversation with nobody approving the read.
 		for (const path of [

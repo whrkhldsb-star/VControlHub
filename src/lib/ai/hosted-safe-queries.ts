@@ -8,7 +8,7 @@ import { Prisma, type CommandTemplate } from "@prisma/client";
 import { escapeLikeLiteral } from "@/lib/db/like-pattern";
 import type { KnowledgeBudget } from "./knowledge";
 import type { SessionPayload } from "@/lib/auth/session";
-import { activeCustomerTeamWhere, isGlobalTeamManager, rawTeamScope, serverTeamWhere } from "@/lib/auth/team-scope";
+import { activeCustomerTeamWhere, rawTeamScope, seesAllCustomers, serverTeamWhere } from "@/lib/auth/team-scope";
 import { prisma } from "@/lib/db";
 import { t, type Locale } from "@/lib/i18n/service-translations";
 
@@ -136,9 +136,10 @@ export async function executeServerlessQuery(
   }
 
   if (action.actionType === "query_traffic") {
+    if (!scope) return scopeRequired(locale);
     const { since, period } = periodToSince(action.params.period);
     const visibleServers: Array<{ id: string }> = [];
-    if (scope) {
+    {
       let serverCursor: { id: string } | undefined;
       do {
         const page = await prisma.server.findMany({
@@ -153,15 +154,14 @@ export async function executeServerlessQuery(
       } while (serverCursor);
     }
     const visibleServerIds = visibleServers.map((s) => s.id);
+    const serverPredicate = visibleServerIds.length <= 10_000
+      ? { serverId: { in: visibleServerIds } }
+      : { server: serverTeamWhere(scope) };
     const where = {
       sampledAt: { gte: since },
-      ...(scope
-        ? {
-            ...(isGlobalTeamManager(scope)
-              ? { OR: [{ serverId: null }, { serverId: { in: visibleServerIds } }] }
-              : { serverId: { in: visibleServerIds } }),
-          }
-        : {}),
+      ...(seesAllCustomers(scope)
+        ? { OR: [{ serverId: null }, serverPredicate] }
+        : serverPredicate),
     };
     // The whole period, computed by the database. The average used to be taken over the newest 2,000 samples:
     // on a fleet that writes that many in an hour or two, "7d" and "30d" answered with the last hour's average.

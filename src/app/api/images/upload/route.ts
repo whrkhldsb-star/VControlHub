@@ -9,7 +9,7 @@ import { NextResponse } from "next/server";
 
 import { sessionHasPermission } from "@/lib/auth/authorization";
 import { hasBearerAuthorization } from "@/lib/auth/bearer-token";
-import { teamWhere } from "@/lib/auth/team-scope";
+import { activeCustomerTeamWhere } from "@/lib/auth/team-scope";
 import { prisma } from "@/lib/db";
 import { withApiRoute } from "@/lib/http/api-guard";
 import { IMAGE_UPLOAD_LIMIT } from "@/lib/http/rate-limit-presets";
@@ -93,6 +93,9 @@ async function handleUpload(request: Request, userId: string, session: SessionPa
     const formData = await request.formData();
     const file = formData.get("file");
     const album = String(formData.get("album") ?? "").trim() || undefined;
+    if (album && album.length > 128) {
+      throw new ValidationError(t("api.image.invalidImage", locale));
+    }
     const storageNodeId =
       String(formData.get("storageNodeId") ?? "").trim() || undefined;
     const relativePath = storageNodeId ? String(formData.get("relativePath") ?? "") : undefined;
@@ -215,7 +218,7 @@ async function handleUpload(request: Request, userId: string, session: SessionPa
           throw new ForbiddenError(storageAccessDeniedCopy(storageAccess.reason, locale));
         }
         const storageNode = await prisma.storageNode.findFirst({
-          where: { id: storageNodeId, ...teamWhere(session) },
+          where: { id: storageNodeId, ...activeCustomerTeamWhere(session) },
           select: storageFileNodeSelect,
         });
         if (!storageNode || (storageNode.driver !== "LOCAL" && storageNode.driver !== "SFTP")) {
@@ -257,7 +260,7 @@ async function handleUpload(request: Request, userId: string, session: SessionPa
           storageNodeId: linkedStorageRelativePath && storageNodeId ? storageNodeId : undefined,
           relativePath: linkedStorageRelativePath || undefined,
           userId: userId,
-          teamId: session?.currentTeamId ?? null,
+          teamId: linkedStorageNode?.teamId ?? session?.currentTeamId ?? null,
         },
       });
       if (linkedStorageRelativePath && storageNodeId) {

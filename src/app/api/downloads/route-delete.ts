@@ -35,6 +35,7 @@ export async function DELETE(request: Request) {
     request,
     {
       permission: "storage:write",
+      optionalTokenPermissions: ["storage:delete", "storage:manage-node"],
       rateLimit: GENERAL_WRITE_LIMIT,
       errorMessage: t("apiDownloads.cancelTaskFailed", locale),
     },

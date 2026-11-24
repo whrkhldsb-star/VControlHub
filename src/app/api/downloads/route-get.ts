@@ -8,6 +8,7 @@ import { ensureAria2Daemon, getGlobalStat } from "@/lib/aria2/service";
 import { parseSearchParams } from "@/lib/http/parse-search-params";
 import { buildProgressText } from "@/lib/downloads/helpers";
 import { withApiRoute } from "@/lib/http/api-guard";
+import { GENERAL_READ_LIMIT } from "@/lib/http/rate-limit-presets";
 import { getServerLocale, t } from "@/lib/i18n/translations";
 import { isGlobalTeamManager, serverTeamWhere, teamWhere } from "@/lib/auth/team-scope";
 import { sessionHasPermission } from "@/lib/auth/authorization";
@@ -22,7 +23,7 @@ export async function GET(request: Request) {
   const locale = await getServerLocale();
   return withApiRoute(
     request,
-    { permission: "storage:read", optionalTokenPermissions: ["storage:manage-node"], errorMessage: t("apiDownloads.fetchTasksFailed", locale) },
+    { permission: "storage:read", optionalTokenPermissions: ["storage:manage-node"], rateLimit: GENERAL_READ_LIMIT, errorMessage: t("apiDownloads.fetchTasksFailed", locale) },
     async ({ session }) => {
       const { serverId, category, status, cursor } = parseSearchParams(
         request,

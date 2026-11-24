@@ -26,6 +26,7 @@ import {
   normalizePublicHttpUrl,
 } from "@/lib/storage/direct-access-url";
 import { fetchWithPinnedDns } from "@/lib/security/pinned-fetch";
+import { stripNul } from "@/lib/text/strip-nul";
 import {
   readResponseTextLimited,
   ResponseBodyTooLargeError,
@@ -162,11 +163,16 @@ export interface RejectedBillingCsvRow {
  * Parse a billing CSV, keeping the rows it could not read. Dropping them
  * silently reported "imported 1, skipped 0" for a file of two charges.
  */
+const MAX_BILLING_CSV_ROWS = 10_000;
+
 export function parseBillingCsvRows(
   csv: string,
   defaults: BillingCsvDefaults,
 ): { items: CloudBillingLineItem[]; rejected: RejectedBillingCsvRow[] } {
-  const records = parseCsvRecords(csv);
+  const records = parseCsvRecords(stripNul(csv));
+  if (records.length - 1 > MAX_BILLING_CSV_ROWS) {
+    throw new ValidationError(apiCopy("apiCopy.request.body.too.large.c49c1143"));
+  }
   const rejected: RejectedBillingCsvRow[] = [];
   const header = (records[0] ?? []).map((h) => h.toLowerCase());
   const idx = (name: string) => header.indexOf(name);

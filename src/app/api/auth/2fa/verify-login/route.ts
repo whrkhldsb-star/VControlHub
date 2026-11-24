@@ -133,6 +133,7 @@ async function verifyLogin(request: Request) {
 				username: true,
 				mustChangePassword: true,
 				currentTeamId: true,
+				teamMembership: { select: { teamId: true, team: { select: { deletedAt: true } } } },
 				roles: { select: { role: { select: { key: true } } } },
 			},
 		});
@@ -200,8 +201,12 @@ async function verifyLogin(request: Request) {
 		}
 		const { valid, usedRecoveryCode } = challengeResult;
 		if (!valid) {
+			const isAdminUser = (user.roles ?? []).some((entry) => entry.role.key === "admin");
+			const liveMemberTeamId = user.teamMembership === undefined
+			? (user.currentTeamId ?? null)
+			: (user.teamMembership && !user.teamMembership.team?.deletedAt ? user.teamMembership.teamId : null);
 			// A platform administrator's failed code is a platform event too (see /api/login), not the selected customer's.
-			const failedAuditTeamId = (user.roles ?? []).some((entry) => entry.role.key === "admin") ? null : user.currentTeamId;
+			const failedAuditTeamId = isAdminUser ? null : liveMemberTeamId;
 			await auditSystemAction("auth.2fa_failed", { userId: sessionPayload.userId, ip: clientIp }, "WARNING", failedAuditTeamId);
 			// Count 2FA misses against the account lockout (same counter the
 			// password stage uses). Without this, a leaked password plus IP
@@ -228,6 +233,10 @@ async function verifyLogin(request: Request) {
 			.map((entry) => entry.role.key)
 			.filter((key): key is RoleKey => key in DEFAULT_ROLE_PERMISSIONS);
 
+		const liveMemberTeamId = user.teamMembership === undefined
+			? (user.currentTeamId ?? null)
+			: (user.teamMembership && !user.teamMembership.team?.deletedAt ? user.teamMembership.teamId : null);
+		const resolvedTeamId = liveRoles.includes("admin") ? user.currentTeamId : liveMemberTeamId;
 		const rememberSession = sessionPayload.remember === true;
 		const sessionMaxAge = await getConfiguredSessionTtlSeconds(rememberSession);
 		const token = await createSessionToken(
@@ -236,7 +245,7 @@ async function verifyLogin(request: Request) {
 				username: user.username,
 				roles: liveRoles,
 				mustChangePassword: user.mustChangePassword,
-				currentTeamId: user.currentTeamId,
+				currentTeamId: resolvedTeamId,
 			},
 			{ remember: rememberSession, credentialBinding: sessionPayload.credentialBinding },
 		);
@@ -252,7 +261,7 @@ async function verifyLogin(request: Request) {
 			{ username: user.username, ip: clientIp },
 			undefined,
 			// Platform administrators' sign-ins are platform events (see /api/login).
-			liveRoles.includes("admin") ? null : user?.currentTeamId,
+			liveRoles.includes("admin") ? null : liveMemberTeamId,
 		);
 
 		const response = NextResponse.json({ success: true });

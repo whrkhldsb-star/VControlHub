@@ -277,6 +277,14 @@ export async function POST(request: NextRequest) {
           let admission: Awaited<ReturnType<typeof assertStorageAccess>> | undefined;
           try {
             const plan = await planExtraction(pinnedArchivePath, kind, request.signal).catch(asValidation);
+            // Pre-flight capacity check before writing extracted files to staging.
+            const preflightFolder = path.posix.join(parentRelative, formatName.replace(/\.(?:tar\.(?:gz|bz2|xz)|tgz|tbz2|txz|zip|tar)$/i, "") || "extracted");
+            const preflight = await assertStorageAccess({
+              session, storageNodeId: node.id, relativePath: preflightFolder, operation: "write",
+              writeBytes: plan.totalBytes, largestFileBytes: plan.largestFileBytes,
+            });
+            if (!preflight.allowed) throw new ForbiddenError(storageAccessDeniedCopy(preflight.reason));
+            await releaseStorageQuotaGuard(preflight);
             const result = await extractArchive({
               filePath: pinnedArchivePath, kind, archiveName: formatName, parentDir, parentRelativePath: parentRelative, plan, signal: request.signal,
               beforePublish: async (folderName, members) => {

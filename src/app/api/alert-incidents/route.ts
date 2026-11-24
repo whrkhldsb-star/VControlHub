@@ -12,6 +12,7 @@ import {
 } from "@/lib/alert/incidents";
 import { canSeeIncidentDelivery } from "@/lib/alert/incident-visibility";
 import { auditUserAction } from "@/lib/audit/service";
+import { isGlobalTeamManager } from "@/lib/auth/team-scope";
 import { withApiRoute } from "@/lib/http/api-guard";
 import { GENERAL_READ_LIMIT, GENERAL_WRITE_LIMIT } from "@/lib/http/rate-limit-presets";
 import { parseSearchParams } from "@/lib/http/parse-search-params";
@@ -56,7 +57,12 @@ export async function GET(request: Request) {
             title: i.title,
             message: i.message,
             acknowledgedAt: i.acknowledgedAt?.toISOString() ?? null,
-            acknowledgedBy: i.acknowledgedBy
+            acknowledgedBy: i.acknowledgedBy && delivery && (
+              isGlobalTeamManager(session)
+              || !("teamMembership" in i.acknowledgedBy)
+              || i.acknowledgedBy.id === session.userId
+              || (i.acknowledgedBy as { teamMembership?: { teamId?: string | null } | null }).teamMembership?.teamId === session.currentTeamId
+            )
               ? {
                   id: i.acknowledgedBy.id,
                   username: i.acknowledgedBy.username,

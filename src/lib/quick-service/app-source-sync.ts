@@ -240,7 +240,59 @@ function storedPopularity(rawJson: string | null | undefined): Pick<NormalizedAp
 	return { stars: count(row.stars), monthlyPulls: count(row.monthly_pulls ?? row.monthlyPulls) };
 }
 
-export async function getRemoteApps(slug?: string): Promise<NormalizedApp[]> {
+export async function getRemoteApps(
+	slug?: string,
+	options?: { searchQuery?: string; limit?: number },
+): Promise<NormalizedApp[]> {
+	if (options?.searchQuery) {
+		const escaped = options.searchQuery.replace(/[\\%_]/g, "\\$&");
+		const contains = { contains: escaped, mode: "insensitive" as const };
+		const matched = await prisma.appSourceApp.findMany({
+			where: {
+				source: { enabled: true },
+				slug: { notIn: [...builtinSlugs] },
+				OR: [
+					{ name: contains },
+					{ slug: contains },
+					{ description: contains },
+					{ source: { name: contains } },
+				],
+			},
+			orderBy: [{ category: "asc" }, { name: "asc" }, { id: "asc" }],
+			take: options.limit ?? 20,
+			select: {
+				slug: true,
+				name: true,
+				category: true,
+				icon: true,
+				description: true,
+				image: true,
+				defaultPort: true,
+				internalPort: true,
+				path: true,
+				command: true,
+				sourceVersion: true,
+				source: { select: { name: true } },
+			},
+		});
+		return matched.map((app) => ({
+			slug: app.slug,
+			name: app.name,
+			category: app.category,
+			icon: app.icon,
+			description: app.description,
+			image: app.image,
+			defaultPort: app.defaultPort,
+			internalPort: app.internalPort ?? undefined,
+			path: app.path,
+			envJson: {},
+			volumesJson: [],
+			command: app.command ?? undefined,
+			extraPorts: [],
+			sourceVersion: app.sourceVersion ?? undefined,
+			sourceName: app.source.name,
+		}));
+	}
 	const apps: RemoteAppRow[] = [];
 	let cursor: string | undefined;
 	while (apps.length < MAX_REMOTE_APPS) {

@@ -66,7 +66,7 @@ function normalizeAccessPath(value: string | null | undefined): string | null {
   return result.path;
 }
 
-function pathMatchesGrant(targetPath: string, pathPrefix: string, caseInsensitive = false) {
+export function pathMatchesGrant(targetPath: string, pathPrefix: string, caseInsensitive = false) {
   const normalizedTarget = normalizeAccessPath(targetPath);
   const normalizedPrefix = normalizeAccessPath(pathPrefix);
 
@@ -446,10 +446,11 @@ export async function getStorageAccessCapabilities(input: {
   const nodeScope = storageNodeTeamWhere(input.session);
   const visibleNodes = await prisma.storageNode.findMany({
     where: { id: { in: candidateNodeIds }, ...nodeScope },
-    select: { id: true },
+    select: { id: true, driver: true, basePath: true, server: { select: { operatingSystem: true } } },
     take: 5000,
   });
-  const visibleNodeIds = new Set(visibleNodes.map((n) => n.id));
+  const visibleNodeMap = new Map(visibleNodes.map((n) => [n.id, n]));
+  const visibleNodeIds = new Set(visibleNodeMap.keys());
 
   // Mark foreign-team nodes as fully denied.
   for (const [key, target] of uniqueTargets) {
@@ -500,7 +501,8 @@ export async function getStorageAccessCapabilities(input: {
       continue;
     }
 
-    const matchingGrants = nodeGrants.filter((grant) => pathMatchesGrant(target.relativePath, grant.pathPrefix));
+    const caseInsensitive = isCaseInsensitiveStorageNode(visibleNodeMap.get(target.storageNodeId) ?? null);
+    const matchingGrants = nodeGrants.filter((grant) => pathMatchesGrant(target.relativePath, grant.pathPrefix, caseInsensitive));
     result.set(key, {
       canRead: canRoleRead && matchingGrants.some((grant) => grant.canRead),
       canWrite: canRoleWrite && matchingGrants.some((grant) => grant.canWrite),

@@ -1,6 +1,6 @@
 import { Prisma, type StorageDriver } from "@prisma/client";
 import { prisma } from "@/lib/db";
-import { rawTeamScope, type TeamSession } from "@/lib/auth/team-scope";
+import { rawActiveCustomerScope, type TeamSession } from "@/lib/auth/team-scope";
 import { getReadableStorageScope, readableStorageScopeSql } from "@/lib/storage/readable-scope";
 import { noRecycledAncestorSql } from "@/lib/storage/archive-access";
 import { storageStagingPathRegex } from "@/lib/storage/staging-paths";
@@ -38,7 +38,7 @@ export async function visibleMediaQuery(filters: MediaListFilters, id?: string) 
       (f.id = m."fileEntryId" OR (m."fileEntryId" IS NULL AND f."relativePath" = m."relativePath"))
     WHERE (m."fileEntryId" IS NULL OR f.id IS NOT NULL) AND f."isDeleted" IS NOT TRUE
       ${id ? Prisma.sql`AND m.id = ${id}` : Prisma.empty}
-      ${filters.session ? Prisma.sql`AND ${rawTeamScope(filters.session, Prisma.sql`n."teamId"`)}` : Prisma.empty}
+      ${filters.session ? Prisma.sql`AND ${rawActiveCustomerScope(filters.session, Prisma.sql`n."teamId"`)}` : Prisma.empty}
   ) e WHERE ${readableStorageScopeSql(readable)} AND ${noRecycledAncestorSql} AND e."relativePath" !~ ${storageStagingPathRegex}
     ${filters.mediaType ? Prisma.sql`AND e."mediaType" = ${filters.mediaType}` : Prisma.empty}
     ${filters.favorite !== undefined ? Prisma.sql`AND e.favorite = ${filters.favorite}` : Prisma.empty}

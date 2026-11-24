@@ -118,7 +118,7 @@ export default async function DeploymentsPage({ searchParams }: { searchParams?:
 					<SurfacePanel title={tr("deploymentsPage.page.launchSection.title")} description={tr("deploymentsPage.page.launchSection.desc")}>
 						<DeploymentLaunchForm templates={templates.map(row => ({
 							id: row.id, name: row.name, description: row.description,
-							command: canReadBodies(row.createdById) ? row.command : "", variables: row.variables,
+							command: (row.isBuiltin || canReadBodies(row.createdById)) ? row.command : "", variables: row.variables,
 						}))} />
 					</SurfacePanel>
 				</div>

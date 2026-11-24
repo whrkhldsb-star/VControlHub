@@ -8,13 +8,14 @@ import { prisma } from "@/lib/db";
 import { shiftAppTimeZoneDay } from "@/lib/datetime/time-zone";
 import { formatUptimeDay } from "@/lib/uptime/internal";
 import { withApiRoute } from "@/lib/http/api-guard";
+import { GENERAL_READ_LIMIT } from "@/lib/http/rate-limit-presets";
 import { assertServerTeamAccess } from "@/lib/server/team-access";
 
 export async function GET(
   request: NextRequest,
   { params }: { params: Promise<{ id: string }> },
 ) {
-  return withApiRoute(request, { permission: "server:read" }, async ({ session }) => {
+  return withApiRoute(request, { permission: "server:read", rateLimit: GENERAL_READ_LIMIT }, async ({ session }) => {
     const { id } = await params;
     const teamAccess = await assertServerTeamAccess(session, id);
     if (!teamAccess.ok) return teamAccess.response;

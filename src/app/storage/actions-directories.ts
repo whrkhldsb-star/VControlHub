@@ -368,7 +368,8 @@ async function renameFileEntryActionImpl(
     // in-flight upload or an SSH-written file not yet scanned). The DB check
     // above cannot see it, and the raw rename would silently replace its
     // bytes. Mirrors executeMoveFile's physical occupancy check.
-    if (await statBackingObject({ storageNode: entry.storageNode, relativePath: newRelativePath })) {
+    const isCaseOnlyRename = caseInsensitive && newRelativePath.toLowerCase() === entry.relativePath.toLowerCase();
+    if (!isCaseOnlyRename && await statBackingObject({ storageNode: entry.storageNode, relativePath: newRelativePath })) {
       return {
         error: t("storagePage.action.pathAlreadyExists", { path: newRelativePath }),
       } satisfies StorageActionState;
