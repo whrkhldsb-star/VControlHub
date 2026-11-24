@@ -66,7 +66,7 @@ function normalizeAccessPath(value: string | null | undefined): string | null {
   return result.path;
 }
 
-function pathMatchesGrant(targetPath: string, pathPrefix: string, caseInsensitive = false) {
+export function pathMatchesGrant(targetPath: string, pathPrefix: string, caseInsensitive = false) {
   const normalizedTarget = normalizeAccessPath(targetPath);
   const normalizedPrefix = normalizeAccessPath(pathPrefix);
 

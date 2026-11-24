@@ -51,6 +51,11 @@ export async function importIdentityTemplates(tx: Tx, t: ExportFile["tables"], o
         skipDuplicates: true,
       })).count,
     updateById: async (r) => {
+      if (r.isBuiltin || BUILTIN_IDENTITY_TEMPLATES.some(({ id }) => id === r.id)) return 0;
+      if (typeof (tx.identityTemplate as { findUnique?: unknown }).findUnique === "function") {
+        const current = await tx.identityTemplate.findUnique({ where: { id: r.id }, select: { isBuiltin: true } });
+        if (!current || current.isBuiltin) return 0;
+      }
       const permissions = normalizeIdentityPermissions(r.permissions);
       if (permissions.length === 0) throw new ValidationError("IMPORT_TEMPLATE_EMPTY_PERMISSIONS");
       return (await tx.identityTemplate.updateMany({ where: { id: r.id, isBuiltin: false }, data: { name: r.name, description: r.description, permissions } })).count;

@@ -17,7 +17,7 @@ import { serviceT } from "@/lib/i18n/service-locale";
 import { SHARE_BATCH_MAX } from "@/lib/share-link/policy";
 import { t } from "@/lib/i18n/service-translations";
 import { createLogger } from "@/lib/logging";
-import { assertStorageAccess } from "@/lib/storage/access-control";
+import { assertStorageAccess, pathMatchesGrant } from "@/lib/storage/access-control";
 import { storageAccessDeniedCopy } from "@/lib/storage/access-denied";
 import { isStorageStagingPath, storageStagingPathRegex } from "@/lib/storage/staging-paths";
 import { hasCaseInsensitiveLocalPaths, normalizeStorageRelativePath } from "@/lib/storage/path-utils";
@@ -25,7 +25,8 @@ import { syncLocalDirectoryEntries } from "@/lib/storage/local-sync";
 import { syncSftpDirectoryEntries } from "@/lib/storage/sftp-sync";
 import type { SessionPayload } from "@/lib/auth/session";
 import { sessionHasPermission } from "@/lib/auth/authorization";
-import { loadJobOwnerSession } from "@/lib/api-token/authorization";
+import { DEFAULT_ROLE_PERMISSIONS, getPermissionsFromRoles, type RoleKey } from "@/lib/auth/rbac";
+import { resolveSessionPermissions } from "@/lib/auth/identity-templates";
 import { getReadableStorageScope } from "@/lib/storage/readable-scope";
 import type { TeamSession } from "@/lib/auth/team-scope";
 const logger = createLogger("share-link");
@@ -389,6 +390,76 @@ export async function createShareLinkFromFileEntry(input: {
   }, entry.storageNode, entry);
 }
 
+async function assertShareCreatorAccess(share: {
+  createdBy: string | null;
+  teamId: string | null;
+  storageNodeId: string;
+  path: string;
+  storageNode: StorageSshCredentialNode & { driver: string; basePath: string };
+}) {
+  if (!share.createdBy || typeof (prisma as { user?: { findUnique?: unknown } }).user?.findUnique !== "function") {
+    return;
+  }
+  const creator = await prisma.user.findUnique({
+    where: { id: share.createdBy },
+    select: {
+      status: true,
+      roles: { select: { role: { select: { key: true } } } },
+      teamMembership: {
+        select: {
+          teamId: true,
+          team: { select: { deletedAt: true } },
+          identityTemplate: { select: { permissions: true } },
+        },
+      },
+    },
+  });
+  if (!creator) return;
+  const t = await serviceT();
+  if (creator.status === "DISABLED") {
+    throw new NotFoundError(t("backend.shareLink.notFoundOrRevoked"));
+  }
+  const roleKeys = creator.roles
+    .map((entry) => entry.role.key)
+    .filter((key): key is RoleKey => key in DEFAULT_ROLE_PERMISSIONS);
+  if (roleKeys.includes("admin")) {
+    return;
+  }
+  let hasManageNode = false;
+  if (creator.teamMembership) {
+    if (creator.teamMembership.team.deletedAt !== null) {
+      throw new NotFoundError(t("backend.shareLink.notFoundOrRevoked"));
+    }
+    if (share.teamId && creator.teamMembership.teamId !== share.teamId) {
+      throw new NotFoundError(t("backend.shareLink.notFoundOrRevoked"));
+    }
+    const perms = resolveSessionPermissions({
+      roles: roleKeys,
+      accountPermissions: getPermissionsFromRoles(roleKeys),
+      identityPermissions: creator.teamMembership.identityTemplate.permissions,
+    });
+    if (!perms.includes("storage:read")) {
+      throw new NotFoundError(t("backend.shareLink.notFoundOrRevoked"));
+    }
+    hasManageNode = perms.includes("storage:manage-node");
+  } else if (roleKeys.length > 0 && share.teamId) {
+    throw new NotFoundError(t("backend.shareLink.notFoundOrRevoked"));
+  }
+  if (!hasManageNode && typeof (prisma as { userStorageAccess?: { count?: unknown } }).userStorageAccess?.count === "function") {
+    const nodeGrantCount = await prisma.userStorageAccess.count({ where: { storageNodeId: share.storageNodeId } });
+    if (nodeGrantCount > 0) {
+      const grants = await prisma.userStorageAccess.findMany({
+        where: { userId: share.createdBy, storageNodeId: share.storageNodeId, canRead: true },
+        select: { pathPrefix: true },
+      });
+      const caseInsensitive = shareIgnoresCase(share.storageNode);
+      if (!grants.some((grant) => pathMatchesGrant(share.path, grant.pathPrefix, caseInsensitive))) {
+        throw new NotFoundError(t("backend.shareLink.notFoundOrRevoked"));
+      }
+    }
+  }
+}
+
 async function loadActiveShare(token: string) {
   const t = await serviceT();
   // Prisma may fetch the included node in a second statement. It must be the same snapshot as revokedAt.
@@ -405,20 +476,7 @@ async function loadActiveShare(token: string) {
     throw new NotFoundError(t("backend.shareLink.notFoundOrRevoked"));
   }
   await assertShareTargetNotDeleted(share.storageNodeId, share.path, share.storageNode.driver, shareIgnoresCase(share.storageNode));
-  // Re-verify that the share creator remains an active member with read access to
-  // the shared path so revoked UserStorageAccess grants or removed team members
-  // immediately stop serving files through pre-existing links.
-  if (share.createdBy && typeof (prisma as { user?: { findUnique?: unknown } }).user?.findUnique === "function") {
-    const ownerSession = await loadJobOwnerSession(share.createdBy, share.teamId);
-    if (!ownerSession) throw new NotFoundError(t("backend.shareLink.notFoundOrRevoked"));
-    const access = await assertStorageAccess({
-      session: ownerSession,
-      storageNodeId: share.storageNodeId,
-      relativePath: share.path,
-      operation: "read",
-    });
-    if (!access.allowed) throw new NotFoundError(t("backend.shareLink.notFoundOrRevoked"));
-  }
+  await assertShareCreatorAccess(share);
   return share;
 }
 

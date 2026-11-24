@@ -1,6 +1,7 @@
 import { sessionHasPermission } from "@/lib/auth/authorization";
 import { requirePagePermission } from "@/lib/auth/page-guard";
 import { buildBackupRestoreCommand, buildPortableBackupCommand, formatBackupSize, isBackupType, listBackupRecords, summarizeBackupPolicy } from "@/lib/backup/service";
+import { getBackupPolicySummary } from "@/lib/backup/policy-summary";
 import { getLocalStorageBackupCoverage, type LocalStorageBackupCoverage } from "@/lib/backup/coverage";
 import { config } from "@/lib/config/env";
 import { getServerLocale, t as translate, type TFn } from "@/lib/i18n/translations";
@@ -55,7 +56,9 @@ export default async function BackupsPage() {
 			? t("backupsPage.coverage.more", { paths: directories.slice(0, 3).join(t("common.listSeparator")), count: directories.length })
 			: directories.join(t("common.listSeparator"));
 	const offsite = offsiteState.value;
-	const summary = summarizeBackupPolicy(backups);
+	const summary = session.currentTeamId && "policySummary" in backups && backups.policySummary.totalRecords === 0
+		? await getBackupPolicySummary({ ...session, currentTeamId: null })
+		: summarizeBackupPolicy(backups);
 	return (
 		<PageShell>
 			<PageHeader eyebrow={t("backupsPage.eyebrow")} title={t("backupsPage.title")} description={t("backupsPage.description")} />
