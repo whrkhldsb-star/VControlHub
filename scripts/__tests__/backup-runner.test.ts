@@ -6,7 +6,7 @@ import os from "node:os";
 import path from "node:path";
 import { promisify } from "node:util";
 import { pathToFileURL } from "node:url";
-import { gunzipSync } from "node:zlib";
+import { gunzipSync, gzipSync } from "node:zlib";
 
 import { afterEach, beforeEach, describe, expect, it } from "vitest";
 
@@ -337,4 +337,46 @@ it("keeps a split schema marker intact and passes a literal pg_dump pattern thro
   const args = pgDumpSchemaArgs(schema);
   const { stdout } = await runFile(process.execPath, ["-e", "process.stdout.write(JSON.stringify(process.argv.slice(1)))", "--", ...args]);
   expect(JSON.parse(stdout)).toEqual(["--schema", '"Mixed ""Tenant"" *"']);
+});
+
+it("skips sync, legacy, retired-root, and absent tombstones while still verifying live manual recycles", async () => {
+  const { expectedArchiveFiles } = await import("../lib/backup-file-integrity.mjs");
+  const dir = await mkdtemp(path.join(os.tmpdir(), "vch-backup-integrity-"));
+  try {
+    const appDir = path.join(dir, "app");
+    const storageDir = path.join(appDir, "storage");
+    const dumpPath = path.join(dir, "database.sql.gz");
+    const sql = [
+      'COPY public."StorageNode" (id, driver, "basePath") FROM stdin;',
+      "local\tLOCAL\tstorage",
+      "\\.",
+      'COPY public.file_entries ("storageNodeId", "relativePath", "entryType", "isDeleted", "deleteBatchId", size, "checksumSha256", "deletedAgentRoot", "storageVersion") FROM stdin;',
+      "local\tactive.txt\tFILE\tf\t\\N\t12\t\\N\t\\N\t\\N",
+      "local\tmanual-recycled.txt\tFILE\tt\tbatch-manual\t15\t\\N\tdev:1:ino:2\t1:2:15:100",
+      "local\tsync-tombstone.txt\tFILE\tt\tbatch-sync\t20\t\\N\t\\N\t\\N",
+      "local\tlegacy-tombstone.txt\tFILE\tt\tlegacy-abc\t30\t\\N\t\\N\t\\N",
+      "local\tretired-root.txt\tFILE\tt\tbatch-old\t40\t\\N\tretired-root\t1:2:40:100",
+      "local\trecycled-absent.txt\tFILE\tt\tbatch-absent\t50\t\\N\tdev:1:ino:2\tabsent",
+      "\\.",
+      'COPY public.file_versions ("blobRelativePath", "sizeBytes", "checksumSha256") FROM stdin;',
+      "\\.",
+      "-- PostgreSQL database dump complete",
+      "",
+    ].join("\n");
+    await writeFile(dumpPath, gzipSync(Buffer.from(sql, "utf8")));
+    const { expected } = await expectedArchiveFiles(
+      dumpPath,
+      {},
+      appDir,
+      [{ member: "storage", directory: storageDir }],
+      path.join(dir, "versions"),
+      (value: string) => path.resolve(appDir, value),
+    );
+    expect([...expected.keys()].sort()).toEqual([
+      "storage/active.txt",
+      "storage/manual-recycled.txt",
+    ]);
+  } finally {
+    await rm(dir, { recursive: true, force: true });
+  }
 });

@@ -14,6 +14,9 @@ const tables = {
   file_versions: ["blobRelativePath", "sizeBytes", "checksumSha256"],
   image_uploads: ["storageKey", "sizeBytes", "checksum"],
 };
+const optionalColumns = {
+  file_entries: ["deletedAgentRoot", "storageVersion"],
+};
 
 function copyValue(value) {
   if (value === "\\N") return null;
@@ -77,8 +80,10 @@ async function readDumpReferences(dump, schema) {
         const table = match[2].replaceAll('"', "");
         if (!Object.hasOwn(tables, table)) continue;
         const columns = match[3].split(", ").map((column) => column.replaceAll('"', ""));
-        copy = { table, fields: tables[table].map((field) => [field, columns.indexOf(field)]) };
-        if (copy.fields.some(([, index]) => index < 0)) throw new Error(`Incomplete backup: unexpected COPY columns for ${table}`);
+        const required = tables[table].map((field) => [field, columns.indexOf(field)]);
+        if (required.some(([, index]) => index < 0)) throw new Error(`Incomplete backup: unexpected COPY columns for ${table}`);
+        const optional = (optionalColumns[table] || []).map((field) => [field, columns.indexOf(field)]).filter(([, index]) => index >= 0);
+        copy = { table, fields: [...required, ...optional] };
         seen.add(table);
       } else if (line === "-- PostgreSQL database dump complete") complete = true;
     }
@@ -106,9 +111,19 @@ export async function expectedArchiveFiles(dump, env, appDir, roots, versionRoot
     expected.set(member, { size: size ?? previous?.size, checksum: checksum ?? previous?.checksum });
   }
   for (const row of [...data.file_entries, ...data.media_items]) {
-    // A manual recycle keeps its body at the original path. A sync tombstone
-    // with no deletion batch records that the file already disappeared.
-    if (row.entryType && (row.entryType !== "FILE" || (row.isDeleted === "t" && !row.deleteBatchId))) continue;
+    // A manual recycle of an existing LOCAL file records deletedAgentRoot and
+    // a live storageVersion while keeping its body on disk. Sync tombstones
+    // (pruneStaleEntries / legacy backfills without deletedAgentRoot),
+    // retired-root tombstones, and recycles of already-absent files have no
+    // backing body to verify on disk.
+    if (row.entryType) {
+      if (row.entryType !== "FILE") continue;
+      if (row.isDeleted === "t") {
+        if (!row.deleteBatchId) continue;
+        if (Object.hasOwn(row, "deletedAgentRoot") && (!row.deletedAgentRoot || row.deletedAgentRoot === "retired-root")) continue;
+        if (Object.hasOwn(row, "storageVersion") && row.storageVersion === "absent") continue;
+      }
+    }
     const node = nodes.get(row.storageNodeId);
     if (!node) throw new Error("Incomplete backup: file references an unknown storage node");
     if (node.driver === "LOCAL") add(expandRoot(node.basePath, env), row.relativePath, row.size, row.checksumSha256);
