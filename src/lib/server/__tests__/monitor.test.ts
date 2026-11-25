@@ -355,4 +355,25 @@ describe.skipIf(process.platform === "win32")("monitor script CPU sample", () =>
 		const stdout = execFileSync("bash", ["-c", script], { encoding: "utf8" });
 		expect(parseMonitorScriptOutput(stdout).cpu.usagePercent).toBe(50);
 	});
+
+	it("preserves exact jiffies past 2^31 without awk scientific-notation truncation", async () => {
+		const { execFileSync } = await import("node:child_process");
+		const { mkdtempSync, writeFileSync } = await import("node:fs");
+		const { tmpdir } = await import("node:os");
+		const path = await import("node:path");
+		const { MONITOR_SCRIPT } = await import("../monitor");
+		const dir = mkdtempSync(path.join(tmpdir(), "cpu-overflow-"));
+		const before = path.join(dir, "stat1");
+		const after = path.join(dir, "stat2");
+		// 2-vCPU Linux VM after >125 days uptime: idle jiffies exceed 2^31-1 (3.519e9).
+		// Default awk OFMT="%.6g" rounded both samples to 3.51947e+09, yielding dt=0 ("unavailable")
+		// or false 100% spikes across rounding boundaries.
+		writeFileSync(before, "cpu  3505204 14284 3051433 3519465086 2047791 0 273468 0 0 0\n");
+		writeFileSync(after, "cpu  3505209 14284 3051438 3519465176 2047791 0 273468 0 0 0\n");
+		const cpu = MONITOR_SCRIPT.slice(MONITOR_SCRIPT.indexOf('echo "===CPU==="'), MONITOR_SCRIPT.indexOf('echo "===MEM==="'));
+		let read = 0;
+		const script = cpu.replace(/\/proc\/stat/g, () => (read++ === 0 ? before : after)).replace("sleep 0.5 2>/dev/null || sleep 1", "true");
+		const stdout = execFileSync("bash", ["-c", script], { encoding: "utf8" });
+		expect(parseMonitorScriptOutput(stdout).cpu.usagePercent).toBe(10);
+	});
 });

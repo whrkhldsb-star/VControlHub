@@ -42,6 +42,15 @@ describe("server diagnostic lifecycle", () => {
     expect(result.current.diagnosticRun).toMatchObject({ status: "success", summary: "CPU 12% · 内存 40%" });
   });
 
+  it("marks a reachable SSH host online even when cpu.usagePercent is null", async () => {
+    vi.mocked(api.get).mockResolvedValueOnce(
+      Response.json({ cpu: { usagePercent: null }, memory: { usagePercent: 31.2 }, disk: [{ mount: "/", usagePercent: 12 }] }),
+    );
+    const { result } = renderHookWithI18n(() => useServerDiagnostics("a", true));
+    await act(async () => { await result.current.runRealtimeDiagnostics(); });
+    expect(result.current.diagnosticRun).toMatchObject({ status: "success", summary: "CPU —% · 内存 31.2% · 磁盘（/）12%" });
+  });
+
   it("aborts on node changes and ignores late results without unlocking the next request", async () => {
     const old = deferred();
     const current = deferred();

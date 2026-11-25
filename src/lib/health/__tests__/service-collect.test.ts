@@ -270,6 +270,23 @@ describe("collectAllHealth — TR-050 TCP probe integration", () => {
 		expect(result.offline).toBe(2);
 	});
 
+	it("counts an SSH-reachable host with unmeasured CPU (status unknown) as online rather than offline", async () => {
+		prismaMock.server.findMany.mockResolvedValueOnce([
+			{ id: "s-unknown", name: "IdleLongUptime", host: "10.0.0.8", port: 22, enabled: true },
+		]);
+		tcpProbeMock.mockResolvedValueOnce({ ok: true, latencyMs: 65 });
+		collectServerMetricsMock.mockResolvedValueOnce({
+			...goodMetrics(),
+			cpu: { usagePercent: null, cores: 2, loadAvg: [0, 0, 0] },
+		});
+
+		const result = await collectAllHealth();
+
+		expect(result.servers[0]?.status).toBe("unknown");
+		expect(result.online).toBe(1);
+		expect(result.offline).toBe(0);
+	});
+
 	it("does NOT persist a durable traffic snapshot on an ad-hoc collect (no persistTraffic)", async () => {
 		prismaMock.server.findMany.mockResolvedValueOnce([
 			{ id: "s1", name: "Healthy", host: "10.0.0.1", port: 22, enabled: true },
