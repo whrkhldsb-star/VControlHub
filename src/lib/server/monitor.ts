@@ -31,10 +31,10 @@ const BASE_MONITOR_SCRIPT = [
 	`echo "===CPU==="`,
 	`nproc 2>/dev/null || echo 1`,
 	`cat /proc/loadavg 2>/dev/null || echo "0 0 0"`,
-	`cpu1=$(awk '/^cpu /{idle=$5+$6; total=0; for(i=2;i<=NF;i++) total+=$i; print idle,total; exit}' /proc/stat 2>/dev/null)`,
+	`cpu1=$(awk '/^cpu /{idle=$5+$6; total=0; for(i=2;i<=NF;i++) total+=$i; printf "%.0f %.0f\\n", idle, total; exit}' /proc/stat 2>/dev/null)`,
 	`sleep 0.5 2>/dev/null || sleep 1`,
-	`cpu2=$(awk '/^cpu /{idle=$5+$6; total=0; for(i=2;i<=NF;i++) total+=$i; print idle,total; exit}' /proc/stat 2>/dev/null)`,
-	`echo "$cpu1 $cpu2" | awk '{di=$3-$1; dt=$4-$2; if(NF==4 && dt>0 && di>=0 && di<=dt) print di,dt; else print "unavailable"}'`,
+	`cpu2=$(awk '/^cpu /{idle=$5+$6; total=0; for(i=2;i<=NF;i++) total+=$i; printf "%.0f %.0f\\n", idle, total; exit}' /proc/stat 2>/dev/null)`,
+	`echo "$cpu1 $cpu2" | awk '{di=$3-$1; dt=$4-$2; if(NF==4 && dt>0 && di>=-16 && di<=dt+16){if(di<0) di=0; if(di>dt) di=dt; printf "%.0f %.0f\\n", di, dt} else print "unavailable"}'`,
 
 	`echo "===MEM==="`,
 	`awk '/MemTotal:/{t=$2} /MemAvailable:/{a=$2} END{if(t>0){printf "%d %d %d\\n", t/1024, (t-a)/1024, a/1024}else{print "0 0 0"}}' /proc/meminfo 2>/dev/null || echo "0 0 0"`,

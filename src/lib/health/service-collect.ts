@@ -332,7 +332,8 @@ export function summarizeHealth(results: ServerHealth[], total = results.length)
         r.enabled &&
         (r.status === "healthy" ||
           r.status === "warning" ||
-          r.status === "critical"),
+          r.status === "critical" ||
+          r.status === "unknown"),
     ).length,
     warning: results.filter((r) => r.status === "warning").length,
     critical: results.filter((r) => r.status === "critical").length,

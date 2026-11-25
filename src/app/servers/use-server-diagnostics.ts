@@ -11,7 +11,7 @@ import type { ServerOverviewDetailsProps } from "./server-overview-details";
 
 const percent = z.number().min(0).max(100);
 const metricsSchema = z.object({
-  cpu: z.object({ usagePercent: percent }),
+  cpu: z.object({ usagePercent: percent.nullable() }),
   memory: z.object({ usagePercent: percent }),
   disk: z.array(z.object({ mount: z.string(), usagePercent: percent })),
 });
@@ -81,10 +81,11 @@ export function useServerDiagnostics(serverId: string, enabled: boolean, mode: "
       const parsed = metricsSchema.safeParse(payload);
       if (!parsed.success) throw new Error(t("serverOverviewCard.invalidMonitorResponse"));
       const { cpu, memory, disk } = parsed.data;
+      const cpuDisplay = cpu.usagePercent ?? "—";
       // Two whole sentences: the disk part used to be a piece ("，磁盘 / 32%") glued on, and read "disk / 32%".
       const summary = disk[0]
-        ? t("serverOverviewCard.resourceSummaryWithDisk", { cpu: cpu.usagePercent, memory: memory.usagePercent, mount: disk[0].mount, usage: disk[0].usagePercent })
-        : t("serverOverviewCard.resourceSummary", { cpu: cpu.usagePercent, memory: memory.usagePercent });
+        ? t("serverOverviewCard.resourceSummaryWithDisk", { cpu: cpuDisplay, memory: memory.usagePercent, mount: disk[0].mount, usage: disk[0].usagePercent })
+        : t("serverOverviewCard.resourceSummary", { cpu: cpuDisplay, memory: memory.usagePercent });
       setDiagnosticRun({ status: "success", checkedAt: checkedAt(), summary });
     } catch (error) {
       if (requestRef.current !== controller) return;
