@@ -177,7 +177,12 @@ export const config = {
 		 * in per terminal; see ssh-ws-proxy.ts.
 		 */
 		get wsDetachTtlMs(): number { return readInt("SSH_WS_DETACH_TTL_MS", 10 * 60_000); },
-		get wsSecret(): string | undefined { return readOptionalString("SSH_WS_SECRET"); },
+		/**
+		 * The one canonical SSH_WS_SECRET: trimmed, and undefined when blank. The web tier signs handshakes and
+		 * forwarded-peer proofs with it and the gateway verifies them with it, so a stray space or newline in an
+		 * env file must not make the two sides hold different keys.
+		 */
+		get wsSecret(): string | undefined { return readOptionalString("SSH_WS_SECRET")?.trim() || undefined; },
 		/** OPEN-1: When true, reject SSH connections to servers without a pinned hostKeySha256. */
 		get enforceHostKeyPin(): boolean { return readBool("SSH_ENFORCE_HOST_KEY_PIN", false); },
 		get poolIdleTimeoutMs(): number { return readInt("SSH_POOL_IDLE_TIMEOUT_MS", 10 * 60_000); },

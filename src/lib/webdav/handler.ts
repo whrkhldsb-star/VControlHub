@@ -61,7 +61,7 @@ import { nodeStreamToWeb } from "@/lib/http/node-to-web-stream";
 import { RequestBodyTooLargeError } from "@/lib/http/request-body";
 import { parseStorageRange } from "@/lib/storage/streaming";
 
-import { buildPropFindMultistatus, parseDepth, type PropFindItem } from "./xml";
+import { buildPatchResponse, buildPropFindMultistatus, parseDavProperties, parseDepth, type PropFindItem } from "./xml";
 import { t } from "@/lib/i18n/service-translations";
 import {
   MAX_PROPFIND_CHILDREN,
@@ -99,7 +99,8 @@ export async function handleWebDavOptions(): Promise<Response> {
 }
 
 /** PROPPATCH: dead properties are not stored; verify write access and target existence before reporting 207. */
-export async function handleWebDavPropPatch(ctx: WebDavContext): Promise<Response> {
+export async function handleWebDavPropPatch(ctx: WebDavContext, text = ""): Promise<Response> {
+  const names = parseDavProperties(text, "PROPPATCH");
   await requireAccess(ctx.session, ctx.storageNodeId, ctx.relativePath, "write");
   const node = await loadNode(ctx.storageNodeId, ctx.session);
   const caseInsensitive = isCaseInsensitiveNode(node);
@@ -108,16 +109,17 @@ export async function handleWebDavPropPatch(ctx: WebDavContext): Promise<Respons
     const entry = await findEntry(ctx.storageNodeId, ctx.relativePath, caseInsensitive);
     if (!entry) return new Response("Not Found", { status: 404 });
   }
-  const href = buildWebDavHref(ctx.storageNodeId, ctx.relativePath, false).replace(/&/g, "&amp;").replace(/</g, "&lt;");
-  const body = `<?xml version="1.0" encoding="utf-8"?>
-<D:multistatus xmlns:D="DAV:"><D:response><D:href>${href}</D:href><D:propstat><D:prop/><D:status>HTTP/1.1 200 OK</D:status></D:propstat></D:response></D:multistatus>`;
+  const body = buildPatchResponse(buildWebDavHref(ctx.storageNodeId, ctx.relativePath, false), Array.isArray(names) ? names : []);
   return new Response(body, { status: 207, headers: { "Content-Type": "application/xml; charset=utf-8" } });
 }
 export async function handleWebDavPropFind(
   ctx: WebDavContext,
   depthHeader: string | null,
+  text = "",
 ): Promise<Response> {
   const depth = parseDepth(depthHeader);
+  if (depth === null) return new Response("Invalid Depth", { status: 400 });
+  const properties = parseDavProperties(text, "PROPFIND");
   if (depth === "infinity") {
     return new Response("Depth: infinity is not supported", { status: 403 });
   }
@@ -172,7 +174,7 @@ export async function handleWebDavPropFind(
     }
   }
 
-  const xml = buildPropFindMultistatus(items);
+  const xml = buildPropFindMultistatus(items, properties);
   return new Response(xml, {
     status: 207,
     headers: {

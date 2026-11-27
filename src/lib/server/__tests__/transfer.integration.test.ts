@@ -65,7 +65,7 @@ describe.skipIf(process.env.RUN_DATABASE_INTEGRATION_TESTS !== "1")("handover wi
     await expect(transfer()).rejects.toThrow();
     await prisma.serverAgentJob.update({ where: { id: job!.id }, data: { status: "CANCELLED" } });
     await expect(transfer()).rejects.toThrow();
-    await completeServerAgentJob({ serverId: id, jobId: job!.id, exitCode: 130 });
+    await completeServerAgentJob({ serverId: id, agentTokenHash: tokenHash, jobId: job!.id, exitCode: 130 });
     await expect(pending).resolves.toMatchObject({ cancelled: true });
 
     const proxy = await prisma.serverFileProxy.create({ data: {

@@ -78,7 +78,8 @@ describe("executeAiOpsAction", () => {
 	it("checks the exact lease after the receipt lookup and before dispatch", async () => {
 		mocks.lease.mockResolvedValueOnce([{ id: "job" }]).mockResolvedValueOnce([]);
 		await expect(executeScanAction("job", "owner", 3, input("alert.evaluate"), new AbortController().signal, { providerId: "", binding: "" })).rejects.toBeInstanceOf(LeaseLostError);
-		expect(mocks.lease.mock.calls[0]?.slice(1)).toEqual(["job", "owner", 3]);
+		expect(mocks.lease.mock.calls[0]?.slice(1, 4)).toEqual(["job", "owner", 3]);
+		expect(mocks.lease.mock.calls[0]?.[4]).toMatchObject({ strings: ["(clock_timestamp() AT TIME ZONE 'UTC')"] });
 		expect(mocks.enqueueJob).not.toHaveBeenCalled();
 	});
 

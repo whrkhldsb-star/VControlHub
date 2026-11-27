@@ -105,6 +105,13 @@ describe("POST /api/agent/v1/poll", () => {
     );
   });
 
+  it("fences a submitted result on the token digest that authenticated this poll", async () => {
+    await POST(poll({ result: { jobId: "job-1", stdout: "ok", exitCode: 0 } }));
+    expect(mocks.completeServerAgentJob).toHaveBeenCalledWith(
+      expect.objectContaining({ serverId: "srv1", agentTokenHash: "digest", jobId: "job-1" }),
+    );
+  });
+
   it("answers a heartbeat with the cancellation flag and claims no new job", async () => {
     mocks.heartbeatServerAgentJob.mockResolvedValue(true);
 

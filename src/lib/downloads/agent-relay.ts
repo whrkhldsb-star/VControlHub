@@ -1,11 +1,12 @@
 import { createHash } from "node:crypto";
+import { assertOriginalGeneration, journalPublication } from "./publication-journal";
 import { link, mkdir, mkdtemp, open, rm, statfs } from "node:fs/promises";
 import path from "node:path";
 import { setTimeout as delay } from "node:timers/promises";
 import { request } from "undici";
 import { loadExecutionActor, executionRefusal } from "@/lib/auth/execution-actor";
 import { prisma } from "@/lib/db";
-import { BusinessError } from "@/lib/errors";
+import { BusinessError, ConflictError } from "@/lib/errors";
 import { t } from "@/lib/i18n/service-translations";
 import { LeaseLostError } from "@/lib/job/heartbeat-runner";
 import { notifyDownloadResult } from "@/lib/notification/service";
@@ -13,7 +14,8 @@ import { relayTempDir } from "@/lib/runtime/platform-paths";
 import { largestAllowedWrite, type StorageWriteCapacity } from "@/lib/storage/access-control";
 import { createAgentFileClient } from "@/lib/storage/agent-file-client";
 import { assertNotRecycled } from "@/lib/storage/archive-access";
-import { updateClaimedDownload, type DownloadClaim } from "./claim";
+import { lockDownloadClaim, updateClaimedDownload, type DownloadClaim } from "./claim";
+import { agentPublishGuard } from "@/lib/storage/agent-file-queue";
 import { lockDownloadPublication } from "./publication-lock";
 import { downloadWriteCapacity } from "./write-capacity";
 import { snapshotFileVersionBeforeOverwrite } from "@/lib/storage/file-versions";
@@ -22,7 +24,7 @@ import { pinnedDownloadAgent, resolveDownloadRedirects } from "./redirect-chain"
 import { getDownloadTargetRelativePath } from "./target-path";
 import { hashTransferFile, parseTransferManifest, type TransferManifest } from "./transfer-manifest";
 
-type Destination = { taskId: string; serverId: string; nodeId: string; targetPath: string; signal?: AbortSignal };
+type Destination = { taskId: string; serverId: string; nodeId: string; targetPath: string; signal?: AbortSignal; claim?: DownloadClaim };
 
 export async function publishAgentDownloadFile(input: Destination & { localPath: string; file: TransferManifest["files"][number] }) {
   const { taskId, nodeId, file, signal } = input;
@@ -54,11 +56,20 @@ export async function publishAgentDownloadFile(input: Destination & { localPath:
     if (existing?.isDirectory) throw new BusinessError(t("backend.storage.targetIsDirectory"));
     const occupant = await prisma.fileEntry.findUnique({ where: { storageNodeId_relativePath: { storageNodeId: nodeId, relativePath } } });
     if (occupant?.entryType === "DIRECTORY") throw new BusinessError(t("backend.storage.targetIsDirectory"));
-    if (!existing || !await client.matches(relativePath, file.size, file.sha256, existing)) {
+    const original = existing?.etag ?? "absent";
+    if (existing && await client.matches(relativePath, file.size, file.sha256, existing)) {
+      if (file.publication?.staged && file.publication.staged !== original) throw new ConflictError(t("backend.storage.editableFileChangedOnDisk"));
+      await journalPublication(taskId, input.claim, file, file.publication?.original ?? original, original);
+    } else {
+      assertOriginalGeneration(file, original);
+      await journalPublication(taskId, input.claim, file, original);
       if (occupant) await snapshotFileVersionBeforeOverwrite({ fileEntryId: occupant.id, userId: actor.userId, reason: "UPLOAD" });
-      await client.writeLocal(relativePath, input.localPath, file.sha256, verify);
+      const published = await agentPublishGuard.run(tx => lockDownloadClaim(tx, input.claim), () =>
+        client.writeLocal(relativePath, input.localPath, file.sha256, verify, existing?.etag ?? null));
+      if (published) await journalPublication(taskId, input.claim, file, original, published);
     }
     await prisma.$transaction(async tx => {
+      await lockDownloadClaim(tx, input.claim);
       const binding = await tx.$queryRaw<{ id: string }[]>`
         SELECT id FROM agent_file_shares WHERE "storageNodeId" = ${nodeId}
           AND "serverId" = ${input.serverId} AND "rootIdentity" = ${task.agentRootIdentity} FOR SHARE`;
@@ -72,7 +83,6 @@ export async function publishAgentDownloadFile(input: Destination & { localPath:
 type HttpDownload = Destination & {
   publishSftp?: (localPath: string, file: TransferManifest["files"][number], signal: AbortSignal) => Promise<void>;
   url: string; fileName?: string | null; limits?: StorageWriteCapacity; maxSpeedKb?: number | null;
-  claim?: DownloadClaim;
 };
 /** Stream from the validated address for HTTP and HTTPS. Undici request follows no redirects. */
 async function fetchToDisk(input: HttpDownload, name: string, localPath: string, active: AbortSignal) {
@@ -158,7 +168,7 @@ export async function receiveAgentHttpDownload(input: HttpDownload) {
     if (!file || (!cached && !alreadyOnAgent)) {
       const downloaded = await fetchToDisk(input, name, localPath, active);
       if (file && (file.sha256 !== downloaded.sha256 || file.size !== downloaded.size || file.name !== name)) throw new Error("Download changed during retry");
-      file = downloaded;
+      file ??= downloaded;
       await link(localPath, path.join(root, file.sha256)).catch(error => {
         if ((error as NodeJS.ErrnoException).code !== "EEXIST") throw error;
       });

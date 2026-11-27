@@ -393,4 +393,34 @@ describe("backup job worker create path", () => {
     );
     expect(mocks.failJob).not.toHaveBeenCalled();
   });
+
+  it("does not enqueue backup.retention when completeJob rejects a stale/cancelled backup.create attempt", async () => {
+    mocks.claimNextJob.mockResolvedValueOnce({
+      id: "job_create_stale",
+      type: BACKUP_CREATE_JOB_TYPE,
+      attempts: 1,
+      teamId: "team-1",
+      createdBy: "user-1",
+      payload: { backupId: "bk-1", retentionDays: 7, teamId: "team-1" },
+    });
+    mocks.getBackupRecord.mockResolvedValueOnce({
+      id: "bk-1",
+      type: "DATABASE",
+      status: "PENDING",
+      teamId: "team-1",
+    });
+    mocks.runExistingBackupRecord.mockResolvedValueOnce({
+      id: "bk-1",
+      status: "COMPLETED",
+      filePath: "backups/bk-1.sql.gz",
+      fileSize: 1024,
+      teamId: "team-1",
+    });
+    mocks.completeJob.mockResolvedValueOnce({ count: 0 });
+
+    const ran = await runBackupJobWorkerOnce();
+    expect(ran).toBe(true);
+    expect(mocks.completeJob).toHaveBeenCalledTimes(1);
+    expect(mocks.enqueueJob).not.toHaveBeenCalled();
+  });
 });

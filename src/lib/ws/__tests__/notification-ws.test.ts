@@ -26,6 +26,7 @@ vi.mock("@/lib/notification/inbox", () => ({
 }));
 
 import { AuthError } from "@/lib/errors";
+import { SESSION_SIGNOUT_MESSAGE_TYPE, sessionTokenHash } from "../session-signout";
 import {
 	closeWebSocketServer,
 	getWsServer,
@@ -243,6 +244,49 @@ describe("notification WebSocket lifecycle", () => {
 		await recheckSocketSessions(0);
 		await closed;
 		await vi.waitFor(() => expect(getWsServer()!.clients.size).toBe(0));
+	});
+
+	it("drops only the sockets of a cookie signed out on its device, and pushes nothing for it", async () => {
+		const { port } = await listen();
+		const open = async (cookie: string) => {
+			const client = new WebSocket(`ws://127.0.0.1:${port}/ws`, { headers: { cookie } });
+			const received: unknown[] = [];
+			client.on("message", (data) => received.push(JSON.parse(data.toString())));
+			await vi.waitFor(() => expect(received).toHaveLength(2));
+			return { client, received };
+		};
+		const signedOut = await open("test_session=valid");
+		const otherDevice = await open("test_session=other-device");
+		const deliver = startBus.mock.calls[0]![0];
+		const closed = once(signedOut.client, "close");
+		deliver("user-1", { type: SESSION_SIGNOUT_MESSAGE_TYPE, tokenHash: sessionTokenHash("valid") });
+		await closed;
+		expect(otherDevice.client.readyState).toBe(WebSocket.OPEN);
+		expect(otherDevice.received).toHaveLength(2);
+		// A digest of another user's cookie closes nothing here.
+		deliver("user-2", { type: SESSION_SIGNOUT_MESSAGE_TYPE, tokenHash: sessionTokenHash("other-device") });
+		await new Promise((resolve) => setTimeout(resolve, 20));
+		expect(otherDevice.client.readyState).toBe(WebSocket.OPEN);
+		otherDevice.client.terminate();
+	});
+
+	it("believes X-Forwarded-Host for the origin check only behind a trusted proxy", async () => {
+		const { port } = await listen();
+		const dial = () => new Promise<boolean>((resolve) => {
+			const client = new WebSocket(`ws://127.0.0.1:${port}/ws`, {
+				origin: "https://attacker.example",
+				headers: { cookie: "test_session=valid", "x-forwarded-host": "attacker.example" },
+			});
+			client.on("error", () => resolve(false));
+			client.once("open", () => { client.terminate(); resolve(true); });
+		});
+		vi.stubEnv("TRUSTED_PROXY_HOPS", "0");
+		try {
+			expect(await dial()).toBe(false);
+			expect(verifySessionTokenMock).not.toHaveBeenCalled();
+		} finally { vi.unstubAllEnvs(); }
+		// One trusted hop (the shipped Caddy layout): the proxy set the header, the comparison follows it.
+		expect(await dial()).toBe(true);
 	});
 
 	it("keeps one user to ten sockets by dropping the oldest", async () => {

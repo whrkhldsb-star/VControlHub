@@ -102,6 +102,24 @@ describe("POST /api/files/extract", () => {
     prismaMock.storageNode.findFirst.mockResolvedValue({ id: "node_1", name: "local", driver: "LOCAL", basePath: tempDir });
   }
 
+  it("closes the counted gzip handle when quota admission throws", async () => {
+    await createGz();
+    localNode();
+    const files = await import("@/lib/storage/open-local-file");
+    const handle = await files.openManagedLocalFile(tempDir, "notes.txt.gz");
+    const opened = vi.spyOn(files, "openManagedLocalFile").mockResolvedValueOnce(handle);
+    try {
+      assertStorageAccessMock.mockImplementation(async input => {
+        if (input.writeBytes !== undefined) throw new Error("admission failed");
+        return { allowed: true };
+      });
+      const response = await POST(extractRequest("notes.txt.gz"));
+      expect(response.ok).toBe(false);
+      expect(opened).toHaveBeenCalled();
+      expect(handle.fd).toBe(-1);
+    } finally { opened.mockRestore(); await handle.close(); }
+  });
+
   it("does not unpack an archive that is in the recycle bin into visible files", async () => {
     await createTarGz();
     localNode();

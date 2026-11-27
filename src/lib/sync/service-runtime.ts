@@ -791,12 +791,12 @@ export async function reclaimStaleRunningSyncJobs(options?: {
 	const stale = await prisma.syncJob.findMany({
 		where: { status: "RUNNING", updatedAt: { lt: cutoff } },
 		select: { id: true, activeRunId: true },
-		take: 100,
+		take: 16,
 		orderBy: { updatedAt: "asc" },
 	});
 
 	const reclaimed: string[] = [];
-	for (const job of stale) {
+	async function reclaim(job: (typeof stale)[number]) {
 		const retry = job.activeRunId?.startsWith(CLEANUP_PREFIX);
 		const leaseId = retry ? job.activeRunId!.slice(CLEANUP_PREFIX.length) : (job.activeRunId ?? job.id);
 		const marker = CLEANUP_PREFIX + leaseId;
@@ -811,7 +811,7 @@ export async function reclaimStaleRunningSyncJobs(options?: {
 			if (!claimed.count) return false;
 			return true;
 		});
-		if (!moved) continue;
+		if (!moved) return;
 		try {
 			const receipt = await sweepOneTimeSyncAccess(job.id, leaseId);
 			const released = await prisma.$transaction(async tx => {
@@ -832,6 +832,12 @@ export async function reclaimStaleRunningSyncJobs(options?: {
 			logError(`[Sync] Cleanup for job ${job.id}, run ${leaseId} will be retried:`, error);
 		}
 	}
+	await Promise.all(Array.from({ length: Math.min(2, stale.length) }, async () => {
+		let job;
+		while ((job = stale.shift())) {
+			try { await reclaim(job); } catch (error) { logError(`[Sync] Could not claim stale job ${job.id}:`, error); }
+		}
+	}));
 	return reclaimed;
 }
 

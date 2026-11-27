@@ -2,7 +2,7 @@ import { Client } from "pg";
 import { getLockKeys } from "@/lib/concurrency/advisory-lock";
 import { config } from "@/lib/config/env";
 import { createLogger } from "@/lib/logging";
-import { indexedAncestors } from "@/lib/storage/archive-access";
+import { storagePathLockIds } from "@/lib/storage/file-overwrite-lock";
 
 const logger = createLogger("download-publication");
 
@@ -17,8 +17,9 @@ export async function lockDownloadPublication(nodeId: string, relative: string) 
     await client.query("SET lock_timeout = '30s'");
     const quota = getLockKeys("storage-quota", nodeId);
     await client.query("SELECT pg_advisory_lock($1, $2)", [quota.k1, quota.k2]);
-    const file = getLockKeys("storage-editable", nodeId + ":" + relative);
-    const keys = new Set(indexedAncestors(relative).map(path => getLockKeys("storage-editable", nodeId + ":" + path).k2));
+    const ids = storagePathLockIds(nodeId, relative);
+    const file = getLockKeys("storage-editable", ids.resourceId);
+    const keys = new Set([file.k2, ...ids.sharedResourceIds.map(id => getLockKeys("storage-editable", id).k2)]);
     for (const key of [...keys].sort((a, b) => a - b)) {
       await client.query(key === file.k2 ? "SELECT pg_advisory_lock($1, $2)" : "SELECT pg_advisory_lock_shared($1, $2)", [file.k1, key]);
     }

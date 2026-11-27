@@ -99,16 +99,18 @@ export function forwardSshUpgrade(
 		upstream.destroy();
 	};
 
+	// Until the gateway accepts the connection, a stalled connect is answered 502. The idle timeout is cleared once
+	// connected: a terminal left quiet for a while is not a failed connect.
 	upstream.setTimeout(5_000, () => fail("SSH gateway connect timed out"));
-	upstream.once("error", (error: Error) => fail("SSH gateway connection failed", error));
 	upstream.once("connect", () => {
 		if (settled) return;
 		settled = true;
+		upstream.setTimeout(0);
 		logger.debug("Forwarded /ssh upgrade to gateway", { port });
 		// Replay the original upgrade request verbatim — headers, session cookie
 		// and handshake query are exactly what the gateway authenticates on.
 		const peer = request.socket?.remoteAddress ?? "";
-		const signature = signUpgradePeer(peer, request.headers["sec-websocket-key"], env.SSH_WS_SECRET);
+		const signature = signUpgradePeer(peer, request.headers["sec-websocket-key"], env.SSH_WS_SECRET?.trim() || undefined);
 		upstream.write(
 			`${request.method ?? "GET"} ${request.url} HTTP/1.1\r\n` +
 			Object.entries(request.headers)
@@ -131,6 +133,12 @@ export function forwardSshUpgrade(
 	};
 	socket.once("close", () => teardown(socket, upstream));
 	upstream.once("close", () => teardown(upstream, socket));
-	socket.once("error", () => teardown(socket, upstream));
+	// Persistent handlers: a socket can emit "error" more than once (a reset during teardown after a write error),
+	// and an "error" with no listener left is thrown — one browser's broken connection would end the web process.
+	upstream.on("error", (error: Error) => {
+		if (!settled) fail("SSH gateway connection failed", error);
+		else teardown(upstream, socket);
+	});
+	socket.on("error", () => teardown(socket, upstream));
 	return true;
 }

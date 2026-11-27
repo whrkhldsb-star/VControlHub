@@ -14,8 +14,8 @@ vi.mock("@/lib/api-token/authorization", async (original) => ({
 const { authenticateBearerForPermissions, verifiedBearerTokenId } = await import("../bearer-token");
 
 const owner = { userId: "u_owner", username: "owner", roles: ["admin"], mustChangePassword: false, currentTeamId: null };
-const request = (method: string) =>
-	new Request("https://hub.example/api/tickets/t1", { method, headers: { authorization: "Bearer whr_token" } });
+const request = (method: string, path = "/api/tickets/t1") =>
+	new Request(`https://hub.example${path}`, { method, headers: { authorization: "Bearer whr_token" } });
 
 describe("authenticateBearerForPermissions", () => {
 	beforeEach(() => {
@@ -44,9 +44,24 @@ describe("authenticateBearerForPermissions", () => {
 
 	it("still grants a write scope on a write request", async () => {
 		mocks.verifyApiToken.mockResolvedValue({ userId: "u_owner", scopes: ["image:write"], tokenId: "tok_1", teamId: null });
-		const result = await authenticateBearerForPermissions(request("POST"), ["image:write"]);
+		const result = await authenticateBearerForPermissions(request("POST", "/api/images/upload"), ["image:write"]);
 		if (!result || result instanceof Response) throw new Error("Expected a token session");
 		expect(result.session.permissions).toEqual(["image:write"]);
 		expect(verifiedBearerTokenId(result.session)).toBe("tok_1");
+	});
+
+	it("refuses a token on a route the bearer policy closes to tokens for that method, before any lookup", async () => {
+		// The proxy only checks that a session cookie looks plausible and that the CSRF pair matches; a script can
+		// fake both and reach a write route with a write-scoped token, so the route must refuse it as well.
+		mocks.verifyApiToken.mockResolvedValue({ userId: "u_owner", scopes: ["storage:write", "image:write"], tokenId: "tok_1", teamId: null });
+		for (const [method, path] of [["POST", "/api/servers"], ["DELETE", "/api/images/i1"], ["PATCH", "/api/images/upload"]] as const) {
+			const result = await authenticateBearerForPermissions(request(method, path), ["storage:write", "image:write"]);
+			expect(result).toBeInstanceOf(Response);
+			expect((result as Response).status).toBe(403);
+		}
+		expect(mocks.verifyApiToken).not.toHaveBeenCalled();
+		// Reads stay open on every API route.
+		mocks.verifyApiToken.mockResolvedValue({ userId: "u_owner", scopes: ["image:read"], tokenId: "tok_1", teamId: null });
+		expect(await authenticateBearerForPermissions(request("GET", "/api/images/list"), ["image:read"])).not.toBeInstanceOf(Response);
 	});
 });

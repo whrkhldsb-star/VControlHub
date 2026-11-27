@@ -209,32 +209,15 @@ export async function POST(request: NextRequest) {
           // only the last member's size, so a multi-member file was refused);
           // the limiter below then writes exactly that much.
           const limitMessage = t("backend.storageHardening.extract.gzOutputTooLarge", locale);
-          const gzHandle = await openManagedLocalFile(node.basePath, relativePath);
-          let declaredSize: number;
-          try {
-            declaredSize = await countGunzipOutput(streamFileHandle(gzHandle), MAX_GUNZIP_OUTPUT_BYTES, limitMessage);
-          } catch (error) {
-            await gzHandle.close().catch(() => undefined);
-            throw error;
-          }
-          const admission = await assertStorageAccess({
-            session,
-            storageNodeId: node.id,
-            relativePath: outputRelativePath,
-            operation: "write",
-            writeBytes: declaredSize,
-          });
-          if (!admission.allowed) {
-            await gzHandle.close().catch(() => undefined);
-            return NextResponse.json(
-              { error: storageAccessDeniedCopy(admission.reason) },
-              { status: 403 },
-            );
-          }
-
           const staged = path.join(path.dirname(outputPath.path), `.vch-extract-${randomUUID()}.tmp`);
           let release: (() => Promise<void>) | undefined;
+          let admission: Awaited<ReturnType<typeof assertStorageAccess>> | undefined;
+          const gzHandle = await openManagedLocalFile(node.basePath, relativePath);
           try {
+            const declaredSize = await countGunzipOutput(streamFileHandle(gzHandle), MAX_GUNZIP_OUTPUT_BYTES, limitMessage);
+            admission = await assertStorageAccess({ session, storageNodeId: node.id, relativePath: outputRelativePath,
+              operation: "write", writeBytes: declaredSize });
+            if (!admission.allowed) return NextResponse.json({ error: storageAccessDeniedCopy(admission.reason) }, { status: 403 });
             await pipeline(streamFileHandle(gzHandle), createGunzip(), new GunzipOutputLimiter(declaredSize, limitMessage),
               createWriteStream(staged, { flags: "wx", mode: 0o600 }), { signal: request.signal });
             const parent = path.posix.dirname(outputRelativePath);
@@ -258,8 +241,7 @@ export async function POST(request: NextRequest) {
           } finally {
             await gzHandle.close().catch(() => undefined);
             await fs.rm(staged, { force: true }).catch(() => undefined);
-            await release?.();
-            await releaseStorageQuotaGuard(admission);
+            try { await release?.(); } finally { await releaseStorageQuotaGuard(admission); }
           }
         } else if (archiveKindOf(formatName)) {
           // ZIP and tar are read in-process and written as plain files and

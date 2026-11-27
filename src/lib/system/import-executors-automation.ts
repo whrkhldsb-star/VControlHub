@@ -145,12 +145,18 @@ export function playbookStepReferences(records: ImportedPlaybooks) {
 
 export function scopedPlaybooks(records: ImportedPlaybooks, servers: ReadonlyMap<string, { teamId: string | null }>, users: ReadonlyMap<string, { teamId: string | null; isAdmin: boolean }>) {
   return records.filter((row) => {
-    const inScope = (owner: { teamId: string | null } | undefined) => !!owner && (!row.teamId || owner.teamId === row.teamId);
+    const playbookTeamId = row.teamId ?? null;
+    const inScope = (owner: { teamId: string | null } | undefined) => !!owner && (!playbookTeamId || owner.teamId === playbookTeamId);
     return row.steps.every((step) => {
-      if (step.type === "run_command") return step.config.serverIds.every((id) => inScope(servers.get(id)));
+      // Servers are security roots: a null-team playbook may only bind quarantined null-team servers,
+      // matching assertCommandTargetServersInScope rather than spanning customer servers.
+      if (step.type === "run_command") return step.config.serverIds.every((id) => {
+        const server = servers.get(id);
+        return !!server && (server.teamId ?? null) === playbookTeamId;
+      });
       if (step.type === "send_notification") {
         const user = users.get(step.config.recipientUserId);
-        return row.teamId ? inScope(user) : user?.isAdmin === true;
+        return playbookTeamId ? inScope(user) : user?.isAdmin === true;
       }
       return true;
     });

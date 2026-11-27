@@ -12,12 +12,15 @@
  * non-browser clients (curl, health probes), which send none of these
  * headers and are allowed through.
  */
+import { config } from "@/lib/config/env";
 
 function expectedRequestHost(request: Request): string {
   // Behind a reverse proxy the authoritative host is x-forwarded-host; the
   // first entry is the client-supplied one, matching the x-forwarded-proto
-  // convention in request-https.ts.
-  const forwarded = request.headers.get("x-forwarded-host");
+  // convention in request-https.ts. Like that header it is believed only when
+  // a reverse proxy is trusted (TRUSTED_PROXY_HOPS > 0): with the app exposed
+  // directly, a cross-site page's own host in it would make its post look same-origin.
+  const forwarded = (config.http?.trustedProxyHops ?? 1) > 0 ? request.headers.get("x-forwarded-host") : null;
   const forwardedHost = forwarded?.split(",")[0]?.trim().toLowerCase();
   if (forwardedHost) return forwardedHost;
   const host = request.headers.get("host");

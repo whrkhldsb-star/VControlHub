@@ -13,6 +13,10 @@ import {
 import { config } from "@/lib/config/env";
 import { computeLeaseMs } from "@/lib/job/lease";
 import { runWithLeaseHeartbeat } from "@/lib/job/heartbeat-runner";
+
+function isLeaseLostError(error: unknown): boolean {
+  return Boolean(error && typeof error === "object" && (error as { name?: unknown }).name === "LeaseLostError");
+}
 import {
   claimNextJob,
   completeJob,
@@ -121,13 +125,21 @@ function parseRetentionPayload(
  * backups belong to no schedule; as for VPS backups they follow the longest
  * retention among the customer's active schedules.
  */
-async function pruneScheduledBackups(payload: BackupRetentionPayload) {
-  const base = { keepLatestPerType: payload.keepLatestPerType, projectRoot: payload.projectRoot, teamId: payload.teamId, platformScope: payload.platformScope };
+async function pruneScheduledBackups(payload: BackupRetentionPayload, signal?: AbortSignal) {
+  signal?.throwIfAborted();
+  const base = {
+    keepLatestPerType: payload.keepLatestPerType,
+    projectRoot: payload.projectRoot,
+    teamId: payload.teamId,
+    platformScope: payload.platformScope,
+    ...(signal ? { signal } : {}),
+  };
   const schedule = await prisma.backupSchedule.findFirst({
     where: { id: payload.scheduleId, teamId: payload.teamId ?? null, status: "ACTIVE" }, select: { retentionDays: true },
   });
   if (!schedule?.retentionDays) return null;
   const own = await pruneOldBackupRecordsNow({ ...base, olderThanDays: schedule.retentionDays, scheduleId: payload.scheduleId });
+  signal?.throwIfAborted();
   // Manual backups follow the longest retention among the owner's active schedules: the customer's, or for the
   // platform's own backups the platform's (schedules made in the all-customers view have no customer).
   if (!payload.teamId && !payload.platformScope) return own;
@@ -221,21 +233,23 @@ async function handleJob(job: Awaited<ReturnType<typeof claimNextJob>>) {
           job.id,
           WORKER_ID,
           "Backup record not found or outside job team scope",
+          ...(job.attempts !== undefined ? [{ attempts: job.attempts }] : []),
         );
         return true;
       }
       const lease = await heartbeatJob(job.id, WORKER_ID, {
-        attempts: job.attempts, leaseMs: LEASE_MS,
+        ...(job.attempts !== undefined ? { attempts: job.attempts } : {}), leaseMs: LEASE_MS,
         progress: `Running ${record?.type ?? "UNKNOWN"} backup`,
       });
-      if (!lease.count) return true;
+      if (lease && lease.count === 0) return true;
       const backup = await runWithLeaseHeartbeat({
         jobId: job.id,
         leaseMs: LEASE_MS,
+        ...(job.attempts !== undefined ? { attempts: job.attempts } : {}),
         heartbeat: () =>
           heartbeatJob(job.id, WORKER_ID, {
             leaseMs: LEASE_MS,
-            attempts: job.attempts, progress: `Running ${record?.type ?? "UNKNOWN"} backup`,
+            ...(job.attempts !== undefined ? { attempts: job.attempts } : {}), progress: `Running ${record?.type ?? "UNKNOWN"} backup`,
           }),
         run: (signal) =>
           runExistingBackupRecord({
@@ -254,7 +268,7 @@ async function handleJob(job: Awaited<ReturnType<typeof claimNextJob>>) {
         const message = (
           backup.errorMessage || `Backup finished with status ${backup.status}`
         ).slice(0, 2000);
-        await failJobTerminal(job.id, WORKER_ID, message);
+        await failJobTerminal(job.id, WORKER_ID, message, ...(job.attempts !== undefined ? [{ attempts: job.attempts }] : []));
         logger.error("backup create job finished without COMPLETED status", {
           jobId: job.id,
           backupId: backup.id,
@@ -263,12 +277,19 @@ async function handleJob(job: Awaited<ReturnType<typeof claimNextJob>>) {
         });
         return true;
       }
-      await completeJob(job.id, WORKER_ID, {
+      const completed = await completeJob(job.id, WORKER_ID, {
         backupId: backup.id,
         status: backup.status,
         filePath: backup.filePath,
         fileSize: backup.fileSize ?? null,
-      });
+      }, ...(job.attempts !== undefined ? [job.attempts] : []));
+      if (completed && completed.count === 0) {
+        logger.warn("skip retention enqueue: backup create job completion was rejected (lease lost or cancelled)", {
+          jobId: job.id,
+          backupId: backup.id,
+        });
+        return true;
+      }
       // A schedule resolves its policy when cleanup runs. Legacy manual jobs carry days.
       if (payload.scheduleId || (payload.retentionDays && payload.retentionDays > 0)) {
         const teamId = payload.teamId ?? job.teamId ?? backup.teamId ?? null;
@@ -322,56 +343,53 @@ async function handleJob(job: Awaited<ReturnType<typeof claimNextJob>>) {
       const payload = parseRetentionPayload(job.payload);
       // Only the system daily offsite sweep has no submitting account.
       if (job.createdBy || !payload.offsiteOnly) await requirePlatformBackupOwner(job.createdBy);
-      await heartbeatJob(job.id, WORKER_ID, {
+      const lease = await heartbeatJob(job.id, WORKER_ID, {
+        ...(job.attempts !== undefined ? { attempts: job.attempts } : {}),
         leaseMs: LEASE_MS,
         progress: "Cleaning up old backups",
       });
-      // Retention deletes N records + unlinks N archive files (plus a
-      // platform-wide offsite object sweep). On a large backlog this easily
-      // exceeds the 30s lease, so renew it under runWithLeaseHeartbeat —
-      // otherwise the lease expires mid-prune and the stale reaper / a sibling
-      // worker re-claims and runs a *duplicate* prune concurrently. The other
-      // long-running branches (create/restore/drill/offsite-sync) already do
-      // this; retention was the one that ran unprotected.
+      if (lease && lease.count === 0) return true;
       const { summary, offsite } = await runWithLeaseHeartbeat({
         jobId: job.id,
         leaseMs: LEASE_MS,
+        ...(job.attempts !== undefined ? { attempts: job.attempts } : {}),
         heartbeat: () =>
           heartbeatJob(job.id, WORKER_ID, {
+            ...(job.attempts !== undefined ? { attempts: job.attempts } : {}),
             leaseMs: LEASE_MS,
             progress: "Cleaning up old backups",
           }),
-        run: async () => {
-          // The daily offsite tick has no customer: local pruning would only
-          // refuse (fail-closed) and leave a warning plus an error in the result.
+        run: async (signal) => {
+          signal?.throwIfAborted();
           const localSummary = payload.offsiteOnly
             ? null
             : payload.scheduleId
-              ? await pruneScheduledBackups(payload)
+              ? await pruneScheduledBackups(payload, signal)
               : await pruneOldBackupRecordsNow({
                   olderThanDays: payload.olderThanDays,
                   keepLatestPerType: payload.keepLatestPerType,
                   projectRoot: payload.projectRoot,
                   teamId: payload.teamId,
                   platformScope: payload.platformScope,
+                  ...(signal ? { signal } : {}),
                 });
-          // Offsite retentionDays is platform-wide; run best-effort prune alongside local retention.
+          signal?.throwIfAborted();
           let offsiteResult: Awaited<
             ReturnType<
               typeof import("./offsite-retention").pruneOffsiteObjects
             >
           > | null = null;
           try {
-            // Platform-wide, so once a day is plenty (A9-09): it used to run after every schedule's retention task.
-            // Dedicated daily offsiteOnly ticks bypass the in-process throttle so clock jitter does not skip every other day,
-            // and the latch advances only after pruneOffsiteObjects() succeeds.
             if (payload.offsiteOnly || Date.now() - lastOffsitePruneAt >= OFFSITE_PRUNE_INTERVAL_MS) {
               const { pruneOffsiteObjects } =
                 await import("./offsite-retention");
-              offsiteResult = await pruneOffsiteObjects();
+              offsiteResult = await pruneOffsiteObjects(signal ? { signal } : undefined);
               lastOffsitePruneAt = Date.now();
             }
           } catch (offsiteErr) {
+            if (isLeaseLostError(offsiteErr) || signal?.aborted) {
+              throw offsiteErr;
+            }
             logger.warn("offsite retention prune failed (non-fatal)", {
               error:
                 offsiteErr instanceof Error
@@ -401,29 +419,35 @@ async function handleJob(job: Awaited<ReturnType<typeof claimNextJob>>) {
             }
           : null,
         offsite,
-      });
+      }, ...(job.attempts !== undefined ? [job.attempts] : []));
       return true;
     }
 
     if (job.type === BACKUP_OFFSITE_SYNC_JOB_TYPE) {
-      await heartbeatJob(job.id, WORKER_ID, {
+      const lease = await heartbeatJob(job.id, WORKER_ID, {
+        ...(job.attempts !== undefined ? { attempts: job.attempts } : {}),
         leaseMs: LEASE_MS,
         progress: "Uploading pending offsite backups",
       });
+      if (lease && lease.count === 0) return true;
       const { retryPendingOffsiteUploads } =
         await import("@/lib/backup/offsite-uploader");
       const summary = await runWithLeaseHeartbeat({
         jobId: job.id,
         leaseMs: LEASE_MS,
+        ...(job.attempts !== undefined ? { attempts: job.attempts } : {}),
         heartbeat: () =>
           heartbeatJob(job.id, WORKER_ID, {
+            ...(job.attempts !== undefined ? { attempts: job.attempts } : {}),
             leaseMs: LEASE_MS,
             progress: "Uploading pending offsite backups",
           }),
-        run: async () => {
+        run: async (signal) => {
+          signal?.throwIfAborted();
           const local = await retryPendingOffsiteUploads({
             projectRoot: config.app.appDir,
           });
+          signal?.throwIfAborted();
           const { retryPendingVpsOffsiteUploads } =
             await import("@/lib/backup/vps-backup-service");
           const vps = await retryPendingVpsOffsiteUploads();
@@ -438,8 +462,6 @@ async function handleJob(job: Awaited<ReturnType<typeof claimNextJob>>) {
         },
       });
       if (summary.failed > 0) {
-        // One alert for the day's catch-up, on its first attempt: each record
-        // used to email its own, on every attempt.
         if ((job.attempts ?? 1) <= 1) {
           const { sendOffsiteFailureAlert } = await import("@/lib/backup/offsite-uploader");
           const { loadOffsiteConfig } = await import("@/lib/storage/offsite/schema");
@@ -454,7 +476,7 @@ async function handleJob(job: Awaited<ReturnType<typeof claimNextJob>>) {
           `Offsite backup sync failed for ${summary.failed} of ${summary.observed} record(s)`,
         );
       }
-      await completeJob(job.id, WORKER_ID, summary);
+      await completeJob(job.id, WORKER_ID, summary, ...(job.attempts !== undefined ? [job.attempts] : []));
       return true;
     }
 
@@ -462,40 +484,51 @@ async function handleJob(job: Awaited<ReturnType<typeof claimNextJob>>) {
       await requirePlatformBackupOwner(job.createdBy);
       const payload = parseCreatePayload(job.payload);
       const scope = workerSession(job, payload.teamId);
-      await heartbeatJob(job.id, WORKER_ID, {
+      const lease = await heartbeatJob(job.id, WORKER_ID, {
+        ...(job.attempts !== undefined ? { attempts: job.attempts } : {}),
         leaseMs: LEASE_MS,
         progress: "Running non-destructive restore drill",
       });
+      if (lease && lease.count === 0) return true;
       const report = await runWithLeaseHeartbeat({
         jobId: job.id,
         leaseMs: LEASE_MS,
+        ...(job.attempts !== undefined ? { attempts: job.attempts } : {}),
         heartbeat: () =>
           heartbeatJob(job.id, WORKER_ID, {
+            ...(job.attempts !== undefined ? { attempts: job.attempts } : {}),
             leaseMs: LEASE_MS,
             progress: "Verifying backup checksum and archive format",
           }),
-        run: () =>
-          drillBackupRecord({
+        run: (signal) => {
+          signal?.throwIfAborted();
+          return drillBackupRecord({
             id: payload.backupId,
             projectRoot: payload.projectRoot,
             session: scope,
-          }),
+          });
+        },
       });
-      await completeJob(job.id, WORKER_ID, { drillReport: report });
+      await completeJob(job.id, WORKER_ID, { drillReport: report }, ...(job.attempts !== undefined ? [job.attempts] : []));
       return true;
     }
 
     throw new PermanentBackupJobError(`Unsupported backup job type: ${job.type}`);
   } catch (error) {
+    if (isLeaseLostError(error)) {
+      logger.warn("backup job lost lease; leaving row for replacement worker", {
+        jobId: job.id,
+        type: job.type,
+      });
+      return true;
+    }
     const message =
       error instanceof Error ? error.message : "Backup task execution failed";
-    // Permanent failures (bad payload, unsupported type, missing record) must
-    // not be retried — burning maxAttempts on an unchangeable outcome only
-    // delays the row reaching FAILED and clutters the retry queue.
     if (error instanceof PermanentBackupJobError || error instanceof ForbiddenError) {
-      await failJobTerminal(job.id, WORKER_ID, message.slice(0, 2000));
+      await failJobTerminal(job.id, WORKER_ID, message.slice(0, 2000), ...(job.attempts !== undefined ? [{ attempts: job.attempts }] : []));
     } else {
       await failJob(job.id, WORKER_ID, message.slice(0, 2000), {
+        ...(job.attempts !== undefined ? { attempts: job.attempts } : {}),
         retryAfterMs: 60_000,
       });
     }

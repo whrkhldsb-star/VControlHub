@@ -94,15 +94,22 @@ type PlatformUpload = {
 	 * sweep meant one email per pending backup per attempt.
 	 */
 	alert?: boolean;
+	/** Optional lease-abort signal from a durable backup worker. */
+	signal?: AbortSignal;
 };
 
 export async function uploadBackupToOffsite(input: PlatformUpload): Promise<OffsiteUploadResult> {
+	if (input.signal?.aborted) {
+		throw input.signal.reason ?? new Error("Offsite upload aborted");
+	}
 	let release;
 	try {
 		release = await tryAcquireAdvisoryLock("platform-backup-artifact", input.backupId);
 		if (!release) return { ok: true, skipped: true, reason: "backup_busy" };
+		input.signal?.throwIfAborted();
 		return await uploadLocked(input);
-	} catch {
+	} catch (error) {
+		if (input.signal?.aborted) throw error;
 		return { ok: false, skipped: false, code: "UploadError", error: "Offsite upload failed" };
 	} finally {
 		await release?.();
@@ -203,6 +210,7 @@ async function uploadLocked(input: PlatformUpload): Promise<OffsiteUploadResult>
 	let compressed = false;
 	let tempGzPath: string | null = null;
 	try {
+		input.signal?.throwIfAborted();
 		if (shouldCompress && fileStat.size >= STREAM_COMPRESS_THRESHOLD_BYTES) {
 			const tempDir = await mkdtemp(path.join(tmpdir(), "vch-offsite-"));
 			tempGzPath = path.join(tempDir, `${record.id}.gz`);
@@ -217,6 +225,7 @@ async function uploadLocked(input: PlatformUpload): Promise<OffsiteUploadResult>
 			uploadPath = fullPath;
 		} else {
 			const rawBuf = await readFile(fullPath);
+			input.signal?.throwIfAborted();
 			verifyRecordedChecksum(createHash("sha256").update(rawBuf).digest("hex"), record.checksumSha256);
 			if (shouldCompress) {
 				const result = compressBuffer(rawBuf);
@@ -233,6 +242,7 @@ async function uploadLocked(input: PlatformUpload): Promise<OffsiteUploadResult>
 		if (tempGzPath) {
 			await rm(path.dirname(tempGzPath), { recursive: true, force: true }).catch(() => {});
 		}
+		if (input.signal?.aborted) throw err;
 		return recordOffsiteFailure({
 			record,
 			recipient: alertOn ? config.failureAlertRecipient : null,
@@ -256,11 +266,12 @@ async function uploadLocked(input: PlatformUpload): Promise<OffsiteUploadResult>
 		timeoutMs: 30 * 60 * 1000,
 	};
 	try {
+		input.signal?.throwIfAborted();
 		const client = new S3Client(clientConfig);
 		const { etag, versionId } = uploadPath
 			? await client.putFile(key, uploadPath, contentType, compressed ? undefined : record.checksumSha256)
 			: await client.putObject(key, body!, contentType);
-		// 7. 写 DB
+		// 7. 写 DB (always persist receipt once the remote object upload succeeded)
 		const uploadedAt = new Date();
 		const receiptKey = PLATFORM_RECEIPT_PREFIX + record.id;
 		const receipt = JSON.stringify({ destination: platformOffsiteDestination(config), key, versionId: versionId ?? null, type: record.type, uploadedAt });
@@ -294,6 +305,7 @@ async function uploadLocked(input: PlatformUpload): Promise<OffsiteUploadResult>
 			uploadedAt,
 		};
 	} catch (err) {
+		if (input.signal?.aborted) throw err;
 		const message = formatError(err);
 		const code = err instanceof ChecksumMismatchError ? "ChecksumMismatch" : err instanceof S3Error ? err.code : "UploadError";
 		return recordOffsiteFailure({

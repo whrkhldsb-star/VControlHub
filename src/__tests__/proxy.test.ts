@@ -288,6 +288,13 @@ describe("proxy auth guard", () => {
     expect((await proxy(makeRequest("/api/webdav-admin/node-1"))).status).toBe(401);
   });
 
+  it("opens /api/public/ only up to its boundary, not lookalike sibling routes", async () => {
+    expect(syncProxy(makeRequest("/api/public/ping")).status).toBe(200);
+    for (const pathname of ["/api/publications", "/api/public-keys", "/api/publicity/export"]) {
+      expect((await proxy(makeRequest(pathname))).status).toBe(401);
+    }
+  });
+
   it("lets anonymous browsers reach public share pages and share download APIs", () => {
     for (const pathname of ["/share/public-token", "/api/share/public-token"]) {
       const response = syncProxy(makeRequest(pathname));

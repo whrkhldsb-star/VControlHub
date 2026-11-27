@@ -107,6 +107,7 @@ vi.mock("@/lib/auth/two-factor-secret", () => ({
 beforeEach(() => { prismaMock.$transaction.mockImplementation(run => run(prismaMock)); });
 
 const { createTwoFactorRecoveryCodes } = await import("@/lib/auth/two-factor-recovery");
+const { DB_UTC_NOW } = await import("@/lib/db/utc-now");
 
 const enableRoute = await import("../enable/route");
 const disableRoute = await import("../disable/route");
@@ -325,7 +326,8 @@ describe("POST /api/auth/2fa/disable", () => {
 
     expect(res.status).toBe(200);
     // The code is burned on the way through, even though 2FA is being turned off.
-    expect(prismaMock.$executeRaw).toHaveBeenCalledWith(expect.anything(), generated.hashes[0], "u1", "sealed:EXISTING_SECRET", generated.hashes[0]);
+    // The stamp is the database clock in UTC (DB_UTC_NOW), not a bare NOW() read in the session time zone.
+    expect(prismaMock.$executeRaw).toHaveBeenCalledWith(expect.anything(), generated.hashes[0], DB_UTC_NOW, "u1", "sealed:EXISTING_SECRET", generated.hashes[0]);
     expect(prismaMock.user.updateMany).toHaveBeenCalled();
   });
 

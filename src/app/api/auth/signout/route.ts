@@ -11,6 +11,7 @@ import { isRequestHttps } from "@/lib/http/request-https";
 import { clearPendingLogin } from "@/lib/auth/login-cookies";
 import { createLogger } from "@/lib/logging";
 import { getClientIp } from "@/lib/rate-limit";
+import { publishSessionSignout } from "@/lib/ws/session-signout";
 
 /**
  * POST /api/auth/signout — clears every auth cookie and redirects.
@@ -23,9 +24,30 @@ import { getClientIp } from "@/lib/rate-limit";
  *    token from the previous user for up to the whole session TTL.
  *  - the pending-2FA cookie, so a signout mid-2FA does not leave a 5-minute
  *    ticket that still exchanges for a full session for that account.
+ *
+ * A verified session cookie is also announced as signed out (see
+ * lib/ws/session-signout): its notification socket, remote desktops, terminals
+ * and detached keep-alive shells close at once instead of at their next
+ * periodic re-check, or, for a detached shell, never. Only this cookie's: the
+ * account's other devices stay signed in, so `sessionEpoch` is not advanced.
  */
 const logger = createLogger("auth:signout");
 const signoutBodySchema = z.undefined();
+
+function requestCookie(request: Request, name: string): string | null {
+  const prefix = `${name}=`;
+  for (const part of (request.headers.get("cookie") ?? "").split(";")) {
+    const trimmed = part.trim();
+    if (!trimmed.startsWith(prefix)) continue;
+    const value = trimmed.slice(prefix.length);
+    try {
+      return decodeURIComponent(value);
+    } catch {
+      return value;
+    }
+  }
+  return null;
+}
 
 export async function POST(request: Request) {
   return withApiRoute(
@@ -58,6 +80,15 @@ export async function POST(request: Request) {
       try {
         const session = await getApiSession();
         if (session?.userId) {
+          // getApiSession verified this very cookie, so only a real session of this user is announced.
+          const token = requestCookie(request, getSessionCookieName())?.trim();
+          if (token) {
+            try {
+              publishSessionSignout(session.userId, token);
+            } catch (error) {
+              logger.warn("signout socket teardown unavailable", error);
+            }
+          }
           await auditUserAction(
             session.userId,
             "auth.signout",

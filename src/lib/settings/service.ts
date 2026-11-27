@@ -1,4 +1,5 @@
 import { lockSettingBindings, relatedSettingKeys, validateSettingBindings, publicOffsiteEndpoint } from "./bindings";
+import { lockForTransaction } from "@/lib/concurrency/advisory-lock";
 import { getAppName } from "@/lib/branding";
 import { ValidationError } from "@/lib/errors";
 import { t } from "@/lib/i18n/service-translations";
@@ -238,8 +239,10 @@ export function normalizeStoredSetting(key: string, value: string): string {
 	return result.data;
 }
 
+const AI_OPS_BINDING_SETTING_KEYS = new Set(["ai.ops.mode", "ai.ops.provider", "ai.ops.providerBinding"]);
+
 export async function setSetting(key: string, value: string, actorId: string | null = null): Promise<void> {
-	if (relatedSettingKeys([key]).size) return setManySettings([{ key, value }], actorId);
+	if (relatedSettingKeys([key]).size || AI_OPS_BINDING_SETTING_KEYS.has(key)) return setManySettings([{ key, value }], actorId);
 	const normalizedValue = normalizeStoredSetting(key, value);
 	const storedValue = toStoredValue(key, normalizedValue);
 	await prisma.setting.upsert({
@@ -266,7 +269,11 @@ export async function setManySettings(
 ): Promise<void> {
 	const normalized = entries.map(({ key, value }) => ({ key, value: normalizeStoredSetting(key, value) }));
 	const related = relatedSettingKeys(normalized.map((row) => row.key));
+	const touchesAiOps = normalized.some((row) => AI_OPS_BINDING_SETTING_KEYS.has(row.key));
 	await prisma.$transaction(async (tx) => {
+		if (touchesAiOps) {
+			await lockForTransaction(tx, "ai-ops-settings", "global");
+		}
 		if (related.size) {
 			await lockSettingBindings(tx);
 			const rows = await tx.setting.findMany({ where: { key: { in: [...related] } }, select: { key: true, value: true } });

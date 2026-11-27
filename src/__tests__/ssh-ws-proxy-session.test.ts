@@ -8,7 +8,7 @@ const state = vi.hoisted(() => ({
   clients: new Set<{ bufferedAmount: number }>(),
   stream: undefined as unknown as EventEmitter & { write: ReturnType<typeof vi.fn>; close: ReturnType<typeof vi.fn>; pause: ReturnType<typeof vi.fn>; resume: ReturnType<typeof vi.fn> },
   verify: vi.fn(), server: vi.fn(),
-  handshakeUserId: "audit-user",
+  handshakeUserId: "audit-user" as string | null,
   deferReady: null as null | (() => void),
   connectThrows: null as null | Error,
   connectConfig: undefined as unknown,
@@ -53,8 +53,8 @@ vi.mock("ssh2", async () => {
 });
 vi.mock("@/lib/db", () => ({ prisma: { server: { findFirst: state.server, findUnique: async () => ({ teamId: "audit-team" }) }, $disconnect: vi.fn() } }));
 vi.mock("@/lib/audit/service", () => ({ auditUserAction: state.audit }));
-vi.mock("@/lib/auth/session", () => ({ getSessionCookieName: () => "audit_session", verifySessionToken: state.verify }));
-vi.mock("@/lib/auth/ssh-ws-token", () => ({ verifySshWsHandshakeToken: () => ({ userId: state.handshakeUserId }) }));
+vi.mock("@/lib/auth/session", () => ({ getSessionCookieName: () => "audit_session", verifySessionToken: state.verify, sessionTokenExpiresAt: (token: string) => (token.startsWith("forged") ? null : Date.now() + 3_600_000) }));
+vi.mock("@/lib/auth/ssh-ws-token", () => ({ verifySshWsHandshakeToken: () => (state.handshakeUserId === null ? null : { userId: state.handshakeUserId }) }));
 vi.mock("@/lib/auth/team-scope", () => ({ serverTeamWhere: () => ({ teamId: "audit-team" }) }));
 vi.mock("@/lib/ssh/ssh-key-crypto", async () => (await import("@/test/ssh-key-crypto-mock")).withStoredKeyHelpers({ decryptServerPassword: (v: string) => v, decryptSshPrivateKey: (v: string) => v, decryptSshKeyPassphrase: (v: string) => v }));
 vi.mock("@/lib/ssh/client", () => ({ createVerifiedSshConfig: (v: unknown) => v }));
@@ -681,4 +681,86 @@ it("reports a private key ssh2 cannot parse instead of leaving the browser conne
     data: expect.stringContaining("Cannot parse privateKey"),
   });
   expect(state.audit).toHaveBeenCalled();
+});
+
+/** A raw socket with its own cookie and forwarding headers; does not wait for the shell. */
+async function openRaw(cookie: string, headers: Record<string, string> = {}, query = "") {
+  await import("../ssh-ws-proxy");
+  const socket = Object.assign(new EventEmitter(), { readyState: 1, bufferedAmount: 0, send: vi.fn(), close: vi.fn(), ping: vi.fn(), terminate: vi.fn() });
+  socket.close.mockImplementation(() => { if (socket.readyState === 3) return; socket.readyState = 3; state.clients.delete(socket); socket.emit("close"); });
+  state.clients.add(socket);
+  void state.connection(socket, { url: `/ssh?serverId=audit-server&handshake=fixture${query}`, headers: { origin: "http://127.0.0.1:15430", cookie: `audit_session=${cookie}`, ...headers } });
+  await vi.advanceTimersByTimeAsync(0);
+  return socket;
+}
+const TOO_MANY = [1013, "Too many connections"];
+
+it("refuses an unsigned session cookie before it can take an unauthenticated place", async () => {
+  // A forged cookie used to hold a place for as long as its database check took; 64 hanging ones locked everyone out.
+  state.verify.mockImplementation((token: string) => token.startsWith("forged") ? new Promise(() => undefined) : Promise.resolve({ userId: "audit-user", username: "audit", roles: ["operator"], permissions: ["server:ssh"], currentTeamId: "audit-team", mustChangePassword: false }));
+  const forged = await Promise.all(Array.from({ length: 70 }, (_, i) => openRaw(`forged-${i}`)));
+  expect(state.verify).not.toHaveBeenCalled();
+  expect(frames(forged[0]!).find((frame) => frame.type === "error")).toMatchObject({ fatal: true });
+  expect(forged.every((socket) => socket.close.mock.calls.length > 0)).toBe(true);
+  expect(forged.some((socket) => socket.close.mock.calls.some((call) => call[0] === TOO_MANY[0]))).toBe(false);
+  const legitimate = await connect();
+  expect(legitimate.close).not.toHaveBeenCalled();
+});
+
+it("checks the handshake's signature before the session lookup and before an unauthenticated place", async () => {
+  state.handshakeUserId = null;
+  const socket = await openRaw("fixture-cookie");
+  expect(state.verify).not.toHaveBeenCalled();
+  expect(frames(socket).find((frame) => frame.type === "error")).toBeDefined();
+  expect(socket.close).toHaveBeenCalled();
+});
+
+it("counts unauthenticated places per IPv6 /64, as HTTP rate limits do, not per address", async () => {
+  // Hanging verifications keep every socket in the unauthenticated pool.
+  state.verify.mockImplementation(() => new Promise(() => undefined));
+  const sameNetwork = await Promise.all(Array.from({ length: 16 }, (_, i) => openRaw("fixture-cookie", { "x-forwarded-for": `2001:db8:1:2::${(i + 1).toString(16)}` })));
+  expect(sameNetwork.every((socket) => socket.close.mock.calls.length === 0)).toBe(true);
+  // Another address of the same /64 is the same client: one host owns a /64 and picks its addresses freely.
+  const rotated = await openRaw("fixture-cookie", { "x-forwarded-for": "2001:db8:1:2:abcd:ef01:2345:6789" });
+  expect(rotated.close).toHaveBeenCalledWith(...TOO_MANY);
+  const otherNetwork = await openRaw("fixture-cookie", { "x-forwarded-for": "2001:db8:9:9::1" });
+  expect(otherNetwork.close).not.toHaveBeenCalled();
+});
+
+it("ends a signed-out cookie's shells at once, a detached keep-alive shell included, and leaves other sessions be", async () => {
+  const { deliverSessionSignout, sessionTokenHash, SESSION_SIGNOUT_MESSAGE_TYPE } = await import("@/lib/ws/session-signout");
+  const kept = await connect(true, "&keepAlive=1");
+  const { resumeId } = sessionMessage(kept)!;
+  const keptStream = state.stream;
+  kept.close();
+  expect(keptStream.close).not.toHaveBeenCalled();
+
+  const attached = await connect(true, "&keepAlive=1");
+  const attachedStream = state.stream;
+  // The same account signed in on another device: another cookie, another session.
+  const otherDevice = await openRaw("fixture-other-device", {}, "&keepAlive=1");
+  await vi.advanceTimersByTimeAsync(0);
+  const otherStream = state.stream;
+  expect(otherStream).not.toBe(attachedStream);
+
+  expect(deliverSessionSignout("audit-user", { type: SESSION_SIGNOUT_MESSAGE_TYPE, tokenHash: sessionTokenHash("fixture-cookie") })).toBe(true);
+  expect(keptStream.close).toHaveBeenCalled();
+  expect(attachedStream.close).toHaveBeenCalled();
+  expect(attached.close).toHaveBeenCalled();
+  expect(frames(attached).find((frame) => frame.type === "closed")).toMatchObject({ reason: "exit" });
+  expect(otherStream.close).not.toHaveBeenCalled();
+  expect(otherDevice.close).not.toHaveBeenCalled();
+
+  // Nothing is left to resume with the signed-out cookie.
+  const resumed = await connect(true, `&keepAlive=1&resume=${resumeId}&offset=0`);
+  expect(sessionMessage(resumed)?.resumed).toBe(false);
+});
+
+it("closes a signed-out cookie's socket still being authorized", async () => {
+  const { deliverSessionSignout, sessionTokenHash, SESSION_SIGNOUT_MESSAGE_TYPE } = await import("@/lib/ws/session-signout");
+  state.verify.mockImplementation(() => new Promise(() => undefined));
+  const pending = await openRaw("fixture-cookie");
+  expect(pending.close).not.toHaveBeenCalled();
+  deliverSessionSignout("audit-user", { type: SESSION_SIGNOUT_MESSAGE_TYPE, tokenHash: sessionTokenHash("fixture-cookie") });
+  expect(pending.close).toHaveBeenCalledWith(1008, "Session signed out");
 });

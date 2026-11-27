@@ -107,7 +107,7 @@ describe("Agent command timeout", () => {
     const outcome = promise.then((value) => ({ value }), (error: unknown) => ({ error }));
     await vi.advanceTimersByTimeAsync(12_000); // past the deadline: cancel requested
     expect(jobs.get("job1")).toMatchObject({ status: "CANCELLED", completedAt: null });
-    await completeServerAgentJob({ serverId: "srv1", jobId: "job1", exitCode: 130, stderr: "terminated" });
+    await completeServerAgentJob({ serverId: "srv1", agentTokenHash: "digest", jobId: "job1", exitCode: 130, stderr: "terminated" });
     await vi.advanceTimersByTimeAsync(1_000);
     expect(await outcome).toEqual({ value: expect.objectContaining({ exitCode: 130, cancelled: true }) });
   });
@@ -120,7 +120,7 @@ describe("Agent job lease expiry", () => {
     expect(jobs.get("job9")).toMatchObject({ status: "CANCELLED", completedAt: null });
     // The Agent was only slow: it is told to stop and its real result lands.
     expect(await heartbeatServerAgentJob({ serverId: "srv1", jobId: "job9" })).toBe(true);
-    await completeServerAgentJob({ serverId: "srv1", jobId: "job9", exitCode: 0, stdout: "done" });
+    await completeServerAgentJob({ serverId: "srv1", agentTokenHash: "digest", jobId: "job9", exitCode: 0, stdout: "done" });
     expect(jobs.get("job9")).toMatchObject({ status: "COMPLETED", stdout: "done", completedAt: expect.any(Date) });
   });
 });

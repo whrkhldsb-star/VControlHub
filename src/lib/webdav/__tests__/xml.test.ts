@@ -1,12 +1,26 @@
 /** @vitest-environment node */
 import { describe, expect, it } from "vitest";
 
-import { buildPropFindMultistatus, parseDepth } from "../xml";
+import { buildPatchResponse, buildPropFindMultistatus, parseDavProperties, parseDepth } from "../xml";
+
+it("resolves requested property namespaces, including locally rebound prefixes", () => {
+  const find = (inner: string) => parseDavProperties(`<propfind xmlns="DAV:">${inner}</propfind>`, "PROPFIND");
+  const item = { href: "/", displayName: "folder", isCollection: true };
+  const mixed = buildPropFindMultistatus([item], find('<prop><displayname/><displayname xmlns="urn:other"/></prop>'));
+  expect(mixed).toContain("200 OK");
+  expect(mixed).toContain("404 Not Found");
+  expect(mixed).toContain('<displayname xmlns="urn:other"/>');
+  expect(buildPropFindMultistatus([item], find("<propname/>"))).toContain("<D:displayname/>");
+  expect(() => find("<prop>")).toThrow();
+  expect(parseDepth("7")).toBeNull();
+  const names = parseDavProperties('<propertyupdate xmlns="DAV:"><set><prop><x xmlns="urn:x">value</x></prop></set></propertyupdate>', "PROPPATCH");
+  expect(buildPatchResponse("/", Array.isArray(names) ? names : [])).toContain("403 Forbidden");
+});
 
 describe("parseDepth", () => {
   it("defaults a missing header to 1, the value most clients rely on", () => {
     expect(parseDepth(null)).toBe(1);
-    expect(parseDepth("")).toBe(1);
+    expect(parseDepth("")).toBeNull();
   });
 
   it("recognises the three legal values, case- and whitespace-insensitively", () => {

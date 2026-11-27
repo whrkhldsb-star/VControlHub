@@ -39,6 +39,8 @@ export async function POST(request: NextRequest) {
       const teamAccess = await assertServerTeamAccess(session, body.serverId, "connect");
       if (!teamAccess.ok) return teamAccess.response;
 
+      // The canonical trimmed secret (config.ssh.wsSecret): the gateway verifies with exactly this key, so a stray
+      // space or newline in the env file no longer makes every handshake fail, and a blank one counts as unset.
       const secret = config.ssh.wsSecret;
       if (!secret) {
         return NextResponse.json(
@@ -51,7 +53,8 @@ export async function POST(request: NextRequest) {
       // can authenticate via Cookie without putting the JWT in the query string.
       // Only the cookie is accepted: a caller-supplied session id would let the
       // handshake be bound to a session other than the one being authenticated.
-      const sessionId = request.cookies.get(getSessionCookieName())?.value;
+      // Trimmed as the gateway trims the cookie it binds the handshake to (resolveSshSessionToken).
+      const sessionId = request.cookies.get(getSessionCookieName())?.value.trim();
       if (!sessionId) {
         return NextResponse.json({ error: apiCopy("apiCopy.missing.session.01c10f66") }, { status: 401 });
       }

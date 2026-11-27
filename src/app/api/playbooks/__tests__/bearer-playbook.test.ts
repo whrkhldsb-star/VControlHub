@@ -1,13 +1,14 @@
 import { beforeEach, describe, expect, it, vi } from "vitest";
 
 const mocks = vi.hoisted(() => ({
-  verifyToken: vi.fn(), loadOwner: vi.fn(), findPlaybook: vi.fn(), listPlaybooks: vi.fn(),
+  verifyToken: vi.fn(), loadOwner: vi.fn(), requirePermission: vi.fn(), findPlaybook: vi.fn(), listPlaybooks: vi.fn(),
   createPlaybook: vi.fn(), servers: vi.fn(), runCreate: vi.fn(), runUpdate: vi.fn(), jobCreate: vi.fn(),
 }));
 vi.mock("@/lib/api-token/service", () => ({ verifyApiToken: mocks.verifyToken }));
 vi.mock("@/lib/api-token/authorization", async (original) => ({
   ...await original<typeof import("@/lib/api-token/authorization")>(), loadApiTokenOwnerSession: mocks.loadOwner,
 }));
+vi.mock("@/lib/auth/require-api-permission", () => ({ requireApiPermission: mocks.requirePermission }));
 vi.mock("@/lib/concurrency/advisory-lock", () => ({ acquireAdvisoryLock: async () => async () => {} }));
 vi.mock("@/lib/audit/service", () => ({ auditUserAction: vi.fn() }));
 vi.mock("@/lib/db", () => ({ prisma: {
@@ -33,15 +34,24 @@ const hook = { id: "hook", name: "Alert", type: "call_webhook", config: {
 } };
 const playbook = { id: "p1", name: "Cleanup", teamId: "team1", triggerType: "cron",
   triggerConfig: { expression: "* * * * *" }, steps: [command], enabled: true, chainRetry: 0 };
-function request(method: string, body?: object) {
+function request(method: string, body?: object, auth: "bearer" | "session" = "bearer") {
   return new Request("http://local/api/playbooks", {
-    method, headers: { authorization: "Bearer test-token", "content-type": "application/json" },
+    method,
+    headers: {
+      ...(auth === "bearer" ? { authorization: "Bearer test-token" } : {}),
+      "content-type": "application/json",
+    },
     body: body && JSON.stringify(body),
   });
 }
 function token(...scopes: string[]) { mocks.verifyToken.mockResolvedValue({ userId: "u1", scopes }); }
+function session(...permissions: string[]) {
+  mocks.requirePermission.mockResolvedValue({
+    session: { userId: "u1", roles: ["operator"], currentTeamId: "team1", permissions },
+  });
+}
 
-describe("effective Bearer permissions for playbook definitions and runs", () => {
+describe("effective permissions for playbook definitions and runs", () => {
   beforeEach(() => {
     vi.clearAllMocks();
     mocks.loadOwner.mockResolvedValue({
@@ -56,33 +66,43 @@ describe("effective Bearer permissions for playbook definitions and runs", () =>
     mocks.jobCreate.mockResolvedValue({ id: "job" });
   });
 
+  it("refuses Bearer tokens on state-changing playbook endpoints before token lookup", async () => {
+    token("playbook:manage", "playbook:run", "command:execute");
+    expect((await create(request("POST", playbook, "bearer"))).status).toBe(403);
+    expect((await run(request("POST", undefined, "bearer"), ctx)).status).toBe(403);
+    expect((await dryRun(request("POST", undefined, "bearer"), ctx)).status).toBe(403);
+    expect(mocks.verifyToken).not.toHaveBeenCalled();
+    expect(mocks.createPlaybook).not.toHaveBeenCalled();
+    expect(mocks.jobCreate).not.toHaveBeenCalled();
+  });
+
   it("requires the run grant to create enabled automation and the execute grant for command steps", async () => {
     for (const extra of ["playbook:run", "command:execute"]) {
-      token("playbook:manage", extra);
-      expect((await create(request("POST", playbook))).status).toBe(403);
+      session("playbook:manage", extra);
+      expect((await create(request("POST", playbook, "session"))).status).toBe(403);
     }
     expect(mocks.createPlaybook).not.toHaveBeenCalled();
-    token("playbook:manage", "command:execute");
-    expect((await create(request("POST", { ...playbook, enabled: false }))).status).toBe(200);
-    token("playbook:manage", "playbook:run", "command:execute");
-    expect((await create(request("POST", playbook))).status).toBe(200);
+    session("playbook:manage", "command:execute");
+    expect((await create(request("POST", { ...playbook, enabled: false }, "session"))).status).toBe(200);
+    session("playbook:manage", "playbook:run", "command:execute");
+    expect((await create(request("POST", playbook, "session"))).status).toBe(200);
   });
 
   it("requires execute and connect on all targets before enqueueing a real command run", async () => {
-    token("playbook:run");
-    expect((await run(request("POST"), ctx)).status).toBe(403);
-    token("playbook:run", "command:execute");
+    session("playbook:run");
+    expect((await run(request("POST", undefined, "session"), ctx)).status).toBe(403);
+    session("playbook:run", "command:execute");
     mocks.servers.mockResolvedValueOnce([]);
-    expect((await run(request("POST"), ctx)).status).toBe(400);
+    expect((await run(request("POST", undefined, "session"), ctx)).status).toBe(400);
     expect(mocks.servers).toHaveBeenCalledWith({
       where: { id: { in: ["srv1"] }, AND: [{ teamId: "team1" }, { team: { deletedAt: null }, OR: [
         { userAccess: { none: { userId: "u1" } } }, { userAccess: { some: { userId: "u1", canConnect: true } } },
       ] }] }, select: { id: true },
     });
     expect(mocks.jobCreate).not.toHaveBeenCalled();
-    expect((await run(request("POST"), ctx)).status).toBe(202);
-    token("playbook:run");
-    expect((await dryRun(request("POST"), ctx)).status).toBe(202);
+    expect((await run(request("POST", undefined, "session"), ctx)).status).toBe(202);
+    session("playbook:run");
+    expect((await dryRun(request("POST", undefined, "session"), ctx)).status).toBe(202);
   });
 
   it("projects webhook configs on list and detail according to the token's own manage grant", async () => {

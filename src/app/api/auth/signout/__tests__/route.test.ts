@@ -10,7 +10,10 @@ import { beforeEach, describe, expect, it, vi } from "vitest";
 const mocks = vi.hoisted(() => ({
 	getApiSession: vi.fn(),
 	auditUserAction: vi.fn(),
+	publishSessionSignout: vi.fn(),
 }));
+
+vi.mock("@/lib/ws/session-signout", () => ({ publishSessionSignout: mocks.publishSessionSignout }));
 
 vi.mock("@/lib/auth/api-session", () => ({
 	getApiSession: mocks.getApiSession,
@@ -133,6 +136,26 @@ describe("POST /api/auth/signout", () => {
 		expect(response.status).toBe(303);
 		expect([...clearedCookies(response).values()]).toHaveLength(3);
 		for (const header of clearedCookies(response).values()) expect(header).toContain("Max-Age=0");
+	});
+
+	it("announces only this signed-out cookie, so its sockets and kept shells close and other devices stay", async () => {
+		await route.POST(new Request("https://hub.example/api/auth/signout", {
+			method: "POST", headers: { cookie: "other=1; vch_session=header.payload.sig; csrf_token=x" },
+		}));
+		expect(mocks.publishSessionSignout).toHaveBeenCalledTimes(1);
+		expect(mocks.publishSessionSignout).toHaveBeenCalledWith("u1", "header.payload.sig");
+	});
+
+	it("announces nothing without a verified session, and still signs out when the announcement fails", async () => {
+		mocks.getApiSession.mockResolvedValueOnce(null);
+		await route.POST(new Request("https://hub.example/api/auth/signout", { method: "POST", headers: { cookie: "vch_session=forged.token" } }));
+		expect(mocks.publishSessionSignout).not.toHaveBeenCalled();
+
+		mocks.publishSessionSignout.mockImplementationOnce(() => { throw new Error("bus down"); });
+		const response = await route.POST(new Request("https://hub.example/api/auth/signout", { method: "POST", headers: { cookie: "vch_session=a.b" } }));
+		expect(response.status).toBe(303);
+		expect(clearedCookies(response).size).toBe(3);
+		expect(mocks.auditUserAction).toHaveBeenCalled();
 	});
 
 	it("still clears cookies when there is no resolvable session", async () => {

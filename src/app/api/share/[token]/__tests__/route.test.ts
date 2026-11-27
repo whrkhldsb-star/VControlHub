@@ -58,7 +58,7 @@ describe("share token file route", () => {
       const response = await route[method](new Request("http://local/api/share/token?archive=1", { method }), { params: Promise.resolve({ token: "share-file-archive-test" }) });
       expect(response.status).toBe(400);
       expect(connect).not.toHaveBeenCalled();
-      expect(releaseShareQuotaClaim).toHaveBeenCalledTimes(method === "GET" ? 1 : 0);
+      expect(releaseShareQuotaClaim).not.toHaveBeenCalled();
     } finally {
       connect.mockRestore();
       vi.mocked(releaseShareQuotaClaim).mockClear();
@@ -273,7 +273,7 @@ describe("share token file route", () => {
       token,
       undefined,
       expect.any(Object),
-      { authorizedShareId: "share-password", claimDownload: true },
+      { authorizedShareId: "share-password", claimDownload: false },
     );
   });
 

@@ -52,7 +52,9 @@ async function expireReceipt(tx: Prisma.TransactionClient, receipt: Receipt) {
 export async function pruneOffsiteObjects(options?: {
   now?: Date;
   maxDeletes?: number;
+  signal?: AbortSignal;
 }): Promise<OffsitePruneSummary> {
+  options?.signal?.throwIfAborted();
   const now = options?.now ?? new Date();
   const maxDeletes = options?.maxDeletes ?? 500;
   const config = await loadOffsiteConfig();
@@ -118,6 +120,7 @@ export async function pruneOffsiteObjects(options?: {
   const versionedKeys = new Set<string>();
   const plainReceipts = new Map<string, Receipt[]>();
   for (const receipt of receipts) {
+    options?.signal?.throwIfAborted();
     const { key, versionId } = receipt;
     if (!versionId) {
       const entries = plainReceipts.get(key) ?? [];
@@ -143,6 +146,7 @@ export async function pruneOffsiteObjects(options?: {
       ...(cursor ? { cursor: { id: cursor }, skip: 1 } : {}),
     });
     for (const row of rows) {
+      options?.signal?.throwIfAborted();
       const { offsiteKey: key, offsiteVersionId: version } = row;
       if (!key || !version || protectedObjects.unversioned.has(key) || protectedObjects.versions.get(key)?.has(version) || deleted >= maxDeletes) continue;
       versionedKeys.add(key);
@@ -191,9 +195,11 @@ export async function pruneOffsiteObjects(options?: {
   let newestRecovery: { key: string; at: number } | null = null;
 
   do {
+    options?.signal?.throwIfAborted();
     const page = await client.listObjects(prefix, 1000, token);
     token = page.nextContinuationToken;
     for (const obj of page.objects ?? []) {
+      options?.signal?.throwIfAborted();
       listed += 1;
       if (deleted >= maxDeletes) break;
       const lastModified = obj.lastModified ? new Date(obj.lastModified) : null;

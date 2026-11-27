@@ -73,7 +73,8 @@ export async function POST(request: Request) {
   const current = await updateServerAgentHeartbeat({ serverId: agent.id, agentTokenHash: agent.agentTokenHash, ...parsed.data });
   if (!current) return NextResponse.json({ error: "Unauthorized agent" }, { status: 401 }); // api-copy-audit: allow -- stable machine protocol
   if (parsed.data.result) {
-    await completeServerAgentJob({ serverId: agent.id, ...parsed.data.result });
+    // Fenced on the credential that authenticated this poll (see completeServerAgentJob).
+    await completeServerAgentJob({ serverId: agent.id, agentTokenHash: agent.agentTokenHash, ...parsed.data.result });
   }
   if (parsed.data.heartbeatJobId) {
     const cancelled = await heartbeatServerAgentJob({

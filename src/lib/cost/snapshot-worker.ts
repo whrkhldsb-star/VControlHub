@@ -23,6 +23,10 @@ import { config } from "@/lib/config/env";
 import { lockForTransaction } from "@/lib/concurrency/advisory-lock";
 import { prisma } from "@/lib/db";
 import { runWithLeaseHeartbeat } from "@/lib/job/heartbeat-runner";
+
+function isLeaseLostError(error: unknown): boolean {
+  return Boolean(error && typeof error === "object" && (error as { name?: unknown }).name === "LeaseLostError");
+}
 import { computeLeaseMs } from "@/lib/job/lease";
 import {
   claimNextJob,
@@ -210,22 +214,28 @@ async function processNextSnapshotJob(reason: string) {
   if (!job) return false;
 
   try {
-    await heartbeatJob(job.id, COST_SNAPSHOT_WORKER_ID, {
+    const lease = await heartbeatJob(job.id, COST_SNAPSHOT_WORKER_ID, {
+      ...(job.attempts !== undefined ? { attempts: job.attempts } : {}),
       leaseMs: COST_SNAPSHOT_LEASE_MS,
       progress: "Syncing VPS monthly fees and aggregating daily cost",
     });
+    if (lease && lease.count === 0) return true;
     const { monthlySync, snapshot, budgetAlerts } = await runWithLeaseHeartbeat({
       jobId: job.id,
       leaseMs: COST_SNAPSHOT_LEASE_MS,
+      ...(job.attempts !== undefined ? { attempts: job.attempts } : {}),
       heartbeat: () => heartbeatJob(job.id, COST_SNAPSHOT_WORKER_ID, {
+        ...(job.attempts !== undefined ? { attempts: job.attempts } : {}),
         leaseMs: COST_SNAPSHOT_LEASE_MS,
         progress: "Syncing VPS monthly fees and aggregating daily cost",
       }),
-      run: async () => {
+      run: async (signal) => {
+        signal?.throwIfAborted();
         const day = jobTargetDay(job.payload, job.createdAt);
         const prior = snapshotProgress.safeParse(job.result);
         const saved = prior.success && prior.data.day === day ? prior.data : undefined;
         const monthlySync = saved?.monthlySync ?? await syncServerMonthlyCosts(day.slice(0, 7));
+        signal?.throwIfAborted();
         // Completed effects are idempotent after a crash. On an ordinary failure,
         // checkpoint the successful sibling so a budget-only retry is independent.
         const [snapshot, alerts] = await Promise.allSettled([
@@ -264,7 +274,7 @@ async function processNextSnapshotJob(reason: string) {
         notificationsSent: budgetAlerts.notificationsSent,
       },
       reason,
-    });
+    }, ...(job.attempts !== undefined ? [job.attempts] : []));
     logger.info("Cost daily snapshot written", {
       snapshotId: snapshot.id,
       snapshotDate: snapshot.snapshotDate,
@@ -273,11 +283,13 @@ async function processNextSnapshotJob(reason: string) {
     });
     return true;
   } catch (error) {
+    if (isLeaseLostError(error)) return true;
     const message =
       error instanceof Error
         ? error.message
         : "Cost daily snapshot aggregation failed";
     await failJob(job.id, COST_SNAPSHOT_WORKER_ID, message.slice(0, 2000), {
+      ...(job.attempts !== undefined ? { attempts: job.attempts } : {}),
       retryAfterMs: 60 * 60 * 1000, // 1h retry
     });
     logger.error("Cost snapshot failed", {

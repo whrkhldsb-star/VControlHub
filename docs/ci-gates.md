@@ -262,3 +262,97 @@ with a null `teamId` still participates in health checks.
   over SSH because mutation commands may not be idempotent.
 - **GitHub branch protection** — must be flipped in repo Settings by an admin
   (require `test` + `E2E public smoke`).
+
+## Operational runbooks (upgrade and deployment gates)
+
+These are the operator-facing contracts behind the automated gates. Each item
+names the mechanism, what it protects against, and the runbook when it fires.
+
+### Concurrent index rollout on large append-only tables (D-01 / D-05)
+
+`deploy/check-upgrade-migrations.mjs` classifies every pending migration as
+additive (auto-approved) or destructive (blocks the upgrade). A pending
+`CREATE INDEX` — without `CONCURRENTLY` — on a large append-only table
+(`audit_logs`, `metric_snapshots`, `traffic_snapshots`, `job_events`,
+`ai_messages`, `notifications`, `share_access_logs`) still auto-approves, but
+the preflight prints a structured line per statement:
+
+```
+[upgrade-preflight] index-lock-warning {"migration":"2026…","table":"job_events","statement":"CREATE INDEX …","reason":"…"}
+```
+
+Why: a plain `CREATE INDEX` blocks writes on the table for the whole build —
+minutes, once months of rows exist — while the platform's writers (job queue,
+notification sink, audit logger) queue behind it. Runbook, in order:
+
+1. **Before the upgrade window**, apply the same statement with
+   `CREATE INDEX CONCURRENTLY` by hand (`psql`), then let the upgrade's
+   plain statement become a no-op via `IF NOT EXISTS` (Prisma migrations
+   should use `IF NOT EXISTS` for these tables so both paths converge).
+2. **Or schedule the upgrade** in a window where a write stall of the index
+   build duration is acceptable; the warning's table tells you which writers
+   stall.
+3. **Never** silence the warning by editing the migration: the checksum guard
+   rejects changed applied migrations, and the warning is data, not a failure.
+
+### `TRUSTED_PROXY_HOPS` and the `X-Forwarded-*` contract (A-07)
+
+- `TRUSTED_PROXY_HOPS=0` (the Compose default: the app is published directly):
+  the custom server stamps every request with its connection's own address
+  and deletes any client-supplied copy of that header
+  (`src/lib/http/peer-address.ts`). Rate-limit buckets and audit IPs key on
+  the real peer, never on a spoofable header. Do not put a proxy in front
+  without raising the hop count.
+- `TRUSTED_PROXY_HOPS=N>0` (e.g. 1 for the shipped Caddy `reverse_proxy`):
+  `getClientIp` walks `X-Forwarded-For` N entries **from the right** —
+  the entry contributed by the nearest trusted proxy. A client cannot rotate
+  buckets by sending extra leftmost entries.
+- Put an explicit reverse proxy in front of the Compose `app` service → set
+  `TRUSTED_PROXY_HOPS` to the proxy count, and make sure the proxy appends
+  (never overwrites) `X-Forwarded-For`.
+
+### Docker entrypoint migration lock & multi-replica starts (D-02)
+
+`docker-entrypoint.sh` serializes `prisma migrate deploy` + seed across
+concurrently starting replicas with a PostgreSQL **session** advisory lock
+(`pg_advisory_lock(45056, 0)` via a small `node -e` `pg` client). Key facts:
+
+- The lock key is deliberately outside the platform's own namespaces
+  (45057–45099, `src/lib/concurrency/advisory-lock.ts`), so entrypoint locks
+  can never collide with in-app locks.
+- A session lock dies with its connection: a crashing container releases it
+  automatically; no stale-lock cleanup exists or is needed.
+- Lock acquisition, `prisma migrate deploy`, and the seed each fail fast
+  (non-zero exit) — a partially migrated replica must not serve traffic.
+- Multi-replica rollout: set `RUN_MIGRATIONS_ON_START=false` and
+  `SEED_ON_START=false` on all but one replica (e.g. a one-shot `migrate` job
+  or the first replica). With both false, the entrypoint skips the whole
+  block — no lock, no migrate, no seed — and the remaining replicas leave
+  start-time database work to the single owner (they still wait for the
+  database healthcheck via `depends_on`, not for each other).
+
+### Team soft-delete vs SetNull quarantine semantics (D-06)
+
+Two distinct mechanisms protect tenant data — do not conflate them:
+
+- **Soft delete (`Team.deletedAt`)**: a platform administrator "deletes a
+  customer". Every row stays, scoped and unreachable; members lose access at
+  the next session check; restoring clears the field and access returns.
+  Operational surfaces (health probes, status summaries) exclude these rows
+  via a `team: { deletedAt: null }` filter
+  (`liveCustomerRowsWhere`, `activeCustomerTeamWhere` in
+  `src/lib/auth/team-scope.ts`).
+- **`onDelete: SetNull` (quarantine)**: when a physical `Team` row is hard
+  deleted, its dependent rows keep their data but get `teamId = NULL`. Such
+  rows are **quarantined, never shared**: a non-admin tenant selector treats
+  `teamId: null` as an empty match (`strictCustomerScope`'s `id IN ()`, or the
+  explicit null check in `serverTeamWhere`), so a member of another customer
+  can never see them — only a platform admin's all-customers view still lists
+  them, for audit. Operational liveness keeps probing them
+  (`liveCustomerRowsWhere` also matches `teamId: null` — those rows still
+  consume runtime resources), which is exactly why they must be quarantined
+  rather than deleted.
+
+Operator rule of thumb: prefer soft delete from the UI (reversible, audited);
+hard-deleting a `Team` row is only for scratch/CI databases and leaves
+quarantined rows only an admin can inspect.

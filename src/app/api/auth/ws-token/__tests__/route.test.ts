@@ -179,4 +179,29 @@ describe("POST /api/auth/ws-token", () => {
     expect(response.status).toBe(401);
     expect(createSshWsHandshakeToken).not.toHaveBeenCalled();
   });
+
+  describe("SSH_WS_SECRET trimming", () => {
+    const mint = () => POST(new NextRequest("https://console.example.test/api/auth/ws-token", {
+      method: "POST",
+      body: JSON.stringify({ serverId: "server-1" }),
+      headers: { "content-type": "application/json", origin: "https://console.example.test", cookie: SESSION_COOKIE },
+    }));
+    beforeEach(() => {
+      vi.mocked(requireApiPermission).mockResolvedValue({
+        session: { userId: "user-1", username: "alice", roles: ["admin"], mustChangePassword: false, currentTeamId: null },
+      });
+    });
+
+    it("signs with the trimmed secret the gateway verifies with", async () => {
+      process.env.SSH_WS_SECRET = "  unit-test-ssh-ws-key\n";
+      expect((await mint()).status).toBe(200);
+      expect(createSshWsHandshakeToken).toHaveBeenCalledWith(expect.objectContaining({ secret: "unit-test-ssh-ws-key" }));
+    });
+
+    it("treats a blank secret as not configured", async () => {
+      process.env.SSH_WS_SECRET = "  \t ";
+      expect((await mint()).status).toBe(503);
+      expect(createSshWsHandshakeToken).not.toHaveBeenCalled();
+    });
+  });
 });

@@ -118,7 +118,7 @@ export async function runExistingBackupRecord(input: { id: string; claim?: Backu
 			throw new ConflictError(t("backend.backup.backupIsAlreadyRunning"));
 		}
 		if (latest?.status === "COMPLETED") {
-			if (!latest.offsiteKey) await logOffsiteUploadResult(record.id, projectRoot);
+			if (!latest.offsiteKey) await logOffsiteUploadResult(record.id, projectRoot, input.signal);
 			return latest;
 		}
 		throw new ConflictError(apiCopy("apiCopy.backup.cannot.start.from.status.366dbbfc", { v0: String(latest?.status ?? "unknown") }));
@@ -151,7 +151,7 @@ export async function runExistingBackupRecord(input: { id: string; claim?: Backu
 		// Keep the durable backup job alive until optional offsite delivery reaches
 		// a terminal result. Local completion remains valid when offsite is disabled
 		// or fails, and a reclaimed completed job retries records without offsiteKey.
-		await logOffsiteUploadResult(record.id, projectRoot);
+		await logOffsiteUploadResult(record.id, projectRoot, input.signal);
 		return updated;
 	} catch (error) {
 		if (error instanceof LeaseLostError) throw error;
@@ -160,9 +160,10 @@ export async function runExistingBackupRecord(input: { id: string; claim?: Backu
 	}
 }
 
-async function logOffsiteUploadResult(backupId: string, projectRoot: string) {
+async function logOffsiteUploadResult(backupId: string, projectRoot: string, signal?: AbortSignal) {
+	signal?.throwIfAborted();
 	try {
-		const result = await uploadBackupToOffsite({ backupId, projectRoot });
+		const result = await uploadBackupToOffsite({ backupId, projectRoot, signal });
 		if (result.ok === false) {
 			offsiteUploadLogger.warn("offsite upload did not succeed (non-fatal)", {
 				backupId,
@@ -360,7 +361,10 @@ export async function pruneOldBackupRecordsNow(input: {
 	 * every customer's backups.
 	 */
 	platformScope?: boolean;
+	/** Optional lease-abort signal from a durable retention worker. */
+	signal?: AbortSignal;
 } = {}): Promise<PruneOldBackupRecordsResult> {
+	input.signal?.throwIfAborted();
 	const projectRoot = input.projectRoot || config.app.appDir || process.cwd();
 	// Fail closed: without an explicit teamId, never list/delete all tenants'
 	// backups (listBackupRecords() with no session uses where:{}).
@@ -430,12 +434,14 @@ export async function pruneOldBackupRecordsNow(input: {
 
 	const observed = new Map(records.map((record) => [record.id, record]));
 	for (const candidate of plan.candidates) {
+		input.signal?.throwIfAborted();
 		const record = observed.get(candidate.id)!;
 		// Commit the claim before touching the filesystem. A worker crash, even
 		// after unlink but before DB commit, leaves a resumable, non-retryable row.
 		const release = await tryAcquireAdvisoryLock("platform-backup-artifact", record.id);
 		if (!release) continue;
 		try {
+			input.signal?.throwIfAborted();
 			const claimed = await prisma.backupRecord.updateMany({
 				where: { id: record.id, status: record.status, updatedAt: record.updatedAt },
 				data: { status: "PRUNING" },

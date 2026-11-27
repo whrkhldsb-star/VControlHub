@@ -1,4 +1,6 @@
 import { createHash, randomBytes } from "node:crypto";
+import { DB_UTC_NOW } from "@/lib/db/utc-now";
+import { AsyncLocalStorage } from "node:async_hooks";
 import { setTimeout as delay } from "node:timers/promises";
 import { Prisma } from "@prisma/client";
 import { prisma } from "@/lib/db";
@@ -116,11 +118,15 @@ export async function getFileChannel(nodeId: string, serverId?: string, expected
   return channel;
 }
 
+// An optional transaction guard follows the client through staging, but only fences the publish handoff.
+export const agentPublishGuard = new AsyncLocalStorage<(tx: Tx) => Promise<void>>();
+
 export async function callFileAgent(nodeId: string, channel: Channel, payload: Payload) {
   const write = !readOperations.includes(String(payload.op));
   const ttl = ["publish", "copy", "copy-step", "checksum"].includes(String(payload.op)) ? 10 * 60_000 : 45_000;
   const expiresAt = new Date(Date.now() + ttl);
   const call = await prisma.$transaction(async (tx) => {
+    if (payload.op === "publish") await agentPublishGuard.getStore()?.(tx);
     const current = await liveChannel(tx, { nodeId });
     if (
       !current?.seenAt ||
@@ -175,7 +181,7 @@ export async function sweepExpiredFileAgentCalls(now = new Date()) {
       RETURNING c.id, s."serverId", c.claimed, c.result, c.payload, c."tokenHash"
     ), fenced AS (
       INSERT INTO settings (key, value, "updatedAt")
-      SELECT 'file-agent-write:' || "serverId" || ':' || id, "tokenHash", now()
+      SELECT 'file-agent-write:' || "serverId" || ':' || id, "tokenHash", ${DB_UTC_NOW}
       FROM swept WHERE claimed AND result IS NULL AND COALESCE(payload->>'op','') NOT IN ('stat','list','read','checksum')
       ON CONFLICT DO NOTHING
     )
@@ -268,8 +274,8 @@ export async function pollFileAgent(hash: string, rootIdentity: string, writable
     if (!readOperations.includes(String(operation.op))) {
       // Call rows are unlogged and can cascade away. Keep the fence in a logged table.
       await tx.$queryRaw`
-        WITH touched AS (UPDATE servers SET "updatedAt" = now() AT TIME ZONE 'UTC' WHERE id = ${share.serverId} RETURNING id)
-        INSERT INTO "settings" (key, value, "updatedAt") SELECT ${fileWriteFence(share.serverId, next.id)}, ${hash}, now() FROM touched
+        WITH touched AS (UPDATE servers SET "updatedAt" = ${DB_UTC_NOW} WHERE id = ${share.serverId} RETURNING id)
+        INSERT INTO "settings" (key, value, "updatedAt") SELECT ${fileWriteFence(share.serverId, next.id)}, ${hash}, ${DB_UTC_NOW} FROM touched
         ON CONFLICT (key) DO NOTHING`;
     }
     const deliveryMs = next.expiresAt.getTime() - Date.now();

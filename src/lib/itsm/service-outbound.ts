@@ -100,14 +100,19 @@ async function withDeliveryLock<T>(id: string, work: () => Promise<T>, timeoutMs
   }
 }
 
-export function deliverQueuedEvent(id: string) {
-  return withDeliveryLock(id, () => deliverReservedEvent(id));
+export function deliverQueuedEvent(id: string, options?: { signal?: AbortSignal }) {
+  options?.signal?.throwIfAborted();
+  return withDeliveryLock(id, () => {
+    options?.signal?.throwIfAborted();
+    return deliverReservedEvent(id, options?.signal);
+  });
 }
 
 /** Reserve a delivery before any network I/O. A process death after this point
  * leaves a visible unknown receipt. A receiver without an idempotency contract
  * must be reconciled before its next event can run. */
-async function deliverReservedEvent(id: string): Promise<{ sent: number; failed: number }> {
+async function deliverReservedEvent(id: string, signal?: AbortSignal): Promise<{ sent: number; failed: number }> {
+  signal?.throwIfAborted();
   const event = await prisma.itsmEvent.findUniqueOrThrow({ where: { id } });
   if (!event.ownerBound || event.direction !== "outbound" || !event.ticketId || !event.externalId) throw new Error("Invalid ITSM outbox event");
   if (event.status === "ok" || event.status === "ignored") return { sent: Number(event.status === "ok"), failed: 0 };
@@ -154,11 +159,13 @@ async function deliverReservedEvent(id: string): Promise<{ sent: number; failed:
     await finish(event.status === "unknown" ? "unknown" : "error", error instanceof Error ? error.message : "Invalid connection configuration");
     return { sent: 0, failed: 1 };
   }
+  signal?.throwIfAborted();
   const reserved = await prisma.itsmEvent.updateMany({
     where: { id, status: { in: idempotencyScope ? ["pending", "error", "unknown"] : ["pending", "error"] } },
     data: { status: "unknown", payload: { ...payload, idempotencyScope }, errorMessage: null },
   });
   if (!reserved.count) return { sent: 0, failed: 1 };
+  // Once reserved and handed to deliverOutbound, always persist the receipt in `finish(...)`.
   const delivery = await deliverOutbound({
     provider: row.provider as ItsmProvider, config, credentials,
     payload: { ...snapshot, eventId: event.externalId, occurredAt: event.createdAt.toISOString() },

@@ -13,6 +13,7 @@ const { verifyTwoFactorChallenge, isAcceptableTwoFactorCodeShape } = await impor
   "../two-factor-challenge"
 );
 const { createTwoFactorRecoveryCodes } = await import("../two-factor-recovery");
+const { DB_UTC_NOW } = await import("@/lib/db/utc-now");
 
 describe("isAcceptableTwoFactorCodeShape", () => {
   it("accepts either factor and nothing else", () => {
@@ -61,7 +62,16 @@ describe("verifyTwoFactorChallenge", () => {
     });
 
     expect(result).toEqual({ valid: true, usedRecoveryCode: true });
-    expect(mocks.execute).toHaveBeenCalledWith(expect.anything(), generated.hashes[1], "u1", "SEED", generated.hashes[1]);
+    expect(mocks.execute).toHaveBeenCalledWith(expect.anything(), generated.hashes[1], DB_UTC_NOW, "u1", "SEED", generated.hashes[1]);
+  });
+
+  it("stamps the consumed recovery code on the database's UTC clock, not the session time zone", async () => {
+    mocks.verifyTOTP.mockResolvedValue({ valid: false });
+    const generated = createTwoFactorRecoveryCodes(2);
+    await verifyTwoFactorChallenge({ userId: "u1", code: generated.codes[0]!, sealedSecret: "SEED", storedRecoveryCodes: generated.hashes });
+    const [strings, ...values] = mocks.execute.mock.calls[0]!;
+    expect((strings as string[]).join("?")).not.toMatch(/NOW\(\)/i);
+    expect(values).toContain(DB_UTC_NOW);
   });
 
   it("loses the race when another request already consumed the same code", async () => {

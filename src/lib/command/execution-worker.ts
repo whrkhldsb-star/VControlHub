@@ -2,7 +2,7 @@ import { config } from "@/lib/config/env";
 import { LeaseLostError, runWithLeaseHeartbeat } from "@/lib/job/heartbeat-runner";
 import { computeLeaseMs } from "@/lib/job/lease";
 import { recordJobEvent } from "@/lib/job/events";
-import { claimNextJob, completeJob, failJob, heartbeatJob } from "@/lib/job/service";
+import { claimNextJob, completeJob, failJob, failJobTerminal, heartbeatJob } from "@/lib/job/service";
 import { createLogger } from "@/lib/logging";
 import { createSingletonIntervalWorker } from "@/lib/workers/singleton-interval-worker";
 
@@ -92,11 +92,11 @@ async function handleClaimedJob(
     // Operation Tasks previously showed job COMPLETED even when every SSH
     // target failed — only the command row status reflected failure.
     if (terminalStatus === "FAILED" || terminalStatus === "CANCELLED") {
-      await failJob(
+      await failJobTerminal(
         job.id,
         COMMAND_EXECUTION_WORKER_ID,
         `Command request ${payload.commandRequestId} ended with ${terminalStatus}`,
-        { attempts: job.attempts },
+        { attempts: job.attempts, result: { commandRequestId: payload.commandRequestId, status: terminalStatus } },
       );
       return true;
     }

@@ -1,7 +1,9 @@
 import type { Prisma } from "@prisma/client";
 import { apiCopy, currentCopyLocale } from "@/lib/i18n/api-copy";
+import { lockForTransaction } from "@/lib/concurrency/advisory-lock";
 import { prisma } from "@/lib/db";
 import { toJsonValue } from "@/lib/db/json";
+import { DB_UTC_CLOCK_NOW } from "@/lib/db/utc-now";
 import { enqueueJob } from "@/lib/job/service";
 import { LeaseLostError } from "@/lib/job/heartbeat-runner";
 import { loadBoundAiOpsProvider, readAiOpsSettings } from "./provider-binding";
@@ -44,7 +46,7 @@ export function scanActionReceipts(value: unknown): AiOpsExecutedAction[] {
 export async function lockScanAttempt(tx: Prisma.TransactionClient, jobId: string, workerId: string, attempts: number) {
 	const rows = await tx.$queryRaw<Array<{ id: string }>>`SELECT id FROM jobs WHERE id = ${jobId}
 		AND "workerId" = ${workerId} AND attempts = ${attempts} AND status = 'RUNNING'
-		AND "leaseExpiresAt" > (clock_timestamp() AT TIME ZONE 'UTC') FOR UPDATE`;
+		AND "leaseExpiresAt" > ${DB_UTC_CLOCK_NOW} FOR UPDATE`;
 	if (!rows.length) throw new LeaseLostError(jobId);
 }
 
@@ -58,15 +60,16 @@ export function executeScanAction(
 			await lockScanAttempt(tx, jobId, workerId, attempts);
 			signal.throwIfAborted();
 		};
+		// Serialize with AI Ops settings writers via a dedicated transaction advisory
+		// lock taken BEFORE the job row lock (avoiding global LOCK TABLE settings stalls
+		// and lock-order inversions with writers that update settings then enqueue jobs).
+		await lockForTransaction(tx, "ai-ops-settings", "global");
 		await checkLease();
 		const job = await tx.job.findUniqueOrThrow({ where: { id: jobId }, select: { payload: true } });
 		const payload = job.payload && typeof job.payload === "object" && !Array.isArray(job.payload) ? job.payload : {};
 		const prior = scanActionReceipts(payload.actionReceipts);
 		const saved = prior.find((entry) => entry.id === action.id);
 		if (saved) return saved;
-		// Settings upserts can insert a previously absent binding. A shared table lock also
-		// covers that case and serializes with both settings writers regardless of key order.
-		await tx.$executeRaw`LOCK TABLE settings IN SHARE MODE`;
 		if (expected.providerId) await tx.$queryRaw`SELECT id FROM ai_providers WHERE id = ${expected.providerId} FOR SHARE`;
 		const current = await readAiOpsSettings(tx);
 		if (current.mode !== "autonomous" || current.providerId !== expected.providerId || current.binding !== expected.binding ||

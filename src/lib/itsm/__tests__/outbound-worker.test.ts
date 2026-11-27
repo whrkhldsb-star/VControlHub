@@ -32,7 +32,7 @@ describe("ITSM outbound worker", () => {
   it("completes a durable job after all connections accept the event", async () => {
     await expect(runItsmOutboundWorkerOnce()).resolves.toBe(true);
 
-    expect(deliveryMock).toHaveBeenCalledWith("event-1");
+    expect(deliveryMock).toHaveBeenCalledWith("event-1", { signal: expect.any(AbortSignal) });
     expect(jobMocks.completeJob).toHaveBeenCalledWith(
       "job-1",
       expect.stringContaining(":itsm-outbound:"),

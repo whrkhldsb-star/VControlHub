@@ -11,6 +11,8 @@ import { useCallback, useSyncExternalStore } from "react";
 const PINS_KEY = "vch:nav-pins";
 const GROUPS_KEY = "vch:nav-groups";
 const RECENT_KEY = "vch:recent-pages";
+/** Every localStorage key this module owns (used to clear on account change). */
+export const SHELL_PREFERENCE_KEYS = [PINS_KEY, GROUPS_KEY, RECENT_KEY] as const;
 export const SIDEBAR_COOKIE = "vch-sidebar";
 const CHANGE_EVENT = "vch:shell-preferences";
 const RECENT_LIMIT = 6;
@@ -65,6 +67,23 @@ function cachedSnapshot<T>(key: string, fallback: T): T {
 
 const EMPTY_LIST: string[] = [];
 const EMPTY_MAP: Record<string, boolean> = {};
+
+/**
+ * Drop every shell preference stored for the previous browser user (D-04).
+ * Pins, open groups and recent pages reveal which pages an account visited;
+ * when PreferenceCacheSession detects an account switch or a sign-out it
+ * clears these keys alongside the per-user preferences cache, and resets the
+ * in-memory snapshot cache so useSyncExternalStore re-reads from storage.
+ */
+export function clearShellPreferences() {
+	try {
+		for (const key of SHELL_PREFERENCE_KEYS) window.localStorage.removeItem(key);
+	} catch {
+		// Storage unavailable: nothing persisted, nothing to clear.
+	}
+	snapshotCache.clear();
+	window.dispatchEvent(new Event(CHANGE_EVENT));
+}
 
 /* ── Pinned pages ─────────────────────────────────────────────────────── */
 

@@ -12,7 +12,8 @@ import { enqueueJob, claimNextJob, completeJob, failJob, heartbeatJob } from "@/
 import { createLogger } from "@/lib/logging";
 import { ConflictError } from "@/lib/errors";
 import { createSingletonIntervalWorker } from "@/lib/workers/singleton-interval-worker";
-import { isSecretEnvKey, type QuickServiceCredential } from "@/lib/quick-service/install-notice";
+import { type QuickServiceCredential } from "@/lib/quick-service/install-notice";
+import { scrubQuickServiceJobPayloadSecrets } from "./payload-scrub";
 import type { ServiceTemplate } from "@/lib/quick-service/types";
 import {
 	installService,
@@ -238,50 +239,6 @@ function quickServiceLogPreview(lines: Array<string | null | undefined>) {
 	return lines.filter((line): line is string => typeof line === "string" && line.trim().length > 0).join("\n");
 }
 
-
-/** Redact install secrets from the durable Job.payload after terminal outcome. */
-async function scrubQuickServiceJobPayloadSecrets(jobId: string) {
-	try {
-		const job = await prisma.job.findUnique({ where: { id: jobId }, select: { payload: true, status: true } });
-		if (!job || !isRecord(job.payload) || job.status === JobStatus.RUNNING) return;
-		const payload = { ...job.payload } as Record<string, unknown>;
-		let changed = false;
-		if ("installNoticeCredentials" in payload) {
-			delete payload.installNoticeCredentials;
-			changed = true;
-		}
-		if (isRecord(payload.template)) {
-			const template = { ...payload.template } as Record<string, unknown>;
-			if (isRecord(template.envJson)) {
-				const envJson = { ...(template.envJson as Record<string, unknown>) };
-				for (const key of Object.keys(envJson)) {
-					if (isSecretEnvKey(key)) {
-						envJson[key] = "[redacted]";
-						changed = true;
-					}
-				}
-				template.envJson = envJson;
-			}
-			if (typeof template.initialPassword === "string") {
-				template.initialPassword = "[redacted]";
-				changed = true;
-			}
-			payload.template = template;
-		}
-		if (changed) {
-			await prisma.job.update({
-				where: { id: jobId },
-				data: { payload: payload as Prisma.InputJsonValue },
-			});
-		}
-	} catch (error) {
-		logger.warn("Failed to scrub QuickService job payload secrets", {
-			jobId,
-			error: error instanceof Error ? error.message : String(error),
-		});
-	}
-}
-
 async function executeQuickServiceJob(job: { id: string; attempts?: number; payload: Prisma.JsonValue; createdBy?: string | null; teamId?: string | null }) {
 	const payload = parseQuickServiceJobPayload(job.payload);
 	const execute = () => executeAuthorizedQuickServiceJob(job, payload);
@@ -468,9 +425,9 @@ export async function runQuickServiceJobWorkerOnce(state = getWorkerState(), rea
 			}
 			const message = error instanceof Error ? error.message : String(error);
 			logger.error("QuickService job failed", { reason, jobId: job.id, error: message });
-			const failed = await failJob(job.id, QUICK_SERVICE_WORKER_ID, message.slice(0, 2000), { attempts: job.attempts, retryAfterMs: 60_000 });
-			// Terminal (maxAttempts=1) or pending retry: still redact secrets if we still owned the row.
-			if (!failed || failed.count > 0) await scrubQuickServiceJobPayloadSecrets(job.id);
+			// failJob atomically scrubs payload secrets when the job transitions to terminal FAILED
+			// while preserving credentials if the job is requeued to PENDING for retry.
+			await failJob(job.id, QUICK_SERVICE_WORKER_ID, message.slice(0, 2000), { attempts: job.attempts, retryAfterMs: 60_000 });
 		}
 		return true;
 	} catch (error) {

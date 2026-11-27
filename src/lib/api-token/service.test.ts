@@ -178,6 +178,15 @@ describe("api token service", () => {
     expect(mockPrisma.apiToken.update).not.toHaveBeenCalled();
   });
 
+  it("grants only scopes this build still issues, whatever the stored row says", async () => {
+    mockPrisma.apiToken.findUnique.mockResolvedValueOnce({
+      id: "t-legacy", createdBy: "u1", teamId: "team_1",
+      scopes: ["read", "server:write", "command:execute", "image:write", "*"],
+      revokedAt: null, expiresAt: null, lastUsedAt: new Date(), creator: { id: "u1", status: "ACTIVE" },
+    });
+    await expect(verifyApiToken("whr_legacy")).resolves.toMatchObject({ scopes: ["read", "image:write"] });
+  });
+
   it("throttles lastUsedAt writes when the token was used recently", async () => {
     const recent = new Date(Date.now() - 60_000);
     mockPrisma.apiToken.findUnique.mockResolvedValueOnce({

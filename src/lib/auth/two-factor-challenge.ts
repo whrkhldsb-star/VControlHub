@@ -15,6 +15,7 @@ import type { Prisma } from "@prisma/client";
 import { verify as verifyTOTP } from "otplib";
 
 import { prisma } from "@/lib/db";
+import { DB_UTC_NOW } from "@/lib/db/utc-now";
 
 import {
   isRecoveryCodeShape,
@@ -74,7 +75,7 @@ export async function verifyTwoFactorChallenge(input: {
   );
   if (!matchingHash) return { valid: false, usedRecoveryCode: false };
   const consumed = await db.$executeRaw`
-    UPDATE "User" SET "twoFactorRecoveryCodes" = "twoFactorRecoveryCodes" - ${matchingHash}::text, "updatedAt" = NOW()
+    UPDATE "User" SET "twoFactorRecoveryCodes" = "twoFactorRecoveryCodes" - ${matchingHash}::text, "updatedAt" = ${DB_UTC_NOW}
     WHERE id = ${input.userId} AND status <> 'DISABLED' AND "twoFactorEnabled"
       AND "twoFactorSecret" = ${input.sealedSecret} AND jsonb_typeof("twoFactorRecoveryCodes") = 'array'
       AND "twoFactorRecoveryCodes" ? ${matchingHash}::text`;

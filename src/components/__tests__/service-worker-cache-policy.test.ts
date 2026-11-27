@@ -45,7 +45,7 @@ describe("public/sw.js PWA cache policy", () => {
 	});
 
 	it("limits cache cleanup on activation and sign-out to VControlHub caches", async () => {
-		const names = new Set(["vch-shell-v4-shell", "vch-shell-v5-shell", "vch-shell-v5-runtime", "other-app-offline"]);
+		const names = new Set(["vch-shell-v4-shell", "vch-shell-v5-shell", "vch-shell-v5-runtime", "vch-shell-v6-shell", "vch-shell-v6-runtime", "other-app-offline"]);
 		type WorkerEvent = { data?: { type: string }; waitUntil: (work: Promise<unknown>) => void };
 		const listeners = new Map<string, (event: WorkerEvent) => void>();
 		runInNewContext(swSource, {
@@ -56,12 +56,34 @@ describe("public/sw.js PWA cache policy", () => {
 			let work: Promise<unknown> | undefined;
 			listeners.get(event)!({ data: { type: "VCH_PWA_CLEAR_CACHES" }, waitUntil: (task) => { work = task; } });
 			await work;
-			expect([...names]).toEqual(event === "activate" ? ["vch-shell-v5-shell", "vch-shell-v5-runtime", "other-app-offline"] : ["other-app-offline"]);
+			expect([...names]).toEqual(event === "activate" ? ["vch-shell-v6-shell", "vch-shell-v6-runtime", "other-app-offline"] : ["other-app-offline"]);
 		}
 	});
 
 	it("supports skip-waiting so the update prompt can activate a new worker", () => {
 		expect(swSource).toContain("VCH_PWA_SKIP_WAITING");
 		expect(swSource).toContain("self.skipWaiting()");
+	});
+
+	it("matches only the exact public icon assets, not an /icon prefix", () => {
+		expect(swSource).toContain('const ICON_ASSETS = new Set(["/icon.png", "/icon-192x192.png", "/apple-icon.png", "/favicon.ico"])');
+		expect(swSource).not.toContain('url.pathname.startsWith("/icon")');
+	});
+
+	it("serves the manifest stale-while-revalidate and refreshes the cache in the background", () => {
+		const manifestBlock = swSource.slice(swSource.indexOf("if (isManifest(url))"));
+		expect(manifestBlock).toContain("caches.match(request, { cacheName: SHELL_CACHE })");
+		expect(manifestBlock).toContain("cache.put(request, copy)");
+		expect(manifestBlock).toContain("event.waitUntil(refresh)");
+		expect(manifestBlock).toContain('credentials: "omit"');
+		// Stale copy wins: the cached response is returned without awaiting the network.
+		expect(manifestBlock).toContain("cached || (await refresh)");
+		// The static-asset matcher no longer includes the manifest.
+		const staticMatcher = swSource.slice(swSource.indexOf("function isStaticAsset"), swSource.indexOf("function isManifest"));
+		expect(staticMatcher).not.toContain("manifest");
+	});
+
+	it("bumps the cache version so old prefixed-match caches are dropped on activate", () => {
+		expect(swSource).toContain('`${CACHE_PREFIX}v6`');
 	});
 });

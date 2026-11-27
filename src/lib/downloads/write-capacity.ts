@@ -1,4 +1,5 @@
 import type { Prisma } from "@prisma/client";
+import { quotaGrantPolicy } from "@/lib/storage/quota-policy";
 import { escapeLikeLiteral } from "@/lib/db/like-pattern";
 import { prisma } from "@/lib/db";
 import { isGlobalTeamManager } from "@/lib/auth/team-scope";
@@ -31,14 +32,8 @@ export async function downloadWriteCapacity(input: Parameters<typeof getStorageW
     })
     : null;
   const caseInsensitive = isCaseInsensitiveStorageNode(node);
-  const pathKey = (value: string) => (caseInsensitive ? value.toLowerCase() : value);
-  const targetKey = pathKey(path.path);
-  const matching = grants.filter(grant => {
-    const prefix = normalizeStorageTargetDirectory(grant.pathPrefix);
-    const prefixKey = prefix.ok ? pathKey(prefix.path) : "";
-    return grant.canWrite && prefix.ok && (!prefixKey || targetKey === prefixKey || targetKey.startsWith(prefixKey + "/"));
-  });
-  if (!matching.length) return { denied: true, maxFileBytes: BigInt(0), remainingBytes: BigInt(0) };
+  const { matching, writable } = quotaGrantPolicy(grants, path.path, caseInsensitive);
+  if (!writable) return { denied: true, maxFileBytes: BigInt(0), remainingBytes: BigInt(0) };
   let maxFileBytes: bigint | null = null;
   let remainingBytes: bigint | null = null;
   const mode = caseInsensitive ? { mode: "insensitive" as const } : {};

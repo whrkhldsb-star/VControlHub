@@ -24,13 +24,16 @@ import { createVerifiedSshConfig } from "@/lib/ssh/client";
 import { isHostKeyRejection } from "@/lib/ssh/host-key-error";
 import { closeSocket } from "@/lib/ws/close-socket";
 import { PreAuthLimiter, upgradeClientAddress } from "@/lib/ws/pre-auth-limiter";
+import { getNotificationBus } from "@/lib/ws/notification-bus";
+import { deliverSessionSignout, onSessionSignout, sessionTokenHash } from "@/lib/ws/session-signout";
+import { rateLimitIpKey } from "@/lib/rate-limit";
 
 import { type RoleKey } from "./lib/auth/rbac";
 import { canUseSshTerminal } from "./lib/auth/ssh-access";
 import { serverTeamWhere } from "./lib/auth/team-scope";
 import { closeTerminalRegistry, registerTerminalSession } from "./lib/server/terminal-handover";
 import { resolveStorageSshPort } from "./lib/storage/ssh-credentials";
-import { getSessionCookieName, verifySessionToken } from "./lib/auth/session";
+import { getSessionCookieName, sessionTokenExpiresAt, verifySessionToken } from "./lib/auth/session";
 import { AuthError } from "./lib/errors";
 import { createLogger } from "./lib/logging";
 import { backgroundCopyLocale } from "./lib/i18n/api-copy";
@@ -87,6 +90,7 @@ const { host: HOST, port: PORT } = resolveSshWsListenConfig();
 // ── SSH_WS_SECRET validation ───────────────────────────────────────
 
 export function requireSshWsSecret(env: Partial<NodeJS.ProcessEnv> = process.env): string | undefined {
+	// Trimmed exactly as config.ssh.wsSecret is, which the web tier signs handshakes and forwarded peers with.
 	const secret = env.SSH_WS_SECRET?.trim() || undefined;
 	const nodeEnv = env.NODE_ENV?.trim() || "development";
 
@@ -555,6 +559,11 @@ type ShellSession = {
 	releaseRegistration?: () => void;
 	id: string;
 	userId: string;
+	/**
+	 * Digest of the session cookie that opened the shell, or last continued it
+	 * (see sessionTokenHash): signing that cookie out ends the shell, kept or not.
+	 */
+	sessionTokenHash: string;
 	serverId: string;
 	endpointHash: string;
 	teamId: string | null;
@@ -596,6 +605,10 @@ type ShellSession = {
 
 /** Shells a reconnect may continue (keep-alive, not ended), attached or not. */
 const resumableSessions = new Map<string, ShellSession>();
+/** Every shell not ended yet, kept or not, attached or not. */
+const liveShells = new Set<ShellSession>();
+/** The session-cookie digest each socket presented (see sessionTokenHash). */
+const socketSessionHashes = new Map<WebSocket, string>();
 /** Of those, the ones no browser is attached to; they count against the caps. */
 const detachedSessions = new Map<string, ShellSession>();
 const detachedSessionsByUser = new Map<string, number>();
@@ -634,6 +647,7 @@ function endShellSession(session: ShellSession, notice?: ShellNotice, reason: Sh
 	if (session.stream) void auditTerminal(session, "server.ssh.closed").catch(() => undefined);
 	else if (!session.failureAudited) void auditTerminal(session, "server.ssh.failed", notice ? { message: t(notice.key, notice.vars) } : {}).catch(() => undefined);
 	session.ended = true;
+	liveShells.delete(session);
 	clearInterval(session.authorizationTimer);
 	if (session.detachTimer) clearTimeout(session.detachTimer);
 	if (session.idleTimer) clearTimeout(session.idleTimer);
@@ -793,16 +807,31 @@ function endAllDetachedSessions() {
 	for (const session of [...detachedSessions.values()]) endShellSession(session);
 }
 
-wss.on("connection", async (ws, req) => {
-	// Until the session is verified this socket holds one of the few unauthenticated places.
-	const releasePreAuth = preAuthSockets.acquire(upgradeClientAddress(req));
-	if (!releasePreAuth) {
-		closeSocket(ws, 1013, "Too many connections");
-		return;
+/**
+ * A session cookie was signed out on its device (see lib/ws/session-signout):
+ * end the shells it opened or last continued — a keep-alive shell waiting
+ * detached included, which would otherwise outlive the sign-out by
+ * SSH_WS_DETACH_TTL_MS with nobody able to see it — and close its sockets,
+ * those still being authorized too. The account's other sessions keep theirs.
+ */
+export function endSignedOutTerminalSessions(tokenHash: string) {
+	for (const shell of [...liveShells]) {
+		if (shell.sessionTokenHash === tokenHash) endShellSession(shell, { key: "backend.sshTerminal.authFailed" }, "exit");
 	}
-	const preAuthTimer = setTimeout(() => ws.terminate(), PRE_AUTH_WINDOW_MS);
-	preAuthTimer.unref?.();
-	ws.once("close", () => { clearTimeout(preAuthTimer); releasePreAuth(); authenticatedSockets.delete(ws); });
+	for (const [ws, hash] of [...socketSessionHashes]) {
+		if (hash !== tokenHash || ws.readyState !== WebSocket.OPEN) continue;
+		recordWsEvent("ssh", "reject");
+		closeSocket(ws, 1008, "Session signed out");
+	}
+}
+onSessionSignout((_userId, tokenHash) => endSignedOutTerminalSessions(tokenHash));
+
+/** The cookie carries this hub's signature and has not expired: no query, so it runs before a pre-auth place is taken. */
+function hasSignedSessionCookie(token: string): boolean {
+	return (sessionTokenExpiresAt(token) ?? 0) > Date.now();
+}
+
+wss.on("connection", async (ws, req) => {
 	recordWsEvent("ssh", "open");
 	setWsActive("ssh", wss.clients.size);
 	wsLastPongAt.set(ws, Date.now());
@@ -822,6 +851,7 @@ wss.on("connection", async (ws, req) => {
 	});
 	ws.on("close", () => {
 		wsLastPongAt.delete(ws);
+		socketSessionHashes.delete(ws);
 		recordWsEvent("ssh", "close");
 		setWsActive("ssh", wss.clients.size);
 	});
@@ -848,6 +878,38 @@ wss.on("connection", async (ws, req) => {
 		closeSocket(ws);
 		return;
 	}
+
+	// Signatures first, synchronously: a client without this hub's signed session cookie (and, with a secret
+	// configured, a handshake minted for this cookie, server and origin) never takes one of the few unauthenticated
+	// places, so it cannot keep real browsers out of them by opening sockets it cannot authenticate.
+	if (!hasSignedSessionCookie(token)) {
+		recordWsEvent("ssh", "reject");
+		ws.send(JSON.stringify({ type: "error", data: say("backend.sshTerminal.authFailed"), fatal: true }));
+		closeSocket(ws);
+		return;
+	}
+	const handshakePayload = SSH_WS_SECRET
+		? verifySshWsHandshakeToken(handshake, { serverId, origin: (req.headers.origin || "").trim(), sessionId: token, secret: SSH_WS_SECRET })
+		: null;
+	if (SSH_WS_SECRET && !handshakePayload) {
+		recordWsEvent("ssh", "reject");
+		ws.send(JSON.stringify({ type: "error", data: say("backend.sshTerminal.handshakeTokenInvalid") }));
+		closeSocket(ws);
+		return;
+	}
+
+	// Until the session is verified this socket holds one of the few unauthenticated places, counted per client
+	// address the way HTTP rate limits count it (an IPv6 client by its /64, which one host has to itself).
+	const releasePreAuth = preAuthSockets.acquire(rateLimitIpKey(upgradeClientAddress(req)));
+	if (!releasePreAuth) {
+		closeSocket(ws, 1013, "Too many connections");
+		return;
+	}
+	const preAuthTimer = setTimeout(() => ws.terminate(), PRE_AUTH_WINDOW_MS);
+	preAuthTimer.unref?.();
+	ws.once("close", () => { clearTimeout(preAuthTimer); releasePreAuth(); authenticatedSockets.delete(ws); });
+	const tokenHash = sessionTokenHash(token);
+	socketSessionHashes.set(ws, tokenHash);
 
 	let session: SessionPayload;
 	try {
@@ -881,19 +943,11 @@ wss.on("connection", async (ws, req) => {
 		else activeSshConnectionsByUser.set(session.userId, count);
 	});
 
-	if (SSH_WS_SECRET) {
-		const origin = (req.headers.origin || "").trim();
-		const handshakePayload = verifySshWsHandshakeToken(handshake, {
-			serverId,
-			origin,
-			sessionId: token,
-			secret: SSH_WS_SECRET,
-		});
-		if (!handshakePayload || handshakePayload.userId !== session.userId) {
-			ws.send(JSON.stringify({ type: "error", data: say("backend.sshTerminal.handshakeTokenInvalid") }));
-			closeSocket(ws);
-			return;
-		}
+	// The handshake's signature was checked before the pre-auth place; who it was minted for needs the session.
+	if (handshakePayload && handshakePayload.userId !== session.userId) {
+		ws.send(JSON.stringify({ type: "error", data: say("backend.sshTerminal.handshakeTokenInvalid") }));
+		closeSocket(ws);
+		return;
 	}
 
 	let connParams;
@@ -923,6 +977,7 @@ wss.on("connection", async (ws, req) => {
 	const shell: ShellSession = resumedShell ?? {
 		id: randomBytes(16).toString("hex"),
 		userId: session.userId,
+		sessionTokenHash: tokenHash,
 		serverId,
 		endpointHash,
 		teamId: connParams.teamId,
@@ -947,6 +1002,7 @@ wss.on("connection", async (ws, req) => {
 		failureAudited: false,
 	};
 	const resumed = resumedShell !== null;
+	if (!resumed) liveShells.add(shell);
 	const generation = shell.generation;
 	const ownsClaim = () => shell.generation === generation && !shell.ended;
 
@@ -1279,6 +1335,8 @@ wss.on("connection", async (ws, req) => {
 	const replay = resumed ? shellReplay(shell, resumeOffset) : null;
 	shell.claiming = false;
 	shell.attachment = attachment;
+	// The shell now answers to the cookie of the browser attached to it: signing that one out ends it.
+	shell.sessionTokenHash = tokenHash;
 	shell.detachedAt = null;
 	// From here on a reconnect may continue this shell (see claimShellSession).
 	if (shell.keepAlive) resumableSessions.set(shell.id, shell);
@@ -1323,6 +1381,8 @@ if (shouldStartServer) {
 	// A page that has not chosen a language is shown the platform default;
 	// the gateway words its notices for such a page in the same one.
 	void startBackgroundCopyLocaleSync();
+	// Sign-outs reach the gateway over the notification bus (see lib/ws/session-signout); it delivers nothing else here.
+	void getNotificationBus().start((userId, message) => { deliverSessionSignout(userId, message); });
 	server.listen(PORT, HOST, () => {
 		// Server start is visible via process lifecycle; no console needed
 	});
@@ -1339,7 +1399,7 @@ function shutdown() {
 	// timer mirrors server.ts so a stuck handle can never hang the exit.
 	const forceExit = setTimeout(() => process.exit(0), 15_000);
 	forceExit.unref?.();
-	void Promise.allSettled([closeTerminalRegistry(), prisma.$disconnect()]).finally(() => process.exit(0));
+	void Promise.allSettled([closeTerminalRegistry(), getNotificationBus().stop(), prisma.$disconnect()]).finally(() => process.exit(0));
 }
 
 process.on("SIGTERM", shutdown);

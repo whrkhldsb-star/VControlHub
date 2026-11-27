@@ -1,4 +1,5 @@
 import { reconcileTerminalPlaybookJobs } from "@/lib/playbook/service";
+import { scrubQuickServiceJobPayloadSecrets } from "@/lib/quick-service/payload-scrub";
 import { JobStatus, Prisma } from "@prisma/client";
 import { getRuntimeSettingNumberStrict } from "@/lib/runtime-settings/service";
 
@@ -50,6 +51,7 @@ export async function recoverStaleRunningJobs(options: {
     });
     for (const job of jobs) {
       if (job.type === "playbook.run") await reconcileTerminalPlaybookJobs(tx, { jobId: job.id });
+      if (job.type === "quick_service.lifecycle") await scrubQuickServiceJobPayloadSecrets(job.id, tx);
     }
     return jobs;
   });
