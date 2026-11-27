@@ -1,7 +1,7 @@
 import { sessionHasPermission } from "@/lib/auth/authorization";
 import { requirePagePermission } from "@/lib/auth/page-guard";
+import { isGlobalTeamManager } from "@/lib/auth/team-scope";
 import { buildBackupRestoreCommand, buildPortableBackupCommand, formatBackupSize, isBackupType, listBackupRecords, summarizeBackupPolicy } from "@/lib/backup/service";
-import { getBackupPolicySummary } from "@/lib/backup/policy-summary";
 import { getLocalStorageBackupCoverage, type LocalStorageBackupCoverage } from "@/lib/backup/coverage";
 import { config } from "@/lib/config/env";
 import { getServerLocale, t as translate, type TFn } from "@/lib/i18n/translations";
@@ -24,6 +24,7 @@ import { getBackupTypeLabel, getDomainStatusLabel } from "@/lib/i18n/domain-labe
 import { PaginatedList } from "@/components/paginated-list";
 import { createLogger } from "@/lib/logging";
 import { Disclosure } from "@/components/ui/disclosure";
+import { PageGuide } from "@/components/page-guide";
 import { ButtonLink } from "@/components/action-button";
 
 export const dynamic = "force-dynamic";
@@ -37,31 +38,56 @@ export default async function BackupsPage() {
 	const session = await requirePagePermission("backup:read", { redirectTo: "/backups" });
 	const canCreate = sessionHasPermission(session, "backup:create");
 	const canRestore = sessionHasPermission(session, "backup:restore");
-	const [backups, offsiteState, coverage] = await Promise.all([
+	const canReadServers = sessionHasPermission(session, "server:read");
+	const canReadTasks = sessionHasPermission(session, "task:read");
+	const needsSeparatePlatformSummary = canCreate && isGlobalTeamManager(session) && session.currentTeamId !== null;
+	const [backups, platformBackups, offsiteState, coverageState] = await Promise.all([
 		listBackupRecords(session),
+		needsSeparatePlatformSummary ? listBackupRecords({ ...session, currentTeamId: null }) : Promise.resolve(null),
 		loadOffsiteConfig()
 			.then((value) => ({ value, failed: false }))
 			.catch((error) => {
 				logger.warn("Failed to load offsite backup config", error);
 				return { value: null, failed: true };
 			}),
-		getLocalStorageBackupCoverage().catch((error): LocalStorageBackupCoverage => {
-			logger.warn("Failed to work out which storage directories backups hold", error);
-			return { uncovered: [], fullOnly: [] };
-		}),
+		getLocalStorageBackupCoverage()
+			.then((value) => ({ value, failed: false }))
+			.catch((error): { value: LocalStorageBackupCoverage; failed: boolean } => {
+				logger.warn("Failed to work out which storage directories backups hold", error);
+				return { value: { uncovered: [], fullOnly: [] }, failed: true };
+			}),
 	]);
+	const coverage = coverageState.value;
 	// At most three paths are spelled out; the count says how many there are.
 	const listDirectories = (directories: string[]) =>
 		directories.length > 3
 			? t("backupsPage.coverage.more", { paths: directories.slice(0, 3).join(t("common.listSeparator")), count: directories.length })
 			: directories.join(t("common.listSeparator"));
 	const offsite = offsiteState.value;
-	const summary = session.currentTeamId && "policySummary" in backups && backups.policySummary.totalRecords === 0
-		? await getBackupPolicySummary({ ...session, currentTeamId: null })
-		: summarizeBackupPolicy(backups);
+	const summary = summarizeBackupPolicy(backups);
+	// POST /api/backups/retention always cleans platform-owned backups (teamId: null);
+	// keep its count aligned with that target even while a customer is selected.
+	const retentionSummary = platformBackups ? summarizeBackupPolicy(platformBackups) : summary;
 	return (
 		<PageShell>
 			<PageHeader eyebrow={t("backupsPage.eyebrow")} title={t("backupsPage.title")} description={t("backupsPage.description")} />
+			<PageGuide
+				className="mb-5"
+				title={t("backupsPage.guide.title")}
+				summary={t("backupsPage.guide.summary")}
+				steps={canCreate ? [
+					t("backupsPage.guide.step1"),
+					t("backupsPage.guide.step2"),
+					t("backupsPage.guide.step3"),
+				] : [
+					t("backupsPage.guide.readonlyStep1"),
+					t("backupsPage.guide.readonlyStep2"),
+				]}
+				links={[
+					...(canReadServers ? [{ href: "/servers", label: t("backupsPage.guide.linkServers") }] : []),
+					...(canReadTasks ? [{ href: "/operation-tasks", label: t("backupsPage.guide.linkTasks") }] : []),
+				]}
+			/>
 
 			<StatGrid cols={4}>
 				<StatCard label={t("backupsPage.summary.completed")} value={String(summary.completedRecords)} detail={t("backupsPage.summary.totalRecords", { count: summary.totalRecords })} accent={summary.completedRecords > 0} accentColor="emerald" />
@@ -71,6 +97,11 @@ export default async function BackupsPage() {
 				<StatCard label={t("backupsPage.summary.failed")} value={String(summary.failedRecords)} detail={t("backupsPage.summary.inProgress", { count: summary.runningRecords })} accent={summary.failedRecords > 0} accentColor="rose" />
 			</StatGrid>
 
+			{coverageState.failed && (
+				<Notice tone="warning" className="mb-5" data-backup-coverage-error="true">
+					{t("backupsPage.coverage.loadFailed")}
+				</Notice>
+			)}
 			{coverage.uncovered.length > 0 && (
 				<Notice tone="warning" className="mb-5" title={t("backupsPage.coverage.uncoveredTitle")} data-backup-coverage="uncovered">
 					{t("backupsPage.coverage.uncovered", { paths: listDirectories(coverage.uncovered) })}
@@ -107,16 +138,13 @@ export default async function BackupsPage() {
 				</SurfacePanel>
 			</div>
 
+			{summary.failureSummary.length > 0 ? (
 			<div className="mb-5">
 			<SurfacePanel
 				title={t("backupsPage.failures.title")}
 				description={t("backupsPage.failures.description")}
 				actions={<span className="text-xs text-[var(--text-muted)]">{t("backupsPage.failures.count", { count: summary.failedRecords })}</span>}
 			>
-				{summary.failureSummary.length === 0 ? (
-					// No failure is not news: said plainly, without a success box.
-					<p className="text-sm text-[var(--text-muted)]">{t("backupsPage.failures.empty")}</p>
-				) : (
 					<div className="grid gap-3 md:grid-cols-2">
 						{summary.failureSummary.map((item) => (
 							<div key={item.category} data-inset className="p-3">
@@ -130,13 +158,13 @@ export default async function BackupsPage() {
 							</div>
 						))}
 					</div>
-				)}
 			</SurfacePanel>
 			</div>
+			) : null}
 
 			{canCreate && (
 				<Disclosure className="mb-5" title={t("backupsPage.section.retention")} description={t("backupsPage.retention.description")}>
-						<RetentionButton olderThan30Days={summary.recordsOlderThan30Days} totalRecords={summary.totalRecords} />
+						<RetentionButton olderThan30Days={retentionSummary.recordsOlderThan30Days} totalRecords={retentionSummary.totalRecords} />
 				</Disclosure>
 			)}
 
@@ -194,7 +222,7 @@ export default async function BackupsPage() {
 			<ListPanel
 				title={t("backupsPage.records.title")}
 				count={t("backupsPage.records.count", { count: backups.length })}
-				empty={backups.length === 0 ? <EmptyState text={t("backupsPage.records.empty")} /> : undefined}
+				empty={backups.length === 0 ? <EmptyState title={t("backupsPage.records.empty")} text={t("backupsPage.records.emptyHint")} /> : undefined}
 			>
 					<PaginatedList pageSize={20}>
 					{backups.map((b) => (

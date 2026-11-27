@@ -112,6 +112,26 @@ describe("GlobalSearch permission-gated filter", () => {
 		expect(screen.queryByRole("option", { name: /SSH 终端/ })).not.toBeInTheDocument();
 	});
 
+	it("offers a task only to a session that may carry it out", async () => {
+		const user = userEvent.setup();
+		renderWithGate(READ_ONLY_GATE, SAMPLE_DECLARED);
+
+		openSearchOverlay();
+		await user.type(await screen.findByPlaceholderText("搜索页面、操作…"), "添加服务器");
+		expect(screen.queryByRole("option", { name: /添加服务器/ })).not.toBeInTheDocument();
+	});
+
+	it("finds a task by what people want done when they may do it", async () => {
+		const user = userEvent.setup();
+		pushMock.mockClear();
+		renderWithGate({ ...READ_ONLY_GATE, permissions: ["server:read", "server:write"] }, SAMPLE_DECLARED);
+
+		openSearchOverlay();
+		await user.type(await screen.findByPlaceholderText("搜索页面、操作…"), "添加服务器");
+		await user.click(await screen.findByRole("option", { name: /添加服务器/ }));
+		expect(pushMock).toHaveBeenCalledWith("/servers#servers-create");
+	});
+
 	it("hides every permission-gated option when no provider is mounted (fail-safe)", async () => {
 		const user = userEvent.setup();
 		pushMock.mockClear();

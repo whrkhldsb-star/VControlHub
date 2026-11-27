@@ -63,6 +63,12 @@ export const zh: Record<string, string> = {
 	"apiTokensPage.customer.active": "当前客户：{name}。新 Token 只能访问这个客户。",
 	"apiTokensPage.customer.bound": "客户：{name}",
 	"apiTokensPage.customer.none": "请先在侧栏选择客户，再创建 Token。",
+	"apiTokensPage.customer.noneTitle": "还没有选择客户",
+	"apiTokensPage.example.title": "调用示例",
+	"apiTokensPage.example.hint": "在请求头中带上 Token 即可调用已授权的只读接口（例如需要健康读取范围的 /api/health）。把示例里的 <TOKEN> 换成上面的 Token。",
+	"apiTokensPage.example.copy": "复制示例",
+	"apiTokensPage.example.copyFailed": "复制失败，请手动选中示例复制。",
+	"apiTokensPage.example.docs": "查看 API 文档",
 	"apiTokensPage.title": "个人 API Token",
 };
 
@@ -124,5 +130,11 @@ export const en: Record<string, string> = {
 	"apiTokensPage.customer.active": "Current customer: {name}. New tokens can only reach this customer.",
 	"apiTokensPage.customer.bound": "Customer: {name}",
 	"apiTokensPage.customer.none": "Select a customer in the sidebar before creating a token.",
+	"apiTokensPage.customer.noneTitle": "No customer selected",
+	"apiTokensPage.example.title": "Try it",
+	"apiTokensPage.example.hint": "Send the token in the request header to call authorized read endpoints (for example /api/health with health read access). Replace <TOKEN> with the token above.",
+	"apiTokensPage.example.copy": "Copy example",
+	"apiTokensPage.example.copyFailed": "Could not copy. Select the example and copy it by hand.",
+	"apiTokensPage.example.docs": "Open API docs",
 	"apiTokensPage.title": "Personal API token",
 };

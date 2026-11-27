@@ -1,4 +1,8 @@
 export const zh: Record<string, string> = {
+  "rdp.eyebrow": "Windows 远程桌面",
+  "rdp.backServers": "返回服务器列表",
+  "rdp.windowsOnly": "只有 Windows 服务器支持远程桌面连接。",
+  "rdp.disabledServer": "此服务器已停用，无法连接远程桌面。",
   "rdp.title": "Windows 远程桌面",
   "rdp.opening": "正在远程会话窗口中打开…",
   "rdp.closeAria": "关闭远程桌面",
@@ -51,6 +55,10 @@ export const zh: Record<string, string> = {
   "rdp.inputMethod.localHint": "当前用本机输入法打字：中文在本机组字，完成后发到 Windows。英文按键仍直接发送，请把 Windows 的输入法切到英文；单按 Shift 只切换本机输入法。点击改用远程输入法。",
 };
 export const en: Record<string, string> = {
+  "rdp.eyebrow": "Windows · RDP",
+  "rdp.backServers": "Back to servers",
+  "rdp.windowsOnly": "Remote desktop is available only on Windows servers.",
+  "rdp.disabledServer": "This server is disabled, so its desktop is unavailable.",
   "rdp.title": "Windows remote desktop",
   "rdp.opening": "Opening in the remote sessions window…",
   "rdp.closeAria": "Close remote desktop",

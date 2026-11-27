@@ -15,7 +15,7 @@ import { PageShell, PageHeader, Toolbar } from "@/components/page-shell";
 import { ConfirmDialog } from "@/components/confirm-dialog";
 import { getRefreshIntervalLabel } from "@/lib/preferences/refresh-interval";
 import { useI18n } from "@/lib/i18n/use-locale";
-import { ActionButton } from "@/components/action-button";
+import { ActionButton, ButtonLink } from "@/components/action-button";
 import { StatusBadge } from "@/components/status-badge";
 import { FormField, Notice } from "@/components/ui-primitives";
 import { UI_INPUT } from "@/lib/ui/classes";
@@ -26,9 +26,11 @@ import { useDockerPage } from "./use-docker-page";
 
 export default function DockerPage({
 	initialServers,
+	canReadDeployments = false,
 	canManageHubHost = true,
 }: {
-	initialServers: { id: string; name: string; host: string }[];
+	initialServers: { id: string; name: string; host: string; canInstall?: boolean }[];
+	canReadDeployments?: boolean;
 	canManageHubHost?: boolean;
 }) {
 	const { t } = useI18n();
@@ -53,6 +55,7 @@ export default function DockerPage({
 		setPendingProjectDown,
 		refreshIntervalSeconds,
 		dockerScope,
+		invalidTarget,
 		serverList,
 		selectedServerId,
 		setSelectedServerId,
@@ -79,23 +82,24 @@ export default function DockerPage({
 	const socketPath = dockerScope?.socketPath ?? defaultSocket;
 	// The server's scope descriptor carries English-only copy; localize on the
 	// client by scope kind so the warning matches the UI language.
-	const scopeWarning = !dockerScope || dockerScope.scope === "hub-host"
+	const scopeWarning = !selectedServerId
 		? t("dockerPage.scope.warning")
-		: t("dockerPage.scope.remoteWarning", { name: dockerScope.serverName ?? "" });
+		: t("dockerPage.scope.remoteWarning", { name: serverList.find(s => s.id === selectedServerId)?.name ?? "" });
 	const scopeSocketText = t("dockerPage.scope.socket", { path: socketPath });
+	const canInstall = selectedServerId ? initialServers.some(s => s.id === selectedServerId && s.canInstall) : canManageHubHost;
 
 	return (
 		<PageShell>
 			<PageHeader eyebrow={t("dockerPage.eyebrow")} title={t("dockerPage.title")} description={t("dockerPage.desc")} />
-			<Notice tone="warning" className="mb-4" title={<span id="docker-scope-title" role="heading" aria-level={2}>{t("dockerPage.scope.title")}</span>}>
+			{!invalidTarget && <Notice tone={selectedServerId ? "info" : "warning"} className="mb-4" title={<span id="docker-scope-title" role="heading" aria-level={2}>{t("dockerPage.scope.title")}</span>}>
 				<p>{scopeWarning}</p>
 				<p className="mt-1 text-xs text-[var(--text-muted)]">{scopeSocketText}</p>
-			</Notice>
+			</Notice>}
 
 			{/* FEAT-P0-2: target selector (remote Docker management) and list controls share one row. */}
 			<Toolbar className="items-end justify-between gap-3">
 				<div className="flex min-w-0 flex-wrap items-end gap-3">
-					{serverList.length > 0 && (
+					{(serverList.length > 0 || invalidTarget) && (
 						<FormField label={t("dockerPage.scope.serverSelect")} htmlFor="docker-server-select" className="min-w-64">
 							<select
 								id="docker-server-select"
@@ -105,6 +109,7 @@ export default function DockerPage({
 							>
 								{/* The hub host's daemon runs the shared platform; the API refuses
 								    it to anyone without platform-manager rights, so do not offer it. */}
+								{invalidTarget && <option disabled value={selectedServerId}>{t("dockerPage.invalidTarget")}</option>}
 								{canManageHubHost && <option value="">{t("dockerPage.scope.hubHost")}</option>}
 								{serverList.map((s) => (
 									<option key={s.id} value={s.id}>{s.name} ({s.host})</option>
@@ -161,6 +166,7 @@ export default function DockerPage({
 			{projectMessage && <Notice tone="success" className="mb-4" onDismiss={clearProjectMessage} dismissLabel={t("common.close")}>{projectMessage}</Notice>}
 
 			<DockerContainerList
+				emptyAction={canInstall ? <ButtonLink href={selectedServerId ? `/quick-services?server=${encodeURIComponent(selectedServerId)}` : "/quick-services"}>{t("dockerPage.browseServices")}</ButtonLink> : canReadDeployments ? <ButtonLink href="/deployments">{t("dockerPage.deployments")}</ButtonLink> : undefined}
 				loading={loading}
 				listFailed={listFailed}
 				failureReason={error}
@@ -184,7 +190,7 @@ export default function DockerPage({
 			{/* Without a target (an account with no server to manage) there is nothing to list: the panel would ask
 			    for the hub host's networks and volumes, which such an account is refused. A target whose containers
 			    could not be read has no networks or volumes to show either: the panel said "no networks". */}
-			{(selectedServerId || canManageHubHost) && !listFailed ? (
+			{(selectedServerId || canManageHubHost) && !invalidTarget && !listFailed ? (
 				<div className="mt-6">
 					<DockerResourcesPanel serverId={selectedServerId} serverLabel={serverList.find((server) => server.id === selectedServerId)?.name} />
 				</div>

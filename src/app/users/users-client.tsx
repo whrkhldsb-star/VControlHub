@@ -64,6 +64,7 @@ export function UserManagementClient({ header, canManage = false, currentUserId 
   const [showCreateForm, setShowCreateForm] = useState(false);
   const [createForm, setCreateForm] = useState<CreateUserFormState>(EMPTY_CREATE_FORM);
   const [customers, setCustomers] = useState<CustomerOption[]>([]);
+  const [optionsLoaded, setOptionsLoaded] = useState(false);
   const [templates, setTemplates] = useState<IdentityTemplateOption[]>([]);
   const [creating, setCreating] = useState(false);
   const [editingPermissionsUser, setEditingPermissionsUser] = useState<UserInfo | null>(null);
@@ -120,11 +121,13 @@ export function UserManagementClient({ header, canManage = false, currentUserId 
     ]).then(([teamData, templateData]) => {
       setCustomers(teamData.teams);
       setTemplates(templateData.templates);
+      setOptionsLoaded(true);
       setCreateForm((form) => form.teamId ? form : { ...form, teamId: teamData.teams[0]?.id ?? "" });
       setOptionsError(null);
     }).catch((err: unknown) => {
       // Said in the form. In silence it left an empty list of customers and a button that stayed disabled.
       setOptionsError(getErrorMessage(err, tRef.current("usersPage.error.optionsFailed")));
+      setOptionsLoaded(true);
     });
   }, [canManage]);
 
@@ -245,6 +248,7 @@ export function UserManagementClient({ header, canManage = false, currentUserId 
           customers={customers}
           templates={templates}
           optionsError={optionsError}
+          optionsLoaded={optionsLoaded}
           passwordRules={passwordRules}
         />
       )}

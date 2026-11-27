@@ -20,6 +20,8 @@ import { getDomainStatusLabel } from "@/lib/i18n/domain-labels";
 import { ButtonLink } from "@/components/action-button";
 import { markdownExcerpt } from "@/lib/markdown/render-markdown";
 
+import { SetupChecklistReopenButton } from "./dashboard-setup-checklist";
+
 const AUDIT_ACTOR_LABEL_KEYS: Record<string, string> = {
   USER: "dashboard.actor-user",
   SYSTEM: "dashboard.actor-system",
@@ -92,18 +94,36 @@ export function DashboardAnnouncements({ items, total }: { items: DashboardAnnou
   );
 }
 
-/** The page's title and its two ways onward. The account is named by the user menu, not here. */
-export function DashboardLocalizedHeader() {
+/**
+ * The page's title, what the page is for and its ways onward. The account is named by the user menu, not here.
+ * Each way onward shows only to an account that may open its page: a viewer without it would land on
+ * "no permission".
+ */
+export function DashboardLocalizedHeader({
+  canReadServers = true,
+  canReadTasks = true,
+  setupPending = 0,
+}: {
+  canReadServers?: boolean;
+  canReadTasks?: boolean;
+  /** Setup steps still open; the header offers the hidden checklist back while there are any. */
+  setupPending?: number;
+}) {
   const { t } = useI18n();
   const title = t("dashboard.title");
   return (
-    <PageHeader eyebrow={t("nav.dashboard")} title={title}>
-          <ButtonLink variant="primary" href="/servers" iconRight={<IconChevronRight aria-hidden />}>
-            {t("nav.servers")}
-          </ButtonLink>
-          <ButtonLink variant="secondary" href="/operation-tasks">
-            {t("nav.operation-tasks")}
-          </ButtonLink>
+    <PageHeader eyebrow={t("nav.dashboard")} title={title} description={t("dashboard.description")}>
+      <SetupChecklistReopenButton pending={setupPending} />
+      {canReadServers ? (
+        <ButtonLink variant="primary" href="/servers" iconRight={<IconChevronRight aria-hidden />}>
+          {t("nav.servers")}
+        </ButtonLink>
+      ) : null}
+      {canReadTasks ? (
+        <ButtonLink variant={canReadServers ? "secondary" : "primary"} href="/operation-tasks">
+          {t("nav.operation-tasks")}
+        </ButtonLink>
+      ) : null}
     </PageHeader>
   );
 }

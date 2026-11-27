@@ -77,7 +77,7 @@ export default async function FilesPage({ searchParams }: FilesPageProps) {
         description={t("filesPage.description", locale)}
       >
         <StorageNodeManager
-          nodes={canManageNodes ? nodes : nodes.map(node => withoutConnectionDetails(node, t("mediaItemCard.managedDownload", locale)))}
+          nodes={canManageNodes ? nodes : nodes.map(node => withoutConnectionDetails(node, t("filesPage.managedDrive", locale)))}
           servers={formOptions.servers}
           canManageNodes={canManageNodes}
         />

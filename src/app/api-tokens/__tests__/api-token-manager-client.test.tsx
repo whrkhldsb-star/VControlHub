@@ -135,6 +135,25 @@ describe("ApiTokenManagerClient", () => {
 		expect(screen.getByRole("button", { name: "Create API token" })).toBeInTheDocument();
 	});
 
+	it("shows how to call the API with the new token, without the secret in the example", async () => {
+		const created = { ...token, id: "tok_2", name: "mobile" };
+		vi.stubGlobal("fetch", vi.fn().mockResolvedValueOnce(json({ token: "whr_plain_once", apiToken: created }, 201))
+			.mockResolvedValueOnce(json(page([created, token]))));
+		render(<ApiTokenManagerClient header={header} initialPage={page([token])} pageSize={25} allowedScopes={["read"]} currentCustomerName="Ops" />, { locale: "en" });
+		fireEvent.click(screen.getByRole("button", { name: "Create API token" }));
+		fireEvent.change(screen.getByLabelText("Token name"), { target: { value: "mobile" } });
+		fireEvent.click(screen.getByRole("button", { name: "Create token" }));
+		const example = await screen.findByText(/Authorization: Bearer <TOKEN>/);
+		expect(example.textContent).not.toContain("whr_plain_once");
+		expect(screen.getByRole("link", { name: "Open API docs" })).toHaveAttribute("href", "/api-docs");
+	});
+
+	it("says at the top of the page that a customer must be selected first", () => {
+		render(<ApiTokenManagerClient header={header} initialPage={page([token])} pageSize={25} allowedScopes={["read"]} currentCustomerName={null} />, { locale: "en" });
+		expect(screen.getByText("No customer selected")).toBeInTheDocument();
+		expect(screen.getByText("Select a customer in the sidebar before creating a token.")).toBeInTheDocument();
+	});
+
 	it("closes the form on Cancel and says a refusal inside it", async () => {
 		vi.stubGlobal("fetch", vi.fn().mockResolvedValue({ ok: false, status: 409, json: async () => ({ error: "A token with this name exists" }) }));
 		render(<ApiTokenManagerClient header={header} initialPage={{ ...page([]), totalTokens: 0, activeTokens: 0 }} pageSize={25} allowedScopes={["read"]} currentCustomerName="Ops" />, { locale: "en" });

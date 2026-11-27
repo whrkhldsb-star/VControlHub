@@ -17,6 +17,15 @@ export const zh: Record<string, string> = {
 	"apiDocsPage.summaryCount": "{count}/{total} 个接口",
 	"apiDocsPage.tagCount": "{count} 个接口",
 	"apiDocsPage.paramCount": "参数 {count}",
+	"apiDocsPage.guide.title": "快速上手",
+	"apiDocsPage.guide.summary": "三步用脚本或其他系统调用本平台的接口。",
+	"apiDocsPage.guide.step1": "在 API Token 页面创建一个令牌，它只在创建时完整显示一次。",
+	"apiDocsPage.guide.step2": "在每个请求的请求头中带上 Authorization: Bearer <你的令牌>。",
+	"apiDocsPage.guide.step3": "调用下方列出的 /api/ 接口。令牌仅能访问其权限范围与创建者账号权限同时允许的只读接口，写操作仅限 WebDAV 与图片上传。",
+	"apiDocsPage.guide.createToken": "创建 API Token",
+	"apiDocsPage.noMatches": "没有匹配的接口",
+	"apiDocsPage.noMatchesHint": "换个路径、方法或关键词试试。",
+	"apiDocsPage.clearSearch": "清除搜索",
 };
 
 export const en: Record<string, string> = {
@@ -35,4 +44,13 @@ export const en: Record<string, string> = {
 	"apiDocsPage.summaryCount": "{count}/{total} {total|endpoint|endpoints}",
 	"apiDocsPage.tagCount": "{count} {count|endpoint|endpoints}",
 	"apiDocsPage.paramCount": "Parameters: {count}",
+	"apiDocsPage.guide.title": "Quick start",
+	"apiDocsPage.guide.summary": "Three steps to call this platform from a script or another system.",
+	"apiDocsPage.guide.step1": "Create a token on the API tokens page; it is shown in full only once, when it is created.",
+	"apiDocsPage.guide.step2": "Send the header Authorization: Bearer <your token> with every request.",
+	"apiDocsPage.guide.step3": "Call the /api/ endpoints listed below. A token can read only endpoints permitted by both its scopes and its owner's permissions; writes are limited to WebDAV and image uploads.",
+	"apiDocsPage.guide.createToken": "Create an API token",
+	"apiDocsPage.noMatches": "No matching endpoints",
+	"apiDocsPage.noMatchesHint": "Try another path, method or keyword.",
+	"apiDocsPage.clearSearch": "Clear search",
 };

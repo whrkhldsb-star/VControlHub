@@ -33,8 +33,8 @@ type SyncJobRow = {
   compress?: boolean;
   lastSyncAt: string | null;
   lastSyncResult: string | null;
-  sourceServer: { id: string; name: string; host: string | null };
-  targetServer: { id: string; name: string; host: string | null };
+  sourceServer: ServerOption | null;
+  targetServer: ServerOption | null;
 };
 
 type ReportPayload = {
@@ -75,7 +75,7 @@ function scheduleLabel(t: (key: string) => string, value: string): string {
   return option ? t(option.key) : value;
 }
 
-export function BidirectionalSyncPanel({ servers }: { servers: ServerOption[] }) {
+export function BidirectionalSyncPanel({ servers, canManage }: { canManage: boolean; servers: ServerOption[] }) {
   const { t, locale } = useI18n();
   const [actionError, setActionError] = useState<string | null>(null);
   const [busyId, setBusyId] = useState<string | null>(null);
@@ -84,7 +84,7 @@ export function BidirectionalSyncPanel({ servers }: { servers: ServerOption[] })
   const [sourceServerId, setSourceServerId] = useState(servers[0]?.id ?? "");
   const [targetServerId, setTargetServerId] = useState(servers[1]?.id ?? servers[0]?.id ?? "");
   const [sourcePath, setSourcePath] = useState("/data/share");
-  const [targetPath, setTargetPath] = useState("/data/share");
+  const [targetPath, setTargetPath] = useState(servers.length === 1 ? "" : "/data/share");
   const [syncType, setSyncType] = useState<"MIRROR" | "BIDIRECTIONAL">("BIDIRECTIONAL");
   const [schedule, setSchedule] = useState("manual");
   // Both were sent as false with no control (A4-34): a MIRROR job never removed orphans.
@@ -112,6 +112,15 @@ export function BidirectionalSyncPanel({ servers }: { servers: ServerOption[] })
   });
   const jobs = data ?? [];
   const error = actionError ?? loadError;
+
+  const endpoint = (server: ServerOption | null | undefined, path: string) => {
+    const label = !server
+      ? t("filesPage.syncJobs.unknownServer")
+      : server.host && server.host !== server.name
+        ? `${server.name} (${server.host})`
+        : server.name;
+    return `${label}:${path}`;
+  };
 
   const sameEndpoint =
     Boolean(sourceServerId) &&
@@ -209,113 +218,115 @@ export function BidirectionalSyncPanel({ servers }: { servers: ServerOption[] })
         <Notice tone="danger" compact>{error}</Notice>
       ) : null}
 
-      <div className="grid gap-3 sm:grid-cols-2">
-        <label className="flex min-w-0 flex-col gap-1 text-xs font-medium text-[var(--text-secondary)]">
-          {t("filesPage.syncJobs.namePlaceholder")}
-          <input
-            className={UI_INPUT}
-            placeholder={t("filesPage.syncJobs.namePlaceholder")}
-            value={name}
-            onChange={(e) => setName(e.target.value)}
-          />
-        </label>
-        <label className="flex min-w-0 flex-col gap-1 text-xs font-medium text-[var(--text-secondary)]">
-          {t("filesPage.syncJobs.typeLabel")}
-          <select
-            className={UI_INPUT}
-            value={syncType}
-            onChange={(e) => setSyncType(e.target.value as "MIRROR" | "BIDIRECTIONAL")}
-          >
-            <option value="BIDIRECTIONAL">{t("filesPage.syncJobs.type.bidirectional")}</option>
-            <option value="MIRROR">{t("filesPage.syncJobs.type.mirror")}</option>
-          </select>
-        </label>
-        <label className="flex min-w-0 flex-col gap-1 text-xs font-medium text-[var(--text-secondary)]">
-          {t("filesPage.syncJobs.scheduleLabel")}
-          <select className={UI_INPUT} value={schedule} onChange={(e) => setSchedule(e.target.value)}>
-            {SCHEDULES.map((s) => (
-              <option key={s.value} value={s.value}>
-                {t(s.key)}
-              </option>
-            ))}
-          </select>
-        </label>
-        <div className="flex min-w-0 flex-col justify-end gap-1 text-xs text-[var(--text-secondary)]">
-          <label className="flex items-center gap-2">
-            <input type="checkbox" checked={compress} onChange={(e) => setCompress(e.target.checked)} />
-            {t("filesPage.syncJobs.compress")}
+      {canManage && servers.length > 0 ? <>
+        <div className="grid gap-3 sm:grid-cols-2">
+          <label className="flex min-w-0 flex-col gap-1 text-xs font-medium text-[var(--text-secondary)]">
+            {t("filesPage.syncJobs.namePlaceholder")}
+            <input
+              className={UI_INPUT}
+              placeholder={t("filesPage.syncJobs.namePlaceholder")}
+              value={name}
+              onChange={(e) => setName(e.target.value)}
+            />
           </label>
-          <label className="flex items-center gap-2" title={t("filesPage.syncJobs.deleteOrphansHint")}>
-            <input type="checkbox" checked={syncType === "MIRROR" && deleteOrphans} disabled={syncType !== "MIRROR"} onChange={(e) => setDeleteOrphans(e.target.checked)} />
-            {t("filesPage.syncJobs.deleteOrphans")}
+          <label className="flex min-w-0 flex-col gap-1 text-xs font-medium text-[var(--text-secondary)]">
+            {t("filesPage.syncJobs.typeLabel")}
+            <select
+              className={UI_INPUT}
+              value={syncType}
+              onChange={(e) => setSyncType(e.target.value as "MIRROR" | "BIDIRECTIONAL")}
+            >
+              <option value="BIDIRECTIONAL">{t("filesPage.syncJobs.type.bidirectional")}</option>
+              <option value="MIRROR">{t("filesPage.syncJobs.type.mirror")}</option>
+            </select>
+          </label>
+          <label className="flex min-w-0 flex-col gap-1 text-xs font-medium text-[var(--text-secondary)]">
+            {t("filesPage.syncJobs.scheduleLabel")}
+            <select className={UI_INPUT} value={schedule} onChange={(e) => setSchedule(e.target.value)}>
+              {SCHEDULES.map((s) => (
+                <option key={s.value} value={s.value}>
+                  {t(s.key)}
+                </option>
+              ))}
+            </select>
+          </label>
+          <div className="flex min-w-0 flex-col justify-end gap-1 text-xs text-[var(--text-secondary)]">
+            <label className="flex items-center gap-2">
+              <input type="checkbox" checked={compress} onChange={(e) => setCompress(e.target.checked)} />
+              {t("filesPage.syncJobs.compress")}
+            </label>
+            <label className="flex items-center gap-2" title={t("filesPage.syncJobs.deleteOrphansHint")}>
+              <input type="checkbox" checked={syncType === "MIRROR" && deleteOrphans} disabled={syncType !== "MIRROR"} onChange={(e) => setDeleteOrphans(e.target.checked)} />
+              {t("filesPage.syncJobs.deleteOrphans")}
+            </label>
+          </div>
+          <label className="flex min-w-0 flex-col gap-1 text-xs font-medium text-[var(--text-secondary)]">
+            {t("filesPage.syncJobs.source")}
+            <select
+              className={UI_INPUT}
+              value={sourceServerId}
+              onChange={(e) => setSourceServerId(e.target.value)}
+            >
+              {servers.map((s) => (
+                <option key={s.id} value={s.id}>
+                  {s.name}
+                </option>
+              ))}
+            </select>
+          </label>
+          <label className="flex min-w-0 flex-col gap-1 text-xs font-medium text-[var(--text-secondary)]">
+            {t("filesPage.syncJobs.sourcePath")}
+            <input
+              className={UI_INPUT}
+              value={sourcePath}
+              onChange={(e) => setSourcePath(e.target.value)}
+              placeholder="/data/share"
+            />
+          </label>
+          <label className="flex min-w-0 flex-col gap-1 text-xs font-medium text-[var(--text-secondary)]">
+            {t("filesPage.syncJobs.target")}
+            <select
+              className={UI_INPUT}
+              value={targetServerId}
+              onChange={(e) => setTargetServerId(e.target.value)}
+            >
+              {servers.map((s) => (
+                <option key={s.id} value={s.id}>
+                  {s.name}
+                </option>
+              ))}
+            </select>
+          </label>
+          <label className="flex min-w-0 flex-col gap-1 text-xs font-medium text-[var(--text-secondary)]">
+            {t("filesPage.syncJobs.targetPath")}
+            <input
+              className={UI_INPUT}
+              value={targetPath}
+              onChange={(e) => setTargetPath(e.target.value)}
+              placeholder="/data/replica"
+            />
           </label>
         </div>
-        <label className="flex min-w-0 flex-col gap-1 text-xs font-medium text-[var(--text-secondary)]">
-          {t("filesPage.syncJobs.source")}
-          <select
-            className={UI_INPUT}
-            value={sourceServerId}
-            onChange={(e) => setSourceServerId(e.target.value)}
-          >
-            {servers.map((s) => (
-              <option key={s.id} value={s.id}>
-                {s.name}
-              </option>
-            ))}
-          </select>
-        </label>
-        <label className="flex min-w-0 flex-col gap-1 text-xs font-medium text-[var(--text-secondary)]">
-          {t("filesPage.syncJobs.sourcePath")}
-          <input
-            className={UI_INPUT}
-            value={sourcePath}
-            onChange={(e) => setSourcePath(e.target.value)}
-            placeholder="/data/share"
-          />
-        </label>
-        <label className="flex min-w-0 flex-col gap-1 text-xs font-medium text-[var(--text-secondary)]">
-          {t("filesPage.syncJobs.target")}
-          <select
-            className={UI_INPUT}
-            value={targetServerId}
-            onChange={(e) => setTargetServerId(e.target.value)}
-          >
-            {servers.map((s) => (
-              <option key={s.id} value={s.id}>
-                {s.name}
-              </option>
-            ))}
-          </select>
-        </label>
-        <label className="flex min-w-0 flex-col gap-1 text-xs font-medium text-[var(--text-secondary)]">
-          {t("filesPage.syncJobs.targetPath")}
-          <input
-            className={UI_INPUT}
-            value={targetPath}
-            onChange={(e) => setTargetPath(e.target.value)}
-            placeholder="/data/share"
-          />
-        </label>
-      </div>
-      <ActionButton size="sm" variant="secondary"
-        disabled={
-          !sourceServerId ||
-          !targetServerId ||
-          sameEndpoint ||
-          busyId === "create" ||
-          servers.length === 0
-        }
-        onClick={() => void createJob()}>
-        {busyId === "create" ? t("filesPage.syncJobs.creating") : t("filesPage.syncJobs.create")}
-      </ActionButton>
+        <p data-inset className="break-all p-2 text-xs">{t(syncType === "MIRROR" ? "filesPage.syncJobs.forward" : "filesPage.syncJobs.both", { source: endpoint(servers.find(s => s.id === sourceServerId), sourcePath), target: endpoint(servers.find(s => s.id === targetServerId), targetPath) })}</p>
+        <ActionButton size="sm" variant="secondary"
+          disabled={
+            !sourcePath.trim() || !targetPath.trim() || !sourceServerId ||
+            !targetServerId ||
+            sameEndpoint ||
+            busyId === "create" ||
+            servers.length === 0
+          }
+          onClick={() => void createJob()}>
+          {busyId === "create" ? t("filesPage.syncJobs.creating") : t("filesPage.syncJobs.create")}
+        </ActionButton>
+      </> : <Notice tone="info">{t(canManage ? "filesPage.syncJobs.needServers" : "filesPage.syncJobs.readOnly")}</Notice>}
       <ActionButton size="sm" variant="secondary" disabled={loading} onClick={() => void load()}>
         {t("filesPage.syncJobs.refresh")}
       </ActionButton>
-      {sameEndpoint ? (
+      {canManage && sameEndpoint ? (
         <p className="text-xs text-[var(--warning)]">{t("filesPage.syncJobs.sameEndpoint")}</p>
-      ) : null}
-      {servers.length < 1 ? (
-        <p className="text-xs text-[var(--text-muted)]">{t("filesPage.syncJobs.needServers")}</p>
+      ) : canManage && servers.length === 1 && !targetPath.trim() ? (
+        <p className="text-xs text-[var(--text-muted)]">{t("filesPage.syncJobs.targetPathRequired")}</p>
       ) : null}
 
       <div className="space-y-2">
@@ -339,7 +350,7 @@ export function BidirectionalSyncPanel({ servers }: { servers: ServerOption[] })
                   </span>
                 </div>
                 <div className="flex flex-wrap gap-2">
-                  <select
+                  {canManage && <select
                     className={`${UI_INPUT} !py-1 !text-sm`}
                     aria-label={t("filesPage.syncJobs.scheduleLabel")}
                     value={job.schedule || "manual"}
@@ -351,13 +362,14 @@ export function BidirectionalSyncPanel({ servers }: { servers: ServerOption[] })
                         {t(s.key)}
                       </option>
                     ))}
-                  </select>
+                  </select>}
                   <ActionButton size="sm" variant="secondary" 
                     disabled={busyId === `rep-${job.id}`}
                     onClick={() => void openReport(job.id)}>
                     {t("filesPage.syncJobs.report")}
                   </ActionButton>
-                  <ActionButton size="sm" variant="secondary" 
+                  {canManage && <>
+                  <ActionButton size="sm" variant="secondary"
                     disabled={busyId === job.id || job.status === "RUNNING"}
                     onClick={() => void runJob(job.id)}>
                     {t("filesPage.syncJobs.run")}
@@ -367,16 +379,17 @@ export function BidirectionalSyncPanel({ servers }: { servers: ServerOption[] })
                     onClick={() => setPendingDelete({ id: job.id, label: job.name?.trim() || job.id })}>
                     {t("filesPage.syncJobs.delete")}
                   </ActionButton>
+                  </>}
                 </div>
               </div>
               <p className="mt-1 text-[var(--text-muted)]">
-                {job.sourceServer.name}:{job.sourcePath} {job.syncType === "BIDIRECTIONAL" ? "↔" : "→"} {job.targetServer.name}:{job.targetPath}
+                {t(job.syncType === "MIRROR" ? "filesPage.syncJobs.forward" : "filesPage.syncJobs.both", { source: endpoint(job.sourceServer, job.sourcePath), target: endpoint(job.targetServer, job.targetPath) })}
               </p>
               {job.lastSyncResult ? (
                 <p className="mt-1 text-[var(--text-secondary)]">{syncResultLabel(job.lastSyncResult, t)}</p>
               ) : null}
               {reportJobId === job.id && report ? (
-                <div className="mt-2 rounded border border-[var(--border)] bg-[var(--surface-elevated)] p-2">
+                <div data-inset className="mt-2 p-2">
                   <p className="font-medium text-[var(--text-primary)]">
                     {t("filesPage.syncJobs.reportTitle")}
                   </p>

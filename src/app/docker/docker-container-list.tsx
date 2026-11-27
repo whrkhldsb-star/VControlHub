@@ -8,6 +8,7 @@ import { type Container, type ContainerStats } from "./docker-helpers";
 import type { ProjectAction } from "./use-docker-page";
 
 export function DockerContainerList({
+	emptyAction,
 	loading,
 	listFailed = false,
 	failureReason,
@@ -24,6 +25,7 @@ export function DockerContainerList({
 	fetchLogs,
 	requestRemoval,
 }: {
+	emptyAction?: React.ReactNode;
 	loading: boolean;
 	/** The list could not be loaded; the reason is in the notice above it. */
 	listFailed?: boolean;
@@ -71,7 +73,7 @@ export function DockerContainerList({
 		);
 	}
 	if (containers.length === 0) {
-		return <EmptyState text={t("dockerPage.empty")} variant="boxed" />;
+		return <EmptyState action={emptyAction} text={t("dockerPage.empty")} variant="boxed" />;
 	}
 	return (
 		<div className="space-y-4">

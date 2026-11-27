@@ -200,6 +200,25 @@ describe("VpsStatusClient (split fleet surface)", () => {
 		await user.click(screen.getByRole("button", { name: "异常" }));
 		expect(await screen.findByText("当前筛选下没有节点")).toBeInTheDocument();
 	});
+
+	it("gates the platform diagnostics link to platform admins", async () => {
+		const { unmount } = render(
+			<I18nProvider initialLocale="zh">
+				<VpsStatusClient serverCount={2} isPlatformAdmin={false} />
+			</I18nProvider>,
+		);
+		expect((await screen.findAllByText("HK Prod")).length).toBeGreaterThan(0);
+		expect(screen.queryByRole("link", { name: "平台健康" })).not.toBeInTheDocument();
+		unmount();
+
+		render(
+			<I18nProvider initialLocale="zh">
+				<VpsStatusClient serverCount={2} isPlatformAdmin />
+			</I18nProvider>,
+		);
+		expect((await screen.findAllByText("HK Prod")).length).toBeGreaterThan(0);
+		expect(screen.getByRole("link", { name: "平台健康" })).toHaveAttribute("href", "/health");
+	});
 });
 
 describe("transfer rate units", () => {

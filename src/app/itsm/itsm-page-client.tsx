@@ -2,8 +2,9 @@
 
 import { useCallback, useEffect, useRef, useState } from "react";
 
-import { ActionButton } from "@/components/action-button";
+import { ActionButton, ButtonLink } from "@/components/action-button";
 import { ConfirmDialog } from "@/components/confirm-dialog";
+import { PageGuide } from "@/components/page-guide";
 import { csrfFetch } from "@/lib/auth/csrf-client";
 import type { ItsmConnectionRecord, ItsmEventRecord } from "@/lib/itsm/types";
 import { useI18n } from "@/lib/i18n/use-locale";
@@ -13,7 +14,8 @@ import { useToast } from "@/components/toast-provider";
 import { getErrorMessage } from "@/lib/http/error-message";
 import { EmptyState, ListPanel, ListRow, PageHeader, SurfacePanel } from "@/components/page-shell";
 import { StatusBadge } from "@/components/status-badge";
-import { Activity, LinkIcon, Plus } from "@/components/icons";
+import { Activity, Check, Copy, LinkIcon, Plus } from "@/components/icons";
+import { copyText } from "@/lib/ui/clipboard";
 
 import { ItsmConnectionForm } from "./itsm-connection-form";
 
@@ -48,6 +50,8 @@ export function ItsmPageClient({
 	const [events, setEvents] = useState(initialEvents);
 	const [busy, setBusy] = useState(false);
 	const [testingId, setTestingId] = useState<string | null>(null);
+	const [copiedId, setCopiedId] = useState<string | null>(null);
+	const copiedTimerRef = useRef<ReturnType<typeof setTimeout> | null>(null);
 	const [pendingDelete, setPendingDelete] = useState<ItsmConnectionRecord | null>(null);
 	// The form opens from the header (or the empty list) right under it; the connections come first otherwise.
 	const [creating, setCreating] = useState(false);
@@ -58,6 +62,24 @@ export function ItsmPageClient({
 	useEffect(() => {
 		if (creating) panelRef.current?.scrollIntoView?.({ behavior: "smooth", block: "start" });
 	}, [creating]);
+
+	useEffect(() => () => {
+		if (copiedTimerRef.current) clearTimeout(copiedTimerRef.current);
+	}, []);
+
+	const copyInboundUrl = useCallback(async (id: string) => {
+		const url = `${baseUrlForInbound}/api/itsm/inbound/${id}`;
+		if (!(await copyText(url))) {
+			addToast("error", t("itsmPage.toast.copyFailed"));
+			return;
+		}
+		setCopiedId(id);
+		if (copiedTimerRef.current) clearTimeout(copiedTimerRef.current);
+		copiedTimerRef.current = setTimeout(() => {
+			copiedTimerRef.current = null;
+			setCopiedId(null);
+		}, 2000);
+	}, [addToast, baseUrlForInbound, t]);
 
 	const reload = useCallback(async () => {
 		try {
@@ -123,12 +145,24 @@ export function ItsmPageClient({
 	return (
 		<div className="space-y-6">
 			<PageHeader eyebrow={header.eyebrow} title={header.title} description={header.description} className="">
+				<ButtonLink href="/tickets" size="sm" variant="secondary">
+					{t("itsmPage.openTickets")}
+				</ButtonLink>
 				{openForm ? (
 					<ActionButton icon={<Plus size={16} aria-hidden />} onClick={openForm}>
 						{t("itsmPage.form.title")}
 					</ActionButton>
 				) : null}
 			</PageHeader>
+			<PageGuide
+				title={t("itsmPage.guide.title")}
+				summary={t("itsmPage.guide.summary")}
+				steps={[
+					t("itsmPage.guide.step1"),
+					t("itsmPage.guide.step2"),
+					t("itsmPage.guide.step3"),
+				]}
+			/>
 
 			{creating ? (
 				<div ref={panelRef} className="scroll-mt-24">
@@ -197,8 +231,18 @@ export function ItsmPageClient({
 							)}
 						</div>
 						{(row.direction === "inbound" || row.direction === "bidirectional") && (
-							<div data-inset className="break-all p-2 font-mono text-xs">
-								{t("itsmPage.inboundUrl")}{t("common.colon")}{baseUrlForInbound}/api/itsm/inbound/{row.id}
+							<div data-inset className="flex flex-wrap items-center justify-between gap-2 p-2 text-xs">
+								<span className="min-w-0 flex-1 break-all font-mono">
+									{t("itsmPage.inboundUrl")}{t("common.colon")}{baseUrlForInbound}/api/itsm/inbound/{row.id}
+								</span>
+								<ActionButton
+									size="xs"
+									variant="ghost"
+									icon={copiedId === row.id ? <Check size={14} aria-hidden /> : <Copy size={14} aria-hidden />}
+									onClick={() => void copyInboundUrl(row.id)}
+								>
+									{copiedId === row.id ? t("itsmPage.action.copied") : t("itsmPage.action.copyInboundUrl")}
+								</ActionButton>
 							</div>
 						)}
 						{row.config.webhookUrl && (

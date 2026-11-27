@@ -46,7 +46,7 @@ export function AiSettingsPanel({
             htmlFor="ai-setting-temperature"
             className="ui-label"
           >
-            Temperature{" "}
+            {t("aiPage.temperature")}{" "}
             <span className="text-[var(--color-action-text)]/70">
               {settingsForm.temperature.toFixed(2)}
             </span>
@@ -76,7 +76,7 @@ export function AiSettingsPanel({
             htmlFor="ai-setting-max-tokens"
             className="ui-label"
           >
-            Max Tokens
+            {t("aiPage.maxTokens")}
           </label>
           <select
             id="ai-setting-max-tokens"
@@ -105,7 +105,7 @@ export function AiSettingsPanel({
             htmlFor="ai-setting-top-p"
             className="ui-label"
           >
-            Top P{" "}
+            {t("aiPage.topP")}{" "}
             <span className="text-[var(--color-action-text)]/70">
               {settingsForm.topP.toFixed(2)}
             </span>

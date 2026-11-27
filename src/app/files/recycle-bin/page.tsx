@@ -2,6 +2,7 @@ import { requirePagePermission } from "@/lib/auth/page-guard";
 import { sessionHasPermission } from "@/lib/auth/authorization";
 import { getRecycleBinPage, recycleBinQuerySchema } from "@/lib/files/recycle-bin";
 import { getServerLocale, t } from "@/lib/i18n/translations";
+import { Notice } from "@/components/ui-primitives";
 import { PageShell, PageHeader } from "@/components/page-shell";
 import { RecycleBinSectionClient } from "../recycle-bin-section-client";
 import { FilesSubpageNav } from "../files-subpage-nav";
@@ -24,6 +25,7 @@ export default async function FilesRecycleBinPage({ searchParams }: {
         description={t("filesPage.subPage.recycleBinDesc", locale)}
       />
       <FilesSubpageNav />
+      {!canDelete && <Notice tone="info">{t("filesPage.binReadOnly", locale)}</Notice>}
       <RecycleBinSectionClient
         // Not keyed on the entries: a refresh after a partly failed batch
         // remounted the list and threw away the failures and their selection.

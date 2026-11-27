@@ -16,7 +16,7 @@ import { formatImageDate, formatImageSize, formatPublishSource } from "./image-b
 import { DeleteImageDialog, ImageGrid, PublishFromStorageModal } from "./image-bed-grid-and-modals";
 import { Check, ClipboardList, Folder, HardDrive, ImageIcon, LayoutDashboard, Plus, RefreshCw, Search, Share2, Trash2, User } from "@/components/icons";
 import { Pagination } from "@/components/pagination";
-import { InlineLoading, Notice } from "@/components/ui-primitives";
+import { FormField, InlineLoading, Notice } from "@/components/ui-primitives";
 import { describeFailure } from "@/lib/http/error-message";
 
 export default function ImageBedPage({ canWrite, canDelete, canListAll = false }: { canWrite: boolean; canDelete: boolean; canListAll?: boolean }) {
@@ -89,7 +89,7 @@ export default function ImageBedPage({ canWrite, canDelete, canListAll = false }
 			<PageHeader eyebrow={t("imageBedPage.hero.eyebrow")} title={t("imageBedPage.hero.title")} description={t("imageBedPage.hero.description")}>
 				<ButtonLink variant="secondary" href="/media?type=image"><ImageIcon size={16} aria-hidden />{t("imageBedPage.hero.openMedia")}</ButtonLink>
 				{canWrite && <ActionButton type="button" onClick={openPublishModal}><HardDrive size={16} aria-hidden />{t("imageBedPage.hero.publishFromStorage")}</ActionButton>}
-				{canWrite && <ActionButton type="button" variant="secondary" aria-expanded={showLegacyUpload} aria-controls="image-bed-upload" onClick={() => setShowLegacyUpload((value) => !value)}><Plus size={16} aria-hidden />{t("imageBedPage.legacy.title")}</ActionButton>}
+				{canWrite && <ActionButton type="button" variant="secondary" aria-expanded={showLegacyUpload} aria-controls="image-bed-upload" onClick={() => { if (!showLegacyUpload) void fetchStorageNodes(false); setShowLegacyUpload(!showLegacyUpload); }}><Plus size={16} aria-hidden />{t("imageBedPage.legacy.title")}</ActionButton>}
 			</PageHeader>
 			<StatGrid cols={3}>
 				<StatCard label={t("imageBedPage.stat.total")} value={total} />
@@ -156,19 +156,21 @@ export default function ImageBedPage({ canWrite, canDelete, canListAll = false }
 			{showLegacyUpload && canWrite && (
 			<section id="image-bed-upload" className="border-b border-[var(--border)] pb-4">
 				<div className="mt-2 grid grid-cols-1 items-center gap-2 text-xs sm:grid-cols-3">
-					<label className="sr-only" htmlFor="imageBedLegacyNode">{t("imageBedPage.legacy.nodeLabel")}</label>
-					<select id="imageBedLegacyNode" value={publishForm.storageNodeId} onChange={(e) => setPublishForm(pf => ({ ...pf, storageNodeId: e.target.value }))} onClick={(e) => e.stopPropagation()} className={cn(UI_INPUT, "px-2 py-1 text-xs text-[var(--text-secondary)]")}>
-						<option value="">{t("imageBedPage.legacy.defaultNode")}</option>
-						{storageNodes.map(n => <option key={n.id} value={n.id}>{n.name}</option>)}
-					</select>
-					<label className="sr-only" htmlFor="imageBedLegacyPath">{t("imageBedPage.legacy.pathLabel")}</label>
-					<input id="imageBedLegacyPath" type="text" value={publishForm.relativePath} onChange={(e) => setPublishForm(pf => ({ ...pf, relativePath: e.target.value }))} onClick={(e) => e.stopPropagation()} placeholder={t("imageBedPage.legacy.pathPlaceholder")} className={cn(UI_INPUT, "w-32 px-2 py-1 text-xs text-[var(--text-secondary)]")} />
-					<label className="sr-only" htmlFor="imageBedUploadAlbum">{t("imageBedPage.legacy.albumLabel")}</label>
-					{/* The upload album used to be taken from the search box, which is a
-					    substring query — searching "cover" then dropping files created an
-					    album named "cover". It is its own field now. */}
-					<input id="imageBedUploadAlbum" type="text" value={publishForm.album} onChange={(e) => setPublishForm(pf => ({ ...pf, album: e.target.value }))} onClick={(e) => e.stopPropagation()} placeholder={t("imageBedPage.legacy.albumPlaceholder")} className={cn(UI_INPUT, "w-28 px-2 py-1 text-xs text-[var(--text-secondary)]")} />
-					{!storageNodes.length && <button type="button" onClick={(e) => { e.stopPropagation(); fetchStorageNodes(); }} className="text-[var(--color-action-text)] hover:underline">{t("imageBedPage.legacy.loadNodes")}</button>}
+					<FormField htmlFor="imageBedLegacyNode" label={t("imageBedPage.legacy.nodeLabel")}>
+						<select id="imageBedLegacyNode" value={publishForm.storageNodeId} onChange={(e) => setPublishForm(pf => ({ ...pf, storageNodeId: e.target.value }))} onClick={(e) => e.stopPropagation()} className={UI_INPUT}>
+							<option value="">{t("imageBedPage.legacy.defaultNode")}</option>
+							{storageNodes.map(n => <option key={n.id} value={n.id}>{n.name}</option>)}
+						</select>
+					</FormField>
+					<FormField htmlFor="imageBedLegacyPath" label={t("imageBedPage.legacy.pathLabel")}>
+						<input id="imageBedLegacyPath" type="text" value={publishForm.relativePath} onChange={(e) => setPublishForm(pf => ({ ...pf, relativePath: e.target.value }))} onClick={(e) => e.stopPropagation()} placeholder={t("imageBedPage.legacy.pathPlaceholder")} className={UI_INPUT} />
+					</FormField>
+					<FormField htmlFor="imageBedUploadAlbum" label={t("imageBedPage.legacy.albumLabel")}>
+						{/* The upload album used to be taken from the search box, which is a
+						    substring query — searching "cover" then dropping files created an
+						    album named "cover". It is its own field now. */}
+						<input id="imageBedUploadAlbum" type="text" value={publishForm.album} onChange={(e) => setPublishForm(pf => ({ ...pf, album: e.target.value }))} onClick={(e) => e.stopPropagation()} placeholder={t("imageBedPage.legacy.albumPlaceholder")} className={UI_INPUT} />
+					</FormField>
 				</div>
 				<button
 					type="button"
@@ -224,8 +226,8 @@ export default function ImageBedPage({ canWrite, canDelete, canListAll = false }
 			) : images.length === 0 ? (
 				// "No images yet" under a failed load would be a statement about images nobody could read.
 				listError != null ? null : (
-					<EmptyState icon={<ImageIcon size={24} aria-hidden />}>
-						{t("imageBedPage.empty")}
+					<EmptyState icon={<ImageIcon size={24} aria-hidden />} action={search.trim() ? <ActionButton onClick={() => { setSearch(""); void refreshImages(1, ""); }}>{t("imageBedPage.clearSearch")}</ActionButton> : canWrite ? <ActionButton onClick={openPublishModal}>{t("imageBedPage.hero.publishFromStorage")}</ActionButton> : undefined}>
+						{t(search.trim() ? "imageBedPage.filteredEmpty" : canWrite ? "imageBedPage.empty" : "imageBedPage.readEmpty")}
 					</EmptyState>
 				)
 			) : (

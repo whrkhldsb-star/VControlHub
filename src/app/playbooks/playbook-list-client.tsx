@@ -12,7 +12,8 @@ import { PlaybookForm } from "./playbook-form";
 import { PlaybookCard } from "./playbook-card";
 import { PlaybookDeleteDialog } from "./playbook-delete-dialog";
 import { getErrorMessage } from "@/lib/http/error-message";
-import { ActionButton } from "@/components/action-button";
+import { ActionButton, ButtonLink } from "@/components/action-button";
+import { PageGuide } from "@/components/page-guide";
 import { PaginatedList } from "@/components/paginated-list";
 
 const RUN_POLL_DELAYS_MS = [2_000, 5_000, 10_000, 20_000, 30_000, 45_000, 60_000, 90_000, 120_000, 180_000, 240_000, 300_000] as const;
@@ -25,6 +26,8 @@ type Props = {
   servers: ServerOption[];
   canManage: boolean;
   canRun: boolean;
+  canReadCommands?: boolean;
+  canManageAlerts?: boolean;
 };
 
 export function PlaybookListClient({
@@ -34,6 +37,8 @@ export function PlaybookListClient({
   servers,
   canManage,
   canRun,
+  canReadCommands = false,
+  canManageAlerts = false,
 }: Props) {
   const { t } = useI18n();
   const { addToast } = useToast();
@@ -245,6 +250,11 @@ export function PlaybookListClient({
     <div className="space-y-6">
       {header ? (
         <PageHeader eyebrow={header.eyebrow} title={header.title} description={header.description} className="">
+          {canReadCommands ? (
+            <ButtonLink href="/scheduled-tasks" size="sm" variant="secondary">
+              {t("playbooksPage.openScheduledTasks")}
+            </ButtonLink>
+          ) : null}
           {canManage && !showCreate ? (
             <ActionButton icon={<Plus size={16} aria-hidden />} onClick={() => setShowCreate(true)}>
               {t("playbooksPage.action.create")}
@@ -252,6 +262,19 @@ export function PlaybookListClient({
           ) : null}
         </PageHeader>
       ) : null}
+      <PageGuide
+        title={t("playbooksPage.guide.title")}
+        summary={t("playbooksPage.guide.summary")}
+        steps={[
+          t("playbooksPage.guide.step1"),
+          t("playbooksPage.guide.step2"),
+          t("playbooksPage.guide.step3"),
+        ]}
+        links={[
+          ...(canReadCommands ? [{ label: t("playbooksPage.openScheduledTasks"), href: "/scheduled-tasks" }] : []),
+          ...(canManageAlerts ? [{ label: t("playbooksPage.openAlertRules"), href: "/alert-rules" }] : []),
+        ]}
+      />
 
       {showCreate && (
         <div ref={formPanelRef} className="scroll-mt-24">

@@ -3,6 +3,8 @@
  */
 
 export const zh: Record<string, string> = {
+	"deploymentsPage.readOnlyEmpty": "暂无可查看的部署记录。操作员运行部署后，记录会显示在这里。",
+	"deploymentsPage.launch.templatesLink": "浏览模板",
 	"deploymentsPage.launch.title": "新建部署任务",
 	"deploymentsPage.launch.submit": "创建并部署",
 	"deploymentsPage.launch.submitting": "部署中…",
@@ -41,18 +43,20 @@ export const zh: Record<string, string> = {
 	"deploymentsPage.page.howItWorks.step4.desc": "勾选要部署到的目标服务器",
 	"deploymentsPage.page.howItWorks.step5.title": "5. 提交审批",
 	"deploymentsPage.page.howItWorks.step5.desc": "进入审批链路，审批通过后自动执行并记录日志",
-	"deploymentsPage.page.howItWorks.auditNote": "每次部署都会保存不可变快照；配置了回滚命令的模板可执行真实回滚，未配置时仍可按原模板重发。所有操作经过审批链路，确保可审计。",
+	"deploymentsPage.page.howItWorks.auditNote": "每次部署都会保存不可变快照；配置了回滚命令的模板可回滚到上一版本，未配置时仍可按原模板重发。所有操作经过审批链路，确保可审计。",
 	"deploymentsPage.page.submitFailed": "部署提交失败：",
 	"deploymentsPage.page.submitSuccess": "部署已提交，进入审批/执行链路。",
 	"deploymentsPage.page.launchSection.title": "发起模板部署",
 	"deploymentsPage.page.launchSection.desc": "选择模板后填写变量和目标 VPS。提交后进入命令审批/执行链路，不会绕过平台审计。",
 	"deploymentsPage.page.exportSection": "迁移部署导出",
-	"deploymentsPage.page.latestDeploy.eyebrow": "真实回滚",
+
+	"deploymentsPage.page.latestDeploy.eyebrow": "回滚到上一版本",
 	"deploymentsPage.page.latestDeploy.heading": "最近部署：",
 	"deploymentsPage.page.latestDeploy.meta": "目标 {count} 台 · {date} · 快照 {snapshot}",
 	"deploymentsPage.page.latestDeploy.snapshotPending": "待生成",
 	"deploymentsPage.page.latestDeploy.noRollback": "该部署快照没有回滚命令，可使用重发作为兼容操作。",
-	"deploymentsPage.page.latestDeploy.help": "回滚执行的是快照里保存的回滚命令；重新提交部署会再次执行原模板。",
+
+	"deploymentsPage.page.latestDeploy.help": "回滚会运行快照中的回滚命令；重新发送会再次运行原模板。",
 	"deploymentsPage.page.status.nextApproval": "下一步：等待审批。",
 	"deploymentsPage.page.status.nextExecution": "下一步：后台正在执行，请查看执行日志。",
 	"deploymentsPage.page.status.nextDone": "流程已完成。",
@@ -90,11 +94,13 @@ export const zh: Record<string, string> = {
 	"deploymentsPage.export.downloadFile": "下载此文件",
 
 	// Rollback button (TR-026 unified feedback)
-	"deploymentsPage.rollback.triggerBtn": "执行真实回滚",
+
+	"deploymentsPage.rollback.triggerBtn": "回滚到上一版本",
 	"deploymentsPage.rollback.confirmBtn": "确认回滚",
 	"deploymentsPage.rollback.submitting": "提交中…",
 	"deploymentsPage.rollback.confirmWarning": "确认执行部署“{name}”的回滚命令？该操作会进入审批流程，并在目标 VPS 上执行快照里保存的回滚命令。",
-	"deploymentsPage.rollback.reason": "真实回滚：{name}",
+
+	"deploymentsPage.rollback.reason": "回滚部署：{name}",
 	"deploymentsPage.rollback.toast.success": "回滚命令已提交审批",
 	"deploymentsPage.rollback.toast.failed": "回滚失败",
 
@@ -110,6 +116,8 @@ export const zh: Record<string, string> = {
 };
 
 export const en: Record<string, string> = {
+	"deploymentsPage.readOnlyEmpty": "No runs to view yet. Runs appear here after an operator starts a deployment.",
+	"deploymentsPage.launch.templatesLink": "Browse templates",
 	"deploymentsPage.launch.title": "New deployment",
 	"deploymentsPage.launch.submit": "Create and deploy",
 	"deploymentsPage.launch.submitting": "Deploying…",
@@ -154,12 +162,14 @@ export const en: Record<string, string> = {
 	"deploymentsPage.page.launchSection.title": "Launch a template deployment",
 	"deploymentsPage.page.launchSection.desc": "Pick a template, fill variables, then choose target VPS. Submissions go through the approval/execute flow and never bypass platform audit.",
 	"deploymentsPage.page.exportSection": "Migration deployment export",
-	"deploymentsPage.page.latestDeploy.eyebrow": "Real rollback",
+
+	"deploymentsPage.page.latestDeploy.eyebrow": "Roll back to previous version",
 	"deploymentsPage.page.latestDeploy.heading": "Latest deployment: ",
 	"deploymentsPage.page.latestDeploy.meta": "{count} {count|target|targets} · {date} · snapshot {snapshot}",
 	"deploymentsPage.page.latestDeploy.snapshotPending": "pending",
 	"deploymentsPage.page.latestDeploy.noRollback": "This snapshot has no rollback command; resend can be used as a fallback.",
-	"deploymentsPage.page.latestDeploy.help": "Real rollback runs the snapshot's rollback command; resend re-runs the original template.",
+
+	"deploymentsPage.page.latestDeploy.help": "Rollback runs the command saved in the snapshot. Resend runs the original template again.",
 	"deploymentsPage.page.status.nextApproval": "Next: waiting for approval.",
 	"deploymentsPage.page.status.nextExecution": "Next: running in the background; check execution logs.",
 	"deploymentsPage.page.status.nextDone": "The workflow is complete.",
@@ -197,11 +207,13 @@ export const en: Record<string, string> = {
 	"deploymentsPage.export.downloadFile": "Download this file",
 
 	// Rollback button (TR-026 unified feedback)
-	"deploymentsPage.rollback.triggerBtn": "Execute real rollback",
+
+	"deploymentsPage.rollback.triggerBtn": "Roll back to previous version",
 	"deploymentsPage.rollback.confirmBtn": "Roll back",
 	"deploymentsPage.rollback.submitting": "Submitting…",
 	"deploymentsPage.rollback.confirmWarning": "Confirm rollback for deployment “{name}”? This will go through the approval flow and execute the rollback command from the snapshot on the target VPS.",
-	"deploymentsPage.rollback.reason": "Real rollback: {name}",
+
+	"deploymentsPage.rollback.reason": "Roll back deployment: {name}",
 	"deploymentsPage.rollback.toast.success": "Rollback submitted for approval",
 	"deploymentsPage.rollback.toast.failed": "Rollback failed",
 

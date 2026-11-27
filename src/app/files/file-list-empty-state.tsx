@@ -8,11 +8,12 @@ import { ActionButton } from "@/components/action-button";
 import { ArrowLeft, FolderOpen } from "@/components/icons";
 
 export type FileListEmptyStateProps = {
+  action?: React.ReactNode;
   emptyMessage: string;
   onGoUp?: () => void;
 };
 
-export function FileListEmptyState({ emptyMessage, onGoUp }: FileListEmptyStateProps) {
+export function FileListEmptyState({ emptyMessage, action, onGoUp }: FileListEmptyStateProps) {
   const { t } = useI18n();
   return (
     <div data-empty-state className="flex flex-col items-center gap-3 px-6 py-16 text-center">
@@ -20,6 +21,7 @@ export function FileListEmptyState({ emptyMessage, onGoUp }: FileListEmptyStateP
         <FolderOpen size={26} />
       </span>
       <p className="text-sm text-[var(--text-secondary)]">{emptyMessage}</p>
+      {action}
       {onGoUp ? (
         <>
           <p className="text-xs text-[var(--text-muted)]">{t("fileListClient.upLevelHint")}</p>

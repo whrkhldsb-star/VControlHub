@@ -2,8 +2,9 @@
 
 import { useCallback, useEffect, useRef, useState } from "react";
 
-import { ActionButton } from "@/components/action-button";
+import { ActionButton, ButtonLink } from "@/components/action-button";
 import { EmptyState, PageHeader, SurfacePanel, Toolbar } from "@/components/page-shell";
+import { PageGuide } from "@/components/page-guide";
 import { useToast } from "@/components/toast-provider";
 import { ConfirmDialog } from "@/components/confirm-dialog";
 import { csrfFetch } from "@/lib/auth/csrf-client";
@@ -25,6 +26,8 @@ type Props = {
 	servers: ServerOption[];
 	canCreate: boolean;
 	canDeploy?: boolean;
+	canManageSnippets?: boolean;
+	canReadDeployments?: boolean;
 	locale?: Locale;
 	/** Page header; rendered here so the create command sits in its actions. */
 	header?: { eyebrow?: string; title: string; description?: string };
@@ -36,6 +39,8 @@ export function TemplateListClient({
 	servers,
 	canCreate,
 	canDeploy = false,
+	canManageSnippets = false,
+	canReadDeployments = false,
 	locale: _locale,
 }: Props) {
 	const { t } = useI18n();
@@ -143,6 +148,11 @@ export function TemplateListClient({
 		<div className="space-y-6">
 			{header ? (
 				<PageHeader eyebrow={header.eyebrow} title={header.title} description={header.description} className="">
+					{canManageSnippets ? (
+						<ButtonLink href="/snippets" size="sm" variant="secondary">
+							{t("templatesPage.openSnippets")}
+						</ButtonLink>
+					) : null}
 					{canCreate && !showCreate ? (
 						<ActionButton icon={<Plus size={16} aria-hidden />} type="button" onClick={() => setShowCreate(true)}>
 							{t("templatesPage.action.create")}
@@ -150,6 +160,19 @@ export function TemplateListClient({
 					) : null}
 				</PageHeader>
 			) : null}
+			<PageGuide
+				title={t("templatesPage.guide.title")}
+				summary={t("templatesPage.guide.summary")}
+				steps={[
+					t("templatesPage.guide.step1"),
+					t("templatesPage.guide.step2"),
+					t("templatesPage.guide.step3"),
+				]}
+				links={[
+					...(canReadDeployments ? [{ label: t("templatesPage.toast.viewDeployments"), href: "/deployments" }] : []),
+					...(canManageSnippets ? [{ label: t("templatesPage.openSnippets"), href: "/snippets" }] : []),
+				]}
+			/>
 			<ConfirmDialog
 				open={templatePendingDelete !== null}
 				title={t("templatesPage.delete.title")}

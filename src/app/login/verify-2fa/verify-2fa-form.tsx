@@ -5,6 +5,7 @@ import { ActionButton } from "@/components/action-button";
 import { Notice, SegmentedControl } from "@/components/ui-primitives";
 import { csrfFetch } from "@/lib/auth/csrf-client";
 import { ApiError } from "@/lib/http/api-client-error";
+import { getErrorMessage } from "@/lib/http/error-message";
 import { safeRelativeRedirectPath } from "@/lib/http/redirect-path";
 import { useI18n } from "@/lib/i18n/use-locale";
 import { UI_INPUT } from "@/lib/ui/classes";
@@ -86,7 +87,7 @@ export function Verify2faForm({ nextPath, error }: Verify2faFormProps) {
 			setErrorMsg(data.error || t("login.verify2faFailed"));
 			startOver();
 		} catch (error) {
-			setErrorMsg(error instanceof ApiError ? error.message : t("login.verify2faNetworkError"));
+			setErrorMsg(error instanceof ApiError ? getErrorMessage(error, t("login.verify2faFailed")) : t("login.verify2faNetworkError"));
 			// A refused code is typed again from the first box. One that never reached the server stays: it may
 			// still be good, and the button sends it again.
 			if (error instanceof ApiError) startOver();

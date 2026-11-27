@@ -50,6 +50,7 @@ export function DeploymentLaunchForm({ templates }: { templates: DeploymentTempl
 		return (
 			<Notice tone="warning" className="mt-4">
 				{t("deploymentsPage.launch.noTemplateHint")}
+				<ButtonLink href="/templates" size="sm">{t("deploymentsPage.launch.templatesLink")}</ButtonLink>
 			</Notice>
 		);
 	}

@@ -119,6 +119,6 @@ describe("MediaPage", () => {
 
     expect(screen.getByText("图片发布工作流")).toBeInTheDocument();
     expect(screen.getByText("图片批量上传面板")).toBeInTheDocument();
-    expect(screen.getAllByRole("link", { name: /外链中心/ })[0]).toHaveAttribute("href", "/image-bed");
+    expect(document.querySelector('a[href="/image-bed"]')).toBeNull();
   });
 });

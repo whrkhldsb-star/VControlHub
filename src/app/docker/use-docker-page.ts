@@ -46,13 +46,14 @@ export function useDockerPage(
 	const refreshIntervalSeconds = useRefreshInterval(30);
 	const [dockerScope, setDockerScope] = useState<DockerScope | null>(null);
 	const [serverList] = useState<ServerOption[]>(initialServers);
-	const { state: dockerUrl, setField: setDockerUrlField } = useUrlQueryState({ serverId: "" });
+	const { state: dockerUrl, patch: patchDockerUrl } = useUrlQueryState({ server: "", serverId: "" });
 	const fallbackServerId = canManageHubHost ? "" : (initialServers[0]?.id ?? "");
-	const selectedServerId = dockerUrl.serverId || fallbackServerId;
+	const selectedServerId = dockerUrl.server || dockerUrl.serverId || fallbackServerId;
+	const invalidTarget = Boolean(selectedServerId && !serverList.some(s => s.id === selectedServerId));
 	const selectedServerIdRef = useRef(selectedServerId);
 	const setSelectedServerId = (value: string) => {
 		selectedServerIdRef.current = value;
-		setDockerUrlField("serverId", value);
+		patchDockerUrl({ server: value, serverId: "" });
 	};
 	const closeRemovalDialog = useCallback(() => setPendingRemoval(null), []);
 	const closeLogsDialog = useCallback(() => setLogsId(null), []);
@@ -100,10 +101,10 @@ export function useDockerPage(
 		const gen = ++fetchGenRef.current;
 		// A tenant account with no manageable server fell back to the hub host,
 		// got 403 and saw "cannot connect to Docker" (A6-14): say what is missing.
-		if (!selectedServerId && !canManageHubHost) {
+		if (invalidTarget || (!selectedServerId && !canManageHubHost)) {
 			setContainers([]);
 			setListFailed(true);
-			setError(t("dockerPage.error.noTargets"));
+			setError(t(invalidTarget ? "dockerPage.invalidTarget" : "dockerPage.error.noTargets"));
 			// Nothing is on its way: the list said "loading" under this notice for good.
 			setLoading(false);
 			return;
@@ -149,7 +150,7 @@ export function useDockerPage(
 		} finally {
 			if (gen === fetchGenRef.current) setLoading(false);
 		}
-	}, [t, selectedServerId, canManageHubHost]);
+	}, [t, selectedServerId, canManageHubHost, invalidTarget]);
 
 	useEffect(() => () => {
 		fetchAbortRef.current?.abort();
@@ -351,6 +352,7 @@ export function useDockerPage(
 		setPendingProjectDown,
 		refreshIntervalSeconds,
 		dockerScope,
+		invalidTarget,
 		serverList,
 		selectedServerId,
 		setSelectedServerId,

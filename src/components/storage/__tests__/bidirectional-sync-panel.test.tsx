@@ -22,9 +22,19 @@ describe("BidirectionalSyncPanel", () => {
 		document.cookie = "csrf_token=test-token";
 	});
 
+	it.each([true, false])("explains zero available servers for canManage=%s and still lists jobs", async (canManage) => {
+		vi.mocked(globalThis.fetch).mockResolvedValueOnce(jsonResponse({ jobs: [{ id: "existing", name: "Existing job", status: "READY", sourceServer: servers[0], targetServer: servers[1] }] }));
+		renderWithI18n(<BidirectionalSyncPanel canManage={canManage} servers={[]} />);
+		expect(await screen.findByText("Existing job")).toBeVisible();
+		expect(screen.getByText(canManage ? "请先添加至少一台服务器节点。" : /你可以查看任务和报告/)).toBeVisible();
+		if (!canManage) expect(screen.queryByText(/请先添加/)).not.toBeInTheDocument();
+		expect(screen.queryByPlaceholderText(/.+/)).not.toBeInTheDocument();
+		expect(screen.queryAllByRole("combobox")).toHaveLength(canManage ? 1 : 0);
+	});
+
 	it("loads the job list once on mount", async () => {
 		vi.mocked(globalThis.fetch).mockResolvedValueOnce(jsonResponse({ jobs: [] }));
-		renderWithI18n(<BidirectionalSyncPanel servers={servers} />);
+		renderWithI18n(<BidirectionalSyncPanel canManage servers={servers} />);
 
 		expect(await screen.findByText("暂无同步任务")).toBeVisible();
 		expect(globalThis.fetch).toHaveBeenCalledTimes(1);
@@ -39,7 +49,7 @@ describe("BidirectionalSyncPanel", () => {
 			.mockResolvedValueOnce(jsonResponse({ jobs: [] }))
 			.mockResolvedValueOnce(jsonResponse({ job: { id: "job-1" } }, 201))
 			.mockResolvedValueOnce(jsonResponse({ jobs: [] }));
-		renderWithI18n(<BidirectionalSyncPanel servers={servers} />);
+		renderWithI18n(<BidirectionalSyncPanel canManage servers={servers} />);
 		await screen.findByText("暂无同步任务");
 
 		fireEvent.click(screen.getByRole("button", { name: "创建同步任务" }));
@@ -87,7 +97,7 @@ describe("BidirectionalSyncPanel", () => {
 					},
 				}),
 			);
-		renderWithI18n(<BidirectionalSyncPanel servers={servers} />);
+		renderWithI18n(<BidirectionalSyncPanel canManage servers={servers} />);
 
 		fireEvent.click(await screen.findByRole("button", { name: "报告" }));
 
@@ -96,7 +106,7 @@ describe("BidirectionalSyncPanel", () => {
 
 	it("uses the shared notice for API errors", async () => {
 		vi.mocked(globalThis.fetch).mockResolvedValueOnce(jsonResponse({ error: "同步服务不可用" }, 503));
-		renderWithI18n(<BidirectionalSyncPanel servers={servers} />);
+		renderWithI18n(<BidirectionalSyncPanel canManage servers={servers} />);
 
 		expect(await screen.findByRole("alert")).toHaveTextContent("同步服务不可用");
 	});

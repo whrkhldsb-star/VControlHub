@@ -1,4 +1,6 @@
 import { requireSession } from "@/lib/auth/require-session";
+import { sessionHasPermission } from "@/lib/auth/authorization";
+import { ButtonLink } from "@/components/action-button";
 import { t, getServerLocale } from "@/lib/i18n/translations";
 import { PageShell, PageHeader } from "@/components/page-shell";
 
@@ -7,7 +9,9 @@ import { ChangePasswordForm } from "./change-password-form";
 export const dynamic = "force-dynamic";
 
 export default async function AccountPasswordPage() {
-  await requireSession("/account/password");
+  const session = await requireSession("/account/password");
+  // The shared-account tip points to user management only for someone who can create accounts there.
+  const canManageUsers = sessionHasPermission(session, "user:manage");
   const locale = await getServerLocale();
 
   return (
@@ -24,6 +28,16 @@ export default async function AccountPasswordPage() {
             <li>{t("accountPasswordPage.tip2", locale)}</li>
             <li>{t("accountPasswordPage.tip3", locale)}</li>
           </ul>
+          <div className="mt-4 flex flex-wrap gap-2">
+            <ButtonLink href="/account/security" variant="secondary" size="sm">
+              {t("accountPasswordPage.link.security", locale)}
+            </ButtonLink>
+            {canManageUsers ? (
+              <ButtonLink href="/users" variant="secondary" size="sm">
+                {t("accountPasswordPage.link.users", locale)}
+              </ButtonLink>
+            ) : null}
+          </div>
         </aside>
       </section>
     </PageShell>

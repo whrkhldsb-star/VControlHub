@@ -52,6 +52,7 @@ function isActiveHref(pathname: string, href: string) {
 function NavLink({
 	item,
 	label,
+	description,
 	active,
 	collapsed,
 	pinned,
@@ -61,6 +62,8 @@ function NavLink({
 }: {
 	item: AppNavItem;
 	label: string;
+	/** What the page is for; the expanded link's tooltip, appended to the collapsed rail's name. */
+	description?: string;
 	active: boolean;
 	collapsed: boolean;
 	pinned: boolean;
@@ -75,7 +78,7 @@ function NavLink({
 				onClick={onNavigate}
 				aria-current={active ? "page" : undefined}
 				aria-label={collapsed ? label : undefined}
-				title={collapsed ? label : undefined}
+				title={collapsed ? (description ? `${label} — ${description}` : label) : description}
 				className={cn(
 					"relative flex min-h-8 min-w-0 items-center gap-2.5 rounded-md text-[13.5px] transition-colors duration-150",
 					collapsed ? "mx-auto h-9 w-9 justify-center" : "px-2.5 py-1.5 pr-8",
@@ -176,12 +179,14 @@ export function AppSidebar({
 		const close = () => setMobileOpen(false);
 		const link = (item: AppNavItem, inPinned = false) => {
 			const label = navLabel(t, item);
+			const description = t(item.descKey);
 			const pinned = pins.includes(item.href);
 			return (
 				<NavLink
 					key={`${inPinned ? "pin:" : ""}${item.href}`}
 					item={item}
 					label={label}
+					description={description === item.descKey ? undefined : description}
 					active={isActiveHref(pathname, item.href)}
 					collapsed={compact}
 					pinned={pinned}

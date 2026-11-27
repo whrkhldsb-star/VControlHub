@@ -22,7 +22,7 @@ export type QuickServiceServerOption = {
 
 type TFn = (key: string, vars?: Record<string, string | number>) => string;
 
-export function useQuickServiceCatalog(t: TFn, canManageHubHost = true) {
+export function useQuickServiceCatalog(t: TFn, canManageHubHost = true, requestedServer = "") {
   const [catalog, setCatalog] = useState<CatalogItem[]>([]);
   const [remoteCatalog, setRemoteCatalog] = useState<CatalogItem[]>([]);
   const [sources, setSources] = useState<AppSource[]>([]);
@@ -30,7 +30,7 @@ export function useQuickServiceCatalog(t: TFn, canManageHubHost = true) {
   const [dockerStatus, setDockerStatus] = useState<DockerEnvironmentStatus | null>(null);
   const [servers, setServers] = useState<QuickServiceServerOption[]>([]);
   /** empty string = hub-host */
-  const [selectedServerId, setSelectedServerId] = useState("");
+  const [selectedServerId, setSelectedServerId] = useState(requestedServer);
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState<string | null>(null);
   const [sourcesError, setSourcesError] = useState<string | null>(null);
@@ -51,6 +51,11 @@ export function useQuickServiceCatalog(t: TFn, canManageHubHost = true) {
         : "";
       const data = await csrfFetch(`/api/quick-services${qs}`);
       if (catalogServerRef.current !== serverAtFetch) return;
+      if (serverAtFetch && !data.servers?.some((s: QuickServiceServerOption) => s.id === serverAtFetch)) {
+        setServers(data.servers ?? []);
+        setError(t("qsPage.invalidTarget"));
+        return;
+      }
       if (data.hubHostDenied === true) {
         // The hub host is platform infrastructure; this account only gets the
         // nodes it may install on. Move to the first one, or say there is none.

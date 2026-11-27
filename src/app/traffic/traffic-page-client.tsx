@@ -12,7 +12,7 @@ import { appTimeZoneDateKey } from "@/lib/datetime/time-zone";
 import { useVisibilityInterval } from "@/lib/hooks/use-visibility-interval";
 import { TrafficChart, type TrafficSample } from "./traffic-chart";
 
-import { ActionButton } from "@/components/action-button";
+import { ActionButton, ButtonLink } from "@/components/action-button";
 import { StatusBadge } from "@/components/status-badge";
 import { Chip, InlineLoading, Notice, SegmentedControl } from "@/components/ui-primitives";
 import { getErrorMessage } from "@/lib/http/error-message";
@@ -151,14 +151,15 @@ export function groupHistory(points: TrafficHistoryPoint[], scope: "24h" | "7d")
   return grouped;
 }
 
-export default function TrafficPage() {
+export default function TrafficPage({ showHubTraffic = true }: { showHubTraffic?: boolean } = {}) {
   const { t, locale } = useI18n();
   const [summary, setSummary] = useState<TrafficSummary | null>(null);
   const [remoteServers, setRemoteServers] = useState<RemoteServerTraffic[] | null>(null);
   const [remoteLoading, setRemoteLoading] = useState(false);
   const [remoteError, setRemoteError] = useState("");
+  const [remoteTruncated, setRemoteTruncated] = useState(false);
   const [selectedIface, setSelectedIface] = useState("");
-  const [loading, setLoading] = useState(true);
+  const [loading, setLoading] = useState(showHubTraffic);
   const [error, setError] = useState("");
   const [autoRefresh, setAutoRefresh] = useState(true);
   const refreshIntervalSeconds = useRefreshInterval(30);
@@ -274,6 +275,7 @@ export default function TrafficPage() {
       }
       setRemoteError("");
       setRemoteServers(data.remoteServers ?? []);
+      setRemoteTruncated(Boolean(data.truncated?.servers));
     } catch (cause) {
       if (controller.signal.aborted) return;
       // Said in the card. Kept quiet, a first read that failed left the list empty and the card reporting
@@ -294,12 +296,13 @@ export default function TrafficPage() {
   }, []);
 
   useEffect(() => {
+    if (!showHubTraffic) return;
     const timer = setTimeout(() => {
       void fetchSummary();
       if (historyScope !== "live") void fetchHistory(historyScope);
     }, 0);
     return () => clearTimeout(timer);
-  }, [fetchHistory, fetchSummary, historyScope]);
+  }, [fetchHistory, fetchSummary, historyScope, showHubTraffic]);
 
   useEffect(() => {
     const timer = setTimeout(() => { void fetchRemote(); }, 0);
@@ -308,7 +311,7 @@ export default function TrafficPage() {
   const autoRefreshing = autoRefresh && refreshIntervalSeconds > 0;
   useVisibilityInterval(() => {
     // The live tab refreshes the summary on its own cadence below.
-    if (historyScope !== "live") {
+    if (showHubTraffic && historyScope !== "live") {
       void fetchSummary();
       void fetchHistory(historyScope);
     }
@@ -318,14 +321,16 @@ export default function TrafficPage() {
   // moved in steps; the live tab samples every 5 s while it is on screen.
   useVisibilityInterval(() => {
     void fetchSummary();
-  }, autoRefreshing && historyScope === "live" ? LIVE_POLL_MS : null);
+  }, showHubTraffic && autoRefreshing && historyScope === "live" ? LIVE_POLL_MS : null);
 
   // Everything the page shows: refreshing the summary alone left the remote
   // readings and the history curve as they were (and with manual refresh
   // nothing else would update them).
   const refreshAll = () => {
-    void fetchSummary();
-    if (historyScope !== "live") void fetchHistory(historyScope);
+    if (showHubTraffic) {
+      void fetchSummary();
+      if (historyScope !== "live") void fetchHistory(historyScope);
+    }
     void fetchRemote();
   };
 
@@ -338,7 +343,11 @@ export default function TrafficPage() {
 
   return (
     <PageShell>
-      <PageHeader eyebrow={t("trafficPage.eyebrow")} title={t("trafficPage.title")} description={t("trafficPage.desc")}>
+      <PageHeader
+        eyebrow={t("trafficPage.eyebrow")}
+        title={t("trafficPage.title")}
+        description={showHubTraffic ? t("trafficPage.desc") : t("trafficPage.descCustomer")}
+      >
         <ActionButton size="sm" type="button" variant="ghost" onClick={refreshAll}>{t("trafficPage.refresh")}</ActionButton>
         <Chip size="md" tone="success" selected={autoRefresh} onClick={() => setAutoRefresh((v) => !v)} disabled={refreshIntervalSeconds <= 0}>
           {autoRefresh
@@ -351,23 +360,27 @@ export default function TrafficPage() {
 
       {error && <Notice tone="danger">{error}</Notice>}
       {historyError && <Notice tone="danger">{historyError}</Notice>}
-      {summary?.truncated && (summary.truncated.servers || summary.truncated.storageNodes) ? <Notice tone="warning">{t("trafficPage.truncated")}</Notice> : null}
+      {remoteTruncated || (summary?.truncated && (summary.truncated.servers || summary.truncated.storageNodes)) ? <Notice tone="warning">{t("trafficPage.truncated")}</Notice> : null}
 
-      <div className="mb-5 flex flex-wrap items-center gap-2">
-        <SegmentedControl
-          size="sm"
-          ariaLabel={t("trafficPage.historyScopeLabel")}
-          value={historyScope}
-          onChange={(scope) => {
-            setHistoryScope(scope);
-            if (scope !== "live") void fetchHistory(scope);
-          }}
-          options={SCOPE_BUTTONS.map(({ scope, label, labelKey }) => ({ value: scope, label: labelKey ? t(labelKey) : label }))}
-        />
-        <span className="text-xs text-[var(--text-muted)]">{t(HISTORY_HINT_KEYS[historyScope])}</span>
-      </div>
+      {showHubTraffic ? (
+        <div className="mb-5 flex flex-wrap items-center gap-2">
+          <SegmentedControl
+            size="sm"
+            ariaLabel={t("trafficPage.historyScopeLabel")}
+            value={historyScope}
+            onChange={(scope) => {
+              setHistoryScope(scope);
+              if (scope !== "live") void fetchHistory(scope);
+            }}
+            options={SCOPE_BUTTONS.map(({ scope, label, labelKey }) => ({ value: scope, label: labelKey ? t(labelKey) : label }))}
+          />
+          <span className="text-xs text-[var(--text-muted)]">{t(HISTORY_HINT_KEYS[historyScope])}</span>
+        </div>
+      ) : null}
 
       <div className="space-y-5">
+        {showHubTraffic ? (
+          <>
         <Card title={t("trafficPage.card.realtime")}>
           {loading && !summary ? (
             <InlineLoading label={t("trafficPage.loading")} />
@@ -427,6 +440,8 @@ export default function TrafficPage() {
             </div>
           ) : null}
         </Card>
+          </>
+        ) : null}
 
         <Card title={t("trafficPage.card.remote")}>
           {remoteError ? <Notice tone="danger" compact className="mb-3">{remoteError}</Notice> : null}
@@ -436,7 +451,11 @@ export default function TrafficPage() {
               {t("trafficPage.remoteSampling")}
             </div>
           ) : !remoteServers ? null : remoteServers.length === 0 ? (
-            <div className="text-sm text-[var(--text-muted)]">{t("trafficPage.noRemote")}</div>
+            <EmptyState
+              icon={<Activity size={20} />}
+              text={t("trafficPage.noRemote")}
+              action={<ButtonLink href="/servers" size="sm" variant="secondary">{t("trafficPage.gotoServers")}</ButtonLink>}
+            />
           ) : (
             <div className="grid grid-cols-1 gap-3 md:grid-cols-2">
               {(remoteServers ?? []).map((node) => (

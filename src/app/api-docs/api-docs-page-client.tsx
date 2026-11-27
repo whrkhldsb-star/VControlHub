@@ -2,12 +2,14 @@
 
 import { useEffect, useMemo, useState } from "react";
 import { useI18n } from "@/lib/i18n/use-locale";
-import { PageShell, PageHeader, Toolbar } from "@/components/page-shell";
+import { EmptyState, PageShell, PageHeader, Toolbar } from "@/components/page-shell";
+import { PageGuide } from "@/components/page-guide";
+import { useGateRoute } from "@/lib/auth/use-gate-route";
 import { getErrorMessage } from "@/lib/http/error-message";
 import { Badge, InlineLoading, Notice } from "@/components/ui-primitives";
 import { api } from "@/lib/http/api-client";
 
-import { ButtonLink } from "@/components/action-button";
+import { ActionButton, ButtonLink } from "@/components/action-button";
 import { UI_INPUT } from "@/lib/ui/classes";
 import { cn } from "@/lib/ui/cn";
 type OpenApiOperation = {
@@ -100,6 +102,8 @@ export default function ApiDocsPage() {
 		}
 		return Array.from(byTag.entries());
 	}, [filtered]);
+	// The quick start links to token creation only for an account that may create one.
+	const canCreateTokens = useGateRoute().can("api-token:manage");
 	const tagDescriptions = useMemo(
 		() => new Map((spec?.tags ?? []).map((tag) => [tag.name, tag.description ?? ""])),
 		[spec],
@@ -121,6 +125,14 @@ export default function ApiDocsPage() {
 						{t("apiDocsPage.openApiJsonLink")}
 					</ButtonLink>
 				</PageHeader>
+
+				<PageGuide
+					defaultOpen
+					title={t("apiDocsPage.guide.title")}
+					summary={t("apiDocsPage.guide.summary")}
+					steps={[t("apiDocsPage.guide.step1"), t("apiDocsPage.guide.step2"), t("apiDocsPage.guide.step3")]}
+					links={canCreateTokens ? [{ href: "/api-tokens", label: t("apiDocsPage.guide.createToken") }] : undefined}
+				/>
 
 				<Toolbar className="w-full">
 					<label className="block min-w-0 flex-1">
@@ -146,6 +158,15 @@ export default function ApiDocsPage() {
 					<div data-inset className="p-8">
 						<InlineLoading label={t("apiDocsPage.loading")} />
 					</div>
+				) : null}
+
+				{spec && filtered.length === 0 && query.trim() ? (
+					<EmptyState
+						variant="boxed"
+						title={t("apiDocsPage.noMatches")}
+						text={t("apiDocsPage.noMatchesHint")}
+						action={<ActionButton size="sm" variant="secondary" onClick={() => setQuery("")}>{t("apiDocsPage.clearSearch")}</ActionButton>}
+					/>
 				) : null}
 
 				{grouped.map(([tag, tagEntries]) => (

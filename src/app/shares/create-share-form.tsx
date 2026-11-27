@@ -182,6 +182,7 @@ export function CreateShareForm({ nodes }: { nodes: StorageNode[] }) {
 
           {result && (
             <Notice tone="success" className="mt-3" title={t("sharesPage.create.success")}>
+              <p className="font-medium">{t("shares.copyNow")}</p>
               <div className="mt-1 flex items-center gap-2">
                 <code className="ui-mono block flex-1 break-all text-xs text-[var(--text-primary)]">{shareUrl || `/share/${result.token}`}</code>
                 <ActionButton

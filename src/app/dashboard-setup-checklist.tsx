@@ -10,10 +10,39 @@ import { writeLocalStorageValue } from "@/lib/browser-storage";
 import { useBrowserStorageSnapshot } from "@/lib/hooks/use-browser-storage-snapshot";
 import { Check } from "@/components/icons";
 
-const DISMISS_KEY = "vch.setupChecklist.dismissed";
+/** Where "hide the setup checklist" is remembered, per browser. */
+export const SETUP_CHECKLIST_DISMISS_KEY = "vch.dashboard.setupChecklist.dismissed";
+/** The key before it was scoped to the dashboard; a hidden checklist stays hidden across the rename. */
+const LEGACY_DISMISS_KEY = "vch.setupChecklist.dismissed";
 
 function readDismissed(storage: Storage): boolean {
-	return storage.getItem(DISMISS_KEY) === "1";
+	const value = storage.getItem(SETUP_CHECKLIST_DISMISS_KEY);
+	if (value !== null) return value === "1";
+	return storage.getItem(LEGACY_DISMISS_KEY) === "1";
+}
+
+function useSetupChecklistDismissed(): boolean {
+	return useBrowserStorageSnapshot(SETUP_CHECKLIST_DISMISS_KEY, readDismissed, false);
+}
+
+/** Bring a hidden checklist back (the dashboard header's "Show setup guide"). */
+export function reopenSetupChecklist(): void {
+	writeLocalStorageValue(SETUP_CHECKLIST_DISMISS_KEY, "0");
+}
+
+/**
+ * The way back to a checklist someone hid: a quiet header action that shows only while steps remain and the
+ * checklist is hidden.
+ */
+export function SetupChecklistReopenButton({ pending }: { pending: number }) {
+	const { t } = useI18n();
+	const dismissed = useSetupChecklistDismissed();
+	if (!dismissed || pending === 0) return null;
+	return (
+		<ActionButton variant="ghost" onClick={reopenSetupChecklist}>
+			{t("dashboard.setup.reopen", { count: pending })}
+		</ActionButton>
+	);
 }
 
 const ITEM_LABEL_KEY: Record<SetupChecklistItem["id"], string> = {
@@ -38,13 +67,13 @@ type Props = {
 
 export function DashboardSetupChecklist({ items }: Props) {
 	const { t } = useI18n();
-	const dismissed = useBrowserStorageSnapshot(DISMISS_KEY, readDismissed, false);
+	const dismissed = useSetupChecklistDismissed();
 
 	const pending = countPendingSetupItems(items);
 	if (pending === 0 || dismissed) return null;
 
 	const dismiss = () => {
-		writeLocalStorageValue(DISMISS_KEY, "1");
+		writeLocalStorageValue(SETUP_CHECKLIST_DISMISS_KEY, "1");
 	};
 
 	const done = items.length - pending;

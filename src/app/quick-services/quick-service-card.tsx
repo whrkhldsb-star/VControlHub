@@ -1,6 +1,6 @@
 "use client";
 
-import { ActionButton } from "@/components/action-button";
+import { ActionButton, ButtonLink } from "@/components/action-button";
 import { Star } from "@/components/icons";
 import { StatusBadge } from "@/components/status-badge";
 /**
@@ -61,6 +61,7 @@ export function ServiceCard({
 	onUpdate,
 	onSync,
 	onUninstall,
+	dockerHref,
 	accessHost,
 	accessProtocol,
 }: {
@@ -73,6 +74,7 @@ export function ServiceCard({
 	onUpdate: () => void;
 	onSync: () => void;
 	onUninstall: () => void;
+	dockerHref?: string;
 	accessHost: string;
 	accessProtocol?: string;
 }) {
@@ -136,6 +138,7 @@ export function ServiceCard({
 				)}
 				{tab === "installed" && (
 					<>
+						{dockerHref && <ButtonLink href={dockerHref} size="sm">{t("qsPage.inspectContainers")}</ButtonLink>}
 						{item.status === "running" && access && (
 							<a
 								href={access.url}

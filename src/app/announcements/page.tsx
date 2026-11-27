@@ -35,7 +35,7 @@ export default async function AnnouncementsPage() {
 	return (
 		<PageShell>
 			<AnnouncementsPageClient
-				header={{ eyebrow: t("announcementsPage.eyebrow", locale), title: t("announcementsPage.title", locale), description: t("announcementsPage.desc", locale) }}
+				header={{ eyebrow: t("announcementsPage.eyebrow", locale), title: t("announcementsPage.title", locale), description: t(canManage ? "announcementsPage.descManage" : "announcementsPage.desc", locale) }}
 				canManage={canManage}
 				items={serialized}
 				now={now}

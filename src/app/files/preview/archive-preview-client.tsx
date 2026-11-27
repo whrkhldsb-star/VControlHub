@@ -106,6 +106,7 @@ export function ArchivePreviewClient({
 				<ActionButton variant="secondary" icon={<RefreshCw aria-hidden />} onClick={loadArchiveContents} disabled={loading}>
 					{loading ? t("archivePreview.loading") : t("archivePreview.refreshList")}
 				</ActionButton>
+				{driver !== "LOCAL" && <p>{t("filesPage.remoteArchive")}</p>}
 				{canExtract ? <span className="text-xs text-[var(--text-muted)]">{t("archivePreview.extractHint")}</span> : null}
 			</div>
 

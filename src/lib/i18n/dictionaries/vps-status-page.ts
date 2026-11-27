@@ -4,7 +4,7 @@
 export const zh: Record<string, string> = {
 	"vpsStatusPage.title": "节点状态",
 	"vpsStatusPage.description": "纳管节点的在线状态、资源占用与容量预测。指标通过 SSH 或节点 Agent 采集，刷新间隔与系统设置一致。",
-	"vpsStatusPage.eyebrow": "探针看板",
+	"vpsStatusPage.eyebrow": "节点监控",
 	"vpsStatusPage.serverCount": "纳管节点 {count} 台",
 	"vpsStatusPage.error.network": "网络不通：{detail}",
 	"vpsStatusPage.error.ssh": "主机在线（往返 {rtt} 毫秒），但 SSH 连不上：{detail}",
@@ -45,7 +45,7 @@ export const zh: Record<string, string> = {
 export const en: Record<string, string> = {
 	"vpsStatusPage.title": "Node status",
 	"vpsStatusPage.description": "Availability, resource usage and capacity forecasts for managed nodes. Metrics come over SSH or the node Agent; the refresh interval follows system settings.",
-	"vpsStatusPage.eyebrow": "Probe board",
+	"vpsStatusPage.eyebrow": "Node monitoring",
 	"vpsStatusPage.serverCount": "{count} managed {count|node|nodes}",
 	"vpsStatusPage.error.network": "Network unreachable: {detail}",
 	"vpsStatusPage.error.ssh": "Host online (round trip {rtt} ms), but SSH is unreachable: {detail}",

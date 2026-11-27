@@ -7,8 +7,15 @@
 
 export const zh: Record<string, string> = {
 	"scheduledTasksPage.header.title": "定时任务",
-	"scheduledTasksPage.header.description": "配置 Cron 表达式，自动向 VPS 节点下发待审批命令",
+	"scheduledTasksPage.header.description": "按 Cron 周期或指定时间自动向 VPS 节点下发单条命令，支持逐次审批或免审执行",
 	"scheduledTasksPage.eyebrow": "自动化",
+	"scheduledTasksPage.openPlaybooks": "Playbook 自动化",
+	"scheduledTasksPage.openServers": "前往 VPS 管理",
+	"scheduledTasksPage.guide.title": "定时任务与 Playbook 的区别",
+	"scheduledTasksPage.guide.summary": "适合按时间周期或单次定时执行一条命令",
+	"scheduledTasksPage.guide.step1": "定时任务面向单条运维命令（如日志清理、定期巡检），可直接套用命令模板并设置回滚命令。",
+	"scheduledTasksPage.guide.step2": "默认每次触发前需经审批中心确认；拥有审批权限的成员可切换为“确认后自动运行”。",
+	"scheduledTasksPage.guide.step3": "如果需要串行编排多步命令、发送通知或按 CPU/内存/磁盘指标自动触发，请使用 Playbook 自动化。",
 	"scheduledTasks.createFailed": "创建失败",
 	"scheduledTasks.updateFailed": "修改没有保存",
 	"scheduledTasks.cron.custom": "自定义 Cron；保存时服务端会计算下一次运行时间",
@@ -104,8 +111,15 @@ export const zh: Record<string, string> = {
 
 export const en: Record<string, string> = {
 	"scheduledTasksPage.header.title": "Scheduled tasks",
-	"scheduledTasksPage.header.description": "Configure Cron expressions to automatically dispatch approval-gated commands to VPS nodes.",
+	"scheduledTasksPage.header.description": "Run a single command on a recurring Cron schedule or one-time date across VPS nodes, with optional per-run approval.",
 	"scheduledTasksPage.eyebrow": "Automation",
+	"scheduledTasksPage.openPlaybooks": "Playbook automation",
+	"scheduledTasksPage.openServers": "Open servers",
+	"scheduledTasksPage.guide.title": "How scheduled tasks differ from playbooks",
+	"scheduledTasksPage.guide.summary": "Best for running a single command on a schedule or one-time date",
+	"scheduledTasksPage.guide.step1": "Use scheduled tasks for a single recurring or one-off command (such as log cleanup), optionally filled from a command template with a rollback command.",
+	"scheduledTasksPage.guide.step2": "By default each run queues for approval; command approvers can switch a task to run unattended.",
+	"scheduledTasksPage.guide.step3": "For multi-step chains combining commands, notifications, webhooks, or metric triggers, use Playbook automation.",
 	"scheduledTasks.createFailed": "Create failed",
 	"scheduledTasks.updateFailed": "The changes were not saved",
 	"scheduledTasks.cron.custom": "Custom cron; the server will compute the next run time on save",

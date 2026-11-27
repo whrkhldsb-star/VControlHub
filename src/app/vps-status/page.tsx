@@ -1,4 +1,5 @@
 import { requirePagePermission } from "@/lib/auth/page-guard";
+import { isGlobalTeamManager } from "@/lib/auth/team-scope";
 import { countServerProfiles } from "@/lib/server/service";
 import { PageShell, PageHeader } from "@/components/page-shell";
 import { getServerLocale, t } from "@/lib/i18n/translations";
@@ -24,7 +25,7 @@ export default async function VpsStatusPage() {
 					{t("vpsStatusPage.serverCount", locale, { count: serverCount })}
 				</div>
 			</PageHeader>
-			<VpsStatusClient serverCount={serverCount} />
+			<VpsStatusClient serverCount={serverCount} isPlatformAdmin={isGlobalTeamManager(session)} />
 		</PageShell>
 	);
 }

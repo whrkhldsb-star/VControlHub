@@ -71,6 +71,8 @@ export type { FolderProp } from "./file-list-model";
 const EXTRACTABLE_ARCHIVE = /\.(zip|jar|tar|tgz|tar\.gz)$/i;
 
 type FileListClientProps = {
+  emptyAction?: React.ReactNode;
+  emptyDescription?: string;
   folders: FolderProp[];
   files: FileProp[];
   canEditLocalFiles: boolean;
@@ -189,6 +191,8 @@ type BodyProps = FileListClientProps & {
 };
 
 function FileListBody({
+  emptyAction,
+  emptyDescription,
   folders,
   canEditLocalFiles,
   canDelete,
@@ -472,7 +476,8 @@ function FileListBody({
     : t("fileListClient.emptyFolder");
   const empty = (
     <FileListEmptyState
-      emptyMessage={emptyMessage}
+      emptyMessage={emptyDescription ?? emptyMessage}
+      action={emptyAction}
       onGoUp={parentPath !== null ? () => navigateToFolder(parentPath) : undefined}
     />
   );

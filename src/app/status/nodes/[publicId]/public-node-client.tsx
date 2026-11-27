@@ -10,6 +10,7 @@ import Link from "next/link";
 import { useCallback, useEffect, useMemo, useState, type ReactNode } from "react";
 
 import { ActionButton } from "@/components/action-button";
+import { ArrowLeft } from "@/components/icons";
 import { LanguageToggle } from "@/components/language-toggle";
 import { ThemeToggle } from "@/components/theme-toggle";
 import { SegmentedControl } from "@/components/ui-primitives";
@@ -262,7 +263,7 @@ export function PublicNodeClient({ initial, initialRange, preview, signedIn }: {
 	return (
 		<div style={accentStyle(detail.site.accent)} className="flex flex-col gap-5" data-public-node-detail={node.id}>
 			<div className="flex flex-wrap items-center justify-between gap-2">
-				<Link href={backHref} className="text-sm text-[var(--board-accent)] hover:underline">← {t("publicStatus.back")}</Link>
+				<Link href={backHref} className="inline-flex items-center gap-1 text-sm text-[var(--board-accent)] hover:underline"><ArrowLeft size={14} aria-hidden />{t("publicStatus.back")}</Link>
 				<div className="flex items-center gap-2">
 					<LanguageToggle compact />
 					<ThemeToggle compact />

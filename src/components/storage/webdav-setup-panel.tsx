@@ -1,5 +1,8 @@
 "use client";
 
+import { ActionButton, ButtonLink } from "@/components/action-button";
+import { Notice } from "@/components/ui-primitives";
+import { copyText } from "@/lib/ui/clipboard";
 import Link from "next/link";
 import { useMemo, useState } from "react";
 
@@ -13,13 +16,14 @@ export function WebDavSetupPanel({ nodes, origin }: { nodes: NodeOption[]; origi
   const { t } = useI18n();
   const [nodeId, setNodeId] = useState(nodes[0]?.id ?? "");
 
+  const [feedback, setFeedback] = useState("");
   const url = useMemo(() => {
     if (!nodeId) return "";
     return `${origin}/api/webdav/${encodeURIComponent(nodeId)}/`;
   }, [nodeId, origin]);
 
   if (nodes.length === 0) {
-    return <p className="text-xs text-[var(--text-muted)]">{t("filesPage.webdav.noNodes")}</p>;
+    return <Notice tone="info">{t("filesPage.webdav.noNodes")} <ButtonLink href="/files" size="sm">{t("filesPage.subNav.browser")}</ButtonLink></Notice>;
   }
 
   return (
@@ -30,7 +34,7 @@ export function WebDavSetupPanel({ nodes, origin }: { nodes: NodeOption[]; origi
         <select
           className={`${UI_INPUT} mt-1`}
           value={nodeId}
-          onChange={(e) => setNodeId(e.target.value)}
+          onChange={(e) => { setNodeId(e.target.value); setFeedback(""); }}
         >
           {nodes.map((n) => (
             <option key={n.id} value={n.id}>
@@ -39,9 +43,13 @@ export function WebDavSetupPanel({ nodes, origin }: { nodes: NodeOption[]; origi
           ))}
         </select>
       </label>
+      <p>{t("filesPage.webdav.stepCopy")}</p>
       <div data-inset className="p-3 font-mono text-xs break-all">
         {url || t("filesPage.webdav.pickNode")}
       </div>
+      <ActionButton size="sm" onClick={async () => setFeedback(await copyText(url) ? "filesPage.webdav.copied" : "filesPage.webdav.copyFailed")}>{t("filesPage.webdav.copy")}</ActionButton>
+      <span role="status">{feedback && t(feedback)}</span>
+      <p>{t("filesPage.webdav.stepConnect")}</p>
       <ul className="list-disc space-y-1 pl-4 text-xs text-[var(--text-muted)]">
         <li>{t("filesPage.webdav.authBearer")}</li>
         <li>{t("filesPage.webdav.authBasic")}</li>

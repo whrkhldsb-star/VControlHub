@@ -13,6 +13,7 @@ import { useState } from "react";
 import { useI18n } from "@/lib/i18n/use-locale";
 import { StatusScreen } from "@/components/page-shell";
 import { Radio } from "@/components/icons";
+import { ActionButton } from "@/components/action-button";
 
 export default function OfflinePage() {
   const { t } = useI18n();
@@ -32,18 +33,25 @@ export default function OfflinePage() {
         </p>
       }
       actions={
-        // A plain link: the browser must make a real request to find out
-        // whether the network is back.
-        <a
-          href="/dashboard"
-          onClick={() => setRetrying(true)}
-          aria-busy={retrying}
-          data-action-button=""
-          data-variant="primary"
-          data-size="lg"
-        >
-          {retrying ? t("pwa.offline.retrying") : t("pwa.offline.retry")}
-        </a>
+        <>
+          {/* Reload the address that failed: the browser makes a real request to find out whether the network is
+              back, and the person lands where they were going. */}
+          <ActionButton
+            variant="primary"
+            size="lg"
+            loading={retrying}
+            onClick={() => {
+              setRetrying(true);
+              window.location.reload();
+            }}
+          >
+            {retrying ? t("pwa.offline.retrying") : t("pwa.offline.retry")}
+          </ActionButton>
+          {/* A plain link on purpose: a full request, not a client navigation that would stay offline. */}
+          <a href="/dashboard" data-action-button="" data-variant="secondary" data-size="lg">
+            {t("pwa.offline.tryDashboard")}
+          </a>
+        </>
       }
     />
   );

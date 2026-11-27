@@ -31,6 +31,10 @@ function resolveErrorMessage(locale: Locale, error?: string, rawMinutes?: string
 	if (error === "rate_limited") {
 		return t("login.error.rateLimited", locale);
 	}
+	if (error === "expired") {
+		// The two-factor step timed out (/login/verify-2fa sends the person back here).
+		return t("login.verify2faExpired", locale);
+	}
 	if (error === "locked") {
 		// The lock lasts 15 minutes unless the URL says how many are left.
 		return t("login.error.locked", locale, { count: minutes ?? 15 });
@@ -120,6 +124,8 @@ export default async function LoginPage({ searchParams }: LoginPageProps) {
 							<p className="mt-2 text-sm text-[var(--text-secondary)]">{t("login.branding.subtitle", locale)}</p>
 						</div>
 						<LoginForm nextPath={nextPath} error={error} locale={locale} turnstileSiteKey={turnstile?.siteKey} nonce={nonce} />
+						{/* There is no self-service sign-up or reset: accounts are created and reset by an administrator. */}
+						<p className="mt-5 text-xs leading-5 text-[var(--text-muted)]">{t("login.branding.accountHelp", locale)}</p>
 					</section>
 				</div>
 			</div>

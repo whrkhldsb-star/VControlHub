@@ -30,6 +30,15 @@ function formatSize(locale: "zh" | "en", bytes: bigint | number | null) {
   return formatBytes(bytes, { fallback: t("sharePage.sizeUnknown", locale) });
 }
 
+function childRelativePath(root: string, path: string) {
+  return path.split("/").slice(root.split("/").filter(Boolean).length).join("/");
+}
+
+function childHref(token: string, root: string, path: string) {
+  const child = childRelativePath(root, path);
+  return `/api/share/${encodeURIComponent(token)}/files?file=${encodeURIComponent(child)}`;
+}
+
 export default async function SharePage({
   params,
 }: {
@@ -134,15 +143,9 @@ export default async function SharePage({
 
             <div data-tile className="p-4">
               <p className="break-all text-base font-medium text-[var(--text-primary)]">
-                {isLocked ? (share.name || t("sharePage.fileTitle", locale)) : (share.name || share.path)}
+                {share.name || t("sharePage.fileTitle", locale)}
               </p>
               <dl className="mt-3 grid gap-1.5 text-xs text-[var(--text-secondary)] sm:grid-cols-2">
-                {!isLocked ? (
-                <div className="flex justify-between gap-3">
-                  <dt>{t("sharePage.storageNode", locale)}</dt>
-                  <dd className="text-[var(--text-secondary)]">{share.storageNode?.name ?? "—"}</dd>
-                </div>
-                ) : null}
                 <div className="flex justify-between gap-3">
                   <dt>{t("sharePage.type", locale)}</dt>
                   <dd className="text-[var(--text-secondary)]">
@@ -155,12 +158,6 @@ export default async function SharePage({
                     {share.permissionLevel === "preview" ? t("sharePage.permissionPreview", locale) : t("sharePage.permissionDownload", locale)}
                   </dd>
                 </div>
-                {!isLocked ? (
-                <div className="flex justify-between gap-3 sm:col-span-2">
-                  <dt>{t("sharePage.path", locale)}</dt>
-                  <dd className="break-all text-right text-[var(--text-secondary)]">{share.path}</dd>
-                </div>
-                ) : null}
                 {share.expiresAt ? (
                   <div className="flex justify-between gap-3 sm:col-span-2">
                     <dt>{t("sharePage.expiresAt", locale)}</dt>
@@ -237,15 +234,20 @@ export default async function SharePage({
                       <div key={file.id} className="flex items-center justify-between gap-3 py-3">
                         <div className="min-w-0">
                           <div className="truncate text-sm font-medium text-[var(--text-primary)]">{file.name}</div>
-                          <div className="truncate text-xs text-[var(--text-muted)]" title={file.relativePath}>{file.relativePath} · {formatSize(locale, file.size)}</div>
+                          <div className="truncate text-xs text-[var(--text-muted)]">
+                            {(() => {
+                              const rel = childRelativePath(share.path, file.relativePath);
+                              return rel && rel !== file.name ? `${rel} · ` : "";
+                            })()}{formatSize(locale, file.size)}
+                          </div>
                         </div>
                         {!share.locked && !isPreviewOnly && (
                           <div className="flex shrink-0 gap-2">
-                            <a href={`/api/share/${encodeURIComponent(token)}?path=${encodeURIComponent(file.relativePath)}&inline=1`} target="_blank" rel="noreferrer" data-action-button data-size="sm" data-variant="secondary" className="inline-flex items-center gap-1.5">
+                            <a href={`${childHref(token, share.path, file.relativePath)}&inline=1`} target="_blank" rel="noreferrer" data-action-button data-size="sm" data-variant="secondary" className="inline-flex items-center gap-1.5">
                               <LinkIcon aria-hidden="true" className="h-3.5 w-3.5" />
                               {t("sharePage.openFile", locale)}
                             </a>
-                            <a href={`/api/share/${encodeURIComponent(token)}?path=${encodeURIComponent(file.relativePath)}`} download data-action-button data-size="sm" data-variant="primary" className="inline-flex items-center gap-1.5">
+                            <a href={childHref(token, share.path, file.relativePath)} download data-action-button data-size="sm" data-variant="primary" className="inline-flex items-center gap-1.5">
                               <Download aria-hidden="true" className="h-3.5 w-3.5" />
                               {t("sharePage.download", locale)}
                             </a>

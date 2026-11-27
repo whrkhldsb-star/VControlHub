@@ -7,7 +7,9 @@ import { activeCustomerTeamWhere, isGlobalTeamManager, serverTeamWhere, teamWher
 import { canReadCommandBody } from "@/lib/command/visibility";
 import { formatDateTime, formatShortTime } from "@/lib/datetime/format";
 import { buildAttentionChecks } from "@/lib/dashboard/attention";
-import { buildSetupChecklist, filterSetupChecklist } from "@/lib/dashboard/setup-checklist";
+import { buildSetupChecklist, countPendingSetupItems, filterSetupChecklist } from "@/lib/dashboard/setup-checklist";
+import { loadSidebarDeclaredPermissions } from "@/lib/auth/declared-permissions";
+import { mainNavItems, systemNavItems } from "@/components/nav-items";
 import { prisma } from "@/lib/db";
 import { getOperationTaskTitle } from "@/lib/i18n/domain-labels";
 import { getServerLocale, t } from "@/lib/i18n/translations";
@@ -21,6 +23,7 @@ import { getStorageOverview } from "@/lib/storage/service";
 import { incidentTitle } from "./alert-rules/incident-labels";
 import { DashboardAnalyticsPanel } from "./dashboard-analytics-panel";
 import { DashboardAttention } from "./dashboard-attention";
+import { DashboardFeatureMap } from "./dashboard-feature-map";
 import {
 	DashboardAnnouncements,
 	DashboardLocalizedHeader,
@@ -31,6 +34,8 @@ import {
 } from "./dashboard-localized-sections";
 import { DashboardPreferenceClient } from "./dashboard-preference-client";
 import { DashboardSetupChecklist } from "./dashboard-setup-checklist";
+
+const featureMapHrefs = [...mainNavItems, ...systemNavItems].map((item) => item.href);
 
 export async function DashboardContent({ sessionPath }: { sessionPath: "/" | "/dashboard" }) {
 	const session = await requireSession(sessionPath);
@@ -65,6 +70,7 @@ export async function DashboardContent({ sessionPath }: { sessionPath: "/" | "/d
 		dragReorderEnabledRaw,
 		enabledAlertRuleCount,
 		smtpEnabledRaw,
+		telegramEnabledRaw,
 		projectBackupScheduleCount,
 		vpsBackupScheduleCount,
 		serversWithMonthlyCost,
@@ -102,9 +108,10 @@ export async function DashboardContent({ sessionPath }: { sessionPath: "/" | "/d
 			: Promise.resolve(0),
 		getSetting("dashboard.layout.dragReorderEnabled"),
 		canManageNotifications
-			? prisma.alertRule.count({ where: { enabled: true, ...activeTeamScope } }).catch(() => 0)
-			: Promise.resolve(0),
+			? prisma.alertRule.count({ where: { enabled: true, ...activeTeamScope } }).catch(() => null)
+			: Promise.resolve(null),
 		canManageSettings ? getSetting("smtp.enabled") : Promise.resolve(null),
+		canManageSettings ? getSetting("telegram.enabled") : Promise.resolve(null),
 		canReadBackups ? prisma.backupSchedule.count({ where: isGlobalTeamManager(session) ? {} : activeTeamScope }).catch(() => 0) : Promise.resolve(0),
 		canReadBackups ? prisma.vpsBackupSchedule
 			.count({
@@ -166,8 +173,9 @@ export async function DashboardContent({ sessionPath }: { sessionPath: "/" | "/d
 	const setupItems = filterSetupChecklist(
 		buildSetupChecklist({
 			serverCount: servers.length,
-			enabledAlertRuleCount,
+			enabledAlertRuleCount: enabledAlertRuleCount ?? 0,
 			smtpEnabled: smtpEnabledRaw === "true",
+			telegramEnabled: telegramEnabledRaw === "true",
 			backupScheduleCount: projectBackupScheduleCount + vpsBackupScheduleCount,
 			serversWithMonthlyCost,
 		}),
@@ -189,6 +197,16 @@ export async function DashboardContent({ sessionPath }: { sessionPath: "/" | "/d
 			: null,
 		now: checkedAt,
 	});
+	// First run: no server yet. The checklist then comes first, and with no alert rule either the checks above
+	// have nothing to report, so they say "not set up yet" rather than "all clear".
+	const firstRun = canReadServers && servers.length === 0;
+	const notSetUp = firstRun && enabledAlertRuleCount === 0;
+	// The feature map lists the pages the sidebar would show this account.
+	const declaredPermissions = loadSidebarDeclaredPermissions(featureMapHrefs);
+	const visibleHrefs = featureMapHrefs.filter((href) => {
+		const required = declaredPermissions[href] ?? [];
+		return required.length === 0 || required.some((permission) => sessionHasPermission(session, permission));
+	});
 	const dashboardAnnouncements = announcements.slice(0, 3).map((item) => ({
 		id: item.id,
 		title: item.title,
@@ -201,10 +219,15 @@ export async function DashboardContent({ sessionPath }: { sessionPath: "/" | "/d
 
 	return (
 		<PageShell>
-			<DashboardLocalizedHeader />
-			<DashboardAttention checks={attentionChecks} checkedAt={formatShortTime(checkedAt, locale)} />
+			<DashboardLocalizedHeader
+				canReadServers={canReadServers}
+				canReadTasks={canReadTasks}
+				setupPending={countPendingSetupItems(setupItems)}
+			/>
+			{firstRun ? <DashboardSetupChecklist items={setupItems} /> : null}
+			<DashboardAttention checks={attentionChecks} checkedAt={formatShortTime(checkedAt, locale)} notSetUp={notSetUp} />
 			<DashboardAnnouncements items={dashboardAnnouncements} total={announcements.length} />
-			<DashboardSetupChecklist items={setupItems} />
+			{firstRun ? null : <DashboardSetupChecklist items={setupItems} />}
 			<DashboardStatsSection
 				storage={{
 					serverTotal: servers.length,
@@ -230,6 +253,7 @@ export async function DashboardContent({ sessionPath }: { sessionPath: "/" | "/d
 				</div>
 				<DashboardRecentActivity recentRequests={recentRequests} recentAuditLogs={recentAudit} />
 			</DashboardPreferenceClient>
+			<DashboardFeatureMap visibleHrefs={visibleHrefs} />
 		</PageShell>
 	);
 }

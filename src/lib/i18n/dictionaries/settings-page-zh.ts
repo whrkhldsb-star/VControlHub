@@ -11,9 +11,11 @@ export const zh: Record<string, string> = {
 	// ── Tab labels (super-category grouping) ──
 	"settingsPage.tab.personal": "个人偏好",
 	"settingsPage.tab.personal.desc": "默认页面、仪表盘组件、通知、刷新",
-	"settingsPage.tab.security": "安全与账户",
+	"settingsPage.tab.security": "安全策略",
 	"settingsPage.tab.notifications": "通知与集成",
-	"settingsPage.unified.description": "个人使用习惯、界面行为、账户安全与平台级参数集中在一个入口中管理。",
+	"settingsPage.unified.description": "个人偏好和平台级配置都在这里管理。自己的密码、两步验证和登录会话在账户安全页面修改。",
+	"settingsPage.rerouted.title": "该部分仅管理员可以修改",
+	"settingsPage.rerouted.body": "这个链接指向平台设置，你的账号没有修改权限，已为你打开个人偏好。如需调整平台设置，请联系平台管理员。",
 	"settingsPage.unified.eyebrow": "个性化设置",
 	"settingsPage.unified.title": "设置",
 

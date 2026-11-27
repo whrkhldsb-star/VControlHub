@@ -9,9 +9,10 @@ import { SnippetEditModal } from "./snippet-edit-modal";
 import { CreateSnippetModal } from "./create-snippet-modal";
 import { Pencil, Trash2, Copy, Check, Search, Plus } from "@/components/icons";
 import { EmptyState, ListPanel, PageHeader, Toolbar } from "@/components/page-shell";
+import { PageGuide } from "@/components/page-guide";
 import { getErrorMessage } from "@/lib/http/error-message";
 import { copyText } from "@/lib/ui/clipboard";
-import { ActionButton } from "@/components/action-button";
+import { ActionButton, ButtonLink } from "@/components/action-button";
 import { UI_INPUT } from "@/lib/ui/classes";
 import { PaginatedList } from "@/components/paginated-list";
 import { useUrlQueryState } from "@/lib/hooks/use-url-query-state";
@@ -56,9 +57,9 @@ const SnippetCard = memo(function SnippetCard({ snippet: s, t, copied, onCopy, o
             </div>
           )}
         </div>
-        <div className="flex items-center gap-1 opacity-100 transition sm:opacity-0 sm:group-hover:opacity-100 sm:group-focus-within:opacity-100">
-          <ActionButton type="button" variant="ghost" onClick={() => onCopy(s)} title={t("snippetsPage.action.copy")} aria-label={t("snippetsPage.action.copy")} square>
-            {copied ? <Check size={14} /> : <Copy size={14} />}
+        <div className="flex items-center gap-1">
+          <ActionButton type="button" variant="ghost" onClick={() => onCopy(s)} title={t("snippetsPage.action.copy")} aria-label={t("snippetsPage.action.copy")} icon={copied ? <Check size={14} aria-hidden /> : <Copy size={14} aria-hidden />}>
+            {copied ? t("snippetsPage.action.copied") : t("snippetsPage.action.copy")}
           </ActionButton>
           <ActionButton type="button" variant="ghost" onClick={() => onEdit(s)} title={t("snippetsPage.action.edit")} aria-label={t("snippetsPage.action.edit")} square>
             <Pencil size={14} />
@@ -74,10 +75,11 @@ const SnippetCard = memo(function SnippetCard({ snippet: s, t, copied, onCopy, o
   );
 }, (prev, next) => prev.snippet === next.snippet && prev.t === next.t && prev.copied === next.copied && prev.onCopy === next.onCopy && prev.onEdit === next.onEdit && prev.onDelete === next.onDelete);
 
-export function SnippetList({ snippets: initial, header }: {
+export function SnippetList({ snippets: initial, header, canReadTemplates = false }: {
   snippets: Snippet[];
   /** Page header; rendered here so the create command sits in its actions. */
   header?: { eyebrow?: string; title: string; description?: string };
+  canReadTemplates?: boolean;
 }) {
   const { t } = useI18n();
 
@@ -213,11 +215,26 @@ export function SnippetList({ snippets: initial, header }: {
     <>
       {header ? (
         <PageHeader eyebrow={header.eyebrow} title={header.title} description={header.description}>
+          {canReadTemplates ? (
+            <ButtonLink href="/templates" size="sm" variant="secondary">
+              {t("snippetsPage.openTemplates")}
+            </ButtonLink>
+          ) : null}
           <ActionButton variant="primary" icon={<Plus size={16} aria-hidden />} onClick={() => setCreating(true)}>
             {t("snippetsPage.new")}
           </ActionButton>
         </PageHeader>
       ) : null}
+      <PageGuide
+        title={t("snippetsPage.guide.title")}
+        summary={t("snippetsPage.guide.summary")}
+        steps={[
+          t("snippetsPage.guide.step1"),
+          t("snippetsPage.guide.step2"),
+        ]}
+        links={canReadTemplates ? [{ label: t("snippetsPage.openTemplates"), href: "/templates" }] : undefined}
+        className="mb-4"
+      />
       {/* Nothing to search or filter until there is a snippet; the list says how many it shows. */}
       {items.length > 0 ? (
         <Toolbar className="mb-4 flex-col items-stretch gap-3 sm:flex-row sm:items-end">

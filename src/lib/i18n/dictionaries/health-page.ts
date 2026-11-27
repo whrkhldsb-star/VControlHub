@@ -111,7 +111,7 @@ export const zh: Record<string, string> = {
 
 	// Repair: services
 	"healthPage.repair.services.label": "核对核心服务",
-	"healthPage.repair.services.descriptionCritical": "优先确认 Next.js、SSH WS 与 Caddy 是否都在运行。",
+	"healthPage.repair.services.descriptionCritical": "优先确认 Next.js、SSH WebSocket 与 Caddy 是否都在运行。",
 	"healthPage.repair.services.action": "验证 {units}",
 
 	// Repair: git
@@ -148,8 +148,8 @@ export const zh: Record<string, string> = {
 	"healthPage.check.server-inventory.message.warning": "无法读取 VPS 节点",
 	"healthPage.check.storage-inventory.message.healthy": "已配置 {count} 个存储节点",
 	"healthPage.check.storage-inventory.message.warning": "尚未配置存储节点",
-	"healthPage.check.runtime-directories.message.healthy": "{ok}/{total} 个运行目录可用",
-	"healthPage.check.runtime-directories.message.warning": "{ok}/{total} 个运行目录可用",
+	"healthPage.check.runtime-directories.message.healthy": "{ok}/{total} 个运行目录全部可用",
+	"healthPage.check.runtime-directories.message.warning": "部分运行目录缺失（{ok}/{total} 个可用）",
 	"healthPage.check.dir.message.healthy": "目录存在",
 	"healthPage.check.dir.message.warning": "目录不存在，部署脚本会自动创建",
 	"healthPage.check.next-service.message.running": "{unit} 正在运行",
@@ -283,7 +283,7 @@ export const en: Record<string, string> = {
 
 	// Repair: services
 	"healthPage.repair.services.label": "Verify core services",
-	"healthPage.repair.services.descriptionCritical": "First confirm Next.js, SSH WS, and Caddy are all running.",
+	"healthPage.repair.services.descriptionCritical": "First confirm Next.js, SSH WebSocket, and Caddy are all running.",
 	"healthPage.repair.services.action": "Verify {units}",
 
 	// Repair: git
@@ -321,8 +321,8 @@ export const en: Record<string, string> = {
 	"healthPage.check.server-inventory.message.warning": "Unable to read VPS nodes",
 	"healthPage.check.storage-inventory.message.healthy": "Configured {count} storage {count|node|nodes}",
 	"healthPage.check.storage-inventory.message.warning": "No storage nodes configured",
-	"healthPage.check.runtime-directories.message.healthy": "{ok}/{total} runtime {total|directory|directories} available",
-	"healthPage.check.runtime-directories.message.warning": "{ok}/{total} runtime {total|directory|directories} available",
+	"healthPage.check.runtime-directories.message.healthy": "All {ok}/{total} runtime {total|directory|directories} are available",
+	"healthPage.check.runtime-directories.message.warning": "{ok}/{total} runtime {total|directory|directories} available; some are missing",
 	"healthPage.check.dir.message.healthy": "Directory exists",
 	"healthPage.check.dir.message.warning": "Directory is missing; deployment scripts will create it automatically",
 	"healthPage.check.next-service.message.running": "{unit} is running",

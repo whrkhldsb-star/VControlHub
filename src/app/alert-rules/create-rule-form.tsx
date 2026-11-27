@@ -53,16 +53,27 @@ export function CreateRuleForm({
 	// On-call people are picked from the directory instead of pasted as ids (A8-04);
 	// a directory the viewer may not read keeps the text area.
 	const [directory, setDirectory] = useState<Array<{ id: string; label: string }> | null>(null);
+	const [directoryError, setDirectoryError] = useState(false);
+	const [directoryAttempt, setDirectoryAttempt] = useState(0);
 	useEffect(() => {
 		let cancelled = false;
 		csrfFetch<{ users?: Array<{ id: string; username: string; displayName?: string | null }> }>("/api/users?pageSize=100")
 			.then((data) => {
 				if (cancelled) return;
+				setDirectoryError(false);
 				setDirectory((data.users ?? []).map((user) => ({ id: user.id, label: user.displayName ? `${user.displayName} (@${user.username})` : `@${user.username}` })));
 			})
-			.catch(() => { if (!cancelled) setDirectory([]); });
+			.catch((err) => {
+				if (!cancelled) {
+					setDirectory([]);
+					// 401/403 is the expected fallback when an alert manager does not have user:read;
+					// only surface a retryable error on network / 5xx failures.
+					const status = typeof err === "object" && err !== null && "status" in err ? Number((err as { status?: unknown }).status) : null;
+					setDirectoryError(status !== 401 && status !== 403);
+				}
+			});
 		return () => { cancelled = true; };
-	}, []);
+	}, [directoryAttempt]);
 	const onCallUserIds = onCallUserIdsText.split(/[\n,，]+/).map((s) => s.trim()).filter(Boolean);
 	const [webhookUrl, setWebhookUrl] = useState("");
 	const [submitting, setSubmitting] = useState(false);
@@ -384,6 +395,19 @@ export function CreateRuleForm({
 						rows={2}
 						className={UI_INPUT}
 					/>
+				)}
+				{directoryError && (
+					<Notice
+						tone="warning"
+						compact
+						className="mt-1.5"
+						action={{
+							label: t("alertRulesPage.createForm.directoryRetry"),
+							onClick: () => setDirectoryAttempt((attempt) => attempt + 1),
+						}}
+					>
+						{t("alertRulesPage.createForm.directoryFailed")}
+					</Notice>
 				)}
 				<p className="mt-1 text-xs text-[var(--text-muted)]">{t("alertRulesPage.createForm.onCallHint")}</p>
 			</FormField>

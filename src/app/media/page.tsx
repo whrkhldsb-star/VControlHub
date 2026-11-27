@@ -69,6 +69,7 @@ export default async function Page({
 }) {
   const session = await requirePagePermission("storage:read", { redirectTo: "/media" });
   const canManageMedia = sessionHasPermission(session,"media:manage");
+  const canReadImages = sessionHasPermission(session, "image:read");
   const locale = await getServerLocale();
   const params = firstSearchParams(await searchParams);
   const mediaType =
@@ -90,6 +91,7 @@ export default async function Page({
     listMediaTypeCounts({ q, favorite, tag , session}),
     countMediaItems({ mediaType, q, tag, favorite: true, session }),
   ]);
+  const filtered = Boolean(mediaType || q || tag || favorite);
   const filters: MediaFilterState = { type: mediaType, q, favorite, tag };
   const grouped = new Map<string, typeof media>();
   for (const m of media) {
@@ -120,7 +122,7 @@ export default async function Page({
             <p className="mt-0.5 text-[13px] text-[var(--text-muted)]">{modeDescriptionText}</p>
           </div>
           <div className="flex shrink-0 flex-wrap items-center gap-2">
-            {mediaType ==="image" ? (
+            {mediaType ==="image" && canReadImages ? (
               <ButtonLink href="/image-bed" size="sm" variant="secondary">
                 {t("mediaPage.linkHub.label", locale)}
               </ButtonLink>
@@ -303,16 +305,16 @@ export default async function Page({
                 {t("mediaPage.upload.desc", locale)}
               </p>
             </div>
-            <ButtonLink href="/image-bed" size="sm" variant="secondary">
+            {canReadImages && <ButtonLink href="/image-bed" size="sm" variant="secondary">
               {t("mediaPage.linkHub.open", locale)}
-            </ButtonLink>
+            </ButtonLink>}
           </div>
           <MediaImageUploadPanel />
         </section>
       )}
       {grouped.size === 0 && (
-        <EmptyState icon={<ImageIcon size={20} />} variant="boxed">
-          {t("mediaPage.empty", locale)}
+        <EmptyState icon={<ImageIcon size={20} />} variant="boxed" action={filtered ? <ButtonLink href="/media">{t("mediaPage.search.clearFilters", locale)}</ButtonLink> : canManageMedia ? <ButtonLink href="/files">{t("mediaPage.browseFiles", locale)}</ButtonLink> : undefined}>
+          {t(filtered ? "mediaPage.filteredEmpty" : canManageMedia ? "mediaPage.empty" : "mediaPage.readEmpty", locale)}
         </EmptyState>
       )}
       {Array.from(grouped.entries()).map(([serverName, items]) => (

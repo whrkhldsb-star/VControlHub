@@ -41,4 +41,28 @@ describe("CustomerSwitcher", () => {
 		expect(await screen.findByText("Acme")).toBeInTheDocument();
 		expect(screen.queryByRole("combobox")).not.toBeInTheDocument();
 	});
+
+	it("keeps the last confirmed customers when a refresh fails and offers a retry", async () => {
+		vi.mocked(csrfFetch).mockResolvedValueOnce({ teams: [{ id: "a", name: "Acme" }], currentTeamId: "a" });
+		renderAs(["team:read", "team:manage"]);
+		expect(await screen.findByRole("option", { name: "Acme" })).toBeInTheDocument();
+
+		vi.mocked(csrfFetch).mockRejectedValueOnce(new Error("Network down"));
+		act(() => notifyCustomersChanged());
+		expect(await screen.findByRole("alert")).toHaveTextContent("客户列表加载失败");
+		expect(screen.getByRole("option", { name: "Acme" })).toBeInTheDocument();
+		expect(screen.getByRole("combobox")).toHaveValue("a");
+
+		vi.mocked(csrfFetch).mockResolvedValueOnce({ teams: [{ id: "a", name: "Acme" }, { id: "b", name: "Beta" }], currentTeamId: "a" });
+		act(() => screen.getByRole("button", { name: "重试" }).click());
+		expect(await screen.findByRole("option", { name: "Beta" })).toBeInTheDocument();
+		await waitFor(() => expect(screen.queryByRole("alert")).not.toBeInTheDocument());
+	});
+
+	it("says the customer list could not load instead of showing none", async () => {
+		vi.mocked(csrfFetch).mockRejectedValueOnce(new Error("Network down"));
+		renderAs(["team:read", "team:manage"]);
+		expect(await screen.findByRole("alert")).toHaveTextContent("客户列表加载失败");
+		expect(screen.queryByRole("combobox")).not.toBeInTheDocument();
+	});
 });

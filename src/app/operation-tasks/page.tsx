@@ -1,5 +1,7 @@
 import { firstSearchParam } from "@/lib/http/first-search-param";
 import { requirePagePermission } from "@/lib/auth/page-guard";
+import { sessionHasPermission } from "@/lib/auth/authorization";
+import { isGlobalTeamManager } from "@/lib/auth/team-scope";
 import { listOperationTaskResult } from "@/lib/operation-task/service";
 import { OperationTaskListClient } from "./operation-task-list-client";
 import { PageShell, PageHeader } from "@/components/page-shell";
@@ -13,6 +15,9 @@ export default async function OperationTasksPage({
 	searchParams?: Promise<Record<string, string | string[] | undefined>>;
 }) {
 	const session = await requirePagePermission("task:read", { redirectTo: "/operation-tasks" });
+	const canReadDeployments = sessionHasPermission(session, "deploy:read");
+	const canReadBackups = sessionHasPermission(session, "backup:read") && isGlobalTeamManager(session);
+	const canReadDownloads = sessionHasPermission(session, "storage:read");
 	const locale = await getServerLocale();
 	const tr = (key: string, vars?: Record<string, string | number>) => t(key, locale, vars);
 	const resolved = (await searchParams) ?? {};
@@ -38,7 +43,14 @@ export default async function OperationTasksPage({
 	return (
 		<PageShell>
 			<PageHeader eyebrow={t("operationTasksPage.eyebrow", locale)} title={tr("operationTasksPage.header.title")} description={tr("operationTasksPage.header.description")} />
-			<OperationTaskListClient initialTasks={tasks} initialSourceSummary={sourceSummary} initialFailureSummary={failureSummary} />
+			<OperationTaskListClient
+				initialTasks={tasks}
+				initialSourceSummary={sourceSummary}
+				initialFailureSummary={failureSummary}
+				canReadDeployments={canReadDeployments}
+				canReadBackups={canReadBackups}
+				canReadDownloads={canReadDownloads}
+			/>
 		</PageShell>
 	);
 }

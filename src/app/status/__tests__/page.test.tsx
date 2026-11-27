@@ -104,6 +104,14 @@ describe("/status page exposure", () => {
     expect(html).toContain("/login?next=%2F");
   });
 
+  it("says the board could not be read rather than calling it closed", async () => {
+    getCurrentSessionMock.mockResolvedValue(null);
+    readPublicBoardMock.mockRejectedValue(new Error("database down"));
+    const html = await renderPage();
+    expect(html).toContain("The status board could not be read");
+    expect(html).toMatch(/Service status/);
+  });
+
   it("anonymous with the board open: the public board only", async () => {
     getCurrentSessionMock.mockResolvedValue(null);
     readPublicBoardMock.mockResolvedValue(BOARD);

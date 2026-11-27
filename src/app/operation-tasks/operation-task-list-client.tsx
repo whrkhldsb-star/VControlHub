@@ -15,7 +15,7 @@ import { useI18n } from "@/lib/i18n/use-locale";
 
 import { JobEventsDialog } from "./job-events-dialog";
 import { getErrorMessage } from "@/lib/http/error-message";
-import { ActionButton } from "@/components/action-button";
+import { ActionButton, ButtonLink } from "@/components/action-button";
 import { getDomainStatusLabel, getJobTypeLabel, getOperationTaskTitle } from "@/lib/i18n/domain-labels";
 import { StatusBadge, type StatusTone } from "@/components/status-badge";
 
@@ -125,7 +125,21 @@ const TaskRow = memo(function TaskRow({ task, t, locale, sourceLabels, onViewEve
   );
 }, (prev, next) => prev.task === next.task && prev.t === next.t && prev.locale === next.locale && prev.sourceLabels === next.sourceLabels && prev.onViewEvents === next.onViewEvents);
 
-export function OperationTaskListClient({ initialTasks, initialSourceSummary = [], initialFailureSummary = [] }: { initialTasks: OperationTask[]; initialSourceSummary?: OperationTaskSourceSummary[]; initialFailureSummary?: OperationTaskFailureSummary[] }) {
+export function OperationTaskListClient({
+  initialTasks,
+  initialSourceSummary = [],
+  initialFailureSummary = [],
+  canReadDeployments = false,
+  canReadBackups = false,
+  canReadDownloads = false,
+}: {
+  initialTasks: OperationTask[];
+  initialSourceSummary?: OperationTaskSourceSummary[];
+  initialFailureSummary?: OperationTaskFailureSummary[];
+  canReadDeployments?: boolean;
+  canReadBackups?: boolean;
+  canReadDownloads?: boolean;
+}) {
   const { t, locale } = useI18n();
   const sourceLabels = useMemo(() => getSourceLabels(t), [t]);
   const statusFilters = [
@@ -259,7 +273,8 @@ export function OperationTaskListClient({ initialTasks, initialSourceSummary = [
       </div>}
     </SurfacePanel>
     </section>
-    <section data-card="" aria-label={t("operationTasks.summary.failureGroup")} className={`p-4 ${failureSummary.length ? "border-[var(--danger-border)]" : ""}`}>
+    {failureSummary.length > 0 && (
+    <section data-card="" aria-label={t("operationTasks.summary.failureGroup")} className="border-[var(--danger-border)] p-4">
       <div className="flex flex-col gap-1 sm:flex-row sm:items-end sm:justify-between">
         <div>
           <h2 className="ui-title-section">{t("operationTasks.summary.failureGroup")}</h2>
@@ -267,13 +282,14 @@ export function OperationTaskListClient({ initialTasks, initialSourceSummary = [
         </div>
         <div className="text-xs text-[var(--text-muted)]">{t("operationTasksPage.failures.totalCount", { count: failureSummary.reduce((total, item) => total + item.total, 0) })}</div>
       </div>
-      {failureSummary.length === 0 ? <p className="mt-3 text-sm text-[var(--text-muted)]">{t("operationTasks.summary.noFailures")}</p> : <div className="mt-4 grid gap-3 lg:grid-cols-2">
+      <div className="mt-4 grid gap-3 lg:grid-cols-2">
         {failureSummary.map((item) => <div data-inset="" key={item.reason} className="border-[var(--danger-border)] px-3 py-3">
           <div className="flex flex-wrap items-center justify-between gap-2"><span className="text-sm font-medium text-[var(--text-primary)]">{item.reason}</span><StatusBadge tone="danger">{t("operationTasksPage.failures.itemCount", { count: item.total })}</StatusBadge></div>
           <p className="mt-2 text-xs text-[var(--text-muted)]">{t("operationTasksPage.failures.sourceAndLatest", { sources: item.sources.map((source) => sourceLabels[source] ?? source).join(t("common.listSeparator")), title: getOperationTaskTitle(t, { source: item.latestTaskId.split(":")[0] ?? "", title: item.latestTitle }) })}</p>
         </div>)}
-      </div>}
+      </div>
     </section>
+    )}
     <ListPanel
       title={t("operationTasksPage.recentTasks")}
       description={t("operationTasksPage.recentTasksHint")}
@@ -316,7 +332,18 @@ export function OperationTaskListClient({ initialTasks, initialSourceSummary = [
           </div>
         </Toolbar>
       }
-      empty={visibleTasks.length === 0 ? <EmptyState text={needleNorm ? t("operationTasksPage.filter.noMatch") : t("operationTasks.tasks.empty")} /> : undefined}
+      empty={visibleTasks.length === 0 ? (
+        <EmptyState
+          text={needleNorm ? t("operationTasksPage.filter.noMatch") : t("operationTasks.tasks.empty")}
+          action={!needleNorm && (canReadDeployments || canReadBackups || canReadDownloads) ? (
+            <div className="flex flex-wrap justify-center gap-2">
+              {canReadDeployments ? <ButtonLink href="/deployments" size="xs" variant="secondary">{t("operationTasksPage.source.deployment")}</ButtonLink> : null}
+              {canReadBackups ? <ButtonLink href="/backups" size="xs" variant="secondary">{t("operationTasksPage.source.backup")}</ButtonLink> : null}
+              {canReadDownloads ? <ButtonLink href="/downloads" size="xs" variant="secondary">{t("operationTasksPage.source.download")}</ButtonLink> : null}
+            </div>
+          ) : undefined}
+        />
+      ) : undefined}
     >
       {/* The panel body divides its children; the rows sit one level down inside the pager. */}
       <PaginatedList pageSize={TASKS_PER_PAGE} resetKey={`${filterKey}:${refreshTick}:${needleNorm}`} className="divide-y divide-[var(--border-subtle)]">

@@ -20,19 +20,24 @@ import { InstallDialog } from "./install-dialog";
 import { SourcesPanel } from "./quick-services-sources-panel";
 import { CATEGORY_ORDER, buildCategoryLabels, buildQuickServiceViewModel, getEnvCount, getPrimaryContainerPort, getVolumeMounts, type AppSource, type CatalogItem, type Tab } from "./quick-services-shared";
 import { useQuickServiceCatalog } from "./use-quick-service-catalog";
-import { ActionButton } from "@/components/action-button";
+import { ActionButton, ButtonLink } from "@/components/action-button";
 import { ConfirmDialog } from "@/components/confirm-dialog";
+import { Disclosure } from "@/components/ui/disclosure";
 import { IconBadgeCheck, IconBlocks, IconGlobe, IconShield } from "@/components/nav-icons";
 
 /* ── Main Component ─────────────────────────────────────────────── */
 
 export function QuickServicesClient({
+	requestedServer,
 	canManage,
 	canManageHubHost,
+	canReadServers: propsCanReadServers = true,
 }: {
+	requestedServer?: string;
 	canManage: boolean;
 	/** Only a platform manager may target the hub host (its Docker socket runs the control plane). */
 	canManageHubHost: boolean;
+	canReadServers?: boolean;
 }) {
 	const { t } = useI18n();
 	const categoryLabels = buildCategoryLabels(t);
@@ -52,7 +57,12 @@ export function QuickServicesClient({
 		quickServicePublicHost,
 		fetchCatalog,
 		fetchSources,
-	} = useQuickServiceCatalog(t, canManageHubHost);
+	} = useQuickServiceCatalog(t, canManageHubHost, requestedServer);
+	const canReadServers = propsCanReadServers;
+	const dockerHref = selectedServerId
+		? (canReadServers ? `/docker?server=${encodeURIComponent(selectedServerId)}` : undefined)
+		: "/docker";
+	const [installedOn, setInstalledOn] = useState<string | null>(null);
 	const [tab, setTab] = useState<Tab>("store");
 	// Install dialog state (the dialog body ships in <InstallDialog />)
 	const [installDialog, setInstallDialog] = useState<CatalogItem | null>(null);
@@ -119,7 +129,7 @@ export function QuickServicesClient({
 			const preview = configPreview;
 			setConfigPreview(null);
 			closeInstallDialog();
-			actions.doInstall(preview);
+			void actions.doInstall(preview).then(ok => { if (ok) setInstalledOn(selectedServerId); });
 			return;
 		}
 		const target = configPreview.item;
@@ -177,6 +187,7 @@ export function QuickServicesClient({
 		return (
 			<div className="grid gap-3">
 				{targetSelect}
+				{requestedServer && <ButtonLink href="/quick-services">{t("qsPage.chooseTarget")}</ButtonLink>}
 				<Notice tone="danger" action={{ label: t("common.retry"), onClick: () => void fetchCatalog() }}>{error}</Notice>
 			</div>
 		);
@@ -216,6 +227,7 @@ export function QuickServicesClient({
 			onUpdate={() => requestUpdate(item)}
 			onSync={() => actions.doAction(item.slug, "sync")}
 			onUninstall={() => requestUninstall(item)}
+			dockerHref={dockerHref}
 			accessHost={quickServiceAccessHost}
 			accessProtocol={quickServiceAccessProtocol}
 		/>
@@ -223,6 +235,7 @@ export function QuickServicesClient({
 
 	return (
 		<div className="space-y-6">
+			{installedOn === selectedServerId && dockerHref && <ButtonLink href={dockerHref}>{t("qsPage.inspectContainers")}</ButtonLink>}
 			{sourcesError ? <Notice tone="danger" action={{ label: t("common.retry"), onClick: () => void fetchSources() }}>{sourcesError}</Notice> : null}
 			{dockerStatus && !dockerStatus.available ? (
 				<Notice tone="warning" title={t("qsPage.dockerNotReadyTitle")}>
@@ -301,14 +314,12 @@ export function QuickServicesClient({
 						{usedPorts.slice(0, 8).map((port) => <Badge key={port}>{port}</Badge>)}
 					</div>
 				</div>
-				{canManageHubHost && <div data-tile className="p-4">
-					<p className="text-xs text-[var(--text-muted)]">{t("qsPage.sourcesLabel")}</p>
-					<h3 className="ui-title-section mt-1">{t("qsPage.sourcesEnabledCount", { enabled: sources.filter((s) => s.enabled).length, total: sources.length })}</h3>
-					<p className="mt-2 text-sm leading-6 text-[var(--text-muted)]">{lastSyncedSource ? t("qsPage.lastSynced", { name: lastSyncedSource.displayName }) : t("qsPage.noSyncRecord")}</p>
-					<ActionButton size="sm" variant={staleSources.length > 0 ? "outline" : "secondary"} onClick={() => selectTab("sources")} className="!mt-3">
+				{canManageHubHost && <Disclosure variant="inset" title={staleSources.length > 0 ? `${t("qsPage.sourcesLabel")} · ${t("qsPage.handleStaleSources", { count: staleSources.length })}` : t("qsPage.sourcesLabel")} description={lastSyncedSource ? t("qsPage.lastSynced", { name: lastSyncedSource.displayName }) : t("qsPage.noSyncRecord")}>
+					<p className="text-xs text-[var(--text-muted)]">{t("qsPage.sourcesEnabledCount", { enabled: sources.filter((s) => s.enabled).length, total: sources.length })}</p>
+					<ActionButton size="sm" variant="secondary" onClick={() => selectTab("sources")} className="mt-3">
 						{staleSources.length > 0 ? t("qsPage.handleStaleSources", { count: staleSources.length }) : t("qsPage.manageSources")}
 					</ActionButton>
-				</div>}
+				</Disclosure>}
 			</section>
 
 			<Toolbar className="flex-col items-stretch gap-3 sm:flex-row sm:items-end">
@@ -402,7 +413,7 @@ export function QuickServicesClient({
 			})}
 
 			{tab ==="installed" && installed.length === 0 && (
-				<EmptyState icon={<IconBlocks />} variant="boxed">
+				<EmptyState icon={<IconBlocks />} variant="boxed" action={<ActionButton onClick={() => { setSearch(""); selectTab("store"); }}>{t("qsPage.browseCatalog")}</ActionButton>}>
 					{t("qsPage.emptyInstalled")}
 				</EmptyState>
 			)}

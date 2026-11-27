@@ -144,10 +144,13 @@ export function ItsmConnectionForm({ onCreated, onClose }: {
 						))}
 					</select>
 				</label>
-				<label className="ui-label space-y-1">
-					<span>{t("itsmPage.field.workspace")}</span>
-					<input className={UI_INPUT} value={form.workspace} onChange={(e) => edit({ workspace: e.target.value })} />
-				</label>
+				<div className="space-y-1">
+					<label className="ui-label block space-y-1">
+						<span>{t("itsmPage.field.workspace")}</span>
+						<input className={UI_INPUT} value={form.workspace} onChange={(e) => edit({ workspace: e.target.value })} />
+					</label>
+					<p className="text-xs text-[var(--text-muted)]">{t("itsmPage.field.workspaceHint")}</p>
+				</div>
 				{form.provider !== "telegram" && (
 					<label className="ui-label space-y-1 md:col-span-2">
 						<span>{t("itsmPage.field.webhookUrl")}</span>
@@ -178,17 +181,20 @@ export function ItsmConnectionForm({ onCreated, onClose }: {
 						</label>
 					</>
 				)}
-				<label className="ui-label space-y-1 md:col-span-2">
-					<span>{t("itsmPage.field.webhookSecret")}</span>
-					<input
-						type="password"
-						autoComplete="new-password"
-						className={UI_INPUT}
-						value={form.webhookSecret}
-						onChange={(e) => edit({ webhookSecret: e.target.value })}
-						placeholder={t("itsmPage.field.webhookSecretPlaceholder")}
-					/>
-				</label>
+				<div className="space-y-1 md:col-span-2">
+					<label className="ui-label block space-y-1">
+						<span>{t("itsmPage.field.webhookSecret")}</span>
+						<input
+							type="password"
+							autoComplete="new-password"
+							className={UI_INPUT}
+							value={form.webhookSecret}
+							onChange={(e) => edit({ webhookSecret: e.target.value })}
+							placeholder={t("itsmPage.field.webhookSecretPlaceholder")}
+						/>
+					</label>
+					<p className="text-xs text-[var(--text-muted)]">{t("itsmPage.field.webhookSecretHint")}</p>
+				</div>
 				<CheckboxField
 					checked={form.createOnInbound}
 					onChange={(e: React.ChangeEvent<HTMLInputElement>) => edit({ createOnInbound: e.target.checked })}

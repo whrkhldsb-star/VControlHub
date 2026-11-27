@@ -1,5 +1,6 @@
 import { PageHeader, PageShell } from "@/components/page-shell";
 import { ButtonLink } from "@/components/action-button";
+import { Notice } from "@/components/ui-primitives";
 import { getCurrentSession } from "@/lib/auth/server-session";
 import { canPreviewClosedBoard, canReadInternalStatus } from "@/lib/public-status/access";
 import { isGlobalTeamManager } from "@/lib/auth/team-scope";
@@ -30,24 +31,29 @@ export default async function Page({ searchParams }: { searchParams?: Promise<Re
   const session = rawSession?.mustChangePassword ? null : rawSession;
   const isAdmin = Boolean(session && isGlobalTeamManager(session));
   const preview = params.preview === "1" && canPreviewClosedBoard(session);
-  const board = await readPublicBoard(parseBoardQuery(params), { preview }).catch((error) => {
-    logger.error("Failed to load the public board", error);
-    return null;
-  });
+  // A board that could not be read is not a closed board: the page says which.
+  const read = await readPublicBoard(parseBoardQuery(params), { preview }).then(
+    (board) => ({ board, failed: false }),
+    (error: unknown) => {
+      logger.error("Failed to load the public board", error);
+      return { board: null, failed: true };
+    },
+  );
+  const { board, failed: boardFailed } = read;
 
   return (
     <PageShell navigation={Boolean(session)}>
       {board ? (
-        <PublicBoardClient initial={board} preview={preview} signedIn={Boolean(session)} />
+        <PublicBoardClient initial={board} preview={preview} signedIn={Boolean(session)} canManageBoard={isAdmin && !preview} />
       ) : (
-        <ClosedBoard signedIn={Boolean(session)} isAdmin={isAdmin} locale={locale} />
+        <ClosedBoard signedIn={Boolean(session)} isAdmin={isAdmin} locale={locale} loadFailed={boardFailed} />
       )}
       {canReadInternalStatus(session) && !preview ? <InternalStatusSection session={session} /> : null}
     </PageShell>
   );
 }
 
-async function ClosedBoard({ signedIn, isAdmin, locale }: { signedIn: boolean; isAdmin: boolean; locale: Awaited<ReturnType<typeof getServerLocale>> }) {
+async function ClosedBoard({ signedIn, isAdmin, locale, loadFailed = false }: { signedIn: boolean; isAdmin: boolean; locale: Awaited<ReturnType<typeof getServerLocale>>; loadFailed?: boolean }) {
   const status = await getPublicStatusSummary();
   return (
     // Visitors get a centred reading column; inside the console it lines up with the sections below.
@@ -59,6 +65,11 @@ async function ClosedBoard({ signedIn, isAdmin, locale }: { signedIn: boolean; i
           <ButtonLink href="/login?next=%2F" variant="primary" size="sm">{t("statusPage.signIn", locale)}</ButtonLink>
         ) : null}
       </PageHeader>
+      {loadFailed ? (
+        <Notice tone="warning" title={t("statusPage.boardUnavailable.title", locale)} className="mb-4">
+          {t("statusPage.boardUnavailable.body", locale)}
+        </Notice>
+      ) : null}
       <div data-card className="p-5">
         <div className="flex items-center gap-3">
           <span className={`inline-block h-3 w-3 rounded-full ${healthDotClass(status.summary.overall)}`} />
@@ -72,7 +83,7 @@ async function ClosedBoard({ signedIn, isAdmin, locale }: { signedIn: boolean; i
           {formatDateTime(status.generatedAt, locale)}
         </p>
       </div>
-      {!signedIn ? <p className="mt-6 text-sm leading-6 text-[var(--text-secondary)]">{t("statusPage.public.detailsHint", locale)}</p> : null}
+      {!signedIn && !loadFailed ? <p className="mt-6 text-sm leading-6 text-[var(--text-secondary)]">{t("statusPage.public.detailsHint", locale)}</p> : null}
     </div>
   );
 }

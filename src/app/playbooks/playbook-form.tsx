@@ -23,10 +23,11 @@ import type { PlaybookFields, TriggerType, SerializedPlaybook, SerializedStep, S
 import { SortableStepCard } from "./sortable-step-card";
 import { getErrorMessage } from "@/lib/http/error-message";
 import { ActionButton } from "@/components/action-button";
-import { Notice } from "@/components/ui-primitives";
+import { Chip, Notice } from "@/components/ui-primitives";
 import { useUnsavedChangesGuard } from "@/lib/forms/use-unsaved-changes-guard";
 import { Plus } from "@/components/icons";
 import { APP_TIME_ZONE } from "@/lib/datetime/time-zone";
+import { describeCron, isFiveFieldCron } from "@/lib/scheduled-task/describe-cron";
 
 /** The value of a trigger setting, as the form keeps it (a string), or the default for a new playbook. */
 function triggerValue(playbook: SerializedPlaybook | undefined, key: string, fallback: string): string {
@@ -251,7 +252,34 @@ export function PlaybookForm({
 						placeholder={t("playbooksPage.triggerConfig.cronPlaceholder")}
 						className={monoFieldInputClass}
 					/>
+					<Notice tone="info" compact>
+						{t("scheduledTasksPage.preview.label", {
+							value: isFiveFieldCron(cronExpression)
+								? (describeCron(cronExpression, t) ?? t("scheduledTasks.cron.custom"))
+								: t("scheduledTasks.cron.invalid"),
+						})}
+					</Notice>
 					<p className="text-xs text-[var(--text-muted)]">{t("playbooksPage.createForm.cronHint", { zone: APP_TIME_ZONE })}</p>
+					{!scheduleLocked && (
+						<div className="flex flex-wrap gap-1.5">
+							{[
+								{ label: t("scheduledTasks.preset.hourly"), expr: "0 * * * *" },
+								{ label: t("scheduledTasks.preset.daily3am"), expr: "0 3 * * *" },
+								{ label: t("scheduledTasks.preset.dailyMidnight"), expr: "0 0 * * *" },
+								{ label: t("scheduledTasks.preset.weeklyMon9am"), expr: "0 9 * * 1" },
+								{ label: t("scheduledTasks.preset.monthly1st"), expr: "0 0 1 * *" },
+								{ label: t("scheduledTasks.preset.every5min"), expr: "*/5 * * * *" },
+							].map((preset) => (
+								<Chip
+									key={preset.expr}
+									selected={cronExpression === preset.expr}
+									onClick={() => { setDirty(true); setCronExpression(preset.expr); }}
+								>
+									{preset.label}
+								</Chip>
+							))}
+						</div>
+					)}
 				</div>
 			) : (
 				<div className="space-y-1.5">

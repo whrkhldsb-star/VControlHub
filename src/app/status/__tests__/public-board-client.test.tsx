@@ -57,11 +57,11 @@ function board(nodes: PublicNode[], overrides: Partial<PublicBoardResponse> = {}
 	};
 }
 
-function renderBoard(initial: PublicBoardResponse, props: { preview?: boolean; signedIn?: boolean } = {}) {
+function renderBoard(initial: PublicBoardResponse, props: { preview?: boolean; signedIn?: boolean; canManageBoard?: boolean } = {}) {
 	return render(
 		<ThemeProvider initialTheme="dark">
 			<I18nProvider initialLocale="en">
-				<PublicBoardClient initial={initial} preview={props.preview ?? false} signedIn={props.signedIn ?? false} />
+				<PublicBoardClient initial={initial} preview={props.preview ?? false} signedIn={props.signedIn ?? false} canManageBoard={props.canManageBoard} />
 			</I18nProvider>
 		</ThemeProvider>,
 	);
@@ -93,6 +93,14 @@ describe("PublicBoardClient", () => {
 		// Sorting options only include published metrics.
 		const sort = screen.getByLabelText("Sort") as HTMLSelectElement;
 		expect([...sort.options].map((o) => o.value)).toEqual(["default", "name", "cpu", "memory", "disk", "network", "status"]);
+	});
+
+	it("offers a signed-in administrator the board's settings, and nobody else", () => {
+		const { unmount } = renderBoard(board([node("a", "Alpha")]), { signedIn: true, canManageBoard: true });
+		expect(screen.getByRole("link", { name: "Status board settings" })).toHaveAttribute("href", "/public-status");
+		unmount();
+		renderBoard(board([node("a", "Alpha")]), { signedIn: true });
+		expect(screen.queryByRole("link", { name: "Status board settings" })).not.toBeInTheDocument();
 	});
 
 	it("never shows zeros for a node without samples", () => {

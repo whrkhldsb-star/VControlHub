@@ -73,7 +73,7 @@ VControlHub 是面向个人运维及多客户服务场景的自托管服务器�
 
 ### 1.3 当前代码规模与口径
 
-项目包含：58 个 `page.tsx` 页面文件、197 个 API 路由文件、85 个 Prisma 数据模型、52 个业务权限项、4 个内置身份模板、24 类后台 Worker，以及 42 个本地快捷服务模板。
+项目包含：58 个 `page.tsx` 页面文件、198 个 API 路由文件、85 个 Prisma 数据模型、52 个业务权限项、4 个内置身份模板、24 类后台 Worker，以及 42 个本地快捷服务模板。
 
 配置与调用入口包括 9 个模块中的 25 个 Server Action 运行时导出、70 个系统设置表单字段、9 个持久化个人偏好字段和 21 个 AI 托管工具；逐项对应关系见第 24 章。
 
@@ -2359,7 +2359,7 @@ CI 还包含 Windows 工具链检查及 Docker 全新安装验证。测试使用
 | [`/api/search`](../src/app/api/search/) | 1 | 全局动态资源搜索 |
 | [`/api/servers`](../src/app/api/servers/) | 19 | 采样、SFTP、OS 探测、重载、RDP、网关、VPS 备份及客户间转移 |
 | [`/api/settings`](../src/app/api/settings/) | 1 | 平台设置 |
-| [`/api/share`](../src/app/api/share/) | 1 | 持链接访问的公开文件／目录 |
+| [`/api/share`](../src/app/api/share/) | 2 | 持链接访问的公开文件／目录 |
 | [`/api/share-links`](../src/app/api/share-links/) | 1 | 创建、列出和撤销分享 |
 | [`/api/shares`](../src/app/api/shares/) | 2 | 分享访问明细与报告 |
 | [`/api/snippets`](../src/app/api/snippets/) | 1 | 代码片段 |
@@ -2604,6 +2604,7 @@ HTTP 方法列来自实际源码导出，包括转导出的下载及 OpenAPI 路
 | [`/api/settings`](../src/app/api/settings/route.ts) | GET / PATCH | 读取及保存系统设置表单字段 | [系统设置、配置导入导出与开放 API](#settings-api) |
 | [`/api/share-links`](../src/app/api/share-links/route.ts) | GET / POST / DELETE | 分享列表、创建及撤销／删除 | [文件分享、WebDAV 与跨节点同步](#sharing-sync) |
 | [`/api/share/[token]`](../src/app/api/share/[token]/route.ts) | GET / POST | 访客验证分享密码并按策略读取文件／目录 | [文件分享、WebDAV 与跨节点同步](#sharing-sync) |
+| [`/api/share/[token]/files`](../src/app/api/share/[token]/files/route.ts) | GET / HEAD | 按分享目录相对路径下载或预览子文件 | [文件分享、WebDAV 与跨节点同步](#sharing-sync) |
 | [`/api/shares/[id]/access-logs`](../src/app/api/shares/[id]/access-logs/route.ts) | GET | 单个分享的访问明细 | [文件分享、WebDAV 与跨节点同步](#sharing-sync) |
 | [`/api/shares/access-report`](../src/app/api/shares/access-report/route.ts) | GET | 分享访问统计报告 | [文件分享、WebDAV 与跨节点同步](#sharing-sync) |
 | [`/api/snippets`](../src/app/api/snippets/route.ts) | GET / POST / PATCH / DELETE | 代码片段查询、创建、修改及删除 | [工单、ITSM、通知、公告与代码片段](#collaboration) |

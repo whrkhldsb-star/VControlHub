@@ -4,7 +4,7 @@
 export const zh: Record<string, string> = {
   "systemConfig.title": "系统配置导出/导入",
   "systemConfig.description": "导出当前系统的配置快照（脱敏），或从导出文件导入配置到当前系统。",
-  "systemConfig.eyebrow": "TR-042",
+  "systemConfig.eyebrow": "配置迁移",
   "systemConfig.export.title": "导出配置",
   "systemConfig.export.button": "下载配置快照",
   "systemConfig.export.exporting": "导出中…",
@@ -83,7 +83,7 @@ export const zh: Record<string, string> = {
 export const en: Record<string, string> = {
   "systemConfig.title": "System config export/import",
   "systemConfig.description": "Export a sanitized config snapshot, or import config from an export file.",
-  "systemConfig.eyebrow": "TR-042",
+  "systemConfig.eyebrow": "Config migration",
   "systemConfig.export.title": "Export",
   "systemConfig.export.button": "Download config snapshot",
   "systemConfig.export.exporting": "Exporting…",

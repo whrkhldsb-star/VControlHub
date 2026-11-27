@@ -38,6 +38,16 @@ const runningContainer = {
 };
 
 describe("DockerPage", () => {
+	it("does not contact another daemon for an unavailable target in a shared link", async () => {
+		window.history.replaceState({}, "", "/docker?server=unavailable");
+		try {
+			render(wrap(<DockerPageClient initialServers={[]} canManageHubHost />));
+			expect(await screen.findByRole("alert")).toHaveTextContent("请求的服务器不可用");
+			expect(csrfFetch).not.toHaveBeenCalled();
+		} finally {
+			window.history.replaceState({}, "", "/docker");
+		}
+	});
 	beforeEach(() => {
 		vi.restoreAllMocks();
 		vi.mocked(csrfFetch).mockReset();

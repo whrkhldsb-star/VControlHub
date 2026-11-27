@@ -162,7 +162,7 @@ export default async function DeploymentsPage({ searchParams }: { searchParams?:
 				title={tr("deploymentsPage.page.runsSection.title")}
 				count={visibleRuns.length}
 				empty={
-					visibleRuns.length === 0 ? <EmptyState text={tr("deploymentsPage.page.runsSection.empty")} /> : undefined}
+					visibleRuns.length === 0 ? <EmptyState text={tr(canRun ? "deploymentsPage.page.runsSection.empty" : "deploymentsPage.readOnlyEmpty")} /> : undefined}
 			>{visibleRuns.map((r) => (
 						<ListRow key={r.id}>
 							<div className="flex items-center justify-between gap-3">

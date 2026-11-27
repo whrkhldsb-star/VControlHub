@@ -97,6 +97,16 @@ function formatAction(action: string, t: (k: string, vars?: Record<string, strin
 }
 
 
+/**
+ * The name of a detail field as people read it ("IP address", not "ip"); a field without one keeps its key,
+ * which stays in the tooltip either way so the raw record can still be matched.
+ */
+function detailLabel(key: string, t: (k: string) => string) {
+  const labelKey = `audit.detailKey.${key}`;
+  const label = t(labelKey);
+  return label === labelKey ? key : <span title={key}>{label}</span>;
+}
+
 export function AuditLogClient({ initialActionFilter = "" }: AuditLogClientProps) {
   const { t, locale } = useI18n();
   const { state: urlState, setField: setUrlField, patch: patchUrl } = useUrlQueryState({
@@ -164,6 +174,28 @@ export function AuditLogClient({ initialActionFilter = "" }: AuditLogClientProps
     intervalSeconds: 0,
     getErrorMessage: getAuditErrorMessage,
   });
+
+  const hasFilters = Boolean(severityFilter || actionFilter || searchQuery.trim());
+  const clearFilters = () => {
+    patchUrl({ severity: "", action: "", q: "", page: "1" });
+    setDebouncedSearch("");
+  };
+  // A filter that matched nothing is not an empty log: say which, and offer the way back.
+  const emptyState = hasFilters ? (
+    <EmptyState
+      title={t("audit.emptyFiltered")}
+      text={t("audit.emptyFilteredHint")}
+      action={<ActionButton size="sm" variant="secondary" onClick={clearFilters}>{t("audit.clearFilters")}</ActionButton>}
+    />
+  ) : (
+    <EmptyState title={t("audit.emptyTitle")} text={t("audit.empty")} />
+  );
+  // A failed first load is a notice with a retry, with no "nothing here" under it.
+  const loadFailure = (
+    <div className="p-4">
+      <Notice tone="danger" action={{ label: t("common.retry"), onClick: fetchLogs }}>{error ?? t("audit.load-error")}</Notice>
+    </div>
+  );
 
   return (
     <div>
@@ -266,11 +298,14 @@ export function AuditLogClient({ initialActionFilter = "" }: AuditLogClientProps
         </div>
       </Toolbar>
 
-      {error && (
+      {/* A refresh that failed over a list already shown; a first load that failed says so inside the list. */}
+      {error && data ? (
         <Notice tone="danger" className="mb-4" action={{ label: t("common.retry"), onClick: fetchLogs }}>{error}</Notice>
-      )}
+      ) : null}
 
       <ListPanel title={t("audit.details")} count={data?.total ?? (loading ?"…" : 0)}>
+        {/* Said once for both layouts below. */}
+        {!loading && error && !data ? loadFailure : null}
         {/* Desktop: a grid of divs, given table roles so a screen reader can move by row and column. */}
         <div className="hidden xl:block" role="table" aria-label={t("audit.details")}>
           <div role="row" className="grid grid-cols-[140px_100px_120px_minmax(0,1.5fr)_minmax(0,2fr)_160px] gap-4 border-b border-[var(--border-subtle)] bg-[var(--surface-elevated)] px-4 py-3 text-xs text-[var(--text-muted)]">
@@ -317,10 +352,8 @@ export function AuditLogClient({ initialActionFilter = "" }: AuditLogClientProps
                 <span className="sr-only">{t("audit.loading")}</span>
                 <SkeletonList count={6} />
               </div>
-            ) : error && !data ? (
-              <div className="px-4 py-10 text-sm text-[var(--danger)]">{t("audit.load-error")}</div>
-            ) : !data || data.logs.length === 0 ? (
-              <EmptyState>{t("audit.empty")}</EmptyState>
+            ) : error && !data ? null : !data || data.logs.length === 0 ? (
+              emptyState
             ) : (
               data.logs.map((log) => (
                 <div key={log.id} role="row" className="grid grid-cols-[140px_100px_120px_minmax(0,1.5fr)_minmax(0,2fr)_160px] items-center gap-4 px-4 py-3 text-sm">
@@ -353,10 +386,8 @@ export function AuditLogClient({ initialActionFilter = "" }: AuditLogClientProps
               <span className="sr-only">{t("audit.loading")}</span>
               <SkeletonList count={5} />
             </div>
-          ) : error && !data ? (
-            <div className="px-4 py-10 text-sm text-[var(--danger)]">{t("audit.load-error")}</div>
-          ) : !data || data.logs.length === 0 ? (
-            <EmptyState>{t("audit.empty")}</EmptyState>
+          ) : error && !data ? null : !data || data.logs.length === 0 ? (
+            emptyState
           ) : (
             data.logs.map((log) => (
               <div key={log.id} className="px-4 py-3 space-y-2">
@@ -401,7 +432,7 @@ export function AuditLogClient({ initialActionFilter = "" }: AuditLogClientProps
               ) : (
                 <div data-inset className="p-3">
                   <KeyValueList
-                    items={Object.entries(openLog.detail).map(([key, value]) => ({ key, label: key, value: formatAuditDetailValue(value), mono: true, wide: true }))}
+                    items={Object.entries(openLog.detail).map(([key, value]) => ({ key, label: detailLabel(key, t), value: formatAuditDetailValue(value), mono: true, wide: true }))}
                   />
                 </div>
               )}

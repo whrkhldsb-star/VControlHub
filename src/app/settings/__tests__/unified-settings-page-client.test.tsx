@@ -53,6 +53,29 @@ describe("UnifiedSettingsPageClient", () => {
     expect(screen.queryByRole("tab", { name: /高级配置/ })).not.toBeInTheDocument();
   });
 
+  it("says why an administrator section opened personal preferences instead", async () => {
+    window.history.replaceState(null, "", "#smtp");
+    try {
+      render(<UnifiedSettingsPageClient settings={{}} canManage={false} />);
+      expect(await screen.findByText("该部分仅管理员可以修改")).toBeInTheDocument();
+      expect(screen.getByRole("tab", { name: /个人偏好/ })).toHaveAttribute("aria-selected", "true");
+    } finally {
+      window.history.replaceState({}, "", "/settings");
+    }
+  });
+
+  it("opens a tab from its own name as an address", async () => {
+    window.history.replaceState({}, "", "/settings#notifications");
+    try {
+      render(<UnifiedSettingsPageClient settings={{ "platform.name": "VControlHub", "platform.logo": "", ...runtimeDefaults }} canManage />);
+      await waitFor(() => expect(screen.getByRole("tab", { name: /通知与集成/ })).toHaveAttribute("aria-selected", "true"));
+      const menu = screen.getByRole("combobox", { name: "设置分类导航" }) as HTMLSelectElement;
+      await waitFor(() => expect(menu).toHaveValue("smtp"));
+    } finally {
+      window.history.replaceState({}, "", "/settings");
+    }
+  });
+
   it("routes the retired workspace bookmark to personal preferences", async () => {
     window.history.replaceState(null, "", "#team-workspaces");
     render(<UnifiedSettingsPageClient settings={{}} canManage={false} />);
@@ -123,11 +146,11 @@ describe("UnifiedSettingsPageClient", () => {
 
     // Page header
     expect(screen.getByRole("heading", { name: "设置" })).toBeInTheDocument();
-    expect(screen.getByText("个人使用习惯、界面行为、账户安全与平台级参数集中在一个入口中管理。"))
+    expect(screen.getByText("个人偏好和平台级配置都在这里管理。自己的密码、两步验证和登录会话在账户安全页面修改。"))
       .toBeInTheDocument();
 
     // Tab bar with the eight categories (customers are managed on /customers)
-    for (const name of [/个人偏好/, /平台与外观/, /安全与账户/, /通知与集成/, /运维与执行/, /存储与备份/, /监控与数据/, /AI/]) {
+    for (const name of [/个人偏好/, /平台与外观/, /安全策略/, /通知与集成/, /运维与执行/, /存储与备份/, /监控与数据/, /AI/]) {
       expect(screen.getByRole("tab", { name })).toBeInTheDocument();
     }
     expect(screen.getAllByRole("tab")).toHaveLength(8);
@@ -184,14 +207,14 @@ describe("UnifiedSettingsPageClient", () => {
     expect(screen.getByRole("switch", { name: "启用通知" })).toBeInTheDocument();
 
     // Non-admin users only see personal settings; system-setting tabs are hidden.
-    expect(screen.queryByRole("tab", { name: /安全与账户/ })).not.toBeInTheDocument();
+    expect(screen.queryByRole("tab", { name: /安全策略/ })).not.toBeInTheDocument();
     expect(screen.queryByLabelText("平台名称")).not.toBeInTheDocument();
 
     // Personal tab still has content
     expect(screen.getByText("个性化设置")).toBeInTheDocument();
   });
 
-  it("switches tabs and shows section counts in tab badges", async () => {
+  it("switches tabs and says what the open tab holds instead of counting its sections", async () => {
     render(
       <UnifiedSettingsPageClient
         settings={{ "platform.name": "VControlHub", "platform.logo": "", ...runtimeDefaults }}
@@ -199,18 +222,22 @@ describe("UnifiedSettingsPageClient", () => {
       />,
     );
 
-    // Each tab should have a count badge
     const personalTab = screen.getByRole("tab", { name: /个人偏好/ });
-    const securityTab = screen.getByRole("tab", { name: /安全与账户/ });
+    const securityTab = screen.getByRole("tab", { name: /安全策略/ });
     const notificationsTab = screen.getByRole("tab", { name: /通知与集成/ });
     const advancedTab = screen.getByRole("tab", { name: /运维与执行/ });
 
     expect(personalTab).toHaveAttribute("aria-selected", "true");
     expect(securityTab).toHaveAttribute("aria-selected", "false");
 
+    // No count on a tab: it read as unread items.
+    expect(personalTab).not.toHaveTextContent(/\d/);
+    expect(screen.getByText("默认页面、仪表盘组件、通知、刷新")).toBeInTheDocument();
+
     // Switch to notifications tab
     await userEvent.click(notificationsTab);
     expect(notificationsTab).toHaveAttribute("aria-selected", "true");
+    expect(screen.getByText("邮件告警、Telegram 推送、告警升级与补投")).toBeInTheDocument();
     expect(personalTab).toHaveAttribute("aria-selected", "false");
 
     // Switch to advanced tab
@@ -219,8 +246,7 @@ describe("UnifiedSettingsPageClient", () => {
   });
 
   it("counts every personal section and opens each one from its address", async () => {
-    // The ids were listed by hand, one short: the badge said 5 over a menu of 6, and
-    // /settings#preferences-rdp-probe opened the default section.
+    // The ids were listed by hand, one short: /settings#preferences-rdp-probe opened the default section.
     window.history.replaceState({}, "", "/settings#preferences-rdp-probe");
     try {
       render(<UnifiedSettingsPageClient settings={{ "platform.name": "VControlHub", "platform.logo": "", ...runtimeDefaults }} canManage />);
@@ -228,7 +254,6 @@ describe("UnifiedSettingsPageClient", () => {
       await waitFor(() => expect(personalTab).toHaveAttribute("aria-selected", "true"));
       const menu = screen.getByRole("combobox", { name: "设置分类导航" }) as HTMLSelectElement;
       expect(menu.options).toHaveLength(6);
-      expect(personalTab).toHaveTextContent("6");
       await waitFor(() => expect(menu).toHaveValue("preferences-rdp-probe"));
     } finally {
       window.history.replaceState({}, "", "/settings");

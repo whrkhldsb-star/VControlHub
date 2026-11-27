@@ -4,13 +4,14 @@ import { useState, useCallback, useEffect, memo, type ReactNode } from "react";
 import Link from "next/link";
 import { csrfFetch } from "@/lib/auth/csrf-client";
 import { getSafeNotificationActionUrl } from "@/lib/notification/action-url";
-import { EmptyState, ToggleChip, PageHeader } from "@/components/page-shell";
+import { CountBadge, EmptyState, ToggleChip, PageHeader } from "@/components/page-shell";
+import { useGateRoute } from "@/lib/auth/use-gate-route";
 import { useI18n } from "@/lib/i18n/use-locale";
 import { formatDate } from "@/lib/datetime/format";
 import type { Locale } from "@/lib/i18n/translations";
 import { AlertTriangle, Bell, Check, ChevronRight, ClipboardList, Download, Server, X } from "@/components/icons";
 import { getErrorMessage } from "@/lib/http/error-message";
-import { ActionButton } from "@/components/action-button";
+import { ActionButton, ButtonLink } from "@/components/action-button";
 import { Notice } from "@/components/ui-primitives";
 import { cn } from "@/lib/ui/cn";
 import { localizeNotification } from "@/lib/notification/message";
@@ -151,6 +152,9 @@ export function NotificationListClient({ initialNotifications, initialUnreadCoun
 	// Unread-only view: with hundreds of read notifications, finding the new
 	// ones meant scrolling past all history.
 	const [unreadOnly, setUnreadOnly] = useState(false);
+	const gate = useGateRoute();
+	const canManageAlerts = gate.can("notification:manage");
+	const canManageSettings = gate.can("user:manage");
 
 	const messageFromError = (err: unknown, fallback: string) => (getErrorMessage(err, fallback));
 
@@ -236,10 +240,19 @@ export function NotificationListClient({ initialNotifications, initialUnreadCoun
 		<PageHeader eyebrow={t("notificationsPage.eyebrow")} title={t("notificationsPage.title")} description={description} />
 	);
 	if (notifications.length === 0 && !hasMore) {
+		// Say where notifications come from, and offer the setup that makes them arrive to those who can do it.
+		const setupLinks = [
+			canManageAlerts ? <ButtonLink key="alerts" href="/alert-rules" size="sm" variant="secondary">{t("notificationsPage.emptyAction.alertRules")}</ButtonLink> : null,
+			canManageSettings ? <ButtonLink key="smtp" href="/settings#smtp" size="sm" variant="secondary">{t("notificationsPage.emptyAction.smtp")}</ButtonLink> : null,
+		].filter(Boolean);
 		return (
-			<>{header}<EmptyState icon={<Bell size={36} className="text-[var(--text-muted)]" aria-hidden="true" />} variant="boxed">
-				{t("notificationsPage.empty")}
-			</EmptyState></>
+			<>{header}<EmptyState
+				icon={<Bell size={36} className="text-[var(--text-muted)]" aria-hidden="true" />}
+				variant="boxed"
+				title={t("notificationsPage.empty")}
+				text={t("notificationsPage.emptySources")}
+				action={setupLinks.length > 0 ? <div className="flex flex-wrap justify-center gap-2">{setupLinks}</div> : undefined}
+			/></>
 		);
 	}
 
@@ -250,7 +263,8 @@ export function NotificationListClient({ initialNotifications, initialUnreadCoun
 			{error && <Notice tone="danger" compact onDismiss={() => setError(null)} dismissLabel={t("common.close")}>{error}</Notice>}
 			<div className="flex flex-wrap items-center justify-between gap-2">
 				<ToggleChip active={unreadOnly} onClick={() => setUnreadOnly((v) => !v)} ariaLabel={t("notificationsPage.action.unreadOnly")}>
-					{t("notificationsPage.action.unreadOnly")}{unreadCount > 0 ? ` (${unreadCount})` : ""}
+					{t("notificationsPage.action.unreadOnly")}
+					{unreadCount > 0 ? <CountBadge>{unreadCount}</CountBadge> : null}
 				</ToggleChip>
 				{unreadCount > 0 && (
 					<ActionButton size="sm" variant="ghost" onClick={markAllRead}>

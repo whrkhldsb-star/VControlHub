@@ -70,6 +70,8 @@ describe("share page", () => {
 		expect(mocks.peekShareToken).toHaveBeenCalledWith("tok", expect.objectContaining({ authorizedShareId: "share-1" }));
 		expect(screen.queryByTestId("password-gate")).toBeNull();
 		expect(screen.getByText("a.jpg")).toBeInTheDocument();
+		expect(document.body.innerHTML).not.toMatch(/team(?:\/|%2F)photos/i);
+		expect(document.querySelector('a[href="/api/share/tok/files?file=a.jpg"]')).not.toBeNull();
 	});
 
 	it("counts and logs a visitor by the address the proxy saw, not the one the visitor wrote", async () => {

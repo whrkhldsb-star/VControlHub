@@ -207,7 +207,16 @@ export function AnnouncementList({
             ) : undefined}
           />
         ) : filtered.length === 0 ? (
-          <EmptyState variant="boxed" title={t("announcementsPage.emptyFiltered")} />
+          <EmptyState
+            variant="boxed"
+            title={t("announcementsPage.emptyFiltered")}
+            text={t("announcementsPage.emptyFilteredHint")}
+            action={
+              <ActionButton size="sm" variant="secondary" onClick={() => { setSearch(""); setLevelFilter("ALL"); }}>
+                {t("announcementsPage.clearFilters")}
+              </ActionButton>
+            }
+          />
         ) : (
           <PaginatedList pageSize={20} resetKey={`${search}\u0000${levelFilter}`} className="grid gap-4">
             {filtered.map((a) => (

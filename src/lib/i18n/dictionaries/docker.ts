@@ -6,6 +6,9 @@
  */
 
 export const zh: Record<string, string> = {
+	"dockerPage.deployments": "查看部署",
+	"dockerPage.browseServices": "浏览快捷服务",
+	"dockerPage.invalidTarget": "请求的服务器不可用。请选择其他目标。",
 	"dockerPage.action.logs": "日志",
 	"dockerPage.action.remove": "删除",
 	"dockerPage.action.restart": "重启",
@@ -103,6 +106,9 @@ export const zh: Record<string, string> = {
 };
 
 export const en: Record<string, string> = {
+	"dockerPage.deployments": "View deployments",
+	"dockerPage.browseServices": "Browse quick services",
+	"dockerPage.invalidTarget": "The requested server is unavailable. Choose another target.",
 	"dockerPage.desc": "Manage Docker containers on the hub host or a selected remote VPS",
 	"dockerPage.action.logs": "Logs",
 	"dockerPage.action.remove": "Delete",

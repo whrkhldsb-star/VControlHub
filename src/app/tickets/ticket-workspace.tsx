@@ -238,7 +238,14 @@ export function TicketWorkspace({ initialPage, initialBoard, canManage, now, onC
     busy ? (
       <EmptyState text={t("common.loading")} />
     ) : filtersActive ? (
-      <EmptyState title={t("ticketsPage.emptyFiltered")} />
+      <EmptyState
+        title={t("ticketsPage.emptyFiltered")}
+        action={
+          <ActionButton size="sm" variant="outline" onClick={clearFilters}>
+            {t("ticketsPage.filter.clear")}
+          </ActionButton>
+        }
+      />
     ) : (
       <EmptyState
         title={t("ticketsPage.emptyNone")}

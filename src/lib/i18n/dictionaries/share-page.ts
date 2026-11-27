@@ -33,17 +33,23 @@ export const zh: Record<string, string> = {
 	"sharePage.unlockFailedStatus": "解锁失败（{status}）",
 	"sharePage.brand": "VControlHub",
 	"sharePage.permissionLevel": "权限级别",
-	"sharePage.permissionPreview": "仅查看目录/元数据",
-	"sharePage.permissionDownload": "可下载",
-	"sharePage.previewOnly": "此分享仅展示目录和文件元数据，不提供下载",
+
+	"sharePage.permissionPreview": "仅可查看，不能下载",
+
+	"sharePage.permissionDownload": "允许下载",
+
+	"sharePage.previewOnly": "可以查看文件列表，但此链接不允许下载。",
 	"sharePage.tooManyRequests": "请求过于频繁，请稍后再试",
 };
 
 export const en: Record<string, string> = {
 	"sharePage.permissionLevel": "Permission level",
-	"sharePage.permissionPreview": "Metadata/directory view only",
+
+	"sharePage.permissionPreview": "View only — downloads disabled",
+
 	"sharePage.permissionDownload": "Download allowed",
-	"sharePage.previewOnly": "This share exposes directory and file metadata without download access",
+
+	"sharePage.previewOnly": "You can view the file list. Downloads are disabled for this link.",
 	"sharePage.sizeUnknown": "Unknown",
 	"sharePage.invalidToken": "Invalid share link",
 	"sharePage.errorTitle": "Cannot access this share",

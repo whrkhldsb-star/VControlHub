@@ -5,7 +5,7 @@ import { useRouter } from "next/navigation";
 import { Bell, Database, Globe, HardDrive, Settings, Sparkles, User } from "@/components/icons";
 import { IconKey } from "@/components/nav-items";
 import { PageHeader } from "@/components/page-shell";
-import { SegmentedTabs, SideNav, SplitPane } from "@/components/ui-primitives";
+import { Notice, SegmentedTabs, SideNav, SplitPane } from "@/components/ui-primitives";
 import type { RuntimeSettingSummaryDto as RuntimeSettingSummary } from "@/lib/runtime-settings/dto";
 import type { SettingUpdateMetadata } from "@/lib/settings/service";
 import { useI18n } from "@/lib/i18n/use-locale";
@@ -50,9 +50,28 @@ const SYSTEM_CONFIG_TAB: PlatformTab = "platform";
 
 /**
  * The sections of the personal tab, from the list its menu is built from. Written out by hand they were one
- * short: the tab's badge said 5 over a menu of 6, and the address of the sixth opened the first.
+ * short, and the address of the sixth opened the first.
  */
 const PERSONAL_SECTION_IDS = PREFERENCES_CATEGORY_SUMMARIES.map((summary) => summary.id).filter((id) => id !== "personal-preferences");
+
+/**
+ * A tab's own name as an address (`/settings#notifications`) opens the tab at its first section, as the
+ * section names (`#smtp`, `#telegram`, `#alerts`) open theirs.
+ */
+const TAB_HASH_FIRST_SECTION: Record<string, string> = Object.fromEntries(
+  (Object.entries(TAB_SECTION_IDS) as [PlatformTab, string[]][])
+    .filter(([, ids]) => ids[0] !== undefined)
+    .map(([tab, ids]) => [tab, ids[0]!] as const),
+);
+
+/** Real section IDs take precedence over tab aliases when a section and tab share a name (such as `ai`). */
+const EXACT_SECTION_IDS = new Set<string>([
+  "personal-preferences",
+  ...PERSONAL_SECTION_IDS,
+  "security",
+  "system-config",
+  ...Object.values(TAB_SECTION_IDS).flat(),
+]);
 
 /** Map any section hash to its parent tab. */
 const SECTION_TO_TAB: Record<string, SettingsTab> = {
@@ -65,6 +84,7 @@ const SECTION_TO_TAB: Record<string, SettingsTab> = {
       ids.map((id) => [id, tab] as const),
     ),
   ),
+  ...Object.fromEntries(Object.keys(TAB_HASH_FIRST_SECTION).map((tab) => [tab, tab as SettingsTab] as const)),
 };
 
 const TAB_META: {
@@ -103,6 +123,9 @@ export function UnifiedSettingsPageClient({
     setSettingsRevision((revision) => revision + 1);
   });
   const [activeSection, setActiveSection] = useState<string>("preferences-default-page");
+  // Set when an address named a section only administrators can open: the page says why it opened the
+  // personal tab instead of silently showing something else.
+  const [reroutedFrom, setReroutedFrom] = useState<string | null>(null);
   const navigationTimer = useRef<ReturnType<typeof setTimeout> | null>(null);
   const cancelNavigation = useCallback(() => {
     if (navigationTimer.current !== null) clearTimeout(navigationTimer.current);
@@ -120,13 +143,14 @@ export function UnifiedSettingsPageClient({
     }, 80);
   }, [cancelNavigation]);
 
-  const resolveHash = useCallback((hash: string): { tab: SettingsTab; sectionId: string } | null => {
+  const resolveHash = useCallback((hash: string): { tab: SettingsTab; sectionId: string; rerouted?: boolean } | null => {
     const id = hash.replace(/^#/, "");
     if (!id) return null;
     const tab = SECTION_TO_TAB[id];
     if (!tab) return null;
-    if (!canManage && !SELF_SERVICE_TABS.includes(tab)) return { tab: "personal", sectionId: "preferences-default-page" };
-    return { tab, sectionId: id };
+    if (!canManage && !SELF_SERVICE_TABS.includes(tab)) return { tab: "personal", sectionId: "preferences-default-page", rerouted: true };
+    const sectionId = EXACT_SECTION_IDS.has(id) ? id : (TAB_HASH_FIRST_SECTION[id] ?? id);
+    return { tab, sectionId };
   }, [canManage]);
 
   useEffect(() => {
@@ -143,6 +167,7 @@ export function UnifiedSettingsPageClient({
       }
       const resolved = resolveHash(window.location.hash);
       if (resolved) {
+        setReroutedFrom(resolved.rerouted ? window.location.hash.replace(/^#/, "") : null);
         setActiveTab(resolved.tab);
         setActiveSection(resolved.sectionId);
         revealSection(resolved.sectionId, resolved.tab);
@@ -181,13 +206,7 @@ export function UnifiedSettingsPageClient({
 
   const tabs = canManage ? TAB_META : TAB_META.filter((tab) => SELF_SERVICE_TABS.includes(tab.id));
 
-  const tabCounts = useMemo(() => {
-    const counts = { personal: PERSONAL_SECTION_IDS.length } as Record<SettingsTab, number>;
-    for (const [tab, ids] of Object.entries(TAB_SECTION_IDS) as [PlatformTab, string[]][]) {
-      counts[tab] = ids.length + (tab === SYSTEM_CONFIG_TAB && canManage ? 1 : 0);
-    }
-    return counts;
-  }, [canManage]);
+  const activeTabMeta = TAB_META.find((tab) => tab.id === activeTab);
 
   const systemTab = isPlatformTab(activeTab) ? activeTab : null;
   const visibleSectionIds = systemTab ? TAB_SECTION_IDS[systemTab] : TAB_SECTION_IDS.security;
@@ -244,10 +263,22 @@ export function UnifiedSettingsPageClient({
             panelId: `${panelId}-panel`,
             icon: tab.icon,
             label: t(tab.labelKey),
-            badge: tabCounts[tab.id],
           }))}
         />
+        {/* What the open tab holds; the section counts that used to sit on the tabs read as unread counts. */}
+        {activeTabMeta ? <p className="mt-2 text-[13px] leading-5 text-[var(--text-muted)]">{t(activeTabMeta.descKey)}</p> : null}
       </div>
+
+      {reroutedFrom ? (
+        <Notice
+          tone="info"
+          title={t("settingsPage.rerouted.title")}
+          onDismiss={() => setReroutedFrom(null)}
+          dismissLabel={t("common.close")}
+        >
+          {t("settingsPage.rerouted.body")}
+        </Notice>
+      ) : null}
 
       <div role="tabpanel" id={`${panelId}-panel`} aria-labelledby={`${panelId}-${activeTab}-tab`} tabIndex={0} className="min-w-0">
       <SplitPane

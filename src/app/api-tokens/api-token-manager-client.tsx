@@ -7,7 +7,7 @@ import { csrfFetch } from "@/lib/auth/csrf-client";
 import { useI18n } from "@/lib/i18n/use-locale";
 import { formatDateTime } from "@/lib/datetime/format";
 import { getErrorMessage } from "@/lib/http/error-message";
-import { ActionButton } from "@/components/action-button";
+import { ActionButton, ButtonLink } from "@/components/action-button";
 import { ConfirmDialog } from "@/components/confirm-dialog";
 import { StatusBadge, type StatusTone } from "@/components/status-badge";
 import { Badge, CheckboxField, FormField, FormGrid, InlineLoading, Notice } from "@/components/ui-primitives";
@@ -56,6 +56,35 @@ function tokenStatus(t: Translate, token: SafeApiToken) {
 function scopeLabel(t: Translate, scope: string): string {
   const translated = t(`apiTokensPage.scope.${scope}`);
   return translated === `apiTokensPage.scope.${scope}` ? scope : translated;
+}
+
+/**
+ * How to use the token just made: a request with a placeholder where the token goes, so copying the example
+ * never puts the secret anywhere it was not meant to go, and the way to the API reference.
+ */
+function TokenUsageExample() {
+  const { t } = useI18n();
+  const [copied, setCopied] = useState<"copied" | "failed" | null>(null);
+  const origin = typeof window === "undefined" ? "" : window.location.origin;
+  const example = `curl -H "Authorization: Bearer <TOKEN>" ${origin}/api/health`;
+  return (
+    <div className="mt-5 border-t border-[var(--warning-border)] pt-4">
+      <h3 className="ui-title-group">{t("apiTokensPage.example.title")}</h3>
+      <p className="mt-1 text-sm text-[var(--text-secondary)]">{t("apiTokensPage.example.hint")}</p>
+      <pre data-inset="" className="mt-3 overflow-x-auto p-3 font-mono text-xs text-[var(--text-primary)]"><code>{example}</code></pre>
+      <div className="mt-3 flex flex-wrap items-center gap-2">
+        <ActionButton size="sm" variant="secondary" onClick={async () => setCopied((await copyText(example)) ? "copied" : "failed")}>
+          {t("apiTokensPage.example.copy")}
+        </ActionButton>
+        <ButtonLink href="/api-docs" size="sm" variant="secondary">{t("apiTokensPage.example.docs")}</ButtonLink>
+        {copied ? (
+          <span role="status" className={`text-xs ${copied === "copied" ? "text-[var(--success)]" : "text-[var(--danger)]"}`}>
+            {t(copied === "copied" ? "apiTokensPage.plaintext.copied" : "apiTokensPage.example.copyFailed")}
+          </span>
+        ) : null}
+      </div>
+    </div>
+  );
 }
 
 /**
@@ -126,9 +155,10 @@ function ApiTokenCreateForm({ allowedScopes, currentCustomerName, onCreated, onC
       {error ? <Notice tone="danger" compact>{error}</Notice> : null}
       <div className="space-y-1 text-sm">
         <p className="text-[var(--text-muted)]">{t("apiTokensPage.hint")}</p>
-        <p className="text-[var(--text-secondary)]">
-          {currentCustomerName ? t("apiTokensPage.customer.active", { name: currentCustomerName }) : t("apiTokensPage.customer.none")}
-        </p>
+        {/* With no customer selected the page says so at its top, before the form is even opened. */}
+        {currentCustomerName ? (
+          <p className="text-[var(--text-secondary)]">{t("apiTokensPage.customer.active", { name: currentCustomerName })}</p>
+        ) : null}
       </div>
       <FormGrid>
         <FormField label={t("apiTokensPage.create.nameLabel")} htmlFor="api-token-name">
@@ -261,6 +291,10 @@ export function ApiTokenManagerClient({ header, initialPage, pageSize, allowedSc
         </PageHeader>
       ) : null}
 
+      {currentCustomerName ? null : (
+        <Notice tone="warning" title={t("apiTokensPage.customer.noneTitle")}>{t("apiTokensPage.customer.none")}</Notice>
+      )}
+
       {createdPlaintext && (
         <section className="rounded-2xl border border-[var(--warning-border)] bg-[var(--warning)]/[0.10] p-5 shadow-[0_20px_80px_rgba(251,191,36,0.08)]">
           <div className="flex flex-col gap-3 lg:flex-row lg:items-start lg:justify-between">
@@ -283,6 +317,7 @@ export function ApiTokenManagerClient({ header, initialPage, pageSize, allowedSc
               {t(copyOutcome === "copied" ? "apiTokensPage.plaintext.copied" : "apiTokensPage.plaintext.copyFailed")}
             </p>
           ) : null}
+          <TokenUsageExample />
         </section>
       )}
 

@@ -7,8 +7,9 @@
 
 export const zh: Record<string, string> = {
 	"login.branding.signInTag": "安全登录",
-	"login.branding.subtitle": "使用管理员账号进入控制台。",
-	"login.branding.tagline": "{label}，一站式资源管理",
+	"login.branding.subtitle": "使用你的账号登录控制台。",
+	"login.branding.accountHelp": "忘记密码或还没有账号？请联系平台管理员。",
+	"login.branding.tagline": "{label}，在一个控制台里管理服务器、文件和日常运维。",
 	"login.branding.welcome": "欢迎回来",
 	"login.error.invalid": "用户名或密码错误",
 	"login.error.captcha": "人机验证未通过，请完成验证后重新登录",
@@ -31,6 +32,7 @@ export const zh: Record<string, string> = {
 	"login.form.usernamePlaceholder": "输入用户名",
 	"login.verify2faDescription": "请输入身份验证器应用生成的 6 位动态验证码，或使用已保存的恢复码",
 	"login.verify2faBackToLogin": "返回登录",
+	"login.verify2faLostDevice": "手机丢失又没有恢复码？请联系平台管理员为你重置两步验证。",
 	"login.verify2faSubmit": "验证",
 	"login.verify2faDigitAria": "验证码第 {n} 位",
 	"login.verify2faSubmitting": "验证中…",
@@ -48,8 +50,9 @@ export const zh: Record<string, string> = {
 
 export const en: Record<string, string> = {
 	"login.branding.signInTag": "Secure sign-in",
-	"login.branding.subtitle": "Sign in with your admin account to enter the console.",
-	"login.branding.tagline": "{label}, one console to rule them all.",
+	"login.branding.subtitle": "Sign in with your account to open the console.",
+	"login.branding.accountHelp": "Forgot your password or need an account? Ask your platform administrator.",
+	"login.branding.tagline": "{label}: servers, files and daily operations in one calm console.",
 	"login.branding.welcome": "Welcome back",
 	"login.error.invalid": "Invalid username or password",
 	"login.error.captcha": "The human verification did not pass. Complete it and sign in again.",
@@ -72,6 +75,7 @@ export const en: Record<string, string> = {
 	"login.form.usernamePlaceholder": "Enter username",
 	"login.verify2faDescription": "Enter the 6-digit code from your authenticator app, or use a saved recovery code.",
 	"login.verify2faBackToLogin": "Back to sign in",
+	"login.verify2faLostDevice": "Lost your phone and your recovery codes? Ask a platform administrator to reset two-factor for you.",
 	"login.verify2faSubmit": "Verify",
 	"login.verify2faDigitAria": "Verification code digit {n}",
 	"login.verify2faSubmitting": "Verifying…",

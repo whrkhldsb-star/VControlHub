@@ -55,11 +55,15 @@ function isAllowedPreviewHref(href: string): boolean {
 }
 
 export default async function FilePreviewPage({ searchParams }: PreviewPageProps) {
-	// Back to the file manager: the preview is opened from it for one file, and is nothing without its query.
-	await requireSession("/files");
+	const query = await searchParams;
+	const address = new URLSearchParams();
+	for (const [key, value] of Object.entries(query ?? {})) {
+		for (const part of Array.isArray(value) ? value : [value]) if (part !== undefined) address.append(key, part);
+	}
+	await requireSession(`/files/preview${address.size ? `?${address}` : ""}`);
 	const locale = await getServerLocale();
 
-	const params = firstSearchParams(await searchParams);
+	const params = firstSearchParams(query);
 	const requestedHref = params?.href ?? "";
 	const href = isAllowedPreviewHref(requestedHref) ? requestedHref :"";
 	const invalidHref = Boolean(requestedHref && !href);
@@ -175,7 +179,7 @@ export default async function FilePreviewPage({ searchParams }: PreviewPageProps
 					) : (
 						<div className="flex flex-col items-center gap-4 py-16 text-[var(--text-secondary)]">
 							<FileIcon size={48} className="text-[var(--text-muted)]" />
-							<p>{t("textPreview.preview.unsupported", locale)}</p>
+							<p>{t(downloadUrl ? "filesPage.downloadOnly" : "textPreview.preview.unsupported", locale)}</p>
 							{downloadUrl ? (
 								<a
 									href={downloadUrl}

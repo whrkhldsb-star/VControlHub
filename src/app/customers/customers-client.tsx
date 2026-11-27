@@ -3,7 +3,7 @@
 import { useCallback, useEffect, useState } from "react";
 import { useRouter } from "next/navigation";
 
-import { ActionButton } from "@/components/action-button";
+import { ActionButton, ButtonLink } from "@/components/action-button";
 import { Plus } from "@/components/icons";
 import { EmptyState, ListPanel, ListRow, PageHeader, SurfacePanel } from "@/components/page-shell";
 import { Dialog } from "@/components/ui/dialog";
@@ -43,6 +43,8 @@ export function CustomersClient() {
 	const [deleting, setDeleting] = useState<Customer | null>(null);
 	const [deleteConfirmName, setDeleteConfirmName] = useState("");
 	const [busy, setBusy] = useState(false);
+	// The customer just created: its next step is an account to sign in with, made on the users page.
+	const [justCreated, setJustCreated] = useState<string | null>(null);
 
 	const load = useCallback(async () => {
 		try {
@@ -51,8 +53,8 @@ export function CustomersClient() {
 			setDeletedCustomers(data.deletedTeams);
 			setLoadError(null);
 		} catch (error) {
+			// A failed load is not an empty list: keep what was shown and offer a retry.
 			setLoadError(getErrorMessage(error, t("customersPage.error.load")));
-			setCustomers([]);
 		}
 	}, [t]);
 
@@ -71,6 +73,7 @@ export function CustomersClient() {
 				body: JSON.stringify({ name: form.name, slug: form.slug.trim() || undefined, description: form.description || null }),
 			});
 			addToast("success", t("customersPage.created", { name: form.name.trim() }));
+			setJustCreated(form.name.trim());
 			setForm({ name: "", slug: "", description: "" });
 			setShowCreate(false);
 			await load();
@@ -148,12 +151,33 @@ export function CustomersClient() {
 				</SurfacePanel>
 			)}
 
-			{loadError && <Notice tone="danger">{loadError}</Notice>}
+			{justCreated ? (
+				<Notice tone="success" onDismiss={() => setJustCreated(null)} dismissLabel={t("common.close")}>
+					<div className="flex flex-wrap items-center gap-x-3 gap-y-2">
+						<span>{t("customersPage.nextStep.text", { name: justCreated })}</span>
+						<ButtonLink href="/users" size="sm" variant="secondary">
+							{t("customersPage.nextStep.action", { name: justCreated })}
+						</ButtonLink>
+					</div>
+				</Notice>
+			) : null}
+
+			{loadError && <Notice tone="danger" action={{ label: t("common.retry"), onClick: () => void load() }}>{loadError}</Notice>}
 
 			<ListPanel
 				title={t("customersPage.listTitle")}
 				count={customers === null ? "…" : customers.length}
-				empty={customers !== null && customers.length === 0 ? <EmptyState>{t("customersPage.empty")}</EmptyState> : undefined}
+				empty={customers !== null && customers.length === 0 ? (
+					<EmptyState
+						title={t("customersPage.empty")}
+						text={t("customersPage.emptyHint")}
+						action={showCreate ? undefined : (
+							<ActionButton size="sm" variant="primary" icon={<Plus size={14} aria-hidden />} onClick={() => setShowCreate(true)}>
+								{t("customersPage.create")}
+							</ActionButton>
+						)}
+					/>
+				) : undefined}
 			>
 				{(customers ?? []).map((customer) => (
 					<ListRow key={customer.id} className="flex flex-col gap-3 sm:flex-row sm:items-center sm:justify-between">

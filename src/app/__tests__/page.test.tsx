@@ -161,9 +161,9 @@ describe("Home", () => {
     // Unread notifications and active schedules are separate tiles, not one "a / b" cell.
     expect(screen.getByText("未读通知")).toBeInTheDocument();
     expect(screen.getByText("启用的定时任务")).toBeInTheDocument();
-    expect(screen.getByText("文件管理")).toBeInTheDocument();
-    expect(screen.getByText("远程下载")).toBeInTheDocument();
-    expect(screen.getByText("审批中心")).toBeInTheDocument();
+    expect(screen.getAllByText("文件管理").length).toBeGreaterThan(0);
+    expect(screen.getAllByText("远程下载").length).toBeGreaterThan(0);
+    expect(screen.getAllByText("审批中心").length).toBeGreaterThan(0);
     expect(screen.getByText("最近审批活动")).toBeInTheDocument();
     await waitFor(() => expect(csrfFetchMock).toHaveBeenCalledWith("/api/preferences"));
     expect(screen.getByText("最近操作日志")).toBeInTheDocument();

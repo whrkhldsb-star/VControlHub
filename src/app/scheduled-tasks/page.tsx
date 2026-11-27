@@ -22,6 +22,7 @@ export default async function ScheduledTasksPage() {
 	const canManage = sessionHasPermission(session, "command:execute");
 	const canApprove = sessionHasPermission(session, "command:approve");
 	const canReadServers = sessionHasPermission(session, "server:read");
+	const canReadPlaybooks = sessionHasPermission(session, "playbook:read");
 
 	const [tasks, servers, templates] = await Promise.all([
 		listScheduledTasks(200, session),
@@ -69,7 +70,7 @@ export default async function ScheduledTasksPage() {
 		<PageShell>
 			<ScheduledTaskListClient
 				header={{ eyebrow: t("scheduledTasksPage.eyebrow", locale), title: tr("scheduledTasksPage.header.title"), description: tr("scheduledTasksPage.header.description") }}
-				tasks={serialized} servers={serverOptions} templates={templateOptions} canCreate={canCreate} canManage={canManage} canApprove={canApprove} />
+				tasks={serialized} servers={serverOptions} templates={templateOptions} canCreate={canCreate} canManage={canManage} canApprove={canApprove} canReadServers={canReadServers} canReadPlaybooks={canReadPlaybooks} />
 		</PageShell>
 	);
 }

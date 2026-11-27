@@ -3,7 +3,7 @@
 import { SurfacePanel } from "@/components/page-shell";
 import { UI_INPUT } from "@/lib/ui/classes";
 import { cn } from "@/lib/ui/cn";
-import { ActionButton } from "@/components/action-button";
+import { ActionButton, ButtonLink } from "@/components/action-button";
 import { Dialog } from "@/components/ui/dialog";
 
 import { Notice, SegmentedControl } from "@/components/ui-primitives";
@@ -60,6 +60,7 @@ export function UsersCreateForm({
   customers,
   templates,
   optionsError,
+  optionsLoaded = true,
   passwordRules,
 }: {
   t: (k: string, vars?: Record<string, string | number>) => string;
@@ -71,9 +72,13 @@ export function UsersCreateForm({
   templates: IdentityTemplateOption[];
   /** Why the customers and identity templates could not be read. */
   optionsError?: string | null;
+  /** The customers and templates have been read (or failed to): until then an empty list says nothing. */
+  optionsLoaded?: boolean;
   passwordRules?: PasswordRules;
 }) {
   const passwordRule = passwordRuleText(passwordRules, t);
+  // A customer account belongs to a customer: with none yet, the submit button cannot be pressed — say why.
+  const needsCustomer = createForm.accountType === "customer" && optionsLoaded && !optionsError && customers.length === 0;
   return (
     <SurfacePanel className="mb-6" title={t("usersPage.action.create")}>
       {optionsError ? <Notice tone="danger" compact>{optionsError}</Notice> : null}
@@ -128,7 +133,16 @@ export function UsersCreateForm({
           onChange={(type) => setCreateForm((p) => ({ ...p, accountType: type }))}
           options={(["customer", "admin"] as const).map((type) => ({ value: type, label: t(`usersPerm.account.type.${type}`) }))}
         />
+        <p className="mt-1.5 text-xs leading-5 text-[var(--text-muted)]">{t(`usersPage.form.accountTypeHint.${createForm.accountType}`)}</p>
       </div>
+      {needsCustomer ? (
+        <Notice tone="warning" title={t("usersPage.noCustomers.title")}>
+          <div className="flex flex-wrap items-center gap-x-3 gap-y-2">
+            <span>{t("usersPage.noCustomers.body")}</span>
+            <ButtonLink href="/customers" size="sm" variant="secondary">{t("usersPage.noCustomers.action")}</ButtonLink>
+          </div>
+        </Notice>
+      ) : null}
       {createForm.accountType === "customer" && (
         <div className="grid gap-4 sm:grid-cols-2">
           <div>

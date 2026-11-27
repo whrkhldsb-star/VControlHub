@@ -19,9 +19,9 @@ import { VpsNodeCard } from "./vps-node-card";
 import { VpsStatusTable } from "./vps-status-table";
 import { VpsStatusToolbar } from "./vps-status-toolbar";
 
-type Props = { serverCount: number };
+type Props = { serverCount: number; isPlatformAdmin?: boolean };
 
-export function VpsStatusClient({ serverCount }: Props) {
+export function VpsStatusClient({ serverCount, isPlatformAdmin = false }: Props) {
 	const {
 		locale,
 		t,
@@ -94,6 +94,7 @@ export function VpsStatusClient({ serverCount }: Props) {
 				fetchHealth={fetchHealth}
 				isRefreshing={isRefreshing}
 				loading={loading}
+				isPlatformAdmin={isPlatformAdmin}
 			/>
 
 			{loading ? (

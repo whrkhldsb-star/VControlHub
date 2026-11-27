@@ -15,7 +15,7 @@ export const en: Record<string, string> = {
 	"serversPage.windows.sftpUsername": "SFTP username",
 	"serversPage.windows.sftpPassword": "SFTP password (leave blank when editing to keep)",
 	"serversPage.windows.sftpPath": "Cloud root (OpenSSH path)",
-	"serversPage.windows.sftpDisableHint": "Unchecking only skips SFTP changes this time. Remove the storage node on the Storage page.",
+	"serversPage.windows.sftpDisableHint": "Unchecking only skips SFTP changes this time. Remove the storage node under Storage nodes in Files.",
 	"serversPage.windows.openCloudStorage": "Open cloud storage",
 	"serversPage.windows.directGatewayHint": "The managed Windows gateway uses HTTP on port 31888. For public transfer, configure an HTTPS reverse proxy on Windows and set its HTTPS URL on the storage node. Enabling requires an administrator SFTP account.",
 	"serversPage.windows.credentialsTitle": "Remote desktop credentials",
