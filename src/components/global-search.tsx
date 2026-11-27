@@ -17,6 +17,7 @@ import { isImeComposition } from "@/lib/ui/keyboard";
 import { useOptionalTheme } from "@/lib/theme/use-theme";
 import { toggleSidebarCollapsed, useRecentPages } from "@/lib/ui/shell-preferences";
 import { cn } from "@/lib/ui/cn";
+import { aiProvidersHref, apiTokenCreateHref, userCreateHref } from "@/lib/ui/deep-links";
 import { X } from "./icons";
 import { IconHistory, IconKeyboard, IconLanguages, IconMoon, IconPanelLeft, IconSearch, IconSun } from "./nav-icons";
 import { IconButton } from "./ui-primitives";
@@ -121,19 +122,23 @@ const navigationSearchItems: SearchItemDefinition[] = [...mainNavItems, ...syste
 	};
 });
 
+/** The password page returns to the security page it is reached from. */
+const CHANGE_PASSWORD_HREF = `/account/password?next=${encodeURIComponent("/account/security")}`;
+
 const searchItemDefinitions: SearchItemDefinition[] = [
 	...navigationSearchItems,
 	{ labelKey: "nav.ssh", fallbackLabel: "SSH terminal", href: "/servers", categoryKey: "search.category.tool", fallbackCategory: "Tool", keywordsKey: "search.keywords.ssh", requiredPermission: "server:ssh" },
-	{ labelKey: "auth.change-password", fallbackLabel: "Change password", href: "/account/password", categoryKey: "search.category.action", fallbackCategory: "Action", keywordsKey: "search.keywords.changePassword" },
+	// Back to the security page after the change, where the rest of the account's sign-in settings are.
+	{ labelKey: "auth.change-password", fallbackLabel: "Change password", href: CHANGE_PASSWORD_HREF, categoryKey: "search.category.action", fallbackCategory: "Action", keywordsKey: "search.keywords.changePassword" },
 	{ labelKey: "auth.two-factor", fallbackLabel: "Two-factor authentication", href: "/account/security", categoryKey: "search.category.action", fallbackCategory: "Action", keywordsKey: "search.keywords.twoFactor" },
 	{ labelKey: "preferencesPage.category.personal.title", fallbackLabel: "Personal preferences", href: "/settings#personal-preferences", categoryKey: "search.category.action", fallbackCategory: "Action", keywordsKey: "search.keywords.personalPreferences" },
 	// Tasks people search for by what they want done rather than by page name.
 	{ labelKey: "search.task.addServer", fallbackLabel: "Add a server", href: "/servers#servers-create", categoryKey: "search.category.task", fallbackCategory: "Task", keywordsKey: "search.keywords.task.addServer", requiredPermission: "server:write" },
-	{ labelKey: "search.task.createUser", fallbackLabel: "Create a user account", href: "/users", categoryKey: "search.category.task", fallbackCategory: "Task", keywordsKey: "search.keywords.task.createUser", requiredPermission: "user:manage" },
+	{ labelKey: "search.task.createUser", fallbackLabel: "Create a user account", href: userCreateHref(), categoryKey: "search.category.task", fallbackCategory: "Task", keywordsKey: "search.keywords.task.createUser", requiredPermission: "user:manage" },
 	{ labelKey: "search.task.configureSmtp", fallbackLabel: "Set up email notifications (SMTP)", href: "/settings#smtp", categoryKey: "search.category.task", fallbackCategory: "Task", keywordsKey: "search.keywords.task.configureSmtp", requiredPermission: "user:manage" },
 	{ labelKey: "search.task.createBackup", fallbackLabel: "Create a backup", href: "/backups", categoryKey: "search.category.task", fallbackCategory: "Task", keywordsKey: "search.keywords.task.createBackup", requiredPermission: "backup:create" },
-	{ labelKey: "search.task.configureAi", fallbackLabel: "Set up AI models", href: "/ai", categoryKey: "search.category.task", fallbackCategory: "Task", keywordsKey: "search.keywords.task.configureAi", requiredPermission: "ai:manage" },
-	{ labelKey: "search.task.createApiToken", fallbackLabel: "Create an API token", href: "/api-tokens", categoryKey: "search.category.task", fallbackCategory: "Task", keywordsKey: "search.keywords.task.createApiToken", requiredPermission: "api-token:manage" },
+	{ labelKey: "search.task.configureAi", fallbackLabel: "Set up AI models", href: aiProvidersHref(), categoryKey: "search.category.task", fallbackCategory: "Task", keywordsKey: "search.keywords.task.configureAi", requiredPermission: "ai:manage" },
+	{ labelKey: "search.task.createApiToken", fallbackLabel: "Create an API token", href: apiTokenCreateHref(), categoryKey: "search.category.task", fallbackCategory: "Task", keywordsKey: "search.keywords.task.createApiToken", requiredPermission: "api-token:manage" },
 ];
 
 function getKeywords(key: string | undefined, locale: Locale): string[] {
@@ -261,7 +266,7 @@ export function GlobalSearch({
 			].filter((section) => section.entries.length > 0);
 		}
 		const pages = searchItems
-			.filter((item) => matches(normalized, item.label, item.category, ...(item.keywords ?? [])))
+			.filter((item) => matches(normalized, item.label, item.category, item.description, ...(item.keywords ?? [])))
 			.map((item) => toLink(item, "page"));
 		const matchedActions = actions.filter((entry) => entry.kind === "action" && matches(normalized, entry.label, ...entry.keywords));
 		const remote = dynamicResults.query === query.trim() ? dynamicResults.items.map((item) => toLink(item, "remote")) : [];

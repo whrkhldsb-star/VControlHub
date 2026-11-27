@@ -18,7 +18,7 @@ export function ConnectionTypeFields({
 }) {
   const { t } = useI18n();
   const [connectionType, setConnectionType] = useState<"SSH_KEY" | "PASSWORD">(
-    "SSH_KEY",
+    sshKeys.length ? "SSH_KEY" : "PASSWORD",
   );
   return (
     <section data-tile className="space-y-4 p-4">
@@ -62,6 +62,7 @@ export function ConnectionTypeFields({
                 </option>
               ))}
             </select>
+            {!sshKeys.length && <a href="#servers-sshkeys" className="text-sm underline">{t("serversPage.create.addFirstKey")}</a>}
           </div>
           <div className="space-y-1.5">
             <label

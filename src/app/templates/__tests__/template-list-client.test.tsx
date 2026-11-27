@@ -37,6 +37,7 @@ function renderClient() {
 				servers={[{ id: "srv_1", name: "生产 VPS", enabled: true }]}
 				canCreate={true}
 				canDeploy={true}
+				canReadDeployments={true}
 			/>
 		</ToastProvider>,
 	);

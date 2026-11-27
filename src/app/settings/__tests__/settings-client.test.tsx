@@ -8,6 +8,7 @@ import { beforeEach, describe, expect, it, vi } from "vitest";
 import { SettingsClient } from "../settings-client";
 import { renderWithI18n as renderWithLocale } from "@/lib/i18n/__tests__/test-helpers";
 import { formatDateTime } from "@/lib/datetime/format";
+import { getActiveWorkSnapshot, resetActiveWorkRegistryForTests } from "@/lib/forms/active-work-guard";
 
 // Wrap with I18nProvider (zh default) so `t(key)` resolves to the original
 // Chinese strings these assertions still expect — without it, t(key) returns
@@ -73,6 +74,25 @@ describe("SettingsClient", () => {
     expect(input).toHaveValue("***");
     await user.click(screen.getByRole("link", { name: "前往节点" }));
     expect(screen.queryByRole("dialog", { name: "有设置尚未保存" })).not.toBeInTheDocument();
+  });
+
+  it("counts unsaved sections as work a customer switch would discard, until they are saved", async () => {
+    // The customer switcher asks before reloading the workspace, but the settings page never said it had unsaved edits.
+    resetActiveWorkRegistryForTests();
+    const user = userEvent.setup();
+    vi.mocked(csrfFetch).mockResolvedValueOnce({ success: true });
+    const view = render(<SettingsClient visibleSectionIds={["platform", "dashboard"]} settings={{ "platform.name": "旧名称", "platform.logo": "" }} canManage />);
+    expect(getActiveWorkSnapshot().dirtyForms).toBe(0);
+
+    const input = screen.getByLabelText("平台名称");
+    await user.clear(input);
+    await user.type(input, "新平台名称");
+    expect(getActiveWorkSnapshot().dirtyForms).toBe(1);
+
+    await user.click(screen.getAllByRole("button", { name: "保存" })[0]!);
+    await waitFor(() => expect(getActiveWorkSnapshot().dirtyForms).toBe(0));
+    view.unmount();
+    resetActiveWorkRegistryForTests();
   });
 
   it("protects unsaved changes during client-side navigation", async () => {

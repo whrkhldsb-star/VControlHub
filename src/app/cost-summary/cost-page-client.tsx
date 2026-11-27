@@ -25,6 +25,7 @@ import type {
 	CostBudgetRecord,
 } from "@/lib/cost/types";
 import { ActionButton } from "@/components/action-button";
+import { Pagination } from "@/components/pagination";
 import { UI_TONE } from "@/lib/ui/classes";
 import { Plus } from "@/components/icons";
 // csrfFetch kept in hook
@@ -144,7 +145,7 @@ export function CostPageClient({
 						<div>
 							<div className="ui-title-caption">{t("costPage.summary.total")}</div>
 							<div className="mt-1 text-3xl font-semibold text-[var(--text-primary)]">{formatAmount(summary.totalAmount, summary.currency, localeTag)}</div>
-							<div className="mt-1 text-xs text-[var(--text-primary)]/70">
+							<div className="mt-1 text-xs text-[var(--text-muted)]">
 								{t("costPage.summary.range", { start: summary.rangeStart, end: summary.rangeEnd })}
 							</div>
 							{summary.otherCurrencies.length > 0 ? (
@@ -173,7 +174,7 @@ export function CostPageClient({
 						</div>
 					</div>
 				) : (
-					<div className="text-sm text-[var(--text-primary)]/70">{t("costPage.summary.noData")}</div>
+					<div className="text-sm text-[var(--text-muted)]">{t("costPage.summary.noData")}</div>
 				)}
 			</section>
 
@@ -186,7 +187,7 @@ export function CostPageClient({
 						<svg viewBox={`0 0 ${trend.length * 60} 80`} className="h-20 w-full" aria-label={t("costPage.snapshot.title")}>
 							<polyline
 								fill="none"
-								stroke="rgb(34, 211, 238)"
+								stroke="var(--accent)"
 								strokeWidth="2"
 								points={points.map(p => `${p.x},${p.y}`).join(" ")}
 							/>
@@ -196,7 +197,7 @@ export function CostPageClient({
 									cx={p.x}
 									cy={p.y}
 									r="2.5"
-									fill="rgb(34, 211, 238)"
+									fill="var(--accent)"
 								>
 									<title>{`${p.date}: ${p.total.toFixed(2)} ${t(`costPage.currency.${currency}`)}`}</title>
 								</circle>
@@ -230,7 +231,7 @@ export function CostPageClient({
 					</EmptyState>
 				) : undefined
 			}
-				bodyClassName={entries.length === 0 ? undefined : "!p-0"}
+				bodyClassName={entries.length === 0 ? undefined : "p-0"}
 			>
 				{entries.length > 0 ? (
 					<div className="overflow-x-auto">
@@ -252,7 +253,7 @@ export function CostPageClient({
 										<td className="whitespace-nowrap px-3 py-2">{t(`costPage.category.${e.category}`)}</td>
 										<td className="px-3 py-2">{e.provider}</td>
 										<td className="whitespace-nowrap px-3 py-2 text-right font-mono">{formatAmount(e.amount, e.currency, localeTag)}</td>
-										<td className="max-w-[18rem] truncate px-3 py-2 text-[var(--text-primary)]/70" title={e.notes ?? undefined}>{e.notes ?? "—"}</td>
+										<td className="max-w-[18rem] truncate px-3 py-2 text-[var(--text-muted)]" title={e.notes ?? undefined}>{e.notes ?? "—"}</td>
 										{canManage ? (
 											<td className="px-3 py-2 text-right">
 												<div className="flex justify-end gap-2">
@@ -274,10 +275,14 @@ export function CostPageClient({
 				) : null}
 			</ListPanel>
 
-			{state.total > 200 && <div className="flex justify-end gap-2">
-				<ActionButton disabled={state.entryPage <= 1} onClick={() => void state.fetchEntries(month, state.entryPage - 1)}>{t("common.pagination.previous")}</ActionButton>
-				<ActionButton disabled={state.entryPage * 200 >= state.total} onClick={() => void state.fetchEntries(month, state.entryPage + 1)}>{t("common.pagination.next")}</ActionButton>
-			</div>}
+			{state.total > 200 ? (
+				<Pagination
+					page={state.entryPage}
+					pageSize={200}
+					totalItems={state.total}
+					onPageChange={(nextPage) => void state.fetchEntries(month, nextPage)}
+				/>
+			) : null}
 			<CostBudgetPanel selectedBudget={selectedBudget} initialBudgets={initialBudgets} canManage={canManage} currencies={availableCurrencies} refreshToken={state.refreshCount} />
 			<CostCloudBillingPanel
 				initialAccounts={initialBillingAccounts}

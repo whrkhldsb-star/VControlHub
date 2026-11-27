@@ -14,6 +14,8 @@ function mockInitialLoad(fetchMock: ReturnType<typeof vi.fn>, schedules: unknown
     .mockResolvedValueOnce(jsonResponse({ records, canDownload }));
 }
 
+vi.mock("next/navigation", () => ({ useRouter: () => ({ push: vi.fn() }) }));
+
 describe("VpsBackupSection", () => {
   beforeEach(() => vi.restoreAllMocks());
 

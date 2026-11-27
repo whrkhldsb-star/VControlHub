@@ -1,8 +1,9 @@
 "use client";
 
-import { createContext, useCallback, useContext, useMemo, useReducer, type ReactNode } from "react";
+import { createContext, useCallback, useContext, useEffect, useMemo, useReducer, type ReactNode } from "react";
 import { SshTerminalManager, type SshTerminalTab } from "@/components/ssh-terminal-manager";
 import type { SshTerminalOperatingSystem, TerminalStatus } from "@/components/ssh-terminal-types";
+import { registerActiveWork } from "@/lib/forms/active-work-guard";
 
 /* ------------------------------------------------------------------ */
 /* SshTerminalProvider — global multi-tab SSH terminal state          */
@@ -126,6 +127,11 @@ export function SshTerminalProvider({ children }: { children: ReactNode }) {
 		tabs: [] as SshTerminalTab[],
 		activeTabIndex: 0,
 	});
+
+	useEffect(() => {
+		if (state.tabs.length === 0) return;
+		return registerActiveWork("terminal", state.tabs.length);
+	}, [state.tabs.length]);
 
 	const openTerminal = useCallback((server: {
 		serverId: string;

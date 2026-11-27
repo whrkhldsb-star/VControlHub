@@ -3,7 +3,7 @@
 import { useFormStatus } from "react-dom";
 
 import { cn } from "@/lib/ui/cn";
-import type { ActionButtonVariant } from "@/components/action-button";
+import type { ActionButtonVariant, ButtonSize } from "@/components/action-button";
 
 /**
  * Form submit button with `useFormStatus` pending state.
@@ -23,6 +23,8 @@ export function SubmitButton({
 	value,
 	disabled,
 	variant = "primary",
+	size = "md",
+	block,
 	toneOverride,
 }: {
 	pendingLabel: string;
@@ -32,6 +34,8 @@ export function SubmitButton({
 	value?: string;
 	disabled?: boolean;
 	variant?: ActionButtonVariant;
+	size?: ButtonSize;
+	block?: boolean;
 	/**
 	 * When true, treat `className` as a full visual override (no data-action-button).
 	 * Prefer migrating to `variant` instead.
@@ -50,6 +54,8 @@ export function SubmitButton({
 			aria-busy={pending}
 			data-action-button={usesTokenStyles ? "" : undefined}
 			data-variant={usesTokenStyles ? variant : undefined}
+			data-size={usesTokenStyles && size !== "md" ? size : undefined}
+			data-block={usesTokenStyles && block ? "" : undefined}
 			className={cn(className)}
 		>
 			{pending ? pendingLabel : children}

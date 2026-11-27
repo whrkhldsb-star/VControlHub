@@ -5,10 +5,73 @@ import { useRouter } from "next/navigation";
 
 import { ConfirmDialog } from "@/components/confirm-dialog";
 import { useI18n } from "@/lib/i18n/use-locale";
+import {
+  acquireDirtyHistoryGuard,
+  isScopeSwitchReleasing,
+  registerActiveWork,
+  releaseDirtyHistoryGuard,
+} from "./active-work-guard";
 import { NAVIGATION_REQUEST_EVENT, type NavigationRequestDetail } from "./navigation-request";
 
 /** Marks the history entry pushed so that Back can be answered with a question. */
 const GUARD_ENTRY = "__vchUnsavedGuard";
+
+type SharedBackGuardEntry = {
+  id: symbol;
+  guardHref: string;
+  isLeaving: () => boolean;
+  markLeaving: () => void;
+  promptBack: () => void;
+};
+
+const activeBackGuards: SharedBackGuardEntry[] = [];
+let sharedPopStateAttached = false;
+
+function pushSharedGuardEntry() {
+  window.history.pushState({ ...(window.history.state ?? {}), [GUARD_ENTRY]: true }, "", window.location.href);
+}
+
+function handleSharedPopState() {
+  if (isScopeSwitchReleasing() || activeBackGuards.length === 0) return;
+  if (activeBackGuards.some((entry) => entry.isLeaving())) return;
+  pushSharedGuardEntry();
+  activeBackGuards[activeBackGuards.length - 1]?.promptBack();
+}
+
+function registerSharedBackGuard(entry: SharedBackGuardEntry) {
+  activeBackGuards.push(entry);
+  acquireDirtyHistoryGuard();
+  if (!window.history.state?.[GUARD_ENTRY]) pushSharedGuardEntry();
+  if (!sharedPopStateAttached) {
+    window.addEventListener("popstate", handleSharedPopState);
+    sharedPopStateAttached = true;
+  }
+  return () => {
+    const idx = activeBackGuards.findIndex((item) => item.id === entry.id);
+    if (idx !== -1) activeBackGuards.splice(idx, 1);
+    const remaining = releaseDirtyHistoryGuard();
+    if (activeBackGuards.length === 0 && sharedPopStateAttached) {
+      window.removeEventListener("popstate", handleSharedPopState);
+      sharedPopStateAttached = false;
+    }
+    // Saved or reset while still on this page: drop the extra entry only when
+    // no other dirty guard remains and no customer-scope switch is tearing down
+    // the tree (which would race `router.refresh()`).
+    if (remaining === 0 && !entry.isLeaving() && !isScopeSwitchReleasing() && window.history.state?.[GUARD_ENTRY]) {
+      if (window.location.href === entry.guardHref) {
+        window.history.back();
+      } else {
+        // The entry was repurposed by an in-page switch (a tab): keep it, drop only the marker.
+        const { [GUARD_ENTRY]: _marker, ...rest } = window.history.state as Record<string, unknown>;
+        window.history.replaceState(rest, "", window.location.href);
+      }
+    }
+  };
+}
+
+function markAllBackGuardsLeaving() {
+  for (const entry of activeBackGuards) entry.markLeaving();
+}
 
 type PendingDiscard =
   | { kind: "navigate"; href: string }
@@ -29,8 +92,13 @@ export function useUnsavedChangesGuard(input: {
   const leaving = useRef(false);
 
   useEffect(() => {
+    if (!dirty) return;
+    return registerActiveWork("dirtyForm", 1);
+  }, [dirty]);
+
+  useEffect(() => {
     const onBeforeUnload = (event: BeforeUnloadEvent) => {
-      if (!dirty) return;
+      if (!dirty || isScopeSwitchReleasing()) return;
       event.preventDefault();
       event.returnValue = "";
     };
@@ -53,6 +121,8 @@ export function useUnsavedChangesGuard(input: {
         ? event.target.closest<HTMLAnchorElement>("a[href]")
         : null;
       if (!anchor || anchor.target === "_blank" || anchor.hasAttribute("download")) return;
+      // Cross-customer notification links own their own scope-switch confirmation dialog.
+      if (anchor.hasAttribute("data-scope-switch-link")) return;
       const destination = new URL(anchor.href, window.location.href);
       if (destination.origin !== window.location.origin) return;
       const current = new URL(window.location.href);
@@ -80,37 +150,18 @@ export function useUnsavedChangesGuard(input: {
   }, [dirty]);
 
   // Browser Back unmounted the form without a word. While there are unsaved
-  // changes an extra entry for this same page sits on top of the history:
-  // Back lands on this page again, and the guard asks before really leaving.
+  // changes a single shared sentinel entry sits on top of the history so even
+  // multiple mounted dirty forms prompt once and confirm cleanly with one go(-2).
   useEffect(() => {
     if (!dirty) return;
-    const pushGuardEntry = () => {
-      window.history.pushState({ ...(window.history.state ?? {}), [GUARD_ENTRY]: true }, "", window.location.href);
-    };
-    // The address of the entry this guard pushed: a tab switch that rewrites the entry in place (replaceState)
-    // makes it something else, and stepping back from it would land on the previous tab.
-    const guardHref = window.location.href;
-    if (!window.history.state?.[GUARD_ENTRY]) pushGuardEntry();
-    const onPopState = () => {
-      if (leaving.current) return;
-      pushGuardEntry();
-      setPending({ kind: "back" });
-    };
-    window.addEventListener("popstate", onPopState);
-    return () => {
-      window.removeEventListener("popstate", onPopState);
-      // Saved or reset while still on this page: drop the extra entry, or
-      // the next Back would seem to do nothing.
-      if (!leaving.current && window.history.state?.[GUARD_ENTRY]) {
-        if (window.location.href === guardHref) {
-          window.history.back();
-        } else {
-          // The entry was repurposed by an in-page switch (a tab): keep it, drop only the marker.
-          const { [GUARD_ENTRY]: _marker, ...rest } = window.history.state as Record<string, unknown>;
-          window.history.replaceState(rest, "", window.location.href);
-        }
-      }
-    };
+    const id = Symbol("dirtyBackGuard");
+    return registerSharedBackGuard({
+      id,
+      guardHref: window.location.href,
+      isLeaving: () => leaving.current,
+      markLeaving: () => { leaving.current = true; },
+      promptBack: () => setPending({ kind: "back" }),
+    });
   }, [dirty]);
 
   const requestDiscard = () => {
@@ -141,10 +192,12 @@ export function useUnsavedChangesGuard(input: {
         const action = pending;
         setPending(null);
         if (action?.kind === "navigate") {
+          markAllBackGuardsLeaving();
           leaving.current = true;
           router.push(action.href);
         } else if (action?.kind === "back") {
           // Past the guard entry and this page's own entry.
+          markAllBackGuardsLeaving();
           leaving.current = true;
           window.history.go(-2);
         } else if (action?.kind === "close") onDiscard?.();

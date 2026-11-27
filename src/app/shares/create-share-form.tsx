@@ -8,6 +8,7 @@ import { useI18n } from "@/lib/i18n/use-locale";
 import { copyText } from "@/lib/ui/clipboard";
 import { getErrorMessage } from "@/lib/http/error-message";
 import { ActionButton } from "@/components/action-button";
+import { NumberInput } from "@/components/ui/number-input";
 import { Notice } from "@/components/ui-primitives";
 import { UI_INPUT } from "@/lib/ui/classes";
 import { cn } from "@/lib/ui/cn";
@@ -16,6 +17,21 @@ import { clearIfUnchanged } from "@/lib/ui/form-draft";
 interface StorageNode {
   id: string;
   name: string;
+}
+
+// The account PasswordField requires a new password; share passwords are optional.
+function PasswordField({ value, onChange }: { value: string; onChange: (value: string) => void }) {
+  const { t } = useI18n();
+  const [visible, setVisible] = useState(false);
+  return (
+    <div>
+      <label htmlFor="share-password" className="ui-label block mb-1">{t("sharesPage.create.password")}</label>
+      <div className="flex items-center gap-2">
+        <input id="share-password" type={visible ? "text" : "password"} autoComplete="new-password" value={value} onChange={e => onChange(e.target.value)} placeholder={t("sharesPage.create.passwordPlaceholder")} className={UI_INPUT} />
+        <ActionButton size="xs" variant="ghost" type="button" aria-pressed={visible} onClick={() => setVisible(!visible)}>{t(visible ? "changePassword.hide" : "changePassword.show")}</ActionButton>
+      </div>
+    </div>
+  );
 }
 
 export function CreateShareForm({ nodes }: { nodes: StorageNode[] }) {
@@ -105,13 +121,13 @@ export function CreateShareForm({ nodes }: { nodes: StorageNode[] }) {
           {t("sharesPage.create.title")}
         </ActionButton>
       ) : (
- <div data-card className="p-5">
+        <form onSubmit={e => { e.preventDefault(); if (nodeId && path.trim()) void handleCreate(); }} data-card className="p-5">
           <div className="flex items-center justify-between mb-4">
             <div>
               <h3 className="ui-title-group">{t("sharesPage.create.advancedTitle")}</h3>
               <p className="mt-1 text-xs text-[var(--text-muted)]">{t("sharesPage.create.desc")}</p>
             </div>
-            <button type="button" onClick={() => { setOpen(false); setResult(null); setError(""); }} className="text-xs text-[var(--text-muted)] hover:text-[var(--text-secondary)]">{t("common.collapse")}</button>
+            <ActionButton size="sm" variant="ghost" type="button" onClick={() => { setOpen(false); setResult(null); setError(""); }} className="text-xs text-[var(--text-muted)] hover:text-[var(--text-secondary)]">{t("common.collapse")}</ActionButton>
           </div>
 
           <div className="grid gap-3 sm:grid-cols-2">
@@ -158,18 +174,15 @@ export function CreateShareForm({ nodes }: { nodes: StorageNode[] }) {
             </div>
             <div>
               <label htmlFor="share-expires-in" className="ui-label block mb-1">{t("sharesPage.create.expires")}</label>
-              <input id="share-expires-in" type="number" min="1" value={expiresIn} onChange={(e) => setExpiresIn(e.target.value)} placeholder="72" data-input className={cn(UI_INPUT)} />
+              <NumberInput id="share-expires-in" integer min={0} value={Number(expiresIn)} onValueChange={n => setExpiresIn(n ? String(n) : "")} onBlur={e => { if (!e.target.value) setExpiresIn(""); }} placeholder="72" data-input className={cn(UI_INPUT)} />
             </div>
             {permissionLevel === "download" ? (
               <>
                 <div>
                   <label htmlFor="share-max-downloads" className="ui-label block mb-1">{t("sharesPage.create.maxDownloads")}</label>
-                  <input id="share-max-downloads" type="number" min="1" step="1" value={maxDownloads} onChange={(e) => setMaxDownloads(e.target.value)} placeholder={t("sharesPage.create.maxDownloadsPlaceholder")} data-input className={cn(UI_INPUT)} />
+                  <NumberInput id="share-max-downloads" integer min={0} value={Number(maxDownloads)} onValueChange={n => setMaxDownloads(n ? String(n) : "")} onBlur={e => { if (!e.target.value) setMaxDownloads(""); }} placeholder={t("sharesPage.create.maxDownloadsPlaceholder")} data-input className={cn(UI_INPUT)} />
                 </div>
-                <div>
-                  <label htmlFor="share-password" className="ui-label block mb-1">{t("sharesPage.create.password")}</label>
-                  <input id="share-password" type="password" autoComplete="new-password" value={password} onChange={(e) => setPassword(e.target.value)} placeholder={t("sharesPage.create.passwordPlaceholder")} data-input className={cn(UI_INPUT)} />
-                </div>
+                <PasswordField value={password} onChange={setPassword} />
               </>
             ) : (
               <Notice tone="warning" className="self-end sm:col-span-2">
@@ -178,7 +191,7 @@ export function CreateShareForm({ nodes }: { nodes: StorageNode[] }) {
             )}
           </div>
 
-          {error && <p className="mt-2 text-xs text-[var(--danger)]">{error}</p>}
+          {error && <Notice tone="danger" compact>{error}</Notice>}
 
           {result && (
             <Notice tone="success" className="mt-3" title={t("sharesPage.create.success")}>
@@ -188,7 +201,7 @@ export function CreateShareForm({ nodes }: { nodes: StorageNode[] }) {
                 <ActionButton
                   size="sm"
                   variant="secondary"
-                  onClick={handleCopy}
+                  type="button" onClick={handleCopy}
                   icon={copied ? <Check aria-hidden="true" className="h-4 w-4" /> : undefined}
                   className="shrink-0"
                 >
@@ -201,12 +214,12 @@ export function CreateShareForm({ nodes }: { nodes: StorageNode[] }) {
 
           <ActionButton
             variant="primary"
-            onClick={handleCreate}
+            type="submit"
             disabled={saving || !nodeId || !path.trim()} className="mt-4"
           >
             {saving ? t("sharesPage.create.submitting") : t("sharesPage.create.submit")}
           </ActionButton>
-        </div>
+        </form>
       )}
     </div>
   );

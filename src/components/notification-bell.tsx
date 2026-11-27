@@ -13,20 +13,22 @@ import { useVisibilityInterval } from "@/lib/hooks/use-visibility-interval";
 import { getErrorMessage } from "@/lib/http/error-message";
 import { localizeNotification } from "@/lib/notification/message";
 import { useNotificationLink } from "@/lib/notification/use-notification-link";
+import { formatNotificationTimeAgo } from "@/app/notifications/time-ago";
 import { IconBell } from "./nav-icons";
 import { useDismiss } from "./ui/menu";
 
 /* ── Notification bell with real-time WebSocket push ──────── */
 
 export function NotificationBell() {
-	const { t } = useI18n();
+	const { t, locale } = useI18n();
 	const [isOpen, setIsOpen] = useState(false);
+	const [nowMs, setNowMs] = useState(() => Date.now());
 	const [notifications, setNotifications] = useState<Array<{
 		id: string; type: string; title: string; message: string; messageCode?: string | null; messageParams?: unknown;
 		isRead: boolean; actionUrl: string | null; createdAt: string;
 		teamId?: string | null; team?: { name: string } | null;
 	}>>([]);
-	const { showCustomer, onOpen } = useNotificationLink();
+	const { showCustomer, wouldSwitch, onOpen, switchDialog } = useNotificationLink();
 	const [feedback, setFeedback] = useState<{ type: "error" | "info"; message: string } | null>(null);
 	const panelRef = useRef<HTMLDivElement>(null);
 	const buttonRef = useRef<HTMLButtonElement>(null);
@@ -153,7 +155,10 @@ export function NotificationBell() {
 		// the first opening without asking for a new one.
 		const willOpen = !isOpen;
 		setIsOpen(willOpen);
-		if (willOpen) await fetchList();
+		if (willOpen) {
+			setNowMs(Date.now());
+			await fetchList();
+		}
 	};
 
 	const markAllRead = async () => {
@@ -223,7 +228,7 @@ export function NotificationBell() {
 						<span id="notification-popover-title" className="text-sm font-semibold text-[var(--text-primary)]">{notificationLabel}</span>
 						<div className="flex items-center gap-2">
 							{wsConnected ? (
-								<span className="text-xs text-[var(--success)]/70 light:text-[var(--success)]">{realtimeLabel}</span>
+								<span className="text-xs text-[var(--success)]">{realtimeLabel}</span>
 							) : refreshIntervalSeconds <= 0 ? (
 								<span className="text-xs text-[var(--text-muted)]">{manualLabel}</span>
 							) : (
@@ -251,6 +256,7 @@ export function NotificationBell() {
 								<li key={n.id}>
 									<Link
 										href={getSafeNotificationActionUrl(n.actionUrl)}
+										data-scope-switch-link={wouldSwitch(n) ? "true" : undefined}
 										onClick={onOpen(n)}
 										className={`block px-4 py-3 transition hover:bg-[var(--surface-hover)] ${n.isRead ? "opacity-70" : "bg-[color-mix(in_srgb,var(--accent-bg)_35%,transparent)]"}`}
 									>
@@ -259,7 +265,10 @@ export function NotificationBell() {
 											<span className={`text-xs font-medium truncate ${n.isRead ? "text-[var(--text-secondary)]" : "text-[var(--text-primary)]"}`}>{text.title}</span>
 											</div>
 											<p className="mt-1 text-xs text-[var(--text-muted)] truncate">{text.message}</p>
-											{showCustomer && n.team?.name ? <p className="mt-1 truncate text-xs text-[var(--text-muted)]">{t("notificationsPage.customer", { name: n.team.name })}</p> : null}
+											<div className="mt-1 flex items-center gap-2 text-xs text-[var(--text-muted)]">
+												<span>{formatNotificationTimeAgo(n.createdAt, nowMs, t, locale)}</span>
+												{showCustomer && n.team?.name ? <span className="truncate">{t("notificationsPage.customer", { name: n.team.name })}</span> : null}
+											</div>
 									</Link>
 								</li>
 								);
@@ -274,6 +283,7 @@ export function NotificationBell() {
 				</div>,
 				document.body
 			)}
+			{switchDialog}
 		</div>
 	);
 }

@@ -112,7 +112,7 @@ describe("TicketDetailClient", () => {
       },
     });
     render(<TicketDetailClient initial={initial} canManage={false} />, { locale: "en" });
-    expect(await screen.findByRole("link", { name: "Open command request" })).toHaveAttribute("href", "/requests#command-command-1");
+    expect(await screen.findByRole("link", { name: "Open command request" })).toHaveAttribute("href", "/requests?requestId=command-1");
     expect(screen.getByRole("link", { name: "Open server" })).toHaveAttribute("href", "/servers?query=web%2001%20(prod)");
   });
 

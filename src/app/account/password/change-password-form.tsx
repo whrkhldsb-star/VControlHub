@@ -3,9 +3,12 @@
 import { useActionState, useEffect, useState } from "react";
 import { useRouter, useSearchParams } from "next/navigation";
 
-import { SubmitButton } from "@/components/submit-button";
+import { ActionButton } from "@/components/action-button";
+import { findNavLocation } from "@/components/nav-items";
 import { PasswordField } from "@/components/password-field";
+import { SubmitButton } from "@/components/submit-button";
 import { Notice } from "@/components/ui-primitives";
+import { usePreservedActionForm } from "@/lib/forms/use-preserved-action-form";
 import { safeRelativeRedirectPath } from "@/lib/http/redirect-path";
 import { useI18n } from "@/lib/i18n/use-locale";
 
@@ -14,21 +17,40 @@ import {
 	type AccountPasswordActionState,
 } from "./actions";
 
-import { ActionButton } from "@/components/action-button";
 const initialState: AccountPasswordActionState = {};
 const POST_SUCCESS_REDIRECT_DELAY_MS = 1500;
+
+type Translate = (key: string, vars?: Record<string, string | number>) => string;
+
+/**
+ * What the page the form goes on to is called, so that the countdown and its button say where they lead: the
+ * security page sends people here and back again, and "dashboard" was said whatever `?next=` held. Null when
+ * the page has no name in the navigation.
+ */
+function destinationLabel(path: string, t: Translate): string | null {
+	const pathname = path.split(/[?#]/)[0] || "/";
+	if (pathname === "/account/security") return t("shell.crumb.accountSecurity");
+	const location = findNavLocation(pathname);
+	if (!location) return null;
+	const label = t(location.item.labelKey);
+	return label === location.item.labelKey ? location.item.fallbackLabel : label;
+}
 
 export function ChangePasswordForm() {
 	const { t } = useI18n();
 	const [state, formAction] = useActionState(changePasswordAction, initialState);
+	// A refused change keeps what was typed: React empties the fields after every answer of the action.
+	const { formRef, captureBeforeSubmit } = usePreservedActionForm(state, Boolean(state.error));
 	const router = useRouter();
 	const searchParams = useSearchParams();
 	const [countdown, setCountdown] = useState<number | null>(null);
+	// The home page (the dashboard) unless the page that sent the person here asked to be returned to.
+	const safeNext = safeRelativeRedirectPath(searchParams.get("next"));
+	const destination = destinationLabel(safeNext, t);
 
 	// TR-052: 改密成功后自动跳到 dashboard (默认 "/", 尊重 ?next=). 给用户 1.5s 看 success message 再跳.
 	useEffect(() => {
 		if (!state.success) return;
-		const safeNext = safeRelativeRedirectPath(searchParams.get("next"));
 		// eslint-disable-next-line react-hooks/set-state-in-effect -- success → 启动 countdown + 1.5s 后的 setTimeout 跳转; 业务上需要 setState-in-effect 来同步启动客户端计时器
 		setCountdown(POST_SUCCESS_REDIRECT_DELAY_MS / 1000);
 		const interval = setInterval(() => {
@@ -42,13 +64,11 @@ export function ChangePasswordForm() {
 			clearTimeout(timer);
 			clearInterval(interval);
 		};
-	}, [state.success, router, searchParams]);
-
-	const safeNext = safeRelativeRedirectPath(searchParams.get("next"));
+	}, [state.success, router, safeNext]);
 
 	return (
 		<div className="grid gap-3">
-		<form action={formAction} data-card className="grid gap-4 p-6">
+		<form ref={formRef} action={formAction} onSubmit={captureBeforeSubmit} data-card className="grid gap-4 p-6">
 			<input type="text" name="username" autoComplete="username" className="hidden" tabIndex={-1} aria-hidden="true" />
 			<div>
 				<h2 className="ui-title-section">{t("common.editPassword")}</h2>
@@ -88,8 +108,10 @@ export function ChangePasswordForm() {
 				<Notice tone="success">
 					{state.success}
 					{countdown !== null && countdown > 0 ? (
-						<span className="ml-2 text-[var(--success)]/80">
-							{t("accountPasswordPage.redirectCountdown", { seconds: countdown })}
+						<span className="ml-2 text-[var(--text-muted)]">
+							{destination
+								? t("accountPasswordPage.redirectCountdown", { seconds: countdown, destination })
+								: t("accountPasswordPage.redirectCountdownGeneric", { seconds: countdown })}
 						</span>
 					) : null}
 				</Notice>
@@ -103,7 +125,7 @@ export function ChangePasswordForm() {
 							router.push(safeNext);
 						}}
 					>
-						{t("accountPasswordPage.redirectNow")}
+						{destination ? t("accountPasswordPage.redirectNow", { destination }) : t("accountPasswordPage.redirectNowGeneric")}
 					</ActionButton>
 				) : null}
 				<SubmitButton pendingLabel={t("changePassword.saving")}>{t("common.saveNewPassword")}</SubmitButton>

@@ -95,7 +95,6 @@ export function ServiceCard({
 			{/* Header */}
 			<div className="flex items-start justify-between">
 				<div className="flex items-center gap-2.5">
-					<span className="text-2xl">{item.icon}</span>
 					<div>
 						<h3 className="ui-title-group">{item.name}</h3>
 						<p className="text-xs text-[var(--text-muted)] mt-0.5">{item.image}</p>

@@ -15,7 +15,7 @@ import { ShareAccessLogsButton } from "./share-access-logs";
 import { ShareAccessReport } from "./share-access-report";
 import { getStorageDriverLabel } from "@/lib/i18n/domain-labels";
 import { LinkPagination } from "@/components/link-pagination";
-import { ButtonLink } from "@/components/action-button";
+import { ActionButton, ButtonLink } from "@/components/action-button";
 import { UI_INPUT } from "@/lib/ui/classes";
 import { cn } from "@/lib/ui/cn";
 
@@ -77,9 +77,9 @@ export default async function SharesPage({ searchParams }: { searchParams?: Prom
 						<option value="expired">{t("shares.status.expired")}</option>
 						<option value="revoked">{t("shares.status.revoked")}</option>
 					</select>
-					<button type="submit" className={cn(UI_INPUT, "h-9 w-auto cursor-pointer px-3 font-medium")}>
+					<ActionButton type="submit" variant="secondary">
 						{t("shares.filter.apply")}
-					</button>
+					</ActionButton>
 				</form>
 				{/* Under the filters, not in place of them: a search with no
 				    result took the search box away with the list. */}

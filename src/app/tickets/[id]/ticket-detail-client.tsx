@@ -1,13 +1,13 @@
 "use client";
 
-import { useCallback, useEffect, useRef, useState } from "react";
+import { useCallback, useEffect, useMemo, useRef, useState } from "react";
 import Link from "next/link";
 
 import { csrfFetch } from "@/lib/auth/csrf-client";
 import { useI18n } from "@/lib/i18n/use-locale";
 import { formatDateTime } from "@/lib/datetime/format";
 import { getErrorMessage } from "@/lib/http/error-message";
-import { ActionButton } from "@/components/action-button";
+import { ActionButton, ButtonLink } from "@/components/action-button";
 import { useToast } from "@/components/toast-provider";
 import { FormField, Notice } from "@/components/ui-primitives";
 import { UI_INPUT } from "@/lib/ui/classes";
@@ -15,12 +15,15 @@ import { getDomainStatusLabel } from "@/lib/i18n/domain-labels";
 import { StatusBadge, type StatusTone } from "@/components/status-badge";
 import { ArrowLeft } from "@/components/icons";
 import { CountBadge } from "@/components/page-shell";
+import { registerActiveWork } from "@/lib/forms/active-work-guard";
+import { commandRequestHref } from "@/lib/ui/deep-links";
 
 export interface TicketUser { id: string; username: string; displayName: string | null; }
 export interface TicketComment { id: string; body: string; createdAt: string; author: TicketUser; }
 export interface Ticket {
   id: string; title: string; description: string; status: string; priority: string;
   createdBy: string; assigneeId: string | null; createdAt: string; updatedAt: string; closedAt: string | null;
+  slaDueAt?: string | null;
   relatedServerId?: string | null;
   relatedCommandId?: string | null;
   creator: TicketUser; assignee: TicketUser | null; comments: TicketComment[];
@@ -91,8 +94,41 @@ export function TicketDetailClient({ initial, canManage, users = [], userSearch 
   const { t, locale } = useI18n();
   const [ticket, setTicket] = useState(initial);
   const [comment, setComment] = useState("");
+  const [commentError, setCommentError] = useState<string | null>(null);
+  const [assigneeFilter, setAssigneeFilter] = useState(userSearch);
+  const [nowMs, setNowMs] = useState(() => Date.now());
   const [saving, setSaving] = useState(false);
   const { addToast } = useToast();
+
+  useEffect(() => {
+    const timer = window.setInterval(() => setNowMs(Date.now()), 60_000);
+    return () => window.clearInterval(timer);
+  }, []);
+
+  useEffect(() => {
+    if (!comment.trim()) return;
+    return registerActiveWork("dirtyForm", 1);
+  }, [comment]);
+
+  const filteredUsers = useMemo(() => {
+    const needle = assigneeFilter.trim().toLowerCase();
+    if (!needle) return users;
+    return users.filter(
+      (u) =>
+        u.username.toLowerCase().includes(needle) ||
+        (u.displayName ?? "").toLowerCase().includes(needle),
+    );
+  }, [users, assigneeFilter]);
+
+  const slaBadge = useMemo(() => {
+    if (!ticket.slaDueAt || ticket.status === "CLOSED" || ticket.status === "RESOLVED") return null;
+    const dueMs = Date.parse(ticket.slaDueAt);
+    if (Number.isNaN(dueMs)) return null;
+    const remaining = dueMs - nowMs;
+    if (remaining <= 0) return { key: "ticketsPage.sla.breached", tone: "danger" as StatusTone };
+    if (remaining <= 60 * 60 * 1000) return { key: "ticketsPage.sla.warning", tone: "warning" as StatusTone };
+    return { key: "ticketsPage.sla.ok", tone: "success" as StatusTone };
+  }, [ticket.slaDueAt, ticket.status, nowMs]);
   // What an action was refused for is a toast, in view wherever on the page it was started: the one notice
   // these shared sat between the status buttons and the comments, two cards below the assignee it spoke of.
   const reportFailure = useCallback((message: string) => addToast("error", message), [addToast]);
@@ -172,6 +208,7 @@ export function TicketDetailClient({ initial, canManage, users = [], userSearch 
     const submitted = comment.trim();
     if (!submitted) return;
     setSaving(true);
+    setCommentError(null);
     try {
       const data = await csrfFetch<{ comment: TicketComment }>(`/api/tickets/${ticket.id}`, {
         method: "POST",
@@ -187,7 +224,7 @@ export function TicketDetailClient({ initial, canManage, users = [], userSearch 
       // draft typed meanwhile is the user's, not part of this comment.
       setComment((current) => (current.trim() === submitted ? "" : current));
       await loadTimeline();
-    } catch (e: unknown) { reportFailure(getErrorMessage(e, t("ticketsDetail.error.replyFailed"))); }
+    } catch (e: unknown) { setCommentError(getErrorMessage(e, t("ticketsDetail.error.replyFailed"))); }
     finally { setSaving(false); }
   };
 
@@ -292,7 +329,7 @@ export function TicketDetailClient({ initial, canManage, users = [], userSearch 
       <div data-card className="p-5 sm:p-6">
         <div className="flex flex-col gap-4 sm:flex-row sm:items-start sm:justify-between">
           <div className="min-w-0">
-            <h1 className="ui-title-page">{ticket.title}</h1>
+            <h2 className="ui-title-section">{ticket.title}</h2>
             <div className="mt-2 flex flex-wrap items-center gap-2">
               <StatusBadge tone={STATUS_TONE[ticket.status] ?? "neutral"} size="md">
                 {statusLabel(t, ticket.status)}
@@ -300,6 +337,16 @@ export function TicketDetailClient({ initial, canManage, users = [], userSearch 
               <span className={`text-xs font-semibold ${PRIORITY_TONE[ticket.priority] ?? ""}`}>
                 {priorityLabel(t, ticket.priority)}
               </span>
+              {slaBadge ? (
+                <StatusBadge tone={slaBadge.tone} size="sm">
+                  {t(slaBadge.key)}
+                </StatusBadge>
+              ) : null}
+              {ticket.slaDueAt ? (
+                <span className="text-xs text-[var(--text-muted)]">
+                  {t("ticketsPage.sla.due", { time: formatDateTime(ticket.slaDueAt, locale) })}
+                </span>
+              ) : null}
             </div>
           </div>
           <div className="text-left text-xs text-[var(--text-muted)] sm:text-right">
@@ -319,11 +366,39 @@ export function TicketDetailClient({ initial, canManage, users = [], userSearch 
         </div>
 
         {canManage && (
-          <div className="mt-4 max-w-sm">
-            <form className="flex gap-2" action={`/tickets/${encodeURIComponent(ticket.id)}`}>
-              <input name="q" type="search" key={userSearch} defaultValue={userSearch} aria-label={t("ticketsDetail.assigneeSearch")} placeholder={t("ticketsDetail.assigneeSearchPlaceholder")} className={UI_INPUT} />
-              <ActionButton type="submit">{t("ticketsDetail.assigneeSearch")}</ActionButton>
-            </form>
+          <div className="mt-4 max-w-sm space-y-2.5">
+            {(users.length > 0 || Boolean(userSearch)) && (
+              <div className="flex items-center gap-2">
+                <input
+                  type="search"
+                  value={assigneeFilter}
+                  onChange={(e) => setAssigneeFilter(e.target.value)}
+                  aria-label={t("ticketsDetail.assigneeSearch")}
+                  placeholder={t("ticketsDetail.assigneeSearchPlaceholder")}
+                  className={UI_INPUT}
+                />
+                {(moreUsers || userPage > 1 || Boolean(userSearch)) && assigneeFilter.trim() !== userSearch.trim() ? (
+                  <ButtonLink
+                    size="sm"
+                    variant="secondary"
+                    href={assigneeFilter.trim() ? `?q=${encodeURIComponent(assigneeFilter.trim())}&usersPage=1` : `?usersPage=1`}
+                  >
+                    {t("common.search")}
+                  </ButtonLink>
+                ) : null}
+                {assigneeFilter ? (
+                  userSearch ? (
+                    <ButtonLink size="sm" variant="ghost" href="?usersPage=1">
+                      {t("common.clear")}
+                    </ButtonLink>
+                  ) : (
+                    <ActionButton size="sm" variant="ghost" onClick={() => setAssigneeFilter("")}>
+                      {t("common.clear")}
+                    </ActionButton>
+                  )
+                ) : null}
+              </div>
+            )}
             <FormField label={t("ticketsDetail.assignTo")} htmlFor="ticket-assignee">
             <select
               id="ticket-assignee"
@@ -334,16 +409,18 @@ export function TicketDetailClient({ initial, canManage, users = [], userSearch 
               className={UI_INPUT}
             >
               <option value="">{t("ticketsDetail.unassigned")}</option>
-              {ticket.assignee && !users.some(user => user.id === ticket.assignee?.id) && <option value={ticket.assignee.id}>{ticket.assignee.displayName || ticket.assignee.username}</option>}
-              {users.map((u) => (
+              {ticket.assignee && !filteredUsers.some(user => user.id === ticket.assignee?.id) && <option value={ticket.assignee.id}>{ticket.assignee.displayName || ticket.assignee.username}</option>}
+              {filteredUsers.map((u) => (
                 <option key={u.id} value={u.id}>{u.displayName || u.username}</option>
               ))}
             </select>
             </FormField>
-            <div className="flex gap-3">
-              {userPage > 1 && <Link href={`?q=${encodeURIComponent(userSearch)}&usersPage=${userPage - 1}`}>{t("common.pagination.previous")}</Link>}
-              {moreUsers && <Link href={`?q=${encodeURIComponent(userSearch)}&usersPage=${userPage + 1}`}>{t("common.pagination.next")}</Link>}
-            </div>
+            {(userPage > 1 || moreUsers) && (
+              <div className="flex gap-3 text-xs">
+                {userPage > 1 && <Link href={`?q=${encodeURIComponent(userSearch)}&usersPage=${userPage - 1}`} className="text-[var(--accent)] hover:underline">{t("common.pagination.previous")}</Link>}
+                {moreUsers && <Link href={`?q=${encodeURIComponent(userSearch)}&usersPage=${userPage + 1}`} className="text-[var(--accent)] hover:underline">{t("common.pagination.next")}</Link>}
+              </div>
+            )}
           </div>
         )}
       </div>
@@ -365,8 +442,8 @@ export function TicketDetailClient({ initial, canManage, users = [], userSearch 
               <div className="mt-1 space-y-1 text-[var(--text-secondary)]">
                 <div>{timeline.related.command.title} · {getDomainStatusLabel(t, timeline.related.command.status)}</div>
                 <code className="block break-all text-xs opacity-80">{timeline.related.command.command}</code>
-                {/* The approvals page lists command requests, each under this anchor; there is no /commands page. */}
-                <Link href={`/requests#command-${encodeURIComponent(timeline.related.command.id)}`} className="text-[var(--accent)] underline-offset-2 hover:underline">
+                {/* Durable deep link to the approvals page so older completed commands resolve directly. */}
+                <Link href={commandRequestHref(timeline.related.command.id)} className="text-[var(--accent)] underline-offset-2 hover:underline">
                   {t("ticketsDetail.openCommand")}
                 </Link>
               </div>
@@ -377,7 +454,7 @@ export function TicketDetailClient({ initial, canManage, users = [], userSearch 
               <div className="mt-2 flex flex-wrap gap-2">
                 <input
                   aria-label={t("ticketsDetail.commandIdPlaceholder")}
-                  className={`${UI_INPUT} min-w-0 flex-1 !py-1.5 !text-sm`}
+                  className={`${UI_INPUT} min-w-0 flex-1`}
                   value={commandIdInput}
                   onChange={(e) => setCommandIdInput(e.target.value)}
                   placeholder={t("ticketsDetail.commandIdPlaceholder")}
@@ -412,7 +489,7 @@ export function TicketDetailClient({ initial, canManage, users = [], userSearch 
               <div className="mt-2 flex flex-wrap gap-2">
                 <input
                   aria-label={t("ticketsDetail.serverIdPlaceholder")}
-                  className={`${UI_INPUT} min-w-0 flex-1 !py-1.5 !text-sm`}
+                  className={`${UI_INPUT} min-w-0 flex-1`}
                   value={serverIdInput}
                   onChange={(e) => setServerIdInput(e.target.value)}
                   placeholder={t("ticketsDetail.serverIdPlaceholder")}
@@ -527,12 +604,17 @@ export function TicketDetailClient({ initial, canManage, users = [], userSearch 
           </div>
         )}
 
-        <div className="mt-4">
+        <div className="mt-4 space-y-2">
           <label htmlFor="ticketComment" className="sr-only">{t("ticketsDetail.commentAria")}</label>
-          <textarea id="ticketComment" value={comment} onChange={(e) => setComment(e.target.value)} placeholder={t("ticketsDetail.commentPlaceholder")}
+          <textarea id="ticketComment" value={comment} onChange={(e) => { setComment(e.target.value); if (commentError) setCommentError(null); }} placeholder={t("ticketsDetail.commentPlaceholder")}
             rows={3}
             className={`${UI_INPUT} resize-none px-4 py-3`} />
-          <ActionButton type="button" variant="primary" onClick={addComment} disabled={saving || !comment.trim()} className="mt-2">
+          {commentError ? (
+            <Notice tone="danger" compact onDismiss={() => setCommentError(null)} dismissLabel={t("common.close")}>
+              {commentError}
+            </Notice>
+          ) : null}
+          <ActionButton type="button" variant="primary" onClick={addComment} disabled={saving || !comment.trim()}>
             {saving ? t("ticketsDetail.commentSubmitting") : t("ticketsDetail.commentSubmit")}
           </ActionButton>
         </div>

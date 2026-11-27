@@ -494,13 +494,13 @@ function FileListBody({
           {t("fileListClient.downloadTitle")}
         </ActionButton>
       ) : null}
-      {selectionSummary.selectedEntriesCanMove && singleNode ? (
-        <ActionButton size="sm" variant="ghost" icon={<FolderInput aria-hidden />} disabled={batchBusy} onClick={() => actions.move(selectedTargets)}>
+      {selectionSummary.selectedEntriesCanMove ? (
+        <ActionButton size="sm" variant="ghost" icon={<FolderInput aria-hidden />} disabled={batchBusy || !singleNode} title={!singleNode ? t("fileOperations.sameNode") : undefined} onClick={() => actions.move(selectedTargets)}>
           {t("filesPage.drive.moveToEllipsis")}
         </ActionButton>
       ) : null}
-      {selectionSummary.selectedEntriesCanMove && singleNode && selectionReadable ? (
-        <ActionButton size="sm" variant="ghost" icon={<Copy aria-hidden />} disabled={batchBusy} onClick={() => actions.copy(selectedTargets)}>
+      {selectionSummary.selectedEntriesCanMove && selectionReadable ? (
+        <ActionButton size="sm" variant="ghost" icon={<Copy aria-hidden />} disabled={batchBusy || !singleNode} title={!singleNode ? t("fileOperations.sameNode") : undefined} onClick={() => actions.copy(selectedTargets)}>
           {t("filesPage.drive.copyToEllipsis")}
         </ActionButton>
       ) : null}
@@ -511,7 +511,7 @@ function FileListBody({
         </ActionButton>
       ) : null}
       {selectionSummary.selectedEntriesCanCompress ? (
-        <ActionButton size="sm" variant="ghost" icon={<IconArchive size={16} aria-hidden />} loading={selection.batchAction === "compressing"} disabled={batchBusy} onClick={handleBatchCompress}>
+        <ActionButton size="sm" variant="ghost" icon={<IconArchive size={16} aria-hidden />} loading={selection.batchAction === "compressing"} disabled={batchBusy || !singleNode} title={!singleNode ? t("fileOperations.sameNode") : undefined} onClick={handleBatchCompress}>
           {selection.batchAction === "compressing" ? t("filesPage.batchToolbar.compressing") : t("filesPage.drive.compress")}
         </ActionButton>
       ) : null}

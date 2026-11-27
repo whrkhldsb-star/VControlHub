@@ -28,10 +28,6 @@ function uniqueVariables(template?: DeploymentTemplateOption) {
 	return Array.from(new Set([...explicit, ...fromCommand])).filter(Boolean);
 }
 
-function previewCommand(template: DeploymentTemplateOption | undefined, variables: string[], t: (k: string, vars?: Record<string, string | number>) => string) {
-	if (!template) return t("deploymentsPage.launch.noTemplate");
-	return variables.reduce((command, name) => command.replaceAll(`{{${name}}}`, `<${name}>`), template.command);
-}
 
 export function DeploymentLaunchForm({ templates }: { templates: DeploymentTemplateOption[] }) {
 	const { t } = useI18n();
@@ -40,6 +36,8 @@ export function DeploymentLaunchForm({ templates }: { templates: DeploymentTempl
 	const [enabledCount, setEnabledCount] = useState<number | null>(null);
 	const [selected, setSelected] = useState<ServerTarget[]>([]);
 	const [templateId, setTemplateId] = useState(templates[0]?.id ?? "");
+	const [values, setValues] = useState<Record<string, string>>({});
+	const [receipt, setReceipt] = useState("");
 	const [pending, setPending] = useState(false);
 	const [error, setError] = useState<string | null>(null);
 	const lastRequest = useRef<{ body: string; key: string } | null>(null);
@@ -88,13 +86,15 @@ export function DeploymentLaunchForm({ templates }: { templates: DeploymentTempl
 				reason: reason || undefined,
 			});
 			if (lastRequest.current?.body !== body) lastRequest.current = { body, key: randomId() };
-			await csrfFetch("/api/deployments", {
+			const result = await csrfFetch<{ deployment?: { id: string } }>("/api/deployments", {
 				method: "POST",
 				headers: { "Idempotency-Key": lastRequest.current.key },
 				body,
 			});
 			lastRequest.current = null;
 			addToast("success", t("deploymentsPage.launch.toast.success"));
+			setReceipt(result?.deployment?.id ?? "");
+			setValues({});
 			form.reset();
 			setSelected([]);
 			setTemplateId(templates[0]?.id ?? "");
@@ -116,7 +116,7 @@ export function DeploymentLaunchForm({ templates }: { templates: DeploymentTempl
 					<select
 						name="templateId"
 						value={templateId}
-						onChange={(event) => setTemplateId(event.target.value)}
+						onChange={(event) => { setTemplateId(event.target.value); setValues({}); }}
 						className={UI_INPUT}
 					>
 						{templates.map((template) => <option key={template.id} value={template.id}>{template.name}</option>)}
@@ -140,7 +140,7 @@ export function DeploymentLaunchForm({ templates }: { templates: DeploymentTempl
 						{variables.map((name) => (
 							<label key={name} className="ui-label grid gap-1.5">
 								{name}
-								<input name={`variables.${name}`} required placeholder={t("deploymentsPage.launch.variablePlaceholder", { name })} className={UI_INPUT} />
+								<input name={`variables.${name}`} value={values[name] ?? ""} onChange={e => setValues({ ...values, [name]: e.target.value })} required placeholder={t("deploymentsPage.launch.variablePlaceholder", { name })} className={UI_INPUT} />
 							</label>
 						))}
 					</div>
@@ -158,9 +158,10 @@ export function DeploymentLaunchForm({ templates }: { templates: DeploymentTempl
 			</div>
 
 			{selectedTemplate?.command && <Disclosure variant="inset" title={t("deploymentsPage.launch.previewCommand")}>
-				<code className="ui-mono block max-h-40 overflow-auto whitespace-pre-wrap rounded-md bg-[var(--surface-elevated)] p-3 text-xs text-[var(--text-secondary)]">{previewCommand(selectedTemplate, variables, t)}</code>
+				<code className="ui-mono block max-h-40 overflow-auto whitespace-pre-wrap rounded-md bg-[var(--surface-elevated)] p-3 text-xs text-[var(--text-secondary)]">{selectedTemplate.command.replace(/\{\{([A-Za-z0-9_]+)\}\}/g, (_, name: string) => values[name] || `<${name}>`)}</code>
 			</Disclosure>}
 
+			{receipt && <Notice tone="success" compact><ButtonLink href={`/deployments?deploymentId=${encodeURIComponent(receipt)}`} size="sm">{t("deploymentsPage.launch.viewRun")}</ButtonLink></Notice>}
 			{error && <Notice tone="danger" compact>{error}</Notice>}
 			<ActionButton type="submit" variant="primary" disabled={pending} className="w-fit">{pending ? t("deploymentsPage.launch.submitting") : t("deploymentsPage.launch.submit")}</ActionButton>
 		</form>

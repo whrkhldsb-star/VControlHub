@@ -98,11 +98,15 @@ export function AiProviderPanel({
       const models = Array.isArray(data.models) ? data.models as ModelInfo[] : [];
       setFetchedModels(models);
       const ids = models.map((m) => m.id).filter(Boolean);
-      setProvForm((f) => ({
-        ...f,
-        availableModels: ids.join(","),
-        defaultModel: ids.includes(f.defaultModel) ? f.defaultModel : ids[0] || f.defaultModel,
-      }));
+      setProvForm((f) => {
+        const existing = f.availableModels.split(",").map((m) => m.trim()).filter(Boolean);
+        const merged = Array.from(new Set([...existing, ...ids]));
+        return {
+          ...f,
+          availableModels: merged.join(","),
+          defaultModel: f.defaultModel.trim() || ids[0] || "",
+        };
+      });
       addToast("success", ids.length > 0 ? t("aiPage.modelsFetched", { count: ids.length }) : t("aiPage.modelsFetchedEmpty"));
     } catch (e: unknown) {
       if (probe.signal.aborted || probeRef.current !== probe) return;

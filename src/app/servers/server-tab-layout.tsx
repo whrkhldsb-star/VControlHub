@@ -35,6 +35,9 @@ export function ServerTabLayout({
   const availableKeys = available.map((action) => action.key).join(",");
   const active = available.find((action) => action.key === selected) ?? available[0];
 
+  const [visited, setVisited] = useState<PanelKey[]>([]);
+  if (active && !visited.includes(active.key)) setVisited([...visited, active.key]);
+
   useEffect(() => {
     const applyHash = () => {
       const key = window.location.hash.replace(/^#servers-/, "") as PanelKey;
@@ -60,9 +63,11 @@ export function ServerTabLayout({
           label: t(action.labelKey), icon: action.icon,
         }))}
       />
-      <div role="tabpanel" id={`${id}-${active.key}-panel`} aria-labelledby={`${id}-${active.key}-tab`} tabIndex={0} className="min-h-48 min-w-0">
-        {panels[active.key]}
-      </div>
+      {available.filter(({ key }) => visited.includes(key)).map(({ key }) => (
+        <div key={key} hidden={active.key !== key} role="tabpanel" id={`${id}-${key}-panel`} aria-labelledby={`${id}-${key}-tab`} tabIndex={0} className="min-h-48 min-w-0">
+          {panels[key]}
+        </div>
+      ))}
     </div>
   );
 }

@@ -12,6 +12,7 @@ import type {
 } from "@/lib/ai/ops/types";
 import type { AiOpsSummary } from "@/lib/ai/ops/service";
 import { UI_INPUT, UI_LABEL } from "@/lib/ui/classes";
+import { aiProvidersHref } from "@/lib/ui/deep-links";
 import { ActionButton, ButtonLink } from "@/components/action-button";
 import { Notice } from "@/components/ui-primitives";
 import { EmptyState, MetricPanel } from "@/components/page-shell";
@@ -237,7 +238,7 @@ export function AiOpsSettingsSection({
 					</label>
 					{canManage && canManageAi && providerOptions.length === 0 ? (
 						<div className="pt-0.5">
-							<ButtonLink href="/ai" size="xs" variant="outline">
+							<ButtonLink href={aiProvidersHref()} size="xs" variant="outline">
 								{t("aiOpsPage.settings.configureProvider")}
 							</ButtonLink>
 						</div>
@@ -306,14 +307,30 @@ export function AiOpsLogsSection({
 			<AiOpsLogFilterRow filters={filters} t={t} />
 			{logs.length === 0 ? (
 				filters.modeFilter !== "all" || filters.statusFilter !== "all" || filters.triggerFilter !== "all" ? (
-					<EmptyState icon={<Sparkles size={20} />} title={t("aiOpsPage.actions.emptyFiltered")} />
+					<EmptyState
+						icon={<Sparkles size={20} />}
+						title={t("aiOpsPage.actions.emptyFiltered")}
+						action={(
+							<ActionButton
+								size="sm"
+								variant="secondary"
+								onClick={() => {
+									filters.setModeFilter("all");
+									filters.setStatusFilter("all");
+									filters.setTriggerFilter("all");
+								}}
+							>
+								{t("common.clearFilters")}
+							</ActionButton>
+						)}
+					/>
 				) : (
 					<EmptyState icon={<Sparkles size={20} />} title={t("aiOpsPage.actions.empty")} text={t("aiOpsPage.actions.emptyHint")} action={emptyAction} />
 				)
 			) : (
 				<div className="overflow-x-auto overscroll-x-contain" tabIndex={0}>
 					<table className="w-full min-w-[860px] table-fixed text-left text-sm text-[var(--text-primary)]">
-						<thead className="text-xs text-[var(--text-primary)]/70">
+						<thead className="text-xs text-[var(--text-muted)]">
 							<tr>
 								<th className="w-40 py-2">{t("aiOpsPage.table.time")}</th>
 								<th className="py-2">{t("aiOpsPage.table.mode")}</th>
@@ -328,7 +345,7 @@ export function AiOpsLogsSection({
 						<tbody>
 							{logs.map((log) => (
 								<tr key={log.id} className={selectedLogId === log.id ? "bg-[var(--color-action)]/10" : "hover:bg-[var(--surface-elevated)]"}>
-									<td className="py-2 pr-3 font-mono text-xs text-[var(--text-primary)]/70">{formatAiOpsTime(log.createdAt, "—", locale)}</td>
+									<td className="py-2 pr-3 font-mono text-xs text-[var(--text-muted)]">{formatAiOpsTime(log.createdAt, "—", locale)}</td>
 									<td className="whitespace-nowrap py-2 pr-3">{log.mode === "autonomous" ? t("aiOpsPage.mode.autonomous") : t("aiOpsPage.mode.recommendation")}</td>
 									<td className="whitespace-nowrap py-2 pr-3">{log.triggerType === "scheduled" ? t("aiOpsPage.trigger.scheduled") : log.triggerType === "manual" ? t("aiOpsPage.trigger.manual") : t("aiOpsPage.trigger.recommendation_followup")}</td>
 									<td className="whitespace-nowrap py-2 pr-3">{t(`aiOpsPage.status.${log.status}`)}</td>
@@ -390,14 +407,14 @@ export function AiOpsDetailSection({
 				<div>
 					<h3 className="ui-title-group mb-2">{t("aiOpsPage.detail.findings")}</h3>
 					{selectedLog.findings.length === 0 ? (
-						<div className="text-sm text-[var(--text-primary)]/70">{t("aiOpsPage.detail.findingsEmpty")}</div>
+						<div className="text-sm text-[var(--text-muted)]">{t("aiOpsPage.detail.findingsEmpty")}</div>
 					) : (
 						<ul className="space-y-2 text-sm text-[var(--text-primary)]">
 							{selectedLog.findings.map((f) => (
 								<li key={f.id} data-tile className="p-3">
 									<div className="font-medium text-[var(--text-primary)]">{f.title}</div>
-									<div className="text-xs text-[var(--text-primary)]/70">{t(`aiOpsPage.severity.${f.severity}`)}</div>
-									<div className="mt-1 text-xs text-[var(--text-primary)]/70">{f.body}</div>
+									<div className="text-xs text-[var(--text-muted)]">{t(`aiOpsPage.severity.${f.severity}`)}</div>
+									<div className="mt-1 text-xs text-[var(--text-muted)]">{f.body}</div>
 								</li>
 							))}
 						</ul>
@@ -406,7 +423,7 @@ export function AiOpsDetailSection({
 				<div>
 					<h3 className="ui-title-group mb-2">{t("aiOpsPage.detail.recommendedActions")}</h3>
 					{selectedLog.actions.length === 0 ? (
-						<div className="text-sm text-[var(--text-primary)]/70">{t("aiOpsPage.detail.recommendedActionsEmpty")}</div>
+						<div className="text-sm text-[var(--text-muted)]">{t("aiOpsPage.detail.recommendedActionsEmpty")}</div>
 					) : (
 						<ul className="space-y-2 text-sm text-[var(--text-primary)]">
 							{selectedLog.actions.map((action) => {
@@ -416,9 +433,9 @@ export function AiOpsDetailSection({
 									<li key={action.id} data-tile className="flex flex-wrap items-start justify-between gap-3 p-3">
 										<div>
 											<div className="font-medium text-[var(--text-primary)]">{action.action}</div>
-											<div className="text-xs text-[var(--text-primary)]/70">{t(`aiOpsPage.risk.${action.risk}`)}</div>
-											{recommendation?.reason && <div className="mt-1 text-xs text-[var(--text-primary)]/70">{recommendation.reason}</div>}
-											{executed && <div className="mt-1 text-xs text-[var(--text-primary)]/70">{executed.result ?? executed.errorMessage ?? "—"}</div>}
+											<div className="text-xs text-[var(--text-muted)]">{t(`aiOpsPage.risk.${action.risk}`)}</div>
+											{recommendation?.reason && <div className="mt-1 text-xs text-[var(--text-muted)]">{recommendation.reason}</div>}
+											{executed && <div className="mt-1 text-xs text-[var(--text-muted)]">{executed.result ?? executed.errorMessage ?? "—"}</div>}
 										</div>
 										{recommendation && canManage && (
 											<div className="flex w-full min-w-0 max-w-full flex-col gap-1 sm:w-auto">

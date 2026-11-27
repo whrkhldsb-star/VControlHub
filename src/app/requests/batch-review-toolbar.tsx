@@ -15,12 +15,14 @@
 
 import {
 	createContext,
+	startTransition,
 	type ReactNode,
 	useActionState,
 	useContext,
 	useEffect,
 	useId,
 	useMemo,
+	useRef,
 	useState,
 } from "react";
 
@@ -33,6 +35,7 @@ import {
 	type BatchReviewActionState,
 } from "./actions";
 import { ActionButton } from "@/components/action-button";
+import { ConfirmDialog } from "@/components/confirm-dialog";
 
 type BatchReviewToolbarProps = {
 	pendingIds: string[];
@@ -75,6 +78,8 @@ export function BatchReviewToolbar({
 	const { t } = useI18n();
 	const [selected, setSelected] = useState<Set<string>>(() => new Set());
 	const [comment, setComment] = useState("");
+	const [pendingDecision, setPendingDecision] = useState<"approve" | "reject" | null>(null);
+	const formRef = useRef<HTMLFormElement>(null);
 	const commentId = useId();
 
 	const allSelected = useMemo(
@@ -100,16 +105,33 @@ export function BatchReviewToolbar({
 		initialState,
 	);
 
-	// Clear the selection and the comment after each reviewed batch. Keyed on the answer itself: on its
-	// sentence, a second batch that ended with the same words ("2 approved") left both in place.
+	// After each reviewed batch: on full success clear selection & comment; on partial failure
+	// keep only the failed IDs selected so the reviewer can inspect or retry them without re-selecting.
 	useEffect(() => {
-		if (!state.success || state.error) return;
+		if (!state.success && !state.error) return;
+		const failedIds = Object.entries(state.results ?? {})
+			.filter(([, outcome]) => outcome !== "ok")
+			.map(([id]) => id);
 		const timer = window.setTimeout(() => {
-			setSelected(new Set());
-			setComment("");
+			if (failedIds.length > 0) {
+				setSelected(new Set(failedIds.filter((id) => pendingIds.includes(id))));
+			} else if (state.success && !state.error) {
+				setSelected(new Set());
+				setComment("");
+			}
 		}, 0);
 		return () => window.clearTimeout(timer);
-	}, [state]);
+	}, [state, pendingIds]);
+
+	const submitDecision = (decision: "approve" | "reject") => {
+		if (!formRef.current) return;
+		const formData = new FormData(formRef.current);
+		formData.set("decision", decision);
+		setPendingDecision(null);
+		startTransition(() => {
+			formAction(formData);
+		});
+	};
 
 	// Why the requests that were not reviewed were refused: the action answers per request, and only the
 	// count was shown ("1 approved, 1 failed").
@@ -175,6 +197,7 @@ export function BatchReviewToolbar({
 
 			{someSelected && (
 				<form
+					ref={formRef}
 					action={formAction}
 					data-action-bar=""
 					className="sticky bottom-3 z-20 flex-col items-stretch sm:flex-row sm:items-center"
@@ -199,21 +222,44 @@ export function BatchReviewToolbar({
 						className={cn(UI_INPUT, "flex-1")}
 					/>
 					<ActionButton variant="success"
-						type="submit"
-						name="decision"
-						value="approve"
-						disabled={isPending}>
+						type="button"
+						disabled={isPending}
+						onClick={() => setPendingDecision("approve")}>
 						{isPending ? t("requestsPage.batch.pending") : t("requestsPage.batch.approve", { count: selected.size })}
 					</ActionButton>
 					<ActionButton variant="danger"
-						type="submit"
-						name="decision"
-						value="reject"
-						disabled={isPending}>
+						type="button"
+						disabled={isPending}
+						onClick={() => setPendingDecision("reject")}>
 						{isPending ? t("requestsPage.batch.pending") : t("requestsPage.batch.reject", { count: selected.size })}
 					</ActionButton>
 				</form>
 			)}
+			<ConfirmDialog
+				open={pendingDecision !== null}
+				title={
+					pendingDecision === "reject"
+						? t("requestsPage.batch.confirmRejectTitle", { count: selected.size })
+						: t("requestsPage.batch.confirmApproveTitle", { count: selected.size })
+				}
+				description={
+					pendingDecision === "reject"
+						? t("requestsPage.batch.confirmRejectDesc", { count: selected.size })
+						: t("requestsPage.batch.confirmApproveDesc", { count: selected.size })
+				}
+				cancelLabel={t("common.cancel")}
+				confirmLabel={
+					pendingDecision === "reject"
+						? t("requestsPage.batch.reject", { count: selected.size })
+						: t("requestsPage.batch.approve", { count: selected.size })
+				}
+				confirmVariant={pendingDecision === "reject" ? "danger-solid" : "primary"}
+				busy={isPending}
+				onCancel={() => setPendingDecision(null)}
+				onConfirm={() => {
+					if (pendingDecision) submitDecision(pendingDecision);
+				}}
+			/>
 		</div>
 	);
 }

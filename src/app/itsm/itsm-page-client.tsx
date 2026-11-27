@@ -53,6 +53,7 @@ export function ItsmPageClient({
 	const [copiedId, setCopiedId] = useState<string | null>(null);
 	const copiedTimerRef = useRef<ReturnType<typeof setTimeout> | null>(null);
 	const [pendingDelete, setPendingDelete] = useState<ItsmConnectionRecord | null>(null);
+	const [deleteError, setDeleteError] = useState<string | null>(null);
 	// The form opens from the header (or the empty list) right under it; the connections come first otherwise.
 	const [creating, setCreating] = useState(false);
 	const panelRef = useRef<HTMLDivElement>(null);
@@ -96,13 +97,14 @@ export function ItsmPageClient({
 
 	const remove = async (row: ItsmConnectionRecord) => {
 		setBusy(true);
+		setDeleteError(null);
 		try {
 			await csrfFetch(`/api/itsm/connections/${row.id}`, { method: "DELETE" });
 			setPendingDelete(null);
 			await reload();
 			addToast("success", t("itsmPage.toast.deleted"));
 		} catch (error) {
-			addToast("error", getErrorMessage(error, t("itsmPage.toast.error")));
+			setDeleteError(getErrorMessage(error, t("itsmPage.toast.error")));
 		} finally {
 			setBusy(false);
 		}
@@ -224,7 +226,7 @@ export function ItsmPageClient({
 									</ActionButton>
 									<ActionButton size="sm" variant="danger"
 										disabled={busy}
-										onClick={() => setPendingDelete(row)}>
+										onClick={() => { setDeleteError(null); setPendingDelete(row); }}>
 										{t("itsmPage.action.delete")}
 									</ActionButton>
 								</div>
@@ -290,8 +292,12 @@ export function ItsmPageClient({
 				cancelLabel={t("common.cancel")}
 				confirmLabel={t("itsmPage.action.delete")}
 				busy={busy}
+				error={deleteError}
 				onCancel={() => {
-					if (!busy) setPendingDelete(null);
+					if (!busy) {
+						setPendingDelete(null);
+						setDeleteError(null);
+					}
 				}}
 				onConfirm={() => {
 					if (pendingDelete) void remove(pendingDelete);

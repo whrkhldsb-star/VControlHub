@@ -62,6 +62,16 @@ describe("GlobalSearch", () => {
 		expect(pushMock).toHaveBeenCalledWith("/quick-services");
 	});
 
+	it("finds a page by the sentence under its name", async () => {
+		// The description is shown under each page, but typing words from it found nothing.
+		vi.stubGlobal("fetch", vi.fn().mockImplementation(() => new Promise(() => {})));
+		const user = userEvent.setup();
+		renderGlobalSearch();
+		act(() => window.dispatchEvent(new Event("vcontrolhub:open-global-search")));
+		await user.type(await screen.findByRole("combobox"), "一屏查看");
+		expect(await screen.findByRole("option", { name: /仪表盘/ })).toBeInTheDocument();
+	});
+
 	it("exposes the search overlay as a labelled dialog and combobox listbox", async () => {
 		const user = userEvent.setup();
 		renderGlobalSearch();
@@ -197,7 +207,7 @@ describe("GlobalSearch", () => {
 
 		expect(pushMock).toHaveBeenCalledWith("/account/security");
 		expect(dispatchSpy).not.toHaveBeenCalledWith(expect.objectContaining({ type: "open-2fa-modal" }));
-		expect(getSearchItems().find((item) => item.label === "修改密码")?.href).toBe("/account/password");
+		expect(getSearchItems().find((item) => item.label === "修改密码")?.href).toBe("/account/password?next=%2Faccount%2Fsecurity");
 		expect(getSearchItems().find((item) => item.label === "个人偏好")?.href).toBe("/settings#personal-preferences");
 		dispatchSpy.mockRestore();
 	});

@@ -71,7 +71,7 @@ describe("useQuickServiceActions", () => {
     act(() => {
       result.current.showMessage({ type: "err", text: "镜像拉取失败", taskId: "job:1" });
     });
-    expect(addToast).toHaveBeenLastCalledWith("error", "镜像拉取失败", { duration: 10_000, action: { label: "查看任务中心", href: "/operation-tasks" } });
+    expect(addToast).toHaveBeenLastCalledWith("error", "镜像拉取失败", { duration: 10_000, action: { label: "查看任务中心", href: "/operation-tasks?task=job%3A1" } });
   });
 
   it("doInstall sets actionSlug during the call and clears it on success", async () => {
@@ -95,6 +95,7 @@ describe("useQuickServiceActions", () => {
     expect(result.current.actionSlug).toBeNull();
     expect(lastMessage()?.type).toBe("ok");
     expect(lastMessage()?.text).toMatch(/安装已排队/);
+    expect(lastMessage()?.options?.action?.href).toBe("/operation-tasks?task=job%3Ains_1");
     expect(csrfFetch).toHaveBeenCalledWith(
       "/api/quick-services",
       expect.objectContaining({

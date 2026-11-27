@@ -1,10 +1,10 @@
 "use client";
 
-import { useCallback, useEffect, useRef, useState } from "react";
+import { useCallback, useEffect, useMemo, useRef, useState } from "react";
 import { csrfFetch } from "@/lib/auth/csrf-client";
 import { useI18n } from "@/lib/i18n/use-locale";
 import { useToast } from "@/components/toast-provider";
-import { EmptyState, ListPanel, PageHeader, SurfacePanel } from "@/components/page-shell";
+import { EmptyState, ListPanel, PageHeader, SurfacePanel, Toolbar } from "@/components/page-shell";
 import { File as FileIcon, Plus } from "@/components/icons";
 import { statusLabelFor, dryRunStepCounts } from "./playbook-types";
 import type { SerializedPlaybook, RunSummary, ServerOption } from "./playbook-types";
@@ -13,8 +13,11 @@ import { PlaybookCard } from "./playbook-card";
 import { PlaybookDeleteDialog } from "./playbook-delete-dialog";
 import { getErrorMessage } from "@/lib/http/error-message";
 import { ActionButton, ButtonLink } from "@/components/action-button";
+import { ConfirmDialog } from "@/components/confirm-dialog";
 import { PageGuide } from "@/components/page-guide";
 import { PaginatedList } from "@/components/paginated-list";
+import { UI_INPUT } from "@/lib/ui/classes";
+import { cn } from "@/lib/ui/cn";
 
 const RUN_POLL_DELAYS_MS = [2_000, 5_000, 10_000, 20_000, 30_000, 45_000, 60_000, 90_000, 120_000, 180_000, 240_000, 300_000] as const;
 
@@ -49,9 +52,21 @@ export function PlaybookListClient({
   const [editing, setEditing] = useState<SerializedPlaybook | null>(null);
   const formPanelRef = useRef<HTMLDivElement>(null);
   const [pendingDelete, setPendingDelete] = useState<SerializedPlaybook | null>(null);
+  const [pendingRun, setPendingRun] = useState<SerializedPlaybook | null>(null);
+  const [searchQuery, setSearchQuery] = useState("");
   // A refused deletion is said in its dialog; every other action answers with a toast, where the click was.
   const [deleteError, setDeleteError] = useState<string | null>(null);
   const [busyAction, setBusyAction] = useState<string | null>(null);
+
+  const filteredPlaybooks = useMemo(() => {
+    const needle = searchQuery.trim().toLowerCase();
+    if (!needle) return playbooks;
+    return playbooks.filter(
+      (pb) =>
+        pb.name.toLowerCase().includes(needle) ||
+        (pb.description ?? "").toLowerCase().includes(needle),
+    );
+  }, [playbooks, searchQuery]);
 
   const refreshRuns = useCallback(async (playbookId: string) => {
     const data = await csrfFetch<{ runs: RunSummary[] }>(`/api/playbooks/${playbookId}/runs`);
@@ -71,33 +86,51 @@ export function PlaybookListClient({
 
 
   const runPollTimersRef = useRef<Map<string, number>>(new Map());
+  const runPollGenRef = useRef<Map<string, number>>(new Map());
+  const mountedRef = useRef(true);
 
-  const clearRunPolling = useCallback((playbookId?: string) => {
+  const clearRunPolling = useCallback((pollKey?: string) => {
     const map = runPollTimersRef.current;
-    if (playbookId) {
-      const timer = map.get(playbookId);
+    const gens = runPollGenRef.current;
+    if (pollKey) {
+      const timer = map.get(pollKey);
       if (timer !== undefined) window.clearTimeout(timer);
-      map.delete(playbookId);
+      map.delete(pollKey);
+      gens.set(pollKey, (gens.get(pollKey) ?? 0) + 1);
       return;
     }
     for (const timer of map.values()) window.clearTimeout(timer);
     map.clear();
+    gens.clear();
   }, []);
 
-  useEffect(() => () => clearRunPolling(), [clearRunPolling]);
+  useEffect(() => {
+    mountedRef.current = true;
+    return () => {
+      mountedRef.current = false;
+      clearRunPolling();
+    };
+  }, [clearRunPolling]);
 
   const isTerminalRunStatus = useCallback((status: string) => {
     return status === "completed" || status === "failed" || status === "cancelled";
   }, []);
 
   const startRunPolling = useCallback(
-    (playbookId: string) => {
-      clearRunPolling(playbookId);
+    (playbookId: string, runId: string, kind: "run" | "dry-run") => {
+      const pollKey = `${playbookId}:${runId}`;
+      clearRunPolling(pollKey);
+      const gen = (runPollGenRef.current.get(pollKey) ?? 0) + 1;
+      runPollGenRef.current.set(pollKey, gen);
       let attempt = 0;
 
+      const isActive = () => mountedRef.current && runPollGenRef.current.get(pollKey) === gen;
+
       const scheduleNext = () => {
+        if (!isActive()) return;
         if (attempt >= RUN_POLL_DELAYS_MS.length) {
-          clearRunPolling(playbookId);
+          clearRunPolling(pollKey);
+          addToast("info", t("playbooksPage.toast.pollTimeout"));
           return;
         }
         const delay = RUN_POLL_DELAYS_MS[attempt];
@@ -105,23 +138,38 @@ export function PlaybookListClient({
         const timer = window.setTimeout(() => {
           void refreshRuns(playbookId)
             .then((runs) => {
-              const latest = runs[0];
-              if (latest && isTerminalRunStatus(latest.status)) {
-                clearRunPolling(playbookId);
+              if (!isActive()) return;
+              const target = runs.find((candidate) => candidate.id === runId);
+              if (target && isTerminalRunStatus(target.status)) {
+                clearRunPolling(pollKey);
+                if (kind === "dry-run") {
+                  if (target.status === "failed" || target.status === "cancelled") {
+                    addToast("error", t("playbooksPage.toast.run", { status: statusLabelFor(t, target.status) }));
+                  } else {
+                    const counts = dryRunStepCounts(target);
+                    addToast("success", t("playbooksPage.toast.dryRun", { ok: counts.ok, total: counts.total }));
+                  }
+                } else {
+                  addToast(
+                    target.status === "failed" ? "error" : "success",
+                    t("playbooksPage.toast.run", { status: statusLabelFor(t, target.status) }),
+                  );
+                }
                 return;
               }
               scheduleNext();
             })
             .catch(() => {
+              if (!isActive()) return;
               scheduleNext();
             });
         }, delay);
-        runPollTimersRef.current.set(playbookId, timer);
+        runPollTimersRef.current.set(pollKey, timer);
       };
 
       scheduleNext();
     },
-    [clearRunPolling, isTerminalRunStatus, refreshRuns],
+    [addToast, clearRunPolling, isTerminalRunStatus, refreshRuns, t],
   );
 
   const handleTrigger = useCallback(
@@ -136,8 +184,8 @@ export function PlaybookListClient({
           [id]: [run, ...(prev[id] ?? [])].slice(0, 5),
         }));
         if (run.status === "queued" || run.status === "running") {
-          // Durable worker finishes asynchronously; poll until terminal or max window.
-          startRunPolling(id);
+          // Durable worker finishes asynchronously; poll this specific run until terminal or max window.
+          startRunPolling(id, run.id, kind);
         }
         if (kind === "dry-run") {
           if (run.status === "queued" || run.status === "running") {
@@ -291,9 +339,28 @@ export function PlaybookListClient({
         </div>
       )}
 
+      {playbooks.length > 0 ? (
+        <Toolbar>
+          <label htmlFor="playbooks-search" className="sr-only">{t("common.search")}</label>
+          <input
+            id="playbooks-search"
+            type="search"
+            value={searchQuery}
+            onChange={(e) => setSearchQuery(e.target.value)}
+            placeholder={t("playbooksPage.searchPlaceholder")}
+            className={cn(UI_INPUT, "w-full sm:w-80")}
+          />
+          {searchQuery ? (
+            <ActionButton size="sm" variant="ghost" onClick={() => setSearchQuery("")}>
+              {t("common.clearSearch")}
+            </ActionButton>
+          ) : null}
+        </Toolbar>
+      ) : null}
+
       <ListPanel
         title={t("playbooksPage.list.title")}
-        count={playbooks.length}
+        count={filteredPlaybooks.length}
         empty={
           playbooks.length === 0 ? (
             <EmptyState
@@ -306,12 +373,21 @@ export function PlaybookListClient({
                 </ActionButton>
               ) : undefined}
             />
+          ) : filteredPlaybooks.length === 0 ? (
+            <EmptyState
+              title={t("common.noMatches")}
+              action={
+                <ActionButton size="sm" variant="secondary" onClick={() => setSearchQuery("")}>
+                  {t("common.clearSearch")}
+                </ActionButton>
+              }
+            />
           ) : undefined
         }
-        bodyClassName={playbooks.length === 0 ? undefined : "!divide-y-0 space-y-0 bg-transparent p-3"}
+        bodyClassName={filteredPlaybooks.length === 0 ? undefined : "!divide-y-0 space-y-0 bg-transparent p-3"}
       >
-        <PaginatedList pageSize={20}>
-          {playbooks.map((playbook) => (
+        <PaginatedList pageSize={20} resetKey={searchQuery}>
+          {filteredPlaybooks.map((playbook) => (
             <div key={playbook.id} className="mb-3 last:mb-0">
               <PlaybookCard
                 playbook={playbook}
@@ -319,7 +395,14 @@ export function PlaybookListClient({
                 canRun={canRun}
                 canManage={canManage}
                 busyAction={busyAction}
-                onTrigger={handleTrigger}
+                onTrigger={(id, kind) => {
+                  if (kind === "run") {
+                    const target = playbooks.find((item) => item.id === id) ?? null;
+                    setPendingRun(target);
+                    return;
+                  }
+                  void handleTrigger(id, kind);
+                }}
                 onToggle={handleToggle}
                 onClaim={handleClaim}
                 onEdit={handleEdit}
@@ -330,6 +413,23 @@ export function PlaybookListClient({
           ))}
         </PaginatedList>
       </ListPanel>
+
+      <ConfirmDialog
+        open={pendingRun !== null}
+        title={t("playbooksPage.runConfirm.title", { name: pendingRun?.name ?? "" })}
+        description={pendingRun ? t("playbooksPage.runConfirm.desc", { name: pendingRun.name, count: pendingRun.steps.length }) : undefined}
+        cancelLabel={t("common.cancel")}
+        confirmLabel={t("playbooksPage.action.run")}
+        confirmVariant="primary"
+        busy={pendingRun ? busyAction === `run:${pendingRun.id}` : false}
+        onCancel={() => setPendingRun(null)}
+        onConfirm={() => {
+          if (!pendingRun) return;
+          const targetId = pendingRun.id;
+          setPendingRun(null);
+          void handleTrigger(targetId, "run");
+        }}
+      />
 
       <PlaybookDeleteDialog
         playbook={pendingDelete}

@@ -137,7 +137,7 @@ export function VpsNodeCard({
 						<span className="relative flex h-2.5 w-2.5 shrink-0">
 							<span
 								className={`absolute inline-flex h-full w-full rounded-full opacity-50 ${sc.dot} ${
-									!isOffline && server.status === "healthy" ? "animate-ping" : ""
+									!isOffline && server.status === "healthy" ? "animate-ping motion-reduce:animate-none" : ""
 								}`}
 							/>
 							<span className={`relative inline-flex h-2.5 w-2.5 rounded-full ${sc.dot}`} />

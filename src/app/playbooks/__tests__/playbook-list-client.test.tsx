@@ -168,6 +168,8 @@ describe("Playbook actions that fail", () => {
 		vi.mocked(csrfFetch).mockRejectedValueOnce({ status: 500 });
 		renderOne();
 		await user.click(screen.getByRole("button", { name: "立即运行" }));
+		const runDialog = screen.getByRole("dialog");
+		await user.click(within(runDialog).getByRole("button", { name: "立即运行" }));
 		await waitFor(() => expect(addToastMock).toHaveBeenCalledWith("error", "运行 Playbook 失败"));
 
 		vi.mocked(csrfFetch).mockRejectedValueOnce(new Error("目标服务器已停用"));
@@ -223,7 +225,7 @@ describe("PlaybookListClient sortable steps", () => {
 		for (const step of body.steps) {
 			expect(step.config.serverIds).toEqual(["srv1"]);
 		}
-		expect(addToastMock).toHaveBeenCalledWith("success", "Playbook 已创建");
+		await waitFor(() => expect(addToastMock).toHaveBeenCalledWith("success", "Playbook 已创建"));
 	});
 });
 

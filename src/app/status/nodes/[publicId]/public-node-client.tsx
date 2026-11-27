@@ -267,7 +267,7 @@ export function PublicNodeClient({ initial, initialRange, preview, signedIn }: {
 				<div className="flex items-center gap-2">
 					<LanguageToggle compact />
 					<ThemeToggle compact />
-					{signedIn ? null : <Link href="/login?next=%2F" className="text-sm text-[var(--text-secondary)] hover:underline">{t("publicStatus.signIn")}</Link>}
+					{signedIn ? null : <Link href={`/login?next=${encodeURIComponent(`/status/nodes/${node.id}`)}`} className="text-sm text-[var(--text-secondary)] hover:underline">{t("publicStatus.signIn")}</Link>}
 				</div>
 			</div>
 			<header className="flex flex-wrap items-start justify-between gap-3">

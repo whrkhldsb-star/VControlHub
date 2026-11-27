@@ -1,10 +1,11 @@
 "use client";
 
+import { useUrlQueryState } from "@/lib/hooks/use-url-query-state";
 import { X } from "@/components/icons";
 
-import { useState, useMemo } from "react";
+import { useState, useMemo, useEffect, useRef } from "react";
 import { buildQuickServiceAccessDescriptor } from "@/lib/quick-service/access-url";
-import { EmptyState, Toolbar, StatCard, StatGrid } from "@/components/page-shell";
+import { EmptyState, Toolbar } from "@/components/page-shell";
 import { Badge, CONTROL_CLASS, InlineLoading, Notice, SegmentedTabs } from "@/components/ui-primitives";
 import { useI18n } from "@/lib/i18n/use-locale";
 import {
@@ -17,7 +18,7 @@ import {
 } from "./quick-services-dialogs-lazy";
 import { ServiceCard } from "./quick-service-card";
 import { InstallDialog } from "./install-dialog";
-import { SourcesPanel } from "./quick-services-sources-panel";
+import { SourcesPanel, useSourceDraft } from "./quick-services-sources-panel";
 import { CATEGORY_ORDER, buildCategoryLabels, buildQuickServiceViewModel, getEnvCount, getPrimaryContainerPort, getVolumeMounts, type AppSource, type CatalogItem, type Tab } from "./quick-services-shared";
 import { useQuickServiceCatalog } from "./use-quick-service-catalog";
 import { ActionButton, ButtonLink } from "@/components/action-button";
@@ -32,14 +33,17 @@ export function QuickServicesClient({
 	canManage,
 	canManageHubHost,
 	canReadServers: propsCanReadServers = true,
+	canReadTasks = true,
 }: {
 	requestedServer?: string;
 	canManage: boolean;
 	/** Only a platform manager may target the hub host (its Docker socket runs the control plane). */
 	canManageHubHost: boolean;
 	canReadServers?: boolean;
+	canReadTasks?: boolean;
 }) {
 	const { t } = useI18n();
+	const sourceDraft = useSourceDraft();
 	const categoryLabels = buildCategoryLabels(t);
 	const {
 		catalog,
@@ -63,7 +67,9 @@ export function QuickServicesClient({
 		? (canReadServers ? `/docker?server=${encodeURIComponent(selectedServerId)}` : undefined)
 		: "/docker";
 	const [installedOn, setInstalledOn] = useState<string | null>(null);
-	const [tab, setTab] = useState<Tab>("store");
+	const { state: filters, setField, patch } = useUrlQueryState({ tab: "store", q: "", category: "all" });
+	const tab: Tab = filters.tab === "community" || filters.tab === "installed" || (canManageHubHost && filters.tab === "sources") ? filters.tab : "store";
+	useEffect(() => { if (filters.tab !== tab) setField("tab", tab); }, [filters.tab, tab, setField]);
 	// Install dialog state (the dialog body ships in <InstallDialog />)
 	const [installDialog, setInstallDialog] = useState<CatalogItem | null>(null);
 	const [configPreview, setConfigPreview] = useState<ConfigPreview<CatalogItem> | null>(null);
@@ -71,16 +77,25 @@ export function QuickServicesClient({
 	const [pendingSourceDelete, setPendingSourceDelete] = useState<{ id: string; displayName: string } | null>(null);
 	// Sync state is owned by useQuickServiceActions (see use-quick-service-actions.ts)
 	// Search
-	const [search, setSearch] = useState("");
-	const [categoryFilter, setCategoryFilter] = useState("all");
+	const search = filters.q;
+	const setSearch = (value: string) => setField("q", value);
+	const categoryFilter = filters.category;
+	const setCategoryFilter = (value: string) => setField("category", value);
 	const selectTab = (nextTab: Tab) => {
-		setTab(nextTab);
-		setCategoryFilter("all");
+		patch({ tab: nextTab, category: "all" });
 	};
 
 	// Action handlers + message + actionSlug + syncing now live in the
 	// useQuickServiceActions hook (extracted in R23).
-	const actions = useQuickServiceActions({ fetchCatalog, fetchSources, selectedServerId });
+	const actions = useQuickServiceActions({ fetchCatalog, fetchSources, selectedServerId, canReadTasks });
+	const targetEpoch = useRef(0);
+	useEffect(() => {
+		++targetEpoch.current;
+		setInstalledOn(null);
+		setInstallDialog(null);
+		setConfigPreview(null);
+		setPendingUninstall(null);
+	}, [selectedServerId]);
 	const selectedTargetLabel = selectedServerId
 		? (servers.find((server) => server.id === selectedServerId)?.name ?? t("qsPage.targetNodeRemote"))
 		: t("qsPage.targetHubHost");
@@ -129,7 +144,8 @@ export function QuickServicesClient({
 			const preview = configPreview;
 			setConfigPreview(null);
 			closeInstallDialog();
-			void actions.doInstall(preview).then(ok => { if (ok) setInstalledOn(selectedServerId); });
+			const epoch = targetEpoch.current;
+			void actions.doInstall(preview).then(ok => { if (ok && epoch === targetEpoch.current) setInstalledOn(selectedServerId); });
 			return;
 		}
 		const target = configPreview.item;
@@ -235,7 +251,7 @@ export function QuickServicesClient({
 
 	return (
 		<div className="space-y-6">
-			{installedOn === selectedServerId && dockerHref && <ButtonLink href={dockerHref}>{t("qsPage.inspectContainers")}</ButtonLink>}
+			{installedOn === selectedServerId && dockerHref && <Notice tone="success" onDismiss={() => setInstalledOn(null)} dismissLabel={t("common.close")}><ButtonLink href={dockerHref}>{t("qsPage.inspectContainers")}</ButtonLink></Notice>}
 			{sourcesError ? <Notice tone="danger" action={{ label: t("common.retry"), onClick: () => void fetchSources() }}>{sourcesError}</Notice> : null}
 			{dockerStatus && !dockerStatus.available ? (
 				<Notice tone="warning" title={t("qsPage.dockerNotReadyTitle")}>
@@ -244,12 +260,6 @@ export function QuickServicesClient({
 				</Notice>
 			) : null}
 
-			<StatGrid cols={4}>
-				<StatCard label={t("qsPage.summaryRunning")} value={String(summary.running)} accent={summary.running > 0} accentColor="emerald" />
-				<StatCard label={t("qsPage.summaryStopped")} value={String(summary.stopped)} accent={summary.stopped > 0} accentColor="amber" />
-				<StatCard label={t("qsPage.summaryError")} value={String(summary.error)} accent={summary.error > 0} accentColor="rose" />
-				<StatCard label={t("qsPage.summaryAvailable")} value={String(summary.available)} accent={summary.available > 0} accentColor="cyan" />
-			</StatGrid>
 
 			<div data-card className="flex flex-col gap-3 sm:flex-row sm:items-center sm:justify-between">
 				<div>
@@ -260,6 +270,24 @@ export function QuickServicesClient({
 					</p>
 				</div>
 				{targetSelect}
+			</div>
+
+			<SegmentedTabs
+				ariaLabel={t("qsPage.title")}
+				value={tab}
+				onChange={(value) => selectTab(value as Tab)}
+				items={[
+					{ id: "store", label: t("qsPage.tabStore"), badge: localAvailable.length },
+					{ id: "community", label: t("qsPage.tabCommunity"), badge: remoteAvailable.length },
+					{ id: "installed", label: t("qsPage.tabInstalled"), badge: installed.length },
+					...(canManageHubHost ? [{ id: "sources", label: t("qsPage.tabSources"), badge: sources.length }] : []),
+				]}
+			/>
+			<div className="flex flex-wrap gap-3 text-xs text-[var(--text-muted)]">
+				<span>{t("qsPage.summaryRunning")} · {summary.running}</span>
+				<span>{t("qsPage.summaryStopped")} · {summary.stopped}</span>
+				<span>{t("qsPage.summaryError")} · {summary.error}</span>
+				<span>{t("qsPage.summaryAvailable")} · {summary.available}</span>
 			</div>
 
 			<section className="grid gap-3 lg:grid-cols-3">
@@ -283,7 +311,7 @@ export function QuickServicesClient({
 							const cardBody = (
 								<>
 									<div className="flex items-center justify-between gap-2">
-										<span className="truncate text-sm font-medium text-[var(--text-primary)]">{item.icon} {item.name}</span>
+										<span className="truncate text-sm font-medium text-[var(--text-primary)]">{item.name}</span>
 										<span className="ui-mono text-xs text-[var(--text-muted)]">:{item.port ?? item.defaultPort}</span>
 									</div>
 									<p className="mt-1 truncate text-xs text-[var(--text-muted)]">{access?.url ?? `${accessHostLabel}:${item.port ?? item.defaultPort}`}</p>
@@ -364,7 +392,6 @@ export function QuickServicesClient({
 							<h2 className="ui-title-section">{t("qsPage.recommendedHeader")}</h2>
 							<p className="mt-1 text-xs text-[var(--text-muted)]">{t("qsPage.recommendedSubheader")}</p>
 						</div>
-						<Badge>{t("qsPage.mvpPriority")}</Badge>
 					</div>
 					<div className="grid gap-3 sm:grid-cols-2 lg:grid-cols-3">
 							{recommendedItems.map((item) => renderServiceCard(item, "store", "recommended-"))}
@@ -373,21 +400,11 @@ export function QuickServicesClient({
 			)}
 
 
-			<SegmentedTabs
-				ariaLabel={t("qsPage.title")}
-				value={tab}
-				onChange={(value) => selectTab(value as Tab)}
-				items={[
-					{ id: "store", label: t("qsPage.tabStore"), badge: localAvailable.length },
-					{ id: "community", label: t("qsPage.tabCommunity"), badge: remoteAvailable.length },
-					{ id: "installed", label: t("qsPage.tabInstalled"), badge: installed.length },
-					...(canManageHubHost ? [{ id: "sources", label: t("qsPage.tabSources"), badge: sources.length }] : []),
-				]}
-			/>
+
 			{/* Sources management tab (extracted to <SourcesPanel /> in TR-036 T37) */}
-			{tab ==="sources" && (
+			{canManageHubHost && tab === "sources" && (
 				<SourcesPanel
-					sources={sources}
+					draft={sourceDraft} sources={sources}
 					actions={{
 						doSync: actions.doSync,
 						doToggleSource: actions.doToggleSource,

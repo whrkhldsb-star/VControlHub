@@ -9,6 +9,7 @@ import { csrfFetch } from "@/lib/auth/csrf-client";
 import { useI18n } from "@/lib/i18n/use-locale";
 import { getErrorMessage } from "@/lib/http/error-message";
 import { Notice } from "@/components/ui-primitives";
+import { operationTaskHref } from "@/lib/ui/deep-links";
 
 type Props = {
 	backupId: string;
@@ -55,7 +56,7 @@ export function RetryBackupRecordButton({ backupId, status }: Props) {
 			{taskId && (
 				<Notice tone="success" compact>
 					{t("backupsPage.retry.success", { taskId })}{" "}
-					<Link href="/operation-tasks" className="underline">
+					<Link href={operationTaskHref(taskId)} className="underline">
 						{t("backupsPage.retry.taskCenter")}
 					</Link>
 				</Notice>

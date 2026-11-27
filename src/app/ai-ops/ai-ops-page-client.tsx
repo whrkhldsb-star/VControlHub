@@ -30,6 +30,7 @@ import type { AiOpsSummary } from "@/lib/ai/ops/service";
 import { ActionButton } from "@/components/action-button";
 import { PageGuide } from "@/components/page-guide";
 import { PageHeader } from "@/components/page-shell";
+import { aiProvidersHref } from "@/lib/ui/deep-links";
 import {
 	AiOpsDetailSection,
 	AiOpsHeaderActions,
@@ -106,7 +107,7 @@ export function AiOpsPageClient({
 	// Only the latest load may write the list: an earlier filter's answer
 	// arriving late replaced the list under the newer filter.
 	const latestLoad = useRef(0);
-	const loadLogsPage = useCallback(async (targetPage: number): Promise<AiOpsLogRecord[] | null> => {
+	const loadLogsPage = useCallback(async (targetPage: number): Promise<{ logs: AiOpsLogRecord[]; summary: AiOpsSummary } | null> => {
 		const load = ++latestLoad.current;
 		setLoadingLogs(true);
 		try {
@@ -131,7 +132,7 @@ export function AiOpsPageClient({
 					? prev
 					: (logsBody.logs[0]?.id ?? null),
 			);
-			return logsBody.logs;
+			return { logs: logsBody.logs, summary: summaryBody.summary };
 		} catch (error) {
 			if (load !== latestLoad.current) return null;
 			addToast("error", describeFailure(t("aiOpsPage.actions.loadFailed"), error));
@@ -162,31 +163,58 @@ export function AiOpsPageClient({
 	// couple of minutes. One reload after 15 seconds usually came before its log existed: the list is read
 	// again until a log newer than the one before the request has finished.
 	const scanWatch = useRef<number | null>(null);
+	const scanWatchGen = useRef(0);
+	const mountedRef = useRef(true);
+	const isUnfilteredFirstPageRef = useRef(true);
+	useEffect(() => {
+		isUnfilteredFirstPageRef.current =
+			logsPage === 0 && modeFilter === "all" && statusFilter === "all" && triggerFilter === "all";
+	}, [logsPage, modeFilter, statusFilter, triggerFilter]);
 	// The list as it is filtered and paged now, not as it was when the scan was requested.
 	const reloadNow = useRef(reload);
 	useEffect(() => {
 		reloadNow.current = reload;
 	}, [reload]);
-	useEffect(() => () => {
-		if (scanWatch.current !== null) window.clearTimeout(scanWatch.current);
+	useEffect(() => {
+		mountedRef.current = true;
+		return () => {
+			mountedRef.current = false;
+			scanWatchGen.current += 1;
+			if (scanWatch.current !== null) window.clearTimeout(scanWatch.current);
+		};
 	}, []);
-	const watchForScanResult = useCallback((newestBefore: string | null) => {
+	const watchForScanResult = useCallback((newestBefore: string | null, lastScanAtBefore: string | null) => {
 		const startedAt = Date.now();
+		const gen = ++scanWatchGen.current;
 		if (scanWatch.current !== null) window.clearTimeout(scanWatch.current);
 		const look = async () => {
 			scanWatch.current = null;
-			const newest = (await reloadNow.current())?.[0];
-			const finished = Boolean(newest && newest.id !== newestBefore && newest.status !== "running");
-			if (!finished && Date.now() - startedAt < SCAN_RESULT_WATCH_MS) {
+			const result = await reloadNow.current();
+			if (!mountedRef.current || gen !== scanWatchGen.current) return;
+			const newest = isUnfilteredFirstPageRef.current ? result?.logs?.[0] : undefined;
+			const summaryFinished = Boolean(
+				result?.summary?.lastScanAt &&
+				result.summary.lastScanAt !== lastScanAtBefore &&
+				((result.summary.byStatus as Record<string, number>).running ?? 0) === 0,
+			);
+			const finished = Boolean(newest && newest.id !== newestBefore && newest.status !== "running") || summaryFinished;
+			if (finished) {
+				addToast("success", t("aiOpsPage.actions.scanFinished"));
+				return;
+			}
+			if (Date.now() - startedAt < SCAN_RESULT_WATCH_MS) {
 				scanWatch.current = window.setTimeout(() => { void look(); }, SCAN_RESULT_POLL_MS);
+			} else {
+				addToast("info", t("aiOpsPage.actions.scanTimedOut"));
 			}
 		};
 		scanWatch.current = window.setTimeout(() => { void look(); }, SCAN_RESULT_POLL_MS);
-	}, []);
+	}, [addToast, t]);
 
 	const triggerScan = useCallback(async () => {
 		if (!canManage) return;
 		setScanning(true);
+		const lastScanAtBefore = summary.lastScanAt;
 		try {
 			const body = await csrfFetch<{ triggered: boolean; queued?: boolean; latestLog: AiOpsLogRecord | null }>("/api/ai/ops/scan", {
 				method: "POST",
@@ -201,13 +229,13 @@ export function AiOpsPageClient({
 					: t("aiOpsPage.actions.scanning"),
 			);
 			await reloadNow.current();
-			if (body.triggered) watchForScanResult(body.latestLog?.id ?? null);
+			if (body.triggered) watchForScanResult(body.latestLog?.id ?? null, lastScanAtBefore);
 		} catch (error) {
 			addToast("error", describeFailure(t("aiOpsPage.actions.triggerFailed"), error));
 		} finally {
 			setScanning(false);
 		}
-	}, [canManage, addToast, t, watchForScanResult]);
+	}, [canManage, addToast, t, watchForScanResult, summary.lastScanAt]);
 
 	const saveSettings = useCallback(async (reauthorize = false) => {
 		if (!canManage) return;
@@ -323,7 +351,7 @@ export function AiOpsPageClient({
 					t("aiOpsPage.guide.step3"),
 				]}
 				links={[
-					...(canChatAi ? [{ href: "/ai", label: t("aiOpsPage.guide.linkAi") }] : []),
+					...(canChatAi ? [{ href: canManageAi ? aiProvidersHref() : "/ai", label: t("aiOpsPage.guide.linkAi") }] : []),
 					...(canManageAlerts ? [{ href: "/alert-rules", label: t("aiOpsPage.guide.linkAlerts") }] : []),
 					...(canReadPlaybooks ? [{ href: "/playbooks", label: t("aiOpsPage.guide.linkPlaybooks") }] : []),
 				]}

@@ -4,11 +4,12 @@ import { afterEach, beforeEach, describe, expect, it, vi } from "vitest";
 
 import { ApiTokenManagerClient, type SafeApiToken } from "../api-token-manager-client";
 
-// The create form's unsaved-changes guard navigates with the router.
+// The create form's unsaved-changes guard navigates with the router; `?create=1` opens the form.
+const navigation = vi.hoisted(() => ({ search: "" }));
 vi.mock("next/navigation", () => ({
 	useRouter: () => ({ push: vi.fn(), refresh: vi.fn() }),
 	usePathname: () => "/api-tokens",
-	useSearchParams: () => new URLSearchParams(),
+	useSearchParams: () => new URLSearchParams(navigation.search),
 }));
 
 const header = { title: "Personal API token" };
@@ -152,6 +153,31 @@ describe("ApiTokenManagerClient", () => {
 		render(<ApiTokenManagerClient header={header} initialPage={page([token])} pageSize={25} allowedScopes={["read"]} currentCustomerName={null} />, { locale: "en" });
 		expect(screen.getByText("No customer selected")).toBeInTheDocument();
 		expect(screen.getByText("Select a customer in the sidebar before creating a token.")).toBeInTheDocument();
+	});
+
+	it("keeps saying a customer is needed inside the open form, beside its disabled button", () => {
+		// The page scrolls to the form, past the notice at its top: the button could not be pressed and nothing near it said why.
+		render(<ApiTokenManagerClient header={header} initialPage={page([token])} pageSize={25} allowedScopes={["read"]} currentCustomerName={null} />, { locale: "en" });
+		fireEvent.click(screen.getByRole("button", { name: "Create API token" }));
+		expect(screen.getByRole("button", { name: "Create token" })).toBeDisabled();
+		const form = screen.getByLabelText("Token name").closest("form")!;
+		expect(within(form).getByText("Select a customer in the sidebar before creating a token.")).toBeInTheDocument();
+		// Said once.
+		expect(screen.getAllByText("No customer selected")).toHaveLength(1);
+	});
+
+	it("opens the create form from a link and takes the request out of the address", () => {
+		navigation.search = "create=1";
+		window.history.replaceState(null, "", "/api-tokens?create=1");
+		try {
+			render(<ApiTokenManagerClient header={header} initialPage={page([token])} pageSize={25} allowedScopes={["read"]} currentCustomerName="Ops" />, { locale: "en" });
+			expect(screen.getByLabelText("Token name")).toBeInTheDocument();
+			expect(window.location.search).toBe("");
+			expect(screen.queryByRole("button", { name: "Create API token" })).not.toBeInTheDocument();
+		} finally {
+			navigation.search = "";
+			window.history.replaceState(null, "", "/");
+		}
 	});
 
 	it("closes the form on Cancel and says a refusal inside it", async () => {

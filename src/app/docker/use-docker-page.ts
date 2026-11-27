@@ -1,6 +1,7 @@
 "use client";
 
 import { useCallback, useEffect, useMemo, useRef, useState } from "react";
+import { useToast } from "@/components/toast-provider";
 import { csrfFetch } from "@/lib/auth/csrf-client";
 import { useRefreshInterval } from "@/lib/preferences/use-refresh-interval";
 import { useUrlQueryState } from "@/lib/hooks/use-url-query-state";
@@ -28,6 +29,7 @@ export function useDockerPage(
 	canManageHubHost = true,
 ) {
 	const { t } = useI18n();
+	const { addToast } = useToast();
 	const [containers, setContainers] = useState<Container[]>([]);
 	const [loading, setLoading] = useState(true);
 	const [error, setError] = useState("");
@@ -38,7 +40,8 @@ export function useDockerPage(
 	const [logs, setLogs] = useState("");
 	const [actionLoading, setActionLoading] = useState<string | null>(null);
 	const [projectActionLoading, setProjectActionLoading] = useState<string | null>(null);
-	const [projectMessage, setProjectMessage] = useState<string>("");
+	const [dialogError, setDialogError] = useState("");
+	const [logTail, setLogTail] = useState(50);
 	const [stats, setStats] = useState<Record<string, ContainerStats>>({});
 	const [statsAutoRefresh, setStatsAutoRefresh] = useState(false);
 	const [pendingRemoval, setPendingRemoval] = useState<Container | null>(null);
@@ -53,6 +56,10 @@ export function useDockerPage(
 	const selectedServerIdRef = useRef(selectedServerId);
 	const setSelectedServerId = (value: string) => {
 		selectedServerIdRef.current = value;
+		setPendingRemoval(null);
+		setPendingProjectDown(null);
+		setDialogError("");
+		setLogsId(null);
 		patchDockerUrl({ server: value, serverId: "" });
 	};
 	const closeRemovalDialog = useCallback(() => setPendingRemoval(null), []);
@@ -69,9 +76,16 @@ export function useDockerPage(
 		statsServerIdRef.current = selectedServerId;
 	}, [selectedServerId]);
 
+	/* eslint-disable react-hooks/set-state-in-effect -- close open host-scoped dialogs whenever URL/host changes */
 	useEffect(() => {
 		selectedServerIdRef.current = selectedServerId;
+		setPendingRemoval(null);
+		setPendingProjectDown(null);
+		setDialogError("");
+		setLogsId(null);
+		logsReqRef.current = null;
 	}, [selectedServerId]);
+	/* eslint-enable react-hooks/set-state-in-effect */
 
 	const { grouped, ungrouped } = useMemo(() => {
 		const groups = new Map<string, Container[]>();
@@ -160,29 +174,30 @@ export function useDockerPage(
 		const id = container.Id;
 		const serverAtAction = selectedServerId;
 		setActionLoading(id);
-		setError("");
+		setDialogError("");
 		try {
 			const data = await csrfFetch<Record<string, unknown>>("/api/docker/containers", {
 				method:"POST",
 				headers: {"Content-Type":"application/json" },
 				body: JSON.stringify({ id, action, ...(serverAtAction ? { serverId: serverAtAction } : {}) }),
 			});
-			if (data && typeof data ==="object" && data.ok === false) {
-				const msg =
-					typeof data.message ==="string"
-						? data.message
-						: t("dockerPage.error.action");
-				setError(msg);
-				return;
+			if (data?.ok === false) {
+				const reason = typeof data.error === "string" ? data.error : typeof data.message === "string" ? data.message : "";
+				throw new Error(reason);
 			}
 			// Skip the post-action refresh when the user switched servers while
 			// the POST was in flight: the stale closure would abort the new
 			// selection's request and overwrite its list with the old server's
 			// containers. The new selection's own effect has already refreshed.
 			if (selectedServerIdRef.current !== serverAtAction) return;
+			addToast("success", t("dockerPage.action.done", { action: t(`dockerPage.action.${action}`) }));
+			if (action === "remove") setPendingRemoval(null);
 			await fetchContainers();
 		} catch (err) {
-			setError(getErrorMessage(err, t("dockerPage.error.action")));
+			if (selectedServerIdRef.current !== serverAtAction) return;
+			const message = getErrorMessage(err, t("dockerPage.error.action"));
+			if (action === "remove") setDialogError(message);
+			else addToast("error", message);
 		} finally {
 			setActionLoading(null);
 		}
@@ -190,13 +205,12 @@ export function useDockerPage(
 
 	const requestRemoval = (container: Container) => {
 		setPendingRemoval(container);
-		setError("");
+		setDialogError("");
 	};
 
 	const confirmRemoval = async () => {
 		if (!pendingRemoval) return;
 		const container = pendingRemoval;
-		setPendingRemoval(null);
 		await handleAction(container,"remove");
 	};
 
@@ -207,7 +221,7 @@ export function useDockerPage(
 		if (action ==="down") {
 			// Destructive: use in-app ConfirmDialog (not browser window.confirm).
 			setPendingProjectDown(project);
-			setError("");
+			setDialogError("");
 			return;
 		}
 		await runProjectAction(project, action);
@@ -219,8 +233,7 @@ export function useDockerPage(
 	) => {
 		const serverAtAction = selectedServerId;
 		setProjectActionLoading(`${project}:${action}`);
-		setError("");
-		setProjectMessage("");
+		setDialogError("");
 		try {
 			const data = await csrfFetch("/api/docker/compose", {
 				method:"POST",
@@ -237,15 +250,24 @@ export function useDockerPage(
 					: t("dockerPage.project.modeFallback");
 			const actionLabelKey = `dockerPage.project.${action}` as const;
 			const actionLabel = t(actionLabelKey) !== actionLabelKey ? t(actionLabelKey) : action;
-			const msg = typeof data.message ==="string" ? data.message : t("dockerPage.project.success", { project, message: actionLabel });
-			setProjectMessage(`${msg} (${modeLabel})`);
+			if (selectedServerIdRef.current !== serverAtAction) return;
+			if (data.ok === false) {
+				const reason = typeof data.error === "string" ? data.error : typeof data.message === "string" ? data.message : "";
+				throw new Error(reason);
+			}
+			const msg = t("dockerPage.project.success", { project, message: actionLabel });
+			addToast("success", `${msg} (${modeLabel})`);
+			if (action === "down") setPendingProjectDown(null);
 			// Same stale-closure guard as handleAction: never let an action that
 			// started on server A refresh the list after the user moved to B.
 			if (action !== "ps" && selectedServerIdRef.current === serverAtAction) {
 				await fetchContainers();
 			}
 		} catch (err) {
-			setError(getErrorMessage(err, t("dockerPage.project.failed")));
+			if (selectedServerIdRef.current !== serverAtAction) return;
+			const message = getErrorMessage(err, t("dockerPage.project.failed"));
+			if (action === "down") setDialogError(message);
+			else addToast("error", message);
 		} finally {
 			setProjectActionLoading(null);
 		}
@@ -254,27 +276,28 @@ export function useDockerPage(
 	const confirmProjectDown = async () => {
 		if (!pendingProjectDown) return;
 		const project = pendingProjectDown;
-		setPendingProjectDown(null);
 		await runProjectAction(project,"down");
 	};
 
 
-	const fetchLogs = async (id: string) => {
+	const fetchLogs = async (id: string, tail = logTail) => {
+		setLogTail(tail);
 		setLogsId(id);
 		setLogs("");
 		const serverAtFetch = selectedServerId;
-		logsReqRef.current = { id, serverId: serverAtFetch };
+		const request = { id, serverId: serverAtFetch };
+		logsReqRef.current = request;
 		try {
-			const params = new URLSearchParams({ logs: id, tail: "50" });
+			const params = new URLSearchParams({ logs: id, tail: String(tail) });
 			if (serverAtFetch) params.set("serverId", serverAtFetch);
 			const data = await csrfFetch(`/api/docker/containers?${params}`);
 			// Drop stale responses after container switch or host change (mirrors fetchStats).
 			const active = logsReqRef.current;
-			if (!active || active.id !== id || active.serverId !== serverAtFetch) return;
+			if (active !== request || selectedServerIdRef.current !== serverAtFetch) return;
 			setLogs(typeof data.data === "string" ? data.data : JSON.stringify(data.data, null, 2));
 		} catch (err) {
 			const active = logsReqRef.current;
-			if (!active || active.id !== id || active.serverId !== serverAtFetch) return;
+			if (active !== request || selectedServerIdRef.current !== serverAtFetch) return;
 			setLogs(describeFailure(t("dockerPage.error.logs"), err));
 		}
 	};
@@ -342,8 +365,8 @@ export function useDockerPage(
 		logs,
 		actionLoading,
 		projectActionLoading,
-		projectMessage,
-		clearProjectMessage: () => setProjectMessage(""),
+		dialogError,
+		logTail,
 		stats,
 		statsAutoRefresh,
 		setStatsAutoRefresh,

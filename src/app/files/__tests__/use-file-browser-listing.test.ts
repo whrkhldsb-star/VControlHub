@@ -25,6 +25,16 @@ describe("useFileBrowserListing", () => {
     vi.restoreAllMocks();
   });
 
+  it("adopts refreshed rows without resetting an in-progress search or selection", () => {
+    const initialData = { ...baseInitial, entries: ["before"] };
+    const { result, rerender } = renderHook(props => useFileBrowserListing(props), { initialProps: { initialData } });
+    act(() => result.current.setSearchInput("draft"));
+    rerender({ initialData: { ...initialData, entries: ["after"] } });
+    expect(result.current.data.entries).toEqual(["after"]);
+    expect(result.current.searchInput).toBe("draft");
+    expect(result.current.selectionEpoch).toBe(0);
+  });
+
   it("preserves the current page on refresh and resets it for a different directory",async () => {
     const initialData = {...baseInitial,pagination:{page:12,pageSize:50},sort:"size" as const,direction:"desc" as const};
     vi.mocked(csrfFetch).mockResolvedValue(initialData);
@@ -307,8 +317,9 @@ describe("useFileBrowserListing", () => {
   it("reacts to popstate by re-fetching from the URL with resetSelection + history:none", async () => {
     vi.mocked(csrfFetch).mockResolvedValue({ ...baseInitial, currentPath: "/pop" });
     // Seed an initial state with a different search query than the URL.
+    const initialData = { ...baseInitial, searchQuery: "stale" };
     const { result } = renderHook(() =>
-      useFileBrowserListing({ initialData: { ...baseInitial, searchQuery: "stale" } }),
+      useFileBrowserListing({ initialData }),
     );
     // Replace the current URL so the hook can read a fresh state.
     window.history.replaceState(

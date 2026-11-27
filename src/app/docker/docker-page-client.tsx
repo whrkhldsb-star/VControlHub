@@ -22,6 +22,7 @@ import { UI_INPUT } from "@/lib/ui/classes";
 import { DockerResourcesPanel } from "./docker-resources-panel";
 import { DockerContainerList } from "./docker-container-list";
 import { DockerRemovalDialog, DockerLogsDialog } from "./docker-dialogs";
+import { getContainerName } from "./docker-helpers";
 import { useDockerPage } from "./use-docker-page";
 
 export default function DockerPage({
@@ -45,8 +46,8 @@ export default function DockerPage({
 		logs,
 		actionLoading,
 		projectActionLoading,
-		projectMessage,
-		clearProjectMessage,
+		dialogError,
+		logTail,
 		stats,
 		statsAutoRefresh,
 		setStatsAutoRefresh,
@@ -90,14 +91,11 @@ export default function DockerPage({
 
 	return (
 		<PageShell>
-			<PageHeader eyebrow={t("dockerPage.eyebrow")} title={t("dockerPage.title")} description={t("dockerPage.desc")} />
-			{!invalidTarget && <Notice tone={selectedServerId ? "info" : "warning"} className="mb-4" title={<span id="docker-scope-title" role="heading" aria-level={2}>{t("dockerPage.scope.title")}</span>}>
-				<p>{scopeWarning}</p>
-				<p className="mt-1 text-xs text-[var(--text-muted)]">{scopeSocketText}</p>
-			</Notice>}
+			<PageHeader eyebrow={t("dockerPage.eyebrow")} title={t("dockerPage.title")} description={t("dockerPage.desc")}><ButtonLink href="/quick-services" variant="secondary">{t("qsPage.title")}</ButtonLink></PageHeader>
 
 			{/* FEAT-P0-2: target selector (remote Docker management) and list controls share one row. */}
 			<Toolbar className="items-end justify-between gap-3">
+				{!invalidTarget && <p className="basis-full text-xs text-[var(--text-muted)]"><span role="heading" aria-level={2}>{t("dockerPage.scope.title")}</span> · {scopeWarning} · {scopeSocketText}</p>}
 				<div className="flex min-w-0 flex-wrap items-end gap-3">
 					{(serverList.length > 0 || invalidTarget) && (
 						<FormField label={t("dockerPage.scope.serverSelect")} htmlFor="docker-server-select" className="min-w-64">
@@ -142,6 +140,7 @@ export default function DockerPage({
 					<ActionButton
 						size="sm"
 						variant="secondary"
+						disabled={!runningContainers.length}
 						onClick={() => {
 							for (const container of runningContainers) void fetchStats(container.Id);
 						}}
@@ -163,7 +162,6 @@ export default function DockerPage({
 			</Toolbar>
 
 			{error && <Notice tone="danger" className="mb-4" onDismiss={clearError} dismissLabel={t("common.close")}>{error}</Notice>}
-			{projectMessage && <Notice tone="success" className="mb-4" onDismiss={clearProjectMessage} dismissLabel={t("common.close")}>{projectMessage}</Notice>}
 
 			<DockerContainerList
 				emptyAction={canInstall ? <ButtonLink href={selectedServerId ? `/quick-services?server=${encodeURIComponent(selectedServerId)}` : "/quick-services"}>{t("dockerPage.browseServices")}</ButtonLink> : canReadDeployments ? <ButtonLink href="/deployments">{t("dockerPage.deployments")}</ButtonLink> : undefined}
@@ -197,7 +195,7 @@ export default function DockerPage({
 			) : null}
 
 			<DockerRemovalDialog
-				pendingRemoval={pendingRemoval}
+				pendingRemoval={pendingRemoval} error={dialogError}
 				t={t}
 				actionLoading={actionLoading}
 				removeCancelButtonRef={removeCancelButtonRef}
@@ -206,7 +204,7 @@ export default function DockerPage({
 			/>
 
 			<ConfirmDialog
-				open={pendingProjectDown !== null}
+				open={pendingProjectDown !== null} error={dialogError}
 				title={t("dockerPage.project.downTitle")}
 				description={t("dockerPage.project.downConfirm", { project: pendingProjectDown ?? "" })}
 				cancelLabel={t("common.cancel")}
@@ -217,7 +215,7 @@ export default function DockerPage({
 			/>
 
 			<DockerLogsDialog
-				logsId={logsId}
+				logsId={logsId} name={containers.filter(c => c.Id === logsId).map(c => getContainerName(t, c))[0]} tail={logTail} fetchLogs={fetchLogs}
 				logs={logs}
 				t={t}
 				logsCloseButtonRef={logsCloseButtonRef}

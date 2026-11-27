@@ -5,12 +5,14 @@ import { listStorageNodes } from "@/lib/storage/service";
 import { getServerLocale, t } from "@/lib/i18n/translations";
 import { PageShell, PageHeader, SurfacePanel } from "@/components/page-shell";
 import { WebDavSetupPanel } from "@/components/storage/webdav-setup-panel";
+import { getRecycleBinPage } from "@/lib/files/recycle-bin";
 import { FilesSubpageNav } from "../files-subpage-nav";
 
 export const dynamic = "force-dynamic";
 
 export default async function FilesWebDavPage() {
   const session = await requirePagePermission("storage:read", { redirectTo: "/files/webdav" });
+  const { pagination } = await getRecycleBinPage(session, { page: 1, pageSize: 1 });
   const locale = await getServerLocale();
   const nodes = await listStorageNodes(session);
   const headerStore = await headers();
@@ -27,7 +29,7 @@ export default async function FilesWebDavPage() {
         title={t("filesPage.subPage.webdav", locale)}
         description={t("filesPage.subPage.webdavDesc", locale)}
       />
-      <FilesSubpageNav />
+      <FilesSubpageNav recycleBinCount={pagination.totalItems} />
       {/* The page's header names it and says what it is for; the panel repeated both. */}
       <SurfacePanel>
         <WebDavSetupPanel

@@ -16,6 +16,9 @@ import { useResourcePolling } from "@/lib/http/use-resource-polling";
 import { useI18n } from "@/lib/i18n/use-locale";
 import { ActionButton } from "@/components/action-button";
 import { StatusBadge } from "@/components/status-badge";
+import { UI_INPUT } from "@/lib/ui/classes";
+import { cn } from "@/lib/ui/cn";
+import { isImeComposition } from "@/lib/ui/keyboard";
 
 import { ArrowDown, ArrowUp, Download } from "@/components/icons";
 type AuditLog = {
@@ -209,6 +212,12 @@ export function AuditLogClient({ initialActionFilter = "" }: AuditLogClientProps
             onChange={(e) => {
               setSearchQuery(e.target.value);
             }}
+            onKeyDown={(e) => {
+              if (e.key === "Enter" && !isImeComposition(e)) {
+                setDebouncedSearch(searchQuery);
+                fetchLogs();
+              }
+            }}
             placeholder={t("audit.search-placeholder")}
             className={`${CONTROL_CLASS} min-w-[240px] flex-1`}
           />
@@ -220,15 +229,14 @@ export function AuditLogClient({ initialActionFilter = "" }: AuditLogClientProps
             }}>
             {t("audit.search")}
           </ActionButton>
-          <ActionButton
-            variant="secondary"
-            onClick={() => {
-              setSearchQuery("");
-              setDebouncedSearch("");
-            }}
-          >
-            {t("common.clear")}
-          </ActionButton>
+          {hasFilters ? (
+            <ActionButton
+              variant="secondary"
+              onClick={clearFilters}
+            >
+              {t("common.clear")}
+            </ActionButton>
+          ) : null}
         </div>
         <div className="flex flex-wrap gap-3">
           <select
@@ -237,7 +245,7 @@ export function AuditLogClient({ initialActionFilter = "" }: AuditLogClientProps
               setSeverityFilter(e.target.value);
             }}
             aria-label={t("audit.filterBySeverity")}
-            className={`${CONTROL_CLASS} !w-auto min-w-[10rem]`}
+            className={cn(UI_INPUT, "w-auto min-w-[10rem]")}
           >
             <option value="">{t("audit.all-severities")}</option>
             <option value="INFO">{enumLabel(t, "audit.severity", "INFO")}</option>
@@ -250,16 +258,12 @@ export function AuditLogClient({ initialActionFilter = "" }: AuditLogClientProps
               setActionFilter(e.target.value);
             }}
             aria-label={t("audit.filterByAction")}
-            className={`${CONTROL_CLASS} !w-auto min-w-[10rem]`}
+            className={cn(UI_INPUT, "w-auto min-w-[10rem]")}
           >
             <option value="">{t("audit.all-types")}</option>
-            <option value="auth.login_password_ok">{t("audit.action.auth.login")}</option>
-            <option value="auth.login_failed">{t("audit.action.auth.login_failed")}</option>
-            <option value="auth.password_change">{t("audit.action.auth.password_change")}</option>
-            <option value="storage.file_delete">{t("audit.action.storage.file_delete")}</option>
-            <option value="server.create">{t("audit.create-node")}</option>
-            <option value="command.execute">{t("audit.action.command.execute")}</option>
-            <option value="download.create">{t("audit.action.download.create")}</option>
+            {KNOWN_ACTION_OPTIONS.map((action) => (
+              <option key={action} value={action}>{formatAction(action, t)}</option>
+            ))}
             {/* An action from a link or the chips below that the list above lacks: show it, not "all types". */}
             {actionFilter && !KNOWN_ACTION_OPTIONS.includes(actionFilter) ? <option value={actionFilter}>{formatAction(actionFilter, t)}</option> : null}
           </select>

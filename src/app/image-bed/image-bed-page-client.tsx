@@ -19,7 +19,7 @@ import { Pagination } from "@/components/pagination";
 import { FormField, InlineLoading, Notice } from "@/components/ui-primitives";
 import { describeFailure } from "@/lib/http/error-message";
 
-export default function ImageBedPage({ canWrite, canDelete, canListAll = false }: { canWrite: boolean; canDelete: boolean; canListAll?: boolean }) {
+export default function ImageBedPage({ canWrite, canDelete, canListAll = false, canReadStorage = true }: { canWrite: boolean; canDelete: boolean; canListAll?: boolean; canReadStorage?: boolean }) {
 	const {
 		images,
 		total,
@@ -87,7 +87,7 @@ export default function ImageBedPage({ canWrite, canDelete, canListAll = false }
 	return (
 		<PageShell>
 			<PageHeader eyebrow={t("imageBedPage.hero.eyebrow")} title={t("imageBedPage.hero.title")} description={t("imageBedPage.hero.description")}>
-				<ButtonLink variant="secondary" href="/media?type=image"><ImageIcon size={16} aria-hidden />{t("imageBedPage.hero.openMedia")}</ButtonLink>
+				{canReadStorage && <ButtonLink variant="secondary" href="/media?type=image"><ImageIcon size={16} aria-hidden />{t("imageBedPage.hero.openMedia")}</ButtonLink>}
 				{canWrite && <ActionButton type="button" onClick={openPublishModal}><HardDrive size={16} aria-hidden />{t("imageBedPage.hero.publishFromStorage")}</ActionButton>}
 				{canWrite && <ActionButton type="button" variant="secondary" aria-expanded={showLegacyUpload} aria-controls="image-bed-upload" onClick={() => { if (!showLegacyUpload) void fetchStorageNodes(false); setShowLegacyUpload(!showLegacyUpload); }}><Plus size={16} aria-hidden />{t("imageBedPage.legacy.title")}</ActionButton>}
 			</PageHeader>
@@ -209,7 +209,9 @@ export default function ImageBedPage({ canWrite, canDelete, canListAll = false }
 					className={cn(UI_INPUT, "w-full sm:w-80")}
 				/>
 				<ActionButton type="button" variant="secondary" icon={<Search aria-hidden />} onClick={() => void refreshImages(1)}>{t("imageBedPage.search.submit")}</ActionButton>
-				<ActionButton type="button" variant="ghost" icon={<RefreshCw aria-hidden />} onClick={() => { setSearch(""); void refreshImages(1, ""); }}>{t("imageBedPage.search.reset")}</ActionButton>
+				{search.trim() ? (
+					<ActionButton type="button" variant="ghost" icon={<RefreshCw aria-hidden />} onClick={() => { setSearch(""); void refreshImages(1, ""); }}>{t("imageBedPage.search.reset")}</ActionButton>
+				) : null}
 			</div>
 
 			{/* A failed load stays on the page with its reason and a way to try again; one passing toast said neither,

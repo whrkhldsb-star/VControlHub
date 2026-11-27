@@ -4,6 +4,7 @@ import { beforeEach, describe, expect, it, vi } from "vitest";
 import PreferencesPageClient, { PreferencesSettingsContent } from "../preferences-page-client";
 import { csrfFetch } from "@/lib/auth/csrf-client";
 import { I18nProvider } from "@/lib/i18n/provider";
+import { ToastProvider } from "@/components/toast-provider";
 
 vi.mock("@/components/page-shell", async (importOriginal) => ({
 	...(await importOriginal<typeof import("@/components/page-shell")>()),
@@ -22,8 +23,9 @@ vi.mock("@/lib/auth/csrf-client", () => ({
 	csrfFetch: vi.fn(),
 }));
 
+// The root layout's providers: a save says so by toast.
 function wrap(ui: React.ReactElement) {
-	return <I18nProvider initialLocale="zh">{ui}</I18nProvider>;
+	return <I18nProvider initialLocale="zh"><ToastProvider>{ui}</ToastProvider></I18nProvider>;
 }
 
 const serverPrefs = {
@@ -50,6 +52,32 @@ describe("PreferencesPage", () => {
 
 		expect(await screen.findByRole("alert")).toHaveTextContent("偏好接口不可用");
 		expect(screen.getByRole("button", { name: "仪表盘" })).toBeInTheDocument();
+	});
+
+	it("reads the preferences again from the load failure notice", async () => {
+		const user = userEvent.setup();
+		vi.mocked(csrfFetch).mockRejectedValueOnce(new Error("偏好接口不可用")).mockResolvedValueOnce({ ...serverPrefs, defaultPage: "/servers" });
+
+		render(wrap(<PreferencesPageClient />));
+
+		const alert = await screen.findByRole("alert");
+		await user.click(within(alert).getByRole("button", { name: "重试" }));
+		await waitFor(() => expect(screen.getByRole("button", { name: "VPS 管理" })).toHaveAttribute("aria-pressed", "true"));
+		expect(screen.queryByRole("alert")).not.toBeInTheDocument();
+	});
+
+	it("says a refused save in one place, in the page language, and keeps the list where it was", async () => {
+		// The refusal and the confirmation were a notice at the top of the list, out of sight under the last sections.
+		const user = userEvent.setup();
+		vi.mocked(csrfFetch).mockResolvedValueOnce(serverPrefs).mockRejectedValueOnce(new Error(""));
+
+		render(wrap(<PreferencesPageClient />));
+		await user.click(await screen.findByRole("button", { name: "VPS 管理" }));
+
+		const alerts = await screen.findAllByRole("alert");
+		expect(alerts).toHaveLength(1);
+		expect(alerts[0]).toHaveTextContent("偏好设置保存失败");
+		expect(screen.getByRole("button", { name: "仪表盘" })).toHaveAttribute("aria-pressed", "true");
 	});
 
 	it("applies saved local preferences before the server round trip", () => {

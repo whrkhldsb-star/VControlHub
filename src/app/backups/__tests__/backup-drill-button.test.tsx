@@ -19,7 +19,7 @@ describe("BackupDrillButton", () => {
     const line = (await screen.findByText(/演练任务已创建/)).textContent ?? "";
     expect(line.split("job:j1")).toHaveLength(2);
     expect(line).toContain("演练任务已创建：job:j1");
-    expect(screen.getByRole("link", { name: "查看任务报告" })).toHaveAttribute("href", "/operation-tasks");
+    expect(screen.getByRole("link", { name: "查看任务报告" })).toHaveAttribute("href", "/operation-tasks?task=job%3Aj1");
   });
 
   it("says so when the backup already has a drill, or why none could be created", async () => {

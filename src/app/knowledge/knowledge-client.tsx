@@ -62,8 +62,9 @@ export function KnowledgeClient({ canManage }: { canManage: boolean }) {
   const [docContent, setDocContent] = useState("");
   const [query, setQuery] = useState("");
   const [hits, setHits] = useState<Hit[]>([]);
-  // The query the hits on screen answer; null before the first search.
+  // The query and base the hits on screen answer; null before the first search or after switching bases.
   const [searchedQuery, setSearchedQuery] = useState<string | null>(null);
+  const searchGenRef = useRef(0);
   const [basePendingDelete, setBasePendingDelete] =
     useState<KnowledgeBase | null>(null);
   const [documentPendingDelete, setDocumentPendingDelete] = useState<DocumentRow | null>(null);
@@ -80,15 +81,18 @@ export function KnowledgeClient({ canManage }: { canManage: boolean }) {
   /** A failed deletion, shown in its confirmation dialog: the page's own notice is behind it. */
   const [deleteError, setDeleteError] = useState<string | null>(null);
 
-  const loadBases = useCallback(async () => {
+  const loadBases = useCallback(async (preferredId?: string) => {
     const data = await csrfFetch<{ knowledgeBases: KnowledgeBase[] }>("/api/knowledge");
     const nextBases = data.knowledgeBases ?? [];
     setBases(nextBases);
-    setSelectedId((current) =>
-      current && nextBases.some((base) => base.id === current)
+    setSelectedId((current) => {
+      if (preferredId && nextBases.some((base) => base.id === preferredId)) {
+        return preferredId;
+      }
+      return current && nextBases.some((base) => base.id === current)
         ? current
-        : (nextBases[0]?.id ?? ""),
-    );
+        : (nextBases[0]?.id ?? "");
+    });
   }, []);
 
   const loadDetail = useCallback(async (id: string) => {
@@ -164,7 +168,7 @@ export function KnowledgeClient({ canManage }: { canManage: boolean }) {
   async function createBase() {
     setPanelError(null);
     await run("create", async () => {
-      await csrfFetch("/api/knowledge", {
+      const created = await csrfFetch<{ knowledgeBase?: { id?: string } }>("/api/knowledge", {
         method: "POST",
         headers: { "Content-Type": "application/json" },
         body: JSON.stringify({
@@ -175,8 +179,16 @@ export function KnowledgeClient({ canManage }: { canManage: boolean }) {
       });
       clearIfUnchanged(setName, name, "");
       clearIfUnchanged(setDescription, description, "");
+      const createdId = created?.knowledgeBase?.id;
+      if (createdId && createdId !== selectedId) {
+        searchGenRef.current += 1;
+        setDocuments([]);
+        setHasMoreDocuments(false);
+        setHits([]);
+        setSearchedQuery(null);
+      }
       addToast("success", t("knowledgePage.created"));
-      await loadBases();
+      await loadBases(createdId);
     }, { fallback: t("knowledgePage.error"), onError: failIn("bases") });
   }
 
@@ -208,6 +220,9 @@ export function KnowledgeClient({ canManage }: { canManage: boolean }) {
 
   async function search() {
     setPanelError(null);
+    const searchGen = ++searchGenRef.current;
+    const targetBaseId = selectedId;
+    const trimmedQuery = query.trim();
     await run("search", async () => {
       const data = await csrfFetch<{ hits: Hit[] }>("/api/knowledge", {
         method: "POST",
@@ -215,12 +230,13 @@ export function KnowledgeClient({ canManage }: { canManage: boolean }) {
         body: JSON.stringify({
           action: "search",
           query,
-          knowledgeBaseId: selectedId || undefined,
+          knowledgeBaseId: targetBaseId || undefined,
           limit: 5,
         }),
       });
+      if (searchGen !== searchGenRef.current || shownBaseRef.current !== targetBaseId) return;
       setHits(data.hits ?? []);
-      setSearchedQuery(query.trim());
+      setSearchedQuery(trimmedQuery);
     }, { fallback: t("knowledgePage.error"), onError: failIn("search") });
   }
 
@@ -326,9 +342,12 @@ export function KnowledgeClient({ canManage }: { canManage: boolean }) {
                       aria-pressed={selectedId === b.id}
                       onClick={() => {
                         if (b.id !== selectedId) {
-                          // The other base's documents are not this one's: empty the list until its own arrive.
+                          // The other base's documents and search hits are not this one's: clear them until its own arrive.
+                          searchGenRef.current += 1;
                           setDocuments([]);
                           setHasMoreDocuments(false);
+                          setHits([]);
+                          setSearchedQuery(null);
                         }
                         setSelectedId(b.id);
                       }}

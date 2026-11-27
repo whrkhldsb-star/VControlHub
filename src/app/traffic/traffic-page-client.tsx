@@ -9,6 +9,7 @@ import { useRefreshInterval } from "@/lib/preferences/use-refresh-interval";
 import { useI18n } from "@/lib/i18n/use-locale";
 import { formatDateTime } from "@/lib/datetime/format";
 import { appTimeZoneDateKey } from "@/lib/datetime/time-zone";
+import { useUrlQueryState } from "@/lib/hooks/use-url-query-state";
 import { useVisibilityInterval } from "@/lib/hooks/use-visibility-interval";
 import { TrafficChart, type TrafficSample } from "./traffic-chart";
 
@@ -158,20 +159,30 @@ export default function TrafficPage({ showHubTraffic = true }: { showHubTraffic?
   const [remoteLoading, setRemoteLoading] = useState(false);
   const [remoteError, setRemoteError] = useState("");
   const [remoteTruncated, setRemoteTruncated] = useState(false);
-  const [selectedIface, setSelectedIface] = useState("");
+  const { state: urlState, setField: setUrlField } = useUrlQueryState({
+    range: "live",
+    iface: "",
+  });
+  const historyScope: HistoryScope =
+    urlState.range === "24h" || urlState.range === "7d" ? urlState.range : "live";
+  const setHistoryScope = (scope: HistoryScope) => setUrlField("range", scope);
+  const selectedIface = urlState.iface || "";
+  const setSelectedIface = (iface: string) => setUrlField("iface", iface);
   const [loading, setLoading] = useState(showHubTraffic);
   const [error, setError] = useState("");
   const [autoRefresh, setAutoRefresh] = useState(true);
   const refreshIntervalSeconds = useRefreshInterval(30);
   // Two independent series. `liveSamples` is the rolling in-memory curve fed by
-  // the summary poll; `persistedHistory` is what /api/traffic/history returns.
-  // They used to share one state field, so every refresh overwrote the persisted
-  // curve with the live one and back again, and the "last 24 hours" view was in
-  // fact whichever of the two answered last.
+  // the summary poll; `persistedHistory` is keyed by `{scope, iface}` so switching
+  // 24h -> 7d never regroups stale 24h points under the 7d range.
   const [liveSamples, setLiveSamples] = useState<TrafficSample[]>([]);
-  const [persistedHistory, setPersistedHistory] = useState<TrafficHistoryPoint[]>([]);
+  const [persistedHistory, setPersistedHistory] = useState<{
+    scope: Exclude<HistoryScope, "live">;
+    iface: string;
+    points: TrafficHistoryPoint[];
+  } | null>(null);
+  const [historyLoading, setHistoryLoading] = useState(false);
   const [historyError, setHistoryError] = useState("");
-  const [historyScope, setHistoryScope] = useState<HistoryScope>("live");
   const lastIfaceRef = useRef<string>("");
 
   const historyRequestRef = useRef<AbortController | null>(null);
@@ -182,6 +193,7 @@ export default function TrafficPage({ showHubTraffic = true }: { showHubTraffic?
     historyRequestRef.current?.abort();
     const controller = new AbortController();
     historyRequestRef.current = controller;
+    setHistoryLoading(true);
     try {
       const params = new URLSearchParams();
       params.set("hours", scope === "24h" ? "24" : "168");
@@ -200,13 +212,14 @@ export default function TrafficPage({ showHubTraffic = true }: { showHubTraffic?
         return;
       }
       setHistoryError("");
-      setPersistedHistory(data.history);
+      setPersistedHistory({ scope, iface, points: data.history });
     } catch (cause) {
       if (controller.signal.aborted) return;
       setHistoryError(getErrorMessage(cause, t("trafficPage.historyLoadFailed")));
     } finally {
       if (historyRequestRef.current === controller) {
         historyRequestRef.current = null;
+        setHistoryLoading(false);
       }
     }
   }, [selectedIface, t]);
@@ -336,10 +349,15 @@ export default function TrafficPage({ showHubTraffic = true }: { showHubTraffic?
 
   const primary = summary?.currentServer.primaryInterface ?? null;
   const refreshLabel = getRefreshIntervalLabel(refreshIntervalSeconds, t);
+  const persistedMatches =
+    historyScope !== "live" &&
+    persistedHistory !== null &&
+    persistedHistory.scope === historyScope &&
+    persistedHistory.iface === selectedIface;
   const persistedTrend = useMemo(() => {
-    if (historyScope === "live") return null;
-    return groupHistory(persistedHistory, historyScope);
-  }, [persistedHistory, historyScope]);
+    if (historyScope === "live" || !persistedMatches || !persistedHistory) return null;
+    return groupHistory(persistedHistory.points, historyScope);
+  }, [persistedHistory, persistedMatches, historyScope]);
 
   return (
     <PageShell>
@@ -403,6 +421,8 @@ export default function TrafficPage({ showHubTraffic = true }: { showHubTraffic?
                   <div className="mt-4">
                     {historyScope === "live" ? (
                       <TrafficChart samples={liveSamples} live />
+                    ) : historyLoading && !persistedMatches ? (
+                      <InlineLoading label={t("trafficPage.loading")} />
                     ) : persistedTrend && persistedTrend.size > 0 ? (
                       <div className="space-y-5">
                         {Array.from(persistedTrend.entries()).map(([key, points]) => (
@@ -412,13 +432,17 @@ export default function TrafficPage({ showHubTraffic = true }: { showHubTraffic?
                           </section>
                         ))}
                       </div>
+                    ) : historyError ? (
+                      <Notice tone="danger" compact action={{ label: t("common.retry"), onClick: () => void fetchHistory(historyScope) }}>
+                        {historyError}
+                      </Notice>
                     ) : (
                       <EmptyState icon={<Activity size={20} />} text={t("trafficPage.chart.emptyHistory")} />
                     )}
                   </div>
                   <div className="mt-4 grid grid-cols-1 gap-3 text-xs text-[var(--text-secondary)] md:grid-cols-2">
-                    <div className="rounded-xl bg-[var(--input-bg)] p-3 light:ring-1 light:ring-[var(--border-strong)]">{t("trafficPage.rxTotal", { value: primary.rxLabel })}</div>
-                    <div className="rounded-xl bg-[var(--input-bg)] p-3 light:ring-1 light:ring-[var(--border-strong)]">{t("trafficPage.txTotal", { value: primary.txLabel })}</div>
+                    <div data-inset="" className="p-3">{t("trafficPage.rxTotal", { value: primary.rxLabel })}</div>
+                    <div data-inset="" className="p-3">{t("trafficPage.txTotal", { value: primary.txLabel })}</div>
                   </div>
                 </>
               ) : <div className="text-sm text-[var(--text-muted)]">{t("trafficPage.noIface")}</div>}
@@ -434,7 +458,7 @@ export default function TrafficPage({ showHubTraffic = true }: { showHubTraffic?
               <table className="w-full text-xs">
                 <thead className="text-[var(--text-muted)]"><tr><th className="py-2 text-left">{t("trafficPage.th.iface")}</th><th className="text-right">{t("trafficPage.th.rxRate")}</th><th className="text-right">{t("trafficPage.th.txRate")}</th><th className="text-right">{t("trafficPage.th.rxTotal")}</th><th className="text-right">{t("trafficPage.th.txTotal")}</th></tr></thead>
                 <tbody>
-                  {summary.currentServer.interfaces.map((item) => <tr key={item.iface} className="border-t border-[var(--border)]"><td className="py-2 font-mono text-[var(--text-primary)]">{item.iface}</td><td className="text-right text-[var(--color-action-text)]">{item.rxRateLabel}</td><td className="text-right text-[var(--success)]">{item.txRateLabel}</td><td className="text-right text-[var(--text-secondary)]">{item.rxLabel}</td><td className="text-right text-[var(--text-secondary)]">{item.txLabel}</td></tr>)}
+                  {summary.currentServer.interfaces.map((item) => <tr key={item.iface} className="border-t border-[var(--border)]"><td className="py-2 font-mono text-[var(--text-primary)]">{item.iface}</td><td className="text-right font-mono tabular-nums text-[var(--text-primary)]">{item.rxRateLabel}</td><td className="text-right font-mono tabular-nums text-[var(--text-primary)]">{item.txRateLabel}</td><td className="text-right font-mono tabular-nums text-[var(--text-secondary)]">{item.rxLabel}</td><td className="text-right font-mono tabular-nums text-[var(--text-secondary)]">{item.txLabel}</td></tr>)}
                 </tbody>
               </table>
             </div>

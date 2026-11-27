@@ -4,7 +4,9 @@ import { useCallback, useEffect, useMemo, useRef, useState, type ReactNode } fro
 import { PageShell, PageHeader } from "@/components/page-shell";
 import { Chip, InlineLoading, Notice, Switch } from "@/components/ui-primitives";
 import { Bell, Home, LayoutDashboard, Radio, RefreshCw, User } from "@/components/icons";
+import { useToast } from "@/components/toast-provider";
 import { csrfFetch } from "@/lib/auth/csrf-client";
+import { getErrorMessage } from "@/lib/http/error-message";
 import { preferencesStorageKey } from "@/lib/preferences/cache-scope";
 import { getRefreshIntervalLabel, REFRESH_INTERVAL_OPTIONS } from "@/lib/preferences/refresh-interval";
 import { AUTO_PROBE_INTERVAL_OPTIONS } from "@/lib/preferences/auto-probe";
@@ -181,11 +183,15 @@ export function PreferencesSettingsContent({
 	defaultPageOptions?: readonly DefaultPageOption[];
 }) {
 	const { t } = useI18n();
+	// Each choice saves at once and says so by toast: a notice at the top of the list was out of sight for
+	// every section further down, and pushed the list down while it showed.
+	const { addToast } = useToast();
 	const [prefs, setPrefs] = useState<Preferences>(defaultPrefs);
 	const [lastSavedPrefs, setLastSavedPrefs] = useState<Preferences>(() => defaultPrefs);
-	const [saved, setSaved] = useState(false);
+	// Why the saved preferences could not be read; a refused save is said by toast.
 	const [error, setError] = useState("");
 	const [loading, setLoading] = useState(true);
+	const [loadAttempt, setLoadAttempt] = useState(0);
 	const activeLoadRequestIdRef = useRef(0);
 	const latestSaveRequestIdRef = useRef(0);
 	const savingRef = useRef(false);
@@ -200,7 +206,6 @@ export function PreferencesSettingsContent({
 		[allowedDefaultPageOptions],
 	);
 
-	const messageFromError = (err: unknown, fallback: string) => err instanceof Error && err.message ? err.message : fallback;
 
 	useEffect(() => {
 		if (savingRef.current) return;
@@ -235,7 +240,7 @@ export function PreferencesSettingsContent({
 					if (loadRequestId !== activeLoadRequestIdRef.current) {
 						return;
 					}
-					setError(messageFromError(err, t("preferencesPage.error.load")));
+					setError(getErrorMessage(err, t("preferencesPage.error.load")));
 				})
 				.finally(() => {
 					if (loadRequestId !== activeLoadRequestIdRef.current) {
@@ -248,7 +253,7 @@ export function PreferencesSettingsContent({
 			activeLoadRequestIdRef.current += 1;
 			window.clearTimeout(timer);
 		};
-	}, [normalizePrefs, t]);
+	}, [normalizePrefs, t, loadAttempt]);
 
 	const save = async (patch: Partial<Preferences>) => {
 		const cacheKey = preferencesStorageKey();
@@ -257,8 +262,6 @@ export function PreferencesSettingsContent({
 		activeLoadRequestIdRef.current += 1;
 		setLoading(false);
 		setPrefs(normalizedPrefs);
-		setError("");
-		setSaved(false);
 		// Coalesce: if a PUT is in flight, keep the latest optimistic prefs and re-PUT after it finishes.
 		if (savingRef.current) {
 			pendingSavePrefsRef.current = { ...pendingSavePrefsRef.current, ...patch };
@@ -289,8 +292,9 @@ export function PreferencesSettingsContent({
 					const nextPrefs = confirmed;
 					setPrefs(nextPrefs);
 					writeUserPreferencesCache(nextPrefs);
-					setSaved(true);
-					setTimeout(() => setSaved(false), 2000);
+					// The answer holds every preference: a failed first read no longer applies.
+					setError("");
+					addToast("success", t("preferencesPage.status.saved"), 2500);
 				}
 				const pending = pendingSavePrefsRef.current;
 				pendingSavePrefsRef.current = null;
@@ -308,7 +312,7 @@ export function PreferencesSettingsContent({
 			// Prefer current last-saved; if a newer optimistic exists, keep UI but report error.
 			setPrefs(confirmed);
 			writeUserPreferencesCache(confirmed, { notify: false });
-			setError(messageFromError(err, t("preferencesPage.error.save")));
+			addToast("error", getErrorMessage(err, t("preferencesPage.error.save")));
 			pendingSavePrefsRef.current = null;
 		} finally {
 			savingRef.current = false;
@@ -332,8 +336,16 @@ export function PreferencesSettingsContent({
 	const content = (
 		<>
 			{showHeader && <PageHeader eyebrow={t("preferencesPage.eyebrow")} title={t("preferencesPage.title")} description={t("preferencesPage.desc")} />}
-			{saved && <Notice tone="success" compact className="mb-4">{t("preferencesPage.status.saved")}</Notice>}
-			{error && <Notice tone="danger" compact className="mb-4">{error}</Notice>}
+			{error ? (
+				<Notice
+					tone="danger"
+					compact
+					className="mb-4"
+					action={{ label: t("common.retry"), onClick: () => { setError(""); setLoadAttempt((attempt) => attempt + 1); } }}
+				>
+					{error}
+				</Notice>
+			) : null}
 
 			<div id="personal-preferences" className="space-y-4 max-w-2xl scroll-mt-24">
 				<Section summaryId="preferences-default-page">

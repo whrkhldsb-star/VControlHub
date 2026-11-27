@@ -9,6 +9,7 @@ import { useI18n } from "@/lib/i18n/use-locale";
 import { getErrorMessage } from "@/lib/http/error-message";
 import { ActionButton } from "@/components/action-button";
 import { NumberInput } from "@/components/ui/number-input";
+import { operationTaskHref } from "@/lib/ui/deep-links";
 
 type Props = {
   /** 当前已超过 30 天的记录数。0 时按钮 disabled。 */
@@ -116,7 +117,7 @@ export function RetentionButton({ olderThan30Days, totalRecords }: Props) {
       </p>
       {taskId && (
         <p role="status" className="text-xs text-[var(--success)]">
-          {t("backupsPage.retention.queued", { taskId })} <Link href="/operation-tasks" className="underline">{t("backupsPage.retry.taskCenter")}</Link>
+          {t("backupsPage.retention.queued", { taskId })} <Link href={operationTaskHref(taskId)} className="underline">{t("backupsPage.retry.taskCenter")}</Link>
         </p>
       )}
       {error && (

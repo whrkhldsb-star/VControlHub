@@ -8,10 +8,12 @@ import { Dialog } from "@/components/ui/dialog";
 import { InlineLoading, Notice } from "@/components/ui-primitives";
 import { csrfFetch } from "@/lib/auth/csrf-client";
 import { identityTemplateName } from "@/lib/auth/identity-templates";
+import { useGateRoute } from "@/lib/auth/use-gate-route";
 import { getErrorMessage } from "@/lib/http/error-message";
 import { useI18n } from "@/lib/i18n/use-locale";
 import { UI_INPUT } from "@/lib/ui/classes";
 import { cn } from "@/lib/ui/cn";
+import { userCreateHref } from "@/lib/ui/deep-links";
 import type { Customer } from "./customers-client";
 
 type TemplateOption = { id: string; name: string; isBuiltin: boolean };
@@ -37,6 +39,8 @@ async function loadDirectory(): Promise<DirectoryUser[]> {
 
 export function CustomerMembersDialog({ customer, onClose, onChanged }: { customer: Customer; onClose: () => void; onChanged: () => void }) {
 	const { t } = useI18n();
+	// A new account for this customer is made on the users page, by those who may: the form opens with it chosen.
+	const canManageUsers = useGateRoute().can("user:manage");
 	const [members, setMembers] = useState<Member[] | null>(null);
 	const [templates, setTemplates] = useState<TemplateOption[]>([]);
 	const [unassigned, setUnassigned] = useState<UnassignedAccount[]>([]);
@@ -151,7 +155,9 @@ export function CustomerMembersDialog({ customer, onClose, onChanged }: { custom
 							)}>{t("customersPage.action.addMember")}</ActionButton>
 						</div>
 					)}
-					<ButtonLink href="/users" size="sm" variant="secondary">{t("customersPage.createAccount")}</ButtonLink>
+					{canManageUsers ? (
+						<ButtonLink href={userCreateHref(customer.id)} size="sm" variant="secondary">{t("customersPage.createAccount")}</ButtonLink>
+					) : null}
 				</section>
 			</div>
 		</Dialog>

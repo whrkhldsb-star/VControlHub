@@ -123,6 +123,13 @@ export const zh: Record<string, string> = {
 	"requestsPage.batch.selectAllAria": "全选待审批请求",
 	"requestsPage.batch.selectOneAria": "选择此请求",
 	"requestsPage.batch.toolbarAria": "批量审批工具栏",
+	"requestsPage.batch.confirmApproveTitle": "批量批准 {count} 条命令申请？",
+	"requestsPage.batch.confirmApproveDesc": "确认后，选中的 {count} 条命令申请将立即进入 SSH 执行队列。",
+	"requestsPage.batch.confirmRejectTitle": "批量拒绝 {count} 条命令申请？",
+	"requestsPage.batch.confirmRejectDesc": "确认后，选中的 {count} 条命令申请将被标记为已拒绝，无法恢复。",
+	"requestsPage.focused.title": "定位的命令申请",
+	"requestsPage.focused.viewAll": "查看全部申请",
+	"requestsPage.focused.notFound": "未找到这条命令申请，或当前客户范围内无权查看。",
 };
 
 export const en: Record<string, string> = {
@@ -234,4 +241,11 @@ export const en: Record<string, string> = {
 	"requestsPage.batch.selectAllAria": "Select all pending approvals",
 	"requestsPage.batch.selectOneAria": "Select this request",
 	"requestsPage.batch.toolbarAria": "Batch approval toolbar",
+	"requestsPage.batch.confirmApproveTitle": "Approve {count} command {count|request|requests}?",
+	"requestsPage.batch.confirmApproveDesc": "The {count} selected command {count|request|requests} will be queued for SSH execution immediately.",
+	"requestsPage.batch.confirmRejectTitle": "Reject {count} command {count|request|requests}?",
+	"requestsPage.batch.confirmRejectDesc": "The {count} selected command {count|request|requests} will be marked rejected and cannot be undone.",
+	"requestsPage.focused.title": "Selected command request",
+	"requestsPage.focused.viewAll": "View all requests",
+	"requestsPage.focused.notFound": "This command request could not be found, or is outside your current customer scope.",
 };

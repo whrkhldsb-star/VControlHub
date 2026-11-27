@@ -1,6 +1,7 @@
 "use client";
 
-import { useState } from "react";
+import { randomId } from "@/lib/ui/random-id";
+import { useRef, useState } from "react";
 import { useRouter } from "next/navigation";
 import { csrfFetch } from "@/lib/auth/csrf-client";
 import { useI18n } from "@/lib/i18n/use-locale";
@@ -21,6 +22,7 @@ export function ResendDeployButton({ templateId, variables, serverIds, reason, l
 	const router = useRouter();
 	const { t } = useI18n();
 	const { addToast } = useToast();
+	const lastRequest = useRef<{ body: string; key: string } | null>(null);
 	const [pending, setPending] = useState(false);
 	const [confirming, setConfirming] = useState(false);
 	const [error, setError] = useState<string | null>(null);
@@ -36,16 +38,16 @@ export function ResendDeployButton({ templateId, variables, serverIds, reason, l
 		setPending(true);
 		setError(null);
 		try {
-			await csrfFetch("/api/deployments", {
-				method: "POST",
-				body: JSON.stringify({
-					templateId,
-					// API z.record defaults only apply when the key is missing — null fails validation.
-					variables: variables ?? {},
-					serverIds,
-					reason,
-				}),
+			const body = JSON.stringify({
+				templateId,
+				// API z.record defaults only apply when the key is missing — null fails validation.
+				variables: variables ?? {},
+				serverIds,
+				reason,
 			});
+			if (lastRequest.current?.body !== body) lastRequest.current = { body, key: randomId() };
+			await csrfFetch("/api/deployments", { method: "POST", body, headers: { "Idempotency-Key": lastRequest.current.key } });
+			lastRequest.current = null;
 			setConfirming(false);
 			addToast("success", t("deploymentsPage.resend.toast.success"));
 			router.refresh();

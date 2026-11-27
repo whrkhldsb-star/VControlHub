@@ -237,7 +237,7 @@ export function DownloadsClient({ servers, canManage, canManageNode }: { servers
 				method: "POST", headers: { "Content-Type": "application/json" }, body: JSON.stringify(payload),
 			});
 			addToast("success", isBatch ? `${t("downloadsPage.success.batchCreated", { count: batchUrls?.length ?? 0 })}` : t("downloadsPage.success.taskCreated"));
-			setForm({ url: "", serverId: servers[0]?.id ?? "", targetPath: defaultTargetPath, fileName: "", category: "", maxSpeedKb: "", batchMode: false, batchText: "" });
+			setForm(current => ({ ...current, url: "", fileName: "", category: "", maxSpeedKb: "", batchMode: false, batchText: "" }));
 			setShowForm(false); fetchTasks();
 		} catch (error) {
 			setFormError(getErrorMessage(error, t("downloadsPage.error.taskCreate")));

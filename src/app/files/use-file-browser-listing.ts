@@ -90,6 +90,17 @@ export function useFileBrowserListing<TData extends ListingFilesApiResponse>({
   const [mobileSidebarOpen, setMobileSidebarOpen] = useState(false);
   const abortRef = useRef<AbortController | null>(null);
 
+  const previousSnapshot = useRef(initialData);
+  useEffect(() => {
+    if (previousSnapshot.current === initialData) return;
+    previousSnapshot.current = initialData;
+    abortRef.current?.abort();
+    abortRef.current = null;
+    setData(initialData);
+    setLoading(false);
+    setListError(initialData.syncWarning ?? null);
+  }, [initialData]);
+
   useEffect(() => () => {
     abortRef.current?.abort();
     // A transport may resolve despite cancellation; invalidate its history writes too.

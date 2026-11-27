@@ -11,6 +11,8 @@ import { useI18n } from "@/lib/i18n/use-locale";
 import { UI_INPUT } from "@/lib/ui/classes";
 import { RdpCredentialFields } from "./rdp-credential-fields";
 import { WindowsSftpFields } from "./windows-sftp-fields";
+import { Disclosure } from "@/components/ui/disclosure";
+import { ActionButton } from "@/components/action-button";
 import { Notice } from "@/components/ui-primitives";
 import { usePreservedActionForm } from "@/lib/forms/use-preserved-action-form";
 import { useUnsavedChangesGuard } from "@/lib/forms/use-unsaved-changes-guard";
@@ -39,6 +41,7 @@ export function ServerCreateForm({
     () => state.hostKeySha256 ?? "",
   );
   const [hostKeyConfirmed, setHostKeyConfirmed] = useState(false);
+  const [enableDirectGateway, setEnableDirectGateway] = useState(false);
   const [dirty, setDirty] = useState(false);
   const { discardDialog } = useUnsavedChangesGuard({ dirty });
   const { formRef, captureBeforeSubmit } = usePreservedActionForm(
@@ -56,9 +59,11 @@ export function ServerCreateForm({
   }, [state.error, state.hostKeySha256, state.success]);
   useEffect(() => {
     if (state.success) {
-      setDirty(false); router.refresh();
-  }
-  }, [state.success, router]);
+      setDirty(false);
+      setEnableDirectGateway(false);
+      router.refresh();
+    }
+  }, [state, router]);
   return (
     <form
       ref={formRef}
@@ -173,7 +178,7 @@ export function ServerCreateForm({
       </> : <>
       <ServerManagementModeFields />
       <ConnectionTypeFields sshKeys={sshKeys} />
-      <Notice tone="warning" role="group">
+      {observedHostKeySha256 ? <Notice tone="warning" role="group">
         <div className="space-y-2">
           <span className="block font-medium text-[var(--text-primary)]">
             {t("serversPage.create.hostKeyTrustTitle")}
@@ -181,36 +186,29 @@ export function ServerCreateForm({
           <span className="block text-xs text-[var(--text-secondary)]">
             {t("serversPage.create.hostKeyTrustDesc")}
           </span>
-          {observedHostKeySha256 ? (
-            <>
-              <span className="block text-xs font-medium text-[var(--warning)]">
-                {t("serversPage.create.hostKeyObserved")}
-              </span>
-              <code data-inset="" className="block break-all border-[var(--warning-border)] px-3 py-2 text-xs text-[var(--text-primary)]">
-                {observedHostKeySha256}
-              </code>
-              <input type="hidden" name="approvedHostKeySha256" value={observedHostKeySha256} />
-              <label className="flex items-start gap-2 text-xs text-[var(--text-primary)]">
-                <input
-                  type="checkbox"
-                  required
-                  checked={hostKeyConfirmed}
-                  onChange={(event) => setHostKeyConfirmed(event.currentTarget.checked)}
-                  className="mt-0.5 h-4 w-4 accent-[var(--accent)]"
-                />
-                <span>{t("serversPage.create.hostKeyConfirm")}</span>
-              </label>
-            </>
-          ) : null}
+          <span className="block text-xs font-medium text-[var(--warning)]">
+            {t("serversPage.create.hostKeyObserved")}
+          </span>
+          <code data-inset="" className="block break-all border-[var(--warning-border)] px-3 py-2 text-xs text-[var(--text-primary)]">
+            {observedHostKeySha256}
+          </code>
+          <input type="hidden" name="approvedHostKeySha256" value={observedHostKeySha256} />
+          <label className="flex items-start gap-2 text-xs text-[var(--text-primary)]">
+            <input
+              type="checkbox"
+              required
+              checked={hostKeyConfirmed}
+              onChange={(event) => setHostKeyConfirmed(event.currentTarget.checked)}
+              className="mt-0.5 h-4 w-4 accent-[var(--accent)]"
+            />
+            <span>{t("serversPage.create.hostKeyConfirm")}</span>
+          </label>
           <span className="block text-xs text-[var(--warning)]">
             {t("serversPage.create.hostKeyTrustHint")}
           </span>
         </div>
-      </Notice>
-      <details data-tile className="p-4">
-        <summary className="cursor-pointer text-sm font-medium text-[var(--text-primary)]">
-          {t("serversPage.create.advancedTitle")}
-        </summary>
+      </Notice> : <p className="text-xs text-[var(--text-muted)]">{t("serversPage.create.hostKeyTrustDesc")}</p>}
+      <Disclosure variant="inset" title={t("serversPage.create.advancedTitle")}>
         <div className="mt-4 space-y-4">
       <div className="space-y-1.5">
         <label
@@ -238,6 +236,7 @@ export function ServerCreateForm({
           <input
             id="enableDirectGateway"
             name="enableDirectGateway"
+            checked={enableDirectGateway} onChange={event => setEnableDirectGateway(event.target.checked)}
             type="checkbox"
             aria-describedby="enableDirectGatewayHelp"
             className="mt-1 h-4 w-4 shrink-0 accent-[var(--accent)]"
@@ -252,6 +251,7 @@ export function ServerCreateForm({
             <p className="mt-1 text-xs text-[var(--text-muted)]">
               {t("serversPage.create.directGateway.note")}
             </p>
+            {enableDirectGateway && <>
             <label
               className="ui-label mt-3 block"
               htmlFor="directGatewayProtocol"
@@ -295,11 +295,12 @@ export function ServerCreateForm({
             <p className="mt-1 text-xs leading-4 text-[var(--text-muted)]">
               {t("serversPage.create.directGateway.publicDomainHint")}
             </p>
+            </>}
           </div>
         </div>
       </div>
         </div>
-      </details>
+      </Disclosure>
       <label className="flex items-start gap-3 border-y border-[var(--border)] py-3 text-sm text-[var(--text-secondary)]">
         <input
           name="saveAsDraftOnConnectionFailure"
@@ -336,7 +337,7 @@ export function ServerCreateForm({
         <Notice tone="danger">{state.error}</Notice>
       )}
       {state.success && (
-        <Notice tone="success">{state.success}</Notice>
+        <Notice tone="success">{state.success} <ActionButton type="button" onClick={() => { window.location.hash = "servers-nodes"; }} size="sm" variant="secondary">{t("serversPage.create.viewInventory")}</ActionButton></Notice>
       )}
       <SubmitButton
         pendingLabel={t(windows ? "serversPage.create.submitting" : observedHostKeySha256 ? "serversPage.create.submitting" : "serversPage.create.detecting")}

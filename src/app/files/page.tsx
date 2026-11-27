@@ -57,18 +57,20 @@ export default async function FilesPage({ searchParams }: FilesPageProps) {
         page: initialData.pagination.page,
         query: initialData.searchQuery,
         scope: initialData.searchScope,
-        sort: initialData.sort,
-        direction: initialData.direction,
-        folders: initialData.folders.map((folder) => folder.relativePath),
-        files: initialData.files.map((file) => [
-          file.id,
-          file.relativePath,
-          file.updatedAt,
-        ]),
+        team: session.currentTeamId,
+        user: session.userId,
+        pageSize: initialData.pagination.pageSize,
       }),
     )
     .digest("base64url");
 
+  const manageDrives = (
+    <StorageNodeManager
+      nodes={canManageNodes ? nodes : nodes.map(node => withoutConnectionDetails(node, t("filesPage.managedDrive", locale)))}
+      servers={formOptions.servers}
+      canManageNodes={canManageNodes}
+    />
+  );
   return (
     <PageShell>
       <PageHeader
@@ -76,14 +78,10 @@ export default async function FilesPage({ searchParams }: FilesPageProps) {
         title={t("filesPage.title", locale)}
         description={t("filesPage.description", locale)}
       >
-        <StorageNodeManager
-          nodes={canManageNodes ? nodes : nodes.map(node => withoutConnectionDetails(node, t("filesPage.managedDrive", locale)))}
-          servers={formOptions.servers}
-          canManageNodes={canManageNodes}
-        />
+        {manageDrives}
       </PageHeader>
       <FilesSubpageNav recycleBinCount={initialData.stats.deletedEntries} />
-      <FilesBrowserSpa key={browserSnapshotKey} initialData={initialData} />
+      <FilesBrowserSpa key={browserSnapshotKey} initialData={initialData} manageDrives={manageDrives} />
     </PageShell>
   );
 }

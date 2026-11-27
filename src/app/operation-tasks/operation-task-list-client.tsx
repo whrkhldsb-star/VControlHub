@@ -2,6 +2,7 @@
 
 import { memo, useCallback, useEffect, useMemo, useRef, useState } from "react";
 import { useUrlQueryState } from "@/lib/hooks/use-url-query-state";
+import { useVisibilityInterval } from "@/lib/hooks/use-visibility-interval";
 import Link from "next/link";
 import { EmptyState, ListPanel, ListRow, StatCard, StatGrid, SurfacePanel, Toolbar } from "@/components/page-shell";
 import { Badge, CONTROL_CLASS, Notice } from "@/components/ui-primitives";
@@ -91,7 +92,7 @@ const TaskRow = memo(function TaskRow({ task, t, locale, sourceLabels, onViewEve
           <StatusBadge tone={statusTone[task.status] ?? "neutral"}>{getDomainStatusLabel(t, task.status)}</StatusBadge>
           {task.taskType && !isBackup && <Badge>{getJobTypeLabel(t, task.taskType)}</Badge>}
           {task.foldedCount && task.foldedCount > 1 && <Badge tone="accent">{t("operationTasksPage.folded", { count: task.foldedCount })}</Badge>}
-          {task.workerId && <StatusBadge tone="info" title={task.workerHeartbeatAt ? t("operationTasksPage.worker.heartbeat", { time: formatDateTime(task.workerHeartbeatAt, locale) }) : t("operationTasksPage.worker.noHeartbeat")} className="!rounded-lg">{t("operationTasksPage.worker.label", { id: task.workerId })}</StatusBadge>}
+          {task.workerId && <StatusBadge tone="info" title={task.workerHeartbeatAt ? t("operationTasksPage.worker.heartbeat", { time: formatDateTime(task.workerHeartbeatAt, locale) }) : t("operationTasksPage.worker.noHeartbeat")}>{t("operationTasksPage.worker.label", { id: task.workerId })}</StatusBadge>}
         </div>
         <h3 className="ui-title-group mt-2 truncate">{title}</h3>
         <p className="mt-1 text-xs text-[var(--text-muted)]">{meta}</p>
@@ -162,6 +163,8 @@ export function OperationTaskListClient({
     status: "all",
     type: "all",
     sort: "recent",
+    q: "",
+    task: "",
   });
   const statusFilter = (urlState.status || "all") as (typeof statusFilters)[number]["value"];
   const setStatusFilter = (value: (typeof statusFilters)[number]["value"]) => setUrlField("status", value);
@@ -169,16 +172,17 @@ export function OperationTaskListClient({
   const setTaskTypeFilter = (value: string) => setUrlField("type", value);
   const sort = (urlState.sort || "recent") as (typeof sortOptions)[number]["value"];
   const setSort = (value: (typeof sortOptions)[number]["value"]) => setUrlField("sort", value);
+  const needle = urlState.q || "";
+  const setNeedle = (value: string) => setUrlField("q", value);
   const [refreshing, setRefreshing] = useState(false);
   const [error, setError] = useState<string | null>(null);
-  const [eventsJobId, setEventsJobId] = useState<string | null>(null);
-  // Client-side title/actor/type needle over the loaded slice — the server
-  // filters are coarse (status/type), this narrows "that one task" quickly.
-  const [needle, setNeedle] = useState("");
-  // Bumped after every successful refresh so PaginatedList's resetKey changes
-  // and the page snaps back to 1, matching the pre-PaginatedList behavior.
-  const [refreshTick, setRefreshTick] = useState(0);
-  const handleViewEvents = useCallback((sourceId: string) => setEventsJobId(sourceId), []);
+  const eventsJobId = urlState.task ? urlState.task.replace(/^job:/, "") : null;
+  const closeEventsDialog = useCallback(() => {
+    setUrlField("task", "");
+  }, [setUrlField]);
+  const handleViewEvents = useCallback((sourceId: string) => {
+    setUrlField("task", `job:${sourceId}`);
+  }, [setUrlField]);
   // Every type seen since the page opened, and the one in the address: the list on screen holds only the
   // chosen type once a type is chosen, and the select then offered nothing else to switch to.
   const [seenTaskTypes, setSeenTaskTypes] = useState<string[]>(() => taskTypesOf(initialTasks));
@@ -226,7 +230,6 @@ export function OperationTaskListClient({
       });
       setSourceSummary(data.sourceSummary ?? []);
       setFailureSummary(data.failureSummary ?? []);
-      setRefreshTick((tick) => tick + 1);
     } catch (err) {
       if (controller.signal.aborted || refreshSequence !== refreshSequenceRef.current) return;
       setError(getErrorMessage(err, t("operationTasks.refreshFailed")));
@@ -250,14 +253,24 @@ export function OperationTaskListClient({
   useEffect(() => () => {
     refreshAbortRef.current?.abort();
   }, []);
-  const counts = tasks.reduce<Record<OperationTaskStatus, number>>((acc, task) => { acc[task.status] = (acc[task.status] ?? 0) + 1; return acc; }, {} as Record<OperationTaskStatus, number>);
+  const hasInFlightTasks = tasks.some((task) => task.status === "running" || task.status === "pending");
+  useVisibilityInterval(() => {
+    void refresh();
+  }, hasInFlightTasks ? 10_000 : null);
+  const sliceCounts = tasks.reduce<Record<OperationTaskStatus, number>>((acc, task) => { acc[task.status] = (acc[task.status] ?? 0) + 1; return acc; }, {} as Record<OperationTaskStatus, number>);
+  const summaryCounts = {
+    running: sliceCounts.running ?? 0,
+    pending: sliceCounts.pending ?? 0,
+    failed: sliceCounts.failed ?? 0,
+    completed: sliceCounts.completed ?? 0,
+  };
   return <div className="flex flex-col gap-5">
     {error && <Notice tone="danger">{error}</Notice>}
     <StatGrid cols={4} className="mb-0">
-      <StatCard label={t("operationTasks.filter.running")} value={String(counts.running ?? 0)} accent={(counts.running ?? 0) > 0} accentColor="cyan" />
-      <StatCard label={t("operationTasks.filter.pending")} value={String(counts.pending ?? 0)} accent={(counts.pending ?? 0) > 0} accentColor="amber" />
-      <StatCard label={t("operationTasks.filter.failed")} value={String(counts.failed ?? 0)} accent={(counts.failed ?? 0) > 0} accentColor="rose" />
-      <StatCard label={t("operationTasks.filter.completed")} value={String(counts.completed ?? 0)} accent={(counts.completed ?? 0) > 0} accentColor="emerald" />
+      <StatCard label={t("operationTasks.filter.running")} value={String(summaryCounts.running)} accent={summaryCounts.running > 0} accentColor="cyan" />
+      <StatCard label={t("operationTasks.filter.pending")} value={String(summaryCounts.pending)} accent={summaryCounts.pending > 0} accentColor="amber" />
+      <StatCard label={t("operationTasks.filter.failed")} value={String(summaryCounts.failed)} accent={summaryCounts.failed > 0} accentColor="rose" />
+      <StatCard label={t("operationTasks.filter.completed")} value={String(summaryCounts.completed)} accent={summaryCounts.completed > 0} accentColor="emerald" />
     </StatGrid>
     <section aria-label={t("operationTasks.summary.sourceGroup")}>
     <SurfacePanel
@@ -274,7 +287,7 @@ export function OperationTaskListClient({
     </SurfacePanel>
     </section>
     {failureSummary.length > 0 && (
-    <section data-card="" aria-label={t("operationTasks.summary.failureGroup")} className="border-[var(--danger-border)] p-4">
+    <section data-card="" aria-label={t("operationTasks.summary.failureGroup")} className="p-4">
       <div className="flex flex-col gap-1 sm:flex-row sm:items-end sm:justify-between">
         <div>
           <h2 className="ui-title-section">{t("operationTasks.summary.failureGroup")}</h2>
@@ -283,59 +296,59 @@ export function OperationTaskListClient({
         <div className="text-xs text-[var(--text-muted)]">{t("operationTasksPage.failures.totalCount", { count: failureSummary.reduce((total, item) => total + item.total, 0) })}</div>
       </div>
       <div className="mt-4 grid gap-3 lg:grid-cols-2">
-        {failureSummary.map((item) => <div data-inset="" key={item.reason} className="border-[var(--danger-border)] px-3 py-3">
+        {failureSummary.map((item) => <div data-inset="" key={item.reason} className="px-3 py-3">
           <div className="flex flex-wrap items-center justify-between gap-2"><span className="text-sm font-medium text-[var(--text-primary)]">{item.reason}</span><StatusBadge tone="danger">{t("operationTasksPage.failures.itemCount", { count: item.total })}</StatusBadge></div>
           <p className="mt-2 text-xs text-[var(--text-muted)]">{t("operationTasksPage.failures.sourceAndLatest", { sources: item.sources.map((source) => sourceLabels[source] ?? source).join(t("common.listSeparator")), title: getOperationTaskTitle(t, { source: item.latestTaskId.split(":")[0] ?? "", title: item.latestTitle }) })}</p>
         </div>)}
       </div>
     </section>
     )}
+    <Toolbar className="mb-0 flex-col items-stretch gap-3 sm:flex-row sm:flex-wrap sm:items-end">
+      <label className="ui-label flex-1 sm:min-w-48 sm:max-w-xs">
+        <span className="mb-1 block">{t("operationTasksPage.filter.search")}</span>
+        <input
+          type="search"
+          value={needle}
+          onChange={(event) => setNeedle(event.target.value)}
+          placeholder={t("operationTasksPage.filter.searchPlaceholder")}
+          aria-label={t("operationTasksPage.filter.search")}
+          className={`${CONTROL_CLASS} w-full`}
+        />
+      </label>
+      <label className="ui-label">
+        <span className="mb-1 block">{t("operationTasksPage.filter.status")}</span>
+        <select data-input value={statusFilter} onChange={(event) => setStatusFilter(event.target.value as typeof statusFilter)} className={`${CONTROL_CLASS} w-full sm:w-auto sm:min-w-32`}>
+          {statusFilters.map((filter) => <option key={filter.value} value={filter.value}>{filter.label}</option>)}
+        </select>
+      </label>
+      <label className="ui-label">
+        <span className="mb-1 block">{t("operationTasksPage.filter.taskType")}</span>
+        <select data-input value={taskTypeFilter} onChange={(event) => setTaskTypeFilter(event.target.value)} className={`${CONTROL_CLASS} w-full sm:w-auto sm:min-w-44`}>
+          <option value="all">{t("operationTasksPage.filter.allTypes")}</option>
+          {taskTypeOptions.map((taskType) => <option key={taskType} value={taskType}>{getJobTypeLabel(t, taskType)}</option>)}
+        </select>
+      </label>
+      <label className="ui-label">
+        <span className="mb-1 block">{t("operationTasksPage.filter.sort")}</span>
+        <select data-input value={sort} onChange={(event) => setSort(event.target.value as typeof sort)} className={`${CONTROL_CLASS} w-full sm:w-auto sm:min-w-36`}>
+          {sortOptions.map((option) => <option key={option.value} value={option.value}>{option.label}</option>)}
+        </select>
+      </label>
+      <div className="flex flex-wrap items-center gap-2 sm:ml-auto">
+        <ActionButton size="sm" variant="secondary" onClick={refresh} disabled={refreshing}>{refreshing ? t("operationTasks.action.refreshing") : t("operationTasks.action.refresh")}</ActionButton>
+        <a href={getExportPath(statusFilter, taskTypeFilter, sort)} data-action-button data-size="sm" data-variant="secondary">{t("operationTasksPage.export.csv")}</a>
+      </div>
+    </Toolbar>
     <ListPanel
       title={t("operationTasksPage.recentTasks")}
       description={t("operationTasksPage.recentTasksHint")}
       count={visibleTasks.length}
-      actions={
-        <Toolbar className="!mb-0 flex-col items-stretch gap-2 border-0 bg-transparent p-0 shadow-none sm:flex-row sm:flex-wrap sm:items-end">
-          <label className="ui-label">
-            <span className="mb-1 block">{t("operationTasksPage.filter.search")}</span>
-            <input
-              type="search"
-              value={needle}
-              onChange={(event) => setNeedle(event.target.value)}
-              placeholder={t("operationTasksPage.filter.searchPlaceholder")}
-              aria-label={t("operationTasksPage.filter.search")}
-              className={`${CONTROL_CLASS} w-full sm:w-52`}
-            />
-          </label>
-          <label className="ui-label">
-            <span className="mb-1 block">{t("operationTasksPage.filter.status")}</span>
-            <select data-input value={statusFilter} onChange={(event) => setStatusFilter(event.target.value as typeof statusFilter)} className={`${CONTROL_CLASS} w-full sm:!w-auto sm:min-w-32`}>
-              {statusFilters.map((filter) => <option key={filter.value} value={filter.value}>{filter.label}</option>)}
-            </select>
-          </label>
-          <label className="ui-label">
-            <span className="mb-1 block">{t("operationTasksPage.filter.taskType")}</span>
-            <select data-input value={taskTypeFilter} onChange={(event) => setTaskTypeFilter(event.target.value)} className={`${CONTROL_CLASS} w-full sm:!w-auto sm:min-w-44`}>
-              <option value="all">{t("operationTasksPage.filter.allTypes")}</option>
-              {taskTypeOptions.map((taskType) => <option key={taskType} value={taskType}>{getJobTypeLabel(t, taskType)}</option>)}
-            </select>
-          </label>
-          <label className="ui-label">
-            <span className="mb-1 block">{t("operationTasksPage.filter.sort")}</span>
-            <select data-input value={sort} onChange={(event) => setSort(event.target.value as typeof sort)} className={`${CONTROL_CLASS} w-full sm:!w-auto sm:min-w-36`}>
-              {sortOptions.map((option) => <option key={option.value} value={option.value}>{option.label}</option>)}
-            </select>
-          </label>
-          <div className="flex flex-wrap items-center gap-2">
-            <ActionButton variant="secondary" onClick={refresh} disabled={refreshing}>{refreshing ? t("operationTasks.action.refreshing") : t("operationTasks.action.refresh")}</ActionButton>
-            <a href={getExportPath(statusFilter, taskTypeFilter, sort)} data-action-button data-size="sm" data-variant="ghost">{t("operationTasksPage.export.csv")}</a>
-          </div>
-        </Toolbar>
-      }
       empty={visibleTasks.length === 0 ? (
         <EmptyState
           text={needleNorm ? t("operationTasksPage.filter.noMatch") : t("operationTasks.tasks.empty")}
-          action={!needleNorm && (canReadDeployments || canReadBackups || canReadDownloads) ? (
+          action={needleNorm ? (
+            <ActionButton size="sm" variant="secondary" onClick={() => setNeedle("")}>{t("common.clearSearch")}</ActionButton>
+          ) : (canReadDeployments || canReadBackups || canReadDownloads) ? (
             <div className="flex flex-wrap justify-center gap-2">
               {canReadDeployments ? <ButtonLink href="/deployments" size="xs" variant="secondary">{t("operationTasksPage.source.deployment")}</ButtonLink> : null}
               {canReadBackups ? <ButtonLink href="/backups" size="xs" variant="secondary">{t("operationTasksPage.source.backup")}</ButtonLink> : null}
@@ -346,10 +359,10 @@ export function OperationTaskListClient({
       ) : undefined}
     >
       {/* The panel body divides its children; the rows sit one level down inside the pager. */}
-      <PaginatedList pageSize={TASKS_PER_PAGE} resetKey={`${filterKey}:${refreshTick}:${needleNorm}`} className="divide-y divide-[var(--border-subtle)]">
+      <PaginatedList pageSize={TASKS_PER_PAGE} resetKey={`${filterKey}:${needleNorm}`} className="divide-y divide-[var(--border-subtle)]">
         {visibleTasks.map((task) => <TaskRow key={task.id} task={task} t={t} locale={locale} sourceLabels={sourceLabels} onViewEvents={handleViewEvents} />)}
       </PaginatedList>
     </ListPanel>
-    <JobEventsDialog jobId={eventsJobId} open={eventsJobId !== null} onClose={() => setEventsJobId(null)} />
+    <JobEventsDialog jobId={eventsJobId} open={eventsJobId !== null} onClose={closeEventsDialog} />
   </div>;
 }

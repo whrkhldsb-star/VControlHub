@@ -19,6 +19,7 @@
  *   - markdown export of the active conversation
  */
 import { useCallback, useEffect, useMemo, useRef, useState } from "react";
+import { useSearchParams } from "next/navigation";
 
 import { csrfFetch } from "@/lib/auth/csrf-client";
 import { useI18n } from "@/lib/i18n/use-locale";
@@ -69,7 +70,7 @@ export function AiClient({
   initialDraft?: string;
   canManageProviders?: boolean;
 }) {
-  const { t, locale } = useI18n();
+  const { t } = useI18n();
   const { addToast } = useToast();
   const [providers, setProviders] = useState(initialProviders);
   const {
@@ -88,6 +89,46 @@ export function AiClient({
   const [imageUrlInput, setImageUrlInput] = useState("");
   const [showProviders, setShowProviders] = useState(false);
   const [showSettings, setShowSettings] = useState(false);
+
+  const searchParams = useSearchParams();
+  const conversationsRef = useRef(conversations);
+  useEffect(() => {
+    conversationsRef.current = conversations;
+  }, [conversations]);
+
+  // Support /ai?panel=providers and /ai?c=<id> deep links (including client-side router.push
+  // from global search while /ai is already open), and keep active conversation in the URL.
+  const panelParam = searchParams?.get("panel") ?? null;
+  const convParam = searchParams?.get("c") ?? null;
+  useEffect(() => {
+    if (typeof window === "undefined") return;
+    if (panelParam === "providers" && canManageProviders) {
+      setShowProviders(true);
+      const params = new URLSearchParams(window.location.search);
+      params.delete("panel");
+      const nextQuery = params.toString();
+      window.history.replaceState(
+        window.history.state,
+        "",
+        `${window.location.pathname}${nextQuery ? `?${nextQuery}` : ""}${window.location.hash}`,
+      );
+    }
+    if (convParam && conversationsRef.current.some((c) => c.id === convParam)) {
+      setActiveConvId(convParam);
+    }
+  }, [panelParam, convParam, canManageProviders, setActiveConvId]);
+
+  useEffect(() => {
+    if (typeof window === "undefined") return;
+    const params = new URLSearchParams(window.location.search);
+    if (activeConvId) params.set("c", activeConvId);
+    else params.delete("c");
+    const nextQuery = params.toString();
+    const target = `${window.location.pathname}${nextQuery ? `?${nextQuery}` : ""}${window.location.hash}`;
+    if (target !== `${window.location.pathname}${window.location.search}${window.location.hash}`) {
+      window.history.replaceState(window.history.state, "", target);
+    }
+  }, [activeConvId]);
   const [showSidebar, setShowSidebar] = useState(false);
   const [modelList, setModelList] = useState<ModelInfo[]>([]);
   const [modelsLoading, setModelsLoading] = useState(false);
@@ -281,12 +322,12 @@ export function AiClient({
       setInput(recovered.args.content);
       setImageUrls(recovered.args.imageUrls);
       setFileAttachments(recovered.args.fileAttachments.map((file) => ({ ...file, type: "text", mimeType: "text/plain" })));
-      addToast("info", locale === "zh" ? "请重新选择这条消息中的本地附件。" : "Select the local attachments for this message again.");
+      addToast("info", t("aiPage.reselectLocalAttachments"));
       fileInputRef.current?.click();
       return;
     }
     void sendMessage(recovered.args);
-  }, [activeConvId, streaming, messages, sendMessage, lastRequest, setFileAttachments, addToast, locale]);
+  }, [activeConvId, streaming, messages, sendMessage, lastRequest, setFileAttachments, addToast, t]);
 
   /** One-step model switch from the chat header pill (PATCH + refresh). */
   const handleQuickSwitchModel = useCallback(
@@ -330,12 +371,13 @@ export function AiClient({
     onSaved: () => setShowSettings(false),
     addToast,
   });
+  const composerDirty = Boolean(input.trim() || imageUrls.length > 0 || fileAttachments.length > 0);
   const {
     requestAction: requestSettingsAction,
     requestDiscard: requestCloseSettings,
     discardDialog: settingsDiscardDialog,
   } = useUnsavedChangesGuard({
-    dirty: showSettings && settingsDirty,
+    dirty: (showSettings && settingsDirty) || composerDirty,
     onDiscard: () => { resetForm(); setShowSettings(false); },
   });
 
@@ -392,17 +434,21 @@ export function AiClient({
             void handleNewConv();
           })
         }
-        onSelectConv={(id) =>
+        onSelectConv={(id) => {
+          if (id === activeConvId) {
+            if (!window.matchMedia("(min-width: 768px)").matches) setShowSidebar(false);
+            return;
+          }
           requestSettingsAction(() => {
             setShowSettings(false);
             setActiveConvId(id);
             // On phones the sidebar overlays the conversation; selecting a
             // conversation must dismiss it or the composer stays hidden.
             if (!window.matchMedia("(min-width: 768px)").matches) setShowSidebar(false);
-          })
-        }
+          });
+        }}
         onDeleteConv={(id) => {
-          requestSettingsAction(() => {
+          const openDeleteConfirm = () => {
             setShowSettings(false);
             const target = conversations.find((conv) => conv.id === id);
             confirm.open({
@@ -410,7 +456,12 @@ export function AiClient({
               id,
               title: target?.title ?? t("aiPage.fallbackConvName"),
             });
-          });
+          };
+          if ((showSettings && settingsDirty) || (composerDirty && id === activeConvId)) {
+            requestSettingsAction(openDeleteConfirm);
+          } else {
+            openDeleteConfirm();
+          }
         }}
         onToggleSidebar={setShowSidebar}
         onToggleProviders={canManageProviders ? () => setShowProviders(!showProviders) : undefined}
@@ -427,8 +478,12 @@ export function AiClient({
               sidebarShown={showSidebar}
               onToggleSidebar={() => setShowSidebar(true)}
               onToggleSettings={() => {
-                if (showSettings) requestCloseSettings();
-                else setShowSettings(true);
+                if (showSettings) {
+                  if (settingsDirty) requestCloseSettings();
+                  else setShowSettings(false);
+                } else {
+                  setShowSettings(true);
+                }
               }}
               onClearMessages={() => confirm.open({ type: "clear-messages" })}
               onRenameConv={() => rename.openWith(activeConv.title)}

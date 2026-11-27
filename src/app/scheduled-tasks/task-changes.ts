@@ -28,6 +28,7 @@ export type SavedTask = {
 	verificationCommand?: string | null;
 	rollbackCommand?: string | null;
 	approvalRequired?: boolean;
+	templateId?: string | null;
 	serverIds: string[];
 };
 
@@ -58,7 +59,7 @@ export function changedTaskFields(saved: SavedTask, next: TaskFormValues): Parti
 	if (next.verificationCommand !== (saved.verificationCommand ?? "")) changes.verificationCommand = next.verificationCommand;
 	if (next.rollbackCommand !== (saved.rollbackCommand ?? "")) changes.rollbackCommand = next.rollbackCommand;
 	if (next.approvalRequired !== (saved.approvalRequired ?? true)) changes.approvalRequired = next.approvalRequired;
-	if (next.templateId) changes.templateId = next.templateId;
+	if ((next.templateId ?? "") !== (saved.templateId ?? "")) changes.templateId = next.templateId ?? "";
 	const sameServers = (a: string[], b: string[]) => [...a].sort().join("\n") === [...b].sort().join("\n");
 	if (!sameServers(next.serverIds, saved.serverIds)) changes.serverIds = next.serverIds;
 	return changes;

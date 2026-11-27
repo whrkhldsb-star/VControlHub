@@ -13,8 +13,9 @@
  *   - `useI18n()` hook (React context) — `t("accountPasswordPage.fields.currentLabel")`.
  *   - Tests use `renderWithI18n as render` from `@/lib/i18n/__tests__/test-helpers`.
  *
- * Template strings use `{seconds}` placeholders consumed via
- * `t("accountPasswordPage.redirectCountdown", { seconds: value })`.
+ * Template strings use `{seconds}` and `{destination}` placeholders consumed via
+ * `t("accountPasswordPage.redirectCountdown", { seconds: value, destination })`; the
+ * `…Generic` forms are for a destination without a name in the navigation.
  */
 export const zh: Record<string, string> = {
 	// page.tsx (RSC)
@@ -33,8 +34,10 @@ export const zh: Record<string, string> = {
 		"输入当前密码后设置新密码。修改后不会强制退出，但下次登录需使用新密码。",
 
 	// post-success redirect (countdown template + immediate button)
-	"accountPasswordPage.redirectCountdown": "（{seconds}s 后自动跳到仪表盘…）",
-	"accountPasswordPage.redirectNow": "立即跳到仪表盘",
+	"accountPasswordPage.redirectCountdown": "（{seconds}s 后自动跳到{destination}…）",
+	"accountPasswordPage.redirectNow": "立即跳到{destination}",
+	"accountPasswordPage.redirectCountdownGeneric": "（{seconds}s 后自动跳转…）",
+	"accountPasswordPage.redirectNowGeneric": "立即跳转",
 	"accountPasswordPage.action.success": "密码已更新。下次登录请使用新密码。",
 	"accountPasswordPage.action.errorFallback": "修改密码失败",
 	"accountPasswordPage.action.invalidInput": "新密码需为 8–128 位，且当前密码不能为空",
@@ -62,8 +65,10 @@ export const en: Record<string, string> = {
 		"Enter your current password to set a new one. Existing sessions will not be terminated, but the new password will be required at next sign-in.",
 
 	// post-success redirect (countdown template + immediate button)
-	"accountPasswordPage.redirectCountdown": "({seconds}s until redirect to dashboard…)",
-	"accountPasswordPage.redirectNow": "Go to dashboard now",
+	"accountPasswordPage.redirectCountdown": "({seconds}s until redirect to {destination}…)",
+	"accountPasswordPage.redirectNow": "Go to {destination} now",
+	"accountPasswordPage.redirectCountdownGeneric": "(Redirecting in {seconds}s…)",
+	"accountPasswordPage.redirectNowGeneric": "Continue now",
 	"accountPasswordPage.action.success": "Password updated. Use the new password next time you sign in.",
 	"accountPasswordPage.action.errorFallback": "Failed to change password",
 	"accountPasswordPage.action.invalidInput": "The new password must be 8–128 characters, and the current password is required",

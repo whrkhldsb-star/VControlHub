@@ -3,6 +3,7 @@
 import { useActionState, useEffect, useState } from "react";
 import { useRouter } from "next/navigation";
 
+import { useUnsavedChangesGuard } from "@/lib/forms/use-unsaved-changes-guard";
 import { SubmitButton } from "@/components/submit-button";
 import { useI18n } from "@/lib/i18n/use-locale";
 
@@ -110,6 +111,8 @@ export function ServerCardActions({
 	const [deleteState, deleteAction] = useActionState(deleteServerAction, initialState);
 	const [editState, editAction] = useActionState(updateServerAction, initialState);
 	const [showEdit, setShowEdit] = useState(false);
+	const [dirty, setDirty] = useState(false);
+	const { requestDiscard, discardDialog } = useUnsavedChangesGuard({ dirty, onDiscard: () => { setDirty(false); setShowEdit(false); } });
 	const { openTerminal } = useSshTerminal();
 	const canEditProfile = canManageServers && !profileLocked;
 
@@ -122,8 +125,12 @@ export function ServerCardActions({
 	}, [deleteState.success, router]);
 
 	useEffect(() => {
-		if (editState.success) router.refresh();
-	}, [editState.success, router]);
+		if (editState.success) {
+			// eslint-disable-next-line react-hooks/set-state-in-effect -- clear dirty state once server action reports success
+			setDirty(false);
+			router.refresh();
+		}
+	}, [editState, router]);
 
 	const handleOpenTerminal = () => {
 		onSshConnect?.();
@@ -154,7 +161,7 @@ export function ServerCardActions({
 
 			{canEditProfile ? (
 				<ActionButton variant="secondary"
-					onClick={() => setShowEdit((value) => !value)}
+					onClick={() => showEdit ? requestDiscard() : setShowEdit(true)}
 
 					className="w-full"
 				>
@@ -166,6 +173,7 @@ export function ServerCardActions({
 
 			{canEditProfile && showEdit ? (
 				<ServerCardEditForm
+					onDirty={() => setDirty(true)}
 					operatingSystem={operatingSystem} rdpDomain={rdpDomain} rdpIgnoreCertificate={rdpIgnoreCertificate} rdpCertificateSha256={rdpCertificateSha256}
 					serverId={serverId}
 					serverName={serverName}
@@ -223,18 +231,19 @@ export function ServerCardActions({
 								: t("serverCardActions.toggle.enable")}
 					</SubmitButton>
 						{toggleState.error && !toggleState.hostKeySha256 ? (
-						<div role="alert" className="text-xs text-[var(--danger)]">
+						<Notice tone="danger" compact>
 							{toggleState.error}
-						</div>
+						</Notice>
 					) : null}
 					{toggleState.success ? (
-						<div role="status" className="text-xs text-[var(--success)]">
+						<Notice tone="success" compact>
 							{toggleState.success}
-						</div>
+						</Notice>
 					) : null}
 				</form>
 			) : null}
 
+			{discardDialog}
 			{canTransfer ? (
 				<ServerCardTransferForm serverId={serverId} serverName={serverName} currentTeamId={teamId} />
 			) : null}

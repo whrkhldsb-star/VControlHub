@@ -113,12 +113,27 @@ export function CreateRuleForm({
 
 	const handleSubmit = async (e: React.FormEvent) => {
 		e.preventDefault();
-		setSubmitting(true);
-		setError(null);
 		const silenceWindows = silenceWindowsText
 			.split(/[\n,，]+/)
 			.map((item) => item.trim())
 			.filter(Boolean);
+		const invalidWindow = silenceWindows.find((win) => {
+			const match = /^(\d{2}):(\d{2})-(\d{2}):(\d{2})$/.exec(win);
+			if (!match) return true;
+			const [, sh, sm, eh, em] = match;
+			const startH = Number(sh);
+			const startM = Number(sm);
+			const endH = Number(eh);
+			const endM = Number(em);
+			if (startH > 23 || startM > 59 || endH > 23 || endM > 59) return true;
+			return startH === endH && startM === endM;
+		});
+		if (invalidWindow) {
+			setError(t("alertRulesPage.createForm.silenceWindowInvalid", { value: invalidWindow }));
+			return;
+		}
+		setSubmitting(true);
+		setError(null);
 		try {
 			if (channels.length === 0) {
 				setError(t("alertRulesPage.createForm.error"));
@@ -162,10 +177,7 @@ export function CreateRuleForm({
 
 	return (
 		<form onSubmit={handleSubmit}
-			onChangeCapture={() => setDirty(true)} data-card className="space-y-4">
-			<h3 className="ui-title-section">
-				{t(initialRule ? "alertRulesPage.editForm.title" : "alertRulesPage.createForm.title")}
-			</h3>
+			onChangeCapture={() => setDirty(true)} className="space-y-4">
 
 			<FormField label={t("alertRulesPage.createForm.name")} htmlFor="alertRuleName">
 				<input

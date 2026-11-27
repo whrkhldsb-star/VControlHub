@@ -3,6 +3,7 @@ import { describe, expect, it } from "vitest";
 import { getSearchItems, searchItemMetadata } from "../global-search";
 import { mainNavItems, systemNavItems } from "../nav-items";
 import { en, zh } from "@/lib/i18n/dictionaries/search";
+import { aiProvidersHref, apiTokenCreateHref, userCreateHref } from "@/lib/ui/deep-links";
 
 describe("global search catalog", () => {
 	it("does not include stale routes for renamed pages", () => {
@@ -42,13 +43,22 @@ describe("global search catalog", () => {
 
 	it("lists tasks by what people want done, each behind the permission it needs", () => {
 		const hrefs = getSearchItems("en").map((item) => `${item.href} ${item.label}`);
+		// A task lands on the form it names, not on the page that holds it.
 		expect(hrefs).toEqual(expect.arrayContaining([
 			"/servers#servers-create Add a server",
-			"/users Create a user account",
+			`${userCreateHref()} Create a user account`,
 			"/settings#smtp Set up email notifications (SMTP)",
 			"/backups Create a backup",
-			"/ai Set up AI models",
-			"/api-tokens Create an API token",
+			`${aiProvidersHref()} Set up AI models`,
+			`${apiTokenCreateHref()} Create an API token`,
 		]));
+		expect(userCreateHref()).toBe("/users?create=1");
+		expect(apiTokenCreateHref()).toBe("/api-tokens?create=1");
+		expect(aiProvidersHref()).toBe("/ai?panel=providers");
+	});
+
+	it("returns from changing the password to the security page it belongs to", () => {
+		const changePassword = getSearchItems("en").find((item) => item.label === "Change password");
+		expect(changePassword?.href).toBe("/account/password?next=%2Faccount%2Fsecurity");
 	});
 });

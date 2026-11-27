@@ -98,6 +98,7 @@ function mockInitialLoads() {
 
 describe("QuickServicesClient", () => {
 	beforeEach(() => {
+		window.history.replaceState({}, "", "/quick-services");
 		vi.restoreAllMocks();
 		vi.mocked(csrfFetch).mockReset();
 	});
@@ -212,7 +213,7 @@ describe("QuickServicesClient", () => {
 			});
 		});
 		expect(await screen.findByText(/卸载已排队（job:job_qs_1），数据目录将保留/)).toBeInTheDocument();
-		expect(screen.getByRole("link", { name: "查看任务中心" })).toHaveAttribute("href", "/operation-tasks");
+		expect(screen.getByRole("link", { name: "查看任务中心" })).toHaveAttribute("href", "/operation-tasks?task=job%3Ajob_qs_1");
 	});
 
 	it("confirms uninstall with optional service data directory removal", async () => {
@@ -277,7 +278,7 @@ describe("QuickServicesClient", () => {
 			}));
 		});
 		expect(await screen.findByText(/更新已排队（job:job_qs_3），后台将拉取镜像并重建容器/)).toBeInTheDocument();
-		expect(screen.getByRole("link", { name: "查看任务中心" })).toHaveAttribute("href", "/operation-tasks");
+		expect(screen.getByRole("link", { name: "查看任务中心" })).toHaveAttribute("href", "/operation-tasks?task=job%3Ajob_qs_3");
 	});
 
 	it("cancels install from the configuration preview without creating a service", async () => {
@@ -329,7 +330,7 @@ describe("QuickServicesClient", () => {
 			}));
 		});
 		expect(await screen.findByText(/AList 网盘 安装已排队（job:job_qs_4）/)).toBeInTheDocument();
-		expect(screen.getByRole("link", { name: "查看任务中心" })).toHaveAttribute("href", "/operation-tasks");
+		expect(screen.getByRole("link", { name: "查看任务中心" })).toHaveAttribute("href", "/operation-tasks?task=job%3Ajob_qs_4");
 	});
 
 	it("uses an in-app confirmation before deleting an app source", async () => {

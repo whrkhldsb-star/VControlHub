@@ -65,18 +65,24 @@ function getSourcePresets(t: (k: string, vars?: Record<string, string | number>)
 type SourcePresetKey ="linuxserver" |"custom";
 
 type SourcesPanelProps = {
+	draft: ReturnType<typeof useSourceDraft>;
 	sources: AppSource[];
 	actions: SourcesPanelActions;
 	onRequestDeleteSource: (source: AppSource) => void;
 };
 
-export function SourcesPanel({ sources, actions, onRequestDeleteSource }: SourcesPanelProps) {
-	const { t, locale } = useI18n();
+export function useSourceDraft() {
 	const [sourcePreset, setSourcePreset] = useState<SourcePresetKey | null>(null);
 	const [newSourceName, setNewSourceName] = useState("");
 	const [newSourceDisplayName, setNewSourceDisplayName] = useState("");
 	const [newSourceUrl, setNewSourceUrl] = useState("");
 	const [newSourceType, setNewSourceType] = useState<"json" |"github" |"linuxserver">("json");
+	return { sourcePreset, setSourcePreset, newSourceName, setNewSourceName, newSourceDisplayName, setNewSourceDisplayName, newSourceUrl, setNewSourceUrl, newSourceType, setNewSourceType };
+}
+
+export function SourcesPanel({ sources, actions, onRequestDeleteSource, draft }: SourcesPanelProps) {
+	const { t, locale } = useI18n();
+	const { sourcePreset, setSourcePreset, newSourceName, setNewSourceName, newSourceDisplayName, setNewSourceDisplayName, newSourceUrl, setNewSourceUrl, newSourceType, setNewSourceType } = draft;
 
 	const applySourcePreset = (key: SourcePresetKey) => {
 		const preset = getSourcePresets(t).find((item) => item.key === key);
