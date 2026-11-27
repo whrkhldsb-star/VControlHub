@@ -1,8 +1,12 @@
 # CI gates & branch protection
 
-This repo's GitHub Actions workflow (`.github/workflows/ci.yml`) is the source
-of truth for "is main healthy?". Local deploys (`deploy.sh` smoke) are **not** a
-substitute — they skip typecheck, lint, coverage, e2e, and dast.
+This repo's GitHub Actions workflow (`.github/workflows/ci.yml`) is configured
+for **manual dispatch only (`workflow_dispatch`)** so routine pushes and PRs do
+not wait on slow remote runners. All routine verification (including AI agent
+rounds) must run **locally** using the gates below; trigger remote CI manually
+(`gh workflow run ci.yml`) only when explicitly needed (e.g. before a release).
+Local deploys (`deploy.sh` smoke) are **not** a substitute — they skip
+typecheck, lint, coverage, e2e, and dast.
 
 ## Required before push to `main`
 

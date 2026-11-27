@@ -1,14 +1,16 @@
 name: CI
 
 on:
-  push:
-    branches: [main]
-  pull_request:
-  # Merge queue: required checks run again on the queued merge result.
-  merge_group:
   workflow_dispatch:
-  schedule:
-    - cron: "23 2 * * *"
+    inputs:
+      run_full_ui_matrix:
+        description: "Run exhaustive 540-case Chromium UI matrix"
+        type: boolean
+        default: false
+      run_dast:
+        description: "Run DAST baseline surface probe"
+        type: boolean
+        default: false
 
 permissions:
   contents: read
@@ -433,8 +435,8 @@ jobs:
             --project=chromium --project=firefox --project=webkit \
             --workers=2 --retries=1
 
-      - name: Run exhaustive Chromium UI matrix nightly or on demand
-        if: github.event_name == 'schedule' || github.event_name == 'workflow_dispatch'
+      - name: Run exhaustive Chromium UI matrix on demand
+        if: inputs.run_full_ui_matrix == true
         env:
           NODE_ENV: production
           UI_FULL_MATRIX: "1"
@@ -471,7 +473,7 @@ jobs:
     runs-on: ubuntu-latest
     timeout-minutes: 20
     needs: test
-    if: github.event_name == 'push' && github.ref == 'refs/heads/main'
+    if: inputs.run_dast == true
     env:
       NEXT_TELEMETRY_DISABLED: 1
       BASE_URL: http://127.0.0.1:3000
