@@ -96,7 +96,7 @@ export function useImageBedActions({
 		}
 	}, [showToast, t]);
 
-	const fetchStorageNodes = useCallback(async () => {
+	const fetchStorageNodes = useCallback(async (required = true) => {
 		try {
 			const data = await csrfFetch("/api/storage/nodes?operation=write");
 			const nodes = (data.nodes || data || []).map(
@@ -105,8 +105,8 @@ export function useImageBedActions({
 					name: n.serverName ? `${n.name} · ${n.serverName}` : n.name,
 				}),
 			);
-			if (nodes.length === 0) showToast(t("imageBed.toast.noPublishNodes"), "alert");
-			else setStorageNodes(nodes);
+			setStorageNodes(nodes);
+			if (required && nodes.length === 0) showToast(t("imageBed.toast.noPublishNodes"), "alert");
 		} catch (err) {
 			showToast(getErrorMessage(err, t("imageBed.toast.fetchNodesFailed")), "alert");
 		}

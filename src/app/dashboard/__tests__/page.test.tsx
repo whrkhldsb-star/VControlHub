@@ -1,4 +1,4 @@
-import { render, screen, waitFor } from "@testing-library/react";
+import { render, screen, waitFor, within } from "@testing-library/react";
 import { beforeEach, describe, expect, it, vi } from "vitest";
 import { I18nProvider } from "@/lib/i18n/provider";
 
@@ -323,9 +323,11 @@ describe("Dashboard", () => {
     // Unread notifications and active schedules are separate tiles, not one "a / b" cell.
     expect(screen.getByText("未读通知")).toBeInTheDocument();
     expect(screen.getByText("启用的定时任务")).toBeInTheDocument();
-    expect(screen.getByText("文件管理")).toBeInTheDocument();
-    expect(screen.getByText("远程下载")).toBeInTheDocument();
-    expect(screen.getByText("审批中心")).toBeInTheDocument();
+    // The feature map at the foot names every page too; the quick links are the cards above it.
+    const quickLinks = within(document.querySelector<HTMLElement>('[data-dashboard-widget="quick-links"]')!);
+    expect(quickLinks.getByText("文件管理")).toBeInTheDocument();
+    expect(quickLinks.getByText("远程下载")).toBeInTheDocument();
+    expect(quickLinks.getByText("审批中心")).toBeInTheDocument();
     expect(screen.getByText("最近审批活动")).toBeInTheDocument();
     await waitFor(() => expect(csrfFetchMock).toHaveBeenCalledWith("/api/preferences"));
     expect(screen.getByText("最近操作日志")).toBeInTheDocument();
@@ -333,5 +335,21 @@ describe("Dashboard", () => {
     expect(screen.getByText("2026/05/27 16:30:00")).toBeInTheDocument();
     expect(screen.getAllByText("1").length).toBeGreaterThan(0);
     expect(screen.getByRole("link", { name: /查看全部/ })).toHaveAttribute("href", "/audit");
+  });
+
+  it("maps every page the account can open, each with what it is for", async () => {
+    render(<I18nProvider initialLocale="zh">{await Dashboard()}</I18nProvider>);
+    const map = screen.getByRole("heading", { name: "功能地图" }).closest("details")!;
+    expect(within(map).getByRole("link", { name: /站内公告.*公告和维护通知/ })).toHaveAttribute("href", "/announcements");
+  });
+
+  it("keeps a viewer without server or task access away from header buttons that would refuse them", async () => {
+    vi.mocked(requireSession).mockResolvedValueOnce({
+      userId: "u_9", username: "viewer", roles: [], permissions: [], currentTeamId: "team_1", mustChangePassword: false,
+    });
+    render(<I18nProvider initialLocale="zh">{await Dashboard()}</I18nProvider>);
+    const header = screen.getByRole("heading", { name: "仪表盘" }).closest("header") ?? document.body;
+    expect(within(header as HTMLElement).queryByRole("link", { name: /^VPS 管理$/ })).not.toBeInTheDocument();
+    expect(within(header as HTMLElement).queryByRole("link", { name: /^任务中心$/ })).not.toBeInTheDocument();
   });
 });

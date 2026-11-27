@@ -29,10 +29,14 @@ export default async function MediaPlayerPage({
   params,
   searchParams,
 }: PageProps) {
-  const session = await requirePagePermission("storage:read", { redirectTo: "/media" });
+  const [{ id }, query] = await Promise.all([params, searchParams]);
+  const address = new URLSearchParams();
+  for (const [key, value] of Object.entries(query ?? {})) {
+    for (const part of Array.isArray(value) ? value : [value]) if (part !== undefined) address.append(key, part);
+  }
+  const session = await requirePagePermission("storage:read", { redirectTo: `/media/${encodeURIComponent(id)}${address.size ? `?${address}` : ""}` });
   const locale = await getServerLocale();
 
-  const [{ id }, query] = await Promise.all([params, searchParams]);
   const item = await getMediaItem(id, session);
   if (!item) notFound();
 

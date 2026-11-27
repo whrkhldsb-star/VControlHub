@@ -20,6 +20,7 @@ import { cn } from "@/lib/ui/cn";
 import { X } from "./icons";
 import { IconHistory, IconKeyboard, IconLanguages, IconMoon, IconPanelLeft, IconSearch, IconSun } from "./nav-icons";
 import { IconButton } from "./ui-primitives";
+import { ActionButton } from "./action-button";
 import { OPEN_SHORTCUTS_EVENT } from "./user-menu";
 
 const navigationIcons = new Map([...mainNavItems, ...systemNavItems].map((item) => [item.href, item.icon]));
@@ -32,6 +33,8 @@ export interface SearchItem {
 	label: string;
 	href: string;
 	category: string;
+	/** One plain sentence saying what the page is for (`nav.desc.*`), shown under its name. */
+	description?: string;
 	keywords?: string[];
 }
 
@@ -41,8 +44,17 @@ type DynamicSearchResponse = {
 
 type SearchMetadata = { keywordsKey?: string };
 
-const searchItemMetadata: Record<string, SearchMetadata> = {
-	"/": { keywordsKey: "search.keywords.root" },
+/** Search words for every navigation page; `global-search-catalog.test.ts` fails on a page without them. */
+export const searchItemMetadata: Record<string, SearchMetadata> = {
+	"/dashboard": { keywordsKey: "search.keywords.root" },
+	"/cost-summary": { keywordsKey: "search.keywords.costSummary" },
+	"/playbooks": { keywordsKey: "search.keywords.playbooks" },
+	"/ai-ops": { keywordsKey: "search.keywords.aiOps" },
+	"/customers": { keywordsKey: "search.keywords.customers" },
+	"/monitoring": { keywordsKey: "search.keywords.monitoring" },
+	"/api-docs": { keywordsKey: "search.keywords.apiDocs" },
+	"/itsm": { keywordsKey: "search.keywords.itsm" },
+	"/public-status": { keywordsKey: "search.keywords.publicStatus" },
 	"/servers": { keywordsKey: "search.keywords.servers" },
 	"/health": { keywordsKey: "search.keywords.health" },
 	"/vps-status": { keywordsKey: "search.keywords.vpsStatus" },
@@ -74,9 +86,10 @@ const searchItemMetadata: Record<string, SearchMetadata> = {
 	"/audit": { keywordsKey: "search.keywords.audit" },
 };
 
-type SearchItemDefinition = Omit<SearchItem, "label" | "category" | "keywords"> & {
+type SearchItemDefinition = Omit<SearchItem, "label" | "category" | "description" | "keywords"> & {
 	labelKey: string;
 	fallbackLabel: string;
+	descKey?: string;
 	categoryKey: string;
 	fallbackCategory: string;
 	keywordsKey?: string;
@@ -100,6 +113,7 @@ const navigationSearchItems: SearchItemDefinition[] = [...mainNavItems, ...syste
 	return {
 		labelKey: item.labelKey,
 		fallbackLabel: item.fallbackLabel,
+		descKey: item.descKey,
 		href: item.href,
 		categoryKey: category.key,
 		fallbackCategory: category.fallback,
@@ -113,6 +127,13 @@ const searchItemDefinitions: SearchItemDefinition[] = [
 	{ labelKey: "auth.change-password", fallbackLabel: "Change password", href: "/account/password", categoryKey: "search.category.action", fallbackCategory: "Action", keywordsKey: "search.keywords.changePassword" },
 	{ labelKey: "auth.two-factor", fallbackLabel: "Two-factor authentication", href: "/account/security", categoryKey: "search.category.action", fallbackCategory: "Action", keywordsKey: "search.keywords.twoFactor" },
 	{ labelKey: "preferencesPage.category.personal.title", fallbackLabel: "Personal preferences", href: "/settings#personal-preferences", categoryKey: "search.category.action", fallbackCategory: "Action", keywordsKey: "search.keywords.personalPreferences" },
+	// Tasks people search for by what they want done rather than by page name.
+	{ labelKey: "search.task.addServer", fallbackLabel: "Add a server", href: "/servers#servers-create", categoryKey: "search.category.task", fallbackCategory: "Task", keywordsKey: "search.keywords.task.addServer", requiredPermission: "server:write" },
+	{ labelKey: "search.task.createUser", fallbackLabel: "Create a user account", href: "/users", categoryKey: "search.category.task", fallbackCategory: "Task", keywordsKey: "search.keywords.task.createUser", requiredPermission: "user:manage" },
+	{ labelKey: "search.task.configureSmtp", fallbackLabel: "Set up email notifications (SMTP)", href: "/settings#smtp", categoryKey: "search.category.task", fallbackCategory: "Task", keywordsKey: "search.keywords.task.configureSmtp", requiredPermission: "user:manage" },
+	{ labelKey: "search.task.createBackup", fallbackLabel: "Create a backup", href: "/backups", categoryKey: "search.category.task", fallbackCategory: "Task", keywordsKey: "search.keywords.task.createBackup", requiredPermission: "backup:create" },
+	{ labelKey: "search.task.configureAi", fallbackLabel: "Set up AI models", href: "/ai", categoryKey: "search.category.task", fallbackCategory: "Task", keywordsKey: "search.keywords.task.configureAi", requiredPermission: "ai:manage" },
+	{ labelKey: "search.task.createApiToken", fallbackLabel: "Create an API token", href: "/api-tokens", categoryKey: "search.category.task", fallbackCategory: "Task", keywordsKey: "search.keywords.task.createApiToken", requiredPermission: "api-token:manage" },
 ];
 
 function getKeywords(key: string | undefined, locale: Locale): string[] {
@@ -121,11 +142,18 @@ function getKeywords(key: string | undefined, locale: Locale): string[] {
 	return translated === key ? [] : translated.split("|").filter(Boolean);
 }
 
+function translateOptional(key: string | undefined, locale: Locale): string | undefined {
+	if (!key) return undefined;
+	const translated = translate(key, locale);
+	return translated === key ? undefined : translated;
+}
+
 function localizeSearchItems(locale: Locale): LocalSearchItem[] {
 	return searchItemDefinitions.map((item) => ({
 		label: translate(item.labelKey, locale) === item.labelKey ? item.fallbackLabel : translate(item.labelKey, locale),
 		href: item.href,
 		category: translate(item.categoryKey, locale) === item.categoryKey ? item.fallbackCategory : translate(item.categoryKey, locale),
+		description: translateOptional(item.descKey, locale),
 		keywords: getKeywords(item.keywordsKey, locale),
 		requiredPermission: item.requiredPermission,
 	}));
@@ -139,8 +167,8 @@ export function getSearchItems(locale: Locale = "zh"): SearchItem[] {
 const filterItemsByPermissions = filterByHrefPermissions;
 
 type PaletteEntry =
-	| { kind: "link"; key: string; label: string; detail: string; icon: ReactNode; item: SearchItem }
-	| { kind: "action"; key: string; label: string; detail: string; icon: ReactNode; run: () => void; keywords: string[] };
+	| { kind: "link"; key: string; label: string; detail: string; description?: string; icon: ReactNode; item: SearchItem }
+	| { kind: "action"; key: string; label: string; detail: string; description?: string; icon: ReactNode; run: () => void; keywords: string[] };
 
 type PaletteSection = { id: string; title: string; entries: PaletteEntry[] };
 
@@ -210,6 +238,7 @@ export function GlobalSearch({
 			key: `${prefix}:${item.href}:${item.label}`,
 			label: item.label,
 			detail: item.category,
+			description: item.description,
 			icon: searchIcon(item.href),
 			item,
 		});
@@ -370,7 +399,25 @@ export function GlobalSearch({
 			</div>
 			{searchError && <p role="alert" className="shrink-0 break-words px-4 py-2 text-sm text-[var(--danger)]">{searchError}</p>}
 			{flat.length === 0 && (
-				<p role="status" className="px-4 py-10 text-center text-sm text-[var(--text-muted)]">{t("search.no-results")}</p>
+				<div role="status" className="flex flex-col items-center gap-2 px-4 py-8 text-center">
+					<p className="text-sm font-medium text-[var(--text-secondary)]">{t("search.no-results")}</p>
+					<p className="max-w-sm text-xs leading-5 text-[var(--text-muted)]">
+						{query.trim().length < 2 ? t("search.noResultsShortHint") : t("search.noResultsHint")}
+					</p>
+					{query ? (
+						<ActionButton
+							size="sm"
+							variant="secondary"
+							className="mt-1"
+							onClick={() => {
+								setQuery("");
+								inputRef.current?.focus();
+							}}
+						>
+							{t("search.showAllPages")}
+						</ActionButton>
+					) : null}
+				</div>
 			)}
 			<ul id="global-search-results" role="listbox" hidden={flat.length === 0} className="min-h-0 flex-1 overflow-y-auto p-1.5">
 				{sections.map((section) => (
@@ -408,8 +455,17 @@ export function GlobalSearch({
 											>
 												{entry.icon}
 											</span>
-											<span className="min-w-0 flex-1 truncate font-medium">{entry.label}</span>
-											<span className="max-w-[35%] shrink-0 truncate text-xs text-[var(--text-muted)]">{entry.detail}</span>
+											{entry.description ? (
+												<span className="flex min-w-0 flex-1 flex-col">
+													<span className="truncate font-medium">{entry.label}</span>
+													<span className="truncate text-xs text-[var(--text-muted)]">{entry.description}</span>
+												</span>
+											) : (
+												<>
+													<span className="min-w-0 flex-1 truncate font-medium">{entry.label}</span>
+													<span className="max-w-[35%] shrink-0 truncate text-xs text-[var(--text-muted)]">{entry.detail}</span>
+												</>
+											)}
 										</button>
 									</li>
 								);

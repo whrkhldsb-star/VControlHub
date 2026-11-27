@@ -8,6 +8,7 @@ import { useCallback, useEffect, useId, useMemo, useState } from "react";
 
 import { ActionButton, ButtonLink } from "@/components/action-button";
 import { ConfirmDialog } from "@/components/confirm-dialog";
+import { PageGuide } from "@/components/page-guide";
 import { StatusBadge } from "@/components/status-badge";
 import { Dialog } from "@/components/ui/dialog";
 import { CheckboxField, FormField, Notice, Switch } from "@/components/ui-primitives";
@@ -527,7 +528,15 @@ function NodePublication({ metrics, t }: { metrics: string[]; t: T }) {
 						))}
 						{!loading && !error && rows.length === 0 ? (
 							<tr>
-								<td colSpan={6} className="px-2 py-6 text-center text-sm text-[var(--text-muted)]">{t("publicStatusAdmin.nodes.empty")}</td>
+								<td colSpan={6} className="px-2 py-6 text-center text-sm text-[var(--text-muted)]">
+									{/* No server at all is a different answer from a search that matched none: it needs a server first. */}
+									{query === "" && filter === "all" ? (
+										<div className="flex flex-col items-center gap-3">
+											<span>{t("publicStatusAdmin.nodes.noServers")}</span>
+											<ButtonLink href="/servers" size="sm" variant="secondary">{t("publicStatusAdmin.nodes.addServer")}</ButtonLink>
+										</div>
+									) : t("publicStatusAdmin.nodes.empty")}
+								</td>
 							</tr>
 						) : null}
 					</tbody>
@@ -583,6 +592,12 @@ export function PublicStatusAdminClient({ initialSite }: { initialSite: PublicSi
 	return (
 		<div className="flex flex-col gap-6">
 			<Notice tone="info">{t("publicStatusAdmin.privacy")}</Notice>
+			<PageGuide
+				title={t("publicStatusAdmin.guide.title")}
+				summary={t("publicStatusAdmin.guide.summary")}
+				steps={[t("publicStatusAdmin.guide.step1"), t("publicStatusAdmin.guide.step2"), t("publicStatusAdmin.guide.step3")]}
+				links={[{ href: "/status?preview=1", label: t("publicStatusAdmin.guide.preview") }]}
+			/>
 			<SiteSettings initial={initialSite} saved={savedSite} onSaved={setSavedSite} t={t} />
 			<NodePublication metrics={savedSite.metrics} t={t} />
 		</div>

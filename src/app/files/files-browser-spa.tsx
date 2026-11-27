@@ -34,8 +34,10 @@ const UPLOAD_DRIVERS = new Set(["LOCAL", "SFTP", "WEBDAV", "AGENT"]);
 export function FilesBrowserSpa({
   initialData,
   children,
+  manageDrives,
 }: {
   initialData: FilesApiResponse;
+  manageDrives?: ReactNode;
   children?: ReactNode;
 }) {
   const { t } = useI18n();
@@ -95,6 +97,7 @@ export function FilesBrowserSpa({
   // The node and directory a new folder or upload lands in, also when the user
   // drilled into a node from the "all locations" view (A4-31).
   const location = resolveBrowserLocation(data.nodes, data.currentPath, data.nodeIdFilter);
+  const emptyRoot = !data.searchQuery && !data.currentPath && !data.nodeIdFilter && data.nodes.length === 0;
   const directUpload = Boolean(selectedNode && UPLOAD_DRIVERS.has(selectedNode.driver));
   const refreshLabel = selectedNode?.driver === "SFTP" ? t("filesBrowserSpa.refreshRemoteFiles") : t("filesBrowserSpa.refreshList");
 
@@ -389,6 +392,8 @@ export function FilesBrowserSpa({
             </div>
           ) : (
             <FileListClient
+              emptyDescription={emptyRoot ? t(data.permissions.canManageNodes ? "filesPage.emptyRoot" : "filesPage.emptyRootRead") : undefined}
+              emptyAction={data.searchQuery ? <ActionButton onClick={clearSearch}>{t("filesPage.clearSearch")}</ActionButton> : emptyRoot ? manageDrives : canEdit && location.nodeId && uploadNodes.some(node => node.id === location.nodeId) ? <ActionButton onClick={() => setUploadOpen(true)}>{t("filesPage.uploadHere")}</ActionButton> : undefined}
               selectionScopeSeed={`${selectionEpoch}\u0000${data.currentPath}\u0000${data.searchQuery}\u0000${data.searchScope}\u0000${data.nodeIdFilter ?? ""}`}
               selectionPage={data.pagination?.page}
               serverSort={data.pagination ? { key: sortKey, dir: sortDirection, onChange: changeSort } : undefined}

@@ -63,7 +63,7 @@ export type UseQuickServiceActionsResult = {
   actionSlug: string | null;
   syncing: string | null;
   showMessage: (msg: QuickServiceMessage) => void;
-  doInstall: (preview: ConfigPreview) => Promise<void>;
+  doInstall: (preview: ConfigPreview) => Promise<boolean>;
   doAction: (slug: string, action: string) => Promise<void>;
   doUninstall: (target: UninstallTarget) => Promise<void>;
   doSync: (sourceId?: string) => Promise<void>;
@@ -145,11 +145,13 @@ export function useQuickServiceActions({
           taskId: data.taskId,
         });
         scheduleQueuedCatalogRefresh();
+        return true;
       } catch (err) {
         showMessage({
           type: "err",
           text: getErrorMessage(err, t("qsActions.installFailed")),
         });
+        return false;
       } finally {
         setActionSlug(null);
       }

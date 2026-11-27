@@ -37,7 +37,9 @@ export const zh: Record<string, string> = {
 	"statusPage.internal.title": "内部状态（仅登录可见）",
 	"statusPage.internal.desc": "以下分项检查与可用率只对已登录账号显示，访客看到的公开看板不包含这些内容。",
 	"statusPage.signIn": "登录",
-	"statusPage.manageBoard": "管理展示页",
+	"statusPage.manageBoard": "状态展示页设置",
+	"statusPage.boardUnavailable.title": "状态展示页暂时无法读取",
+	"statusPage.boardUnavailable.body": "这不是展示页被关闭，而是读取数据时出错。下面先显示平台的总体状态，请稍后刷新页面。",
 };
 
 export const en: Record<string, string> = {
@@ -72,5 +74,7 @@ export const en: Record<string, string> = {
 	"statusPage.internal.title": "Internal status (signed-in only)",
 	"statusPage.internal.desc": "These component checks and uptime figures are shown to signed-in accounts only; the public board never includes them.",
 	"statusPage.signIn": "Sign in",
-	"statusPage.manageBoard": "Manage the board",
+	"statusPage.manageBoard": "Status board settings",
+	"statusPage.boardUnavailable.title": "The status board could not be read",
+	"statusPage.boardUnavailable.body": "The board is not closed; reading its data failed. The overall platform status is shown below. Reload the page in a moment.",
 };

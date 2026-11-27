@@ -4,7 +4,7 @@ import { useCallback, useEffect, useRef, useState } from "react";
 import { Card as SurfaceCard, PageShell, PageHeader, Toolbar } from "@/components/page-shell";
 import { z } from "zod";
 import { ArrowDown, ArrowUp, RefreshCw } from "@/components/icons";
-import { ActionButton } from "@/components/action-button";
+import { ActionButton, ButtonLink } from "@/components/action-button";
 import { Badge, InlineLoading, Notice, ProgressBar } from "@/components/ui-primitives";
 import { csrfFetch } from "@/lib/auth/csrf-client";
 import { getRefreshIntervalLabel } from "@/lib/preferences/refresh-interval";
@@ -244,7 +244,14 @@ export default function MonitoringPage() {
         title={t("monitoringPage.title")}
         description={t("monitoringPage.desc")}
         className="mb-6"
-      />
+      >
+        <ButtonLink href="/health" size="sm" variant="secondary">
+          {t("monitoringPage.gotoHealth")}
+        </ButtonLink>
+        <ButtonLink href="/vps-status" size="sm" variant="ghost">
+          {t("monitoringPage.gotoVpsStatus")}
+        </ButtonLink>
+      </PageHeader>
 
       {errorMessage ? (
         <Notice tone="warning">{t("monitoringPage.lastRefreshFailed", { message: errorMessage })}</Notice>

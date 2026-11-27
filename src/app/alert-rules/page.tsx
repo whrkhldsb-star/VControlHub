@@ -15,7 +15,9 @@ export const dynamic = "force-dynamic";
 export default async function AlertRulesPage() {
 	const session = await requirePagePermission("notification:manage", { redirectTo: "/alert-rules" });
 	const canManage = sessionHasPermission(session, "notification:manage");
+	const canManageSettings = sessionHasPermission(session, "user:manage");
 	const canReadServers = sessionHasPermission(session, "server:read");
+	const canReadHealth = sessionHasPermission(session, "health:read");
 	const canReadPlaybooks = sessionHasPermission(session, "playbook:read");
 	const locale = await getServerLocale();
 
@@ -41,7 +43,14 @@ export default async function AlertRulesPage() {
 		<PageShell>
 			<AlertRuleListClient
 				header={{ eyebrow: t("alertRulesPage.eyebrow", locale), title: t("alertRulesPage.title", locale), description: t("alertRulesPage.desc", locale) }}
-				rules={serialized} servers={serverOptions} playbooks={playbookOptions} canManage={canManage} />
+				rules={serialized}
+				servers={serverOptions}
+				playbooks={playbookOptions}
+				canManage={canManage}
+				canManageSettings={canManageSettings}
+				canReadPlaybooks={canReadPlaybooks}
+				canReadHealth={canReadHealth}
+			/>
 		</PageShell>
 	);
 }

@@ -6,6 +6,10 @@
  */
 
 export const zh: Record<string, string> = {
+	"shares.copyNow": "链接仅显示一次，请立即复制。",
+	"shares.createBelow": "暂无分享链接。可在下方创建第一个链接。",
+	"shares.clearFilters": "清除筛选",
+	"shares.filteredEmpty": "没有符合这些筛选条件的分享链接。",
 	"sharesPage.report.title": "外发访问审计报表",
 	"sharesPage.report.desc": "汇总当前客户分享链接的查看、下载、密码尝试和来源 IP。",
 	"sharesPage.report.range": "报表时间范围",
@@ -140,6 +144,10 @@ export const zh: Record<string, string> = {
 };
 
 export const en: Record<string, string> = {
+	"shares.copyNow": "Shown only once — copy this link now.",
+	"shares.createBelow": "No share links yet. Create your first link below.",
+	"shares.clearFilters": "Clear filters",
+	"shares.filteredEmpty": "No share links match these filters.",
 	"sharesPage.report.title": "Outbound access audit report",
 	"sharesPage.report.desc": "Aggregate views, downloads, password attempts, and source IPs for the current customer's share links.",
 	"sharesPage.report.range": "Report time range",

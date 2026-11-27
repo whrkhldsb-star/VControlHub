@@ -11,7 +11,7 @@ import { ActionButton, ButtonLink } from "@/components/action-button";
 import { ArrowDown, ArrowUp, Search } from "@/components/icons";
 import { LanguageToggle } from "@/components/language-toggle";
 import { ToggleChip } from "@/components/page-shell";
-import { SegmentedControl } from "@/components/ui-primitives";
+import { Notice, SegmentedControl } from "@/components/ui-primitives";
 import { ThemeToggle } from "@/components/theme-toggle";
 import { writeLocalStorageValue } from "@/lib/browser-storage";
 import { UI_INPUT } from "@/lib/ui/classes";
@@ -43,7 +43,13 @@ function readHiddenTiles(storage: Storage): string {
 	return (storage.getItem(TILES_KEY) ?? "").split(",").filter((tile) => known.includes(tile)).join(",");
 }
 
-export function PublicBoardClient({ initial, preview, signedIn }: { initial: PublicBoardResponse; preview: boolean; signedIn: boolean }) {
+export function PublicBoardClient({ initial, preview, signedIn, canManageBoard = false }: {
+	initial: PublicBoardResponse;
+	preview: boolean;
+	signedIn: boolean;
+	/** A signed-in platform administrator: the board offers its settings page. */
+	canManageBoard?: boolean;
+}) {
 	const { t, locale } = useI18n();
 	const fieldId = useId();
 	// Start from the query the server rendered: the first render matches its HTML.
@@ -144,9 +150,14 @@ export function PublicBoardClient({ initial, preview, signedIn }: { initial: Pub
 			</header>
 
 			{preview ? (
-				<p role="note" className="rounded-lg border border-[var(--info-border)] bg-[var(--info-bg)] px-3 py-2 text-sm text-[var(--info)]">
-					{t("publicStatus.previewNotice")}
-				</p>
+				<Notice tone="info" role="note">{t("publicStatus.previewNotice")}</Notice>
+			) : canManageBoard ? (
+				<Notice tone="neutral" compact role="note">
+					<div className="flex flex-wrap items-center justify-between gap-2">
+						<span>{t("publicStatus.adminBar")}</span>
+						<ButtonLink href="/public-status" size="xs" variant="secondary">{t("publicStatus.adminBarAction")}</ButtonLink>
+					</div>
+				</Notice>
 			) : null}
 
 			{site.announcement ? (
@@ -156,17 +167,17 @@ export function PublicBoardClient({ initial, preview, signedIn }: { initial: Pub
 			) : null}
 
 			{closed ? (
-				<p role="alert" className="rounded-lg border border-[var(--warning-border)] bg-[var(--warning-bg)] px-3 py-2 text-sm text-[var(--warning)]">
-					{t("publicStatus.closedWhileViewing")}
-				</p>
+				<Notice tone="warning" role="alert">{t("publicStatus.closedWhileViewing")}</Notice>
 			) : polling.error ? (
-				<div role="alert" className="flex flex-wrap items-center justify-between gap-2 rounded-lg border border-[var(--warning-border)] bg-[var(--warning-bg)] px-3 py-2 text-sm text-[var(--warning)]">
-					<span>
-						{t("publicStatus.refreshFailed", { age: formatAge(new Date(polling.refreshedAt).toISOString(), nowMs, locale) })}
-						{polling.nextAttemptAt ? ` ${t("publicStatus.retryIn", { seconds: Math.max(1, Math.round((polling.nextAttemptAt - nowMs) / 1000)) })}` : ""}
-					</span>
-					<ActionButton size="xs" variant="outline" onClick={polling.refresh} loading={polling.loading}>{t("publicStatus.retry")}</ActionButton>
-				</div>
+				<Notice tone="warning" role="alert">
+					<div className="flex flex-wrap items-center justify-between gap-2">
+						<span>
+							{t("publicStatus.refreshFailed", { age: formatAge(new Date(polling.refreshedAt).toISOString(), nowMs, locale) })}
+							{polling.nextAttemptAt ? ` ${t("publicStatus.retryIn", { seconds: Math.max(1, Math.round((polling.nextAttemptAt - nowMs) / 1000)) })}` : ""}
+						</span>
+						<ActionButton size="xs" variant="outline" onClick={polling.refresh} loading={polling.loading}>{t("publicStatus.retry")}</ActionButton>
+					</div>
+				</Notice>
 			) : null}
 
 			{board.platform ? (
@@ -188,7 +199,7 @@ export function PublicBoardClient({ initial, preview, signedIn }: { initial: Pub
 				onHiddenChange={setHiddenTiles}
 			/>
 			{board.summary.truncated ? (
-				<p role="note" className="text-sm text-[var(--warning)]">{t("publicStatus.truncated", { count: board.summary.total })}</p>
+				<Notice tone="warning" compact role="note">{t("publicStatus.truncated", { count: board.summary.total })}</Notice>
 			) : null}
 
 			{board.summary.total === 0 ? (

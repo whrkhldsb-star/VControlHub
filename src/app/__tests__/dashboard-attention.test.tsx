@@ -32,6 +32,13 @@ describe("DashboardAttention", () => {
 		expect(within(block).queryByRole("link")).not.toBeInTheDocument();
 	});
 
+	it("does not call an install with nothing to watch all clear", () => {
+		render(<I18nProvider initialLocale="en"><DashboardAttention checks={buildAttentionChecks({ openIncidents: [], failedTasks: [], pendingApprovals: [], now })} checkedAt="20:00" notSetUp /></I18nProvider>);
+		const block = screen.getByRole("region", { name: "Not set up yet" });
+		expect(block).toHaveAttribute("data-attention", "idle");
+		expect(screen.queryByText("All clear")).not.toBeInTheDocument();
+	});
+
 	it("counts what is waiting, names the newest of each and links to where it is dealt with", () => {
 		renderBlock(buildAttentionChecks({
 			openIncidents: [{ title: "web-01 CPU 使用率 ≥ 90%" }, { title: "db-02 离线" }, { title: "cache-01 内存" }],

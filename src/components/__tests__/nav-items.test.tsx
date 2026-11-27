@@ -1,6 +1,7 @@
 import { describe, expect, it } from "vitest";
 
-import { mainNavGroups, mainNavItems, systemNavItems } from "../nav-items";
+import { mainNavGroups, mainNavItems, systemNavGroup, systemNavItems } from "../nav-items";
+import { en, zh } from "@/lib/i18n/dictionaries/nav";
 
 const DISCOVERABLE_FEATURE_ROUTES = [
 	"/monitoring",
@@ -36,5 +37,32 @@ describe("navigation catalogue", () => {
 			expect(daily).not.toContain(href);
 			expect(systemNavItems.map((item) => item.href)).toContain(href);
 		}
+	});
+});
+
+describe("feature catalogue descriptions", () => {
+	it("describes every page in one sentence in both languages", () => {
+		for (const item of [...mainNavItems, ...systemNavItems]) {
+			expect(item.descKey, item.href).toMatch(/^nav\.desc\./);
+			expect(zh[item.descKey], `${item.href} zh`).toBeTruthy();
+			expect(en[item.descKey], `${item.href} en`).toBeTruthy();
+		}
+	});
+
+	it("keeps announcements with the overview and the system group flat", () => {
+		const overview = mainNavGroups.find((group) => group.id === "overview");
+		const assist = mainNavGroups.find((group) => group.id === "assist");
+		expect(overview?.items.map((item) => item.href)).toEqual(["/dashboard", "/notifications", "/announcements"]);
+		expect(assist?.items).toHaveLength(4);
+		expect(systemNavGroup.items).toBe(systemNavItems);
+	});
+
+	it("draws the status board and its settings with different glyphs", () => {
+		const glyph = (href: string) => {
+			const icon = [...mainNavItems, ...systemNavItems].find((item) => item.href === href)?.icon as { type?: unknown } | undefined;
+			return icon?.type;
+		};
+		expect(glyph("/public-status")).not.toBe(glyph("/vps-status"));
+		expect(glyph("/public-status")).not.toBe(glyph("/status"));
 	});
 });

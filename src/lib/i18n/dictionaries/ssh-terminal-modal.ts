@@ -104,7 +104,8 @@ export const zh: Record<string, string> = {
 
 	// File manager (SFTP)
 	"sshFileManager.toggle": "文件",
-	"sshFileManager.title": "远程文件",
+
+	"sshFileManager.title": "当前 SSH 连接上的文件",
 	"sshFileManager.upload": "上传",
 	"sshFileManager.download": "下载",
 	"sshFileManager.delete": "删除",
@@ -222,7 +223,8 @@ export const en: Record<string, string> = {
 
 	// File manager (SFTP)
 	"sshFileManager.toggle": "Files",
-	"sshFileManager.title": "Remote files",
+
+	"sshFileManager.title": "Files on this SSH connection",
 	"sshFileManager.upload": "Upload",
 	"sshFileManager.download": "Download",
 	"sshFileManager.delete": "Delete",

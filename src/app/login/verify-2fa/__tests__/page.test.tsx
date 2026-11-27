@@ -44,4 +44,15 @@ describe("Verify2faPage i18n", () => {
 		const backLink = screen.getByRole("link", { name: "返回登录" });
 		expect(backLink).toHaveAttribute("href", "/login");
 	});
+
+	it("keeps where the person was going on the way back to sign in, and says who resets a lost device", async () => {
+		render(
+			<I18nProvider initialLocale="zh">
+				{await Verify2faPage({ searchParams: Promise.resolve({ next: "/servers/abc" }) })}
+			</I18nProvider>,
+		);
+
+		expect(screen.getByRole("link", { name: "返回登录" })).toHaveAttribute("href", "/login?next=%2Fservers%2Fabc");
+		expect(screen.getByText(/请联系平台管理员为你重置两步验证/)).toBeInTheDocument();
+	});
 });

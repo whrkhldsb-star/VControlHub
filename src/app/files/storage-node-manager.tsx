@@ -53,7 +53,7 @@ export function StorageNodeManager({
 	return (
 		<>
 			<ActionButton variant="secondary" icon={<HardDrive aria-hidden />} onClick={() => setOpen(true)} aria-haspopup="dialog">
-				{t("storagePage.nodes.title")}
+				{t(canManageNodes && !nodes.length ? "filesPage.manageDrives" : "storagePage.nodes.title")}
 			</ActionButton>
 			<Dialog
 				size="full"

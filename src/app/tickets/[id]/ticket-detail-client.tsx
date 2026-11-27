@@ -321,8 +321,8 @@ export function TicketDetailClient({ initial, canManage, users = [], userSearch 
         {canManage && (
           <div className="mt-4 max-w-sm">
             <form className="flex gap-2" action={`/tickets/${encodeURIComponent(ticket.id)}`}>
-              <input name="q" type="search" key={userSearch} defaultValue={userSearch} aria-label={t("filesBrowserSpa.searchLabel")} className={UI_INPUT} />
-              <ActionButton type="submit">{t("filesBrowserSpa.searchLabel")}</ActionButton>
+              <input name="q" type="search" key={userSearch} defaultValue={userSearch} aria-label={t("ticketsDetail.assigneeSearch")} placeholder={t("ticketsDetail.assigneeSearchPlaceholder")} className={UI_INPUT} />
+              <ActionButton type="submit">{t("ticketsDetail.assigneeSearch")}</ActionButton>
             </form>
             <FormField label={t("ticketsDetail.assignTo")} htmlFor="ticket-assignee">
             <select
@@ -357,7 +357,7 @@ export function TicketDetailClient({ initial, canManage, users = [], userSearch 
       {/* Related objects + link controls */}
       <div data-card className="p-5">
         <h3 className="ui-title-group mb-1">{t("ticketsDetail.relatedTitle")}</h3>
-        <p className="mb-3 text-xs text-[var(--text-muted)]">{t("ticketsDetail.timelineDesc")}</p>
+        <p className="mb-3 text-xs text-[var(--text-muted)]">{t("ticketsDetail.relatedDesc")}</p>
         <div className="grid gap-3 sm:grid-cols-2">
           <div data-inset className="p-3 text-xs">
             <div className="font-medium text-[var(--text-primary)]">{t("ticketsDetail.relatedCommand")}</div>
@@ -449,7 +449,8 @@ export function TicketDetailClient({ initial, canManage, users = [], userSearch 
 
       {/* Timeline */}
       <div data-card className="p-5">
-        <h3 className="ui-title-group mb-3">{t("ticketsDetail.timelineTitle")}</h3>
+        <h3 className="ui-title-group mb-1">{t("ticketsDetail.timelineTitle")}</h3>
+        <p className="mb-3 text-xs text-[var(--text-muted)]">{t("ticketsDetail.timelineDesc")}</p>
         {timelineLoading ? (
           <p className="text-sm text-[var(--text-muted)]">{t("ticketsDetail.timelineLoading")}</p>
         ) : !timeline ? null : timeline.events.length === 0 ? (

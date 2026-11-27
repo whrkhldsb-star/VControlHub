@@ -97,6 +97,20 @@ export const DownloadTaskRow = memo(function DownloadTaskRow({
 				<span className="inline-flex items-center gap-1.5"><Server size={14} aria-hidden />{task.server.name}</span>
 				<span className="inline-flex min-w-0 items-center gap-1.5 break-all"><Folder size={14} aria-hidden className="shrink-0" />{task.targetPath}</span>
 				{task.fileSize && <span className="inline-flex items-center gap-1.5"><File size={14} aria-hidden />{formatBytes(task.fileSize)}</span>}
+				{task.status === "COMPLETED" && task.server.storageNode && (() => {
+					const node = task.server.storageNode!;
+					const base = (node.basePath || "").replace(/\/+$/, "");
+					let rel = task.targetPath || "";
+					if (base && (rel === base || rel.startsWith(`${base}/`))) {
+						rel = rel.slice(base.length).replace(/^\/+/, "");
+					}
+					const href = `/files?nodeId=${encodeURIComponent(node.id)}${rel ? `&path=${encodeURIComponent(rel)}` : ""}`;
+					return (
+						<ButtonLink href={href} size="sm" variant="outline" icon={<Folder aria-hidden />} title={t("downloadsPage.action.openFolderTitle")}>
+							{t("downloadsPage.action.openFolder")}
+						</ButtonLink>
+					);
+				})()}
 				{task.downloadAccess && <span className="inline-flex items-center gap-1.5" title={task.downloadAccess.description}><RefreshCw size={14} aria-hidden />{task.downloadAccess.statusLabel}</span>}
 				<span>{formatDateTime(task.createdAt, locale)}</span>
 				{task.creator && <span className="inline-flex items-center gap-1.5"><User size={14} aria-hidden />{task.creator.displayName ?? task.creator.username}</span>}
@@ -147,20 +161,6 @@ export const DownloadTaskRow = memo(function DownloadTaskRow({
 						{downloadingIds[task.id] ? t("downloadsPage.action.downloading") : t("downloadsPage.action.downloadFile")}
 					</a>
 				)}
-				{task.status === "COMPLETED" && task.server.storageNode && (() => {
-					const node = task.server.storageNode!;
-					const base = (node.basePath || "").replace(/\/+$/, "");
-					let rel = task.targetPath || "";
-					if (base && rel.startsWith(base)) {
-						rel = rel.slice(base.length).replace(/^\/+/, "");
-					}
-					const href = `/files?nodeId=${encodeURIComponent(node.id)}${rel ? `&path=${encodeURIComponent(rel)}` : ""}`;
-					return (
-						<ButtonLink href={href} size="sm" variant="success" title={t("downloadsPage.action.openFolderTitle")}>
-							{t("downloadsPage.action.openFolder")}
-						</ButtonLink>
-					);
-				})()}
 				{(task.status === "FAILED" || task.status === "CANCELLED") && canManage && (
 					<ActionButton size="sm" variant="primary" onClick={() => onAction(task.id, "retry")} disabled={Boolean(busyActions[`${task.id}:retry`])} 
 						title={t("downloadsPage.action.retryTitle")}>

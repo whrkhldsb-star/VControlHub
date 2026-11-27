@@ -4,6 +4,7 @@ import { useState } from "react";
 import { ActionButton } from "@/components/action-button";
 import { Notice } from "@/components/ui-primitives";
 import { Card, EmptyState, PageHeader, Section } from "@/components/page-shell";
+import { PageGuide } from "@/components/page-guide";
 import { useI18n } from "@/lib/i18n/use-locale";
 
 import { AlertIncidentsSection } from "./alert-incidents-section";
@@ -22,6 +23,9 @@ type Props = {
 	servers: ServerOption[];
 	playbooks?: PlaybookOption[];
 	canManage: boolean;
+	canManageSettings?: boolean;
+	canReadPlaybooks?: boolean;
+	canReadHealth?: boolean;
 };
 
 export function AlertRuleListClient({
@@ -30,6 +34,9 @@ export function AlertRuleListClient({
 	servers,
 	playbooks = [],
 	canManage,
+	canManageSettings = false,
+	canReadPlaybooks = false,
+	canReadHealth = false,
 }: Props) {
 	const { t } = useI18n();
 	const [editingRule, setEditingRule] = useState<AlertRule | null>(null);
@@ -75,6 +82,20 @@ export function AlertRuleListClient({
 					/>
 				</PageHeader>
 			) : null}
+			<PageGuide
+				title={t("alertRulesPage.guide.title")}
+				summary={t("alertRulesPage.guide.summary")}
+				steps={[
+					t("alertRulesPage.guide.step1"),
+					t("alertRulesPage.guide.step2"),
+					t("alertRulesPage.guide.step3"),
+				]}
+				links={[
+					...(canManageSettings ? [{ label: t("alertRulesPage.openNotificationSettings"), href: "/settings#smtp" }] : []),
+					...(canReadPlaybooks ? [{ label: t("alertRulesPage.openPlaybooks"), href: "/playbooks" }] : []),
+					...(canReadHealth ? [{ label: t("alertRulesPage.openVpsStatus"), href: "/vps-status" }] : []),
+				]}
+			/>
 
 			{/* While the delete question is open its failure is shown there, not behind it. */}
 			{actionError && !rulePendingDelete && <Notice tone="danger">{actionError}</Notice>}

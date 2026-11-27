@@ -50,7 +50,9 @@ export const zh: Record<string, string> = {
 	"monitoringPage.table.cpu": "CPU%",
 	"monitoringPage.table.mem": "MEM%",
 	"monitoringPage.eyebrow": "监控",
-	"monitoringPage.sseLabel": "SSE",
+	"monitoringPage.sseLabel": "实时推送",
+	"monitoringPage.gotoHealth": "平台健康",
+	"monitoringPage.gotoVpsStatus": "节点状态",
 };
 
 export const en: Record<string, string> = {
@@ -98,5 +100,7 @@ export const en: Record<string, string> = {
 	"monitoringPage.table.cpu": "CPU%",
 	"monitoringPage.table.mem": "MEM%",
 	"monitoringPage.eyebrow": "Monitoring",
-	"monitoringPage.sseLabel": "SSE",
+	"monitoringPage.sseLabel": "Live stream",
+	"monitoringPage.gotoHealth": "Platform health",
+	"monitoringPage.gotoVpsStatus": "Node status",
 };

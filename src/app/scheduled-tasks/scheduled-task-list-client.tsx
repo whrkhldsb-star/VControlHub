@@ -8,7 +8,8 @@ import { ConfirmDialog } from "@/components/confirm-dialog";
 import { useToast } from "@/components/toast-provider";
 import type { Locale } from "@/lib/i18n/translations";
 import { getErrorMessage } from "@/lib/http/error-message";
-import { ActionButton } from "@/components/action-button";
+import { ActionButton, ButtonLink } from "@/components/action-button";
+import { PageGuide } from "@/components/page-guide";
 import { StatusBadge } from "@/components/status-badge";
 import { Chip, Notice, SegmentedControl } from "@/components/ui-primitives";
 import { UI_INPUT, UI_LABEL } from "@/lib/ui/classes";
@@ -46,6 +47,8 @@ type Props = {
 	canCreate: boolean;
 	canManage: boolean;
 	canApprove?: boolean;
+	canReadServers?: boolean;
+	canReadPlaybooks?: boolean;
 };
 
 const statusTone: Record<string, "success" | "warning" | "neutral"> = {
@@ -84,7 +87,7 @@ function describeCronPreview(expr: string, t: (key: string, vars?: Record<string
 	return describeCron(expr, t) ?? t("scheduledTasks.cron.custom");
 }
 
-export function ScheduledTaskListClient({ header, tasks: initialTasks, servers, templates = [], canCreate, canManage, canApprove = false }: Props) {
+export function ScheduledTaskListClient({ header, tasks: initialTasks, servers, templates = [], canCreate, canManage, canApprove = false, canReadServers = false, canReadPlaybooks = false }: Props) {
 	// Retry/pause/delete: executors always; a creator only for tasks whose every run is approved (matches the API, A6-09).
 	const canOperate = (task: { approvalRequired?: boolean }) => canManage || (canCreate && task.approvalRequired !== false);
 	const { t, locale } = useI18n();
@@ -175,6 +178,11 @@ export function ScheduledTaskListClient({ header, tasks: initialTasks, servers, 
 		<div className="space-y-6">
 			{header ? (
 				<PageHeader eyebrow={header.eyebrow} title={header.title} description={header.description} className="">
+					{canReadPlaybooks ? (
+						<ButtonLink href="/playbooks" size="sm" variant="secondary">
+							{t("scheduledTasksPage.openPlaybooks")}
+						</ButtonLink>
+					) : null}
 					{canCreate && !showCreate ? (
 						<ActionButton icon={<Plus size={16} aria-hidden />} variant="primary" onClick={() => setShowCreate(true)}>
 							{t("scheduledTasksPage.create")}
@@ -182,6 +190,19 @@ export function ScheduledTaskListClient({ header, tasks: initialTasks, servers, 
 					) : null}
 				</PageHeader>
 			) : null}
+			<PageGuide
+				title={t("scheduledTasksPage.guide.title")}
+				summary={t("scheduledTasksPage.guide.summary")}
+				steps={[
+					t("scheduledTasksPage.guide.step1"),
+					t("scheduledTasksPage.guide.step2"),
+					t("scheduledTasksPage.guide.step3"),
+				]}
+				links={[
+					{ label: t("scheduledTasks.template"), href: "/templates" },
+					...(canReadPlaybooks ? [{ label: t("scheduledTasksPage.openPlaybooks"), href: "/playbooks" }] : []),
+				]}
+			/>
 			{/* Nothing to search until there is a task. */}
 			{tasks.length > 0 ? (
 				<Toolbar>
@@ -206,6 +227,7 @@ export function ScheduledTaskListClient({ header, tasks: initialTasks, servers, 
 							servers={servers}
 							templates={templates}
 							canApprove={canApprove}
+							canReadServers={canReadServers}
 							onClose={() => { setShowCreate(false); setEditing(null); void refresh(); }}
 						/>
 					</SurfacePanel>
@@ -335,7 +357,7 @@ export function ScheduledTaskListClient({ header, tasks: initialTasks, servers, 
  * A new task, or the changes to one (`task`): the same fields either way, sent as a POST or as a PATCH. A task
  * could not be changed once created: fixing a command meant deleting the task and making it again.
  */
-function TaskForm({ task, servers, templates, canApprove, onClose }: { task?: Task; servers: ServerOption[]; templates: TemplateOption[]; canApprove: boolean; onClose: () => void }) {
+function TaskForm({ task, servers, templates, canApprove, canReadServers = false, onClose }: { task?: Task; servers: ServerOption[]; templates: TemplateOption[]; canApprove: boolean; canReadServers?: boolean; onClose: () => void }) {
 	const { t } = useI18n();
 	const { addToast } = useToast();
 	const editing = task !== undefined;
@@ -609,7 +631,14 @@ function TaskForm({ task, servers, templates, canApprove, onClose }: { task?: Ta
 					</div>
 				</div>
 			) : (
-				<Notice tone="warning">{t("scheduledTasks.noEnabledServers")}</Notice>
+				<div className="space-y-2">
+					<Notice tone="warning">{t("scheduledTasks.noEnabledServers")}</Notice>
+					{canReadServers ? (
+						<ButtonLink href="/servers" size="xs" variant="secondary">
+							{t("scheduledTasksPage.openServers")}
+						</ButtonLink>
+					) : null}
+				</div>
 			)}
 
 			<div className="flex gap-3 pt-2">

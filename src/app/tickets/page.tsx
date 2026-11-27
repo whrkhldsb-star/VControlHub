@@ -20,6 +20,7 @@ export default async function Page({ searchParams }: { searchParams: Promise<Rec
   const session = await requirePagePermission("ticket:read", { redirectTo: "/tickets" });
   const canManage = sessionHasPermission(session, "ticket:manage");
   const canCreate = sessionHasPermission(session, "ticket:create");
+  const canReadCommands = sessionHasPermission(session, "command:read");
   const locale = await getServerLocale();
   const canUseServerPicker = canCreate && sessionHasPermission(session, "server:read");
   const servers = canUseServerPicker ? await listServerProfiles(session) : [];
@@ -42,6 +43,8 @@ export default async function Page({ searchParams }: { searchParams: Promise<Rec
       <TicketsPageClient
         header={{ eyebrow: t("ticketsPage.eyebrow", locale), title: t("ticketsPage.title", locale), description: t("ticketsPage.desc", locale) }}
         canCreate={canCreate}
+        canManage={canManage}
+        canReadCommands={canReadCommands}
         servers={servers.map((server: { id: string; name: string; host: string }) => ({ id: server.id, name: server.name, host: server.host }))}
         stats={
           <StatGrid cols={4}>

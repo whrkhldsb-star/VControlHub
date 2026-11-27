@@ -20,11 +20,13 @@ export const zh: Record<string, string> = {
 	// page.tsx (RSC)
 	"accountPasswordPage.title": "修改密码",
 	"accountPasswordPage.eyebrow": "账户",
-	"accountPasswordPage.description": "修改当前账号的后台登录密码",
+	"accountPasswordPage.description": "修改当前账号的登录密码。两步验证和登录会话在账户安全页面管理。",
 	"accountPasswordPage.securityTips": "安全建议",
 	"accountPasswordPage.tip1": "新密码建议使用 12 位以上，并混合大小写字母、数字与符号。",
-	"accountPasswordPage.tip2": "修改成功后，现有会话不会立即失效；下次登录会使用新密码。",
-	"accountPasswordPage.tip3": "若多人共用管理员账号，建议后续补独立用户与角色分配，而不是长期共用默认管理员。",
+	"accountPasswordPage.tip2": "修改成功后，现有会话不会立即失效；如需让其他设备退出，请在账户安全页面使用“退出所有设备”。",
+	"accountPasswordPage.tip3": "若多人共用管理员账号，建议在用户管理中为每个人创建独立账号并分配角色，而不是长期共用默认管理员。",
+	"accountPasswordPage.link.security": "账户安全",
+	"accountPasswordPage.link.users": "用户管理",
 
 	// change-password-form.tsx (client)
 	"accountPasswordPage.formDescription":
@@ -44,14 +46,16 @@ export const en: Record<string, string> = {
 	// page.tsx (RSC)
 	"accountPasswordPage.title": "Change password",
 	"accountPasswordPage.eyebrow": "Account",
-	"accountPasswordPage.description": "Change the backend sign-in password for this account",
+	"accountPasswordPage.description": "Change the sign-in password for this account. Two-factor and signed-in sessions are on the account security page.",
 	"accountPasswordPage.securityTips": "Security recommendations",
 	"accountPasswordPage.tip1":
 		"Use a password of at least 12 characters and mix upper/lower-case letters, digits, and symbols.",
 	"accountPasswordPage.tip2":
-		"Existing sessions will not be terminated immediately; the new password is required at next sign-in.",
+		"Existing sessions are not ended right away; to sign out other devices, use “Sign out of all devices” on the account security page.",
 	"accountPasswordPage.tip3":
-		"If multiple people share the admin account, add per-user accounts with role assignments instead of long-term shared default admin access.",
+		"If several people share the admin account, create a separate account for each of them under Users and assign roles, instead of sharing the default admin.",
+	"accountPasswordPage.link.security": "Account security",
+	"accountPasswordPage.link.users": "Users",
 
 	// change-password-form.tsx (client)
 	"accountPasswordPage.formDescription":

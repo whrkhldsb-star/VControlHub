@@ -203,6 +203,13 @@ describe("KnowledgeClient", () => {
     expect(screen.queryByLabelText("knowledgePage.deleteBaseAria:runbooks")).toBeNull();
   });
 
+  it("shows a read-only empty state when no bases exist and the viewer cannot manage", async () => {
+    seed({ bases: [] });
+    renderClient(false);
+    await waitFor(() => expect(screen.getByText("knowledgePage.emptyBasesReadOnly")).toBeInTheDocument());
+    expect(screen.queryByText("knowledgePage.emptyBases")).not.toBeInTheDocument();
+  });
+
   it("labels every field it asks for, and says which base a document goes into", async () => {
     renderClient();
     await waitFor(() => expect(screen.getByText("knowledgePage.ingestTarget:runbooks")).toBeInTheDocument());

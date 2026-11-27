@@ -108,7 +108,7 @@ describe("ImageBedPage", () => {
     expect(screen.getByRole("heading", { name: "图片外链" })).toBeInTheDocument();
     expect(screen.getByRole("searchbox", { name: "图片搜索" })).toHaveAttribute("placeholder", "搜索文件名 / 路径 / 相册");
     expect(screen.getAllByRole("link", { name: /图片工作区/ })[0]).toHaveAttribute("href", "/media?type=image");
-    await user.click(screen.getByRole("button", { name: "从云盘发布" }));
+    await user.click(screen.getByRole("button", { name: "发布已有图片" }));
 
     await waitFor(() =>
       expect(csrfFetch).toHaveBeenCalledWith("/api/storage/nodes?operation=write"),
@@ -134,7 +134,7 @@ describe("ImageBedPage", () => {
 
     await screen.findByTestId("empty-state");
     expect(screen.getByText("暂无图片，上传第一张吧")).toBeInTheDocument();
-    await user.click(screen.getByRole("button", { name: "从云盘发布" }));
+    await user.click(screen.getByRole("button", { name: "发布已有图片" }));
 
     expect(await screen.findByText("缺少权限")).toBeInTheDocument();
   });
@@ -144,6 +144,7 @@ describe("ImageBedPage", () => {
       const url = String(input);
       if (url.startsWith("/api/images/list"))
         return { images: [], total: 0, totalPages: 1 };
+      if (url === "/api/storage/nodes?operation=write") return { nodes: [] };
       if (url === "/api/images/upload") {
         const formData = init?.body as FormData;
         const file = formData.get("file") as File;
@@ -160,8 +161,8 @@ describe("ImageBedPage", () => {
 
     await screen.findByTestId("empty-state");
     expect(screen.getByText("暂无图片，上传第一张吧")).toBeInTheDocument();
-    await userEvent.click(screen.getByRole("button", { name: "兼容直传入口" }));
-    expect(screen.getByText("兼容直传入口")).toBeInTheDocument();
+    await userEvent.click(screen.getByRole("button", { name: "从此设备上传" }));
+    expect(screen.getByText("从此设备上传")).toBeInTheDocument();
     const input = document.querySelector(
       'input[type="file"]',
     ) as HTMLInputElement;

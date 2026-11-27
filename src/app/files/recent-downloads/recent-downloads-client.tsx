@@ -2,6 +2,7 @@
 
 import { useRouter } from "next/navigation";
 import { useI18n } from "@/lib/i18n/use-locale";
+import { ButtonLink } from "@/components/action-button";
 import { PageShell, PageHeader } from "@/components/page-shell";
 import { RecentDownloadsPanel } from "../recent-downloads-panel";
 import { FilesSubpageNav } from "../files-subpage-nav";
@@ -16,7 +17,9 @@ export function FilesRecentDownloadsClient() {
         eyebrow={t("filesPage.eyebrow")}
         title={t("filesPage.subPage.recentDownloads")}
         description={t("filesPage.subPage.recentDownloadsDesc")}
-      />
+      >
+        <ButtonLink href="/downloads">{t("filesPage.downloadTasks")}</ButtonLink>
+      </PageHeader>
       <FilesSubpageNav />
       <RecentDownloadsPanel
         onNavigate={(path, nodeId) => {

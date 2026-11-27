@@ -512,6 +512,7 @@ export function buildUsage(
     "/api/auth/2fa/verify-login",
     "/api/auth/2fa/recovery-codes",
     "/api/share/[token]",
+    "/api/share/[token]/files",
     "/api/docs/openapi",
     "/api/docs/openapi.json",
     "/api/status",

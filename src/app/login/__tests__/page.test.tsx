@@ -30,8 +30,11 @@ describe("LoginPage", () => {
 		renderPage(await LoginPage({ searchParams: Promise.resolve({}) }));
 
 		expect(screen.getByText("VPS 统一管控平台")).toBeInTheDocument();
-		expect(screen.getByText("VPS 管理与分布式云盘，一站式资源管理")).toBeInTheDocument();
+		expect(screen.getByText("VPS 管理与分布式云盘，在一个控制台里管理服务器、文件和日常运维。")).toBeInTheDocument();
 		expect(screen.getByText("欢迎回来")).toBeInTheDocument();
+		// Not only administrators sign in here, and there is no self-service reset: say who to ask.
+		expect(screen.getByText("使用你的账号登录控制台。")).toBeInTheDocument();
+		expect(screen.getByText("忘记密码或还没有账号？请联系平台管理员。")).toBeInTheDocument();
 		expect(screen.getByText("VPS 管理")).toBeInTheDocument();
 		expect(screen.getByText("安全审批")).toBeInTheDocument();
 		expect(screen.getByText("分布式云盘")).toBeInTheDocument();

@@ -28,6 +28,7 @@ import type {
 } from "@/lib/ai/ops/types";
 import type { AiOpsSummary } from "@/lib/ai/ops/service";
 import { ActionButton } from "@/components/action-button";
+import { PageGuide } from "@/components/page-guide";
 import { PageHeader } from "@/components/page-shell";
 import {
 	AiOpsDetailSection,
@@ -56,6 +57,10 @@ type Props = {
 	storedProvider?: AiOpsStoredProvider | null;
 	canManage: boolean;
 	canAutonomous: boolean;
+	canChatAi?: boolean;
+	canManageAi?: boolean;
+	canManageAlerts?: boolean;
+	canReadPlaybooks?: boolean;
 };
 
 export function AiOpsPageClient({
@@ -69,6 +74,10 @@ export function AiOpsPageClient({
 	storedProvider = null,
 	canManage,
 	canAutonomous,
+	canChatAi = false,
+	canManageAi = false,
+	canManageAlerts = false,
+	canReadPlaybooks = false,
 }: Props) {
 	const { t } = useI18n();
 	const { addToast } = useToast();
@@ -305,6 +314,20 @@ export function AiOpsPageClient({
 					/>
 				</PageHeader>
 			) : null}
+			<PageGuide
+				title={t("aiOpsPage.guide.title")}
+				summary={t("aiOpsPage.guide.summary")}
+				steps={[
+					t("aiOpsPage.guide.step1"),
+					t("aiOpsPage.guide.step2"),
+					t("aiOpsPage.guide.step3"),
+				]}
+				links={[
+					...(canChatAi ? [{ href: "/ai", label: t("aiOpsPage.guide.linkAi") }] : []),
+					...(canManageAlerts ? [{ href: "/alert-rules", label: t("aiOpsPage.guide.linkAlerts") }] : []),
+					...(canReadPlaybooks ? [{ href: "/playbooks", label: t("aiOpsPage.guide.linkPlaybooks") }] : []),
+				]}
+			/>
 			<AiOpsSummarySection summary={summary} t={t} />
 			{/* What the scans found first; the settings that change how they run come last. */}
 			<AiOpsLogsSection
@@ -342,6 +365,7 @@ export function AiOpsPageClient({
 				storedProvider={storedProvider}
 				editingProvider={editingProvider}
 				canManage={canManage}
+				canManageAi={canManageAi}
 				savingSettings={savingSettings}
 				setSettings={setSettings}
 				setEditingProvider={setEditingProvider}

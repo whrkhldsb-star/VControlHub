@@ -127,7 +127,10 @@ describe("NotificationListClient", () => {
     await act(async () => { answers[0]!(); answers[1]!(); });
 
     expect(screen.queryByText("需要处理的通知")).not.toBeInTheDocument();
-    expect(screen.getByText("只看未读 (1)")).toBeInTheDocument();
+    // The count is a badge beside the filter's name, not written into it.
+    const filter = screen.getByRole("button", { name: "只看未读" });
+    expect(filter).toHaveTextContent("只看未读1");
+    expect(filter.querySelector("[data-count-badge]")).toHaveTextContent("1");
     expect(screen.getByRole("button", { name: "全部标记已读" })).toBeInTheDocument();
   });
 
@@ -150,5 +153,13 @@ describe("NotificationListClient", () => {
 
     expect(await screen.findByText("第 51 条通知")).toBeInTheDocument();
     expect(vi.mocked(csrfFetch)).toHaveBeenCalledWith("/api/notifications?limit=50&offset=0");
+  });
+
+  it("says where notifications come from when there are none", () => {
+    render(<NotificationListClient initialNotifications={[]} initialUnreadCount={0} initialNow={INITIAL_NOW} />);
+    expect(screen.getByText("暂无通知")).toBeInTheDocument();
+    expect(screen.getByText(/告警触发/)).toBeInTheDocument();
+    // No session gate here: no setup link is offered to an account that could not open it.
+    expect(screen.queryByRole("link", { name: "设置告警规则" })).not.toBeInTheDocument();
   });
 });

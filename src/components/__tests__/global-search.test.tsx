@@ -202,6 +202,19 @@ describe("GlobalSearch", () => {
 		dispatchSpy.mockRestore();
 	});
 
+	it("explains an empty result and offers every page again", async () => {
+		vi.stubGlobal("fetch", vi.fn().mockResolvedValue(new Response(JSON.stringify({ results: [] }))));
+		const user = userEvent.setup();
+		renderGlobalSearch("en");
+		act(() => window.dispatchEvent(new Event("vcontrolhub:open-global-search")));
+		const input = await screen.findByRole("combobox");
+		await user.type(input, "ж");
+		expect(await screen.findByText(/2 or more characters/)).toBeInTheDocument();
+		await user.click(screen.getByRole("button", { name: "Show all pages" }));
+		expect(input).toHaveValue("");
+		expect(screen.getByRole("option", { name: /Dashboard/ })).toBeInTheDocument();
+	});
+
 	it("localizes the visible search dialog when the operator switches to English", async () => {
 		pushMock.mockClear();
 		const user = userEvent.setup();
@@ -214,7 +227,7 @@ describe("GlobalSearch", () => {
 		expect(await screen.findByRole("dialog", { name: "Global search" })).toBeInTheDocument();
 		const input = screen.getByRole("combobox", { name: "Search pages and actions" });
 		expect(input).toHaveAttribute("placeholder", "Search pages, actions…");
-		expect(screen.getByRole("option", { name: /Dashboard.*Page/ })).toBeInTheDocument();
+		expect(screen.getByRole("option", { name: /Dashboard.*open work/ })).toBeInTheDocument();
 		expect(screen.queryByText("仪表盘")).not.toBeInTheDocument();
 		expect(screen.getByRole("button", { name: "Close" })).toBeInTheDocument();
 

@@ -252,4 +252,30 @@ describe("ItsmPageClient destructive UX", () => {
 		expect(toastSpy).not.toHaveBeenCalledWith("error", expect.anything());
 		expect(screen.getByPlaceholderText("例如：值班 Slack")).toHaveValue("值班群");
 	});
+
+	it("renders a tickets shortcut and copies the inbound webhook URL", async () => {
+		const user = userEvent.setup();
+		const writeText = vi.fn().mockResolvedValue(undefined);
+		Object.defineProperty(navigator, "clipboard", {
+			value: { writeText },
+			configurable: true,
+		});
+		render(
+			wrap(
+				<ItsmPageClient
+					header={header}
+					initialConnections={[connection]}
+					initialEvents={emptyEvents}
+					canManage
+					publicBaseUrl="https://example.test"
+				/>,
+			),
+		);
+		expect(screen.getByRole("link", { name: "查看工单" })).toHaveAttribute("href", "/tickets");
+		await user.click(screen.getByRole("button", { name: "复制地址" }));
+		await waitFor(() => {
+			expect(writeText).toHaveBeenCalledWith("https://example.test/api/itsm/inbound/conn-1");
+		});
+		expect(screen.getByRole("button", { name: "已复制" })).toBeInTheDocument();
+	});
 });

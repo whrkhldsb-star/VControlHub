@@ -1,11 +1,11 @@
 {
-  "generatedAt": "2026-11-24T13:56:49.073Z",
+  "generatedAt": "2026-11-27T12:59:31.451Z",
   "summary": {
     "sidebarMain": 26,
     "sidebarSystem": 12,
     "sidebarMobile": 4,
     "pages": 58,
-    "apiRoutes": 197,
+    "apiRoutes": 198,
     "permissionsDefined": 52
   },
   "sidebar": {
@@ -17,6 +17,10 @@
       {
         "href": "/notifications",
         "fallbackLabel": "Notifications"
+      },
+      {
+        "href": "/announcements",
+        "fallbackLabel": "Announcements"
       },
       {
         "href": "/servers",
@@ -109,10 +113,6 @@
       {
         "href": "/tickets",
         "fallbackLabel": "Tickets & requests"
-      },
-      {
-        "href": "/announcements",
-        "fallbackLabel": "Announcements"
       }
     ],
     "system": [
@@ -158,7 +158,7 @@
       },
       {
         "href": "/status",
-        "fallbackLabel": "Public status"
+        "fallbackLabel": "Status board"
       },
       {
         "href": "/public-status",
@@ -186,8 +186,12 @@
       "file": "src/app/account/password/page.tsx",
       "inSidebarMain": false,
       "inSidebarSystem": false,
-      "declaredPermissions": [],
-      "navigationPermissions": []
+      "declaredPermissions": [
+        "user:manage"
+      ],
+      "navigationPermissions": [
+        "user:manage"
+      ]
     },
     {
       "path": "/account/security",
@@ -203,9 +207,13 @@
       "inSidebarMain": true,
       "inSidebarSystem": false,
       "declaredPermissions": [
+        "ai:chat",
+        "ai:manage",
         "ai:ops:autonomous",
         "ai:ops:manage",
-        "ai:ops:read"
+        "ai:ops:read",
+        "notification:manage",
+        "playbook:read"
       ],
       "navigationPermissions": [
         "ai:ops:read"
@@ -230,9 +238,11 @@
       "inSidebarMain": true,
       "inSidebarSystem": false,
       "declaredPermissions": [
+        "health:read",
         "notification:manage",
         "playbook:read",
-        "server:read"
+        "server:read",
+        "user:manage"
       ],
       "navigationPermissions": [
         "notification:manage"
@@ -286,7 +296,9 @@
       "declaredPermissions": [
         "backup:create",
         "backup:read",
-        "backup:restore"
+        "backup:restore",
+        "server:read",
+        "task:read"
       ],
       "navigationPermissions": [
         "backup:read"
@@ -299,11 +311,13 @@
       "inSidebarSystem": false,
       "declaredPermissions": [
         "cost:manage",
-        "cost:read"
+        "cost:read",
+        "server:read"
       ],
       "navigationPermissions": [
         "cost:manage",
-        "cost:read"
+        "cost:read",
+        "server:read"
       ]
     },
     {
@@ -349,6 +363,7 @@
       "inSidebarMain": true,
       "inSidebarSystem": false,
       "declaredPermissions": [
+        "deploy:read",
         "docker:manage",
         "server:read"
       ],
@@ -434,7 +449,6 @@
       "inSidebarMain": false,
       "inSidebarSystem": false,
       "declaredPermissions": [
-        "storage:manage-node",
         "storage:read",
         "storage:write"
       ],
@@ -536,6 +550,7 @@
       "inSidebarMain": true,
       "inSidebarSystem": false,
       "declaredPermissions": [
+        "image:read",
         "media:manage",
         "storage:read"
       ],
@@ -573,6 +588,9 @@
       "inSidebarMain": true,
       "inSidebarSystem": false,
       "declaredPermissions": [
+        "backup:read",
+        "deploy:read",
+        "storage:read",
         "task:read"
       ],
       "navigationPermissions": [
@@ -593,6 +611,8 @@
       "inSidebarMain": true,
       "inSidebarSystem": false,
       "declaredPermissions": [
+        "command:read",
+        "notification:manage",
         "playbook:manage",
         "playbook:read",
         "playbook:run",
@@ -624,7 +644,8 @@
       "inSidebarMain": true,
       "inSidebarSystem": false,
       "declaredPermissions": [
-        "docker:manage"
+        "docker:manage",
+        "server:read"
       ],
       "navigationPermissions": [
         "docker:manage"
@@ -641,6 +662,7 @@
         "command:create",
         "command:execute",
         "command:read",
+        "server:read",
         "team:manage"
       ],
       "navigationPermissions": [
@@ -657,6 +679,7 @@
         "command:create",
         "command:execute",
         "command:read",
+        "playbook:read",
         "server:read"
       ],
       "navigationPermissions": [
@@ -734,6 +757,7 @@
       "inSidebarMain": true,
       "inSidebarSystem": false,
       "declaredPermissions": [
+        "command:read",
         "snippet:manage"
       ],
       "navigationPermissions": [
@@ -772,8 +796,10 @@
       "declaredPermissions": [
         "command:create",
         "command:read",
+        "deploy:read",
         "deploy:run",
-        "server:read"
+        "server:read",
+        "snippet:manage"
       ],
       "navigationPermissions": [
         "command:read"
@@ -798,6 +824,7 @@
       "inSidebarMain": true,
       "inSidebarSystem": false,
       "declaredPermissions": [
+        "command:read",
         "server:read",
         "ticket:create",
         "ticket:manage",
@@ -2691,6 +2718,16 @@
         "share:manage",
         "share:read"
       ]
+    },
+    {
+      "path": "/api/share/[token]/files",
+      "file": "src/app/api/share/[token]/files/route.ts",
+      "methods": [
+        "GET",
+        "HEAD"
+      ],
+      "guardMode": "public",
+      "declaredPermissions": []
     },
     {
       "path": "/api/share/[token]",

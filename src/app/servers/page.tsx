@@ -1,6 +1,7 @@
 import { requirePagePermission } from "@/lib/auth/page-guard";
 import { sessionHasPermission } from "@/lib/auth/authorization";
 import { getServerInventory } from "@/lib/server/inventory";
+import { PageGuide } from "@/components/page-guide";
 import { PageShell, PageHeader, StatCard } from "@/components/page-shell";
 import { logError } from "@/lib/logging";
 import { getServerLocale, t as translate, type TFn } from "@/lib/i18n/translations";
@@ -62,6 +63,7 @@ export default async function ServersPage({ searchParams }: { searchParams?: Pro
 					</ButtonLink> : null}
 				</div>
 			</PageHeader>
+			<PageGuide title={t("serversPage.connectionGuide")} steps={[t("serversPage.terminalModes"), t("serversPage.desktopModes")]} />
 
 			{stats.total > 0 ? <section className="mb-5 grid gap-3 sm:grid-cols-3">
 				<StatCard label={t("serversPage.stat.total")} value={String(stats.total)} />

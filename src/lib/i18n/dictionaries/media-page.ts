@@ -6,6 +6,9 @@
  */
 
 export const zh: Record<string, string> = {
+	"mediaPage.readEmpty": "暂无媒体。请联系管理员扫描媒体文件。",
+	"mediaPage.filteredEmpty": "没有符合筛选条件的媒体。",
+	"mediaPage.browseFiles": "浏览文件",
 	"mediaPage.eyebrow": "媒体工作区",
 	"mediaPage.group.unassigned": "未分配存储",
 	"mediaPage.stat.audio": "音频",
@@ -57,7 +60,8 @@ export const zh: Record<string, string> = {
 	"mediaPage.player.backToLibrary": "返回媒体库",
 	"mediaPage.player.eyebrow": "媒体播放器",
 	"mediaPage.player.download": "下载",
-	"mediaPage.player.openSource": "打开源文件",
+
+	"mediaPage.player.openSource": "打开所在文件夹",
 	"mediaPage.player.previewUnsupported": "此媒体类型暂不支持在线预览，请下载后查看。",
 	"mediaPage.player.navAria": "媒体播放导航",
 	"mediaPage.player.previousLabel": "上一项",
@@ -73,6 +77,9 @@ export const zh: Record<string, string> = {
 };
 
 export const en: Record<string, string> = {
+	"mediaPage.readEmpty": "No media yet. Ask a manager to scan media files.",
+	"mediaPage.filteredEmpty": "No media matches these filters.",
+	"mediaPage.browseFiles": "Browse files",
 	"mediaPage.eyebrow": "Media workspace",
 	"mediaPage.group.unassigned": "Unassigned storage",
 	"mediaPage.stat.audio": "Audio",
@@ -124,7 +131,8 @@ export const en: Record<string, string> = {
 	"mediaPage.player.backToLibrary": "Back to media library",
 	"mediaPage.player.eyebrow": "Media player",
 	"mediaPage.player.download": "Download",
-	"mediaPage.player.openSource": "Open source file",
+
+	"mediaPage.player.openSource": "Open containing folder",
 	"mediaPage.player.previewUnsupported": "This media type cannot be previewed inline; please download to view.",
 	"mediaPage.player.navAria": "Media playback navigation",
 	"mediaPage.player.previousLabel": "Previous",

@@ -25,6 +25,7 @@ import {
 	IconLink,
 	IconListChecks,
 	IconMegaphone,
+	IconMonitorCog,
 	IconPlug,
 	IconRocket,
 	IconScrollText,
@@ -44,6 +45,8 @@ export interface AppNavItem {
 	href: string;
 	labelKey: string;
 	fallbackLabel: string;
+	/** One plain sentence saying what the page is for, beside its siblings (`nav.desc.*`). */
+	descKey: string;
 	icon: ReactNode;
 }
 
@@ -70,8 +73,9 @@ export const mainNavGroups: AppNavGroup[] = [
 		labelKey: "nav.group.overview",
 		fallbackLabel: "Overview",
 		items: [
-			{ href: "/dashboard", labelKey: "nav.dashboard", fallbackLabel: "Dashboard", icon: <IconDashboard /> },
-			{ href: "/notifications", labelKey: "nav.notifications", fallbackLabel: "Notifications", icon: <IconBell /> },
+			{ href: "/dashboard", labelKey: "nav.dashboard", fallbackLabel: "Dashboard", descKey: "nav.desc.dashboard", icon: <IconDashboard /> },
+			{ href: "/notifications", labelKey: "nav.notifications", fallbackLabel: "Notifications", descKey: "nav.desc.notifications", icon: <IconBell /> },
+			{ href: "/announcements", labelKey: "nav.announcements", fallbackLabel: "Announcements", descKey: "nav.desc.announcements", icon: <IconMegaphone /> },
 		],
 	},
 	{
@@ -79,11 +83,11 @@ export const mainNavGroups: AppNavGroup[] = [
 		labelKey: "nav.group.servers",
 		fallbackLabel: "Servers",
 		items: [
-			{ href: "/servers", labelKey: "nav.servers", fallbackLabel: "Servers", icon: <IconServerGlyph /> },
-			{ href: "/vps-status", labelKey: "nav.vps-status", fallbackLabel: "Node status", icon: <IconSignal /> },
-			{ href: "/traffic", labelKey: "nav.traffic", fallbackLabel: "Traffic", icon: <IconArrowUpDown /> },
-			{ href: "/alert-rules", labelKey: "nav.alert-rules", fallbackLabel: "Alert rules", icon: <IconSiren /> },
-			{ href: "/cost-summary", labelKey: "nav.cost-summary", fallbackLabel: "Costs", icon: <IconWallet /> },
+			{ href: "/servers", labelKey: "nav.servers", fallbackLabel: "Servers", descKey: "nav.desc.servers", icon: <IconServerGlyph /> },
+			{ href: "/vps-status", labelKey: "nav.vps-status", fallbackLabel: "Node status", descKey: "nav.desc.vps-status", icon: <IconSignal /> },
+			{ href: "/traffic", labelKey: "nav.traffic", fallbackLabel: "Traffic", descKey: "nav.desc.traffic", icon: <IconArrowUpDown /> },
+			{ href: "/alert-rules", labelKey: "nav.alert-rules", fallbackLabel: "Alert rules", descKey: "nav.desc.alert-rules", icon: <IconSiren /> },
+			{ href: "/cost-summary", labelKey: "nav.cost-summary", fallbackLabel: "Costs", descKey: "nav.desc.cost-summary", icon: <IconWallet /> },
 		],
 	},
 	{
@@ -91,11 +95,11 @@ export const mainNavGroups: AppNavGroup[] = [
 		labelKey: "nav.group.files",
 		fallbackLabel: "Files & transfer",
 		items: [
-			{ href: "/files", labelKey: "nav.storage", fallbackLabel: "Files", icon: <IconFolder /> },
-			{ href: "/downloads", labelKey: "nav.downloads", fallbackLabel: "Downloads", icon: <IconDownload /> },
-			{ href: "/shares", labelKey: "nav.share-links", fallbackLabel: "Share links", icon: <IconLink /> },
-			{ href: "/media", labelKey: "nav.media", fallbackLabel: "Media", icon: <IconFilm /> },
-			{ href: "/image-bed", labelKey: "nav.image-bed", fallbackLabel: "Image links", icon: <IconImage /> },
+			{ href: "/files", labelKey: "nav.storage", fallbackLabel: "Files", descKey: "nav.desc.storage", icon: <IconFolder /> },
+			{ href: "/downloads", labelKey: "nav.downloads", fallbackLabel: "Downloads", descKey: "nav.desc.downloads", icon: <IconDownload /> },
+			{ href: "/shares", labelKey: "nav.share-links", fallbackLabel: "Share links", descKey: "nav.desc.share-links", icon: <IconLink /> },
+			{ href: "/media", labelKey: "nav.media", fallbackLabel: "Media", descKey: "nav.desc.media", icon: <IconFilm /> },
+			{ href: "/image-bed", labelKey: "nav.image-bed", fallbackLabel: "Image links", descKey: "nav.desc.image-bed", icon: <IconImage /> },
 		],
 	},
 	{
@@ -103,9 +107,9 @@ export const mainNavGroups: AppNavGroup[] = [
 		labelKey: "nav.group.apps",
 		fallbackLabel: "Apps",
 		items: [
-			{ href: "/quick-services", labelKey: "nav.quickservice", fallbackLabel: "Quick services", icon: <IconBlocks /> },
-			{ href: "/docker", labelKey: "nav.docker", fallbackLabel: "Docker", icon: <IconContainer /> },
-			{ href: "/deployments", labelKey: "nav.deployments", fallbackLabel: "App deployment", icon: <IconRocket /> },
+			{ href: "/quick-services", labelKey: "nav.quickservice", fallbackLabel: "Quick services", descKey: "nav.desc.quickservice", icon: <IconBlocks /> },
+			{ href: "/docker", labelKey: "nav.docker", fallbackLabel: "Docker", descKey: "nav.desc.docker", icon: <IconContainer /> },
+			{ href: "/deployments", labelKey: "nav.deployments", fallbackLabel: "App deployment", descKey: "nav.desc.deployments", icon: <IconRocket /> },
 		],
 	},
 	{
@@ -113,12 +117,12 @@ export const mainNavGroups: AppNavGroup[] = [
 		labelKey: "nav.group.automation",
 		fallbackLabel: "Automation",
 		items: [
-			{ href: "/operation-tasks", labelKey: "nav.operation-tasks", fallbackLabel: "Tasks", icon: <IconListChecks /> },
-			{ href: "/requests", labelKey: "nav.requests", fallbackLabel: "Approvals", icon: <IconBadgeCheck /> },
-			{ href: "/templates", labelKey: "nav.command-templates", fallbackLabel: "Command templates", icon: <IconTerminalSquare /> },
-			{ href: "/snippets", labelKey: "nav.snippets", fallbackLabel: "Snippets", icon: <IconBraces /> },
-			{ href: "/scheduled-tasks", labelKey: "nav.scheduled-tasks", fallbackLabel: "Scheduled tasks", icon: <IconCalendarClock /> },
-			{ href: "/playbooks", labelKey: "nav.playbooks", fallbackLabel: "Playbook automation", icon: <IconWorkflow /> },
+			{ href: "/operation-tasks", labelKey: "nav.operation-tasks", fallbackLabel: "Tasks", descKey: "nav.desc.operation-tasks", icon: <IconListChecks /> },
+			{ href: "/requests", labelKey: "nav.requests", fallbackLabel: "Approvals", descKey: "nav.desc.requests", icon: <IconBadgeCheck /> },
+			{ href: "/templates", labelKey: "nav.command-templates", fallbackLabel: "Command templates", descKey: "nav.desc.command-templates", icon: <IconTerminalSquare /> },
+			{ href: "/snippets", labelKey: "nav.snippets", fallbackLabel: "Snippets", descKey: "nav.desc.snippets", icon: <IconBraces /> },
+			{ href: "/scheduled-tasks", labelKey: "nav.scheduled-tasks", fallbackLabel: "Scheduled tasks", descKey: "nav.desc.scheduled-tasks", icon: <IconCalendarClock /> },
+			{ href: "/playbooks", labelKey: "nav.playbooks", fallbackLabel: "Playbook automation", descKey: "nav.desc.playbooks", icon: <IconWorkflow /> },
 		],
 	},
 	{
@@ -126,11 +130,10 @@ export const mainNavGroups: AppNavGroup[] = [
 		labelKey: "nav.group.assist",
 		fallbackLabel: "AI & tickets",
 		items: [
-			{ href: "/ai", labelKey: "nav.ai", fallbackLabel: "AI assistant", icon: <IconSparkles /> },
-			{ href: "/ai-ops", labelKey: "nav.ai-ops", fallbackLabel: "AI ops", icon: <IconBot /> },
-			{ href: "/knowledge", labelKey: "nav.knowledge", fallbackLabel: "Knowledge", icon: <IconBookOpen /> },
-			{ href: "/tickets", labelKey: "nav.tickets", fallbackLabel: "Tickets & requests", icon: <IconTicket /> },
-			{ href: "/announcements", labelKey: "nav.announcements", fallbackLabel: "Announcements", icon: <IconMegaphone /> },
+			{ href: "/ai", labelKey: "nav.ai", fallbackLabel: "AI assistant", descKey: "nav.desc.ai", icon: <IconSparkles /> },
+			{ href: "/ai-ops", labelKey: "nav.ai-ops", fallbackLabel: "AI ops", descKey: "nav.desc.ai-ops", icon: <IconBot /> },
+			{ href: "/knowledge", labelKey: "nav.knowledge", fallbackLabel: "Knowledge", descKey: "nav.desc.knowledge", icon: <IconBookOpen /> },
+			{ href: "/tickets", labelKey: "nav.tickets", fallbackLabel: "Tickets & requests", descKey: "nav.desc.tickets", icon: <IconTicket /> },
 		],
 	},
 ];
@@ -139,18 +142,18 @@ export const mainNavGroups: AppNavGroup[] = [
 export const mainNavItems: AppNavItem[] = mainNavGroups.flatMap((group) => group.items);
 
 export const systemNavItems: AppNavItem[] = [
-	{ href: "/settings", labelKey: "nav.settings", fallbackLabel: "Settings", icon: <IconSettings /> },
-	{ href: "/customers", labelKey: "nav.customers", fallbackLabel: "Customers", icon: <IconBuilding /> },
-	{ href: "/users", labelKey: "nav.users", fallbackLabel: "Users", icon: <IconUsers /> },
-	{ href: "/health", labelKey: "nav.health", fallbackLabel: "Platform health", icon: <IconHeartPulse /> },
-	{ href: "/monitoring", labelKey: "nav.monitoring", fallbackLabel: "Hub host", icon: <IconGauge /> },
-	{ href: "/backups", labelKey: "nav.backup", fallbackLabel: "Backups & migration", icon: <IconArchive /> },
-	{ href: "/audit", labelKey: "nav.audit", fallbackLabel: "Audit log", icon: <IconScrollText /> },
-	{ href: "/api-tokens", labelKey: "nav.api-tokens", fallbackLabel: "API tokens", icon: <IconKeyRound /> },
-	{ href: "/api-docs", labelKey: "nav.api-docs", fallbackLabel: "API docs", icon: <IconFileCode /> },
-	{ href: "/itsm", labelKey: "nav.itsm", fallbackLabel: "ITSM", icon: <IconPlug /> },
-	{ href: "/status", labelKey: "nav.status", fallbackLabel: "Public status", icon: <IconGlobe /> },
-	{ href: "/public-status", labelKey: "nav.publicStatusAdmin", fallbackLabel: "Status board settings", icon: <IconSignal /> },
+	{ href: "/settings", labelKey: "nav.settings", fallbackLabel: "Settings", descKey: "nav.desc.settings", icon: <IconSettings /> },
+	{ href: "/customers", labelKey: "nav.customers", fallbackLabel: "Customers", descKey: "nav.desc.customers", icon: <IconBuilding /> },
+	{ href: "/users", labelKey: "nav.users", fallbackLabel: "Users", descKey: "nav.desc.users", icon: <IconUsers /> },
+	{ href: "/health", labelKey: "nav.health", fallbackLabel: "Platform health", descKey: "nav.desc.health", icon: <IconHeartPulse /> },
+	{ href: "/monitoring", labelKey: "nav.monitoring", fallbackLabel: "Hub host", descKey: "nav.desc.monitoring", icon: <IconGauge /> },
+	{ href: "/backups", labelKey: "nav.backup", fallbackLabel: "Backups & migration", descKey: "nav.desc.backup", icon: <IconArchive /> },
+	{ href: "/audit", labelKey: "nav.audit", fallbackLabel: "Audit log", descKey: "nav.desc.audit", icon: <IconScrollText /> },
+	{ href: "/api-tokens", labelKey: "nav.api-tokens", fallbackLabel: "API tokens", descKey: "nav.desc.api-tokens", icon: <IconKeyRound /> },
+	{ href: "/api-docs", labelKey: "nav.api-docs", fallbackLabel: "API docs", descKey: "nav.desc.api-docs", icon: <IconFileCode /> },
+	{ href: "/itsm", labelKey: "nav.itsm", fallbackLabel: "ITSM", descKey: "nav.desc.itsm", icon: <IconPlug /> },
+	{ href: "/status", labelKey: "nav.status", fallbackLabel: "Status board", descKey: "nav.desc.status", icon: <IconGlobe /> },
+	{ href: "/public-status", labelKey: "nav.publicStatusAdmin", fallbackLabel: "Status board settings", descKey: "nav.desc.publicStatusAdmin", icon: <IconMonitorCog /> },
 ];
 
 export const systemNavGroup: AppNavGroup = {

@@ -23,17 +23,20 @@ export default async function Verify2faPage({ searchParams }: Verify2faPageProps
 	const locale = await getServerLocale();
 	const resolvedSearchParams = (await searchParams) ?? {};
 
-	// Check if the pending 2FA cookie exists — if not, redirect to login
-	const cookieStore = await cookies();
-	const pendingCookie = cookieStore.get(getPending2faCookieName());
-	if (!pendingCookie?.value) {
-		redirect("/login?error=expired");
-	}
-
 	const rawNext = firstSearchParam(resolvedSearchParams.next) ?? "/";
 	// Same guard as /api/login: only same-origin relative paths (block open
 	// redirects, including the backslash `/\host` form).
 	const nextPath = safeRelativeRedirectPath(rawNext);
+	// Signing in again lands where the person was going, not on the home page.
+	const loginHref = nextPath === "/" ? "/login" : `/login?next=${encodeURIComponent(nextPath)}`;
+
+	// Check if the pending 2FA cookie exists — if not, redirect to login
+	const cookieStore = await cookies();
+	const pendingCookie = cookieStore.get(getPending2faCookieName());
+	if (!pendingCookie?.value) {
+		redirect(`${loginHref}${nextPath === "/" ? "?" : "&"}error=expired`);
+	}
+
 	const error = resolveErrorMessage(locale, firstSearchParam(resolvedSearchParams.error));
 
 	return (
@@ -57,9 +60,11 @@ export default async function Verify2faPage({ searchParams }: Verify2faPageProps
 
 					<Verify2faForm nextPath={nextPath} error={error} />
 
+					<p className="mt-4 text-xs leading-5 text-[var(--text-muted)]">{t("login.verify2faLostDevice", locale)}</p>
+
 					<div className="mt-5 border-t border-[var(--border-subtle)] pt-4">
 						<Link
-							href="/login"
+							href={loginHref}
 							className="inline-flex items-center gap-1 text-xs text-[var(--text-muted)] transition-colors hover:text-[var(--text-primary)]"
 						>
 							<ArrowLeft size={14} aria-hidden />

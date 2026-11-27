@@ -61,7 +61,7 @@ export function ServerInventory({ inventory, canManageServers, canUseSshTerminal
     </Toolbar>}
     <section aria-label={t("serversPage.overview.aria")} className="grid gap-4 md:grid-cols-2 xl:grid-cols-3">
       {servers.map((server) => <ServerOverviewCard key={server.id} server={server} canManageServers={canManageServers} canUseSshTerminal={canUseSshTerminal} />)}
-      {servers.length === 0 && <div className="col-span-full"><EmptyState text={t(stats.total ? "serversPage.inventory.noResults" : "serversPage.overview.empty")} /></div>}
+      {servers.length === 0 && <div className="col-span-full"><EmptyState text={t(stats.total ? "serversPage.inventory.noResults" : canManageServers ? "serversPage.overview.empty" : "serversPage.readEmpty")} /></div>}
     </section>
     {stats.total > 0 && <Pagination page={query.page} pageSize={pageSize} totalItems={stats.matching} loading={pending} onPageChange={(page) => navigate({ page })} />}
   </div>;

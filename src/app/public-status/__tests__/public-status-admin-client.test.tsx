@@ -65,6 +65,13 @@ describe("PublicStatusAdminClient", () => {
 		await waitFor(() => expect(api.put).toHaveBeenCalledWith("/api/admin/public-status/nodes/srv_1", expect.objectContaining({ displayName: "Tokyo 1", tags: ["prod", "ipv6"], published: true })));
 	});
 
+	it("explains the three steps and sends an install with no server to add one", async () => {
+		api.get.mockResolvedValue({ total: 0, rows: [], page: 1, pageSize: 25 });
+		renderAdmin();
+		expect(screen.getByText("Publish the status board in three steps")).toBeInTheDocument();
+		expect(await screen.findByRole("link", { name: "Add a server" })).toHaveAttribute("href", "/servers");
+	});
+
 	it("shows a server-side refusal inside the dialog", async () => {
 		const user = userEvent.setup();
 		renderAdmin();

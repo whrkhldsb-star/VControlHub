@@ -10,6 +10,7 @@ import { CancelCommandButton } from "./cancel-command-button";
 import { AiHostedApprovalCard } from "./ai-hosted-approval-card";
 import { BatchReviewToolbar, BatchSelectCheckbox } from "./batch-review-toolbar";
 import { PageShell, PageHeader, StatCard, StatGrid, EmptyState, ListPanel } from "@/components/page-shell";
+import { ButtonLink } from "@/components/action-button";
 import { StatusBadge } from "@/components/status-badge";
 import { Badge, type BadgeTone } from "@/components/ui-primitives";
 import { getServerLocale, t } from "@/lib/i18n/translations";
@@ -39,6 +40,8 @@ export default async function RequestsPage({ searchParams }: { searchParams?: Pr
 	const canCancelOthers = canExecute && (canApprove || sessionHasPermission(session, "team:manage"));
 	// A member who may only submit withdraws their own request while it waits for approval.
 	const canSubmit = sessionHasPermission(session, "command:create");
+	const canReadServers = sessionHasPermission(session, "server:read");
+	const canReadTemplates = sessionHasPermission(session, "command:read");
 	const mayCancel = (request: { status: string; requester: { id: string } }) => {
 		const own = request.requester.id === session.userId;
 		if (!["PENDING_APPROVAL", "APPROVED", "RUNNING"].includes(request.status)) return false;
@@ -216,7 +219,7 @@ export default async function RequestsPage({ searchParams }: { searchParams?: Pr
 							</div>
 						))}
 						{(aiCursor || nextAiCursor) && <nav className="flex gap-3 p-3" aria-label={t("requestsPage.ai.title", locale)}>
-							{aiCursor && <Link href={pageUrl(cursor)}>{t("filePreferences.firstPage", locale)}</Link>}
+							{aiCursor && <Link href={pageUrl(cursor)}>{t("common.pagination.firstPage", locale)}</Link>}
 							{nextAiCursor && <Link href={pageUrl(cursor, nextAiCursor)}>{t("common.pagination.next", locale)}</Link>}
 						</nav>}
 					</ListPanel>
@@ -228,7 +231,26 @@ export default async function RequestsPage({ searchParams }: { searchParams?: Pr
 						description={t("requestsPage.cmd.desc", locale)}
 						count={activeRequests.length}
 						actions={<StatusBadge tone="warning">{t("requestsPage.cmd.scopeBadge", locale)}</StatusBadge>}
-						empty={sortedRequests.length === 0 ? <EmptyState text={t("requestsPage.cmd.empty", locale)} /> : undefined}
+						empty={sortedRequests.length === 0 ? (
+							<EmptyState
+								title={t("requestsPage.cmd.empty", locale)}
+								text={t("requestsPage.cmd.emptyHint", locale)}
+								action={canReadServers || canReadTemplates ? (
+									<div className="flex flex-wrap justify-center gap-2">
+										{canReadServers ? (
+											<ButtonLink href="/servers" size="sm" variant="secondary">
+												{t("requestsPage.cmd.openServers", locale)}
+											</ButtonLink>
+										) : null}
+										{canReadTemplates ? (
+											<ButtonLink href="/templates" size="sm" variant="secondary">
+												{t("requestsPage.cmd.openTemplates", locale)}
+											</ButtonLink>
+										) : null}
+									</div>
+								) : undefined}
+							/>
+						) : undefined}
 						bodyClassName={sortedRequests.length === 0 ? undefined : "!divide-y-0 space-y-0 bg-transparent p-3"}
 						>
 						{activeRequests.length > 0 ? (
@@ -239,7 +261,7 @@ export default async function RequestsPage({ searchParams }: { searchParams?: Pr
 						</BatchReviewToolbar>
 						) : sortedRequests.length > 0 ? <EmptyState text={t("requestsPage.cmd.noActive", locale)} /> : null}
 						{(cursor || nextCursor) && <nav className="flex gap-3 p-3" aria-label={t("common.pagination.label", locale)}>
-							{cursor && <Link href={pageUrl(null, aiCursor)}>{t("filePreferences.firstPage", locale)}</Link>}
+							{cursor && <Link href={pageUrl(null, aiCursor)}>{t("common.pagination.firstPage", locale)}</Link>}
 							{nextCursor && <Link href={pageUrl(nextCursor, aiCursor)}>{t("common.pagination.next", locale)}</Link>}
 						</nav>}
 						{handledRequests.length > 0 ? (

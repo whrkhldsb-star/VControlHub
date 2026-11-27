@@ -113,13 +113,19 @@ export const zh: Record<string, string> = {
 	"dashboard.setup.item.costMonthly": "填写节点月费",
 	"dashboard.setup.hint.servers": "至少纳管一台服务器",
 	"dashboard.setup.hint.alertRules": "告警规则页可一键生成默认规则",
-	"dashboard.setup.hint.notificationOutbound": "设置 → SMTP 开启后才能外发",
+	"dashboard.setup.hint.notificationOutbound": "在设置中开启 SMTP 邮件或 Telegram，告警才能发出去",
 	"dashboard.setup.hint.backupSchedule": "项目备份或 VPS 备份计划任选其一",
 	"dashboard.setup.hint.costMonthly": "在节点编辑里填写月费，成本看板才有数据",
 	"dashboard.announcements.title": "平台公告",
 	"dashboardAnalytics.trendChart": "趋势柱状图",
 	"dashboardAnalytics.downloadTrend": "下载趋势柱状图",
 
+	"dashboard.description": "服务器、告警和待办的总览。先看下面的检查结果，需要处理时从这里进入对应页面。",
+	"dashboard.attention.notSetUp": "尚未开始监控",
+	"dashboard.attention.notSetUpHint": "还没有服务器和告警规则，暂时没有可检查的内容。添加服务器后，这里会显示真实状态。",
+	"dashboard.setup.reopen": "显示设置清单（剩 {count} 项）",
+	"dashboard.featureMap.title": "功能地图",
+	"dashboard.featureMap.description": "你可以使用的 {count} 个页面，按侧边栏分组，每个一句话说明用途。",
 };
 
 export const en: Record<string, string> = {
@@ -230,11 +236,17 @@ export const en: Record<string, string> = {
 	"dashboard.setup.item.costMonthly": "Fill in monthly cost",
 	"dashboard.setup.hint.servers": "Onboard at least one server",
 	"dashboard.setup.hint.alertRules": "Generate defaults on the alert-rules page",
-	"dashboard.setup.hint.notificationOutbound": "Enable SMTP under Settings",
+	"dashboard.setup.hint.notificationOutbound": "Turn on SMTP email or Telegram in Settings so alerts reach you",
 	"dashboard.setup.hint.backupSchedule": "Project or VPS backup schedule",
 	"dashboard.setup.hint.costMonthly": "Set monthly cost on a server so the cost page has data",
 	"dashboard.announcements.title": "Platform announcements",
 	"dashboardAnalytics.trendChart": "Trend bar chart",
 	"dashboardAnalytics.downloadTrend": "Download trend bar chart",
 
+	"dashboard.description": "An overview of servers, alerts and open work. Start with the checks below and go to the page that needs you.",
+	"dashboard.attention.notSetUp": "Not set up yet",
+	"dashboard.attention.notSetUpHint": "There are no servers or alert rules yet, so there is nothing to check. Once you add a server, this block shows its real state.",
+	"dashboard.setup.reopen": "Show setup guide ({count} left)",
+	"dashboard.featureMap.title": "Feature map",
+	"dashboard.featureMap.description": "The {count} {count|page|pages} you can open, grouped as in the sidebar, each in one sentence.",
 };

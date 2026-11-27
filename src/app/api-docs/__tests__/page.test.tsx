@@ -50,4 +50,19 @@ describe("ApiDocsPage", () => {
 		expect(appendSpy).not.toHaveBeenCalledWith(expect.objectContaining({ src: expect.stringContaining("scalar") }));
 		expect(appendSpy).not.toHaveBeenCalledWith(expect.objectContaining({ href: expect.stringContaining("scalar") }));
 	});
+
+	it("opens with a quick start and says when a search matches no endpoint", async () => {
+		const { fireEvent } = await import("@testing-library/react");
+		vi.spyOn(globalThis, "fetch").mockResolvedValueOnce({ ok: true, json: async () => spec } as Response);
+
+		render(<ApiDocsPageClient />);
+
+		expect(await screen.findByText("快速上手")).toBeInTheDocument();
+		expect(screen.getByText(/Authorization: Bearer/)).toBeVisible();
+		await screen.findByText("健康检查");
+		fireEvent.change(screen.getByRole("searchbox"), { target: { value: "zzz-nothing" } });
+		expect(await screen.findByText("没有匹配的接口")).toBeInTheDocument();
+		fireEvent.click(screen.getByRole("button", { name: "清除搜索" }));
+		expect(await screen.findByText("健康检查")).toBeInTheDocument();
+	});
 });

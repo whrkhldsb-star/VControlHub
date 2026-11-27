@@ -56,4 +56,22 @@ describe("CustomersClient", () => {
 		await user.click(await screen.findByRole("button", { name: "恢复" }));
 		await waitFor(() => expect(csrfFetch).toHaveBeenCalledWith("/api/teams/team_old/restore", { method: "POST" }));
 	});
+
+	it("points a new customer to its next step, an account on the users page", async () => {
+		const user = userEvent.setup();
+		render(<CustomersClient />);
+		await screen.findByText("Acme");
+		await user.click(screen.getByRole("button", { name: "新建客户" }));
+		await user.type(screen.getByLabelText("客户名称"), "Beta");
+		const createButtons = screen.getAllByRole("button", { name: "新建客户" });
+		await user.click(createButtons[createButtons.length - 1]!);
+		expect(await screen.findByRole("link", { name: "下一步：为“Beta”创建账号" })).toHaveAttribute("href", "/users");
+	});
+
+	it("offers a retry instead of an empty list when customers cannot load", async () => {
+		vi.mocked(csrfFetch).mockRejectedValueOnce(new Error("Database offline"));
+		render(<CustomersClient />);
+		expect(await screen.findByRole("button", { name: "重试" })).toBeInTheDocument();
+		expect(screen.queryByText("还没有客户")).not.toBeInTheDocument();
+	});
 });

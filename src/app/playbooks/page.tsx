@@ -17,6 +17,8 @@ export default async function PlaybooksPage({ searchParams }: { searchParams?: P
 	const canManage = sessionHasPermission(session, "playbook:manage");
 	const canRun = sessionHasPermission(session, "playbook:run");
 	const canReadServers = sessionHasPermission(session, "server:read");
+	const canReadCommands = sessionHasPermission(session, "command:read");
+	const canManageAlerts = sessionHasPermission(session, "notification:manage");
 	const locale = await getServerLocale();
 
 	// listPlaybooks projects webhook configuration for this reader before steps enter RSC props.
@@ -92,10 +94,12 @@ export default async function PlaybooksPage({ searchParams }: { searchParams?: P
 				servers={serverOptions}
 				canManage={canManage}
 				canRun={canRun}
+				canReadCommands={canReadCommands}
+				canManageAlerts={canManageAlerts}
 			/>
 			{(after || rows.length > 100) && (
 				<nav className="flex flex-wrap items-center gap-4">
-					{after && <Link href="/playbooks">{t("filePreferences.firstPage", locale)}</Link>}
+					{after && <Link href="/playbooks">{t("common.pagination.firstPage", locale)}</Link>}
 					{rows.length > 100 && <Link href={`/playbooks?after=${encodeURIComponent(playbooks.at(-1)!.id)}`}>{t("common.pagination.next", locale)}</Link>}
 				</nav>
 			)}

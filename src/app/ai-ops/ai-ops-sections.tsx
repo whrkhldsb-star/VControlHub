@@ -12,7 +12,7 @@ import type {
 } from "@/lib/ai/ops/types";
 import type { AiOpsSummary } from "@/lib/ai/ops/service";
 import { UI_INPUT, UI_LABEL } from "@/lib/ui/classes";
-import { ActionButton } from "@/components/action-button";
+import { ActionButton, ButtonLink } from "@/components/action-button";
 import { Notice } from "@/components/ui-primitives";
 import { EmptyState, MetricPanel } from "@/components/page-shell";
 import { Sparkles } from "@/components/icons";
@@ -175,6 +175,7 @@ export function AiOpsSettingsSection({
 	storedProvider,
 	editingProvider,
 	canManage,
+	canManageAi = false,
 	savingSettings,
 	setSettings,
 	setEditingProvider,
@@ -186,6 +187,7 @@ export function AiOpsSettingsSection({
 	storedProvider?: AiOpsStoredProvider | null;
 	editingProvider: string;
 	canManage: boolean;
+	canManageAi?: boolean;
 	savingSettings: boolean;
 	setSettings: Dispatch<SetStateAction<AiOpsSettings>>;
 	setEditingProvider: Dispatch<SetStateAction<string>>;
@@ -196,39 +198,51 @@ export function AiOpsSettingsSection({
 		<section aria-label="ai-ops-settings" data-card className="p-5">
 			<h2 className="ui-title-section mb-4">{t("aiOpsPage.settings.title")}</h2>
 			<div className="grid gap-4 sm:grid-cols-2">
-				<label className="flex flex-col gap-2">
-					<span className={labelClass}>{t("aiOpsPage.settings.mode")}</span>
-					{canManage ? (
-						<select className={selectClass} value={settings.mode} onChange={(e) => setSettings((s) => ({ ...s, mode: e.target.value as AiOpsMode }))}>
-							<option value="recommendation">{t("aiOpsPage.mode.recommendation")}</option>
-							<option value="autonomous">{t("aiOpsPage.mode.autonomous")}</option>
-						</select>
-					) : (
-						<span className="text-sm text-[var(--text-primary)]">{settings.mode === "autonomous" ? t("aiOpsPage.mode.autonomous") : t("aiOpsPage.mode.recommendation")}</span>
-					)}
-				</label>
-				<label className="flex flex-col gap-2">
-					<span className={labelClass}>{t("aiOpsPage.settings.provider")}</span>
-					{canManage ? (
-						<select className={selectClass} value={editingProvider} onChange={(e) => setEditingProvider(e.target.value)}>
-							<option value="">{t("aiOpsPage.settings.notConfigured")}</option>
-							{editingProvider && !providerOptions.some((provider) => provider.id === editingProvider) && (
-								<option value={editingProvider} disabled>
-									{storedProvider?.id === editingProvider && storedProvider.available && storedProvider.name
-										? t("aiOpsPage.settings.providerOfOther", { name: storedProviderLabel(editingProvider, storedProvider, t) })
-										: storedProviderLabel(editingProvider, storedProvider, t)}
-								</option>
-							)}
-							{providerOptions.map((provider) => (
-								<option key={provider.id} value={provider.id}>
-									{provider.name} · {provider.defaultModel}
-								</option>
-							))}
-						</select>
-					) : (
-						<span className="text-sm text-[var(--text-primary)]">{editingProvider.trim() ? storedProviderLabel(editingProvider.trim(), storedProvider, t) : t("aiOpsPage.settings.notConfigured")}</span>
-					)}
-				</label>
+				<div className="flex flex-col gap-2">
+					<label className="flex flex-col gap-2">
+						<span className={labelClass}>{t("aiOpsPage.settings.mode")}</span>
+						{canManage ? (
+							<select className={selectClass} value={settings.mode} onChange={(e) => setSettings((s) => ({ ...s, mode: e.target.value as AiOpsMode }))}>
+								<option value="recommendation">{t("aiOpsPage.mode.recommendation")}</option>
+								<option value="autonomous">{t("aiOpsPage.mode.autonomous")}</option>
+							</select>
+						) : (
+							<span className="text-sm text-[var(--text-primary)]">{settings.mode === "autonomous" ? t("aiOpsPage.mode.autonomous") : t("aiOpsPage.mode.recommendation")}</span>
+						)}
+					</label>
+					<p className="text-xs leading-5 text-[var(--text-muted)]">{t("aiOpsPage.settings.modeHint")}</p>
+				</div>
+				<div className="flex flex-col gap-2">
+					<label className="flex flex-col gap-2">
+						<span className={labelClass}>{t("aiOpsPage.settings.provider")}</span>
+						{canManage ? (
+							<select className={selectClass} value={editingProvider} onChange={(e) => setEditingProvider(e.target.value)}>
+								<option value="">{t("aiOpsPage.settings.notConfigured")}</option>
+								{editingProvider && !providerOptions.some((provider) => provider.id === editingProvider) && (
+									<option value={editingProvider} disabled>
+										{storedProvider?.id === editingProvider && storedProvider.available && storedProvider.name
+											? t("aiOpsPage.settings.providerOfOther", { name: storedProviderLabel(editingProvider, storedProvider, t) })
+											: storedProviderLabel(editingProvider, storedProvider, t)}
+									</option>
+								)}
+								{providerOptions.map((provider) => (
+									<option key={provider.id} value={provider.id}>
+										{provider.name} · {provider.defaultModel}
+									</option>
+								))}
+							</select>
+						) : (
+							<span className="text-sm text-[var(--text-primary)]">{editingProvider.trim() ? storedProviderLabel(editingProvider.trim(), storedProvider, t) : t("aiOpsPage.settings.notConfigured")}</span>
+						)}
+					</label>
+					{canManage && canManageAi && providerOptions.length === 0 ? (
+						<div className="pt-0.5">
+							<ButtonLink href="/ai" size="xs" variant="outline">
+								{t("aiOpsPage.settings.configureProvider")}
+							</ButtonLink>
+						</div>
+					) : null}
+				</div>
 			</div>
 			{canManage && (
 				<div className="mt-4 flex justify-end gap-2">

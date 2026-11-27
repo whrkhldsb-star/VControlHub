@@ -16,6 +16,8 @@ export default async function CommandTemplatesPage() {
 	const canCreate = sessionHasPermission(session, "command:create");
 	const canDeploy = sessionHasPermission(session, "deploy:run");
 	const canReadServers = sessionHasPermission(session, "server:read");
+	const canManageSnippets = sessionHasPermission(session, "snippet:manage");
+	const canReadDeployments = sessionHasPermission(session, "deploy:read");
 	const locale = await getServerLocale();
 
 	const [templates, servers] = await Promise.all([
@@ -37,7 +39,7 @@ export default async function CommandTemplatesPage() {
 		<PageShell>
 			<TemplateListClient
 				header={{ eyebrow: t("templatesPage.eyebrow", locale), title: t("templatesPage.title", locale), description: t("templatesPage.desc", locale) }}
-				templates={serialized} servers={serverOptions} canCreate={canCreate} canDeploy={canDeploy} locale={locale} />
+				templates={serialized} servers={serverOptions} canCreate={canCreate} canDeploy={canDeploy} canManageSnippets={canManageSnippets} canReadDeployments={canReadDeployments} locale={locale} />
 		</PageShell>
 	);
 }

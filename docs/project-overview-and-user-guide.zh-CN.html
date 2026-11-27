@@ -108,7 +108,7 @@ main{min-width:0;background:var(--paper);padding:42px 54px 64px;border:1px solid
 </tbody>
 </table></div>
 <h3 id="section-1-3">1.3 当前代码规模与口径</h3>
-<p>项目包含：58 个 <code>page.tsx</code> 页面文件、197 个 API 路由文件、85 个 Prisma 数据模型、52 个业务权限项、4 个内置身份模板、24 类后台 Worker，以及 42 个本地快捷服务模板。</p>
+<p>项目包含：58 个 <code>page.tsx</code> 页面文件、198 个 API 路由文件、85 个 Prisma 数据模型、52 个业务权限项、4 个内置身份模板、24 类后台 Worker，以及 42 个本地快捷服务模板。</p>
 <p>配置与调用入口包括 9 个模块中的 25 个 Server Action 运行时导出、70 个系统设置表单字段、9 个持久化个人偏好字段和 21 个 AI 托管工具；逐项对应关系见第 24 章。</p>
 <p>这里的“页面”包含详情页、登录页和兼容跳转入口；“API 路由文件”可能同时处理多个 HTTP 方法；“应用模板”表示存在安装定义，不代表所有第三方应用在所有硬件和网络环境中都已逐项验收。</p>
 <p>依据：<a href="../README.md">README</a>、<a href="route-catalog.json">页面与接口目录</a>、<a href="../prisma/schema.prisma">数据模型</a>、<a href="../src/lib/workers/registry.ts">Worker 注册表</a>。</p>
@@ -4691,7 +4691,7 @@ npm run docs:check
 </tr>
 <tr>
 <td><a href="../src/app/api/share/"><code>/api/share</code></a></td>
-<td style="text-align:right">1</td>
+<td style="text-align:right">2</td>
 <td>持链接访问的公开文件／目录</td>
 </tr>
 <tr>
@@ -5940,6 +5940,12 @@ npm run docs:check
 <td><a href="../src/app/api/share/%5Btoken%5D/route.ts"><code>/api/share/[token]</code></a></td>
 <td>GET / POST</td>
 <td>访客验证分享密码并按策略读取文件／目录</td>
+<td><a href="#sharing-sync">文件分享、WebDAV 与跨节点同步</a></td>
+</tr>
+<tr>
+<td><a href="../src/app/api/share/%5Btoken%5D/files/route.ts"><code>/api/share/[token]/files</code></a></td>
+<td>GET / HEAD</td>
+<td>按分享目录相对路径下载或预览子文件</td>
 <td><a href="#sharing-sync">文件分享、WebDAV 与跨节点同步</a></td>
 </tr>
 <tr>

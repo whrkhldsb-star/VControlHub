@@ -19,6 +19,8 @@ export default async function AccountSecurityPage() {
     select: { twoFactorEnabled: true, twoFactorSecret: true },
   });
 
+  const twoFactorEnabled = Boolean(user?.twoFactorEnabled && user.twoFactorSecret);
+
   return (
     <PageShell>
       <PageHeader
@@ -40,7 +42,11 @@ export default async function AccountSecurityPage() {
             </ButtonLink>
           </div>
         </div>
-        <TwoFactorSettings enabled={Boolean(user?.twoFactorEnabled && user.twoFactorSecret)} />
+        {twoFactorEnabled ? null : (
+          // What to have ready before the setup asks for a code.
+          <p className="text-sm leading-6 text-[var(--text-secondary)]">{t("auth.2fa-prerequisite", locale)}</p>
+        )}
+        <TwoFactorSettings enabled={twoFactorEnabled} />
         <SignOutAllDevices />
       </div>
     </PageShell>

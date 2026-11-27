@@ -2,7 +2,7 @@
 
 import { useCallback, useEffect, useRef, useState, type ComponentProps, type ReactNode } from "react";
 
-import { ActionButton } from "@/components/action-button";
+import { ActionButton, ButtonLink } from "@/components/action-button";
 import { Plus } from "@/components/icons";
 import { PageHeader, SurfacePanel } from "@/components/page-shell";
 import { useI18n } from "@/lib/i18n/use-locale";
@@ -13,6 +13,8 @@ import { TicketWorkspace } from "./ticket-workspace";
 type Props = {
   header: { eyebrow?: string; title: string; description?: string };
   canCreate: boolean;
+  canManage?: boolean;
+  canReadCommands?: boolean;
   servers: { id: string; name: string; host: string }[];
   /** The figures under the header, rendered by the server. */
   stats: ReactNode;
@@ -23,7 +25,7 @@ type Props = {
  * The tickets page around its figures. "New ticket" sits in the header and opens the form right under it; the list
  * comes first otherwise, as on the other pages that create things. An empty list offers the same command.
  */
-export function TicketsPageClient({ header, canCreate, servers, stats, workspace }: Props) {
+export function TicketsPageClient({ header, canCreate, canManage = false, canReadCommands = false, servers, stats, workspace }: Props) {
   const { t } = useI18n();
   const [creating, setCreating] = useState(false);
   const panelRef = useRef<HTMLDivElement>(null);
@@ -38,6 +40,16 @@ export function TicketsPageClient({ header, canCreate, servers, stats, workspace
   return (
     <>
       <PageHeader eyebrow={header.eyebrow} title={header.title} description={header.description} className="mb-6">
+        {canReadCommands ? (
+          <ButtonLink href="/requests" size="sm" variant="ghost">
+            {t("ticketsPage.link.approvals")}
+          </ButtonLink>
+        ) : null}
+        {canManage ? (
+          <ButtonLink href="/itsm" size="sm" variant="secondary">
+            {t("ticketsPage.link.integrations")}
+          </ButtonLink>
+        ) : null}
         {open ? (
           <ActionButton icon={<Plus size={16} aria-hidden />} onClick={open}>
             {t("ticketsPage.form.title")}

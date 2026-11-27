@@ -84,13 +84,13 @@ describe("useQuickServiceActions", () => {
       item: { slug: "alist", name: "AList", defaultPort: 5244, port: null },
       port: 5244,
     };
-    let promise!: Promise<void>;
+    let promise!: Promise<boolean>;
     act(() => {
       promise = result.current.doInstall(preview);
     });
     expect(result.current.actionSlug).toBe("alist");
     await act(async () => {
-      await promise;
+      expect(await promise).toBe(true);
     });
     expect(result.current.actionSlug).toBeNull();
     expect(lastMessage()?.type).toBe("ok");

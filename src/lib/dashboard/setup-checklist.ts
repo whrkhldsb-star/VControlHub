@@ -25,6 +25,8 @@ export type SetupChecklistInput = {
 	enabledAlertRuleCount: number;
 	/** SMTP outbound enabled (settings smtp.enabled === "true"). */
 	smtpEnabled: boolean;
+	/** Telegram outbound enabled (settings telegram.enabled === "true"); either channel completes the step. */
+	telegramEnabled?: boolean;
 	/** Project and/or VPS backup schedules present. */
 	backupScheduleCount: number;
 	/** Servers with a positive monthly cost filled in. */
@@ -51,8 +53,8 @@ export function buildSetupChecklist(input: SetupChecklistInput): SetupChecklistI
 		},
 		{
 			id: "notificationOutbound",
-			done: input.smtpEnabled,
-			href: "/settings",
+			done: input.smtpEnabled || Boolean(input.telegramEnabled),
+			href: "/settings#smtp",
 			permission: "user:manage",
 		},
 		{

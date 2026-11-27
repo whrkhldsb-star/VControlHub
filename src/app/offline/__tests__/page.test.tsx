@@ -1,4 +1,4 @@
-import { screen } from "@testing-library/react";
+import { fireEvent, screen } from "@testing-library/react";
 import { describe, expect, it, vi } from "vitest";
 
 import OfflinePage from "../page";
@@ -19,6 +19,7 @@ vi.mock("@/lib/i18n/use-locale", async () => {
 					"pwa.offline.retry": "重试连接",
 					"pwa.offline.securityNotice": "登录后的页面不会存储到离线缓存",
 					"pwa.offline.title": "当前离线",
+					"pwa.offline.tryDashboard": "打开仪表盘",
 				};
 				return zh[key] ?? key;
 			},
@@ -39,9 +40,17 @@ describe("OfflinePage", () => {
 		expect(screen.getByText(/不会存储到离线缓存/)).toBeInTheDocument();
 	});
 
-	it("exposes a retry link that goes back to /dashboard", () => {
-		render(<OfflinePage />);
-		const retry = screen.getByRole("link", { name: /重试连接/ });
-		expect(retry).toHaveAttribute("href", "/dashboard");
+	it("retries the address that failed, and offers the dashboard as a fallback", () => {
+		const reload = vi.fn();
+		const original = window.location;
+		Object.defineProperty(window, "location", { configurable: true, value: { ...original, reload } });
+		try {
+			render(<OfflinePage />);
+			fireEvent.click(screen.getByRole("button", { name: /重试连接/ }));
+			expect(reload).toHaveBeenCalled();
+			expect(screen.getByRole("link", { name: "打开仪表盘" })).toHaveAttribute("href", "/dashboard");
+		} finally {
+			Object.defineProperty(window, "location", { configurable: true, value: original });
+		}
 	});
 });

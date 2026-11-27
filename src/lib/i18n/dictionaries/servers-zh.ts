@@ -27,7 +27,7 @@ export const zh: Record<string, string> = {
 	"serversPage.windows.sftpUsername": "SFTP 用户名",
 	"serversPage.windows.sftpPassword": "SFTP 密码（编辑时留空保留）",
 	"serversPage.windows.sftpPath": "云盘根目录（OpenSSH 路径）",
-	"serversPage.windows.sftpDisableHint": "取消勾选仅跳过本次 SFTP 修改；要移除云盘节点，请在存储页面处理。",
+	"serversPage.windows.sftpDisableHint": "取消勾选仅跳过本次 SFTP 修改；要移除云盘节点，请在文件页面的存储节点中处理。",
 	"serversPage.windows.openCloudStorage": "打开云盘",
 	"serversPage.windows.directGatewayHint": "Windows 托管网关使用 HTTP 31888 端口；公网传输建议在 Windows 上配置 HTTPS 反向代理后，于存储节点填写 HTTPS 地址。启用需要 SFTP 用户拥有管理员权限。",
 	"serversPage.windows.credentialsTitle": "远程桌面凭据",

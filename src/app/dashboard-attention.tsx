@@ -1,7 +1,7 @@
 "use client";
 
 import { ButtonLink } from "@/components/action-button";
-import { AlertTriangle, Check, Clock } from "@/components/icons";
+import { AlertTriangle, Check, Clock, Info } from "@/components/icons";
 import { attentionTone, countAttention, type AttentionCheck, type AttentionKind } from "@/lib/dashboard/attention";
 import { useI18n } from "@/lib/i18n/use-locale";
 import { cn } from "@/lib/ui/cn";
@@ -33,18 +33,22 @@ const TONE_TEXT = { danger: "text-[var(--danger)]", warning: "text-[var(--warnin
  * a row that found something says how many, names the newest and links to the page that deals with it.
  * The headline is the one large piece of type in the page's content, and this is the one card that carries its
  * state (a bar on its leading edge and the headline's icon); every other card stays neutral.
+ *
+ * With no server and no alert rule there is nothing to be clear about: the block says it is not set up yet in a
+ * neutral tone instead of a green "All clear", and the setup checklist above it says what to do.
  */
-export function DashboardAttention({ checks, checkedAt }: { checks: AttentionCheck[]; checkedAt: string }) {
+export function DashboardAttention({ checks, checkedAt, notSetUp = false }: { checks: AttentionCheck[]; checkedAt: string; notSetUp?: boolean }) {
 	const { t } = useI18n();
 	if (checks.length === 0) return null;
 	const found = countAttention(checks);
 	const tone = attentionTone(checks);
+	const idle = notSetUp && found === 0;
 
 	return (
 		<section
 			aria-labelledby="dashboard-attention-title"
 			data-card
-			data-attention={tone ?? "clear"}
+			data-attention={tone ?? (idle ? "idle" : "clear")}
 			className="relative mb-6 overflow-hidden !p-0"
 		>
 			{tone ? <span aria-hidden className={cn("absolute inset-y-0 left-0 w-[3px]", tone === "danger" ? "bg-[var(--danger)]" : "bg-[var(--warning)]")} /> : null}
@@ -59,14 +63,17 @@ export function DashboardAttention({ checks, checkedAt }: { checks: AttentionChe
 								? "border-[var(--danger-border)] bg-[var(--danger-bg)] text-[var(--danger)]"
 								: tone === "warning"
 									? "border-[var(--warning-border)] bg-[var(--warning-bg)] text-[var(--warning)]"
-									: "border-[var(--success-border)] bg-[var(--success-bg)] text-[var(--success)]",
+									: idle
+										? "border-[var(--border-subtle)] bg-[var(--surface-subtle)] text-[var(--text-muted)]"
+										: "border-[var(--success-border)] bg-[var(--success-bg)] text-[var(--success)]",
 						)}
 					>
-						{tone === "danger" ? <AlertTriangle size={16} /> : tone === "warning" ? <Clock size={16} /> : <Check size={16} strokeWidth={2.5} />}
+						{tone === "danger" ? <AlertTriangle size={16} /> : tone === "warning" ? <Clock size={16} /> : idle ? <Info size={16} /> : <Check size={16} strokeWidth={2.5} />}
 					</span>
-					{found === 0 ? t("dashboard.attention.clear") : t("dashboard.attention.found", { count: found })}
+					{idle ? t("dashboard.attention.notSetUp") : found === 0 ? t("dashboard.attention.clear") : t("dashboard.attention.found", { count: found })}
 				</h2>
 				<p className="text-xs tabular-nums text-[var(--text-muted)]">{t("dashboard.attention.checkedAt", { time: checkedAt })}</p>
+				{idle ? <p className="basis-full text-[13px] leading-5 text-[var(--text-secondary)]">{t("dashboard.attention.notSetUpHint")}</p> : null}
 			</div>
 			<ul className="divide-y divide-[var(--border-subtle)] border-t border-[var(--border-subtle)]">
 				{checks.map((check) => (
@@ -101,7 +108,7 @@ export function DashboardAttention({ checks, checkedAt }: { checks: AttentionChe
 							</>
 						) : (
 							<>
-								<span aria-hidden className="text-[var(--success)]">
+								<span aria-hidden className={idle ? "text-[var(--text-muted)]" : "text-[var(--success)]"}>
 									<Check size={16} strokeWidth={2.5} />
 								</span>
 								<p className="min-w-0 text-sm text-[var(--text-secondary)]">{t(COPY[check.kind].clear)}</p>

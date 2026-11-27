@@ -4,6 +4,10 @@
  * pending-source-delete-dialog / page.tsx.
  */
 export const zh: Record<string, string> = {
+	"qsPage.browseCatalog": "浏览服务目录",
+	"qsPage.invalidTarget": "请求的服务器不可用。请选择其他目标。",
+	"qsPage.inspectContainers": "查看容器",
+	"qsPage.chooseTarget": "重新选择目标",
 	"qsPage.access.direct-port.label": "公网端口直连",
 	"qsPage.access.direct-port.description": "此入口直接打开主机端口，不经过 VControlHub 登录验证；请先配置防火墙、VPN 或应用自身的认证再对外开放。",
 	"qsPage.access.reverse-proxy.label": "HTTPS 反向代理",
@@ -308,6 +312,10 @@ export const zh: Record<string, string> = {
 };
 
 export const en: Record<string, string> = {
+	"qsPage.browseCatalog": "Browse catalog",
+	"qsPage.invalidTarget": "The requested server is unavailable. Choose another target.",
+	"qsPage.inspectContainers": "Inspect containers",
+	"qsPage.chooseTarget": "Choose another target",
 	"qsPage.access.direct-port.label": "Public direct port",
 	"qsPage.access.direct-port.description": "This entry opens the host port directly, without VControlHub's login. Expose it only after a firewall, VPN or the app's own authentication is in place.",
 	"qsPage.access.reverse-proxy.label": "HTTPS reverse proxy",

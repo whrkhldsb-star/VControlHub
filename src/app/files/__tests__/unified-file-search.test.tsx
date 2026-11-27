@@ -33,15 +33,15 @@ describe("UnifiedFileSearch request lifecycle", () => {
     vi.stubGlobal("fetch", fetchMock);
     const onSearch = vi.fn();
     renderWithI18n(<UnifiedFileSearch searchInput="report" onSearchInputChange={vi.fn()} onFilenameSearch={onSearch} />, { locale: "en" });
-    fireEvent.click(screen.getByRole("button", { name: "Content" }));
+    fireEvent.click(screen.getByRole("button", { name: "Text inside files" }));
     fireEvent.click(screen.getByRole("button", { name: "Search" }));
-    fireEvent.click(screen.getByRole("button", { name: "Filename" }));
+    fireEvent.click(screen.getByRole("button", { name: "File names" }));
     expect(fetchMock.mock.calls[0]![1].signal.aborted).toBe(true);
     expect(screen.getByRole("button", { name: "Search" })).toBeEnabled();
     fireEvent.click(screen.getByRole("button", { name: "Search" }));
     expect(onSearch).toHaveBeenCalledWith("current");
     await act(async () => pending.resolve(new Response(JSON.stringify({ results: [{ nodeId: "n1", relativePath: "stale.txt", snippets: ["stale content"] }], truncated: false, totalMatches: 1 }), { headers: { "Content-Type": "application/json" } })));
-    fireEvent.click(screen.getByRole("button", { name: "Content" }));
+    fireEvent.click(screen.getByRole("button", { name: "Text inside files" }));
     expect(screen.queryByText("stale content")).not.toBeInTheDocument();
   });
 
@@ -49,7 +49,7 @@ describe("UnifiedFileSearch request lifecycle", () => {
     // "Content search failed", whatever the server answered: too many searches, a query it does not take.
     vi.stubGlobal("fetch", vi.fn(async () => new Response(JSON.stringify({ code: "RATE_LIMITED", error: "Too many requests", message: "Too many content searches; try again in a minute" }), { status: 429, headers: { "content-type": "application/json" } })));
     renderWithI18n(<UnifiedFileSearch searchInput="report" onSearchInputChange={vi.fn()} onFilenameSearch={vi.fn()} />, { locale: "en" });
-    fireEvent.click(screen.getByRole("button", { name: "Content" }));
+    fireEvent.click(screen.getByRole("button", { name: "Text inside files" }));
     fireEvent.click(screen.getByRole("button", { name: "Search" }));
     expect(await screen.findByText("Content search failed: Too many content searches; try again in a minute")).toBeInTheDocument();
   });
@@ -58,7 +58,7 @@ describe("UnifiedFileSearch request lifecycle", () => {
     const fetchMock = vi.fn().mockReturnValue(new Promise(() => {}));
     vi.stubGlobal("fetch", fetchMock);
     const { unmount } = renderWithI18n(<UnifiedFileSearch searchInput="report" onSearchInputChange={vi.fn()} onFilenameSearch={vi.fn()} />, { locale: "en" });
-    fireEvent.click(screen.getByRole("button", { name: "Content" }));
+    fireEvent.click(screen.getByRole("button", { name: "Text inside files" }));
     fireEvent.click(screen.getByRole("button", { name: "Search" }));
     unmount();
     expect(fetchMock.mock.calls[0]![1].signal.aborted).toBe(true);
@@ -84,10 +84,10 @@ describe("UnifiedFileSearch request lifecycle", () => {
     }
 
     renderWithI18n(<Harness />, { locale: "en" });
-    fireEvent.click(screen.getByRole("button", { name: "Content" }));
+    fireEvent.click(screen.getByRole("button", { name: "Text inside files" }));
     fireEvent.click(screen.getByRole("button", { name: "Search" }));
-    fireEvent.change(screen.getByLabelText("Content"), { target: { value: "new" } });
-    fireEvent.submit(screen.getByLabelText("Content").closest("form")!);
+    fireEvent.change(screen.getByLabelText("Text inside files"), { target: { value: "new" } });
+    fireEvent.submit(screen.getByLabelText("Text inside files").closest("form")!);
 
     expect(await screen.findByText("new hit")).toBeVisible();
     expect(fetchMock).toHaveBeenCalledTimes(2);

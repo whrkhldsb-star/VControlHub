@@ -15,6 +15,7 @@ import { ShareAccessLogsButton } from "./share-access-logs";
 import { ShareAccessReport } from "./share-access-report";
 import { getStorageDriverLabel } from "@/lib/i18n/domain-labels";
 import { LinkPagination } from "@/components/link-pagination";
+import { ButtonLink } from "@/components/action-button";
 import { UI_INPUT } from "@/lib/ui/classes";
 import { cn } from "@/lib/ui/cn";
 
@@ -82,7 +83,7 @@ export default async function SharesPage({ searchParams }: { searchParams?: Prom
 				</form>
 				{/* Under the filters, not in place of them: a search with no
 				    result took the search box away with the list. */}
-				{shares.length === 0 ? <EmptyState text={t("shares.empty")} /> : null}
+				{shares.length === 0 ? <EmptyState text={t(q || status ? "shares.filteredEmpty" : canCreate ? "shares.createBelow" : "shares.empty")} action={q || status ? <ButtonLink href="/shares" size="sm">{t("shares.clearFilters")}</ButtonLink> : undefined} /> : null}
 				{shares.map((s) => (
 					<ListRow key={s.id}>
 						<div className="flex flex-col gap-3 sm:flex-row sm:items-center sm:justify-between">

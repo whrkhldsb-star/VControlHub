@@ -14,6 +14,7 @@ import { redactCloudBillingAccountForReader } from "@/lib/cost/cloud-billing/red
 import { COST_CURRENCY_VALUES, type CostCurrency } from "@/lib/cost/types";
 import { getServerLocale, t } from "@/lib/i18n/translations";
 import { PageHeader, PageShell } from "@/components/page-shell";
+import { PageGuide } from "@/components/page-guide";
 
 import { CostPageClient } from "./cost-page-client";
 import { costDateSchema } from "@/lib/cost/schema";
@@ -30,6 +31,7 @@ export default async function CostSummaryPage({ searchParams }: { searchParams?:
 	const session = await requireSession("/cost-summary");
 	const canRead = sessionHasPermission(session, "cost:read");
 	const canManage = sessionHasPermission(session, "cost:manage");
+	const canReadServers = sessionHasPermission(session, "server:read");
 	const locale = await getServerLocale();
 
 	const params = await searchParams;
@@ -60,6 +62,19 @@ export default async function CostSummaryPage({ searchParams }: { searchParams?:
 				title={t("costPage.title", locale)}
 				description={t("costPage.desc", locale)}
 			/>
+			{canRead && (
+				<PageGuide
+					title={t("costPage.guide.title", locale)}
+					summary={t("costPage.guide.summary", locale)}
+					steps={[
+						t("costPage.guide.step1", locale),
+						t("costPage.guide.step2", locale),
+						t("costPage.guide.step3", locale),
+					]}
+					links={canReadServers ? [{ label: t("costPage.guide.openServers", locale), href: "/servers" }] : undefined}
+					className="mb-6"
+				/>
+			)}
 			<CostPageClient
 				key={selected ? selected.id + selected.periodStart : month}
 				initialMonth={month}

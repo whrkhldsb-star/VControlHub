@@ -12,7 +12,6 @@ import { StatusBadge } from "@/components/status-badge";
 import { SegmentedControl } from "@/components/ui-primitives";
 
 import type { VpsStatusFilter, VpsStatusViewMode } from "./use-vps-status-view";
-import { ArrowLeft } from "@/components/icons";
 
 export function VpsStatusToolbar({
 	t,
@@ -27,6 +26,7 @@ export function VpsStatusToolbar({
 	fetchHealth,
 	isRefreshing,
 	loading,
+	isPlatformAdmin = false,
 }: {
 	t: (key: string, vars?: Record<string, string | number>) => string;
 	filter: VpsStatusFilter;
@@ -40,6 +40,7 @@ export function VpsStatusToolbar({
 	fetchHealth: () => Promise<void>;
 	isRefreshing: boolean;
 	loading: boolean;
+	isPlatformAdmin?: boolean;
 }) {
 	return (
 		<Toolbar className="justify-between">
@@ -78,10 +79,11 @@ export function VpsStatusToolbar({
 						? t("vpsStatusPage.refresh.off")
 						: t("vpsStatusPage.refresh.every", { label: intervalLabel })}
 				</StatusBadge>
-				<ButtonLink variant="outline" icon={<ArrowLeft aria-hidden />}
-					href="/health">
-					{t("vpsStatusPage.gotoSystemHealth")}
-				</ButtonLink>
+				{isPlatformAdmin ? (
+					<ButtonLink variant="outline" href="/health">
+						{t("vpsStatusPage.gotoSystemHealth")}
+					</ButtonLink>
+				) : null}
 				<ActionButton variant="secondary"
 					onClick={() => void fetchHealth()}
 					disabled={isRefreshing || loading}

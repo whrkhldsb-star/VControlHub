@@ -14,7 +14,8 @@ export function filterByHrefPermissions<T extends { href: string }>(
 	canAny: (permissions: readonly Permission[]) => boolean,
 ): T[] {
 	return items.filter((item) => {
-		const required = declaredPermissionsByHref[item.href];
+		const pathname = item.href.split(/[?#]/)[0] || "/";
+		const required = declaredPermissionsByHref[item.href] ?? declaredPermissionsByHref[pathname];
 		if (!required || required.length === 0) return true;
 		return canAny(required);
 	});

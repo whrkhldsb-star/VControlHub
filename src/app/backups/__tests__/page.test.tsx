@@ -202,6 +202,7 @@ describe("BackupsPage", () => {
     await act(async () => { render(await BackupsPage()); });
     expect(screen.getByText("创建并执行备份")).toBeInTheDocument();
     expect(document.querySelector("[data-backup-coverage]")).toBeNull();
+    expect(document.querySelector('[data-backup-coverage-error="true"]')).toBeInTheDocument();
   });
 
   it("shows an explicit error when the offsite configuration cannot be loaded", async () => {
@@ -211,5 +212,40 @@ describe("BackupsPage", () => {
 
     expect(screen.getByText(/异地备份配置加载失败/).closest('[role="alert"]')).toBeInTheDocument();
     expect(screen.queryByText("尚未测试连通性")).not.toBeInTheDocument();
+  });
+
+  it("aligns retention cleanup counts with platform backups when a customer is selected", async () => {
+    const { requireSession } = await import("@/lib/auth/require-session");
+    const { listBackupRecords } = await import("@/lib/backup/service");
+    vi.mocked(requireSession).mockResolvedValueOnce({
+      userId: "u1",
+      username: "admin",
+      roles: ["admin"],
+      permissions: ["backup:read", "backup:create", "backup:restore", "team:manage"],
+      currentTeamId: "team-a",
+      mustChangePassword: false,
+    });
+    vi.mocked(listBackupRecords)
+      .mockResolvedValueOnce([] as never)
+      .mockResolvedValueOnce([
+        {
+          id: "bak-platform-1",
+          type: "DATABASE",
+          status: "COMPLETED",
+          filePath: "backups/platform.sql.gz",
+          createdAt: new Date("2025-01-01T00:00:00.000Z"),
+          fileSize: String(1024),
+          completedAt: new Date("2025-01-01T00:00:00.000Z"),
+          errorMessage: null,
+          note: null,
+          creator: { username: "admin", displayName: "Admin" },
+        },
+      ] as never);
+
+    await act(async () => { render(await BackupsPage()); });
+
+    expect(vi.mocked(listBackupRecords)).toHaveBeenCalledWith(expect.objectContaining({ currentTeamId: null }));
+    expect(screen.getByRole("button", { name: "立即清理", hidden: true })).toBeEnabled();
+    expect(screen.getByText(/当前共 1 条备份记录/)).toBeInTheDocument();
   });
 });

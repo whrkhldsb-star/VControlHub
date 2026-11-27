@@ -127,6 +127,23 @@ describe("UserManagementClient", () => {
     expect(await screen.findByText("缺少权限: team:read")).toBeInTheDocument();
   });
 
+  it("says a customer is needed first, and links to customers, when there are none", async () => {
+    const actor = userEvent.setup();
+    vi.mocked(csrfFetch).mockImplementation(async (input: RequestInfo | URL) => {
+      const url = String(input);
+      if (url === "/api/teams") return { teams: [] };
+      if (url === "/api/identity-templates") return { templates: [] };
+      return { users: [user] };
+    });
+    render(<UserManagementClient canManage />);
+    await actor.click(await screen.findByRole("button", { name: "创建用户" }));
+    expect(await screen.findByText("需要先有客户")).toBeInTheDocument();
+    expect(screen.getByRole("link", { name: "去新建客户" })).toHaveAttribute("href", "/customers");
+    // A platform administrator needs no customer.
+    await actor.click(screen.getByRole("button", { name: "平台管理员" }));
+    expect(screen.queryByText("需要先有客户")).not.toBeInTheDocument();
+  });
+
   it("offers to read the list again after it could not be loaded", async () => {
     const actor = userEvent.setup();
     vi.mocked(csrfFetch).mockRejectedValueOnce(new Error("用户列表加载失败")).mockResolvedValue({ users: [user], total: 1 });

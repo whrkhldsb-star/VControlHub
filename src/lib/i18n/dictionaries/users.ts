@@ -6,8 +6,8 @@
  */
 
 export const zh: Record<string, string> = {
-	"users.desc.manage": "创建用户、分配角色与权限管理",
-	"users.desc.readonly": "查看用户、角色与权限（只读）",
+	"users.desc.manage": "创建登录账号：客户账号（选择所属客户和身份模板）或平台管理员，并管理它们的状态和权限。",
+	"users.desc.readonly": "查看账号的账号类型、所属客户和身份模板（只读）。",
 	"users.title": "用户管理",
 	"usersPage.eyebrow": "用户",
 	"usersPage.action.cancel": "取消",
@@ -56,13 +56,18 @@ export const zh: Record<string, string> = {
 	"usersPage.success.enabled": "已启用 {name}",
 	"usersPage.title2": "用户列表",
 	"usersPage.form.accountType": "账号类型",
+	"usersPage.form.accountTypeHint.customer": "只能看到和操作所属客户的服务器与数据，能做什么由身份模板决定。",
+	"usersPage.form.accountTypeHint.admin": "可以管理整个平台，包括所有客户、设置和账号。只给负责平台运维的人。",
+	"usersPage.noCustomers.title": "需要先有客户",
+	"usersPage.noCustomers.body": "客户账号必须属于一个客户，现在还没有客户。",
+	"usersPage.noCustomers.action": "去新建客户",
 	"usersPage.noCustomer": "未分配客户",
 	"usersPage.customerDeleted": "{name}（已删除）",
 };
 
 export const en: Record<string, string> = {
-	"users.desc.manage": "Create users, assign roles, and manage permissions",
-	"users.desc.readonly": "View users, roles, and permissions (read-only)",
+	"users.desc.manage": "Create sign-in accounts: customer accounts (with their customer and identity template) or platform administrators, and manage their status and permissions.",
+	"users.desc.readonly": "See each account’s type, customer and identity template (read-only).",
 	"users.title": "User management",
 	"usersPage.eyebrow": "Users",
 	"usersPage.action.cancel": "Cancel",
@@ -111,6 +116,11 @@ export const en: Record<string, string> = {
 	"usersPage.success.enabled": "Enabled {name}",
 	"usersPage.title2": "Users",
 	"usersPage.form.accountType": "Account type",
+	"usersPage.form.accountTypeHint.customer": "Sees and works on its customer’s servers and data only; its identity template decides what it can do.",
+	"usersPage.form.accountTypeHint.admin": "Manages the whole platform, including every customer, the settings and the accounts. Only for the people who run the platform.",
+	"usersPage.noCustomers.title": "Create a customer first",
+	"usersPage.noCustomers.body": "A customer account belongs to a customer, and there are none yet.",
+	"usersPage.noCustomers.action": "Create a customer",
 	"usersPage.noCustomer": "No customer",
 	"usersPage.customerDeleted": "{name} (deleted)",
 };

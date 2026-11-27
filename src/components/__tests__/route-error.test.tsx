@@ -79,7 +79,8 @@ describe("RouteError", () => {
 
 		expect(screen.queryByRole("heading", { name: "页面加载出错" })).not.toBeInTheDocument();
 		expect(screen.queryByText(/错误标识：/)).not.toBeInTheDocument();
-		expect(screen.getByText(/权限/)).toBeInTheDocument();
+		expect(screen.getByRole("heading", { name: /权限/ })).toBeInTheDocument();
+		expect(screen.getByRole("link", { name: "返回仪表盘" })).toHaveAttribute("href", "/dashboard");
 	});
 
 	// A production build forwards a server render failure with a generic English sentence in place of its message

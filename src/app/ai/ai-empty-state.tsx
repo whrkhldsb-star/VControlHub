@@ -70,15 +70,23 @@ export function AiEmptyState({
             <h2 className="ui-title-page">
               {t("aiPage.emptyNoProvider")}
             </h2>
-            {onOpenProviders && <><p className="mt-3 text-sm leading-6 text-[var(--text-muted)]">
-              {t("aiPage.emptyNoProviderHint")}
-            </p>
-            <ActionButton variant="primary"
-              onClick={onOpenProviders}
-              className="mt-5"
-            >
-              {t("aiPage.configProviders")}
-            </ActionButton></>}
+            {onOpenProviders ? (
+              <>
+                <p className="mt-3 text-sm leading-6 text-[var(--text-muted)]">
+                  {t("aiPage.emptyNoProviderHint")}
+                </p>
+                <ActionButton variant="primary"
+                  onClick={onOpenProviders}
+                  className="mt-5"
+                >
+                  {t("aiPage.configProviders")}
+                </ActionButton>
+              </>
+            ) : (
+              <p className="mt-3 text-sm leading-6 text-[var(--text-muted)]">
+                {t("aiPage.emptyNoProviderReadOnlyHint")}
+              </p>
+            )}
           </>
         ) : (
           <>

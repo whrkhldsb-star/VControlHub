@@ -40,7 +40,20 @@ describe("AuditLogClient", () => {
     render(<AuditLogClient />);
 
     expect(await screen.findByRole("alert")).toHaveTextContent("审计数据库暂时不可用");
-    expect(screen.queryByText("暂无审计日志。")).not.toBeInTheDocument();
+    expect(screen.queryByText("暂无审计日志")).not.toBeInTheDocument();
+    expect(screen.getByRole("button", { name: "重试" })).toBeInTheDocument();
+  });
+
+  it("tells a filter that matched nothing from an empty log, and clears it", async () => {
+    const actor = userEvent.setup();
+    vi.mocked(csrfFetch).mockResolvedValue({ logs: [], total: 0, page: 1, pageSize: 50, totalPages: 0 });
+
+    render(<AuditLogClient initialActionFilter="server.delete" />);
+
+    expect((await screen.findAllByText("没有匹配的日志")).length).toBeGreaterThan(0);
+    expect(screen.queryByText("暂无审计日志")).not.toBeInTheDocument();
+    await actor.click(screen.getAllByRole("button", { name: "清除筛选" })[0]!);
+    expect((await screen.findAllByText("暂无审计日志")).length).toBeGreaterThan(0);
   });
 
   it("keeps existing audit rows visible when refresh fails", async () => {
@@ -76,7 +89,9 @@ describe("AuditLogClient", () => {
     expect(within(dialog).getByText("管理员")).toBeInTheDocument();
     expect(within(dialog).getByText("警告")).toBeInTheDocument();
     // Every field of the detail, whole, nested values as JSON.
-    expect(within(dialog).getByText("reason")).toBeInTheDocument();
+    // Known fields by name ("原因" for reason), the key kept as the tooltip; others by their key.
+    expect(within(dialog).getByText("原因")).toHaveAttribute("title", "reason");
+    expect(within(dialog).getByText("change")).toBeInTheDocument();
     expect(within(dialog).getByText("x".repeat(300))).toBeInTheDocument();
     expect(within(dialog).getByText('{"enabled":{"from":true,"to":false}}')).toBeInTheDocument();
   });

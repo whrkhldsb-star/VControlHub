@@ -25,7 +25,7 @@ export function DownloadsClient({ servers, canManage, canManageNode }: { servers
 	const [tasks, setTasks] = useState<DownloadTask[]>([]);
 	const [globalStat, setGlobalStat] = useState<GlobalStat>(null);
 	const [loading, setLoading] = useState(true);
-	const [loadFailed, setLoadFailed] = useState(false);
+	const [loadFailed, setLoadFailed] = useState("");
 	const [loadingMore, setLoadingMore] = useState(false);
 	const [nextCursor, setNextCursor] = useState<string | null>(null);
 	const [showForm, setShowForm] = useState(false);
@@ -111,7 +111,7 @@ export function DownloadsClient({ servers, canManage, canManageNode }: { servers
 			setNextCursor(null);
 			setLoading(true);
 		}
-		setLoadFailed(false);
+		setLoadFailed("");
 		if (loadMore) setLoadingMore(true);
 		try {
 			const incoming = new Map<string, DownloadTask>();
@@ -147,10 +147,10 @@ export function DownloadsClient({ servers, canManage, canManageNode }: { servers
 			if (!cursor) pendingPageFilterRef.current = null;
 			setNextCursor(cursor);
 			setGlobalStat(latestGlobalStat);
+			setLoadFailed("");
 		} catch (error) {
 			if (isCurrent() && !controller.signal.aborted) {
-				setLoadFailed(true);
-				addToast("error", getErrorMessage(error, t("downloadsPage.error.loadList")));
+				setLoadFailed(getErrorMessage(error, t("downloadsPage.error.loadList")));
 			}
 		} finally {
 			requestInFlightRef.current = null;
@@ -163,7 +163,7 @@ export function DownloadsClient({ servers, canManage, canManageNode }: { servers
 				void fetchTasksRef.current(true);
 			} else if (mountedRef.current && pendingRefreshRef.current) void fetchTasksRef.current();
 		}
-	}, [t, addToast, categoryFilter, filter, filterKey]);
+	}, [t, categoryFilter, filter, filterKey]);
 
 	const fetchTasksRef = useRef(fetchTasks);
 
@@ -390,33 +390,6 @@ export function DownloadsClient({ servers, canManage, canManageNode }: { servers
 	return (
 		<div>
 
-			{globalStat && (
-				<SurfacePanel className="mb-5" title={t("downloadsPage.stats.globalSpeed")}>
-				<div className="flex flex-wrap items-center gap-5 text-sm">
-					<div>
-						<span className="text-[var(--text-muted)]">{t("downloadsPage.stats.globalSpeed")}</span>
-						<span className="ml-2 font-mono font-semibold text-[var(--accent)]">{formatSpeed(globalStat.downloadSpeed)}</span>
-					</div>
-					<div>
-						<span className="text-[var(--text-muted)]">{t("downloadsPage.stats.active")}</span>
-						<span className="ml-2 font-medium text-[var(--text-primary)]">{globalStat.numActive}</span>
-					</div>
-					<div>
-						<span className="text-[var(--text-muted)]">{t("downloadsPage.stats.pending")}</span>
-						<span className="ml-2 text-[var(--warning)]">{globalStat.numWaiting}</span>
-					</div>
-					<div className="ml-auto flex flex-wrap items-center gap-2">
-						<span className="text-xs text-[var(--text-muted)]">{t("downloadsPage.stats.globalLimit")}</span>
-						{canManageNode ? [0, 1024, 5120, 10240].map((kb) => (
-							<Chip key={kb} onClick={() => handleGlobalSpeedLimit(kb)}>
-								{kb === 0 ? t("downloadsPage.stats.unlimited") : `${kb >= 1024 ? (kb / 1024) + "M" : kb + "K"}`}
-							</Chip>
-						)) : <span className="text-xs text-[var(--text-muted)]">{t("downloadsPage.stats.needPermission")}</span>}
-					</div>
-				</div>
-				</SurfacePanel>
-			)}
-
 			{/* Quick Stats */}
 			{!globalStat && (runningCount > 0 || pendingCount > 0) && (
 				<div className="mb-4 flex gap-3 text-xs text-[var(--text-muted)]">
@@ -471,6 +444,34 @@ export function DownloadsClient({ servers, canManage, canManageNode }: { servers
 				onSubmit={handleSubmit}
 			/>
 
+			{globalStat && (
+				<SurfacePanel className="mb-5" title={t("downloadsPage.stats.globalSpeed")}>
+				<div className="flex flex-wrap items-center gap-5 text-sm">
+					<div>
+						<span className="text-[var(--text-muted)]">{t("downloadsPage.stats.globalSpeed")}</span>
+						<span className="ml-2 font-mono font-semibold text-[var(--accent)]">{formatSpeed(globalStat.downloadSpeed)}</span>
+					</div>
+					<div>
+						<span className="text-[var(--text-muted)]">{t("downloadsPage.stats.active")}</span>
+						<span className="ml-2 font-medium text-[var(--text-primary)]">{globalStat.numActive}</span>
+					</div>
+					<div>
+						<span className="text-[var(--text-muted)]">{t("downloadsPage.stats.pending")}</span>
+						<span className="ml-2 text-[var(--warning)]">{globalStat.numWaiting}</span>
+					</div>
+					<div className="ml-auto flex flex-wrap items-center gap-2">
+						<span className="text-xs text-[var(--text-muted)]">{t("downloadsPage.stats.globalLimit")}</span>
+						{canManageNode ? [0, 1024, 5120, 10240].map((kb) => (
+							<Chip key={kb} onClick={() => handleGlobalSpeedLimit(kb)}>
+								{kb === 0 ? t("downloadsPage.stats.unlimited") : `${kb >= 1024 ? (kb / 1024) + "M" : kb + "K"}`}
+							</Chip>
+						)) : <span className="text-xs text-[var(--text-muted)]">{t("downloadsPage.stats.needPermission")}</span>}
+					</div>
+				</div>
+				</SurfacePanel>
+			)}
+
+			{loadFailed && <Notice tone="danger" action={{ label: t("common.retry"), onClick: () => void fetchTasks() }}>{loadFailed}</Notice>}
 			<ListPanel
 				title={t("downloadsPage.list.title")}
 				count={loading ? "…" : filteredTasks.length}

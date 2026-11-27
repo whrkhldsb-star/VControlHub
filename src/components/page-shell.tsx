@@ -10,6 +10,7 @@
 import Link from "next/link";
 import type { HTMLAttributes, ReactNode } from "react";
 import { LocalizedText } from "./localized-text";
+import { ButtonLink } from "./action-button";
 import { File as FileIcon } from "./icons";
 import { Chip } from "./ui-primitives";
 import { PageHeaderIcon } from "./page-header-icon";
@@ -651,6 +652,12 @@ export function PermissionDenied() {
 					</svg>
 				}
 				title={<LocalizedText textKey="common.noPermission" fallback="Missing permission" />}
+				description={<LocalizedText textKey="common.noPermissionHint" fallback="Your account does not have permission to open this page. Ask a platform administrator if you need access." />}
+				actions={
+					<ButtonLink href="/dashboard" variant="secondary">
+						<LocalizedText textKey="common.backToDashboard" fallback="Back to dashboard" />
+					</ButtonLink>
+				}
 			/>
 		</PageShell>
 	);

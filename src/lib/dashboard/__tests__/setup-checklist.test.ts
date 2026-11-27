@@ -15,7 +15,7 @@ describe("buildSetupChecklist", () => {
 		expect(items.map((i) => i.href)).toEqual([
 			"/servers",
 			"/alert-rules",
-			"/settings",
+			"/settings#smtp",
 			"/backups",
 			"/servers",
 		]);
@@ -61,5 +61,13 @@ describe("buildSetupChecklist", () => {
 		const cost = items.find((i) => i.id === "costMonthly");
 		expect(cost?.done).toBe(false);
 		expect(countPendingSetupItems(items)).toBe(1);
+	});
+
+	it("counts Telegram as an outbound notification channel as well as SMTP", () => {
+		const base = { serverCount: 1, enabledAlertRuleCount: 1, smtpEnabled: false, backupScheduleCount: 1, serversWithMonthlyCost: 1 };
+		const outbound = (input: Parameters<typeof buildSetupChecklist>[0]) => buildSetupChecklist(input).find((item) => item.id === "notificationOutbound");
+		expect(outbound(base)?.done).toBe(false);
+		expect(outbound({ ...base, telegramEnabled: true })?.done).toBe(true);
+		expect(outbound({ ...base, smtpEnabled: true })?.done).toBe(true);
 	});
 });

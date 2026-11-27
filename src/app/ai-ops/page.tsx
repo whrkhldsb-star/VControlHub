@@ -47,6 +47,10 @@ export default async function AiOpsPage() {
 	assertAiOpsPlatformReader(session);
 	const canManage = sessionHasPermission(session, "ai:ops:manage");
 	const canAutonomous = sessionHasPermission(session, "ai:ops:autonomous");
+	const canChatAi = sessionHasPermission(session, "ai:chat");
+	const canManageAi = sessionHasPermission(session, "ai:manage");
+	const canManageAlerts = sessionHasPermission(session, "notification:manage");
+	const canReadPlaybooks = sessionHasPermission(session, "playbook:read");
 	const locale = await getServerLocale();
 
 	const [summary, logs, settings, providerOptions] = await Promise.all([
@@ -88,6 +92,10 @@ export default async function AiOpsPage() {
 				storedProvider={storedProvider}
 				canManage={canManage}
 				canAutonomous={canAutonomous}
+				canChatAi={canChatAi}
+				canManageAi={canManageAi}
+				canManageAlerts={canManageAlerts}
+				canReadPlaybooks={canReadPlaybooks}
 			/>
 		</PageShell>
 	);

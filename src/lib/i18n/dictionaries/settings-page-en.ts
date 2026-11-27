@@ -2,9 +2,11 @@ export const en: Record<string, string> = {
 	// ── Tab labels (super-category grouping) ──
 	"settingsPage.tab.personal": "Personal",
 	"settingsPage.tab.personal.desc": "Default page, dashboard widgets, notifications, refresh",
-	"settingsPage.tab.security": "Security & account",
+	"settingsPage.tab.security": "Security policy",
 	"settingsPage.tab.notifications": "Notifications",
-	"settingsPage.unified.description": "Personal habits, interface behavior, account security, and platform-level parameters are managed from one place.",
+	"settingsPage.unified.description": "Personal preferences and platform-wide configuration live here. Your own password, two-factor and sessions are changed on the account security page.",
+	"settingsPage.rerouted.title": "Only administrators can change this section",
+	"settingsPage.rerouted.body": "The link points to platform settings, which your account cannot change, so your personal preferences are open instead. Ask a platform administrator to change platform settings.",
 	"settingsPage.unified.eyebrow": "Personalized settings",
 	"settingsPage.unified.title": "Settings",
 	"settingsClient.saveSuccess": "Settings saved.",

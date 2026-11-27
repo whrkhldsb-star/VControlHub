@@ -38,7 +38,7 @@ describe("RollbackDeployButton", () => {
     render(<RollbackDeployButton runId="run_1" templateName="Nginx" />, { wrapper });
 
     // First click enters confirmation mode
-    await user.click(screen.getByRole("button", { name: /执行真实回滚/ }));
+    await user.click(screen.getByRole("button", { name: /回滚到上一版本/ }));
 
     // Warning text should appear
     expect(screen.getByText(/确认执行部署/)).toBeInTheDocument();
@@ -62,7 +62,7 @@ describe("RollbackDeployButton", () => {
 
     render(<RollbackDeployButton runId="run_1" templateName="Nginx" />, { wrapper });
 
-    await user.click(screen.getByRole("button", { name: /执行真实回滚/ }));
+    await user.click(screen.getByRole("button", { name: /回滚到上一版本/ }));
     // Cancel button appears in confirmation mode
     await user.click(screen.getByRole("button", { name: /取消/ }));
 
@@ -77,7 +77,7 @@ describe("RollbackDeployButton", () => {
 
     render(<RollbackDeployButton runId="run_1" templateName="Nginx" />, { wrapper });
 
-    await user.click(screen.getByRole("button", { name: /执行真实回滚/ }));
+    await user.click(screen.getByRole("button", { name: /回滚到上一版本/ }));
     await user.click(screen.getByRole("button", { name: /确认回滚/ }));
 
     // A bare <span> left the failure invisible to assistive tech; Notice(danger)

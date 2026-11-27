@@ -6,12 +6,16 @@
  */
 
 export const zh: Record<string, string> = {
+	"imageBedPage.readEmpty": "暂无可查看的图片外链。",
+	"imageBedPage.filteredEmpty": "没有符合搜索条件的图片。",
+	"imageBedPage.clearSearch": "清除搜索",
 	"imageBedPage.legacy.uploading": "上传中…",
 	"imageBedPage.legacy.dropHint": "上传图片",
 	"imageBedPage.legacy.fileTypes": "图片文件",
 	"imageBedPage.batch.albumLabel": "批量移动目标相册",
 	"imageBedPage.batch.albumPlaceholder": "目标相册名",
-	"imageBedPage.publishFromStorage.title": "从云盘发布到图床",
+
+	"imageBedPage.publishFromStorage.title": "发布已有图片",
 	"imageBedPage.publishFromStorage.node": "存储节点（本地或 SFTP）",
 	"imageBedPage.publishFromStorage.nodePlaceholder": "选择存储节点",
 	"imageBedPage.publishFromStorage.path": "文件相对路径",
@@ -50,9 +54,11 @@ export const zh: Record<string, string> = {
 	"imageBedPage.error.upload": "上传失败",
 	"imageBedPage.hero.eyebrow": "外链中心",
 	"imageBedPage.hero.openMedia": "打开图片工作区",
-	"imageBedPage.hero.publishFromStorage": "从云盘发布",
+
+	"imageBedPage.hero.publishFromStorage": "发布已有图片",
 	"imageBedPage.hero.title": "图片外链",
-	"imageBedPage.hero.description": "上传图片或从云盘发布，生成可公开访问的图片外链，并统计访问来源。",
+
+	"imageBedPage.hero.description": "图片外链用于公开嵌入图片。若要控制文件或文件夹的访问权限，请使用分享链接。",
 	"imageBedPage.legacy.defaultNode": "默认存储",
 	"imageBedPage.legacy.loadNodes": "加载节点",
 	"imageBedPage.legacy.nodeLabel": "存储节点",
@@ -60,7 +66,8 @@ export const zh: Record<string, string> = {
 	"imageBedPage.legacy.pathPlaceholder": "目标路径（可选）",
 	"imageBedPage.legacy.albumLabel": "上传相册",
 	"imageBedPage.legacy.albumPlaceholder": "相册（可选）",
-	"imageBedPage.legacy.title": "兼容直传入口",
+
+	"imageBedPage.legacy.title": "从此设备上传",
 	"imageBedPage.manage.stats": "统计",
 	"imageBedPage.manage.title": "管理视图",
 	"imageBedPage.progress.completed": "已完成 {success}/{total} 张",
@@ -105,6 +112,9 @@ export const zh: Record<string, string> = {
 };
 
 export const en: Record<string, string> = {
+	"imageBedPage.readEmpty": "No image links are available to view.",
+	"imageBedPage.filteredEmpty": "No images match this search.",
+	"imageBedPage.clearSearch": "Clear search",
 	"imageBedPage.legacy.uploading": "Uploading…",
 	"imageBedPage.legacy.dropHint": "Upload images",
 	"imageBedPage.legacy.fileTypes": "Image files",
@@ -124,9 +134,11 @@ export const en: Record<string, string> = {
 	"imageBedPage.error.upload": "Upload failed",
 	"imageBedPage.hero.eyebrow": "Link center",
 	"imageBedPage.hero.openMedia": "Open image workspace",
-	"imageBedPage.hero.publishFromStorage": "Publish from storage",
+
+	"imageBedPage.hero.publishFromStorage": "Publish an existing image",
 	"imageBedPage.hero.title": "Image links",
-	"imageBedPage.hero.description": "Upload images or publish them from storage as public links, and see where they are viewed from.",
+
+	"imageBedPage.hero.description": "Image links embed public images. Use Shares for controlled access to files or folders.",
 	"imageBedPage.legacy.defaultNode": "Default storage",
 	"imageBedPage.legacy.loadNodes": "Load nodes",
 	"imageBedPage.legacy.nodeLabel": "Storage node",
@@ -134,7 +146,8 @@ export const en: Record<string, string> = {
 	"imageBedPage.legacy.pathPlaceholder": "Target path (optional)",
 	"imageBedPage.legacy.albumLabel": "Upload album",
 	"imageBedPage.legacy.albumPlaceholder": "Album (optional)",
-	"imageBedPage.legacy.title": "Legacy direct upload",
+
+	"imageBedPage.legacy.title": "Upload from this device",
 	"imageBedPage.manage.stats": "Stats",
 	"imageBedPage.manage.title": "Management view",
 	"imageBedPage.progress.completed": "Completed {success}/{total}",
@@ -192,7 +205,8 @@ export const en: Record<string, string> = {
 	"imageBedPage.empty": "No images yet. Upload the first one.",
 	"imageBedPage.image.delete.aria": "Delete image",
 	"imageBedPage.image.select": "Select image {name}",
-	"imageBedPage.publishFromStorage.title": "Publish from storage",
+
+	"imageBedPage.publishFromStorage.title": "Publish an existing image",
 	"imageBedPage.publishFromStorage.node": "Storage node",
 	"imageBedPage.publishFromStorage.nodePlaceholder": "Select storage node",
 	"imageBedPage.publishFromStorage.path": "Path",

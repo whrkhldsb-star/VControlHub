@@ -7,8 +7,9 @@ import { useI18n } from "@/lib/i18n/use-locale";
 import { useToast } from "@/components/toast-provider";
 import { UI_INPUT } from "@/lib/ui/classes";
 import { PageShell, PageHeader, SurfacePanel, EmptyState } from "@/components/page-shell";
+import { PageGuide } from "@/components/page-guide";
 import { getErrorMessage } from "@/lib/http/error-message";
-import { ActionButton } from "@/components/action-button";
+import { ActionButton, ButtonLink } from "@/components/action-button";
 import { FormField, Notice } from "@/components/ui-primitives";
 import { useAsyncAction } from "@/lib/hooks/use-async-action";
 import { ConfirmDialog } from "@/components/confirm-dialog";
@@ -263,6 +264,20 @@ export function KnowledgeClient({ canManage }: { canManage: boolean }) {
         eyebrow={t("knowledgePage.eyebrow")}
         title={t("knowledgePage.title")}
         description={t("knowledgePage.description")}
+      >
+        <ButtonLink href="/ai" size="sm" variant="secondary">
+          {t("knowledgePage.openAi")}
+        </ButtonLink>
+      </PageHeader>
+      <PageGuide
+        title={t("knowledgePage.guide.title")}
+        summary={t("knowledgePage.guide.summary")}
+        steps={[
+          t("knowledgePage.guide.step1"),
+          t("knowledgePage.guide.step2"),
+          t("knowledgePage.guide.step3"),
+        ]}
+        className="mb-5"
       />
       {/* Loading the bases or a base's documents failed: said at the top, above what could not be shown. */}
       {error && <Notice tone="danger" compact className="mb-5" onDismiss={() => setError(null)} dismissLabel={t("common.close")}>{error}</Notice>}
@@ -300,7 +315,7 @@ export function KnowledgeClient({ canManage }: { canManage: boolean }) {
               </div>
             )}
             {bases.length === 0 ? (
-              <EmptyState text={t("knowledgePage.emptyBases")} />
+              <EmptyState text={t(canManage ? "knowledgePage.emptyBases" : "knowledgePage.emptyBasesReadOnly")} />
             ) : (
               <ul className="space-y-2">
                 {bases.map((b) => (

@@ -171,8 +171,8 @@ export function UnifiedFileSearch({
 					value={mode}
 					onChange={changeMode}
 					options={[
-						{ value: "filename", label: t("filesBrowserSpa.searchModeFilename") },
-						{ value: "content", label: t("filesBrowserSpa.searchModeContent") },
+						{ value: "filename", label: t("filesPage.nameMode") },
+						{ value: "content", label: t("filesPage.textMode") },
 					]}
 				/>
 				{mode === "filename" && (
@@ -189,6 +189,7 @@ export function UnifiedFileSearch({
 				)}
 			</div>
 
+			{mode === "content" && <p className="text-xs text-[var(--text-muted)]">{t("filesPage.textEligible")}</p>}
 			<form
 				onSubmit={(event) => {
 					event.preventDefault();
@@ -201,7 +202,7 @@ export function UnifiedFileSearch({
 			>
 				<div className="flex flex-1 flex-col gap-1">
 					<label htmlFor="files-search-query" className={UI_LABEL}>
-						{mode === "filename" ? t("filesBrowserSpa.searchFileName") : t("filesBrowserSpa.searchModeContent")}
+						{mode === "filename" ? t("filesBrowserSpa.searchFileName") : t("filesPage.textMode")}
 					</label>
 					<input
 						ref={inputRef}
@@ -209,13 +210,7 @@ export function UnifiedFileSearch({
 						type="search"
 						value={searchInput}
 						onChange={(e) => onSearchInputChange(e.currentTarget.value)}
-						placeholder={
-							mode === "filename"
-								? scope === "all"
-									? t("filesBrowserSpa.searchAllFiles")
-									: t("filesBrowserSpa.searchCurrentFolder")
-								: t("filesBrowserSpa.contentSearchPlaceholder")
-						}
+						placeholder={mode === "filename" ? "nginx.conf" : "upstream"}
 						data-input
 						className={cn(UI_INPUT, "px-4")}
 					/>
