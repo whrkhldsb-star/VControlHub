@@ -5,6 +5,7 @@ import { AuthError, ConflictError, ForbiddenError, NotFoundError } from "@/lib/e
 const { prismaMock, teamServiceMock, assertAdminAccessMayBeRemovedMock, assertPlatformAdminMock } = vi.hoisted(() => ({
 	prismaMock: {
 		user: { findUnique: vi.fn() },
+		revokedSession: { findUnique: vi.fn(async () => null) },
 		$queryRaw: vi.fn(),
 		$executeRaw: vi.fn(),
 		role: { findUnique: vi.fn() },

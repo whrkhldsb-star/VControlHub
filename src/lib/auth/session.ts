@@ -1,5 +1,5 @@
 import { apiCopy } from "@/lib/i18n/api-copy";
-import { createHmac, randomBytes } from "node:crypto";
+import { createHash, createHmac, randomBytes } from "node:crypto";
 
 import { createLogger } from "@/lib/logging";
 import { getAppSlug } from "@/lib/branding";
@@ -111,7 +111,32 @@ type SessionTokenEnvelope = SessionPayload & {
    * matches the column default, so the upgrade does not force a mass re-login.
    */
   sep?: number;
+  /**
+   * Per-sign-in session id (22 base64url chars). Signing out one device
+   * records it in `revoked_session_ids`, so that cookie stops verifying on
+   * every instance and across restarts while the account's other devices stay
+   * signed in. Kept across a customer switch (same sign-in), freshly minted by
+   * every login and credential refresh. Missing on pre-upgrade tokens, which
+   * are revoked by digest instead — see {@link revocationKey}.
+   */
+  sid?: string;
 };
+
+const SID_RE = /^[A-Za-z0-9_-]{22}$/;
+
+function newSessionId(): string {
+  return randomBytes(16).toString("base64url");
+}
+
+/**
+ * The `revoked_session_ids` key for a session cookie: its `sid`, or for a
+ * cookie minted before `sid` existed a one-way digest of the whole cookie, so
+ * signing out on a pre-upgrade cookie is durable too. The `legacy:` prefix
+ * cannot collide with a 22-char sid.
+ */
+function revocationKey(payload: { sid?: string }, token: string): string {
+  return payload.sid ?? `legacy:${createHash("sha256").update(`vch-session-revoke:${token}`).digest("hex")}`;
+}
 
 /**
  * The raw HMAC key behind every session-scoped token. Exported so sibling
@@ -261,6 +286,7 @@ export async function createSessionToken(payload: SessionPayload, options: {
     exp: now + ttlMs,
     ...(credentialOwner ? { cfp: credentialFingerprint(credentialOwner.passwordHash) } : {}),
     sep: credentialOwner?.sessionEpoch ?? 0,
+    sid: newSessionId(),
   };
 
   return signHmacToken(envelope, getSessionSecret());
@@ -289,7 +315,8 @@ export async function reissueSessionForTeam(token: string, teamId: string | null
   const envelope = JSON.parse(decodeBase64Url(encodedPayload)) as SessionTokenEnvelope;
   const maxAge = Math.max(1, Math.ceil((envelope.exp - Date.now()) / 1000));
   return {
-    token: signHmacToken({ ...envelope, currentTeamId: teamId }, getSessionSecret()),
+    // Same sign-in, so the same revocable id; a pre-upgrade cookie gains one here.
+    token: signHmacToken({ ...envelope, currentTeamId: teamId, sid: envelope.sid ?? newSessionId() }, getSessionSecret()),
     maxAge,
   };
 }
@@ -324,7 +351,11 @@ export async function verifySessionToken(token: string) {
     throw new AuthError(apiCopy("apiCopy.session.token.expired.f1044201"));
   }
 
- const user = await prisma.user.findUnique({
+  if (payload.sid !== undefined && (typeof payload.sid !== "string" || !SID_RE.test(payload.sid))) {
+    throw new AuthError(apiCopy("apiCopy.invalid.session.token.format.ab35c21d"));
+  }
+
+ const [user, revoked] = await Promise.all([prisma.user.findUnique({
    where: { id: payload.userId },
    select: {
      id: true,
@@ -340,10 +371,19 @@ export async function verifySessionToken(token: string) {
      passwordHash: true,
      roles: { select: { role: { select: { key: true } } } },
    },
- });
+ }),
+ // This one cookie was signed out (on any instance, before any restart).
+ prisma.revokedSession.findUnique({
+   where: { sid: revocationKey(payload, token) },
+   select: { sid: true },
+ })]);
 
  if (!user || user.status === "DISABLED") {
    throw new AuthError(apiCopy("apiCopy.session.user.is.disabled.or.no.longer.exists.6b046fab"));
+ }
+
+ if (revoked) {
+   throw new AuthError(t("backend.auth.sessionCredentialsChanged"));
  }
 
  // Reject a session minted against a password that has since been replaced.
@@ -403,6 +443,42 @@ export async function verifySessionToken(token: string) {
  } satisfies SessionPayload;
  verifiedSessionBindings.set(session, { ...captureSessionCredentialBinding(user), expiresAt: payload.exp });
  return session;
+}
+
+/**
+ * Durably sign out this one session cookie: every later verification of it
+ * (or of a customer-switched copy of the same sign-in) fails on every
+ * instance, across restarts, until it would have expired anyway. Other devices
+ * of the account are untouched, unlike {@link bumpUserSessionEpoch}.
+ *
+ * Only a correctly signed, unexpired cookie of `userId` is recorded, so a
+ * forged value cannot fill the table. Idempotent: a concurrent double sign-out
+ * of the same cookie is a no-op, not a unique-violation. Returns whether a
+ * revocation was recorded (or already existed).
+ */
+export async function revokeSessionToken(token: string, userId: string): Promise<boolean> {
+  const [encodedPayload, signature] = token.split(".");
+  if (!encodedPayload || !signature || !verifyHmacTokenSignature(encodedPayload, signature, getSessionSecret())) {
+    return false;
+  }
+  let payload: { userId?: unknown; exp?: unknown; sid?: unknown };
+  try {
+    payload = JSON.parse(decodeBase64Url(encodedPayload)) as typeof payload;
+  } catch {
+    return false;
+  }
+  if (!payload || payload.userId !== userId) return false;
+  if (typeof payload.exp !== "number" || !Number.isFinite(payload.exp) || payload.exp <= Date.now()) return false;
+  if (payload.sid !== undefined && (typeof payload.sid !== "string" || !SID_RE.test(payload.sid))) return false;
+  await prisma.revokedSession.createMany({
+    data: [{
+      sid: revocationKey({ sid: payload.sid as string | undefined }, token),
+      userId,
+      expiresAt: new Date(payload.exp),
+    }],
+    skipDuplicates: true,
+  });
+  return true;
 }
 
 // ─────────────────────────────────────────────────────────────

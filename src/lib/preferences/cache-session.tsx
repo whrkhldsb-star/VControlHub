@@ -3,6 +3,7 @@
 import { useEffect } from "react";
 import { writeUserPreferencesCache } from "./browser-cache";
 import { ACTIVE_PREFERENCES_KEY, PREFERENCES_EVENT, PREFERENCES_KEY, preferencesStorageKey } from "./cache-scope";
+import { clearShellPreferences } from "@/lib/ui/shell-preferences";
 
 /** Initialise the signed-in account even when the first page is a polling dashboard. */
 export function PreferenceCacheSession({ userId }: { userId: string | null }) {
@@ -12,7 +13,13 @@ export function PreferenceCacheSession({ userId }: { userId: string | null }) {
     try {
       const store = window.localStorage;
       const previous = store.getItem(ACTIVE_PREFERENCES_KEY);
-      if (previous?.startsWith(PREFERENCES_KEY + ":") && previous !== key) store.removeItem(previous);
+      if (previous?.startsWith(PREFERENCES_KEY + ":") && previous !== key) {
+        store.removeItem(previous);
+        // D-04: the previous user's shell preferences (pins, open groups,
+        // recent pages) must go with their preferences cache — they reveal
+        // which pages that account visited.
+        clearShellPreferences();
+      }
       store.removeItem(PREFERENCES_KEY);
       store.setItem(ACTIVE_PREFERENCES_KEY, key);
       window.dispatchEvent(new Event(PREFERENCES_EVENT));

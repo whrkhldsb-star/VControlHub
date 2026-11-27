@@ -43,7 +43,7 @@ vi.mock("ssh2", async () => {
 vi.mock("@/lib/server/terminal-handover", () => ({ registerTerminalSession: async () => () => undefined }));
 vi.mock("@/lib/db", () => ({ prisma: { server: { findFirst: state.server, findUnique: async () => ({ teamId: "new-owner" }) }, $disconnect: vi.fn() } }));
 vi.mock("@/lib/audit/service", () => ({ auditUserAction: state.audit }));
-vi.mock("@/lib/auth/session", () => ({ getSessionCookieName: () => "audit_session", verifySessionToken: state.verify }));
+vi.mock("@/lib/auth/session", () => ({ getSessionCookieName: () => "audit_session", verifySessionToken: state.verify, sessionTokenExpiresAt: () => Date.now() + 3_600_000 }));
 vi.mock("@/lib/auth/ssh-ws-token", () => ({ verifySshWsHandshakeToken: () => ({ userId: state.handshakeUserId }) }));
 vi.mock("@/lib/auth/team-scope", () => ({ serverTeamWhere: () => ({ teamId: "audit-team" }) }));
 vi.mock("@/lib/ssh/ssh-key-crypto", async () => (await import("@/test/ssh-key-crypto-mock")).withStoredKeyHelpers({ decryptServerPassword: (v: string) => v, decryptSshPrivateKey: (v: string) => v, decryptSshKeyPassphrase: (v: string) => v }));

@@ -1,4 +1,5 @@
 import path from "node:path/posix";
+import { DB_UTC_NOW } from "@/lib/db/utc-now";
 import { Prisma } from "@prisma/client";
 import { rm } from "node:fs/promises";
 import { prisma } from "@/lib/db";
@@ -136,13 +137,13 @@ let cleanupCursor = "";
 export async function sweepTerminalRelays() {
   const now = Date.now();
   await prisma.$executeRaw`
-    UPDATE download_tasks SET status = 'FAILED', "updatedAt" = NOW(), "errorMessage" = ${t("backend.downloads.relayPausedTooLong")}
+    UPDATE download_tasks SET status = 'FAILED', "updatedAt" = ${DB_UTC_NOW}, "errorMessage" = ${t("backend.downloads.relayPausedTooLong")}
     WHERE status = 'PENDING' AND "aria2Gid" IS NOT NULL AND
       CASE WHEN jsonb_typeof("transferManifest"->'pausedUntil') = 'number'
         THEN ("transferManifest"->>'pausedUntil')::numeric <= ${now}
         ELSE "updatedAt" < ${new Date(now - RELAY_PAUSE_MS)} END`;
   await prisma.$executeRaw`
-    UPDATE download_tasks d SET status = 'FAILED', "updatedAt" = NOW(), "errorMessage" = ${t("backend.downloads.reconcile.relayInterrupted")}
+    UPDATE download_tasks d SET status = 'FAILED', "updatedAt" = ${DB_UTC_NOW}, "errorMessage" = ${t("backend.downloads.reconcile.relayInterrupted")}
     WHERE status = 'RUNNING' AND (d."relayMode" OR d."aria2Gid" IS NOT NULL)
       AND (CASE WHEN jsonb_typeof(d."transferManifest"->'deadline') = 'number'
         THEN (d."transferManifest"->>'deadline')::numeric <= ${now}

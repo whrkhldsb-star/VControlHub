@@ -7,6 +7,7 @@ it.each([false, true])("checks each enclosing quota and single-file limit indepe
     pathPrefix, canWrite: true, quotaBytes: quota === null ? null : BigInt(quota), maxFileBytes: maxFile === null ? null : BigInt(maxFile),
   });
   const grants = [grant("", null, null), grant("parent", 100, 80), grant("parent/child", 60, 40), grant("sibling", 1, 1)];
+  grants[2]!.canWrite = false; // The ancestor grants write; this child's limits still apply.
   const db = {
     userStorageAccess: { findMany: vi.fn(async () => reversed ? grants.reverse() : grants) },
     fileEntry: {

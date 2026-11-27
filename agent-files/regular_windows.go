@@ -12,6 +12,9 @@ import (
 
 const safeOpenFlags = 0
 
+// FlushFileBuffers is not supported on a directory handle on Windows.
+func syncDirectory(_ *os.File) error { return nil }
+
 func singleLink(f *os.File, _ os.FileInfo) bool {
 	var i syscall.ByHandleFileInformation
 	return syscall.GetFileInformationByHandle(syscall.Handle(f.Fd()), &i) == nil && i.NumberOfLinks == 1 && i.FileAttributes&syscall.FILE_ATTRIBUTE_REPARSE_POINT == 0
@@ -154,6 +157,8 @@ func lockExecutor(f *os.File) error {
 
 // Shares reject reparse points, including child volume mount points.
 func (s share) deletionMountRoot(_ string) (*os.Root, error) { return s.root.OpenRoot(".") }
+
+func (s share) deletionRoots() []string { return []string{"."} }
 
 func agentOwnsDirectory(handle windows.Handle, agent *windows.SID) bool {
 	var info windows.ByHandleFileInformation

@@ -45,7 +45,9 @@ const PUBLIC_PATHS_EXACT = new Set([
 
 const PUBLIC_PATH_PREFIXES = [
   "/_next", // static assets
-  "/api/public", // public API endpoints
+  // Public API endpoints. The trailing slash is the boundary: "/api/public" alone also matched
+  // "/api/publication…" or "/api/public-keys", exempting a sibling route from the session and CSRF checks.
+  "/api/public/",
   "/api/agent/", // outbound host agent (Bearer token verified by route)
   "/api/share/", // public share-token downloads (validated server-side)
   "/api/webdav/", // Basic/Bearer API token authentication is enforced by the DAV route.

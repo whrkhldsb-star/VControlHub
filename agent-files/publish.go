@@ -21,7 +21,7 @@ func (s share) saveIntent(marker string, value any) error {
 		return err
 	}
 	err = json.NewEncoder(f).Encode(value)
-	return errors.Join(err, f.Sync(), f.Close())
+	return errors.Join(err, f.Sync(), f.Close(), s.syncParent(marker))
 }
 
 func (s share) trackUpload(key, target string) error {
@@ -66,9 +66,9 @@ func (s share) relocateLegacyUpload(op operation, key, stage string) (err error)
 	}
 	// openRegular checked the link count before the private stage is truncated.
 	if err = dest.Truncate(0); err == nil {
-		_, err = io.CopyN(dest, source, info.Size())
+		_, err = io.CopyN(dest, operationReader{op, source}, info.Size())
 	}
-	return errors.Join(err, dest.Sync(), dest.Close())
+	return errors.Join(err, dest.Sync(), dest.Close(), s.syncParent(stage))
 }
 
 func (s share) readIntent(marker string, value any) bool {
@@ -134,6 +134,9 @@ func (s share) recoverUpload(marker, key string) {
 				return
 			}
 			if err := parent.Remove(backup); err != nil && !errors.Is(err, fs.ErrNotExist) {
+				return
+			}
+			if syncRoot(parent) != nil {
 				return
 			}
 			s.root.Remove(path.Join(s.stageDir(), "upload-"+upload))

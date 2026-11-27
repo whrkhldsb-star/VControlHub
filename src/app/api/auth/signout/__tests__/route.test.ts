@@ -10,7 +10,14 @@ import { beforeEach, describe, expect, it, vi } from "vitest";
 const mocks = vi.hoisted(() => ({
 	getApiSession: vi.fn(),
 	auditUserAction: vi.fn(),
+	publishSessionSignout: vi.fn(),
+	revokeSessionToken: vi.fn(async (_token: string, _userId: string) => true),
+	logger: { info: vi.fn(), warn: vi.fn(), error: vi.fn() },
 }));
+
+vi.mock("@/lib/logging", () => ({ createLogger: () => mocks.logger }));
+
+vi.mock("@/lib/ws/session-signout", () => ({ publishSessionSignout: mocks.publishSessionSignout }));
 
 vi.mock("@/lib/auth/api-session", () => ({
 	getApiSession: mocks.getApiSession,
@@ -36,6 +43,7 @@ vi.mock("@/lib/http/rate-limit-presets", () => ({
 vi.mock("@/lib/auth/session", () => ({
 	getSessionCookieName: () => "vch_session",
 	getPending2faCookieName: () => "vch_pending_2fa",
+	revokeSessionToken: mocks.revokeSessionToken,
 }));
 
 vi.mock("@/lib/auth/csrf", () => ({
@@ -133,6 +141,56 @@ describe("POST /api/auth/signout", () => {
 		expect(response.status).toBe(303);
 		expect([...clearedCookies(response).values()]).toHaveLength(3);
 		for (const header of clearedCookies(response).values()) expect(header).toContain("Max-Age=0");
+	});
+
+	it("announces only this signed-out cookie, so its sockets and kept shells close and other devices stay", async () => {
+		await route.POST(new Request("https://hub.example/api/auth/signout", {
+			method: "POST", headers: { cookie: "other=1; vch_session=header.payload.sig; csrf_token=x" },
+		}));
+		expect(mocks.publishSessionSignout).toHaveBeenCalledTimes(1);
+		expect(mocks.publishSessionSignout).toHaveBeenCalledWith("u1", "header.payload.sig");
+	});
+
+	it("announces nothing without a verified session, and still signs out when the announcement fails", async () => {
+		mocks.getApiSession.mockResolvedValueOnce(null);
+		await route.POST(new Request("https://hub.example/api/auth/signout", { method: "POST", headers: { cookie: "vch_session=forged.token" } }));
+		expect(mocks.publishSessionSignout).not.toHaveBeenCalled();
+
+		mocks.publishSessionSignout.mockImplementationOnce(() => { throw new Error("bus down"); });
+		const response = await route.POST(new Request("https://hub.example/api/auth/signout", { method: "POST", headers: { cookie: "vch_session=a.b" } }));
+		expect(response.status).toBe(303);
+		expect(clearedCookies(response).size).toBe(3);
+		expect(mocks.auditUserAction).toHaveBeenCalled();
+	});
+
+	it("durably revokes this cookie before announcing it, so a racing re-check already sees the revocation", async () => {
+		await route.POST(new Request("https://hub.example/api/auth/signout", {
+			method: "POST", headers: { cookie: "vch_session=header.payload.sig" },
+		}));
+		expect(mocks.revokeSessionToken).toHaveBeenCalledTimes(1);
+		expect(mocks.revokeSessionToken).toHaveBeenCalledWith("header.payload.sig", "u1");
+		expect(mocks.revokeSessionToken.mock.invocationCallOrder[0]!)
+			.toBeLessThan(mocks.publishSessionSignout.mock.invocationCallOrder[0]!);
+	});
+
+	it("still tears down sockets, audits and clears cookies when the revocation cannot be persisted", async () => {
+		mocks.revokeSessionToken.mockRejectedValueOnce(new Error("database unavailable"));
+		const response = await route.POST(new Request("https://hub.example/api/auth/signout", {
+			method: "POST", headers: { cookie: "vch_session=a.b" },
+		}));
+		expect(mocks.publishSessionSignout).toHaveBeenCalledWith("u1", "a.b");
+		expect(mocks.auditUserAction).toHaveBeenCalled();
+		expect(mocks.logger.error).toHaveBeenCalledWith("signout revocation could not be persisted", expect.any(Error));
+		expect(response.status).toBe(303);
+		expect(clearedCookies(response).size).toBe(3);
+		for (const header of clearedCookies(response).values()) expect(header).toContain("Max-Age=0");
+	});
+
+	it("revokes nothing without a verified session or a session cookie", async () => {
+		mocks.getApiSession.mockResolvedValueOnce(null);
+		await route.POST(new Request("https://hub.example/api/auth/signout", { method: "POST", headers: { cookie: "vch_session=forged.token" } }));
+		await route.POST(new Request("https://hub.example/api/auth/signout", { method: "POST" }));
+		expect(mocks.revokeSessionToken).not.toHaveBeenCalled();
 	});
 
 	it("still clears cookies when there is no resolvable session", async () => {

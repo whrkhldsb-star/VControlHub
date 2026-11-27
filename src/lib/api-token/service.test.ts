@@ -9,6 +9,7 @@ const { mockPrisma, tx } = vi.hoisted(() => ({
     apiToken: { count: vi.fn(), findMany: vi.fn(), update: vi.fn(), findUnique: vi.fn() },
     team: { findUnique: vi.fn() },
     user: { findUnique: vi.fn() },
+    revokedSession: { findUnique: vi.fn(async () => null) },
   },
   tx: { $queryRaw: vi.fn(), user: { findUnique: vi.fn() }, apiToken: { create: vi.fn() } },
 }));
@@ -176,6 +177,15 @@ describe("api token service", () => {
     mockPrisma.apiToken.findUnique.mockResolvedValueOnce({ id: "t3", createdBy: "u1", scopes: ["read"], revokedAt: null, expiresAt: null, creator: { id: "u1", status: "DISABLED" } });
     await expect(verifyApiToken("whr_disabled")).resolves.toBeNull();
     expect(mockPrisma.apiToken.update).not.toHaveBeenCalled();
+  });
+
+  it("grants only scopes this build still issues, whatever the stored row says", async () => {
+    mockPrisma.apiToken.findUnique.mockResolvedValueOnce({
+      id: "t-legacy", createdBy: "u1", teamId: "team_1",
+      scopes: ["read", "server:write", "command:execute", "image:write", "*"],
+      revokedAt: null, expiresAt: null, lastUsedAt: new Date(), creator: { id: "u1", status: "ACTIVE" },
+    });
+    await expect(verifyApiToken("whr_legacy")).resolves.toMatchObject({ scopes: ["read", "image:write"] });
   });
 
   it("throttles lastUsedAt writes when the token was used recently", async () => {

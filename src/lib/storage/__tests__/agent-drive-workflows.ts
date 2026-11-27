@@ -62,8 +62,15 @@ export async function checkDriveWorkflows(input: {
 
   // No public socket is opened. Only the validated upstream document is supplied by the fixture.
   const url = "https://1.1.1.1/fixture.txt";
-  const queued = await createDownload(new Request(hub + "/api/downloads", { method: "POST", headers,
+  // Personal API tokens are read-only on /api/downloads (A-05); state-changing requests require a session cookie.
+  const bearerRefused = await createDownload(new Request(hub + "/api/downloads", { method: "POST", headers,
     body: JSON.stringify({ url, serverId, targetPath: "/" + folder, fileName: "from-url.txt" }) }));
+  expect(bearerRefused.status).toBe(403);
+  const queued = await createDownload(new Request(hub + "/api/downloads", {
+    method: "POST",
+    headers: { "content-type": "application/json" },
+    body: JSON.stringify({ url, serverId, targetPath: "/" + folder, fileName: "from-url.txt" }),
+  }));
   expect(queued.status).toBe(200);
   const { taskId } = await queued.json();
   expect(await prisma.downloadTask.findUniqueOrThrow({ where: { id: taskId } })).toMatchObject({ agentStorageNodeId: nodeId, relayMode: true });

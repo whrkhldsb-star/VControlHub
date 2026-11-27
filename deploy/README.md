@@ -180,7 +180,7 @@ sudo DOMAIN=your.example.com APP_DIR=/opt/VControlHub deploy/install.sh
 | `Makefile` | 本地/生产统一维护入口 | `make verify && sudo make restart && make smoke DOMAIN=your.example.com SERVICE_PREFIX=vcontrolhub` |
 | `deploy/fakeroot-install-check.sh` | installer fakeroot/dry-run 回归；通过 Vitest 的 DESTDIR 隔离 fixture 覆盖域名/Caddy、无域名/Apache、`SKIP_PACKAGES=1`、`DESTDIR` 和凭据同步等 fresh-install 分支，不会改动宿主 systemd/反代服务 | `make installer-fakeroot` |
 | `deploy/uninstall.sh` | 彻底删除应用和全部本机应用数据，不提供保留模式；共享软件包和无关 Docker 资源不删除 | `sudo deploy/uninstall.sh --dry-run` |
-| `deploy/preflight.sh` | 部署前置检查；验证基础命令、环境变量占位符、Node 版本、端口占用、磁盘空间和运行目录，且不输出密钥值 | `APP_DIR=/opt/my-console ENV_FILE=/opt/my-console/.env.local deploy/preflight.sh` |
+| `deploy/preflight.sh` | 部署前置检查；验证基础命令、环境变量占位符、密钥值编码（CRLF 行尾/首尾空白）、Node 版本、端口占用、磁盘空间和运行目录，且不输出密钥值 | `APP_DIR=/opt/my-console ENV_FILE=/opt/my-console/.env.local deploy/preflight.sh` |
 | `deploy/upgrade.sh` | 升级部署；在独立目录准备并核验候选版本，通过迁移预检后备份、切换目录并验证服务 | `sudo APP_NAME=my-console APP_SLUG=my-console APP_DIR=/opt/my-console DOMAIN=your.example.com deploy/upgrade.sh` |
 | `deploy/check.sh` | 检查环境变量、运行目录、systemd 服务和本地 `/login`，可选运行完整 npm 验证 | `APP_DIR=/opt/VControlHub CHECK_PUBLIC_URL=https://your.example.com deploy/check.sh` |
 | `deploy/backup.sh` | 备份数据库到 `BACKUP_DIR`，内部调用 `scripts/backup-db.sh` | `sudo APP_DIR=/opt/VControlHub BACKUP_DIR=/var/backups/vcontrolhub deploy/backup.sh` |
@@ -205,9 +205,51 @@ sudo APP_NAME=my-console APP_SLUG=my-console APP_DIR=/opt/my-console DOMAIN=your
 
 脚本读取目标数据库的 Prisma 迁移记录，只自动执行可识别的增量 DDL。待执行迁移包含删表、删列、清空或改写数据、动态 SQL，或迁移记录无法核实时，升级在停服前退出。请检查报出的迁移并确认可接受数据影响、备份和旧代码兼容性，人工应用后重新运行升级。
 
+### 迁移预检中的大表索引锁定警告（D-01）
+
+增量迁移中的普通 `CREATE INDEX`（不带 `CONCURRENTLY`）仍会自动放行，但当目标是大表（`audit_logs`、`metric_snapshots`、`traffic_snapshots`、`job_events`、`ai_messages`、`notifications`、`share_access_logs`）时，预检会对每条语句输出一行结构化警告：
+
+```
+[upgrade-preflight] index-lock-warning {"migration":"…","table":"job_events","statement":"CREATE INDEX …","reason":"…"}
+```
+
+原因：普通 `CREATE INDEX` 在建索引全程阻塞该表的写入；这类只追加的大表积累数月数据后建索引可能持续数分钟，期间任务队列、通知写入、审计日志都会排队。推荐做法：
+
+1. 升级窗口前先用 `psql` 对同一索引执行 `CREATE INDEX CONCURRENTLY`（迁移里的语句带 `IF NOT EXISTS` 时随后变成空操作）；
+2. 或把升级安排在可接受短暂写入停顿的窗口；
+3. 警告只是提示数据，不是失败；不要为消音修改已应用的迁移（校验和会拒绝）。
+
+### Docker 入多副本启动的迁移互斥（D-02）
+
+`docker-entrypoint.sh` 用 PostgreSQL 会话级咨询锁（`pg_advisory_lock(45056, 0)`，通过 `pg` 包的 `node -e` 小客户端持有）串行化 `prisma migrate deploy` 与 seed：并发拉起的多个副本中，抢到锁的先执行迁移与 seed，其余副本阻塞等锁后执行（迁移为空操作、seed 幂等跳过）。要点：
+
+- 锁键 45056 刻意选在应用自身命名空间 45057–45099（`src/lib/concurrency/advisory-lock.ts`）之外，不会与应用内锁冲突；
+- 会话锁随连接结束自动释放，容器崩溃不会遗留死锁；
+- 锁获取、迁移或 seed 任一失败都会让入口脚本立即非零退出，不允许半迁移状态对外服务；
+- 多副本部署：只给一个副本（或一次性 migrate Job）保留 `RUN_MIGRATIONS_ON_START=true` / `SEED_ON_START=true`，其余副本设为 `false`；两者都为 `false` 时整个块被跳过，不取锁、不迁移、不 seed。
+
 脚本默认创建 `pre-upgrade-*.sql.gz` 备份，记录 systemd 状态，再停服务、迁移数据库并切换整个发布目录。运行数据和环境文件随目录切换保留原路径。启动、就绪探测或部署检查失败时，脚本恢复旧代码、客户文件以及先前运行的服务，数据库保留已执行的迁移。成功后旧代码保存在 `$APP_DIR/dist.releases/`，可在确认版本后按主机容量清理。升级沿用已安装的 systemd 和反向代理配置。
 
 `SKIP_PRE_BACKUP=1` 跳过数据库备份。`SKIP_POST_CHECK=1` 跳过扩展自检，启动和本机就绪检查仍会执行。`CHECK_PUBLIC_URL=https://your.example.com` 增加公网检查。`SKIP_BUILD=1` 需要提供独立、完整的预构建版本。旧版安装首次升级可使用最新的一键菜单，菜单会从目标提交读取升级驱动。
+
+### 预检拒绝的密钥编码问题（A-06）
+
+`deploy/preflight.sh` 还会检查 `.env*` 中 `SSH_WS_SECRET`、`AUTH_SESSION_SECRET`、`ENCRYPTION_KEY` 的值编码：值内嵌回车符（通常是 Windows 编辑器保存的 CRLF 行尾被引号包裹残留）或首尾空白（复制粘贴带入的空格/制表符）都会导致实际派生的密钥与预期不一致（`\r` 成为 HMAC 密钥的一部分、尾部空格破坏比较）。预检按变量名报错，不打印值。修复方式：用 LF 行尾重存文件，或删去值两端的空白后重跑预检。
+
+### `TRUSTED_PROXY_HOPS` 与 `X-Forwarded-*` 契约（A-07）
+
+- `TRUSTED_PROXY_HOPS=0`（Compose 默认，应用直接暴露）：自定义服务器把每个请求的对端地址写入内部头并删除客户端自带的同名头（`src/lib/http/peer-address.ts`），限流与审计按真实对端地址分桶，伪造头无效。不加反代时保持 0，切勿在加了反代后仍为 0。
+- `TRUSTED_PROXY_HOPS=N>0`（例如随发行版 Caddy 反代的默认 1）：`getClientIp` 从 `X-Forwarded-For` 右侧数第 N 个条目取客户端 IP——由最近一台可信代理追加的条目。客户端无法靠在最左侧塞假条目轮换限流桶。
+- 在 Compose `app` 前加显式反代时，把 `TRUSTED_PROXY_HOPS` 设为代理层数，并确认代理是追加（而非覆盖）`X-Forwarded-For`。
+
+### Team 软删除与 `SetNull` 隔离语义（D-06）
+
+两个不同机制保护租户数据，不要混淆：
+
+- **软删除（`Team.deletedAt`）**：平台管理员“删除客户”。所有行保留且保持作用域不可达，成员在下次会话校验即失去访问；清空该字段即恢复。运维面（健康探测、状态汇总）通过 `team: { deletedAt: null }` 排除这些行（`liveCustomerRowsWhere`、`activeCustomerTeamWhere`，见 `src/lib/auth/team-scope.ts`）。
+- **`onDelete: SetNull`（隔离）**：物理删除 `Team` 行时，从属行数据保留但 `teamId` 置空。这类行被隔离而非共享：非管理员的租户选择器把 `teamId: null` 当作空匹配（`strictCustomerScope` 的 `id IN ()`，或 `serverTeamWhere` 里的显式空判断），其他客户的成员永远看不到——仅平台管理员的“全部客户”视图仍可列出以备审计。运维存活探测仍覆盖这些行（`liveCustomerRowsWhere` 同时匹配 `teamId: null`——它们仍消耗运行时资源），这正是必须隔离而非删除的原因。
+
+运维原则：UI 里删除客户走软删除（可逆、有审计）；物理删除 `Team` 行仅适用于一次性/CI 数据库，留下的隔离行只有管理员能查。
 
 ## 数据库初始化示例
 

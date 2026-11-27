@@ -7,6 +7,7 @@
  * the custom Node server to POST + X-HTTP-Method-Override.
  */
 import { AppError, AuthError } from "@/lib/errors";
+import { readRequestBodyBuffer, RequestBodyTooLargeError } from "@/lib/http/request-body";
 import {
   authenticateWebDavRequest,
   UnknownWebDavTokenError,
@@ -116,7 +117,7 @@ async function dispatch(
     };
     switch (method) {
       case "PROPFIND":
-        return await handleWebDavPropFind(ctx, request.headers.get("depth"));
+        return await handleWebDavPropFind(ctx, request.headers.get("depth"), (await readRequestBodyBuffer(request, 65536)).toString("utf8"));
       case "GET":
         return await handleWebDavGetHead(ctx, "GET");
       case "HEAD":
@@ -132,7 +133,7 @@ async function dispatch(
       case "COPY":
         return await handleWebDavCopy(ctx, request);
       case "PROPPATCH":
-        return await handleWebDavPropPatch(ctx);
+        return await handleWebDavPropPatch(ctx, (await readRequestBodyBuffer(request, 65536)).toString("utf8"));
       default:
         return new Response("Method Not Allowed", {
           status: 405,
@@ -141,6 +142,7 @@ async function dispatch(
     }
   } catch (error) {
     const message = getErrorMessage(error, "WebDAV error");
+    if (error instanceof RequestBodyTooLargeError) return new Response("Property document too large", { status: 413 });
     // All expected handler failures are typed; unknown failures stay 500.
     const status = error instanceof AppError ? error.status : 500;
 

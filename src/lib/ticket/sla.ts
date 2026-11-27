@@ -70,7 +70,8 @@ export function getSlaStatus(ticket: { slaDueAt: Date | null; status: string }, 
  * acts as the cross-process CAS, so overlapping workers cannot double-escalate.
  * Notifications are limited to ticket managers who belong to the ticket team.
  */
-export async function escalateBreachedTickets(input: { teamId?: string | null } = {}): Promise<number> {
+export async function escalateBreachedTickets(input: { teamId?: string | null; signal?: AbortSignal } = {}): Promise<number> {
+  input.signal?.throwIfAborted();
   const now = new Date();
   const retryBefore = new Date(now.getTime() - 60 * 60 * 1000);
   const breached = await prisma.ticket.findMany({
@@ -100,6 +101,7 @@ export async function escalateBreachedTickets(input: { teamId?: string | null } 
   let escalated = 0;
   const failedTicketIds: string[] = [];
   for (const ticket of breached) {
+    input.signal?.throwIfAborted();
     const newPriority = ESCALATION_CHAIN[ticket.priority] ?? "HIGH";
     // Already at the top of the chain (URGENT→URGENT): still stamp escalatedAt so the
     // hourly re-sweep does not re-notify managers, but do not write a no-op escalation row.

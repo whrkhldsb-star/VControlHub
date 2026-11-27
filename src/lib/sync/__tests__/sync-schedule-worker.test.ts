@@ -109,6 +109,17 @@ describe("runSyncScheduleWorkerOnce", () => {
     }));
   });
 
+  it("dispatches across ticks while a single stale cleanup remains in flight", async () => {
+    let release!: () => void;
+    mocks.reclaimStaleRunningSyncJobs.mockImplementationOnce(() => new Promise(resolve => { release = () => resolve([]); }));
+    mocks.syncJobFindMany.mockResolvedValue(dueJobs(1));
+    try {
+      expect(await runSyncScheduleWorkerOnce()).toBe(1);
+      expect(await runSyncScheduleWorkerOnce()).toBe(1);
+      expect(mocks.reclaimStaleRunningSyncJobs).toHaveBeenCalledOnce();
+    } finally { release(); }
+  });
+
   it("dispatches due jobs concurrently, capped at 5 in flight", async () => {
     mocks.syncJobFindMany.mockResolvedValue(dueJobs(12));
     let inFlight = 0;

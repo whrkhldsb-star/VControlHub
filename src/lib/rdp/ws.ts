@@ -4,7 +4,7 @@ import { createConnection } from "node:net";
 import type { Server as HttpServer, IncomingMessage } from "node:http";
 import { StringDecoder } from "node:string_decoder";
 import { WebSocketServer, WebSocket } from "ws";
-import { getSessionCookieName, verifySessionToken } from "@/lib/auth/session";
+import { getSessionCookieName, sessionTokenExpiresAt, verifySessionToken } from "@/lib/auth/session";
 import { sessionHasPermission } from "@/lib/auth/authorization";
 import { auditUserAction } from "@/lib/audit/service";
 import { decrypt } from "@/lib/crypto/service";
@@ -16,6 +16,8 @@ import { RDP_STATUS_IDLE_LIMIT, RDP_STATUS_TIME_LIMIT } from "./status";
 import { createLogger } from "@/lib/logging";
 import { closeSocket } from "@/lib/ws/close-socket";
 import { PreAuthLimiter, upgradeClientAddress } from "@/lib/ws/pre-auth-limiter";
+import { onSessionSignout, sessionTokenHash } from "@/lib/ws/session-signout";
+import { rateLimitIpKey } from "@/lib/rate-limit";
 
 const logger = createLogger("rdp-ws");
 
@@ -96,6 +98,15 @@ const MAX_RDP_SESSIONS = 20;
  * ticket TTL — a healthy browser connects immediately after minting).
  */
 const PRE_AUTH_WINDOW_MS = 10_000;
+/**
+ * A browser sends its ticket in the first frame, right after the socket opens.
+ * A socket that has not within this window is dropped by its own timer, rather
+ * than at the next 5-second housekeeping tick, so a client that never presents
+ * one holds its unauthenticated place for 3 s, not up to 15 s.
+ */
+const PRE_AUTH_TICKET_WINDOW_MS = 3_000;
+/** Status of a desktop ended because its session cookie was signed out: "session ended", which the browser does not retry. */
+const RDP_STATUS_SIGNED_OUT = "0";
 /** Sockets that have not presented a ticket yet, in all and from one address; kept apart from the session cap. */
 const MAX_PRE_AUTH_SOCKETS = 40;
 const MAX_PRE_AUTH_PER_ADDRESS = 12;
@@ -184,6 +195,12 @@ export function setupRdpWebSocket(server: HttpServer) {
   * longest, if one has been silent past PONG_TOLERANCE_MS.
   */
  const liveSessions = new Map<string, { userId: string; silentMs: () => number; supersede: (reason?: string) => void }>();
+ /** Every connection with the digest of the session cookie it came with (see lib/ws/session-signout). */
+ const connections = new Map<WebSocket, { tokenHash: string; signOut: () => void }>();
+ // Signing a cookie out on its device ends the desktops it opened at once, not at the next 30-second re-check.
+ const detachSignout = onSessionSignout((_userId, tokenHash) => {
+  for (const connection of [...connections.values()]) if (connection.tokenHash === tokenHash) connection.signOut();
+ });
  server.on("upgrade", (req, socket, head) => {
   let path: string;
   try { path = new URL(req.url ?? "/", "http://localhost").pathname; } catch { socket.destroy(); return; }
@@ -196,9 +213,15 @@ export function setupRdpWebSocket(server: HttpServer) {
   wss.handleUpgrade(req, socket, head, ws => { wss.emit("connection", ws, req); });
  });
  wss.on("connection", (ws, req) => {
-  const releasePreAuth = preAuthSockets.acquire(upgradeClientAddress(req));
+  // Synchronous and query-free, before an unauthenticated place is taken: a socket without this hub's signed,
+  // unexpired session cookie can never authenticate, so it must not be able to fill the pool real browsers need.
+  const sessionCookie = cookie(req);
+  if ((sessionTokenExpiresAt(sessionCookie) ?? 0) <= Date.now()) { ws.terminate(); return; }
+  // Counted per client address the way HTTP rate limits count it (an IPv6 client by its /64).
+  const releasePreAuth = preAuthSockets.acquire(rateLimitIpKey(upgradeClientAddress(req)));
   if (!releasePreAuth) { ws.terminate(); return; }
   ws.once("close", releasePreAuth);
+  const tokenHash = sessionTokenHash(sessionCookie);
   let tunnel: ReturnType<typeof createConnection> | undefined;
   const desktop = initialDesktopSize(req.url);
   let lastPongAt = Date.now();
@@ -210,6 +233,7 @@ export function setupRdpWebSocket(server: HttpServer) {
   let serverId: string | undefined;
   let teamId: string | null = null;
   let authenticated = false;
+  let claiming = false;
   let stopped = false;
   let revalidate: (() => Promise<void>) | undefined;
   let validating = false;
@@ -324,6 +348,19 @@ export function setupRdpWebSocket(server: HttpServer) {
    endTunnel();
   };
   const handshakeTimeout = setTimeout(() => close("RDP handshake timed out"), 30_000);
+  // No ticket within PRE_AUTH_TICKET_WINDOW_MS: dropped. One presented and still being authorized keeps the
+  // remainder of PRE_AUTH_WINDOW_MS (the housekeeping tick below enforces that as well).
+  let preAuthTimer: ReturnType<typeof setTimeout> | undefined;
+  const expirePreAuth = () => {
+   preAuthTimer = undefined;
+   if (stopped || authenticated) return;
+   const left = PRE_AUTH_WINDOW_MS - (Date.now() - openedAt);
+   if (claiming && left > 0) { preAuthTimer = setTimeout(expirePreAuth, left); preAuthTimer.unref?.(); return; }
+   close("RDP authentication timed out", 1008);
+  };
+  preAuthTimer = setTimeout(expirePreAuth, PRE_AUTH_TICKET_WINDOW_MS);
+  preAuthTimer.unref?.();
+  connections.set(ws, { tokenHash, signOut: () => close("RDP session signed out", 1008, RDP_STATUS_SIGNED_OUT) });
   const timer = setInterval(() => {
    if (stopped) return;
    if (!authenticated && Date.now() - openedAt > PRE_AUTH_WINDOW_MS) { close("RDP authentication timed out", 1008); return; }
@@ -361,7 +398,8 @@ export function setupRdpWebSocket(server: HttpServer) {
   ws.on("close", (code: number) => {
    stopped = true;
    endedBy ??= `browser: ${code}`;
-   clearTimeout(handshakeTimeout); clearInterval(timer); clearInterval(resumePoll); endTunnel();
+   clearTimeout(handshakeTimeout); clearTimeout(preAuthTimer); clearInterval(timer); clearInterval(resumePoll); endTunnel();
+   connections.delete(ws);
    releaseSlot();
    if (started) audit("server.rdp.closed", { reason: endedBy.slice(0, 120), seconds: String(Math.round((Date.now() - openedAt) / 1000)) });
    else if (!failureAudited) audit("server.rdp.failed");
@@ -429,7 +467,6 @@ export function setupRdpWebSocket(server: HttpServer) {
    // responding" and kill idle desktops ~20 seconds in.
    tunnel?.write(instruction(...row));
   }, 16_384);
-  let claiming = false;
   ws.on("message", async (raw, binary) => {
    if (stopped) return;
    if (binary) { close("Text protocol required", 1008); return; }
@@ -440,7 +477,6 @@ export function setupRdpWebSocket(server: HttpServer) {
    try {
     // Ticket travels in first WS frame, never URLs / access logs.
     const token = raw.toString();
-    const sessionCookie = cookie(req);
     const session = await verifySessionToken(sessionCookie);
     if (session.mustChangePassword || !sessionHasPermission(session, "server:ssh")) throw new Error("Denied");
     // The per-user cap is checked once the ticket names the server: a
@@ -471,7 +507,7 @@ export function setupRdpWebSocket(server: HttpServer) {
     if ((users.get(session.userId) ?? 0) >= MAX_RDP_SESSIONS_PER_USER) { tooMany = true; throw new Error("Too many sessions"); }
     if (authedSessions >= MAX_RDP_SESSIONS) throw new Error("Denied");
     userId = session.userId; serverId = target.id; teamId = target.teamId;
-    users.set(userId, (users.get(userId) ?? 0) + 1); authedSessions++; authenticated = true; releasePreAuth();
+    users.set(userId, (users.get(userId) ?? 0) + 1); authedSessions++; authenticated = true; releasePreAuth(); clearTimeout(preAuthTimer);
     slotKey = key; liveSessions.set(key, { userId, silentMs, supersede });
     audit("server.rdp.connecting");
     let phase: "args" | "authorizing" | "ready" | "stream" = "args";
@@ -571,5 +607,5 @@ export function setupRdpWebSocket(server: HttpServer) {
    }
   });
  });
- return () => { for (const ws of wss.clients) ws.terminate(); wss.close(); };
+ return () => { detachSignout(); for (const ws of wss.clients) ws.terminate(); wss.close(); };
 }

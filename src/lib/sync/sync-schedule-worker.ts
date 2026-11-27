@@ -125,6 +125,7 @@ const SCHEDULE_SCAN_PAGE = 500;
 
 const active = new Map<string, Promise<boolean>>();
 const queued = new Set<string>();
+let cleanup: Promise<void> | undefined;
 
 export async function runSyncScheduleWorkerOnce(reason = "manual"): Promise<number> {
   const state = getState();
@@ -135,10 +136,9 @@ export async function runSyncScheduleWorkerOnce(reason = "manual"): Promise<numb
   state.running = true;
   const dueJobs: DueJob[] = [];
   try {
-    const reclaimed = await reclaimStaleRunningSyncJobs();
-    if (reclaimed.length > 0) {
-      logger.warn("reclaimed stale RUNNING sync jobs", { count: reclaimed.length, ids: reclaimed });
-    }
+    cleanup ??= reclaimStaleRunningSyncJobs().then(ids => {
+      if (ids.length) logger.warn("reclaimed stale RUNNING sync jobs", { count: ids.length, ids });
+    }).catch(error => logger.error("stale sync cleanup failed", { error: String(error) })).finally(() => { cleanup = undefined; });
 
     // Whether a job is due is decided here, not in SQL, so every scheduled
     // job is read: a fixed first page (oldest lastSyncAt, where PostgreSQL

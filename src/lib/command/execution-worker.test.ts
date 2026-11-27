@@ -6,6 +6,7 @@ const {
   claimNextJobMock,
   completeJobMock,
   failJobMock,
+  failJobTerminalMock,
   heartbeatJobMock,
   executeAndFinalizeCommandMock,
   markCommandExecutionFailedMock,
@@ -18,6 +19,7 @@ const {
   claimNextJobMock: vi.fn(),
   completeJobMock: vi.fn(),
   failJobMock: vi.fn(),
+  failJobTerminalMock: vi.fn(),
   heartbeatJobMock: vi.fn(),
   executeAndFinalizeCommandMock: vi.fn(),
   markCommandExecutionFailedMock: vi.fn(),
@@ -32,6 +34,7 @@ vi.mock("@/lib/job/service", () => ({
   claimNextJob: claimNextJobMock,
   completeJob: completeJobMock,
   failJob: failJobMock,
+  failJobTerminal: failJobTerminalMock,
   heartbeatJob: heartbeatJobMock,
 }));
 
@@ -93,6 +96,7 @@ describe("command execution durable job worker", () => {
     claimNextJobMock.mockResolvedValue(null);
     completeJobMock.mockResolvedValue({ count: 1 });
     failJobMock.mockResolvedValue({ count: 1 });
+    failJobTerminalMock.mockResolvedValue({ count: 1 });
     heartbeatJobMock.mockResolvedValue({ count: 1 });
     findUniqueCommandRequestMock.mockResolvedValue({
       teamId: "team_1",
@@ -216,11 +220,11 @@ describe("command execution durable job worker", () => {
       const result = await runCommandExecutionJobWorkerOnce();
 
       expect(result).toBe(true);
-      expect(failJobMock).toHaveBeenCalledWith(
+      expect(failJobTerminalMock).toHaveBeenCalledWith(
         "job-cmd-1",
         expect.stringContaining(":command-execution:"),
         expect.stringContaining("FAILED"),
-        { attempts: 1 },
+        { attempts: 1, result: { commandRequestId: "req-1", status: "FAILED" } },
       );
       expect(completeJobMock).not.toHaveBeenCalled();
     });

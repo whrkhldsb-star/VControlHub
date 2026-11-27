@@ -116,6 +116,8 @@ const NAMESPACE_KEYS: Record<string, number> = {
   "ai-provider-default": 45089,
   /** Serialize moving a customer's default storage node (exactly one default). */
   "storage-node-default": 45090,
+  /** Serialize AI Ops mode/provider binding reads and writes without a full-table lock on settings. */
+  "ai-ops-settings": 45091,
 };
 
 function connectionStringForPg() {

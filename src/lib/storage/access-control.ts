@@ -1,5 +1,6 @@
 import { hasCaseInsensitiveLocalPaths, isWindowsStorageBasePath } from "./path-utils";
 import { lockStorageWrite } from "./mutation-lock";
+import { normalizeAccessPath, pathMatchesGrant, quotaGrantPolicy } from "./quota-policy";
 import { ConflictError } from "@/lib/errors";
 import { apiCopy } from "@/lib/i18n/api-copy";
 import { escapeLikeLiteral } from "@/lib/db/like-pattern";
@@ -10,7 +11,6 @@ import { sessionHasPermission } from "@/lib/auth/authorization";
 import { isGlobalTeamManager, storageNodeTeamWhere } from "@/lib/auth/team-scope";
 import { acquireAdvisoryLock } from "@/lib/concurrency/advisory-lock";
 import { prisma } from "@/lib/db";
-import { normalizeStorageTargetDirectory } from "@/lib/storage/path-utils";
 
 export type StorageAccessOperation = "read" | "write" | "delete";
 
@@ -60,28 +60,7 @@ type StorageAccessGrantRow = Prisma.UserStorageAccessGetPayload<Record<string, n
  * Empty prefix means whole-node access. Invalid paths (absolute, `..`) return null.
  * Delegates to path-utils so grant matching shares rules with listing/upload paths.
  */
-function normalizeAccessPath(value: string | null | undefined): string | null {
-  const result = normalizeStorageTargetDirectory(value, false);
-  if (!result.ok) return null;
-  return result.path;
-}
-
-export function pathMatchesGrant(targetPath: string, pathPrefix: string, caseInsensitive = false) {
-  const normalizedTarget = normalizeAccessPath(targetPath);
-  const normalizedPrefix = normalizeAccessPath(pathPrefix);
-
-  if (normalizedTarget === null || normalizedPrefix === null) {
-    return false;
-  }
-
-  if (!normalizedPrefix) {
-    return true;
-  }
-
-  const target = caseInsensitive ? normalizedTarget.toLowerCase() : normalizedTarget;
-  const prefix = caseInsensitive ? normalizedPrefix.toLowerCase() : normalizedPrefix;
-  return target === prefix || target.startsWith(`${prefix}/`);
-}
+export { pathMatchesGrant } from "./quota-policy";
 
 function grantAllowsOperation(
   grant: { canRead: boolean; canWrite: boolean; canDelete: boolean },
@@ -214,8 +193,8 @@ export async function assertStorageAccess(input: {
   }
 
   const caseInsensitive = isCaseInsensitiveStorageNode(node);
-  const matchingGrants = grants.filter((grant: StorageAccessGrantRow) => pathMatchesGrant(targetPath, grant.pathPrefix, caseInsensitive));
-  const operationGrant = matchingGrants.find((grant: StorageAccessGrantRow) => grantAllowsOperation(grant, input.operation));
+  const { matching: matchingGrants, writable } = quotaGrantPolicy(grants, targetPath, caseInsensitive);
+  const operationGrant = input.operation === "write" ? writable : matchingGrants.find(grant => grantAllowsOperation(grant, input.operation));
 
   if (!operationGrant) {
     return { allowed: false, reason: STORAGE_ACCESS_DENIED_REASONS.noAccess };

@@ -1,4 +1,5 @@
 import { SFTP_TRANSFER_IDLE_TIMEOUT_MS } from "@/lib/ssh/sftp-timeout";
+import { randomUUID } from "node:crypto";
 import { openManagedArchive } from "@/lib/storage/archive-access";
 import { openManagedLocalFile, pinLocalArchiveDirectory } from "@/lib/storage/open-local-file";
 import { lockStorageFileOverwrite } from "@/lib/storage/file-overwrite-lock";
@@ -274,7 +275,7 @@ async function serveShareIn(
 			token,
 			password,
 			{ ip: clientIp ?? undefined, userAgent: request.headers.get("user-agent") ?? undefined },
-			{ authorizedShareId, claimDownload: !head },
+			{ authorizedShareId, claimDownload: false },
 		);
 	} catch (err) {
 		const message = getErrorMessage(err, t("apiShareToken.invalidToken", locale));
@@ -282,22 +283,32 @@ async function serveShareIn(
 	}
 
 	let release: (() => Promise<void>) | undefined;
+	let receipt: string | undefined;
+	let response: Response | undefined;
 	try {
+		const target = shareRequestTarget(share, request, locale);
+		if (target instanceof Response) return target;
 		release = await lockStorageFileOverwrite(share.storageNodeId, share.path);
 		await assertShareStillAt(share.id, share.storageNodeId, share.path);
-		const response = await openShareResponse(share, request, head, locale);
-		if (!head) {
-			if (response.ok) await recordShareDownload(share.id, clientIp ?? undefined, request.headers.get("user-agent") ?? undefined);
-			else await releaseShareQuotaClaim(share.id);
+		response = await openShareResponse(share, request, head, locale, target);
+		if (!head && response.ok) {
+			request.signal.throwIfAborted();
+			receipt = randomUUID();
+			await recordShareDownload(share, receipt, clientIp ?? undefined, request.headers.get("user-agent") ?? undefined);
 		}
+		const unlock = release;
+		release = undefined;
+		await unlock();
+		if (receipt) request.signal.throwIfAborted();
 		return response;
 	} catch {
-		if (!head) await releaseShareQuotaClaim(share.id);
+		await response?.body?.cancel().catch(() => {});
+		if (receipt) await releaseShareQuotaClaim(share.id, receipt);
 		return apiError({ code: "NOT_FOUND", message: t("apiShareToken.invalidToken", locale), status: 404 });
 	} finally { await release?.(); }
 }
 
-async function openShareResponse(share: Awaited<ReturnType<typeof resolveShareToken>>, request: Request, head: boolean, locale: Locale) {
+function shareRequestTarget(share: Awaited<ReturnType<typeof resolveShareToken>>, request: Request, locale: Locale) {
 	const node = share.storageNode;
 	const ignoreCase = shareIgnoresCase(node);
 	let targetPath = share.path;
@@ -352,6 +363,12 @@ async function openShareResponse(share: Awaited<ReturnType<typeof resolveShareTo
 	} else if (share.entryType !== "FILE") {
 		return apiError({ code: "VALIDATION_FAILED", message: t("apiShareToken.notDownloadable", locale), status: 400 });
 	}
+	return { targetPath, wantsArchive, inline, ignoreCase };
+}
+
+async function openShareResponse(share: Awaited<ReturnType<typeof resolveShareToken>>, request: Request, head: boolean, locale: Locale,
+	{ targetPath, wantsArchive, inline, ignoreCase }: Exclude<ReturnType<typeof shareRequestTarget>, Response>) {
+	const node = share.storageNode;
 	try {
 		await assertShareTargetNotDeleted(share.storageNodeId, targetPath, node.driver, ignoreCase);
 	} catch {

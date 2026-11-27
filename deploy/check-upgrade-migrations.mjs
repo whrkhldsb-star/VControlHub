@@ -7,6 +7,91 @@ import { pathToFileURL } from "node:url";
 import { config as dotenv } from "dotenv";
 import { findBinary, pgConnection, runBinary } from "../scripts/lib/backup-common.mjs";
 
+// D-01: large append-only tables. A plain (non-CONCURRENTLY) CREATE INDEX on
+// any of these takes a lock that blocks writes for the whole index build, and
+// the build takes minutes once the table has months of rows: writers queue
+// behind it and Compose's stop grace period cannot save an in-flight request.
+// The preflight therefore surfaces these statements as structured operational
+// warnings instead of silently auto-approving them.
+export const LARGE_APPEND_ONLY_TABLES = [
+  "audit_logs",
+  "metric_snapshots",
+  "traffic_snapshots",
+  "job_events",
+  "ai_messages",
+  "notifications",
+  "share_access_logs",
+];
+
+/** One CREATE INDEX statement: strip comments and collapse whitespace. */
+function statementHeads(sql) {
+  // Remove line and block comments, then split on top-level semicolons while
+  // honouring quoted identifiers and strings (a literal ';' in a default value
+  // must not split a statement).
+  const heads = [];
+  let current = "";
+  let quote = null;
+  let blockComment = false;
+  for (let i = 0; i < sql.length; i++) {
+    const char = sql[i];
+    const next = sql[i + 1];
+    if (blockComment) {
+      if (char === "*" && next === "/") { blockComment = false; i++; }
+      continue;
+    }
+    if (!quote && char === "-" && next === "-") {
+      while (i < sql.length && sql[i] !== "\n") i++;
+      continue;
+    }
+    if (!quote && char === "/" && next === "*") { blockComment = true; i++; continue; }
+    if (quote) {
+      current += char;
+      if (char === quote) {
+        if (next === quote) { current += next; i++; }
+        else quote = null;
+      }
+      continue;
+    }
+    if (char === '"' || char === "'") { quote = char; current += char; continue; }
+    if (char === ";") { heads.push(current); current = ""; continue; }
+    current += char;
+  }
+  if (current.trim()) heads.push(current);
+  return heads.map((head) => head.replace(/\s+/g, " ").trim()).filter(Boolean);
+}
+
+// Matches "CREATE [UNIQUE] INDEX [IF NOT EXISTS] [name] [IF NOT EXISTS] ON [ONLY] table(" or "... table ("
+const indexTarget = /^CREATE (?:UNIQUE )?INDEX (?:IF NOT EXISTS )?(?:(?:"[^"]+"|[A-Za-z_][\w$]*) )?(?:IF NOT EXISTS )?ON (?:ONLY )?([^ (]+)[ (]/i;
+const concurrentIndexHead = /^CREATE (?:UNIQUE )?INDEX CONCURRENTLY\b/i;
+
+/**
+ * Structured operational warning for a plain CREATE INDEX on a known large
+ * append-only table. One entry per (migration, statement); the preflight
+ * prints each entry without failing, so additive migrations keep
+ * auto-approving; the operator decides whether to pre-create the index
+ * CONCURRENTLY before the upgrade (see docs/ci-gates.md).
+ */
+export function largeIndexWarnings(sql, migrationName) {
+  const warnings = [];
+  for (const head of statementHeads(sql)) {
+    if (concurrentIndexHead.test(head)) continue;
+    const match = indexTarget.exec(head);
+    if (!match) continue;
+    // Last dotted component of the (possibly schema-qualified, possibly
+    // quoted) table name, normalised for the allow-list comparison.
+    const table = match[1].replaceAll('"', "").split(".").pop().toLowerCase();
+    if (LARGE_APPEND_ONLY_TABLES.includes(table)) {
+      warnings.push({
+        migration: migrationName,
+        table,
+        statement: head.slice(0, 200),
+        reason: "plain CREATE INDEX on a large append-only table blocks writes for the whole index build",
+      });
+    }
+  }
+  return warnings;
+}
+
 // The tokenizer represents quoted identifiers and strings by their opening quote.
 const identifier = /(?:[A-Z_][\w$]*|")/.source;
 const tableHeader = new RegExp(`^ALTER TABLE (?:IF EXISTS )?(?:ONLY )?${identifier}(?: \\. ${identifier})* `);
@@ -142,6 +227,12 @@ async function checkPending() {
       applied.delete(entry.name);
     } else if (!isAutomaticMigration(sql)) {
       throw new Error(`Pending migration ${entry.name} contains destructive or unrecognised SQL`);
+    } else {
+      // Additive and auto-approved: still warn about plain CREATE INDEX
+      // statements that will lock large append-only tables for the build.
+      for (const warning of largeIndexWarnings(sql, entry.name)) {
+        console.warn(`[upgrade-preflight] index-lock-warning ${JSON.stringify(warning)}`);
+      }
     }
   }
   if (applied.size) throw new Error("Installed database contains migrations missing from this release");

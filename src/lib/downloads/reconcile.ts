@@ -1,4 +1,5 @@
 import { directEndpointChanged, directLaunchReceipt, lockDirectResultBinding } from "./direct-identity";
+import { DB_UTC_NOW } from "@/lib/db/utc-now";
 import { relayContentStatus } from "@/lib/downloads/relay-status";
 /**
  * Background reconciliation for RUNNING DownloadTasks.
@@ -128,7 +129,7 @@ export async function failRelayTask(task: { id: string; aria2Gid: string | null;
   // A pending retry owns the staging directory too. The job recovery worker
   // resolves expired leases before the reconciler may take over.
   const failed = await prisma.$queryRaw<{ publishing: boolean }[]>`
-    UPDATE download_tasks d SET status = 'FAILED', "errorMessage" = ${errorMessage.slice(0, 500)}, "updatedAt" = NOW()
+    UPDATE download_tasks d SET status = 'FAILED', "errorMessage" = ${errorMessage.slice(0, 500)}, "updatedAt" = ${DB_UTC_NOW}
     WHERE d.id = ${task.id} AND d."updatedAt" = ${task.updatedAt}
       AND (d.status = 'RUNNING' OR (${includePending} AND d.status = 'PENDING'))
       AND NOT EXISTS (SELECT 1 FROM jobs j WHERE j.type = 'download.execute'

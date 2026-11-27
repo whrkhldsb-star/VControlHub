@@ -168,7 +168,7 @@ describe("webdav route dispatch", () => {
 
     // Scope selection depends on the effective verb, not the transport verb.
     expect(mocks.authenticateWebDavRequest).toHaveBeenCalledWith(expect.anything(), "PROPFIND");
-    expect(mocks.propFind).toHaveBeenCalledWith(expect.anything(), "1");
+    expect(mocks.propFind).toHaveBeenCalledWith(expect.anything(), "1", "");
     expect(mocks.getHead).not.toHaveBeenCalled();
   });
 

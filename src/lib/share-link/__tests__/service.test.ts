@@ -376,13 +376,11 @@ describe("share link service", () => {
     expect(query.values).toContain("share");
   });
 
-  it("releaseShareQuotaClaim decrements accessCount when > 0", async () => {
-    mockPrisma.shareLink.updateMany.mockResolvedValue({ count: 1 });
-    await releaseShareQuotaClaim("share-quota");
-    expect(mockPrisma.shareLink.updateMany).toHaveBeenCalledWith({
-      where: { id: "share-quota", accessCount: { gt: 0 } },
-      data: { accessCount: { decrement: 1 } },
-    });
+  it("refunds only the named delivery receipt while it remains chargeable", async () => {
+    await releaseShareQuotaClaim("share-quota", "receipt");
+    const [sql, ...values] = mockPrisma.$executeRaw.mock.lastCall!;
+    expect(values).toEqual(["receipt", "share-quota"]);
+    expect(sql.join("?")).toContain("AND action = 'download' RETURNING");
   });
 
 });

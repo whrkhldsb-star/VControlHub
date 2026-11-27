@@ -70,8 +70,9 @@ export async function claimNextJob(options: ClaimJobOptions) {
   const agingSeconds = Math.max(1, config.job.priorityAgingSeconds ?? 60);
   const runningWhere: Prisma.JobWhereInput = {
     status: JobStatus.RUNNING,
-    // A playbook holds its lease while waiting for separately claimed command steps.
-    type: { not: "playbook.run" },
+    // A playbook holds its lease while waiting for separately claimed command steps;
+    // internal archive-extraction intent rows are never executable jobs.
+    type: { notIn: ["playbook.run", "archive-extraction-intent"] },
     OR: [{ leaseExpiresAt: null }, { leaseExpiresAt: { gte: now } }],
   };
 
@@ -90,7 +91,7 @@ export async function claimNextJob(options: ClaimJobOptions) {
         options.types && options.types.length > 0
           ? Prisma.sql`AND j.type IN (${Prisma.join(options.types)})`
           : Prisma.empty;
-      const active = Prisma.sql`r.type <> 'playbook.run' AND r.status = 'RUNNING' AND (r."leaseExpiresAt" IS NULL OR r."leaseExpiresAt" >= ${now})`;
+      const active = Prisma.sql`r.type NOT IN ('playbook.run', 'archive-extraction-intent') AND r.status = 'RUNNING' AND (r."leaseExpiresAt" IS NULL OR r."leaseExpiresAt" >= ${now})`;
       // Apply budgets BEFORE LIMIT. A saturated owner/node must not hide all
       // eligible work behind the first few queue entries.
       const userBudget = maxPerUser > 0 ? Prisma.sql`AND (j."createdBy" IS NULL OR

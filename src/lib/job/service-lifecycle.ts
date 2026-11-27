@@ -4,6 +4,7 @@ import { activeJobClaim } from "./claim-context";
 import { prisma } from "@/lib/db";
 import type { SessionPayload } from "@/lib/auth/session";
 import { teamWhere } from "@/lib/auth/team-scope";
+import { scrubQuickServiceJobPayloadSecrets } from "@/lib/quick-service/payload-scrub";
 import {
   DEFAULT_LEASE_MS,
   futureFrom,
@@ -69,6 +70,13 @@ export async function completeJob(jobId: string, workerId: string, result?: JobR
   return updated;
 }
 
+function runJobTx<T>(fn: (db: Pick<Prisma.TransactionClient, "job">) => Promise<T>): Promise<T> {
+  if (typeof prisma.$transaction === "function") {
+    return prisma.$transaction((tx) => fn(tx));
+  }
+  return fn(prisma);
+}
+
 export async function failJob(
   jobId: string,
   workerId: string,
@@ -83,18 +91,25 @@ export async function failJob(
   if (!job) return { count: 0 };
   const canRetry = job.attempts < job.maxAttempts;
   const message = errorMessage.slice(0, MAX_JOB_ERROR_MESSAGE);
-  const updated = await prisma.job.updateMany({
-    where: finishableClaim(jobId, workerId, options.attempts, now),
-    data: {
-      status: canRetry ? JobStatus.PENDING : JobStatus.FAILED,
-      errorMessage: message,
-      availableAt: canRetry ? futureFrom(now, options.retryAfterMs ?? 30_000) : undefined,
-      completedAt: canRetry ? null : now,
-      workerId: null,
-      workerHeartbeatAt: null,
-      leaseExpiresAt: null,
-    },
-  });
+  const applyTransition = async (db: Pick<Prisma.TransactionClient, "job">) => {
+    const updated = await db.job.updateMany({
+      where: finishableClaim(jobId, workerId, options.attempts, now),
+      data: {
+        status: canRetry ? JobStatus.PENDING : JobStatus.FAILED,
+        errorMessage: message,
+        availableAt: canRetry ? futureFrom(now, options.retryAfterMs ?? 30_000) : undefined,
+        completedAt: canRetry ? null : now,
+        workerId: null,
+        workerHeartbeatAt: null,
+        leaseExpiresAt: null,
+      },
+    });
+    if (!canRetry && updated.count > 0) {
+      await scrubQuickServiceJobPayloadSecrets(jobId, db);
+    }
+    return updated;
+  };
+  const updated = canRetry ? await applyTransition(prisma) : await runJobTx(applyTransition);
   if (updated.count > 0) {
     safeRecordJobEvent({
       jobId,
@@ -115,17 +130,24 @@ export async function failJobTerminal(
   options: { attempts?: number; now?: Date; result?: unknown } = {},
 ) {
   const now = options.now ?? new Date();
-  const updated = await prisma.job.updateMany({
-    where: finishableClaim(jobId, workerId, options.attempts, now),
-    data: {
-      status: JobStatus.FAILED,
-      errorMessage: errorMessage.slice(0, MAX_JOB_ERROR_MESSAGE),
-      completedAt: now,
-      workerId: null,
-      workerHeartbeatAt: null,
-      leaseExpiresAt: null,
-      progress: null,
-    },
+  const updated = await runJobTx(async (tx) => {
+    const result = await tx.job.updateMany({
+      where: finishableClaim(jobId, workerId, options.attempts, now),
+      data: {
+        status: JobStatus.FAILED,
+        ...(options.result !== undefined ? { result: options.result as Prisma.InputJsonValue } : {}),
+        errorMessage: errorMessage.slice(0, MAX_JOB_ERROR_MESSAGE),
+        completedAt: now,
+        workerId: null,
+        workerHeartbeatAt: null,
+        leaseExpiresAt: null,
+        progress: null,
+      },
+    });
+    if (result.count > 0) {
+      await scrubQuickServiceJobPayloadSecrets(jobId, tx);
+    }
+    return result;
   });
   if (updated.count > 0) {
     safeRecordJobEvent({
@@ -145,21 +167,27 @@ export async function cancelJob(
   session: Pick<SessionPayload, "userId" | "roles" | "currentTeamId">,
 ) {
   const now = new Date();
-  const updated = await prisma.job.updateMany({
-    where: {
-      id: jobId,
-      status: { in: [JobStatus.PENDING, JobStatus.RUNNING] },
-      ...teamWhere(session),
-    },
-    data: {
-      status: JobStatus.CANCELLED,
-      cancelledAt: now,
-      completedAt: now,
-      progress: null,
-      workerId: null,
-      workerHeartbeatAt: null,
-      leaseExpiresAt: null,
-    },
+  const updated = await runJobTx(async (tx) => {
+    const result = await tx.job.updateMany({
+      where: {
+        id: jobId,
+        status: { in: [JobStatus.PENDING, JobStatus.RUNNING] },
+        ...teamWhere(session),
+      },
+      data: {
+        status: JobStatus.CANCELLED,
+        cancelledAt: now,
+        completedAt: now,
+        progress: null,
+        workerId: null,
+        workerHeartbeatAt: null,
+        leaseExpiresAt: null,
+      },
+    });
+    if (result.count > 0) {
+      await scrubQuickServiceJobPayloadSecrets(jobId, tx);
+    }
+    return result;
   });
   if (updated.count > 0) {
     safeRecordJobEvent({ jobId, type: "cancelled", message: "Task cancelled" });

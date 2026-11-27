@@ -64,6 +64,7 @@ vi.mock("@/lib/rate-limit", () => ({
 }));
 vi.mock("@/lib/logging", () => ({ createLogger: () => ({ error: vi.fn() }) }));
 
+import { DB_UTC_NOW } from "@/lib/db/utc-now";
 import { POST } from "../route";
 
 const sessionPayload = {
@@ -275,7 +276,7 @@ describe("POST /api/auth/2fa/verify-login", () => {
 		}));
 
 		expect(response.status).toBe(200);
-		expect(prismaMock.$executeRaw).toHaveBeenCalledWith(expect.anything(), "recovery-hash", "u_1", "secret", "recovery-hash");
+		expect(prismaMock.$executeRaw).toHaveBeenCalledWith(expect.anything(), "recovery-hash", DB_UTC_NOW, "u_1", "secret", "recovery-hash");
 		expect(auditUserActionMock).toHaveBeenCalledWith(
 			"u_1",
 			"auth.login_2fa_recovery_ok",

@@ -239,6 +239,91 @@ describeOrSkip("deploy/preflight.sh", () => {
     }
   });
 
+  it("accepts a CRLF-saved env file whose parsed values are clean", async () => {
+    const appDir = await makeAppDir();
+    const envFile = path.join(appDir, ".env.local");
+    // A CRLF-saved file: load_install_settings strips the trailing \r from
+    // each line, so the parsed values are clean and preflight must pass.
+    await writeFile(
+      envFile,
+      [
+        `${dbUrlKey}="postgresql://preflight_user@127.0.0.1:5432/preflight"`,
+        `${sessionSecretKey}="0123456789abcdef0123456789abcdef"`,
+        `${initialPasswordKey}="portable_initial_value"`,
+        `SSH_WS_SECRET="0123456789abcdef0123456789abcdef"`,
+        `STORAGE_DIRECT_ACCESS_SECRET="fedcba9876543210fedcba9876543210"`,
+        `ENCRYPTION_KEY="abcdef0123456789abcdef0123456789"`,
+        "",
+      ].join("\r\n"),
+    );
+    await chmod(envFile, 0o600);
+
+    try {
+      const result = await runPreflight({ appDir, envFile });
+      expect(result.code, result.stdout + result.stderr).toBe(0);
+    } finally {
+      await rm(appDir, { force: true, recursive: true });
+    }
+  });
+
+  it("fails when a secret value carries an embedded carriage return", async () => {
+    const appDir = await makeAppDir();
+    const envFile = path.join(appDir, ".env.local");
+    await writeFile(
+      envFile,
+      [
+        `${dbUrlKey}="postgresql://preflight_user@127.0.0.1:5432/preflight"`,
+        `${sessionSecretKey}="0123456789abcdef0123456789abcde\r f"`,
+        `${initialPasswordKey}="portable_initial_value"`,
+        `SSH_WS_SECRET="0123456789abcdef0123456789abcdef"`,
+        `STORAGE_DIRECT_ACCESS_SECRET="fedcba9876543210fedcba9876543210"`,
+        `ENCRYPTION_KEY="abcdef0123456789abcdef0123456789"`,
+        "",
+      ].join("\n"),
+    );
+    await chmod(envFile, 0o600);
+
+    try {
+      const result = await runPreflight({ appDir, envFile });
+      expect(result.code).not.toBe(0);
+      expect(result.stderr).toContain("carriage return");
+      expect(result.stderr).toContain("AUTH_SESSION_SECRET");
+      expect(result.stdout + result.stderr).not.toContain("0123456789abcdef0123456789abcde");
+    } finally {
+      await rm(appDir, { force: true, recursive: true });
+    }
+  });
+
+  it("fails on leading or trailing whitespace in secret values", async () => {
+    const appDir = await makeAppDir();
+    const envFile = path.join(appDir, ".env.local");
+    // load_install_settings strips unquoted trailing spaces, so use a quoted
+    // value with a trailing space (the parser keeps it) to exercise the check.
+    await writeFile(
+      envFile,
+      [
+        `${dbUrlKey}="postgresql://preflight_user@127.0.0.1:5432/preflight"`,
+        `${sessionSecretKey}="0123456789abcdef0123456789abcdef"`,
+        `${initialPasswordKey}="portable_initial_value"`,
+        `SSH_WS_SECRET="0123456789abcdef0123456789abcde "`,
+        `STORAGE_DIRECT_ACCESS_SECRET="fedcba9876543210fedcba9876543210"`,
+        `ENCRYPTION_KEY="abcdef0123456789abcdef0123456789"`,
+        "",
+      ].join("\n"),
+    );
+    await chmod(envFile, 0o600);
+
+    try {
+      const result = await runPreflight({ appDir, envFile });
+      expect(result.code).not.toBe(0);
+      expect(result.stderr).toContain("leading or trailing whitespace");
+      expect(result.stderr).toContain("SSH_WS_SECRET");
+      expect(result.stdout + result.stderr).not.toContain("0123456789abcdef0123456789abcde");
+    } finally {
+      await rm(appDir, { force: true, recursive: true });
+    }
+  });
+
   it("rejects unsafe production demo flags without printing unrelated secret values", async () => {
     const unsafeFlags = [
       "ENABLE_DEMO_FALLBACK",

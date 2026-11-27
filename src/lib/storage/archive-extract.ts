@@ -299,7 +299,7 @@ export type ExtractionResult = ExtractionPlan & {
  * folder when it has one, otherwise a folder named after the archive. Never
  * writes into an existing folder; a taken name gets " (2)", " (3)"….
  */
-export async function extractArchive({ filePath, kind, archiveName, parentDir, parentRelativePath = "", plan, beforePublish, signal }: {
+export async function extractArchive({ filePath, kind, archiveName, parentDir, parentRelativePath = "", plan, beforePublish, onCollision, signal }: {
 	filePath: string;
 	kind: ArchiveKind;
 	archiveName: string;
@@ -307,7 +307,8 @@ export async function extractArchive({ filePath, kind, archiveName, parentDir, p
 	parentRelativePath?: string;
 	plan: ExtractionPlan;
 	signal?: AbortSignal;
-	beforePublish?: (folderName: string, members: ExtractionResult["members"]) => Promise<void>;
+	beforePublish?: (folderName: string, members: ExtractionResult["members"], source: string) => Promise<void>;
+	onCollision?: (source: string) => Promise<void>;
 }): Promise<ExtractionResult> {
 	const staging = path.join(parentDir, `.vch-extract-${randomUUID()}.tmp`);
 	await mkdir(staging);
@@ -325,11 +326,11 @@ export async function extractArchive({ filePath, kind, archiveName, parentDir, p
 			const destination = path.join(parentDir, folderName);
 			if (await exists(destination)) continue;
 			const { directories, members } = await inspectStagedTree(source, path.posix.join(parentRelativePath, folderName));
-			await beforePublish?.(folderName, members);
+			await beforePublish?.(folderName, members, source);
 			signal?.throwIfAborted();
 			try { await renameLocalExclusive(source, destination); }
 			catch (error) {
-				if (await exists(destination)) continue;
+				if (await exists(destination)) { await onCollision?.(source); continue; }
 				throw error;
 			}
 			return { ...plan, folderName, members, createdDirectories: directories.map(dir => path.join(destination, path.relative(source, dir))) };

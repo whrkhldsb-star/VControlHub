@@ -17,7 +17,7 @@ const mocks = vi.hoisted(() => ({
 
 vi.mock("@/lib/db", () => ({
   prisma: {
-    $transaction: (fn: (tx: unknown) => unknown) => fn({ $queryRaw: mocks.liveAgentRows, serverAgentJob: { create: mocks.agentJobCreate } }),
+    $transaction: (fn: (tx: unknown) => unknown) => fn({ $queryRaw: mocks.liveAgentRows, serverAgentJob: { create: mocks.agentJobCreate, updateMany: mocks.agentJobUpdateMany } }),
     server: { findUnique: mocks.serverFindUnique, update: mocks.serverUpdate },
     serverAgentJob: {
       create: mocks.agentJobCreate,
@@ -29,6 +29,7 @@ vi.mock("@/lib/db", () => ({
 vi.mock("@/lib/ssh/client", () => ({ buildSshParamsFromServer: vi.fn(), execRemoteCommand: vi.fn() }));
 vi.mock("../monitor", () => ({ MONITOR_SCRIPT: "echo metrics" }));
 
+import { DB_UTC_NOW } from "@/lib/db/utc-now";
 import {
   authenticateServerAgent,
   completeServerAgentJob,
@@ -122,8 +123,9 @@ describe("server Agent authentication and routing", () => {
   });
 
   it("replaces NUL in Agent output, which made every resend of the result fail and silenced the node", async () => {
+    mocks.liveAgentRows.mockResolvedValue([{ id: "srv1" }]);
     mocks.agentJobUpdateMany.mockResolvedValue({ count: 1 });
-    await completeServerAgentJob({ serverId: "srv1", jobId: "job1", stdout: "a\0b", stderr: "\0", exitCode: 0 });
+    await completeServerAgentJob({ serverId: "srv1", agentTokenHash: "digest", jobId: "job1", stdout: "a\0b", stderr: "\0", exitCode: 0 });
     for (const call of mocks.agentJobUpdateMany.mock.calls) {
       expect(call[0].data.stdout).toBe("a\uFFFDb");
       expect(call[0].data.stderr).toBe("\uFFFD");
@@ -131,9 +133,11 @@ describe("server Agent authentication and routing", () => {
   });
 
   it("caps Agent command output before persisting it", async () => {
+    mocks.liveAgentRows.mockResolvedValue([{ id: "srv1" }]);
     mocks.agentJobUpdateMany.mockResolvedValueOnce({ count: 1 });
     await completeServerAgentJob({
       serverId: "srv1",
+      agentTokenHash: "digest",
       jobId: "job1",
       stdout: "o".repeat(8 * 1_048_576 + 10),
       stderr: "e".repeat(8 * 1_048_576 + 10),
@@ -144,6 +148,30 @@ describe("server Agent authentication and routing", () => {
     expect(call.data.stdout).toHaveLength(8 * 1_048_576);
     expect(call.data.stderr).toHaveLength(8 * 1_048_576);
     expect(call.where).toEqual({ id: "job1", serverId: "srv1", status: "CANCELLED", completedAt: null });
+  });
+
+  it("fences a result on the live Agent identity, in one transaction with both writes", async () => {
+    mocks.liveAgentRows.mockResolvedValueOnce([]);
+    await expect(completeServerAgentJob({ serverId: "srv1", agentTokenHash: "rotated", jobId: "job1", exitCode: 0 })).resolves.toBe(false);
+    expect(mocks.agentJobUpdateMany).not.toHaveBeenCalled();
+    const [strings, ...values] = mocks.liveAgentRows.mock.calls[0]!;
+    const sql = (strings as string[]).join("?");
+    expect(sql).toMatch(/FROM servers WHERE id = \? AND "agentTokenHash" = \?\s+AND "managementMode" = 'AGENT'\s+FOR SHARE/);
+    expect(values).toEqual(["srv1", "rotated"]);
+
+    mocks.liveAgentRows.mockResolvedValueOnce([{ id: "srv1" }]);
+    mocks.agentJobUpdateMany.mockResolvedValue({ count: 1 });
+    await expect(completeServerAgentJob({ serverId: "srv1", agentTokenHash: "digest", jobId: "job1", exitCode: 0 })).resolves.toBe(true);
+    expect(mocks.agentJobUpdateMany).toHaveBeenCalledTimes(2);
+  });
+
+  it("compares Agent liveness on the database's UTC clock", async () => {
+    mocks.liveAgentRows.mockResolvedValueOnce([]);
+    await executeCommandWithAgent({ serverId: "srv1", command: "uptime", timeoutMs: 1000 });
+    const [strings, ...values] = mocks.liveAgentRows.mock.calls[0]!;
+    expect((strings as string[]).join("?")).not.toMatch(/now\(\)/i);
+    const utc = values.filter((value) => value === DB_UTC_NOW);
+    expect(utc).toHaveLength(2);
   });
 
   it("falls back without enqueueing when the Agent heartbeat is stale", async () => {

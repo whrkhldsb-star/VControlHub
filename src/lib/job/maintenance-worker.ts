@@ -26,6 +26,8 @@ import {
 } from "@/lib/backup/vps-backup-service";
 import { abandonStaleRunningBackupRecords } from "@/lib/backup/service";
 import { pruneAuditLogs } from "@/lib/audit/retention";
+import { pruneExpiredRevokedSessions } from "@/lib/auth/session-revocation";
+import { pruneExpiredExtractionIntents } from "@/lib/files/extraction-journal";
 import { pruneLogTables } from "@/lib/data-retention/log-retention";
 import { reconcileStaleRunningDownloadTasks } from "@/lib/downloads/reconcile";
 import { recoverInterruptedFinalizations } from "@/lib/upload/finalization-lease";
@@ -81,6 +83,7 @@ const KNOWN_JOB_TYPES = new Set([
   "sync.schedule",
   "operation-task.retention",
   "job.maintenance",
+  "archive-extraction-intent",
 ]);
 
 const DEFAULT_INTERVAL_MS = 15 * 60_000;
@@ -356,6 +359,16 @@ async function tick(reason: string) {
       }
     });
 
+    await runStep("prune-extraction-intents", async () => {
+      const pruned = await pruneExpiredExtractionIntents();
+      if (pruned.count > 0) {
+        logger.info("pruned stale archive extraction intents", {
+          workerId: WORKER_ID,
+          deleted: pruned.count,
+        });
+      }
+    });
+
     // Bound the thumbnail cache: its keys are one-way hashes, so a deleted or
     // re-uploaded media item can never reclaim its own file. Age + count sweep.
     await runStep("prune-thumbnail-cache", async () => {
@@ -419,6 +432,15 @@ async function tick(reason: string) {
           workerId: WORKER_ID,
           deleted,
         });
+      }
+    });
+
+    // A single-device sign-out leaves one revoked_session_ids row that only
+    // matters until that cookie would have expired; drop the rest.
+    await runStep("prune-revoked-sessions", async () => {
+      const pruned = await pruneExpiredRevokedSessions();
+      if (pruned.count > 0) {
+        logger.info("pruned expired session revocations", { workerId: WORKER_ID, deleted: pruned.count });
       }
     });
 

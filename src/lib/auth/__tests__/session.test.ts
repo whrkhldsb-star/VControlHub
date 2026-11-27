@@ -8,13 +8,30 @@ import {
   captureSessionCredentialBinding,
   assertSessionCredentialBinding,
   reissueSessionForTeam,
+  revokeSessionToken,
 } from "@/lib/auth/session";
 import { prisma } from "@/lib/db";
+
+// An in-memory stand-in for `revoked_session_ids`, shared by the mocked
+// createMany/findUnique so revoke → verify round-trips like the real table.
+const revokedStore = vi.hoisted(() => new Map<string, { userId: string; expiresAt: Date }>());
 
 vi.mock("@/lib/db", () => ({
   prisma: {
     user: {
       findUnique: vi.fn(),
+    },
+    revokedSession: {
+      findUnique: vi.fn(async ({ where }: { where: { sid: string } }) => (revokedStore.has(where.sid) ? { sid: where.sid } : null)),
+      createMany: vi.fn(async ({ data }: { data: Array<{ sid: string; userId: string; expiresAt: Date }> }) => {
+        let count = 0;
+        for (const row of data) {
+          if (revokedStore.has(row.sid)) continue;
+          revokedStore.set(row.sid, { userId: row.userId, expiresAt: row.expiresAt });
+          count += 1;
+        }
+        return { count };
+      }),
     },
     team: {
       findUnique: vi.fn(),
@@ -51,11 +68,26 @@ async function createLegacySessionTokenWithoutFingerprint(): Promise<string> {
   return `${encoded}.${signature}`;
 }
 
+/** Re-sign a session token after editing its envelope, with the dev secret the suite runs under. */
+async function resignSessionToken(token: string, edit: (envelope: Record<string, unknown>) => void): Promise<string> {
+  const { createHmac } = await import("node:crypto");
+  const envelope = sessionEnvelope(token);
+  edit(envelope);
+  const encoded = Buffer.from(JSON.stringify(envelope)).toString("base64url");
+  const signature = createHmac("sha256", "dev-only-session-secret-change-me").update(encoded).digest("base64url");
+  return `${encoded}.${signature}`;
+}
+
+function sessionEnvelope(token: string): Record<string, unknown> {
+  return JSON.parse(Buffer.from(token.split(".")[0]!, "base64url").toString("utf8")) as Record<string, unknown>;
+}
+
 describe("session auth helpers", () => {
   afterEach(() => {
     vi.unstubAllEnvs();
     vi.resetModules();
     vi.clearAllMocks();
+    revokedStore.clear();
   });
 
   it("uses a portable cookie name derived from APP_SLUG when not explicitly configured", async () => {
@@ -429,5 +461,120 @@ describe("session auth helpers", () => {
       passwordHash: "$2b$10$originalhash", sessionEpoch: 3, status: "ACTIVE",
     } as any);
     await expect(createSessionToken(payload, { credentialBinding: verified!.credentialBinding })).rejects.toThrow();
+  });
+});
+
+describe("single-device session revocation", () => {
+  const row = {
+    id: "u_1", username: "alice", status: "ACTIVE", mustChangePassword: false,
+    passwordHash: "$2b$10$originalhash", sessionEpoch: 0, roles: [], teamMembership: null,
+  };
+  const payload = { userId: "u_1", username: "alice", roles: [] as [], mustChangePassword: false, currentTeamId: null };
+
+  afterEach(() => {
+    vi.clearAllMocks();
+    revokedStore.clear();
+  });
+
+  it("mints a distinct 22-char session id for every sign-in", async () => {
+    vi.mocked(prisma.user.findUnique).mockResolvedValue(row as any);
+    const first = sessionEnvelope(await createSessionToken(payload)).sid;
+    const second = sessionEnvelope(await createSessionToken(payload)).sid;
+    expect(first).toMatch(/^[A-Za-z0-9_-]{22}$/);
+    expect(second).toMatch(/^[A-Za-z0-9_-]{22}$/);
+    expect(first).not.toBe(second);
+  });
+
+  it("rejects a signed-out cookie on later requests while the account's other devices stay signed in", async () => {
+    vi.mocked(prisma.user.findUnique).mockResolvedValue(row as any);
+    const signedOut = await createSessionToken(payload);
+    const otherDevice = await createSessionToken(payload);
+
+    await expect(revokeSessionToken(signedOut, "u_1")).resolves.toBe(true);
+    expect(prisma.revokedSession.createMany).toHaveBeenCalledWith({
+      data: [{ sid: sessionEnvelope(signedOut).sid, userId: "u_1", expiresAt: new Date(sessionEnvelope(signedOut).exp as number) }],
+      skipDuplicates: true,
+    });
+
+    await expect(verifySessionToken(signedOut)).rejects.toThrow();
+    await expect(verifySessionToken(otherDevice)).resolves.toMatchObject({ userId: "u_1" });
+    expect(prisma.revokedSession.findUnique).toHaveBeenCalledWith({
+      where: { sid: sessionEnvelope(otherDevice).sid }, select: { sid: true },
+    });
+  });
+
+  it("keeps the session id across a customer switch, so signing out either copy retires both", async () => {
+    vi.mocked(prisma.user.findUnique).mockResolvedValue(row as any);
+    const original = await createSessionToken(payload);
+    const { token: switched } = await reissueSessionForTeam(original, "team_2");
+    expect(sessionEnvelope(switched).sid).toBe(sessionEnvelope(original).sid);
+
+    await revokeSessionToken(switched, "u_1");
+    await expect(verifySessionToken(original)).rejects.toThrow();
+    await expect(verifySessionToken(switched)).rejects.toThrow();
+  });
+
+  it("revokes a pre-upgrade cookie without a session id by its digest, and gives its customer-switched copy a fresh id", async () => {
+    vi.mocked(prisma.user.findUnique).mockResolvedValue(row as any);
+    const legacy = await resignSessionToken(await createSessionToken(payload), (envelope) => {
+      delete envelope.sid;
+    });
+    // Another pre-upgrade sign-in; a distinct iat so the two are not byte-identical
+    // when both are minted within the same millisecond.
+    const otherLegacy = await resignSessionToken(await createSessionToken(payload), (envelope) => {
+      delete envelope.sid;
+      envelope.iat = (envelope.iat as number) - 1;
+    });
+    await expect(verifySessionToken(legacy)).resolves.toMatchObject({ userId: "u_1" });
+    const { token: switched } = await reissueSessionForTeam(legacy, null);
+    expect(sessionEnvelope(switched).sid).toMatch(/^[A-Za-z0-9_-]{22}$/);
+
+    await expect(revokeSessionToken(legacy, "u_1")).resolves.toBe(true);
+    const [key] = [...revokedStore.keys()];
+    expect(key).toMatch(/^legacy:[a-f0-9]{64}$/);
+    await expect(verifySessionToken(legacy)).rejects.toThrow();
+    await expect(verifySessionToken(otherLegacy)).resolves.toMatchObject({ userId: "u_1" });
+  });
+
+  it("rejects a signed token whose session id is malformed before touching the database", async () => {
+    vi.mocked(prisma.user.findUnique).mockResolvedValue(row as any);
+    const token = await createSessionToken(payload);
+    vi.mocked(prisma.user.findUnique).mockClear();
+    for (const sid of ["short", "x".repeat(23), "a".repeat(21) + "!", 42, null]) {
+      const malformed = await resignSessionToken(token, (envelope) => {
+        envelope.sid = sid;
+      });
+      await expect(verifySessionToken(malformed)).rejects.toThrow(/format/i);
+      await expect(revokeSessionToken(malformed, "u_1")).resolves.toBe(false);
+    }
+    expect(prisma.user.findUnique).not.toHaveBeenCalled();
+    expect(prisma.revokedSession.findUnique).not.toHaveBeenCalled();
+    expect(prisma.revokedSession.createMany).not.toHaveBeenCalled();
+  });
+
+  it("records only a genuine, unexpired cookie of that user, idempotently", async () => {
+    vi.mocked(prisma.user.findUnique).mockResolvedValue(row as any);
+    const token = await createSessionToken(payload);
+    const [encoded] = token.split(".");
+    const expired = await resignSessionToken(token, (envelope) => {
+      envelope.exp = Date.now() - 1000;
+    });
+
+    await expect(revokeSessionToken(`${encoded}.forged-signature`, "u_1")).resolves.toBe(false);
+    await expect(revokeSessionToken("not-a-token", "u_1")).resolves.toBe(false);
+    await expect(revokeSessionToken(token, "u_other")).resolves.toBe(false);
+    await expect(revokeSessionToken(expired, "u_1")).resolves.toBe(false);
+    expect(prisma.revokedSession.createMany).not.toHaveBeenCalled();
+
+    // A concurrent double sign-out of the same cookie is a no-op, not a unique violation.
+    await expect(Promise.all([revokeSessionToken(token, "u_1"), revokeSessionToken(token, "u_1")])).resolves.toEqual([true, true]);
+    expect(revokedStore.size).toBe(1);
+  });
+
+  it("fails closed when the revocation lookup is unavailable", async () => {
+    vi.mocked(prisma.user.findUnique).mockResolvedValue(row as any);
+    const token = await createSessionToken(payload);
+    vi.mocked(prisma.revokedSession.findUnique).mockRejectedValueOnce(new Error("database unavailable"));
+    await expect(verifySessionToken(token)).rejects.toThrow("database unavailable");
   });
 });

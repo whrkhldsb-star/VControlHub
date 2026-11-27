@@ -114,8 +114,17 @@ export async function assertShareStillAt(id: string, storageNodeId: string, path
   if (!active) throw new NotFoundError(t("backend.shareLink.notFoundOrRevoked"));
 }
 
-export async function recordShareDownload(shareLinkId: string, ip?: string, userAgent?: string) {
-  await recordShareAccess({ shareLinkId, action: "download", ip, userAgent });
+export async function recordShareDownload(share: { id: string; storageNodeId: string; path: string }, receipt: string, ip?: string, userAgent?: string) {
+  const claimed = await prisma.$queryRaw<{ id: string }[]>`WITH candidate AS MATERIALIZED (
+    SELECT * FROM share_links WHERE id = ${share.id} FOR UPDATE
+  ), claimed AS (
+    UPDATE share_links s SET "accessCount" = c."accessCount" + 1, "updatedAt" = (clock_timestamp() AT TIME ZONE 'UTC')
+    FROM candidate c WHERE s.id = c.id AND c."storageNodeId" = ${share.storageNodeId} AND c.path = ${share.path}
+      AND c."revokedAt" IS NULL AND (c."expiresAt" IS NULL OR c."expiresAt" > (clock_timestamp() AT TIME ZONE 'UTC'))
+      AND (c."maxDownloads" IS NULL OR c."accessCount" < c."maxDownloads") RETURNING s.id
+  ) INSERT INTO share_access_logs (id, "shareLinkId", action, ip, "userAgent", "accessedAt")
+    SELECT ${receipt}, id, 'download', ${ip ?? null}, ${userAgent ?? null}, (clock_timestamp() AT TIME ZONE 'UTC') FROM claimed RETURNING id`;
+  if (!claimed.length) throw new NotFoundError(t("backend.shareLink.notFoundOrRevoked"));
 }
 
 async function recordShareAccess(input: {
@@ -683,15 +692,18 @@ export async function resolveShareToken(
  * any bytes are streamed (missing object, bad path, SSH/archive errors).
  * Decrements accessCount only when still > 0 so concurrent claims stay safe.
  */
-export async function releaseShareQuotaClaim(shareLinkId: string): Promise<void> {
-  try {
-    await prisma.shareLink.updateMany({
-      where: { id: shareLinkId, accessCount: { gt: 0 } },
-      data: { accessCount: { decrement: 1 } },
-    });
-  } catch {
-    // Best-effort: never fail the caller error path because compensation failed.
-  }
+export async function releaseShareQuotaClaim(shareLinkId: string, receipt: string): Promise<void> {
+  await prisma.$transaction(async tx => {
+    // A lost acknowledgement can race the original INSERT. The unique receipt either waits for
+    // that transaction or prevents it from charging later, even if no log was visible yet.
+    await tx.$executeRaw`INSERT INTO share_access_logs (id, "shareLinkId", action, "accessedAt")
+      SELECT ${receipt}, id, 'delivery_failed', (clock_timestamp() AT TIME ZONE 'UTC') FROM share_links WHERE id = ${shareLinkId}
+      ON CONFLICT (id) DO NOTHING`;
+    await tx.$executeRaw`WITH refunded AS (
+      UPDATE share_access_logs SET action = 'delivery_failed' WHERE id = ${receipt} AND "shareLinkId" = ${shareLinkId}
+        AND action = 'download' RETURNING "shareLinkId"
+    ) UPDATE share_links s SET "accessCount" = "accessCount" - 1 FROM refunded r WHERE s.id = r."shareLinkId"`;
+  });
 }
 
 /**

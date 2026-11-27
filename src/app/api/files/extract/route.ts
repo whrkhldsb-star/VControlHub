@@ -2,7 +2,9 @@ import { Readable } from "node:stream";
 import { openManagedLocalFile } from "@/lib/storage/open-local-file";
 import { randomUUID } from "node:crypto";
 import { createLogger } from "@/lib/logging";
+import { extractionJournal } from "@/lib/files/extraction-journal";
 import { lockStorageFileOverwrite } from "@/lib/storage/file-overwrite-lock";
+import { tryAcquireAdvisoryLock } from "@/lib/concurrency/advisory-lock";
 import { publishLocalFile } from "@/lib/storage/publish-local-file";
 import { apiCopy } from "@/lib/i18n/api-copy";
 import { getServerLocale, t } from "@/lib/i18n/translations";
@@ -178,70 +180,82 @@ export async function POST(request: NextRequest) {
             );
           }
 
-          const existingOutput = await prisma.fileEntry.findFirst({
-            where: {
-              storageNodeId: node.id,
-              relativePath: outputRelativePath,
-              isDeleted: false,
-            },
-            select: { id: true },
-          });
-          if (existingOutput) {
-            return NextResponse.json(
-              { error: apiCopy("apiCopy.target.file.already.exists.0c91e640", { v0: String(outputRelativePath) }) },
-              { status: 409 },
-            );
-          }
-
-          try {
-            await fs.access(outputPath.path);
-            return NextResponse.json(
-              { error: apiCopy("apiCopy.target.file.already.exists.0c91e640", { v0: String(outputRelativePath) }) },
-              { status: 409 },
-            );
-          } catch {
-            // Expected: gunzip should create this file.
-          }
-
-          // The output is admitted against the grant's per-file limit and quota
-          // before a byte is written, like an upload of that size. Its size is
-          // counted by decompressing without writing (the gzip trailer names
-          // only the last member's size, so a multi-member file was refused);
-          // the limiter below then writes exactly that much.
-          const limitMessage = t("backend.storageHardening.extract.gzOutputTooLarge", locale);
           const gzHandle = await openManagedLocalFile(node.basePath, relativePath);
-          let declaredSize: number;
-          try {
-            declaredSize = await countGunzipOutput(streamFileHandle(gzHandle), MAX_GUNZIP_OUTPUT_BYTES, limitMessage);
-          } catch (error) {
-            await gzHandle.close().catch(() => undefined);
-            throw error;
-          }
-          const admission = await assertStorageAccess({
-            session,
-            storageNodeId: node.id,
-            relativePath: outputRelativePath,
-            operation: "write",
-            writeBytes: declaredSize,
-          });
-          if (!admission.allowed) {
-            await gzHandle.close().catch(() => undefined);
-            return NextResponse.json(
-              { error: storageAccessDeniedCopy(admission.reason) },
-              { status: 403 },
-            );
-          }
-
-          const staged = path.join(path.dirname(outputPath.path), `.vch-extract-${randomUUID()}.tmp`);
           let release: (() => Promise<void>) | undefined;
+          let unlockJournal: (() => Promise<void>) | undefined;
+          let admission: Awaited<ReturnType<typeof assertStorageAccess>> | undefined;
+          const staged = path.join(path.dirname(outputPath.path), `.vch-extract-${randomUUID()}.tmp`);
           try {
+            unlockJournal = await tryAcquireAdvisoryLock("storage-file-operation", `extract:${node.id}:${relativePath.toLowerCase()}`) ?? undefined;
+            if (!unlockJournal) {
+              return NextResponse.json({ error: apiCopy("apiCopy.files.op.changed") }, { status: 409 });
+            }
+            const gzStat = await gzHandle.stat({ bigint: true });
+            const journal = extractionJournal(node.id, relativePath, `${gzStat.dev}:${gzStat.ino}:${gzStat.size}:${gzStat.ctimeNs}`, session.userId, session.currentTeamId);
+            const recovered = await journal.published(path.dirname(outputPath.path));
+            const existingOutput = await prisma.fileEntry.findFirst({
+              where: {
+                storageNodeId: node.id,
+                relativePath: outputRelativePath,
+                isDeleted: false,
+              },
+              select: { id: true, size: true, entryType: true },
+            });
+            if (recovered) {
+              release = await lockStorageFileOverwrite(node.id, outputRelativePath);
+              if (!await journal.published(path.dirname(outputPath.path))) throw new Error("Archive output changed: " + outputRelativePath);
+              await assertNotRecycled(node.id, outputRelativePath, "write", "LOCAL");
+              admission = await assertStorageAccess({ session, storageNodeId: node.id, relativePath: outputRelativePath, operation: "write" });
+              if (!admission.allowed) throw new ForbiddenError(storageAccessDeniedCopy(admission.reason));
+              const size = recovered.members[0]?.size;
+              if (size == null || size !== (await fs.lstat(outputPath.path)).size) {
+                await journal.clear().catch(() => undefined);
+                throw new Error("Archive output changed: " + outputRelativePath);
+              }
+              if (existingOutput && (existingOutput.entryType !== "FILE" || existingOutput.size !== BigInt(size))) throw new Error("Archive index mismatch at " + outputRelativePath);
+              if (!existingOutput) await createFileEntry({ storageNodeId: node.id, name: outputName, entryType: "FILE", mimeType: "application/octet-stream", size, relativePath: outputRelativePath });
+              await journal.clear(path.dirname(outputPath.path));
+              return NextResponse.json({ message: apiCopy("apiCopy.extracted.to.the.current.directory.please.refresh.the.file.list..1d9a38e3", { v0: name }) });
+            }
+            if (existingOutput) {
+              return NextResponse.json(
+                { error: apiCopy("apiCopy.target.file.already.exists.0c91e640", { v0: String(outputRelativePath) }) },
+                { status: 409 },
+              );
+            }
+
+            try {
+              await fs.access(outputPath.path);
+              return NextResponse.json(
+                { error: apiCopy("apiCopy.target.file.already.exists.0c91e640", { v0: String(outputRelativePath) }) },
+                { status: 409 },
+              );
+            } catch {
+              // Expected: gunzip should create this file.
+            }
+
+            // The output is admitted against the grant's per-file limit and quota
+            // before a byte is written, like an upload of that size. Its size is
+            // counted by decompressing without writing (the gzip trailer names
+            // only the last member's size, so a multi-member file was refused);
+            // the limiter below then writes exactly that much.
+            const limitMessage = t("backend.storageHardening.extract.gzOutputTooLarge", locale);
+            const declaredSize = await countGunzipOutput(streamFileHandle(gzHandle), MAX_GUNZIP_OUTPUT_BYTES, limitMessage);
+            admission = await assertStorageAccess({ session, storageNodeId: node.id, relativePath: outputRelativePath,
+              operation: "write", writeBytes: declaredSize });
+            if (!admission.allowed) return NextResponse.json({ error: storageAccessDeniedCopy(admission.reason) }, { status: 403 });
             await pipeline(streamFileHandle(gzHandle), createGunzip(), new GunzipOutputLimiter(declaredSize, limitMessage),
               createWriteStream(staged, { flags: "wx", mode: 0o600 }), { signal: request.signal });
-            const parent = path.posix.dirname(outputRelativePath);
-            release = await lockStorageFileOverwrite(node.id, outputRelativePath, parent === "." ? "" : parent);
+            release = await lockStorageFileOverwrite(node.id, outputRelativePath);
             await assertNotRecycled(node.id, outputRelativePath, "write", "LOCAL");
             const identity = await fs.stat(staged);
-            await publishLocalFile(staged, outputPath.path, outputRelativePath);
+            await journal.prepare(outputName, [{ relativePath: outputRelativePath, size: identity.size }], staged);
+            try {
+              await publishLocalFile(staged, outputPath.path, outputRelativePath);
+            } catch (error) {
+              await journal.clear().catch(() => undefined);
+              throw error;
+            }
             try {
               await createFileEntry({
                 storageNodeId: node.id, name: outputName, entryType: "FILE", mimeType: "application/octet-stream",
@@ -252,14 +266,19 @@ export async function POST(request: NextRequest) {
                 where: { storageNodeId: node.id, relativePath: outputRelativePath }, select: { id: true },
               });
               const current = await fs.lstat(outputPath.path);
-              if (!indexed && current.dev === identity.dev && current.ino === identity.ino) await fs.unlink(outputPath.path);
+              if (!indexed && current.dev === identity.dev && current.ino === identity.ino) {
+                await fs.unlink(outputPath.path);
+                await journal.clear();
+              }
               throw error;
             }
+            await journal.clear();
           } finally {
             await gzHandle.close().catch(() => undefined);
             await fs.rm(staged, { force: true }).catch(() => undefined);
-            await release?.();
-            await releaseStorageQuotaGuard(admission);
+            try { await release?.(); } finally {
+              try { await releaseStorageQuotaGuard(admission); } finally { await unlockJournal?.(); }
+            }
           }
         } else if (archiveKindOf(formatName)) {
           // ZIP and tar are read in-process and written as plain files and
@@ -275,35 +294,58 @@ export async function POST(request: NextRequest) {
           const archiveHandle = await openManagedLocalFile(node.basePath, relativePath);
           const pinnedArchivePath = process.platform === "linux" ? `/proc/self/fd/${archiveHandle.fd}` : fullPath;
           let admission: Awaited<ReturnType<typeof assertStorageAccess>> | undefined;
+          let unlock: (() => Promise<void>) | undefined;
           try {
+            unlock = await tryAcquireAdvisoryLock("storage-file-operation", `extract:${node.id}:${relativePath.toLowerCase()}`) ?? undefined;
+            if (!unlock) {
+              return NextResponse.json({ error: apiCopy("apiCopy.files.op.changed") }, { status: 409 });
+            }
+            const st = await archiveHandle.stat({ bigint: true });
+            const journal = extractionJournal(node.id, relativePath, `${st.dev}:${st.ino}:${st.size}:${st.ctimeNs}`, session.userId, session.currentTeamId);
+            const recovered = await journal.published(parentDir);
             const plan = await planExtraction(pinnedArchivePath, kind, request.signal).catch(asValidation);
             // Pre-flight capacity check before writing extracted files to staging.
             const preflightFolder = path.posix.join(parentRelative, formatName.replace(/\.(?:tar\.(?:gz|bz2|xz)|tgz|tbz2|txz|zip|tar)$/i, "") || "extracted");
-            const preflight = await assertStorageAccess({
-              session, storageNodeId: node.id, relativePath: preflightFolder, operation: "write",
-              writeBytes: plan.totalBytes, largestFileBytes: plan.largestFileBytes,
-            });
-            if (!preflight.allowed) throw new ForbiddenError(storageAccessDeniedCopy(preflight.reason));
-            await releaseStorageQuotaGuard(preflight);
-            const result = await extractArchive({
-              filePath: pinnedArchivePath, kind, archiveName: formatName, parentDir, parentRelativePath: parentRelative, plan, signal: request.signal,
-              beforePublish: async (folderName, members) => {
+            if (!recovered) {
+              const preflight = await assertStorageAccess({
+                session, storageNodeId: node.id, relativePath: preflightFolder, operation: "write",
+                writeBytes: plan.totalBytes, largestFileBytes: plan.largestFileBytes,
+              });
+              if (!preflight.allowed) throw new ForbiddenError(storageAccessDeniedCopy(preflight.reason));
+              await releaseStorageQuotaGuard(preflight);
+            }
+            const admit = async (folderName: string, members: { relativePath: string; size: number | null }[]) => {
                 const folder = path.posix.join(parentRelative, folderName);
                 await assertNotRecycled(node.id, folder, "write", node.driver);
                 await releaseStorageQuotaGuard(admission);
                 admission = await assertStorageAccess({
                   session, storageNodeId: node.id, relativePath: folder, operation: "write",
-                  writeBytes: plan.totalBytes, largestFileBytes: plan.largestFileBytes, writeMembers: members,
+                  ...(recovered ? {} : { writeBytes: plan.totalBytes, largestFileBytes: plan.largestFileBytes }), writeMembers: members,
                 });
                 if (!admission.allowed) throw new ForbiddenError(storageAccessDeniedCopy(admission.reason));
-              },
-            }).catch(asValidation);
+            };
+            if (recovered) await admit(recovered.folderName, recovered.members);
+            const result = recovered ? { ...plan, ...recovered, createdDirectories: recovered.members.filter(m => m.size === null).map(m => path.join(node.basePath, m.relativePath)) }
+              : await extractArchive({
+                filePath: pinnedArchivePath, kind, archiveName: formatName, parentDir, parentRelativePath: parentRelative, plan, signal: request.signal,
+                beforePublish: async (folderName, members, source) => {
+                  await admit(folderName, members);
+                  await journal.prepare(folderName, members, source);
+                },
+                onCollision: source => fs.unlink(path.join(source, journal.marker)),
+              }).catch(async (error): Promise<never> => {
+                if (!(await journal.published(parentDir).catch(() => null))) {
+                  await journal.clear().catch(() => undefined);
+                }
+                return asValidation(error);
+              });
             // Index the new folder and everything under it, so listings and
             // search show the files without visiting each folder first.
             const folder = path.posix.join(parentRelative, result.folderName);
             const directories = [parentRelative, ...result.createdDirectories.map(directory =>
               path.posix.join(parentRelative, path.relative(parentDir, directory).split(path.sep).join("/")))];
             try {
+              if (!await journal.published(parentDir)) throw new Error("Archive output changed: " + folder);
               for (const directory of directories) {
                 const sync = await syncLocalDirectoryEntries({ node, relativePath: directory || undefined });
                 if (sync.errors.length) throw new Error(sync.errors.join("; "));
@@ -330,6 +372,7 @@ export async function POST(request: NextRequest) {
                 error: t("storagePage.action.indexWriteFailed", locale), folder, indexStatus: "reconciliation_required",
               }, { status: 500 });
             }
+            await journal.clear(parentDir);
             return NextResponse.json({
               message: result.skipped
                 ? apiCopy("apiCopy.archive.extractedSkipped", { v0: result.files, v1: result.folderName, v2: result.skipped })
@@ -341,7 +384,7 @@ export async function POST(request: NextRequest) {
             });
           } finally {
             await archiveHandle.close().catch(() => undefined);
-            await releaseStorageQuotaGuard(admission);
+            try { await releaseStorageQuotaGuard(admission); } finally { await unlock?.(); }
           }
         } else {
           return NextResponse.json(

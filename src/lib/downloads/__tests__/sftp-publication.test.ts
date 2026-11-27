@@ -6,6 +6,7 @@ import { afterEach, beforeEach, describe, expect, it, vi } from "vitest";
 import { executeAria2RelayDownload } from "../execution";
 
 const mocks = vi.hoisted(() => ({
+  query: vi.fn(),
   owner: vi.fn(), capacity: vi.fn(), refusal: vi.fn(async () => null as string | null), rename: vi.fn(), readNode: vi.fn(), run: vi.fn(), open: vi.fn(), index: vi.fn(), receive: vi.fn(),
 }));
 vi.mock("../agent-relay", () => ({ receiveAgentHttpDownload: mocks.receive }));
@@ -14,7 +15,7 @@ vi.mock("@/lib/db", () => ({
     storageNode: { findFirst: mocks.readNode },
     downloadTask: { findFirstOrThrow: vi.fn(async () => ({ createdBy: "user", teamId: "team" })) },
     $transaction: (body: (tx: unknown) => Promise<void>) => body({
-      $queryRaw: vi.fn(async () => [{ id: "node" }]), server: { findFirst: vi.fn(async () => ({ id: "server" })) }, downloadTask: { count: vi.fn(async () => 1) }, storageNode: { findFirst: mocks.readNode },
+      $queryRaw: mocks.query, server: { findFirst: vi.fn(async () => ({ id: "server" })) }, downloadTask: { count: vi.fn(async () => 1) }, storageNode: { findFirst: mocks.readNode },
     }),
   },
 }));
@@ -50,6 +51,7 @@ describe("SFTP relay publication", () => {
   let temp: string;
   beforeEach(async () => {
     vi.clearAllMocks();
+    mocks.query.mockResolvedValue([{ id: "node" }]);
     temp = await mkdtemp(join(tmpdir(), "vch-sftp-relay-"));
     const file = join(temp, "body");
     await writeFile(file, "a");
@@ -63,7 +65,26 @@ describe("SFTP relay publication", () => {
   });
   afterEach(async () => { await rm(temp, { recursive: true, force: true }); });
   const publish = () => executeAria2RelayDownload("task", server, ["https://example.test/file"], "/drive",
-    null, null, "user", undefined, undefined, true);
+    null, null, "user", undefined, undefined, true, { id: "job", workerId: "worker", attempts: 2 });
+
+  it("rejects a replaced job claim before acknowledging the remote rename", async () => {
+    mocks.query.mockResolvedValueOnce([]);
+    await expect(publish()).rejects.toThrow();
+    expect(mocks.query.mock.calls[0]!.slice(1, 4)).toEqual(["job", "worker", 2]);
+    expect(mocks.rename).not.toHaveBeenCalled();
+  });
+
+  it.each([false, true])("recovers only the journaled staged generation (intervening writer=%s)", async changed => {
+    mocks.receive.mockImplementation(({ publishSftp }) => publishSftp("fixture", { name: "file.bin", size: 1, sha256: "a".repeat(64), publication: { original: "before", staged: "ours" } }));
+    mocks.open.mockImplementation(async (_ssh, _remote, _prefix, _digest, _local, commit) => commit(mocks.rename, { original: "after", staged: changed ? "theirs" : "ours", matches: true }));
+    if (changed) {
+      await expect(publish()).rejects.toMatchObject({ status: 409 });
+      expect(mocks.rename).not.toHaveBeenCalled();
+    } else {
+      await publish();
+      expect(mocks.index).toHaveBeenCalledOnce();
+    }
+  });
 
   it("refuses a moved root before creating a directory or staging a file", async () => {
     mocks.readNode.mockResolvedValueOnce({ ...currentNode, basePath: "/new" });

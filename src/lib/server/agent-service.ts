@@ -5,6 +5,7 @@ import { createHash, createHmac, randomBytes, timingSafeEqual } from "node:crypt
 import { Prisma } from "@prisma/client";
 import { config } from "@/lib/config/env";
 import { prisma } from "@/lib/db";
+import { DB_UTC_NOW } from "@/lib/db/utc-now";
 import { BusinessError } from "@/lib/errors";
 import { t } from "@/lib/i18n/service-translations";
 import { shellQuote } from "@/lib/shell-quote";
@@ -232,13 +233,25 @@ async function recordAgentLatestMetrics(serverId: string, raw: string, at: Date)
   }
 }
 
+/**
+ * Store an Agent's result for one of its jobs.
+ *
+ * The result is fenced on the credential that delivered it: the server row must
+ * still be in Agent mode with this exact token digest, read `FOR SHARE` in the
+ * same transaction as the writes. A poll authenticated just before the token was
+ * rotated, or before the node was switched back to SSH (which cancels every job
+ * through resetAgentForModeChange), would otherwise land a stale result on a job
+ * the new identity owns. Returns whether the fence held.
+ */
 export async function completeServerAgentJob(input: {
   serverId: string;
+  /** Digest of the Agent token that authenticated this poll. */
+  agentTokenHash: string;
   jobId: string;
   stdout?: string;
   stderr?: string;
   exitCode?: number;
-}) {
+}): Promise<boolean> {
   const resultData = {
     // PostgreSQL refuses U+0000: one such byte in the output (cat /proc/*/environ) made this write fail for
     // ever, since the agent resends the same result until it is accepted.
@@ -248,17 +261,25 @@ export async function completeServerAgentJob(input: {
     completedAt: new Date(),
     leaseExpiresAt: null,
   };
-  await prisma.serverAgentJob.updateMany({
-    where: { id: input.jobId, serverId: input.serverId, status: "CLAIMED" },
-    data: {
-      status: input.exitCode === 0 ? "COMPLETED" : "FAILED",
-      ...resultData,
-    },
-  });
-  // CANCELLED + no completedAt is a request, not remote acknowledgement.
-  await prisma.serverAgentJob.updateMany({
-    where: { id: input.jobId, serverId: input.serverId, status: "CANCELLED", completedAt: null },
-    data: { status: input.exitCode === 130 ? "CANCELLED" : input.exitCode === 0 ? "COMPLETED" : "FAILED", ...resultData },
+  return prisma.$transaction(async (tx) => {
+    const identity = await tx.$queryRaw<{ id: string }[]>`
+      SELECT id FROM servers WHERE id = ${input.serverId} AND "agentTokenHash" = ${input.agentTokenHash}
+        AND "managementMode" = 'AGENT'
+      FOR SHARE`;
+    if (!identity.length) return false;
+    await tx.serverAgentJob.updateMany({
+      where: { id: input.jobId, serverId: input.serverId, status: "CLAIMED" },
+      data: {
+        status: input.exitCode === 0 ? "COMPLETED" : "FAILED",
+        ...resultData,
+      },
+    });
+    // CANCELLED + no completedAt is a request, not remote acknowledgement.
+    await tx.serverAgentJob.updateMany({
+      where: { id: input.jobId, serverId: input.serverId, status: "CANCELLED", completedAt: null },
+      data: { status: input.exitCode === 130 ? "CANCELLED" : input.exitCode === 0 ? "COMPLETED" : "FAILED", ...resultData },
+    });
+    return true;
   });
 }
 
@@ -297,7 +318,7 @@ export async function findLivePendingAgentJobId(
   const live = await tx.$queryRaw<Array<{ id: string }>>`
     SELECT id FROM "server_agent_jobs"
     WHERE "serverId" = ${serverId} AND status = 'PENDING'
-      AND "createdAt" + ("timeoutMs" + ${AGENT_PENDING_GRACE_MS}) * interval '1 millisecond' > (now() AT TIME ZONE 'UTC')
+      AND "createdAt" + ("timeoutMs" + ${AGENT_PENDING_GRACE_MS}) * interval '1 millisecond' > ${DB_UTC_NOW}
     ORDER BY "createdAt" ASC
     LIMIT 1`;
   return live[0]?.id;
@@ -432,7 +453,7 @@ export async function executeCommandWithAgent(input: {
   // snapshot must retry if a job was just inserted, even one without a CommandTarget.
   const job = await prisma.$transaction(async (tx) => {
     const live = await tx.$queryRaw<{ id: string }[]>`
-      UPDATE servers SET "updatedAt" = now() AT TIME ZONE 'UTC'
+      UPDATE servers SET "updatedAt" = ${DB_UTC_NOW}
       WHERE id = ${input.serverId} AND "managementMode" = 'AGENT'
         AND enabled AND "agentTokenHash" IS NOT NULL
         AND NOT EXISTS (SELECT 1 FROM teams t WHERE t.id = servers."teamId" AND t."deletedAt" IS NOT NULL)
@@ -440,7 +461,7 @@ export async function executeCommandWithAgent(input: {
         ${input.expectedIdentity?.endpoint ? Prisma.sql`AND host = ${input.expectedIdentity.endpoint.host}
           AND port = ${input.expectedIdentity.endpoint.port} AND username = ${input.expectedIdentity.endpoint.username}
           AND "hostKeySha256" IS NOT DISTINCT FROM ${input.expectedIdentity.endpoint.hostKeySha256}` : Prisma.empty}
-        AND "agentLastSeenAt" > (now() AT TIME ZONE 'UTC') - ${AGENT_FRESH_MS} * interval '1 millisecond'
+        AND "agentLastSeenAt" > ${DB_UTC_NOW} - ${AGENT_FRESH_MS} * interval '1 millisecond'
       RETURNING id`;
     if (!live.length || input.signal?.aborted) return null;
     return tx.serverAgentJob.create({

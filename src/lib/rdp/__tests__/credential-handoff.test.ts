@@ -12,7 +12,7 @@ vi.mock("ws", () => ({
   WebSocketServer: class { constructor() { return mocks.webSocketServer(); } },
 }));
 vi.mock("node:net", () => ({ createConnection: () => mocks.tunnel() }));
-vi.mock("@/lib/auth/session", () => ({ getSessionCookieName: () => "session", verifySessionToken: mocks.verify }));
+vi.mock("@/lib/auth/session", () => ({ getSessionCookieName: () => "session", verifySessionToken: mocks.verify, sessionTokenExpiresAt: () => Date.now() + 3_600_000 }));
 vi.mock("@/lib/auth/authorization", () => ({ sessionHasPermission: () => true }));
 vi.mock("@/lib/audit/service", () => ({ auditUserAction: mocks.audit }));
 vi.mock("@/lib/crypto/service", () => ({ decrypt: () => "isolated-password" }));

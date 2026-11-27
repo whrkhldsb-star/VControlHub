@@ -13,6 +13,8 @@ vi.mock("@/lib/db", () => ({
  update: vi.fn(),
  updateMany: vi.fn(),
  },
+ // No cookie in these tests has been signed out.
+ revokedSession: { findUnique: vi.fn(async () => null) },
  setting: {
  findUnique: vi.fn(),
  },

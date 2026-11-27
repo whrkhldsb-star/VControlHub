@@ -62,24 +62,23 @@ describe("/api/share/[token]", () => {
 		expect(mocks.recordShareDownload).toHaveBeenCalledTimes(1);
 	});
 
-	it("releases the quota claim when a directory share is misused", async () => {
+	it("does not claim quota when a directory share is misused", async () => {
 		mocks.resolveShareToken.mockResolvedValue(dirShare);
 		expect((await get()).status).toBe(400);
 		expect((await get("?path=other/secret.txt")).status).toBe(403);
 		expect((await get("?path=../../etc/passwd")).status).toBe(400);
 		expect((await get("?archive=1")).status).toBe(400);
-		expect(mocks.releaseShareQuotaClaim).toHaveBeenCalledTimes(4);
+		expect(mocks.releaseShareQuotaClaim).not.toHaveBeenCalled();
 		expect(mocks.recordShareDownload).not.toHaveBeenCalled();
-		expect(mocks.releaseShareQuotaClaim).toHaveBeenCalledWith("sh_1");
 		expect(mocks.streamStorageFile).not.toHaveBeenCalled();
 	});
 
-	it("answers a malformed query with 400 and gives the claimed download back, instead of a 500 that used the link up", async () => {
+	it("answers a malformed query with 400 before claiming a download", async () => {
 		mocks.resolveShareToken.mockResolvedValue(fileShare);
 		for (const query of ["?path=", "?path=%20", "?path=a&path=b"]) {
 			mocks.releaseShareQuotaClaim.mockClear();
 			expect((await get(query)).status).toBe(400);
-			expect(mocks.releaseShareQuotaClaim).toHaveBeenCalledWith("sh_1");
+			expect(mocks.recordShareDownload).not.toHaveBeenCalled();
 		}
 		expect(mocks.streamStorageFile).not.toHaveBeenCalled();
 	});
@@ -91,7 +90,7 @@ describe("/api/share/[token]", () => {
 		expect(mocks.streamStorageFile).toHaveBeenCalledWith(webdavNode, "docs/b.txt");
 		mocks.assertShareTargetNotDeleted.mockRejectedValueOnce(new Error("deleted"));
 		expect((await get("?path=docs/b.txt")).status).toBe(404);
-		expect(mocks.releaseShareQuotaClaim).toHaveBeenCalledWith("sh_1");
+		expect(mocks.recordShareDownload).toHaveBeenCalledTimes(1);
 	});
 
 	it("keeps the granted Windows directory spelling when checking a case variant of a binned child", async () => {
@@ -101,7 +100,7 @@ describe("/api/share/[token]", () => {
 			mocks.assertShareTargetNotDeleted.mockRejectedValueOnce(new Error("deleted"));
 			expect((await get("?path=dOcS/OLD/file.txt")).status).toBe(404);
 			expect(mocks.assertShareTargetNotDeleted).toHaveBeenCalledWith("node_1", "Docs/OLD/file.txt", "LOCAL", true);
-			expect(mocks.releaseShareQuotaClaim).toHaveBeenCalledWith("sh_1");
+			expect(mocks.recordShareDownload).not.toHaveBeenCalled();
 		} finally {
 			platform.mockRestore();
 		}

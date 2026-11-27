@@ -13,6 +13,7 @@ import {
 	tokenAllowsPermission,
 } from "@/lib/api-token/authorization";
 import { sessionHasPermission } from "./authorization";
+import { canRouteValidateBearerToken } from "./bearer-route-policy";
 import { PLATFORM_ONLY_PERMISSIONS } from "./identity-templates";
 import type { Permission } from "./rbac";
 import type { SessionPayload } from "./session";
@@ -44,6 +45,14 @@ export function verifiedBearerTokenId(session: SessionPayload): string | null {
 
 const SAFE_TOKEN_METHODS = new Set(["GET", "HEAD", "OPTIONS"]);
 
+function requestPathname(request: Request): string {
+	try {
+		return new URL(request.url).pathname;
+	} catch {
+		return "";
+	}
+}
+
 export function hasBearerAuthorization(request: Request): boolean {
 	return /^Bearer\s+/i.test(request.headers.get("authorization") ?? "");
 }
@@ -58,6 +67,16 @@ export async function authenticateBearerForPermissions(
 	| null
 > {
 	if (!hasBearerAuthorization(request)) return null;
+	// The proxy's bearer policy, enforced again here: the proxy lets a request through on a plausible-looking
+	// session cookie and a matching CSRF pair, both of which a script can fake, so a token presented to a route
+	// that does not take tokens for this method must be refused by the route itself. Checked before the token
+	// lookup, so such requests cost no query either.
+	if (!canRouteValidateBearerToken(requestPathname(request), request.method)) {
+		return Response.json(
+			{ error: t("api.auth.invalidToken") },
+			{ status: 403 },
+		);
+	}
 	// Each lookup costs a database query, and read routes are reachable with any Bearer header and no cookie.
 	// A client that keeps presenting tokens that do not exist is refused for a while, across every path.
 	const clientIp = getClientIp(request);

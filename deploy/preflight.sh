@@ -18,6 +18,7 @@ log() { printf '\033[1;32m[preflight]\033[0m %s\n' "$*"; }
 warn() { printf '\033[1;33m[preflight]\033[0m %s\n' "$*" >&2; }
 fail() { printf '\033[1;31m[preflight]\033[0m %s\n' "$*" >&2; exit 1; }
 have_cmd() { command -v "$1" >/dev/null 2>&1; }
+TAB="	"
 
 is_placeholder_value() {
   local value="${1:-}"
@@ -42,6 +43,27 @@ validate_env_value() {
   if is_placeholder_value "${value}"; then
     fail "${name} still contains a placeholder in ${ENV_FILE}"
   fi
+}
+
+# A-06: Windows editors save .env files with CRLF line endings, and copy-paste
+# can drag invisible leading/trailing whitespace into a value. Both silently
+# change the secret the app derives (a "\r" becomes part of the HMAC key; a
+# trailing space breaks comparisons), so surface them by NAME without printing
+# the secret values.
+check_secret_encoding() {
+  local name="$1"
+  local value="${!name:-}"
+  [ -n "${value}" ] || return 0
+  case "${value}" in
+    *$'\r'*)
+      fail "${name} contains a carriage return (CRLF line endings in ${ENV_FILE}); re-save the file with LF endings"
+      ;;
+  esac
+  case "${value}" in
+    " "*|*" "|"${TAB}"*|*"${TAB}")
+      fail "${name} has leading or trailing whitespace in ${ENV_FILE}"
+      ;;
+  esac
 }
 
 ensure_runtime_dirs() {
@@ -105,6 +127,11 @@ set +a
 
 for required in DATABASE_URL AUTH_SESSION_SECRET ADMIN_INITIAL_PASSWORD SSH_WS_SECRET STORAGE_DIRECT_ACCESS_SECRET ENCRYPTION_KEY; do
   validate_env_value "${required}"
+done
+
+# Secret values whose encoding must match what the app derives byte for byte.
+for secret in SSH_WS_SECRET AUTH_SESSION_SECRET ENCRYPTION_KEY; do
+  check_secret_encoding "${secret}"
 done
 
 [ "${#AUTH_SESSION_SECRET}" -ge 32 ] || fail "AUTH_SESSION_SECRET is shorter than 32 characters"

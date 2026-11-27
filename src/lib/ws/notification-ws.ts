@@ -13,6 +13,7 @@ import type { IncomingMessage } from "node:http";
 import { WebSocketServer, WebSocket } from "ws";
 import type { SessionPayload } from "@/lib/auth/session";
 import { getSessionCookieName, verifySessionToken } from "@/lib/auth/session";
+import { config } from "@/lib/config/env";
 import { AuthError } from "@/lib/errors";
 import { createLogger } from "@/lib/logging";
 import { recordWsEvent, setWsActive } from "@/lib/monitoring/runtime-metrics";
@@ -20,6 +21,7 @@ import { getVisibleNotificationForPush, readUnreadCount } from "@/lib/notificati
 import { rateLimitIpKey } from "@/lib/rate-limit";
 import { getNotificationBus } from "./notification-bus";
 import { PreAuthLimiter, upgradeClientAddress } from "./pre-auth-limiter";
+import { deliverSessionSignout, onSessionSignout, sessionTokenHash } from "./session-signout";
 
 const logger = createLogger("ws:notification");
 
@@ -46,7 +48,7 @@ const MAX_CONNECTIONS_PER_USER = 10;
  * often (on the heartbeat sweep), so signing out everywhere, disabling the account, changing the
  * password or an expired session cuts the push instead of leaving it on for as long as the page stays open. */
 const SESSION_RECHECK_INTERVAL_MS = 60_000;
-const socketAuth = new WeakMap<WebSocket, { token: string; checkedAt: number }>();
+const socketAuth = new WeakMap<WebSocket, { token: string; tokenHash: string; checkedAt: number }>();
 
 const heartbeatState = new WeakMap<WebSocket, boolean>();
 let heartbeatTimer: NodeJS.Timeout | null = null;
@@ -124,6 +126,16 @@ export async function broadcastToUser(userId: string, message: unknown) {
 /* ── WebSocket Server Setup ──────────────────────────────── */
 let wss: WebSocketServer | null = null;
 let detachUpgradeHandler: (() => void) | null = null;
+let detachSignoutHandler: (() => void) | null = null;
+
+/** Drop the user's sockets opened with a cookie that was just signed out on some device; their other sessions stay. */
+function closeSignedOutSockets(userId: string, tokenHash: string) {
+	for (const ws of [...(userConnections.get(userId) ?? [])]) {
+		if (socketAuth.get(ws)?.tokenHash !== tokenHash) continue;
+		recordWsEvent("notification", "reject");
+		ws.terminate();
+	}
+}
 
 export function getWsServer(): WebSocketServer | null {
 	return wss;
@@ -137,6 +149,8 @@ export function closeWebSocketServer(): void {
 	// Drop the bus subscription (Redis pub/sub when multi-instance) before
 	// clearing the registry it delivers into.
 	void getNotificationBus().stop();
+	detachSignoutHandler?.();
+	detachSignoutHandler = null;
 	if (!wss) return;
 	detachUpgradeHandler?.();
 	detachUpgradeHandler = null;
@@ -196,7 +210,8 @@ function isCrossOriginUpgrade(request: IncomingMessage): boolean {
 		return true;
 	}
 	if (!originHost) return true;
-	const forwarded = request.headers["x-forwarded-host"];
+	// Only a trusted reverse proxy may name the host (TRUSTED_PROXY_HOPS > 0), as for HTTP requests (request-origin.ts).
+	const forwarded = config.http.trustedProxyHops > 0 ? request.headers["x-forwarded-host"] : undefined;
 	const expected = (
 		(typeof forwarded === "string" && forwarded.split(",")[0]?.trim()) ||
 		request.headers.host ||
@@ -350,7 +365,7 @@ export function setupWebSocketServer(
 
 	instance.on("connection", (ws: WebSocket, _req: IncomingMessage, session: SessionPayload, token: string) => {
 		const userId = session.userId;
-		socketAuth.set(ws, { token, checkedAt: Date.now() });
+		socketAuth.set(ws, { token, tokenHash: sessionTokenHash(token), checkedAt: Date.now() });
 		addConnection(userId, ws);
 		heartbeatState.set(ws, true);
 		ws.on("pong", () => {
@@ -406,7 +421,10 @@ export function setupWebSocketServer(
 	// Multi-instance fan-out: pushes go through the bus, which delivers
 	// locally (single instance) or via Redis pub/sub so the instance holding
 	// the user's sockets sees every message regardless of origin process.
+	detachSignoutHandler = onSessionSignout(closeSignedOutSockets);
 	void getNotificationBus().start((userId, message) => {
+		// A sign-out of one device rides the same bus: it closes sockets, it is never pushed.
+		if (deliverSessionSignout(userId, message)) return;
 		// A delayed Redis/NOTIFY message can outlive the recipient's membership.
 		void broadcastToUser(userId, message).catch((error: unknown) => {
 			logger.warn("notification bus delivery failed", { error: error instanceof Error ? error.message : String(error) });

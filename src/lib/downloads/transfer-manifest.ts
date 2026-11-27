@@ -15,6 +15,7 @@ const schema = z.object({
     // folder of files. Every segment is a plain name.
     name: memberPath,
     sourceName: memberPath.optional(),
+    publication: z.object({ original: z.string(), staged: z.string().optional() }).optional(),
     size: z.number().int().nonnegative().max(Number.MAX_SAFE_INTEGER),
     sha256: z.string().regex(/^[a-f0-9]{64}$/),
   })).min(1),

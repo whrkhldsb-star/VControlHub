@@ -15,6 +15,7 @@ const mocks = vi.hoisted(() => ({
   })),
   pruneTerminalJobs: vi.fn(async (_options?: { olderThan?: Date }) => ({ count: 0 })),
   pruneCompletedJobsByType: vi.fn(async (_options?: { type?: string; keepLatest?: number }) => ({ count: 0 })),
+  pruneExpiredRevokedSessions: vi.fn(async (_now?: Date) => ({ count: 0 })),
 }));
 
 vi.mock("@/lib/db", () => ({
@@ -50,6 +51,10 @@ vi.mock("@/lib/job/events", () => ({
   pruneJobEvents: vi.fn(async () => ({ count: 0 })),
 }));
 
+vi.mock("@/lib/files/extraction-journal", () => ({
+  pruneExpiredExtractionIntents: vi.fn(async () => ({ count: 0 })),
+}));
+
 // The maintenance tick also reaps stale VPS backups and sweeps expired upload
 // sessions; stub both so this unit test stays isolated from those modules
 // (and their config reads) and only exercises the job-maintenance logic.
@@ -68,6 +73,10 @@ vi.mock("@/lib/upload/finalization-lease", () => ({ recoverInterruptedFinalizati
 
 vi.mock("@/lib/upload/service", () => ({
   sweepExpiredMediaUploadSessions: vi.fn(async () => 0),
+}));
+
+vi.mock("@/lib/auth/session-revocation", () => ({
+  pruneExpiredRevokedSessions: mocks.pruneExpiredRevokedSessions,
 }));
 
 vi.mock("@/lib/downloads/relay-cleanup", () => ({ sweepTerminalRelays: vi.fn(async () => {}) }));
@@ -218,6 +227,21 @@ describe("abandonOrphanPendingJobs", () => {
     await new Promise((r) => setTimeout(r, 20));
     expect(mocks.pruneTerminalJobs).toHaveBeenCalledTimes(1);
     expect(mocks.pruneTerminalJobs).toHaveBeenCalledWith();
+    stopJobMaintenanceWorkerForTests();
+  });
+
+  it("startup tick prunes expired single-device session revocations, and a failure spares later steps", async () => {
+    mocks.findMany.mockResolvedValueOnce([]);
+    mocks.pruneExpiredRevokedSessions.mockClear();
+    mocks.pruneExpiredRevokedSessions.mockRejectedValueOnce(new Error("DB unavailable"));
+    mocks.settingFindUnique.mockClear();
+    await startJobMaintenanceWorker({ intervalMs: 60_000 });
+    await new Promise((r) => setTimeout(r, 20));
+    expect(mocks.pruneExpiredRevokedSessions).toHaveBeenCalledTimes(1);
+    // runStep isolates the failing sweep; the audit-log prune after it still runs.
+    expect(mocks.settingFindUnique).toHaveBeenCalledWith({
+      where: { key: "retention.auditLogDays" }, select: { value: true },
+    });
     stopJobMaintenanceWorkerForTests();
   });
 

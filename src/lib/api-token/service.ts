@@ -225,5 +225,8 @@ export async function verifyApiToken(token: string) {
   if (Date.now() - lastUsedMs >= LAST_USED_AT_TOUCH_MIN_MS) {
     await prisma.apiToken.update({ where: { id: record.id }, data: { lastUsedAt: new Date() } });
   }
-  return { userId: record.createdBy, teamId: record.teamId, scopes: record.scopes, tokenId: record.id };
+  // Only scopes this build still issues count: a row written before a scope was withdrawn (or edited directly in
+  // the database) must not keep granting it. Issuance already validates through normalizeScopes.
+  const scopes = record.scopes.filter(isAllowedApiTokenScope);
+  return { userId: record.createdBy, teamId: record.teamId, scopes, tokenId: record.id };
 }

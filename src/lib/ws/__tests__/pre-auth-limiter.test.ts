@@ -1,5 +1,6 @@
 import { PEER_ADDRESS_HEADER } from "@/lib/http/peer-address";
 import { describe, expect, it, vi } from "vitest";
+import { config } from "@/lib/config/env";
 import { PreAuthLimiter, upgradeClientAddress, PEER_SIGNATURE_HEADER, signUpgradePeer } from "../pre-auth-limiter";
 
 describe("PreAuthLimiter", () => {
@@ -49,5 +50,22 @@ describe("upgradeClientAddress", () => {
     // sent in front of it is not believed.
     expect(upgradeClientAddress({ headers: { "x-forwarded-for": "198.51.100.9, 203.0.113.7" } })).toBe("203.0.113.7");
     expect(upgradeClientAddress({ headers: {} })).toBe("unknown");
+  });
+
+  it("verifies a forwarded peer signed by the web tier even when SSH_WS_SECRET carries stray whitespace", () => {
+    // The forwarder and the gateway read the same env file; one side trimming and the other not left every
+    // forwarded peer unverified, so all of them shared the "unknown" bucket.
+    vi.stubEnv("TRUSTED_PROXY_HOPS", "0");
+    vi.stubEnv("SSH_WS_SECRET", "  test-signature-key\n");
+    try {
+      expect(config.ssh.wsSecret).toBe("test-signature-key");
+      const signed = signUpgradePeer("192.0.2.5", "fixture", " test-signature-key ");
+      expect(signed).toBe(signUpgradePeer("192.0.2.5", "fixture", "test-signature-key"));
+      const headers = { "sec-websocket-key": "fixture", [PEER_ADDRESS_HEADER]: "192.0.2.5", [PEER_SIGNATURE_HEADER]: signed! };
+      expect(upgradeClientAddress({ headers, socket: { remoteAddress: "127.0.0.1" } })).toBe("192.0.2.5");
+      vi.stubEnv("SSH_WS_SECRET", "   ");
+      expect(config.ssh.wsSecret).toBeUndefined();
+      expect(signUpgradePeer("192.0.2.5", "fixture", "   ")).toBeUndefined();
+    } finally { vi.unstubAllEnvs(); }
   });
 });

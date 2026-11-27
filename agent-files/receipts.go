@@ -1,6 +1,7 @@
 package main
 
 import (
+	"context"
 	"crypto/rand"
 	"encoding/hex"
 	"encoding/json"
@@ -21,8 +22,14 @@ func (s share) jobMarker(id string) string {
 
 // The exclusive intent survives a restart. A delivered job without a final
 // receipt has an unknown outcome and must never repeat its filesystem write.
-func (s share) dispatch(job work) (result, error) {
+func (s share) dispatch(ctx context.Context, job work) (result, error) {
 	op := job.Operation
+	if job.RemainingMs > 0 {
+		var cancel context.CancelFunc
+		ctx, cancel = context.WithDeadline(ctx, op.deadline)
+		defer cancel()
+	}
+	op.ctx = ctx
 	if readOperation(op.Op) || !s.writable {
 		return s.handle(op)
 	}
@@ -70,7 +77,7 @@ func (s share) replaceRecord(name string, value any) error {
 	err = json.NewEncoder(f).Encode(value)
 	err = errors.Join(err, f.Sync(), f.Close())
 	if err == nil {
-		err = s.root.Rename(temp, name)
+		err = s.renamePinned(temp, name, true)
 	}
 	if err != nil {
 		s.root.Remove(temp)

@@ -38,7 +38,7 @@ export * from "./import-executors-tenancy";
 
 // ── executeImport 编排函数 ───────────────────────────────
 
-import { lockForTransaction } from "@/lib/concurrency/advisory-lock";
+import { acquireAdvisoryLock, lockForTransaction } from "@/lib/concurrency/advisory-lock";
 import { prisma } from "@/lib/db";
 import { lockSettingBindings, relatedSettingKeys } from "@/lib/settings/bindings";
 import { rememberSaved } from "@/lib/settings/service";
@@ -74,7 +74,16 @@ import {
 import { importIdentityTemplates, importTeamMembers, importTeams, importUserServerAccess } from "./import-executors-tenancy";
 import { alignImportIds, findMissingTeamIds } from "./import-id-alignment";
 import { ValidationError } from "@/lib/errors";
+import { createLogger } from "@/lib/logging";
 import { t as translate } from "@/lib/i18n/service-translations";
+
+const importLogger = createLogger("system-import");
+
+function isSerializationConflict(error: unknown): boolean {
+  if (!error || typeof error !== "object") return false;
+  const candidate = error as { code?: unknown; meta?: { code?: unknown } };
+  return candidate.code === "P2034" || candidate.code === "40001" || candidate.meta?.code === "40001";
+}
 
 /**
  * 按依赖顺序事务性导入所有配置表。
@@ -157,19 +166,47 @@ export async function executeImport(
   try {
     file = parseImportFile(file);
     stage = "transaction";
-    for (let attempt = 1; ; attempt++) {
-      try {
-        const { counts, settings } = await prisma.$transaction(write, { timeout: 120_000, maxWait: 20_000, isolationLevel: "Serializable" });
-        rememberSaved(settings);
-        return { ...counts, errors: [] };
-      } catch (error) {
-        if (!(error instanceof ProviderDefaultBusy) || attempt >= 3) throw error;
-        // Let the normal editor commit before taking the next import snapshot.
-        await prisma.$transaction((tx) => lockForTransaction(tx, "ai-provider-default", error.owner), { timeout: 120_000 });
+    // Acquire the AI Ops settings advisory lock OUTSIDE the Serializable transaction
+    // whenever the import can mutate `ai.ops.*` settings or `ai_providers`:
+    //   1) `Serializable` takes its snapshot on the first SELECT, so waiting on a
+    //      transaction-level advisory lock inside the tx would see a stale snapshot.
+    //   2) Acquiring `ai-ops-settings` before `LOCK TABLE ai_providers` matches
+    //      `action-executor.ts` (`ai-ops-settings` -> `jobs` -> `ai_providers`),
+    //      preventing lock-order inversions while serializing mode/provider switches.
+    const needsAiOpsLock =
+      (options.importSettings && file.tables.settings.some((row) => row.key.startsWith("ai.ops.")))
+      || file.tables.aiProviders.length > 0;
+    const releaseAiOpsLock = needsAiOpsLock ? await acquireAdvisoryLock("ai-ops-settings", "global") : null;
+    try {
+      for (let attempt = 1; ; attempt++) {
+        try {
+          const { counts, settings } = await prisma.$transaction(write, { timeout: 120_000, maxWait: 20_000, isolationLevel: "Serializable" });
+          rememberSaved(settings);
+          return { ...counts, errors: [] };
+        } catch (error) {
+          if (error instanceof ProviderDefaultBusy && attempt < 3) {
+            // Let the normal editor commit before taking the next import snapshot.
+            await prisma.$transaction((tx) => lockForTransaction(tx, "ai-provider-default", error.owner), { timeout: 120_000 });
+            continue;
+          }
+          if (isSerializationConflict(error) && attempt < 3) {
+            continue;
+          }
+          throw error;
+        }
       }
+    } finally {
+      await releaseAiOpsLock?.();
     }
-  } catch {
-    const skipped = Object.values(file.tables).reduce((total, rows) => total + rows.length, 0);
+  } catch (error) {
+    importLogger.error("System configuration import failed and rolled back", {
+      stage,
+      error: error instanceof Error ? error.message : String(error),
+    });
+    const tables = file && typeof file === "object" && file.tables && typeof file.tables === "object" ? file.tables : null;
+    const skipped = tables
+      ? Object.values(tables).reduce((total, rows) => total + (Array.isArray(rows) ? rows.length : 0), 0)
+      : 0;
     return { created: 0, updated: 0, skipped, errors: [`IMPORT_FAILED.${stage}`], rolledBack: true };
   }
 }

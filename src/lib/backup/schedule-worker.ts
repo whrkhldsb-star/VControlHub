@@ -20,6 +20,10 @@ import { JobStatus } from "@prisma/client";
 import { prisma } from "@/lib/db";
 import { config } from "@/lib/config/env";
 import { runWithLeaseHeartbeat } from "@/lib/job/heartbeat-runner";
+
+function isLeaseLostError(error: unknown): boolean {
+  return Boolean(error && typeof error === "object" && (error as { name?: unknown }).name === "LeaseLostError");
+}
 import { computeLeaseMs } from "@/lib/job/lease";
 import {
   claimNextJob,
@@ -186,7 +190,7 @@ async function maybeEnqueueOffsiteUploadTick(now = new Date()): Promise<{
   }
 }
 
-async function dispatchDueBackupSchedules(reason: string) {
+async function dispatchDueBackupSchedules(reason: string, signal?: AbortSignal) {
   const dueSchedules = await prisma.backupSchedule.findMany({
     where: {
       status: "ACTIVE",
@@ -201,10 +205,12 @@ async function dispatchDueBackupSchedules(reason: string) {
   let dispatchedCount = 0;
   let dispatchFailures = 0;
   for (const schedule of dueSchedules) {
+    signal?.throwIfAborted();
     try {
       const dispatched = await dispatchDueScheduleRow(schedule);
       if (dispatched) dispatchedCount += 1;
     } catch (error) {
+      if (isLeaseLostError(error) || signal?.aborted) throw error;
       const message = error instanceof Error ? error.message : String(error);
       logger.error("Backup schedule dispatch failed", {
         reason,
@@ -238,29 +244,37 @@ export async function runBackupScheduleTickJobWorkerOnce(reason = "manual") {
     if (!job) return false;
 
     try {
-      await heartbeatJob(job.id, BACKUP_SCHEDULE_WORKER_ID, {
+      const lease = await heartbeatJob(job.id, BACKUP_SCHEDULE_WORKER_ID, {
+        ...(job.attempts !== undefined ? { attempts: job.attempts } : {}),
         leaseMs: BACKUP_SCHEDULE_TICK_LEASE_MS,
         progress: "Dispatching due backup schedules",
       });
+      if (lease && lease.count === 0) return true;
       const { offsiteTick, offsiteUploadTick, scheduleResult } = await runWithLeaseHeartbeat({
         jobId: job.id,
         leaseMs: BACKUP_SCHEDULE_TICK_LEASE_MS,
+        ...(job.attempts !== undefined ? { attempts: job.attempts } : {}),
         heartbeat: () => heartbeatJob(job.id, BACKUP_SCHEDULE_WORKER_ID, {
+          ...(job.attempts !== undefined ? { attempts: job.attempts } : {}),
           leaseMs: BACKUP_SCHEDULE_TICK_LEASE_MS,
           progress: "Dispatching due backup schedules",
         }),
-        run: async () => ({
-          offsiteTick: await maybeEnqueueOffsiteRetentionTick(),
-          offsiteUploadTick: await maybeEnqueueOffsiteUploadTick(),
-          scheduleResult: await dispatchDueBackupSchedules(reason),
-        }),
+        run: async (signal) => {
+          signal?.throwIfAborted();
+          const offsiteTick = await maybeEnqueueOffsiteRetentionTick();
+          signal?.throwIfAborted();
+          const offsiteUploadTick = await maybeEnqueueOffsiteUploadTick();
+          signal?.throwIfAborted();
+          const scheduleResult = await dispatchDueBackupSchedules(reason, signal);
+          return { offsiteTick, offsiteUploadTick, scheduleResult };
+        },
       });
       await completeJob(job.id, BACKUP_SCHEDULE_WORKER_ID, {
         offsiteRetentionTick: offsiteTick,
         offsiteUploadTick,
         dispatched: scheduleResult.dispatched,
         observed: scheduleResult.observed,
-      });
+      }, ...(job.attempts !== undefined ? [job.attempts] : []));
       try {
         await pruneCompletedJobsByType({
           type: BACKUP_SCHEDULE_TICK_JOB_TYPE,
@@ -273,8 +287,12 @@ export async function runBackupScheduleTickJobWorkerOnce(reason = "manual") {
       }
       return true;
     } catch (error) {
+      if (isLeaseLostError(error)) return true;
       const message = error instanceof Error ? error.message : String(error);
-      await failJob(job.id, BACKUP_SCHEDULE_WORKER_ID, message.slice(0, 2000), { retryAfterMs: 60_000 });
+      await failJob(job.id, BACKUP_SCHEDULE_WORKER_ID, message.slice(0, 2000), {
+        ...(job.attempts !== undefined ? { attempts: job.attempts } : {}),
+        retryAfterMs: 60_000,
+      });
       logger.error("Backup schedule tick job failed", { reason, jobId: job.id, error: message });
       return true;
     }

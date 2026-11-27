@@ -47,8 +47,10 @@ export const PEER_SIGNATURE_HEADER = "x-vch-ws-peer-signature";
 
 /** Bind the listener-observed peer to this specific forwarded upgrade. */
 export function signUpgradePeer(address: string, key: string | string[] | undefined, secret: string | undefined) {
-  return secret && typeof key === "string" && isIP(address)
-    ? createHmac("sha256", secret).update(JSON.stringify([address, key])).digest("hex") : undefined;
+  // SSH_WS_SECRET is trimmed the same way on both sides (config.ssh.wsSecret): the web tier signs, the gateway verifies.
+  const hmacKey = secret?.trim();
+  return hmacKey && typeof key === "string" && isIP(address)
+    ? createHmac("sha256", hmacKey).update(JSON.stringify([address, key])).digest("hex") : undefined;
 }
 
 /** The client address of an upgrade request, resolved the way HTTP rate limits resolve it (trusted proxy hops). */

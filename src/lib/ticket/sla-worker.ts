@@ -4,6 +4,10 @@ import { tryAcquireAdvisoryLock } from "@/lib/concurrency/advisory-lock";
 import { config } from "@/lib/config/env";
 import { prisma } from "@/lib/db";
 import { runWithLeaseHeartbeat } from "@/lib/job/heartbeat-runner";
+
+function isLeaseLostError(error: unknown): boolean {
+  return Boolean(error && typeof error === "object" && (error as { name?: unknown }).name === "LeaseLostError");
+}
 import { computeLeaseMs } from "@/lib/job/lease";
 import { claimNextJob, completeJob, enqueueJob, failJob, heartbeatJob, pruneCompletedJobsByType } from "@/lib/job/service";
 import { createLogger } from "@/lib/logging";
@@ -86,25 +90,36 @@ export async function runTicketSlaJobWorkerOnce(reason = "manual") {
     if (!job) return false;
 
     try {
-      await heartbeatJob(job.id, TICKET_SLA_WORKER_ID, {
+      const lease = await heartbeatJob(job.id, TICKET_SLA_WORKER_ID, {
+        ...(job.attempts !== undefined ? { attempts: job.attempts } : {}),
         leaseMs: TICKET_SLA_LEASE_MS,
         progress: "Checking ticket SLA deadlines",
       });
+      if (lease && lease.count === 0) return true;
       const escalated = await runWithLeaseHeartbeat({
         jobId: job.id,
         leaseMs: TICKET_SLA_LEASE_MS,
+        ...(job.attempts !== undefined ? { attempts: job.attempts } : {}),
         heartbeat: () => heartbeatJob(job.id, TICKET_SLA_WORKER_ID, {
+          ...(job.attempts !== undefined ? { attempts: job.attempts } : {}),
           leaseMs: TICKET_SLA_LEASE_MS,
           progress: "Checking ticket SLA deadlines",
         }),
-        run: () => escalateBreachedTickets(),
+        run: (signal) => {
+          signal?.throwIfAborted();
+          return signal ? escalateBreachedTickets({ signal }) : escalateBreachedTickets();
+        },
       });
-      await completeJob(job.id, TICKET_SLA_WORKER_ID, { escalated });
+      await completeJob(job.id, TICKET_SLA_WORKER_ID, { escalated }, ...(job.attempts !== undefined ? [job.attempts] : []));
       await pruneCompletedJobs();
       return true;
     } catch (error) {
+      if (isLeaseLostError(error)) return true;
       const message = error instanceof Error ? error.message : "Ticket SLA escalation failed";
-      await failJob(job.id, TICKET_SLA_WORKER_ID, message.slice(0, 2000), { retryAfterMs: TICKET_SLA_INTERVAL_MS });
+      await failJob(job.id, TICKET_SLA_WORKER_ID, message.slice(0, 2000), {
+        ...(job.attempts !== undefined ? { attempts: job.attempts } : {}),
+        retryAfterMs: TICKET_SLA_INTERVAL_MS,
+      });
       logger.error("Ticket SLA escalation failed", { reason, jobId: job.id, error: message });
       return true;
     }

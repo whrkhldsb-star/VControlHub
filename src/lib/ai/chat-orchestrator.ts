@@ -255,7 +255,44 @@ async function processHostedTools(input: HostedStreamIdentity & {
         { actionType: tool.actionType, serverId: action.serverId, teamId: action.teamId, params },
         { session: dispatchSession, locale: input.locale, revalidate, signal: input.signal, knowledgeBudget: input.knowledgeBudget },
       );
-      await withChatGeneration(input.conversationId, input.userMessageId, async (tx) => {
+      // Recheck live session AFTER acquiring the conversation/generation lock and BEFORE
+      // persisting remote tool output into conversation history. If permissions/team/session
+      // were revoked during execution or while waiting for the lock, still commit the audit
+      // outcome on aiHostedAction, but withhold execution.data from both the DB and SSE stream.
+      const postSessionError = await withChatGeneration(input.conversationId, input.userMessageId, async (tx) => {
+        let accessError: HostedStreamAccessError | null = null;
+        try {
+          await currentHostedSession(input);
+        } catch (err) {
+          if (err instanceof HostedStreamAccessError) {
+            accessError = err;
+          } else {
+            throw err;
+          }
+        }
+        if (accessError) {
+          const withheldMessage = accessError.message;
+          await tx.aiHostedAction.update({
+            where: { id: action.id },
+            data: {
+              status: execution.success ? "COMPLETED" : "FAILED",
+              result: null,
+              errorMessage: withheldMessage.slice(0, 2000),
+              executedAt: new Date(),
+              completedAt: new Date(),
+            },
+          });
+          await tx.aiMessage.create({
+            data: {
+              conversationId: input.conversationId,
+              id: action.id,
+              role: "tool",
+              content: JSON.stringify({ success: false, data: null, error: withheldMessage, redacted: true }),
+              toolCallId,
+            },
+          });
+          return accessError;
+        }
         await tx.aiHostedAction.update({
           where: { id: action.id },
           data: {
@@ -275,8 +312,13 @@ async function processHostedTools(input: HostedStreamIdentity & {
             toolCallId,
           },
         });
+        return null;
       });
       answered = true;
+      if (postSessionError) {
+        throw postSessionError;
+      }
+      // Final authorization check immediately before disclosing tool output over SSE.
       await currentHostedSession(input);
       input.send({
         type: "tool_result",

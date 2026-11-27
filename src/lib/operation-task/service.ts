@@ -388,6 +388,7 @@ export async function listOperationTaskResult(options: OperationTaskListOptions,
       const rows = await prisma.job.findMany({ where, ...paging(cursor),
         include: { creator: { select: { username: true, displayName: true } }, _count: { select: { events: true } } } });
       for (const row of rows) {
+        if (row.type === "archive-extraction-intent") continue;
         if (row.status === "COMPLETED" && FOLDABLE_COMPLETED_JOB_TYPES.has(row.type)) {
           const key = `fold:${row.type}`;
           const representative = visible.get(key);

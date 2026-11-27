@@ -2,6 +2,7 @@ package main
 
 import (
 	"bytes"
+	"context"
 	"crypto/rand"
 	"crypto/sha256"
 	"encoding/hex"
@@ -99,7 +100,7 @@ func (s share) renamePinned(from, to string, overwrite bool) error {
 	}
 	defer src.Close()
 	if path.Dir(from) == path.Dir(to) {
-		return renameAt(src, path.Base(from), src, path.Base(to), overwrite)
+		return durableRename(src, path.Base(from), src, path.Base(to), overwrite)
 	}
 	dstParent, err := s.openParent(to)
 	if err != nil {
@@ -111,22 +112,56 @@ func (s share) renamePinned(from, to string, overwrite bool) error {
 		return err
 	}
 	defer dst.Close()
-	return renameAt(src, path.Base(from), dst, path.Base(to), overwrite)
+	return durableRename(src, path.Base(from), dst, path.Base(to), overwrite)
+}
+
+func durableRename(src *os.File, from string, dst *os.File, to string, overwrite bool) error {
+	if err := renameAt(src, from, dst, to, overwrite); err != nil {
+		return err
+	}
+	if src == dst {
+		return syncDirectory(src)
+	}
+	return errors.Join(syncDirectory(dst), syncDirectory(src))
+}
+
+func syncRoot(root *os.Root) error {
+	d, err := root.Open(".")
+	if err != nil {
+		return err
+	}
+	defer d.Close()
+	return syncDirectory(d)
+}
+
+func (s share) syncParent(name string) error {
+	d, err := s.openParent(name)
+	if err != nil {
+		return err
+	}
+	defer d.Close()
+	return syncRoot(d)
 }
 
 func (s share) ensureStageDir() error {
 	dir := s.stageDir()
-	if err := s.root.Mkdir(dir, 0700); err != nil && !errors.Is(err, fs.ErrExist) {
+	err := s.root.Mkdir(dir, 0700)
+	created := err == nil
+	if err != nil && !errors.Is(err, fs.ErrExist) {
 		return err
 	}
 	info, err := s.root.Lstat(dir)
 	if err != nil || !info.IsDir() || info.Mode()&os.ModeSymlink != 0 || !exactEntry(s.root, dir, info) {
 		return denied
 	}
+	if created {
+		return syncRoot(s.root)
+	}
 	return nil
 }
 
 type operation struct {
+	ctx         context.Context
 	deadline    time.Time
 	jobID       string
 	Op          string `json:"op"`
@@ -224,10 +259,27 @@ func (s share) matchesVersion(name string, st os.FileInfo, f *os.File, version s
 }
 
 func (op operation) beforeWrite() error {
+	if op.ctx != nil && op.ctx.Err() != nil {
+		return op.ctx.Err()
+	}
 	if !op.deadline.IsZero() && !time.Now().Before(op.deadline) {
-		return changed
+		return context.DeadlineExceeded
 	}
 	return nil
+}
+
+// Hide WriterTo/ReaderFrom fast paths so even a kernel-assisted copy checks
+// the lease between bounded chunks. A blocked syscall itself isn't interruptible.
+type operationReader struct {
+	op     operation
+	reader io.Reader
+}
+
+func (r operationReader) Read(b []byte) (int, error) {
+	if err := r.op.beforeWrite(); err != nil {
+		return 0, err
+	}
+	return r.reader.Read(b[:min(len(b), 64*1024)])
 }
 
 func digest(b []byte) string { sum := sha256.Sum256(b); return hex.EncodeToString(sum[:]) }
@@ -268,10 +320,8 @@ func (s share) handle(op operation) (result, error) {
 	if !read && (!s.writable || op.Path == ".") {
 		return out, denied
 	}
-	if !read {
-		if err := op.beforeWrite(); err != nil {
-			return out, err
-		}
+	if err := op.beforeWrite(); err != nil {
+		return out, err
 	}
 	if err := s.check(op.Path, true); err != nil && !(op.Op == "begin" && errors.Is(err, fs.ErrNotExist)) {
 		return out, err
@@ -332,6 +382,9 @@ func (s share) handle(op operation) (result, error) {
 		out.Entries = &items
 		bytes := 0
 		for _, item := range names {
+			if err := op.beforeWrite(); err != nil {
+				return out, err
+			}
 			if !validPath(item.Name()) || item.Type()&os.ModeSymlink != 0 {
 				continue
 			}
@@ -364,7 +417,7 @@ func (s share) handle(op operation) (result, error) {
 			return out, changed
 		}
 		hash := sha256.New()
-		if _, err = io.Copy(hash, f); err != nil {
+		if _, err = io.Copy(hash, operationReader{op, f}); err != nil {
 			return out, err
 		}
 		st, err = f.Stat()
@@ -389,7 +442,7 @@ func (s share) handle(op operation) (result, error) {
 			return out, changed
 		}
 		b := make([]byte, op.Length)
-		if _, err = f.ReadAt(b, op.Offset); err != nil {
+		if _, err = io.ReadFull(operationReader{op, io.NewSectionReader(f, op.Offset, int64(op.Length))}, b); err != nil {
 			return out, err
 		}
 		st, err = f.Stat()
@@ -407,7 +460,10 @@ func (s share) handle(op operation) (result, error) {
 			return out, err
 		}
 		defer parent.Close()
-		return out, parent.Mkdir(path.Base(op.Path), 0750)
+		if err := parent.Mkdir(path.Base(op.Path), 0750); err != nil {
+			return out, err
+		}
+		return out, syncRoot(parent)
 	case "delete", "rmdir":
 		if op.Op == "rmdir" && !op.Directory {
 			return out, changed
@@ -458,7 +514,7 @@ func (s share) handle(op operation) (result, error) {
 			return out, err
 		}
 		_, err = journal.WriteString(op.Destination)
-		if err = errors.Join(err, journal.Close()); err != nil {
+		if err = errors.Join(err, journal.Sync(), journal.Close(), s.syncParent(marker)); err != nil {
 			return out, err
 		}
 		temporary := path.Join(path.Dir(op.Destination), ".vch-copy-"+key)
@@ -472,16 +528,22 @@ func (s share) handle(op operation) (result, error) {
 			return out, err
 		}
 		defer func() {
-			if parent.Remove(path.Base(temporary)) == nil {
+			if parent.Remove(path.Base(temporary)) == nil && syncRoot(parent) == nil {
 				s.root.Remove(marker)
 			}
 		}()
-		_, err = io.Copy(dest, src)
+		_, err = io.Copy(dest, operationReader{op, src})
 		defer dest.Close()
 		if err != nil {
 			return out, err
 		}
-		if op.deadline.IsZero() || !time.Now().Before(op.deadline) {
+		if err := dest.Sync(); err != nil {
+			return out, err
+		}
+		if err := op.beforeWrite(); err != nil {
+			return out, err
+		}
+		if op.deadline.IsZero() {
 			return out, changed
 		}
 		// Publish the copied inode and atomically refuse a concurrent destination.
@@ -512,9 +574,13 @@ func (s share) handle(op operation) (result, error) {
 					cur.Close()
 					return out, err
 				}
-				if err := cur.Mkdir(part, 0750); err != nil && !errors.Is(err, fs.ErrExist) {
+				mkdirErr := cur.Mkdir(part, 0750)
+				if mkdirErr == nil {
+					mkdirErr = syncRoot(cur)
+				}
+				if mkdirErr != nil && !errors.Is(mkdirErr, fs.ErrExist) {
 					cur.Close()
-					return out, err
+					return out, mkdirErr
 				}
 				info, err := cur.Lstat(part)
 				if err != nil || !info.IsDir() || info.Mode()&os.ModeSymlink != 0 || !exactEntry(cur, part, info) {
@@ -555,7 +621,7 @@ func (s share) handle(op operation) (result, error) {
 			if out.Offset > op.Size {
 				return out, changed
 			}
-			return out, nil
+			return out, s.syncParent(tmp)
 		}
 		info, err := s.root.Lstat(tmp)
 		if err != nil || !info.Mode().IsRegular() {
@@ -580,8 +646,15 @@ func (s share) handle(op operation) (result, error) {
 			if err := op.beforeWrite(); err != nil {
 				return out, err
 			}
-			if _, err = f.WriteAt(op.Data, op.Offset); err != nil {
-				return out, err
+			for i := 0; i < len(op.Data); {
+				if err = op.beforeWrite(); err != nil {
+					return out, errors.Join(err, f.Truncate(op.Offset))
+				}
+				end := min(i+64*1024, len(op.Data))
+				if _, err = f.WriteAt(op.Data[i:end], op.Offset+int64(i)); err != nil {
+					return out, errors.Join(err, f.Truncate(op.Offset))
+				}
+				i = end
 			}
 			if err = f.Sync(); err != nil {
 				return out, err
@@ -594,13 +667,13 @@ func (s share) handle(op operation) (result, error) {
 			return out, err
 		}
 		defer parent.Close()
-		f, err := (share{root: parent}).openRegular(path.Base(tmp), os.O_RDONLY)
+		f, err := (share{root: parent}).openRegular(path.Base(tmp), os.O_RDWR)
 		if err != nil {
 			return out, err
 		}
 		defer f.Close()
 		hash := sha256.New()
-		n, err := io.Copy(hash, f)
+		n, err := io.Copy(hash, operationReader{op, f})
 		if err != nil {
 			return out, err
 		}
@@ -623,6 +696,7 @@ func (s share) handle(op operation) (result, error) {
 	return out, nil
 }
 func (s share) cleanup(now time.Time) {
+	s.recoverDeletions()
 	stageDir := s.stageDir()
 	info, err := s.root.Lstat(stageDir)
 	if err != nil || !info.IsDir() {
@@ -667,10 +741,16 @@ func (s share) cleanup(now time.Time) {
 // arriving during verification wins the no-replace link. Keep any displaced
 // inode whose restoration conflicts so it can be recovered by operation ID.
 func (s share) publishChecked(op operation, parent *os.Root, stage *os.File, tmp string) error {
-	if op.Version == "" || op.jobID == "" || !time.Now().Before(op.deadline) {
+	if err := op.beforeWrite(); err != nil {
+		return err
+	}
+	if op.Version == "" || op.jobID == "" || op.deadline.IsZero() {
 		return changed
 	}
 	key := digest([]byte(s.namespace + "\x00" + op.jobID))
+	if err := stage.Sync(); err != nil {
+		return err
+	}
 	marker := path.Join(s.stageDir(), "publish-"+key)
 	backup := ".vch-publish-" + key
 	pinned := share{root: parent}
@@ -695,7 +775,7 @@ func (s share) publishChecked(op operation, parent *os.Root, stage *os.File, tmp
 			return changed
 		}
 		prior := sha256.New()
-		if _, err := io.Copy(prior, before); err != nil {
+		if _, err := io.Copy(prior, operationReader{op, before}); err != nil {
 			return err
 		}
 		st, err = before.Stat()
@@ -718,15 +798,15 @@ func (s share) publishChecked(op operation, parent *os.Root, stage *os.File, tmp
 			return changed
 		}
 		hash := sha256.New()
-		if _, err := io.Copy(hash, after); err != nil {
+		if _, err := io.Copy(hash, operationReader{op, after}); err != nil {
 			return err
 		}
 		if !bytes.Equal(hash.Sum(nil), prior.Sum(nil)) {
 			return changed
 		}
 	}
-	if !time.Now().Before(op.deadline) {
-		return changed
+	if err := op.beforeWrite(); err != nil {
+		return err
 	}
 	return publishOpenFile(parent, stage, tmp, name)
 }
