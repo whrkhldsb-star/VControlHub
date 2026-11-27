@@ -20,6 +20,15 @@ import { createAgentFileClient } from "../agent-file-client";
 
 import { checkDriveWorkflows, checkDriveOwnership } from "./agent-drive-workflows";
 
+const sessionCookieState = vi.hoisted(() => ({ value: "" }));
+vi.mock("next/headers", () => ({
+  cookies: async () => ({
+    get: (name: string) =>
+      name === "vch_session" && sessionCookieState.value ? { value: sessionCookieState.value } : undefined,
+  }),
+  headers: async () => new Headers(),
+}));
+
 vi.mock("undici", async importOriginal => {
   const original = await importOriginal<typeof import("undici")>();
   return { ...original, request: vi.fn(original.request) };
@@ -105,8 +114,9 @@ describe.skipIf(process.env.RUN_DATABASE_INTEGRATION_TESTS !== "1" || !binary)(
           teamMembership: { create: { teamId: id, identityTemplateId: id } },
         },
       });
+      sessionCookieState.value = await createSessionToken(actor);
       apiToken = (
-        await createApiToken({ session: await verifySessionToken(await createSessionToken(actor)), name: "download fixture", scopes: ["storage:read", "storage:write"] })
+        await createApiToken({ session: await verifySessionToken(sessionCookieState.value), name: "download fixture", scopes: ["storage:read", "storage:write"] })
       ).token;
       await prisma.server.create({
         data: {
