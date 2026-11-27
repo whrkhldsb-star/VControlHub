@@ -8,7 +8,7 @@ import { join } from "node:path";
 import { setTimeout as delay } from "node:timers/promises";
 import { beforeAll, afterAll, describe, expect, it, vi } from "vitest";
 import { prisma } from "@/lib/db";
-import { createSessionToken, verifySessionToken, type SessionPayload } from "@/lib/auth/session";
+import { createSessionToken, getSessionCookieName, verifySessionToken, type SessionPayload } from "@/lib/auth/session";
 import { initMediaUploadSession, appendMediaUploadChunk, cleanupMediaUploadTempDir } from "@/lib/upload/service";
 import { createApiToken } from "@/lib/api-token/service";
 import { GET as download } from "@/app/api/storage/webdav-download/route";
@@ -20,11 +20,13 @@ import { createAgentFileClient } from "../agent-file-client";
 
 import { checkDriveWorkflows, checkDriveOwnership } from "./agent-drive-workflows";
 
-const sessionCookieState = vi.hoisted(() => ({ value: "" }));
+const sessionCookieState = vi.hoisted(() => ({ name: "", value: "" }));
 vi.mock("next/headers", () => ({
   cookies: async () => ({
     get: (name: string) =>
-      name === "vch_session" && sessionCookieState.value ? { value: sessionCookieState.value } : undefined,
+      sessionCookieState.name && name === sessionCookieState.name && sessionCookieState.value
+        ? { value: sessionCookieState.value }
+        : undefined,
   }),
   headers: async () => new Headers(),
 }));
@@ -114,6 +116,7 @@ describe.skipIf(process.env.RUN_DATABASE_INTEGRATION_TESTS !== "1" || !binary)(
           teamMembership: { create: { teamId: id, identityTemplateId: id } },
         },
       });
+      sessionCookieState.name = getSessionCookieName();
       sessionCookieState.value = await createSessionToken(actor);
       apiToken = (
         await createApiToken({ session: await verifySessionToken(sessionCookieState.value), name: "download fixture", scopes: ["storage:read", "storage:write"] })
