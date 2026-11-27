@@ -51,6 +51,7 @@ import {
 } from "./settings-section";
 import { TOC_SUBTITLE_KEYS } from "./settings-toc";
 import { getErrorMessage } from "@/lib/http/error-message";
+import { isScopeSwitchReleasing, registerActiveWork } from "@/lib/forms/active-work-guard";
 import { ActionButton } from "@/components/action-button";
 import { useToast } from "@/components/toast-provider";
 import { ConfirmDialog } from "@/components/confirm-dialog";
@@ -106,10 +107,17 @@ export function SettingsClient({
     () => getPendingChanges(SETTINGS_SCHEMA, settings, baselineSettings),
     [settings, baselineSettings],
   );
+  const hasPendingChanges = pendingChanges.length > 0;
+  // Unsaved sections are work a customer switch would throw away: the switcher counts them before it asks.
+  useEffect(() => {
+    if (!hasPendingChanges) return;
+    return registerActiveWork("dirtyForm", 1);
+  }, [hasPendingChanges]);
   // FE-4: warn when leaving with unsaved section edits (browser tab close / hard nav).
   useEffect(() => {
     const onBeforeUnload = (event: BeforeUnloadEvent) => {
-      if (pendingChanges.length === 0) return;
+      // A confirmed customer switch already asked about these edits.
+      if (pendingChanges.length === 0 || isScopeSwitchReleasing()) return;
       event.preventDefault();
       event.returnValue = "";
     };

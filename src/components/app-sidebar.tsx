@@ -238,7 +238,7 @@ export function AppSidebar({
 					) : null}
 				</div>
 
-				{compact ? null : <CustomerSwitcher />}
+				<CustomerSwitcher compact={compact} />
 
 				<div data-nav-scroll className={cn("min-h-0 flex-1 overflow-y-auto overflow-x-hidden pb-3", compact ? "px-1.5" : "px-2.5")}>
 					{pinnedItems.length > 0

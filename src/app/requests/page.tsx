@@ -1,10 +1,10 @@
-import Link from "next/link";
 import type { ReactNode } from "react";
 import { requirePagePermission } from "@/lib/auth/page-guard";
 import { sessionHasPermission } from "@/lib/auth/authorization";
 import { getPendingActionPage } from "@/lib/ai/hosted-service";
-import { listCommandRequestPage } from "@/lib/command/service";
+import { getCommandRequestForViewer, listCommandRequestPage } from "@/lib/command/service";
 import { mayReviewCommandRequest } from "@/lib/command/review-scope";
+import { firstSearchParam } from "@/lib/http/first-search-param";
 import { ReviewCommandForm } from "./review-command-form";
 import { CancelCommandButton } from "./cancel-command-button";
 import { AiHostedApprovalCard } from "./ai-hosted-approval-card";
@@ -25,8 +25,13 @@ export const dynamic = "force-dynamic";
 
 const ACTIVE_REQUEST_STATUSES = new Set(["PENDING_APPROVAL", "APPROVED", "RUNNING", "CANCELLING"]);
 
-export default async function RequestsPage({ searchParams }: { searchParams?: Promise<{ after?: string | string[]; aiAfter?: string | string[] }> }) {
-	const session = await requirePagePermission("command:read", { redirectTo: "/requests" });
+export default async function RequestsPage({ searchParams }: { searchParams?: Promise<{ after?: string | string[]; aiAfter?: string | string[]; requestId?: string | string[] }> }) {
+	const params = await searchParams;
+	const rawRequestId = firstSearchParam(params?.requestId)?.trim();
+	const requestedId = rawRequestId && rawRequestId.length <= 64 ? rawRequestId : undefined;
+	const session = await requirePagePermission("command:read", {
+		redirectTo: requestedId ? `/requests?requestId=${encodeURIComponent(requestedId)}` : "/requests",
+	});
 	const canApprove = sessionHasPermission(session, "command:approve");
 	// A reviewer's own request goes to another reviewer unless the account manages the team: the server refuses the
 	// decision otherwise, and the form, the batch checkbox and the dashboard's count all followed "may approve" alone.
@@ -48,7 +53,6 @@ export default async function RequestsPage({ searchParams }: { searchParams?: Pr
 		return canCancelOthers || (canExecute && own) || (canSubmit && own && request.status === "PENDING_APPROVAL");
 	};
 	const locale = await getServerLocale();
-	const params = await searchParams;
 	const cursor = typeof params?.after === "string" ? params.after : undefined;
 	const aiCursor = typeof params?.aiAfter === "string" ? params.aiAfter : undefined;
 	const pageUrl = (after?: string | null, aiAfter?: string | null) => {
@@ -57,9 +61,10 @@ export default async function RequestsPage({ searchParams }: { searchParams?: Pr
 		if (aiAfter) query.set("aiAfter", aiAfter);
 		return query.size ? "/requests?" + query.toString() : "/requests";
 	};
-	const [{ requests, nextCursor, pendingCount }, { actions: aiActions, total: aiCount, nextCursor: nextAiCursor }] = await Promise.all([
+	const [{ requests, nextCursor, pendingCount }, { actions: aiActions, total: aiCount, nextCursor: nextAiCursor }, focusedRequest] = await Promise.all([
 		listCommandRequestPage(session, cursor, 20),
 		sessionHasPermission(session, "ai:chat") ? getPendingActionPage(session, aiCursor) : { actions: [], total: 0, nextCursor: null },
+		requestedId ? getCommandRequestForViewer(session, requestedId) : Promise.resolve(null),
 	]);
 
 	// Sort: actionable statuses first (PENDING_APPROVAL → APPROVED/RUNNING → terminal),
@@ -87,8 +92,11 @@ export default async function RequestsPage({ searchParams }: { searchParams?: Pr
 
 	// The queue holds what still needs a decision or is in flight; finished
 	// requests move to a folded history so they do not bury the next approval.
-	const activeRequests = sortedRequests.filter((r) => ACTIVE_REQUEST_STATUSES.has(r.status));
-	const handledRequests = sortedRequests.filter((r) => !ACTIVE_REQUEST_STATUSES.has(r.status));
+	const visibleListRequests = focusedRequest
+		? sortedRequests.filter((r) => r.id !== focusedRequest.id)
+		: sortedRequests;
+	const activeRequests = visibleListRequests.filter((r) => ACTIVE_REQUEST_STATUSES.has(r.status));
+	const handledRequests = visibleListRequests.filter((r) => !ACTIVE_REQUEST_STATUSES.has(r.status));
 	const renderRequest = (request: (typeof sortedRequests)[number]) => {
 		const isActionable = ACTIVE_REQUEST_STATUSES.has(request.status);
 		return (
@@ -133,8 +141,8 @@ export default async function RequestsPage({ searchParams }: { searchParams?: Pr
 										</div>
 									</InfoSection>
 
-									<InfoSection title={t("requestsPage.card.latestApprovalTitle", locale)}>
-										{request.latestApproval ? (
+									{request.latestApproval ? (
+										<InfoSection title={t("requestsPage.card.latestApprovalTitle", locale)}>
 											<InfoItem className="text-sm">
 												<div className={`font-medium ${request.latestApproval.approved ? "text-[var(--success)]" : "text-[var(--danger)]"}`}>
 													{t(request.latestApproval.approved ? "requestsPage.status.APPROVED" : "requestsPage.status.REJECTED", locale)}
@@ -144,13 +152,15 @@ export default async function RequestsPage({ searchParams }: { searchParams?: Pr
 												</div>
 												{request.latestApproval.comment && <div className="mt-1.5 text-xs text-[var(--text-secondary)]">{request.latestApproval.comment}</div>}
 											</InfoItem>
-										) : (
+										</InfoSection>
+									) : (
+										<Disclosure variant="inset" title={t("requestsPage.card.latestApprovalTitle", locale)}>
 											<p className="text-xs text-[var(--text-muted)]">{t("requestsPage.card.latestApprovalEmpty", locale)}</p>
-										)}
-									</InfoSection>
+										</Disclosure>
+									)}
 
-									<InfoSection title={t("requestsPage.card.executionLogsTitle", locale)}>
-										{request.executionLogs.length > 0 ? (
+									{request.executionLogs.length > 0 ? (
+										<InfoSection title={t("requestsPage.card.executionLogsTitle", locale)}>
 											<div className="space-y-2">
 												{request.executionLogs.map((log: (typeof request.executionLogs)[number], index: number) => (
 													<InfoItem key={log.id ?? `${request.id}-log-${index}`} className="text-xs text-[var(--text-secondary)]">
@@ -159,10 +169,12 @@ export default async function RequestsPage({ searchParams }: { searchParams?: Pr
 													</InfoItem>
 												))}
 											</div>
-										) : (
+										</InfoSection>
+									) : (
+										<Disclosure variant="inset" title={t("requestsPage.card.executionLogsTitle", locale)}>
 											<p className="text-xs text-[var(--text-muted)]">{t("requestsPage.card.executionLogsEmpty", locale)}</p>
-										)}
-									</InfoSection>
+										</Disclosure>
+									)}
 								</div>
 
 								{awaitsThisReviewer(request) ? (
@@ -203,6 +215,36 @@ export default async function RequestsPage({ searchParams }: { searchParams?: Pr
 			</StatGrid>
 
 			<div className="space-y-6">
+				{requestedId ? (
+					<section aria-label={t("requestsPage.focused.title", locale)}>
+						{focusedRequest ? (
+							<ListPanel
+								title={t("requestsPage.focused.title", locale)}
+								actions={
+									<ButtonLink href="/requests" size="sm" variant="secondary">
+										{t("requestsPage.focused.viewAll", locale)}
+									</ButtonLink>
+								}
+								bodyClassName="bg-transparent p-3"
+							>
+								{renderRequest(focusedRequest)}
+							</ListPanel>
+						) : (
+							<Notice
+								tone="info"
+								title={t("requestsPage.focused.title", locale)}
+							>
+								<div className="flex flex-wrap items-center justify-between gap-3">
+									<span>{t("requestsPage.focused.notFound", locale)}</span>
+									<ButtonLink href="/requests" size="xs" variant="secondary">
+										{t("requestsPage.focused.viewAll", locale)}
+									</ButtonLink>
+								</div>
+							</Notice>
+						)}
+					</section>
+				) : null}
+
 				{/* The list panel's own title is the section's heading; a hidden copy of it read every name twice. */}
 				<section aria-label={t("requestsPage.ai.title", locale)}>
 					<ListPanel
@@ -218,9 +260,9 @@ export default async function RequestsPage({ searchParams }: { searchParams?: Pr
 								<AiHostedApprovalCard action={action} />
 							</div>
 						))}
-						{(aiCursor || nextAiCursor) && <nav className="flex gap-3 p-3" aria-label={t("requestsPage.ai.title", locale)}>
-							{aiCursor && <Link href={pageUrl(cursor)}>{t("common.pagination.firstPage", locale)}</Link>}
-							{nextAiCursor && <Link href={pageUrl(cursor, nextAiCursor)}>{t("common.pagination.next", locale)}</Link>}
+						{(aiCursor || nextAiCursor) && <nav className="flex gap-2 p-3" aria-label={t("requestsPage.ai.title", locale)}>
+							{aiCursor && <ButtonLink href={pageUrl(cursor)} size="sm" variant="secondary">{t("common.pagination.firstPage", locale)}</ButtonLink>}
+							{nextAiCursor && <ButtonLink href={pageUrl(cursor, nextAiCursor)} size="sm" variant="secondary">{t("common.pagination.next", locale)}</ButtonLink>}
 						</nav>}
 					</ListPanel>
 				</section>
@@ -231,7 +273,7 @@ export default async function RequestsPage({ searchParams }: { searchParams?: Pr
 						description={t("requestsPage.cmd.desc", locale)}
 						count={activeRequests.length}
 						actions={<StatusBadge tone="warning">{t("requestsPage.cmd.scopeBadge", locale)}</StatusBadge>}
-						empty={sortedRequests.length === 0 ? (
+						empty={visibleListRequests.length === 0 && !focusedRequest ? (
 							<EmptyState
 								title={t("requestsPage.cmd.empty", locale)}
 								text={t("requestsPage.cmd.emptyHint", locale)}
@@ -251,7 +293,7 @@ export default async function RequestsPage({ searchParams }: { searchParams?: Pr
 								) : undefined}
 							/>
 						) : undefined}
-						bodyClassName={sortedRequests.length === 0 ? undefined : "!divide-y-0 space-y-0 bg-transparent p-3"}
+						bodyClassName={visibleListRequests.length === 0 ? undefined : "!divide-y-0 space-y-0 bg-transparent p-3"}
 						>
 						{activeRequests.length > 0 ? (
 						<BatchReviewToolbar
@@ -259,10 +301,10 @@ export default async function RequestsPage({ searchParams }: { searchParams?: Pr
 						>
 							{activeRequests.map(renderRequest)}
 						</BatchReviewToolbar>
-						) : sortedRequests.length > 0 ? <EmptyState text={t("requestsPage.cmd.noActive", locale)} /> : null}
-						{(cursor || nextCursor) && <nav className="flex gap-3 p-3" aria-label={t("common.pagination.label", locale)}>
-							{cursor && <Link href={pageUrl(null, aiCursor)}>{t("common.pagination.firstPage", locale)}</Link>}
-							{nextCursor && <Link href={pageUrl(nextCursor, aiCursor)}>{t("common.pagination.next", locale)}</Link>}
+						) : visibleListRequests.length > 0 ? <EmptyState text={t("requestsPage.cmd.noActive", locale)} /> : null}
+						{(cursor || nextCursor) && <nav className="flex gap-2 p-3" aria-label={t("common.pagination.label", locale)}>
+							{cursor && <ButtonLink href={pageUrl(null, aiCursor)} size="sm" variant="secondary">{t("common.pagination.firstPage", locale)}</ButtonLink>}
+							{nextCursor && <ButtonLink href={pageUrl(nextCursor, aiCursor)} size="sm" variant="secondary">{t("common.pagination.next", locale)}</ButtonLink>}
 						</nav>}
 						{handledRequests.length > 0 ? (
 							<Disclosure variant="inset" title={t("requestsPage.cmd.history", locale)} count={handledRequests.length}>

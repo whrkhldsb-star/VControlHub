@@ -15,7 +15,7 @@ export default async function AccountPasswordPage() {
   const locale = await getServerLocale();
 
   return (
-    <PageShell>
+    <PageShell width="narrow">
       <PageHeader eyebrow={t("accountPasswordPage.eyebrow", locale)} title={t("accountPasswordPage.title", locale)} description={t("accountPasswordPage.description", locale)} className="mb-8" />
 
       <section className="grid gap-6 lg:grid-cols-[1.1fr_0.9fr]">

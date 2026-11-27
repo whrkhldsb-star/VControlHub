@@ -40,6 +40,7 @@ export default async function BackupsPage() {
 	const canRestore = sessionHasPermission(session, "backup:restore");
 	const canReadServers = sessionHasPermission(session, "server:read");
 	const canReadTasks = sessionHasPermission(session, "task:read");
+	const canManageSettings = sessionHasPermission(session, "user:manage");
 	const needsSeparatePlatformSummary = canCreate && isGlobalTeamManager(session) && session.currentTeamId !== null;
 	const [backups, platformBackups, offsiteState, coverageState] = await Promise.all([
 		listBackupRecords(session),
@@ -186,9 +187,11 @@ export default async function BackupsPage() {
 
 			{canCreate && (
 				<Disclosure className="mb-5" title={t("backupsPage.section.offsite")} description={t("backupsPage.offsite.description")}>
-					<div className="mb-3 flex justify-end">
-						<ButtonLink href="/settings#offsite" size="sm" variant="secondary">{t("backupsPage.offsite.openSettings")}</ButtonLink>
-					</div>
+					{canManageSettings ? (
+						<div className="mb-3 flex justify-end">
+							<ButtonLink href="/settings#offsite" size="sm" variant="secondary">{t("backupsPage.offsite.openSettings")}</ButtonLink>
+						</div>
+					) : null}
 						{offsiteState.failed ? (
 							<Notice tone="danger" compact>{t("backupsPage.offsite.loadFailed")}</Notice>
 						) : offsite ? (
@@ -214,14 +217,17 @@ export default async function BackupsPage() {
 			)}
 
 			{canCreate && (
-				<Disclosure className="mb-5" title={t("backupsPage.section.schedule")} description={t("backupsPage.schedule.description")}>
+				<div id="schedule" className="mb-5 scroll-mt-24">
+					<Disclosure title={t("backupsPage.section.schedule")} description={t("backupsPage.schedule.description")}>
 						<ScheduleBackupForm />
-				</Disclosure>
+					</Disclosure>
+				</div>
 			)}
 
 			<ListPanel
 				title={t("backupsPage.records.title")}
-				count={t("backupsPage.records.count", { count: backups.length })}
+				description={t("backupsPage.records.count", { count: backups.length })}
+				count={backups.length}
 				empty={backups.length === 0 ? <EmptyState title={t("backupsPage.records.empty")} text={t("backupsPage.records.emptyHint")} /> : undefined}
 			>
 					<PaginatedList pageSize={20}>

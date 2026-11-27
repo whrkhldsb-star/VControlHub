@@ -15,16 +15,27 @@ import { useGateRoute } from "@/lib/auth/use-gate-route";
 import { useI18n } from "@/lib/i18n/use-locale";
 import { getErrorMessage } from "@/lib/http/error-message";
 import { CUSTOMERS_CHANGED_EVENT } from "@/lib/team/customers-changed";
+import {
+	beginScopeSwitchRelease,
+	endScopeSwitchRelease,
+	finishScopeSwitchRelease,
+	formatActiveWorkSummary,
+	getActiveWorkSnapshot,
+} from "@/lib/forms/active-work-guard";
+import { toggleSidebarCollapsed } from "@/lib/ui/shell-preferences";
+import { UI_INPUT } from "@/lib/ui/classes";
+import { cn } from "@/lib/ui/cn";
 import { useToast } from "./toast-provider";
-import { Loader2 } from "./icons";
+import { Globe, Loader2 } from "./icons";
 import { ActionButton } from "./action-button";
+import { ConfirmDialog } from "./confirm-dialog";
 
 type CustomerItem = { id: string; name: string };
 
 /** Value of the "all customers" option; the API takes `null`. */
 const ALL_CUSTOMERS = "";
 
-export function CustomerSwitcher() {
+export function CustomerSwitcher({ compact = false }: { compact?: boolean } = {}) {
 	const gate = useGateRoute();
 	const { t } = useI18n();
 	const { addToast } = useToast();
@@ -32,6 +43,12 @@ export function CustomerSwitcher() {
 	const [customers, setCustomers] = useState<CustomerItem[] | null>(null);
 	const [currentTeamId, setCurrentTeamId] = useState<string | null>(null);
 	const [switching, setSwitching] = useState(false);
+	const [pendingSwitch, setPendingSwitch] = useState<{
+		teamId: string | null;
+		label: string;
+		summary: string;
+	} | null>(null);
+	const [switchDialogError, setSwitchDialogError] = useState<string | null>(null);
 	// A failed refresh keeps the last list the server confirmed: an empty list
 	// would claim there are no customers at all.
 	const [loadError, setLoadError] = useState<string | null>(null);
@@ -69,10 +86,11 @@ export function CustomerSwitcher() {
 		return () => window.removeEventListener(CUSTOMERS_CHANGED_EVENT, reload);
 	}, [canList, load]);
 
-	async function handleSwitch(value: string) {
-		const teamId = value === ALL_CUSTOMERS ? null : value;
+	async function performSwitch(teamId: string | null, fromDialog: boolean) {
 		if (teamId === currentTeamId || switching) return;
 		setSwitching(true);
+		setSwitchDialogError(null);
+		beginScopeSwitchRelease();
 		try {
 			await csrfFetch("/api/teams/switch", {
 				method: "POST",
@@ -80,16 +98,79 @@ export function CustomerSwitcher() {
 				body: JSON.stringify({ teamId }),
 			});
 			setCurrentTeamId(teamId);
+			setPendingSwitch(null);
+			finishScopeSwitchRelease();
 			// Customer-scoped server components read the selection per request.
 			router.refresh();
 		} catch (err) {
-			addToast("error", getErrorMessage(err, t("nav.customerSwitchFailed")));
+			endScopeSwitchRelease();
+			const message = getErrorMessage(err, t("nav.customerSwitchFailed"));
+			if (fromDialog) setSwitchDialogError(message);
+			else addToast("error", message);
 		} finally {
 			setSwitching(false);
 		}
 	}
 
+	function handleSwitch(value: string) {
+		const teamId = value === ALL_CUSTOMERS ? null : value;
+		if (teamId === currentTeamId || switching) return;
+		const snapshot = getActiveWorkSnapshot();
+		if (snapshot.hasAny) {
+			const label = teamId
+				? (customers?.find((customer) => customer.id === teamId)?.name ?? t("nav.customerLabel"))
+				: t("nav.allCustomers");
+			setSwitchDialogError(null);
+			setPendingSwitch({
+				teamId,
+				label,
+				summary: formatActiveWorkSummary(snapshot, t),
+			});
+			return;
+		}
+		void performSwitch(teamId, false);
+	}
+
 	if (!canList) return null;
+	if (compact) {
+		if (!customers) return null;
+		const activeName = isAdmin
+			? (currentTeamId
+				? (customers.find((customer) => customer.id === currentTeamId)?.name ?? t("nav.customerLabel"))
+				: t("nav.allCustomers"))
+			: (customers[0]?.name ?? null);
+		if (!activeName) return null;
+		const initial = activeName.trim().slice(0, 1);
+		const compactLabel = t("nav.customerCompactTitle", { name: activeName });
+		if (!isAdmin) {
+			return (
+				<div className="flex justify-center px-1.5 pb-2">
+					<span
+						data-tile=""
+						title={compactLabel}
+						aria-label={compactLabel}
+						className="flex h-8 w-8 items-center justify-center text-xs font-semibold text-[var(--text-primary)]"
+					>
+						{initial}
+					</span>
+				</div>
+			);
+		}
+		return (
+			<div className="flex justify-center px-1.5 pb-2">
+				<button
+					type="button"
+					data-tile=""
+					onClick={toggleSidebarCollapsed}
+					title={compactLabel}
+					aria-label={compactLabel}
+					className="flex h-8 w-8 cursor-pointer items-center justify-center text-xs font-semibold text-[var(--text-primary)] transition hover:bg-[var(--surface-hover)]"
+				>
+					{currentTeamId ? initial : <Globe size={15} aria-hidden="true" />}
+				</button>
+			</div>
+		);
+	}
 	const errorRow = loadError ? (
 		<div role="alert" className="flex min-w-0 items-center gap-1.5 px-2.5 pb-2 text-[11px] leading-4 text-[var(--danger)]">
 			<span className="min-w-0 flex-1 truncate" title={loadError}>{t("nav.customerLoadFailed")}</span>
@@ -132,8 +213,8 @@ export function CustomerSwitcher() {
 							value={currentTeamId ?? ALL_CUSTOMERS}
 							disabled={switching}
 							aria-label={t("nav.customerLabel")}
-							onChange={(event) => void handleSwitch(event.target.value)}
-							className="ui-control h-8 w-full min-w-0 cursor-pointer truncate rounded-md border border-[var(--input-border)] bg-[var(--input-bg)] py-1 pl-2.5 text-[13px] text-[var(--text-primary)] outline-none transition hover:border-[var(--input-border-hover)] focus:border-[var(--input-border-focus)] focus:shadow-[0_0_0_3px_var(--input-ring)] disabled:opacity-60"
+							onChange={(event) => handleSwitch(event.target.value)}
+							className={cn(UI_INPUT, "h-8 cursor-pointer truncate py-1 pl-2.5 text-[13px] disabled:opacity-60")}
 						>
 							<option value={ALL_CUSTOMERS}>{t("nav.allCustomers")}</option>
 							{customers.map((customer) => <option key={customer.id} value={customer.id}>{customer.name}</option>)}
@@ -143,6 +224,25 @@ export function CustomerSwitcher() {
 				</label>
 			</div>
 			{errorRow}
+			<ConfirmDialog
+				open={pendingSwitch !== null}
+				title={t("nav.customerSwitchConfirmTitle", { name: pendingSwitch?.label ?? "" })}
+				description={pendingSwitch ? t("nav.customerSwitchConfirmDesc", { name: pendingSwitch.label, items: pendingSwitch.summary }) : undefined}
+				cancelLabel={t("common.cancel")}
+				confirmLabel={t("nav.customerSwitchConfirmButton")}
+				busy={switching}
+				error={switchDialogError}
+				closeOnBackdrop={false}
+				onCancel={() => {
+					if (switching) return;
+					setPendingSwitch(null);
+					setSwitchDialogError(null);
+				}}
+				onConfirm={() => {
+					if (!pendingSwitch) return;
+					void performSwitch(pendingSwitch.teamId, true);
+				}}
+			/>
 		</>
 	);
 }

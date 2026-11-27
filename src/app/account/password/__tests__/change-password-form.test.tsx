@@ -102,6 +102,34 @@ describe("ChangePasswordForm TR-052 redirect", () => {
     expect(routerPushMock).toHaveBeenCalledWith("/servers");
   });
 
+  it("names the page it goes back to when another page sent the person here", async () => {
+    // The security page links here with ?next=/account/security; the countdown still said "dashboard".
+    mockUseActionState.mockReturnValue([{ success: "密码已更新。" }, vi.fn()]);
+    mockUseSearchParams.mockReturnValue(new URLSearchParams("next=%2Faccount%2Fsecurity"));
+
+    render(<ChangePasswordForm />);
+
+    expect(screen.getByRole("status")).toHaveTextContent("1.5s 后自动跳到账户安全");
+    expect(screen.getByRole("button", { name: "立即跳到账户安全" })).toBeInTheDocument();
+    await act(async () => {
+      await vi.advanceTimersByTimeAsync(1500);
+    });
+    expect(routerPushMock).toHaveBeenCalledWith("/account/security");
+  });
+
+  it("names a page of the navigation it goes on to, and says only that it moves on when the page has no name", () => {
+    mockUseActionState.mockReturnValue([{ success: "密码已更新。" }, vi.fn()]);
+    mockUseSearchParams.mockReturnValue(new URLSearchParams("next=/servers"));
+    const view = render(<ChangePasswordForm />);
+    expect(screen.getByRole("button", { name: "立即跳到VPS 管理" })).toBeInTheDocument();
+    view.unmount();
+
+    mockUseSearchParams.mockReturnValue(new URLSearchParams("next=/no-such-page"));
+    render(<ChangePasswordForm />);
+    expect(screen.getByRole("status")).toHaveTextContent("1.5s 后自动跳转");
+    expect(screen.getByRole("button", { name: "立即跳转" })).toBeInTheDocument();
+  });
+
   it("?next= 以 // 开头 (协议相对 URL) 时回退到 /", async () => {
     mockUseActionState.mockReturnValue([{ success: "密码已更新。" }, vi.fn()]);
     mockUseSearchParams.mockReturnValue(new URLSearchParams("next=//evil.example.com"));

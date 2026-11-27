@@ -1,7 +1,7 @@
 "use client";
 
 import { useId, type ReactNode, type RefObject } from "react";
-import { ActionButton } from "@/components/action-button";
+import { ActionButton, type ActionButtonVariant } from "@/components/action-button";
 import { ModalShell } from "@/components/modal-shell";
 import { Notice } from "@/components/ui-primitives";
 
@@ -11,6 +11,7 @@ type ConfirmDialogProps = {
 	description?: ReactNode;
 	cancelLabel: ReactNode;
 	confirmLabel: ReactNode;
+	confirmVariant?: ActionButtonVariant;
 	onCancel: () => void;
 	onConfirm: () => void;
 	busy?: boolean;
@@ -27,6 +28,7 @@ export function ConfirmDialog({
 	description,
 	cancelLabel,
 	confirmLabel,
+	confirmVariant = "danger-solid",
 	onCancel,
 	onConfirm,
 	busy = false,
@@ -36,6 +38,7 @@ export function ConfirmDialog({
 	cancelButtonRef,
 }: ConfirmDialogProps) {
 	const titleId = useId();
+	const isDanger = confirmVariant === "danger" || confirmVariant === "danger-solid";
 	return (
 		<ModalShell
 			size="md" placement="sheet"
@@ -48,7 +51,7 @@ export function ConfirmDialog({
 			as="section"
 		>
 				<div className="flex items-start gap-3">
-					<span aria-hidden="true" className="mt-0.5 flex h-9 w-9 shrink-0 items-center justify-center rounded-full bg-[var(--danger-bg)] text-[var(--danger)]">
+					<span aria-hidden="true" className={`mt-0.5 flex h-9 w-9 shrink-0 items-center justify-center rounded-full ${isDanger ? "bg-[var(--danger-bg)] text-[var(--danger)]" : "bg-[var(--warning-bg)] text-[var(--warning)]"}`}>
 						<svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="1.9" strokeLinecap="round" strokeLinejoin="round"><path d="m21.73 18-8-14a2 2 0 0 0-3.48 0l-8 14A2 2 0 0 0 4 21h16a2 2 0 0 0 1.73-3Z" /><path d="M12 9v4" /><path d="M12 17h.01" /></svg>
 					</span>
 					<div className="min-w-0 flex-1">
@@ -61,7 +64,7 @@ export function ConfirmDialog({
 					<ActionButton ref={cancelButtonRef} type="button" variant="secondary" onClick={onCancel} disabled={busy}>
 						{cancelLabel}
 					</ActionButton>
-					<ActionButton type="button" variant="danger-solid" onClick={onConfirm} loading={busy}>
+					<ActionButton type="button" variant={confirmVariant} onClick={onConfirm} loading={busy}>
 						{confirmLabel}
 					</ActionButton>
 				</div>

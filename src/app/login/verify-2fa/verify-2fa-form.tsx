@@ -1,7 +1,7 @@
 "use client";
 
 import { useState, useRef, type KeyboardEvent, type ClipboardEvent } from "react";
-import { ActionButton } from "@/components/action-button";
+import { SubmitButton } from "@/components/submit-button";
 import { Notice, SegmentedControl } from "@/components/ui-primitives";
 import { csrfFetch } from "@/lib/auth/csrf-client";
 import { ApiError } from "@/lib/http/api-client-error";
@@ -125,7 +125,9 @@ export function Verify2faForm({ nextPath, error }: Verify2faFormProps) {
 			</div>
 
 			{mode === "totp" ? (
-			<div className="flex justify-center gap-2">
+			// Six boxes share the width on a phone (at 320px six 48px boxes overflowed the card); from sm they keep
+			// their own width, centred.
+			<div className="grid grid-cols-6 gap-1.5 sm:flex sm:justify-center sm:gap-2">
 				{digits.map((digit, i) => (
 					<input
 						key={i}
@@ -145,7 +147,7 @@ export function Verify2faForm({ nextPath, error }: Verify2faFormProps) {
 						readOnly={submitting}
 						aria-busy={submitting}
 						autoFocus={i === 0}
-						className={cn(UI_INPUT, "h-14 w-12 text-center text-xl font-semibold")}
+						className={cn(UI_INPUT, "h-14 w-full min-w-0 px-0 text-center text-xl font-semibold sm:w-12")}
 					/>
 				))}
 			</div>
@@ -173,14 +175,15 @@ export function Verify2faForm({ nextPath, error }: Verify2faFormProps) {
 				<Notice tone="danger">{errorMsg}</Notice>
 			) : null}
 
-			<ActionButton
-				type="submit"
+			{/* The code is sent from this handler, not by a form action: the label follows `submitting`. */}
+			<SubmitButton
+				size="lg"
 				block
+				pendingLabel={t("login.verify2faSubmitting")}
 				disabled={submitting || (mode === "totp" ? digits.some((d) => !d) : recoveryCode.trim().length === 0)}
-				className="py-2.5 text-sm font-semibold"
 			>
 				{submitting ? t("login.verify2faSubmitting") : t("login.verify2faSubmit")}
-			</ActionButton>
+			</SubmitButton>
 		</form>
 	);
 }

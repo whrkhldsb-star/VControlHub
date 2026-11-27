@@ -19,10 +19,11 @@ export default async function QuickServicesPage({ searchParams }: { searchParams
 		<PageShell>
 			<PageHeader eyebrow={t("qsPage.eyebrow", locale)} title={t("qsPage.title", locale)} description={t("qsPage.description", locale)} />
 			<QuickServicesClient
-				key={server}
+				key={session.currentTeamId ?? "global"}
 				requestedServer={server}
 				canManage
 				canManageHubHost={isGlobalTeamManager(session)}
+				canReadTasks={sessionHasPermission(session, "task:read")}
 				canReadServers={sessionHasPermission(session, "server:read")}
 			/>
 		</PageShell>

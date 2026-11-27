@@ -41,6 +41,7 @@ vi.mock("../cancel-command-button", () => ({
   ) }));
 
 vi.mock("@/lib/command/service", () => ({
+  getCommandRequestForViewer: vi.fn().mockResolvedValue(null),
   listCommandRequestPage: vi.fn().mockResolvedValue({ pendingCount: 2, nextCursor: null, requests: [
     {
       id: "cmd_1",
@@ -99,7 +100,7 @@ vi.mock("@/lib/ai/hosted-service", () => ({
   ] }) }));
 
 import RequestsPage from "../page";
-import { listCommandRequestPage } from "@/lib/command/service";
+import { getCommandRequestForViewer, listCommandRequestPage } from "@/lib/command/service";
 import { sessionHasPermission } from "@/lib/auth/authorization";
 import { requirePagePermission } from "@/lib/auth/page-guard";
 
@@ -203,12 +204,28 @@ describe("RequestsPage", () => {
 
     const { container } = render(await RequestsPage({}));
 
-    const history = container.querySelector("details");
-    expect(history).not.toBeNull();
+    const history = Array.from(container.querySelectorAll("details")).find((el) =>
+      el.querySelector("summary")?.textContent?.includes("已处理记录"),
+    );
+    expect(history).not.toBeUndefined();
     expect(history).not.toHaveAttribute("open");
     expect(history?.querySelector("summary")).toHaveTextContent("已处理记录 1");
     expect(history).toHaveTextContent("Rotate logs");
     expect(history).not.toHaveTextContent("Restart nginx");
     expect(screen.getAllByTestId("review-command-form")).toHaveLength(1);
+  });
+
+  it("focuses a deep-linked request once and shows a neutral notice when missing or out of scope", async () => {
+    const page = await listCommandRequestPage();
+    vi.mocked(getCommandRequestForViewer).mockResolvedValueOnce(page.requests[0]!);
+
+    const focused = render(await RequestsPage({ searchParams: Promise.resolve({ requestId: "cmd_1" }) }));
+    expect(focused.container.querySelectorAll("#command-cmd_1")).toHaveLength(1);
+    expect(screen.getByRole("link", { name: "查看全部申请" })).toHaveAttribute("href", "/requests");
+    focused.unmount();
+
+    vi.mocked(getCommandRequestForViewer).mockResolvedValueOnce(null);
+    render(await RequestsPage({ searchParams: Promise.resolve({ requestId: "missing_or_other_team" }) }));
+    expect(screen.getByText("未找到这条命令申请，或当前客户范围内无权查看。")).toBeInTheDocument();
   });
 });

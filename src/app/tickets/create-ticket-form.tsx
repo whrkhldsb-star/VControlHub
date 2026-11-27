@@ -26,21 +26,21 @@ export function CreateTicketForm({ servers = [], onClose }: Props) {
 	const { addToast } = useToast();
 	const [dirty, setDirty] = useState(false);
 	const { requestDiscard, discardDialog } = useUnsavedChangesGuard({ dirty, onDiscard: onClose });
-	const [state, formAction, pending] = useActionState(async (_prev: { error?: string; success?: boolean } | null, formData: FormData) => {
+	const [state, formAction, pending] = useActionState(async (_prev: { error?: string; success?: boolean; createdId?: string } | null, formData: FormData) => {
 		const title = String(formData.get("subject") ?? "").trim();
 		const description = String(formData.get("description") ?? "").trim();
 		const priority = String(formData.get("priority") ?? "NORMAL").toUpperCase();
 		const category = String(formData.get("category") ?? "request");
 		if (!title || !description) return { error: t("ticketsPage.form.error.empty") };
 		try {
-			await csrfFetch("/api/tickets", {
+			const data = await csrfFetch<{ ticket?: { id?: string } }>("/api/tickets", {
 				method:"POST",
 				headers: {"Content-Type":"application/json" },
 				body: JSON.stringify({ subject: title, description, priority, category, relatedServerId: String(formData.get("relatedServerId") ?? "") || undefined }),
 			});
-				setDirty(false);
+			setDirty(false);
 			router.refresh();
-			return { success: true };
+			return { success: true, createdId: data?.ticket?.id };
 		} catch (err) {
 			return { error: getErrorMessage(err, t("ticketsPage.form.error.createFailed")) };
 		}
@@ -49,7 +49,13 @@ export function CreateTicketForm({ servers = [], onClose }: Props) {
 	// A refusal is shown in the form (below). A created ticket closes the form: the list it joins is the page.
 	useEffect(() => {
 		if (!state?.success) return;
-		addToast("success", t("ticketsPage.form.success.created"));
+		if (state.createdId) {
+			addToast("success", t("ticketsPage.form.success.created"), {
+				action: { label: t("ticketsPage.form.viewTicket"), href: `/tickets/${encodeURIComponent(state.createdId)}` },
+			});
+		} else {
+			addToast("success", t("ticketsPage.form.success.created"));
+		}
 		onClose();
 	}, [state, addToast, t, onClose]);
 

@@ -139,11 +139,7 @@ export function TemplateForm({
 					onChange={(e) => setRollbackCommand(e.target.value)}
 					rows={3}
 					placeholder={t("templatesPage.create.rollbackPlaceholder")}
-					data-tone="emerald"
-					className={cn(
-						UI_INPUT,
-						"resize-y font-mono border-[var(--success-border)] focus:border-[var(--success-border)]",
-					)}
+					className={cn(UI_INPUT, "resize-y font-mono")}
 				/>
 			</FormField>
 			<FormField label={t("templatesPage.create.tagsLabel")} htmlFor={`${createFormId}-tags`}>

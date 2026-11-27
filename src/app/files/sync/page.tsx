@@ -5,12 +5,14 @@ import { getServerLocale, t } from "@/lib/i18n/translations";
 import { PageShell, PageHeader, SurfacePanel } from "@/components/page-shell";
 import { BidirectionalSyncPanel } from "@/components/storage/bidirectional-sync-panel";
 import { PageGuide } from "@/components/page-guide";
+import { getRecycleBinPage } from "@/lib/files/recycle-bin";
 import { FilesSubpageNav } from "../files-subpage-nav";
 
 export const dynamic = "force-dynamic";
 
 export default async function FilesSyncPage() {
   const session = await requirePagePermission("storage:read", { redirectTo: "/files/sync" });
+  const { pagination } = await getRecycleBinPage(session, { page: 1, pageSize: 1 });
   const locale = await getServerLocale();
   const canManage = sessionHasPermission(session, "storage:write");
   const formOptions = canManage
@@ -24,7 +26,7 @@ export default async function FilesSyncPage() {
         title={t("filesPage.subPage.sync", locale)}
         description={t("filesPage.subPage.syncDesc", locale)}
       />
-      <FilesSubpageNav />
+      <FilesSubpageNav recycleBinCount={pagination.totalItems} />
       <PageGuide title={t("filesPage.syncJobs.guide", locale)} steps={[t("filesPage.syncJobs.desc", locale), t("filesPage.syncJobs.guideStep2", locale)]} />
       <SurfacePanel>
         <BidirectionalSyncPanel

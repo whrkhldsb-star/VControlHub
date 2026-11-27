@@ -1,6 +1,7 @@
 "use client";
 
 import { useState, useEffect, useCallback, useRef } from "react";
+import { useSearchParams } from "next/navigation";
 import { useUrlQueryState } from "@/lib/hooks/use-url-query-state";
 import { UserPermissionPanel } from "./user-permission-panel";
 import { csrfFetch } from "@/lib/auth/csrf-client";
@@ -24,9 +25,14 @@ import { identityTemplateName } from "@/lib/auth/identity-templates";
 import { getErrorMessage } from "@/lib/http/error-message";
 import { ActionButton } from "@/components/action-button";
 import { ConfirmDialog } from "@/components/confirm-dialog";
-import { Plus } from "@/components/icons";
+import { Plus, Search } from "@/components/icons";
 import { StatusBadge } from "@/components/status-badge";
 import { Badge, Notice } from "@/components/ui-primitives";
+import { replaceBrowserUrl } from "@/lib/browser-history";
+import { useUnsavedChangesGuard } from "@/lib/forms/use-unsaved-changes-guard";
+import { UI_INPUT } from "@/lib/ui/classes";
+import { cn } from "@/lib/ui/cn";
+import { isImeComposition } from "@/lib/ui/keyboard";
 
 type UserInfo = {
   id: string;
@@ -44,6 +50,21 @@ const EMPTY_CREATE_FORM: CreateUserFormState = { username: "", displayName: "", 
 
 /** Fixed page size for the users list (matches the API request below). */
 const USER_PAGE_SIZE = 50;
+/** The search box asks the server after a pause in typing, as the audit log does; Enter asks at once. */
+const SEARCH_DEBOUNCE_MS = 300;
+
+function sameCreateForm(a: CreateUserFormState, b: CreateUserFormState): boolean {
+  return a.username === b.username && a.displayName === b.displayName && a.password === b.password
+    && a.accountType === b.accountType && a.teamId === b.teamId && a.identityTemplateId === b.identityTemplateId;
+}
+
+/** The address without the deep link's own parameters, so that a reload or Back does not open the form again. */
+function withoutCreateLink(href: string): string {
+  const url = new URL(href);
+  url.searchParams.delete("create");
+  url.searchParams.delete("teamId");
+  return `${url.pathname}${url.search}${url.hash}`;
+}
 
 export function UserManagementClient({ header, canManage = false, currentUserId = "", passwordRules }: {
   /** Page header; rendered here so the create command sits in its actions. */
@@ -55,20 +76,34 @@ export function UserManagementClient({ header, canManage = false, currentUserId 
 }) {
   const { t, locale } = useI18n();
   const { addToast } = useToast();
-  const { state: urlState, setField: setUrlField } = useUrlQueryState({ page: "1" });
+  const { state: urlState, setField: setUrlField, patch: patchUrl } = useUrlQueryState({ page: "1", q: "" });
   const page = Math.max(1, Number.parseInt(urlState.page || "1", 10) || 1);
   const setPage = (value: number) => setUrlField("page", String(Math.max(1, value)));
+  // The box stays controlled; the query the list reads lags behind it while typing.
+  const searchQuery = urlState.q || "";
+  const setSearchQuery = (value: string) => patchUrl({ q: value, page: "1" });
+  const [debouncedSearch, setDebouncedSearch] = useState(searchQuery);
+  useEffect(() => {
+    const timer = window.setTimeout(() => setDebouncedSearch(searchQuery), SEARCH_DEBOUNCE_MS);
+    return () => window.clearTimeout(timer);
+  }, [searchQuery]);
+  const search = debouncedSearch.trim();
   const [users, setUsers] = useState<UserInfo[]>([]);
   const [total, setTotal] = useState(0);
   const [loading, setLoading] = useState(true);
   const [showCreateForm, setShowCreateForm] = useState(false);
   const [createForm, setCreateForm] = useState<CreateUserFormState>(EMPTY_CREATE_FORM);
+  // What the form holds before anything is typed: the first customer filled in for the person, or the one a link
+  // named. Unsaved input is measured against this, not against empty fields.
+  const [createBaseline, setCreateBaseline] = useState<CreateUserFormState>(EMPTY_CREATE_FORM);
   const [customers, setCustomers] = useState<CustomerOption[]>([]);
   const [optionsLoaded, setOptionsLoaded] = useState(false);
   const [templates, setTemplates] = useState<IdentityTemplateOption[]>([]);
   const [creating, setCreating] = useState(false);
   const [editingPermissionsUser, setEditingPermissionsUser] = useState<UserInfo | null>(null);
   const [loadFailed, setLoadFailed] = useState(false);
+  // The directory has shown an account: from then on the search box stays, also while a search reloads the list.
+  const [seenAccounts, setSeenAccounts] = useState(false);
   // Why the customers and identity templates of the create form could not be read.
   const [optionsError, setOptionsError] = useState<string | null>(null);
   const fetchGenRef = useRef(0);
@@ -82,16 +117,14 @@ export function UserManagementClient({ header, canManage = false, currentUserId 
     const gen = ++fetchGenRef.current;
     setLoadFailed(false);
     try {
-      const data = await csrfFetch(`/api/users?page=${page}&pageSize=${USER_PAGE_SIZE}`) as { users?: UserInfo[]; total?: number } | UserInfo[];
+      const query = search ? `&q=${encodeURIComponent(search)}` : "";
+      const data = await csrfFetch(`/api/users?page=${page}&pageSize=${USER_PAGE_SIZE}${query}`) as { users?: UserInfo[]; total?: number } | UserInfo[];
       // Ignore out-of-order responses from rapid pagination.
       if (gen !== fetchGenRef.current) return;
-      if (Array.isArray(data)) {
-        setUsers(data);
-        setTotal(data.length);
-      } else {
-        setUsers(data.users ?? []);
-        setTotal(data.total ?? (data.users ?? []).length);
-      }
+      const list = Array.isArray(data) ? data : data.users ?? [];
+      setUsers(list);
+      setTotal(Array.isArray(data) ? data.length : data.total ?? list.length);
+      if (list.length > 0) setSeenAccounts(true);
     } catch (err) {
       if (gen !== fetchGenRef.current) return;
       setUsers([]);
@@ -101,7 +134,7 @@ export function UserManagementClient({ header, canManage = false, currentUserId 
     finally {
       if (gen === fetchGenRef.current) setLoading(false);
     }
-  }, [t, page, addToast]);
+  }, [t, page, search, addToast]);
 
   useEffect(() => {
     setLoading(true);
@@ -122,7 +155,9 @@ export function UserManagementClient({ header, canManage = false, currentUserId 
       setCustomers(teamData.teams);
       setTemplates(templateData.templates);
       setOptionsLoaded(true);
-      setCreateForm((form) => form.teamId ? form : { ...form, teamId: teamData.teams[0]?.id ?? "" });
+      const firstCustomer = teamData.teams[0]?.id ?? "";
+      setCreateForm((form) => form.teamId ? form : { ...form, teamId: firstCustomer });
+      setCreateBaseline((form) => form.teamId ? form : { ...form, teamId: firstCustomer });
       setOptionsError(null);
     }).catch((err: unknown) => {
       // Said in the form. In silence it left an empty list of customers and a button that stayed disabled.
@@ -131,12 +166,47 @@ export function UserManagementClient({ header, canManage = false, currentUserId 
     });
   }, [canManage]);
 
+  // A link that asks for the form (`/users?create=1&teamId=…`: the next step after a new customer, the command
+  // palette) opens it, also on a page already open. The customer it names is chosen once the customers are known,
+  // and only if it is one of them; an account that may not create users only loses the parameters.
+  const searchParams = useSearchParams();
+  const wantsCreate = searchParams?.get("create") === "1";
+  const linkedTeamId = searchParams?.get("teamId") ?? null;
+  const [pendingLinkTeamId, setPendingLinkTeamId] = useState<string | null>(null);
+  useEffect(() => {
+    if (!wantsCreate) return;
+    replaceBrowserUrl(withoutCreateLink(window.location.href));
+    if (!canManage) return;
+    setShowCreateForm(true);
+    setPendingLinkTeamId(linkedTeamId);
+  }, [wantsCreate, linkedTeamId, canManage]);
+  useEffect(() => {
+    if (pendingLinkTeamId === null || !optionsLoaded) return;
+    setPendingLinkTeamId(null);
+    // Only a customer this account may choose, and never over what was already typed into the form.
+    if (!customers.some((customer) => customer.id === pendingLinkTeamId)) return;
+    if (!sameCreateForm(createForm, createBaseline)) return;
+    const choose = (form: CreateUserFormState): CreateUserFormState => ({ ...form, accountType: "customer", teamId: pendingLinkTeamId });
+    setCreateForm(choose(createForm));
+    setCreateBaseline(choose(createBaseline));
+  }, [pendingLinkTeamId, optionsLoaded, customers, createForm, createBaseline]);
+
   // The form stays editable while a create is in flight; its success must
   // not wipe another user typed meanwhile.
   const latestCreateForm = useRef(createForm);
   useEffect(() => {
     latestCreateForm.current = createForm;
   }, [createForm]);
+
+  const createDirty = showCreateForm && !sameCreateForm(createForm, createBaseline);
+  const closeCreateForm = useCallback(() => {
+    setShowCreateForm(false);
+    setCreateForm(createBaseline);
+  }, [createBaseline]);
+  const { requestDiscard, discardDialog } = useUnsavedChangesGuard({ dirty: createDirty, onDiscard: closeCreateForm });
+
+  // Something to search once the directory has shown an account, and for as long as a search is typed.
+  const showSearch = seenAccounts || searchQuery !== "";
 
   const handleCreate = async () => {
     const submitted = createForm;
@@ -153,7 +223,9 @@ export function UserManagementClient({ header, canManage = false, currentUserId 
       });
       addToast("success", t("usersPage.success.created", { name: submitted.username }));
       if (latestCreateForm.current === submitted) {
-        setCreateForm({ ...EMPTY_CREATE_FORM, teamId: customers[0]?.id ?? "" });
+        const fresh = { ...EMPTY_CREATE_FORM, teamId: customers[0]?.id ?? "" };
+        setCreateForm(fresh);
+        setCreateBaseline(fresh);
         setShowCreateForm(false);
       }
       fetchUsers();
@@ -226,13 +298,11 @@ export function UserManagementClient({ header, canManage = false, currentUserId 
   return (
     <div>
       {(() => {
-        const createAction = canManage ? (
-          <ActionButton
-            variant={showCreateForm ? "secondary" : "primary"}
-            icon={showCreateForm ? undefined : <Plus size={16} aria-hidden />}
-            onClick={() => setShowCreateForm(!showCreateForm)}
-          >
-            {showCreateForm ? t("usersPage.action.cancel") : t("usersPage.action.create")}
+        // The command opens the form under the header and steps aside while it is open; the form's own Cancel
+        // closes it, asking first when something was typed (this button used to discard it in silence).
+        const createAction = canManage && !showCreateForm ? (
+          <ActionButton variant="primary" icon={<Plus size={16} aria-hidden />} onClick={() => setShowCreateForm(true)}>
+            {t("usersPage.action.create")}
           </ActionButton>
         ) : null;
         if (header) return <PageHeader eyebrow={header.eyebrow} title={header.title} description={header.description}>{createAction}</PageHeader>;
@@ -250,12 +320,35 @@ export function UserManagementClient({ header, canManage = false, currentUserId 
           optionsError={optionsError}
           optionsLoaded={optionsLoaded}
           passwordRules={passwordRules}
+          onCancel={requestDiscard}
         />
       )}
+      {discardDialog}
 
       <ListPanel
         title={t("usersPage.title2")}
         count={loading ? "…" : total || users.length}
+        actions={showSearch ? (
+          <div className="relative w-full sm:w-64">
+            <Search size={14} aria-hidden className="pointer-events-none absolute left-3 top-1/2 -translate-y-1/2 text-[var(--text-muted)]" />
+            <input
+              type="search"
+              value={searchQuery}
+              maxLength={100}
+              aria-label={t("usersPage.search.label")}
+              placeholder={t("usersPage.search.placeholder")}
+              onChange={(event) => setSearchQuery(event.target.value)}
+              onKeyDown={(event) => {
+                // Enter asks at once; the Enter that confirms an input method's candidate is part of the typing.
+                if (event.key !== "Enter" || isImeComposition(event)) return;
+                event.preventDefault();
+                if (debouncedSearch !== searchQuery) setDebouncedSearch(searchQuery);
+                else { setLoading(true); void fetchUsers(); }
+              }}
+              className={cn(UI_INPUT, "pl-9")}
+            />
+          </div>
+        ) : undefined}
         empty={
           loading ? (
             <div className="space-y-3 p-4" aria-busy="true" aria-live="polite">
@@ -269,7 +362,23 @@ export function UserManagementClient({ header, canManage = false, currentUserId 
               </Notice>
             </div>
           ) : users.length === 0 ? (
-            <EmptyState>{t("usersPage.empty")}</EmptyState>
+            search ? (
+              <EmptyState
+                title={t("common.noMatches")}
+                text={t("usersPage.search.noMatches", { query: search })}
+                action={<ActionButton size="sm" variant="secondary" onClick={() => { setSearchQuery(""); setDebouncedSearch(""); }}>{t("common.clearSearch")}</ActionButton>}
+              />
+            ) : (
+              <EmptyState
+                title={t("usersPage.emptyTitle")}
+                text={canManage ? t("usersPage.emptyHint") : undefined}
+                action={canManage && !showCreateForm ? (
+                  <ActionButton size="sm" variant="primary" icon={<Plus size={14} aria-hidden />} onClick={() => setShowCreateForm(true)}>
+                    {t("usersPage.action.create")}
+                  </ActionButton>
+                ) : undefined}
+              />
+            )
           ) : undefined
         }
       >

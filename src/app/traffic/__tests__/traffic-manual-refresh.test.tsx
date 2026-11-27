@@ -17,6 +17,7 @@ const calls = (prefix: string) => mocks.fetch.mock.calls.filter(([url]) => Strin
 
 describe("traffic page refresh", () => {
 	beforeEach(() => {
+		window.history.replaceState({}, "", "/traffic");
 		vi.useFakeTimers();
 		mocks.fetch.mockReset();
 		mocks.fetch.mockImplementation(async (url: string) => {

@@ -1,7 +1,7 @@
 "use client";
 import { Download, Loader2, Pencil, Play, Plus, RefreshCw, Trash2, X } from "@/components/icons";
 
-import { useCallback, useEffect, useRef, useState } from "react";
+import { useCallback, useId, useEffect, useRef, useState } from "react";
 
 import { csrfFetch } from "@/lib/auth/csrf-client";
 import { useI18n } from "@/lib/i18n/use-locale";
@@ -11,7 +11,9 @@ import { APP_TIME_ZONE, formatDateTime } from "@/lib/datetime/format";
 import { ActionButton } from "@/components/action-button";
 import { ConfirmDialog } from "@/components/confirm-dialog";
 import { CountBadge } from "@/components/page-shell";
-import { IconButton, InlineLoading, Notice } from "@/components/ui-primitives";
+import { StatusBadge } from "@/components/status-badge";
+import { useUnsavedChangesGuard } from "@/lib/forms/use-unsaved-changes-guard";
+import { FormField, IconButton, InlineLoading, Notice } from "@/components/ui-primitives";
 import { UI_INPUT } from "@/lib/ui/classes";
 import { getErrorMessage } from "@/lib/http/error-message";
 import { useVisibilityInterval } from "@/lib/hooks/use-visibility-interval";
@@ -120,63 +122,74 @@ function ScheduleFormFields({
 	onSubmit: () => void;
 }) {
 	const { t } = useI18n();
+	const id = useId();
 	const set = (field: keyof ScheduleForm) =>
 		(event: { target: { value: string } }) => onChange({ ...form, [field]: event.target.value });
 	return (
 		<>
-			<input
-				type="text"
-				placeholder={t("vpsBackup.scheduleName")}
-				aria-label={t("vpsBackup.scheduleName")}
-				value={form.name}
-				onChange={set("name")}
-				data-input
-				className={UI_INPUT}
-			/>
-			<div className="grid grid-cols-2 gap-2">
-				<select
-					value={form.backupType}
-					aria-label={t("vpsBackup.backupType")}
-					onChange={set("backupType")}
-					data-input
-					className={UI_INPUT}
-				>
-					{PRESET_OPTIONS.map((preset) => <option key={preset} value={preset}>{presetLabel(preset)}</option>)}
-				</select>
-				<input
+			<FormField label={t("vpsBackup.scheduleName")} htmlFor={`${id}-scheduleName`}>
+				<input id={`${id}-scheduleName`}
 					type="text"
-					placeholder="0 3 * * *"
-					aria-label={t("vpsBackup.cronExpression")}
-					value={form.cronExpression}
-					onChange={set("cronExpression")}
+					placeholder={t("vpsBackup.scheduleName")}
+					aria-label={t("vpsBackup.scheduleName")}
+					value={form.name}
+					onChange={set("name")}
 					data-input
 					className={UI_INPUT}
 				/>
+			</FormField>
+			<div className="grid grid-cols-2 gap-2">
+				<FormField label={t("vpsBackup.backupType")} htmlFor={`${id}-backupType`}>
+					<select id={`${id}-backupType`}
+						value={form.backupType}
+						aria-label={t("vpsBackup.backupType")}
+						onChange={set("backupType")}
+						data-input
+						className={UI_INPUT}
+					>
+						{PRESET_OPTIONS.map((preset) => <option key={preset} value={preset}>{presetLabel(preset)}</option>)}
+					</select>
+				</FormField>
+				<FormField label={t("vpsBackup.cronExpression")} htmlFor={`${id}-cronExpression`}>
+					<input id={`${id}-cronExpression`}
+						type="text"
+						placeholder="0 3 * * *"
+						aria-label={t("vpsBackup.cronExpression")}
+						value={form.cronExpression}
+						onChange={set("cronExpression")}
+						data-input
+						className={UI_INPUT}
+					/>
+				</FormField>
 			</div>
 			<p className="text-xs text-[var(--text-muted)]">{t("vpsBackup.timezone", { timezone: APP_TIME_ZONE })}</p>
 			{form.backupType === "custom" ? (
-				<textarea
-					placeholder={t("vpsBackup.pathsPlaceholder")}
-					aria-label={t("vpsBackup.pathsPlaceholder")}
-					value={form.paths}
-					onChange={set("paths")}
-					rows={2}
-					data-input
-					className={UI_INPUT}
-				/>
+				<FormField label={t("vpsBackup.pathsPlaceholder")} htmlFor={`${id}-pathsPlaceholder`}>
+					<textarea id={`${id}-pathsPlaceholder`}
+						placeholder={t("vpsBackup.pathsPlaceholder")}
+						aria-label={t("vpsBackup.pathsPlaceholder")}
+						value={form.paths}
+						onChange={set("paths")}
+						rows={2}
+						data-input
+						className={UI_INPUT}
+					/>
+				</FormField>
 			) : null}
 			<div className="flex flex-wrap items-center gap-2">
-				<input
-					type="number"
-					min={1}
-					max={365}
-					placeholder={t("vpsBackup.retentionDays")}
-					aria-label={t("vpsBackup.retentionDays")}
-					value={form.retentionDays}
-					onChange={set("retentionDays")}
-					data-input
-					className={`w-32 ${UI_INPUT}`}
-				/>
+				<FormField label={t("vpsBackup.retentionDays")} htmlFor={`${id}-retentionDays`}>
+					<input id={`${id}-retentionDays`}
+						type="number"
+						min={1}
+						max={365}
+						placeholder={t("vpsBackup.retentionDays")}
+						aria-label={t("vpsBackup.retentionDays")}
+						value={form.retentionDays}
+						onChange={set("retentionDays")}
+						data-input
+						className={`w-32 ${UI_INPUT}`}
+					/>
+				</FormField>
 				<ActionButton size="sm" type="button" onClick={onSubmit} disabled={!form.name.trim() || submitting}>
 					{submitting ? t("common.submitting") : submitLabel}
 				</ActionButton>
@@ -202,6 +215,7 @@ export function VpsBackupSection({
 	const [retrying, setRetrying] = useState<string | null>(null);
 	const [creating, setCreating] = useState(false);
 	const [showCreate, setShowCreate] = useState(false);
+	const manualId = useId();
 	const [manualPaths, setManualPaths] = useState("");
 	const [deleteTarget, setDeleteTarget] = useState<DeleteTarget>(null);
 	const [deleting, setDeleting] = useState(false);
@@ -212,6 +226,10 @@ export function VpsBackupSection({
 
 	// Create form state
 	const [createForm, setCreateForm] = useState<ScheduleForm>(emptyScheduleForm);
+	const { requestDiscard, discardDialog } = useUnsavedChangesGuard({
+		dirty: showCreate && JSON.stringify(createForm) !== JSON.stringify(emptyScheduleForm()),
+		onDiscard: () => { setShowCreate(false); setCreateForm(emptyScheduleForm()); },
+	});
 
 	const fetchAbortRef = useRef<AbortController | null>(null);
 	const fetchAll = useCallback(async () => {
@@ -433,20 +451,22 @@ export function VpsBackupSection({
 					{t("vpsBackup.manualTrigger")}
 				</div>
 				<div className="mb-2">
-					<textarea
+					<FormField label={t("vpsBackup.pathsPlaceholder")} htmlFor={manualId}>
+					<textarea id={manualId}
 						className={`${UI_INPUT} min-h-[64px] w-full text-xs`}
 						placeholder={t("vpsBackup.pathsPlaceholder")}
 						aria-label={t("vpsBackup.pathsPlaceholder")}
 						value={manualPaths}
 						onChange={(e) => setManualPaths(e.target.value)}
 					/>
+					</FormField>
 					<p className="mt-1 text-xs text-[var(--text-muted)]">{t("vpsBackup.manualCustomPathsHint")}</p>
 				</div>
 				<div className="flex flex-wrap gap-2">
 					{PRESET_OPTIONS.map((preset) => (
 						<ActionButton size="sm" variant="secondary"
 							key={preset}
-							disabled={triggering !== null}
+							disabled={triggering !== null || (preset === "custom" && !manualPaths.trim())}
 							onClick={() => handleTrigger(preset)}>
 							{triggering === preset ? <Loader2 size={14} className="animate-spin" aria-hidden /> : <Play size={12} aria-hidden />}
 							{presetLabel(preset)}
@@ -464,7 +484,7 @@ export function VpsBackupSection({
 					</div>
 					{canManage ? (
 						<ActionButton size="sm" variant="outline"
-							onClick={() => setShowCreate(!showCreate)}
+							onClick={() => showCreate ? requestDiscard() : setShowCreate(true)}
 							aria-label={showCreate ? t("common.close") : t("vpsBackup.addSchedule")}>
 							{showCreate ? <X size={16} aria-hidden /> : <Plus size={16} aria-hidden />}
 							{showCreate ? t("common.cancel") : t("vpsBackup.addSchedule")}
@@ -622,17 +642,7 @@ export function VpsBackupSection({
 										<span className="text-sm text-[var(--text-primary)]">
 											{presetLabel(r.backupType)}
 										</span>
-										<span
-											className={`rounded px-1.5 py-0.5 text-xs font-medium ${
-												r.status === "COMPLETED"
-													? "bg-[var(--success-bg)] text-[var(--success)]"
-													: r.status === "FAILED"
-														? "bg-[var(--danger-bg)] text-[var(--danger)]"
-														: "bg-[var(--warning-bg)] text-[var(--warning)]"
-											}`}
-										>
-											{getDomainStatusLabel(t, r.status)}
-										</span>
+										<StatusBadge tone={r.status === "COMPLETED" ? "success" : r.status === "FAILED" ? "danger" : "warning"}>{getDomainStatusLabel(t, r.status)}</StatusBadge>
 									</div>
 									<div className="mt-0.5 text-xs text-[var(--text-muted)]">
 										{formatDateTime(r.createdAt, locale)}
@@ -679,6 +689,7 @@ export function VpsBackupSection({
 					</div>
 				)}
 			</div>
+			{discardDialog}
 			<ConfirmDialog
 				open={deleteTarget !== null}
 				title={deleteTarget?.kind === "schedule" ? t("vpsBackup.deleteScheduleTitle") : t("vpsBackup.deleteRecord")}

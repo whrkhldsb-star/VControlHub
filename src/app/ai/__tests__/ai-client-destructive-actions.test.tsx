@@ -12,6 +12,7 @@ vi.mock("@/lib/auth/csrf-client", () => ({
 }));
 vi.mock("next/navigation", () => ({
   useRouter: () => ({ push: vi.fn() }),
+  useSearchParams: () => new URLSearchParams(window.location.search),
 }));
 
 const addToastMock = vi.fn();
@@ -86,6 +87,7 @@ function mockAiFetches() {
 
 describe("AiClient destructive actions", () => {
   beforeEach(() => {
+    window.history.replaceState({}, "", "/ai");
     vi.clearAllMocks();
     Element.prototype.scrollIntoView = vi.fn();
     Object.defineProperty(window, "matchMedia", {

@@ -393,7 +393,7 @@ export function FilesBrowserSpa({
           ) : (
             <FileListClient
               emptyDescription={emptyRoot ? t(data.permissions.canManageNodes ? "filesPage.emptyRoot" : "filesPage.emptyRootRead") : undefined}
-              emptyAction={data.searchQuery ? <ActionButton onClick={clearSearch}>{t("filesPage.clearSearch")}</ActionButton> : emptyRoot ? manageDrives : canEdit && location.nodeId && uploadNodes.some(node => node.id === location.nodeId) ? <ActionButton onClick={() => setUploadOpen(true)}>{t("filesPage.uploadHere")}</ActionButton> : undefined}
+              emptyAction={data.searchQuery ? <ActionButton onClick={clearSearch}>{t("filesPage.clearSearch")}</ActionButton> : emptyRoot ? manageDrives : canEdit && uploadNodes.length > 0 && (!location.nodeId || uploadNodes.some(node => node.id === location.nodeId)) ? <ActionButton onClick={() => setUploadOpen(true)}>{t("filesPage.uploadHere")}</ActionButton> : undefined}
               selectionScopeSeed={`${selectionEpoch}\u0000${data.currentPath}\u0000${data.searchQuery}\u0000${data.searchScope}\u0000${data.nodeIdFilter ?? ""}`}
               selectionPage={data.pagination?.page}
               serverSort={data.pagination ? { key: sortKey, dir: sortDirection, onChange: changeSort } : undefined}

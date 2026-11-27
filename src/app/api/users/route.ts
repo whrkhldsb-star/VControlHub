@@ -9,6 +9,7 @@ import { validatePasswordPolicy } from "@/lib/auth/password-policy";
 import { assertUserInActorScope, userDirectoryWhere } from "@/lib/auth/team-scope";
 import { auditUserAction, writeAuditLog } from "@/lib/audit/service";
 import { isUniqueViolation, prisma } from "@/lib/db";
+import { escapeLikeLiteral } from "@/lib/db/like-pattern";
 import { withApiRoute } from "@/lib/http/api-guard";
 import { booleanFlagSchema, paginationOffset, paginationQuerySchema, parseSearchParams } from "@/lib/http/parse-search-params";
 import { GENERAL_WRITE_LIMIT } from "@/lib/http/rate-limit-presets";
@@ -31,18 +32,25 @@ const usersListQuerySchema = paginationQuerySchema
     pageSize: z.coerce.number().int().min(1).max(100).default(50),
     /** Only customer accounts that belong to no customer yet (the member picker). */
     unassigned: booleanFlagSchema.optional(),
+    /** Part of a username or display name (the directory's search box); `%` and `_` are matched as typed. */
+    q: z.string().trim().max(100).optional(),
   });
 
 /** GET: administrators list every account; customer accounts their colleagues. */
 export async function GET(request: Request) {
   return withApiRoute(request, { permission: "user:read" }, async ({ session }) => {
-    const { page, pageSize, unassigned } = parseSearchParams(request, usersListQuerySchema);
+    const { page, pageSize, unassigned, q } = parseSearchParams(request, usersListQuerySchema);
     const skip = paginationOffset(page, pageSize);
     // The member picker used to page through the whole directory (up to 5000
     // accounts) to find the unassigned ones (A1-04); filter server-side.
-    const where = unassigned === true
-      ? { AND: [userDirectoryWhere(session), { teamMembership: null, roles: { none: { role: { key: "admin" } } } }] }
-      : userDirectoryWhere(session);
+    // Every filter narrows the directory the session may read; it never widens it.
+    const filters: Record<string, unknown>[] = [userDirectoryWhere(session)];
+    if (unassigned === true) filters.push({ teamMembership: null, roles: { none: { role: { key: "admin" } } } });
+    if (q) {
+      const contains = { contains: escapeLikeLiteral(q), mode: "insensitive" as const };
+      filters.push({ OR: [{ username: contains }, { displayName: contains }] });
+    }
+    const where = filters.length === 1 ? filters[0]! : { AND: filters };
     const [users, total] = await Promise.all([
       prisma.user.findMany({
         where,

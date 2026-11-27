@@ -63,13 +63,17 @@ export default function ApiDocsPage() {
 	const [spec, setSpec] = useState<OpenApiSpec | null>(null);
 	const [error, setError] = useState<string | null>(null);
 	const [query, setQuery] = useState("");
+	const [loadAttempt, setLoadAttempt] = useState(0);
 
 	useEffect(() => {
 		let cancelled = false;
 		const controller = new AbortController();
 		api.get<OpenApiSpec>("/api/docs/openapi.json", { signal: controller.signal })
 			.then((data) => {
-				if (!cancelled) setSpec(data);
+				if (!cancelled) {
+					setError(null);
+					setSpec(data);
+				}
 			})
 			.catch((err: unknown) => {
 				if (!cancelled) setError(getErrorMessage(err, t("apiDocsPage.loadFailed")));
@@ -79,7 +83,7 @@ export default function ApiDocsPage() {
 			controller.abort();
 		};
 		// eslint-disable-next-line react-hooks/exhaustive-deps
-	}, []);
+	}, [loadAttempt]);
 
 	const entries = useMemo(() => groupEntries(spec, t("apiDocsPage.tag.untagged")), [spec, t]);
 	const filtered = useMemo(() => {
@@ -152,7 +156,11 @@ export default function ApiDocsPage() {
 					</div>
 				</Toolbar>
 
-				{error ? <Notice tone="danger">{error}</Notice> : null}
+				{error ? (
+					<Notice tone="danger" action={{ label: t("common.retry"), onClick: () => { setError(null); setLoadAttempt((n) => n + 1); } }}>
+						{error}
+					</Notice>
+				) : null}
 
 				{!spec && !error ? (
 					<div data-inset className="p-8">

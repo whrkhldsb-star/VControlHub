@@ -62,6 +62,7 @@ export function UsersCreateForm({
   optionsError,
   optionsLoaded = true,
   passwordRules,
+  onCancel,
 }: {
   t: (k: string, vars?: Record<string, string | number>) => string;
   createForm: CreateUserFormState;
@@ -75,6 +76,8 @@ export function UsersCreateForm({
   /** The customers and templates have been read (or failed to): until then an empty list says nothing. */
   optionsLoaded?: boolean;
   passwordRules?: PasswordRules;
+  /** Closes the form; the page asks first when something was typed. */
+  onCancel?: () => void;
 }) {
   const passwordRule = passwordRuleText(passwordRules, t);
   // A customer account belongs to a customer: with none yet, the submit button cannot be pressed — say why.
@@ -159,12 +162,19 @@ export function UsersCreateForm({
           </div>
         </div>
       )}
-      <ActionButton
-        variant="primary"
-        onClick={onSubmit}
-        disabled={creating || !createForm.username || !createForm.password || (createForm.accountType === "customer" && !createForm.teamId)}>
-        {creating ? t("usersPage.action.creating") : t("usersPage.action.confirm")}
-      </ActionButton>
+      <div className="flex flex-wrap gap-3">
+        <ActionButton
+          variant="primary"
+          onClick={onSubmit}
+          disabled={creating || !createForm.username || !createForm.password || (createForm.accountType === "customer" && !createForm.teamId)}>
+          {creating ? t("usersPage.action.creating") : t("usersPage.action.confirm")}
+        </ActionButton>
+        {onCancel ? (
+          <ActionButton variant="secondary" onClick={onCancel} disabled={creating}>
+            {t("usersPage.action.cancel")}
+          </ActionButton>
+        ) : null}
+      </div>
     </SurfacePanel>
   );
 }

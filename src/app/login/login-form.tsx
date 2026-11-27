@@ -72,7 +72,7 @@ export function LoginForm({ nextPath, error, locale, turnstileSiteKey, nonce }: 
 				<Notice tone="danger" className="mb-4">{error}</Notice>
 			) : null}
 
-			<SubmitButton pendingLabel={t("login.form.submitting", locale)} className="w-full py-2.5 text-sm font-semibold">
+			<SubmitButton pendingLabel={t("login.form.submitting", locale)} size="lg" block>
 				{t("login.form.submit", locale)}
 			</SubmitButton>
 		</form>

@@ -86,6 +86,7 @@ export function CostBudgetPanel({
   // Why the budget was not saved, by the button; why one was not deleted, in the dialog that asked.
   const [formError, setFormError] = useState<string | null>(null);
   const [deleteError, setDeleteError] = useState<string | null>(null);
+  const [reloadError, setReloadError] = useState<string | null>(null);
   const [pendingDelete, setPendingDelete] = useState<CostBudgetRecord | null>(null);
   const fieldId = useId();
   const update = (change: Partial<BudgetFormValues>) => {
@@ -108,15 +109,18 @@ export function CostBudgetPanel({
   const reload = useCallback(async () => {
     const data = (await csrfFetch(period ? `/api/cost/budgets?periodStart=${period}` : "/api/cost/budgets")) as { budgets?: CostBudgetRecord[] };
     if (Array.isArray(data.budgets)) setBudgets(data.budgets);
+    setReloadError(null);
   }, [period]);
 
   // A cost added, edited or synced elsewhere on the page changes what the
-  // budgets have used; they kept showing the usage from page load.
+  // budgets have used; surface refresh failures so stale usage is never silent.
   useEffect(() => {
     if (refreshToken === 0) return;
     // eslint-disable-next-line react-hooks/set-state-in-effect -- refetch from the server when the page's costs change
-    reload().catch(() => undefined);
-  }, [refreshToken, reload]);
+    reload().catch((err) => {
+      setReloadError(getErrorMessage(err, t("costPage.budget.reloadFailed")));
+    });
+  }, [refreshToken, reload, t]);
 
   const startEdit = (budget: CostBudgetRecord) => {
     setEditing(budget);
@@ -363,6 +367,21 @@ export function CostBudgetPanel({
           {discardDialog}
         </form>
       )}
+      {reloadError ? (
+        <Notice
+          tone="warning"
+          compact
+          className="mt-4"
+          action={{
+            label: t("common.retry"),
+            onClick: () => {
+              void reload().catch((err) => setReloadError(getErrorMessage(err, t("costPage.budget.reloadFailed"))));
+            },
+          }}
+        >
+          {reloadError}
+        </Notice>
+      ) : null}
       <div className="mt-4 grid gap-3 md:grid-cols-2">
         {budgets.length === 0 ? (
           <div className="md:col-span-2">
@@ -405,11 +424,16 @@ export function CostBudgetPanel({
                 tone={budget.usageStatus === "exhausted" ? "danger" : budget.usageStatus === "threshold" ? "warning" : "success"}
                 className="mt-3"
               />
-              <p className="mt-2 flex flex-wrap justify-between gap-x-3 text-xs text-[var(--text-secondary)]">
+              <p className="mt-2 flex flex-wrap items-center justify-between gap-x-3 text-xs text-[var(--text-secondary)]">
                 <span className="font-mono">
                   {budget.usageAmount} / {budget.limitAmount} {budget.currency}
                 </span>
-                <span className="font-mono">{`${budget.usagePercent.toFixed(1)}%`}</span>
+                <span className="inline-flex items-center gap-1.5 font-mono">
+                  {`${budget.usagePercent.toFixed(1)}%`}
+                  {budget.usagePercent > 100 ? (
+                    <Badge tone="danger">{t("costPage.budget.overLimit")}</Badge>
+                  ) : null}
+                </span>
               </p>
               {budget.otherCurrencyUsage.length > 0 ? (
                 <p className={`mt-2 rounded-lg border px-2 py-1.5 text-xs ${UI_TONE.warning}`}>

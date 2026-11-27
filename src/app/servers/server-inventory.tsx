@@ -2,6 +2,7 @@
 
 import { useTransition } from "react";
 import { useRouter } from "next/navigation";
+import { ActionButton } from "@/components/action-button";
 import { Search, X } from "@/components/icons";
 import { EmptyState, Toolbar } from "@/components/page-shell";
 import { Pagination } from "@/components/pagination";
@@ -28,8 +29,10 @@ export function ServerInventory({ inventory, canManageServers, canUseSshTerminal
     }
     startTransition(() => router.push(`${url.pathname}${url.search}${url.hash}`, { scroll: false }));
   };
+  const filtered = Boolean(query.query || query.status !== "all" || query.mode !== "all" || operatingSystem !== "all");
+  const clear = () => navigate({ query: "", status: "all", mode: "all", operatingSystem: "all", page: 1 });
   return <div className="space-y-4" aria-busy={pending}>
-    <SegmentedTabs
+    {stats.total > 0 && <SegmentedTabs
       ariaLabel={t("serversPage.windows.os")}
       value={operatingSystem}
       onChange={(os) => navigate({ operatingSystem: os as InventoryQuery["operatingSystem"], page: 1 })}
@@ -39,15 +42,15 @@ export function ServerInventory({ inventory, canManageServers, canUseSshTerminal
         label: os === "all" ? t("serversPage.windows.all") : os === "LINUX" ? "Linux" : "Windows",
         disabled: pending,
       }))}
-    />
+    />}
     {stats.total > 0 && <Toolbar>
       <form key={query.query} className="flex min-w-0 flex-1 basis-64 gap-2" onSubmit={(event) => {
         event.preventDefault();
         navigate({ query: String(new FormData(event.currentTarget).get("query") ?? "").trim(), page: 1 });
       }}>
         <input type="search" name="query" maxLength={200} aria-label={t("serversPage.inventory.search")}
-          placeholder={t("serversPage.inventory.search")} className={UI_INPUT} defaultValue={query.query} />
-        <IconButton type="submit" className="h-10 w-10 shrink-0" disabled={pending} label={t("serversPage.inventory.search")}><Search size={18} aria-hidden /></IconButton>
+          placeholder={t("serversPage.inventory.search")} className={UI_INPUT} onChange={event => { if (!event.target.value && query.query) navigate({ query: "", page: 1 }); }} defaultValue={query.query} />
+        <IconButton type="submit" className="!h-auto w-10 self-stretch shrink-0" disabled={pending} label={t("serversPage.inventory.search")}><Search size={18} aria-hidden /></IconButton>
       </form>
       <select disabled={pending} aria-label={t("serversPage.inventory.status")} className={`${UI_INPUT} sm:!w-auto`} value={query.status}
         onChange={(event) => navigate({ status: event.target.value as InventoryQuery["status"], page: 1 })}>
@@ -57,11 +60,11 @@ export function ServerInventory({ inventory, canManageServers, canUseSshTerminal
         onChange={(event) => navigate({ mode: event.target.value as InventoryQuery["mode"], page: 1 })}>
         <option value="all">{t("serversPage.inventory.allModes")}</option><option value="DIRECT">{t("serversPage.management.directAny")}</option><option value="AGENT">{t("serversPage.management.agent")}</option>
       </select>
-      {(query.query || query.status !== "all" || query.mode !== "all") && <IconButton disabled={pending} label={t("serversPage.inventory.clear")} onClick={() => navigate({ query: "", status: "all", mode: "all", page: 1 })}><X size={18} aria-hidden /></IconButton>}
+      {filtered && servers.length > 0 && <IconButton disabled={pending} label={t("serversPage.inventory.clear")} onClick={clear}><X size={18} aria-hidden /></IconButton>}
     </Toolbar>}
     <section aria-label={t("serversPage.overview.aria")} className="grid gap-4 md:grid-cols-2 xl:grid-cols-3">
       {servers.map((server) => <ServerOverviewCard key={server.id} server={server} canManageServers={canManageServers} canUseSshTerminal={canUseSshTerminal} />)}
-      {servers.length === 0 && <div className="col-span-full"><EmptyState text={t(stats.total ? "serversPage.inventory.noResults" : canManageServers ? "serversPage.overview.empty" : "serversPage.readEmpty")} /></div>}
+      {servers.length === 0 && <div className="col-span-full"><EmptyState title={filtered ? t("serversPage.inventory.noResults") : undefined} action={filtered && <ActionButton variant="secondary" onClick={clear}>{t("serversPage.inventory.clear")}</ActionButton>} text={filtered ? undefined : t(stats.total ? "serversPage.inventory.noResults" : canManageServers ? "serversPage.overview.empty" : "serversPage.readEmpty")} /></div>}
     </section>
     {stats.total > 0 && <Pagination page={query.page} pageSize={pageSize} totalItems={stats.matching} loading={pending} onPageChange={(page) => navigate({ page })} />}
   </div>;

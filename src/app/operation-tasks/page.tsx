@@ -14,13 +14,21 @@ export default async function OperationTasksPage({
 }: {
 	searchParams?: Promise<Record<string, string | string[] | undefined>>;
 }) {
-	const session = await requirePagePermission("task:read", { redirectTo: "/operation-tasks" });
+	const resolved = (await searchParams) ?? {};
+	const redirectParams = new URLSearchParams();
+	for (const key of ["task", "status", "type", "taskType", "sort"] as const) {
+		const value = firstSearchParam(resolved[key]);
+		if (value) redirectParams.set(key, value);
+	}
+	const redirectQuery = redirectParams.toString();
+	const session = await requirePagePermission("task:read", {
+		redirectTo: redirectQuery ? `/operation-tasks?${redirectQuery}` : "/operation-tasks",
+	});
 	const canReadDeployments = sessionHasPermission(session, "deploy:read");
 	const canReadBackups = sessionHasPermission(session, "backup:read") && isGlobalTeamManager(session);
 	const canReadDownloads = sessionHasPermission(session, "storage:read");
 	const locale = await getServerLocale();
 	const tr = (key: string, vars?: Record<string, string | number>) => t(key, locale, vars);
-	const resolved = (await searchParams) ?? {};
 	const statusRaw = firstSearchParam(resolved.status) ?? "all";
 	const taskTypeRaw = firstSearchParam(resolved.type) ?? firstSearchParam(resolved.taskType) ?? "all";
 	const sortRaw = firstSearchParam(resolved.sort) ?? "recent";

@@ -176,6 +176,12 @@ export function TicketWorkspace({ initialPage, initialBoard, canManage, now, onC
     setServerRender({ initialPage, initialBoard });
     setReloadKey((key) => key + 1);
   }
+  const [debouncedSearch, setDebouncedSearch] = useState(search);
+  useEffect(() => {
+    const timer = window.setTimeout(() => setDebouncedSearch(search), FETCH_DELAY_MS);
+    return () => window.clearTimeout(timer);
+  }, [search]);
+
   const request = useMemo(() => {
     const params = new URLSearchParams();
     if (view === "board") params.set("view", "board");
@@ -185,9 +191,9 @@ export function TicketWorkspace({ initialPage, initialBoard, canManage, now, onC
     if (category) params.set("category", category);
     if (assigneeId) params.set("assigneeId", assigneeId);
     if (slaStatus) params.set("slaStatus", slaStatus);
-    if (search.trim()) params.set("search", search.trim());
+    if (debouncedSearch.trim()) params.set("search", debouncedSearch.trim());
     return `/api/tickets?${params.toString()}`;
-  }, [assigneeId, category, page, priority, search, slaStatus, status, view]);
+  }, [assigneeId, category, debouncedSearch, page, priority, slaStatus, status, view]);
   // The server already rendered what the URL first asked for.
   const renderedRequest = useRef(request);
   // Only the newest request may show its answer: an older one answering
@@ -198,33 +204,31 @@ export function TicketWorkspace({ initialPage, initialBoard, canManage, now, onC
     renderedRequest.current = "";
     const id = ++latestRequest.current;
     setLoading(true);
-    const timer = window.setTimeout(() => {
-      void (async () => {
-        try {
-          if (view === "board") {
-            const data = await csrfFetch<{ columns: TicketWorkspaceBoard }>(request);
-            if (id !== latestRequest.current) return;
-            setBoard(data.columns);
-            setLoadedAtMs(Date.now());
-          } else {
-            const data = await csrfFetch<TicketWorkspacePage>(request);
-            if (id !== latestRequest.current) return;
-            setListPage(data);
-            setLoadedAtMs(Date.now());
-          }
-          setLoadError(null);
-        } catch (error) {
-          // "" when there is no reason for people: the sentence then says only that it failed.
-          if (id === latestRequest.current) setLoadError(getErrorMessage(error, ""));
-        } finally {
-          if (id === latestRequest.current) setLoading(false);
+    void (async () => {
+      try {
+        if (view === "board") {
+          const data = await csrfFetch<{ columns: TicketWorkspaceBoard }>(request);
+          if (id !== latestRequest.current) return;
+          setBoard(data.columns);
+          setLoadedAtMs(Date.now());
+        } else {
+          const data = await csrfFetch<TicketWorkspacePage>(request);
+          if (id !== latestRequest.current) return;
+          setListPage(data);
+          setLoadedAtMs(Date.now());
         }
-      })();
-    }, FETCH_DELAY_MS);
-    return () => window.clearTimeout(timer);
+        setLoadError(null);
+      } catch (error) {
+        // "" when there is no reason for people: the sentence then says only that it failed.
+        if (id === latestRequest.current) setLoadError(getErrorMessage(error, ""));
+      } finally {
+        if (id === latestRequest.current) setLoading(false);
+      }
+    })();
   }, [reloadKey, request, view]);
 
   const clearFilters = () => {
+    setDebouncedSearch("");
     patchUrl({ status: "", priority: "", category: "", sla: "", q: "", slaStatus: "", search: "", assigneeId: "", page: "1" });
   };
 
@@ -283,26 +287,28 @@ export function TicketWorkspace({ initialPage, initialBoard, canManage, now, onC
         <div className="mt-4 grid gap-3 sm:grid-cols-2 xl:grid-cols-5">
           <label className="ui-label grid gap-1">
             {t("ticketsPage.filter.search")}
-            <input aria-label={t("ticketsPage.filter.search")} value={search} onChange={(event) => setSearch(event.target.value)} placeholder={t("ticketsPage.filter.search")} className={UI_INPUT} />
+            <input type="search" value={search} onChange={(event) => setSearch(event.target.value)} placeholder={t("ticketsPage.filter.search")} className={UI_INPUT} />
           </label>
           <FilterSelect labelText={t("ticketsPage.filter.status")} value={status} onChange={setStatus} allLabel={t("ticketsPage.filter.all")} options={STATUSES.map((value) => ({ value, label: label(t, "ticketsPage.status", value) }))} />
           <FilterSelect labelText={t("ticketsPage.filter.priority")} value={priority} onChange={setPriority} allLabel={t("ticketsPage.filter.all")} options={PRIORITIES.map((value) => ({ value, label: label(t, "ticketsPage.priority", value) }))} />
           <FilterSelect labelText={t("ticketsPage.filter.category")} value={category} onChange={setCategory} allLabel={t("ticketsPage.filter.all")} options={CATEGORIES.map((value) => ({ value, label: label(t, "ticketsPage.category", value) }))} />
           <FilterSelect labelText={t("ticketsPage.filter.slaStatus")} value={slaStatus} onChange={setSlaStatus} allLabel={t("ticketsPage.filter.all")} options={SLA_STATUSES.map((value) => ({ value, label: t(`ticketsPage.sla.${value}`) }))} />
         </div>
-        <div className="mt-3 flex justify-end">
-          <button type="button" onClick={clearFilters} className="rounded-lg px-3 py-2 text-xs font-medium text-[var(--text-secondary)] hover:bg-[var(--surface-hover)]">
-            {t("ticketsPage.filter.clear")}
-          </button>
-        </div>
+        {filtersActive ? (
+          <div className="mt-3 flex justify-end">
+            <ActionButton size="sm" variant="ghost" onClick={clearFilters}>
+              {t("ticketsPage.filter.clear")}
+            </ActionButton>
+          </div>
+        ) : null}
       </div>
 
       {loadFailed ? (
         <div role="alert" className="flex flex-wrap items-center justify-between gap-2 border-b border-[var(--border)] px-5 py-3 text-xs text-[var(--danger)]">
           <span>{loadError ? t("ticketsPage.loadFailed", { error: loadError }) : t("ticketsPage.loadFailedPlain")}</span>
-          <button type="button" onClick={() => setReloadKey((key) => key + 1)} className="rounded-lg px-3 py-1.5 font-medium text-[var(--text-secondary)] hover:bg-[var(--surface-hover)]">
+          <ActionButton size="sm" variant="ghost" onClick={() => setReloadKey((key) => key + 1)}>
             {t("common.retry")}
-          </button>
+          </ActionButton>
         </div>
       ) : null}
       <div aria-busy={loading || undefined}>
@@ -331,7 +337,15 @@ export function TicketWorkspace({ initialPage, initialBoard, canManage, now, onC
                 </div>
                 <div className="space-y-3">{column.tickets.map((ticket) => <TicketCard key={ticket.id} ticket={ticket} nowMs={nowMs} compact />)}</div>
                 {column.total > column.tickets.length ? (
-                  <p className="mt-3 text-center text-xs text-[var(--text-muted)]">{t("ticketsPage.kanban.partial", { shown: column.tickets.length, total: column.total })}</p>
+                  <div className="mt-3 text-center">
+                    <ActionButton
+                      size="xs"
+                      variant="ghost"
+                      onClick={() => patchUrl({ view: "list", status: columnStatus, page: "1" })}
+                    >
+                      {t("ticketsPage.kanban.partial", { shown: column.tickets.length, total: column.total })}
+                    </ActionButton>
+                  </div>
                 ) : null}
               </div>
             );

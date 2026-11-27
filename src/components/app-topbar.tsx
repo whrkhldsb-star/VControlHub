@@ -21,7 +21,8 @@ import { ThemeToggle } from "./theme-toggle";
 import { BrandTile, IconChevronRight, IconMenu, IconPanelLeft, IconSearch } from "./nav-icons";
 import { findNavLocation } from "./nav-items";
 
-type Crumb = { label: string; href?: string };
+/** `group` marks the navigation group (or the account area): phones keep only the page and its sub-page. */
+type Crumb = { label: string; href?: string; group?: boolean };
 
 /** Pages below a navigation entry that deserve their own crumb. */
 const SUB_CRUMBS: Array<[RegExp, string]> = [
@@ -47,13 +48,13 @@ function useCrumbs(pathname: string): Crumb[] {
 		return value === key ? fallback : value;
 	};
 	if (ACCOUNT_CRUMBS[pathname]) {
-		return [{ label: t("shell.crumb.account") }, { label: t(ACCOUNT_CRUMBS[pathname]) }];
+		return [{ label: t("shell.crumb.account"), group: true }, { label: t(ACCOUNT_CRUMBS[pathname]) }];
 	}
 	if (pathname === "/offline") return [{ label: t("shell.crumb.offline") }];
 	const location = findNavLocation(pathname);
 	if (!location) return [];
 	const crumbs: Crumb[] = [
-		{ label: label(location.group.labelKey, location.group.fallbackLabel) },
+		{ label: label(location.group.labelKey, location.group.fallbackLabel), group: true },
 		{ label: label(location.item.labelKey, location.item.fallbackLabel), href: location.item.href },
 	];
 	const sub = SUB_CRUMBS.find(([pattern]) => pattern.test(pathname));
@@ -118,9 +119,12 @@ export function AppTopbar({ appName }: { appName: string }) {
 				<ol className="flex min-w-0 items-center gap-1 text-[13.5px]">
 					{crumbs.map((crumb, index) => {
 						const last = index === crumbs.length - 1;
+						// On a phone the group goes; a sub-page keeps its parent page as the way back up.
+						const hiddenOnPhone = Boolean(crumb.group) && !last;
+						const separatorHiddenOnPhone = Boolean(crumbs[index - 1]?.group);
 						return (
-							<li key={`${index}-${crumb.label}`} className={cn("flex min-w-0 items-center gap-1", !last && "max-sm:hidden")}>
-								{index > 0 ? <IconChevronRight size={13} className="shrink-0 text-[var(--text-disabled)] max-sm:hidden" /> : null}
+							<li key={`${index}-${crumb.label}`} className={cn("flex min-w-0 items-center gap-1", hiddenOnPhone && "max-sm:hidden", !last && "shrink-[2]")}>
+								{index > 0 ? <IconChevronRight size={13} className={cn("shrink-0 text-[var(--text-disabled)]", separatorHiddenOnPhone && "max-sm:hidden")} /> : null}
 								{crumb.href && !last ? (
 									<Link href={crumb.href} className="truncate text-[var(--text-muted)] transition hover:text-[var(--text-primary)]">
 										{crumb.label}

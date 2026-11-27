@@ -1,3 +1,4 @@
+import { sessionHasPermission } from "@/lib/auth/authorization";
 import { requirePagePermission } from "@/lib/auth/page-guard";
 import { isGlobalTeamManager } from "@/lib/auth/team-scope";
 import { countServerProfiles } from "@/lib/server/service";
@@ -12,20 +13,17 @@ export default async function VpsStatusPage() {
 	const session = await requirePagePermission("health:read", { redirectTo: "/vps-status" });
 
 	const serverCount = await countServerProfiles(session);
+	const canReadServers = sessionHasPermission(session, "server:read");
 
 	return (
 		<PageShell>
 			<PageHeader
 				eyebrow={t("vpsStatusPage.eyebrow", locale)}
 				title={t("vpsStatusPage.title", locale)}
-				description={t("vpsStatusPage.description", locale)}
+				description={`${t("vpsStatusPage.description", locale)} ${t("vpsStatusPage.serverCount", locale, { count: serverCount })}`}
 				className="mb-6"
-			>
-				<div data-tile className="px-4 py-2 text-sm font-medium text-[var(--text-secondary)]">
-					{t("vpsStatusPage.serverCount", locale, { count: serverCount })}
-				</div>
-			</PageHeader>
-			<VpsStatusClient serverCount={serverCount} isPlatformAdmin={isGlobalTeamManager(session)} />
+			/>
+			<VpsStatusClient serverCount={serverCount} isPlatformAdmin={isGlobalTeamManager(session)} canReadServers={canReadServers} />
 		</PageShell>
 	);
 }

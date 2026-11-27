@@ -184,6 +184,8 @@ export function UnifiedSettingsPageClient({
 
   const handleTabClick = useCallback((tab: SettingsTab) => {
     cancelNavigation();
+    // Choosing for oneself answers the notice about the bookmark that could not be opened.
+    setReroutedFrom(null);
     setActiveTab(tab);
     const firstSection =
       tab === "personal" ? "preferences-default-page" : TAB_SECTION_IDS[tab]?.[0] ?? "";
@@ -195,6 +197,7 @@ export function UnifiedSettingsPageClient({
 
   const handleSectionSelect = useCallback(
     (sectionId: string) => {
+      setReroutedFrom(null);
       setActiveSection(sectionId);
       if (typeof window !== "undefined") {
         replaceBrowserUrl(`#${sectionId}`);
@@ -205,6 +208,8 @@ export function UnifiedSettingsPageClient({
   );
 
   const tabs = canManage ? TAB_META : TAB_META.filter((tab) => SELF_SERVICE_TABS.includes(tab.id));
+  // One tab is no choice: without the platform tabs the bar was a single selected tab above its own panel.
+  const showTabs = tabs.length > 1;
 
   const activeTabMeta = TAB_META.find((tab) => tab.id === activeTab);
 
@@ -252,22 +257,24 @@ export function UnifiedSettingsPageClient({
         description={t("settingsPage.unified.description")}
       />
 
-      <div className="min-w-0">
-        <SegmentedTabs
-          ariaLabel={t("settingsClient.tabsAria")}
-          value={activeTab}
-          onChange={(id) => handleTabClick(id as SettingsTab)}
-          items={tabs.map((tab) => ({
-            id: tab.id,
-            tabId: `${panelId}-${tab.id}-tab`,
-            panelId: `${panelId}-panel`,
-            icon: tab.icon,
-            label: t(tab.labelKey),
-          }))}
-        />
-        {/* What the open tab holds; the section counts that used to sit on the tabs read as unread counts. */}
-        {activeTabMeta ? <p className="mt-2 text-[13px] leading-5 text-[var(--text-muted)]">{t(activeTabMeta.descKey)}</p> : null}
-      </div>
+      {showTabs ? (
+        <div className="min-w-0">
+          <SegmentedTabs
+            ariaLabel={t("settingsClient.tabsAria")}
+            value={activeTab}
+            onChange={(id) => handleTabClick(id as SettingsTab)}
+            items={tabs.map((tab) => ({
+              id: tab.id,
+              tabId: `${panelId}-${tab.id}-tab`,
+              panelId: `${panelId}-panel`,
+              icon: tab.icon,
+              label: t(tab.labelKey),
+            }))}
+          />
+          {/* What the open tab holds; the section counts that used to sit on the tabs read as unread counts. */}
+          {activeTabMeta ? <p className="mt-2 text-[13px] leading-5 text-[var(--text-muted)]">{t(activeTabMeta.descKey)}</p> : null}
+        </div>
+      ) : null}
 
       {reroutedFrom ? (
         <Notice
@@ -280,7 +287,14 @@ export function UnifiedSettingsPageClient({
         </Notice>
       ) : null}
 
-      <div role="tabpanel" id={`${panelId}-panel`} aria-labelledby={`${panelId}-${activeTab}-tab`} tabIndex={0} className="min-w-0">
+      {/* A tab panel only when there are tabs to name it; otherwise the page's own content. */}
+      <div
+        id={`${panelId}-panel`}
+        role={showTabs ? "tabpanel" : undefined}
+        aria-labelledby={showTabs ? `${panelId}-${activeTab}-tab` : undefined}
+        tabIndex={showTabs ? 0 : undefined}
+        className="min-w-0"
+      >
       <SplitPane
         rail={
           <SideNav

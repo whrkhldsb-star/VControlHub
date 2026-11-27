@@ -1,5 +1,9 @@
 import { canReadCommandBody } from "@/lib/command/visibility";
 import { firstSearchParams } from "@/lib/http/first-search-param";
+import { deploymentRunTeamWhere } from "@/lib/auth/team-scope";
+import { prisma } from "@/lib/db";
+import { PageGuide } from "@/components/page-guide";
+import { commandRequestHref } from "@/lib/ui/deep-links";
 import Link from "next/link";
 import { sessionHasPermission } from "@/lib/auth/authorization";
 import { requirePagePermission } from "@/lib/auth/page-guard";
@@ -38,7 +42,7 @@ function deploymentNextStep(status: string, tr: (key: string) => string) {
 
 const RUNS_PAGE_SIZE = 20;
 
-export default async function DeploymentsPage({ searchParams }: { searchParams?: Promise<{ error?: string; success?: string; page?: string }> }) {
+export default async function DeploymentsPage({ searchParams }: { searchParams?: Promise<{ error?: string; success?: string; deploymentId?: string; page?: string }> }) {
 
 	const session = await requirePagePermission("deploy:read", { redirectTo: "/deployments" });
 	const locale = await getServerLocale();
@@ -72,41 +76,19 @@ export default async function DeploymentsPage({ searchParams }: { searchParams?:
 	const visibleRuns = runs.slice(0, RUNS_PAGE_SIZE).map(run => ({
 		...run, showBody: canReadBodies(run.createdBy),
 	}));
-	const latestRun = page === 1 ? visibleRuns[0] : undefined;
+	const rawRequestedId = typeof params?.deploymentId === "string" ? params.deploymentId.trim() : "";
+	const requestedId = rawRequestedId && rawRequestedId.length <= 64 ? rawRequestedId : undefined;
+	const onPage = visibleRuns.find(run => run.id === requestedId);
+	const requested = requestedId && !onPage ? await prisma.deploymentRun.findFirst({
+		where: { id: requestedId, ...deploymentRunTeamWhere(session) }, include: { template: true, snapshot: true },
+	}) : null;
+	const latestRun = requestedId ? onPage ?? (requested && { ...requested, showBody: canReadBodies(requested.createdBy) }) : page === 1 ? visibleRuns[0] : undefined;
 	return (
 		<PageShell>
 			<PageHeader eyebrow={tr("deploymentsPage.page.eyebrow")} title={tr("deploymentsPage.page.title")} description={tr("deploymentsPage.page.description")} />
 
-			<Disclosure className="mb-5" title={tr("deploymentsPage.page.howItWorks.title")}>
-				<div className="grid gap-2 text-xs text-[var(--text-secondary)] md:grid-cols-5">
-					<div className="border-l-2 border-[var(--border)] px-3 py-2">
-						<div className="mb-2 text-xs font-semibold tabular-nums text-[var(--text-muted)]" aria-hidden>01</div>
-						<div className="font-medium text-[var(--text-primary)]">{tr("deploymentsPage.page.howItWorks.step1.title")}</div>
-						<div className="mt-1">{tr("deploymentsPage.page.howItWorks.step1.desc").replace("{{\u53d8\u91cf\u540d}}", "{{variable}}")}</div>
-					</div>
-					<div className="border-l-2 border-[var(--border)] px-3 py-2">
-						<div className="mb-2 text-xs font-semibold tabular-nums text-[var(--text-muted)]" aria-hidden>02</div>
-						<div className="font-medium text-[var(--text-primary)]">{tr("deploymentsPage.page.howItWorks.step2.title")}</div>
-						<div className="mt-1">{tr("deploymentsPage.page.howItWorks.step2.desc")}</div>
-					</div>
-					<div className="border-l-2 border-[var(--border)] px-3 py-2">
-						<div className="mb-2 text-xs font-semibold tabular-nums text-[var(--text-muted)]" aria-hidden>03</div>
-						<div className="font-medium text-[var(--text-primary)]">{tr("deploymentsPage.page.howItWorks.step3.title")}</div>
-						<div className="mt-1">{tr("deploymentsPage.page.howItWorks.step3.desc")}</div>
-					</div>
-					<div className="border-l-2 border-[var(--border)] px-3 py-2">
-						<div className="mb-2 text-xs font-semibold tabular-nums text-[var(--text-muted)]" aria-hidden>04</div>
-						<div className="font-medium text-[var(--text-primary)]">{tr("deploymentsPage.page.howItWorks.step4.title")}</div>
-						<div className="mt-1">{tr("deploymentsPage.page.howItWorks.step4.desc")}</div>
-					</div>
-					<div className="border-l-2 border-[var(--border)] px-3 py-2">
-						<div className="mb-2 text-xs font-semibold tabular-nums text-[var(--text-muted)]" aria-hidden>05</div>
-						<div className="font-medium text-[var(--text-primary)]">{tr("deploymentsPage.page.howItWorks.step5.title")}</div>
-						<div className="mt-1">{tr("deploymentsPage.page.howItWorks.step5.desc")}</div>
-					</div>
-				</div>
-				<p className="mt-3 text-xs text-[var(--text-muted)]">{tr("deploymentsPage.page.howItWorks.auditNote")}</p>
-			</Disclosure>
+			<PageGuide className="mb-5" title={tr("deploymentsPage.page.howItWorks.title")} summary={tr("deploymentsPage.page.howItWorks.auditNote")}
+				steps={[1, 2, 3, 4, 5].map(step => <span key={step}><strong>{tr(`deploymentsPage.page.howItWorks.step${step}.title`)}</strong> · {tr(`deploymentsPage.page.howItWorks.step${step}.desc`)}</span>)} />
 			{formError && (
 				<Notice tone="danger" className="mb-6">{tr("deploymentsPage.page.submitFailed")}{formError}</Notice>
 			)}
@@ -128,20 +110,20 @@ export default async function DeploymentsPage({ searchParams }: { searchParams?:
 					<DeploymentExportPanel />
 				</Disclosure>
 			)}
-			{canRun && latestRun && (
+			{(canRun || requestedId) && latestRun && (
 				<section data-card className="mb-5 p-5">
 					<div className="flex flex-wrap items-start justify-between gap-3">
 						<div>
-							<p className="text-xs font-medium text-[var(--text-muted)]">{tr("deploymentsPage.page.latestDeploy.eyebrow")}</p>
-							<h2 className="ui-title-section mt-1">{tr("deploymentsPage.page.latestDeploy.heading")}{latestRun.template.name}</h2>
+							<p className="text-xs font-medium text-[var(--text-muted)]">{requestedId ? latestRun.id : tr("deploymentsPage.page.latestDeploy.eyebrow")}</p>
+							<h2 className="ui-title-section mt-1">{!requestedId && tr("deploymentsPage.page.latestDeploy.heading")}{latestRun.template.name}</h2>
 							<p className="mt-1 text-xs text-[var(--text-secondary)]">{tr("deploymentsPage.page.latestDeploy.meta", { count: String(latestRun.serverIds.length), date: formatDateTime(latestRun.createdAt, locale), snapshot: latestRun.snapshotId || tr("deploymentsPage.page.latestDeploy.snapshotPending") })}</p>
 						</div>
 						<StatusBadge tone={deploymentStatusTone(latestRun.status)} size="md">{getDomainStatusLabel(tr, latestRun.status)}</StatusBadge>
 					</div>
 					{latestRun.showBody && <code data-inset="" className="mt-4 block max-h-24 overflow-auto p-3 font-mono text-xs text-[var(--text-secondary)]">{latestRun.snapshot?.rollbackCommand || tr("deploymentsPage.page.latestDeploy.noRollback")}</code>}
 					<div className="mt-4 flex flex-wrap items-center gap-3">
-						<RollbackDeployButton runId={latestRun.id} templateName={latestRun.template.name} disabled={!latestRun.snapshot?.rollbackCommand} />
-						{latestRun.showBody && <ResendDeployButton
+						{canRun && <RollbackDeployButton runId={latestRun.id} templateName={latestRun.template.name} disabled={!latestRun.snapshot?.rollbackCommand} />}
+						{canRun && latestRun.showBody && <ResendDeployButton
 							templateId={latestRun.templateId}
 							variables={latestRun.variables as Record<string, string> | null}
 							serverIds={latestRun.serverIds}
@@ -151,7 +133,7 @@ export default async function DeploymentsPage({ searchParams }: { searchParams?:
 						<span className="text-xs text-[var(--text-muted)]">{tr("deploymentsPage.page.latestDeploy.help")}</span>
 						<span className="text-xs text-[var(--text-secondary)]">{deploymentNextStep(latestRun.status, tr)}</span>
 						{latestRun.commandRequestId ? (
-							<Link href={`/requests#command-${latestRun.commandRequestId}`} className="text-xs font-medium text-[var(--accent)] underline underline-offset-2">
+							<Link href={commandRequestHref(latestRun.commandRequestId)} className="text-xs font-medium text-[var(--accent)] underline underline-offset-2">
 								{tr("deploymentsPage.page.status.viewApproval")}
 							</Link>
 						) : null}
@@ -194,7 +176,7 @@ export default async function DeploymentsPage({ searchParams }: { searchParams?:
 								</div>
 							)}
 							{r.commandRequestId ? (
-								<Link href={`/requests#command-${r.commandRequestId}`} className="mt-2 inline-flex text-xs font-medium text-[var(--accent)] underline underline-offset-2">
+								<Link href={commandRequestHref(r.commandRequestId)} className="mt-2 inline-flex text-xs font-medium text-[var(--accent)] underline underline-offset-2">
 									{tr("deploymentsPage.page.status.viewApproval")}
 								</Link>
 							) : null}

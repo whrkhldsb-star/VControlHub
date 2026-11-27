@@ -10,7 +10,7 @@
 
 import { CapacityForecastPanel } from "@/app/health/capacity-forecast-panel";
 import { FleetResourceSummary, SummaryCard } from "@/app/health/health-dashboard-parts";
-import { ButtonLink } from "@/components/action-button";
+import { ActionButton, ButtonLink } from "@/components/action-button";
 import { EmptyState } from "@/components/page-shell";
 import { Notice } from "@/components/ui-primitives";
 
@@ -19,9 +19,9 @@ import { VpsNodeCard } from "./vps-node-card";
 import { VpsStatusTable } from "./vps-status-table";
 import { VpsStatusToolbar } from "./vps-status-toolbar";
 
-type Props = { serverCount: number; isPlatformAdmin?: boolean };
+type Props = { serverCount: number; isPlatformAdmin?: boolean; canReadServers?: boolean };
 
-export function VpsStatusClient({ serverCount, isPlatformAdmin = false }: Props) {
+export function VpsStatusClient({ serverCount, isPlatformAdmin = false, canReadServers = true }: Props) {
 	const {
 		locale,
 		t,
@@ -125,10 +125,18 @@ export function VpsStatusClient({ serverCount, isPlatformAdmin = false }: Props)
 				<EmptyState
 					variant="boxed"
 					text={t("vpsStatusPage.emptyNone")}
-					action={<ButtonLink href="/servers" size="sm" variant="outline">{t("vpsStatusPage.gotoServers")}</ButtonLink>}
+					action={canReadServers ? <ButtonLink href="/servers" size="sm" variant="outline">{t("vpsStatusPage.gotoServers")}</ButtonLink> : undefined}
 				/>
 			) : filteredServers.length === 0 ? (
-				<EmptyState variant="boxed" text={t("vpsStatusPage.empty")} />
+				<EmptyState
+					variant="boxed"
+					text={t("vpsStatusPage.empty")}
+					action={
+						<ActionButton size="sm" variant="secondary" onClick={() => setFilter("all")}>
+							{t("vpsStatusPage.filter.all")}
+						</ActionButton>
+					}
+				/>
 			) : viewMode === "table" ? (
 				<VpsStatusTable servers={filteredServers} locale={locale} t={t} />
 			) : (

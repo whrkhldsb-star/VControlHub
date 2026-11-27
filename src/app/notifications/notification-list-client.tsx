@@ -7,7 +7,6 @@ import { getSafeNotificationActionUrl } from "@/lib/notification/action-url";
 import { CountBadge, EmptyState, ToggleChip, PageHeader } from "@/components/page-shell";
 import { useGateRoute } from "@/lib/auth/use-gate-route";
 import { useI18n } from "@/lib/i18n/use-locale";
-import { formatDate } from "@/lib/datetime/format";
 import type { Locale } from "@/lib/i18n/translations";
 import { AlertTriangle, Bell, Check, ChevronRight, ClipboardList, Download, Server, X } from "@/components/icons";
 import { getErrorMessage } from "@/lib/http/error-message";
@@ -16,6 +15,7 @@ import { Notice } from "@/components/ui-primitives";
 import { cn } from "@/lib/ui/cn";
 import { localizeNotification } from "@/lib/notification/message";
 import { useNotificationLink } from "@/lib/notification/use-notification-link";
+import { formatNotificationTimeAgo } from "./time-ago";
 
 type NotificationItem = {
 	id: string;
@@ -49,23 +49,14 @@ const typeIcon: Record<string, ReactNode> = {
 	system: <Bell size={18} aria-hidden="true" />,
 };
 
-function timeAgo(dateStr: string, nowMs: number, t: (k: string, vars?: Record<string, string | number>) => string, locale: Locale): string {
-	const diff = nowMs - new Date(dateStr).getTime();
-	const mins = Math.floor(diff / 60_000);
-	if (mins < 1) return t("notificationsPage.time.justNow");
-	if (mins < 60) return t("notificationsPage.time.minutesAgo", { count: mins });
-	const hours = Math.floor(mins / 60);
-	if (hours < 24) return t("notificationsPage.time.hoursAgo", { count: hours });
-	const days = Math.floor(hours / 24);
-	if (days < 30) return t("notificationsPage.time.daysAgo", { count: days });
-	return formatDate(dateStr, locale);
-}
-
 const NotificationRow = memo(function NotificationRow({
 	notification: n,
 	t,
 	locale,
 	nowMs,
+	showCustomer,
+	wouldSwitch,
+	onOpen,
 	onMarkRead,
 	onDelete,
 }: {
@@ -73,11 +64,13 @@ const NotificationRow = memo(function NotificationRow({
 	t: (k: string, vars?: Record<string, string | number>) => string;
 	locale: Locale;
 	nowMs: number;
+	showCustomer: boolean;
+	wouldSwitch: ReturnType<typeof useNotificationLink>["wouldSwitch"];
+	onOpen: ReturnType<typeof useNotificationLink>["onOpen"];
 	onMarkRead: (id: string) => void;
 	onDelete: (id: string) => void;
 }) {
 	const text = localizeNotification(n, t);
-	const { showCustomer, onOpen } = useNotificationLink();
 	return (
 		<article
 			data-card
@@ -95,18 +88,23 @@ const NotificationRow = memo(function NotificationRow({
 					</div>
 					<p className="mt-1 text-xs text-[var(--text-muted)] leading-relaxed">{text.message}</p>
 					<div className="mt-2 flex flex-wrap items-center gap-3 text-xs">
-						<span className="text-[var(--text-muted)]">{timeAgo(n.createdAt, nowMs, t, locale)}</span>
+						<span className="text-[var(--text-muted)]">{formatNotificationTimeAgo(n.createdAt, nowMs, t, locale)}</span>
 						{showCustomer && n.teamName ? <span className="text-[var(--text-muted)]">{t("notificationsPage.customer", { name: n.teamName })}</span> : null}
 						{n.actionUrl && (
-							<Link href={getSafeNotificationActionUrl(n.actionUrl)} onClick={onOpen(n)} className="rounded-lg px-1 py-0.5 font-medium text-[var(--accent)] transition hover:opacity-80 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-[var(--accent)]/40">
+							<Link
+								href={getSafeNotificationActionUrl(n.actionUrl)}
+								data-scope-switch-link={wouldSwitch(n) ? "true" : undefined}
+								onClick={onOpen(n)}
+								className="rounded-lg px-1 py-0.5 font-medium text-[var(--accent)] transition hover:opacity-80 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-[var(--accent)]/40"
+							>
 								{t("notificationsPage.action.view")}
 								<ChevronRight size={12} aria-hidden className="ml-0.5 inline" />
 							</Link>
 						)}
 						{!n.isRead && (
-							<button type="button" onClick={() => onMarkRead(n.id)} className="rounded-lg px-1 py-0.5 text-[var(--text-muted)] transition hover:text-[var(--text-primary)] focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-[var(--accent)]/40">
+							<ActionButton size="xs" variant="ghost" onClick={() => onMarkRead(n.id)}>
 								{t("notificationsPage.action.markOne")}
-							</button>
+							</ActionButton>
 						)}
 						<ActionButton size="xs" variant="ghost" onClick={() => onDelete(n.id)} className="hover:text-[var(--danger)]">
 							{t("notificationsPage.action.delete")}
@@ -131,6 +129,9 @@ const NotificationRow = memo(function NotificationRow({
 		prev.locale === next.locale &&
 		prev.nowMs === next.nowMs &&
 		prev.t === next.t &&
+		prev.showCustomer === next.showCustomer &&
+		prev.wouldSwitch === next.wouldSwitch &&
+		prev.onOpen === next.onOpen &&
 		prev.onMarkRead === next.onMarkRead &&
 		prev.onDelete === next.onDelete
 	);
@@ -152,6 +153,7 @@ export function NotificationListClient({ initialNotifications, initialUnreadCoun
 	// Unread-only view: with hundreds of read notifications, finding the new
 	// ones meant scrolling past all history.
 	const [unreadOnly, setUnreadOnly] = useState(false);
+	const { showCustomer, wouldSwitch, onOpen, switchDialog } = useNotificationLink();
 	const gate = useGateRoute();
 	const canManageAlerts = gate.can("notification:manage");
 	const canManageSettings = gate.can("user:manage");
@@ -292,6 +294,9 @@ export function NotificationListClient({ initialNotifications, initialUnreadCoun
 					t={t}
 					locale={locale}
 					nowMs={nowMs}
+					showCustomer={showCustomer}
+					wouldSwitch={wouldSwitch}
+					onOpen={onOpen}
 					onMarkRead={markOneRead}
 					onDelete={deleteOne}
 				/>
@@ -305,6 +310,7 @@ export function NotificationListClient({ initialNotifications, initialUnreadCoun
 					</ActionButton>
 				</div>
 			) : null}
+			{switchDialog}
 		</div></>
 	);
 }

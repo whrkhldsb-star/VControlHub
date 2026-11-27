@@ -18,6 +18,7 @@ import { ServerBillingFields } from "./server-billing-fields";
 import { ServerSyncTargetAuthField } from "./server-sync-target-auth-field";
 import type { ServerSyncTargetAuth } from "@/lib/sync/target-auth";
 type Props = {
+  onDirty?: () => void;
   operatingSystem?: string; rdpDomain?: string; rdpIgnoreCertificate?: boolean; rdpCertificateSha256?: string;
   serverId: string;
   serverName: string;
@@ -72,6 +73,7 @@ export function ServerCardEditForm({
   syncTargetAuth = "inherit",
   windowsSftpPort = 22,
   windowsSftpUsername = "",
+  onDirty,
   editAction,
   editState,
 }: Props) {
@@ -113,6 +115,7 @@ export function ServerCardEditForm({
       aria-label={t("serverCardActions.edit.formAria")}
       data-tile className="space-y-3 p-3"
       onChange={(event) => {
+        onDirty?.();
         const field = event.target;
         if (!(field instanceof HTMLInputElement || field instanceof HTMLSelectElement)) return;
         if (windows && (field.name === "username" || field.name === "rdpDomain")) {
@@ -132,6 +135,7 @@ export function ServerCardEditForm({
       <ServerManagementModeFields
         selectedValue={selectedManagementMode}
         onChange={(mode) => {
+          onDirty?.();
           setSelectedManagementMode(mode);
           setObservedHostKeySha256("");
           setHostKeyConfirmed(false);
@@ -229,6 +233,7 @@ export function ServerCardEditForm({
           ariaLabel={t("serversPage.create.connectionType")}
           value={selectedConnectionType}
           onChange={(value) => {
+            onDirty?.();
             setSelectedConnectionType(value);
             setObservedHostKeySha256("");
             setHostKeyConfirmed(false);
@@ -384,18 +389,18 @@ export function ServerCardEditForm({
         ) : null}
         <ServerBillingFields compact defaults={billingFormValues(billing)} />
       </div>
-      <SubmitButton pendingLabel={t("serverCardActions.edit.pending")} variant="success" className="w-full">
+      <SubmitButton pendingLabel={t("serverCardActions.edit.pending")} variant="primary" className="w-full">
         {t(observedHostKeySha256 ? "serverCardActions.edit.submitConfirmed" : "serverCardActions.edit.submit")}
       </SubmitButton>
       {editState.error && !observedHostKeySha256 ? (
-        <div role="alert" className="text-xs text-[var(--danger)]">
+        <Notice tone="danger" compact>
           {editState.error}
-        </div>
+        </Notice>
       ) : null}
       {editState.success ? (
-        <div role="status" className="text-xs text-[var(--success)]">
+        <Notice tone="success" compact>
           {editState.success}
-        </div>
+        </Notice>
       ) : null}
     </form>
   );

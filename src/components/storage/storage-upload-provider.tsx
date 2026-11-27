@@ -19,6 +19,7 @@ import {
   Trash2,
 } from "@/components/icons";
 import { StorageUploadQueue, type QueuedUpload } from "./storage-upload-queue";
+import { endScopeSwitchRelease, isScopeSwitchReleasing, registerActiveWork } from "@/lib/forms/active-work-guard";
 import { useI18n } from "@/lib/i18n/use-locale";
 import { IconButton } from "@/components/ui-primitives";
 import { cn } from "@/lib/ui/cn";
@@ -196,14 +197,22 @@ export function StorageUploadProvider({
   const disposal = useRef<ReturnType<typeof setTimeout> | undefined>(undefined);
   useEffect(() => {
     clearTimeout(disposal.current);
+    // StorageUploadProvider is keyed by `userId:currentTeamId` in layout.tsx:
+    // mounting a new instance means the incoming customer scope is live, so
+    // re-arm unload/navigation guards immediately rather than waiting for the timer.
+    if (isScopeSwitchReleasing()) {
+      queueMicrotask(() => endScopeSwitchRelease());
+    }
+    const countIncomplete = () =>
+      queue
+        .getSnapshot()
+        .filter(
+          (item) => !["success", "cancelled", "unknown"].includes(item.state),
+        ).length;
+    let unregisterWork = registerActiveWork("upload", countIncomplete());
     const beforeUnload = (event: BeforeUnloadEvent) => {
-      if (
-        queue
-          .getSnapshot()
-          .some(
-            (item) => !["success", "cancelled", "unknown"].includes(item.state),
-          )
-      ) {
+      if (isScopeSwitchReleasing()) return;
+      if (countIncomplete() > 0) {
         event.preventDefault();
         event.returnValue = "";
       }
@@ -211,6 +220,8 @@ export function StorageUploadProvider({
     window.addEventListener("beforeunload", beforeUnload);
     const completed = new Set<string>();
     const unsubscribe = queue.subscribe(() => {
+      unregisterWork();
+      unregisterWork = registerActiveWork("upload", countIncomplete());
       for (const item of queue.getSnapshot())
         if (item.state === "success" && !completed.has(item.id)) {
           completed.add(item.id);
@@ -222,6 +233,7 @@ export function StorageUploadProvider({
         }
     });
     return () => {
+      unregisterWork();
       unsubscribe();
       window.removeEventListener("beforeunload", beforeUnload);
       disposal.current = setTimeout(() => queue.dispose(), 0);

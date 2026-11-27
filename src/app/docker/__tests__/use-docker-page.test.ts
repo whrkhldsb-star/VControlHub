@@ -18,8 +18,9 @@ import { afterEach, beforeEach, describe, expect, it, vi } from "vitest";
  *    containers under server B's name — which, for a destructive follow-up, means
  *    acting on a list that does not belong to the selected host.
  */
-const mocks = vi.hoisted(() => ({ csrfFetch: vi.fn(), t: (key: string) => key }));
+const mocks = vi.hoisted(() => ({ csrfFetch: vi.fn(), addToast: vi.fn(), t: (key: string) => key }));
 
+vi.mock("@/components/toast-provider", () => ({ useToast: () => ({ addToast: mocks.addToast }) }));
 vi.mock("@/lib/auth/csrf-client", () => ({ csrfFetch: mocks.csrfFetch }));
 vi.mock("@/lib/i18n/use-locale", () => ({ useI18n: () => ({ t: mocks.t }) }));
 
@@ -70,6 +71,21 @@ describe("useDockerPage", () => {
 			const post = mocks.csrfFetch.mock.calls.find((c) => c[0] === "/api/docker/containers" && c[1]?.method === "POST");
 			expect(JSON.parse(post![1].body as string)).toMatchObject({ id: "c1", action: "remove" });
 			expect(result.current.pendingRemoval).toBeNull();
+		});
+
+		it("keeps a removal retryable if the daemon refuses it", async () => {
+			const { result } = await setup();
+			let reject!: (error: Error) => void;
+			mocks.csrfFetch.mockImplementationOnce(() => new Promise((_, fail) => { reject = fail; }));
+			act(() => result.current.requestRemoval(container));
+			let completion!: Promise<void>;
+			act(() => { completion = result.current.confirmRemoval(); });
+			expect(result.current.actionLoading).toBe("c1");
+			expect(result.current.pendingRemoval).toBe(container);
+			await act(async () => { reject(new Error("refused")); await completion; });
+			expect(result.current.pendingRemoval).toBe(container);
+			expect(result.current.dialogError).toBe("refused");
+			expect(result.current.actionLoading).toBeNull();
 		});
 
 		it("stages a compose down instead of tearing the project down immediately", async () => {
@@ -161,7 +177,7 @@ describe("useDockerPage", () => {
 			const { result } = await setup();
 			await act(async () => {});
 			await act(async () => { await result.current.handleAction(container, "stop"); });
-			expect(result.current.error).toBe("container is already stopped");
+			expect(mocks.addToast).toHaveBeenCalledWith("error", "container is already stopped");
 		});
 
 		it("reports a thrown request failure", async () => {
@@ -172,7 +188,7 @@ describe("useDockerPage", () => {
 			const { result } = await setup();
 			await act(async () => {});
 			await act(async () => { await result.current.handleAction(container, "stop"); });
-			expect(result.current.error).toContain("daemon unreachable");
+			expect(mocks.addToast).toHaveBeenCalledWith("error", "daemon unreachable");
 			expect(result.current.actionLoading).toBeNull();
 		});
 

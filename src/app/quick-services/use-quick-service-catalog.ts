@@ -2,6 +2,7 @@
 
 import { useCallback, useEffect, useMemo, useRef, useState } from "react";
 
+import { useUrlQueryState } from "@/lib/hooks/use-url-query-state";
 import { csrfFetch } from "@/lib/auth/csrf-client";
 
 import {
@@ -30,7 +31,9 @@ export function useQuickServiceCatalog(t: TFn, canManageHubHost = true, requeste
   const [dockerStatus, setDockerStatus] = useState<DockerEnvironmentStatus | null>(null);
   const [servers, setServers] = useState<QuickServiceServerOption[]>([]);
   /** empty string = hub-host */
-  const [selectedServerId, setSelectedServerId] = useState(requestedServer);
+  const { state: target, setField } = useUrlQueryState({ server: "" }, { server: requestedServer });
+  const selectedServerId = target.server;
+  const setSelectedServerId = useCallback((value: string) => setField("server", value), [setField]);
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState<string | null>(null);
   const [sourcesError, setSourcesError] = useState<string | null>(null);
@@ -92,7 +95,7 @@ export function useQuickServiceCatalog(t: TFn, canManageHubHost = true, requeste
     } finally {
       if (catalogServerRef.current === serverAtFetch) setLoading(false);
     }
-  }, [selectedServerId, t, canManageHubHost]);
+  }, [selectedServerId, t, canManageHubHost, setSelectedServerId]);
 
   const fetchSources = useCallback(async () => {
     // App sources are platform-level catalog feeds (user:manage); a customer

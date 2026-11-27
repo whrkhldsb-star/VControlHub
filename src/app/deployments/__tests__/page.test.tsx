@@ -157,7 +157,7 @@ describe("DeploymentsPage deploy-export panel", () => {
     expect(screen.getByText("使用流程").closest("details")).not.toHaveAttribute("open");
     expect(screen.getAllByText("下一步：等待审批。")).toHaveLength(2);
     for (const link of screen.getAllByRole("link", { name: "查看审批与执行记录" })) {
-      expect(link).toHaveAttribute("href", "/requests#command-req-1");
+      expect(link).toHaveAttribute("href", "/requests?requestId=req-1");
     }
     expect(screen.queryByText("cd /srv/app && docker compose up -d")).toBeNull();
     expect(screen.queryByRole("button", { name: "按此记录重发" })).toBeNull();

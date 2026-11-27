@@ -62,7 +62,7 @@ async function ClosedBoard({ signedIn, isAdmin, locale, loadFailed = false }: { 
         {isAdmin ? (
           <ButtonLink href="/public-status" variant="outline" size="sm">{t("statusPage.manageBoard", locale)}</ButtonLink>
         ) : !signedIn ? (
-          <ButtonLink href="/login?next=%2F" variant="primary" size="sm">{t("statusPage.signIn", locale)}</ButtonLink>
+          <ButtonLink href="/login?next=%2Fstatus" variant="primary" size="sm">{t("statusPage.signIn", locale)}</ButtonLink>
         ) : null}
       </PageHeader>
       {loadFailed ? (

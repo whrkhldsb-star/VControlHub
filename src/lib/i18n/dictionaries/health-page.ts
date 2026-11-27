@@ -178,6 +178,7 @@ export const zh: Record<string, string> = {
 	"healthPage.incident.started": "开始：{time}",
 	"healthPage.incident.expectedEnd": "预计结束：{time}",
 	"healthPage.incident.dismissAria": "关闭通知 {title}",
+	"healthPage.incident.loadFailed": "维护与故障公告加载失败",
 };
 
 export const en: Record<string, string> = {
@@ -351,4 +352,5 @@ export const en: Record<string, string> = {
 	"healthPage.incident.started": "Started: {time}",
 	"healthPage.incident.expectedEnd": "Expected end: {time}",
 	"healthPage.incident.dismissAria": "Dismiss notification {title}",
+	"healthPage.incident.loadFailed": "Could not load maintenance and incident notices",
 };

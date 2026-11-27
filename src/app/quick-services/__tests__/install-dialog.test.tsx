@@ -10,9 +10,9 @@ vi.mock("@/lib/auth/csrf-client", () => ({ csrfFetch: vi.fn() }));
 
 const item = { slug: "alist", name: "AList", image: "xhofe/alist:latest", defaultPort: 5244 };
 
-function renderDialog() {
+function renderDialog(onAdvance = vi.fn()) {
 	return renderWithI18n(
-		<InstallDialog open={item} targetLabel="平台本机" onClose={() => undefined} onAdvance={() => undefined}
+		<InstallDialog open={item} targetLabel="平台本机" onClose={() => undefined} onAdvance={onAdvance}
 			getEnvCount={() => 0} getVolumeMounts={() => []} getPrimaryContainerPort={() => 5244} />,
 	);
 }
@@ -37,6 +37,19 @@ describe("InstallDialog port check", () => {
 		fireEvent.click(screen.getByRole("button", { name: "重新检查" }));
 		expect(await screen.findByText("可用")).toBeInTheDocument();
 		expect(screen.getByRole("button", { name: "下一步" })).toBeEnabled();
+	});
+
+	it("invalidates a free port immediately when the input changes", async () => {
+		vi.mocked(csrfFetch).mockResolvedValue({ available: true });
+		const advance = vi.fn();
+		renderDialog(advance);
+		const next = screen.getByRole("button", { name: "下一步" });
+		await waitFor(() => expect(next).toBeEnabled());
+		fireEvent.change(screen.getByRole("spinbutton"), { target: { value: "5245" } });
+		fireEvent.click(next);
+		expect(advance).not.toHaveBeenCalled();
+		expect(next).toBeDisabled();
+		await waitFor(() => expect(next).toBeEnabled());
 	});
 
 	it("still says who uses a port that is taken", async () => {

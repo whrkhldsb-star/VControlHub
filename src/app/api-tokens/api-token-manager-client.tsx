@@ -2,7 +2,9 @@
 import { EmptyState, ListPanel, ListRow, PageHeader, StatCard, StatGrid, SurfacePanel } from "@/components/page-shell";
 
 import { useCallback, useEffect, useRef, useState } from "react";
+import { useSearchParams } from "next/navigation";
 import type { TokenStatus } from "@/lib/api-token/service";
+import { replaceBrowserUrl } from "@/lib/browser-history";
 import { csrfFetch } from "@/lib/auth/csrf-client";
 import { useI18n } from "@/lib/i18n/use-locale";
 import { formatDateTime } from "@/lib/datetime/format";
@@ -68,7 +70,7 @@ function TokenUsageExample() {
   const origin = typeof window === "undefined" ? "" : window.location.origin;
   const example = `curl -H "Authorization: Bearer <TOKEN>" ${origin}/api/health`;
   return (
-    <div className="mt-5 border-t border-[var(--warning-border)] pt-4">
+    <div className="mt-5 border-t border-[var(--border-subtle)] pt-4">
       <h3 className="ui-title-group">{t("apiTokensPage.example.title")}</h3>
       <p className="mt-1 text-sm text-[var(--text-secondary)]">{t("apiTokensPage.example.hint")}</p>
       <pre data-inset="" className="mt-3 overflow-x-auto p-3 font-mono text-xs text-[var(--text-primary)]"><code>{example}</code></pre>
@@ -155,11 +157,14 @@ function ApiTokenCreateForm({ allowedScopes, currentCustomerName, onCreated, onC
       {error ? <Notice tone="danger" compact>{error}</Notice> : null}
       <div className="space-y-1 text-sm">
         <p className="text-[var(--text-muted)]">{t("apiTokensPage.hint")}</p>
-        {/* With no customer selected the page says so at its top, before the form is even opened. */}
         {currentCustomerName ? (
           <p className="text-[var(--text-secondary)]">{t("apiTokensPage.customer.active", { name: currentCustomerName })}</p>
         ) : null}
       </div>
+      {/* Why the button below cannot be pressed, beside it: the page scrolls to the form, past the notice at its top. */}
+      {currentCustomerName ? null : (
+        <Notice tone="warning" compact title={t("apiTokensPage.customer.noneTitle")}>{t("apiTokensPage.customer.none")}</Notice>
+      )}
       <FormGrid>
         <FormField label={t("apiTokensPage.create.nameLabel")} htmlFor="api-token-name">
           <input id="api-token-name" value={name} onChange={(event) => setName(event.target.value)} required maxLength={80} placeholder={t("apiTokensPage.create.namePlaceholder")} className={UI_INPUT} />
@@ -170,7 +175,7 @@ function ApiTokenCreateForm({ allowedScopes, currentCustomerName, onCreated, onC
       </FormGrid>
 
       <div className="space-y-2">
-        <div className="text-xs font-medium text-[var(--text-primary)]/70">{t("apiTokensPage.create.scopesLabel")}</div>
+        <div className="ui-label">{t("apiTokensPage.create.scopesLabel")}</div>
         <div className="grid gap-2 sm:grid-cols-2 lg:grid-cols-3">
           {allowedScopes.map((scope) => (
             <CheckboxField key={scope} aria-label={scope} checked={selectedScopes.includes(scope)} onChange={() => toggleScope(scope)} label={<span className="font-mono text-xs">{scope}</span>} hint={scopeLabel(t, scope)} className={`rounded-xl border px-3 py-2 transition ${selectedScopes.includes(scope) ? "border-[var(--accent-border)] bg-[var(--accent-bg)]" : "border-[var(--border)] bg-[var(--surface-elevated)] hover:bg-[var(--surface-hover)]"}`} />
@@ -237,6 +242,19 @@ export function ApiTokenManagerClient({ header, initialPage, pageSize, allowedSc
     if (creating) panelRef.current?.scrollIntoView?.({ behavior: "smooth", block: "start" });
   }, [creating]);
 
+  // `/api-tokens?create=1` (the command palette's "Create an API token") opens the form, also on a page already
+  // open; the parameter then leaves the address, so that a reload or Back does not open it again.
+  const searchParams = useSearchParams();
+  const wantsCreate = searchParams?.get("create") === "1";
+  useEffect(() => {
+    if (!wantsCreate) return;
+    const url = new URL(window.location.href);
+    url.searchParams.delete("create");
+    replaceBrowserUrl(`${url.pathname}${url.search}${url.hash}`);
+    // eslint-disable-next-line react-hooks/set-state-in-effect -- the address asked for the form: open it
+    setCreating(true);
+  }, [wantsCreate]);
+
   const handleCreated = useCallback((plaintext: string, close: boolean) => {
     refresh();
     setCreatedPlaintext(plaintext);
@@ -291,16 +309,18 @@ export function ApiTokenManagerClient({ header, initialPage, pageSize, allowedSc
         </PageHeader>
       ) : null}
 
-      {currentCustomerName ? null : (
+      {/* Said before the form is opened; the open form says it beside its button. */}
+      {currentCustomerName || creating ? null : (
         <Notice tone="warning" title={t("apiTokensPage.customer.noneTitle")}>{t("apiTokensPage.customer.none")}</Notice>
       )}
 
       {createdPlaintext && (
-        <section className="rounded-2xl border border-[var(--warning-border)] bg-[var(--warning)]/[0.10] p-5 shadow-[0_20px_80px_rgba(251,191,36,0.08)]">
+        // A neutral card: what has to be done now is the warning notice inside it, not a tinted box.
+        <section data-card className="border-[var(--warning-border)] p-5">
           <div className="flex flex-col gap-3 lg:flex-row lg:items-start lg:justify-between">
-            <div>
-              <h2 className="ui-title-section text-[var(--warning)]">{t("apiTokensPage.plaintext.heading")}</h2>
-              <p className="mt-1 text-sm text-[var(--warning)]/75">{t("apiTokensPage.plaintext.copyHint")}</p>
+            <div className="min-w-0">
+              <h2 className="ui-title-section">{t("apiTokensPage.plaintext.heading")}</h2>
+              <Notice tone="warning" compact className="mt-2">{t("apiTokensPage.plaintext.copyHint")}</Notice>
             </div>
             <div className="flex flex-wrap gap-2">
               <ActionButton variant="outline" onClick={async () => setCopyOutcome((await copyText(createdPlaintext)) ? "copied" : "failed")}>
@@ -311,7 +331,7 @@ export function ApiTokenManagerClient({ header, initialPage, pageSize, allowedSc
               </ActionButton>
             </div>
           </div>
-          <code data-inset="" className="mt-4 block overflow-x-auto border-[var(--warning-border)] p-3 font-mono text-xs text-[var(--warning)] dark:text-[var(--warning)]">{createdPlaintext}</code>
+          <code data-inset="" className="mt-4 block overflow-x-auto p-3 font-mono text-xs text-[var(--text-primary)]">{createdPlaintext}</code>
           {copyOutcome ? (
             <p role="status" className={`mt-2 text-xs ${copyOutcome === "copied" ? "text-[var(--success)]" : "text-[var(--danger)]"}`}>
               {t(copyOutcome === "copied" ? "apiTokensPage.plaintext.copied" : "apiTokensPage.plaintext.copyFailed")}

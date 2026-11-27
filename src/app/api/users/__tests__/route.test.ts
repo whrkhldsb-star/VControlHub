@@ -158,6 +158,37 @@ describe("/api/users", () => {
     expect(body.users[1]).toMatchObject({ accountType: "admin", customer: null });
   });
 
+  it("searches usernames and display names inside the directory the session may read", async () => {
+    mocks.prisma.user.findMany.mockResolvedValue([]);
+    mocks.prisma.user.count.mockResolvedValue(0);
+
+    const res = await route.GET(new Request("http://local/api/users?q=%20al_ce%25%20"));
+
+    expect(res.status).toBe(200);
+    // Trimmed, and the wildcard characters matched as themselves.
+    const contains = { contains: "al\\_ce\\%", mode: "insensitive" };
+    const where = {
+      AND: [
+        { OR: [{ id: "admin1" }, { teamMembership: { is: { teamId: "team-a" } } }] },
+        { OR: [{ username: contains }, { displayName: contains }] },
+      ],
+    };
+    expect(mocks.prisma.user.findMany).toHaveBeenCalledWith(expect.objectContaining({ where }));
+    expect(mocks.prisma.user.count).toHaveBeenCalledWith({ where });
+  });
+
+  it("keeps the member picker's filter beside a search", async () => {
+    mocks.prisma.user.findMany.mockResolvedValue([]);
+    mocks.prisma.user.count.mockResolvedValue(0);
+
+    await route.GET(new Request("http://local/api/users?unassigned=1&q=bob"));
+
+    const where = mocks.prisma.user.findMany.mock.calls[0]![0].where;
+    expect(where.AND).toHaveLength(3);
+    expect(where.AND[1]).toEqual({ teamMembership: null, roles: { none: { role: { key: "admin" } } } });
+    expect(where.AND[2]).toEqual({ OR: [{ username: { contains: "bob", mode: "insensitive" } }, { displayName: { contains: "bob", mode: "insensitive" } }] });
+  });
+
   it("rejects an unrepresentable directory offset before querying users", async () => {
     const res = await route.GET(new Request("http://local/api/users?page=4294967297&pageSize=1"));
     expect(res.status).toBe(400);

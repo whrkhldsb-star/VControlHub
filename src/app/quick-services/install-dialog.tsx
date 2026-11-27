@@ -47,6 +47,8 @@ type InstallDialogProps = {
 };
 
 type PortCheckState = {
+	serverId: string;
+	port: number | null;
 	available: boolean;
 	usedBy: string | null;
 	checking: boolean;
@@ -79,21 +81,22 @@ export function InstallDialog({
 	const [customPort, setCustomPort] = useState<string>("");
 	const [portCheck, setPortCheck] = useState<PortCheckState | null>(null);
 	const portCheckTimer = useRef<ReturnType<typeof setTimeout> | null>(null);
+	const allocateGen = useRef(0);
 	const portCheckGenRef = useRef(0);
 
 	const checkPortAvailability = useCallback(async (port: number) => {
 		const gen = ++portCheckGenRef.current;
-		setPortCheck({ available: false, usedBy: null, checking: true });
+		setPortCheck({ serverId: serverId ?? "", port, available: false, usedBy: null, checking: true });
 		try {
 			const data = await csrfFetch<{ available: boolean; usedBy?: string | null }>(
 				`/api/quick-services/check-port?port=${encodeURIComponent(String(port))}${serverId ? `&serverId=${encodeURIComponent(serverId)}` : ""}`,
 			);
 			if (gen !== portCheckGenRef.current) return;
-			setPortCheck({ available: data.available, usedBy: data.usedBy ?? null, checking: false });
+			setPortCheck({ serverId: serverId ?? "", port, available: data.available, usedBy: data.usedBy ?? null, checking: false });
 		} catch (err) {
 			if (gen !== portCheckGenRef.current) return;
 			setPortCheck({
-				available: false,
+				serverId: serverId ?? "", port, available: false,
 				usedBy: null,
 				checking: false,
 				failed: getErrorMessage(err, t("qsPage.checkFailed")),
@@ -108,11 +111,15 @@ export function InstallDialog({
 	/* eslint-disable react-hooks/set-state-in-effect */
 	useEffect(() => {
 		if (!open) return;
+		const portCheckGen = portCheckGenRef;
+		const allocGen = allocateGen;
+		const timerRef = portCheckTimer;
 		setCustomPort(String(open.defaultPort));
-		setPortCheck({ available: false, usedBy: null, checking: true });
 		void checkPortAvailability(open.defaultPort);
 		return () => {
-			if (portCheckTimer.current) clearTimeout(portCheckTimer.current);
+			++portCheckGen.current;
+			++allocGen.current;
+			if (timerRef.current) clearTimeout(timerRef.current);
 		};
 		// eslint-disable-next-line react-hooks/exhaustive-deps -- one-shot init per open
 	}, [open?.slug, checkPortAvailability]);
@@ -120,6 +127,9 @@ export function InstallDialog({
 
 	const handlePortInput = useCallback(
 		(value: string) => {
+			++allocateGen.current;
+			++portCheckGenRef.current;
+			setPortCheck(null);
 			setCustomPort(value);
 			if (portCheckTimer.current) clearTimeout(portCheckTimer.current);
 			const port = parsePort(value);
@@ -143,25 +153,28 @@ export function InstallDialog({
 	const volumeCount = getVolumeMounts(open).length;
 	// Require a successful availability check (not merely "not known busy") before Confirm.
 	const advanceDisabled =
-		!portValid || !portCheck || portCheck.checking || !portCheck.available;
+		!portValid || !portCheck || portCheck.checking || !portCheck.available || portCheck.port !== port || portCheck.serverId !== (serverId ?? "");
 
 	const handleAdvance = () => {
 		if (!open || port === null) return;
-		if (!portCheck || portCheck.checking || !portCheck.available) return;
+		if (advanceDisabled) return;
 		onAdvance({ slug: open.slug, name: open.name, port });
 	};
 
 	const handleAutoAllocate = async () => {
+		const gen = ++allocateGen.current;
 		try {
 			const data = await csrfFetch<{ port?: number }>(
 				`/api/quick-services/check-port?action=allocate&preferred=${open.defaultPort}${serverId ? `&serverId=${encodeURIComponent(serverId)}` : ""}`,
 			);
+			if (gen !== allocateGen.current) return;
 			if (data.port) {
 				handlePortInput(String(data.port));
 			}
 		} catch (err) {
+			if (gen !== allocateGen.current) return;
 			// The port can still be typed, but the button must not look dead.
-			setPortCheck({ available: false, usedBy: null, checking: false, failed: getErrorMessage(err, t("qsPage.checkFailed")) });
+			setPortCheck({ serverId: serverId ?? "", port, available: false, usedBy: null, checking: false, failed: getErrorMessage(err, t("qsPage.checkFailed")) });
 		}
 	};
 

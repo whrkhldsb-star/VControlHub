@@ -54,14 +54,15 @@ export default async function TicketDetailPage({ params, searchParams }: { param
     createdAt: ticket.createdAt.toISOString(),
     updatedAt: ticket.updatedAt.toISOString(),
     closedAt: ticket.closedAt?.toISOString() ?? null,
+    slaDueAt: ticket.slaDueAt?.toISOString() ?? null,
     relatedServerId: ticket.relatedServerId ?? null,
     relatedCommandId: ticket.relatedCommandId ?? null,
     comments: ticket.comments.map((c) => ({ ...c, createdAt: c.createdAt.toISOString() })),
   };
 
   return (
-    <PageShell>
-      <PageHeader eyebrow={t("ticketsDetail.eyebrow", locale)} title={t("ticketsDetail.title", locale)} description={t("ticketsDetail.desc", locale)} className="mb-6" />
+    <PageShell width="narrow">
+      <PageHeader eyebrow={t("ticketsDetail.eyebrow", locale)} title={ticket.title || t("ticketsDetail.title", locale)} description={t("ticketsDetail.desc", locale)} className="mb-6" />
       <TicketDetailClient initial={serialized} canManage={canManage} users={users.slice(0, 200)} userSearch={search} userPage={page} moreUsers={users.length > 200} />
     </PageShell>
   );

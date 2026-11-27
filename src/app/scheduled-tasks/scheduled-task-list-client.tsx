@@ -12,6 +12,7 @@ import { ActionButton, ButtonLink } from "@/components/action-button";
 import { PageGuide } from "@/components/page-guide";
 import { StatusBadge } from "@/components/status-badge";
 import { Chip, Notice, SegmentedControl } from "@/components/ui-primitives";
+import { Disclosure } from "@/components/ui/disclosure";
 import { UI_INPUT, UI_LABEL } from "@/lib/ui/classes";
 import { PaginatedList } from "@/components/paginated-list";
 import { useUrlQueryState } from "@/lib/hooks/use-url-query-state";
@@ -120,6 +121,7 @@ export function ScheduledTaskListClient({ header, tasks: initialTasks, servers, 
 
 	const toggleTask = useCallback(async (id: string) => {
 		if (busyId) return;
+		const target = tasks.find((item) => item.id === id);
 		setBusyId(id);
 		try {
 			await csrfFetch("/api/scheduled-tasks", {
@@ -127,6 +129,9 @@ export function ScheduledTaskListClient({ header, tasks: initialTasks, servers, 
 				headers: { "Content-Type": "application/json" },
 				body: JSON.stringify({ toggleId: id }),
 			});
+			if (target) {
+				addToast("success", t(target.status === "ACTIVE" ? "scheduledTasks.toggledPaused" : "scheduledTasks.toggledActive", { name: target.name }));
+			}
 			void refresh();
 		} catch (err) {
 			// A toast: the notice these used to fill sat above the toolbar, off screen from a few tasks down.
@@ -134,7 +139,7 @@ export function ScheduledTaskListClient({ header, tasks: initialTasks, servers, 
 		} finally {
 			setBusyId(null);
 		}
-	}, [addToast, busyId, refresh, t]);
+	}, [addToast, busyId, refresh, t, tasks]);
 
 	const retryTask = useCallback(async (task: Task) => {
 		if (busyId) return;
@@ -165,6 +170,7 @@ export function ScheduledTaskListClient({ header, tasks: initialTasks, servers, 
 		try {
 			await csrfFetch(`/api/scheduled-tasks?id=${encodeURIComponent(task.id)}`, { method: "DELETE" });
 			setTaskPendingDelete(null);
+			addToast("success", t("scheduledTasks.deleted", { name: task.name }));
 			void refresh();
 		} catch (err) {
 			// The dialog stays open with the reason in it; it used to close first and leave the reason above the list.
@@ -172,7 +178,7 @@ export function ScheduledTaskListClient({ header, tasks: initialTasks, servers, 
 		} finally {
 			setBusyId(null);
 		}
-	}, [busyId, refresh, t]);
+	}, [addToast, busyId, refresh, t]);
 
 	return (
 		<div className="space-y-6">
@@ -248,7 +254,15 @@ export function ScheduledTaskListClient({ header, tasks: initialTasks, servers, 
 					) : undefined}
 				/>
 			) : filteredTasks.length === 0 ? (
-				<EmptyState text={`${t("scheduledTasksPage.search.empty", { query: searchQuery })}`} variant="boxed" />
+				<EmptyState
+					text={`${t("scheduledTasksPage.search.empty", { query: searchQuery })}`}
+					variant="boxed"
+					action={
+						<ActionButton size="sm" variant="secondary" onClick={() => setFilter("q", "")}>
+							{t("common.clearSearch")}
+						</ActionButton>
+					}
+				/>
 			) : (
 				<PaginatedList pageSize={20} resetKey={searchQuery} className="space-y-3">
 					{filteredTasks.map((task) => (
@@ -279,16 +293,15 @@ export function ScheduledTaskListClient({ header, tasks: initialTasks, servers, 
 									</div>
 									{task.reason && <p className="mt-1.5 text-xs text-[var(--text-muted)]">{t("scheduledTasksPage.reason", { reason: task.reason })}</p>}
 									{task.plan && (
-										<details data-inset className="mt-2 px-3 py-2 text-xs">
-											<summary className="cursor-pointer font-medium text-[var(--text-secondary)]">{t("scheduledTasks.plan")}</summary>
-											<p className="mt-2 whitespace-pre-wrap break-words text-[var(--text-muted)]">{task.plan}</p>
+										<Disclosure variant="inset" className="mt-2" title={t("scheduledTasks.plan")}>
+											<p className="whitespace-pre-wrap break-words text-xs text-[var(--text-muted)]">{task.plan}</p>
 											{task.verificationCommand && (
-												<p className="mt-2 font-mono text-[var(--text-muted)]">{t("scheduledTasks.verify")}{t("common.colon")}{task.verificationCommand}</p>
+												<p className="mt-2 font-mono text-xs text-[var(--text-muted)]">{t("scheduledTasks.verify")}{t("common.colon")}{task.verificationCommand}</p>
 											)}
 											{task.rollbackCommand && (
-												<p className="mt-1 font-mono text-[var(--text-muted)]">{t("scheduledTasks.rollback")}{t("common.colon")}{task.rollbackCommand}</p>
+												<p className="mt-1 font-mono text-xs text-[var(--text-muted)]">{t("scheduledTasks.rollback")}{t("common.colon")}{task.rollbackCommand}</p>
 											)}
-										</details>
+										</Disclosure>
 									)}
 									<div className="mt-3 grid grid-cols-2 gap-2 text-xs text-[var(--text-muted)]">
 										<div>{t("scheduledTasksPage.targetNodes", { count: task.serverIds.length })}</div>
@@ -366,7 +379,7 @@ function TaskForm({ task, servers, templates, canApprove, canReadServers = false
 	// A one-off task keeps a placeholder expression: switching it to recurring starts from the usual default.
 	const [cronExpression, setCron] = useState(task && (task.scheduleType ?? "CRON") === "CRON" ? task.cronExpression : "0 3 * * *");
 	const [runAt, setRunAt] = useState(task?.runAt ? appTimeZoneDateTimeLocal(new Date(task.runAt)) : "");
-	const [templateId, setTemplateId] = useState("");
+	const [templateId, setTemplateId] = useState(task?.templateId ?? "");
 	const [variables, setVariables] = useState<Record<string, string>>({});
 	const [command, setCommand] = useState(task?.command ?? "");
 	const [reason, setReason] = useState(task?.reason ?? "");

@@ -1,9 +1,9 @@
 "use client";
 
-import { useState } from "react";
+import { useEffect, useRef, useState } from "react";
 import { ActionButton } from "@/components/action-button";
 import { Notice } from "@/components/ui-primitives";
-import { Card, EmptyState, PageHeader, Section } from "@/components/page-shell";
+import { Card, CountBadge, EmptyState, PageHeader, Section } from "@/components/page-shell";
 import { PageGuide } from "@/components/page-guide";
 import { useI18n } from "@/lib/i18n/use-locale";
 
@@ -40,6 +40,7 @@ export function AlertRuleListClient({
 }: Props) {
 	const { t } = useI18n();
 	const [editingRule, setEditingRule] = useState<AlertRule | null>(null);
+	const formPanelRef = useRef<HTMLDivElement>(null);
 	const {
 		rules,
 		incidents,
@@ -60,6 +61,21 @@ export function AlertRuleListClient({
 		ensureDefaults,
 		testRule,
 	} = useAlertRuleActions({ initialRules, canManage });
+	const formOpen = showCreate || editingRule !== null;
+
+	useEffect(() => {
+		if (formOpen) formPanelRef.current?.scrollIntoView?.({ behavior: "smooth", block: "start" });
+	}, [formOpen, editingRule]);
+
+	const openCreate = (next: boolean) => {
+		if (next) setEditingRule(null);
+		setShowCreate(next);
+	};
+
+	const openEdit = (rule: AlertRule) => {
+		setShowCreate(false);
+		setEditingRule(rule);
+	};
 
 	return (
 		<div className="flex flex-col gap-5">
@@ -75,8 +91,8 @@ export function AlertRuleListClient({
 				<PageHeader eyebrow={header.eyebrow} title={header.title} description={header.description} className="">
 					<AlertRulesHeaderActions
 						canManage={canManage}
-						showCreate={showCreate}
-						setShowCreate={setShowCreate}
+						showCreate={formOpen}
+						setShowCreate={openCreate}
 						busyAction={busyAction}
 						triggerNow={triggerNow}
 					/>
@@ -102,32 +118,22 @@ export function AlertRuleListClient({
 
 			<TestResultPanel testResult={testResult} />
 
-			{showCreate && (
-				<Card title={t("alertRulesPage.createForm.title")} padding="lg">
-					<CreateRuleForm
-						servers={servers}
-						playbooks={playbooks}
-						onClose={() => {
-							setShowCreate(false);
-							void refresh();
-						}}
-					/>
-				</Card>
-			)}
-
-			{editingRule && (
-				<Card title={t("alertRulesPage.editForm.title")} padding="lg">
-					<CreateRuleForm
-						key={editingRule.id}
-						servers={servers}
-						playbooks={playbooks}
-						initialRule={editingRule}
-						onClose={() => {
-							setEditingRule(null);
-							void refresh();
-						}}
-					/>
-				</Card>
+			{formOpen && (
+				<div ref={formPanelRef} className="scroll-mt-24">
+					<Card title={editingRule ? `${t("alertRulesPage.editForm.title")}: ${editingRule.name}` : t("alertRulesPage.createForm.title")} padding="lg">
+						<CreateRuleForm
+							key={editingRule?.id ?? "new"}
+							servers={servers}
+							playbooks={playbooks}
+							initialRule={editingRule ?? undefined}
+							onClose={() => {
+								setShowCreate(false);
+								setEditingRule(null);
+								void refresh();
+							}}
+						/>
+					</Card>
+				</div>
 			)}
 
 			<AlertIncidentsSection
@@ -139,25 +145,27 @@ export function AlertRuleListClient({
 			/>
 
 			{rules.length === 0 ? (
-				<EmptyState
-					icon={<IconSiren />}
-					variant="boxed"
-					title={t("alertRulesPage.empty")}
-					text={t("alertRulesPage.emptyHint")}
-					action={canManage ? (
-						<ActionButton
-							variant="primary"
-							onClick={() => void ensureDefaults()}
-							loading={busyAction === "defaults"}
-						>
-							{busyAction === "defaults"
-								? t("alertRulesPage.action.processing")
-								: t("alertRulesPage.ensureDefaults")}
-						</ActionButton>
-					) : undefined}
-				/>
+				formOpen ? null : (
+					<EmptyState
+						icon={<IconSiren />}
+						variant="boxed"
+						title={t("alertRulesPage.empty")}
+						text={t("alertRulesPage.emptyHint")}
+						action={canManage ? (
+							<ActionButton
+								variant="primary"
+								onClick={() => void ensureDefaults()}
+								loading={busyAction === "defaults"}
+							>
+								{busyAction === "defaults"
+									? t("alertRulesPage.action.processing")
+									: t("alertRulesPage.ensureDefaults")}
+							</ActionButton>
+						) : undefined}
+					/>
+				)
 			) : (
-				<Section title={<>{t("alertRulesPage.rules.title")} <span className="ml-1 text-[13px] font-normal text-[var(--text-muted)] tabular-nums">{rules.length}</span></>}>
+				<Section title={<span className="inline-flex items-center gap-2">{t("alertRulesPage.rules.title")}<CountBadge>{rules.length}</CountBadge></span>}>
 					{rules.map((rule) => (
 						<AlertRuleCard
 							key={rule.id}
@@ -167,7 +175,8 @@ export function AlertRuleListClient({
 							toggleRule={toggleRule}
 							testRule={testRule}
 							setRulePendingDelete={setRulePendingDelete}
-							onEdit={canManage ? setEditingRule : undefined}
+							onEdit={canManage ? openEdit : undefined}
+							editDisabled={formOpen}
 						/>
 					))}
 				</Section>

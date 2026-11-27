@@ -1,4 +1,4 @@
-import { act, fireEvent, screen } from "@testing-library/react";
+import { act, fireEvent, screen, within } from "@testing-library/react";
 import { beforeEach, describe, expect, it, vi } from "vitest";
 
 import { renderWithI18n } from "@/lib/i18n/__tests__/test-helpers";
@@ -20,8 +20,10 @@ function renderToolbar() {
 async function approveAll(comment: string) {
 	fireEvent.click(screen.getByRole("checkbox", { name: "全选待审批请求" }));
 	fireEvent.change(screen.getByLabelText("批量审批备注"), { target: { value: comment } });
+	fireEvent.click(screen.getByRole("button", { name: /^批量批准/ }));
+	const dialog = screen.getByRole("dialog");
 	await act(async () => {
-		fireEvent.click(screen.getByRole("button", { name: /^批量批准/ }));
+		fireEvent.click(within(dialog).getByRole("button", { name: /^批量批准/ }));
 	});
 }
 
@@ -40,6 +42,9 @@ describe("BatchReviewToolbar", () => {
 		await approveAll("窗口期内");
 		expect(await screen.findByText("已批准 1 条，1 条失败")).toBeInTheDocument();
 		expect(screen.getByText("该申请已被其他审批人处理")).toBeInTheDocument();
+		// On partial failure, keep only the failed request selected so the reviewer does not lose track of it.
+		await act(async () => { await new Promise((resolve) => setTimeout(resolve, 10)); });
+		expect(screen.getByText("已选 1 条")).toBeInTheDocument();
 	});
 
 	it("clears the comment after every reviewed batch, also when two batches end with the same sentence", async () => {

@@ -16,8 +16,9 @@ import { DeployButton } from "./template-deploy-button";
 import type { ServerOption, Template } from "./template-types";
 import { getErrorMessage } from "@/lib/http/error-message";
 import { useUrlQueryState } from "@/lib/hooks/use-url-query-state";
-import { StatusBadge } from "@/components/status-badge";
 import { Badge, Chip } from "@/components/ui-primitives";
+import { UI_INPUT } from "@/lib/ui/classes";
+import { cn } from "@/lib/ui/cn";
 import { Plus } from "@/components/icons";
 import { IconFileCode } from "@/components/nav-icons";
 
@@ -54,8 +55,9 @@ export function TemplateListClient({
 	useEffect(() => {
 		if (showCreate) formPanelRef.current?.scrollIntoView?.({ behavior: "smooth", block: "start" });
 	}, [showCreate, editing]);
-	const { state: filters, setField: setFilter } = useUrlQueryState({ tag: "" });
+	const { state: filters, setField: setFilter } = useUrlQueryState({ tag: "", q: "" });
 	const filterTag = filters.tag || null;
+	const searchQuery = filters.q || "";
 	const setFilterTag = (tag: string | null) => setFilter("tag", tag ?? "");
 	const [deploying, setDeploying] = useState<string | null>(null);
 	const [templatePendingDelete, setTemplatePendingDelete] = useState<Template | null>(null);
@@ -65,9 +67,18 @@ export function TemplateListClient({
 	const closeDeleteDialog = useCallback(() => setTemplatePendingDelete(null), []);
 
 	const allTags = [...new Set(templates.flatMap((item) => item.tags))].sort();
-	const filtered = filterTag
-		? templates.filter((item) => item.tags.includes(filterTag))
-		: templates;
+	const needle = searchQuery.trim().toLowerCase();
+	const filtered = templates.filter((item) => {
+		if (filterTag && !item.tags.includes(filterTag)) return false;
+		if (needle) {
+			return (
+				item.name.toLowerCase().includes(needle) ||
+				(item.description ?? "").toLowerCase().includes(needle) ||
+				item.command.toLowerCase().includes(needle)
+			);
+		}
+		return true;
+	});
 
 	// Reads the list again; says so when it cannot. It used to throw into whatever had just succeeded.
 	const refresh = useCallback(async () => {
@@ -126,10 +137,16 @@ export function TemplateListClient({
 				});
 				// Template deployments route through the approval chain — surface
 				// where to go instead of leaving the user to guess.
-				addToast("success", t("templatesPage.toast.submitted"), {
-					duration: 8000,
-					action: { label: t("templatesPage.toast.viewDeployments"), href: "/deployments" },
-				});
+				addToast(
+					"success",
+					t("templatesPage.toast.submitted"),
+					canReadDeployments
+						? {
+							duration: 8000,
+							action: { label: t("templatesPage.toast.viewDeployments"), href: "/deployments" },
+						}
+						: { duration: 8000 },
+				);
 				return true;
 			} catch (err) {
 				addToast(
@@ -141,7 +158,7 @@ export function TemplateListClient({
 				setDeploying(null);
 			}
 		},
-		[addToast, t],
+		[addToast, canReadDeployments, t],
 	);
 
 	return (
@@ -186,28 +203,39 @@ export function TemplateListClient({
 				closeOnBackdrop={false}
 			/>
 
-			{allTags.length > 0 && (
-				<Toolbar>
-					<div className="flex flex-wrap items-center gap-1.5">
-						<span className="text-xs text-[var(--text-muted)]">
-							{t("templatesPage.filter.label")}
-						</span>
-						<Chip
-							selected={!filterTag}
-							onClick={() => setFilterTag(null)}
-						>
-							{t("templatesPage.filter.all")}
-						</Chip>
-						{allTags.map((tag) => (
+			{templates.length > 0 && (
+				<Toolbar className="flex-col items-stretch gap-3 sm:flex-row sm:flex-wrap sm:items-center">
+					<label htmlFor="templates-search" className="sr-only">{t("common.search")}</label>
+					<input
+						id="templates-search"
+						type="search"
+						value={searchQuery}
+						onChange={(e) => setFilter("q", e.target.value)}
+						placeholder={t("templatesPage.searchPlaceholder")}
+						className={cn(UI_INPUT, "w-full sm:w-64")}
+					/>
+					{allTags.length > 0 && (
+						<div className="flex flex-wrap items-center gap-1.5">
+							<span className="text-xs text-[var(--text-muted)]">
+								{t("templatesPage.filter.label")}
+							</span>
 							<Chip
-								key={tag}
-								selected={filterTag === tag}
-								onClick={() => setFilterTag(filterTag === tag ? null : tag)}
+								selected={!filterTag}
+								onClick={() => setFilterTag(null)}
 							>
-								#{tag}
+								{t("templatesPage.filter.all")}
 							</Chip>
-						))}
-					</div>
+							{allTags.map((tag) => (
+								<Chip
+									key={tag}
+									selected={filterTag === tag}
+									onClick={() => setFilterTag(filterTag === tag ? null : tag)}
+								>
+									#{tag}
+								</Chip>
+							))}
+						</div>
+					)}
 				</Toolbar>
 			)}
 
@@ -231,15 +259,25 @@ export function TemplateListClient({
 				</div>
 			)}
 
-			{filtered.length === 0 && filterTag && templates.length > 0 ? (
-				// Templates exist and none carries the tag in the address (a bookmark, a tag since removed):
-				// "no templates" over an unselected row of chips did not say why.
+			{filtered.length === 0 && (filterTag || needle) && templates.length > 0 ? (
+				// Templates exist and none matches the active tag or search query.
 				<EmptyState
 					icon={<IconFileCode size={20} />}
 					variant="boxed"
-					action={<ActionButton size="sm" variant="outline" onClick={() => setFilterTag(null)}>{t("templatesPage.filter.clear")}</ActionButton>}
+					action={
+						<ActionButton
+							size="sm"
+							variant="outline"
+							onClick={() => {
+								setFilterTag(null);
+								setFilter("q", "");
+							}}
+						>
+							{t("templatesPage.filter.clear")}
+						</ActionButton>
+					}
 				>
-					{t("templatesPage.emptyForTag", { tag: filterTag })}
+					{filterTag ? t("templatesPage.emptyForTag", { tag: filterTag }) : t("common.noMatches")}
 				</EmptyState>
 			) : filtered.length === 0 ? (
 				showCreate ? null : (
@@ -274,9 +312,9 @@ export function TemplateListClient({
 									)}
 								</div>
 								{tmpl.isBuiltin && (
-									<StatusBadge tone="accent" className="shrink-0 !rounded-lg !text-xs">
+									<Badge tone="accent" className="shrink-0">
 										{t("templatesPage.badge.builtin")}
-									</StatusBadge>
+									</Badge>
 								)}
 							</div>
 							{/* Clamp an inner block: clamping the padded box itself leaves a sliced
@@ -300,13 +338,9 @@ export function TemplateListClient({
 							{tmpl.variables.length > 0 && (
 								<div className="mt-2 flex flex-wrap gap-1">
 									{tmpl.variables.map((v) => (
-										<StatusBadge
-											key={v}
-											tone="warning"
-											className="!rounded-lg font-mono !text-sm"
-										>
+										<Badge key={v} tone="neutral" className="font-mono">
 											{`{{${v}}}`}
-										</StatusBadge>
+										</Badge>
 									))}
 								</div>
 							)}

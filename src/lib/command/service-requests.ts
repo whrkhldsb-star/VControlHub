@@ -686,6 +686,36 @@ export async function listCommandRequestPage(session?: CommandSessionScope | nul
   };
 }
 
+export async function getCommandRequestForViewer(session: CommandSessionScope, id: string) {
+  const trimmed = id.trim();
+  if (!trimmed || trimmed.length > 64) return null;
+  const canReadServers = sessionHasPermission(session, "server:read");
+  const include = {
+    ...COMMAND_LIST_INCLUDE,
+    targets: {
+      ...COMMAND_LIST_INCLUDE.targets,
+      where: { server: canReadServers ? serverTeamWhere(session) : { id: { in: [] } } },
+    },
+  };
+  const row = await prisma.commandRequest.findFirst({
+    where: {
+      id: trimmed,
+      ...commandRequestTeamWhere(session),
+    },
+    include,
+  });
+  if (!row) return null;
+  const [visibleRow] = await withVisibleCommandLogs([row], session);
+  if (!visibleRow) return null;
+  const targets = canReadServers ? visibleRow.targets.filter((target) => target.server.teamId === visibleRow.teamId) : [];
+  return mapCommandRequest({
+    ...visibleRow,
+    targets,
+    _count: { targets: targets.length },
+    executionLogs: canReadServers ? visibleRow.executionLogs : [],
+  });
+}
+
 export async function listCommandRequests(session?: CommandSessionScope | null) {
   const first = await listCommandRequestPage(session);
   const requests = first.requests;

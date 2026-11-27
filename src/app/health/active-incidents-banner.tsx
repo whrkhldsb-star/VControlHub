@@ -1,9 +1,9 @@
 "use client";
 
-import { X } from "@/components/icons";
-
 import { useCallback, useEffect, useState } from "react";
 
+import { Notice } from "@/components/ui-primitives";
+import { StatusBadge } from "@/components/status-badge";
 import { csrfFetch } from "@/lib/auth/csrf-client";
 import { formatDateTime } from "@/lib/datetime/format";
 import { useI18n } from "@/lib/i18n/use-locale";
@@ -25,6 +25,7 @@ export function ActiveIncidentsBanner() {
 	const { t, locale } = useI18n();
 	const [incidents, setIncidents] = useState<ActiveAnnouncement[]>([]);
 	const [dismissed, setDismissed] = useState<Set<string>>(new Set());
+	const [loadFailed, setLoadFailed] = useState(false);
 
 	const fetchIncidents = useCallback(async () => {
 		try {
@@ -37,8 +38,9 @@ export function ActiveIncidentsBanner() {
 					(!a.expiresAt || new Date(a.expiresAt) > now),
 			);
 			setIncidents(active);
+			setLoadFailed(false);
 		} catch {
-			// non-critical UI
+			setLoadFailed(true);
 		}
 	}, []);
 
@@ -49,15 +51,8 @@ export function ActiveIncidentsBanner() {
 		return () => window.clearTimeout(timer);
 	}, [fetchIncidents]);
 
-	if (incidents.length === 0) return null;
 	const visible = incidents.filter((i) => !dismissed.has(i.id));
-	if (visible.length === 0) return null;
-
-	function levelColor(level: string) {
-		if (level === "incident") return "border-[var(--warning-border)] bg-[var(--warning-bg)]";
-		if (level === "maintenance") return "border-[var(--color-action-border)]/30 bg-[var(--color-action-bg)]/10";
-		return "border-[var(--border)] bg-[var(--surface-elevated)]";
-	}
+	if (visible.length === 0 && !loadFailed) return null;
 
 	function levelLabel(level: string) {
 		if (level === "incident") return t("healthPage.incident.level.incident");
@@ -67,30 +62,36 @@ export function ActiveIncidentsBanner() {
 
 	return (
 		<section className="space-y-3" aria-label={t("healthPage.activeIncidentsAria")}>
+			{loadFailed ? (
+				<Notice
+					tone="warning"
+					compact
+					action={{ label: t("common.retry"), onClick: () => void fetchIncidents() }}
+				>
+					{t("healthPage.incident.loadFailed")}
+				</Notice>
+			) : null}
 			{visible.map((item) => (
-				<div key={item.id} className={`rounded-xl border p-4 ${levelColor(item.level)}`}>
-					<div className="flex items-start justify-between gap-3">
-						<div className="min-w-0">
-							<div className="flex items-center gap-2">
-								<span className="text-xs font-medium text-[var(--text-primary)]">{levelLabel(item.level)}</span>
-								<h3 className="ui-title-group truncate">{item.title}</h3>
-							</div>
-							<p className="mt-1.5 line-clamp-3 text-sm leading-6 text-[var(--text-secondary)]">{markdownExcerpt(item.body)}</p>
-							<p className="mt-1 text-xs text-[var(--text-muted)]">
-								{t("healthPage.incident.started", { time: formatDateTime(item.startsAt, locale) })}
-								{item.expiresAt ? ` · ${t("healthPage.incident.expectedEnd", { time: formatDateTime(item.expiresAt, locale) })}` : ""}
-							</p>
-						</div>
-						<button
-							type="button"
-							aria-label={t("healthPage.incident.dismissAria", { title: item.title })}
-							onClick={() => setDismissed((prev) => new Set(prev).add(item.id))}
-							className="shrink-0 text-xs text-[var(--text-muted)] hover:text-[var(--text-primary)]"
-						>
-							<X size={16} aria-hidden />
-						</button>
-					</div>
-				</div>
+				<Notice
+					key={item.id}
+					tone={item.level === "incident" ? "warning" : "info"}
+					title={
+						<span className="inline-flex flex-wrap items-center gap-2">
+							<StatusBadge tone={item.level === "incident" ? "warning" : "info"} size="sm">
+								{levelLabel(item.level)}
+							</StatusBadge>
+							<span className="break-words">{item.title}</span>
+						</span>
+					}
+					onDismiss={() => setDismissed((prev) => new Set(prev).add(item.id))}
+					dismissLabel={t("healthPage.incident.dismissAria", { title: item.title })}
+				>
+					<p className="text-sm leading-6 text-[var(--text-secondary)]">{markdownExcerpt(item.body)}</p>
+					<p className="mt-1 text-xs text-[var(--text-muted)]">
+						{t("healthPage.incident.started", { time: formatDateTime(item.startsAt, locale) })}
+						{item.expiresAt ? ` · ${t("healthPage.incident.expectedEnd", { time: formatDateTime(item.expiresAt, locale) })}` : ""}
+					</p>
+				</Notice>
 			))}
 		</section>
 	);

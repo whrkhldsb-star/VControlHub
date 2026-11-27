@@ -107,7 +107,7 @@ export function IdentityTemplatesSection() {
 				description={t("identityTemplatesPage.description")}
 				count={templates === null ? "…" : templates.length}
 				actions={<ActionButton size="sm" variant="primary" icon={<Plus size={14} aria-hidden />} onClick={() => open(null)}>{t("identityTemplatesPage.create")}</ActionButton>}
-				empty={templates !== null && templates.length === 0 ? <EmptyState>{t("identityTemplatesPage.empty")}</EmptyState> : undefined}
+				empty={templates !== null && templates.length === 0 ? <EmptyState title={t("identityTemplatesPage.empty")} text={t("identityTemplatesPage.emptyHint")} /> : undefined}
 			>
 				{(templates ?? []).map((template) => (
 					<ListRow key={template.id} className="flex flex-col gap-2 sm:flex-row sm:items-center sm:justify-between">

@@ -142,7 +142,6 @@ export function ScheduleBackupForm() {
 	const toggleSchedule = async (id: string) => {
 		if (rowActionId) return;
 		setRowActionId(id);
-		setMessage(null);
 		try {
 			await csrfFetch("/api/backup-schedules", {
 				method:"PATCH",
@@ -151,7 +150,7 @@ export function ScheduleBackupForm() {
 			});
 			await fetchSchedules();
 		} catch (error) {
-			setMessage({ type:"error", text: getErrorMessage(error, t("backupsPage.schedule.updateFailed")) });
+			setListError(getErrorMessage(error, t("backupsPage.schedule.updateFailed")));
 		} finally {
 			setRowActionId(null);
 		}
@@ -160,7 +159,6 @@ export function ScheduleBackupForm() {
 	const claimSchedule = async (id: string) => {
 		if (rowActionId) return;
 		setRowActionId(id);
-		setMessage(null);
 		try {
 			await csrfFetch("/api/backup-schedules", {
 				method:"PATCH",
@@ -169,7 +167,7 @@ export function ScheduleBackupForm() {
 			});
 			await fetchSchedules();
 		} catch (error) {
-			setMessage({ type:"error", text: getErrorMessage(error, t("backupsPage.schedule.updateFailed")) });
+			setListError(getErrorMessage(error, t("backupsPage.schedule.updateFailed")));
 		} finally {
 			setRowActionId(null);
 		}
@@ -195,7 +193,7 @@ export function ScheduleBackupForm() {
 	return (
 		<div className="mt-4 space-y-4">
 			{/* Create form */}
-			<form onSubmit={createSchedule} data-tone="cyan" data-inset className="space-y-4 p-4">
+			<form onSubmit={createSchedule} data-inset className="space-y-4 p-4">
 				<div className="grid gap-3 md:grid-cols-[180px_1fr]">
 					<div className="space-y-1.5">
 						<label htmlFor="schedule-backup-name" className="ui-label block">{t("backupsPage.schedule.nameLabel")}</label>
@@ -220,7 +218,7 @@ export function ScheduleBackupForm() {
 						<input id="schedule-backup-retention" type="number" min={1} max={3650} value={retentionDays} onChange={(e) => setRetentionDays(e.target.value)} placeholder={t("backupsPage.schedule.retentionPlaceholder")} className={UI_INPUT} />
 					</div>
 				</div>
-				<p data-tone="cyan" data-inset className="px-3 py-2 text-xs text-[var(--text-secondary)]">{t("common.preview")}{cronPreview}<span className="ml-1 text-[var(--text-muted)]">{t("backupsPage.schedule.timezone", { timezone: APP_TIME_ZONE })}</span></p>
+				<p data-inset className="px-3 py-2 text-xs text-[var(--text-secondary)]">{t("common.preview")}{cronPreview}<span className="ml-1 text-[var(--text-muted)]">{t("backupsPage.schedule.timezone", { timezone: APP_TIME_ZONE })}</span></p>
 				<div className="space-y-1.5">
 					<label htmlFor="schedule-backup-note" className="ui-label block">{t("backupsPage.schedule.noteLabel")}</label>
 					<input id="schedule-backup-note" value={note} onChange={(e) => setNote(e.target.value)} placeholder={t("backupsPage.schedule.notePlaceholder")} className={UI_INPUT} />
@@ -242,16 +240,16 @@ export function ScheduleBackupForm() {
 				) : listError ? (
 					<div className="space-y-1 py-1" role="alert">
 						<p className="text-xs text-[var(--danger)]">{listError}</p>
-						<button
-							type="button"
+						<ActionButton
+							size="xs"
+							variant="ghost"
 							onClick={() => {
 								setLoadingList(true);
 								void fetchSchedules();
 							}}
-							className="text-xs text-[var(--text-secondary)] underline underline-offset-2 hover:text-[var(--text-primary)]"
 						>
 							{t("backupsPage.scheduleList.retry")}
-						</button>
+						</ActionButton>
 					</div>
 				) : schedules.length === 0 ? (
 					<div className="space-y-1 py-1">
@@ -292,7 +290,7 @@ export function ScheduleBackupForm() {
 										{!scheduleOwnerActive(s) && (
 											<ActionButton
 												size="xs"
-												variant="primary"
+												variant="secondary"
 												disabled={rowActionId !== null}
 												onClick={() => void claimSchedule(s.id)}
 											>

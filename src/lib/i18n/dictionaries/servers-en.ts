@@ -155,6 +155,8 @@ export const en: Record<string, string> = {
 	"serversPage.tabs.overview": "VPS overview",
 	"serversPage.tabs.command": "Run command",
 	"serversPage.tabs.addVps": "Add VPS",
+	"serversPage.create.addFirstKey": "Add your first SSH key",
+	"serversPage.create.viewInventory": "View in inventory",
 	"serversPage.tabs.addKey": "Add key",
 	"serversPage.tabs.batch": "Batch actions",
 	"serversPage.command.title": "Run VPS command",

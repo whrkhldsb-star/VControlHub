@@ -6,6 +6,7 @@ import { statusLabelFor, formatTime } from "./playbook-types";
 import type { SerializedPlaybook, RunSummary } from "./playbook-types";
 import { ActionButton } from "@/components/action-button";
 import { StatusBadge } from "@/components/status-badge";
+import { Disclosure } from "@/components/ui/disclosure";
 import { APP_TIME_ZONE } from "@/lib/datetime/time-zone";
 
 function stepStatusLabel(t: (k: string) => string, status: string): string {
@@ -22,37 +23,48 @@ type PlaybookRunHistoryProps = {
 export function PlaybookRunHistory({ runs, t }: PlaybookRunHistoryProps) {
   const { locale } = useI18n();
   return (
-    <details className="mt-3">
-      <summary className="cursor-pointer text-xs text-[var(--text-secondary)] hover:text-[var(--text-primary)]">
-        {t("playbooksPage.runHistory", { count: runs.length })}
-      </summary>
-      <div className="mt-2 space-y-1.5">
+    <Disclosure variant="inset" className="mt-3" title={t("playbooksPage.runHistory", { count: runs.length })}>
+      <div className="space-y-2">
         {runs.length === 0 ? (
           <p className="text-xs text-[var(--text-muted)]">{t("playbooksPage.runHistory.empty")}</p>
         ) : (
-          runs.map((r) => (
-            <div key={r.id} className="flex items-center gap-2 text-xs text-[var(--text-secondary)]">
-              <StatusBadge tone={r.status === "failed" ? "danger" : r.status === "completed" ? "success" : "neutral"} size="sm">
-                {statusLabelFor(t, r.status)}{r.dryRun ? ` · ${t("playbooksPage.runHistory.dryRun")}` : ""}
-              </StatusBadge>
-              <span className="text-[var(--text-muted)]">{formatTime(r.startedAt, locale)}</span>
-              {r.stepResults && r.stepResults.length > 0 && (
-                <span className="flex items-center gap-0.5">
-                  {r.stepResults.map((sr, si) => (
-                    <span
-                      key={si}
-                      title={`${sr.stepId}: ${stepStatusLabel(t, sr.status)}${sr.summary ? ` - ${sr.summary}` : ""}`}
-                      className={`inline-block h-1.5 w-3 rounded-sm ${sr.status === "ok" ? "bg-[var(--success)]" : sr.status === "failed" ? "bg-[var(--danger)]" : sr.status === "dry_run" ? "bg-[var(--accent)]" : "bg-[var(--surface-hover)]"}`}
-                    />
-                  ))}
-                </span>
-              )}
-              {r.errorMessage && <span className="text-[var(--danger)] truncate">{r.errorMessage}</span>}
-            </div>
-          ))
+          runs.map((r) => {
+            const failedSteps = (r.stepResults ?? []).filter((sr) => sr.status === "failed");
+            return (
+              <div key={r.id} className="space-y-1 text-xs text-[var(--text-secondary)]">
+                <div className="flex flex-wrap items-center gap-2">
+                  <StatusBadge tone={r.status === "failed" ? "danger" : r.status === "completed" ? "success" : "neutral"} size="sm">
+                    {statusLabelFor(t, r.status)}{r.dryRun ? ` · ${t("playbooksPage.runHistory.dryRun")}` : ""}
+                  </StatusBadge>
+                  <span className="text-[var(--text-muted)]">{formatTime(r.startedAt, locale)}</span>
+                  {r.stepResults && r.stepResults.length > 0 && (
+                    <span className="flex items-center gap-0.5">
+                      {r.stepResults.map((sr, si) => (
+                        <span
+                          key={si}
+                          title={`${sr.stepId}: ${stepStatusLabel(t, sr.status)}${sr.summary ? ` - ${sr.summary}` : ""}`}
+                          className={`inline-block h-1.5 w-3 rounded-sm ${sr.status === "ok" ? "bg-[var(--success)]" : sr.status === "failed" ? "bg-[var(--danger)]" : sr.status === "dry_run" ? "bg-[var(--accent)]" : "bg-[var(--surface-hover)]"}`}
+                        />
+                      ))}
+                    </span>
+                  )}
+                  {r.errorMessage && <span className="truncate text-[var(--danger)]">{r.errorMessage}</span>}
+                </div>
+                {failedSteps.length > 0 && (
+                  <ul className="space-y-0.5 pl-2 text-xs text-[var(--danger)]">
+                    {failedSteps.map((sr, idx) => (
+                      <li key={`${sr.stepId}-${idx}`} className="break-words">
+                        {sr.stepId}{t("common.colon")}{sr.summary || stepStatusLabel(t, sr.status)}
+                      </li>
+                    ))}
+                  </ul>
+                )}
+              </div>
+            );
+          })
         )}
       </div>
-    </details>
+    </Disclosure>
   );
 }
 
@@ -135,7 +147,7 @@ export const PlaybookCard = memo(function PlaybookCard({
                 disabled={isDryRunning || isRunning}>
                 {isDryRunning ? t("playbooksPage.action.dryRunRunning") : t("playbooksPage.action.dryRun")}
               </ActionButton>
-              <ActionButton variant="primary"
+              <ActionButton variant="secondary"
                 onClick={() => onTrigger(playbook.id, "run")}
                 disabled={!playbook.enabled || isRunning || isDryRunning}>
                 {isRunning ? t("playbooksPage.action.running") : t("playbooksPage.action.run")}

@@ -166,6 +166,8 @@ export const zh: Record<string, string> = {
 	"serversPage.tabs.overview": "VPS 总览",
 	"serversPage.tabs.command": "命令下发",
 	"serversPage.tabs.addVps": "添加 VPS",
+	"serversPage.create.addFirstKey": "添加第一个 SSH 密钥",
+	"serversPage.create.viewInventory": "在节点清单中查看",
 	"serversPage.tabs.addKey": "添加密钥",
 	"serversPage.tabs.batch": "批量操作",
 	"serversPage.command.title": "执行 VPS 命令",

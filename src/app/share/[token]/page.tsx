@@ -12,7 +12,7 @@ import { SharePasswordGate } from "./share-password-gate";
 import { getErrorMessage } from "@/lib/http/error-message";
 import { checkRateLimitAsync, getClientIp, rateLimitIpKey } from "@/lib/rate-limit";
 import { Notice } from "@/components/ui-primitives";
-import { appTimeZoneDateKey } from "@/lib/datetime/time-zone";
+import { EmptyState } from "@/components/page-shell";
 
 export const dynamic = "force-dynamic";
 
@@ -96,13 +96,6 @@ export default async function SharePage({
   return (
     <div className="min-h-screen bg-[var(--page-bg)] px-4 py-12 text-[var(--text-primary)] sm:py-16">
       <div className="relative mx-auto w-full max-w-3xl">
-          {/* Keep the traceable share marker readable without covering the heading. */}
-          <div
-            aria-hidden="true"
-            className="pointer-events-none mb-4 select-none break-all text-right text-xs font-medium text-[var(--text-muted)]"
-          >
-            {token.slice(0, 8)} · {appTimeZoneDateKey()}
-          </div>
         <div className="mb-6 text-center">
           <div className="mx-auto mb-3 flex h-12 w-12 items-center justify-center rounded-lg border border-[var(--accent-border)] bg-[var(--accent-bg)] text-[var(--accent)]">
             {errorMessage ? (
@@ -225,16 +218,14 @@ export default async function SharePage({
                   </Notice>
                 )}
                 {files.length === 0 ? (
-                  <Notice tone="warning" compact className="text-center">
-                    {t("sharePage.noFiles", locale)}
-                  </Notice>
+                  <EmptyState text={t("sharePage.noFiles", locale)} />
                 ) : (
                   <div className="divide-y divide-[var(--border)] light:divide-[var(--border)]">
                     {files.slice(0, SHARE_DIRECTORY_LIST_LIMIT).map((file) => (
-                      <div key={file.id} className="flex items-center justify-between gap-3 py-3">
+                      <div key={file.id} className="flex flex-wrap items-center justify-between gap-3 py-3">
                         <div className="min-w-0">
-                          <div className="truncate text-sm font-medium text-[var(--text-primary)]">{file.name}</div>
-                          <div className="truncate text-xs text-[var(--text-muted)]">
+                          <div className="break-all text-sm font-medium text-[var(--text-primary)]">{file.name}</div>
+                          <div className="break-all text-xs text-[var(--text-muted)]">
                             {(() => {
                               const rel = childRelativePath(share.path, file.relativePath);
                               return rel && rel !== file.name ? `${rel} · ` : "";
@@ -247,7 +238,7 @@ export default async function SharePage({
                               <LinkIcon aria-hidden="true" className="h-3.5 w-3.5" />
                               {t("sharePage.openFile", locale)}
                             </a>
-                            <a href={childHref(token, share.path, file.relativePath)} download data-action-button data-size="sm" data-variant="primary" className="inline-flex items-center gap-1.5">
+                            <a href={childHref(token, share.path, file.relativePath)} download data-action-button data-size="sm" data-variant="secondary" className="inline-flex items-center gap-1.5">
                               <Download aria-hidden="true" className="h-3.5 w-3.5" />
                               {t("sharePage.download", locale)}
                             </a>

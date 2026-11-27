@@ -1,5 +1,6 @@
 "use client";
 
+import { operationTaskHref } from "@/lib/ui/deep-links";
 import { useCallback, useEffect, useRef, useState } from "react";
 import { useToast } from "@/components/toast-provider";
 import { csrfFetch } from "@/lib/auth/csrf-client";
@@ -57,6 +58,7 @@ export type UseQuickServiceActionsInput = {
   fetchSources: () => Promise<void>;
   /** empty = hub-host */
   selectedServerId?: string;
+  canReadTasks?: boolean;
 };
 
 export type UseQuickServiceActionsResult = {
@@ -90,6 +92,7 @@ export function useQuickServiceActions({
   fetchCatalog,
   fetchSources,
   selectedServerId = "",
+  canReadTasks = true,
 }: UseQuickServiceActionsInput): UseQuickServiceActionsResult {
   const { t } = useI18n();
   const { addToast } = useToast();
@@ -121,9 +124,9 @@ export function useQuickServiceActions({
     addToast(msg.type === "ok" ? "success" : "error", msg.text, {
       // A failure carries its reason (a Docker error can be long): time to read it.
       duration: msg.type === "err" ? 10_000 : undefined,
-      action: msg.taskId ? { label: t("qsPage.viewTaskCenter"), href: "/operation-tasks" } : undefined,
+      action: canReadTasks && msg.taskId ? { label: t("qsPage.viewTaskCenter"), href: operationTaskHref(msg.taskId) } : undefined,
     });
-  }, [addToast, t]);
+  }, [addToast, canReadTasks, t]);
 
   const doInstall = useCallback(
     async (preview: ConfigPreview) => {
@@ -142,7 +145,7 @@ export function useQuickServiceActions({
           text: data.taskId
             ? t("qsActions.queued", { name: preview.item.name, taskId: data.taskId })
             : t("qsActions.submitted", { name: preview.item.name }),
-          taskId: data.taskId,
+          taskId: data.taskId ?? (data.jobId ? `job:${data.jobId}` : undefined),
         });
         scheduleQueuedCatalogRefresh();
         return true;

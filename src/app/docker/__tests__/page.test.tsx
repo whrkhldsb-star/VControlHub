@@ -3,6 +3,7 @@ import userEvent from "@testing-library/user-event";
 import { beforeEach, describe, expect, it, vi } from "vitest";
 import DockerPageClient from "../docker-page-client";
 import { csrfFetch } from "@/lib/auth/csrf-client";
+import { ToastProvider } from "@/components/toast-provider";
 import { I18nProvider } from "@/lib/i18n/provider";
 import { expectBottomSheet, expectTouchTarget } from "@/test/ui-assertions";
 
@@ -24,7 +25,7 @@ vi.mock("@/lib/auth/csrf-client", () => ({
 }));
 
 function wrap(ui: React.ReactElement) {
-	return <I18nProvider initialLocale="zh">{ui}</I18nProvider>;
+	return <I18nProvider initialLocale="zh"><ToastProvider>{ui}</ToastProvider></I18nProvider>;
 }
 
 const runningContainer = {

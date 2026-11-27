@@ -293,6 +293,7 @@ export const zh: Record<string, string> = {
 
 	// client — copy / images
 	"aiPage.copy": "复制",
+	"aiPage.reselectLocalAttachments": "请重新选择这条消息中的本地附件。",
 };
 
 export const en: Record<string, string> = {
@@ -586,4 +587,5 @@ export const en: Record<string, string> = {
 
 	// client — copy / images
 	"aiPage.copy": "Copy",
+	"aiPage.reselectLocalAttachments": "Select the local attachments for this message again.",
 };

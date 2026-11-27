@@ -51,7 +51,7 @@ describe("ScheduleBackupForm", () => {
 
     await user.click(await screen.findByRole("button", { name: "暂停" }));
 
-    await waitFor(() => expect(screen.getByRole("status")).toHaveTextContent("调度器不可用"));
+    await waitFor(() => expect(screen.getByRole("alert")).toHaveTextContent("调度器不可用"));
   });
 
   it("names the schedule's field and offers what the button will do to each schedule", async () => {

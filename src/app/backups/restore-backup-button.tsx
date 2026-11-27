@@ -1,14 +1,16 @@
 "use client";
 
-import { useRef, useState } from "react";
+import { useEffect, useRef, useState } from "react";
 
 import { csrfFetch } from "@/lib/auth/csrf-client";
 import { useI18n } from "@/lib/i18n/use-locale";
 import { getErrorMessage } from "@/lib/http/error-message";
 import { ActionButton } from "@/components/action-button";
+import { Check, Copy } from "@/components/icons";
 import { Dialog } from "@/components/ui/dialog";
-import { SegmentedControl } from "@/components/ui-primitives";
+import { Notice, SegmentedControl } from "@/components/ui-primitives";
 import { UI_LABEL } from "@/lib/ui/classes";
+import { copyText } from "@/lib/ui/clipboard";
 import { getBackupTypeLabel } from "@/lib/i18n/domain-labels";
 
 type Props = {
@@ -41,6 +43,22 @@ export function RestoreBackupButton({ backupId, backupType, disabled = false }: 
   const [component, setComponent] = useState<"all" | "database" | "files">("all");
   const [plan, setPlan] = useState<OfflineRestorePlan | null>(null);
   const [error, setError] = useState<string | null>(null);
+  const [copiedKey, setCopiedKey] = useState<string | null>(null);
+  const copiedTimerRef = useRef<ReturnType<typeof setTimeout> | null>(null);
+
+  useEffect(() => () => {
+    if (copiedTimerRef.current) clearTimeout(copiedTimerRef.current);
+  }, []);
+
+  const copyCommand = async (key: string, command: string) => {
+    if (!(await copyText(command))) return;
+    setCopiedKey(key);
+    if (copiedTimerRef.current) clearTimeout(copiedTimerRef.current);
+    copiedTimerRef.current = setTimeout(() => {
+      copiedTimerRef.current = null;
+      setCopiedKey(null);
+    }, 2000);
+  };
 
   const openDialog = () => {
     setPlan(null);
@@ -91,20 +109,27 @@ export function RestoreBackupButton({ backupId, backupType, disabled = false }: 
       {open && (
         <Dialog
           open
+          size="lg"
           placement="sheet"
           onClose={() => setOpen(false)}
           closeOnBackdrop={false}
           busy={pending}
           title={t("backupsPage.restore.offlineTitle")}
           description={t("backupsPage.restore.offlineIntro", { type: getBackupTypeLabel(t, backupType) })}
-          footer={<>
-            <ActionButton variant="secondary" disabled={pending} onClick={() => setOpen(false)}>
-              {t("common.cancel")}
+          footer={plan ? (
+            <ActionButton variant="primary" onClick={() => setOpen(false)}>
+              {t("common.close")}
             </ActionButton>
-            <ActionButton variant="primary" loading={pending} onClick={prepare}>
-              {pending ? t("backupsPage.restore.preparing") : t("backupsPage.restore.prepare")}
-            </ActionButton>
-          </>}
+          ) : (
+            <>
+              <ActionButton variant="secondary" disabled={pending} onClick={() => setOpen(false)}>
+                {t("common.cancel")}
+              </ActionButton>
+              <ActionButton variant="primary" loading={pending} onClick={prepare}>
+                {pending ? t("backupsPage.restore.preparing") : t("backupsPage.restore.prepare")}
+              </ActionButton>
+            </>
+          )}
         >
           <div className="space-y-4">
             {backupType === "FULL" ? (
@@ -123,16 +148,26 @@ export function RestoreBackupButton({ backupId, backupType, disabled = false }: 
                 />
               </div>
             ) : null}
-            {error ? <p role="alert" className="text-xs text-[var(--danger)]">{error}</p> : null}
+            {error ? <Notice tone="danger" compact>{error}</Notice> : null}
             {plan ? (
               <div className="space-y-3">
-                <p className="text-xs text-[var(--success)]">
+                <Notice tone="success" compact>
                   {t("backupsPage.restore.verified", { checksum: plan.checksumSha256.slice(0, 12) })}
-                </p>
+                </Notice>
                 <ol className="space-y-3">
                   {steps.map((step) => (
                     <li key={step.key} className="grid gap-1">
-                      <span className="text-xs font-medium text-[var(--text-primary)]">{step.label}</span>
+                      <div className="flex items-center justify-between gap-2">
+                        <span className="text-xs font-medium text-[var(--text-primary)]">{step.label}</span>
+                        <ActionButton
+                          size="xs"
+                          variant="ghost"
+                          icon={copiedKey === step.key ? <Check size={13} aria-hidden /> : <Copy size={13} aria-hidden />}
+                          onClick={() => void copyCommand(step.key, step.command)}
+                        >
+                          {copiedKey === step.key ? t("backupsPage.restore.copied") : t("backupsPage.restore.copy")}
+                        </ActionButton>
+                      </div>
                       <code data-inset="" className="block overflow-x-auto whitespace-pre p-2 font-mono text-xs text-[var(--text-secondary)]">
                         {step.command}
                       </code>

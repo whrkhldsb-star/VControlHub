@@ -49,8 +49,27 @@ describe("UnifiedSettingsPageClient", () => {
     window.history.replaceState(null, "", "#runtime");
     render(<UnifiedSettingsPageClient settings={{}} canManage={false} />);
     expect(await screen.findByRole("button", { name: "仪表盘" }, { timeout: 5_000 })).toBeVisible();
-    expect(screen.getByRole("tab", { name: /个人偏好/ })).toHaveAttribute("aria-selected", "true");
-    expect(screen.queryByRole("tab", { name: /高级配置/ })).not.toBeInTheDocument();
+    // Personal preferences are the whole page: no tab bar of one tab.
+    expect(screen.queryByRole("tab")).not.toBeInTheDocument();
+    expect(screen.queryByLabelText("平台名称")).not.toBeInTheDocument();
+  });
+
+  it("draws no tab bar or tab panel when personal preferences are the only tab", async () => {
+    // A bar with one selected tab, and a panel named after it, for an account that has nothing else to choose.
+    const { container } = render(<UnifiedSettingsPageClient settings={{}} canManage={false} />);
+    expect(await screen.findByRole("button", { name: "仪表盘" })).toBeVisible();
+    expect(screen.queryByRole("tablist")).not.toBeInTheDocument();
+    expect(screen.queryByRole("tabpanel")).not.toBeInTheDocument();
+    expect(container.querySelector("[aria-labelledby$='-tab']")).toBeNull();
+    expect(container.querySelector("[id$='-panel']")).not.toHaveAttribute("tabindex");
+  });
+
+  it("keeps the tab bar and its panel for an administrator", () => {
+    render(<UnifiedSettingsPageClient settings={{ ...runtimeDefaults }} canManage />);
+    expect(screen.getByRole("tablist")).toBeInTheDocument();
+    const panel = screen.getByRole("tabpanel");
+    expect(panel).toHaveAttribute("aria-labelledby", screen.getByRole("tab", { name: /个人偏好/ }).id);
+    expect(panel).toHaveAttribute("tabindex", "0");
   });
 
   it("says why an administrator section opened personal preferences instead", async () => {
@@ -58,7 +77,39 @@ describe("UnifiedSettingsPageClient", () => {
     try {
       render(<UnifiedSettingsPageClient settings={{}} canManage={false} />);
       expect(await screen.findByText("该部分仅管理员可以修改")).toBeInTheDocument();
-      expect(screen.getByRole("tab", { name: /个人偏好/ })).toHaveAttribute("aria-selected", "true");
+      expect(screen.getByRole("button", { name: "仪表盘" })).toBeVisible();
+    } finally {
+      window.history.replaceState({}, "", "/settings");
+    }
+  });
+
+  it("drops the notice about an administrator section once a section is chosen", async () => {
+    // It stayed above every section the person opened afterwards, as if each one were the refused address.
+    window.history.replaceState(null, "", "#smtp");
+    try {
+      render(<UnifiedSettingsPageClient settings={{}} canManage={false} />);
+      expect(await screen.findByText("该部分仅管理员可以修改")).toBeInTheDocument();
+      const menu = screen.getByRole("combobox", { name: "设置分类导航" }) as HTMLSelectElement;
+      fireEvent.change(menu, { target: { value: menu.options[1]!.value } });
+      expect(screen.queryByText("该部分仅管理员可以修改")).not.toBeInTheDocument();
+      // A later address is answered as before.
+      act(() => {
+        window.history.replaceState(null, "", "#offsite");
+        window.dispatchEvent(new Event("hashchange"));
+      });
+      expect(await screen.findByText("该部分仅管理员可以修改")).toBeInTheDocument();
+    } finally {
+      window.history.replaceState({}, "", "/settings");
+    }
+  });
+
+  it("opens the offsite backup section from its address", async () => {
+    window.history.replaceState({}, "", "/settings#offsite");
+    try {
+      render(<UnifiedSettingsPageClient settings={{ "platform.name": "VControlHub", "platform.logo": "", ...runtimeDefaults }} canManage />);
+      await waitFor(() => expect(screen.getByRole("tab", { name: /存储与备份/ })).toHaveAttribute("aria-selected", "true"));
+      const menu = screen.getByRole("combobox", { name: "设置分类导航" }) as HTMLSelectElement;
+      await waitFor(() => expect(menu).toHaveValue("offsite"));
     } finally {
       window.history.replaceState({}, "", "/settings");
     }
@@ -79,7 +130,7 @@ describe("UnifiedSettingsPageClient", () => {
   it("routes the retired workspace bookmark to personal preferences", async () => {
     window.history.replaceState(null, "", "#team-workspaces");
     render(<UnifiedSettingsPageClient settings={{}} canManage={false} />);
-    expect(await screen.findByRole("tab", { name: /个人偏好/ })).toHaveAttribute("aria-selected", "true");
+    expect(await screen.findByRole("button", { name: "仪表盘" })).toBeVisible();
     expect(screen.queryByRole("tab", { name: /团队与权限/ })).not.toBeInTheDocument();
   });
 

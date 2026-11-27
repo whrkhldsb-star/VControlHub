@@ -47,6 +47,19 @@ describe("AppTopbar", () => {
 		expect(screen.getByText("WebDAV 接入")).toHaveAttribute("aria-current", "page");
 	});
 
+	it("keeps the parent page in the breadcrumb on phones and leaves out only the group", () => {
+		// A sub-page showed its own name alone on a phone: there was no way back up to the page it belongs to.
+		renderTopbar();
+
+		const parent = screen.getByRole("link", { name: "文件管理" }).closest("li");
+		expect(parent).not.toHaveClass("max-sm:hidden");
+		const group = screen.getByText("文件与传输").closest("li");
+		expect(group).toHaveClass("max-sm:hidden");
+		// The separator after the hidden group goes with it; the one before the sub-page stays.
+		expect(parent?.querySelector("svg")).toHaveClass("max-sm:hidden");
+		expect(screen.getByText("WebDAV 接入").closest("li")?.querySelector("svg")).not.toHaveClass("max-sm:hidden");
+	});
+
 	it("names the browser tab after the current page", () => {
 		navigation.pathname = "/alert-rules";
 		renderTopbar();

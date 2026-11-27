@@ -7,6 +7,8 @@ import { getServerLocale, t, type Locale } from "@/lib/i18n/translations";
 import { safeRelativeRedirectPath } from "@/lib/http/redirect-path";
 import { Verify2faForm } from "./verify-2fa-form";
 import { ArrowLeft } from "@/components/icons";
+import { LanguageToggle } from "@/components/language-toggle";
+import { ThemeToggle } from "@/components/theme-toggle";
 
 type Verify2faPageProps = {
 	searchParams?: Promise<{ next?: string | string[]; error?: string | string[] }>;
@@ -42,18 +44,24 @@ export default async function Verify2faPage({ searchParams }: Verify2faPageProps
 	return (
 		<div className="relative flex min-h-screen items-center justify-center overflow-hidden text-[var(--text-primary)]">
 			{/* Background effects */}
-			<div className="absolute inset-0 bg-[radial-gradient(ellipse_at_top,var(--accent-bg),transparent_50%),radial-gradient(circle_at_bottom_left,rgba(99,102,241,0.06),transparent_35%),var(--page-bg)]" />
+			<div className="absolute inset-0 bg-[radial-gradient(ellipse_at_top,var(--accent-bg),transparent_50%),radial-gradient(circle_at_bottom_left,color-mix(in_srgb,var(--accent)_6%,transparent),transparent_35%),var(--page-bg)]" />
 			<div className="absolute inset-x-0 top-0 h-px bg-gradient-to-r from-transparent via-[var(--border-strong)] to-transparent" />
 
-			<div className="relative w-full max-w-md px-6">
-				<div data-card="" className="p-6 sm:p-8">
+			{/* As on the sign-in page: the language and the theme can be chosen before signing in. */}
+			<div className="absolute right-4 top-4 z-10 flex items-center gap-1 sm:right-6 sm:top-6">
+				<ThemeToggle compact />
+				<LanguageToggle compact />
+			</div>
+
+			<div className="relative w-full max-w-md px-4 py-16 sm:px-6">
+				<div data-card="" className="p-5 sm:p-6">
 					<div className="mb-7">
 						<div className="mb-3 flex h-12 w-12 items-center justify-center rounded-2xl border border-[var(--accent-border)] bg-[var(--accent-bg)]">
 							<svg className="h-6 w-6 text-[var(--accent)]" fill="none" width="24" height="24" viewBox="0 0 24 24" stroke="currentColor">
 								<path strokeLinecap="round" strokeLinejoin="round" strokeWidth={1.5} d="M9 12l2 2 4-4m5.618-4.016A11.955 11.955 0 0112 2.944a11.955 11.955 0 01-8.618 3.04A12.02 12.02 0 003 9c0 5.591 3.824 10.29 9 11.622 5.176-1.332 9-6.03 9-11.622 0-1.042-.133-2.052-.382-3.016z" />
 							</svg>
 						</div>
-						<p className="text-xs font-semibold text-[var(--accent)]">2FA</p>
+						<p className="text-xs font-semibold text-[var(--accent)]">{t("login.verify2faEyebrow", locale)}</p>
 						<h1 className="ui-title-page mt-2">{t("auth.two-factor", locale)}</h1>
 						<p className="mt-2 text-sm text-[var(--text-secondary)]">{t("login.verify2faDescription", locale)}</p>
 					</div>

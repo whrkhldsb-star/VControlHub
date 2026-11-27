@@ -10,5 +10,6 @@ export default async function ImageBedPage() {
 	// Both DELETE /api/images/[id] and POST /api/images/batch require image:write.
 	const canDelete = canWrite;
 	const canListAll = sessionHasPermission(session, "team:manage") || sessionHasPermission(session, "media:manage");
-	return <ImageBedPageClient canWrite={canWrite} canDelete={canDelete} canListAll={canListAll} />;
+	const canReadStorage = sessionHasPermission(session, "storage:read");
+	return <ImageBedPageClient canWrite={canWrite} canDelete={canDelete} canListAll={canListAll} canReadStorage={canReadStorage} />;
 }

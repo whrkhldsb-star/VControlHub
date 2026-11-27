@@ -6,7 +6,8 @@ import { useI18n } from "@/lib/i18n/use-locale";
 import { csrfFetch } from "@/lib/auth/csrf-client";
 import { getErrorMessage } from "@/lib/http/error-message";
 import { ActionButton } from "@/components/action-button";
-import { Badge, FormField, Notice } from "@/components/ui-primitives";
+import { StatusBadge } from "@/components/status-badge";
+import { FormField, Notice } from "@/components/ui-primitives";
 import { UI_INPUT } from "@/lib/ui/classes";
 
 type AiHostedApprovalCardProps = {
@@ -92,13 +93,13 @@ export function AiHostedApprovalCard({ action }: AiHostedApprovalCardProps) {
   const disabled = status !== "pending";
 
   return (
-    <article data-tone="cyan" data-inset className="p-4">
+    <article data-card className="p-4">
       <div className="flex flex-col gap-3 lg:flex-row lg:items-start lg:justify-between">
         <div className="min-w-0 flex-1">
           <div className="flex flex-wrap items-center gap-2">
             <h3 className="ui-title-section">{action.actionName}</h3>
-            <Badge tone="accent">{t("aiHostedApproval.badge")}</Badge>
-            <Badge tone="warning">{riskLabel(t, action.riskLevel)}</Badge>
+            <StatusBadge tone="accent" size="sm">{t("aiHostedApproval.badge")}</StatusBadge>
+            <StatusBadge tone="warning" size="sm">{riskLabel(t, action.riskLevel)}</StatusBadge>
           </div>
           <p className="mt-1 text-xs text-[var(--text-secondary)]">{t("aiHostedApproval.description")}</p>
           <div className="mt-3 grid gap-2 text-xs text-[var(--text-secondary)] sm:grid-cols-2">
