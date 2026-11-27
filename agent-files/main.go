@@ -41,6 +41,8 @@ type response struct {
 
 func errorCode(err error) string {
 	switch {
+	case errors.Is(err, context.DeadlineExceeded), errors.Is(err, context.Canceled):
+		return "changed" // the lease authorizing this operation is no longer current
 	case errors.Is(err, fs.ErrNotExist):
 		return "missing"
 	case errors.Is(err, fs.ErrExist):
@@ -186,7 +188,7 @@ func run(ctx context.Context, configFile string) error {
 			if reply.Job != nil {
 				reply.Job.Operation.deadline = pollStarted.Add(time.Duration(reply.Job.RemainingMs) * time.Millisecond)
 				reply.Job.Operation.jobID = reply.Job.ID
-				answer, err := s.dispatch(*reply.Job)
+				answer, err := s.dispatch(ctx, *reply.Job)
 				if err != nil {
 					answer = result{Error: errorCode(err)}
 				}

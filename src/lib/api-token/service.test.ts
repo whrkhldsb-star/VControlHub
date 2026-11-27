@@ -9,6 +9,7 @@ const { mockPrisma, tx } = vi.hoisted(() => ({
     apiToken: { count: vi.fn(), findMany: vi.fn(), update: vi.fn(), findUnique: vi.fn() },
     team: { findUnique: vi.fn() },
     user: { findUnique: vi.fn() },
+    revokedSession: { findUnique: vi.fn(async () => null) },
   },
   tx: { $queryRaw: vi.fn(), user: { findUnique: vi.fn() }, apiToken: { create: vi.fn() } },
 }));

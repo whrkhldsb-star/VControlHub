@@ -5,12 +5,50 @@ import (
 	"fmt"
 	"os"
 	"path"
+	"path/filepath"
+	"strings"
 	"syscall"
 
 	"golang.org/x/sys/unix"
 )
 
 const safeOpenFlags = syscall.O_NONBLOCK | syscall.O_NOFOLLOW
+
+func syncDirectory(dir *os.File) error {
+	err := dir.Sync()
+	if errors.Is(err, syscall.EINVAL) || errors.Is(err, syscall.EOPNOTSUPP) || errors.Is(err, syscall.ENOSYS) || errors.Is(err, errors.ErrUnsupported) {
+		return nil
+	}
+	return err
+}
+
+// Locate legacy quarantines on child mounts without walking the whole share.
+func (s share) deletionRoots() []string {
+	roots := []string{"."}
+	data, err := os.ReadFile("/proc/self/mountinfo")
+	if err != nil {
+		return roots
+	}
+	rootName := s.root.Name()
+	if abs, err := filepath.Abs(rootName); err == nil {
+		rootName = abs
+	}
+	if resolved, err := filepath.EvalSymlinks(rootName); err == nil {
+		rootName = resolved
+	}
+	unescape := strings.NewReplacer(`\040`, " ", `\011`, "\t", `\012`, "\n", `\134`, `\`)
+	for _, line := range strings.Split(string(data), "\n") {
+		fields := strings.Fields(line)
+		if len(fields) < 5 {
+			continue
+		}
+		rel, err := filepath.Rel(rootName, unescape.Replace(fields[4]))
+		if err == nil && rel != "." && validPath(rel) {
+			roots = append(roots, rel)
+		}
+	}
+	return roots
+}
 
 func singleLink(_ *os.File, st os.FileInfo) bool {
 	raw, ok := st.Sys().(*syscall.Stat_t)
@@ -129,5 +167,8 @@ func publishOpenFile(parent *os.Root, file *os.File, _, to string) error {
 		return err
 	}
 	defer dir.Close()
-	return unix.Linkat(unix.AT_FDCWD, fmt.Sprintf("/proc/self/fd/%d", file.Fd()), int(dir.Fd()), to, unix.AT_SYMLINK_FOLLOW)
+	if err := unix.Linkat(unix.AT_FDCWD, fmt.Sprintf("/proc/self/fd/%d", file.Fd()), int(dir.Fd()), to, unix.AT_SYMLINK_FOLLOW); err != nil {
+		return err
+	}
+	return syncDirectory(dir)
 }

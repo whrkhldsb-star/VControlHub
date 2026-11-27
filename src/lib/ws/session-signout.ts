@@ -1,21 +1,26 @@
 /**
- * Sign-out fan-out to live sockets, without a session table.
+ * Sign-out fan-out to live sockets.
  *
- * Session cookies are stateless, so signing out one device has nothing to
- * revoke in the database (bumping `User.sessionEpoch` would sign out every
- * device). What a single-device sign-out must still end is what this cookie
- * opened and keeps open on its own: the notification socket, remote desktops,
- * terminals, and keep-alive shells waiting detached for a reconnect. Each of
- * those re-checks the session only periodically, and a detached shell has no
- * socket to re-check at all.
+ * Signing out one device must end two things without touching the account's
+ * other devices (bumping `User.sessionEpoch` would sign out every device):
  *
- * `/api/auth/signout` publishes the signed-out cookie's digest on the
- * notification bus (Redis pub/sub, PostgreSQL NOTIFY or in-process, whichever
- * the deployment runs), which every web instance and the terminal gateway
- * subscribe to. Each process hands it to the handlers registered here, and
- * those close what is bound to that exact cookie; the user's other sessions
- * stay untouched. Only the digest travels: the cookie itself never leaves the
- * request that carried it.
+ *  - the cookie itself: `/api/auth/signout` records its session id in
+ *    `revoked_session_ids` (see `revokeSessionToken` in lib/auth/session), so
+ *    `verifySessionToken` rejects it on every instance and after any restart,
+ *    until it would have expired anyway;
+ *  - what this cookie opened and keeps open on its own: the notification
+ *    socket, remote desktops, terminals, and keep-alive shells waiting
+ *    detached for a reconnect. Each of those re-checks the session only
+ *    periodically, and a detached shell has no socket to re-check at all.
+ *
+ * For the second, the route then publishes the signed-out cookie's digest on
+ * the notification bus (Redis pub/sub, PostgreSQL NOTIFY or in-process,
+ * whichever the deployment runs), which every web instance and the terminal
+ * gateway subscribe to. Each process hands it to the handlers registered here,
+ * and those close what is bound to that exact cookie at once; the user's other
+ * sessions stay untouched. Only the digest travels: the cookie itself never
+ * leaves the request that carried it. A missed bus message is not a hole: the
+ * next periodic re-check hits the durable revocation.
  */
 import { createHash } from "node:crypto";
 

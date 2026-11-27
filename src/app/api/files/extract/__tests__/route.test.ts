@@ -1,4 +1,4 @@
-import { mkdir, mkdtemp, readdir, readFile, rm, writeFile } from "node:fs/promises";
+import { mkdir, mkdtemp, readdir, readFile, rename, rm, writeFile } from "node:fs/promises";
 import { gzipSync } from "node:zlib";
 import os from "node:os";
 import path from "node:path";
@@ -16,6 +16,7 @@ const {
   assertStorageAccessMock: vi.fn(),
   prismaMock: {
     storageNode: { findFirst: vi.fn() },
+    job: { findUnique: vi.fn(), upsert: vi.fn(), update: vi.fn(), deleteMany: vi.fn() },
     fileEntry: { findFirst: vi.fn(), findMany: vi.fn() },
   },
   createFileEntryMock: vi.fn(),
@@ -30,6 +31,7 @@ vi.mock("@/lib/storage/access-control", () => ({
   releaseStorageQuotaGuard: vi.fn(async () => undefined),
 }));
 vi.mock("@/lib/storage/file-overwrite-lock", () => ({ lockStorageFileOverwrite: async () => async () => {} }));
+vi.mock("@/lib/concurrency/advisory-lock", async importOriginal => ({ ...await importOriginal<typeof import("@/lib/concurrency/advisory-lock")>(), acquireAdvisoryLock: async () => async () => {}, tryAcquireAdvisoryLock: async () => async () => {} }));
 vi.mock("@/lib/db", () => ({ prisma: prismaMock }));
 vi.mock("@/lib/storage/service", () => ({
   createFileEntry: createFileEntryMock,
@@ -75,6 +77,10 @@ async function createGz() {
 describe("POST /api/files/extract", () => {
   beforeEach(() => {
     vi.clearAllMocks();
+    const journal = new Map<string, unknown>();
+    prismaMock.job.findUnique.mockImplementation(({ where }) => journal.get(where.id) ?? null);
+    prismaMock.job.upsert.mockImplementation(({ create }) => journal.set(create.id, create));
+    prismaMock.job.deleteMany.mockImplementation(({ where }) => journal.delete(where.id));
     requireApiPermissionMock.mockResolvedValue({
       session: { userId: "u_1", username: "admin", roles: ["admin"] },
     });
@@ -242,6 +248,27 @@ describe("POST /api/files/extract", () => {
     await expect(response.json()).resolves.toMatchObject({ error: expect.stringContaining("../outside.txt") });
     expect(await readdir(tempDir)).toEqual(["evil.zip"]);
     expect(syncLocalDirectoryEntriesMock).not.toHaveBeenCalled();
+  });
+
+  it.each([false, true])("resumes a published extraction only for its own directory (replacement=%s)", async replaced => {
+    await createTarGz();
+    localNode();
+    syncLocalDirectoryEntriesMock.mockRejectedValueOnce(new Error("index offline"));
+    expect((await POST(extractRequest("backup.tar.gz"))).status).toBe(500);
+    const folder = replaced ? "backup (2)" : "backup";
+    if (replaced) {
+      await rename(path.join(tempDir, "backup"), path.join(tempDir, "moved"));
+      await mkdir(path.join(tempDir, "backup"));
+      await writeFile(path.join(tempDir, "backup/hello.txt"), "other");
+    }
+    prismaMock.fileEntry.findMany.mockResolvedValueOnce([{ relativePath: folder, entryType: "DIRECTORY" },
+      { relativePath: folder + "/hello.txt", entryType: "FILE", size: BigInt(5) }]);
+    const retry = await POST(extractRequest("backup.tar.gz"));
+    expect(retry.status).toBe(200);
+    expect(await retry.json()).toMatchObject({ folder });
+    expect(prismaMock.job.upsert).toHaveBeenCalledTimes(replaced ? 2 : 1);
+    expect(prismaMock.job.deleteMany).toHaveBeenCalledTimes(1);
+    expect(await readFile(path.join(tempDir, "backup/hello.txt"), "utf8")).toBe(replaced ? "other" : "hello");
   });
 
   it("names the formats it can extract when given another", async () => {
@@ -533,6 +560,21 @@ describe("POST /api/files/extract", () => {
         fs.access(path.join(tempDir, "notes.txt")),
       ),
     ).rejects.toThrow();
+  });
+
+  it("recovers the published gzip inode when the index cannot be queried after a failed insert", async () => {
+    await createGz();
+    localNode();
+    createFileEntryMock.mockImplementationOnce(async () => {
+      prismaMock.fileEntry.findFirst.mockRejectedValueOnce(new Error("connection lost"));
+      throw new Error("insert unavailable");
+    });
+    expect((await POST(extractRequest("notes.txt.gz"))).status).toBe(500);
+    expect(await readFile(path.join(tempDir, "notes.txt"), "utf8")).toBe("hello gzip");
+    expect((await POST(extractRequest("notes.txt.gz"))).status).toBe(200);
+    expect(prismaMock.job.upsert).toHaveBeenCalledTimes(1);
+    expect(createFileEntryMock).toHaveBeenCalledTimes(2);
+    expect(prismaMock.job.deleteMany).toHaveBeenCalledTimes(1);
   });
 
   it("destroys the pipeline with a typed 413 once decompressed output crosses the cap", async () => {

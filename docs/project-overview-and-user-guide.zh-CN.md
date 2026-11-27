@@ -73,7 +73,7 @@ VControlHub 是面向个人运维及多客户服务场景的自托管服务器�
 
 ### 1.3 当前代码规模与口径
 
-项目包含：58 个 `page.tsx` 页面文件、197 个 API 路由文件、84 个 Prisma 数据模型、52 个业务权限项、4 个内置身份模板、24 类后台 Worker，以及 42 个本地快捷服务模板。
+项目包含：58 个 `page.tsx` 页面文件、197 个 API 路由文件、85 个 Prisma 数据模型、52 个业务权限项、4 个内置身份模板、24 类后台 Worker，以及 42 个本地快捷服务模板。
 
 配置与调用入口包括 9 个模块中的 25 个 Server Action 运行时导出、70 个系统设置表单字段、9 个持久化个人偏好字段和 21 个 AI 托管工具；逐项对应关系见第 24 章。
 
@@ -1834,7 +1834,7 @@ RDP：浏览器领取单次票据 → 连接 `/rdp` → 校验票据、用户、
 
 | 业务域 | 模型 | 记录的主要内容 |
 | --- | --- | --- |
-| 身份与权限，11 个 | `User`、`Team`、`TeamMember`、`Role`、`Permission`、`UserRole`、`RolePermission`、`UserServerAccess`、`UserStorageAccess`、`IdentityTemplate`、`ApiToken` | 账号、客户成员、平台角色、身份模板、单资源授权和集成凭据 |
+| 身份与权限，12 个 | `User`、`Team`、`TeamMember`、`Role`、`Permission`、`UserRole`、`RolePermission`、`UserServerAccess`、`UserStorageAccess`、`IdentityTemplate`、`ApiToken`、`RevokedSession` | 账号、客户成员、平台角色、身份模板、单资源授权、单设备会话撤销和集成凭据 |
 | 服务器与连接，9 个 | `SshKey`、`Server`、`RdpTicket`、`ServerAgentJob`、`AgentFileShare`、`AgentFileCall`、`ServerFileProxy`、`ServerUptimeSnapshot`、`ServerMetricLatest` | 节点、认证材料、桌面票据、Agent 任务、文件网关、可用率和每台最新标准化指标 |
 | 命令，5 个 | `CommandRequest`、`CommandApproval`、`CommandTarget`、`ExecutionLog`、`CommandTemplate` | 请求、审批、逐节点目标、执行输出和可复用模板 |
 | 存储与同步，7 个 | `StorageNode`、`FileEntry`、`FilePreference`、`FileVersion`、`SyncJob`、`SyncLog`、`MediaUploadSession` | 节点、索引、个人整理、版本、同步和上传会话 |

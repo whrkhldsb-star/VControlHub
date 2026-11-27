@@ -3,7 +3,7 @@ import { z } from "zod";
 
 import { getApiSession } from "@/lib/auth/api-session";
 import { getCsrfCookieName } from "@/lib/auth/csrf";
-import { getSessionCookieName } from "@/lib/auth/session";
+import { getSessionCookieName, revokeSessionToken } from "@/lib/auth/session";
 import { accountSecurityAuditTeam, auditUserAction } from "@/lib/audit/service";
 import { withApiRoute } from "@/lib/http/api-guard";
 import { GENERAL_WRITE_LIMIT } from "@/lib/http/rate-limit-presets";
@@ -25,11 +25,15 @@ import { publishSessionSignout } from "@/lib/ws/session-signout";
  *  - the pending-2FA cookie, so a signout mid-2FA does not leave a 5-minute
  *    ticket that still exchanges for a full session for that account.
  *
- * A verified session cookie is also announced as signed out (see
- * lib/ws/session-signout): its notification socket, remote desktops, terminals
- * and detached keep-alive shells close at once instead of at their next
- * periodic re-check, or, for a detached shell, never. Only this cookie's: the
- * account's other devices stay signed in, so `sessionEpoch` is not advanced.
+ * A verified session cookie is first recorded in `revoked_session_ids`, so a
+ * copy of it (replayed, or kept by a browser that ignored the clear) stops
+ * verifying on every instance and across restarts. It is then announced as
+ * signed out (see lib/ws/session-signout): its notification socket, remote
+ * desktops, terminals and detached keep-alive shells close at once instead of
+ * at their next periodic re-check, or, for a detached shell, never. Only this
+ * cookie's: the account's other devices stay signed in, so `sessionEpoch` is
+ * not advanced. Each step fails on its own: a database outage still tears
+ * down the sockets and clears the cookies.
  */
 const logger = createLogger("auth:signout");
 const signoutBodySchema = z.undefined();
@@ -83,6 +87,13 @@ export async function POST(request: Request) {
           // getApiSession verified this very cookie, so only a real session of this user is announced.
           const token = requestCookie(request, getSessionCookieName())?.trim();
           if (token) {
+            // Durable first, so a socket re-check racing the bus message
+            // already sees the revocation.
+            try {
+              await revokeSessionToken(token, session.userId);
+            } catch (error) {
+              logger.error("signout revocation could not be persisted", error);
+            }
             try {
               publishSessionSignout(session.userId, token);
             } catch (error) {

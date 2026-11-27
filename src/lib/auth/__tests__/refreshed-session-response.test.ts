@@ -1,7 +1,7 @@
 // @vitest-environment node
 import { describe, expect, it, vi } from "vitest";
 
-vi.mock("@/lib/db", () => ({ prisma: { user: { findUnique: vi.fn(async () => ({ id: "u_1", username: "admin", roles: [], status: "ACTIVE", mustChangePassword: false, sessionEpoch: 0, passwordHash: "$2b$10$fixture", twoFactorSecret: null })) } } }));
+vi.mock("@/lib/db", () => ({ prisma: { user: { findUnique: vi.fn(async () => ({ id: "u_1", username: "admin", roles: [], status: "ACTIVE", mustChangePassword: false, sessionEpoch: 0, passwordHash: "$2b$10$fixture", twoFactorSecret: null })) }, revokedSession: { findUnique: vi.fn(async () => null) } } }));
 // A 30-day "remember me" lifetime, as the security settings resolve it.
 vi.mock("@/lib/runtime-settings/service", async (importOriginal) => ({
   ...(await importOriginal<typeof import("@/lib/runtime-settings/service")>()),

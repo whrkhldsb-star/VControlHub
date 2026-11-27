@@ -21,7 +21,7 @@ func (s share) trackCopy(key, parent string) error {
 	// Rewriting the same parent refreshes the lease even when the backed-up
 	// file's own modification time is years old.
 	_, err = f.WriteString(parent)
-	return errors.Join(err, f.Close())
+	return errors.Join(err, f.Sync(), f.Close(), s.syncParent(path.Join(s.stageDir(), "copy-"+key)))
 }
 
 func (s share) cleanupCopy(marker, key string) {
@@ -124,8 +124,15 @@ func (s share) copyStep(op operation) (result, error) {
 		if err != nil {
 			return out, err
 		}
-		out.Offset, err = io.Copy(dest, src)
-		return out, errors.Join(err, dest.Close())
+		out.Offset, err = io.Copy(dest, operationReader{op, src})
+		if err == nil {
+			err = dest.Sync()
+		}
+		err = errors.Join(err, dest.Close(), syncRoot(parent), op.beforeWrite())
+		if err != nil {
+			err = errors.Join(err, parent.Remove(stage))
+		}
+		return out, err
 	case "backup":
 		f, err := pinned.openRegular(name, os.O_RDONLY)
 		if err != nil {
@@ -161,6 +168,9 @@ func (s share) copyStep(op operation) (result, error) {
 			return out, changed
 		}
 		if err := parent.Remove(from); err != nil {
+			return out, err
+		}
+		if err := syncRoot(parent); err != nil {
 			return out, err
 		}
 		published, err := parent.Lstat(name)

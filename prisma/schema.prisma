@@ -635,26 +635,26 @@ model UserStorageAccess {
 }
 
 model FileEntry {
-  storageVersion String?
-  id             String           @id @default(cuid())
-  name           String
-  entryType      FileEntryType
-  mimeType       String?
-  size           BigInt?
-  checksumSha256 String?
-  relativePath   String
-  storageNodeId  String
-  parentId       String?
-  isDeleted      Boolean          @default(false)
-  deleteBatchId  String?
+  storageVersion   String?
+  id               String           @id @default(cuid())
+  name             String
+  entryType        FileEntryType
+  mimeType         String?
+  size             BigInt?
+  checksumSha256   String?
+  relativePath     String
+  storageNodeId    String
+  parentId         String?
+  isDeleted        Boolean          @default(false)
+  deleteBatchId    String?
   deletedAgentRoot String?
-  createdAt      DateTime         @default(now())
-  updatedAt      DateTime         @updatedAt
-  storageNode    StorageNode      @relation(fields: [storageNodeId], references: [id], onDelete: Cascade)
-  parent         FileEntry?       @relation("FileEntryChildren", fields: [parentId], references: [id], onDelete: SetNull)
-  children       FileEntry[]      @relation("FileEntryChildren")
-  versions       FileVersion[]
-  preferences    FilePreference[]
+  createdAt        DateTime         @default(now())
+  updatedAt        DateTime         @updatedAt
+  storageNode      StorageNode      @relation(fields: [storageNodeId], references: [id], onDelete: Cascade)
+  parent           FileEntry?       @relation("FileEntryChildren", fields: [parentId], references: [id], onDelete: SetNull)
+  children         FileEntry[]      @relation("FileEntryChildren")
+  versions         FileVersion[]
+  preferences      FilePreference[]
 
   @@unique([storageNodeId, relativePath])
   @@index([parentId])
@@ -735,6 +735,7 @@ model AuditLog {
   @@index([action, createdAt])
   @@index([actorId, createdAt])
   @@index([teamId])
+  @@index([teamId, createdAt])
   @@map("audit_logs")
 }
 
@@ -1212,6 +1213,7 @@ model Notification {
 
   @@index([userId, isRead])
   @@index([userId, createdAt])
+  @@index([userId, isRead, createdAt])
   @@index([teamId])
   @@map("notifications")
 }
@@ -1244,6 +1246,7 @@ model SyncJob {
   team   Team?   @relation("TeamSyncJobs", fields: [teamId], references: [id], onDelete: SetNull)
 
   @@index([teamId])
+  @@index([status, updatedAt])
   // FK indexes: deleting a Server (VPS decommission) must not full-scan sync_jobs twice.
   @@index([sourceServerId])
   @@index([targetServerId])
@@ -1272,27 +1275,28 @@ model SyncLog {
   syncJob SyncJob @relation(fields: [syncJobId], references: [id], onDelete: Cascade)
 
   @@index([syncJobId])
+  @@index([syncJobId, startedAt])
   @@map("sync_logs")
 }
 
 model DownloadTask {
   /// New tasks remember which binding they used. Older tasks with neither ID use their server drive.
-  agentStorageNodeId String?
-  agentRootIdentity String?
+  agentStorageNodeId  String?
+  agentRootIdentity   String?
   directStorageNodeId String?
-  id           String             @id @default(cuid())
-  url          String
-  serverId     String
-  targetPath   String
-  fileName     String?
-  status       DownloadTaskStatus @default(PENDING)
-  progress     String?
-  pid          Int?
-  errorMessage String?
-  relayMode    Boolean            @default(false)
-  createdBy    String?
-  createdAt    DateTime           @default(now())
-  updatedAt    DateTime           @updatedAt
+  id                  String             @id @default(cuid())
+  url                 String
+  serverId            String
+  targetPath          String
+  fileName            String?
+  status              DownloadTaskStatus @default(PENDING)
+  progress            String?
+  pid                 Int?
+  errorMessage        String?
+  relayMode           Boolean            @default(false)
+  createdBy           String?
+  createdAt           DateTime           @default(now())
+  updatedAt           DateTime           @updatedAt
 
   /**
    * ── Aria2 RPC integration ──────────────────────
@@ -1322,26 +1326,27 @@ model DownloadTask {
   @@index([status, createdAt])
   @@index([createdAt])
   @@index([teamId])
+  @@index([teamId, createdAt])
   @@map("download_tasks")
 }
 
 model ShareLink {
   agentRootIdentity String?
-  id              String        @id @default(cuid())
-  tokenHash       String        @unique
-  storageNodeId   String
-  path            String
-  entryType       FileEntryType @default(FILE)
-  name            String?
-  expiresAt       DateTime?
-  revokedAt       DateTime?
-  accessCount     Int           @default(0)
-  maxDownloads    Int?
-  passwordHash    String?
-  permissionLevel String        @default("download") // "preview" | "download"
-  createdBy       String?
-  createdAt       DateTime      @default(now())
-  updatedAt       DateTime      @updatedAt
+  id                String        @id @default(cuid())
+  tokenHash         String        @unique
+  storageNodeId     String
+  path              String
+  entryType         FileEntryType @default(FILE)
+  name              String?
+  expiresAt         DateTime?
+  revokedAt         DateTime?
+  accessCount       Int           @default(0)
+  maxDownloads      Int?
+  passwordHash      String?
+  permissionLevel   String        @default("download") // "preview" | "download"
+  createdBy         String?
+  createdAt         DateTime      @default(now())
+  updatedAt         DateTime      @updatedAt
 
   storageNode StorageNode      @relation(fields: [storageNodeId], references: [id], onDelete: Cascade)
   creator     User?            @relation(fields: [createdBy], references: [id], onDelete: SetNull)
@@ -1485,36 +1490,36 @@ model VpsBackupSchedule {
 }
 
 model VpsBackupRecord {
-  id                String    @id @default(cuid())
+  id                 String    @id @default(cuid())
   // null for manual (ad-hoc) triggers; non-null for scheduled runs
-  scheduleId        String?
-  serverId          String
-  backupType        String
+  scheduleId         String?
+  serverId           String
+  backupType         String
   // Persist ad-hoc custom backup paths so retries/manual re-runs do not lose intent.
-  paths             String[]  @default([])
+  paths              String[]  @default([])
   // PENDING | RUNNING | COMPLETED | FAILED — plain string convention
-  status            String    @default("PENDING")
+  status             String    @default("PENDING")
   // When the worker claimed the record (PENDING→RUNNING). Basis for durationMs.
-  startedAt         DateTime?
+  startedAt          DateTime?
   // Wall-clock backup duration in ms (startedAt→completedAt), set on completion.
-  durationMs        Int?
+  durationMs         Int?
   // Path on remote VPS where the backup archive was created (before SFTP download)
-  remotePath        String?
+  remotePath         String?
   // Local storage path after SFTP download (relative to storage root)
-  localPath         String?
-  fileSize          String? // BigInt stored as String
-  checksumSha256    String?
-  errorMessage      String?
-  createdBy         String?
-  createdAt         DateTime  @default(now())
-  updatedAt         DateTime  @updatedAt
-  completedAt       DateTime?
+  localPath          String?
+  fileSize           String? // BigInt stored as String
+  checksumSha256     String?
+  errorMessage       String?
+  createdBy          String?
+  createdAt          DateTime  @default(now())
+  updatedAt          DateTime  @updatedAt
+  completedAt        DateTime?
   // TR-009: best-effort offsite S3 upload status
   offsiteDestination String?
   offsiteVersionId   String?
-  offsiteKey        String?
-  offsiteUploadedAt DateTime?
-  offsiteSize       String?
+  offsiteKey         String?
+  offsiteUploadedAt  DateTime?
+  offsiteSize        String?
 
   schedule VpsBackupSchedule? @relation(fields: [scheduleId], references: [id], onDelete: SetNull)
   server   Server             @relation(fields: [serverId], references: [id], onDelete: Cascade)
@@ -1558,6 +1563,7 @@ model DeploymentRun {
   @@index([status, createdAt])
   @@index([rollbackOfRunId])
   @@index([teamId])
+  @@index([teamId, createdAt])
   // FK indexes for the template / command-request cascade paths.
   @@index([templateId])
   @@index([commandRequestId])
@@ -2520,7 +2526,7 @@ model ItsmConnection {
 model ItsmEvent {
   id           String   @id @default(cuid())
   connectionId String?
-  teamId       String?  // Immutable event-time customer, independent of the connection
+  teamId       String? // Immutable event-time customer, independent of the connection
   ownerBound   Boolean  @default(false) // Older events without provenance stay platform-only
   direction    String // inbound | outbound
   eventType    String
@@ -2539,4 +2545,17 @@ model ItsmEvent {
   @@index([direction, createdAt])
   @@index([status, createdAt])
   @@map("itsm_events")
+}
+
+/// R15 A-02: Persisted single-device session revocations (FK-less for automatic upgrades).
+/// Rows are purged once their token's `expiresAt` passes.
+model RevokedSession {
+  sid       String   @id
+  userId    String
+  expiresAt DateTime
+  revokedAt DateTime @default(now())
+
+  @@index([expiresAt])
+  @@index([userId])
+  @@map("revoked_session_ids")
 }

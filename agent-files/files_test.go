@@ -440,14 +440,14 @@ func TestExpiredCopyAndPersistentJobReceipt(t *testing.T) {
 	if err := root.WriteFile("src", []byte("bytes"), 0600); err != nil {
 		t.Fatal(err)
 	}
-	if _, err := s.handle(operation{Op: "copy", Path: "src", Destination: "dst", deadline: time.Now().Add(-time.Second)}); !errors.Is(err, changed) {
+	if _, err := s.handle(operation{Op: "copy", Path: "src", Destination: "dst", deadline: time.Now().Add(-time.Second)}); !errors.Is(err, context.DeadlineExceeded) {
 		t.Fatal("expired COPY", err)
 	}
 	if _, err := root.Stat("dst"); !errors.Is(err, fs.ErrNotExist) {
 		t.Fatal("expired publish", err)
 	}
 	job := work{ID: "unique-move", Operation: operation{Op: "rename", Path: "src", Destination: "dst", deadline: time.Now().Add(time.Minute)}}
-	answer, err := s.dispatch(job)
+	answer, err := s.dispatch(context.Background(), job)
 	if err != nil || answer.Error != "" {
 		t.Fatalf("first delivery: %v %v", answer, err)
 	}
@@ -458,7 +458,7 @@ func TestExpiredCopyAndPersistentJobReceipt(t *testing.T) {
 	if err := root.WriteFile("src", []byte("new source"), 0600); err != nil {
 		t.Fatal(err)
 	}
-	replayed, err := newProcess.dispatch(job)
+	replayed, err := newProcess.dispatch(context.Background(), job)
 	if err != nil || replayed.Error != "" {
 		t.Fatal("duplicate did not return its original result", err, replayed)
 	}
@@ -517,7 +517,7 @@ func TestExpiredDirectoryOperationsAndExclusiveExecutor(t *testing.T) {
 	}
 	for _, op := range []operation{{Op: "mkdir", Path: "target"}, {Op: "delete", Path: "source"}, {Op: "rename-exclusive", Path: "source", Destination: "target"}, {Op: "copy-step", Step: "promote", Path: "target"}} {
 		op.deadline = time.Now().Add(-time.Second)
-		if _, err = s.handle(op); !errors.Is(err, changed) {
+		if _, err = s.handle(op); !errors.Is(err, context.DeadlineExceeded) {
 			t.Fatalf("%s: %v", op.Op, err)
 		}
 	}
@@ -668,4 +668,81 @@ func TestStatAndListRejectIntraShareSymlinksAndSwapRace(t *testing.T) {
 	}
 	close(stop)
 	wg.Wait()
+}
+
+func TestRecoverQuarantineBoundaries(t *testing.T) {
+	const key = "123456789012345678901234567890ab"
+	for _, tc := range []struct {
+		name, marker                 string
+		capture, live, restore, keep bool
+	}{
+		{"before rename", ".json", false, true, false, false},
+		{"after rename", ".json", true, false, true, false},
+		{"restore conflict", ".json", true, true, false, true},
+		{"confirmed delete", ".confirmed", true, true, false, false},
+		{"after unlink", ".confirmed", false, true, false, false},
+	} {
+		t.Run(tc.name, func(t *testing.T) {
+			root, err := os.OpenRoot(t.TempDir())
+			if err != nil {
+				t.Fatal(err)
+			}
+			defer root.Close()
+			s := share{root: root, writable: true, namespace: "recovery"}
+			q, err := s.deletionDirectory(".")
+			if err != nil {
+				t.Fatal(err)
+			}
+			defer q.Close()
+			if err := (share{root: q}).saveIntent(key+tc.marker, "target"); err != nil {
+				t.Fatal(err)
+			}
+			if tc.live {
+				if err := root.WriteFile("target", []byte("live"), 0600); err != nil {
+					t.Fatal(err)
+				}
+			}
+			if tc.capture {
+				if tc.marker == ".confirmed" {
+					if err := q.Mkdir(key+".entry", 0700); err != nil {
+						t.Fatal(err)
+					}
+					if err := q.WriteFile(key+".entry/remaining", []byte("partial tree"), 0600); err != nil {
+						t.Fatal(err)
+					}
+				} else if err := q.WriteFile(key+".entry", []byte("captured"), 0600); err != nil {
+					t.Fatal(err)
+				}
+			}
+			s.cleanup(time.Now())
+			s.cleanup(time.Now())
+			body, err := root.ReadFile("target")
+			want := "live"
+			if tc.restore {
+				want = "captured"
+			}
+			if err != nil || string(body) != want {
+				t.Fatalf("target: %q %v", body, err)
+			}
+			for _, suffix := range []string{tc.marker, ".entry"} {
+				_, err := q.Lstat(key + suffix)
+				if (tc.keep && err != nil) || (!tc.keep && !errors.Is(err, os.ErrNotExist)) {
+					t.Fatalf("%s: %v", suffix, err)
+				}
+			}
+		})
+	}
+}
+
+func TestStreamCancellation(t *testing.T) {
+	ctx, cancel := context.WithCancel(context.Background())
+	r := operationReader{operation{ctx: ctx}, bytes.NewReader(make([]byte, 128*1024))}
+	buf := make([]byte, 128*1024)
+	if n, err := r.Read(buf); n != 64*1024 || err != nil {
+		t.Fatal(n, err)
+	}
+	cancel()
+	if n, err := r.Read(buf); n != 0 || !errors.Is(err, context.Canceled) {
+		t.Fatal(n, err)
+	}
 }
