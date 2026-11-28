@@ -40,6 +40,17 @@ enum CommandRequestStatus {
   CANCELLED
 }
 
+enum CommandOrigin {
+  USER_UI
+  API
+  AI_CHAT
+  AI_AUTOMATION
+  DEPLOYMENT
+  DEPLOYMENT_ROLLBACK
+  SCHEDULED_TASK
+  PLAYBOOK
+}
+
 enum ActorType {
   USER
   ASSISTANT
@@ -492,6 +503,10 @@ model CommandRequest {
   reason                 String?
   status                 CommandRequestStatus    @default(PENDING_APPROVAL)
   initiatedByType        ActorType
+  origin                 CommandOrigin?
+  riskLevel              String?
+  riskReasons            Json?
+  decisionSource         String?
   requesterId            String
   workerId               String?
   workerHeartbeatAt      DateTime?
@@ -1796,6 +1811,8 @@ enum AiProviderType {
 enum AiAutomationMode {
   ASSISTED
   PLAN_ONLY
+  AUTO
+  FULL_AUTO
 }
 
 model AiProvider {
@@ -1832,9 +1849,11 @@ model AiConversation {
   frequencyPenalty Float            @default(0.0)
   presencePenalty  Float            @default(0.0)
   enableVision     Boolean          @default(false)
-  hostingEnabled   Boolean          @default(false) // AI托管模式：允许AI操作VPS
-  automationMode   AiAutomationMode @default(ASSISTED)
-  createdBy        String
+  hostingEnabled          Boolean          @default(false) // AI托管模式：允许AI操作VPS
+  automationMode          AiAutomationMode @default(ASSISTED)
+  automationModeExpiresAt DateTime?
+  pinnedServerIds         String[]         @default([])
+  createdBy               String
   teamId           String? // Customer at creation. Legacy conversations have no verified customer.
   createdAt        DateTime         @default(now())
   updatedAt        DateTime         @updatedAt
@@ -1950,9 +1969,14 @@ model AiHostedAction {
   actionType     String // list_servers | get_status | read_logs | list_docker_containers | check_service_status | execute_command | restart_service | modify_config | deploy_docker
   actionName     String // 人类可读的操作名称
   params         String               @default("{}") // JSON: 操作参数
-  status         AiHostedActionStatus @default(PENDING_APPROVAL)
-  riskLevel      String               @default("medium") // low | medium | high | critical
-  autoApproved   Boolean              @default(false) // 是否自动批准（安全操作）
+  status           AiHostedActionStatus @default(PENDING_APPROVAL)
+  riskLevel        String               @default("medium") // low | medium | high | critical
+  effectiveRisk    String?
+  riskReasons      Json?
+  decisionSource   String?
+  modeAtDecision   AiAutomationMode?
+  commandRequestId String?
+  autoApproved     Boolean              @default(false) // 是否自动批准（安全操作）
   result         String? // JSON: 执行结果
   errorMessage   String?
   requesterId    String // AI发起时为system user id
@@ -1978,6 +2002,7 @@ model AiHostedAction {
   // these, deleting an AiMessage or a User full-scans this ever-growing table.
   @@index([messageId])
   @@index([requesterId])
+  @@index([commandRequestId])
   @@map("ai_hosted_actions")
 }
 

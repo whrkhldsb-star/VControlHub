@@ -43,6 +43,8 @@ const operationTasksQuerySchema = z.object({
   }).optional(),
   taskType: z.string().trim().min(1).max(64).optional(),
   sort: z.enum(SORT_VALUES).optional(),
+  q: z.string().trim().max(200).optional(),
+  awaitingApproval: z.enum(["1", "true", "0", "false"]).optional(),
   format: z.enum(["csv", "json"]).optional(),
 });
 
@@ -91,6 +93,7 @@ export async function GET(request: Request) {
     },
     async ({ session }) => {
       const q = parseSearchParams(request, operationTasksQuerySchema);
+      const awaitingApproval = q.awaitingApproval === "1" || q.awaitingApproval === "true";
       const result = await listOperationTaskResult({
         limit: q.limit,
         status: parseStatusFilter(q.status),
@@ -98,6 +101,8 @@ export async function GET(request: Request) {
         // narrowed to the enum, by `operationTasksQuerySchema` above.
         taskType: q.taskType,
         sort: q.sort,
+        ...(q.q ? { q: q.q } : {}),
+        ...(awaitingApproval ? { awaitingApproval: true } : {}),
       }, session);
       if (q.format === "csv") {
         return new Response(operationTasksCsv(result.tasks), {

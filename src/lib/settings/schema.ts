@@ -83,6 +83,13 @@ export const SettingKey = z.union([
 	z.literal("retention.trafficSnapshotsDays"),
 	z.literal("retention.terminalJobsDays"),
 	z.literal("ai.knowledgeMaxResults"),
+	z.literal("ai.inlineWaitSeconds"),
+	z.literal("command.approvalPolicy"),
+	z.literal("ai.commandApprovalPolicy"),
+	z.literal("deploy.approvalPolicy"),
+	z.literal("command.selfReview"),
+	z.literal("ai.maxAutomationMode"),
+	z.literal("ai.fullAutoAllowCritical"),
 	// How sync logs in to target servers that follow the platform setting (see sync/target-auth).
 	z.literal("sync.targetAuthDefault"),
 ]);
@@ -171,6 +178,13 @@ export const VALID_SETTING_KEYS: string[] = [
 	"retention.trafficSnapshotsDays",
 	"retention.terminalJobsDays",
 	"ai.knowledgeMaxResults",
+	"ai.inlineWaitSeconds",
+	"command.approvalPolicy",
+	"ai.commandApprovalPolicy",
+	"deploy.approvalPolicy",
+	"command.selfReview",
+	"ai.maxAutomationMode",
+	"ai.fullAutoAllowCritical",
 	"sync.targetAuthDefault",
 ];
 
@@ -233,6 +247,12 @@ export const SETTING_VALUE_SCHEMAS: Partial<Record<SettingKey, z.ZodType<string>
 	"security.turnstileSiteKey": turnstile,
 	"security.turnstileSecretKey": turnstile,
 	"sync.targetAuthDefault": z.enum(["credential", "one-time-key"]),
+	"command.approvalPolicy": z.enum(["always", "high_risk", "never"]),
+	"ai.commandApprovalPolicy": z.enum(["inherit", "always", "high_risk", "never"]),
+	"deploy.approvalPolicy": z.enum(["inherit", "always", "high_risk", "never"]),
+	"command.selfReview": z.enum(["platform_admins", "approvers"]),
+	"ai.maxAutomationMode": z.enum(["plan", "confirm", "auto", "full_auto"]),
+	"ai.fullAutoAllowCritical": bool,
 };
 
 /* ── Sensitive key detection ──────────────────────────────── */

@@ -1,4 +1,5 @@
 import { runtimeNumber, type FieldDef, type SectionDef } from "./field-schema-core";
+import { DEFAULT_APPROVAL_POLICIES as defaults } from "@/lib/command/approval-policy";
 import { IconFolder, IconGauge, IconHistory, IconListChecks, IconLock, IconSiren, IconSparkles } from "@/components/nav-icons";
 
 /**
@@ -152,6 +153,14 @@ export const MONITORING_SETTINGS_SECTIONS: SectionDef[] = [
 	},
 ];
 
+// View metadata supplied by the settings shell. It is never a schema/save key.
+export const AI_POLICY_EDITABLE = "$ui.aiPolicyEditable";
+function policySelect(key: string, defaultValue: string, options: string[], platformOnly = false): FieldDef {
+	return { key, labelKey: `settingsClient.field.${key}.label`, type: "select", defaultValue, riskLevel: "high",
+		options: options.map(value => ({ value, labelKey: `settingsClient.option.approval.${value}` })),
+		...(platformOnly && { disabled: (settings: Record<string, string>) => settings[AI_POLICY_EDITABLE] !== "true", helperTextKey: "settingsClient.approval.platformOnly" }) };
+}
+const policies = ["always", "high_risk", "never"];
 export const AI_SETTINGS_SECTIONS: SectionDef[] = [
 	{
 		id: "ai",
@@ -160,6 +169,20 @@ export const AI_SETTINGS_SECTIONS: SectionDef[] = [
 		descriptionKey: "settingsClient.schema.section.ai.description",
 		defaultOpen: true,
 		saveMessageKey: "settingsClient.schema.section.ai.saveMessage",
-		fields: [knob("ai.knowledgeMaxResults", "8", 1, 20, "low")],
+		fields: [knob("ai.knowledgeMaxResults", "8", 1, 20, "low"), knob("ai.inlineWaitSeconds", "90", 5, 600)],
+	},
+	{
+		id: "commandApproval", icon: IconLock, defaultOpen: true, layout: "grid-2",
+		titleKey: "settingsClient.schema.section.commandApproval.title",
+		descriptionKey: "settingsClient.schema.section.commandApproval.description",
+		saveMessageKey: "settingsClient.schema.section.commandApproval.saveMessage",
+		fields: [
+			policySelect("command.approvalPolicy", defaults.commandApprovalPolicy, policies),
+			policySelect("ai.commandApprovalPolicy", defaults.aiCommandApprovalPolicy, ["inherit", ...policies]),
+			policySelect("deploy.approvalPolicy", defaults.deployApprovalPolicy, ["inherit", ...policies]),
+			policySelect("command.selfReview", defaults.commandSelfReview, ["platform_admins", "approvers"]),
+			policySelect("ai.maxAutomationMode", defaults.aiMaxAutomationMode, ["plan", "confirm", "auto", "full_auto"], true),
+			policySelect("ai.fullAutoAllowCritical", String(defaults.aiFullAutoAllowCritical), ["false", "true"], true),
+		],
 	},
 ];

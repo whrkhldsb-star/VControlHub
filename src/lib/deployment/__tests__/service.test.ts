@@ -86,7 +86,33 @@ describe("deployment service", () => {
     expect(mockPrisma.deploymentSnapshot.create).toHaveBeenCalledWith({
       data: expect.objectContaining({ deployCommand: renderDeploymentCommand("apt install {{pkg}}", { pkg: "nginx" }), rollbackCommand: renderDeploymentCommand("apt remove {{pkg}}", { pkg: "nginx" }), sourceRunId: "dep1" }),
     });
-    expect(commandService.createCommandRequest).toHaveBeenCalledWith(expect.objectContaining({ submissionMode: "assistant" }));
+    expect(commandService.createCommandRequest).toHaveBeenCalledWith(
+      expect.objectContaining({ submissionMode: "assistant" }),
+      undefined,
+      undefined,
+      undefined,
+      { submitterMayExecute: true },
+    );
+  });
+
+  it("propagates submitterMayExecute=false when deploy caller lacks command:execute (Carbon P1-1)", async () => {
+    const deployOnlySession = {
+      userId: "u_deploy_only",
+      roles: [] as never[],
+      permissions: ["deploy:run" as const, "deploy:read" as const, "server:read" as const],
+      currentTeamId: "team_a",
+    };
+    await createDeploymentRunFromTemplate(
+      { templateId: "tmpl1", serverIds: ["srv1"], variables: { pkg: "nginx" }, requesterId: "u_deploy_only" },
+      deployOnlySession,
+    );
+    expect(commandService.createCommandRequest).toHaveBeenCalledWith(
+      expect.objectContaining({ submissionMode: "assistant", requesterId: "u_deploy_only" }),
+      undefined,
+      undefined,
+      undefined,
+      { submitterMayExecute: false },
+    );
   });
 
   it("assigns teamId from session on create when present", async () => {
@@ -99,6 +125,10 @@ describe("deployment service", () => {
     expect(mockPrisma.deploymentRun.create.mock.calls[0]![0].data.teamId).toBe("team_a");
     expect(commandService.createCommandRequest).toHaveBeenCalledWith(
       expect.objectContaining({ teamId: "team_a", submissionMode: "assistant" }),
+      undefined,
+      undefined,
+      undefined,
+      { submitterMayExecute: true },
     );
   });
 
@@ -144,6 +174,10 @@ describe("deployment service", () => {
       expect.objectContaining({
         idempotencyKey: "deployment:dep1",
       }),
+      undefined,
+      undefined,
+      undefined,
+      { submitterMayExecute: true },
     );
   });
 
@@ -194,7 +228,13 @@ describe("deployment service", () => {
     }, PLATFORM);
 
     expect(mockPrisma.deploymentRun.create.mock.calls[0]![0]!.data.serverIds).toEqual(["srv1", "srv2"]);
-    expect(commandService.createCommandRequest).toHaveBeenCalledWith(expect.objectContaining({ serverIds: ["srv1", "srv2"] }));
+    expect(commandService.createCommandRequest).toHaveBeenCalledWith(
+      expect.objectContaining({ serverIds: ["srv1", "srv2"] }),
+      undefined,
+      undefined,
+      undefined,
+      { submitterMayExecute: true },
+    );
     expect(run.commandRequestId).toBe("cmd1");
   });
 
@@ -359,14 +399,20 @@ describe("deployment service", () => {
       teamSession,
     );
 
-    expect(commandService.createCommandRequest).toHaveBeenCalledWith(expect.objectContaining({
-      title: "Rollback deployment: Nginx",
-      command: "apt remove nginx",
-      reason: "bad deploy",
-      serverIds: ["srv1"],
-      submissionMode: "assistant",
-      teamId: "team_a",
-    }));
+    expect(commandService.createCommandRequest).toHaveBeenCalledWith(
+      expect.objectContaining({
+        title: "Rollback deployment: Nginx",
+        command: "apt remove nginx",
+        reason: "bad deploy",
+        serverIds: ["srv1"],
+        submissionMode: "assistant",
+        teamId: "team_a",
+      }),
+      undefined,
+      undefined,
+      undefined,
+      { submitterMayExecute: true },
+    );
     expect(rollback).toMatchObject({ id: "rb1", commandRequestId: "cmd1", status: "PENDING" });
   });
 
@@ -387,14 +433,20 @@ describe("deployment service", () => {
 
     const rollback = await createDeploymentRollbackRun({ sourceRunId: "dep1", requesterId: "u1", reason: "bad deploy" }, PLATFORM);
 
-    expect(commandService.createCommandRequest).toHaveBeenCalledWith(expect.objectContaining({
-      title: "Rollback deployment: Nginx",
-      command: "apt remove nginx",
-      reason: "bad deploy",
-      serverIds: ["srv1"],
-      submissionMode: "assistant",
-      teamId: null,
-    }));
+    expect(commandService.createCommandRequest).toHaveBeenCalledWith(
+      expect.objectContaining({
+        title: "Rollback deployment: Nginx",
+        command: "apt remove nginx",
+        reason: "bad deploy",
+        serverIds: ["srv1"],
+        submissionMode: "assistant",
+        teamId: null,
+      }),
+      undefined,
+      undefined,
+      undefined,
+      { submitterMayExecute: true },
+    );
     expect(rollback).toMatchObject({ id: "rb1", commandRequestId: "cmd1", status: "PENDING" });
   });
 

@@ -33,6 +33,15 @@ function renderList() {
 }
 
 describe("SnippetList", () => {
+  it("offers the starter shelf without management actions to a command creator", async () => {
+    render(<SnippetList snippets={[]} canManage={false} canRun header={{ title: "Library" }} />, { locale: "en" });
+    expect(screen.queryByRole("button", { name: "New snippet" })).toBeNull();
+    expect(screen.queryByText("Save to my snippets")).toBeNull();
+    await userEvent.click(screen.getByRole("tab", { name: "PowerShell" }));
+    const card = screen.getByText("Inspect Windows volumes").closest("article")!;
+    expect(within(card).getByRole("link", { name: "Run on servers…" })).toHaveAttribute("href", "/commands?snippetId=starter%3Awindows-disk-usage");
+    expect(csrfFetch).not.toHaveBeenCalled();
+  });
   let clipboardRestore: (() => void) | null = null;
   beforeEach(() => {
     window.history.replaceState({}, "", "/snippets");

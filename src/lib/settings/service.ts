@@ -14,6 +14,7 @@ import { RUNTIME_SETTING_DEFINITIONS, isRuntimeSettingKey, normalizeRuntimeSetti
 import { rememberRuntimeSettingNumber } from "@/lib/runtime-settings/cached";
 import { invalidatePlatformDefaults } from "@/lib/settings/platform-defaults";
 import { invalidateCachedFlags } from "@/lib/settings/cached-flags";
+import { invalidateApprovalPolicyCache, isApprovalPolicySettingKey } from "@/lib/command/approval-policy-settings";
 
 /* ── Safe decrypt helper ──────────────────────────────────── */
 /**
@@ -87,6 +88,13 @@ const DEFAULTS: Record<string, string> = {
 	"security.turnstileSecretKey": "",
 	// Sync login to target servers that follow the platform setting: the way it always worked unless changed.
 	"sync.targetAuthDefault": "credential",
+	// R19: Command & AI approval policy defaults
+	"command.approvalPolicy": "never",
+	"ai.commandApprovalPolicy": "high_risk",
+	"deploy.approvalPolicy": "always",
+	"command.selfReview": "platform_admins",
+	"ai.maxAutomationMode": "full_auto",
+	"ai.fullAutoAllowCritical": "false",
 	...Object.fromEntries(
 		Object.entries(RUNTIME_SETTING_DEFINITIONS).map(([key, definition]) => [key, String(definition.defaultValue)])
 	),
@@ -260,6 +268,7 @@ export function rememberSaved(entries: Array<{ key: string; value: string }>) {
 	}
 	if (entries.some(({ key }) => key.startsWith("platform."))) invalidatePlatformDefaults();
 	if (entries.some(({ key }) => key === "security.sshEnforceHostKeyPin")) invalidateCachedFlags();
+	if (entries.some(({ key }) => isApprovalPolicySettingKey(key))) invalidateApprovalPolicyCache();
 }
 
 export async function setManySettings(

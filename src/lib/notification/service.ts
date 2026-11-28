@@ -200,6 +200,7 @@ export async function notifyCommandPending(
 	requesterId: string,
 	commandTitle: string,
 	teamId?: string | null,
+	commandRequestId?: string | null,
 ) {
 	// Approvers: platform administrators plus this customer's accounts allowed
 	// to approve. A null-team (legacy) request only reaches administrators.
@@ -208,6 +209,7 @@ export async function notifyCommandPending(
 		select: { id: true },
 		take: 1000,
 	});
+	const actionUrl = commandRequestId ? `/requests?requestId=${encodeURIComponent(commandRequestId)}` : "/requests";
 	await Promise.all(
 		admins
 			.filter((a) => a.id !== requesterId)
@@ -216,7 +218,7 @@ export async function notifyCommandPending(
 					userId: admin.id,
 					type: "command_pending",
 					notice: { code: "commandPending", params: { title: commandTitle } },
-					actionUrl: `/requests`,
+					actionUrl,
 					teamId: teamId ?? null,
 				}),
 			),
@@ -228,6 +230,7 @@ export async function notifyCommandResult(
 	commandTitle: string,
 	status: "approved" | "rejected" | "completed" | "failed" | "cancelled",
 	teamId?: string | null,
+	commandRequestId?: string | null,
 ) {
 	const typeMap = {
 		approved: "command_approved" as NotificationType,
@@ -244,11 +247,12 @@ export async function notifyCommandResult(
 		failed: "commandFailed",
 		cancelled: "commandCancelled",
 	} as const;
+	const actionUrl = commandRequestId ? `/requests?requestId=${encodeURIComponent(commandRequestId)}` : "/requests";
 	return createNotification({
 		userId: requesterId,
 		type: typeMap[status],
 		notice: { code: codeMap[status], params: { title: commandTitle } },
-		actionUrl: "/requests",
+		actionUrl,
 		teamId: teamId ?? null,
 	});
 }

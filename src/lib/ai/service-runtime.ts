@@ -15,7 +15,12 @@ import { ConflictError, NotFoundError, ValidationError } from "@/lib/errors";
 import { allowsKeylessProvider, resolveDefaultProviderBaseUrl, fetchProviderModels, postProviderChat, providerApiRoot, trimProviderBaseUrl } from "./provider-http";
 
 import { usableProviderModelIds } from "./schema";
-import { ACTIVE_GENERATION, GENERATION_EXPIRY_MS } from "./chat-generation";
+import {
+	ACTIVE_GENERATION,
+	GENERATION_EXPIRY_MS,
+	makeGenerationLease,
+	parseGenerationStartedAt,
+} from "./chat-generation";
 import { safeDecryptApiKey } from "./service-crud";
 import { t } from "@/lib/i18n/service-translations";
 import { assertImageOnlyAttachments, toAnthropicMessages } from "./anthropic-messages";
@@ -41,24 +46,137 @@ export async function createMessage(input: {
 	return prisma.$transaction(async (tx) => {
 		const [parent] = await tx.$queryRaw<Array<{ updatedAt: Date }>>`SELECT "updatedAt" FROM ai_conversations WHERE id = ${input.conversationId} FOR UPDATE`;
 		if (!parent) throw new NotFoundError(t("backend.ai.conversationNotFound"));
+		let leaseToken: string | null = null;
 		if (input.expectedUpdatedAt) {
-			const where = { conversationId: input.conversationId, role: "user", toolCallId: ACTIVE_GENERATION };
-			const cutoff = new Date(Date.now() - GENERATION_EXPIRY_MS);
-			if (parent.updatedAt.getTime() !== input.expectedUpdatedAt.getTime() ||
-				await tx.aiMessage.findFirst({ where: { ...where, createdAt: { gt: cutoff } }, select: { id: true } })) {
+			if (parent.updatedAt.getTime() !== input.expectedUpdatedAt.getTime()) {
 				throw new ConflictError(t("backend.concurrency.lockBusy"));
 			}
-			await tx.aiMessage.updateMany({ where: { ...where, createdAt: { lte: cutoff } }, data: { toolCallId: null } });
+			const now = Date.now();
+			const activeRows = await tx.aiMessage.findMany({
+				where: {
+					conversationId: input.conversationId,
+					role: "user",
+					toolCallId: { startsWith: ACTIVE_GENERATION },
+				},
+				select: { id: true, toolCallId: true, createdAt: true },
+			});
+			const expiredIds: string[] = [];
+			for (const row of activeRows) {
+				const startedAt = parseGenerationStartedAt(row.toolCallId, row.createdAt);
+				if (now - startedAt < GENERATION_EXPIRY_MS) {
+					throw new ConflictError(t("backend.concurrency.lockBusy"));
+				}
+				expiredIds.push(row.id);
+			}
+			if (expiredIds.length > 0) {
+				await tx.aiMessage.updateMany({
+					where: { id: { in: expiredIds } },
+					data: { toolCallId: null },
+				});
+			}
+			leaseToken = makeGenerationLease(now);
 		}
 		await tx.aiConversation.update({ where: { id: input.conversationId }, data: { updatedAt: new Date(Math.max(Date.now(), parent.updatedAt.getTime() + 1)) } });
 		return tx.aiMessage.create({ data: {
 			conversationId: input.conversationId, role: input.role, content: input.content,
-			toolCallId: input.expectedUpdatedAt ? ACTIVE_GENERATION : null,
+			toolCallId: leaseToken,
 			toolCalls: input.attachmentMetadata,
 			reasoningContent: input.reasoningContent || null,
 			imageUrls: JSON.stringify(input.imageUrls ?? []), model: input.model || null,
 			inputTokens: input.inputTokens ?? null, outputTokens: input.outputTokens ?? null, latencyMs: input.latencyMs ?? null,
 		} });
+	});
+}
+
+const NON_TERMINAL_HOSTED_STATUSES = new Set(["PENDING_APPROVAL", "APPROVED", "EXECUTING"]);
+
+/**
+ * Re-arm the latest real `role: "user"` message with a fresh timestamped unique
+ * lease for `POST /api/ai/conversations/[id]/continue` without injecting a fake
+ * user message. Verifies under `FOR UPDATE` that:
+ * 1. No live generation lease is active,
+ * 2. `expectedAssistantMessageId` is still the latest non-tool message, and
+ * 3. Its hosted actions are non-empty, all terminal, and have their tool replies persisted.
+ */
+export async function claimContinuationGeneration(input: {
+	conversationId: string;
+	expectedUpdatedAt: Date;
+	expectedAssistantMessageId?: string;
+}) {
+	return prisma.$transaction(async (tx) => {
+		const [parent] = await tx.$queryRaw<Array<{ updatedAt: Date }>>`SELECT "updatedAt" FROM ai_conversations WHERE id = ${input.conversationId} FOR UPDATE`;
+		if (!parent) throw new NotFoundError(t("backend.ai.conversationNotFound"));
+		if (parent.updatedAt.getTime() !== input.expectedUpdatedAt.getTime()) {
+			throw new ConflictError(t("backend.concurrency.lockBusy"));
+		}
+		const now = Date.now();
+		const activeRows = await tx.aiMessage.findMany({
+			where: {
+				conversationId: input.conversationId,
+				role: "user",
+				toolCallId: { startsWith: ACTIVE_GENERATION },
+			},
+			select: { id: true, toolCallId: true, createdAt: true },
+		});
+		const expiredIds: string[] = [];
+		for (const row of activeRows) {
+			const startedAt = parseGenerationStartedAt(row.toolCallId, row.createdAt);
+			if (now - startedAt < GENERATION_EXPIRY_MS) {
+				throw new ConflictError(t("backend.concurrency.lockBusy"));
+			}
+			expiredIds.push(row.id);
+		}
+		if (expiredIds.length > 0) {
+			await tx.aiMessage.updateMany({
+				where: { id: { in: expiredIds } },
+				data: { toolCallId: null },
+			});
+		}
+		if (input.expectedAssistantMessageId) {
+			const latestNonTool = await tx.aiMessage.findFirst({
+				where: { conversationId: input.conversationId, role: { not: "tool" } },
+				orderBy: [{ createdAt: "desc" }, { id: "desc" }],
+				select: { id: true, role: true },
+			});
+			if (!latestNonTool || latestNonTool.role !== "assistant" || latestNonTool.id !== input.expectedAssistantMessageId) {
+				throw new ConflictError(t("backend.concurrency.lockBusy"));
+			}
+			const actions = await tx.aiHostedAction.findMany({
+				where: { conversationId: input.conversationId, messageId: input.expectedAssistantMessageId },
+				select: { id: true, status: true, toolCallId: true, completedAt: true },
+			});
+			if (
+				actions.length === 0 ||
+				actions.some((action) => NON_TERMINAL_HOSTED_STATUSES.has(action.status) || action.completedAt === null)
+			) {
+				throw new ConflictError(t("backend.concurrency.lockBusy"));
+			}
+			const expectedToolIds = actions.filter((action) => Boolean(action.toolCallId)).map((action) => action.id);
+			if (expectedToolIds.length > 0) {
+				const toolMsgCount = await tx.aiMessage.count({
+					where: { id: { in: expectedToolIds }, conversationId: input.conversationId, role: "tool" },
+				});
+				if (toolMsgCount !== expectedToolIds.length) {
+					throw new ConflictError(t("backend.concurrency.lockBusy"));
+				}
+			}
+		}
+		const latestUser = await tx.aiMessage.findFirst({
+			where: { conversationId: input.conversationId, role: "user" },
+			orderBy: [{ createdAt: "desc" }, { id: "desc" }],
+			select: { id: true },
+		});
+		if (!latestUser) throw new ConflictError(t("backend.ai.conversationNotFound"));
+		const leaseToken = makeGenerationLease(now);
+		await tx.aiConversation.update({
+			where: { id: input.conversationId },
+			data: { updatedAt: new Date(Math.max(Date.now(), parent.updatedAt.getTime() + 1)) },
+		});
+		await tx.aiMessage.update({
+			where: { id: latestUser.id },
+			data: { toolCallId: leaseToken },
+		});
+		return { id: latestUser.id, leaseToken };
 	});
 }
 

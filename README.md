@@ -157,6 +157,12 @@ python3 scripts/webdav-http-smoke.py http://127.0.0.1:3000
 - 内部浏览器 API 请求使用统一客户端，CSRF 与特殊请求边界见 [前端请求规范](docs/frontend-fetch-policy.md)。
 - 不要在公开 Issue 中贴出凭据或包含敏感信息的日志。
 
+## 进阶文档与运维指南
+
+- [VPS 部署说明](docs/deploy-vps.md) · [CI 校验与质量门禁](docs/ci-gates.md) · [界面设计规范](docs/ui-system.md)
+- [Windows Agent 设计](docs/windows-agent.md) · [Windows 远程桌面（RDP）](docs/windows-remote-desktop.md) · [RDP 证书固定](docs/rdp-certificate-pinning.md)
+- [公开节点状态展示页](docs/public-status-board.zh-CN.md) · [存储直连访问](docs/storage-direct-access.md) · [断点上传恢复](docs/upload-recovery.md)
+
 ## 参与开发
 
 提交 Issue 时请提供复现步骤、部署方式、预期行为和脱敏日志。提交代码前运行相关测试及类型、lint 检查；涉及路由、权限或翻译时，同时运行对应审计。
@@ -173,12 +179,12 @@ python3 scripts/webdav-http-smoke.py http://127.0.0.1:3000
 <!-- README_METRICS_START -->
 | 指标            | 数量                                             |
 | --------------- | ------------------------------------------------ |
-| 功能页面            | 58                                               |
-| API 路由文件        | 198                                              |
+| 功能页面            | 59                                               |
+| API 路由文件        | 201                                              |
 | 数据模型            | 85                                               |
-| UI 组件           | 85                                               |
+| UI 组件           | 86                                               |
 | Docker 应用模板     | 42 (本地) + 社区源实时同步                                |
-| i18n            | 93 字典文件                                          |
+| i18n            | 94 字典文件                                          |
 <!-- README_METRICS_END -->
 
 通过 `npm run readme:metrics:write` 更新。

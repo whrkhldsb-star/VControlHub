@@ -14,6 +14,7 @@ import { ALL_PERMISSIONS, DEFAULT_ROLE_PERMISSIONS, type Permission, type RoleKe
 
 /** Platform-wide powers: never part of an identity template. */
 export const PLATFORM_ONLY_PERMISSIONS: ReadonlySet<Permission> = new Set<Permission>([
+	"ai:action:full-auto",
 	"announcement:manage",
 	"backup:create",
 	"backup:read",

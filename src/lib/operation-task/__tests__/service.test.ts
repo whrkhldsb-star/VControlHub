@@ -576,9 +576,79 @@ describe("operation task service", () => {
         progress: "后台执行器 worker-1 · 心跳 2026-01-03T00:01:00.000Z",
         workerId: "worker-1",
         workerHeartbeatAt: "2026-01-03T00:01:00.000Z",
-        href: "/deployments",
+        href: "/deployments?deploymentId=dep_running",
       }),
     ]);
+  });
+
+  it("emits exact command deep links, capability flags, and supports q and awaitingApproval filters", async () => {
+    mockPrisma.job.findMany.mockResolvedValue([]);
+    mockPrisma.downloadTask.findMany.mockResolvedValue([]);
+    mockPrisma.commandRequest.findMany.mockResolvedValue([
+      {
+        id: "cmd_pending_1",
+        title: "Restart nginx",
+        status: "PENDING_APPROVAL",
+        riskLevel: "high",
+        origin: "MANUAL",
+        requesterId: "user-other",
+        createdAt: new Date("2026-01-04T00:00:00Z"),
+        updatedAt: new Date("2026-01-04T00:00:00Z"),
+        workerId: null,
+        workerHeartbeatAt: null,
+        requester: { username: "bob", displayName: null },
+        targets: [],
+        executionLogs: [],
+      },
+      {
+        id: "cmd_running_1",
+        title: "Check disk",
+        status: "RUNNING",
+        riskLevel: "low",
+        origin: "MANUAL",
+        requesterId: "admin-1",
+        createdAt: new Date("2026-01-03T00:00:00Z"),
+        updatedAt: new Date("2026-01-03T00:00:00Z"),
+        workerId: null,
+        workerHeartbeatAt: null,
+        requester: { username: "admin", displayName: null },
+        targets: [],
+        executionLogs: [],
+      },
+    ]);
+
+    const adminResult = await listOperationTaskResult(
+      { limit: 10, awaitingApproval: true, q: "nginx" },
+      { ...MANAGER, roles: [...MANAGER.roles] },
+    );
+    expect(adminResult.tasks).toHaveLength(1);
+    expect(adminResult.tasks[0]).toMatchObject({
+      id: "command:cmd_pending_1",
+      commandRequestId: "cmd_pending_1",
+      rawStatus: "PENDING_APPROVAL",
+      href: "/requests?requestId=cmd_pending_1",
+      canInspectCommand: true,
+      canCancelCommand: true,
+      canRerunCommand: true,
+    });
+    // awaitingApproval skips non-approval sources and pushes PENDING_APPROVAL + q into DB where before take (Astra P2-5).
+    expect(mockPrisma.job.findMany).not.toHaveBeenCalled();
+    expect(mockPrisma.downloadTask.findMany).not.toHaveBeenCalled();
+    const cmdWhere = mockPrisma.commandRequest.findMany.mock.calls[0]?.[0]?.where;
+    expect(JSON.stringify(cmdWhere)).toContain('"status":"PENDING_APPROVAL"');
+    expect(JSON.stringify(cmdWhere)).toContain('"contains":"nginx"');
+
+    // Non-owner without command:approve cannot inspect or rerun someone else's command body.
+    const readerResult = await listOperationTaskResult(
+      { limit: 10 },
+      { userId: "reader-1", roles: ["viewer"], currentTeamId: "team-1", permissions: ["task:read", "command:read", "command:create"] },
+    );
+    const otherTask = readerResult.tasks.find((t) => t.sourceId === "cmd_pending_1");
+    expect(otherTask).toMatchObject({
+      canInspectCommand: false,
+      canRerunCommand: false,
+      canCancelCommand: false,
+    });
   });
 
   it("maps a sync job in ERROR to failed, not pending", () => {

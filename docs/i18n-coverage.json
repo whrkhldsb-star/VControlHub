@@ -1,7 +1,7 @@
 {
-  "generatedAt": "2026-11-14T10:23:56.081Z",
+  "generatedAt": "2026-11-28T08:13:42.651Z",
   "summary": {
-    "files": 468,
+    "files": 484,
     "filesWithStrings": 0,
     "totalStrings": 0,
     "coveredStrings": 0,
@@ -11,3277 +11,3389 @@
   "perModule": [],
   "missingByString": [],
   "reportsByFile": {
-    "src/app/account/error.tsx": {
-      "path": "src/app/account/error.tsx",
+    "src\\app\\account\\error.tsx": {
+      "path": "src\\app\\account\\error.tsx",
       "total": 0,
       "covered": 0,
       "missing": 0,
       "candidates": []
     },
-    "src/app/account/loading.tsx": {
-      "path": "src/app/account/loading.tsx",
+    "src\\app\\account\\loading.tsx": {
+      "path": "src\\app\\account\\loading.tsx",
       "total": 0,
       "covered": 0,
       "missing": 0,
       "candidates": []
     },
-    "src/app/account/page.tsx": {
-      "path": "src/app/account/page.tsx",
+    "src\\app\\account\\page.tsx": {
+      "path": "src\\app\\account\\page.tsx",
       "total": 0,
       "covered": 0,
       "missing": 0,
       "candidates": []
     },
-    "src/app/account/password/change-password-form.tsx": {
-      "path": "src/app/account/password/change-password-form.tsx",
+    "src\\app\\account\\password\\change-password-form.tsx": {
+      "path": "src\\app\\account\\password\\change-password-form.tsx",
       "total": 0,
       "covered": 0,
       "missing": 0,
       "candidates": []
     },
-    "src/app/account/password/error.tsx": {
-      "path": "src/app/account/password/error.tsx",
+    "src\\app\\account\\password\\error.tsx": {
+      "path": "src\\app\\account\\password\\error.tsx",
       "total": 0,
       "covered": 0,
       "missing": 0,
       "candidates": []
     },
-    "src/app/account/password/loading.tsx": {
-      "path": "src/app/account/password/loading.tsx",
+    "src\\app\\account\\password\\loading.tsx": {
+      "path": "src\\app\\account\\password\\loading.tsx",
       "total": 0,
       "covered": 0,
       "missing": 0,
       "candidates": []
     },
-    "src/app/account/password/page.tsx": {
-      "path": "src/app/account/password/page.tsx",
+    "src\\app\\account\\password\\page.tsx": {
+      "path": "src\\app\\account\\password\\page.tsx",
       "total": 0,
       "covered": 0,
       "missing": 0,
       "candidates": []
     },
-    "src/app/account/security/page.tsx": {
-      "path": "src/app/account/security/page.tsx",
+    "src\\app\\account\\security\\page.tsx": {
+      "path": "src\\app\\account\\security\\page.tsx",
       "total": 0,
       "covered": 0,
       "missing": 0,
       "candidates": []
     },
-    "src/app/account/security/sign-out-all-devices.tsx": {
-      "path": "src/app/account/security/sign-out-all-devices.tsx",
+    "src\\app\\account\\security\\sign-out-all-devices.tsx": {
+      "path": "src\\app\\account\\security\\sign-out-all-devices.tsx",
       "total": 0,
       "covered": 0,
       "missing": 0,
       "candidates": []
     },
-    "src/app/ai-ops/ai-ops-page-client.tsx": {
-      "path": "src/app/ai-ops/ai-ops-page-client.tsx",
+    "src\\app\\ai-ops\\ai-ops-page-client.tsx": {
+      "path": "src\\app\\ai-ops\\ai-ops-page-client.tsx",
       "total": 0,
       "covered": 0,
       "missing": 0,
       "candidates": []
     },
-    "src/app/ai-ops/ai-ops-sections.tsx": {
-      "path": "src/app/ai-ops/ai-ops-sections.tsx",
+    "src\\app\\ai-ops\\ai-ops-sections.tsx": {
+      "path": "src\\app\\ai-ops\\ai-ops-sections.tsx",
       "total": 0,
       "covered": 0,
       "missing": 0,
       "candidates": []
     },
-    "src/app/ai-ops/error.tsx": {
-      "path": "src/app/ai-ops/error.tsx",
+    "src\\app\\ai-ops\\error.tsx": {
+      "path": "src\\app\\ai-ops\\error.tsx",
       "total": 0,
       "covered": 0,
       "missing": 0,
       "candidates": []
     },
-    "src/app/ai-ops/loading.tsx": {
-      "path": "src/app/ai-ops/loading.tsx",
+    "src\\app\\ai-ops\\loading.tsx": {
+      "path": "src\\app\\ai-ops\\loading.tsx",
       "total": 0,
       "covered": 0,
       "missing": 0,
       "candidates": []
     },
-    "src/app/ai-ops/page.tsx": {
-      "path": "src/app/ai-ops/page.tsx",
+    "src\\app\\ai-ops\\page.tsx": {
+      "path": "src\\app\\ai-ops\\page.tsx",
       "total": 0,
       "covered": 0,
       "missing": 0,
       "candidates": []
     },
-    "src/app/ai/ai-attachments-preview.tsx": {
-      "path": "src/app/ai/ai-attachments-preview.tsx",
+    "src\\app\\ai\\ai-attachments-preview.tsx": {
+      "path": "src\\app\\ai\\ai-attachments-preview.tsx",
       "total": 0,
       "covered": 0,
       "missing": 0,
       "candidates": []
     },
-    "src/app/ai/ai-chat-header.tsx": {
-      "path": "src/app/ai/ai-chat-header.tsx",
+    "src\\app\\ai\\ai-chat-header.tsx": {
+      "path": "src\\app\\ai\\ai-chat-header.tsx",
       "total": 0,
       "covered": 0,
       "missing": 0,
       "candidates": []
     },
-    "src/app/ai/ai-client.tsx": {
-      "path": "src/app/ai/ai-client.tsx",
+    "src\\app\\ai\\ai-client.tsx": {
+      "path": "src\\app\\ai\\ai-client.tsx",
       "total": 0,
       "covered": 0,
       "missing": 0,
       "candidates": []
     },
-    "src/app/ai/ai-copy-button.tsx": {
-      "path": "src/app/ai/ai-copy-button.tsx",
+    "src\\app\\ai\\ai-continue-banner.tsx": {
+      "path": "src\\app\\ai\\ai-continue-banner.tsx",
       "total": 0,
       "covered": 0,
       "missing": 0,
       "candidates": []
     },
-    "src/app/ai/ai-empty-state.tsx": {
-      "path": "src/app/ai/ai-empty-state.tsx",
+    "src\\app\\ai\\ai-copy-button.tsx": {
+      "path": "src\\app\\ai\\ai-copy-button.tsx",
       "total": 0,
       "covered": 0,
       "missing": 0,
       "candidates": []
     },
-    "src/app/ai/ai-input-area-lazy.tsx": {
-      "path": "src/app/ai/ai-input-area-lazy.tsx",
+    "src\\app\\ai\\ai-empty-state.tsx": {
+      "path": "src\\app\\ai\\ai-empty-state.tsx",
       "total": 0,
       "covered": 0,
       "missing": 0,
       "candidates": []
     },
-    "src/app/ai/ai-input-area.tsx": {
-      "path": "src/app/ai/ai-input-area.tsx",
+    "src\\app\\ai\\ai-full-auto-dialog.tsx": {
+      "path": "src\\app\\ai\\ai-full-auto-dialog.tsx",
       "total": 0,
       "covered": 0,
       "missing": 0,
       "candidates": []
     },
-    "src/app/ai/ai-markdown-renderer.tsx": {
-      "path": "src/app/ai/ai-markdown-renderer.tsx",
+    "src\\app\\ai\\ai-input-area-lazy.tsx": {
+      "path": "src\\app\\ai\\ai-input-area-lazy.tsx",
       "total": 0,
       "covered": 0,
       "missing": 0,
       "candidates": []
     },
-    "src/app/ai/ai-message-list.tsx": {
-      "path": "src/app/ai/ai-message-list.tsx",
+    "src\\app\\ai\\ai-input-area.tsx": {
+      "path": "src\\app\\ai\\ai-input-area.tsx",
       "total": 0,
       "covered": 0,
       "missing": 0,
       "candidates": []
     },
-    "src/app/ai/ai-provider-fields.tsx": {
-      "path": "src/app/ai/ai-provider-fields.tsx",
+    "src\\app\\ai\\ai-live-action-panel.tsx": {
+      "path": "src\\app\\ai\\ai-live-action-panel.tsx",
       "total": 0,
       "covered": 0,
       "missing": 0,
       "candidates": []
     },
-    "src/app/ai/ai-provider-panel-lazy.tsx": {
-      "path": "src/app/ai/ai-provider-panel-lazy.tsx",
+    "src\\app\\ai\\ai-markdown-renderer.tsx": {
+      "path": "src\\app\\ai\\ai-markdown-renderer.tsx",
       "total": 0,
       "covered": 0,
       "missing": 0,
       "candidates": []
     },
-    "src/app/ai/ai-provider-panel.tsx": {
-      "path": "src/app/ai/ai-provider-panel.tsx",
+    "src\\app\\ai\\ai-message-list.tsx": {
+      "path": "src\\app\\ai\\ai-message-list.tsx",
       "total": 0,
       "covered": 0,
       "missing": 0,
       "candidates": []
     },
-    "src/app/ai/ai-rename-dialog.tsx": {
-      "path": "src/app/ai/ai-rename-dialog.tsx",
+    "src\\app\\ai\\ai-mode-switcher.tsx": {
+      "path": "src\\app\\ai\\ai-mode-switcher.tsx",
       "total": 0,
       "covered": 0,
       "missing": 0,
       "candidates": []
     },
-    "src/app/ai/ai-settings-model-selector.tsx": {
-      "path": "src/app/ai/ai-settings-model-selector.tsx",
+    "src\\app\\ai\\ai-pinned-servers.tsx": {
+      "path": "src\\app\\ai\\ai-pinned-servers.tsx",
       "total": 0,
       "covered": 0,
       "missing": 0,
       "candidates": []
     },
-    "src/app/ai/ai-settings-panel-lazy.tsx": {
-      "path": "src/app/ai/ai-settings-panel-lazy.tsx",
+    "src\\app\\ai\\ai-provider-fields.tsx": {
+      "path": "src\\app\\ai\\ai-provider-fields.tsx",
       "total": 0,
       "covered": 0,
       "missing": 0,
       "candidates": []
     },
-    "src/app/ai/ai-settings-panel.tsx": {
-      "path": "src/app/ai/ai-settings-panel.tsx",
+    "src\\app\\ai\\ai-provider-panel-lazy.tsx": {
+      "path": "src\\app\\ai\\ai-provider-panel-lazy.tsx",
       "total": 0,
       "covered": 0,
       "missing": 0,
       "candidates": []
     },
-    "src/app/ai/ai-sidebar.tsx": {
-      "path": "src/app/ai/ai-sidebar.tsx",
+    "src\\app\\ai\\ai-provider-panel.tsx": {
+      "path": "src\\app\\ai\\ai-provider-panel.tsx",
       "total": 0,
       "covered": 0,
       "missing": 0,
       "candidates": []
     },
-    "src/app/ai/error.tsx": {
-      "path": "src/app/ai/error.tsx",
+    "src\\app\\ai\\ai-rename-dialog.tsx": {
+      "path": "src\\app\\ai\\ai-rename-dialog.tsx",
       "total": 0,
       "covered": 0,
       "missing": 0,
       "candidates": []
     },
-    "src/app/ai/loading.tsx": {
-      "path": "src/app/ai/loading.tsx",
+    "src\\app\\ai\\ai-settings-model-selector.tsx": {
+      "path": "src\\app\\ai\\ai-settings-model-selector.tsx",
       "total": 0,
       "covered": 0,
       "missing": 0,
       "candidates": []
     },
-    "src/app/ai/page.tsx": {
-      "path": "src/app/ai/page.tsx",
+    "src\\app\\ai\\ai-settings-panel-lazy.tsx": {
+      "path": "src\\app\\ai\\ai-settings-panel-lazy.tsx",
       "total": 0,
       "covered": 0,
       "missing": 0,
       "candidates": []
     },
-    "src/app/alert-rules/alert-incidents-section.tsx": {
-      "path": "src/app/alert-rules/alert-incidents-section.tsx",
+    "src\\app\\ai\\ai-settings-panel.tsx": {
+      "path": "src\\app\\ai\\ai-settings-panel.tsx",
       "total": 0,
       "covered": 0,
       "missing": 0,
       "candidates": []
     },
-    "src/app/alert-rules/alert-rule-card.tsx": {
-      "path": "src/app/alert-rules/alert-rule-card.tsx",
+    "src\\app\\ai\\ai-sidebar.tsx": {
+      "path": "src\\app\\ai\\ai-sidebar.tsx",
       "total": 0,
       "covered": 0,
       "missing": 0,
       "candidates": []
     },
-    "src/app/alert-rules/alert-rule-list-client.tsx": {
-      "path": "src/app/alert-rules/alert-rule-list-client.tsx",
+    "src\\app\\ai\\ai-stream-steps.tsx": {
+      "path": "src\\app\\ai\\ai-stream-steps.tsx",
       "total": 0,
       "covered": 0,
       "missing": 0,
       "candidates": []
     },
-    "src/app/alert-rules/alert-rules-sections.tsx": {
-      "path": "src/app/alert-rules/alert-rules-sections.tsx",
+    "src\\app\\ai\\ai-tool-approval-card.tsx": {
+      "path": "src\\app\\ai\\ai-tool-approval-card.tsx",
       "total": 0,
       "covered": 0,
       "missing": 0,
       "candidates": []
     },
-    "src/app/alert-rules/create-rule-form.tsx": {
-      "path": "src/app/alert-rules/create-rule-form.tsx",
+    "src\\app\\ai\\error.tsx": {
+      "path": "src\\app\\ai\\error.tsx",
       "total": 0,
       "covered": 0,
       "missing": 0,
       "candidates": []
     },
-    "src/app/alert-rules/delete-rule-dialog.tsx": {
-      "path": "src/app/alert-rules/delete-rule-dialog.tsx",
+    "src\\app\\ai\\loading.tsx": {
+      "path": "src\\app\\ai\\loading.tsx",
       "total": 0,
       "covered": 0,
       "missing": 0,
       "candidates": []
     },
-    "src/app/alert-rules/error.tsx": {
-      "path": "src/app/alert-rules/error.tsx",
+    "src\\app\\ai\\page.tsx": {
+      "path": "src\\app\\ai\\page.tsx",
       "total": 0,
       "covered": 0,
       "missing": 0,
       "candidates": []
     },
-    "src/app/alert-rules/loading.tsx": {
-      "path": "src/app/alert-rules/loading.tsx",
+    "src\\app\\alert-rules\\alert-incidents-section.tsx": {
+      "path": "src\\app\\alert-rules\\alert-incidents-section.tsx",
       "total": 0,
       "covered": 0,
       "missing": 0,
       "candidates": []
     },
-    "src/app/alert-rules/page.tsx": {
-      "path": "src/app/alert-rules/page.tsx",
+    "src\\app\\alert-rules\\alert-rule-card.tsx": {
+      "path": "src\\app\\alert-rules\\alert-rule-card.tsx",
       "total": 0,
       "covered": 0,
       "missing": 0,
       "candidates": []
     },
-    "src/app/announcements/announcement-edit-modal.tsx": {
-      "path": "src/app/announcements/announcement-edit-modal.tsx",
+    "src\\app\\alert-rules\\alert-rule-list-client.tsx": {
+      "path": "src\\app\\alert-rules\\alert-rule-list-client.tsx",
       "total": 0,
       "covered": 0,
       "missing": 0,
       "candidates": []
     },
-    "src/app/announcements/announcement-list-client.tsx": {
-      "path": "src/app/announcements/announcement-list-client.tsx",
+    "src\\app\\alert-rules\\alert-rules-sections.tsx": {
+      "path": "src\\app\\alert-rules\\alert-rules-sections.tsx",
       "total": 0,
       "covered": 0,
       "missing": 0,
       "candidates": []
     },
-    "src/app/announcements/announcements-page-client.tsx": {
-      "path": "src/app/announcements/announcements-page-client.tsx",
+    "src\\app\\alert-rules\\create-rule-form.tsx": {
+      "path": "src\\app\\alert-rules\\create-rule-form.tsx",
       "total": 0,
       "covered": 0,
       "missing": 0,
       "candidates": []
     },
-    "src/app/announcements/create-announcement-form.tsx": {
-      "path": "src/app/announcements/create-announcement-form.tsx",
+    "src\\app\\alert-rules\\delete-rule-dialog.tsx": {
+      "path": "src\\app\\alert-rules\\delete-rule-dialog.tsx",
       "total": 0,
       "covered": 0,
       "missing": 0,
       "candidates": []
     },
-    "src/app/announcements/error.tsx": {
-      "path": "src/app/announcements/error.tsx",
+    "src\\app\\alert-rules\\error.tsx": {
+      "path": "src\\app\\alert-rules\\error.tsx",
       "total": 0,
       "covered": 0,
       "missing": 0,
       "candidates": []
     },
-    "src/app/announcements/loading.tsx": {
-      "path": "src/app/announcements/loading.tsx",
+    "src\\app\\alert-rules\\loading.tsx": {
+      "path": "src\\app\\alert-rules\\loading.tsx",
       "total": 0,
       "covered": 0,
       "missing": 0,
       "candidates": []
     },
-    "src/app/announcements/page.tsx": {
-      "path": "src/app/announcements/page.tsx",
+    "src\\app\\alert-rules\\page.tsx": {
+      "path": "src\\app\\alert-rules\\page.tsx",
       "total": 0,
       "covered": 0,
       "missing": 0,
       "candidates": []
     },
-    "src/app/api-docs/api-docs-page-client.tsx": {
-      "path": "src/app/api-docs/api-docs-page-client.tsx",
+    "src\\app\\announcements\\announcement-edit-modal.tsx": {
+      "path": "src\\app\\announcements\\announcement-edit-modal.tsx",
       "total": 0,
       "covered": 0,
       "missing": 0,
       "candidates": []
     },
-    "src/app/api-docs/error.tsx": {
-      "path": "src/app/api-docs/error.tsx",
+    "src\\app\\announcements\\announcement-list-client.tsx": {
+      "path": "src\\app\\announcements\\announcement-list-client.tsx",
       "total": 0,
       "covered": 0,
       "missing": 0,
       "candidates": []
     },
-    "src/app/api-docs/loading.tsx": {
-      "path": "src/app/api-docs/loading.tsx",
+    "src\\app\\announcements\\announcements-page-client.tsx": {
+      "path": "src\\app\\announcements\\announcements-page-client.tsx",
       "total": 0,
       "covered": 0,
       "missing": 0,
       "candidates": []
     },
-    "src/app/api-docs/page.tsx": {
-      "path": "src/app/api-docs/page.tsx",
+    "src\\app\\announcements\\create-announcement-form.tsx": {
+      "path": "src\\app\\announcements\\create-announcement-form.tsx",
       "total": 0,
       "covered": 0,
       "missing": 0,
       "candidates": []
     },
-    "src/app/api-tokens/api-token-manager-client.tsx": {
-      "path": "src/app/api-tokens/api-token-manager-client.tsx",
+    "src\\app\\announcements\\error.tsx": {
+      "path": "src\\app\\announcements\\error.tsx",
       "total": 0,
       "covered": 0,
       "missing": 0,
       "candidates": []
     },
-    "src/app/api-tokens/error.tsx": {
-      "path": "src/app/api-tokens/error.tsx",
+    "src\\app\\announcements\\loading.tsx": {
+      "path": "src\\app\\announcements\\loading.tsx",
       "total": 0,
       "covered": 0,
       "missing": 0,
       "candidates": []
     },
-    "src/app/api-tokens/loading.tsx": {
-      "path": "src/app/api-tokens/loading.tsx",
+    "src\\app\\announcements\\page.tsx": {
+      "path": "src\\app\\announcements\\page.tsx",
       "total": 0,
       "covered": 0,
       "missing": 0,
       "candidates": []
     },
-    "src/app/api-tokens/page.tsx": {
-      "path": "src/app/api-tokens/page.tsx",
+    "src\\app\\api-docs\\api-docs-page-client.tsx": {
+      "path": "src\\app\\api-docs\\api-docs-page-client.tsx",
       "total": 0,
       "covered": 0,
       "missing": 0,
       "candidates": []
     },
-    "src/app/audit/audit-client.tsx": {
-      "path": "src/app/audit/audit-client.tsx",
+    "src\\app\\api-docs\\error.tsx": {
+      "path": "src\\app\\api-docs\\error.tsx",
       "total": 0,
       "covered": 0,
       "missing": 0,
       "candidates": []
     },
-    "src/app/audit/error.tsx": {
-      "path": "src/app/audit/error.tsx",
+    "src\\app\\api-docs\\loading.tsx": {
+      "path": "src\\app\\api-docs\\loading.tsx",
       "total": 0,
       "covered": 0,
       "missing": 0,
       "candidates": []
     },
-    "src/app/audit/loading.tsx": {
-      "path": "src/app/audit/loading.tsx",
+    "src\\app\\api-docs\\page.tsx": {
+      "path": "src\\app\\api-docs\\page.tsx",
       "total": 0,
       "covered": 0,
       "missing": 0,
       "candidates": []
     },
-    "src/app/audit/page.tsx": {
-      "path": "src/app/audit/page.tsx",
+    "src\\app\\api-tokens\\api-token-manager-client.tsx": {
+      "path": "src\\app\\api-tokens\\api-token-manager-client.tsx",
       "total": 0,
       "covered": 0,
       "missing": 0,
       "candidates": []
     },
-    "src/app/backups/backup-drill-button.tsx": {
-      "path": "src/app/backups/backup-drill-button.tsx",
+    "src\\app\\api-tokens\\error.tsx": {
+      "path": "src\\app\\api-tokens\\error.tsx",
       "total": 0,
       "covered": 0,
       "missing": 0,
       "candidates": []
     },
-    "src/app/backups/create-backup-form.tsx": {
-      "path": "src/app/backups/create-backup-form.tsx",
+    "src\\app\\api-tokens\\loading.tsx": {
+      "path": "src\\app\\api-tokens\\loading.tsx",
       "total": 0,
       "covered": 0,
       "missing": 0,
       "candidates": []
     },
-    "src/app/backups/error.tsx": {
-      "path": "src/app/backups/error.tsx",
+    "src\\app\\api-tokens\\page.tsx": {
+      "path": "src\\app\\api-tokens\\page.tsx",
       "total": 0,
       "covered": 0,
       "missing": 0,
       "candidates": []
     },
-    "src/app/backups/loading.tsx": {
-      "path": "src/app/backups/loading.tsx",
+    "src\\app\\audit\\audit-client.tsx": {
+      "path": "src\\app\\audit\\audit-client.tsx",
       "total": 0,
       "covered": 0,
       "missing": 0,
       "candidates": []
     },
-    "src/app/backups/migration-wizard-panel.tsx": {
-      "path": "src/app/backups/migration-wizard-panel.tsx",
+    "src\\app\\audit\\error.tsx": {
+      "path": "src\\app\\audit\\error.tsx",
       "total": 0,
       "covered": 0,
       "missing": 0,
       "candidates": []
     },
-    "src/app/backups/offsite-dry-run-button.tsx": {
-      "path": "src/app/backups/offsite-dry-run-button.tsx",
+    "src\\app\\audit\\loading.tsx": {
+      "path": "src\\app\\audit\\loading.tsx",
       "total": 0,
       "covered": 0,
       "missing": 0,
       "candidates": []
     },
-    "src/app/backups/page.tsx": {
-      "path": "src/app/backups/page.tsx",
+    "src\\app\\audit\\page.tsx": {
+      "path": "src\\app\\audit\\page.tsx",
       "total": 0,
       "covered": 0,
       "missing": 0,
       "candidates": []
     },
-    "src/app/backups/restore-backup-button.tsx": {
-      "path": "src/app/backups/restore-backup-button.tsx",
+    "src\\app\\backups\\backup-drill-button.tsx": {
+      "path": "src\\app\\backups\\backup-drill-button.tsx",
       "total": 0,
       "covered": 0,
       "missing": 0,
       "candidates": []
     },
-    "src/app/backups/retention-button.tsx": {
-      "path": "src/app/backups/retention-button.tsx",
+    "src\\app\\backups\\create-backup-form.tsx": {
+      "path": "src\\app\\backups\\create-backup-form.tsx",
       "total": 0,
       "covered": 0,
       "missing": 0,
       "candidates": []
     },
-    "src/app/backups/retry-backup-record-button.tsx": {
-      "path": "src/app/backups/retry-backup-record-button.tsx",
+    "src\\app\\backups\\error.tsx": {
+      "path": "src\\app\\backups\\error.tsx",
       "total": 0,
       "covered": 0,
       "missing": 0,
       "candidates": []
     },
-    "src/app/backups/schedule-backup-form.tsx": {
-      "path": "src/app/backups/schedule-backup-form.tsx",
+    "src\\app\\backups\\loading.tsx": {
+      "path": "src\\app\\backups\\loading.tsx",
       "total": 0,
       "covered": 0,
       "missing": 0,
       "candidates": []
     },
-    "src/app/backups/void-backup-record-button.tsx": {
-      "path": "src/app/backups/void-backup-record-button.tsx",
+    "src\\app\\backups\\migration-wizard-panel.tsx": {
+      "path": "src\\app\\backups\\migration-wizard-panel.tsx",
       "total": 0,
       "covered": 0,
       "missing": 0,
       "candidates": []
     },
-    "src/app/cost-summary/cost-budget-panel.tsx": {
-      "path": "src/app/cost-summary/cost-budget-panel.tsx",
+    "src\\app\\backups\\offsite-dry-run-button.tsx": {
+      "path": "src\\app\\backups\\offsite-dry-run-button.tsx",
       "total": 0,
       "covered": 0,
       "missing": 0,
       "candidates": []
     },
-    "src/app/cost-summary/cost-cloud-billing-panel.tsx": {
-      "path": "src/app/cost-summary/cost-cloud-billing-panel.tsx",
+    "src\\app\\backups\\page.tsx": {
+      "path": "src\\app\\backups\\page.tsx",
       "total": 0,
       "covered": 0,
       "missing": 0,
       "candidates": []
     },
-    "src/app/cost-summary/cost-entry-dialogs.tsx": {
-      "path": "src/app/cost-summary/cost-entry-dialogs.tsx",
+    "src\\app\\backups\\restore-backup-button.tsx": {
+      "path": "src\\app\\backups\\restore-backup-button.tsx",
       "total": 0,
       "covered": 0,
       "missing": 0,
       "candidates": []
     },
-    "src/app/cost-summary/cost-page-client.tsx": {
-      "path": "src/app/cost-summary/cost-page-client.tsx",
+    "src\\app\\backups\\retention-button.tsx": {
+      "path": "src\\app\\backups\\retention-button.tsx",
       "total": 0,
       "covered": 0,
       "missing": 0,
       "candidates": []
     },
-    "src/app/cost-summary/error.tsx": {
-      "path": "src/app/cost-summary/error.tsx",
+    "src\\app\\backups\\retry-backup-record-button.tsx": {
+      "path": "src\\app\\backups\\retry-backup-record-button.tsx",
       "total": 0,
       "covered": 0,
       "missing": 0,
       "candidates": []
     },
-    "src/app/cost-summary/loading.tsx": {
-      "path": "src/app/cost-summary/loading.tsx",
+    "src\\app\\backups\\schedule-backup-form.tsx": {
+      "path": "src\\app\\backups\\schedule-backup-form.tsx",
       "total": 0,
       "covered": 0,
       "missing": 0,
       "candidates": []
     },
-    "src/app/cost-summary/page.tsx": {
-      "path": "src/app/cost-summary/page.tsx",
+    "src\\app\\backups\\void-backup-record-button.tsx": {
+      "path": "src\\app\\backups\\void-backup-record-button.tsx",
       "total": 0,
       "covered": 0,
       "missing": 0,
       "candidates": []
     },
-    "src/app/customers/customer-members-dialog.tsx": {
-      "path": "src/app/customers/customer-members-dialog.tsx",
+    "src\\app\\commands\\direct-command-composer.tsx": {
+      "path": "src\\app\\commands\\direct-command-composer.tsx",
       "total": 0,
       "covered": 0,
       "missing": 0,
       "candidates": []
     },
-    "src/app/customers/customers-client.tsx": {
-      "path": "src/app/customers/customers-client.tsx",
+    "src\\app\\commands\\page.tsx": {
+      "path": "src\\app\\commands\\page.tsx",
       "total": 0,
       "covered": 0,
       "missing": 0,
       "candidates": []
     },
-    "src/app/customers/identity-templates-section.tsx": {
-      "path": "src/app/customers/identity-templates-section.tsx",
+    "src\\app\\cost-summary\\cost-budget-panel.tsx": {
+      "path": "src\\app\\cost-summary\\cost-budget-panel.tsx",
       "total": 0,
       "covered": 0,
       "missing": 0,
       "candidates": []
     },
-    "src/app/customers/page.tsx": {
-      "path": "src/app/customers/page.tsx",
+    "src\\app\\cost-summary\\cost-cloud-billing-panel.tsx": {
+      "path": "src\\app\\cost-summary\\cost-cloud-billing-panel.tsx",
       "total": 0,
       "covered": 0,
       "missing": 0,
       "candidates": []
     },
-    "src/app/dashboard-analytics-panel.tsx": {
-      "path": "src/app/dashboard-analytics-panel.tsx",
+    "src\\app\\cost-summary\\cost-entry-dialogs.tsx": {
+      "path": "src\\app\\cost-summary\\cost-entry-dialogs.tsx",
       "total": 0,
       "covered": 0,
       "missing": 0,
       "candidates": []
     },
-    "src/app/dashboard-attention.tsx": {
-      "path": "src/app/dashboard-attention.tsx",
+    "src\\app\\cost-summary\\cost-page-client.tsx": {
+      "path": "src\\app\\cost-summary\\cost-page-client.tsx",
       "total": 0,
       "covered": 0,
       "missing": 0,
       "candidates": []
     },
-    "src/app/dashboard-content.tsx": {
-      "path": "src/app/dashboard-content.tsx",
+    "src\\app\\cost-summary\\error.tsx": {
+      "path": "src\\app\\cost-summary\\error.tsx",
       "total": 0,
       "covered": 0,
       "missing": 0,
       "candidates": []
     },
-    "src/app/dashboard-customize-toolbar.tsx": {
-      "path": "src/app/dashboard-customize-toolbar.tsx",
+    "src\\app\\cost-summary\\loading.tsx": {
+      "path": "src\\app\\cost-summary\\loading.tsx",
       "total": 0,
       "covered": 0,
       "missing": 0,
       "candidates": []
     },
-    "src/app/dashboard-localized-sections.tsx": {
-      "path": "src/app/dashboard-localized-sections.tsx",
+    "src\\app\\cost-summary\\page.tsx": {
+      "path": "src\\app\\cost-summary\\page.tsx",
       "total": 0,
       "covered": 0,
       "missing": 0,
       "candidates": []
     },
-    "src/app/dashboard-preference-client.tsx": {
-      "path": "src/app/dashboard-preference-client.tsx",
+    "src\\app\\customers\\customer-members-dialog.tsx": {
+      "path": "src\\app\\customers\\customer-members-dialog.tsx",
       "total": 0,
       "covered": 0,
       "missing": 0,
       "candidates": []
     },
-    "src/app/dashboard-setup-checklist.tsx": {
-      "path": "src/app/dashboard-setup-checklist.tsx",
+    "src\\app\\customers\\customers-client.tsx": {
+      "path": "src\\app\\customers\\customers-client.tsx",
       "total": 0,
       "covered": 0,
       "missing": 0,
       "candidates": []
     },
-    "src/app/dashboard/error.tsx": {
-      "path": "src/app/dashboard/error.tsx",
+    "src\\app\\customers\\identity-templates-section.tsx": {
+      "path": "src\\app\\customers\\identity-templates-section.tsx",
       "total": 0,
       "covered": 0,
       "missing": 0,
       "candidates": []
     },
-    "src/app/dashboard/loading.tsx": {
-      "path": "src/app/dashboard/loading.tsx",
+    "src\\app\\customers\\page.tsx": {
+      "path": "src\\app\\customers\\page.tsx",
       "total": 0,
       "covered": 0,
       "missing": 0,
       "candidates": []
     },
-    "src/app/dashboard/page.tsx": {
-      "path": "src/app/dashboard/page.tsx",
+    "src\\app\\dashboard-analytics-panel.tsx": {
+      "path": "src\\app\\dashboard-analytics-panel.tsx",
       "total": 0,
       "covered": 0,
       "missing": 0,
       "candidates": []
     },
-    "src/app/deployments/deployment-export-panel.tsx": {
-      "path": "src/app/deployments/deployment-export-panel.tsx",
+    "src\\app\\dashboard-attention.tsx": {
+      "path": "src\\app\\dashboard-attention.tsx",
       "total": 0,
       "covered": 0,
       "missing": 0,
       "candidates": []
     },
-    "src/app/deployments/deployment-export-preview.tsx": {
-      "path": "src/app/deployments/deployment-export-preview.tsx",
+    "src\\app\\dashboard-content.tsx": {
+      "path": "src\\app\\dashboard-content.tsx",
       "total": 0,
       "covered": 0,
       "missing": 0,
       "candidates": []
     },
-    "src/app/deployments/deployment-export-tree.tsx": {
-      "path": "src/app/deployments/deployment-export-tree.tsx",
+    "src\\app\\dashboard-customize-toolbar.tsx": {
+      "path": "src\\app\\dashboard-customize-toolbar.tsx",
       "total": 0,
       "covered": 0,
       "missing": 0,
       "candidates": []
     },
-    "src/app/deployments/deployment-launch-form.tsx": {
-      "path": "src/app/deployments/deployment-launch-form.tsx",
+    "src\\app\\dashboard-feature-map.tsx": {
+      "path": "src\\app\\dashboard-feature-map.tsx",
       "total": 0,
       "covered": 0,
       "missing": 0,
       "candidates": []
     },
-    "src/app/deployments/error.tsx": {
-      "path": "src/app/deployments/error.tsx",
+    "src\\app\\dashboard-localized-sections.tsx": {
+      "path": "src\\app\\dashboard-localized-sections.tsx",
       "total": 0,
       "covered": 0,
       "missing": 0,
       "candidates": []
     },
-    "src/app/deployments/loading.tsx": {
-      "path": "src/app/deployments/loading.tsx",
+    "src\\app\\dashboard-preference-client.tsx": {
+      "path": "src\\app\\dashboard-preference-client.tsx",
       "total": 0,
       "covered": 0,
       "missing": 0,
       "candidates": []
     },
-    "src/app/deployments/page.tsx": {
-      "path": "src/app/deployments/page.tsx",
+    "src\\app\\dashboard-setup-checklist.tsx": {
+      "path": "src\\app\\dashboard-setup-checklist.tsx",
       "total": 0,
       "covered": 0,
       "missing": 0,
       "candidates": []
     },
-    "src/app/deployments/resend-deploy-button.tsx": {
-      "path": "src/app/deployments/resend-deploy-button.tsx",
+    "src\\app\\dashboard\\error.tsx": {
+      "path": "src\\app\\dashboard\\error.tsx",
       "total": 0,
       "covered": 0,
       "missing": 0,
       "candidates": []
     },
-    "src/app/deployments/rollback-deploy-button.tsx": {
-      "path": "src/app/deployments/rollback-deploy-button.tsx",
+    "src\\app\\dashboard\\loading.tsx": {
+      "path": "src\\app\\dashboard\\loading.tsx",
       "total": 0,
       "covered": 0,
       "missing": 0,
       "candidates": []
     },
-    "src/app/docker/docker-container-card.tsx": {
-      "path": "src/app/docker/docker-container-card.tsx",
+    "src\\app\\dashboard\\page.tsx": {
+      "path": "src\\app\\dashboard\\page.tsx",
       "total": 0,
       "covered": 0,
       "missing": 0,
       "candidates": []
     },
-    "src/app/docker/docker-container-list.tsx": {
-      "path": "src/app/docker/docker-container-list.tsx",
+    "src\\app\\deployments\\deployment-export-panel.tsx": {
+      "path": "src\\app\\deployments\\deployment-export-panel.tsx",
       "total": 0,
       "covered": 0,
       "missing": 0,
       "candidates": []
     },
-    "src/app/docker/docker-dialogs.tsx": {
-      "path": "src/app/docker/docker-dialogs.tsx",
+    "src\\app\\deployments\\deployment-export-preview.tsx": {
+      "path": "src\\app\\deployments\\deployment-export-preview.tsx",
       "total": 0,
       "covered": 0,
       "missing": 0,
       "candidates": []
     },
-    "src/app/docker/docker-page-client.tsx": {
-      "path": "src/app/docker/docker-page-client.tsx",
+    "src\\app\\deployments\\deployment-export-tree.tsx": {
+      "path": "src\\app\\deployments\\deployment-export-tree.tsx",
       "total": 0,
       "covered": 0,
       "missing": 0,
       "candidates": []
     },
-    "src/app/docker/docker-resources-panel.tsx": {
-      "path": "src/app/docker/docker-resources-panel.tsx",
+    "src\\app\\deployments\\deployment-launch-form.tsx": {
+      "path": "src\\app\\deployments\\deployment-launch-form.tsx",
       "total": 0,
       "covered": 0,
       "missing": 0,
       "candidates": []
     },
-    "src/app/docker/error.tsx": {
-      "path": "src/app/docker/error.tsx",
+    "src\\app\\deployments\\error.tsx": {
+      "path": "src\\app\\deployments\\error.tsx",
       "total": 0,
       "covered": 0,
       "missing": 0,
       "candidates": []
     },
-    "src/app/docker/loading.tsx": {
-      "path": "src/app/docker/loading.tsx",
+    "src\\app\\deployments\\loading.tsx": {
+      "path": "src\\app\\deployments\\loading.tsx",
       "total": 0,
       "covered": 0,
       "missing": 0,
       "candidates": []
     },
-    "src/app/docker/page.tsx": {
-      "path": "src/app/docker/page.tsx",
+    "src\\app\\deployments\\page.tsx": {
+      "path": "src\\app\\deployments\\page.tsx",
       "total": 0,
       "covered": 0,
       "missing": 0,
       "candidates": []
     },
-    "src/app/downloads/create-download-form-lazy.tsx": {
-      "path": "src/app/downloads/create-download-form-lazy.tsx",
+    "src\\app\\deployments\\resend-deploy-button.tsx": {
+      "path": "src\\app\\deployments\\resend-deploy-button.tsx",
       "total": 0,
       "covered": 0,
       "missing": 0,
       "candidates": []
     },
-    "src/app/downloads/create-download-form.tsx": {
-      "path": "src/app/downloads/create-download-form.tsx",
+    "src\\app\\deployments\\rollback-deploy-button.tsx": {
+      "path": "src\\app\\deployments\\rollback-deploy-button.tsx",
       "total": 0,
       "covered": 0,
       "missing": 0,
       "candidates": []
     },
-    "src/app/downloads/downloads-client.tsx": {
-      "path": "src/app/downloads/downloads-client.tsx",
+    "src\\app\\docker\\docker-container-card.tsx": {
+      "path": "src\\app\\docker\\docker-container-card.tsx",
       "total": 0,
       "covered": 0,
       "missing": 0,
       "candidates": []
     },
-    "src/app/downloads/downloads-task-row.tsx": {
-      "path": "src/app/downloads/downloads-task-row.tsx",
+    "src\\app\\docker\\docker-container-list.tsx": {
+      "path": "src\\app\\docker\\docker-container-list.tsx",
       "total": 0,
       "covered": 0,
       "missing": 0,
       "candidates": []
     },
-    "src/app/downloads/error.tsx": {
-      "path": "src/app/downloads/error.tsx",
+    "src\\app\\docker\\docker-dialogs.tsx": {
+      "path": "src\\app\\docker\\docker-dialogs.tsx",
       "total": 0,
       "covered": 0,
       "missing": 0,
       "candidates": []
     },
-    "src/app/downloads/loading.tsx": {
-      "path": "src/app/downloads/loading.tsx",
+    "src\\app\\docker\\docker-page-client.tsx": {
+      "path": "src\\app\\docker\\docker-page-client.tsx",
       "total": 0,
       "covered": 0,
       "missing": 0,
       "candidates": []
     },
-    "src/app/downloads/page.tsx": {
-      "path": "src/app/downloads/page.tsx",
+    "src\\app\\docker\\docker-resources-panel.tsx": {
+      "path": "src\\app\\docker\\docker-resources-panel.tsx",
       "total": 0,
       "covered": 0,
       "missing": 0,
       "candidates": []
     },
-    "src/app/error.tsx": {
-      "path": "src/app/error.tsx",
+    "src\\app\\docker\\error.tsx": {
+      "path": "src\\app\\docker\\error.tsx",
       "total": 0,
       "covered": 0,
       "missing": 0,
       "candidates": []
     },
-    "src/app/files/drive-sidebar.tsx": {
-      "path": "src/app/files/drive-sidebar.tsx",
+    "src\\app\\docker\\loading.tsx": {
+      "path": "src\\app\\docker\\loading.tsx",
       "total": 0,
       "covered": 0,
       "missing": 0,
       "candidates": []
     },
-    "src/app/files/drive-toolbar.tsx": {
-      "path": "src/app/files/drive-toolbar.tsx",
+    "src\\app\\docker\\page.tsx": {
+      "path": "src\\app\\docker\\page.tsx",
       "total": 0,
       "covered": 0,
       "missing": 0,
       "candidates": []
     },
-    "src/app/files/error.tsx": {
-      "path": "src/app/files/error.tsx",
+    "src\\app\\downloads\\create-download-form-lazy.tsx": {
+      "path": "src\\app\\downloads\\create-download-form-lazy.tsx",
       "total": 0,
       "covered": 0,
       "missing": 0,
       "candidates": []
     },
-    "src/app/files/file-actions.tsx": {
-      "path": "src/app/files/file-actions.tsx",
+    "src\\app\\downloads\\create-download-form.tsx": {
+      "path": "src\\app\\downloads\\create-download-form.tsx",
       "total": 0,
       "covered": 0,
       "missing": 0,
       "candidates": []
     },
-    "src/app/files/file-detail-panel-lazy.tsx": {
-      "path": "src/app/files/file-detail-panel-lazy.tsx",
+    "src\\app\\downloads\\downloads-client.tsx": {
+      "path": "src\\app\\downloads\\downloads-client.tsx",
       "total": 0,
       "covered": 0,
       "missing": 0,
       "candidates": []
     },
-    "src/app/files/file-detail-panel.tsx": {
-      "path": "src/app/files/file-detail-panel.tsx",
+    "src\\app\\downloads\\downloads-task-row.tsx": {
+      "path": "src\\app\\downloads\\downloads-task-row.tsx",
       "total": 0,
       "covered": 0,
       "missing": 0,
       "candidates": []
     },
-    "src/app/files/file-entry-icons.tsx": {
-      "path": "src/app/files/file-entry-icons.tsx",
+    "src\\app\\downloads\\error.tsx": {
+      "path": "src\\app\\downloads\\error.tsx",
       "total": 0,
       "covered": 0,
       "missing": 0,
       "candidates": []
     },
-    "src/app/files/file-entry-menu.tsx": {
-      "path": "src/app/files/file-entry-menu.tsx",
+    "src\\app\\downloads\\loading.tsx": {
+      "path": "src\\app\\downloads\\loading.tsx",
       "total": 0,
       "covered": 0,
       "missing": 0,
       "candidates": []
     },
-    "src/app/files/file-list-client.tsx": {
-      "path": "src/app/files/file-list-client.tsx",
+    "src\\app\\downloads\\page.tsx": {
+      "path": "src\\app\\downloads\\page.tsx",
       "total": 0,
       "covered": 0,
       "missing": 0,
       "candidates": []
     },
-    "src/app/files/file-list-empty-state.tsx": {
-      "path": "src/app/files/file-list-empty-state.tsx",
+    "src\\app\\error.tsx": {
+      "path": "src\\app\\error.tsx",
       "total": 0,
       "covered": 0,
       "missing": 0,
       "candidates": []
     },
-    "src/app/files/file-list-views.tsx": {
-      "path": "src/app/files/file-list-views.tsx",
+    "src\\app\\files\\drive-sidebar.tsx": {
+      "path": "src\\app\\files\\drive-sidebar.tsx",
       "total": 0,
       "covered": 0,
       "missing": 0,
       "candidates": []
     },
-    "src/app/files/file-operation-controls.tsx": {
-      "path": "src/app/files/file-operation-controls.tsx",
+    "src\\app\\files\\drive-toolbar.tsx": {
+      "path": "src\\app\\files\\drive-toolbar.tsx",
       "total": 0,
       "covered": 0,
       "missing": 0,
       "candidates": []
     },
-    "src/app/files/file-preferences-client.tsx": {
-      "path": "src/app/files/file-preferences-client.tsx",
+    "src\\app\\files\\error.tsx": {
+      "path": "src\\app\\files\\error.tsx",
       "total": 0,
       "covered": 0,
       "missing": 0,
       "candidates": []
     },
-    "src/app/files/file-upload-dropzone-lazy.tsx": {
-      "path": "src/app/files/file-upload-dropzone-lazy.tsx",
+    "src\\app\\files\\file-actions.tsx": {
+      "path": "src\\app\\files\\file-actions.tsx",
       "total": 0,
       "covered": 0,
       "missing": 0,
       "candidates": []
     },
-    "src/app/files/file-version-history-panel.tsx": {
-      "path": "src/app/files/file-version-history-panel.tsx",
+    "src\\app\\files\\file-detail-panel-lazy.tsx": {
+      "path": "src\\app\\files\\file-detail-panel-lazy.tsx",
       "total": 0,
       "covered": 0,
       "missing": 0,
       "candidates": []
     },
-    "src/app/files/files-browser-spa.tsx": {
-      "path": "src/app/files/files-browser-spa.tsx",
+    "src\\app\\files\\file-detail-panel.tsx": {
+      "path": "src\\app\\files\\file-detail-panel.tsx",
       "total": 0,
       "covered": 0,
       "missing": 0,
       "candidates": []
     },
-    "src/app/files/files-subpage-nav.tsx": {
-      "path": "src/app/files/files-subpage-nav.tsx",
+    "src\\app\\files\\file-entry-icons.tsx": {
+      "path": "src\\app\\files\\file-entry-icons.tsx",
       "total": 0,
       "covered": 0,
       "missing": 0,
       "candidates": []
     },
-    "src/app/files/folder-destination-picker.tsx": {
-      "path": "src/app/files/folder-destination-picker.tsx",
+    "src\\app\\files\\file-entry-menu.tsx": {
+      "path": "src\\app\\files\\file-entry-menu.tsx",
       "total": 0,
       "covered": 0,
       "missing": 0,
       "candidates": []
     },
-    "src/app/files/image-lightbox.tsx": {
-      "path": "src/app/files/image-lightbox.tsx",
+    "src\\app\\files\\file-list-client.tsx": {
+      "path": "src\\app\\files\\file-list-client.tsx",
       "total": 0,
       "covered": 0,
       "missing": 0,
       "candidates": []
     },
-    "src/app/files/loading.tsx": {
-      "path": "src/app/files/loading.tsx",
+    "src\\app\\files\\file-list-empty-state.tsx": {
+      "path": "src\\app\\files\\file-list-empty-state.tsx",
       "total": 0,
       "covered": 0,
       "missing": 0,
       "candidates": []
     },
-    "src/app/files/page.tsx": {
-      "path": "src/app/files/page.tsx",
+    "src\\app\\files\\file-list-views.tsx": {
+      "path": "src\\app\\files\\file-list-views.tsx",
       "total": 0,
       "covered": 0,
       "missing": 0,
       "candidates": []
     },
-    "src/app/files/permanent-delete-button.tsx": {
-      "path": "src/app/files/permanent-delete-button.tsx",
+    "src\\app\\files\\file-operation-controls.tsx": {
+      "path": "src\\app\\files\\file-operation-controls.tsx",
       "total": 0,
       "covered": 0,
       "missing": 0,
       "candidates": []
     },
-    "src/app/files/preview/archive-preview-client.tsx": {
-      "path": "src/app/files/preview/archive-preview-client.tsx",
+    "src\\app\\files\\file-preferences-client.tsx": {
+      "path": "src\\app\\files\\file-preferences-client.tsx",
       "total": 0,
       "covered": 0,
       "missing": 0,
       "candidates": []
     },
-    "src/app/files/preview/csv-preview-client.tsx": {
-      "path": "src/app/files/preview/csv-preview-client.tsx",
+    "src\\app\\files\\file-upload-dropzone-lazy.tsx": {
+      "path": "src\\app\\files\\file-upload-dropzone-lazy.tsx",
       "total": 0,
       "covered": 0,
       "missing": 0,
       "candidates": []
     },
-    "src/app/files/preview/diff-review-dialog.tsx": {
-      "path": "src/app/files/preview/diff-review-dialog.tsx",
+    "src\\app\\files\\file-version-history-panel.tsx": {
+      "path": "src\\app\\files\\file-version-history-panel.tsx",
       "total": 0,
       "covered": 0,
       "missing": 0,
       "candidates": []
     },
-    "src/app/files/preview/editor-find-bar.tsx": {
-      "path": "src/app/files/preview/editor-find-bar.tsx",
+    "src\\app\\files\\files-browser-spa.tsx": {
+      "path": "src\\app\\files\\files-browser-spa.tsx",
       "total": 0,
       "covered": 0,
       "missing": 0,
       "candidates": []
     },
-    "src/app/files/preview/error.tsx": {
-      "path": "src/app/files/preview/error.tsx",
+    "src\\app\\files\\files-subpage-nav.tsx": {
+      "path": "src\\app\\files\\files-subpage-nav.tsx",
       "total": 0,
       "covered": 0,
       "missing": 0,
       "candidates": []
     },
-    "src/app/files/preview/find-bar-lazy.tsx": {
-      "path": "src/app/files/preview/find-bar-lazy.tsx",
+    "src\\app\\files\\folder-destination-picker.tsx": {
+      "path": "src\\app\\files\\folder-destination-picker.tsx",
       "total": 0,
       "covered": 0,
       "missing": 0,
       "candidates": []
     },
-    "src/app/files/preview/find-bar.tsx": {
-      "path": "src/app/files/preview/find-bar.tsx",
+    "src\\app\\files\\image-lightbox.tsx": {
+      "path": "src\\app\\files\\image-lightbox.tsx",
       "total": 0,
       "covered": 0,
       "missing": 0,
       "candidates": []
     },
-    "src/app/files/preview/loading.tsx": {
-      "path": "src/app/files/preview/loading.tsx",
+    "src\\app\\files\\loading.tsx": {
+      "path": "src\\app\\files\\loading.tsx",
       "total": 0,
       "covered": 0,
       "missing": 0,
       "candidates": []
     },
-    "src/app/files/preview/markdown-preview-client.tsx": {
-      "path": "src/app/files/preview/markdown-preview-client.tsx",
+    "src\\app\\files\\page.tsx": {
+      "path": "src\\app\\files\\page.tsx",
       "total": 0,
       "covered": 0,
       "missing": 0,
       "candidates": []
     },
-    "src/app/files/preview/media-preview-client.tsx": {
-      "path": "src/app/files/preview/media-preview-client.tsx",
+    "src\\app\\files\\permanent-delete-button.tsx": {
+      "path": "src\\app\\files\\permanent-delete-button.tsx",
       "total": 0,
       "covered": 0,
       "missing": 0,
       "candidates": []
     },
-    "src/app/files/preview/office-preview-client.tsx": {
-      "path": "src/app/files/preview/office-preview-client.tsx",
+    "src\\app\\files\\preview\\archive-preview-client.tsx": {
+      "path": "src\\app\\files\\preview\\archive-preview-client.tsx",
       "total": 0,
       "covered": 0,
       "missing": 0,
       "candidates": []
     },
-    "src/app/files/preview/page.tsx": {
-      "path": "src/app/files/preview/page.tsx",
+    "src\\app\\files\\preview\\csv-preview-client.tsx": {
+      "path": "src\\app\\files\\preview\\csv-preview-client.tsx",
       "total": 0,
       "covered": 0,
       "missing": 0,
       "candidates": []
     },
-    "src/app/files/preview/text-preview-client.tsx": {
-      "path": "src/app/files/preview/text-preview-client.tsx",
+    "src\\app\\files\\preview\\diff-review-dialog.tsx": {
+      "path": "src\\app\\files\\preview\\diff-review-dialog.tsx",
       "total": 0,
       "covered": 0,
       "missing": 0,
       "candidates": []
     },
-    "src/app/files/preview/text-preview-renderers.tsx": {
-      "path": "src/app/files/preview/text-preview-renderers.tsx",
+    "src\\app\\files\\preview\\editor-find-bar.tsx": {
+      "path": "src\\app\\files\\preview\\editor-find-bar.tsx",
       "total": 0,
       "covered": 0,
       "missing": 0,
       "candidates": []
     },
-    "src/app/files/preview/text-preview-states.tsx": {
-      "path": "src/app/files/preview/text-preview-states.tsx",
+    "src\\app\\files\\preview\\error.tsx": {
+      "path": "src\\app\\files\\preview\\error.tsx",
       "total": 0,
       "covered": 0,
       "missing": 0,
       "candidates": []
     },
-    "src/app/files/recent-downloads-panel.tsx": {
-      "path": "src/app/files/recent-downloads-panel.tsx",
+    "src\\app\\files\\preview\\find-bar-lazy.tsx": {
+      "path": "src\\app\\files\\preview\\find-bar-lazy.tsx",
       "total": 0,
       "covered": 0,
       "missing": 0,
       "candidates": []
     },
-    "src/app/files/recent-downloads/error.tsx": {
-      "path": "src/app/files/recent-downloads/error.tsx",
+    "src\\app\\files\\preview\\find-bar.tsx": {
+      "path": "src\\app\\files\\preview\\find-bar.tsx",
       "total": 0,
       "covered": 0,
       "missing": 0,
       "candidates": []
     },
-    "src/app/files/recent-downloads/loading.tsx": {
-      "path": "src/app/files/recent-downloads/loading.tsx",
+    "src\\app\\files\\preview\\loading.tsx": {
+      "path": "src\\app\\files\\preview\\loading.tsx",
       "total": 0,
       "covered": 0,
       "missing": 0,
       "candidates": []
     },
-    "src/app/files/recent-downloads/page.tsx": {
-      "path": "src/app/files/recent-downloads/page.tsx",
+    "src\\app\\files\\preview\\markdown-preview-client.tsx": {
+      "path": "src\\app\\files\\preview\\markdown-preview-client.tsx",
       "total": 0,
       "covered": 0,
       "missing": 0,
       "candidates": []
     },
-    "src/app/files/recent-downloads/recent-downloads-client.tsx": {
-      "path": "src/app/files/recent-downloads/recent-downloads-client.tsx",
+    "src\\app\\files\\preview\\media-preview-client.tsx": {
+      "path": "src\\app\\files\\preview\\media-preview-client.tsx",
       "total": 0,
       "covered": 0,
       "missing": 0,
       "candidates": []
     },
-    "src/app/files/recycle-bin-section-client.tsx": {
-      "path": "src/app/files/recycle-bin-section-client.tsx",
+    "src\\app\\files\\preview\\office-preview-client.tsx": {
+      "path": "src\\app\\files\\preview\\office-preview-client.tsx",
       "total": 0,
       "covered": 0,
       "missing": 0,
       "candidates": []
     },
-    "src/app/files/recycle-bin/error.tsx": {
-      "path": "src/app/files/recycle-bin/error.tsx",
+    "src\\app\\files\\preview\\page.tsx": {
+      "path": "src\\app\\files\\preview\\page.tsx",
       "total": 0,
       "covered": 0,
       "missing": 0,
       "candidates": []
     },
-    "src/app/files/recycle-bin/loading.tsx": {
-      "path": "src/app/files/recycle-bin/loading.tsx",
+    "src\\app\\files\\preview\\text-preview-client.tsx": {
+      "path": "src\\app\\files\\preview\\text-preview-client.tsx",
       "total": 0,
       "covered": 0,
       "missing": 0,
       "candidates": []
     },
-    "src/app/files/recycle-bin/page.tsx": {
-      "path": "src/app/files/recycle-bin/page.tsx",
+    "src\\app\\files\\preview\\text-preview-renderers.tsx": {
+      "path": "src\\app\\files\\preview\\text-preview-renderers.tsx",
       "total": 0,
       "covered": 0,
       "missing": 0,
       "candidates": []
     },
-    "src/app/files/restore-button.tsx": {
-      "path": "src/app/files/restore-button.tsx",
+    "src\\app\\files\\preview\\text-preview-states.tsx": {
+      "path": "src\\app\\files\\preview\\text-preview-states.tsx",
       "total": 0,
       "covered": 0,
       "missing": 0,
       "candidates": []
     },
-    "src/app/files/search/error.tsx": {
-      "path": "src/app/files/search/error.tsx",
+    "src\\app\\files\\recent-downloads-panel.tsx": {
+      "path": "src\\app\\files\\recent-downloads-panel.tsx",
       "total": 0,
       "covered": 0,
       "missing": 0,
       "candidates": []
     },
-    "src/app/files/search/files-search-client.tsx": {
-      "path": "src/app/files/search/files-search-client.tsx",
+    "src\\app\\files\\recent-downloads\\error.tsx": {
+      "path": "src\\app\\files\\recent-downloads\\error.tsx",
       "total": 0,
       "covered": 0,
       "missing": 0,
       "candidates": []
     },
-    "src/app/files/search/loading.tsx": {
-      "path": "src/app/files/search/loading.tsx",
+    "src\\app\\files\\recent-downloads\\loading.tsx": {
+      "path": "src\\app\\files\\recent-downloads\\loading.tsx",
       "total": 0,
       "covered": 0,
       "missing": 0,
       "candidates": []
     },
-    "src/app/files/search/page.tsx": {
-      "path": "src/app/files/search/page.tsx",
+    "src\\app\\files\\recent-downloads\\page.tsx": {
+      "path": "src\\app\\files\\recent-downloads\\page.tsx",
       "total": 0,
       "covered": 0,
       "missing": 0,
       "candidates": []
     },
-    "src/app/files/storage-node-manager.tsx": {
-      "path": "src/app/files/storage-node-manager.tsx",
+    "src\\app\\files\\recent-downloads\\recent-downloads-client.tsx": {
+      "path": "src\\app\\files\\recent-downloads\\recent-downloads-client.tsx",
       "total": 0,
       "covered": 0,
       "missing": 0,
       "candidates": []
     },
-    "src/app/files/sync/error.tsx": {
-      "path": "src/app/files/sync/error.tsx",
+    "src\\app\\files\\recycle-bin-section-client.tsx": {
+      "path": "src\\app\\files\\recycle-bin-section-client.tsx",
       "total": 0,
       "covered": 0,
       "missing": 0,
       "candidates": []
     },
-    "src/app/files/sync/loading.tsx": {
-      "path": "src/app/files/sync/loading.tsx",
+    "src\\app\\files\\recycle-bin\\error.tsx": {
+      "path": "src\\app\\files\\recycle-bin\\error.tsx",
       "total": 0,
       "covered": 0,
       "missing": 0,
       "candidates": []
     },
-    "src/app/files/sync/page.tsx": {
-      "path": "src/app/files/sync/page.tsx",
+    "src\\app\\files\\recycle-bin\\loading.tsx": {
+      "path": "src\\app\\files\\recycle-bin\\loading.tsx",
       "total": 0,
       "covered": 0,
       "missing": 0,
       "candidates": []
     },
-    "src/app/files/unified-file-search.tsx": {
-      "path": "src/app/files/unified-file-search.tsx",
+    "src\\app\\files\\recycle-bin\\page.tsx": {
+      "path": "src\\app\\files\\recycle-bin\\page.tsx",
       "total": 0,
       "covered": 0,
       "missing": 0,
       "candidates": []
     },
-    "src/app/files/use-file-list-sort.tsx": {
-      "path": "src/app/files/use-file-list-sort.tsx",
+    "src\\app\\files\\restore-button.tsx": {
+      "path": "src\\app\\files\\restore-button.tsx",
       "total": 0,
       "covered": 0,
       "missing": 0,
       "candidates": []
     },
-    "src/app/files/webdav/error.tsx": {
-      "path": "src/app/files/webdav/error.tsx",
+    "src\\app\\files\\search\\error.tsx": {
+      "path": "src\\app\\files\\search\\error.tsx",
       "total": 0,
       "covered": 0,
       "missing": 0,
       "candidates": []
     },
-    "src/app/files/webdav/loading.tsx": {
-      "path": "src/app/files/webdav/loading.tsx",
+    "src\\app\\files\\search\\files-search-client.tsx": {
+      "path": "src\\app\\files\\search\\files-search-client.tsx",
       "total": 0,
       "covered": 0,
       "missing": 0,
       "candidates": []
     },
-    "src/app/files/webdav/page.tsx": {
-      "path": "src/app/files/webdav/page.tsx",
+    "src\\app\\files\\search\\loading.tsx": {
+      "path": "src\\app\\files\\search\\loading.tsx",
       "total": 0,
       "covered": 0,
       "missing": 0,
       "candidates": []
     },
-    "src/app/global-error.tsx": {
-      "path": "src/app/global-error.tsx",
+    "src\\app\\files\\search\\page.tsx": {
+      "path": "src\\app\\files\\search\\page.tsx",
       "total": 0,
       "covered": 0,
       "missing": 0,
       "candidates": []
     },
-    "src/app/health/active-incidents-banner.tsx": {
-      "path": "src/app/health/active-incidents-banner.tsx",
+    "src\\app\\files\\storage-node-manager.tsx": {
+      "path": "src\\app\\files\\storage-node-manager.tsx",
       "total": 0,
       "covered": 0,
       "missing": 0,
       "candidates": []
     },
-    "src/app/health/capacity-forecast-panel.tsx": {
-      "path": "src/app/health/capacity-forecast-panel.tsx",
+    "src\\app\\files\\sync\\error.tsx": {
+      "path": "src\\app\\files\\sync\\error.tsx",
       "total": 0,
       "covered": 0,
       "missing": 0,
       "candidates": []
     },
-    "src/app/health/error.tsx": {
-      "path": "src/app/health/error.tsx",
+    "src\\app\\files\\sync\\loading.tsx": {
+      "path": "src\\app\\files\\sync\\loading.tsx",
       "total": 0,
       "covered": 0,
       "missing": 0,
       "candidates": []
     },
-    "src/app/health/health-dashboard-parts.tsx": {
-      "path": "src/app/health/health-dashboard-parts.tsx",
+    "src\\app\\files\\sync\\page.tsx": {
+      "path": "src\\app\\files\\sync\\page.tsx",
       "total": 0,
       "covered": 0,
       "missing": 0,
       "candidates": []
     },
-    "src/app/health/loading.tsx": {
-      "path": "src/app/health/loading.tsx",
+    "src\\app\\files\\unified-file-search.tsx": {
+      "path": "src\\app\\files\\unified-file-search.tsx",
       "total": 0,
       "covered": 0,
       "missing": 0,
       "candidates": []
     },
-    "src/app/health/page.tsx": {
-      "path": "src/app/health/page.tsx",
+    "src\\app\\files\\use-file-list-sort.tsx": {
+      "path": "src\\app\\files\\use-file-list-sort.tsx",
       "total": 0,
       "covered": 0,
       "missing": 0,
       "candidates": []
     },
-    "src/app/health/sparkline-chart-lazy.tsx": {
-      "path": "src/app/health/sparkline-chart-lazy.tsx",
+    "src\\app\\files\\webdav\\error.tsx": {
+      "path": "src\\app\\files\\webdav\\error.tsx",
       "total": 0,
       "covered": 0,
       "missing": 0,
       "candidates": []
     },
-    "src/app/health/sparkline-chart.tsx": {
-      "path": "src/app/health/sparkline-chart.tsx",
+    "src\\app\\files\\webdav\\loading.tsx": {
+      "path": "src\\app\\files\\webdav\\loading.tsx",
       "total": 0,
       "covered": 0,
       "missing": 0,
       "candidates": []
     },
-    "src/app/health/system-health-client.tsx": {
-      "path": "src/app/health/system-health-client.tsx",
+    "src\\app\\files\\webdav\\page.tsx": {
+      "path": "src\\app\\files\\webdav\\page.tsx",
       "total": 0,
       "covered": 0,
       "missing": 0,
       "candidates": []
     },
-    "src/app/image-bed/error.tsx": {
-      "path": "src/app/image-bed/error.tsx",
+    "src\\app\\global-error.tsx": {
+      "path": "src\\app\\global-error.tsx",
       "total": 0,
       "covered": 0,
       "missing": 0,
       "candidates": []
     },
-    "src/app/image-bed/image-bed-grid-and-modals.tsx": {
-      "path": "src/app/image-bed/image-bed-grid-and-modals.tsx",
+    "src\\app\\health\\active-incidents-banner.tsx": {
+      "path": "src\\app\\health\\active-incidents-banner.tsx",
       "total": 0,
       "covered": 0,
       "missing": 0,
       "candidates": []
     },
-    "src/app/image-bed/image-bed-page-client.tsx": {
-      "path": "src/app/image-bed/image-bed-page-client.tsx",
+    "src\\app\\health\\capacity-forecast-panel.tsx": {
+      "path": "src\\app\\health\\capacity-forecast-panel.tsx",
       "total": 0,
       "covered": 0,
       "missing": 0,
       "candidates": []
     },
-    "src/app/image-bed/image-bed-sections.tsx": {
-      "path": "src/app/image-bed/image-bed-sections.tsx",
+    "src\\app\\health\\error.tsx": {
+      "path": "src\\app\\health\\error.tsx",
       "total": 0,
       "covered": 0,
       "missing": 0,
       "candidates": []
     },
-    "src/app/image-bed/image-preview-modal-lazy.tsx": {
-      "path": "src/app/image-bed/image-preview-modal-lazy.tsx",
+    "src\\app\\health\\health-dashboard-parts.tsx": {
+      "path": "src\\app\\health\\health-dashboard-parts.tsx",
       "total": 0,
       "covered": 0,
       "missing": 0,
       "candidates": []
     },
-    "src/app/image-bed/image-preview-modal.tsx": {
-      "path": "src/app/image-bed/image-preview-modal.tsx",
+    "src\\app\\health\\loading.tsx": {
+      "path": "src\\app\\health\\loading.tsx",
       "total": 0,
       "covered": 0,
       "missing": 0,
       "candidates": []
     },
-    "src/app/image-bed/loading.tsx": {
-      "path": "src/app/image-bed/loading.tsx",
+    "src\\app\\health\\page.tsx": {
+      "path": "src\\app\\health\\page.tsx",
       "total": 0,
       "covered": 0,
       "missing": 0,
       "candidates": []
     },
-    "src/app/image-bed/page.tsx": {
-      "path": "src/app/image-bed/page.tsx",
+    "src\\app\\health\\sparkline-chart-lazy.tsx": {
+      "path": "src\\app\\health\\sparkline-chart-lazy.tsx",
       "total": 0,
       "covered": 0,
       "missing": 0,
       "candidates": []
     },
-    "src/app/itsm/error.tsx": {
-      "path": "src/app/itsm/error.tsx",
+    "src\\app\\health\\sparkline-chart.tsx": {
+      "path": "src\\app\\health\\sparkline-chart.tsx",
       "total": 0,
       "covered": 0,
       "missing": 0,
       "candidates": []
     },
-    "src/app/itsm/itsm-connection-form.tsx": {
-      "path": "src/app/itsm/itsm-connection-form.tsx",
+    "src\\app\\health\\system-health-client.tsx": {
+      "path": "src\\app\\health\\system-health-client.tsx",
       "total": 0,
       "covered": 0,
       "missing": 0,
       "candidates": []
     },
-    "src/app/itsm/itsm-page-client.tsx": {
-      "path": "src/app/itsm/itsm-page-client.tsx",
+    "src\\app\\image-bed\\error.tsx": {
+      "path": "src\\app\\image-bed\\error.tsx",
       "total": 0,
       "covered": 0,
       "missing": 0,
       "candidates": []
     },
-    "src/app/itsm/loading.tsx": {
-      "path": "src/app/itsm/loading.tsx",
+    "src\\app\\image-bed\\image-bed-grid-and-modals.tsx": {
+      "path": "src\\app\\image-bed\\image-bed-grid-and-modals.tsx",
       "total": 0,
       "covered": 0,
       "missing": 0,
       "candidates": []
     },
-    "src/app/itsm/page.tsx": {
-      "path": "src/app/itsm/page.tsx",
+    "src\\app\\image-bed\\image-bed-page-client.tsx": {
+      "path": "src\\app\\image-bed\\image-bed-page-client.tsx",
       "total": 0,
       "covered": 0,
       "missing": 0,
       "candidates": []
     },
-    "src/app/knowledge/error.tsx": {
-      "path": "src/app/knowledge/error.tsx",
+    "src\\app\\image-bed\\image-bed-sections.tsx": {
+      "path": "src\\app\\image-bed\\image-bed-sections.tsx",
       "total": 0,
       "covered": 0,
       "missing": 0,
       "candidates": []
     },
-    "src/app/knowledge/knowledge-client.tsx": {
-      "path": "src/app/knowledge/knowledge-client.tsx",
+    "src\\app\\image-bed\\image-preview-modal-lazy.tsx": {
+      "path": "src\\app\\image-bed\\image-preview-modal-lazy.tsx",
       "total": 0,
       "covered": 0,
       "missing": 0,
       "candidates": []
     },
-    "src/app/knowledge/loading.tsx": {
-      "path": "src/app/knowledge/loading.tsx",
+    "src\\app\\image-bed\\image-preview-modal.tsx": {
+      "path": "src\\app\\image-bed\\image-preview-modal.tsx",
       "total": 0,
       "covered": 0,
       "missing": 0,
       "candidates": []
     },
-    "src/app/knowledge/page.tsx": {
-      "path": "src/app/knowledge/page.tsx",
+    "src\\app\\image-bed\\loading.tsx": {
+      "path": "src\\app\\image-bed\\loading.tsx",
       "total": 0,
       "covered": 0,
       "missing": 0,
       "candidates": []
     },
-    "src/app/layout.tsx": {
-      "path": "src/app/layout.tsx",
+    "src\\app\\image-bed\\page.tsx": {
+      "path": "src\\app\\image-bed\\page.tsx",
       "total": 0,
       "covered": 0,
       "missing": 0,
       "candidates": []
     },
-    "src/app/loading.tsx": {
-      "path": "src/app/loading.tsx",
+    "src\\app\\itsm\\error.tsx": {
+      "path": "src\\app\\itsm\\error.tsx",
       "total": 0,
       "covered": 0,
       "missing": 0,
       "candidates": []
     },
-    "src/app/login/error.tsx": {
-      "path": "src/app/login/error.tsx",
+    "src\\app\\itsm\\itsm-connection-form.tsx": {
+      "path": "src\\app\\itsm\\itsm-connection-form.tsx",
       "total": 0,
       "covered": 0,
       "missing": 0,
       "candidates": []
     },
-    "src/app/login/loading.tsx": {
-      "path": "src/app/login/loading.tsx",
+    "src\\app\\itsm\\itsm-page-client.tsx": {
+      "path": "src\\app\\itsm\\itsm-page-client.tsx",
       "total": 0,
       "covered": 0,
       "missing": 0,
       "candidates": []
     },
-    "src/app/login/login-form.tsx": {
-      "path": "src/app/login/login-form.tsx",
+    "src\\app\\itsm\\loading.tsx": {
+      "path": "src\\app\\itsm\\loading.tsx",
       "total": 0,
       "covered": 0,
       "missing": 0,
       "candidates": []
     },
-    "src/app/login/page.tsx": {
-      "path": "src/app/login/page.tsx",
+    "src\\app\\itsm\\page.tsx": {
+      "path": "src\\app\\itsm\\page.tsx",
       "total": 0,
       "covered": 0,
       "missing": 0,
       "candidates": []
     },
-    "src/app/login/verify-2fa/error.tsx": {
-      "path": "src/app/login/verify-2fa/error.tsx",
+    "src\\app\\knowledge\\error.tsx": {
+      "path": "src\\app\\knowledge\\error.tsx",
       "total": 0,
       "covered": 0,
       "missing": 0,
       "candidates": []
     },
-    "src/app/login/verify-2fa/loading.tsx": {
-      "path": "src/app/login/verify-2fa/loading.tsx",
+    "src\\app\\knowledge\\knowledge-client.tsx": {
+      "path": "src\\app\\knowledge\\knowledge-client.tsx",
       "total": 0,
       "covered": 0,
       "missing": 0,
       "candidates": []
     },
-    "src/app/login/verify-2fa/page.tsx": {
-      "path": "src/app/login/verify-2fa/page.tsx",
+    "src\\app\\knowledge\\loading.tsx": {
+      "path": "src\\app\\knowledge\\loading.tsx",
       "total": 0,
       "covered": 0,
       "missing": 0,
       "candidates": []
     },
-    "src/app/login/verify-2fa/verify-2fa-form.tsx": {
-      "path": "src/app/login/verify-2fa/verify-2fa-form.tsx",
+    "src\\app\\knowledge\\page.tsx": {
+      "path": "src\\app\\knowledge\\page.tsx",
       "total": 0,
       "covered": 0,
       "missing": 0,
       "candidates": []
     },
-    "src/app/media/[id]/error.tsx": {
-      "path": "src/app/media/[id]/error.tsx",
+    "src\\app\\layout.tsx": {
+      "path": "src\\app\\layout.tsx",
       "total": 0,
       "covered": 0,
       "missing": 0,
       "candidates": []
     },
-    "src/app/media/[id]/loading.tsx": {
-      "path": "src/app/media/[id]/loading.tsx",
+    "src\\app\\loading.tsx": {
+      "path": "src\\app\\loading.tsx",
       "total": 0,
       "covered": 0,
       "missing": 0,
       "candidates": []
     },
-    "src/app/media/[id]/page.tsx": {
-      "path": "src/app/media/[id]/page.tsx",
+    "src\\app\\login\\error.tsx": {
+      "path": "src\\app\\login\\error.tsx",
       "total": 0,
       "covered": 0,
       "missing": 0,
       "candidates": []
     },
-    "src/app/media/error.tsx": {
-      "path": "src/app/media/error.tsx",
+    "src\\app\\login\\loading.tsx": {
+      "path": "src\\app\\login\\loading.tsx",
       "total": 0,
       "covered": 0,
       "missing": 0,
       "candidates": []
     },
-    "src/app/media/loading.tsx": {
-      "path": "src/app/media/loading.tsx",
+    "src\\app\\login\\login-form.tsx": {
+      "path": "src\\app\\login\\login-form.tsx",
       "total": 0,
       "covered": 0,
       "missing": 0,
       "candidates": []
     },
-    "src/app/media/media-filter-links.tsx": {
-      "path": "src/app/media/media-filter-links.tsx",
+    "src\\app\\login\\page.tsx": {
+      "path": "src\\app\\login\\page.tsx",
       "total": 0,
       "covered": 0,
       "missing": 0,
       "candidates": []
     },
-    "src/app/media/media-image-upload-panel.tsx": {
-      "path": "src/app/media/media-image-upload-panel.tsx",
+    "src\\app\\login\\verify-2fa\\error.tsx": {
+      "path": "src\\app\\login\\verify-2fa\\error.tsx",
       "total": 0,
       "covered": 0,
       "missing": 0,
       "candidates": []
     },
-    "src/app/media/media-item-card.tsx": {
-      "path": "src/app/media/media-item-card.tsx",
+    "src\\app\\login\\verify-2fa\\loading.tsx": {
+      "path": "src\\app\\login\\verify-2fa\\loading.tsx",
       "total": 0,
       "covered": 0,
       "missing": 0,
       "candidates": []
     },
-    "src/app/media/media-item-cover.tsx": {
-      "path": "src/app/media/media-item-cover.tsx",
+    "src\\app\\login\\verify-2fa\\page.tsx": {
+      "path": "src\\app\\login\\verify-2fa\\page.tsx",
       "total": 0,
       "covered": 0,
       "missing": 0,
       "candidates": []
     },
-    "src/app/media/media-scan-button.tsx": {
-      "path": "src/app/media/media-scan-button.tsx",
+    "src\\app\\login\\verify-2fa\\verify-2fa-form.tsx": {
+      "path": "src\\app\\login\\verify-2fa\\verify-2fa-form.tsx",
       "total": 0,
       "covered": 0,
       "missing": 0,
       "candidates": []
     },
-    "src/app/media/page.tsx": {
-      "path": "src/app/media/page.tsx",
+    "src\\app\\media\\[id]\\error.tsx": {
+      "path": "src\\app\\media\\[id]\\error.tsx",
       "total": 0,
       "covered": 0,
       "missing": 0,
       "candidates": []
     },
-    "src/app/monitoring/error.tsx": {
-      "path": "src/app/monitoring/error.tsx",
+    "src\\app\\media\\[id]\\loading.tsx": {
+      "path": "src\\app\\media\\[id]\\loading.tsx",
       "total": 0,
       "covered": 0,
       "missing": 0,
       "candidates": []
     },
-    "src/app/monitoring/loading.tsx": {
-      "path": "src/app/monitoring/loading.tsx",
+    "src\\app\\media\\[id]\\page.tsx": {
+      "path": "src\\app\\media\\[id]\\page.tsx",
       "total": 0,
       "covered": 0,
       "missing": 0,
       "candidates": []
     },
-    "src/app/monitoring/monitoring-page-client.tsx": {
-      "path": "src/app/monitoring/monitoring-page-client.tsx",
+    "src\\app\\media\\error.tsx": {
+      "path": "src\\app\\media\\error.tsx",
       "total": 0,
       "covered": 0,
       "missing": 0,
       "candidates": []
     },
-    "src/app/monitoring/page.tsx": {
-      "path": "src/app/monitoring/page.tsx",
+    "src\\app\\media\\loading.tsx": {
+      "path": "src\\app\\media\\loading.tsx",
       "total": 0,
       "covered": 0,
       "missing": 0,
       "candidates": []
     },
-    "src/app/not-found.tsx": {
-      "path": "src/app/not-found.tsx",
+    "src\\app\\media\\media-filter-links.tsx": {
+      "path": "src\\app\\media\\media-filter-links.tsx",
       "total": 0,
       "covered": 0,
       "missing": 0,
       "candidates": []
     },
-    "src/app/notifications/error.tsx": {
-      "path": "src/app/notifications/error.tsx",
+    "src\\app\\media\\media-image-upload-panel.tsx": {
+      "path": "src\\app\\media\\media-image-upload-panel.tsx",
       "total": 0,
       "covered": 0,
       "missing": 0,
       "candidates": []
     },
-    "src/app/notifications/loading.tsx": {
-      "path": "src/app/notifications/loading.tsx",
+    "src\\app\\media\\media-item-card.tsx": {
+      "path": "src\\app\\media\\media-item-card.tsx",
       "total": 0,
       "covered": 0,
       "missing": 0,
       "candidates": []
     },
-    "src/app/notifications/notification-list-client.tsx": {
-      "path": "src/app/notifications/notification-list-client.tsx",
+    "src\\app\\media\\media-item-cover.tsx": {
+      "path": "src\\app\\media\\media-item-cover.tsx",
       "total": 0,
       "covered": 0,
       "missing": 0,
       "candidates": []
     },
-    "src/app/notifications/page.tsx": {
-      "path": "src/app/notifications/page.tsx",
+    "src\\app\\media\\media-scan-button.tsx": {
+      "path": "src\\app\\media\\media-scan-button.tsx",
       "total": 0,
       "covered": 0,
       "missing": 0,
       "candidates": []
     },
-    "src/app/offline/error.tsx": {
-      "path": "src/app/offline/error.tsx",
+    "src\\app\\media\\page.tsx": {
+      "path": "src\\app\\media\\page.tsx",
       "total": 0,
       "covered": 0,
       "missing": 0,
       "candidates": []
     },
-    "src/app/offline/loading.tsx": {
-      "path": "src/app/offline/loading.tsx",
+    "src\\app\\monitoring\\error.tsx": {
+      "path": "src\\app\\monitoring\\error.tsx",
       "total": 0,
       "covered": 0,
       "missing": 0,
       "candidates": []
     },
-    "src/app/offline/page.tsx": {
-      "path": "src/app/offline/page.tsx",
+    "src\\app\\monitoring\\loading.tsx": {
+      "path": "src\\app\\monitoring\\loading.tsx",
       "total": 0,
       "covered": 0,
       "missing": 0,
       "candidates": []
     },
-    "src/app/operation-tasks/error.tsx": {
-      "path": "src/app/operation-tasks/error.tsx",
+    "src\\app\\monitoring\\monitoring-page-client.tsx": {
+      "path": "src\\app\\monitoring\\monitoring-page-client.tsx",
       "total": 0,
       "covered": 0,
       "missing": 0,
       "candidates": []
     },
-    "src/app/operation-tasks/job-events-dialog.tsx": {
-      "path": "src/app/operation-tasks/job-events-dialog.tsx",
+    "src\\app\\monitoring\\page.tsx": {
+      "path": "src\\app\\monitoring\\page.tsx",
       "total": 0,
       "covered": 0,
       "missing": 0,
       "candidates": []
     },
-    "src/app/operation-tasks/loading.tsx": {
-      "path": "src/app/operation-tasks/loading.tsx",
+    "src\\app\\not-found.tsx": {
+      "path": "src\\app\\not-found.tsx",
       "total": 0,
       "covered": 0,
       "missing": 0,
       "candidates": []
     },
-    "src/app/operation-tasks/operation-task-list-client.tsx": {
-      "path": "src/app/operation-tasks/operation-task-list-client.tsx",
+    "src\\app\\notifications\\error.tsx": {
+      "path": "src\\app\\notifications\\error.tsx",
       "total": 0,
       "covered": 0,
       "missing": 0,
       "candidates": []
     },
-    "src/app/operation-tasks/page.tsx": {
-      "path": "src/app/operation-tasks/page.tsx",
+    "src\\app\\notifications\\loading.tsx": {
+      "path": "src\\app\\notifications\\loading.tsx",
       "total": 0,
       "covered": 0,
       "missing": 0,
       "candidates": []
     },
-    "src/app/page.tsx": {
-      "path": "src/app/page.tsx",
+    "src\\app\\notifications\\notification-list-client.tsx": {
+      "path": "src\\app\\notifications\\notification-list-client.tsx",
       "total": 0,
       "covered": 0,
       "missing": 0,
       "candidates": []
     },
-    "src/app/playbooks/error.tsx": {
-      "path": "src/app/playbooks/error.tsx",
+    "src\\app\\notifications\\page.tsx": {
+      "path": "src\\app\\notifications\\page.tsx",
       "total": 0,
       "covered": 0,
       "missing": 0,
       "candidates": []
     },
-    "src/app/playbooks/loading.tsx": {
-      "path": "src/app/playbooks/loading.tsx",
+    "src\\app\\offline\\error.tsx": {
+      "path": "src\\app\\offline\\error.tsx",
       "total": 0,
       "covered": 0,
       "missing": 0,
       "candidates": []
     },
-    "src/app/playbooks/page.tsx": {
-      "path": "src/app/playbooks/page.tsx",
+    "src\\app\\offline\\loading.tsx": {
+      "path": "src\\app\\offline\\loading.tsx",
       "total": 0,
       "covered": 0,
       "missing": 0,
       "candidates": []
     },
-    "src/app/playbooks/playbook-card.tsx": {
-      "path": "src/app/playbooks/playbook-card.tsx",
+    "src\\app\\offline\\page.tsx": {
+      "path": "src\\app\\offline\\page.tsx",
       "total": 0,
       "covered": 0,
       "missing": 0,
       "candidates": []
     },
-    "src/app/playbooks/playbook-delete-dialog.tsx": {
-      "path": "src/app/playbooks/playbook-delete-dialog.tsx",
+    "src\\app\\operation-tasks\\command-detail-dialog.tsx": {
+      "path": "src\\app\\operation-tasks\\command-detail-dialog.tsx",
       "total": 0,
       "covered": 0,
       "missing": 0,
       "candidates": []
     },
-    "src/app/playbooks/playbook-form.tsx": {
-      "path": "src/app/playbooks/playbook-form.tsx",
+    "src\\app\\operation-tasks\\error.tsx": {
+      "path": "src\\app\\operation-tasks\\error.tsx",
       "total": 0,
       "covered": 0,
       "missing": 0,
       "candidates": []
     },
-    "src/app/playbooks/playbook-list-client.tsx": {
-      "path": "src/app/playbooks/playbook-list-client.tsx",
+    "src\\app\\operation-tasks\\job-events-dialog.tsx": {
+      "path": "src\\app\\operation-tasks\\job-events-dialog.tsx",
       "total": 0,
       "covered": 0,
       "missing": 0,
       "candidates": []
     },
-    "src/app/playbooks/sortable-step-card.tsx": {
-      "path": "src/app/playbooks/sortable-step-card.tsx",
+    "src\\app\\operation-tasks\\loading.tsx": {
+      "path": "src\\app\\operation-tasks\\loading.tsx",
       "total": 0,
       "covered": 0,
       "missing": 0,
       "candidates": []
     },
-    "src/app/playbooks/step-config-editor.tsx": {
-      "path": "src/app/playbooks/step-config-editor.tsx",
+    "src\\app\\operation-tasks\\operation-task-list-client.tsx": {
+      "path": "src\\app\\operation-tasks\\operation-task-list-client.tsx",
       "total": 0,
       "covered": 0,
       "missing": 0,
       "candidates": []
     },
-    "src/app/preferences/error.tsx": {
-      "path": "src/app/preferences/error.tsx",
+    "src\\app\\operation-tasks\\page.tsx": {
+      "path": "src\\app\\operation-tasks\\page.tsx",
       "total": 0,
       "covered": 0,
       "missing": 0,
       "candidates": []
     },
-    "src/app/preferences/loading.tsx": {
-      "path": "src/app/preferences/loading.tsx",
+    "src\\app\\page.tsx": {
+      "path": "src\\app\\page.tsx",
       "total": 0,
       "covered": 0,
       "missing": 0,
       "candidates": []
     },
-    "src/app/preferences/page.tsx": {
-      "path": "src/app/preferences/page.tsx",
+    "src\\app\\playbooks\\error.tsx": {
+      "path": "src\\app\\playbooks\\error.tsx",
       "total": 0,
       "covered": 0,
       "missing": 0,
       "candidates": []
     },
-    "src/app/preferences/preferences-page-client.tsx": {
-      "path": "src/app/preferences/preferences-page-client.tsx",
+    "src\\app\\playbooks\\loading.tsx": {
+      "path": "src\\app\\playbooks\\loading.tsx",
       "total": 0,
       "covered": 0,
       "missing": 0,
       "candidates": []
     },
-    "src/app/public-status/error.tsx": {
-      "path": "src/app/public-status/error.tsx",
+    "src\\app\\playbooks\\page.tsx": {
+      "path": "src\\app\\playbooks\\page.tsx",
       "total": 0,
       "covered": 0,
       "missing": 0,
       "candidates": []
     },
-    "src/app/public-status/loading.tsx": {
-      "path": "src/app/public-status/loading.tsx",
+    "src\\app\\playbooks\\playbook-card.tsx": {
+      "path": "src\\app\\playbooks\\playbook-card.tsx",
       "total": 0,
       "covered": 0,
       "missing": 0,
       "candidates": []
     },
-    "src/app/public-status/page.tsx": {
-      "path": "src/app/public-status/page.tsx",
+    "src\\app\\playbooks\\playbook-delete-dialog.tsx": {
+      "path": "src\\app\\playbooks\\playbook-delete-dialog.tsx",
       "total": 0,
       "covered": 0,
       "missing": 0,
       "candidates": []
     },
-    "src/app/public-status/public-status-admin-client.tsx": {
-      "path": "src/app/public-status/public-status-admin-client.tsx",
+    "src\\app\\playbooks\\playbook-form.tsx": {
+      "path": "src\\app\\playbooks\\playbook-form.tsx",
       "total": 0,
       "covered": 0,
       "missing": 0,
       "candidates": []
     },
-    "src/app/quick-services/config-preview-dialog.tsx": {
-      "path": "src/app/quick-services/config-preview-dialog.tsx",
+    "src\\app\\playbooks\\playbook-list-client.tsx": {
+      "path": "src\\app\\playbooks\\playbook-list-client.tsx",
       "total": 0,
       "covered": 0,
       "missing": 0,
       "candidates": []
     },
-    "src/app/quick-services/error.tsx": {
-      "path": "src/app/quick-services/error.tsx",
+    "src\\app\\playbooks\\sortable-step-card.tsx": {
+      "path": "src\\app\\playbooks\\sortable-step-card.tsx",
       "total": 0,
       "covered": 0,
       "missing": 0,
       "candidates": []
     },
-    "src/app/quick-services/install-dialog.tsx": {
-      "path": "src/app/quick-services/install-dialog.tsx",
+    "src\\app\\playbooks\\step-config-editor.tsx": {
+      "path": "src\\app\\playbooks\\step-config-editor.tsx",
       "total": 0,
       "covered": 0,
       "missing": 0,
       "candidates": []
     },
-    "src/app/quick-services/loading.tsx": {
-      "path": "src/app/quick-services/loading.tsx",
+    "src\\app\\preferences\\error.tsx": {
+      "path": "src\\app\\preferences\\error.tsx",
       "total": 0,
       "covered": 0,
       "missing": 0,
       "candidates": []
     },
-    "src/app/quick-services/page.tsx": {
-      "path": "src/app/quick-services/page.tsx",
+    "src\\app\\preferences\\loading.tsx": {
+      "path": "src\\app\\preferences\\loading.tsx",
       "total": 0,
       "covered": 0,
       "missing": 0,
       "candidates": []
     },
-    "src/app/quick-services/pending-uninstall-dialog.tsx": {
-      "path": "src/app/quick-services/pending-uninstall-dialog.tsx",
+    "src\\app\\preferences\\page.tsx": {
+      "path": "src\\app\\preferences\\page.tsx",
       "total": 0,
       "covered": 0,
       "missing": 0,
       "candidates": []
     },
-    "src/app/quick-services/quick-service-card.tsx": {
-      "path": "src/app/quick-services/quick-service-card.tsx",
+    "src\\app\\preferences\\preferences-page-client.tsx": {
+      "path": "src\\app\\preferences\\preferences-page-client.tsx",
       "total": 0,
       "covered": 0,
       "missing": 0,
       "candidates": []
     },
-    "src/app/quick-services/quick-services-client.tsx": {
-      "path": "src/app/quick-services/quick-services-client.tsx",
+    "src\\app\\public-status\\error.tsx": {
+      "path": "src\\app\\public-status\\error.tsx",
       "total": 0,
       "covered": 0,
       "missing": 0,
       "candidates": []
     },
-    "src/app/quick-services/quick-services-dialogs-lazy.tsx": {
-      "path": "src/app/quick-services/quick-services-dialogs-lazy.tsx",
+    "src\\app\\public-status\\loading.tsx": {
+      "path": "src\\app\\public-status\\loading.tsx",
       "total": 0,
       "covered": 0,
       "missing": 0,
       "candidates": []
     },
-    "src/app/quick-services/quick-services-sources-panel.tsx": {
-      "path": "src/app/quick-services/quick-services-sources-panel.tsx",
+    "src\\app\\public-status\\page.tsx": {
+      "path": "src\\app\\public-status\\page.tsx",
       "total": 0,
       "covered": 0,
       "missing": 0,
       "candidates": []
     },
-    "src/app/requests/ai-hosted-approval-card.tsx": {
-      "path": "src/app/requests/ai-hosted-approval-card.tsx",
+    "src\\app\\public-status\\public-status-admin-client.tsx": {
+      "path": "src\\app\\public-status\\public-status-admin-client.tsx",
       "total": 0,
       "covered": 0,
       "missing": 0,
       "candidates": []
     },
-    "src/app/requests/batch-review-toolbar.tsx": {
-      "path": "src/app/requests/batch-review-toolbar.tsx",
+    "src\\app\\quick-services\\config-preview-dialog.tsx": {
+      "path": "src\\app\\quick-services\\config-preview-dialog.tsx",
       "total": 0,
       "covered": 0,
       "missing": 0,
       "candidates": []
     },
-    "src/app/requests/cancel-command-button.tsx": {
-      "path": "src/app/requests/cancel-command-button.tsx",
+    "src\\app\\quick-services\\error.tsx": {
+      "path": "src\\app\\quick-services\\error.tsx",
       "total": 0,
       "covered": 0,
       "missing": 0,
       "candidates": []
     },
-    "src/app/requests/error.tsx": {
-      "path": "src/app/requests/error.tsx",
+    "src\\app\\quick-services\\install-dialog.tsx": {
+      "path": "src\\app\\quick-services\\install-dialog.tsx",
       "total": 0,
       "covered": 0,
       "missing": 0,
       "candidates": []
     },
-    "src/app/requests/loading.tsx": {
-      "path": "src/app/requests/loading.tsx",
+    "src\\app\\quick-services\\loading.tsx": {
+      "path": "src\\app\\quick-services\\loading.tsx",
       "total": 0,
       "covered": 0,
       "missing": 0,
       "candidates": []
     },
-    "src/app/requests/page.tsx": {
-      "path": "src/app/requests/page.tsx",
+    "src\\app\\quick-services\\page.tsx": {
+      "path": "src\\app\\quick-services\\page.tsx",
       "total": 0,
       "covered": 0,
       "missing": 0,
       "candidates": []
     },
-    "src/app/requests/review-command-form.tsx": {
-      "path": "src/app/requests/review-command-form.tsx",
+    "src\\app\\quick-services\\pending-uninstall-dialog.tsx": {
+      "path": "src\\app\\quick-services\\pending-uninstall-dialog.tsx",
       "total": 0,
       "covered": 0,
       "missing": 0,
       "candidates": []
     },
-    "src/app/scheduled-tasks/error.tsx": {
-      "path": "src/app/scheduled-tasks/error.tsx",
+    "src\\app\\quick-services\\quick-service-card.tsx": {
+      "path": "src\\app\\quick-services\\quick-service-card.tsx",
       "total": 0,
       "covered": 0,
       "missing": 0,
       "candidates": []
     },
-    "src/app/scheduled-tasks/loading.tsx": {
-      "path": "src/app/scheduled-tasks/loading.tsx",
+    "src\\app\\quick-services\\quick-services-client.tsx": {
+      "path": "src\\app\\quick-services\\quick-services-client.tsx",
       "total": 0,
       "covered": 0,
       "missing": 0,
       "candidates": []
     },
-    "src/app/scheduled-tasks/page.tsx": {
-      "path": "src/app/scheduled-tasks/page.tsx",
+    "src\\app\\quick-services\\quick-services-dialogs-lazy.tsx": {
+      "path": "src\\app\\quick-services\\quick-services-dialogs-lazy.tsx",
       "total": 0,
       "covered": 0,
       "missing": 0,
       "candidates": []
     },
-    "src/app/scheduled-tasks/scheduled-task-list-client.tsx": {
-      "path": "src/app/scheduled-tasks/scheduled-task-list-client.tsx",
+    "src\\app\\quick-services\\quick-services-sources-panel.tsx": {
+      "path": "src\\app\\quick-services\\quick-services-sources-panel.tsx",
       "total": 0,
       "covered": 0,
       "missing": 0,
       "candidates": []
     },
-    "src/app/servers/[id]/remote-desktop/open-remote-desktop.tsx": {
-      "path": "src/app/servers/[id]/remote-desktop/open-remote-desktop.tsx",
+    "src\\app\\requests\\batch-review-toolbar.tsx": {
+      "path": "src\\app\\requests\\batch-review-toolbar.tsx",
       "total": 0,
       "covered": 0,
       "missing": 0,
       "candidates": []
     },
-    "src/app/servers/[id]/remote-desktop/page.tsx": {
-      "path": "src/app/servers/[id]/remote-desktop/page.tsx",
+    "src\\app\\requests\\cancel-command-button.tsx": {
+      "path": "src\\app\\requests\\cancel-command-button.tsx",
       "total": 0,
       "covered": 0,
       "missing": 0,
       "candidates": []
     },
-    "src/app/servers/auto-probe-context.tsx": {
-      "path": "src/app/servers/auto-probe-context.tsx",
+    "src\\app\\requests\\error.tsx": {
+      "path": "src\\app\\requests\\error.tsx",
       "total": 0,
       "covered": 0,
       "missing": 0,
       "candidates": []
     },
-    "src/app/servers/batch-server-action-panel.tsx": {
-      "path": "src/app/servers/batch-server-action-panel.tsx",
+    "src\\app\\requests\\loading.tsx": {
+      "path": "src\\app\\requests\\loading.tsx",
       "total": 0,
       "covered": 0,
       "missing": 0,
       "candidates": []
     },
-    "src/app/servers/command-launch-form.tsx": {
-      "path": "src/app/servers/command-launch-form.tsx",
+    "src\\app\\requests\\page.tsx": {
+      "path": "src\\app\\requests\\page.tsx",
       "total": 0,
       "covered": 0,
       "missing": 0,
       "candidates": []
     },
-    "src/app/servers/error.tsx": {
-      "path": "src/app/servers/error.tsx",
+    "src\\app\\requests\\review-command-form.tsx": {
+      "path": "src\\app\\requests\\review-command-form.tsx",
       "total": 0,
       "covered": 0,
       "missing": 0,
       "candidates": []
     },
-    "src/app/servers/loading.tsx": {
-      "path": "src/app/servers/loading.tsx",
+    "src\\app\\scheduled-tasks\\error.tsx": {
+      "path": "src\\app\\scheduled-tasks\\error.tsx",
       "total": 0,
       "covered": 0,
       "missing": 0,
       "candidates": []
     },
-    "src/app/servers/page.tsx": {
-      "path": "src/app/servers/page.tsx",
+    "src\\app\\scheduled-tasks\\loading.tsx": {
+      "path": "src\\app\\scheduled-tasks\\loading.tsx",
       "total": 0,
       "covered": 0,
       "missing": 0,
       "candidates": []
     },
-    "src/app/servers/rdp-credential-fields.tsx": {
-      "path": "src/app/servers/rdp-credential-fields.tsx",
+    "src\\app\\scheduled-tasks\\page.tsx": {
+      "path": "src\\app\\scheduled-tasks\\page.tsx",
       "total": 0,
       "covered": 0,
       "missing": 0,
       "candidates": []
     },
-    "src/app/servers/server-agent-reinstall.tsx": {
-      "path": "src/app/servers/server-agent-reinstall.tsx",
+    "src\\app\\scheduled-tasks\\scheduled-task-list-client.tsx": {
+      "path": "src\\app\\scheduled-tasks\\scheduled-task-list-client.tsx",
       "total": 0,
       "covered": 0,
       "missing": 0,
       "candidates": []
     },
-    "src/app/servers/server-billing-fields.tsx": {
-      "path": "src/app/servers/server-billing-fields.tsx",
+    "src\\app\\servers\\[id]\\remote-desktop\\open-remote-desktop.tsx": {
+      "path": "src\\app\\servers\\[id]\\remote-desktop\\open-remote-desktop.tsx",
       "total": 0,
       "covered": 0,
       "missing": 0,
       "candidates": []
     },
-    "src/app/servers/server-billing-rows.tsx": {
-      "path": "src/app/servers/server-billing-rows.tsx",
+    "src\\app\\servers\\[id]\\remote-desktop\\page.tsx": {
+      "path": "src\\app\\servers\\[id]\\remote-desktop\\page.tsx",
       "total": 0,
       "covered": 0,
       "missing": 0,
       "candidates": []
     },
-    "src/app/servers/server-card-actions-direct-gateway.tsx": {
-      "path": "src/app/servers/server-card-actions-direct-gateway.tsx",
+    "src\\app\\servers\\auto-probe-context.tsx": {
+      "path": "src\\app\\servers\\auto-probe-context.tsx",
       "total": 0,
       "covered": 0,
       "missing": 0,
       "candidates": []
     },
-    "src/app/servers/server-card-actions.tsx": {
-      "path": "src/app/servers/server-card-actions.tsx",
+    "src\\app\\servers\\batch-server-action-panel.tsx": {
+      "path": "src\\app\\servers\\batch-server-action-panel.tsx",
       "total": 0,
       "covered": 0,
       "missing": 0,
       "candidates": []
     },
-    "src/app/servers/server-card-delete-form.tsx": {
-      "path": "src/app/servers/server-card-delete-form.tsx",
+    "src\\app\\servers\\command-launch-form.tsx": {
+      "path": "src\\app\\servers\\command-launch-form.tsx",
       "total": 0,
       "covered": 0,
       "missing": 0,
       "candidates": []
     },
-    "src/app/servers/server-card-edit-form.tsx": {
-      "path": "src/app/servers/server-card-edit-form.tsx",
+    "src\\app\\servers\\error.tsx": {
+      "path": "src\\app\\servers\\error.tsx",
       "total": 0,
       "covered": 0,
       "missing": 0,
       "candidates": []
     },
-    "src/app/servers/server-card-transfer-form.tsx": {
-      "path": "src/app/servers/server-card-transfer-form.tsx",
+    "src\\app\\servers\\loading.tsx": {
+      "path": "src\\app\\servers\\loading.tsx",
       "total": 0,
       "covered": 0,
       "missing": 0,
       "candidates": []
     },
-    "src/app/servers/server-connection-action.tsx": {
-      "path": "src/app/servers/server-connection-action.tsx",
+    "src\\app\\servers\\page.tsx": {
+      "path": "src\\app\\servers\\page.tsx",
       "total": 0,
       "covered": 0,
       "missing": 0,
       "candidates": []
     },
-    "src/app/servers/server-connection-type-fields.tsx": {
-      "path": "src/app/servers/server-connection-type-fields.tsx",
+    "src\\app\\servers\\rdp-credential-fields.tsx": {
+      "path": "src\\app\\servers\\rdp-credential-fields.tsx",
       "total": 0,
       "covered": 0,
       "missing": 0,
       "candidates": []
     },
-    "src/app/servers/server-cost-fields.tsx": {
-      "path": "src/app/servers/server-cost-fields.tsx",
+    "src\\app\\servers\\server-agent-reinstall.tsx": {
+      "path": "src\\app\\servers\\server-agent-reinstall.tsx",
       "total": 0,
       "covered": 0,
       "missing": 0,
       "candidates": []
     },
-    "src/app/servers/server-create-form.tsx": {
-      "path": "src/app/servers/server-create-form.tsx",
+    "src\\app\\servers\\server-billing-fields.tsx": {
+      "path": "src\\app\\servers\\server-billing-fields.tsx",
       "total": 0,
       "covered": 0,
       "missing": 0,
       "candidates": []
     },
-    "src/app/servers/server-inventory.tsx": {
-      "path": "src/app/servers/server-inventory.tsx",
+    "src\\app\\servers\\server-billing-rows.tsx": {
+      "path": "src\\app\\servers\\server-billing-rows.tsx",
       "total": 0,
       "covered": 0,
       "missing": 0,
       "candidates": []
     },
-    "src/app/servers/server-management-mode-fields.tsx": {
-      "path": "src/app/servers/server-management-mode-fields.tsx",
+    "src\\app\\servers\\server-card-actions-direct-gateway.tsx": {
+      "path": "src\\app\\servers\\server-card-actions-direct-gateway.tsx",
       "total": 0,
       "covered": 0,
       "missing": 0,
       "candidates": []
     },
-    "src/app/servers/server-operation-panel.tsx": {
-      "path": "src/app/servers/server-operation-panel.tsx",
+    "src\\app\\servers\\server-card-actions.tsx": {
+      "path": "src\\app\\servers\\server-card-actions.tsx",
       "total": 0,
       "covered": 0,
       "missing": 0,
       "candidates": []
     },
-    "src/app/servers/server-overview-card.tsx": {
-      "path": "src/app/servers/server-overview-card.tsx",
+    "src\\app\\servers\\server-card-delete-form.tsx": {
+      "path": "src\\app\\servers\\server-card-delete-form.tsx",
       "total": 0,
       "covered": 0,
       "missing": 0,
       "candidates": []
     },
-    "src/app/servers/server-overview-detail-sections.tsx": {
-      "path": "src/app/servers/server-overview-detail-sections.tsx",
+    "src\\app\\servers\\server-card-edit-form.tsx": {
+      "path": "src\\app\\servers\\server-card-edit-form.tsx",
       "total": 0,
       "covered": 0,
       "missing": 0,
       "candidates": []
     },
-    "src/app/servers/server-overview-details.tsx": {
-      "path": "src/app/servers/server-overview-details.tsx",
+    "src\\app\\servers\\server-card-transfer-form.tsx": {
+      "path": "src\\app\\servers\\server-card-transfer-form.tsx",
       "total": 0,
       "covered": 0,
       "missing": 0,
       "candidates": []
     },
-    "src/app/servers/server-sync-target-auth-field.tsx": {
-      "path": "src/app/servers/server-sync-target-auth-field.tsx",
+    "src\\app\\servers\\server-connection-action.tsx": {
+      "path": "src\\app\\servers\\server-connection-action.tsx",
       "total": 0,
       "covered": 0,
       "missing": 0,
       "candidates": []
     },
-    "src/app/servers/server-tab-layout.tsx": {
-      "path": "src/app/servers/server-tab-layout.tsx",
+    "src\\app\\servers\\server-connection-type-fields.tsx": {
+      "path": "src\\app\\servers\\server-connection-type-fields.tsx",
       "total": 0,
       "covered": 0,
       "missing": 0,
       "candidates": []
     },
-    "src/app/servers/server-target-picker.tsx": {
-      "path": "src/app/servers/server-target-picker.tsx",
+    "src\\app\\servers\\server-cost-fields.tsx": {
+      "path": "src\\app\\servers\\server-cost-fields.tsx",
       "total": 0,
       "covered": 0,
       "missing": 0,
       "candidates": []
     },
-    "src/app/servers/ssh-key-create-form.tsx": {
-      "path": "src/app/servers/ssh-key-create-form.tsx",
+    "src\\app\\servers\\server-create-form.tsx": {
+      "path": "src\\app\\servers\\server-create-form.tsx",
       "total": 0,
       "covered": 0,
       "missing": 0,
       "candidates": []
     },
-    "src/app/servers/ssh-key-options.tsx": {
-      "path": "src/app/servers/ssh-key-options.tsx",
+    "src\\app\\servers\\server-inventory.tsx": {
+      "path": "src\\app\\servers\\server-inventory.tsx",
       "total": 0,
       "covered": 0,
       "missing": 0,
       "candidates": []
     },
-    "src/app/servers/ssh-terminal-context.tsx": {
-      "path": "src/app/servers/ssh-terminal-context.tsx",
+    "src\\app\\servers\\server-management-mode-fields.tsx": {
+      "path": "src\\app\\servers\\server-management-mode-fields.tsx",
       "total": 0,
       "covered": 0,
       "missing": 0,
       "candidates": []
     },
-    "src/app/servers/vps-backup-section.tsx": {
-      "path": "src/app/servers/vps-backup-section.tsx",
+    "src\\app\\servers\\server-operation-panel.tsx": {
+      "path": "src\\app\\servers\\server-operation-panel.tsx",
       "total": 0,
       "covered": 0,
       "missing": 0,
       "candidates": []
     },
-    "src/app/servers/windows-agent-install-panel.tsx": {
-      "path": "src/app/servers/windows-agent-install-panel.tsx",
+    "src\\app\\servers\\server-overview-card.tsx": {
+      "path": "src\\app\\servers\\server-overview-card.tsx",
       "total": 0,
       "covered": 0,
       "missing": 0,
       "candidates": []
     },
-    "src/app/servers/windows-server-details.tsx": {
-      "path": "src/app/servers/windows-server-details.tsx",
+    "src\\app\\servers\\server-overview-detail-sections.tsx": {
+      "path": "src\\app\\servers\\server-overview-detail-sections.tsx",
       "total": 0,
       "covered": 0,
       "missing": 0,
       "candidates": []
     },
-    "src/app/servers/windows-sftp-fields.tsx": {
-      "path": "src/app/servers/windows-sftp-fields.tsx",
+    "src\\app\\servers\\server-overview-details.tsx": {
+      "path": "src\\app\\servers\\server-overview-details.tsx",
       "total": 0,
       "covered": 0,
       "missing": 0,
       "candidates": []
     },
-    "src/app/settings/error.tsx": {
-      "path": "src/app/settings/error.tsx",
+    "src\\app\\servers\\server-sync-target-auth-field.tsx": {
+      "path": "src\\app\\servers\\server-sync-target-auth-field.tsx",
       "total": 0,
       "covered": 0,
       "missing": 0,
       "candidates": []
     },
-    "src/app/settings/loading.tsx": {
-      "path": "src/app/settings/loading.tsx",
+    "src\\app\\servers\\server-tab-layout.tsx": {
+      "path": "src\\app\\servers\\server-tab-layout.tsx",
       "total": 0,
       "covered": 0,
       "missing": 0,
       "candidates": []
     },
-    "src/app/settings/page.tsx": {
-      "path": "src/app/settings/page.tsx",
+    "src\\app\\servers\\server-target-picker.tsx": {
+      "path": "src\\app\\servers\\server-target-picker.tsx",
       "total": 0,
       "covered": 0,
       "missing": 0,
       "candidates": []
     },
-    "src/app/settings/public-status-settings-link.tsx": {
-      "path": "src/app/settings/public-status-settings-link.tsx",
+    "src\\app\\servers\\ssh-key-create-form.tsx": {
+      "path": "src\\app\\servers\\ssh-key-create-form.tsx",
       "total": 0,
       "covered": 0,
       "missing": 0,
       "candidates": []
     },
-    "src/app/settings/settings-client.tsx": {
-      "path": "src/app/settings/settings-client.tsx",
+    "src\\app\\servers\\ssh-key-options.tsx": {
+      "path": "src\\app\\servers\\ssh-key-options.tsx",
       "total": 0,
       "covered": 0,
       "missing": 0,
       "candidates": []
     },
-    "src/app/settings/settings-field-risk.tsx": {
-      "path": "src/app/settings/settings-field-risk.tsx",
+    "src\\app\\servers\\ssh-terminal-context.tsx": {
+      "path": "src\\app\\servers\\ssh-terminal-context.tsx",
       "total": 0,
       "covered": 0,
       "missing": 0,
       "candidates": []
     },
-    "src/app/settings/settings-fields.tsx": {
-      "path": "src/app/settings/settings-fields.tsx",
+    "src\\app\\servers\\vps-backup-section.tsx": {
+      "path": "src\\app\\servers\\vps-backup-section.tsx",
       "total": 0,
       "covered": 0,
       "missing": 0,
       "candidates": []
     },
-    "src/app/settings/settings-save-confirm.tsx": {
-      "path": "src/app/settings/settings-save-confirm.tsx",
+    "src\\app\\servers\\windows-agent-install-panel.tsx": {
+      "path": "src\\app\\servers\\windows-agent-install-panel.tsx",
       "total": 0,
       "covered": 0,
       "missing": 0,
       "candidates": []
     },
-    "src/app/settings/settings-section.tsx": {
-      "path": "src/app/settings/settings-section.tsx",
+    "src\\app\\servers\\windows-server-details.tsx": {
+      "path": "src\\app\\servers\\windows-server-details.tsx",
       "total": 0,
       "covered": 0,
       "missing": 0,
       "candidates": []
     },
-    "src/app/settings/system-config-section.tsx": {
-      "path": "src/app/settings/system-config-section.tsx",
+    "src\\app\\servers\\windows-sftp-fields.tsx": {
+      "path": "src\\app\\servers\\windows-sftp-fields.tsx",
       "total": 0,
       "covered": 0,
       "missing": 0,
       "candidates": []
     },
-    "src/app/settings/two-factor-settings-lazy.tsx": {
-      "path": "src/app/settings/two-factor-settings-lazy.tsx",
+    "src\\app\\settings\\error.tsx": {
+      "path": "src\\app\\settings\\error.tsx",
       "total": 0,
       "covered": 0,
       "missing": 0,
       "candidates": []
     },
-    "src/app/settings/unified-settings-page-client.tsx": {
-      "path": "src/app/settings/unified-settings-page-client.tsx",
+    "src\\app\\settings\\loading.tsx": {
+      "path": "src\\app\\settings\\loading.tsx",
       "total": 0,
       "covered": 0,
       "missing": 0,
       "candidates": []
     },
-    "src/app/share/[token]/error.tsx": {
-      "path": "src/app/share/[token]/error.tsx",
+    "src\\app\\settings\\page.tsx": {
+      "path": "src\\app\\settings\\page.tsx",
       "total": 0,
       "covered": 0,
       "missing": 0,
       "candidates": []
     },
-    "src/app/share/[token]/loading.tsx": {
-      "path": "src/app/share/[token]/loading.tsx",
+    "src\\app\\settings\\public-status-settings-link.tsx": {
+      "path": "src\\app\\settings\\public-status-settings-link.tsx",
       "total": 0,
       "covered": 0,
       "missing": 0,
       "candidates": []
     },
-    "src/app/share/[token]/page.tsx": {
-      "path": "src/app/share/[token]/page.tsx",
+    "src\\app\\settings\\settings-client.tsx": {
+      "path": "src\\app\\settings\\settings-client.tsx",
       "total": 0,
       "covered": 0,
       "missing": 0,
       "candidates": []
     },
-    "src/app/share/[token]/share-password-gate.tsx": {
-      "path": "src/app/share/[token]/share-password-gate.tsx",
+    "src\\app\\settings\\settings-field-risk.tsx": {
+      "path": "src\\app\\settings\\settings-field-risk.tsx",
       "total": 0,
       "covered": 0,
       "missing": 0,
       "candidates": []
     },
-    "src/app/share/error.tsx": {
-      "path": "src/app/share/error.tsx",
+    "src\\app\\settings\\settings-fields.tsx": {
+      "path": "src\\app\\settings\\settings-fields.tsx",
       "total": 0,
       "covered": 0,
       "missing": 0,
       "candidates": []
     },
-    "src/app/share/loading.tsx": {
-      "path": "src/app/share/loading.tsx",
+    "src\\app\\settings\\settings-save-confirm.tsx": {
+      "path": "src\\app\\settings\\settings-save-confirm.tsx",
       "total": 0,
       "covered": 0,
       "missing": 0,
       "candidates": []
     },
-    "src/app/shares/create-share-form.tsx": {
-      "path": "src/app/shares/create-share-form.tsx",
+    "src\\app\\settings\\settings-section.tsx": {
+      "path": "src\\app\\settings\\settings-section.tsx",
       "total": 0,
       "covered": 0,
       "missing": 0,
       "candidates": []
     },
-    "src/app/shares/error.tsx": {
-      "path": "src/app/shares/error.tsx",
+    "src\\app\\settings\\system-config-section.tsx": {
+      "path": "src\\app\\settings\\system-config-section.tsx",
       "total": 0,
       "covered": 0,
       "missing": 0,
       "candidates": []
     },
-    "src/app/shares/loading.tsx": {
-      "path": "src/app/shares/loading.tsx",
+    "src\\app\\settings\\two-factor-settings-lazy.tsx": {
+      "path": "src\\app\\settings\\two-factor-settings-lazy.tsx",
       "total": 0,
       "covered": 0,
       "missing": 0,
       "candidates": []
     },
-    "src/app/shares/page.tsx": {
-      "path": "src/app/shares/page.tsx",
+    "src\\app\\settings\\unified-settings-page-client.tsx": {
+      "path": "src\\app\\settings\\unified-settings-page-client.tsx",
       "total": 0,
       "covered": 0,
       "missing": 0,
       "candidates": []
     },
-    "src/app/shares/share-access-logs.tsx": {
-      "path": "src/app/shares/share-access-logs.tsx",
+    "src\\app\\share\\[token]\\error.tsx": {
+      "path": "src\\app\\share\\[token]\\error.tsx",
       "total": 0,
       "covered": 0,
       "missing": 0,
       "candidates": []
     },
-    "src/app/shares/share-access-report.tsx": {
-      "path": "src/app/shares/share-access-report.tsx",
+    "src\\app\\share\\[token]\\loading.tsx": {
+      "path": "src\\app\\share\\[token]\\loading.tsx",
       "total": 0,
       "covered": 0,
       "missing": 0,
       "candidates": []
     },
-    "src/app/shares/share-file-picker.tsx": {
-      "path": "src/app/shares/share-file-picker.tsx",
+    "src\\app\\share\\[token]\\page.tsx": {
+      "path": "src\\app\\share\\[token]\\page.tsx",
       "total": 0,
       "covered": 0,
       "missing": 0,
       "candidates": []
     },
-    "src/app/shares/share-row-actions.tsx": {
-      "path": "src/app/shares/share-row-actions.tsx",
+    "src\\app\\share\\[token]\\share-password-gate.tsx": {
+      "path": "src\\app\\share\\[token]\\share-password-gate.tsx",
       "total": 0,
       "covered": 0,
       "missing": 0,
       "candidates": []
     },
-    "src/app/snippets/create-snippet-modal.tsx": {
-      "path": "src/app/snippets/create-snippet-modal.tsx",
+    "src\\app\\share\\error.tsx": {
+      "path": "src\\app\\share\\error.tsx",
       "total": 0,
       "covered": 0,
       "missing": 0,
       "candidates": []
     },
-    "src/app/snippets/error.tsx": {
-      "path": "src/app/snippets/error.tsx",
+    "src\\app\\share\\loading.tsx": {
+      "path": "src\\app\\share\\loading.tsx",
       "total": 0,
       "covered": 0,
       "missing": 0,
       "candidates": []
     },
-    "src/app/snippets/loading.tsx": {
-      "path": "src/app/snippets/loading.tsx",
+    "src\\app\\shares\\create-share-form.tsx": {
+      "path": "src\\app\\shares\\create-share-form.tsx",
       "total": 0,
       "covered": 0,
       "missing": 0,
       "candidates": []
     },
-    "src/app/snippets/page.tsx": {
-      "path": "src/app/snippets/page.tsx",
+    "src\\app\\shares\\error.tsx": {
+      "path": "src\\app\\shares\\error.tsx",
       "total": 0,
       "covered": 0,
       "missing": 0,
       "candidates": []
     },
-    "src/app/snippets/snippet-edit-modal.tsx": {
-      "path": "src/app/snippets/snippet-edit-modal.tsx",
+    "src\\app\\shares\\loading.tsx": {
+      "path": "src\\app\\shares\\loading.tsx",
       "total": 0,
       "covered": 0,
       "missing": 0,
       "candidates": []
     },
-    "src/app/snippets/snippet-list-client.tsx": {
-      "path": "src/app/snippets/snippet-list-client.tsx",
+    "src\\app\\shares\\page.tsx": {
+      "path": "src\\app\\shares\\page.tsx",
       "total": 0,
       "covered": 0,
       "missing": 0,
       "candidates": []
     },
-    "src/app/snippets/snippet-modal.tsx": {
-      "path": "src/app/snippets/snippet-modal.tsx",
+    "src\\app\\shares\\share-access-logs.tsx": {
+      "path": "src\\app\\shares\\share-access-logs.tsx",
       "total": 0,
       "covered": 0,
       "missing": 0,
       "candidates": []
     },
-    "src/app/status/board-nodes.tsx": {
-      "path": "src/app/status/board-nodes.tsx",
+    "src\\app\\shares\\share-access-report.tsx": {
+      "path": "src\\app\\shares\\share-access-report.tsx",
       "total": 0,
       "covered": 0,
       "missing": 0,
       "candidates": []
     },
-    "src/app/status/board-visuals.tsx": {
-      "path": "src/app/status/board-visuals.tsx",
+    "src\\app\\shares\\share-file-picker.tsx": {
+      "path": "src\\app\\shares\\share-file-picker.tsx",
       "total": 0,
       "covered": 0,
       "missing": 0,
       "candidates": []
     },
-    "src/app/status/error.tsx": {
-      "path": "src/app/status/error.tsx",
+    "src\\app\\shares\\share-row-actions.tsx": {
+      "path": "src\\app\\shares\\share-row-actions.tsx",
       "total": 0,
       "covered": 0,
       "missing": 0,
       "candidates": []
     },
-    "src/app/status/internal-status-section.tsx": {
-      "path": "src/app/status/internal-status-section.tsx",
+    "src\\app\\snippets\\create-snippet-modal.tsx": {
+      "path": "src\\app\\snippets\\create-snippet-modal.tsx",
       "total": 0,
       "covered": 0,
       "missing": 0,
       "candidates": []
     },
-    "src/app/status/loading.tsx": {
-      "path": "src/app/status/loading.tsx",
+    "src\\app\\snippets\\error.tsx": {
+      "path": "src\\app\\snippets\\error.tsx",
       "total": 0,
       "covered": 0,
       "missing": 0,
       "candidates": []
     },
-    "src/app/status/nodes/[publicId]/page.tsx": {
-      "path": "src/app/status/nodes/[publicId]/page.tsx",
+    "src\\app\\snippets\\loading.tsx": {
+      "path": "src\\app\\snippets\\loading.tsx",
       "total": 0,
       "covered": 0,
       "missing": 0,
       "candidates": []
     },
-    "src/app/status/nodes/[publicId]/public-node-client.tsx": {
-      "path": "src/app/status/nodes/[publicId]/public-node-client.tsx",
+    "src\\app\\snippets\\page.tsx": {
+      "path": "src\\app\\snippets\\page.tsx",
       "total": 0,
       "covered": 0,
       "missing": 0,
       "candidates": []
     },
-    "src/app/status/page.tsx": {
-      "path": "src/app/status/page.tsx",
+    "src\\app\\snippets\\snippet-edit-modal.tsx": {
+      "path": "src\\app\\snippets\\snippet-edit-modal.tsx",
       "total": 0,
       "covered": 0,
       "missing": 0,
       "candidates": []
     },
-    "src/app/status/public-board-client.tsx": {
-      "path": "src/app/status/public-board-client.tsx",
+    "src\\app\\snippets\\snippet-list-client.tsx": {
+      "path": "src\\app\\snippets\\snippet-list-client.tsx",
       "total": 0,
       "covered": 0,
       "missing": 0,
       "candidates": []
     },
-    "src/app/status/public-board-parts.tsx": {
-      "path": "src/app/status/public-board-parts.tsx",
+    "src\\app\\snippets\\snippet-modal.tsx": {
+      "path": "src\\app\\snippets\\snippet-modal.tsx",
       "total": 0,
       "covered": 0,
       "missing": 0,
       "candidates": []
     },
-    "src/app/storage/error.tsx": {
-      "path": "src/app/storage/error.tsx",
+    "src\\app\\snippets\\starter-shelf.tsx": {
+      "path": "src\\app\\snippets\\starter-shelf.tsx",
       "total": 0,
       "covered": 0,
       "missing": 0,
       "candidates": []
     },
-    "src/app/storage/loading.tsx": {
-      "path": "src/app/storage/loading.tsx",
+    "src\\app\\status\\board-nodes.tsx": {
+      "path": "src\\app\\status\\board-nodes.tsx",
       "total": 0,
       "covered": 0,
       "missing": 0,
       "candidates": []
     },
-    "src/app/storage/page.tsx": {
-      "path": "src/app/storage/page.tsx",
+    "src\\app\\status\\board-visuals.tsx": {
+      "path": "src\\app\\status\\board-visuals.tsx",
       "total": 0,
       "covered": 0,
       "missing": 0,
       "candidates": []
     },
-    "src/app/storage/storage-node-create-form.tsx": {
-      "path": "src/app/storage/storage-node-create-form.tsx",
+    "src\\app\\status\\error.tsx": {
+      "path": "src\\app\\status\\error.tsx",
       "total": 0,
       "covered": 0,
       "missing": 0,
       "candidates": []
     },
-    "src/app/storage/storage-node-delete-button.tsx": {
-      "path": "src/app/storage/storage-node-delete-button.tsx",
+    "src\\app\\status\\internal-status-section.tsx": {
+      "path": "src\\app\\status\\internal-status-section.tsx",
       "total": 0,
       "covered": 0,
       "missing": 0,
       "candidates": []
     },
-    "src/app/storage/storage-node-edit-form.tsx": {
-      "path": "src/app/storage/storage-node-edit-form.tsx",
+    "src\\app\\status\\loading.tsx": {
+      "path": "src\\app\\status\\loading.tsx",
       "total": 0,
       "covered": 0,
       "missing": 0,
       "candidates": []
     },
-    "src/app/storage/storage-node-fields.tsx": {
-      "path": "src/app/storage/storage-node-fields.tsx",
+    "src\\app\\status\\nodes\\[publicId]\\page.tsx": {
+      "path": "src\\app\\status\\nodes\\[publicId]\\page.tsx",
       "total": 0,
       "covered": 0,
       "missing": 0,
       "candidates": []
     },
-    "src/app/storage/storage-node-list.tsx": {
-      "path": "src/app/storage/storage-node-list.tsx",
+    "src\\app\\status\\nodes\\[publicId]\\public-node-client.tsx": {
+      "path": "src\\app\\status\\nodes\\[publicId]\\public-node-client.tsx",
       "total": 0,
       "covered": 0,
       "missing": 0,
       "candidates": []
     },
-    "src/app/templates/error.tsx": {
-      "path": "src/app/templates/error.tsx",
+    "src\\app\\status\\page.tsx": {
+      "path": "src\\app\\status\\page.tsx",
       "total": 0,
       "covered": 0,
       "missing": 0,
       "candidates": []
     },
-    "src/app/templates/loading.tsx": {
-      "path": "src/app/templates/loading.tsx",
+    "src\\app\\status\\public-board-client.tsx": {
+      "path": "src\\app\\status\\public-board-client.tsx",
       "total": 0,
       "covered": 0,
       "missing": 0,
       "candidates": []
     },
-    "src/app/templates/page.tsx": {
-      "path": "src/app/templates/page.tsx",
+    "src\\app\\status\\public-board-parts.tsx": {
+      "path": "src\\app\\status\\public-board-parts.tsx",
       "total": 0,
       "covered": 0,
       "missing": 0,
       "candidates": []
     },
-    "src/app/templates/template-deploy-button.tsx": {
-      "path": "src/app/templates/template-deploy-button.tsx",
+    "src\\app\\storage\\error.tsx": {
+      "path": "src\\app\\storage\\error.tsx",
       "total": 0,
       "covered": 0,
       "missing": 0,
       "candidates": []
     },
-    "src/app/templates/template-form.tsx": {
-      "path": "src/app/templates/template-form.tsx",
+    "src\\app\\storage\\file-agent-pairing.tsx": {
+      "path": "src\\app\\storage\\file-agent-pairing.tsx",
       "total": 0,
       "covered": 0,
       "missing": 0,
       "candidates": []
     },
-    "src/app/templates/template-list-client.tsx": {
-      "path": "src/app/templates/template-list-client.tsx",
+    "src\\app\\storage\\loading.tsx": {
+      "path": "src\\app\\storage\\loading.tsx",
       "total": 0,
       "covered": 0,
       "missing": 0,
       "candidates": []
     },
-    "src/app/tickets/[id]/error.tsx": {
-      "path": "src/app/tickets/[id]/error.tsx",
+    "src\\app\\storage\\page.tsx": {
+      "path": "src\\app\\storage\\page.tsx",
       "total": 0,
       "covered": 0,
       "missing": 0,
       "candidates": []
     },
-    "src/app/tickets/[id]/loading.tsx": {
-      "path": "src/app/tickets/[id]/loading.tsx",
+    "src\\app\\storage\\storage-node-create-form.tsx": {
+      "path": "src\\app\\storage\\storage-node-create-form.tsx",
       "total": 0,
       "covered": 0,
       "missing": 0,
       "candidates": []
     },
-    "src/app/tickets/[id]/page.tsx": {
-      "path": "src/app/tickets/[id]/page.tsx",
+    "src\\app\\storage\\storage-node-delete-button.tsx": {
+      "path": "src\\app\\storage\\storage-node-delete-button.tsx",
       "total": 0,
       "covered": 0,
       "missing": 0,
       "candidates": []
     },
-    "src/app/tickets/[id]/ticket-detail-client.tsx": {
-      "path": "src/app/tickets/[id]/ticket-detail-client.tsx",
+    "src\\app\\storage\\storage-node-edit-form.tsx": {
+      "path": "src\\app\\storage\\storage-node-edit-form.tsx",
       "total": 0,
       "covered": 0,
       "missing": 0,
       "candidates": []
     },
-    "src/app/tickets/create-ticket-form.tsx": {
-      "path": "src/app/tickets/create-ticket-form.tsx",
+    "src\\app\\storage\\storage-node-fields.tsx": {
+      "path": "src\\app\\storage\\storage-node-fields.tsx",
       "total": 0,
       "covered": 0,
       "missing": 0,
       "candidates": []
     },
-    "src/app/tickets/error.tsx": {
-      "path": "src/app/tickets/error.tsx",
+    "src\\app\\storage\\storage-node-list.tsx": {
+      "path": "src\\app\\storage\\storage-node-list.tsx",
       "total": 0,
       "covered": 0,
       "missing": 0,
       "candidates": []
     },
-    "src/app/tickets/loading.tsx": {
-      "path": "src/app/tickets/loading.tsx",
+    "src\\app\\templates\\error.tsx": {
+      "path": "src\\app\\templates\\error.tsx",
       "total": 0,
       "covered": 0,
       "missing": 0,
       "candidates": []
     },
-    "src/app/tickets/page.tsx": {
-      "path": "src/app/tickets/page.tsx",
+    "src\\app\\templates\\loading.tsx": {
+      "path": "src\\app\\templates\\loading.tsx",
       "total": 0,
       "covered": 0,
       "missing": 0,
       "candidates": []
     },
-    "src/app/tickets/ticket-workspace.tsx": {
-      "path": "src/app/tickets/ticket-workspace.tsx",
+    "src\\app\\templates\\page.tsx": {
+      "path": "src\\app\\templates\\page.tsx",
       "total": 0,
       "covered": 0,
       "missing": 0,
       "candidates": []
     },
-    "src/app/tickets/tickets-page-client.tsx": {
-      "path": "src/app/tickets/tickets-page-client.tsx",
+    "src\\app\\templates\\template-deploy-button.tsx": {
+      "path": "src\\app\\templates\\template-deploy-button.tsx",
       "total": 0,
       "covered": 0,
       "missing": 0,
       "candidates": []
     },
-    "src/app/traffic/error.tsx": {
-      "path": "src/app/traffic/error.tsx",
+    "src\\app\\templates\\template-form.tsx": {
+      "path": "src\\app\\templates\\template-form.tsx",
       "total": 0,
       "covered": 0,
       "missing": 0,
       "candidates": []
     },
-    "src/app/traffic/loading.tsx": {
-      "path": "src/app/traffic/loading.tsx",
+    "src\\app\\templates\\template-list-client.tsx": {
+      "path": "src\\app\\templates\\template-list-client.tsx",
       "total": 0,
       "covered": 0,
       "missing": 0,
       "candidates": []
     },
-    "src/app/traffic/page.tsx": {
-      "path": "src/app/traffic/page.tsx",
+    "src\\app\\tickets\\[id]\\error.tsx": {
+      "path": "src\\app\\tickets\\[id]\\error.tsx",
       "total": 0,
       "covered": 0,
       "missing": 0,
       "candidates": []
     },
-    "src/app/traffic/traffic-chart.tsx": {
-      "path": "src/app/traffic/traffic-chart.tsx",
+    "src\\app\\tickets\\[id]\\loading.tsx": {
+      "path": "src\\app\\tickets\\[id]\\loading.tsx",
       "total": 0,
       "covered": 0,
       "missing": 0,
       "candidates": []
     },
-    "src/app/traffic/traffic-page-client.tsx": {
-      "path": "src/app/traffic/traffic-page-client.tsx",
+    "src\\app\\tickets\\[id]\\page.tsx": {
+      "path": "src\\app\\tickets\\[id]\\page.tsx",
       "total": 0,
       "covered": 0,
       "missing": 0,
       "candidates": []
     },
-    "src/app/users/error.tsx": {
-      "path": "src/app/users/error.tsx",
+    "src\\app\\tickets\\[id]\\ticket-detail-client.tsx": {
+      "path": "src\\app\\tickets\\[id]\\ticket-detail-client.tsx",
       "total": 0,
       "covered": 0,
       "missing": 0,
       "candidates": []
     },
-    "src/app/users/loading.tsx": {
-      "path": "src/app/users/loading.tsx",
+    "src\\app\\tickets\\create-ticket-form.tsx": {
+      "path": "src\\app\\tickets\\create-ticket-form.tsx",
       "total": 0,
       "covered": 0,
       "missing": 0,
       "candidates": []
     },
-    "src/app/users/page.tsx": {
-      "path": "src/app/users/page.tsx",
+    "src\\app\\tickets\\error.tsx": {
+      "path": "src\\app\\tickets\\error.tsx",
       "total": 0,
       "covered": 0,
       "missing": 0,
       "candidates": []
     },
-    "src/app/users/user-permission-panel.tsx": {
-      "path": "src/app/users/user-permission-panel.tsx",
+    "src\\app\\tickets\\loading.tsx": {
+      "path": "src\\app\\tickets\\loading.tsx",
       "total": 0,
       "covered": 0,
       "missing": 0,
       "candidates": []
     },
-    "src/app/users/users-client.tsx": {
-      "path": "src/app/users/users-client.tsx",
+    "src\\app\\tickets\\page.tsx": {
+      "path": "src\\app\\tickets\\page.tsx",
       "total": 0,
       "covered": 0,
       "missing": 0,
       "candidates": []
     },
-    "src/app/users/users-forms.tsx": {
-      "path": "src/app/users/users-forms.tsx",
+    "src\\app\\tickets\\ticket-workspace.tsx": {
+      "path": "src\\app\\tickets\\ticket-workspace.tsx",
       "total": 0,
       "covered": 0,
       "missing": 0,
       "candidates": []
     },
-    "src/app/vps-status/error.tsx": {
-      "path": "src/app/vps-status/error.tsx",
+    "src\\app\\tickets\\tickets-page-client.tsx": {
+      "path": "src\\app\\tickets\\tickets-page-client.tsx",
       "total": 0,
       "covered": 0,
       "missing": 0,
       "candidates": []
     },
-    "src/app/vps-status/loading.tsx": {
-      "path": "src/app/vps-status/loading.tsx",
+    "src\\app\\traffic\\error.tsx": {
+      "path": "src\\app\\traffic\\error.tsx",
       "total": 0,
       "covered": 0,
       "missing": 0,
       "candidates": []
     },
-    "src/app/vps-status/page.tsx": {
-      "path": "src/app/vps-status/page.tsx",
+    "src\\app\\traffic\\loading.tsx": {
+      "path": "src\\app\\traffic\\loading.tsx",
       "total": 0,
       "covered": 0,
       "missing": 0,
       "candidates": []
     },
-    "src/app/vps-status/vps-node-card.tsx": {
-      "path": "src/app/vps-status/vps-node-card.tsx",
+    "src\\app\\traffic\\page.tsx": {
+      "path": "src\\app\\traffic\\page.tsx",
       "total": 0,
       "covered": 0,
       "missing": 0,
       "candidates": []
     },
-    "src/app/vps-status/vps-status-client.tsx": {
-      "path": "src/app/vps-status/vps-status-client.tsx",
+    "src\\app\\traffic\\traffic-chart.tsx": {
+      "path": "src\\app\\traffic\\traffic-chart.tsx",
       "total": 0,
       "covered": 0,
       "missing": 0,
       "candidates": []
     },
-    "src/app/vps-status/vps-status-table.tsx": {
-      "path": "src/app/vps-status/vps-status-table.tsx",
+    "src\\app\\traffic\\traffic-page-client.tsx": {
+      "path": "src\\app\\traffic\\traffic-page-client.tsx",
       "total": 0,
       "covered": 0,
       "missing": 0,
       "candidates": []
     },
-    "src/app/vps-status/vps-status-toolbar.tsx": {
-      "path": "src/app/vps-status/vps-status-toolbar.tsx",
+    "src\\app\\users\\error.tsx": {
+      "path": "src\\app\\users\\error.tsx",
       "total": 0,
       "covered": 0,
       "missing": 0,
       "candidates": []
     },
-    "src/components/action-button.tsx": {
-      "path": "src/components/action-button.tsx",
+    "src\\app\\users\\loading.tsx": {
+      "path": "src\\app\\users\\loading.tsx",
       "total": 0,
       "covered": 0,
       "missing": 0,
       "candidates": []
     },
-    "src/components/app-sidebar.tsx": {
-      "path": "src/components/app-sidebar.tsx",
+    "src\\app\\users\\page.tsx": {
+      "path": "src\\app\\users\\page.tsx",
       "total": 0,
       "covered": 0,
       "missing": 0,
       "candidates": []
     },
-    "src/components/app-topbar.tsx": {
-      "path": "src/components/app-topbar.tsx",
+    "src\\app\\users\\permission-option-page.tsx": {
+      "path": "src\\app\\users\\permission-option-page.tsx",
       "total": 0,
       "covered": 0,
       "missing": 0,
       "candidates": []
     },
-    "src/components/change-password-modal.tsx": {
-      "path": "src/components/change-password-modal.tsx",
+    "src\\app\\users\\user-permission-panel.tsx": {
+      "path": "src\\app\\users\\user-permission-panel.tsx",
       "total": 0,
       "covered": 0,
       "missing": 0,
       "candidates": []
     },
-    "src/components/charts/time-series-chart.tsx": {
-      "path": "src/components/charts/time-series-chart.tsx",
+    "src\\app\\users\\users-client.tsx": {
+      "path": "src\\app\\users\\users-client.tsx",
       "total": 0,
       "covered": 0,
       "missing": 0,
       "candidates": []
     },
-    "src/components/confirm-dialog.tsx": {
-      "path": "src/components/confirm-dialog.tsx",
+    "src\\app\\users\\users-forms.tsx": {
+      "path": "src\\app\\users\\users-forms.tsx",
       "total": 0,
       "covered": 0,
       "missing": 0,
       "candidates": []
     },
-    "src/components/customer-switcher.tsx": {
-      "path": "src/components/customer-switcher.tsx",
+    "src\\app\\vps-status\\error.tsx": {
+      "path": "src\\app\\vps-status\\error.tsx",
       "total": 0,
       "covered": 0,
       "missing": 0,
       "candidates": []
     },
-    "src/components/global-search.tsx": {
-      "path": "src/components/global-search.tsx",
+    "src\\app\\vps-status\\loading.tsx": {
+      "path": "src\\app\\vps-status\\loading.tsx",
       "total": 0,
       "covered": 0,
       "missing": 0,
       "candidates": []
     },
-    "src/components/icons.tsx": {
-      "path": "src/components/icons.tsx",
+    "src\\app\\vps-status\\page.tsx": {
+      "path": "src\\app\\vps-status\\page.tsx",
       "total": 0,
       "covered": 0,
       "missing": 0,
       "candidates": []
     },
-    "src/components/keyboard-shortcuts.tsx": {
-      "path": "src/components/keyboard-shortcuts.tsx",
+    "src\\app\\vps-status\\vps-node-card.tsx": {
+      "path": "src\\app\\vps-status\\vps-node-card.tsx",
       "total": 0,
       "covered": 0,
       "missing": 0,
       "candidates": []
     },
-    "src/components/known-error-notice.tsx": {
-      "path": "src/components/known-error-notice.tsx",
+    "src\\app\\vps-status\\vps-status-client.tsx": {
+      "path": "src\\app\\vps-status\\vps-status-client.tsx",
       "total": 0,
       "covered": 0,
       "missing": 0,
       "candidates": []
     },
-    "src/components/language-toggle.tsx": {
-      "path": "src/components/language-toggle.tsx",
+    "src\\app\\vps-status\\vps-status-table.tsx": {
+      "path": "src\\app\\vps-status\\vps-status-table.tsx",
       "total": 0,
       "covered": 0,
       "missing": 0,
       "candidates": []
     },
-    "src/components/link-pagination.tsx": {
-      "path": "src/components/link-pagination.tsx",
+    "src\\app\\vps-status\\vps-status-toolbar.tsx": {
+      "path": "src\\app\\vps-status\\vps-status-toolbar.tsx",
       "total": 0,
       "covered": 0,
       "missing": 0,
       "candidates": []
     },
-    "src/components/localized-text.tsx": {
-      "path": "src/components/localized-text.tsx",
+    "src\\components\\action-button.tsx": {
+      "path": "src\\components\\action-button.tsx",
       "total": 0,
       "covered": 0,
       "missing": 0,
       "candidates": []
     },
-    "src/components/markdown-text.tsx": {
-      "path": "src/components/markdown-text.tsx",
+    "src\\components\\app-sidebar.tsx": {
+      "path": "src\\components\\app-sidebar.tsx",
       "total": 0,
       "covered": 0,
       "missing": 0,
       "candidates": []
     },
-    "src/components/media/chunked-uploader.tsx": {
-      "path": "src/components/media/chunked-uploader.tsx",
+    "src\\components\\app-topbar.tsx": {
+      "path": "src\\components\\app-topbar.tsx",
       "total": 0,
       "covered": 0,
       "missing": 0,
       "candidates": []
     },
-    "src/components/mobile-nav.tsx": {
-      "path": "src/components/mobile-nav.tsx",
+    "src\\components\\change-password-modal.tsx": {
+      "path": "src\\components\\change-password-modal.tsx",
       "total": 0,
       "covered": 0,
       "missing": 0,
       "candidates": []
     },
-    "src/components/modal-shell.tsx": {
-      "path": "src/components/modal-shell.tsx",
+    "src\\components\\charts\\time-series-chart.tsx": {
+      "path": "src\\components\\charts\\time-series-chart.tsx",
       "total": 0,
       "covered": 0,
       "missing": 0,
       "candidates": []
     },
-    "src/components/nav-icons.tsx": {
-      "path": "src/components/nav-icons.tsx",
+    "src\\components\\confirm-dialog.tsx": {
+      "path": "src\\components\\confirm-dialog.tsx",
       "total": 0,
       "covered": 0,
       "missing": 0,
       "candidates": []
     },
-    "src/components/nav-items.tsx": {
-      "path": "src/components/nav-items.tsx",
+    "src\\components\\customer-switcher.tsx": {
+      "path": "src\\components\\customer-switcher.tsx",
       "total": 0,
       "covered": 0,
       "missing": 0,
       "candidates": []
     },
-    "src/components/notification-bell.tsx": {
-      "path": "src/components/notification-bell.tsx",
+    "src\\components\\execution-evidence.tsx": {
+      "path": "src\\components\\execution-evidence.tsx",
       "total": 0,
       "covered": 0,
       "missing": 0,
       "candidates": []
     },
-    "src/components/page-header-icon.tsx": {
-      "path": "src/components/page-header-icon.tsx",
+    "src\\components\\global-search.tsx": {
+      "path": "src\\components\\global-search.tsx",
       "total": 0,
       "covered": 0,
       "missing": 0,
       "candidates": []
     },
-    "src/components/page-shell.tsx": {
-      "path": "src/components/page-shell.tsx",
+    "src\\components\\icons.tsx": {
+      "path": "src\\components\\icons.tsx",
       "total": 0,
       "covered": 0,
       "missing": 0,
       "candidates": []
     },
-    "src/components/paginated-list.tsx": {
-      "path": "src/components/paginated-list.tsx",
+    "src\\components\\keyboard-shortcuts.tsx": {
+      "path": "src\\components\\keyboard-shortcuts.tsx",
       "total": 0,
       "covered": 0,
       "missing": 0,
       "candidates": []
     },
-    "src/components/pagination.tsx": {
-      "path": "src/components/pagination.tsx",
+    "src\\components\\known-error-notice.tsx": {
+      "path": "src\\components\\known-error-notice.tsx",
       "total": 0,
       "covered": 0,
       "missing": 0,
       "candidates": []
     },
-    "src/components/password-field.tsx": {
-      "path": "src/components/password-field.tsx",
+    "src\\components\\language-toggle.tsx": {
+      "path": "src\\components\\language-toggle.tsx",
       "total": 0,
       "covered": 0,
       "missing": 0,
       "candidates": []
     },
-    "src/components/pwa-register.tsx": {
-      "path": "src/components/pwa-register.tsx",
+    "src\\components\\link-pagination.tsx": {
+      "path": "src\\components\\link-pagination.tsx",
       "total": 0,
       "covered": 0,
       "missing": 0,
       "candidates": []
     },
-    "src/components/rdp-extra-keys.tsx": {
-      "path": "src/components/rdp-extra-keys.tsx",
+    "src\\components\\localized-text.tsx": {
+      "path": "src\\components\\localized-text.tsx",
       "total": 0,
       "covered": 0,
       "missing": 0,
       "candidates": []
     },
-    "src/components/rdp-pan-control.tsx": {
-      "path": "src/components/rdp-pan-control.tsx",
+    "src\\components\\markdown-text.tsx": {
+      "path": "src\\components\\markdown-text.tsx",
       "total": 0,
       "covered": 0,
       "missing": 0,
       "candidates": []
     },
-    "src/components/remote-desktop-panel.tsx": {
-      "path": "src/components/remote-desktop-panel.tsx",
+    "src\\components\\media\\chunked-uploader.tsx": {
+      "path": "src\\components\\media\\chunked-uploader.tsx",
       "total": 0,
       "covered": 0,
       "missing": 0,
       "candidates": []
     },
-    "src/components/route-error.tsx": {
-      "path": "src/components/route-error.tsx",
+    "src\\components\\mobile-nav.tsx": {
+      "path": "src\\components\\mobile-nav.tsx",
       "total": 0,
       "covered": 0,
       "missing": 0,
       "candidates": []
     },
-    "src/components/sentry-provider.tsx": {
-      "path": "src/components/sentry-provider.tsx",
+    "src\\components\\modal-shell.tsx": {
+      "path": "src\\components\\modal-shell.tsx",
       "total": 0,
       "covered": 0,
       "missing": 0,
       "candidates": []
     },
-    "src/components/sidebar-loader.tsx": {
-      "path": "src/components/sidebar-loader.tsx",
+    "src\\components\\nav-icons.tsx": {
+      "path": "src\\components\\nav-icons.tsx",
       "total": 0,
       "covered": 0,
       "missing": 0,
       "candidates": []
     },
-    "src/components/sign-out-button.tsx": {
-      "path": "src/components/sign-out-button.tsx",
+    "src\\components\\nav-items.tsx": {
+      "path": "src\\components\\nav-items.tsx",
       "total": 0,
       "covered": 0,
       "missing": 0,
       "candidates": []
     },
-    "src/components/skeleton.tsx": {
-      "path": "src/components/skeleton.tsx",
+    "src\\components\\notification-bell.tsx": {
+      "path": "src\\components\\notification-bell.tsx",
       "total": 0,
       "covered": 0,
       "missing": 0,
       "candidates": []
     },
-    "src/components/skip-link.tsx": {
-      "path": "src/components/skip-link.tsx",
+    "src\\components\\page-guide.tsx": {
+      "path": "src\\components\\page-guide.tsx",
       "total": 0,
       "covered": 0,
       "missing": 0,
       "candidates": []
     },
-    "src/components/ssh-file-manager-dialogs.tsx": {
-      "path": "src/components/ssh-file-manager-dialogs.tsx",
+    "src\\components\\page-header-icon.tsx": {
+      "path": "src\\components\\page-header-icon.tsx",
       "total": 0,
       "covered": 0,
       "missing": 0,
       "candidates": []
     },
-    "src/components/ssh-file-manager-list.tsx": {
-      "path": "src/components/ssh-file-manager-list.tsx",
+    "src\\components\\page-shell.tsx": {
+      "path": "src\\components\\page-shell.tsx",
       "total": 0,
       "covered": 0,
       "missing": 0,
       "candidates": []
     },
-    "src/components/ssh-file-manager-parts.tsx": {
-      "path": "src/components/ssh-file-manager-parts.tsx",
+    "src\\components\\paginated-list.tsx": {
+      "path": "src\\components\\paginated-list.tsx",
       "total": 0,
       "covered": 0,
       "missing": 0,
       "candidates": []
     },
-    "src/components/ssh-file-manager.tsx": {
-      "path": "src/components/ssh-file-manager.tsx",
+    "src\\components\\pagination.tsx": {
+      "path": "src\\components\\pagination.tsx",
       "total": 0,
       "covered": 0,
       "missing": 0,
       "candidates": []
     },
-    "src/components/ssh-quick-key-builder.tsx": {
-      "path": "src/components/ssh-quick-key-builder.tsx",
+    "src\\components\\password-field.tsx": {
+      "path": "src\\components\\password-field.tsx",
       "total": 0,
       "covered": 0,
       "missing": 0,
       "candidates": []
     },
-    "src/components/ssh-terminal-chrome.tsx": {
-      "path": "src/components/ssh-terminal-chrome.tsx",
+    "src\\components\\pwa-register.tsx": {
+      "path": "src\\components\\pwa-register.tsx",
       "total": 0,
       "covered": 0,
       "missing": 0,
       "candidates": []
     },
-    "src/components/ssh-terminal-manager.tsx": {
-      "path": "src/components/ssh-terminal-manager.tsx",
+    "src\\components\\rdp-extra-keys.tsx": {
+      "path": "src\\components\\rdp-extra-keys.tsx",
       "total": 0,
       "covered": 0,
       "missing": 0,
       "candidates": []
     },
-    "src/components/ssh-terminal-panel.tsx": {
-      "path": "src/components/ssh-terminal-panel.tsx",
+    "src\\components\\rdp-pan-control.tsx": {
+      "path": "src\\components\\rdp-pan-control.tsx",
       "total": 0,
       "covered": 0,
       "missing": 0,
       "candidates": []
     },
-    "src/components/ssh-terminal-side-panel.tsx": {
-      "path": "src/components/ssh-terminal-side-panel.tsx",
+    "src\\components\\remote-desktop-panel.tsx": {
+      "path": "src\\components\\remote-desktop-panel.tsx",
       "total": 0,
       "covered": 0,
       "missing": 0,
       "candidates": []
     },
-    "src/components/status-badge.tsx": {
-      "path": "src/components/status-badge.tsx",
+    "src\\components\\route-error.tsx": {
+      "path": "src\\components\\route-error.tsx",
       "total": 0,
       "covered": 0,
       "missing": 0,
       "candidates": []
     },
-    "src/components/storage/bidirectional-sync-panel.tsx": {
-      "path": "src/components/storage/bidirectional-sync-panel.tsx",
+    "src\\components\\sentry-provider.tsx": {
+      "path": "src\\components\\sentry-provider.tsx",
       "total": 0,
       "covered": 0,
       "missing": 0,
       "candidates": []
     },
-    "src/components/storage/file-upload-dropzone.tsx": {
-      "path": "src/components/storage/file-upload-dropzone.tsx",
+    "src\\components\\sidebar-loader.tsx": {
+      "path": "src\\components\\sidebar-loader.tsx",
       "total": 0,
       "covered": 0,
       "missing": 0,
       "candidates": []
     },
-    "src/components/storage/storage-upload-provider.tsx": {
-      "path": "src/components/storage/storage-upload-provider.tsx",
+    "src\\components\\sign-out-button.tsx": {
+      "path": "src\\components\\sign-out-button.tsx",
       "total": 0,
       "covered": 0,
       "missing": 0,
       "candidates": []
     },
-    "src/components/storage/webdav-setup-panel.tsx": {
-      "path": "src/components/storage/webdav-setup-panel.tsx",
+    "src\\components\\skeleton.tsx": {
+      "path": "src\\components\\skeleton.tsx",
       "total": 0,
       "covered": 0,
       "missing": 0,
       "candidates": []
     },
-    "src/components/submit-button.tsx": {
-      "path": "src/components/submit-button.tsx",
+    "src\\components\\skip-link.tsx": {
+      "path": "src\\components\\skip-link.tsx",
       "total": 0,
       "covered": 0,
       "missing": 0,
       "candidates": []
     },
-    "src/components/theme-toggle.tsx": {
-      "path": "src/components/theme-toggle.tsx",
+    "src\\components\\snippet-picker.tsx": {
+      "path": "src\\components\\snippet-picker.tsx",
       "total": 0,
       "covered": 0,
       "missing": 0,
       "candidates": []
     },
-    "src/components/toast-provider.tsx": {
-      "path": "src/components/toast-provider.tsx",
+    "src\\components\\ssh-file-manager-dialogs.tsx": {
+      "path": "src\\components\\ssh-file-manager-dialogs.tsx",
       "total": 0,
       "covered": 0,
       "missing": 0,
       "candidates": []
     },
-    "src/components/two-factor-settings.tsx": {
-      "path": "src/components/two-factor-settings.tsx",
+    "src\\components\\ssh-file-manager-list.tsx": {
+      "path": "src\\components\\ssh-file-manager-list.tsx",
       "total": 0,
       "covered": 0,
       "missing": 0,
       "candidates": []
     },
-    "src/components/ui-primitives.tsx": {
-      "path": "src/components/ui-primitives.tsx",
+    "src\\components\\ssh-file-manager-parts.tsx": {
+      "path": "src\\components\\ssh-file-manager-parts.tsx",
       "total": 0,
       "covered": 0,
       "missing": 0,
       "candidates": []
     },
-    "src/components/ui/dialog.tsx": {
-      "path": "src/components/ui/dialog.tsx",
+    "src\\components\\ssh-file-manager.tsx": {
+      "path": "src\\components\\ssh-file-manager.tsx",
       "total": 0,
       "covered": 0,
       "missing": 0,
       "candidates": []
     },
-    "src/components/ui/disclosure.tsx": {
-      "path": "src/components/ui/disclosure.tsx",
+    "src\\components\\ssh-quick-key-builder.tsx": {
+      "path": "src\\components\\ssh-quick-key-builder.tsx",
       "total": 0,
       "covered": 0,
       "missing": 0,
       "candidates": []
     },
-    "src/components/ui/key-value.tsx": {
-      "path": "src/components/ui/key-value.tsx",
+    "src\\components\\ssh-terminal-chrome.tsx": {
+      "path": "src\\components\\ssh-terminal-chrome.tsx",
       "total": 0,
       "covered": 0,
       "missing": 0,
       "candidates": []
     },
-    "src/components/ui/menu.tsx": {
-      "path": "src/components/ui/menu.tsx",
+    "src\\components\\ssh-terminal-manager.tsx": {
+      "path": "src\\components\\ssh-terminal-manager.tsx",
       "total": 0,
       "covered": 0,
       "missing": 0,
       "candidates": []
     },
-    "src/components/ui/number-input.tsx": {
-      "path": "src/components/ui/number-input.tsx",
+    "src\\components\\ssh-terminal-panel.tsx": {
+      "path": "src\\components\\ssh-terminal-panel.tsx",
       "total": 0,
       "covered": 0,
       "missing": 0,
       "candidates": []
     },
-    "src/components/user-menu.tsx": {
-      "path": "src/components/user-menu.tsx",
+    "src\\components\\ssh-terminal-side-panel.tsx": {
+      "path": "src\\components\\ssh-terminal-side-panel.tsx",
       "total": 0,
       "covered": 0,
       "missing": 0,
       "candidates": []
     },
-    "src/components/web-vitals-reporter.tsx": {
-      "path": "src/components/web-vitals-reporter.tsx",
+    "src\\components\\status-badge.tsx": {
+      "path": "src\\components\\status-badge.tsx",
+      "total": 0,
+      "covered": 0,
+      "missing": 0,
+      "candidates": []
+    },
+    "src\\components\\storage\\bidirectional-sync-panel.tsx": {
+      "path": "src\\components\\storage\\bidirectional-sync-panel.tsx",
+      "total": 0,
+      "covered": 0,
+      "missing": 0,
+      "candidates": []
+    },
+    "src\\components\\storage\\file-upload-dropzone.tsx": {
+      "path": "src\\components\\storage\\file-upload-dropzone.tsx",
+      "total": 0,
+      "covered": 0,
+      "missing": 0,
+      "candidates": []
+    },
+    "src\\components\\storage\\storage-upload-provider.tsx": {
+      "path": "src\\components\\storage\\storage-upload-provider.tsx",
+      "total": 0,
+      "covered": 0,
+      "missing": 0,
+      "candidates": []
+    },
+    "src\\components\\storage\\webdav-setup-panel.tsx": {
+      "path": "src\\components\\storage\\webdav-setup-panel.tsx",
+      "total": 0,
+      "covered": 0,
+      "missing": 0,
+      "candidates": []
+    },
+    "src\\components\\submit-button.tsx": {
+      "path": "src\\components\\submit-button.tsx",
+      "total": 0,
+      "covered": 0,
+      "missing": 0,
+      "candidates": []
+    },
+    "src\\components\\theme-toggle.tsx": {
+      "path": "src\\components\\theme-toggle.tsx",
+      "total": 0,
+      "covered": 0,
+      "missing": 0,
+      "candidates": []
+    },
+    "src\\components\\toast-provider.tsx": {
+      "path": "src\\components\\toast-provider.tsx",
+      "total": 0,
+      "covered": 0,
+      "missing": 0,
+      "candidates": []
+    },
+    "src\\components\\two-factor-settings.tsx": {
+      "path": "src\\components\\two-factor-settings.tsx",
+      "total": 0,
+      "covered": 0,
+      "missing": 0,
+      "candidates": []
+    },
+    "src\\components\\ui-primitives.tsx": {
+      "path": "src\\components\\ui-primitives.tsx",
+      "total": 0,
+      "covered": 0,
+      "missing": 0,
+      "candidates": []
+    },
+    "src\\components\\ui\\dialog.tsx": {
+      "path": "src\\components\\ui\\dialog.tsx",
+      "total": 0,
+      "covered": 0,
+      "missing": 0,
+      "candidates": []
+    },
+    "src\\components\\ui\\disclosure.tsx": {
+      "path": "src\\components\\ui\\disclosure.tsx",
+      "total": 0,
+      "covered": 0,
+      "missing": 0,
+      "candidates": []
+    },
+    "src\\components\\ui\\key-value.tsx": {
+      "path": "src\\components\\ui\\key-value.tsx",
+      "total": 0,
+      "covered": 0,
+      "missing": 0,
+      "candidates": []
+    },
+    "src\\components\\ui\\menu.tsx": {
+      "path": "src\\components\\ui\\menu.tsx",
+      "total": 0,
+      "covered": 0,
+      "missing": 0,
+      "candidates": []
+    },
+    "src\\components\\ui\\number-input.tsx": {
+      "path": "src\\components\\ui\\number-input.tsx",
+      "total": 0,
+      "covered": 0,
+      "missing": 0,
+      "candidates": []
+    },
+    "src\\components\\user-menu.tsx": {
+      "path": "src\\components\\user-menu.tsx",
+      "total": 0,
+      "covered": 0,
+      "missing": 0,
+      "candidates": []
+    },
+    "src\\components\\web-vitals-reporter.tsx": {
+      "path": "src\\components\\web-vitals-reporter.tsx",
       "total": 0,
       "covered": 0,
       "missing": 0,

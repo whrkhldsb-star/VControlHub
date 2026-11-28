@@ -32,6 +32,8 @@ function storedImages(raw: string) {
 export function serializeConversation(c: Awaited<ReturnType<typeof getConversationById>>) {
 	return {
 		...c,
+		automationModeExpiresAt: c.automationModeExpiresAt?.toISOString() ?? null,
+		pinnedServerIds: c.pinnedServerIds ?? [],
 		createdAt: c.createdAt.toISOString(),
 		updatedAt: c.updatedAt.toISOString(),
 		messages: c.messages.map((m) => {
@@ -58,6 +60,8 @@ export function serializeConversationListItem(
 ) {
 	return {
 		...c,
+		automationModeExpiresAt: c.automationModeExpiresAt?.toISOString() ?? null,
+		pinnedServerIds: c.pinnedServerIds ?? [],
 		createdAt: c.createdAt.toISOString(),
 		updatedAt: c.updatedAt.toISOString(),
 	};

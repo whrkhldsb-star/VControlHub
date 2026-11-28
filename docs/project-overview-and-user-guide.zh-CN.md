@@ -73,9 +73,9 @@ VControlHub 是面向个人运维及多客户服务场景的自托管服务器�
 
 ### 1.3 当前代码规模与口径
 
-项目包含：58 个 `page.tsx` 页面文件、198 个 API 路由文件、85 个 Prisma 数据模型、52 个业务权限项、4 个内置身份模板、24 类后台 Worker，以及 42 个本地快捷服务模板。
+项目包含：59 个 `page.tsx` 页面文件、201 个 API 路由文件、85 个 Prisma 数据模型、54 个业务权限项、4 个内置身份模板、24 类后台 Worker，以及 42 个本地快捷服务模板。
 
-配置与调用入口包括 9 个模块中的 25 个 Server Action 运行时导出、70 个系统设置表单字段、9 个持久化个人偏好字段和 21 个 AI 托管工具；逐项对应关系见第 24 章。
+配置与调用入口包括 9 个模块中的 25 个 Server Action 运行时导出、77 个系统设置表单字段、9 个持久化个人偏好字段和 21 个 AI 托管工具；逐项对应关系见第 24 章。
 
 这里的“页面”包含详情页、登录页和兼容跳转入口；“API 路由文件”可能同时处理多个 HTTP 方法；“应用模板”表示存在安装定义，不代表所有第三方应用在所有硬件和网络环境中都已逐项验收。
 
@@ -2187,7 +2187,7 @@ CI 还包含 Windows 工具链检查及 Docker 全新安装验证。测试使用
 本章用于检查模块覆盖及快速定位实现；日常使用可按前面的功能章节阅读。
 
 <!-- GENERATED_REFERENCE_START -->
-### 24.1 全部 58 个页面入口
+### 24.1 全部 59 个页面入口
 
 动态段 `[id]`、`[token]` 需要真实对象标识；本表包含兼容跳转和公开页面。
 
@@ -2205,6 +2205,7 @@ CI 还包含 Windows 工具链检查及 Docker 全新安装验证。测试使用
 | [`/api-tokens`](../src/app/api-tokens/page.tsx) | 个人 API Token | [签发、范围、过期、客户归属与撤销](#settings-api) |
 | [`/audit`](../src/app/audit/page.tsx) | 审计日志 | [操作记录、筛选、风险统计及导出接口](#permissions) |
 | [`/backups`](../src/app/backups/page.tsx) | 备份与迁移 | [平台备份、计划、恢复、演练和异地状态](#backup) |
+| [`/commands`](../src/app/commands/page.tsx) | 执行命令 | [单台／多台临时命令下发、实时风险与审批策略预览及片段插入](#automation) |
 | [`/cost-summary`](../src/app/cost-summary/page.tsx) | 成本追踪 | [费用、月费同步、CSV 账单、预算与快照](#cost) |
 | [`/dashboard`](../src/app/dashboard/page.tsx) | 仪表盘 | [资源统计、趋势、待办、布局与首次设置](#workspace) |
 | [`/customers`](../src/app/customers/page.tsx) | 客户管理 | [客户、客户账号、身份模板、删除与恢复](#permissions) |
@@ -2252,13 +2253,15 @@ CI 还包含 Windows 工具链检查及 Docker 全新安装验证。测试使用
 | [`/users`](../src/app/users/page.tsx) | 用户管理 | [账号类型、所属客户、身份模板与资源授权](#permissions) |
 | [`/vps-status`](../src/app/vps-status/page.tsx) | 节点状态 | [节点资源、在线状态、采样与趋势](#observability) |
 
-### 24.2 全部 52 项权限与内置身份模板
+### 24.2 全部 54 项权限与内置身份模板
 
 ✓ 表示默认授予，— 表示未授予，“平台专属”表示任何身份模板都不能包含。平台管理员拥有全部权限；客户账号的权限只来自身份模板（另含查看所属客户与同事的基础权限），实际操作还需满足 Token scopes、逐台服务器收窄和存储路径授权，见第 17 章。
 
 | 权限 | 含义 | 平台管理员 | 客户管理员 | 客户运维 | 客户只读 | 仅文件 |
 | --- | --- | :---: | :---: | :---: | :---: | :---: |
 | `ai:action:approve` | 审批 AI 动作 | ✓ | ✓ | — | — | — |
+| `ai:action:auto` | 允许 AI 助手在自动执行模式下免逐次确认执行低／中风险命令 | ✓ | ✓ | ✓ | — | — |
+| `ai:action:full-auto` | 允许 AI 助手进入限时全自动模式（仅平台管理员） | ✓ | 平台专属 | 平台专属 | 平台专属 | 平台专属 |
 | `ai:chat` | AI 对话 | ✓ | ✓ | ✓ | ✓ | ✓ |
 | `ai:manage` | 管理 AI 提供商等配置 | ✓ | ✓ | ✓ | — | — |
 | `ai:ops:autonomous` | 允许 AI 运维自主模式 | ✓ | ✓ | — | — | — |
@@ -2315,13 +2318,13 @@ CI 还包含 Windows 工具链检查及 Docker 全新安装验证。测试使用
 
 ### 24.3 全部 API 路由分组
 
-按 `/api/` 下第一层路径分为 54 组，共 196 个 `route.ts` 文件。一个文件可提供多个方法，动态路径和协议入口也计入。完整路径、方法和声明权限可继续查看 [route-catalog.json](route-catalog.json) 与运行实例中的 API 文档。
+按 `/api/` 下第一层路径分为 54 组，共 201 个 `route.ts` 文件。一个文件可提供多个方法，动态路径和协议入口也计入。完整路径、方法和声明权限可继续查看 [route-catalog.json](route-catalog.json) 与运行实例中的 API 文档。
 
 | 路径前缀 | 路由文件数 | 主要接口能力 |
 | --- | ---: | --- |
 | [`/api/admin`](../src/app/api/admin/) | 4 | 后台 Worker 状态、公开展示页站点与节点发布 |
 | [`/api/agent`](../src/app/api/agent/) | 2 | Agent 引导安装与轮询 |
-| [`/api/ai`](../src/app/api/ai/) | 16 | 提供商、模型、对话、托管动作、运维扫描与日志 |
+| [`/api/ai`](../src/app/api/ai/) | 17 | 提供商、模型、对话、自动续写、托管动作实时状态、运维扫描与日志 |
 | [`/api/alert-incidents`](../src/app/api/alert-incidents/) | 1 | 告警事件生命周期 |
 | [`/api/alert-rules`](../src/app/api/alert-rules/) | 1 | 规则、测试、检测及默认规则 |
 | [`/api/announcements`](../src/app/api/announcements/) | 1 | 公告管理 |
@@ -2332,7 +2335,7 @@ CI 还包含 Windows 工具链检查及 Docker 全新安装验证。测试使用
 | [`/api/backup-schedules`](../src/app/api/backup-schedules/) | 2 | 平台备份计划 |
 | [`/api/backups`](../src/app/api/backups/) | 9 | 备份、恢复、演练、迁移、保留及异地 |
 | [`/api/command-templates`](../src/app/api/command-templates/) | 1 | 命令模板 |
-| [`/api/commands`](../src/app/api/commands/) | 2 | 命令请求、审批及关联工单 |
+| [`/api/commands`](../src/app/api/commands/) | 4 | 命令请求、风险预览、单条详情、审批及关联工单 |
 | [`/api/cost`](../src/app/api/cost/) | 10 | 费用、预算、快照、账单账户及同步 |
 | [`/api/dashboard`](../src/app/api/dashboard/) | 1 | 仪表盘趋势分析 |
 | [`/api/deploy-export`](../src/app/api/deploy-export/) | 2 | 部署模板导出和包下载 |
@@ -2373,7 +2376,7 @@ CI 还包含 Windows 工具链检查及 Docker 全新安装验证。测试使用
 | [`/api/traffic`](../src/app/api/traffic/) | 2 | 流量汇总与历史 |
 | [`/api/users`](../src/app/api/users/) | 2 | 用户及细粒度权限 |
 | [`/api/webdav`](../src/app/api/webdav/) | 1 | 对外 DAV 协议入口 |
-| **合计** | **195** | **所有 API 路由文件** |
+| **合计** | **201** | **所有 API 路由文件** |
 
 公开分享使用持链接及密码策略；Agent 使用节点令牌；ITSM 入站使用签名；WebDAV 使用平台 API Token；浏览器会话和 Bearer Token 的支持范围由各接口守卫决定。路径出现在本表中不表示可以匿名调用或允许全部 Token 使用。
 
@@ -2384,7 +2387,7 @@ CI 还包含 Windows 工具链检查及 Docker 全新安装验证。测试使用
 | 产品导航与页面 | [src/components/nav-items.tsx](../src/components/nav-items.tsx) | 导航分组和主入口 |
 | 页面／接口总目录 | [docs/route-catalog.json](../docs/route-catalog.json) | 可核对的完整路由及声明权限 |
 | 客户隔离边界 | [docs/multi-tenant.md](../docs/multi-tenant.md) | 客户、客户账号和授权规则 |
-| 角色与权限 | [src/lib/auth/rbac.ts](../src/lib/auth/rbac.ts) | 平台角色与 52 项权限 |
+| 角色与权限 | [src/lib/auth/rbac.ts](../src/lib/auth/rbac.ts) | 平台角色与 54 项权限 |
 | 服务器业务 | [src/lib/server](../src/lib/server) | 节点、Agent、凭据、直连和诊断 |
 | 远程连接 | [src/ssh-ws-proxy.ts](../src/ssh-ws-proxy.ts) | SSH／RDP WebSocket 入口 |
 | 存储适配 | [src/lib/storage](../src/lib/storage) | LOCAL／SFTP／WebDAV、文件流及版本 |
@@ -2428,12 +2431,12 @@ CI 还包含 Windows 工具链检查及 Docker 全新安装验证。测试使用
 
 | 实现对象 | 数量 | 文档位置 |
 | --- | ---: | --- |
-| 页面文件 | 58 | 第 24.1 节及对应功能章节 |
-| API 路由文件 | 196 | 第 24.3 节分组及第 24.7 节逐项索引 |
+| 页面文件 | 59 | 第 24.1 节及对应功能章节 |
+| API 路由文件 | 201 | 第 24.3 节分组及第 24.7 节逐项索引 |
 | Server Action 运行时导出 | 25，分布在 9 个模块 | 第 24.8 节，包含表单选项／目标查询入口 |
-| 系统设置表单字段 | 70 | 第 18.5 节 |
+| 系统设置表单字段 | 77 | 第 18.5 节 |
 | 持久化个人偏好字段 | 9 | 第 3.3 节 |
-| 内置身份模板／业务权限 | 4／52 | 第 17 章及第 24.2 节 |
+| 内置身份模板／业务权限 | 4／54 | 第 17 章及第 24.2 节 |
 | 本地快捷服务模板 | 42 | 第 10.4 节 |
 | AI 托管工具 | 21 | 第 14.4 节 |
 | Worker 类型 | 24 | 第 20.4 节 |
@@ -2443,7 +2446,7 @@ CI 还包含 Windows 工具链检查及 Docker 全新安装验证。测试使用
 
 查阅某个功能时，先确认业务页面，再沿接口或 Server Action 定位服务实现；涉及耗时操作时继续查看 Worker 与任务模型。这里的入口数量不是业务成功率或第三方兼容性承诺，具体驱动和操作系统的能力对照见第 23 章。
 
-### 24.7 全部 196 个 API 路由的功能索引
+### 24.7 全部 201 个 API 路由的功能索引
 
 HTTP 方法列来自实际源码导出，包括转导出的下载及 OpenAPI 路由。方法声明用于定位接口；具体操作仍由输入、权限和处理器决定。WebDAV 的 PROPFIND、MKCOL、COPY、MOVE 等扩展方法经自定义 Web 入口派发，见第 7 章。
 
@@ -2458,9 +2461,10 @@ HTTP 方法列来自实际源码导出，包括转导出的下载及 OpenAPI 路
 | [`/api/agent/v1/poll`](../src/app/api/agent/v1/poll/route.ts) | POST | Agent 上报心跳／指标、领取命令并回传结果 | [服务器纳管与节点管理](#servers) |
 | [`/api/ai/chat`](../src/app/api/ai/chat/route.ts) | POST | 对话请求、流式回复及受控工具调用 | [AI 助手、知识库与 AI 运维](#ai) |
 | [`/api/ai/conversations`](../src/app/api/ai/conversations/route.ts) | GET / POST | 列出与新建对话 | [AI 助手、知识库与 AI 运维](#ai) |
-| [`/api/ai/conversations/[id]`](../src/app/api/ai/conversations/[id]/route.ts) | GET / PATCH / DELETE | 读取、重命名、修改设置、清空或删除对话 | [AI 助手、知识库与 AI 运维](#ai) |
+| [`/api/ai/conversations/[id]`](../src/app/api/ai/conversations/[id]/route.ts) | GET / PATCH / DELETE | 读取、重命名、修改设置与执行模式、固定目标服务器、清空或删除对话 | [AI 助手、知识库与 AI 运维](#ai) |
+| [`/api/ai/conversations/[id]/continue`](../src/app/api/ai/conversations/[id]/continue/route.ts) | POST | 在行内托管动作执行终态后无合成消息自动续写助手 SSE 回复 | [AI 助手、知识库与 AI 运维](#ai) |
 | [`/api/ai/hosted-actions`](../src/app/api/ai/hosted-actions/route.ts) | GET | 查询托管动作及待处理授权 | [AI 助手、知识库与 AI 运维](#ai) |
-| [`/api/ai/hosted-actions/[id]`](../src/app/api/ai/hosted-actions/[id]/route.ts) | PATCH | 确认、批准或拒绝托管动作 | [AI 助手、知识库与 AI 运维](#ai) |
+| [`/api/ai/hosted-actions/[id]`](../src/app/api/ai/hosted-actions/[id]/route.ts) | GET / PATCH | 轮询单条托管动作与关联命令实时状态／脱敏输出，或确认、批准与拒绝动作 | [AI 助手、知识库与 AI 运维](#ai) |
 | [`/api/ai/models`](../src/app/api/ai/models/route.ts) | GET | 读取已配置提供商的模型清单 | [AI 助手、知识库与 AI 运维](#ai) |
 | [`/api/ai/models/probe`](../src/app/api/ai/models/probe/route.ts) | POST | 使用当前填写的连接参数探测模型清单 | [AI 助手、知识库与 AI 运维](#ai) |
 | [`/api/ai/ops/logs`](../src/app/api/ai/ops/logs/route.ts) | GET | 筛选与查询 AI 运维扫描记录 | [AI 助手、知识库与 AI 运维](#ai) |
@@ -2501,7 +2505,9 @@ HTTP 方法列来自实际源码导出，包括转导出的下载及 OpenAPI 路
 | [`/api/backups/retention`](../src/app/api/backups/retention/route.ts) | GET / POST | 查看保留状态并发起保留清理 | [平台备份、VPS 备份、恢复与迁移](#backup) |
 | [`/api/command-templates`](../src/app/api/command-templates/route.ts) | GET / POST / PATCH / DELETE | 命令模板列表、新增、修改及删除 | [命令模板、应用部署与 Docker](#deployment) |
 | [`/api/commands`](../src/app/api/commands/route.ts) | GET / POST / PATCH | 查询命令、单台／多台提交及请求取消 | [审批、定时任务、Playbook 与任务中心](#automation) |
+| [`/api/commands/[id]`](../src/app/api/commands/[id]/route.ts) | GET | 按查看者权限读取单条命令详情、正文可见性与脱敏输出 | [审批、定时任务、Playbook 与任务中心](#automation) |
 | [`/api/commands/[id]/tickets`](../src/app/api/commands/[id]/tickets/route.ts) | GET | 从命令查看关联工单 | [工单、ITSM、通知、公告与代码片段](#collaboration) |
+| [`/api/commands/preview`](../src/app/api/commands/preview/route.ts) | POST | 无副作用实时评估命令风险等级、黑名单与平台审批策略决策 | [审批、定时任务、Playbook 与任务中心](#automation) |
 | [`/api/cost/billing-accounts`](../src/app/api/cost/billing-accounts/route.ts) | GET / POST | 账单来源账户列表及创建 | [成本、账单与预算](#cost) |
 | [`/api/cost/billing-accounts/[id]`](../src/app/api/cost/billing-accounts/[id]/route.ts) | GET / PATCH / DELETE | 账单账户详情、更新、启停及删除 | [成本、账单与预算](#cost) |
 | [`/api/cost/billing-accounts/[id]/sync`](../src/app/api/cost/billing-accounts/[id]/sync/route.ts) | POST | 按月份同步账户 CSV 账单 | [成本、账单与预算](#cost) |

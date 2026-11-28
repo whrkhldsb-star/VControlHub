@@ -21,6 +21,10 @@ import type { SendArgs } from "./use-ai-chat-stream";
 import type { ToastFn } from "@/components/toast-provider";
 import { randomId } from "@/lib/ui/random-id";
 
+export type NewConversationOptions = {
+  /** Servers to pin at creation (a `/ai?server=<id>` deep link). */
+  pinnedServerIds?: string[];
+};
 
 export function useAiSendActions({
   activeConvId,
@@ -112,7 +116,12 @@ export function useAiSendActions({
     t,
   ]);
 
-  const handleNewConv = useCallback(async () => {
+  /**
+   * Create a conversation with the default provider. A server deep link (`/ai?server=<id>`) passes the server
+   * to pin and turns the server tools on in Confirm mode: the user asked about that server, and every change
+   * there still waits for their confirmation.
+   */
+  const handleNewConv = useCallback(async (options?: NewConversationOptions) => {
     const defaultProvider =
       providers.find((p) => p.isDefault && p.enabled) ||
       providers.find((p) => p.enabled);
@@ -121,6 +130,7 @@ export function useAiSendActions({
       openProviderPanel();
       return;
     }
+    const pinnedServerIds = options?.pinnedServerIds?.filter(Boolean) ?? [];
     try {
       const data = await csrfFetch("/api/ai/conversations", {
         method: "POST",
@@ -128,6 +138,9 @@ export function useAiSendActions({
         body: JSON.stringify({
           providerId: defaultProvider.id,
           model: defaultProvider.defaultModel,
+          ...(pinnedServerIds.length > 0
+            ? { pinnedServerIds, hostingEnabled: true, automationMode: "ASSISTED" }
+            : {}),
         }),
       });
       if (data.conversation) {

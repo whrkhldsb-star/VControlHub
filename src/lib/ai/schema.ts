@@ -118,6 +118,8 @@ export const updateProviderSchema = z.object({
 
 // POST /api/ai/conversations body. Provider + model are required; the
 // sampling parameters mirror OpenAI's chat completion API.
+export const aiAutomationModeSchema = z.enum(["ASSISTED", "PLAN_ONLY", "AUTO", "FULL_AUTO"]);
+
 export const createConversationSchema = z.object({
   title: z.string().min(1).max(200, "Title is too long").optional(),
   providerId: z.string().min(1, "Missing provider"),
@@ -130,7 +132,9 @@ export const createConversationSchema = z.object({
   presencePenalty: z.number().min(-2).max(2).optional(),
   enableVision: z.boolean().optional(),
   hostingEnabled: z.boolean().optional(),
-  automationMode: z.enum(["ASSISTED", "PLAN_ONLY"]).optional(),
+  automationMode: aiAutomationModeSchema.optional(),
+  automationModeTtlMinutes: z.number().int().min(5).max(60).optional(),
+  pinnedServerIds: z.array(z.string().trim().min(1).max(64)).max(20).optional(),
 });
 
 // PATCH /api/ai/conversations/[id] body. Same field set as the create
@@ -147,7 +151,9 @@ export const updateConversationSchema = z.object({
   presencePenalty: z.number().min(-2).max(2).optional(),
   enableVision: z.boolean().optional(),
   hostingEnabled: z.boolean().optional(),
-  automationMode: z.enum(["ASSISTED", "PLAN_ONLY"]).optional(),
+  automationMode: aiAutomationModeSchema.optional(),
+  automationModeTtlMinutes: z.number().int().min(5).max(60).optional(),
+  pinnedServerIds: z.array(z.string().trim().min(1).max(64)).max(20).optional(),
   clearMessages: z.boolean().optional(),
 });
 
@@ -236,6 +242,10 @@ export const hostedActionDecisionSchema = z
   .object({
     action: z.enum(["approve", "reject", "confirm"]),
     reason: z.string().trim().max(500, "Reason is too long").optional(),
+    /** Optional requester-edited command text (execute_command only; serverId/serverQuery are immutable). */
+    editedCommand: z.string().trim().min(1, "Command cannot be empty").max(10_000, "Command content is too long").optional(),
+    /** Explicit acknowledgement required for self-review / inline execution of denylisted critical commands. */
+    acknowledgeCritical: z.boolean().optional(),
   })
   .superRefine((value, ctx) => {
     if (value.action === "reject" && !value.reason) {
@@ -243,6 +253,13 @@ export const hostedActionDecisionSchema = z
         code: "custom",
         path: ["reason"],
         message: "A reason is required for reject actions",
+      });
+    }
+    if (value.editedCommand !== undefined && value.action !== "confirm") {
+      ctx.addIssue({
+        code: "custom",
+        path: ["editedCommand"],
+        message: "editedCommand is only allowed with confirm",
       });
     }
   });

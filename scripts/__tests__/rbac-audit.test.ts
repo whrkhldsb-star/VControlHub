@@ -81,8 +81,10 @@ function makeReport(overrides?: Partial<AuditReport>): AuditReport {
 describe("loadRbac — real rbac.ts fixture", () => {
   it("extracts all current permissions from the PERMISSIONS tuple", () => {
     const { permissions } = loadRbac();
-    expect(permissions.length).toBe(52);
+    expect(permissions.length).toBe(54);
     expect(permissions).toContain("ai:chat");
+    expect(permissions).toContain("ai:action:auto");
+    expect(permissions).toContain("ai:action:full-auto");
     expect(permissions).toContain("command:execute");
     expect(permissions).toContain("storage:write");
     expect(permissions).toContain("ai:ops:read");
@@ -95,8 +97,10 @@ describe("loadRbac — real rbac.ts fixture", () => {
 
   it("returns the admin role with all permissions via ALL_PERMISSIONS reference", () => {
     const { roleMap } = loadRbac();
-    expect(roleMap.admin.length).toBe(52);
+    expect(roleMap.admin.length).toBe(54);
     expect(roleMap.admin).toContain("ai:chat");
+    expect(roleMap.admin).toContain("ai:action:auto");
+    expect(roleMap.admin).toContain("ai:action:full-auto");
     expect(roleMap.admin).toContain("server:write");
     expect(roleMap.admin).toContain("ai:ops:read");
     expect(roleMap.admin).toContain("ai:ops:manage");

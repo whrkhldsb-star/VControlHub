@@ -21,6 +21,8 @@ export type UseConversationsResult = {
   /** Load the active conversation's history again. */
   retryMessages: () => void;
   refreshConversations: () => Promise<void>;
+  /** Apply a conversation as a PATCH returned it, without reading the whole list again. */
+  upsertConversation: (conversation: ConvItem) => void;
 };
 
 /**
@@ -93,6 +95,14 @@ export function useConversations({
     if (data.conversations) setConversations(data.conversations);
   }, []);
 
+  const upsertConversation = useCallback((conversation: ConvItem) => {
+    setConversations((prev) =>
+      prev.some((item) => item.id === conversation.id)
+        ? prev.map((item) => (item.id === conversation.id ? { ...item, ...conversation } : item))
+        : [conversation, ...prev],
+    );
+  }, []);
+
   return {
     conversations,
     activeConvId,
@@ -103,5 +113,6 @@ export function useConversations({
     messagesError,
     retryMessages,
     refreshConversations,
+    upsertConversation,
   };
 }

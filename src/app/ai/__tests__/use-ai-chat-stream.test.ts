@@ -534,7 +534,7 @@ describe("useAiChatStream", () => {
 				init?.method === "PATCH" ? Promise.resolve({ success: true }) : new Promise((resolve) => { answerRefresh = resolve; }));
 			const { state, args } = setup("conv_a");
 			const { result, rerender } = renderHook((props: typeof args) => useAiChatStream(props), { initialProps: args });
-			let decided: Promise<void> | undefined;
+			let decided: Promise<unknown> | undefined;
 			await act(async () => { decided = result.current.decideApproval(approval, "confirm"); });
 			await act(async () => {
 				rerender({ ...args, activeConvId: "conv_b", activeConv: { id: "conv_b", model: "m" } as never });
@@ -565,7 +565,7 @@ describe("useAiChatStream", () => {
 			);
 			const { args } = setup();
 			const { result } = renderHook(() => useAiChatStream(args));
-			let first: Promise<void> | undefined;
+			let first: Promise<unknown> | undefined;
 			await act(async () => {
 				first = result.current.decideApproval(approval, "confirm");
 				await result.current.decideApproval(approval, "confirm");

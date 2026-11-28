@@ -688,6 +688,7 @@ export const zh: Record<string, string> = {
 	"backend.ai.unknownError": "未知错误",
 	"backend.ai.hostingDisabled": "此对话已关闭托管，无法创建或认领托管操作。",
 	"backend.ai.hostedAuthorizationChanged": "账号、权限或客户归属已变更，托管操作已中止。",
+	"backend.ai.criticalAckRequired": "严重风险或黑名单操作需要明确确认风险后才能执行。",
 	"backend.ai.actionInterrupted": "执行过程中服务重启，操作被中断；无法确认是否已生效，请检查目标后再重试。",
 	"backend.ai.invalidActionParameters": "AI 操作参数无效，无法生成命令",
 	"backend.ai.assistantRequestReason": "由网页会话中的 AI 助手发起，需人工批准后执行。",
@@ -1603,6 +1604,7 @@ export const en: Record<string, string> = {
 	"backend.ai.unknownError": "Unknown error",
 	"backend.ai.hostingDisabled": "Hosting is disabled for this conversation. Hosted actions cannot be created or claimed.",
 	"backend.ai.hostedAuthorizationChanged": "Your account, permissions or customer context changed. Hosted actions have stopped.",
+	"backend.ai.criticalAckRequired": "Critical or denylisted actions require explicit risk acknowledgement before execution.",
 	"backend.ai.actionInterrupted":
 		"The service restarted while this action was running; whether it took effect is unknown. Check the target before retrying.",
 	"backend.ai.invalidActionParameters":

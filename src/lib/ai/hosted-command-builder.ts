@@ -1,7 +1,17 @@
 import { serviceCommand, type OsDialect } from "@/lib/ssh/os-dialect";
 import { shellQuote } from "@/lib/shell-quote";
 import { isValidTcpPort } from "@/lib/runtime/listen-port";
+import {
+  isSensitiveRemotePath,
+  PSEUDO_FILESYSTEM_ROOTS,
+  SENSITIVE_FILE_GLOBS,
+  SENSITIVE_FILE_NAMES,
+  SENSITIVE_PATH_SEGMENTS,
+  SENSITIVE_SYSTEM_PATHS,
+} from "@/lib/command/sensitive-paths";
 import type { HostedActionType } from "./hosted-tools";
+
+export { isSensitiveRemotePath };
 
 // ── 根据操作类型构建 shell 命令 ─────────────────────────────
 
@@ -68,39 +78,6 @@ function normalizeAbsolutePath(value: unknown): string | null {
   if (segments.some((segment) => segment === "..")) return null;
   if (!/^[/A-Za-z0-9._+@:\- ]+$/.test(path)) return null;
   return `/${segments.join("/")}`;
-}
-
-/** Pseudo-filesystems: `/proc/<pid>/root/…` is any path on the host, `/dev` and `/sys` are not files to read. */
-const PSEUDO_FILESYSTEM_ROOTS = /^\/(?:proc\/(?:\d+|self|thread-self)(?:\/|$)|sys(?:\/|$)|dev(?:\/|$))/;
-
-/** Directories whose contents are credentials, wherever they sit. */
-const SENSITIVE_PATH_SEGMENTS = new Set([".ssh", ".gnupg", ".aws", ".kube", ".docker", ".config/gcloud", ".azure", "run/secrets"]);
-/** Files that hold secrets or shell history. */
-const SENSITIVE_FILE_GLOBS = [
-  ".netrc", ".pgpass", ".my.cnf", ".git-credentials", ".npmrc", ".pypirc", ".env", ".env.*", "*.env",
-  ".htpasswd", ".vault-token", "*.tfstate", "*.tfstate.*", "*.tfvars",
-  ".bash_history", ".zsh_history", ".mysql_history", ".psql_history", ".python_history",
-  ...["id_rsa", "id_dsa", "id_ecdsa", "id_ed25519"].flatMap((name) => [name, `${name}.*`]),
-  "*.pem", "*.key", "*.p12", "*.pfx", "*.jks", "*.keystore", "*.kdbx",
-];
-const SENSITIVE_FILE_NAMES = new RegExp(
-  `^(?:${SENSITIVE_FILE_GLOBS.map((glob) => glob.replaceAll(".", "\\.").replaceAll("*", ".*")).join("|")})$`, "i",
-);
-/** System files that hold password hashes or private keys, and device/process nodes that are not files to read. */
-const SENSITIVE_SYSTEM_PATHS = /^\/(?:etc\/(?:shadow|gshadow|shadow-|gshadow-|sudoers(?:\.d(?:\/.*)?)?|ssh\/ssh_host_[^/]*_key|master\.passwd|kubernetes\/admin\.conf|rancher\/k3s\/k3s\.yaml|wireguard\/[^/]+\.conf)|var\/lib\/docker\/containers\/[^/]+\/config\.v2\.json|run\/secrets(?:\/.*)?|dev(?:\/.*)?|proc\/(?:kcore|\d+\/(?:mem|environ|maps)))$/;
-
-/**
- * The read tools run without anyone approving them and their output goes to the AI provider and into the
- * conversation: password hashes, private keys and credential stores are not for them (the terminal is).
- */
-export function isSensitiveRemotePath(path: string): boolean {
-  const normalized = `/${path.split("/").filter((segment) => segment !== "" && segment !== ".").join("/")}`;
-  if (PSEUDO_FILESYSTEM_ROOTS.test(normalized)) return true;
-  if (SENSITIVE_SYSTEM_PATHS.test(normalized)) return true;
-  const segments = normalized.split("/").filter(Boolean);
-  if (segments.some((segment, index) => SENSITIVE_PATH_SEGMENTS.has(segment) || SENSITIVE_PATH_SEGMENTS.has(`${segment}/${segments[index + 1] ?? ""}`))) return true;
-  const name = segments.at(-1) ?? "";
-  return SENSITIVE_FILE_NAMES.test(name);
 }
 
 function normalizeReadablePath(value: unknown): string | null {

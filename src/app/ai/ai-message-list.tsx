@@ -10,6 +10,11 @@
  *
  * Extracted from ai-client.tsx in R31. Pure presentation — the parent
  * still drives streaming/approval state.
+ *
+ * R19: approval cards are AiToolApprovalCard (risk and reasons, inline edit,
+ * critical acknowledgement); an action the page follows shows its live run or
+ * review receipt under its transcript entry; the streaming timeline shows what
+ * each call returned; and a settled turn offers to continue the answer.
  */
 import Image from "next/image";
 import { type DragEvent, type RefObject, useMemo } from "react";
@@ -17,15 +22,21 @@ import { type DragEvent, type RefObject, useMemo } from "react";
 import { useI18n } from "@/lib/i18n/use-locale";
 import { renderContent } from "./ai-markdown-renderer";
 import type { Message, ModelCapabilities, StreamStep, ToolApprovalNeeded } from "./ai-types";
+import { type AiCapabilities, DEFAULT_AI_CAPABILITIES } from "./ai-automation-mode";
 import { formatAllowedTypes } from "./ai-file-helpers";
-import { approvalDetails, automationSummary } from "./ai-hosted-action-utils";
+import { hostedActionCommandRequestId } from "./ai-hosted-action-utils";
 import { isStreamErrorMessage } from "./ai-stream-error";
-import { formatDateTime } from "@/lib/datetime/format";
-import { ActionButton } from "@/components/action-button";
-import { AlertTriangle, ArrowDown, ArrowUp, Check, Clock, Loader2, X } from "@/components/icons";
-import { Notice } from "@/components/ui-primitives";
+import { AlertTriangle, ArrowDown, ArrowUp } from "@/components/icons";
+import { Badge, Notice } from "@/components/ui-primitives";
 import { CountBadge } from "@/components/page-shell";
 import { AiCopyButton, type AiCopyLabels } from "./ai-copy-button";
+import { AiContinueBanner } from "./ai-continue-banner";
+import { AiLiveActionPanel } from "./ai-live-action-panel";
+import { AiStreamSteps } from "./ai-stream-steps";
+import { AiToolApprovalCard, useLabel } from "./ai-tool-approval-card";
+import type { ApprovalDecisionOptions } from "./hooks/use-ai-chat-stream";
+import type { ContinuationView } from "./hooks/use-ai-continuation";
+import type { TrackedAction } from "./hooks/use-hosted-action-tracker";
 
 const EMPTY_TOOL_CONTENT = new Set([
   "(无响应内容)",
@@ -63,6 +74,7 @@ type Props = {
   onApproval: (
     approval: ToolApprovalNeeded,
     action: "confirm" | "reject",
+    options?: ApprovalDecisionOptions,
   ) => void;
   currentModelCaps: ModelCapabilities;
   messagesEndRef: RefObject<HTMLDivElement | null>;
@@ -74,6 +86,15 @@ type Props = {
   /** Why the conversation's history could not be loaded; shown instead of "nothing said yet". */
   loadError?: string | null;
   onRetryLoad?: () => void;
+  /** What the account may do: predicts whether a confirmation runs now or goes to review. */
+  capabilities?: AiCapabilities;
+  /** Actions the page follows (running, waiting for review, just settled), by action id. */
+  trackedActions?: Record<string, TrackedAction>;
+  onCancelAction?: (actionId: string) => void;
+  /** Continue the answer after its actions settled. */
+  continuation?: ContinuationView;
+  /** `/ai?c=…&action=<id>`: the card to bring into view. */
+  highlightActionId?: string | null;
 };
 
 export function AiMessageList({
@@ -93,25 +114,19 @@ export function AiMessageList({
   onRetry,
   loadError,
   onRetryLoad,
+  capabilities = DEFAULT_AI_CAPABILITIES,
+  trackedActions = {},
+  onCancelAction,
+  continuation,
+  highlightActionId = null,
 }: Props) {
-  const { t, locale } = useI18n();
-  const actionDisplayName = (actionType: string, fallback: string) => {
-    const key = `aiPage.actionType.${actionType}`;
-    const translated = t(key);
-    return translated === key ? fallback : translated;
-  };
-  const riskDisplayName = (riskLevel: string) => {
-    const key = `aiPage.risk.${riskLevel}`;
-    const translated = t(key);
-    return translated === key ? riskLevel : translated;
-  };
-  /** A tool call's line while the answer streams, with the action named as the approval cards name it. */
-  const streamStepText = (step: StreamStep) => {
-    const name = step.actionType ? actionDisplayName(step.actionType, step.name ?? step.actionType) : step.name;
-    if (!name) return t("aiPage.step.failedUnnamed");
-    if (step.state === "awaiting") return t("aiPage.step.awaiting", { name, risk: riskDisplayName(step.riskLevel ?? "") });
-    return t(`aiPage.step.${step.state}`, { name });
-  };
+  const { t } = useI18n();
+  const label = useLabel();
+  const actionDisplayName = (actionType: string, fallback: string) => label(`aiPage.actionType.${actionType}`, fallback);
+  const riskDisplayName = (riskLevel: string) => label(`aiPage.risk.${riskLevel}`, riskLevel);
+  // Cancelling needs command:execute (a submitter without it may only withdraw a request still under review).
+  const canCancel = capabilities.canExecute;
+  const cancel = (actionId: string) => onCancelAction?.(actionId);
   // Tool-role rows are never rendered; filter once per messages change —
   // re-running this on every stream chunk was pure waste, and the index math
   // below needs the filtered array anyway.
@@ -222,9 +237,14 @@ export function AiMessageList({
                 <div className="text-xs font-medium text-[var(--text-muted)]">
                   {t("aiPage.toolActivity")}
                 </div>
-                {hostedActions.map((action) => (
+                {hostedActions.map((action) => {
+                  const risk = action.effectiveRisk || action.riskLevel;
+                  const tracked = trackedActions[action.id];
+                  const requested = action.status === "APPROVED" && Boolean(hostedActionCommandRequestId(action));
+                  return (
                   <div
                     key={action.id}
+                    data-hosted-action={action.id}
                     className="border-l-2 border-[var(--border)] pl-2.5"
                   >
                     <div className="flex flex-wrap items-center gap-x-2 gap-y-1">
@@ -238,18 +258,20 @@ export function AiMessageList({
                         className={`text-xs font-semibold ${actionStatusClass(action.status)}`}
                       >
                         {t(
-                          action.status === "APPROVED" &&
-                            action.result?.includes("commandRequestId")
+                          requested
                             ? "aiPage.actionStatus.COMMAND_REQUESTED"
                             : `aiPage.actionStatus.${action.status}`,
                         )}
                       </span>
+                      {action.decisionSource ? (
+                        <Badge tone="neutral">{label(`requestsPage.decisionSource.${action.decisionSource}`, action.decisionSource)}</Badge>
+                      ) : null}
                     </div>
                     <div className="mt-0.5 flex flex-wrap gap-x-3 gap-y-1 text-xs text-[var(--text-muted)]">
                       <span>{action.actionType}</span>
-                      <span>
+                      <span className={risk === "critical" ? "text-[var(--danger)]" : risk === "high" ? "text-[var(--warning)]" : undefined}>
                         {t("aiPage.riskLabel")}
-                        {riskDisplayName(action.riskLevel)}
+                        {riskDisplayName(risk)}
                       </span>
                       {action.server && (
                         <span>
@@ -262,6 +284,9 @@ export function AiMessageList({
                         {action.errorMessage}
                       </p>
                     )}
+                    {tracked && (tracked.phase !== "settled" || tracked.live) ? (
+                      <AiLiveActionPanel action={tracked} canCancel={canCancel || tracked.phase === "review"} onCancel={cancel} />
+                    ) : null}
                     {action.result && action.result !== "null" && (
                       <details className="mt-1 text-xs">
                         <summary className="cursor-pointer text-[var(--text-muted)] hover:text-[var(--text-primary)]">
@@ -273,7 +298,8 @@ export function AiMessageList({
                       </details>
                     )}
                   </div>
-                ))}
+                  );
+                })}
               </div>
             )}
             {(() => {
@@ -385,14 +411,13 @@ export function AiMessageList({
             )}
             {streamContent ? <div className="break-words">{renderContent(streamContent, { copy: copyLabels })}</div> : null}
             {streamSteps.length > 0 ? (
-              <ul aria-label={t("aiPage.step.listAria")} className={`space-y-1 text-xs text-[var(--text-muted)] ${streamContent ? "mt-2 border-t border-[var(--border-subtle)] pt-2" : ""}`}>
-                {streamSteps.map((step) => (
-                  <li key={step.toolCallId} data-stream-step={step.state} className="flex items-start gap-1.5">
-                    <StreamStepIcon state={step.state} />
-                    <span className="min-w-0">{streamStepText(step)}</span>
-                  </li>
-                ))}
-              </ul>
+              <AiStreamSteps
+                steps={streamSteps}
+                separated={Boolean(streamContent)}
+                trackedActions={trackedActions}
+                canCancel={canCancel}
+                onCancelAction={cancel}
+              />
             ) : null}
           </div>
         </div>
@@ -411,6 +436,7 @@ export function AiMessageList({
           </div>
         </div>
       )}
+      {continuation && !streaming ? <AiContinueBanner view={continuation} /> : null}
       {pendingApprovals.length > 0 && (
         <div className="sticky bottom-0 z-10 border-t border-[var(--warning-border)] bg-[color-mix(in_srgb,var(--warning-bg)_96%,var(--surface))] px-2 py-2 shadow-[0_-8px_20px_rgba(0,0,0,0.16)] backdrop-blur sm:px-4">
           <div className="mb-2 flex items-center gap-2 text-xs font-medium text-[var(--warning)]">
@@ -419,102 +445,14 @@ export function AiMessageList({
           </div>
           <div className="space-y-2">
             {pendingApprovals.map((approval) => (
-              <div
+              <AiToolApprovalCard
                 key={approval.actionId}
-                className={`flex flex-col gap-2 rounded-lg bg-[var(--input-bg)] p-2.5 ${approval.actionType === "create_automation_task" ? "" : "sm:flex-row sm:items-center sm:justify-between"}`}
-              >
-                <div className="flex-1 min-w-0">
-                  <div className="text-sm text-[var(--text-primary)] font-medium">
-                    {actionDisplayName(
-                      approval.actionType,
-                      approval.actionName,
-                    )}
-                  </div>
-                  <div className="text-xs text-[var(--text-secondary)] truncate">
-                    {t("aiPage.riskLabel")}
-                    <span
-                      className={
-                        approval.riskLevel === "critical"
-                          ? "text-[var(--danger)]"
-                          : approval.riskLevel === "high"
-                            ? "text-[var(--warning)]"
-                            : approval.riskLevel === "medium"
-                              ? "text-[var(--warning)]"
-                              : "text-[var(--success)]"
-                      }
-                    >
-                      {riskDisplayName(approval.riskLevel)}
-                    </span>
-                    {approval.server ? (
-                      <span className="ml-2">
-                        {t("aiPage.serverNamed", { name: approval.server.name, host: approval.server.host })}
-                      </span>
-                    ) : typeof approval.params.serverId === "string" && (
-                      <span className="ml-2">
-                        {t("aiPage.serverLabel", { id: approval.params.serverId })}
-                      </span>
-                    )}
-                  </div>
-                  {approval.actionType !== "create_automation_task" && (
-                    <dl className="mt-2 space-y-1 text-xs text-[var(--text-secondary)]">
-                      {approvalDetails(approval.actionType, approval.params, t("common.listSeparator")).map((row) => (
-                        <div key={row.labelKey}>
-                          <dt className="inline text-[var(--text-muted)]">{t(row.labelKey)}{t("common.colon")}</dt>
-                          {row.block ? (
-                            <dd>
-                              <pre data-inset="" className="max-h-40 overflow-auto whitespace-pre-wrap break-all p-2 font-mono text-xs text-[var(--text-primary)]">{row.value}</pre>
-                            </dd>
-                          ) : (
-                            <dd className="inline break-all text-[var(--text-primary)]">{row.value}</dd>
-                          )}
-                        </div>
-                      ))}
-                    </dl>
-                  )}
-                  {approval.actionType === "create_automation_task" && (() => {
-                    const summary = automationSummary(approval.params, t, (value) => formatDateTime(value, locale));
-                    return (
-                    <div className="mt-2 space-y-2 text-xs text-[var(--text-secondary)]">
-                      <dl className="space-y-1">
-                        <div><dt className="inline text-[var(--text-muted)]">{t("aiPage.automationExecution")}{t("common.colon")}</dt><dd className="inline text-[var(--text-primary)]">{summary.execution}</dd></div>
-                        <div><dt className="inline text-[var(--text-muted)]">{t("aiPage.automationTargets")}{t("common.colon")}</dt><dd className="inline break-words text-[var(--text-primary)]">{summary.targets}</dd></div>
-                        <div><dt className="inline text-[var(--text-muted)]">{t("aiPage.automationApproval")}{t("common.colon")}</dt><dd className="inline text-[var(--text-primary)]">{summary.approval}</dd></div>
-                        {typeof approval.params.templateName === "string" && <div><dt className="inline text-[var(--text-muted)]">{t("aiPage.automationTemplate")}{t("common.colon")}</dt><dd className="inline text-[var(--text-primary)]">{approval.params.templateName}</dd></div>}
-                      </dl>
-                      {typeof approval.params.plan === "string" && <p className="whitespace-pre-wrap break-words leading-5">{approval.params.plan}</p>}
-                      {typeof approval.params.command === "string" && <pre data-inset="" className="max-h-40 overflow-auto whitespace-pre-wrap break-all p-2 font-mono text-xs text-[var(--text-primary)]">{approval.params.command}</pre>}
-                      {(typeof approval.params.verificationCommand === "string" || typeof approval.params.rollbackCommand === "string") && <div className="space-y-1 font-mono text-xs">{typeof approval.params.verificationCommand === "string" && <p>{t("aiPage.automationVerify")}{t("common.colon")}{approval.params.verificationCommand}</p>}{typeof approval.params.rollbackCommand === "string" && <p>{t("aiPage.automationRollback")}{t("common.colon")}{approval.params.rollbackCommand}</p>}</div>}
-                    </div>
-                    );
-                  })()}
-                </div>
-                <div className="flex w-full gap-2 sm:ml-3 sm:w-auto">
-                  <ActionButton size="sm" variant="danger-solid" className="flex-1 sm:flex-none"
-                    disabled={approvalBusyById[approval.actionId]}
-                    aria-busy={
-                      approvalBusyById[approval.actionId] ? "true" : undefined
-                    }
-                    onClick={() => void onApproval(approval, "reject")}
-                  >
-                    {t("aiPage.reject")}
-                  </ActionButton>
-                  <ActionButton size="sm" variant="success-solid" className="flex-1 sm:flex-none"
-                    disabled={approvalBusyById[approval.actionId]}
-                    aria-busy={
-                      approvalBusyById[approval.actionId] ? "true" : undefined
-                    }
-                    onClick={() => void onApproval(approval, "confirm")}
-                  >
-                    {t(
-                      approval.actionType === "manage_cron" ||
-                        approval.actionType === "run_playbook" ||
-                        approval.actionType === "create_automation_task"
-                        ? "aiPage.confirmAction"
-                        : "aiPage.approve",
-                    )}
-                  </ActionButton>
-                </div>
-              </div>
+                approval={approval}
+                busy={Boolean(approvalBusyById[approval.actionId])}
+                capabilities={capabilities}
+                highlighted={approval.actionId === highlightActionId}
+                onDecide={(item, action, options) => void onApproval(item, action, options)}
+              />
             ))}
           </div>
         </div>
@@ -522,12 +460,4 @@ export function AiMessageList({
       <div ref={messagesEndRef} />
     </div>
   );
-}
-
-/** The state of one tool call while the answer streams. */
-function StreamStepIcon({ state }: { state: StreamStep["state"] }) {
-  if (state === "running") return <Loader2 size={12} aria-hidden className="mt-0.5 shrink-0 animate-spin" />;
-  if (state === "awaiting") return <Clock size={12} aria-hidden className="mt-0.5 shrink-0 text-[var(--warning)]" />;
-  if (state === "succeeded") return <Check size={12} aria-hidden className="mt-0.5 shrink-0 text-[var(--success)]" />;
-  return <X size={12} aria-hidden className="mt-0.5 shrink-0 text-[var(--danger)]" />;
 }

@@ -28,7 +28,10 @@ describe("navigation catalogue", () => {
 	});
 
 	it("keeps groups short enough to scan", () => {
-		for (const group of mainNavGroups) expect(group.items.length).toBeLessThanOrEqual(6);
+		// Automation holds the 7 daily automation tools with /commands first as the primary action.
+		for (const group of mainNavGroups) expect(group.items.length).toBeLessThanOrEqual(7);
+		const automation = mainNavGroups.find((group) => group.id === "automation");
+		expect(automation?.items[0]?.href).toBe("/commands");
 	});
 
 	it("keeps platform upkeep out of the daily groups", () => {
@@ -64,5 +67,6 @@ describe("feature catalogue descriptions", () => {
 		};
 		expect(glyph("/public-status")).not.toBe(glyph("/vps-status"));
 		expect(glyph("/public-status")).not.toBe(glyph("/status"));
+		expect(glyph("/commands")).not.toBe(glyph("/templates"));
 	});
 });

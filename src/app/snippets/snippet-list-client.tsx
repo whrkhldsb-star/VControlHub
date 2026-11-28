@@ -17,6 +17,8 @@ import { UI_INPUT } from "@/lib/ui/classes";
 import { PaginatedList } from "@/components/paginated-list";
 import { useUrlQueryState } from "@/lib/hooks/use-url-query-state";
 import { Badge, Notice } from "@/components/ui-primitives";
+import { directCommandHref } from "@/lib/ui/deep-links";
+import { StarterShelf } from "./starter-shelf";
 
 interface Snippet {
   id: string;
@@ -33,6 +35,7 @@ interface Snippet {
 type FullSnippet = Snippet & { content: string };
 
 type SnippetCardProps = {
+  canRun: boolean;
   snippet: Snippet;
   t: (k: string, vars?: Record<string, string | number>) => string;
   copied: boolean;
@@ -41,7 +44,7 @@ type SnippetCardProps = {
   onDelete: (snippet: Snippet) => void;
 };
 
-const SnippetCard = memo(function SnippetCard({ snippet: s, t, copied, onCopy, onEdit, onDelete }: SnippetCardProps) {
+const SnippetCard = memo(function SnippetCard({ snippet: s, t, copied, onCopy, onEdit, onDelete, canRun }: SnippetCardProps) {
   return (
     <div data-card className="group p-4 transition hover:bg-[var(--surface-elevated)]">
       <div className="flex items-start justify-between gap-2">
@@ -70,12 +73,14 @@ const SnippetCard = memo(function SnippetCard({ snippet: s, t, copied, onCopy, o
         </div>
       </div>
       {s.description && <p className="mt-1 text-xs text-[var(--text-muted)]">{s.description}</p>}
+      {canRun && <ButtonLink variant="secondary" size="sm" href={directCommandHref({ snippetId: s.id })}>{t("snippetsPage.run")}</ButtonLink>}
       <pre data-inset="" tabIndex={0} className="mt-3 max-h-48 overflow-auto p-3 font-mono text-xs text-[var(--text-secondary)]">{s.content ?? s.contentPreview ?? ""}</pre>
     </div>
   );
-}, (prev, next) => prev.snippet === next.snippet && prev.t === next.t && prev.copied === next.copied && prev.onCopy === next.onCopy && prev.onEdit === next.onEdit && prev.onDelete === next.onDelete);
+});
 
-export function SnippetList({ snippets: initial, header, canReadTemplates = false }: {
+export function SnippetList({ snippets: initial, header, canReadTemplates = false, canManage = true, canRun = false }: {
+  canManage?: boolean; canRun?: boolean;
   snippets: Snippet[];
   /** Page header; rendered here so the create command sits in its actions. */
   header?: { eyebrow?: string; title: string; description?: string };
@@ -106,7 +111,7 @@ export function SnippetList({ snippets: initial, header, canReadTemplates = fals
   const [searchAttempt, setSearchAttempt] = useState(0);
   useEffect(() => {
     const q = search.trim();
-    if (!q) return;
+    if (!canManage || !q) return;
     let cancelled = false;
     const timer = setTimeout(() => {
       csrfFetch<{ snippets: Snippet[] }>(`/api/snippets?q=${encodeURIComponent(q)}`)
@@ -123,7 +128,7 @@ export function SnippetList({ snippets: initial, header, canReadTemplates = fals
       cancelled = true;
       clearTimeout(timer);
     };
-  }, [search, searchAttempt]);
+  }, [search, searchAttempt, canManage]);
   const fullTextFailed = Boolean(search.trim()) && searchFailedFor === search.trim();
 
   useEffect(
@@ -220,9 +225,9 @@ export function SnippetList({ snippets: initial, header, canReadTemplates = fals
               {t("snippetsPage.openTemplates")}
             </ButtonLink>
           ) : null}
-          <ActionButton variant="primary" icon={<Plus size={16} aria-hidden />} onClick={() => setCreating(true)}>
+          {canManage && <ActionButton variant="primary" icon={<Plus size={16} aria-hidden />} onClick={() => setCreating(true)}>
             {t("snippetsPage.new")}
-          </ActionButton>
+          </ActionButton>}
         </PageHeader>
       ) : null}
       <PageGuide
@@ -235,6 +240,7 @@ export function SnippetList({ snippets: initial, header, canReadTemplates = fals
         links={canReadTemplates ? [{ label: t("snippetsPage.openTemplates"), href: "/templates" }] : undefined}
         className="mb-4"
       />
+      <StarterShelf canManage={canManage} canRun={canRun} onSaved={row => setItems(prev => [row, ...prev])} />
       {/* Nothing to search or filter until there is a snippet; the list says how many it shows. */}
       {items.length > 0 ? (
         <Toolbar className="mb-4 flex-col items-stretch gap-3 sm:flex-row sm:items-end">
@@ -280,7 +286,7 @@ export function SnippetList({ snippets: initial, header, canReadTemplates = fals
           {t("snippetsPage.searchFailed")}
         </Notice>
       ) : null}
-      <ListPanel
+      {canManage && <ListPanel
         title={t("snippetsPage.list.title")}
         count={filtered.length}
         empty={
@@ -302,11 +308,11 @@ export function SnippetList({ snippets: initial, header, canReadTemplates = fals
         <PaginatedList pageSize={20} resetKey={`${search}\u0000${langFilter}`}>
           {filtered.map((s) => (
             <div key={s.id} className="mb-2.5 last:mb-0">
-              <SnippetCard snippet={s} t={t} copied={copiedId === s.id} onCopy={handleCopy} onEdit={handleEdit} onDelete={handleDeleteClick} />
+              <SnippetCard canRun={canRun} snippet={s} t={t} copied={copiedId === s.id} onCopy={handleCopy} onEdit={handleEdit} onDelete={handleDeleteClick} />
             </div>
           ))}
         </PaginatedList>
-      </ListPanel>
+      </ListPanel>}
 
       {creating && (
         <CreateSnippetModal

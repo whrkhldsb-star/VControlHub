@@ -15,6 +15,8 @@ import { SettingsClient } from "./settings-client";
 import { SystemConfigSection } from "./system-config-section";
 import { PublicStatusSettingsLink } from "./public-status-settings-link";
 import { SETTINGS_SCHEMA } from "./field-schema";
+import { AI_POLICY_EDITABLE } from "./field-schema-platform-ops";
+import { useSessionGate } from "@/lib/auth/session-context";
 import { TOC_SUBTITLE_KEYS } from "./settings-toc";
 import { DEFAULT_PAGE_OPTIONS, type DefaultPageOption } from "@/lib/preferences/user-preferences";
 import { UI_INPUT } from "@/lib/ui/classes";
@@ -43,7 +45,7 @@ const TAB_SECTION_IDS: Record<PlatformTab, string[]> = {
   operations: ["runtime", "jobs"],
   storage: ["storage", "offsite"],
   data: ["monitoring", "retention"],
-  ai: ["aiOps", "ai"],
+  ai: ["aiOps", "ai", "commandApproval"],
 };
 /** The config export/import panel is rendered after the platform sections. */
 const SYSTEM_CONFIG_TAB: PlatformTab = "platform";
@@ -112,6 +114,8 @@ export function UnifiedSettingsPageClient({
   defaultPageOptions = DEFAULT_PAGE_OPTIONS,
 }: Props) {
   const { t } = useI18n();
+  const { permissions } = useSessionGate();
+  const editableAiPolicy = permissions.includes("team:manage") && permissions.includes("ai:ops:manage");
   const [selectedTab, setActiveTab] = useState<SettingsTab>("personal");
   const activeTab = canManage || SELF_SERVICE_TABS.includes(selectedTab) ? selectedTab : "personal";
   const panelId = useId();
@@ -325,7 +329,7 @@ export function UnifiedSettingsPageClient({
           <fieldset disabled={refreshingSettings} inert={refreshingSettings} className="min-w-0">
           <SettingsClient
             key={settingsRevision}
-            settings={settings}
+            settings={{ ...settings, [AI_POLICY_EDITABLE]: String(editableAiPolicy) }}
             runtimeSettings={runtimeSettings}
       settingUpdateMetadata={settingUpdateMetadata}
       canManage={canManage}

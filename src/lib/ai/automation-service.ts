@@ -6,6 +6,10 @@ import { sessionHasPermission } from "@/lib/auth/authorization";
 import { seesAllCustomers, serverTeamWhere } from "@/lib/auth/team-scope";
 import { createCommandRequest } from "@/lib/command/service";
 import { commandRequestTitle } from "@/lib/command/schema";
+import { getApprovalPolicySettings } from "@/lib/command/approval-policy-settings";
+import { decideCommandApproval, resolveEffectivePolicyForOrigin } from "@/lib/command/approval-policy";
+import { maySelfReviewCommands } from "@/lib/command/review-scope";
+import { classifyCommandRisk } from "@/lib/command/risk-classifier";
 import {
   commandTemplateScopeWhere,
   extractTemplateVariables,
@@ -109,6 +113,15 @@ export async function materializeAutomationProposal(
   if (input.approvalMode === "approve_once" && !sessionHasPermission(actor, "command:approve")) {
     throw new ForbiddenError(t("backend.ai.automationUnattendedRequiresApprove"));
   }
+  if (input.approvalMode === "approve_once" && !sessionHasPermission(actor, "command:execute")) {
+    throw new ForbiddenError(t("backend.ai.automationUnattendedRequiresApprove"));
+  }
+  const approvalPolicies = input.approvalMode === "approve_once"
+    ? await getApprovalPolicySettings({ fresh: true })
+    : null;
+  if (approvalPolicies && resolveEffectivePolicyForOrigin(approvalPolicies, "AI_AUTOMATION") === "always") {
+    throw new ForbiddenError(t("backend.ai.automationUnattendedRequiresApprove"));
+  }
 
   // Fixed here, as an absolute instant, so the plan that is confirmed and the task that is created agree.
   let runAt: string | undefined;
@@ -156,6 +169,20 @@ export async function materializeAutomationProposal(
 
   // Validate the rendered plan with the very same limits used to read it back on confirmation.
   automationProposalSchema.parse({ ...input, command, rollbackCommand });
+  if (input.approvalMode === "approve_once" && approvalPolicies) {
+    const assessment = classifyCommandRisk(command);
+    const decision = decideCommandApproval({
+      policies: approvalPolicies,
+      origin: "AI_AUTOMATION",
+      riskLevel: assessment.level,
+      denylisted: assessment.denylisted,
+      submitterMayExecute: sessionHasPermission(actor, "command:execute"),
+      requestedReview: false,
+    });
+    if (decision.requiresApproval && !maySelfReviewCommands(actor, approvalPolicies.commandSelfReview)) {
+      throw new ForbiddenError(t("backend.ai.automationUnattendedRequiresApprove"));
+    }
+  }
   const requestedIds = unique(input.serverIds ?? []);
   const servers: Array<{ id: string; name: string; host: string; teamId: string | null }> = [];
   let cursor: { id: string } | undefined;

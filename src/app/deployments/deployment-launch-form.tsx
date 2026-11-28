@@ -29,7 +29,7 @@ function uniqueVariables(template?: DeploymentTemplateOption) {
 }
 
 
-export function DeploymentLaunchForm({ templates }: { templates: DeploymentTemplateOption[] }) {
+export function DeploymentLaunchForm({ templates, canCreateCommand }: { templates: DeploymentTemplateOption[]; canCreateCommand?: boolean }) {
 	const { t } = useI18n();
 	const router = useRouter();
 	const { addToast } = useToast();
@@ -49,6 +49,7 @@ export function DeploymentLaunchForm({ templates }: { templates: DeploymentTempl
 			<Notice tone="warning" className="mt-4">
 				{t("deploymentsPage.launch.noTemplateHint")}
 				<ButtonLink href="/templates" size="sm">{t("deploymentsPage.launch.templatesLink")}</ButtonLink>
+				{canCreateCommand && <ButtonLink href="/commands" size="sm">{t("deploymentsPage.oneOff")}</ButtonLink>}
 			</Notice>
 		);
 	}

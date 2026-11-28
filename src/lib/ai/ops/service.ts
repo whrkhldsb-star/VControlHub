@@ -182,6 +182,26 @@ function toAiOpsLogWhere(input: AiOpsLogFilters) {
 	};
 }
 
+/** Count recent recommendation-mode actions still awaiting approval on /ai-ops. */
+export async function countPendingAiOpsRecommendations(): Promise<number> {
+	const rows = await prisma.aiOpsLog.findMany({
+		where: { mode: "recommendation", status: { in: ["ok", "warning"] } },
+		orderBy: { createdAt: "desc" },
+		take: 20,
+		select: { actions: true },
+	});
+	let count = 0;
+	for (const row of rows) {
+		const actions = parseActions(row.actions, "recommendation") as AiOpsRecommendedAction[];
+		for (const action of actions) {
+			if (action.requiresApproval && !action.approvedAt && !action.executedAt) {
+				count += 1;
+			}
+		}
+	}
+	return count;
+}
+
 export async function listAiOpsLogs(
 	input: ListAiOpsLogsInput = {},
 ): Promise<AiOpsLogRecord[]> {

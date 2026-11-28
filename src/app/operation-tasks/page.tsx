@@ -5,6 +5,7 @@ import { isGlobalTeamManager } from "@/lib/auth/team-scope";
 import { listOperationTaskResult } from "@/lib/operation-task/service";
 import { OperationTaskListClient } from "./operation-task-list-client";
 import { PageShell, PageHeader } from "@/components/page-shell";
+import { ButtonLink } from "@/components/action-button";
 import { getServerLocale, t } from "@/lib/i18n/translations";
 
 export const dynamic = "force-dynamic";
@@ -16,7 +17,7 @@ export default async function OperationTasksPage({
 }) {
 	const resolved = (await searchParams) ?? {};
 	const redirectParams = new URLSearchParams();
-	for (const key of ["task", "status", "type", "taskType", "sort"] as const) {
+	for (const key of ["task", "status", "type", "taskType", "sort", "q", "awaitingApproval"] as const) {
 		const value = firstSearchParam(resolved[key]);
 		if (value) redirectParams.set(key, value);
 	}
@@ -24,6 +25,10 @@ export default async function OperationTasksPage({
 	const session = await requirePagePermission("task:read", {
 		redirectTo: redirectQuery ? `/operation-tasks?${redirectQuery}` : "/operation-tasks",
 	});
+	const canCreateCommands =
+		sessionHasPermission(session, "command:create") &&
+		sessionHasPermission(session, "server:read");
+	const canReadCommands = sessionHasPermission(session, "command:read");
 	const canReadDeployments = sessionHasPermission(session, "deploy:read");
 	const canReadBackups = sessionHasPermission(session, "backup:read") && isGlobalTeamManager(session);
 	const canReadDownloads = sessionHasPermission(session, "storage:read");
@@ -32,11 +37,14 @@ export default async function OperationTasksPage({
 	const statusRaw = firstSearchParam(resolved.status) ?? "all";
 	const taskTypeRaw = firstSearchParam(resolved.type) ?? firstSearchParam(resolved.taskType) ?? "all";
 	const sortRaw = firstSearchParam(resolved.sort) ?? "recent";
+	const qRaw = firstSearchParam(resolved.q)?.trim() ?? "";
+	const awaitingApprovalRaw = firstSearchParam(resolved.awaitingApproval);
+	const awaitingApproval = awaitingApprovalRaw === "1" || awaitingApprovalRaw === "true";
 	const statusFilter =
 		statusRaw === "attention"
 			? (["failed", "running", "pending"] as const)
 			: statusRaw === "all"
-				? undefined
+				? (awaitingApproval ? "pending" : undefined)
 				: statusRaw.includes(",")
 					? statusRaw.split(",").map((s) => s.trim()).filter(Boolean)
 					: statusRaw;
@@ -45,16 +53,30 @@ export default async function OperationTasksPage({
 			...(statusFilter ? { status: statusFilter as never } : {}),
 			...(taskTypeRaw !== "all" ? { taskType: taskTypeRaw } : {}),
 			...(sortRaw !== "recent" ? { sort: sortRaw as never } : {}),
+			...(qRaw ? { q: qRaw } : {}),
+			...(awaitingApproval ? { awaitingApproval: true } : {}),
 		},
 		session,
 	);
 	return (
 		<PageShell>
-			<PageHeader eyebrow={t("operationTasksPage.eyebrow", locale)} title={tr("operationTasksPage.header.title")} description={tr("operationTasksPage.header.description")} />
+			<PageHeader
+				eyebrow={t("operationTasksPage.eyebrow", locale)}
+				title={tr("operationTasksPage.header.title")}
+				description={tr("operationTasksPage.header.description")}
+			>
+				{canCreateCommands ? (
+					<ButtonLink href="/commands" size="sm" variant="primary">
+						{tr("operationTasksPage.action.runCommand")}
+					</ButtonLink>
+				) : null}
+			</PageHeader>
 			<OperationTaskListClient
 				initialTasks={tasks}
 				initialSourceSummary={sourceSummary}
 				initialFailureSummary={failureSummary}
+				canCreateCommands={canCreateCommands}
+				canReadCommands={canReadCommands}
 				canReadDeployments={canReadDeployments}
 				canReadBackups={canReadBackups}
 				canReadDownloads={canReadDownloads}

@@ -76,7 +76,7 @@ export default async function ServersPage({ searchParams }: { searchParams?: Pro
 				initialPanel={stats.total === 0 && canManageServers ? "create" : "nodes"}
 				nodesPanel={
 					<SshKeyOptionsProvider sshKeys={formOptions.sshKeys}>
-						<ServerInventory inventory={inventory} canManageServers={canManageServers} canUseSshTerminal={canUseSshTerminal} />
+						<ServerInventory inventory={inventory} canManageServers={canManageServers} canUseSshTerminal={canUseSshTerminal} canRun={canLaunchCommands} canAskAi={canUseAi} />
 					</SshKeyOptionsProvider>
 				}
 				commandPanel={canLaunchCommands ? <ServerOperationPanel key={inventory.loadedAt} kind="command" allowDirectExecution={canExecuteCommands} /> : undefined}

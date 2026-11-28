@@ -209,6 +209,112 @@ describe("OperationTaskListClient", () => {
     await actor.selectOptions(screen.getByLabelText("排序偏好"), "attention");
 
     expect(screen.getByRole("link", { name: "导出当前结果 CSV" })).toHaveAttribute("href", "/api/operation-tasks?status=failed&taskType=alert.evaluate&sort=attention&format=csv");
+    await actor.type(screen.getByLabelText("搜索任务"), "告警");
+    expect(screen.getByRole("link", { name: "导出当前结果 CSV" })).toHaveAttribute(
+      "href",
+      "/api/operation-tasks?status=failed&taskType=alert.evaluate&sort=attention&q=%E5%91%8A%E8%AD%A6&format=csv",
+    );
+  });
+
+  it("supports status pills, command output inspection, cancellation, and gated rerun links", async () => {
+    const actor = userEvent.setup();
+    const pendingTask: OperationTask = {
+      ...initialTasks[0]!,
+      id: "command:cmd_1",
+      sourceId: "cmd_1",
+      commandRequestId: "cmd_1",
+      rawStatus: "PENDING_APPROVAL",
+      canInspectCommand: true,
+      canCancelCommand: true,
+      canRerunCommand: true,
+      href: "/requests?requestId=cmd_1",
+    };
+    const hiddenTask: OperationTask = {
+      ...initialTasks[0]!,
+      id: "command:cmd_hidden",
+      sourceId: "cmd_hidden",
+      commandRequestId: "cmd_hidden",
+      title: "他人命令",
+      rawStatus: "COMPLETED",
+      status: "completed",
+      canInspectCommand: false,
+      canCancelCommand: false,
+      canRerunCommand: false,
+      href: "/requests?requestId=cmd_hidden",
+    };
+
+    vi.mocked(csrfFetch).mockImplementation(async (input) => {
+      const url = String(input);
+      if (url === "/api/commands/cmd_1") {
+        return {
+          command: {
+            id: "cmd_1",
+            title: "重启服务",
+            command: "systemctl restart nginx",
+            commandHidden: false,
+            status: "COMPLETED",
+            riskLevel: "high",
+            origin: "MANUAL",
+            targets: [
+              {
+                id: "t1",
+                serverId: "s1",
+                status: "COMPLETED",
+                exitCode: 0,
+                stdout: "nginx restarted cleanly",
+                stderr: null,
+                server: { id: "s1", name: "web-01" },
+              },
+            ],
+          },
+        };
+      }
+      return { tasks: [pendingTask], sourceSummary: initialSourceSummary, failureSummary: [] };
+    });
+
+    render(
+      <OperationTaskListClient
+        initialTasks={[pendingTask, hiddenTask]}
+        initialSourceSummary={initialSourceSummary}
+        initialFailureSummary={[]}
+        canCreateCommands
+        canReadCommands
+      />,
+    );
+
+    // Rerun link is shown ONLY for readable commands (cmd_1), never for hiddenTask.
+    const rerunLinks = screen.getAllByRole("link", { name: "再次运行…" });
+    expect(rerunLinks).toHaveLength(1);
+    expect(rerunLinks[0]).toHaveAttribute("href", "/commands?fromRequestId=cmd_1");
+
+    // Inspect output fetches GET /api/commands/cmd_1 and displays masked stdout.
+    await actor.click(screen.getByRole("button", { name: "查看输出" }));
+    expect(await screen.findByText("nginx restarted cleanly")).toBeInTheDocument();
+    expect(screen.getByText("systemctl restart nginx")).toBeInTheDocument();
+    await actor.click(screen.getByRole("button", { name: "关闭" }));
+
+    // Clicking Awaiting approval pill fetches status=pending&awaitingApproval=1.
+    await actor.click(screen.getByRole("button", { name: /待审批/ }));
+    await waitFor(() => {
+      expect(csrfFetch).toHaveBeenCalledWith(
+        "/api/operation-tasks?status=pending&awaitingApproval=1",
+        expect.objectContaining({ signal: expect.any(AbortSignal) }),
+      );
+    });
+
+    // Cancel opens confirmation and dispatches PATCH /api/commands.
+    await actor.click(screen.getByRole("button", { name: "取消" }));
+    const confirmButtons = screen.getAllByRole("button", { name: "取消" });
+    await actor.click(confirmButtons.at(-1)!);
+    await waitFor(() => {
+      expect(csrfFetch).toHaveBeenCalledWith(
+        "/api/commands",
+        expect.objectContaining({
+          method: "PATCH",
+          body: JSON.stringify({ action: "cancel", commandRequestId: "cmd_1" }),
+        }),
+      );
+    });
   });
 
   it("renders folded periodic job metadata without linking to a missing source page", async () => {

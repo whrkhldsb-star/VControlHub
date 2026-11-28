@@ -614,8 +614,11 @@ async function settleCommandRequest(commandRequestId: string, executorError?: st
       commandRequestId, title, status, completedCount, totalCount, summary, requesterId,
       ...(executorError ? { phase: "executor_error" } : {}),
     }, status === "FAILED" ? "WARNING" : "INFO", teamId);
-    notifyCommandResult(requesterId, title, outcome, teamId).catch(error =>
+    notifyCommandResult(requesterId, title, outcome, teamId, commandRequestId).catch(error =>
       cmdExecLogger.warn("notifyCommandResult failed", { error: String(error), commandRequestId }));
+    import("@/lib/ai/hosted-outcome")
+      .then(({ projectCommandOutcomeToHostedAction }) => projectCommandOutcomeToHostedAction(commandRequestId))
+      .catch((error) => cmdExecLogger.warn("projectCommandOutcomeToHostedAction failed", { error: String(error), commandRequestId }));
   }
   return result.row;
 }

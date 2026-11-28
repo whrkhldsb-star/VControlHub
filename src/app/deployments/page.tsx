@@ -48,6 +48,7 @@ export default async function DeploymentsPage({ searchParams }: { searchParams?:
 	const locale = await getServerLocale();
 	const tr = (key: string, vars?: Record<string, string | number>) => t(key, locale, vars);
 	const canRun = sessionHasPermission(session, "deploy:run");
+	const canCreateCommand = sessionHasPermission(session, "command:create") && sessionHasPermission(session, "server:read");
 	const canReadServers = sessionHasPermission(session, "server:read");
 	const canExport = sessionHasPermission(session, "deploy:export");
 	const params = firstSearchParams(await searchParams);
@@ -85,7 +86,9 @@ export default async function DeploymentsPage({ searchParams }: { searchParams?:
 	const latestRun = requestedId ? onPage ?? (requested && { ...requested, showBody: canReadBodies(requested.createdBy) }) : page === 1 ? visibleRuns[0] : undefined;
 	return (
 		<PageShell>
-			<PageHeader eyebrow={tr("deploymentsPage.page.eyebrow")} title={tr("deploymentsPage.page.title")} description={tr("deploymentsPage.page.description")} />
+			<PageHeader eyebrow={tr("deploymentsPage.page.eyebrow")} title={tr("deploymentsPage.page.title")} description={tr("deploymentsPage.page.description")}>
+				{canCreateCommand && <ButtonLink href="/commands">{tr("deploymentsPage.oneOff")}</ButtonLink>}
+			</PageHeader>
 
 			<PageGuide className="mb-5" title={tr("deploymentsPage.page.howItWorks.title")} summary={tr("deploymentsPage.page.howItWorks.auditNote")}
 				steps={[1, 2, 3, 4, 5].map(step => <span key={step}><strong>{tr(`deploymentsPage.page.howItWorks.step${step}.title`)}</strong> · {tr(`deploymentsPage.page.howItWorks.step${step}.desc`)}</span>)} />
@@ -98,7 +101,7 @@ export default async function DeploymentsPage({ searchParams }: { searchParams?:
 			{canRun && canReadServers && (
 				<div className="mb-5">
 					<SurfacePanel title={tr("deploymentsPage.page.launchSection.title")} description={tr("deploymentsPage.page.launchSection.desc")}>
-						<DeploymentLaunchForm templates={templates.map(row => ({
+						<DeploymentLaunchForm canCreateCommand={canCreateCommand} templates={templates.map(row => ({
 							id: row.id, name: row.name, description: row.description,
 							command: (row.isBuiltin || canReadBodies(row.createdById)) ? row.command : "", variables: row.variables,
 						}))} />

@@ -124,6 +124,11 @@ export const IconArchive = glyph(<>
 	<path d="M10 12h4" />
 </>, "IconArchive");
 
+export const IconTerminal = glyph(<>
+	<polyline points="4 17 10 11 4 5" />
+	<line x1="12" x2="20" y1="19" y2="19" />
+</>, "IconTerminal");
+
 export const IconTerminalSquare = glyph(<>
 	<path d="m7 11 2-2-2-2" />
 	<path d="M11 13h4" />

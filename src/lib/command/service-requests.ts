@@ -1,7 +1,7 @@
 import { createdBeforeCursor } from "@/lib/http/page-cursor";
 import { createHash } from "node:crypto";
-import type { CommandRequestStatus, Prisma } from "@prisma/client";
-import { isProtectedByApproval } from "@/lib/auth/rbac";
+import type { CommandOrigin, CommandRequestStatus, Prisma } from "@prisma/client";
+import { escapeLikeLiteral } from "@/lib/db/like-pattern";
 import { sessionHasPermission } from "@/lib/auth/authorization";
 import type { RoleKey } from "@/lib/auth/rbac";
 import { commandRequestTeamWhere, serverTeamWhere, teamCreateData } from "@/lib/auth/team-scope";
@@ -18,13 +18,23 @@ import {
   type ReviewCommandInput,
 } from "./schema";
 import { cancelActiveCommandChild, enqueueApprovedCommandExecution } from "./service-execution";
-import { maySelfReviewCommands } from "./review-scope";
-import { RECENT_COMMAND_LOG_LIMIT, withVisibleCommandLogs } from "./visibility";
+import { mayReviewCommandRequest, maySelfReviewCommands } from "./review-scope";
+import { canReadCommandBody, RECENT_COMMAND_LOG_LIMIT, withVisibleCommandLogs } from "./visibility";
 import { createLogger } from "@/lib/logging";
 import { t } from "@/lib/i18n/service-translations";
 import { OPERATION_TARGET_SELECT, operationTargetAvailability } from "@/lib/server/availability";
+import {
+  decideCommandApproval,
+  inferCommandOrigin,
+  isAiCommandOrigin,
+  type CommandDecisionSource,
+} from "./approval-policy";
+import { getApprovalPolicySettings } from "./approval-policy-settings";
+import { classifyCommandRiskForTargets, type CommandRiskLevel } from "./risk-classifier";
+import { maskCommandOutput } from "./output-masker";
+import { COMMAND_DETAIL_OUTPUT_TAIL_CHARS, fetchTargetOutputTails } from "./target-output";
 
-import { approvalEndpointSelect, approvalReceiptId, manualRunInitiator } from "./approval-identity";
+import { approvalEndpointSelect, approvalReceiptId, manualRunInitiator, manualRunKeyPrefix, manualRunPrefix } from "./approval-identity";
 
 const commandLogger = createLogger("command-requests");
 
@@ -67,7 +77,7 @@ async function assertCommandTargetServersInScope(
   serverIds: string[],
   session?: CommandSessionScope | null,
   teamId?: string | null,
-): Promise<void> {
+): Promise<Array<{ id: string; operatingSystem: string }>> {
   let scope: Record<string, unknown>;
   if (session) {
     scope = serverTeamWhere(session, "connect");
@@ -102,14 +112,38 @@ async function assertCommandTargetServersInScope(
   if (servers.some((server) => !operationTargetAvailability(server).available)) {
     throw new ValidationError(t("backend.command.targetsUnavailable"));
   }
-}
-
-function toApprovalActorType(submissionMode: "user" | "assistant") {
-  return submissionMode;
+  return servers.map((server) => ({
+    id: server.id,
+    operatingSystem: typeof server.operatingSystem === "string" && server.operatingSystem ? server.operatingSystem : "LINUX",
+  }));
 }
 
 function toInitiatedByType(submissionMode: "user" | "assistant") {
   return submissionMode === "assistant" ? "ASSISTANT" : "USER";
+}
+
+function deriveCommandOrigin(input: {
+  source?: "api";
+  explicitOrigin?: CommandOrigin;
+  viaToken?: boolean;
+  storedKey?: string;
+  submissionMode: "user" | "assistant";
+}): CommandOrigin {
+  // Public API requests may NEVER choose AI/DEPLOYMENT/PLAYBOOK origins.
+  if (input.source === "api") {
+    return input.viaToken ? "API" : "USER_UI";
+  }
+  if (input.explicitOrigin) {
+    return input.explicitOrigin;
+  }
+  const key = input.storedKey ?? "";
+  if (key.startsWith("deployment-rollback:")) return "DEPLOYMENT_ROLLBACK";
+  if (key.startsWith("deployment:")) return "DEPLOYMENT";
+  if (key.startsWith("ai-hosted-action:")) return "AI_CHAT";
+  if (key.startsWith("ai-automation:")) return "AI_AUTOMATION";
+  if (key.startsWith("scheduled-task:")) return "SCHEDULED_TASK";
+  if (key.startsWith("playbook:")) return "PLAYBOOK";
+  return input.submissionMode === "assistant" ? "AI_CHAT" : "USER_UI";
 }
 
 function mapCommandRequest(
@@ -141,6 +175,10 @@ function mapCommandRequest(
   });
   const logs = request.executionLogs;
   const runInitiatorId = manualRunInitiator(request.idempotencyKey);
+  const origin = inferCommandOrigin(request);
+  const riskReasons = Array.isArray(request.riskReasons)
+    ? request.riskReasons.filter((reason): reason is string => typeof reason === "string")
+    : [];
   return {
     id: request.id,
     title: request.title,
@@ -148,6 +186,10 @@ function mapCommandRequest(
     reason: request.reason,
     status: request.status,
     initiatedByType: request.initiatedByType,
+    origin,
+    riskLevel: (request.riskLevel as CommandRiskLevel | null) ?? null,
+    riskReasons,
+    decisionSource: request.decisionSource ?? null,
     requesterId: request.requesterId,
     runInitiatorId,
     unattributedManualRun: !runInitiatorId && Boolean(request.scheduledTaskRuns?.length),
@@ -240,7 +282,7 @@ function mapCommandRequest(
               : logs[0].createdAt,
         }
       : null,
-    isAssistantInitiated: request.initiatedByType === "ASSISTANT",
+    isAssistantInitiated: isAiCommandOrigin(origin),
   };
 }
 
@@ -352,7 +394,13 @@ export async function cancelCommandRequest(input: {
     },
   });
 
-  return prisma.commandRequest.findUniqueOrThrow({ where: { id: commandRequestId }, select: { id: true, status: true } });
+  const updated = await prisma.commandRequest.findUniqueOrThrow({ where: { id: commandRequestId }, select: { id: true, status: true } });
+  if (updated.status === "CANCELLED") {
+    await import("@/lib/ai/hosted-outcome")
+      .then(({ projectCommandOutcomeToHostedAction }) => projectCommandOutcomeToHostedAction(commandRequestId))
+      .catch(() => undefined);
+  }
+  return updated;
 }
 
 // Older public submissions had no provenance column. A collision with any
@@ -360,11 +408,78 @@ export async function cancelCommandRequest(input: {
 const RESERVED_COMMAND_KEY = /^(?:api|playbook|scheduled-task|deployment(?:-rollback)?|ai-hosted-action|ai-automation):/;
 const SUBMISSION_TARGET_SELECT = { id: true, serverId: true, status: true } as const;
 
+export type CreateCommandInternalOptions = {
+  origin?: CommandOrigin;
+  decisionSource?: CommandDecisionSource;
+  /** Record an explicit human approval + endpoint receipts atomically on creation (AI inline self-review or cross-user approve). */
+  approveOnCreate?: {
+    approverId: string;
+    decisionSource: "SELF_REVIEW" | "REVIEWER" | "REQUESTER_CONFIRMED";
+    comment?: string;
+  };
+  viaToken?: boolean;
+  /** Explicit caller `command:execute` status for session-less internal callers (e.g. deployments/rollbacks). */
+  submitterMayExecute?: boolean;
+};
+
+export async function previewCommandSubmission(
+  input: {
+    command: string;
+    serverIds?: string[];
+    approvalRequired?: boolean;
+    viaToken?: boolean;
+  },
+  session: CommandSessionScope,
+) {
+  const teamId = resolveCommandTeamId(undefined, session);
+  const serverIds = Array.from(new Set((input.serverIds ?? []).map((id) => id.trim()).filter(Boolean)));
+  const targets = serverIds.length > 0
+    ? await assertCommandTargetServersInScope(serverIds, session, teamId)
+    : [];
+  const assessment = classifyCommandRiskForTargets(
+    input.command,
+    targets.map((target) => target.operatingSystem),
+  );
+  const policies = await getApprovalPolicySettings();
+  const origin: CommandOrigin = input.viaToken ? "API" : "USER_UI";
+  const submitterMayExecute = sessionHasPermission(session, "command:execute");
+  const decision = decideCommandApproval({
+    policies,
+    origin,
+    riskLevel: assessment.level,
+    denylisted: assessment.denylisted,
+    submitterMayExecute,
+    requestedReview: input.approvalRequired === true,
+  });
+  const directCheck = decideCommandApproval({
+    policies,
+    origin,
+    riskLevel: assessment.level,
+    denylisted: assessment.denylisted,
+    submitterMayExecute,
+    requestedReview: false,
+  });
+  return {
+    origin,
+    riskLevel: assessment.level,
+    riskReasons: assessment.reasons,
+    denylisted: assessment.denylisted,
+    sensitivePath: assessment.sensitivePath,
+    classifierVersion: assessment.version,
+    requiresApproval: decision.requiresApproval,
+    reason: decision.reason,
+    effectivePolicy: decision.effectivePolicy,
+    canBypassApproval: !directCheck.requiresApproval,
+    submitterMayExecute,
+  };
+}
+
 export async function createCommandRequest(
   input: CreateCommandInput,
   session?: CommandSessionScope | null,
   source?: "api",
   recordCreation?: (tx: Prisma.TransactionClient, commandRequestId: string) => Promise<void>,
+  internalOptions?: CreateCommandInternalOptions,
 ) {
   const payload = createCommandSchema.parse(input);
   const teamId = resolveCommandTeamId(payload.teamId, session);
@@ -398,7 +513,12 @@ export async function createCommandRequest(
     const targets = await prisma.commandTarget.findMany({
       ...visibleTargets, where: { commandRequestId: existing.id, ...visibleTargets.where },
     });
-    return { ...existing, targets, requiresApproval: existing.status === "PENDING_APPROVAL" };
+    return {
+      ...existing,
+      targets,
+      origin: inferCommandOrigin(existing),
+      requiresApproval: existing.status === "PENDING_APPROVAL",
+    };
   }
 
   if (storedKey) {
@@ -414,14 +534,99 @@ export async function createCommandRequest(
 
   // Scope servers by session teamWhere, or by stamped teamId on system paths
   // (playbook executor never has a session but always passes teamId).
-  await assertCommandTargetServersInScope(payload.serverIds, session, teamId);
+  const targetServers = await assertCommandTargetServersInScope(payload.serverIds, session, teamId);
 
-  const requiresApproval = payload.approvalRequired ?? isProtectedByApproval({
-    actorType: toApprovalActorType(payload.submissionMode),
-    actionType: "command.execute",
+  const origin = deriveCommandOrigin({
+    source,
+    explicitOrigin: internalOptions?.origin,
+    viaToken: internalOptions?.viaToken,
+    storedKey,
+    submissionMode: payload.submissionMode,
   });
+  const assessment = classifyCommandRiskForTargets(
+    payload.command,
+    targetServers.map((server) => server.operatingSystem),
+  );
+  const policies = await getApprovalPolicySettings({ fresh: true });
+
+  let requiresApproval: boolean;
+  let decisionSource: CommandDecisionSource | null = null;
+
+  if (internalOptions?.approveOnCreate) {
+    if (session) {
+      if (!sessionHasPermission(session, "command:approve")) {
+        throw new ForbiddenError(t("backend.ai.permissionDenied.required", { permission: "command:approve" }));
+      }
+      if (!mayReviewCommandRequest(session, payload.requesterId, null, false, policies.commandSelfReview)) {
+        throw new BusinessError(t("backend.command.cannotSelfReview"));
+      }
+    }
+    requiresApproval = false;
+    decisionSource =
+      internalOptions.approveOnCreate.approverId === payload.requesterId
+        ? "SELF_REVIEW"
+        : internalOptions.approveOnCreate.decisionSource;
+  } else if (origin === "PLAYBOOK") {
+    requiresApproval = false;
+    decisionSource = "PLAYBOOK_EXEMPT";
+  } else if (origin === "SCHEDULED_TASK") {
+    // Scheduled task approval is fixed when saved, except global `always` overrides unattended runs.
+    if (policies.commandApprovalPolicy === "always") {
+      requiresApproval = true;
+    } else {
+      requiresApproval = payload.approvalRequired ?? false;
+      if (!requiresApproval) decisionSource = "STANDING_APPROVAL";
+    }
+  } else if (origin === "AI_AUTOMATION" && payload.approvalRequired === false) {
+    // Standing approve_once automation: enforce AI policy, risk/denylist, execute permission, and self-review SoD.
+    const submitterMayExecute =
+      internalOptions?.submitterMayExecute !== undefined
+        ? internalOptions.submitterMayExecute
+        : !session || sessionHasPermission(session, "command:execute");
+    const decision = decideCommandApproval({
+      policies,
+      origin: "AI_AUTOMATION",
+      riskLevel: assessment.level,
+      denylisted: assessment.denylisted,
+      submitterMayExecute,
+      requestedReview: false,
+    });
+    const canSelfApprove = !session || maySelfReviewCommands(session, policies.commandSelfReview);
+    if (
+      decision.effectivePolicy === "always" ||
+      !submitterMayExecute ||
+      (decision.requiresApproval && !canSelfApprove)
+    ) {
+      requiresApproval = true;
+    } else {
+      requiresApproval = false;
+      decisionSource = "STANDING_APPROVAL";
+    }
+  } else {
+    const submitterMayExecute =
+      internalOptions?.submitterMayExecute !== undefined
+        ? internalOptions.submitterMayExecute
+        : session
+          ? sessionHasPermission(session, "command:execute")
+          : (origin === "DEPLOYMENT" || origin === "DEPLOYMENT_ROLLBACK"
+            ? true
+            : payload.submissionMode === "user");
+    const decision = decideCommandApproval({
+      policies,
+      origin,
+      riskLevel: assessment.level,
+      denylisted: assessment.denylisted,
+      submitterMayExecute,
+      requestedReview: payload.approvalRequired === true,
+    });
+    requiresApproval = decision.requiresApproval;
+    if (!requiresApproval) {
+      decisionSource = internalOptions?.decisionSource ?? "POLICY_DIRECT";
+    }
+  }
 
   const status = requiresApproval ? "PENDING_APPROVAL" : "APPROVED";
+  const approveOnCreate = !requiresApproval ? internalOptions?.approveOnCreate : undefined;
   let commandRequest: Awaited<ReturnType<typeof prisma.commandRequest.create>> & {
     targets: Prisma.CommandTargetGetPayload<{ select: typeof SUBMISSION_TARGET_SELECT }>[];
   };
@@ -435,6 +640,10 @@ export async function createCommandRequest(
         initiatedByType: toInitiatedByType(payload.submissionMode) as
           | "USER"
           | "ASSISTANT",
+        origin,
+        riskLevel: assessment.level,
+        riskReasons: assessment.reasons,
+        decisionSource,
         status,
         teamId,
         idempotencyKey: storedKey ?? null,
@@ -444,9 +653,36 @@ export async function createCommandRequest(
       },
       include: { targets: visibleTargets },
     });
-    commandRequest = recordCreation ? await prisma.$transaction(async tx => {
+    const needsTransaction = Boolean(recordCreation || approveOnCreate);
+    commandRequest = needsTransaction ? await prisma.$transaction(async tx => {
       const created = await insert(tx);
-      await recordCreation(tx, created.id);
+      if (approveOnCreate) {
+        const targets = await tx.commandTarget.findMany({
+          where: { commandRequestId: created.id },
+          select: { id: true, serverId: true, server: { select: approvalEndpointSelect } },
+        });
+        if (targets.length > 0) {
+          await tx.executionLog.createMany({
+            data: targets.map((target) => ({
+              id: approvalReceiptId(target.id, target.server),
+              commandRequestId: created.id,
+              serverId: target.serverId,
+              summary: `Approved endpoint ${target.server.username}@${target.server.host}:${target.server.port}`,
+            })),
+          });
+        }
+        await tx.commandApproval.create({
+          data: {
+            commandRequestId: created.id,
+            approverId: approveOnCreate.approverId,
+            approved: true,
+            comment: approveOnCreate.comment ?? null,
+          },
+        });
+      }
+      if (recordCreation) {
+        await recordCreation(tx, created.id);
+      }
       return created;
     }) : await insert(prisma);
   } catch (error) {
@@ -474,13 +710,20 @@ export async function createCommandRequest(
     });
 
     // Notify requester that command execution has started; final status will be visible on the task row/logs.
-    notifyCommandResult(payload.requesterId, payload.title, "approved", commandRequest.teamId).catch((err) => { commandLogger.warn("notifyCommandResult failed", { error: err instanceof Error ? err.message : String(err) }); });
+    notifyCommandResult(payload.requesterId, payload.title, "approved", commandRequest.teamId, commandRequest.id).catch((err) => { commandLogger.warn("notifyCommandResult failed", { error: err instanceof Error ? err.message : String(err) }); });
   } else {
     // Notify admins about pending command approval
-    notifyCommandPending(payload.requesterId, payload.title, commandRequest.teamId).catch((err) => { commandLogger.warn("notifyCommandPending failed", { error: err instanceof Error ? err.message : String(err) }); });
+    notifyCommandPending(payload.requesterId, payload.title, commandRequest.teamId, commandRequest.id).catch((err) => { commandLogger.warn("notifyCommandPending failed", { error: err instanceof Error ? err.message : String(err) }); });
   }
 
-  return { ...commandRequest, requiresApproval };
+  return {
+    ...commandRequest,
+    origin,
+    riskLevel: assessment.level,
+    riskReasons: assessment.reasons,
+    decisionSource,
+    requiresApproval,
+  };
 }
 
 export async function reviewCommandRequest(
@@ -507,15 +750,19 @@ export async function reviewCommandRequest(
   }
 
   // Separation of duties: requester cannot approve/reject their own request
-  // (even if they also hold command:approve). Admins with team:manage may
-  // still self-review in single-operator deployments. The pages offer a review by the same rule (review-scope.ts).
+  // (even if they also hold command:approve). Admins with team:manage (or
+  // approvers when platform `command.selfReview = "approvers"`) may still
+  // self-review in single-operator deployments.
+  const policies = await getApprovalPolicySettings({ fresh: true });
   const initiator = manualRunInitiator(request.idempotencyKey);
   const legacyManual = request.scheduledTaskRuns?.length && !initiator;
-  if ((request.requesterId === payload.approverId || initiator === payload.approverId || legacyManual) && !maySelfReviewCommands(session)) {
+  const isSelfReview = request.requesterId === payload.approverId || initiator === payload.approverId || Boolean(legacyManual);
+  if (isSelfReview && !maySelfReviewCommands(session, policies.commandSelfReview)) {
     throw new BusinessError(t("backend.command.cannotSelfReview"));
   }
 
   const nextStatus = payload.approved ? "APPROVED" : "REJECTED";
+  const reviewDecisionSource: CommandDecisionSource = isSelfReview ? "SELF_REVIEW" : "REVIEWER";
   const reviewTargetScope = session && payload.approved
     ? { server: { AND: [{ teamId: request.teamId }, serverTeamWhere(session)] } }
     : null;
@@ -530,8 +777,8 @@ export async function reviewCommandRequest(
         ...(session ? commandRequestTeamWhere(session) : {}),
       },
       data: payload.approved
-        ? { status: nextStatus }
-        : { status: nextStatus, workerId: null, workerHeartbeatAt: null },
+        ? { status: nextStatus, decisionSource: reviewDecisionSource }
+        : { status: nextStatus, decisionSource: reviewDecisionSource, workerId: null, workerHeartbeatAt: null },
     });
 
     if (claimed.count === 0) {
@@ -581,7 +828,7 @@ export async function reviewCommandRequest(
 
   if (payload.approved) {
     // Notify requester: command approved
-    notifyCommandResult(request.requesterId, request.title, "approved", request.teamId).catch((err) => { commandLogger.warn("notifyCommandResult failed", { error: err instanceof Error ? err.message : String(err) }); });
+    notifyCommandResult(request.requesterId, request.title, "approved", request.teamId, request.id).catch((err) => { commandLogger.warn("notifyCommandResult failed", { error: err instanceof Error ? err.message : String(err) }); });
 
     // The approval is committed; a failed enqueue is retried by the
     // maintenance worker, so it must not report the approval as failed.
@@ -601,7 +848,10 @@ export async function reviewCommandRequest(
   }
 
   // Notify requester: command rejected
-  notifyCommandResult(request.requesterId, request.title, "rejected", request.teamId).catch((err) => { commandLogger.warn("notifyCommandResult failed", { error: err instanceof Error ? err.message : String(err) }); });
+  notifyCommandResult(request.requesterId, request.title, "rejected", request.teamId, request.id).catch((err) => { commandLogger.warn("notifyCommandResult failed", { error: err instanceof Error ? err.message : String(err) }); });
+  await import("@/lib/ai/hosted-outcome")
+    .then(({ projectCommandOutcomeToHostedAction }) => projectCommandOutcomeToHostedAction(payload.commandRequestId))
+    .catch(() => undefined);
 
   // Return post-CAS row (same as approve path). The pre-tx `request` snapshot
   // still has status PENDING_APPROVAL and would mislead API/UI clients.
@@ -636,49 +886,131 @@ const OPEN_COMMAND_STATUSES: CommandRequestStatus[] = ["PENDING_APPROVAL", "APPR
 const COMMAND_HISTORY_LIMIT = 100;
 const OPEN_COMMAND_LIMIT = 500;
 
-export async function listCommandRequestPage(session?: CommandSessionScope | null, cursor?: string, pageSize = OPEN_COMMAND_LIMIT) {
+export type CommandRequestListFilter = "all" | "waiting_on_me" | "my_submissions" | "open" | "history";
+
+export type CommandRequestListOptions = {
+  filter?: CommandRequestListFilter;
+  origin?: CommandOrigin;
+};
+
+function originFilterWhere(origin: CommandOrigin): Prisma.CommandRequestWhereInput {
+  switch (origin) {
+    case "DEPLOYMENT":
+      return { OR: [{ origin: "DEPLOYMENT" }, { origin: null, idempotencyKey: { startsWith: "deployment:" } }] };
+    case "DEPLOYMENT_ROLLBACK":
+      return { OR: [{ origin: "DEPLOYMENT_ROLLBACK" }, { origin: null, idempotencyKey: { startsWith: "deployment-rollback:" } }] };
+    case "AI_CHAT":
+      return {
+        OR: [
+          { origin: "AI_CHAT" },
+          { origin: null, idempotencyKey: { startsWith: "ai-hosted-action:" } },
+          { origin: null, idempotencyKey: null, initiatedByType: "ASSISTANT" },
+        ],
+      };
+    case "AI_AUTOMATION":
+      return { OR: [{ origin: "AI_AUTOMATION" }, { origin: null, idempotencyKey: { startsWith: "ai-automation:" } }] };
+    case "SCHEDULED_TASK":
+      return { OR: [{ origin: "SCHEDULED_TASK" }, { origin: null, idempotencyKey: { startsWith: "scheduled-task:" } }] };
+    case "PLAYBOOK":
+      return { OR: [{ origin: "PLAYBOOK" }, { origin: null, idempotencyKey: { startsWith: "playbook:" } }] };
+    case "API":
+      return { OR: [{ origin: "API" }, { origin: null, idempotencyKey: { startsWith: "api:" } }] };
+    case "USER_UI":
+    default:
+      return {
+        OR: [
+          { origin: "USER_UI" },
+          { origin: null, initiatedByType: "USER", idempotencyKey: null },
+        ],
+      };
+  }
+}
+
+export async function listCommandRequestPage(
+  session?: CommandSessionScope | null,
+  cursor?: string,
+  pageSize = OPEN_COMMAND_LIMIT,
+  options?: CommandRequestListOptions,
+) {
   // Quarantine null-team requests from team-user lists (command text + targets
   // are a security root); global managers still see all via commandRequestTeamWhere.
-  const where = session ? { ...commandRequestTeamWhere(session) } : {};
-  // The newest 100 of every status used to be the whole list, so a stream of automatic requests (a scheduled task
-  // that needs approval, a playbook step per attempt) pushed older requests still waiting for approval out of the
-  // page, the pending count and the batch tools, with no way left to approve them. Everything still open is
-  // listed, with the newest history beside it.
+  const baseTeamWhere: Prisma.CommandRequestWhereInput = session ? { ...commandRequestTeamWhere(session) } : {};
+  const extraClauses: Prisma.CommandRequestWhereInput[] = [];
+  if (options?.origin) {
+    extraClauses.push(originFilterWhere(options.origin));
+  }
+  const filter = options?.filter ?? "all";
+  if (filter === "my_submissions" && session) {
+    extraClauses.push({ requesterId: session.userId });
+  } else if (filter === "waiting_on_me" && session) {
+    if (!sessionHasPermission(session, "command:approve")) {
+      return { requests: [], nextCursor: null, pendingCount: 0 };
+    }
+    const policies = await getApprovalPolicySettings();
+    extraClauses.push({ status: "PENDING_APPROVAL" });
+    if (!maySelfReviewCommands(session, policies.commandSelfReview)) {
+      extraClauses.push(
+        { requesterId: { not: session.userId } },
+        { OR: [{ idempotencyKey: null }, { NOT: { idempotencyKey: { startsWith: escapeLikeLiteral(manualRunPrefix(session.userId)) } } }] },
+        { OR: [{ scheduledTaskRuns: { none: { manual: true } } }, { idempotencyKey: { startsWith: manualRunKeyPrefix } }] },
+      );
+    }
+  }
+  const where: Prisma.CommandRequestWhereInput =
+    extraClauses.length > 0 ? { AND: [baseTeamWhere, ...extraClauses] } : baseTeamWhere;
+
   const canReadServers = !session || sessionHasPermission(session, "server:read");
   const take = Math.max(1, Math.min(pageSize, OPEN_COMMAND_LIMIT));
   const include = {
     ...COMMAND_LIST_INCLUDE,
     targets: { ...COMMAND_LIST_INCLUDE.targets, ...(session ? { where: { server: canReadServers ? serverTeamWhere(session) : { id: { in: [] } } } } : {}) },
   };
+  const includeOpen = filter !== "history";
+  const includeHistory = filter === "all" || filter === "my_submissions" || filter === "history";
   const [open, recent, pendingCount] = await Promise.all([
-    prisma.commandRequest.findMany({
-      where: { AND: [where, { status: { in: OPEN_COMMAND_STATUSES } }, ...(cursor ? [createdBeforeCursor(cursor)] : [])] },
-      orderBy: [{ createdAt: "desc" }, { id: "desc" }],
-      take: take + 1,
-      include,
-    }),
-    cursor ? [] : prisma.commandRequest.findMany({
-      where: { ...where, status: { notIn: OPEN_COMMAND_STATUSES } },
-      orderBy: [{ createdAt: "desc" }, { id: "desc" }],
-      take: COMMAND_HISTORY_LIMIT,
-      include,
-    }),
-    prisma.commandRequest.count({ where: { ...where, status: "PENDING_APPROVAL" } }),
+    includeOpen
+      ? prisma.commandRequest.findMany({
+          where: { AND: [where, { status: { in: OPEN_COMMAND_STATUSES } }, ...(cursor ? [createdBeforeCursor(cursor)] : [])] },
+          orderBy: [{ createdAt: "desc" }, { id: "desc" }],
+          take: take + 1,
+          include,
+        })
+      : Promise.resolve([]),
+    includeHistory && (filter === "history" || !cursor)
+      ? prisma.commandRequest.findMany({
+          where: { AND: [where, { status: { notIn: OPEN_COMMAND_STATUSES } }, ...(filter === "history" && cursor ? [createdBeforeCursor(cursor)] : [])] },
+          orderBy: [{ createdAt: "desc" }, { id: "desc" }],
+          take: filter === "history" ? take + 1 : COMMAND_HISTORY_LIMIT,
+          include,
+        })
+      : Promise.resolve([]),
+    prisma.commandRequest.count({ where: { AND: [baseTeamWhere, { status: "PENDING_APPROVAL" }] } }),
   ]);
   const seen = new Set<string>();
-  const requests = [...open.slice(0, take), ...recent]
+  const slicedOpen = open.slice(0, take);
+  const slicedRecent = filter === "history" ? recent.slice(0, take) : recent;
+  const requests = [...slicedOpen, ...slicedRecent]
     .filter((request) => !seen.has(request.id) && seen.add(request.id))
     .sort((a, b) => b.createdAt.getTime() - a.createdAt.getTime());
 
-  const boundary = open.length > take ? open[take - 1] : null;
+  const boundary = filter === "history"
+    ? (recent.length > take ? recent[take - 1] : null)
+    : (open.length > take ? open[take - 1] : null);
   const visibleRows = await withVisibleCommandLogs(requests, session);
+  const canApprove = !session || sessionHasPermission(session, "command:approve");
   return {
     requests: visibleRows.map(row => {
       if (!session) return mapCommandRequest(row);
       const targets = canReadServers ? row.targets.filter(target => target.server.teamId === row.teamId) : [];
+      const bodyReadable = canReadCommandBody(session.userId, row.requesterId, canApprove);
+      const executionLogs = canReadServers
+        ? (bodyReadable
+            ? row.executionLogs
+            : row.executionLogs.map((log) => ({ ...log, stdout: null, stderr: null })))
+        : [];
       return mapCommandRequest({
         ...row, targets, _count: { targets: targets.length },
-        executionLogs: canReadServers ? row.executionLogs : [],
+        executionLogs,
       });
     }),
     nextCursor: boundary ? boundary.createdAt.getTime() + "." + boundary.id : null,
@@ -714,6 +1046,62 @@ export async function getCommandRequestForViewer(session: CommandSessionScope, i
     _count: { targets: targets.length },
     executionLogs: canReadServers ? visibleRow.executionLogs : [],
   });
+}
+
+/**
+ * Safe API serializer for GET /api/commands/[id] and /commands?fromRequestId=:
+ * - Enforces commandRequestTeamWhere + canReadCommandBody.
+ * - Masks `command: ""` + `commandHidden: true` and omits logs/outputs for non-owner, non-approver viewers.
+ * - Enriches authorized viewers with bounded, secret-masked per-target stdout/stderr + exitCode.
+ */
+export async function getCommandRequestDetailForViewer(session: CommandSessionScope, id: string) {
+  const request = await getCommandRequestForViewer(session, id);
+  if (!request) return null;
+  const canApprove = sessionHasPermission(session, "command:approve");
+  const canReadServers = sessionHasPermission(session, "server:read");
+  const bodyReadable = canReadCommandBody(session.userId, request.requesterId, canApprove);
+
+  if (!bodyReadable) {
+    return {
+      ...request,
+      command: "",
+      commandHidden: true,
+      executionLogs: [],
+      latestLog: null,
+      targets: request.targets.map((target) => ({
+        ...target,
+        exitCode: null as number | null,
+        stdout: null as string | null,
+        stderr: null as string | null,
+      })),
+    };
+  }
+
+  const targetIds = request.targets.map((target) => target.id);
+  const [tails, exitCodeRows] = canReadServers && targetIds.length > 0
+    ? await Promise.all([
+        fetchTargetOutputTails(targetIds, session, COMMAND_DETAIL_OUTPUT_TAIL_CHARS),
+        prisma.commandTarget.findMany({
+          where: { id: { in: targetIds } },
+          select: { id: true, exitCode: true },
+        }),
+      ])
+    : [new Map(), []];
+  const exitCodeById = new Map(exitCodeRows.map((row) => [row.id, row.exitCode]));
+
+  return {
+    ...request,
+    commandHidden: false,
+    targets: request.targets.map((target) => {
+      const tail = tails.get(target.id);
+      return {
+        ...target,
+        exitCode: exitCodeById.get(target.id) ?? null,
+        stdout: canReadServers ? maskCommandOutput(tail?.stdout ?? null, COMMAND_DETAIL_OUTPUT_TAIL_CHARS) : null,
+        stderr: canReadServers ? maskCommandOutput(tail?.stderr ?? null, COMMAND_DETAIL_OUTPUT_TAIL_CHARS) : null,
+      };
+    }),
+  };
 }
 
 export async function listCommandRequests(session?: CommandSessionScope | null) {

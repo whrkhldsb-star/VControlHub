@@ -106,7 +106,7 @@ describe("executeAndFinalizeCommand", () => {
       data: { status: "CANCELLED", workerId: null, workerHeartbeatAt: null },
     });
     expect(mocks.prisma.commandTarget.updateMany).not.toHaveBeenCalled();
-    expect(mocks.notifyCommandResult).toHaveBeenCalledWith("user-1", "Check uptime", "cancelled", "team-1");
+    expect(mocks.notifyCommandResult).toHaveBeenCalledWith("user-1", "Check uptime", "cancelled", "team-1", "req-1");
   });
 });
 
@@ -651,7 +651,7 @@ describe("markCommandExecutionFailed", () => {
       "WARNING",
       "team-1",
     );
-    expect(mocks.notifyCommandResult).toHaveBeenCalledWith("user-1", "Restart nginx", "failed", "team-1");
+    expect(mocks.notifyCommandResult).toHaveBeenCalledWith("user-1", "Restart nginx", "failed", "team-1", "req-1");
   });
 
   it("preserves completion when the final status read had failed after every result was saved", async () => {

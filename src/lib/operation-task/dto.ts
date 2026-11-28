@@ -40,6 +40,18 @@ export type OperationTask = {
   sourceId: string;
   title: string;
   status: OperationTaskStatus;
+  /** Underlying domain status (e.g. `PENDING_APPROVAL`, `RUNNING`, `FAILED`) when finer than the bucketed status. */
+  rawStatus?: string | null;
+  /** Raw `CommandRequest.id` for command / scheduled / linked deployment tasks (never the `command:<id>` list id). */
+  commandRequestId?: string | null;
+  riskLevel?: string | null;
+  origin?: string | null;
+  /** Viewer may inspect masked command body & target output via `GET /api/commands/[id]`. */
+  canInspectCommand?: boolean;
+  /** Viewer may cancel this in-flight or pending-approval command via `PATCH /api/commands`. */
+  canCancelCommand?: boolean;
+  /** Viewer may open `/commands?fromRequestId=<commandRequestId>` (requires create + readable body). */
+  canRerunCommand?: boolean;
   createdAt: string;
   updatedAt: string;
   actor?: string | null;
@@ -95,6 +107,8 @@ export type OperationTaskListFilters = {
   status?: OperationTaskStatus | OperationTaskStatus[];
   taskType?: string;
   sort?: OperationTaskListSort;
+  q?: string;
+  awaitingApproval?: boolean;
 };
 
 export type OperationTaskListOptions = OperationTaskListFilters & { limit?: number };

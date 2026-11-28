@@ -421,7 +421,7 @@ cleanup_app_directory() (
         find "${path}" -xdev -depth -delete ;;
       .dockerignore|.env|.env.local|.env.runtime|.env.production|.env.example|.gitattributes|.gitignore|\
       AGENTS.md|CHANGELOG.md|Dockerfile|Makefile|README.md|deploy.sh|docker-compose.yml|docker-entrypoint.sh|\
-      eslint.config.mjs|install.sh|knip.json|next.config.ts|next-env.d.ts|package-lock.json|package.json|\
+      eslint.config.mjs|install.sh|next.config.ts|next-env.d.ts|package-lock.json|package.json|\
       playwright.config.ts|postcss.config.mjs|prisma.config.ts|tsconfig.json|tsconfig.tsbuildinfo|vitest.config.ts)
         if [[ -d ${path} && ! -L ${path} ]]; then
           warn "Retaining unexpected directory: ${absolute}"

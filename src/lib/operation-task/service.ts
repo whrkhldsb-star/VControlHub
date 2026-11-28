@@ -1,9 +1,11 @@
 import { taskTargetRelativePath } from "@/lib/downloads/route-helpers";
 import { CommandRequestStatus, DownloadTaskStatus, JobStatus, Prisma, SyncJobStatus, type Job } from "@prisma/client";
 
-import { rawServerScope, serverTeamWhere, teamWhere } from "@/lib/auth/team-scope";
+import { serverTeamWhere, teamWhere } from "@/lib/auth/team-scope";
 import { sessionHasPermission } from "@/lib/auth/authorization";
+import { mayCancelCommandRequest } from "@/lib/command/review-scope";
 import { canReadCommandBody, RECENT_COMMAND_LOG_LIMIT, withVisibleCommandLogs } from "@/lib/command/visibility";
+import { fetchTargetOutputTails, type OutputTail } from "@/lib/command/target-output";
 import { canAccessDownloadTask } from "@/lib/downloads/route-helpers";
 import { downloadDriveSelect, resolveTaskDrive } from "@/lib/downloads/destination";
 import { filterSyncHistory, syncVisibility, visibleSyncPaths } from "@/lib/sync/service-crud";
@@ -14,6 +16,7 @@ import { serviceT } from "@/lib/i18n/service-locale";
 import { getServerLocale } from "@/lib/i18n/server-locale-cookie";
 import { localizeStoredSentence, localizeStoredText } from "@/lib/i18n/stored-sentences";
 import { getJobTypeLabel } from "@/lib/i18n/domain-labels";
+import { commandRequestHref, deploymentRunHref } from "@/lib/ui/deep-links";
 
 // TR-039: pure DTO types live in ./dto so client code can reach them
 // without pulling the whole server-only service module. We import them
@@ -132,7 +135,7 @@ function commandTaskOrigin(item: CommandTaskRow) {
   const schedule = item.scheduledTaskRuns?.[0]?.scheduledTask;
   return schedule
     ? { id: `scheduled:${item.id}`, source: "scheduled" as const, title: schedule.name, href: "/scheduled-tasks" }
-    : { id: `command:${item.id}`, source: "command" as const, title: item.title, href: "/requests" };
+    : { id: `command:${item.id}`, source: "command" as const, title: item.title, href: commandRequestHref(item.id) };
 }
 
 /** A sync job that has never run has no outcome yet; IDLE alone is not "completed". */
@@ -160,48 +163,6 @@ function formatWorkerProgress(input: { workerId?: string | null; workerHeartbeat
     : t("backend.operationTask.worker.progressNoHeartbeat", { worker });
 }
 
-/**
- * Characters of stdout/stderr kept per target for the list preview. The list
- * shows the last three trimmed lines capped at 180 chars each, so ~1 KB of tail
- * is plenty while still being 250× smaller than a full output column.
- */
-const COMMAND_OUTPUT_TAIL_CHARS = 1_024;
-
-type OutputTail = { stdout: string | null; stderr: string | null };
-
-/**
- * Bounded tails of command output for the task list.
- *
- * Selecting `stdout`/`stderr` inline meant every list load transferred up to
- * 256 KB × 2 columns × 2 targets per request row — tens of MB per page for a
- * three-line preview. `right()` trims the transfer in SQL without a schema
- * change. Best effort by design: if the raw read is unavailable the preview
- * simply falls back to execution logs and worker progress.
- */
-async function fetchTargetOutputTails(ids: string[], session: OperationTaskSessionScope): Promise<Map<string, OutputTail>> {
-  const tails = new Map<string, OutputTail>();
-  if (ids.length === 0) return tails;
-  try {
-    const rows = await prisma.$queryRaw<Array<{ id: string; stdout: string | null; stderr: string | null }>>(
-      Prisma.sql`
-        SELECT t.id,
-               right(coalesce(t.stdout, ''), ${COMMAND_OUTPUT_TAIL_CHARS}::int) AS stdout,
-               right(coalesce(t.stderr, ''), ${COMMAND_OUTPUT_TAIL_CHARS}::int) AS stderr
-        FROM command_targets t
-        JOIN servers s ON s.id = t."serverId"
-        JOIN command_requests r ON r.id = t."commandRequestId"
-        WHERE t.id = ANY(${ids}::text[])
-          AND s."teamId" IS NOT DISTINCT FROM r."teamId"
-          AND (${rawServerScope(session, "canRead")})
-      `,
-    );
-    for (const row of rows) tails.set(row.id, { stdout: row.stdout, stderr: row.stderr });
-  } catch {
-    // Preview enrichment only — never fail the whole list over it.
-  }
-  return tails;
-}
-
 function compactLogPreview(parts: Array<string | null | undefined>) {
   return parts
     .flatMap((part) => String(part ?? "").split(/\r?\n/))
@@ -226,9 +187,25 @@ function normalizeTaskTypeFilter(taskType: string | undefined) {
 function filterOperationTasks(tasks: OperationTask[], filters: OperationTaskListFilters) {
   const statuses = normalizeStatusFilter(filters.status);
   const taskType = normalizeTaskTypeFilter(filters.taskType);
+  const needle = filters.q?.trim().toLowerCase() ?? "";
   return tasks.filter((task) => {
     if (statuses && !statuses.has(task.status)) return false;
     if (taskType && task.taskType !== taskType) return false;
+    if (filters.awaitingApproval && task.rawStatus !== "PENDING_APPROVAL") return false;
+    if (needle) {
+      const haystack = [
+        task.title,
+        task.actor ?? "",
+        task.taskType ?? "",
+        task.source,
+        task.sourceId,
+        task.progress ?? "",
+        ...(task.targetEvidence ?? []).map((target) => target.label),
+      ]
+        .join(" ")
+        .toLowerCase();
+      if (!haystack.includes(needle)) return false;
+    }
     return true;
   });
 }
@@ -400,16 +377,81 @@ export async function listOperationTaskResult(options: OperationTaskListOptions,
     } while (cursor && visible.size < limit);
     return [...visible.values()];
   }
-  const readStorage = sessionHasPermission(session, "storage:read") ? untypedWhere : null;
-  const readCommands = !session || sessionHasPermission(session, "command:read") ? untypedWhere : null;
-  const readBackups = !session || sessionHasPermission(session, "backup:read") ? typedWhere : null;
-  const readDeployments = !session || sessionHasPermission(session, "deploy:read") ? untypedWhere : null;
+  const canReadServers = !session || sessionHasPermission(session, "server:read");
+  const canApproveCommands = !session || sessionHasPermission(session, "command:approve");
+  const canCreateCommands = !session || sessionHasPermission(session, "command:create");
+  const canReadCommands = !session || sessionHasPermission(session, "command:read");
+  const canReadBody = (requesterId: string | null | undefined) =>
+    !session || canReadCommandBody(session.userId, requesterId === undefined ? session.userId : requesterId, canApproveCommands);
+  const mergeWhere = (base: WhereClause | null, extra: WhereClause | null): WhereClause | null => {
+    if (base === null || extra === null) return null;
+    const parts = [base, extra].filter((part) => Object.keys(part).length > 0);
+    if (parts.length === 0) return {};
+    return parts.length === 1 ? parts[0]! : { AND: parts };
+  };
+  const needle = options.q?.trim() || null;
+  const needleLower = needle?.toLowerCase() ?? "";
+  const ci = needle ? { contains: needle, mode: "insensitive" as const } : null;
+  const creatorCi = ci ? { OR: [{ username: ci }, { displayName: ci }] } : null;
+  const awaitingApproval = Boolean(options.awaitingApproval);
+
+  const jobSearchWhere: WhereClause = !ci || "job".includes(needleLower)
+    ? {}
+    : { OR: [{ id: ci }, { title: ci }, { type: ci }, { progress: ci }, { errorMessage: ci }, { creator: creatorCi }] };
+  const commandServerSearch = ci && canReadServers
+    ? (canApproveCommands
+      ? [{ targets: { some: { server: { AND: [serverTeamWhere(session), { name: ci }] } } } }]
+      : [{ AND: [{ requesterId: session.userId }, { targets: { some: { server: { AND: [serverTeamWhere(session), { name: ci }] } } } }] }])
+    : [];
+  const commandSearchWhere: WhereClause = !ci || "command".includes(needleLower) || "scheduled".includes(needleLower)
+    ? {}
+    : {
+      OR: [
+        { id: ci },
+        { title: ci },
+        { workerId: ci },
+        { requester: creatorCi },
+        { scheduledTaskRuns: { some: { scheduledTask: { name: ci } } } },
+        ...commandServerSearch,
+      ],
+    };
+  const downloadSearchWhere: WhereClause = !ci || "download".includes(needleLower)
+    ? {}
+    : { OR: [{ id: ci }, { fileName: ci }, { url: ci }, { progress: ci }, { creator: creatorCi }] };
+  const syncSearchWhere: WhereClause = !ci || "sync".includes(needleLower)
+    ? {}
+    : { OR: [{ id: ci }, { name: ci }, { lastSyncResult: ci }, { creator: creatorCi }] };
+  const backupSearchWhere: WhereClause = !ci || "backup".includes(needleLower)
+    ? {}
+    : { OR: [{ id: ci }, { type: ci }, { filePath: ci }, { creator: creatorCi }] };
+  const deploymentSearchWhere: WhereClause = !ci || "deployment".includes(needleLower)
+    ? {}
+    : { OR: [{ id: ci }, { template: { name: ci } }, { creator: creatorCi }, { commandRequest: { workerId: ci } }] };
+
+  const readJobsWhere = awaitingApproval ? null : mergeWhere(typedWhere, jobSearchWhere);
+  const readStorage = awaitingApproval
+    ? null
+    : (sessionHasPermission(session, "storage:read") ? untypedWhere : null);
+  const readDownloadsWhere = mergeWhere(readStorage, downloadSearchWhere);
+  const readSyncWhere = mergeWhere(readStorage, syncSearchWhere);
+  const readCommands = !session || sessionHasPermission(session, "command:read")
+    ? mergeWhere(mergeWhere(untypedWhere, awaitingApproval ? { status: "PENDING_APPROVAL" } : {}), commandSearchWhere)
+    : null;
+  const readBackups = awaitingApproval
+    ? null
+    : (!session || sessionHasPermission(session, "backup:read") ? mergeWhere(typedWhere, backupSearchWhere) : null);
+  const readDeployments = !session || sessionHasPermission(session, "deploy:read")
+    ? mergeWhere(
+      mergeWhere(untypedWhere, awaitingApproval ? { commandRequest: { status: "PENDING_APPROVAL" } } : {}),
+      deploymentSearchWhere,
+    )
+    : null;
   const canViewStorageConnection = !session || sessionHasPermission(session, "storage:manage-node");
   const [jobs, commandRows, downloads, syncJobs, backups, deployments] = await Promise.all([
-    fetchSource("createdBy", (statuses) => rawStatusWhere(statuses, Object.values(JobStatus), false), typedWhere, readJobs),
+    fetchSource("createdBy", (statuses) => rawStatusWhere(statuses, Object.values(JobStatus), false), readJobsWhere, readJobs),
     fetchSource("requesterId", (statuses) => rawStatusWhere(statuses, Object.values(CommandRequestStatus), false), readCommands, (where) =>
       prisma.commandRequest.findMany({ where, take: limit, orderBy: { createdAt: "desc" }, include: commandTaskInclude(session) })),
-    fetchSource("createdBy", statuses => rawStatusWhere(statuses, Object.values(DownloadTaskStatus), false), readStorage, where =>
+    fetchSource("createdBy", statuses => rawStatusWhere(statuses, Object.values(DownloadTaskStatus), false), readDownloadsWhere, where =>
       pageVisible(cursor => prisma.downloadTask.findMany({
         where: { ...where, server: serverTeamWhere(session) }, ...paging(cursor),
         include: { creator: { select: { username: true, displayName: true } }, server: { select: {
@@ -421,7 +463,7 @@ export async function listOperationTaskResult(options: OperationTaskListOptions,
         })));
         return rows.filter((_, i) => flags[i]);
       })),
-    fetchSource("createdBy", syncStatusWhere, readStorage, where =>
+    fetchSource("createdBy", syncStatusWhere, readSyncWhere, where =>
       pageVisible(cursor => prisma.syncJob.findMany({
         where: { AND: [where, syncVisibility(session)] }, ...paging(cursor),
         include: { creator: { select: { username: true, displayName: true } },
@@ -435,10 +477,6 @@ export async function listOperationTaskResult(options: OperationTaskListOptions,
 
   // An all-customer administrator can see a transferred server, but its output
   // belongs outside the original customer's command view after the transfer.
-  const canReadServers = !session || sessionHasPermission(session, "server:read");
-  const canApproveCommands = !session || sessionHasPermission(session, "command:approve");
-  const canReadBody = (requesterId: string | null | undefined) =>
-    !session || canReadCommandBody(session.userId, requesterId === undefined ? session.userId : requesterId, canApproveCommands);
   const scopedCommands = commandRows.map(item => {
     const allowDetails = canReadServers && canReadBody(item.requesterId);
     return {
@@ -472,36 +510,49 @@ export async function listOperationTaskResult(options: OperationTaskListOptions,
       eventCount: item._count?.events ?? 0,
       ...(item.foldedCount ? { foldedCount: item.foldedCount } : {}),
     })),
-    ...commands.map((item: CommandTaskRow) => ({
-      ...commandTaskOrigin(item),
-      sourceId: item.id,
-      status: mapOperationStatus(item.status),
-      createdAt: toIso(item.createdAt),
-      updatedAt: toIso(item.updatedAt),
-      actor: actorName(item.requester),
-      targetEvidence: item.targets.map((target) => ({
-        id: target.id,
-        label: target.server.name,
-        executionChannel: target.executionChannel,
-        fallbackReason: target.fallbackReason,
-        outcomeUnknown: target.outcomeUnknown,
-        succeededAt: target.status === "COMPLETED" && !target.outcomeUnknown && target.finishedAt
-          ? toIso(target.finishedAt) : null,
-      })),
-      progress: formatWorkerProgress(item, t),
-      logPreview: compactLogPreview([
-        item.executionLogs.slice(0, 2).map((log) => log.summary).join("\n"),
-        item.targets
-          .map((target) => {
-            const tail = targetOutputTails.get(target.id);
-            return [tail?.stdout, tail?.stderr].filter(Boolean).join("\n");
-          })
-          .join("\n"),
-        formatWorkerProgress(item, t),
-      ]),
-      workerId: item.workerId,
-      workerHeartbeatAt: item.workerHeartbeatAt ? toIso(item.workerHeartbeatAt) : null,
-    })),
+    ...commands.map((item: CommandTaskRow) => {
+      const bodyReadable = canReadCommands && canReadBody(item.requesterId);
+      const canCancel = !session
+        ? ["PENDING_APPROVAL", "APPROVED", "RUNNING"].includes(item.status)
+        : mayCancelCommandRequest(session, { status: item.status, requesterId: item.requesterId });
+      return {
+        ...commandTaskOrigin(item),
+        sourceId: item.id,
+        commandRequestId: item.id,
+        status: mapOperationStatus(item.status),
+        rawStatus: item.status,
+        riskLevel: item.riskLevel ?? null,
+        origin: item.origin ?? null,
+        canInspectCommand: bodyReadable,
+        canCancelCommand: canCancel,
+        canRerunCommand: canCreateCommands && bodyReadable,
+        createdAt: toIso(item.createdAt),
+        updatedAt: toIso(item.updatedAt),
+        actor: actorName(item.requester),
+        targetEvidence: item.targets.map((target) => ({
+          id: target.id,
+          label: target.server.name,
+          executionChannel: target.executionChannel,
+          fallbackReason: target.fallbackReason,
+          outcomeUnknown: target.outcomeUnknown,
+          succeededAt: target.status === "COMPLETED" && !target.outcomeUnknown && target.finishedAt
+            ? toIso(target.finishedAt) : null,
+        })),
+        progress: formatWorkerProgress(item, t),
+        logPreview: compactLogPreview([
+          item.executionLogs.slice(0, 2).map((log) => log.summary).join("\n"),
+          item.targets
+            .map((target) => {
+              const tail = targetOutputTails.get(target.id);
+              return [tail?.stdout, tail?.stderr].filter(Boolean).join("\n");
+            })
+            .join("\n"),
+          formatWorkerProgress(item, t),
+        ]),
+        workerId: item.workerId,
+        workerHeartbeatAt: item.workerHeartbeatAt ? toIso(item.workerHeartbeatAt) : null,
+      };
+    }),
     ...downloads.map((item) => ({
       id: `download:${item.id}`,
       source: "download" as const,
@@ -546,8 +597,10 @@ export async function listOperationTaskResult(options: OperationTaskListOptions,
       id: `deployment:${item.id}`,
       source: "deployment" as const,
       sourceId: item.id,
+      commandRequestId: item.commandRequestId ?? null,
       title: item.template.name,
       status: resolveDeploymentOperationStatus(item),
+      rawStatus: item.commandRequest?.status ?? item.status,
       createdAt: toIso(item.createdAt),
       updatedAt: toIso(item.updatedAt),
       actor: actorName(item.creator),
@@ -555,7 +608,7 @@ export async function listOperationTaskResult(options: OperationTaskListOptions,
       logPreview: compactLogPreview([item.commandRequest ? formatWorkerProgress(item.commandRequest, t) : null]),
       workerId: item.commandRequest?.workerId ?? null,
       workerHeartbeatAt: item.commandRequest?.workerHeartbeatAt ? toIso(item.commandRequest.workerHeartbeatAt) : null,
-      href: "/deployments",
+      href: deploymentRunHref(item.id),
     })),
   ];
 

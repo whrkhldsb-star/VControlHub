@@ -64,7 +64,15 @@ export async function recoverStaleRunningCommandRequests(now = new Date()) {
   // cost that previously dominated the recovery sweep.
   for (let i = 0; i < lost.length; i += RECOVER_STALE_CONCURRENCY) {
     const chunk = lost.slice(i, i + RECOVER_STALE_CONCURRENCY);
-    const outcomes = await Promise.all(chunk.map((request) => recoverOne(request, now)));
+    const outcomes = await Promise.all(chunk.map(async (request) => {
+      const ok = await recoverOne(request, now);
+      if (ok) {
+        await import("@/lib/ai/hosted-outcome")
+          .then(({ projectCommandOutcomeToHostedAction }) => projectCommandOutcomeToHostedAction(request.id))
+          .catch(() => undefined);
+      }
+      return ok;
+    }));
     for (const ok of outcomes) if (ok) recovered += 1;
   }
 

@@ -1,6 +1,7 @@
 "use client";
 
-import { Fragment } from "react";
+import { Fragment, useRef, useState } from "react";
+import { EditorSnippetPicker } from "@/components/snippet-picker";
 import { X } from "@/components/icons";
 
 import { UI_INPUT } from "@/lib/ui/classes";
@@ -36,6 +37,7 @@ function renderQuickKeyLabel(label: string) {
 export function SshTerminalSidePanel({
 	serverId,
 	operatingSystem = "LINUX",
+	connected = true,
 	t,
 	favoriteCommands,
 	newFavorite,
@@ -58,6 +60,7 @@ export function SshTerminalSidePanel({
 }: {
 	serverId: string;
 	operatingSystem?: SshTerminalOperatingSystem;
+	connected?: boolean;
 	t: TFn;
 	favoriteCommands: string[];
 	newFavorite: string;
@@ -66,7 +69,7 @@ export function SshTerminalSidePanel({
 	removeFavorite: (cmd: string) => void;
 	commandHistory: string[];
 	onClearHistory: () => void;
-	sendCommand: (cmd: string) => void;
+	sendCommand: (cmd: string) => boolean | void;
 	sendKeys: (data: string) => void;
 	/** User-composable presets; null/undefined → show the fixed defaults. */
 	customQuickKeys?: ReadonlyArray<{ label: string; data: string }> | null;
@@ -85,6 +88,7 @@ export function SshTerminalSidePanel({
 }) {
 	return (
 		<div className="flex max-h-[50vh] w-full shrink-0 flex-col gap-3 overflow-y-auto lg:ml-3 lg:max-h-none lg:w-56">
+			<TerminalDraft key={serverId} os={operatingSystem} connected={connected} t={t} send={sendCommand} />
 			<section data-inset className="light:border-[var(--border)] light:bg-[var(--surface)] p-3">
 				<h4 className="ui-title-caption mb-2">
 					{t("sshTerminalModal.fontSizeTitle")}
@@ -286,4 +290,20 @@ export function SshTerminalSidePanel({
 			</section>
 		</div>
 	);
+}
+
+function TerminalDraft({ os, connected, t, send }: { os: SshTerminalOperatingSystem; connected: boolean; t: TFn; send: (value: string) => boolean | void }) {
+	const editor = useRef<HTMLTextAreaElement>(null);
+	const [draft, setDraft] = useState("");
+	const submit = () => {
+		if (!connected || !draft.trim()) return;
+		if (send(draft) !== false) setDraft("");
+	};
+	return <details data-inset className="space-y-2 p-3">
+		<summary className="cursor-pointer text-sm font-medium">{t("snippetsPage.draft.title")}</summary>
+		<label className="ui-label grid gap-1">{t("snippetsPage.draft.review")}<textarea ref={editor} className={`${UI_INPUT} font-mono`} rows={4} maxLength={10000} value={draft}
+			onChange={e => setDraft(e.target.value)} onKeyDown={e => { if (e.ctrlKey && e.key === "Enter" && !isImeComposition(e)) { e.preventDefault(); e.stopPropagation(); submit(); } }} /></label>
+		<EditorSnippetPicker mode="immediate" osHint={os} editor={editor} onChange={setDraft} />
+		<ActionButton disabled={!connected || !draft.trim()} onClick={submit}>{t("snippetsPage.draft.send")}</ActionButton>
+	</details>;
 }

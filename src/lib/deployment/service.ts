@@ -8,6 +8,7 @@ import { createCommandRequest } from "@/lib/command/service";
 import { commandRequestTitle } from "@/lib/command/schema";
 import { commandTemplateScopeWhere, seedBuiltinTemplates } from "@/lib/command-template/service";
 import { canReadTemplateBody } from "@/lib/command-template/visibility";
+import { sessionHasPermission } from "@/lib/auth/authorization";
 import type { SessionPayload } from "@/lib/auth/session";
 import { deploymentRunTeamWhere, serverTeamWhere, teamCreateData } from "@/lib/auth/team-scope";
 import { ConflictError, ForbiddenError, NotFoundError, ValidationError } from "@/lib/errors";
@@ -281,7 +282,7 @@ async function createDeploymentRunFromTemplateUnlocked(
       serverIds: normalized.serverIds,
       teamId,
       idempotencyKey: deploymentCommandKey(run.id, idempotencyKey),
-    });
+    }, session);
     // Awaited so a failed link write is settled below too: unawaited, it
     // escaped this catch and left the run PENDING and unlinked for good.
     return await prisma.deploymentRun.update({
@@ -305,8 +306,16 @@ async function createDeploymentRunFromTemplateUnlocked(
   }
 }
 
-async function submitDeploymentCommand(input: Parameters<typeof createCommandRequest>[0]) {
-  const command = await createCommandRequest(input);
+async function submitDeploymentCommand(
+  input: Parameters<typeof createCommandRequest>[0],
+  session?: SessionScope,
+) {
+  const internalOptions = session
+    ? { submitterMayExecute: sessionHasPermission(session, "command:execute") }
+    : undefined;
+  const command = internalOptions
+    ? await createCommandRequest(input, undefined, undefined, undefined, internalOptions)
+    : await createCommandRequest(input);
   if (command.initiatedByType !== "ASSISTANT" || command.requesterId !== input.requesterId ||
     command.teamId !== (input.teamId ?? null) || command.idempotencyKey !== input.idempotencyKey) {
     throw new ConflictError(t("backend.command.idempotencyKeyInUse"));
@@ -688,7 +697,7 @@ export async function createDeploymentRollbackRun(
         // Stable link from the rollback to its command: recovery finds the
         // command by this key if the link below is never written.
         idempotencyKey: rollbackCommandKey(rollback.id),
-      });
+      }, session);
 
       return await prisma.deploymentRollbackRun.update({
         where: { id: rollback.id, commandRequestId: null, sourceRun: { teamId: rollbackTeamId } },

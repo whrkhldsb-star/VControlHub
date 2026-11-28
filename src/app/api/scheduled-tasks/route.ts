@@ -133,7 +133,7 @@ export async function POST(request: Request) {
     request,
     {
       permission: "command:create",
-      optionalTokenPermissions: ["command:read", "command:approve"],
+      optionalTokenPermissions: ["command:read", "command:approve", "command:execute"],
       rateLimit: GENERAL_WRITE_LIMIT,
       bodySchema: scheduledTaskPostSchema,
       errorStatus: 400,
@@ -150,8 +150,32 @@ export async function POST(request: Request) {
     const serverIds = data.serverIds?.length ? data.serverIds : data.serverId ? [data.serverId] : [];
     if (serverIds.length === 0)
         throw new ValidationError(t("backend.scheduled-task.atLeastOneTargetServer", locale));
-    if (data.approvalRequired === false && !sessionHasPermission(session, "command:approve")) {
+    if (data.approvalRequired === false && (!sessionHasPermission(session, "command:approve") || !sessionHasPermission(session, "command:execute"))) {
       throw new ValidationError(t("backend.scheduled-task.unattendedRequiresApprover", locale));
+    }
+    if (data.approvalRequired === false) {
+      const [{ getApprovalPolicySettings }, { decideCommandApproval }, { classifyCommandRisk }, { maySelfReviewCommands }] = await Promise.all([
+        import("@/lib/command/approval-policy-settings"),
+        import("@/lib/command/approval-policy"),
+        import("@/lib/command/risk-classifier"),
+        import("@/lib/command/review-scope"),
+      ]);
+      const policies = await getApprovalPolicySettings({ fresh: true });
+      const assessment = classifyCommandRisk(data.command ?? "");
+      const decision = decideCommandApproval({
+        policies,
+        origin: "SCHEDULED_TASK",
+        riskLevel: assessment.level,
+        denylisted: assessment.denylisted,
+        submitterMayExecute: true,
+        requestedReview: false,
+      });
+      if (
+        policies.commandApprovalPolicy === "always" ||
+        (decision.requiresApproval && !maySelfReviewCommands(session, policies.commandSelfReview))
+      ) {
+        throw new ValidationError(t("backend.scheduled-task.unattendedRequiresApprover", locale));
+      }
     }
       const task = await createScheduledTask(
         {
