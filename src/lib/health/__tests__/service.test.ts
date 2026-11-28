@@ -641,7 +641,8 @@ describe("evaluateAlerts", () => {
 
 	it("skips notification delivery while an alert rule is inside a silence window", async () => {
 		vi.useFakeTimers();
-		vi.setSystemTime(new Date("2026-05-25T23:30:00"));
+		// Explicit Asia/Shanghai offset so the check is independent of the runner's local TZ.
+		vi.setSystemTime(new Date("2026-05-25T23:30:00+08:00"));
 		prismaMock.alertRule.findMany.mockResolvedValue([
 			{
 				id: "rule1",

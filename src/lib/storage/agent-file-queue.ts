@@ -4,7 +4,7 @@ import { AsyncLocalStorage } from "node:async_hooks";
 import { setTimeout as delay } from "node:timers/promises";
 import { Prisma } from "@prisma/client";
 import { prisma } from "@/lib/db";
-import { BusinessError, ConflictError, ForbiddenError } from "@/lib/errors";
+import { BusinessError, ConflictError, ForbiddenError, UploadOutcomeUnknownError } from "@/lib/errors";
 import { t } from "@/lib/i18n/service-translations";
 import { teamWhere, serverTeamWhere } from "@/lib/auth/team-scope";
 import type { SessionPayload } from "@/lib/auth/session";
@@ -157,6 +157,7 @@ export async function callFileAgent(nodeId: string, channel: Channel, payload: P
           if (reply.error === "changed") throw new ConflictError(t("backend.storage.recycleBatchChanged"));
         }
         if (reply.error === "invalid" && payload.op === "copy-step") throw new BusinessError(t("backend.fileAgent.copyUpgrade"));
+        if (reply.error === "unknown") throw new UploadOutcomeUnknownError(t("backend.storage.uploadOutcomeUnknown"));
         if (reply.error) throw new BusinessError(t("backend.fileAgent.refused"));
         return reply;
       }
@@ -210,7 +211,10 @@ export async function pollFileAgent(hash: string, rootIdentity: string, writable
     if (receipt) {
       // Serialize with the atomic sweep before acknowledging its durable fence.
       await tx.$queryRaw`SELECT id FROM agent_file_calls WHERE id = ${receipt.id} AND "shareId" = ${share.id} FOR UPDATE`;
-      await tx.setting.deleteMany({ where: { key: fileWriteFence(share.serverId, receipt.id), value: hash } });
+      // An "unknown" receipt means the agent restarted mid-write without a final receipt: keep the durable fence.
+      if (receipt.result.error !== "unknown") {
+        await tx.setting.deleteMany({ where: { key: fileWriteFence(share.serverId, receipt.id), value: hash } });
+      }
       const where = {
         id: receipt.id,
         shareId: share.id,

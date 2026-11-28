@@ -94,7 +94,7 @@ func (s share) pendingReceipt() *receipt {
 	if s.readIntent(s.jobMarker(id), &pending) && pending.ID == id {
 		return &pending
 	}
-	return &receipt{ID: id, Result: result{Error: "io"}}
+	return &receipt{ID: id, Result: result{Error: "unknown"}}
 }
 
 func (s share) expireJob(name string, modified, now time.Time) {

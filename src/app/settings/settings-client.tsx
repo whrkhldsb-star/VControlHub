@@ -52,6 +52,7 @@ import {
 import { TOC_SUBTITLE_KEYS } from "./settings-toc";
 import { getErrorMessage } from "@/lib/http/error-message";
 import { isScopeSwitchReleasing, registerActiveWork } from "@/lib/forms/active-work-guard";
+import { NAVIGATION_REQUEST_EVENT, type NavigationRequestDetail } from "@/lib/forms/navigation-request";
 import { ActionButton } from "@/components/action-button";
 import { useToast } from "@/components/toast-provider";
 import { ConfirmDialog } from "@/components/confirm-dialog";
@@ -131,6 +132,8 @@ export function SettingsClient({
       if (event.defaultPrevented || event.button !== 0 || event.metaKey || event.ctrlKey || event.shiftKey || event.altKey) return;
       const target = event.target instanceof Element ? event.target.closest<HTMLAnchorElement>("a[href]") : null;
       if (!target || target.target === "_blank" || target.hasAttribute("download")) return;
+      // Cross-customer notification links own their own scope-switch confirmation dialog.
+      if (target.hasAttribute("data-scope-switch-link")) return;
       const destination = new URL(target.href, window.location.href);
       if (destination.origin !== window.location.origin) return;
       const current = new URL(window.location.href);
@@ -140,6 +143,16 @@ export function SettingsClient({
     };
     document.addEventListener("click", interceptInternalNavigation, true);
     return () => document.removeEventListener("click", interceptInternalNavigation, true);
+  }, [pendingChanges]);
+
+  useEffect(() => {
+    if (pendingChanges.length === 0) return;
+    const interceptRequest = (event: Event) => {
+      event.preventDefault();
+      setPendingNavigationHref((event as CustomEvent<NavigationRequestDetail>).detail.href);
+    };
+    window.addEventListener(NAVIGATION_REQUEST_EVENT, interceptRequest);
+    return () => window.removeEventListener(NAVIGATION_REQUEST_EVENT, interceptRequest);
   }, [pendingChanges]);
 
   const { addToast } = useToast();

@@ -124,4 +124,31 @@ describe("useUnsavedChangesGuard", () => {
     expect(go).toHaveBeenCalledWith(-2);
     go.mockRestore();
   });
+
+  it("re-arms Back and programmatic navigation protection after a same-component discard and re-edit", async () => {
+    const user = userEvent.setup();
+    const navigate = vi.fn();
+    push.mockClear();
+    const view = render(<Harness dirty />);
+
+    // First discard via internal link (component stays mounted, e.g. query change on same route).
+    await user.click(screen.getByRole("link", { name: "Next" }));
+    await user.click(screen.getByRole("button", { name: "放弃并离开" }));
+    expect(push).toHaveBeenCalledWith("/next");
+
+    // Form resets clean, then user edits again.
+    view.rerender(<Harness dirty={false} />);
+    view.rerender(<Harness dirty />);
+
+    // Both programmatic navigation (GlobalSearch) and browser Back must still prompt.
+    act(() => requestNavigation("/files", navigate));
+    expect(navigate).not.toHaveBeenCalled();
+    expect(screen.getByRole("dialog")).toHaveTextContent("当前内容尚未保存");
+    await user.click(screen.getByRole("button", { name: "继续编辑" }));
+
+    act(() => {
+      window.dispatchEvent(new PopStateEvent("popstate", { state: null }));
+    });
+    expect(screen.getByRole("dialog")).toHaveTextContent("当前内容尚未保存");
+  });
 });

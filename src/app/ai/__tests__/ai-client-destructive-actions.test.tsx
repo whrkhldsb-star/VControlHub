@@ -424,4 +424,16 @@ describe("AiClient destructive actions", () => {
     });
     expect(addToastMock).toHaveBeenCalledWith("error", "provider quota exceeded");
   });
+
+  it("preserves /ai?c=<id> on initial mount and strips Next router markers when clearing ?panel=providers", async () => {
+    window.history.replaceState({ __NA: true, _N: true }, "", "/ai?c=conv-1&panel=providers");
+
+    render(<AiClient canManageProviders userId="user-1" initialProviders={[provider]} initialConversations={[conversation]} />);
+
+    expect(await screen.findByRole("dialog", { name: "AI 提供商管理" })).toBeInTheDocument();
+    expect(await screen.findByText(/OpenAI · gpt-4o-mini/)).toBeInTheDocument();
+    expect(window.location.search).toBe("?c=conv-1");
+    expect(window.history.state?.__NA).toBeUndefined();
+    expect(window.history.state?._N).toBeUndefined();
+  });
 });

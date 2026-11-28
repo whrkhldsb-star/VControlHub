@@ -33,7 +33,8 @@ describe("reverse-proxy templates", () => {
 	});
 
 	it("routes the direct gateway exactly as deploy.sh adds it to older Caddyfiles", async () => {
-		const [caddy, deploy] = await Promise.all([read("deploy/Caddyfile.example"), read("deploy.sh")]);
+		const [rawCaddy, deploy] = await Promise.all([read("deploy/Caddyfile.example"), read("deploy.sh")]);
+		const caddy = rawCaddy.replace(/\r\n/g, "\n");
 		for (const line of ["reverse_proxy /direct 127.0.0.1:31888", "reverse_proxy /direct/* 127.0.0.1:31888"]) {
 			expect(caddy).toContain(`\t${line}\n`);
 			expect(deploy).toContain(line);

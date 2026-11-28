@@ -91,6 +91,13 @@ export function useUnsavedChangesGuard(input: {
   // Set once the user agreed to leave, so the guard steps aside.
   const leaving = useRef(false);
 
+  // Reset after a same-page discard (component stayed mounted) once dirty
+  // changes. Previous dirty:true effect cleanups run before this effect, so
+  // they still observe leaving.current === true for that transition.
+  useEffect(() => {
+    leaving.current = false;
+  }, [dirty]);
+
   useEffect(() => {
     if (!dirty) return;
     return registerActiveWork("dirtyForm", 1);

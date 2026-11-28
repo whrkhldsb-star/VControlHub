@@ -582,6 +582,7 @@ async function publishSftpDownloadFile(taskId: string, server: DownloadServer, t
     const limit = largestAllowedWrite(capacity);
     if (limit !== null && BigInt(file.size) > limit) throw new BusinessError(t("backend.downloads.storageLimitExceeded"));
     signal?.throwIfAborted();
+    unlock.assertHeld?.();
     await lockDownloadClaim(tx, claim);
     await rename();
     await indexDownloadedFileEntry({ storageNode: node, targetPath: path.posix.dirname(target),

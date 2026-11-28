@@ -54,6 +54,7 @@ import { attachmentCapabilities } from "./ai-file-helpers";
 import { useModelCapabilities } from "./hooks/use-model-capabilities";
 import { useProviderForm } from "./hooks/use-provider-form";
 import { getErrorMessage } from "@/lib/http/error-message";
+import { replaceBrowserUrl } from "@/lib/browser-history";
 import { useUnsavedChangesGuard } from "@/lib/forms/use-unsaved-changes-guard";
 
 export function AiClient({
@@ -72,6 +73,11 @@ export function AiClient({
 }) {
   const { t } = useI18n();
   const { addToast } = useToast();
+  const searchParams = useSearchParams();
+  const panelParam = searchParams?.get("panel") ?? null;
+  const convParam = searchParams?.get("c") ?? null;
+  const initialActiveConvId =
+    convParam && initialConversations.some((c) => c.id === convParam) ? convParam : null;
   const [providers, setProviders] = useState(initialProviders);
   const {
     conversations,
@@ -83,23 +89,24 @@ export function AiClient({
     messagesError,
     retryMessages,
     refreshConversations,
-  } = useConversations({ initialConversations });
+  } = useConversations({ initialConversations, initialActiveConvId });
   const [input, setInput] = useState(initialDraft);
   const [imageUrls, setImageUrls] = useState<string[]>([]);
   const [imageUrlInput, setImageUrlInput] = useState("");
   const [showProviders, setShowProviders] = useState(false);
   const [showSettings, setShowSettings] = useState(false);
 
-  const searchParams = useSearchParams();
   const conversationsRef = useRef(conversations);
   useEffect(() => {
     conversationsRef.current = conversations;
   }, [conversations]);
 
+  // Track the ?c= value written by this component so Next adopting replaceBrowserUrl
+  // cannot echo a previous conversation id back into the deep-link effect on rapid A->B switches.
+  const lastWrittenConvIdRef = useRef<string | null>(initialActiveConvId);
+
   // Support /ai?panel=providers and /ai?c=<id> deep links (including client-side router.push
   // from global search while /ai is already open), and keep active conversation in the URL.
-  const panelParam = searchParams?.get("panel") ?? null;
-  const convParam = searchParams?.get("c") ?? null;
   useEffect(() => {
     if (typeof window === "undefined") return;
     if (panelParam === "providers" && canManageProviders) {
@@ -107,26 +114,30 @@ export function AiClient({
       const params = new URLSearchParams(window.location.search);
       params.delete("panel");
       const nextQuery = params.toString();
-      window.history.replaceState(
-        window.history.state,
-        "",
+      replaceBrowserUrl(
         `${window.location.pathname}${nextQuery ? `?${nextQuery}` : ""}${window.location.hash}`,
       );
     }
-    if (convParam && conversationsRef.current.some((c) => c.id === convParam)) {
+    if (
+      convParam &&
+      convParam !== lastWrittenConvIdRef.current &&
+      conversationsRef.current.some((c) => c.id === convParam)
+    ) {
+      lastWrittenConvIdRef.current = convParam;
       setActiveConvId(convParam);
     }
   }, [panelParam, convParam, canManageProviders, setActiveConvId]);
 
   useEffect(() => {
     if (typeof window === "undefined") return;
+    lastWrittenConvIdRef.current = activeConvId;
     const params = new URLSearchParams(window.location.search);
     if (activeConvId) params.set("c", activeConvId);
     else params.delete("c");
     const nextQuery = params.toString();
     const target = `${window.location.pathname}${nextQuery ? `?${nextQuery}` : ""}${window.location.hash}`;
     if (target !== `${window.location.pathname}${window.location.search}${window.location.hash}`) {
-      window.history.replaceState(window.history.state, "", target);
+      replaceBrowserUrl(target);
     }
   }, [activeConvId]);
   const [showSidebar, setShowSidebar] = useState(false);

@@ -15,7 +15,7 @@ const entry = z.object({
 });
 const result = z
   .object({
-    error: z.enum(["missing", "exists", "denied", "changed", "invalid", "io"]).optional(),
+    error: z.enum(["missing", "exists", "denied", "changed", "invalid", "io", "unknown"]).optional(),
     entry: entry.optional(),
     entries: z.array(entry).max(8192).optional(),
     offset: z.number().int().nonnegative(),

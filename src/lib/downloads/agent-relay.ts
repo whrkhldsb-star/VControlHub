@@ -49,8 +49,12 @@ export async function publishAgentDownloadFile(input: Destination & { localPath:
   };
   if (!actor) throw new BusinessError(t("backend.execution.ownerInactive"));
   const unlock = await lockDownloadPublication(nodeId, relativePath);
-  try {
+  const verifyWithLock = async () => {
+    unlock.assertHeld?.();
     await verify();
+  };
+  try {
+    await verifyWithLock();
     const client = createAgentFileClient(nodeId, input.serverId, task.agentRootIdentity);
     const existing = await client.stat(relativePath);
     if (existing?.isDirectory) throw new BusinessError(t("backend.storage.targetIsDirectory"));
@@ -64,11 +68,15 @@ export async function publishAgentDownloadFile(input: Destination & { localPath:
       assertOriginalGeneration(file, original);
       await journalPublication(taskId, input.claim, file, original);
       if (occupant) await snapshotFileVersionBeforeOverwrite({ fileEntryId: occupant.id, userId: actor.userId, reason: "UPLOAD" });
-      const published = await agentPublishGuard.run(tx => lockDownloadClaim(tx, input.claim), () =>
-        client.writeLocal(relativePath, input.localPath, file.sha256, verify, existing?.etag ?? null));
+      const published = await agentPublishGuard.run(async tx => {
+        unlock.assertHeld?.();
+        await lockDownloadClaim(tx, input.claim);
+      }, () =>
+        client.writeLocal(relativePath, input.localPath, file.sha256, verifyWithLock, existing?.etag ?? null));
       if (published) await journalPublication(taskId, input.claim, file, original, published);
     }
     await prisma.$transaction(async tx => {
+      unlock.assertHeld?.();
       await lockDownloadClaim(tx, input.claim);
       const binding = await tx.$queryRaw<{ id: string }[]>`
         SELECT id FROM agent_file_shares WHERE "storageNodeId" = ${nodeId}

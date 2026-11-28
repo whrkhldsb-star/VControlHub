@@ -6,6 +6,7 @@ import type { ConvItem, Message } from "../ai-types";
 
 export type UseConversationsInput = {
   initialConversations: ConvItem[];
+  initialActiveConvId?: string | null;
 };
 
 export type UseConversationsResult = {
@@ -37,11 +38,12 @@ export type UseConversationsResult = {
  */
 export function useConversations({
   initialConversations,
+  initialActiveConvId = null,
 }: UseConversationsInput): UseConversationsResult {
   const [conversations, setConversations] = useState<ConvItem[]>(
     initialConversations,
   );
-  const [activeConvId, setActiveConvId] = useState<string | null>(null);
+  const [activeConvId, setActiveConvId] = useState<string | null>(initialActiveConvId);
   const [messages, writeMessages] = useState<Message[]>([]);
   const messageVersion = useRef(0);
   const setMessages: React.Dispatch<React.SetStateAction<Message[]>> = useCallback((value) => {

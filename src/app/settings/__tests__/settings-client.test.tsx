@@ -1,7 +1,7 @@
 import fs from "node:fs";
 import path from "node:path";
 
-import { fireEvent, screen, waitFor, within } from "@testing-library/react";
+import { act, fireEvent, screen, waitFor, within } from "@testing-library/react";
 import userEvent from "@testing-library/user-event";
 import { beforeEach, describe, expect, it, vi } from "vitest";
 
@@ -9,6 +9,7 @@ import { SettingsClient } from "../settings-client";
 import { renderWithI18n as renderWithLocale } from "@/lib/i18n/__tests__/test-helpers";
 import { formatDateTime } from "@/lib/datetime/format";
 import { getActiveWorkSnapshot, resetActiveWorkRegistryForTests } from "@/lib/forms/active-work-guard";
+import { requestNavigation } from "@/lib/forms/navigation-request";
 
 // Wrap with I18nProvider (zh default) so `t(key)` resolves to the original
 // Chinese strings these assertions still expect — without it, t(key) returns
@@ -107,6 +108,32 @@ describe("SettingsClient", () => {
     expect(dialog).toHaveTextContent("当前有 1 项更改尚未保存");
     await user.click(screen.getByRole("button", { name: "放弃更改并离开" }));
     expect(pushMock).toHaveBeenCalledWith("/servers");
+  });
+
+  it("defers cross-customer notification links to their own scope-switch dialog and guards GlobalSearch navigation", async () => {
+    const user = userEvent.setup();
+    const scopeClick = vi.fn((event: React.MouseEvent<HTMLAnchorElement>) => event.preventDefault());
+    render(
+      <>
+        <SettingsClient visibleSectionIds={["platform", "dashboard"]} settings={{ "platform.name": "旧名称", "platform.logo": "" }} canManage />
+        <a href="/servers" data-scope-switch-link="true" onClick={scopeClick}>跨客户通知</a>
+      </>,
+    );
+    await user.clear(screen.getByLabelText("平台名称"));
+    await user.type(screen.getByLabelText("平台名称"), "未保存名称");
+
+    await user.click(screen.getByRole("link", { name: "跨客户通知" }));
+    expect(scopeClick).toHaveBeenCalledOnce();
+    expect(screen.queryByRole("dialog", { name: "有设置尚未保存" })).not.toBeInTheDocument();
+
+    const fallbackNavigate = vi.fn();
+    act(() => {
+      requestNavigation("/files", fallbackNavigate);
+    });
+    expect(fallbackNavigate).not.toHaveBeenCalled();
+    expect(await screen.findByRole("dialog", { name: "有设置尚未保存" })).toBeInTheDocument();
+    await user.click(screen.getByRole("button", { name: "放弃更改并离开" }));
+    expect(pushMock).toHaveBeenCalledWith("/files");
   });
 
   it("validates platform settings before calling the API", async () => {
