@@ -1345,9 +1345,6 @@ test.describe("live production acceptance", () => {
     }).locator('input[type="checkbox"]');
     await expect(hostedToggle).toBeVisible();
     if (!(await hostedToggle.isChecked())) await hostedToggle.check();
-    await page
-      .getByRole("button", { name: /协助执行|Assisted execution/i })
-      .click();
     const saveSettingsResponse = page.waitForResponse(
       (response) =>
         /\/api\/ai\/conversations\/[^/]+$/.test(
@@ -1355,7 +1352,8 @@ test.describe("live production acceptance", () => {
         ) && response.request().method() === "PATCH",
     );
     await page
-      .getByRole("button", { name: /保存设置|Save settings/i })
+      .getByRole("button", { name: /^(?:确认|Confirm|协助执行|Assisted execution)$/i })
+      .first()
       .click();
     expect((await saveSettingsResponse).status()).toBe(200);
     await page
@@ -1484,9 +1482,6 @@ test.describe("live production acceptance", () => {
         hasText: /AI托管模式|AI-hosted mode/i,
       }).locator('input[type="checkbox"]');
       if (!(await hostedToggle.isChecked())) await hostedToggle.check();
-      await page
-        .getByRole("button", { name: /仅生成方案|Plan only/i })
-        .click();
       const saveResponse = page.waitForResponse(
         (response) =>
           /\/api\/ai\/conversations\/[^/]+$/.test(
@@ -1494,7 +1489,8 @@ test.describe("live production acceptance", () => {
           ) && response.request().method() === "PATCH",
       );
       await page
-        .getByRole("button", { name: /保存设置|Save settings/i })
+        .getByRole("button", { name: /^(?:计划|Plan|仅生成方案|Plan only)$/i })
+        .first()
         .click();
       expect((await saveResponse).status()).toBe(200);
       await page

@@ -17,6 +17,7 @@ import { zh as fileDetailPanelZh, en as fileDetailPanelEn } from "./dictionaries
 import { zh as fileVersionHistoryZh, en as fileVersionHistoryEn } from "./dictionaries/file-version-history";
 import { zh as filesPageZh, en as filesPageEn } from "./dictionaries/files-page";
 import { zh as deploymentsPageZh, en as deploymentsPageEn } from "./dictionaries/deployments-page";
+import { zh as commandsPageZh, en as commandsPageEn } from "./dictionaries/commands-page";
 import { zh as commonZh, en as commonEn } from "./dictionaries/common";
 import { zh as costPageZh, en as costPageEn } from "./dictionaries/cost-page";
 import { zh as csvPreviewZh, en as csvPreviewEn } from "./dictionaries/csv-preview";
@@ -80,7 +81,7 @@ const zh: Record<string, string> = {
 	...apiDocsPageZh, ...archivePreviewZh, ...announcementsPageZh, ...apiTokensPageZh,
 	...auditZh, ...authZh, ...backupsPageZh, ...downloadsPageZh, ...apiCommonZh,
 	...settingsPageZh, ...fileDetailPanelZh, ...fileVersionHistoryZh, ...filesPageZh,
-	...deploymentsPageZh, ...commonZh, ...costPageZh, ...csvPreviewZh, ...dashboardZh,
+	...deploymentsPageZh, ...commandsPageZh, ...commonZh, ...costPageZh, ...csvPreviewZh, ...dashboardZh,
 	...dockerZh, ...errorZh, ...fileUploadDropzoneZh, ...healthPageZh, ...vpsStatusZh,
 	...knowledgePageZh, ...imageBedZh, ...imageBedPageZh, ...languageToggleZh, ...loginZh,
 	...markdownPreviewZh, ...mediaItemCardZh, ...mediaPageZh, ...mediaPreviewZh,
@@ -100,7 +101,7 @@ const en: Record<string, string> = {
 	...apiDocsPageEn, ...archivePreviewEn, ...announcementsPageEn, ...apiTokensPageEn,
 	...auditEn, ...authEn, ...backupsPageEn, ...downloadsPageEn, ...apiCommonEn,
 	...settingsPageEn, ...fileDetailPanelEn, ...fileVersionHistoryEn, ...filesPageEn,
-	...deploymentsPageEn, ...commonEn, ...costPageEn, ...csvPreviewEn, ...dashboardEn,
+	...deploymentsPageEn, ...commandsPageEn, ...commonEn, ...costPageEn, ...csvPreviewEn, ...dashboardEn,
 	...dockerEn, ...errorEn, ...fileUploadDropzoneEn, ...healthPageEn, ...vpsStatusEn,
 	...knowledgePageEn, ...imageBedEn, ...imageBedPageEn, ...languageToggleEn, ...loginEn,
 	...markdownPreviewEn, ...mediaItemCardEn, ...mediaPageEn, ...mediaPreviewEn,

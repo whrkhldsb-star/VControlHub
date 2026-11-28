@@ -63,6 +63,7 @@ export const searchItemMetadata: Record<string, SearchMetadata> = {
 	"/files": { keywordsKey: "search.keywords.files" },
 	"/downloads": { keywordsKey: "search.keywords.downloads" },
 	"/operation-tasks": { keywordsKey: "search.keywords.operationTasks" },
+	"/commands": { keywordsKey: "search.keywords.commands" },
 	"/shares": { keywordsKey: "search.keywords.shares" },
 	"/backups": { keywordsKey: "search.keywords.backups" },
 	"/templates": { keywordsKey: "search.keywords.templates" },
@@ -133,6 +134,7 @@ const searchItemDefinitions: SearchItemDefinition[] = [
 	{ labelKey: "auth.two-factor", fallbackLabel: "Two-factor authentication", href: "/account/security", categoryKey: "search.category.action", fallbackCategory: "Action", keywordsKey: "search.keywords.twoFactor" },
 	{ labelKey: "preferencesPage.category.personal.title", fallbackLabel: "Personal preferences", href: "/settings#personal-preferences", categoryKey: "search.category.action", fallbackCategory: "Action", keywordsKey: "search.keywords.personalPreferences" },
 	// Tasks people search for by what they want done rather than by page name.
+	{ labelKey: "search.task.runCommand", fallbackLabel: "Run a command on servers", href: "/commands", categoryKey: "search.category.task", fallbackCategory: "Task", keywordsKey: "search.keywords.task.runCommand", requiredPermission: "command:create" },
 	{ labelKey: "search.task.addServer", fallbackLabel: "Add a server", href: "/servers#servers-create", categoryKey: "search.category.task", fallbackCategory: "Task", keywordsKey: "search.keywords.task.addServer", requiredPermission: "server:write" },
 	{ labelKey: "search.task.createUser", fallbackLabel: "Create a user account", href: userCreateHref(), categoryKey: "search.category.task", fallbackCategory: "Task", keywordsKey: "search.keywords.task.createUser", requiredPermission: "user:manage" },
 	{ labelKey: "search.task.configureSmtp", fallbackLabel: "Set up email notifications (SMTP)", href: "/settings#smtp", categoryKey: "search.category.task", fallbackCategory: "Task", keywordsKey: "search.keywords.task.configureSmtp", requiredPermission: "user:manage" },

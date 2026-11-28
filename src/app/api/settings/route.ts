@@ -141,6 +141,37 @@ function normalizeSettingValue(key: string, value: string) {
 			if (trimmed !== "credential" && trimmed !== "one-time-key") throw new ValidationError(t("backend.settings.syncTargetAuthInvalid"));
 			return { key, value: trimmed };
 		}
+		case "command.approvalPolicy": {
+			const trimmed = value.trim();
+			if (trimmed !== "always" && trimmed !== "high_risk" && trimmed !== "never") {
+				throw new ValidationError(t("backend.settings.invalidValue", { key }));
+			}
+			return { key, value: trimmed };
+		}
+		case "ai.commandApprovalPolicy":
+		case "deploy.approvalPolicy": {
+			const trimmed = value.trim();
+			if (trimmed !== "inherit" && trimmed !== "always" && trimmed !== "high_risk" && trimmed !== "never") {
+				throw new ValidationError(t("backend.settings.invalidValue", { key }));
+			}
+			return { key, value: trimmed };
+		}
+		case "command.selfReview": {
+			const trimmed = value.trim();
+			if (trimmed !== "platform_admins" && trimmed !== "approvers") {
+				throw new ValidationError(t("backend.settings.invalidValue", { key }));
+			}
+			return { key, value: trimmed };
+		}
+		case "ai.maxAutomationMode": {
+			const trimmed = value.trim();
+			if (trimmed !== "plan" && trimmed !== "confirm" && trimmed !== "auto" && trimmed !== "full_auto") {
+				throw new ValidationError(t("backend.settings.invalidValue", { key }));
+			}
+			return { key, value: trimmed };
+		}
+		case "ai.fullAutoAllowCritical":
+			return normalizeBooleanSetting(key, value);
 		case "telegram.botToken":
 			// Bot Token 形如 "123456:ABC-DEF..." — 拒绝空白和明显非 token 字符; 不强校验格式以兼容老 Bot API
 			return { key, value: value.trim() };
@@ -218,6 +249,13 @@ export async function PATCH(request: Request) {
 					continue;
 				}
 			}
+			if (key === "ai.maxAutomationMode" || key === "ai.fullAutoAllowCritical") {
+				assertAiOpsPlatformReader(session);
+				if (!sessionHasPermission(session, "ai:ops:manage")) {
+					rejectedKeys.push(key);
+					continue;
+				}
+			}
 			if (key === "telegram.chatId" && value.trim() === "") {
 				entries.push({ key, value: "" });
 				continue;
@@ -278,10 +316,29 @@ export async function PATCH(request: Request) {
 			return NextResponse.json({ error: message, details: [message] }, { status: 400 });
 		}
 
+		const auditedChanges: Record<string, { before: string; after: string }> = {};
+		const POLICY_AUDIT_KEYS = new Set([
+			"command.approvalPolicy",
+			"ai.commandApprovalPolicy",
+			"deploy.approvalPolicy",
+			"command.selfReview",
+			"ai.maxAutomationMode",
+			"ai.fullAutoAllowCritical",
+		]);
+		for (const entry of entries) {
+			if (POLICY_AUDIT_KEYS.has(entry.key)) {
+				const before = await getSetting(entry.key).catch(() => "");
+				if (before !== entry.value) {
+					auditedChanges[entry.key] = { before, after: entry.value };
+				}
+			}
+		}
+
 		await setManySettings(entries, session.userId);
 		await auditUserAction(session.userId, "settings.update", {
 			keys: entries.map((entry) => entry.key),
 			count: entries.length,
+			...(Object.keys(auditedChanges).length > 0 ? { changes: auditedChanges } : {}),
 		}, undefined, null);
 		return NextResponse.json({ success: true });
 	});

@@ -63,10 +63,28 @@ export async function PATCH(
 
       const conv = await updateConversation(id, session, body);
       if (!conv) throw new NotFoundError(apiCopy("apiCopy.conversation.not.found.d8e4dcef"));
-      await auditUserAction(session.userId, "conversation.update", { conversationId: id }, undefined, session.currentTeamId);
+      if (body.automationMode !== undefined || body.pinnedServerIds !== undefined) {
+        await auditUserAction(
+          session.userId,
+          "ai.conversation.mode_change",
+          {
+            conversationId: id,
+            automationMode: conv.automationMode,
+            hostingEnabled: conv.hostingEnabled,
+            automationModeExpiresAt: conv.automationModeExpiresAt?.toISOString() ?? null,
+            pinnedServerCount: conv.pinnedServerIds?.length ?? 0,
+          },
+          undefined,
+          session.currentTeamId,
+        );
+      } else {
+        await auditUserAction(session.userId, "conversation.update", { conversationId: id }, undefined, session.currentTeamId);
+      }
       return NextResponse.json({
         conversation: {
           ...conv,
+          automationModeExpiresAt: conv.automationModeExpiresAt?.toISOString() ?? null,
+          pinnedServerIds: conv.pinnedServerIds ?? [],
           createdAt: conv.createdAt.toISOString(),
           updatedAt: conv.updatedAt.toISOString(),
         },

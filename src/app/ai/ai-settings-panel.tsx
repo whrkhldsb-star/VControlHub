@@ -6,6 +6,9 @@ import { UI_INPUT } from "@/lib/ui/classes";
 import { cn } from "@/lib/ui/cn";
 import { AiSettingsModelSelector } from "./ai-settings-model-selector";
 import { ActionButton } from "@/components/action-button";
+import { AUTOMATION_MODES, DEFAULT_AI_CAPABILITIES } from "./ai-automation-mode";
+import { LockGlyph, modeHint } from "./ai-mode-switcher";
+import { modeLockMessage } from "./hooks/use-automation-mode";
 
 export function AiSettingsPanel({
   show,
@@ -20,9 +23,13 @@ export function AiSettingsPanel({
   currentModelSupportsVision,
   onSaveSettings,
   onRefreshModels,
+  capabilities,
+  onRequestMode,
+  modeBusy = false,
 }: SettingsPanelProps) {
   const { t } = useI18n();
   if (!show) return null;
+  const caps = capabilities ?? DEFAULT_AI_CAPABILITIES;
 
   return (
     <div className="max-h-[50vh] overflow-y-auto border-b border-[var(--border)] bg-[color-mix(in_srgb,var(--surface)_96%,transparent)] p-4">
@@ -242,26 +249,40 @@ export function AiSettingsPanel({
             <legend className="ui-label">
               {t("aiPage.automationMode")}
             </legend>
-            <div data-inset className="grid min-h-10 grid-cols-2 p-1">
-              {(["ASSISTED", "PLAN_ONLY"] as const).map((mode) => (
-                <button
-                  key={mode}
-                  type="button"
-                  aria-pressed={settingsForm.automationMode === mode}
-                  onClick={() => setSettingsForm((form) => ({ ...form, automationMode: mode }))}
-                  className={cn(
-                    "min-w-0 rounded-md px-3 py-1.5 text-xs font-medium transition-colors",
-                    settingsForm.automationMode === mode
-                      ? "bg-[var(--surface-elevated)] text-[var(--text-primary)] shadow-sm"
-                      : "text-[var(--text-muted)] hover:text-[var(--text-secondary)]",
-                  )}
-                >
-                  {t(mode === "ASSISTED" ? "aiPage.automationAssisted" : "aiPage.automationPlanOnly")}
-                </button>
-              ))}
+            {/* The same four modes, locks and reasons as the composer: a change here is saved at once. */}
+            <div data-inset className="grid min-h-10 grid-cols-2 gap-1 p-1 sm:grid-cols-4">
+              {AUTOMATION_MODES.map((mode) => {
+                const lock = modeLockMessage(t, mode, caps);
+                const selected = settingsForm.automationMode === mode;
+                return (
+                  <button
+                    key={mode}
+                    type="button"
+                    data-mode={mode}
+                    aria-pressed={selected}
+                    aria-disabled={lock || modeBusy || !onRequestMode ? "true" : undefined}
+                    aria-label={lock ? t("aiPage.mode.lockedAria", { mode: t(`aiPage.mode.${mode}.label`) }) : undefined}
+                    title={lock ?? modeHint(t, mode, caps)}
+                    onClick={() => {
+                      if (modeBusy || !onRequestMode) return;
+                      onRequestMode(mode);
+                    }}
+                    className={cn(
+                      "inline-flex min-w-0 items-center justify-center gap-1 rounded-md px-3 py-1.5 text-xs font-medium transition-colors",
+                      selected
+                        ? "bg-[var(--surface-elevated)] text-[var(--text-primary)] shadow-sm"
+                        : "text-[var(--text-muted)] hover:text-[var(--text-secondary)]",
+                      lock && "cursor-not-allowed opacity-60",
+                    )}
+                  >
+                    {lock ? <LockGlyph /> : null}
+                    <span className="truncate">{t(`aiPage.mode.${mode}.label`)}</span>
+                  </button>
+                );
+              })}
             </div>
-            <p className="text-xs leading-4 text-[var(--text-muted)]">
-              {t(settingsForm.automationMode === "ASSISTED" ? "aiPage.automationAssistedHint" : "aiPage.automationPlanOnlyHint")}
+            <p className="text-xs leading-4 text-[var(--text-muted)]" aria-live="polite">
+              {modeBusy ? t("aiPage.mode.saving") : modeHint(t, settingsForm.automationMode, caps)}
             </p>
           </fieldset>
         )}

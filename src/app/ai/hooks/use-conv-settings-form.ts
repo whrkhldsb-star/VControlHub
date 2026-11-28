@@ -84,6 +84,31 @@ export function useConvSettingsForm({
     return () => window.clearTimeout(timer);
   }, [serverModel]);
 
+  // The working mode is switched at once (composer, header, Shift+Tab, this panel) and never saved from here:
+  // the form only mirrors it, so it can neither look unsaved nor go back out stale with another field.
+  const serverMode = activeConv?.automationMode ?? "ASSISTED";
+  useEffect(() => {
+    const timer = window.setTimeout(() => {
+      setBaseline((previous) => (previous.automationMode === serverMode ? previous : { ...previous, automationMode: serverMode }));
+      setSettingsForm((form) => (form.automationMode === serverMode ? form : { ...form, automationMode: serverMode }));
+    }, 0);
+    return () => window.clearTimeout(timer);
+  }, [serverMode]);
+
+  // Choosing a mode turns the server tools on: follow that unless this field has its own unsaved edit.
+  const serverHosting = activeConv?.hostingEnabled;
+  useEffect(() => {
+    if (serverHosting === undefined) return;
+    const timer = window.setTimeout(() => {
+      setBaseline((previous) => {
+        if (previous.hostingEnabled === serverHosting) return previous;
+        setSettingsForm((form) => (form.hostingEnabled === previous.hostingEnabled ? { ...form, hostingEnabled: serverHosting } : form));
+        return { ...previous, hostingEnabled: serverHosting };
+      });
+    }, 0);
+    return () => window.clearTimeout(timer);
+  }, [serverHosting]);
+
   const dirty = useMemo(
     () => JSON.stringify(settingsForm) !== JSON.stringify(baseline),
     [baseline, settingsForm],

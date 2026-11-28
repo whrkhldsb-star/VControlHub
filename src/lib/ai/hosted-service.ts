@@ -1,3 +1,4 @@
+import { createHash } from "node:crypto";
 import { createdBeforeCursor } from "@/lib/http/page-cursor";
 /**
  * AI 托管服务 — 处理 AI 发起的 VPS 操作
@@ -5,19 +6,27 @@ import { createdBeforeCursor } from "@/lib/http/page-cursor";
  * 流程：
  * 1. AI 返回 tool_call → 解析工具名和参数
  * 2. 安全操作（autoApproved）→ 直接执行 → 返回结果给 AI
- * 3. 危险操作 → 创建审批请求 → 等待用户审批 → 执行 → 返回结果
+ * 3. 变更操作 → 依据会话模式（ASSISTED/AUTO/FULL_AUTO）与平台审批策略：
+ *    - AUTO / FULL_AUTO 允许时内联创建 CommandRequest 并执行回传真实结果
+ *    - 否则在 /ai 展示确认卡片；用户确认后按权限与策略内联执行或转 /requests 审批
  */
 
 import { assertChatGeneration } from "./chat-generation";
 import { withHostedServerSnapshot } from "./hosted-snapshot";
 import type { AiAutomationMode, Prisma } from "@prisma/client";
 import { sessionHasPermission } from "@/lib/auth/authorization";
+import { verifiedBearerTokenId } from "@/lib/auth/bearer-token";
 import type { RoleKey } from "@/lib/auth/rbac";
 import { activeCustomerTeamWhere, playbookTeamWhere, serverTeamWhere, teamWhere } from "@/lib/auth/team-scope";
+import { auditUserAction } from "@/lib/audit/service";
 import { lockForTransaction } from "@/lib/concurrency/advisory-lock";
 import type { PlaybookStep } from "@/lib/playbook/types";
 import { createCommandRequest } from "@/lib/command/service";
 import { createCommandSchema } from "@/lib/command/schema";
+import { decideCommandApproval, type CommandDecisionSource } from "@/lib/command/approval-policy";
+import { getApprovalPolicySettings } from "@/lib/command/approval-policy-settings";
+import { mayReviewCommandRequest, maySelfReviewCommands } from "@/lib/command/review-scope";
+import { classifyCommandRisk, maxRiskLevel, type CommandRiskLevel } from "@/lib/command/risk-classifier";
 import { prisma } from "@/lib/db";
 import { BusinessError, ForbiddenError, NotFoundError } from "@/lib/errors";
 import { buildSshParamsFromServer, execRemoteCommand } from "@/lib/ssh/client";
@@ -28,6 +37,8 @@ import { buildCommand } from "./hosted-command-builder";
 export { buildCommand } from "./hosted-command-builder";
 import { getToolByName, HOSTED_TOOLS, toolAvailableInMode, type HostedTool } from "./hosted-tools";
 import { executeServerlessQuery } from "./hosted-safe-queries";
+import { decideAiAutoExecution, MODE_RANK, resolveEffectiveAutomationMode } from "./execution-mode";
+import { projectCommandOutcomeToHostedAction } from "./hosted-outcome";
 import { t } from "@/lib/i18n/service-translations";
 import { executeAutomationProposal, materializeAutomationProposal, scheduledAutomationTaskId } from "./automation-service";
 import { firstSchemaSentence } from "@/lib/i18n/schema-copy";
@@ -98,12 +109,26 @@ function playbookTargets(steps: Prisma.JsonValue) {
 async function materializePlaybookProposal(
   args: Record<string, unknown>,
   session: HostedActionSession,
-): Promise<Record<string, unknown>> {
+): Promise<{ params: Record<string, unknown>; maxRisk: CommandRiskLevel; riskReasons: string[] }> {
   const playbook = await resolvePlaybookId(args, session);
   if (!playbook?.enabled || !Array.isArray(playbook.steps)) throw new BusinessError(t("backend.ai.playbookNotFoundOrOutsideTeamScope"));
   const { assertPlaybookCommandStepsInScope } = await import("@/lib/playbook/service");
-  await assertPlaybookCommandStepsInScope(playbook.steps as unknown as PlaybookStep[], sessionForTeamScope(session));
-  return { ...args, playbookId: playbook.id, playbookName: playbook.name, targetServerIds: playbookTargets(playbook.steps) };
+  const steps = playbook.steps as unknown as PlaybookStep[];
+  await assertPlaybookCommandStepsInScope(steps, sessionForTeamScope(session));
+  let maxRisk: CommandRiskLevel = "medium";
+  const reasons = new Set<string>();
+  for (const step of steps) {
+    if (step.type === "run_command" && typeof step.config?.command === "string") {
+      const assessment = classifyCommandRisk(step.config.command);
+      maxRisk = maxRiskLevel(maxRisk, assessment.level);
+      for (const reason of assessment.reasons) reasons.add(reason);
+    }
+  }
+  return {
+    params: { ...args, playbookId: playbook.id, playbookName: playbook.name, targetServerIds: playbookTargets(playbook.steps) },
+    maxRisk,
+    riskReasons: [...reasons],
+  };
 }
 
 // ── 创建托管操作记录 ──────────────────────────────────────
@@ -112,17 +137,27 @@ function withHostedActionMode<T>(
   conversationId: string,
   actionType: string,
   write: (tx: Prisma.TransactionClient) => Promise<T>,
+  session?: HostedActionSession,
 ) {
   return prisma.$transaction(async (tx) => {
-    // A mode switch and the creation or claim of a card must agree on their order.
+    // A mode switch (or platform ceiling change) and the creation or claim of a card must agree on their order.
     // Hold the conversation row only for this write, before any external execution.
-    const [conversation] = await tx.$queryRaw<Array<{ hostingEnabled: boolean; automationMode: AiAutomationMode }>>`
-      SELECT "hostingEnabled", "automationMode" FROM ai_conversations WHERE id = ${conversationId} FOR SHARE`;
+    const [conversation] = await tx.$queryRaw<
+      Array<{ hostingEnabled: boolean; automationMode: AiAutomationMode; automationModeExpiresAt?: Date | null }>
+    >`SELECT "hostingEnabled", "automationMode", "automationModeExpiresAt" FROM ai_conversations WHERE id = ${conversationId} FOR SHARE`;
     if (!conversation) throw new NotFoundError(t("backend.ai.conversationNotFound"));
     if (!conversation.hostingEnabled) throw new BusinessError(t("backend.ai.hostingDisabled"));
     const tool = HOSTED_TOOLS.find((entry) => entry.actionType === actionType);
     if (!tool) throw new BusinessError(t("backend.ai.unsupportedActionType"));
-    if (!toolAvailableInMode(tool, conversation.automationMode)) {
+    const livePolicies = await getApprovalPolicySettings({ fresh: true });
+    const resolved = resolveEffectiveAutomationMode({
+      requestedMode: conversation.automationMode,
+      expiresAt: conversation.automationModeExpiresAt ?? null,
+      policies: livePolicies,
+      session: session ?? { userId: "", roles: [] },
+      viaToken: session ? Boolean(verifiedBearerTokenId(session)) : false,
+    });
+    if (!toolAvailableInMode(tool, resolved.effectiveMode)) {
       throw new BusinessError(t("apiAiChat.toolUnavailableInPlanMode", { name: tool.name }));
     }
     return write(tx);
@@ -133,6 +168,7 @@ export async function createHostedAction(input: {
   conversationId: string;
   messageId: string;
   userMessageId?: string;
+  leaseToken?: string;
   toolCallId: string;
   tool: HostedTool;
   args: Record<string, unknown>;
@@ -166,19 +202,32 @@ export async function createHostedAction(input: {
   const automation = tool.actionType === "create_automation_task"
     ? await materializeAutomationProposal(input.args, session)
     : null;
-  const args = automation ?? (tool.actionType === "run_playbook"
-      ? await materializePlaybookProposal(input.args, session)
-      : input.args);
+  const playbookProposal = tool.actionType === "run_playbook"
+    ? await materializePlaybookProposal(input.args, session)
+    : null;
+  const args = automation ?? (playbookProposal ? playbookProposal.params : input.args);
   const needsServer = !SERVERLESS_ACTION_TYPES.has(tool.actionType);
   const serverId = needsServer ? await resolveServerId(args, session) : null;
   const resolvedServer = serverId ? await prisma.server.findFirst({
     where: { id: serverId, enabled: true, AND: [serverTeamWhere(sessionForTeamScope(session)!, "connect")] },
-    select: { id: true, name: true, host: true, teamId: true },
+    select: { id: true, name: true, host: true, teamId: true, operatingSystem: true },
   }) : null;
   if (needsServer && !resolvedServer) throw new BusinessError(t("backend.ai.noServerSpecified"));
   const snapshot = resolvedServer && { id: resolvedServer.id, name: resolvedServer.name, host: resolvedServer.host };
   const teamId = automation ? automation.teamId : resolvedServer ? resolvedServer.teamId : session.currentTeamId ?? null;
   const params = { ...args, ...(serverId ? { serverId, serverSnapshot: snapshot } : {}) };
+  let effectiveRisk: CommandRiskLevel = tool.riskLevel;
+  let riskReasons: string[] = [];
+  let denylisted = false;
+  if (playbookProposal) {
+    effectiveRisk = maxRiskLevel(tool.riskLevel, playbookProposal.maxRisk);
+    riskReasons = playbookProposal.riskReasons;
+  } else if (automation && typeof automation.command === "string") {
+    const assessment = classifyCommandRisk(automation.command);
+    effectiveRisk = maxRiskLevel(tool.riskLevel, assessment.level);
+    riskReasons = assessment.reasons;
+    denylisted = assessment.denylisted;
+  }
   // A change that could never become a command request (parameters the command builder refuses, a config file
   // too long for one request) was only found out when the person confirmed it. Refused here, it is an answer the
   // model can correct, and nobody is asked to confirm something that cannot run.
@@ -188,19 +237,30 @@ export async function createHostedAction(input: {
     if (!parsed.success) {
       throw new BusinessError(firstSchemaSentence(parsed.error) ?? t("backend.ai.invalidActionParameters"));
     }
+    const assessment = classifyCommandRisk(
+      parsed.data.command,
+      typeof resolvedServer?.operatingSystem === "string" ? resolvedServer.operatingSystem : "LINUX",
+    );
+    effectiveRisk = maxRiskLevel(tool.riskLevel, assessment.level);
+    riskReasons = assessment.reasons;
+    denylisted = assessment.denylisted;
   }
   // Resolving a proposal may page through many targets before the card can be written.
   await input.revalidate?.();
   return withHostedActionMode(conversationId, tool.actionType, async (tx) => {
-    if (input.userMessageId) await assertChatGeneration(tx, conversationId, input.userMessageId);
+    if (input.userMessageId) await assertChatGeneration(tx, conversationId, input.userMessageId, input.leaseToken);
     input.signal?.throwIfAborted();
     let frozenTask;
     if (tool.actionType === "manage_cron") {
       frozenTask = await tx.scheduledTask.findFirst({
         where: { id: String(input.args.taskId).trim(), ...activeCustomerTeamWhere(sessionForTeamScope(session)!) },
-        select: { id: true, teamId: true },
+        select: { id: true, teamId: true, approvalRequired: true },
       });
       if (!frozenTask) throw new NotFoundError(t("backend.scheduled-task.scheduledTaskNotFound"));
+      if (input.args.action === "resume" && frozenTask.approvalRequired === false) {
+        effectiveRisk = maxRiskLevel(effectiveRisk, "high");
+        riskReasons = Array.from(new Set([...riskReasons, "high.resume_unattended_schedule"]));
+      }
     }
     const action = await tx.aiHostedAction.create({
       data: {
@@ -213,6 +273,8 @@ export async function createHostedAction(input: {
         actionName: tool.actionName,
         params: JSON.stringify(frozenTask ? { ...params, taskId: frozenTask.id, teamId: frozenTask.teamId } : params),
         riskLevel: tool.riskLevel,
+        effectiveRisk,
+        ...(riskReasons.length > 0 ? { riskReasons } : {}),
         autoApproved: tool.autoApproved,
         status: tool.autoApproved ? "APPROVED" : "PENDING_APPROVAL",
         requesterId: userId,
@@ -226,8 +288,8 @@ export async function createHostedAction(input: {
       } });
     }
     input.signal?.throwIfAborted();
-    return { ...action, server: snapshot };
-  });
+    return { ...action, server: snapshot, effectiveRisk, riskReasons, denylisted };
+  }, session);
 }
 
 // ── 执行安全操作（Agent 优先，SSH 回退） ───────────────────
@@ -403,25 +465,79 @@ function hostedActionTool(action: {
 
 type HostedActionRef = { id: string; conversationId: string; toolCallId: string | null };
 type HostedArtifact = {
-  status: "APPROVED" | "COMPLETED";
+  status: "APPROVED" | "EXECUTING" | "COMPLETED";
   result: Record<string, unknown>;
   toolResult: Record<string, unknown>;
+  commandRequestId?: string;
+  /** True only for actions that have truly finished (cron, playbook queued, scheduled task created); false while a CommandRequest awaits review or runs. */
+  terminal: boolean;
 };
 
 function commandArtifact(command: { id: string; requiresApproval: boolean }): HostedArtifact {
-  const result = { commandRequestId: command.id, requiresApproval: command.requiresApproval };
-  return { status: "APPROVED", result, toolResult: result };
+  if (command.requiresApproval) {
+    const result = { commandRequestId: command.id, requiresApproval: true, executed: false };
+    return {
+      status: "APPROVED",
+      result,
+      toolResult: {
+        success: false,
+        executed: false,
+        retryable: false,
+        status: "AWAITING_REVIEW",
+        commandRequestId: command.id,
+        requiresApproval: true,
+      },
+      commandRequestId: command.id,
+      terminal: false,
+    };
+  }
+  const result = { commandRequestId: command.id, requiresApproval: false, executed: true };
+  return {
+    status: "EXECUTING",
+    result,
+    toolResult: {
+      success: false,
+      executed: true,
+      pending: true,
+      retryable: false,
+      status: "EXECUTING",
+      commandRequestId: command.id,
+      requiresApproval: false,
+    },
+    commandRequestId: command.id,
+    terminal: false,
+  };
 }
 
 function automationArtifact(result: Record<string, unknown>): HostedArtifact {
-  return { status: "COMPLETED", result, toolResult: { data: result } };
+  const commandRequestId = typeof result.commandRequestId === "string" ? result.commandRequestId : undefined;
+  if (result.kind === "command_request" && commandRequestId) {
+    const pendingCommand = result.requiresApproval === true;
+    return {
+      status: pendingCommand ? "APPROVED" : "EXECUTING",
+      result,
+      toolResult: pendingCommand
+        ? { success: false, executed: false, retryable: false, status: "AWAITING_REVIEW", data: result }
+        : { success: false, executed: true, pending: true, retryable: false, status: "EXECUTING", data: result },
+      commandRequestId,
+      terminal: false,
+    };
+  }
+  return {
+    status: "COMPLETED",
+    result,
+    toolResult: { success: true, status: "COMPLETED", data: result },
+    commandRequestId,
+    terminal: true,
+  };
 }
 
 function playbookArtifact(playbookId: string, playbookName: string | undefined, run: { id: string; status: string }): HostedArtifact {
   return {
     status: "COMPLETED",
     result: { playbookId, playbookName, runId: run.id, status: run.status },
-    toolResult: { playbookId, runId: run.id, runStatus: run.status },
+    toolResult: { success: true, status: "COMPLETED", playbookId, runId: run.id, runStatus: run.status },
+    terminal: true,
   };
 }
 
@@ -430,15 +546,34 @@ function hostedArtifactUpdate(artifact: HostedArtifact, now: Date) {
     status: artifact.status,
     result: JSON.stringify(artifact.result),
     errorMessage: null,
-    // The hosted handoff is complete even when its CommandRequest awaits review.
-    completedAt: now,
+    ...(artifact.commandRequestId ? { commandRequestId: artifact.commandRequestId } : {}),
+    ...(artifact.status === "EXECUTING" ? { executedAt: now } : {}),
+    completedAt: artifact.terminal ? now : null,
   };
 }
 
 async function persistHostedArtifact(action: HostedActionRef, artifact: HostedArtifact) {
-  await recordHostedOutcome(action, hostedArtifactUpdate(artifact, new Date()), {
-    success: true, status: artifact.status, ...artifact.toolResult,
-  });
+  const now = new Date();
+  if (!artifact.terminal) {
+    // Non-terminal handoff (CommandRequest awaiting review or executing inline):
+    // perform the conditional non-terminal update AND placeholder tool reply in ONE
+    // transaction using the same parent-then-action lock order as `projectCommandOutcomeToHostedAction`
+    // so a late placeholder can never overwrite a committed terminal outcome.
+    await withHostedToolWrite(action.id, async (tx) => {
+      const claimed = await tx.aiHostedAction.updateMany({
+        where: { id: action.id, status: { in: ["PENDING_APPROVAL", "APPROVED", "EXECUTING"] } },
+        data: hostedArtifactUpdate(artifact, now),
+      });
+      if (claimed.count > 0 && action.toolCallId) {
+        await persistHostedToolOutcome(action, artifact.toolResult, tx);
+      }
+    });
+    if (artifact.commandRequestId) {
+      await projectCommandOutcomeToHostedAction(artifact.commandRequestId);
+    }
+    return;
+  }
+  await recordHostedOutcome(action, hostedArtifactUpdate(artifact, now), artifact.toolResult);
 }
 
 // A legacy reply may need inserting. Acquire its parent's FK lock before locking the action,
@@ -589,20 +724,40 @@ export async function recoverInterruptedHostedActions(now = new Date()) {
         { status: "APPROVED", result: ARTIFACT_PENDING_RECHECK, completedAt: { lt: cutoff } },
       ],
     },
-    select: { id: true, teamId: true, conversationId: true, toolCallId: true, actionType: true, params: true, result: true, errorMessage: true, status: true, approvedAt: true, executedAt: true, completedAt: true },
+    select: { id: true, teamId: true, conversationId: true, toolCallId: true, actionType: true, params: true, result: true, errorMessage: true, status: true, commandRequestId: true, approvedAt: true, executedAt: true, completedAt: true },
     orderBy: [{ completedAt: { sort: "asc", nulls: "first" } }, { createdAt: "asc" }],
     take: 50,
   });
   let recovered = 0;
   for (const action of stale) {
-    if (!action.completedAt && (action.status === "COMPLETED" || action.status === "FAILED" || (action.status === "APPROVED" && action.result))) {
+    const receipt = storedRecord(action.result);
+    const linkedCommandId =
+      action.commandRequestId ??
+      (action.status === "EXECUTING" && typeof receipt.commandRequestId === "string"
+        ? receipt.commandRequestId
+        : null);
+    if (linkedCommandId && (action.status === "APPROVED" || action.status === "EXECUTING")) {
+      const cmd = await prisma.commandRequest.findUnique({
+        where: { id: linkedCommandId },
+        select: { id: true, status: true },
+      });
+      if (cmd && ["PENDING_APPROVAL", "APPROVED", "RUNNING", "CANCELLING"].includes(cmd.status)) {
+        // Linked CommandRequest is still alive — never overwrite it with a premature interrupted/approved state.
+        continue;
+      }
+      if (cmd && await projectCommandOutcomeToHostedAction(cmd.id)) {
+        recovered += 1;
+        continue;
+      }
+    }
+    if (!action.completedAt && (action.status === "COMPLETED" || action.status === "FAILED")) {
       const result = storedRecord(action.result);
-      const outcome = action.status === "FAILED" ? { error: action.errorMessage }
-        : action.actionType === "run_playbook" ? { playbookId: result.playbookId, runId: result.runId, runStatus: result.status }
-        : action.status === "APPROVED" ? result : { data: result };
+      const outcome = action.status === "FAILED" ? { success: false, status: "FAILED", error: action.errorMessage }
+        : action.actionType === "run_playbook" ? { success: true, status: "COMPLETED", playbookId: result.playbookId, runId: result.runId, runStatus: result.status }
+        : { success: true, status: "COMPLETED", data: result };
       const synced = await withHostedToolWrite(action.id, async (tx) => {
         const claimed = await tx.aiHostedAction.updateMany({ where: { id: action.id, status: action.status, result: action.result, completedAt: null }, data: { completedAt: now } });
-        if (claimed.count) await persistHostedToolOutcome(action, { success: action.status !== "FAILED", status: action.status, ...outcome }, tx);
+        if (claimed.count) await persistHostedToolOutcome(action, outcome, tx);
         return claimed.count;
       });
       recovered += synced;
@@ -611,7 +766,6 @@ export async function recoverInterruptedHostedActions(now = new Date()) {
     const params = storedRecord(action.params);
     // Earlier releases wrote the command pointer and its tool reply separately.
     // The original receipt remains evidence even if the command has since been deleted.
-    const receipt = storedRecord(action.result);
     const artifact = action.status === "APPROVED" && typeof receipt.commandRequestId === "string" && typeof receipt.requiresApproval === "boolean"
       ? commandArtifact({ id: receipt.commandRequestId, requiresApproval: receipt.requiresApproval })
       : await findHostedArtifact(action, params);
@@ -636,7 +790,7 @@ export async function recoverInterruptedHostedActions(now = new Date()) {
       if (claimed.count === 0) return false;
       if (!artifact && rechecked) return false;
       await persistHostedToolOutcome(action, artifact
-        ? { success: true, status: artifact.status, ...artifact.toolResult }
+        ? artifact.toolResult
         : { success: false, status, error }, tx);
       return true;
     });
@@ -650,6 +804,7 @@ function claimPendingHostedAction(
   actor: HostedActionSession,
   actionScope: Record<string, unknown>,
   status: "APPROVED" | "EXECUTING",
+  extraData?: Prisma.AiHostedActionUncheckedUpdateManyInput,
 ) {
   const missing = missingHostedPermission(actor, action.actionType);
   if (missing) throw new ForbiddenError(t("backend.ai.permissionDenied.required", { permission: missing }));
@@ -660,8 +815,174 @@ function claimPendingHostedAction(
       approverId: actor.userId,
       approvedAt: new Date(),
       ...(status === "EXECUTING" && { executedAt: new Date() }),
+      ...extraData,
     },
-  }));
+  }), actor);
+}
+
+function commandDigest(command: string) {
+  return {
+    commandSha256: createHash("sha256").update(command).digest("hex"),
+    commandLength: command.length,
+  };
+}
+
+export type ConfirmHostedActionOptions = {
+  editedCommand?: string;
+  acknowledgeCritical?: boolean;
+};
+
+export type HostedCommandDecisionResult = {
+  executedInline: boolean;
+  commandRequestId: string | null;
+  requiresApproval: boolean;
+  status: string;
+};
+
+/**
+ * Execute an AI-initiated mutating server action automatically during AUTO /
+ * FULL_AUTO streaming, through a durable APPROVED CommandRequest with mode
+ * re-verification under FOR SHARE and audit logging.
+ */
+export async function executeAutoHostedCommandAction(input: {
+  action: {
+    id: string;
+    conversationId: string;
+    toolCallId: string | null;
+    actionType: string;
+    actionName: string;
+    riskLevel: string;
+    autoApproved: boolean;
+    serverId: string | null;
+    teamId: string | null;
+    params: string;
+  };
+  session: HostedActionSession;
+  streamStartMode: AiAutomationMode;
+  streamStartPinnedServerIds?: readonly string[];
+  mutatingStepsThisTurn?: number;
+  decisionSource: "AI_MODE_AUTO" | "AI_MODE_FULL_AUTO";
+  effectiveRisk: CommandRiskLevel;
+  riskReasons: string[];
+  denylisted?: boolean;
+}): Promise<{ commandRequestId: string; requiresApproval: boolean; status: string }> {
+  const { action, session } = input;
+  if (!action.serverId) throw new BusinessError(t("backend.ai.noTargetVpsBoundCannotCreateCommandRequest"));
+  const params = storedRecord(action.params);
+  const commandRequestPayload = await buildAssistantCommandRequestPayload({
+    tool: hostedActionTool(action),
+    args: params,
+    userId: session.userId,
+    serverId: action.serverId,
+    teamId: action.teamId ?? session.currentTeamId ?? null,
+  });
+
+  const actionScope = session.currentTeamId
+    ? { teamId: session.currentTeamId }
+    : teamWhere(sessionForTeamScope(session)!);
+  const claimed = await claimPendingHostedAction(action, session, actionScope, "EXECUTING", {
+    effectiveRisk: input.effectiveRisk,
+    riskReasons: input.riskReasons,
+    decisionSource: input.decisionSource,
+    modeAtDecision: input.streamStartMode,
+  });
+  if (claimed.count === 0) {
+    throw new BusinessError(t("backend.ai.actionIsNotPendingConfirmationMayHaveJust"));
+  }
+
+  const viaToken = Boolean(verifiedBearerTokenId(session));
+  const streamPins = Array.isArray(input.streamStartPinnedServerIds)
+    ? input.streamStartPinnedServerIds.filter(Boolean)
+    : [];
+  let request: Awaited<ReturnType<typeof createCommandRequest>>;
+  try {
+    request = await createCommandRequest(
+      { ...commandRequestPayload, approvalRequired: false, idempotencyKey: `ai-hosted-action:${action.id}` },
+      { ...session, currentTeamId: session.currentTeamId ?? null },
+      undefined,
+      async (tx, commandRequestId) => {
+        const [conv] = await tx.$queryRaw<
+          Array<{
+            hostingEnabled: boolean;
+            automationMode: AiAutomationMode;
+            automationModeExpiresAt?: Date | null;
+            pinnedServerIds?: string[] | null;
+          }>
+        >`SELECT "hostingEnabled", "automationMode", "automationModeExpiresAt", "pinnedServerIds" FROM ai_conversations WHERE id = ${action.conversationId} FOR SHARE`;
+        if (!conv?.hostingEnabled) throw new BusinessError(t("backend.ai.hostingDisabled"));
+        const livePolicies = await getApprovalPolicySettings({ fresh: true });
+        const resolved = resolveEffectiveAutomationMode({
+          requestedMode: conv.automationMode,
+          expiresAt: conv.automationModeExpiresAt ?? null,
+          policies: livePolicies,
+          session,
+          viaToken,
+          streamStartMode: input.streamStartMode,
+        });
+        const requiredMode: AiAutomationMode = input.decisionSource === "AI_MODE_FULL_AUTO" ? "FULL_AUTO" : "AUTO";
+        if (MODE_RANK[resolved.effectiveMode] < MODE_RANK[requiredMode]) {
+          throw new BusinessError(t("backend.ai.hostedAuthorizationChanged"));
+        }
+        // Narrowing pins mid-turn removes unpinned servers; clearing/broadening pins never expands stream-start authority.
+        const livePins = Array.isArray(conv.pinnedServerIds) ? conv.pinnedServerIds.filter(Boolean) : [];
+        let effectivePinnedServerIds: string[];
+        if (streamPins.length > 0 && livePins.length > 0) {
+          const narrowed = streamPins.filter((id) => livePins.includes(id));
+          effectivePinnedServerIds = narrowed.length > 0 ? narrowed : ["__disjoint_pins__"];
+        } else if (streamPins.length > 0) {
+          effectivePinnedServerIds = streamPins;
+        } else {
+          effectivePinnedServerIds = livePins;
+        }
+        const toolEntry = HOSTED_TOOLS.find((entry) => entry.actionType === action.actionType);
+        if (!toolEntry) {
+          throw new BusinessError(t("backend.ai.unsupportedActionType"));
+        }
+        const recheck = decideAiAutoExecution({
+          effectiveMode: resolved.effectiveMode,
+          actionType: toolEntry.actionType,
+          effectiveRisk: input.effectiveRisk,
+          denylisted: Boolean(input.denylisted),
+          policies: livePolicies,
+          submitterMayExecute: sessionHasPermission(session, "command:execute"),
+          targetServerId: action.serverId,
+          pinnedServerIds: effectivePinnedServerIds,
+          hasSelectedCustomer: Boolean(session.currentTeamId),
+          mutatingStepsThisTurn: input.mutatingStepsThisTurn ?? 0,
+        });
+        if (!recheck.autoRun) {
+          throw new BusinessError(t("backend.ai.hostedAuthorizationChanged"));
+        }
+        await tx.aiHostedAction.updateMany({
+          where: { id: action.id },
+          data: { commandRequestId, modeAtDecision: resolved.effectiveMode },
+        });
+      },
+      { origin: "AI_CHAT", decisionSource: input.decisionSource },
+    );
+  } catch (error) {
+    await recordArtifactCreationError(action, error);
+    throw error;
+  }
+
+  await auditUserAction(
+    session.userId,
+    request.requiresApproval ? "ai.hosted-action.submit" : "ai.hosted-action.auto_execute",
+    {
+      actionId: action.id,
+      commandRequestId: request.id,
+      actionType: action.actionType,
+      effectiveRisk: input.effectiveRisk,
+      decisionSource: input.decisionSource,
+      modeAtDecision: input.streamStartMode,
+      requiresApproval: request.requiresApproval,
+      ...commandDigest(commandRequestPayload.command),
+    },
+    undefined,
+    action.teamId ?? session.currentTeamId ?? null,
+  );
+  await persistHostedArtifact(action, commandArtifact(request));
+  return { commandRequestId: request.id, requiresApproval: request.requiresApproval, status: request.status };
 }
 
 async function executeConfirmedCronAction(action: ClaimedAction, actor: HostedActionSession, actionScope: Record<string, unknown>) {
@@ -680,7 +1001,7 @@ async function executeConfirmedCronAction(action: ClaimedAction, actor: HostedAc
       status: "COMPLETED", completedAt: now, errorMessage: null, result: JSON.stringify(data),
     } });
     await persistHostedToolOutcome(action, { success: true, status: "COMPLETED", data }, tx);
-  });
+  }, actor);
 }
 
 async function executeConfirmedAutomationAction(
@@ -722,7 +1043,20 @@ export async function approveHostedAction(actionId: string, approver: HostedActi
   if (!action) throw new NotFoundError(t("backend.ai.actionNotFoundOrNotAuthorizedToApprove"));
   if (action.status !== "PENDING_APPROVAL") throw new BusinessError(t("backend.ai.actionIsNotPendingApproval"));
   if (!isHostedActionType(action.actionType)) throw new BusinessError(t("backend.ai.unsupportedActionType"));
+  if (SERVERLESS_ACTION_TYPES.has(action.actionType) && action.actionType !== "create_automation_task" && action.actionType !== "manage_cron" && action.actionType !== "run_playbook") {
+    throw new BusinessError(t("backend.ai.listQueryToolsDoNotRequireCreatingA"));
+  }
+  if (!sessionHasPermission(approver, "command:approve")) {
+    throw new ForbiddenError(t("backend.ai.permissionDenied.required", { permission: "command:approve" }));
+  }
+  const policies = await getApprovalPolicySettings({ fresh: true });
+  if (!mayReviewCommandRequest(approver, action.requesterId, null, false, policies.commandSelfReview)) {
+    throw new BusinessError(t("backend.command.cannotSelfReview"));
+  }
   if (action.actionType === "create_automation_task") {
+    if (approver.userId !== action.requesterId) {
+      throw new ForbiddenError(t("backend.ai.actionNotFoundOrNotAuthorizedToApprove"));
+    }
     await executeConfirmedAutomationAction(action, approver, actionScope);
     return;
   }
@@ -731,11 +1065,11 @@ export async function approveHostedAction(actionId: string, approver: HostedActi
     return;
   }
   if (action.actionType === "run_playbook") {
+    if (approver.userId !== action.requesterId) {
+      throw new ForbiddenError(t("backend.ai.actionNotFoundOrNotAuthorizedToApprove"));
+    }
     await runPlaybookHostedAction(action, approver, actionScope, JSON.parse(action.params) as Record<string, unknown>);
     return;
-  }
-  if (SERVERLESS_ACTION_TYPES.has(action.actionType)) {
-    throw new BusinessError(t("backend.ai.listQueryToolsDoNotRequireCreatingA"));
   }
   const missing = missingHostedPermission(approver, action.actionType);
   if (missing) throw new ForbiddenError(t("backend.ai.permissionDenied.required", { permission: missing }));
@@ -750,15 +1084,22 @@ export async function approveHostedAction(actionId: string, approver: HostedActi
     teamId: action.teamId ?? approver.currentTeamId ?? null,
   });
 
+  const reviewDecisionSource: CommandDecisionSource =
+    approver.userId === action.requesterId ? "SELF_REVIEW" : "REVIEWER";
+
   // Atomic compare-and-swap first, as confirmHostedAction does: creating the
   // command before it let a rejection that won the swap leave a command
   // request behind that still ran.
-  const claimed = await claimPendingHostedAction(action, approver, actionScope, "APPROVED");
+  const claimed = await claimPendingHostedAction(action, approver, actionScope, "EXECUTING", {
+    decisionSource: reviewDecisionSource,
+  });
   if (claimed.count === 0) {
     throw new BusinessError(t("backend.ai.actionIsNotPendingApproval"));
   }
 
   // Stable idempotency bridges retries/races to one durable CommandRequest.
+  // Cross-user approval records CommandApproval + endpoint receipts atomically
+  // so approved AI actions execute immediately instead of triggering a second /requests review.
   let request: Awaited<ReturnType<typeof createCommandRequest>>;
   try {
     request = await createCommandRequest(
@@ -767,15 +1108,44 @@ export async function approveHostedAction(actionId: string, approver: HostedActi
         ...approver,
         currentTeamId: approver.currentTeamId ?? null,
       },
+      undefined,
+      async (tx, commandRequestId) => {
+        await tx.aiHostedAction.updateMany({ where: { id: actionId }, data: { commandRequestId } });
+      },
+      {
+        origin: "AI_CHAT",
+        approveOnCreate: {
+          approverId: approver.userId,
+          decisionSource: reviewDecisionSource,
+          comment: "Approved AI hosted action",
+        },
+      },
     );
   } catch (error) {
     return recordArtifactCreationError(action, error);
   }
 
+  await auditUserAction(
+    approver.userId,
+    "ai.hosted-action.execute",
+    {
+      actionId,
+      commandRequestId: request.id,
+      actionType: action.actionType,
+      decisionSource: reviewDecisionSource,
+      ...commandDigest(commandRequestPayload.command),
+    },
+    undefined,
+    action.teamId ?? approver.currentTeamId ?? null,
+  );
   await persistHostedArtifact(action, commandArtifact(request));
 }
 
-export async function confirmHostedAction(actionId: string, requester: HostedActionSession) {
+export async function confirmHostedAction(
+  actionId: string,
+  requester: HostedActionSession,
+  options?: ConfirmHostedActionOptions,
+): Promise<HostedCommandDecisionResult | void> {
   const actionScope = requester.currentTeamId
     ? { teamId: requester.currentTeamId }
     : teamWhere(sessionForTeamScope(requester)!);
@@ -795,7 +1165,17 @@ export async function confirmHostedAction(actionId: string, requester: HostedAct
     throw new BusinessError(t("backend.ai.listQueryToolsDoNotRequireCreatingA"));
   }
 
-  const params = JSON.parse(action.params) as Record<string, unknown>;
+  const rawParams = JSON.parse(action.params) as Record<string, unknown>;
+
+  if (
+    (action.actionType === "create_automation_task" ||
+      action.actionType === "manage_cron" ||
+      action.actionType === "run_playbook") &&
+    action.effectiveRisk === "critical" &&
+    options?.acknowledgeCritical !== true
+  ) {
+    throw new BusinessError(t("backend.ai.criticalAckRequired"));
+  }
 
   if (action.actionType === "create_automation_task") {
     await executeConfirmedAutomationAction(action, requester, actionScope);
@@ -809,7 +1189,7 @@ export async function confirmHostedAction(actionId: string, requester: HostedAct
 
   // Cross-module: run_playbook queues a real Playbook run (not an SSH CommandRequest).
   if (action.actionType === "run_playbook") {
-    await runPlaybookHostedAction(action, requester, actionScope, params);
+    await runPlaybookHostedAction(action, requester, actionScope, rawParams);
     return;
   }
 
@@ -817,17 +1197,77 @@ export async function confirmHostedAction(actionId: string, requester: HostedAct
   if (missing) throw new ForbiddenError(t("backend.ai.permissionDenied.required", { permission: missing }));
   if (!action.serverId) throw new BusinessError(t("backend.ai.noTargetVpsBoundCannotCreateCommandRequest"));
 
+  // Strict editedCommand handling: execute_command ONLY, immutable serverId/serverQuery/serverSnapshot.
+  let effectiveParams = rawParams;
+  let edited = false;
+  if (options?.editedCommand !== undefined) {
+    if (action.actionType !== "execute_command") {
+      throw new BusinessError(t("backend.ai.invalidActionParameters"));
+    }
+    const nextCmd = options.editedCommand.trim();
+    if (!nextCmd || nextCmd.length > 10_000 || nextCmd.includes("\0")) {
+      throw new BusinessError(t("backend.ai.invalidActionParameters"));
+    }
+    const originalCommand = typeof rawParams.originalCommand === "string"
+      ? rawParams.originalCommand
+      : typeof rawParams.command === "string"
+        ? rawParams.command
+        : "";
+    effectiveParams = { ...rawParams, originalCommand, command: nextCmd };
+    edited = nextCmd !== originalCommand;
+  }
+
   const commandRequestPayload = await buildAssistantCommandRequestPayload({
     tool: hostedActionTool(action),
-    args: params,
+    args: effectiveParams,
     userId: requester.userId,
     serverId: action.serverId,
     teamId: action.teamId ?? requester.currentTeamId ?? null,
   });
 
-  // Atomic compare-and-swap: prevent two concurrent confirmations from
-  // both creating a command request and overwriting APPROVED state.
-  const claimed = await claimPendingHostedAction(action, requester, actionScope, "APPROVED");
+  const serverRow = await prisma.server.findFirst({
+    where: { id: action.serverId, teamId: action.teamId ?? requester.currentTeamId ?? null },
+    select: { operatingSystem: true },
+  });
+  const assessment = classifyCommandRisk(
+    commandRequestPayload.command,
+    typeof serverRow?.operatingSystem === "string" ? serverRow.operatingSystem : "LINUX",
+  );
+  const effectiveRisk = maxRiskLevel(action.riskLevel as CommandRiskLevel, assessment.level);
+  const policies = await getApprovalPolicySettings({ fresh: true });
+  const submitterMayExecute = sessionHasPermission(requester, "command:execute");
+  const decision = decideCommandApproval({
+    policies,
+    origin: "AI_CHAT",
+    riskLevel: effectiveRisk,
+    denylisted: assessment.denylisted,
+    submitterMayExecute,
+    requestedReview: false,
+  });
+  const canSelfApprove = maySelfReviewCommands(requester, policies.commandSelfReview);
+  const criticalNeedsAck = (assessment.denylisted || effectiveRisk === "critical") && options?.acknowledgeCritical !== true;
+  const runInlineDirect = submitterMayExecute && !decision.requiresApproval && !criticalNeedsAck;
+  const runInlineSelfReview = submitterMayExecute && decision.requiresApproval && canSelfApprove && !criticalNeedsAck;
+  const willExecuteInline = runInlineDirect || runInlineSelfReview;
+  const decisionSource: CommandDecisionSource | undefined = runInlineSelfReview
+    ? "SELF_REVIEW"
+    : runInlineDirect
+      ? "REQUESTER_CONFIRMED"
+      : undefined;
+
+  // Atomic compare-and-swap: persist edited command + reclassified risk inside the claim itself.
+  const claimed = await claimPendingHostedAction(
+    action,
+    requester,
+    actionScope,
+    willExecuteInline ? "EXECUTING" : "APPROVED",
+    {
+      ...(edited ? { params: JSON.stringify(effectiveParams) } : {}),
+      effectiveRisk,
+      riskReasons: assessment.reasons,
+      ...(decisionSource ? { decisionSource } : {}),
+    },
+  );
   if (claimed.count === 0) {
     throw new BusinessError(t("backend.ai.actionIsNotPendingConfirmationMayHaveJust"));
   }
@@ -835,14 +1275,59 @@ export async function confirmHostedAction(actionId: string, requester: HostedAct
   let request: Awaited<ReturnType<typeof createCommandRequest>>;
   try {
     request = await createCommandRequest(
-      { ...commandRequestPayload, idempotencyKey: `ai-hosted-action:${actionId}` },
+      {
+        ...commandRequestPayload,
+        approvalRequired: !willExecuteInline,
+        idempotencyKey: `ai-hosted-action:${actionId}`,
+      },
       { ...requester, currentTeamId: requester.currentTeamId ?? null },
+      undefined,
+      async (tx, commandRequestId) => {
+        await tx.aiHostedAction.updateMany({ where: { id: actionId }, data: { commandRequestId } });
+      },
+      {
+        origin: "AI_CHAT",
+        ...(runInlineSelfReview
+          ? {
+              approveOnCreate: {
+                approverId: requester.userId,
+                decisionSource: "SELF_REVIEW" as const,
+                comment: "Confirmed and self-approved inline on AI assistant",
+              },
+            }
+          : decisionSource
+            ? { decisionSource }
+            : {}),
+      },
     );
   } catch (error) {
-    return recordArtifactCreationError(action, error);
+    await recordArtifactCreationError(action, error);
+    return;
   }
 
+  await auditUserAction(
+    requester.userId,
+    request.requiresApproval ? "ai.hosted-action.submit" : "ai.hosted-action.execute",
+    {
+      actionId,
+      commandRequestId: request.id,
+      actionType: action.actionType,
+      effectiveRisk,
+      decisionSource: decisionSource ?? null,
+      requiresApproval: request.requiresApproval,
+      edited,
+      ...commandDigest(commandRequestPayload.command),
+    },
+    undefined,
+    action.teamId ?? requester.currentTeamId ?? null,
+  );
   await persistHostedArtifact(action, commandArtifact(request));
+  return {
+    executedInline: !request.requiresApproval,
+    commandRequestId: request.id,
+    requiresApproval: request.requiresApproval,
+    status: request.requiresApproval ? "APPROVED" : "EXECUTING",
+  };
 }
 
 export async function rejectHostedAction(actionId: string, actor: HostedActionSession, reason?: string) {

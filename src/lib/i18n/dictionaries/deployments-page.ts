@@ -3,6 +3,7 @@
  */
 
 export const zh: Record<string, string> = {
+	"deploymentsPage.oneOff": "运行一次性命令",
 	"deploymentsPage.readOnlyEmpty": "暂无可查看的部署记录。操作员运行部署后，记录会显示在这里。",
 	"deploymentsPage.launch.templatesLink": "浏览模板",
 	"deploymentsPage.launch.title": "新建部署任务",
@@ -117,6 +118,7 @@ export const zh: Record<string, string> = {
 };
 
 export const en: Record<string, string> = {
+	"deploymentsPage.oneOff": "Run a one-off command",
 	"deploymentsPage.readOnlyEmpty": "No runs to view yet. Runs appear here after an operator starts a deployment.",
 	"deploymentsPage.launch.templatesLink": "Browse templates",
 	"deploymentsPage.launch.title": "New deployment",

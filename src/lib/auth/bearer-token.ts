@@ -37,9 +37,9 @@ export type BearerTokenResult = {
 
 // A queued operation may need to revalidate the exact credential after the
 // request ends. Keep its database id out of serialized session objects.
-const verifiedBearerIds = new WeakMap<SessionPayload, string>();
+const verifiedBearerIds = new WeakMap<object, string>();
 
-export function verifiedBearerTokenId(session: SessionPayload): string | null {
+export function verifiedBearerTokenId(session: object): string | null {
 	return verifiedBearerIds.get(session) ?? null;
 }
 

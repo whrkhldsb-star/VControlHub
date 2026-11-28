@@ -1,9 +1,10 @@
 import { apiCopy } from "@/lib/i18n/api-copy";
+import type { CommandOrigin } from "@prisma/client";
 import { NextResponse } from "next/server";
 import { z } from "zod";
 import { canReadCommandBody } from "@/lib/command/visibility";
 import { sessionHasPermission } from "@/lib/auth/authorization";
-import { cancelCommandRequest, createCommandRequest, listCommandRequestPage } from "@/lib/command/service";
+import { cancelCommandRequest, createCommandRequest, listCommandRequestPage, type CommandRequestListFilter } from "@/lib/command/service";
 import { createCommandSchema } from "@/lib/command/schema";
 import { ForbiddenError } from "@/lib/errors";
 import { withApiRoute } from "@/lib/http/api-guard";
@@ -26,6 +27,9 @@ const cancelCommandRequestBodySchema = z.object({
   path: ["commandRequestId"],
 });
 
+const ALLOWED_LIST_FILTERS = new Set<CommandRequestListFilter>(["waiting_on_me", "my_submissions", "open", "history", "all"]);
+const ALLOWED_ORIGINS = new Set<CommandOrigin>(["USER_UI", "AI_CHAT", "AI_AUTOMATION", "DEPLOYMENT", "DEPLOYMENT_ROLLBACK", "SCHEDULED_TASK", "PLAYBOOK", "API"]);
+
 export async function GET(request: Request) {
   // The stale-RUNNING sweep belongs to the maintenance worker (A6-08): running
   // it on every list load made each refresh of the approval page a write path.
@@ -33,7 +37,19 @@ export async function GET(request: Request) {
     // The approvals page shows a command's text to reviewers and to whoever submitted it; this list gave every
     // reader all of them. Someone else's text is left out here too.
     const canApprove = sessionHasPermission(ctx.session, "command:approve");
-    const page = await listCommandRequestPage(ctx.session, new URL(request.url).searchParams.get("cursor") || undefined);
+    const params = new URL(request.url).searchParams;
+    const cursor = params.get("cursor") || undefined;
+    const rawFilter = params.get("filter") === "all_open" ? "open" : (params.get("filter") || undefined);
+    const rawOrigin = params.get("origin") || undefined;
+    const filter = rawFilter && ALLOWED_LIST_FILTERS.has(rawFilter as CommandRequestListFilter)
+      ? (rawFilter as CommandRequestListFilter)
+      : undefined;
+    const origin = rawOrigin && ALLOWED_ORIGINS.has(rawOrigin as CommandOrigin)
+      ? (rawOrigin as CommandOrigin)
+      : undefined;
+    const page = filter || origin
+      ? await listCommandRequestPage(ctx.session, cursor, undefined, { filter, origin })
+      : await listCommandRequestPage(ctx.session, cursor);
     const requests = page.requests.map((item) =>
       canReadCommandBody(ctx.session.userId, item.requesterId, canApprove) ? item : { ...item, command: "", commandHidden: true });
     return NextResponse.json({ ...page, requests });
@@ -67,9 +83,25 @@ export async function POST(request: Request) {
         requiresApproval: Boolean(command.requiresApproval),
         submissionMode: parsed.submissionMode,
       }, undefined, session.currentTeamId);
-      const { id, title, reason, status, requesterId, initiatedByType, createdAt, updatedAt, targets, requiresApproval } = command;
+      const {
+        id,
+        title,
+        reason,
+        status,
+        requesterId,
+        initiatedByType,
+        origin,
+        riskLevel,
+        riskReasons,
+        decisionSource,
+        createdAt,
+        updatedAt,
+        targets,
+        requiresApproval,
+      } = command;
       return NextResponse.json({ command: {
         id, title, command: command.command, reason, status, requesterId, initiatedByType,
+        origin, riskLevel, riskReasons, decisionSource,
         createdAt, updatedAt, targets, requiresApproval,
       } }, { status: 201 });
     },

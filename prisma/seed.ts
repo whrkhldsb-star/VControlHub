@@ -26,6 +26,8 @@ const PERMISSION_LABELS: Record<Permission, { name: string; description: string 
  "ai:chat": { name: "使用 AI 助手", description: "允许与 AI 助手进行对话交互" },
  "ai:manage": { name: "管理 AI 助手", description: "允许配置 AI 提供商、创建对话与多模态交互" },
  "ai:action:approve": { name: "审批 AI 托管操作", description: "允许审批 AI 助手发起的高风险托管操作" },
+ "ai:action:auto": { name: "启用 AI 自动模式", description: "允许在 AI 对话中使用 Auto 模式自动执行低/中风险服务器操作" },
+ "ai:action:full-auto": { name: "启用 AI 全自动模式", description: "允许平台管理员在 AI 对话中使用 Full-Auto 模式自动执行非高危拦截名单的服务器操作（仅平台）" },
  "ai:ops:read": { name: "查看 AI 运维日志", description: "允许浏览 /ai-ops 页面与历史诊断记录" },
  "ai:ops:manage": { name: "管理 AI 运维", description: "允许切换 AI 运维 mode（recommendation/autonomous）、触发手动扫描与审批建议" },
  "ai:ops:autonomous": { name: "AI 自主执行", description: "允许开启 AI 自主执行模式（高风险，建议配合审批）" },

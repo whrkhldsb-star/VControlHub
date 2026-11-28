@@ -1,12 +1,12 @@
 {
-  "generatedAt": "2026-11-28T01:03:38.526Z",
+  "generatedAt": "2026-11-28T08:13:47.610Z",
   "summary": {
-    "sidebarMain": 26,
+    "sidebarMain": 27,
     "sidebarSystem": 12,
     "sidebarMobile": 4,
-    "pages": 58,
-    "apiRoutes": 198,
-    "permissionsDefined": 52
+    "pages": 59,
+    "apiRoutes": 201,
+    "permissionsDefined": 54
   },
   "sidebar": {
     "main": [
@@ -73,6 +73,10 @@
       {
         "href": "/deployments",
         "fallbackLabel": "App deployment"
+      },
+      {
+        "href": "/commands",
+        "fallbackLabel": "Run command"
       },
       {
         "href": "/operation-tasks",
@@ -225,8 +229,14 @@
       "inSidebarMain": true,
       "inSidebarSystem": false,
       "declaredPermissions": [
+        "ai:action:auto",
+        "ai:action:full-auto",
         "ai:chat",
-        "ai:manage"
+        "ai:manage",
+        "command:approve",
+        "command:execute",
+        "server:read",
+        "team:manage"
       ],
       "navigationPermissions": [
         "ai:chat"
@@ -306,6 +316,23 @@
       ]
     },
     {
+      "path": "/commands",
+      "file": "src/app/commands/page.tsx",
+      "inSidebarMain": true,
+      "inSidebarSystem": false,
+      "declaredPermissions": [
+        "command:create",
+        "command:execute",
+        "command:read",
+        "server:read",
+        "snippet:manage",
+        "task:read"
+      ],
+      "navigationPermissions": [
+        "command:create"
+      ]
+    },
+    {
       "path": "/cost-summary",
       "file": "src/app/cost-summary/page.tsx",
       "inSidebarMain": true,
@@ -348,6 +375,7 @@
       "inSidebarSystem": false,
       "declaredPermissions": [
         "command:approve",
+        "command:create",
         "command:read",
         "deploy:export",
         "deploy:read",
@@ -591,7 +619,10 @@
       "inSidebarSystem": false,
       "declaredPermissions": [
         "backup:read",
+        "command:create",
+        "command:read",
         "deploy:read",
+        "server:read",
         "storage:read",
         "task:read"
       ],
@@ -661,9 +692,8 @@
       "inSidebarSystem": false,
       "declaredPermissions": [
         "ai:chat",
+        "ai:ops:read",
         "command:approve",
-        "command:create",
-        "command:execute",
         "command:read",
         "server:read",
         "team:manage"
@@ -760,7 +790,9 @@
       "inSidebarMain": true,
       "inSidebarSystem": false,
       "declaredPermissions": [
+        "command:create",
         "command:read",
+        "server:read",
         "snippet:manage"
       ],
       "navigationPermissions": [
@@ -971,6 +1003,17 @@
       ]
     },
     {
+      "path": "/api/ai/conversations/[id]/continue",
+      "file": "src/app/api/ai/conversations/[id]/continue/route.ts",
+      "methods": [
+        "POST"
+      ],
+      "guardMode": "withApiRoute",
+      "declaredPermissions": [
+        "ai:chat"
+      ]
+    },
+    {
       "path": "/api/ai/conversations/[id]",
       "file": "src/app/api/ai/conversations/[id]/route.ts",
       "methods": [
@@ -999,6 +1042,7 @@
       "path": "/api/ai/hosted-actions/[id]",
       "file": "src/app/api/ai/hosted-actions/[id]/route.ts",
       "methods": [
+        "GET",
         "PATCH"
       ],
       "guardMode": "withApiRoute",
@@ -1480,6 +1524,19 @@
       ]
     },
     {
+      "path": "/api/commands/[id]",
+      "file": "src/app/api/commands/[id]/route.ts",
+      "methods": [
+        "GET"
+      ],
+      "guardMode": "withApiRoute",
+      "declaredPermissions": [
+        "command:approve",
+        "command:read",
+        "server:read"
+      ]
+    },
+    {
       "path": "/api/commands/[id]/tickets",
       "file": "src/app/api/commands/[id]/tickets/route.ts",
       "methods": [
@@ -1489,6 +1546,20 @@
       "declaredPermissions": [
         "command:read",
         "ticket:read"
+      ]
+    },
+    {
+      "path": "/api/commands/preview",
+      "file": "src/app/api/commands/preview/route.ts",
+      "methods": [
+        "POST"
+      ],
+      "guardMode": "withApiRoute",
+      "declaredPermissions": [
+        "command:approve",
+        "command:create",
+        "command:execute",
+        "server:read"
       ]
     },
     {
@@ -3266,6 +3337,8 @@
     "ai:chat",
     "ai:manage",
     "ai:action:approve",
+    "ai:action:auto",
+    "ai:action:full-auto",
     "ai:ops:read",
     "ai:ops:manage",
     "ai:ops:autonomous",

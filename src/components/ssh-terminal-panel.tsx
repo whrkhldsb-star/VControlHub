@@ -426,13 +426,14 @@ export function SshTerminalPanel({
 		writeLocalStorageValue(QUICK_KEY_PRESETS_KEY, serializeQuickKeyPresets([]));
 	};
 
-	const sendCommand = (cmd: string) => {
-		if (!connectionRef.current?.send(cmd + "\r")) return;
+	const sendCommand = (cmd: string): boolean => {
+		if (!connectionRef.current?.send(cmd + "\r")) return false;
 		setInputError("");
 		// Only commands explicitly sent from the panel enter its history. Raw PTY input can be a password.
 		if (cmd.trim() && !cmd.startsWith(" ") && !SENSITIVE_COMMAND_PATTERN.test(cmd)) {
 			setCommandHistory((prev) => [cmd, ...prev.filter((item) => item !== cmd)].slice(0, 50));
 		}
+		return true;
 	};
 
 	/** Send raw key sequences (Ctrl+C, arrows, …) without appending Enter. */
@@ -585,6 +586,7 @@ export function SshTerminalPanel({
 					<SshTerminalSidePanel
 						serverId={serverId}
 						operatingSystem={operatingSystem}
+						connected={status === "connected"}
 						t={t}
 						favoriteCommands={favoriteCommands}
 						newFavorite={newFavorite}

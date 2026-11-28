@@ -9,6 +9,13 @@
  * hooks/use-provider-form. Transcript + attachments + rename + empty
  * state moved to sibling components.
  *
+ * R19 adds the working mode (Plan / Confirm / Auto / Full auto, with the
+ * Full auto confirmation and countdown: hooks/use-automation-mode), pinned
+ * servers (hooks/use-pinned-servers, `?server=<id>` deep links), the live
+ * follow-up of inline-confirmed and automatically run commands
+ * (hooks/use-hosted-action-tracker) and the continuation of the answer once
+ * they settle (hooks/use-ai-continuation).
+ *
  * This file owns:
  *   - top-level state (providers, sidebar, modal toggles, model list,
  *     settings form, copy feedback)
@@ -27,9 +34,11 @@ import { ConfirmDialog } from "@/components/confirm-dialog";
 import { useToast } from "@/components/toast-provider";
 
 import { AiAttachmentsPreview } from "./ai-attachments-preview";
+import { type AiCapabilities, DEFAULT_AI_CAPABILITIES } from "./ai-automation-mode";
 import { AiChatHeader } from "./ai-chat-header";
 import { AiEmptyState } from "./ai-empty-state";
 import { exportConversationToMarkdown } from "./ai-export";
+import { AiFullAutoDialog } from "./ai-full-auto-dialog";
 import { AiInputAreaLazy } from "./ai-input-area-lazy";
 import {
   mergePendingApprovals,
@@ -37,15 +46,21 @@ import {
   settledActionIds,
 } from "./ai-hosted-action-utils";
 import { AiMessageList } from "./ai-message-list";
+import { AiModeSwitcher } from "./ai-mode-switcher";
+import { AiPinnedServers } from "./ai-pinned-servers";
 import { AiProviderPanelLazy } from "./ai-provider-panel-lazy";
 import { AiRenameDialog } from "./ai-rename-dialog";
 import { AiSettingsPanelLazy } from "./ai-settings-panel-lazy";
 import { AiSidebar } from "./ai-sidebar";
-import type { ConvItem, ModelInfo, Provider } from "./ai-types";
-import { useAiChatStream } from "./hooks/use-ai-chat-stream";
+import type { AiServerOption, ConvItem, ModelInfo, Provider, ToolApprovalNeeded } from "./ai-types";
+import { type ApprovalDecisionOptions, type ToolExecutionEvent, useAiChatStream } from "./hooks/use-ai-chat-stream";
 import { useAiConfirmAction } from "./hooks/use-ai-confirm-action";
+import { useAiContinuation } from "./hooks/use-ai-continuation";
 import { useAiSendActions } from "./hooks/use-ai-send-actions";
+import { useAutomationMode } from "./hooks/use-automation-mode";
 import { useConversations } from "./hooks/use-conversations";
+import { type TrackedAction, useHostedActionTracker } from "./hooks/use-hosted-action-tracker";
+import { usePinnedServers } from "./hooks/use-pinned-servers";
 import { recoverChatDraft } from "./ai-retry";
 import { useConvRename } from "./hooks/use-conv-rename";
 import { useConvSettingsForm } from "./hooks/use-conv-settings-form";
@@ -57,11 +72,17 @@ import { getErrorMessage } from "@/lib/http/error-message";
 import { replaceBrowserUrl } from "@/lib/browser-history";
 import { useUnsavedChangesGuard } from "@/lib/forms/use-unsaved-changes-guard";
 
+const NO_SERVERS: AiServerOption[] = [];
+
 export function AiClient({
   initialProviders,
   initialConversations,
   initialDraft = "",
   canManageProviders = false,
+  capabilities = DEFAULT_AI_CAPABILITIES,
+  servers = NO_SERVERS,
+  initialPinnedServerId = null,
+  pinnedServerRejected = false,
 }: {
   /** Kept optional for older tests/call-sites; auth is session/API-backed. */
   userId?: string;
@@ -70,12 +91,21 @@ export function AiClient({
   /** Prefilled composer text (e.g. ?q= "Ask AI" deep links from ops pages). */
   initialDraft?: string;
   canManageProviders?: boolean;
+  /** What this account may do with the assistant (modes, execution, review), resolved on the server. */
+  capabilities?: AiCapabilities;
+  /** Servers the pinned-server picker offers (`server:read` only). */
+  servers?: AiServerOption[];
+  /** `/ai?server=<id>`: a new conversation starts pinned to this server. */
+  initialPinnedServerId?: string | null;
+  /** `?server=` named a server this account cannot reach: say it was not pinned. */
+  pinnedServerRejected?: boolean;
 }) {
   const { t } = useI18n();
   const { addToast } = useToast();
   const searchParams = useSearchParams();
   const panelParam = searchParams?.get("panel") ?? null;
   const convParam = searchParams?.get("c") ?? null;
+  const highlightActionId = searchParams?.get("action") ?? null;
   const initialActiveConvId =
     convParam && initialConversations.some((c) => c.id === convParam) ? convParam : null;
   const [providers, setProviders] = useState(initialProviders);
@@ -89,6 +119,7 @@ export function AiClient({
     messagesError,
     retryMessages,
     refreshConversations,
+    upsertConversation,
   } = useConversations({ initialConversations, initialActiveConvId });
   const [input, setInput] = useState(initialDraft);
   const [imageUrls, setImageUrls] = useState<string[]>([]);
@@ -177,6 +208,32 @@ export function AiClient({
     t,
   });
 
+  /* ── Live follow-up of the actions that run (inline confirmations, Auto / Full auto steps) ── */
+  // The tracker reports a settled action; the transcript is then read again, except while a stream is open
+  // (it reads the transcript itself when it ends, and a read during it would double the answer on screen).
+  const streamingRef = useRef(false);
+  const refreshAfterSettleRef = useRef<() => void>(() => undefined);
+  const onActionSettled = useCallback((_action: TrackedAction) => {
+    if (!streamingRef.current) refreshAfterSettleRef.current();
+  }, []);
+  const tracker = useHostedActionTracker({
+    activeConvId,
+    messages,
+    addToast,
+    onSettled: onActionSettled,
+  });
+  const { track } = tracker;
+  const onToolExecution = useCallback((event: ToolExecutionEvent) => {
+    track({
+      actionId: event.actionId,
+      conversationId: event.conversationId,
+      mode: event.phase === "awaiting_review" ? "review" : "run",
+      commandRequestId: event.commandRequestId,
+      // The server stopped waiting for this command but it still runs: the page continues the answer when it ends.
+      autoContinue: event.phase === "timeout",
+    });
+  }, [track]);
+
   const {
     streaming,
     streamContent,
@@ -184,27 +241,52 @@ export function AiClient({
     streamSteps,
     pendingApprovals: streamedPendingApprovals,
     approvalBusyById,
+    decidedActionIds,
     sendMessage,
+    continueConversation,
     retryFailedMessage,
     stopGeneration,
     lastRequest,
     clearConversationStream,
     decideApproval,
+    refreshActiveMessages,
   } = useAiChatStream({
     activeConv,
     activeConvId,
     setMessages,
     refreshConversations,
     addToast,
+    onToolExecution,
   });
-  const pendingApprovals = useMemo(
-    () =>
-      mergePendingApprovals(
-        // A card that arrived in the stream is dropped once the transcript shows its action settled.
-        streamedPendingApprovals.filter((approval) => !settledActionIds(messages).has(approval.actionId)),
-        pendingApprovalsFromMessages(messages),
-      ),
-    [messages, streamedPendingApprovals],
+  useEffect(() => {
+    streamingRef.current = streaming;
+    refreshAfterSettleRef.current = () => {
+      void refreshActiveMessages().catch(() => addToast("error", t("aiPage.historyLoadFailed")));
+    };
+  }, [streaming, refreshActiveMessages, addToast, t]);
+
+  const pendingApprovals = useMemo(() => {
+    const settled = settledActionIds(messages);
+    return mergePendingApprovals(
+      // A card that arrived in the stream is dropped once the transcript shows its action settled.
+      streamedPendingApprovals.filter((approval) => !settled.has(approval.actionId)),
+      pendingApprovalsFromMessages(messages),
+      // A decision the server accepted: its card goes at once, not when the transcript is read again.
+    ).filter((approval) => !decidedActionIds.has(approval.actionId));
+  }, [messages, streamedPendingApprovals, decidedActionIds]);
+
+  /** Confirm / reject a card, then follow what it led to: a run (live output, then the answer continues) or a review. */
+  const handleApproval = useCallback(
+    async (approval: ToolApprovalNeeded, action: "confirm" | "reject", options?: ApprovalDecisionOptions) => {
+      const outcome = await decideApproval(approval, action, options);
+      if (!outcome || !outcome.conversationId) return;
+      if (outcome.kind === "executing") {
+        track({ actionId: outcome.actionId, conversationId: outcome.conversationId, mode: "run", commandRequestId: outcome.commandRequestId, autoContinue: true });
+      } else if (outcome.kind === "review") {
+        track({ actionId: outcome.actionId, conversationId: outcome.conversationId, mode: "review", commandRequestId: outcome.commandRequestId });
+      }
+    },
+    [decideApproval, track],
   );
 
   // FE/c3: composer draft is per-workspace UI state — reset when switching
@@ -298,8 +380,21 @@ export function AiClient({
     addToast,
   });
 
+  /* ── Working mode and pinned servers ───────────────────────── */
+  const automation = useAutomationMode({
+    activeConv,
+    caps: capabilities,
+    onConversationUpdated: upsertConversation,
+    addToast,
+  });
+  const pins = usePinnedServers({
+    activeConv,
+    onConversationUpdated: upsertConversation,
+    addToast,
+  });
+
   /* ── Send + new-conversation ───────────────────────────────── */
-  const { handleSend, handleNewConv } = useAiSendActions({
+  const { handleSend: sendDraft, handleNewConv } = useAiSendActions({
     activeConvId,
     streaming,
     input,
@@ -316,6 +411,22 @@ export function AiClient({
     openProviderPanel: () => setShowProviders(canManageProviders),
     addToast,
   });
+
+  const composerDirty = Boolean(input.trim() || imageUrls.length > 0 || fileAttachments.length > 0);
+  const continuation = useAiContinuation({
+    activeConvId,
+    messages,
+    tracked: tracker.tracked,
+    streaming,
+    composerDirty,
+    continueConversation,
+  });
+  const { resetAutoBudget } = continuation;
+  // A message from the user is a fresh start for auto-continue's budget.
+  const handleSend = useCallback(() => {
+    resetAutoBudget();
+    void sendDraft();
+  }, [resetAutoBudget, sendDraft]);
 
   /** Re-send the latest user turn (regenerate / retry after an error bubble).
    *  The server appends a fresh assistant reply; history stays intact. */
@@ -362,11 +473,34 @@ export function AiClient({
   // A ?q= deep link with no open conversation: create one so the draft has
   // somewhere to land (the conv-switch effect applies it after the clears).
   const draftKickRef = useRef(Boolean(initialDraft));
+  // A ?server=<id> deep link (the servers page's "Ask AI"): a new conversation pinned to that server. A ?c=
+  // link to an existing conversation wins over it.
+  const serverKickRef = useRef(initialActiveConvId ? null : initialPinnedServerId);
+  useEffect(() => {
+    if (!serverKickRef.current || providers.length === 0) return;
+    const serverId = serverKickRef.current;
+    serverKickRef.current = null;
+    // This conversation also takes the ?q= draft.
+    draftKickRef.current = false;
+    if (typeof window !== "undefined") {
+      const params = new URLSearchParams(window.location.search);
+      params.delete("server");
+      const nextQuery = params.toString();
+      replaceBrowserUrl(`${window.location.pathname}${nextQuery ? `?${nextQuery}` : ""}${window.location.hash}`);
+    }
+    void handleNewConv({ pinnedServerIds: [serverId] });
+  }, [providers.length, handleNewConv]);
   useEffect(() => {
     if (!draftKickRef.current || activeConvId || providers.length === 0) return;
     draftKickRef.current = false;
     void handleNewConv();
   }, [activeConvId, providers.length, handleNewConv]);
+  const rejectionShownRef = useRef(false);
+  useEffect(() => {
+    if (!pinnedServerRejected || rejectionShownRef.current) return;
+    rejectionShownRef.current = true;
+    addToast("info", t("aiPage.pins.linkedUnavailable"));
+  }, [pinnedServerRejected, addToast, t]);
 
   /* ── Per-conversation settings PATCH ───────────────────────── */
   const {
@@ -382,7 +516,6 @@ export function AiClient({
     onSaved: () => setShowSettings(false),
     addToast,
   });
-  const composerDirty = Boolean(input.trim() || imageUrls.length > 0 || fileAttachments.length > 0);
   const {
     requestAction: requestSettingsAction,
     requestDiscard: requestCloseSettings,
@@ -407,6 +540,29 @@ export function AiClient({
     });
   };
 
+  const canPin = capabilities.canReadServers && servers.length > 0;
+  const composerToolbar = activeConv ? (
+    <>
+      {canPin || pins.pinnedIds.length > 0 ? (
+        <AiPinnedServers
+          servers={servers}
+          pinnedIds={pins.pinnedIds}
+          canEdit={canPin}
+          saving={pins.saving}
+          onChange={(ids) => void pins.setPinned(ids)}
+        />
+      ) : null}
+      <AiModeSwitcher
+        capabilities={capabilities}
+        requested={automation.requested}
+        effective={automation.effective}
+        hostingEnabled={automation.hostingEnabled}
+        busy={automation.busy}
+        onRequestMode={automation.requestMode}
+      />
+    </>
+  ) : null;
+
   return (
     <div
       data-ai-workspace
@@ -425,6 +581,18 @@ export function AiClient({
           onConfirm={confirm.run}
         />
       )}
+      {automation.fullAutoDialogOpen && activeConv ? (
+        <AiFullAutoDialog
+          open
+          busy={automation.busy}
+          maxTtlMinutes={capabilities.maxFullAutoTtlMinutes}
+          defaultTtlMinutes={automation.defaultTtlMinutes}
+          allowCritical={capabilities.fullAutoAllowCritical}
+          pinnedServerCount={pins.pinnedIds.length}
+          onCancel={automation.closeFullAutoDialog}
+          onConfirm={(ttl) => void automation.confirmFullAuto(ttl)}
+        />
+      ) : null}
       <AiRenameDialog
         open={rename.open}
         title={rename.title}
@@ -499,6 +667,7 @@ export function AiClient({
               onClearMessages={() => confirm.open({ type: "clear-messages" })}
               onRenameConv={() => rename.openWith(activeConv.title)}
               onExportConv={handleExportConversation}
+              automation={automation}
             />
             <AiSettingsPanelLazy
               show={showSettings}
@@ -515,6 +684,9 @@ export function AiClient({
               onRefreshModels={() =>
                 activeConv?.providerId && fetchModels(activeConv.providerId)
               }
+              capabilities={capabilities}
+              onRequestMode={automation.requestMode}
+              modeBusy={automation.busy}
             />
             <AiMessageList
               messages={messages}
@@ -524,7 +696,7 @@ export function AiClient({
               streamSteps={streamSteps}
               pendingApprovals={pendingApprovals}
               approvalBusyById={approvalBusyById}
-              onApproval={decideApproval}
+              onApproval={(approval, action, options) => void handleApproval(approval, action, options)}
               currentModelCaps={attachmentCapabilities(currentModelCaps, activeConv.provider?.type, activeConv.enableVision)}
               messagesEndRef={messagesEndRef}
               onDrop={handleDrop}
@@ -533,6 +705,11 @@ export function AiClient({
               onRetry={retryFailedMessage}
               loadError={messagesError ? getErrorMessage(messagesError, t("aiPage.historyLoadFailed")) : null}
               onRetryLoad={retryMessages}
+              capabilities={capabilities}
+              trackedActions={tracker.tracked}
+              onCancelAction={(actionId) => void tracker.cancel(actionId)}
+              continuation={continuation}
+              highlightActionId={highlightActionId}
             />
             <AiAttachmentsPreview
               enableVision={activeConv.enableVision}
@@ -565,6 +742,8 @@ export function AiClient({
               }}
               handleSend={handleSend}
               handleStopGeneration={stopGeneration}
+              toolbar={composerToolbar}
+              onCycleMode={automation.cycleMode}
             />
           </>
         ) : (
@@ -572,7 +751,7 @@ export function AiClient({
             hasProviders={providers.length > 0}
             sidebarShown={showSidebar}
             onOpenProviders={canManageProviders ? () => setShowProviders(true) : undefined}
-            onNewConv={handleNewConv}
+            onNewConv={() => void handleNewConv()}
             onOpenSidebar={() => setShowSidebar(true)}
             onExample={(prompt) => {
               // Start a conversation (when none is open) and drop the prompt

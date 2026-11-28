@@ -1,5 +1,7 @@
 "use client";
 
+import { EditorSnippetPicker } from "@/components/snippet-picker";
+
 import { useState, useCallback, useEffect, useMemo, useRef } from "react";
 import { EmptyState, PageHeader, Toolbar, SurfacePanel } from "@/components/page-shell";
 import { csrfFetch } from "@/lib/auth/csrf-client";
@@ -382,6 +384,7 @@ function TaskForm({ task, servers, templates, canApprove, canReadServers = false
 	const [templateId, setTemplateId] = useState(task?.templateId ?? "");
 	const [variables, setVariables] = useState<Record<string, string>>({});
 	const [command, setCommand] = useState(task?.command ?? "");
+	const commandEditor = useRef<HTMLTextAreaElement>(null);
 	const [reason, setReason] = useState(task?.reason ?? "");
 	const [plan, setPlan] = useState(task?.plan ?? "");
 	const [verificationCommand, setVerificationCommand] = useState(task?.verificationCommand ?? "");
@@ -565,15 +568,17 @@ function TaskForm({ task, servers, templates, canApprove, canReadServers = false
 				<label htmlFor="scheduled-task-command" className={fieldLabelClass}>{t("scheduledTasksPage.command")}</label>
 				<textarea
 					id="scheduled-task-command"
+					ref={commandEditor}
 					value={selectedTemplate ? renderedCommand : command}
 					onChange={(e) => { if (!selectedTemplate) setCommand(e.target.value); }}
-					readOnly={Boolean(selectedTemplate) || whatRunsLocked}
+					readOnly={Boolean(templateId) || whatRunsLocked}
 					required
 					rows={3}
 					placeholder="df -h"
 					className={`${monoFieldInputClass} resize-y`}
 				/>
 				{whatRunsLocked && <p className="text-xs text-[var(--text-muted)]">{t("scheduledTasks.unattendedLocked")}</p>}
+				{!templateId && !whatRunsLocked && <EditorSnippetPicker mode="immediate" editor={commandEditor} onChange={value => { setCommand(value); setDirty(true); }} />}
 			</div>
 			<div className="grid gap-3 md:grid-cols-3">
 				<div className="space-y-1.5">

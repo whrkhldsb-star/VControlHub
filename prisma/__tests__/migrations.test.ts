@@ -36,4 +36,17 @@ describe("Prisma migrations", () => {
     const warnings = largeIndexWarnings(sql, "20261127030000_r15_revoked_sessions_and_indexes");
     expect(warnings.map((w) => w.table)).toEqual(["audit_logs", "notifications"]);
   });
+
+  it("auto-approves the R19 AI modes and command policy migration", async () => {
+    const sql = await readFile(
+      path.resolve(__dirname, "../migrations/20261127220000_r19_ai_modes_command_policy/migration.sql"),
+      "utf8",
+    );
+    expect(isAutomaticMigration(sql)).toBe(true);
+    expect(sql).toContain('CREATE TYPE "CommandOrigin"');
+    expect(sql).toContain('ALTER TYPE "AiAutomationMode" ADD VALUE IF NOT EXISTS');
+    expect(sql).toContain('CREATE INDEX IF NOT EXISTS "ai_hosted_actions_commandRequestId_idx"');
+    expect(sql).not.toContain("CREATE UNIQUE INDEX");
+    expect(sql).not.toContain("REFERENCES");
+  });
 });

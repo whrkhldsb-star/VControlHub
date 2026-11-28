@@ -327,6 +327,15 @@ export const RUNTIME_SETTING_DEFINITIONS = {
     unit: "items",
     applies: "Takes effect for the next question",
   },
+  "ai.inlineWaitSeconds": {
+    env: "AI_INLINE_WAIT_SECONDS",
+    defaultValue: 90,
+    min: 5,
+    max: 600,
+    label: "AI inline execution wait timeout",
+    unit: "seconds",
+    applies: "Takes effect for the next AI auto-executed command",
+  },
 } as const;
 
 import type { RuntimeSettingSummaryDto } from "./dto";
@@ -654,4 +663,8 @@ export async function getAiProviderListLimit(): Promise<number> {
 
 export async function getAiConversationListLimit(): Promise<number> {
   return getRuntimeSettingNumber("runtime.aiConversationListLimit");
+}
+
+export async function getAiInlineWaitSeconds(): Promise<number> {
+  return getRuntimeSettingNumber("ai.inlineWaitSeconds");
 }

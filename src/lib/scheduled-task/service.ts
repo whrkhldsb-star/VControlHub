@@ -245,6 +245,13 @@ async function assertScheduledTaskEditAllowed(
 	if (input.approvalRequired === false && existing.approvalRequired && !sessionHasPermission(session, "command:approve")) {
 		throw new ForbiddenError(t("backend.scheduled-task.disableApprovalRequiresApprover"));
 	}
+	if (input.approvalRequired === false) {
+		const { getApprovalPolicySettings } = await import("@/lib/command/approval-policy-settings");
+		const policies = await getApprovalPolicySettings({ fresh: true });
+		if (policies.commandApprovalPolicy === "always") {
+			throw new ForbiddenError(t("backend.scheduled-task.disableApprovalRequiresApprover"));
+		}
+	}
 	// Resuming, pausing or rescheduling an unattended task decides when it runs unreviewed: the toggle and delete
 	// paths already require command:execute for that (A6-09), and this path must not be the way around them.
 	const changesSchedule = changesScheduleDefinition(existing, input) || (input.status !== undefined && input.status !== existing.status);

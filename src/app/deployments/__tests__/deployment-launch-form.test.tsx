@@ -20,6 +20,11 @@ const templates = [
 ];
 
 describe("DeploymentLaunchForm", () => {
+	it.each([true, false])("offers one-off dispatch in the zero-template state only with permission (%s)", canCreateCommand => {
+		render(<DeploymentLaunchForm templates={[]} canCreateCommand={canCreateCommand} />, { locale: "en" });
+		const link = screen.queryByRole("link", { name: "Run a one-off command" });
+		if (canCreateCommand) expect(link).toHaveAttribute("href", "/commands"); else expect(link).toBeNull();
+	});
 	it("renders variable inputs for the selected deployment template", async () => {
 		loadTargets.mockResolvedValue({ rows: servers, total: 1, enabledCount: 1, page: 1, pageSize: 24 });
 		render(<DeploymentLaunchForm templates={templates} />);

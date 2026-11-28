@@ -221,11 +221,21 @@ describe("Runtime schema", () => {
 });
 
 describe("Schema declaration order", () => {
+	it("exposes effective approval defaults and locks the platform-only AI controls", () => {
+		const policy = SETTINGS_SCHEMA.find(s => s.id === "commandApproval")!;
+		expect(Object.fromEntries(policy.fields.map(f => [f.key, f.defaultValue]))).toEqual({
+			"command.approvalPolicy": "never", "ai.commandApprovalPolicy": "high_risk", "deploy.approvalPolicy": "always",
+			"command.selfReview": "platform_admins", "ai.maxAutomationMode": "full_auto", "ai.fullAutoAllowCritical": "false",
+		});
+		expect(policy.fields.filter(f => f.disabled?.({})).map(f => f.key)).toEqual(["ai.maxAutomationMode", "ai.fullAutoAllowCritical"]);
+		const wait = SETTINGS_SCHEMA.find(s => s.id === "ai")!.fields.find(f => f.key === "ai.inlineWaitSeconds")!;
+		expect(wait.defaultValue).toBe("90"); expect(wait.validate?.("601", {})).not.toBeNull();
+	});
 	it("matches the save-button order asserted by settings-client tests", () => {
 		const saveable = SETTINGS_SCHEMA.filter((s) => !s.custom);
 		expect(saveable.map((s) => s.id)).toEqual([
 			"platform", "password", "runtime", "smtp", "telegram", "dashboard", "offsite", "aiOps",
-			"securityPolicy", "jobs", "alerts", "storage", "monitoring", "retention", "ai",
+			"securityPolicy", "jobs", "alerts", "storage", "monitoring", "retention", "ai", "commandApproval",
 		]);
 	});
 });

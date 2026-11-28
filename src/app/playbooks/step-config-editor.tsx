@@ -1,6 +1,7 @@
 "use client";
 
-import { useEffect, useId, useState } from "react";
+import { useEffect, useId, useRef, useState } from "react";
+import { EditorSnippetPicker } from "@/components/snippet-picker";
 import { csrfFetch } from "@/lib/auth/csrf-client";
 import { useI18n } from "@/lib/i18n/use-locale";
 import { fieldInputClass, monoFieldInputClass } from "./playbook-types";
@@ -17,6 +18,7 @@ export function StepConfigEditor({
 }) {
 	const { t } = useI18n();
 	const fieldId = useId();
+	const editor = useRef<HTMLTextAreaElement>(null);
 	const cfg = step.config;
 	// Recipients are picked from the directory instead of typed as raw user ids
 	// (A6-10). A directory the viewer may not read leaves the plain input.
@@ -65,6 +67,7 @@ export function StepConfigEditor({
 					</label>
 					<textarea
 						id={`${fieldId}-command`}
+						ref={editor}
 						value={String(cfg.command ?? "")}
 						onChange={(e) => onConfigChange({ command: e.target.value })}
 						rows={2}
@@ -72,6 +75,7 @@ export function StepConfigEditor({
 						className={`${monoFieldInputClass} resize-y`}
 						required
 					/>
+					<EditorSnippetPicker mode="template" editor={editor} onChange={command => onConfigChange({ command })} />
 				</div>
 				<div className="space-y-1.5">
 					<div className="flex items-center justify-between gap-2">

@@ -5,6 +5,7 @@
  * 危险操作需要审批
  */
 
+import type { AiAutomationMode } from "@prisma/client";
 import { APP_TIME_ZONE } from "@/lib/datetime/time-zone";
 
 // ── 工具类型定义 ──────────────────────────────────────────────
@@ -383,12 +384,12 @@ export function getToolByName(name: string): HostedTool | undefined {
 
 // ── OpenAI Function Calling 格式 ──────────────────────────
 
-/** Plan-only conversations may inspect and schedule, never change anything themselves. */
-export function toolAvailableInMode(tool: HostedTool, mode: "ASSISTED" | "PLAN_ONLY" = "ASSISTED"): boolean {
-  return mode === "ASSISTED" || tool.autoApproved || tool.actionType === "create_automation_task";
+/** Plan-only conversations may inspect and propose automations, never mutate directly. */
+export function toolAvailableInMode(tool: HostedTool, mode: AiAutomationMode = "ASSISTED"): boolean {
+  return mode !== "PLAN_ONLY" || tool.autoApproved || tool.actionType === "create_automation_task";
 }
 
-function toolsForMode(mode: "ASSISTED" | "PLAN_ONLY" = "ASSISTED") {
+function toolsForMode(mode: AiAutomationMode = "ASSISTED") {
   return HOSTED_TOOLS.filter((tool) => toolAvailableInMode(tool, mode));
 }
 
@@ -398,7 +399,7 @@ export function hostedToolActionType(name: string): HostedActionType | null {
 }
 
 export function getOpenAIToolsFormat(
-  mode: "ASSISTED" | "PLAN_ONLY" = "ASSISTED",
+  mode: AiAutomationMode = "ASSISTED",
   allow?: (tool: HostedTool) => boolean,
 ): Array<{
   type: "function";

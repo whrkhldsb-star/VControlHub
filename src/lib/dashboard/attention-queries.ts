@@ -8,6 +8,8 @@ import { resolveTaskDrive } from "@/lib/downloads/destination";
 import { canAccessDownloadTask } from "@/lib/downloads/route-helpers";
 import { syncVisibility, visibleSyncPaths } from "@/lib/sync/service-crud";
 import { maySelfReviewCommands } from "@/lib/command/review-scope";
+import { inferCommandOrigin } from "@/lib/command/approval-policy";
+import { getApprovalPolicySettings } from "@/lib/command/approval-policy-settings";
 import { FAILED_TASK_WINDOW_MS } from "./attention";
 
 export async function openIncidentSummary(session: TeamSession) {
@@ -96,8 +98,9 @@ export async function failedTaskSummary(session: TeamSession, now: Date) {
 
 export async function dashboardCommands(session: TeamSession) {
 	const scope = commandRequestTeamWhere(session);
+	const policies = await getApprovalPolicySettings();
 	const pending = { ...scope, status: "PENDING_APPROVAL" as const };
-	const review: Prisma.CommandRequestWhereInput = maySelfReviewCommands(session) ? pending : {
+	const review: Prisma.CommandRequestWhereInput = maySelfReviewCommands(session, policies.commandSelfReview) ? pending : {
 		AND: [
 			pending,
 			{ requesterId: { not: session.userId } },
@@ -114,11 +117,18 @@ export async function dashboardCommands(session: TeamSession) {
 		const latest = await tx.commandRequest.findFirst({ where: review, orderBy, select: { title: true } });
 		const rows = await tx.commandRequest.findMany({ where: scope, orderBy, take: 5,
 			select: { id: true, title: true, command: true, status: true, requesterId: true, teamId: true,
-				initiatedByType: true, requester: { select: { id: true, username: true, displayName: true } } } });
-		const requests = await Promise.all(rows.map(async row => ({ ...row, isAssistantInitiated: row.initiatedByType === "ASSISTANT",
-			targetCount: canReadServers ? await tx.commandTarget.count({ where: {
-				commandRequestId: row.id, server: { AND: [serverTeamWhere(session), { teamId: row.teamId }] },
-			} }) : 0 })));
+				initiatedByType: true, origin: true, idempotencyKey: true, requester: { select: { id: true, username: true, displayName: true } } } });
+		const requests = await Promise.all(rows.map(async row => {
+			const origin = inferCommandOrigin(row);
+			return {
+				...row,
+				origin,
+				isAssistantInitiated: origin === "AI_CHAT" || origin === "AI_AUTOMATION",
+				targetCount: canReadServers ? await tx.commandTarget.count({ where: {
+					commandRequestId: row.id, server: { AND: [serverTeamWhere(session), { teamId: row.teamId }] },
+				} }) : 0,
+			};
+		}));
 		return { requests, pendingApprovals, review: { count: reviewCount, latest: latest?.title ?? null } };
 	}, { isolationLevel: "RepeatableRead" });
 }

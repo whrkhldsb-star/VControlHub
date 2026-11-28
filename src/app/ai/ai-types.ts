@@ -1,5 +1,9 @@
 /* ── AI Chat Types ──────────────────────────────────────────── */
 
+import type { AutomationMode } from "./ai-automation-mode";
+
+export type { AutomationMode } from "./ai-automation-mode";
+
 export interface Provider {
   id: string;
   name: string;
@@ -28,7 +32,11 @@ export interface ConvItem {
  presencePenalty: number;
  enableVision: boolean;
  hostingEnabled: boolean;
- automationMode?: "ASSISTED" | "PLAN_ONLY";
+ automationMode?: AutomationMode;
+ /** When a Full auto window ends (ISO); null outside Full auto. */
+ automationModeExpiresAt?: string | null;
+ /** Servers the assistant should act on first; Auto and Full auto run only on these when any are pinned. */
+ pinnedServerIds?: string[];
  createdBy: string;
  createdAt: string;
  updatedAt: string;
@@ -192,7 +200,7 @@ export const DEFAULT_SETTINGS_FORM = {
  presencePenalty: 0.0,
  enableVision: false,
  hostingEnabled: false,
- automationMode: "ASSISTED" as "ASSISTED" | "PLAN_ONLY",
+ automationMode: "ASSISTED" as AutomationMode,
 };
 
 /* ── AI 托管操作类型 ───────────────────────────────────────── */
@@ -208,6 +216,14 @@ export interface HostedAction {
  params: string;
  status: "PENDING_APPROVAL" | "APPROVED" | "REJECTED" | "EXECUTING" | "COMPLETED" | "FAILED" | "CANCELLED";
  riskLevel: string;
+ /** Risk after re-classifying the final command (absent on cards older than R19). */
+ effectiveRisk?: string | null;
+ /** Classifier reason codes, e.g. "critical.destructive_rm_root". */
+ riskReasons?: unknown;
+ /** How the linked command was let through: REQUESTER_CONFIRMED, SELF_REVIEW, AI_MODE_AUTO… */
+ decisionSource?: string | null;
+ modeAtDecision?: string | null;
+ commandRequestId?: string | null;
  autoApproved: boolean;
  result: string | null;
  errorMessage: string | null;
@@ -216,6 +232,52 @@ export interface HostedAction {
  executedAt: string | null;
  completedAt: string | null;
  server: { id: string; name: string; host: string } | null;
+}
+
+export type HostedActionStatus = HostedAction["status"];
+
+/** One target of the command behind a hosted action, as GET /api/ai/hosted-actions/[id] reports it (output masked). */
+export interface HostedActionLiveTarget {
+ id: string;
+ serverId: string;
+ serverName: string | null;
+ status: string;
+ exitCode: number | null;
+ outcomeUnknown: boolean;
+ stdout: string | null;
+ stderr: string | null;
+ finishedAt: string | null;
+}
+
+/** GET /api/ai/hosted-actions/[id]: the action, and the command it became (null before it is created). */
+export interface HostedActionLive {
+ action: {
+  id: string;
+  status: HostedActionStatus;
+  actionType?: string;
+  actionName?: string;
+  errorMessage?: string | null;
+  commandRequestId?: string | null;
+  effectiveRisk?: string | null;
+  decisionSource?: string | null;
+  server?: { id: string; name: string; host: string } | null;
+ };
+ command: {
+  id: string;
+  status: string;
+  command: string;
+  origin: string | null;
+  riskLevel: string | null;
+  decisionSource: string | null;
+  targets: HostedActionLiveTarget[];
+ } | null;
+}
+
+/** A server the pinned-server picker offers (scoped to the account, `server:read` only). */
+export interface AiServerOption {
+ id: string;
+ name: string;
+ host: string;
 }
 
 export interface ToolCallEvent {
@@ -239,6 +301,21 @@ export interface StreamStep {
  name: string | null;
  state: "running" | "awaiting" | "succeeded" | "failed";
  riskLevel?: string;
+ /** The hosted action behind the call, once the server names it. */
+ actionId?: string;
+ /** Run by Auto / Full auto without a confirmation card (a `tool_execution` frame). */
+ auto?: boolean;
+ /** Where an automatically run command is: `timeout` means the server stopped waiting, the command did not; `awaiting_review` means policy routed it for approval instead of running immediately. */
+ phase?: "running" | "completed" | "failed" | "timeout" | "awaiting_review";
+ decisionSource?: string;
+ commandRequestId?: string;
+ exitCode?: number | null;
+ /** How many entries a list-shaped result held. */
+ resultCount?: number;
+ /** What went wrong, when the result says. */
+ error?: string;
+ /** The (server-masked) output or data the call returned, shortened for the timeline. */
+ output?: string;
 }
 
 export interface ToolApprovalNeeded {
@@ -250,4 +327,11 @@ export interface ToolApprovalNeeded {
  params: Record<string, unknown>;
  /** The server the action is bound to, by name: the card showed only its internal id. */
  server?: { name: string; host: string } | null;
+ /** Risk after classifying the proposed command (the stream sends it as `effectiveRisk`). */
+ effectiveRisk?: string;
+ riskReasons?: string[];
+ /** Matches the catastrophic-command denylist: confirming needs an explicit acknowledgement. */
+ denylisted?: boolean;
+ /** The stream's answer to "does confirming run it now?"; absent on cards restored from history. */
+ willExecuteInline?: boolean;
 }

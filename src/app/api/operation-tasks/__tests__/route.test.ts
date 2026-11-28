@@ -94,6 +94,19 @@ describe("/api/operation-tasks", () => {
     expect(body).toContain('"stderr: a,b\nquoted ""value"""');
   });
 
+  it("forwards search query q and awaitingApproval filters on CSV exports", async () => {
+    const response = await route.GET(
+      new Request("http://local/api/operation-tasks?status=pending&awaitingApproval=1&q=nginx&format=csv"),
+    );
+
+    expect(response.status).toBe(200);
+    expect(response.headers.get("content-type")).toContain("text/csv");
+    expect(mocks.listOperationTaskResult).toHaveBeenCalledWith(
+      { limit: undefined, status: "pending", taskType: undefined, sort: undefined, q: "nginx", awaitingApproval: true },
+      { userId: "u1", roles: ["viewer"], currentTeamId: "team-1" },
+    );
+  });
+
   it("returns shared API permission failures without calling the service", async () => {
     mocks.requireApiPermission.mockResolvedValueOnce(
       Response.json({ error: "缺少权限" }, { status: 403 }),

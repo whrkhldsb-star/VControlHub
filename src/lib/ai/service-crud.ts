@@ -6,6 +6,7 @@
  * `./service-runtime`; DTO serializers in `./service-serialize`; this
  * module owns the prisma CRUD paths plus the input types.
  */
+import type { AiAutomationMode } from "@prisma/client";
 import { withHostedServerSnapshot } from "./hosted-snapshot";
 import { isUniqueViolation, prisma } from "@/lib/db";
 import { encrypt, decrypt, isEncrypted } from "@/lib/crypto/service";
@@ -13,7 +14,15 @@ import { BusinessError, ConflictError, ForbiddenError, NotFoundError, Validation
 import { t } from "@/lib/i18n/service-translations";
 import { currentCopyLocale } from "@/lib/i18n/api-copy";
 import { localizeSchemaMessage } from "@/lib/i18n/schema-copy";
-import { seesAllCustomers, type TeamSession } from "@/lib/auth/team-scope";
+import { seesAllCustomers, serverTeamWhere, type TeamSession } from "@/lib/auth/team-scope";
+import { verifiedBearerTokenId } from "@/lib/auth/bearer-token";
+import { getApprovalPolicySettings } from "@/lib/command/approval-policy-settings";
+import {
+	DEFAULT_FULL_AUTO_TTL_MINUTES,
+	MAX_FULL_AUTO_TTL_MINUTES,
+	MODE_RANK,
+	resolveEffectiveAutomationMode,
+} from "./execution-mode";
 import { lockForTransaction } from "@/lib/concurrency/advisory-lock";
 import { getAiConversationListLimit, getAiProviderListLimit } from "@/lib/runtime-settings/service";
 import { normalizePublicHttpUrl } from "@/lib/storage/direct-access-url";
@@ -97,7 +106,9 @@ export interface CreateConversationInput {
 	presencePenalty?: number;
 	enableVision?: boolean;
 	hostingEnabled?: boolean;
-	automationMode?: "ASSISTED" | "PLAN_ONLY";
+	automationMode?: AiAutomationMode;
+	automationModeTtlMinutes?: number;
+	pinnedServerIds?: string[];
 }
 
 export interface UpdateConversationInput {
@@ -111,7 +122,9 @@ export interface UpdateConversationInput {
 	presencePenalty?: number;
 	enableVision?: boolean;
 	hostingEnabled?: boolean;
-	automationMode?: "ASSISTED" | "PLAN_ONLY";
+	automationMode?: AiAutomationMode;
+	automationModeTtlMinutes?: number;
+	pinnedServerIds?: string[];
 }
 
 /* ── Provider CRUD ───────────────────────────────────────────── */
@@ -335,6 +348,47 @@ function conversationOwnerWhere(session: TeamSession) {
 	return { createdBy: session.userId, teamId: session.currentTeamId ?? null };
 }
 
+async function validatePinnedServerIds(rawIds: string[] | undefined, session: TeamSession): Promise<string[] | undefined> {
+	if (rawIds === undefined) return undefined;
+	const uniqueIds = Array.from(new Set(rawIds.map((id) => id.trim()).filter(Boolean)));
+	if (uniqueIds.length === 0) return [];
+	const visible = await prisma.server.findMany({
+		where: { id: { in: uniqueIds }, enabled: true, AND: [serverTeamWhere(session, "connect")] },
+		select: { id: true },
+	});
+	if (visible.length !== uniqueIds.length) {
+		throw new ValidationError(t("backend.command.targetsOutOfScope"));
+	}
+	return uniqueIds;
+}
+
+async function assertRequestedAutomationModeAllowed(
+	mode: AiAutomationMode,
+	session: TeamSession,
+	ttlMinutes?: number,
+): Promise<{ mode: AiAutomationMode; expiresAt: Date | null }> {
+	if (mode === "PLAN_ONLY" || mode === "ASSISTED") {
+		return { mode, expiresAt: null };
+	}
+	const viaToken = Boolean(verifiedBearerTokenId(session));
+	const policies = await getApprovalPolicySettings({ fresh: true });
+	const resolved = resolveEffectiveAutomationMode({
+		requestedMode: mode,
+		policies,
+		session,
+		viaToken,
+	});
+	if (MODE_RANK[resolved.effectiveMode] < MODE_RANK[mode]) {
+		const permission = mode === "FULL_AUTO" ? "ai:action:full-auto" : "ai:action:auto";
+		throw new ForbiddenError(t("backend.ai.permissionDenied.required", { permission }));
+	}
+	if (mode === "FULL_AUTO") {
+		const clampedMinutes = Math.max(5, Math.min(ttlMinutes ?? DEFAULT_FULL_AUTO_TTL_MINUTES, MAX_FULL_AUTO_TTL_MINUTES));
+		return { mode, expiresAt: new Date(Date.now() + clampedMinutes * 60_000) };
+	}
+	return { mode, expiresAt: null };
+}
+
 export async function createConversation(input: CreateConversationInput, session: TeamSession) {
 	const owner = conversationOwnerWhere(session);
 	// Ownership gate: never allow binding another user's provider (IDOR + secret exposure).
@@ -342,6 +396,13 @@ export async function createConversation(input: CreateConversationInput, session
 		where: { id: input.providerId, createdBy: session.userId },
 	});
 	if (!provider) throw new NotFoundError(t("backend.ai.aiProviderNotFound"));
+
+	const modeResolution = await assertRequestedAutomationModeAllowed(
+		input.automationMode ?? "ASSISTED",
+		session,
+		input.automationModeTtlMinutes,
+	);
+	const pinnedServerIds = await validatePinnedServerIds(input.pinnedServerIds, session);
 
 	return prisma.aiConversation.create({
 		data: {
@@ -356,7 +417,9 @@ export async function createConversation(input: CreateConversationInput, session
 			presencePenalty: input.presencePenalty,
 			enableVision: input.enableVision ?? false,
 			hostingEnabled: input.hostingEnabled ?? false,
-			automationMode: input.automationMode ?? "ASSISTED",
+			automationMode: modeResolution.mode,
+			...(modeResolution.expiresAt !== null ? { automationModeExpiresAt: modeResolution.expiresAt } : {}),
+			...(pinnedServerIds !== undefined ? { pinnedServerIds } : {}),
 			...owner,
 		},
 		// Never include provider.apiKey ciphertext on conversation create responses.
@@ -407,6 +470,11 @@ export async function getConversationById(id: string, session: TeamSession, befo
 							params: true,
 							status: true,
 							riskLevel: true,
+							effectiveRisk: true,
+							riskReasons: true,
+							decisionSource: true,
+							modeAtDecision: true,
+							commandRequestId: true,
 							autoApproved: true,
 							result: true,
 							errorMessage: true,
@@ -436,7 +504,18 @@ export async function updateConversation(id: string, session: TeamSession, input
 	if (input.presencePenalty !== undefined) data.presencePenalty = input.presencePenalty;
 	if (input.enableVision !== undefined) data.enableVision = input.enableVision;
 	if (input.hostingEnabled !== undefined) data.hostingEnabled = input.hostingEnabled;
-	if (input.automationMode !== undefined) data.automationMode = input.automationMode;
+	if (input.automationMode !== undefined) {
+		const resolved = await assertRequestedAutomationModeAllowed(
+			input.automationMode,
+			session,
+			input.automationModeTtlMinutes,
+		);
+		data.automationMode = resolved.mode;
+		data.automationModeExpiresAt = resolved.expiresAt;
+	}
+	if (input.pinnedServerIds !== undefined) {
+		data.pinnedServerIds = await validatePinnedServerIds(input.pinnedServerIds, session);
+	}
 
 	const owner = conversationOwnerWhere(session);
 	return prisma.$transaction(async (tx) => {

@@ -15,8 +15,10 @@ vi.mock("@/lib/db", () => ({
 }));
 
 vi.mock("@/lib/auth/authorization", () => ({
-  sessionHasPermission: (session: { roles: string[] }, permission: string) =>
-    permission !== "command:approve" || session.roles.includes("admin"),
+  sessionHasPermission: (session: { roles: string[]; permissions?: string[] }, permission: string) =>
+    session.permissions
+      ? session.permissions.includes(permission)
+      : (permission !== "command:approve" || session.roles.includes("admin")),
 }));
 
 vi.mock("@/lib/command/service", () => ({ createCommandRequest: vi.fn() }));
@@ -275,5 +277,43 @@ describe("generic AI automation proposals", () => {
       variables: { public_key: "ssh-ed25519 AAAA ok\nrm -rf /" },
       approvalMode: "every_run",
     }, { userId: "u1", roles: ["operator"], currentTeamId: "team_1" })).rejects.toThrow(/public_key/);
+  });
+
+  it("blocks non-admin approvers from using approve_once on high-risk or denylisted commands under default policies (Carbon P0-1)", async () => {
+    const customerAdmin = {
+      userId: "cust_admin",
+      roles: [] as never[],
+      permissions: ["command:create", "command:execute", "command:approve", "server:ssh"] as never[],
+      currentTeamId: "team_1",
+    };
+
+    // High-risk command under default ai.commandApprovalPolicy="high_risk" + command.selfReview="platform_admins"
+    await expect(
+      materializeAutomationProposal({
+        name: "Restart nginx",
+        plan: "Restart nginx service.",
+        reason: "Apply config",
+        executionMode: "now",
+        targetScope: "selected",
+        serverIds: ["srv_1"],
+        command: "systemctl restart nginx",
+        approvalMode: "approve_once",
+      }, customerAdmin),
+    ).rejects.toMatchObject({ name: "ForbiddenError" });
+
+    // Low-risk command is still allowed for customer_admin with approve_once
+    serverFindMany.mockResolvedValueOnce([{ id: "srv_1", name: "A", host: "10.0.0.1", teamId: "team_1" }]);
+    await expect(
+      materializeAutomationProposal({
+        name: "Read uptime",
+        plan: "Check uptime.",
+        reason: "Health check",
+        executionMode: "now",
+        targetScope: "selected",
+        serverIds: ["srv_1"],
+        command: "uptime",
+        approvalMode: "approve_once",
+      }, customerAdmin),
+    ).resolves.toMatchObject({ command: "uptime", approvalRequired: false });
   });
 });

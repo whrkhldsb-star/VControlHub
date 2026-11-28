@@ -19,6 +19,7 @@ const { mockPrisma, infoMock, warnMock } = vi.hoisted(() => ({
     syncJob: { findMany: vi.fn(), deleteMany: vi.fn(), groupBy: vi.fn() },
     backupRecord: { findMany: vi.fn(), deleteMany: vi.fn(), groupBy: vi.fn() },
     deploymentRun: { findMany: vi.fn(), deleteMany: vi.fn(), groupBy: vi.fn() },
+    aiHostedAction: { findMany: vi.fn() },
   },
   infoMock: vi.fn(),
   warnMock: vi.fn(),
@@ -54,6 +55,7 @@ function setupEmptyMocks() {
   mockPrisma.backupRecord.deleteMany.mockResolvedValue({ count: 0 });
   mockPrisma.deploymentRun.findMany.mockResolvedValue([]);
   mockPrisma.deploymentRun.deleteMany.mockResolvedValue({ count: 0 });
+  mockPrisma.aiHostedAction.findMany.mockResolvedValue([]);
 }
 
 beforeEach(() => {
@@ -252,5 +254,27 @@ describe("pruneOperationTaskHistory — TR-006 跨来源保留策略", () => {
     expect(mockPrisma.commandRequest.findMany).toHaveBeenCalledTimes(202);
     expect(mockPrisma.$transaction).toHaveBeenCalledTimes(202);
     expect(mockPrisma.$transaction).toHaveBeenCalledWith(expect.any(Function), { isolationLevel: "RepeatableRead" });
+  });
+
+  it("cursor-paginates all unsettled hosted actions so >1000 active actions all stay protected (GLM P2-3)", async () => {
+    const firstBatch = Array.from({ length: 1000 }, (_, i) => ({
+      id: `act_${String(i).padStart(4, "0")}`,
+      commandRequestId: `cmd_keep_${i}`,
+    }));
+    const secondBatch = [{ id: "act_1000", commandRequestId: "cmd_keep_1000" }];
+    mockPrisma.aiHostedAction.findMany
+      .mockResolvedValueOnce(firstBatch)
+      .mockResolvedValueOnce(secondBatch);
+
+    await pruneOperationTaskHistory({ now: new Date("2026-06-15T00:00:00Z") });
+
+    expect(mockPrisma.aiHostedAction.findMany).toHaveBeenCalledTimes(2);
+    expect(mockPrisma.aiHostedAction.findMany.mock.calls[1]![0]).toMatchObject({
+      cursor: { id: "act_0999" },
+      skip: 1,
+    });
+    const deleteWhere = mockPrisma.commandRequest.deleteMany.mock.calls[0]![0].where as { id?: { notIn?: string[] } };
+    expect(deleteWhere.id?.notIn).toContain("cmd_keep_0");
+    expect(deleteWhere.id?.notIn).toContain("cmd_keep_1000");
   });
 });

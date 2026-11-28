@@ -2,7 +2,8 @@
 
 import { useTransition } from "react";
 import { useRouter } from "next/navigation";
-import { ActionButton } from "@/components/action-button";
+import { ActionButton, ButtonLink } from "@/components/action-button";
+import { aiServerHref, directCommandHref } from "@/lib/ui/deep-links";
 import { Search, X } from "@/components/icons";
 import { EmptyState, Toolbar } from "@/components/page-shell";
 import { Pagination } from "@/components/pagination";
@@ -12,7 +13,8 @@ import { useI18n } from "@/lib/i18n/use-locale";
 import { ServerOverviewCard } from "./server-overview-card";
 import type { InventoryQuery, ServerInventoryData } from "@/lib/server/inventory";
 
-export function ServerInventory({ inventory, canManageServers, canUseSshTerminal }: {
+export function ServerInventory({ inventory, canManageServers, canUseSshTerminal, canRun, canAskAi }: {
+  canRun?: boolean; canAskAi?: boolean;
   inventory: ServerInventoryData; canManageServers: boolean; canUseSshTerminal: boolean;
 }) {
   const { t } = useI18n();
@@ -63,7 +65,11 @@ export function ServerInventory({ inventory, canManageServers, canUseSshTerminal
       {filtered && servers.length > 0 && <IconButton disabled={pending} label={t("serversPage.inventory.clear")} onClick={clear}><X size={18} aria-hidden /></IconButton>}
     </Toolbar>}
     <section aria-label={t("serversPage.overview.aria")} className="grid gap-4 md:grid-cols-2 xl:grid-cols-3">
-      {servers.map((server) => <ServerOverviewCard key={server.id} server={server} canManageServers={canManageServers} canUseSshTerminal={canUseSshTerminal} />)}
+      {servers.map((server) => <div key={server.id} className="min-w-0 space-y-2">
+        <ServerOverviewCard server={server} canManageServers={canManageServers} canUseSshTerminal={canUseSshTerminal} />
+        <div className="flex flex-wrap gap-2">{canRun && <ButtonLink variant="secondary" size="sm" href={directCommandHref({ serverId: server.id })}>{t("commandsPage.title")}</ButtonLink>}
+          {canAskAi && <ButtonLink variant="outline" size="sm" href={aiServerHref(server.id)}>{t("serversPage.askAi")}</ButtonLink>}</div>
+      </div>)}
       {servers.length === 0 && <div className="col-span-full"><EmptyState title={filtered ? t("serversPage.inventory.noResults") : undefined} action={filtered && <ActionButton variant="secondary" onClick={clear}>{t("serversPage.inventory.clear")}</ActionButton>} text={filtered ? undefined : t(stats.total ? "serversPage.inventory.noResults" : canManageServers ? "serversPage.overview.empty" : "serversPage.readEmpty")} /></div>}
     </section>
     {stats.total > 0 && <Pagination page={query.page} pageSize={pageSize} totalItems={stats.matching} loading={pending} onPageChange={(page) => navigate({ page })} />}

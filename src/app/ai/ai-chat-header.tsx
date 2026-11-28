@@ -5,9 +5,50 @@ import { useRef, useState } from "react";
 import { useI18n } from "@/lib/i18n/use-locale";
 
 import type { ConvItem, ModelInfo, Provider, ModelCapabilities } from "./ai-types";
+import { formatCountdown } from "./ai-automation-mode";
+import type { AutomationModeController } from "./hooks/use-automation-mode";
 import { ActionButton } from "@/components/action-button";
-import { Download, Pencil, Settings, Trash2 } from "@/components/icons";
+import { Download, Pencil, Settings, Trash2, Zap } from "@/components/icons";
 import { useDismiss } from "@/components/ui/menu";
+
+/**
+ * While Full auto is on, its time left ticks in the header beside a one-click way back to Confirm; once it
+ * ended, the header says so (the composer's badge says what is in effect).
+ */
+function FullAutoStatus({ automation }: { automation: AutomationModeController }) {
+  const { t } = useI18n();
+  const { effective } = automation;
+  if (!automation.hostingEnabled || effective.requested !== "FULL_AUTO") return null;
+  if (effective.effective === "FULL_AUTO" && effective.remainingMs !== null) {
+    const time = formatCountdown(effective.remainingMs);
+    return (
+      <div data-full-auto-status="active" className="flex flex-wrap items-center gap-1.5">
+        <span
+          role="timer"
+          aria-label={t("aiPage.fullAuto.countdownAria", { time })}
+          className="inline-flex items-center gap-1 rounded-full border border-[var(--danger-border)] bg-[var(--danger-bg)] px-2 py-0.5 text-xs font-medium tabular-nums text-[var(--danger)]"
+        >
+          <Zap size={12} aria-hidden />
+          {t("aiPage.fullAuto.countdown", { time })}
+        </span>
+        <ActionButton size="xs" variant="secondary" loading={automation.busy} onClick={automation.dropToConfirm}>
+          {t("aiPage.fullAuto.drop")}
+        </ActionButton>
+      </div>
+    );
+  }
+  if (effective.reasons.includes("expired")) {
+    return (
+      <div data-full-auto-status="expired" className="flex flex-wrap items-center gap-1.5 text-xs text-[var(--warning)]">
+        <span>{t("aiPage.fullAuto.expired")}</span>
+        <ActionButton size="xs" variant="secondary" disabled={automation.busy} onClick={() => automation.requestMode("FULL_AUTO")}>
+          {t("aiPage.fullAuto.renew")}
+        </ActionButton>
+      </div>
+    );
+  }
+  return null;
+}
 
 interface ChatHeaderProps {
   activeConv: ConvItem;
@@ -23,6 +64,8 @@ interface ChatHeaderProps {
   onClearMessages: () => void;
   onRenameConv: () => void;
   onExportConv: () => void;
+  /** The conversation's working mode: shows the Full auto countdown and the way back to Confirm. */
+  automation?: AutomationModeController;
 }
 
 export function AiChatHeader({
@@ -37,6 +80,7 @@ export function AiChatHeader({
   onClearMessages,
   onRenameConv,
   onExportConv,
+  automation,
 }: ChatHeaderProps) {
   const { t } = useI18n();
   const [modelMenuOpen, setModelMenuOpen] = useState(false);
@@ -124,6 +168,7 @@ export function AiChatHeader({
         </p>
       </div>
       <div className="flex max-w-full flex-wrap items-center gap-2">
+        {automation ? <FullAutoStatus automation={automation} /> : null}
         <ActionButton type="button" variant="secondary"
           onClick={onToggleSettings}
           aria-label={t("aiPage.settings")}

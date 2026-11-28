@@ -99,8 +99,44 @@ async function pruneTenantSource(tx: Prisma.TransactionClient, source: Source, t
     const where = { teamId, status: { in: terminalStatuses.command } };
     const ids = await tx.commandRequest.findMany({ where, ...page });
     signal?.throwIfAborted();
+    // Guard unsettled AI hosted actions (FK-less link for automatic upgrades):
+    // keep any finished CommandRequest whose outcome has not yet been projected.
+    const unsettledHostedIds: string[] = [];
+    const hostedDelegate = (tx as unknown as {
+      aiHostedAction?: {
+        findMany?: (args: unknown) => Promise<Array<{ commandRequestId: string | null }>>;
+      };
+    }).aiHostedAction;
+    if (hostedDelegate?.findMany) {
+      const BATCH_SIZE = 1000;
+      let cursorId: string | undefined;
+      for (;;) {
+        signal?.throwIfAborted();
+        const unsettledActions = await hostedDelegate.findMany({
+          where: {
+            teamId,
+            commandRequestId: { not: null },
+            OR: [{ completedAt: null }, { status: { in: ["PENDING_APPROVAL", "APPROVED", "EXECUTING"] } }],
+          },
+          select: { id: true, commandRequestId: true },
+          orderBy: { id: "asc" },
+          ...(cursorId ? { cursor: { id: cursorId }, skip: 1 } : {}),
+          take: BATCH_SIZE,
+        });
+        for (const action of unsettledActions) {
+          if (action.commandRequestId) unsettledHostedIds.push(action.commandRequestId);
+        }
+        if (unsettledActions.length < BATCH_SIZE) break;
+        const last = unsettledActions.at(-1) as { id?: string } | undefined;
+        if (!last?.id) break;
+        cursorId = last.id;
+      }
+    }
+    const protectedIds = [...new Set([...ids.map((row) => row.id), ...unsettledHostedIds])];
     const result = await tx.commandRequest.deleteMany({ where: {
-      ...where, ...cutoff(ids),
+      ...where,
+      createdAt: { lt: olderThan },
+      ...(protectedIds.length > 0 && { id: { notIn: protectedIds } }),
       // A deployment or rollback learns its outcome from its command (on
       // its next listing). Deleted first, the command took that outcome
       // with it: the run stayed pending for good, then was settled as

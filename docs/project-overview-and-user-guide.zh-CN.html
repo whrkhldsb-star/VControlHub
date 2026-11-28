@@ -1,5 +1,5 @@
 <!DOCTYPE html>
-<html lang="zh-CN"><head><meta charset="utf-8"><meta name="viewport" content="width=device-width,initial-scale=1"><meta name="color-scheme" content="light"><meta name="description" content="VControlHub 项目全景、各模块功能与使用指南：24 章、58 个页面、设计架构、权限、后台任务和操作流程。"><title>VControlHub · 项目全景与使用指南</title><style>
+<html lang="zh-CN"><head><meta charset="utf-8"><meta name="viewport" content="width=device-width,initial-scale=1"><meta name="color-scheme" content="light"><meta name="description" content="VControlHub 项目全景、各模块功能与使用指南：24 章、59 个页面、设计架构、权限、后台任务和操作流程。"><title>VControlHub · 项目全景与使用指南</title><style>
 :root{--ink:#192b3e;--muted:#5c7083;--line:#dfe7ef;--brand:#146858;--tint:#edf6f2;--paper:#fff;--bg:#f3f6fa;--nav-width:296px}
 *{box-sizing:border-box}html{scroll-behavior:smooth;scroll-padding-top:88px}body{margin:0;background:var(--bg);color:var(--ink);font:16px/1.85 system-ui,-apple-system,BlinkMacSystemFont,"Segoe UI","Noto Sans CJK SC","Microsoft YaHei",sans-serif}a{color:#176494;text-decoration:none;overflow-wrap:anywhere}a:hover{text-decoration:underline}a:focus-visible,button:focus-visible,input:focus-visible,.table-scroll:focus-visible{outline:3px solid #1d856f;outline-offset:3px}button,input{font:inherit}button{cursor:pointer}
 .topbar{position:sticky;top:0;z-index:5;background:#153b37;color:white;display:flex;justify-content:space-between;align-items:center;gap:18px;padding:13px 28px;box-shadow:0 3px 16px #1b394c14}.brand{font-size:17px;letter-spacing:.3px;font-weight:750}.brand small{font-size:12px;font-weight:400;opacity:.75;margin-left:12px}.toolbar{display:flex;align-items:center;gap:18px;font-size:13px}.toolbar a{color:#e1f3ef}.toolbar button{border:1px solid #7daba2;background:transparent;color:white;padding:4px 12px;border-radius:6px}.search-tip{color:#bdd7d0;font-size:12px}
@@ -108,8 +108,8 @@ main{min-width:0;background:var(--paper);padding:42px 54px 64px;border:1px solid
 </tbody>
 </table></div>
 <h3 id="section-1-3">1.3 当前代码规模与口径</h3>
-<p>项目包含：58 个 <code>page.tsx</code> 页面文件、198 个 API 路由文件、85 个 Prisma 数据模型、52 个业务权限项、4 个内置身份模板、24 类后台 Worker，以及 42 个本地快捷服务模板。</p>
-<p>配置与调用入口包括 9 个模块中的 25 个 Server Action 运行时导出、70 个系统设置表单字段、9 个持久化个人偏好字段和 21 个 AI 托管工具；逐项对应关系见第 24 章。</p>
+<p>项目包含：59 个 <code>page.tsx</code> 页面文件、201 个 API 路由文件、85 个 Prisma 数据模型、54 个业务权限项、4 个内置身份模板、24 类后台 Worker，以及 42 个本地快捷服务模板。</p>
+<p>配置与调用入口包括 9 个模块中的 25 个 Server Action 运行时导出、77 个系统设置表单字段、9 个持久化个人偏好字段和 21 个 AI 托管工具；逐项对应关系见第 24 章。</p>
 <p>这里的“页面”包含详情页、登录页和兼容跳转入口；“API 路由文件”可能同时处理多个 HTTP 方法；“应用模板”表示存在安装定义，不代表所有第三方应用在所有硬件和网络环境中都已逐项验收。</p>
 <p>依据：<a href="../README.md">README</a>、<a href="route-catalog.json">页面与接口目录</a>、<a href="../prisma/schema.prisma">数据模型</a>、<a href="../src/lib/workers/registry.ts">Worker 注册表</a>。</p>
 <p><a id="functional-goals"></a></p>
@@ -3689,7 +3689,7 @@ npm run docs:check
 <h2 id="reference">24. 完整页面、权限、接口与源码索引</h2>
 <p>本章用于检查模块覆盖及快速定位实现；日常使用可按前面的功能章节阅读。</p>
 <!-- GENERATED_REFERENCE_START -->
-<h3 id="section-24-1">24.1 全部 58 个页面入口</h3>
+<h3 id="section-24-1">24.1 全部 59 个页面入口</h3>
 <p>动态段 <code>[id]</code>、<code>[token]</code> 需要真实对象标识；本表包含兼容跳转和公开页面。</p>
 <div class="table-scroll" tabindex="0"><table>
 <thead>
@@ -3759,6 +3759,11 @@ npm run docs:check
 <td><a href="../src/app/backups/page.tsx"><code>/backups</code></a></td>
 <td>备份与迁移</td>
 <td><a href="#backup">平台备份、计划、恢复、演练和异地状态</a></td>
+</tr>
+<tr>
+<td><a href="../src/app/commands/page.tsx"><code>/commands</code></a></td>
+<td>执行命令</td>
+<td><a href="#automation">单台／多台临时命令下发、实时风险与审批策略预览及片段插入</a></td>
 </tr>
 <tr>
 <td><a href="../src/app/cost-summary/page.tsx"><code>/cost-summary</code></a></td>
@@ -3992,7 +3997,7 @@ npm run docs:check
 </tr>
 </tbody>
 </table></div>
-<h3 id="section-24-2">24.2 全部 52 项权限与内置身份模板</h3>
+<h3 id="section-24-2">24.2 全部 54 项权限与内置身份模板</h3>
 <p>✓ 表示默认授予，— 表示未授予，“平台专属”表示任何身份模板都不能包含。平台管理员拥有全部权限；客户账号的权限只来自身份模板（另含查看所属客户与同事的基础权限），实际操作还需满足 Token scopes、逐台服务器收窄和存储路径授权，见第 17 章。</p>
 <div class="table-scroll" tabindex="0"><table>
 <thead>
@@ -4015,6 +4020,24 @@ npm run docs:check
 <td style="text-align:center">—</td>
 <td style="text-align:center">—</td>
 <td style="text-align:center">—</td>
+</tr>
+<tr>
+<td><code>ai:action:auto</code></td>
+<td>允许 AI 助手在自动执行模式下免逐次确认执行低／中风险命令</td>
+<td style="text-align:center">✓</td>
+<td style="text-align:center">✓</td>
+<td style="text-align:center">✓</td>
+<td style="text-align:center">—</td>
+<td style="text-align:center">—</td>
+</tr>
+<tr>
+<td><code>ai:action:full-auto</code></td>
+<td>允许 AI 助手进入限时全自动模式（仅平台管理员）</td>
+<td style="text-align:center">✓</td>
+<td style="text-align:center">平台专属</td>
+<td style="text-align:center">平台专属</td>
+<td style="text-align:center">平台专属</td>
+<td style="text-align:center">平台专属</td>
 </tr>
 <tr>
 <td><code>ai:chat</code></td>
@@ -4479,7 +4502,7 @@ npm run docs:check
 </table></div>
 <p>权限项是代码定义的授权词汇，不等于每项都有一个独立按钮。部分操作组合使用多个权限，部分平台级操作还明确检查内置 <code>admin</code> 身份。</p>
 <h3 id="section-24-3">24.3 全部 API 路由分组</h3>
-<p>按 <code>/api/</code> 下第一层路径分为 54 组，共 196 个 <code>route.ts</code> 文件。一个文件可提供多个方法，动态路径和协议入口也计入。完整路径、方法和声明权限可继续查看 <a href="route-catalog.json">route-catalog.json</a> 与运行实例中的 API 文档。</p>
+<p>按 <code>/api/</code> 下第一层路径分为 54 组，共 201 个 <code>route.ts</code> 文件。一个文件可提供多个方法，动态路径和协议入口也计入。完整路径、方法和声明权限可继续查看 <a href="route-catalog.json">route-catalog.json</a> 与运行实例中的 API 文档。</p>
 <div class="table-scroll" tabindex="0"><table>
 <thead>
 <tr>
@@ -4501,8 +4524,8 @@ npm run docs:check
 </tr>
 <tr>
 <td><a href="../src/app/api/ai/"><code>/api/ai</code></a></td>
-<td style="text-align:right">16</td>
-<td>提供商、模型、对话、托管动作、运维扫描与日志</td>
+<td style="text-align:right">17</td>
+<td>提供商、模型、对话、自动续写、托管动作实时状态、运维扫描与日志</td>
 </tr>
 <tr>
 <td><a href="../src/app/api/alert-incidents/"><code>/api/alert-incidents</code></a></td>
@@ -4556,8 +4579,8 @@ npm run docs:check
 </tr>
 <tr>
 <td><a href="../src/app/api/commands/"><code>/api/commands</code></a></td>
-<td style="text-align:right">2</td>
-<td>命令请求、审批及关联工单</td>
+<td style="text-align:right">4</td>
+<td>命令请求、风险预览、单条详情、审批及关联工单</td>
 </tr>
 <tr>
 <td><a href="../src/app/api/cost/"><code>/api/cost</code></a></td>
@@ -4761,7 +4784,7 @@ npm run docs:check
 </tr>
 <tr>
 <td><strong>合计</strong></td>
-<td style="text-align:right"><strong>195</strong></td>
+<td style="text-align:right"><strong>201</strong></td>
 <td><strong>所有 API 路由文件</strong></td>
 </tr>
 </tbody>
@@ -4795,7 +4818,7 @@ npm run docs:check
 <tr>
 <td>角色与权限</td>
 <td><a href="../src/lib/auth/rbac.ts">src/lib/auth/rbac.ts</a></td>
-<td>平台角色与 52 项权限</td>
+<td>平台角色与 54 项权限</td>
 </tr>
 <tr>
 <td>服务器业务</td>
@@ -4948,12 +4971,12 @@ npm run docs:check
 <tbody>
 <tr>
 <td>页面文件</td>
-<td style="text-align:right">58</td>
+<td style="text-align:right">59</td>
 <td>第 24.1 节及对应功能章节</td>
 </tr>
 <tr>
 <td>API 路由文件</td>
-<td style="text-align:right">196</td>
+<td style="text-align:right">201</td>
 <td>第 24.3 节分组及第 24.7 节逐项索引</td>
 </tr>
 <tr>
@@ -4963,7 +4986,7 @@ npm run docs:check
 </tr>
 <tr>
 <td>系统设置表单字段</td>
-<td style="text-align:right">70</td>
+<td style="text-align:right">77</td>
 <td>第 18.5 节</td>
 </tr>
 <tr>
@@ -4973,7 +4996,7 @@ npm run docs:check
 </tr>
 <tr>
 <td>内置身份模板／业务权限</td>
-<td style="text-align:right">4／52</td>
+<td style="text-align:right">4／54</td>
 <td>第 17 章及第 24.2 节</td>
 </tr>
 <tr>
@@ -5000,7 +5023,7 @@ npm run docs:check
 </table></div>
 <p>通知 <code>/ws</code>、SSH <code>/ssh</code>、RDP <code>/rdp</code>、自定义 WebDAV 方法、Agent 轮询、系统恢复归档及部署入口，分别在实时链路、文件接入、服务器管理、备份和运行维护章节说明。</p>
 <p>查阅某个功能时，先确认业务页面，再沿接口或 Server Action 定位服务实现；涉及耗时操作时继续查看 Worker 与任务模型。这里的入口数量不是业务成功率或第三方兼容性承诺，具体驱动和操作系统的能力对照见第 23 章。</p>
-<h3 id="section-24-7">24.7 全部 196 个 API 路由的功能索引</h3>
+<h3 id="section-24-7">24.7 全部 201 个 API 路由的功能索引</h3>
 <p>HTTP 方法列来自实际源码导出，包括转导出的下载及 OpenAPI 路由。方法声明用于定位接口；具体操作仍由输入、权限和处理器决定。WebDAV 的 PROPFIND、MKCOL、COPY、MOVE 等扩展方法经自定义 Web 入口派发，见第 7 章。</p>
 <div class="table-scroll" tabindex="0"><table>
 <thead>
@@ -5069,7 +5092,13 @@ npm run docs:check
 <tr>
 <td><a href="../src/app/api/ai/conversations/%5Bid%5D/route.ts"><code>/api/ai/conversations/[id]</code></a></td>
 <td>GET / PATCH / DELETE</td>
-<td>读取、重命名、修改设置、清空或删除对话</td>
+<td>读取、重命名、修改设置与执行模式、固定目标服务器、清空或删除对话</td>
+<td><a href="#ai">AI 助手、知识库与 AI 运维</a></td>
+</tr>
+<tr>
+<td><a href="../src/app/api/ai/conversations/%5Bid%5D/continue/route.ts"><code>/api/ai/conversations/[id]/continue</code></a></td>
+<td>POST</td>
+<td>在行内托管动作执行终态后无合成消息自动续写助手 SSE 回复</td>
 <td><a href="#ai">AI 助手、知识库与 AI 运维</a></td>
 </tr>
 <tr>
@@ -5080,8 +5109,8 @@ npm run docs:check
 </tr>
 <tr>
 <td><a href="../src/app/api/ai/hosted-actions/%5Bid%5D/route.ts"><code>/api/ai/hosted-actions/[id]</code></a></td>
-<td>PATCH</td>
-<td>确认、批准或拒绝托管动作</td>
+<td>GET / PATCH</td>
+<td>轮询单条托管动作与关联命令实时状态／脱敏输出，或确认、批准与拒绝动作</td>
 <td><a href="#ai">AI 助手、知识库与 AI 运维</a></td>
 </tr>
 <tr>
@@ -5325,10 +5354,22 @@ npm run docs:check
 <td><a href="#automation">审批、定时任务、Playbook 与任务中心</a></td>
 </tr>
 <tr>
+<td><a href="../src/app/api/commands/%5Bid%5D/route.ts"><code>/api/commands/[id]</code></a></td>
+<td>GET</td>
+<td>按查看者权限读取单条命令详情、正文可见性与脱敏输出</td>
+<td><a href="#automation">审批、定时任务、Playbook 与任务中心</a></td>
+</tr>
+<tr>
 <td><a href="../src/app/api/commands/%5Bid%5D/tickets/route.ts"><code>/api/commands/[id]/tickets</code></a></td>
 <td>GET</td>
 <td>从命令查看关联工单</td>
 <td><a href="#collaboration">工单、ITSM、通知、公告与代码片段</a></td>
+</tr>
+<tr>
+<td><a href="../src/app/api/commands/preview/route.ts"><code>/api/commands/preview</code></a></td>
+<td>POST</td>
+<td>无副作用实时评估命令风险等级、黑名单与平台审批策略决策</td>
+<td><a href="#automation">审批、定时任务、Playbook 与任务中心</a></td>
 </tr>
 <tr>
 <td><a href="../src/app/api/cost/billing-accounts/route.ts"><code>/api/cost/billing-accounts</code></a></td>

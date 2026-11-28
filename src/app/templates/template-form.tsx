@@ -1,6 +1,7 @@
 "use client";
 
-import { useId, useState } from "react";
+import { useId, useRef, useState } from "react";
+import { EditorSnippetPicker } from "@/components/snippet-picker";
 
 import { ActionButton } from "@/components/action-button";
 import { FormField, Notice } from "@/components/ui-primitives";
@@ -28,6 +29,7 @@ export function TemplateForm({
 	const { t } = useI18n();
 	const { addToast } = useToast();
 	const createFormId = useId();
+	const editor = useRef<HTMLTextAreaElement>(null);
 	const editing = template !== undefined;
 	const [name, setName] = useState(template?.name ?? "");
 	const [description, setDescription] = useState(template?.description ?? "");
@@ -120,6 +122,7 @@ export function TemplateForm({
 			>
 				<textarea
 					id={`${createFormId}-command`}
+					ref={editor}
 					value={command}
 					onChange={(e) => setCommand(e.target.value)}
 					required
@@ -128,6 +131,7 @@ export function TemplateForm({
 					className={cn(UI_INPUT, "resize-y font-mono")}
 				/>
 			</FormField>
+			<EditorSnippetPicker mode="template" editor={editor} disabled={submitting} onChange={value => { setCommand(value); setDirty(true); }} />
 			<FormField
 				label={t("templatesPage.create.rollbackLabel")}
 				htmlFor={`${createFormId}-rollback-command`}

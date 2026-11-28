@@ -78,6 +78,8 @@ beforeEach(() => {
     { id: "perm_ai:chat", key: "ai:chat" },
     { id: "perm_ai:manage", key: "ai:manage" },
     { id: "perm_ai:action:approve", key: "ai:action:approve" },
+    { id: "perm_ai:action:auto", key: "ai:action:auto" },
+    { id: "perm_ai:action:full-auto", key: "ai:action:full-auto" },
     { id: "perm_ai:ops:read", key: "ai:ops:read" },
     { id: "perm_ai:ops:manage", key: "ai:ops:manage" },
     { id: "perm_ai:ops:autonomous", key: "ai:ops:autonomous" },

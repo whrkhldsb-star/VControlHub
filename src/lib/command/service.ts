@@ -19,4 +19,15 @@ export {
   recoverQueuedApprovedCommandRequests,
 } from "./service-recovery";
 
-export { cancelCommandRequest, createCommandRequest, getCommandRequestForViewer, listCommandRequestPage, listCommandRequests, reviewCommandRequest } from "./service-requests";
+export {
+  cancelCommandRequest,
+  createCommandRequest,
+  getCommandRequestDetailForViewer,
+  getCommandRequestForViewer,
+  listCommandRequestPage,
+  listCommandRequests,
+  previewCommandSubmission,
+  reviewCommandRequest,
+  type CommandRequestListFilter,
+  type CommandRequestListOptions,
+} from "./service-requests";

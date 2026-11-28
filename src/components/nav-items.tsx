@@ -34,6 +34,7 @@ import {
 	IconSignal,
 	IconSiren,
 	IconSparkles,
+	IconTerminal,
 	IconTerminalSquare,
 	IconTicket,
 	IconBuilding, IconUsers,
@@ -117,6 +118,7 @@ export const mainNavGroups: AppNavGroup[] = [
 		labelKey: "nav.group.automation",
 		fallbackLabel: "Automation",
 		items: [
+			{ href: "/commands", labelKey: "nav.commands", fallbackLabel: "Run command", descKey: "nav.desc.commands", icon: <IconTerminal /> },
 			{ href: "/operation-tasks", labelKey: "nav.operation-tasks", fallbackLabel: "Tasks", descKey: "nav.desc.operation-tasks", icon: <IconListChecks /> },
 			{ href: "/requests", labelKey: "nav.requests", fallbackLabel: "Approvals", descKey: "nav.desc.requests", icon: <IconBadgeCheck /> },
 			{ href: "/templates", labelKey: "nav.command-templates", fallbackLabel: "Command templates", descKey: "nav.desc.command-templates", icon: <IconTerminalSquare /> },

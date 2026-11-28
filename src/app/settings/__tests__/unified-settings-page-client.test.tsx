@@ -77,7 +77,7 @@ describe("UnifiedSettingsPageClient", () => {
     try {
       render(<UnifiedSettingsPageClient settings={{}} canManage={false} />);
       expect(await screen.findByText("该部分仅管理员可以修改")).toBeInTheDocument();
-      expect(screen.getByRole("button", { name: "仪表盘" })).toBeVisible();
+      expect(await screen.findByRole("button", { name: "仪表盘" })).toBeVisible();
     } finally {
       window.history.replaceState({}, "", "/settings");
     }
@@ -110,6 +110,18 @@ describe("UnifiedSettingsPageClient", () => {
       await waitFor(() => expect(screen.getByRole("tab", { name: /存储与备份/ })).toHaveAttribute("aria-selected", "true"));
       const menu = screen.getByRole("combobox", { name: "设置分类导航" }) as HTMLSelectElement;
       await waitFor(() => expect(menu).toHaveValue("offsite"));
+    } finally {
+      window.history.replaceState({}, "", "/settings");
+    }
+  });
+
+  it("renders approval settings from their bookmark and locks platform AI controls without the grant", async () => {
+    window.history.replaceState({}, "", "/settings#commandApproval");
+    try {
+      renderWithLocale(<UnifiedSettingsPageClient settings={{}} canManage />, { locale: "en" });
+      expect(await screen.findByRole("combobox", { name: /Direct command approval/ })).toBeEnabled();
+      expect(screen.getByRole("combobox", { name: /Maximum AI automation mode/ })).toBeDisabled();
+      expect(screen.getByRole("combobox", { name: /Allow critical actions in full auto/ })).toBeDisabled();
     } finally {
       window.history.replaceState({}, "", "/settings");
     }

@@ -16,7 +16,7 @@
  *
  * TR-036 (ai-client.tsx 拆 input area 子组件, 1071 → 987 行)
  */
-import { type RefObject, useState } from "react";
+import { type ReactNode, type RefObject, useState } from "react";
 import type { ConvItem, ModelCapabilities } from "./ai-types";
 import { SLASH_COMMAND_IDS } from "./ai-types";
 import type { UseFileAttachmentsReturn } from "./hooks/use-file-attachments";
@@ -40,6 +40,13 @@ export interface AiInputAreaProps {
   fileAttachmentsState: UseFileAttachmentsReturn;
   handleSend: () => void;
   handleStopGeneration: () => void;
+  /** Above the message box: the pinned servers and the working mode switcher. */
+  toolbar?: ReactNode;
+  /**
+   * Shift+Tab in the message box moves to the next permitted working mode. Returns false when it did not (server
+   * tools off, a single permitted mode): the key then moves focus back as usual.
+   */
+  onCycleMode?: () => boolean;
 }
 
 export function AiInputArea({
@@ -54,6 +61,8 @@ export function AiInputArea({
   fileAttachmentsState,
   handleSend,
   handleStopGeneration,
+  toolbar,
+  onCycleMode,
 }: AiInputAreaProps) {
   const { t } = useI18n();
   const [slashOpen, setSlashOpen] = useState(false);
@@ -111,6 +120,7 @@ export function AiInputArea({
           {fileRejectionMsg}
         </Notice>
       )}
+      {toolbar ? <div data-ai-composer-toolbar className="mb-2 space-y-2">{toolbar}</div> : null}
       <div className="flex gap-2 items-end">
         {/* File upload button */}
         <ActionButton
@@ -146,8 +156,13 @@ export function AiInputArea({
             setSlashOpen(e.target.value.startsWith("/"));
           }}
           aria-label={t("aiPage.inputAria")}
+          aria-keyshortcuts={onCycleMode ? "Shift+Tab" : undefined}
           onKeyDown={(e) => {
             if (isImeComposition(e)) return;
+            if (e.key === "Tab" && e.shiftKey && !e.altKey && !e.ctrlKey && !e.metaKey && onCycleMode) {
+              if (onCycleMode()) e.preventDefault();
+              return;
+            }
             if (e.key === "Enter" && !e.shiftKey) {
               e.preventDefault();
               if (slashOpen) {

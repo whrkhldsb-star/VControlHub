@@ -84,6 +84,7 @@ export function buildAiChatMessagePayload(input: {
   conv: ConversationForAiChat;
   isVisionCapable: boolean;
   locale: Locale;
+  continuation?: boolean;
 }): { allImageUrls: string[]; historyMessages: HistoryMessage[]; userText: string; persistedText: string; attachmentMetadata?: string } {
   const { body, conv, isVisionCapable, locale } = input;
   const historyMessages: HistoryMessage[] = [];
@@ -138,6 +139,16 @@ export function buildAiChatMessagePayload(input: {
     }
 
     historyMessages.push({ role: msg.role as "user" | "assistant", content: msg.content });
+  }
+
+  if (input.continuation) {
+    return {
+      allImageUrls: [],
+      historyMessages: fitHistoryToBudget(historyMessages),
+      userText: "",
+      persistedText: "",
+      attachmentMetadata: undefined,
+    };
   }
 
   const userText = (body.content ?? "").trim();
